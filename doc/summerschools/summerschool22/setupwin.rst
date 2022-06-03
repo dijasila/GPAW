@@ -77,7 +77,7 @@ Get access to the software
 To give access to the software you need for this course, please run
 the command::
 
-  source ~jasc/setup2018
+  source ~jasc/setup2022
 
 Note the tilde in the beginning of the second word.
 

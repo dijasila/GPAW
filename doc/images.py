@@ -154,14 +154,14 @@ get('summerschool2018',
     ['CreateTunnelWin.png', 'JupyterRunningMac.png', 'JupyterRunningWin.png',
      'Logged_in_Mac.png', 'Logged_in_Win.png', 'Moba_ssh.png',
      'UseTunnelWin.png'],
-    target='summerschools/summerschool18')
+    target='summerschools/summerschool22')
 get('summerschool2018',
     ['organometal.master.db'],
-    target='summerschools/summerschool18/machinelearning')
+    target='summerschools/summerschool22/machinelearning')
 get('summerschool2018',
     ['C144Li18.png', 'C64.png', 'final.png', 'initial.png',
      'Li2.png', 'lifepo4_wo_li.traj', 'NEB_init.traj'],
-    target='summerschools/summerschool18/batteries')
+    target='summerschools/summerschool22/batteries')
 
 
 def setup(app):
