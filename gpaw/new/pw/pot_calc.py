@@ -39,18 +39,29 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
     def calculate_charges(self, vHt_h):
         return self.ghat_aLh.integrate(vHt_h)
 
-    def _calculate(self, density, vHt_h):
-        nt_sr = self.fine_grid.empty(density.nt_sR.dims)
+    def calculate_non_selfconsistent_exc(self, nt_sR, xc):
+        nt_sr = self._interpolate_density(nt_sR)
+        vxct_sr = nt_sr.desc.zeros(nt_sr.dims)
+        e_xc = xc.calculate(nt_sr, vxct_sr)
+        return e_xc
+
+    def _interpolate_density(self, nt_sR):
+        nt_sr = self.fine_grid.empty(nt_sR.dims)
         pw = self.vbar_g.desc
 
         if pw.comm.rank == 0:
             indices = self.pw0.indices(self.fftplan.tmp_Q.shape)
             nt0_g = self.pw0.zeros()
 
-        for spin, (nt_R, nt_r) in enumerate(zip(density.nt_sR, nt_sr)):
+        for spin, (nt_R, nt_r) in enumerate(zip(nt_sR, nt_sr)):
             nt_R.interpolate(self.fftplan, self.fftplan2, out=nt_r)
             if spin < density.ndensities and pw.comm.rank == 0:
                 nt0_g.data += self.fftplan.tmp_Q.ravel()[indices]
+
+        return nt_sr
+
+    def _calculate(self, density, vHt_h):
+        nt_sr, pw, nt0_g = self._interpolate_density(density.nt_sR.dims)
 
         if pw.comm.rank == 0:
             nt0_g.data *= 1 / np.prod(density.nt_sR.desc.size_c)

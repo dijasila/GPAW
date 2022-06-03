@@ -142,7 +142,10 @@ def convergence(value=None):
 def eigensolver(value=None) -> dict:
     """Eigensolver."""
     if isinstance(value, str):
-        return {'name': value}
+        value = {'name': value}
+    if value['name'] != 'dav':
+        warnings.warn(f'{value["name"]} not implemented.  Using dav instead')
+        return {'name': 'dav'}
     return value or {}
 
 
