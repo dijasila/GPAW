@@ -12,8 +12,11 @@
 from pathlib import Path
 from gpaw.utilities.nbrun import py2ipynb
 
+kernel = {'display_name': 'CAMD2022',
+          'language': 'python',
+          'name': 'camd2022'}
 
 for path in Path().glob('*/*.py'):
     if path.read_text().startswith('# %%\n'):
         print(path)
-        py2ipynb(path)
+        py2ipynb(path, kernel=kernel)

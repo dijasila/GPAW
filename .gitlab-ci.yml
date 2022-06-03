@@ -27,7 +27,7 @@ master:
     - >
       flake8
       --doctests
-      --exclude "doc/platforms/*,doc/*/summerschool18/*/*"
+      --exclude "doc/platforms/*,doc/*/summerschool22/*/*"
       --extend-ignore E402
       doc
     - python -We:invalid -m compileall -f -q gpaw/

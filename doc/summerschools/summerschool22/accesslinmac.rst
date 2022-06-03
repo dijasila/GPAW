@@ -34,9 +34,10 @@ Once you are logged in on the front-end, get a session on an interactive compute
 Starting a Jupyter Notebook
 ===========================
 
-Change to the folder where you keep your notebooks (most likely ``CAMD2018``) and start the Jupyter Notebook server::
+Change to the folder where you keep your notebooks (most likely ``CAMD2022``) and start the Jupyter Notebook server::
 
-  cd CAMD2018
+  cd CAMD2022
+  source venv/bin/activate
   camdnotebook
 
 The command ``camdnotebook`` is a local script.  It checks that you
