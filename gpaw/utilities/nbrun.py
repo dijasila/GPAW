@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 
 
-def py2ipynb(path: Path, kernel: Optional[Dict[str,str]] = None) -> None:
+def py2ipynb(path: Path, kernel: Optional[Dict[str, str]] = None) -> None:
     """Convert Python script to ipynb file.
 
     Hides cells marked with "# teacher" and replaces lines marked with
