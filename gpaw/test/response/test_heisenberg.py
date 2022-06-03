@@ -1,6 +1,8 @@
 """Test the Heisenberg model based methodology of the response code."""
 
 # General modules
+import pytest
+
 import numpy as np
 
 # Script modules
@@ -11,6 +13,8 @@ from gpaw.response.heisenberg import calculate_single_site_magnon_energies,\
 # ---------- Main test ---------- #
 
 
+@pytest.mark.response
+@pytest.mark.ci
 def test_heisenberg():
     magnon_dispersion_tests()
 
