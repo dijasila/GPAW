@@ -15,6 +15,7 @@ try:
 except ImportError:
     from urllib.request import urlopen
     from urllib.error import HTTPError
+    import ssl
 import os
 
 
@@ -32,6 +33,11 @@ def get(path, names, target=None, source=None):
     if source is None:
         source = srcpath
     got_something = False
+    # We get images etc from a web server with a self-signed certificate
+    # That cause trouble on some machines.
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
     for name in names:
         src = os.path.join(source, path, name)
         dst = os.path.join(target, name)
@@ -39,7 +45,7 @@ def get(path, names, target=None, source=None):
         if not os.path.isfile(dst):
             print(dst, end=' ')
             try:
-                data = urlopen(src).read()
+                data = urlopen(src, context=ctx).read()
                 with open(dst, 'wb') as sink:
                     sink.write(data)
                 print('OK')
@@ -143,19 +149,19 @@ get('.', ['carlsberg.png'])
 
 get('static', ['NOMAD_Logo_supported_by.png'])
 
-# Summer school 2022 reuses images from summer school 2018
+# Summer school 2018
 get('summerschool2018',
     ['CreateTunnelWin.png', 'JupyterRunningMac.png', 'JupyterRunningWin.png',
      'Logged_in_Mac.png', 'Logged_in_Win.png', 'Moba_ssh.png',
      'UseTunnelWin.png'],
-    target='summerschools/summerschool22')
+    target='summerschools/summerschool18')
 get('summerschool2018',
     ['organometal.master.db'],
-    target='summerschools/summerschool22/machinelearning')
+    target='summerschools/summerschool18/machinelearning')
 get('summerschool2018',
     ['C144Li18.png', 'C64.png', 'final.png', 'initial.png',
      'Li2.png', 'lifepo4_wo_li.traj', 'NEB_init.traj'],
-    target='summerschools/summerschool22/batteries')
+    target='summerschools/summerschool18/batteries')
 
 
 def setup(app):

@@ -66,3 +66,15 @@ brief descriptions of what aspects of GPAW you learn from them.
    :maxdepth: 3
 
    projects
+
+
+Instructions for instructors
+=====
+
+Instructions for the people testing and developing the projects can be
+found here:
+
+.. toctree::
+
+   instructors
+   
