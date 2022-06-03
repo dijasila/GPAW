@@ -180,7 +180,7 @@ class BuildingBlock:
 
             nw = len(self.wd)
             world = self.df.chi0.world
-            w1 = min(self.df.mynw * world.rank, nw)
+            w1 = min(self.df.blocks1d.blocksize * world.rank, nw)
 
             _, _, chiM_qw, chiD_qw, _, drhoM_qz, drhoD_qz = \
                 get_chi_2D(self.wd.omega_w, pd, chi_wGG)
@@ -341,10 +341,11 @@ class BuildingBlock:
 
     def collect(self, a_w):
         world = self.df.chi0.world
-        b_w = np.zeros(self.df.mynw, a_w.dtype)
-        b_w[:self.df.w2 - self.df.w1] = a_w
+        mynw = self.df.blocks1d.blocksize
+        b_w = np.zeros(mynw, a_w.dtype)
+        b_w[:self.df.blocks1d.nlocal] = a_w
         nw = len(self.wd)
-        A_w = np.empty(world.size * self.df.mynw, a_w.dtype)
+        A_w = np.empty(world.size * mynw, a_w.dtype)
         world.all_gather(b_w, A_w)
         return A_w[:nw]
 
