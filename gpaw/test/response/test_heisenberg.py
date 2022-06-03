@@ -114,6 +114,7 @@ def FM_random_magnons_test():
 
     # Calculate magnon energies
     E_qn = calculate_FM_magnon_energies(J_qab, q_qc, mm_a)
+    E_qn = np.sort(E_qn, axis=1)  # Make sure the eigenvalues are sorted
 
     # Calculate the magnon energies manually
     mm_inv_ab = 2. / np.sqrt(np.outer(mm_a, mm_a))
@@ -123,7 +124,7 @@ def FM_random_magnons_test():
 
     assert E_qn.shape == (q_qc.shape[0], nsites)
     assert np.allclose(test_E_qn.imag, 0.)
-    assert np.allclose(E_qn, test_E_qn.real)
+    assert np.allclose(E_qn, np.sort(test_E_qn.real, axis=1))
 
 
 def FM_vectorized_magnons_test():
@@ -134,7 +135,8 @@ def FM_vectorized_magnons_test():
 
     # Magnetic moments
     nsites = 2
-    mm_a = 5. * np.random.rand(nsites)
+    nmagmoms = 4  # Test the same J_qab, but with different site magnetizations
+    mm_ax = 5. * np.random.rand(nsites, nmagmoms)
     # q-point grid
     nq = 11
     q_qc = get_randomized_qpoints(nq)
@@ -147,25 +149,43 @@ def FM_vectorized_magnons_test():
     J_qab[:, 0, 1] = 1. + 1.j * sin_q
     J_qab[:, 1, 0] = 1. - 1.j * sin_q
     J_qab[:, 1, 1] = 2. * cos_q
+
+    # Test different energy scales for the exchange interactions
+    nJscales = 6
+    Jscale_y = 800. * np.random.rand(nJscales)
+
+    # Combine different magnetic moments and scale for the exchange
+    J_qabxy = np.empty(J_qab.shape + (nmagmoms, nJscales,), dtype=np.complex)
+    J_qabxy[:] = np.tensordot(J_qab, Jscale_y,
+                              axes=((), ()))[..., np.newaxis, :]
+    mm_axy = np.moveaxis(np.tile(mm_ax, (nJscales, 1, 1)), 0, -1)
     
     # ---------- Script ---------- #
 
     # Calculate magnon energies
-    E_qn = calculate_FM_magnon_energies(J_qab, q_qc, mm_a)
+    E_qnxy = calculate_FM_magnon_energies(J_qabxy, q_qc, mm_axy)
+    E_qnxy = np.sort(E_qnxy, axis=1)  # Make sure the eigenvalues are sorted
 
     # Calculate magnon energies analytically
-    H_diag_avg_q = (np.sqrt(mm_a[1] / mm_a[0]) * (2. - cos_q)
-                    + np.sqrt(mm_a[0] / mm_a[1]) * (3. - 2. * cos_q)) / 2.
-    H_diag_diff_q = (np.sqrt(mm_a[1] / mm_a[0]) * (2. - cos_q)
-                     - np.sqrt(mm_a[0] / mm_a[1]) * (3. - 2. * cos_q)) / 2.
+    H_diag1_qxy = np.sqrt(mm_axy[1][np.newaxis, ...]
+                          / mm_axy[0][np.newaxis, ...])\
+        * (2. - cos_q[:, np.newaxis, np.newaxis])
+    H_diag2_qxy = np.sqrt(mm_axy[0][np.newaxis, ...]
+                          / mm_axy[1][np.newaxis, ...])\
+        * (3. - 2. * cos_q[:, np.newaxis, np.newaxis])
+    H_diag_avg_qxy = (H_diag1_qxy + H_diag2_qxy) / 2.
+    H_diag_diff_qxy = (H_diag1_qxy - H_diag2_qxy) / 2.
     pm_n = np.array([-1., 1.])
-    E_test_qn = H_diag_avg_q[:, np.newaxis]\
-        + pm_n[np.newaxis, :] * np.sqrt(H_diag_diff_q[:, np.newaxis]**2.
-                                        + (1 + sin_q[:, np.newaxis]**2.))
-    E_test_qn *= 2. / np.sqrt(np.prod(mm_a))
+    E_test_qnxy = H_diag_avg_qxy[:, np.newaxis, ...]\
+        + pm_n[np.newaxis, :, np.newaxis, np.newaxis]\
+        * np.sqrt(H_diag_diff_qxy[:, np.newaxis, ...]**2.
+                  + (1 + sin_q[:, np.newaxis, np.newaxis, np.newaxis]**2.))
+    E_test_qnxy *= 2. / np.sqrt(np.prod(mm_axy, axis=0))[np.newaxis,
+                                                         np.newaxis,
+                                                         ...]
+    E_test_qnxy *= Jscale_y[np.newaxis, np.newaxis, np.newaxis, :]
 
-    assert np.allclose(E_test_qn.imag, 0.)
-    assert np.allclose(E_qn, E_test_qn.real)
+    assert np.allclose(E_qnxy, E_test_qnxy)
 
 
 # ---------- Test functionality ---------- #
