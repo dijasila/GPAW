@@ -3,13 +3,15 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Generic, TypeVar
 
 import numpy as np
+
+import gpaw.fftw as fftw
 from gpaw.core.domain import Domain
 from gpaw.core.matrix import Matrix
 from gpaw.mpi import MPIComm
 from gpaw.typing import Array1D
 
 if TYPE_CHECKING:
-    from gpaw.core.uniform_grid import UniformGridFunctions
+    from gpaw.core.uniform_grid import UniformGridFunctions, UniformGrid
 
 from gpaw.new import prod
 
@@ -136,6 +138,13 @@ class DistributedArrays(Generic[DomainType]):
         raise NotImplementedError
 
     def gather(self, out=None, broadcast=False):
+        raise NotImplementedError
+
+    def interpolate(self,
+                    plan1: fftw.FFTPlans = None,
+                    plan2: fftw.FFTPlans = None,
+                    grid: UniformGrid = None,
+                    out: UniformGridFunctions = None) -> UniformGridFunctions:
         raise NotImplementedError
 
 

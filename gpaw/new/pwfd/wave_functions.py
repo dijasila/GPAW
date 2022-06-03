@@ -60,9 +60,6 @@ class PWFDWaveFunctions(WaveFunctions):
             shape = (2,) + shape
         return shape
 
-    def __len__(self):
-        return self.psit_nX.dims[0]
-
     @property
     def pt_aiX(self) -> AtomCenteredFunctions:
         if self._pt_aiX is None:
@@ -251,10 +248,10 @@ class PWFDWaveFunctions(WaveFunctions):
         """Collect range of bands to master of band and domain
         communicators."""
         # Also collect projections instead of recomputing XXX
-        n2 = n2 or len(self) + n2
+        n2 = n2 or self.nbands + n2
         band_comm = self.psit_nX.comm
         domain_comm = self.psit_nX.desc.comm
-        nbands = len(self)
+        nbands = self.nbands
         mynbands = (nbands + band_comm.size - 1) // band_comm.size
         rank1, b1 = divmod(n1, mynbands)
         rank2, b2 = divmod(n2, mynbands)
@@ -327,7 +324,7 @@ class PWFDWaveFunctions(WaveFunctions):
         if center_v is None:
             center_v = cell_cv.sum(0) * 0.5
 
-        dipole_nnv = np.zeros((len(self), len(self), 3))
+        dipole_nnv = np.zeros((self.nbands, self.nbands, 3))
 
         scenter_c = np.linalg.solve(cell_cv.T, center_v)
         spos_ac = self.fracpos_ac.copy()
@@ -383,3 +380,23 @@ class PWFDWaveFunctions(WaveFunctions):
                 return data_nX.data.view(
                     psit_nX.data.dtype).reshape(psit_nX.data.shape)
         return None
+
+    def to_uniform_grid_wave_functions(self,
+                                       grid,
+                                       basis):
+        if isinstance(self.psit_nX, UniformGridFunctions):
+            return self
+
+        grid = grid.new(kpt=self.kpt_c, dtype=self.dtype)
+        psit_nR = grid.zeros(self.nbands, self.band_comm)
+        self.psit_nX.ifft(out=psit_nR)
+        return PWFDWaveFunctions(
+            psit_nR,
+            self.spin,
+            self.q,
+            self.k,
+            self.setups,
+            self.fracpos_ac,
+            self.atomdist,
+            self.weight,
+            self.ncomponents)

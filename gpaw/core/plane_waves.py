@@ -4,14 +4,15 @@ from math import pi
 
 import _gpaw
 import numpy as np
+
+import gpaw.fftw as fftw
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.domain import Domain
 from gpaw.core.matrix import Matrix
 from gpaw.core.pwacf import PlaneWaveAtomCenteredFunctions
-from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.core.uniform_grid import UniformGrid, UniformGridFunctions
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.new import prod
-from gpaw.new import zip
+from gpaw.new import prod, zip
 from gpaw.pw.descriptor import pad
 from gpaw.typing import (Array1D, Array2D, Array3D, ArrayLike1D, ArrayLike2D,
                          Vector)
@@ -331,7 +332,13 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
 
         return out
 
-    interpolate = ifft
+    def interpolate(self,
+                    plan1: fftw.FFTPlans = None,
+                    plan2: fftw.FFTPlans = None,
+                    grid: UniformGrid = None,
+                    out: UniformGridFunctions = None) -> UniformGridFunctions:
+        assert plan1 is None
+        return self.ifft(plan=plan2, grid=grid, out=out)
 
     def gather(self, out=None, broadcast=False):
         """Gather coefficients on master."""
