@@ -66,12 +66,10 @@ def test_Fe_bcc():
                                            nbands=nbands)
 
     # Calcualate the exchange constant for each q-point
-    J_rabq = np.zeros([len(rc_rm), 1, 1, len(q_qc)], dtype=np.complex128)
+    J_qabr = np.empty((len(q_qc), 1, 1, len(rc_rm)), dtype=complex)
     for q, q_c in enumerate(q_qc):
-        # Make the exchange calculator output constants in correct format XXX
-        J_rabq[:, :, :, q] = exchCalc(q_c, rc_rm=rc_rm)
-    J_qabr = np.transpose(J_rabq, (3, 1, 2, 0))
-    J_rq = J_rabq[:, 0, 0, :]
+        J_qabr[q] = exchCalc(q_c, rc_rm=rc_rm)
+    J_qr = J_qabr[:, 0, 0, :]
 
     # Calculate the magnon energies
     mw_qnr = calculate_FM_magnon_energies(J_qabr, q_qc,
@@ -95,8 +93,8 @@ def test_Fe_bcc():
                            [0., 4.05334907, 3.07152699, 3.05599481]])
 
     # Exchange constants
-    assert np.allclose(J_rq.imag, 0.)
-    assert np.allclose(J_rq.real, test_J_rq, rtol=1e-3)
+    assert np.allclose(J_qr.imag, 0.)
+    assert np.allclose(J_qr.real, test_J_rq.T, rtol=1e-3)
 
     # Bxc field
     Bxc_G = exchCalc.Bxc_G  # Could be tested elsewhere? XXX

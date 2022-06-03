@@ -79,11 +79,11 @@ class IsotropicExchangeCalculator:
             sitePos_mv = atoms.get_positions()   # Absolute coordinates
             sitePos_mv = sitePos_mv[siteFilter]  # Filter for relevant atoms
         self.sitePos_mv = sitePos_mv
-        self.N_sites = len(sitePos_mv)   # Number of magnetic sites
+        self.nsites = len(sitePos_mv)   # Number of magnetic sites
 
         # Determine shapes of integration regions
         if type(shapes_m) is str:
-            shapes_m = [shapes_m] * self.N_sites
+            shapes_m = [shapes_m] * self.nsites
         self.shapes_m = shapes_m
 
         # Calculator for response function
@@ -120,8 +120,8 @@ class IsotropicExchangeCalculator:
 
         Returns
         -------
-        J_rmn : nd.array (dtype=complex)
-            Exchange between magnetic sites (m,n) for different
+        J_abr : nd.array (dtype=complex)
+            Exchange between magnetic sites (a, b) for different
             parameters of the integration regions (r).
         """
 
@@ -137,18 +137,18 @@ class IsotropicExchangeCalculator:
         pd = self.chiksf.get_PWDescriptor(q_c)
 
         # Reformat rc_rm and get number of different radii
-        N_sites = self.N_sites
+        nsites = self.nsites
         if type(rc_rm) in {int, float}:
-            rc_rm = np.tile(rc_rm, [1, N_sites])
-        Nr = len(rc_rm)     # Number of radii
+            rc_rm = np.tile(rc_rm, [1, nsites])
+        nr = len(rc_rm)     # Number of radii
 
         # Reformat zc_rm
         if type(zc_rm) in {int, float, str}:
-            zc_rm = np.tile(zc_rm, [Nr, N_sites])
+            zc_rm = np.tile(zc_rm, [nr, nsites])
 
         # Loop through rc values
-        J_rmn = np.zeros([Nr, N_sites, N_sites], dtype=np.complex128)
-        for r in range(Nr):
+        J_abr = np.empty((nsites, nsites, nr), dtype=complex)
+        for r in range(nr):
             rc_m, zc_m = rc_rm[r], zc_rm[r]
 
             # Compute site-kernel
@@ -157,20 +157,15 @@ class IsotropicExchangeCalculator:
                                           rc_m=rc_m, zc_m=zc_m)
 
             # Compute exchange coupling
-            J_mn = np.zeros([N_sites, N_sites], dtype=np.complex128)
-            for m in range(N_sites):
-                for n in range(N_sites):
-                    Km_GG = K_GGm[:, :, m]
-                    Kn_GG = K_GGm[:, :, n]
-                    J = Bxc_G @ Kn_GG @ chiks_GG @ np.conj(Km_GG) \
+            for a in range(nsites):
+                for b in range(nsites):
+                    Ka_GG = K_GGm[:, :, a]
+                    Kb_GG = K_GGm[:, :, b]
+                    J = Bxc_G @ Ka_GG @ chiks_GG @ np.conj(Kb_GG) \
                         @ np.conj(Bxc_G)
-                    J_mn[m, n] = J
-            J_rmn[r, :, :] = J_mn
+                    J_abr[a, b, r] = J
 
-        # Convert from Hartree to eV
-        J_rmn = J_rmn * Hartree
-
-        return J_rmn
+        return J_abr * Hartree  # Convert from Hartree to eV
 
     def _computeBxc(self):
         # Compute xc magnetic field
