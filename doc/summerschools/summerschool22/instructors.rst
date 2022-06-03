@@ -129,4 +129,4 @@ These notes are intended as a starting point for setting this up in
 
 * Reinstall sphinx, otherwise it will not work::
 
-    pip install --upgrade --force-reinstall --no-deps sphinx sphinx_rtd_theme
+    pip install --upgrade --force-reinstall --no-deps Sphinx==3.2.1 sphinx-rtd-theme==0.5.0
