@@ -72,21 +72,23 @@ def single_site_magnons_consistency_test():
     q_qc = get_randomized_qpoints(nq)
 
     # Random isotropic exchange constants
-    J_q = np.random.rand(q_qc.shape[0])
+    nJsamples = 6  # sample some different random combinations
+    J_qx = np.random.rand(q_qc.shape[0], nJsamples)
 
     # ---------- Script ---------- #
 
     # Calculate assuming a single site
-    E_q = calculate_single_site_magnon_energies(J_q, q_qc, mm)
+    E_qx = calculate_single_site_magnon_energies(J_qx, q_qc, mm)
 
     # Calcualte using generalized functionality
-    E_qn = calculate_FM_magnon_energies(J_q[:, np.newaxis, np.newaxis],
-                                        q_qc, np.array([mm]))
+    E_qnx = calculate_FM_magnon_energies(J_qx[:, np.newaxis, np.newaxis, :],
+                                         q_qc, mm * np.ones((1, nJsamples)))
 
     # Test self-consistency
-    assert E_qn.shape[0] == len(E_q)
-    assert E_qn.shape[1] == 1
-    assert np.allclose(E_qn[:, 0], E_q, atol=1e-8)
+    assert E_qnx.shape[0] == E_qx.shape[0]
+    assert E_qnx.shape[1] == 1
+    assert E_qnx.shape[-1] == E_qx.shape[-1]
+    assert np.allclose(E_qnx[:, 0, :], E_qx, atol=1e-8)
 
 
 def FM_random_magnons_test():
