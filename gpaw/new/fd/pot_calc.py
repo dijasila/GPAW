@@ -60,7 +60,7 @@ class UniformGridPotentialCalculator(PotentialCalculator):
         return nt_sr
 
     def _calculate(self, density, vHt_r):
-        nt_sr = self.interpolate_density(density.nt_sR)
+        nt_sr = self._interpolate_density(density.nt_sR)
 
         grid2 = nt_sr.desc
 

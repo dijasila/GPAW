@@ -143,7 +143,7 @@ def eigensolver(value=None) -> dict:
     """Eigensolver."""
     if isinstance(value, str):
         value = {'name': value}
-    if value['name'] != 'dav':
+    if value is not None and value['name'] != 'dav':
         warnings.warn(f'{value["name"]} not implemented.  Using dav instead')
         return {'name': 'dav'}
     return value or {}
