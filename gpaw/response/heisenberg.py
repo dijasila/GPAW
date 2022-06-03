@@ -96,20 +96,6 @@ def calculate_FM_magnon_energies(J_qabx, q_qc, mm_ax, return_H=False):
     # Eigenvalues should be real, otherwise input J_qabx has been invalid
     assert np.allclose(E_qnx.imag, 0.)
     E_qnx = E_qnx.real
-    
-    """
-    # Diagonalise Hamiltonian for all q values
-    E_mq = np.zeros([N_sites, Nq])
-    for q in range(Nq):
-        H_mn = H_mnq[:, :, q]
-        assert np.all(np.isclose(np.conj(H_mn.T), H_mn, atol=np.inf,
-                                 rtol=1e-02))  # Check if Hermitian
-        # 'eigvalsh' takes the lower triangluar part, then assumes
-        #   Hermiticity to fill the rest of the matrix
-        # This is faster than 'eigvals' and guarantees that the computed
-        #   eigenvalues are real.
-        E_mq[:, q] = np.linalg.eigvalsh(H_mn, UPLO='L')
-    """
 
     if return_H:
         return E_qnx, H_qabx
@@ -138,20 +124,6 @@ def generate_FM_dynamic_spin_wave_matrix(J_qabx, J0_acx, mm_ax):
     # Calculate the dynamic spin wave matrix
     H_qabx = mm_inv_abx[np.newaxis, ...] * (J0_abx[np.newaxis, ...] -
                                             J_qabx)
-    """
-    # Set up Hamiltonian matrix
-    mm_inv_mn = np.diag(1 / mm)  # 1/M_mu * delta_mu,nu
-    # 2/M_mu * sum_nu' J_mu,nu'(0) delta_mu,nu
-    firstTerm_mn = 2 * mm_inv_mn * np.sum(J0_mn, axis=-1, keepdims=True)
-    firstTerm_mnq = np.tile(firstTerm_mn[..., np.newaxis], [1, 1, Nq])
-    mmProd_mn = np.outer(mm, mm)  # M_mu * M_nu
-    mmProd_mnq = np.tile(mmProd_mn[:, :, np.newaxis],
-                         [1, 1, Nq])  # Match dimension of J_mnq
-    J_nmq = np.transpose(J_mnq, axes=[1, 0, 2])  # J^\nu\mu
-    # -2J^nu,mu(q) / sqrt(M_mu * M_nu)
-    secondTerm_mnq = -2 * J_nmq / np.sqrt(mmProd_mnq)
-    H_mnq = firstTerm_mnq + secondTerm_mnq
-    """
 
     return H_qabx
 
