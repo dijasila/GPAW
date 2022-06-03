@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from math import pi
 from pathlib import Path
 from typing import IO, Any, Union
 
