@@ -150,7 +150,7 @@ def FM_vectorized_magnons_test():
     # Use a fixed structure for J_qab with known eigenvalues
     cos_q = np.cos(q_qc[:, 2])
     sin_q = np.sin(q_qc[:, 2])
-    J_qab = np.empty((nq, nsites, nsites), dtype=np.complex)
+    J_qab = np.empty((nq, nsites, nsites), dtype=complex)
     J_qab[:, 0, 0] = cos_q
     J_qab[:, 0, 1] = 1. + 1.j * sin_q
     J_qab[:, 1, 0] = 1. - 1.j * sin_q
@@ -161,7 +161,7 @@ def FM_vectorized_magnons_test():
     Jscale_y = 800. * np.random.rand(nJscales)
 
     # Combine different magnetic moments and scale for the exchange
-    J_qabxy = np.empty(J_qab.shape + (nmagmoms, nJscales,), dtype=np.complex)
+    J_qabxy = np.empty(J_qab.shape + (nmagmoms, nJscales,), dtype=complex)
     J_qabxy[:] = np.tensordot(J_qab, Jscale_y,
                               axes=((), ()))[..., np.newaxis, :]
     mm_axy = np.moveaxis(np.tile(mm_ax, (nJscales, 1, 1)), 0, -1)
@@ -199,7 +199,7 @@ def FM_vectorized_magnons_test():
 
 def get_randomized_qpoints(nq):
     """Make a simple, but shuffled, q-point array."""
-    q_qc = np.zeros((nq, 3), dtype=np.float)
+    q_qc = np.zeros((nq, 3), dtype=float)
     q_qc[:, 2] = np.linspace(0., np.pi, nq)
     np.random.shuffle(q_qc[:, 2])
 
