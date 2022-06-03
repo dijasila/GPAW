@@ -14,7 +14,7 @@ def sinc(x):
 
 
 def site_kernel_interface(pd, sitePos_mv, shapes_m='sphere',
-                        rc_m=1.0, zc_m='diameter'):
+                          rc_m=1.0, zc_m='diameter'):
     """Compute site kernels using an arbitrary combination of shapes for the
         integration region at different magnetic sites.
         Accepts spheres, cylinders and unit cell.
@@ -47,11 +47,11 @@ def site_kernel_interface(pd, sitePos_mv, shapes_m='sphere',
 
     # Reformat shape parameters
     if type(shapes_m) is str:
-        shapes_m = np.array([shapes_m]*N_sites)
+        shapes_m = np.array([shapes_m] * N_sites)
     if type(rc_m) in {int, float}:
-        rc_m = np.array([rc_m]*N_sites)
+        rc_m = np.array([rc_m] * N_sites)
     if type(zc_m) in {int, float, str}:
-        zc_m = np.array([zc_m]*N_sites)
+        zc_m = np.array([zc_m] * N_sites)
 
     # Array to fill
     K_GGm = np.zeros([NG, NG, N_sites], dtype=np.complex128)
@@ -61,8 +61,8 @@ def site_kernel_interface(pd, sitePos_mv, shapes_m='sphere',
     # Loop through magnetic sites
     for m in range(N_sites):
         # Get site specific values
-        shape, rc, zc, sitePos_v = shapes_m[m], rc_m[m], zc_m[m], \
-                                   sitePos_mv[m, :]
+        shape, rc, zc = shapes_m[m], rc_m[m], zc_m[m]
+        sitePos_v = sitePos_mv[m, :]
 
         # Do computation for relevant shape
         if shape == 'sphere':
@@ -113,10 +113,11 @@ def K_sphere(pd, sitePos_v, rc=1.0):
     # Compute integral part of kernel
     K_GG = np.zeros([NG, NG], dtype=np.complex128)
     # Full formula
-    K_GG[is_reg] = 4*np.pi / magsqReg_GG * \
-        (-rc*np.cos(magReg_GG*rc) + np.sin(magReg_GG*rc)/magReg_GG)
+    K_GG[is_reg] = 4 * np.pi / magsqReg_GG * \
+        (-rc * np.cos(magReg_GG * rc) + np.sin(magReg_GG * rc) / magReg_GG)
     # Taylor expansion around singularity
-    K_GG[is_sing] = 4*np.pi*rc**3/3 - 2*np.pi/15 * magSing_GG**2 * rc**5
+    K_GG[is_sing] = 4 * np.pi * rc**3 / 3\
+        - 2 * np.pi / 15 * magSing_GG**2 * rc**5
 
     # Compute complex prefactor
     prefactor = _makePrefactor(sitePos_v, sum_GGv, Omega_cell)
@@ -132,7 +133,7 @@ def K_cylinder(pd, sitePos_v, rc=1.0, zc='unit cell'):
     if zc == 'unit cell':
         zc = np.sum(pd.gd.cell_cv[:, -1]) * Bohr   # Units of Å.
     elif zc == 'diameter':
-        zc = 2*rc
+        zc = 2 * rc
 
     # Get relevant quantities from pd object
     G_Gv, q_v, Omega_cell = _extract_pd_info(pd)
@@ -154,11 +155,12 @@ def K_cylinder(pd, sitePos_v, rc=1.0, zc='unit cell'):
     #   sing_cutoff (deals with division by 0)
     # Note : np.sinc does this on it's own, so Qz_GGq needs no adjustment
     sing_cutoff = 1.0e-15
-    Qrho_GG = np.where(np.abs(Qrho_GG)*rc < sing_cutoff,
-                       sing_cutoff/rc, Qrho_GG)
+    Qrho_GG = np.where(np.abs(Qrho_GG) * rc < sing_cutoff,
+                       sing_cutoff / rc, Qrho_GG)
 
     # Compute site kernel
-    K_GG = 2*np.pi*zc*rc**2 * sinc(Qz_GG*zc/2) * jv(1, rc*Qrho_GG)/(rc*Qrho_GG)
+    K_GG = 2 * np.pi * zc * rc**2 * sinc(Qz_GG * zc / 2)\
+        * jv(1, rc * Qrho_GG) / (rc * Qrho_GG)
 
     # Compute complex prefactor
     prefactor = _makePrefactor(sitePos_v, sum_GGv, Omega_cell)
@@ -178,14 +180,14 @@ def K_unit_cell(pd, sitePos_v=None):
 
     # Default site position is center of unit cell
     if sitePos_v is None:
-        sitePos_v = 1/2 * (a1 + a2 + a3)
+        sitePos_v = 1 / 2 * (a1 + a2 + a3)
 
     # Construct arrays
     G1_GGv, G2_GGv, q_GGv, sum_GGv = _constructArrays(G_Gv, q_v)
 
     # Compute site-kernel
-    K_GG = Omega_cell * sinc(sum_GGv@a1 / 2) * sinc(sum_GGv@a2 / 2) * \
-           sinc(sum_GGv@a3 / 2)
+    K_GG = Omega_cell * sinc(sum_GGv @ a1 / 2) * sinc(sum_GGv @ a2 / 2) * \
+        sinc(sum_GGv @ a3 / 2)
 
     # Compute complex prefactor
     prefactor = _makePrefactor(sitePos_v, sum_GGv, Omega_cell)
