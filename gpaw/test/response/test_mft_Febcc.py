@@ -31,7 +31,7 @@ def test_Fe_bcc():
                      [0.0, 0.0, 0.5],     # N
                      [0.25, 0.25, 0.25]   # P
                      ])
-    shapes_m = 'sphere'
+    shapes_m = 'sphere'  # Test all the site topologies? XXX
     rc_rm = np.array([[1.0], [1.5], [2.0]])
 
     # ---------- Script ---------- #
@@ -66,16 +66,16 @@ def test_Fe_bcc():
                                            nbands=nbands)
 
     # Calcualate the exchange constant for each q-point
-    J_rmnq = np.zeros([len(rc_rm), 1, 1, len(q_qc)], dtype=np.complex128)
+    J_rabq = np.zeros([len(rc_rm), 1, 1, len(q_qc)], dtype=np.complex128)
     for q, q_c in enumerate(q_qc):
-        J_rmnq[:, :, :, q] = exchCalc(q_c, rc_rm=rc_rm)
-    J_rq = J_rmnq[:, 0, 0, :]
+        # Make the exchange calculator output constants in correct format XXX
+        J_rabq[:, :, :, q] = exchCalc(q_c, rc_rm=rc_rm)
+    J_qabr = np.transpose(J_rabq, (3, 1, 2, 0))
+    J_rq = J_rabq[:, 0, 0, :]
 
     # Calculate the magnon energies
-    # Should be vectorized, so we can do all integration domains at once? XXX
-    mw_qm = calculate_FM_magnon_energies(np.transpose(J_rmnq[0, :, :, :],
-                                                      (2, 0, 1)), q_qc,
-                                         np.array([mm]))
+    mw_qnr = calculate_FM_magnon_energies(J_qabr, q_qc,
+                                          mm * np.ones((1, len(rc_rm))))
 
     # Run the chiks calculator individually
     chiks_GGq = []  # Could be tested elsewhere? XXX
@@ -90,7 +90,9 @@ def test_Fe_bcc():
                           [4.67944783, 0.20054973, 1.28535702, 1.30257353]])
     test_chiks_q = np.array([0.36507507, 0.19186653, 0.23056424, 0.24705505])
     test_Bxc_G = np.array([-0.82801687, -0.28927704, -0.28927704, -0.28927704])
-    test_mw_q = np.array([0., 0.6650555, 0.46719168, 0.38701164])
+    test_mw_rq = np.array([[0., 0.6650555, 0.46719168, 0.38701164],
+                           [0., 0.84204307, 0.57626353, 0.48421668],
+                           [0., 4.05334907, 3.07152699, 3.05599481]])
 
     # Exchange constants
     assert np.allclose(J_rq.imag, 0.)
@@ -106,4 +108,4 @@ def test_Fe_bcc():
     assert np.allclose(chiks_GGq[0, 0, :].real, test_chiks_q, rtol=1e-3)
     
     # Magnon energies
-    assert np.allclose(mw_qm[:, 0], test_mw_q, rtol=1e-3)
+    assert np.allclose(mw_qnr[:, 0, :], test_mw_rq.T, rtol=1e-3)
