@@ -87,7 +87,6 @@ def test_Fe_bcc():
                           [1.8678718, 0.93756859, 1.23108965, 1.33281237],
                           [4.67944783, 0.20054973, 1.28535702, 1.30257353]])
     test_chiks_q = np.array([0.36507507, 0.19186653, 0.23056424, 0.24705505])
-    test_Bxc_G = np.array([-0.82801687, -0.28927704, -0.28927704, -0.28927704])
     test_mw_rq = np.array([[0., 0.6650555, 0.46719168, 0.38701164],
                            [0., 0.84204307, 0.57626353, 0.48421668],
                            [0., 4.05334907, 3.07152699, 3.05599481]])
@@ -95,11 +94,6 @@ def test_Fe_bcc():
     # Exchange constants
     assert np.allclose(J_qr.imag, 0.)
     assert np.allclose(J_qr.real, test_J_rq.T, rtol=1e-3)
-
-    # Bxc field
-    Bxc_G = exchCalc.Bxc_G  # Could be tested elsewhere? XXX
-    assert np.allclose(Bxc_G.imag, 0.)
-    assert np.allclose(Bxc_G[:4].real, test_Bxc_G, rtol=1e-3)
 
     # Static reactive part of chiks
     assert np.allclose(chiks_GGq[0, 0, :].imag, 0.)
