@@ -32,7 +32,7 @@ Setting up the Virtual Environment etc
 To prepare your account, run the script (you only need to do this
 once)::
 
-  source ~jasc/CAMD2022/setup2022_teacher
+  bash ~jasc/CAMD2022/setup2022_teacher
 
 (Note that this is an extended version of the students' setup script
 which will give you an editable version of GPAW and its documentation).
@@ -42,6 +42,12 @@ This will create a folder ``CAMD2022``, a "slim" virtual environment in
 environment is a fake venv folder where most of the contents is links
 to a master environment.  If this is causing trouble, please contact
 Jakob to get it fixed.
+
+Remember to activate the virtual environment - this may be done
+automatically for the students (XXX fix later)::
+
+  source ~/CAMD2022/venv/bin/activate
+
 
 Summerschool Notebooks
 ========================
@@ -111,3 +117,16 @@ To make major changes to an existing notebook, first extract the
   XXXXX
 
 and then get help converting it back once it is ready.
+
+
+Notes on how to set this up
+============================
+
+These notes are intended as a starting point for setting this up in
+2024 !
+
+* Build a GPAW venv called venv-master
+
+* Reinstall sphinx, otherwise it will not work::
+
+    pip install --upgrade --force-reinstall --no-deps sphinx sphinx_rtd_theme
