@@ -31,15 +31,16 @@ Once you are logged in on the front-end, get a session on an interactive compute
 Starting a Jupyter Notebook
 ===========================
 
-Change to the folder where you keep your notebooks (most likely ``CAMD2018``) and start the Jupyter Notebook server::
+Change to the folder where you keep your notebooks (most likely ``CAMD2022``) and start the Jupyter Notebook server::
 
-  cd CAMD2018
+  cd CAMD2022
+  source venv/bin/activate
   camdnotebook
 
 The command ``camdnotebook`` is a local script.  It checks that you
 are on a compute server (and not on the front-end) and that X11
 forwarding is enabled.  Then it starts a jupyter notebook by running
-the command ``jupyter notebook --no-browser --port=40000 --ip=$HOSTNAME``
+the command ``jupyter notebook --no-browser --ip=$HOSTNAME``
 (you can also use this command yourself if you prefer).
 
 The Notebook server replies by printing a few status lines, as seen here
