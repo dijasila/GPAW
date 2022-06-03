@@ -3,7 +3,6 @@ import functools
 from io import StringIO
 from math import pi, sqrt
 from typing import List, Tuple
-
 import ase.units as units
 import numpy as np
 from ase.data import chemical_symbols

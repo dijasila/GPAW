@@ -1308,12 +1308,11 @@ class GPAW(Calculator):
 
         Return list of energies in eV, one for each atom:
 
-        .. math::
+        :::
 
-            Y_{00}
-            \int d\mathbf{r}
-            \tilde{v}_H(\mathbf{r})
-            \hat{g}_{00}^a(\mathbf{r} - \mathbf{R}^a)
+              / _ ~  _  ^a  _ _a
+          Y   |dr v (r) g  (r-R )
+           00 /    H     00
 
         """
         ham = self.hamiltonian

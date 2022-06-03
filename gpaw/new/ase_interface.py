@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from math import pi
 from pathlib import Path
 from typing import IO, Any, Union
 
 from ase import Atoms
-from ase.units import Ha
+from ase.units import Ha, Bohr
 
 from gpaw import __version__
 from gpaw.new import Timer
@@ -15,7 +14,6 @@ from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
 from gpaw.typing import Array1D, Array2D, Array3D
 from gpaw.utilities.memory import maxrss
-from gpaw.core.uniform_grid import UniformGridFunctions
 
 
 def GPAW(filename: Union[str, Path, IO[str]] = None,
@@ -168,13 +166,34 @@ class ASECalculator:
     def get_magnetic_moments(self, atoms: Atoms) -> Array1D:
         return self.calculate_property(atoms, 'magmoms')
 
-    def get_pseudo_wave_function(self, band) -> Array3D:
+    def write(self, filename, mode=''):
+        """Write calculator object to a file.
+
+        Parameters
+        ----------
+        filename:
+            File to be written
+        mode:
+            Write mode. Use ``mode='all'``
+            to include wave functions in the file.
+        """
+        self.log(f'Writing to {filename} (mode={mode!r})\n')
+
+        write_gpw(filename, self.atoms, self.params,
+                  self.calculation, skip_wfs=mode != 'all')
+
+    # Old API:
+
+    def get_pseudo_wave_function(self, band, kpt=0, spin=0) -> Array3D:
         state = self.calculation.state
-        wfs = state.ibzwfs.get_wfs(0, 0, band, band + 1)
-        psit_R = wfs.psit_nX[0].to_pbc_grid()
-        if not isinstance(psit_R, UniformGridFunctions):
-            psit_R = psit_R.ifft(grid=state.density.nt_sR.desc)
-        return psit_R.data
+        wfs = state.ibzwfs.get_wfs(spin, kpt, band, band + 1)
+        basis = self.calculation.scf_loop.hamiltonian.basis
+        grid = state.density.nt_sR.desc
+        wfs = wfs.to_uniform_grid_wave_functions(grid, basis)
+        psit_R = wfs.psit_nX[0]
+        if not psit_R.desc.pbc.all():
+            psit_R = psit_R.to_pbc_grid()
+        return psit_R.data * Bohr**-1.5
 
     def get_atoms(self):
         atoms = self.atoms.copy()
@@ -200,10 +219,7 @@ class ASECalculator:
         return state.ibzwfs.nbands
 
     def get_atomic_electrostatic_potentials(self):
-        _, _, Q_aL = self.calculation.pot_calc.calculate(
-            self.calculation.state.density)
-        Q_aL = Q_aL.gather()
-        return Q_aL.data[::9] * (Ha / (4 * pi)**0.5)
+        return self.calculation.electrostatic_potential().atomic_potentials()
 
     def get_eigenvalues(self, kpt=0, spin=0):
         state = self.calculation.state
@@ -244,22 +260,6 @@ class ASECalculator:
     @property
     def spos_ac(self):
         return self.atoms.get_scaled_positions()
-
-    def write(self, filename, mode=''):
-        """Write calculator object to a file.
-
-        Parameters
-        ----------
-        filename:
-            File to be written
-        mode:
-            Write mode. Use ``mode='all'``
-            to include wave functions in the file.
-        """
-        self.log(f'Writing to {filename} (mode={mode!r})\n')
-
-        write_gpw(filename, self.atoms, self.params,
-                  self.calculation, skip_wfs=mode != 'all')
 
 
 def write_header(log, world, params):
