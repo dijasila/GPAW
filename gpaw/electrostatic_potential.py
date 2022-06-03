@@ -19,11 +19,13 @@ if TYPE_CHECKING:
 class ElectrostaticPotential:
     def __init__(self,
                  vHt_x: DistributedArrays,
+                 W_aL: AtomArrays,
                  Q_aL: AtomArrays,
                  D_asii: AtomArrays,
                  fracpos_ac: ArrayLike2D,
                  setups: Setups):
         self.vHt_x = vHt_x
+        self.W_aL = W_aL
         self.Q_aL = Q_aL
         self.D_asii = D_asii
         self.fracpos_ac = fracpos_ac
@@ -36,16 +38,18 @@ class ElectrostaticPotential:
     @classmethod
     def from_calculation(cls, calculation: DFTCalculation):
         density = calculation.state.density
-        potential, vHt_x, Q_aL = calculation.pot_calc.calculate(density)
+        potential, vHt_x, W_aL = calculation.pot_calc.calculate(density)
+        Q_aL = density.calculate_compensation_charge_coefficients()
         return cls(vHt_x,
+                   W_aL,
                    Q_aL,
                    density.D_asii,
                    calculation.fracpos_ac,
                    calculation.setups)
 
     def atomic_potentials(self) -> Array1D:
-        Q_aL = self.Q_aL.gather()
-        return Q_aL.data[::9] * (Ha / (4 * pi)**0.5)
+        W_aL = self.W_aL.gather()
+        return W_aL.data[::9] * (Ha / (4 * pi)**0.5)
 
     def pseudo_potential(self,
                          grid_spacing: float = 0.05,  # Ang

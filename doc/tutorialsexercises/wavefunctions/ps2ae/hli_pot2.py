@@ -13,24 +13,20 @@ plt.plot([zh - rh, zh + rh], [vh, vh], label=r'$\tilde v$(H)')
 plt.plot([zli - rli, zli + rli], [vli, vli], label=r'$\tilde v$(Li)')
 
 # Interpolated PS and AE potentials:
-ps = elpot.pseudo_potential(grid_spacing=0.05)
-ae = elpot.all_electron_potential(grid_spacing=0.05)
+ps = elpot.pseudo_potential(grid_spacing=0.025)
+ae = elpot.all_electron_potential(grid_spacing=0.025)
 i = ps.data.shape[0] // 2
-x, y = ps.xy(i, i, ...)
-plt.plot(x, y, '--', label=r'$\tilde v$')
-x, y = ae.xy(i, i, ...)
-plt.plot(x, y, '--', label=r'$v$')
 
-# Raw PS potential:
-#ps0 = calc.get_electrostatic_potential()
-#gd = calc.hamiltonian.finegd
-#i = ps0.shape[0] // 2
-#Z = gd.coords(2) * Bohr
-#plt.plot(Z, ps0[i, i], 'o')
+x, y = ps.xy(i, i, ...)
+plt.plot(x, y, '-', label=r'$\tilde v$')
+
+x, y = ae.xy(i, i, ...)
+plt.plot(x, y, '-', label=r'$v$')
 
 plt.plot(x, 0 * x, 'k')
+
 plt.xlabel('z [Ang]')
 plt.ylabel('potential [eV]')
 plt.ylim(bottom=-100, top=10)
 plt.legend()
-plt.savefig('hli-pot2.png')
+plt.savefig('hli-pot.png')
