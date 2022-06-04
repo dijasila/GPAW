@@ -118,7 +118,8 @@ get help converting it to a .py file once it is ready.
 To make major changes to an existing notebook, first extract the
 "teacher version" from the .py file with the command::
 
-  XXXXX
+  cd doc/summerschools/summerschool22
+  python convert.py --teacher
 
 **move it somewhere else to update it**, and then get help converting
 it back once it is ready.  Note that rebuilding the documentation or
