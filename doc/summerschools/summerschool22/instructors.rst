@@ -27,7 +27,7 @@ the command::
 
 
 Setting up the Virtual Environment etc
-----------------------------------------
+--------------------------------------
 
 To prepare your account, run the script (you only need to do this
 once)::
@@ -50,7 +50,7 @@ automatically for the students (XXX fix later)::
 
 
 Summerschool Notebooks
-========================
+======================
 
 The summerschool notebooks exist in two versions, the **student
 version** and the **teacher version**.  The student version is
@@ -71,16 +71,20 @@ notebooks to still work after four years of code development!
 The .py files are found in the project folders under
 ``venv/gpaw/doc/summerschools/summerschool22``.
 
+Student versions of all notebooks are extracted from the source Python
+files when you build the GPAW documentation (``make`` in the ``doc``
+folder).  Edit your notebooks in another folder, as **building the
+documentation mayoverwrite all notebooks without warning.**
 
 Making small modifications to the notebooks
-----------------------------------------------------
+-------------------------------------------
 
 It is probably easiest to first make the modification in the
 downloaded Notebook file, and then make the same modification in the
 .py file.  Then submit a merge request.
 
 Teacher versus student version
-----------------------------------
+------------------------------
 
 In the ``.py`` file, a cell can be marked to be left out in the
 student version like this::
@@ -105,7 +109,7 @@ the student version.
 
 
 Making new notebooks or large modifications
---------------------------------------------------
+-------------------------------------------
 
 When making a new notebook, make it as a normal notebook, use the
 ``teacher`` / ``student`` markup in the comments as needed, and then
@@ -116,11 +120,35 @@ To make major changes to an existing notebook, first extract the
 
   XXXXX
 
-and then get help converting it back once it is ready.
+**move it somewhere else to update it**, and then get help converting
+it back once it is ready.  Note that rebuilding the documentation or
+rerunning the command above **will cause all notebooks to be
+overwritten**.
+
+
+Running Notebooks in the Databar
+--------------------------------
+
+Notebooks can developed on Niflheim or elsewhere, but *all notebooks
+should be testet in the DTU Databar*.
+
+Instructions on how to run notebooks in the databar can be found here:
+
+* :ref:`accesswin`
+* :ref:`accesslinmac`
+
+
+Updating the text of the project pages
+--------------------------------------
+
+Remember to also update the web pages associated with the projects.
+This is done by editing the associated ``.rst`` files in
+``doc/summerschools/summeschool22``, and then submitting a merge request.
+
 
 
 Notes on how to set this up
-============================
+===========================
 
 These notes are intended as a starting point for setting this up in
 2024 !
