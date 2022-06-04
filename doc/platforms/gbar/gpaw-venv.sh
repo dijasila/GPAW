@@ -9,7 +9,6 @@ FOLDER=$PWD
 echo "
 source /dtu/sw/dcc/dcc-sw.bash
 module purge
-unset PYTHONPATH
 module load dcc-setup/2020-aug
 module load python/3.8.5
 unset PYTHONPATH   #Incorrectly set in python module
