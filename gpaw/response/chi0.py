@@ -218,8 +218,8 @@ class Chi0:
 
         self.Q_aGii = None
 
-        if sum(self.pbc) < 2:
-            raise ValueError('Only one non-periodic direction supported atm.')
+        if sum(self.pbc) == 1:
+            raise ValueError('1-D not supported atm.')
 
         print('Nonperiodic BCs: ', (~self.pbc),
               file=self.fd)
