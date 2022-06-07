@@ -35,39 +35,49 @@ def site_kernel_interface(pd, sitePos_mv, shapes_m='sphere',
             If 'unit cell' then use height of unit cell (makes sense in 2D)
     """
 
-    # Get number of reciprocal lattice vectors
-    G_Gc = get_pw_coordinates(pd)
-    NG = len(G_Gc)
-
     # Number of sites
     if shapes_m == 'unit cell':
-        N_sites = 1
+        nsites = 1
     else:
-        N_sites = len(sitePos_mv)
+        nsites = len(sitePos_mv)
 
     # Reformat shape parameters
     if type(shapes_m) is str:
-        shapes_m = np.array([shapes_m] * N_sites)
-    if type(rc_m) in {int, float}:
-        rc_m = np.array([rc_m] * N_sites)
-    if type(zc_m) in {int, float, str}:
-        zc_m = np.array([zc_m] * N_sites)
+        shapes_m = np.array([shapes_m] * nsites)
+    if type(rc_m) in [int, float]:
+        rc_m = np.array([rc_m] * nsites)
+    if type(zc_m) in [int, float]:
+        zc_m = np.array([zc_m] * nsites)
+    if type(zc_m) == str:
+        zc_m = [zc_m] * nsites
+    for m in range(nsites):
+        # Reformat zc if needed
+        if zc_m[m] == 'unit cell':
+            zc_m[m] = np.sum(pd.gd.cell_cv[:, -1]) * Bohr   # Units of Å.
+        elif zc_m[m] == 'diameter':
+            zc_m[m] = 2. * rc_m[m]
+    zc_m = np.array(zc_m, dtype=float)
+
+    # Convert input units (Å) to atomic units (Bohr)
+    sitePos_mv = sitePos_mv / Bohr
+    rc_m = rc_m / Bohr
+    zc_m = zc_m / Bohr
 
     # Construct Fourier components
     G_Gv, q_v, Omega_cell = _extract_pd_info(pd)
     Q_GGv = _construct_wave_vectors(G_Gv, q_v)
 
     # Array to fill
-    K_GGm = np.zeros([NG, NG, N_sites], dtype=np.complex128)
+    K_GGm = np.zeros(Q_GGv.shape[:2] + (nsites,), dtype=np.complex128)
 
     # --- The Calculation itself --- #
 
     # Loop through magnetic sites
-    for m in range(N_sites):
+    # Should be vectorized? XXX
+    for m in range(nsites):
         # Get site specific values
         shape, rc, zc = shapes_m[m], rc_m[m], zc_m[m]
         sitePos_v = sitePos_mv[m, :]
-        sitePos_v = sitePos_v / Bohr
 
         # Compute complex prefactor
         prefactor = _makePrefactor(sitePos_v, Q_GGv, Omega_cell)
@@ -77,18 +87,15 @@ def site_kernel_interface(pd, sitePos_mv, shapes_m='sphere',
             K_GG = K_sphere(Q_GGv, rc=rc)
 
         elif shape == 'cylinder':
-            # Reformat zc if needed
-            if zc == 'unit cell':
-                zc = np.sum(pd.gd.cell_cv[:, -1]) * Bohr   # Units of Å.
-            elif zc == 'diameter':
-                zc = 2 * rc
             K_GG = K_cylinder(Q_GGv, rc=rc, zc=zc)
 
         elif shape == 'unit cell':
             # Get real-space basis vectors
+            # Give the user control over these XXX
             a1, a2, a3 = pd.gd.cell_cv
 
             # # Default site position is center of unit cell
+            # # This should not be up to some secret functionality to decide XXX
             # if sitePos_v is None:
             #     sitePos_v = 1 / 2 * (a1 + a2 + a3)
             K_GG = K_unit_cell(Q_GGv, a1, a2, a3)
@@ -104,10 +111,6 @@ def site_kernel_interface(pd, sitePos_mv, shapes_m='sphere',
 
 def K_sphere(Q_GGv, rc=1.0):
     """Compute site-kernel for a spherical integration region """
-
-    # Convert from Å to Bohr
-    # Should be moved XXX
-    rc = rc / Bohr
 
     # Combine arrays
     magsq_GG = np.sum(Q_GGv ** 2, axis=-1)  # |G_1 + G_2 + q|^2
@@ -136,11 +139,6 @@ def K_sphere(Q_GGv, rc=1.0):
 
 def K_cylinder(Q_GGv, rc=1.0, zc=1.0):
     """Compute site-kernel for a cylindrical integration region"""
-
-    # Convert from Å to Bohr
-    # Should be moved XXX
-    rc = rc / Bohr
-    zc = zc / Bohr
 
     # Combine arrays
     # sqrt([G1_x + G2_x + q_x]^2 + [G1_y + G2_y + q_y]^2)
