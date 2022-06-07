@@ -109,35 +109,44 @@ def site_kernel_interface(pd, sitePos_mv, shapes_m='sphere',
     return K_GGm
 
 
-def K_sphere(Q_GGv, rc=1.0):
-    """Compute site-kernel for a spherical integration region """
+def K_sphere(Q_GGv, rc=1.0):  # Should be positional argument XXX
+    """Compute the site centered geometry factor for a spherical site kernel:
 
-    # Combine arrays
-    magsq_GG = np.sum(Q_GGv ** 2, axis=-1)  # |G_1 + G_2 + q|^2
-    mag_GG = np.sqrt(magsq_GG)  # |G_1 + G_2 + q|
+           /
+    Θ(Q) = | dr e^(-iQ.r) θ(|r|<r_c)
+           /
 
-    # Find singular and regular points
-    is_sing = mag_GG * rc < 1.e-8  # cutoff is arbitrary
-    is_reg = np.logical_not(is_sing)
+           4πr_c
+         = ‾‾‾‾‾ [sinc(|Q|r_c) - cos(|Q|r_c)]
+           |Q|^2
 
-    # Separate calculation into regular and singular part
-    magReg_GG = mag_GG[is_reg]
-    magSing_GG = mag_GG[is_sing]
-    magsqReg_GG = magsq_GG[is_reg]
+                    3 [sinc(|Q|r_c) - cos(|Q|r_c)]
+         = V_sphere ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+                              (|Q|r_c)^2
 
-    # Compute integral part of kernel
-    K_GG = np.zeros(Q_GGv.shape[:2], dtype=np.complex128)
-    # Full formula
-    K_GG[is_reg] = 4 * np.pi / magsqReg_GG * \
-        (-rc * np.cos(magReg_GG * rc) + np.sin(magReg_GG * rc) / magReg_GG)
-    # Taylor expansion around singularity
-    K_GG[is_sing] = 4 * np.pi * rc**3 / 3\
-        - 2 * np.pi / 15 * magSing_GG**2 * rc**5
-    
-    return K_GG
+    To do: Input output documentation and vectorization XXX, method rename XXX
+    """
+    assert isinstance(rc, float) and rc > 0.
+
+    # Calculate the sphere volume
+    Vsphere = 4 * np.pi * rc**3. / 3
+
+    # Calculate |Q|r_c
+    Qrc_GG = np.linalg.norm(Q_GGv, axis=-1) * rc
+
+    # Allocate array with integration volume as |Q|r_c=0 fallback.
+    # This is done to prevent division by zero in the Q=0. case
+    Theta_GG = Vsphere * np.ones(Q_GGv.shape[:-1], dtype=float)
+
+    # Calculate the actual geometry factor
+    Qrcs = Qrc_GG[Qrc_GG > 1.e-8]
+    Theta_GG[Qrc_GG > 1.e-8] = Vsphere * 3. * (sinc(Qrcs) - np.cos(Qrcs))\
+        / Qrcs**2.
+
+    return Theta_GG
 
 
-def K_cylinder(Q_GGv, rc=1.0, zc=1.0):
+def K_cylinder(Q_GGv, rc=1.0, zc=1.0):  # Should be positional arguments XXX
     """Compute site-kernel for a cylindrical integration region"""
 
     # Combine arrays
@@ -162,7 +171,7 @@ def K_cylinder(Q_GGv, rc=1.0, zc=1.0):
 def K_unit_cell(Q_GGv, a1, a2, a3):
     """Compute site-kernel for a spherical integration region"""
 
-    # Calculate the paralleliped volume
+    # Calculate the parallelepiped volume
     cell_cv = np.array([a1, a2, a3])
     Vparlp = abs(np.linalg.det(cell_cv))
 

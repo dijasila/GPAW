@@ -50,7 +50,7 @@ def spherical_kernel_test():
 
     for rc in rc_r:
         # Calculate spherical kernel with wave vector rescaled after rc
-        K_Qd = K_sphere(Q_Qdv / rc, rc).real
+        K_Qd = K_sphere(Q_Qdv / rc, rc)
         # Check against expected result
         assert np.allclose(K_Qd, rc**3. * test_K_Q[:, np.newaxis])
 
