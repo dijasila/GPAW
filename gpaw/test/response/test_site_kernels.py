@@ -34,7 +34,7 @@ def Co_hcp_test():
     q_c = [0., 0., 0.]
 
     # Part 2: Calculate site kernels
-    rc_m = np.array([2.0, 3.0])  # radii in Aa
+    rc_m = np.array([2.0, 3.0])  # radii in Å
     zc_m = ['diameter', 'unit cell']
 
     # Part 3: Check the calculated kernels
@@ -60,6 +60,7 @@ def Co_hcp_test():
     siteposition_mv = atoms.get_positions()
 
     # Compute site-kernels
+    # How can it make sense to use a paralleliped for Co(hcp)?  XXX
     Kuc_GGm = site_kernel_interface(pd0, siteposition_mv,
                                     shapes_m='unit cell')
     Ksph_GGm = site_kernel_interface(pd0, siteposition_mv,
@@ -69,9 +70,9 @@ def Co_hcp_test():
 
     # Part 4: Check the calculated kernels
     nG = len(get_pw_coordinates(pd0))
-    V0 = atoms.get_volume()  # Volume of unit cell in Aa^3
+    V0 = atoms.get_volume()  # Volume of unit cell in Å^3
 
-    # Calculate integration volumes in Aa^3
+    # Calculate integration volumes in Å^3
     Vsphere_m = 4 / 3 * np.pi * rc_m**3
     height_m = np.array([2 * rc_m[0], np.sum(atoms.cell[:, -1])])
     Vcylinder_m = np.pi * rc_m**2 * height_m
