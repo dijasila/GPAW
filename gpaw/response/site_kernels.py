@@ -177,7 +177,7 @@ def _makePrefactor(sitePos_v, sum_GGv, Omega_cell):
     """Make the complex prefactor which occurs for all site-kernels,
     irrespective of shape of integration region"""
     # Phase factor
-    phaseFactor_GG = np.exp(1j * sum_GGv @ sitePos_v)
+    phaseFactor_GG = np.exp(-1.j * sum_GGv @ sitePos_v)
 
     # Scale factor
     scaleFactor = 1. / Omega_cell
@@ -212,6 +212,6 @@ def _construct_wave_vectors(G_Gv, q_v):
     G2_GGv = np.tile(G_Gv[np.newaxis, :, :], [NG, 1, 1])
     q_GGv = np.tile(q_v[np.newaxis, np.newaxis, :], [NG, NG, 1])
 
-    Q_GGv = G1_GGv + G2_GGv + q_GGv  # G_1 + G_2 + q
+    Q_GGv = G1_GGv - G2_GGv + q_GGv  # G_1 - G_2 + q
 
     return Q_GGv

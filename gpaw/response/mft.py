@@ -162,8 +162,8 @@ class IsotropicExchangeCalculator:
                 for b in range(nsites):
                     Ka_GG = K_GGm[:, :, a]
                     Kb_GG = K_GGm[:, :, b]
-                    J = Bxc_G @ Ka_GG @ chiks_GG @ np.conj(Kb_GG) \
-                        @ np.conj(Bxc_G)
+                    J = np.conj(Bxc_G) @ np.conj(Ka_GG).T @ chiks_GG @ Kb_GG \
+                        @ Bxc_G
                     J_abr[a, b, r] = 2. * J / V0
 
         return J_abr * Hartree  # Convert from Hartree to eV
