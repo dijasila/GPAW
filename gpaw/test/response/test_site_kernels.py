@@ -1,6 +1,6 @@
 """Test the site kernel calculation functionality of the response code"""
 from gpaw import GPAW, PW
-from gpaw.response.site_kernels import site_kernel_interface
+from gpaw.response.site_kernels import site_kernel_interface, K_sphere
 from gpaw.response.susceptibility import get_pw_coordinates
 from ase.build import bulk
 import numpy as np
@@ -10,13 +10,61 @@ import numpy as np
 
 
 def test_site_kernels():
+    spherical_kernel_test()
+    cylindrical_kernel_test()
+    parallelepipedic_kernel_test()
     Co_hcp_test()
 
 
 # ---------- Actual tests ---------- #
 
 
+def spherical_kernel_test():
+    """Check the numerics of the spherical kernel"""
+    # ---------- Inputs ---------- #
+
+    # Relative wave vector lengths to check (relative to 1/rc)
+    Qrel_Q = np.array([0.,
+                       np.pi / 2,
+                       np.pi])
+
+    # Expected results (assuming rc=1. scale)
+    Vsphere = 4. * np.pi / 3.
+    test_K_Q = Vsphere * np.array([1.,
+                                   3 / (np.pi / 2)**3.,
+                                   3 / (np.pi)**2.])
+
+    # Spherical radii to check
+    nr = 5
+    rc_r = np.random.rand(nr)
+
+    # Wave vector directions to check
+    nd = 41
+    Q_dv = 2. * np.random.rand(nd, 3) - 1.
+    Q_dv /= np.linalg.norm(Q_dv, axis=1)[:, np.newaxis]  # normalize
+
+    # ---------- Script ---------- #
+
+    # Set up wave vectors
+    Q_Qdv = Qrel_Q[:, np.newaxis, np.newaxis] * Q_dv[np.newaxis, ...]
+
+    for rc in rc_r:
+        # Calculate spherical kernel with wave vector rescaled after rc
+        K_Qd = K_sphere(Q_Qdv / rc, rc).real
+        # Check against expected result
+        assert np.allclose(K_Qd, rc**3. * test_K_Q[:, np.newaxis])
+
+
+def cylindrical_kernel_test():
+    pass
+
+
+def parallelepipedic_kernel_test():
+    pass
+
+
 def Co_hcp_test():
+    """Check that the site kernel interface works on run time inputs."""
     # ---------- Inputs ---------- #
 
     # Part 1: Generate plane wave representation (PWDescriptor)
