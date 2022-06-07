@@ -53,6 +53,10 @@ def site_kernel_interface(pd, sitePos_mv, shapes_m='sphere',
     if type(zc_m) in {int, float, str}:
         zc_m = np.array([zc_m] * N_sites)
 
+    # Construct Fourier components
+    G_Gv, q_v, Omega_cell = _extract_pd_info(pd)
+    Q_GGv = _construct_wave_vectors(G_Gv, q_v)
+
     # Array to fill
     K_GGm = np.zeros([NG, NG, N_sites], dtype=np.complex128)
 
@@ -63,42 +67,50 @@ def site_kernel_interface(pd, sitePos_mv, shapes_m='sphere',
         # Get site specific values
         shape, rc, zc = shapes_m[m], rc_m[m], zc_m[m]
         sitePos_v = sitePos_mv[m, :]
+        sitePos_v = sitePos_v / Bohr
+
+        # Compute complex prefactor
+        prefactor = _makePrefactor(sitePos_v, Q_GGv, Omega_cell)
 
         # Do computation for relevant shape
         if shape == 'sphere':
-            K_GG = K_sphere(pd, sitePos_v=sitePos_v, rc=rc)
+            K_GG = K_sphere(Q_GGv, rc=rc)
 
         elif shape == 'cylinder':
-            K_GG = K_cylinder(pd, sitePos_v=sitePos_v, rc=rc, zc=zc)
+            # Reformat zc if needed
+            if zc == 'unit cell':
+                zc = np.sum(pd.gd.cell_cv[:, -1]) * Bohr   # Units of Å.
+            elif zc == 'diameter':
+                zc = 2 * rc
+            K_GG = K_cylinder(Q_GGv, rc=rc, zc=zc)
 
         elif shape == 'unit cell':
-            K_GG = K_unit_cell(pd, sitePos_v=sitePos_v)
+            # Get real-space basis vectors
+            a1, a2, a3 = pd.gd.cell_cv
+
+            # # Default site position is center of unit cell
+            # if sitePos_v is None:
+            #     sitePos_v = 1 / 2 * (a1 + a2 + a3)
+            K_GG = K_unit_cell(Q_GGv, a1, a2, a3)
 
         else:
             print('Not a recognised shape')
 
         # Update data
-        K_GGm[:, :, m] = K_GG
+        K_GGm[:, :, m] = prefactor * K_GG
 
     return K_GGm
 
 
-def K_sphere(pd, sitePos_v, rc=1.0):
+def K_sphere(Q_GGv, rc=1.0):
     """Compute site-kernel for a spherical integration region """
 
-    # Get relevant quantities from pd object
-    G_Gv, q_v, Omega_cell = _extract_pd_info(pd)
-    NG = len(G_Gv)
-
     # Convert from Å to Bohr
+    # Should be moved XXX
     rc = rc / Bohr
-    sitePos_v = sitePos_v / Bohr
-
-    # Construct arrays
-    G1_GGv, G2_GGv, q_GGv, sum_GGv = _constructArrays(G_Gv, q_v)
 
     # Combine arrays
-    magsq_GG = np.sum(sum_GGv ** 2, axis=-1)  # |G_1 + G_2 + q|^2
+    magsq_GG = np.sum(Q_GGv ** 2, axis=-1)  # |G_1 + G_2 + q|^2
     mag_GG = np.sqrt(magsq_GG)  # |G_1 + G_2 + q|
 
     # Find singular and regular points
@@ -111,45 +123,29 @@ def K_sphere(pd, sitePos_v, rc=1.0):
     magsqReg_GG = magsq_GG[is_reg]
 
     # Compute integral part of kernel
-    K_GG = np.zeros([NG, NG], dtype=np.complex128)
+    K_GG = np.zeros(Q_GGv.shape[:2], dtype=np.complex128)
     # Full formula
     K_GG[is_reg] = 4 * np.pi / magsqReg_GG * \
         (-rc * np.cos(magReg_GG * rc) + np.sin(magReg_GG * rc) / magReg_GG)
     # Taylor expansion around singularity
     K_GG[is_sing] = 4 * np.pi * rc**3 / 3\
         - 2 * np.pi / 15 * magSing_GG**2 * rc**5
-
-    # Compute complex prefactor
-    prefactor = _makePrefactor(sitePos_v, sum_GGv, Omega_cell)
-    K_GG = K_GG * prefactor
     
     return K_GG
 
 
-def K_cylinder(pd, sitePos_v, rc=1.0, zc='unit cell'):
+def K_cylinder(Q_GGv, rc=1.0, zc=1.0):
     """Compute site-kernel for a cylindrical integration region"""
 
-    # Reformat zc if needed
-    if zc == 'unit cell':
-        zc = np.sum(pd.gd.cell_cv[:, -1]) * Bohr   # Units of Å.
-    elif zc == 'diameter':
-        zc = 2 * rc
-
-    # Get relevant quantities from pd object
-    G_Gv, q_v, Omega_cell = _extract_pd_info(pd)
-
     # Convert from Å to Bohr
+    # Should be moved XXX
     rc = rc / Bohr
     zc = zc / Bohr
-    sitePos_v = sitePos_v / Bohr
-
-    # Construct arrays
-    G1_GGv, G2_GGv, q_GGv, sum_GGv = _constructArrays(G_Gv, q_v)
 
     # Combine arrays
     # sqrt([G1_x + G2_x + q_x]^2 + [G1_y + G2_y + q_y]^2)
-    Qrho_GG = np.sqrt(sum_GGv[:, :, 0]**2 + sum_GGv[:, :, 1]**2)
-    Qz_GG = sum_GGv[:, :, 2]  # G1_z + G2_z + q_z
+    Qrho_GG = np.sqrt(Q_GGv[:, :, 0]**2 + Q_GGv[:, :, 1]**2)
+    Qz_GG = Q_GGv[:, :, 2]  # G1_z + G2_z + q_z
 
     # Set values of |G_1 + G_2 + q|*r_c below sing_cutoff equal to
     #   sing_cutoff (deals with division by 0)
@@ -162,36 +158,19 @@ def K_cylinder(pd, sitePos_v, rc=1.0, zc='unit cell'):
     K_GG = 2 * np.pi * zc * rc**2 * sinc(Qz_GG * zc / 2)\
         * jv(1, rc * Qrho_GG) / (rc * Qrho_GG)
 
-    # Compute complex prefactor
-    prefactor = _makePrefactor(sitePos_v, sum_GGv, Omega_cell)
-    K_GG = K_GG * prefactor
-
     return K_GG
 
 
-def K_unit_cell(pd, sitePos_v=None):
+def K_unit_cell(Q_GGv, a1, a2, a3):
     """Compute site-kernel for a spherical integration region"""
 
-    # Get relevant quantities from pd object
-    G_Gv, q_v, Omega_cell = _extract_pd_info(pd)
+    # Calculate the paralleliped volume
+    cell_cv = np.array([a1, a2, a3])
+    Vparlp = abs(np.linalg.det(cell_cv))
 
-    # Get real-space basis vectors
-    a1, a2, a3 = pd.gd.cell_cv
-
-    # Default site position is center of unit cell
-    if sitePos_v is None:
-        sitePos_v = 1 / 2 * (a1 + a2 + a3)
-
-    # Construct arrays
-    G1_GGv, G2_GGv, q_GGv, sum_GGv = _constructArrays(G_Gv, q_v)
-
-    # Compute site-kernel
-    K_GG = Omega_cell * sinc(sum_GGv @ a1 / 2) * sinc(sum_GGv @ a2 / 2) * \
-        sinc(sum_GGv @ a3 / 2)
-
-    # Compute complex prefactor
-    prefactor = _makePrefactor(sitePos_v, sum_GGv, Omega_cell)
-    K_GG = K_GG * prefactor
+    # Calculate the site-kernel
+    K_GG = Vparlp * sinc(Q_GGv @ a1 / 2) * sinc(Q_GGv @ a2 / 2) * \
+        sinc(Q_GGv @ a3 / 2)
 
     return K_GG
 
@@ -228,12 +207,13 @@ def _extract_pd_info(pd):
     return G_Gv, q_v, Omega_cell
 
 
-def _constructArrays(G_Gv, q_v):
-    """Construct arrays with shape (NG, NG, 3)"""
+def _construct_wave_vectors(G_Gv, q_v):
+    """Construct wave vector array with shape (NG, NG, 3)"""
     NG = len(G_Gv)
     G1_GGv = np.tile(G_Gv[:, np.newaxis, :], [1, NG, 1])
     G2_GGv = np.tile(G_Gv[np.newaxis, :, :], [NG, 1, 1])
     q_GGv = np.tile(q_v[np.newaxis, np.newaxis, :], [NG, NG, 1])
-    sum_GGv = G1_GGv + G2_GGv + q_GGv  # G_1 + G_2 + q
 
-    return G1_GGv, G2_GGv, q_GGv, sum_GGv
+    Q_GGv = G1_GGv + G2_GGv + q_GGv  # G_1 + G_2 + q
+
+    return Q_GGv
