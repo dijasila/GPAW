@@ -135,6 +135,7 @@ class IsotropicExchangeCalculator:
 
         # Get plane-wave descriptor
         pd = self.chiksf.get_PWDescriptor(q_c)
+        V0 = pd.gd.volume
 
         # Reformat rc_rm and get number of different radii
         nsites = self.nsites
@@ -163,7 +164,7 @@ class IsotropicExchangeCalculator:
                     Kb_GG = K_GGm[:, :, b]
                     J = Bxc_G @ Ka_GG @ chiks_GG @ np.conj(Kb_GG) \
                         @ np.conj(Bxc_G)
-                    J_abr[a, b, r] = J
+                    J_abr[a, b, r] = 2. * J / V0
 
         return J_abr * Hartree  # Convert from Hartree to eV
 

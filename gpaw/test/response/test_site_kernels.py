@@ -1,6 +1,5 @@
 """Test the site kernel calculation functionality of the response code"""
 from gpaw import GPAW, PW
-from ase.units import Bohr
 from gpaw.response.mft import StaticChiKSFactory
 from gpaw.response.site_kernels import site_kernel_interface
 from gpaw.response.susceptibility import get_pw_coordinates
@@ -34,7 +33,7 @@ def Co_hcp_test():
     ecut = 50
 
     # Part 3: Calculate site kernels
-    rc_m = np.array([2.0, 3.0])
+    rc_m = np.array([2.0, 3.0])  # radii in Aa
     zc_m = ['diameter', 'unit cell']
 
     # Part 4: Check the calculated kernels
@@ -85,13 +84,7 @@ def Co_hcp_test():
     assert Ksph_GGm.shape == (nG, nG, 2)
     assert Kcyl_GGm.shape == (nG, nG, 2)
 
-    # Remove constant prefactor (in atomic units)
-    # Should be made redundant! XXX
-    prefactor = np.sqrt(V0 / (2. * Bohr**3.))
-    Kuc_GGm, Ksph_GGm, Kcyl_GGm = (x * prefactor
-                                   for x in [Kuc_GGm, Ksph_GGm, Kcyl_GGm])
-
-    # Check K_00(q=0) gives Vint / V0 (fractional integration volume)
+    # Check that K_00(q=0) gives Vint / V0 (fractional integration volume)
     assert abs(Kuc_GGm[0, 0, 0] - 1.) < 1.e-8
     assert np.allclose(Ksph_GGm[0, 0, :], Vsphere_m / V0)
     assert np.allclose(Kcyl_GGm[0, 0, :], Vcylinder_m / V0)

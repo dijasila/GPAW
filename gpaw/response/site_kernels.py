@@ -203,7 +203,7 @@ def _makePrefactor(sitePos_v, sum_GGv, Omega_cell):
     phaseFactor_GG = np.exp(1j * sum_GGv @ sitePos_v)
 
     # Scale factor
-    scaleFactor = np.sqrt(2) / Omega_cell ** (3 / 2)
+    scaleFactor = 1. / Omega_cell
 
     return scaleFactor * phaseFactor_GG
 
