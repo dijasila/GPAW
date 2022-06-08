@@ -87,7 +87,7 @@ def site_kernel_interface(pd, sitePos_mv, shapes_m='sphere',
             K_GG = spherical_geometry_factor(Q_GGv, rc)
 
         elif shape == 'cylinder':
-            K_GG = K_cylinder(Q_GGv, rc=rc, zc=zc)
+            K_GG = cylindrical_geometry_factor(Q_GGv, rc, zc)
 
         elif shape == 'unit cell':
             # Get real-space basis vectors
@@ -138,8 +138,8 @@ def spherical_geometry_factor(Q_Qv, rc):
     rc : float
         Radius of the sphere.
     """
-    assert isinstance(rc, float) and rc > 0.
     assert Q_Qv.shape[-1] == 3
+    assert isinstance(rc, float) and rc > 0.
 
     # Calculate the sphere volume
     Vsphere = 4 * np.pi * rc**3. / 3
@@ -161,26 +161,62 @@ def spherical_geometry_factor(Q_Qv, rc):
     return Theta_Q
 
 
-def K_cylinder(Q_GGv, rc=1.0, zc=1.0):  # Should be positional arguments XXX
-    """Compute site-kernel for a cylindrical integration region"""
+def cylindrical_geometry_factor(Q_Qv, rc, hc):
+    """Calculate the site centered geometry factor for a cylindrical site kernel:
+
+           /
+    Θ(Q) = | dr e^(-iQ.r) θ(ρ<r_c) θ(|z|/2<h_c)
+           /
+
+            4πr_c
+         = ‾‾‾‾‾‾‾ J_1(Q_ρ r_c) sin(Q_z h_c / 2)
+           Q_ρ Q_z
+
+                      2 J_1(Q_ρ r_c)
+         = V_cylinder ‾‾‾‾‾‾‾‾‾‾‾‾‾‾ sinc(Q_z h_c / 2)
+                         Q_ρ r_c
+
+    where z denotes the cylindrical axis, ρ the radial axis and the
+    dimensionless geometry factor satisfy:
+
+    Θ(Q)/V_cylinder --> 1 for Q --> 0.
+
+
+    Parameters
+    ----------
+    Q_Qv : np.ndarray
+        Wave vectors to evaluate the site centered geometry factor at. The
+        cartesian coordinates needs to be the last dimension of the array (v),
+        but the preceeding index/indices Q can have any tensor structure, such
+        that Q_Qv.shape = (..., 3).
+    rc : float
+        Radius of the cylinder.
+    hc : float
+        Height of the cylinder.
+    """
+    assert Q_Qv.shape[-1] == 3
+    assert isinstance(rc, float) and rc > 0.
+    assert isinstance(hc, float) and hc > 0.
+
+    # To do: Make it possible to input the cylindrical axis XXX
 
     # Combine arrays
     # sqrt([G1_x + G2_x + q_x]^2 + [G1_y + G2_y + q_y]^2)
-    Qrho_GG = np.sqrt(Q_GGv[:, :, 0]**2 + Q_GGv[:, :, 1]**2)
-    Qz_GG = Q_GGv[:, :, 2]  # G1_z + G2_z + q_z
+    Qrho_Q = np.sqrt(Q_Qv[:, :, 0]**2 + Q_Qv[:, :, 1]**2)
+    Qz_Q = Q_Qv[:, :, 2]  # G1_z + G2_z + q_z
 
     # Set values of |G_1 + G_2 + q|*r_c below sing_cutoff equal to
     #   sing_cutoff (deals with division by 0)
     # Note : np.sinc does this on it's own, so Qz_GGq needs no adjustment
     sing_cutoff = 1.0e-15
-    Qrho_GG = np.where(np.abs(Qrho_GG) * rc < sing_cutoff,
-                       sing_cutoff / rc, Qrho_GG)
+    Qrho_Q = np.where(np.abs(Qrho_Q) * rc < sing_cutoff,
+                      sing_cutoff / rc, Qrho_Q)
 
     # Compute site kernel
-    K_GG = 2 * np.pi * zc * rc**2 * sinc(Qz_GG * zc / 2)\
-        * jv(1, rc * Qrho_GG) / (rc * Qrho_GG)
+    K_Q = 2 * np.pi * hc * rc**2 * sinc(Qz_Q * hc / 2)\
+        * jv(1, rc * Qrho_Q) / (rc * Qrho_Q)
 
-    return K_GG
+    return K_Q
 
 
 def K_unit_cell(Q_GGv, a1, a2, a3):
