@@ -99,34 +99,42 @@ def cylindrical_kernel_test():
     nh = 7
     hc_h = 4. * np.random.rand(nh)
 
-    # To do: Test different in-plane directions XXX
+    # Wave vector directions in-plane to check
+    nd = 13
+    Qrho_dv = np.zeros((nd, 3), dtype=float)
+    Qrho_dv[:, :2] = 2. * np.random.rand(nd, 2) - 1.
+    Qrho_dv /= np.linalg.norm(Qrho_dv, axis=1)[:, np.newaxis]  # normalize
 
     # ---------- Script ---------- #
 
     for rc in rc_r:
         for hc in hc_h:
-            # Set up wave vectors for radial direction
-            Qrho_Q1v = Qrhorel_Q1[:, np.newaxis] / rc\
-                * np.array([1., 0., 0.])[np.newaxis, :]
+            # Set up wave vectors for radial tests
+            Qrho_dQ1v = Qrhorel_Q1[np.newaxis, :, np.newaxis] / rc\
+                * Qrho_dv[:, np.newaxis, :]
             Qrho_Q2v = Qzrand_Q2[:, np.newaxis] / (hc / 2.)\
                 * np.array([0., 0., 1.])[np.newaxis, :]
-            Qrho_Q1Q2v = Qrho_Q1v[:, np.newaxis] + Qrho_Q2v[np.newaxis, ...]
+            Qrho_dQ1Q2v = Qrho_dQ1v[..., np.newaxis,
+                                    :] + Qrho_Q2v[np.newaxis, np.newaxis, ...]
 
-            # Set up wave vectors for cylindrical direction
-            Qz_Q1v = Qrhorand_Q1[:, np.newaxis] / rc\
-                * np.array([1., 0., 0.])[np.newaxis, :]
+            # Set up wave vectors for cylindrical tests
+            Qz_dQ1v = Qrhorand_Q1[np.newaxis, :, np.newaxis] / rc\
+                * Qrho_dv[:, np.newaxis, :]
             Qz_Q2v = Qzrel_Q2[:, np.newaxis] / (hc / 2.)\
                 * np.array([0., 0., 1.])[np.newaxis, :]
-            Qz_Q1Q2v = Qz_Q1v[:, np.newaxis] + Qz_Q2v[np.newaxis, ...]
+            Qz_dQ1Q2v = Qz_dQ1v[..., np.newaxis,
+                                :] + Qz_Q2v[np.newaxis, np.newaxis, ...]
 
-            # Test computed geometry factors
-            Krho_Q1Q2 = cylindrical_geometry_factor(Qrho_Q1Q2v, rc, hc)
-            Kz_Q1Q2 = cylindrical_geometry_factor(Qz_Q1Q2v, rc, hc)
+            # Calculate geometry factors
+            Krho_dQ1Q2 = cylindrical_geometry_factor(Qrho_dQ1Q2v, rc, hc)
+            Kz_dQ1Q2 = cylindrical_geometry_factor(Qz_dQ1Q2v, rc, hc)
 
             # Check against expected result
-            assert np.allclose(Krho_Q1Q2, rc**2. * hc / 2. * test_Krho_Q1Q2,
+            assert np.allclose(Krho_dQ1Q2, rc**2. * hc / 2.
+                               * test_Krho_Q1Q2[np.newaxis, ...],
                                atol=1.e-8)
-            assert np.allclose(Kz_Q1Q2, rc**2. * hc / 2. * test_Kz_Q1Q2,
+            assert np.allclose(Kz_dQ1Q2, rc**2. * hc / 2.
+                               * test_Kz_Q1Q2[np.newaxis, ...],
                                atol=1.e-8)
 
 
