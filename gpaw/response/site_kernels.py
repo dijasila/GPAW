@@ -124,6 +124,10 @@ def K_sphere(Q_GGv, rc=1.0):  # Should be positional argument XXX
          = V_sphere ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
                               (|Q|r_c)^2
 
+    where the dimensionless geometry factor satisfies:
+
+    Θ(Q)/V_sphere --> 1 for |Q|r_c --> 0.
+
     To do: Input output documentation and vectorization XXX, method rename XXX
     """
     assert isinstance(rc, float) and rc > 0.
@@ -134,14 +138,16 @@ def K_sphere(Q_GGv, rc=1.0):  # Should be positional argument XXX
     # Calculate |Q|r_c
     Qrc_GG = np.linalg.norm(Q_GGv, axis=-1) * rc
 
-    # Allocate array with integration volume as |Q|r_c=0 fallback.
-    # This is done to prevent division by zero in the Q=0. case
-    Theta_GG = Vsphere * np.ones(Q_GGv.shape[:-1], dtype=float)
+    # Allocate array with ones to provide the correct dimensionless geometry
+    # factor in the |Q|r_c --> 0 limit.
+    # This is done to avoid division by zero.
+    Theta_GG = np.ones(Q_GGv.shape[:-1], dtype=float)
 
-    # Calculate the actual geometry factor
+    # Calculate the dimensionless geometry factor
     Qrcs = Qrc_GG[Qrc_GG > 1.e-8]
-    Theta_GG[Qrc_GG > 1.e-8] = Vsphere * 3. * (sinc(Qrcs) - np.cos(Qrcs))\
-        / Qrcs**2.
+    Theta_GG[Qrc_GG > 1.e-8] = 3. * (sinc(Qrcs) - np.cos(Qrcs)) / Qrcs**2.
+
+    Theta_GG *= Vsphere
 
     return Theta_GG
 
