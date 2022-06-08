@@ -126,6 +126,14 @@ it back once it is ready.  Note that rebuilding the documentation or
 rerunning the command above **will cause all notebooks to be
 overwritten**.
 
+The extracted notebook will start with a cell::
+
+  # teacher
+  import ase.visualize as viz
+  viz.view = lambda atoms, repeat=None: None
+
+It disables the ASE gui when the source script is run as part of the GPAW
+test suite, but should probably be deleted while you develop the notebook.
 
 Running Notebooks in the Databar
 --------------------------------
@@ -156,6 +164,6 @@ These notes are intended as a starting point for setting this up in
 
 * Build a GPAW venv called venv-master
 
-* Reinstall sphinx, otherwise it will not work::
+* Upgrade sphinx, otherwise it will not work::
 
-    pip install --upgrade --force-reinstall --no-deps Sphinx==3.2.1 sphinx-rtd-theme==0.5.0
+    pip install --upgrade  sphinx sphinx-rtd-theme
