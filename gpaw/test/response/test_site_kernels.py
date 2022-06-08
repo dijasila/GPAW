@@ -93,37 +93,41 @@ def cylindrical_kernel_test():
 
     # Cylinder radii to check
     nr = 5
-    rc_r = np.random.rand(nr)
+    rc_r = 3. * np.random.rand(nr)
 
-    # To do: Test different h and different in-plane directions XXX
+    # Cylinder height to check
+    nh = 7
+    hc_h = 4. * np.random.rand(nh)
+
+    # To do: Test different in-plane directions XXX
 
     # ---------- Script ---------- #
 
-    hc = 2.
     for rc in rc_r:
-        # Set up wave vectors for radial direction
-        Qrho_Q1v = Qrhorel_Q1[:, np.newaxis] / rc\
-            * np.array([1., 0., 0.])[np.newaxis, :]
-        Qrho_Q2v = Qzrand_Q2[:, np.newaxis] / (hc / 2.)\
-            * np.array([0., 0., 1.])[np.newaxis, :]
-        Qrho_Q1Q2v = Qrho_Q1v[:, np.newaxis] + Qrho_Q2v[np.newaxis, ...]
+        for hc in hc_h:
+            # Set up wave vectors for radial direction
+            Qrho_Q1v = Qrhorel_Q1[:, np.newaxis] / rc\
+                * np.array([1., 0., 0.])[np.newaxis, :]
+            Qrho_Q2v = Qzrand_Q2[:, np.newaxis] / (hc / 2.)\
+                * np.array([0., 0., 1.])[np.newaxis, :]
+            Qrho_Q1Q2v = Qrho_Q1v[:, np.newaxis] + Qrho_Q2v[np.newaxis, ...]
 
-        # Set up wave vectors for cylindrical direction
-        Qz_Q1v = Qrhorand_Q1[:, np.newaxis] / rc\
-            * np.array([1., 0., 0.])[np.newaxis, :]
-        Qz_Q2v = Qzrel_Q2[:, np.newaxis] / (hc / 2.)\
-            * np.array([0., 0., 1.])[np.newaxis, :]
-        Qz_Q1Q2v = Qz_Q1v[:, np.newaxis] + Qz_Q2v[np.newaxis, ...]
+            # Set up wave vectors for cylindrical direction
+            Qz_Q1v = Qrhorand_Q1[:, np.newaxis] / rc\
+                * np.array([1., 0., 0.])[np.newaxis, :]
+            Qz_Q2v = Qzrel_Q2[:, np.newaxis] / (hc / 2.)\
+                * np.array([0., 0., 1.])[np.newaxis, :]
+            Qz_Q1Q2v = Qz_Q1v[:, np.newaxis] + Qz_Q2v[np.newaxis, ...]
 
-        # Test computed geometry factors
-        Krho_Q1Q2 = cylindrical_geometry_factor(Qrho_Q1Q2v, rc, hc)
-        Kz_Q1Q2 = cylindrical_geometry_factor(Qz_Q1Q2v, rc, hc)
+            # Test computed geometry factors
+            Krho_Q1Q2 = cylindrical_geometry_factor(Qrho_Q1Q2v, rc, hc)
+            Kz_Q1Q2 = cylindrical_geometry_factor(Qz_Q1Q2v, rc, hc)
 
-        # Check against expected result
-        assert np.allclose(Krho_Q1Q2, rc**2. * hc / 2. * test_Krho_Q1Q2,
-                           atol=1.e-8)
-        assert np.allclose(Kz_Q1Q2, rc**2. * hc / 2. * test_Kz_Q1Q2,
-                           atol=1.e-8)
+            # Check against expected result
+            assert np.allclose(Krho_Q1Q2, rc**2. * hc / 2. * test_Krho_Q1Q2,
+                               atol=1.e-8)
+            assert np.allclose(Kz_Q1Q2, rc**2. * hc / 2. * test_Kz_Q1Q2,
+                               atol=1.e-8)
 
 
 def parallelepipedic_kernel_test():
