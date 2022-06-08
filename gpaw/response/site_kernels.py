@@ -57,6 +57,7 @@ def site_kernel_interface(pd, sitePos_mv, shapes_m='sphere',
         elif zc_m[m] == 'diameter':
             zc_m[m] = 2. * rc_m[m]
     zc_m = np.array(zc_m, dtype=float)
+    ez_v = np.array([0., 0., 1.])  # Should be made an input in the future XXX
 
     # Convert input units (Å) to atomic units (Bohr)
     sitePos_mv = sitePos_mv / Bohr
@@ -87,7 +88,7 @@ def site_kernel_interface(pd, sitePos_mv, shapes_m='sphere',
             K_GG = spherical_geometry_factor(Q_GGv, rc)
 
         elif shape == 'cylinder':
-            K_GG = cylindrical_geometry_factor(Q_GGv, rc, zc)
+            K_GG = cylindrical_geometry_factor(Q_GGv, ez_v, rc, zc)
 
         elif shape == 'unit cell':
             # Get real-space basis vectors
@@ -161,7 +162,7 @@ def spherical_geometry_factor(Q_Qv, rc):
     return Theta_Q
 
 
-def cylindrical_geometry_factor(Q_Qv, rc, hc):
+def cylindrical_geometry_factor(Q_Qv, ez_v, rc, hc):
     """Calculate the site centered geometry factor for a cylindrical site kernel:
 
            /
@@ -181,7 +182,6 @@ def cylindrical_geometry_factor(Q_Qv, rc, hc):
 
     Θ(Q)/V_cylinder --> 1 for Q --> 0.
 
-
     Parameters
     ----------
     Q_Qv : np.ndarray
@@ -189,12 +189,16 @@ def cylindrical_geometry_factor(Q_Qv, rc, hc):
         cartesian coordinates needs to be the last dimension of the array (v),
         but the preceeding index/indices Q can have any tensor structure, such
         that Q_Qv.shape = (..., 3).
+    ez_v : np.ndarray
+        Normalized direction of the cylindrical axis.
     rc : float
         Radius of the cylinder.
     hc : float
         Height of the cylinder.
     """
     assert Q_Qv.shape[-1] == 3
+    assert ez_v.shape == (3,)
+    assert abs(np.linalg.norm(ez_v) - 1.) < 1.e-8
     assert isinstance(rc, float) and rc > 0.
     assert isinstance(hc, float) and hc > 0.
 
@@ -203,9 +207,9 @@ def cylindrical_geometry_factor(Q_Qv, rc, hc):
     # Calculate cylinder volume
     Vcylinder = np.pi * rc**2. * hc
 
-    # Calculate Q_ρ r_c and Q_z h_c
-    Qrhorc_Q = np.linalg.norm(Q_Qv[..., :2], axis=-1) * rc
-    Qzhchalf_Q = np.linalg.norm(Q_Qv[..., 2:], axis=-1) * hc / 2.
+    # Calculate Q_z h_c and Q_ρ r_c
+    Qzhchalf_Q = np.abs(Q_Qv @ ez_v) * hc / 2.
+    Qrhorc_Q = np.linalg.norm(np.cross(Q_Qv, ez_v), axis=-1) * rc
 
     # Allocate array with ones to provide the correct dimensionless geometry
     # factor in the Q_ρ r_c --> 0 limit.

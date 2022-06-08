@@ -105,6 +105,9 @@ def cylindrical_kernel_test():
     Qrho_dv[:, :2] = 2. * np.random.rand(nd, 2) - 1.
     Qrho_dv /= np.linalg.norm(Qrho_dv, axis=1)[:, np.newaxis]  # normalize
 
+    # To do: Test different cylindrical axes XXX
+    ez_v = np.array([0., 0., 1.])
+
     # ---------- Script ---------- #
 
     for rc in rc_r:
@@ -126,8 +129,8 @@ def cylindrical_kernel_test():
                                 :] + Qz_Q2v[np.newaxis, np.newaxis, ...]
 
             # Calculate geometry factors
-            Krho_dQ1Q2 = cylindrical_geometry_factor(Qrho_dQ1Q2v, rc, hc)
-            Kz_dQ1Q2 = cylindrical_geometry_factor(Qz_dQ1Q2v, rc, hc)
+            Krho_dQ1Q2 = cylindrical_geometry_factor(Qrho_dQ1Q2v, ez_v, rc, hc)
+            Kz_dQ1Q2 = cylindrical_geometry_factor(Qz_dQ1Q2v, ez_v, rc, hc)
 
             # Check against expected result
             assert np.allclose(Krho_dQ1Q2, rc**2. * hc / 2.
