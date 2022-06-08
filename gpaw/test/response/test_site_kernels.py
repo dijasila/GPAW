@@ -1,10 +1,14 @@
 """Test the site kernel calculation functionality of the response code"""
+import numpy as np
+import scipy.special as sc
+
+from ase.build import bulk
+
 from gpaw import GPAW, PW
 from gpaw.response.site_kernels import (site_kernel_interface,
-                                        spherical_geometry_factor)
+                                        spherical_geometry_factor,
+                                        cylindrical_geometry_factor)
 from gpaw.response.susceptibility import get_pw_coordinates
-from ase.build import bulk
-import numpy as np
 
 
 # ---------- Main test ---------- #
@@ -29,7 +33,7 @@ def spherical_kernel_test():
                        np.pi / 2,
                        np.pi])
 
-    # Expected results (assuming rc=1. scale)
+    # Expected results (assuming |Q| * rc = 1.)
     Vsphere = 4. * np.pi / 3.
     test_K_Q = Vsphere * np.array([1.,
                                    3 / (np.pi / 2)**3.,
@@ -57,7 +61,64 @@ def spherical_kernel_test():
 
 
 def cylindrical_kernel_test():
-    pass
+    """Check the numerics of the spherical kernel"""
+    # ---------- Inputs ---------- #
+
+    # Relative wave vectors (relative to 1/rc) in radial direction
+    Qrhorel_Q1 = np.array([0.] + list(sc.jn_zeros(1, 4)))  # Roots of J1(x)
+
+    # Relative wave vectors (relative to 2/hc) in cylindrical direction
+    Qzrel_Q2 = list(np.pi * np.arange(5))  # Roots of sin(x)
+    Qzrel_Q2 += list(np.pi * np.arange(4) + np.pi / 2)  # Extrema of sin(x)
+    Qzrel_Q2 = np.array(Qzrel_Q2)
+
+    # Expected results for roots of J1 (assuming rc=1. and hc=2.)
+    Vcylinder = 2. * np.pi
+    nQ2 = 11  # Choose random Q_z r_z
+    test_Krho_Q1 = np.array([1., 0., 0., 0., 0.])
+    Qzrand_Q2 = 10. * np.random.rand(nQ2)
+    sinc_zrand_Q2 = np.sin(Qzrand_Q2) / Qzrand_Q2
+    test_Krho_Q1Q2 = Vcylinder * test_Krho_Q1[:, np.newaxis]\
+        * sinc_zrand_Q2[np.newaxis, :]
+
+    # Expected results for roots and extrema of sin (assuming rc=1. and hc=2.)
+    nQ1 = 15  # Choose random Q_ρ h_c
+    test_Kz_Q2 = [1., 0., 0., 0., 0.]  # Nodes in sinc(Q_z h_c)
+    test_Kz_Q2 += list(np.array([1., -1., 1., -1.]) / Qzrel_Q2[5:])  # Extrema
+    test_Kz_Q2 = np.array(test_Kz_Q2)
+    Qrhorand_Q1 = 10. * np.random.rand(nQ1)
+    J1term_rhorand_Q1 = 2. * sc.jv(1, Qrhorand_Q1) / Qrhorand_Q1
+    test_Kz_Q1Q2 = Vcylinder * J1term_rhorand_Q1[:, np.newaxis]\
+        * test_Kz_Q2[np.newaxis, :]
+
+    # To do: Test different r, different h and different in-plane directions XXX
+
+    # ---------- Script ---------- #
+
+    # Set up wave vectors for radial direction
+    rc = 1.
+    hc = 2.
+    Qrho_Q1v = Qrhorel_Q1[:, np.newaxis]\
+        * np.array([1., 0., 0.])[np.newaxis, :]
+    Qrho_Q2v = Qzrand_Q2[:, np.newaxis]\
+        * np.array([0., 0., 1.])[np.newaxis, :]
+    Qrho_Q1Q2v = Qrho_Q1v[:, np.newaxis] + Qrho_Q2v[np.newaxis, ...]
+
+    # Set up wave vectors for cylindrical direction
+    Qz_Q1v = Qrhorand_Q1[:, np.newaxis]\
+        * np.array([1., 0., 0.])[np.newaxis, :]
+    Qz_Q2v = Qzrel_Q2[:, np.newaxis]\
+        * np.array([0., 0., 1.])[np.newaxis, :]
+    Qz_Q1Q2v = Qz_Q1v[:, np.newaxis] + Qz_Q2v[np.newaxis, ...]
+
+    # Test computed geometry factors
+    Krho_Q1Q2 = cylindrical_geometry_factor(Qrho_Q1Q2v, rc, hc)
+    Kz_Q1Q2 = cylindrical_geometry_factor(Qz_Q1Q2v, rc, hc)
+    # Check against expected result
+    assert np.allclose(Krho_Q1Q2, rc**2. * hc / 2. * test_Krho_Q1Q2,
+                       atol=1.e-8)
+    assert np.allclose(Kz_Q1Q2, rc**2. * hc / 2. * test_Kz_Q1Q2,
+                       atol=1.e-8)
 
 
 def parallelepipedic_kernel_test():
@@ -65,7 +126,10 @@ def parallelepipedic_kernel_test():
 
 
 def Co_hcp_test():
-    """Check that the site kernel interface works on run time inputs."""
+    """Check that the site kernel interface works on run time inputs.
+
+    To do: Remember to check full diagonal as well as hermitian properties XXX
+    """
     # ---------- Inputs ---------- #
 
     # Part 1: Generate plane wave representation (PWDescriptor)
