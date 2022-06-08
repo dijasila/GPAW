@@ -5,7 +5,9 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 
 
-def py2ipynb(path: Path, kernel: Optional[Dict[str, str]] = None) -> None:
+def py2ipynb(path: Path,
+             kernel: Optional[Dict[str, str]] = None,
+             teachermode: Optional[bool] = False) -> None:
     """Convert Python script to ipynb file.
 
     Hides cells marked with "# teacher" and replaces lines marked with
@@ -40,12 +42,12 @@ def py2ipynb(path: Path, kernel: Optional[Dict[str, str]] = None) -> None:
             cell['execution_count'] = None
             lines = cell['source']
             for i, line in enumerate(lines):
-                if ' # student:' in line:
+                if ' # student:' in line and not teachermode:
                     a, b = (x.strip() for x in line.split('# student:'))
                     lines[i] = line.split(a)[0] + b + '\n'
                 elif line.startswith('# magic: '):
                     lines[i] = line[9:]
-                elif line.lower().startswith('# teacher'):
+                elif line.lower().startswith('# teacher') and not teachermode:
                     del lines[i:]
                     break
 
