@@ -200,23 +200,24 @@ def cylindrical_geometry_factor(Q_Qv, rc, hc):
 
     # To do: Make it possible to input the cylindrical axis XXX
 
-    # Combine arrays
-    # sqrt([G1_x + G2_x + q_x]^2 + [G1_y + G2_y + q_y]^2)
-    Qrho_Q = np.sqrt(Q_Qv[:, :, 0]**2 + Q_Qv[:, :, 1]**2)
-    Qz_Q = Q_Qv[:, :, 2]  # G1_z + G2_z + q_z
+    # Calculate cylinder volume
+    Vcylinder = np.pi * rc**2. * hc
 
-    # Set values of |G_1 + G_2 + q|*r_c below sing_cutoff equal to
-    #   sing_cutoff (deals with division by 0)
-    # Note : np.sinc does this on it's own, so Qz_GGq needs no adjustment
-    sing_cutoff = 1.0e-15
-    Qrho_Q = np.where(np.abs(Qrho_Q) * rc < sing_cutoff,
-                      sing_cutoff / rc, Qrho_Q)
+    # Calculate Q_ρ r_c and Q_z h_c
+    Qrhorc_Q = np.linalg.norm(Q_Qv[..., :2], axis=-1) * rc
+    Qzhchalf_Q = np.linalg.norm(Q_Qv[..., 2:], axis=-1) * hc / 2.
 
-    # Compute site kernel
-    K_Q = 2 * np.pi * hc * rc**2 * sinc(Qz_Q * hc / 2)\
-        * jv(1, rc * Qrho_Q) / (rc * Qrho_Q)
+    # Allocate array with ones to provide the correct dimensionless geometry
+    # factor in the Q_ρ r_c --> 0 limit.
+    # This is done to avoid division by zero.
+    Theta_Q = np.ones(Q_Qv.shape[:-1], dtype=float)
 
-    return K_Q
+    # Calculate the dimensionless geometry factor
+    Qrhorcs = Qrhorc_Q[Qrhorc_Q > 1.e-8]
+    Theta_Q[Qrhorc_Q > 1.e-8] = 2. * jv(1, Qrhorcs) / Qrhorcs
+    Theta_Q *= Vcylinder * sinc(Qzhchalf_Q)
+
+    return Theta_Q
 
 
 def K_unit_cell(Q_GGv, a1, a2, a3):
