@@ -84,7 +84,7 @@ def site_kernel_interface(pd, sitePos_mv, shapes_m='sphere',
 
         # Do computation for relevant shape
         if shape == 'sphere':
-            K_GG = K_sphere(Q_GGv, rc=rc)
+            K_GG = spherical_geometry_factor(Q_GGv, rc)
 
         elif shape == 'cylinder':
             K_GG = K_cylinder(Q_GGv, rc=rc, zc=zc)
@@ -109,8 +109,8 @@ def site_kernel_interface(pd, sitePos_mv, shapes_m='sphere',
     return K_GGm
 
 
-def K_sphere(Q_GGv, rc=1.0):  # Should be positional argument XXX
-    """Compute the site centered geometry factor for a spherical site kernel:
+def spherical_geometry_factor(Q_Qv, rc):
+    """Calculate the site centered geometry factor for a spherical site kernel:
 
            /
     Θ(Q) = | dr e^(-iQ.r) θ(|r|<r_c)
@@ -128,28 +128,37 @@ def K_sphere(Q_GGv, rc=1.0):  # Should be positional argument XXX
 
     Θ(Q)/V_sphere --> 1 for |Q|r_c --> 0.
 
-    To do: Input output documentation and vectorization XXX, method rename XXX
+    Parameters
+    ----------
+    Q_Qv : np.ndarray
+        Wave vectors to evaluate the site centered geometry factor at. The
+        cartesian coordinates needs to be the last dimension of the array (v),
+        but the preceeding index/indices Q can have any tensor structure, such
+        that Q_Qv.shape = (..., 3).
+    rc : float
+        Radius of the sphere.
     """
     assert isinstance(rc, float) and rc > 0.
+    assert Q_Qv.shape[-1] == 3
 
     # Calculate the sphere volume
     Vsphere = 4 * np.pi * rc**3. / 3
 
     # Calculate |Q|r_c
-    Qrc_GG = np.linalg.norm(Q_GGv, axis=-1) * rc
+    Qrc_Q = np.linalg.norm(Q_Qv, axis=-1) * rc
 
     # Allocate array with ones to provide the correct dimensionless geometry
     # factor in the |Q|r_c --> 0 limit.
     # This is done to avoid division by zero.
-    Theta_GG = np.ones(Q_GGv.shape[:-1], dtype=float)
+    Theta_Q = np.ones(Q_Qv.shape[:-1], dtype=float)
 
     # Calculate the dimensionless geometry factor
-    Qrcs = Qrc_GG[Qrc_GG > 1.e-8]
-    Theta_GG[Qrc_GG > 1.e-8] = 3. * (sinc(Qrcs) - np.cos(Qrcs)) / Qrcs**2.
+    Qrcs = Qrc_Q[Qrc_Q > 1.e-8]
+    Theta_Q[Qrc_Q > 1.e-8] = 3. * (sinc(Qrcs) - np.cos(Qrcs)) / Qrcs**2.
 
-    Theta_GG *= Vsphere
+    Theta_Q *= Vsphere
 
-    return Theta_GG
+    return Theta_Q
 
 
 def K_cylinder(Q_GGv, rc=1.0, zc=1.0):  # Should be positional arguments XXX

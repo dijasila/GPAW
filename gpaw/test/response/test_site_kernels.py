@@ -1,6 +1,7 @@
 """Test the site kernel calculation functionality of the response code"""
 from gpaw import GPAW, PW
-from gpaw.response.site_kernels import site_kernel_interface, K_sphere
+from gpaw.response.site_kernels import (site_kernel_interface,
+                                        spherical_geometry_factor)
 from gpaw.response.susceptibility import get_pw_coordinates
 from ase.build import bulk
 import numpy as np
@@ -49,8 +50,8 @@ def spherical_kernel_test():
     Q_Qdv = Qrel_Q[:, np.newaxis, np.newaxis] * Q_dv[np.newaxis, ...]
 
     for rc in rc_r:
-        # Calculate spherical kernel with wave vector rescaled after rc
-        K_Qd = K_sphere(Q_Qdv / rc, rc)
+        # Calculate site centered geometry factor with rescaled wave vector
+        K_Qd = spherical_geometry_factor(Q_Qdv / rc, rc)
         # Check against expected result
         assert np.allclose(K_Qd, rc**3. * test_K_Q[:, np.newaxis])
 
