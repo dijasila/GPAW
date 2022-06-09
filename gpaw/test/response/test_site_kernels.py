@@ -160,7 +160,7 @@ def parallelepipedic_kernel_test():
     sinchalf_Q = np.array([1., 2. / np.pi, 0., - 2. / (3. * np.pi), 0.])
 
     # Random parallelepipedic cell vectors to check
-    nC = 5
+    nC = 9
     cell_Ccv = 2. * np.random.rand(nC, 3, 3) - 1.
     volume_C = np.abs(np.linalg.det(cell_Ccv))
     # Normalize the cell volume
@@ -171,38 +171,50 @@ def parallelepipedic_kernel_test():
     v0_Cv = cell_Ccv[:, 0, :].copy()
     v0_C = np.linalg.norm(v0_Cv, axis=-1)  # Length of primary vector
     v0n_Cv = v0_Cv / v0_C[:, np.newaxis]  # Normalize
-    nd = 3
+    nd = 11
     Q_dv = 2. * np.random.rand(nd, 3) - 1.
     Q_dv[0, :] = np.array([0., 0., 0.])  # Check also parallel Q-vector
     Q_Cdv = np.cross(Q_dv[np.newaxis, ...], v0_Cv[:, np.newaxis, :])
 
-    Vparlp = 1.
+    # Volumes to test
+    nV = 7
+    Vparlp_V = 10. * np.random.rand(nV)
 
-    # To do: Check different volumes and rotate primary direction XXX
+    # To do: Check different primary direction entries XXX
 
     # ---------- Script ---------- #
 
+    # Rescale cell
+    cell_CVcv = cell_Ccv[:, np.newaxis, ...]\
+        * (Vparlp_V**(1 / 3.))[np.newaxis, :, np.newaxis, np.newaxis]
+
     # Rescale primary vector to let Q.a follow Qrel
     Qrel_CQ = Qrel_Q[np.newaxis, :] / v0_C[:, np.newaxis]
+    Qrel_CVQ = Qrel_CQ[:, np.newaxis, :]\
+        / (Vparlp_V**(1 / 3.))[np.newaxis, :, np.newaxis]
     # Generate Q-vectors
-    Q_CdQv = Qrel_CQ[:, np.newaxis, :, np.newaxis]\
-        * v0n_Cv[:, np.newaxis, np.newaxis, :]\
-        + Q_Cdv[..., np.newaxis, :]
+    Q_CVdQv = Qrel_CVQ[..., np.newaxis, :, np.newaxis]\
+        * v0n_Cv[:, np.newaxis, np.newaxis, np.newaxis, :]\
+        + Q_Cdv[:, np.newaxis, :, np.newaxis, :]
 
     # Generate test values
-    sinchalf_CdQ = sinc(np.sum(cell_Ccv[:, np.newaxis, np.newaxis, 1, :]
-                               * Q_CdQv, axis=-1) / 2)\
-        * sinc(np.sum(cell_Ccv[:, np.newaxis, np.newaxis, 2, :]
-                      * Q_CdQv, axis=-1) / 2)
-    test_Theta_CdQ = Vparlp * sinchalf_Q[np.newaxis, np.newaxis, :]\
-        * sinchalf_CdQ
+    sinchalf_CVdQ = sinc(np.sum(cell_CVcv[..., np.newaxis, np.newaxis, 1, :]
+                                * Q_CVdQv, axis=-1) / 2)\
+        * sinc(np.sum(cell_CVcv[..., np.newaxis, np.newaxis, 2, :]
+                      * Q_CVdQv, axis=-1) / 2)
+    test_Theta_CVdQ = Vparlp_V[np.newaxis, :, np.newaxis, np.newaxis]\
+        * sinchalf_Q[np.newaxis, np.newaxis, np.newaxis, :]\
+        * sinchalf_CVdQ
 
-    for Q_dQv, test_Theta_dQ, cell_cv in zip(Q_CdQv, test_Theta_CdQ, cell_Ccv):
-        # Calculate geometry factors
-        Theta_dQ = parallelepipedic_geometry_factor(Q_dQv, cell_cv)
+    for Q_VdQv, test_Theta_VdQ, cell_Vcv in zip(Q_CVdQv, test_Theta_CVdQ,
+                                                cell_CVcv):
+        for Q_dQv, test_Theta_dQ, cell_cv in zip(Q_VdQv, test_Theta_VdQ,
+                                                 cell_Vcv):
+            # Calculate geometry factors
+            Theta_dQ = parallelepipedic_geometry_factor(Q_dQv, cell_cv)
 
-        # Check against expected results
-        assert np.allclose(Theta_dQ, test_Theta_dQ, atol=1.e-8)
+            # Check against expected results
+            assert np.allclose(Theta_dQ, test_Theta_dQ, atol=1.e-8)
 
 
 def Co_hcp_test():
