@@ -357,7 +357,7 @@ class Chi0:
             cls = TetrahedronIntegrator
         else:
             raise ValueError(f'Integration mode "{self.integrationmode}"'
-                             ' not implemented.', file=self.fd)
+                             ' not implemented.')
 
         kwargs = dict(
             cell_cv=self.pair.calc.wfs.gd.cell_cv,
