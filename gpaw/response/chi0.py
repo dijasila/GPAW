@@ -354,7 +354,7 @@ class Chi0:
            self.integrationmode == 'point integration':
             cls = PointIntegrator
         elif self.integrationmode == 'tetrahedron integration':
-            cls = TetrahedronIntegrator
+            cls = TetrahedronIntegrator  # type: ignore
         else:
             raise ValueError(f'Integration mode "{self.integrationmode}"'
                              ' not implemented.')
