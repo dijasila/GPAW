@@ -74,7 +74,6 @@ def site_kernel_interface(pd, sitePos_mv, shapes_m='sphere',
     # --- The Calculation itself --- #
 
     # Loop through magnetic sites
-    # Should be vectorized? XXX
     for m in range(nsites):
         # Get site specific values
         shape, rc, zc = shapes_m[m], rc_m[m], zc_m[m]
@@ -201,8 +200,6 @@ def cylindrical_geometry_factor(Q_Qv, ez_v, rc, hc):
     assert abs(np.linalg.norm(ez_v) - 1.) < 1.e-8
     assert isinstance(rc, float) and rc > 0.
     assert isinstance(hc, float) and hc > 0.
-
-    # To do: Make it possible to input the cylindrical axis XXX
 
     # Calculate cylinder volume
     Vcylinder = np.pi * rc**2. * hc

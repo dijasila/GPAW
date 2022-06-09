@@ -74,7 +74,7 @@ def cylindrical_kernel_test():
 
     # Expected results for roots of J1 (assuming rc=1. and hc=2.)
     Vcylinder = 2. * np.pi
-    nQ2 = 11  # Choose random Q_z r_z
+    nQ2 = 13  # Choose random Q_z r_z
     test_Krho_Q1 = np.array([1., 0., 0., 0., 0.])
     Qzrand_Q2 = 10. * np.random.rand(nQ2)
     sinc_zrand_Q2 = np.sin(Qzrand_Q2) / Qzrand_Q2
@@ -96,49 +96,57 @@ def cylindrical_kernel_test():
     rc_r = 3. * np.random.rand(nr)
 
     # Cylinder height to check
-    nh = 7
+    nh = 3
     hc_h = 4. * np.random.rand(nh)
 
-    # Wave vector directions in-plane to check
-    nd = 13
-    Qrho_dv = np.zeros((nd, 3), dtype=float)
-    Qrho_dv[:, :2] = 2. * np.random.rand(nd, 2) - 1.
-    Qrho_dv /= np.linalg.norm(Qrho_dv, axis=1)[:, np.newaxis]  # normalize
+    # Cylindrical axes to check
+    nc = 7
+    ez_cv = 2. * np.random.rand(nc, 3) - 1.
+    ez_cv /= np.linalg.norm(ez_cv, axis=1)[:, np.newaxis]
 
-    # To do: Test different cylindrical axes XXX
-    ez_v = np.array([0., 0., 1.])
+    # Wave vector directions in-plane to check. Generated through the cross
+    # product of a random direction with the cylindrical axis
+    nd = 11
+    Qrho_dv = 2. * np.random.rand(nd, 2) - 1.
+    Qrho_cdv = np.cross(Qrho_dv[np.newaxis, ...], ez_cv[:, np.newaxis, :])
+    Qrho_cdv /= np.linalg.norm(Qrho_cdv, axis=-1)[..., np.newaxis]  # normalize
 
     # ---------- Script ---------- #
 
     for rc in rc_r:
         for hc in hc_h:
             # Set up wave vectors for radial tests
-            Qrho_dQ1v = Qrhorel_Q1[np.newaxis, :, np.newaxis] / rc\
-                * Qrho_dv[:, np.newaxis, :]
-            Qrho_Q2v = Qzrand_Q2[:, np.newaxis] / (hc / 2.)\
-                * np.array([0., 0., 1.])[np.newaxis, :]
-            Qrho_dQ1Q2v = Qrho_dQ1v[..., np.newaxis,
-                                    :] + Qrho_Q2v[np.newaxis, np.newaxis, ...]
+            Qrho_cdQ1v = Qrhorel_Q1[np.newaxis, np.newaxis, :, np.newaxis]\
+                * Qrho_cdv[..., np.newaxis, :] / rc
+            Qrho_cQ2v = Qzrand_Q2[np.newaxis, :, np.newaxis]\
+                * ez_cv[:, np.newaxis, :] / (hc / 2.)
+            Qrho_cdQ1Q2v = Qrho_cdQ1v[..., np.newaxis, :]\
+                + Qrho_cQ2v[:, np.newaxis, np.newaxis, ...]
 
             # Set up wave vectors for cylindrical tests
-            Qz_dQ1v = Qrhorand_Q1[np.newaxis, :, np.newaxis] / rc\
-                * Qrho_dv[:, np.newaxis, :]
-            Qz_Q2v = Qzrel_Q2[:, np.newaxis] / (hc / 2.)\
-                * np.array([0., 0., 1.])[np.newaxis, :]
-            Qz_dQ1Q2v = Qz_dQ1v[..., np.newaxis,
-                                :] + Qz_Q2v[np.newaxis, np.newaxis, ...]
+            Qz_cdQ1v = Qrhorand_Q1[np.newaxis, np.newaxis, :, np.newaxis]\
+                * Qrho_cdv[..., np.newaxis, :] / rc
+            Qz_cQ2v = Qzrel_Q2[np.newaxis, :, np.newaxis]\
+                * ez_cv[:, np.newaxis, :] / (hc / 2.)
+            Qz_cdQ1Q2v = Qz_cdQ1v[..., np.newaxis, :]\
+                + Qz_cQ2v[:, np.newaxis, np.newaxis, ...]
 
-            # Calculate geometry factors
-            Krho_dQ1Q2 = cylindrical_geometry_factor(Qrho_dQ1Q2v, ez_v, rc, hc)
-            Kz_dQ1Q2 = cylindrical_geometry_factor(Qz_dQ1Q2v, ez_v, rc, hc)
+            # Test one cylindrical direction at a time
+            for ez_v, Qrho_dQ1Q2v, Qz_dQ1Q2v in zip(ez_cv,
+                                                    Qrho_cdQ1Q2v, Qz_cdQ1Q2v):
+                # Calculate geometry factors
+                Krho_dQ1Q2 = cylindrical_geometry_factor(Qrho_dQ1Q2v,
+                                                         ez_v, rc, hc)
+                Kz_dQ1Q2 = cylindrical_geometry_factor(Qz_dQ1Q2v,
+                                                       ez_v, rc, hc)
 
-            # Check against expected result
-            assert np.allclose(Krho_dQ1Q2, rc**2. * hc / 2.
-                               * test_Krho_Q1Q2[np.newaxis, ...],
-                               atol=1.e-8)
-            assert np.allclose(Kz_dQ1Q2, rc**2. * hc / 2.
-                               * test_Kz_Q1Q2[np.newaxis, ...],
-                               atol=1.e-8)
+                # Check against expected result
+                assert np.allclose(Krho_dQ1Q2, rc**2. * hc / 2.
+                                   * test_Krho_Q1Q2[np.newaxis, ...],
+                                   atol=1.e-8)
+                assert np.allclose(Kz_dQ1Q2, rc**2. * hc / 2.
+                                   * test_Kz_Q1Q2[np.newaxis, ...],
+                                   atol=1.e-8)
 
 
 def parallelepipedic_kernel_test():
