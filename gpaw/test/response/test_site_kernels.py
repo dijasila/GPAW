@@ -6,8 +6,10 @@ from ase.build import bulk
 
 from gpaw import GPAW, PW
 from gpaw.response.site_kernels import (site_kernel_interface,
+                                        sinc,
                                         spherical_geometry_factor,
-                                        cylindrical_geometry_factor)
+                                        cylindrical_geometry_factor,
+                                        parallelepipedic_geometry_factor)
 from gpaw.response.susceptibility import get_pw_coordinates
 
 
@@ -107,7 +109,7 @@ def cylindrical_kernel_test():
     # Wave vector directions in-plane to check. Generated through the cross
     # product of a random direction with the cylindrical axis
     nd = 11
-    Qrho_dv = 2. * np.random.rand(nd, 2) - 1.
+    Qrho_dv = 2. * np.random.rand(nd, 3) - 1.
     Qrho_cdv = np.cross(Qrho_dv[np.newaxis, ...], ez_cv[:, np.newaxis, :])
     Qrho_cdv /= np.linalg.norm(Qrho_cdv, axis=-1)[..., np.newaxis]  # normalize
 
@@ -150,7 +152,57 @@ def cylindrical_kernel_test():
 
 
 def parallelepipedic_kernel_test():
-    pass
+    """Check the numerics of the parallelepipedic site kernel."""
+    # ---------- Inputs ---------- #
+
+    # Relative wave vectors to check and corresponding sinc(x/2)
+    Qrel_Q = np.pi * np.arange(5)
+    sinchalf_Q = np.array([1., 2. / np.pi, 0., - 2. / (3. * np.pi), 0.])
+
+    # Random parallelepipedic cell vectors to check
+    nC = 5
+    cell_Ccv = 2. * np.random.rand(nC, 3, 3) - 1.
+    volume_C = np.abs(np.linalg.det(cell_Ccv))
+    # Normalize the cell volume
+    cell_Ccv /= (volume_C**(1 / 3))[:, np.newaxis, np.newaxis]
+
+    # Transverse wave vector components to check. Generated through the cross
+    # product of a random direction with the first cell axis.
+    v0_Cv = cell_Ccv[:, 0, :].copy()
+    v0_C = np.linalg.norm(v0_Cv, axis=-1)  # Length of primary vector
+    v0n_Cv = v0_Cv / v0_C[:, np.newaxis]  # Normalize
+    nd = 3
+    Q_dv = 2. * np.random.rand(nd, 3) - 1.
+    Q_dv[0, :] = np.array([0., 0., 0.])  # Check also parallel Q-vector
+    Q_Cdv = np.cross(Q_dv[np.newaxis, ...], v0_Cv[:, np.newaxis, :])
+
+    Vparlp = 1.
+
+    # To do: Check different volumes and rotate primary direction XXX
+
+    # ---------- Script ---------- #
+
+    # Rescale primary vector to let Q.a follow Qrel
+    Qrel_CQ = Qrel_Q[np.newaxis, :] / v0_C[:, np.newaxis]
+    # Generate Q-vectors
+    Q_CdQv = Qrel_CQ[:, np.newaxis, :, np.newaxis]\
+        * v0n_Cv[:, np.newaxis, np.newaxis, :]\
+        + Q_Cdv[..., np.newaxis, :]
+
+    # Generate test values
+    sinchalf_CdQ = sinc(np.sum(cell_Ccv[:, np.newaxis, np.newaxis, 1, :]
+                               * Q_CdQv, axis=-1) / 2)\
+        * sinc(np.sum(cell_Ccv[:, np.newaxis, np.newaxis, 2, :]
+                      * Q_CdQv, axis=-1) / 2)
+    test_Theta_CdQ = Vparlp * sinchalf_Q[np.newaxis, np.newaxis, :]\
+        * sinchalf_CdQ
+
+    for Q_dQv, test_Theta_dQ, cell_cv in zip(Q_CdQv, test_Theta_CdQ, cell_Ccv):
+        # Calculate geometry factors
+        Theta_dQ = parallelepipedic_geometry_factor(Q_dQv, cell_cv)
+
+        # Check against expected results
+        assert np.allclose(Theta_dQ, test_Theta_dQ, atol=1.e-8)
 
 
 def Co_hcp_test():
