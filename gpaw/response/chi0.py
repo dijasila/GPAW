@@ -349,35 +349,25 @@ class Chi0:
         # functions over user defined domains and sum over bands.
         integrator: Integrator
         intnoblock: Integrator
+
         if self.integrationmode is None or \
            self.integrationmode == 'point integration':
-            integrator = PointIntegrator(self.pair.calc.wfs.gd.cell_cv,
-                                         comm=self.world,
-                                         timer=self.timer,
-                                         txt=self.fd,
-                                         eshift=self.eshift,
-                                         nblocks=self.nblocks)
-            intnoblock = PointIntegrator(self.pair.calc.wfs.gd.cell_cv,
-                                         comm=self.world,
-                                         timer=self.timer,
-                                         eshift=self.eshift,
-                                         txt=self.fd)
+            cls = PointIntegrator
         elif self.integrationmode == 'tetrahedron integration':
-            integrator = TetrahedronIntegrator(self.pair.calc.wfs.gd.cell_cv,
-                                               comm=self.world,
-                                               timer=self.timer,
-                                               eshift=self.eshift,
-                                               txt=self.fd,
-                                               nblocks=self.nblocks)
-            intnoblock = TetrahedronIntegrator(self.pair.calc.wfs.gd.cell_cv,
-                                               comm=self.world,
-                                               timer=self.timer,
-                                               eshift=self.eshift,
-                                               txt=self.fd)
+            cls = TetrahedronIntegrator  # type: ignore
         else:
-            print('Integration mode ' + self.integrationmode +
-                  ' not implemented.', file=self.fd)
-            raise NotImplementedError
+            raise ValueError(f'Integration mode "{self.integrationmode}"'
+                             ' not implemented.')
+
+        kwargs = dict(
+            cell_cv=self.pair.calc.wfs.gd.cell_cv,
+            comm=self.world,
+            timer=self.timer,
+            eshift=self.eshift,
+            txt=self.fd)
+
+        integrator = cls(**kwargs, nblocks=self.nblocks)
+        intnoblock = cls(**kwargs)
 
         # The integration domain is determined by the following function
         # that reduces the integration domain to the irreducible zone
