@@ -201,7 +201,7 @@ def Co_hcp_test():
     siteposition_mv = atoms.get_positions()
 
     # Compute site-kernels
-    # How can it make sense to use a paralleliped for Co(hcp)?  XXX
+    # How can it make sense to use a parallelepiped for Co(hcp)?  XXX
     Kuc_GGm = site_kernel_interface(pd0, siteposition_mv,
                                     shapes_m='unit cell')
     Ksph_GGm = site_kernel_interface(pd0, siteposition_mv,

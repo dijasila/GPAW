@@ -92,13 +92,13 @@ def site_kernel_interface(pd, sitePos_mv, shapes_m='sphere',
         elif shape == 'unit cell':
             # Get real-space basis vectors
             # Give the user control over these XXX
-            a1, a2, a3 = pd.gd.cell_cv
+            cell_cv = pd.gd.cell_cv
 
             # # Default site position is center of unit cell
             # # This should not be up to some secret functionality to decide XXX
             # if sitePos_v is None:
             #     sitePos_v = 1 / 2 * (a1 + a2 + a3)
-            K_GG = K_unit_cell(Q_GGv, a1, a2, a3)
+            K_GG = parallelepipedic_geometry_factor(Q_GGv, cell_cv)
 
         else:
             print('Not a recognised shape')
@@ -221,18 +221,44 @@ def cylindrical_geometry_factor(Q_Qv, ez_v, rc, hc):
     return Theta_Q
 
 
-def K_unit_cell(Q_GGv, a1, a2, a3):
-    """Compute site-kernel for a spherical integration region"""
+def parallelepipedic_geometry_factor(Q_Qv, cell_cv):
+    """Calculate the site centered geometry factor for a parallelepipedic site
+    kernel:
+
+           /
+    Θ(Q) = | dr e^(-iQ.r) θ(r∊V_parallelepiped)
+           /
+
+         = |det[a1, a2, a3]| sinc(Q.a1 / 2) sinc(Q.a2 / 2) sinc(Q.a3 / 2)
+
+         = V_parallelepiped sinc(Q.a1 / 2) sinc(Q.a2 / 2) sinc(Q.a3 / 2)
+
+    where a1, a2 and a3 denotes the parallelepipedic cell vectors.
+
+    Parameters
+    ----------
+    Q_Qv : np.ndarray
+        Wave vectors to evaluate the site centered geometry factor at. The
+        cartesian coordinates needs to be the last dimension of the array (v),
+        but the preceeding index/indices Q can have any tensor structure, such
+        that Q_Qv.shape = (..., 3).
+    cell_cv : np.ndarray, shape=(3, 3)
+        Cell vectors of the parallelepiped, where v denotes the cartesian
+        coordinates.
+    """
+    assert Q_Qv.shape[-1] == 3
+    assert cell_cv.shape == (3, 3)
 
     # Calculate the parallelepiped volume
-    cell_cv = np.array([a1, a2, a3])
     Vparlp = abs(np.linalg.det(cell_cv))
+    assert Vparlp > 1.e-8  # Not a valid parallelepiped if volume vanishes
 
     # Calculate the site-kernel
-    K_GG = Vparlp * sinc(Q_GGv @ a1 / 2) * sinc(Q_GGv @ a2 / 2) * \
-        sinc(Q_GGv @ a3 / 2)
+    a1, a2, a3 = cell_cv
+    Theta_Q = Vparlp * sinc(Q_Qv @ a1 / 2) * sinc(Q_Qv @ a2 / 2) * \
+        sinc(Q_Qv @ a3 / 2)
 
-    return K_GG
+    return Theta_Q
 
 
 def _makePrefactor(sitePos_v, sum_GGv, Omega_cell):
