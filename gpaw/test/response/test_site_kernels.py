@@ -267,11 +267,11 @@ def Co_hcp_test():
 
     # Compute site-kernels
     # How can it make sense to use a parallelepiped for Co(hcp)?  XXX
-    Kuc_GGm = site_kernel_interface(pd0, siteposition_mv,
+    Kuc_mGG = site_kernel_interface(pd0, siteposition_mv,
                                     shapes_m='unit cell')
-    Ksph_GGm = site_kernel_interface(pd0, siteposition_mv,
+    Ksph_mGG = site_kernel_interface(pd0, siteposition_mv,
                                      shapes_m='sphere', rc_m=rc_m)
-    Kcyl_GGm = site_kernel_interface(pd0, siteposition_mv,
+    Kcyl_mGG = site_kernel_interface(pd0, siteposition_mv,
                                      shapes_m='cylinder', rc_m=rc_m, zc_m=zc_m)
 
     # Part 4: Check the calculated kernels
@@ -284,14 +284,14 @@ def Co_hcp_test():
     Vcylinder_m = np.pi * rc_m**2 * height_m
 
     # Check shape of K-arrays
-    assert Kuc_GGm.shape == (nG, nG, 1)
-    assert Ksph_GGm.shape == (nG, nG, 2)
-    assert Kcyl_GGm.shape == (nG, nG, 2)
+    assert Kuc_mGG.shape == (1, nG, nG)
+    assert Ksph_mGG.shape == (2, nG, nG)
+    assert Kcyl_mGG.shape == (2, nG, nG)
 
     # Check that K_00(q=0) gives Vint / V0 (fractional integration volume)
-    assert abs(Kuc_GGm[0, 0, 0] - 1.) < 1.e-8
-    assert np.allclose(Ksph_GGm[0, 0, :], Vsphere_m / V0)
-    assert np.allclose(Kcyl_GGm[0, 0, :], Vcylinder_m / V0)
+    assert abs(Kuc_mGG[0, 0, 0] - 1.) < 1.e-8
+    assert np.allclose(Ksph_mGG[:, 0, 0], Vsphere_m / V0)
+    assert np.allclose(Kcyl_mGG[:, 0, 0], Vcylinder_m / V0)
 
 
 # ---------- Test functionality ---------- #

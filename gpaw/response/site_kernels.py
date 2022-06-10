@@ -141,7 +141,7 @@ def calculate_site_kernels(pd, positions, geometries):
 
     # Allocate site kernel array
     nsites = len(geometries)
-    K_GGa = np.zeros(Q_GGv.shape[:2] + (nsites,), dtype=complex)
+    K_aGG = np.zeros((nsites,) + Q_GGv.shape[:2], dtype=complex)
 
     # Calculate the site kernel for each site individually
     for a, (tau_v, (shape, args)) in enumerate(zip(positions, geometries)):
@@ -154,9 +154,9 @@ def calculate_site_kernels(pd, positions, geometries):
         tau_GG = np.exp(-1.j * Q_GGv @ tau_v)
 
         # Update data
-        K_GGa[:, :, a] = 1 / V0 * tau_GG * Theta_GG
+        K_aGG[a, :, :] = 1 / V0 * tau_GG * Theta_GG
 
-    return K_GGa
+    return K_aGG
 
 
 def construct_wave_vectors(pd):

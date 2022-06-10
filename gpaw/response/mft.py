@@ -153,15 +153,15 @@ class IsotropicExchangeCalculator:
             rc_m, zc_m = rc_rm[r], zc_rm[r]
 
             # Compute site-kernel
-            K_GGm = site_kernel_interface(pd, self.sitePos_mv,
+            K_mGG = site_kernel_interface(pd, self.sitePos_mv,
                                           shapes_m=self.shapes_m,
                                           rc_m=rc_m, zc_m=zc_m)
 
             # Compute exchange coupling
             for a in range(nsites):
                 for b in range(nsites):
-                    Ka_GG = K_GGm[:, :, a]
-                    Kb_GG = K_GGm[:, :, b]
+                    Ka_GG = K_mGG[a, :, :]
+                    Kb_GG = K_mGG[b, :, :]
                     J = np.conj(Bxc_G) @ np.conj(Ka_GG).T @ chiks_GG @ Kb_GG \
                         @ Bxc_G
                     J_abr[a, b, r] = 2. * J / V0
