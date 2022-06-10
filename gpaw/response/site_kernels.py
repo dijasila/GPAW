@@ -8,11 +8,6 @@ from gpaw.response.susceptibility import get_pw_coordinates
 from ase.units import Bohr
 
 
-def sinc(x):
-    """np.sinc(x) = sin(pi*x) / (pi*x), hence the division by pi"""
-    return np.sinc(x / np.pi)
-
-
 def site_kernel_interface(pd, sitePos_mv, shapes_m='sphere',
                           rc_m=1.0, zc_m='diameter'):
     """Compute site kernels using an arbitrary combination of shapes for the
@@ -36,10 +31,6 @@ def site_kernel_interface(pd, sitePos_mv, shapes_m='sphere',
     """
 
     # Change name of sitePos_mv to positions XXX
-    print(sitePos_mv)
-    print(shapes_m)
-    print(rc_m)
-    print(zc_m)
 
     # Number of sites
     if shapes_m == 'unit cell':
@@ -68,11 +59,6 @@ def site_kernel_interface(pd, sitePos_mv, shapes_m='sphere',
     zc_m = np.array(zc_m, dtype=float)
     ez_v = np.array([0., 0., 1.])  # Should be made an input in the future XXX
 
-    # # Default site position is center of unit cell
-    # # This should not be up to some secret functionality to decide XXX
-    # if sitePos_v is None:
-    #     sitePos_v = 1 / 2 * (a1 + a2 + a3)
-
     # Convert input units (Å) to atomic units (Bohr)
     sitePos_mv = sitePos_mv / Bohr
     rc_m = rc_m / Bohr
@@ -95,21 +81,62 @@ def site_kernel_interface(pd, sitePos_mv, shapes_m='sphere',
         else:
             raise ValueError('Invalid site kernel shape:', shape)
 
-    print(sitePos_mv)
-    print(geometries)
-
     return calculate_site_kernels(pd, sitePos_mv, geometries)
 
 
 def calculate_site_kernels(pd, positions, geometries):
-    """Improve documentation here! XXX"""
+    """Calculate the sublattice site kernel:
+
+                1  /
+    K_aGG'(q) = ‾‾ | dr e^(-i[G-G'+q].r) θ(r∊V_a)
+                V0 /
+
+    where V_a denotes the integration volume of site a, centered at the site
+    position τ_a, and V0 denotes the unit cell volume.
+
+    In the calculation, the kernel is split in two contributions:
+
+    1) The Fourier component of the site position:
+
+    τ_a(Q) = e^(-iQ.τ_a)
+
+    2) The site centered geometry factor
+
+           /
+    Θ(Q) = | dr e^(-iQ.r) θ(r+τ_a∊V_a)
+           /
+
+    where Θ(Q) only depends on the geometry of the integration volume.
+    With this:
+
+                1
+    K_aGG'(q) = ‾‾ τ_a(G-G'+q) Θ(G-G'+q)
+                V0
+
+    Parameters
+    ----------
+    pd : PWDescriptor
+        Plane wave descriptor corresponding to the q wave vector of interest.
+    positions : np.ndarray
+        Site positions. Array of shape (nsites, 3).
+    geometries : list
+        List of site geometries. A site geometry is a tuple of the integration
+        volume shape (str) and arguments (tuple): (shape, args). Valid shapes
+        are 'sphere', 'cylinder' and 'parallelepiped'. The integration volume
+        arguments specify the size and orientation of the integration region.
+
+    Returns
+    -------
+    K_aGG : np.ndarray (dtype=complex)
+        Site kernels of site a and plane wave component G and G'.
+    """
     assert positions.shape[0] == len(geometries)
     assert positions.shape[1] == 3
 
     # Extract unit cell volume
     V0 = pd.gd.volume
 
-    # Construct Fourier components
+    # Construct Q=G-G'+q
     Q_GGv = construct_wave_vectors(pd)
 
     # Allocate site kernel array
@@ -117,47 +144,47 @@ def calculate_site_kernels(pd, positions, geometries):
     K_GGa = np.zeros(Q_GGv.shape[:2] + (nsites,), dtype=complex)
 
     # Calculate the site kernel for each site individually
-    for a, (pos_v, (shape, args)) in enumerate(zip(positions, geometries)):
+    for a, (tau_v, (shape, args)) in enumerate(zip(positions, geometries)):
 
         # Compute the site centered geometry factor
         _geometry_factor = create_geometry_factor(shape)  # factory pattern
         Theta_GG = _geometry_factor(Q_GGv, *args)
 
-        # Compute site position Fourier component
-        pos_GG = np.exp(-1.j * Q_GGv @ pos_v)
+        # Compute the Fourier component of the site position
+        tau_GG = np.exp(-1.j * Q_GGv @ tau_v)
 
         # Update data
-        K_GGa[:, :, a] = 1 / V0 * pos_GG * Theta_GG
+        K_GGa[:, :, a] = 1 / V0 * tau_GG * Theta_GG
 
     return K_GGa
 
 
 def construct_wave_vectors(pd):
-    """Construct wave vector array with shape (NG, NG, 3).
+    """Construct wave vectors Q=G1-G2+q corresponding to the q-vector of
+    interest."""
+    G_Gv, q_v = get_plane_waves_and_reduced_wave_vector(pd)
 
-    Improve documentation here! XXX
-    """
-    G_Gv, q_v = _extract_pd_info(pd)
-    NG = len(G_Gv)
-    G1_GGv = np.tile(G_Gv[:, np.newaxis, :], [1, NG, 1])
-    G2_GGv = np.tile(G_Gv[np.newaxis, :, :], [NG, 1, 1])
-    q_GGv = np.tile(q_v[np.newaxis, np.newaxis, :], [NG, NG, 1])
+    # Allocate arrays for G, G' and q respectively
+    nG = len(G_Gv)
+    G1_GGv = np.tile(G_Gv[:, np.newaxis, :], [1, nG, 1])
+    G2_GGv = np.tile(G_Gv[np.newaxis, :, :], [nG, 1, 1])
+    q_GGv = np.tile(q_v[np.newaxis, np.newaxis, :], [nG, nG, 1])
 
-    Q_GGv = G1_GGv - G2_GGv + q_GGv  # G_1 - G_2 + q
+    # Contruct the wave vector G1 - G2 + q
+    Q_GGv = G1_GGv - G2_GGv + q_GGv
 
     return Q_GGv
 
 
-def _extract_pd_info(pd):
-    """Get relevant quantities from pd object (plane-wave descriptor)
-    In particular reciprocal space vectors and unit cell volume
-    Note : all in Bohr and absolute coordinates.
-
-    Improve documentation here! XXX
-    """
+def get_plane_waves_and_reduced_wave_vector(pd):
+    """Get the reciprocal lattice vectors and reduced wave vector of the plane
+    wave representation corresponding to the q-vector of interest."""
+    # Get the reduced wave vector
     q_qc = pd.kd.bzk_kc
     assert len(q_qc) == 1
     q_c = q_qc[0, :]  # Assume single q
+
+    # Get the reciprocal lattice vectors in relative coordinates
     G_Gc = get_pw_coordinates(pd)
 
     # Convert to cartesian coordinates
@@ -330,3 +357,8 @@ def parallelepipedic_geometry_factor(Q_Qv, cell_cv):
         sinc(Q_Qv @ a3 / 2)
 
     return Theta_Q
+
+
+def sinc(x):
+    """np.sinc(x) = sin(pi*x) / (pi*x), hence the division by pi"""
+    return np.sinc(x / np.pi)
