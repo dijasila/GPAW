@@ -84,6 +84,73 @@ def site_kernel_interface(pd, sitePos_mv, shapes_m='sphere',
     return calculate_site_kernels(pd, sitePos_mv, geometries)
 
 
+class SiteKernels:
+    """Some documentation here! XXX"""
+
+    def __init__(self, positions, geometries):
+        """Some documentation here! XXX"""
+        assert isinstance(geometries, list)
+        assert positions.shape[0] == len(geometries)
+        assert positions.shape[1] == 3
+
+        self.positions = positions
+        self.geometries = geometries
+
+        self.nsites = len(geometries)
+
+    def calculate(self, pd):
+        return calculate_site_kernels(pd, self.positions, self.geometries)
+
+    def __add__(self, sitekernels):
+        """Add the sites from two SiteKernels instances to a new joint
+        SiteKernels instance."""
+        assert isinstance(sitekernels, SiteKernels)
+
+        # Join positions
+        nsites = self.nsites + sitekernels.nsites
+        positions = np.append(self.positions,
+                              sitekernels.positions).reshape(nsites, 3)
+
+        # Join geometries
+        geometries = self.geometries + sitekernels.geometries
+
+        return SiteKernels(positions, geometries)
+
+
+class SphericalSiteKernels(SiteKernels):
+    """Some documentation here! XXX"""
+
+    def __init__(self, positions, radii):
+        """Some documentation here! XXX"""
+        # Parse the input spherical radii
+        rc_a = np.asarray(radii)
+        assert rc_a.shape == (positions.shape[0],)
+        rc_a /= Bohr  # Å to Bohr (internal units)
+
+        # Generate list of geometries
+        geometries = [('sphere', (rc,)) for rc in rc_a]
+
+        SiteKernels.__init__(self, positions, geometries)
+
+    def from_internals(self, positions, geometries):
+        """Initialize the object from geometries list."""
+        assert all([shape == 'sphere' for shape, _ in geometries])
+        SiteKernels.__init__(self, positions, geometries)
+
+    def __add__(self, sitekernels):
+        """Add the sites from two SiteKernels instances to a new joint
+        SiteKernels instance. If both original SiteKernels instances were
+        SphericalSiteKernels, a new joint SphericalSiteKernels instance is
+        returned."""
+        new_sks = SiteKernels.__add__(self, sitekernels)
+
+        if isinstance(sitekernels, SphericalSiteKernels):
+            return SphericalSiteKernels.from_internals(new_sks.positions,
+                                                       new_sks.geometries)
+        else:
+            return new_sks
+
+
 def calculate_site_kernels(pd, positions, geometries):
     """Calculate the sublattice site kernel:
 
