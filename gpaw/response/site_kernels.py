@@ -173,8 +173,8 @@ class SphericalSiteKernels(SiteKernels):
         assert rc_a.shape == (positions.shape[0],)
 
         # Convert radii to internal units (Å to Bohr)
-        positions /= Bohr
-        rc_a /= Bohr
+        positions = positions / Bohr
+        rc_a = rc_a / Bohr
 
         # Generate list of geometries
         geometries = [('sphere', (rc,)) for rc in rc_a]
@@ -195,14 +195,14 @@ class CylindricalSiteKernels(SiteKernels):
         hc_a = np.asarray(heights)
         nsites = positions.shape[0]
         assert ez_av.shape == (nsites, 3)
-        assert np.allclose(np.linalg.norm(ez_av, axis=-1), 0., atol=1.e-8)
+        assert np.allclose(np.linalg.norm(ez_av, axis=-1), 1., atol=1.e-8)
         assert rc_a.shape == (nsites,)
         assert hc_a.shape == (nsites,)
 
         # Convert to internal units (Å to Bohr)
-        positions /= Bohr
-        rc_a /= Bohr
-        hc_a /= Bohr
+        positions = positions / Bohr
+        rc_a = rc_a / Bohr
+        hc_a = hc_a / Bohr
 
         # Generate list of geometries
         geometries = [('cylinder', (ez_v, rc, hc))
@@ -223,8 +223,8 @@ class ParallelepipedicSiteKernels(SiteKernels):
         assert cell_acv.shape == (positions.shape[0], 3, 3)
 
         # Convert to internal units (Å to Bohr)
-        positions /= Bohr
-        cell_acv /= Bohr
+        positions = positions / Bohr
+        cell_acv = cell_acv / Bohr
 
         # Generate list of geometries
         geometries = [('parallelepiped', (cell_cv,)) for cell_cv in cell_acv]
