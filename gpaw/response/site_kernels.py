@@ -161,15 +161,49 @@ class SphericalSiteKernels(SiteKernels):
 
     def __init__(self, positions, radii):
         """Some documentation here! XXX"""
+        positions = np.asarray(positions)
+
         # Parse the input spherical radii
         rc_a = np.asarray(radii)
         assert rc_a.shape == (positions.shape[0],)
-        rc_a /= Bohr  # Å to Bohr (internal units)
+
+        # Convert radii to internal units (Å to Bohr)
+        positions /= Bohr
+        rc_a /= Bohr
 
         # Generate list of geometries
         geometries = [('sphere', (rc,)) for rc in rc_a]
 
         SiteKernels.from_internals(self, positions, geometries, 'sphere')
+
+
+class CylindricalSiteKernels(SiteKernels):
+    """Some documentation here! XXX"""
+
+    def __init__(self, positions, directions, radii, heights):
+        """Some documentation here! XXX"""
+        positions = np.asarray(positions)
+
+        # Parse the cylinder geometry arguments
+        ez_av = np.asarray(directions)
+        rc_a = np.asarray(radii)
+        hc_a = np.asarray(heights)
+        nsites = positions.shape[0]
+        assert ez_av.shape == (nsites, 3)
+        assert np.allclose(np.linalg.norm(ez_av, axis=-1), 0., atol=1.e-8)
+        assert rc_a.shape == (nsites,)
+        assert hc_a.shape == (nsites,)
+
+        # Convert to internal units (Å to Bohr)
+        positions /= Bohr
+        rc_a /= Bohr
+        hc_a /= Bohr
+
+        # Generate list of geometries
+        geometries = [('cylinder', (ez_v, rc, hc))
+                      for ez_v, rc, hc in zip(ez_av, rc_a, hc_a)]
+
+        SiteKernels.from_internals(self, positions, geometries, 'cylinder')
 
 
 def calculate_site_kernels(pd, positions, geometries):
