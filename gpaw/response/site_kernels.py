@@ -98,7 +98,12 @@ class SiteKernels:
 
         self.positions = positions
         self.geometries = geometries
-        self.geometry_shape = None
+
+        # Store the geometry shape as a property, if they are all the same
+        if all([shape == geometries[0][0] for shape, _ in geometries]):
+            self.geometry_shape = geometries[0][0]
+        else:
+            self.geometry_shape = None
 
         self.nsites = len(geometries)
 
@@ -118,47 +123,7 @@ class SiteKernels:
         # Join geometries
         geometries = self.geometries + sitekernels.geometries
 
-        if self.geometry_shape == sitekernels.geometry_shape:
-            # If both sitekernels instances share the same geometry shape,
-            # initialize the new SiteKernels instance from the associated
-            # subclass
-            geometry_shape = self.geometry_shape
-        else:
-            # When mixing different geometry shapes, fall back to the
-            # geometry neutral SiteKernels class
-            geometry_shape = None
-
-        return get_sitekernels(positions, geometries, geometry_shape)
-
-    def from_internals(self, positions, geometries, geometry_shape):
-        """Do a 'safe' initialization of a SiteKernels instance with a specific
-        geometry shape."""
-        if geometry_shape is not None:
-            assert all([shape == geometry_shape for shape, _ in geometries])
-        SiteKernels.__init__(self, positions, geometries)
-        self.geometry_shape = geometry_shape
-
-
-def get_sitekernels(positions, geometries, geometry_shape):
-    """Factory function for initializing instances of SiteKernels and its
-    subclasses using internal variables."""
-    _MySiteKernels = create_sitekernels(geometry_shape)
-
-    return _MySiteKernels.from_internals(positions, geometries, geometry_shape)
-
-
-def create_sitekernels(geometry_shape):
-    """Creator component of the sitekernels factory pattern."""
-    if geometry_shape is None:
-        return SiteKernels
-    elif geometry_shape == 'sphere':
-        return SphericalSiteKernels
-    elif geometry_shape == 'cylinder':
-        return CylindricalSiteKernels
-    elif geometry_shape == 'parallelepiped':
-        return ParallelepipedicSiteKernels
-    else:
-        raise ValueError('Invalid site kernel geometry shape:', geometry_shape)
+        return SiteKernels(positions, geometries)
 
 
 class SphericalSiteKernels(SiteKernels):
@@ -179,7 +144,7 @@ class SphericalSiteKernels(SiteKernels):
         # Generate list of geometries
         geometries = [('sphere', (rc,)) for rc in rc_a]
 
-        SiteKernels.from_internals(self, positions, geometries, 'sphere')
+        SiteKernels.__init__(self, positions, geometries)
 
 
 class CylindricalSiteKernels(SiteKernels):
@@ -208,7 +173,7 @@ class CylindricalSiteKernels(SiteKernels):
         geometries = [('cylinder', (ez_v, rc, hc))
                       for ez_v, rc, hc in zip(ez_av, rc_a, hc_a)]
 
-        SiteKernels.from_internals(self, positions, geometries, 'cylinder')
+        SiteKernels.__init__(self, positions, geometries)
 
 
 class ParallelepipedicSiteKernels(SiteKernels):
@@ -229,8 +194,7 @@ class ParallelepipedicSiteKernels(SiteKernels):
         # Generate list of geometries
         geometries = [('parallelepiped', (cell_cv,)) for cell_cv in cell_acv]
 
-        SiteKernels.from_internals(self, positions, geometries,
-                                   'parallelepiped')
+        SiteKernels.__init__(self, positions, geometries)
 
 
 def calculate_site_kernels(pd, positions, geometries):
