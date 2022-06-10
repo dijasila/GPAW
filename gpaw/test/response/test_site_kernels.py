@@ -293,9 +293,9 @@ def Co_hcp_test():
 
     # Calculate spherical site kernels
     Ksph_mGG = sph_sitekernels.calculate(pd0)
-    Ksph0_mGG = sph_sitekernels0(pd0)
-    Ksph1_mGG = sph_sitekernels1(pd0)
-    Ksph_sum_mGG = sph_sitekernels_sum(pd0)
+    Ksph0_mGG = sph_sitekernels0.calculate(pd0)
+    Ksph1_mGG = sph_sitekernels1.calculate(pd0)
+    Ksph_sum_mGG = sph_sitekernels_sum.calculate(pd0)
 
     # Calculate cylindrical site kernels
     Kcyl_mGG = cyl_sitekernels.calculate(pd0)
@@ -314,6 +314,14 @@ def Co_hcp_test():
 
     # Part 4: Check the calculated kernels
 
+    # Check geometry shapes of basic arrays
+    assert sph_sitekernels.geometry_shape == 'sphere'
+    assert cyl_sitekernels.geometry_shape == 'cylinder'
+    assert uc_sitekernels.geometry_shape == 'parallelepiped'
+
+    # Check geometry shapes of summed arrays
+    assert sph_sitekernels_sum.geometry_shape == 'sphere'
+
     # Check shape of spherical kernel arrays
     nG = len(get_pw_coordinates(pd0))
     assert Ksph_mGG.shape == (2, nG, nG)
@@ -329,7 +337,7 @@ def Co_hcp_test():
 
     # Check self-consitency of spherical arrays
     assert np.allclose(Ksph0_mGG[0], Ksph_sum_mGG[0])
-    assert np.allclose(Ksph0_mGG[1], Ksph_sum_mGG[1])
+    assert np.allclose(Ksph1_mGG[0], Ksph_sum_mGG[1])
     assert np.allclose(Ksph_mGG, Ksph_sum_mGG)
 
     # Check that K_00(q=0) gives Vint / V0 (fractional integration volume)
