@@ -127,7 +127,6 @@ class SiteKernels:
 
 
 class SphericalSiteKernels(SiteKernels):
-    """Some documentation here! XXX"""
 
     def __init__(self, positions, radii):
         """Some documentation here! XXX"""
@@ -148,7 +147,6 @@ class SphericalSiteKernels(SiteKernels):
 
 
 class CylindricalSiteKernels(SiteKernels):
-    """Some documentation here! XXX"""
 
     def __init__(self, positions, directions, radii, heights):
         """Some documentation here! XXX"""
@@ -177,7 +175,6 @@ class CylindricalSiteKernels(SiteKernels):
 
 
 class ParallelepipedicSiteKernels(SiteKernels):
-    """Some documentation here! XXX"""
 
     def __init__(self, positions, cells):
         """Some documentation here! XXX"""
