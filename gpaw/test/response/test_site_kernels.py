@@ -6,6 +6,9 @@ from ase.build import bulk
 
 from gpaw import GPAW, PW
 from gpaw.response.site_kernels import (site_kernel_interface,
+                                        SphericalSiteKernels,
+                                        CylindricalSiteKernels,
+                                        ParallelepipedicSiteKernels,
                                         sinc,
                                         spherical_geometry_factor,
                                         cylindrical_geometry_factor,
@@ -265,14 +268,34 @@ def Co_hcp_test():
     # Part 2: Calculate site kernels
     siteposition_mv = atoms.get_positions()
 
-    # Compute site-kernels
-    # How can it make sense to use a parallelepiped for Co(hcp)?  XXX
-    Kuc_mGG = site_kernel_interface(pd0, siteposition_mv,
-                                    shapes_m='unit cell')
-    Ksph_mGG = site_kernel_interface(pd0, siteposition_mv,
-                                     shapes_m='sphere', rc_m=rc_m)
-    Kcyl_mGG = site_kernel_interface(pd0, siteposition_mv,
-                                     shapes_m='cylinder', rc_m=rc_m, zc_m=zc_m)
+    # Compute site-kernels using old interface
+    Ksph_old_mGG = site_kernel_interface(pd0, siteposition_mv,
+                                         shapes_m='sphere', rc_m=rc_m)
+    Kcyl_old_mGG = site_kernel_interface(pd0, siteposition_mv,
+                                         shapes_m='cylinder',
+                                         rc_m=rc_m, zc_m=zc_m)
+    Kuc_old_mGG = site_kernel_interface(pd0, siteposition_mv,
+                                        shapes_m='unit cell')
+
+    # Generate sitekernels instances
+    sph_sitekernels = SphericalSiteKernels(siteposition_mv, rc_m)
+    height_m = np.array([2 * rc_m[0], np.sum(atoms.cell[:, -1])])
+    cyl_sitekernels = CylindricalSiteKernels(siteposition_mv,
+                                             np.array([[0., 0., 1.],
+                                                       [0., 0., 1.]]),
+                                             rc_m, height_m)
+    # Some documentation here! XXX
+    cell_cv = atoms.get_cell()
+    cell_center_v = np.sum(cell_cv, axis=0) / 2.
+    uc_sitekernels = ParallelepipedicSiteKernels([cell_center_v],
+                                                 [cell_cv])
+
+    # Do some sitekernels arithmetic and check results consistency XXX
+
+    # Calculate site kernels
+    Ksph_mGG = sph_sitekernels.calculate(pd0)
+    Kcyl_mGG = cyl_sitekernels.calculate(pd0)
+    Kuc_mGG = uc_sitekernels.calculate(pd0)
 
     # Part 4: Check the calculated kernels
     nG = len(get_pw_coordinates(pd0))
@@ -280,9 +303,10 @@ def Co_hcp_test():
 
     # Calculate integration volumes in Å^3
     Vsphere_m = 4 / 3 * np.pi * rc_m**3
-    height_m = np.array([2 * rc_m[0], np.sum(atoms.cell[:, -1])])
     Vcylinder_m = np.pi * rc_m**2 * height_m
 
+    print(sph_sitekernels.positions)
+    print(sph_sitekernels.geometries)
     # Check shape of K-arrays
     assert Kuc_mGG.shape == (1, nG, nG)
     assert Ksph_mGG.shape == (2, nG, nG)
@@ -292,6 +316,11 @@ def Co_hcp_test():
     assert abs(Kuc_mGG[0, 0, 0] - 1.) < 1.e-8
     assert np.allclose(Ksph_mGG[:, 0, 0], Vsphere_m / V0)
     assert np.allclose(Kcyl_mGG[:, 0, 0], Vcylinder_m / V0)
+
+    # Check consistency with old interface
+    assert np.allclose(Ksph_mGG, Ksph_old_mGG)
+    assert np.allclose(Kcyl_mGG, Kcyl_old_mGG)
+    assert np.allclose(Kuc_mGG, Kuc_old_mGG)
 
 
 # ---------- Test functionality ---------- #
