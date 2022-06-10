@@ -133,14 +133,15 @@ class SiteKernels:
     def from_internals(self, positions, geometries, geometry_shape):
         """Do a 'safe' initialization of a SiteKernels instance with a specific
         geometry shape."""
-        assert all([shape == geometry_shape for shape, _ in geometries])
+        if geometry_shape is not None:
+            assert all([shape == geometry_shape for shape, _ in geometries])
         SiteKernels.__init__(self, positions, geometries)
         self.geometry_shape = geometry_shape
 
 
 def get_sitekernels(positions, geometries, geometry_shape):
     """Factory function for initializing instances of SiteKernels and its
-    subclasses."""
+    subclasses using internal variables."""
     _MySiteKernels = create_sitekernels(geometry_shape)
 
     return _MySiteKernels.from_internals(positions, geometries, geometry_shape)
@@ -152,6 +153,10 @@ def create_sitekernels(geometry_shape):
         return SiteKernels
     elif geometry_shape == 'sphere':
         return SphericalSiteKernels
+    elif geometry_shape == 'cylinder':
+        return CylindricalSiteKernels
+    elif geometry_shape == 'parallelepiped':
+        return ParallelepipedicSiteKernels
     else:
         raise ValueError('Invalid site kernel geometry shape:', geometry_shape)
 
@@ -204,6 +209,28 @@ class CylindricalSiteKernels(SiteKernels):
                       for ez_v, rc, hc in zip(ez_av, rc_a, hc_a)]
 
         SiteKernels.from_internals(self, positions, geometries, 'cylinder')
+
+
+class ParallelepipedicSiteKernels(SiteKernels):
+    """Some documentation here! XXX"""
+
+    def __init__(self, positions, cells):
+        """Some documentation here! XXX"""
+        positions = np.asarray(positions)
+
+        # Parse the parallelepipeds' cells
+        cell_acv = np.asarray(cells)
+        assert cell_acv.shape == (positions.shape[0], 3, 3)
+
+        # Convert to internal units (Å to Bohr)
+        positions /= Bohr
+        cell_acv /= Bohr
+
+        # Generate list of geometries
+        geometries = [('parallelepiped', (cell_cv,)) for cell_cv in cell_acv]
+
+        SiteKernels.from_internals(self, positions, geometries,
+                                   'parallelepiped')
 
 
 def calculate_site_kernels(pd, positions, geometries):
