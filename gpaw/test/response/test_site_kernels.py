@@ -180,8 +180,6 @@ def parallelepipedic_kernel_test():
     nV = 7
     Vparlp_V = 10. * np.random.rand(nV)
 
-    # To do: Check different primary direction entries XXX
-
     # ---------- Script ---------- #
 
     # Rescale cell
@@ -210,11 +208,14 @@ def parallelepipedic_kernel_test():
                                                 cell_CVcv):
         for Q_dQv, test_Theta_dQ, cell_cv in zip(Q_VdQv, test_Theta_VdQ,
                                                  cell_Vcv):
-            # Calculate geometry factors
-            Theta_dQ = parallelepipedic_geometry_factor(Q_dQv, cell_cv)
+            for _ in range(3):  # Check that primary axis can be anywhere
+                # Slide the cell axis indices
+                cell_cv[:, :] = cell_cv[[2, 0, 1], :]
+                # Calculate geometry factors
+                Theta_dQ = parallelepipedic_geometry_factor(Q_dQv, cell_cv)
 
-            # Check against expected results
-            assert np.allclose(Theta_dQ, test_Theta_dQ, atol=1.e-8)
+                # Check against expected results
+                assert np.allclose(Theta_dQ, test_Theta_dQ, atol=1.e-8)
 
 
 def Co_hcp_test():
