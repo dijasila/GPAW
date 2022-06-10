@@ -268,19 +268,28 @@ def Co_hcp_test():
     # Part 2: Calculate site kernels
     positions = atoms.get_positions()
 
-    # Generate spherical site kernel instances
-    sph_sitekernels = SphericalSiteKernels(positions, rc_m)  # Normally
+    # Generate spherical site kernels instances
+    # Normally
+    sph_sitekernels = SphericalSiteKernels(positions, rc_m)
     # Separately as sum of site kernels
     sph_sitekernels0 = SphericalSiteKernels([positions[0]], [rc_m[0]])
     sph_sitekernels1 = SphericalSiteKernels([positions[1]], [rc_m[1]])
     sph_sitekernels_sum = sph_sitekernels0 + sph_sitekernels1
 
-    # Generate cylindrical site kernel instances
+    # Generate cylindrical site kernels instances
+    # Normally
+    ez_mv = np.array([[0., 0., 1.], [0., 0., 1.]])
     height_m = np.array([2 * rc_m[0], np.sum(atoms.cell[:, -1])])
-    cyl_sitekernels = CylindricalSiteKernels(positions,
-                                             np.array([[0., 0., 1.],
-                                                       [0., 0., 1.]]),
+    cyl_sitekernels = CylindricalSiteKernels(positions, ez_mv,
                                              rc_m, height_m)
+    # Separately as a sum of site kernels
+    cyl_sitekernels0 = CylindricalSiteKernels([positions[0]], [ez_mv[0]],
+                                              [rc_m[0]], [height_m[0]])
+    cyl_sitekernels1 = CylindricalSiteKernels([positions[1]], [ez_mv[1]],
+                                              [rc_m[1]], [height_m[1]])
+    cyl_sitekernels_sum = cyl_sitekernels0 + cyl_sitekernels1
+
+    # Generate unit cell site kernels instances
     # To get a single site kernel spanning the entire unit cell, we use
     # the unit cell center as the site position and the unit cell vectors
     # to define a parallelepipedic site kernel
@@ -288,8 +297,12 @@ def Co_hcp_test():
     cell_center_v = np.sum(cell_cv, axis=0) / 2.
     uc_sitekernels = ParallelepipedicSiteKernels([cell_center_v],
                                                  [cell_cv])
+    # Do a sum with itself
+    uc_sitekernels_sum = uc_sitekernels + uc_sitekernels
 
-    # Do sitekernels arithmetic for cylindrical and parallelepipedic site kernels XXX
+    # Do a sum of all unique site kernels to show, that we can compute them
+    # in parallel
+    all_sitekernels = sph_sitekernels + cyl_sitekernels + uc_sitekernels
 
     # Calculate spherical site kernels
     Ksph_mGG = sph_sitekernels.calculate(pd0)
@@ -299,9 +312,16 @@ def Co_hcp_test():
 
     # Calculate cylindrical site kernels
     Kcyl_mGG = cyl_sitekernels.calculate(pd0)
+    Kcyl0_mGG = cyl_sitekernels0.calculate(pd0)
+    Kcyl1_mGG = cyl_sitekernels1.calculate(pd0)
+    Kcyl_sum_mGG = cyl_sitekernels_sum.calculate(pd0)
 
     # Calculate unit cell site kernels
     Kuc_mGG = uc_sitekernels.calculate(pd0)
+    Kuc_sum_mGG = uc_sitekernels_sum.calculate(pd0)
+
+    # Calculate all site kernels together
+    Kall_mGG = all_sitekernels.calculate(pd0)
 
     # Compute site-kernels using old interface
     Ksph_old_mGG = site_kernel_interface(pd0, positions,
@@ -321,6 +341,9 @@ def Co_hcp_test():
 
     # Check geometry shapes of summed arrays
     assert sph_sitekernels_sum.geometry_shape == 'sphere'
+    assert cyl_sitekernels_sum.geometry_shape == 'cylinder'
+    assert uc_sitekernels_sum.geometry_shape == 'parallelepiped'
+    assert all_sitekernels.geometry_shape is None
 
     # Check shape of spherical kernel arrays
     nG = len(get_pw_coordinates(pd0))
@@ -331,14 +354,35 @@ def Co_hcp_test():
 
     # Check shape of cylindrical kernel arrays
     assert Kcyl_mGG.shape == (2, nG, nG)
+    assert Kcyl0_mGG.shape == (1, nG, nG)
+    assert Kcyl1_mGG.shape == (1, nG, nG)
+    assert Kcyl_sum_mGG.shape == (2, nG, nG)
 
     # Check shape of parallelepipedic kernel arrays
     assert Kuc_mGG.shape == (1, nG, nG)
+    assert Kuc_sum_mGG.shape == (2, nG, nG)
+
+    # Check shape of array calculated in parallel
+    assert Kall_mGG.shape == (5, nG, nG)
 
     # Check self-consitency of spherical arrays
     assert np.allclose(Ksph0_mGG[0], Ksph_sum_mGG[0])
     assert np.allclose(Ksph1_mGG[0], Ksph_sum_mGG[1])
     assert np.allclose(Ksph_mGG, Ksph_sum_mGG)
+
+    # Check self-consistency of cylindrical arrays
+    assert np.allclose(Kcyl0_mGG[0], Kcyl_sum_mGG[0])
+    assert np.allclose(Kcyl1_mGG[0], Kcyl_sum_mGG[1])
+    assert np.allclose(Kcyl_mGG, Kcyl_sum_mGG)
+
+    # Check self-consistency of unit cell arrays
+    assert np.allclose(Kuc_mGG[0], Kuc_sum_mGG[0])
+    assert np.allclose(Kuc_mGG[0], Kuc_sum_mGG[1])
+
+    # Check self-consistency of kernel calculated in parallel
+    assert np.allclose(Ksph_mGG, Kall_mGG[:2])
+    assert np.allclose(Kcyl_mGG, Kall_mGG[2:4])
+    assert np.allclose(Kuc_mGG, Kall_mGG[-1:])
 
     # Check that K_00(q=0) gives Vint / V0 (fractional integration volume)
     # Volume of unit cell in Å^3
