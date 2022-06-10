@@ -266,53 +266,78 @@ def Co_hcp_test():
                            gammacentered=gammacentered)
 
     # Part 2: Calculate site kernels
-    siteposition_mv = atoms.get_positions()
+    positions = atoms.get_positions()
 
-    # Compute site-kernels using old interface
-    Ksph_old_mGG = site_kernel_interface(pd0, siteposition_mv,
-                                         shapes_m='sphere', rc_m=rc_m)
-    Kcyl_old_mGG = site_kernel_interface(pd0, siteposition_mv,
-                                         shapes_m='cylinder',
-                                         rc_m=rc_m, zc_m=zc_m)
-    Kuc_old_mGG = site_kernel_interface(pd0, siteposition_mv,
-                                        shapes_m='unit cell')
+    # Generate spherical site kernel instances
+    sph_sitekernels = SphericalSiteKernels(positions, rc_m)  # Normally
+    # Separately as sum of site kernels
+    sph_sitekernels0 = SphericalSiteKernels([positions[0]], [rc_m[0]])
+    sph_sitekernels1 = SphericalSiteKernels([positions[1]], [rc_m[1]])
+    sph_sitekernels_sum = sph_sitekernels0 + sph_sitekernels1
 
-    # Generate sitekernels instances
-    sph_sitekernels = SphericalSiteKernels(siteposition_mv, rc_m)
+    # Generate cylindrical site kernel instances
     height_m = np.array([2 * rc_m[0], np.sum(atoms.cell[:, -1])])
-    cyl_sitekernels = CylindricalSiteKernels(siteposition_mv,
+    cyl_sitekernels = CylindricalSiteKernels(positions,
                                              np.array([[0., 0., 1.],
                                                        [0., 0., 1.]]),
                                              rc_m, height_m)
-    # Some documentation here! XXX
+    # To get a single site kernel spanning the entire unit cell, we use
+    # the unit cell center as the site position and the unit cell vectors
+    # to define a parallelepipedic site kernel
     cell_cv = atoms.get_cell()
     cell_center_v = np.sum(cell_cv, axis=0) / 2.
     uc_sitekernels = ParallelepipedicSiteKernels([cell_center_v],
                                                  [cell_cv])
 
-    # Do some sitekernels arithmetic and check results consistency XXX
+    # Do sitekernels arithmetic for cylindrical and parallelepipedic site kernels XXX
 
-    # Calculate site kernels
+    # Calculate spherical site kernels
     Ksph_mGG = sph_sitekernels.calculate(pd0)
+    Ksph0_mGG = sph_sitekernels0(pd0)
+    Ksph1_mGG = sph_sitekernels1(pd0)
+    Ksph_sum_mGG = sph_sitekernels_sum(pd0)
+
+    # Calculate cylindrical site kernels
     Kcyl_mGG = cyl_sitekernels.calculate(pd0)
+
+    # Calculate unit cell site kernels
     Kuc_mGG = uc_sitekernels.calculate(pd0)
 
-    # Part 4: Check the calculated kernels
-    nG = len(get_pw_coordinates(pd0))
-    V0 = atoms.get_volume()  # Volume of unit cell in Å^3
+    # Compute site-kernels using old interface
+    Ksph_old_mGG = site_kernel_interface(pd0, positions,
+                                         shapes_m='sphere', rc_m=rc_m)
+    Kcyl_old_mGG = site_kernel_interface(pd0, positions,
+                                         shapes_m='cylinder',
+                                         rc_m=rc_m, zc_m=zc_m)
+    Kuc_old_mGG = site_kernel_interface(pd0, positions,
+                                        shapes_m='unit cell')
 
+    # Part 4: Check the calculated kernels
+
+    # Check shape of spherical kernel arrays
+    nG = len(get_pw_coordinates(pd0))
+    assert Ksph_mGG.shape == (2, nG, nG)
+    assert Ksph0_mGG.shape == (1, nG, nG)
+    assert Ksph1_mGG.shape == (1, nG, nG)
+    assert Ksph_sum_mGG.shape == (2, nG, nG)
+
+    # Check shape of cylindrical kernel arrays
+    assert Kcyl_mGG.shape == (2, nG, nG)
+
+    # Check shape of parallelepipedic kernel arrays
+    assert Kuc_mGG.shape == (1, nG, nG)
+
+    # Check self-consitency of spherical arrays
+    assert np.allclose(Ksph0_mGG[0], Ksph_sum_mGG[0])
+    assert np.allclose(Ksph0_mGG[1], Ksph_sum_mGG[1])
+    assert np.allclose(Ksph_mGG, Ksph_sum_mGG)
+
+    # Check that K_00(q=0) gives Vint / V0 (fractional integration volume)
+    # Volume of unit cell in Å^3
+    V0 = atoms.get_volume()
     # Calculate integration volumes in Å^3
     Vsphere_m = 4 / 3 * np.pi * rc_m**3
     Vcylinder_m = np.pi * rc_m**2 * height_m
-
-    print(sph_sitekernels.positions)
-    print(sph_sitekernels.geometries)
-    # Check shape of K-arrays
-    assert Kuc_mGG.shape == (1, nG, nG)
-    assert Ksph_mGG.shape == (2, nG, nG)
-    assert Kcyl_mGG.shape == (2, nG, nG)
-
-    # Check that K_00(q=0) gives Vint / V0 (fractional integration volume)
     assert abs(Kuc_mGG[0, 0, 0] - 1.) < 1.e-8
     assert np.allclose(Ksph_mGG[:, 0, 0], Vsphere_m / V0)
     assert np.allclose(Kcyl_mGG[:, 0, 0], Vcylinder_m / V0)
