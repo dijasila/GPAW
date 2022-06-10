@@ -95,6 +95,7 @@ class SiteKernels:
 
         self.positions = positions
         self.geometries = geometries
+        self.geometry_shape = None
 
         self.nsites = len(geometries)
 
@@ -116,6 +117,13 @@ class SiteKernels:
 
         return SiteKernels(positions, geometries)
 
+    def from_internals(self, positions, geometries, geometry_shape):
+        """Do a 'safe' initialization of a SiteKernels instance with a specific
+        geometry shape."""
+        assert all([shape == geometry_shape for shape, _ in geometries])
+        SiteKernels.__init__(self, positions, geometries)
+        self.geometry_shape = geometry_shape
+
 
 class SphericalSiteKernels(SiteKernels):
     """Some documentation here! XXX"""
@@ -130,12 +138,7 @@ class SphericalSiteKernels(SiteKernels):
         # Generate list of geometries
         geometries = [('sphere', (rc,)) for rc in rc_a]
 
-        SiteKernels.__init__(self, positions, geometries)
-
-    def from_internals(self, positions, geometries):
-        """Initialize the object from geometries list."""
-        assert all([shape == 'sphere' for shape, _ in geometries])
-        SiteKernels.__init__(self, positions, geometries)
+        SiteKernels.from_internals(self, positions, geometries, 'sphere')
 
     def __add__(self, sitekernels):
         """Add the sites from two SiteKernels instances to a new joint
@@ -144,9 +147,11 @@ class SphericalSiteKernels(SiteKernels):
         returned."""
         new_sks = SiteKernels.__add__(self, sitekernels)
 
-        if isinstance(sitekernels, SphericalSiteKernels):
+        if isinstance(self, SphericalSiteKernels) and\
+           isinstance(sitekernels, SphericalSiteKernels):
             return SphericalSiteKernels.from_internals(new_sks.positions,
-                                                       new_sks.geometries)
+                                                       new_sks.geometries,
+                                                       self.geometry_shape)
         else:
             return new_sks
 
