@@ -35,9 +35,18 @@ def site_kernel_interface(pd, sitePos_mv, shapes_m='sphere',
             If 'unit cell' then use height of unit cell (makes sense in 2D)
     """
 
+    # Change name of sitePos_mv to positions XXX
+    print(sitePos_mv)
+    print(shapes_m)
+    print(rc_m)
+    print(zc_m)
+
     # Number of sites
     if shapes_m == 'unit cell':
         nsites = 1
+        # Overwrite positions
+        # This is an extremely bad behaviour! Change this XXX
+        sitePos_mv = np.array([np.sum(pd.gd.cell_cv, axis=0) / 2.])
     else:
         nsites = len(sitePos_mv)
 
@@ -59,54 +68,116 @@ def site_kernel_interface(pd, sitePos_mv, shapes_m='sphere',
     zc_m = np.array(zc_m, dtype=float)
     ez_v = np.array([0., 0., 1.])  # Should be made an input in the future XXX
 
+    # # Default site position is center of unit cell
+    # # This should not be up to some secret functionality to decide XXX
+    # if sitePos_v is None:
+    #     sitePos_v = 1 / 2 * (a1 + a2 + a3)
+
     # Convert input units (Å) to atomic units (Bohr)
     sitePos_mv = sitePos_mv / Bohr
     rc_m = rc_m / Bohr
     zc_m = zc_m / Bohr
 
-    # Construct Fourier components
-    G_Gv, q_v, Omega_cell = _extract_pd_info(pd)
-    Q_GGv = _construct_wave_vectors(G_Gv, q_v)
-
-    # Array to fill
-    K_GGm = np.zeros(Q_GGv.shape[:2] + (nsites,), dtype=np.complex128)
-
-    # --- The Calculation itself --- #
-
-    # Loop through magnetic sites
-    for m in range(nsites):
-        # Get site specific values
-        shape, rc, zc = shapes_m[m], rc_m[m], zc_m[m]
-        sitePos_v = sitePos_mv[m, :]
-
-        # Compute complex prefactor
-        prefactor = _makePrefactor(sitePos_v, Q_GGv, Omega_cell)
-
-        # Do computation for relevant shape
+    # Set up geometries manually for now to be backwards compatible XXX
+    geometries = []
+    for shape, rc, zc in zip(shapes_m, rc_m, zc_m):
         if shape == 'sphere':
-            K_GG = spherical_geometry_factor(Q_GGv, rc)
-
+            geometries.append((shape, (rc,)))
         elif shape == 'cylinder':
-            K_GG = cylindrical_geometry_factor(Q_GGv, ez_v, rc, zc)
-
-        elif shape == 'unit cell':
-            # Get real-space basis vectors
-            # Give the user control over these XXX
-            cell_cv = pd.gd.cell_cv
-
-            # # Default site position is center of unit cell
-            # # This should not be up to some secret functionality to decide XXX
-            # if sitePos_v is None:
-            #     sitePos_v = 1 / 2 * (a1 + a2 + a3)
-            K_GG = parallelepipedic_geometry_factor(Q_GGv, cell_cv)
-
+            # Cylindrical axis should be made an input in the future XXX
+            ez_v = np.array([0., 0., 1.])
+            hc = zc  # Should be made more reasonable in the future XXX
+            geometries.append((shape, (ez_v, rc, hc)))
+        elif shape == 'unit cell':  # Change to parallelepiped XXX
+            # Give the user control over the cell in the future XXX
+            cell_cv = pd.gd.cell_cv  # unit cell of atomic structure
+            geometries.append(('parallelepiped', (cell_cv,)))
         else:
-            print('Not a recognised shape')
+            raise ValueError('Invalid site kernel shape:', shape)
+
+    print(sitePos_mv)
+    print(geometries)
+
+    return calculate_site_kernels(pd, sitePos_mv, geometries)
+
+
+def calculate_site_kernels(pd, positions, geometries):
+    """Improve documentation here! XXX"""
+    assert positions.shape[0] == len(geometries)
+    assert positions.shape[1] == 3
+
+    # Extract unit cell volume
+    V0 = pd.gd.volume
+
+    # Construct Fourier components
+    Q_GGv = construct_wave_vectors(pd)
+
+    # Allocate site kernel array
+    nsites = len(geometries)
+    K_GGa = np.zeros(Q_GGv.shape[:2] + (nsites,), dtype=complex)
+
+    # Calculate the site kernel for each site individually
+    for a, (pos_v, (shape, args)) in enumerate(zip(positions, geometries)):
+
+        # Compute the site centered geometry factor
+        _geometry_factor = create_geometry_factor(shape)  # factory pattern
+        Theta_GG = _geometry_factor(Q_GGv, *args)
+
+        # Compute site position Fourier component
+        pos_GG = np.exp(-1.j * Q_GGv @ pos_v)
 
         # Update data
-        K_GGm[:, :, m] = prefactor * K_GG
+        K_GGa[:, :, a] = 1 / V0 * pos_GG * Theta_GG
 
-    return K_GGm
+    return K_GGa
+
+
+def construct_wave_vectors(pd):
+    """Construct wave vector array with shape (NG, NG, 3).
+
+    Improve documentation here! XXX
+    """
+    G_Gv, q_v = _extract_pd_info(pd)
+    NG = len(G_Gv)
+    G1_GGv = np.tile(G_Gv[:, np.newaxis, :], [1, NG, 1])
+    G2_GGv = np.tile(G_Gv[np.newaxis, :, :], [NG, 1, 1])
+    q_GGv = np.tile(q_v[np.newaxis, np.newaxis, :], [NG, NG, 1])
+
+    Q_GGv = G1_GGv - G2_GGv + q_GGv  # G_1 - G_2 + q
+
+    return Q_GGv
+
+
+def _extract_pd_info(pd):
+    """Get relevant quantities from pd object (plane-wave descriptor)
+    In particular reciprocal space vectors and unit cell volume
+    Note : all in Bohr and absolute coordinates.
+
+    Improve documentation here! XXX
+    """
+    q_qc = pd.kd.bzk_kc
+    assert len(q_qc) == 1
+    q_c = q_qc[0, :]  # Assume single q
+    G_Gc = get_pw_coordinates(pd)
+
+    # Convert to cartesian coordinates
+    B_cv = 2.0 * np.pi * pd.gd.icell_cv  # Coordinate transform matrix
+    q_v = np.dot(q_c, B_cv)  # Unit = Bohr^(-1)
+    G_Gv = np.dot(G_Gc, B_cv)
+
+    return G_Gv, q_v
+
+
+def create_geometry_factor(shape):
+    """Creator compoenent of geometry factor factory pattern."""
+    if shape == 'sphere':
+        return spherical_geometry_factor
+    elif shape == 'cylinder':
+        return cylindrical_geometry_factor
+    elif shape == 'parallelepiped':
+        return parallelepipedic_geometry_factor
+
+    raise ValueError('Invalid site kernel shape:', shape)
 
 
 def spherical_geometry_factor(Q_Qv, rc):
@@ -259,47 +330,3 @@ def parallelepipedic_geometry_factor(Q_Qv, cell_cv):
         sinc(Q_Qv @ a3 / 2)
 
     return Theta_Q
-
-
-def _makePrefactor(sitePos_v, sum_GGv, Omega_cell):
-    """Make the complex prefactor which occurs for all site-kernels,
-    irrespective of shape of integration region"""
-    # Phase factor
-    phaseFactor_GG = np.exp(-1.j * sum_GGv @ sitePos_v)
-
-    # Scale factor
-    scaleFactor = 1. / Omega_cell
-
-    return scaleFactor * phaseFactor_GG
-
-
-def _extract_pd_info(pd):
-    """Get relevant quantities from pd object (plane-wave descriptor)
-    In particular reciprocal space vectors and unit cell volume
-    Note : all in Bohr and absolute coordinates."""
-    q_qc = pd.kd.bzk_kc
-    assert len(q_qc) == 1
-    q_c = q_qc[0, :]  # Assume single q
-    G_Gc = get_pw_coordinates(pd)
-
-    # Convert to cartesian coordinates
-    B_cv = 2.0 * np.pi * pd.gd.icell_cv  # Coordinate transform matrix
-    q_v = np.dot(q_c, B_cv)  # Unit = Bohr^(-1)
-    G_Gv = np.dot(G_Gc, B_cv)
-
-    # Get unit cell volume in bohr^3
-    Omega_cell = pd.gd.volume
-
-    return G_Gv, q_v, Omega_cell
-
-
-def _construct_wave_vectors(G_Gv, q_v):
-    """Construct wave vector array with shape (NG, NG, 3)"""
-    NG = len(G_Gv)
-    G1_GGv = np.tile(G_Gv[:, np.newaxis, :], [1, NG, 1])
-    G2_GGv = np.tile(G_Gv[np.newaxis, :, :], [NG, 1, 1])
-    q_GGv = np.tile(q_v[np.newaxis, np.newaxis, :], [NG, NG, 1])
-
-    Q_GGv = G1_GGv - G2_GGv + q_GGv  # G_1 - G_2 + q
-
-    return Q_GGv
