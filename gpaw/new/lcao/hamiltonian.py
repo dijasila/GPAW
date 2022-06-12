@@ -66,7 +66,7 @@ class CollinearHamiltonianMatrixCalculator(HamiltonianMatrixCalculator):
         M1, M2 = V_MM.dist.my_row_range()
         for a, dH_ii in dH_aii.items():
             P_Mi = wfs.P_aMi[a]
-            V_MM.data += P_Mi[M1:M2].conj() @ dH_ii @ P_Mi.T  # XXX use gemm
+            V_MM.data += (P_Mi[M1:M2] @ dH_ii).conj() @ P_Mi.T  # XXX use gemm
 
         return V_MM
 
@@ -114,8 +114,8 @@ class NonCollinearHamiltonianMatrixCalculator(HamiltonianMatrixCalculator):
         v_MM, x_MM, y_MM, z_MM = (V_MM.data for V_MM in V_sMM)
         H_sMsM = Matrix(2 * M, 2 * M, dtype=complex, dist=(wfs.band_comm,))
         H_sMsM.data[:M, :M] = v_MM + z_MM
-        H_sMsM.data[:M, M:] = x_MM + 1j * y_MM
-        H_sMsM.data[M:, :M] = x_MM - 1j * y_MM
+        H_sMsM.data[:M, M:] = 0#x_MM + 1j * y_MM
+        H_sMsM.data[M:, :M] = 0#x_MM - 1j * y_MM
         H_sMsM.data[M:, M:] = v_MM - z_MM
         return H_sMsM
 
