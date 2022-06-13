@@ -1705,29 +1705,36 @@ class KernelDens:
 """
 
 
+class XCFlags:
+    accepted_flags = {
+        'RPA',
+        'range_RPA',  # range separated RPA a la Bruneval
+        'rALDA',  # renormalized kernels
+        'rAPBE',
+        'range_rALDA',
+        'rALDAns',  # no spin (ns)
+        'rAPBEns',
+        'rALDAc',  # rALDA + correlation
+        'CP',  # Constantin Pitarke
+        'CP_dyn',  # Dynamical form of CP
+        'CDOP',  # Corradini et al
+        'CDOPs',  # CDOP without local term
+        'JGMs',  # simplified jellium-with-gap kernel
+        'JGMsx',  # simplified jellium-with-gap kernel,
+        # constructed with exchange part only
+        # so that it scales linearly with l
+        'ALDA'}  # standard ALDA
+
+    def __init__(self, xc):
+        if xc not in self.accepted_flags:
+            raise RuntimeError('%s kernel not recognized' % self.xc)
+
+        self.xc = xc
+
 def set_flags(self):
     """ Based on chosen fxc and av. scheme set up true-false flags """
 
-    if self.xc not in (
-            'RPA',
-            'range_RPA',  # range separated RPA a la Bruneval
-            'rALDA',  # renormalized kernels
-            'rAPBE',
-            'range_rALDA',
-            'rALDAns',  # no spin (ns)
-            'rAPBEns',
-            'rALDAc',  # rALDA + correlation
-            'CP',  # Constantin Pitarke
-            'CP_dyn',  # Dynamical form of CP
-            'CDOP',  # Corradini et al
-            'CDOPs',  # CDOP without local term
-            'JGMs',  # simplified jellium-with-gap kernel
-            'JGMsx',  # simplified jellium-with-gap kernel,
-            # constructed with exchange part only
-            # so that it scales linearly with l
-            'ALDA'  # standard ALDA
-    ):
-        raise RuntimeError('%s kernel not recognized' % self.xc)
+    flags = XCFlags(self.xc)
 
     if (self.xc == 'rALDA' or self.xc == 'rAPBE' or self.xc == 'ALDA'):
 
