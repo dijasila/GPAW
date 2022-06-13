@@ -841,22 +841,22 @@ class G0W0:
             m1 = chi0calc.nocc1
             for ie, ecut in enumerate(self.ecut_e):
                 self.timer.start('W')
-                if 1:
-                    # First time calculation
-                    if ecut == self.ecut:
-                        # Nothing to cut away:
-                        m2 = self.nbands
-                    else:
-                        m2 = int(self.vol * ecut**1.5 * 2**0.5 / 3 / pi**2)
-                        if m2 > self.nbands:
-                            raise ValueError(f'Trying to extrapolate ecut to'
-                                             f'larger number of bands ({m2})'
-                                             f' than there are bands '
-                                             f'({self.nbands}).')
-                    pdi, W, W_GW, blocks1d, Q_aGii = self.calculate_w(
-                        chi0calc, q_c, chi0bands,
-                        m1, m2, ecut, wstc, iq)
-                    m1 = m2
+                
+                # First time calculation
+                if ecut == self.ecut:
+                    # Nothing to cut away:
+                    m2 = self.nbands
+                else:
+                    m2 = int(self.vol * ecut**1.5 * 2**0.5 / 3 / pi**2)
+                    if m2 > self.nbands:
+                        raise ValueError(f'Trying to extrapolate ecut to'
+                                         f'larger number of bands ({m2})'
+                                         f' than there are bands '
+                                         f'({self.nbands}).')
+                pdi, W, W_GW, blocks1d, Q_aGii = self.calculate_w(
+                    chi0calc, q_c, chi0bands,
+                    m1, m2, ecut, wstc, iq)
+                m1 = m2
 
                 self.timer.stop('W')
 
