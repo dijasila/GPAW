@@ -238,19 +238,15 @@ def get_qdescriptor(kd, atoms):
     return qd
 
 
-def choose_ecut_things(ecut, ecut_extrapolation, savew):
+def choose_ecut_things(ecut, ecut_extrapolation):
     if ecut_extrapolation is True:
         pct = 0.8
         necuts = 3
         ecut_e = ecut * (1 + (1. / pct - 1) * np.arange(necuts)[::-1] /
                          (necuts - 1))**(-2 / 3)
-        # It doesn't make sense to save W in this case since
-        # W is calculated for different cutoffs:
-        assert not savew
     elif isinstance(ecut_extrapolation, (list, np.ndarray)):
         ecut_e = np.array(np.sort(ecut_extrapolation))
         ecut = ecut_e[-1]
-        assert not savew
     else:
         ecut_e = np.array([ecut])
     return ecut, ecut_e
@@ -270,7 +266,7 @@ class G0W0:
                  domega0=None,  # deprecated
                  omega2=None,  # deprecated
                  q0_correction=False,
-                 nblocks=1, savew=False, savepckl=True,
+                 nblocks=1, savepckl=True,
                  world=mpi.world, ecut_extrapolation=False,
                  nblocksmax=False):
 
@@ -354,8 +350,6 @@ class G0W0:
         nblocksmax: bool
             Cuts chi0 into as many blocks as possible to reduce memory
             requirements as much as possible.
-        savew: bool
-            Save W to a file.
         savepckl: bool
             Save output to a pckl file.
         """
@@ -366,7 +360,7 @@ class G0W0:
             raise ValueError(
                 'PPA is currently not compatible with block parallellisation.')
 
-        ecut, ecut_e = choose_ecut_things(ecut, ecut_extrapolation, savew)
+        ecut, ecut_e = choose_ecut_things(ecut, ecut_extrapolation)
         self.ecut_e = ecut_e / Ha
 
         # Check if nblocks is compatible, adjust if not
@@ -412,7 +406,6 @@ class G0W0:
 
         self.filename = filename
         self.restartfile = restartfile
-        self.savew = savew
         self.savepckl = savepckl
         self.ppa = ppa
         self.truncation = truncation
@@ -848,44 +841,22 @@ class G0W0:
             m1 = chi0calc.nocc1
             for ie, ecut in enumerate(self.ecut_e):
                 self.timer.start('W')
-                if self.savew:
-                    wfilename = (self.filename + '.rank' +
-                                 str(self.blockcomm.rank) +
-                                 '.w.q%d.pckl' % iq)
-                    fd = opencew(wfilename)
-                if self.savew and fd is None:
-                    # Read screened potential from file
-                    with open(wfilename, 'rb') as fd:
-                        pdi, W = pickleload(fd)
-                    # We also need to initialize the PAW corrections
-                    Q_aGii = self.pair.initialize_paw_corrections(pdi)
-
+                
+                # First time calculation
+                if ecut == self.ecut:
+                    # Nothing to cut away:
+                    m2 = self.nbands
                 else:
-                    # First time calculation
-                    if ecut == self.ecut:
-                        # Nothing to cut away:
-                        m2 = self.nbands
-                    else:
-                        m2 = int(self.vol * ecut**1.5 * 2**0.5 / 3 / pi**2)
-                        if m2 > self.nbands:
-                            raise ValueError(f'Trying to extrapolate ecut to'
-                                             f'larger number of bands ({m2})'
-                                             f' than there are bands '
-                                             f'({self.nbands}).')
-                    pdi, W, W_GW, blocks1d, Q_aGii = self.calculate_w(
-                        chi0calc, q_c, chi0bands,
-                        m1, m2, ecut, wstc, iq)
-                    m1 = m2
-                    if self.savew:
-                        if self.blockcomm.size > 1:
-                            thisfile = (self.filename + '.rank' +
-                                        str(self.blockcomm.rank) +
-                                        '.w.q%d.pckl' % iq)
-                            with open(thisfile, 'wb') as fd:
-                                pickle.dump((pdi, W), fd, 2)
-                        else:
-                            with fd:
-                                pickle.dump((pdi, W), fd, 2)
+                    m2 = int(self.vol * ecut**1.5 * 2**0.5 / 3 / pi**2)
+                    if m2 > self.nbands:
+                        raise ValueError(f'Trying to extrapolate ecut to'
+                                         f'larger number of bands ({m2})'
+                                         f' than there are bands '
+                                         f'({self.nbands}).')
+                pdi, W, W_GW, blocks1d, Q_aGii = self.calculate_w(
+                    chi0calc, q_c, chi0bands,
+                    m1, m2, ecut, wstc, iq)
+                m1 = m2
 
                 self.timer.stop('W')
 
