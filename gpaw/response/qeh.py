@@ -45,7 +45,8 @@ class BuildingBlock:
             Note that this does not hold for (semi)metals!
 
         """
-        assert isotropic_q, "Non-isotropic calculation temporarily turned-off until properly tested."
+        assert isotropic_q, "Non-isotropic calculation \
+        temporarily turned-off until properly tested."
         if qmax is not None:
             assert isotropic_q
         self.filename = filename
