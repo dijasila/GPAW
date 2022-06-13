@@ -1,4 +1,5 @@
 import os
+import warnings
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -8,7 +9,6 @@ from _pytest.tmpdir import _mk_tmp
 from ase import Atoms
 from ase.build import bulk
 from ase.io import read
-
 from gpaw import GPAW, PW, Davidson, FermiDirac, setup_paths
 from gpaw.cli.info import info
 from gpaw.mpi import broadcast, world
@@ -97,7 +97,14 @@ def gpw_files(request, tmp_path_factory):
     Files with wave functions are also availabe (add ``_wfs`` to the names).
     """
     path = os.environ.get('GPW_TEST_FILES')
-    if path is None:
+    if not path:
+        warnings.warn(
+            'Note that you can speed up the tests by reusing gpw-files '
+            'from an earlier pytest session: '
+            'set the $GPW_TEST_FILES environment variable and the '
+            'files will be written to/read from that folder. '
+            'See: https://wiki.fysik.dtu.dk/gpaw/devel/testing.html'
+            '#gpaw.test.conftest.gpw_files')
         if world.rank == 0:
             path = _mk_tmp(request, tmp_path_factory)
         else:
