@@ -1089,7 +1089,6 @@ class GPAW(Calculator):
             nspins=dens.nspins,
             collinear=dens.collinear,
             setups=dens.setups,
-            timer=self.timer,
             xc=xc,
             world=self.world,
             redistributor=dens.redistributor,

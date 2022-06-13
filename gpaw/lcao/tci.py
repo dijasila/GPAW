@@ -3,6 +3,7 @@ import scipy.sparse as sparse
 from ase.neighborlist import PrimitiveNeighborList
 # from ase.utils.timing import timer
 from gpaw.utilities.tools import tri2full
+from gpaw.utilities.timing import timedclass
 
 # from gpaw import debug
 from gpaw.lcao.overlap import (FourierTransformer, TwoSiteOverlapCalculator,
@@ -99,10 +100,8 @@ class TCIExpansions:
     def get_tci_calculator(self, cell_cv, spos_ac, pbc_c, ibzk_qc, dtype):
         return TCICalculator(self, cell_cv, spos_ac, pbc_c, ibzk_qc, dtype)
 
-    def get_manytci_calculator(self, setups, gd, spos_ac, ibzk_qc, dtype,
-                               timer):
-        return ManyTCICalculator(self, setups, gd, spos_ac, ibzk_qc, dtype,
-                                 timer)
+    def get_manytci_calculator(self, setups, gd, spos_ac, ibzk_qc, dtype):
+        return ManyTCICalculator(self, setups, gd, spos_ac, ibzk_qc, dtype)
 
 
 class TCICalculator:
@@ -225,9 +224,9 @@ class TCICalculator:
         return obj
 
 
+@timedclass
 class ManyTCICalculator:
-    def __init__(self, tciexpansions, setups, gd, spos_ac, ibzk_qc, dtype,
-                 timer):
+    def __init__(self, tciexpansions, setups, gd, spos_ac, ibzk_qc, dtype):
         self.tci = tciexpansions.get_tci_calculator(gd.cell_cv, spos_ac,
                                                     gd.pbc_c,
                                                     ibzk_qc, dtype)
@@ -239,7 +238,6 @@ class ManyTCICalculator:
         self.natoms = len(setups)
         self.nq = len(ibzk_qc)
         self.nao = self.Mindices.max
-        self.timer = timer
 
     # @timer('tci-projectors')
     def P_aqMi(self, my_atom_indices, derivative=False):

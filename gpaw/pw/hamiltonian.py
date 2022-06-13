@@ -12,7 +12,7 @@ from gpaw.typing import Array3D
 
 class ReciprocalSpaceHamiltonian(Hamiltonian):
     def __init__(self, gd, finegd, pd2, pd3, nspins, collinear,
-                 setups, timer, xc, world, xc_redistributor,
+                 setups, xc, world, xc_redistributor,
                  vext=None,
                  psolver=None, redistributor=None, realpbc_c=None,
                  charge=0.0):
@@ -23,7 +23,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
             vext = NoExternalPotential()
 
         Hamiltonian.__init__(self, gd, finegd, nspins, collinear, setups,
-                             timer, xc, world, vext=vext,
+                             xc, world, vext=vext,
                              redistributor=redistributor)
 
         self.vbar = PWLFC([[setup.vbar] for setup in setups], pd2)

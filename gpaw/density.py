@@ -661,8 +661,8 @@ class RealSpaceDensity(Density):
 
         self.interpolator = None
 
-    def initialize(self, setups, timer, magmom_a, hund):
-        Density.initialize(self, setups, timer, magmom_a, hund)
+    def initialize(self, setups, magmom_a, hund):
+        Density.initialize(self, setups, magmom_a, hund)
 
         # Interpolation function for the density:
         self.interpolator = Transformer(self.redistributor.aux_gd,

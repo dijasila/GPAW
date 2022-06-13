@@ -89,7 +89,7 @@ def create_lcao_ibzwfs(basis, potential,
     # basis.set_matrix_distribution(self.ksl.Mstart, self.ksl.Mstop)
     manytci = tciexpansions.get_manytci_calculator(
         setups, grid._gd, fracpos_ac,
-        kpt_qc, dtype, NullTimer())
+        kpt_qc, dtype)
 
     my_atom_indices = basis.my_atom_indices
     S_qMM, T_qMM = manytci.O_qMM_T_qMM(domain_comm,

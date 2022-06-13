@@ -15,6 +15,8 @@ from gpaw.transformers import Transformer
 from gpaw.utilities import (pack2, pack_atomic_matrices, unpack,
                             unpack_atomic_matrices)
 from gpaw.utilities.partition import AtomPartition
+from gpaw.utilities.timing import timedclass
+
 
 ENERGY_NAMES = ['e_kinetic', 'e_coulomb', 'e_zero', 'e_external', 'e_xc',
                 'e_entropy', 'e_total_free', 'e_total_extrapolated']
@@ -46,16 +48,16 @@ def apply_non_local_hamilton(dH_asp, collinear, P, out=None):
 
 # from gpaw.utilities.debug import frozen
 # @frozen
+@timedclass
 class Hamiltonian:
 
-    def __init__(self, gd, finegd, nspins, collinear, setups, timer, xc, world,
+    def __init__(self, gd, finegd, nspins, collinear, setups, xc, world,
                  redistributor, vext=None):
         self.gd = gd
         self.finegd = finegd
         self.nspins = nspins
         self.collinear = collinear
         self.setups = setups
-        self.timer = timer
         self.xc = xc
         self.world = world
         self.redistributor = redistributor
@@ -650,12 +652,12 @@ class Hamiltonian:
 
 
 class RealSpaceHamiltonian(Hamiltonian):
-    def __init__(self, gd, finegd, nspins, collinear, setups, timer, xc, world,
+    def __init__(self, gd, finegd, nspins, collinear, setups, xc, world,
                  vext=None,
                  psolver=None, stencil=3, redistributor=None,
                  charge: float = 0.0):
         Hamiltonian.__init__(self, gd, finegd, nspins, collinear,
-                             setups, timer, xc,
+                             setups, xc,
                              world, vext=vext,
                              redistributor=redistributor)
 
