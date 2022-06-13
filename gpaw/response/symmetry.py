@@ -13,7 +13,8 @@ class KPointFinder:
     def __init__(self, bzk_kc):
         self.kdtree = cKDTree(self._round(bzk_kc))
 
-    def _round(self, bzk_kc):
+    @staticmethod
+    def _round(bzk_kc):
         return np.mod(np.mod(bzk_kc, 1).round(6), 1)
 
     def find(self, kpt_c):
