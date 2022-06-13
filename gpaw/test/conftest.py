@@ -382,7 +382,7 @@ def pytest_runtest_setup(item):
         return
 
     if any(mark.name in {'libxc', 'mgga'}
-        for mark in item.iter_markers()):
+           for mark in item.iter_markers()):
         pytest.skip('No LibXC.')
 
 
