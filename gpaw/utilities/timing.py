@@ -12,6 +12,14 @@ from ase.utils.timing import Timer
 import gpaw.mpi as mpi
 
 
+global_timer = Timer()
+
+
+def timedclass(cls):
+    cls.timer = global_timer
+    return cls
+
+
 class NullTimer:
     """Compatible with Timer and StepTimer interfaces.  Does nothing."""
     def __init__(self):

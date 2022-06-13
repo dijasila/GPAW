@@ -48,12 +48,14 @@ from gpaw.utilities.gpts import get_number_of_grid_points
 from gpaw.utilities.grid import GridRedistributor
 from gpaw.utilities.memory import MemNode, maxrss
 from gpaw.utilities.partition import AtomPartition
+from gpaw.utilities.timing import timedclass
 from gpaw.wavefunctions.mode import create_wave_function_mode
 from gpaw.xc import XC
 from gpaw.xc.kernel import XCKernel
 from gpaw.xc.sic import SIC
 
 
+@timedclass
 class GPAW(Calculator):
     """This is the ASE-calculator frontend for doing a GPAW calculation."""
 
@@ -140,11 +142,6 @@ class GPAW(Calculator):
                                     'dictionary.  Must be one of: {}'
                                     .format(key, allowed))
             self.parallel.update(parallel)
-
-        if timer is None:
-            self.timer = Timer()
-        else:
-            self.timer = timer
 
         self.scf = None
         self.wfs = None
