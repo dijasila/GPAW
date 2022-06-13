@@ -26,7 +26,7 @@ from gpaw.utilities.progressbar import ProgressBar
 from gpaw.pw.descriptor import (PWDescriptor, PWMapping,
                                 count_reciprocal_vectors)
 from gpaw.xc.exx import EXX, select_kpts
-from gpaw.xc.fxc import set_flags
+from gpaw.xc.fxc import XCFlags
 from gpaw.xc.tools import vxc
 from gpaw.response.temp import DielectricFunctionCalculator
 from gpaw.response.q0_correction import Q0Correction
@@ -253,8 +253,6 @@ def choose_ecut_things(ecut, ecut_extrapolation):
 
 
 class G0W0:
-    av_scheme = None  # to appease set_flags()
-
     def __init__(self, calc, filename='gw', *,
                  restartfile=None,
                  kpts=None, bands=None, relbands=None, nbands=None, ppa=False,
@@ -398,11 +396,14 @@ class G0W0:
         if Eg is None and self.xc == 'JGMsx':
             from ase.dft.bandgap import get_band_gap
             gap, k1, k2 = get_band_gap(self.calc)
-            self.Eg = gap
-        else:
-            self.Eg = Eg
+            Eg = gap
 
-        set_flags(self)
+        if Eg is not None:
+            Eg /= Ha
+
+        self.Eg = Eg
+
+        self.xcflags = XCFlags(self.xc)
 
         self.filename = filename
         self.restartfile = restartfile
@@ -1044,7 +1045,10 @@ class G0W0:
             einv_wGG = []
 
         # Calculate kernel
-        fv = calculate_kernel(self, nG, self.nspins, iq, G2G)[0:nG, 0:nG]
+        fv = calculate_kernel(ecut=self.ecut, xcflags=self.xcflags,
+                              calc=self.calc, nG=nG, ns=self.nspins, iq=iq,
+                              cut_G=G2G, wd=self.wd, Eg=self.Eg,
+                              timer=self.timer, fd=self.fd)[0:nG, 0:nG]
         # Generate fine grid in vicinity of gamma
         kd = self.kd
         if np.allclose(q_c, 0) and len(chi0_wGG) > 0:
