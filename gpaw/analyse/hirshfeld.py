@@ -1,7 +1,6 @@
 import numpy as np
 
 from ase.units import Bohr
-from ase.utils.timing import Timer
 
 from gpaw.density import RealSpaceDensity
 from gpaw.lfc import BasisFunctions
@@ -9,6 +8,7 @@ from gpaw.setup import Setups
 from gpaw.xc import XC
 from gpaw.utilities.tools import coordinates
 from gpaw.utilities.partition import AtomPartition
+from gpaw.utilities.timing import timedclass
 from gpaw.mpi import world
 from gpaw.io.logger import GPAWLogger
 
@@ -80,7 +80,6 @@ class HirshfeldDensity(RealSpaceDensity):
 
         # initialize
         self.initialize(setups,
-                        self.calculator.timer,
                         np.zeros((len(atoms), 3)), False)
         self.set_mixer(None)
         rank_a = self.gd.get_ranks_from_positions(spos_ac)
@@ -97,6 +96,7 @@ class HirshfeldDensity(RealSpaceDensity):
         return aed_sg.sum(axis=0), gd
 
 
+@timedclass
 class HirshfeldPartitioning:
     """Partion space according to the Hirshfeld method.
 
@@ -106,11 +106,6 @@ class HirshfeldPartitioning:
     def __init__(self, calculator, density_cutoff=1.e-12):
         self.calculator = calculator
         self.density_cutoff = density_cutoff
-        
-        if hasattr(self.calculator, 'timer'):
-            self.timer = self.calculator.timer
-        else:
-            self.timer = Timer()
 
     def initialize(self):
         with self.timer('HirshfeldPartitioning initialize'):
