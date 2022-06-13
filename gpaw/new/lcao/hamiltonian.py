@@ -114,8 +114,8 @@ class NonCollinearHamiltonianMatrixCalculator(HamiltonianMatrixCalculator):
         v_MM, x_MM, y_MM, z_MM = (V_MM.data for V_MM in V_sMM)
         H_sMsM = Matrix(2 * M, 2 * M, dtype=complex, dist=(wfs.band_comm,))
         H_sMsM.data[:M, :M] = v_MM + z_MM
-        H_sMsM.data[:M, M:] = 0#x_MM + 1j * y_MM
-        H_sMsM.data[M:, :M] = 0#x_MM - 1j * y_MM
+        H_sMsM.data[:M, M:] = x_MM + 1j * y_MM
+        H_sMsM.data[M:, :M] = x_MM - 1j * y_MM
         H_sMsM.data[M:, M:] = v_MM - z_MM
         return H_sMsM
 
