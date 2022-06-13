@@ -428,7 +428,8 @@ class G0W0:
             nbands = int(self.vol * self.ecut**1.5 * 2**0.5 / 3 / pi**2)
         else:
             if ecut_extrapolation:
-                raise RuntimeError('nbands cannot be supplied with ecut-extrapolation.')
+                raise RuntimeError(
+                    'nbands cannot be supplied with ecut-extrapolation.')
 
         self.nbands = nbands
         self.nspins = self.calc.wfs.nspins
