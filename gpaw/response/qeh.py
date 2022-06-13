@@ -135,10 +135,6 @@ class BuildingBlock:
         q_infs[: self.nq_inftot, qdir] = \
             np.linspace(1e-05, q_cut, self.nq_inftot + 1)[:-1]
         if not isotropic_q:  # y-direction
-            print(self.nq_inf)
-            print(self.nq_inftot)
-            print(len(q_infs[self.nq_inf:self.nq_inftot, 1] ))
-            print(len(np.linspace(0, q_cut, self.nq_inf + 1)[1:]))
             q_infs[self.nq_inf:self.nq_inftot, 1] = \
                 np.linspace(0, q_cut, self.nq_inf + 1)[1:]
 
