@@ -37,13 +37,13 @@ version to become the next release.
 .. toctree::
    :maxdepth: 1
 
+   testing
    codingstandard
    c_extension
    writing_documentation
    formulas
    debugging
    profiling
-   testing
    ase_optimize/ase_optimize
    bugs
    newrelease
