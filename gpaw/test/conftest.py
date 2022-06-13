@@ -308,18 +308,19 @@ class GPWFiles:
     def mos2_pw(self):
         from ase.build import mx2
         atoms = mx2(formula='MoS2', kind='2H', a=3.184, thickness=3.127,
-                        size=(1, 1, 1), vacuum=5)
+                    size=(1, 1, 1), vacuum=5)
         atoms.pbc = (1, 1, 1)
         ecut = 400
         atoms.calc = GPAW(mode=PW(ecut),
-                    xc='LDA',
-                    kpts={'size': (6, 6, 1), 'gamma': True},
-                    occupations=FermiDirac(0.01),
-                    txt='mos2_pw.txt')
+                          xc='LDA',
+                          kpts={'size': (6, 6, 1), 'gamma': True},
+                          occupations=FermiDirac(0.01),
+                          txt='mos2_pw.txt')
 
         atoms.get_potential_energy()
         return atoms.calc
-            
+
+
 class GPAWPlugin:
     def __init__(self):
         if world.rank == -1:
@@ -381,7 +382,7 @@ def pytest_runtest_setup(item):
         return
 
     if any(mark.name in {'libxc', 'mgga'}
-           for mark in item.iter_markers()):
+        for mark in item.iter_markers()):
         pytest.skip('No LibXC.')
 
 
