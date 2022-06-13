@@ -16,7 +16,7 @@ from gpaw.response.susceptibility import read_macroscopic_component
 
 
 @pytest.mark.response
-def test_response_afm_hchain_gssALDA():
+def test_response_afm_hchain_gssALDA(in_tmp_dir):
     # ---------- Inputs ---------- #
 
     # Part 1: Ground state calculation
