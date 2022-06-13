@@ -10,7 +10,6 @@ import gpaw.mpi as mpi
 from gpaw.calculator import GPAW
 from gpaw import disable_dry_run
 from gpaw.fd_operators import Gradient
-from gpaw.response.math_func import two_phi_nabla_planewave_integrals
 from gpaw.response.pw_parallelization import block_partition
 from gpaw.utilities.blas import gemm
 from gpaw.utilities.progressbar import ProgressBar
@@ -803,30 +802,10 @@ class PairDensity:
     @timer('Initialize PAW corrections')
     def initialize_paw_nabla_corrections(self, pd, soft=False):
         print('Initializing nabla PAW Corrections', file=self.fd)
-        wfs = self.calc.wfs
-        G_Gv = pd.get_reciprocal_vectors()
-        pos_av = np.dot(self.spos_ac, pd.gd.cell_cv)
-
-        # Collect integrals for all species:
-        Q_xvGii = {}
-        for id, atomdata in wfs.setups.setups.items():
-            if soft:
-                raise NotImplementedError
-            else:
-                Q_vGii = two_phi_nabla_planewave_integrals(G_Gv, atomdata)
-                ni = atomdata.ni
-                Q_vGii.shape = (3, -1, ni, ni)
-
-            Q_xvGii[id] = Q_vGii
-
-        Q_avGii = []
-        for a, atomdata in enumerate(wfs.setups):
-            id = wfs.setups.id_a[a]
-            Q_vGii = Q_xvGii[id]
-            x_G = np.exp(-1j * np.dot(G_Gv, pos_av[a]))
-            Q_avGii.append(x_G[np.newaxis, :, np.newaxis, np.newaxis] * Q_vGii)
-
-        return Q_avGii
+        from gpaw.response.paw import calculate_paw_nabla_corrections
+        return calculate_paw_nabla_corrections(
+            setups=self.calc.wfs.setups, pd=pd, soft=soft,
+            spos_ac=self.spos_ac)
 
     def calculate_derivatives(self, kpt):
         ut_sKnvR = [{}, {}]
