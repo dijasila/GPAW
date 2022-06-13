@@ -926,7 +926,8 @@ class G0W0:
         pdi, blocks1d, W_wGG, W_GW_wGG = self.dyson_and_W_old(
             wstc, iq, q_c, chi0calc,
             chi0,
-            ecut)
+            ecut,
+            Q_aGii=self.Q_aGii)
 
         GW_return = None
         if self.ppa:
@@ -1021,7 +1022,7 @@ class G0W0:
         return chi0.pd, Wm_wGG, Wp_wGG  # not Hilbert transformed yet
 
     def dyson_and_W_old(self, wstc, iq, q_c, chi0calc, chi0,
-                        ecut):
+                        ecut, Q_aGii):
         nG = chi0.pd.ngmax
         blocks1d = chi0.blockdist.blocks1d
 
@@ -1047,9 +1048,9 @@ class G0W0:
             if chi0_wxvG is not None:
                 chi0_wxvG = chi0_wxvG.take(G2G, axis=3)
 
-            if self.Q_aGii is not None:
-                for a, Q_Gii in enumerate(self.Q_aGii):
-                    self.Q_aGii[a] = Q_Gii.take(G2G, axis=0)
+            if Q_aGii is not None:
+                for a, Q_Gii in enumerate(Q_aGii):
+                    Q_aGii[a] = Q_Gii.take(G2G, axis=0)
 
         if self.integrate_gamma != 0:
             if self.integrate_gamma == 2:
