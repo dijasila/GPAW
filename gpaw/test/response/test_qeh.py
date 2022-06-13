@@ -43,7 +43,7 @@ def test_basics(in_tmp_dir, gpw_files):
     bb2 = BuildingBlock('mos2', df2)
     bb1.calculate_building_block()
     bb2.calculate_building_block()
-    
+
     # Test building blocks are on different grids
     are_equal = check_building_blocks(['mos2', 'graphene'])
     assert not are_equal
@@ -61,7 +61,7 @@ def test_basics(in_tmp_dir, gpw_files):
     chi = HS.get_chi_matrix()
     correct_val = 0.019456648867161096 - 0.00023954749821020183j
     assert np.amax(chi) == pytest.approx(correct_val)
-        
+
     # test to interpolate to grid and actual numbers
     q_grid = np.array([0, 0.1])
     w_grid = np.array([0, 0.1])
