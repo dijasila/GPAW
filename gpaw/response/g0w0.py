@@ -579,7 +579,7 @@ class G0W0:
 
             # Loop over q in the IBZ:
             nQ = 0
-            for ie, pd0, W0, q_c, m2, W0_GW, symop, blocks1d in \
+            for ie, pd0, W0, q_c, m2, W0_GW, symop, blocks1d, Q_aGii in \
                     self.calculate_screened_potential():
                 if nQ == 0:
                     print('Summing all q:', file=self.fd)
@@ -600,7 +600,8 @@ class G0W0:
                     self.calculate_q(ie, i, kpt1, kpt2, pd0, Wlist,
                                      symop=symop,
                                      sigmas=self.sigmas,
-                                     blocks1d=blocks1d)
+                                     blocks1d=blocks1d,
+                                     Q_aGii=Q_aGii)
                 nQ += 1
             pb.finish()
 
@@ -638,7 +639,7 @@ class G0W0:
         return results
 
     def calculate_q(self, ie, k, kpt1, kpt2, pd0, Wlist,  # W0, W0_GW=None,
-                    *, symop, sigmas, blocks1d):
+                    *, symop, sigmas, blocks1d, Q_aGii):
         """Calculates the contribution to the self-energy and its derivative
         for a given set of k-points, kpt1 and kpt2."""
 
@@ -657,8 +658,8 @@ class G0W0:
         pos_av = np.dot(self.pair.spos_ac, pd0.gd.cell_cv)
         M_vv = symop.get_M_vv(pd0.gd.cell_cv)
 
-        Q_aGii = []
-        for a, Q_Gii in enumerate(self.Q_aGii):
+        myQ_aGii = []
+        for a, Q_Gii in enumerate(Q_aGii):
             x_G = np.exp(1j * np.dot(G_Gv, (pos_av[a] -
                                             np.dot(M_vv, pos_av[a]))))
             U_ii = self.calc.wfs.setups[a].R_sii[symop.symno]
@@ -666,10 +667,10 @@ class G0W0:
                            U_ii.T).transpose(1, 0, 2)
             if symop.sign == -1:
                 Q_Gii = Q_Gii.conj()
-            Q_aGii.append(Q_Gii)
+            myQ_aGii.append(Q_Gii)
 
         if debug:
-            self.check(ie, i_cG, shift0_c, N_c, q_c, Q_aGii)
+            self.check(ie, i_cG, shift0_c, N_c, q_c, myQ_aGii)
 
         if self.ppa:
             calculate_sigma = self.calculate_sigma_ppa
@@ -680,7 +681,7 @@ class G0W0:
             ut1cc_R = kpt1.ut_nR[n].conj()
             eps1 = kpt1.eps_n[n]
             C1_aGi = [np.dot(Qa_Gii, P1_ni[n].conj())
-                      for Qa_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
+                      for Qa_Gii, P1_ni in zip(myQ_aGii, kpt1.P_ani)]
             n_mG = self.pair.calculate_pair_densities(
                 ut1cc_R, C1_aGi, kpt2, pd0, I_G)
             if symop.sign == 1:
@@ -857,7 +858,7 @@ class G0W0:
                     with open(wfilename, 'rb') as fd:
                         pdi, W = pickleload(fd)
                     # We also need to initialize the PAW corrections
-                    self.Q_aGii = self.pair.initialize_paw_corrections(pdi)
+                    Q_aGii = self.pair.initialize_paw_corrections(pdi)
 
                 else:
                     # First time calculation
@@ -871,7 +872,7 @@ class G0W0:
                                              f'larger number of bands ({m2})'
                                              f' than there are bands '
                                              f'({self.nbands}).')
-                    pdi, W, W_GW, blocks1d = self.calculate_w(
+                    pdi, W, W_GW, blocks1d, Q_aGii = self.calculate_w(
                         chi0calc, q_c, chi0bands,
                         m1, m2, ecut, wstc, iq)
                     m1 = m2
@@ -890,7 +891,7 @@ class G0W0:
 
                 for Q_c, symop in QSymmetryOp.get_symops(self.qd, iq, q_c):
                     yield (ie, pdi, W, Q_c, m2, W_GW, symop,
-                           blocks1d)
+                           blocks1d, Q_aGii)
 
                 if self.restartfile is not None:
                     self.save_restart_file(iq)
@@ -916,8 +917,6 @@ class G0W0:
                 chi0.chi0_wvv += chi0bands.chi0_wvv
                 chi0bands.chi0_wvv[:] = chi0.chi0_wvv.copy()
 
-        self.Q_aGii = chi0calc.Q_aGii
-
         # Old way
         # if not np.allclose(q_c, 0):
         #     self.timer.start('old non gamma')
@@ -926,7 +925,8 @@ class G0W0:
         pdi, blocks1d, W_wGG, W_GW_wGG = self.dyson_and_W_old(
             wstc, iq, q_c, chi0calc,
             chi0,
-            ecut)
+            ecut,
+            Q_aGii=chi0calc.Q_aGii)
 
         GW_return = None
         if self.ppa:
@@ -961,7 +961,7 @@ class G0W0:
         #     Wm_wGG[:] = Wm2_wGG
         #     Wp_wGG[:] = Wp2_wGG
 
-        return pdi, W_xwGG, GW_return, blocks1d
+        return pdi, W_xwGG, GW_return, blocks1d, chi0calc.Q_aGii
 
     def dyson_and_W_new(self, wstc, iq, q_c, chi0calc, chi0, ecut):
         assert not self.ppa
@@ -1021,7 +1021,7 @@ class G0W0:
         return chi0.pd, Wm_wGG, Wp_wGG  # not Hilbert transformed yet
 
     def dyson_and_W_old(self, wstc, iq, q_c, chi0calc, chi0,
-                        ecut):
+                        ecut, Q_aGii):
         nG = chi0.pd.ngmax
         blocks1d = chi0.blockdist.blocks1d
 
@@ -1047,9 +1047,9 @@ class G0W0:
             if chi0_wxvG is not None:
                 chi0_wxvG = chi0_wxvG.take(G2G, axis=3)
 
-            if self.Q_aGii is not None:
-                for a, Q_Gii in enumerate(self.Q_aGii):
-                    self.Q_aGii[a] = Q_Gii.take(G2G, axis=0)
+            if Q_aGii is not None:
+                for a, Q_Gii in enumerate(Q_aGii):
+                    Q_aGii[a] = Q_Gii.take(G2G, axis=0)
 
         if self.integrate_gamma != 0:
             if self.integrate_gamma == 2:
