@@ -10,12 +10,10 @@ import gpaw.mpi as mpi
 from gpaw.calculator import GPAW
 from gpaw import disable_dry_run
 from gpaw.fd_operators import Gradient
-from gpaw.response.math_func import (two_phi_planewave_integrals,
-                                     two_phi_nabla_planewave_integrals)
+from gpaw.response.math_func import two_phi_nabla_planewave_integrals
 from gpaw.response.pw_parallelization import block_partition
 from gpaw.utilities.blas import gemm
 from gpaw.utilities.progressbar import ProgressBar
-from gpaw.pw.lfc import PWLFC
 from gpaw.response.symmetry import KPointFinder
 
 
@@ -311,7 +309,6 @@ class PairDensity:
         optical_limit = not disable_optical_limit and optical_limit
 
         Q_aGii = self.initialize_paw_corrections(pd)
-        self.Q_aGii = Q_aGii  # This is used in g0w0
 
         if analyzer is None:
             with self.timer('Symmetry analyzer'):
@@ -798,45 +795,10 @@ class PairDensity:
 
     @timer('Initialize PAW corrections')
     def initialize_paw_corrections(self, pd, soft=False):
-        wfs = self.calc.wfs
-        q_v = pd.K_qv[0]
-        optical_limit = np.allclose(q_v, 0)
-
-        G_Gv = pd.get_reciprocal_vectors()
-        if optical_limit:
-            G_Gv[0] = 1
-
-        pos_av = np.dot(self.spos_ac, pd.gd.cell_cv)
-
-        # Collect integrals for all species:
-        Q_xGii = {}
-        for id, atomdata in wfs.setups.setups.items():
-            if soft:
-                ghat = PWLFC([atomdata.ghat_l], pd)
-                ghat.set_positions(np.zeros((1, 3)))
-                Q_LG = ghat.expand().T
-                if atomdata.Delta_iiL is None:
-                    ni = atomdata.ni
-                    Q_Gii = np.zeros((Q_LG.shape[1], ni, ni))
-                else:
-                    Q_Gii = np.dot(atomdata.Delta_iiL, Q_LG).T
-            else:
-                ni = atomdata.ni
-                Q_Gii = two_phi_planewave_integrals(G_Gv, atomdata)
-                Q_Gii.shape = (-1, ni, ni)
-
-            Q_xGii[id] = Q_Gii
-
-        Q_aGii = []
-        for a, atomdata in enumerate(wfs.setups):
-            id = wfs.setups.id_a[a]
-            Q_Gii = Q_xGii[id]
-            x_G = np.exp(-1j * np.dot(G_Gv, pos_av[a]))
-            Q_aGii.append(x_G[:, np.newaxis, np.newaxis] * Q_Gii)
-            if optical_limit:
-                Q_aGii[a][0] = atomdata.dO_ii
-
-        return Q_aGii
+        from gpaw.response.paw import calculate_paw_corrections
+        return calculate_paw_corrections(
+            setups=self.calc.wfs.setups, pd=pd, soft=soft,
+            spos_ac=self.spos_ac)
 
     @timer('Initialize PAW corrections')
     def initialize_paw_nabla_corrections(self, pd, soft=False):
