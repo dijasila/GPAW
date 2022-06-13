@@ -99,18 +99,18 @@ def gpw_files(request, tmp_path_factory):
     path = os.environ.get('GPW_TEST_FILES')
     if not path:
         warnings.warn(
-            'If you want to reuse gpw-files from an earlier pytest session '
-            'then set the $GPW_TEST_FILES environment variable and the '
-            'files will be written to that folder. '
-            'See:\n\n    '
-            'https://wiki.fysik.dtu.dk/gpaw/devel/testing.html'
+            'Note that you can speed up the tests by reusing gpw-files '
+            'from an earlier pytest session: '
+            'set the $GPW_TEST_FILES environment variable and the '
+            'files will be written to/read from that folder. '
+            'See: https://wiki.fysik.dtu.dk/gpaw/devel/testing.html'
             '#gpaw.test.conftest.gpw_files')
         if world.rank == 0:
             path = _mk_tmp(request, tmp_path_factory)
         else:
             path = None
         path = broadcast(path)
-    return GPWFiles(Path(path).expanduser())
+    return GPWFiles(Path(path))
 
 
 class GPWFiles:
