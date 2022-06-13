@@ -398,11 +398,18 @@ class G0W0:
         if Eg is None and self.xc == 'JGMsx':
             from ase.dft.bandgap import get_band_gap
             gap, k1, k2 = get_band_gap(self.calc)
-            self.Eg = gap
-        else:
-            self.Eg = Eg
+            Eg = gap
 
-        set_flags(self)
+        if Eg is not None:
+            Eg /= Ha
+
+        self.Eg = Eg
+
+        from gpaw.xc.fxc import XCFlags
+
+        self.xcflags = XCFlags(self.xc)
+
+        # set_flags(self)
 
         self.filename = filename
         self.restartfile = restartfile

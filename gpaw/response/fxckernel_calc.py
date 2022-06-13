@@ -14,10 +14,10 @@ def actually_calculate_kernel(self, q_empty, tag, ecut_max):
 
     l_l = np.array([1.0])
 
-    if self.linear_kernel:
+    if self.xcflags.linear_kernel:
         l_l = None
         omega_w = None
-    elif not self.dyn_kernel:
+    elif not self.xcflags.dyn_kernel:
         omega_w = None
     else:
         omega_w = self.wd.omega_w
@@ -54,14 +54,14 @@ def calculate_kernel(self, nG, ns, iq, cut_G=None):
     if not os.path.isfile(filename):
         q_empty = iq
 
-    if self.xc not in ('RPA'):
+    if self.xc != 'RPA':
         if q_empty is not None:
             actually_calculate_kernel(self, q_empty, tag, ecut_max)
             # (This creates the ulm file above.  Probably.)
 
         mpi.world.barrier()
 
-        if self.spin_kernel:
+        if self.xcflags.spin_kernel:
             with affopen(filename) as r:
                 fv = r.fhxc_sGsG
 
@@ -77,14 +77,14 @@ def calculate_kernel(self, nG, ns, iq, cut_G=None):
                 raise NotImplementedError
 #                    fv = np.exp(-0.25 * (G_G * self.range_rc) ** 2.0)
 
-            elif self.linear_kernel:
+            elif self.xcflags.linear_kernel:
                 with affopen(filename) as r:
                     fv = r.fhxc_sGsG
 
                 if cut_G is not None:
                     fv = fv.take(cut_G, 0).take(cut_G, 1)
 
-            elif not self.dyn_kernel:
+            elif not self.xcflags.dyn_kernel:
                 # static kernel which does not scale with lambda
                 with affopen(filename) as r:
                     fv = r.fhxc_lGG

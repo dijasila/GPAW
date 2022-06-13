@@ -1706,7 +1706,7 @@ class KernelDens:
 
 
 class XCFlags:
-    accepted_flags = {
+    _accepted_flags = {
         'RPA',
         'range_RPA',  # range separated RPA a la Bruneval
         'rALDA',  # renormalized kernels
@@ -1725,11 +1725,31 @@ class XCFlags:
         # so that it scales linearly with l
         'ALDA'}  # standard ALDA
 
+    _spin_kernels = {'rALDA', 'rAPBE', 'ALDA'}
+
+    _linear_kernels = {'rALDAns', 'rAPBEns', 'range_RPA', 'JGMsx', 'RPA',
+                       'rALDA', 'rAPBE', 'range_rALDA', 'ALDA'}
+
     def __init__(self, xc):
-        if xc not in self.accepted_flags:
+        if xc not in self._accepted_flags:
             raise RuntimeError('%s kernel not recognized' % self.xc)
 
         self.xc = xc
+
+    @property
+    def spin_kernel(self):
+        # rALDA/rAPBE are the only kernels which have spin-dependent forms
+        return self.xc in self._spin_kernels
+
+    @property
+    def linear_kernel(self):
+        # Scales linearly with coupling constant
+        return self.xc in self._linear_kernels
+
+    @property
+    def dyn_kernel(self):
+        return self.xc == 'CP_dyn'
+
 
 def set_flags(self):
     """ Based on chosen fxc and av. scheme set up true-false flags """
@@ -1737,16 +1757,11 @@ def set_flags(self):
     flags = XCFlags(self.xc)
 
     if (self.xc == 'rALDA' or self.xc == 'rAPBE' or self.xc == 'ALDA'):
-
         if self.av_scheme is None:
             self.av_scheme = 'density'
             # Two-point scheme default for rALDA and rAPBE
 
-        self.spin_kernel = True
-        # rALDA/rAPBE are the only kernels which have spin-dependent forms
-
-    else:
-        self.spin_kernel = False
+    self.spin_kernel = flags.spin_kernel
 
     if self.av_scheme == 'density':
         assert (self.xc == 'rALDA' or self.xc == 'rAPBE'
@@ -1758,16 +1773,8 @@ def set_flags(self):
     else:
         self.av_scheme = None
 
-    if self.xc in ('rALDAns', 'rAPBEns', 'range_RPA', 'JGMsx', 'RPA', 'rALDA',
-                   'rAPBE', 'range_rALDA', 'ALDA'):
-        self.linear_kernel = True  # Scales linearly with coupling constant
-    else:
-        self.linear_kernel = False
-
-    if self.xc == 'CP_dyn':
-        self.dyn_kernel = True
-    else:
-        self.dyn_kernel = False
+    self.linear_kernel = flags.linear_kernel
+    self.dyn_kernel = flags.dyn_kernel
 
     if self.xc == 'JGMs' or self.xc == 'JGMsx':
         assert (self.Eg is not None), 'JGMs kernel requires a band gap!'
