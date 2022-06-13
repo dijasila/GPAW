@@ -94,6 +94,8 @@ def gpw_files(request, tmp_path_factory):
     * Bulk BN (zinkblende) with 2x2x2 k-points and 9 converged bands:
       ``bn_pw``.
 
+    * Graphene with 4x4x1 k-points: graphene_pw
+
     Files with wave functions are also availabe (add ``_wfs`` to the names).
     """
     path = os.environ.get('GPW_TEST_FILES')
@@ -288,7 +290,36 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
+    def graphene_pw(self):
+        from ase.lattice.hexagonal import Graphene
+        atoms = Graphene(symbol='C',
+                         latticeconstant={'a': 2.45, 'c': 1.0},
+                         size=(1, 1, 1))
+        atoms.pbc = (1, 1, 0)
+        atoms.center(axis=2, vacuum=4.0)
+        nkpts = 6
+        atoms.calc = GPAW(mode=PW(400),
+                          kpts={'size': (nkpts, nkpts, 1), 'gamma': True},
+                          nbands=len(atoms) * 6,
+                          txt=self.path / 'graphene_pw.txt')
+        atoms.get_potential_energy()
+        return atoms.calc
 
+    def mos2_pw(self):
+        from ase.build import mx2
+        atoms = mx2(formula='MoS2', kind='2H', a=3.184, thickness=3.127,
+                        size=(1, 1, 1), vacuum=5)
+        atoms.pbc = (1, 1, 1)
+        ecut = 400
+        atoms.calc = GPAW(mode=PW(ecut),
+                    xc='LDA',
+                    kpts={'size': (6, 6, 1), 'gamma': True},
+                    occupations=FermiDirac(0.01),
+                    txt='mos2_pw.txt')
+
+        atoms.get_potential_energy()
+        return atoms.calc
+            
 class GPAWPlugin:
     def __init__(self):
         if world.rank == -1:
