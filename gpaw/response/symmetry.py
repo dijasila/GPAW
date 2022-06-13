@@ -21,8 +21,8 @@ class KPointFinder:
         distance, k = self.kdtree.query(self._round(kpt_c))
         if distance > 1.e-6:
             raise ValueError('Requested k-point is not on the grid. '
-                             + 'Please check that your q-points of interest '
-                             + 'are commensurate with the k-point grid.')
+                             'Please check that your q-points of interest '
+                             'are commensurate with the k-point grid.')
 
         return k
 
