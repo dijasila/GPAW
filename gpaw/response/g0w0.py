@@ -1045,7 +1045,10 @@ class G0W0:
             einv_wGG = []
 
         # Calculate kernel
-        fv = calculate_kernel(self, nG, self.nspins, iq, G2G)[0:nG, 0:nG]
+        fv = calculate_kernel(ecut=self.ecut, xcflags=self.xcflags,
+                              calc=self.calc, nG=nG, ns=self.nspins, iq=iq,
+                              cut_G=G2G, wd=self.wd, Eg=self.Eg,
+                              timer=self.timer, fd=self.fd)[0:nG, 0:nG]
         # Generate fine grid in vicinity of gamma
         kd = self.kd
         if np.allclose(q_c, 0) and len(chi0_wGG) > 0:
