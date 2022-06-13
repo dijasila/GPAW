@@ -44,7 +44,7 @@ def calculate_kernel(*, ecut, xcflags, calc, nG, ns, iq, cut_G=None,
     xc = xcflags.xc
     tag = calc.atoms.get_chemical_formula(mode='hill')
 
-    ecutmax = ecut * Ha  # XXX very ugly this
+    ecut_max = ecut * Ha  # XXX very ugly this
     q_empty = None
 
     filename = 'fhxc_%s_%s_%s_%s.ulm' % (tag, xc, ecut_max, iq)
