@@ -26,7 +26,7 @@ from gpaw.utilities.progressbar import ProgressBar
 from gpaw.pw.descriptor import (PWDescriptor, PWMapping,
                                 count_reciprocal_vectors)
 from gpaw.xc.exx import EXX, select_kpts
-from gpaw.xc.fxc import set_flags
+from gpaw.xc.fxc import XCFlags
 from gpaw.xc.tools import vxc
 from gpaw.response.temp import DielectricFunctionCalculator
 from gpaw.response.q0_correction import Q0Correction
@@ -253,8 +253,6 @@ def choose_ecut_things(ecut, ecut_extrapolation):
 
 
 class G0W0:
-    av_scheme = None  # to appease set_flags()
-
     def __init__(self, calc, filename='gw', *,
                  restartfile=None,
                  kpts=None, bands=None, relbands=None, nbands=None, ppa=False,
@@ -405,11 +403,7 @@ class G0W0:
 
         self.Eg = Eg
 
-        from gpaw.xc.fxc import XCFlags
-
         self.xcflags = XCFlags(self.xc)
-
-        # set_flags(self)
 
         self.filename = filename
         self.restartfile = restartfile
