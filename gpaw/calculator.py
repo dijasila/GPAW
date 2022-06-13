@@ -12,7 +12,6 @@ from ase.calculators.calculator import Calculator, kpts2ndarray
 from ase.dft.bandgap import bandgap
 from ase.units import Bohr, Ha
 from ase.utils import plural
-from ase.utils.timing import Timer
 
 import gpaw
 import gpaw.mpi as mpi
@@ -228,7 +227,7 @@ class GPAW(Calculator):
         # Write timings and close reader if necessary.
         # If we crashed in the constructor (e.g. a bad keyword), we may not
         # have the normally expected attributes:
-        if hasattr(self, 'timer') and not self.log.fd.closed:
+        if not self.log.fd.closed:
             self.timer.write(self.log.fd)
 
         if hasattr(self, 'reader') and self.reader is not None:
@@ -1294,9 +1293,6 @@ class GPAW(Calculator):
 
         # Write timing info now before the interpreter shuts down:
         self.close()
-
-        # Disable timing output during shut-down:
-        del self.timer
 
         raise SystemExit
 
