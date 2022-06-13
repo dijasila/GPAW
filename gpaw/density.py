@@ -16,7 +16,7 @@ from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 from gpaw.utilities import (unpack2, unpack_atomic_matrices,
                             pack_atomic_matrices)
 from gpaw.utilities.partition import AtomPartition
-from gpaw.utilities.timing import nulltimer
+from gpaw.utilities.timing import timedclass
 from gpaw.arraydict import ArrayDict
 
 
@@ -59,6 +59,7 @@ class NullBackgroundCharge:
         pass
 
 
+@timedclass
 class Density:
     """Density object.
 
@@ -126,7 +127,6 @@ class Density:
         self.mixer = None
         self.set_mixer(None)
 
-        self.timer = nulltimer
         self.error = None
         self.nct = None
         self.ghat = None
@@ -159,8 +159,7 @@ class Density:
         except (TypeError, AttributeError):
             pass
 
-    def initialize(self, setups, timer, magmom_av, hund):
-        self.timer = timer
+    def initialize(self, setups, magmom_av, hund):
         self.setups = setups
         self.Q = CompensationChargeExpansionCoefficients(setups, self.nspins)
         self.hund = hund

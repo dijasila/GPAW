@@ -35,8 +35,8 @@ class ReciprocalSpaceDensity(Density):
         self.nt_Q = None
         self.rhot_q = None
 
-    def initialize(self, setups, timer, magmom_av, hund):
-        Density.initialize(self, setups, timer, magmom_av, hund)
+    def initialize(self, setups, magmom_av, hund):
+        Density.initialize(self, setups, magmom_av, hund)
 
         spline_aj = []
         for setup in setups:

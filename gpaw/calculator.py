@@ -847,8 +847,7 @@ class GPAW(Calculator):
         # XXXXXXXXXX if setups change, then setups.core_charge may change.
         # But that parameter was supplied in Density constructor!
         # This surely is a bug!
-        self.density.initialize(self.setups, self.timer,
-                                magmom_av, par.hund)
+        self.density.initialize(self.setups, magmom_av, par.hund)
         self.density.set_mixer(par.mixer)
         if self.density.mixer.driver.name == 'dummy' or par.fixdensity:
             self.log('No density mixing\n')
