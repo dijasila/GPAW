@@ -45,6 +45,8 @@ class BuildingBlock:
             Note that this does not hold for (semi)metals!
 
         """
+        assert isotropic_q, "Non-isotropic calculation" \
+            + " temporarily turned-off until properly tested."
         if qmax is not None:
             assert isotropic_q
         self.filename = filename
@@ -134,7 +136,7 @@ class BuildingBlock:
         q_infs[: self.nq_inftot, qdir] = \
             np.linspace(1e-05, q_cut, self.nq_inftot + 1)[:-1]
         if not isotropic_q:  # y-direction
-            q_infs[self.nq_inf:self.nq_inftot + 1, 1] = \
+            q_infs[self.nq_inf:self.nq_inftot, 1] = \
                 np.linspace(0, q_cut, self.nq_inf + 1)[1:]
 
         # add q_inf to list
