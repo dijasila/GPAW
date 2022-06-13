@@ -22,7 +22,7 @@ def test_ralda_ralda_energy_Si(in_tmp_dir, scalapack):
     kpts = monkhorst_pack((2, 2, 2))
     kpts += np.array([1 / 4, 1 / 4, 1 / 4])
 
-    calc = GPAW(mode='pw',
+    calc = GPAW(mode=dict(name='pw', ecut=250),
                 kpts=kpts,
                 occupations=FermiDirac(0.001),
                 communicator=serial_comm)
@@ -30,37 +30,37 @@ def test_ralda_ralda_energy_Si(in_tmp_dir, scalapack):
     Si.get_potential_energy()
     calc.diagonalize_full_hamiltonian(nbands=50)
 
-    rpa = RPACorrelation(calc)
-    E_rpa1 = rpa.calculate(ecut=[25, 50])
+    ecuts = [20, 30]
+    rpa = RPACorrelation(calc, nfrequencies=8)
+    E_rpa1 = rpa.calculate(ecut=ecuts)
 
-    fxc = FXCCorrelation(calc, xc='RPA', nlambda=16)
-    E_rpa2 = fxc.calculate(ecut=[25, 50])
+    def fxc(xc, nfrequencies=8, **kwargs):
+        return FXCCorrelation(calc, xc=xc, **kwargs).calculate(ecut=ecuts)[-1]
 
-    fxc = FXCCorrelation(calc, xc='rALDA', unit_cells=[1, 1, 2])
-    E_ralda = fxc.calculate(ecut=[25, 50])
+    energies = [
+        fxc('RPA', nlambda=16),
+        fxc('rALDA', unit_cells=[1, 1, 2]),
+        fxc('rAPBE', unit_cells=[1, 1, 2]),
+        fxc('rALDA', av_scheme='wavevector'),
+        fxc('rAPBE', av_scheme='wavevector'),
+        fxc('JGMs', av_scheme='wavevector', Eg=3.1, nlambda=2),
+        fxc('CP_dyn', av_scheme='wavevector', nfrequencies=2, nlambda=2)]
 
-    fxc = FXCCorrelation(calc, xc='rAPBE', unit_cells=[1, 1, 2])
-    E_rapbe = fxc.calculate(ecut=[25, 50])
+    equal(E_rpa1[-1], energies[0], 0.01)
 
-    fxc = FXCCorrelation(calc, xc='rALDA', av_scheme='wavevector')
-    E_raldawave = fxc.calculate(ecut=[25, 50])
+    refs = [
+        -9.5303,
+        -8.9431,
+        -8.8272,
+        -8.7941,
+        -8.6809,
+        -8.8596,
+        -4.6787]
+    tols = [0.002] * 5 + [0.001] * 2
 
-    fxc = FXCCorrelation(calc, xc='rAPBE', av_scheme='wavevector')
-    E_rapbewave = fxc.calculate(ecut=[25, 50])
+    for val, ref, tol in zip(enerigies, refs, tols):
+        assert val == pytest.approx(ref, abs=tol)
 
-    fxc = FXCCorrelation(calc, xc='JGMs', av_scheme='wavevector',
-                         Eg=3.1, nlambda=2)
-    E_JGMs = fxc.calculate(ecut=[25, 50])
 
-    fxc = FXCCorrelation(calc, xc='CP_dyn', av_scheme='wavevector',
-                         nfrequencies=2, nlambda=2)
-    E_CPdyn = fxc.calculate(ecut=[25, 50])
-
-    equal(E_rpa1[-1], E_rpa2[-1], 0.01)
-    equal(E_rpa2[-1], -12.6495, 0.002)
-    equal(E_ralda[-1], -11.368, 0.002)
-    equal(E_rapbe[-1], -11.149, 0.002)
-    equal(E_raldawave[-1], -11.0910, 0.002)
-    equal(E_rapbewave[-1], -10.831, 0.002)
-    equal(E_JGMs[-1], -11.2561, 0.001)
-    equal(E_CPdyn[-1], -7.8640, 0.001)
+if __name__ == '__main__':
+    test_ralda_ralda_energy_Si(1, 2)
