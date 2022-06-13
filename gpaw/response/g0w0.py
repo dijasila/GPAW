@@ -579,7 +579,7 @@ class G0W0:
 
             # Loop over q in the IBZ:
             nQ = 0
-            for ie, pd0, W0, q_c, m2, W0_GW, symop, blocks1d in \
+            for ie, pd0, W0, q_c, m2, W0_GW, symop, blocks1d, Q_aGii in \
                     self.calculate_screened_potential():
                 if nQ == 0:
                     print('Summing all q:', file=self.fd)
@@ -601,7 +601,7 @@ class G0W0:
                                      symop=symop,
                                      sigmas=self.sigmas,
                                      blocks1d=blocks1d,
-                                     Q_aGii=self.Q_aGii)
+                                     Q_aGii=Q_aGii)
                 nQ += 1
             pb.finish()
 
@@ -858,7 +858,7 @@ class G0W0:
                     with open(wfilename, 'rb') as fd:
                         pdi, W = pickleload(fd)
                     # We also need to initialize the PAW corrections
-                    self.Q_aGii = self.pair.initialize_paw_corrections(pdi)
+                    Q_aGii = self.pair.initialize_paw_corrections(pdi)
 
                 else:
                     # First time calculation
@@ -872,7 +872,7 @@ class G0W0:
                                              f'larger number of bands ({m2})'
                                              f' than there are bands '
                                              f'({self.nbands}).')
-                    pdi, W, W_GW, blocks1d = self.calculate_w(
+                    pdi, W, W_GW, blocks1d, Q_aGii = self.calculate_w(
                         chi0calc, q_c, chi0bands,
                         m1, m2, ecut, wstc, iq)
                     m1 = m2
@@ -891,7 +891,7 @@ class G0W0:
 
                 for Q_c, symop in QSymmetryOp.get_symops(self.qd, iq, q_c):
                     yield (ie, pdi, W, Q_c, m2, W_GW, symop,
-                           blocks1d)
+                           blocks1d, Q_aGii)
 
                 if self.restartfile is not None:
                     self.save_restart_file(iq)
@@ -917,8 +917,6 @@ class G0W0:
                 chi0.chi0_wvv += chi0bands.chi0_wvv
                 chi0bands.chi0_wvv[:] = chi0.chi0_wvv.copy()
 
-        self.Q_aGii = chi0calc.Q_aGii
-
         # Old way
         # if not np.allclose(q_c, 0):
         #     self.timer.start('old non gamma')
@@ -928,7 +926,7 @@ class G0W0:
             wstc, iq, q_c, chi0calc,
             chi0,
             ecut,
-            Q_aGii=self.Q_aGii)
+            Q_aGii=chi0calc.Q_aGii)
 
         GW_return = None
         if self.ppa:
@@ -963,7 +961,7 @@ class G0W0:
         #     Wm_wGG[:] = Wm2_wGG
         #     Wp_wGG[:] = Wp2_wGG
 
-        return pdi, W_xwGG, GW_return, blocks1d
+        return pdi, W_xwGG, GW_return, blocks1d, chi0calc.Q_aGii
 
     def dyson_and_W_new(self, wstc, iq, q_c, chi0calc, chi0, ecut):
         assert not self.ppa
