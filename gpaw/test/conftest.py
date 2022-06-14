@@ -110,8 +110,7 @@ class GPWFiles:
     """Create gpw-files."""
     def __init__(self, path: Path):
         self.path = path
-        if not path.is_dir():
-            path.mkdir()
+        path.mkdir(exist_ok=True)
         self.gpw_files = {}
         for file in path.glob('*.gpw'):
             self.gpw_files[file.name[:-4]] = file
