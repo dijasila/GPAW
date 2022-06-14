@@ -1,11 +1,25 @@
 import numpy as np
 
+from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.pw.descriptor import PWDescriptor
+from gpaw.response.pw_parallelization import (Blocks1D,
+                                              PlaneWaveBlockDistributor)
+
 
 class Chi0Data:
     """Data object containing the chi0 data arrays for a single q-point,
     while holding also the corresponding basis descriptors and block
     distributor."""
-    def __init__(self, wd, blockdist, pd, optical_limit, extend_head):
+    def __init__(self,
+                 q_c,
+                 *,
+                 ecut,
+                 gd,
+                 wd,
+                 extend_head,
+                 world,
+                 blockcomm,
+                 kncomm):
         """Construct the Chi0Data object
 
         Parameters
@@ -24,6 +38,22 @@ class Chi0Data:
             means that chi has dimension (nw, nG + 2, nG + 2) in the optical
             limit.
         """
+        q_c = np.asarray(q_c, dtype=float)
+        optical_limit = np.allclose(q_c, 0.0)
+
+        """Get the planewave descriptor of q_c."""
+        qd = KPointDescriptor([q_c])
+        pd = PWDescriptor(ecut, gd, complex, qd)
+
+        # Initialize block distibution of plane wave basis
+        nG = pd.ngmax
+        if optical_limit and extend_head:
+            nG += 2
+        blocks1d = Blocks1D(blockcomm, nG)
+        blockdist = PlaneWaveBlockDistributor(world,
+                                              blockcomm,
+                                              kncomm,
+                                              wd, blocks1d)
         self.wd = wd
         self.blockdist = blockdist
         self.pd = pd

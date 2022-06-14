@@ -22,9 +22,7 @@ from gpaw.response.hilbert import HilbertTransform
 from gpaw.response.integrators import (Integrator, PointIntegrator,
                                        TetrahedronIntegrator)
 from gpaw.response.pair import PairDensity
-from gpaw.response.pw_parallelization import (Blocks1D,
-                                              PlaneWaveBlockDistributor,
-                                              block_partition)
+from gpaw.response.pw_parallelization import block_partition
 from gpaw.response.symmetry import PWSymmetryAnalyzer
 from gpaw.typing import Array1D
 from gpaw.utilities.memory import maxrss
@@ -235,24 +233,14 @@ class Chi0:
         return self.calc.atoms.pbc
 
     def create_chi0(self, q_c, extend_head=True):
-        # This function should be made redundant in the future. Instead
-        # Chi0Data should be able to initialize itself.
-        q_c = np.asarray(q_c, dtype=float)
-        optical_limit = np.allclose(q_c, 0.0)
-
-        pd = self.get_PWDescriptor(q_c, self.gammacentered)
-
-        # Initialize block distibution of plane wave basis
-        nG = pd.ngmax
-        if optical_limit and extend_head:
-            nG += 2
-        blocks1d = Blocks1D(self.blockcomm, nG)
-        blockdist = PlaneWaveBlockDistributor(self.world,
-                                              self.blockcomm,
-                                              self.kncomm,
-                                              self.wd, blocks1d)
-
-        chi0 = Chi0Data(self.wd, blockdist, pd, optical_limit, extend_head)
+        chi0 = Chi0Data(q_c,
+                        ecut=self.ecut,
+                        wd=self.wd,
+                        gd=self.calc.wfs.gd,
+                        extend_head=extend_head,
+                        world=self.world,
+                        blockcomm=self.blockcomm,
+                        kncomm=self.kncomm)
 
         return chi0
 
@@ -647,13 +635,6 @@ class Chi0:
 
         return chi0
 
-    def get_PWDescriptor(self, q_c, gammacentered=False):
-        """Get the planewave descriptor of q_c."""
-        qd = KPointDescriptor([q_c])
-        pd = PWDescriptor(self.ecut, self.calc.wfs.gd,
-                          complex, qd, gammacentered=gammacentered)
-        return pd
-
     @timer('Get kpoints')
     def get_kpoints(self, pd, integrationmode=None):
         """Get the integration domain."""
@@ -741,7 +722,9 @@ class Chi0:
                 return None
             elif (kd.refine_info.almostoptical and label == 'mh'):
                 if not hasattr(self, 'pd0'):
-                    self.pd0 = self.get_PWDescriptor([0, ] * 3)
+                    qd = KPointDescriptor([[0, 0, 0]])
+                    self.pd0 = PWDescriptor(self.ecut, self.calc.wfs.gd,
+                                            complex, qd)
                 pd = self.pd0
                 extrapolate_q = True
 
