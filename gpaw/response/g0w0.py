@@ -882,6 +882,13 @@ class G0W0:
                 if self.restartfile is not None:
                     self.save_restart_file(iq)
 
+    @property
+    def fxc_modes(self):
+        modes = [self.fxc_mode]
+        if self.do_GW_too:
+            modes.append('GW')
+        return modes
+
     @timer('WW')
     def calculate_w(self, chi0calc, q_c, chi0bands,
                     m1, m2, ecut, wstc,
@@ -902,16 +909,6 @@ class G0W0:
                 chi0bands.chi0_wxvG[:] = chi0.chi0_wxvG.copy()
                 chi0.chi0_wvv += chi0bands.chi0_wvv
                 chi0bands.chi0_wvv[:] = chi0.chi0_wvv.copy()
-
-        # Old way
-        # if not np.allclose(q_c, 0):
-        #     self.timer.start('old non gamma')
-        # else:
-        #     self.timer.start('old gamma')
-
-        # do_GW_too:
-        # fxc_mode
-        # fv_GG is identity
 
         pdi, blocks1d, W_wGG = self.dyson_and_W_old(
             wstc, iq, q_c, chi0calc, chi0, ecut, Q_aGii=chi0calc.Q_aGii,
