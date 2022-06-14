@@ -810,10 +810,9 @@ class Integrator:  # --> KPointPairIntegrator in the future? XXX
         """Calculate the total crystal volume, V = Nk * V0, corresponding to
         the ground state k-point grid."""
         # Get the total number of k-points on the ground state k-point grid
-        Nk = self.kslrf.calc.wfs.kd.nbzkpts
-        # Calculate the cell volume
-        V0 = abs(np.linalg.det(self.kslrf.calc.wfs.gd.cell_cv))
-
+        wfs = self.kslrf.calc.wfs
+        Nk = wfs.kd.nbzkpts
+        V0 = wfs.gd.volume
         return Nk * V0
 
     def _integrate(self, bzk_kv, weight_k,

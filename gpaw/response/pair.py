@@ -151,7 +151,7 @@ class PairDensity:
 
         self.ut_sKnvR = None  # gradient of wave functions for optical limit
 
-        self.vol = abs(np.linalg.det(calc.wfs.gd.cell_cv))
+        self.vol = calc.wfs.gd.volume
 
         self.kd = self.calc.wfs.kd
         self.kptfinder = KPointFinder(self.kd.bzk_kc)
