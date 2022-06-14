@@ -602,11 +602,7 @@ class G0W0:
                     k1 = self.kd.bz2ibz_k[kpt1.K]
                     i = self.kpts.index(k1)
 
-                    Wlist = [Wdict[self.fxc_mode]]
-                    if self.do_GW_too:
-                        Wlist.append(Wdict['GW'])
-
-                    self.calculate_q(ie, i, kpt1, kpt2, pd0, Wlist,
+                    self.calculate_q(ie, i, kpt1, kpt2, pd0, Wdict,
                                      symop=symop,
                                      sigmas=self.sigmas,
                                      blocks1d=blocks1d,
@@ -644,10 +640,10 @@ class G0W0:
             if self.world.rank == 0:
                 if os.path.isfile(self.restartfile + '.sigma.pckl'):
                     os.remove(self.restartfile + '.sigma.pckl')
-            
+
         return results
 
-    def calculate_q(self, ie, k, kpt1, kpt2, pd0, Wlist,  # W0, W0_GW=None,
+    def calculate_q(self, ie, k, kpt1, kpt2, pd0, Wdict,
                     *, symop, sigmas, blocks1d, Q_aGii):
         """Calculates the contribution to the self-energy and its derivative
         for a given set of k-points, kpt1 and kpt2."""
@@ -701,8 +697,10 @@ class G0W0:
 
             nn = kpt1.n1 + n - self.bands[0]
 
-            assert len(Wlist) == len(sigmas)
-            for W, sigma in zip(Wlist, sigmas):
+            assert len(Wdict) == len(sigmas)
+            for fxc_mode, sigma in zip(self.fxc_modes, sigmas):
+                W = Wdict[fxc_mode]
+                #for W, sigma in zip(Wlist, sigmas):
                 sigma_contrib, dsigma_contrib = calculate_sigma(
                     n_mG, deps_m, f_m, W, blocks1d)
                 sigma.sigma_eskn[ie, kpt1.s, k, nn] += sigma_contrib
