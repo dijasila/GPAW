@@ -12,7 +12,6 @@ from gpaw import disable_dry_run
 from gpaw.fd_operators import Gradient
 from gpaw.response.pw_parallelization import block_partition
 from gpaw.utilities.blas import gemm
-from gpaw.utilities.progressbar import ProgressBar
 from gpaw.response.symmetry import KPointFinder
 
 
