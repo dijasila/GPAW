@@ -1104,11 +1104,6 @@ class G0W0:
             a1_qwG = np.dot(qf_qv, chi0_wxvG[wblocks1d.myslice, 1])
 
         self.timer.start('Dyson eq.')
-        # Calculate W and store it in chi0_wGG ndarray:
-        # if do_GW_too:
-        #    chi0_GW_wGG = chi0_wGG.copy()
-        # else:
-        chi0_GW_wGG = [0]
 
         def get_sqrtV_G(N_c, q_v=None):
             return get_coulomb_kernel(
@@ -1118,9 +1113,7 @@ class G0W0:
                 wstc=wstc,
                 q_v=q_v)**0.5
 
-        for iw, [chi0_GG, chi0_GW_GG] in enumerate(
-            zip(chi0_wGG,
-                itertools.cycle(chi0_GW_wGG))):
+        for iw, chi0_GG in enumerate(chi0_wGG):
             if np.allclose(q_c, 0):
                 einv_GG = np.zeros((nG, nG), complex)
                 for iqf in range(len(qf_qv)):
