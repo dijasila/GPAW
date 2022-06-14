@@ -917,10 +917,14 @@ class G0W0:
 
         pdi, blocks1d, W_wGG, W_GW_wGG = self.dyson_and_W_old(
             wstc, iq, q_c, chi0calc, chi0, ecut, Q_aGii=chi0calc.Q_aGii,
-            do_GW_too=self.do_GW_too)
+            do_GW_too=self.do_GW_too, fxc_mode=self.fxc_mode)
 
-        #if self.do_GW_too:
-            
+        if self.do_GW_too:
+            dyson_gw_things = self.dyson_and_W_old(
+                wstc, iq, q_c, chi0calc, chi0, ecut, Q_aGii=chi0calc.Q_aGii,
+                do_GW_too=False, fxc_mode=self.fxc_mode)
+        else:
+            dyson_gw_things = None
 
         GW_return = None
         if self.ppa:
@@ -1014,8 +1018,17 @@ class G0W0:
         Wm_wGG = W_WgG.copy()
         return chi0.pd, Wm_wGG, Wp_wGG  # not Hilbert transformed yet
 
+    def _calculate_kernel(self, nG, iq, G2G):
+        return calculate_kernel(ecut=self.ecut,
+                                xcflags=self.xcflags,
+                                calc=self.calc, nG=nG,
+                                ns=self.nspins, iq=iq,
+                                cut_G=G2G, wd=self.wd,
+                                Eg=self.Eg,
+                                timer=self.timer, fd=self.fd)
+
     def dyson_and_W_old(self, wstc, iq, q_c, chi0calc, chi0,
-                        ecut, Q_aGii, do_GW_too):
+                        ecut, Q_aGii, do_GW_too, fxc_mode):
         nG = chi0.pd.ngmax
         blocks1d = chi0.blockdist.blocks1d
 
@@ -1046,10 +1059,7 @@ class G0W0:
                     Q_aGii[a] = Q_Gii.take(G2G, axis=0)
 
         if self.integrate_gamma != 0:
-            if self.integrate_gamma == 2:
-                reduced = True
-            else:
-                reduced = False
+            reduced = (self.integrate_gamma == 2)
             V0, sqrtV0 = get_integrated_kernel(pdi,
                                                self.kd.N_c,
                                                truncation=self.truncation,
@@ -1066,11 +1076,12 @@ class G0W0:
         if self.ppa:
             einv_wGG = []
 
+        fv = self._calculate_kernel(nG, iq, G2G)
         # Calculate kernel
-        fv = calculate_kernel(ecut=self.ecut, xcflags=self.xcflags,
-                              calc=self.calc, nG=nG, ns=self.nspins, iq=iq,
-                              cut_G=G2G, wd=self.wd, Eg=self.Eg,
-                              timer=self.timer, fd=self.fd)[0:nG, 0:nG]
+        #fv = calculate_kernel(ecut=self.ecut, xcflags=self.xcflags,
+        #                      calc=self.calc, nG=nG, ns=self.nspins, iq=iq,
+        #                      cut_G=G2G, wd=self.wd, Eg=self.Eg,
+        #                      timer=self.timer, fd=self.fd)[0:nG, 0:nG]
         # Generate fine grid in vicinity of gamma
         kd = self.kd
         if np.allclose(q_c, 0) and len(chi0_wGG) > 0:
@@ -1126,7 +1137,7 @@ class G0W0:
                     sqrtV_G = get_sqrtV_G(kd.N_c, q_v=qf_qv[iqf])
 
                     dfc = DielectricFunctionCalculator(
-                        sqrtV_G, chi0_GG, mode=self.fxc_mode, fv_GG=fv)
+                        sqrtV_G, chi0_GG, mode=fxc_mode, fv_GG=fv)
                     einv_GG += dfc.get_einv_GG() * weight_q[iqf]
 
                     if do_GW_too:
@@ -1138,7 +1149,7 @@ class G0W0:
                 sqrtV_G = get_sqrtV_G(kd.N_c)
 
                 dfc = DielectricFunctionCalculator(
-                    sqrtV_G, chi0_GG, mode=self.fxc_mode, fv_GG=fv)
+                    sqrtV_G, chi0_GG, mode=fxc_mode, fv_GG=fv)
                 einv_GG = dfc.get_einv_GG()
 
                 if do_GW_too:
