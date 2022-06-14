@@ -551,6 +551,7 @@ class G0W0:
         All the values are ``ndarray``'s of shape
         (spins, IBZ k-points, bands)."""
 
+        loaded = False
         if self.restartfile is not None:
             loaded = self.load_restart_file()
             if not loaded:
@@ -569,23 +570,16 @@ class G0W0:
 
         self.fd.flush()
 
-        # This used to be a loop and hence indented.
-        # We use if 1 to keep the indentation and avoid git conflicts.
-        # This can be removed when peace is restored.
         # Reset calculation
         sigmashape = (len(self.ecut_e), *self.shape)
-        self.sigmas = [Sigma(sigmashape)]
-        if self.do_GW_too:
-            self.sigmas.append(Sigma(sigmashape))
 
+        self.sigmas = {fxc_mode: Sigma(sigmashape)
+                       for fxc_mode in self.fxc_modes}
         # Loop over q in the IBZ:
         print('Summing all q:', file=self.fd)
         pb = ProgressBar(self.fd)
-        for nQ, (ie, pd0, W0, q_c, m2, W0_GW, symop, blocks1d, Q_aGii) in \
+        for nQ, (ie, pd0, Wdict, q_c, m2, symop, blocks1d, Q_aGii) in \
                 enumerate(self.calculate_screened_potential()):
-            Wlist = [W0]
-            if W0_GW is not None:
-                Wlist.append(W0_GW)
 
             for progress, kpt1, kpt2 in self.pair_distribution.kpt_pairs_by_q(
                     q_c, 0, m2):
@@ -594,47 +588,59 @@ class G0W0:
                 k1 = self.kd.bz2ibz_k[kpt1.K]
                 i = self.kpts.index(k1)
 
-                self.calculate_q(ie, i, kpt1, kpt2, pd0, Wlist,
+                self.calculate_q(ie, i, kpt1, kpt2, pd0, Wdict,
                                  symop=symop,
                                  sigmas=self.sigmas,
                                  blocks1d=blocks1d,
                                  Q_aGii=Q_aGii)
         pb.finish()
 
-        for sigma in self.sigmas:
-            sigma.sum(self.world)
+        return self.postprocess(self.sigmas, loaded)
 
-        if self.restartfile is not None and loaded:
-            assert not self.do_GW_too
-            self.sigmas[0].sigma_eskn += self.previous_sigma
-            self.sigmas[0].dsigma_eskn += self.previous_dsigma
-
-        self.outputs, self.outputs_GW = self.calculate_g0w0_outputs()
-
-        results = self.outputs.get_results_eV()
-        if self.do_GW_too:
-            self.results_GW = results_GW = self.outputs_GW.get_results_eV()
-        else:
-            results_GW = None
-
-        self.print_results(results, results_GW)
-
-        if self.savepckl:
-            with paropen(self.filename + '_results.pckl', 'wb') as fd:
-                pickle.dump(results, fd, 2)
-            if self.do_GW_too:
-                with paropen(self.filename + '_results_GW.pckl', 'wb') as fd:
-                    pickle.dump(results_GW, fd, 2)
+    def postprocess(self, sigmas, loaded):
+        all_results = {}
+        for fxc_mode, sigma in sigmas.items():
+            all_results[fxc_mode] = self.postprocess_single(fxc_mode, sigma,
+                                                            loaded)
+        self.all_results = all_results
+        self.print_results(self.all_results)
 
         # After we have written the results restartfile is obsolete
         if self.restartfile is not None:
             if self.world.rank == 0:
                 if os.path.isfile(self.restartfile + '.sigma.pckl'):
                     os.remove(self.restartfile + '.sigma.pckl')
-            
-        return results
 
-    def calculate_q(self, ie, k, kpt1, kpt2, pd0, Wlist,  # W0, W0_GW=None,
+        return self.results  # XXX ugly discrepancy
+
+    def postprocess_single(self, fxc_name, sigma, loaded):
+        sigma.sum(self.world)  # (Not so pretty that we finalize the sum here)
+
+        if self.restartfile is not None and loaded:
+            assert not self.do_GW_too
+            sigma.sigma_eskn += self.previous_sigma
+            sigma.dsigma_eskn += self.previous_dsigma
+
+        output = self.calculate_g0w0_outputs(sigma)
+        result = output.get_results_eV()
+
+        if self.savepckl:
+            with paropen(f'{self.filename}_results_{fxc_name}.pckl',
+                         'wb') as fd:
+                pickle.dump(result, fd, 2)
+
+        return result
+
+    @property
+    def results_GW(self):
+        if self.do_GW_too:
+            return self.all_results['GW']
+
+    @property
+    def results(self):
+        return self.all_results[self.fxc_mode]
+
+    def calculate_q(self, ie, k, kpt1, kpt2, pd0, Wdict,
                     *, symop, sigmas, blocks1d, Q_aGii):
         """Calculates the contribution to the self-energy and its derivative
         for a given set of k-points, kpt1 and kpt2."""
@@ -688,8 +694,10 @@ class G0W0:
 
             nn = kpt1.n1 + n - self.bands[0]
 
-            assert len(Wlist) == len(sigmas)
-            for W, sigma in zip(Wlist, sigmas):
+            assert set(Wdict) == set(sigmas)
+            for fxc_mode in self.fxc_modes:
+                sigma = sigmas[fxc_mode]
+                W = Wdict[fxc_mode]
                 sigma_contrib, dsigma_contrib = calculate_sigma(
                     n_mG, deps_m, f_m, W, blocks1d)
                 sigma.sigma_eskn[ie, kpt1.s, k, nn] += sigma_contrib
@@ -844,7 +852,7 @@ class G0W0:
             m1 = chi0calc.nocc1
             for ie, ecut in enumerate(self.ecut_e):
                 self.timer.start('W')
-                
+
                 # First time calculation
                 if ecut == self.ecut:
                     # Nothing to cut away:
@@ -856,7 +864,7 @@ class G0W0:
                                          f'larger number of bands ({m2})'
                                          f' than there are bands '
                                          f'({self.nbands}).')
-                pdi, W, W_GW, blocks1d, Q_aGii = self.calculate_w(
+                pdi, Wdict, blocks1d, Q_aGii = self.calculate_w(
                     chi0calc, q_c, chi0bands,
                     m1, m2, ecut, wstc, iq)
                 m1 = m2
@@ -864,11 +872,18 @@ class G0W0:
                 self.timer.stop('W')
 
                 for Q_c, symop in QSymmetryOp.get_symops(self.qd, iq, q_c):
-                    yield (ie, pdi, W, Q_c, m2, W_GW, symop,
+                    yield (ie, pdi, Wdict, Q_c, m2, symop,
                            blocks1d, Q_aGii)
 
                 if self.restartfile is not None:
                     self.save_restart_file(iq)
+
+    @property
+    def fxc_modes(self):
+        modes = [self.fxc_mode]
+        if self.do_GW_too:
+            modes.append('GW')
+        return modes
 
     @timer('WW')
     def calculate_w(self, chi0calc, q_c, chi0bands,
@@ -891,61 +906,22 @@ class G0W0:
                 chi0.chi0_wvv += chi0bands.chi0_wvv
                 chi0bands.chi0_wvv[:] = chi0.chi0_wvv.copy()
 
-        # Old way
-        # if not np.allclose(q_c, 0):
-        #     self.timer.start('old non gamma')
-        # else:
-        #     self.timer.start('old gamma')
+        Wdict = {}
 
-        # do_GW_too:
-        # fxc_mode
-        # fv_GG is identity
-
-        pdi, blocks1d, W_wGG = self.dyson_and_W_old(
-            wstc, iq, q_c, chi0calc, chi0, ecut, Q_aGii=chi0calc.Q_aGii,
-            fxc_mode=self.fxc_mode)
-
-        if self.do_GW_too:
-            dyson_gw_things = self.dyson_and_W_old(
+        for fxc_mode in self.fxc_modes:
+            pdi, blocks1d, W_wGG = self.dyson_and_W_old(
                 wstc, iq, q_c, chi0calc, chi0, ecut, Q_aGii=chi0calc.Q_aGii,
-                fxc_mode='GW')
+                fxc_mode=fxc_mode)
 
-            W_GW_wGG = dyson_gw_things.W_wGG
+            if self.ppa:
+                W_xwGG = W_wGG  # (ppa API is nonsense)
+            else:
+                with self.timer('Hilbert'):
+                    W_xwGG = self.hilbert_transform(W_wGG)
 
-        GW_return = None
-        if self.ppa:
-            W_xwGG = W_wGG
-            # (We are ignoring some of the return values from dyson
-            # because the ppa API is nonsense)
-        else:
-            with self.timer('Hilbert'):
-                W_xwGG = self.hilbert_transform(W_wGG)
-                if self.do_GW_too:
-                    GW_return = self.hilbert_transform(W_GW_wGG)
+            Wdict[fxc_mode] = W_xwGG
 
-        # W_xwGG = [ Wm_wGG, Wp_wGG ] !
-
-        # if not np.allclose(q_c, 0):
-        #     self.timer.stop('old non gamma')
-        # else:
-        #     self.timer.stop('old gamma')
-
-        # if not np.allclose(q_c, 0):
-        #     self.timer.start('new non gamma')
-        #     pdi, Wm2_wGG, Wp2_wGG = self.dyson_and_W_new(wstc, iq, q_c, chi0,
-        #                                                  chi0_wvv, chi0_wxvG,
-        #                                                  chi02_wGG,
-        #                                                  pd, ecut)
-        #     self.timer.stop('new non gamma')
-
-        #     assert np.allclose(Wm_wGG, Wm2_wGG)
-        #     assert np.allclose(Wp_wGG, Wp2_wGG)
-
-        #     # For further verification, use Wm2 and Wp2 values
-        #     Wm_wGG[:] = Wm2_wGG
-        #     Wp_wGG[:] = Wp2_wGG
-
-        return pdi, W_xwGG, GW_return, blocks1d, chi0calc.Q_aGii
+        return pdi, Wdict, blocks1d, chi0calc.Q_aGii
 
     def dyson_and_W_new(self, wstc, iq, q_c, chi0calc, chi0, ecut):
         assert not self.ppa
@@ -1215,7 +1191,7 @@ class G0W0:
 
         return opencew(filename), None
 
-    def print_results(self, results, results_GW=None):
+    def print_results(self, results):
         description = ['f:      Occupation numbers',
                        'eps:     KS-eigenvalues [eV]',
                        'vxc:     KS vxc [eV]',
@@ -1242,18 +1218,17 @@ class G0W0:
                       ''.join('{0:>8}'.format(name) for name in names),
                       file=self.fd)
 
-                def actually_print_results(results):
+                def actually_print_results(resultset):
                     for n in range(b2 - b1):
                         print('{0:4}'.format(n + b1) +
-                              ''.join('{0:8.3f}'.format(results[name][s, i, n])
+                              ''.join('{0:8.3f}'
+                                      .format(resultset[name][s, i, n])
                                       for name in names),
                               file=self.fd)
 
-                actually_print_results(results)
-
-                if results_GW is not None:
-                    print(' ' * 67 + 'GW', file=self.fd)
-                    actually_print_results(results_GW)
+                for fxc_mode in results:
+                    print(fxc_mode.rjust(69), file=self.fd)
+                    actually_print_results(results[fxc_mode])
 
         self.timer.write(self.fd)
 
@@ -1283,8 +1258,9 @@ class G0W0:
         return x * sigma, x * dsigma
 
     def save_restart_file(self, nQ):
-        sigma_eskn_write = self.sigmas[0].sigma_eskn.copy()
-        dsigma_eskn_write = self.sigmas[0].dsigma_eskn.copy()
+        sigma = self.sigmas[self.fxc_mode]
+        sigma_eskn_write = sigma.sigma_eskn.copy()
+        dsigma_eskn_write = sigma.dsigma_eskn.copy()
         self.world.sum(sigma_eskn_write)
         self.world.sum(dsigma_eskn_write)
         data = {'last_q': nQ,
@@ -1327,7 +1303,7 @@ class G0W0:
                     'current calculation. Check kpts, bands, nbands, ecut, '
                     'domega0, omega2, integrate_gamma.')
 
-    def calculate_g0w0_outputs(self):
+    def calculate_g0w0_outputs(self, sigma):
         eps_skn, f_skn = self.get_eps_and_occs()
         kwargs = dict(
             fd=self.fd,
@@ -1338,19 +1314,9 @@ class G0W0:
             exx_skn=self.calculate_exact_exchange(),
             f_skn=f_skn)
 
-        outputs = G0W0Outputs(sigma_eskn=self.sigmas[0].sigma_eskn,
-                              dsigma_eskn=self.sigmas[0].dsigma_eskn,
-                              **kwargs)
-
-        if self.do_GW_too:
-            outputs_GW = G0W0Outputs(
-                sigma_eskn=self.sigmas[1].sigma_eskn,
-                dsigma_eskn=self.sigmas[1].dsigma_eskn,
-                **kwargs)
-        else:
-            outputs_GW = None
-
-        return outputs, outputs_GW
+        return G0W0Outputs(sigma_eskn=sigma.sigma_eskn,
+                           dsigma_eskn=sigma.dsigma_eskn,
+                           **kwargs)
 
     def add_q0_correction(self, pd, W_GG, einv_GG, chi0_xvG, chi0_vv,
                           sqrtV_G, print_ac=False):
