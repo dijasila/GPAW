@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 from gpaw.response.df import DielectricFunction
 from gpaw.response.qeh import BuildingBlock, check_building_blocks
-from qeh import interpolate_building_blocks
+#from qeh import interpolate_building_blocks
 
 """
 xxx QEH module seem to require at least 6x6x1 kpoints.
@@ -44,6 +44,7 @@ def dielectric(calc, domega, omega2):
 @pytest.mark.response
 def test_basics(in_tmp_dir, gpw_files):
     qeh = pytest.importorskip('qeh')
+    interpolate_building_blocks = qeh.interpolate_building_blocks
     Heterostructure = qeh.Heterostructure
 
     df = dielectric(gpw_files['graphene_pw_wfs'], 0.2, 0.6)
