@@ -73,16 +73,15 @@ class PW(Mode):
 
     def __call__(self, parallel, initksl, gd, **kwargs):
         dedepsilon = 0.0
-        volume = abs(np.linalg.det(gd.cell_cv))
 
         if self.cell_cv is None:
             ecut = self.ecut
         else:
             volume0 = abs(np.linalg.det(self.cell_cv))
-            ecut = self.ecut * (volume0 / volume)**(2 / 3.0)
+            ecut = self.ecut * (volume0 / gd.volume)**(2 / 3.0)
 
         if self.pulay_stress is not None:
-            dedepsilon = self.pulay_stress * volume
+            dedepsilon = self.pulay_stress * gd.volume
         elif self.dedecut is not None:
             if self.dedecut == 'estimate':
                 dedepsilon = 'estimate'
@@ -562,8 +561,9 @@ class PWWaveFunctions(FDPWWaveFunctions):
             nbands = self.pd.ngmin // S * S
         elif nbands is None:
             ecut /= Ha
-            vol = abs(np.linalg.det(self.gd.cell_cv))
-            nbands = int(vol * ecut**1.5 * 2**0.5 / 3 / pi**2)
+            # XXX I have seen this nbands expression elsewhere,
+            # extract to function!
+            nbands = int(gd.volume * ecut**1.5 * 2**0.5 / 3 / pi**2)
 
         if nbands % S != 0:
             nbands += S - nbands % S
