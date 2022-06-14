@@ -37,8 +37,8 @@ class PairDistribution:
     def __init__(self, pair, mysKn1n2):
         self.pair = pair
         self.mysKn1n2 = mysKn1n2
-        self.mykpts = [ for s, K, n1, n2 in self.mysKn1n2
-            self.pair.get_k_point(s, K, n1, n2) ]
+        self.mykpts = [self.pair.get_k_point(s, K, n1, n2)
+                       for s, K, n1, n2 in self.mysKn1n2]
 
     def kpt_pairs_by_q(self, q_c, m1, m2):
         pair = self.pair
