@@ -187,7 +187,7 @@ class EXX(PairDensity):
                 K1 = kd.ibz2bz_k[k1]
                 kpt1 = self.get_k_point(s, K1, *self.bands)
                 self.f_sin[s, i] = kpt1.f_n
-                for kpt2 in self.pair_distribution.mykpts():
+                for kpt2 in self.pair_distribution.mykpts:
                     if kpt2.s == s:
                         self.calculate_q(i, kpt1, kpt2)
 

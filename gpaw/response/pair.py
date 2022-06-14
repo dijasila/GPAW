@@ -37,20 +37,18 @@ class PairDistribution:
     def __init__(self, pair, mysKn1n2):
         self.pair = pair
         self.mysKn1n2 = mysKn1n2
+        self.mykpts = [ for s, K, n1, n2 in self.mysKn1n2
+            self.pair.get_k_point(s, K, n1, n2) ]
 
     def kpt_pairs_by_q(self, q_c, m1, m2):
         pair = self.pair
-        mykpts = self.mykpts()
+        mykpts = self.mykpts
         for u, kpt1 in enumerate(mykpts):
             progress = u / len(mykpts)
             K2 = pair.kd.find_k_plus_q(q_c, [kpt1.K])[0]
             kpt2 = pair.get_k_point(kpt1.s, K2, m1, m2, block=True)
 
             yield progress, kpt1, kpt2
-
-    def mykpts(self):
-        for s, K, n1, n2 in self.mysKn1n2:
-            yield self.pair.get_k_point(s, K, n1, n2)
 
 
 class KPointPair:
