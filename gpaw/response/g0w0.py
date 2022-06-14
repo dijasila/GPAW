@@ -1318,7 +1318,6 @@ class G0W0:
                            dsigma_eskn=sigma.dsigma_eskn,
                            **kwargs)
 
-
     def add_q0_correction(self, pd, W_GG, einv_GG, chi0_xvG, chi0_vv,
                           sqrtV_G, print_ac=False):
         self.q0_corrector.add_q0_correction(
