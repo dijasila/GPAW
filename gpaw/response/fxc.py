@@ -67,9 +67,6 @@ def get_density_xc_kernel(pd, chi0, functional='ALDA',
             Kxc_GG[0, :] = 0.0
             Kxc_GG[:, 0] = 0.0
         Kxc_sGG = np.array([Kxc_GG])
-    elif functional == 'DM':
-        print('Calculating DM kernel', file=fd)
-        Kxc_sGG = calculate_dm_kernel(pd, calc)
     elif functional == 'Bootstrap':
         print('Calculating Bootstrap kernel', file=fd)
         Kxc_sGG = get_bootstrap_kernel(pd, chi0, chi0_wGG, fd)
@@ -129,31 +126,6 @@ def get_transverse_xc_kernel(pd, chi0, functional='ALDA_x',
             Kxc_GG *= fxc_scaling[1]
 
     return Kxc_GG
-
-
-def calculate_dm_kernel(pd, calc):
-    """Density matrix kernel"""
-
-    assert pd.kd.gamma
-
-    nv = calc.wfs.setups.nvalence
-    psit_nG = np.array([calc.wfs.kpt_u[0].psit_nG[n]
-                        for n in range(4 * nv)])
-    vol = np.linalg.det(calc.wfs.gd.cell_cv)
-    Ng = np.prod(calc.wfs.gd.N_c)
-    rho_GG = np.dot(psit_nG.conj().T, psit_nG) * vol / Ng**2
-
-    maxG2 = np.max(pd.G2_qG[0])
-    cut_G = np.arange(calc.wfs.pd.ngmax)[calc.wfs.pd.G2_qG[0] <= maxG2]
-
-    G_G = pd.G2_qG[0]**0.5
-    G_G[0] = 1.0
-
-    Kxc_GG = np.diagflat(4 * np.pi / G_G**2)
-    Kxc_GG = np.dot(Kxc_GG, rho_GG.take(cut_G, 0).take(cut_G, 1))
-    Kxc_GG -= 4 * np.pi * np.diagflat(1.0 / G_G**2)
-
-    return np.array([Kxc_GG])
 
 
 def get_bootstrap_kernel(pd, chi0, chi0_wGG, fd):
