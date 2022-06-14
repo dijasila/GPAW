@@ -554,20 +554,7 @@ class BSE:
                                             truncation=self.truncation,
                                             chi0_wvv=chi0_wvv[:1],
                                             chi0_wxvG=chi0_wxvG[:1])
-                #N = 4
-                #N_c = np.array([N, N, N])
-                #if self.truncation is not None:
-                # Only average periodic directions if trunction is used
-                #    N_c[kd.N_c == 1] = 1
-                #qf_qc = monkhorst_pack(N_c) / kd.N_c
-                #qf_qc *= 1.0e-6
-                #U_scc = kd.symmetry.op_scc
-                #qf_qc = kd.get_ibz_q_points(qf_qc, U_scc)[0]
-                #weight_q = kd.q_weights
-                #qf_qv = 2 * np.pi * np.dot(qf_qc, pd.gd.icell_cv)
-                #a_q = np.sum(np.dot(chi0_wvv[0], qf_qv.T) * qf_qv.T, axis=0)
-                #a0_qG = np.dot(qf_qv, chi0_wxvG[0, 0])
-                #a1_qG = np.dot(qf_qv, chi0_wxvG[0, 1])
+
                 einv_GG = np.zeros((nG, nG), complex)
                 # W_GG = np.zeros((nG, nG), complex)
                 for iqf in range(len(gamma_int.qf_qv)):
