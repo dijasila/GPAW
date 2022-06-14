@@ -587,8 +587,9 @@ class G0W0:
 
             # Loop over q in the IBZ:
             nQ = 0
-            for ie, pd0, W0, q_c, m2, W0_GW, symop, blocks1d, Q_aGii in \
+            for ie, pd0, Wdict, q_c, m2, symop, blocks1d, Q_aGii in \
                     self.calculate_screened_potential():
+
                 if nQ == 0:
                     print('Summing all q:', file=self.fd)
                     pb = ProgressBar(self.fd)
@@ -601,9 +602,9 @@ class G0W0:
                     k1 = self.kd.bz2ibz_k[kpt1.K]
                     i = self.kpts.index(k1)
 
-                    Wlist = [W0]
-                    if W0_GW is not None:
-                        Wlist.append(W0_GW)
+                    Wlist = [Wdict[self.fxc_mode]]
+                    if self.do_GW_too:
+                        Wlist.append(Wdict['GW'])
 
                     self.calculate_q(ie, i, kpt1, kpt2, pd0, Wlist,
                                      symop=symop,
@@ -856,7 +857,7 @@ class G0W0:
             m1 = chi0calc.nocc1
             for ie, ecut in enumerate(self.ecut_e):
                 self.timer.start('W')
-                
+
                 # First time calculation
                 if ecut == self.ecut:
                     # Nothing to cut away:
@@ -873,15 +874,10 @@ class G0W0:
                     m1, m2, ecut, wstc, iq)
                 m1 = m2
 
-                W = Wdict[self.fxc_mode]
-                W_GW = None
-                if self.do_GW_too:
-                    W_GW = Wdict['GW']
-
                 self.timer.stop('W')
 
                 for Q_c, symop in QSymmetryOp.get_symops(self.qd, iq, q_c):
-                    yield (ie, pdi, W, Q_c, m2, W_GW, symop,
+                    yield (ie, pdi, Wdict, Q_c, m2, symop,
                            blocks1d, Q_aGii)
 
                 if self.restartfile is not None:
