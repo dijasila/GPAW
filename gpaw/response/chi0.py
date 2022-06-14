@@ -50,7 +50,7 @@ class Chi0:
                  calc,
                  *,
                  frequencies: Union[dict, Array1D] = None,
-                 ecut=50, gammacentered=False, hilbert=True, nbands=None,
+                 ecut=50, hilbert=True, nbands=None,
                  timeordered=False, eta=0.2, ftol=1e-6, threshold=1,
                  real_space_derivatives=False, intraband=True,
                  world=mpi.world, txt='-', timer=None,
@@ -77,8 +77,6 @@ class Chi0:
             (see :ref:`frequency grid`).
         ecut : float
             Energy cutoff.
-        gammacentered : bool
-            Center the grid of plane waves around the gamma point or q-vector
         hilbert : bool
             Switch for hilbert transform. If True, the full density response
             is determined from a hilbert transform of its spectral function.
@@ -179,7 +177,6 @@ class Chi0:
             ecut /= Ha
 
         self.ecut = ecut
-        self.gammacentered = gammacentered
 
         self.eta = eta / Ha
         if rate == 'eta':

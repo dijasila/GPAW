@@ -26,7 +26,7 @@ class DielectricFunction:
                  omega2=None,  # deprecated
                  omegamax=None,  # deprecated
                  ecut=50,
-                 gammacentered=False, hilbert=True,
+                 hilbert=True,
                  nbands=None, eta=0.2, ftol=1e-6, threshold=1,
                  intraband=True, nblocks=1, world=mpi.world, txt=sys.stdout,
                  truncation=None, disable_point_group=False,
@@ -52,8 +52,6 @@ class DielectricFunction:
             (see :ref:`frequency grid`).
         ecut: float
             Plane-wave cut-off.
-        gammacentered: bool
-            Center the grid of plane waves around the gamma point or q-vector
         hilbert: bool
             Use hilbert transform.
         nbands: int
@@ -86,7 +84,7 @@ class DielectricFunction:
         self.chi0 = Chi0(calc, frequencies=frequencies,
                          domega0=domega0, omega2=omega2, omegamax=omegamax,
                          ecut=ecut, nbands=nbands, eta=eta,
-                         gammacentered=gammacentered, hilbert=hilbert,
+                         hilbert=hilbert,
                          ftol=ftol, threshold=threshold,
                          intraband=intraband, world=world, nblocks=nblocks,
                          txt=txt,
