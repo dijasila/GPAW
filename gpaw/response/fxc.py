@@ -3,10 +3,6 @@
 
 import numpy as np
 
-from ase.utils.timing import Timer
-from ase.units import Ha
-
-from gpaw.io.tar import Reader
 from gpaw.response.kxc import AdiabaticSusceptibilityFXC
 from gpaw.response.tms import get_goldstone_scaling
 
