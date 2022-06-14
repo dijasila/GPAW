@@ -1,5 +1,4 @@
 import functools
-import itertools
 import os
 import pickle
 import warnings
