@@ -48,10 +48,9 @@ class PairDistribution:
 
             yield progress, kpt1, kpt2
 
-    @property
     def mykpts(self):
-        return [self.pair.get_k_point(s, K, n1, n2)
-                   for s, K, n1, n2 in self.mysKn1n2]
+        for s, K, n1, n2 in self.mysKn1n2:
+            yield self.pair.get_k_point(s, K, n1, n2)
 
 
 class KPointPair:
@@ -219,7 +218,6 @@ class PairDensity:
         print('Number of blocks:', self.blockcomm.size, file=self.fd)
 
         return PairDistribution(self, mysKn1n2)
-
 
     @timer('Get a k-point')
     def get_k_point(self, s, k_c, n1, n2, load_wfs=True, block=False):

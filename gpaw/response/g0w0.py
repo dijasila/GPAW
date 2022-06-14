@@ -440,7 +440,7 @@ class G0W0:
                                'work for spinpolarized systems.')
 
         self.pair_distribution = self.pair.distribute_k_points_and_bands(
-                                     b1, b2, self.kd.ibz2bz_k[self.kpts])
+            b1, b2, self.kd.ibz2bz_k[self.kpts])
 
         self.qd = get_qdescriptor(self.kd, self.calc.atoms)
 
@@ -563,45 +563,44 @@ class G0W0:
         # This used to be a loop and hence indented.
         # We use if 1 to keep the indentation and avoid git conflicts.
         # This can be removed when peace is restored.
-        if 1:
-            # Reset calculation
-            sigmashape = (len(self.ecut_e), *self.shape)
-            self.sigmas = [Sigma(sigmashape)]
-            if self.do_GW_too:
-                self.sigmas.append(Sigma(sigmashape))
+        # Reset calculation
+        sigmashape = (len(self.ecut_e), *self.shape)
+        self.sigmas = [Sigma(sigmashape)]
+        if self.do_GW_too:
+            self.sigmas.append(Sigma(sigmashape))
 
-            # Loop over q in the IBZ:
-            print('Summing all q:', file=self.fd)
-            pb = ProgressBar(self.fd)
-            for nQ, (ie, pd0, W0, q_c, m2, W0_GW, symop, blocks1d, Q_aGii) in \
-                    enumerate(self.calculate_screened_potential()):
-                Wlist = [W0]
-                if W0_GW is not None:
-                    Wlist.append(W0_GW)
+        # Loop over q in the IBZ:
+        print('Summing all q:', file=self.fd)
+        pb = ProgressBar(self.fd)
+        for nQ, (ie, pd0, W0, q_c, m2, W0_GW, symop, blocks1d, Q_aGii) in \
+                enumerate(self.calculate_screened_potential()):
+            Wlist = [W0]
+            if W0_GW is not None:
+                Wlist.append(W0_GW)
 
-            
-                for progress, kpt1, kpt2 in self.pair_distribution.kpt_pairs_by_q(q_c, 0, m2):
-                    pb.update((nQ + progress) / self.qd.mynk )
+            for progress, kpt1, kpt2 in self.pair_distribution.kpt_pairs_by_q(
+                    q_c, 0, m2):
+                pb.update((nQ + progress) / self.qd.mynk)
 
-                    k1 = self.kd.bz2ibz_k[kpt1.K]
-                    i = self.kpts.index(k1)
+                k1 = self.kd.bz2ibz_k[kpt1.K]
+                i = self.kpts.index(k1)
 
-                    self.calculate_q(ie, i, kpt1, kpt2, pd0, Wlist,
-                                     symop=symop,
-                                     sigmas=self.sigmas,
-                                     blocks1d=blocks1d,
-                                     Q_aGii=Q_aGii)
-            pb.finish()
+                self.calculate_q(ie, i, kpt1, kpt2, pd0, Wlist,
+                                 symop=symop,
+                                 sigmas=self.sigmas,
+                                 blocks1d=blocks1d,
+                                 Q_aGii=Q_aGii)
+        pb.finish()
 
-            for sigma in self.sigmas:
-                sigma.sum(self.world)
+        for sigma in self.sigmas:
+            sigma.sum(self.world)
 
-            if self.restartfile is not None and loaded:
-                assert not self.do_GW_too
-                self.sigmas[0].sigma_eskn += self.previous_sigma
-                self.sigmas[0].dsigma_eskn += self.previous_dsigma
+        if self.restartfile is not None and loaded:
+            assert not self.do_GW_too
+            self.sigmas[0].sigma_eskn += self.previous_sigma
+            self.sigmas[0].dsigma_eskn += self.previous_dsigma
 
-            self.outputs, self.outputs_GW = self.calculate_g0w0_outputs()
+        self.outputs, self.outputs_GW = self.calculate_g0w0_outputs()
 
         results = self.outputs.get_results_eV()
         if self.do_GW_too:

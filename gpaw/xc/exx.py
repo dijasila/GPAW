@@ -131,9 +131,8 @@ class EXX(PairDensity):
         self.exxvc = np.nan  # valence-core
         self.exxcc = 0.0     # core-core
 
-        self.mysKn1n2 = None  # my (s, K, n1, n2) indices
-        self.pair_distribution = self.distribute_k_points_and_bands(0, self.nocc2)
-
+        self.pair_distribution = self.distribute_k_points_and_bands(
+            0, self.nocc2)
 
         if omega is None:
             print('Using Wigner-Seitz truncated coulomb interaction.',
