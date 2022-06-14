@@ -563,7 +563,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             ecut /= Ha
             # XXX I have seen this nbands expression elsewhere,
             # extract to function!
-            nbands = int(gd.volume * ecut**1.5 * 2**0.5 / 3 / pi**2)
+            nbands = int(self.gd.volume * ecut**1.5 * 2**0.5 / 3 / pi**2)
 
         if nbands % S != 0:
             nbands += S - nbands % S
