@@ -8,13 +8,14 @@ from gpaw.xc.rpa import RPACorrelation
 
 
 @pytest.mark.response
-def test_ralda_ralda_energy_Si(in_tmp_dir, scalapack):
+def test_ralda_ralda_energy_He(in_tmp_dir, scalapack):
     a = 3.0
     atoms = Atoms('He', cell=[a, a, a], pbc=True)
     calc = GPAW(mode=dict(name='pw', ecut=200),
                 kpts=dict(size=(2, 2, 2), gamma=True),
                 nbands=2,
                 occupations=FermiDirac(0.001),
+                # FXCCorrelation needs a serial-comm GPAW object:
                 communicator=serial_comm)
     atoms.calc = calc
     atoms.get_potential_energy()
