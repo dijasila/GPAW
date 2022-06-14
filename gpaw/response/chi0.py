@@ -12,9 +12,7 @@ from ase.utils.timing import Timer, timer
 import gpaw
 import gpaw.mpi as mpi
 from gpaw.bztools import convex_hull_volume
-from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.pw.descriptor import PWDescriptor
-from gpaw.response.chi0_data import Chi0Data
+from gpaw.response.chi0_data import Chi0Data, create_pd
 from gpaw.response.frequencies import (FrequencyDescriptor,
                                        FrequencyGridDescriptor,
                                        NonLinearFrequencyDescriptor)
@@ -230,15 +228,13 @@ class Chi0:
         return self.calc.atoms.pbc
 
     def create_chi0(self, q_c, extend_head=True):
-        chi0 = Chi0Data(q_c,
-                        ecut=self.ecut,
-                        wd=self.wd,
-                        gd=self.calc.wfs.gd,
+        pd = create_pd(q_c, self.ecut, self.calc.wfs.gd)
+        chi0 = Chi0Data(pd=pd,
                         extend_head=extend_head,
+                        wd=self.wd,
                         world=self.world,
                         blockcomm=self.blockcomm,
                         kncomm=self.kncomm)
-
         return chi0
 
     def calculate(self, q_c, spin='all'):
@@ -719,9 +715,9 @@ class Chi0:
                 return None
             elif (kd.refine_info.almostoptical and label == 'mh'):
                 if not hasattr(self, 'pd0'):
-                    qd = KPointDescriptor([[0, 0, 0]])
-                    self.pd0 = PWDescriptor(self.ecut, self.calc.wfs.gd,
-                                            complex, qd)
+                    self.pd0 = create_pd([0, 0, 0],
+                                         self.ecut,
+                                         self.calc.wfs.gd)
                 pd = self.pd0
                 extrapolate_q = True
 

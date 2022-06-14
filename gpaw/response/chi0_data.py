@@ -6,15 +6,20 @@ from gpaw.response.pw_parallelization import (Blocks1D,
                                               PlaneWaveBlockDistributor)
 
 
+def create_pd(q_c, ecut, gd):
+    """Get the planewave descriptor of q_c."""
+    qd = KPointDescriptor([q_c])
+    pd = PWDescriptor(ecut, gd, complex, qd)
+    return pd
+
+
 class Chi0Data:
     """Data object containing the chi0 data arrays for a single q-point,
     while holding also the corresponding basis descriptors and block
     distributor."""
     def __init__(self,
-                 q_c,
                  *,
-                 ecut,
-                 gd,
+                 pd,
                  wd,
                  extend_head,
                  world,
@@ -30,20 +35,14 @@ class Chi0Data:
             Distributor for the block parallelization
         pd : PWDescriptor
             Descriptor for the spatial (plane wave) degrees of freedom
-        optical_limit : bool
-            Are we in the q=0 limit?
         extend_head : bool
             If True: Extend the wings and head of chi in the optical limit to
             take into account the non-analytic nature of chi. Effectively
             means that chi has dimension (nw, nG + 2, nG + 2) in the optical
             limit.
         """
-        q_c = np.asarray(q_c, dtype=float)
+        q_c, = pd.kd.ibzk_kc
         optical_limit = np.allclose(q_c, 0.0)
-
-        """Get the planewave descriptor of q_c."""
-        qd = KPointDescriptor([q_c])
-        pd = PWDescriptor(ecut, gd, complex, qd)
 
         # Initialize block distibution of plane wave basis
         nG = pd.ngmax
