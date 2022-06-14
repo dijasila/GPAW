@@ -132,7 +132,7 @@ def calculate_0D_truncated_coulomb(pd, q_v=None):
         else:  # Only to avoid warning. Later set to zero in factory function
             qG_Gv[0] = [1., 1., 1.]
     # The radius is determined from volume of cell
-    R = 3 * pd.gd.volume / (4 * np.pi)**(1. / 3.)
+    R = (3 * pd.gd.volume / (4 * np.pi))**(1. / 3.)
 
     qG2_G = (qG_Gv**2).sum(axis=1)
 
@@ -192,7 +192,7 @@ def get_integrated_kernel(pd, N_c, truncation=None, N=100, reduced=False):
         V_q *= (1.0 + qnR_q * j1(qnR_q) * k0(qpR_q)
                 - qpR_q * j0(qnR_q) * k1(qpR_q))
     elif truncation == '0D' or 'wigner-seitz':
-        R = 3 * pd.gd.volume / (4 * np.pi)**(1. / 3.)
+        R = (3 * pd.gd.volume / (4 * np.pi))**(1. / 3.)
         q2_q = (q_qv**2).sum(axis=1)
         V_q = 4 * np.pi / q2_q
         V_q *= 1.0 - np.cos(q2_q**0.5 * R)
