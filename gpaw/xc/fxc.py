@@ -1307,7 +1307,7 @@ class KernelDens:
         ng_c = gd.N_c
         cell_cv = gd.cell_cv
         icell_cv = 2 * np.pi * np.linalg.inv(cell_cv)
-        vol = np.linalg.det(cell_cv)
+        vol = gd.volume
 
         ns = self.calc.wfs.nspins
         n_g = self.n_g  # density on rough grid
@@ -1507,7 +1507,7 @@ class KernelDens:
         pd = self.pd
         cell_cv = gd.cell_cv
         icell_cv = 2 * np.pi * np.linalg.inv(cell_cv)
-        vol = np.linalg.det(cell_cv)
+        vol = gd.volume
 
         fxc_sg = ns * self.get_fxc_g(ns * self.n_g)
         fxc_sg[np.where(self.n_g < self.density_cut)] = 0.0

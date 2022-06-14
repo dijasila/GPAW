@@ -116,7 +116,7 @@ class BSE:
         bzq_qc = monkhorst_pack(self.kd.N_c) + offset_c
         self.qd = KPointDescriptor(bzq_qc)
         self.qd.set_symmetry(self.calc.atoms, self.kd.symmetry)
-        self.vol = abs(np.linalg.det(calc.wfs.gd.cell_cv))
+        self.vol = calc.wfs.gd.volume
 
         # bands
         self.spins = self.calc.wfs.nspins

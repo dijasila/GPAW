@@ -166,15 +166,10 @@ class Chi0:
 
         calc = self.pair.calc
         self.calc = calc
-
         self.fd = self.pair.fd
-
-        self.vol = abs(np.linalg.det(calc.wfs.gd.cell_cv))
-
+        self.vol = calc.wfs.gd.volume
         self.world = world
-
         self.blockcomm, self.kncomm = block_partition(world, nblocks)
-
         self.nblocks = nblocks
 
         if ecut is not None:
