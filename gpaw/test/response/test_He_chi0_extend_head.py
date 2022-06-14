@@ -28,7 +28,7 @@ def test_he_chi0_extend_head(in_tmp_dir):
 
     # Part 2: Chi0 calculation
     ecut = 50
-    frequencies = np.linspace(-1., 1., 11)
+    frequencies = np.linspace(0., 30., 11)
     eta = 0.05
     hilbert = False
     timeordered = False
