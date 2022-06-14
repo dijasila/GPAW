@@ -251,16 +251,6 @@ def choose_ecut_things(ecut, ecut_extrapolation):
     return ecut, ecut_e
 
 
-class DysonThings:
-    def __init__(self, pdi, blocks1d, W_wGG):
-        self.pdi = pdi
-        self.blocks1d = blocks1d
-        self.W_wGG = W_wGG
-
-    def __iter__(self):
-        yield from [self.pdi, self.blocks1d, self.W_wGG]
-
-
 class G0W0:
     def __init__(self, calc, filename='gw', *,
                  restartfile=None,
@@ -1130,14 +1120,14 @@ class G0W0:
                 W_GG[1:, 0] = pi * R_GG[1:, 0] * sqrtV0 * sqrtV_G[1:]
 
             self.timer.stop('Dyson eq.')
-            return DysonThings(pdi, blocks1d, [W_GG, omegat_GG])
+            return pdi, blocks1d, [W_GG, omegat_GG]
 
         # XXX This creates a new, large buffer.  We could perhaps
         # avoid that.  Buffer used to exist but was removed due to #456.
         W_wGG = chi0.blockdist.redistribute(chi0_wGG)
 
         self.timer.stop('Dyson eq.')
-        return DysonThings(pdi, blocks1d, W_wGG)
+        return pdi, blocks1d, W_wGG
 
     @timer('Kohn-Sham XC-contribution')
     def calculate_ks_xc_contribution(self):
