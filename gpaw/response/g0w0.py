@@ -917,12 +917,13 @@ class G0W0:
                 wstc, iq, q_c, chi0calc, chi0, ecut, Q_aGii=chi0calc.Q_aGii,
                 fxc_mode=fxc_mode)
 
-            Wdict[fxc_mode] = W_wGG
+            if self.ppa:
+                W_xwGG = W_wGG  # (ppa API is nonsense)
+            else:
+                with self.timer('Hilbert'):
+                    W_xwGG = self.hilbert_transform(W_wGG)
 
-        if not self.ppa:  # (ppa API is nonsense)
-            with self.timer('Hilbert'):
-                for fxc_mode in self.fxc_modes:
-                    Wdict[fxc_mode] = self.hilbert_transform(Wdict[fxc_mode])
+            Wdict[fxc_mode] = W_xwGG
 
         return pdi, Wdict, blocks1d, chi0calc.Q_aGii
 
