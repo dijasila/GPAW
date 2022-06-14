@@ -1,5 +1,4 @@
 import functools
-import itertools
 import os
 import pickle
 import warnings
@@ -26,7 +25,7 @@ from gpaw.utilities.progressbar import ProgressBar
 from gpaw.pw.descriptor import (PWDescriptor, PWMapping,
                                 count_reciprocal_vectors)
 from gpaw.xc.exx import EXX, select_kpts
-from gpaw.xc.fxc import set_flags
+from gpaw.xc.fxc import XCFlags
 from gpaw.xc.tools import vxc
 from gpaw.response.temp import DielectricFunctionCalculator
 from gpaw.response.q0_correction import Q0Correction
@@ -238,27 +237,31 @@ def get_qdescriptor(kd, atoms):
     return qd
 
 
-def choose_ecut_things(ecut, ecut_extrapolation, savew):
+def choose_ecut_things(ecut, ecut_extrapolation):
     if ecut_extrapolation is True:
         pct = 0.8
         necuts = 3
         ecut_e = ecut * (1 + (1. / pct - 1) * np.arange(necuts)[::-1] /
                          (necuts - 1))**(-2 / 3)
-        # It doesn't make sense to save W in this case since
-        # W is calculated for different cutoffs:
-        assert not savew
     elif isinstance(ecut_extrapolation, (list, np.ndarray)):
         ecut_e = np.array(np.sort(ecut_extrapolation))
         ecut = ecut_e[-1]
-        assert not savew
     else:
         ecut_e = np.array([ecut])
     return ecut, ecut_e
 
 
-class G0W0:
-    av_scheme = None  # to appease set_flags()
+class DysonThings:
+    def __init__(self, pdi, blocks1d, W_wGG):
+        self.pdi = pdi
+        self.blocks1d = blocks1d
+        self.W_wGG = W_wGG
 
+    def __iter__(self):
+        yield from [self.pdi, self.blocks1d, self.W_wGG]
+
+
+class G0W0:
     def __init__(self, calc, filename='gw', *,
                  restartfile=None,
                  kpts=None, bands=None, relbands=None, nbands=None, ppa=False,
@@ -270,7 +273,7 @@ class G0W0:
                  domega0=None,  # deprecated
                  omega2=None,  # deprecated
                  q0_correction=False,
-                 nblocks=1, savew=False, savepckl=True,
+                 nblocks=1, savepckl=True,
                  world=mpi.world, ecut_extrapolation=False,
                  nblocksmax=False):
 
@@ -354,8 +357,6 @@ class G0W0:
         nblocksmax: bool
             Cuts chi0 into as many blocks as possible to reduce memory
             requirements as much as possible.
-        savew: bool
-            Save W to a file.
         savepckl: bool
             Save output to a pckl file.
         """
@@ -366,7 +367,7 @@ class G0W0:
             raise ValueError(
                 'PPA is currently not compatible with block parallellisation.')
 
-        ecut, ecut_e = choose_ecut_things(ecut, ecut_extrapolation, savew)
+        ecut, ecut_e = choose_ecut_things(ecut, ecut_extrapolation)
         self.ecut_e = ecut_e / Ha
 
         # Check if nblocks is compatible, adjust if not
@@ -404,15 +405,17 @@ class G0W0:
         if Eg is None and self.xc == 'JGMsx':
             from ase.dft.bandgap import get_band_gap
             gap, k1, k2 = get_band_gap(self.calc)
-            self.Eg = gap
-        else:
-            self.Eg = Eg
+            Eg = gap
 
-        set_flags(self)
+        if Eg is not None:
+            Eg /= Ha
+
+        self.Eg = Eg
+
+        self.xcflags = XCFlags(self.xc)
 
         self.filename = filename
         self.restartfile = restartfile
-        self.savew = savew
         self.savepckl = savepckl
         self.ppa = ppa
         self.truncation = truncation
@@ -433,6 +436,11 @@ class G0W0:
 
         if nbands is None:
             nbands = int(self.vol * self.ecut**1.5 * 2**0.5 / 3 / pi**2)
+        else:
+            if ecut_extrapolation:
+                raise RuntimeError(
+                    'nbands cannot be supplied with ecut-extrapolation.')
+
         self.nbands = nbands
         self.nspins = self.calc.wfs.nspins
 
@@ -579,7 +587,7 @@ class G0W0:
 
             # Loop over q in the IBZ:
             nQ = 0
-            for ie, pd0, W0, q_c, m2, W0_GW, symop, blocks1d in \
+            for ie, pd0, W0, q_c, m2, W0_GW, symop, blocks1d, Q_aGii in \
                     self.calculate_screened_potential():
                 if nQ == 0:
                     print('Summing all q:', file=self.fd)
@@ -600,7 +608,8 @@ class G0W0:
                     self.calculate_q(ie, i, kpt1, kpt2, pd0, Wlist,
                                      symop=symop,
                                      sigmas=self.sigmas,
-                                     blocks1d=blocks1d)
+                                     blocks1d=blocks1d,
+                                     Q_aGii=Q_aGii)
                 nQ += 1
             pb.finish()
 
@@ -638,7 +647,7 @@ class G0W0:
         return results
 
     def calculate_q(self, ie, k, kpt1, kpt2, pd0, Wlist,  # W0, W0_GW=None,
-                    *, symop, sigmas, blocks1d):
+                    *, symop, sigmas, blocks1d, Q_aGii):
         """Calculates the contribution to the self-energy and its derivative
         for a given set of k-points, kpt1 and kpt2."""
 
@@ -657,8 +666,8 @@ class G0W0:
         pos_av = np.dot(self.pair.spos_ac, pd0.gd.cell_cv)
         M_vv = symop.get_M_vv(pd0.gd.cell_cv)
 
-        Q_aGii = []
-        for a, Q_Gii in enumerate(self.Q_aGii):
+        myQ_aGii = []
+        for a, Q_Gii in enumerate(Q_aGii):
             x_G = np.exp(1j * np.dot(G_Gv, (pos_av[a] -
                                             np.dot(M_vv, pos_av[a]))))
             U_ii = self.calc.wfs.setups[a].R_sii[symop.symno]
@@ -666,10 +675,10 @@ class G0W0:
                            U_ii.T).transpose(1, 0, 2)
             if symop.sign == -1:
                 Q_Gii = Q_Gii.conj()
-            Q_aGii.append(Q_Gii)
+            myQ_aGii.append(Q_Gii)
 
         if debug:
-            self.check(ie, i_cG, shift0_c, N_c, q_c, Q_aGii)
+            self.check(ie, i_cG, shift0_c, N_c, q_c, myQ_aGii)
 
         if self.ppa:
             calculate_sigma = self.calculate_sigma_ppa
@@ -680,7 +689,7 @@ class G0W0:
             ut1cc_R = kpt1.ut_nR[n].conj()
             eps1 = kpt1.eps_n[n]
             C1_aGi = [np.dot(Qa_Gii, P1_ni[n].conj())
-                      for Qa_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
+                      for Qa_Gii, P1_ni in zip(myQ_aGii, kpt1.P_ani)]
             n_mG = self.pair.calculate_pair_densities(
                 ut1cc_R, C1_aGi, kpt2, pd0, I_G)
             if symop.sign == 1:
@@ -847,50 +856,28 @@ class G0W0:
             m1 = chi0calc.nocc1
             for ie, ecut in enumerate(self.ecut_e):
                 self.timer.start('W')
-                if self.savew:
-                    wfilename = (self.filename + '.rank' +
-                                 str(self.blockcomm.rank) +
-                                 '.w.q%d.pckl' % iq)
-                    fd = opencew(wfilename)
-                if self.savew and fd is None:
-                    # Read screened potential from file
-                    with open(wfilename, 'rb') as fd:
-                        pdi, W = pickleload(fd)
-                    # We also need to initialize the PAW corrections
-                    self.Q_aGii = self.pair.initialize_paw_corrections(pdi)
-
+                
+                # First time calculation
+                if ecut == self.ecut:
+                    # Nothing to cut away:
+                    m2 = self.nbands
                 else:
-                    # First time calculation
-                    if ecut == self.ecut:
-                        # Nothing to cut away:
-                        m2 = self.nbands
-                    else:
-                        m2 = int(self.vol * ecut**1.5 * 2**0.5 / 3 / pi**2)
-                        if m2 > self.nbands:
-                            raise ValueError(f'Trying to extrapolate ecut to'
-                                             f'larger number of bands ({m2})'
-                                             f' than there are bands '
-                                             f'({self.nbands}).')
-                    pdi, W, W_GW, blocks1d = self.calculate_w(
-                        chi0calc, q_c, chi0bands,
-                        m1, m2, ecut, wstc, iq)
-                    m1 = m2
-                    if self.savew:
-                        if self.blockcomm.size > 1:
-                            thisfile = (self.filename + '.rank' +
-                                        str(self.blockcomm.rank) +
-                                        '.w.q%d.pckl' % iq)
-                            with open(thisfile, 'wb') as fd:
-                                pickle.dump((pdi, W), fd, 2)
-                        else:
-                            with fd:
-                                pickle.dump((pdi, W), fd, 2)
+                    m2 = int(self.vol * ecut**1.5 * 2**0.5 / 3 / pi**2)
+                    if m2 > self.nbands:
+                        raise ValueError(f'Trying to extrapolate ecut to'
+                                         f'larger number of bands ({m2})'
+                                         f' than there are bands '
+                                         f'({self.nbands}).')
+                pdi, W, W_GW, blocks1d, Q_aGii = self.calculate_w(
+                    chi0calc, q_c, chi0bands,
+                    m1, m2, ecut, wstc, iq)
+                m1 = m2
 
                 self.timer.stop('W')
 
                 for Q_c, symop in QSymmetryOp.get_symops(self.qd, iq, q_c):
                     yield (ie, pdi, W, Q_c, m2, W_GW, symop,
-                           blocks1d)
+                           blocks1d, Q_aGii)
 
                 if self.restartfile is not None:
                     self.save_restart_file(iq)
@@ -916,17 +903,26 @@ class G0W0:
                 chi0.chi0_wvv += chi0bands.chi0_wvv
                 chi0bands.chi0_wvv[:] = chi0.chi0_wvv.copy()
 
-        self.Q_aGii = chi0calc.Q_aGii
-
         # Old way
         # if not np.allclose(q_c, 0):
         #     self.timer.start('old non gamma')
         # else:
         #     self.timer.start('old gamma')
-        pdi, blocks1d, W_wGG, W_GW_wGG = self.dyson_and_W_old(
-            wstc, iq, q_c, chi0calc,
-            chi0,
-            ecut)
+
+        # do_GW_too:
+        # fxc_mode
+        # fv_GG is identity
+
+        pdi, blocks1d, W_wGG = self.dyson_and_W_old(
+            wstc, iq, q_c, chi0calc, chi0, ecut, Q_aGii=chi0calc.Q_aGii,
+            fxc_mode=self.fxc_mode)
+
+        if self.do_GW_too:
+            dyson_gw_things = self.dyson_and_W_old(
+                wstc, iq, q_c, chi0calc, chi0, ecut, Q_aGii=chi0calc.Q_aGii,
+                fxc_mode='GW')
+
+            W_GW_wGG = dyson_gw_things.W_wGG
 
         GW_return = None
         if self.ppa:
@@ -961,7 +957,7 @@ class G0W0:
         #     Wm_wGG[:] = Wm2_wGG
         #     Wp_wGG[:] = Wp2_wGG
 
-        return pdi, W_xwGG, GW_return, blocks1d
+        return pdi, W_xwGG, GW_return, blocks1d, chi0calc.Q_aGii
 
     def dyson_and_W_new(self, wstc, iq, q_c, chi0calc, chi0, ecut):
         assert not self.ppa
@@ -1020,14 +1016,25 @@ class G0W0:
         Wm_wGG = W_WgG.copy()
         return chi0.pd, Wm_wGG, Wp_wGG  # not Hilbert transformed yet
 
+    def _calculate_kernel(self, nG, iq, G2G):
+        return calculate_kernel(ecut=self.ecut,
+                                xcflags=self.xcflags,
+                                calc=self.calc, nG=nG,
+                                ns=self.nspins, iq=iq,
+                                cut_G=G2G, wd=self.wd,
+                                Eg=self.Eg,
+                                timer=self.timer, fd=self.fd)
+
     def dyson_and_W_old(self, wstc, iq, q_c, chi0calc, chi0,
-                        ecut):
+                        ecut, Q_aGii, fxc_mode):
         nG = chi0.pd.ngmax
         blocks1d = chi0.blockdist.blocks1d
 
         wblocks1d = Blocks1D(self.blockcomm, len(self.wd))
 
-        chi0_wGG = chi0.blockdist.redistribute(chi0.chi0_wGG)
+        # The copy() is only required when doing GW_too, since we need
+        # to run this whole thin twice.
+        chi0_wGG = chi0.blockdist.redistribute(chi0.chi0_wGG.copy())
         pd = chi0.pd
         chi0_wxvG = chi0.chi0_wxvG
         chi0_wvv = chi0.chi0_wvv
@@ -1047,15 +1054,12 @@ class G0W0:
             if chi0_wxvG is not None:
                 chi0_wxvG = chi0_wxvG.take(G2G, axis=3)
 
-            if self.Q_aGii is not None:
-                for a, Q_Gii in enumerate(self.Q_aGii):
-                    self.Q_aGii[a] = Q_Gii.take(G2G, axis=0)
+            if Q_aGii is not None:
+                for a, Q_Gii in enumerate(Q_aGii):
+                    Q_aGii[a] = Q_Gii.take(G2G, axis=0)
 
         if self.integrate_gamma != 0:
-            if self.integrate_gamma == 2:
-                reduced = True
-            else:
-                reduced = False
+            reduced = (self.integrate_gamma == 2)
             V0, sqrtV0 = get_integrated_kernel(pdi,
                                                self.kd.N_c,
                                                truncation=self.truncation,
@@ -1072,8 +1076,11 @@ class G0W0:
         if self.ppa:
             einv_wGG = []
 
-        # Calculate kernel
-        fv = calculate_kernel(self, nG, self.nspins, iq, G2G)[0:nG, 0:nG]
+        if fxc_mode == 'GW':
+            fv = delta_GG
+        else:
+            fv = self._calculate_kernel(nG, iq, G2G)
+
         # Generate fine grid in vicinity of gamma
         kd = self.kd
         if np.allclose(q_c, 0) and len(chi0_wGG) > 0:
@@ -1096,11 +1103,6 @@ class G0W0:
             a1_qwG = np.dot(qf_qv, chi0_wxvG[wblocks1d.myslice, 1])
 
         self.timer.start('Dyson eq.')
-        # Calculate W and store it in chi0_wGG ndarray:
-        if self.do_GW_too:
-            chi0_GW_wGG = chi0_wGG.copy()
-        else:
-            chi0_GW_wGG = [0]
 
         def get_sqrtV_G(N_c, q_v=None):
             return get_coulomb_kernel(
@@ -1110,44 +1112,25 @@ class G0W0:
                 wstc=wstc,
                 q_v=q_v)**0.5
 
-        for iw, [chi0_GG, chi0_GW_GG] in enumerate(
-            zip(chi0_wGG,
-                itertools.cycle(chi0_GW_wGG))):
+        for iw, chi0_GG in enumerate(chi0_wGG):
             if np.allclose(q_c, 0):
                 einv_GG = np.zeros((nG, nG), complex)
-                if self.do_GW_too:
-                    einv_GW_GG = np.zeros((nG, nG), complex)
                 for iqf in range(len(qf_qv)):
                     chi0_GG[0] = a0_qwG[iqf, iw]
                     chi0_GG[:, 0] = a1_qwG[iqf, iw]
                     chi0_GG[0, 0] = a_wq[iw, iqf]
-                    if self.do_GW_too:
-                        chi0_GW_GG[0] = a0_qwG[iqf, iw]
-                        chi0_GW_GG[:, 0] = a1_qwG[iqf, iw]
-                        chi0_GW_GG[0, 0] = a_wq[iw, iqf]
 
                     sqrtV_G = get_sqrtV_G(kd.N_c, q_v=qf_qv[iqf])
 
                     dfc = DielectricFunctionCalculator(
-                        sqrtV_G, chi0_GG, mode=self.fxc_mode, fv_GG=fv)
+                        sqrtV_G, chi0_GG, mode=fxc_mode, fv_GG=fv)
                     einv_GG += dfc.get_einv_GG() * weight_q[iqf]
-
-                    if self.do_GW_too:
-                        gw_dfc = DielectricFunctionCalculator(
-                            sqrtV_G, chi0_GW_GG, mode='GW')
-                        einv_GW_GG += gw_dfc.get_einv_GG() * weight_q[iqf]
-
             else:
                 sqrtV_G = get_sqrtV_G(kd.N_c)
 
                 dfc = DielectricFunctionCalculator(
-                    sqrtV_G, chi0_GG, mode=self.fxc_mode, fv_GG=fv)
+                    sqrtV_G, chi0_GG, mode=fxc_mode, fv_GG=fv)
                 einv_GG = dfc.get_einv_GG()
-
-                if self.do_GW_too:
-                    gw_dfc = DielectricFunctionCalculator(
-                        sqrtV_G, chi0_GW_GG, mode='GW')
-                    einv_GW_GG = gw_dfc.get_einv_GG()
 
             if self.ppa:
                 einv_wGG.append(einv_GG - delta_GG)
@@ -1155,11 +1138,6 @@ class G0W0:
                 W_GG = chi0_GG
                 W_GG[:] = (einv_GG - delta_GG) * (sqrtV_G *
                                                   sqrtV_G[:, np.newaxis])
-
-                if self.do_GW_too:
-                    W_GW_GG = chi0_GW_GG
-                    W_GW_GG[:] = ((einv_GW_GG - delta_GG) *
-                                  sqrtV_G * sqrtV_G[:, np.newaxis])
 
                 if self.q0_corrector is not None and np.allclose(q_c, 0):
                     if iw == 0:
@@ -1172,22 +1150,10 @@ class G0W0:
                                            chi0_wvv[this_w],
                                            sqrtV_G,
                                            print_ac=print_ac)
-                    if self.do_GW_too:
-                        self.add_q0_correction(pdi, W_GW_GG, einv_GW_GG,
-                                               chi0_wxvG[this_w],
-                                               chi0_wvv[this_w],
-                                               sqrtV_G,
-                                               print_ac=print_ac)
                 elif np.allclose(q_c, 0) or self.integrate_gamma != 0:
                     W_GG[0, 0] = (einv_GG[0, 0] - 1.0) * V0
                     W_GG[0, 1:] = einv_GG[0, 1:] * sqrtV_G[1:] * sqrtV0
                     W_GG[1:, 0] = einv_GG[1:, 0] * sqrtV0 * sqrtV_G[1:]
-                    if self.do_GW_too:
-                        W_GW_GG[0, 0] = (einv_GW_GG[0, 0] - 1.0) * V0
-                        W_GW_GG[0, 1:] = (einv_GW_GG[0, 1:] *
-                                          sqrtV_G[1:] * sqrtV0)
-                        W_GW_GG[1:, 0] = (einv_GW_GG[1:, 0] *
-                                          sqrtV0 * sqrtV_G[1:])
 
         if self.ppa:
             omegat_GG = self.E0 * np.sqrt(einv_wGG[1] /
@@ -1200,20 +1166,14 @@ class G0W0:
                 W_GG[1:, 0] = pi * R_GG[1:, 0] * sqrtV0 * sqrtV_G[1:]
 
             self.timer.stop('Dyson eq.')
-            return pdi, blocks1d, [W_GG, omegat_GG], None
+            return DysonThings(pdi, blocks1d, [W_GG, omegat_GG])
 
         # XXX This creates a new, large buffer.  We could perhaps
         # avoid that.  Buffer used to exist but was removed due to #456.
         W_wGG = chi0.blockdist.redistribute(chi0_wGG)
 
-        if self.do_GW_too:
-            W_GW_wGG = chi0.blockdist.redistribute(
-                chi0_GW_wGG)
-        else:
-            W_GW_wGG = None
-
         self.timer.stop('Dyson eq.')
-        return pdi, blocks1d, W_wGG, W_GW_wGG
+        return DysonThings(pdi, blocks1d, W_wGG)
 
     @timer('Kohn-Sham XC-contribution')
     def calculate_ks_xc_contribution(self):
