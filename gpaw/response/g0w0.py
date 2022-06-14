@@ -237,6 +237,27 @@ def get_qdescriptor(kd, atoms):
     return qd
 
 
+class GammaIntegrator:
+    def __init__(self, truncation, kd, pd, chi0_wvv, chi0_wxvG):
+        N = 4
+        N_c = np.array([N, N, N])
+        if truncation is not None:
+            # Only average periodic directions if trunction is used
+            N_c[np.where(kd.N_c == 1)[0]] = 1
+        qf_qc = monkhorst_pack(N_c) / kd.N_c
+        qf_qc *= 1.0e-6
+        U_scc = kd.symmetry.op_scc
+        qf_qc = kd.get_ibz_q_points(qf_qc, U_scc)[0]
+        self.weight_q = kd.q_weights
+        self.qf_qv = 2 * np.pi * (qf_qc @ pd.gd.icell_cv)
+        self.a_wq = np.sum([chi0_vq * self.qf_qv.T
+                            for chi0_vq in
+                            np.dot(chi0_wvv, self.qf_qv.T)],
+                           axis=1)
+        self.a0_qwG = np.dot(self.qf_qv, chi0_wxvG[:, 0])
+        self.a1_qwG = np.dot(self.qf_qv, chi0_wxvG[:, 1])
+
+
 def choose_ecut_things(ecut, ecut_extrapolation):
     if ecut_extrapolation is True:
         pct = 0.8
@@ -1048,23 +1069,10 @@ class G0W0:
         # Generate fine grid in vicinity of gamma
         kd = self.kd
         if np.allclose(q_c, 0) and len(chi0_wGG) > 0:
-            N = 4
-            N_c = np.array([N, N, N])
-            if self.truncation is not None:
-                # Only average periodic directions if trunction is used
-                N_c[np.where(kd.N_c == 1)[0]] = 1
-            qf_qc = monkhorst_pack(N_c) / kd.N_c
-            qf_qc *= 1.0e-6
-            U_scc = kd.symmetry.op_scc
-            qf_qc = kd.get_ibz_q_points(qf_qc, U_scc)[0]
-            weight_q = kd.q_weights
-            qf_qv = 2 * np.pi * np.dot(qf_qc, pd.gd.icell_cv)
-            a_wq = np.sum([chi0_vq * qf_qv.T
-                           for chi0_vq in
-                           np.dot(chi0_wvv[wblocks1d.myslice], qf_qv.T)],
-                          axis=1)
-            a0_qwG = np.dot(qf_qv, chi0_wxvG[wblocks1d.myslice, 0])
-            a1_qwG = np.dot(qf_qv, chi0_wxvG[wblocks1d.myslice, 1])
+            gamma_int = GammaIntegrator(truncation=self.truncation,
+                                        kd=kd, pd=pd,
+                                        chi0_wvv=chi0_wvv[wblocks1d.myslice],
+                                        chi0_wxvG=chi0_wxvG[wblocks1d.myslice])
 
         self.timer.start('Dyson eq.')
 
@@ -1079,16 +1087,16 @@ class G0W0:
         for iw, chi0_GG in enumerate(chi0_wGG):
             if np.allclose(q_c, 0):
                 einv_GG = np.zeros((nG, nG), complex)
-                for iqf in range(len(qf_qv)):
-                    chi0_GG[0] = a0_qwG[iqf, iw]
-                    chi0_GG[:, 0] = a1_qwG[iqf, iw]
-                    chi0_GG[0, 0] = a_wq[iw, iqf]
+                for iqf in range(len(gamma_int.qf_qv)):
+                    chi0_GG[0, :] = gamma_int.a0_qwG[iqf, iw]
+                    chi0_GG[:, 0] = gamma_int.a1_qwG[iqf, iw]
+                    chi0_GG[0, 0] = gamma_int.a_wq[iw, iqf]
 
-                    sqrtV_G = get_sqrtV_G(kd.N_c, q_v=qf_qv[iqf])
+                    sqrtV_G = get_sqrtV_G(kd.N_c, q_v=gamma_int.qf_qv[iqf])
 
                     dfc = DielectricFunctionCalculator(
                         sqrtV_G, chi0_GG, mode=fxc_mode, fv_GG=fv)
-                    einv_GG += dfc.get_einv_GG() * weight_q[iqf]
+                    einv_GG += dfc.get_einv_GG() * gamma_int.weight_q[iqf]
             else:
                 sqrtV_G = get_sqrtV_G(kd.N_c)
 
