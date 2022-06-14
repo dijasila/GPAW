@@ -8,7 +8,7 @@ class GammaIntegrator:
         N_c = np.array([N, N, N])
         if truncation is not None:
             # Only average periodic directions if trunction is used
-            N_c[np.where(kd.N_c == 1)[0]] = 1
+            N_c[kd.N_c == 1] = 1
         qf_qc = monkhorst_pack(N_c) / kd.N_c
         qf_qc *= 1.0e-6
         U_scc = kd.symmetry.op_scc
