@@ -910,26 +910,19 @@ class G0W0:
                 chi0.chi0_wvv += chi0bands.chi0_wvv
                 chi0bands.chi0_wvv[:] = chi0.chi0_wvv.copy()
 
-        pdi, blocks1d, W_wGG = self.dyson_and_W_old(
-            wstc, iq, q_c, chi0calc, chi0, ecut, Q_aGii=chi0calc.Q_aGii,
-            fxc_mode=self.fxc_mode)
-
-        if self.do_GW_too:
-            dyson_gw_things = self.dyson_and_W_old(
-                wstc, iq, q_c, chi0calc, chi0, ecut, Q_aGii=chi0calc.Q_aGii,
-                fxc_mode='GW')
-
-            W_GW_wGG = dyson_gw_things.W_wGG
-
         Wdict = {}
 
-        if self.ppa:
-            Wdict[self.fxc_mode] = W_wGG  # (ppa API is nonsense)
-        else:
+        for fxc_mode in self.fxc_modes:
+            pdi, blocks1d, W_wGG = self.dyson_and_W_old(
+                wstc, iq, q_c, chi0calc, chi0, ecut, Q_aGii=chi0calc.Q_aGii,
+                fxc_mode=fxc_mode)
+
+            Wdict[fxc_mode] = W_wGG
+
+        if not self.ppa:  # (ppa API is nonsense)
             with self.timer('Hilbert'):
-                Wdict[self.fxc_mode] = self.hilbert_transform(W_wGG)
-                if self.do_GW_too:
-                    Wdict['GW'] = self.hilbert_transform(W_GW_wGG)
+                for fxc_mode in self.fxc_modes:
+                    Wdict[fxc_mode] = self.hilbert_transform(Wdict[fxc_mode])
 
         return pdi, Wdict, blocks1d, chi0calc.Q_aGii
 
