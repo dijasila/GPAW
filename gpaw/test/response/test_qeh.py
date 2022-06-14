@@ -2,7 +2,6 @@ import pytest
 import numpy as np
 from gpaw.response.df import DielectricFunction
 from gpaw.response.qeh import BuildingBlock, check_building_blocks
-#from qeh import interpolate_building_blocks
 
 """
 xxx QEH module seem to require at least 6x6x1 kpoints.
