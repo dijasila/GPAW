@@ -448,9 +448,8 @@ class G0W0:
             raise RuntimeError('Including a xc kernel does currently not '
                                'work for spinpolarized systems.')
 
-        # self.mysKn1n2 = None  # my (s, K, n1, n2) indices
-        self.pair.distribute_k_points_and_bands(b1, b2,
-                                                self.kd.ibz2bz_k[self.kpts])
+        self.pair_distribution = self.pair.distribute_k_points_and_bands(
+            b1, b2, self.kd.ibz2bz_k[self.kpts])
 
         self.qd = get_qdescriptor(self.kd, self.calc.atoms)
 
@@ -575,26 +574,16 @@ class G0W0:
 
         self.sigmas = {fxc_mode: Sigma(sigmashape)
                        for fxc_mode in self.fxc_modes}
-
-        # My part of the states we want to calculate QP-energies for:
-        mykpts = [self.pair.get_k_point(s, K, n1, n2)
-                  for s, K, n1, n2 in self.pair.mysKn1n2]
-        nkpt = len(mykpts)
-
         # Loop over q in the IBZ:
-        nQ = 0
-        for ie, pd0, Wdict, q_c, m2, symop, blocks1d, Q_aGii in \
-                self.calculate_screened_potential():
+        print('Summing all q:', file=self.fd)
+        pb = ProgressBar(self.fd)
+        for nQ, (ie, pd0, Wdict, q_c, m2, symop, blocks1d, Q_aGii) in \
+                enumerate(self.calculate_screened_potential()):
 
-            if nQ == 0:
-                print('Summing all q:', file=self.fd)
-                pb = ProgressBar(self.fd)
-            for u, kpt1 in enumerate(mykpts):
-                pb.update((nQ + 1) * u /
-                          (nkpt * self.qd.mynk * self.qd.nspins))
-                K2 = self.kd.find_k_plus_q(q_c, [kpt1.K])[0]
-                kpt2 = self.pair.get_k_point(
-                    kpt1.s, K2, 0, m2, block=True)
+            for progress, kpt1, kpt2 in self.pair_distribution.kpt_pairs_by_q(
+                    q_c, 0, m2):
+                pb.update((nQ + progress) / self.qd.mynk)
+
                 k1 = self.kd.bz2ibz_k[kpt1.K]
                 i = self.kpts.index(k1)
 
@@ -603,7 +592,6 @@ class G0W0:
                                  sigmas=self.sigmas,
                                  blocks1d=blocks1d,
                                  Q_aGii=Q_aGii)
-            nQ += 1
         pb.finish()
 
         for sigma in self.sigmas.values():
