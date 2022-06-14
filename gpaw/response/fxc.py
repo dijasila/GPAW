@@ -67,10 +67,6 @@ def get_density_xc_kernel(pd, chi0, functional='ALDA',
             Kxc_GG[0, :] = 0.0
             Kxc_GG[:, 0] = 0.0
         Kxc_sGG = np.array([Kxc_GG])
-    elif functional[0] == 'r':
-        # Renormalized kernel
-        print('Calculating %s kernel' % functional, file=fd)
-        Kxc_sGG = calculate_renormalized_kernel(pd, calc, functional, fd)
     elif functional[:2] == 'LR':
         print('Calculating LR kernel with alpha = %s' % functional[2:],
               file=fd)
@@ -82,8 +78,8 @@ def get_density_xc_kernel(pd, chi0, functional='ALDA',
         print('Calculating Bootstrap kernel', file=fd)
         Kxc_sGG = get_bootstrap_kernel(pd, chi0, chi0_wGG, fd)
     else:
-        raise ValueError('density-density %s kernel not'
-                         + ' implemented' % functional)
+        raise ValueError('Invalid functional for the density-density '
+                         'fxc kernel:', functional)
 
     return Kxc_sGG[0]
 
@@ -137,35 +133,6 @@ def get_transverse_xc_kernel(pd, chi0, functional='ALDA_x',
             Kxc_GG *= fxc_scaling[1]
 
     return Kxc_GG
-
-
-def calculate_renormalized_kernel(pd, calc, functional, fd):
-    """Renormalized kernel"""
-
-    from gpaw.xc.fxc import KernelDens
-    kernel = KernelDens(calc,
-                        functional,
-                        [pd.kd.bzk_kc[0]],
-                        fd,
-                        calc.wfs.kd.N_c,
-                        None,
-                        ecut=pd.ecut * Ha,
-                        tag='',
-                        timer=Timer())
-
-    kernel.calculate_fhxc()
-    r = Reader('fhxc_%s_%s_%s_%s.gpw' %
-               ('', functional, pd.ecut * Ha, 0))
-    Kxc_sGG = np.array([r.get('fhxc_sGsG')])
-
-    v_G = 4 * np.pi / pd.G2_qG[0]
-    Kxc_sGG[0] -= np.diagflat(v_G)
-
-    if pd.kd.gamma:
-        Kxc_sGG[:, 0, :] = 0.0
-        Kxc_sGG[:, :, 0] = 0.0
-
-    return Kxc_sGG
 
 
 def calculate_lr_kernel(pd, calc, alpha=0.2):
