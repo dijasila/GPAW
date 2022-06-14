@@ -12,7 +12,6 @@ from gpaw import disable_dry_run
 from gpaw.fd_operators import Gradient
 from gpaw.response.pw_parallelization import block_partition
 from gpaw.utilities.blas import gemm
-from gpaw.utilities.progressbar import ProgressBar
 from gpaw.response.symmetry import KPointFinder
 
 
@@ -39,16 +38,20 @@ class PairDistribution:
         self.pair = pair
         self.mysKn1n2 = mysKn1n2
 
-    def kpt_loop(self, q_c, m1, m2):
+    def kpt_pairs_by_q(self, q_c, m1, m2):
         pair = self.pair
-        mykpts = [self.pair.get_k_point(s, K, n1, n2)
-                    for s, K, n1, n2 in self.mysKn1n2]
+        mykpts = self.mykpts
         for u, kpt1 in enumerate(mykpts):
             progress = u / len(mykpts)
             K2 = pair.kd.find_k_plus_q(q_c, [kpt1.K])[0]
             kpt2 = pair.get_k_point(kpt1.s, K2, m1, m2, block=True)
 
             yield progress, kpt1, kpt2
+
+    @property
+    def mykpts(self):
+        return [self.pair.get_k_point(s, K, n1, n2)
+                   for s, K, n1, n2 in self.mysKn1n2]
 
 
 class KPointPair:

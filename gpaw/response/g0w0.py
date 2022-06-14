@@ -580,7 +580,7 @@ class G0W0:
                     Wlist.append(W0_GW)
 
             
-                for progress, kpt1, kpt2 in self.pair_distribution.kpt_loop(q_c, 0, m2):
+                for progress, kpt1, kpt2 in self.pair_distribution.kpt_pairs_by_q(q_c, 0, m2):
                     pb.update((nQ + progress) / self.qd.mynk )
 
                     k1 = self.kd.bz2ibz_k[kpt1.K]
