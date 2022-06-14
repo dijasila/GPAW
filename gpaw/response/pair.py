@@ -33,6 +33,24 @@ class KPoint:
         # PairDensity.construct_symmetry_operators() method
 
 
+class PairDistribution:
+    def __init__(self, pair, mysKn1n2):
+        self.pair = pair
+        self.mysKn1n2 = mysKn1n2
+        self.mykpts = [self.pair.get_k_point(s, K, n1, n2)
+                       for s, K, n1, n2 in self.mysKn1n2]
+
+    def kpt_pairs_by_q(self, q_c, m1, m2):
+        pair = self.pair
+        mykpts = self.mykpts
+        for u, kpt1 in enumerate(mykpts):
+            progress = u / len(mykpts)
+            K2 = pair.kd.find_k_plus_q(q_c, [kpt1.K])[0]
+            kpt2 = pair.get_k_point(kpt1.s, K2, m1, m2, block=True)
+
+            yield progress, kpt1, kpt2
+
+
 class KPointPair:
     """This class defines the kpoint-pair container object.
 
@@ -135,8 +153,8 @@ class PairDensity:
 
         self.vol = abs(np.linalg.det(calc.wfs.gd.cell_cv))
 
-        kd = self.calc.wfs.kd
-        self.kptfinder = KPointFinder(kd.bzk_kc)
+        self.kd = self.calc.wfs.kd
+        self.kptfinder = KPointFinder(self.kd.bzk_kc)
         print('Number of blocks:', nblocks, file=self.fd)
 
     def __del__(self):
@@ -153,7 +171,7 @@ class PairDensity:
             self.nocc1 = min((f_n > 1 - self.ftol).sum(), self.nocc1)
             self.nocc2 = max((f_n > self.ftol).sum(), self.nocc2)
         print('Number of completely filled bands:', self.nocc1, file=self.fd)
-        print('Number of partially filled bands:', self.nocc2, file=self.fd)
+        print('Number of non-empty bands:', self.nocc2, file=self.fd)
         print('Total number of bands:', self.calc.wfs.bd.nbands,
               file=self.fd)
 
@@ -179,14 +197,14 @@ class PairDensity:
         i1 = min(rank * n, ns * nk * nbands)
         i2 = min(i1 + n, ns * nk * nbands)
 
-        self.mysKn1n2 = []
+        mysKn1n2 = []
         i = 0
         for s in range(ns):
             for K in kpts:
                 n1 = min(max(0, i1 - i), nbands)
                 n2 = min(max(0, i2 - i), nbands)
                 if n1 != n2:
-                    self.mysKn1n2.append((s, K, n1 + band1, n2 + band1))
+                    mysKn1n2.append((s, K, n1 + band1, n2 + band1))
                 i += nbands
 
         print('BZ k-points:', self.calc.wfs.kd, file=self.fd)
@@ -196,6 +214,8 @@ class PairDensity:
               (self.kncomm.size, ['es', ''][self.kncomm.size == 1]),
               file=self.fd)
         print('Number of blocks:', self.blockcomm.size, file=self.fd)
+
+        return PairDistribution(self, mysKn1n2)
 
     @timer('Get a k-point')
     def get_k_point(self, s, k_c, n1, n2, load_wfs=True, block=False):
