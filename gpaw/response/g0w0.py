@@ -252,6 +252,16 @@ def choose_ecut_things(ecut, ecut_extrapolation):
     return ecut, ecut_e
 
 
+class DysonThings:
+    def __init__(self, pdi, blocks1d, W_wGG, W_GW_wGG):
+        self.pdi = pdi
+        self.blocks1d = blocks1d
+        self.W_wGG = W_wGG
+        self.W_GW_wGG = W_GW_wGG
+
+    def __iter__(self):
+        yield from [self.pdi, self.blocks1d, self.W_wGG, self.W_GW_wGG]
+
 class G0W0:
     def __init__(self, calc, filename='gw', *,
                  restartfile=None,
@@ -899,11 +909,16 @@ class G0W0:
         #     self.timer.start('old non gamma')
         # else:
         #     self.timer.start('old gamma')
+
+        # do_GW_too:
+        # fxc_mode
+        # fv_GG is identity
+
         pdi, blocks1d, W_wGG, W_GW_wGG = self.dyson_and_W_old(
-            wstc, iq, q_c, chi0calc,
-            chi0,
-            ecut,
-            Q_aGii=chi0calc.Q_aGii)
+            wstc, iq, q_c, chi0calc, chi0, ecut, Q_aGii=chi0calc.Q_aGii)
+
+        #if self.do_GW_too:
+            
 
         GW_return = None
         if self.ppa:
@@ -1180,7 +1195,7 @@ class G0W0:
                 W_GG[1:, 0] = pi * R_GG[1:, 0] * sqrtV0 * sqrtV_G[1:]
 
             self.timer.stop('Dyson eq.')
-            return pdi, blocks1d, [W_GG, omegat_GG], None
+            return DysonThings(pdi, blocks1d, [W_GG, omegat_GG], None)
 
         # XXX This creates a new, large buffer.  We could perhaps
         # avoid that.  Buffer used to exist but was removed due to #456.
@@ -1193,7 +1208,7 @@ class G0W0:
             W_GW_wGG = None
 
         self.timer.stop('Dyson eq.')
-        return pdi, blocks1d, W_wGG, W_GW_wGG
+        return DysonThings(pdi, blocks1d, W_wGG, W_GW_wGG)
 
     @timer('Kohn-Sham XC-contribution')
     def calculate_ks_xc_contribution(self):
