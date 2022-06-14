@@ -29,13 +29,11 @@ class Chi0Data:
 
         Parameters
         ----------
-        wd : FrequencyDescriptor
-            Descriptor for the temporal (frequency) degrees of freedom
-        blockdist : PlaneWaveBlockDistributor
-            Distributor for the block parallelization
-        pd : PWDescriptor
+        pd: PWDescriptor
             Descriptor for the spatial (plane wave) degrees of freedom
-        extend_head : bool
+        wd: FrequencyDescriptor
+            Descriptor for the temporal (frequency) degrees of freedom
+        extend_head: bool
             If True: Extend the wings and head of chi in the optical limit to
             take into account the non-analytic nature of chi. Effectively
             means that chi has dimension (nw, nG + 2, nG + 2) in the optical
