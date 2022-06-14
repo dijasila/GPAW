@@ -24,7 +24,8 @@ def test_ext_potential_harmonic(in_tmp_dir):
 
     calc = GPAW(charge=-8,
                 nbands=4,
-                h=0.2,
+                mode='pw',
+                #h=0.2,
                 xc={'name': 'null'},
                 external=HarmonicPotential(),
                 poissonsolver=NoInteractionPoissonSolver(),
