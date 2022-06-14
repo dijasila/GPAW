@@ -868,10 +868,15 @@ class G0W0:
                                          f'larger number of bands ({m2})'
                                          f' than there are bands '
                                          f'({self.nbands}).')
-                pdi, W, W_GW, blocks1d, Q_aGii = self.calculate_w(
+                pdi, Wdict, blocks1d, Q_aGii = self.calculate_w(
                     chi0calc, q_c, chi0bands,
                     m1, m2, ecut, wstc, iq)
                 m1 = m2
+
+                W = Wdict[self.fxc_mode]
+                W_GW = None
+                if self.do_GW_too:
+                    W_GW = Wdict['GW']
 
                 self.timer.stop('W')
 
@@ -953,8 +958,13 @@ class G0W0:
         #     # For further verification, use Wm2 and Wp2 values
         #     Wm_wGG[:] = Wm2_wGG
         #     Wp_wGG[:] = Wp2_wGG
+        Wdict = {}
+        Wdict[self.fxc_mode] = W_xwGG
+        if self.do_GW_too:
+            assert GW_return is not None
+            Wdict['GW'] = GW_return
 
-        return pdi, W_xwGG, GW_return, blocks1d, chi0calc.Q_aGii
+        return pdi, Wdict, blocks1d, chi0calc.Q_aGii
 
     def dyson_and_W_new(self, wstc, iq, q_c, chi0calc, chi0, ecut):
         assert not self.ppa
