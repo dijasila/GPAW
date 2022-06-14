@@ -619,22 +619,21 @@ class G0W0:
                 sigma0.sigma_eskn += self.previous_sigma
                 sigma0.dsigma_eskn += self.previous_dsigma
 
-            self.outputs, self.outputs_GW = self.calculate_g0w0_outputs()
+            all_outputs = self.calculate_g0w0_outputs()
+            self.outputs = all_outputs[self.fxc_mode]
+            self.results = self.outputs.get_results_eV()
+            if self.do_GW_too:
+                self.outputs_GW = all_outputs['GW']
+                self.results_GW = self.outputs_GW.get_results_eV()
 
-        results = self.outputs.get_results_eV()
-        if self.do_GW_too:
-            self.results_GW = results_GW = self.outputs_GW.get_results_eV()
-        else:
-            results_GW = None
-
-        self.print_results(results, results_GW)
+        self.print_results(all_outputs)
 
         if self.savepckl:
             with paropen(self.filename + '_results.pckl', 'wb') as fd:
-                pickle.dump(results, fd, 2)
+                pickle.dump(self.results, fd, 2)
             if self.do_GW_too:
                 with paropen(self.filename + '_results_GW.pckl', 'wb') as fd:
-                    pickle.dump(results_GW, fd, 2)
+                    pickle.dump(self.results_GW, fd, 2)
 
         # After we have written the results restartfile is obsolete
         if self.restartfile is not None:
@@ -642,7 +641,7 @@ class G0W0:
                 if os.path.isfile(self.restartfile + '.sigma.pckl'):
                     os.remove(self.restartfile + '.sigma.pckl')
 
-        return results
+        return self.results
 
     def calculate_q(self, ie, k, kpt1, kpt2, pd0, Wdict,
                     *, symop, sigmas, blocks1d, Q_aGii):
@@ -1195,7 +1194,7 @@ class G0W0:
 
         return opencew(filename), None
 
-    def print_results(self, results, results_GW=None):
+    def print_results(self, results):
         description = ['f:      Occupation numbers',
                        'eps:     KS-eigenvalues [eV]',
                        'vxc:     KS vxc [eV]',
@@ -1222,18 +1221,17 @@ class G0W0:
                       ''.join('{0:>8}'.format(name) for name in names),
                       file=self.fd)
 
-                def actually_print_results(results):
+                def actually_print_results(resultset):
                     for n in range(b2 - b1):
                         print('{0:4}'.format(n + b1) +
-                              ''.join('{0:8.3f}'.format(results[name][s, i, n])
+                              ''.join('{0:8.3f}'
+                                      .format(resultset[name][s, i, n])
                                       for name in names),
                               file=self.fd)
 
-                actually_print_results(results)
-
-                if results_GW is not None:
-                    print(' ' * 67 + 'GW', file=self.fd)
-                    actually_print_results(results_GW)
+                for fxc_mode in results:
+                    print(fxc_mode.rjust(69), file=self.fd)
+                    actually_print_results(results[fxc_mode].get_results_eV())
 
         self.timer.write(self.fd)
 
@@ -1319,21 +1317,11 @@ class G0W0:
             exx_skn=self.calculate_exact_exchange(),
             f_skn=f_skn)
 
-        sigma = self.sigmas[self.fxc_mode]
-        outputs = G0W0Outputs(sigma_eskn=sigma.sigma_eskn,
-                              dsigma_eskn=sigma.dsigma_eskn,
-                              **kwargs)
+        return {fxc_mode: G0W0Outputs(sigma_eskn=sigma.sigma_eskn,
+                                      dsigma_eskn=sigma.dsigma_eskn,
+                                      **kwargs)
+                for fxc_mode, sigma in self.sigmas.items()}
 
-        if self.do_GW_too:
-            sigma1 = self.sigmas['GW']
-            outputs_GW = G0W0Outputs(
-                sigma_eskn=sigma1.sigma_eskn,
-                dsigma_eskn=sigma1.dsigma_eskn,
-                **kwargs)
-        else:
-            outputs_GW = None
-
-        return outputs, outputs_GW
 
     def add_q0_correction(self, pd, W_GG, einv_GG, chi0_xvG, chi0_vv,
                           sqrtV_G, print_ac=False):
