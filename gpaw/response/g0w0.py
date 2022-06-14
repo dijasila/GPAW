@@ -932,27 +932,6 @@ class G0W0:
                 if self.do_GW_too:
                     GW_return = self.hilbert_transform(W_GW_wGG)
 
-        # W_xwGG = [ Wm_wGG, Wp_wGG ] !
-
-        # if not np.allclose(q_c, 0):
-        #     self.timer.stop('old non gamma')
-        # else:
-        #     self.timer.stop('old gamma')
-
-        # if not np.allclose(q_c, 0):
-        #     self.timer.start('new non gamma')
-        #     pdi, Wm2_wGG, Wp2_wGG = self.dyson_and_W_new(wstc, iq, q_c, chi0,
-        #                                                  chi0_wvv, chi0_wxvG,
-        #                                                  chi02_wGG,
-        #                                                  pd, ecut)
-        #     self.timer.stop('new non gamma')
-
-        #     assert np.allclose(Wm_wGG, Wm2_wGG)
-        #     assert np.allclose(Wp_wGG, Wp2_wGG)
-
-        #     # For further verification, use Wm2 and Wp2 values
-        #     Wm_wGG[:] = Wm2_wGG
-        #     Wp_wGG[:] = Wp2_wGG
         Wdict = {}
         Wdict[self.fxc_mode] = W_xwGG
         if self.do_GW_too:
