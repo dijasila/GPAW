@@ -604,13 +604,11 @@ class G0W0:
             sigma0.dsigma_eskn += self.previous_dsigma
 
         all_outputs = self.calculate_g0w0_outputs()
-        self.outputs = all_outputs[self.fxc_mode]
-        self.results = self.outputs.get_results_eV()
-        if self.do_GW_too:
-            self.outputs_GW = all_outputs['GW']
-            self.results_GW = self.outputs_GW.get_results_eV()
 
-        self.print_results(all_outputs)
+        self.all_results = {fxc_mode: outputs.get_results_eV()
+                            for fxc_mode, outputs in all_outputs.items()}
+
+        self.print_results(self.all_results)
 
         if self.savepckl:
             with paropen(self.filename + '_results.pckl', 'wb') as fd:
@@ -626,6 +624,15 @@ class G0W0:
                     os.remove(self.restartfile + '.sigma.pckl')
 
         return self.results
+
+    @property
+    def results_GW(self):
+        if self.do_GW_too:
+            return self.all_results['GW']
+
+    @property
+    def results(self):
+        return self.all_results[self.fxc_mode]
 
     def calculate_q(self, ie, k, kpt1, kpt2, pd0, Wdict,
                     *, symop, sigmas, blocks1d, Q_aGii):
@@ -1215,7 +1222,7 @@ class G0W0:
 
                 for fxc_mode in results:
                     print(fxc_mode.rjust(69), file=self.fd)
-                    actually_print_results(results[fxc_mode].get_results_eV())
+                    actually_print_results(results[fxc_mode])
 
         self.timer.write(self.fd)
 
