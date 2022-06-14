@@ -183,11 +183,8 @@ class LCAOWaveFunctions(WaveFunctions):
             self.basis_functions.set_matrix_distribution(self.ksl.Mstart,
                                                          self.ksl.Mstop)
 
-        nq = len(self.kd.ibzk_qc)
-        nao = self.setups.nao
         Mstop = self.ksl.Mstop
         Mstart = self.ksl.Mstart
-        mynao = Mstop - Mstart
 
         # if self.ksl.using_blacs:  # XXX
         #     S and T have been distributed to a layout with blacs, so
@@ -225,7 +222,7 @@ class LCAOWaveFunctions(WaveFunctions):
         self.timer.start('P tci')
         P_qIM = manytci.P_qIM(my_atom_indices)
         self.timer.stop('P tci')
-        self.P_aqMi = newP_aqMi = manytci.P_aqMi(my_atom_indices)
+        self.P_aqMi = manytci.P_aqMi(my_atom_indices)
         self.P_qIM = P_qIM  # XXX atomic correction
 
         self.atomic_correction = self.atomic_correction_cls.new_from_wfs(self)
@@ -239,41 +236,12 @@ class LCAOWaveFunctions(WaveFunctions):
         #   enable caching of spherical harmonics
 
         self.atomic_correction.add_overlap_correction(newS_qMM)
-        if self.debug_tci:
-            self.atomic_correction.add_overlap_correction(oldS_qMM)
-
         self.allocate_arrays_for_projections(my_atom_indices)
-
-        # S_MM = None  # allow garbage collection of old S_qMM after redist
-        if self.debug_tci:
-            oldS_qMM = self.ksl.distribute_overlap_matrix(oldS_qMM, root=-1)
-            oldT_qMM = self.ksl.distribute_overlap_matrix(oldT_qMM, root=-1)
 
         newS_qMM = self.ksl.distribute_overlap_matrix(newS_qMM, root=-1)
         newT_qMM = self.ksl.distribute_overlap_matrix(newT_qMM, root=-1)
 
         self.positions_set = True
-
-        if self.debug_tci:
-            Serr = np.abs(newS_qMM - oldS_qMM).max()
-            Terr = np.abs(newT_qMM - oldT_qMM).max()
-            print('S maxerr', Serr)
-            print('T maxerr', Terr)
-            try:
-                assert Terr < 1e-15, Terr
-            except AssertionError:
-                np.set_printoptions(precision=6)
-                if self.world.rank == 0:
-                    print(newT_qMM)
-                    print(oldT_qMM)
-                    print(newT_qMM - oldT_qMM)
-                raise
-            assert Serr < 1e-15, Serr
-
-            assert len(oldP_aqMi) == len(newP_aqMi)
-            for a in oldP_aqMi:
-                Perr = np.abs(oldP_aqMi[a] - newP_aqMi[a]).max()
-                assert Perr < 1e-15, (a, Perr)
 
         for kpt in self.kpt_u:
             q = kpt.q
