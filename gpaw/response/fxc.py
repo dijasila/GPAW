@@ -67,6 +67,10 @@ def get_density_xc_kernel(pd, chi0, functional='ALDA',
             Kxc_GG[0, :] = 0.0
             Kxc_GG[:, 0] = 0.0
         Kxc_sGG = np.array([Kxc_GG])
+    elif functional[:2] == 'LR':
+        print('Calculating LR kernel with alpha = %s' % functional[2:],
+              file=fd)
+        Kxc_sGG = calculate_lr_kernel(pd, calc, alpha=float(functional[2:]))
     elif functional == 'Bootstrap':
         print('Calculating Bootstrap kernel', file=fd)
         Kxc_sGG = get_bootstrap_kernel(pd, chi0, chi0_wGG, fd)
@@ -126,6 +130,18 @@ def get_transverse_xc_kernel(pd, chi0, functional='ALDA_x',
             Kxc_GG *= fxc_scaling[1]
 
     return Kxc_GG
+
+
+def calculate_lr_kernel(pd, calc, alpha=0.2):
+    """Long range kernel: fxc = \alpha / |q+G|^2"""
+
+    assert pd.kd.gamma
+
+    f_G = np.zeros(len(pd.G2_qG[0]))
+    f_G[0] = -alpha
+    f_G[1:] = -alpha / pd.G2_qG[0][1:]
+
+    return np.array([np.diag(f_G)])
 
 
 def get_bootstrap_kernel(pd, chi0, chi0_wGG, fd):
