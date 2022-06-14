@@ -921,22 +921,15 @@ class G0W0:
 
             W_GW_wGG = dyson_gw_things.W_wGG
 
-        GW_return = None
+        Wdict = {}
+
         if self.ppa:
-            W_xwGG = W_wGG
-            # (We are ignoring some of the return values from dyson
-            # because the ppa API is nonsense)
+            Wdict[self.fxc_mode] = W_wGG  # (ppa API is nonsense)
         else:
             with self.timer('Hilbert'):
-                W_xwGG = self.hilbert_transform(W_wGG)
+                Wdict[self.fxc_mode] = self.hilbert_transform(W_wGG)
                 if self.do_GW_too:
-                    GW_return = self.hilbert_transform(W_GW_wGG)
-
-        Wdict = {}
-        Wdict[self.fxc_mode] = W_xwGG
-        if self.do_GW_too:
-            assert GW_return is not None
-            Wdict['GW'] = GW_return
+                    Wdict['GW'] = self.hilbert_transform(W_GW_wGG)
 
         return pdi, Wdict, blocks1d, chi0calc.Q_aGii
 
