@@ -262,6 +262,7 @@ class DysonThings:
     def __iter__(self):
         yield from [self.pdi, self.blocks1d, self.W_wGG, self.W_GW_wGG]
 
+
 class G0W0:
     def __init__(self, calc, filename='gw', *,
                  restartfile=None,
@@ -915,7 +916,8 @@ class G0W0:
         # fv_GG is identity
 
         pdi, blocks1d, W_wGG, W_GW_wGG = self.dyson_and_W_old(
-            wstc, iq, q_c, chi0calc, chi0, ecut, Q_aGii=chi0calc.Q_aGii)
+            wstc, iq, q_c, chi0calc, chi0, ecut, Q_aGii=chi0calc.Q_aGii,
+            do_GW_too=self.do_GW_too)
 
         #if self.do_GW_too:
             
@@ -1013,7 +1015,7 @@ class G0W0:
         return chi0.pd, Wm_wGG, Wp_wGG  # not Hilbert transformed yet
 
     def dyson_and_W_old(self, wstc, iq, q_c, chi0calc, chi0,
-                        ecut, Q_aGii):
+                        ecut, Q_aGii, do_GW_too):
         nG = chi0.pd.ngmax
         blocks1d = chi0.blockdist.blocks1d
 
@@ -1092,7 +1094,7 @@ class G0W0:
 
         self.timer.start('Dyson eq.')
         # Calculate W and store it in chi0_wGG ndarray:
-        if self.do_GW_too:
+        if do_GW_too:
             chi0_GW_wGG = chi0_wGG.copy()
         else:
             chi0_GW_wGG = [0]
@@ -1110,13 +1112,13 @@ class G0W0:
                 itertools.cycle(chi0_GW_wGG))):
             if np.allclose(q_c, 0):
                 einv_GG = np.zeros((nG, nG), complex)
-                if self.do_GW_too:
+                if do_GW_too:
                     einv_GW_GG = np.zeros((nG, nG), complex)
                 for iqf in range(len(qf_qv)):
                     chi0_GG[0] = a0_qwG[iqf, iw]
                     chi0_GG[:, 0] = a1_qwG[iqf, iw]
                     chi0_GG[0, 0] = a_wq[iw, iqf]
-                    if self.do_GW_too:
+                    if do_GW_too:
                         chi0_GW_GG[0] = a0_qwG[iqf, iw]
                         chi0_GW_GG[:, 0] = a1_qwG[iqf, iw]
                         chi0_GW_GG[0, 0] = a_wq[iw, iqf]
@@ -1127,7 +1129,7 @@ class G0W0:
                         sqrtV_G, chi0_GG, mode=self.fxc_mode, fv_GG=fv)
                     einv_GG += dfc.get_einv_GG() * weight_q[iqf]
 
-                    if self.do_GW_too:
+                    if do_GW_too:
                         gw_dfc = DielectricFunctionCalculator(
                             sqrtV_G, chi0_GW_GG, mode='GW')
                         einv_GW_GG += gw_dfc.get_einv_GG() * weight_q[iqf]
@@ -1139,7 +1141,7 @@ class G0W0:
                     sqrtV_G, chi0_GG, mode=self.fxc_mode, fv_GG=fv)
                 einv_GG = dfc.get_einv_GG()
 
-                if self.do_GW_too:
+                if do_GW_too:
                     gw_dfc = DielectricFunctionCalculator(
                         sqrtV_G, chi0_GW_GG, mode='GW')
                     einv_GW_GG = gw_dfc.get_einv_GG()
@@ -1151,7 +1153,7 @@ class G0W0:
                 W_GG[:] = (einv_GG - delta_GG) * (sqrtV_G *
                                                   sqrtV_G[:, np.newaxis])
 
-                if self.do_GW_too:
+                if do_GW_too:
                     W_GW_GG = chi0_GW_GG
                     W_GW_GG[:] = ((einv_GW_GG - delta_GG) *
                                   sqrtV_G * sqrtV_G[:, np.newaxis])
@@ -1167,7 +1169,7 @@ class G0W0:
                                            chi0_wvv[this_w],
                                            sqrtV_G,
                                            print_ac=print_ac)
-                    if self.do_GW_too:
+                    if do_GW_too:
                         self.add_q0_correction(pdi, W_GW_GG, einv_GW_GG,
                                                chi0_wxvG[this_w],
                                                chi0_wvv[this_w],
@@ -1177,7 +1179,7 @@ class G0W0:
                     W_GG[0, 0] = (einv_GG[0, 0] - 1.0) * V0
                     W_GG[0, 1:] = einv_GG[0, 1:] * sqrtV_G[1:] * sqrtV0
                     W_GG[1:, 0] = einv_GG[1:, 0] * sqrtV0 * sqrtV_G[1:]
-                    if self.do_GW_too:
+                    if do_GW_too:
                         W_GW_GG[0, 0] = (einv_GW_GG[0, 0] - 1.0) * V0
                         W_GW_GG[0, 1:] = (einv_GW_GG[0, 1:] *
                                           sqrtV_G[1:] * sqrtV0)
@@ -1201,7 +1203,7 @@ class G0W0:
         # avoid that.  Buffer used to exist but was removed due to #456.
         W_wGG = chi0.blockdist.redistribute(chi0_wGG)
 
-        if self.do_GW_too:
+        if do_GW_too:
             W_GW_wGG = chi0.blockdist.redistribute(
                 chi0_GW_wGG)
         else:
