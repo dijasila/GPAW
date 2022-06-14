@@ -18,6 +18,17 @@ xxx isotropic_q = False is temporarily turned off. However,
 """
 
 
+class FragileBB(BuildingBlock):
+    def update_building_block(self, *args, **kwargs):
+        if not hasattr(self, 'doom') and self.nq == 0:
+            self.doom = 0
+        self.doom += 1  # Advance doom
+        print('doom', self.doom)
+        if self.doom == 9:
+            raise ValueError('Cthulhu awakens')
+        BuildingBlock.update_building_block(self, *args, **kwargs)
+
+
 def dielectric(calc, domega, omega2):
     diel = DielectricFunction(calc=calc,
                               frequencies={'type': 'nonlinear',
@@ -44,6 +55,21 @@ def test_basics(in_tmp_dir, gpw_files):
     bb1.calculate_building_block()
     bb2.calculate_building_block()
 
+    # Test restart calculation
+    bb3 = FragileBB('mos2_rs', df2)
+    with pytest.raises(ValueError, match='Cthulhu*'):
+        bb3.calculate_building_block()
+    can_load = bb3.load_chi_file()
+    assert can_load
+    assert not bb3.complete
+    bb3.calculate_building_block()
+    can_load = bb3.load_chi_file()
+    assert can_load
+    assert bb3.complete
+    data = np.load('mos2-chi.npz')
+    data2 = np.load('mos2_rs-chi.npz')
+    assert np.allclose(data['chiM_qw'], data2['chiM_qw'])
+    
     # Test building blocks are on different grids
     are_equal = check_building_blocks(['mos2', 'graphene'])
     assert not are_equal
@@ -59,24 +85,41 @@ def test_basics(in_tmp_dir, gpw_files):
                          wmax=0,
                          d0=5)
     chi = HS.get_chi_matrix()
-    correct_val = 0.019456648867161096 - 0.00023954749821020183j
+    correct_val = 0.018928388759896875 - 0.00018260820184429004j
     assert np.amax(chi) == pytest.approx(correct_val)
 
+    # test equal building blocks
+    HS = Heterostructure(structure=['2mos2_int'],
+                         d=[5],
+                         wmax=0,
+                         d0=5)
+    chi = HS.get_chi_matrix()
+
+    HS = Heterostructure(structure=['mos2_int', 'mos2_int'],
+                         d=[5],
+                         wmax=0,
+                         d0=5)
+    chi_new = HS.get_chi_matrix()
+    assert np.allclose(chi, chi_new)
+    correct_val = 0.018238059045975367 + 8.08142659593134e-05j
+    assert np.amax(chi) == pytest.approx(correct_val)
+    
     # test to interpolate to grid and actual numbers
     q_grid = np.array([0, 0.1])
     w_grid = np.array([0, 0.1])
     bb2.interpolate_to_grid(q_grid=q_grid, w_grid=w_grid)
     data = np.load('mos2_int-chi.npz')
-    assert np.allclose(data['omega_w'], np.array([0., 0.00367493]))
 
-    monopole = np.array([[-7.21522101e-10 + 3.66116609e-23j,
-                          -7.22838580e-10 - 5.53789786e-12j],
-                         [-7.32406423e-03 - 8.85107345e-21j,
-                          -7.32900925e-03 - 2.03292271e-05j]])
+    assert np.allclose(data['omega_w'], np.array([0., 0.00367493]))
+    
+    monopole = np.array([[-6.19649236e-10 + 8.40185236e-24j,
+                          -6.20705802e-10 - 4.42467607e-12j],
+                         [-6.91213385e-03 + 4.81426465e-21j,
+                          -6.91691201e-03 - 1.96203657e-05j]])
     assert np.allclose(data['chiM_qw'], monopole)
 
-    dipole = np.array([[-0.19421447 + 7.45622655e-19j,
-                      -0.19436547 - 6.15346284e-04j],
-                       [-0.20438539 + 7.71005749e-19j,
-                      -0.20455297 - 6.83427250e-04j]])
+    dipole = np.array([[-0.19370323 + 6.04520088e-18j,
+                        -0.19385203 - 6.06238802e-04j],
+                       [-0.20384696 + 6.32211737e-18j,
+                        -0.2040121 - 6.73309535e-04j]])
     assert np.allclose(data['chiD_qw'], dipole)

@@ -382,8 +382,8 @@ def check_building_blocks(BBfiles=None):
         data = np.load(name + '-chi.npz')
         if len(w) != len(data['omega_w']):
             return False
-        elif not ((data['q_abs'] == q).all and
-                  (data['omega_w'] == w).all):
+        elif not ((data['q_abs'] == q).all() and
+                  (data['omega_w'] == w).all()):
             return False
     return True
 

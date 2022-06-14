@@ -94,7 +94,9 @@ def gpw_files(request, tmp_path_factory):
     * Bulk BN (zinkblende) with 2x2x2 k-points and 9 converged bands:
       ``bn_pw``.
 
-    * Graphene with 4x4x1 k-points: graphene_pw
+    * Graphene with 6x6x1 k-points: graphene_pw
+
+    * MoS2 with 6x6x1 k-points: mos2_pw
 
     Files with wave functions are also availabe (add ``_wfs`` to the names).
     """
@@ -297,8 +299,9 @@ class GPWFiles:
                          size=(1, 1, 1))
         atoms.pbc = (1, 1, 0)
         atoms.center(axis=2, vacuum=4.0)
+        ecut = 250
         nkpts = 6
-        atoms.calc = GPAW(mode=PW(400),
+        atoms.calc = GPAW(mode=PW(ecut),
                           kpts={'size': (nkpts, nkpts, 1), 'gamma': True},
                           nbands=len(atoms) * 6,
                           txt=self.path / 'graphene_pw.txt')
@@ -310,10 +313,11 @@ class GPWFiles:
         atoms = mx2(formula='MoS2', kind='2H', a=3.184, thickness=3.127,
                     size=(1, 1, 1), vacuum=5)
         atoms.pbc = (1, 1, 1)
-        ecut = 400
+        ecut = 250
+        nkpts = 6
         atoms.calc = GPAW(mode=PW(ecut),
                           xc='LDA',
-                          kpts={'size': (6, 6, 1), 'gamma': True},
+                          kpts={'size': (nkpts, nkpts, 1), 'gamma': True},
                           occupations=FermiDirac(0.01),
                           txt='mos2_pw.txt')
 
