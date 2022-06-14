@@ -922,7 +922,11 @@ class G0W0:
         if self.do_GW_too:
             dyson_gw_things = self.dyson_and_W_old(
                 wstc, iq, q_c, chi0calc, chi0, ecut, Q_aGii=chi0calc.Q_aGii,
-                do_GW_too=False, fxc_mode=self.fxc_mode)
+                do_GW_too=False, fxc_mode='GW')
+
+            err = abs(dyson_gw_things.W_wGG - W_GW_wGG).max()
+            assert err < 1e-12, err
+            W_GW_wGG = dyson_gw_things.W_wGG
         else:
             dyson_gw_things = None
 
@@ -1034,7 +1038,9 @@ class G0W0:
 
         wblocks1d = Blocks1D(self.blockcomm, len(self.wd))
 
-        chi0_wGG = chi0.blockdist.redistribute(chi0.chi0_wGG)
+        # The copy() is only required when doing GW_too, since we need
+        # to run this whole thin twice.
+        chi0_wGG = chi0.blockdist.redistribute(chi0.chi0_wGG.copy())
         pd = chi0.pd
         chi0_wxvG = chi0.chi0_wxvG
         chi0_wvv = chi0.chi0_wvv
@@ -1076,12 +1082,11 @@ class G0W0:
         if self.ppa:
             einv_wGG = []
 
-        fv = self._calculate_kernel(nG, iq, G2G)
-        # Calculate kernel
-        #fv = calculate_kernel(ecut=self.ecut, xcflags=self.xcflags,
-        #                      calc=self.calc, nG=nG, ns=self.nspins, iq=iq,
-        #                      cut_G=G2G, wd=self.wd, Eg=self.Eg,
-        #                      timer=self.timer, fd=self.fd)[0:nG, 0:nG]
+        if fxc_mode == 'GW':
+            fv = delta_GG
+        else:
+            fv = self._calculate_kernel(nG, iq, G2G)
+
         # Generate fine grid in vicinity of gamma
         kd = self.kd
         if np.allclose(q_c, 0) and len(chi0_wGG) > 0:
