@@ -551,6 +551,7 @@ class G0W0:
         All the values are ``ndarray``'s of shape
         (spins, IBZ k-points, bands)."""
 
+        loaded = False
         if self.restartfile is not None:
             loaded = self.load_restart_file()
             if not loaded:
@@ -594,28 +595,15 @@ class G0W0:
                                  Q_aGii=Q_aGii)
         pb.finish()
 
-        for sigma in self.sigmas.values():
-            sigma.sum(self.world)
+        return self.postprocess(self.sigmas, loaded)
 
-        if self.restartfile is not None and loaded:
-            assert not self.do_GW_too
-            sigma0 = self.sigmas[self.fxc_mode]
-            sigma0.sigma_eskn += self.previous_sigma
-            sigma0.dsigma_eskn += self.previous_dsigma
-
-        all_outputs = self.calculate_g0w0_outputs()
-
-        self.all_results = {fxc_mode: outputs.get_results_eV()
-                            for fxc_mode, outputs in all_outputs.items()}
-
+    def postprocess(self, sigmas, loaded):
+        all_results = {}
+        for fxc_mode, sigma in sigmas.items():
+            all_results[fxc_mode] = self.postprocess_single(fxc_mode, sigma,
+                                                            loaded)
+        self.all_results = all_results
         self.print_results(self.all_results)
-
-        if self.savepckl:
-            with paropen(self.filename + '_results.pckl', 'wb') as fd:
-                pickle.dump(self.results, fd, 2)
-            if self.do_GW_too:
-                with paropen(self.filename + '_results_GW.pckl', 'wb') as fd:
-                    pickle.dump(self.results_GW, fd, 2)
 
         # After we have written the results restartfile is obsolete
         if self.restartfile is not None:
@@ -623,7 +611,25 @@ class G0W0:
                 if os.path.isfile(self.restartfile + '.sigma.pckl'):
                     os.remove(self.restartfile + '.sigma.pckl')
 
-        return self.results
+        return self.results  # XXX ugly discrepancy
+
+    def postprocess_single(self, fxc_name, sigma, loaded):
+        sigma.sum(self.world)  # (Not so pretty that we finalize the sum here)
+
+        if self.restartfile is not None and loaded:
+            assert not self.do_GW_too
+            sigma.sigma_eskn += self.previous_sigma
+            sigma.dsigma_eskn += self.previous_dsigma
+
+        output = self.calculate_g0w0_outputs(sigma)
+        result = output.get_results_eV()
+
+        if self.savepckl:
+            with paropen(f'{self.filename}_results_{fxc_name}.pckl',
+                         'wb') as fd:
+                pickle.dump(result, fd, 2)
+
+        return result
 
     @property
     def results_GW(self):
@@ -1297,7 +1303,7 @@ class G0W0:
                     'current calculation. Check kpts, bands, nbands, ecut, '
                     'domega0, omega2, integrate_gamma.')
 
-    def calculate_g0w0_outputs(self):
+    def calculate_g0w0_outputs(self, sigma):
         eps_skn, f_skn = self.get_eps_and_occs()
         kwargs = dict(
             fd=self.fd,
@@ -1308,10 +1314,9 @@ class G0W0:
             exx_skn=self.calculate_exact_exchange(),
             f_skn=f_skn)
 
-        return {fxc_mode: G0W0Outputs(sigma_eskn=sigma.sigma_eskn,
-                                      dsigma_eskn=sigma.dsigma_eskn,
-                                      **kwargs)
-                for fxc_mode, sigma in self.sigmas.items()}
+        return G0W0Outputs(sigma_eskn=sigma.sigma_eskn,
+                           dsigma_eskn=sigma.dsigma_eskn,
+                           **kwargs)
 
 
     def add_q0_correction(self, pd, W_GG, einv_GG, chi0_xvG, chi0_vv,
