@@ -570,61 +570,57 @@ class G0W0:
 
         self.fd.flush()
 
-        # This used to be a loop and hence indented.
-        # We use if 1 to keep the indentation and avoid git conflicts.
-        # This can be removed when peace is restored.
-        if 1:
-            # Reset calculation
-            sigmashape = (len(self.ecut_e), *self.shape)
+        # Reset calculation
+        sigmashape = (len(self.ecut_e), *self.shape)
 
-            self.sigmas = {fxc_mode: Sigma(sigmashape)
-                           for fxc_mode in self.fxc_modes}
+        self.sigmas = {fxc_mode: Sigma(sigmashape)
+                       for fxc_mode in self.fxc_modes}
 
-            # My part of the states we want to calculate QP-energies for:
-            mykpts = [self.pair.get_k_point(s, K, n1, n2)
-                      for s, K, n1, n2 in self.pair.mysKn1n2]
-            nkpt = len(mykpts)
+        # My part of the states we want to calculate QP-energies for:
+        mykpts = [self.pair.get_k_point(s, K, n1, n2)
+                  for s, K, n1, n2 in self.pair.mysKn1n2]
+        nkpt = len(mykpts)
 
-            # Loop over q in the IBZ:
-            nQ = 0
-            for ie, pd0, Wdict, q_c, m2, symop, blocks1d, Q_aGii in \
-                    self.calculate_screened_potential():
+        # Loop over q in the IBZ:
+        nQ = 0
+        for ie, pd0, Wdict, q_c, m2, symop, blocks1d, Q_aGii in \
+                self.calculate_screened_potential():
 
-                if nQ == 0:
-                    print('Summing all q:', file=self.fd)
-                    pb = ProgressBar(self.fd)
-                for u, kpt1 in enumerate(mykpts):
-                    pb.update((nQ + 1) * u /
-                              (nkpt * self.qd.mynk * self.qd.nspins))
-                    K2 = self.kd.find_k_plus_q(q_c, [kpt1.K])[0]
-                    kpt2 = self.pair.get_k_point(
-                        kpt1.s, K2, 0, m2, block=True)
-                    k1 = self.kd.bz2ibz_k[kpt1.K]
-                    i = self.kpts.index(k1)
+            if nQ == 0:
+                print('Summing all q:', file=self.fd)
+                pb = ProgressBar(self.fd)
+            for u, kpt1 in enumerate(mykpts):
+                pb.update((nQ + 1) * u /
+                          (nkpt * self.qd.mynk * self.qd.nspins))
+                K2 = self.kd.find_k_plus_q(q_c, [kpt1.K])[0]
+                kpt2 = self.pair.get_k_point(
+                    kpt1.s, K2, 0, m2, block=True)
+                k1 = self.kd.bz2ibz_k[kpt1.K]
+                i = self.kpts.index(k1)
 
-                    self.calculate_q(ie, i, kpt1, kpt2, pd0, Wdict,
-                                     symop=symop,
-                                     sigmas=self.sigmas,
-                                     blocks1d=blocks1d,
-                                     Q_aGii=Q_aGii)
-                nQ += 1
-            pb.finish()
+                self.calculate_q(ie, i, kpt1, kpt2, pd0, Wdict,
+                                 symop=symop,
+                                 sigmas=self.sigmas,
+                                 blocks1d=blocks1d,
+                                 Q_aGii=Q_aGii)
+            nQ += 1
+        pb.finish()
 
-            for sigma in self.sigmas.values():
-                sigma.sum(self.world)
+        for sigma in self.sigmas.values():
+            sigma.sum(self.world)
 
-            if self.restartfile is not None and loaded:
-                assert not self.do_GW_too
-                sigma0 = self.sigmas[self.fxc_mode]
-                sigma0.sigma_eskn += self.previous_sigma
-                sigma0.dsigma_eskn += self.previous_dsigma
+        if self.restartfile is not None and loaded:
+            assert not self.do_GW_too
+            sigma0 = self.sigmas[self.fxc_mode]
+            sigma0.sigma_eskn += self.previous_sigma
+            sigma0.dsigma_eskn += self.previous_dsigma
 
-            all_outputs = self.calculate_g0w0_outputs()
-            self.outputs = all_outputs[self.fxc_mode]
-            self.results = self.outputs.get_results_eV()
-            if self.do_GW_too:
-                self.outputs_GW = all_outputs['GW']
-                self.results_GW = self.outputs_GW.get_results_eV()
+        all_outputs = self.calculate_g0w0_outputs()
+        self.outputs = all_outputs[self.fxc_mode]
+        self.results = self.outputs.get_results_eV()
+        if self.do_GW_too:
+            self.outputs_GW = all_outputs['GW']
+            self.results_GW = self.outputs_GW.get_results_eV()
 
         self.print_results(all_outputs)
 
