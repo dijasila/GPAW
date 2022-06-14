@@ -576,9 +576,9 @@ class G0W0:
         if 1:
             # Reset calculation
             sigmashape = (len(self.ecut_e), *self.shape)
-            self.sigmas = [Sigma(sigmashape)]
-            if self.do_GW_too:
-                self.sigmas.append(Sigma(sigmashape))
+
+            self.sigmas = {fxc_mode: Sigma(sigmashape)
+                           for fxc_mode in self.fxc_modes}
 
             # My part of the states we want to calculate QP-energies for:
             mykpts = [self.pair.get_k_point(s, K, n1, n2)
@@ -610,13 +610,14 @@ class G0W0:
                 nQ += 1
             pb.finish()
 
-            for sigma in self.sigmas:
+            for sigma in self.sigmas.values():
                 sigma.sum(self.world)
 
             if self.restartfile is not None and loaded:
                 assert not self.do_GW_too
-                self.sigmas[0].sigma_eskn += self.previous_sigma
-                self.sigmas[0].dsigma_eskn += self.previous_dsigma
+                sigma0 = self.sigmas[self.fxc_mode]
+                sigma0.sigma_eskn += self.previous_sigma
+                sigma0.dsigma_eskn += self.previous_dsigma
 
             self.outputs, self.outputs_GW = self.calculate_g0w0_outputs()
 
@@ -697,10 +698,10 @@ class G0W0:
 
             nn = kpt1.n1 + n - self.bands[0]
 
-            assert len(Wdict) == len(sigmas)
-            for fxc_mode, sigma in zip(self.fxc_modes, sigmas):
+            assert set(Wdict) == set(sigmas)
+            for fxc_mode in self.fxc_modes:
+                sigma = sigmas[fxc_mode]
                 W = Wdict[fxc_mode]
-                #for W, sigma in zip(Wlist, sigmas):
                 sigma_contrib, dsigma_contrib = calculate_sigma(
                     n_mG, deps_m, f_m, W, blocks1d)
                 sigma.sigma_eskn[ie, kpt1.s, k, nn] += sigma_contrib
@@ -1296,8 +1297,9 @@ class G0W0:
         return x * sigma, x * dsigma
 
     def save_restart_file(self, nQ):
-        sigma_eskn_write = self.sigmas[0].sigma_eskn.copy()
-        dsigma_eskn_write = self.sigmas[0].dsigma_eskn.copy()
+        sigma = self.sigmas[self.fxc_mode]
+        sigma_eskn_write = sigma.sigma_eskn.copy()
+        dsigma_eskn_write = sigma.dsigma_eskn.copy()
         self.world.sum(sigma_eskn_write)
         self.world.sum(dsigma_eskn_write)
         data = {'last_q': nQ,
@@ -1351,14 +1353,16 @@ class G0W0:
             exx_skn=self.calculate_exact_exchange(),
             f_skn=f_skn)
 
-        outputs = G0W0Outputs(sigma_eskn=self.sigmas[0].sigma_eskn,
-                              dsigma_eskn=self.sigmas[0].dsigma_eskn,
+        sigma = self.sigmas[self.fxc_mode]
+        outputs = G0W0Outputs(sigma_eskn=sigma.sigma_eskn,
+                              dsigma_eskn=sigma.dsigma_eskn,
                               **kwargs)
 
         if self.do_GW_too:
+            sigma1 = self.sigmas['GW']
             outputs_GW = G0W0Outputs(
-                sigma_eskn=self.sigmas[1].sigma_eskn,
-                dsigma_eskn=self.sigmas[1].dsigma_eskn,
+                sigma_eskn=sigma1.sigma_eskn,
+                dsigma_eskn=sigma1.dsigma_eskn,
                 **kwargs)
         else:
             outputs_GW = None
