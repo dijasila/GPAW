@@ -2,8 +2,7 @@ import numpy as np
 
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.pw.descriptor import PWDescriptor
-from gpaw.response.pw_parallelization import (Blocks1D,
-                                              PlaneWaveBlockDistributor)
+from gpaw.response.pw_parallelization import Blocks1D
 
 
 def create_pd(q_c, ecut, gd):
@@ -17,22 +16,17 @@ class Chi0Data:
     """Data object containing the chi0 data arrays for a single q-point,
     while holding also the corresponding basis descriptors and block
     distributor."""
-    def __init__(self,
-                 *,
-                 pd,
-                 wd,
-                 extend_head,
-                 world,
-                 blockcomm,
-                 kncomm):
+    def __init__(self, wd, pd, blockdist, extend_head):
         """Construct the Chi0Data object
 
         Parameters
         ----------
-        pd: PWDescriptor
-            Descriptor for the spatial (plane wave) degrees of freedom
         wd: FrequencyDescriptor
             Descriptor for the temporal (frequency) degrees of freedom
+        pd: PWDescriptor
+            Descriptor for the spatial (plane wave) degrees of freedom
+        blockdist : PlaneWaveBlockDistributor
+            Distributor for the block parallelization
         extend_head: bool
             If True: Extend the wings and head of chi in the optical limit to
             take into account the non-analytic nature of chi. Effectively
@@ -46,10 +40,8 @@ class Chi0Data:
         nG = pd.ngmax
         if optical_limit and extend_head:
             nG += 2
-        self.blocks1d = Blocks1D(blockcomm, nG)
-        self.blockdist = PlaneWaveBlockDistributor(world,
-                                                   blockcomm,
-                                                   kncomm)
+        self.blocks1d = Blocks1D(blockdist.blockcomm, nG)
+        self.blockdist = blockdist
         self.wd = wd
         self.pd = pd
         self.optical_limit = optical_limit

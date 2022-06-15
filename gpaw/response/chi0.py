@@ -20,7 +20,8 @@ from gpaw.response.hilbert import HilbertTransform
 from gpaw.response.integrators import (Integrator, PointIntegrator,
                                        TetrahedronIntegrator)
 from gpaw.response.pair import PairDensity
-from gpaw.response.pw_parallelization import block_partition
+from gpaw.response.pw_parallelization import (block_partition,
+                                              PlaneWaveBlockDistributor)
 from gpaw.response.symmetry import PWSymmetryAnalyzer
 from gpaw.typing import Array1D
 from gpaw.utilities.memory import maxrss
@@ -224,12 +225,11 @@ class Chi0:
 
     def create_chi0(self, q_c, extend_head=True):
         pd = create_pd(q_c, self.ecut, self.calc.wfs.gd)
-        chi0 = Chi0Data(pd=pd,
-                        extend_head=extend_head,
-                        wd=self.wd,
-                        world=self.world,
-                        blockcomm=self.blockcomm,
-                        kncomm=self.kncomm)
+        blockdist = PlaneWaveBlockDistributor(self.world,
+                                              self.blockcomm,
+                                              self.kncomm)
+        chi0 = Chi0Data(self.wd, pd, blockdist, extend_head)
+
         return chi0
 
     def calculate(self, q_c, spin='all'):
