@@ -129,7 +129,7 @@ def test_basics(in_tmp_dir, gpw_files):
 
 # test limited features that should work in parallel
 @pytest.mark.skipif(size == 1, reason="Features already tested"
-                    "in serial in text_basics")
+                    "in serial in test_basics")
 @pytest.mark.xfail(size > 6, reason="Parallelization for"
                    "small test-system broken for many cores")
 @pytest.mark.response
