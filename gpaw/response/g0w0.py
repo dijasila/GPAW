@@ -988,7 +988,7 @@ class G0W0:
 
         # The copy() is only required when doing GW_too, since we need
         # to run this whole thin twice.
-        chi0_wGG = chi0.blockdist.redistribute(chi0.chi0_wGG.copy(), len(chi0.wd))
+        chi0_wGG = chi0.blockdist.redistribute(chi0.chi0_wGG.copy(), chi0.nw)
 
         pd = chi0.pd
         chi0_wxvG = chi0.chi0_wxvG
@@ -1125,7 +1125,7 @@ class G0W0:
 
         # XXX This creates a new, large buffer.  We could perhaps
         # avoid that.  Buffer used to exist but was removed due to #456.
-        W_wGG = chi0.blockdist.redistribute(chi0_wGG, len(chi0.wd))
+        W_wGG = chi0.blockdist.redistribute(chi0_wGG, chi0.nw)
 
         self.timer.stop('Dyson eq.')
         return pdi, blocks1d, W_wGG

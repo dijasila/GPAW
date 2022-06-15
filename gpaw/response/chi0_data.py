@@ -55,26 +55,55 @@ class Chi0Data:
         self.optical_limit = optical_limit
         self.extend_head = extend_head
 
-        nG = self.blocks1d.N
-        nw = len(self.wd)
-        wGG_shape = (nw, self.blocks1d.nlocal, nG)
+        # Data arrays
+        self.chi0_wGG = None
+        self.chi0_wxvG = None
+        self.chi0_wvv = None
 
-        self.chi0_wGG = np.zeros(wGG_shape, complex)
+        self.allocate_arrays()
+
+    def allocate_arrays(self):
+        """Allocate data arrays."""
+        self.chi0_wGG = np.zeros(self.wGG_shape, complex)
 
         if self.optical_limit and not self.extend_head:
-            self.chi0_wxvG = np.zeros((nw, 2, 3, nG), complex)
-            self.chi0_wvv = np.zeros((nw, 3, 3), complex)
+            self.chi0_wxvG = np.zeros(self.wxvG_shape, complex)
+            self.chi0_wvv = np.zeros(self.wvv_shape, complex)
+
+    @property
+    def nw(self):
+        return len(self.wd)
+
+    @property
+    def nG(self):
+        return self.blocks1d.N
+
+    @property
+    def mynG(self):
+        return self.blocks1d.nlocal
+
+    @property
+    def wGG_shape(self):
+        return (self.nw, self.mynG, self.nG)
+
+    @property
+    def wxvG_shape(self):
+        if self.optical_limit:
+            return (self.nw, 2, 3, self.nG)
         else:
-            self.chi0_wxvG = None
-            self.chi0_wvv = None
+            return None
+
+    @property
+    def wvv_shape(self):
+        if self.optical_limit:
+            return (self.nw, 3, 3)
+        else:
+            None
 
     def redistribute(self, out_x=None):
         """Return redistributed chi0_wGG array."""
-        return self.blockdist.redistribute(self.chi0_wGG,
-                                           len(self.wd),
-                                           out_x=out_x)
+        return self.blockdist.redistribute(self.chi0_wGG, self.nw, out_x=out_x)
 
     def distribute_frequencies(self):
         """Return chi0_wGG array with frequencies distributed to all cores."""
-        return self.blockdist.distribute_frequencies(self.chi0_wGG,
-                                                     len(self.wd))
+        return self.blockdist.distribute_frequencies(self.chi0_wGG, self.nw)

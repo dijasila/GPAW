@@ -171,7 +171,7 @@ class FXCCorrelation(RPACorrelation):
         print('E_c(q) = ', end='', file=self.fd)
 
         pd = chi0.pd
-        nw = len(chi0.wd)
+        nw = chi0.nw
         mynw = nw // self.nblocks
         assert nw % self.nblocks == 0
         nspins = len(chi0_s)

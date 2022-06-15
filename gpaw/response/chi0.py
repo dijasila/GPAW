@@ -578,8 +578,7 @@ class Chi0:
             # terminology is self-consistent
             chi0_new = self.create_chi0(pd.kd.bzk_kc[0], extend_head=False)
             # Make a wings object, but extended
-            chi0_wxvG = np.zeros((len(chi0.wd), 2, 3,
-                                  chi0.blocks1d.N), complex)
+            chi0_wxvG = np.zeros(chi0.wxvG_shape, complex)
             # The wings are extracted
             chi0_wxvG[:, 1, :,
                       chi0.blocks1d.myslice] = np.transpose(
