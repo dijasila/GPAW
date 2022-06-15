@@ -314,7 +314,7 @@ class RPACorrelation:
 
         print('E_c(q) = ', end='', file=self.fd)
 
-        chi0_wGG = chi0.blockdist.redistribute(chi0.chi0_wGG)
+        chi0_wGG = chi0.redistribute()
 
         if not chi0.pd.kd.gamma:
             e = self.calculate_energy(chi0.pd, chi0_wGG, cut_G)

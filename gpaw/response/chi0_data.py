@@ -50,7 +50,7 @@ class Chi0Data:
         blockdist = PlaneWaveBlockDistributor(world,
                                               blockcomm,
                                               kncomm,
-                                              wd, blocks1d)
+                                              blocks1d)
         self.wd = wd
         self.blockdist = blockdist
         self.pd = pd
@@ -69,3 +69,14 @@ class Chi0Data:
         else:
             self.chi0_wxvG = None
             self.chi0_wvv = None
+
+    def redistribute(self, out_x=None):
+        """Return redistributed chi0_wGG array."""
+        return self.blockdist.redistribute(self.chi0_wGG,
+                                           len(self.wd),
+                                           out_x=out_x)
+
+    def distribute_frequencies(self):
+        """Return chi0_wGG array with frequencies distributed to all cores."""
+        return self.blockdist.distribute_frequencies(self.chi0_wGG,
+                                                     len(self.wd))

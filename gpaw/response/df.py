@@ -125,7 +125,7 @@ class DielectricFunction:
                 return self.read(name)
 
         chi0 = self.chi0.calculate(q_c, spin)
-        chi0_wGG = chi0.blockdist.distribute_frequencies(chi0.chi0_wGG)
+        chi0_wGG = chi0.distribute_frequencies()
 
         self.chi0.timer.write(self.chi0.fd)
         if self.name:

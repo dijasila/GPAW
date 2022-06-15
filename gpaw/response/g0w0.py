@@ -1027,7 +1027,7 @@ class G0W0:
 
         wblocks1d = Blocks1D(self.blockcomm, len(self.wd))
 
-        chi0_wGG = chi0.blockdist.redistribute(chi0.chi0_wGG)
+        chi0_wGG = chi0.redistribute()
         pd = chi0.pd
         chi0_wxvG = chi0.chi0_wxvG
         chi0_wvv = chi0.chi0_wvv
@@ -1204,11 +1204,11 @@ class G0W0:
 
         # XXX This creates a new, large buffer.  We could perhaps
         # avoid that.  Buffer used to exist but was removed due to #456.
-        W_wGG = chi0.blockdist.redistribute(chi0_wGG)
+        W_wGG = chi0.blockdist.redistribute(chi0_wGG, len(chi0.wd))
 
         if self.do_GW_too:
             W_GW_wGG = chi0.blockdist.redistribute(
-                chi0_GW_wGG)
+                chi0_GW_wGG, len(chi0.wd))
         else:
             W_GW_wGG = None
 
