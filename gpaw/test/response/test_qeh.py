@@ -128,14 +128,17 @@ def test_basics(in_tmp_dir, gpw_files):
 
 
 # test limited features that should work in parallel
-@pytest.mark.skipif(size == 1, reason = "features already tested in serial in text_basics")
-@pytest.mark.xfail(size > 6, reason="Parallelization for small test-system broken for many cores")
+@pytest.mark.skipif(size == 1, reason="Features already tested"
+                    "in serial in text_basics")
+@pytest.mark.xfail(size > 6, reason="Parallelization for"
+                   "small test-system broken for many cores")
 @pytest.mark.response
 def test_bb_parallel(in_tmp_dir, gpw_files):
     df = dielectric(gpw_files['mos2_pw_wfs'], 0.1, 0.5)
     bb1 = BuildingBlock('mos2', df)
     bb1.calculate_building_block()
-    world.barrier() # Make sure that calculation is finished before loading data file
+    # Make sure that calculation is finished before loading data file
+    world.barrier()
     data = np.load('mos2-chi.npz')
     maxM = np.amax(abs(data['chiM_qw']))
     assert maxM == pytest.approx(0.25076046486693826)
