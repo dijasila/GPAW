@@ -13,11 +13,18 @@ class KPointFinder:
     def __init__(self, bzk_kc):
         self.kdtree = cKDTree(self._round(bzk_kc))
 
-    def _round(self, bzk_kc):
+    @staticmethod
+    def _round(bzk_kc):
         return np.mod(np.mod(bzk_kc, 1).round(6), 1)
 
     def find(self, kpt_c):
-        return self.kdtree.query(self._round(kpt_c))[1]
+        distance, k = self.kdtree.query(self._round(kpt_c))
+        if distance > 1.e-6:
+            raise ValueError('Requested k-point is not on the grid. '
+                             'Please check that your q-points of interest '
+                             'are commensurate with the k-point grid.')
+
+        return k
 
 
 class PWSymmetryAnalyzer:
@@ -320,11 +327,7 @@ class PWSymmetryAnalyzer:
 
         for K_k in K_gK:
             if K in K_k:
-                if self.kd.refine_info is not None:
-                    weight = sum(self.kd.refine_info.weight_k[K_k])
-                    return weight
-                else:
-                    return len(K_k)
+                return len(K_k)
 
     def get_kpoint_mapping(self, K1, K2):
         """Get index of symmetry for mapping between K1 and K2"""

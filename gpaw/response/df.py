@@ -377,9 +377,9 @@ class DielectricFunction:
             In RPA:   P = chi^0
             In TDDFT: P = (1 - chi^0 * f_xc)^{-1} chi^0
 
-        in addition to RPA one can use the kernels, ALDA, rALDA, rAPBE,
-        Bootstrap and LRalpha (long-range kerne), where alpha is a user
-        specified parameter (for example xc='LR0.25')
+        in addition to RPA one can use the kernels, ALDA, Bootstrap and
+        LRalpha (long-range kerne), where alpha is a user specified parameter
+        (for example xc='LR0.25')
 
         The head of the inverse symmetrized dielectric matrix is equal
         to the head of the inverse dielectric matrix (inverse dielectric
