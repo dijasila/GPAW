@@ -326,7 +326,7 @@ class GPWFiles:
                           xc='LDA',
                           kpts={'size': (nkpts, nkpts, 1), 'gamma': True},
                           occupations=FermiDirac(0.01),
-                          txt='mos2_pw.txt')
+                          txt=self.path / 'mos2_pw.txt')
 
         atoms.get_potential_energy()
         return atoms.calc
