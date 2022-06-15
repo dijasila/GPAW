@@ -33,19 +33,21 @@ class Chi0Data:
             means that chi has dimension (nw, nG + 2, nG + 2) in the optical
             limit.
         """
+        self.wd = wd
+        self.pd = pd
+        self.blockdist = blockdist
+        self.extend_head = extend_head
+
+        # Check if in optical limit
         q_c, = pd.kd.ibzk_kc
         optical_limit = np.allclose(q_c, 0.0)
+        self.optical_limit = optical_limit
 
         # Initialize block distibution of plane wave basis
         nG = pd.ngmax
         if optical_limit and extend_head:
             nG += 2
         self.blocks1d = Blocks1D(blockdist.blockcomm, nG)
-        self.blockdist = blockdist
-        self.wd = wd
-        self.pd = pd
-        self.optical_limit = optical_limit
-        self.extend_head = extend_head
 
         # Data arrays
         self.chi0_wGG = None
