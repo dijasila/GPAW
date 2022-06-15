@@ -12,7 +12,7 @@ from ase.utils.timing import Timer, timer
 import gpaw
 import gpaw.mpi as mpi
 from gpaw.bztools import convex_hull_volume
-from gpaw.response.chi0_data import Chi0Data, create_pd
+from gpaw.response.chi0_data import Chi0Data, SingleQPWDescriptor
 from gpaw.response.frequencies import (FrequencyDescriptor,
                                        FrequencyGridDescriptor,
                                        NonLinearFrequencyDescriptor)
@@ -224,7 +224,7 @@ class Chi0:
         return self.calc.atoms.pbc
 
     def create_chi0(self, q_c, extend_head=True):
-        pd = create_pd(q_c, self.ecut, self.calc.wfs.gd)
+        pd = SingleQPWDescriptor.from_q(q_c, self.ecut, self.calc.wfs.gd)
         blockdist = PlaneWaveBlockDistributor(self.world,
                                               self.blockcomm,
                                               self.kncomm)

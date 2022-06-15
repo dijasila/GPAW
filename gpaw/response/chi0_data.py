@@ -5,11 +5,13 @@ from gpaw.pw.descriptor import PWDescriptor
 from gpaw.response.pw_parallelization import Blocks1D
 
 
-def create_pd(q_c, ecut, gd):
-    """Get the planewave descriptor of q_c."""
-    qd = KPointDescriptor([q_c])
-    pd = PWDescriptor(ecut, gd, complex, qd)
-    return pd
+class SingleQPWDescriptor(PWDescriptor):
+
+    @staticmethod
+    def from_q(q_c, ecut, gd):
+        """Construct a plane wave descriptor for q_c with a given cutoff."""
+        qd = KPointDescriptor([q_c])
+        return PWDescriptor(ecut, gd, complex, qd)
 
 
 class Chi0Data:
