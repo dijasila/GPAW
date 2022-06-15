@@ -551,7 +551,7 @@ class Chi0:
         # below) and then symmetrized.
         A_wxx *= prefactor
 
-        tmpA_wxx = chi0.blockdist.redistribute(A_wxx, len(self.wd))
+        tmpA_wxx = chi0.blockdist.redistribute(A_wxx, chi0.nw)
         if chi0.extend_head:
             analyzer.symmetrize_wxx(tmpA_wxx,
                                     optical_limit=optical_limit)
@@ -562,7 +562,7 @@ class Chi0:
                 chi0.chi0_wvv += chi0_wxvx[:, 0, :3, :3]
                 analyzer.symmetrize_wxvG(chi0.chi0_wxvG)
                 analyzer.symmetrize_wvv(chi0.chi0_wvv)
-        chi0.blockdist.redistribute(tmpA_wxx, len(self.wd), out_x=A_wxx)
+        chi0.blockdist.redistribute(tmpA_wxx, chi0.nw, out_x=A_wxx)
 
         # If point summation was used then the normalization of the
         # response function is not right and we have to make up for this
@@ -603,10 +603,10 @@ class Chi0:
             # Jesus, this is complicated
 
             # It is easiest to redistribute over freqs to pick body
-            tmpA_wxx = chi0.blockdist.redistribute(A_wxx, len(self.wd))
+            tmpA_wxx = chi0.blockdist.redistribute(A_wxx, chi0.nw)
             chi0_wGG = tmpA_wxx[:, 2:, 2:]
             chi0_new.chi0_wGG = chi0_new.blockdist.redistribute(chi0_wGG,
-                                                                len(self.wd))
+                                                                chi0.nw)
 
             # Rename
             chi0 = chi0_new
