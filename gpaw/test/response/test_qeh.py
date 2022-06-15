@@ -71,7 +71,7 @@ def test_basics(in_tmp_dir, gpw_files):
     data = np.load('mos2-chi.npz')
     data2 = np.load('mos2_rs-chi.npz')
     assert np.allclose(data['chiM_qw'], data2['chiM_qw'])
-    
+
     # Test building blocks are on different grids
     are_equal = check_building_blocks(['mos2', 'graphene'])
     assert not are_equal
@@ -105,7 +105,7 @@ def test_basics(in_tmp_dir, gpw_files):
     assert np.allclose(chi, chi_new)
     correct_val = 0.018238059045975367 + 8.08142659593134e-05j
     assert np.amax(chi) == pytest.approx(correct_val)
-    
+
     # test to interpolate to grid and actual numbers
     q_grid = np.array([0, 0.1])
     w_grid = np.array([0, 0.1])
@@ -113,7 +113,7 @@ def test_basics(in_tmp_dir, gpw_files):
     data = np.load('mos2_int-chi.npz')
 
     assert np.allclose(data['omega_w'], np.array([0., 0.00367493]))
-    
+
     monopole = np.array([[-6.19649236e-10 + 8.40185236e-24j,
                           -6.20705802e-10 - 4.42467607e-12j],
                          [-6.91213385e-03 + 4.81426465e-21j,
@@ -130,8 +130,8 @@ def test_basics(in_tmp_dir, gpw_files):
 # test limited features that should work in parallel
 @pytest.mark.skipif(size == 1, reason='Features already tested '
                     'in serial in test_basics')
-@pytest.mark.xfail(size > 6, reason='Parallelization for '
-                   'small test-system broken for many cores')
+@pytest.mark.skipif(size > 6, reason='Parallelization for '
+                    'small test-system broken for many cores')
 @pytest.mark.response
 def test_bb_parallel(in_tmp_dir, gpw_files):
     df = dielectric(gpw_files['mos2_pw_wfs'], 0.1, 0.5)
