@@ -171,14 +171,14 @@ class FXCCorrelation(RPACorrelation):
         print('E_c(q) = ', end='', file=self.fd)
 
         pd = chi0.pd
-        nw = len(chi0.wd)
+        nw = chi0.nw
         mynw = nw // self.nblocks
         assert nw % self.nblocks == 0
         nspins = len(chi0_s)
         nG = pd.ngmax
         chi0_swGG = np.empty((nspins, mynw, nG, nG), complex)
         for chi0_wGG, chi0 in zip(chi0_swGG, chi0_s):
-            chi0.blockdist.redistribute(chi0.chi0_wGG, chi0_wGG)
+            chi0.redistribute(out_x=chi0_wGG)
         if self.nblocks > 1:
             chi0_swGG = np.swapaxes(chi0_swGG, 2, 3)
 

@@ -982,13 +982,14 @@ class G0W0:
     def dyson_and_W_old(self, wstc, iq, q_c, chi0calc, chi0,
                         ecut, Q_aGii, fxc_mode):
         nG = chi0.pd.ngmax
-        blocks1d = chi0.blockdist.blocks1d
+        blocks1d = chi0.blocks1d
 
         wblocks1d = Blocks1D(self.blockcomm, len(self.wd))
 
         # The copy() is only required when doing GW_too, since we need
         # to run this whole thin twice.
-        chi0_wGG = chi0.blockdist.redistribute(chi0.chi0_wGG.copy())
+        chi0_wGG = chi0.blockdist.redistribute(chi0.chi0_wGG.copy(), chi0.nw)
+
         pd = chi0.pd
         chi0_wxvG = chi0.chi0_wxvG
         chi0_wvv = chi0.chi0_wvv
@@ -1124,7 +1125,7 @@ class G0W0:
 
         # XXX This creates a new, large buffer.  We could perhaps
         # avoid that.  Buffer used to exist but was removed due to #456.
-        W_wGG = chi0.blockdist.redistribute(chi0_wGG)
+        W_wGG = chi0.blockdist.redistribute(chi0_wGG, chi0.nw)
 
         self.timer.stop('Dyson eq.')
         return pdi, blocks1d, W_wGG
