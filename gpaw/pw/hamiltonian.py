@@ -47,7 +47,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
             else:
                 self.poisson = ChargedReciprocalSpacePoissonSolver(pd3, charge)
 
-            if isinstance(psolver, dict):
+            if 'dipolelayer' in psolver:
                 direction = psolver['dipolelayer']
                 assert len(psolver) == 1
                 from gpaw.dipole_correction import DipoleCorrection
