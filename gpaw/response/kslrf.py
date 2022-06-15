@@ -72,7 +72,7 @@ class KohnShamLinearResponseFunction:  # Future PairFunctionIntegrator? XXX
     ‾  /  (...)_k
     V  ‾‾
        k
-    
+
     self.add_integrand():
                 __                __   __
                 \                 \    \
@@ -279,7 +279,7 @@ class KohnShamLinearResponseFunction:  # Future PairFunctionIntegrator? XXX
         raise NotImplementedError('Output array depends on mode')
 
     def get_ks_kpoint_pairs(self, k_pv, *args, **kwargs):
-        raise NotImplementedError('Integrated pairs of states depend on'
+        raise NotImplementedError('Integrated pairs of states depend on '
                                   'response and mode')
 
     def initialize_pme(self, *args, **kwargs):
