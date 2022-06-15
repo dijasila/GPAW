@@ -1023,7 +1023,7 @@ class G0W0:
     def dyson_and_W_old(self, wstc, iq, q_c, chi0calc, chi0,
                         ecut):
         nG = chi0.pd.ngmax
-        blocks1d = chi0.blockdist.blocks1d
+        blocks1d = chi0.blocks1d
 
         wblocks1d = Blocks1D(self.blockcomm, len(self.wd))
 

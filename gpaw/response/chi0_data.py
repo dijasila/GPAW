@@ -46,20 +46,18 @@ class Chi0Data:
         nG = pd.ngmax
         if optical_limit and extend_head:
             nG += 2
-        blocks1d = Blocks1D(blockcomm, nG)
-        blockdist = PlaneWaveBlockDistributor(world,
-                                              blockcomm,
-                                              kncomm,
-                                              blocks1d)
+        self.blocks1d = Blocks1D(blockcomm, nG)
+        self.blockdist = PlaneWaveBlockDistributor(world,
+                                                   blockcomm,
+                                                   kncomm)
         self.wd = wd
-        self.blockdist = blockdist
         self.pd = pd
         self.optical_limit = optical_limit
         self.extend_head = extend_head
 
-        nG = blockdist.blocks1d.N
+        nG = self.blocks1d.N
         nw = len(self.wd)
-        wGG_shape = (nw, blockdist.blocks1d.nlocal, nG)
+        wGG_shape = (nw, self.blocks1d.nlocal, nG)
 
         self.chi0_wGG = np.zeros(wGG_shape, complex)
 

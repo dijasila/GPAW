@@ -41,16 +41,10 @@ class PlaneWaveBlockDistributor:
     """Functionality to shuffle block distribution of pair functions
     in the plane wave basis."""
 
-    def __init__(self, world, blockcomm, intrablockcomm, blocks1d):
+    def __init__(self, world, blockcomm, intrablockcomm):
         self.world = world
         self.blockcomm = blockcomm
         self.intrablockcomm = intrablockcomm
-
-        # CAUTION: Currently the redistribute functionality is used
-        # also for arrays with different distribution than Blocks1D.
-        # For this reason, Blocks1D is actually not used below, but we
-        # keep for now, to make the vision more clear.
-        self.blocks1d = blocks1d
 
     def redistribute(self, in_wGG, nw, out_x=None):
         """Redistribute array.
@@ -72,9 +66,6 @@ class PlaneWaveBlockDistributor:
             return out_x
 
         mynw = (nw + comm.size - 1) // comm.size
-        # CAUTION: It is not always the case that nG == self.blocks1d.nglobal
-        # This happens, because chi0 wants to reuse the function
-        # for the heads and wings part as well
         nG = in_wGG.shape[2]
         mynG = (nG + comm.size - 1) // comm.size
 

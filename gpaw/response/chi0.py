@@ -521,8 +521,8 @@ class Chi0:
             if self.include_intraband:
 
                 if chi0.extend_head:
-                    va = min(chi0.blockdist.blocks1d.a, 3)
-                    vb = min(chi0.blockdist.blocks1d.b, 3)
+                    va = min(chi0.blocks1d.a, 3)
+                    vb = min(chi0.blocks1d.b, 3)
                     A_wxx[:, :vb - va, :3] += (plasmafreq_vv[va:vb] /
                                                (self.wd.omega_w[:, np.newaxis,
                                                                 np.newaxis] +
@@ -587,13 +587,13 @@ class Chi0:
             chi0_new = self.create_chi0(pd.kd.bzk_kc[0], extend_head=False)
             # Make a wings object, but extended
             chi0_wxvG = np.zeros((len(chi0.wd), 2, 3,
-                                  chi0.blockdist.blocks1d.N), complex)
+                                  chi0.blocks1d.N), complex)
             # The wings are extracted
             chi0_wxvG[:, 1, :,
-                      chi0.blockdist.blocks1d.myslice] = np.transpose(
+                      chi0.blocks1d.myslice] = np.transpose(
                 A_wxx[..., 0:3], (0, 2, 1))
-            va = min(chi0.blockdist.blocks1d.a, 3)
-            vb = min(chi0.blockdist.blocks1d.b, 3)
+            va = min(chi0.blocks1d.a, 3)
+            vb = min(chi0.blocks1d.b, 3)
             # print(self.world.rank, va, vb, chi0_wxvG[:, 0, va:vb].shape,
             #       A_wxx[:, va:vb].shape, A_wxx.shape)
             chi0_wxvG[:, 0, va:vb] = A_wxx[:, :vb - va]
@@ -621,7 +621,7 @@ class Chi0:
             # it is important that the wings are overwritten first.
             chi0.chi0_wGG[:, :, 0] = chi0.chi0_wxvG[
                 :, 1, 2,
-                chi0.blockdist.blocks1d.myslice]
+                chi0.blocks1d.myslice]
 
             if self.blockcomm.rank == 0:
                 chi0.chi0_wGG[:, 0, :] = chi0.chi0_wxvG[:, 0, 2, :]

@@ -587,8 +587,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         self.blocks1d = Blocks1D(self.blockcomm, self.pd.ngmax)
         self.blockdist = PlaneWaveBlockDistributor(self.world,
                                                    self.blockcomm,
-                                                   self.intrablockcomm,
-                                                   self.blocks1d)
+                                                   self.intrablockcomm)
 
         # In-place calculation
         return self._calculate(spinrot, A_x)
