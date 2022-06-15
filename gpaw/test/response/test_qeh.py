@@ -2,6 +2,7 @@ import pytest
 import numpy as np
 from gpaw.response.df import DielectricFunction
 from gpaw.response.qeh import BuildingBlock, check_building_blocks
+from gpaw.mpi import world, size
 
 """
 xxx QEH module seem to require at least 6x6x1 kpoints.
@@ -40,6 +41,7 @@ def dielectric(calc, domega, omega2):
     return diel
 
 
+@pytest.mark.serial
 @pytest.mark.response
 def test_basics(in_tmp_dir, gpw_files):
     qeh = pytest.importorskip('qeh')
@@ -123,3 +125,17 @@ def test_basics(in_tmp_dir, gpw_files):
                        [-0.20384696 + 6.32211737e-18j,
                         -0.2040121 - 6.73309535e-04j]])
     assert np.allclose(data['chiD_qw'], dipole)
+
+
+# test limited features that should work in parallel
+@pytest.mark.skipif(size == 1, reason = "features already tested in serial in text_basics")
+@pytest.mark.response
+def test_bb_parallel(in_tmp_dir, gpw_files):
+    df = dielectric(gpw_files['mos2_pw_wfs'], 0.1, 0.5)
+    bb1 = BuildingBlock('mos2', df)
+    bb1.calculate_building_block()
+    data = np.load('mos2-chi.npz')
+    maxM = np.amax(abs(data['chiM_qw']))
+    assert maxM == pytest.approx(0.25076046486693826)
+    maxD = np.amax(abs(data['chiD_qw']))
+    assert maxD == pytest.approx(0.844873415471949)
