@@ -587,8 +587,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         self.blocks1d = Blocks1D(self.blockcomm, self.pd.ngmax)
         self.blockdist = PlaneWaveBlockDistributor(self.world,
                                                    self.blockcomm,
-                                                   self.intrablockcomm,
-                                                   self.wd, self.blocks1d)
+                                                   self.intrablockcomm)
 
         # In-place calculation
         return self._calculate(spinrot, A_x)
@@ -723,11 +722,11 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
 
     @timer('Redistribute memory')
     def redistribute(self, in_wGG, out_x=None):
-        return self.blockdist.redistribute(in_wGG, out_x)
+        return self.blockdist.redistribute(in_wGG, len(self.wd), out_x=out_x)
 
     @timer('Distribute frequencies')
     def distribute_frequencies(self, chiks_wGG):
-        return self.blockdist.distribute_frequencies(chiks_wGG)
+        return self.blockdist.distribute_frequencies(chiks_wGG, len(self.wd))
 
 
 class Integrator:  # --> KPointPairIntegrator in the future? XXX
