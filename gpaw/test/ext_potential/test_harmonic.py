@@ -2,9 +2,9 @@ from ase import Atoms
 from ase.units import Ha
 
 from gpaw import GPAW
-from gpaw.test import equal
-from gpaw.poisson import NoInteractionPoissonSolver
 from gpaw.external import ExternalPotential, known_potentials
+from gpaw.poisson import NoInteractionPoissonSolver
+from gpaw.test import equal
 
 
 class HarmonicPotential(ExternalPotential):
@@ -24,8 +24,7 @@ def test_ext_potential_harmonic(in_tmp_dir):
 
     calc = GPAW(charge=-8,
                 nbands=4,
-                mode='pw',
-                #h=0.2,
+                h=0.2,
                 xc={'name': 'null'},
                 external=HarmonicPotential(),
                 poissonsolver=NoInteractionPoissonSolver(),
