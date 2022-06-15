@@ -558,7 +558,9 @@ class Chi0:
         else:
             analyzer.symmetrize_wGG(tmpA_wxx)
             if wings:
-                chi0.chi0_wxvG += chi0_wxvx[..., 2:]
+                # Fill in wings part of the data, but leave out the head
+                chi0.chi0_wxvG[..., 1:] += chi0_wxvx[..., 3:]
+                # Fill in the head
                 chi0.chi0_wvv += chi0_wxvx[:, 0, :3, :3]
                 analyzer.symmetrize_wxvG(chi0.chi0_wxvG)
                 analyzer.symmetrize_wvv(chi0.chi0_wvv)
@@ -598,8 +600,10 @@ class Chi0:
             # Add contributions from different ranks
             self.blockcomm.sum(chi0_wxvG)
             # Insert values into the new Chi0Data object
+            # Fill in the head
             chi0_new.chi0_wvv[:] = chi0_wxvG[:, 0, :3, :3]
-            chi0_new.chi0_wxvG = chi0_wxvG[..., 2:]
+            # Fill in wings part of the data, but leave out the head
+            chi0_new.chi0_wxvG[..., 1:] = chi0_wxvG[..., 3:]
             # Jesus, this is complicated
 
             # It is easiest to redistribute over freqs to pick body
