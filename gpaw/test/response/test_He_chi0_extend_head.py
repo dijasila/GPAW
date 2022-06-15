@@ -90,7 +90,7 @@ def calculate_optical_limit(chi0_factory, extend_head=True):
     chi0 = chi0_factory.update_chi0(chi0, m1, m2, spins)
 
     # Distribute over frequencies
-    chi0.chi0_wGG = chi0.blockdist.distribute_frequencies(chi0.chi0_wGG)
+    chi0.chi0_wGG = chi0.distribute_frequencies()
 
     return chi0
 
