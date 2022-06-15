@@ -2,7 +2,9 @@ import numpy as np
 
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.pw.descriptor import PWDescriptor
-from gpaw.response.pw_parallelization import Blocks1D
+from gpaw.response.pw_parallelization import (Blocks1D,
+                                              PlaneWaveBlockDistributor)
+from gpaw.response.frequencies import FrequencyDescriptor
 
 
 class SingleQPWDescriptor(PWDescriptor):
@@ -57,6 +59,35 @@ class Chi0Data:
         self.chi0_wvv = None
 
         self.allocate_arrays()
+
+    @staticmethod
+    def from_descriptor_arguments(frequencies, plane_waves, parallelization,
+                                  extend_head):
+        """Contruct the necesarry descriptors and initialize the Chi0Data
+        object."""
+        # Construct wd
+        if isinstance(frequencies, FrequencyDescriptor):
+            wd = frequencies
+        else:
+            wd = frequencies.from_array_or_dict(frequencies)
+
+        # Construct pd
+        if isinstance(plane_waves, SingleQPWDescriptor):
+            pd = plane_waves
+        else:
+            assert isinstance(plane_waves, tuple)
+            assert len(plane_waves) == 3
+            pd = SingleQPWDescriptor.from_q(*plane_waves)
+
+        # Construct blockdist
+        if isinstance(parallelization, PlaneWaveBlockDistributor):
+            blockdist = parallelization
+        else:
+            assert isinstance(parallelization, tuple)
+            assert len(parallelization) == 3
+            blockdist = PlaneWaveBlockDistributor(*parallelization)
+
+        return Chi0Data(wd, pd, blockdist, extend_head)
 
     def allocate_arrays(self):
         """Allocate data arrays."""

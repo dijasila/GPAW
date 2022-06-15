@@ -12,7 +12,7 @@ from ase.utils.timing import Timer, timer
 import gpaw
 import gpaw.mpi as mpi
 from gpaw.bztools import convex_hull_volume
-from gpaw.response.chi0_data import Chi0Data, SingleQPWDescriptor
+from gpaw.response.chi0_data import Chi0Data
 from gpaw.response.frequencies import (FrequencyDescriptor,
                                        FrequencyGridDescriptor,
                                        NonLinearFrequencyDescriptor)
@@ -20,8 +20,7 @@ from gpaw.response.hilbert import HilbertTransform
 from gpaw.response.integrators import (Integrator, PointIntegrator,
                                        TetrahedronIntegrator)
 from gpaw.response.pair import PairDensity
-from gpaw.response.pw_parallelization import (block_partition,
-                                              PlaneWaveBlockDistributor)
+from gpaw.response.pw_parallelization import block_partition
 from gpaw.response.symmetry import PWSymmetryAnalyzer
 from gpaw.typing import Array1D
 from gpaw.utilities.memory import maxrss
@@ -224,11 +223,18 @@ class Chi0:
         return self.calc.atoms.pbc
 
     def create_chi0(self, q_c, extend_head=True):
-        pd = SingleQPWDescriptor.from_q(q_c, self.ecut, self.calc.wfs.gd)
-        blockdist = PlaneWaveBlockDistributor(self.world,
-                                              self.blockcomm,
-                                              self.kncomm)
-        chi0 = Chi0Data(self.wd, pd, blockdist, extend_head)
+        # Extract descriptor arguments
+        plane_waves = (q_c, self.ecut, self.calc.wfs.gd)
+        parallelization = (self.world, self.blockcomm, self.kncomm)
+
+        # Construct the Chi0Data object
+        # In the future, the frequencies should be specified at run-time
+        # by Chi0.calculate(), in which case Chi0Data could also initialize
+        # the frequency descriptor XXX
+        chi0 = Chi0Data.from_descriptor_arguments(self.wd,
+                                                  plane_waves,
+                                                  parallelization,
+                                                  extend_head)
 
         return chi0
 
