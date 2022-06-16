@@ -7,6 +7,8 @@ import contextlib
 from pathlib import Path
 from typing import List, Dict, Union, Any, TYPE_CHECKING
 
+from gpaw.broadcast_imports import broadcast_imports  # noqa
+
 __version__ = '22.1.1b1'
 __ase_version_required__ = '3.23.0b1'
 __all__ = ['GPAW',
@@ -45,26 +47,6 @@ if 'OMP_NUM_THREADS' not in os.environ:
     os.environ['OMP_NUM_THREADS'] = '1'
 
 
-from gpaw.broadcast_imports import broadcast_imports  # noqa
-
-with broadcast_imports:
-    import os
-    import runpy
-    import warnings
-    from argparse import ArgumentParser, REMAINDER, RawDescriptionHelpFormatter
-
-    # With gpaw-python BLAS symbols are in global scope and we need to
-    # ensure that NumPy and SciPy use symbols from their own dependencies
-    if is_gpaw_python:
-        old_dlopen_flags = sys.getdlopenflags()
-        sys.setdlopenflags(old_dlopen_flags | os.RTLD_DEEPBIND)
-    import numpy as np
-    import scipy.linalg  # noqa: F401
-    if is_gpaw_python:
-        sys.setdlopenflags(old_dlopen_flags)
-    import _gpaw
-
-
 class ConvergenceError(Exception):
     pass
 
@@ -86,14 +68,30 @@ class BadParallelization(Exception):
     pass
 
 
-libraries: Dict[str, str] = {}
-if hasattr(_gpaw, 'lxcXCFunctional'):
-    libraries['libxc'] = getattr(_gpaw, 'libxc_version', '2.x.y')
-else:
-    libraries['libxc'] = ''
+def get_libraries():
+    import _gpaw
+    libraries: Dict[str, str] = {}
+    if hasattr(_gpaw, 'lxcXCFunctional'):
+        libraries['libxc'] = getattr(_gpaw, 'libxc_version', '2.x.y')
+    else:
+        libraries['libxc'] = ''
+    return libraries
 
 
 def parse_arguments(argv):
+    from argparse import (ArgumentParser, REMAINDER,
+                          RawDescriptionHelpFormatter)
+    import warnings
+
+    # With gpaw-python BLAS symbols are in global scope and we need to
+    # ensure that NumPy and SciPy use symbols from their own dependencies
+    if is_gpaw_python:
+        old_dlopen_flags = sys.getdlopenflags()
+        sys.setdlopenflags(old_dlopen_flags | os.RTLD_DEEPBIND)
+
+    if is_gpaw_python:
+        sys.setdlopenflags(old_dlopen_flags)
+
     version = sys.version.replace('\n', '')
     p = ArgumentParser(usage='%(prog)s [OPTION ...] [-c | -m] SCRIPT'
                        ' [ARG ...]',
@@ -140,8 +138,53 @@ def parse_arguments(argv):
     return args
 
 
+all_lazy_imports = []
+
+
+def lazyimport(module, attr=None):
+    def import_now():
+        import importlib
+        return importlib.import_module(module)
+
+    def importwrapper(*args, **kwargs):
+        mod = import_now()
+        if attr is None:
+            return mod
+
+        cls = getattr(mod, attr)
+        return cls(*args, **kwargs)
+
+    importwrapper.import_now = import_now
+    all_lazy_imports.append(importwrapper)
+    return importwrapper
+
+
+Mixer = lazyimport('gpaw.mixer', 'Mixer')
+MixerSum = lazyimport('gpaw.mixer', 'MixerSum')
+MixerDif = lazyimport('gpaw.mixer', 'MixerDif')
+MixerSum2 = lazyimport('gpaw.mixer', 'MixerSum2')
+Davidson = lazyimport('gpaw.eigensolvers', 'Davidson')
+RMMDIIS = lazyimport('gpaw.eigensolvers', 'RMMDIIS')
+CG = lazyimport('gpaw.eigensolvers', 'CG')
+DirectLCAO = lazyimport('gpaw.eigensolvers', 'DirectLCAO')
+PoissonSolver = lazyimport('gpaw.poisson', 'PoissonSolver')
+FermiDirac = lazyimport('gpaw.occupations', 'FermiDirac')
+MethfesselPaxton = lazyimport('gpaw.occupations', 'MethfesselPaxton')
+MarzariVanderbilt = lazyimport('gpaw.occupations', 'MarzariVanderbilt')
+FD = lazyimport('gpaw.wavefunctions.fd', 'FD')
+LCAO = lazyimport('gpaw.wavefunctions.lcao', 'LCAO')
+PW = lazyimport('gpaw.wavefunctions.pw', 'PW')
+lazyimport('scipy.linalg')
+
+
 def main():
-    gpaw_args = parse_arguments(sys.argv)
+    with broadcast_imports:
+        import runpy
+
+        for importwrapper in all_lazy_imports:
+            importwrapper.import_now()
+
+        gpaw_args = parse_arguments(sys.argv)
     # The normal Python interpreter puts . in sys.path, so we also do that:
     sys.path.insert(0, '.')
     # Stacktraces can be shortened by running script with
@@ -158,6 +201,7 @@ def main():
 
 
 if debug:
+    import numpy as np
     np.seterr(over='raise', divide='raise', invalid='raise', under='ignore')
     oldempty = np.empty
     oldempty_like = np.empty_like
@@ -182,26 +226,18 @@ if debug:
     np.empty_like = empty_like
 
 
-with broadcast_imports:
-    from gpaw.calculator import GPAW as OldGPAW
-    from gpaw.mixer import Mixer, MixerSum, MixerDif, MixerSum2
-    from gpaw.eigensolvers import Davidson, RMMDIIS, CG, DirectLCAO
-    from gpaw.poisson import PoissonSolver
-    from gpaw.occupations import (FermiDirac, MethfesselPaxton,
-                                  MarzariVanderbilt)
-    from gpaw.wavefunctions.lcao import LCAO
-    from gpaw.wavefunctions.pw import PW
-    from gpaw.wavefunctions.fd import FD
-
-
 def GPAW(*args, **kwargs) -> Any:
     if os.environ.get('GPAW_NEW'):
         from gpaw.new.ase_interface import GPAW as NewGPAW
         return NewGPAW(*args, **kwargs)
+
+    from gpaw.calculator import GPAW as OldGPAW
     return OldGPAW(*args, **kwargs)
 
 
-def restart(filename, Class=GPAW, **kwargs):
+def restart(filename, Class=None, **kwargs):
+    if Class is None:
+        from gpaw import GPAW as Class
     calc = Class(filename, **kwargs)
     atoms = calc.get_atoms()
     return atoms, calc
@@ -234,5 +270,6 @@ initialize_data_paths()
 
 
 def RMM_DIIS(*args, **kwargs):
+    import warnings
     warnings.warn('Please use RMMDIIS instead of RMM_DIIS')
     return RMMDIIS(*args, **kwargs)

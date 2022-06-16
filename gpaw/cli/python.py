@@ -24,6 +24,11 @@ class CLICommand:
 
     @staticmethod
     def run(args):
+        from gpaw import all_lazy_imports, broadcast_imports
+        with broadcast_imports:
+            for importwrapper in all_lazy_imports:
+                importwrapper.import_now()
+
         if args.cmd:
             sys.argv[:] = ['-c'] + args.arguments
             d = {}
