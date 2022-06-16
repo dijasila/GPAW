@@ -85,12 +85,25 @@ def site_kernel_interface(pd, sitePos_mv, shapes_m='sphere',
 
 
 class SiteKernels:
-    """Some documentation here! XXX"""
+    """Factory for calculating sublattice site kernels
+
+                1  /
+    K_aGG'(q) = ‾‾ | dr e^(-i[G-G'+q].r) θ(r∊V_a)
+                V0 /
+
+    where V_a denotes the integration volume of site a, centered at the site
+    position τ_a, and V0 denotes the unit cell volume."""
 
     def __init__(self, positions, geometries):
-        """Some documentation here! XXX
+        """Construct the site kernel factory.
 
-        Important that inputs are given in internal units (a.u.)!
+        Parameters
+        ----------
+        positions : np.ndarray
+            Site center positions in a.u. (Bohr). Shape: (nsites, 3).
+        geometries : list
+            List of site geometries with geometry arguments in atomic units.
+            For more information, see calculate_site_kernels.
         """
         assert isinstance(geometries, list)
         assert positions.shape[0] == len(geometries)
@@ -129,7 +142,15 @@ class SiteKernels:
 class SphericalSiteKernels(SiteKernels):
 
     def __init__(self, positions, radii):
-        """Some documentation here! XXX"""
+        """Construct a site kernel factory with spherical kernels.
+
+        Parameters
+        ----------
+        positions : np.ndarray
+            Site center positions in Angstrom (Å). Shape: (nsites, 3).
+        radii : list or np.ndarray
+            Spherical radii of the sites in Angstrom (Å). Shape: (nsites,).
+        """
         positions = np.asarray(positions)
 
         # Parse the input spherical radii
@@ -149,7 +170,19 @@ class SphericalSiteKernels(SiteKernels):
 class CylindricalSiteKernels(SiteKernels):
 
     def __init__(self, positions, directions, radii, heights):
-        """Some documentation here! XXX"""
+        """Construct a site kernel factory with cylindrical kernels.
+
+        Parameters
+        ----------
+        positions : np.ndarray
+            Site center positions in Angstrom (Å). Shape: (nsites, 3).
+        directions : np.ndarray
+            Normalized directions of the cylindrical axes. Shape: (nsites, 3).
+        radii : list or np.ndarray
+            Cylindrical radii of the sites in Angstrom (Å). Shape: (nsites,).
+        heights : list or np.ndarray
+            Cylinder heights in Angstrom (Å). Shape: (nsites,).
+        """
         positions = np.asarray(positions)
 
         # Parse the cylinder geometry arguments
@@ -177,7 +210,17 @@ class CylindricalSiteKernels(SiteKernels):
 class ParallelepipedicSiteKernels(SiteKernels):
 
     def __init__(self, positions, cells):
-        """Some documentation here! XXX"""
+        """Construct a site kernel factory with parallelepipedic kernels.
+
+        Parameters
+        ----------
+        positions : np.ndarray
+            Site center positions in Angstrom (Å). Shape: (nsites, 3).
+        cells : np.ndarray
+            Cell vectors of the parallelepiped in Angstrom (Å).
+            Shape: (nsites, 3, 3), where the second entry is the vector index
+            and the last entry indexes the cartesian components.
+        """
         positions = np.asarray(positions)
 
         # Parse the parallelepipeds' cells
@@ -228,7 +271,7 @@ def calculate_site_kernels(pd, positions, geometries):
     pd : PWDescriptor
         Plane wave descriptor corresponding to the q wave vector of interest.
     positions : np.ndarray
-        Site positions. Array of shape (nsites, 3).
+        Site center positions. Array of shape (nsites, 3).
     geometries : list
         List of site geometries. A site geometry is a tuple of the integration
         volume shape (str) and arguments (tuple): (shape, args). Valid shapes
