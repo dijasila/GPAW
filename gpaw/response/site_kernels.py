@@ -181,7 +181,10 @@ class SiteKernels:
         assert self.nsites == sitekernels.nsites
         assert np.allclose(self.positions, sitekernels.positions)
 
-        self.partitions.append(sitekernels.partitions)
+        self.partitions += sitekernels.partitions
+
+    def copy(self):
+        return SiteKernels(self.positions.copy(), self.partitions.copy())
 
 
 class SphericalSiteKernels(SiteKernels):
