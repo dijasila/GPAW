@@ -1,8 +1,14 @@
 """Developer quiz."""
 from __future__ import annotations
+
+import contextlib
+import io
 from dataclasses import dataclass
 from random import shuffle
 from textwrap import wrap
+
+with contextlib.redirect_stdout(io.StringIO()):
+    from this import d
 
 
 @dataclass
@@ -36,7 +42,12 @@ class Question:
             return True
 
         answer = input()
-        return self.solutions is None or answer in self.solutions
+        return self.solutions is None or encode(answer) in self.solutions
+
+
+def encode(text: str) -> str:
+    """See "The Zen of Python" (this.py)."""
+    return ''.join(d.get(c, c) for c in text)
 
 
 dev = 'https://wiki.fysik.dtu.dk/gpaw/devel'
@@ -48,7 +59,7 @@ questions = [
     Question(text='What, ... is your favourite programming language?',
              choises=['Python', 'Other'],
              shuffle=False),
-    Question('What, ... is the air-speed of unladen swallow???',
+    Question('What, ... is the air-speed velocity of an unladen swallow???',
              choises=['10 m/s',
                       '20 miles an hour',
                       'depends on the kind of swallow (African or European)']),
@@ -65,7 +76,7 @@ questions = [
                       'unittest']),
     Question(text='What is the name of the environment variable that the '
              '"gpw_files" fixture uses for the folder to store gpw-files in?',
-             solutions=['GPW_TEST_FILES', '$GPW_TEST_FILES'])]
+             solutions=['TCJ_GRFG_SVYRF', '$TCJ_GRFG_SVYRF'])]
 
 
 def main() -> None:
@@ -80,7 +91,7 @@ def main() -> None:
         else:
             print('\033[91mAuuuuuuuugh!\033[0m')
             return
-    print('\nRight. Off you go!')
+    print('\nRight. Off you go.')
 
 
 if __name__ == '__main__':
