@@ -864,7 +864,7 @@ class SJMPower12Potential(Power12Potential):
                     self.H2O_layer = int(self.H2O_layer)
                 else:
                     raise InputError('Only an integer number of water '
-                                     'molecules is possible in the water'
+                                     'molecules is possible in the water '
                                      'layer')
 
                 allwaters = atoms[allwater_oxygen_ind]

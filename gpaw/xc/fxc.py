@@ -171,14 +171,14 @@ class FXCCorrelation(RPACorrelation):
         print('E_c(q) = ', end='', file=self.fd)
 
         pd = chi0.pd
-        nw = len(chi0.wd)
+        nw = chi0.nw
         mynw = nw // self.nblocks
         assert nw % self.nblocks == 0
         nspins = len(chi0_s)
         nG = pd.ngmax
         chi0_swGG = np.empty((nspins, mynw, nG, nG), complex)
         for chi0_wGG, chi0 in zip(chi0_swGG, chi0_s):
-            chi0.blockdist.redistribute(chi0.chi0_wGG, chi0_wGG)
+            chi0.redistribute(out_x=chi0_wGG)
         if self.nblocks > 1:
             chi0_swGG = np.swapaxes(chi0_swGG, 2, 3)
 
@@ -1307,7 +1307,7 @@ class KernelDens:
         ng_c = gd.N_c
         cell_cv = gd.cell_cv
         icell_cv = 2 * np.pi * np.linalg.inv(cell_cv)
-        vol = np.linalg.det(cell_cv)
+        vol = gd.volume
 
         ns = self.calc.wfs.nspins
         n_g = self.n_g  # density on rough grid
@@ -1507,7 +1507,7 @@ class KernelDens:
         pd = self.pd
         cell_cv = gd.cell_cv
         icell_cv = 2 * np.pi * np.linalg.inv(cell_cv)
-        vol = np.linalg.det(cell_cv)
+        vol = gd.volume
 
         fxc_sg = ns * self.get_fxc_g(ns * self.n_g)
         fxc_sg[np.where(self.n_g < self.density_cut)] = 0.0
