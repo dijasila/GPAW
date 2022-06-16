@@ -270,23 +270,23 @@ def Co_hcp_test():
 
     # Generate spherical site kernels instances
     # Normally
-    sph_sitekernels = SphericalSiteKernels(positions, rc_m)
+    sph_sitekernels = SphericalSiteKernels(positions, [rc_m])
     # Separately as sum of site kernels
-    sph_sitekernels0 = SphericalSiteKernels([positions[0]], [rc_m[0]])
-    sph_sitekernels1 = SphericalSiteKernels([positions[1]], [rc_m[1]])
+    sph_sitekernels0 = SphericalSiteKernels([positions[0]], [[rc_m[0]]])
+    sph_sitekernels1 = SphericalSiteKernels([positions[1]], [[rc_m[1]]])
     sph_sitekernels_sum = sph_sitekernels0 + sph_sitekernels1
 
     # Generate cylindrical site kernels instances
     # Normally
     ez_mv = np.array([[0., 0., 1.], [0., 0., 1.]])
     height_m = np.array([2 * rc_m[0], np.sum(atoms.cell[:, -1])])
-    cyl_sitekernels = CylindricalSiteKernels(positions, ez_mv,
-                                             rc_m, height_m)
+    cyl_sitekernels = CylindricalSiteKernels(positions, [ez_mv],
+                                             [rc_m], [height_m])
     # Separately as a sum of site kernels
-    cyl_sitekernels0 = CylindricalSiteKernels([positions[0]], [ez_mv[0]],
-                                              [rc_m[0]], [height_m[0]])
-    cyl_sitekernels1 = CylindricalSiteKernels([positions[1]], [ez_mv[1]],
-                                              [rc_m[1]], [height_m[1]])
+    cyl_sitekernels0 = CylindricalSiteKernels([positions[0]], [[ez_mv[0]]],
+                                              [[rc_m[0]]], [[height_m[0]]])
+    cyl_sitekernels1 = CylindricalSiteKernels([positions[1]], [[ez_mv[1]]],
+                                              [[rc_m[1]]], [[height_m[1]]])
     cyl_sitekernels_sum = cyl_sitekernels0 + cyl_sitekernels1
 
     # Generate unit cell site kernels instances
@@ -296,7 +296,7 @@ def Co_hcp_test():
     cell_cv = atoms.get_cell()
     cell_center_v = np.sum(cell_cv, axis=0) / 2.
     uc_sitekernels = ParallelepipedicSiteKernels([cell_center_v],
-                                                 [cell_cv])
+                                                 [[cell_cv]])
     # Do a sum with itself
     uc_sitekernels_sum = uc_sitekernels + uc_sitekernels
 
@@ -305,23 +305,23 @@ def Co_hcp_test():
     all_sitekernels = sph_sitekernels + cyl_sitekernels + uc_sitekernels
 
     # Calculate spherical site kernels
-    Ksph_mGG = sph_sitekernels.calculate(pd0)
-    Ksph0_mGG = sph_sitekernels0.calculate(pd0)
-    Ksph1_mGG = sph_sitekernels1.calculate(pd0)
-    Ksph_sum_mGG = sph_sitekernels_sum.calculate(pd0)
+    Ksph_mGG = list([K_mGG for K_mGG in sph_sitekernels.calculate(pd0)])[0]
+    Ksph0_mGG = list([K_mGG for K_mGG in sph_sitekernels0.calculate(pd0)])[0]
+    Ksph1_mGG = list([K_mGG for K_mGG in sph_sitekernels1.calculate(pd0)])[0]
+    Ksph_sum_mGG = list([K_mGG for K_mGG in sph_sitekernels_sum.calculate(pd0)])[0]
 
     # Calculate cylindrical site kernels
-    Kcyl_mGG = cyl_sitekernels.calculate(pd0)
-    Kcyl0_mGG = cyl_sitekernels0.calculate(pd0)
-    Kcyl1_mGG = cyl_sitekernels1.calculate(pd0)
-    Kcyl_sum_mGG = cyl_sitekernels_sum.calculate(pd0)
+    Kcyl_mGG = list([K_mGG for K_mGG in cyl_sitekernels.calculate(pd0)])[0]
+    Kcyl0_mGG = list([K_mGG for K_mGG in cyl_sitekernels0.calculate(pd0)])[0]
+    Kcyl1_mGG = list([K_mGG for K_mGG in cyl_sitekernels1.calculate(pd0)])[0]
+    Kcyl_sum_mGG = list([K_mGG for K_mGG in cyl_sitekernels_sum.calculate(pd0)])[0]
 
     # Calculate unit cell site kernels
-    Kuc_mGG = uc_sitekernels.calculate(pd0)
-    Kuc_sum_mGG = uc_sitekernels_sum.calculate(pd0)
+    Kuc_mGG = list([K_mGG for K_mGG in uc_sitekernels.calculate(pd0)])[0]
+    Kuc_sum_mGG = list([K_mGG for K_mGG in uc_sitekernels_sum.calculate(pd0)])[0]
 
     # Calculate all site kernels together
-    Kall_mGG = all_sitekernels.calculate(pd0)
+    Kall_mGG = list([K_mGG for K_mGG in all_sitekernels.calculate(pd0)])[0]
 
     # Compute site-kernels using old interface
     Ksph_old_mGG = site_kernel_interface(pd0, positions,
@@ -335,15 +335,15 @@ def Co_hcp_test():
     # Part 4: Check the calculated kernels
 
     # Check geometry shapes of basic arrays
-    assert sph_sitekernels.geometry_shape == 'sphere'
-    assert cyl_sitekernels.geometry_shape == 'cylinder'
-    assert uc_sitekernels.geometry_shape == 'parallelepiped'
+    assert sph_sitekernels.geometry_shapes[0] == 'sphere'
+    assert cyl_sitekernels.geometry_shapes[0] == 'cylinder'
+    assert uc_sitekernels.geometry_shapes[0] == 'parallelepiped'
 
     # Check geometry shapes of summed arrays
-    assert sph_sitekernels_sum.geometry_shape == 'sphere'
-    assert cyl_sitekernels_sum.geometry_shape == 'cylinder'
-    assert uc_sitekernels_sum.geometry_shape == 'parallelepiped'
-    assert all_sitekernels.geometry_shape is None
+    assert sph_sitekernels_sum.geometry_shapes[0] == 'sphere'
+    assert cyl_sitekernels_sum.geometry_shapes[0] == 'cylinder'
+    assert uc_sitekernels_sum.geometry_shapes[0] == 'parallelepiped'
+    assert all_sitekernels.geometry_shapes[0] is None
 
     # Check shape of spherical kernel arrays
     nG = len(get_pw_coordinates(pd0))

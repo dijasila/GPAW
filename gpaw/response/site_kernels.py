@@ -94,49 +94,94 @@ class SiteKernels:
     where V_a denotes the integration volume of site a, centered at the site
     position τ_a, and V0 denotes the unit cell volume."""
 
-    def __init__(self, positions, geometries):
+    def __init__(self, positions, partitions):
         """Construct the site kernel factory.
 
         Parameters
         ----------
         positions : np.ndarray
-            Site center positions in a.u. (Bohr). Shape: (nsites, 3).
-        geometries : list
-            List of site geometries with geometry arguments in atomic units.
-            For more information, see calculate_site_kernels.
+            Site positions in a.u. (Bohr). Shape: (nsites, 3).
+        partitions : list
+            List (len=npartitions) of lists (len=nsites) with site geometries
+            where the geometry arguments are given in atomic units.
+            For more information on site geometries, see calculate_site_kernels
         """
-        assert isinstance(geometries, list)
-        assert positions.shape[0] == len(geometries)
+        assert isinstance(partitions, list)
+        assert all([isinstance(geometries, list)
+                    and len(geometries) == positions.shape[0]
+                    for geometries in partitions])
         assert positions.shape[1] == 3
 
         self.positions = positions
-        self.geometries = geometries
+        self.partitions = partitions
 
-        # Store the geometry shape as a property, if they are all the same
-        if all([shape == geometries[0][0] for shape, _ in geometries]):
-            self.geometry_shape = geometries[0][0]
-        else:
-            self.geometry_shape = None
+    @property
+    def npartitions(self):
+        return len(self.partitions)
 
-        self.nsites = len(geometries)
+    @property
+    def nsites(self):
+        return self.positions.shape[0]
+
+    @property
+    def shape(self):
+        return self.npartitions, self.nsites
+
+    @property
+    def geometry_shapes(self):
+        """If all sites of a given partition has the same geometry, the
+        partition is said to have a geometry_shape. Otherwise, the
+        geometry_shape is None."""
+
+        geometry_shapes = []
+        for geometries in self.partitions:
+            # Record the geometry shape, if they are all the same
+            if all([shape == geometries[0][0] for shape, _ in geometries]):
+                geometry_shapes.append(geometries[0][0])
+            else:
+                geometry_shapes.append(None)
+
+        return geometry_shapes
 
     def calculate(self, pd):
-        return calculate_site_kernels(pd, self.positions, self.geometries)
+        """Generate the site kernels of each partition.
+
+        Returns
+        -------
+        K_aGG : np.ndarray (dtype=complex)
+            Site kernels of sites a and plane wave components G and G'.
+        """
+        for geometries in self.partitions:
+            # We yield one set of site kernels at a time, because they can be
+            # memory intensive
+            yield calculate_site_kernels(pd, self.positions, geometries)
 
     def __add__(self, sitekernels):
         """Add the sites from two SiteKernels instances to a new joint
-        SiteKernels instance."""
+        SiteKernels instance with nsites = nsites1 + nsites2."""
         assert isinstance(sitekernels, SiteKernels)
+        assert self.npartitions == sitekernels.npartitions
 
         # Join positions
         nsites = self.nsites + sitekernels.nsites
         positions = np.append(self.positions,
                               sitekernels.positions).reshape(nsites, 3)
 
-        # Join geometries
-        geometries = self.geometries + sitekernels.geometries
+        # Join partitions
+        partitions = [geometries1 + geometries2
+                      for geometries1, geometries2
+                      in zip(self.partitions, sitekernels.partitions)]
 
-        return SiteKernels(positions, geometries)
+        return SiteKernels(positions, partitions)
+
+    def append(self, sitekernels):
+        """Append the partitions of another array with identical site
+        positions such that npartitions = npartitions1 + npartitions2."""
+        assert isinstance(sitekernels, SiteKernels)
+        assert self.nsites == sitekernels.nsites
+        assert np.allclose(self.positions, sitekernels.positions)
+
+        self.partitions.append(sitekernels.partitions)
 
 
 class SphericalSiteKernels(SiteKernels):
@@ -147,24 +192,28 @@ class SphericalSiteKernels(SiteKernels):
         Parameters
         ----------
         positions : np.ndarray
-            Site center positions in Angstrom (Å). Shape: (nsites, 3).
+            Site positions in Angstrom (Å). Shape: (nsites, 3).
         radii : list or np.ndarray
-            Spherical radii of the sites in Angstrom (Å). Shape: (nsites,).
+            Spherical radii of the sites in Angstrom (Å).
+            Shape: (npartitions, nsites), where the individual spherical radii
+            can be varried for each spatial partitioning.
         """
         positions = np.asarray(positions)
 
         # Parse the input spherical radii
-        rc_a = np.asarray(radii)
-        assert rc_a.shape == (positions.shape[0],)
+        rc_pa = np.asarray(radii)
+        assert len(rc_pa.shape) == 2
+        assert rc_pa.shape[1] == positions.shape[0]
 
         # Convert radii to internal units (Å to Bohr)
         positions = positions / Bohr
-        rc_a = rc_a / Bohr
+        rc_pa = rc_pa / Bohr
 
-        # Generate list of geometries
-        geometries = [('sphere', (rc,)) for rc in rc_a]
+        # Generate partitions as list of lists of geometries
+        partitions = [[('sphere', (rc,)) for rc in rc_a]
+                      for rc_a in rc_pa]
 
-        SiteKernels.__init__(self, positions, geometries)
+        SiteKernels.__init__(self, positions, partitions)
 
 
 class CylindricalSiteKernels(SiteKernels):
@@ -175,36 +224,42 @@ class CylindricalSiteKernels(SiteKernels):
         Parameters
         ----------
         positions : np.ndarray
-            Site center positions in Angstrom (Å). Shape: (nsites, 3).
+            Site positions in Angstrom (Å). Shape: (nsites, 3).
         directions : np.ndarray
-            Normalized directions of the cylindrical axes. Shape: (nsites, 3).
-        radii : list or np.ndarray
-            Cylindrical radii of the sites in Angstrom (Å). Shape: (nsites,).
+            Normalized directions of the cylindrical axes.
+            Shape: (npartitions, nsites, 3), where the direction of each
+            individual cylinder can be varried (along with the radius and
+            height) for each spatial partitioning.
+        radii : np.ndarray
+            Cylindrical radii of the sites in Angstrom (Å).
+            Shape: (npartitions, nsites).
         heights : list or np.ndarray
-            Cylinder heights in Angstrom (Å). Shape: (nsites,).
+            Cylinder heights in Angstrom (Å). Shape: (npartitions, nsites).
         """
         positions = np.asarray(positions)
 
         # Parse the cylinder geometry arguments
-        ez_av = np.asarray(directions)
-        rc_a = np.asarray(radii)
-        hc_a = np.asarray(heights)
+        ez_pav = np.asarray(directions)
+        rc_pa = np.asarray(radii)
+        hc_pa = np.asarray(heights)
         nsites = positions.shape[0]
-        assert ez_av.shape == (nsites, 3)
-        assert np.allclose(np.linalg.norm(ez_av, axis=-1), 1., atol=1.e-8)
-        assert rc_a.shape == (nsites,)
-        assert hc_a.shape == (nsites,)
+        npartitions = ez_pav.shape[0]
+        assert ez_pav.shape == (npartitions, nsites, 3)
+        assert np.allclose(np.linalg.norm(ez_pav, axis=-1), 1., atol=1.e-8)
+        assert rc_pa.shape == (npartitions, nsites)
+        assert hc_pa.shape == (npartitions, nsites)
 
         # Convert to internal units (Å to Bohr)
         positions = positions / Bohr
-        rc_a = rc_a / Bohr
-        hc_a = hc_a / Bohr
+        rc_pa = rc_pa / Bohr
+        hc_pa = hc_pa / Bohr
 
-        # Generate list of geometries
-        geometries = [('cylinder', (ez_v, rc, hc))
-                      for ez_v, rc, hc in zip(ez_av, rc_a, hc_a)]
+        # Generate partitions as list of lists of geometries
+        partitions = [[('cylinder', (ez_v, rc, hc))
+                       for ez_v, rc, hc in zip(ez_av, rc_a, hc_a)]
+                      for ez_av, rc_a, hc_a in zip(ez_pav, rc_pa, hc_pa)]
 
-        SiteKernels.__init__(self, positions, geometries)
+        SiteKernels.__init__(self, positions, partitions)
 
 
 class ParallelepipedicSiteKernels(SiteKernels):
@@ -215,26 +270,30 @@ class ParallelepipedicSiteKernels(SiteKernels):
         Parameters
         ----------
         positions : np.ndarray
-            Site center positions in Angstrom (Å). Shape: (nsites, 3).
+            Site positions in Angstrom (Å). Shape: (nsites, 3).
         cells : np.ndarray
             Cell vectors of the parallelepiped in Angstrom (Å).
-            Shape: (nsites, 3, 3), where the second entry is the vector index
-            and the last entry indexes the cartesian components.
+            Shape: (npartitions, nsites, 3, 3), where the parallelepipedic
+            cell of each site can be varried independently for each spatial
+            partitioning. The second to last entry is the vector index and
+            the last entry indexes the cartesian components.
         """
         positions = np.asarray(positions)
 
         # Parse the parallelepipeds' cells
-        cell_acv = np.asarray(cells)
-        assert cell_acv.shape == (positions.shape[0], 3, 3)
+        cell_pacv = np.asarray(cells)
+        assert len(cell_pacv.shape) == 4
+        assert cell_pacv.shape[1:] == (positions.shape[0], 3, 3)
 
         # Convert to internal units (Å to Bohr)
         positions = positions / Bohr
-        cell_acv = cell_acv / Bohr
+        cell_pacv = cell_pacv / Bohr
 
-        # Generate list of geometries
-        geometries = [('parallelepiped', (cell_cv,)) for cell_cv in cell_acv]
+        # Generate partitions as list of lists of geometries
+        partitions = [[('parallelepiped', (cell_cv,)) for cell_cv in cell_acv]
+                      for cell_acv in cell_pacv]
 
-        SiteKernels.__init__(self, positions, geometries)
+        SiteKernels.__init__(self, positions, partitions)
 
 
 def calculate_site_kernels(pd, positions, geometries):
@@ -271,7 +330,7 @@ def calculate_site_kernels(pd, positions, geometries):
     pd : PWDescriptor
         Plane wave descriptor corresponding to the q wave vector of interest.
     positions : np.ndarray
-        Site center positions. Array of shape (nsites, 3).
+        Site positions. Array of shape (nsites, 3).
     geometries : list
         List of site geometries. A site geometry is a tuple of the integration
         volume shape (str) and arguments (tuple): (shape, args). Valid shapes
@@ -281,7 +340,7 @@ def calculate_site_kernels(pd, positions, geometries):
     Returns
     -------
     K_aGG : np.ndarray (dtype=complex)
-        Site kernels of site a and plane wave component G and G'.
+        Site kernels of sites a and plane wave components G and G'.
     """
     assert positions.shape[0] == len(geometries)
     assert positions.shape[1] == 3
