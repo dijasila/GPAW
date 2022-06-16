@@ -31,7 +31,9 @@ def info():
             results.append((name + '-' + module.__version__ + githash,
                             module.__file__.rsplit('/', 1)[0] + '/'))
 
-    libxc = gpaw.libraries['libxc']
+    libs = gpaw.get_libraries()
+
+    libxc = libs['libxc']
     if libxc:
         results.append((f'libxc-{libxc}', True))
     else:
