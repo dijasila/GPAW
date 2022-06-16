@@ -247,9 +247,9 @@ def Co_hcp_test():
     hc_pa = np.array([[2., 3.], [3., 4.]])  # heights in Å
     ez_pav = np.array([[[0., 0., 1.], [1., 0., 0.]],
                        [[0., 0., 1.], [0., 0., 1.]]])
-    # cell_acv = np.array([[[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]],
-    #                      [[1., 0., 0.], [0., 1., 0.], [0., 0., 2.]]])
-    # cell_pacv = np.append(cell_acv, cell_acv * 2).reshape(2, 2, 3, 3)
+    cell_acv = np.array([[[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]],
+                         [[1., 0., 0.], [0., 1., 0.], [0., 0., 2.]]])
+    cell_pacv = np.append(cell_acv, cell_acv * 2).reshape(2, 2, 3, 3)
 
     # Part 3: Check the calculated kernels
 
@@ -303,6 +303,23 @@ def Co_hcp_test():
     cyl_sitekernels_app = cyl_sitekernelsp0.copy()
     cyl_sitekernels_app.append(cyl_sitekernelsp1)
 
+    # Generate parallelepipedic site kernels instances
+    # Normally
+    parlp_sitekernels = ParallelepipedicSiteKernels(positions, cell_pacv)
+    # Separately as sum of site kernels
+    parlp_sitekernels0 = ParallelepipedicSiteKernels(positions[:1],
+                                                     cell_pacv[:, :1, ...])
+    parlp_sitekernels1 = ParallelepipedicSiteKernels(positions[1:],
+                                                     cell_pacv[:, 1:, ...])
+    parlp_sitekernels_sum = parlp_sitekernels0 + parlp_sitekernels1
+    # Seperately as appended partitions
+    parlp_sitekernelsp0 = ParallelepipedicSiteKernels(positions,
+                                                      cell_pacv[:1, :, ...])
+    parlp_sitekernelsp1 = ParallelepipedicSiteKernels(positions,
+                                                      cell_pacv[1:, :, ...])
+    parlp_sitekernels_app = parlp_sitekernelsp0.copy()
+    parlp_sitekernels_app.append(parlp_sitekernelsp1)
+
     """
     # Generate unit cell site kernels instances
     # To get a single site kernel spanning the entire unit cell, we use
@@ -324,27 +341,43 @@ def Co_hcp_test():
     Ksph_paGG = np.array([K_aGG for K_aGG in sph_sitekernels.calculate(pd0)])
     Ksph0_paGG = np.array([K_aGG for K_aGG in sph_sitekernels0.calculate(pd0)])
     Ksph1_paGG = np.array([K_aGG for K_aGG in sph_sitekernels1.calculate(pd0)])
-    Ksph_sum_paGG = np.array([K_aGG
-                              for K_aGG in sph_sitekernels_sum.calculate(pd0)])
-    Ksphp0_paGG = np.array([K_aGG
-                            for K_aGG in sph_sitekernelsp0.calculate(pd0)])
-    Ksphp1_paGG = np.array([K_aGG
-                            for K_aGG in sph_sitekernelsp1.calculate(pd0)])
-    Ksph_app_paGG = np.array([K_aGG
-                              for K_aGG in sph_sitekernels_app.calculate(pd0)])
+    Ksph_sum_paGG = np.array([K_aGG for K_aGG in
+                              sph_sitekernels_sum.calculate(pd0)])
+    Ksphp0_paGG = np.array([K_aGG for K_aGG in
+                            sph_sitekernelsp0.calculate(pd0)])
+    Ksphp1_paGG = np.array([K_aGG for K_aGG in
+                            sph_sitekernelsp1.calculate(pd0)])
+    Ksph_app_paGG = np.array([K_aGG for K_aGG in
+                              sph_sitekernels_app.calculate(pd0)])
 
     # Calculate cylindrical site kernels
     Kcyl_paGG = np.array([K_aGG for K_aGG in cyl_sitekernels.calculate(pd0)])
     Kcyl0_paGG = np.array([K_aGG for K_aGG in cyl_sitekernels0.calculate(pd0)])
     Kcyl1_paGG = np.array([K_aGG for K_aGG in cyl_sitekernels1.calculate(pd0)])
-    Kcyl_sum_paGG = np.array([K_aGG
-                              for K_aGG in cyl_sitekernels_sum.calculate(pd0)])
-    Kcylp0_paGG = np.array([K_aGG
-                            for K_aGG in cyl_sitekernelsp0.calculate(pd0)])
-    Kcylp1_paGG = np.array([K_aGG
-                            for K_aGG in cyl_sitekernelsp1.calculate(pd0)])
-    Kcyl_app_paGG = np.array([K_aGG
-                              for K_aGG in cyl_sitekernels_app.calculate(pd0)])
+    Kcyl_sum_paGG = np.array([K_aGG for K_aGG in
+                              cyl_sitekernels_sum.calculate(pd0)])
+    Kcylp0_paGG = np.array([K_aGG for K_aGG in
+                            cyl_sitekernelsp0.calculate(pd0)])
+    Kcylp1_paGG = np.array([K_aGG for K_aGG in
+                            cyl_sitekernelsp1.calculate(pd0)])
+    Kcyl_app_paGG = np.array([K_aGG for K_aGG in
+                              cyl_sitekernels_app.calculate(pd0)])
+
+    # Calculate parallelepipedic site kernels
+    Kparlp_paGG = np.array([K_aGG for K_aGG in
+                            parlp_sitekernels.calculate(pd0)])
+    Kparlp0_paGG = np.array([K_aGG for K_aGG in
+                             parlp_sitekernels0.calculate(pd0)])
+    Kparlp1_paGG = np.array([K_aGG for K_aGG in
+                             parlp_sitekernels1.calculate(pd0)])
+    Kparlp_sum_paGG = np.array([K_aGG for K_aGG in
+                                parlp_sitekernels_sum.calculate(pd0)])
+    Kparlpp0_paGG = np.array([K_aGG for K_aGG in
+                              parlp_sitekernelsp0.calculate(pd0)])
+    Kparlpp1_paGG = np.array([K_aGG for K_aGG in
+                              parlp_sitekernelsp1.calculate(pd0)])
+    Kparlp_app_paGG = np.array([K_aGG for K_aGG in
+                                parlp_sitekernels_app.calculate(pd0)])
 
     """
     # Calculate unit cell site kernels
@@ -360,12 +393,16 @@ def Co_hcp_test():
     # Check geometry shapes of basic arrays
     assert all([gs == 'sphere' for gs in sph_sitekernels.geometry_shapes])
     assert all([gs == 'cylinder' for gs in cyl_sitekernels.geometry_shapes])
+    assert all([gs == 'parallelepiped'
+                for gs in parlp_sitekernels.geometry_shapes])
     # assert uc_sitekernels.geometry_shapes[0] == 'parallelepiped'
 
     # Check geometry shapes of summed arrays
     assert all([gs == 'sphere' for gs in sph_sitekernels_sum.geometry_shapes])
     assert all([gs == 'cylinder'
                 for gs in cyl_sitekernels_sum.geometry_shapes])
+    assert all([gs == 'parallelepiped'
+                for gs in parlp_sitekernels_sum.geometry_shapes])
     # assert uc_sitekernels_sum.geometry_shapes[0] == 'parallelepiped'
     # assert all_sitekernels.geometry_shapes[0] is None
 
@@ -373,7 +410,9 @@ def Co_hcp_test():
     assert all([gs == 'sphere' for gs in sph_sitekernels_app.geometry_shapes])
     assert all([gs == 'cylinder'
                 for gs in cyl_sitekernels_app.geometry_shapes])
-    # To do XXX
+    assert all([gs == 'parallelepiped'
+                for gs in parlp_sitekernels_app.geometry_shapes])
+    # To do all XXX
 
     # Check shape of spherical kernel arrays
     nG = len(get_pw_coordinates(pd0))
@@ -395,6 +434,16 @@ def Co_hcp_test():
     assert Kcylp0_paGG.shape == (1, rc_pa.shape[1]) + (nG, nG)
     assert Kcylp0_paGG.shape == Kcylp1_paGG.shape
     assert Kcyl_app_paGG.shape == rc_pa.shape + (nG, nG)
+
+    # Check shape of parallelepipedic kernel arrays
+    assert parlp_sitekernels.shape == Kparlp_paGG.shape[:2]
+    assert Kparlp_paGG.shape == cell_pacv.shape[:2] + (nG, nG)
+    assert Kparlp0_paGG.shape == (cell_pacv.shape[0], 1) + (nG, nG)
+    assert Kparlp0_paGG.shape == Kparlp1_paGG.shape
+    assert Kparlp_sum_paGG.shape == cell_pacv.shape[:2] + (nG, nG)
+    assert Kparlpp0_paGG.shape == (1, cell_pacv.shape[1]) + (nG, nG)
+    assert Kparlpp0_paGG.shape == Kparlpp1_paGG.shape
+    assert Kparlp_app_paGG.shape == cell_pacv.shape[:2] + (nG, nG)
 
     """
     # Check shape of parallelepipedic kernel arrays
@@ -421,6 +470,14 @@ def Co_hcp_test():
     assert np.allclose(Kcylp1_paGG[0], Kcyl_app_paGG[1])
     assert np.allclose(Kcyl_paGG, Kcyl_app_paGG)
 
+    # Check self-consistency of parallelepipedic arrays
+    assert np.allclose(Kparlp0_paGG[:, 0, ...], Kparlp_sum_paGG[:, 0, ...])
+    assert np.allclose(Kparlp1_paGG[:, 0, ...], Kparlp_sum_paGG[:, 1, ...])
+    assert np.allclose(Kparlp_paGG, Kparlp_sum_paGG)
+    assert np.allclose(Kparlpp0_paGG[0], Kparlp_app_paGG[0])
+    assert np.allclose(Kparlpp1_paGG[0], Kparlp_app_paGG[1])
+    assert np.allclose(Kparlp_paGG, Kparlp_app_paGG)
+
     """
     # Check self-consistency of unit cell arrays
     assert np.allclose(Kuc_mGG[0], Kuc_sum_mGG[0])
@@ -438,8 +495,10 @@ def Co_hcp_test():
     # Calculate integration volumes in Å^3
     Vsphere_pa = 4 / 3 * np.pi * rc_pa**3
     Vcylinder_pa = np.pi * rc_pa**2 * hc_pa
+    Vparlp_pa = np.abs(np.linalg.det(cell_pacv))
     assert np.allclose(Ksph_paGG[..., 0, 0], Vsphere_pa / V0)
     assert np.allclose(Kcyl_paGG[..., 0, 0], Vcylinder_pa / V0)
+    assert np.allclose(Kparlp_paGG[..., 0, 0], Vparlp_pa / V0)
     # assert abs(Kuc_paGG[0, 0, 0] - 1.) < 1.e-8
 
 
