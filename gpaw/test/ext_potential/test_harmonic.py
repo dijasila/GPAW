@@ -1,6 +1,7 @@
 import numpy as np
+import pytest
 from ase import Atoms
-from ase.units import Ha
+from ase.units import Bohr, Ha
 
 from gpaw import GPAW
 from gpaw.external import ExternalPotential, known_potentials
@@ -44,35 +45,46 @@ def test_ext_potential_harmonic(in_tmp_dir):
     GPAW('harmonic.gpw')
 
 
-class PöchelTellerPotential(ExternalPotential):
+class PöschlTellerPotential(ExternalPotential):
+    """Slab with Pöschel-Teller well along z-direction.
+
+    See:
+
+        https://en.wikipedia.org/wiki/Pöschl–Teller_potential
+    """
     def calculate_potential(self, gd):
         a = gd.cell_cv[2, 2]
         r_vg = gd.get_grid_point_coordinates()
-        lam = 1
+        lam = 2
         self.vext_g = -lam * (lam + 1) / 2 * np.cosh(r_vg[2] - a / 2)**-2
 
     def todict(self):
         return {'name': 'HarmonicPotential'}
 
 
-def test_pt_potential(in_tmp_dir):
+def test_pt_potential():
     """Test againts analytic result (no xc, no Coulomb)."""
     d = 6.0
     a = 2
     x = Atoms(cell=(a, a, d), pbc=[1, 1, 0])  # no atoms
 
-    calc = GPAW(charge=-2,
-                nbands=1,
-                mode=dict(name='pw', ecut=500),
+    calc = GPAW(charge=-12,
+                nbands=8,
+                mode='pw',
                 xc={'name': 'null'},
-                external=PöchelTellerPotential(),
-                poissonsolver=NoInteractionPoissonSolver(),
-                #eigensolver='cg'
-                )
+                external=PöschlTellerPotential(),
+                poissonsolver=NoInteractionPoissonSolver())
 
     x.calc = calc
     x.get_potential_energy()
 
-    (eig,) = calc.get_eigenvalues()
-    print(eig)
-    assert eig == -0.5 * Ha
+    eigs = calc.get_eigenvalues() / Ha
+    print(eigs)
+    k = 2 * np.pi / (a / Bohr)
+    e0 = -2
+    e1234 = -2 + 0.5 * k**2
+    e5 = -0.5
+    assert eigs[0] == pytest.approx(e0, abs=0.0002)
+    assert eigs[1] == pytest.approx(e1234, abs=0.001)
+    assert eigs[1:5].ptp() == pytest.approx(0)
+    assert eigs[5] == pytest.approx(e5, abs=0.001)
