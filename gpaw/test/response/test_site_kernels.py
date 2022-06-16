@@ -468,16 +468,19 @@ def Co_hcp_test():
     assert np.allclose(Kcyl_paGG, Kall_app_paGG[2:4])
     assert np.allclose(Kparlp_paGG, Kall_app_paGG[-2:])
 
-    # Check that K_00(q=0) gives Vint / V0 (fractional integration volume)
+    # Check that K_G=G'(q=0) gives Vint / V0 (fractional integration volume)
     # Volume of unit cell in Å^3
     V0 = atoms.get_volume()
     # Calculate integration volumes in Å^3
     Vsphere_pa = 4 / 3 * np.pi * rc_pa**3
     Vcylinder_pa = np.pi * rc_pa**2 * hc_pa
     Vparlp_pa = np.abs(np.linalg.det(cell_pacv))
-    assert np.allclose(Ksph_paGG[..., 0, 0], Vsphere_pa / V0)
-    assert np.allclose(Kcyl_paGG[..., 0, 0], Vcylinder_pa / V0)
-    assert np.allclose(Kparlp_paGG[..., 0, 0], Vparlp_pa / V0)
+    assert np.allclose(np.diagonal(Ksph_paGG, axis1=2, axis2=3),
+                       Vsphere_pa[..., np.newaxis] / V0)
+    assert np.allclose(np.diagonal(Kcyl_paGG, axis1=2, axis2=3),
+                       Vcylinder_pa[..., np.newaxis] / V0)
+    assert np.allclose(np.diagonal(Kparlp_paGG, axis1=2, axis2=3),
+                       Vparlp_pa[..., np.newaxis] / V0)
 
 
 # ---------- Test functionality ---------- #
