@@ -264,6 +264,9 @@ def Co_hcp_test():
                 kpts={'size': (kpts, kpts, kpts),
                       'gamma': True}
                 )
+    
+    # Perform inexpensive calculator initialization
+    calc.initialize(atoms)
 
     pd0 = get_PWDescriptor(atoms, calc, q_c,
                            ecut=ecut,
@@ -539,9 +542,6 @@ def get_PWDescriptor(atoms, calc, q_c, ecut=50., gammacentered=False):
     from ase.units import Ha
     from gpaw.pw.descriptor import PWDescriptor
     from gpaw.kpt_descriptor import KPointDescriptor
-
-    # Perform inexpensive calculator initialization
-    calc.initialize(atoms)
 
     # Create the plane wave descriptor
     q_c = np.asarray(q_c, dtype=float)

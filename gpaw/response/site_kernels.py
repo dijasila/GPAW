@@ -1,6 +1,6 @@
-"""Compute site-kernels. Used for computing Heisenberg exchange.
-Specifically, one maps DFT calculations onto a Heisenberg lattice model,
-where the site-kernels define the lattice sites and magnetic moments."""
+"""Compute site-kernels. Used for computing Heisenberg exchange constants.
+Specifically, one maps a DFT calculations onto a Heisenberg lattice model,
+where the site kernels define the lattice sites and magnetic moments."""
 
 import numpy as np
 from scipy.special import jv
@@ -54,8 +54,8 @@ class SiteKernels:
     @property
     def geometry_shapes(self):
         """If all sites of a given partition has the same geometry, the
-        partition is said to have a geometry_shape. Otherwise, the
-        geometry_shape is None."""
+        partition is said to have a geometry shape. Otherwise, the
+        geometry shape is None."""
 
         geometry_shapes = []
         for geometries in self.partitions:
