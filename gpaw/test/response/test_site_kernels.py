@@ -16,22 +16,11 @@ from gpaw.response.site_kernels import (SphericalSiteKernels,
 from gpaw.response.susceptibility import get_pw_coordinates
 
 
-# ---------- Main test ---------- #
-
-
-@pytest.mark.response
-@pytest.mark.ci
-def test_site_kernels():
-    spherical_kernel_test()
-    cylindrical_kernel_test()
-    parallelepipedic_kernel_test()
-    Co_hcp_test()
-
-
 # ---------- Actual tests ---------- #
 
 
-def spherical_kernel_test():
+@pytest.mark.ci
+def test_spherical_kernel():
     """Check the numerics of the spherical kernel"""
     # ---------- Inputs ---------- #
 
@@ -67,7 +56,8 @@ def spherical_kernel_test():
         assert np.allclose(K_Qd, rc**3. * test_K_Q[:, np.newaxis])
 
 
-def cylindrical_kernel_test():
+@pytest.mark.ci
+def test_cylindrical_kernel():
     """Check the numerics of the spherical kernel"""
     # ---------- Inputs ---------- #
 
@@ -156,7 +146,8 @@ def cylindrical_kernel_test():
                                    atol=1.e-8)
 
 
-def parallelepipedic_kernel_test():
+@pytest.mark.ci
+def test_parallelepipedic_kernel():
     """Check the numerics of the parallelepipedic site kernel."""
     # ---------- Inputs ---------- #
 
@@ -223,7 +214,8 @@ def parallelepipedic_kernel_test():
                 assert np.allclose(Theta_dQ, test_Theta_dQ, atol=1.e-8)
 
 
-def Co_hcp_test():
+@pytest.mark.ci
+def test_Co_hcp_site_kernels():
     """Check that the site kernel interface works on run-time inputs."""
     # ---------- Inputs ---------- #
 
