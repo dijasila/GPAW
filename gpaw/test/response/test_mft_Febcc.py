@@ -93,7 +93,7 @@ def test_Fe_bcc():
     mm_ap = mm * np.ones((1, npartitions))  # Magnetic moments
     mw_qp = calculate_FM_magnon_energies(J_qabp, q_qc, mm_ap)[:, 0, :]
 
-    # Part 3: Compare new results to test values
+    # Part 3: Compare results to test values
     test_J_pq = np.array([[1.61655323, 0.88149124, 1.10008928, 1.18887259],
                           [1.86800734, 0.93735081, 1.23108285, 1.33289874],
                           [4.67979867, 0.2004699, 1.28510023, 1.30265974],
