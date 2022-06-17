@@ -33,7 +33,7 @@ def test_Co_hcp():
             'bands': nbands}
 
     # Part 2: MFT calculation
-    ecut = 150
+    ecut = 100
     # Do high symmetry points of the hcp lattice
     q_qc = np.array([[0, 0, 0],              # Gamma
                      [0.5, 0., 0.],          # M
@@ -59,7 +59,6 @@ def test_Co_hcp():
                 occupations=FermiDirac(occw),
                 convergence=conv,
                 nbands=nbands + ebands,
-                symmetry={'point_group': False},
                 idiotproof=False,
                 parallel={'domain': 1})
 
@@ -93,9 +92,19 @@ def test_Co_hcp():
     mw_qnp = np.sort(mw_qnp, axis=1)  # Make sure the eigenvalues are sorted
 
     # Part 3: Compare results to test values
-    print(mw_qnp[..., 0])
-    print(mw_qnp[..., 1])
-    print(mw_qnp[..., 2])
-    assert 0
+    # To do: Test bare exchange constants XXX
+    test_mw_qn = np.array([[0., 6.51559179e-01],
+                           [6.46783632e-01, 8.64703999e-01],
+                           [7.33551122e-01, 8.83950560e-01],
+                           [4.00815477e-01, 4.12818083e-01]])
 
-    # Part 4: Check self-consistency of results XXX
+    # Magnon energies
+    assert np.all(np.abs(mw_qnp[0, 0, :]) < 1.e-8)  # Goldstone theorem
+    assert np.allclose(mw_qnp[1:, 0, 1], test_mw_qn[1:, 0], rtol=1.e-3)
+    assert np.allclose(mw_qnp[:, 1, 1], test_mw_qn[:, 1], rtol=1.e-3)
+
+    # Part 4: Check self-consistency of results
+    # We should be in a radius range, where the magnon energies don't change
+    assert np.allclose(mw_qnp[1:, 0, ::2], test_mw_qn[1:, 0, np.newaxis],
+                       rtol=5.e-2)
+    
