@@ -67,31 +67,31 @@ def test_Fe_bcc():
 
     # Set up site kernels with a single site
     positions = atoms.get_positions()
-    site_kernels = SphericalSiteKernels(positions, rc_pa)
-    site_kernels.append(CylindricalSiteKernels(positions, ez_pav,
-                                               rc_pa, hc_pa))
+    sitekernels = SphericalSiteKernels(positions, rc_pa)
+    sitekernels.append(CylindricalSiteKernels(positions, ez_pav,
+                                              rc_pa, hc_pa))
     # Set up a kernel to fill out the entire unit cell
-    site_kernels.append(ParallelepipedicSiteKernels(positions,
-                                                    [[atoms.get_cell()]]))
+    sitekernels.append(ParallelepipedicSiteKernels(positions,
+                                                   [[atoms.get_cell()]]))
 
     # Initialize the exchange calculator
-    exchCalc = IsotropicExchangeCalculator(calc, ecut=ecut, nbands=nbands)
+    isoexch_calc = IsotropicExchangeCalculator(calc, ecut=ecut, nbands=nbands)
 
     # Allocate array for the exchange constants
     nq = len(q_qc)
-    nsites = site_kernels.nsites
-    npartitions = site_kernels.npartitions
+    nsites = sitekernels.nsites
+    npartitions = sitekernels.npartitions
     J_qabp = np.empty((nq, nsites, nsites, npartitions), dtype=complex)
 
     # Calcualate the exchange constant for each q-point
     for q, q_c in enumerate(q_qc):
-        J_qabp[q] = exchCalc(q_c, site_kernels)
+        J_qabp[q] = isoexch_calc(q_c, sitekernels)
     # Since we only have a single site, reduce the array
     J_qp = J_qabp[:, 0, 0, :]
 
     # Calculate the magnon energies
-    magmoms_ap = mm * np.ones((1, npartitions))
-    mw_qp = calculate_FM_magnon_energies(J_qabp, q_qc, magmoms_ap)[:, 0, :]
+    mm_ap = mm * np.ones((1, npartitions))  # Magnetic moments
+    mw_qp = calculate_FM_magnon_energies(J_qabp, q_qc, mm_ap)[:, 0, :]
 
     # Part 3: Compare new results to test values
     test_J_pq = np.array([[1.61655323, 0.88149124, 1.10008928, 1.18887259],
