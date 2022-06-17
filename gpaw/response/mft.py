@@ -6,14 +6,14 @@ import sys
 import gpaw.mpi as mpi
 from gpaw.response.susceptibility import FourComponentSusceptibilityTensor
 from gpaw.response.kxc import PlaneWaveAdiabaticFXC
-from gpaw.response.site_kernels import site_kernel_interface
+from gpaw.response.site_kernels import site_kernel_interface, SiteKernels
 from gpaw.xc import XC
 
 # ASE modules
 from ase.units import Hartree
 
 
-class IsotropicExchangeCalculator:
+class OldIsotropicExchangeCalculator:
     """Class calculating the isotropic Heisenberg exchange, J.
 
     J describes the exchange interactions between magnetic moments on a
@@ -167,6 +167,133 @@ class IsotropicExchangeCalculator:
                     J_abr[a, b, r] = 2. * J / V0
 
         return J_abr * Hartree  # Convert from Hartree to eV
+
+    def _computeBxc(self):
+        # Compute xc magnetic field
+        # Note : Bxc is calculated from the xc-kernel, which is a 2-point
+        # function, while B_xc is 1-point Because of how the different
+        # Fourier transforms are defined, this gives an extra volume factor
+        # See eq. 50 of Phys. Rev. B 103, 245110 (2021)
+        print('Computing Bxc')
+        # Plane-wave descriptor (input is arbitrary)
+        self.pd0 = self.chiksf.get_PWDescriptor([0, 0, 0])
+        Omega_cell = self.pd0.gd.volume
+        Bxc_GG = self.Bxc_calc(self.pd0)
+        self.Bxc_G = Omega_cell * Bxc_GG[:, 0]
+        print('Done computing Bxc')
+
+
+class IsotropicExchangeCalculator:
+    """Class calculating the isotropic Heisenberg exchange, J.
+
+    J describes the exchange interactions between magnetic moments on a
+    discrete lattice.
+
+    J can be related to the static, transverse magnetic susceptibility of
+    the Kohn-Sham system. This can be computed ab-initio by way of
+    linear response theory.
+
+    The magnetic moments are defined as integrals of the
+    magnetisation density centered on the lattice sites. Both the shape
+    and size of these integration regions can be varied.
+    All the information about positions and integration regions for
+    the magnetic sites are encoded in the wavevector dependent
+    site-kernels, K_m(q).
+
+    The central formula for computing J is
+    J(q) = sum_{G1,G2,G3,G4} Bxc_G1 Kn_G1G2(q) chiks_G2G3^{-+}(q)
+                             X Km_G3G4^* Bxc_G4^*
+
+    Note that the response function, chiks, is computed with opposite sign
+    relative to the implementation papers. If this is fixed, then the formula
+    for J should also get a minus sign.
+
+    """
+
+    def __init__(self, gs, ecut=100, nbands=None, world=mpi.world):
+        """Construct the IsotropicExchangeCalculator object
+
+        Parameters
+        ----------
+        gs : str or gpaw calculator
+            Calculator with converged ground state as input to the linear
+            response calculation.
+        ecut : number
+            Cutoff energy in eV
+            In response calculation, include all G-vectors with G^2/2 < ecut
+        nbands : int
+            Maximum band index to include in response calculation.
+        world : obj
+            MPI communicator.
+
+        """
+
+        # Calculator for response function
+        self.chiksf = StaticChiKSFactory(gs,
+                                         ecut=ecut,
+                                         nblocks=1,
+                                         eta=0,
+                                         nbands=nbands,
+                                         world=world)
+
+        # Calculator for xc-kernel
+        self.Bxc_calc = AdiabaticBXC(self.chiksf.calc, world=world)
+
+        # Make empty object for Bxc field
+        self.Bxc_G = None
+
+    def __call__(self, q_c, site_kernels, txt=sys.stdout):
+        """Calculate the isotropic exchange between all magnetic sites
+        for a given wavevector.
+
+        Parameters
+        ----------
+        q_c : nd.array
+            Components of wavevector in relative coordinates
+        site_kernels : SiteKernels
+            Site kernel instances to define the magnetic sites to extract
+            exchange constants for
+        txt : str
+            Where to save log-files
+
+        Returns
+        -------
+        J_abr : nd.array (dtype=complex)
+            Exchange between magnetic sites (a, b) for different
+            parameters of the integration regions (r).
+        """
+        assert isinstance(site_kernels, SiteKernels)
+
+        # Get Bxc_G
+        if self.Bxc_G is None:
+            self._computeBxc()
+        Bxc_G = self.Bxc_G
+
+        # Compute transverse susceptibility
+        _, chiks_GG = self.chiksf('-+', q_c, txt=txt)
+
+        # Get plane-wave descriptor
+        pd = self.chiksf.get_PWDescriptor(q_c)
+        V0 = pd.gd.volume
+
+        # Allocate an array for the exchange constants
+        nsites = site_kernels.nsites
+        J_pab = np.empty(site_kernels.shape + (nsites,), dtype=complex)
+
+        # Compute exchange coupling
+        for J_ab, K_aGG in zip(J_pab, site_kernels.calculate(pd)):
+            for a in range(nsites):
+                for b in range(nsites):
+                    Ka_GG = K_aGG[a, :, :]
+                    Kb_GG = K_aGG[b, :, :]
+                    J = np.conj(Bxc_G) @ np.conj(Ka_GG).T @ chiks_GG @ Kb_GG \
+                        @ Bxc_G
+                    J_ab[a, b] = 2. * J / V0
+
+        # Transpose to have the partitions index last
+        J_abp = np.transpose(J_pab, (1, 2, 0))
+
+        return J_abp * Hartree  # Convert from Hartree to eV
 
     def _computeBxc(self):
         # Compute xc magnetic field

@@ -4,14 +4,16 @@ Test with unrealisticly loose parameters to catch if the numerics change.
 from gpaw import GPAW, PW, FermiDirac
 from ase.build import bulk
 import numpy as np
-from gpaw.response.mft import IsotropicExchangeCalculator
+from gpaw.response.mft import (OldIsotropicExchangeCalculator,
+                               IsotropicExchangeCalculator)
+from gpaw.response.site_kernels import SphericalSiteKernels
 from gpaw.response.heisenberg import calculate_FM_magnon_energies
 
 
 def test_Fe_bcc():
     # ---------- Inputs ---------- #
 
-    # Part 1: ground state calculation
+    # Part 1: Ground state calculation
     xc = 'LDA'
     kpts = 4
     nbands = 6
@@ -36,7 +38,7 @@ def test_Fe_bcc():
 
     # ---------- Script ---------- #
 
-    # Part 1: ground state calculation
+    # Part 1: Ground state calculation
 
     atoms = bulk('Fe', 'bcc', a=a)
     atoms.set_initial_magnetic_moments([mm])
@@ -59,17 +61,22 @@ def test_Fe_bcc():
     # Part 2: MFT calculation
 
     sitePos_mv = atoms.positions  # Using Fe atom as the site
-    exchCalc = IsotropicExchangeCalculator(calc,
-                                           sitePos_mv,
-                                           shapes_m=shapes_m,
-                                           ecut=ecut,
-                                           nbands=nbands)
+    old_exchCalc = OldIsotropicExchangeCalculator(calc,
+                                                  sitePos_mv,
+                                                  shapes_m=shapes_m,
+                                                  ecut=ecut,
+                                                  nbands=nbands)
+    site_kernels = SphericalSiteKernels(sitePos_mv, rc_rm)
+    exchCalc = IsotropicExchangeCalculator(calc, ecut=ecut, nbands=nbands)
 
     # Calcualate the exchange constant for each q-point
     J_qabr = np.empty((len(q_qc), 1, 1, len(rc_rm)), dtype=complex)
+    Jold_qabr = np.empty_like(J_qabr)
     for q, q_c in enumerate(q_qc):
-        J_qabr[q] = exchCalc(q_c, rc_rm=rc_rm)
+        J_qabr[q] = exchCalc(q_c, site_kernels)
+        Jold_qabr[q] = old_exchCalc(q_c, rc_rm=rc_rm)
     J_qr = J_qabr[:, 0, 0, :]
+    Jold_qr = J_qabr[:, 0, 0, :]
 
     # Calculate the magnon energies
     mw_qnr = calculate_FM_magnon_energies(J_qabr, q_qc,
@@ -82,7 +89,7 @@ def test_Fe_bcc():
         chiks_GGq += [chiks_GG]
     chiks_GGq = np.dstack(chiks_GGq)
 
-    # Part 3: compare new results to test values
+    # Part 3: Compare new results to test values
     test_J_rq = np.array([[1.61643955, 0.88155322, 1.10019274, 1.18879169],
                           [1.8678718, 0.93756859, 1.23108965, 1.33281237],
                           [4.67944783, 0.20054973, 1.28535702, 1.30257353]])
@@ -90,6 +97,9 @@ def test_Fe_bcc():
     test_mw_rq = np.array([[0., 0.6650555, 0.46719168, 0.38701164],
                            [0., 0.84204307, 0.57626353, 0.48421668],
                            [0., 4.05334907, 3.07152699, 3.05599481]])
+
+    # Check consistency compared to old implementation
+    assert np.allclose(J_qr, Jold_qr)
 
     # Exchange constants
     assert np.allclose(J_qr.imag, 0.)
