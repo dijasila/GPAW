@@ -65,7 +65,7 @@ def test_Fe_bcc():
 
     # Part 2: MFT calculation
 
-    # Set up single site kernels with a single site
+    # Set up site kernels with a single site
     positions = atoms.get_positions()
     site_kernels = SphericalSiteKernels(positions, rc_pa)
     site_kernels.append(CylindricalSiteKernels(positions, ez_pav,
@@ -93,13 +93,6 @@ def test_Fe_bcc():
     magmoms_ap = mm * np.ones((1, npartitions))
     mw_qp = calculate_FM_magnon_energies(J_qabp, q_qc, magmoms_ap)[:, 0, :]
 
-    # Run the chiks calculator individually
-    chiks_GGq = []  # Could be tested elsewhere? XXX
-    for q_c in q_qc:
-        _, chiks_GG = exchCalc.chiksf('-+', q_c, txt=None)
-        chiks_GGq += [chiks_GG]
-    chiks_GGq = np.dstack(chiks_GGq)
-
     # Part 3: Compare new results to test values
     test_J_pq = np.array([[1.61655323, 0.88149124, 1.10008928, 1.18887259],
                           [1.86800734, 0.93735081, 1.23108285, 1.33289874],
@@ -108,7 +101,6 @@ def test_Fe_bcc():
                           [1.734752, 0.87124284, 1.13880145, 1.23047167],
                           [3.82381708, 0.31159032, 1.18094396, 1.27980015],
                           [1.79888576, 0.92972442, 1.2054906, 1.32186075]])
-    test_chiks_q = np.array([0.36507507, 0.19186653, 0.23056424, 0.24705505])
     test_mw_pq = np.array([[0., 0.66521177, 0.46738581, 0.3870413],
                            [0., 0.84222041, 0.57640002, 0.48426118],
                            [0., 4.05369028, 3.07212255, 3.05623433],
@@ -120,10 +112,6 @@ def test_Fe_bcc():
     # Exchange constants
     assert np.allclose(J_qp.imag, 0.)
     assert np.allclose(J_qp.real, test_J_pq.T, rtol=1e-3)
-
-    # Static reactive part of chiks
-    assert np.allclose(chiks_GGq[0, 0, :].imag, 0.)
-    assert np.allclose(chiks_GGq[0, 0, :].real, test_chiks_q, rtol=5.e-3)
     
     # Magnon energies
     assert np.allclose(mw_qp, test_mw_pq.T, rtol=1e-3)
