@@ -1,4 +1,5 @@
 """Test the site kernel calculation functionality of the response code"""
+import pytest
 import numpy as np
 import scipy.special as sc
 
@@ -18,6 +19,8 @@ from gpaw.response.susceptibility import get_pw_coordinates
 # ---------- Main test ---------- #
 
 
+@pytest.mark.response
+@pytest.mark.ci
 def test_site_kernels():
     spherical_kernel_test()
     cylindrical_kernel_test()
