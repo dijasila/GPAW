@@ -26,7 +26,7 @@ class DielectricFunction:
                  omega2=None,  # deprecated
                  omegamax=None,  # deprecated
                  ecut=50,
-                 gammacentered=False, hilbert=True,
+                 hilbert=True,
                  nbands=None, eta=0.2, ftol=1e-6, threshold=1,
                  intraband=True, nblocks=1, world=mpi.world, txt=sys.stdout,
                  truncation=None, disable_point_group=False,
@@ -52,8 +52,6 @@ class DielectricFunction:
             (see :ref:`frequency grid`).
         ecut: float
             Plane-wave cut-off.
-        gammacentered: bool
-            Center the grid of plane waves around the gamma point or q-vector
         hilbert: bool
             Use hilbert transform.
         nbands: int
@@ -86,7 +84,7 @@ class DielectricFunction:
         self.chi0 = Chi0(calc, frequencies=frequencies,
                          domega0=domega0, omega2=omega2, omegamax=omegamax,
                          ecut=ecut, nbands=nbands, eta=eta,
-                         gammacentered=gammacentered, hilbert=hilbert,
+                         hilbert=hilbert,
                          ftol=ftol, threshold=threshold,
                          intraband=intraband, world=world, nblocks=nblocks,
                          txt=txt,
@@ -127,7 +125,7 @@ class DielectricFunction:
                 return self.read(name)
 
         chi0 = self.chi0.calculate(q_c, spin)
-        chi0_wGG = chi0.blockdist.distribute_frequencies(chi0.chi0_wGG)
+        chi0_wGG = chi0.distribute_frequencies()
 
         self.chi0.timer.write(self.chi0.fd)
         if self.name:
@@ -379,9 +377,9 @@ class DielectricFunction:
             In RPA:   P = chi^0
             In TDDFT: P = (1 - chi^0 * f_xc)^{-1} chi^0
 
-        in addition to RPA one can use the kernels, ALDA, rALDA, rAPBE,
-        Bootstrap and LRalpha (long-range kerne), where alpha is a user
-        specified parameter (for example xc='LR0.25')
+        in addition to RPA one can use the kernels, ALDA, Bootstrap and
+        LRalpha (long-range kerne), where alpha is a user specified parameter
+        (for example xc='LR0.25')
 
         The head of the inverse symmetrized dielectric matrix is equal
         to the head of the inverse dielectric matrix (inverse dielectric

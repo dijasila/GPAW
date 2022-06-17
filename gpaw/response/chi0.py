@@ -12,8 +12,6 @@ from ase.utils.timing import Timer, timer
 import gpaw
 import gpaw.mpi as mpi
 from gpaw.bztools import convex_hull_volume
-from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.pw.descriptor import PWDescriptor
 from gpaw.response.chi0_data import Chi0Data
 from gpaw.response.frequencies import (FrequencyDescriptor,
                                        FrequencyGridDescriptor,
@@ -22,9 +20,7 @@ from gpaw.response.hilbert import HilbertTransform
 from gpaw.response.integrators import (Integrator, PointIntegrator,
                                        TetrahedronIntegrator)
 from gpaw.response.pair import PairDensity
-from gpaw.response.pw_parallelization import (Blocks1D,
-                                              PlaneWaveBlockDistributor,
-                                              block_partition)
+from gpaw.response.pw_parallelization import block_partition
 from gpaw.response.symmetry import PWSymmetryAnalyzer
 from gpaw.typing import Array1D
 from gpaw.utilities.memory import maxrss
@@ -52,7 +48,7 @@ class Chi0:
                  calc,
                  *,
                  frequencies: Union[dict, Array1D] = None,
-                 ecut=50, gammacentered=False, hilbert=True, nbands=None,
+                 ecut=50, hilbert=True, nbands=None,
                  timeordered=False, eta=0.2, ftol=1e-6, threshold=1,
                  real_space_derivatives=False, intraband=True,
                  world=mpi.world, txt='-', timer=None,
@@ -79,8 +75,6 @@ class Chi0:
             (see :ref:`frequency grid`).
         ecut : float
             Energy cutoff.
-        gammacentered : bool
-            Center the grid of plane waves around the gamma point or q-vector
         hilbert : bool
             Switch for hilbert transform. If True, the full density response
             is determined from a hilbert transform of its spectral function.
@@ -166,22 +160,16 @@ class Chi0:
 
         calc = self.pair.calc
         self.calc = calc
-
         self.fd = self.pair.fd
-
-        self.vol = abs(np.linalg.det(calc.wfs.gd.cell_cv))
-
+        self.vol = calc.wfs.gd.volume
         self.world = world
-
         self.blockcomm, self.kncomm = block_partition(world, nblocks)
-
         self.nblocks = nblocks
 
         if ecut is not None:
             ecut /= Ha
 
         self.ecut = ecut
-        self.gammacentered = gammacentered
 
         self.eta = eta / Ha
         if rate == 'eta':
@@ -218,8 +206,8 @@ class Chi0:
 
         self.Q_aGii = None
 
-        if sum(self.pbc) < 2:
-            raise ValueError('Only one non-periodic direction supported atm.')
+        if sum(self.pbc) == 1:
+            raise ValueError('1-D not supported atm.')
 
         print('Nonperiodic BCs: ', (~self.pbc),
               file=self.fd)
@@ -235,24 +223,18 @@ class Chi0:
         return self.calc.atoms.pbc
 
     def create_chi0(self, q_c, extend_head=True):
-        # This function should be made redundant in the future. Instead
-        # Chi0Data should be able to initialize itself.
-        q_c = np.asarray(q_c, dtype=float)
-        optical_limit = np.allclose(q_c, 0.0)
+        # Extract descriptor arguments
+        plane_waves = (q_c, self.ecut, self.calc.wfs.gd)
+        parallelization = (self.world, self.blockcomm, self.kncomm)
 
-        pd = self.get_PWDescriptor(q_c, self.gammacentered)
-
-        # Initialize block distibution of plane wave basis
-        nG = pd.ngmax
-        if optical_limit and extend_head:
-            nG += 2
-        blocks1d = Blocks1D(self.blockcomm, nG)
-        blockdist = PlaneWaveBlockDistributor(self.world,
-                                              self.blockcomm,
-                                              self.kncomm,
-                                              self.wd, blocks1d)
-
-        chi0 = Chi0Data(self.wd, blockdist, pd, optical_limit, extend_head)
+        # Construct the Chi0Data object
+        # In the future, the frequencies should be specified at run-time
+        # by Chi0.calculate(), in which case Chi0Data could also initialize
+        # the frequency descriptor XXX
+        chi0 = Chi0Data.from_descriptor_arguments(self.wd,
+                                                  plane_waves,
+                                                  parallelization,
+                                                  extend_head)
 
         return chi0
 
@@ -349,35 +331,25 @@ class Chi0:
         # functions over user defined domains and sum over bands.
         integrator: Integrator
         intnoblock: Integrator
+
         if self.integrationmode is None or \
            self.integrationmode == 'point integration':
-            integrator = PointIntegrator(self.pair.calc.wfs.gd.cell_cv,
-                                         comm=self.world,
-                                         timer=self.timer,
-                                         txt=self.fd,
-                                         eshift=self.eshift,
-                                         nblocks=self.nblocks)
-            intnoblock = PointIntegrator(self.pair.calc.wfs.gd.cell_cv,
-                                         comm=self.world,
-                                         timer=self.timer,
-                                         eshift=self.eshift,
-                                         txt=self.fd)
+            cls = PointIntegrator
         elif self.integrationmode == 'tetrahedron integration':
-            integrator = TetrahedronIntegrator(self.pair.calc.wfs.gd.cell_cv,
-                                               comm=self.world,
-                                               timer=self.timer,
-                                               eshift=self.eshift,
-                                               txt=self.fd,
-                                               nblocks=self.nblocks)
-            intnoblock = TetrahedronIntegrator(self.pair.calc.wfs.gd.cell_cv,
-                                               comm=self.world,
-                                               timer=self.timer,
-                                               eshift=self.eshift,
-                                               txt=self.fd)
+            cls = TetrahedronIntegrator  # type: ignore
         else:
-            print('Integration mode ' + self.integrationmode +
-                  ' not implemented.', file=self.fd)
-            raise NotImplementedError
+            raise ValueError(f'Integration mode "{self.integrationmode}"'
+                             ' not implemented.')
+
+        kwargs = dict(
+            cell_cv=self.pair.calc.wfs.gd.cell_cv,
+            comm=self.world,
+            timer=self.timer,
+            eshift=self.eshift,
+            txt=self.fd)
+
+        integrator = cls(**kwargs, nblocks=self.nblocks)
+        intnoblock = cls(**kwargs)
 
         # The integration domain is determined by the following function
         # that reduces the integration domain to the irreducible zone
@@ -403,10 +375,7 @@ class Chi0:
                      (wfs.nspins * (2 * np.pi)**3))  # Remember prefactor
 
         if self.integrationmode is None:
-            if self.calc.wfs.kd.refine_info is not None:
-                nbzkpts = self.calc.wfs.kd.refine_info.mhnbzkpts
-            else:
-                nbzkpts = self.calc.wfs.kd.nbzkpts
+            nbzkpts = self.calc.wfs.kd.nbzkpts
             prefactor *= len(bzk_kv) / nbzkpts
 
         A_wxx /= prefactor
@@ -550,8 +519,8 @@ class Chi0:
             if self.include_intraband:
 
                 if chi0.extend_head:
-                    va = min(chi0.blockdist.blocks1d.a, 3)
-                    vb = min(chi0.blockdist.blocks1d.b, 3)
+                    va = min(chi0.blocks1d.a, 3)
+                    vb = min(chi0.blocks1d.b, 3)
                     A_wxx[:, :vb - va, :3] += (plasmafreq_vv[va:vb] /
                                                (self.wd.omega_w[:, np.newaxis,
                                                                 np.newaxis] +
@@ -582,18 +551,20 @@ class Chi0:
         # below) and then symmetrized.
         A_wxx *= prefactor
 
-        tmpA_wxx = chi0.blockdist.redistribute(A_wxx)
+        tmpA_wxx = chi0.blockdist.redistribute(A_wxx, chi0.nw)
         if chi0.extend_head:
             analyzer.symmetrize_wxx(tmpA_wxx,
                                     optical_limit=optical_limit)
         else:
             analyzer.symmetrize_wGG(tmpA_wxx)
             if wings:
-                chi0.chi0_wxvG += chi0_wxvx[..., 2:]
+                # Fill in wings part of the data, but leave out the head
+                chi0.chi0_wxvG[..., 1:] += chi0_wxvx[..., 3:]
+                # Fill in the head
                 chi0.chi0_wvv += chi0_wxvx[:, 0, :3, :3]
                 analyzer.symmetrize_wxvG(chi0.chi0_wxvG)
                 analyzer.symmetrize_wvv(chi0.chi0_wvv)
-        chi0.blockdist.redistribute(tmpA_wxx, A_wxx)
+        chi0.blockdist.redistribute(tmpA_wxx, chi0.nw, out_x=A_wxx)
 
         # If point summation was used then the normalization of the
         # response function is not right and we have to make up for this
@@ -615,14 +586,13 @@ class Chi0:
             # terminology is self-consistent
             chi0_new = self.create_chi0(pd.kd.bzk_kc[0], extend_head=False)
             # Make a wings object, but extended
-            chi0_wxvG = np.zeros((len(chi0.wd), 2, 3,
-                                  chi0.blockdist.blocks1d.N), complex)
+            chi0_wxvG = np.zeros(chi0.wxvG_shape, complex)
             # The wings are extracted
             chi0_wxvG[:, 1, :,
-                      chi0.blockdist.blocks1d.myslice] = np.transpose(
+                      chi0.blocks1d.myslice] = np.transpose(
                 A_wxx[..., 0:3], (0, 2, 1))
-            va = min(chi0.blockdist.blocks1d.a, 3)
-            vb = min(chi0.blockdist.blocks1d.b, 3)
+            va = min(chi0.blocks1d.a, 3)
+            vb = min(chi0.blocks1d.b, 3)
             # print(self.world.rank, va, vb, chi0_wxvG[:, 0, va:vb].shape,
             #       A_wxx[:, va:vb].shape, A_wxx.shape)
             chi0_wxvG[:, 0, va:vb] = A_wxx[:, :vb - va]
@@ -630,14 +600,17 @@ class Chi0:
             # Add contributions from different ranks
             self.blockcomm.sum(chi0_wxvG)
             # Insert values into the new Chi0Data object
+            # Fill in the head
             chi0_new.chi0_wvv[:] = chi0_wxvG[:, 0, :3, :3]
-            chi0_new.chi0_wxvG = chi0_wxvG[..., 2:]
+            # Fill in wings part of the data, but leave out the head
+            chi0_new.chi0_wxvG[..., 1:] = chi0_wxvG[..., 3:]
             # Jesus, this is complicated
 
             # It is easiest to redistribute over freqs to pick body
-            tmpA_wxx = chi0.blockdist.redistribute(A_wxx)
+            tmpA_wxx = chi0.blockdist.redistribute(A_wxx, chi0.nw)
             chi0_wGG = tmpA_wxx[:, 2:, 2:]
-            chi0_new.chi0_wGG = chi0_new.blockdist.redistribute(chi0_wGG)
+            chi0_new.chi0_wGG = chi0_new.blockdist.redistribute(chi0_wGG,
+                                                                chi0.nw)
 
             # Rename
             chi0 = chi0_new
@@ -649,20 +622,13 @@ class Chi0:
             # it is important that the wings are overwritten first.
             chi0.chi0_wGG[:, :, 0] = chi0.chi0_wxvG[
                 :, 1, 2,
-                chi0.blockdist.blocks1d.myslice]
+                chi0.blocks1d.myslice]
 
             if self.blockcomm.rank == 0:
                 chi0.chi0_wGG[:, 0, :] = chi0.chi0_wxvG[:, 0, 2, :]
                 chi0.chi0_wGG[:, 0, 0] = chi0.chi0_wvv[:, 2, 2]
 
         return chi0
-
-    def get_PWDescriptor(self, q_c, gammacentered=False):
-        """Get the planewave descriptor of q_c."""
-        qd = KPointDescriptor([q_c])
-        pd = PWDescriptor(self.ecut, self.calc.wfs.gd,
-                          complex, qd, gammacentered=gammacentered)
-        return pd
 
     @timer('Get kpoints')
     def get_kpoints(self, pd, integrationmode=None):
@@ -743,18 +709,6 @@ class Chi0:
 
         optical_limit = np.allclose(q_c, 0.0)
 
-        extrapolate_q = False
-        if self.calc.wfs.kd.refine_info is not None:
-            K1 = self.pair.find_kpoint(k_c)
-            label = kd.refine_info.label_k[K1]
-            if label == 'zero':
-                return None
-            elif (kd.refine_info.almostoptical and label == 'mh'):
-                if not hasattr(self, 'pd0'):
-                    self.pd0 = self.get_PWDescriptor([0, ] * 3)
-                pd = self.pd0
-                extrapolate_q = True
-
         nG = pd.ngmax
         weight = np.sqrt(symmetry.get_kpoint_weight(k_c) /
                          symmetry.how_many_symmetries())
@@ -776,12 +730,6 @@ class Chi0:
         df_nm = kptpair.get_occupation_differences(n_n, m_m)
         df_nm[df_nm <= 1e-20] = 0.0
         n_nmG *= df_nm[..., np.newaxis]**0.5
-
-        if extrapolate_q:
-            q_v = np.dot(q_c, pd.gd.icell_cv) * (2 * np.pi)
-            nq_nm = np.dot(n_nmG[:, :, :3], q_v)
-            n_nmG = n_nmG[:, :, 2:]
-            n_nmG[:, :, 0] = nq_nm
 
         if not extend_head and optical_limit:
             n_nmG = np.copy(n_nmG[:, :, 2:])

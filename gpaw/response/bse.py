@@ -20,6 +20,7 @@ from gpaw.response.kernels import get_coulomb_kernel
 from gpaw.response.kernels import get_integrated_kernel
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.response.pair import PairDensity
+from gpaw.response.gamma_int import GammaIntegrator
 
 
 class BSE:
@@ -116,7 +117,7 @@ class BSE:
         bzq_qc = monkhorst_pack(self.kd.N_c) + offset_c
         self.qd = KPointDescriptor(bzq_qc)
         self.qd.set_symmetry(self.calc.atoms, self.kd.symmetry)
-        self.vol = abs(np.linalg.det(calc.wfs.gd.cell_cv))
+        self.vol = calc.wfs.gd.volume
 
         # bands
         self.spins = self.calc.wfs.nspins
@@ -549,35 +550,26 @@ class BSE:
             if pd.kd.gamma:
                 # Generate fine grid in vicinity of gamma
                 kd = self.calc.wfs.kd
-                N = 4
-                N_c = np.array([N, N, N])
-                if self.truncation is not None:
-                    # Only average periodic directions if trunction is used
-                    N_c[kd.N_c == 1] = 1
-                qf_qc = monkhorst_pack(N_c) / kd.N_c
-                qf_qc *= 1.0e-6
-                U_scc = kd.symmetry.op_scc
-                qf_qc = kd.get_ibz_q_points(qf_qc, U_scc)[0]
-                weight_q = kd.q_weights
-                qf_qv = 2 * np.pi * np.dot(qf_qc, pd.gd.icell_cv)
-                a_q = np.sum(np.dot(chi0_wvv[0], qf_qv.T) * qf_qv.T, axis=0)
-                a0_qG = np.dot(qf_qv, chi0_wxvG[0, 0])
-                a1_qG = np.dot(qf_qv, chi0_wxvG[0, 1])
+                gamma_int = GammaIntegrator(kd=kd, pd=pd,
+                                            truncation=self.truncation,
+                                            chi0_wvv=chi0_wvv[:1],
+                                            chi0_wxvG=chi0_wxvG[:1])
+
                 einv_GG = np.zeros((nG, nG), complex)
                 # W_GG = np.zeros((nG, nG), complex)
-                for iqf in range(len(qf_qv)):
-                    chi0_GG[0] = a0_qG[iqf]
-                    chi0_GG[:, 0] = a1_qG[iqf]
-                    chi0_GG[0, 0] = a_q[iqf]
+                for iqf in range(len(gamma_int.qf_qv)):
+                    chi0_GG[0] = gamma_int.a0_qwG[iqf, 0]
+                    chi0_GG[:, 0] = gamma_int.a1_qwG[iqf, 0]
+                    chi0_GG[0, 0] = gamma_int.a_wq[0, iqf]
                     sqrV_G = get_coulomb_kernel(pd,
                                                 kd.N_c,
                                                 truncation=self.truncation,
                                                 wstc=self.wstc,
-                                                q_v=qf_qv[iqf])**0.5
+                                                q_v=gamma_int.qf_qv[iqf])**0.5
                     sqrV_G *= ac**0.5  # Multiply by adiabatic coupling
                     e_GG = np.eye(nG) - chi0_GG * sqrV_G * sqrV_G[:,
                                                                   np.newaxis]
-                    einv_GG += np.linalg.inv(e_GG) * weight_q[iqf]
+                    einv_GG += np.linalg.inv(e_GG) * gamma_int.weight_q[iqf]
                     # einv_GG = np.linalg.inv(e_GG) * weight_q[iqf]
                     # W_GG += (einv_GG * sqrV_G * sqrV_G[:, np.newaxis]
                     #          * weight_q[iqf])

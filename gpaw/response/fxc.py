@@ -3,10 +3,6 @@
 
 import numpy as np
 
-from ase.utils.timing import Timer
-from ase.units import Ha
-
-from gpaw.io.tar import Reader
 from gpaw.response.kxc import AdiabaticSusceptibilityFXC
 from gpaw.response.tms import get_goldstone_scaling
 
@@ -67,23 +63,16 @@ def get_density_xc_kernel(pd, chi0, functional='ALDA',
             Kxc_GG[0, :] = 0.0
             Kxc_GG[:, 0] = 0.0
         Kxc_sGG = np.array([Kxc_GG])
-    elif functional[0] == 'r':
-        # Renormalized kernel
-        print('Calculating %s kernel' % functional, file=fd)
-        Kxc_sGG = calculate_renormalized_kernel(pd, calc, functional, fd)
     elif functional[:2] == 'LR':
         print('Calculating LR kernel with alpha = %s' % functional[2:],
               file=fd)
         Kxc_sGG = calculate_lr_kernel(pd, calc, alpha=float(functional[2:]))
-    elif functional == 'DM':
-        print('Calculating DM kernel', file=fd)
-        Kxc_sGG = calculate_dm_kernel(pd, calc)
     elif functional == 'Bootstrap':
         print('Calculating Bootstrap kernel', file=fd)
         Kxc_sGG = get_bootstrap_kernel(pd, chi0, chi0_wGG, fd)
     else:
-        raise ValueError('density-density %s kernel not'
-                         + ' implemented' % functional)
+        raise ValueError('Invalid functional for the density-density '
+                         'fxc kernel:', functional)
 
     return Kxc_sGG[0]
 
@@ -139,35 +128,6 @@ def get_transverse_xc_kernel(pd, chi0, functional='ALDA_x',
     return Kxc_GG
 
 
-def calculate_renormalized_kernel(pd, calc, functional, fd):
-    """Renormalized kernel"""
-
-    from gpaw.xc.fxc import KernelDens
-    kernel = KernelDens(calc,
-                        functional,
-                        [pd.kd.bzk_kc[0]],
-                        fd,
-                        calc.wfs.kd.N_c,
-                        None,
-                        ecut=pd.ecut * Ha,
-                        tag='',
-                        timer=Timer())
-
-    kernel.calculate_fhxc()
-    r = Reader('fhxc_%s_%s_%s_%s.gpw' %
-               ('', functional, pd.ecut * Ha, 0))
-    Kxc_sGG = np.array([r.get('fhxc_sGsG')])
-
-    v_G = 4 * np.pi / pd.G2_qG[0]
-    Kxc_sGG[0] -= np.diagflat(v_G)
-
-    if pd.kd.gamma:
-        Kxc_sGG[:, 0, :] = 0.0
-        Kxc_sGG[:, :, 0] = 0.0
-
-    return Kxc_sGG
-
-
 def calculate_lr_kernel(pd, calc, alpha=0.2):
     """Long range kernel: fxc = \alpha / |q+G|^2"""
 
@@ -178,31 +138,6 @@ def calculate_lr_kernel(pd, calc, alpha=0.2):
     f_G[1:] = -alpha / pd.G2_qG[0][1:]
 
     return np.array([np.diag(f_G)])
-
-
-def calculate_dm_kernel(pd, calc):
-    """Density matrix kernel"""
-
-    assert pd.kd.gamma
-
-    nv = calc.wfs.setups.nvalence
-    psit_nG = np.array([calc.wfs.kpt_u[0].psit_nG[n]
-                        for n in range(4 * nv)])
-    vol = np.linalg.det(calc.wfs.gd.cell_cv)
-    Ng = np.prod(calc.wfs.gd.N_c)
-    rho_GG = np.dot(psit_nG.conj().T, psit_nG) * vol / Ng**2
-
-    maxG2 = np.max(pd.G2_qG[0])
-    cut_G = np.arange(calc.wfs.pd.ngmax)[calc.wfs.pd.G2_qG[0] <= maxG2]
-
-    G_G = pd.G2_qG[0]**0.5
-    G_G[0] = 1.0
-
-    Kxc_GG = np.diagflat(4 * np.pi / G_G**2)
-    Kxc_GG = np.dot(Kxc_GG, rho_GG.take(cut_G, 0).take(cut_G, 1))
-    Kxc_GG -= 4 * np.pi * np.diagflat(1.0 / G_G**2)
-
-    return np.array([Kxc_GG])
 
 
 def get_bootstrap_kernel(pd, chi0, chi0_wGG, fd):

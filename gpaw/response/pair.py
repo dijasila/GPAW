@@ -10,12 +10,8 @@ import gpaw.mpi as mpi
 from gpaw.calculator import GPAW
 from gpaw import disable_dry_run
 from gpaw.fd_operators import Gradient
-from gpaw.response.math_func import (two_phi_planewave_integrals,
-                                     two_phi_nabla_planewave_integrals)
 from gpaw.response.pw_parallelization import block_partition
 from gpaw.utilities.blas import gemm
-from gpaw.utilities.progressbar import ProgressBar
-from gpaw.pw.lfc import PWLFC
 from gpaw.response.symmetry import KPointFinder
 
 
@@ -35,6 +31,24 @@ class KPoint:
         self.P_ani = P_ani      # PAW projections
         self.shift_c = shift_c  # long story - see the
         # PairDensity.construct_symmetry_operators() method
+
+
+class PairDistribution:
+    def __init__(self, pair, mysKn1n2):
+        self.pair = pair
+        self.mysKn1n2 = mysKn1n2
+        self.mykpts = [self.pair.get_k_point(s, K, n1, n2)
+                       for s, K, n1, n2 in self.mysKn1n2]
+
+    def kpt_pairs_by_q(self, q_c, m1, m2):
+        pair = self.pair
+        mykpts = self.mykpts
+        for u, kpt1 in enumerate(mykpts):
+            progress = u / len(mykpts)
+            K2 = pair.kd.find_k_plus_q(q_c, [kpt1.K])[0]
+            kpt2 = pair.get_k_point(kpt1.s, K2, m1, m2, block=True)
+
+            yield progress, kpt1, kpt2
 
 
 class KPointPair:
@@ -137,10 +151,10 @@ class PairDensity:
 
         self.ut_sKnvR = None  # gradient of wave functions for optical limit
 
-        self.vol = abs(np.linalg.det(calc.wfs.gd.cell_cv))
+        self.vol = calc.wfs.gd.volume
 
-        kd = self.calc.wfs.kd
-        self.kptfinder = KPointFinder(kd.bzk_kc)
+        self.kd = self.calc.wfs.kd
+        self.kptfinder = KPointFinder(self.kd.bzk_kc)
         print('Number of blocks:', nblocks, file=self.fd)
 
     def __del__(self):
@@ -157,7 +171,7 @@ class PairDensity:
             self.nocc1 = min((f_n > 1 - self.ftol).sum(), self.nocc1)
             self.nocc2 = max((f_n > self.ftol).sum(), self.nocc2)
         print('Number of completely filled bands:', self.nocc1, file=self.fd)
-        print('Number of partially filled bands:', self.nocc2, file=self.fd)
+        print('Number of non-empty bands:', self.nocc2, file=self.fd)
         print('Total number of bands:', self.calc.wfs.bd.nbands,
               file=self.fd)
 
@@ -183,14 +197,14 @@ class PairDensity:
         i1 = min(rank * n, ns * nk * nbands)
         i2 = min(i1 + n, ns * nk * nbands)
 
-        self.mysKn1n2 = []
+        mysKn1n2 = []
         i = 0
         for s in range(ns):
             for K in kpts:
                 n1 = min(max(0, i1 - i), nbands)
                 n2 = min(max(0, i2 - i), nbands)
                 if n1 != n2:
-                    self.mysKn1n2.append((s, K, n1 + band1, n2 + band1))
+                    mysKn1n2.append((s, K, n1 + band1, n2 + band1))
                 i += nbands
 
         print('BZ k-points:', self.calc.wfs.kd, file=self.fd)
@@ -200,6 +214,8 @@ class PairDensity:
               (self.kncomm.size, ['es', ''][self.kncomm.size == 1]),
               file=self.fd)
         print('Number of blocks:', self.blockcomm.size, file=self.fd)
+
+        return PairDistribution(self, mysKn1n2)
 
     @timer('Get a k-point')
     def get_k_point(self, s, k_c, n1, n2, load_wfs=True, block=False):
@@ -272,178 +288,6 @@ class PairDensity:
 
         return KPoint(s, K, n1, n2, blocksize, na, nb,
                       ut_nR, eps_n, f_n, P_ani, shift_c)
-
-    def generate_pair_densities(self, pd, m1, m2, spins, intraband=True,
-                                analyzer=None, disable_optical_limit=False,
-                                unsymmetrized=False, use_more_memory=1):
-        """Generator for returning pair densities.
-
-        Returns the pair densities between the occupied and
-        the states in range(m1, m2).
-
-        pd: PWDescriptor
-            Plane-wave descriptor for a single q-point.
-        m1: int
-            Index of first unoccupied band.
-        m2: int
-            Index of last unoccupied band.
-        spins: list
-            List of spin indices included.
-        intraband: bool
-            Include intraband transitions in optical limit.
-        analyzer: PlanewaveSymmetryAnalyzer
-            If supplied uses this object to determine the symmetries
-            of the pair-densities.
-        disable_optical_limit: bool
-            Disable optical limit.
-        unsymmetrized: bool
-            Only return pair-densities from one kpoint in each
-            group of equivalent kpoints.
-        use_more_memory: float
-            Group more pair densities for several occupied bands
-            together before returning. Here 0 <= use_more_memory <= 1,
-            where zero is the minimal amount of memory, and 1 is the maximal.
-        """
-        assert 0 <= use_more_memory <= 1
-
-        q_c = pd.kd.bzk_kc[0]
-        optical_limit = np.allclose(q_c, 0.0)
-        optical_limit = not disable_optical_limit and optical_limit
-
-        Q_aGii = self.initialize_paw_corrections(pd)
-        self.Q_aGii = Q_aGii  # This is used in g0w0
-
-        if analyzer is None:
-            with self.timer('Symmetry analyzer'):
-                from gpaw.response.symmetry import PWSymmetryAnalyzer
-                analyzer = PWSymmetryAnalyzer(self.calc.wfs.kd, pd,
-                                              timer=self.timer, txt=self.fd)
-
-        pb = ProgressBar(self.fd)
-        for kn, (s, ik, n1, n2) in pb.enumerate(self.mysKn1n2):
-            Kstar_k = analyzer.unfold_ibz_kpoint(ik)
-            for K_k in analyzer.group_kpoints(Kstar_k):
-                # Let the first kpoint of the group represent
-                # the rest of the kpoints
-                K1 = K_k[0]
-                # In this way wavefunctions are only loaded into
-                # memory for this particular set of kpoints
-                kptpair = self.get_kpoint_pair(pd, s, K1, n1, n2, m1, m2)
-                kpt1 = kptpair.get_k1()  # kpt1 = k
-
-                if kpt1.s not in spins:
-                    continue
-                kpt2 = kptpair.get_k2()  # kpt2 = k + q
-
-                if unsymmetrized:
-                    # Number of times kpoints are mapped into themselves
-                    weight = np.sqrt(analyzer.how_many_symmetries() / len(K_k))
-
-                # Use kpt2 to compute intraband transitions
-                # These conditions are sufficient to make sure
-                # that it still works in parallel
-                if kpt1.n1 == 0 and self.blockcomm.rank == 0 and \
-                   optical_limit and intraband:
-                    assert self.nocc2 <= kpt2.nb, \
-                        print('Error: Too few unoccupied bands')
-                    vel0_mv = self.intraband_pair_density(kpt2)
-                    f_m = kpt2.f_n[kpt2.na - kpt2.n1:kpt2.nb - kpt2.n1]
-                    with self.timer('intraband'):
-                        if vel0_mv is not None:
-                            if unsymmetrized:
-                                yield (f_m, None, None,
-                                       None, None, vel0_mv / weight)
-                            else:
-                                for K2 in K_k:
-                                    vel_mv = analyzer.map_v(K1, K2, vel0_mv)
-                                    yield (f_m, None, None,
-                                           None, None, vel_mv)
-
-                # Divide the occupied bands into chunks
-                n_n = np.arange(n2 - n1)
-                if use_more_memory == 0:
-                    chunksize = 1
-                else:
-                    chunksize = np.ceil(len(n_n) *
-                                        use_more_memory).astype(int)
-
-                no_n = []
-                for i in range(len(n_n) // chunksize):
-                    i1 = i * chunksize
-                    i2 = min((i + 1) * chunksize, len(n_n))
-                    no_n.append(n_n[i1:i2])
-
-                # n runs over occupied bands
-                for n_n in no_n:  # n_n is a list of occupied band indices
-                    # m over unoccupied bands
-                    m_m = np.arange(0, kpt2.n2 - kpt2.n1)
-                    deps_nm = kptpair.get_transition_energies(n_n, m_m)
-                    df_nm = kptpair.get_occupation_differences(n_n, m_m)
-
-                    # This is not quite right for
-                    # degenerate partially occupied
-                    # bands, but good enough for now:
-                    df_nm[df_nm <= 1e-20] = 0.0
-
-                    # Get pair density for representative kpoint
-                    ol = optical_limit
-                    n0_nmG, n0_nmv, _ = self.get_pair_density(pd, kptpair,
-                                                              n_n, m_m,
-                                                              optical_limit=ol,
-                                                              intraband=False,
-                                                              Q_aGii=Q_aGii)
-
-                    n0_nmG[deps_nm >= 0.0] = 0.0
-                    if optical_limit:
-                        n0_nmv[deps_nm >= 0.0] = 0.0
-
-                    # Reshape nm -> m
-                    nG = pd.ngmax
-                    deps_m = deps_nm.reshape(-1)
-                    df_m = df_nm.reshape(-1)
-                    n0_mG = n0_nmG.reshape((-1, nG))
-                    if optical_limit:
-                        n0_mv = n0_nmv.reshape((-1, 3))
-
-                    if unsymmetrized:
-                        if optical_limit:
-                            yield (None, df_m, deps_m,
-                                   n0_mG / weight, n0_mv / weight, None)
-                        else:
-                            yield (None, df_m, deps_m,
-                                   n0_mG / weight, None, None)
-                        continue
-
-                    # Collect pair densities in a single array
-                    # and return them
-                    nm = n0_mG.shape[0]
-                    nG = n0_mG.shape[1]
-                    nk = len(K_k)
-
-                    n_MG = np.empty((nm * nk, nG), complex)
-                    if optical_limit:
-                        n_Mv = np.empty((nm * nk, 3), complex)
-                    deps_M = np.tile(deps_m, nk)
-                    df_M = np.tile(df_m, nk)
-
-                    for i, K2 in enumerate(K_k):
-                        i1 = i * nm
-                        i2 = (i + 1) * nm
-                        n_mG = analyzer.map_G(K1, K2, n0_mG)
-
-                        if optical_limit:
-                            n_mv = analyzer.map_v(K1, K2, n0_mv)
-                            n_mG[:, 0] = n_mv[:, 0]
-                            n_Mv[i1:i2, :] = n_mv
-
-                        n_MG[i1:i2, :] = n_mG
-
-                    if optical_limit:
-                        yield (None, df_M, deps_M, n_MG, n_Mv, None)
-                    else:
-                        yield (None, df_M, deps_M, n_MG, None, None)
-
-        pb.finish()
 
     @timer('Get kpoint pair')
     def get_kpoint_pair(self, pd, s, Kork_c, n1, n2, m1, m2,
@@ -798,73 +642,18 @@ class PairDensity:
 
     @timer('Initialize PAW corrections')
     def initialize_paw_corrections(self, pd, soft=False):
-        wfs = self.calc.wfs
-        q_v = pd.K_qv[0]
-        optical_limit = np.allclose(q_v, 0)
-
-        G_Gv = pd.get_reciprocal_vectors()
-        if optical_limit:
-            G_Gv[0] = 1
-
-        pos_av = np.dot(self.spos_ac, pd.gd.cell_cv)
-
-        # Collect integrals for all species:
-        Q_xGii = {}
-        for id, atomdata in wfs.setups.setups.items():
-            if soft:
-                ghat = PWLFC([atomdata.ghat_l], pd)
-                ghat.set_positions(np.zeros((1, 3)))
-                Q_LG = ghat.expand().T
-                if atomdata.Delta_iiL is None:
-                    ni = atomdata.ni
-                    Q_Gii = np.zeros((Q_LG.shape[1], ni, ni))
-                else:
-                    Q_Gii = np.dot(atomdata.Delta_iiL, Q_LG).T
-            else:
-                ni = atomdata.ni
-                Q_Gii = two_phi_planewave_integrals(G_Gv, atomdata)
-                Q_Gii.shape = (-1, ni, ni)
-
-            Q_xGii[id] = Q_Gii
-
-        Q_aGii = []
-        for a, atomdata in enumerate(wfs.setups):
-            id = wfs.setups.id_a[a]
-            Q_Gii = Q_xGii[id]
-            x_G = np.exp(-1j * np.dot(G_Gv, pos_av[a]))
-            Q_aGii.append(x_G[:, np.newaxis, np.newaxis] * Q_Gii)
-            if optical_limit:
-                Q_aGii[a][0] = atomdata.dO_ii
-
-        return Q_aGii
+        from gpaw.response.paw import calculate_paw_corrections
+        return calculate_paw_corrections(
+            setups=self.calc.wfs.setups, pd=pd, soft=soft,
+            spos_ac=self.spos_ac)
 
     @timer('Initialize PAW corrections')
     def initialize_paw_nabla_corrections(self, pd, soft=False):
         print('Initializing nabla PAW Corrections', file=self.fd)
-        wfs = self.calc.wfs
-        G_Gv = pd.get_reciprocal_vectors()
-        pos_av = np.dot(self.spos_ac, pd.gd.cell_cv)
-
-        # Collect integrals for all species:
-        Q_xvGii = {}
-        for id, atomdata in wfs.setups.setups.items():
-            if soft:
-                raise NotImplementedError
-            else:
-                Q_vGii = two_phi_nabla_planewave_integrals(G_Gv, atomdata)
-                ni = atomdata.ni
-                Q_vGii.shape = (3, -1, ni, ni)
-
-            Q_xvGii[id] = Q_vGii
-
-        Q_avGii = []
-        for a, atomdata in enumerate(wfs.setups):
-            id = wfs.setups.id_a[a]
-            Q_vGii = Q_xvGii[id]
-            x_G = np.exp(-1j * np.dot(G_Gv, pos_av[a]))
-            Q_avGii.append(x_G[np.newaxis, :, np.newaxis, np.newaxis] * Q_vGii)
-
-        return Q_avGii
+        from gpaw.response.paw import calculate_paw_nabla_corrections
+        return calculate_paw_nabla_corrections(
+            setups=self.calc.wfs.setups, pd=pd, soft=soft,
+            spos_ac=self.spos_ac)
 
     def calculate_derivatives(self, kpt):
         ut_sKnvR = [{}, {}]
