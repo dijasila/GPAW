@@ -18,7 +18,7 @@ class CubeCalc:
     def get_pseudo_wave_function(self,
                                  band: int,
                                  spin: int,
-                                 pad: bool) -> Array3D:
+                                 pad: bool = True) -> Array3D:
         return self.function
 
     def get_eigenvalues(self, spin: int) -> Array1D:

@@ -87,9 +87,14 @@ class InputParameters:
             raise ValueError("""You can't use both "gpts" and "h"!""")
 
         if self.experimental is not None:
-            warnings.warn('Please use new "soc" and "magmoms" parameters.')
-            self.magmoms = self.experimental.pop('magmoms')
-            self.soc = self.experimental.pop('soc')
+            if self.experimental.pop('niter_fixdensity') is not None:
+                warnings.warn('Ignoring "niter_fixdensity".')
+            if 'soc' in self.experimental:
+                warnings.warn('Please use new "soc" parameter.')
+                self.soc = self.experimental.pop('soc')
+            if 'magmoms' in self.experimental:
+                warnings.warn('Please use new "magmoms" parameter.')
+                self.magmoms = self.experimental.pop('magmoms')
             assert not self.experimental
 
         bands = self.convergence.pop('bands', None)

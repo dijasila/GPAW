@@ -715,7 +715,7 @@ class GPAW(Calculator):
                 N_c = self.density.gd.N_c
             else:
                 N_c = get_number_of_grid_points(cell_cv, h, mode, realspace,
-                                                self.symmetry, self.log)
+                                                self.symmetry)
 
         self.setups.set_symmetry(self.symmetry)
 
