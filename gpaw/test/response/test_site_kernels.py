@@ -221,10 +221,7 @@ def parallelepipedic_kernel_test():
 
 
 def Co_hcp_test():
-    """Check that the site kernel interface works on run-time inputs.
-
-    To do: Remember to check full diagonal as well as hermitian properties XXX
-    """
+    """Check that the site kernel interface works on run-time inputs."""
     # ---------- Inputs ---------- #
 
     # Part 1: Generate plane wave representation (PWDescriptor)
@@ -240,6 +237,8 @@ def Co_hcp_test():
     ecut = 50.
     gammacentered = False
     q_c = [0., 0., 0.]
+    qpm_qc = [[0., 0., 1 / 4.],
+              [0., 0., -1. / 4.]]
 
     # Part 2: Calculate site kernels
     # Define partitions to try
@@ -375,6 +374,15 @@ def Co_hcp_test():
     Kall_app_paGG = np.array([K_aGG for K_aGG in
                               all_sitekernels_app.calculate(pd0)])
 
+    # Calculate all site kernels at opposite qs
+    pd_q = [get_PWDescriptor(atoms, calc, qpm_c,
+                             ecut=ecut,
+                             gammacentered=gammacentered)
+            for qpm_c in qpm_qc]
+    Kall_pm_qpaGG = [np.array([K_aGG for K_aGG in
+                               all_sitekernels_app.calculate(pd)])
+                     for pd in pd_q]
+
     # Part 4: Check the calculated kernels
 
     # Check geometry shapes of basic arrays
@@ -481,6 +489,45 @@ def Co_hcp_test():
                        Vcylinder_pa[..., np.newaxis] / V0)
     assert np.allclose(np.diagonal(Kparlp_paGG, axis1=2, axis2=3),
                        Vparlp_pa[..., np.newaxis] / V0)
+
+    # Check that K_G=G'(q) gives e^(-iq.τ_a) Θ(q) / V0
+    B_cv = 2.0 * np.pi * atoms.cell.reciprocal()  # Coordinate transform
+    for qpm_c, Kall_pm_paGG in zip(qpm_qc, Kall_pm_qpaGG):
+        # Calculate q-vector in Å^(-1)
+        qpm_v = qpm_c @ B_cv
+        exp_a = np.exp(-1.j * positions @ qpm_v)
+
+        # Calculate site centered geometry factors
+        Theta_pa = []
+        # Spherical geometry factors
+        for rc_a in rc_pa:
+            Theta_a = []
+            for rc in rc_a:
+                Theta_a.append(spherical_geometry_factor(qpm_v, rc))
+            Theta_pa.append(Theta_a)
+        # Cylindrical geometry factors
+        for ez_av, rc_a, hc_a in zip(ez_pav, rc_pa, hc_pa):
+            Theta_a = []
+            for ez_v, rc, hc in zip(ez_av, rc_a, hc_a):
+                Theta_a.append(cylindrical_geometry_factor(qpm_v, ez_v,
+                                                           rc, hc))
+            Theta_pa.append(Theta_a)
+        # Parallelepipedic geometry factors
+        for cell_acv in cell_pacv:
+            Theta_a = []
+            for cell_cv in cell_acv:
+                Theta_a.append(parallelepipedic_geometry_factor(qpm_v,
+                                                                cell_cv))
+            Theta_pa.append(Theta_a)
+        Theta_pa = np.array(Theta_pa)
+
+        assert np.allclose(np.diagonal(Kall_pm_paGG, axis1=2, axis2=3),
+                           Theta_pa[..., np.newaxis]
+                           * exp_a[np.newaxis, :, np.newaxis] / V0)
+
+    # Check that K_GG'(q) is the hermitian conjugate of K_GG'(-q)
+    Kall_mH_paGG = np.conjugate(np.transpose(Kall_pm_qpaGG[1], (0, 1, 3, 2)))
+    assert np.allclose(Kall_pm_qpaGG[0], Kall_mH_paGG)
 
 
 # ---------- Test functionality ---------- #
