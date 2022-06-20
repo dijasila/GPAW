@@ -4,7 +4,7 @@ import sys
 
 # GPAW modules
 import gpaw.mpi as mpi
-from gpaw.response.susceptibility import FourComponentSusceptibilityTensor
+from gpaw.response.chiks import ChiKS
 from gpaw.response.kxc import PlaneWaveAdiabaticFXC
 from gpaw.response.site_kernels import SiteKernels
 from gpaw.xc import XC
@@ -149,19 +149,16 @@ class IsotropicExchangeCalculator:
         if self.currentq_c is None or not np.allclose(q_c, self.currentq_c):
             # Calculate chiks for a new q-point and write it to the buffer
             self.currentq_c = q_c
-            _, chiks_GG = self.chiksf('-+', q_c, txt=txt)
-            self._chiks_GG = chiks_GG
+            self._chiks_GG = self.chiksf('-+', q_c, txt=txt)
 
         return self._chiks_GG
 
 
-class StaticChiKSFactory(FourComponentSusceptibilityTensor):
+class StaticChiKSFactory(ChiKS):
     """Class calculating components of the static Kohn-Sham
     susceptibility tensor.
 
-    Note : Temporary hack. Refactor later.
-    Calls FourComponentSusceptibilityTensor in an akward way.
-    """
+    Note : Temporary hack. Refactor later."""
 
     def __init__(self, gs, eta=0.0, ecut=50, nbands=None,
                  world=mpi.world, nblocks=1, txt=sys.stdout):
@@ -174,8 +171,7 @@ class StaticChiKSFactory(FourComponentSusceptibilityTensor):
         Parameters
         ----------
         gs : see gpaw.response.chiks, gpaw.response.kslrf
-        eta, ecut, nbands, world, nblocks, txt : see gpaw.response.chiks,
-            gpaw.response.kslrf
+        eta, ecut, nbands, world, nblocks, txt : see gpaw.response.chiks
         """
 
         # Remove user access
@@ -184,51 +180,31 @@ class StaticChiKSFactory(FourComponentSusceptibilityTensor):
                         'disable_time_reversal': True,
                         'bundle_integrals': True}
 
-        FourComponentSusceptibilityTensor.__init__(self, gs, eta=eta,
-                                                   ecut=ecut, nbands=nbands,
-                                                   nblocks=nblocks,
-                                                   world=world,
-                                                   txt=txt, **fixed_kwargs)
+        ChiKS.__init__(self, gs,
+                       eta=eta,
+                       ecut=ecut,
+                       nbands=nbands,
+                       nblocks=nblocks,
+                       world=world,
+                       txt=txt,
+                       **fixed_kwargs)
 
     def __call__(self, spincomponent, q_c, txt=None):
         """Calculate a given component of chiKS.
         Substitutes calculate_component_array and returns zero frequency."""
 
-        # Only compute static susceptibility
-        frequencies = [0]
+        # Calculate the static susceptibility
+        frequencies = [0.]
+        _, chiks_wGG = self.calculate(q_c, frequencies,
+                                      spincomponent=spincomponent,
+                                      txt=txt)
 
-        # Perform calculation
-        ecut = self.ecut * Hartree  # eV -> Hartree
-        (_, G_Gc,
-         chiks_wGG, _) = self.calculate_component_array(spincomponent, q_c,
-                                                        frequencies,
-                                                        array_ecut=ecut,
-                                                        txt=txt)
+        # Remove frequency axis
+        # Where do we take the reactive part??? !!! XXX
+        # Shouldn't this be more than a minus sign??? !!! XXX
+        chiks_GG = - chiks_wGG[0, :, :]
 
-        # Parallelisation : ensure only the root processor stores data,
-        # then broadcasts to the rest
-        NG = G_Gc.shape[0]
-        chiks_GG = np.empty((NG, NG), dtype=complex)
-        if self.chiks.world.rank == 0:  # Check if at root
-            # Remove frequency axis
-            chiks_GG[:, :] = - chiks_wGG[0, :, :]
-            # Where do we take the reactive part??? !!! XXX
-            # Shouldn't this be more than a minus sign??? !!! XXX
-
-        # Broadcast data to all ranks
-        self.chiks.world.broadcast(chiks_GG, 0)
-
-        return G_Gc, chiks_GG
-
-    def _calculate_component(self, spincomponent, pd, wd):
-        """Hack to return chiKS twice instead of chiks, chi."""
-        chiks_wGG = self.calculate_ks_component(spincomponent, pd,
-                                                wd, txt=self.cfd)
-
-        print('\nFinished calculating component', file=self.cfd)
-        print('---------------', flush=True, file=self.cfd)
-
-        return pd, wd, chiks_wGG, chiks_wGG
+        return chiks_GG
 
 
 class AdiabaticBXC(PlaneWaveAdiabaticFXC):
