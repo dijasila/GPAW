@@ -19,6 +19,7 @@ from gpaw.response.heisenberg import (calculate_single_site_magnon_energies,
                                       calculate_fm_magnon_energies)
 
 
+@pytest.mark.response
 def test_Fe_bcc(in_tmp_dir):
     # ---------- Inputs ---------- #
 
@@ -123,6 +124,7 @@ def test_Fe_bcc(in_tmp_dir):
     assert np.allclose(mw_qp, test_mw_pq.T, rtol=1e-3)
 
 
+@pytest.mark.response
 @pytest.mark.skipif(mpi.size == 1, reason='Slow test, skip in serial')
 def test_Co_hcp(in_tmp_dir):
     # ---------- Inputs ---------- #
