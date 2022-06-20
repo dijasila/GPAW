@@ -11,7 +11,8 @@ from ase.dft.kpoints import monkhorst_pack
 
 import gpaw.mpi as mpi
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.response.chi0 import HilbertTransform, find_maximum_frequency
+from gpaw.response.chi0 import find_maximum_frequency
+from gpaw.response.hilbert import HilbertTransform
 from gpaw.response.frequencies import FrequencyDescriptor
 from gpaw.response.pair import PairDensity
 from gpaw.pw.descriptor import PWDescriptor
@@ -115,10 +116,10 @@ class GWQEHCorrection(PairDensity):
         self.Qp_sin = None
 
         self.ecutnb = 150 / Hartree
-        vol = abs(np.linalg.det(self.calc.wfs.gd.cell_cv))
-        self.vol = vol
+        self.vol = self.calc.wfs.gd.volume
         self.nbands = min(self.calc.get_number_of_bands(),
-                          int(vol * (self.ecutnb)**1.5 * 2**0.5 / 3 / pi**2))
+                          int(self.vol *
+                              self.ecutnb**1.5 * 2**0.5 / 3 / pi**2))
 
         self.nspins = self.calc.wfs.nspins
 

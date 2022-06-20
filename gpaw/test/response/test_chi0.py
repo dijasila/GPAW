@@ -43,7 +43,8 @@ def test_response_chi0(in_tmp_dir):
 
                     chi = Chi0(calc, frequencies=omega, hilbert=False,
                                ecut=100, txt=name + '.log')
-                    pd, chi0_wGG, _, _ = chi.calculate(q_c)
+                    chi0 = chi.calculate(q_c)
+                    chi0_wGG = chi0.chi0_wGG
 
                     if not sym and not center:
                         chi00_w = chi0_wGG[:, 0, 0]
@@ -60,7 +61,8 @@ def test_response_chi0(in_tmp_dir):
                     #               a.get_reciprocal_cell() * 2 * np.pi) * Bohr
                     # q0 = (q0_v**2).sum()**0.5
 
-                    pd, chi0_wGG, _, _ = chi.calculate([0, 0, 0])
+                    chi0 = chi.calculate([0, 0, 0])
+                    chi0_wGG = chi0.chi0_wGG
 
                     if not sym and not center:
                         chi000_w = chi0_wGG[:, 0, 0]

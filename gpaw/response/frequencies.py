@@ -5,11 +5,11 @@ from typing import Any
 
 import numpy as np
 from ase.units import Ha
-from gpaw.typing import Array1D
+from gpaw.typing import ArrayLike1D
 
 
 class FrequencyDescriptor:
-    def __init__(self, omega_w: Array1D):
+    def __init__(self, omega_w: ArrayLike1D):
         """Frequency grid descriptor.
 
         Parameters
@@ -29,12 +29,12 @@ class FrequencyDescriptor:
                 f'(from {emin:.3f} to {emax:.3f} eV, {len(self)} points)')
 
     @staticmethod
-    def from_array_or_dict(input: dict[str, Any] | Array1D
+    def from_array_or_dict(input: dict[str, Any] | ArrayLike1D
                            ) -> FrequencyDescriptor:
         """Create frequency-grid descriptor.
 
         In case *input* is a list on frequencies (in eV) a
-        :class:`LinearFrequencyDescriptor` instance is returned.
+        :class:`FrequencyGridDescriptor` instance is returned.
         Othervise a :class:`NonLinearFrequencyDescriptor` instance is
         returned.
 
@@ -56,10 +56,10 @@ class FrequencyDescriptor:
                 (0.1 if domega0 is None else domega0) / Ha,
                 (10.0 if omega2 is None else omega2) / Ha,
                 omegamax / Ha)
-        return LinearFrequencyDescriptor(np.asarray(input) / Ha)
+        return FrequencyGridDescriptor(np.asarray(input) / Ha)
 
 
-class LinearFrequencyDescriptor(FrequencyDescriptor):
+class FrequencyGridDescriptor(FrequencyDescriptor):
 
     def get_index_range(self, lim1_m, lim2_m):
         """Get index range. """

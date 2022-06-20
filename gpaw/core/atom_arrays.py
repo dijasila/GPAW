@@ -15,7 +15,7 @@ class AtomArraysLayout:
                  shapes: list[int | tuple[int, ...]],
                  atomdist: AtomDistribution | MPIComm = serial_comm,
                  dtype=float):
-        """Description of layour of atom arrays.
+        """Description of layout of atom arrays.
 
         Parameters
         ----------
@@ -48,10 +48,10 @@ class AtomArraysLayout:
         return (f'AtomArraysLayout({self.shape_a}, {self.atomdist}, '
                 f'{self.dtype})')
 
-    def new(self, atomdist=None):
+    def new(self, atomdist=None, dtype=None):
         """Create new AtomsArrayLayout object with new atomdist."""
         return AtomArraysLayout(self.shape_a, atomdist or self.atomdist,
-                                self.dtype)
+                                dtype or self.dtype)
 
     def empty(self,
               dims: int | tuple[int, ...] = (),
@@ -352,7 +352,9 @@ class AtomArrays:
         for i1, i2 in self.layout.shape_a:
             assert i1 == i2
             shape_a.append((i1 * (i1 + 1) // 2,))
-        layout = AtomArraysLayout(shape_a, self.layout.atomdist.comm)
+        layout = AtomArraysLayout(shape_a,
+                                  self.layout.atomdist.comm,
+                                  dtype=self.layout.dtype)
         a_axp = layout.empty(self.dims)
         for a_xii, a_xp in zip(self.values(), a_axp.values()):
             i = a_xii.shape[-1]
@@ -360,6 +362,7 @@ class AtomArrays:
             for a_p, a_ii in zip(a_xp.reshape((-1, i * (i + 1) // 2)),
                                  a_xii.reshape((-1, i, i))):
                 a_p[:] = a_ii[L]
+
         return a_axp
 
     def to_full(self):
@@ -372,16 +375,17 @@ class AtomArrays:
                [2., 3., 5.],
                [4., 5., 6.]])
         """
-        assert self.layout.dtype == float
         shape_a = []
         for (p,) in self.layout.shape_a:
             i = int((2 * p + 0.25)**0.5)
             shape_a.append((i, i))
-        layout = AtomArraysLayout(shape_a, self.layout.atomdist.comm)
+        layout = AtomArraysLayout(shape_a,
+                                  self.layout.atomdist.comm,
+                                  self.layout.dtype)
         a_axii = layout.empty(self.dims)
         for a_xp, a_xii in zip(self.values(), a_axii.values()):
             i = a_xii.shape[-1]
             a_xii[(...,) + np.tril_indices(i)] = a_xp
             u = (...,) + np.triu_indices(i, 1)
-            a_xii[u] = np.swapaxes(a_xii, -1, -2)[u]
+            a_xii[u] = np.swapaxes(a_xii, -1, -2)[u].conj()
         return a_axii

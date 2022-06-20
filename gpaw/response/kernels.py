@@ -109,7 +109,7 @@ def calculate_1D_truncated_coulomb(pd, q_v=None, N_c=None):
         Np_c = [2]       # Choose reduced cell vector 2
     # The radius is determined from area of non-periodic part of cell
     Acell_cv = pd.gd.cell_cv[Nn_c, :][:, Nn_c]
-    R = (np.linalg.det(Acell_cv) / np.pi)**0.5
+    R = abs(np.linalg.det(Acell_cv) / np.pi)**0.5
 
     qGnR_G = (qG_Gv[:, Nn_c[0]]**2 + qG_Gv[:, Nn_c[1]]**2)**0.5 * R
     qGpR_G = abs(qG_Gv[:, Np_c[0]]) * R
@@ -132,7 +132,7 @@ def calculate_0D_truncated_coulomb(pd, q_v=None):
         else:  # Only to avoid warning. Later set to zero in factory function
             qG_Gv[0] = [1., 1., 1.]
     # The radius is determined from volume of cell
-    R = (3 * np.linalg.det(pd.gd.cell_cv) / (4 * np.pi))**(1. / 3.)
+    R = (3 * pd.gd.volume / (4 * np.pi))**(1. / 3.)
 
     qG2_G = (qG_Gv**2).sum(axis=1)
 
@@ -184,7 +184,7 @@ def get_integrated_kernel(pd, N_c, truncation=None, N=100, reduced=False):
             Np_c = [2]       # Choose reduced cell vector 2
         # The radius is determined from area of non-periodic part of cell
         Acell_cv = pd.gd.cell_cv[Nn_c, :][:, Nn_c]
-        R = (np.linalg.det(Acell_cv) / np.pi)**0.5
+        R = abs(np.linalg.det(Acell_cv) / np.pi)**0.5
 
         qnR_q = (q_qv[:, Nn_c[0]]**2 + q_qv[:, Nn_c[1]]**2)**0.5 * R
         qpR_q = abs(q_qv[:, Np_c[0]]) * R
@@ -192,7 +192,7 @@ def get_integrated_kernel(pd, N_c, truncation=None, N=100, reduced=False):
         V_q *= (1.0 + qnR_q * j1(qnR_q) * k0(qpR_q)
                 - qpR_q * j0(qnR_q) * k1(qpR_q))
     elif truncation == '0D' or 'wigner-seitz':
-        R = (3 * np.linalg.det(pd.gd.cell_cv) / (4 * np.pi))**(1. / 3.)
+        R = (3 * pd.gd.volume / (4 * np.pi))**(1. / 3.)
         q2_q = (q_qv**2).sum(axis=1)
         V_q = 4 * np.pi / q2_q
         V_q *= 1.0 - np.cos(q2_q**0.5 * R)

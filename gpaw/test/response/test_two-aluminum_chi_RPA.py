@@ -98,11 +98,11 @@ def test_response_two_aluminum_chi_RPA(in_tmp_dir):
     equal(np.linalg.norm(G22_Gc[1] - np.array([1, 0, 0])), 0., 1e-6)
 
     # Check plasmon peaks remain the same
-    wpeak11, Ipeak11 = findpeak(w11_w, chi11_wGG[:, 0, 0].imag)
-    wpeak21, Ipeak21 = findpeak(w21_w, chi21_wGG[:, 0, 0].imag)
+    wpeak11, Ipeak11 = findpeak(w11_w, -chi11_wGG[:, 0, 0].imag)
+    wpeak21, Ipeak21 = findpeak(w21_w, -chi21_wGG[:, 0, 0].imag)
     equal(wpeak11, wpeak21, 0.02)
     equal(Ipeak11, Ipeak21, 1.0)
-    wpeak12, Ipeak12 = findpeak(w12_w, chi12_wGG[:, 0, 0].imag)
-    wpeak22, Ipeak22 = findpeak(w22_w, chi22_wGG[:, 1, 1].imag)
+    wpeak12, Ipeak12 = findpeak(w12_w, -chi12_wGG[:, 0, 0].imag)
+    wpeak22, Ipeak22 = findpeak(w22_w, -chi22_wGG[:, 1, 1].imag)
     equal(wpeak12, wpeak22, 0.05)
     equal(Ipeak12, Ipeak22, 1.0)

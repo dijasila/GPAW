@@ -1,7 +1,6 @@
 from pathlib import Path
 
 import numpy as np
-from scipy.spatial import cKDTree
 
 from gpaw.utilities import convert_string_to_fd
 from ase.utils.timing import Timer, timer
@@ -10,6 +9,7 @@ from gpaw import disable_dry_run
 from gpaw.calculator import GPAW
 import gpaw.mpi as mpi
 from gpaw.response.math_func import two_phi_planewave_integrals
+from gpaw.response.symmetry import KPointFinder
 
 
 class KohnShamKPoint:
@@ -145,7 +145,7 @@ class KohnShamPair:
 
         # Prepare to find k-point data from vector
         kd = self.calc.wfs.kd
-        self.kdtree = cKDTree(np.mod(np.mod(kd.bzk_kc, 1).round(6), 1))
+        self.kptfinder = KPointFinder(kd.bzk_kc)
 
         # Prepare to use other processes' k-points
         self._pd0 = None
@@ -399,7 +399,7 @@ class KohnShamPair:
         t_t = np.arange(nt)
         nh = 0
         for p, k_c in enumerate(k_pc):  # p indicates the receiving process
-            K = self.find_kpoint(k_c)
+            K = self.kptfinder.find(k_c)
             ik = wfs.kd.bz2ibz_k[K]
             for r2 in range(p * self.transitionblockscomm.size,
                             min((p + 1) * self.transitionblockscomm.size,
@@ -716,7 +716,7 @@ class KohnShamPair:
         if self.kptblockcomm.rank in range(len(k_pc)):
             # Find k-point indeces
             k_c = k_pc[self.kptblockcomm.rank]
-            K = self.find_kpoint(k_c)
+            K = self.kptfinder.find(k_c)
             ik = wfs.kd.bz2ibz_k[K]
             # Construct symmetry operators
             (_, T, a_a, U_aii, shift_c,
@@ -813,10 +813,6 @@ class KohnShamPair:
 
         return myu_eu, myn_eurn, nh, h_eurn, h_myt, myt_myt
 
-    @timer('Identifying k-points')
-    def find_kpoint(self, k_c):
-        return self.kdtree.query(np.mod(np.mod(k_c, 1).round(6), 1))[1]
-
     @timer('Apply symmetry operations')
     def transform_and_symmetrize(self, K, k_c, Ph, psit_hG):
         """Get wave function on a real space grid and symmetrize it
@@ -903,11 +899,11 @@ class PairMatrixElement:
 
 
 class PlaneWavePairDensity(PairMatrixElement):
-    """Class for calculating pair densities:
+    """Class for calculating pair densities
 
-    n_T(q+G) = <s'n'k'| e^(i (q + G) r) |snk>
+    n_kt(G+q) = n_nks,n'k+qs'(G+q) = <nks| e^-i(G+q)r |n'k+qs'>_V0
 
-    in the plane wave mode"""
+    for a single k-point pair (k,k+q) in the plane wave mode"""
     def __init__(self, kspair):
         PairMatrixElement.__init__(self, kspair)
 
@@ -954,9 +950,14 @@ class PlaneWavePairDensity(PairMatrixElement):
 
     @timer('Calculate pair density')
     def __call__(self, kskptpair, pd):
-        """Calculate the pair densities for all transitions:
-        n_t(q+G) = <s'n'k+q| e^(i (q + G) r) |snk>
-                 = <snk| e^(-i (q + G) r) |s'n'k+q>
+        """Calculate the pair densities for all transitions t of the (k,k+q)
+        k-point pair:
+        
+        n_kt(G+q) = <nks| e^-i(G+q)r |n'k+qs'>_V0
+
+                    /
+                  = | dr e^-i(G+q)r psi_nks^*(r) psi_n'k+qs'(r)
+                    /V0
         """
         Q_aGii = self.get_paw_projectors(pd)
         Q_G = self.get_fft_indices(kskptpair, pd)

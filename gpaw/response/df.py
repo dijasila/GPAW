@@ -20,14 +20,13 @@ class DielectricFunction:
     """This class defines dielectric function related physical quantities."""
 
     def __init__(self, calc, *,
-                 response='density',
                  name=None,
                  frequencies=None,
                  domega0=None,  # deprecated
                  omega2=None,  # deprecated
                  omegamax=None,  # deprecated
                  ecut=50,
-                 gammacentered=False, hilbert=True,
+                 hilbert=True,
                  nbands=None, eta=0.2, ftol=1e-6, threshold=1,
                  intraband=True, nblocks=1, world=mpi.world, txt=sys.stdout,
                  truncation=None, disable_point_group=False,
@@ -39,9 +38,6 @@ class DielectricFunction:
         calc: str
             The groundstate calculation file that the linear response
             calculation is based on.
-        response : str
-            Type of response function. Currently collinear, scalar options
-            'density', '+-' and '-+' are implemented. (move to general rf.py)
         name: str
             If defined, save the response function to::
 
@@ -56,8 +52,6 @@ class DielectricFunction:
             (see :ref:`frequency grid`).
         ecut: float
             Plane-wave cut-off.
-        gammacentered: bool
-            Center the grid of plane waves around the gamma point or q-vector
         hilbert: bool
             Use hilbert transform.
         nbands: int
@@ -87,10 +81,10 @@ class DielectricFunction:
             Shift unoccupied bands
         """
 
-        self.chi0 = Chi0(calc, response=response, frequencies=frequencies,
+        self.chi0 = Chi0(calc, frequencies=frequencies,
                          domega0=domega0, omega2=omega2, omegamax=omegamax,
                          ecut=ecut, nbands=nbands, eta=eta,
-                         gammacentered=gammacentered, hilbert=hilbert,
+                         hilbert=hilbert,
                          ftol=ftol, threshold=threshold,
                          intraband=intraband, world=world, nblocks=nblocks,
                          txt=txt,
@@ -106,9 +100,9 @@ class DielectricFunction:
         nw = len(self.wd)
 
         world = self.chi0.world
-        self.mynw = (nw + world.size - 1) // world.size
-        self.w1 = min(self.mynw * world.rank, nw)
-        self.w2 = min(self.w1 + self.mynw, nw)
+        from gpaw.response.pw_parallelization import Blocks1D
+
+        self.blocks1d = Blocks1D(world, nw)
         self.truncation = truncation
 
     def calculate_chi0(self, q_c, spin='all'):
@@ -130,18 +124,20 @@ class DielectricFunction:
             if os.path.isfile(name):
                 return self.read(name)
 
-        pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.chi0.calculate(q_c, spin)
-        chi0_wGG = self.chi0.distribute_frequencies(chi0_wGG)
+        chi0 = self.chi0.calculate(q_c, spin)
+        chi0_wGG = chi0.distribute_frequencies()
+
         self.chi0.timer.write(self.chi0.fd)
         if self.name:
-            self.write(name, pd, chi0_wGG, chi0_wxvG, chi0_wvv)
+            self.write(name, chi0.pd, chi0_wGG, chi0.chi0_wxvG, chi0.chi0_wvv)
 
-        return pd, chi0_wGG, chi0_wxvG, chi0_wvv
+        return chi0.pd, chi0_wGG, chi0.chi0_wxvG, chi0.chi0_wvv
 
     def write(self, name, pd, chi0_wGG, chi0_wxvG, chi0_wvv):
         nw = len(self.wd)
         nG = pd.ngmax
         world = self.chi0.world
+        mynw = self.blocks1d.blocksize
 
         if world.rank == 0:
             fd = open(name, 'wb')
@@ -150,10 +146,10 @@ class DielectricFunction:
             for chi0_GG in chi0_wGG:
                 pickle.dump(chi0_GG, fd, pickle.HIGHEST_PROTOCOL)
 
-            tmp_wGG = np.empty((self.mynw, nG, nG), complex)
-            w1 = self.mynw
+            tmp_wGG = np.empty((mynw, nG, nG), complex)
+            w1 = mynw
             for rank in range(1, world.size):
-                w2 = min(w1 + self.mynw, nw)
+                w2 = min(w1 + mynw, nw)
                 world.receive(tmp_wGG[:w2 - w1], rank)
                 for w in range(w2 - w1):
                     pickle.dump(tmp_wGG[w], fd, pickle.HIGHEST_PROTOCOL)
@@ -175,26 +171,30 @@ class DielectricFunction:
         nw = len(omega_w)
         nG = pd.ngmax
 
+        blocks1d = self.blocks1d
+
+        mynw = blocks1d.blocksize
+
         if chi0_wGG is not None:
             # Old file format:
-            chi0_wGG = chi0_wGG[wmin + self.w1:self.w2].copy()
+            chi0_wGG = chi0_wGG[wmin + blocks1d.a:blocks1d.b].copy()
         else:
             if world.rank == 0:
-                chi0_wGG = np.empty((self.mynw, nG, nG), complex)
+                chi0_wGG = np.empty((mynw, nG, nG), complex)
                 for _ in range(wmin):
                     pickle.load(fd)
                 for chi0_GG in chi0_wGG:
                     chi0_GG[:] = pickle.load(fd)
-                tmp_wGG = np.empty((self.mynw, nG, nG), complex)
-                w1 = self.mynw
+                tmp_wGG = np.empty((mynw, nG, nG), complex)
+                w1 = mynw
                 for rank in range(1, world.size):
-                    w2 = min(w1 + self.mynw, nw)
+                    w2 = min(w1 + mynw, nw)
                     for w in range(w2 - w1):
                         tmp_wGG[w] = pickle.load(fd)
                     world.send(tmp_wGG[:w2 - w1], rank)
                     w1 = w2
             else:
-                chi0_wGG = np.empty((self.w2 - self.w1, nG, nG), complex)
+                chi0_wGG = np.empty((self.blocks1d.nlocal, nG, nG), complex)
                 world.receive(chi0_wGG, 0)
 
         if chi0_wvv is not None:
@@ -206,13 +206,7 @@ class DielectricFunction:
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
     def collect(self, a_w):
-        world = self.chi0.world
-        b_w = np.zeros(self.mynw, a_w.dtype)
-        b_w[:self.w2 - self.w1] = a_w
-        nw = len(self.wd)
-        A_w = np.empty(world.size * self.mynw, a_w.dtype)
-        world.all_gather(b_w, A_w)
-        return A_w[:nw]
+        return self.blocks1d.collect(a_w)
 
     def get_frequencies(self):
         """ Return frequencies that Chi is evaluated on"""
@@ -255,97 +249,69 @@ class DielectricFunction:
             fxc_scaling = [True, float], Kxc will be scaled by float.
             Default is None, i.e. no scaling
         """
-
-        # XXX generalize to kernel check
-        response = self.chi0.response
-        if response in ['+-', '-+']:
-            assert xc in ('ALDA_x', 'ALDA_X', 'ALDA')
-
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c, spin)
 
-        if response == 'density':
-            N_c = self.chi0.calc.wfs.kd.N_c
+        N_c = self.chi0.calc.wfs.kd.N_c
 
-            Kbare_G = get_coulomb_kernel(pd,
-                                         N_c,
-                                         truncation=None,
-                                         q_v=q_v)
-            vsqr_G = Kbare_G**0.5
-            nG = len(vsqr_G)
+        Kbare_G = get_coulomb_kernel(pd,
+                                     N_c,
+                                     truncation=None,
+                                     q_v=q_v)
+        vsqr_G = Kbare_G**0.5
+        nG = len(vsqr_G)
 
-            if self.truncation is not None:
-                if self.truncation == 'wigner-seitz':
-                    self.wstc = WignerSeitzTruncatedCoulomb(pd.gd.cell_cv, N_c)
-                else:
-                    self.wstc = None
-                Ktrunc_G = get_coulomb_kernel(pd,
-                                              N_c,
-                                              truncation=self.truncation,
-                                              wstc=self.wstc,
-                                              q_v=q_v)
-                K_GG = np.diag(Ktrunc_G / Kbare_G)
+        if self.truncation is not None:
+            if self.truncation == 'wigner-seitz':
+                self.wstc = WignerSeitzTruncatedCoulomb(pd.gd.cell_cv, N_c)
             else:
-                K_GG = np.eye(nG, dtype=complex)
-
-            if pd.kd.gamma:
-                if isinstance(direction, str):
-                    d_v = {'x': [1, 0, 0],
-                           'y': [0, 1, 0],
-                           'z': [0, 0, 1]}[direction]
-                else:
-                    d_v = direction
-                d_v = np.asarray(d_v) / np.linalg.norm(d_v)
-                W = slice(self.w1, self.w2)
-                chi0_wGG[:, 0] = np.dot(d_v, chi0_wxvG[W, 0])
-                chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[W, 1])
-                chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv[W], d_v).T)
-
-            if xc != 'RPA':
-                Kxc_GG = get_xc_kernel(pd,
-                                       self.chi0,
-                                       functional=xc,
-                                       chi0_wGG=chi0_wGG,
-                                       density_cut=density_cut)
-                K_GG += Kxc_GG / vsqr_G / vsqr_G[:, np.newaxis]
-
-            # Invert Dyson eq.
-            chi_wGG = []
-            for chi0_GG in chi0_wGG:
-                """v^1/2 chi0 V^1/2"""
-                chi0_GG[:] = chi0_GG * vsqr_G * vsqr_G[:, np.newaxis]
-                chi_GG = np.dot(np.linalg.inv(np.eye(nG) -
-                                              np.dot(chi0_GG, K_GG)),
-                                chi0_GG)
-                if not return_VchiV:
-                    chi0_GG /= vsqr_G * vsqr_G[:, np.newaxis]
-                    chi_GG /= vsqr_G * vsqr_G[:, np.newaxis]
-                chi_wGG.append(chi_GG)
-
-            if len(chi_wGG):
-                chi_wGG = np.array(chi_wGG)
-            else:
-                chi_wGG = np.zeros((0, nG, nG), complex)
-
-        # Spin response
+                self.wstc = None
+            Ktrunc_G = get_coulomb_kernel(pd,
+                                          N_c,
+                                          truncation=self.truncation,
+                                          wstc=self.wstc,
+                                          q_v=q_v)
+            K_GG = np.diag(Ktrunc_G / Kbare_G)
         else:
+            K_GG = np.eye(nG, dtype=complex)
+
+        if pd.kd.gamma:
+            if isinstance(direction, str):
+                d_v = {'x': [1, 0, 0],
+                       'y': [0, 1, 0],
+                       'z': [0, 0, 1]}[direction]
+            else:
+                d_v = direction
+            d_v = np.asarray(d_v) / np.linalg.norm(d_v)
+            W = self.blocks1d.myslice
+            chi0_wGG[:, 0] = np.dot(d_v, chi0_wxvG[W, 0])
+            chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[W, 1])
+            chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv[W], d_v).T)
+
+        if xc != 'RPA':
             Kxc_GG = get_xc_kernel(pd,
                                    self.chi0,
                                    functional=xc,
-                                   kernel=response[::-1],
-                                   rshelmax=rshelmax, rshewmin=rshewmin,
                                    chi0_wGG=chi0_wGG,
-                                   fxc_scaling=fxc_scaling,
-                                   density_cut=density_cut,
-                                   spinpol_cut=spinpol_cut)
+                                   density_cut=density_cut)
+            K_GG += Kxc_GG / vsqr_G / vsqr_G[:, np.newaxis]
 
-            # Invert Dyson equation
-            chi_wGG = []
-            for chi0_GG in chi0_wGG:
-                chi_GG = np.dot(np.linalg.inv(np.eye(len(chi0_GG)) -
-                                              np.dot(chi0_GG, Kxc_GG)),
-                                chi0_GG)
+        # Invert Dyson eq.
+        chi_wGG = []
+        for chi0_GG in chi0_wGG:
+            """v^1/2 chi0 V^1/2"""
+            chi0_GG[:] = chi0_GG * vsqr_G * vsqr_G[:, np.newaxis]
+            chi_GG = np.dot(np.linalg.inv(np.eye(nG) -
+                                          np.dot(chi0_GG, K_GG)),
+                            chi0_GG)
+            if not return_VchiV:
+                chi0_GG /= vsqr_G * vsqr_G[:, np.newaxis]
+                chi_GG /= vsqr_G * vsqr_G[:, np.newaxis]
+            chi_wGG.append(chi_GG)
 
-                chi_wGG.append(chi_GG)
+        if len(chi_wGG):
+            chi_wGG = np.array(chi_wGG)
+        else:
+            chi_wGG = np.zeros((0, nG, nG), complex)
 
         return pd, chi0_wGG, np.array(chi_wGG)
 
@@ -411,9 +377,9 @@ class DielectricFunction:
             In RPA:   P = chi^0
             In TDDFT: P = (1 - chi^0 * f_xc)^{-1} chi^0
 
-        in addition to RPA one can use the kernels, ALDA, rALDA, rAPBE,
-        Bootstrap and LRalpha (long-range kerne), where alpha is a user
-        specified parameter (for example xc='LR0.25')
+        in addition to RPA one can use the kernels, ALDA, Bootstrap and
+        LRalpha (long-range kerne), where alpha is a user specified parameter
+        (for example xc='LR0.25')
 
         The head of the inverse symmetrized dielectric matrix is equal
         to the head of the inverse dielectric matrix (inverse dielectric
@@ -446,7 +412,7 @@ class DielectricFunction:
                 d_v = direction
 
             d_v = np.asarray(d_v) / np.linalg.norm(d_v)
-            W = slice(self.w1, self.w2)
+            W = self.blocks1d.myslice
             chi0_wGG[:, 0] = np.dot(d_v, chi0_wxvG[W, 0])
             chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[W, 1])
             chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv[W], d_v).T)

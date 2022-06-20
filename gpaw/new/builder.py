@@ -73,6 +73,7 @@ class DFTComponentsBuilder:
         else:
             self.ncomponents = 4
 
+        self.soc = params.soc
         self.nspins = self.ncomponents % 3
         self.spin_degeneracy = self.ncomponents % 2 + 1
 
@@ -87,6 +88,7 @@ class DFTComponentsBuilder:
                                               self.setups.id_a,
                                               self.initial_magmoms,
                                               params.symmetry)
+        assert not (self.ncomponents == 4 and len(symmetries) > 1)
         bz = create_kpts(params.kpts, atoms)
         self.ibz = symmetries.reduce(bz, strict=False)
 

@@ -1,3 +1,4 @@
+import pytest
 from ase.build import bulk
 from ase.dft.kpoints import monkhorst_pack
 from gpaw import GPAW, FermiDirac
@@ -6,6 +7,7 @@ from gpaw.xc.fxc import FXCCorrelation
 from gpaw.mpi import world, serial_comm
 
 
+@pytest.mark.response
 def test_ralda_ralda_energy_Ni(in_tmp_dir, scalapack):
     if world.rank == 0:
         Ni = bulk('Ni', 'fcc')

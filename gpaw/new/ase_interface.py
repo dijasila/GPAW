@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from math import pi
 from pathlib import Path
 from typing import IO, Any, Union
 
 from ase import Atoms
-from ase.units import Ha
+from ase.units import Ha, Bohr
 
 from gpaw import __version__
 from gpaw.new import Timer
@@ -13,8 +12,10 @@ from gpaw.new.calculation import DFTCalculation, units
 from gpaw.new.gpw import read_gpw, write_gpw
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
-from gpaw.typing import Array1D, Array2D
+from gpaw.typing import Array1D, Array2D, Array3D
 from gpaw.utilities.memory import maxrss
+from gpaw.new.xc import XC
+from gpaw.utilities import pack
 
 
 def GPAW(filename: Union[str, Path, IO[str]] = None,
@@ -137,10 +138,13 @@ class ASECalculator:
         self.calculation.write_converged()
 
     def __del__(self):
-        self.log('---')
-        self.timer.write(self.log)
-        mib = maxrss() / 1024**2
-        self.log(f'\nMax RSS: {mib:.3f}  # MiB')
+        try:
+            self.log('---')
+            self.timer.write(self.log)
+            mib = maxrss() / 1024**2
+            self.log(f'\nMax RSS: {mib:.3f}  # MiB')
+        except NameError:
+            pass
 
     def get_potential_energy(self,
                              atoms: Atoms,
@@ -164,9 +168,34 @@ class ASECalculator:
     def get_magnetic_moments(self, atoms: Atoms) -> Array1D:
         return self.calculate_property(atoms, 'magmoms')
 
-    def get_pseudo_wave_function(self, n):
+    def write(self, filename, mode=''):
+        """Write calculator object to a file.
+
+        Parameters
+        ----------
+        filename:
+            File to be written
+        mode:
+            Write mode. Use ``mode='all'``
+            to include wave functions in the file.
+        """
+        self.log(f'Writing to {filename} (mode={mode!r})\n')
+
+        write_gpw(filename, self.atoms, self.params,
+                  self.calculation, skip_wfs=mode != 'all')
+
+    # Old API:
+
+    def get_pseudo_wave_function(self, band, kpt=0, spin=0) -> Array3D:
         state = self.calculation.state
-        return state.ibzwfs[0].wave_functions.data[n]
+        wfs = state.ibzwfs.get_wfs(spin, kpt, band, band + 1)
+        basis = self.calculation.scf_loop.hamiltonian.basis
+        grid = state.density.nt_sR.desc
+        wfs = wfs.to_uniform_grid_wave_functions(grid, basis)
+        psit_R = wfs.psit_nX[0]
+        if not psit_R.desc.pbc.all():
+            psit_R = psit_R.to_pbc_grid()
+        return psit_R.data * Bohr**-1.5
 
     def get_atoms(self):
         atoms = self.atoms.copy()
@@ -192,10 +221,7 @@ class ASECalculator:
         return state.ibzwfs.nbands
 
     def get_atomic_electrostatic_potentials(self):
-        _, _, Q_aL = self.calculation.pot_calc.calculate(
-            self.calculation.state.density)
-        Q_aL = Q_aL.gather()
-        return Q_aL.data[::9] * (Ha / (4 * pi)**0.5)
+        return self.calculation.electrostatic_potential().atomic_potentials()
 
     def get_eigenvalues(self, kpt=0, spin=0):
         state = self.calculation.state
@@ -218,21 +244,36 @@ class ASECalculator:
     def calculate(self, atoms):
         self.get_potential_energy(atoms)
 
-    def write(self, filename, mode=''):
-        """Write calculator object to a file.
+    @property
+    def wfs(self):
+        from gpaw.new.backwards_compatibility import FakeWFS
+        return FakeWFS(self.calculation, self.atoms)
 
-        Parameters
-        ----------
-        filename:
-            File to be written
-        mode:
-            Write mode. Use ``mode='all'``
-            to include wave functions in the file.
-        """
-        self.log(f'Writing to {filename} (mode={mode!r})\n')
+    @property
+    def density(self):
+        from gpaw.new.backwards_compatibility import FakeDensity
+        return FakeDensity(self.calculation)
 
-        write_gpw(filename, self.atoms, self.params,
-                  self.calculation, skip_wfs=mode != 'all')
+    @property
+    def hamiltonian(self):
+        from gpaw.new.backwards_compatibility import FakeHamiltonian
+        return FakeHamiltonian(self.calculation)
+
+    @property
+    def spos_ac(self):
+        return self.atoms.get_scaled_positions()
+
+    def get_xc_difference(self, xcparams):
+        """Calculate non-selfconsistent XC-energy difference."""
+        state = self.calculation.state
+        xc = XC(xcparams, state.density.ncomponents)
+        exct = self.calculation.pot_calc.calculate_non_selfconsistent_exc(
+            state.density.nt_sR, xc)
+        dexc = 0.0
+        for a, D_sii in state.density.D_asii.items():
+            setup = self.setups[a]
+            dexc += xc.calculate_paw_correction(setup, pack(D_sii))
+        return (exct + dexc - state.potential.energies['xc']) * Ha
 
 
 def write_header(log, world, params):

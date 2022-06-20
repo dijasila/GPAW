@@ -6,19 +6,23 @@ import numpy as np
 from ase import Atoms
 from ase.geometry import cell_to_cellpar
 from ase.units import Bohr, Ha
-
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.electrostatic_potential import ElectrostaticPotential
+from gpaw.new import cached_property
 from gpaw.new.builder import builder as create_builder
 from gpaw.new.density import Density
 from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
 from gpaw.new.potential import Potential
+from gpaw.new.scf import SCFLoop
 from gpaw.output import plot
+from gpaw.setup import Setups
 from gpaw.typing import Array1D, Array2D
 from gpaw.utilities import (check_atoms_too_close,
                             check_atoms_too_close_to_boundary)
+from gpaw.utilities.partition import AtomPartition
 
 units = {'energy': Ha,
          'free_energy': Ha,
@@ -58,8 +62,8 @@ class DFTState:
 class DFTCalculation:
     def __init__(self,
                  state: DFTState,
-                 setups,
-                 scf_loop,
+                 setups: Setups,
+                 scf_loop: SCFLoop,
                  pot_calc,
                  log: Logger):
         self.state = state
@@ -166,11 +170,11 @@ class DFTCalculation:
         free_energy = sum(energies1.values())
         extrapolated_energy = free_energy + energies2['extrapolation']
 
-        self.log('energies:  # [eV]')
+        self.log('energies:  # eV')
         for name, e in energies1.items():
             self.log(f'  {name + ":":10}   {e * Ha:14.6f}')
         self.log(f'  total:       {free_energy * Ha:14.6f}')
-        self.log(f'  extrapolated:{extrapolated_energy * Ha:14.6f}')
+        self.log(f'  extrapolated:{extrapolated_energy * Ha:14.6f}\n')
 
         self.results['free_energy'] = free_energy
         self.results['energy'] = extrapolated_energy
@@ -188,13 +192,13 @@ class DFTCalculation:
 
         if self.state.density.ncomponents > 1:
             x, y, z = mm_v
-            self.log(f'total magnetic moment: [{x:.6f}, {y:.6f}, {z:.6f}]')
+            self.log(f'total magnetic moment: [{x:.6f}, {y:.6f}, {z:.6f}]\n')
             self.log('local magnetic moments: [')
             for a, (setup, m_v) in enumerate(zip(self.setups, mm_av)):
                 x, y, z = m_v
                 c = ',' if a < len(mm_av) - 1 else ']'
                 self.log(f'  [{x:9.6f}, {y:9.6f}, {z:9.6f}]{c}'
-                         '  # {setup.symbol:2} {a}')
+                         f'  # {setup.symbol:2} {a}')
             self.log()
         return mm_v, mm_av
 
@@ -230,7 +234,7 @@ class DFTCalculation:
 
         F_av = self.state.ibzwfs.ibz.symmetries.symmetrize_forces(F_av)
 
-        self.log('\nforces: [  # [eV/Ang]')
+        self.log('\nforces: [  # eV/Ang')
         s = Ha / Bohr
         for a, setup in enumerate(self.setups):
             x, y, z = F_av[a] * s
@@ -242,7 +246,7 @@ class DFTCalculation:
 
     def stress(self):
         stress_vv = self.pot_calc.stress_contribution(self.state)
-        self.log('\nstress tensor: [  # [eV/Ang^3]')
+        self.log('\nstress tensor: [  # eV/Ang^3')
         for (x, y, z), c in zip(stress_vv * (Ha / Bohr**3), ',,]'):
             self.log(f'  [{x:13.6f}, {y:13.6f}, {z:13.6f}]{c}')
         self.results['stress'] = stress_vv.flat[[0, 4, 8, 5, 2, 1]]
@@ -250,6 +254,15 @@ class DFTCalculation:
     def write_converged(self):
         self.state.ibzwfs.write_summary(self.log)
         self.log.fd.flush()
+
+    def electrostatic_potential(self) -> ElectrostaticPotential:
+        return ElectrostaticPotential.from_calculation(self)
+
+    @cached_property
+    def _atom_partition(self):
+        # Backwards compatibility helper
+        atomdist = self.state.density.D_asii.layout.atomdist
+        return AtomPartition(atomdist.comm, atomdist.rank_a)
 
 
 def write_atoms(atoms, grid, magmoms, log):
@@ -273,13 +286,13 @@ def write_atoms(atoms, grid, magmoms, log):
         log(f'  [{symbol:>3}, [{x:11.6f}, {y:11.6f}, {z:11.6f}],'
             f' [{mx:6.3f}, {my:6.3f}, {mz:6.3f}]]{c} # {a}')
 
-    log('\ncell: [  # Ang')
-    log('#     x            y            z')
+    log('\n  cell: [  # Ang')
+    log('  #     x            y            z')
     for (x, y, z), c in zip(atoms.cell, ',,]'):
-        log(f'  [{x:11.6f}, {y:11.6f}, {z:11.6f}]{c}')
+        log(f'    [{x:11.6f}, {y:11.6f}, {z:11.6f}]{c}')
 
     log()
-    log(f'periodic: [{", ".join(f"{str(p):10}" for p in atoms.pbc)}]')
+    log(f'  periodic: [{", ".join(f"{str(p):10}" for p in atoms.pbc)}]')
     a, b, c, A, B, C = cell_to_cellpar(atoms.cell)
-    log(f'lengths:  [{a:10.6f}, {b:10.6f}, {c:10.6f}]  # Ang')
-    log(f'angles:   [{A:10.6f}, {B:10.6f}, {C:10.6f}]\n')
+    log(f'  lengths:  [{a:10.6f}, {b:10.6f}, {c:10.6f}]  # Ang')
+    log(f'  angles:   [{A:10.6f}, {B:10.6f}, {C:10.6f}]\n')

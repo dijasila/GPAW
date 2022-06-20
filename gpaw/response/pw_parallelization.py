@@ -5,14 +5,21 @@ from gpaw.blacs import BlacsDescriptor, BlacsGrid, Redistributor
 class Blocks1D:
     def __init__(self, blockcomm, N):
         self.blockcomm = blockcomm
-        self.N = N
+        self.N = N  # Global number of points
 
-        myn = (N + blockcomm.size - 1) // blockcomm.size
-        self.a = min(blockcomm.rank * myn, N)
-        self.b = min(self.a + myn, N)
+        self.blocksize = (N + blockcomm.size - 1) // blockcomm.size
+        self.a = min(blockcomm.rank * self.blocksize, N)
+        self.b = min(self.a + self.blocksize, N)
         self.nlocal = self.b - self.a
 
         self.myslice = slice(self.a, self.b)
+
+    def collect(self, array_w):
+        b_w = np.zeros(self.blocksize, array_w.dtype)
+        b_w[:self.nlocal] = array_w
+        A_w = np.empty(self.blockcomm.size * self.blocksize, array_w.dtype)
+        self.blockcomm.all_gather(b_w, A_w)
+        return A_w[:self.N]
 
 
 def block_partition(comm, nblocks):
@@ -34,23 +41,12 @@ class PlaneWaveBlockDistributor:
     """Functionality to shuffle block distribution of pair functions
     in the plane wave basis."""
 
-    def __init__(self, world, blockcomm, intrablockcomm,
-                 wd, blocks1d):
+    def __init__(self, world, blockcomm, intrablockcomm):
         self.world = world
         self.blockcomm = blockcomm
         self.intrablockcomm = intrablockcomm
 
-        # NB: It seems that the only thing we need from the wd is
-        # nw, why we should consider simply passing nw instead.
-        self.nw = len(wd)
-
-        # CAUTION: Currently the redistribute functionality is used
-        # also for arrays with different distribution than Blocks1D.
-        # For this reason, Blocks1D is actually not used below, but we
-        # keep for now, to make the vision more clear.
-        self.blocks1d = blocks1d
-
-    def redistribute(self, in_wGG, out_x=None):
+    def redistribute(self, in_wGG, nw, out_x=None):
         """Redistribute array.
 
         Switch between two kinds of parallel distributions:
@@ -64,13 +60,12 @@ class PlaneWaveBlockDistributor:
         comm = self.blockcomm
 
         if comm.size == 1:
-            return in_wGG
+            if out_x is None:
+                return in_wGG
+            out_x[:] = in_wGG
+            return out_x
 
-        nw = self.nw
         mynw = (nw + comm.size - 1) // comm.size
-        # CAUTION: It is not always the case that nG == self.blocks1d.nglobal
-        # This happens, because chi0 wants to reuse the function
-        # for the heads and wings part as well
         nG = in_wGG.shape[2]
         mynG = (nG + comm.size - 1) // comm.size
 
@@ -99,7 +94,7 @@ class PlaneWaveBlockDistributor:
 
         return out_wGG
 
-    def distribute_frequencies(self, in_wGG):
+    def distribute_frequencies(self, in_wGG, nw):
         """Distribute frequencies to all cores."""
 
         world = self.world
@@ -108,7 +103,6 @@ class PlaneWaveBlockDistributor:
         if world.size == 1:
             return in_wGG
 
-        nw = self.nw
         mynw = (nw + world.size - 1) // world.size
         nG = in_wGG.shape[2]
         mynG = (nG + comm.size - 1) // comm.size

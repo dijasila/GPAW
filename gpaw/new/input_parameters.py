@@ -48,6 +48,7 @@ class InputParameters:
     charge: float
     convergence: dict[str, Any]
     eigensolver: dict[str, Any]
+    experimental: dict[str, Any]
     force_complex_dtype: bool
     gpts: None | Sequence[int]
     h: float | None
@@ -84,6 +85,17 @@ class InputParameters:
 
         if self.h is not None and self.gpts is not None:
             raise ValueError("""You can't use both "gpts" and "h"!""")
+
+        if self.experimental is not None:
+            if self.experimental.pop('niter_fixdensity') is not None:
+                warnings.warn('Ignoring "niter_fixdensity".')
+            if 'soc' in self.experimental:
+                warnings.warn('Please use new "soc" parameter.')
+                self.soc = self.experimental.pop('soc')
+            if 'magmoms' in self.experimental:
+                warnings.warn('Please use new "magmoms" parameter.')
+                self.magmoms = self.experimental.pop('magmoms')
+            assert not self.experimental
 
         bands = self.convergence.pop('bands', None)
         if bands is not None:
@@ -135,8 +147,16 @@ def convergence(value=None):
 def eigensolver(value=None) -> dict:
     """Eigensolver."""
     if isinstance(value, str):
-        return {'name': value}
+        value = {'name': value}
+    if value is not None and value['name'] != 'dav':
+        warnings.warn(f'{value["name"]} not implemented.  Using dav instead')
+        return {'name': 'dav'}
     return value or {}
+
+
+@input_parameter
+def experimental(value=None):
+    return value
 
 
 @input_parameter

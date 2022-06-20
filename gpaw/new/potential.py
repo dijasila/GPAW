@@ -35,8 +35,8 @@ class Potential:
         out_ansi = out_ani
 
         for (a, P_nsi), out_nsi in zip(P_ansi.items(), out_ansi.values()):
-            v_ii, x_ii, y_ii, z_ii = self.dH_asii[a]
-            assert v_ii.dtype == float, 'soc == True ????'
+            v_ii, x_ii, y_ii, z_ii = (dh_ii.T for dh_ii in self.dH_asii[a])
+            assert v_ii.dtype == complex
             out_nsi[:, 0] = (P_nsi[:, 0] @ (v_ii + z_ii) +
                              P_nsi[:, 1] @ (x_ii - 1j * y_ii))
             out_nsi[:, 1] = (P_nsi[:, 1] @ (v_ii - z_ii) +
