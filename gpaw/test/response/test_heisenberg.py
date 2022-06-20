@@ -7,7 +7,7 @@ import numpy as np
 
 # Script modules
 from gpaw.response.heisenberg import calculate_single_site_magnon_energies,\
-    calculate_FM_magnon_energies
+    calculate_fm_magnon_energies
 
 
 # ---------- Main test ---------- #
@@ -85,7 +85,7 @@ def single_site_magnons_consistency_test():
     E_qx = calculate_single_site_magnon_energies(J_qx, q_qc, mm)
 
     # Calcualte using generalized functionality
-    E_qnx = calculate_FM_magnon_energies(J_qx[:, np.newaxis, np.newaxis, :],
+    E_qnx = calculate_fm_magnon_energies(J_qx[:, np.newaxis, np.newaxis, :],
                                          q_qc, mm * np.ones((1, nJsamples)))
 
     # Test self-consistency
@@ -119,7 +119,7 @@ def FM_random_magnons_test():
     # ---------- Script ---------- #
 
     # Calculate magnon energies
-    E_qn = calculate_FM_magnon_energies(J_qab, q_qc, mm_a)
+    E_qn = calculate_fm_magnon_energies(J_qab, q_qc, mm_a)
     E_qn = np.sort(E_qn, axis=1)  # Make sure the eigenvalues are sorted
 
     # Calculate the magnon energies manually
@@ -169,7 +169,7 @@ def FM_vectorized_magnons_test():
     # ---------- Script ---------- #
 
     # Calculate magnon energies
-    E_qnxy = calculate_FM_magnon_energies(J_qabxy, q_qc, mm_axy)
+    E_qnxy = calculate_fm_magnon_energies(J_qabxy, q_qc, mm_axy)
     E_qnxy = np.sort(E_qnxy, axis=1)  # Make sure the eigenvalues are sorted
 
     # Calculate magnon energies analytically

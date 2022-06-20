@@ -41,7 +41,7 @@ def calculate_single_site_magnon_energies(J_qx, q_qc, mm):
     return E_qx.real
 
 
-def calculate_FM_magnon_energies(J_qabx, q_qc, mm_ax):
+def calculate_fm_magnon_energies(J_qabx, q_qc, mm_ax):
     """Compute the magnon eigenmode energies from the isotropic exchange
     constants of a ferromagnetic system with an arbitrary number of magnetic
     sites in the unit cell, as a function of the wave vector q.
@@ -67,7 +67,7 @@ def calculate_FM_magnon_energies(J_qabx, q_qc, mm_ax):
     E_qnx : np.ndarray
         Magnon eigenmode energies as a function of q, mode index n and x.
     """
-    H_qabx = generate_FM_dynamic_spin_wave_matrix(J_qabx, q_qc, mm_ax)
+    H_qabx = generate_fm_dynamic_spin_wave_matrix(J_qabx, q_qc, mm_ax)
 
     # Move magnetic site axes in order to prepare for np.linalg.eig
     H_qbxa = np.moveaxis(H_qabx, 1, -1)
@@ -86,7 +86,7 @@ def calculate_FM_magnon_energies(J_qabx, q_qc, mm_ax):
     return E_qnx
 
 
-def generate_FM_dynamic_spin_wave_matrix(J_qabx, q_qc, mm_ax):
+def generate_fm_dynamic_spin_wave_matrix(J_qabx, q_qc, mm_ax):
     """Generate the dynamic spin wave matrix from the isotropic exchange
     constants of a ferromagnet:
 
