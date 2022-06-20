@@ -15,7 +15,7 @@ viz.view = lambda atoms, repeat=None: None
 
 # %%
 """
-Today you will study the LiPO$_4$ cathode. You will calculate the equilibrium potential and use Bayesian error estimation to quantify how sensitive the calculated equilibrium potential is towards choice of functional. After today you should be able to discuss:
+Today you will study the LiFePO$_4$ cathode. You will calculate the equilibrium potential and use Bayesian error estimation to quantify how sensitive the calculated equilibrium potential is towards choice of functional. After today you should be able to discuss:
 
 -  The volume change during charge/discharge.
 
