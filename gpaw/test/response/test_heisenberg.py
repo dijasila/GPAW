@@ -16,16 +16,17 @@ from gpaw.response.heisenberg import calculate_single_site_magnon_energies,\
 @pytest.mark.ci
 def test_single_site_magnons():
     """Check the single site magnon dispersion functionality."""
+    rng = get_rng()
     # ---------- Inputs ---------- #
 
     # Magnetic moment
     mm = 1.
     # q-point grid
     nq = 11
-    q_qc = get_randomized_qpoints(nq)
+    q_qc = get_randomized_qpoints(nq, rng)
 
     # Random J_q, with J=0 at q=0
-    J_q = np.random.rand(q_qc.shape[0])
+    J_q = rng.rand(q_qc.shape[0])
     J_q[list(q_qc[:, 2]).index(0.)] = 0.
 
     # Cosine J_qD with different spin wave stiffnesses D
@@ -53,17 +54,18 @@ def test_single_site_magnons_consistency():
     """Check that the generalized magnon dispersion calculation is consistent
     for a single site system with the simple analytical formula valid in that
     case."""
+    rng = get_rng()
     # ---------- Inputs ---------- #
 
     # Magnetic moment
     mm = 1.
     # q-point grid
     nq = 11
-    q_qc = get_randomized_qpoints(nq)
+    q_qc = get_randomized_qpoints(nq, rng)
 
     # Random isotropic exchange constants
     nJsamples = 6  # sample some different random combinations
-    J_qx = np.random.rand(q_qc.shape[0], nJsamples)
+    J_qx = rng.rand(q_qc.shape[0], nJsamples)
 
     # ---------- Script ---------- #
 
@@ -86,18 +88,19 @@ def test_fm_random_magnons():
     """Check that the functionality to calculate the magnon dispersion of a
     ferromagnetic system with multiple sites works for a randomized system with
     three sites."""
+    rng = get_rng()
     # ---------- Inputs ---------- #
 
     # Magnetic moments
     nsites = 3
-    mm_a = 5. * np.random.rand(nsites)
+    mm_a = 5. * rng.rand(nsites)
     # q-point grid
     nq = 11
-    q_qc = get_randomized_qpoints(nq)
+    q_qc = get_randomized_qpoints(nq, rng)
 
     # Random isotropic exchange constants
-    J_qab = 1.j * np.random.rand(q_qc.shape[0], nsites, nsites)
-    J_qab += np.random.rand(q_qc.shape[0], nsites, nsites)
+    J_qab = 1.j * rng.rand(q_qc.shape[0], nsites, nsites)
+    J_qab += rng.rand(q_qc.shape[0], nsites, nsites)
     # Take the Hermitian part of random tensor
     J_qab = (J_qab + np.transpose(np.conjugate(J_qab), (0, 2, 1))) / 2.
     # The q=0 component should furthermore be real
@@ -125,15 +128,16 @@ def test_fm_vectorized_magnons():
     """Check that the functionality to calculate the magnon dispersion of a
     ferromagnetic system with multiple sites works when supplying multiple
     sets of parameters for the same two-site systems."""
+    rng = get_rng()
     # ---------- Inputs ---------- #
 
     # Magnetic moments
     nsites = 2
     nmagmoms = 4  # Test the same J_qab, but with different site magnetizations
-    mm_ax = 5. * np.random.rand(nsites, nmagmoms)
+    mm_ax = 5. * rng.rand(nsites, nmagmoms)
     # q-point grid
     nq = 11
-    q_qc = get_randomized_qpoints(nq)
+    q_qc = get_randomized_qpoints(nq, rng)
 
     # Use a fixed structure for J_qab with known eigenvalues
     cos_q = np.cos(q_qc[:, 2])
@@ -146,7 +150,7 @@ def test_fm_vectorized_magnons():
 
     # Test different energy scales for the exchange interactions
     nJscales = 6
-    Jscale_y = 800. * np.random.rand(nJscales)
+    Jscale_y = 800. * rng.rand(nJscales)
 
     # Combine different magnetic moments and scale for the exchange
     J_qabxy = np.empty(J_qab.shape + (nmagmoms, nJscales,), dtype=complex)
@@ -185,10 +189,17 @@ def test_fm_vectorized_magnons():
 # ---------- Test functionality ---------- #
 
 
-def get_randomized_qpoints(nq):
+def get_randomized_qpoints(nq, rng):
     """Make a simple, but shuffled, q-point array."""
     q_qc = np.zeros((nq, 3), dtype=float)
     q_qc[:, 2] = np.linspace(0., np.pi, nq)
-    np.random.shuffle(q_qc[:, 2])
+    rng.shuffle(q_qc[:, 2])
 
     return q_qc
+
+
+def get_rng():
+    """Choose a specific random seed to make the tests reproducible."""
+    rng = np.random.RandomState(23)
+
+    return rng
