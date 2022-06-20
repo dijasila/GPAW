@@ -31,7 +31,7 @@ def test_single_site_magnons():
 
     # Cosine J_qD with different spin wave stiffnesses D
     D_D = np.linspace(400., 800., 5)
-    J_qD = D_D[np.newaxis, :] * np.cos(q_qc[:, 2])[:, np.newaxis]
+    J_qD = np.outer(np.cos(q_qc[:, 2]), D_D)
 
     # ---------- Script ---------- #
 
@@ -115,7 +115,7 @@ def test_fm_random_magnons():
     # Calculate the magnon energies manually
     mm_inv_ab = 2. / np.sqrt(np.outer(mm_a, mm_a))
     J0_ab = np.diag(np.sum(J_qab[list(q_qc[:, 2]).index(0.)], axis=1))
-    H_qab = mm_inv_ab[np.newaxis, ...] * (J0_ab[np.newaxis, ...] - J_qab)
+    H_qab = mm_inv_ab[np.newaxis] * (J0_ab[np.newaxis] - J_qab)
     test_E_qn, _ = np.linalg.eig(H_qab)
 
     assert E_qn.shape == (q_qc.shape[0], nsites)
