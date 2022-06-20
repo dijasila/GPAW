@@ -52,6 +52,7 @@ class KPT:
         self.eps_n = wfs.eig_n
         self.s = wfs.spin if wfs.ncomponents < 4 else None
         self.k = wfs.k
+        self.f_n = wfs.occ_n * wfs.spin_degeneracy * wfs.weight
 
 
 class FakeDensity:
