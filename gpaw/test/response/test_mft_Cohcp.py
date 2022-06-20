@@ -92,11 +92,29 @@ def test_Co_hcp():
     mw_qnp = np.sort(mw_qnp, axis=1)  # Make sure the eigenvalues are sorted
 
     # Part 3: Compare results to test values
-    # To do: Test bare exchange constants XXX
+    test_J_qab = np.array([[[1.37280875 - 0.j,
+                             0.28516328 - 0.00007259j],
+                            [0.28516328 + 0.00007259j,
+                             1.37280875 - 0.j]],
+                           [[0.99644998 + 0.j,
+                             0.08202191 - 0.04867163j],
+                            [0.08202191 + 0.04867163j,
+                             0.99644998 + 0.j]],
+                           [[0.95005156 - 0.j,
+                             -0.03339854 - 0.05672191j],
+                            [-0.03339854 + 0.05672191j,
+                             0.950051561 + 0.j]],
+                           [[1.30187481 - 0.j,
+                             0.00000039 - 0.00525360j],
+                            [0.00000039 + 0.00525360j,
+                             1.30187481 + 0.j]]])
     test_mw_qn = np.array([[0., 6.51559179e-01],
                            [6.46783632e-01, 8.64703999e-01],
                            [7.33551122e-01, 8.83950560e-01],
                            [4.00815477e-01, 4.12818083e-01]])
+
+    # Exchange constants
+    assert np.allclose(J_qabp[..., 1], test_J_qab, rtol=1e-3)
 
     # Magnon energies
     assert np.all(np.abs(mw_qnp[0, 0, :]) < 1.e-8)  # Goldstone theorem
