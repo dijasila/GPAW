@@ -1,50 +1,81 @@
+from __future__ import annotations
 import numpy as np
+from gpaw.core.atom_arrays import AtomArrays
+from gpaw.core.matrix import Matrix, create_distribution
+from gpaw.core.plane_waves import PlaneWaveAtomCenteredFunctions, PlaneWaves
+from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.new.calculation import DFTState
 
 
-def pw_matrix(pw, gcomm, dH_aii, vt_R=None):
-    pd = None
+def pw_matrix(pw: PlaneWaves,
+              pt_aiG: PlaneWaveAtomCenteredFunctions,
+              dH_aii: AtomArrays,
+              dS_aii: AtomArrays,
+              vt_R: UniformGridFunctions,
+              comm) -> tuple[Matrix, Matrix]:
+    """
 
-    npw = len(pd.Q_qG[q])
-    N = pd.tmp_R.size
+    :::
 
-    if md is None:
-        H_GG = np.zeros((npw, npw), complex)
-        S_GG = np.zeros((npw, npw), complex)
-        G1 = 0
-        G2 = npw
-    else:
-        H_GG = md.zeros(dtype=complex)
-        S_GG = md.zeros(dtype=complex)
-        if S_GG.size == 0:
-            return H_GG, S_GG
-        G1, G2 = next(md.my_blocks(S_GG))[:2]
+                 _ _     _ _
+            /  -iG.r ~  iG.r _
+      O   = | e      O e    dr
+       GG'  /
 
-    H_GG.ravel()[G1::npw + 1] = (0.5 * pd.gd.dv / N *
-                                 pd.G2_qG[q][G1:G2])
+    :::
+
+      ~   ^   ~ _    _ _     --- ~a _ _a    a  ~  _  _a
+      H = T + v(r) δ(r-r') + <   p (r-R ) ΔH   p (r'-R )
+                             ---  i         ij  j
+                             aij
+
+    :::
+
+      ~     _ _     --- ~a _ _a    a  ~  _  _a
+      S = δ(r-r') + <   p (r-R ) ΔS   p (r'-R )
+                    ---  i         ij  j
+                    aij
+    """
+    assert pw.dtype == complex
+    npw = pw.shape[0]
+    dist = create_distribution(npw, npw, comm, -1, 1)
+    H_GG = dist.matrix()
+    S_GG = dist.matrix()
+    G1, G2 = dist.my_row_range()
+
+    x_G = pw.zeros()
+    x_R = vt_R.desc.new(dtype=complex).zeros()
+    N = x_R.data.size
+    dv = pw.dv / N
+
     for G in range(G1, G2):
-        x_G = pd.zeros(q=q)
-        x_G[G] = 1.0
-        H_GG[G - G1] += (pd.gd.dv / N *
-                         pd.fft(ham.vt_sG[s] *
-                                pd.ifft(x_G, q), q))
+        x_G.data[G] = 1.0
+        x_G.ifft(out=x_R)
+        x_R *= vt_R
+        x_R.fft(out=x_G)
+        H_GG.data[G - G1] = dv * x_G.data
+        x_G.data[G] = 0.0
 
-    S_GG.ravel()[G1::npw + 1] = pd.gd.dv / N
+    H_GG.add_to_diagonal(dv * pw.ekin_G)
 
-    f_GI = pt.expand(q)
+    S_GG.data[:] = 0.0
+    S_GG.add_to_diagonal(dv)
+
+    f_GI = pt_aiG._lfc.expand()
+    print(f_GI.shape)
     nI = f_GI.shape[1]
     dH_II = np.zeros((nI, nI))
     dS_II = np.zeros((nI, nI))
     I1 = 0
-    for a in self.pt.my_atom_indices:
-        dH_ii = unpack(ham.dH_asp[a][s])
-        dS_ii = setups[a].dO_ii
+    for a, dH_ii in dH_aii.items():
+        dS_ii = dS_aii[a]
         I2 = I1 + len(dS_ii)
         dH_II[I1:I2, I1:I2] = dH_ii / N**2
         dS_II[I1:I2, I1:I2] = dS_ii / N**2
         I1 = I2
 
-    H_GG += np.dot(f_GI[G1:G2].conj(), np.dot(dH_II, f_GI.T))
-    S_GG += np.dot(f_GI[G1:G2].conj(), np.dot(dS_II, f_GI.T))
+    H_GG.data += np.dot(f_GI[G1:G2].conj(), np.dot(dH_II, f_GI.T))
+    S_GG.data += np.dot(f_GI[G1:G2].conj(), np.dot(dS_II, f_GI.T))
 
     return H_GG, S_GG
 
@@ -175,3 +206,20 @@ def diagonalize_full_hamiltonian(self, ham, atoms, log,
     self.calculate_occupation_numbers()
 
     return nbands
+
+
+def diagonalize(state: DFTState,
+                nbands: int) -> DFTState:
+    vt_sR = state.potential.vt_sR
+    dH_asii = state.potential.dH_asii
+    dS_aii = [delta_iiL[:, :, 0]
+              for delta_iiL in state.density.delta_aiiL]
+    for wfs in state.ibzwfs:
+        H_GG, S_GG = pw_matrix(wfs.psit_nX.desc,
+                               wfs.pt_aiX,
+                               dH_asii[:, wfs.spin],
+                               dS_aii,
+                               vt_sR[wfs.spin],
+                               wfs.psit_nX.comm)
+        C_nG = H_GG.eigh(S_GG)
+    return state

@@ -9,7 +9,7 @@ import numpy as np
 import scipy.linalg as linalg
 from gpaw import debug
 from gpaw.mpi import MPIComm, _Communicator, serial_comm
-from gpaw.typing import Array1D, ArrayLike2D
+from gpaw.typing import Array1D, ArrayLike1D, ArrayLike2D
 
 _global_blacs_context_store: Dict[Tuple[_Communicator, int, int], int] = {}
 
@@ -451,6 +451,12 @@ class Matrix:
         _gpaw.scalapack_set(buf, desc, 0.0, 0.0, 'L', M, M, 1, 1)
         # Now transpose tmp_mm adding the result to the original matrix:
         _gpaw.pblas_tran(M, M, 1.0, buf, 1.0, self.data, desc, desc, True)
+
+    def add_to_diagonal(self, d: ArrayLike1D) -> None:
+        n1, n2 = self.dist.my_row_range()
+        M, N = self.shape
+        assert M == N
+        self.data.ravel()[n1::N + 1] += d
 
 
 def _matrix(M):

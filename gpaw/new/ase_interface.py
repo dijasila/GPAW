@@ -16,6 +16,7 @@ from gpaw.typing import Array1D, Array2D, Array3D
 from gpaw.utilities.memory import maxrss
 from gpaw.new.xc import XC
 from gpaw.utilities import pack
+from gpaw.new.pw.fulldiag import diagonalize
 
 
 def GPAW(filename: Union[str, Path, IO[str]] = None,
@@ -189,7 +190,7 @@ class ASECalculator:
     def get_pseudo_wave_function(self, band, kpt=0, spin=0) -> Array3D:
         state = self.calculation.state
         wfs = state.ibzwfs.get_wfs(spin, kpt, band, band + 1)
-        basis = self.calculation.scf_loop.hamiltonian.basis
+        basis = getattr(self.calculation.scf_loop.hamiltonian, 'basis', None)
         grid = state.density.nt_sR.desc
         wfs = wfs.to_uniform_grid_wave_functions(grid, basis)
         psit_R = wfs.psit_nX[0]
@@ -274,6 +275,11 @@ class ASECalculator:
             setup = self.setups[a]
             dexc += xc.calculate_paw_correction(setup, pack(D_sii))
         return (exct + dexc - state.potential.energies['xc']) * Ha
+
+    def diagonalize_full_hamiltonian(self,
+                                     nbands=None,
+                                     scalapack=None):
+        self.calculation.state = diagonalize(self.calculation.state, nbands)
 
 
 def write_header(log, world, params):
