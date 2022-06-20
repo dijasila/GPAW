@@ -16,7 +16,7 @@ from gpaw.response.site_kernels import (SphericalSiteKernels,
                                         CylindricalSiteKernels,
                                         ParallelepipedicSiteKernels)
 from gpaw.response.heisenberg import (calculate_single_site_magnon_energies,
-                                      calculate_FM_magnon_energies)
+                                      calculate_fm_magnon_energies)
 
 
 def test_Fe_bcc(in_tmp_dir):
@@ -97,7 +97,7 @@ def test_Fe_bcc(in_tmp_dir):
 
     # Calculate the magnon energies
     mm_ap = mm * np.ones((1, npartitions))  # Magnetic moments
-    mw_qp = calculate_FM_magnon_energies(J_qabp, q_qc, mm_ap)[:, 0, :]
+    mw_qp = calculate_fm_magnon_energies(J_qabp, q_qc, mm_ap)[:, 0, :]
 
     # Part 3: Compare results to test values
     test_J_pq = np.array([[1.61655323, 0.88149124, 1.10008928],
@@ -207,7 +207,7 @@ def test_Co_hcp(in_tmp_dir):
     # Calculate the magnon energy
     mm_ap = calc.get_magnetic_moment() / 2.\
         * np.ones((nsites, npartitions))
-    mw_qnp = calculate_FM_magnon_energies(J_qabp, q_qc, mm_ap)
+    mw_qnp = calculate_fm_magnon_energies(J_qabp, q_qc, mm_ap)
     mw_qnp = np.sort(mw_qnp, axis=1)  # Make sure the eigenvalues are sorted
     mwuc_q = calculate_single_site_magnon_energies(Juc_q, q_qc,
                                                    calc.get_magnetic_moment())
