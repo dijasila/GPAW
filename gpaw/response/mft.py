@@ -55,7 +55,6 @@ class IsotropicExchangeCalculator:
             Maximum band index to include in response calculation.
         world : obj
             MPI communicator.
-
         """
 
         # Calculator for response function
@@ -69,22 +68,24 @@ class IsotropicExchangeCalculator:
         # Calculator for xc-kernel
         self.Bxc_calc = AdiabaticBXC(self.chiksf.calc, world=world)
 
-        # Make empty object for Bxc field
-        self.Bxc_G = None
+        # Bxc field buffer
+        self._Bxc_G = None
+
+        # chiks buffer
+        self.currentq_c = None
+        self._chiks_GG = None
 
     def __call__(self, q_c, site_kernels, txt=sys.stdout):
-        """Calculate the isotropic exchange between all magnetic sites
-        for a given wavevector.
+        """Calculate the isotropic exchange constants for a given wavevector.
 
         Parameters
         ----------
         q_c : nd.array
             Components of wavevector in relative coordinates
         site_kernels : SiteKernels
-            Site kernel instances to define the magnetic sites to extract
-            exchange constants for
+            Site kernels instance defining the magnetic sites of the crystal
         txt : str
-            Where to save log-files
+            Where to send text output from chiks calculation
 
         Returns
         -------
@@ -94,13 +95,9 @@ class IsotropicExchangeCalculator:
         """
         assert isinstance(site_kernels, SiteKernels)
 
-        # Get Bxc_G
-        if self.Bxc_G is None:
-            self._computeBxc()
-        Bxc_G = self.Bxc_G
-
-        # Compute transverse susceptibility
-        _, chiks_GG = self.chiksf('-+', q_c, txt=txt)
+        # Get ingredients
+        Bxc_G = self.get_Bxc()
+        chiks_GG = self.get_chiks(q_c, txt=txt)
 
         # Get plane-wave descriptor
         pd = self.chiksf.get_PWDescriptor(q_c)
@@ -125,19 +122,37 @@ class IsotropicExchangeCalculator:
 
         return J_abp * Hartree  # Convert from Hartree to eV
 
-    def _computeBxc(self):
+    def get_Bxc(self):
+        if self._Bxc_G is None:
+            self._Bxc_G = self._calculate_Bxc()
+
+        return self._Bxc_G
+
+    def _calculate_Bxc(self):
         # Compute xc magnetic field
         # Note : Bxc is calculated from the xc-kernel, which is a 2-point
         # function, while B_xc is 1-point Because of how the different
         # Fourier transforms are defined, this gives an extra volume factor
         # See eq. 50 of Phys. Rev. B 103, 245110 (2021)
-        print('Computing Bxc')
+        print('Calculating Bxc')
         # Plane-wave descriptor (input is arbitrary)
-        self.pd0 = self.chiksf.get_PWDescriptor([0, 0, 0])
-        Omega_cell = self.pd0.gd.volume
-        Bxc_GG = self.Bxc_calc(self.pd0)
-        self.Bxc_G = Omega_cell * Bxc_GG[:, 0]
-        print('Done computing Bxc')
+        pd0 = self.chiksf.get_PWDescriptor([0, 0, 0])
+        V0 = pd0.gd.volume
+        Bxc_GG = self.Bxc_calc(pd0)
+        Bxc_G = V0 * Bxc_GG[:, 0]
+        print('Done calculating Bxc')
+
+        return Bxc_G
+
+    def get_chiks(self, q_c, txt=None):
+        q_c = np.asarray(q_c)
+        if self.currentq_c is None or not np.allclose(q_c, self.currentq_c):
+            # Calculate chiks for a new q-point and write it to the buffer
+            self.currentq_c = q_c
+            _, chiks_GG = self.chiksf('-+', q_c, txt=txt)
+            self._chiks_GG = chiks_GG
+
+        return self._chiks_GG
 
 
 class StaticChiKSFactory(FourComponentSusceptibilityTensor):
