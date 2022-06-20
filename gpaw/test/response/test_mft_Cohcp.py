@@ -9,8 +9,10 @@ from ase.build import bulk
 
 from gpaw import GPAW, PW, FermiDirac
 from gpaw.response.mft import IsotropicExchangeCalculator
-from gpaw.response.site_kernels import SphericalSiteKernels
-from gpaw.response.heisenberg import calculate_FM_magnon_energies
+from gpaw.response.site_kernels import (SphericalSiteKernels,
+                                        ParallelepipedicSiteKernels)
+from gpaw.response.heisenberg import (calculate_single_site_magnon_energies,
+                                      calculate_FM_magnon_energies)
 
 
 def test_Co_hcp():
@@ -70,26 +72,36 @@ def test_Co_hcp():
     # Set up spherical site kernels
     positions = atoms.get_positions()
     sitekernels = SphericalSiteKernels(positions, rc_pa)
-    # To do: Add unit cell site kernel XXX
+
+    # Set up a site kernel to fill out the entire unit cell
+    cell_cv = atoms.get_cell()
+    cc_v = np.sum(cell_cv, axis=0) / 2.  # Unit cell center
+    ucsitekernels = ParallelepipedicSiteKernels([cc_v], [[cell_cv]])
 
     # Initialize the exchange calculator
     isoexch_calc = IsotropicExchangeCalculator(calc, ecut=ecut, nbands=nbands)
 
-    # Allocate array for the exchange constants
+    # Allocate array for the spherical site exchange constants
     nq = len(q_qc)
     nsites = sitekernels.nsites
     npartitions = sitekernels.npartitions
     J_qabp = np.empty((nq, nsites, nsites, npartitions), dtype=complex)
 
+    # Allocate array for the unit cell site exchange constants
+    Juc_q = np.empty((nq,), dtype=complex)
+
     # Calcualate the exchange constants for each q-point
     for q, q_c in enumerate(q_qc):
         J_qabp[q] = isoexch_calc(q_c, sitekernels)
+        Juc_q[q] = isoexch_calc(q_c, ucsitekernels)[0, 0, 0]
 
     # Calculate the magnon energy
-    mm_ap = np.average(calc.get_magnetic_moments())\
+    mm_ap = calc.get_magnetic_moment() / 2.\
         * np.ones((nsites, npartitions))
     mw_qnp = calculate_FM_magnon_energies(J_qabp, q_qc, mm_ap)
     mw_qnp = np.sort(mw_qnp, axis=1)  # Make sure the eigenvalues are sorted
+    mwuc_q = calculate_single_site_magnon_energies(Juc_q, q_qc,
+                                                   calc.get_magnetic_moment())
 
     # Part 3: Compare results to test values
     test_J_qab = np.array([[[1.37280875 - 0.j,
@@ -108,21 +120,25 @@ def test_Co_hcp():
                              0.00000039 - 0.00525360j],
                             [0.00000039 + 0.00525360j,
                              1.30187481 + 0.j]]])
-    test_mw_qn = np.array([[0., 6.51559179e-01],
-                           [6.46783632e-01, 8.64703999e-01],
-                           [7.33551122e-01, 8.83950560e-01],
-                           [4.00815477e-01, 4.12818083e-01]])
+    test_mw_qn = np.array([[0., 0.673172482],
+                           [0.668238523, 0.893387671],
+                           [0.757884234, 0.913272672],
+                           [0.414111193, 0.426511947]])
+    test_mwuc_q = np.array([0., 0.72445911, 1.21301805, 0.37568663])
 
     # Exchange constants
     assert np.allclose(J_qabp[..., 1], test_J_qab, rtol=1e-3)
 
     # Magnon energies
     assert np.all(np.abs(mw_qnp[0, 0, :]) < 1.e-8)  # Goldstone theorem
+    assert abs(mwuc_q[0]) < 1.e-8  # Goldstone
     assert np.allclose(mw_qnp[1:, 0, 1], test_mw_qn[1:, 0], rtol=1.e-3)
     assert np.allclose(mw_qnp[:, 1, 1], test_mw_qn[:, 1], rtol=1.e-3)
+    assert np.allclose(mwuc_q[1:], test_mwuc_q[1:], rtol=1.e-3)
 
     # Part 4: Check self-consistency of results
     # We should be in a radius range, where the magnon energies don't change
     assert np.allclose(mw_qnp[1:, 0, ::2], test_mw_qn[1:, 0, np.newaxis],
                        rtol=5.e-2)
-    
+    assert np.allclose(mw_qnp[:, 1, ::2], test_mw_qn[:, 1, np.newaxis],
+                       rtol=5.e-2)
