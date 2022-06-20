@@ -10,26 +10,11 @@ from gpaw.response.heisenberg import calculate_single_site_magnon_energies,\
     calculate_fm_magnon_energies
 
 
-# ---------- Main test ---------- #
-
-
-@pytest.mark.response
-@pytest.mark.ci
-def test_heisenberg():
-    magnon_dispersion_tests()
-
-
 # ---------- Actual tests ---------- #
 
 
-def magnon_dispersion_tests():
-    single_site_magnons_test()
-    single_site_magnons_consistency_test()
-    FM_random_magnons_test()
-    FM_vectorized_magnons_test()
-
-
-def single_site_magnons_test():
+@pytest.mark.ci
+def test_single_site_magnons():
     """Check the single site magnon dispersion functionality."""
     # ---------- Inputs ---------- #
 
@@ -63,7 +48,8 @@ def single_site_magnons_test():
                        * (1. - np.cos(q_qc[:, 2]))[:, np.newaxis])
 
 
-def single_site_magnons_consistency_test():
+@pytest.mark.ci
+def test_single_site_magnons_consistency():
     """Check that the generalized magnon dispersion calculation is consistent
     for a single site system with the simple analytical formula valid in that
     case."""
@@ -95,7 +81,8 @@ def single_site_magnons_consistency_test():
     assert np.allclose(E_qnx[:, 0, :], E_qx, atol=1e-8)
 
 
-def FM_random_magnons_test():
+@pytest.mark.ci
+def test_fm_random_magnons():
     """Check that the functionality to calculate the magnon dispersion of a
     ferromagnetic system with multiple sites works for a randomized system with
     three sites."""
@@ -133,7 +120,8 @@ def FM_random_magnons_test():
     assert np.allclose(E_qn, np.sort(test_E_qn.real, axis=1))
 
 
-def FM_vectorized_magnons_test():
+@pytest.mark.ci
+def test_fm_vectorized_magnons():
     """Check that the functionality to calculate the magnon dispersion of a
     ferromagnetic system with multiple sites works when supplying multiple
     sets of parameters for the same two-site systems."""
