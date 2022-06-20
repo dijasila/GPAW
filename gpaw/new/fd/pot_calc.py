@@ -26,16 +26,30 @@ class UniformGridPotentialCalculator(PotentialCalculator):
         self.vbar_ar.to_uniform_grid(out=self.vbar_r)
 
         n = interpolation_stencil_range
+        self.interpolation_stencil_range = n
         self.interpolate = wf_grid.transformer(fine_grid, n)
         self.restrict = fine_grid.transformer(wf_grid, n)
 
         super().__init__(xc, poisson_solver, setups, nct_R, fracpos_ac)
 
+    def __str__(self):
+        txt = super().__str__()
+        degree = self.interpolation_stencil_range * 2 - 1
+        name = ['linear', 'cubic', 'quintic', 'heptic'][degree // 2]
+        txt += ('interpolation: tri-%s ' % name +
+                ' # %d. degree polynomial\n' % degree)
+        return txt
+
     def calculate_charges(self, vHt_r):
         return self.ghat_aLr.integrate(vHt_r)
 
-    def _calculate(self, density, vHt_r):
-        nt_sR = density.nt_sR
+    def calculate_non_selfconsistent_exc(self, nt_sR, xc):
+        nt_sr = self._interpolate_density(nt_sR)
+        vxct_sr = nt_sr.desc.zeros(nt_sr.dims)
+        e_xc = xc.calculate(nt_sr, vxct_sr)
+        return e_xc
+
+    def _interpolate_density(self, nt_sR):
         nt_sr = self.interpolate(nt_sR)
         if not nt_sR.desc.pbc_c.all():
             Nt1_s = nt_sR.integrate()
@@ -43,6 +57,11 @@ class UniformGridPotentialCalculator(PotentialCalculator):
             for Nt1, Nt2, nt_r in zip(Nt1_s, Nt2_s, nt_sr):
                 if Nt2 > 1e-14:
                     nt_r.data *= Nt1 / Nt2
+        return nt_sr
+
+    def _calculate(self, density, vHt_r):
+        nt_sr = self._interpolate_density(density.nt_sR)
+
         grid2 = nt_sr.desc
 
         vxct_sr = grid2.zeros(nt_sr.dims)
@@ -63,7 +82,7 @@ class UniformGridPotentialCalculator(PotentialCalculator):
         vt_sr.data += vHt_r.data + self.vbar_r.data
         vt_sR = self.restrict(vt_sr)
         e_kinetic = 0.0
-        for spin, (vt_R, nt_R) in enumerate(zip(vt_sR, nt_sR)):
+        for spin, (vt_R, nt_R) in enumerate(zip(vt_sR, density.nt_sR)):
             e_kinetic -= vt_R.integrate(nt_R)
             if spin < density.ndensities:
                 e_kinetic += vt_R.integrate(self.nct_R)

@@ -414,7 +414,10 @@ class LrTDDFT(ExcitationList):
         return list.__len__(self)
 
     def __del__(self):
-        self.timer.write(self.log.fd)
+        try:
+            self.timer.write(self.log.fd)
+        except AttributeError:
+            pass
 
 
 def d2Excdnsdnt(dup, ddn):

@@ -265,7 +265,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         """
         DistributedArrays. __init__(self, dims, grid.myshape,
                                     comm, grid.comm, data, grid.dv,
-                                    grid.dtype, transposed=False)
+                                    grid.dtype)
         self.desc = grid
 
     def __repr__(self):
@@ -714,3 +714,17 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         d_v = (d_c / ug.size_c) @ ug.cell_cv * self.dv
         self.desc.comm.sum(d_v)
         return d_v
+
+    def scaled(self, s: float, v: float = 1.0):
+        """Create new scaled UniformGridFunctions object.
+
+        Unit cell axes are multiplied by `s` and data by `v`.
+        """
+        grid = self.desc
+        assert grid.comm.size == 1
+        grid = UniformGrid(cell=grid.cell_cv * s,
+                           size=grid.size_c,
+                           pbc=grid.pbc_c,
+                           kpt=(grid.kpt_c if grid.kpt_c.any() else None),
+                           dtype=grid.dtype)
+        return UniformGridFunctions(grid, self.dims, self.comm, self.data * v)

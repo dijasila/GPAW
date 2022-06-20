@@ -1,23 +1,27 @@
-import _gpaw
-import numpy as np
+from math import pi
 from ase.units import Ha
 from gpaw.core import PlaneWaves, UniformGrid
+from gpaw.core.matrix import Matrix
 from gpaw.core.plane_waves import PlaneWaveExpansions
 from gpaw.new.builder import create_uniform_grid
-from gpaw.new.hamiltonian import Hamiltonian
+from gpaw.new.pw.hamiltonian import PWHamiltonian, SpinorPWHamiltonian
 from gpaw.new.pw.poisson import ReciprocalSpacePoissonSolver
 from gpaw.new.pw.pot_calc import PlaneWavePotentialCalculator
 from gpaw.new.pwfd.builder import PWFDDFTComponentsBuilder
+from gpaw.new.spinors import SpinorWaveFunctionDescriptor
 from gpaw.typing import Array1D
+from gpaw.core.domain import Domain
 
 
 class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
     interpolation = 'fft'
 
-    def __init__(self, atoms, params, ecut=340):
+    def __init__(self, atoms, params, ecut=340, qspiral=None):
         self.ecut = ecut / Ha
         super().__init__(atoms, params)
 
+        self.qspiral_v = (None if qspiral is None else
+                          qspiral @ self.grid.icell * (2 * pi))
         self._nct_ag = None
 
     def create_uniform_grids(self):
@@ -35,11 +39,14 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         # decomposition=[2 * d for d in grid.decomposition]
         return grid, fine_grid
 
-    def create_wf_description(self) -> PlaneWaves:
-        return PlaneWaves(ecut=self.ecut,
-                          cell=self.grid.cell,
-                          comm=self.grid.comm,
-                          dtype=self.dtype)
+    def create_wf_description(self) -> Domain:
+        pw = PlaneWaves(ecut=self.ecut,
+                        cell=self.grid.cell,
+                        comm=self.grid.comm,
+                        dtype=self.dtype)
+        if self.ncomponents == 4:
+            return SpinorWaveFunctionDescriptor(pw, qspiral_v=self.qspiral_v)
+        return pw
 
     def create_xc_functional(self):
         if self.params.xc['name'] in ['HSE06', 'PBE0', 'EXX']:
@@ -72,34 +79,49 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
                                             self.setups,
                                             self.xc,
                                             poisson_solver,
-                                            nct_ag, self.nct_R)
+                                            nct_ag, self.nct_R,
+                                            self.soc)
 
     def create_hamiltonian_operator(self, blocksize=10):
-        return PWHamiltonian()
+        if self.ncomponents < 4:
+            return PWHamiltonian()
+        return SpinorPWHamiltonian()
 
     def convert_wave_functions_from_uniform_grid(self,
-                                                 C_nM,
+                                                 C_nM: Matrix,
                                                  basis_set,
                                                  kpt_c,
                                                  q):
         # Replace this with code that goes directly from C_nM to
         # psit_nG via PWAtomCenteredFunctions.
         # XXX
-        grid = self.grid.new(kpt=kpt_c, dtype=self.dtype)
-        psit_nR = grid.zeros(self.nbands, self.communicators['b'])
-        mynbands = len(C_nM)
-        basis_set.lcao_to_grid(C_nM, psit_nR.data[:mynbands], q)
 
-        pw = self.wf_desc.new(kpt=psit_nR.desc.kpt_c)
-        psit_nG = pw.empty(psit_nR.dims, psit_nR.comm)
+        grid = self.grid.new(kpt=kpt_c, dtype=self.dtype)
+        pw = self.wf_desc.new(kpt=kpt_c)
+        psit_nG = pw.empty(self.nbands, self.communicators['b'])
 
         if self.dtype == complex:
-            emikr_R = grid.eikr(-grid.kpt_c)
+            emikr_R = grid.eikr(-kpt_c)
 
-        for psit_R, psit_G in zip(psit_nR, psit_nG):
-            if self.dtype == complex:
-                psit_R.data *= emikr_R
-            psit_R.fft(out=psit_G)
+        mynbands, M = C_nM.dist.shape
+
+        if self.ncomponents < 4:
+            psit_nR = grid.zeros(mynbands)
+            basis_set.lcao_to_grid(C_nM.data, psit_nR.data, q)
+
+            for psit_R, psit_G in zip(psit_nR, psit_nG):
+                if self.dtype == complex:
+                    psit_R.data *= emikr_R
+                psit_R.fft(out=psit_G)
+        else:
+            psit_sR = grid.empty(2)
+            C_nsM = C_nM.data.reshape((mynbands, 2, M // 2))
+            for psit_sG, C_sM in zip(psit_nG, C_nsM):
+                psit_sR.data[:] = 0.0
+                basis_set.lcao_to_grid(C_sM, psit_sR.data, q)
+                psit_sR.data *= emikr_R
+                for psit_G, psit_R in zip(psit_sG, psit_sR):
+                    psit_R.fft(out=psit_G)
 
         return psit_nG
 
@@ -160,28 +182,3 @@ def check_g_vector_ordering(grid: UniformGrid,
     nG = len(index0_G)
     assert (index0_G == index_G[:nG]).all()
     assert (index_G[nG:] == -1).all()
-
-
-class PWHamiltonian(Hamiltonian):
-    def apply(self, vt_sR, psit_nG, out, spin):
-        out_nG = out
-        vt_R = vt_sR.data[spin]
-        np.multiply(psit_nG.desc.ekin_G, psit_nG.data, out_nG.data)
-        grid = vt_sR.desc
-        if psit_nG.desc.dtype == complex:
-            grid = grid.new(dtype=complex)
-        f_R = grid.empty()
-        for p_G, o_G in zip(psit_nG, out_nG):
-            f_R = p_G.ifft(out=f_R)
-            f_R.data *= vt_R
-            o_G.data += f_R.fft(pw=p_G.desc).data
-        return out_nG
-
-    def create_preconditioner(self, blocksize):
-        return precondition
-
-
-def precondition(psit, residuals, out):
-    G2 = psit.desc.ekin_G * 2
-    for r, o, ekin in zip(residuals.data, out.data, psit.norm2('kinetic')):
-        _gpaw.pw_precond(G2, r, ekin, o)

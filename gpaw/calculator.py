@@ -191,7 +191,8 @@ class GPAW(Calculator):
             if key not in {'nbands', 'occupations', 'poissonsolver', 'kpts',
                            'eigensolver', 'random', 'maxiter', 'basis',
                            'symmetry', 'convergence', 'verbose'}:
-                raise TypeError(f'{key:!r} is an invalid keyword argument')
+                raise TypeError(f'Cannot change {key!r} in '
+                                'fixed_density calculation!')
 
         params = self.parameters.copy()
         params.update(kwargs)
@@ -284,6 +285,7 @@ class GPAW(Calculator):
         self.log('Reading from {}'.format(filename))
 
         self.reader = reader = Reader(filename)
+        assert reader.version <= 3
 
         atoms = read_atoms(reader.atoms)
         self._set_atoms(atoms)
@@ -713,9 +715,13 @@ class GPAW(Calculator):
                 N_c = self.density.gd.N_c
             else:
                 N_c = get_number_of_grid_points(cell_cv, h, mode, realspace,
-                                                self.symmetry, self.log)
+                                                self.symmetry)
 
         self.setups.set_symmetry(self.symmetry)
+
+        if not collinear and len(self.symmetry.op_scc) > 1:
+            raise ValueError('Can''t use symmetries with non-collinear '
+                             'calculations')
 
         if isinstance(par.background_charge, dict):
             background = create_background_charge(**par.background_charge)
@@ -1302,12 +1308,11 @@ class GPAW(Calculator):
 
         Return list of energies in eV, one for each atom:
 
-        .. math::
+        :::
 
-            Y_{00}
-            \int d\mathbf{r}
-            \tilde{v}_H(\mathbf{r})
-            \hat{g}_{00}^a(\mathbf{r} - \mathbf{R}^a)
+              / _ ~  _  ^a  _ _a
+          Y   |dr v (r) g  (r-R )
+           00 /    H     00
 
         """
         ham = self.hamiltonian
@@ -2001,7 +2006,7 @@ class GPAW(Calculator):
                    (np.sqrt(4 * np.pi) * fac(2 * l + 1)))
             splines_x.append([Spline(l, rmax=r[-1], f_g=f_g)])
 
-        lf = LFC(wfs.gd, splines_x, wfs.kd, dtype=wfs.dtype)
+        lf = LFC(wfs.gd, splines_x, wfs.kd, dtype=wfs.dtype, cut=True)
         lf.set_positions(spos_xc)
 
         assert wfs.gd.comm.size == 1

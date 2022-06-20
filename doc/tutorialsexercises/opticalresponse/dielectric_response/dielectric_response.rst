@@ -50,10 +50,12 @@ and is in 3D related to the macroscopic dielectric function as,
 
 Refer to :ref:`df_theory`  for detailed documentation on theoretical part.
 
-.. _df_tutorial_freq:
+.. _frequency grid:
 
 Frequency grid
 ==============
+
+.. module:: gpaw.response.frequencies
 
 The dielectric function is evaluted on a non-linear frequency grid according
 to the formula
@@ -78,16 +80,25 @@ Below, the frequency grid is visualized for different values of
 
 The parameters can be specified using keyword arguments::
 
-    df = DielectricFunction(...,
-                            domega0=0.05,   # eV. Default = 0.1
-                            omega2=5.0,     # Default = 10.0
-                            omegamax=15.0)  # eV. Default is the maximum
-                                            #  difference between energy
-                                            #  eigenvalues
+    df = DielectricFunction(
+        ...,
+        frequencies={'domega0: 0.05,    # eV. Default = 0.1 eV
+                     'omega2': 5.0,     # eV. Default = 10.0 eV
+                     'omegamax': 15.0)  # eV.  Default is the maximum
+                                        # difference between energy
+                                        # eigenvalues
 
 Setting ``omegamax`` manually is usually not advisable, however you
-might want it in cases where semi-core states  are included where very large
+might want it in cases where semi-core states are included where very large
 energy eigenvalue differences appear.
+
+
+.. autoclass:: gpaw.response.frequencies.FrequencyDescriptor
+   :members:
+.. autoclass:: gpaw.response.frequencies.NonLinearFrequencyDescriptor
+   :members:
+.. autoclass:: gpaw.response.frequencies.FrequencyGridDescriptor
+   :members:
 
 
 Example 1: Optical absorption of semiconductor: Bulk silicon
@@ -307,24 +318,6 @@ k-point sampling autimatically::
         'gs.gpw',  # Path to ground state .gpw file
         density=20.0)  # The required minimum density
 
-If the system is lower dimensional this function takes an optional argument
-``pbc`` a tuple of bools which for slab with a non-periodic z direction is
-given by ``pbc=[True, True, False]``. If combined with the tetrahedron method
-it is necessary to tell the ``DielectricFunction`` object which directions
-are non-periodic. The recipe for non-periodic systems is given below::
-
-    from gpaw.bztools import find_high_symmetry_monkhorst_pack
-    from gpaw.response.df import DielectricFunction
-    pbc = [True, True, False]
-    kpts = find_high_symmetry_monkhorst_pack(
-        'gs.gpw',  # Path to ground state .gpw file
-        density=20.0,  # The required minimum density
-        pbc=pbc)  # Periodic directions
-
-    df = DielectricFunction(...,
-                            integrationmode='tetrahedron integration',
-                            pbc=pbc,
-                            ...)
 
 Bulk TaS\ :sub:`2`
 ------------------

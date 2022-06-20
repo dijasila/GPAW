@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """Van der Waals density functional.
 
 This module implements the Dion-Rydberg–Schröder–Langreth–Lundqvist

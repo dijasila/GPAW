@@ -1,18 +1,21 @@
 from __future__ import annotations
 
-from math import pi
 from pathlib import Path
 from typing import IO, Any, Union
 
 from ase import Atoms
-from ase.units import Ha
+from ase.units import Ha, Bohr
+
 from gpaw import __version__
 from gpaw.new import Timer
 from gpaw.new.calculation import DFTCalculation, units
 from gpaw.new.gpw import read_gpw, write_gpw
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
-from gpaw.typing import Array1D, Array2D
+from gpaw.typing import Array1D, Array2D, Array3D
+from gpaw.utilities.memory import maxrss
+from gpaw.new.xc import XC
+from gpaw.utilities import pack
 
 
 def GPAW(filename: Union[str, Path, IO[str]] = None,
@@ -29,7 +32,8 @@ def GPAW(filename: Union[str, Path, IO[str]] = None,
         kwargs.pop('txt', None)
         kwargs.pop('parallel', None)
         assert len(kwargs) == 0
-        atoms, calculation, params = read_gpw(filename, log, params.parallel)
+        atoms, calculation, params, _ = read_gpw(filename, log,
+                                                 params.parallel)
         return ASECalculator(params, log, calculation, atoms)
 
     write_header(log, world, params)
@@ -72,8 +76,6 @@ class ASECalculator:
         * magmoms
         * dipole
         """
-        log = self.log
-
         if self.calculation is not None:
             changes = compare_atoms(self.atoms, atoms)
             if changes & {'numbers', 'pbc', 'cell'}:
@@ -88,20 +90,20 @@ class ASECalculator:
 
         if self.calculation is None:
             self.calculation = self.create_new_calculation(atoms)
-            self.converge(atoms)
+            self.converge()
         elif changes:
             self.move_atoms(atoms)
-            self.converge(atoms)
+            self.converge()
 
         if prop not in self.calculation.results:
             if prop == 'forces':
                 with self.timer('Forces'):
-                    self.calculation.forces(log)
+                    self.calculation.forces()
             elif prop == 'stress':
                 with self.timer('Stress'):
-                    self.calculation.stress(log)
+                    self.calculation.stress()
             elif prop == 'dipole':
-                self.calculation.dipole(log)
+                self.calculation.dipole()
             else:
                 raise ValueError('Unknown property:', prop)
 
@@ -111,31 +113,38 @@ class ASECalculator:
         with self.timer('Init'):
             calculation = DFTCalculation.from_parameters(atoms, self.params,
                                                          self.log)
+        self.atoms = atoms.copy()
         return calculation
 
     def move_atoms(self, atoms):
         with self.timer('Move'):
-            self.calculation = self.calculation.move_atoms(atoms, self.log)
+            self.calculation = self.calculation.move_atoms(atoms)
+        self.atoms = atoms.copy()
 
-    def converge(self, atoms):
+    def converge(self):
         """Iterate to self-consistent solution.
 
         Will also calculate "cheap" properties: energy, magnetic moments
         and dipole moment.
         """
         with self.timer('SCF'):
-            self.calculation.converge(self.log)
+            self.calculation.converge()
 
         # Calculate all the cheap things:
-        self.calculation.energies(self.log)
-        self.calculation.dipole(self.log)
-        self.calculation.magmoms(self.log)
+        self.calculation.energies()
+        self.calculation.dipole()
+        self.calculation.magmoms()
 
-        self.atoms = atoms.copy()
-        self.calculation.write_converged(self.log)
+        self.calculation.write_converged()
 
     def __del__(self):
-        self.timer.write(self.log)
+        try:
+            self.log('---')
+            self.timer.write(self.log)
+            mib = maxrss() / 1024**2
+            self.log(f'\nMax RSS: {mib:.3f}  # MiB')
+        except NameError:
+            pass
 
     def get_potential_energy(self,
                              atoms: Atoms,
@@ -159,9 +168,34 @@ class ASECalculator:
     def get_magnetic_moments(self, atoms: Atoms) -> Array1D:
         return self.calculate_property(atoms, 'magmoms')
 
-    def get_pseudo_wave_function(self, n):
+    def write(self, filename, mode=''):
+        """Write calculator object to a file.
+
+        Parameters
+        ----------
+        filename:
+            File to be written
+        mode:
+            Write mode. Use ``mode='all'``
+            to include wave functions in the file.
+        """
+        self.log(f'Writing to {filename} (mode={mode!r})\n')
+
+        write_gpw(filename, self.atoms, self.params,
+                  self.calculation, skip_wfs=mode != 'all')
+
+    # Old API:
+
+    def get_pseudo_wave_function(self, band, kpt=0, spin=0) -> Array3D:
         state = self.calculation.state
-        return state.ibzwfs[0].wave_functions.data[n]
+        wfs = state.ibzwfs.get_wfs(spin, kpt, band, band + 1)
+        basis = self.calculation.scf_loop.hamiltonian.basis
+        grid = state.density.nt_sR.desc
+        wfs = wfs.to_uniform_grid_wave_functions(grid, basis)
+        psit_R = wfs.psit_nX[0]
+        if not psit_R.desc.pbc.all():
+            psit_R = psit_R.to_pbc_grid()
+        return psit_R.data * Bohr**-1.5
 
     def get_atoms(self):
         atoms = self.atoms.copy()
@@ -187,34 +221,68 @@ class ASECalculator:
         return state.ibzwfs.nbands
 
     def get_atomic_electrostatic_potentials(self):
-        _, _, Q_aL = self.calculation.pot_calc.calculate(
-            self.calculation.state.density)
-        Q_aL = Q_aL.gather()
-        return Q_aL.data[::9] * (Ha / (4 * pi)**0.5)
+        return self.calculation.electrostatic_potential().atomic_potentials()
 
-    def write(self, filename, mode=''):
-        """Write calculator object to a file.
+    def get_eigenvalues(self, kpt=0, spin=0):
+        state = self.calculation.state
+        return state.ibzwfs.get_eigs_and_occs(k=kpt, s=spin)[0] * Ha
 
-        Parameters
-        ----------
-        filename
-            File to be written
-        mode
-            Write mode. Use ``mode='all'``
-            to include wave functions in the file.
-        """
-        self.log(f'Writing to {filename} (mode={mode!r})\n')
+    def get_reference_energy(self):
+        return self.calculation.setups.Eref * Ha
 
-        write_gpw(filename, self.atoms, self.params,
-                  self.calculation, skip_wfs=mode != 'all')
+    def get_number_of_iterations(self):
+        return self.calculation.scf_loop.niter
+
+    def get_bz_k_points(self):
+        state = self.calculation.state
+        return state.ibzwfs.ibz.bz.kpt_Kc.copy()
+
+    def get_ibz_k_points(self):
+        state = self.calculation.state
+        return state.ibzwfs.ibz.kpt_kc.copy()
+
+    def calculate(self, atoms):
+        self.get_potential_energy(atoms)
+
+    @property
+    def wfs(self):
+        from gpaw.new.backwards_compatibility import FakeWFS
+        return FakeWFS(self.calculation, self.atoms)
+
+    @property
+    def density(self):
+        from gpaw.new.backwards_compatibility import FakeDensity
+        return FakeDensity(self.calculation)
+
+    @property
+    def hamiltonian(self):
+        from gpaw.new.backwards_compatibility import FakeHamiltonian
+        return FakeHamiltonian(self.calculation)
+
+    @property
+    def spos_ac(self):
+        return self.atoms.get_scaled_positions()
+
+    def get_xc_difference(self, xcparams):
+        """Calculate non-selfconsistent XC-energy difference."""
+        state = self.calculation.state
+        xc = XC(xcparams, state.density.ncomponents)
+        exct = self.calculation.pot_calc.calculate_non_selfconsistent_exc(
+            state.density.nt_sR, xc)
+        dexc = 0.0
+        for a, D_sii in state.density.D_asii.items():
+            setup = self.setups[a]
+            dexc += xc.calculate_paw_correction(setup, pack(D_sii))
+        return (exct + dexc - state.potential.energies['xc']) * Ha
 
 
 def write_header(log, world, params):
     from gpaw.io.logger import write_header as header
-    log(f' __  _  _\n| _ |_)|_||  |\n|__||  | ||/\\| - {__version__}\n')
+    log(f'#  __  _  _\n# | _ |_)|_||  |\n# |__||  | ||/\\| - {__version__}\n')
     header(log, world)
-    log('Input parameters = {\n    ', end='')
-    log(',\n    '.join(f'{k!r}: {v!r}' for k, v in params.items()) + '}')
+    log('---')
+    with log.indent('input parameters:'):
+        log(**{k: v for k, v in params.items()})
 
 
 def compare_atoms(a1: Atoms, a2: Atoms) -> set[str]:

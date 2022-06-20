@@ -53,14 +53,14 @@ def get_pw_descriptor(q_c, calc, ecut, gammacentered=False):
 
 
 def get_bz_transitions(filename, q_c, bzk_kc,
-                       response='density', spins='all',
+                       spins='all',
                        ecut=50, txt=sys.stdout):
     """
     Get transitions in the Brillouin zone from kpoints bzk_kv
     contributing to the linear response at wave vector q_c.
     """
 
-    pair = PairDensity(filename, ecut=ecut, response=response, txt=txt)
+    pair = PairDensity(filename, ecut=ecut, txt=txt)
     pd = get_pw_descriptor(q_c, pair.calc, pair.ecut)
 
     bzk_kv = np.dot(bzk_kc, pd.gd.icell_cv) * 2 * np.pi

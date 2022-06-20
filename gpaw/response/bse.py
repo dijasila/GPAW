@@ -20,6 +20,7 @@ from gpaw.response.kernels import get_coulomb_kernel
 from gpaw.response.kernels import get_integrated_kernel
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.response.pair import PairDensity
+from gpaw.response.gamma_int import GammaIntegrator
 
 
 class BSE:
@@ -116,7 +117,7 @@ class BSE:
         bzq_qc = monkhorst_pack(self.kd.N_c) + offset_c
         self.qd = KPointDescriptor(bzq_qc)
         self.qd.set_symmetry(self.calc.atoms, self.kd.symmetry)
-        self.vol = abs(np.linalg.det(calc.wfs.gd.cell_cv))
+        self.vol = calc.wfs.gd.volume
 
         # bands
         self.spins = self.calc.wfs.nspins
@@ -179,6 +180,9 @@ class BSE:
             self.wstc = None
 
         self.print_initialization(self.td, self.eshift, self.gw_skn)
+
+        # Chi0 object
+        self._chi0calc = None  # Initialized later
 
     def __del__(self):
         self.iocontext.close()
@@ -500,22 +504,35 @@ class BSE:
         else:
             self.calculate_screened_potential(ac)
 
+    def _calculate_chi0(self, q_c):
+        """Use the Chi0 object to calculate the static susceptibility."""
+        if self._chi0calc is None:
+            self.initialize_chi0_calculator()
+
+        chi0 = self._chi0calc.create_chi0(q_c, extend_head=False)
+        # Do all bands and all spins
+        m1, m2, spins = 0, self.nbands, 'all'
+        chi0 = self._chi0calc.update_chi0(chi0, m1, m2, spins)
+
+        return chi0.pd, chi0.chi0_wGG, chi0.chi0_wxvG, chi0.chi0_wvv
+
+    def initialize_chi0_calculator(self):
+        """Initialize the Chi0 object to compute the static
+        susceptibility."""
+        self._chi0calc = Chi0(self.calc,
+                              frequencies=[0.0],
+                              eta=0.001,
+                              ecut=self.ecut * Hartree,
+                              intraband=False,
+                              hilbert=False,
+                              nbands=self.nbands,
+                              txt='chi0.txt',
+                              world=world,
+                              )
+        self.blockcomm = self._chi0calc.blockcomm
+
     def calculate_screened_potential(self, ac):
         """Calculate W_GG(q)"""
-
-        chi0 = Chi0(self.calc,
-                    frequencies=[0.0],
-                    eta=0.001,
-                    ecut=self.ecut,
-                    intraband=False,
-                    hilbert=False,
-                    nbands=self.nbands,
-                    txt='chi0.txt',
-                    world=world,
-                    )
-
-        self.blockcomm = chi0.blockcomm
-        wfs = self.calc.wfs
 
         self.Q_qaGii = []
         self.W_qGG = []
@@ -524,57 +541,35 @@ class BSE:
         t0 = time()
         print('Calculating screened potential', file=self.fd)
         for iq, q_c in enumerate(self.qd.ibzk_kc):
-            thisqd = KPointDescriptor([q_c])
-            pd = PWDescriptor(self.ecut, wfs.gd, complex, thisqd)
+
+            pd, chi0_wGG, chi0_wxvG, chi0_wvv = self._calculate_chi0(q_c)
             nG = pd.ngmax
-
-            chi0.Ga = self.blockcomm.rank * nG
-            chi0.Gb = min(chi0.Ga + nG, nG)
-            chi0_wGG = np.zeros((1, nG, nG), complex)
-            if np.allclose(q_c, 0.0):
-                chi0_wxvG = np.zeros((1, 2, 3, nG), complex)
-                chi0_wvv = np.zeros((1, 3, 3), complex)
-            else:
-                chi0_wxvG = None
-                chi0_wvv = None
-
-            chi0._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv,
-                            0, self.nbands, spins='all', extend_head=False)
             chi0_GG = chi0_wGG[0]
 
             # Calculate eps^{-1}_GG
             if pd.kd.gamma:
                 # Generate fine grid in vicinity of gamma
                 kd = self.calc.wfs.kd
-                N = 4
-                N_c = np.array([N, N, N])
-                if self.truncation is not None:
-                    # Only average periodic directions if trunction is used
-                    N_c[kd.N_c == 1] = 1
-                qf_qc = monkhorst_pack(N_c) / kd.N_c
-                qf_qc *= 1.0e-6
-                U_scc = kd.symmetry.op_scc
-                qf_qc = kd.get_ibz_q_points(qf_qc, U_scc)[0]
-                weight_q = kd.q_weights
-                qf_qv = 2 * np.pi * np.dot(qf_qc, pd.gd.icell_cv)
-                a_q = np.sum(np.dot(chi0_wvv[0], qf_qv.T) * qf_qv.T, axis=0)
-                a0_qG = np.dot(qf_qv, chi0_wxvG[0, 0])
-                a1_qG = np.dot(qf_qv, chi0_wxvG[0, 1])
+                gamma_int = GammaIntegrator(kd=kd, pd=pd,
+                                            truncation=self.truncation,
+                                            chi0_wvv=chi0_wvv[:1],
+                                            chi0_wxvG=chi0_wxvG[:1])
+
                 einv_GG = np.zeros((nG, nG), complex)
                 # W_GG = np.zeros((nG, nG), complex)
-                for iqf in range(len(qf_qv)):
-                    chi0_GG[0] = a0_qG[iqf]
-                    chi0_GG[:, 0] = a1_qG[iqf]
-                    chi0_GG[0, 0] = a_q[iqf]
+                for iqf in range(len(gamma_int.qf_qv)):
+                    chi0_GG[0] = gamma_int.a0_qwG[iqf, 0]
+                    chi0_GG[:, 0] = gamma_int.a1_qwG[iqf, 0]
+                    chi0_GG[0, 0] = gamma_int.a_wq[0, iqf]
                     sqrV_G = get_coulomb_kernel(pd,
                                                 kd.N_c,
                                                 truncation=self.truncation,
                                                 wstc=self.wstc,
-                                                q_v=qf_qv[iqf])**0.5
+                                                q_v=gamma_int.qf_qv[iqf])**0.5
                     sqrV_G *= ac**0.5  # Multiply by adiabatic coupling
                     e_GG = np.eye(nG) - chi0_GG * sqrV_G * sqrV_G[:,
                                                                   np.newaxis]
-                    einv_GG += np.linalg.inv(e_GG) * weight_q[iqf]
+                    einv_GG += np.linalg.inv(e_GG) * gamma_int.weight_q[iqf]
                     # einv_GG = np.linalg.inv(e_GG) * weight_q[iqf]
                     # W_GG += (einv_GG * sqrV_G * sqrV_G[:, np.newaxis]
                     #          * weight_q[iqf])
@@ -626,7 +621,7 @@ class BSE:
                 e = 1 / einv_GG[0, 0].real
                 print('    RPA dielectric constant is: %3.3f' % e,
                       file=self.fd)
-            self.Q_qaGii.append(chi0.Q_aGii)
+            self.Q_qaGii.append(self._chi0calc.Q_aGii)
             self.pd_q.append(pd)
             self.W_qGG.append(W_GG)
 
@@ -890,7 +885,7 @@ class BSE:
 
     def get_polarizability(self, w_w=None, eta=0.1,
                            q_c=[0.0, 0.0, 0.0], direction=0,
-                           filename='pol_bse.csv', readfile=None, pbc=None,
+                           filename='pol_bse.csv', readfile=None,
                            write_eig='eig.dat'):
         r"""Calculate the polarizability alpha.
         In 3D the imaginary part of the polarizability is related to the
@@ -907,10 +902,8 @@ class BSE:
         """
 
         cell_cv = self.calc.wfs.gd.cell_cv
-        if not pbc:
-            pbc_c = self.calc.atoms.pbc
-        else:
-            pbc_c = np.array(pbc)
+        pbc_c = self.calc.atoms.pbc
+
         if pbc_c.all():
             V = 1.0
         else:
@@ -941,7 +934,7 @@ class BSE:
 
     def get_2d_absorption(self, w_w=None, eta=0.1,
                           q_c=[0.0, 0.0, 0.0], direction=0,
-                          filename='abs_bse.csv', readfile=None, pbc=None,
+                          filename='abs_bse.csv', readfile=None,
                           write_eig='eig.dat'):
         r"""Calculate the dimensionless absorption for 2d materials.
         It is essentially related to the 2D polarizability \alpha_2d as
@@ -955,10 +948,7 @@ class BSE:
         c = 1.0 / alpha
 
         cell_cv = self.calc.wfs.gd.cell_cv
-        if not pbc:
-            pbc_c = self.calc.atoms.pbc
-        else:
-            pbc_c = np.array(pbc)
+        pbc_c = self.calc.atoms.pbc
 
         assert np.sum(pbc_c) == 2
         V = np.abs(np.linalg.det(cell_cv[~pbc_c][:, ~pbc_c]))

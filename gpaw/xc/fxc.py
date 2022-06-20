@@ -162,55 +162,39 @@ class FXCCorrelation(RPACorrelation):
         return e
 
     @timer('Chi0(q)')
-    def calculate_q(self, chi0, pd, chi0_swGG, chi0_swxvG, chi0_swvv, m1, m2,
-                    cut_G, A2_x):
-        if chi0_swxvG is None:
-            chi0_swxvG = range(2)  # Not used
-            chi0_swvv = range(2)  # Not used
-        chi0._calculate(pd,
-                        chi0_swGG[0],
-                        chi0_swxvG[0],
-                        chi0_swvv[0],
-                        m1,
-                        m2, [0],
-                        extend_head=False)
-        if len(chi0_swGG) == 2:
-            chi0._calculate(pd,
-                            chi0_swGG[1],
-                            chi0_swxvG[1],
-                            chi0_swvv[1],
-                            m1,
-                            m2, [1],
-                            extend_head=False)
+    def calculate_q(self, chi0calc, chi0_s, m1, m2,
+                    cut_G):
+        for s, chi0 in enumerate(chi0_s):
+            chi0calc.update_chi0(chi0,
+                                 m1,
+                                 m2, [s])
         print('E_c(q) = ', end='', file=self.fd)
 
+        pd = chi0.pd
+        nw = chi0.nw
+        mynw = nw // self.nblocks
+        assert nw % self.nblocks == 0
+        nspins = len(chi0_s)
+        nG = pd.ngmax
+        chi0_swGG = np.empty((nspins, mynw, nG, nG), complex)
+        for chi0_wGG, chi0 in zip(chi0_swGG, chi0_s):
+            chi0.redistribute(out_x=chi0_wGG)
         if self.nblocks > 1:
-            if len(chi0_swGG) == 2:
-                chi0_0wGG = chi0.redistribute(chi0_swGG[0], A2_x)
-                nredist = np.product(chi0_0wGG.shape)
-                chi0.redistribute(chi0_swGG[1], A2_x[nredist:])
-                chi0_swGG = A2_x[:2 * nredist].reshape((2, ) + chi0_0wGG.shape)
-                chi0_swGG = np.swapaxes(chi0_swGG, 2, 3)
-            else:
-                chi0_0wGG = chi0.redistribute(chi0_swGG[0], A2_x)
-                nredist = np.product(chi0_0wGG.shape)
-                chi0_swGG = A2_x[:1 * nredist].reshape((1, ) + chi0_0wGG.shape)
-                chi0_swGG = np.swapaxes(chi0_swGG, 2, 3)
+            chi0_swGG = np.swapaxes(chi0_swGG, 2, 3)
 
         if not pd.kd.gamma:
             e = self.calculate_energy(pd, chi0_swGG, cut_G)
             print('%.3f eV' % (e * Ha), file=self.fd)
             self.fd.flush()
         else:
-            nw = len(self.omega_w)
-            mynw = nw // self.nblocks
             w1 = self.blockcomm.rank * mynw
             w2 = w1 + mynw
             e = 0.0
             for v in range(3):
-                chi0_swGG[:, :, 0] = chi0_swxvG[:, w1:w2, 0, v]
-                chi0_swGG[:, :, :, 0] = chi0_swxvG[:, w1:w2, 1, v]
-                chi0_swGG[:, :, 0, 0] = chi0_swvv[:, w1:w2, v, v]
+                for chi0_wGG, chi0 in zip(chi0_swGG, chi0_s):
+                    chi0_wGG[:, 0] = chi0.chi0_wxvG[w1:w2, 0, v]
+                    chi0_wGG[:, :, 0] = chi0.chi0_wxvG[w1:w2, 1, v]
+                    chi0_wGG[:, 0, 0] = chi0.chi0_wvv[w1:w2, v, v]
                 ev = self.calculate_energy(pd, chi0_swGG, cut_G)
                 e += ev
                 print('%.3f' % (ev * Ha), end='', file=self.fd)
@@ -1323,7 +1307,7 @@ class KernelDens:
         ng_c = gd.N_c
         cell_cv = gd.cell_cv
         icell_cv = 2 * np.pi * np.linalg.inv(cell_cv)
-        vol = np.linalg.det(cell_cv)
+        vol = gd.volume
 
         ns = self.calc.wfs.nspins
         n_g = self.n_g  # density on rough grid
@@ -1523,7 +1507,7 @@ class KernelDens:
         pd = self.pd
         cell_cv = gd.cell_cv
         icell_cv = 2 * np.pi * np.linalg.inv(cell_cv)
-        vol = np.linalg.det(cell_cv)
+        vol = gd.volume
 
         fxc_sg = ns * self.get_fxc_g(ns * self.n_g)
         fxc_sg[np.where(self.n_g < self.density_cut)] = 0.0
@@ -1721,41 +1705,63 @@ class KernelDens:
 """
 
 
+class XCFlags:
+    _accepted_flags = {
+        'RPA',
+        'range_RPA',  # range separated RPA a la Bruneval
+        'rALDA',  # renormalized kernels
+        'rAPBE',
+        'range_rALDA',
+        'rALDAns',  # no spin (ns)
+        'rAPBEns',
+        'rALDAc',  # rALDA + correlation
+        'CP',  # Constantin Pitarke
+        'CP_dyn',  # Dynamical form of CP
+        'CDOP',  # Corradini et al
+        'CDOPs',  # CDOP without local term
+        'JGMs',  # simplified jellium-with-gap kernel
+        'JGMsx',  # simplified jellium-with-gap kernel,
+        # constructed with exchange part only
+        # so that it scales linearly with l
+        'ALDA'}  # standard ALDA
+
+    _spin_kernels = {'rALDA', 'rAPBE', 'ALDA'}
+
+    _linear_kernels = {'rALDAns', 'rAPBEns', 'range_RPA', 'JGMsx', 'RPA',
+                       'rALDA', 'rAPBE', 'range_rALDA', 'ALDA'}
+
+    def __init__(self, xc):
+        if xc not in self._accepted_flags:
+            raise RuntimeError('%s kernel not recognized' % self.xc)
+
+        self.xc = xc
+
+    @property
+    def spin_kernel(self):
+        # rALDA/rAPBE are the only kernels which have spin-dependent forms
+        return self.xc in self._spin_kernels
+
+    @property
+    def linear_kernel(self):
+        # Scales linearly with coupling constant
+        return self.xc in self._linear_kernels
+
+    @property
+    def dyn_kernel(self):
+        return self.xc == 'CP_dyn'
+
+
 def set_flags(self):
     """ Based on chosen fxc and av. scheme set up true-false flags """
 
-    if self.xc not in (
-            'RPA',
-            'range_RPA',  # range separated RPA a la Bruneval
-            'rALDA',  # renormalized kernels
-            'rAPBE',
-            'range_rALDA',
-            'rALDAns',  # no spin (ns)
-            'rAPBEns',
-            'rALDAc',  # rALDA + correlation
-            'CP',  # Constantin Pitarke
-            'CP_dyn',  # Dynamical form of CP
-            'CDOP',  # Corradini et al
-            'CDOPs',  # CDOP without local term
-            'JGMs',  # simplified jellium-with-gap kernel
-            'JGMsx',  # simplified jellium-with-gap kernel,
-            # constructed with exchange part only
-            # so that it scales linearly with l
-            'ALDA'  # standard ALDA
-    ):
-        raise RuntimeError('%s kernel not recognized' % self.xc)
+    flags = XCFlags(self.xc)
 
     if (self.xc == 'rALDA' or self.xc == 'rAPBE' or self.xc == 'ALDA'):
-
         if self.av_scheme is None:
             self.av_scheme = 'density'
             # Two-point scheme default for rALDA and rAPBE
 
-        self.spin_kernel = True
-        # rALDA/rAPBE are the only kernels which have spin-dependent forms
-
-    else:
-        self.spin_kernel = False
+    self.spin_kernel = flags.spin_kernel
 
     if self.av_scheme == 'density':
         assert (self.xc == 'rALDA' or self.xc == 'rAPBE'
@@ -1767,16 +1773,8 @@ def set_flags(self):
     else:
         self.av_scheme = None
 
-    if self.xc in ('rALDAns', 'rAPBEns', 'range_RPA', 'JGMsx', 'RPA', 'rALDA',
-                   'rAPBE', 'range_rALDA', 'ALDA'):
-        self.linear_kernel = True  # Scales linearly with coupling constant
-    else:
-        self.linear_kernel = False
-
-    if self.xc == 'CP_dyn':
-        self.dyn_kernel = True
-    else:
-        self.dyn_kernel = False
+    self.linear_kernel = flags.linear_kernel
+    self.dyn_kernel = flags.dyn_kernel
 
     if self.xc == 'JGMs' or self.xc == 'JGMsx':
         assert (self.Eg is not None), 'JGMs kernel requires a band gap!'

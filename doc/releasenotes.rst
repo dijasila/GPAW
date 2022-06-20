@@ -22,6 +22,15 @@ Git master branch
   converge after 200 steps unless it already converged before that.  This is
   useful for structure optimizations that start far from the minimum.
 
+* New common interface to the implementation of both linear and nonlinear
+  frequency grids in the response code, now passed as a single input to e.g.
+  Chi0, DielectricFunction and G0W0. Explained in the :ref:`frequency grid`
+  tutorial.
+
+* :ref:`spinspiral calculations`.  See also
+  :git:`~gpaw/test/spinspiral/h_chain_test.py`.
+
+* The GW0 feature has been removed.
 
 Version 22.1.0
 ==============
@@ -769,7 +778,7 @@ Feb 7, 2017: :git:`1.2.0 <../1.2.0>`.
   :ref:`gw-2D`.
 
 * It is now possible to carry out GW calculations with eigenvalue self-
-  consistency in G. See this tutorial :ref:`gw-GW0`.
+  consistency in G. NOTE: This feature was removed after version 22.1.0.
 
 * XC objects can now be specified as dictionaries, allowing GGAs and MGGAs
   with custom stencils: ``GPAW(xc={'name': 'PBE', 'stencil': 2})``

@@ -1,5 +1,4 @@
 # web-page: na2_casida_Ffe.png, na2_casida_Frho.png, na2_casida_Fphi.png
-# -*- coding: utf-8 -*-
 from gpaw.mpi import world
 
 import numpy as np

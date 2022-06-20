@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
@@ -646,7 +645,7 @@ class Density:
                                                    self.redistributor,
                                                    kptband_comm)
         D_asp = \
-            redistribute_atomic_matrices(dens.D_asp, self.gd, self.nspins,
+            redistribute_atomic_matrices(dens.D_asp, self.gd, self.ncomponents,
                                          self.setups, self.atom_partition,
                                          kptband_comm)
         self.initialize_directly_from_arrays(new_nt_sG, None, D_asp)

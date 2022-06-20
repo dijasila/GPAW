@@ -8,12 +8,13 @@ import numpy as np
 from ase import Atoms
 from ase.calculators.calculator import kpts2sizeandoffsets
 from ase.units import Bohr
+
 from gpaw.core import UniformGrid
 from gpaw.core.atom_arrays import (AtomArrays, AtomArraysLayout,
                                    AtomDistribution)
 from gpaw.mixer import MixerWrapper, get_mixer_from_keywords
 from gpaw.mpi import MPIComm, Parallelization, serial_comm, world
-from gpaw.new import cached_property
+from gpaw.new import cached_property, prod
 from gpaw.new.basis import create_basis
 from gpaw.new.brillouin import BZPoints, MonkhorstPackKPoints
 from gpaw.new.density import Density
@@ -62,6 +63,20 @@ class DFTComponentsBuilder:
 
         self.check_cell(atoms.cell)
 
+        self.initial_magmoms = normalize_initial_magnetic_moments(
+            params.magmoms, atoms, params.spinpol)
+
+        if self.initial_magmoms is None:
+            self.ncomponents = 1
+        elif self.initial_magmoms.ndim == 1:
+            self.ncomponents = 2
+        else:
+            self.ncomponents = 4
+
+        self.soc = params.soc
+        self.nspins = self.ncomponents % 3
+        self.spin_degeneracy = self.ncomponents % 2 + 1
+
         self.xc = self.create_xc_functional()
 
         self.setups = Setups(atoms.numbers,
@@ -69,15 +84,13 @@ class DFTComponentsBuilder:
                              params.basis,
                              self.xc.setup_name,
                              world)
-        self.initial_magmoms = normalize_initial_magnetic_moments(
-            params.magmoms, atoms, params.spinpol)
-
         symmetries = create_symmetries_object(atoms,
                                               self.setups.id_a,
                                               self.initial_magmoms,
                                               params.symmetry)
+        assert not (self.ncomponents == 4 and len(symmetries) > 1)
         bz = create_kpts(params.kpts, atoms)
-        self.ibz = symmetries.reduce(bz)
+        self.ibz = symmetries.reduce(bz, strict=False)
 
         d = parallel.get('domain', None)
         k = parallel.get('kpt', None)
@@ -107,16 +120,6 @@ class DFTComponentsBuilder:
 
         self.grid, self.fine_grid = self.create_uniform_grids()
 
-        if self.initial_magmoms is None:
-            self.ncomponents = 1
-        elif self.initial_magmoms.ndim == 1:
-            self.ncomponents = 2
-        else:
-            self.ncomponents = 4
-
-        self.nspins = self.ncomponents % 3
-        self.spin_degeneracy = self.ncomponents % 2 + 1
-
         self.fracpos_ac = self.atoms.get_scaled_positions()
         self.fracpos_ac %= 1
         self.fracpos_ac %= 1
@@ -125,7 +128,7 @@ class DFTComponentsBuilder:
         raise NotImplementedError
 
     def create_xc_functional(self):
-        return XCFunctional(self.params.xc)
+        return XCFunctional(self.params.xc, self.ncomponents)
 
     def check_cell(self, cell):
         number_of_lattice_vectors = cell.rank
@@ -202,6 +205,12 @@ class DFTComponentsBuilder:
                        self.params.convergence,
                        self.params.maxiter)
 
+    def read_ibz_wave_functions(self, reader):
+        raise NotImplementedError
+
+    def create_potential_calculator(self):
+        raise NotImplementedError
+
     def read_wavefunction_values(self, reader, ibzwfs):
         """ Read eigenvalues, occuptions and projections and fermi levels
 
@@ -214,15 +223,22 @@ class DFTComponentsBuilder:
         occ_skn = reader.wave_functions.occupations
         P_sknI = reader.wave_functions.projections
 
+        if self.params.force_complex_dtype:
+            P_sknI = P_sknI.astype(complex)
+
         for wfs in ibzwfs:
             wfs._eig_n = eig_skn[wfs.spin, wfs.k] / ha
             wfs._occ_n = occ_skn[wfs.spin, wfs.k]
             layout = AtomArraysLayout([(setup.ni,) for setup in self.setups],
                                       dtype=self.dtype)
-            wfs._P_ain = AtomArrays(layout,
-                                    dims=(self.nbands,),
-                                    data=P_sknI[wfs.spin, wfs.k].T,
-                                    transposed=True)
+            if self.ncomponents < 4:
+                wfs._P_ani = AtomArrays(layout,
+                                        dims=(self.nbands,),
+                                        data=P_sknI[wfs.spin, wfs.k])
+            else:
+                wfs._P_ani = AtomArrays(layout,
+                                        dims=(self.nbands, 2),
+                                        data=P_sknI[wfs.k])
 
         ibzwfs.fermi_levels = reader.wave_functions.fermi_levels / ha
 
@@ -233,8 +249,8 @@ def create_communicators(comm: MPIComm = None,
                          kpt: int = None,
                          band: int = None) -> dict[str, MPIComm]:
     parallelization = Parallelization(comm or world, nibzkpts)
-    if domain is not None:
-        domain = np.prod(domain)
+    if domain is not None and not isinstance(domain, int):
+        domain = prod(domain)
     parallelization.set(kpt=kpt,
                         domain=domain,
                         band=band)
@@ -326,6 +342,9 @@ def calculate_number_of_bands(nbands, setups, charge, magmoms, is_lcao):
     if nvalence > 2 * nbands and not orbital_free:
         raise ValueError(
             f'Too few bands!  Electrons: {nvalence}, bands: {nbands}')
+
+    if magmoms is not None and magmoms.ndim == 2:
+        nbands *= 2
 
     return nbands
 

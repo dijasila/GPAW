@@ -1,5 +1,6 @@
-import numpy as np
+import warnings
 
+import numpy as np
 from gpaw.mpi import MPIComm
 from gpaw.new.brillouin import IBZ, BZPoints
 from gpaw.rotation import rotation
@@ -22,7 +23,20 @@ def create_symmetries_object(atoms, ids=None, magmoms=None, parameters=None):
     return Symmetries(symmetry)
 
 
+def mat(rot_cc) -> str:
+    """Convert 3x3 matrix to str.
+
+    >>> mat([[-1, 0, 0], [0, 1, 0], [0, 0, 1]])
+    '[[-1,  0,  0], [ 0,  1,  0], [ 0,  0,  1]]'
+
+    """
+    return '[[' + '], ['.join(', '.join(f'{r:2}'
+                                        for r in rot_c)
+                              for rot_c in rot_cc) + ']]'
+
+
 class Symmetries:
+    """Wrapper for old symmetry object.  Exposes what we need now."""
     def __init__(self, symmetry):
         self.symmetry = symmetry
         self.rotation_scc = symmetry.op_scc
@@ -42,13 +56,35 @@ class Symmetries:
         return len(self.rotation_scc)
 
     def __str__(self):
-        return str(self.symmetry)
+        lines = ['symmetry:',
+                 f'  number of symmetries: {len(self)}']
+        if self.symmetry.symmorphic:
+            lines.append('  rotations: [')
+            for rot_cc in self.rotation_scc:
+                lines.append(f'    {mat(rot_cc)},')
+        else:
+            nt = self.translation_sc.any(1).sum()
+            lines.append(f'  number of symmetries with translation: {nt}')
+            lines.append('  rotations and translations: [')
+            for rot_cc, t_c in zip(self.rotation_scc, self.translation_sc):
+                a, b, c = t_c
+                lines.append(f'    [{mat(rot_cc)}, '
+                             f'[{a:6.3f}, {b:6.3f}, {c:6.3f}]],')
+        lines[-1] = lines[-1][:-1] + ']\n'
+        return '\n'.join(lines)
 
     def reduce(self,
                bz: BZPoints,
-               comm: MPIComm = None) -> IBZ:
+               comm: MPIComm = None,
+               strict: bool = True) -> IBZ:
         (_, weight_k, sym_k, time_reversal_k, bz2ibz_K, ibz2bz_k,
          bz2bz_Ks) = self.symmetry.reduce(bz.kpt_Kc, comm)
+
+        if -1 in bz2bz_Ks:
+            msg = 'Note: your k-points are not as symmetric as your crystal!'
+            if strict:
+                raise ValueError(msg)
+            warnings.warn(msg)
 
         return IBZ(self, bz, ibz2bz_k, bz2ibz_K, weight_k)
 

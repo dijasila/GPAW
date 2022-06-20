@@ -25,9 +25,9 @@ extensions = ['images',
 
 if sphinxcontrib:
     extensions.append('sphinxcontrib.spelling')
-extlinks = {'doi': ('https://doi.org/%s', 'doi:'),
-            'arxiv': ('https://arxiv.org/abs/%s', 'arXiv:'),
-            'xkcd': ('https://xkcd.com/%s', 'XKCD:')}
+extlinks = {'doi': ('https://doi.org/%s', 'doi: %s'),
+            'arxiv': ('https://arxiv.org/abs/%s', 'arXiv: %s'),
+            'xkcd': ('https://xkcd.com/%s', 'XKCD: %s')}
 spelling_word_list_filename = 'words.txt'
 spelling_show_suggestions = True
 templates_path = ['templates']
@@ -62,9 +62,11 @@ nitpick_ignore = [('py:class', 'gpaw.calculator.GPAW'),
                   ('py:class', 'Vector'),
                   ('py:class', 'ArrayLike1D'),
                   ('py:class', 'ArrayLike2D'),
+                  ('py:class', 'Array1D'),
                   ('py:class', 'Array2D'),
                   ('py:class', 'Array3D'),
                   ('py:class', 'MPIComm'),
+                  ('py:class', 'DomainType'),
                   ('py:class', 'IO')]
 
 html_theme = 'sphinx_rtd_theme'

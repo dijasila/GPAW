@@ -97,6 +97,7 @@ class Criterion:
     # criteria have been met.
     calc_last = False
     override_others = False
+    description = None
 
     def __repr__(self):
         parameters = signature(self.__class__).parameters
@@ -290,7 +291,10 @@ class Forces(Criterion):
         converged = (error < self.tol)
         entry = ''
         if np.isfinite(error):
-            entry = '{:+5.2f}'.format(np.log10(error))
+            if error:
+                entry = '{:+5.2f}'.format(np.log10(error))
+            else:
+                entry = '-inf'
         return converged, entry
 
     def reset(self):

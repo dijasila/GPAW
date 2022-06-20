@@ -1,5 +1,6 @@
 from __future__ import annotations
-
+from pathlib import Path
+from typing import Any, IO, Union
 import ase.io.ulm as ulm
 import gpaw
 import numpy as np
@@ -11,6 +12,9 @@ from gpaw.new.calculation import DFTCalculation, DFTState, units
 from gpaw.new.density import Density
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.potential import Potential
+from gpaw.utilities import unpack, unpack2
+from gpaw.new.logger import Logger
+import gpaw.mpi as mpi
 
 
 def write_gpw(filename: str,
@@ -37,7 +41,8 @@ def write_gpw(filename: str,
                    for key, value in calculation.results.items()}
         writer.child('results').write(**results)
         writer.child('parameters').write(
-            **{k: v for k, v in params.items() if k != 'txt'})
+            **{k: v for k, v in params.items()
+               if k not in ['txt', 'parallel']})
 
         state = calculation.state
         state.density.write(writer.child('density'))
@@ -85,10 +90,24 @@ def write_wave_function_indices(writer, ibzwfs, grid):
             writer.fill(index_G)
 
 
-def read_gpw(filename, log, parallel):
-    log(f'Reading from {filename}')
+def read_gpw(filename: Union[str, Path, IO[str]],
+             log: Union[Logger, str, Path, IO[str]] = None,
+             parallel: dict[str, Any] = None,
+             force_complex_dtype: bool = False):
+    """
+    Read gpw file
 
-    world = parallel['world']
+    Returns
+    -------
+    atoms, calculation, params, builder
+    """
+    parallel = parallel or {}
+    world = parallel.get('world', mpi.world)
+
+    if not isinstance(log, Logger):
+        log = Logger(log, world)
+
+    log(f'Reading from {filename}')
 
     reader = ulm.Reader(filename)
     bohr = reader.bohr
@@ -98,7 +117,11 @@ def read_gpw(filename, log, parallel):
 
     kwargs = reader.parameters.asdict()
     kwargs['parallel'] = parallel
-    params = InputParameters(kwargs)
+
+    if force_complex_dtype:
+        kwargs['force_complex_dtype'] = True
+
+    params = InputParameters(kwargs, warn=False)
     builder = create_builder(atoms, params)
 
     (kpt_comm, band_comm, domain_comm, kpt_band_comm) = (
@@ -122,13 +145,18 @@ def read_gpw(filename, log, parallel):
                                           for setup in builder.setups],
                                          atomdist=builder.atomdist)
     D_asp = atom_array_layout.empty(builder.ncomponents)
-    dH_asp = atom_array_layout.empty(builder.ncomponents)
+    dH_asp = atom_array_layout.new(dtype=dH_sap_array.dtype).empty(
+        builder.ncomponents)
 
     if kpt_band_comm.rank == 0:
         nt_sR.scatter_from(nt_sR_array)
         vt_sR.scatter_from(vt_sR_array)
         D_asp.scatter_from(D_sap_array)
         dH_asp.scatter_from(dH_sap_array)
+
+    if reader.version < 4:
+        convert_to_new_packing_convention(D_asp, density=True)
+        convert_to_new_packing_convention(dH_asp)
 
     kpt_band_comm.broadcast(nt_sR.data, 0)
     kpt_band_comm.broadcast(vt_sR.data, 0)
@@ -146,19 +174,40 @@ def read_gpw(filename, log, parallel):
         DFTState(ibzwfs, density, potential),
         builder.setups,
         builder.create_scf_loop(),
-        pot_calc=builder.create_potential_calculator())
+        pot_calc=builder.create_potential_calculator(),
+        log=log)
 
     results = {key: value / units[key]
                for key, value in reader.results.asdict().items()}
+
     if results:
         log(f'Read {", ".join(sorted(results))}')
 
     calculation.results = results
-    return atoms, calculation, params
+
+    if builder.mode in ['pw', 'fd']:
+        data = ibzwfs.wfs_qs[0][0].psit_nX.data
+        if not hasattr(data, 'fd'):
+            reader.close()
+    else:
+        reader.close()
+
+    return atoms, calculation, params, builder
 
 
-if __name__ == '__main__':
-    import sys
+def convert_to_new_packing_convention(a_asp, density=False):
+    """Convert from old to new convention.
 
-    from gpaw.mpi import world
-    read_gpw(sys.argv[1], print, {'world': world})
+    ::
+
+        1 2 3      1 2 4
+        . 4 5  ->  . 3 5
+        . . 6      . . 6
+    """
+    for a_sp in a_asp.values():
+        if density:
+            a_sii = unpack2(a_sp)
+        else:
+            a_sii = unpack(a_sp)
+        L = np.tril_indices(a_sii.shape[1])
+        a_sp[:] = a_sii[(...,) + L]

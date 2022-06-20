@@ -2,15 +2,14 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 import numpy as np
 from ase.dft.kpoints import monkhorst_pack
-from ase.utils import plural
 from gpaw.mpi import MPIComm
-from gpaw.typing import Array1D
+from gpaw.typing import Array1D, ArrayLike2D
 if TYPE_CHECKING:
     from gpaw.new.symmetry import Symmetries
 
 
 class BZPoints:
-    def __init__(self, points):
+    def __init__(self, points: ArrayLike2D):
         self.kpt_Kc = np.array(points)
         assert self.kpt_Kc.ndim == 2
         assert self.kpt_Kc.shape[1] == 3
@@ -21,12 +20,9 @@ class BZPoints:
         return len(self.kpt_Kc)
 
     def __repr__(self):
-        return f'BZPoints([<{len(self)} points>])'
-
-    def __str__(self):
         if self.gamma_only:
-            return '1 k-point (Gamma)'
-        return f'{len(self)} k-points'
+            return 'BZPoints([<gamma only>])'
+        return f'BZPoints([<{len(self)} points>])'
 
 
 class MonkhorstPackKPoints(BZPoints):
@@ -39,22 +35,10 @@ class MonkhorstPackKPoints(BZPoints):
         return f'MonkhorstPackKPoints({self.size_c}, shift={self.shift_c})'
 
     def __str__(self):
-        if self.gamma_only:
-            return '1 k-point (Gamma)'
-
         a, b, c = self.size_c
-        s = f'{len(self)} k-points: {a} x {b} x {c} Monkhorst-Pack grid'
-
-        if self.shift_c.any():
-            s += ' + ['
-            for x in self.shift_c:
-                if x != 0 and abs(round(1 / x) - 1 / x) < 1e-12:
-                    s += '1/%d,' % round(1 / x)
-                else:
-                    s += f'{x:f},'
-            s = s[:-1] + ']'
-
-        return s
+        l, m, n = self.shift_c
+        return (f'monkhorst-pack size: [{a}, {b}, {c}]\n'
+                f'monkhorst-pack shift: [{l}, {m}, {n}]\n')
 
 
 class IBZ:
@@ -80,34 +64,28 @@ class IBZ:
                 f'symmetries: {len(self.symmetries)}>)')
 
     def __str__(self):
-        return str(self.symmetries) + self.description(verbose=True)
-
-    def description(self, verbose=False):
-        # if -1 in self.bz2bz_Ks:
-        #    s += 'Note: your k-points are not as symmetric as your crystal!\n'
         N = len(self)
-        s = str(self.bz)
-        nk = plural(N, 'k-point')
-        s += f'\n{nk} in the irreducible part of the Brillouin zone\n'
-
-        if not verbose:
-            return s
+        txt = ('bz sampling:\n'
+               f'  number of bz points: {len(self.bz)}\n'
+               f'  number of ibz points: {N}\n')
 
         if isinstance(self.bz, MonkhorstPackKPoints):
-            w_k = (self.weight_k * len(self.bz)).round().astype(int)
+            txt += '  ' + str(self.bz).replace('\n', '\n  ', 1)
 
-        s += '          k-point in crystal coordinates           weight\n'
-        for k, (a, b, c) in enumerate(self.kpt_kc):
-            if k >= 10 and k < N - 1:
-                continue
-            elif k == 10:
-                s += '          ...\n'
-            s += f'{k:4}:   {a:12.8f}  {b:12.8f}  {c:12.8f}     '
-            if isinstance(self.bz, MonkhorstPackKPoints):
-                s += f'{w_k[k]}/{len(self.bz)}\n'
-            else:
-                s += f'{self.weight_k[k]:.8f}\n'
-        return s
+        txt += '  points and weights: [\n'
+        k = 0
+        while k < N:
+            if k == 10:
+                if N > 10:
+                    txt += '    # ...\n'
+                k = N - 1
+            a, b, c = self.kpt_kc[k]
+            w = self.weight_k[k]
+            t = ',' if k < N - 1 else ']'
+            txt += (f'    [[{a:12.8f}, {b:12.8f}, {c:12.8f}], '
+                    f'{w:.8f}]{t}  # {k}\n')
+            k += 1
+        return txt
 
     def ranks(self, comm: MPIComm) -> Array1D:
         """Distribute k-points over MPI-communicator."""
@@ -121,11 +99,10 @@ def ranks(N, K) -> Array1D:
     array([0, 1, 2, 2, 3, 3])
     """
     n, x = divmod(K, N)
-
     rnks = np.empty(K, int)
-    k0 = K - x * (n + 1)
-    for k in range(k0):
+    r = N - x
+    for k in range(r * n):
         rnks[k] = k // n
-    for k in range(k0, K):
-        rnks[k] = (k - k0) // (n + 1) + x
+    for k in range(r * n, K):
+        rnks[k] = (k - r * n) // (n + 1) + r
     return rnks

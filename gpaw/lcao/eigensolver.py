@@ -83,6 +83,7 @@ class DirectLCAO(object):
 
         if add_kinetic:
             H_MM += wfs.T_qMM[kpt.q]
+
         return H_MM
 
     def iterate(self, hamiltonian, wfs, occ=None):

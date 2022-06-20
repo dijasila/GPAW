@@ -1,13 +1,18 @@
+import warnings
+
 import numpy as np
 from ase.units import Bohr, Hartree
 
-from gpaw.utilities import h2gpts
 from gpaw.fftw import get_efficient_fft_size
+from gpaw.utilities import h2gpts
 from gpaw.wavefunctions.fd import FD
 
 
-def get_number_of_grid_points(cell_cv, h=None, mode=None, realspace=None,
-                              symmetry=None, log=None):
+def get_number_of_grid_points(cell_cv,
+                              h=None,
+                              mode=None,
+                              realspace=None,
+                              symmetry=None):
     if mode is None:
         mode = FD()
 
@@ -35,9 +40,9 @@ def get_number_of_grid_points(cell_cv, h=None, mode=None, realspace=None,
     if symmetry is not None:
         ok = symmetry.check_grid(N_c)
         if not ok:
-            if log is not None:
-                log('Initial realspace grid '
-                    '({},{},{}) inconsistent with symmetries.'.format(*N_c))
+            warnings.warn(
+                'Initial realspace grid '
+                '({},{},{}) inconsistent with symmetries.'.format(*N_c))
             # The grid is not symmetric enough. The essential problem
             # is that we should start at some other Nmin_c and possibly with
             # other gcd_c when getting the most efficient fft grids
@@ -62,7 +67,7 @@ def get_number_of_grid_points(cell_cv, h=None, mode=None, realspace=None,
 
             N_c = np.array([get_efficient_fft_size(N, n)
                             for N, n in zip(Nmin_c, gcd_c)])
-            log('Using symmetrized grid: ({},{},{}).\n'.format(*N_c))
+            warnings.warn('Using symmetrized grid: ({},{},{}).\n'.format(*N_c))
             ok = symmetry.check_grid(N_c)
             assert ok, ('Grid still not constistent with symmetries '
                         '({},{},{})'.format(*N_c))

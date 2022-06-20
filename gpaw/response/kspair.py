@@ -1,7 +1,6 @@
 from pathlib import Path
 
 import numpy as np
-from scipy.spatial import cKDTree
 
 from gpaw.utilities import convert_string_to_fd
 from ase.utils.timing import Timer, timer
@@ -10,6 +9,7 @@ from gpaw import disable_dry_run
 from gpaw.calculator import GPAW
 import gpaw.mpi as mpi
 from gpaw.response.math_func import two_phi_planewave_integrals
+from gpaw.response.symmetry import KPointFinder
 
 
 class KohnShamKPoint:
@@ -145,7 +145,7 @@ class KohnShamPair:
 
         # Prepare to find k-point data from vector
         kd = self.calc.wfs.kd
-        self.kdtree = cKDTree(np.mod(np.mod(kd.bzk_kc, 1).round(6), 1))
+        self.kptfinder = KPointFinder(kd.bzk_kc)
 
         # Prepare to use other processes' k-points
         self._pd0 = None
@@ -399,7 +399,7 @@ class KohnShamPair:
         t_t = np.arange(nt)
         nh = 0
         for p, k_c in enumerate(k_pc):  # p indicates the receiving process
-            K = self.find_kpoint(k_c)
+            K = self.kptfinder.find(k_c)
             ik = wfs.kd.bz2ibz_k[K]
             for r2 in range(p * self.transitionblockscomm.size,
                             min((p + 1) * self.transitionblockscomm.size,
@@ -716,7 +716,7 @@ class KohnShamPair:
         if self.kptblockcomm.rank in range(len(k_pc)):
             # Find k-point indeces
             k_c = k_pc[self.kptblockcomm.rank]
-            K = self.find_kpoint(k_c)
+            K = self.kptfinder.find(k_c)
             ik = wfs.kd.bz2ibz_k[K]
             # Construct symmetry operators
             (_, T, a_a, U_aii, shift_c,
@@ -813,10 +813,6 @@ class KohnShamPair:
 
         return myu_eu, myn_eurn, nh, h_eurn, h_myt, myt_myt
 
-    @timer('Identifying k-points')
-    def find_kpoint(self, k_c):
-        return self.kdtree.query(np.mod(np.mod(k_c, 1).round(6), 1))[1]
-
     @timer('Apply symmetry operations')
     def transform_and_symmetrize(self, K, k_c, Ph, psit_hG):
         """Get wave function on a real space grid and symmetrize it
@@ -851,85 +847,9 @@ class KohnShamPair:
 
     @timer('Construct symmetry operators')
     def construct_symmetry_operators(self, K, k_c=None):
-        """Construct symmetry operators for wave function and PAW projections.
-
-        We want to transform a k-point in the irreducible part of the BZ to
-        the corresponding k-point with index K.
-
-        Returns U_cc, T, a_a, U_aii, shift_c and time_reversal, where:
-
-        * U_cc is a rotation matrix.
-        * T() is a function that transforms the periodic part of the wave
-          function.
-        * a_a is a list of symmetry related atom indices
-        * U_aii is a list of rotation matrices for the PAW projections
-        * shift_c is three integers: see code below.
-        * time_reversal is a flag - if True, projections should be complex
-          conjugated.
-
-        See the extract_orbitals() method for how to use these tuples.
-        """
-
-        wfs = self.calc.wfs
-        kd = wfs.kd
-
-        s = kd.sym_k[K]
-        U_cc = kd.symmetry.op_scc[s]
-        time_reversal = kd.time_reversal_k[K]
-        ik = kd.bz2ibz_k[K]
-        if k_c is None:
-            k_c = kd.bzk_kc[K]
-        ik_c = kd.ibzk_kc[ik]
-
-        sign = 1 - 2 * time_reversal
-        shift_c = np.dot(U_cc, ik_c) - k_c * sign
-
-        try:
-            assert np.allclose(shift_c.round(), shift_c)
-        except AssertionError:
-            print('shift_c ' + str(shift_c), file=self.fd)
-            print('k_c ' + str(k_c), file=self.fd)
-            print('kd.bzk_kc[K] ' + str(kd.bzk_kc[K]), file=self.fd)
-            print('ik_c ' + str(ik_c), file=self.fd)
-            print('U_cc ' + str(U_cc), file=self.fd)
-            print('sign ' + str(sign), file=self.fd)
-            raise AssertionError
-
-        shift_c = shift_c.round().astype(int)
-
-        if (U_cc == np.eye(3)).all():
-            def T(f_R):
-                return f_R
-        else:
-            N_c = self.calc.wfs.gd.N_c
-            i_cr = np.dot(U_cc.T, np.indices(N_c).reshape((3, -1)))
-            i = np.ravel_multi_index(i_cr, N_c, 'wrap')
-
-            def T(f_R):
-                return f_R.ravel()[i].reshape(N_c)
-
-        if time_reversal:
-            T0 = T
-
-            def T(f_R):
-                return T0(f_R).conj()
-
-            shift_c *= -1
-
-        a_a = []
-        U_aii = []
-        for a, id in enumerate(self.calc.wfs.setups.id_a):
-            b = kd.symmetry.a_sa[s, a]
-            S_c = np.dot(self.calc.spos_ac[a], U_cc) - self.calc.spos_ac[b]
-            x = np.exp(2j * np.pi * np.dot(ik_c, S_c))
-            U_ii = wfs.setups[a].R_sii[s].T * x
-            a_a.append(b)
-            U_aii.append(U_ii)
-
-        shift0_c = (kd.bzk_kc[K] - k_c).round().astype(int)
-        shift_c += -shift0_c
-
-        return U_cc, T, a_a, U_aii, shift_c, time_reversal
+        from gpaw.response.symmetry_ops import construct_symmetry_operators
+        return construct_symmetry_operators(
+            self, K, k_c, apply_strange_shift=True, spos_ac=self.calc.spos_ac)
 
 
 def get_calc(gs, fd=None, timer=None):
@@ -979,11 +899,11 @@ class PairMatrixElement:
 
 
 class PlaneWavePairDensity(PairMatrixElement):
-    """Class for calculating pair densities:
+    """Class for calculating pair densities
 
-    n_T(q+G) = <s'n'k'| e^(i (q + G) r) |snk>
+    n_kt(G+q) = n_nks,n'k+qs'(G+q) = <nks| e^-i(G+q)r |n'k+qs'>_V0
 
-    in the plane wave mode"""
+    for a single k-point pair (k,k+q) in the plane wave mode"""
     def __init__(self, kspair):
         PairMatrixElement.__init__(self, kspair)
 
@@ -1030,9 +950,14 @@ class PlaneWavePairDensity(PairMatrixElement):
 
     @timer('Calculate pair density')
     def __call__(self, kskptpair, pd):
-        """Calculate the pair densities for all transitions:
-        n_t(q+G) = <s'n'k+q| e^(i (q + G) r) |snk>
-                 = <snk| e^(-i (q + G) r) |s'n'k+q>
+        """Calculate the pair densities for all transitions t of the (k,k+q)
+        k-point pair:
+        
+        n_kt(G+q) = <nks| e^-i(G+q)r |n'k+qs'>_V0
+
+                    /
+                  = | dr e^-i(G+q)r psi_nks^*(r) psi_n'k+qs'(r)
+                    /V0
         """
         Q_aGii = self.get_paw_projectors(pd)
         Q_G = self.get_fft_indices(kskptpair, pd)

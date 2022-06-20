@@ -9,7 +9,7 @@ import numpy as np
 import scipy.linalg as linalg
 from gpaw import debug
 from gpaw.mpi import MPIComm, _Communicator, serial_comm
-from gpaw.typing import Array1D, Array2D
+from gpaw.typing import Array1D, ArrayLike2D
 
 _global_blacs_context_store: Dict[Tuple[_Communicator, int, int], int] = {}
 
@@ -55,7 +55,7 @@ class Matrix:
                  M: int,
                  N: int,
                  dtype=None,
-                 data: Array2D = None,
+                 data: ArrayLike2D = None,
                  dist: Union[MatrixDistribution, tuple[int, ...]] = None):
         """Matrix object.
 
@@ -77,12 +77,16 @@ class Matrix:
             """
         self.shape = (M, N)
 
+        if data is not None:
+            data = np.asarray(data)
+
         if dtype is None:
             if data is None:
                 dtype = float
             else:
                 dtype = data.dtype
         self.dtype = np.dtype(dtype)
+        assert dtype == float or dtype == complex, dtype
 
         dist = dist or ()
         if isinstance(dist, tuple):
@@ -120,6 +124,12 @@ class Matrix:
         assert isinstance(value, Matrix)
         self.data[:] = value.data
 
+    def __iadd__(self, other):
+        if isinstance(other, Matrix):
+            other = other.data
+        self.data += other
+        return self
+
     def multiply(self,
                  other,
                  alpha=1.0,
@@ -143,7 +153,7 @@ class Matrix:
         elif not isinstance(out, Matrix):
             out = out.matrix
 
-        if dist.comm.size > 1:
+        if 0:  # dist.comm.size > 1:
             # Special cases that don't need scalapack - most likely also
             # faster:
             if alpha == 1.0 and opa == 'N' and opb == 'N':
@@ -218,7 +228,7 @@ class Matrix:
             redist(d1, self.data, d2, other.data, ctx)
 
     def gather(self, root: int = 0) -> Matrix:
-        """ Gather the Matrix on the root rank
+        """Gather the Matrix on the root rank.
 
         Returns a new Matrix distributed so that all data is on the root rank
         """
@@ -231,7 +241,25 @@ class Matrix:
 
         return S
 
-    def invcholesky(self):
+    def inv(self, uplo='L'):
+        """Inplace inversion."""
+        assert uplo == 'L'
+        M, N = self.shape
+        assert M == N
+        dist = self.dist
+        if dist.comm.size == 1:
+            self.tril2full()
+            self.data[:] = linalg.inv(self.data,
+                                      overwrite_a=True,
+                                      check_finite=debug)
+            return
+        bc, br = dist.desc[4:6]
+        assert bc == br
+        info = _gpaw.scalapack_inverse(self.data, dist.desc, 'U')
+        if info != 0:
+            raise ValueError(f'scalapack_inverse error: {info}')
+
+    def invcholesky(self) -> None:
         """Inverse of Cholesky decomposition.
 
         Returns a lower triangle matrix `L` where:::
@@ -241,7 +269,8 @@ class Matrix:
 
         Only the lower part of `S` is used.
 
-        >>> S = Matrix(2, 2, data=np.array([[1.0, np.nan], [0.1, 1.0]]))
+        >>> S = Matrix(2, 2, data=[[1.0, np.nan],
+        ...                        [0.1, 1.0]])
         >>> S.invcholesky()
         >>> S.data
         array([[ 1.        , -0.        ],
@@ -261,7 +290,7 @@ class Matrix:
         if S is not self:
             S.redist(self)
 
-    def eigh(self, cc=False, scalapack=(None, 1, 1, None)):
+    def eigh(self, cc=False, scalapack=(None, 1, 1, None)) -> Array1D:
         """Calculate eigenvectors and eigenvalues.
 
         Matrix must be symmetric/hermitian and stored in lower half.
@@ -322,26 +351,59 @@ class Matrix:
 
         return eps
 
-    def eighg(self, L: Matrix) -> Array1D:
+    def eighg(self, L: Matrix, comm2: MPIComm = serial_comm) -> Array1D:
         """Solve generalized eigenvalue problem.
 
         :::
 
-                     †
-          HC=SCΛ, LSL = 1
+          HC = SCΛ,
 
-        :::
+        where `L` is a lower triangle matrix such that:::
 
-           ~~ ~   ~    †     †~
-           HC=CΛ, H=LHL , C=L C
+             †
+          LSL = 1.
+
+        The solution has these three steps:::
+
+           ~      †   ~~   ~         †~
+           H = LHL ,  HC = CΛ,  C = L C.
         """
-        L_MM = L.data
-        Ht_MM = L_MM @ self.data @ L_MM.conj().T
-        eig_n, Ct_Mn = linalg.eigh(Ht_MM,
-                                   overwrite_a=True,
-                                   check_finite=debug,
-                                   driver='evx' if Ht_MM.size == 1 else 'evd')
-        self.data[:] = L_MM.T @ Ct_Mn
+        M, N = self.shape
+        assert M == N
+        comm = self.dist.comm
+
+        if comm2.rank == 0:
+            if comm.size == 1:
+                H = self
+            else:
+                H = self.new(dist=(comm,))
+                self.redist(H)
+            if comm.rank == 0:
+                tmp_MM = np.empty_like(H.data)
+                L_MM = L.data
+                blas.mmm(1.0, L_MM, 'N', H.data, 'N', 0.0, tmp_MM)
+                blas.r2k(0.5, tmp_MM, L_MM, 0.0, H.data)
+                # Ht_MM = L_MM @ self.data @ L_MM.conj().T
+                eig_n, Ct_Mn = linalg.eigh(
+                    H.data,
+                    overwrite_a=True,
+                    check_finite=debug,
+                    driver='evx' if M == 1 else 'evd')
+                assert Ct_Mn.flags.f_contiguous
+                blas.mmm(1.0, L_MM, 'C', Ct_Mn.T, 'T', 0.0, H.data)
+                # self.data[:] = L_MM.T.conj() @ Ct_Mn
+            else:
+                eig_n = np.empty(M)
+
+            if comm.size > 1:
+                H.redist(self)
+                comm.broadcast(eig_n, 0)
+
+        if comm2.rank > 0:
+            eig_n = np.empty(M)
+        comm2.broadcast(eig_n, 0)
+        comm2.broadcast(self.data, 0)
+
         return eig_n
 
     def complex_conjugate(self) -> None:
@@ -350,7 +412,7 @@ class Matrix:
             np.negative(self.data.imag, self.data.imag)
 
     def add_hermitian_conjugate(self, scale: float = 1.0) -> None:
-        """Add heritian conjugates to myself."""
+        """Add hermitian conjugate to myself."""
         if self.dist.comm.size == 1:
             self.data *= 0.5
             self.data += self.data.conj().T
@@ -374,19 +436,21 @@ class Matrix:
         M, N = self.shape
         assert M == N
 
-        if self.dist.comm.size == 1:
-            u = np.triu_indices(M, 1)
-            self.data[u] = self.data.T[u].conj()
+        dist = self.dist
+
+        if dist.comm.size == 1 or dist.rows == 1 and dist.columns == 1:
+            if dist.comm.rank == 0:
+                u = np.triu_indices(M, 1)
+                self.data[u] = self.data.T[u].conj()
             return
 
-        desc = self.dist.desc
+        desc = dist.desc
         _gpaw.scalapack_set(self.data, desc, 0.0, 0.0, 'L', M - 1, M - 1, 2, 1)
         buf = self.data.copy()
         # Set diagonal to zero in the copy:
         _gpaw.scalapack_set(buf, desc, 0.0, 0.0, 'L', M, M, 1, 1)
         # Now transpose tmp_mm adding the result to the original matrix:
-        _gpaw.pblas_tran(*self.shape, 1.0, buf, 1.0, self.data,
-                         desc, desc, True)
+        _gpaw.pblas_tran(M, M, 1.0, buf, 1.0, self.data, desc, desc, True)
 
 
 def _matrix(M):
@@ -410,11 +474,11 @@ class MatrixDistribution:
     def multiply(self, alpha, a, opa, b, opb, beta, c, symmetric):
         raise NotImplementedError
 
-    def myslice(self) -> slice:
-        """Create slice object for my rows.
+    def my_row_range(self) -> tuple[int, int]:
+        """Return indices for range of my rows.
 
-        >>> Matrix(2, 2).dist.myslice()
-        slice(0, 2, None)
+        >>> Matrix(2, 2).dist.my_row_range()
+        (0, 2)
         """
         ok = (self.rows == self.comm.size and
               self.columns == 1 and
@@ -425,7 +489,7 @@ class MatrixDistribution:
         b = (M + self.rows - 1) // self.rows
         n1 = self.comm.rank * b
         n2 = min(n1 + b, M)
-        return slice(n1, n2)
+        return n1, n2
 
 
 class NoDistribution(MatrixDistribution):

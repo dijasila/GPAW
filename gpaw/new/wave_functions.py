@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import numpy as np
-from ase.io.ulm import Writer
 from gpaw.core.atom_arrays import AtomArrays, AtomDistribution
 from gpaw.setup import Setups
-from gpaw.typing import Array1D, Array2D
+from gpaw.typing import Array1D, Array2D, ArrayND
 from gpaw.mpi import MPIComm, serial_comm
+from gpaw.core.uniform_grid import UniformGridFunctions
 
 
 class WaveFunctions:
@@ -41,12 +41,12 @@ class WaveFunctions:
         self.band_comm = band_comm
         self.nbands = nbands
 
-        assert domain_comm is atomdist.comm
+        assert domain_comm.size == atomdist.comm.size
 
         self.nspins = ncomponents % 3
         self.spin_degeneracy = ncomponents % 2 + 1
 
-        self._P_ain: AtomArrays | None = None
+        self._P_ani: AtomArrays | None = None
 
         self._eig_n: Array1D | None = None
         self._occ_n: Array1D | None = None
@@ -59,6 +59,22 @@ class WaveFunctions:
                 f'weight={self.weight}, kpt_c={self.kpt_c}, '
                 f'ncomponents={self.ncomponents}, dtype={self.dtype} '
                 f'domain_comm={dc}, band_comm={bc})')
+
+    def array_shape(self, global_shape: bool = False) -> tuple[int, ...]:
+        raise NotImplementedError
+
+    def add_to_density(self,
+                       nt_sR: UniformGridFunctions,
+                       D_asii: AtomArrays) -> None:
+        raise NotImplementedError
+
+    def orthonormalize(self, work_array_nX: ArrayND = None):
+        raise NotImplementedError
+
+    def collect(self,
+                n1: int = 0,
+                n2: int = 0) -> WaveFunctions | None:
+        raise NotImplementedError
 
     @property
     def eig_n(self) -> Array1D:
@@ -83,44 +99,34 @@ class WaveFunctions:
         return self.occ_n
 
     @property
-    def P_ain(self) -> AtomArrays:
-        assert self._P_ain is not None
-        return self._P_ain
+    def P_ani(self) -> AtomArrays:
+        assert self._P_ani is not None
+        return self._P_ani
 
     def add_to_atomic_density_matrices(self,
                                        occ_n,
                                        D_asii: AtomArrays) -> None:
-        for D_sii, P_in in zip(D_asii.values(), self.P_ain.values()):
-            D_sii[self.spin] += np.einsum('in, n, jn -> ij',
-                                          P_in.conj(), occ_n, P_in).real
+        if self.ncomponents < 4:
+            for D_sii, P_ni in zip(D_asii.values(), self.P_ani.values()):
+                D_sii[self.spin] += np.einsum('ni, n, nj -> ij',
+                                              P_ni.conj(), occ_n, P_ni).real
+        else:
+            for D_xii, P_nsi in zip(D_asii.values(), self.P_ani.values()):
+                D_ssii = np.einsum('nsi, n, nzj -> szij',
+                                   P_nsi.conj(), occ_n, P_nsi)
+                D_xii[0] += (D_ssii[0, 0] + D_ssii[1, 1]).real
+                D_xii[1] += 2 * D_ssii[0, 1].real
+                D_xii[2] += 2 * D_ssii[0, 1].imag
+                D_xii[3] += (D_ssii[0, 0] - D_ssii[1, 1]).real
 
-    def add_wave_functions_array(self,
-                                 writer: Writer,
-                                 spin_k_shape: tuple[int, int]):
-        """ Write the array header for the wave functions
-
-        Parameters
-        ----------
-        writer:
-            Ulm writer
-
-        spin_k_shape:
-            Shape of the spin and k-point dimensions
-        """
-        raise NotImplementedError
-
-    def fill_wave_functions(self, writer: Writer):
-        """ Fill the wave function array using this wave function
-
-        Parameters
-        ----------
-        writer:
-            Ulm writer
-        """
+    def send(self, kpt_comm, rank):
         raise NotImplementedError
 
     def receive(self, kpt_comm, rank):
         raise NotImplementedError
 
     def force_contribution(self, dH_asii: AtomArrays, F_av: Array2D):
+        raise NotImplementedError
+
+    def gather_wave_function_coefficients(self) -> np.ndarray | None:
         raise NotImplementedError

@@ -11,6 +11,7 @@ pytestmark = pytest.mark.skipif(world.size < 4,
                                 reason='world.size < 4')
 
 
+@pytest.mark.response
 def test_response_bse_aluminum(in_tmp_dir):
     GS = 1
     df = 1

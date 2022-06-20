@@ -48,6 +48,7 @@ class InputParameters:
     charge: float
     convergence: dict[str, Any]
     eigensolver: dict[str, Any]
+    experimental: dict[str, Any]
     force_complex_dtype: bool
     gpts: None | Sequence[int]
     h: float | None
@@ -58,12 +59,13 @@ class InputParameters:
     parallel: dict[str, Any]
     poissonsolver: dict[str, Any]
     setups: Any
+    soc: bool
     spinpol: bool
     symmetry: dict[str, Any]
     txt: str | Path | IO[str] | None
     xc: dict[str, Any]
 
-    def __init__(self, params: dict[str, Any]):
+    def __init__(self, params: dict[str, Any], warn: bool = True):
         self.keys = sorted(params)
 
         for key in params:
@@ -84,19 +86,35 @@ class InputParameters:
         if self.h is not None and self.gpts is not None:
             raise ValueError("""You can't use both "gpts" and "h"!""")
 
+        if self.experimental is not None:
+            if self.experimental.pop('niter_fixdensity') is not None:
+                warnings.warn('Ignoring "niter_fixdensity".')
+            if 'soc' in self.experimental:
+                warnings.warn('Please use new "soc" parameter.')
+                self.soc = self.experimental.pop('soc')
+            if 'magmoms' in self.experimental:
+                warnings.warn('Please use new "magmoms" parameter.')
+                self.magmoms = self.experimental.pop('magmoms')
+            assert not self.experimental
+
         bands = self.convergence.pop('bands', None)
         if bands is not None:
             self.eigensolver['converge_bands'] = bands
-            warnings.warn(f'Please use eigensolver={self.eigensolver!r}',
-                          stacklevel=4)
+            if warn:
+                warnings.warn(f'Please use eigensolver={self.eigensolver!r}',
+                              stacklevel=4)
 
         force_complex_dtype = self.mode.pop('force_complex_dtype', None)
         if force_complex_dtype is not None:
-            warnings.warn(
-                'Please use '
-                f'GPAW(force_complex_dtype={bool(force_complex_dtype)}, ...)',
-                stacklevel=3)
+            if warn:
+                warnings.warn(
+                    'Please use '
+                    f'GPAW(force_complex_dtype={bool(force_complex_dtype)}, '
+                    '...)',
+                    stacklevel=3)
             self.force_complex_dtype = force_complex_dtype
+            self.keys.append('force_complex_dtype')
+            self.keys.sort()
 
     def __repr__(self) -> str:
         p = ', '.join(f'{key}={value!r}'
@@ -122,22 +140,23 @@ def charge(value=0.0):
 @input_parameter
 def convergence(value=None):
     """Accuracy of the self-consistency cycle."""
-    dct = update_dict({'energy': 0.0005,  # eV / electron
-                       'density': 1.0e-4,  # electrons / electron
-                       'eigenstates': 4.0e-8,  # eV^2 / electron
-                       'forces': np.inf,
-                       'bands': None,
-                       'maximum iterations': None},
-                      value)
-    return {k: v for k, v in dct.items() if v is not None}
+    return value or {}
 
 
 @input_parameter
 def eigensolver(value=None) -> dict:
     """Eigensolver."""
     if isinstance(value, str):
-        return {'name': value}
+        value = {'name': value}
+    if value is not None and value['name'] != 'dav':
+        warnings.warn(f'{value["name"]} not implemented.  Using dav instead')
+        return {'name': 'dav'}
     return value or {}
+
+
+@input_parameter
+def experimental(value=None):
+    return value
 
 
 @input_parameter
@@ -268,7 +287,7 @@ def symmetry(value='undefined'):
     """Use of symmetry."""
     if value == 'undefined':
         value = {}
-    elif value in {None, 'off'}:
+    elif value is None or value == 'off':
         value = {'point_group': False, 'time_reversal': False}
     return value
 
