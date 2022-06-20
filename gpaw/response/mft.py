@@ -179,9 +179,10 @@ class StaticChiKSFactory(FourComponentSusceptibilityTensor):
         """
 
         # Remove user access
-        fixed_kwargs = {'gammacentered': True, 'disable_point_group': True,
+        fixed_kwargs = {'gammacentered': True,
+                        'disable_point_group': True,
                         'disable_time_reversal': True,
-                        'bundle_integrals': True, 'bundle_kptpairs': False}
+                        'bundle_integrals': True}
 
         FourComponentSusceptibilityTensor.__init__(self, gs, eta=eta,
                                                    ecut=ecut, nbands=nbands,
@@ -210,7 +211,9 @@ class StaticChiKSFactory(FourComponentSusceptibilityTensor):
         chiks_GG = np.empty((NG, NG), dtype=complex)
         if self.chiks.world.rank == 0:  # Check if at root
             # Remove frequency axis
-            chiks_GG[:, :] = chiks_wGG[0, :, :]
+            chiks_GG[:, :] = - chiks_wGG[0, :, :]
+            # Where do we take the reactive part??? !!! XXX
+            # Shouldn't this be more than a minus sign??? !!! XXX
 
         # Broadcast data to all ranks
         self.chiks.world.broadcast(chiks_GG, 0)
