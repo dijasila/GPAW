@@ -165,23 +165,19 @@ def test_fm_vectorized_magnons():
     E_qnxy = np.sort(E_qnxy, axis=1)  # Make sure the eigenvalues are sorted
 
     # Calculate magnon energies analytically
-    H_diag1_qxy = np.sqrt(mm_axy[1][np.newaxis, ...]
-                          / mm_axy[0][np.newaxis, ...])\
+    H_diag1_qxy = np.sqrt(mm_axy[1][np.newaxis] / mm_axy[0][np.newaxis])\
         * (2. - cos_q[:, np.newaxis, np.newaxis])
-    H_diag2_qxy = np.sqrt(mm_axy[0][np.newaxis, ...]
-                          / mm_axy[1][np.newaxis, ...])\
+    H_diag2_qxy = np.sqrt(mm_axy[0][np.newaxis] / mm_axy[1][np.newaxis])\
         * (3. - 2. * cos_q[:, np.newaxis, np.newaxis])
     H_diag_avg_qxy = (H_diag1_qxy + H_diag2_qxy) / 2.
     H_diag_diff_qxy = (H_diag1_qxy - H_diag2_qxy) / 2.
     pm_n = np.array([-1., 1.])
-    E_test_qnxy = H_diag_avg_qxy[:, np.newaxis, ...]\
+    E_test_qnxy = H_diag_avg_qxy[:, np.newaxis]\
         + pm_n[np.newaxis, :, np.newaxis, np.newaxis]\
-        * np.sqrt(H_diag_diff_qxy[:, np.newaxis, ...]**2.
+        * np.sqrt(H_diag_diff_qxy[:, np.newaxis]**2.
                   + (1 + sin_q[:, np.newaxis, np.newaxis, np.newaxis]**2.))
-    E_test_qnxy *= 2. / np.sqrt(np.prod(mm_axy, axis=0))[np.newaxis,
-                                                         np.newaxis,
-                                                         ...]
-    E_test_qnxy *= Jscale_y[np.newaxis, np.newaxis, np.newaxis, :]
+    E_test_qnxy *= 2. / np.sqrt(np.prod(mm_axy, axis=0))
+    E_test_qnxy *= Jscale_y
 
     assert np.allclose(E_qnxy, E_test_qnxy)
 
