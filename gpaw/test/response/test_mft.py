@@ -11,6 +11,7 @@ from ase.build import bulk
 
 from gpaw import GPAW, PW, FermiDirac
 from gpaw import mpi
+from gpaw.response.chiks import ChiKS
 from gpaw.response.mft import IsotropicExchangeCalculator
 from gpaw.response.site_kernels import (SphericalSiteKernels,
                                         CylindricalSiteKernels,
@@ -37,6 +38,7 @@ def test_Fe_bcc(in_tmp_dir):
 
     # Part 2: MFT calculation
     ecut = 50
+    eta = 0.
     # Do the high symmetry points of the bcc lattice
     q_qc = np.array([[0, 0, 0],           # Gamma
                      [0.5, -0.5, 0.5],    # H
@@ -82,7 +84,10 @@ def test_Fe_bcc(in_tmp_dir):
                                                    [[atoms.get_cell()]]))
 
     # Initialize the exchange calculator
-    isoexch_calc = IsotropicExchangeCalculator(calc, ecut=ecut, nbands=nbands)
+    chiks = ChiKS(calc,
+                  ecut=ecut, nbands=nbands, eta=eta,
+                  gammacentered=True)  # Change the default? XXX
+    isoexch_calc = IsotropicExchangeCalculator(chiks)
 
     # Allocate array for the exchange constants
     nq = len(q_qc)
@@ -147,6 +152,7 @@ def test_Co_hcp(in_tmp_dir):
 
     # Part 2: MFT calculation
     ecut = 100
+    eta = 0.  # To do: Test finite eta calculation XXX
     # Do high symmetry points of the hcp lattice
     q_qc = np.array([[0, 0, 0],              # Gamma
                      [0.5, 0., 0.],          # M
@@ -190,7 +196,10 @@ def test_Co_hcp(in_tmp_dir):
     ucsitekernels = ParallelepipedicSiteKernels([cc_v], [[cell_cv]])
 
     # Initialize the exchange calculator
-    isoexch_calc = IsotropicExchangeCalculator(calc, ecut=ecut, nbands=nbands)
+    chiks = ChiKS(calc,
+                  ecut=ecut, nbands=nbands, eta=eta,
+                  gammacentered=True)  # Change the default? XXX
+    isoexch_calc = IsotropicExchangeCalculator(chiks)
 
     # Allocate array for the spherical site exchange constants
     nq = len(q_qc)

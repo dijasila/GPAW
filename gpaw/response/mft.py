@@ -40,33 +40,32 @@ class IsotropicExchangeCalculator:
 
     """
 
-    def __init__(self, gs, ecut=100, nbands=None, world=mpi.world):
+    def __init__(self, chiks):
         """Construct the IsotropicExchangeCalculator object
 
         Parameters
         ----------
-        gs : str or gpaw calculator
-            Calculator with converged ground state as input to the linear
-            response calculation.
-        ecut : number
-            Cutoff energy in eV
-            In response calculation, include all G-vectors with G^2/2 < ecut
-        nbands : int
-            Maximum band index to include in response calculation.
-        world : obj
-            MPI communicator.
+        chiks : ChiKS
+            ChiKS calculator object
         """
+        assert isinstance(chiks, ChiKS)
+        # Check that chiks has the assumed properties
+        assumed_props = dict(
+            gammacentered=True,
+            disable_point_group=True,
+            disable_time_reversal=True,
+            disable_non_symmorphic=True,
+            kpointintegration='point integration',
+            nblocks=1
+        )
+        for key, item in assumed_props.items():
+            assert getattr(chiks, key) == item,\
+                f'Expected chiks.{key} == {item}. Got: {getattr(chiks, key)}'
 
-        # Calculator for response function
-        self.chiksf = StaticChiKSFactory(gs,
-                                         ecut=ecut,
-                                         nblocks=1,
-                                         eta=0,
-                                         nbands=nbands,
-                                         world=world)
+        self.chiks = chiks
 
         # Calculator for xc-kernel
-        self.Bxc_calc = AdiabaticBXC(self.chiksf.calc, world=world)
+        self.Bxc_calc = AdiabaticBXC(self.chiks.calc, world=self.chiks.world)
 
         # Bxc field buffer
         self._Bxc_G = None
@@ -100,7 +99,7 @@ class IsotropicExchangeCalculator:
         chiks_GG = self.get_chiks(q_c, txt=txt)
 
         # Get plane-wave descriptor
-        pd = self.chiksf.get_PWDescriptor(q_c)
+        pd = self.chiks.get_PWDescriptor(q_c)  # Move to get_chiks! XXX
         V0 = pd.gd.volume
 
         # Allocate an array for the exchange constants
@@ -136,7 +135,7 @@ class IsotropicExchangeCalculator:
         # See eq. 50 of Phys. Rev. B 103, 245110 (2021)
         print('Calculating Bxc')
         # Plane-wave descriptor (input is arbitrary)
-        pd0 = self.chiksf.get_PWDescriptor([0, 0, 0])
+        pd0 = self.chiks.get_PWDescriptor([0, 0, 0])
         V0 = pd0.gd.volume
         Bxc_GG = self.Bxc_calc(pd0)
         Bxc_G = V0 * Bxc_GG[:, 0]
@@ -149,55 +148,19 @@ class IsotropicExchangeCalculator:
         if self.currentq_c is None or not np.allclose(q_c, self.currentq_c):
             # Calculate chiks for a new q-point and write it to the buffer
             self.currentq_c = q_c
-            self._chiks_GG = self.chiksf('-+', q_c, txt=txt)
+            self._chiks_GG = self._calculate_chiks(q_c, txt=txt)
 
         return self._chiks_GG
 
-
-class StaticChiKSFactory(ChiKS):
-    """Class calculating components of the static Kohn-Sham
-    susceptibility tensor.
-
-    Note : Temporary hack. Refactor later."""
-
-    def __init__(self, gs, eta=0.0, ecut=50, nbands=None,
-                 world=mpi.world, nblocks=1, txt=sys.stdout):
-
+    def _calculate_chiks(self, q_c, txt=None):
+        """Calculate the reactive part of the static Kohn-Sham susceptibility.
         """
-        Currently, everything is in plane wave mode.
-        If additional modes are implemented, maybe look to fxc to see how
-        multiple modes can be supported.
-
-        Parameters
-        ----------
-        gs : see gpaw.response.chiks, gpaw.response.kslrf
-        eta, ecut, nbands, world, nblocks, txt : see gpaw.response.chiks
-        """
-
-        # Remove user access
-        fixed_kwargs = {'gammacentered': True,
-                        'disable_point_group': True,
-                        'disable_time_reversal': True,
-                        'bundle_integrals': True}
-
-        ChiKS.__init__(self, gs,
-                       eta=eta,
-                       ecut=ecut,
-                       nbands=nbands,
-                       nblocks=nblocks,
-                       world=world,
-                       txt=txt,
-                       **fixed_kwargs)
-
-    def __call__(self, spincomponent, q_c, txt=None):
-        """Calculate a given component of chiKS.
-        Substitutes calculate_component_array and returns zero frequency."""
-
-        # Calculate the static susceptibility
         frequencies = [0.]
-        _, chiks_wGG = self.calculate(q_c, frequencies,
-                                      spincomponent=spincomponent,
-                                      txt=txt)
+
+        # Calculate the dynamic KS susceptibility in the static limit
+        _, chiks_wGG = self.chiks.calculate(q_c, frequencies,
+                                            spincomponent='-+',
+                                            txt=txt)
 
         # Remove frequency axis
         # Where do we take the reactive part??? !!! XXX
