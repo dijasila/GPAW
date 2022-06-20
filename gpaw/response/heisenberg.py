@@ -41,7 +41,7 @@ def calculate_single_site_magnon_energies(J_qx, q_qc, mm):
     return E_qx.real
 
 
-def calculate_FM_magnon_energies(J_qabx, q_qc, mm_ax, return_H=False):
+def calculate_FM_magnon_energies(J_qabx, q_qc, mm_ax):
     """Compute the magnon eigenmode energies from the isotropic exchange
     constants of a ferromagnetic system with an arbitrary number of magnetic
     sites in the unit cell, as a function of the wave vector q.
@@ -61,27 +61,13 @@ def calculate_FM_magnon_energies(J_qabx, q_qc, mm_ax, return_H=False):
         q-vectors in relative coordinates. Has to include q=0.
     mm_ax : np.ndarray
         Magnetic moments of the sublattice sites in μ_B.
-    return_H : bool
-        Return also the dynamic spin wave matrix.
 
     Returns
     -------
     E_qnx : np.ndarray
         Magnon eigenmode energies as a function of q, mode index n and x.
-    H_qabx : np.ndarray (Optional)
-        Dynamic spin wave matrix. Has the same shape as the input J_qabx
     """
-    assert len(J_qabx.shape) >= 3
-    assert J_qabx.shape[1] == J_qabx.shape[2]
-    assert J_qabx.shape[1] == mm_ax.shape[0]
-    assert J_qabx.shape[0] == q_qc.shape[0]
-    assert J_qabx.shape[3:] == mm_ax.shape[1:]
-
-    # Get J^ab(0)
-    q0 = get_q0_index(q_qc)
-    J0_abx = J_qabx[q0]
-
-    H_qabx = generate_FM_dynamic_spin_wave_matrix(J_qabx, J0_abx, mm_ax)
+    H_qabx = generate_FM_dynamic_spin_wave_matrix(J_qabx, q_qc, mm_ax)
 
     # Move magnetic site axes in order to prepare for np.linalg.eig
     H_qbxa = np.moveaxis(H_qabx, 1, -1)
@@ -97,19 +83,41 @@ def calculate_FM_magnon_energies(J_qabx, q_qc, mm_ax, return_H=False):
     assert np.allclose(E_qnx.imag, 0.)
     E_qnx = E_qnx.real
 
-    if return_H:
-        return E_qnx, H_qabx
-    else:
-        return E_qnx
+    return E_qnx
 
 
-def generate_FM_dynamic_spin_wave_matrix(J_qabx, J0_acx, mm_ax):
+def generate_FM_dynamic_spin_wave_matrix(J_qabx, q_qc, mm_ax):
     """Generate the dynamic spin wave matrix from the isotropic exchange
     constants of a ferromagnet:
 
     H^ab(q) = g μ_B / sqrt(M_a M_b) [Σ_c J^ac(0) δ_ab - J^ab(q)]
+
+    Parameters
+    ----------
+    J_qabx : np.ndarray
+        Isotropic exchange constants as a function of q and sublattice indices
+        a and b. J_qabx can have any number of additional dimensions x, which
+        will be treated independently.
+    q_qc : np.ndarray
+        q-vectors in relative coordinates. Has to include q=0.
+    mm_ax : np.ndarray
+        Magnetic moments of the sublattice sites in μ_B.
+
+    Returns
+    -------
+    H_qabx : np.ndarray
+        Dynamic spin wave matrix. Has the same shape as the input J_qabx
     """
+    assert len(J_qabx.shape) >= 3
+    assert J_qabx.shape[1] == J_qabx.shape[2]
+    assert J_qabx.shape[1] == mm_ax.shape[0]
+    assert J_qabx.shape[0] == q_qc.shape[0]
+    assert J_qabx.shape[3:] == mm_ax.shape[1:]
     na = mm_ax.shape[0]
+
+    # Get J^ab(0)
+    q0 = get_q0_index(q_qc)
+    J0_acx = J_qabx[q0]
 
     # Set up magnetic moment prefactor as outer product
     mm_inv_abx = 2. / np.sqrt(mm_ax[:, np.newaxis, ...]
