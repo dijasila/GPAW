@@ -153,7 +153,7 @@ Now examine the initial magnetic moments of the system using an [appropriate met
 """
 
 # %%
-magmoms = fepo4.get_initial_magnetic_moments()  # student: magmom = fepo4.xxx()
+magmoms = fepo4.get_initial_magnetic_moments()  # student: magmoms = fepo4.xxx()
 print(magmoms)
 
 # %%
