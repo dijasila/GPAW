@@ -290,7 +290,12 @@ class Matrix:
         if S is not self:
             S.redist(self)
 
-    def eigh(self, cc=False, scalapack=(None, 1, 1, None)) -> Array1D:
+    def eigh(self,
+             S=None,
+             *,
+             cc=False,
+             scalapack=(None, 1, 1, None),
+             subset_by_index=None) -> Array1D:
         """Calculate eigenvectors and eigenvalues.
 
         Matrix must be symmetric/hermitian and stored in lower half.
@@ -313,6 +318,10 @@ class Matrix:
         if redist:
             H = self.new(dist=dist)
             self.redist(H)
+            if S is not None:
+                S0 = S
+                S = S0.new(dist=dist)
+                self.redist(S)
         else:
             assert self.dist.comm.size == slcomm.size
             H = self
@@ -325,16 +334,30 @@ class Matrix:
                     np.negative(H.data.imag, H.data.imag)
                 if debug:
                     H.data[np.triu_indices(H.shape[0], 1)] = 42.0
-                eps[:], H.data.T[:] = linalg.eigh(
-                    H.data,
-                    lower=True,
-                    overwrite_a=True,
-                    check_finite=debug,
-                    driver='evx' if H.data.size == 1 else 'evd')
+                if S is None:
+                    eps[:], H.data.T[:] = linalg.eigh(
+                        H.data,
+                        lower=True,
+                        overwrite_a=True,
+                        check_finite=debug,
+                        driver='evx' if H.data.size == 1 else 'evd')
+                else:
+                    eps[:], evecs = linalg.eigh(
+                        H.data,
+                        S.data,
+                        lower=True,
+                        overwrite_a=True,
+                        overwrite_b=True,
+                        check_finite=debug,
+                        subset_by_index=subset_by_index,
+                        driver='evx' if H.data.size == 1 else 'evd')
+                    print(evecs.shape)
+                    H.data.T[:] = evecs
             self.dist.comm.broadcast(eps, 0)
         else:
             if slcomm.rank < rows * columns:
                 assert cc
+                assert S is None
                 array = H.data.copy()
                 info = _gpaw.scalapack_diagonalize_dc(array, H.dist.desc, 'U',
                                                       H.data, eps)

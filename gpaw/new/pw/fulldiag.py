@@ -39,8 +39,8 @@ def pw_matrix(pw: PlaneWaves,
     assert pw.dtype == complex
     npw = pw.shape[0]
     dist = create_distribution(npw, npw, comm, -1, 1)
-    H_GG = dist.matrix()
-    S_GG = dist.matrix()
+    H_GG = dist.matrix(complex)
+    S_GG = dist.matrix(complex)
     G1, G2 = dist.my_row_range()
 
     x_G = pw.zeros()
@@ -74,8 +74,8 @@ def pw_matrix(pw: PlaneWaves,
         dS_II[I1:I2, I1:I2] = dS_ii / N**2
         I1 = I2
 
-    H_GG.data += np.dot(f_GI[G1:G2].conj(), np.dot(dH_II, f_GI.T))
-    S_GG.data += np.dot(f_GI[G1:G2].conj(), np.dot(dS_II, f_GI.T))
+    H_GG.data += (f_GI[G1:G2].conj() @ dH_II) @ f_GI.T
+    S_GG.data += (f_GI[G1:G2].conj() @ dS_II) @ f_GI.T
 
     return H_GG, S_GG
 
@@ -221,5 +221,7 @@ def diagonalize(state: DFTState,
                                dS_aii,
                                vt_sR[wfs.spin],
                                wfs.psit_nX.comm)
-        C_nG = H_GG.eigh(S_GG)
+        eig_n = H_GG.eigh(S_GG, limit=nbands)
+        wfs._eig_n = eig_n
+        wfs.psit_nX = (H_GG.data)
     return state
