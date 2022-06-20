@@ -488,6 +488,14 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
     def to_pbc_grid(self):
         return self
 
+    def randomize(self) -> None:
+        """Insert random numbers between -0.5 and 0.5 into data."""
+        seed = [self.comm.rank, self.desc.comm.rank]
+        rng = np.random.default_rng(seed)
+        a = self.data.view(float)
+        rng.random(a.shape, out=a)
+        a -= 0.5
+
 
 class Empty:
     def __init__(self, dims):
