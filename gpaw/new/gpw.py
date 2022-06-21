@@ -145,8 +145,8 @@ def read_gpw(filename: Union[str, Path, IO[str]],
                                           for setup in builder.setups],
                                          atomdist=builder.atomdist)
     D_asp = atom_array_layout.empty(builder.ncomponents)
-    dH_asp = atom_array_layout.new(dtype=dH_sap_array.dtype).empty(
-        builder.ncomponents)
+    dtype = float if builder.ncomponents < 4 else complex
+    dH_asp = atom_array_layout.new(dtype=dtype).empty(builder.ncomponents)
 
     if kpt_band_comm.rank == 0:
         nt_sR.scatter_from(nt_sR_array)
