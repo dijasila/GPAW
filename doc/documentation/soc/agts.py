@@ -7,7 +7,7 @@ from myqueue.workflow import run
 def workflow():
     with run(script='VCl2.py'):
         run(script='plot.py')
-        run(check)
+        run(function=check)
 
 
 def check():
