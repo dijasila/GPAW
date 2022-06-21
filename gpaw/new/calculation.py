@@ -23,6 +23,7 @@ from gpaw.typing import Array1D, Array2D
 from gpaw.utilities import (check_atoms_too_close,
                             check_atoms_too_close_to_boundary)
 from gpaw.utilities.partition import AtomPartition
+from gpaw.densities import Densities
 
 units = {'energy': Ha,
          'free_energy': Ha,
@@ -257,6 +258,9 @@ class DFTCalculation:
 
     def electrostatic_potential(self) -> ElectrostaticPotential:
         return ElectrostaticPotential.from_calculation(self)
+
+    def densities(self) -> Densities:
+        return Densities.from_calculation(self)
 
     @cached_property
     def _atom_partition(self):

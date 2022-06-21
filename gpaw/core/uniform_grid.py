@@ -524,6 +524,11 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         plan1 = plan1 or self.desc.fft_plans()
         plan2 = plan2 or out.desc.fft_plans()
 
+        if self.dims:
+            for input, output in zip(self.flat(), out.flat()):
+                input.interpolate(plan1, plan2, grid, output)
+            return out
+
         plan1.tmp_R[:] = self.data
         kpt_c = self.desc.kpt_c
         if kpt_c.any():
