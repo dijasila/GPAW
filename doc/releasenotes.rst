@@ -30,6 +30,8 @@ Git master branch
 * :ref:`spinspiral calculations`.  See also
   :git:`~gpaw/test/spinspiral/h_chain_test.py`.
 
+* :ref:`soc`.
+
 * The GW0 feature has been removed.
 
 Version 22.1.0

@@ -223,6 +223,9 @@ class ASECalculator:
     def get_atomic_electrostatic_potentials(self):
         return self.calculation.electrostatic_potential().atomic_potentials()
 
+    def get_pseudo_density(self, spin=None):
+        return self.calculation.densities.pseudo_densities().data
+
     def get_eigenvalues(self, kpt=0, spin=0):
         state = self.calculation.state
         return state.ibzwfs.get_eigs_and_occs(k=kpt, s=spin)[0] * Ha
