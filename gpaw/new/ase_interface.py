@@ -179,7 +179,7 @@ class ASECalculator:
             Write mode. Use ``mode='all'``
             to include wave functions in the file.
         """
-        self.log(f'Writing to {filename} (mode={mode!r})\n')
+        self.log(f'# Writing to {filename} (mode={mode!r})\n')
 
         write_gpw(filename, self.atoms, self.params,
                   self.calculation, skip_wfs=mode != 'all')
