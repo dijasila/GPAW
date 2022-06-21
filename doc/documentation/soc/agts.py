@@ -3,8 +3,6 @@ from math import cos, pi, sin
 from gpaw.new.ase_interface import GPAW
 from myqueue.workflow import run
 
-calc = GPAW('VCl2_gs.gpw')
-
 
 def workflow():
     with run(script='VCl2.py'):
