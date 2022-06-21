@@ -15,8 +15,8 @@ class ReciprocalSpacePoissonSolver(PoissonSolver):
             # Avoid division by zero:
             self.ekin_g[0] = 1.0
 
-        self.description = (
-            f'Uniform background charge: {self.charge:.3f} electrons')
+    def __str__(self):
+        return f'# Uniform background charge: {self.charge:.3f} electrons'
 
     def solve(self,
               vHt_g,

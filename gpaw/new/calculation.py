@@ -286,13 +286,13 @@ def write_atoms(atoms, grid, magmoms, log):
         log(f'  [{symbol:>3}, [{x:11.6f}, {y:11.6f}, {z:11.6f}],'
             f' [{mx:6.3f}, {my:6.3f}, {mz:6.3f}]]{c} # {a}')
 
-    log('\n  cell: [  # Ang')
-    log('  #     x            y            z')
+    log('\ncell: [  # Ang')
+    log('#     x            y            z')
     for (x, y, z), c in zip(atoms.cell, ',,]'):
-        log(f'    [{x:11.6f}, {y:11.6f}, {z:11.6f}]{c}')
+        log(f'  [{x:11.6f}, {y:11.6f}, {z:11.6f}]{c}')
 
     log()
-    log(f'  periodic: [{", ".join(f"{str(p):10}" for p in atoms.pbc)}]')
+    log(f'periodic: [{", ".join(f"{str(p):10}" for p in atoms.pbc)}]')
     a, b, c, A, B, C = cell_to_cellpar(atoms.cell)
-    log(f'  lengths:  [{a:10.6f}, {b:10.6f}, {c:10.6f}]  # Ang')
-    log(f'  angles:   [{A:10.6f}, {B:10.6f}, {C:10.6f}]\n')
+    log(f'lengths:  [{a:10.6f}, {b:10.6f}, {c:10.6f}]  # Ang')
+    log(f'angles:   [{A:10.6f}, {B:10.6f}, {C:10.6f}]\n')
