@@ -60,6 +60,7 @@ class IsotropicExchangeCalculator:
         self.chiks = chiks
 
         # Initialize the B^(xc) calculator
+        # Pass also timer, txt etc. from chiks? XXX
         self.Bxc_calc = PlaneWaveBxc(self.chiks.calc, world=self.chiks.world)
 
         # Bxc field buffer
@@ -117,39 +118,34 @@ class IsotropicExchangeCalculator:
         return J_abp * Hartree  # Convert from Hartree to eV
 
     def get_Bxc(self):
-        if self._Bxc_G is None:
+        """Get B^(xc)_G from buffer."""
+        if self._Bxc_G is None:  # Calculate, if buffer is empty
             self._Bxc_G = self._calculate_Bxc()
 
         return self._Bxc_G
 
     def _calculate_Bxc(self):
-        # Compute xc magnetic field
-        # Note : Bxc is calculated from the xc-kernel, which is a 2-point
-        # function, while B_xc is 1-point Because of how the different
-        # Fourier transforms are defined, this gives an extra volume factor
-        # See eq. 50 of Phys. Rev. B 103, 245110 (2021)
-        print('Calculating Bxc')
-        # Plane-wave descriptor (input is arbitrary)
-        pd0 = self.chiks.get_PWDescriptor([0, 0, 0])
-        V0 = pd0.gd.volume
-        Bxc_GG = self.Bxc_calc(pd0)
-        Bxc_G = V0 * Bxc_GG[:, 0]
-        print('Done calculating Bxc')
+        """Use the PlaneWaveBxc calculator to calculate the plane wave
+        coefficients B^xc_G"""
+        # Create a plane wave descriptor encoding the plane wave basis (input
+        # q_c is arbitrary)
+        pd0 = self.chiks.get_PWDescriptor([0., 0., 0.])
 
-        return Bxc_G
+        return self.Bxc_calc(pd0)
 
     def get_chiks(self, q_c, txt=None):
+        """Get χ_KS^('+-)(q) from buffer."""
         q_c = np.asarray(q_c)
         if self.currentq_c is None or not np.allclose(q_c, self.currentq_c):
-            # Calculate chiks for a new q-point and write it to the buffer
+            # Calculate chiks for any new q-point or if buffer is empty
             self.currentq_c = q_c
             self._chiks_GG = self._calculate_chiks(q_c, txt=txt)
 
         return self._chiks_GG
 
     def _calculate_chiks(self, q_c, txt=None):
-        """Calculate the reactive part of the static Kohn-Sham susceptibility.
-        """
+        """Use the ChiKS calculator to calculate the reactive part of the
+        static Kohn-Sham susceptibility."""
         frequencies = [0.]
 
         # Calculate the dynamic KS susceptibility in the static limit
@@ -179,31 +175,49 @@ class PlaneWaveBxc(PlaneWaveAdiabaticFXC):
 
     def __init__(self, gs,
                  world=mpi.world, txt='-', timer=None,
-                 rshelmax=-1, rshewmin=1.e-8, filename=None):
+                 rshelmax=-1, rshewmin=1.e-8):
         """Construct the calculator based on functionality to compute fxc
         kernels. This is a temporary hack to leverage the PAW functionality
         of that code, but implies a significant computational overhead.
 
         Parameters
         ----------
-        gs, world, txt, timer : see PlaneWaveAdiabaticFXC, FXC
-        rshelmax, rshewmin, filename : see PlaneWaveAdiabaticFXC
+        gs, world, txt, timer : see FXC
+        rshelmax, rshewmin : see PlaneWaveAdiabaticFXC
         """
-
         PlaneWaveAdiabaticFXC.__init__(self, gs, '',
                                        world=world, txt=txt, timer=timer,
-                                       rshelmax=rshelmax, rshewmin=rshewmin,
-                                       filename=filename)
+                                       rshelmax=rshelmax, rshewmin=rshewmin)
+
+    def __call__(self, pd):
+        """Write some documentation here! XXX"""
+        # Compute xc magnetic field
+        # Note : Bxc is calculated from the xc-kernel, which is a 2-point
+        # function, while B_xc is 1-point Because of how the different
+        # Fourier transforms are defined, this gives an extra volume factor
+        # See eq. 50 of Phys. Rev. B 103, 245110 (2021)
+        print('Calculating Bxc')
+        V0 = pd.gd.volume
+        Bxc_GG = self.calculate(pd)
+        Bxc_G = V0 * Bxc_GG[:, 0]
+        print('Done calculating Bxc')
+
+        return Bxc_G
 
     def _add_fxc(self, gd, n_sG, fxc_G):
-        """Calculate fxc in real-space grid"""
+        """This function defines the "fxc kernel" to Fourier transform."""
+        self._add_Bxc(gd, n_sG, fxc_G)
 
-        fxc_G += self._calculate_fxc(gd, n_sG)
+    def _add_Bxc(self, gd, n_sG, Bxc_G):
+        """Calculate Bxc in real space and add it to the array Bxc_G (here
+        G denotes the real space grid points)."""
+        # Allocate an array for the spin-dependent xc potential on the real
+        # space grid
+        v_sG = np.zeros(np.shape(n_sG))
 
-    def _calculate_fxc(self, gd, n_sG):
-        """Calculate polarized fxc of spincomponents '+-', '-+'."""
-        v_sG = np.zeros(np.shape(n_sG))     # Potential
+        # Calculate the spin-dependent potential
         xc = XC('LDA')
         xc.calculate(gd, n_sG, v_sg=v_sG)
 
-        return (v_sG[0] - v_sG[1]) / 2    # Definition of Bxc
+        # Add B^(xc) in real space to the output array
+        Bxc_G += (v_sG[0] - v_sG[1]) / 2
