@@ -59,8 +59,8 @@ class IsotropicExchangeCalculator:
 
         self.chiks = chiks
 
-        # Calculator for xc-kernel
-        self.Bxc_calc = AdiabaticBXC(self.chiks.calc, world=self.chiks.world)
+        # Initialize the B^(xc) calculator
+        self.Bxc_calc = PlaneWaveBxc(self.chiks.calc, world=self.chiks.world)
 
         # Bxc field buffer
         self._Bxc_G = None
@@ -165,18 +165,27 @@ class IsotropicExchangeCalculator:
         return chiks_GG
 
 
-class AdiabaticBXC(PlaneWaveAdiabaticFXC):
-    """Exchange-correlation magnetic field under the adiabatic assumption
-    in the plane wave mode
+class PlaneWaveBxc(PlaneWaveAdiabaticFXC):
+    """Calculator class for the plane wave coefficients of B^(xc)
 
-    Note : Temporary hack. Refactor later. Computes full Bxc_GG-matrix,
-    where only diagonal, Bxc_G, is needed.
+    # Do me XXX
+    B^(xc)_G = (...)
+
+    where
+
+    # Do me XXX
+    B^(xc)(r) = (...)
     """
 
     def __init__(self, gs,
                  world=mpi.world, txt='-', timer=None,
                  rshelmax=-1, rshewmin=1.e-8, filename=None):
-        """
+        """Construct the calculator based on functionality to compute fxc
+        kernels. This is a temporary hack to leverage the PAW functionality
+        of that code, but implies a significant computational overhead.
+
+        Parameters
+        ----------
         gs, world, txt, timer : see PlaneWaveAdiabaticFXC, FXC
         rshelmax, rshewmin, filename : see PlaneWaveAdiabaticFXC
         """
