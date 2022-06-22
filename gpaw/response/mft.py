@@ -60,8 +60,10 @@ class IsotropicExchangeCalculator:
         self.chiks = chiks
 
         # Initialize the B^(xc) calculator
-        # Pass also timer, txt etc. from chiks? XXX
-        self.Bxc_calc = PlaneWaveBxc(self.chiks.calc, world=self.chiks.world)
+        self.Bxc_calc = PlaneWaveBxc(self.chiks.calc,
+                                     world=self.chiks.world,
+                                     txt=self.chiks.fd,
+                                     timer=self.chiks.timer)
 
         # Bxc field buffer
         self._Bxc_G = None
@@ -70,23 +72,25 @@ class IsotropicExchangeCalculator:
         self.currentq_c = None
         self._chiksr_GG = None
 
-    def __call__(self, q_c, site_kernels, txt=sys.stdout):
+    def __call__(self, q_c, site_kernels, txt=None):
         """Calculate the isotropic exchange constants for a given wavevector.
 
         Parameters
         ----------
         q_c : nd.array
-            Components of wavevector in relative coordinates
+            Wave vector q in relative coordinates
         site_kernels : SiteKernels
             Site kernels instance defining the magnetic sites of the crystal
         txt : str
-            Where to send text output from chiks calculation
+            Separate file to store the chiks calculation output in (optional).
+            If not supplied, the output will be written to the standard text
+            output location specified when initializing chiks.
 
         Returns
         -------
-        J_abr : nd.array (dtype=complex)
-            Exchange between magnetic sites (a, b) for different
-            parameters of the integration regions (r).
+        J_abp : nd.array (dtype=complex)
+            Isotropic Heisenberg exchange constants between magnetic sites a
+            and b for all site partitions p given by the site_kernels.
         """
         assert isinstance(site_kernels, SiteKernels)
 
