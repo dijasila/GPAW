@@ -59,6 +59,9 @@ class IsotropicExchangeCalculator:
         self.chiks = chiks
 
         # Initialize the B^(xc) calculator
+        # Once the response context object is ready, the user should be allowed
+        # to supply the Bxc_calc themselves. This will expose the rshe
+        # arguments to the user, which is not the case at present. XXX
         self.Bxc_calc = PlaneWaveBxc(self.chiks.calc,
                                      world=self.chiks.world,
                                      txt=self.chiks.fd,
@@ -183,18 +186,22 @@ class IsotropicExchangeCalculator:
 class PlaneWaveBxc(PlaneWaveAdiabaticFXC):
     """Calculator class for the plane wave coefficients of B^(xc)
 
-    # Do me XXX
-    B^(xc)_G = (...)
+               /
+    B^(xc)_G = |dr B^(xc)(r) e^(-iG.r)
+               /
+                V0
 
-    where
+    where V0 is the cell volume and
 
-    # Do me XXX
-    B^(xc)(r) = (...)
-    """
+                δE_xc[n,m]   1
+    B^(xc)(r) = ‾‾‾‾‾‾‾‾‾‾ = ‾ [V_xc^↑(r) - V_xc^↓(r)]
+                  δm(r)      2
+
+    in the local spin-density approximation for a collinear system."""
 
     def __init__(self, gs,
                  world=mpi.world, txt='-', timer=None,
-                 rshelmax=-1, rshewmin=1.e-8):
+                 rshelmax=-1, rshewmin=1.e-8):  # Overwrites rshewmin default
         """Construct the calculator based on functionality to compute fxc
         kernels. This is a temporary hack to leverage the PAW functionality
         of that code, but implies a significant computational overhead.
@@ -209,17 +216,15 @@ class PlaneWaveBxc(PlaneWaveAdiabaticFXC):
                                        rshelmax=rshelmax, rshewmin=rshewmin)
 
     def __call__(self, pd):
-        """Write some documentation here! XXX"""
-        # Compute xc magnetic field
-        # Note : Bxc is calculated from the xc-kernel, which is a 2-point
-        # function, while B_xc is 1-point Because of how the different
-        # Fourier transforms are defined, this gives an extra volume factor
-        # See eq. 50 of Phys. Rev. B 103, 245110 (2021)
-        print('Calculating Bxc')
-        V0 = pd.gd.volume
+        """Calculate the plane wave components of Bxc"""
+        # Use the fxc kernel functionality to compute B^(xc)_(G-G') / V0,
+        # see [PRB 103, 245110 (2021)]
         Bxc_GG = self.calculate(pd)
+
+        # Extract B^(xc)_G as the first column of the "kernel", renormalizing
+        # by the cell volume
+        V0 = pd.gd.volume
         Bxc_G = V0 * Bxc_GG[:, 0]
-        print('Done calculating Bxc')
 
         return Bxc_G
 
