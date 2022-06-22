@@ -1,6 +1,5 @@
 # General modules
 import numpy as np
-import sys
 
 # GPAW modules
 import gpaw.mpi as mpi
@@ -70,6 +69,7 @@ class IsotropicExchangeCalculator:
 
         # chiksr buffer
         self.currentq_c = None
+        self._pd = None
         self._chiksr_GG = None
 
     def __call__(self, q_c, site_kernels, txt=None):
@@ -90,16 +90,13 @@ class IsotropicExchangeCalculator:
         -------
         J_abp : nd.array (dtype=complex)
             Isotropic Heisenberg exchange constants between magnetic sites a
-            and b for all site partitions p given by the site_kernels.
+            and b for all the site partitions p given by the site_kernels.
         """
         assert isinstance(site_kernels, SiteKernels)
 
         # Get ingredients
         Bxc_G = self.get_Bxc()
-        chiksr_GG = self.get_chiksr(q_c, txt=txt)
-
-        # Get plane-wave descriptor
-        pd = self.chiks.get_PWDescriptor(q_c)  # Move to get_chiks! XXX
+        pd, chiksr_GG = self.get_chiksr(q_c, txt=txt)
         V0 = pd.gd.volume
 
         # Allocate an array for the exchange constants
@@ -110,10 +107,8 @@ class IsotropicExchangeCalculator:
         for J_ab, K_aGG in zip(J_pab, site_kernels.calculate(pd)):
             for a in range(nsites):
                 for b in range(nsites):
-                    Ka_GG = K_aGG[a, :, :]
-                    Kb_GG = K_aGG[b, :, :]
-                    J = np.conj(Bxc_G) @ np.conj(Ka_GG).T @ chiksr_GG @ Kb_GG \
-                        @ Bxc_G
+                    J = np.conj(Bxc_G) @ np.conj(K_aGG[a]).T @ chiksr_GG \
+                        @ K_aGG[b] @ Bxc_G
                     J_ab[a, b] = - 2. * J / V0
 
         # Transpose to have the partitions index last
@@ -131,8 +126,8 @@ class IsotropicExchangeCalculator:
     def _calculate_Bxc(self):
         """Use the PlaneWaveBxc calculator to calculate the plane wave
         coefficients B^xc_G"""
-        # Create a plane wave descriptor encoding the plane wave basis (input
-        # q_c is arbitrary)
+        # Create a plane wave descriptor encoding the plane wave basis. Input
+        # q_c is arbitrary, since we are assuming that chiks.gammacentered == 1
         pd0 = self.chiks.get_PWDescriptor([0., 0., 0.])
 
         return self.Bxc_calc(pd0)
@@ -143,9 +138,9 @@ class IsotropicExchangeCalculator:
         if self.currentq_c is None or not np.allclose(q_c, self.currentq_c):
             # Calculate chiks for any new q-point or if buffer is empty
             self.currentq_c = q_c
-            self._chiksr_GG = self._calculate_chiksr(q_c, txt=txt)
+            self._pd, self._chiksr_GG = self._calculate_chiksr(q_c, txt=txt)
 
-        return self._chiksr_GG
+        return self._pd, self._chiksr_GG
 
     def _calculate_chiksr(self, q_c, txt=None):
         r"""Use the ChiKS calculator to calculate the reactive part of the
@@ -175,14 +170,14 @@ class IsotropicExchangeCalculator:
         conjugates to reach the last equality.
         """
         frequencies = [0.]
-        _, chiks_wGG = self.chiks.calculate(q_c, frequencies,
-                                            spincomponent='+-',
-                                            txt=txt)
+        pd, chiks_wGG = self.chiks.calculate(q_c, frequencies,
+                                             spincomponent='+-',
+                                             txt=txt)
 
         # Take the reactive part
         chiksr_GG = 1 / 2. * (chiks_wGG[0] + np.conj(chiks_wGG[0]).T)
 
-        return chiksr_GG
+        return pd, chiksr_GG
 
 
 class PlaneWaveBxc(PlaneWaveAdiabaticFXC):
