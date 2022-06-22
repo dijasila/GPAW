@@ -34,6 +34,7 @@ Git master branch
 
 * The GW0 feature has been removed.
 
+
 Version 22.1.0
 ==============
 
@@ -121,9 +122,6 @@ Jan 12, 2022: :git:`22.1.0 <../22.1.0>`
 * Radiative emission (lifetimes, ...) are obtainable from
   real-time LCAO-TDDFT via the radiation-reaction potential.
   See the tutorial: :ref:`radiation_reaction_rttddft`.
-
-* Input parameters are now written to the log file in such a way that it
-  can be copy-pasted directly into a Python script.
 
 
 Version 21.6.0
