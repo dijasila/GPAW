@@ -1,4 +1,4 @@
-# web-page: VCl3.png
+# web-page: VCl2.png
 from gpaw.new.ase_interface import GPAW
 import matplotlib.pyplot as plt
 
