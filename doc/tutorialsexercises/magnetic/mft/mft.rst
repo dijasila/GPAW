@@ -1,12 +1,15 @@
 .. _mft:
 
-=========================================
-Magnon energies by magnetic force theorem
-=========================================
+===============================================
+Magnon energies from the magnetic force theorem
+===============================================
 
-A magnon is a quantum of a spin-wave in a magnetic material, the same way
-phonons are quanta of lattice vibrations. Here we show how to compute
-magnon energies in GPAW by way of the magnetic force theorem.
+A magnon is a collective spin wave excitation carrying a single unit of spin
+angular momentum. The magnon quasi-particles can be viewed as the bosons that
+quantize the fluctuations in the magnetization of a crystal the same way that
+phonons quantize lattice vibrations. Here we show how to compute the magnon
+energy dispersion in GPAW, using the magnetic force theorem in a linear
+response formulation.
 
 =================
 Background theory
@@ -142,7 +145,7 @@ in the ferromagnetic state, at least against spin-rotations.
 References
 ==========
 
-.. [#Durhuus] F. L. Durhuus, T. Skovhus, T. Olsen,
+.. [#Durhuus] F. L. Durhuus, T. Skovhus and T. Olsen,
            *Phys. Rev. B* **??**, ????? (2022)
 
 .. [#Skovhus] T. Skovhus and T. Olsen,
