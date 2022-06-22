@@ -647,7 +647,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                     if eps_n[0]<-1000:
                         msg = f"""Lowest eigenvalue is {eps_n[0]}.
 You might be suffering from MKL library bug MKLD-11440.
-see issue #241 in GPAW. Creashing to prevent corrupted results.""")
+see issue #241 in GPAW. Creashing to prevent corrupted results."""
                         raise RuntimeError(msg)
 
             del H_GG, S_GG
