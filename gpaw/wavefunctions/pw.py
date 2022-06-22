@@ -644,7 +644,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                                                iu=iu)
                 else:
                     md2.general_diagonalize_dc(H_GG, S_GG, psit_nG, eps_n)
-                    if eps_n[0]<-1000:
+                    if eps_n[0] < -1000:
                         msg = f"""Lowest eigenvalue is {eps_n[0]}.
 You might be suffering from MKL library bug MKLD-11440.
 see issue #241 in GPAW. Creashing to prevent corrupted results."""
