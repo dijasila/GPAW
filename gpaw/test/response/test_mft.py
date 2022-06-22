@@ -85,8 +85,7 @@ def test_Fe_bcc(in_tmp_dir):
 
     # Initialize the exchange calculator
     chiks = ChiKS(calc,
-                  ecut=ecut, nbands=nbands, eta=eta,
-                  gammacentered=True)  # Change the default? XXX
+                  ecut=ecut, nbands=nbands, eta=eta)
     isoexch_calc = IsotropicExchangeCalculator(chiks)
 
     # Allocate array for the exchange constants
@@ -198,12 +197,10 @@ def test_Co_hcp(in_tmp_dir):
 
     # Initialize the exchange calculator with and without eta
     chiks0 = ChiKS(calc,
-                   ecut=ecut, nbands=nbands, eta=eta0,
-                   gammacentered=True)  # Change the default? XXX
+                   ecut=ecut, nbands=nbands, eta=eta0)
     isoexch_calc0 = IsotropicExchangeCalculator(chiks0)
     chiks1 = ChiKS(calc,
-                   ecut=ecut, nbands=nbands, eta=eta1,
-                   gammacentered=True)  # Change the default? XXX
+                   ecut=ecut, nbands=nbands, eta=eta1)
     isoexch_calc1 = IsotropicExchangeCalculator(chiks1)
 
     # Allocate array for the spherical site exchange constants

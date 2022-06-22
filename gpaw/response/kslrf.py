@@ -502,7 +502,7 @@ def transitions_in_composite_index(n1_M, n2_M, s1_S, s2_S):
 class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
     """Class for doing KS-LRF calculations in plane wave mode"""
 
-    def __init__(self, *args, eta=0.2, ecut=50, gammacentered=False,
+    def __init__(self, *args, eta=0.2, ecut=50, gammacentered=True,
                  disable_point_group=True, disable_time_reversal=True,
                  disable_non_symmorphic=True, bundle_integrals=True,
                  kpointintegration='point integration', **kwargs):
