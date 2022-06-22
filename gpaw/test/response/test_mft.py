@@ -240,21 +240,29 @@ def test_Co_hcp(in_tmp_dir):
                              0.00000039 - 0.00525360j],
                             [0.00000039 + 0.00525360j,
                              1.30187481 + 0.j]]])
-    test_mw_qn = np.array([[0., 0.673172482],
-                           [0.668238523, 0.893387671],
-                           [0.757884234, 0.913272672],
-                           [0.414111193, 0.426511947]])
-    test_mwuc_q = np.array([0., 0.72445911, 1.21301805, 0.37568663])
+    test_J_qab = np.array([[[1.37280847 + 0.j, 0.28516320 + 0.00007375j],
+                            [0.28516320 - 0.00007375j, 1.37280847 - 0.j]],
+                           [[0.99649489 - 0.j, 0.08201540 - 0.04905246j],
+                            [0.08201540 + 0.04905246j, 0.99649489 + 0.j]],
+                           [[0.95009010 + 0.j, -0.0329297 - 0.05777656j],
+                            [-0.0329297 + 0.05777656j, 0.95009010 + 0.j]],
+                           [[1.30186322 - 0.j, 0.00000038 - 0.00478552j],
+                            [0.00000038 + 0.00478552j, 1.30186322 - 0.j]]])
+    test_mw_qn = np.array([[0., 0.673172311],
+                           [0.667961643, 0.893557698],
+                           [0.757038564, 0.914026524],
+                           [0.414677028, 0.425972649]])
+    test_mwuc_q = np.array([0., 0.72440073, 1.2123005, 0.37567975])
 
     # Exchange constants
-    assert np.allclose(J_qabp[..., 1], test_J_qab, rtol=1e-3)
+    assert np.allclose(J_qabp[..., 1], test_J_qab, rtol=5e-3)
 
     # Magnon energies
     assert np.all(np.abs(mw_qnp[0, 0, :]) < 1.e-8)  # Goldstone theorem
     assert abs(mwuc_q[0]) < 1.e-8  # Goldstone
-    assert np.allclose(mw_qnp[1:, 0, 1], test_mw_qn[1:, 0], rtol=1.e-3)
-    assert np.allclose(mw_qnp[:, 1, 1], test_mw_qn[:, 1], rtol=1.e-3)
-    assert np.allclose(mwuc_q[1:], test_mwuc_q[1:], rtol=1.e-3)
+    assert np.allclose(mw_qnp[1:, 0, 1], test_mw_qn[1:, 0], rtol=5.e-3)
+    assert np.allclose(mw_qnp[:, 1, 1], test_mw_qn[:, 1], rtol=5.e-3)
+    assert np.allclose(mwuc_q[1:], test_mwuc_q[1:], rtol=5.e-3)
 
     # Part 4: Check self-consistency of results
     # We should be in a radius range, where the magnon energies don't change

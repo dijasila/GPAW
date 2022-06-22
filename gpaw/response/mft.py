@@ -14,7 +14,7 @@ from ase.units import Hartree
 
 
 class IsotropicExchangeCalculator:
-    """Calculator class for the Heisenberg exchange constants
+    r"""Calculator class for the Heisenberg exchange constants
 
     _           2
     J^ab(q) = - ‾‾ B^(xc†) K^(a†)(q) χ_KS^('+-)(q) K^b(q) B^(xc)
@@ -66,9 +66,9 @@ class IsotropicExchangeCalculator:
         # Bxc field buffer
         self._Bxc_G = None
 
-        # chiks buffer
+        # chiksr buffer
         self.currentq_c = None
-        self._chiks_GG = None
+        self._chiksr_GG = None
 
     def __call__(self, q_c, site_kernels, txt=sys.stdout):
         """Calculate the isotropic exchange constants for a given wavevector.
@@ -92,7 +92,7 @@ class IsotropicExchangeCalculator:
 
         # Get ingredients
         Bxc_G = self.get_Bxc()
-        chiks_GG = self.get_chiks(q_c, txt=txt)
+        chiksr_GG = self.get_chiksr(q_c, txt=txt)
 
         # Get plane-wave descriptor
         pd = self.chiks.get_PWDescriptor(q_c)  # Move to get_chiks! XXX
@@ -108,9 +108,9 @@ class IsotropicExchangeCalculator:
                 for b in range(nsites):
                     Ka_GG = K_aGG[a, :, :]
                     Kb_GG = K_aGG[b, :, :]
-                    J = np.conj(Bxc_G) @ np.conj(Ka_GG).T @ chiks_GG @ Kb_GG \
+                    J = np.conj(Bxc_G) @ np.conj(Ka_GG).T @ chiksr_GG @ Kb_GG \
                         @ Bxc_G
-                    J_ab[a, b] = 2. * J / V0
+                    J_ab[a, b] = - 2. * J / V0
 
         # Transpose to have the partitions index last
         J_abp = np.transpose(J_pab, (1, 2, 0))
@@ -133,32 +133,52 @@ class IsotropicExchangeCalculator:
 
         return self.Bxc_calc(pd0)
 
-    def get_chiks(self, q_c, txt=None):
+    def get_chiksr(self, q_c, txt=None):
         """Get χ_KS^('+-)(q) from buffer."""
         q_c = np.asarray(q_c)
         if self.currentq_c is None or not np.allclose(q_c, self.currentq_c):
             # Calculate chiks for any new q-point or if buffer is empty
             self.currentq_c = q_c
-            self._chiks_GG = self._calculate_chiks(q_c, txt=txt)
+            self._chiksr_GG = self._calculate_chiksr(q_c, txt=txt)
 
-        return self._chiks_GG
+        return self._chiksr_GG
 
-    def _calculate_chiks(self, q_c, txt=None):
-        """Use the ChiKS calculator to calculate the reactive part of the
-        static Kohn-Sham susceptibility."""
+    def _calculate_chiksr(self, q_c, txt=None):
+        r"""Use the ChiKS calculator to calculate the reactive part of the
+        static Kohn-Sham susceptibility χ_KS^('+-)(q).
+
+        First, the dynamic Kohn-Sham susceptibility
+
+                                 __  __
+                              1  \   \        f_nk↑ - f_mk+q↓
+        χ_KS,GG'^+-(q,ω+iη) = ‾  /   /  ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+                              V  ‾‾  ‾‾ ħω - (ε_mk+q↓ - ε_nk↑) + iħη
+                                 k  n,m
+                                        x n_nk↑,mk+q↓(G+q) n_mk+q↓,nk↑(-G'-q)
+
+        is calculated in the static limit ω=0. Then, the reactive part (see
+        [PRB 103, 245110 (2021)]) is extracted,
+
+                              1
+        χ_KS,GG'^(+-')(q,ω) = ‾ [χ_KS,GG'^+-(q,ω+iη) + χ_KS,-G'-G^-+(-q,-ω+iη)]
+                              2
+
+                              1
+                            = ‾ [χ_KS,GG'^+-(q,ω+iη) + χ_KS,G'G^(+-*)(q,ω+iη)]
+                              2
+
+        where it was used that n^+(r) and n^-(r) are each others Hermitian
+        conjugates to reach the last equality.
+        """
         frequencies = [0.]
-
-        # Calculate the dynamic KS susceptibility in the static limit
         _, chiks_wGG = self.chiks.calculate(q_c, frequencies,
-                                            spincomponent='-+',
+                                            spincomponent='+-',
                                             txt=txt)
 
-        # Remove frequency axis
-        # Where do we take the reactive part??? !!! XXX
-        # Shouldn't this be more than a minus sign??? !!! XXX
-        chiks_GG = - chiks_wGG[0, :, :]
+        # Take the reactive part
+        chiksr_GG = 1 / 2. * (chiks_wGG[0] + np.conj(chiks_wGG[0]).T)
 
-        return chiks_GG
+        return chiksr_GG
 
 
 class PlaneWaveBxc(PlaneWaveAdiabaticFXC):
