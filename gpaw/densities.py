@@ -34,9 +34,22 @@ class Densities:
     def pseudo_densities(self,
                          grid_spacing: float = None,  # Ang
                          ) -> UniformGridFunctions:
+        nt_sR = self._pseudo_densities(grid_spacing)
+        return nt_sR.scaled(Bohr, Bohr**-3)
+
+    def _pseudo_densities(self,
+                          grid_spacing: float = None,  # Ang
+                          ) -> UniformGridFunctions:
         nt_sR = self.nt_sR.to_pbc_grid()
         if grid_spacing is not None:
             grid = nt_sR.desc.uniform_grid_with_grid_spacing(
                 grid_spacing / Bohr)
             nt_sR = nt_sR.interpolate(grid=grid)
-        return nt_sR.scaled(Bohr, Bohr**-3)
+        return nt_sR
+
+    def all_electron_densities(self,
+                               grid_spacing: float = None,  # Ang
+                               ) -> UniformGridFunctions:
+        n_sR = self._pseudo_densities(grid_spacing)
+
+        return n_sR.scaled(Bohr, Bohr**-3)

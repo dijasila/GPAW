@@ -1,8 +1,8 @@
+from __future__ import annotations
+
 import numpy as np
-from scipy.special import erfcx
-
 from ase.units import Ha
-
+from scipy.special import erfcx
 
 K_G = 8 * np.sqrt(2) / (3 * np.pi**2)  # 0.382106112167171
 
@@ -33,7 +33,7 @@ class Coefficients:
                  eps: float = 0.05,
                  width: float = None,
                  metallic: bool = False):
-        self.eps = eps / Ha
+        self.eps: float | None = eps / Ha
         self.metallic = metallic
         if width is not None:
             width = width / Ha
