@@ -87,7 +87,7 @@ class InputParameters:
             raise ValueError("""You can't use both "gpts" and "h"!""")
 
         if self.experimental is not None:
-            if self.experimental.pop('niter_fixdensity') is not None:
+            if self.experimental.pop('niter_fixdensity', None) is not None:
                 warnings.warn('Ignoring "niter_fixdensity".')
             if 'soc' in self.experimental:
                 warnings.warn('Please use new "soc" parameter.')

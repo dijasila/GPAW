@@ -71,7 +71,7 @@ class IBZWaveFunctions:
         self.dtype = wfs.dtype
         self.nbands = wfs.nbands
 
-        self.fermi_levels = None
+        self.fermi_levels: Array1D | None = None
 
         self.energies: dict[str, float] = {}
 
@@ -238,6 +238,7 @@ class IBZWaveFunctions:
         also the wave functions.
         """
         eig_skn, occ_skn = self.get_all_eigs_and_occs()
+        assert self.fermi_levels is not None
         writer.write(fermi_levels=self.fermi_levels * Ha,
                      eigenvalues=eig_skn * Ha,
                      occupations=occ_skn)
