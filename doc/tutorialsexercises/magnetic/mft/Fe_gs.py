@@ -46,10 +46,11 @@ occw = 0.001  # Fermi temperature in eV
 # Set up crystal structure
 atoms = bulk('Fe', 'bcc', a=a)
 atoms.set_initial_magnetic_moments([mm])
+atoms.center()
 
 # Construct the ground state calculator
 kpt_grid = {'size': (kpts, kpts, kpts),
-            'gamma': True},  # When converged, the grid offset shouldn't matter
+            'gamma': True}  # When converged, the grid offset shouldn't matter
 calc = GPAW(xc='LDA',
             mode=PW(pw),
             kpts=kpt_grid,
