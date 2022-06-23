@@ -56,7 +56,7 @@ calc = GPAW(xc='LDA',
             nbands=nbands_gs,
             convergence=conv,
             occupations=FermiDirac(occw),
-            )
+            txt='Fe_gs.txt')
 
 # DFT ground state calculation
 atoms.calc = calc
