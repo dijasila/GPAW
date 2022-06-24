@@ -1,123 +1,100 @@
-"""Plot dispersion relation for Co(hcp) between all high-symmetry points"""
+"""Plot the magnon dispersion of Fe(bcc)"""
 
-# Load modules
+# General modules
 import numpy as np
+from matplotlib import rcParams
 import matplotlib.pyplot as plt
-import json
 
-# ----- Plotting functions ----- #
+# Script modules
+from gpaw import GPAW
+from gpaw.response.heisenberg import calculate_single_site_magnon_energies
 
-def magnon_dispersion_plot(ax, q_qc, E_mq, spts=None):
-    """Plot magnon dispersion relation.
-    If dictionary of special, named points is given, set tickmarks
-    at corresponding simulated points.
+# ---------- Inputs ---------- #
 
-    Parameters
-    ----------
-    ax : matplotlib axis object to populate
-    q_qc : nd.array
-        simulated q-points
-    E_mq : nd.array
-        magnon energies
-    spts : dict
-        name (key) and coordinates (value) of special, named q-points
-        e.g. high-symmetry points
+# Ground state
+gs = 'Fe_all.gpw'
 
-    """
+# High-symmetry points
+sp_p = [r'$\Gamma$', 'N', 'P', 'H']
+spq_pc = [np.array(qc) for qc in
+          [[0., 0., 0], [0., 0., 0.5], [0.25, 0.25, 0.25], [0.5, -0.5, 0.5]]]
 
-    # ----- Initial calculation ----- #
+# Load MFT data
+q_qc = np.load('Fe_q_qc.npy')
+rc_r = np.load('Fe_rc_r.npy')
+J_qr = np.load('Fe_J_qr.npy')
+Juc_q = np.load('Fe_Juc_q.npy')
 
-    # Get number of q-points and sites
-    N_sites, Nq = E_mq.shape
+# Define range of spherical radii to plot
+rmin = 0.9
+rmax = 1.6
 
-    # Get distance along path for each q-point
-    # Differences between subsequent q-points
-    qdiff_q = q_qc[1:, :] - q_qc[:-1, :]
-    # Distances between subsequent q-points![](Magnon_dispersion_Co_hcp.png)
-    qdist_q = np.sqrt(np.sum(qdiff_q ** 2, axis=-1))
-    pathq = [0]  # Summed distance along path (start at 0)
-    for qdist in qdist_q:
-        pathq += [pathq[-1] + qdist]
+# Labels and limits
+mwlabel = r'$\hbar\omega$ [meV]'
+mwlim = (0., 450.)
 
-    # Get tickmark positions and values (point names)
-    if spts is None:
-        x_ticks_vals, x_ticks_pos = [], []
-    else:
-        x_ticks_vals, x_ticks_pos = get_tickmarks(q_qc, pathq, spts)
+filename = 'Fe_magnon_dispersion.png'
 
-    # ----- Do plot ----- #
+# ---------- Script ---------- #
 
-    # Plot dispersion lines
-    for m in range(N_sites):
-        E_q = E_mq[m, :]
-        ax.plot(pathq, E_q)
-        ax.plot(pathq, E_q, marker='x')
-    ax.set_xticks(ticks=x_ticks_pos)
-    ax.set_xticklabels(labels=x_ticks_vals)
-    for x in x_ticks_pos:
-        ax.axvline(x=x, color='steelblue')
+# Extract the magnetization of the unit cell
+calc = GPAW(gs, txt=None)
+muc = calc.get_magnetic_moment()
 
-def get_tickmarks(q_qc, pathq, spts):
-    """Get tickmark positions and values (point names)
-    Determines if any of the simulated points are identical to a special named
-    point. If yes, use name as tick value.
+# Convert relative q-points into distance along the bandpath in reciprocal
+# space.
+B_cv = 2.0 * np.pi * calc.atoms.cell.reciprocal()  # Coordinate transform
+q_qv = q_qc @ B_cv  # Transform into absolute reciprocal coordinates
+pathq_q = [0.]
+for q in range(1, len(q_qc)):
+    pathq_q.append(pathq_q[-1] + np.linalg.norm(q_qc[q] - q_qc[q - 1]))
+pathq_q = np.array(pathq_q)
 
-    Parameters
-    ----------
-    q_qc : nd.array
-        simulated points
-    pathq : iterable
-        positions of simulated points along path
-    spts : dict
-        name (key) and coordinates (value) of special, named q-points
-        e.g. high-symmetry points
-    """
+# Define q-limits of plot
+qlim = ((pathq_q[0] - pathq_q[1]) / 2.,
+        (1.5 * pathq_q[-1] - 0.5 * pathq_q[-2]))
 
-    qnames = list(spts.keys())
-    qspc_qc = np.vstack([spts[key] for key in qnames])
+# Calculate the magnon energies
+E_qr = calculate_single_site_magnon_energies(J_qr, q_qc, muc) * 1.e3  # meV
+Euc_q = calculate_single_site_magnon_energies(Juc_q, q_qc, muc) * 1.e3
 
-    # Find if any simulated q-points match the special points
-    x_ticks_vals, x_ticks_pos = [], []
+# We define the lower bound on the magnon energy as the minimum within the
+# chosen rc range, the "best estimate" as the median, and the upper bound
+# as the maximum value
+Evalid_qr = E_qr[:, np.logical_and(rc_r >= rmin, rc_r <= rmax)]
+Emin_q = np.min(Evalid_qr, axis=1)
+E_q = np.median(Evalid_qr, axis=1)
+Emax_q = np.max(Evalid_qr, axis=1)
+
+# Plot the magnon dispersion with spherical sites
+colors = rcParams['axes.prop_cycle'].by_key()['color']
+plt.fill_between(pathq_q, Emin_q, Emax_q, color=colors[0], alpha=0.4)
+plt.plot(pathq_q, Emin_q, color='0.5')
+plt.plot(pathq_q, Emax_q, color='0.5')
+plt.plot(pathq_q, E_q, color=colors[0], label='spherical')
+
+# Plot the magnon dispersion with parallelepipedic sites
+plt.plot(pathq_q, Euc_q, '-o', mec='k', color=colors[1], label='unit cell')
+
+# Use high-symmetry points as tickmarks for the x-axis
+qticks = []
+qticklabels = []
+for sp, spq_c in zip(sp_p, spq_pc):
     for q, q_c in enumerate(q_qc):
-        # Compare q_c with all special points
-        is_close = np.all(np.isclose(q_c, qspc_qc), axis=-1)
-        # If single match; find name of matching point and position along path
-        if np.sum(is_close) == 1:
-            qind = np.argwhere(is_close)[0, 0]  # Index of special point
-            x_ticks_pos += [pathq[q]]
-            x_ticks_vals += [qnames[qind]]
+        if np.allclose(q_c, spq_c):
+            qticks.append(pathq_q[q])
+            qticklabels.append(sp)
+plt.xticks(qticks, qticklabels)
+# Plot also vertical lines for each special point
+for pq in qticks:
+    plt.axvline(pq, color='0.5', linewidth=1, zorder=0)
 
-    return x_ticks_vals, x_ticks_pos
+# Labels and limits
+plt.ylabel(mwlabel)
+plt.xlim(qlim)
+plt.ylim(mwlim)
 
-# ----- Load results ----- #
+plt.legend(title='Site geometry')
 
-# From 'high_sym_path.py'
-q_qc = np.load('q_qc.npy')
-E_mq = np.load('high_sym_path_E_mq.npy')
-
-# From 'high_sym_pts.py'
-with open('spts.json') as file:
-    spts = json.load(file)
-# Turn lists back into arrays
-for key in spts.keys():
-    spts[key] = np.array(spts[key])
-
-# Get info
-N_sites, Nq = E_mq.shape
-
-# ----- Plot results ----- #
-
-# Increase font size in plots
-plt.rcParams['font.size'] = 16
-
-# Convert from eV to meV
-E_mq = E_mq * 1000
-
-# Plot dispersion relation
-fig, ax = plt.subplots()
-magnon_dispersion_plot(ax, q_qc, E_mq, spts=spts)
-ax.set_ylabel(f'Energy [meV]')
-ax.set_title(f'Magnon dispersion for Co(hcp)')
-savename = 'Magnon_dispersion_Co_hcp.png'
-plt.savefig(savename, bbox_inches='tight')
-print(f'Magnon dispersion plot saved in {savename}')
+plt.savefig(filename, format=filename.split('.')[-1],
+            bbox_inches='tight')
