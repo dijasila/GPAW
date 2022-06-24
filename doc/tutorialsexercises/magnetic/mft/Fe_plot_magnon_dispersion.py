@@ -26,7 +26,7 @@ J_qr = np.load('Fe_J_qr.npy')
 Juc_q = np.load('Fe_Juc_q.npy')
 
 # Define range of spherical radii to plot
-rmin = 0.9
+rmin = 1.0
 rmax = 1.5
 
 # Labels and limits
@@ -71,7 +71,7 @@ colors = rcParams['axes.prop_cycle'].by_key()['color']
 plt.fill_between(pathq_q, Emin_q, Emax_q, color=colors[0], alpha=0.4)
 plt.plot(pathq_q, Emin_q, color='0.5')
 plt.plot(pathq_q, Emax_q, color='0.5')
-plt.plot(pathq_q, E_q, color=colors[0], label='spherical')
+plt.plot(pathq_q, E_q, color=colors[0], label='sphere')
 
 # Plot the magnon dispersion with parallelepipedic sites
 plt.plot(pathq_q, Euc_q, '-o', mec='k', color=colors[1], label='unit cell')
