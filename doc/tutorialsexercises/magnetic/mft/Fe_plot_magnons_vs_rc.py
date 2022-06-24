@@ -12,7 +12,7 @@ from gpaw.response.heisenberg import calculate_single_site_magnon_energies
 # ---------- Inputs ---------- #
 
 # Ground state
-gs = 'Fe_all.gpw'
+gpw = 'Fe_all.gpw'
 
 # High-symmetry points
 sp_p = ['N', 'P', 'H']
@@ -28,14 +28,14 @@ J_qr = np.load('Fe_J_qr.npy')
 rlabel = r'$r_{\mathrm{c}}\: [\mathrm{\AA}]$'
 mwlabel = r'$\hbar\omega$ [meV]'
 rlim = (0.4, 1.85)
-mwlim = (100., 600.)
+mwlim = (200., 600.)
 
 filename = 'Fe_magnons_vs_rc.png'
 
 # ---------- Script ---------- #
 
 # Extract the magnetization of the unit cell
-calc = GPAW(gs, txt=None)
+calc = GPAW(gpw, txt=None)
 muc = calc.get_magnetic_moment()
 
 # Calculate the magnon energies
