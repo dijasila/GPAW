@@ -52,10 +52,10 @@ rc_r = np.linspace(0.5, 1.75, 51)
 # ---------- Script ---------- #
 
 # Recalculate the Kohn-Sham orbitals
-atoms, calc = restart(gpw, parallel={'domain': 1}, txt=None)
+atoms, calc = restart(gpw, parallel={'domain': 1})
 calc.set(fixdensity=True,
          convergence=conv,
-         txt=None)
+         txt='Co_es.txt')
 atoms.calc = calc
 atoms.get_potential_energy()
 
