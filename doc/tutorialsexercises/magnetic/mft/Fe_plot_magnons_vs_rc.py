@@ -41,6 +41,7 @@ muc = calc.get_magnetic_moment()
 # Calculate the magnon energies
 E_qr = calculate_single_site_magnon_energies(J_qr, q_qc, muc)
 
+# Plot the magnon energies at the high-symmetry points as a function of rc
 for sp, spq_c in zip(sp_p, spq_pc):
     q = 0
     while not np.allclose(q_qc[q], spq_c):
