@@ -56,6 +56,8 @@ atoms, calc = restart(gpw, parallel={'domain': 1}, txt=None)
 calc.set(fixdensity=True,
          convergence=conv,
          txt=None)
+atoms.calc = calc
+atoms.get_potential_energy()
 
 # Initialize the ChiKS calculator
 chiks = ChiKS(calc,
