@@ -1,55 +1,47 @@
-"""Converge ground state of Co(hcp) and save with all plane-wave components
+"""DFT ground state calculation of Co(hcp)."""
 
-A number of unoccupied bands are converged for the sake of subsequent
-response calculations.
-
-Note : k must be a multiple of 6 in order to do computations at all the
-high-symmetry points of the hcp lattice.
-
-Note : Co(hcp) has 2 atoms in the unit cell, each with 9 valence electrons
-which fully or partially occupy 6 bands per atom. Hence there are 12 occupied
-bands, so nbands_gs >= nbands_response > 12 is required"""
-
-# General modules
-import numpy as np
-
-# CAMD modules
+# Script modules
 from gpaw import GPAW, PW, FermiDirac
 from ase.build import bulk
 
-# ----- Select ground state simulation settings ----- #
-xc = 'LDA'              # Exchange-correlation potential
-k = 12                  # kpts in each direction of simulation grid
-pw = 1200               # Plane wave energy cutoff in eV
-nbands_gs = 21          # Bands for ground state calculation
-nbands_response = 18    # Bands for response calculation
+# ---------- Inputs ---------- #
+
+# Crystal structure
+a = 2.5071
+c = 4.0695
+mm = 1.67
+
+# Calculator parameters
+xc = 'LDA'
+pw = 1200  # eV
+# For a hcp crystal, a k-point grid that samples a multiple of 6 k-points
+# along all axes will support calculations at the high-symmetry points M, K and
+# A. We choose N_k^(1/3)=30, also used in [arXiv:2204.04169].
+kpts = 30  # final grid is (kpts, kpts, kpts)
+nbands_mft = 2 * 6  # natoms * (4s + 3d)
+nbands_gs = nbands_mft + 2 * 4  # + natoms * (4p + 5s)
 conv = {'density': 1.e-8,
         'forces': 1.e-8,
-        'bands': nbands_response}  # Converge bands used in response calc
+        'bands': nbands_mft}  # Converge only the bands needed subsequently
+occw = 0.001  # Fermi temperature in eV
 
-# ----- Ground state simulation ----- #
+# ---------- Script ---------- #
 
-# Setup material
-Co = bulk('Co','hcp',a=2.5071, c=4.0695)
-mm = np.array([1.67, 1.67])
-Co.set_initial_magnetic_moments(magmoms=mm)
+# Set up crystal structure
+atoms = bulk('Co', 'hcp', a=a, c=c)
+atoms.set_initial_magnetic_moments([mm, mm])
+atoms.center()
 
-# Prepare ground state calculator
-kpts = {'size': (k, k, k), 'gamma': True}
 calc = GPAW(xc='LDA',
             mode=PW(pw),
-            kpts=kpts,
+            kpts={'size': (kpts, kpts, kpts), 'gamma': True},
             nbands=nbands_gs,
             convergence=conv,
-            occupations=FermiDirac(0.01),
-            symmetry={'point_group': False},
-            parallel={'domain': 1},
-            spinpol=True,
-            )
+            occupations=FermiDirac(occw),
+            txt='Co_gs.txt')
 
-# Converge ground state
-Co.set_calculator(calc)
-Co.get_potential_energy()
+atoms.calc = calc
+atoms.get_potential_energy()
 
-# Save converged ground state with all plane-wave components
-calc.write(f'converged_gs_calc.gpw', mode='all')
+# Save the ground state w.o. the Kohn-Sham orbitals
+calc.write('Co.gpw')
