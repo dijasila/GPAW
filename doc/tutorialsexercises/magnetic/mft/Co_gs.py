@@ -13,7 +13,7 @@ mm = 1.67
 
 # Calculator parameters
 xc = 'LDA'
-pw = 1200  # eV
+pw = 800  # eV
 # For a hcp crystal, a k-point grid that samples a multiple of 6 k-points
 # along all axes will support calculations at the high-symmetry points M, K and
 # A. We choose N_k^(1/3)=30, also used in [arXiv:2204.04169].
