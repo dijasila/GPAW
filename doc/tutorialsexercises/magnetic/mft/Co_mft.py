@@ -1,69 +1,125 @@
-"""Compute magnon dispersion on band path between all the high-symmetry
-points of the hcp lattice. The resulting magnon energies are saved."""
+"""Compute the isotropic exchange constants of Co on a band path between
+selected high-symmetry points of the hcp lattice."""
 
 # General modules
 import numpy as np
 
-# CAMD modules
-from gpaw import GPAW
-from gpaw.response.mft import IsotropicExchangeCalculator, \
-    compute_magnon_energy_FM
+# Script modules
+from ase.data import covalent_radii
 
-# ----- Setup exchange calculator ----- #
+from gpaw import restart
+from gpaw.response.site_kernels import (SphericalSiteKernels,
+                                        CylindricalSiteKernels,
+                                        ParallelepipedicSiteKernels)
+from gpaw.response.chiks import ChiKS
+from gpaw.response.mft import IsotropicExchangeCalculator
 
-# Settings specific to exchange calculator
-ecut = 400  # Energy cutoff in eV for response calc (number of G-vectors)
-# How to map onto discrete lattice of magnetic moments
-sitePos_mv = 'atoms'  # Magnetic sites at all atoms
-shapes_m = ['sphere', 'sphere']  # Use spheres to define magnetic sites
-rcBest = 1.3  # Pick optimal rc value
 
-# Load converged ground state
-calc = GPAW(f'converged_gs_calc.gpw', parallel={'domain': 1})
-Co = calc.get_atoms()
-mm = calc.get_magnetic_moments()
+# ---------- Inputs ---------- #
 
-# Get number of converged bands
-nbands_response = calc.parameters['convergence']['bands']
+# Parameters reused from the ground state
+gpw = 'Co.gpw'
+kpts = 24
+nbands = 2 * 6
 
-# Get size of k-space simulation grid
-k = calc.parameters['kpts']['size'][0]
+# Convergence criteria of Kohn-Sham orbitals
+conv = {'bands': nbands,
+        'forces': 1.e-8,
+        'eigenstates': 1.e-14}
 
-# Setup exchange calculator
-exchCalc = IsotropicExchangeCalculator(calc,
-                                       sitePos_mv,
-                                       shapes_m=shapes_m,
-                                       ecut=ecut,
-                                       nbands=nbands_response)
+# We choose the plane wave energy cutoff of the mft response calculation
+# so as to provide magnon energies converged within 5%, based on the
+# convergence study of Co(fcc) in [arXiv:2204.04169]
+ecut = 750  # eV
+# We compute the transverse magnetic susceptibility without broadening
+eta = 0.
 
-# ----- Magnon dispersion between high symmetry points ----- #
+# We map out the high-symmetry path G-M-K-G-A, by generating all commensurate
+# q-vectors on the path
+qGM_qc = np.array([[x / kpts, 0., 0.]
+                   for x in range(kpts // 2 + 1)])
+qMK_qc = np.array([[1 / 2. - x / kpts, 2 * x / kpts, 0.]
+                   for x in range(kpts // 6 + 1)])
+qKG_qc = np.array([[x / kpts, x / kpts, 0.]
+                   for x in reversed(range(kpts // 3 + 1))])
+qGA_qc = np.array([[0., 0., x / kpts]
+                   for x in range(kpts // 2 + 1)])
+q_qc = np.vstack([qGM_qc, qMK_qc[1:], qKG_qc[1:], qGA_qc[1:]])
 
-# Construct bandpath between all the high-symmetry points
-# G -> K -> H -> A -> L -> M -> G
-# where G is the Gamma point.
-# Note that the response calculation only works for points of the form
-# q = (n_x/k, n_y/k, n_z/k) where n_i is an integer and (k, k, k) is the
-# simulation grid
-GK = np.array([[x, x, 0] for x in np.arange(0, 1/3+0.01, 1/k)])
-KH = np.array([[1/3, 1/3, x] for x in np.arange(1/k, 1/2+0.01, 1/k)])
-HA = np.array([[1/3-x, 1/3-x, 1/2] for x in np.arange(1/k, 1/3+0.01, 1/k)])
-AL = np.array([[x, 0, 1/2] for x in np.arange(1/k, 1/2+0.01, 1/k)])
-LM = np.array([[1/2, 0, 1/2-x] for x in np.arange(1/k, 1/2+0.01, 1/k)])
-MG = np.array([[1/2-x, 0, 0] for x in np.arange(1/k, 1/2+0.01, 1/k)])
-q_qc = np.vstack([GK, KH, HA, AL, LM, MG])
+# Define the Co site radii to try for the spherical site kernels
+rc_r = np.linspace(0.5, 1.75, 51)
 
-# Compute exchange coupling along bandpath
-Nq = len(q_qc)
-N_sites = len(exchCalc.sitePos_mv)
-J_rmnq = np.empty([1, N_sites, N_sites, Nq], dtype=complex)
+# ---------- Script ---------- #
+
+# Recalculate the Kohn-Sham orbitals
+atoms, calc = restart(gpw, parallel={'domain': 1}, txt=None)
+calc.set(fixdensity=True,
+         convergence=conv,
+         txt=None)
+
+# Initialize the ChiKS calculator
+chiks = ChiKS(calc,
+              ecut=ecut, nbands=nbands, eta=eta, txt='Co_chiks.txt')
+
+# Initialize the exchange calculator
+isoexch_calc = IsotropicExchangeCalculator(chiks)
+
+# Initialize site kernels with two sublattices
+positions = atoms.positions  # sublattice positions
+# Create two Co sublattices with spherical sites, but vary only one radius
+rc1_pa = np.array([[rc, 1.2] for rc in rc_r])
+sph_sitekernels1 = SphericalSiteKernels(positions, rc1_pa)
+assert sph_sitekernels1.nsites == 2  # Check to illustrate SiteKernels magic
+assert sph_sitekernels1.npartitions == len(rc_r)
+# Create two Co sublattices with spherical sites of equal size
+rc2_pa = np.array([[rc, rc] for rc in rc_r])
+# We could initialize the site kernel instance normally as follows
+sph_sitekernels2 = SphericalSiteKernels(positions, rc2_pa)
+# However, there is also a second option. We can initialize a site kernels
+# instance for each sublattice and then add them together
+sph_sitekernels2 = SphericalSiteKernels(positions[:1], rc2_pa[:, :1])\
+    + SphericalSiteKernels(positions[1:], rc2_pa[:, 1:])
+assert sph_sitekernels2.nsites == 2
+assert sph_sitekernels2.npartitions == len(rc_r)
+
+# Initialize site kernels with a single sublattice
+# Create a single site spanning the entire unit cell
+cell_cv = atoms.get_cell()
+center_v = np.sum(cell_cv, axis=0) / 2.
+uc_sitekernels = ParallelepipedicSiteKernels([center_v], [[cell_cv]])
+# Create a single site as a cylinder encapsulating both Co atoms
+d_v = positions[1] - positions[0]  # displacement vector between atoms
+d = np.linalg.norm(d_v)
+ez_v = d_v / d  # normalized cylinder axis
+# Use the average covalent radii as the cylinder radius
+rc = np.average([covalent_radii[n] for n in atoms.get_atomic_numbers()])
+# Cylinder height
+hc = d + rc
+cyl_sitekernels = CylindricalSiteKernels([center_v], [[ez_v]], [[rc]], [[hc]])
+# Because both the unit cell and cylindrical site kernels are placed at the
+# same position (the cell center), we may view them as spatial partitionings
+# of the same Heisenberg model. Therefore, we can append one site kernel to
+# the other, which will create a new "partition".
+mix_sitekernels = uc_sitekernels.copy()  # Make a fresh copy
+mix_sitekernels.append(cyl_sitekernels)
+assert mix_sitekernels.nsites == 1
+assert mix_sitekernels.npartitions == 2
+
+# Allocate arrays for the exchange constants
+nq = len(q_qc)
+Jsph1_qabr = np.empty((nq, 2, 2, len(rc_r)), dtype=complex)
+Jsph2_qabr = np.empty((nq, 2, 2, len(rc_r)), dtype=complex)
+Jmix_qp = np.empty((nq, 2), dtype=complex)
+
+# Compute the isotropic exchange coupling along the chosen bandpath
 for q, q_c in enumerate(q_qc):
-    J_rmn = exchCalc(q_c, rc_rm=rcBest)
-    J_rmnq[:, :, :, q] = J_rmn
-J_mnq = J_rmnq[0, :, :, :]
+    Jsph1_qabr[q] = isoexch_calc(q_c, sph_sitekernels1)
+    Jsph2_qabr[q] = isoexch_calc(q_c, sph_sitekernels2)
+    Jmix_qp[q] = isoexch_calc(q_c, mix_sitekernels)[0, 0, :]  # nsites == 1
 
-# Compute magnon energies along bandpath
-E_mq = compute_magnon_energy_FM(J_mnq, q_qc, mm)
-
-# Save energies and q-points
-np.save('q_qc.npy', q_qc)
-np.save('high_sym_path_E_mq.npy', E_mq)
+# Save the bandpath, spherical radii and computed exchange constants
+np.save('Co_q_qc.npy', q_qc)
+np.save('Co_rc_r.npy', rc_r)
+np.save('Co_Jsph1_qabr.npy', Jsph1_qabr)
+np.save('Co_Jsph2_qabr.npy', Jsph2_qabr)
+np.save('Co_Jmix_qp.npy', Jmix_qp)
