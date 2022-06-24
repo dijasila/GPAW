@@ -12,7 +12,7 @@ from gpaw.response.heisenberg import calculate_single_site_magnon_energies
 # ---------- Inputs ---------- #
 
 # Ground state
-gs = 'Fe_all.gpw'
+gpw = 'Fe_all.gpw'
 
 # High-symmetry points
 sp_p = [r'$\Gamma$', 'N', 'P', 'H']
@@ -27,7 +27,7 @@ Juc_q = np.load('Fe_Juc_q.npy')
 
 # Define range of spherical radii to plot
 rmin = 0.9
-rmax = 1.6
+rmax = 1.5
 
 # Labels and limits
 mwlabel = r'$\hbar\omega$ [meV]'
@@ -38,7 +38,7 @@ filename = 'Fe_magnon_dispersion.png'
 # ---------- Script ---------- #
 
 # Extract the magnetization of the unit cell
-calc = GPAW(gs, txt=None)
+calc = GPAW(gpw, txt=None)
 muc = calc.get_magnetic_moment()
 
 # Convert relative q-points into distance along the bandpath in reciprocal
