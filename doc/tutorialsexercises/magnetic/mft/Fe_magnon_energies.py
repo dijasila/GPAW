@@ -1,42 +1,58 @@
-"""Plot magnon energy as a function of rc for all
-high-symmetry points of Co(hcp)"""
+"""Plot the magnon energy as a function of the cutoff radius rc for all
+high-symmetry points of Fe (bcc)"""
 
-# Load modules
+# General modules
 import numpy as np
 import matplotlib.pyplot as plt
-import json
 
-# ----- Load results ----- #
+# Script modules
+from gpaw import GPAW
+from gpaw.response.heisenberg import calculate_single_site_magnon_energies
 
-# From 'high_sym_pts.py'
-rc_r = np.load('rc_r.npy')
-E_rmq = np.load('high_sym_pts_E_rmq.npy')
-with open('spts.json') as file:
-    spts = json.load(file)
+# ---------- Inputs ---------- #
 
-# Get info
-Nr, N_sites, Nq = E_rmq.shape
-qnames = list(spts.keys())
+# Ground state
+gs = 'Fe_all.gpw'
 
-# ----- Plot results ----- #
+# High-symmetry points
+sp_p = ['N', 'P', 'H']
+spq_pc = [np.array(qc) for qc in
+          [[0., 0., 0.5], [0.25, 0.25, 0.25], [0.5, -0.5, 0.5]]]
 
-# Increase plot font
-plt.rcParams['font.size'] = 16
+# Load MFT data
+q_qc = np.load('Fe_q_qc.npy')
+rc_r = np.load('Fe_rc_r.npy')
+J_qr = np.load('Fe_J_qr.npy')
 
-# Convert from eV to meV
-E_rmq = E_rmq * 1000
+# Labels and limits
+rlabel = r'$r_{\mathrm{c}}\: [\mathrm{\AA}]$'
+mwlabel = r'$\hbar\omega$ [meV]'
+rlim = (0.4, 1.85)
+mwlim = (100., 600.)
 
-# Plot magnon energies vs. integration sphere radii (rc)
-plt.figure()
-# Define colours for different q-points
-cols_q = ['blue', 'red', 'green', 'purple', 'magenta', 'orange']
-for q in range(Nq):
-    # Plot as low energy magnon band with solid lines
-    plt.plot(rc_r, E_rmq[:, 0, q], label=qnames[q], linestyle='-',
-             color=cols_q[q])
-    # Plot high energy magnon band with dashed lines
-    plt.plot(rc_r, E_rmq[:, 1, q], linestyle='--', color=cols_q[q])
-plt.xlabel('rc [Å]')
-plt.ylabel('Magnon energy [meV]')
-plt.legend(prop={'size':14})
-plt.savefig('high_sym_pts_energy_vs_rc.png', bbox_inches='tight')
+# ---------- Script ---------- #
+
+# Extract the magnetization of the unit cell
+calc = GPAW(gs, txt=None)
+muc = calc.get_magnetic_moment()
+
+# Calculate the magnon energies
+E_qr = calculate_single_site_magnon_energies(J_qr, q_qc, muc)
+
+for sp, spq_c in zip(sp_p, spq_pc):
+    q = 0
+    while not np.allclose(q_qc[q], spq_c):
+        q += 1
+        if q == len(q_qc):
+            raise ValueError
+    E_r = E_qr[q] * 1.e3  # eV -> meV
+    plt.plot(rc_r, E_r, '-x', label=sp)
+
+plt.xlabel(rlabel)
+plt.ylabel(mwlabel)
+plt.xlim(rlim)
+plt.ylim(mwlim)
+
+plt.legend()
+
+plt.show()
