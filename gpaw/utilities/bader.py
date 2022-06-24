@@ -28,7 +28,10 @@ if __name__ == '__main__':
     density = converter.get_pseudo_density()
     ne = density.sum() * converter.dv
     print(ne, 'electrons')
-    write('density.cube', calc.atoms, data=density * Bohr**3)
+    # NOTE: Ignoring ASE's hint for **kwargs in write() because it is wrong:
+    write('density.cube',
+          calc.atoms,
+          data=density * Bohr**3)  # type: ignore
     subprocess.run('bader -p all_atom density.cube'.split())
     charges = read_bader_charges()
     for setup, charge in zip(calc.density.setups, charges):
