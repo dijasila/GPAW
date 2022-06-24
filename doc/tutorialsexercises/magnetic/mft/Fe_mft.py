@@ -14,14 +14,14 @@ from gpaw.response.mft import IsotropicExchangeCalculator
 # ---------- Inputs ---------- #
 
 # Parameters reused from the ground state
-gs = 'Fe_all.gpw'
-kpts = 24
+gpw = 'Fe_all.gpw'
+kpts = 32
 nbands = 6
 
 # We choose the plane wave energy cutoff of the mft response calculation
-# so as to provide magnon energies converged within 5%, based on the
+# so as to provide magnon energies converged within 10%, based on the
 # convergence study in [arXiv:2204.04169]
-ecut = 1000  # eV
+ecut = 750  # eV
 # We compute the transverse magnetic susceptibility without broadening
 eta = 0.
 
@@ -44,7 +44,7 @@ rc_r = np.linspace(0.5, 1.75, 51)
 
 # Initialize the ChiKS calculator, which is responsible for computing the
 # transverse magnetic susceptibility of the Kohn-Sham system
-chiks = ChiKS(gs,
+chiks = ChiKS(gpw,
               ecut=ecut, nbands=nbands, eta=eta, txt='Fe_chiks.txt')
 # When initialized from a file, the ChiKS calculator has a serial copy of
 # the ground state calculator. From it, we extract the atoms
@@ -68,8 +68,9 @@ ucsitekernels = ParallelepipedicSiteKernels(positions, cell_pav)
 
 # Allocate arrays for the exchange constants
 nq = len(q_qc)
+nsites = sitekernels.nsites
 npartitions = sitekernels.npartitions
-J_qabp = np.empty((nq, 1, 1, npartitions), dtype=complex)
+J_qabp = np.empty((nq, nsites, nsites, npartitions), dtype=complex)
 Juc_qabp = np.empty((nq, 1, 1, 1), dtype=complex)
 
 # Compute the isotropic exchange coupling along the chosen bandpath

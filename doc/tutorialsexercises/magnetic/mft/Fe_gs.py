@@ -25,9 +25,9 @@ pw = 800  # eV
 # of the mft response calculation are required to be commensurate with the
 # grid. For a bcc crystal, a k-point grid that samples a multiple of 4 k-points
 # along all axes will support calculations at the high-symmetry points N, H and
-# P. We choose N_k^(1/3)=24, which should yield converged magnon energies
+# P. We choose N_k^(1/3)=32, which should yield converged magnon energies
 # according to the convergence study of [arXiv:2204.04169].
-kpts = 24  # final grid is (kpts, kpts, kpts)
+kpts = 32  # final grid is (kpts, kpts, kpts)
 # In the original paper [arXiv:2204.04169], it was shown that the mft response
 # calculations are well converged when including only bands corresponding to
 # shells with partial or full occupation.
