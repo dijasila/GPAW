@@ -19,9 +19,9 @@ kpts = 24
 nbands = 6
 
 # We choose the plane wave energy cutoff of the mft response calculation
-# so as to provide magnon energies converged within 10%, based on the
+# so as to provide magnon energies converged within 5%, based on the
 # convergence study in [arXiv:2204.04169]
-ecut = 750  # eV
+ecut = 1000  # eV
 # We compute the transverse magnetic susceptibility without broadening
 eta = 0.
 
@@ -38,14 +38,14 @@ qGH_qc = np.array([[x / kpts, -x / kpts, x / kpts]
 q_qc = np.vstack([qGN_qc, qNP_qc[1:], qPG_qc[1:], qGH_qc[1:]])
 
 # Define the Fe site radii to try for the spherical site kernels
-rc_r = np.linspace(0.5, 1.25, 31)
+rc_r = np.linspace(0.5, 1.75, 51)
 
 # ---------- Script ---------- #
 
 # Initialize the ChiKS calculator, which is responsible for computing the
 # transverse magnetic susceptibility of the Kohn-Sham system
 chiks = ChiKS(gs,
-              ecut=ecut, nbands=nbands, eta=eta)
+              ecut=ecut, nbands=nbands, eta=eta, txt='Fe_chiks.txt')
 # When initialized from a file, the ChiKS calculator has a serial copy of
 # the ground state calculator. From it, we extract the atoms
 atoms = chiks.calc.atoms
@@ -68,9 +68,8 @@ ucsitekernels = ParallelepipedicSiteKernels(positions, cell_pav)
 
 # Allocate arrays for the exchange constants
 nq = len(q_qc)
-nsites = sitekernels.nsites
 npartitions = sitekernels.npartitions
-J_qabp = np.empty((nq, nsites, nsites, npartitions), dtype=complex)
+J_qabp = np.empty((nq, 1, 1, npartitions), dtype=complex)
 Juc_qabp = np.empty((nq, 1, 1, 1), dtype=complex)
 
 # Compute the isotropic exchange coupling along the chosen bandpath
