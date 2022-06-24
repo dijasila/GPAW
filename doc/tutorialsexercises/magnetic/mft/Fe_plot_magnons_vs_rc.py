@@ -30,6 +30,8 @@ mwlabel = r'$\hbar\omega$ [meV]'
 rlim = (0.4, 1.85)
 mwlim = (100., 600.)
 
+filename = 'Fe_magnons_vs_rc.png'
+
 # ---------- Script ---------- #
 
 # Extract the magnetization of the unit cell
@@ -55,4 +57,5 @@ plt.ylim(mwlim)
 
 plt.legend()
 
-plt.show()
+plt.savefig(filename, format=filename.split('.')[-1],
+            bbox_inches='tight')
