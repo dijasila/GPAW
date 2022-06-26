@@ -20,6 +20,15 @@ def get_cutoffs(f_Ij):
         rcutmax_I.append(rcutmax)
     return rcutmax_I
 
+def split_setups_to_types(setups):
+    I_setup = {}
+    setups_I = list(setups.setups.values())
+    for I, setup in enumerate(setups_I):
+        I_setup[setup] = I
+    I_a = [I_setup[setup] for setup in setups]
+
+    return I_a, setups_I
+
 
 def get_lvalues(f_Ij):
     return [[f.get_angular_momentum_number() for f in f_j] for f_j in f_Ij]
