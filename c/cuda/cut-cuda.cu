@@ -20,6 +20,9 @@ static double *debug_in_gpu;
 static double *debug_out_cpu;
 static double *debug_out_gpu;
 
+/*
+ * Allocate debug buffers and precalculate sizes.
+ */
 static void debug_allocate(int ng, int ng2, int blocks)
 {
     debug_size_in = ng * blocks;
@@ -31,6 +34,9 @@ static void debug_allocate(int ng, int ng2, int blocks)
     debug_out_gpu = GPAW_MALLOC(double, debug_size_out);
 }
 
+/*
+ * Deallocate debug buffers and set sizes to zero.
+ */
 static void debug_deallocate()
 {
     free(debug_in_cpu);
@@ -41,6 +47,9 @@ static void debug_deallocate()
     debug_size_out = 0;
 }
 
+/*
+ * Copy initial GPU arrays to debug buffers on the CPU.
+ */
 static void debug_memcpy_pre(const double *in, double *out)
 {
     GPAW_CUDAMEMCPY(debug_in_cpu, in, double, debug_size_in,
@@ -49,6 +58,9 @@ static void debug_memcpy_pre(const double *in, double *out)
                     cudaMemcpyDeviceToHost);
 }
 
+/*
+ * Copy final GPU arrays to debug buffers on the CPU.
+ */
 static void debug_memcpy_post(const double *in, double *out)
 {
     GPAW_CUDAMEMCPY(debug_in_gpu, in, double, debug_size_in,
@@ -58,6 +70,9 @@ static void debug_memcpy_post(const double *in, double *out)
 }
 #endif
 
+/*
+ * Copy a slice of an array on the CPU and compare to results from the GPU.
+ */
 extern "C"
 static void Zcuda(debug_bmgs_cut)(
         const int sizea[3], const int starta[3], const int sizeb[3],
@@ -92,6 +107,9 @@ static void Zcuda(debug_bmgs_cut)(
     }
 }
 
+/*
+ * CUDA kernel to copy a slice of an array.
+ */
 __global__ void Zcuda(bmgs_cut_cuda_kernel)(
         const Tcuda* a, const int3 c_sizea, Tcuda* b, const int3 c_sizeb,
 #ifdef CUGPAWCOMPLEX
@@ -125,6 +143,9 @@ __global__ void Zcuda(bmgs_cut_cuda_kernel)(
     }
 }
 
+/*
+ * Launch CUDA kernel to copy a slice of an array on the GPU.
+ */
 extern "C"
 static void Zcuda(_bmgs_cut_cuda_gpu)(
         const Tcuda* a, const int sizea[3], const int starta[3],
@@ -165,6 +186,26 @@ static void Zcuda(_bmgs_cut_cuda_gpu)(
     gpaw_cudaSafeCall(cudaGetLastError());
 }
 
+/*
+ * Copy a slice of an array on the GPU. If the array contains complex
+ * numbers, then multiply each element with the given phase.
+ *
+ * For example:
+ *       . . . .               (OR for complex numbers)
+ *   a = . 1 2 . -> b = 1 2     -> b = phase*1 phase*2
+ *       . 3 4 .        3 4            phase*3 phase*4
+ *       . . . .
+ *
+ * arguments:
+ *   a      -- input array
+ *   sizea  -- dimensions of the array a
+ *   starta -- offset to the start of the slice
+ *   b      -- output array
+ *   sizeb  -- dimensions of the array b
+ *   phase  -- phase (only for complex)
+ *   blocks -- number of blocks
+ *   stream -- CUDA stream to use
+ */
 extern "C"
 void Zcuda(bmgs_cut_cuda_gpu)(
         const Tcuda* a, const int sizea[3], const int starta[3],

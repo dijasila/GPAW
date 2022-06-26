@@ -34,6 +34,9 @@ static double *debug_in_gpu;
 static double *debug_out_cpu;
 static double *debug_out_gpu;
 
+/*
+ * Allocate debug buffers and precalculate sizes.
+ */
 static void debug_allocate(int ng, int ng2, int blocks)
 {
     debug_size_in = ng * blocks;
@@ -45,6 +48,9 @@ static void debug_allocate(int ng, int ng2, int blocks)
     debug_out_gpu = GPAW_MALLOC(double, debug_size_out);
 }
 
+/*
+ * Deallocate debug buffers and set sizes to zero.
+ */
 static void debug_deallocate()
 {
     free(debug_in_cpu);
@@ -55,6 +61,9 @@ static void debug_deallocate()
     debug_size_out = 0;
 }
 
+/*
+ * Copy initial GPU arrays to debug buffers on the CPU.
+ */
 static void debug_memcpy_pre(const double *in, double *out)
 {
     GPAW_CUDAMEMCPY(debug_in_cpu, in, double, debug_size_in,
@@ -63,6 +72,9 @@ static void debug_memcpy_pre(const double *in, double *out)
                     cudaMemcpyDeviceToHost);
 }
 
+/*
+ * Copy final GPU arrays to debug buffers on the CPU.
+ */
 static void debug_memcpy_post(const double *in, double *out)
 {
     GPAW_CUDAMEMCPY(debug_in_gpu, in, double, debug_size_in,
@@ -75,6 +87,10 @@ static void debug_memcpy_post(const double *in, double *out)
 #  define Tfunc launch_funcz
 #endif
 
+/*
+ * Copy a smaller array into a given position in a larger one on the CPU
+ * and compare to results from the GPU.
+ */
 extern "C"
 void Zcuda(debug_bmgs_paste)(const int sizea[3], const int sizeb[3],
                              const int startb[3], int blocks,
@@ -117,6 +133,10 @@ void Zcuda(debug_bmgs_paste)(const int sizea[3], const int sizeb[3],
     }
 }
 
+/*
+ * CUDA kernel to copy a smaller array into a given position in a
+ * larger one.
+ */
 __global__ void Zcuda(bmgs_paste_cuda_kernel)(
         const double* a, const int3 c_sizea, double* b, const int3 c_sizeb,
         int blocks, int xdiv)
@@ -143,6 +163,10 @@ __global__ void Zcuda(bmgs_paste_cuda_kernel)(
     }
 }
 
+/*
+ * CUDA kernel to copy a smaller array into a given position in a
+ * larger one and set all other elements to 0.
+ */
 __global__ void Zcuda(bmgs_paste_zero_cuda_kernel)(
         const Tcuda* a, const int3 c_sizea, Tcuda* b, const int3 c_sizeb,
         const int3 c_startb, const int3 c_blocks_bc, int blocks)
@@ -167,6 +191,7 @@ __global__ void Zcuda(bmgs_paste_zero_cuda_kernel)(
     b += c_sizeb.x * c_sizeb.y * c_sizeb.z * blocksi;
     a += c_sizea.x * c_sizea.y * c_sizea.z * blocksi;
 
+    // zero x = 0 .. startb.x
     if (xind==0) {
         Tcuda *bb = b + i2 + i1 * c_sizeb.z;
 #pragma unroll 3
@@ -177,6 +202,7 @@ __global__ void Zcuda(bmgs_paste_zero_cuda_kernel)(
             bb += c_sizeb.y * c_sizeb.z;
         }
     }
+    // zero x = startb.x+sizea.x .. <end>
     if (xind == XDIV - 1) {
         Tcuda *bb = b + (c_startb.x + c_sizea.x) * c_sizeb.y * c_sizeb.z
                   + i2 + i1 * c_sizeb.z;
@@ -198,17 +224,21 @@ __global__ void Zcuda(bmgs_paste_zero_cuda_kernel)(
 
         b += (c_startb.x + xstart) * c_sizeb.y * c_sizeb.z;
         for (int i0=xstart; i0 < xend; i0++) {
+            // zero y = 0 .. startb.y
             if ((i1bc < c_startb.y) && (i2 < c_sizeb.z)) {
                 b[i2 + i1bc * c_sizeb.z] = MAKED(0);
             }
+            // zero y = startb.y+sizea.y .. <end>
             if ((i1bc + c_sizea.y + c_startb.y < c_sizeb.y)
                     && (i2 < c_sizeb.z)) {
                 b[i2 + i1bc * c_sizeb.z
                   + (c_sizea.y + c_startb.y) * c_sizeb.z] = MAKED(0);
             }
+            // zero z = 0 .. startb.z
             if ((i2bc < c_startb.z) && (i1 < c_sizeb.y)) {
                 b[i2bc + i1 * c_sizeb.z] = MAKED(0);
             }
+            // zero z = startb.z+sizea.z .. <end>
             if ((i2bc + c_sizea.z + c_startb.z < c_sizeb.z)
                     && (i1 < c_sizeb.y)) {
                 b[i2bc + i1 * c_sizeb.z + c_sizea.z + c_startb.z] = MAKED(0);
@@ -230,6 +260,10 @@ __global__ void Zcuda(bmgs_paste_zero_cuda_kernel)(
     }
 }
 
+/*
+ * Launch CUDA kernel to copy a smaller array into a given position in a
+ * larger one on the GPU.
+ */
 extern "C"
 static void Zcuda(_bmgs_paste_cuda_gpu)(
         const Tcuda* a, const int sizea[3],
@@ -260,6 +294,10 @@ static void Zcuda(_bmgs_paste_cuda_gpu)(
     gpaw_cudaSafeCall(cudaGetLastError());
 }
 
+/*
+ * Launch CUDA kernel to copy a smaller array into a given position in a
+ * larger one and set all other elements to 0.
+ */
 extern "C"
 static void Zcuda(_bmgs_paste_zero_cuda_gpu)(
         const Tcuda* a, const int sizea[3],
@@ -301,6 +339,15 @@ static void Zcuda(_bmgs_paste_zero_cuda_gpu)(
     gpaw_cudaSafeCall(cudaGetLastError());
 }
 
+/*
+ * Generic launcher that handles debugging logic and the launching of the
+ * actual paste functions.
+ *
+ * Arguments:
+ *   (Tfunc) function -- pointer to a function to execute
+ *   (int)   zero     -- set all elements to 0 on the CPU when debugging
+ *   ...
+ */
 extern "C"
 void Zcuda(_bmgs_paste_launcher)(Tfunc function, int zero,
                                  const Tcuda* a, const int sizea[3],
@@ -331,6 +378,15 @@ void Zcuda(_bmgs_paste_launcher)(Tfunc function, int zero,
     }
 }
 
+/*
+ * Copy a smaller array into a given position in a larger one.
+ *
+ * For example:
+ *                  . . . .
+ *   a = 1 2 -> b = . 1 2 .
+ *       3 4        . 3 4 .
+ *                  . . . .
+ */
 extern "C"
 void Zcuda(bmgs_paste_cuda_gpu)(const Tcuda* a, const int sizea[3],
                                 Tcuda* b, const int sizeb[3],
@@ -344,6 +400,10 @@ void Zcuda(bmgs_paste_cuda_gpu)(const Tcuda* a, const int sizea[3],
             a, sizea, b, sizeb, startb, blocks, stream);
 }
 
+/*
+ * Copy a smaller array into a given position in a larger one and
+ * set all other elements to 0.
+ */
 extern "C"
 void Zcuda(bmgs_paste_zero_cuda_gpu)(const Tcuda* a, const int sizea[3],
                                      Tcuda* b, const int sizeb[3],

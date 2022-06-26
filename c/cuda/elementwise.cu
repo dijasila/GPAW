@@ -13,6 +13,9 @@
 #  define MAX_BLOCKS  (65535)
 #endif
 
+/*
+ * CUDA kernel for axpbyz, i.e. z[i] = a * x[i] + b * y[i]
+ */
 __global__ void axpbyz_kernel(double a, double *x, double b, double *y,
                               double *z, int n)
 {
@@ -24,6 +27,9 @@ __global__ void axpbyz_kernel(double a, double *x, double b, double *y,
     }
 }
 
+/*
+ * CUDA kernel for axpbz, i.e. z[i] = a * x[i] + b
+ */
 __global__ void axpbz_kernel(double a, double *x, double b,
                              double *z, int n)
 {
@@ -35,6 +41,10 @@ __global__ void axpbz_kernel(double a, double *x, double b,
     }
 }
 
+/*
+ * CUDA kernel for axpbyz, i.e. z[i] = a * x[i] + b * y[i],
+ * on complex numbers.
+ */
 __global__ void axpbyz_kernelz(double a, cuDoubleComplex *x,
                                double b, cuDoubleComplex *y,
                                cuDoubleComplex *z, int n)
@@ -48,6 +58,9 @@ __global__ void axpbyz_kernelz(double a, cuDoubleComplex *x,
     }
 }
 
+/*
+ * CUDA kernel for axpbz, i.e. z[i] = a * x[i] + b, on complex numbers.
+ */
 __global__ void axpbz_kernelz(double a, cuDoubleComplex *x, double b,
                               cuDoubleComplex *z, int n)
 {
@@ -60,6 +73,9 @@ __global__ void axpbz_kernelz(double a, cuDoubleComplex *x, double b,
     }
 }
 
+/*
+ * CUDA kernel to fill an array of doubles with a given value.
+ */
 __global__ void fill_kernel(double a, double *z, int n)
 {
     int tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -70,6 +86,10 @@ __global__ void fill_kernel(double a, double *z, int n)
     }
 }
 
+/*
+ * CUDA kernel to fill an array of complex numbers with a given
+ * complex value.
+ */
 __global__ void fill_kernelz(double real, double imag, cuDoubleComplex *z,
                              int n)
 {
@@ -82,6 +102,14 @@ __global__ void fill_kernelz(double real, double imag, cuDoubleComplex *z,
     }
 }
 
+/*
+ * GPU version of axpbyz, i.e. z[i] = a * x[i] + b * y[i]
+ *
+ * Arguments:
+ *   a, x, b, y, z -- (as above)
+ *   shape         -- shape of the arrays
+ *   type          -- datatype of elements in the arrays
+ */
 extern "C"
 PyObject* axpbyz_gpu(PyObject *self, PyObject *args)
 {
@@ -119,6 +147,14 @@ PyObject* axpbyz_gpu(PyObject *self, PyObject *args)
         Py_RETURN_NONE;
 }
 
+/*
+ * GPU version of axpbz, i.e. z[i] = a * x[i] + b
+ *
+ * Arguments:
+ *   a, x, b, z -- (as above)
+ *   shape      -- shape of the arrays
+ *   type       -- datatype of elements in the arrays
+ */
 extern "C"
 PyObject* axpbz_gpu(PyObject *self, PyObject *args)
 {
@@ -155,6 +191,14 @@ PyObject* axpbz_gpu(PyObject *self, PyObject *args)
         Py_RETURN_NONE;
 }
 
+/*
+ * Fill a GPU array with a given value, i.e. x[i] = value
+ *
+ * Arguments:
+ *   x, value -- (as above)
+ *   shape    -- shape of the arrays
+ *   type     -- datatype of elements in the arrays
+ */
 extern "C"
 PyObject* fill_gpu(PyObject *self, PyObject *args)
 {
