@@ -111,23 +111,33 @@ PyObject* mmm(PyObject *self, PyObject *args)
                           &alpha, &M1, &trans1, &M2, &trans2, &beta, &M3))
         return NULL;
 
-    int m = PyArray_DIM(M3, 1);
-    int n = PyArray_DIM(M3, 0);
-    int k;
-
-    int bytes = PyArray_ITEMSIZE(M3);
-    int lda = MAX(1, PyArray_STRIDE(M2, 0) / bytes);
-    int ldb = MAX(1, PyArray_STRIDE(M1, 0) / bytes);
-    int ldc = MAX(1, PyArray_STRIDE(M3, 0) / bytes);
-
     void* a = PyArray_DATA(M2);
     void* b = PyArray_DATA(M1);
     void* c = PyArray_DATA(M3);
 
-    if (*trans2 == 'N' || *trans2 == 'n')
+    int bytes = PyArray_ITEMSIZE(M3);
+
+    int m = PyArray_DIM(M3, 1);
+    int n = PyArray_DIM(M3, 0);
+    int lda = PyArray_STRIDE(M2, 0) / bytes;
+    int ldb = PyArray_STRIDE(M1, 0) / bytes;
+    int ldc = MAX(1, PyArray_STRIDE(M3, 0) / bytes);
+
+    int k;
+
+    if (*trans2 == 'N' || *trans2 == 'n') {
         k = PyArray_DIM(M2, 0);
-    else
+        lda = MAX(MAX(1, m), lda);
+    }
+    else {
         k = PyArray_DIM(M2, 1);
+        lda = MAX(MAX(1, k), lda);
+    }
+
+    if (*trans1 == 'N' || *trans1 == 'n')
+        ldb = MAX(MAX(1, k), ldb);
+    else
+        ldb = MAX(MAX(1, n), ldb);
 
     if (bytes == 8)
         dgemm_(trans2, trans1, &m, &n, &k,
