@@ -58,8 +58,8 @@ def main():
         new_restart_calc = new_GPAW('new_gs.gpw')
 
         assert_equal(
-            new_calc.calculation.state.ibzwfs.wfs_qs[0][0].P_ain,
-            new_restart_calc.calculation.state.ibzwfs.wfs_qs[0][0].P_ain)
+            new_calc.calculation.state.ibzwfs.wfs_qs[0][0].P_ani,
+            new_restart_calc.calculation.state.ibzwfs.wfs_qs[0][0].P_ani)
 
         assert_equal(
             new_calc.calculation.state.ibzwfs.wfs_qs[0][0].C_nM,
