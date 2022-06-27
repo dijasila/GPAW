@@ -121,7 +121,7 @@ PyObject* mmm(PyObject *self, PyObject *args)
     int n = PyArray_DIM(M3, 0);
     int lda = PyArray_STRIDE(M2, 0) / bytes;
     int ldb = PyArray_STRIDE(M1, 0) / bytes;
-    int ldc = MAX(1, PyArray_STRIDE(M3, 0) / bytes);
+    int ldc = MAX(MAX(1, m), PyArray_STRIDE(M3, 0) / bytes);
 
     int k;
 
