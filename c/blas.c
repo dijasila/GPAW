@@ -176,7 +176,7 @@ PyObject* rk(PyObject *self, PyObject *args)
         lda = MAX(n, 1);
     }
 
-    int ldc = PyArray_STRIDES(c)[0] / PyArray_STRIDES(c)[1];
+    int ldc = MAX(MAX(1, n), PyArray_STRIDES(c)[0] / PyArray_ITEMSIZE(c));
     if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
         dsyrk_("u", trans, &n, &k,
                &alpha, DOUBLEP(a), &lda, &beta,
@@ -212,7 +212,7 @@ PyObject* r2k(PyObject *self, PyObject *args)
         k = PyArray_DIMS(a)[0];
         lda = MAX(n, 1);
     }
-  int ldc = PyArray_STRIDES(c)[0] / PyArray_STRIDES(c)[1];
+  int ldc = MAX(MAX(1, n), PyArray_STRIDES(c)[0] / PyArray_ITEMSIZE(c));
 
   if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     dsyr2k_("u", trans, &n, &k,
