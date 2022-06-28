@@ -393,6 +393,7 @@ static PyObject* moduleinit(void)
 #else
     PyObject_SetAttrString(m, "have_openmp", Py_False);
 #endif
+    PyObject_SetAttrString(m, "version", PyLong_FromLong(1));
 
     Py_INCREF(&LFCType);
     Py_INCREF(&OperatorType);
@@ -466,7 +467,7 @@ main(int argc, char **argv)
     MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &granted);
     if (granted != MPI_THREAD_MULTIPLE)
         exit(1);
-#endif 
+#endif
 
 #define PyChar wchar_t
     wchar_t* wargv[argc];
