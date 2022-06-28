@@ -9,7 +9,7 @@ from gpaw.utilities.tools import tri2full
 # from gpaw import debug
 # from gpaw.lcao.overlap import NewTwoCenterIntegrals as NewTCI
 from gpaw.lcao.tci import TCIExpansions
-from gpaw.utilities.blas import gemm, gemmdot
+from gpaw.utilities.blas import mmm, gemmdot
 from gpaw.wavefunctions.base import WaveFunctions
 from gpaw.lcao.atomic_correction import (DenseAtomicCorrection,
                                          SparseAtomicCorrection)
@@ -331,7 +331,7 @@ class LCAOWaveFunctions(WaveFunctions):
             # that also conforms better to the usual conventions in literature
             Cf_Mn = C_nM.T.conj() * f_n
             self.timer.start('gemm')
-            gemm(1.0, C_nM, Cf_Mn, 0.0, rho_MM, 'n')
+            mmm(1.0, Cf_Mn, 'N', C_nM, 'N', 0.0, rho_MM)
             self.timer.stop('gemm')
             self.timer.start('band comm sum')
             self.bd.comm.sum(rho_MM)
@@ -709,11 +709,13 @@ class LCAOforces:
                 setup = self.setups[b]
                 dO_ii = np.asarray(setup.dO_ii, self.dtype)
                 dOP_iM = np.zeros((setup.ni, self.nao), self.dtype)
-                gemm(1.0, self.P_aqMi[b][kpt.q], dO_ii, 0.0, dOP_iM, 'c')
+                mmm(1.0, dO_ii, 'N', self.P_aqMi[b][kpt.q], 'C', 0.0, dOP_iM)
                 for v in range(3):
-                    gemm(1.0, dOP_iM,
-                         self.dPdR_aqvMi[b][kpt.q][v][self.Mstart:self.Mstop],
-                         0.0, work_MM, 'n')
+                    mmm(1.0,
+                        self.dPdR_aqvMi[b][kpt.q][v][self.Mstart:self.Mstop],
+                        'N',
+                        dOP_iM, 'N',
+                        0.0, work_MM)
                     ZE_MM = (work_MM * self.ET_uMM[u]).real
                     for a, M1, M2 in self.slices():
                         dE = 2 * ZE_MM[M1:M2].sum()
@@ -767,11 +769,13 @@ class LCAOforces:
                 setup = self.setups[b]
                 dO_ii = np.asarray(setup.dO_ii, self.dtype)
                 dOP_iM = np.zeros((setup.ni, self.nao), self.dtype)
-                gemm(1.0, self.P_aqMi[b][kpt.q], dO_ii, 0.0, dOP_iM, 'c')
+                mmm(1.0, dO_ii, 'N', self.P_aqMi[b][kpt.q], 'C', 0.0, dOP_iM)
                 for v in range(3):
-                    gemm(1.0, dOP_iM,
-                         self.dPdR_aqvMi[b][kpt.q][v][self.Mstart:self.Mstop],
-                         0.0, work_MM, 'n')
+                    mmm(1.0,
+                        self.dPdR_aqvMi[b][kpt.q][v][self.Mstart:self.Mstop],
+                        'N',
+                        dOP_iM, 'N',
+                        0.0, work_MM)
                     ZE_MM[u, b, v, :, :] = (work_MM * self.ET_uMM[u]).real
         self.timer.stop('get paw correction')
         return ZE_MM

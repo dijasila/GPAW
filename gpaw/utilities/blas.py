@@ -67,53 +67,6 @@ def mmm(alpha: T,
     _gpaw.mmm(alpha, a, opa, b, opb, beta, c)
 
 
-def gemm(alpha, a, b, beta, c, transa='n'):
-    """General Matrix Multiply.
-
-    Performs the operation::
-
-      c <- alpha * b.a + beta * c
-
-    If transa is "n", ``b.a`` denotes the matrix multiplication defined by::
-
-                      _
-                     \
-      (b.a)        =  ) b  * a
-           ijkl...   /_  ip   pjkl...
-                      p
-
-    If transa is "t" or "c", ``b.a`` denotes the matrix multiplication
-    defined by::
-
-                      _
-                     \
-      (b.a)        =  ) b    *    a
-           ij        /_  iklm...   jklm...
-                     klm...
-
-    where in case of "c" also complex conjugate of a is taken.
-    """
-    assert np.isfinite(c).all()
-
-    assert (a.dtype == float and b.dtype == float and c.dtype == float and
-            isinstance(alpha, float) and isinstance(beta, float) or
-            a.dtype == complex and b.dtype == complex and c.dtype == complex)
-    if transa == 'n':
-        assert a.size == 0 or a[0].flags.contiguous
-        assert c.flags.contiguous or c.ndim == 2 and c.strides[1] == c.itemsize
-        assert b.ndim == 2
-        assert b.size == 0 or b.strides[1] == b.itemsize
-        assert a.shape[0] == b.shape[1]
-        assert c.shape == b.shape[0:1] + a.shape[1:]
-    else:
-        assert a.flags.contiguous
-        assert b.size == 0 or b[0].flags.contiguous
-        assert c.strides[1] == c.itemsize
-        assert a.shape[1:] == b.shape[1:]
-        assert c.shape == (b.shape[0], a.shape[0])
-    _gpaw.gemm(alpha, a, b, beta, c, transa)
-
-
 def axpy(alpha, x, y):
     """alpha x plus y.
 
@@ -253,7 +206,7 @@ def _gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
         out = np.zeros(outshape, a.dtype)
     else:
         out = out.reshape(outshape)
-    gemm(alpha, b, a, beta, out, trans)
+    mmm(alpha, a, 'N', a, trans.upper(), beta, out)
 
     # Determine actual shape of result array
     if trans == 'n':
@@ -264,24 +217,6 @@ def _gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
 
 
 if not hasattr(_gpaw, 'mmm'):
-    def gemm(alpha, a, b, beta, c, transa='n'):  # noqa
-        if c.size == 0:
-            return
-        if beta == 0:
-            c[:] = 0.0
-        else:
-            c *= beta
-        if a.size == 0:
-            return
-        if transa == 'n':
-            c += alpha * b.dot(a.reshape((len(a), -1))).reshape(c.shape)
-        elif transa == 't':
-            c += alpha * b.reshape((len(b), -1)).dot(
-                a.reshape((len(a), -1)).T)
-        else:
-            c += alpha * b.reshape((len(b), -1)).dot(
-                a.reshape((len(a), -1)).T.conj())
-
     def rk(alpha, a, beta, c, trans='c'):  # noqa
         if c.size == 0:
             return
@@ -330,7 +265,6 @@ if not hasattr(_gpaw, 'mmm'):
 
 elif not debug:
     mmm = _gpaw.mmm  # noqa
-    gemm = _gpaw.gemm  # noqa
     rk = _gpaw.rk  # noqa
     r2k = _gpaw.r2k  # noqa
     gemmdot = _gemmdot
