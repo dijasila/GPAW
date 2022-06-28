@@ -531,7 +531,8 @@ class HybridXC(HybridXCBase):
         if len(kpt.vt_nG) == nocc:
             U_nn = U_nn[:nocc, :nocc]
         # gemm(1.0, kpt.vt_nG.copy(), U_nn, 0.0, kpt.vt_nG)
-        mmm(1.0, U_nn, 'N', kpt.vt_nG.copy(), 'N', 0.0, kpt.vt_nG)
+        vt_nG = kpt.vt_nG.reshape((len(kpt.vt_nG), -1))
+        mmm(1.0, U_nn, 'N', vt_nG.copy(), 'N', 0.0, vt_nG)
         for v_ni in kpt.vxx_ani.values():
             # gemm(1.0, v_ni.copy(), U_nn, 0.0, v_ni)
             mmm(1.0, U_nn, 'N', v_ni.copy(), 'N', 0.0, v_ni)
