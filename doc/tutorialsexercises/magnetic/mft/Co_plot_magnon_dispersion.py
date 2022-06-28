@@ -40,7 +40,7 @@ rineq = 0.6
 
 # Labels and limits
 mwlabel = r'$\hbar\omega$ [meV]'
-mwlim = (0., 600.)
+mwlim = (0., 800.)
 
 filename = 'Co_magnon_dispersion.png'
 
@@ -88,16 +88,16 @@ Ebest_qn = Esph2_qnr[..., np.where(np.abs(rc_r - rbest) < 1.e-8)[0][0]]
 for n in range(2):
     plt.fill_between(pathq_q, Emin_qn[:, n], Emax_qn[:, n],
                      color=colors[0], alpha=0.4)
-    plt.plot(pathq_q, Emin_qn[n], color='0.5')
-    plt.plot(pathq_q, Emax_qn[n], color='0.5')
+    plt.plot(pathq_q, Emin_qn[:, n], color='0.5')
+    plt.plot(pathq_q, Emax_qn[:, n], color='0.5')
     if n == 0:
         label = 'eq. spheres'
     else:
         label = None
-    plt.plot(pathq_q, Ebest_qn[n], color=colors[0], label=label)
+    plt.plot(pathq_q, Ebest_qn[:, n], color=colors[0], label=label)
 
 # Secondly, we plot the dispersion with inequivalent spherical sites
-Eineq_qn = Esph2_qnr[..., np.where(np.abs(rc_r - rineq) < 1.e-8)[0][0]]
+Eineq_qn = Esph1_qnr[..., np.where(np.abs(rc_r - rineq) < 1.e-8)[0][0]]
 plt.plot(pathq_q, Eineq_qn[:, 0], color=colors[1], label='ineq. spheres')
 plt.plot(pathq_q, Eineq_qn[:, 1], color=colors[1])
 
