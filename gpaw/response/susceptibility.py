@@ -470,7 +470,7 @@ def write_macroscopic_component(omega_w, chiks_w, chi_w, filename, world):
 
 def read_macroscopic_component(filename):
     """Read a stored macroscopic susceptibility file"""
-    d = np.loadtxt(filename, delimiter=', ')
+    d = np.loadtxt(filename, delimiter=',')
     omega_w = d[:, 0]
     chiks_w = np.array(d[:, 1], complex)
     chiks_w.imag = d[:, 2]

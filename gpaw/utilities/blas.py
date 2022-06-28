@@ -54,8 +54,9 @@ def mmm(alpha: T,
     assert a2 == b1
     assert c.shape == (a1, b2)
 
-    assert a.strides[1] == b.strides[1] == c.strides[1] == c.itemsize, (
-        a.strides, b.strides, c.strides, c.itemsize)
+    assert a.strides[1] == c.itemsize or a.size == 0
+    assert b.strides[1] == c.itemsize or b.size == 0
+    assert c.strides[1] == c.itemsize or c.size == 0
     assert a.dtype == b.dtype == c.dtype
     if a.dtype == float:
         assert not isinstance(alpha, complex)

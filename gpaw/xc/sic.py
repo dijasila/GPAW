@@ -39,7 +39,7 @@ import numpy as np
 from ase.units import Bohr, Hartree
 from scipy.linalg import eigh
 
-from gpaw.utilities.blas import gemm
+from gpaw.utilities.blas import gemm, mmm
 from gpaw.xc import XC
 from gpaw.xc.functional import XCFunctional
 from gpaw.poisson import PoissonSolver
@@ -601,7 +601,12 @@ class SICSpin:
         # overlap of pseudo wavefunctions
         Htphit_mG = self.vt_mG * self.phit_mG
         V_mm = np.zeros((self.nocc, self.nocc), dtype=self.dtype)
-        gemm(self.gd.dv, self.phit_mG, Htphit_mG, 0.0, V_mm, 't')
+        # gemm(self.gd.dv, self.phit_mG, Htphit_mG, 0.0, V_mm, 't')
+        if self.nocc > 0:
+            shape = (self.nocc, -1)
+            mmm(self.gd.dv,
+                Htphit_mG.reshape(shape), 'N',
+                self.phit_mG.reshape(shape), 'T', 0.0, V_mm)
 
         # PAW
         for a, P_mi in self.P_ami.items():

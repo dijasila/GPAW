@@ -1,5 +1,5 @@
 import numpy as np
-from gpaw.utilities.blas import gemm, axpy, r2k, rk, gemmdot
+from gpaw.utilities.blas import gemm, axpy, r2k, rk, gemmdot, mmm
 from gpaw.utilities.tools import tri2full
 
 
@@ -7,8 +7,12 @@ def test_gemm_size_zero():
     c = np.ones((3, 3))
     a = np.zeros((0, 3))
     b = np.zeros((3, 0))
-    gemm(1.0, a, b, 0.0, c, 'n')
+    d = np.zeros((0, 0))
+    e = np.zeros((0, 3))
+    # gemm(1.0, a, b, 0.0, c, 'n')
+    mmm(1.0, b, 'N', a, 'N', 0.0, c)
     assert (c == 0.0).all()
+    mmm(1.0, d, 'N', a, 'N', 0.0, e)
 
 
 def test_linalg_blas():

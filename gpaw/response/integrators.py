@@ -295,7 +295,7 @@ class PointIntegrator(Integrator):
         while 1:
             if index == len(sortedw_m):
                 break
-            
+
             w = sortedw_m[index]
             startindex = index
             while 1:
@@ -317,15 +317,16 @@ class PointIntegrator(Integrator):
 
             if self.blockcomm.size > 1 and w + 1 < wd.wmax:
                 x_mG = sortedn_mG[startindex:endindex, blocks1d.myslice]
-                gemm(1.0,
-                     sortedn_mG[startindex:endindex].T.copy(),
-                     np.concatenate((p1_m[:, None] * x_mG,
-                                     p2_m[:, None] * x_mG),
-                                    axis=1).T.copy(),
-                     1.0,
-                     chi0_wGG[w:w + 2].reshape((2 * blocks1d.nlocal,
-                                                blocks1d.N)),
-                     'c')
+                mmm(1.0,
+                    np.concatenate((p1_m[:, None] * x_mG,
+                                    p2_m[:, None] * x_mG),
+                                   axis=1).T.copy(),
+                    'N',
+                    sortedn_mG[startindex:endindex].T.copy(),
+                    'C',
+                    1.0,
+                    chi0_wGG[w:w + 2].reshape((2 * blocks1d.nlocal,
+                                               blocks1d.N)))
 
             if self.blockcomm.size <= 1 and w + 1 < wd.wmax:
                 x_mG = sortedn_mG[startindex:endindex]
@@ -535,8 +536,10 @@ class TetrahedronIntegrator(Integrator):
                 for iw, weight in enumerate(W_w):
                     if self.blockcomm.size > 1:
                         myn_G = n_G[blocks1d.myslice].reshape((-1, 1))
-                        gemm(weight, n_G.reshape((-1, 1)), myn_G,
-                             1.0, out_wxx[i0 + iw], 'c')
+                        # gemm(weight, n_G.reshape((-1, 1)), myn_G,
+                        #      1.0, out_wxx[i0 + iw], 'c')
+                        mmm(weight, myn_G, 'N', n_G.reshape((-1, 1)), 'C',
+                            1.0, out_wxx[i0 + iw])
                     else:
                         czher(weight, n_G.conj(), out_wxx[i0 + iw])
 

@@ -9,7 +9,7 @@ from gpaw.matrix_descriptor import MatrixDescriptor
 from gpaw.mpi import broadcast_exception
 from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.utilities import uncamelcase
-from gpaw.utilities.blas import gemm, r2k
+from gpaw.utilities.blas import mmm, r2k
 from gpaw.utilities.scalapack import (pblas_simple_gemm, pblas_tran,
                                       scalapack_tri2full)
 from gpaw.utilities.tools import tri2full
@@ -486,7 +486,8 @@ class OrbitalLayouts(KohnShamLayouts):
             C2_nM = C_nM
         Cf_Mn = \
             np.ascontiguousarray(C2_nM[occupied].T.conj() * f_n[occupied])
-        gemm(1.0, C_nM[occupied], Cf_Mn, 0.0, rho_MM, 'n')
+        # gemm(1.0, C_nM[occupied], Cf_Mn, 0.0, rho_MM, 'n')
+        mmm(1.0, Cf_Mn, 'N', C_nM[occupied], 'N', 0.0, rho_MM)
         return rho_MM
 
     def get_transposed_density_matrix(self, f_n, C_nM, rho_MM=None):
@@ -521,8 +522,10 @@ class OrbitalLayouts(KohnShamLayouts):
         # Although that requires knowing C_Mn and not C_nM.
         # that also conforms better to the usual conventions in literature
         C_Mn = C_nM.T.conj().copy()
-        gemm(1.0, d_nn, C_Mn, 0.0, Cd_Mn, 'n')
-        gemm(1.0, C_nM, Cd_Mn, 0.0, rho_MM, 'n')
+        # gemm(1.0, d_nn, C_Mn, 0.0, Cd_Mn, 'n')
+        # gemm(1.0, C_nM, Cd_Mn, 0.0, rho_MM, 'n')
+        mmm(1.0, C_Mn, 'N', d_nn, 'N', 0.0, Cd_Mn)
+        mmm(1.0, Cd_Mn, 'N', C_nM, 'N', 0.0, rho_MM)
         self.bd.comm.sum(rho_MM)
         return rho_MM
 
