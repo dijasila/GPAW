@@ -536,8 +536,10 @@ class TetrahedronIntegrator(Integrator):
                 for iw, weight in enumerate(W_w):
                     if self.blockcomm.size > 1:
                         myn_G = n_G[blocks1d.myslice].reshape((-1, 1))
-                        gemm(weight, n_G.reshape((-1, 1)), myn_G,
-                             1.0, out_wxx[i0 + iw], 'c')
+                        # gemm(weight, n_G.reshape((-1, 1)), myn_G,
+                        #      1.0, out_wxx[i0 + iw], 'c')
+                        mmm(weight, myn_G, 'N', n_G.reshape((-1, 1)), 'C',
+                            1.0, out_wxx[i0 + iw])
                     else:
                         czher(weight, n_G.conj(), out_wxx[i0 + iw])
 
