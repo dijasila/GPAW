@@ -31,8 +31,6 @@ with broadcast_imports:
     import warnings
     from argparse import ArgumentParser, REMAINDER, RawDescriptionHelpFormatter
 
-    import gpaw.cuda
-
     import numpy as np
     from ase.cli.run import str2dict
     import _gpaw
@@ -112,12 +110,6 @@ def parse_arguments(argv):
                    'cores otherwise used for k-point/band parallelization')
     p.add_argument('--buffer-size', type=float, metavar='SIZE',
                    help='buffer size for MatrixOperator in MiB')
-    p.add_argument('--cuda', action='store_true', default=False,
-                   help='use GPUs')
-    p.add_argument('--cuda-debug', action='store_true', default=False,
-                   help='turn on debug mode for GPU code')
-    p.add_argument('--cuda-debug-sync', action='store_true', default=False,
-                   help='cuda syncronize timing mode')
     p.add_argument('--profile', metavar='FILE', dest='profile',
                    help='run profiler and save stats to FILE')
     p.add_argument('--gpaw', metavar='VAR=VALUE[, ...]', action='append',
@@ -208,16 +200,6 @@ parsize_bands: int = gpaw_args.parsize_bands
 augment_grids: int = gpaw_args.augment_grids
 buffer_size: int = gpaw_args.buffer_size
 profile = gpaw_args.profile
-
-use_cuda = gpaw_args.cuda
-gpaw.cuda.debug = gpaw_args.cuda_debug
-gpaw.cuda.debug_sync = gpaw_args.cuda_debug_sync
-try:
-    from __main__ import cuda_ctx
-except ImportError:
-    pass
-else:
-    gpaw.cuda.cuda_ctx = cuda_ctx
 
 
 def main():
