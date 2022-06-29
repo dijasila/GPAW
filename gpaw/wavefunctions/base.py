@@ -143,7 +143,7 @@ class WaveFunctions:
             rhoP_Mi = np.zeros_like(P_Mi)
             D_ii = np.zeros(D_sii[kpt.s].shape, kpt.rho_MM.dtype)
             mmm(1.0, kpt.rho_MM, 'N', P_Mi, 'N', 0.0, rhoP_Mi)
-            mmm(1.0, P_Mi, 'C', rhoP_Mi, 'N', 0.0, D_ii)#????????????????
+            mmm(1.0, P_Mi, 'C', rhoP_Mi, 'N', 0.0, D_ii)
             D_sii[kpt.s] += D_ii.real
         else:
             if self.collinear:
