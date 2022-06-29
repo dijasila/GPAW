@@ -78,7 +78,9 @@ def test_Fe_chiks(in_tmp_dir):
     pd_eq = []
     for eta in eta_e:
         chiks = ChiKS(calc,
-                      ecut=ecut, nbands=nbands, eta=eta)
+                      ecut=ecut, nbands=nbands, eta=eta,
+                      disable_time_reversal=False,  # Make this the default XXX
+                      disable_point_group=False)
 
         chiks_qwGG = []
         pd_q = []
@@ -93,25 +95,21 @@ def test_Fe_chiks(in_tmp_dir):
 
     # Part 3: Check reciprocity
 
-    # Check reciprocity of the reactive part of the static susceptibility
-    # This specific check makes sure that the exchange constants calculated
-    # the MFT remains reciprocal as they should.
     for pd_q, chiks_qwGG in zip(pd_eq, chiks_eqwGG):  # One eta at a time
         for q1, q2 in zip([0, 1, 2], [4, 3, 2]):  # q and -q pairs
+            invmap_GG = get_inverted_pw_mapping(pd_q[q1], pd_q[q2])
+
+            # Check reciprocity of the reactive part of the static
+            # susceptibility. This specific check makes sure that the exchange
+            # constants calculated within the MFT remains reciprocal.
             # Calculate the reactive part
             chi1_GG, chi2_GG = chiks_qwGG[q1][0], chiks_qwGG[q2][0]
             chi1r_GG = 1 / 2. * (chi1_GG + np.conj(chi1_GG).T)
             chi2r_GG = 1 / 2. * (chi2_GG + np.conj(chi2_GG).T)
 
-            invmap_GG = get_inverted_pw_mapping(pd_q[q1], pd_q[q2])
-
             assert np.allclose(np.conj(chi1r_GG), chi2r_GG[invmap_GG])
 
-    # Check the reciprocity of the full susceptibility
-    for pd_q, chiks_qwGG in zip(pd_eq, chiks_eqwGG):  # One eta at a time
-        for q1, q2 in zip([0, 1, 2], [4, 3, 2]):  # q and -q pairs
-            invmap_GG = get_inverted_pw_mapping(pd_q[q1], pd_q[q2])
-
+            # Check the reciprocity of the full susceptibility
             assert np.allclose(chiks_qwGG[q1],
                                np.transpose(chiks_qwGG[q2][:, invmap_GG],
                                             (0, 2, 1)))
@@ -136,9 +134,7 @@ def get_inverted_pw_mapping(pd1, pd2):
         if not found_match:
             raise ValueError('Could not match pd1 and pd2')
 
-    print(G1_Gc)
-    print(G2_Gc)
-    print(mG2_G1)
-    assert 0
+    # Set up mapping from GG' to -G-G'
+    invmap_GG = np.meshgrid(mG2_G1, mG2_G1, indexing='ij')
 
-    # To do: Set up the map based on mG2_G1 XXX
+    return invmap_GG
