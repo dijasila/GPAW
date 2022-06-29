@@ -11,7 +11,7 @@ from gpaw.calculator import GPAW
 from gpaw import disable_dry_run
 from gpaw.fd_operators import Gradient
 from gpaw.response.pw_parallelization import block_partition
-from gpaw.utilities.blas import gemm
+from gpaw.utilities.blas import mmm
 from gpaw.response.symmetry import KPointFinder
 
 
@@ -464,7 +464,8 @@ class PairDensity:
         # PAW corrections:
         with self.timer('gemm'):
             for C1_Gi, P2_mi in zip(C1_aGi, kpt2.P_ani):
-                gemm(1.0, C1_Gi, P2_mi, 1.0, n_mG[:myblocksize], 't')
+                # gemm(1.0, C1_Gi, P2_mi, 1.0, n_mG[:myblocksize], 't')
+                mmm(1.0, P2_mi, 'N', C1_Gi, 'T', 1.0, n_mG[:myblocksize])
 
         if not block or self.blockcomm.size == 1:
             return n_mG
@@ -500,7 +501,8 @@ class PairDensity:
                                k_v[np.newaxis, :])
 
         for C_vi, P_mi in zip(C_avi, kpt2.P_ani):
-            gemm(1.0, C_vi, P_mi, 1.0, n0_mv[:blockbands], 'c')
+            # gemm(1.0, C_vi, P_mi, 1.0, n0_mv[:blockbands], 'c')
+            mmm(1.0, P_mi, 'N', C_vi, 'C', 1.0, n0_mv[:blockbands])
 
         if block and self.blockcomm.size > 1:
             n0_Mv = np.empty((kpt2.blocksize * self.blockcomm.size, 3),
@@ -613,7 +615,8 @@ class PairDensity:
                 nabla0_nv += 1j * nt_n[:, np.newaxis] * k_v[np.newaxis, :]
 
                 for C_vi, P_ni in zip(C_avi, kpt.P_ani):
-                    gemm(1.0, C_vi, P_ni[ind_n - na], 1.0, nabla0_nv, 'c')
+                    # gemm(1.0, C_vi, P_ni[ind_n - na], 1.0, nabla0_nv, 'c')
+                    mmm(1.0, P_ni[ind_n - na], 'N', C_vi, 'C', 1.0, nabla0_nv)
 
                 vel_nnv[n] = -1j * nabla0_nv
 
