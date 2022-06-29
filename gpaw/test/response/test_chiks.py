@@ -66,6 +66,7 @@ def test_Fe_chiks(in_tmp_dir):
                 occupations=FermiDirac(occw),
                 idiotproof=False,
                 parallel={'domain': 1},
+                # symmetry='off',
                 spinpol=True,
                 convergence=conv
                 )
@@ -110,9 +111,8 @@ def test_Fe_chiks(in_tmp_dir):
             assert np.allclose(np.conj(chi1r_GG), chi2r_GG[invmap_GG])
 
             # Check the reciprocity of the full susceptibility
-            assert np.allclose(chiks_qwGG[q1],
-                               np.transpose(chiks_qwGG[q2][:, invmap_GG],
-                                            (0, 2, 1)))
+            for chi1_GG, chi2_GG in zip(chiks_qwGG[q1], chiks_qwGG[q2]):
+                assert np.allclose(chi1_GG, chi2_GG[invmap_GG].T)
 
 
 # ---------- Test functionality ---------- #
@@ -135,6 +135,6 @@ def get_inverted_pw_mapping(pd1, pd2):
             raise ValueError('Could not match pd1 and pd2')
 
     # Set up mapping from GG' to -G-G'
-    invmap_GG = np.meshgrid(mG2_G1, mG2_G1, indexing='ij')
+    invmap_GG = tuple(np.meshgrid(mG2_G1, mG2_G1, indexing='ij'))
 
     return invmap_GG
