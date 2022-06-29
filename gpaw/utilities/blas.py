@@ -72,7 +72,7 @@ def mmm(alpha: T,
 def to2d(array: ArrayND) -> Array2D:
     """2D view af ndarray.
 
-    >>> to2d(np.zeros(2, 3, 4)).shape
+    >>> to2d(np.zeros((2, 3, 4))).shape
     (2, 12)
     """
     shape = array.shape
