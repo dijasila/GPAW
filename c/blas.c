@@ -45,58 +45,6 @@ void zgemm_(char *transa, char *transb, int *m, int * n,
             void *c, int *ldc);
 
 
-PyObject* gemm(PyObject *self, PyObject *args)
-{
-  Py_complex alpha;
-  PyArrayObject* a;
-  PyArrayObject* b;
-  Py_complex beta;
-  PyArrayObject* c;
-  char t = 'n';
-  char* transa = &t;
-  if (!PyArg_ParseTuple(args, "DOODO|s", &alpha, &a, &b, &beta, &c, &transa))
-    return NULL;
-  int m, k, lda, ldb, ldc;
-  if (*transa == 'n')
-    {
-      m = PyArray_DIMS(a)[1];
-      for (int i = 2; i < PyArray_NDIM(a); i++)
-        m *= PyArray_DIMS(a)[i];
-      k = PyArray_DIMS(a)[0];
-      lda = MAX(1, PyArray_STRIDES(a)[0] / PyArray_STRIDES(a)[PyArray_NDIM(a) - 1]);
-      ldb = MAX(1, PyArray_STRIDES(b)[0] / PyArray_STRIDES(b)[1]);
-      ldc = MAX(1, PyArray_STRIDES(c)[0] / PyArray_STRIDES(c)[PyArray_NDIM(c) - 1]);
-    }
-  else
-    {
-      k = PyArray_DIMS(a)[1];
-      for (int i = 2; i < PyArray_NDIM(a); i++)
-        k *= PyArray_DIMS(a)[i];
-      m = PyArray_DIMS(a)[0];
-      lda = MAX(1, k);
-      ldb = MAX(1, PyArray_STRIDES(b)[0] / PyArray_STRIDES(b)[PyArray_NDIM(b) - 1]);
-      ldc = MAX(1, PyArray_STRIDES(c)[0] / PyArray_STRIDES(c)[1]);
-
-    }
-  int n = PyArray_DIMS(b)[0];
-  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
-    dgemm_(transa, "n", &m, &n, &k,
-           &(alpha.real),
-           DOUBLEP(a), &lda,
-           DOUBLEP(b), &ldb,
-           &(beta.real),
-           DOUBLEP(c), &ldc);
-  else
-    zgemm_(transa, "n", &m, &n, &k,
-           &alpha,
-           (void*)COMPLEXP(a), &lda,
-           (void*)COMPLEXP(b), &ldb,
-           &beta,
-           (void*)COMPLEXP(c), &ldc);
-  Py_RETURN_NONE;
-}
-
-
 PyObject* mmm(PyObject *self, PyObject *args)
 {
     Py_complex alpha;

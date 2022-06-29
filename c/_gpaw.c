@@ -35,7 +35,6 @@ PyObject* map_k_points(PyObject *self, PyObject *args);
 PyObject* tetrahedron_weight(PyObject *self, PyObject *args);
 #ifndef GPAW_WITHOUT_BLAS
 PyObject* mmm(PyObject *self, PyObject *args);
-PyObject* gemm(PyObject *self, PyObject *args);
 PyObject* rk(PyObject *self, PyObject *args);
 PyObject* r2k(PyObject *self, PyObject *args);
 #endif
@@ -166,7 +165,6 @@ static PyMethodDef functions[] = {
     {"tetrahedron_weight", tetrahedron_weight, METH_VARARGS, 0},
 #ifndef GPAW_WITHOUT_BLAS
     {"mmm", mmm, METH_VARARGS, 0},
-    {"gemm", gemm, METH_VARARGS, 0},
     {"rk",  rk,  METH_VARARGS, 0},
     {"r2k", r2k, METH_VARARGS, 0},
 #endif
