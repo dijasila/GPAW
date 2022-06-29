@@ -15,8 +15,10 @@ from typing import TypeVar
 import numpy as np
 import scipy.linalg.blas as blas
 
-from gpaw import debug
 import _gpaw
+from gpaw import debug
+from gpaw.new import prod
+from gpaw.typing import Array2D, ArrayND
 
 __all__ = ['mmm']
 
@@ -24,12 +26,12 @@ T = TypeVar('T', float, complex)
 
 
 def mmm(alpha: T,
-        a: np.ndarray,
+        a: Array2D,
         opa: str,
-        b: np.ndarray,
+        b: Array2D,
         opb: str,
         beta: T,
-        c: np.ndarray) -> None:
+        c: Array2D) -> None:
     """Matrix-matrix multiplication using dgemm or zgemm.
 
     For opa='n' and opb='n', we have::
@@ -65,6 +67,30 @@ def mmm(alpha: T,
         assert a.dtype == complex
 
     _gpaw.mmm(alpha, a, opa, b, opb, beta, c)
+
+
+def to2d(array: ArrayND) -> Array2D:
+    """2D view af ndarray.
+
+    >>> to2d(np.zeros(2, 3, 4)).shape
+    (2, 12)
+    """
+    shape = array.shape
+    return array.reshape((shape[0], prod(shape[1:])))
+
+
+def mmmx(alpha: T,
+         a: ArrayND,
+         opa: str,
+         b: ArrayND,
+         opb: str,
+         beta: T,
+         c: ArrayND) -> None:
+    """Matrix-matrix multiplication using dgemm or zgemm.
+
+    Arrays a, b and c are converted to 2D arrays before calling mmm().
+    """
+    mmm(alpha, to2d(a), opa, to2d(b), opb, beta, to2d(c))
 
 
 def axpy(alpha, x, y):
@@ -206,7 +232,7 @@ def _gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
         out = np.zeros(outshape, a.dtype)
     else:
         out = out.reshape(outshape)
-    mmm(alpha, a, 'N', a, trans.upper(), beta, out)
+    mmmx(alpha, a, 'N', b, trans.upper(), beta, out)
 
     # Determine actual shape of result array
     if trans == 'n':
