@@ -111,5 +111,3 @@ def add(R_v: Vector,
                         a_sR.data[:, mask_R] += a_sr
                         i2 = i2b
                     i1 = i1b
-
-
