@@ -1,5 +1,5 @@
 import numpy as np
-from gpaw.utilities.blas import axpy, r2k, rk, gemmdot, mmm
+from gpaw.utilities.blas import axpy, r2k, rk, gemmdot, mmm, mmmx
 from gpaw.utilities.tools import tri2full
 
 
@@ -39,13 +39,13 @@ def test_linalg_blas():
     # Check gemm for transa='n'
     a2 = np.arange(7 * 5 * 1 * 3).reshape(7, 5, 1, 3) * (-1. + 4.j) + 3.
     c = np.tensordot(a, a2, [1, 0])
-    mmm(1., a, 'N', a2, 'N', -1., c)
+    mmmx(1., a, 'N', a2, 'N', -1., c)
     assert not c.any()
 
     # Check gemm for transa='c'
     a = np.arange(4 * 5 * 1 * 3).reshape(4, 5, 1, 3) * (3. - 2.j) + 4.
     c = np.tensordot(a, a2.conj(), [[1, 2, 3], [1, 2, 3]])
-    mmm(1., a, 'N', a2, 'C', -1., c)
+    mmmx(1., a, 'N', a2, 'C', -1., c)
     assert not c.any()
 
     # Check axpy
