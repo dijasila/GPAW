@@ -9,6 +9,7 @@ import numpy as np
 from ase.build import bulk
 
 from gpaw import GPAW, PW, FermiDirac
+from gpaw.mpi import world, rank
 from gpaw.response.chiks import ChiKS
 from gpaw.response.susceptibility import get_pw_coordinates
 
@@ -28,7 +29,10 @@ def test_Fe_chiks(in_tmp_dir):
     such that this symmetry is not fulfilled exactly. However, we should be
     able to fulfill it within 2%, which is tested here. Generally speaking,
     the "symmetry" noise can be reduced making running with symmetry='off' in
-    the ground state calculation."""
+    the ground state calculation.
+
+    Also, we test that the response function does not change by toggling
+    the symmetries within the same precision."""
     # ---------- Inputs ---------- #
 
     # Part 1: Ground state calculation
@@ -58,8 +62,14 @@ def test_Fe_chiks(in_tmp_dir):
                      [0., 0., 0.25],      # N/2
                      [0.0, 0.0, 0.5],     # N
                      ])
+    if world.size > 1:
+        nblocks = 2
+    else:
+        nblocks = 1
 
     # Part 3: Check reciprocity
+
+    # Part 4: Check symmetry toggle
 
     # ---------- Script ---------- #
 
@@ -95,13 +105,15 @@ def test_Fe_chiks(in_tmp_dir):
                           ecut=ecut, nbands=nbands, eta=eta,
                           gammacentered=gammacentered,
                           disable_time_reversal=disable_syms,
-                          disable_point_group=disable_syms)
+                          disable_point_group=disable_syms,
+                          nblocks=nblocks)
 
             chiks_qwGG = []
             pd_q = []
             for q_c in q_qc:
                 pd, chiks_wGG = chiks.calculate(q_c, frequencies,
                                                 spincomponent='+-')
+                chiks_wGG = chiks.distribute_frequencies(chiks_wGG)
                 pd_q.append(pd)
                 chiks_qwGG.append(chiks_wGG)
 
@@ -121,17 +133,19 @@ def test_Fe_chiks(in_tmp_dir):
                 # susceptibility. This specific check makes sure that the
                 # exchange constants calculated within the MFT remains
                 # reciprocal.
-                # Calculate the reactive part
-                chi1_GG, chi2_GG = chiks_qwGG[q1][0], chiks_qwGG[q2][0]
-                chi1r_GG = 1 / 2. * (chi1_GG + np.conj(chi1_GG).T)
-                chi2r_GG = 1 / 2. * (chi2_GG + np.conj(chi2_GG).T)
+                if rank == 0:  # Only the root has the static susc.
+                    # Calculate the reactive part
+                    chi1_GG, chi2_GG = chiks_qwGG[q1][0], chiks_qwGG[q2][0]
+                    chi1r_GG = 1 / 2. * (chi1_GG + np.conj(chi1_GG).T)
+                    chi2r_GG = 1 / 2. * (chi2_GG + np.conj(chi2_GG).T)
 
-                # err = np.absolute(np.conj(chi2r_GG[invmap_GG]) - chi1r_GG)
-                # is_bad = err > 1.e-8 + 2.e-2 * np.absolute(chi1r_GG)
-                # print(np.absolute(err[is_bad])
-                #       / np.absolute(chi1r_GG[is_bad]))
-                assert np.allclose(np.conj(chi2r_GG[invmap_GG]), chi1r_GG,
-                                   rtol=2.e-2)
+                    # err = np.absolute(np.conj(chi2r_GG[invmap_GG])
+                    #                   - chi1r_GG)
+                    # is_bad = err > 1.e-8 + 2.e-2 * np.absolute(chi1r_GG)
+                    # print(np.absolute(err[is_bad])
+                    #       / np.absolute(chi1r_GG[is_bad]))
+                    assert np.allclose(np.conj(chi2r_GG[invmap_GG]), chi1r_GG,
+                                       rtol=2.e-2)
 
                 # Check the reciprocity of the full susceptibility
                 for chi1_GG, chi2_GG in zip(chiks_qwGG[q1], chiks_qwGG[q2]):
@@ -141,6 +155,17 @@ def test_Fe_chiks(in_tmp_dir):
                     #       / np.absolute(chi1_GG[is_bad]))
                     assert np.allclose(chi2_GG[invmap_GG].T, chi1_GG,
                                        rtol=2.e-2)
+
+    # Part 4: Check symmetry toggle
+
+    for s1, s2 in zip([0, 2], [1, 3]):
+        chiks1_eqwGG = chiks_seqwGG[s1]
+        chiks2_eqwGG = chiks_seqwGG[s2]
+
+        for chiks1_qwGG, chiks2_qwGG in zip(chiks1_eqwGG, chiks2_eqwGG):
+            for chiks1_wGG, chiks2_wGG in zip(chiks1_qwGG, chiks2_qwGG):
+                assert np.allclose(chiks2_wGG, chiks1_wGG,
+                                   rtol=2.e-2)
 
 
 # ---------- Test functionality ---------- #
