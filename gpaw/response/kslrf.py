@@ -592,7 +592,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         # In-place calculation
         return self._calculate(spinrot, A_x)
 
-    def get_PWDescriptor(self, q_c):
+    def get_PWDescriptor(self, q_c, gammacentered=False):
         """Get the planewave descriptor for a certain momentum transfer q_c."""
         from gpaw.pw.descriptor import PWDescriptor
         if isinstance(q_c, PWDescriptor):
@@ -601,9 +601,41 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
             from gpaw.kpt_descriptor import KPointDescriptor
             q_c = np.asarray(q_c, dtype=float)
             qd = KPointDescriptor([q_c])
-            pd = PWDescriptor(self.ecut, self.calc.wfs.gd,
-                              complex, qd, gammacentered=self.gammacentered)
+            gd = self.calc.wfs.gd
+            if gammacentered:
+                ecut = self.ecut
+            else:
+                ecut = self.get_qspecific_ecut(qd, gd)
+            pd = PWDescriptor(ecut, gd, complex, qd,
+                              gammacentered=gammacentered)
             return pd
+
+    def get_qspecific_ecut(self, qd, gd):
+        """Get the q-specific ecut that encompasses the global plane wave basis.
+
+        If we want to compute the linear response function on a plane wave
+        grid which is effectively centered in the gamma point instead of q, we
+        need to extend ecut. This is so, because the internal functionality
+        (to handle symmetries in particular) assumes that the plane wave
+        descriptor is centered at q.
+        Thus, we compute the linear response function with a q-centered plane
+        wave descriptor of a slightly extended ecut and reduce to the global
+        gamma-centered basis as a post processing step.
+        """
+        if self.gammacentered:
+            B_cv = 2.0 * np.pi * gd.icell_cv  # Reciprocal lattice vectors
+            q_v = qd.ibzk_qc[0] @ B_cv
+            q = np.linalg.norm(q_v)
+
+            # Calculate an ecut which should contain all |G|^2 < 2 * self.ecut
+            ecut = self.ecut + q * (np.sqrt(2 * self.ecut) + q / 2)
+
+            return ecut
+
+        # If we are not computing the linear response function in the gamma
+        # centered basis, use the same ecut for all q (which in the end will
+        # result in different plane wave basis sets for each q)
+        return self.ecut
 
     @timer('Get PW symmetry analyser')
     def get_PWSymmetryAnalyzer(self, pd):
@@ -632,7 +664,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         q_c = pd.kd.bzk_kc[0]
         nw = len(self.wd)
         eta = self.eta * Hartree
-        ecut = self.ecut * Hartree
+        ecut = pd.ecut * Hartree
         ngmax = pd.ngmax
         Asize = nw * pd.ngmax**2 * 16. / 1024**2 / self.blockcomm.size
 
@@ -718,7 +750,47 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
             self.pwsa.symmetrize_wGG(tmpA_wGG)
         self.redistribute(tmpA_wGG, A_wGG)
 
+        if self.gammacentered:
+            # Reduce the q-specific basis to the global basis
+            pd = self.get_PWDescriptor(self.pd.kd.bzk_kc[0],
+                                       gammacentered=True)
+            A_wGG = self.map_to(pd, A_wGG)
+
         return self.pd, A_wGG
+
+    def map_to(self, pd, A_wGG):
+        """Map the output array to a reduced plane wave basis (which will
+        be adopted as the global basis)."""
+        from gpaw.pw.descriptor import PWMapping
+
+        # Initialize the basis mapping
+        pwmapping = PWMapping(self.pd, pd)
+        G2_GG = tuple(np.meshgrid(pwmapping.G2_G1, pwmapping.G2_G1,
+                                  indexing='ij'))
+        G1_GG = tuple(np.meshgrid(pwmapping.G1, pwmapping.G1,
+                                  indexing='ij'))
+
+        # Distribute over frequencies
+        tmpA_wGG = self.redistribute(A_wGG)
+
+        # Change relevant properties on self to support the global basis
+        # from this point onwards
+        self.pd = pd
+        self.blocks1d = Blocks1D(self.blockcomm, self.pd.ngmax)
+
+        # Allocate array in the new basis
+        nG = self.blocks1d.N
+        tmpshape = (tmpA_wGG.shape[0], nG, nG)
+        newtmpA_wGG = np.zeros(tmpshape, complex)
+
+        # Extract values in the global basis
+        for w, tmpA_GG in enumerate(tmpA_wGG):
+            newtmpA_wGG[w][G2_GG] = tmpA_GG[G1_GG]
+
+        # Distribute over plane waves
+        newA_wGG = self.redistribute(newtmpA_wGG)
+
+        return newA_wGG
 
     @timer('Redistribute memory')
     def redistribute(self, in_wGG, out_x=None):
