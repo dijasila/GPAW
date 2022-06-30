@@ -22,7 +22,13 @@ def test_Fe_chiks(in_tmp_dir):
 
     χ_(KS,GG')^(+-)(q, ω) = χ_(KS,-G'-G)^(+-)(-q, ω)
 
-    for a real life system with d-electrons (bcc-Fe)."""
+    for a real life system with d-electrons (bcc-Fe).
+
+    Unfortunately, there will always be random noise in the wave functions,
+    such that this symmetry is not fulfilled exactly. However, we should be
+    able to fulfill it within 1%, which is tested here. Generally speaking,
+    the "symmetry" noise can be reduced making running with symmetry='off' in
+    the ground state calculation."""
     # ---------- Inputs ---------- #
 
     # Part 1: Ground state calculation
@@ -109,11 +115,19 @@ def test_Fe_chiks(in_tmp_dir):
             chi1r_GG = 1 / 2. * (chi1_GG + np.conj(chi1_GG).T)
             chi2r_GG = 1 / 2. * (chi2_GG + np.conj(chi2_GG).T)
 
-            assert np.allclose(np.conj(chi1r_GG), chi2r_GG[invmap_GG])
+            # err = np.conj(chi1r_GG) - chi2r_GG[invmap_GG]
+            # is_bad = err > 1.e-8 + 1.e-2 * np.absolute(chi1r_GG)
+            # print(np.absolute(err[is_bad]) / np.absolute(chi1r_GG[is_bad]))
+            assert np.allclose(np.conj(chi1r_GG), chi2r_GG[invmap_GG],
+                               rtol=1.e-2)
 
             # Check the reciprocity of the full susceptibility
             for chi1_GG, chi2_GG in zip(chiks_qwGG[q1], chiks_qwGG[q2]):
-                assert np.allclose(chi1_GG, chi2_GG[invmap_GG].T)
+                # err = np.absolute(chi1_GG - chi2_GG[invmap_GG].T)
+                # is_bad = err > 1.e-8 + 1.e-2 * np.absolute(chi1_GG)
+                # print(np.absolute(err[is_bad]) / np.absolute(chi1_GG[is_bad]))
+                assert np.allclose(chi1_GG, chi2_GG[invmap_GG].T,
+                                   rtol=1.e-2)
 
 
 # ---------- Test functionality ---------- #
