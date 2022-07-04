@@ -1,16 +1,20 @@
 from __future__ import annotations
+
 import numpy as np
 from gpaw.core.atom_arrays import AtomArrays
 from gpaw.core.matrix import Matrix, create_distribution
-from gpaw.core.plane_waves import PlaneWaveAtomCenteredFunctions, PlaneWaves
+from gpaw.core.plane_waves import (PlaneWaveAtomCenteredFunctions,
+                                   PlaneWaveExpansions, PlaneWaves)
 from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.new.calculation import DFTState
+from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
+from gpaw.typing import Array2D
 
 
 def pw_matrix(pw: PlaneWaves,
               pt_aiG: PlaneWaveAtomCenteredFunctions,
               dH_aii: AtomArrays,
-              dS_aii: AtomArrays,
+              dS_aii: list[Array2D],
               vt_R: UniformGridFunctions,
               comm) -> tuple[Matrix, Matrix]:
     """
@@ -44,14 +48,16 @@ def pw_matrix(pw: PlaneWaves,
     G1, G2 = dist.my_row_range()
 
     x_G = pw.zeros()
+    assert isinstance(x_G, PlaneWaveExpansions)  # Fix this!
     x_R = vt_R.desc.new(dtype=complex).zeros()
+    assert isinstance(x_R, UniformGridFunctions)  # Fix this!
     N = x_R.data.size
     dv = pw.dv / N
 
     for G in range(G1, G2):
         x_G.data[G] = 1.0
         x_G.ifft(out=x_R)
-        x_R *= vt_R
+        x_R.data *= vt_R.data
         x_R.fft(out=x_G)
         H_GG.data[G - G1] = dv * x_G.data
         x_G.data[G] = 0.0
@@ -61,6 +67,7 @@ def pw_matrix(pw: PlaneWaves,
     S_GG.data[:] = 0.0
     S_GG.add_to_diagonal(dv)
 
+    assert pt_aiG._lfc is not None
     f_GI = pt_aiG._lfc.expand()
     print(f_GI.shape)
     nI = f_GI.shape[1]
@@ -83,7 +90,7 @@ def pw_matrix(pw: PlaneWaves,
 def diagonalize_full_hamiltonian(self, ham, atoms, log,
                                  nbands=None, ecut=None, scalapack=None,
                                  expert=False):
-
+    """
     if self.dtype != complex:
         raise ValueError(
             'Please use mode=PW(..., force_complex_dtype=True)')
@@ -205,7 +212,8 @@ def diagonalize_full_hamiltonian(self, ham, atoms, log,
 
     self.calculate_occupation_numbers()
 
-    return nbands
+    """
+    return 42  # nbands
 
 
 def diagonalize(state: DFTState,
@@ -215,13 +223,15 @@ def diagonalize(state: DFTState,
     dS_aii = [delta_iiL[:, :, 0]
               for delta_iiL in state.density.delta_aiiL]
     for wfs in state.ibzwfs:
+        assert isinstance(wfs, PWFDWaveFunctions)
+        assert isinstance(wfs.pt_aiX, PlaneWaveAtomCenteredFunctions)
         H_GG, S_GG = pw_matrix(wfs.psit_nX.desc,
                                wfs.pt_aiX,
                                dH_asii[:, wfs.spin],
                                dS_aii,
                                vt_sR[wfs.spin],
                                wfs.psit_nX.comm)
-        eig_n = H_GG.eigh(S_GG, limit=nbands)
+        eig_n = H_GG.eigh(S_GG, subset_by_index=(0, nbands))
         wfs._eig_n = eig_n
-        wfs.psit_nX = (H_GG.data)
+        wfs.psit_nX.data[:] = H_GG.data
     return state
