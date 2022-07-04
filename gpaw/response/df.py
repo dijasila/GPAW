@@ -119,7 +119,7 @@ class DielectricFunction:
         """
 
         if self.name:
-            kd = self.chi0.calc.wfs.kd
+            kd = self.chi0.gs.kd
             name = self.name + '%+d%+d%+d.pckl' % tuple((q_c * kd.N_c).round())
             if os.path.isfile(name):
                 return self.read(name)
@@ -251,7 +251,7 @@ class DielectricFunction:
         """
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c, spin)
 
-        N_c = self.chi0.calc.wfs.kd.N_c
+        N_c = self.chi0.gs.kd.N_c
 
         Kbare_G = get_coulomb_kernel(pd,
                                      N_c,
@@ -391,7 +391,7 @@ class DielectricFunction:
             print('add_intraband=True is not supported at this time')
             raise NotImplementedError
 
-        N_c = self.chi0.calc.wfs.kd.N_c
+        N_c = self.chi0.gs.kd.N_c
         if self.truncation == 'wigner-seitz':
             self.wstc = WignerSeitzTruncatedCoulomb(pd.gd.cell_cv, N_c)
         else:
@@ -580,8 +580,8 @@ class DielectricFunction:
         dimension of alpha is \AA to the power of non-periodic directions
         """
 
-        cell_cv = self.chi0.calc.wfs.gd.cell_cv
-        pbc_c = self.chi0.calc.atoms.pbc
+        cell_cv = self.chi0.gs.gd.cell_cv
+        pbc_c = self.chi0.gs.pbc
 
         if pbc_c.all():
             V = 1.0
@@ -660,7 +660,7 @@ class DielectricFunction:
 
         print('', file=fd)
         print('Sum rule:', file=fd)
-        nv = self.chi0.calc.wfs.nvalence
+        nv = self.chi0.gs.nvalence
         print('N1 = %f, %f  %% error' % (N1, (N1 - nv) / nv * 100), file=fd)
 
     def get_eigenmodes(self, q_c=[0, 0, 0], w_max=None, name=None,
@@ -755,7 +755,7 @@ class DielectricFunction:
                 v_ind = np.append(v_ind, v_temp[np.newaxis, :], axis=0)
                 n_ind = np.append(n_ind, n_temp[np.newaxis, :], axis=0)
 
-        kd = self.chi0.calc.wfs.kd
+        kd = self.chi0.gs.kd
         if name is None and self.name:
             name = (self.name + '%+d%+d%+d-eigenmodes.pckl' %
                     tuple((q_c * kd.N_c).round()))
