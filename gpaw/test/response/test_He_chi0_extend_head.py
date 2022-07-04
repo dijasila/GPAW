@@ -32,6 +32,7 @@ def test_he_chi0_extend_head(in_tmp_dir):
     rparams = dict(
         frequencies=np.linspace(0., 30., 11),
         eta=0.05,
+        nbands=nbands,
         hilbert=False,
         timeordered=False,
         threshold=1,
@@ -48,6 +49,9 @@ def test_he_chi0_extend_head(in_tmp_dir):
     rp3 = rparams.copy()  # Check timeordering
     rp3['timeordered'] = True
     rp_settings.append(rp3)
+    rp4 = rparams.copy()
+    rp4['nbands'] = None
+    rp_settings.append(rp4)
 
     if world.size > 1:
         nblocks = 2
@@ -75,7 +79,6 @@ def test_he_chi0_extend_head(in_tmp_dir):
     # Part 2: Chi0 calculation
     for kwargs in rp_settings:
         chi0fac = Chi0('He', ecut=ecut,
-                       nbands=nbands,
                        nblocks=nblocks,
                        **kwargs)
 
