@@ -33,7 +33,10 @@ class FakeWFS:
         self.pd = PWDescriptor(ibzwfs.wfs_qs[0][0].psit_nX.desc.ecut,
                                self.gd, self.dtype, self.kd)
 
-    @property
+    def _get_wave_function_array(self, u, n, realspace):
+        return self.kpt_u[u]
+
+    @cached_property
     def kpt_u(self):
         return [kpt
                 for kpt_s in self.kpt_qs
@@ -72,16 +75,33 @@ class FakeDensity:
         self.state = calculation.state
         self.D_asii = self.state.density.D_asii
         self.atom_partition = calculation._atom_partition
+        self.nt_sg = None
+        self.interpolate = calculation.pot_calc._interpolate_density
+        self.nt_sR = self.state.density.nt_sR
+        self.finegd = calculation.pot_calc.fine_grid._gd
 
     @cached_property
     def D_asp(self):
         return {a: np.array([pack(D_ii) for D_ii in D_sii])
                 for a, D_sii in self.D_asii.items()}
 
+    def interpolate_pseudo_density(self):
+        self.nt_sg = self.interpolate(self.nt_sR)[0].data
+
 
 class FakeHamiltonian:
     def __init__(self, calculation: DFTCalculation):
         self.pot_calc = calculation.pot_calc
+        self.finegd = self.pot_calc.fine_grid._gd
+        self.grid = calculation.state.potential.vt_sR.desc
+
+    def restrict_and_collect(self, vxct_sg):
+        fine_grid = self.pot_calc.fine_grid
+        vxct_sr = fine_grid.empty(len(vxct_sg))
+        vxct_sr.data[:] = vxct_sg
+        vxct_sR = self.grid.zeros(vxct_sr.dims)
+        self.pot_calc._restrict(vxct_sr, vxct_sR)
+        return vxct_sR.data
 
     @property
     def xc(self):
