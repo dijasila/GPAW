@@ -23,6 +23,7 @@ from gpaw.response.pair import PairDensity
 from gpaw.response.gamma_int import GammaIntegrator
 from gpaw.response.groundstate import ResponseGroundStateAdapter
 
+
 class BSE:
     def __init__(self,
                  calc=None,
