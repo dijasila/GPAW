@@ -67,23 +67,43 @@ def generate_He_chi0_params():
 
 
 @pytest.fixture(scope='module', params=generate_He_chi0_params())
-def chi0kwargs(request, He_gs):
-    # Fill in nbands parameter, if not already specified
-    my_chi0kwargs = request.param
-    if 'nbands' not in my_chi0kwargs:
-        _, nbands = He_gs
-        my_chi0kwargs['nbands'] = nbands
+def He_chi0kwargs(request, He_gs):
+    chi0kwargs = request.param
+    assure_nbands(chi0kwargs, He_gs)
 
-    return my_chi0kwargs
+    return chi0kwargs
+
+@pytest.fixture(scope='module', params=generate_He_chi0_params())
+def Li_chi0kwargs(request, Li_gs):
+    chi0kwargs = request.param
+    assure_nbands(chi0kwargs, Li_gs)
+
+    return chi0kwargs
+
+
+def assure_nbands(chi0kwargs, my_gs):
+    # Fill in nbands parameter, if not already specified
+    if 'nbands' not in chi0kwargs:
+        _, nbands = my_gs
+        chi0kwargs['nbands'] = nbands
 
 
 # ---------- Actual tests ---------- #
 
 
 @pytest.mark.response
-def test_he_chi0_extend_head(in_tmp_dir, He_gs, chi0kwargs):
+def test_he_chi0_extend_head(in_tmp_dir, He_gs, He_chi0kwargs):
+    chi0_extend_head_test(He_gs, He_chi0kwargs)
+
+
+@pytest.mark.response
+def test_li_chi0_extend_head(in_tmp_dir, Li_gs, Li_chi0kwargs):
+    chi0_extend_head_test(Li_gs, Li_chi0kwargs)
+
+
+def chi0_extend_head_test(my_gs, chi0kwargs):
     # ---------- Inputs ---------- #
-    gpw, nbands = He_gs
+    gpw, nbands = my_gs
 
     ecut = 50
 
@@ -119,7 +139,40 @@ def He_gs(module_tmp_path):
     ebands = 1  # Include also 3s bands for numerical consistency
     pw = 250
     conv = {'bands': nbands}
-    gpw = Path('He').resolve()
+    gpw = Path('He.gpw').resolve()
+
+    # ---------- Script ---------- #
+
+    atoms = Atoms('He', cell=[a, a, a], pbc=True)
+
+    calc = GPAW(xc=xc,
+                mode=PW(pw),
+                kpts=monkhorst_pack((kpts, kpts, kpts)),
+                nbands=nbands + ebands,
+                convergence=conv,
+                symmetry={'point_group': True},
+                idiotproof=False,
+                parallel={'domain': 1})
+
+    atoms.calc = calc
+    atoms.get_potential_energy()
+    calc.write(gpw, 'all')
+
+    return gpw, nbands
+
+
+@pytest.fixture(scope='module')
+def Li_gs(module_tmp_path):
+    # ---------- Inputs ---------- #
+
+    a = 3.49
+    xc = 'LDA'
+    kpts = 3
+    nbands = 1 + 3 + 1  # 2s + 2p + 3s empty shell bands
+    ebands = 3  # Include also 3p bands for numerical consistency
+    pw = 250
+    conv = {'bands': nbands}
+    gpw = Path('Li.gpw').resolve()
 
     # ---------- Script ---------- #
 
