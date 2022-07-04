@@ -87,7 +87,6 @@ class GPAW(Calculator):
         'random': False,
         'hund': False,
         'maxiter': 333,
-        'idiotproof': True,
         'symmetry': {'point_group': True,
                      'time_reversal': True,
                      'symmorphic': True,
