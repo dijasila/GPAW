@@ -201,8 +201,8 @@ class BSE:
 
             print('Diagonalizing spin-orbit Hamiltonian', file=self.fd)
             if world.rank == 0:
-                soc = soc_eigenstates(self.calc,
-                                      scale=self.scale)
+                # XXX Probably not a good idea for this to be serial!
+                soc = self.gs.soc_eigenstates(scale=self.scale)
                 e_mk = soc.eigenvalues().T
                 v_kmsn = soc.eigenvectors()
                 e_mk /= Hartree
@@ -1067,7 +1067,7 @@ class BSE:
         p()
         p('Atoms                          :',
           self.gs.atoms.get_chemical_formula(mode='hill'))
-        p('Ground state XC functional     :', self.calc.hamiltonian.xc.name)
+        p('Ground state XC functional     :', self.gs.xcname)
         # XXX Maybe gs.nvalence instread ???
         p('Valence electrons              :', self.gs.setups.nvalence)
         p('Spinor calculations            :', self.spinors)

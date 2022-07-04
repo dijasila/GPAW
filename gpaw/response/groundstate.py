@@ -29,6 +29,7 @@ class ResponseGroundStateAdapter:
         self.nvalence = wfs.nvalence
         self._density = calc.density
         self._hamiltonian = calc.hamiltonian
+        self._calc = calc
 
     def get_occupations_width(self):
         # Ugly hack only used by pair.intraband_pair_density I think.
@@ -78,3 +79,12 @@ class ResponseGroundStateAdapter:
     @property
     def density(self):
         return self._density
+
+    # Ugh SOC
+    def soc_eigenstates(self, **kwargs):
+        from gpaw.spinorbit import soc_eigenstates
+        return soc_eigenstates(self._calc, **kwargs)
+
+    @property
+    def xcname(self):
+        return self.hamiltonian.xc.name
