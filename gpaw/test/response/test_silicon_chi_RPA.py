@@ -28,7 +28,6 @@ def test_response_silicon_chi_RPA(in_tmp_dir):
                 nbands=8,
                 kpts=(4, 4, 4),
                 parallel={'domain': 1},
-                idiotproof=False,  # allow uneven distribution of k-points
                 occupations=FermiDirac(width=0.05),
                 xc='LDA')
 

@@ -65,7 +65,6 @@ def test_response_afm_hchain_gssALDA(in_tmp_dir):
                 nbands=nbands + ebands,
                 convergence=conv,
                 symmetry={'point_group': True},
-                idiotproof=False,
                 parallel={'domain': 1})
 
     Hchain.calc = calc

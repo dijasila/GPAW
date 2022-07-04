@@ -102,8 +102,7 @@ for name in names:
             kpts=kpts,
             occupations=FermiDirac(width),
             parallel={'band': 1},
-            maxiter=777,
-            idiotproof=False)
+            maxiter=777)
         atoms.calc.set(**kwargs)  # remaining calc keywords
         t = time.time()
         atoms.get_potential_energy()
