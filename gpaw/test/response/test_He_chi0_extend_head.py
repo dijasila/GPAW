@@ -28,12 +28,20 @@ def test_he_chi0_extend_head(in_tmp_dir):
 
     # Part 2: Chi0 calculation
     ecut = 50
-    frequencies = np.linspace(0., 30., 11)
-    eta = 0.05
-    hilbert = False
-    timeordered = False
-    threshold = 1
-    real_space_derivatives = False
+
+    rparams = dict(
+        frequencies=np.linspace(0., 30., 11),
+        eta=0.05,
+        hilbert=False,
+        timeordered=False,
+        threshold=1,
+        real_space_derivatives=False)
+    # Check different response parameter settings
+    rp_settings = [rparams]
+    rp1 = rparams.copy()  # Check k.p threshold
+    rp1['threshold'] = 0.5
+    rp_settings.append(rp1)
+
     if world.size > 1:
         nblocks = 2
     else:
@@ -58,19 +66,17 @@ def test_he_chi0_extend_head(in_tmp_dir):
     calc.write('He', 'all')
 
     # Part 2: Chi0 calculation
-    chi0fac = Chi0('He', ecut=ecut,
-                   frequencies=frequencies, eta=eta, hilbert=hilbert,
-                   nbands=nbands,
-                   timeordered=timeordered,
-                   threshold=threshold,
-                   real_space_derivatives=real_space_derivatives,
-                   nblocks=nblocks)
+    for kwargs in rp_settings:
+        chi0fac = Chi0('He', ecut=ecut,
+                       nbands=nbands,
+                       nblocks=nblocks,
+                       **kwargs)
 
-    chi0_f = calculate_optical_limit(chi0fac, extend_head=False)
-    chi0_t = calculate_optical_limit(chi0fac, extend_head=True)
+        chi0_f = calculate_optical_limit(chi0fac, extend_head=False)
+        chi0_t = calculate_optical_limit(chi0fac, extend_head=True)
 
-    is_equal, err_msg = chi0_data_is_equal(chi0_f, chi0_t)
-    assert is_equal, err_msg
+        is_equal, err_msg = chi0_data_is_equal(chi0_f, chi0_t)
+        assert is_equal, err_msg
 
 
 # ---------- Script functionality ---------- #
