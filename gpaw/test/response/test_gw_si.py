@@ -27,15 +27,16 @@ def run(atoms, symm, nblocks):
                       parallel={'domain': 1},
                       txt='si.txt')
     e = atoms.get_potential_energy()
-    scalapack = atoms.calc.wfs.bd.comm.size
-    atoms.calc.diagonalize_full_hamiltonian(nbands=8, scalapack=scalapack)
-    atoms.calc.write('si.gpw', mode='all')
+    # scalapack = atoms.calc.wfs.bd.comm.size
+    # atoms.calc.diagonalize_full_hamiltonian(nbands=8, scalapack=scalapack)
+    # atoms.calc.write('si.gpw', mode='all')
     # The first iteration of the loop has very few frequencies.
     # The test is, that code should still not crash.
     # The second iteration is the actual numerical test, which
     # will be returned and asserted outside this function.
     for omegamax in [0.2, None]:
-        gw = G0W0('si.gpw', 'gw',
+        gw = G0W0(atoms.calc,  # 'si.gpw',
+                  'gw',
                   nbands=8,
                   integrate_gamma=0,
                   kpts=[(0, 0, 0), (0.5, 0.5, 0)],  # Gamma, X

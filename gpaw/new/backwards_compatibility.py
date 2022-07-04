@@ -6,6 +6,7 @@ from gpaw.utilities import pack
 from gpaw.band_descriptor import BandDescriptor
 from ase import Atoms
 from gpaw.projections import Projections
+from gpaw.pw.descriptor import PWDescriptor
 
 
 class FakeWFS:
@@ -23,15 +24,22 @@ class FakeWFS:
         self.atom_partition = calculation._atom_partition
         self.setups.set_symmetry(ibzwfs.ibz.symmetries.symmetry)
         self.occupations = calculation.scf_loop.occ_calc.occ
-        self.nvalence = ibzwfs.nelectrons
+        self.nvalence = int(round(ibzwfs.nelectrons))
+        assert self.nvalence == ibzwfs.nelectrons
+        self.world = calculation.scf_loop.world
+        self.fermi_level, = ibzwfs.fermi_levels
+        self.nspins = ibzwfs.nspins
+        self.dtype = ibzwfs.dtype
+        self.pd = PWDescriptor(ibzwfs.wfs_qs[0][0].psit_nX.desc.ecut,
+                               self.gd, self.dtype, self.kd)
 
     @property
-    def xxxkpt_u(self):
-        return [KPT(wfs)
-                for wfs_s in self.state.ibzwfs.wfs_qs
-                for wfs in wfs_s]
+    def kpt_u(self):
+        return [kpt
+                for kpt_s in self.kpt_qs
+                for kpt in kpt_s]
 
-    @property
+    @cached_property
     def kpt_qs(self):
         return [[KPT(wfs, self.atom_partition)
                  for wfs in wfs_s]
@@ -52,7 +60,10 @@ class KPT:
         self.eps_n = wfs.eig_n
         self.s = wfs.spin if wfs.ncomponents < 4 else None
         self.k = wfs.k
-        self.f_n = wfs.occ_n * wfs.spin_degeneracy * wfs.weight
+        self.weight = wfs.spin_degeneracy * wfs.weight
+        self.f_n = wfs.occ_n * self.weight
+        self.psit_nG = wfs.psit_nX.data
+        self.P_ani = wfs.P_ani
 
 
 class FakeDensity:

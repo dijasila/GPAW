@@ -4,18 +4,17 @@ from pathlib import Path
 from typing import IO, Any, Union
 
 from ase import Atoms
-from ase.units import Ha, Bohr
-
+from ase.units import Bohr, Ha
 from gpaw import __version__
-from gpaw.new import Timer
+from gpaw.new import Timer, cached_property
 from gpaw.new.calculation import DFTCalculation, units
 from gpaw.new.gpw import read_gpw, write_gpw
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
-from gpaw.typing import Array1D, Array2D, Array3D
-from gpaw.utilities.memory import maxrss
 from gpaw.new.xc import XC
+from gpaw.typing import Array1D, Array2D, Array3D
 from gpaw.utilities import pack
+from gpaw.utilities.memory import maxrss
 
 
 def GPAW(filename: Union[str, Path, IO[str]] = None,
@@ -247,7 +246,7 @@ class ASECalculator:
     def calculate(self, atoms):
         self.get_potential_energy(atoms)
 
-    @property
+    @cached_property
     def wfs(self):
         from gpaw.new.backwards_compatibility import FakeWFS
         return FakeWFS(self.calculation, self.atoms)
