@@ -25,6 +25,8 @@ class ResponseGroundStateAdapter:
         self.pbc = self.atoms.pbc
         self.volume = self.gd.volume
 
+        self.nvalence = wfs.nvalence
+
     def get_occupations_width(self):
         # Ugly hack only used by pair.intraband_pair_density I think.
         # Actually: was copy-pasted in chi0 also.
