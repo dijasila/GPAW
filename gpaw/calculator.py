@@ -487,6 +487,10 @@ class GPAW(Calculator):
         if 'txt' in kwargs:
             self.log.fd = kwargs.pop('txt')
 
+        if 'idiotproof' in kwargs:
+            del kwargs['idotproof']
+            warnings.warn('Ignoring deprecated keyword "idiotproof"')
+
         changed_parameters = Calculator.set(self, **kwargs)
 
         for key in ['setups', 'basis']:
@@ -513,7 +517,7 @@ class GPAW(Calculator):
                 self.wfs.set_eigensolver(None)
 
             if key in ['mixer', 'verbose', 'txt', 'hund', 'random',
-                       'eigensolver', 'idiotproof']:
+                       'eigensolver']:
                 continue
 
             if key in ['convergence', 'fixdensity', 'maxiter']:

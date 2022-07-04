@@ -56,7 +56,6 @@ def test_response_iron_sf_gssALDA(in_tmp_dir):
                 kpts=monkhorst_pack((kpts, kpts, kpts)),
                 nbands=nb,
                 symmetry={'point_group': False},
-                idiotproof=False,
                 parallel={'domain': 1})
 
     Febcc.calc = calc
