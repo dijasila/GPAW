@@ -122,6 +122,8 @@ class ResponseGroundState:
         self.world = calc.world
         self.gd = wfs.gd
         self.bd = wfs.bd
+        self.nspins = wfs.nspins
+        self.dtype = wfs.dtype
 
         self.spos_ac = calc.spos_ac
 
@@ -209,7 +211,7 @@ class KohnShamPair:
         self.nocc2 = int(nocc2)
         print('Number of completely filled bands:', self.nocc1, file=self.fd)
         print('Number of partially filled bands:', self.nocc2, file=self.fd)
-        print('Total number of bands:', self.gs.wfs.bd.nbands,
+        print('Total number of bands:', self.gs.bd.nbands,
               file=self.fd)
 
     @property
@@ -217,13 +219,13 @@ class KohnShamPair:
         """Get a PWDescriptor that includes all k-points"""
         if self._pd0 is None:
             from gpaw.pw.descriptor import PWDescriptor
-            wfs = self.gs.wfs
-            assert wfs.gd.comm.size == 1
+            gs = self.gs
+            assert gs.gd.comm.size == 1
 
-            kd0 = wfs.kd.copy()
-            pd, gd = wfs.pd, wfs.gd
+            kd0 = gs.kd.copy()
+            pd, gd = gs.pd, gs.gd
 
-            # Extract stuff from self.gs.wfs.pd
+            # Extract stuff from pd
             ecut, dtype = pd.ecut, pd.dtype
             fftwflags, gammacentered = pd.fftwflags, pd.gammacentered
 
@@ -415,7 +417,7 @@ class KohnShamPair:
         nh = 0
         for p, k_c in enumerate(k_pc):  # p indicates the receiving process
             K = self.kptfinder.find(k_c)
-            ik = wfs.kd.bz2ibz_k[K]
+            ik = gs.kd.bz2ibz_k[K]
             for r2 in range(p * self.transitionblockscomm.size,
                             min((p + 1) * self.transitionblockscomm.size,
                                 self.world.size)):
@@ -436,8 +438,8 @@ class KohnShamPair:
                 n_ct = n_t[thiss_t]
                 r2_ct = r2_t[t_ct]
 
-                # Find out where data is in wfs
-                u = ik * wfs.nspins + s
+                # Find out where data is in GS
+                u = ik * gs.nspins + s
                 myu, r1_ct, myn_ct = get_extraction_info(u, n_ct, r2_ct)
 
                 # If the process is extracting or receiving data,
@@ -523,18 +525,18 @@ class KohnShamPair:
 
     def get_parallel_extraction_info(self, u, n_ct, *unused):
         """Figure out where to extract the data from in the gs calc"""
-        wfs = self.gs.wfs
-        # Find out where data is in wfs
-        k, s = divmod(u, wfs.nspins)
-        kptrank, q = wfs.kd.who_has(k)
-        myu = q * wfs.nspins + s
+        gs = self.gs
+        # Find out where data is in GS
+        k, s = divmod(u, gs.nspins)
+        kptrank, q = gs.kd.who_has(k)
+        myu = q * gs.nspins + s
         r1_ct, myn_ct = [], []
         for n in n_ct:
-            bandrank, myn = wfs.bd.who_has(n)
+            bandrank, myn = gs.bd.who_has(n)
             # XXX this will fail when using non-standard nesting
             # of communicators.
-            r1 = (kptrank * wfs.gd.comm.size * wfs.bd.comm.size
-                  + bandrank * wfs.gd.comm.size)
+            r1 = (kptrank * gs.gd.comm.size * gs.bd.comm.size
+                  + bandrank * gs.gd.comm.size)
             r1_ct.append(r1)
             myn_ct.append(myn)
 
@@ -543,8 +545,7 @@ class KohnShamPair:
     @timer('Allocate transfer arrays')
     def allocate_transfer_arrays(self, data, nrh_r2, ik_r2, h_r1rh):
         """Allocate arrays for intermediate storage of data."""
-        wfs = self.gs.wfs
-        kptex = wfs.kpt_u[0]
+        kptex = self.gs.wfs.kpt_u[0]
         Pshape = kptex.projections.array.shape
         Pdtype = kptex.projections.matrix.dtype
         psitdtype = kptex.psit.array.dtype
@@ -898,7 +899,6 @@ class PairMatrixElement:
         ----------
         kslrf : KohnShamLinearResponseFunction instance
         """
-        # self.calc = kspair.calc
         self.gs = kspair.gs
         self.fd = kspair.fd
         self.timer = kspair.timer
