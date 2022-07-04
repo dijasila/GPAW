@@ -1,7 +1,7 @@
 import pickle
 
-g0w0 = 'MoS2_g0w0_80_results.pckl'
-g0w0g = 'MoS2_g0w0g_40_results.pckl'
+g0w0 = 'MoS2_g0w0_80_results_GW.pckl'
+g0w0g = 'MoS2_g0w0g_40_results_GWG.pckl'
 
 res_g0w0 = pickle.load(open(g0w0, 'rb'), encoding='bytes')
 res_g0w0g = pickle.load(open(g0w0g, 'rb'), encoding='bytes')
