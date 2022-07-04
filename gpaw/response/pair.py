@@ -636,7 +636,7 @@ class PairDensity:
     def construct_symmetry_operators(self, K, k_c=None):
         from gpaw.response.symmetry_ops import construct_symmetry_operators
         return construct_symmetry_operators(
-            self, K, k_c, apply_strange_shift=False, spos_ac=self.spos_ac)
+            self.gs, K, k_c, apply_strange_shift=False)
 
     @timer('Initialize PAW corrections')
     def initialize_paw_corrections(self, pd, soft=False):
