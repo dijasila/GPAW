@@ -91,7 +91,6 @@ class BSE:
         self.scale = scale
 
         assert mode in ['RPA', 'TDHF', 'BSE']
-        # assert calc.wfs.kd.nbzkpts % world.size == 0
 
         self.iocontext = IOContext()
         self.fd = self.iocontext.openfile(txt)
@@ -1058,10 +1057,6 @@ class BSE:
         mySsize *= (1 + self.spinors)**2
         return myKrange, myKsize, mySsize
 
-    def get_bse_wf(self):
-        pass
-        # asd = 1.0
-
     def print_initialization(self, td, eshift, gw_skn):
         p = functools.partial(print, file=self.fd)
         p('----------------------------------------------------------')
@@ -1070,12 +1065,13 @@ class BSE:
         p('Started at:  ', ctime())
         p()
         p('Atoms                          :',
-          self.calc.atoms.get_chemical_formula(mode='hill'))
+          self.gs.atoms.get_chemical_formula(mode='hill'))
         p('Ground state XC functional     :', self.calc.hamiltonian.xc.name)
-        p('Valence electrons              :', self.calc.wfs.setups.nvalence)
+        # XXX Maybe gs.nvalence instread ???
+        p('Valence electrons              :', self.gs.setups.nvalence)
         p('Spinor calculations            :', self.spinors)
-        p('Number of bands                :', self.calc.wfs.bd.nbands)
-        p('Number of spins                :', self.calc.wfs.nspins)
+        p('Number of bands                :', self.gs.bd.nbands)
+        p('Number of spins                :', self.gs.nspins)
         p('Number of k-points             :', self.kd.nbzkpts)
         p('Number of irreducible k-points :', self.kd.nibzkpts)
         p('Number of q-points             :', self.qd.nbzkpts)
