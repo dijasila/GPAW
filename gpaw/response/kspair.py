@@ -178,7 +178,7 @@ class KohnShamPair:
         ftol = 1.e-9  # Could be given as input
         nocc1 = 9999999
         nocc2 = 0
-        for kpt in self.gs.wfs.kpt_u:
+        for kpt in self.gs.kpt_u:
             f_n = kpt.f_n / kpt.weight
             nocc1 = min((f_n > 1 - ftol).sum(), nocc1)
             nocc2 = max((f_n > ftol).sum(), nocc2)
@@ -374,7 +374,6 @@ class KohnShamPair:
         For the serial communicator, all processes can access all data,
         and resultantly, there is no need to send any data.
         """
-        wfs = self.gs.wfs
         get_extraction_info = self.create_get_extraction_info()
 
         # Kpoint data
@@ -531,7 +530,7 @@ class KohnShamPair:
     @timer('Allocate transfer arrays')
     def allocate_transfer_arrays(self, data, nrh_r2, ik_r2, h_r1rh):
         """Allocate arrays for intermediate storage of data."""
-        kptex = self.gs.wfs.kpt_u[0]
+        kptex = self.gs.kpt_u[0]
         Pshape = kptex.projections.array.shape
         Pdtype = kptex.projections.matrix.dtype
         psitdtype = kptex.psit.array.dtype
@@ -583,8 +582,7 @@ class KohnShamPair:
 
     @timer('Extracting eps, f and P_I from wfs')
     def extract_wfs_data(self, myu, myn_eh):
-        wfs = self.gs.wfs
-        kpt = wfs.kpt_u[myu]
+        kpt = self.gs.kpt_u[myu]
         # Get eig and occ
         eps_eh, f_eh = kpt.eps_n[myn_eh], kpt.f_n[myn_eh] / kpt.weight
 
@@ -599,8 +597,7 @@ class KohnShamPair:
                           eh_r2reh, rh_r2reh, psit_r2rhG):
         """Add the plane wave coefficients of the smooth part of
         the wave function to the psit_r2rtG arrays."""
-        wfs = self.gs.wfs
-        kpt = wfs.kpt_u[myu]
+        kpt = self.gs.kpt_u[myu]
 
         for eh_reh, rh_reh, psit_rhG in zip(eh_r2reh, rh_r2reh, psit_r2rhG):
             if eh_reh:
@@ -664,7 +661,6 @@ class KohnShamPair:
         K, k_c, ik = data
 
         # Allocate data arrays
-        wfs = self.gs.wfs
         maxh_r1 = [max(h_rh) for h_rh in h_r1rh if h_rh]
         if maxh_r1:
             nh = max(maxh_r1) + 1
@@ -673,9 +669,10 @@ class KohnShamPair:
             nh = 1
         eps_h = np.empty(nh)
         f_h = np.empty(nh)
-        Ph = wfs.kpt_u[0].projections.new(nbands=nh, bcomm=None)
-        psit_hG = np.empty((nh, self.pd0.ng_q[ik]),
-                           dtype=wfs.kpt_u[0].psit.array.dtype)
+        kpt0 = self.gs.kpt_u[0]
+        Ph = kpt0.projections.new(nbands=nh, bcomm=None)
+        assert self.gs.dtype == kpt0.psit.array.dtype
+        psit_hG = np.empty((nh, self.pd0.ng_q[ik]), self.gs.dtype)
 
         # Store extracted data in the arrays
         for (h_rh, eps_rh,
@@ -693,13 +690,13 @@ class KohnShamPair:
     def unfold_arrays(self, eps_h, f_h, Ph, ut_hR, h_myt, myt_myt):
         """Create transition data arrays from the composite h = (n, s) index"""
 
-        wfs = self.gs.wfs
+        gs = self.gs
         # Allocate data arrays for the k-point
         mynt = self.mynt
         eps_myt = np.empty(mynt)
         f_myt = np.empty(mynt)
-        P = wfs.kpt_u[0].projections.new(nbands=mynt, bcomm=None)
-        ut_mytR = wfs.gd.empty(self.mynt, wfs.dtype)
+        P = gs.kpt_u[0].projections.new(nbands=mynt, bcomm=None)
+        ut_mytR = gs.gd.empty(self.mynt, gs.dtype)
 
         # Unfold k-point data
         eps_myt[myt_myt] = eps_h[h_myt]
@@ -712,14 +709,15 @@ class KohnShamPair:
     @timer('Extracting data from the ground state calculator object')
     def serial_extract_kptdata(self, k_pc, n_t, s_t):
         # All processes can access all data. Each process extracts it own data.
-        wfs = self.gs.wfs
+        gs = self.gs
+        kpt_u = gs.kpt_u
 
         # Do data extraction for the processes, which have data to extract
         if self.kptblockcomm.rank in range(len(k_pc)):
             # Find k-point indeces
             k_c = k_pc[self.kptblockcomm.rank]
             K = self.kptfinder.find(k_c)
-            ik = wfs.kd.bz2ibz_k[K]
+            ik = gs.kd.bz2ibz_k[K]
             # Construct symmetry operators
             (_, T, a_a, U_aii, shift_c,
              time_reversal) = self.construct_symmetry_operators(K, k_c=k_c)
@@ -730,13 +728,13 @@ class KohnShamPair:
             # Allocate transfer arrays
             eps_h = np.empty(nh)
             f_h = np.empty(nh)
-            Ph = wfs.kpt_u[0].projections.new(nbands=nh, bcomm=None)
-            ut_hR = wfs.gd.empty(nh, wfs.dtype)
+            Ph = kpt_u[0].projections.new(nbands=nh, bcomm=None)
+            ut_hR = gs.gd.empty(nh, gs.dtype)
 
             # Extract data from the ground state
             for myu, myn_rn, h_rn in zip(myu_eu, myn_eurn, h_eurn):
-                kpt = wfs.kpt_u[myu]
-                with self.timer('Extracting eps, f and P_I from wfs'):
+                kpt = kpt_u[myu]
+                with self.timer('Extracting eps, f and P_I from GS'):
                     eps_h[h_rn] = kpt.eps_n[myn_rn]
                     f_h[h_rn] = kpt.f_n[myn_rn] / kpt.weight
                     Ph.array[h_rn] = kpt.projections.array[myn_rn]
@@ -744,7 +742,7 @@ class KohnShamPair:
                 with self.timer('Extracting, fourier transforming and '
                                 'symmetrizing wave function'):
                     for myn, h in zip(myn_rn, h_rn):
-                        ut_hR[h] = T(wfs.pd.ifft(kpt.psit_nG[myn], kpt.q))
+                        ut_hR[h] = T(gs.pd.ifft(kpt.psit_nG[myn], kpt.q))
 
             # Symmetrize projections
             with self.timer('Apply symmetry operations'):
@@ -774,7 +772,6 @@ class KohnShamPair:
         For the serial communicator, all processes can access all data,
         and resultantly, there is no need to send any data.
         """
-        wfs = self.gs.wfs
 
         # Only extract the transitions handled by the process itself
         myt_myt = np.arange(self.tb - self.ta)
@@ -804,8 +801,8 @@ class KohnShamPair:
                 thish_myt = np.logical_and(thisn_myt, thiss_myt)
                 h_myt[thish_myt] = h
 
-            # Find out where data is in wfs
-            u = ik * wfs.nspins + s
+            # Find out where data is
+            u = ik * self.gs.nspins + s
             # The process has access to all data
             myu = u
             myn_rn = n_rn
@@ -823,9 +820,9 @@ class KohnShamPair:
          time_reversal) = self.construct_symmetry_operators(K, k_c=k_c)
 
         # Symmetrize wave functions
-        wfs = self.gs.wfs
-        ik = wfs.kd.bz2ibz_k[K]
-        ut_hR = wfs.gd.empty(len(psit_hG), wfs.dtype)
+        gs = self.gs
+        ik = gs.kd.bz2ibz_k[K]
+        ut_hR = gs.gd.empty(len(psit_hG), gs.dtype)
         with self.timer('Fourier transform and symmetrize wave functions'):
             for h, psit_G in enumerate(psit_hG):
                 ut_hR[h] = T(self.pd0.ifft(psit_G, ik))
@@ -926,15 +923,15 @@ class PlaneWavePairDensity(PairMatrixElement):
             self.currentq_c = q_c
 
     def _initialize_paw_corrections(self, pd):
-        wfs = self.gs.wfs
         spos_ac = self.gs.spos_ac
+        setups = self.gs.setups
         G_Gv = pd.get_reciprocal_vectors()
 
         pos_av = np.dot(spos_ac, pd.gd.cell_cv)
 
         # Collect integrals for all species:
         Q_xGii = {}
-        for id, atomdata in wfs.setups.setups.items():
+        for id, atomdata in setups.setups.items():
             Q_Gii = two_phi_planewave_integrals(G_Gv, atomdata)
             ni = atomdata.ni
             Q_Gii.shape = (-1, ni, ni)
@@ -942,8 +939,8 @@ class PlaneWavePairDensity(PairMatrixElement):
             Q_xGii[id] = Q_Gii
 
         Q_aGii = []
-        for a, atomdata in enumerate(wfs.setups):
-            id = wfs.setups.id_a[a]
+        for a, atomdata in enumerate(setups):
+            id = setups.id_a[a]
             Q_Gii = Q_xGii[id]
             x_G = np.exp(-1j * np.dot(G_Gv, pos_av[a]))
             Q_aGii.append(x_G[:, np.newaxis, np.newaxis] * Q_Gii)
