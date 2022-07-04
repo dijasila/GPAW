@@ -295,7 +295,7 @@ class Matrix:
              *,
              cc=False,
              scalapack=(None, 1, 1, None),
-             subset_by_index=None) -> Array1D:
+             limit: int = None) -> Array1D:
         """Calculate eigenvectors and eigenvalues.
 
         Matrix must be symmetric/hermitian and stored in lower half.
@@ -342,17 +342,17 @@ class Matrix:
                         check_finite=debug,
                         driver='evx' if H.data.size == 1 else 'evd')
                 else:
-                    eps[:], evecs = linalg.eigh(
+                    eps, evecs = linalg.eigh(
                         H.data,
                         S.data,
                         lower=True,
                         overwrite_a=True,
                         overwrite_b=True,
                         check_finite=debug,
-                        subset_by_index=subset_by_index,
+                        subset_by_index=(0, limit - 1) if limit else None,
                         driver='evx' if H.data.size == 1 else 'evd')
-                    print(evecs.shape)
-                    H.data.T[:] = evecs
+                    limit = limit or len(eps)
+                    H.data.T[:, :limit] = evecs
             self.dist.comm.broadcast(eps, 0)
         else:
             if slcomm.rank < rows * columns:

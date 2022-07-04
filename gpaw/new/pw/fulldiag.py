@@ -9,6 +9,7 @@ from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.new.calculation import DFTState
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.typing import Array2D
+from gpaw.new.ibzwfs import IBZWaveFunctions
 
 
 def pw_matrix(pw: PlaneWaves,
@@ -222,16 +223,40 @@ def diagonalize(state: DFTState,
     dH_asii = state.potential.dH_asii
     dS_aii = [delta_iiL[:, :, 0]
               for delta_iiL in state.density.delta_aiiL]
-    for wfs in state.ibzwfs:
-        assert isinstance(wfs, PWFDWaveFunctions)
-        assert isinstance(wfs.pt_aiX, PlaneWaveAtomCenteredFunctions)
-        H_GG, S_GG = pw_matrix(wfs.psit_nX.desc,
-                               wfs.pt_aiX,
-                               dH_asii[:, wfs.spin],
-                               dS_aii,
-                               vt_sR[wfs.spin],
-                               wfs.psit_nX.comm)
-        eig_n = H_GG.eigh(S_GG, subset_by_index=(0, nbands))
-        wfs._eig_n = eig_n
-        wfs.psit_nX.data[:] = H_GG.data
-    return state
+    ibzwfs = state.ibzwfs
+    wfs_qs = []
+    for wfs_s in ibzwfs.wfs_qs:
+        wfs_qs.append([])
+        for wfs in wfs_s:
+            assert isinstance(wfs, PWFDWaveFunctions)
+            assert isinstance(wfs.pt_aiX, PlaneWaveAtomCenteredFunctions)
+            H_GG, S_GG = pw_matrix(wfs.psit_nX.desc,
+                                   wfs.pt_aiX,
+                                   dH_asii[:, wfs.spin],
+                                   dS_aii,
+                                   vt_sR[wfs.spin],
+                                   wfs.psit_nX.comm)
+            eig_n = H_GG.eigh(S_GG, limit=nbands)
+            psit_nG = wfs.psit_nX.desc.empty(nbands)
+            psit_nG.data[:nbands] = H_GG.data[:nbands]
+            new_wfs = PWFDWaveFunctions(
+                psit_nG,
+                wfs.spin,
+                wfs.q,
+                wfs.k,
+                wfs.setups,
+                wfs.fracpos_ac,
+                wfs.atomdist,
+                wfs.weight,
+                wfs.ncomponents)
+            new_wfs._eig_n = eig_n
+            wfs_qs[-1].append(new_wfs)
+
+    new_ibzwfs = IBZWaveFunctions(
+        ibzwfs.ibz,
+        ibzwfs.nelectrons,
+        ibzwfs.ncomponents,
+        wfs_qs,
+        ibzwfs.kpt_comm)
+
+    return new_ibzwfs
