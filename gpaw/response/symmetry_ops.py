@@ -8,8 +8,7 @@ Now it only exists in one place, at the cost of a nasty fake "self".
 """
 
 
-def construct_symmetry_operators(self, K, k_c=None, *, apply_strange_shift,
-                                 spos_ac):
+def construct_symmetry_operators(gs, K, k_c=None, *, apply_strange_shift):
     """Construct symmetry operators for wave function and PAW projections.
 
     We want to transform a k-point in the irreducible part of the BZ to
@@ -29,20 +28,16 @@ def construct_symmetry_operators(self, K, k_c=None, *, apply_strange_shift,
     See the get_k_point() method for how to use these tuples.
     """
 
-    wfs = self.calc.wfs
-
-    R_asii = [setup.R_sii for setup in wfs.setups]
+    R_asii = [setup.R_sii for setup in gs.setups]
     return _construct_symmetry_operators(
-        self, K, k_c=k_c,
+        gs, K, k_c=k_c,
         apply_strange_shift=apply_strange_shift,
-        spos_ac=spos_ac,
         R_asii=R_asii)
 
 
-def _construct_symmetry_operators(self, K, k_c=None, *, apply_strange_shift,
-                                  spos_ac, R_asii):
-    wfs = self.calc.wfs
-    kd = wfs.kd
+def _construct_symmetry_operators(gs, K, k_c=None, *, apply_strange_shift,
+                                  R_asii):
+    kd = gs.kd
 
     s = kd.sym_k[K]
     U_cc = kd.symmetry.op_scc[s]
@@ -55,16 +50,7 @@ def _construct_symmetry_operators(self, K, k_c=None, *, apply_strange_shift,
     sign = 1 - 2 * time_reversal
     shift_c = np.dot(U_cc, ik_c) - k_c * sign
 
-    try:
-        assert np.allclose(shift_c.round(), shift_c)
-    except AssertionError:
-        print('shift_c ' + str(shift_c), file=self.fd)
-        print('k_c ' + str(k_c), file=self.fd)
-        print('kd.bzk_kc[K] ' + str(kd.bzk_kc[K]), file=self.fd)
-        print('ik_c ' + str(ik_c), file=self.fd)
-        print('U_cc ' + str(U_cc), file=self.fd)
-        print('sign ' + str(sign), file=self.fd)
-        raise AssertionError
+    assert np.allclose(shift_c.round(), shift_c)
 
     shift_c = shift_c.round().astype(int)
 
@@ -72,7 +58,7 @@ def _construct_symmetry_operators(self, K, k_c=None, *, apply_strange_shift,
         def T(f_R):
             return f_R
     else:
-        N_c = self.calc.wfs.gd.N_c
+        N_c = gs.gd.N_c
         i_cr = np.dot(U_cc.T, np.indices(N_c).reshape((3, -1)))
         i = np.ravel_multi_index(i_cr, N_c, 'wrap')
 
@@ -91,7 +77,7 @@ def _construct_symmetry_operators(self, K, k_c=None, *, apply_strange_shift,
     U_aii = []
     for a, R_sii in enumerate(R_asii):
         b = kd.symmetry.a_sa[s, a]
-        S_c = np.dot(spos_ac[a], U_cc) - spos_ac[b]
+        S_c = np.dot(gs.spos_ac[a], U_cc) - gs.spos_ac[b]
         x = np.exp(2j * np.pi * np.dot(ik_c, S_c))
         U_ii = R_sii[s].T * x
         a_a.append(b)

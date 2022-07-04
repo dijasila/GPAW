@@ -134,7 +134,6 @@ class KohnShamPair:
         self.timer = timer or Timer()
         calc = get_calc(gs, fd=self.fd, timer=self.timer)
         self.gs = ResponseGroundStateAdapter(calc)
-        self.calc = calc  # XXX remove me
         self.calc_parallel = self.check_calc_parallelisation()
 
         self.transitionblockscomm = transitionblockscomm
@@ -848,7 +847,7 @@ class KohnShamPair:
     def construct_symmetry_operators(self, K, k_c=None):
         from gpaw.response.symmetry_ops import construct_symmetry_operators
         return construct_symmetry_operators(
-            self, K, k_c, apply_strange_shift=True, spos_ac=self.gs.spos_ac)
+            self.gs, K, k_c, apply_strange_shift=True)
 
 
 def get_calc(gs, fd=None, timer=None):
