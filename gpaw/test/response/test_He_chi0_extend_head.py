@@ -3,6 +3,7 @@
 # General modules
 import pytest
 import numpy as np
+from pathlib import Path
 
 # Script modules
 from ase import Atoms
@@ -14,19 +15,10 @@ from gpaw.response.chi0 import Chi0
 
 
 @pytest.mark.response
-def test_he_chi0_extend_head(in_tmp_dir):
+def test_he_chi0_extend_head(in_tmp_dir, He_gs):
     # ---------- Inputs ---------- #
+    gpw, nbands = He_gs
 
-    # Part 1: Ground state calculation
-    a = 3.0
-    xc = 'LDA'
-    kpts = 2
-    nbands = 1 + 1 + 3  # 1s + 2s + 2p empty shell bands
-    ebands = 1  # Include also 3s bands for numerical consistency
-    pw = 250
-    conv = {'bands': nbands}
-
-    # Part 2: Chi0 calculation
     ecut = 50
 
     rparams = dict(
@@ -67,7 +59,36 @@ def test_he_chi0_extend_head(in_tmp_dir):
 
     # ---------- Script ---------- #
 
-    # Part 1: Ground state calculation
+    for kwargs in rp_settings:
+        chi0fac = Chi0(gpw, ecut=ecut,
+                       nblocks=nblocks,
+                       **kwargs)
+
+        chi0_f = calculate_optical_limit(chi0fac, extend_head=False)
+        chi0_t = calculate_optical_limit(chi0fac, extend_head=True)
+
+        is_equal, err_msg = chi0_data_is_equal(chi0_f, chi0_t)
+        assert is_equal, err_msg
+
+
+# ---------- System ground states ---------- #
+
+
+@pytest.fixture(scope='module')
+def He_gs(module_tmp_path):
+    # ---------- Inputs ---------- #
+
+    a = 3.0
+    xc = 'LDA'
+    kpts = 2
+    nbands = 1 + 1 + 3  # 1s + 2s + 2p empty shell bands
+    ebands = 1  # Include also 3s bands for numerical consistency
+    pw = 250
+    conv = {'bands': nbands}
+    gpw = 'He'
+
+    # ---------- Script ---------- #
+
     atoms = Atoms('He', cell=[a, a, a], pbc=True)
 
     calc = GPAW(xc=xc,
@@ -81,19 +102,9 @@ def test_he_chi0_extend_head(in_tmp_dir):
 
     atoms.calc = calc
     atoms.get_potential_energy()
-    calc.write('He', 'all')
+    calc.write(gpw, 'all')
 
-    # Part 2: Chi0 calculation
-    for kwargs in rp_settings:
-        chi0fac = Chi0('He', ecut=ecut,
-                       nblocks=nblocks,
-                       **kwargs)
-
-        chi0_f = calculate_optical_limit(chi0fac, extend_head=False)
-        chi0_t = calculate_optical_limit(chi0fac, extend_head=True)
-
-        is_equal, err_msg = chi0_data_is_equal(chi0_f, chi0_t)
-        assert is_equal, err_msg
+    return tuple((Path(gpw).resolve(), nbands))
 
 
 # ---------- Script functionality ---------- #
