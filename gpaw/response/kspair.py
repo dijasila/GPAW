@@ -10,6 +10,7 @@ from gpaw.calculator import GPAW
 import gpaw.mpi as mpi
 from gpaw.response.math_func import two_phi_planewave_integrals
 from gpaw.response.symmetry import KPointFinder
+from gpaw.response.groundstate import ResponseGroundStateAdapter
 
 
 class KohnShamKPoint:
@@ -114,22 +115,6 @@ class KohnShamKPointPair:
         setattr(self, _key, A_mytx)
 
 
-class ResponseGroundState:
-    def __init__(self, calc):
-        wfs = calc.wfs
-
-        self.kd = wfs.kd
-        self.world = calc.world
-        self.gd = wfs.gd
-        self.bd = wfs.bd
-        self.nspins = wfs.nspins
-        self.dtype = wfs.dtype
-
-        self.spos_ac = calc.spos_ac
-
-        self.wfs = wfs
-
-
 class KohnShamPair:
     """Class for extracting pairs of Kohn-Sham orbitals from a ground
     state calculation."""
@@ -147,8 +132,9 @@ class KohnShamPair:
         self.world = world
         self.fd = convert_string_to_fd(txt, world)
         self.timer = timer or Timer()
-        self.calc = get_calc(gs, fd=self.fd, timer=self.timer)
-        self.gs = ResponseGroundState(self.calc)
+        calc = get_calc(gs, fd=self.fd, timer=self.timer)
+        self.gs = ResponseGroundStateAdapter(calc)
+        self.calc = calc  # XXX remove me
         self.calc_parallel = self.check_calc_parallelisation()
 
         self.transitionblockscomm = transitionblockscomm
