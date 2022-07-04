@@ -20,7 +20,8 @@ class FakeWFS:
                              ibzwfs.ibz.symmetries.symmetry)
         self.kd.set_communicator(ibzwfs.kpt_comm)
         self.bd = BandDescriptor(ibzwfs.nbands, ibzwfs.band_comm)
-        self.gd = self.state.density.nt_sR.desc._gd
+        grid = self.state.density.nt_sR.desc
+        self.gd = grid._gd
         self.atom_partition = calculation._atom_partition
         self.setups.set_symmetry(ibzwfs.ibz.symmetries.symmetry)
         self.occupations = calculation.scf_loop.occ_calc.occ
@@ -32,9 +33,10 @@ class FakeWFS:
         self.dtype = ibzwfs.dtype
         self.pd = PWDescriptor(ibzwfs.wfs_qs[0][0].psit_nX.desc.ecut,
                                self.gd, self.dtype, self.kd)
+        self.pwgrid = grid.new(dtype=self.dtype)
 
     def _get_wave_function_array(self, u, n, realspace):
-        return self.kpt_u[u]
+        return self.kpt_u[u].wfs.psit_nX[n].ifft(grid=self.pwgrid).data
 
     @cached_property
     def kpt_u(self):

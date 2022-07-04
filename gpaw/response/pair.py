@@ -213,7 +213,6 @@ class PairDensity:
               (self.kncomm.size, ['es', ''][self.kncomm.size == 1]),
               file=self.fd)
         print('Number of blocks:', self.blockcomm.size, file=self.fd)
-        print(mysKn1n2)
 
         return PairDistribution(self, mysKn1n2)
 
@@ -265,7 +264,6 @@ class PairDensity:
 
         assert n2 <= len(kpt.eps_n), \
             'Increase GS-nbands or decrease chi0-nbands!'
-        print(n1, n2)
         eps_n = kpt.eps_n[n1:n2]
         f_n = kpt.f_n[n1:n2] / kpt.weight
 
