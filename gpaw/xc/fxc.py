@@ -15,6 +15,7 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.pw.descriptor import PWDescriptor
 from gpaw.utilities.blas import axpy, gemmdot
 from gpaw.xc.rpa import RPACorrelation
+from gpaw.response.groundstate import ResponseGroundStateAdapter
 
 
 class FXCCorrelation(RPACorrelation):
@@ -457,17 +458,19 @@ class FXCCorrelation(RPACorrelation):
         return energy
 
 
+
 class KernelWave:
     def __init__(self, calc, xc, ibzq_qc, fd, l_l, q_empty, omega_w, Eg, ecut,
                  tag, timer):
 
         self.calc = calc
+        self.gs = ResponseGroundStateAdapter(calc)
         self.gd = calc.density.gd
         self.xc = xc
         self.ibzq_qc = ibzq_qc
         self.fd = fd
         self.l_l = l_l
-        self.ns = calc.wfs.nspins
+        self.ns = self.gs.nspins
         self.q_empty = q_empty
         self.omega_w = omega_w
         self.Eg = Eg
@@ -479,9 +482,9 @@ class KernelWave:
             self.l_l = [1.0]
 
         # Density grid
-        self.n_g = calc.get_all_electron_density(gridrefinement=2)
-        self.n_g = self.n_g.flatten() * Bohr**3
-        # Density now in units electrons/cubic Bohr
+        n_sg, finegd = self.gs.all_electron_density(gridrefinement=2)
+        self.n_g = n_sg.sum(axis=0).flatten()
+
         #  For atoms with large vacuum regions
         #  this apparently can take negative values!
         mindens = np.amin(self.n_g)
@@ -492,7 +495,7 @@ class KernelWave:
             print('These will be reset to 1E-12 elec/bohr^3)', file=self.fd)
             self.n_g[np.where(self.n_g < 0.0)] = 1.0E-12
 
-        r_g = self.gd.refine().get_grid_point_coordinates()  # already in Bohr
+        r_g = finegd.get_grid_point_coordinates()
         self.x_g = 1.0 * r_g[0].flatten()
         self.y_g = 1.0 * r_g[1].flatten()
         self.z_g = 1.0 * r_g[2].flatten()

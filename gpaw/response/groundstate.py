@@ -60,10 +60,10 @@ class ResponseGroundStateAdapter:
         # Used by kxc
         return self._density.D_asp
 
-    def all_electron_density(self):
+    def all_electron_density(self, gridrefinement=1):
         # used by kxc
         return self._density.get_all_electron_density(
-            atoms=self.atoms, gridrefinement=1)
+            atoms=self.atoms, gridrefinement=gridrefinement)
 
     # Things used by EXX.  This is getting pretty involved.
     #
