@@ -26,6 +26,7 @@ def generate_He_chi0_params():
     * eta=0.
     * real_space_derivatives
     """
+    # Define default parameters
     chi0kwargs = dict(
         frequencies=np.linspace(0., 30., 11),
         eta=0.05,
@@ -33,25 +34,31 @@ def generate_He_chi0_params():
         timeordered=False,
         threshold=1,
         real_space_derivatives=False)
-    # Check different chi0 parameter combinations
     chi0_params = [chi0kwargs]
+
+    # Check different chi0 parameter combinations
     ck1 = chi0kwargs.copy()  # Check k.p threshold
     ck1['threshold'] = 0.5
     chi0_params.append(ck1)
+
     ck2 = chi0kwargs.copy()  # Check hilbert transform
     ck2['hilbert'] = True
     ck2['frequencies'] = None
     chi0_params.append(ck2)
+
     ck3 = chi0kwargs.copy()  # Check timeordering
     ck3['timeordered'] = True
     chi0_params.append(ck3)
+
     ck4 = chi0kwargs.copy()  # Check nbands
     ck4['nbands'] = None
     chi0_params.append(ck4)
+
     ck5 = chi0kwargs.copy()  # Check eta=0.
     ck5['frequencies'] = 1.j * ck5['frequencies']
     ck5['eta'] = 0.
     chi0_params.append(ck5)
+
     ck6 = chi0kwargs.copy()  # Check real space derivs.
     ck6['real_space_derivatives'] = True
     chi0_params.append(ck6)
