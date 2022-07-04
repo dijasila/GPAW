@@ -12,6 +12,7 @@ from gpaw.response.susceptibility import read_component
 from gpaw.mpi import size, world
 
 
+@pytest.mark.kspair
 @pytest.mark.response
 def test_response_two_aluminum_chi_RPA(in_tmp_dir):
     assert size <= 4**3

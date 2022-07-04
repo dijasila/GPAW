@@ -18,6 +18,7 @@ from gpaw.response.susceptibility import get_pw_coordinates
 
 # ---------- Actual tests ---------- #
 
+pytestmark = pytest.mark.kspair
 
 @pytest.mark.ci
 def test_spherical_kernel():

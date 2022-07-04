@@ -26,6 +26,7 @@ from gpaw.mpi import world
 pytestmark = pytest.mark.skipif(world.size < 4, reason='world.size < 4')
 
 
+@pytest.mark.kspair
 @pytest.mark.response
 def test_response_iron_sf_ALDA(in_tmp_dir, scalapack):
     # ------------------- Inputs ------------------- #
