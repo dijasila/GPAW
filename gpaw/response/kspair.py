@@ -134,7 +134,6 @@ class KohnShamPair:
         self.timer = timer or Timer()
         calc = get_calc(gs, fd=self.fd, timer=self.timer)
         self.gs = ResponseGroundStateAdapter(calc)
-        self.calc = calc  # XXX remove me
         self.calc_parallel = self.check_calc_parallelisation()
 
         self.transitionblockscomm = transitionblockscomm
