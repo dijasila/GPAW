@@ -46,6 +46,7 @@ def update_dict(default: dict, value: dict | None) -> dict[str, Any]:
 class InputParameters:
     basis: Any
     charge: float
+    communicator: Any
     convergence: dict[str, Any]
     eigensolver: dict[str, Any]
     experimental: dict[str, Any]
@@ -116,6 +117,11 @@ class InputParameters:
             self.keys.append('force_complex_dtype')
             self.keys.sort()
 
+        if self.communicator is not None:
+            self.parallel['world'] = self.communicator
+            warnings.warn('Please use parallel={''world'': ...} '
+                          'instead of communicator=...')
+
     def __repr__(self) -> str:
         p = ', '.join(f'{key}={value!r}'
                       for key, value in self.items())
@@ -135,6 +141,11 @@ def basis(value=None):
 @input_parameter
 def charge(value=0.0):
     return value
+
+
+@input_parameter
+def communicator(value=None):
+    return None
 
 
 @input_parameter
