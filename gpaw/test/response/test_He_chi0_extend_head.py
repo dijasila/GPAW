@@ -56,6 +56,9 @@ def test_he_chi0_extend_head(in_tmp_dir):
     rp5['frequencies'] = 1.j * rp5['frequencies']
     rp5['eta'] = 0.
     rp_settings.append(rp5)
+    rp6 = rparams.copy()  # Check real space derivs.
+    rp6['real_space_derivatives'] = True
+    rp_settings.append(rp6)
 
     if world.size > 1:
         nblocks = 2
