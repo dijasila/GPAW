@@ -63,7 +63,7 @@ def generate_He_chi0_params():
 def chi0kwargs(request, He_gs):
     # Fill in nbands parameter, if not already specified
     my_chi0kwargs = request.param
-    if not 'nbands' in my_chi0kwargs.keys():
+    if 'nbands' not in my_chi0kwargs.keys():
         _, nbands = He_gs
         my_chi0kwargs['nbands'] = nbands
 
