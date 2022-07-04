@@ -19,19 +19,20 @@ from gpaw.utilities import unpack, unpack2
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 
 
-def select_kpts(kpts, calc):
+def select_kpts(kpts, kd):
     """Function to process input parameters that take a list of k-points given
     in different format and returns a list of indices of the corresponding
     k-points in the IBZ."""
+
     if kpts is None:
         # Do all k-points in the IBZ:
-        return np.arange(calc.wfs.kd.nibzkpts)
+        return np.arange(kd.nibzkpts)
 
     if np.asarray(kpts).ndim == 1:
         return kpts
 
     # Find k-points:
-    bzk_Kc = calc.get_bz_k_points()
+    bzk_Kc = kd.bzk_kc
     indices = []
     for k_c in kpts:
         d_Kc = bzk_Kc - k_c
@@ -40,7 +41,7 @@ def select_kpts(kpts, calc):
         if not np.allclose(d_Kc[K], 0):
             raise ValueError('Could not find k-point: {k_c}'
                              .format(k_c=k_c))
-        k = calc.wfs.kd.bz2ibz_k[K]
+        k = kd.bz2ibz_k[K]
         indices.append(k)
     return indices
 
@@ -101,7 +102,7 @@ class EXX(PairDensity):
         self.omega = omega
         self.exc = np.nan  # density dependent part of xc-energy
 
-        self.kpts = select_kpts(kpts, self.calc)
+        self.kpts = select_kpts(kpts, self.calc.wfs.kd)
 
         if bands is None:
             # Do all occupied bands:

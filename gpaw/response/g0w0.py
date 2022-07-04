@@ -420,7 +420,7 @@ class G0W0:
         self.blocks1d = None
         self.blockdist = None
 
-        self.kpts = list(select_kpts(kpts, self.calc))
+        self.kpts = list(select_kpts(kpts, self.gs.kd))
         self.bands = bands = self.choose_bands(bands, relbands)
 
         b1, b2 = bands
