@@ -70,7 +70,7 @@ def generate_He_chi0_params():
 def chi0kwargs(request, He_gs):
     # Fill in nbands parameter, if not already specified
     my_chi0kwargs = request.param
-    if 'nbands' not in my_chi0kwargs.keys():
+    if 'nbands' not in my_chi0kwargs:
         _, nbands = He_gs
         my_chi0kwargs['nbands'] = nbands
 
@@ -119,7 +119,7 @@ def He_gs(module_tmp_path):
     ebands = 1  # Include also 3s bands for numerical consistency
     pw = 250
     conv = {'bands': nbands}
-    gpw = 'He'
+    gpw = Path('He').resolve()
 
     # ---------- Script ---------- #
 
@@ -138,7 +138,7 @@ def He_gs(module_tmp_path):
     atoms.get_potential_energy()
     calc.write(gpw, 'all')
 
-    return tuple((Path(gpw).resolve(), nbands))
+    return gpw, nbands
 
 
 # ---------- Script functionality ---------- #
