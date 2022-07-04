@@ -13,6 +13,7 @@ from gpaw.fd_operators import Gradient
 from gpaw.response.pw_parallelization import block_partition
 from gpaw.utilities.blas import mmm
 from gpaw.response.symmetry import KPointFinder
+from gpaw.response.groundstate import ResponseGroundStateAdapter
 
 
 class KPoint:
@@ -129,8 +130,9 @@ class PairDensity:
                 calc = gs
                 assert calc.wfs.world.size == 1
 
-        assert calc.wfs.kd.symmetry.symmorphic
         self.calc = calc
+        self.gs = ResponseGroundStateAdapter(calc)
+        assert self.gs.kd.symmetry.symmorphic
 
         if ecut is not None:
             ecut /= Ha
@@ -142,7 +144,7 @@ class PairDensity:
 
         self.blockcomm, self.kncomm = block_partition(world, nblocks)
 
-        self.fermi_level = self.calc.wfs.fermi_level
+        self.fermi_level = self.gs.fermi_level
         self.spos_ac = calc.spos_ac
 
         self.nocc1 = None  # number of completely filled bands
@@ -151,9 +153,9 @@ class PairDensity:
 
         self.ut_sKnvR = None  # gradient of wave functions for optical limit
 
-        self.vol = calc.wfs.gd.volume
+        self.vol = self.gs.gd.volume
 
-        self.kd = self.calc.wfs.kd
+        self.kd = self.gs.kd
         self.kptfinder = KPointFinder(self.kd.bzk_kc)
         print('Number of blocks:', nblocks, file=self.fd)
 
@@ -166,13 +168,13 @@ class PairDensity:
     def count_occupied_bands(self):
         self.nocc1 = 9999999
         self.nocc2 = 0
-        for kpt in self.calc.wfs.kpt_u:
+        for kpt in self.gs.kpt_u:
             f_n = kpt.f_n / kpt.weight
             self.nocc1 = min((f_n > 1 - self.ftol).sum(), self.nocc1)
             self.nocc2 = max((f_n > self.ftol).sum(), self.nocc2)
         print('Number of completely filled bands:', self.nocc1, file=self.fd)
         print('Number of non-empty bands:', self.nocc2, file=self.fd)
-        print('Total number of bands:', self.calc.wfs.bd.nbands,
+        print('Total number of bands:', self.gs.bd.nbands,
               file=self.fd)
 
     def distribute_k_points_and_bands(self, band1, band2, kpts=None):
@@ -182,16 +184,16 @@ class PairDensity:
         tuples that this process handles.
         """
 
-        wfs = self.calc.wfs
+        gs = self.gs
 
         if kpts is None:
-            kpts = np.arange(wfs.kd.nbzkpts)
+            kpts = np.arange(gs.kd.nbzkpts)
 
         # nbands is the number of bands for each spin/k-point combination.
         nbands = band2 - band1
         size = self.kncomm.size
         rank = self.kncomm.rank
-        ns = wfs.nspins
+        ns = gs.nspins
         nk = len(kpts)
         n = (ns * nk * nbands + size - 1) // size
         i1 = min(rank * n, ns * nk * nbands)
@@ -207,7 +209,7 @@ class PairDensity:
                     mysKn1n2.append((s, K, n1 + band1, n2 + band1))
                 i += nbands
 
-        print('BZ k-points:', self.calc.wfs.kd, file=self.fd)
+        print('BZ k-points:', gs.kd, file=self.fd)
         print('Distributing spins, k-points and bands (%d x %d x %d)' %
               (ns, nk, nbands),
               'over %d process%s' %
@@ -231,8 +233,8 @@ class PairDensity:
 
         assert n1 <= n2
 
-        wfs = self.calc.wfs
-        kd = wfs.kd
+        gs = self.gs
+        kd = gs.kd
 
         # Parse kpoint: is k_c an index or a vector
         if not isinstance(k_c, numbers.Integral):
@@ -259,9 +261,9 @@ class PairDensity:
             self.construct_symmetry_operators(K, k_c=k_c)
 
         shift_c += -shift0_c
-        ik = wfs.kd.bz2ibz_k[K]
-        assert wfs.kd.comm.size == 1
-        kpt = wfs.kpt_qs[ik][s]
+        ik = kd.bz2ibz_k[K]
+        assert kd.comm.size == 1
+        kpt = gs.kpt_qs[ik][s]
 
         assert n2 <= len(kpt.eps_n), \
             'Increase GS-nbands or decrease chi0-nbands!'
@@ -274,9 +276,9 @@ class PairDensity:
 
         with self.timer('load wfs'):
             psit_nG = kpt.psit_nG
-            ut_nR = wfs.gd.empty(nb - na, wfs.dtype)
+            ut_nR = gs.gd.empty(nb - na, gs.dtype)
             for n in range(na, nb):
-                ut_nR[n - na] = T(wfs.pd.ifft(psit_nG[n], ik))
+                ut_nR[n - na] = T(gs.pd.ifft(psit_nG[n], ik))
 
         with self.timer('Load projections'):
             P_ani = []
@@ -292,16 +294,13 @@ class PairDensity:
     @timer('Get kpoint pair')
     def get_kpoint_pair(self, pd, s, Kork_c, n1, n2, m1, m2,
                         load_wfs=True, block=False):
-        # wfs = self.calc.wfs
-        # bzk_kc = wfs.kd.bzk_kc
-
         assert m1 <= m2
         assert n1 <= n2
 
         if isinstance(Kork_c, int):
             # If k_c is an integer then it refers to
             # the index of the kpoint in the BZ
-            k_c = self.calc.wfs.kd.bzk_kc[Kork_c]
+            k_c = self.gs.kd.bzk_kc[Kork_c]
         else:
             k_c = Kork_c
 
@@ -380,15 +379,15 @@ class PairDensity:
         m_m:
             List of right-band indices (m).
         """
-        wfs = self.calc.wfs
+        gs = self.gs
 
         kpt1 = kptpair.kpt1
         kpt2 = kptpair.kpt2
         Q_G = kptpair.Q_G  # Fourier components of kpoint pair
 
         # For the same band we
-        kd = wfs.kd
-        gd = wfs.gd
+        kd = gs.kd
+        gd = gs.gd
         k_c = kd.bzk_kc[kpt1.K] + kpt1.shift_c
         k_v = 2 * np.pi * np.dot(k_c, np.linalg.inv(gd.cell_cv).T)
 
@@ -479,23 +478,23 @@ class PairDensity:
         if self.ut_sKnvR is None or kpt1.K not in self.ut_sKnvR[kpt1.s]:
             self.ut_sKnvR = self.calculate_derivatives(kpt1)
 
-        kd = self.calc.wfs.kd
-        gd = self.calc.wfs.gd
+        kd = self.gs.kd
+        gd = self.gs.gd
         k_c = kd.bzk_kc[kpt1.K] + kpt1.shift_c
         k_v = 2 * np.pi * np.dot(k_c, np.linalg.inv(gd.cell_cv).T)
 
         ut_vR = self.ut_sKnvR[kpt1.s][kpt1.K][n - kpt1.n1]
-        atomdata_a = self.calc.wfs.setups
+        atomdata_a = self.gs.setups
         C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[n - kpt1.na])
                  for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
 
         blockbands = kpt2.nb - kpt2.na
         n0_mv = np.empty((kpt2.blocksize, 3), dtype=complex)
         nt_m = np.empty(kpt2.blocksize, dtype=complex)
-        n0_mv[:blockbands] = -self.calc.wfs.gd.integrate(ut_vR,
-                                                         kpt2.ut_nR).T
-        nt_m[:blockbands] = self.calc.wfs.gd.integrate(kpt1.ut_nR[n - kpt1.na],
-                                                       kpt2.ut_nR)
+        n0_mv[:blockbands] = -self.gs.gd.integrate(ut_vR,
+                                                   kpt2.ut_nR).T
+        nt_m[:blockbands] = self.gs.gd.integrate(kpt1.ut_nR[n - kpt1.na],
+                                                 kpt2.ut_nR)
 
         n0_mv[:blockbands] += (1j * nt_m[:blockbands, np.newaxis] *
                                k_v[np.newaxis, :])
@@ -546,18 +545,14 @@ class PairDensity:
         assert np.min(n_n) >= na, 'This is too few bands'
 
         # Load kpoints
-        kd = self.calc.wfs.kd
-        gd = self.calc.wfs.gd
+        kd = self.gs.kd
+        gd = self.gs.gd
         k_c = kd.bzk_kc[kpt.K] + kpt.shift_c
         k_v = 2 * np.pi * np.dot(k_c, np.linalg.inv(gd.cell_cv).T)
-        atomdata_a = self.calc.wfs.setups
+        atomdata_a = self.gs.setups
         f_n = kpt.f_n
 
-        # Only works with Fermi-Dirac distribution
-        assert self.calc.wfs.occupations.name in {'fermi-dirac', 'zero-width'}
-
-        # No carriers when T=0
-        width = getattr(self.calc.wfs.occupations, '_width', 0.0) / Ha
+        width = self.gs.get_occupations_width()
 
         if width > 1e-15:
             dfde_n = -1 / width * (f_n - f_n**2.0)  # Analytical derivative
@@ -594,7 +589,7 @@ class PairDensity:
         # Calculate matrix elements by diagonalizing each block
         for ind_n in degchunks_cn:
             deg = len(ind_n)
-            ut_nvR = self.calc.wfs.gd.zeros((deg, 3), complex)
+            ut_nvR = self.gs.gd.zeros((deg, 3), complex)
             vel_nnv = np.zeros((deg, deg, 3), dtype=complex)
             # States are included starting from kpt.na
             ut_nR = kpt.ut_nR[ind_n - na]
@@ -610,8 +605,8 @@ class PairDensity:
                 C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[ind_n[n] - na])
                          for atomdata, P_ni in zip(atomdata_a, kpt.P_ani)]
 
-                nabla0_nv = -self.calc.wfs.gd.integrate(ut_vR, ut_nR).T
-                nt_n = self.calc.wfs.gd.integrate(ut_nR[n], ut_nR)
+                nabla0_nv = -self.gs.gd.integrate(ut_vR, ut_nR).T
+                nt_n = self.gs.gd.integrate(ut_nR[n], ut_nR)
                 nabla0_nv += 1j * nt_n[:, np.newaxis] * k_v[np.newaxis, :]
 
                 for C_vi, P_ni in zip(C_avi, kpt.P_ani):
@@ -628,7 +623,7 @@ class PairDensity:
 
     def get_fft_indices(self, K1, K2, q_c, pd, shift0_c):
         """Get indices for G-vectors inside cutoff sphere."""
-        kd = self.calc.wfs.kd
+        kd = self.gs.kd
         N_G = pd.Q_qG[0]
         shift_c = (shift0_c +
                    (q_c - kd.bzk_kc[K2] + kd.bzk_kc[K1]).round().astype(int))
@@ -647,7 +642,7 @@ class PairDensity:
     def initialize_paw_corrections(self, pd, soft=False):
         from gpaw.response.paw import calculate_paw_corrections
         return calculate_paw_corrections(
-            setups=self.calc.wfs.setups, pd=pd, soft=soft,
+            setups=self.gs.setups, pd=pd, soft=soft,
             spos_ac=self.spos_ac)
 
     @timer('Initialize PAW corrections')
@@ -655,7 +650,7 @@ class PairDensity:
         print('Initializing nabla PAW Corrections', file=self.fd)
         from gpaw.response.paw import calculate_paw_nabla_corrections
         return calculate_paw_nabla_corrections(
-            setups=self.calc.wfs.setups, pd=pd, soft=soft,
+            setups=self.gs.setups, pd=pd, soft=soft,
             spos_ac=self.spos_ac)
 
     def calculate_derivatives(self, kpt):
@@ -667,29 +662,29 @@ class PairDensity:
 
     @timer('Derivatives')
     def make_derivative(self, s, K, n1, n2):
-        wfs = self.calc.wfs
+        gs = self.gs
         if self.real_space_derivatives:
-            grad_v = [Gradient(wfs.gd, v, 1.0, 4, complex).apply
+            grad_v = [Gradient(gs.gd, v, 1.0, 4, complex).apply
                       for v in range(3)]
 
         U_cc, T, a_a, U_aii, shift_c, time_reversal = \
             self.construct_symmetry_operators(K)
-        A_cv = wfs.gd.cell_cv
+        A_cv = gs.gd.cell_cv
         M_vv = np.dot(np.dot(A_cv.T, U_cc.T), np.linalg.inv(A_cv).T)
-        ik = wfs.kd.bz2ibz_k[K]
-        assert wfs.kd.comm.size == 1
-        kpt = wfs.kpt_qs[ik][s]
+        ik = gs.kd.bz2ibz_k[K]
+        assert gs.kd.comm.size == 1
+        kpt = gs.kpt_qs[ik][s]
         psit_nG = kpt.psit_nG
-        iG_Gv = 1j * wfs.pd.get_reciprocal_vectors(q=ik, add_q=False)
-        ut_nvR = wfs.gd.zeros((n2 - n1, 3), complex)
+        iG_Gv = 1j * gs.pd.get_reciprocal_vectors(q=ik, add_q=False)
+        ut_nvR = gs.gd.zeros((n2 - n1, 3), complex)
         for n in range(n1, n2):
             for v in range(3):
                 if self.real_space_derivatives:
-                    ut_R = T(wfs.pd.ifft(psit_nG[n], ik))
+                    ut_R = T(gs.pd.ifft(psit_nG[n], ik))
                     grad_v[v](ut_R, ut_nvR[n - n1, v],
                               np.ones((3, 2), complex))
                 else:
-                    ut_R = T(wfs.pd.ifft(iG_Gv[:, v] * psit_nG[n], ik))
+                    ut_R = T(gs.pd.ifft(iG_Gv[:, v] * psit_nG[n], ik))
                     for v2 in range(3):
                         ut_nvR[n - n1, v2] += ut_R * M_vv[v, v2]
 

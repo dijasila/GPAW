@@ -15,6 +15,7 @@ from gpaw.response.tms import TransverseMagneticSusceptibility
 from gpaw.response.susceptibility import read_macroscopic_component
 
 
+@pytest.mark.kspair
 @pytest.mark.response
 def test_response_afm_hchain_gssALDA(in_tmp_dir):
     # ---------- Inputs ---------- #
