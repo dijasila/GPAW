@@ -27,6 +27,7 @@ class ResponseGroundStateAdapter:
         self.volume = self.gd.volume
 
         self.nvalence = wfs.nvalence
+        self._density = calc.density
 
     def get_occupations_width(self):
         # Ugly hack only used by pair.intraband_pair_density I think.
@@ -46,3 +47,18 @@ class ResponseGroundStateAdapter:
         nonpbc = ~self.pbc
         cell_cv = self.gd.cell_cv
         return abs(np.linalg.det(cell_cv[nonpbc][:, nonpbc]))
+
+    @property
+    def nt_sG(self):
+        # Used by kxc
+        return self._density.nt_sG
+
+    @property
+    def D_asp(self):
+        # Used by kxc
+        return self._density.D_asp
+
+    def all_electron_density(self):
+        # used by kxc
+        return self._density.get_all_electron_density(
+            atoms=self.atoms, gridrefinement=1)
