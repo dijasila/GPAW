@@ -402,7 +402,7 @@ class KohnShamPair:
         nh = 0
         for p, k_c in enumerate(k_pc):  # p indicates the receiving process
             K = self.kptfinder.find(k_c)
-            ik = gs.kd.bz2ibz_k[K]
+            ik = self.gs.kd.bz2ibz_k[K]
             for r2 in range(p * self.transitionblockscomm.size,
                             min((p + 1) * self.transitionblockscomm.size,
                                 self.world.size)):
@@ -424,7 +424,7 @@ class KohnShamPair:
                 r2_ct = r2_t[t_ct]
 
                 # Find out where data is in GS
-                u = ik * gs.nspins + s
+                u = ik * self.gs.nspins + s
                 myu, r1_ct, myn_ct = get_extraction_info(u, n_ct, r2_ct)
 
                 # If the process is extracting or receiving data,
