@@ -102,7 +102,7 @@ class EXX(PairDensity):
         self.omega = omega
         self.exc = np.nan  # density dependent part of xc-energy
 
-        self.kpts = select_kpts(kpts, self.calc.wfs.kd)
+        self.kpts = select_kpts(kpts, self.gs.kd)
 
         if bands is None:
             # Do all occupied bands:
@@ -116,11 +116,11 @@ class EXX(PairDensity):
         self.bands = bands
 
         if self.ecut is None:
-            self.ecut = self.calc.wfs.pd.ecut
+            self.ecut = self.gs.pd.ecut
         print('Plane-wave cutoff: %.3f eV' % (self.ecut * Hartree),
               file=self.fd)
 
-        shape = (self.calc.wfs.nspins, len(self.kpts), bands[1] - bands[0])
+        shape = (self.gs.nspins, len(self.kpts), bands[1] - bands[0])
         self.exxvv_sin = np.zeros(shape)   # valence-valence exchange energies
         self.exxvc_sin = np.zeros(shape)   # valence-core exchange energies
         self.f_sin = np.empty(shape)       # occupation numbers
@@ -138,8 +138,8 @@ class EXX(PairDensity):
         if omega is None:
             print('Using Wigner-Seitz truncated coulomb interaction.',
                   file=self.fd)
-            self.wstc = WignerSeitzTruncatedCoulomb(self.calc.wfs.gd.cell_cv,
-                                                    self.calc.wfs.kd.N_c,
+            self.wstc = WignerSeitzTruncatedCoulomb(self.gs.gd.cell_cv,
+                                                    self.gs.kd.N_c,
                                                     self.fd)
         self.iG_qG = {}  # cache
 
@@ -155,8 +155,8 @@ class EXX(PairDensity):
             Name of restart json-file.  Allows for incremental calculation
             of eigenvalues.
         """
-        kd = self.calc.wfs.kd
-        nspins = self.calc.wfs.nspins
+        kd = self.gs.kd
+        nspins = self.gs.nspins
 
         if restart:
             if isinstance(restart, str):
@@ -237,7 +237,7 @@ class EXX(PairDensity):
         return self.exx * Hartree
 
     def get_total_energy(self):
-        ham = self.calc.hamiltonian
+        ham = self.gs.hamiltonian
         return (self.exx * self.exx_fraction + self.exc +
                 ham.e_total_free - ham.e_xc) * Hartree
 
@@ -248,11 +248,11 @@ class EXX(PairDensity):
         return e_sin * Hartree
 
     def calculate_q(self, i, kpt1, kpt2):
-        wfs = self.calc.wfs
+        gs = self.gs
 
-        q_c = wfs.kd.bzk_kc[kpt2.K] - wfs.kd.bzk_kc[kpt1.K]
+        q_c = gs.kd.bzk_kc[kpt2.K] - gs.kd.bzk_kc[kpt1.K]
         qd = KPointDescriptor([q_c])
-        pd = PWDescriptor(self.ecut, wfs.gd, wfs.dtype, kd=qd)
+        pd = PWDescriptor(self.ecut, gs.gd, gs.dtype, kd=qd)
 
         Q_G = self.get_fft_indices(kpt1.K, kpt2.K, q_c, pd,
                                    kpt1.shift_c - kpt2.shift_c)
@@ -270,7 +270,7 @@ class EXX(PairDensity):
 
     def calculate_n(self, pd, n_mG, kpt2):
         iG_G = self.get_coulomb_kernel(pd)
-        x = 4 * pi / self.calc.wfs.kd.nbzkpts / pd.gd.dv**2
+        x = 4 * pi / self.gs.kd.nbzkpts / pd.gd.dv**2
 
         e = 0.0
         for f, n_G in zip(kpt2.f_n, n_mG):
@@ -292,7 +292,7 @@ class EXX(PairDensity):
                         G2_G[1:])**0.5
             return iG_G
 
-        key = tuple((pd.kd.bzk_kc[0] * self.calc.wfs.kd.N_c).round())
+        key = tuple((pd.kd.bzk_kc[0] * self.gs.kd.N_c).round())
         iG_G = self.iG_qG.get(key)
         if iG_G is None:
             v_G = self.wstc.get_potential(pd)
@@ -301,9 +301,9 @@ class EXX(PairDensity):
         return iG_G
 
     def initialize_paw_exx_corrections(self):
-        for a, atomdata in enumerate(self.calc.wfs.setups):
+        for a, atomdata in enumerate(self.gs.setups):
             V_sii = []
-            for D_p in self.calc.density.D_asp[a]:
+            for D_p in self.gs.D_asp[a]:
                 D_ii = unpack2(D_p)
                 V_ii = pawexxvv(atomdata, D_ii)
                 V_sii.append(V_ii)
@@ -316,7 +316,7 @@ class EXX(PairDensity):
             self.exxcc += atomdata.ExxC or 0.0
 
     def calculate_paw_exx_corrections(self, i, kpt):
-        x = self.calc.wfs.nspins / self.world.size
+        x = self.gs.nspins / self.world.size
         s = kpt.s
 
         for V_sii, C_ii, P_ni in zip(self.V_asii, self.C_aii, kpt.P_ani):
@@ -327,7 +327,7 @@ class EXX(PairDensity):
             self.exxvc_sin[s, i] -= c_n
 
     def calculate_hybrid_correction(self):
-        dens = self.calc.density
+        dens = self.gs.density
         if dens.nt_sg is None:
             dens.interpolate_pseudo_density()
         exc = self.xc.calculate(dens.finegd, dens.nt_sg)

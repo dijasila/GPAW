@@ -28,6 +28,7 @@ class ResponseGroundStateAdapter:
 
         self.nvalence = wfs.nvalence
         self._density = calc.density
+        self._hamiltonian = calc.hamiltonian
 
     def get_occupations_width(self):
         # Ugly hack only used by pair.intraband_pair_density I think.
@@ -62,3 +63,18 @@ class ResponseGroundStateAdapter:
         # used by kxc
         return self._density.get_all_electron_density(
             atoms=self.atoms, gridrefinement=1)
+
+    # Things used by EXX.  This is getting pretty involved.
+    #
+    # EXX naughtily accesses the density object in order to
+    # interpolate_pseudo_density() which is in principle mutable.
+
+    # Used by EXX.
+    @property
+    def hamiltonian(self):
+        return self._hamiltonian
+
+    # Used by EXX.
+    @property
+    def density(self):
+        return self._density
