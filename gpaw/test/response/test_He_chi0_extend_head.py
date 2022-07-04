@@ -41,6 +41,10 @@ def test_he_chi0_extend_head(in_tmp_dir):
     rp1 = rparams.copy()  # Check k.p threshold
     rp1['threshold'] = 0.5
     rp_settings.append(rp1)
+    rp2 = rparams.copy()  # Check hilbert transform
+    rp2['hilbert'] = True
+    rp2['frequencies'] = None
+    rp_settings.append(rp2)
 
     if world.size > 1:
         nblocks = 2
