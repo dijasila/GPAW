@@ -180,7 +180,7 @@ class ASECalculator:
             Write mode. Use ``mode='all'``
             to include wave functions in the file.
         """
-        self.log(f'Writing to {filename} (mode={mode!r})\n')
+        self.log(f'# Writing to {filename} (mode={mode!r})\n')
 
         write_gpw(filename, self.atoms, self.params,
                   self.calculation, skip_wfs=mode != 'all')
@@ -223,6 +223,9 @@ class ASECalculator:
 
     def get_atomic_electrostatic_potentials(self):
         return self.calculation.electrostatic_potential().atomic_potentials()
+
+    def get_pseudo_density(self, spin=None):
+        return self.calculation.densities.pseudo_densities().data
 
     def get_eigenvalues(self, kpt=0, spin=0):
         state = self.calculation.state

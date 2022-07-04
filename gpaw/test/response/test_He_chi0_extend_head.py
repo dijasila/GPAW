@@ -50,7 +50,6 @@ def test_he_chi0_extend_head(in_tmp_dir):
                 nbands=nbands + ebands,
                 convergence=conv,
                 symmetry={'point_group': True},
-                idiotproof=False,
                 parallel={'domain': 1})
 
     atoms.calc = calc

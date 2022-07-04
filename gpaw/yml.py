@@ -3,13 +3,6 @@ from typing import Any
 import numpy as np
 from ase import Atoms
 from ase.calculators.singlepoint import SinglePointCalculator
-from ase.utils.plugins import ExternalIOFormat
-
-gpaw_yaml = ExternalIOFormat(
-    desc='GPAW-yaml output',
-    code='+B',
-    module='gpaw.yml',
-    magic=b'#  __  _  _')
 
 
 def obj2yaml(obj: Any, indentation: str = '') -> str:
@@ -30,16 +23,35 @@ def obj2yaml(obj: Any, indentation: str = '') -> str:
 
 
 def indent(text: Any, indentation='  ') -> str:
+    r"""Indent text blob.
+
+    >>> indent('line 1\nline 2', '..')
+    '..line 1\n..line 2'
+    """
     if not isinstance(text, str):
         text = str(text)
     return indentation + text.replace('\n', '\n' + indentation)
 
 
 def comment(text: Any) -> str:
+    """Comment text blob.
+
+    >>> comment('hmm')
+    '# hmm'
+    """
     return indent(text, '# ')
 
 
 def read_gpaw_yaml(fd, index):
+    r"""Convert YAML text output from GPAW calculation to Atoms object(s).
+
+    >>> import io
+    >>> y = ('atoms: [[H, [0, 0, 0], [0, 0, 1]]]\n'
+    ...      'cell: [[0, 0, 0], [0, 0, 0], [0, 0, 0]]\n'
+    ...      'periodic: [false, false, false]\n')
+    >>> read_gpaw_yaml(io.StringIO(y), 0)
+    Atoms(symbols='H', pbc=False)
+    """
     import yaml
     configs = []
     for dct in yaml.safe_load_all(fd):

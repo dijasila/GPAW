@@ -98,8 +98,8 @@ def plot(atoms: Atoms) -> str:
     numbers = atoms.get_atomic_numbers()
 
     s = 1.3
-    nx, ny, nz = n = (s * cell * (1.0, 0.25, 0.5) + 0.5).astype(int)
-    sx, sy, sz = n / cell
+    nx, ny, nz = nxyz = (s * cell * (1.0, 0.25, 0.5) + 0.5).astype(int)
+    sx, sy, sz = nxyz / cell
     grid = Grid(nx + ny + 4, nz + ny + 1)
     positions = (positions % cell + cell) % cell
     ij = np.dot(positions, [(sx, 0), (sy, sy), (0, sz)])

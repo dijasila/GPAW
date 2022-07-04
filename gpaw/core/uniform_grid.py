@@ -14,6 +14,7 @@ from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new import cached_property
 from gpaw.typing import (Array1D, Array2D, Array3D, Array4D, ArrayLike1D,
                          ArrayLike2D, Vector)
+from gpaw.new import zip
 
 
 class UniformGrid(Domain):
@@ -501,7 +502,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         if out is None:
             if grid is None:
                 raise ValueError('Please specify "grid" or "out".')
-            out = grid.empty()
+            out = grid.empty(self.dims)
 
         if not out.desc.pbc_c.all() or not self.desc.pbc_c.all():
             raise ValueError('Grids must have pbc=True!')
@@ -523,6 +524,11 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
 
         plan1 = plan1 or self.desc.fft_plans()
         plan2 = plan2 or out.desc.fft_plans()
+
+        if self.dims:
+            for input, output in zip(self.flat(), out.flat()):
+                input.interpolate(plan1, plan2, grid, output)
+            return out
 
         plan1.tmp_R[:] = self.data
         kpt_c = self.desc.kpt_c
