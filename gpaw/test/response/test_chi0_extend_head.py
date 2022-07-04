@@ -17,7 +17,7 @@ from gpaw.response.chi0 import Chi0
 # ---------- Chi0 parametrization ---------- #
 
 
-def generate_He_chi0_params():
+def generate_semic_chi0_params():
     """Check the following options for a semi-conductor:
     * threshold
     * hilbert
@@ -66,14 +66,34 @@ def generate_He_chi0_params():
     return chi0_params
 
 
-@pytest.fixture(scope='module', params=generate_He_chi0_params())
+def generate_metal_chi0_params():
+    """In addition to the semi-conductor parameters, test also:
+    * integrationmode
+    * intraband (test all other settings with and without intraband)
+    """
+    # Get semi-conductor defaults
+    chi0_params = generate_semic_chi0_params()
+    chi0kwargs = chi0_params[0]
+
+    ck7 = chi0kwargs.copy()  # Check tetrahedron integration
+    ck7['integrationmode'] = 'tetrahedron integration'
+    ck7['hilbert'] = True  # Make this work... XXX
+    ck7['frequencies'] = None
+    chi0_params.append(ck7)
+
+    # To do: add intraband toggle XXX
+
+    return chi0_params
+
+
+@pytest.fixture(scope='module', params=generate_semic_chi0_params())
 def He_chi0kwargs(request, He_gs):
     chi0kwargs = request.param
     assure_nbands(chi0kwargs, He_gs)
 
     return chi0kwargs
 
-@pytest.fixture(scope='module', params=generate_He_chi0_params())
+@pytest.fixture(scope='module', params=generate_metal_chi0_params())
 def Li_chi0kwargs(request, Li_gs):
     chi0kwargs = request.param
     assure_nbands(chi0kwargs, Li_gs)
