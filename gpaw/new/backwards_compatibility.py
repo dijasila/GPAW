@@ -7,6 +7,7 @@ from gpaw.band_descriptor import BandDescriptor
 from ase import Atoms
 from gpaw.projections import Projections
 from gpaw.pw.descriptor import PWDescriptor
+from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 
 
 class FakeWFS:
@@ -28,10 +29,13 @@ class FakeWFS:
         self.nvalence = int(round(ibzwfs.nelectrons))
         assert self.nvalence == ibzwfs.nelectrons
         self.world = calculation.scf_loop.world
+        assert ibzwfs.fermi_levels is not None
         self.fermi_level, = ibzwfs.fermi_levels
         self.nspins = ibzwfs.nspins
         self.dtype = ibzwfs.dtype
-        self.pd = PWDescriptor(ibzwfs.wfs_qs[0][0].psit_nX.desc.ecut,
+        wfs = ibzwfs.wfs_qs[0][0]
+        assert isinstance(wfs, PWFDWaveFunctions)
+        self.pd = PWDescriptor(wfs.psit_nX.desc.ecut,
                                self.gd, self.dtype, self.kd)
         self.pwgrid = grid.new(dtype=self.dtype)
 
