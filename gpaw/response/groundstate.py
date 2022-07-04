@@ -88,3 +88,9 @@ class ResponseGroundStateAdapter:
     @property
     def xcname(self):
         return self.hamiltonian.xc.name
+
+    # XXX This is used by xc == JGMsx from g0w0
+    def get_band_gap(self):
+        from ase.dft.bandgap import get_band_gap
+        gap, k1, k2 = get_band_gap(self._calc)
+        return gap

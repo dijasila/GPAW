@@ -395,9 +395,7 @@ class G0W0:
                                    'with do_GW_too=True.')
 
         if Eg is None and self.xc == 'JGMsx':
-            from ase.dft.bandgap import get_band_gap
-            gap, k1, k2 = get_band_gap(self.calc)
-            Eg = gap
+            Eg = self.gs.get_band_gap()
 
         if Eg is not None:
             Eg /= Ha
