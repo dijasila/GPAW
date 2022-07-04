@@ -52,6 +52,10 @@ def test_he_chi0_extend_head(in_tmp_dir):
     rp4 = rparams.copy()
     rp4['nbands'] = None
     rp_settings.append(rp4)
+    rp5 = rparams.copy()  # Check eta=0.
+    rp5['frequencies'] = 1.j * rp5['frequencies']
+    rp5['eta'] = 0.
+    rp_settings.append(rp5)
 
     if world.size > 1:
         nblocks = 2
