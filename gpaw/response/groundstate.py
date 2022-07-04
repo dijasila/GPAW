@@ -21,9 +21,14 @@ class ResponseGroundStateAdapter:
         self.setups = wfs.setups
 
         self.fermi_level = wfs.fermi_level
+        self.atoms = calc.atoms
+        self.pbc = self.atoms.pbc
+        self.volume = self.gd.volume
 
     def get_occupations_width(self):
         # Ugly hack only used by pair.intraband_pair_density I think.
+        # Actually: was copy-pasted in chi0 also.
+        # More duplication can probably be eliminated around those.
 
         # Only works with Fermi-Dirac distribution
         occs = self.wfs.occupations
