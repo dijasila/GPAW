@@ -22,6 +22,7 @@ from gpaw.test import findpeak, equal
 from gpaw.mpi import world
 
 
+@pytest.mark.kspair
 @pytest.mark.response
 def test_response_iron_sf_gssALDA(in_tmp_dir):
     # ------------------- Inputs ------------------- #
