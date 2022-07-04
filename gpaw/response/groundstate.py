@@ -1,3 +1,4 @@
+import numpy as np
 from ase.units import Ha
 
 
@@ -39,3 +40,9 @@ class ResponseGroundStateAdapter:
         # No carriers when T=0
         width = getattr(occs, '_width', 0.0) / Ha
         return width
+
+    def nonpbc_cell_product(self):
+        """Volume, area, or length, taken in all non-periodic directions."""
+        nonpbc = ~self.pbc
+        cell_cv = self.gd.cell_cv
+        return abs(np.linalg.det(cell_cv[nonpbc][:, nonpbc]))
