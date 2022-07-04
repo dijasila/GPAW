@@ -14,43 +14,71 @@ from gpaw.mpi import world
 from gpaw.response.chi0 import Chi0
 
 
-@pytest.mark.response
-def test_he_chi0_extend_head(in_tmp_dir, He_gs):
-    # ---------- Inputs ---------- #
-    gpw, nbands = He_gs
+# ---------- Chi0 parametrization ---------- #
 
-    ecut = 50
 
-    rparams = dict(
+def generate_He_chi0_params():
+    """Check the following options for a semi-conductor:
+    * threshold
+    * hilbert
+    * timeordered
+    * nbands
+    * eta=0.
+    * real_space_derivatives
+    """
+    chi0kwargs = dict(
         frequencies=np.linspace(0., 30., 11),
         eta=0.05,
-        nbands=nbands,
         hilbert=False,
         timeordered=False,
         threshold=1,
         real_space_derivatives=False)
-    # Check different response parameter settings
-    rp_settings = [rparams]
-    rp1 = rparams.copy()  # Check k.p threshold
-    rp1['threshold'] = 0.5
-    rp_settings.append(rp1)
-    rp2 = rparams.copy()  # Check hilbert transform
-    rp2['hilbert'] = True
-    rp2['frequencies'] = None
-    rp_settings.append(rp2)
-    rp3 = rparams.copy()  # Check timeordering
-    rp3['timeordered'] = True
-    rp_settings.append(rp3)
-    rp4 = rparams.copy()
-    rp4['nbands'] = None
-    rp_settings.append(rp4)
-    rp5 = rparams.copy()  # Check eta=0.
-    rp5['frequencies'] = 1.j * rp5['frequencies']
-    rp5['eta'] = 0.
-    rp_settings.append(rp5)
-    rp6 = rparams.copy()  # Check real space derivs.
-    rp6['real_space_derivatives'] = True
-    rp_settings.append(rp6)
+    # Check different chi0 parameter combinations
+    chi0_params = [chi0kwargs]
+    ck1 = chi0kwargs.copy()  # Check k.p threshold
+    ck1['threshold'] = 0.5
+    chi0_params.append(ck1)
+    ck2 = chi0kwargs.copy()  # Check hilbert transform
+    ck2['hilbert'] = True
+    ck2['frequencies'] = None
+    chi0_params.append(ck2)
+    ck3 = chi0kwargs.copy()  # Check timeordering
+    ck3['timeordered'] = True
+    chi0_params.append(ck3)
+    ck4 = chi0kwargs.copy()  # Check nbands
+    ck4['nbands'] = None
+    chi0_params.append(ck4)
+    ck5 = chi0kwargs.copy()  # Check eta=0.
+    ck5['frequencies'] = 1.j * ck5['frequencies']
+    ck5['eta'] = 0.
+    chi0_params.append(ck5)
+    ck6 = chi0kwargs.copy()  # Check real space derivs.
+    ck6['real_space_derivatives'] = True
+    chi0_params.append(ck6)
+
+    return chi0_params
+
+
+@pytest.fixture(scope='module', params=generate_He_chi0_params())
+def chi0kwargs(request, He_gs):
+    # Fill in nbands parameter, if not already specified
+    my_chi0kwargs = request.param
+    if not 'nbands' in my_chi0kwargs.keys():
+        _, nbands = He_gs
+        my_chi0kwargs['nbands'] = nbands
+
+    return my_chi0kwargs
+
+
+# ---------- Actual tests ---------- #
+
+
+@pytest.mark.response
+def test_he_chi0_extend_head(in_tmp_dir, He_gs, chi0kwargs):
+    # ---------- Inputs ---------- #
+    gpw, nbands = He_gs
+
+    ecut = 50
 
     if world.size > 1:
         nblocks = 2
@@ -59,16 +87,15 @@ def test_he_chi0_extend_head(in_tmp_dir, He_gs):
 
     # ---------- Script ---------- #
 
-    for kwargs in rp_settings:
-        chi0fac = Chi0(gpw, ecut=ecut,
-                       nblocks=nblocks,
-                       **kwargs)
+    chi0fac = Chi0(gpw, ecut=ecut,
+                   nblocks=nblocks,
+                   **chi0kwargs)
 
-        chi0_f = calculate_optical_limit(chi0fac, extend_head=False)
-        chi0_t = calculate_optical_limit(chi0fac, extend_head=True)
+    chi0_f = calculate_optical_limit(chi0fac, extend_head=False)
+    chi0_t = calculate_optical_limit(chi0fac, extend_head=True)
 
-        is_equal, err_msg = chi0_data_is_equal(chi0_f, chi0_t)
-        assert is_equal, err_msg
+    is_equal, err_msg = chi0_data_is_equal(chi0_f, chi0_t)
+    assert is_equal, err_msg
 
 
 # ---------- System ground states ---------- #
