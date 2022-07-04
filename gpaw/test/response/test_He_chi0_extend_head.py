@@ -3,6 +3,7 @@
 # General modules
 import pytest
 import numpy as np
+from pathlib import Path
 
 # Script modules
 from ase import Atoms
@@ -13,27 +14,79 @@ from gpaw.mpi import world
 from gpaw.response.chi0 import Chi0
 
 
+# ---------- Chi0 parametrization ---------- #
+
+
+def generate_He_chi0_params():
+    """Check the following options for a semi-conductor:
+    * threshold
+    * hilbert
+    * timeordered
+    * nbands
+    * eta=0.
+    * real_space_derivatives
+    """
+    # Define default parameters
+    chi0kwargs = dict(
+        frequencies=np.linspace(0., 30., 11),
+        eta=0.05,
+        hilbert=False,
+        timeordered=False,
+        threshold=1,
+        real_space_derivatives=False)
+    chi0_params = [chi0kwargs]
+
+    # Check different chi0 parameter combinations
+    ck1 = chi0kwargs.copy()  # Check k.p threshold
+    ck1['threshold'] = 0.5
+    chi0_params.append(ck1)
+
+    ck2 = chi0kwargs.copy()  # Check hilbert transform
+    ck2['hilbert'] = True
+    ck2['frequencies'] = None
+    chi0_params.append(ck2)
+
+    ck3 = chi0kwargs.copy()  # Check timeordering
+    ck3['timeordered'] = True
+    chi0_params.append(ck3)
+
+    ck4 = chi0kwargs.copy()  # Check nbands
+    ck4['nbands'] = None
+    chi0_params.append(ck4)
+
+    ck5 = chi0kwargs.copy()  # Check eta=0.
+    ck5['frequencies'] = 1.j * ck5['frequencies']
+    ck5['eta'] = 0.
+    chi0_params.append(ck5)
+
+    ck6 = chi0kwargs.copy()  # Check real space derivs.
+    ck6['real_space_derivatives'] = True
+    chi0_params.append(ck6)
+
+    return chi0_params
+
+
+@pytest.fixture(scope='module', params=generate_He_chi0_params())
+def chi0kwargs(request, He_gs):
+    # Fill in nbands parameter, if not already specified
+    my_chi0kwargs = request.param
+    if 'nbands' not in my_chi0kwargs:
+        _, nbands = He_gs
+        my_chi0kwargs['nbands'] = nbands
+
+    return my_chi0kwargs
+
+
+# ---------- Actual tests ---------- #
+
+
 @pytest.mark.response
-def test_he_chi0_extend_head(in_tmp_dir):
+def test_he_chi0_extend_head(in_tmp_dir, He_gs, chi0kwargs):
     # ---------- Inputs ---------- #
+    gpw, nbands = He_gs
 
-    # Part 1: Ground state calculation
-    a = 3.0
-    xc = 'LDA'
-    kpts = 2
-    nbands = 1 + 1 + 3  # 1s + 2s + 2p empty shell bands
-    ebands = 1  # Include also 3s bands for numerical consistency
-    pw = 250
-    conv = {'bands': nbands}
-
-    # Part 2: Chi0 calculation
     ecut = 50
-    frequencies = np.linspace(0., 30., 11)
-    eta = 0.05
-    hilbert = False
-    timeordered = False
-    threshold = 1
-    real_space_derivatives = False
+
     if world.size > 1:
         nblocks = 2
     else:
@@ -41,7 +94,35 @@ def test_he_chi0_extend_head(in_tmp_dir):
 
     # ---------- Script ---------- #
 
-    # Part 1: Ground state calculation
+    chi0fac = Chi0(gpw, ecut=ecut,
+                   nblocks=nblocks,
+                   **chi0kwargs)
+
+    chi0_f = calculate_optical_limit(chi0fac, extend_head=False)
+    chi0_t = calculate_optical_limit(chi0fac, extend_head=True)
+
+    is_equal, err_msg = chi0_data_is_equal(chi0_f, chi0_t)
+    assert is_equal, err_msg
+
+
+# ---------- System ground states ---------- #
+
+
+@pytest.fixture(scope='module')
+def He_gs(module_tmp_path):
+    # ---------- Inputs ---------- #
+
+    a = 3.0
+    xc = 'LDA'
+    kpts = 2
+    nbands = 1 + 1 + 3  # 1s + 2s + 2p empty shell bands
+    ebands = 1  # Include also 3s bands for numerical consistency
+    pw = 250
+    conv = {'bands': nbands}
+    gpw = Path('He').resolve()
+
+    # ---------- Script ---------- #
+
     atoms = Atoms('He', cell=[a, a, a], pbc=True)
 
     calc = GPAW(xc=xc,
@@ -54,22 +135,9 @@ def test_he_chi0_extend_head(in_tmp_dir):
 
     atoms.calc = calc
     atoms.get_potential_energy()
-    calc.write('He', 'all')
+    calc.write(gpw, 'all')
 
-    # Part 2: Chi0 calculation
-    chi0fac = Chi0('He', ecut=ecut,
-                   frequencies=frequencies, eta=eta, hilbert=hilbert,
-                   nbands=nbands,
-                   timeordered=timeordered,
-                   threshold=threshold,
-                   real_space_derivatives=real_space_derivatives,
-                   nblocks=nblocks)
-
-    chi0_f = calculate_optical_limit(chi0fac, extend_head=False)
-    chi0_t = calculate_optical_limit(chi0fac, extend_head=True)
-
-    is_equal, err_msg = chi0_data_is_equal(chi0_f, chi0_t)
-    assert is_equal, err_msg
+    return gpw, nbands
 
 
 # ---------- Script functionality ---------- #
