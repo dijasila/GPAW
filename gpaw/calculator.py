@@ -488,7 +488,7 @@ class GPAW(Calculator):
             self.log.fd = kwargs.pop('txt')
 
         if 'idiotproof' in kwargs:
-            del kwargs['idotproof']
+            del kwargs['idiotproof']
             warnings.warn('Ignoring deprecated keyword "idiotproof"')
 
         changed_parameters = Calculator.set(self, **kwargs)
