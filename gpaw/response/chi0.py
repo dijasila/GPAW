@@ -168,11 +168,7 @@ class Chi0:
         self.blockcomm, self.kncomm = block_partition(world, nblocks)
         self.nblocks = nblocks
 
-        if ecut is None:
-            ecut = 50.0
-        ecut /= Ha
-
-        self.ecut = ecut
+        self.ecut_Ha = ecut / Ha
 
         self.eta = eta / Ha
         if rate == 'eta':
@@ -227,7 +223,7 @@ class Chi0:
 
     def create_chi0(self, q_c, extend_head=True):
         # Extract descriptor arguments
-        plane_waves = (q_c, self.ecut, self.gs.gd)
+        plane_waves = (q_c, self.ecut_Ha, self.gs.gd)
         parallelization = (self.world, self.blockcomm, self.kncomm)
 
         # Construct the Chi0Data object
@@ -833,7 +829,7 @@ class Chi0:
 
         q_c = pd.kd.bzk_kc[0]
         nw = len(self.wd)
-        ecut = self.ecut * Ha
+        ecut_eV = self.ecut_Ha * Ha
         ns = gs.nspins
         nbands = self.nbands
         nk = gs.kd.nbzkpts
@@ -860,7 +856,7 @@ class Chi0:
             p('WARNING! Your nblocks is larger than number of frequency'
               ' points. Errors might occur, if your submodule don'''
               't know how to handle this.')
-        p('    Planewave cutoff: %f' % ecut)
+        p('    Planewave cutoff: %f' % ecut_eV)
         p('    Number of spins: %d' % ns)
         p('    Number of bands: %d' % nbands)
         p('    Number of kpoints: %d' % nk)

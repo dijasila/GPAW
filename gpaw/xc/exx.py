@@ -47,7 +47,7 @@ def select_kpts(kpts, kd):
 
 
 class EXX(NoCalculatorPairDensity):
-    def __init__(self, calc, xc=None, kpts=None, bands=None, ecut=None,
+    def __init__(self, calc, xc=None, kpts=None, bands=None, ecut_Ha=None,
                  stencil=2,
                  omega=None, world=mpi.world, txt=sys.stdout, timer=None):
         """Non self-consistent hybrid functional calculations.
@@ -69,8 +69,8 @@ class EXX(NoCalculatorPairDensity):
             particle energies for. Bands n where n1<=n<n2 will be
             calculated.  Note that the second band index is not included.
             Default is all occupied bands.
-        ecut: float
-            Plane wave cut-off energy in eV.  Default it the same as was used
+        ecut_Ha: float
+            Plane wave cut-off energy in Ha.  Default it the same as was used
             for the ground-state calculations.
         """
 
@@ -120,11 +120,11 @@ class EXX(NoCalculatorPairDensity):
 
         self.bands = bands
 
-        if ecut is None:
-            ecut = self.gs.pd.ecut
-        self.ecut = ecut
+        if ecut_Ha is None:
+            ecut_Ha = self.gs.pd.ecut
+        self.ecut_Ha = ecut_Ha
 
-        print('Plane-wave cutoff: %.3f eV' % (self.ecut * Hartree),
+        print('Plane-wave cutoff: %.3f eV' % (self.ecut_Ha * Hartree),
               file=self.fd)
 
         shape = (self.gs.nspins, len(self.kpts), bands[1] - bands[0])
@@ -263,7 +263,7 @@ class EXX(NoCalculatorPairDensity):
 
         q_c = gs.kd.bzk_kc[kpt2.K] - gs.kd.bzk_kc[kpt1.K]
         qd = KPointDescriptor([q_c])
-        pd = PWDescriptor(self.ecut, gs.gd, gs.dtype, kd=qd)
+        pd = PWDescriptor(self.ecut_Ha, gs.gd, gs.dtype, kd=qd)
 
         Q_G = self.get_fft_indices(kpt1.K, kpt2.K, q_c, pd,
                                    kpt1.shift_c - kpt2.shift_c)
