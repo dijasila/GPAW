@@ -153,6 +153,9 @@ class EXX(NoCalculatorPairDensity):
         self.C_aii = []   # valence-core correction
         self.initialize_paw_exx_corrections()
 
+    def __del__(self):
+        self.iocontext.close()
+
     def calculate(self, restart: Union[Path, str] = None):
         """Do the calculation.
 
