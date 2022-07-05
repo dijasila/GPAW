@@ -174,25 +174,14 @@ def He_gs(module_tmp_path):
     nbands = 1 + 1 + 3  # 1s + 2s + 2p empty shell bands
     ebands = 1  # Include also 3s bands for numerical consistency
     pw = 250
-    conv = {'bands': nbands}
+    convergence = {'bands': nbands}
     gpw = Path('He.gpw').resolve()
 
     # ---------- Script ---------- #
 
     atoms = Atoms('He', cell=[a, a, a], pbc=True)
-
-    calc = GPAW(xc=xc,
-                mode=PW(pw),
-                kpts=monkhorst_pack((kpts, kpts, kpts)),
-                nbands=nbands + ebands,
-                convergence=conv,
-                symmetry={'point_group': True},
-                idiotproof=False,
-                parallel={'domain': 1})
-
-    atoms.calc = calc
-    atoms.get_potential_energy()
-    calc.write(gpw, 'all')
+    calculate_gs(atoms, gpw, pw, kpts, nbands, ebands,
+                 xc=xc, convergence=convergence)
 
     return gpw, nbands
 
@@ -207,30 +196,33 @@ def Li_gs(module_tmp_path):
     nbands = 1 + 3 + 1  # 2s + 2p + 3s empty shell bands
     ebands = 3  # Include also 3p bands for numerical consistency
     pw = 250
-    conv = {'bands': nbands}
+    convergence = {'bands': nbands}
     gpw = Path('Li.gpw').resolve()
 
     # ---------- Script ---------- #
 
     atoms = bulk('Li', 'bcc', a=a)
-
-    calc = GPAW(xc=xc,
-                mode=PW(pw),
-                kpts=monkhorst_pack((kpts, kpts, kpts)),
-                nbands=nbands + ebands,
-                convergence=conv,
-                symmetry={'point_group': True},
-                idiotproof=False,
-                parallel={'domain': 1})
-
-    atoms.calc = calc
-    atoms.get_potential_energy()
-    calc.write(gpw, 'all')
+    calculate_gs(atoms, gpw, pw, kpts, nbands, ebands,
+                 xc=xc, convergence=convergence)
 
     return gpw, nbands
 
 
 # ---------- Script functionality ---------- #
+
+
+def calculate_gs(atoms, gpw, pw, kpts, nbands, ebands,
+                 **kwargs):
+    calc = GPAW(mode=PW(pw),
+                kpts=monkhorst_pack((kpts, kpts, kpts)),
+                nbands=nbands + ebands,
+                symmetry={'point_group': True},
+                parallel={'domain': 1},
+                **kwargs)
+
+    atoms.calc = calc
+    atoms.get_potential_energy()
+    calc.write(gpw, 'all')
 
 
 def calculate_optical_limit(chi0_factory, extend_head=True):
