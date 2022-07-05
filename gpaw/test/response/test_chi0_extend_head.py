@@ -110,6 +110,14 @@ def Li_chi0kwargs(request, Li_gs):
     return chi0kwargs
 
 
+@pytest.fixture(scope='module', params=generate_metal_chi0_params())
+def Ni_chi0kwargs(request, Ni_gs):
+    chi0kwargs = request.param
+    assure_nbands(chi0kwargs, Ni_gs)
+
+    return chi0kwargs
+
+
 def assure_nbands(chi0kwargs, my_gs):
     # Fill in nbands parameter, if not already specified
     if 'nbands' not in chi0kwargs:
@@ -127,14 +135,24 @@ def test_he_chi0_extend_head(in_tmp_dir, He_gs, He_chi0kwargs):
 
 @pytest.mark.response
 def test_li_chi0_extend_head(in_tmp_dir, Li_gs, Li_chi0kwargs, request):
-    if ('integrationmode' in Li_chi0kwargs and
-        Li_chi0kwargs['integrationmode'] == 'tetrahedron integration') or\
-       Li_chi0kwargs['intraband']:
+    mark_intraband_and_tetrahedron_xfail(Li_chi0kwargs, request)
+    chi0_extend_head_test(Li_gs, Li_chi0kwargs)
+
+
+@pytest.mark.response
+def test_ni_chi0_extend_head(in_tmp_dir, Ni_gs, Ni_chi0kwargs, request):
+    mark_intraband_and_tetrahedron_xfail(Ni_chi0kwargs, request)
+    chi0_extend_head_test(Ni_gs, Ni_chi0kwargs)
+
+
+def mark_intraband_and_tetrahedron_xfail(chi0kwargs, request):
+    if ('integrationmode' in chi0kwargs and
+        chi0kwargs['integrationmode'] == 'tetrahedron integration') or\
+       chi0kwargs['intraband']:
         # Head and wings have not yet have a tetrahedron integration
         # implementation nor a proper intraband implementation. For now,
         # we simply mark the tests with xfail accordingly.
         request.node.add_marker(pytest.mark.xfail)
-    chi0_extend_head_test(Li_gs, Li_chi0kwargs)
 
 
 def chi0_extend_head_test(my_gs, chi0kwargs):
