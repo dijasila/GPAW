@@ -2,7 +2,6 @@ import numbers
 
 import numpy as np
 
-from ase.units import Ha
 from ase.utils import IOContext
 from ase.utils.timing import timer, Timer
 
