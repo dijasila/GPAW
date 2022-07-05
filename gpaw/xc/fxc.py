@@ -458,7 +458,6 @@ class FXCCorrelation(RPACorrelation):
         return energy
 
 
-
 class KernelWave:
     def __init__(self, calc, xc, ibzq_qc, fd, l_l, q_empty, omega_w, Eg, ecut,
                  tag, timer):
