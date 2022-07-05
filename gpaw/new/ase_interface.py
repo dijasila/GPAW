@@ -8,7 +8,7 @@ from ase.units import Ha, Bohr
 
 from gpaw import __version__
 from gpaw.new import Timer
-from gpaw.new.calculation import DFTCalculation, units
+from gpaw.new.calculation import DFTCalculation, units, DFTState
 from gpaw.new.gpw import read_gpw, write_gpw
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
@@ -32,6 +32,7 @@ def GPAW(filename: Union[str, Path, IO[str]] = None,
     if filename is not None:
         kwargs.pop('txt', None)
         kwargs.pop('parallel', None)
+        kwargs.pop('communicator', None)
         assert len(kwargs) == 0
         atoms, calculation, params, _ = read_gpw(filename, log,
                                                  params.parallel)
@@ -282,7 +283,13 @@ class ASECalculator:
     def diagonalize_full_hamiltonian(self,
                                      nbands=None,
                                      scalapack=None):
-        self.calculation.state = diagonalize(self.calculation.state, nbands)
+        state = self.calculation.state
+        ibzwfs = diagonalize(state, self.calculation.scf_loop.occ_calc, nbands)
+        self.calculation.state = DFTState(ibzwfs,
+                                          state.density,
+                                          state.potential)
+        nbands = ibzwfs.nbands
+        self.params.nbands = nbands
 
 
 def write_header(log, world, params):

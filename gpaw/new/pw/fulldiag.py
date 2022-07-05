@@ -48,29 +48,28 @@ def pw_matrix(pw: PlaneWaves,
     S_GG = dist.matrix(complex)
     G1, G2 = dist.my_row_range()
 
-    x_G = pw.zeros()
+    x_G = pw.empty()
     assert isinstance(x_G, PlaneWaveExpansions)  # Fix this!
     x_R = vt_R.desc.new(dtype=complex).zeros()
     assert isinstance(x_R, UniformGridFunctions)  # Fix this!
     N = x_R.data.size
-    dv = pw.dv / N
+    dv = pw.dv / N**2
 
     for G in range(G1, G2):
+        x_G.data[:] = 0.0
         x_G.data[G] = 1.0
         x_G.ifft(out=x_R)
         x_R.data *= vt_R.data
         x_R.fft(out=x_G)
         H_GG.data[G - G1] = dv * x_G.data
-        x_G.data[G] = 0.0
 
     H_GG.add_to_diagonal(dv * pw.ekin_G)
-
     S_GG.data[:] = 0.0
     S_GG.add_to_diagonal(dv)
 
+    pt_aiG._lazy_init()
     assert pt_aiG._lfc is not None
     f_GI = pt_aiG._lfc.expand()
-    print(f_GI.shape)
     nI = f_GI.shape[1]
     dH_II = np.zeros((nI, nI))
     dS_II = np.zeros((nI, nI))
@@ -92,10 +91,6 @@ def diagonalize_full_hamiltonian(self, ham, atoms, log,
                                  nbands=None, ecut=None, scalapack=None,
                                  expert=False):
     """
-    if self.dtype != complex:
-        raise ValueError(
-            'Please use mode=PW(..., force_complex_dtype=True)')
-
     if self.gd.comm.size > 1:
         raise ValueError(
             "Please use parallel={'domain': 1}")
@@ -218,13 +213,14 @@ def diagonalize_full_hamiltonian(self, ham, atoms, log,
 
 
 def diagonalize(state: DFTState,
-                nbands: int) -> DFTState:
+                occ_calc,
+                nbands: int) -> IBZWaveFunctions:
     vt_sR = state.potential.vt_sR
     dH_asii = state.potential.dH_asii
-    dS_aii = [delta_iiL[:, :, 0]
+    dS_aii = [delta_iiL[:, :, 0] * (4 * np.pi)**0.5
               for delta_iiL in state.density.delta_aiiL]
     ibzwfs = state.ibzwfs
-    wfs_qs = []
+    wfs_qs: list[list[PWFDWaveFunctions]] = []
     for wfs_s in ibzwfs.wfs_qs:
         wfs_qs.append([])
         for wfs in wfs_s:
@@ -258,5 +254,7 @@ def diagonalize(state: DFTState,
         ibzwfs.ncomponents,
         wfs_qs,
         ibzwfs.kpt_comm)
+
+    new_ibzwfs.calculate_occs(occ_calc)
 
     return new_ibzwfs
