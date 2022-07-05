@@ -3,7 +3,6 @@ import numbers
 import numpy as np
 
 from ase.units import Ha
-from ase.utils import IOContext
 from ase.utils.timing import timer
 
 import gpaw.mpi as mpi
@@ -13,7 +12,6 @@ from gpaw.fd_operators import Gradient
 from gpaw.response.pw_parallelization import block_partition
 from gpaw.utilities.blas import mmm
 from gpaw.response.symmetry import KPointFinder
-from gpaw.response.groundstate import ResponseGroundStateAdapter
 from gpaw.response.context import new_context
 
 
@@ -118,6 +116,7 @@ class NoCalculatorPairDensity:
         self.real_space_derivatives = real_space_derivatives
 
         self.blockcomm, self.kncomm = block_partition(context.world, nblocks)
+        self.nblocks = nblocks
 
         self.fermi_level = self.gs.fermi_level
         self.spos_ac = self.gs.spos_ac

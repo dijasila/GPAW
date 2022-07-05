@@ -7,7 +7,7 @@ from typing import Union
 
 import numpy as np
 from ase.units import Ha
-from ase.utils.timing import Timer, timer
+from ase.utils.timing import timer
 
 import gpaw
 import gpaw.mpi as mpi
@@ -41,123 +41,24 @@ def find_maximum_frequency(kpt_u, nbands=0, fd=None):
     return epsmax - epsmin
 
 
-class Chi0:
-    """Class for calculating non-interacting response functions."""
-
-    def __init__(self,
-                 calc,
-                 *,
-                 frequencies: Union[dict, Array1D] = None,
-                 ecut=50, hilbert=True, nbands=None,
-                 timeordered=False, eta=0.2, ftol=1e-6, threshold=1,
-                 real_space_derivatives=False, intraband=True,
-                 world=mpi.world, txt='-', timer=None,
-                 nblocks=1,
+class Chi0Calculator:
+    def __init__(self, wd, pair,
+                 hilbert=True,
+                 intraband=True,
+                 nbands=None,
+                 timeordered=False,
+                 eta=0.2,
                  disable_point_group=False, disable_time_reversal=False,
                  disable_non_symmorphic=True,
                  integrationmode=None,
-                 rate=0.0, eshift=0.0,
-                 domega0=None,  # deprecated
-                 omega2=None,  # deprecated
-                 omegamax=None  # deprecated
-                 ):
-        """Construct Chi0 object.
+                 rate=0.0, eshift=0.0):
+        self.context = pair.context
 
-        Parameters
-        ----------
-        calc : str
-            The groundstate calculation file that the linear response
-            calculation is based on.
-        frequencies :
-            Input parameters for frequency_grid.
-            Can be array of frequencies to evaluate the response function at
-            or dictionary of paramaters for build-in nonlinear grid
-            (see :ref:`frequency grid`).
-        ecut : float
-            Energy cutoff.
-        hilbert : bool
-            Switch for hilbert transform. If True, the full density response
-            is determined from a hilbert transform of its spectral function.
-            This is typically much faster, but does not work for imaginary
-            frequencies.
-        nbands : int
-            Maximum band index to include.
-        timeordered : bool
-            Switch for calculating the time ordered density response function.
-            In this case the hilbert transform cannot be used.
-        eta : float
-            Artificial broadening of spectra.
-        ftol : float
-            Threshold determining whether a band is completely filled
-            (f > 1 - ftol) or completely empty (f < ftol).
-        threshold : float
-            Numerical threshold for the optical limit k dot p perturbation
-            theory expansion (used in gpaw/response/pair.py).
-        real_space_derivatives : bool
-            Switch for calculating nabla matrix elements (in the optical limit)
-            using a real space finite difference approximation.
-        intraband : bool
-            Switch for including the intraband contribution to the density
-            response function.
-        world : MPI comm instance
-            MPI communicator.
-        txt : str
-            Output file.
-        timer : gpaw.utilities.timing.timer instance
-        nblocks : int
-            Divide the response function into nblocks. Useful when the response
-            function is large.
-        disable_point_group : bool
-            Do not use the point group symmetry operators.
-        disable_time_reversal : bool
-            Do not use time reversal symmetry.
-        disable_non_symmorphic : bool
-            Do no use non symmorphic symmetry operators.
-        integrationmode : str
-            Integrator for the kpoint integration.
-            If == 'tetrahedron integration' then the kpoint integral is
-            performed using the linear tetrahedron method.
-        eshift : float
-            Shift unoccupied bands
-        rate : float,str
-            Phenomenological scattering rate to use in optical limit Drude term
-            (in eV). If rate='eta', then use input artificial broadening eta as
-            rate. Note, for consistency with the formalism the rate is
-            implemented as omegap^2 / (omega + 1j * rate)^2 which differ from
-            some literature by a factor of 2.
+        self.timer = self.context.timer
+        self.fd = self.context.fd
 
-
-        Attributes
-        ----------
-        pair : gpaw.response.pair.PairDensity instance
-            Class for calculating matrix elements of pairs of wavefunctions.
-
-        """
-        if domega0 is not None or omega2 is not None or omegamax is not None:
-            assert frequencies is None
-            frequencies = {'type': 'nonlinear',
-                           'domega0': domega0,
-                           'omega2': omega2,
-                           'omegamax': omegamax}
-            warnings.warn(f'Please use frequencies={frequencies}')
-
-        elif frequencies is None:
-            frequencies = {'type': 'nonlinear'}
-
-        from gpaw.response.pair import normalize_args
-
-        calc, context = normalize_args(calc, txt, world, timer)
-
-        self.timer = context.timer
-        self.fd = context.fd
-
-        gs = calc.gs_adapter()
-
-        self.pair = NoCalculatorPairDensity(
-            gs, ecut=ecut, ftol=ftol, threshold=threshold,
-            real_space_derivatives=real_space_derivatives,
-            context=context,
-            nblocks=nblocks)
+        self.pair = pair
+        self.gs = pair.gs
 
         self.disable_point_group = disable_point_group
         self.disable_time_reversal = disable_time_reversal
@@ -165,19 +66,15 @@ class Chi0:
         self.integrationmode = integrationmode
         self.eshift = eshift / Ha
 
-        # calc = self.pair.calc
-        self.calc = calc
-        self.gs = self.pair.gs
-        self.fd = self.pair.fd
         self.vol = self.gs.volume
-        self.world = world
-        self.blockcomm, self.kncomm = block_partition(world, nblocks)
-        self.nblocks = nblocks
+        self.world = self.context.world
+        self.nblocks = pair.nblocks
+        self.calc = self.gs._calc  # XXX remove me
 
-        if ecut is not None:
-            ecut /= Ha
+        # XXX this is redundant as pair also does it.
+        self.blockcomm, self.kncomm = block_partition(self.world, self.nblocks)
 
-        self.ecut = ecut
+        self.ecut = pair.ecut  # pair already converted with "/= Ha"
 
         self.eta = eta / Ha
         if rate == 'eta':
@@ -188,14 +85,7 @@ class Chi0:
         self.nbands = nbands or self.gs.bd.nbands
         self.include_intraband = intraband
 
-        if (isinstance(frequencies, dict) and
-            frequencies.get('omegamax') is None):
-            omegamax = find_maximum_frequency(self.gs.kpt_u,
-                                              nbands=self.nbands,
-                                              fd=self.fd)
-            frequencies['omegamax'] = omegamax * Ha
-
-        self.wd = FrequencyDescriptor.from_array_or_dict(frequencies)
+        self.wd = wd
         print(self.wd, file=self.fd)
 
         if not isinstance(self.wd, NonLinearFrequencyDescriptor):
@@ -865,8 +755,8 @@ class Chi0:
         p('    Number of frequency points: %d' % nw)
         if bsize > nw:
             p('WARNING! Your nblocks is larger than number of frequency'
-              ' points. Errors might occur, if your submodule don'''
-              't know how to handle this.')
+              ' points. Errors might occur, if your submodule does'
+              ' not know how to handle this.')
         p('    Planewave cutoff: %f' % ecut)
         p('    Number of spins: %d' % ns)
         p('    Number of bands: %d' % nbands)
@@ -886,3 +776,124 @@ class Chi0:
         p('        Memory usage before allocation: %f M / cpu' % (maxrss() /
                                                                   1024**2))
         p()
+
+
+class Chi0(Chi0Calculator):
+    """Class for calculating non-interacting response functions."""
+
+    def __init__(self,
+                 calc,
+                 *,
+                 frequencies: Union[dict, Array1D] = None,
+                 ecut=50,
+                 ftol=1e-6, threshold=1,
+                 real_space_derivatives=False,
+                 world=mpi.world, txt='-', timer=None,
+                 nblocks=1,
+                 domega0=None,  # deprecated
+                 omega2=None,  # deprecated
+                 omegamax=None,  # deprecated
+                 **kwargs):
+        """Construct Chi0 object.
+
+        Parameters
+        ----------
+        calc : str
+            The groundstate calculation file that the linear response
+            calculation is based on.
+        frequencies :
+            Input parameters for frequency_grid.
+            Can be array of frequencies to evaluate the response function at
+            or dictionary of paramaters for build-in nonlinear grid
+            (see :ref:`frequency grid`).
+        ecut : float
+            Energy cutoff.
+        hilbert : bool
+            Switch for hilbert transform. If True, the full density response
+            is determined from a hilbert transform of its spectral function.
+            This is typically much faster, but does not work for imaginary
+            frequencies.
+        nbands : int
+            Maximum band index to include.
+        timeordered : bool
+            Switch for calculating the time ordered density response function.
+            In this case the hilbert transform cannot be used.
+        eta : float
+            Artificial broadening of spectra.
+        ftol : float
+            Threshold determining whether a band is completely filled
+            (f > 1 - ftol) or completely empty (f < ftol).
+        threshold : float
+            Numerical threshold for the optical limit k dot p perturbation
+            theory expansion (used in gpaw/response/pair.py).
+        real_space_derivatives : bool
+            Switch for calculating nabla matrix elements (in the optical limit)
+            using a real space finite difference approximation.
+        intraband : bool
+            Switch for including the intraband contribution to the density
+            response function.
+        world : MPI comm instance
+            MPI communicator.
+        txt : str
+            Output file.
+        timer : gpaw.utilities.timing.timer instance
+        nblocks : int
+            Divide the response function into nblocks. Useful when the response
+            function is large.
+        disable_point_group : bool
+            Do not use the point group symmetry operators.
+        disable_time_reversal : bool
+            Do not use time reversal symmetry.
+        disable_non_symmorphic : bool
+            Do no use non symmorphic symmetry operators.
+        integrationmode : str
+            Integrator for the kpoint integration.
+            If == 'tetrahedron integration' then the kpoint integral is
+            performed using the linear tetrahedron method.
+        eshift : float
+            Shift unoccupied bands
+        rate : float,str
+            Phenomenological scattering rate to use in optical limit Drude term
+            (in eV). If rate='eta', then use input artificial broadening eta as
+            rate. Note, for consistency with the formalism the rate is
+            implemented as omegap^2 / (omega + 1j * rate)^2 which differ from
+            some literature by a factor of 2.
+
+
+        Attributes
+        ----------
+        pair : gpaw.response.pair.PairDensity instance
+            Class for calculating matrix elements of pairs of wavefunctions.
+
+        """
+        from gpaw.response.pair import normalize_args
+        calc, context = normalize_args(calc, txt, world, timer)
+
+        if domega0 is not None or omega2 is not None or omegamax is not None:
+            assert frequencies is None
+            frequencies = {'type': 'nonlinear',
+                           'domega0': domega0,
+                           'omega2': omega2,
+                           'omegamax': omegamax}
+            warnings.warn(f'Please use frequencies={frequencies}')
+
+        elif frequencies is None:
+            frequencies = {'type': 'nonlinear'}
+
+        if (isinstance(frequencies, dict) and
+            frequencies.get('omegamax') is None):
+            omegamax = find_maximum_frequency(self.gs.kpt_u,
+                                              nbands=self.nbands,
+                                              fd=self.fd)
+            frequencies['omegamax'] = omegamax * Ha
+
+        wd = FrequencyDescriptor.from_array_or_dict(frequencies)
+        gs = calc.gs_adapter()
+
+        pair = NoCalculatorPairDensity(
+            gs, ecut=ecut, ftol=ftol, threshold=threshold,
+            real_space_derivatives=real_space_derivatives,
+            context=context,
+            nblocks=nblocks)
+
+        super().__init__(wd=wd, pair=pair, **kwargs)
