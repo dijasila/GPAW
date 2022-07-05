@@ -2,9 +2,8 @@ import pytest
 import numpy as np
 
 from ase import Atoms
-from ase.units import Ha
 
-from gpaw import GPAW, PW
+from gpaw import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.pw.descriptor import PWDescriptor
 from gpaw.response.pair import PairDensity
