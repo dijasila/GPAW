@@ -13,13 +13,11 @@ from gpaw.response.math_func import two_phi_nabla_planewave_integrals
 
 @pytest.mark.response
 def test_response_pair(in_tmp_dir, scalapack):
-    np.set_printoptions(precision=1)
-
     nb = 6
 
-    a = Atoms('H', cell=(3 * np.eye(3)), pbc=True)
+    a = Atoms('H', cell=[2.5] * 3, pbc=True)
 
-    calc = GPAW(mode=PW(600), kpts=[[0, 0, 0], [0.25, 0, 0]],
+    calc = GPAW(mode='pw', kpts=[[0, 0, 0], [0.25, 0, 0]],
                 parallel=dict(domain=1))
     a.calc = calc
     a.get_potential_energy()
