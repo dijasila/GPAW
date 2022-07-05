@@ -15,6 +15,7 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.pw.descriptor import PWDescriptor
 from gpaw.utilities.blas import axpy, gemmdot
 from gpaw.xc.rpa import RPACorrelation
+from gpaw.response.groundstate import ResponseGroundStateAdapter
 
 
 class FXCCorrelation(RPACorrelation):
@@ -62,7 +63,7 @@ class FXCCorrelation(RPACorrelation):
         self.xc = xc
         self.density_cut = density_cut
         if unit_cells is None:
-            unit_cells = self.calc.wfs.kd.N_c
+            unit_cells = self.gs.kd.N_c
         self.unit_cells = unit_cells
         self.range_rc = range_rc  # Range separation parameter in Bohr
         self.av_scheme = av_scheme  # Either 'density' or 'wavevector'
@@ -72,7 +73,7 @@ class FXCCorrelation(RPACorrelation):
 
         if tag is None:
 
-            tag = self.calc.atoms.get_chemical_formula(mode='hill')
+            tag = self.gs.atoms.get_chemical_formula(mode='hill')
 
             if self.av_scheme is not None:
 
@@ -152,7 +153,7 @@ class FXCCorrelation(RPACorrelation):
 
             self.shortrange = shortrange.calculate()
 
-        if self.calc.wfs.nspins == 1:
+        if self.gs.nspins == 1:
             spin = False
         else:
             spin = True
@@ -462,12 +463,13 @@ class KernelWave:
                  tag, timer):
 
         self.calc = calc
+        self.gs = ResponseGroundStateAdapter(calc)
         self.gd = calc.density.gd
         self.xc = xc
         self.ibzq_qc = ibzq_qc
         self.fd = fd
         self.l_l = l_l
-        self.ns = calc.wfs.nspins
+        self.ns = self.gs.nspins
         self.q_empty = q_empty
         self.omega_w = omega_w
         self.Eg = Eg
@@ -479,9 +481,9 @@ class KernelWave:
             self.l_l = [1.0]
 
         # Density grid
-        self.n_g = calc.get_all_electron_density(gridrefinement=2)
-        self.n_g = self.n_g.flatten() * Bohr**3
-        # Density now in units electrons/cubic Bohr
+        n_sg, finegd = self.gs.all_electron_density(gridrefinement=2)
+        self.n_g = n_sg.sum(axis=0).flatten()
+
         #  For atoms with large vacuum regions
         #  this apparently can take negative values!
         mindens = np.amin(self.n_g)
@@ -492,7 +494,7 @@ class KernelWave:
             print('These will be reset to 1E-12 elec/bohr^3)', file=self.fd)
             self.n_g[np.where(self.n_g < 0.0)] = 1.0E-12
 
-        r_g = self.gd.refine().get_grid_point_coordinates()  # already in Bohr
+        r_g = finegd.get_grid_point_coordinates()
         self.x_g = 1.0 * r_g[0].flatten()
         self.y_g = 1.0 * r_g[1].flatten()
         self.z_g = 1.0 * r_g[2].flatten()
@@ -1081,6 +1083,8 @@ class range_separated:
                  range_rc, xc):
 
         self.calc = calc
+        self.gs = ResponseGroundStateAdapter(calc)
+
         self.fd = fd
         self.frequencies = frequencies
         self.freqweights = freqweights
@@ -1099,7 +1103,7 @@ class range_separated:
 
         nval_g = calc.get_all_electron_density(
             gridrefinement=4, skip_core=True).flatten() * Bohr**3
-        self.dv = self.calc.density.gd.dv / 64.0  # 64 = gridrefinement^3
+        self.dv = self.gs.density.gd.dv / 64.0  # 64 = gridrefinement^3
 
         density_cut = 3.0 / (4.0 * np.pi * self.cutoff_rs**3.0)
         if (nval_g < 0.0).any():
@@ -1115,7 +1119,8 @@ class range_separated:
                   file=self.fd)
 
         densitysum = np.sum(nval_g * self.dv)
-        valence = self.calc.wfs.setups.nvalence
+        # XXX probably wrong for charged systems
+        valence = self.gs.setups.nvalence
 
         print('Density integrates to %s electrons' % (densitysum),
               file=self.fd)
@@ -1262,7 +1267,8 @@ class KernelDens:
                  tag, timer):
 
         self.calc = calc
-        self.gd = calc.density.gd
+        self.gs = ResponseGroundStateAdapter(calc)
+        self.gd = self.gs.density.gd
         self.xc = xc
         self.ibzq_qc = ibzq_qc
         self.fd = fd
@@ -1309,7 +1315,7 @@ class KernelDens:
         icell_cv = 2 * np.pi * np.linalg.inv(cell_cv)
         vol = gd.volume
 
-        ns = self.calc.wfs.nspins
+        ns = self.gs.nspins
         n_g = self.n_g  # density on rough grid
 
         fx_g = ns * self.get_fxc_g(n_g)  # local exchange kernel
@@ -1343,7 +1349,7 @@ class KernelDens:
             # with more than one unit cell only the exchange kernel is
             # calculated on the grid. The bare Coulomb kernel is added
             # in PW basis and Vlocal_g only the exchange part
-            dv = self.calc.density.gd.dv
+            dv = self.gs.density.gd.dv
             gc = (3 * dv / 4 / np.pi)**(1 / 3.)
             Vlocal_g -= 2 * np.pi * gc**2 / dv
             print('    Lattice point sampling: ' + '(%s x %s x %s)^2 ' %
@@ -1502,7 +1508,7 @@ class KernelDens:
         # Standard ALDA exchange kernel
         # Use with care. Results are very difficult to converge
         # Sensitive to density_cut
-        ns = self.calc.wfs.nspins
+        ns = self.gs.nspins
         gd = self.gd
         pd = self.pd
         cell_cv = gd.cell_cv
@@ -1565,7 +1571,7 @@ class KernelDens:
         if index is None:
             gradn_vg = self.gradn_vg
         else:
-            gradn_vg = self.calc.density.gd.empty(3)
+            gradn_vg = self.gs.density.gd.empty(3)
             for v in range(3):
                 gradn_vg[v] = (self.gradn_vg[v] +
                                self.gradn_vg[v].flatten()[index]) / 2

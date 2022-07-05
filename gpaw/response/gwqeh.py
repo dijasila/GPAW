@@ -98,7 +98,7 @@ class GWQEHCorrection(PairDensity):
         self.ecut /= Hartree
         self.eta = eta / Hartree
 
-        self.kpts = list(select_kpts(kpts, self.calc))
+        self.kpts = list(select_kpts(kpts, self.calc.wfs.kd))
 
         if bands is None:
             bands = [0, self.nocc2]
