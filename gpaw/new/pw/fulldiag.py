@@ -10,6 +10,7 @@ from gpaw.new.calculation import DFTState
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.typing import Array2D
 from gpaw.new.ibzwfs import IBZWaveFunctions
+from gpaw.new.wave_functions import WaveFunctions
 
 
 def pw_matrix(pw: PlaneWaves,
@@ -52,7 +53,6 @@ def pw_matrix(pw: PlaneWaves,
     assert isinstance(x_G, PlaneWaveExpansions)  # Fix this!
     x_R = vt_R.desc.new(dtype=complex).zeros()
     assert isinstance(x_R, UniformGridFunctions)  # Fix this!
-    N = x_R.data.size
     dv = pw.dv
 
     for G in range(G1, G2):
@@ -220,7 +220,7 @@ def diagonalize(state: DFTState,
     dS_aii = [delta_iiL[:, :, 0] * (4 * np.pi)**0.5
               for delta_iiL in state.density.delta_aiiL]
     ibzwfs = state.ibzwfs
-    wfs_qs: list[list[PWFDWaveFunctions]] = []
+    wfs_qs: list[list[WaveFunctions]] = []
     for wfs_s in ibzwfs.wfs_qs:
         wfs_qs.append([])
         for wfs in wfs_s:
