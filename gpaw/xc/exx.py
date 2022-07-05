@@ -17,6 +17,7 @@ from gpaw.pw.descriptor import PWDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.utilities import unpack, unpack2
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
+from gpaw.response.context import new_context
 
 
 def select_kpts(kpts, kd):
@@ -74,13 +75,9 @@ class EXX(NoCalculatorPairDensity):
             for the ground-state calculations.
         """
 
-        from ase.utils import IOContext
-        self.iocontext = IOContext()
-        fd = self.iocontext.openfile(txt, world)
+        context = new_context(txt=txt, world=world, timer=timer)
 
-        super().__init__(gs=gs,
-                         ecut=ecut, world=world, fd=fd,
-                         timer=timer)
+        super().__init__(gs=gs, ecut=ecut, context=context)
 
         def _xc(name):
             return {'name': name, 'stencil': stencil}
@@ -152,9 +149,6 @@ class EXX(NoCalculatorPairDensity):
         self.V_asii = []  # valence-valence correction
         self.C_aii = []   # valence-core correction
         self.initialize_paw_exx_corrections()
-
-    def __del__(self):
-        self.iocontext.close()
 
     def calculate(self, restart: Union[Path, str] = None):
         """Do the calculation.

@@ -19,7 +19,7 @@ from gpaw.response.frequencies import (FrequencyDescriptor,
 from gpaw.response.hilbert import HilbertTransform
 from gpaw.response.integrators import (Integrator, PointIntegrator,
                                        TetrahedronIntegrator)
-from gpaw.response.pair import PairDensity
+from gpaw.response.pair import NoCalculatorPairDensity
 from gpaw.response.pw_parallelization import block_partition
 from gpaw.response.symmetry import PWSymmetryAnalyzer
 from gpaw.typing import Array1D
@@ -144,14 +144,20 @@ class Chi0:
         elif frequencies is None:
             frequencies = {'type': 'nonlinear'}
 
-        self.timer = timer or Timer()
+        from gpaw.response.pair import normalize_args
 
-        self.pair = PairDensity(calc, ecut,
-                                ftol=ftol, threshold=threshold,
-                                real_space_derivatives=real_space_derivatives,
-                                world=world, txt=txt,
-                                timer=self.timer,
-                                nblocks=nblocks)
+        calc, context = normalize_args(calc, txt, world, timer)
+
+        self.timer = context.timer
+        self.fd = context.fd
+
+        gs = calc.gs_adapter()
+
+        self.pair = NoCalculatorPairDensity(
+            gs, ecut=ecut, ftol=ftol, threshold=threshold,
+            real_space_derivatives=real_space_derivatives,
+            context=context,
+            nblocks=nblocks)
 
         self.disable_point_group = disable_point_group
         self.disable_time_reversal = disable_time_reversal
@@ -159,7 +165,7 @@ class Chi0:
         self.integrationmode = integrationmode
         self.eshift = eshift / Ha
 
-        calc = self.pair.calc
+        # calc = self.pair.calc
         self.calc = calc
         self.gs = self.pair.gs
         self.fd = self.pair.fd
