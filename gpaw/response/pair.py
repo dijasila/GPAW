@@ -13,7 +13,6 @@ from gpaw.fd_operators import Gradient
 from gpaw.response.pw_parallelization import block_partition
 from gpaw.utilities.blas import mmm
 from gpaw.response.symmetry import KPointFinder
-from gpaw.response.groundstate import ResponseGroundStateAdapter
 
 
 class KPoint:
