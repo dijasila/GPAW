@@ -125,7 +125,14 @@ def test_he_chi0_extend_head(in_tmp_dir, He_gs, He_chi0kwargs):
 
 
 @pytest.mark.response
-def test_li_chi0_extend_head(in_tmp_dir, Li_gs, Li_chi0kwargs):
+def test_li_chi0_extend_head(in_tmp_dir, Li_gs, Li_chi0kwargs, request):
+    if ('integrationmode' in Li_chi0kwargs and 
+        Li_chi0kwargs['integrationmode'] == 'tetrahedron integration') or\
+       Li_chi0kwargs['intraband']:
+        # Head and wings have not yet have a tetrahedron integration
+        # implementation nor a proper intraband implementation. For now,
+        # we simply mark the tests with xfail accordingly.
+        request.node.add_marker(pytest.mark.xfail)
     chi0_extend_head_test(Li_gs, Li_chi0kwargs)
 
 
