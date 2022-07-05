@@ -56,7 +56,7 @@ def generate_semic_chi0_params():
     chi0_params.append(ck4)
 
     ck5 = chi0kwargs.copy()  # Check eta=0.
-    ck5['frequencies'] = 1.j * ck5['frequencies']
+    ck5['frequencies'] = 1.j * ck5['frequencies'][1:]
     ck5['eta'] = 0.
     chi0_params.append(ck5)
 
