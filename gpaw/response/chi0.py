@@ -521,7 +521,7 @@ class Chi0:
             if self.include_intraband:
                 drude_chi_wvv = plasmafreq_vv[np.newaxis]\
                     / (self.wd.omega_w[:, np.newaxis, np.newaxis]
-                       + 1e-10 + self.rate * 1j)**2
+                       + 1.j * self.rate)**2
                 if chi0.extend_head:
                     va = min(chi0.blocks1d.a, 3)
                     vb = min(chi0.blocks1d.b, 3)
