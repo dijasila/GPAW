@@ -527,6 +527,7 @@ class Chi0:
                     vb = min(chi0.blocks1d.b, 3)
                     A_wxx[:, :vb - va, :3] += drude_chi_wvv[:, va:vb]
                 else:
+                    # Fill into head part of tmp head AND wings array
                     chi0_wxvx[:, 0, :3, :3] += drude_chi_wvv
 
             # Save the plasmafrequency
