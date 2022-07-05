@@ -790,6 +790,7 @@ class Chi0(Chi0Calculator):
                  real_space_derivatives=False,
                  world=mpi.world, txt='-', timer=None,
                  nblocks=1,
+                 nbands=None,
                  domega0=None,  # deprecated
                  omega2=None,  # deprecated
                  omegamax=None,  # deprecated
@@ -868,6 +869,8 @@ class Chi0(Chi0Calculator):
         """
         from gpaw.response.pair import normalize_args
         calc, context = normalize_args(calc, txt, world, timer)
+        gs = calc.gs_adapter()
+        nbands = nbands or gs.bd.nbands
 
         if domega0 is not None or omega2 is not None or omegamax is not None:
             assert frequencies is None
@@ -882,18 +885,17 @@ class Chi0(Chi0Calculator):
 
         if (isinstance(frequencies, dict) and
             frequencies.get('omegamax') is None):
-            omegamax = find_maximum_frequency(self.gs.kpt_u,
-                                              nbands=self.nbands,
-                                              fd=self.fd)
+            omegamax = find_maximum_frequency(gs.kpt_u,
+                                              nbands=nbands,
+                                              fd=context.fd)
             frequencies['omegamax'] = omegamax * Ha
 
         wd = FrequencyDescriptor.from_array_or_dict(frequencies)
-        gs = calc.gs_adapter()
 
         pair = NoCalculatorPairDensity(
-            gs, ecut=ecut, ftol=ftol, threshold=threshold,
+            gs=gs, ecut=ecut, ftol=ftol, threshold=threshold,
             real_space_derivatives=real_space_derivatives,
             context=context,
             nblocks=nblocks)
 
-        super().__init__(wd=wd, pair=pair, **kwargs)
+        super().__init__(wd=wd, pair=pair, nbands=nbands, **kwargs)
