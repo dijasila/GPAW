@@ -86,8 +86,10 @@ def generate_metal_chi0_params():
     nointra_chi0_params = []
     for ck in chi0_params:
         ck['intraband'] = True  # This is the default, but be specific
+        ck['rate'] = 0.1  # We need a finite scattering rate, not to blow up
         nointra_ck = ck.copy()
         nointra_ck['intraband'] = False
+        nointra_ck['rate'] = 0.0
         nointra_chi0_params.append(nointra_ck)
     chi0_params += nointra_chi0_params
 
@@ -156,23 +158,21 @@ def test_he_chi0_extend_head(in_tmp_dir, He_gs, He_chi0kwargs):
 
 @pytest.mark.response
 def test_li_chi0_extend_head(in_tmp_dir, Li_gs, Li_chi0kwargs, request):
-    mark_intraband_and_tetrahedron_xfail(Li_chi0kwargs, request)
+    mark_tetrahedron_xfail(Li_chi0kwargs, request)
     chi0_extend_head_test(Li_gs, Li_chi0kwargs)
 
 
 @pytest.mark.response
 def test_ni_chi0_extend_head(in_tmp_dir, Ni_gs, Ni_chi0kwargs, request):
-    mark_intraband_and_tetrahedron_xfail(Ni_chi0kwargs, request)
+    mark_tetrahedron_xfail(Ni_chi0kwargs, request)
     chi0_extend_head_test(Ni_gs, Ni_chi0kwargs)
 
 
-def mark_intraband_and_tetrahedron_xfail(chi0kwargs, request):
-    if ('integrationmode' in chi0kwargs and
-        chi0kwargs['integrationmode'] == 'tetrahedron integration') or\
-       chi0kwargs['intraband']:
+def mark_tetrahedron_xfail(chi0kwargs, request):
+    if 'integrationmode' in chi0kwargs and\
+       chi0kwargs['integrationmode'] == 'tetrahedron integration':
         # Head and wings have not yet have a tetrahedron integration
-        # implementation nor a proper intraband implementation. For now,
-        # we simply mark the tests with xfail accordingly.
+        # implementation. For now, we simply mark the tests with xfail.
         request.node.add_marker(pytest.mark.xfail)
 
 
