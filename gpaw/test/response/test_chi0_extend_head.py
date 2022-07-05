@@ -7,6 +7,7 @@ from pathlib import Path
 
 # Script modules
 from ase import Atoms
+from ase.build import bulk
 from ase.dft.kpoints import monkhorst_pack
 
 from gpaw import GPAW, PW
@@ -17,7 +18,7 @@ from gpaw.response.chi0 import Chi0
 # ---------- Chi0 parametrization ---------- #
 
 
-def generate_He_chi0_params():
+def generate_semic_chi0_params():
     """Check the following options for a semi-conductor:
     * threshold
     * hilbert
@@ -55,7 +56,7 @@ def generate_He_chi0_params():
     chi0_params.append(ck4)
 
     ck5 = chi0kwargs.copy()  # Check eta=0.
-    ck5['frequencies'] = 1.j * ck5['frequencies']
+    ck5['frequencies'] = 1.j * ck5['frequencies'][1:]
     ck5['eta'] = 0.
     chi0_params.append(ck5)
 
@@ -66,24 +67,79 @@ def generate_He_chi0_params():
     return chi0_params
 
 
-@pytest.fixture(scope='module', params=generate_He_chi0_params())
-def chi0kwargs(request, He_gs):
-    # Fill in nbands parameter, if not already specified
-    my_chi0kwargs = request.param
-    if 'nbands' not in my_chi0kwargs:
-        _, nbands = He_gs
-        my_chi0kwargs['nbands'] = nbands
+def generate_metal_chi0_params():
+    """In addition to the semi-conductor parameters, test also:
+    * integrationmode
+    * intraband (test all other settings with and without intraband)
+    """
+    # Get semi-conductor defaults
+    chi0_params = generate_semic_chi0_params()
+    chi0kwargs = chi0_params[0]
 
-    return my_chi0kwargs
+    ck7 = chi0kwargs.copy()  # Check tetrahedron integration
+    ck7['integrationmode'] = 'tetrahedron integration'
+    ck7['hilbert'] = True
+    ck7['frequencies'] = None
+    chi0_params.append(ck7)
+
+    # Run all test settings without intraband
+    nointra_chi0_params = []
+    for ck in chi0_params:
+        ck['intraband'] = True  # This is the default, but be specific
+        nointra_ck = ck.copy()
+        nointra_ck['intraband'] = False
+        nointra_chi0_params.append(nointra_ck)
+    chi0_params += nointra_chi0_params
+
+    return chi0_params
+
+
+@pytest.fixture(scope='module', params=generate_semic_chi0_params())
+def He_chi0kwargs(request, He_gs):
+    chi0kwargs = request.param
+    assure_nbands(chi0kwargs, He_gs)
+
+    return chi0kwargs
+
+
+@pytest.fixture(scope='module', params=generate_metal_chi0_params())
+def Li_chi0kwargs(request, Li_gs):
+    chi0kwargs = request.param
+    assure_nbands(chi0kwargs, Li_gs)
+
+    return chi0kwargs
+
+
+def assure_nbands(chi0kwargs, my_gs):
+    # Fill in nbands parameter, if not already specified
+    if 'nbands' not in chi0kwargs:
+        _, nbands = my_gs
+        chi0kwargs['nbands'] = nbands
 
 
 # ---------- Actual tests ---------- #
 
 
 @pytest.mark.response
-def test_he_chi0_extend_head(in_tmp_dir, He_gs, chi0kwargs):
+def test_he_chi0_extend_head(in_tmp_dir, He_gs, He_chi0kwargs):
+    chi0_extend_head_test(He_gs, He_chi0kwargs)
+
+
+@pytest.mark.response
+def test_li_chi0_extend_head(in_tmp_dir, Li_gs, Li_chi0kwargs, request):
+    if ('integrationmode' in Li_chi0kwargs and
+        Li_chi0kwargs['integrationmode'] == 'tetrahedron integration') or\
+       Li_chi0kwargs['intraband']:
+        # Head and wings have not yet have a tetrahedron integration
+        # implementation nor a proper intraband implementation. For now,
+        # we simply mark the tests with xfail accordingly.
+        request.node.add_marker(pytest.mark.xfail)
+    chi0_extend_head_test(Li_gs, Li_chi0kwargs)
+
+
+def chi0_extend_head_test(my_gs, chi0kwargs):
     # ---------- Inputs ---------- #
-    gpw, nbands = He_gs
+    gpw, nbands = my_gs
 
     ecut = 50
 
@@ -118,29 +174,55 @@ def He_gs(module_tmp_path):
     nbands = 1 + 1 + 3  # 1s + 2s + 2p empty shell bands
     ebands = 1  # Include also 3s bands for numerical consistency
     pw = 250
-    conv = {'bands': nbands}
-    gpw = Path('He').resolve()
+    convergence = {'bands': nbands}
+    gpw = Path('He.gpw').resolve()
 
     # ---------- Script ---------- #
 
     atoms = Atoms('He', cell=[a, a, a], pbc=True)
+    calculate_gs(atoms, gpw, pw, kpts, nbands, ebands,
+                 xc=xc, convergence=convergence)
 
-    calc = GPAW(xc=xc,
-                mode=PW(pw),
-                kpts=monkhorst_pack((kpts, kpts, kpts)),
-                nbands=nbands + ebands,
-                convergence=conv,
-                symmetry={'point_group': True},
-                parallel={'domain': 1})
+    return gpw, nbands
 
-    atoms.calc = calc
-    atoms.get_potential_energy()
-    calc.write(gpw, 'all')
+
+@pytest.fixture(scope='module')
+def Li_gs(module_tmp_path):
+    # ---------- Inputs ---------- #
+
+    a = 3.49
+    xc = 'LDA'
+    kpts = 3
+    nbands = 1 + 3 + 1  # 2s + 2p + 3s empty shell bands
+    ebands = 3  # Include also 3p bands for numerical consistency
+    pw = 250
+    convergence = {'bands': nbands}
+    gpw = Path('Li.gpw').resolve()
+
+    # ---------- Script ---------- #
+
+    atoms = bulk('Li', 'bcc', a=a)
+    calculate_gs(atoms, gpw, pw, kpts, nbands, ebands,
+                 xc=xc, convergence=convergence)
 
     return gpw, nbands
 
 
 # ---------- Script functionality ---------- #
+
+
+def calculate_gs(atoms, gpw, pw, kpts, nbands, ebands,
+                 **kwargs):
+    calc = GPAW(mode=PW(pw),
+                kpts=monkhorst_pack((kpts, kpts, kpts)),
+                nbands=nbands + ebands,
+                symmetry={'point_group': True},
+                parallel={'domain': 1},
+                **kwargs)
+
+    atoms.calc = calc
+    atoms.get_potential_energy()
+    calc.write(gpw, 'all')
 
 
 def calculate_optical_limit(chi0_factory, extend_head=True):

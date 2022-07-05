@@ -424,7 +424,8 @@ class TetrahedronIntegrator(Integrator):
         if kind == 'spectral function':
             return self.spectral_function_integration(*args, **kwargs)
         else:
-            raise NotImplementedError
+            raise ValueError("Expected kind='spectral function', got: ",
+                             kind)
 
     @timer('Spectral function integration')
     def spectral_function_integration(self, domain=None, integrand=None,
