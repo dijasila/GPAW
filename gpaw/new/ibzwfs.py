@@ -170,6 +170,7 @@ class IBZWaveFunctions:
         return psi_r
 
     def get_wfs(self,
+                *,
                 kpt: int = 0,
                 spin: int = 0,
                 n1=0,

@@ -190,7 +190,7 @@ class ASECalculator:
 
     def get_pseudo_wave_function(self, band, kpt=0, spin=0) -> Array3D:
         state = self.calculation.state
-        wfs = state.ibzwfs.get_wfs(spin, kpt, band, band + 1)
+        wfs = state.ibzwfs.get_wfs(spin=spin, kpt=kpt, n1=band, n2=band + 1)
         basis = getattr(self.calculation.scf_loop.hamiltonian, 'basis', None)
         grid = state.density.nt_sR.desc
         wfs = wfs.to_uniform_grid_wave_functions(grid, basis)

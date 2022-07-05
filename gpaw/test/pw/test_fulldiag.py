@@ -19,6 +19,7 @@ def test_pw_fulldiag(in_tmp_dir, scalapack):
     a.get_potential_energy()
     _ = a.calc.get_pseudo_wave_function(0)
     e1 = a.calc.get_eigenvalues()
+    w1 = a.calc.get_pseudo_wave_function(0)
 
     a.calc.write('H2.gpw')
 
@@ -43,12 +44,9 @@ def test_pw_fulldiag(in_tmp_dir, scalapack):
     e4 = calc.get_eigenvalues()
 
     for w in [w2, w3, w4]:
-        err = abs(abs(w[1, 2, 3]) - abs(w[1, 2, 3]))
+        err = abs(abs(w[1, 2, 3]) - abs(w1[1, 2, 3]))
         assert err < 1e-10, err
 
-    print(e1[:3])
-    for e in [e2, e3, e4]:
-        print(e[:3])
     for e in [e2, e3, e4]:
         err = abs(e[1] - e1[1])
         assert err < 1e-9, err

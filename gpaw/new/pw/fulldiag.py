@@ -53,7 +53,7 @@ def pw_matrix(pw: PlaneWaves,
     x_R = vt_R.desc.new(dtype=complex).zeros()
     assert isinstance(x_R, UniformGridFunctions)  # Fix this!
     N = x_R.data.size
-    dv = pw.dv / N**2
+    dv = pw.dv
 
     for G in range(G1, G2):
         x_G.data[:] = 0.0
@@ -77,8 +77,8 @@ def pw_matrix(pw: PlaneWaves,
     for a, dH_ii in dH_aii.items():
         dS_ii = dS_aii[a]
         I2 = I1 + len(dS_ii)
-        dH_II[I1:I2, I1:I2] = dH_ii / N**2
-        dS_II[I1:I2, I1:I2] = dS_ii / N**2
+        dH_II[I1:I2, I1:I2] = dH_ii
+        dS_II[I1:I2, I1:I2] = dS_ii
         I1 = I2
 
     H_GG.data += (f_GI[G1:G2].conj() @ dH_II) @ f_GI.T

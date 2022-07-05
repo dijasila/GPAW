@@ -45,6 +45,7 @@ def test_pw_fulldiagk(in_tmp_dir, scalapack):
 
     for w in [w2, w3, w4]:
         err = abs(abs(w[1, 2, 3]) - abs(w1[1, 2, 3]))
+        print(err)
         assert err < 1e-7, err
 
     for e in [e2, e3, e4]:
