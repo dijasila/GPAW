@@ -147,9 +147,10 @@ class Chi0:
         self.timer = timer or Timer()
 
         self.pair = PairDensity(calc, ecut,
-                                ftol, threshold,
-                                real_space_derivatives, world, txt,
-                                self.timer,
+                                ftol=ftol, threshold=threshold,
+                                real_space_derivatives=real_space_derivatives,
+                                world=world, txt=txt,
+                                timer=self.timer,
                                 nblocks=nblocks)
 
         self.disable_point_group = disable_point_group

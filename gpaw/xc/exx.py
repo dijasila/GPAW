@@ -12,7 +12,7 @@ from gpaw.hybrids.paw import pawexxvv
 from gpaw.xc import XC
 from gpaw.xc.tools import vxc
 from gpaw.xc.kernel import XCNull
-from gpaw.response.pair import PairDensity
+from gpaw.response.pair import NoCalculatorPairDensity
 from gpaw.pw.descriptor import PWDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.utilities import unpack, unpack2
@@ -46,7 +46,7 @@ def select_kpts(kpts, kd):
     return indices
 
 
-class EXX(PairDensity):
+class EXX(NoCalculatorPairDensity):
     def __init__(self, calc, xc=None, kpts=None, bands=None, ecut=None,
                  stencil=2,
                  omega=None, world=mpi.world, txt=sys.stdout, timer=None):
@@ -74,8 +74,13 @@ class EXX(PairDensity):
             for the ground-state calculations.
         """
 
-        PairDensity.__init__(self, calc, ecut, world=world, txt=txt,
-                             timer=timer)
+        from ase.utils import IOContext
+        self.iocontext = IOContext()
+        fd = self.iocontext.openfile(txt, world)
+
+        super().__init__(gs=calc.gs_adapter(),
+                         ecut=ecut, world=world, fd=fd,
+                         timer=timer)
 
         def _xc(name):
             return {'name': name, 'stencil': stencil}
@@ -244,7 +249,7 @@ class EXX(PairDensity):
     def get_eigenvalue_contributions(self):
         b1, b2 = self.bands
         e_sin = vxc(
-            self.calc.gs_adapter(), self.xc)[:, self.kpts, b1:b2] / Hartree
+            self.gs, self.xc)[:, self.kpts, b1:b2] / Hartree
         e_sin += (self.exxvv_sin + self.exxvc_sin) * self.exx_fraction
         return e_sin * Hartree
 
