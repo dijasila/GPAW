@@ -105,7 +105,7 @@ class FXCCorrelation(RPACorrelation):
             kernelkwargs = dict(
                 calc=self.calc,
                 xc=self.xc,
-                ibzq_qc=self.iqzq_qc,
+                ibzq_qc=self.ibzq_qc,
                 fd=self.fd,
                 ecut=self.ecut_max,
                 tag=self.tag,
@@ -122,7 +122,7 @@ class FXCCorrelation(RPACorrelation):
 
                     kernelkwargs.update(l_l=self.l_l,
                                         q_empty=q_empty,
-                                        omega_w=self.omega_q,
+                                        omega_w=self.omega_w,
                                         Eg=self.Eg)
 
                     if self.linear_kernel:
@@ -134,7 +134,7 @@ class FXCCorrelation(RPACorrelation):
 
                 else:
                     kernel = KernelDens(**kernelkwargs,
-                                        unitcells=self.unit_cells,
+                                        unit_cells=self.unit_cells,
                                         density_cut=self.density_cut)
 
                 kernel.calculate_fhxc()
