@@ -4,7 +4,7 @@ from time import time
 
 import ase.io.ulm as ulm
 import numpy as np
-from ase.units import Bohr, Ha
+from ase.units import Ha
 from ase.utils.timing import timer
 from scipy.special import p_roots, sici
 
@@ -104,7 +104,7 @@ class FXCCorrelation(RPACorrelation):
                     q_empty = iq
 
             kernelkwargs = dict(
-                calc=self.calc,
+                gs=self.gs,
                 xc=self.xc,
                 ibzq_qc=self.ibzq_qc,
                 fd=self.fd,
@@ -147,7 +147,7 @@ class FXCCorrelation(RPACorrelation):
 
         if self.xc in ('range_RPA', 'range_rALDA'):
 
-            shortrange = range_separated(self.calc, self.fd, self.omega_w,
+            shortrange = range_separated(self.gs, self.fd, self.omega_w,
                                          self.weight_w, self.l_l,
                                          self.weight_l, self.range_rc, self.xc)
 
@@ -459,12 +459,11 @@ class FXCCorrelation(RPACorrelation):
 
 
 class KernelWave:
-    def __init__(self, calc, xc, ibzq_qc, fd, l_l, q_empty, omega_w, Eg, ecut,
+    def __init__(self, gs, xc, ibzq_qc, fd, l_l, q_empty, omega_w, Eg, ecut,
                  tag, timer):
 
-        self.calc = calc
-        self.gs = ResponseGroundStateAdapter(calc)
-        self.gd = calc.density.gd
+        self.gs = gs
+        self.gd = gs.density.gd
         self.xc = xc
         self.ibzq_qc = ibzq_qc
         self.fd = fd
@@ -512,8 +511,7 @@ class KernelWave:
 
         # Enhancement factor for GGA
         if self.xc == 'rAPBE' or self.xc == 'rAPBEns':
-            nf_g = calc.get_all_electron_density(gridrefinement=4)
-            nf_g *= Bohr**3
+            nf_g = self.gs.hacky_all_electron_density(gridrefinement=4)
             gdf = self.gd.refine().refine()
             grad_v = [Gradient(gdf, v, n=1).apply for v in range(3)]
             gradnf_vg = gdf.empty(3)
@@ -1101,8 +1099,8 @@ class range_separated:
                 (self.range_rc),
                 file=self.fd)
 
-        nval_g = calc.get_all_electron_density(
-            gridrefinement=4, skip_core=True).flatten() * Bohr**3
+        nval_g = self.gs.hacky_get_all_electron_density(
+            gridrefinement=4, skip_core=True).flatten()
         self.dv = self.gs.density.gd.dv / 64.0  # 64 = gridrefinement^3
 
         density_cut = 3.0 / (4.0 * np.pi * self.cutoff_rs**3.0)
@@ -1263,11 +1261,10 @@ class range_separated:
 
 
 class KernelDens:
-    def __init__(self, calc, xc, ibzq_qc, fd, unit_cells, density_cut, ecut,
+    def __init__(self, gs, xc, ibzq_qc, fd, unit_cells, density_cut, ecut,
                  tag, timer):
 
-        self.calc = calc
-        self.gs = ResponseGroundStateAdapter(calc)
+        self.gs = gs
         self.gd = self.gs.density.gd
         self.xc = xc
         self.ibzq_qc = ibzq_qc
@@ -1280,12 +1277,10 @@ class KernelDens:
 
         self.A_x = -(3 / 4.) * (3 / np.pi)**(1 / 3.)
 
-        self.n_g = calc.get_all_electron_density(gridrefinement=1)
-        self.n_g *= Bohr**3
+        self.n_g = self.gs.hacky_all_electron_density(gridrefinement=1)
 
         if xc[-3:] == 'PBE':
-            nf_g = calc.get_all_electron_density(gridrefinement=2)
-            nf_g *= Bohr**3
+            nf_g = self.gs.hacky_all_electron_density(gridrefinement=2)
             gdf = self.gd.refine()
             grad_v = [Gradient(gdf, v, n=1).apply for v in range(3)]
             gradnf_vg = gdf.empty(3)
