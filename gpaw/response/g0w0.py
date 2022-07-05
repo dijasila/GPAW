@@ -395,9 +395,7 @@ class G0W0:
                                    'with do_GW_too=True.')
 
         if Eg is None and self.xc == 'JGMsx':
-            from ase.dft.bandgap import get_band_gap
-            gap, k1, k2 = get_band_gap(self.calc)
-            Eg = gap
+            Eg = self.gs.get_band_gap()
 
         if Eg is not None:
             Eg /= Ha
@@ -420,7 +418,7 @@ class G0W0:
         self.blocks1d = None
         self.blockdist = None
 
-        self.kpts = list(select_kpts(kpts, self.calc))
+        self.kpts = list(select_kpts(kpts, self.gs.kd))
         self.bands = bands = self.choose_bands(bands, relbands)
 
         b1, b2 = bands

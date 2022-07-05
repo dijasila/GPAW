@@ -95,42 +95,14 @@ class KPointPair:
         return df_nm
 
 
-class PairDensity:
-    def __init__(self, gs, ecut=50,
-                 ftol=1e-6, threshold=1,
-                 real_space_derivatives=False,
-                 world=mpi.world, txt='-', timer=None,
-                 nblocks=1):
-        """Density matrix elements
-
-        Parameters
-        ----------
-        ftol : float
-            Threshold determining whether a band is completely filled
-            (f > 1 - ftol) or completely empty (f < ftol).
-        threshold : float
-            Numerical threshold for the optical limit k dot p perturbation
-            theory expansion.
-        real_space_derivatives : bool
-            Calculate nabla matrix elements (in the optical limit)
-            using a real space finite difference approximation.
-        """
+class NoCalculatorPairDensity:
+    def __init__(self, *, calc, fd, timer, world, ecut, ftol,
+                 threshold, real_space_derivatives, nblocks):
+        self.calc = calc  # XXX we want to get rid of this.
+        self.fd = fd
+        self.timer = timer
         self.world = world
-        self.iocontext = IOContext()
-        self.fd = self.iocontext.openfile(txt, world)
-        self.timer = timer or Timer()
 
-        with self.timer('Read ground state'):
-            if not isinstance(gs, GPAW):
-                print('Reading ground state calculation:\n  %s' % gs,
-                      file=self.fd)
-                with disable_dry_run():
-                    calc = GPAW(gs, communicator=mpi.serial_comm)
-            else:
-                calc = gs
-                assert calc.wfs.world.size == 1
-
-        self.calc = calc
         self.gs = ResponseGroundStateAdapter(calc)
         assert self.gs.kd.symmetry.symmorphic
 
@@ -145,7 +117,7 @@ class PairDensity:
         self.blockcomm, self.kncomm = block_partition(world, nblocks)
 
         self.fermi_level = self.gs.fermi_level
-        self.spos_ac = calc.spos_ac
+        self.spos_ac = self.gs.spos_ac
 
         self.nocc1 = None  # number of completely filled bands
         self.nocc2 = None  # number of non-empty bands
@@ -158,9 +130,6 @@ class PairDensity:
         self.kd = self.gs.kd
         self.kptfinder = KPointFinder(self.kd.bzk_kc)
         print('Number of blocks:', nblocks, file=self.fd)
-
-    def __del__(self):
-        self.iocontext.close()
 
     def find_kpoint(self, k_c):
         return self.kptfinder.find(k_c)
@@ -689,3 +658,52 @@ class PairDensity:
                         ut_nvR[n - n1, v2] += ut_R * M_vv[v, v2]
 
         return ut_nvR
+
+
+class PairDensity(NoCalculatorPairDensity):
+    def __init__(self, gs, ecut=50,
+                 ftol=1e-6, threshold=1,
+                 real_space_derivatives=False,
+                 world=mpi.world, txt='-', timer=None,
+                 nblocks=1):
+        """Density matrix elements
+
+        Parameters
+        ----------
+        ftol : float
+            Threshold determining whether a band is completely filled
+            (f > 1 - ftol) or completely empty (f < ftol).
+        threshold : float
+            Numerical threshold for the optical limit k dot p perturbation
+            theory expansion.
+        real_space_derivatives : bool
+            Calculate nabla matrix elements (in the optical limit)
+            using a real space finite difference approximation.
+        """
+        self.iocontext = IOContext()
+        fd = self.iocontext.openfile(txt, world)
+        timer = timer or Timer()
+
+        with timer('Read ground state'):
+            if not isinstance(gs, GPAW):
+                print('Reading ground state calculation:\n  %s' % gs,
+                      file=fd)
+                with disable_dry_run():
+                    calc = GPAW(gs, communicator=mpi.serial_comm)
+            else:
+                calc = gs
+                assert calc.wfs.world.size == 1
+
+        super().__init__(
+            calc=calc,  # XXX remove me
+            timer=timer,
+            fd=fd,
+            world=world,
+            ecut=ecut,
+            ftol=ftol,
+            threshold=threshold,
+            real_space_derivatives=real_space_derivatives,
+            nblocks=nblocks)
+
+    def __del__(self):
+        self.iocontext.close()

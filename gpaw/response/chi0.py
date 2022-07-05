@@ -745,7 +745,7 @@ class Chi0:
     @timer('Get eigenvalues')
     def get_eigenvalues(self, k_v, s, n1=None, n2=None,
                         m1=None, m2=None,
-                        kd=None, pd=None, wfs=None,
+                        kd=None, pd=None, gs=None,
                         filter=False):
         """A function that can return the eigenvalues.
 
@@ -753,10 +753,10 @@ class Chi0:
         the response function which gives an output that
         is compatible with the gpaw k-point integration
         routines."""
-        if wfs is None:
-            wfs = self.calc.wfs
+        if gs is None:
+            gs = self.gs
 
-        kd = wfs.kd
+        kd = gs.kd
         k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
         q_c = pd.kd.bzk_kc[0]
         K1 = self.pair.find_kpoint(k_c)
@@ -764,9 +764,9 @@ class Chi0:
 
         ik1 = kd.bz2ibz_k[K1]
         ik2 = kd.bz2ibz_k[K2]
-        kpt1 = wfs.kpt_qs[ik1][s]
-        assert wfs.kd.comm.size == 1
-        kpt2 = wfs.kpt_qs[ik2][s]
+        kpt1 = gs.kpt_qs[ik1][s]
+        assert gs.kd.comm.size == 1
+        kpt2 = gs.kpt_qs[ik2][s]
         deps_nm = np.subtract(kpt1.eps_n[n1:n2][:, np.newaxis],
                               kpt2.eps_n[m1:m2])
 
