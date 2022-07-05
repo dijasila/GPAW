@@ -230,6 +230,41 @@ def Li_gs(module_tmp_path):
     return gpw, nbands
 
 
+@pytest.fixture(scope='module')
+def Ni_gs(module_tmp_path):
+    # ---------- Inputs ---------- #
+
+    a = 3.524
+    xc = 'LDA'
+    kpts = 4
+    setups = {'Ni': '10'}
+    nbands = 1 + 5  # 4s + 3d valence bands
+    ebands = 3 + 1  # Include also 4p and 5s for numerical consistency
+    pw = 250
+    conv = {'bands': nbands}
+    gpw = Path('Ni.gpw').resolve()
+
+    # ---------- Script ---------- #
+
+    atoms = bulk('Li', 'bcc', a=a)
+
+    calc = GPAW(xc=xc,
+                mode=PW(pw),
+                kpts=monkhorst_pack((kpts, kpts, kpts)),
+                setups=setups,
+                nbands=nbands + ebands,
+                convergence=conv,
+                symmetry={'point_group': True},
+                idiotproof=False,
+                parallel={'domain': 1})
+
+    atoms.calc = calc
+    atoms.get_potential_energy()
+    calc.write(gpw, 'all')
+
+    return gpw, nbands
+
+
 # ---------- Script functionality ---------- #
 
 
