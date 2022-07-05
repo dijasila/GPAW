@@ -7,6 +7,7 @@ from pathlib import Path
 
 # Script modules
 from ase import Atoms
+from ase.build import bulk
 from ase.dft.kpoints import monkhorst_pack
 
 from gpaw import GPAW, PW
@@ -196,7 +197,7 @@ def Li_gs(module_tmp_path):
 
     # ---------- Script ---------- #
 
-    atoms = Atoms('He', cell=[a, a, a], pbc=True)
+    atoms = bulk('Li', 'bcc', a=a)
 
     calc = GPAW(xc=xc,
                 mode=PW(pw),
