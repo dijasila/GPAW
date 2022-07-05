@@ -13,7 +13,6 @@ from gpaw.fd_operators import Gradient
 from gpaw.response.pw_parallelization import block_partition
 from gpaw.utilities.blas import mmm
 from gpaw.response.symmetry import KPointFinder
-from gpaw.response.groundstate import ResponseGroundStateAdapter
 
 
 class KPoint:
@@ -96,14 +95,13 @@ class KPointPair:
 
 
 class NoCalculatorPairDensity:
-    def __init__(self, *, calc, fd, timer, world, ecut, ftol,
-                 threshold, real_space_derivatives, nblocks):
-        self.calc = calc  # XXX we want to get rid of this.
+    def __init__(self, gs, *, fd, timer, world, ecut=50, ftol=1e-6,
+                 threshold=1, real_space_derivatives=False, nblocks=1):
+        self.gs = gs
         self.fd = fd
         self.timer = timer
         self.world = world
 
-        self.gs = ResponseGroundStateAdapter(calc)
         assert self.gs.kd.symmetry.symmorphic
 
         if ecut is not None:
@@ -661,11 +659,9 @@ class NoCalculatorPairDensity:
 
 
 class PairDensity(NoCalculatorPairDensity):
-    def __init__(self, gs, ecut=50,
-                 ftol=1e-6, threshold=1,
-                 real_space_derivatives=False,
+    def __init__(self, gs, ecut=50, *,
                  world=mpi.world, txt='-', timer=None,
-                 nblocks=1):
+                 **kwargs):
         """Density matrix elements
 
         Parameters
@@ -694,16 +690,15 @@ class PairDensity(NoCalculatorPairDensity):
                 calc = gs
                 assert calc.wfs.world.size == 1
 
+        self.calc = calc
+
         super().__init__(
-            calc=calc,  # XXX remove me
+            gs=calc.gs_adapter(),
             timer=timer,
             fd=fd,
             world=world,
             ecut=ecut,
-            ftol=ftol,
-            threshold=threshold,
-            real_space_derivatives=real_space_derivatives,
-            nblocks=nblocks)
+            **kwargs)
 
     def __del__(self):
         self.iocontext.close()
