@@ -526,7 +526,7 @@ class Chi0:
                     va = min(chi0.blocks1d.a, 3)
                     vb = min(chi0.blocks1d.b, 3)
                     A_wxx[:, :vb - va, :3] += drude_chi_wvv[:, va:vb]
-                elif self.blockcomm.rank == 0:
+                else:
                     chi0_wxvx[:, 0, :3, :3] += drude_chi_wvv
 
             # Save the plasmafrequency
