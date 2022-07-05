@@ -512,8 +512,7 @@ class KernelWave:
 
         # Enhancement factor for GGA
         if self.xc == 'rAPBE' or self.xc == 'rAPBEns':
-            nf_g = calc.get_all_electron_density(gridrefinement=4)
-            nf_g *= Bohr**3
+            nf_g = self.gs.hacky_all_electron_density(gridrefinement=4)
             gdf = self.gd.refine().refine()
             grad_v = [Gradient(gdf, v, n=1).apply for v in range(3)]
             gradnf_vg = gdf.empty(3)
@@ -1101,8 +1100,8 @@ class range_separated:
                 (self.range_rc),
                 file=self.fd)
 
-        nval_g = calc.get_all_electron_density(
-            gridrefinement=4, skip_core=True).flatten() * Bohr**3
+        nval_g = self.gs.hacky_get_all_electron_density(
+            gridrefinement=4, skip_core=True).flatten()
         self.dv = self.gs.density.gd.dv / 64.0  # 64 = gridrefinement^3
 
         density_cut = 3.0 / (4.0 * np.pi * self.cutoff_rs**3.0)
@@ -1280,12 +1279,10 @@ class KernelDens:
 
         self.A_x = -(3 / 4.) * (3 / np.pi)**(1 / 3.)
 
-        self.n_g = calc.get_all_electron_density(gridrefinement=1)
-        self.n_g *= Bohr**3
+        self.n_g = self.gs.hacky_all_electron_density(gridrefinement=1)
 
         if xc[-3:] == 'PBE':
-            nf_g = calc.get_all_electron_density(gridrefinement=2)
-            nf_g *= Bohr**3
+            nf_g = self.gs.hacky_all_electron_density(gridrefinement=2)
             gdf = self.gd.refine()
             grad_v = [Gradient(gdf, v, n=1).apply for v in range(3)]
             gradnf_vg = gdf.empty(3)

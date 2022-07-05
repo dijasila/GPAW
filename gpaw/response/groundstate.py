@@ -1,5 +1,5 @@
 import numpy as np
-from ase.units import Ha
+from ase.units import Ha, Bohr
 
 
 class ResponseGroundStateAdapter:
@@ -69,6 +69,22 @@ class ResponseGroundStateAdapter:
     #
     # EXX naughtily accesses the density object in order to
     # interpolate_pseudo_density() which is in principle mutable.
+
+    def hacky_all_electron_density(self, **kwargs):
+        # fxc likes to get all electron densities.
+        # It calls calc.get_all_electron_density() and so we wrap that here.
+        # But it also collects to serial (bad), and it also zeropads nonperiodic
+        # directions (probably WRONG!).
+        #
+        # Also this one returns in user units, whereas the calling code actually
+        # wants internal units.  Very silly then.
+        #
+        # ALso, the calling code often wants the gd, which is not returned,
+        # so it is redundantly reconstructed in multiple places by refining the
+        # "right" number of times.
+        n_g = self._calc.get_all_electron_density(**kwargs)
+        n_g *= Bohr**3
+        return n_g
 
     # Used by EXX.
     @property
