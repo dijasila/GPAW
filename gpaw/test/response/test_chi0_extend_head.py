@@ -78,11 +78,18 @@ def generate_metal_chi0_params():
 
     ck7 = chi0kwargs.copy()  # Check tetrahedron integration
     ck7['integrationmode'] = 'tetrahedron integration'
-    ck7['hilbert'] = True  # Make this work... XXX
+    ck7['hilbert'] = True
     ck7['frequencies'] = None
     chi0_params.append(ck7)
 
-    # To do: add intraband toggle XXX
+    # Run all test settings without intraband
+    nointra_chi0_params = []
+    for ck in chi0_params:
+        ck['intraband'] = True  # This is the default, but be specific
+        nointra_ck = ck.copy()
+        nointra_ck['intraband'] = False
+        nointra_chi0_params.append(nointra_ck)
+    chi0_params += nointra_chi0_params
 
     return chi0_params
 
