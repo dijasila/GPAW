@@ -234,7 +234,7 @@ def diagonalize(state: DFTState,
                                    wfs.psit_nX.comm)
             eig_n = H_GG.eigh(S_GG, limit=nbands)
             psit_nG = wfs.psit_nX.desc.empty(nbands)
-            psit_nG.data[:nbands] = H_GG.data[:nbands]
+            psit_nG.data[:nbands] = H_GG.data[:nbands].conj()
             new_wfs = PWFDWaveFunctions(
                 psit_nG,
                 wfs.spin,
