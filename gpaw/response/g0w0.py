@@ -372,6 +372,7 @@ class G0W0:
         self.timer = self.pair.timer
         self.fd = self.pair.fd
         self.calc = self.pair.calc
+        self.gs = self.pair.gs
         self.ecut = self.pair.ecut
         self.blockcomm = self.pair.blockcomm
         self.world = self.pair.world
@@ -423,7 +424,7 @@ class G0W0:
         self.bands = bands = self.choose_bands(bands, relbands)
 
         b1, b2 = bands
-        self.shape = (self.calc.wfs.nspins, len(self.kpts), b2 - b1)
+        self.shape = (self.gs.nspins, len(self.kpts), b2 - b1)
 
         if nbands is None:
             nbands = int(self.vol * self.ecut**1.5 * 2**0.5 / 3 / pi**2)
@@ -433,7 +434,7 @@ class G0W0:
                     'nbands cannot be supplied with ecut-extrapolation.')
 
         self.nbands = nbands
-        self.nspins = self.calc.wfs.nspins
+        self.nspins = self.gs.nspins
 
         if self.nspins != 1 and self.fxc_mode != 'GW':
             raise RuntimeError('Including a xc kernel does currently not '
@@ -442,7 +443,7 @@ class G0W0:
         self.pair_distribution = self.pair.distribute_k_points_and_bands(
             b1, b2, self.kd.ibz2bz_k[self.kpts])
 
-        self.qd = get_qdescriptor(self.kd, self.calc.atoms)
+        self.qd = get_qdescriptor(self.kd, self.gs.atoms)
 
         if q0_correction:
             assert self.truncation == '2D'
@@ -458,18 +459,18 @@ class G0W0:
 
     @property
     def kd(self):
-        return self.calc.wfs.kd
+        return self.gs.kd
 
     @property
     def gd(self):
-        return self.calc.wfs.gd
+        return self.gs.gd
 
     def choose_bands(self, bands, relbands):
         if bands is not None and relbands is not None:
             raise ValueError('Use bands or relbands!')
 
         if relbands is not None:
-            bands = [self.calc.wfs.nvalence // 2 + b for b in relbands]
+            bands = [self.gs.nvalence // 2 + b for b in relbands]
 
         if bands is None:
             bands = [0, self.nocc2]
@@ -510,7 +511,7 @@ class G0W0:
         for i, k in enumerate(self.kpts):
             for s in range(self.nspins):
                 u = s + k * self.nspins
-                kpt = self.calc.wfs.kpt_u[u]
+                kpt = self.gs.kpt_u[u]
                 eps_skn[s, i] = kpt.eps_n[b1:b2]
                 f_skn[s, i] = kpt.f_n[b1:b2] / kpt.weight
 
@@ -655,7 +656,7 @@ class G0W0:
         for a, Q_Gii in enumerate(Q_aGii):
             x_G = np.exp(1j * np.dot(G_Gv, (pos_av[a] -
                                             np.dot(M_vv, pos_av[a]))))
-            U_ii = self.calc.wfs.setups[a].R_sii[symop.symno]
+            U_ii = self.gs.setups[a].R_sii[symop.symno]
             Q_Gii = np.dot(np.dot(U_ii, Q_Gii * x_G[:, None, None]),
                            U_ii.T).transpose(1, 0, 2)
             if symop.sign == -1:

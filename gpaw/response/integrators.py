@@ -8,7 +8,7 @@ from scipy.linalg.blas import zher
 
 import _gpaw
 import gpaw.mpi as mpi
-from gpaw.utilities.blas import gemm, rk, mmm
+from gpaw.utilities.blas import rk, mmm
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.response.pw_parallelization import Blocks1D, block_partition
 
@@ -219,8 +219,8 @@ class PointIntegrator(Integrator):
             else:
                 nx_mG = n_mG * x_m[:, np.newaxis]
 
-            gemm(1.0, n_mG.conj(), np.ascontiguousarray(nx_mG.T),
-                 1.0, chi0_GG)
+            mmm(1.0, np.ascontiguousarray(nx_mG.T), 'N', n_mG.conj(), 'N',
+                1.0, chi0_GG)
 
     @timer('CHI_0 hermetian update')
     def update_hermitian(self, n_mG, deps_m, wd, chi0_wGG):
@@ -262,10 +262,10 @@ class PointIntegrator(Integrator):
             for p1, p2, n_G, w in zip(p1_m, p2_m, n_mG, w_m):
                 if w + 1 < wd.wmax:  # The last frequency is not reliable
                     myn_G = n_G[blocks1d.myslice].reshape((-1, 1))
-                    gemm(p1, n_G.reshape((-1, 1)), myn_G,
-                         1.0, chi0_wGG[w], 'c')
-                    gemm(p2, n_G.reshape((-1, 1)), myn_G,
-                         1.0, chi0_wGG[w + 1], 'c')
+                    mmm(p1, myn_G, 'N', n_G.reshape((-1, 1)), 'C',
+                        1.0, chi0_wGG[w])
+                    mmm(p2, myn_G, 'N', n_G.reshape((-1, 1)), 'C',
+                        1.0, chi0_wGG[w + 1])
         else:
             for p1, p2, n_G, w in zip(p1_m, p2_m, n_mG, w_m):
                 if w + 1 < wd.wmax:  # The last frequency is not reliable
@@ -332,9 +332,9 @@ class PointIntegrator(Integrator):
                 x_mG = sortedn_mG[startindex:endindex]
                 l_Gm = (p1_m[:, None] * x_mG).T.copy()
                 r_Gm = x_mG.T.copy()
-                gemm(1.0, l_Gm, r_Gm, 1.0, chi0_wGG[w], 'c')
+                mmm(1.0, r_Gm, 'N', l_Gm, 'C', 1.0, chi0_wGG[w])
                 l_Gm = (p2_m[:, None] * x_mG).T.copy()
-                gemm(1.0, l_Gm, r_Gm, 1.0, chi0_wGG[w + 1], 'c')
+                mmm(1.0, r_Gm, 'N', l_Gm, 'C', 1.0, chi0_wGG[w + 1])
 
     @timer('CHI_0 intraband update')
     def update_intraband(self, vel_mv, chi0_wvv):

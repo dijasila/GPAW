@@ -26,11 +26,11 @@ from gpaw.typing import Array1D
 from gpaw.utilities.memory import maxrss
 
 
-def find_maximum_frequency(calc, nbands=0, fd=None):
+def find_maximum_frequency(kpt_u, nbands=0, fd=None):
     """Determine the maximum electron-hole pair transition energy."""
     epsmin = 10000.0
     epsmax = -10000.0
-    for kpt in calc.wfs.kpt_u:
+    for kpt in kpt_u:
         epsmin = min(epsmin, kpt.eps_n[0])
         epsmax = max(epsmax, kpt.eps_n[nbands - 1])
 
@@ -160,8 +160,9 @@ class Chi0:
 
         calc = self.pair.calc
         self.calc = calc
+        self.gs = self.pair.gs
         self.fd = self.pair.fd
-        self.vol = calc.wfs.gd.volume
+        self.vol = self.gs.volume
         self.world = world
         self.blockcomm, self.kncomm = block_partition(world, nblocks)
         self.nblocks = nblocks
@@ -177,12 +178,12 @@ class Chi0:
         else:
             self.rate = rate / Ha
 
-        self.nbands = nbands or self.calc.wfs.bd.nbands
+        self.nbands = nbands or self.gs.bd.nbands
         self.include_intraband = intraband
 
         if (isinstance(frequencies, dict) and
             frequencies.get('omegamax') is None):
-            omegamax = find_maximum_frequency(self.calc,
+            omegamax = find_maximum_frequency(self.gs.kpt_u,
                                               nbands=self.nbands,
                                               fd=self.fd)
             frequencies['omegamax'] = omegamax * Ha
@@ -220,11 +221,11 @@ class Chi0:
 
     @property
     def pbc(self):
-        return self.calc.atoms.pbc
+        return self.gs.pbc
 
     def create_chi0(self, q_c, extend_head=True):
         # Extract descriptor arguments
-        plane_waves = (q_c, self.ecut, self.calc.wfs.gd)
+        plane_waves = (q_c, self.ecut, self.gs.gd)
         parallelization = (self.world, self.blockcomm, self.kncomm)
 
         # Construct the Chi0Data object
@@ -256,12 +257,12 @@ class Chi0:
             Data object containing the chi0 data arrays along with basis
             representation descriptors and blocks distribution
         """
-        wfs = self.calc.wfs
+        gs = self.gs
 
         if spin == 'all':
-            spins = range(wfs.nspins)
+            spins = range(gs.nspins)
         else:
-            assert spin in range(wfs.nspins)
+            assert spin in range(gs.nspins)
             spins = [spin]
 
         chi0 = self.create_chi0(q_c)
@@ -305,12 +306,13 @@ class Chi0:
         """
         assert m1 <= m2
         # Parse spins
-        wfs = self.calc.wfs
+        gs = self.gs
+
         if spins == 'all':
-            spins = range(wfs.nspins)
+            spins = range(gs.nspins)
         else:
             for spin in spins:
-                assert spin in range(wfs.nspins)
+                assert spin in range(gs.nspins)
 
         pd = chi0.pd
         # Are we calculating the optical limit.
@@ -342,7 +344,7 @@ class Chi0:
                              ' not implemented.')
 
         kwargs = dict(
-            cell_cv=self.pair.calc.wfs.gd.cell_cv,
+            cell_cv=self.gs.gd.cell_cv,
             comm=self.world,
             timer=self.timer,
             eshift=self.eshift,
@@ -372,10 +374,10 @@ class Chi0:
             factor = 1
 
         prefactor = (2 * factor * analyzer.how_many_symmetries() /
-                     (wfs.nspins * (2 * np.pi)**3))  # Remember prefactor
+                     (gs.nspins * (2 * np.pi)**3))  # Remember prefactor
 
         if self.integrationmode is None:
-            nbzkpts = self.calc.wfs.kd.nbzkpts
+            nbzkpts = gs.kd.nbzkpts
             prefactor *= len(bzk_kv) / nbzkpts
 
         A_wxx /= prefactor
@@ -387,7 +389,7 @@ class Chi0:
         # of this file and take a number of constant keyword arguments
         # which the integrator class accepts through the use of the
         # kwargs keyword.
-        kd = self.calc.wfs.kd
+        kd = gs.kd
         mat_kwargs = {'kd': kd, 'pd': pd,
                       'symmetry': analyzer,
                       'integrationmode': self.integrationmode}
@@ -634,7 +636,7 @@ class Chi0:
     def get_kpoints(self, pd, integrationmode=None):
         """Get the integration domain."""
         analyzer = PWSymmetryAnalyzer(
-            self.calc.wfs.kd, pd,
+            self.gs.kd, pd,
             timer=self.timer, txt=self.fd,
             disable_point_group=self.disable_point_group,
             disable_time_reversal=self.disable_time_reversal,
@@ -642,7 +644,7 @@ class Chi0:
 
         if integrationmode is None:
             K_gK = analyzer.group_kpoints()
-            bzk_kc = np.array([self.calc.wfs.kd.bzk_kc[K_K[0]] for
+            bzk_kc = np.array([self.gs.kd.bzk_kc[K_K[0]] for
                                K_K in K_gK])
         elif integrationmode == 'tetrahedron integration':
             bzk_kc = analyzer.get_reduced_kd(pbc_c=self.pbc).bzk_kc
@@ -786,9 +788,7 @@ class Chi0:
 
         if self.integrationmode is None:
             f_n = kpt1.f_n
-            assert self.calc.wfs.occupations.name in ['fermi-dirac',
-                                                      'zero-width']
-            width = getattr(self.calc.wfs.occupations, '_width', 0.0) / Ha
+            width = self.gs.get_occupations_width()
             if width > 1e-15:
                 dfde_n = - 1. / width * (f_n - f_n**2.0)
             else:
@@ -809,19 +809,19 @@ class Chi0:
         the response function which gives an output that
         is compatible with the gpaw k-point integration
         routines."""
-        wfs = self.calc.wfs
-        kd = wfs.kd
+        gs = self.gs
+        kd = gs.kd
         k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
         K1 = self.pair.find_kpoint(k_c)
         ik = kd.bz2ibz_k[K1]
-        kpt1 = wfs.kpt_qs[ik][s]
-        assert wfs.kd.comm.size == 1
+        kpt1 = gs.kpt_qs[ik][s]
+        assert gs.kd.comm.size == 1
 
         return kpt1.eps_n[n1:n2]
 
     def print_chi(self, pd):
-        calc = self.calc
-        gd = calc.wfs.gd
+        gs = self.gs
+        gd = gs.gd
 
         if gpaw.dry_run:
             from gpaw.mpi import SerialCommunicator
@@ -834,10 +834,10 @@ class Chi0:
         q_c = pd.kd.bzk_kc[0]
         nw = len(self.wd)
         ecut = self.ecut * Ha
-        ns = calc.wfs.nspins
+        ns = gs.nspins
         nbands = self.nbands
-        nk = calc.wfs.kd.nbzkpts
-        nik = calc.wfs.kd.nibzkpts
+        nk = gs.kd.nbzkpts
+        nik = gs.kd.nibzkpts
         ngmax = pd.ngmax
         eta = self.eta * Ha
         wsize = world.size

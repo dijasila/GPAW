@@ -39,7 +39,7 @@ import numpy as np
 from ase.units import Bohr, Hartree
 from scipy.linalg import eigh
 
-from gpaw.utilities.blas import gemm, mmm
+from gpaw.utilities.blas import mmmx
 from gpaw.xc import XC
 from gpaw.xc.functional import XCFunctional
 from gpaw.poisson import PoissonSolver
@@ -602,11 +602,9 @@ class SICSpin:
         Htphit_mG = self.vt_mG * self.phit_mG
         V_mm = np.zeros((self.nocc, self.nocc), dtype=self.dtype)
         # gemm(self.gd.dv, self.phit_mG, Htphit_mG, 0.0, V_mm, 't')
-        if self.nocc > 0:
-            shape = (self.nocc, -1)
-            mmm(self.gd.dv,
-                Htphit_mG.reshape(shape), 'N',
-                self.phit_mG.reshape(shape), 'T', 0.0, V_mm)
+        mmmx(self.gd.dv,
+             Htphit_mG, 'N',
+             self.phit_mG, 'T', 0.0, V_mm)
 
         # PAW
         for a, P_mi in self.P_ami.items():
@@ -631,7 +629,7 @@ class SICSpin:
         # pseudo wavefunctions
         self.phit_mG = self.gd.zeros(self.nocc)
         if self.nocc > 0:
-            gemm(1.0, self.kpt.psit_nG[:self.nocc], self.W_mn, 0.0,
+            mmmx(1.0, self.W_mn, 'N', self.kpt.psit_nG[:self.nocc], 'N', 0.0,
                  self.phit_mG)
 
         # PAW
@@ -843,7 +841,8 @@ class SICSpin:
         # constraint for unoccupied states
         R_mk = np.zeros((nocc, nvirt), dtype=self.dtype)
         if nvirt > 0:
-            gemm(self.gd.dv, psit_nG[nocc:], self.Htphit_mG, 0.0, R_mk, 't')
+            mmmx(self.gd.dv, self.Htphit_mG, 'N', psit_nG[nocc:], 'T',
+                 0.0, R_mk)
             # PAW
             for a, P_mi in self.P_ami.items():
                 P_ni = P_ani[a]
@@ -864,10 +863,11 @@ class SICSpin:
 
         # Action of unified Hamiltonian on occupied states:
         if nocc > 0:
-            gemm(1.0, Htphit_mG, W_mn.T.copy(), 1.0, Htpsit_nG[:nocc])
-            gemm(1.0, phit_mG, Q_mn.T.copy(), 1.0, Htpsit_nG[:nocc])
+            mmmx(1.0, W_mn.T.copy(), 'N', Htphit_mG, 'N',
+                 1.0, Htpsit_nG[:nocc])
+            mmmx(1.0, Q_mn.T.copy(), 'N', phit_mG, 'N', 1.0, Htpsit_nG[:nocc])
         if nvirt > 0:
-            gemm(1.0, phit_mG, R_mk.T.copy(), 1.0, Htpsit_nG[nocc:])
+            mmmx(1.0, R_mk.T.copy(), 'N', phit_mG, 'N', 1.0, Htpsit_nG[nocc:])
             if self.stabpot != 0.0:
                 Htpsit_nG[nocc:] += self.stabpot * psit_nG[nocc:]
 
@@ -899,8 +899,8 @@ class SICSpin:
         w_mx = np.zeros((self.nocc, 1), dtype=self.dtype)
         v_mx = np.zeros((self.nocc, 1), dtype=self.dtype)
 
-        gemm(self.gd.dv, psit_xG, phit_mG, 0.0, w_mx, 't')
-        gemm(self.gd.dv, psit_xG, Htphit_mG, 0.0, v_mx, 't')
+        mmmx(self.gd.dv, phit_mG, 'N', psit_xG, 'T', 0.0, w_mx)
+        mmmx(self.gd.dv, Htphit_mG, 'N', psit_xG, 'T', 0.0, v_mx)
 
         # PAW
         for a, P_mi in self.P_ami.items():
@@ -923,8 +923,8 @@ class SICSpin:
         if self.stabpot != 0.0:
             q_mx -= self.stabpot * w_mx
 
-        gemm(1.0, Htphit_mG, w_mx.T.copy(), 1.0, Htpsit_xG)
-        gemm(1.0, phit_mG, q_mx.T.copy(), 1.0, Htpsit_xG)
+        mmmx(1.0, w_mx.T.copy(), 'N', Htphit_mG, 'N', 1.0, Htpsit_xG)
+        mmmx(1.0, q_mx.T.copy(), 'N', phit_mG, 'N', 1.0, Htpsit_xG)
 
         # PAW
         for a, P_mi in self.P_ami.items():

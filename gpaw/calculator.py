@@ -87,7 +87,6 @@ class GPAW(Calculator):
         'random': False,
         'hund': False,
         'maxiter': 333,
-        'idiotproof': True,
         'symmetry': {'point_group': True,
                      'time_reversal': True,
                      'symmorphic': True,
@@ -487,6 +486,10 @@ class GPAW(Calculator):
         if 'txt' in kwargs:
             self.log.fd = kwargs.pop('txt')
 
+        if 'idiotproof' in kwargs:
+            del kwargs['idiotproof']
+            warnings.warn('Ignoring deprecated keyword "idiotproof"')
+
         changed_parameters = Calculator.set(self, **kwargs)
 
         for key in ['setups', 'basis']:
@@ -513,7 +516,7 @@ class GPAW(Calculator):
                 self.wfs.set_eigensolver(None)
 
             if key in ['mixer', 'verbose', 'txt', 'hund', 'random',
-                       'eigensolver', 'idiotproof']:
+                       'eigensolver']:
                 continue
 
             if key in ['convergence', 'fixdensity', 'maxiter']:
