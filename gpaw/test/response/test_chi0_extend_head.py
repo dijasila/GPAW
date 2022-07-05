@@ -94,6 +94,27 @@ def generate_metal_chi0_params():
     return chi0_params
 
 
+def generate_magnetic_metal_chi0_params():
+    """In addition to the magnetic parametrization, test also:
+    * spin
+    """
+    # Get metallic defaults
+    chi0_params = generate_metal_chi0_params()
+    chi0kwargs = chi0_params[0]
+    
+    cks0 = chi0kwargs.copy()  # Check spin up
+    cks0['spins'] = [0]
+    cks0['intraband'] = False
+    chi0_params.append(cks0)
+    
+    cks1 = chi0kwargs.copy()  # Check spin down
+    cks1['spins'] = [1]
+    cks1['intraband'] = False
+    chi0_params.append(cks1)
+
+    return chi0_params
+
+
 @pytest.fixture(scope='module', params=generate_semic_chi0_params())
 def He_chi0kwargs(request, He_gs):
     chi0kwargs = request.param
@@ -106,6 +127,14 @@ def He_chi0kwargs(request, He_gs):
 def Li_chi0kwargs(request, Li_gs):
     chi0kwargs = request.param
     assure_nbands(chi0kwargs, Li_gs)
+
+    return chi0kwargs
+
+
+@pytest.fixture(scope='module', params=generate_magnetic_metal_chi0_params())
+def Ni_chi0kwargs(request, Ni_gs):
+    chi0kwargs = request.param
+    assure_nbands(chi0kwargs, Ni_gs)
 
     return chi0kwargs
 
@@ -127,14 +156,24 @@ def test_he_chi0_extend_head(in_tmp_dir, He_gs, He_chi0kwargs):
 
 @pytest.mark.response
 def test_li_chi0_extend_head(in_tmp_dir, Li_gs, Li_chi0kwargs, request):
-    if ('integrationmode' in Li_chi0kwargs and
-        Li_chi0kwargs['integrationmode'] == 'tetrahedron integration') or\
-       Li_chi0kwargs['intraband']:
+    mark_intraband_and_tetrahedron_xfail(Li_chi0kwargs, request)
+    chi0_extend_head_test(Li_gs, Li_chi0kwargs)
+
+
+@pytest.mark.response
+def test_ni_chi0_extend_head(in_tmp_dir, Ni_gs, Ni_chi0kwargs, request):
+    mark_intraband_and_tetrahedron_xfail(Ni_chi0kwargs, request)
+    chi0_extend_head_test(Ni_gs, Ni_chi0kwargs)
+
+
+def mark_intraband_and_tetrahedron_xfail(chi0kwargs, request):
+    if ('integrationmode' in chi0kwargs and
+        chi0kwargs['integrationmode'] == 'tetrahedron integration') or\
+       chi0kwargs['intraband']:
         # Head and wings have not yet have a tetrahedron integration
         # implementation nor a proper intraband implementation. For now,
         # we simply mark the tests with xfail accordingly.
         request.node.add_marker(pytest.mark.xfail)
-    chi0_extend_head_test(Li_gs, Li_chi0kwargs)
 
 
 def chi0_extend_head_test(my_gs, chi0kwargs):
@@ -150,12 +189,17 @@ def chi0_extend_head_test(my_gs, chi0kwargs):
 
     # ---------- Script ---------- #
 
+    if 'spins' in chi0kwargs:
+        spins = chi0kwargs.pop('spins')
+    else:
+        spins = 'all'
+
     chi0fac = Chi0(gpw, ecut=ecut,
                    nblocks=nblocks,
                    **chi0kwargs)
 
-    chi0_f = calculate_optical_limit(chi0fac, extend_head=False)
-    chi0_t = calculate_optical_limit(chi0fac, extend_head=True)
+    chi0_f = calculate_optical_limit(chi0fac, spins=spins, extend_head=False)
+    chi0_t = calculate_optical_limit(chi0fac, spins=spins, extend_head=True)
 
     is_equal, err_msg = chi0_data_is_equal(chi0_f, chi0_t)
     assert is_equal, err_msg
@@ -208,6 +252,29 @@ def Li_gs(module_tmp_path):
     return gpw, nbands
 
 
+@pytest.fixture(scope='module')
+def Ni_gs(module_tmp_path):
+    # ---------- Inputs ---------- #
+
+    a = 3.524
+    xc = 'LDA'
+    kpts = 4
+    setups = {'Ni': '10'}
+    nbands = 1 + 5  # 4s + 3d valence bands
+    ebands = 3 + 1  # Include also 4p and 5s for numerical consistency
+    pw = 250
+    convergence = {'bands': nbands}
+    gpw = Path('Ni.gpw').resolve()
+
+    # ---------- Script ---------- #
+
+    atoms = bulk('Ni', 'fcc', a=a)
+    calculate_gs(atoms, gpw, pw, kpts, nbands, ebands,
+                 setups=setups, xc=xc, convergence=convergence)
+
+    return gpw, nbands
+
+
 # ---------- Script functionality ---------- #
 
 
@@ -225,13 +292,14 @@ def calculate_gs(atoms, gpw, pw, kpts, nbands, ebands,
     calc.write(gpw, 'all')
 
 
-def calculate_optical_limit(chi0_factory, extend_head=True):
+def calculate_optical_limit(chi0_factory, spins='all', extend_head=True):
     """Use the update_chi0 method to calculate chi0 for q=0."""
     # Create Chi0Data object
     chi0 = chi0_factory.create_chi0([0., 0., 0.], extend_head=extend_head)
 
     # Prepare update_chi0
-    spins = range(chi0_factory.calc.wfs.nspins)
+    if spins == 'all':
+        spins = range(chi0_factory.calc.wfs.nspins)
     m1 = chi0_factory.nocc1
     m2 = chi0_factory.nbands
     chi0_factory.plasmafreq_vv = np.zeros((3, 3), complex)
