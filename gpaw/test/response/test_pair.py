@@ -2,6 +2,7 @@ import pytest
 import numpy as np
 
 from ase import Atoms
+from ase.units import Ha
 
 from gpaw import GPAW, PW
 from gpaw.kpt_descriptor import KPointDescriptor
@@ -25,13 +26,13 @@ def test_response_pair(in_tmp_dir, scalapack):
     calc.diagonalize_full_hamiltonian(nbands=nb, expert=True)
     calc.write('a.gpw', 'all')
 
-    pair = PairDensity('a.gpw', ecut=100)
+    pair = PairDensity('a.gpw')
 
     # Check continuity eq.
     for q_c in [[0, 0, 0], [1. / 4, 0, 0]]:
         ol = np.allclose(q_c, 0.0)
         qd = KPointDescriptor([q_c])
-        pd = PWDescriptor(pair.ecut, calc.wfs.gd, complex, qd)
+        pd = PWDescriptor(100 / Ha, calc.wfs.gd, complex, qd)
         kptpair = pair.get_kpoint_pair(pd, 0, [0, 0, 0],
                                        0, nb, 0, nb)
         deps_nm = kptpair.get_transition_energies(np.arange(0, nb),
