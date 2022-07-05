@@ -103,6 +103,15 @@ class FXCCorrelation(RPACorrelation):
                                       (self.tag, self.xc, self.ecut_max, iq)):
                     q_empty = iq
 
+            kernelkwargs = dict(
+                calc=self.calc,
+                xc=self.xc,
+                ibzq_qc=self.ibzq_qc,
+                fd=self.fd,
+                ecut=self.ecut_max,
+                tag=self.tag,
+                timer=self.timer)
+
             if q_empty is not None:
 
                 if self.av_scheme == 'wavevector':
@@ -112,31 +121,22 @@ class FXCCorrelation(RPACorrelation):
                           file=self.fd)
                     print(file=self.fd)
 
+                    kernelkwargs.update(l_l=self.l_l,
+                                        q_empty=q_empty,
+                                        omega_w=self.omega_w,
+                                        Eg=self.Eg)
+
                     if self.linear_kernel:
-                        kernel = KernelWave(self.calc, self.xc, self.ibzq_qc,
-                                            self.fd, None, q_empty, None,
-                                            self.Eg, self.ecut_max, self.tag,
-                                            self.timer)
-
+                        kernelkwargs.update(l_l=None, omega_w=None)
                     elif not self.dyn_kernel:
-                        kernel = KernelWave(self.calc, self.xc, self.ibzq_qc,
-                                            self.fd, self.l_l, q_empty, None,
-                                            self.Eg, self.ecut_max, self.tag,
-                                            self.timer)
+                        kernelkwargs.update(omega_w=None)
 
-                    else:
-                        kernel = KernelWave(self.calc, self.xc, self.ibzq_qc,
-                                            self.fd, self.l_l, q_empty,
-                                            self.omega_w, self.Eg,
-                                            self.ecut_max, self.tag,
-                                            self.timer)
+                    kernel = KernelWave(**kernelkwargs)
 
                 else:
-
-                    kernel = KernelDens(self.calc, self.xc, self.ibzq_qc,
-                                        self.fd, self.unit_cells,
-                                        self.density_cut, self.ecut_max,
-                                        self.tag, self.timer)
+                    kernel = KernelDens(**kernelkwargs,
+                                        unit_cells=self.unit_cells,
+                                        density_cut=self.density_cut)
 
                 kernel.calculate_fhxc()
                 del kernel
@@ -1594,118 +1594,7 @@ class KernelDens:
         fxc_g = f_g * F_g
         fxc_g += 2 * v_g * Fn_g
         fxc_g += e_g * Fnn_g
-        """
-        # Contributions from varying the gradient
-        #Fgrad_vg = np.zeros_like(gradn_vg)
-        #Fngrad_vg = np.zeros_like(gradn_vg)
-        #for v in range(3):
-        #    axpy(1.0, mu / den_g**2 * gradn_vg[v] / (2 * kf_g**2 * n_g**2),
-        #         Fgrad_vg[v])
-        #    axpy(-8.0, Fgrad_vg[v] / (3 * n_g), Fngrad_vg[v])
-        #    axpy(-2.0, Fgrad_vg[v] * Fn_g / kappa, Fngrad_vg[v])
-
-        #tmp = np.zeros_like(fxc_g)
-        #tmp1 = np.zeros_like(fxc_g)
-
-        #for v in range(3):
-            #self.grad_v[v](Fgrad_vg[v], tmp)
-            #axpy(-2.0, tmp * v_g, fxc_g)
-            #for u in range(3):
-                #self.grad_v[u](Fgrad_vg[u] * tmp, tmp1)
-                #axpy(-4.0/kappa, tmp1 * e_g, fxc_g)
-            #self.grad_v[v](Fngrad_vg[v], tmp)
-            #axpy(-2.0, tmp * e_g, fxc_g)
-        #self.laplace(mu / den_g**2 / (2 * kf_g**2 * n_g**2), tmp)
-        #axpy(1.0, tmp * e_g, fxc_g)
-        """
-
         return fxc_g
-
-
-"""
-    def get_fxc_libxc_g(self, n_g):
-        ### NOT USED AT THE MOMENT
-        gd = self.calc.density.gd.refine()
-
-        xc = XC('GGA_X_' + self.xc[2:])
-        #xc = XC('LDA_X')
-        #sigma = np.zeros_like(n_g).flat[:]
-        xc.set_grid_descriptor(gd)
-        sigma_xg, gradn_svg = xc.calculate_sigma(np.array([n_g]))
-
-        dedsigma_xg = np.zeros_like(sigma_xg)
-        e_g = np.zeros_like(n_g)
-        v_sg = np.array([np.zeros_like(n_g)])
-
-        xc.calculate_gga(e_g, np.array([n_g]), v_sg, sigma_xg, dedsigma_xg)
-
-        sigma = sigma_xg[0].flat[:]
-        gradn_vg = gradn_svg[0]
-        dedsigma_g = dedsigma_xg[0]
-
-        libxc = LibXC('GGA_X_' + self.xc[2:])
-        #libxc = LibXC('LDA_X')
-        libxc.initialize(1)
-        libxc_fxc = libxc.xc.calculate_fxc_spinpaired
-
-        fxc_g = np.zeros_like(n_g).flat[:]
-        d2edndsigma_g = np.zeros_like(n_g).flat[:]
-        d2ed2sigma_g = np.zeros_like(n_g).flat[:]
-
-        libxc_fxc(n_g.flat[:], fxc_g, sigma, d2edndsigma_g, d2ed2sigma_g)
-        fxc_g = fxc_g.reshape(np.shape(n_g))
-        d2edndsigma_g = d2edndsigma_g.reshape(np.shape(n_g))
-        d2ed2sigma_g = d2ed2sigma_g.reshape(np.shape(n_g))
-
-        tmp = np.zeros_like(fxc_g)
-        tmp1 = np.zeros_like(fxc_g)
-
-        #for v in range(3):
-            #self.grad_v[v](d2edndsigma_g * gradn_vg[v], tmp)
-            #axpy(-4.0, tmp, fxc_g)
-
-        #for u in range(3):
-            #for v in range(3):
-                #self.grad_v[v](d2ed2sigma_g * gradn_vg[u] * gradn_vg[v], tmp)
-                #self.grad_v[u](tmp, tmp1)
-                #axpy(4.0, tmp1, fxc_g)
-
-        #self.laplace(dedsigma_g, tmp)
-        #axpy(2.0, tmp, fxc_g)
-
-        return fxc_g[::2, ::2, ::2]
-
-    def get_numerical_fxc_sg(self, n_sg):
-        ### NOT USED AT THE MOMENT
-        gd = self.calc.density.gd.refine()
-        delta = 1.e-4
-
-        if self.xc[2:] == 'LDA':
-            xc = XC('LDA_X')
-            v1xc_sg = np.zeros_like(n_sg)
-            v2xc_sg = np.zeros_like(n_sg)
-            xc.calculate(gd, (1 + delta) * n_sg, v1xc_sg)
-            xc.calculate(gd, (1 - delta) * n_sg, v2xc_sg)
-            fxc_sg = (v1xc_sg - v2xc_sg) / (2 * delta * n_sg)
-        else:
-            fxc_sg = np.zeros_like(n_sg)
-            xc = XC('GGA_X_' + self.xc[2:])
-            vxc_sg = np.zeros_like(n_sg)
-            xc.calculate(gd, n_sg, vxc_sg)
-            for s in range(len(n_sg)):
-                for x in range(len(n_sg[0])):
-                    for y in range(len(n_sg[0, 0])):
-                        for z in range(len(n_sg[0, 0, 0])):
-                            v1xc_sg = np.zeros_like(n_sg)
-                            n1_sg = n_sg.copy()
-                            n1_sg[s, x, y, z] *= (1 + delta)
-                            xc.calculate(gd, n1_sg, v1xc_sg)
-                            num = v1xc_sg[s, x, y, z] - vxc_sg[s, x, y, z]
-                            den = delta * n_sg[s, x, y, z]
-                            fxc_sg[s, x, y, z] = num / den
-
-        return fxc_sg[:, ::2, ::2, ::2]
-"""
 
 
 class XCFlags:
