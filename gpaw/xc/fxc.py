@@ -104,7 +104,7 @@ class FXCCorrelation(RPACorrelation):
                     q_empty = iq
 
             kernelkwargs = dict(
-                calc=self.calc,
+                gs=self.gs,
                 xc=self.xc,
                 ibzq_qc=self.ibzq_qc,
                 fd=self.fd,
@@ -147,7 +147,7 @@ class FXCCorrelation(RPACorrelation):
 
         if self.xc in ('range_RPA', 'range_rALDA'):
 
-            shortrange = range_separated(self.calc, self.fd, self.omega_w,
+            shortrange = range_separated(self.gs, self.fd, self.omega_w,
                                          self.weight_w, self.l_l,
                                          self.weight_l, self.range_rc, self.xc)
 
@@ -459,12 +459,11 @@ class FXCCorrelation(RPACorrelation):
 
 
 class KernelWave:
-    def __init__(self, calc, xc, ibzq_qc, fd, l_l, q_empty, omega_w, Eg, ecut,
+    def __init__(self, gs, xc, ibzq_qc, fd, l_l, q_empty, omega_w, Eg, ecut,
                  tag, timer):
 
-        self.calc = calc
-        self.gs = ResponseGroundStateAdapter(calc)
-        self.gd = calc.density.gd
+        self.gs = gs
+        self.gd = gs.density.gd
         self.xc = xc
         self.ibzq_qc = ibzq_qc
         self.fd = fd
@@ -1262,11 +1261,10 @@ class range_separated:
 
 
 class KernelDens:
-    def __init__(self, calc, xc, ibzq_qc, fd, unit_cells, density_cut, ecut,
+    def __init__(self, gs, xc, ibzq_qc, fd, unit_cells, density_cut, ecut,
                  tag, timer):
 
-        self.calc = calc
-        self.gs = ResponseGroundStateAdapter(calc)
+        self.gs = gs
         self.gd = self.gs.density.gd
         self.xc = xc
         self.ibzq_qc = ibzq_qc

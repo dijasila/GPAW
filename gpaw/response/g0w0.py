@@ -973,7 +973,7 @@ class G0W0:
     def _calculate_kernel(self, nG, iq, G2G):
         return calculate_kernel(ecut=self.ecut,
                                 xcflags=self.xcflags,
-                                calc=self.calc, nG=nG,
+                                gs=self.gs, nG=nG,
                                 ns=self.nspins, iq=iq,
                                 cut_G=G2G, wd=self.wd,
                                 Eg=self.Eg,
