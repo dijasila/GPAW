@@ -247,8 +247,6 @@ def calculate_gs(atoms, gpw, pw, kpts, nbands, ebands,
     atoms.get_potential_energy()
     calc.write(gpw, 'all')
 
-    return gpw, nbands
-
 
 def calculate_optical_limit(chi0_factory, extend_head=True):
     """Use the update_chi0 method to calculate chi0 for q=0."""
