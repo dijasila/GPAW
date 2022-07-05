@@ -46,7 +46,7 @@ def get_density_xc_kernel(pd, chi0, functional='ALDA',
 
     calc = chi0.calc
     fd = chi0.fd
-    nspins = len(calc.density.nt_sG)
+    nspins = len(chi0.gs.nt_sG)
     assert nspins == 1
 
     if functional[0] == 'A':
