@@ -47,7 +47,7 @@ def select_kpts(kpts, kd):
 
 
 class EXX(NoCalculatorPairDensity):
-    def __init__(self, calc, xc=None, kpts=None, bands=None, ecut=None,
+    def __init__(self, gs, xc=None, kpts=None, bands=None, ecut=None,
                  stencil=2,
                  omega=None, world=mpi.world, txt=sys.stdout, timer=None):
         """Non self-consistent hybrid functional calculations.
@@ -78,7 +78,7 @@ class EXX(NoCalculatorPairDensity):
         self.iocontext = IOContext()
         fd = self.iocontext.openfile(txt, world)
 
-        super().__init__(gs=calc.gs_adapter(),
+        super().__init__(gs=gs,
                          ecut=ecut, world=world, fd=fd,
                          timer=timer)
 
