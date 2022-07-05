@@ -519,18 +519,15 @@ class Chi0:
             # Again, not so pretty but that's how it is
             plasmafreq_vv = plasmafreq_wvv[0].copy()
             if self.include_intraband:
-
+                drude_chi_wvv = plasmafreq_vv[np.newaxis]\
+                    / (self.wd.omega_w[:, np.newaxis, np.newaxis]
+                       + 1e-10 + self.rate * 1j)**2
                 if chi0.extend_head:
                     va = min(chi0.blocks1d.a, 3)
                     vb = min(chi0.blocks1d.b, 3)
-                    A_wxx[:, :vb - va, :3] += (plasmafreq_vv[va:vb] /
-                                               (self.wd.omega_w[:, np.newaxis,
-                                                                np.newaxis] +
-                                                1e-10 + self.rate * 1j)**2)
+                    A_wxx[:, :vb - va, :3] += drude_chi_wvv[:, va:vb]
                 elif self.blockcomm.rank == 0:
-                    A_wxx[:, 0, 0] += (plasmafreq_vv[2, 2] /
-                                       (self.wd.omega_w + 1e-10 +
-                                        self.rate * 1j)**2)
+                    chi0_wxvx[:, 0, :3, :3] += drude_chi_wvv
 
             # Save the plasmafrequency
             try:
