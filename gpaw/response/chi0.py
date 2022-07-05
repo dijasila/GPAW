@@ -48,7 +48,7 @@ class Chi0:
                  calc,
                  *,
                  frequencies: Union[dict, Array1D] = None,
-                 ecut=50, hilbert=True, nbands=None,
+                 ecut=None, hilbert=True, nbands=None,
                  timeordered=False, eta=0.2, ftol=1e-6, threshold=1,
                  real_space_derivatives=False, intraband=True,
                  world=mpi.world, txt='-', timer=None,
@@ -146,7 +146,7 @@ class Chi0:
 
         self.timer = timer or Timer()
 
-        self.pair = PairDensity(calc, ecut,
+        self.pair = PairDensity(calc,
                                 ftol=ftol, threshold=threshold,
                                 real_space_derivatives=real_space_derivatives,
                                 world=world, txt=txt,
@@ -168,8 +168,9 @@ class Chi0:
         self.blockcomm, self.kncomm = block_partition(world, nblocks)
         self.nblocks = nblocks
 
-        if ecut is not None:
-            ecut /= Ha
+        if ecut is None:
+            ecut = 50.0
+        ecut /= Ha
 
         self.ecut = ecut
 

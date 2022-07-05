@@ -95,7 +95,7 @@ class KPointPair:
 
 
 class NoCalculatorPairDensity:
-    def __init__(self, gs, *, fd, timer, world, ecut=50, ftol=1e-6,
+    def __init__(self, gs, *, fd, timer, world, ftol=1e-6,
                  threshold=1, real_space_derivatives=False, nblocks=1):
         self.gs = gs
         self.fd = fd
@@ -104,10 +104,6 @@ class NoCalculatorPairDensity:
 
         assert self.gs.kd.symmetry.symmorphic
 
-        if ecut is not None:
-            ecut /= Ha
-
-        self.ecut = ecut
         self.ftol = ftol
         self.threshold = threshold
         self.real_space_derivatives = real_space_derivatives
@@ -659,7 +655,7 @@ class NoCalculatorPairDensity:
 
 
 class PairDensity(NoCalculatorPairDensity):
-    def __init__(self, gs, ecut=50, *,
+    def __init__(self, gs, *,
                  world=mpi.world, txt='-', timer=None,
                  **kwargs):
         """Density matrix elements
@@ -697,7 +693,6 @@ class PairDensity(NoCalculatorPairDensity):
             timer=timer,
             fd=fd,
             world=world,
-            ecut=ecut,
             **kwargs)
 
     def __del__(self):
