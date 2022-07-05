@@ -94,6 +94,27 @@ def generate_metal_chi0_params():
     return chi0_params
 
 
+def generate_magnetic_metal_chi0_params():
+    """In addition to the magnetic parametrization, test also:
+    * spin
+    """
+    # Get metallic defaults
+    chi0_params = generate_metal_chi0_params()
+    chi0kwargs = chi0_params[0]
+    
+    cks0 = chi0kwargs.copy()  # Check spin up
+    cks0['spins'] = [0]
+    cks0['intraband'] = False
+    chi0_params.append(cks0)
+    
+    cks1 = chi0kwargs.copy()  # Check spin down
+    cks1['spins'] = [1]
+    cks1['intraband'] = False
+    chi0_params.append(cks1)
+
+    return chi0_params
+
+
 @pytest.fixture(scope='module', params=generate_semic_chi0_params())
 def He_chi0kwargs(request, He_gs):
     chi0kwargs = request.param
@@ -110,7 +131,7 @@ def Li_chi0kwargs(request, Li_gs):
     return chi0kwargs
 
 
-@pytest.fixture(scope='module', params=generate_metal_chi0_params())
+@pytest.fixture(scope='module', params=generate_magnetic_metal_chi0_params())
 def Ni_chi0kwargs(request, Ni_gs):
     chi0kwargs = request.param
     assure_nbands(chi0kwargs, Ni_gs)
@@ -168,12 +189,17 @@ def chi0_extend_head_test(my_gs, chi0kwargs):
 
     # ---------- Script ---------- #
 
+    if 'spins' in chi0kwargs:
+        spins = chi0kwargs.pop('spins')
+    else:
+        spins = 'all'
+
     chi0fac = Chi0(gpw, ecut=ecut,
                    nblocks=nblocks,
                    **chi0kwargs)
 
-    chi0_f = calculate_optical_limit(chi0fac, extend_head=False)
-    chi0_t = calculate_optical_limit(chi0fac, extend_head=True)
+    chi0_f = calculate_optical_limit(chi0fac, spins=spins, extend_head=False)
+    chi0_t = calculate_optical_limit(chi0fac, spins=spins, extend_head=True)
 
     is_equal, err_msg = chi0_data_is_equal(chi0_f, chi0_t)
     assert is_equal, err_msg
@@ -266,13 +292,14 @@ def calculate_gs(atoms, gpw, pw, kpts, nbands, ebands,
     calc.write(gpw, 'all')
 
 
-def calculate_optical_limit(chi0_factory, extend_head=True):
+def calculate_optical_limit(chi0_factory, spins='all', extend_head=True):
     """Use the update_chi0 method to calculate chi0 for q=0."""
     # Create Chi0Data object
     chi0 = chi0_factory.create_chi0([0., 0., 0.], extend_head=extend_head)
 
     # Prepare update_chi0
-    spins = range(chi0_factory.calc.wfs.nspins)
+    if spins == 'all':
+        spins = range(chi0_factory.calc.wfs.nspins)
     m1 = chi0_factory.nocc1
     m2 = chi0_factory.nbands
     chi0_factory.plasmafreq_vv = np.zeros((3, 3), complex)
