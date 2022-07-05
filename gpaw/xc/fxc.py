@@ -4,7 +4,7 @@ from time import time
 
 import ase.io.ulm as ulm
 import numpy as np
-from ase.units import Bohr, Ha
+from ase.units import Ha
 from ase.utils.timing import timer
 from scipy.special import p_roots, sici
 

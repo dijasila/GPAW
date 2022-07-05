@@ -1124,7 +1124,7 @@ class G0W0:
         if vxc_skn is None:
             print('Calculating Kohn-Sham XC contribution', file=self.fd)
             self.fd.flush()
-            vxc_skn = vxc(self.calc, self.calc.hamiltonian.xc) / Ha
+            vxc_skn = vxc(self.gs, self.gs.hamiltonian.xc) / Ha
             n1, n2 = self.bands
             vxc_skn = vxc_skn[:, self.kpts, n1:n2]
             np.save(fd, vxc_skn)
