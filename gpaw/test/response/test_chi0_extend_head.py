@@ -101,6 +101,7 @@ def He_chi0kwargs(request, He_gs):
 
     return chi0kwargs
 
+
 @pytest.fixture(scope='module', params=generate_metal_chi0_params())
 def Li_chi0kwargs(request, Li_gs):
     chi0kwargs = request.param
@@ -126,7 +127,7 @@ def test_he_chi0_extend_head(in_tmp_dir, He_gs, He_chi0kwargs):
 
 @pytest.mark.response
 def test_li_chi0_extend_head(in_tmp_dir, Li_gs, Li_chi0kwargs, request):
-    if ('integrationmode' in Li_chi0kwargs and 
+    if ('integrationmode' in Li_chi0kwargs and
         Li_chi0kwargs['integrationmode'] == 'tetrahedron integration') or\
        Li_chi0kwargs['intraband']:
         # Head and wings have not yet have a tetrahedron integration
