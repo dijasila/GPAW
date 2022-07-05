@@ -102,6 +102,15 @@ class FXCCorrelation(RPACorrelation):
                                       (self.tag, self.xc, self.ecut_max, iq)):
                     q_empty = iq
 
+            kernelkwargs = dict(
+                calc=self.calc,
+                xc=self.xc,
+                ibzq_qc=self.iqzq_qc,
+                fd=self.fd,
+                ecut=self.ecut_max,
+                tag=self.tag,
+                timer=self.timer)
+
             if q_empty is not None:
 
                 if self.av_scheme == 'wavevector':
@@ -111,31 +120,22 @@ class FXCCorrelation(RPACorrelation):
                           file=self.fd)
                     print(file=self.fd)
 
+                    kernelkwargs.update(l_l=self.l_l,
+                                        q_empty=q_empty,
+                                        omega_w=self.omega_q,
+                                        Eg=self.Eg)
+
                     if self.linear_kernel:
-                        kernel = KernelWave(self.calc, self.xc, self.ibzq_qc,
-                                            self.fd, None, q_empty, None,
-                                            self.Eg, self.ecut_max, self.tag,
-                                            self.timer)
-
+                        kernelkwargs.update(l_l=None, omega_w=None)
                     elif not self.dyn_kernel:
-                        kernel = KernelWave(self.calc, self.xc, self.ibzq_qc,
-                                            self.fd, self.l_l, q_empty, None,
-                                            self.Eg, self.ecut_max, self.tag,
-                                            self.timer)
+                        kernelkwargs.update(omega_w=None)
 
-                    else:
-                        kernel = KernelWave(self.calc, self.xc, self.ibzq_qc,
-                                            self.fd, self.l_l, q_empty,
-                                            self.omega_w, self.Eg,
-                                            self.ecut_max, self.tag,
-                                            self.timer)
+                    kernel = KernelWave(**kernelkwargs)
 
                 else:
-
-                    kernel = KernelDens(self.calc, self.xc, self.ibzq_qc,
-                                        self.fd, self.unit_cells,
-                                        self.density_cut, self.ecut_max,
-                                        self.tag, self.timer)
+                    kernel = KernelDens(**kernelkwargs,
+                                        unitcells=self.unit_cells,
+                                        density_cut=self.density_cut)
 
                 kernel.calculate_fhxc()
                 del kernel
