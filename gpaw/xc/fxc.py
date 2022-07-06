@@ -1072,7 +1072,7 @@ class KernelWave:
                                      (pw_dlogarg**2.0) / (pw_logarg**2.0)))
         pw_d2ec += (-2.0 * pw_A * pw_alp) * pw_dlogarg / pw_logarg
 
-        return (pw_ec, pw_dec, pw_d2ec)
+        return pw_ec, pw_dec, pw_d2ec
 
 
 class range_separated:
