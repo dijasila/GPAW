@@ -69,6 +69,7 @@ class KPT:
         self.eps_n = wfs.eig_n
         self.s = wfs.spin if wfs.ncomponents < 4 else None
         self.k = wfs.k
+        self.q = wfs.q
         self.weight = wfs.spin_degeneracy * wfs.weight
         self.f_n = wfs.occ_n * self.weight
         self.psit_nG = wfs.psit_nX.data
@@ -84,6 +85,7 @@ class FakeDensity:
         self.nt_sg = None
         self.interpolate = calculation.pot_calc._interpolate_density
         self.nt_sR = self.state.density.nt_sR
+        self.gd = self.nt_sR.desc._gd
         self.finegd = calculation.pot_calc.fine_grid._gd
 
     @cached_property
