@@ -226,7 +226,13 @@ class ASECalculator:
         return self.calculation.electrostatic_potential().atomic_potentials()
 
     def get_pseudo_density(self, spin=None):
-        return self.calculation.densities.pseudo_densities().data
+        return self.calculation.densities().pseudo_densities().data
+
+    def get_all_electron_density(self, spin=None, gridrefinement=1):
+        assert spin is None
+        n_sr = self.calculation.densities().all_electron_densities(
+            grid_refinement=gridrefinement)
+        return n_sr.data.sum(0)
 
     def get_eigenvalues(self, kpt=0, spin=0):
         state = self.calculation.state
@@ -285,9 +291,9 @@ class ASECalculator:
         return (exct + dexc - state.potential.energies['xc']) * Ha
 
     def diagonalize_full_hamiltonian(self,
-                                     nbands=None,
+                                     nbands: int = None,
                                      scalapack=None,
-                                     expert=None):
+                                     expert: bool = None) -> None:
         if expert is not None:
             warnings.warn('Ignoring deprecated "expert" argument')
         state = self.calculation.state

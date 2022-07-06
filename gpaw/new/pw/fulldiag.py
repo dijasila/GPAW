@@ -91,10 +91,17 @@ def pw_matrix(pw: PlaneWaves,
 def diagonalize(potential: Potential,
                 ibzwfs: IBZWaveFunctions,
                 occ_calc: OccupationNumberCalculator,
-                nbands: int) -> IBZWaveFunctions:
+                nbands: int | None) -> IBZWaveFunctions:
     """Diagonalize hamiltonian in plane-wave basis."""
     vt_sR = potential.vt_sR
     dH_asii = potential.dH_asii
+
+    if nbands is None:
+        nbands = min(wfs.array_shape(global_shape=True)
+                     for wfs in ibzwfs)
+        array = np.array(nbands)
+        ibzwfs.kpt_comm.max(array)
+        nbands = int(array)
 
     wfs_qs: list[list[WaveFunctions]] = []
     for wfs_s in ibzwfs.wfs_qs:
