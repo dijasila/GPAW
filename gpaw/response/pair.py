@@ -99,7 +99,7 @@ class NoCalculatorPairDensity:
                  threshold=1, real_space_derivatives=False, nblocks=1):
         self.gs = gs
         self.fd = fd
-        self.timer = timer
+        self.timer = timer or Timer()
         self.world = world
 
         assert self.gs.kd.symmetry.symmorphic
