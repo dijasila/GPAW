@@ -12,7 +12,8 @@ direct_gap = np.zeros(4)
 
 k = 8
 for i, ecut in enumerate([100, 200, 300, 400]):
-    data = pickle.load(paropen(f'C-g0w0_k{k}_ecut{ecut}_results.pckl', 'rb'))
+    data = pickle.load(paropen(f'C-g0w0_k{k}_ecut{ecut}_results_GW.pckl',
+                               'rb'))
     direct_gap[i] = data['qp'][0, 0, 1] - data['qp'][0, 0, 0]
 plt.plot(1 / (ecuts**(3. / 2.)), direct_gap, 'ko-',
          label=f'({k}x{k}x{k}) k-points')
