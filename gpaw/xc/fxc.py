@@ -4,7 +4,7 @@ from time import time
 
 import ase.io.ulm as ulm
 import numpy as np
-from ase.units import Bohr, Ha
+from ase.units import Ha
 from ase.utils.timing import timer
 from scipy.special import p_roots, sici
 
@@ -15,6 +15,7 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.pw.descriptor import PWDescriptor
 from gpaw.utilities.blas import axpy, gemmdot
 from gpaw.xc.rpa import RPACorrelation
+from gpaw.response.groundstate import ResponseGroundStateAdapter
 
 
 class FXCCorrelation(RPACorrelation):
@@ -62,7 +63,7 @@ class FXCCorrelation(RPACorrelation):
         self.xc = xc
         self.density_cut = density_cut
         if unit_cells is None:
-            unit_cells = self.calc.wfs.kd.N_c
+            unit_cells = self.gs.kd.N_c
         self.unit_cells = unit_cells
         self.range_rc = range_rc  # Range separation parameter in Bohr
         self.av_scheme = av_scheme  # Either 'density' or 'wavevector'
@@ -72,7 +73,7 @@ class FXCCorrelation(RPACorrelation):
 
         if tag is None:
 
-            tag = self.calc.atoms.get_chemical_formula(mode='hill')
+            tag = self.gs.atoms.get_chemical_formula(mode='hill')
 
             if self.av_scheme is not None:
 
@@ -102,6 +103,15 @@ class FXCCorrelation(RPACorrelation):
                                       (self.tag, self.xc, self.ecut_max, iq)):
                     q_empty = iq
 
+            kernelkwargs = dict(
+                gs=self.gs,
+                xc=self.xc,
+                ibzq_qc=self.ibzq_qc,
+                fd=self.fd,
+                ecut=self.ecut_max,
+                tag=self.tag,
+                timer=self.timer)
+
             if q_empty is not None:
 
                 if self.av_scheme == 'wavevector':
@@ -111,31 +121,22 @@ class FXCCorrelation(RPACorrelation):
                           file=self.fd)
                     print(file=self.fd)
 
+                    kernelkwargs.update(l_l=self.l_l,
+                                        q_empty=q_empty,
+                                        omega_w=self.omega_w,
+                                        Eg=self.Eg)
+
                     if self.linear_kernel:
-                        kernel = KernelWave(self.calc, self.xc, self.ibzq_qc,
-                                            self.fd, None, q_empty, None,
-                                            self.Eg, self.ecut_max, self.tag,
-                                            self.timer)
-
+                        kernelkwargs.update(l_l=None, omega_w=None)
                     elif not self.dyn_kernel:
-                        kernel = KernelWave(self.calc, self.xc, self.ibzq_qc,
-                                            self.fd, self.l_l, q_empty, None,
-                                            self.Eg, self.ecut_max, self.tag,
-                                            self.timer)
+                        kernelkwargs.update(omega_w=None)
 
-                    else:
-                        kernel = KernelWave(self.calc, self.xc, self.ibzq_qc,
-                                            self.fd, self.l_l, q_empty,
-                                            self.omega_w, self.Eg,
-                                            self.ecut_max, self.tag,
-                                            self.timer)
+                    kernel = KernelWave(**kernelkwargs)
 
                 else:
-
-                    kernel = KernelDens(self.calc, self.xc, self.ibzq_qc,
-                                        self.fd, self.unit_cells,
-                                        self.density_cut, self.ecut_max,
-                                        self.tag, self.timer)
+                    kernel = KernelDens(**kernelkwargs,
+                                        unit_cells=self.unit_cells,
+                                        density_cut=self.density_cut)
 
                 kernel.calculate_fhxc()
                 del kernel
@@ -146,13 +147,13 @@ class FXCCorrelation(RPACorrelation):
 
         if self.xc in ('range_RPA', 'range_rALDA'):
 
-            shortrange = range_separated(self.calc, self.fd, self.omega_w,
+            shortrange = range_separated(self.gs, self.fd, self.omega_w,
                                          self.weight_w, self.l_l,
                                          self.weight_l, self.range_rc, self.xc)
 
             self.shortrange = shortrange.calculate()
 
-        if self.calc.wfs.nspins == 1:
+        if self.gs.nspins == 1:
             spin = False
         else:
             spin = True
@@ -458,16 +459,16 @@ class FXCCorrelation(RPACorrelation):
 
 
 class KernelWave:
-    def __init__(self, calc, xc, ibzq_qc, fd, l_l, q_empty, omega_w, Eg, ecut,
+    def __init__(self, gs, xc, ibzq_qc, fd, l_l, q_empty, omega_w, Eg, ecut,
                  tag, timer):
 
-        self.calc = calc
-        self.gd = calc.density.gd
+        self.gs = gs
+        self.gd = gs.density.gd
         self.xc = xc
         self.ibzq_qc = ibzq_qc
         self.fd = fd
         self.l_l = l_l
-        self.ns = calc.wfs.nspins
+        self.ns = self.gs.nspins
         self.q_empty = q_empty
         self.omega_w = omega_w
         self.Eg = Eg
@@ -479,9 +480,9 @@ class KernelWave:
             self.l_l = [1.0]
 
         # Density grid
-        self.n_g = calc.get_all_electron_density(gridrefinement=2)
-        self.n_g = self.n_g.flatten() * Bohr**3
-        # Density now in units electrons/cubic Bohr
+        n_sg, finegd = self.gs.all_electron_density(gridrefinement=2)
+        self.n_g = n_sg.sum(axis=0).flatten()
+
         #  For atoms with large vacuum regions
         #  this apparently can take negative values!
         mindens = np.amin(self.n_g)
@@ -492,7 +493,7 @@ class KernelWave:
             print('These will be reset to 1E-12 elec/bohr^3)', file=self.fd)
             self.n_g[np.where(self.n_g < 0.0)] = 1.0E-12
 
-        r_g = self.gd.refine().get_grid_point_coordinates()  # already in Bohr
+        r_g = finegd.get_grid_point_coordinates()
         self.x_g = 1.0 * r_g[0].flatten()
         self.y_g = 1.0 * r_g[1].flatten()
         self.z_g = 1.0 * r_g[2].flatten()
@@ -510,8 +511,7 @@ class KernelWave:
 
         # Enhancement factor for GGA
         if self.xc == 'rAPBE' or self.xc == 'rAPBEns':
-            nf_g = calc.get_all_electron_density(gridrefinement=4)
-            nf_g *= Bohr**3
+            nf_g = self.gs.hacky_all_electron_density(gridrefinement=4)
             gdf = self.gd.refine().refine()
             grad_v = [Gradient(gdf, v, n=1).apply for v in range(3)]
             gradnf_vg = gdf.empty(3)
@@ -1081,6 +1081,8 @@ class range_separated:
                  range_rc, xc):
 
         self.calc = calc
+        self.gs = ResponseGroundStateAdapter(calc)
+
         self.fd = fd
         self.frequencies = frequencies
         self.freqweights = freqweights
@@ -1097,9 +1099,9 @@ class range_separated:
                 (self.range_rc),
                 file=self.fd)
 
-        nval_g = calc.get_all_electron_density(
-            gridrefinement=4, skip_core=True).flatten() * Bohr**3
-        self.dv = self.calc.density.gd.dv / 64.0  # 64 = gridrefinement^3
+        nval_g = self.gs.hacky_get_all_electron_density(
+            gridrefinement=4, skip_core=True).flatten()
+        self.dv = self.gs.density.gd.dv / 64.0  # 64 = gridrefinement^3
 
         density_cut = 3.0 / (4.0 * np.pi * self.cutoff_rs**3.0)
         if (nval_g < 0.0).any():
@@ -1115,7 +1117,8 @@ class range_separated:
                   file=self.fd)
 
         densitysum = np.sum(nval_g * self.dv)
-        valence = self.calc.wfs.setups.nvalence
+        # XXX probably wrong for charged systems
+        valence = self.gs.setups.nvalence
 
         print('Density integrates to %s electrons' % (densitysum),
               file=self.fd)
@@ -1258,11 +1261,11 @@ class range_separated:
 
 
 class KernelDens:
-    def __init__(self, calc, xc, ibzq_qc, fd, unit_cells, density_cut, ecut,
+    def __init__(self, gs, xc, ibzq_qc, fd, unit_cells, density_cut, ecut,
                  tag, timer):
 
-        self.calc = calc
-        self.gd = calc.density.gd
+        self.gs = gs
+        self.gd = self.gs.density.gd
         self.xc = xc
         self.ibzq_qc = ibzq_qc
         self.fd = fd
@@ -1274,12 +1277,10 @@ class KernelDens:
 
         self.A_x = -(3 / 4.) * (3 / np.pi)**(1 / 3.)
 
-        self.n_g = calc.get_all_electron_density(gridrefinement=1)
-        self.n_g *= Bohr**3
+        self.n_g = self.gs.hacky_all_electron_density(gridrefinement=1)
 
         if xc[-3:] == 'PBE':
-            nf_g = calc.get_all_electron_density(gridrefinement=2)
-            nf_g *= Bohr**3
+            nf_g = self.gs.hacky_all_electron_density(gridrefinement=2)
             gdf = self.gd.refine()
             grad_v = [Gradient(gdf, v, n=1).apply for v in range(3)]
             gradnf_vg = gdf.empty(3)
@@ -1309,7 +1310,7 @@ class KernelDens:
         icell_cv = 2 * np.pi * np.linalg.inv(cell_cv)
         vol = gd.volume
 
-        ns = self.calc.wfs.nspins
+        ns = self.gs.nspins
         n_g = self.n_g  # density on rough grid
 
         fx_g = ns * self.get_fxc_g(n_g)  # local exchange kernel
@@ -1343,7 +1344,7 @@ class KernelDens:
             # with more than one unit cell only the exchange kernel is
             # calculated on the grid. The bare Coulomb kernel is added
             # in PW basis and Vlocal_g only the exchange part
-            dv = self.calc.density.gd.dv
+            dv = self.gs.density.gd.dv
             gc = (3 * dv / 4 / np.pi)**(1 / 3.)
             Vlocal_g -= 2 * np.pi * gc**2 / dv
             print('    Lattice point sampling: ' + '(%s x %s x %s)^2 ' %
@@ -1502,7 +1503,7 @@ class KernelDens:
         # Standard ALDA exchange kernel
         # Use with care. Results are very difficult to converge
         # Sensitive to density_cut
-        ns = self.calc.wfs.nspins
+        ns = self.gs.nspins
         gd = self.gd
         pd = self.pd
         cell_cv = gd.cell_cv
@@ -1565,7 +1566,7 @@ class KernelDens:
         if index is None:
             gradn_vg = self.gradn_vg
         else:
-            gradn_vg = self.calc.density.gd.empty(3)
+            gradn_vg = self.gs.density.gd.empty(3)
             for v in range(3):
                 gradn_vg[v] = (self.gradn_vg[v] +
                                self.gradn_vg[v].flatten()[index]) / 2
@@ -1591,118 +1592,7 @@ class KernelDens:
         fxc_g = f_g * F_g
         fxc_g += 2 * v_g * Fn_g
         fxc_g += e_g * Fnn_g
-        """
-        # Contributions from varying the gradient
-        #Fgrad_vg = np.zeros_like(gradn_vg)
-        #Fngrad_vg = np.zeros_like(gradn_vg)
-        #for v in range(3):
-        #    axpy(1.0, mu / den_g**2 * gradn_vg[v] / (2 * kf_g**2 * n_g**2),
-        #         Fgrad_vg[v])
-        #    axpy(-8.0, Fgrad_vg[v] / (3 * n_g), Fngrad_vg[v])
-        #    axpy(-2.0, Fgrad_vg[v] * Fn_g / kappa, Fngrad_vg[v])
-
-        #tmp = np.zeros_like(fxc_g)
-        #tmp1 = np.zeros_like(fxc_g)
-
-        #for v in range(3):
-            #self.grad_v[v](Fgrad_vg[v], tmp)
-            #axpy(-2.0, tmp * v_g, fxc_g)
-            #for u in range(3):
-                #self.grad_v[u](Fgrad_vg[u] * tmp, tmp1)
-                #axpy(-4.0/kappa, tmp1 * e_g, fxc_g)
-            #self.grad_v[v](Fngrad_vg[v], tmp)
-            #axpy(-2.0, tmp * e_g, fxc_g)
-        #self.laplace(mu / den_g**2 / (2 * kf_g**2 * n_g**2), tmp)
-        #axpy(1.0, tmp * e_g, fxc_g)
-        """
-
         return fxc_g
-
-
-"""
-    def get_fxc_libxc_g(self, n_g):
-        ### NOT USED AT THE MOMENT
-        gd = self.calc.density.gd.refine()
-
-        xc = XC('GGA_X_' + self.xc[2:])
-        #xc = XC('LDA_X')
-        #sigma = np.zeros_like(n_g).flat[:]
-        xc.set_grid_descriptor(gd)
-        sigma_xg, gradn_svg = xc.calculate_sigma(np.array([n_g]))
-
-        dedsigma_xg = np.zeros_like(sigma_xg)
-        e_g = np.zeros_like(n_g)
-        v_sg = np.array([np.zeros_like(n_g)])
-
-        xc.calculate_gga(e_g, np.array([n_g]), v_sg, sigma_xg, dedsigma_xg)
-
-        sigma = sigma_xg[0].flat[:]
-        gradn_vg = gradn_svg[0]
-        dedsigma_g = dedsigma_xg[0]
-
-        libxc = LibXC('GGA_X_' + self.xc[2:])
-        #libxc = LibXC('LDA_X')
-        libxc.initialize(1)
-        libxc_fxc = libxc.xc.calculate_fxc_spinpaired
-
-        fxc_g = np.zeros_like(n_g).flat[:]
-        d2edndsigma_g = np.zeros_like(n_g).flat[:]
-        d2ed2sigma_g = np.zeros_like(n_g).flat[:]
-
-        libxc_fxc(n_g.flat[:], fxc_g, sigma, d2edndsigma_g, d2ed2sigma_g)
-        fxc_g = fxc_g.reshape(np.shape(n_g))
-        d2edndsigma_g = d2edndsigma_g.reshape(np.shape(n_g))
-        d2ed2sigma_g = d2ed2sigma_g.reshape(np.shape(n_g))
-
-        tmp = np.zeros_like(fxc_g)
-        tmp1 = np.zeros_like(fxc_g)
-
-        #for v in range(3):
-            #self.grad_v[v](d2edndsigma_g * gradn_vg[v], tmp)
-            #axpy(-4.0, tmp, fxc_g)
-
-        #for u in range(3):
-            #for v in range(3):
-                #self.grad_v[v](d2ed2sigma_g * gradn_vg[u] * gradn_vg[v], tmp)
-                #self.grad_v[u](tmp, tmp1)
-                #axpy(4.0, tmp1, fxc_g)
-
-        #self.laplace(dedsigma_g, tmp)
-        #axpy(2.0, tmp, fxc_g)
-
-        return fxc_g[::2, ::2, ::2]
-
-    def get_numerical_fxc_sg(self, n_sg):
-        ### NOT USED AT THE MOMENT
-        gd = self.calc.density.gd.refine()
-        delta = 1.e-4
-
-        if self.xc[2:] == 'LDA':
-            xc = XC('LDA_X')
-            v1xc_sg = np.zeros_like(n_sg)
-            v2xc_sg = np.zeros_like(n_sg)
-            xc.calculate(gd, (1 + delta) * n_sg, v1xc_sg)
-            xc.calculate(gd, (1 - delta) * n_sg, v2xc_sg)
-            fxc_sg = (v1xc_sg - v2xc_sg) / (2 * delta * n_sg)
-        else:
-            fxc_sg = np.zeros_like(n_sg)
-            xc = XC('GGA_X_' + self.xc[2:])
-            vxc_sg = np.zeros_like(n_sg)
-            xc.calculate(gd, n_sg, vxc_sg)
-            for s in range(len(n_sg)):
-                for x in range(len(n_sg[0])):
-                    for y in range(len(n_sg[0, 0])):
-                        for z in range(len(n_sg[0, 0, 0])):
-                            v1xc_sg = np.zeros_like(n_sg)
-                            n1_sg = n_sg.copy()
-                            n1_sg[s, x, y, z] *= (1 + delta)
-                            xc.calculate(gd, n1_sg, v1xc_sg)
-                            num = v1xc_sg[s, x, y, z] - vxc_sg[s, x, y, z]
-                            den = delta * n_sg[s, x, y, z]
-                            fxc_sg[s, x, y, z] = num / den
-
-        return fxc_sg[:, ::2, ::2, ::2]
-"""
 
 
 class XCFlags:

@@ -34,6 +34,7 @@ def test_response_na_plasmons_tetrahedron(in_tmp_dir, scalapack):
 
     # Calculate the dielectric functions
     df1 = DielectricFunction('gs_Na.gpw',
+                             rate=0.001,
                              nblocks=1,
                              txt='1block.txt',
                              **kwargs)
@@ -43,6 +44,7 @@ def test_response_na_plasmons_tetrahedron(in_tmp_dir, scalapack):
     # df1NLFCz, df1LFCz = df1.get_dielectric_function(direction='z')
 
     df2 = DielectricFunction('gs_Na.gpw',
+                             rate=0.001,
                              nblocks=4,
                              txt='4block.txt',
                              **kwargs)

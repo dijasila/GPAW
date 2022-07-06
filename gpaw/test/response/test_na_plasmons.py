@@ -35,6 +35,7 @@ def test_response_na_plasmons(in_tmp_dir, scalapack):
     df1 = DielectricFunction('gs_Na.gpw',
                              nblocks=1,
                              ecut=40,
+                             rate=0.001,
                              txt='1block.txt')
 
     df1NLFCx, df1LFCx = df1.get_dielectric_function(direction='x')
@@ -42,6 +43,7 @@ def test_response_na_plasmons(in_tmp_dir, scalapack):
     df2 = DielectricFunction('gs_Na.gpw',
                              nblocks=4,
                              ecut=40,
+                             rate=0.001,
                              txt='4block.txt')
 
     df2NLFCx, df2LFCx = df2.get_dielectric_function(direction='x')
