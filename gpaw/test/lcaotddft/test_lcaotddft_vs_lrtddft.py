@@ -14,7 +14,7 @@ from gpaw.lrtddft import photoabsorption_spectrum as spec_lr
 from gpaw.lrtddft2 import LrTDDFT2
 from gpaw.mpi import world, serial_comm, broadcast
 
-from gpaw.test.lcaotddft.test_molecule import only_on_master
+from gpaw.test import only_on_master
 
 
 pytestmark = [pytest.mark.usefixtures('module_tmp_path')]

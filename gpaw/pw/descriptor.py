@@ -1,12 +1,10 @@
 import numbers
 from math import pi
-from typing import overload
 import numpy as np
 
 import _gpaw
 import gpaw.fftw as fftw
 from gpaw.utilities.blas import mmm, r2k, rk
-from gpaw.typing import Array1D
 
 
 class PWDescriptor:
@@ -56,8 +54,8 @@ class PWDescriptor:
             self.tmp_Q = fftw.empty(N_c, complex)
             self.tmp_R = self.tmp_Q
 
-        self.fftplan = fftw.FFTPlan(self.tmp_R, self.tmp_Q, -1, fftwflags)
-        self.ifftplan = fftw.FFTPlan(self.tmp_Q, self.tmp_R, 1, fftwflags)
+        self.fftplan = fftw.create_plan(self.tmp_R, self.tmp_Q, -1, fftwflags)
+        self.ifftplan = fftw.create_plan(self.tmp_Q, self.tmp_R, 1, fftwflags)
 
         # Calculate reciprocal lattice vectors:
         B_cv = 2.0 * pi * gd.icell_cv
@@ -563,16 +561,6 @@ def count_reciprocal_vectors(ecut, gd, q_c):
 
     G2_Q = (Gpq_Qv**2).sum(axis=1)
     return (G2_Q <= 2 * ecut).sum()
-
-
-@overload
-def pad(array: Array1D, N: int) -> Array1D:
-    ...
-
-
-@overload
-def pad(array: None, N: int) -> None:
-    ...
 
 
 def pad(array, N):

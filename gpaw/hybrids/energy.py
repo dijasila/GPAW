@@ -4,7 +4,7 @@ from typing import Union
 import numpy as np
 from ase.units import Ha
 
-from gpaw import GPAW
+from gpaw.calculator import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.mpi import serial_comm
 from gpaw.pw.descriptor import PWDescriptor

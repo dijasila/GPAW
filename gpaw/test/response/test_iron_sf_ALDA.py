@@ -21,15 +21,14 @@ from gpaw.response.tms import TransverseMagneticSusceptibility
 from gpaw.response.susceptibility import read_macroscopic_component
 from gpaw.test import findpeak, equal
 from gpaw.mpi import world
-from gpaw.utilities import compiled_with_sl
 
 
-pytestmark = pytest.mark.skipif(
-    world.size < 4 or not compiled_with_sl(),
-    reason='world.size < 4 or not compiled_with_sl()')
+pytestmark = pytest.mark.skipif(world.size < 4, reason='world.size < 4')
 
 
-def test_response_iron_sf_ALDA(in_tmp_dir):
+@pytest.mark.kspair
+@pytest.mark.response
+def test_response_iron_sf_ALDA(in_tmp_dir, scalapack):
     # ------------------- Inputs ------------------- #
 
     # Part 1: ground state calculation
@@ -49,15 +48,14 @@ def test_response_iron_sf_ALDA(in_tmp_dir):
     eta = 0.01
 
     # Test different kernel and summation strategies
-    # rshelmax, rshewmin, bandsummation, bundle_integrals, bundle_kptpairs
-    strat_sd = [(None, None, 'pairwise', True, True),
-                (-1, 0.001, 'pairwise', True, True),
-                (-1, 0.001, 'pairwise', False, True),
-                (-1, 0.001, 'pairwise', True, False),
-                (-1, 0.000001, 'pairwise', True, True),
-                (-1, 0.000001, 'double', True, True),
-                (-1, None, 'pairwise', True, True),
-                (3, None, 'pairwise', True, True)]
+    # rshelmax, rshewmin, bandsummation, bundle_integrals
+    strat_sd = [(None, None, 'pairwise', True),
+                (-1, 0.001, 'pairwise', True),
+                (-1, 0.001, 'pairwise', False),
+                (-1, 0.000001, 'pairwise', True),
+                (-1, 0.000001, 'double', True),
+                (-1, None, 'pairwise', True),
+                (3, None, 'pairwise', True)]
     frq_sw = [np.linspace(0.160, 0.320, 21),
               np.linspace(0.320, 0.480, 21),
               np.linspace(0.320, 0.480, 21),
@@ -82,7 +80,6 @@ def test_response_iron_sf_ALDA(in_tmp_dir):
                 nbands=nb,
                 convergence=conv,
                 symmetry={'point_group': False},
-                idiotproof=False,
                 parallel={'domain': 1})
 
     Febcc.calc = calc
@@ -91,8 +88,7 @@ def test_response_iron_sf_ALDA(in_tmp_dir):
 
     # Part 2: magnetic response calculation
 
-    for s, ((rshelmax, rshewmin, bandsummation,
-             bundle_integrals, bundle_kptpairs),
+    for s, ((rshelmax, rshewmin, bandsummation, bundle_integrals),
             frq_w) in enumerate(zip(strat_sd, frq_sw)):
         tms = TransverseMagneticSusceptibility(
             calc,
@@ -103,7 +99,6 @@ def test_response_iron_sf_ALDA(in_tmp_dir):
             fxckwargs={'rshelmax': rshelmax,
                        'rshewmin': rshewmin},
             bundle_integrals=bundle_integrals,
-            bundle_kptpairs=bundle_kptpairs,
             nblocks=2)
         tms.get_macroscopic_component(
             '+-', q_c, frq_w,
@@ -125,16 +120,14 @@ def test_response_iron_sf_ALDA(in_tmp_dir):
     w5_w, chiks5_w, chi5_w = read_macroscopic_component('iron_dsus_G5.csv')
     w6_w, chiks6_w, chi6_w = read_macroscopic_component('iron_dsus_G6.csv')
     w7_w, chiks7_w, chi7_w = read_macroscopic_component('iron_dsus_G7.csv')
-    w8_w, chiks8_w, chi8_w = read_macroscopic_component('iron_dsus_G8.csv')
 
-    wpeak1, Ipeak1 = findpeak(w1_w, chi1_w.imag)
-    wpeak2, Ipeak2 = findpeak(w2_w, chi2_w.imag)
-    wpeak3, Ipeak3 = findpeak(w3_w, chi3_w.imag)
-    wpeak4, Ipeak4 = findpeak(w4_w, chi4_w.imag)
-    wpeak5, Ipeak5 = findpeak(w5_w, chi5_w.imag)
-    wpeak6, Ipeak6 = findpeak(w6_w, chi6_w.imag)
-    wpeak7, Ipeak7 = findpeak(w7_w, chi7_w.imag)
-    wpeak8, Ipeak8 = findpeak(w8_w, chi8_w.imag)
+    wpeak1, Ipeak1 = findpeak(w1_w, -chi1_w.imag)
+    wpeak2, Ipeak2 = findpeak(w2_w, -chi2_w.imag)
+    wpeak3, Ipeak3 = findpeak(w3_w, -chi3_w.imag)
+    wpeak4, Ipeak4 = findpeak(w4_w, -chi4_w.imag)
+    wpeak5, Ipeak5 = findpeak(w5_w, -chi5_w.imag)
+    wpeak6, Ipeak6 = findpeak(w6_w, -chi6_w.imag)
+    wpeak7, Ipeak7 = findpeak(w7_w, -chi7_w.imag)
 
     mw1 = wpeak1 * 1000
     mw2 = wpeak2 * 1000
@@ -143,41 +136,36 @@ def test_response_iron_sf_ALDA(in_tmp_dir):
     mw5 = wpeak5 * 1000
     mw6 = wpeak6 * 1000
     mw7 = wpeak7 * 1000
-    mw8 = wpeak8 * 1000
 
     # Part 4: compare new results to test values
     test_mw1 = 234.63  # meV
     test_mw2 = 397.33  # meV
-    test_mw5 = 398.83  # meV
+    test_mw4 = 398.83  # meV
     test_Ipeak1 = 56.74  # a.u.
     test_Ipeak2 = 55.80  # a.u.
-    test_Ipeak5 = 58.23  # a.u.
+    test_Ipeak4 = 58.23  # a.u.
 
     # Different kernel strategies should remain the same
     # Magnon peak:
     equal(mw1, test_mw1, eta * 250)
     equal(mw2, test_mw2, eta * 250)
-    equal(mw5, test_mw5, eta * 250)
+    equal(mw4, test_mw4, eta * 250)
 
     # Scattering function intensity:
     equal(Ipeak1, test_Ipeak1, 2.5)
     equal(Ipeak2, test_Ipeak2, 2.5)
-    equal(Ipeak5, test_Ipeak5, 2.5)
+    equal(Ipeak4, test_Ipeak4, 2.5)
 
     # The bundled and unbundled integration methods should give the same
     equal(mw2, mw3, eta * 100)
     equal(Ipeak2, Ipeak3, 1.0)
 
-    # The bundled and unbundled data extraction should give the same result
-    equal(mw2, mw4, eta * 100)
-    equal(Ipeak2, Ipeak4, 1.0)
-
     # The two transitions summation strategies should give identical results
-    equal(mw5, mw6, eta * 100)
-    equal(Ipeak5, Ipeak6, 1.0)
+    equal(mw4, mw5, eta * 100)
+    equal(Ipeak4, Ipeak5, 1.0)
 
     # Including vanishing coefficients should not matter for the result
-    equal(mw7, mw5, eta * 100)
-    equal(Ipeak7, Ipeak5, 1.0)
-    equal(mw8, mw2, eta * 100)
-    equal(Ipeak8, Ipeak2, 1.0)
+    equal(mw6, mw4, eta * 100)
+    equal(Ipeak6, Ipeak4, 1.0)
+    equal(mw7, mw2, eta * 100)
+    equal(Ipeak7, Ipeak2, 1.0)

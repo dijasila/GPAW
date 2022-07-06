@@ -1,5 +1,6 @@
-import numpy as np
 import time
+import pytest
+import numpy as np
 
 from ase.build import bulk
 from ase.parallel import parprint
@@ -10,6 +11,7 @@ from gpaw.response.df import DielectricFunction
 from gpaw.mpi import size, world
 
 
+@pytest.mark.response
 def test_response_aluminum_EELS_RPA(in_tmp_dir):
     assert size <= 4**3
 
@@ -24,7 +26,6 @@ def test_response_aluminum_EELS_RPA(in_tmp_dir):
                 nbands=4,
                 kpts=(4, 4, 4),
                 parallel={'band': 1},
-                idiotproof=False,  # allow uneven distribution of k-points
                 xc='LDA')
 
     atoms.calc = calc

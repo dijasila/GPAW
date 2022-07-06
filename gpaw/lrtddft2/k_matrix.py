@@ -41,7 +41,8 @@ class Kmatrix:
             ready_files = glob.glob(self.basefilename + '.ready_rows.*')
             for ready_file in ready_files:
                 if os.path.isfile(ready_file):
-                    data += open(ready_file, 'r', 1024 * 1024).read()
+                    with open(ready_file, 'r', 1024 * 1024) as fd:
+                        data += fd.read()
 
         data = gpaw.mpi.broadcast_string(data,
                                          root=0,
@@ -83,7 +84,9 @@ class Kmatrix:
                 continue
 
             # for each file
-            for line in open(K_fn, 'r', 1024 * 1024).read().splitlines():
+            with open(K_fn, 'r', 1024 * 1024) as fd:
+                lines = fd.read().splitlines()
+            for line in lines:
                 # self.timer.start('Read K-matrix: elem')
                 if line[0] == '#':
                     if line.startswith('# K-matrix file'):

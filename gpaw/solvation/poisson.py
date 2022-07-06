@@ -3,10 +3,12 @@ import warnings
 import numpy as np
 from scipy.special import erf
 
-from gpaw.poisson import FDPoissonSolver
+from gpaw.poisson import BasePoissonSolver, PoissonSolver, FDPoissonSolver
 from gpaw.fd_operators import Laplace, Gradient
 from gpaw.wfd_operators import WeightedFDOperator
 from gpaw.utilities.gauss import Gaussian
+from gpaw import PoissonConvergenceError
+from gpaw.utilities.timing import NullTimer
 
 
 class SolvationPoissonSolver(FDPoissonSolver):
@@ -117,70 +119,95 @@ class WeightedFDPoissonSolver(SolvationPoissonSolver):
         return SolvationPoissonSolver._init(self)
 
 
-class PolarizationPoissonSolver(SolvationPoissonSolver):
+class PolarizationPoissonSolver(BasePoissonSolver):
     """Poisson solver with dielectric.
 
     Calculates the polarization charges first using only the
     vacuum poisson equation, then solves the vacuum equation
     with polarization charges.
-
-    Warning: Not intended for production use, as it is not exact enough,
-             since the electric field is not exact enough!
     """
 
     def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
-                 remove_moment=None, use_charge_center=False):
-        polarization_warning = UserWarning(
-            'PolarizationPoissonSolver is not accurate enough'
-            ' and therefore not recommended for production code!')
-        warnings.warn(polarization_warning)
-        SolvationPoissonSolver.__init__(
-            self, nn, relax, eps, maxiter, remove_moment,
-            use_charge_center=use_charge_center)
+                 remove_moment=None, use_charge_center=False,
+                 gas_phase_poisson='fast'):
+        self.nn = nn
+        self.eps = eps
+        self.maxiter = maxiter
         self.phi_tilde = None
 
+        self.gas_phase_poisson = PoissonSolver(
+            name=gas_phase_poisson, nn=nn, eps=eps,
+            remove_moment=remove_moment,
+            use_charge_center=use_charge_center)
+
+    def set_dielectric(self, dielectric):
+        """Set the dielectric.
+
+        Arguments:
+        dielectric -- A Dielectric instance.
+        """
+        self.dielectric = dielectric
+
     def get_description(self):
-        if len(self.operators) == 0:
-            return 'uninitialized PolarizationPoissonSolver'
-        else:
-            description = SolvationPoissonSolver.get_description(self)
-            return description.replace(
-                'solver with',
-                'polarization solver with dielectric and')
+        return ('PolarizationPoissonSolver based on '
+                + self.gas_phase_poisson.get_description())
+
+    def set_grid_descriptor(self, gd):
+        self.gd = gd
+        self.gas_phase_poisson.set_grid_descriptor(gd)
 
     def solve(self, phi, rho, charge=None,
               maxcharge=1e-6,
-              zero_initial_phi=False, timer=None):
-        self._init()
-        if self.phi_tilde is None:
-            self.phi_tilde = self.gd.zeros()
-        phi_tilde = self.phi_tilde
-        niter_tilde = FDPoissonSolver.solve(
-            self, phi_tilde, rho, None, maxcharge, False)
+              zero_initial_phi=False, timer=NullTimer()):
+        # get initial meaningful phi -> only do this if necessary
+        if zero_initial_phi:
+            niter = self.gas_phase_poisson.solve(
+                phi, rho, charge=None, maxcharge=maxcharge,
+                zero_initial_phi=zero_initial_phi, timer=timer)
+        else:
+            niter = 0
 
+        phi_old = phi.copy()
+        while niter < self.maxiter:
+            rho_mod = self.rho_with_polarization_charge(phi, rho)
+            niter += self.gas_phase_poisson.solve(
+                phi, rho_mod, charge=None, maxcharge=maxcharge,
+                zero_initial_phi=zero_initial_phi, timer=timer)
+            residual = phi - phi_old
+            error = self.gd.comm.sum(np.dot(residual.ravel(),
+                                            residual.ravel())) * self.gd.dv
+            if error < self.eps:
+                return niter
+            phi_old = phi.copy()
+            
+        raise PoissonConvergenceError(
+            'PolarizationPoisson solver did not converge in '
+            + f'{niter} iterations!')
+
+    def rho_with_polarization_charge(self, phi, rho):
         epsr, dx_epsr, dy_epsr, dz_epsr = self.dielectric.eps_gradeps
-        dx_phi_tilde = self.gd.empty()
-        dy_phi_tilde = self.gd.empty()
-        dz_phi_tilde = self.gd.empty()
-        Gradient(self.gd, 0, 1.0, self.nn).apply(phi_tilde, dx_phi_tilde)
-        Gradient(self.gd, 1, 1.0, self.nn).apply(phi_tilde, dy_phi_tilde)
-        Gradient(self.gd, 2, 1.0, self.nn).apply(phi_tilde, dz_phi_tilde)
+        dx_phi = self.gd.empty()
+        dy_phi = self.gd.empty()
+        dz_phi = self.gd.empty()
+        Gradient(self.gd, 0, 1.0, self.nn).apply(phi, dx_phi)
+        Gradient(self.gd, 1, 1.0, self.nn).apply(phi, dy_phi)
+        Gradient(self.gd, 2, 1.0, self.nn).apply(phi, dz_phi)
 
         scalar_product = (
-            dx_epsr * dx_phi_tilde +
-            dy_epsr * dy_phi_tilde +
-            dz_epsr * dz_phi_tilde)
+            dx_epsr * dx_phi +
+            dy_epsr * dy_phi +
+            dz_epsr * dz_phi)
 
-        rho_and_pol = (
-            rho / epsr + scalar_product / (4. * np.pi * epsr ** 2))
+        return (rho + scalar_product / (4. * np.pi)) / epsr
 
-        niter = FDPoissonSolver.solve(
-            self, phi, rho_and_pol, None,
-            maxcharge, zero_initial_phi, timer=timer)
-        return niter_tilde + niter
+    def estimate_memory(self, mem):
+        # XXX estimate your own contribution
+        return self.gas_phase_poisson.estimate_memory(mem)
 
-    def load_gauss(self, center=None):
-        return FDPoissonSolver.load_gauss(self, center=center)
+    def todict(self):
+        my_dict = self.gas_phase_poisson.todict()
+        my_dict['name'] = f"polarization-{my_dict['name']}"
+        return my_dict
 
 
 class ADM12PoissonSolver(SolvationPoissonSolver):

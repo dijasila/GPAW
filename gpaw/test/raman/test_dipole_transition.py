@@ -41,10 +41,14 @@ def test_dipole_transition(gpw_files, tmp_path_factory):
 
     # ------------------------------------------------------------------------
     # compare to utilities implementation
-    uref = dipole_matrix_elements_from_calc(calc, 0, 6)
     if world.rank == 0:
+        from gpaw.new.ase_interface import GPAW as NewGPAW
+        from gpaw.mpi import serial_comm
+        refcalc = NewGPAW(gpw_files['h2o_lcao_wfs'],
+                          parallel={'world': serial_comm})
+        uref = dipole_matrix_elements_from_calc(refcalc, 0, 6)
         uref = uref[0]
-        assert(uref.shape == (6, 6, 3))
+        assert uref.shape == (6, 6, 3)
     # NOTE: Comparing implementations of r gauge and v gauge is tricky, as they
     # tend to be numerically inequivalent.
 
@@ -63,13 +67,15 @@ def test_dipole_transition(gpw_files, tmp_path_factory):
 
     # Additional benefit: tests equivalence of r gauge implementations
     if world.rank == 0:
-        assert abs(lrref[0, 2]) == pytest.approx(abs(uref[4, 0, 2]))
-        assert abs(lrref[1, 1]) == pytest.approx(abs(uref[5, 0, 1]))
-        assert abs(lrref[2, 1]) == pytest.approx(abs(uref[4, 1, 1]))
-        assert abs(lrref[3, 2]) == pytest.approx(abs(uref[5, 1, 2]))
-        assert abs(lrref[4, 2]) == pytest.approx(abs(uref[4, 2, 2]))
-        assert abs(lrref[5, 1]) == pytest.approx(abs(uref[5, 2, 1]))
-        assert abs(lrref[6, 0]) == pytest.approx(abs(uref[4, 3, 0]))
+        for i, (m, n, v) in enumerate([[4, 0, 2],
+                                       [5, 0, 1],
+                                       [4, 1, 1],
+                                       [5, 1, 2],
+                                       [4, 2, 2],
+                                       [5, 2, 1],
+                                       [4, 3, 0]]):
+            assert abs(lrref[i, v]) == pytest.approx(abs(uref[m, n, v]),
+                                                     abs=1e-4)
 
     # some printout for manual inspection, if wanted
     parprint("         r-gauge   lrtddft(v)  raman(v)")

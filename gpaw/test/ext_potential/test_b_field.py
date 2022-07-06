@@ -22,9 +22,9 @@ def test_b_field():
     E2 = atom.get_potential_energy()
     a2, b2 = (atom.calc.get_eigenvalues(spin=s)[0] for s in [0, 1])
 
-    assert E2 - E1 == pytest.approx(-B)
-    assert a2 - a1 == pytest.approx(-B)
-    assert b2 - b1 == pytest.approx(B)
+    assert E2 - E1 == pytest.approx(-B, abs=1e-6)
+    assert a2 - a1 == pytest.approx(-B, abs=1e-6)
+    assert b2 - b1 == pytest.approx(B, abs=1e-6)
 
     # Non-collinear:
     atom.calc = GPAW(mode='pw',

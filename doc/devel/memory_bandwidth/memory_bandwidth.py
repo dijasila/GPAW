@@ -1,7 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
-# Emacs: treat this as -*- python -*-
 import numpy as np
 import os
 from optparse import OptionParser

@@ -45,14 +45,14 @@ To append use the form
 # platform_id = ''
 
 # FFTW3:
-fftw = False
+fftw = True
 if fftw:
     libraries += ['fftw3']
 
 # ScaLAPACK (version 2.0.1+ required):
-scalapack = False
+scalapack = True
 if scalapack:
-    libraries += ['scalapack-openmpi']
+    libraries += ['scalapack']
 
 # Use Elpa (requires ScaLAPACK and Elpa API 20171201):
 if 0:

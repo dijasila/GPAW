@@ -1,20 +1,16 @@
-import pytest
-from gpaw.mpi import world
-from distutils.version import LooseVersion
-
-from ase.phonons import Phonons
-from ase import Atoms, __version__
 import numpy as np
+import pytest
+from ase import Atoms
+from ase.phonons import Phonons
 
 from gpaw import GPAW
 from gpaw.elph.electronphonon import ElectronPhononCoupling
+from gpaw.mpi import world
 
 pytestmark = pytest.mark.skipif(world.size > 2,
                                 reason='world.size > 2')
 
 
-@pytest.mark.skipif(LooseVersion(__version__) < '3.22',
-                    reason='Too old ASE')
 @pytest.mark.elph
 def test_electronphonon(in_tmp_dir):
     a = 0.90
@@ -42,7 +38,7 @@ def test_electronphonon(in_tmp_dir):
     elph.run()
 
     elph.set_lcao_calculator(elph_calc)
-    elph.calculate_supercell_matrix(dump=1)
+    elph.calculate_supercell_matrix()
 
     ph = Phonons(atoms=atoms, name='elph+ph', supercell=supercell, calc=None)
     ph.read()

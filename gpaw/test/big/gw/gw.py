@@ -40,7 +40,7 @@ for name in data:
     id = c.reserve(name=name, tag=tag)
     if id is None:
         continue
-        
+
     x, a = data[name]
     atoms = bulk(name, x, a=a)
     atoms.calc = GPAW(mode=PW(600),
@@ -58,8 +58,9 @@ for name in data:
               kpts=[(0, 0, 0), (0.5, 0.5, 0.5), (0.5, 0.5, 0)],
               ecut=100,
               wstc=True,
-              domega0=0.2,
-              omega2=10,
+              frequencies={'type': 'nonlinear',
+                           'domega0': 0.2,
+                           'omega2': 10},
               eta=0.2,
               bands=(0, n + 2))
     results = gw.calculate()

@@ -1,5 +1,4 @@
 import functools
-import itertools
 import os
 import pickle
 import warnings
@@ -13,36 +12,261 @@ from ase.utils import opencew, pickleload
 from ase.utils.timing import timer
 
 import gpaw.mpi as mpi
-from gpaw import GPAW, debug
+from gpaw import debug
+from gpaw.calculator import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.response.chi0 import Chi0, HilbertTransform
+from gpaw.response.chi0 import Chi0
 from gpaw.response.fxckernel_calc import calculate_kernel
 from gpaw.response.kernels import get_coulomb_kernel, get_integrated_kernel
 from gpaw.response.pair import PairDensity
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
-from gpaw.utilities import devnull
+from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.pw.descriptor import (PWDescriptor, PWMapping,
                                 count_reciprocal_vectors)
 from gpaw.xc.exx import EXX, select_kpts
-from gpaw.xc.fxc import set_flags
+from gpaw.xc.fxc import XCFlags
 from gpaw.xc.tools import vxc
+from gpaw.response.temp import DielectricFunctionCalculator
+from gpaw.response.q0_correction import Q0Correction
+from gpaw.response.hilbert import GWHilbertTransforms
+from gpaw.response.gamma_int import GammaIntegrator
 
 
-class G0W0(PairDensity):
-    def __init__(self, calc, filename='gw', restartfile=None,
+class Sigma:
+    def __init__(self, esknshape):
+        self._buf = np.zeros((2, * esknshape))
+        # self-energies and derivatives:
+        self.sigma_eskn, self.dsigma_eskn = self._buf
+
+    def sum(self, comm):
+        comm.sum(self._buf)
+
+
+class G0W0Outputs:
+    def __init__(self, fd, shape, ecut_e, sigma_eskn, dsigma_eskn,
+                 eps_skn, vxc_skn, exx_skn, f_skn):
+        self.extrapolate(fd, shape, ecut_e, sigma_eskn, dsigma_eskn)
+        self.Z_skn = 1 / (1 - self.dsigma_skn)
+
+        # G0W0 single-step.
+        # If we want GW0 again, we need to grab the expressions
+        # from e.g. e73917fca5b9dc06c899f00b26a7c46e7d6fa749
+        # or earlier and use qp correctly.
+        self.qp_skn = eps_skn + self.Z_skn * (
+            -vxc_skn + exx_skn + self.sigma_skn)
+
+        self.sigma_eskn = sigma_eskn
+        self.dsigma_eskn = dsigma_eskn
+
+        self.eps_skn = eps_skn
+        self.vxc_skn = vxc_skn
+        self.exx_skn = exx_skn
+        self.f_skn = f_skn
+
+    def extrapolate(self, fd, shape, ecut_e, sigma_eskn, dsigma_eskn):
+        if len(ecut_e) == 1:
+            self.sigma_skn = sigma_eskn[0]
+            self.dsigma_skn = dsigma_eskn[0]
+            self.sigr2_skn = None
+            self.dsigr2_skn = None
+            return
+
+        from scipy.stats import linregress
+        # Do linear fit of selfenergy vs. inverse of number of plane waves
+        # to extrapolate to infinite number of plane waves
+
+        print('', file=fd)
+        print('Extrapolating selfenergy to infinite energy cutoff:',
+              file=fd)
+        print('  Performing linear fit to %d points' % len(ecut_e),
+              file=fd)
+        self.sigr2_skn = np.zeros(shape)
+        self.dsigr2_skn = np.zeros(shape)
+        self.sigma_skn = np.zeros(shape)
+        self.dsigma_skn = np.zeros(shape)
+        invN_i = ecut_e**(-3. / 2)
+        for m in range(np.product(shape)):
+            s, k, n = np.unravel_index(m, shape)
+
+            slope, intercept, r_value, p_value, std_err = \
+                linregress(invN_i, sigma_eskn[:, s, k, n])
+
+            self.sigr2_skn[s, k, n] = r_value**2
+            self.sigma_skn[s, k, n] = intercept
+
+            slope, intercept, r_value, p_value, std_err = \
+                linregress(invN_i, dsigma_eskn[:, s, k, n])
+
+            self.dsigr2_skn[s, k, n] = r_value**2
+            self.dsigma_skn[s, k, n] = intercept
+
+        if np.any(self.sigr2_skn < 0.9) or np.any(self.dsigr2_skn < 0.9):
+            print('  Warning: Bad quality of linear fit for some (n,k). ',
+                  file=fd)
+            print('           Higher cutoff might be necesarry.', file=fd)
+
+        print('  Minimum R^2 = %1.4f. (R^2 Should be close to 1)' %
+              min(np.min(self.sigr2_skn), np.min(self.dsigr2_skn)),
+              file=fd)
+
+    def get_results_eV(self):
+        results = {
+            'f': self.f_skn,
+            'eps': self.eps_skn * Ha,
+            'vxc': self.vxc_skn * Ha,
+            'exx': self.exx_skn * Ha,
+            'sigma': self.sigma_skn * Ha,
+            'dsigma': self.dsigma_skn,
+            'Z': self.Z_skn,
+            'qp': self.qp_skn * Ha}
+
+        results.update(
+            sigma_eskn=self.sigma_eskn * Ha,
+            dsigma_eskn=self.dsigma_eskn)
+
+        if self.sigr2_skn is not None:
+            assert self.dsigr2_skn is not None
+            results['sigr2_skn'] = self.sigr2_skn
+            results['dsigr2_skn'] = self.dsigr2_skn
+
+        return results
+
+
+class QSymmetryOp:
+    def __init__(self, symno, U_cc, sign):
+        self.symno = symno
+        self.U_cc = U_cc
+        self.sign = sign
+
+    def apply(self, q_c):
+        return self.sign * (self.U_cc @ q_c)
+
+    def check_q_Q_symmetry(self, Q_c, q_c):
+        d_c = self.apply(q_c) - Q_c
+        assert np.allclose(d_c.round(), d_c)
+
+    def get_shift0(self, q_c, Q_c):
+        shift0_c = q_c - self.apply(Q_c)
+        assert np.allclose(shift0_c.round(), shift0_c)
+        return shift0_c.round().astype(int)
+
+    def get_M_vv(self, cell_cv):
+        # We'll be inverting these cells a lot.
+        # Should have an object with the cell and its inverse which does this.
+        return cell_cv.T @ self.U_cc.T @ np.linalg.inv(cell_cv).T
+
+    @classmethod
+    def get_symops(cls, qd, iq, q_c):
+        # Loop over all k-points in the BZ and find those that are
+        # related to the current IBZ k-point by symmetry
+        Q1 = qd.ibz2bz_k[iq]
+        done = set()
+        for Q2 in qd.bz2bz_ks[Q1]:
+            if Q2 >= 0 and Q2 not in done:
+                time_reversal = qd.time_reversal_k[Q2]
+                symno = qd.sym_k[Q2]
+                Q_c = qd.bzk_kc[Q2]
+
+                symop = cls(
+                    symno=symno,
+                    U_cc=qd.symmetry.op_scc[symno],
+                    sign=1 - 2 * time_reversal)
+
+                symop.check_q_Q_symmetry(Q_c, q_c)
+                # Q_c, symop = QSymmetryOp.from_qd(qd, Q2, q_c)
+                yield Q_c, symop
+                done.add(Q2)
+
+
+gw_logo = """\
+  ___  _ _ _
+ |   || | | |
+ | | || | | |
+ |__ ||_____|
+ |___|
+"""
+
+
+def get_max_nblocks(world, calc, ecut):
+    nblocks = world.size
+    if isinstance(calc, GPAW):
+        raise Exception('Using a calulator is not implemented at '
+                        'the moment, load from file!')
+        # nblocks_calc = calc
+    else:
+        nblocks_calc = GPAW(calc)
+    ngmax = []
+    for q_c in nblocks_calc.wfs.kd.bzk_kc:
+        qd = KPointDescriptor([q_c])
+        pd = PWDescriptor(np.min(ecut) / Ha,
+                          nblocks_calc.wfs.gd, complex, qd)
+        ngmax.append(pd.ngmax)
+    nG = np.min(ngmax)
+
+    while nblocks > nG**0.5 + 1 or world.size % nblocks != 0:
+        nblocks -= 1
+
+    mynG = (nG + nblocks - 1) // nblocks
+    assert mynG * (nblocks - 1) < nG
+    return nblocks
+
+
+def get_frequencies(frequencies, domega0, omega2):
+    if domega0 is not None or omega2 is not None:
+        assert frequencies is None
+        frequencies = {'type': 'nonlinear',
+                       'domega0': 0.025 if domega0 is None else domega0,
+                       'omega2': 10.0 if omega2 is None else omega2}
+        warnings.warn(f'Please use frequencies={frequencies}')
+    elif frequencies is None:
+        frequencies = {'type': 'nonlinear',
+                       'domega0': 0.025,
+                       'omega2': 10.0}
+    else:
+        assert frequencies['type'] == 'nonlinear'
+    return frequencies
+
+
+def get_qdescriptor(kd, atoms):
+    # Find q-vectors and weights in the IBZ:
+    assert -1 not in kd.bz2bz_ks
+    offset_c = 0.5 * ((kd.N_c + 1) % 2) / kd.N_c
+    bzq_qc = monkhorst_pack(kd.N_c) + offset_c
+    qd = KPointDescriptor(bzq_qc)
+    qd.set_symmetry(atoms, kd.symmetry)
+    return qd
+
+
+def choose_ecut_things(ecut, ecut_extrapolation):
+    if ecut_extrapolation is True:
+        pct = 0.8
+        necuts = 3
+        ecut_e = ecut * (1 + (1. / pct - 1) * np.arange(necuts)[::-1] /
+                         (necuts - 1))**(-2 / 3)
+    elif isinstance(ecut_extrapolation, (list, np.ndarray)):
+        ecut_e = np.array(np.sort(ecut_extrapolation))
+        ecut = ecut_e[-1]
+    else:
+        ecut_e = np.array([ecut])
+    return ecut, ecut_e
+
+
+class G0W0:
+    def __init__(self, calc, filename='gw', *,
+                 restartfile=None,
                  kpts=None, bands=None, relbands=None, nbands=None, ppa=False,
-                 xc='RPA', fxc_mode='GW', density_cut=1.e-6, do_GW_too=False,
-                 av_scheme=None, Eg=None,
+                 xc='RPA', fxc_mode='GW', do_GW_too=False,
+                 Eg=None,
                  truncation=None, integrate_gamma=0,
                  ecut=150.0, eta=0.1, E0=1.0 * Ha,
-                 domega0=0.025, omega2=10.0, q0_correction=False,
-                 anisotropy_correction=None,
-                 nblocks=1, savew=False, savepckl=True,
-                 maxiter=1, method='G0W0', mixing=0.2,
+                 frequencies=None,
+                 domega0=None,  # deprecated
+                 omega2=None,  # deprecated
+                 q0_correction=False,
+                 nblocks=1, savepckl=True,
                  world=mpi.world, ecut_extrapolation=False,
-                 nblocksmax=False, gate_voltage=None,
-                 paw_correction='brute-force'):
+                 nblocksmax=False):
 
         """G0W0 calculator.
 
@@ -50,7 +274,9 @@ class G0W0(PairDensity):
         particle energies through the G0W0 approximation for a number
         of states.
 
-        calc: str or PAW object
+        Parameters
+        ----------
+        calc:
             GPAW calculator object or filename of saved calculator object.
         filename: str
             Base filename of output files.
@@ -59,17 +285,22 @@ class G0W0(PairDensity):
         kpts: list
             List of indices of the IBZ k-points to calculate the quasi particle
             energies for.
-        bands: tuple of two ints
+        bands:
             Range of band indices, like (n1, n2), to calculate the quasi
             particle energies for. Bands n where n1<=n<n2 will be
             calculated.  Note that the second band index is not included.
-        relbands: tuple of two ints
+        relbands:
             Same as *bands* except that the numbers are relative to the
             number of occupied bands.
             E.g. (-1, 1) will use HOMO+LUMO.
+        frequencies:
+            Input parameters for frequency_grid.
+            Can be array of frequencies to evaluate the response function at
+            or dictionary of parameters for build-in nonlinear grid
+            (see :ref:`frequency grid`).
         ecut: float
             Plane wave cut-off energy in eV.
-        ecut_extrapolation: bool or array
+        ecut_extrapolation: bool or list
             If set to True an automatic extrapolation of the selfenergy to
             infinite cutoff will be performed based on three points
             for the cutoff energy.
@@ -88,17 +319,10 @@ class G0W0(PairDensity):
             Where to include the vertex corrections; polarizability and/or
             self-energy. 'GWP': Polarizability only, 'GWS': Self-energy only,
             'GWG': Both.
-        density_cut: float
-            Cutoff for density when constructing kernel.
         do_GW_too: bool
             When carrying out a calculation including vertex corrections, it
             is possible to get the standard GW results at the same time
             (almost for free).
-        av_scheme: str
-            'wavevector'. Method to construct kernel. Only
-            'wavevector' has been tested and works here. The implementation
-            could be extended to include the 'density' method which has been
-            tested for total energy calculations (rALDA etc.)
         Eg: float
             Gap to apply in the 'JGMs' (simplified jellium-with-gap) kernel.
             If None the DFT gap is used.
@@ -113,20 +337,9 @@ class G0W0(PairDensity):
             but the average is only carried out in the non-periodic directions.
         E0: float
             Energy (in eV) used for fitting in the plasmon-pole approximation.
-        domega0: float
-            Minimum frequency step (in eV) used in the generation of the non-
-            linear frequency grid.
-        omega2: float
-            Control parameter for the non-linear frequency grid, equal to the
-            frequency where the grid spacing has doubled in size.
-        gate_voltage: float
-            Shift Fermi level of ground state calculation by the
-            specified amount.
         q0_correction: bool
             Analytic correction to the q=0 contribution applicable to 2D
             systems.
-        anisotropy_correction: bool
-            Old term for the q0_correction.
         nblocks: int
             Number of blocks chi0 should be distributed in so each core
             does not have to store the entire matrix. This is to reduce
@@ -135,97 +348,41 @@ class G0W0(PairDensity):
         nblocksmax: bool
             Cuts chi0 into as many blocks as possible to reduce memory
             requirements as much as possible.
-        savew: bool
-            Save W to a file.
         savepckl: bool
             Save output to a pckl file.
-        method: str
-            G0W0 or GW0(eigenvalue selfconsistency in G) currently available.
-        maxiter: int
-            Number of iterations in a GW0 calculation.
-        mixing: float
-            Number between 0 and 1 determining how much of previous
-            iteration's eigenvalues to mix with.
-        ecut_extrapolation: bool
-            Carries out the extrapolation to infinite cutoff automatically.
         """
-
-        if world.rank != 0:
-            txt = devnull
-        else:
-            txt = open(filename + '.txt', 'w')
-
-        p = functools.partial(print, file=txt)
-        p('  ___  _ _ _ ')
-        p(' |   || | | |')
-        p(' | | || | | |')
-        p(' |__ ||_____|')
-        p(' |___|')
-        p()
-
+        self.frequencies = get_frequencies(frequencies, domega0, omega2)
         self.inputcalc = calc
 
         if ppa and (nblocks > 1 or nblocksmax):
-            p('PPA is currently not compatible with block parallellisation. '
-              'Setting nblocks=1 and continuing.')
-            nblocks = 1
-            nblocksmax = False
+            raise ValueError(
+                'PPA is currently not compatible with block parallellisation.')
 
-        if ecut_extrapolation is True:
-            pct = 0.8
-            necuts = 3
-            ecut_e = ecut * (1 + (1. / pct - 1) * np.arange(necuts)[::-1] /
-                             (necuts - 1))**(-2 / 3)
-            """It doesn't make sence to save W in this case since
-            W is calculated for different cutoffs:"""
-            assert not savew
-        elif isinstance(ecut_extrapolation, (list, np.ndarray)):
-            ecut_e = np.array(np.sort(ecut_extrapolation))
-            ecut = ecut_e[-1]
-            assert not savew
-        else:
-            ecut_e = np.array([ecut])
+        ecut, ecut_e = choose_ecut_things(ecut, ecut_extrapolation)
+        self.ecut_e = ecut_e / Ha
 
         # Check if nblocks is compatible, adjust if not
         if nblocksmax:
-            nblocks = world.size
-            if isinstance(calc, GPAW):
-                raise Exception('Using a calulator is not implemented at '
-                                'the moment, load from file!')
-                # nblocks_calc = calc
-            else:
-                nblocks_calc = GPAW(calc, txt=None)
-            ngmax = []
-            for q_c in nblocks_calc.wfs.kd.bzk_kc:
-                qd = KPointDescriptor([q_c])
-                pd = PWDescriptor(np.min(ecut) / Ha,
-                                  nblocks_calc.wfs.gd, complex, qd)
-                ngmax.append(pd.ngmax)
-            nG = np.min(ngmax)
+            nblocks = get_max_nblocks(world, calc, ecut)
 
-            while nblocks > nG**0.5 + 1 or world.size % nblocks != 0:
-                nblocks -= 1
+        self.pair = PairDensity(calc, ecut, world=world, nblocks=nblocks,
+                                txt=filename + '.txt')
 
-            mynG = (nG + nblocks - 1) // nblocks
-            assert mynG * (nblocks - 1) < nG
+        # Steal attributes from self.pair:
+        self.timer = self.pair.timer
+        self.fd = self.pair.fd
+        self.calc = self.pair.calc
+        self.gs = self.pair.gs
+        self.ecut = self.pair.ecut
+        self.blockcomm = self.pair.blockcomm
+        self.world = self.pair.world
+        self.vol = self.pair.vol
 
-        self.ecut_e = ecut_e / Ha
-
-        PairDensity.__init__(self, calc, ecut, world=world, nblocks=nblocks,
-                             gate_voltage=gate_voltage, txt=txt,
-                             paw_correction=paw_correction)
-
-        self.gate_voltage = gate_voltage
-        ecut /= Ha
+        print(gw_logo, file=self.fd)
 
         self.xc = xc
-        self.density_cut = density_cut
-        self.av_scheme = av_scheme
         self.fxc_mode = fxc_mode
         self.do_GW_too = do_GW_too
-
-        if self.av_scheme is not None:
-            assert self.av_scheme == 'wavevector'
 
         if not self.fxc_mode == 'GW':
             assert self.xc != 'RPA'
@@ -238,80 +395,88 @@ class G0W0(PairDensity):
                                    'with do_GW_too=True.')
 
         if Eg is None and self.xc == 'JGMsx':
-            from ase.dft.bandgap import get_band_gap
-            gap, k1, k2 = get_band_gap(self.calc)
-            self.Eg = gap
-        else:
-            self.Eg = Eg
+            Eg = self.gs.get_band_gap()
 
-        set_flags(self)
+        if Eg is not None:
+            Eg /= Ha
+
+        self.Eg = Eg
+
+        self.xcflags = XCFlags(self.xc)
 
         self.filename = filename
         self.restartfile = restartfile
-        self.savew = savew
         self.savepckl = savepckl
         self.ppa = ppa
         self.truncation = truncation
         self.integrate_gamma = integrate_gamma
         self.eta = eta / Ha
         self.E0 = E0 / Ha
-        self.domega0 = domega0 / Ha
-        self.omega2 = omega2 / Ha
-        if anisotropy_correction is not None:
-            self.ac = anisotropy_correction
-            warnings.warn('anisotropy_correction changed name to '
-                          'q0_correction. Please update your script(s).')
-        else:
-            self.ac = q0_correction
 
-        if self.ac:
-            assert self.truncation == '2D'
-            self.x0density = 0.1  # ? 0.01
+        self.wd = None
 
-        self.maxiter = maxiter
-        self.method = method
-        self.mixing = mixing
-        if self.method == 'GW0':
-            assert self.maxiter > 1
+        self.blocks1d = None
+        self.blockdist = None
 
-        self.kpts = list(select_kpts(kpts, self.calc))
-
-        if bands is not None and relbands is not None:
-            raise ValueError('Use bands or relbands!')
-
-        if relbands is not None:
-            bands = [self.calc.wfs.nvalence // 2 + b for b in relbands]
-
-        if bands is None:
-            bands = [0, self.nocc2]
-
-        self.bands = bands
-
-        self.ibzk_kc = self.calc.get_ibz_k_points()
-        nibzk = len(self.ibzk_kc)
-        self.eps0_skn = np.array([[self.calc.get_eigenvalues(kpt=k, spin=s)
-                                   for k in range(nibzk)]
-                                  for s in range(self.calc.wfs.nspins)]) / Ha
+        self.kpts = list(select_kpts(kpts, self.gs.kd))
+        self.bands = bands = self.choose_bands(bands, relbands)
 
         b1, b2 = bands
-        self.shape = shape = (self.calc.wfs.nspins, len(self.kpts), b2 - b1)
-        self.eps_skn = np.empty(shape)     # KS-eigenvalues
-        self.f_skn = np.empty(shape)       # occupation numbers
-        self.sigma_skn = np.zeros(shape)   # self-energies
-        self.dsigma_skn = np.zeros(shape)  # derivatives of self-energies
-        self.vxc_skn = None                # KS XC-contributions
-        self.exx_skn = None                # exact exchange contributions
-        self.Z_skn = None                  # renormalization factors
+        self.shape = (self.gs.nspins, len(self.kpts), b2 - b1)
 
         if nbands is None:
-            nbands = int(self.vol * ecut**1.5 * 2**0.5 / 3 / pi**2)
+            nbands = int(self.vol * self.ecut**1.5 * 2**0.5 / 3 / pi**2)
+        else:
+            if ecut_extrapolation:
+                raise RuntimeError(
+                    'nbands cannot be supplied with ecut-extrapolation.')
+
         self.nbands = nbands
-        self.nspins = self.calc.wfs.nspins
+        self.nspins = self.gs.nspins
 
         if self.nspins != 1 and self.fxc_mode != 'GW':
             raise RuntimeError('Including a xc kernel does currently not '
                                'work for spinpolarized systems.')
 
+        self.pair_distribution = self.pair.distribute_k_points_and_bands(
+            b1, b2, self.kd.ibz2bz_k[self.kpts])
+
+        self.qd = get_qdescriptor(self.kd, self.gs.atoms)
+
+        if q0_correction:
+            assert self.truncation == '2D'
+            self.q0_corrector = Q0Correction(
+                cell_cv=self.gd.cell_cv, bzk_kc=self.kd.bzk_kc,
+                N_c=self.qd.N_c)
+        else:
+            self.q0_corrector = None
+
+        self.print_parameters(kpts, b1, b2, ecut_extrapolation)
+        self.fd.flush()
+        self.hilbert_transform = None  # initialized when we create Chi0
+
+    @property
+    def kd(self):
+        return self.gs.kd
+
+    @property
+    def gd(self):
+        return self.gs.gd
+
+    def choose_bands(self, bands, relbands):
+        if bands is not None and relbands is not None:
+            raise ValueError('Use bands or relbands!')
+
+        if relbands is not None:
+            bands = [self.gs.nvalence // 2 + b for b in relbands]
+
+        if bands is None:
+            bands = [0, self.nocc2]
+
+        return bands
+
+    def print_parameters(self, kpts, b1, b2, ecut_extrapolation):
+        p = functools.partial(print, file=self.fd)
         p()
         p('Quasi particle states:')
         if kpts is None:
@@ -331,29 +496,24 @@ class G0W0(PairDensity):
         p('Coulomb cutoff:', self.truncation)
         p('Broadening: {0:g} eV'.format(self.eta * Ha))
         p()
-        p('Self-consistency method:', self.method)
         p('fxc mode:', self.fxc_mode)
         p('Kernel:', self.xc)
-        p('Averaging scheme:', self.av_scheme)
         p('Do GW too:', self.do_GW_too)
-
-        if self.method == 'GW0':
-            p('Number of iterations:', self.maxiter)
-            p('Mixing:', self.mixing)
         p()
-        kd = self.calc.wfs.kd
 
-        self.mysKn1n2 = None  # my (s, K, n1, n2) indices
-        self.distribute_k_points_and_bands(b1, b2, kd.ibz2bz_k[self.kpts])
+    def get_eps_and_occs(self):
+        eps_skn = np.empty(self.shape)  # KS-eigenvalues
+        f_skn = np.empty(self.shape)  # occupation numbers
 
-        # Find q-vectors and weights in the IBZ:
-        assert -1 not in kd.bz2bz_ks
-        offset_c = 0.5 * ((kd.N_c + 1) % 2) / kd.N_c
-        bzq_qc = monkhorst_pack(kd.N_c) + offset_c
-        self.qd = KPointDescriptor(bzq_qc)
-        self.qd.set_symmetry(self.calc.atoms, kd.symmetry)
+        b1, b2 = self.bands
+        for i, k in enumerate(self.kpts):
+            for s in range(self.nspins):
+                u = s + k * self.nspins
+                kpt = self.gs.kpt_u[u]
+                eps_skn[s, i] = kpt.eps_n[b1:b2]
+                f_skn[s, i] = kpt.f_n[b1:b2] / kpt.weight
 
-        txt.flush()
+        return eps_skn, f_skn
 
     @timer('G0W0')
     def calculate(self):
@@ -381,11 +541,7 @@ class G0W0(PairDensity):
         All the values are ``ndarray``'s of shape
         (spins, IBZ k-points, bands)."""
 
-        kd = self.calc.wfs.kd
-
-        self.calculate_ks_xc_contribution()
-        self.calculate_exact_exchange()
-
+        loaded = False
         if self.restartfile is not None:
             loaded = self.load_restart_file()
             if not loaded:
@@ -404,153 +560,40 @@ class G0W0(PairDensity):
 
         self.fd.flush()
 
-        self.ite = 0
+        # Reset calculation
+        sigmashape = (len(self.ecut_e), *self.shape)
 
-        while self.ite < self.maxiter:
-            # Reset calculation
-            # self-energies
-            self.sigma_eskn = np.zeros((len(self.ecut_e), ) + self.shape)
-            # derivatives of self-energies
-            self.dsigma_eskn = np.zeros((len(self.ecut_e), ) + self.shape)
+        self.sigmas = {fxc_mode: Sigma(sigmashape)
+                       for fxc_mode in self.fxc_modes}
+        # Loop over q in the IBZ:
+        print('Summing all q:', file=self.fd)
+        pb = ProgressBar(self.fd)
+        for nQ, (ie, pd0, Wdict, q_c, m2, symop, blocks1d, Q_aGii) in \
+                enumerate(self.calculate_screened_potential()):
 
-            if self.do_GW_too:
-                self.sigma_GW_eskn = np.zeros((len(self.ecut_e), ) +
-                                              self.shape)
-                self.dsigma_GW_eskn = np.zeros((len(self.ecut_e), ) +
-                                               self.shape)
+            for progress, kpt1, kpt2 in self.pair_distribution.kpt_pairs_by_q(
+                    q_c, 0, m2):
+                pb.update((nQ + progress) / self.qd.mynk)
 
-            # Get KS eigenvalues and occupation numbers:
-            if self.ite == 0:
-                b1, b2 = self.bands
-                nibzk = self.calc.wfs.kd.nibzkpts
-                for i, k in enumerate(self.kpts):
-                    for s in range(self.nspins):
-                        u = s * nibzk + k
-                        kpt = self.calc.wfs.kpt_u[u]
-                        self.eps_skn[s, i] = kpt.eps_n[b1:b2]
-                        self.f_skn[s, i] = kpt.f_n[b1:b2] / kpt.weight
+                k1 = self.kd.bz2ibz_k[kpt1.K]
+                i = self.kpts.index(k1)
 
-                self.qp_skn = self.eps_skn.copy()
-                self.qp_iskn = np.array([self.qp_skn])
-                if self.do_GW_too:
-                    self.qp_GW_skn = self.eps_skn.copy()
-                    self.qp_GW_iskn = np.array([self.qp_GW_skn])
+                self.calculate_q(ie, i, kpt1, kpt2, pd0, Wdict,
+                                 symop=symop,
+                                 sigmas=self.sigmas,
+                                 blocks1d=blocks1d,
+                                 Q_aGii=Q_aGii)
+        pb.finish()
 
-            if self.ite > 0:
-                self.update_energies(mixing=self.mixing)
+        return self.postprocess(self.sigmas, loaded)
 
-            # My part of the states we want to calculate QP-energies for:
-            mykpts = [self.get_k_point(s, K, n1, n2)
-                      for s, K, n1, n2 in self.mysKn1n2]
-            nkpt = len(mykpts)
-
-            # Loop over q in the IBZ:
-            nQ = 0
-            for ie, pd0, W0, q_c, m2, W0_GW in \
-                    self.calculate_screened_potential():
-                if nQ == 0:
-                    print('Summing all q:', file=self.fd)
-                    pb = ProgressBar(self.fd)
-                for u, kpt1 in enumerate(mykpts):
-                    pb.update((nQ + 1) * u /
-                              (nkpt * self.qd.mynk * self.qd.nspins))
-                    K2 = kd.find_k_plus_q(q_c, [kpt1.K])[0]
-                    kpt2 = self.get_k_point(kpt1.s, K2, 0, m2,
-                                            block=True)
-                    k1 = kd.bz2ibz_k[kpt1.K]
-                    i = self.kpts.index(k1)
-
-                    self.calculate_q(ie, i, kpt1, kpt2, pd0, W0, W0_GW)
-                nQ += 1
-            pb.finish()
-
-            self.world.sum(self.sigma_eskn)
-            self.world.sum(self.dsigma_eskn)
-
-            if self.do_GW_too:
-                self.world.sum(self.sigma_GW_eskn)
-                self.world.sum(self.dsigma_GW_eskn)
-
-            if self.restartfile is not None and loaded:
-                self.sigma_eskn += self.previous_sigma
-                self.dsigma_eskn += self.previous_dsigma
-
-            if len(self.ecut_e) > 1:  # interpolate to infinite ecut
-                self.extrapolate_ecut()
-            else:
-                self.sigma_skn = self.sigma_eskn[0]
-                self.dsigma_skn = self.dsigma_eskn[0]
-                if self.do_GW_too:
-                    self.sigma_GW_skn = self.sigma_GW_eskn[0]
-                    self.dsigma_GW_skn = self.dsigma_GW_eskn[0]
-
-            self.Z_skn = 1 / (1 - self.dsigma_skn)
-
-            qp_skn = self.qp_skn + self.Z_skn * (
-                self.eps_skn -
-                self.vxc_skn - self.qp_skn + self.exx_skn +
-                self.sigma_skn)
-
-            self.qp_skn = qp_skn
-
-            self.qp_iskn = np.concatenate((self.qp_iskn,
-                                           np.array([self.qp_skn])))
-
-            if self.do_GW_too:
-                self.Z_GW_skn = 1 / (1 - self.dsigma_GW_skn)
-
-                qp_GW_skn = self.qp_GW_skn + self.Z_GW_skn * (
-                    self.eps_skn -
-                    self.vxc_skn - self.qp_GW_skn + self.exx_skn +
-                    self.sigma_GW_skn)
-
-                self.qp_GW_skn = qp_GW_skn
-
-            self.ite += 1
-
-        results = {'f': self.f_skn,
-                   'eps': self.eps_skn * Ha,
-                   'vxc': self.vxc_skn * Ha,
-                   'exx': self.exx_skn * Ha,
-                   'sigma': self.sigma_skn * Ha,
-                   'dsigma': self.dsigma_skn,
-                   'Z': self.Z_skn,
-                   'qp': self.qp_skn * Ha,
-                   'iqp': self.qp_iskn * Ha}
-
-        if self.do_GW_too:
-            self.results_GW = {'f': self.f_skn,
-                               'eps': self.eps_skn * Ha,
-                               'vxc': self.vxc_skn * Ha,
-                               'exx': self.exx_skn * Ha,
-                               'sigma': self.sigma_GW_skn * Ha,
-                               'dsigma': self.dsigma_GW_skn,
-                               'Z': self.Z_GW_skn,
-                               'qp': self.qp_GW_skn * Ha,
-                               'iqp': self.qp_GW_iskn * Ha}
-
-        self.print_results(results)
-
-        if len(self.ecut_e) > 1:
-            # save non-extrapolated result and R^2 value for fit quality.
-            results.update({'sigma_eskn': self.sigma_eskn * Ha,
-                            'dsigma_eskn': self.dsigma_eskn * Ha,
-                            'sigr2_skn': self.sigr2_skn,
-                            'dsigr2_skn': self.dsigr2_skn})
-
-            if self.do_GW_too:
-                self.results_GW.update(
-                    {'sigma_GW_eskn': self.sigma_GW_eskn * Ha,
-                     'dsigma_GW_eskn': self.dsigma_GW_eskn * Ha,
-                     'sigr2_GW_skn': self.sigr2_GW_skn,
-                     'dsigr2_GW_skn': self.dsigr2_GW_skn})
-
-        if self.savepckl:
-            with paropen(self.filename + '_results.pckl', 'wb') as fd:
-                pickle.dump(results, fd, 2)
-            if self.do_GW_too:
-                with paropen(self.filename + '_results_GW.pckl', 'wb') as fd:
-                    pickle.dump(self.results_GW, fd, 2)
+    def postprocess(self, sigmas, loaded):
+        all_results = {}
+        for fxc_mode, sigma in sigmas.items():
+            all_results[fxc_mode] = self.postprocess_single(fxc_mode, sigma,
+                                                            loaded)
+        self.all_results = all_results
+        self.print_results(self.all_results)
 
         # After we have written the results restartfile is obsolete
         if self.restartfile is not None:
@@ -558,60 +601,68 @@ class G0W0(PairDensity):
                 if os.path.isfile(self.restartfile + '.sigma.pckl'):
                     os.remove(self.restartfile + '.sigma.pckl')
 
-        if self.method == 'GW0' and self.world.rank == 0:
-            for iq in range(len(self.qd.ibzk_kc)):
-                try:
-                    os.remove(self.filename + '.rank' +
-                              str(self.blockcomm.rank) + '.w.q' +
-                              str(iq) + '.pckl')
-                except OSError:
-                    pass
+        return self.results  # XXX ugly discrepancy
 
-        return results
+    def postprocess_single(self, fxc_name, sigma, loaded):
+        sigma.sum(self.world)  # (Not so pretty that we finalize the sum here)
 
-    def calculate_q(self, ie, k, kpt1, kpt2, pd0, W0, W0_GW=None):
+        if self.restartfile is not None and loaded:
+            assert not self.do_GW_too
+            sigma.sigma_eskn += self.previous_sigma
+            sigma.dsigma_eskn += self.previous_dsigma
+
+        output = self.calculate_g0w0_outputs(sigma)
+        result = output.get_results_eV()
+
+        if self.savepckl:
+            with paropen(f'{self.filename}_results_{fxc_name}.pckl',
+                         'wb') as fd:
+                pickle.dump(result, fd, 2)
+
+        return result
+
+    @property
+    def results_GW(self):
+        if self.do_GW_too:
+            return self.all_results['GW']
+
+    @property
+    def results(self):
+        return self.all_results[self.fxc_mode]
+
+    def calculate_q(self, ie, k, kpt1, kpt2, pd0, Wdict,
+                    *, symop, sigmas, blocks1d, Q_aGii):
         """Calculates the contribution to the self-energy and its derivative
         for a given set of k-points, kpt1 and kpt2."""
 
-        if W0_GW is None:
-            Ws = [W0]
-        else:
-            Ws = [W0, W0_GW]
-
-        wfs = self.calc.wfs
-
         N_c = pd0.gd.N_c
-        i_cG = self.sign * np.dot(self.U_cc,
-                                  np.unravel_index(pd0.Q_qG[0], N_c))
+        i_cG = symop.apply(np.unravel_index(pd0.Q_qG[0], N_c))
 
-        q_c = wfs.kd.bzk_kc[kpt2.K] - wfs.kd.bzk_kc[kpt1.K]
+        q_c = self.kd.bzk_kc[kpt2.K] - self.kd.bzk_kc[kpt1.K]
 
-        shift0_c = q_c - self.sign * np.dot(self.U_cc, pd0.kd.bzk_kc[0])
-        assert np.allclose(shift0_c.round(), shift0_c)
-        shift0_c = shift0_c.round().astype(int)
-
+        shift0_c = symop.get_shift0(q_c, pd0.kd.bzk_kc[0])
         shift_c = kpt1.shift_c - kpt2.shift_c - shift0_c
+
         I_G = np.ravel_multi_index(i_cG + shift_c[:, None], N_c, 'wrap')
 
         G_Gv = pd0.get_reciprocal_vectors()
-        pos_av = np.dot(self.spos_ac, pd0.gd.cell_cv)
-        M_vv = np.dot(pd0.gd.cell_cv.T,
-                      np.dot(self.U_cc.T,
-                             np.linalg.inv(pd0.gd.cell_cv).T))
 
-        Q_aGii = []
-        for a, Q_Gii in enumerate(self.Q_aGii):
+        pos_av = np.dot(self.pair.spos_ac, pd0.gd.cell_cv)
+        M_vv = symop.get_M_vv(pd0.gd.cell_cv)
+
+        myQ_aGii = []
+        for a, Q_Gii in enumerate(Q_aGii):
             x_G = np.exp(1j * np.dot(G_Gv, (pos_av[a] -
                                             np.dot(M_vv, pos_av[a]))))
-            U_ii = self.calc.wfs.setups[a].R_sii[self.s]
+            U_ii = self.gs.setups[a].R_sii[symop.symno]
             Q_Gii = np.dot(np.dot(U_ii, Q_Gii * x_G[:, None, None]),
                            U_ii.T).transpose(1, 0, 2)
-            if self.sign == -1:
+            if symop.sign == -1:
                 Q_Gii = Q_Gii.conj()
-            Q_aGii.append(Q_Gii)
+            myQ_aGii.append(Q_Gii)
 
         if debug:
-            self.check(ie, i_cG, shift0_c, N_c, q_c, Q_aGii)
+            self.check(ie, i_cG, shift0_c, N_c, q_c, myQ_aGii)
 
         if self.ppa:
             calculate_sigma = self.calculate_sigma_ppa
@@ -622,10 +673,10 @@ class G0W0(PairDensity):
             ut1cc_R = kpt1.ut_nR[n].conj()
             eps1 = kpt1.eps_n[n]
             C1_aGi = [np.dot(Qa_Gii, P1_ni[n].conj())
-                      for Qa_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
-            n_mG = self.calculate_pair_densities(ut1cc_R, C1_aGi, kpt2,
-                                                 pd0, I_G)
-            if self.sign == 1:
+                      for Qa_Gii, P1_ni in zip(myQ_aGii, kpt1.P_ani)]
+            n_mG = self.pair.calculate_pair_densities(
+                ut1cc_R, C1_aGi, kpt2, pd0, I_G)
+            if symop.sign == 1:
                 n_mG = n_mG.conj()
 
             f_m = kpt2.f_n
@@ -633,19 +684,19 @@ class G0W0(PairDensity):
 
             nn = kpt1.n1 + n - self.bands[0]
 
-            for jj, W in enumerate(Ws):
-                sigma, dsigma = calculate_sigma(n_mG, deps_m, f_m, W)
-                if jj == 0:
-                    self.sigma_eskn[ie, kpt1.s, k, nn] += sigma
-                    self.dsigma_eskn[ie, kpt1.s, k, nn] += dsigma
-                else:
-                    self.sigma_GW_eskn[ie, kpt1.s, k, nn] += sigma
-                    self.dsigma_GW_eskn[ie, kpt1.s, k, nn] += dsigma
+            assert set(Wdict) == set(sigmas)
+            for fxc_mode in self.fxc_modes:
+                sigma = sigmas[fxc_mode]
+                W = Wdict[fxc_mode]
+                sigma_contrib, dsigma_contrib = calculate_sigma(
+                    n_mG, deps_m, f_m, W, blocks1d)
+                sigma.sigma_eskn[ie, kpt1.s, k, nn] += sigma_contrib
+                sigma.dsigma_eskn[ie, kpt1.s, k, nn] += dsigma_contrib
 
     def check(self, ie, i_cG, shift0_c, N_c, q_c, Q_aGii):
         I0_G = np.ravel_multi_index(i_cG - shift0_c[:, None], N_c, 'wrap')
         qd1 = KPointDescriptor([q_c])
-        pd1 = PWDescriptor(self.ecut_e[ie], self.calc.wfs.gd, complex, qd1)
+        pd1 = PWDescriptor(self.ecut_e[ie], self.gd, complex, qd1)
         G_I = np.empty(N_c.prod(), int)
         G_I[:] = -1
         I1_G = pd1.Q_qG[0]
@@ -653,12 +704,12 @@ class G0W0(PairDensity):
         G_G = G_I[I0_G]
         assert len(I0_G) == len(I1_G)
         assert (G_G >= 0).all()
-        for a, Q_Gii in enumerate(self.initialize_paw_corrections(pd1)):
+        for a, Q_Gii in enumerate(self.pair.initialize_paw_corrections(pd1)):
             e = abs(Q_aGii[a] - Q_Gii[G_G]).max()
             assert e < 1e-12
 
     @timer('Sigma')
-    def calculate_sigma(self, n_mG, deps_m, f_m, C_swGG):
+    def calculate_sigma(self, n_mG, deps_m, f_m, C_swGG, blocks1d):
         """Calculates a contribution to the self-energy and its derivative for
         a given (k, k-q)-pair from its corresponding pair-density and
         energy."""
@@ -669,13 +720,12 @@ class G0W0(PairDensity):
         # Pick +i*eta or -i*eta:
         s_m = (1 + sgn_m * np.sign(0.5 - f_m)).astype(int) // 2
 
-        beta = (2**0.5 - 1) * self.domega0 / self.omega2
-        w_m = (o_m / (self.domega0 + beta * o_m)).astype(int)
-        m_inb = np.where(w_m < len(self.omega_w) - 1)[0]
+        w_m = self.wd.get_floor_index(o_m, safe=False)
+        m_inb = np.where(w_m < len(self.wd) - 1)[0]
         o1_m = np.empty(len(o_m))
         o2_m = np.empty(len(o_m))
-        o1_m[m_inb] = self.omega_w[w_m[m_inb]]
-        o2_m[m_inb] = self.omega_w[w_m[m_inb] + 1]
+        o1_m[m_inb] = self.wd.omega_w[w_m[m_inb]]
+        o2_m[m_inb] = self.wd.omega_w[w_m[m_inb] + 1]
 
         x = 1.0 / (self.qd.nbzkpts * 2 * pi * self.vol)
         sigma = 0.0
@@ -684,13 +734,13 @@ class G0W0(PairDensity):
         for o, o1, o2, sgn, s, w, n_G in zip(o_m, o1_m, o2_m,
                                              sgn_m, s_m, w_m, n_mG):
 
-            if w >= len(self.omega_w) - 1:
+            if w >= len(self.wd.omega_w) - 1:
                 continue
 
             C1_GG = C_swGG[s][w]
             C2_GG = C_swGG[s][w + 1]
             p = x * sgn
-            myn_G = n_G[self.Ga:self.Gb]
+            myn_G = n_G[blocks1d.myslice]
 
             sigma1 = p * np.dot(np.dot(myn_G, C1_GG), n_G.conj()).imag
             sigma2 = p * np.dot(np.dot(myn_G, C2_GG), n_G.conj()).imag
@@ -708,18 +758,16 @@ class G0W0(PairDensity):
         # The decorator $timer('W') doesn't work for generators, do we will
         # have to manually start and stop the timer here:
         self.timer.start('W')
-        if self.ite == 0:
-            print('\nCalculating screened Coulomb potential', file=self.fd)
-            if self.truncation is not None:
-                print('Using %s truncated Coloumb potential' % self.truncation,
-                      file=self.fd)
+        print('\nCalculating screened Coulomb potential', file=self.fd)
+        if self.truncation is not None:
+            print('Using %s truncated Coloumb potential' % self.truncation,
+                  file=self.fd)
 
         if self.ppa:
-            if self.ite == 0:
-                print('Using Godby-Needs plasmon-pole approximation:',
-                      file=self.fd)
-                print('  Fitting energy: i*E0, E0 = %.3f Hartee' % self.E0,
-                      file=self.fd)
+            print('Using Godby-Needs plasmon-pole approximation:',
+                  file=self.fd)
+            print('  Fitting energy: i*E0, E0 = %.3f Hartee' % self.E0,
+                  file=self.fd)
 
             # use small imaginary frequency to avoid dividing by zero:
             frequencies = [1e-10j, 1j * self.E0 * Ha]
@@ -729,52 +777,42 @@ class G0W0(PairDensity):
                           'timeordered': False,
                           'frequencies': frequencies}
         else:
-            if self.ite == 0:
-                print('Using full frequency integration:', file=self.fd)
-                print('  domega0: {0:g}'.format(self.domega0 * Ha),
-                      file=self.fd)
-                print('  omega2: {0:g}'.format(self.omega2 * Ha),
-                      file=self.fd)
+            print('Using full frequency integration:', file=self.fd)
 
             parameters = {'eta': self.eta * Ha,
                           'hilbert': True,
                           'timeordered': True,
-                          'domega0': self.domega0 * Ha,
-                          'omega2': self.omega2 * Ha}
+                          'frequencies': self.frequencies}
 
         self.fd.flush()
 
-        chi0 = Chi0(self.inputcalc,
-                    nbands=self.nbands,
-                    ecut=self.ecut * Ha,
-                    intraband=False,
-                    real_space_derivatives=False,
-                    txt=self.filename + '.w.txt',
-                    timer=self.timer,
-                    nblocks=self.blockcomm.size,
-                    gate_voltage=self.gate_voltage,
-                    paw_correction=self.paw_correction,
-                    **parameters)
+        chi0calc = Chi0(self.inputcalc,
+                        nbands=self.nbands,
+                        ecut=self.ecut * Ha,
+                        intraband=False,
+                        real_space_derivatives=False,
+                        txt=self.filename + '.w.txt',
+                        timer=self.timer,
+                        nblocks=self.blockcomm.size,
+                        **parameters)
 
         if self.truncation == 'wigner-seitz':
             wstc = WignerSeitzTruncatedCoulomb(
-                self.calc.wfs.gd.cell_cv,
-                self.calc.wfs.kd.N_c,
-                chi0.fd)
+                self.gd.cell_cv,
+                self.kd.N_c,
+                chi0calc.fd)
         else:
             wstc = None
 
-        self.omega_w = chi0.omega_w
-        self.omegamax = chi0.omegamax
-
-        htp = HilbertTransform(self.omega_w, self.eta, gw=True)
-        htm = HilbertTransform(self.omega_w, -self.eta, gw=True)
+        self.wd = chi0calc.wd
+        self.hilbert_transform = GWHilbertTransforms(
+            self.wd.omega_w, self.eta)
+        print(self.wd, file=self.fd)
 
         # Find maximum size of chi-0 matrices:
-        gd = self.calc.wfs.gd
-        nGmax = max(count_reciprocal_vectors(self.ecut, gd, q_c)
+        nGmax = max(count_reciprocal_vectors(self.ecut, self.gd, q_c)
                     for q_c in self.qd.ibzk_kc)
-        nw = len(self.omega_w)
+        nw = len(self.wd)
 
         size = self.blockcomm.size
 
@@ -783,7 +821,6 @@ class G0W0(PairDensity):
 
         # some memory sizes...
         if self.world.rank == 0:
-            # A1_x, A2_x
             siz = (nw * mynGmax * nGmax +
                    max(mynw * nGmax, nw * mynGmax) * nGmax) * 16
             sizA = (nw * nGmax * nGmax + nw * nGmax * nGmax) * 16
@@ -791,153 +828,173 @@ class G0W0(PairDensity):
                   % (siz / 1024**2, sizA / 1024**2), file=self.fd)
             self.fd.flush()
 
-        # Allocate memory in the beginning and use for all q:
-        A1_x = np.empty(nw * mynGmax * nGmax, complex)
-        A2_x = np.empty(max(mynw * nGmax, nw * mynGmax) * nGmax, complex)
-
         # Need to pause the timer in between iterations
         self.timer.stop('W')
         for iq, q_c in enumerate(self.qd.ibzk_kc):
             if iq <= self.last_q:
                 continue
 
-            thisqd = KPointDescriptor([q_c])
-            pd = PWDescriptor(self.ecut, self.calc.wfs.gd, complex, thisqd)
-            nG = pd.ngmax
-            mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
-            chi0.Ga = self.blockcomm.rank * mynG
-            chi0.Gb = min(chi0.Ga + mynG, nG)
             if len(self.ecut_e) > 1:
-                shape = (nw, chi0.Gb - chi0.Ga, nG)
-                chi0bands_wGG = A1_x[:np.prod(shape)].reshape(shape).copy()
-                chi0bands_wGG[:] = 0.0
-
-                if np.allclose(q_c, 0.0):
-                    chi0bands_wxvG = np.zeros((nw, 2, 3, nG), complex)
-                    chi0bands_wvv = np.zeros((nw, 3, 3), complex)
-                else:
-                    chi0bands_wxvG = None
-                    chi0bands_wvv = None
+                chi0bands = chi0calc.create_chi0(q_c, extend_head=False)
             else:
-                chi0bands_wGG = None
-                chi0bands_wxvG = None
-                chi0bands_wvv = None
+                chi0bands = None
 
-            m1 = chi0.nocc1
+            m1 = chi0calc.nocc1
             for ie, ecut in enumerate(self.ecut_e):
                 self.timer.start('W')
-                if self.savew:
-                    wfilename = (self.filename + '.rank' +
-                                 str(self.blockcomm.rank) +
-                                 '.w.q%d.pckl' % iq)
-                    fd = opencew(wfilename)
-                if self.savew and fd is None:
-                    # Read screened potential from file
-                    with open(wfilename, 'rb') as fd:
-                        pdi, W = pickleload(fd)
-                    # We also need to initialize the PAW corrections
-                    self.Q_aGii = self.initialize_paw_corrections(pdi)
 
-                    nG = pdi.ngmax
-                    nw = len(self.omega_w)
-                    mynG = (nG + self.blockcomm.size - 1) // \
-                        self.blockcomm.size
-                    self.Ga = self.blockcomm.rank * mynG
-                    self.Gb = min(self.Ga + mynG, nG)
-                    assert mynG * (self.blockcomm.size - 1) < nG
+                # First time calculation
+                if ecut == self.ecut:
+                    # Nothing to cut away:
+                    m2 = self.nbands
                 else:
-                    # First time calculation
-                    if ecut == self.ecut:
-                        # Nothing to cut away:
-                        m2 = self.nbands
-                    else:
-                        m2 = int(self.vol * ecut**1.5 * 2**0.5 / 3 / pi**2)
-
-                    pdi, W, W_GW = self.calculate_w(
-                        chi0, q_c, pd, chi0bands_wGG,
-                        chi0bands_wxvG, chi0bands_wvv,
-                        m1, m2, ecut, htp, htm, wstc,
-                        A1_x, A2_x, iq)
-                    m1 = m2
-                    if self.savew:
-                        if self.blockcomm.size > 1:
-                            thisfile = (self.filename + '.rank' +
-                                        str(self.blockcomm.rank) +
-                                        '.w.q%d.pckl' % iq)
-                            with open(thisfile, 'wb') as fd:
-                                pickle.dump((pdi, W), fd, 2)
-                        else:
-                            pickle.dump((pdi, W), fd, 2)
+                    m2 = int(self.vol * ecut**1.5 * 2**0.5 / 3 / pi**2)
+                    if m2 > self.nbands:
+                        raise ValueError(f'Trying to extrapolate ecut to'
+                                         f'larger number of bands ({m2})'
+                                         f' than there are bands '
+                                         f'({self.nbands}).')
+                pdi, Wdict, blocks1d, Q_aGii = self.calculate_w(
+                    chi0calc, q_c, chi0bands,
+                    m1, m2, ecut, wstc, iq)
+                m1 = m2
 
                 self.timer.stop('W')
-                # Loop over all k-points in the BZ and find those that are
-                # related to the current IBZ k-point by symmetry
-                Q1 = self.qd.ibz2bz_k[iq]
-                done = set()
-                for Q2 in self.qd.bz2bz_ks[Q1]:
-                    if Q2 >= 0 and Q2 not in done:
-                        s = self.qd.sym_k[Q2]
-                        self.s = s
-                        self.U_cc = self.qd.symmetry.op_scc[s]
-                        time_reversal = self.qd.time_reversal_k[Q2]
-                        self.sign = 1 - 2 * time_reversal
-                        Q_c = self.qd.bzk_kc[Q2]
-                        d_c = self.sign * np.dot(self.U_cc, q_c) - Q_c
-                        assert np.allclose(d_c.round(), d_c)
-                        yield ie, pdi, W, Q_c, m2, W_GW
-                        done.add(Q2)
+
+                for Q_c, symop in QSymmetryOp.get_symops(self.qd, iq, q_c):
+                    yield (ie, pdi, Wdict, Q_c, m2, symop,
+                           blocks1d, Q_aGii)
 
                 if self.restartfile is not None:
                     self.save_restart_file(iq)
 
+    @property
+    def fxc_modes(self):
+        modes = [self.fxc_mode]
+        if self.do_GW_too:
+            modes.append('GW')
+        return modes
+
     @timer('WW')
-    def calculate_w(self, chi0, q_c, pd, chi0bands_wGG, chi0bands_wxvG,
-                    chi0bands_wvv, m1, m2, ecut, htp, htm, wstc, A1_x, A2_x,
+    def calculate_w(self, chi0calc, q_c, chi0bands,
+                    m1, m2, ecut, wstc,
                     iq):
         """Calculates the screened potential for a specified q-point."""
 
-        nw = len(self.omega_w)
-        nG = pd.ngmax
-        mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
-        self.Ga = chi0.Ga
-        self.Gb = chi0.Gb
-        shape = (nw, chi0.Gb - chi0.Ga, nG)
-        # construct empty matrix for chi
-        chi0_wGG = A1_x[:np.prod(shape)].reshape(shape).copy()
-        chi0_wGG[:] = 0.0
-        if np.allclose(q_c, 0.0):
-            chi0_wxvG = np.zeros((nw, 2, 3, nG), complex)
-            chi0_wvv = np.zeros((nw, 3, 3), complex)
-        else:
-            chi0_wxvG = None
-            chi0_wvv = None
-
-        chi0._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv, m1, m2,
-                        range(self.nspins), extend_head=False)
+        chi0 = chi0calc.create_chi0(q_c, extend_head=False)
+        chi0calc.fd = self.fd
+        chi0calc.print_chi(chi0.pd)
+        chi0calc.update_chi0(chi0, m1, m2, range(self.nspins))
 
         if len(self.ecut_e) > 1:
             # Add chi from previous cutoff with remaining bands
-            chi0_wGG += chi0bands_wGG
-            chi0bands_wGG[:] = chi0_wGG.copy()
-            if np.allclose(q_c, 0.0):
-                chi0_wxvG += chi0bands_wxvG
-                chi0bands_wxvG[:] = chi0_wxvG.copy()
-                chi0_wvv += chi0bands_wvv
-                chi0bands_wvv[:] = chi0_wvv.copy()
+            chi0.chi0_wGG += chi0bands.chi0_wGG
+            chi0bands.chi0_wGG[:] = chi0.chi0_wGG.copy()
+            if chi0.optical_limit:
+                chi0.chi0_wxvG += chi0bands.chi0_wxvG
+                chi0bands.chi0_wxvG[:] = chi0.chi0_wxvG.copy()
+                chi0.chi0_wvv += chi0bands.chi0_wvv
+                chi0bands.chi0_wvv[:] = chi0.chi0_wvv.copy()
 
-        self.Q_aGii = chi0.Q_aGii
+        Wdict = {}
 
-        mynw = (nw + self.blockcomm.size - 1) // self.blockcomm.size
-        if self.blockcomm.size > 1:
-            chi0_wGG = chi0.redistribute(chi0_wGG, A2_x)
-            wa = min(self.blockcomm.rank * mynw, nw)
-            wb = min(wa + mynw, nw)
-        else:
-            wa = 0
-            wb = nw
+        for fxc_mode in self.fxc_modes:
+            pdi, blocks1d, W_wGG = self.dyson_and_W_old(
+                wstc, iq, q_c, chi0calc, chi0, ecut, Q_aGii=chi0calc.Q_aGii,
+                fxc_mode=fxc_mode)
+
+            if self.ppa:
+                W_xwGG = W_wGG  # (ppa API is nonsense)
+            else:
+                with self.timer('Hilbert'):
+                    W_xwGG = self.hilbert_transform(W_wGG)
+
+            Wdict[fxc_mode] = W_xwGG
+
+        return pdi, Wdict, blocks1d, chi0calc.Q_aGii
+
+    def dyson_and_W_new(self, wstc, iq, q_c, chi0calc, chi0, ecut):
+        assert not self.ppa
+        assert not self.do_GW_too
+        assert ecut == chi0.pd.ecut
+        assert self.fxc_mode == 'GW'
+
+        assert not np.allclose(q_c, 0)
+
+        nW = len(self.wd)
+        nG = chi0.pd.ngmax
+
+        from gpaw.response.wgg import Grid
+
+        WGG = (nW, nG, nG)
+        WgG_grid = Grid(
+            comm=self.blockcomm,
+            shape=WGG,
+            cpugrid=(1, self.blockcomm.size, 1))
+        assert chi0.chi0_wGG.shape == WgG_grid.myshape
+
+        my_gslice = WgG_grid.myslice[1]
+
+        dielectric_WgG = chi0.chi0_wGG  # XXX
+        for iw, chi0_GG in enumerate(chi0.chi0_wGG):
+            sqrtV_G = get_coulomb_kernel(chi0.pd,  # XXX was: pdi
+                                         self.kd.N_c,
+                                         truncation=self.truncation,
+                                         wstc=wstc)**0.5
+            e_GG = np.eye(nG) - chi0_GG * sqrtV_G * sqrtV_G[:, np.newaxis]
+            e_gG = e_GG[my_gslice]
+
+            dielectric_WgG[iw, :, :] = e_gG
+
+        wgg_grid = Grid(comm=self.blockcomm, shape=WGG)
+
+        dielectric_wgg = wgg_grid.zeros(dtype=complex)
+        WgG_grid.redistribute(wgg_grid, dielectric_WgG, dielectric_wgg)
+
+        assert np.allclose(dielectric_wgg, dielectric_WgG)
+
+        wgg_grid.invert_inplace(dielectric_wgg)
+
+        wgg_grid.redistribute(WgG_grid, dielectric_wgg, dielectric_WgG)
+        inveps_WgG = dielectric_WgG
+
+        self.timer.start('Dyson eq.')
+
+        for iw, inveps_gG in enumerate(inveps_WgG):
+            inveps_gG -= np.identity(nG)[my_gslice]
+            thing_GG = sqrtV_G * sqrtV_G[:, np.newaxis]
+            inveps_gG *= thing_GG[my_gslice]
+
+        W_WgG = inveps_WgG
+        Wp_wGG = W_WgG.copy()
+        Wm_wGG = W_WgG.copy()
+        return chi0.pd, Wm_wGG, Wp_wGG  # not Hilbert transformed yet
+
+    def _calculate_kernel(self, nG, iq, G2G):
+        return calculate_kernel(ecut=self.ecut,
+                                xcflags=self.xcflags,
+                                gs=self.gs, nG=nG,
+                                ns=self.nspins, iq=iq,
+                                cut_G=G2G, wd=self.wd,
+                                Eg=self.Eg,
+                                timer=self.timer, fd=self.fd)
+
+    def dyson_and_W_old(self, wstc, iq, q_c, chi0calc, chi0,
+                        ecut, Q_aGii, fxc_mode):
+        nG = chi0.pd.ngmax
+        blocks1d = chi0.blocks1d
+
+        wblocks1d = Blocks1D(self.blockcomm, len(self.wd))
+
+        # The copy() is only required when doing GW_too, since we need
+        # to run this whole thin twice.
+        chi0_wGG = chi0.blockdist.redistribute(chi0.chi0_wGG.copy(), chi0.nw)
+
+        pd = chi0.pd
+        chi0_wxvG = chi0.chi0_wxvG
+        chi0_wvv = chi0.chi0_wvv
 
         if ecut == pd.ecut:
-            nG = len(chi0_wGG[0])
             pdi = pd
             G2G = None
 
@@ -945,285 +1002,149 @@ class G0W0(PairDensity):
             pdi = PWDescriptor(ecut, pd.gd, dtype=pd.dtype,
                                kd=pd.kd)
             nG = pdi.ngmax
-            mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
-            self.Ga = self.blockcomm.rank * mynG
-            self.Gb = min(self.Ga + mynG, nG)
-            nw = len(self.omega_w)
-            mynw = (nw + self.blockcomm.size - 1) // self.blockcomm.size
-
+            blocks1d = Blocks1D(self.blockcomm, nG)
             G2G = PWMapping(pdi, pd).G2_G1
             chi0_wGG = chi0_wGG.take(G2G, axis=1).take(G2G, axis=2)
 
             if chi0_wxvG is not None:
                 chi0_wxvG = chi0_wxvG.take(G2G, axis=3)
 
-            if self.Q_aGii is not None:
-                for a, Q_Gii in enumerate(self.Q_aGii):
-                    self.Q_aGii[a] = Q_Gii.take(G2G, axis=0)
+            if Q_aGii is not None:
+                for a, Q_Gii in enumerate(Q_aGii):
+                    Q_aGii[a] = Q_Gii.take(G2G, axis=0)
 
         if self.integrate_gamma != 0:
-            if self.integrate_gamma == 2:
-                reduced = True
-            else:
-                reduced = False
-            V0, sqrV0 = get_integrated_kernel(pdi,
-                                              self.calc.wfs.kd.N_c,
-                                              truncation=self.truncation,
-                                              reduced=reduced,
-                                              N=100)
+            reduced = (self.integrate_gamma == 2)
+            V0, sqrtV0 = get_integrated_kernel(pdi,
+                                               self.kd.N_c,
+                                               truncation=self.truncation,
+                                               reduced=reduced,
+                                               N=100)
         elif self.integrate_gamma == 0 and np.allclose(q_c, 0):
             bzvol = (2 * np.pi)**3 / self.vol / self.qd.nbzkpts
             Rq0 = (3 * bzvol / (4 * np.pi))**(1. / 3.)
             V0 = 16 * np.pi**2 * Rq0 / bzvol
-            sqrV0 = (4 * np.pi)**(1.5) * Rq0**2 / bzvol / 2
-        else:
-            pass
+            sqrtV0 = (4 * np.pi)**(1.5) * Rq0**2 / bzvol / 2
 
         delta_GG = np.eye(nG)
 
         if self.ppa:
             einv_wGG = []
 
-        # Calculate kernel
-        fv = calculate_kernel(self, nG, self.nspins, iq, G2G)[0:nG, 0:nG]
+        if fxc_mode == 'GW':
+            fv = delta_GG
+        else:
+            fv = self._calculate_kernel(nG, iq, G2G)
+
         # Generate fine grid in vicinity of gamma
-        if np.allclose(q_c, 0):
-            kd = self.calc.wfs.kd
-            N = 4
-            N_c = np.array([N, N, N])
-            if self.truncation is not None:
-                # Only average periodic directions if trunction is used
-                N_c[np.where(kd.N_c == 1)[0]] = 1
-            qf_qc = monkhorst_pack(N_c) / kd.N_c
-            qf_qc *= 1.0e-6
-            U_scc = kd.symmetry.op_scc
-            qf_qc = kd.get_ibz_q_points(qf_qc, U_scc)[0]
-            weight_q = kd.q_weights
-            qf_qv = 2 * np.pi * np.dot(qf_qc, pd.gd.icell_cv)
-            a_wq = np.sum([chi0_vq * qf_qv.T
-                           for chi0_vq in
-                           np.dot(chi0_wvv[wa:wb], qf_qv.T)], axis=1)
-            a0_qwG = np.dot(qf_qv, chi0_wxvG[wa:wb, 0])
-            a1_qwG = np.dot(qf_qv, chi0_wxvG[wa:wb, 1])
+        kd = self.kd
+        if np.allclose(q_c, 0) and len(chi0_wGG) > 0:
+            gamma_int = GammaIntegrator(truncation=self.truncation,
+                                        kd=kd, pd=pd,
+                                        chi0_wvv=chi0_wvv[wblocks1d.myslice],
+                                        chi0_wxvG=chi0_wxvG[wblocks1d.myslice])
 
         self.timer.start('Dyson eq.')
-        # Calculate W and store it in chi0_wGG ndarray:
-        if self.do_GW_too:
-            chi0_GW_wGG = chi0_wGG.copy()
-        else:
-            chi0_GW_wGG = [0]
 
-        for iw, [chi0_GG, chi0_GW_GG] in enumerate(
-            zip(chi0_wGG,
-                itertools.cycle(chi0_GW_wGG))):
+        def get_sqrtV_G(N_c, q_v=None):
+            return get_coulomb_kernel(
+                pdi,
+                N_c,
+                truncation=self.truncation,
+                wstc=wstc,
+                q_v=q_v)**0.5
+
+        for iw, chi0_GG in enumerate(chi0_wGG):
             if np.allclose(q_c, 0):
                 einv_GG = np.zeros((nG, nG), complex)
-                if self.do_GW_too:
-                    einv_GW_GG = np.zeros((nG, nG), complex)
-                for iqf in range(len(qf_qv)):
-                    chi0_GG[0] = a0_qwG[iqf, iw]
-                    chi0_GG[:, 0] = a1_qwG[iqf, iw]
-                    chi0_GG[0, 0] = a_wq[iw, iqf]
-                    if self.do_GW_too:
-                        chi0_GW_GG[0] = a0_qwG[iqf, iw]
-                        chi0_GW_GG[:, 0] = a1_qwG[iqf, iw]
-                        chi0_GW_GG[0, 0] = a_wq[iw, iqf]
-                    sqrV_G = get_coulomb_kernel(pdi,
-                                                kd.N_c,
-                                                truncation=self.truncation,
-                                                wstc=wstc,
-                                                q_v=qf_qv[iqf])**0.5
+                for iqf in range(len(gamma_int.qf_qv)):
+                    chi0_GG[0, :] = gamma_int.a0_qwG[iqf, iw]
+                    chi0_GG[:, 0] = gamma_int.a1_qwG[iqf, iw]
+                    chi0_GG[0, 0] = gamma_int.a_wq[iw, iqf]
 
-#                    chi0v_GG = chi0_GG * sqrV_G * sqrV_G[:, np.newaxis]
-#                    if self.nspins == 2:
-#                        chi0v = np.zeros((2 * nG, 2 * nG), dtype=complex)
-#                        for s in range(self.nspins):
-#                            m = s * nG
-#                            n = (s + 1) * nG
-#                            chi0v[m:n, m:n] = chi0v_GG
-#                    else:
-#                    chi0v = chi0v_GG
+                    sqrtV_G = get_sqrtV_G(kd.N_c, q_v=gamma_int.qf_qv[iqf])
 
-                    if self.fxc_mode == 'GWP':
-                        e_GG = (np.eye(nG) -
-                                np.dot(
-                                    np.linalg.inv(
-                                        np.eye(nG) -
-                                        np.dot(chi0_GG *
-                                               sqrV_G *
-                                               sqrV_G[:, np.newaxis], fv) +
-                                        chi0_GG * sqrV_G *
-                                        sqrV_G[:, np.newaxis]),
-                                    chi0_GG * sqrV_G *
-                                    sqrV_G[:, np.newaxis]))
-                    elif self.fxc_mode == 'GWS':
-                        e_GG = np.dot(
-                            np.linalg.inv(
-                                np.eye(nG) +
-                                np.dot(chi0_GG *
-                                       sqrV_G *
-                                       sqrV_G[:, np.newaxis], fv) -
-                                chi0_GG * sqrV_G *
-                                sqrV_G[:, np.newaxis]),
-                            np.eye(nG) -
-                            chi0_GG * sqrV_G *
-                            sqrV_G[:, np.newaxis])
-                    else:
-                        e_GG = np.eye(nG) - np.dot(chi0_GG * sqrV_G *
-                                                   sqrV_G[:, np.newaxis], fv)
-
-                    einv_GG += np.linalg.inv(e_GG) * weight_q[iqf]
-
-                    if self.do_GW_too:
-                        e_GW_GG = (np.eye(nG) -
-                                   chi0_GW_GG * sqrV_G *
-                                   sqrV_G[:, np.newaxis])
-                        einv_GW_GG += np.linalg.inv(e_GW_GG) * weight_q[iqf]
-
+                    dfc = DielectricFunctionCalculator(
+                        sqrtV_G, chi0_GG, mode=fxc_mode, fv_GG=fv)
+                    einv_GG += dfc.get_einv_GG() * gamma_int.weight_q[iqf]
             else:
-                sqrV_G = get_coulomb_kernel(pdi,
-                                            self.calc.wfs.kd.N_c,
-                                            truncation=self.truncation,
-                                            wstc=wstc)**0.5
-                if self.fxc_mode == 'GWP':
-                    e_GG = (np.eye(nG) -
-                            np.dot(
-                                np.linalg.inv(
-                                    np.eye(nG) -
-                                    np.dot(chi0_GG * sqrV_G *
-                                           sqrV_G[:, np.newaxis], fv) +
-                                    chi0_GG * sqrV_G *
-                                    sqrV_G[:, np.newaxis]),
-                                chi0_GG * sqrV_G * sqrV_G[:, np.newaxis]))
-                elif self.fxc_mode == 'GWS':
-                    e_GG = np.dot(
-                        np.linalg.inv(
-                            np.eye(nG) +
-                            np.dot(chi0_GG * sqrV_G *
-                                   sqrV_G[:, np.newaxis], fv) -
-                            chi0_GG * sqrV_G *
-                            sqrV_G[:, np.newaxis]),
-                        np.eye(nG) - chi0_GG *
-                        sqrV_G * sqrV_G[:, np.newaxis])
-                else:
-                    e_GG = (delta_GG -
-                            np.dot(chi0_GG * sqrV_G *
-                                   sqrV_G[:, np.newaxis], fv))
+                sqrtV_G = get_sqrtV_G(kd.N_c)
 
-                einv_GG = np.linalg.inv(e_GG)
-
-                if self.do_GW_too:
-                    e_GW_GG = (delta_GG -
-                               chi0_GW_GG * sqrV_G * sqrV_G[:, np.newaxis])
-                    einv_GW_GG = np.linalg.inv(e_GW_GG)
+                dfc = DielectricFunctionCalculator(
+                    sqrtV_G, chi0_GG, mode=fxc_mode, fv_GG=fv)
+                einv_GG = dfc.get_einv_GG()
 
             if self.ppa:
                 einv_wGG.append(einv_GG - delta_GG)
             else:
                 W_GG = chi0_GG
-                W_GG[:] = (einv_GG - delta_GG) * sqrV_G * sqrV_G[:, np.newaxis]
+                W_GG[:] = (einv_GG - delta_GG) * (sqrtV_G *
+                                                  sqrtV_G[:, np.newaxis])
 
-                if self.do_GW_too:
-                    W_GW_GG = chi0_GW_GG
-                    W_GW_GG[:] = ((einv_GW_GG - delta_GG) *
-                                  sqrV_G * sqrV_G[:, np.newaxis])
-
-                if self.ac and np.allclose(q_c, 0):
+                if self.q0_corrector is not None and np.allclose(q_c, 0):
                     if iw == 0:
                         print_ac = True
                     else:
                         print_ac = False
+                    this_w = wblocks1d.a + iw
                     self.add_q0_correction(pdi, W_GG, einv_GG,
-                                           chi0_wxvG[wa + iw],
-                                           chi0_wvv[wa + iw],
-                                           sqrV_G,
+                                           chi0_wxvG[this_w],
+                                           chi0_wvv[this_w],
+                                           sqrtV_G,
                                            print_ac=print_ac)
-                    if self.do_GW_too:
-                        self.add_q0_correction(pdi, W_GW_GG, einv_GW_GG,
-                                               chi0_wxvG[wa + iw],
-                                               chi0_wvv[wa + iw],
-                                               sqrV_G,
-                                               print_ac=print_ac)
                 elif np.allclose(q_c, 0) or self.integrate_gamma != 0:
                     W_GG[0, 0] = (einv_GG[0, 0] - 1.0) * V0
-                    W_GG[0, 1:] = einv_GG[0, 1:] * sqrV_G[1:] * sqrV0
-                    W_GG[1:, 0] = einv_GG[1:, 0] * sqrV0 * sqrV_G[1:]
-                    if self.do_GW_too:
-                        W_GW_GG[0, 0] = (einv_GW_GG[0, 0] - 1.0) * V0
-                        W_GW_GG[0, 1:] = einv_GW_GG[0, 1:] * sqrV_G[1:] * sqrV0
-                        W_GW_GG[1:, 0] = einv_GW_GG[1:, 0] * sqrV0 * sqrV_G[1:]
-                else:
-                    pass
+                    W_GG[0, 1:] = einv_GG[0, 1:] * sqrtV_G[1:] * sqrtV0
+                    W_GG[1:, 0] = einv_GG[1:, 0] * sqrtV0 * sqrtV_G[1:]
 
         if self.ppa:
             omegat_GG = self.E0 * np.sqrt(einv_wGG[1] /
                                           (einv_wGG[0] - einv_wGG[1]))
             R_GG = -0.5 * omegat_GG * einv_wGG[0]
-            W_GG = pi * R_GG * sqrV_G * sqrV_G[:, np.newaxis]
+            W_GG = pi * R_GG * sqrtV_G * sqrtV_G[:, np.newaxis]
             if np.allclose(q_c, 0) or self.integrate_gamma != 0:
                 W_GG[0, 0] = pi * R_GG[0, 0] * V0
-                W_GG[0, 1:] = pi * R_GG[0, 1:] * sqrV_G[1:] * sqrV0
-                W_GG[1:, 0] = pi * R_GG[1:, 0] * sqrV0 * sqrV_G[1:]
+                W_GG[0, 1:] = pi * R_GG[0, 1:] * sqrtV_G[1:] * sqrtV0
+                W_GG[1:, 0] = pi * R_GG[1:, 0] * sqrtV0 * sqrtV_G[1:]
 
             self.timer.stop('Dyson eq.')
-            return pdi, [W_GG, omegat_GG], None
+            return pdi, blocks1d, [W_GG, omegat_GG]
 
-        if self.do_GW_too:
-            A1_GW_x = A1_x.copy()
-            A2_GW_x = A2_x.copy()
+        # XXX This creates a new, large buffer.  We could perhaps
+        # avoid that.  Buffer used to exist but was removed due to #456.
+        W_wGG = chi0.blockdist.redistribute(chi0_wGG, chi0.nw)
 
-        if self.blockcomm.size > 1:
-            Wm_wGG = chi0.redistribute(chi0_wGG, A1_x)
-        else:
-            Wm_wGG = chi0_wGG
-
-        Wp_wGG = A2_x[:Wm_wGG.size].reshape(Wm_wGG.shape)
-        Wp_wGG[:] = Wm_wGG
-
-        with self.timer('Hilbert transform'):
-            htp(Wp_wGG)
-            htm(Wm_wGG)
         self.timer.stop('Dyson eq.')
-
-        if self.do_GW_too:
-            if self.blockcomm.size > 1:
-                Wm_GW_wGG = chi0.redistribute(chi0_GW_wGG, A1_GW_x)
-            else:
-                Wm_GW_wGG = chi0_GW_wGG
-
-            Wp_GW_wGG = A2_GW_x[:Wm_GW_wGG.size].reshape(Wm_GW_wGG.shape)
-            Wp_GW_wGG[:] = Wm_GW_wGG
-
-            htp(Wp_GW_wGG)
-            htm(Wm_GW_wGG)
-            GW_return = [Wp_GW_wGG, Wm_GW_wGG]
-        else:
-            GW_return = None
-
-        return pdi, [Wp_wGG, Wm_wGG], GW_return
+        return pdi, blocks1d, W_wGG
 
     @timer('Kohn-Sham XC-contribution')
     def calculate_ks_xc_contribution(self):
         name = self.filename + '.vxc.npy'
-        fd, self.vxc_skn = self.read_contribution(name)
-        if self.vxc_skn is None:
+        fd, vxc_skn = self.read_contribution(name)
+        if vxc_skn is None:
             print('Calculating Kohn-Sham XC contribution', file=self.fd)
-            vxc_skn = vxc(self.calc, self.calc.hamiltonian.xc) / Ha
+            self.fd.flush()
+            vxc_skn = vxc(self.gs, self.gs.hamiltonian.xc) / Ha
             n1, n2 = self.bands
-            self.vxc_skn = vxc_skn[:, self.kpts, n1:n2]
-            np.save(fd, self.vxc_skn)
+            vxc_skn = vxc_skn[:, self.kpts, n1:n2]
+            np.save(fd, vxc_skn)
+            fd.close()
+        return vxc_skn
 
     @timer('EXX')
     def calculate_exact_exchange(self):
         name = self.filename + '.exx.npy'
-        fd, self.exx_skn = self.read_contribution(name)
-        if self.exx_skn is None:
+        fd, exx_skn = self.read_contribution(name)
+        if exx_skn is None:
             print('Calculating EXX contribution', file=self.fd)
+            self.fd.flush()
             exx = EXX(self.calc, kpts=self.kpts, bands=self.bands,
                       txt=self.filename + '.exx.txt', timer=self.timer)
             exx.calculate()
-            self.exx_skn = exx.get_eigenvalue_contributions() / Ha
-            np.save(fd, self.exx_skn)
+            exx_skn = exx.get_eigenvalue_contributions() / Ha
+            np.save(fd, exx_skn)
+            fd.close()
+        return exx_skn
 
     def read_contribution(self, filename):
         fd = opencew(filename)  # create, exclusive, write
@@ -1264,8 +1185,8 @@ class G0W0(PairDensity):
 
         b1, b2 = self.bands
         names = [line.split(':', 1)[0] for line in description]
-        ibzk_kc = self.calc.wfs.kd.ibzk_kc
-        for s in range(self.calc.wfs.nspins):
+        ibzk_kc = self.kd.ibzk_kc
+        for s in range(self.nspins):
             for i, ik in enumerate(self.kpts):
                 print('\nk-point ' +
                       '{0} ({1}): ({2:.3f}, {3:.3f}, {4:.3f})'.format(
@@ -1274,41 +1195,29 @@ class G0W0(PairDensity):
                 print('band' +
                       ''.join('{0:>8}'.format(name) for name in names),
                       file=self.fd)
-                for n in range(b2 - b1):
-                    print('{0:4}'.format(n + b1) +
-                          ''.join('{0:8.3f}'.format(results[name][s, i, n])
-                                  for name in names),
-                          file=self.fd)
-                if self.do_GW_too:
-                    print(' ' * 67 + 'GW', file=self.fd)
+
+                def actually_print_results(resultset):
                     for n in range(b2 - b1):
                         print('{0:4}'.format(n + b1) +
                               ''.join('{0:8.3f}'
-                                      .format(self.results_GW[name][s, i, n])
+                                      .format(resultset[name][s, i, n])
                                       for name in names),
                               file=self.fd)
+
+                for fxc_mode in results:
+                    print(fxc_mode.rjust(69), file=self.fd)
+                    actually_print_results(results[fxc_mode])
 
         self.timer.write(self.fd)
 
     @timer('PPA-Sigma')
-    def calculate_sigma_ppa(self, n_mG, deps_m, f_m, W):
+    def calculate_sigma_ppa(self, n_mG, deps_m, f_m, W, *unused):
         W_GG, omegat_GG = W
 
         sigma = 0.0
         dsigma = 0.0
 
-        # init variables (is this necessary?)
-        nG = n_mG.shape[1]
-        deps_GG = np.empty((nG, nG))
-        sign_GG = np.empty((nG, nG))
-        x1_GG = np.empty((nG, nG))
-        x2_GG = np.empty((nG, nG))
-        x3_GG = np.empty((nG, nG))
-        x4_GG = np.empty((nG, nG))
-        x_GG = np.empty((nG, nG))
-        dx_GG = np.empty((nG, nG))
-        nW_G = np.empty(nG)
-        for m in range(np.shape(n_mG)[0]):
+        for m in range(len(n_mG)):
             deps_GG = deps_m[m]
             sign_GG = 2 * f_m[m] - 1
             x1_GG = 1 / (deps_GG + omegat_GG - 1j * self.eta)
@@ -1327,8 +1236,9 @@ class G0W0(PairDensity):
         return x * sigma, x * dsigma
 
     def save_restart_file(self, nQ):
-        sigma_eskn_write = self.sigma_eskn.copy()
-        dsigma_eskn_write = self.dsigma_eskn.copy()
+        sigma = self.sigmas[self.fxc_mode]
+        sigma_eskn_write = sigma.sigma_eskn.copy()
+        dsigma_eskn_write = sigma.dsigma_eskn.copy()
         self.world.sum(sigma_eskn_write)
         self.world.sum(dsigma_eskn_write)
         data = {'last_q': nQ,
@@ -1338,8 +1248,7 @@ class G0W0(PairDensity):
                 'bands': self.bands,
                 'nbands': self.nbands,
                 'ecut_e': self.ecut_e,
-                'domega0': self.domega0,
-                'omega2': self.omega2,
+                'frequencies': self.frequencies,
                 'integrate_gamma': self.integrate_gamma}
 
         if self.world.rank == 0:
@@ -1357,8 +1266,10 @@ class G0W0(PairDensity):
                 data['bands'] == self.bands and
                 data['nbands'] == self.nbands and
                 (data['ecut_e'] == self.ecut_e).all and
-                data['domega0'] == self.domega0 and
-                data['omega2'] == self.omega2 and
+                data['frequencies']['type'] == self.frequencies['type'] and
+                data['frequencies']['domega0'] ==
+                self.frequencies['domega0'] and
+                data['frequencies']['omega2'] == self.frequencies['omega2'] and
                 data['integrate_gamma'] == self.integrate_gamma):
                 self.last_q = data['last_q']
                 self.previous_sigma = data['sigma_eskn']
@@ -1370,238 +1281,24 @@ class G0W0(PairDensity):
                     'current calculation. Check kpts, bands, nbands, ecut, '
                     'domega0, omega2, integrate_gamma.')
 
-    def extrapolate_ecut(self):
-        # Do linear fit of selfenergy vs. inverse of number of plane waves
-        # to extrapolate to infinite number of plane waves
-        from scipy.stats import linregress
-        print('', file=self.fd)
-        print('Extrapolating selfenergy to infinite energy cutoff:',
-              file=self.fd)
-        print('  Performing linear fit to %d points' % len(self.ecut_e),
-              file=self.fd)
-        self.sigr2_skn = np.zeros(self.shape)
-        self.dsigr2_skn = np.zeros(self.shape)
-        self.sigma_skn = np.zeros(self.shape)
-        self.dsigma_skn = np.zeros(self.shape)
-        invN_i = self.ecut_e**(-3. / 2)
-        for m in range(np.product(self.shape)):
-            s, k, n = np.unravel_index(m, self.shape)
+    def calculate_g0w0_outputs(self, sigma):
+        eps_skn, f_skn = self.get_eps_and_occs()
+        kwargs = dict(
+            fd=self.fd,
+            shape=self.shape,
+            ecut_e=self.ecut_e,
+            eps_skn=eps_skn,
+            vxc_skn=self.calculate_ks_xc_contribution(),
+            exx_skn=self.calculate_exact_exchange(),
+            f_skn=f_skn)
 
-            slope, intercept, r_value, p_value, std_err = \
-                linregress(invN_i, self.sigma_eskn[:, s, k, n])
-
-            self.sigr2_skn[s, k, n] = r_value**2
-            self.sigma_skn[s, k, n] = intercept
-
-            slope, intercept, r_value, p_value, std_err = \
-                linregress(invN_i, self.dsigma_eskn[:, s, k, n])
-
-            self.dsigr2_skn[s, k, n] = r_value**2
-            self.dsigma_skn[s, k, n] = intercept
-
-        if np.any(self.sigr2_skn < 0.9) or np.any(self.dsigr2_skn < 0.9):
-            print('  Warning: Bad quality of linear fit for some (n,k). ',
-                  file=self.fd)
-            print('           Higher cutoff might be necesarry.', file=self.fd)
-
-        print('  Minimum R^2 = %1.4f. (R^2 Should be close to 1)' %
-              min(np.min(self.sigr2_skn), np.min(self.dsigr2_skn)),
-              file=self.fd)
-
-        if self.do_GW_too:
-            self.sigr2_GW_skn = np.zeros(self.shape)
-            self.dsigr2_GW_skn = np.zeros(self.shape)
-            self.sigma_GW_skn = np.zeros(self.shape)
-            self.dsigma_GW_skn = np.zeros(self.shape)
-            invN_i = self.ecut_e**(-3. / 2)
-            for m in range(np.product(self.shape)):
-                s, k, n = np.unravel_index(m, self.shape)
-
-                slope, intercept, r_value, p_value, std_err = \
-                    linregress(invN_i, self.sigma_GW_eskn[:, s, k, n])
-
-                self.sigr2_GW_skn[s, k, n] = r_value**2
-                self.sigma_GW_skn[s, k, n] = intercept
-
-                slope, intercept, r_value, p_value, std_err = \
-                    linregress(invN_i, self.dsigma_GW_eskn[:, s, k, n])
-
-                self.dsigr2_GW_skn[s, k, n] = r_value**2
-                self.dsigma_GW_skn[s, k, n] = intercept
-
-            if np.any(self.sigr2_GW_skn < 0.9) or np.any(self.dsigr2_GW_skn <
-                                                         0.9):
-                print('  GW calculation. Warning: Bad quality of linear fit '
-                      'for some (n,k). ',
-                      file=self.fd)
-                print('           Higher cutoff might be necesarry.',
-                      file=self.fd)
-
-            print('  Minimum R^2 = %1.4f. (R^2 Should be close to 1)' %
-                  min(np.min(self.sigr2_GW_skn), np.min(self.dsigr2_GW_skn)),
-                  file=self.fd)
+        return G0W0Outputs(sigma_eskn=sigma.sigma_eskn,
+                           dsigma_eskn=sigma.dsigma_eskn,
+                           **kwargs)
 
     def add_q0_correction(self, pd, W_GG, einv_GG, chi0_xvG, chi0_vv,
-                          sqrV_G, print_ac=False):
-        from ase.dft import monkhorst_pack
-        self.cell_cv = self.calc.wfs.gd.cell_cv
-        self.qpts_qc = self.calc.wfs.kd.bzk_kc
-        self.weight_q = 1.0 * np.ones(len(self.qpts_qc)) / len(self.qpts_qc)
-        L = self.cell_cv[2, 2]
-        vc_G0 = sqrV_G[1:]**2
-
-        B_GG = einv_GG[1:, 1:]
-        u_v0G = vc_G0[np.newaxis, :]**0.5 * chi0_xvG[0, :, 1:]
-        u_vG0 = vc_G0[np.newaxis, :]**0.5 * chi0_xvG[1, :, 1:]
-        U_vv = -chi0_vv
-        a_v0G = -np.dot(u_v0G, B_GG)
-        a_vG0 = -np.dot(u_vG0, B_GG.T)
-        A_vv = U_vv - np.dot(a_v0G, u_vG0.T)
-        S_v0G = a_v0G
-        S_vG0 = a_vG0
-        L_vv = A_vv
-
-        # Get necessary G vectors.
-        G_Gv = pd.get_reciprocal_vectors()[1:]
-        G_Gv += np.array([1e-14, 1e-14, 0])
-        G2_G = np.sum(G_Gv**2, axis=1)
-        Gpar_G = np.sum(G_Gv[:, 0:2]**2, axis=1)**0.5
-
-        # Generate numerical q-point grid
-        rcell_cv = 2 * pi * np.linalg.inv(self.cell_cv).T
-        N_c = self.qd.N_c
-
-        iq = np.argmin(np.sum(self.qpts_qc**2, axis=1))
-        assert np.allclose(self.qpts_qc[iq], 0)
-        q0cell_cv = np.array([1, 1, 1])**0.5 * rcell_cv / N_c
-        q0vol = abs(np.linalg.det(q0cell_cv))
-
-        x0density = self.x0density
-        q0density = 2. / L * x0density
-        npts_c = np.ceil(np.sum(q0cell_cv**2, axis=1)**0.5 /
-                         q0density).astype(int)
-        npts_c[2] = 1
-        npts_c += (npts_c + 1) % 2
-        if print_ac:
-            print('Applying analytical 2D correction to W:',
-                  file=self.fd)
-            print('    Evaluating Gamma point contribution to W on a ' +
-                  '%dx%dx%d grid' % tuple(npts_c), file=self.fd)
-
-        qpts_qc = monkhorst_pack(npts_c)
-        qgamma = np.argmin(np.sum(qpts_qc**2, axis=1))
-
-        qpts_qv = np.dot(qpts_qc, q0cell_cv)
-        qpts_q = np.sum(qpts_qv**2, axis=1)**0.5
-        qpts_q[qgamma] = 1e-14
-        qdir_qv = qpts_qv / qpts_q[:, np.newaxis]
-        qdir_qvv = qdir_qv[:, :, np.newaxis] * qdir_qv[:, np.newaxis, :]
-        nq = len(qpts_qc)
-        q0area = q0vol / q0cell_cv[2, 2]
-        dq0 = q0area / nq
-        dq0rad = (dq0 / pi)**0.5
-        R = L / 2.
-        x0area = q0area * R**2
-        dx0rad = dq0rad * R
-
-        exp_q = 4 * pi * (1 - np.exp(-qpts_q * R))
-        dv_G = ((pi * L * G2_G * np.exp(-Gpar_G * R) * np.cos(G_Gv[:, 2] * R) -
-                 4 * pi * Gpar_G * (1 - np.exp(-Gpar_G * R) *
-                                    np.cos(G_Gv[:, 2] * R))) /
-                (G2_G**1.5 * Gpar_G *
-                 (4 * pi * (1 - np.exp(-Gpar_G * R) *
-                            np.cos(G_Gv[:, 2] * R)))**0.5))
-
-        dv_Gv = dv_G[:, np.newaxis] * G_Gv
-
-        # Add corrections
-        W_GG[:, 0] = 0.0
-        W_GG[0, :] = 0.0
-
-        A_q = np.sum(qdir_qv * np.dot(qdir_qv, L_vv), axis=1)
-        frac_q = 1. / (1 + exp_q * A_q)
-
-        # HEAD:
-        w00_q = -(exp_q / qpts_q)**2 * A_q * frac_q
-        w00_q[qgamma] = 0.0
-        W_GG[0, 0] = w00_q.sum() / nq
-        Axy = 0.5 * (L_vv[0, 0] + L_vv[1, 1])  # in-plane average
-        a0 = 4 * pi * Axy + 1
-
-        W_GG[0, 0] += -((a0 * dx0rad - np.log(a0 * dx0rad + 1)) /
-                        a0**2 / x0area * 2 * np.pi * (2 * pi * L)**2 * Axy)
-
-        # WINGS:
-        u_q = -exp_q / qpts_q * frac_q
-        W_GG[1:, 0] = 1. / nq * np.dot(
-            np.sum(qdir_qv * u_q[:, np.newaxis], axis=0),
-            S_vG0 * sqrV_G[np.newaxis, 1:])
-
-        W_GG[0, 1:] = 1. / nq * np.dot(
-            np.sum(qdir_qv * u_q[:, np.newaxis], axis=0),
-            S_v0G * sqrV_G[np.newaxis, 1:])
-
-        # BODY:
-        # Constant corrections:
-        W_GG[1:, 1:] += 1. / nq * sqrV_G[1:, None] * sqrV_G[None, 1:] * \
-            np.tensordot(S_v0G, np.dot(S_vG0.T,
-                                       np.sum(-qdir_qvv *
-                                              exp_q[:, None, None] *
-                                              frac_q[:, None, None],
-                                              axis=0)), axes=(0, 1))
-        u_vvv = np.tensordot(u_q[:, None] * qpts_qv, qdir_qvv, axes=(0, 0))
-        # Gradient corrections:
-        W_GG[1:, 1:] += 1. / nq * np.sum(
-            dv_Gv[:, :, None] * np.tensordot(
-                S_v0G, np.tensordot(u_vvv, S_vG0 * sqrV_G[None, 1:],
-                                    axes=(2, 0)), axes=(0, 1)), axis=1)
-
-    def update_energies(self, mixing):
-        """Updates the energies of the calculator with the quasi-particle
-        energies."""
-        shifts_skn = np.zeros(self.shape)
-        na, nb = self.bands
-        i1 = len(self.qp_iskn) - 2
-        i2 = i1 + 1
-        if i1 < 0:
-            i1 = 0
-
-        for kpt in self.calc.wfs.kpt_u:
-            s = kpt.s
-            if kpt.k in self.kpts:
-                ik = self.kpts.index(kpt.k)
-                eps1_n = self.mixer(self.qp_iskn[i1, s, ik],
-                                    self.qp_iskn[i2, s, ik],
-                                    mixing)
-                kpt.eps_n[na:nb] = eps1_n
-                """
-                Should we do something smart with the bands outside the
-                interval?
-                Here we shift the unoccupied bands not included by the average
-                change of the top-most band and the occupied by the
-                bottom-most band included
-                """
-                shifts_skn[s, ik] = (eps1_n - self.eps0_skn[s, kpt.k, na:nb])
-
-        for kpt in self.calc.wfs.kpt_u:
-            s = kpt.s
-            if kpt.k in self.kpts:
-                ik = self.kpts.index(kpt.k)
-                kpt.eps_n[:na] = (self.eps0_skn[s, kpt.k, :na] +
-                                  np.mean(shifts_skn[s, :, 0]))
-                kpt.eps_n[nb:] = (self.eps0_skn[s, kpt.k, nb:] +
-                                  np.mean(shifts_skn[s, :, -1]))
-            else:
-                """
-                kpt.eps_n[:na] = (self.eps0_skn[s, kpt.k, :na] +
-                                  np.mean(shifts_skn[s, :, 0]))
-                kpt.eps_n[na:nb] = (self.eps0_skn[s, kpt.k, na:nb] +
-                                    np.mean(shifts_skn[s, :], axis=0))
-                kpt.eps_n[nb:] = (self.eps0_skn[s, kpt.k, nb:] +
-                                  np.mean(shifts_skn[s, :, -1]))
-                """
-                pass
-
-    def mixer(self, e0_skn, e1_skn, mixing=1.0):
-        """Mix energies."""
-        return e0_skn + mixing * (e1_skn - e0_skn)
+                          sqrtV_G, print_ac=False):
+        self.q0_corrector.add_q0_correction(
+            pd, W_GG, einv_GG, chi0_xvG, chi0_vv,
+            sqrtV_G,
+            fd=self.fd if print_ac else None)

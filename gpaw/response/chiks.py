@@ -4,23 +4,34 @@ from time import ctime
 from gpaw.utilities import convert_string_to_fd
 from ase.utils.timing import timer
 
-from gpaw.utilities.blas import gemm
+from gpaw.utilities.blas import mmmx
 from gpaw.response.kslrf import PlaneWaveKSLRF
 from gpaw.response.kspair import PlaneWavePairDensity
 
 
 class ChiKS(PlaneWaveKSLRF):
-    """Class calculating the four-component Kohn-Sham susceptibility tensor."""
+    r"""Class calculating the four-component Kohn-Sham susceptibility tensor,
+    see [PRB 103, 245110 (2021)]. For collinear systems, the susceptibility
+    tensor is defined as:
+                        __  __   __
+                     1  \   \    \
+    chiKSmunu(q,w) = ‾  /   /    /   (f_nks - f_n'k+qs') smu_ss' snu_s's
+                     V  ‾‾  ‾‾   ‾‾
+                        k  n,s  n',s'
+                                       n_nks,n'k+qs'(G+q) n_n'k+qs',nks(-G'-q)
+                                     x ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+                                         hw - (eps_n'k+qs'-eps_nks) + ih eta
+
+    where the matrix elements
+
+    n_nks,n'k+qs'(G+q) = <nks| e^-i(G+q)r |n'k+qs'>_V0
+
+    are unit cell normalized plane wave pair densities of each transition.
+    """
 
     def __init__(self, *args, **kwargs):
         """Initialize the chiKS object in plane wave mode."""
-        # Avoid any response ambiguity
-        if 'response' in kwargs.keys():
-            response = kwargs.pop('response')
-            assert response == 'susceptibility'
-
-        PlaneWaveKSLRF.__init__(self, *args, response='susceptibility',
-                                **kwargs)
+        PlaneWaveKSLRF.__init__(self, *args, **kwargs)
 
         # Susceptibilities use pair densities as matrix elements
         self.pme = PlaneWavePairDensity(self.kspair)
@@ -66,31 +77,37 @@ class ChiKS(PlaneWaveKSLRF):
     @timer('Add integrand to chiks_wGG')
     def add_integrand(self, kskptpair, weight, A_x):
         r"""Use PairDensity object to calculate the integrand for all relevant
-        transitions of the given k-point.
+        transitions of the given k-point pair (k,k+q).
 
-        Depending on the bandsummation, the collinear four-component Kohn-Sham
-        susceptibility tensor as:
+        Depending on the bandsummation parameter, the integrand of the
+        collinear four-component Kohn-Sham susceptibility tensor is calculated
+        as:
 
         bandsummation: double
 
-                      __
-                      \  smu_ss' snu_s's (f_n'k's' - f_nks)
-        chiKSmunu =   /  ---------------------------------- n_T*(q+G) n_T(q+G')
-                      ‾‾ hw - (eps_n'k's'-eps_nks) + ih eta
-                      T
+                   __
+                   \  smu_ss' snu_s's (f_nks - f_n'k's')
+        (...)_k =  /  ---------------------------------- n_kt(G+q) n_kt^*(G'+q)
+                   ‾‾ hw - (eps_n'k's'-eps_nks) + ih eta
+                   t
+
+        where n_kt(G+q) = n_nks,n'k+qs'(G+q) and
 
         bandsummation: pairwise (using spin-conserving time-reversal symmetry)
 
-                      __ /
-                      \  | smu_ss' snu_s's (f_n'k's' - f_nks)
-        chiKSmunu =   /  | ----------------------------------
-                      ‾‾ | hw - (eps_n'k's'-eps_nks) + ih eta
-                      T  \
-                                                          \
-                       smu_s's snu_ss' (f_n'k's' - f_nks) |
-           -delta_n'>n ---------------------------------- | n_T*(q+G) n_T(q+G')
-                       hw + (eps_n'k's'-eps_nks) + ih eta |
-                                                          /
+                    __ /
+                    \  | smu_ss' snu_s's (f_nks - f_n'k's')
+        (...)_k =   /  | ----------------------------------
+                    ‾‾ | hw - (eps_n'k's'-eps_nks) + ih eta
+                    t  \
+                                                       \
+                    smu_s's snu_ss' (f_nks - f_n'k's') |
+        -delta_n'>n ---------------------------------- | n_kt(G+q) n_kt^*(G'+q)
+                    hw + (eps_n'k's'-eps_nks) + ih eta |
+                                                       /
+
+        The integrand is added to the output array A_x multiplied with the
+        supplied k-point weight.
         """
         # Get data, distributed in memory
         # Get bands and spins of the transitions
@@ -101,6 +118,8 @@ class ChiKS(PlaneWaveKSLRF):
         x_wt = weight * self.get_temporal_part(n1_t, n2_t,
                                                s1_t, s2_t, df_t, deps_t)
 
+        myslice = self.blocks1d.myslice
+
         if self.bundle_integrals:
             # Specify notation
             A_GwmyG = A_x
@@ -110,23 +129,25 @@ class ChiKS(PlaneWaveKSLRF):
 
             with self.timer('Set up ncc and nx'):
                 ncc_Gt = n_Gt.conj()
-                n_tmyG = n_tG[:, self.Ga:self.Gb]
+                n_tmyG = n_tG[:, myslice]
                 nx_twmyG = x_tw[:, :, np.newaxis] * n_tmyG[:, np.newaxis, :]
-                    
+
             with self.timer('Perform sum over t-transitions of ncc * nx'):
-                gemm(1.0, nx_twmyG, ncc_Gt, 1.0, A_GwmyG)  # slow step
+                mmmx(1.0, ncc_Gt, 'N', nx_twmyG, 'N',
+                     1.0, A_GwmyG)  # slow step
         else:
             # Specify notation
             A_wmyGG = A_x
 
             with self.timer('Set up ncc and nx'):
                 ncc_tG = n_tG.conj()
-                n_myGt = np.ascontiguousarray(n_tG[:, self.Ga:self.Gb].T)
+                n_myGt = np.ascontiguousarray(n_tG[:, myslice].T)
                 nx_wmyGt = x_wt[:, np.newaxis, :] * n_myGt[np.newaxis, :, :]
 
             with self.timer('Perform sum over t-transitions of ncc * nx'):
                 for nx_myGt, A_myGG in zip(nx_wmyGt, A_wmyGG):
-                    gemm(1.0, ncc_tG, nx_myGt, 1.0, A_myGG)  # slow step
+                    mmmx(1.0, nx_myGt, 'N', ncc_tG, 'N',
+                         1.0, A_myGG)  # slow step
 
     @timer('Get temporal part')
     def get_temporal_part(self, n1_t, n2_t, s1_t, s2_t, df_t, deps_t):
@@ -144,30 +165,30 @@ class ChiKS(PlaneWaveKSLRF):
 
     def get_double_temporal_part(self, n1_t, n2_t, s1_t, s2_t, df_t, deps_t):
         """Get:
-        
-               smu_ss' snu_s's (f_n'k's' - f_nks)
+
+               smu_ss' snu_s's (f_nks - f_n'k's')
         x_wt = ----------------------------------
                hw - (eps_n'k's'-eps_nks) + ih eta
         """
         # Get the right spin components
         scomps_t = get_smat_components(self.spincomponent, s1_t, s2_t)
         # Calculate nominator
-        nom_t = scomps_t * df_t
+        nom_t = - scomps_t * df_t  # df = f2 - f1
         # Calculate denominator
-        denom_wt = self.omega_w[:, np.newaxis] - deps_t[np.newaxis, :]\
-            + 1j * self.eta
-        
+        denom_wt = self.wd.omega_w[:, np.newaxis] + 1j * self.eta\
+            - deps_t[np.newaxis, :]  # de = e2 - e1
+
         return nom_t[np.newaxis, :] / denom_wt
 
     def get_pairwise_temporal_part(self, n1_t, n2_t, s1_t, s2_t, df_t, deps_t):
         """Get:
                /
-               | smu_ss' snu_s's (f_n'k's' - f_nks)
+               | smu_ss' snu_s's (f_nks - f_n'k's')
         x_wt = | ----------------------------------
                | hw - (eps_n'k's'-eps_nks) + ih eta
                \
                                                            \
-                        smu_s's snu_ss' (f_n'k's' - f_nks) |
+                        smu_s's snu_ss' (f_nks - f_n'k's') |
             -delta_n'>n ---------------------------------- |
                         hw + (eps_n'k's'-eps_nks) + ih eta |
                                                            /
@@ -179,14 +200,14 @@ class ChiKS(PlaneWaveKSLRF):
         scomps1_t = get_smat_components(self.spincomponent, s1_t, s2_t)
         scomps2_t = get_smat_components(self.spincomponent, s2_t, s1_t)
         # Calculate nominators
-        nom1_t = scomps1_t * df_t
-        nom2_t = delta_t * scomps2_t * df_t
+        nom1_t = - scomps1_t * df_t  # df = f2 - f1
+        nom2_t = - delta_t * scomps2_t * df_t
         # Calculate denominators
-        denom1_wt = self.omega_w[:, np.newaxis] - deps_t[np.newaxis, :]\
-            + 1j * self.eta
-        denom2_wt = self.omega_w[:, np.newaxis] + deps_t[np.newaxis, :]\
-            + 1j * self.eta
-        
+        denom1_wt = self.wd.omega_w[:, np.newaxis] + 1j * self.eta\
+            - deps_t[np.newaxis, :]  # de = e2 - e1
+        denom2_wt = self.wd.omega_w[:, np.newaxis] + 1j * self.eta\
+            + deps_t[np.newaxis, :]
+
         return nom1_t[np.newaxis, :] / denom1_wt\
             - nom2_t[np.newaxis, :] / denom2_wt
 

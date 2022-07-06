@@ -15,7 +15,7 @@ from gpaw.poisson import PoissonSolver
 from gpaw.helmholtz import HelmholtzSolver
 from gpaw.transformers import Transformer
 from gpaw.utilities import hartree, pack, pack2, unpack, unpack2, packed_index
-from gpaw.utilities.blas import gemm
+from gpaw.utilities.blas import mmm
 from gpaw.utilities.tools import symmetrize
 from gpaw.xc import XC
 from gpaw.xc.functional import XCFunctional
@@ -89,14 +89,6 @@ class HybridXCBase(XCFunctional):
         elif name == 'B3LYP':
             hybrid = 0.2
             xc = XC(_xc('HYB_GGA_XC_B3LYP'))
-        elif name == 'HSE03':
-            hybrid = 0.25
-            omega = 0.106
-            xc = XC(_xc('HYB_GGA_XC_HSE03'))
-        elif name == 'HSE06':
-            hybrid = 0.25
-            omega = 0.11
-            xc = XC(_xc('HYB_GGA_XC_HSE06'))
         elif name in rsf_functionals:
             rsf_functional = rsf_functionals[name]
             self.cam_alpha = rsf_functional['alpha']
@@ -538,11 +530,18 @@ class HybridXC(HybridXCBase):
         nocc = self.nocc_s[kpt.s]
         if len(kpt.vt_nG) == nocc:
             U_nn = U_nn[:nocc, :nocc]
-        gemm(1.0, kpt.vt_nG.copy(), U_nn, 0.0, kpt.vt_nG)
+        # gemm(1.0, kpt.vt_nG.copy(), U_nn, 0.0, kpt.vt_nG)
+        n, G1, G2, G3 = kpt.vt_nG.shape
+        vt_nG = kpt.vt_nG.reshape((n, G1 * G2 * G3))
+        mmm(1.0, U_nn, 'N', vt_nG.copy(), 'N', 0.0, vt_nG)
         for v_ni in kpt.vxx_ani.values():
-            gemm(1.0, v_ni.copy(), U_nn, 0.0, v_ni)
+            # gemm(1.0, v_ni.copy(), U_nn, 0.0, v_ni)
+            mmm(1.0, U_nn, 'N', v_ni.copy(), 'N', 0.0, v_ni)
         for v_nii in kpt.vxx_anii.values():
-            gemm(1.0, v_nii.copy(), U_nn, 0.0, v_nii)
+            # gemm(1.0, v_nii.copy(), U_nn, 0.0, v_nii)
+            n, i, i = v_nii.shape
+            v_nii = v_nii.reshape((n, i**2))
+            mmm(1.0, U_nn, 'N', v_nii.copy(), 'N', 0.0, v_nii)
 
 
 def atomic_exact_exchange(atom, type='all'):
