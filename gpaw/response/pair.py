@@ -102,18 +102,6 @@ class NoCalculatorPairDensity:
         self.timer = timer
         self.world = world
 
-        with self.timer('Read ground state'):
-            if isinstance(gs, (str, Path)):
-                print('Reading ground state calculation:\n  %s' % gs,
-                      file=self.fd)
-                with disable_dry_run():
-                    calc = GPAW(gs, communicator=mpi.serial_comm)
-            else:
-                calc = gs
-                assert calc.wfs.world.size == 1
-
-        self.calc = calc
-        self.gs = ResponseGroundStateAdapter(calc)
         assert self.gs.kd.symmetry.symmorphic
 
         if ecut is not None:
