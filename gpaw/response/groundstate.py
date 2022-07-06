@@ -1,5 +1,5 @@
 import numpy as np
-from ase.units import Ha
+from ase.units import Ha, Bohr
 
 
 class ResponseGroundStateAdapter:
@@ -28,6 +28,8 @@ class ResponseGroundStateAdapter:
 
         self.nvalence = wfs.nvalence
         self._density = calc.density
+        self._hamiltonian = calc.hamiltonian
+        self._calc = calc
 
     def get_occupations_width(self):
         # Ugly hack only used by pair.intraband_pair_density I think.
@@ -58,7 +60,62 @@ class ResponseGroundStateAdapter:
         # Used by kxc
         return self._density.D_asp
 
-    def all_electron_density(self):
+    def all_electron_density(self, gridrefinement=2):
         # used by kxc
         return self._density.get_all_electron_density(
-            atoms=self.atoms, gridrefinement=1)
+            atoms=self.atoms, gridrefinement=gridrefinement)
+
+    # Things used by EXX.  This is getting pretty involved.
+    #
+    # EXX naughtily accesses the density object in order to
+    # interpolate_pseudo_density() which is in principle mutable.
+
+    def hacky_all_electron_density(self, **kwargs):
+        # fxc likes to get all electron densities.  It calls
+        # calc.get_all_electron_density() and so we wrap that here.
+        # But it also collects to serial (bad), and it also zeropads
+        # nonperiodic directions (probably WRONG!).
+        #
+        # Also this one returns in user units, whereas the calling
+        # code actually wants internal units.  Very silly then.
+        #
+        # ALso, the calling code often wants the gd, which is not
+        # returned, so it is redundantly reconstructed in multiple
+        # places by refining the "right" number of times.
+        n_g = self._calc.get_all_electron_density(**kwargs)
+        n_g *= Bohr**3
+        return n_g
+
+    # Used by EXX.
+    @property
+    def hamiltonian(self):
+        return self._hamiltonian
+
+    # Used by EXX.
+    @property
+    def density(self):
+        return self._density
+
+    # Ugh SOC
+    def soc_eigenstates(self, **kwargs):
+        from gpaw.spinorbit import soc_eigenstates
+        return soc_eigenstates(self._calc, **kwargs)
+
+    @property
+    def xcname(self):
+        return self.hamiltonian.xc.name
+
+    # XXX This is used by xc == JGMsx from g0w0
+    def get_band_gap(self):
+        from ase.dft.bandgap import get_band_gap
+        gap, k1, k2 = get_band_gap(self._calc)
+        return gap
+
+    def get_xc_difference(self, xc):
+        # XXX used by gpaw/xc/tools.py
+        return self._calc.get_xc_difference(xc)
+
+    def get_wave_function_array(self, u, n):
+        # XXX used by gpaw/xc/tools.py in a hacky way
+        return self._calc.wfs._get_wave_function_array(
+            u, n, realspace=True)

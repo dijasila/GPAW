@@ -395,9 +395,7 @@ class G0W0:
                                    'with do_GW_too=True.')
 
         if Eg is None and self.xc == 'JGMsx':
-            from ase.dft.bandgap import get_band_gap
-            gap, k1, k2 = get_band_gap(self.calc)
-            Eg = gap
+            Eg = self.gs.get_band_gap()
 
         if Eg is not None:
             Eg /= Ha
@@ -420,7 +418,7 @@ class G0W0:
         self.blocks1d = None
         self.blockdist = None
 
-        self.kpts = list(select_kpts(kpts, self.calc))
+        self.kpts = list(select_kpts(kpts, self.gs.kd))
         self.bands = bands = self.choose_bands(bands, relbands)
 
         b1, b2 = bands
@@ -975,7 +973,7 @@ class G0W0:
     def _calculate_kernel(self, nG, iq, G2G):
         return calculate_kernel(ecut=self.ecut,
                                 xcflags=self.xcflags,
-                                calc=self.calc, nG=nG,
+                                gs=self.gs, nG=nG,
                                 ns=self.nspins, iq=iq,
                                 cut_G=G2G, wd=self.wd,
                                 Eg=self.Eg,
@@ -1126,7 +1124,7 @@ class G0W0:
         if vxc_skn is None:
             print('Calculating Kohn-Sham XC contribution', file=self.fd)
             self.fd.flush()
-            vxc_skn = vxc(self.calc, self.calc.hamiltonian.xc) / Ha
+            vxc_skn = vxc(self.gs, self.gs.hamiltonian.xc) / Ha
             n1, n2 = self.bands
             vxc_skn = vxc_skn[:, self.kpts, n1:n2]
             np.save(fd, vxc_skn)

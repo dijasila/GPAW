@@ -147,9 +147,10 @@ class Chi0:
         self.timer = timer or Timer()
 
         self.pair = PairDensity(calc, ecut,
-                                ftol, threshold,
-                                real_space_derivatives, world, txt,
-                                self.timer,
+                                ftol=ftol, threshold=threshold,
+                                real_space_derivatives=real_space_derivatives,
+                                world=world, txt=txt,
+                                timer=self.timer,
                                 nblocks=nblocks)
 
         self.disable_point_group = disable_point_group
@@ -519,18 +520,16 @@ class Chi0:
             # Again, not so pretty but that's how it is
             plasmafreq_vv = plasmafreq_wvv[0].copy()
             if self.include_intraband:
-
+                drude_chi_wvv = plasmafreq_vv[np.newaxis]\
+                    / (self.wd.omega_w[:, np.newaxis, np.newaxis]
+                       + 1.j * self.rate)**2
                 if chi0.extend_head:
                     va = min(chi0.blocks1d.a, 3)
                     vb = min(chi0.blocks1d.b, 3)
-                    A_wxx[:, :vb - va, :3] += (plasmafreq_vv[va:vb] /
-                                               (self.wd.omega_w[:, np.newaxis,
-                                                                np.newaxis] +
-                                                1e-10 + self.rate * 1j)**2)
-                elif self.blockcomm.rank == 0:
-                    A_wxx[:, 0, 0] += (plasmafreq_vv[2, 2] /
-                                       (self.wd.omega_w + 1e-10 +
-                                        self.rate * 1j)**2)
+                    A_wxx[:, :vb - va, :3] += drude_chi_wvv[:, va:vb]
+                else:
+                    # Fill into head part of tmp head AND wings array
+                    chi0_wxvx[:, 0, :3, :3] += drude_chi_wvv
 
             # Save the plasmafrequency
             try:
@@ -745,7 +744,7 @@ class Chi0:
     @timer('Get eigenvalues')
     def get_eigenvalues(self, k_v, s, n1=None, n2=None,
                         m1=None, m2=None,
-                        kd=None, pd=None, wfs=None,
+                        kd=None, pd=None, gs=None,
                         filter=False):
         """A function that can return the eigenvalues.
 
@@ -753,10 +752,10 @@ class Chi0:
         the response function which gives an output that
         is compatible with the gpaw k-point integration
         routines."""
-        if wfs is None:
-            wfs = self.calc.wfs
+        if gs is None:
+            gs = self.gs
 
-        kd = wfs.kd
+        kd = gs.kd
         k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
         q_c = pd.kd.bzk_kc[0]
         K1 = self.pair.find_kpoint(k_c)
@@ -764,9 +763,9 @@ class Chi0:
 
         ik1 = kd.bz2ibz_k[K1]
         ik2 = kd.bz2ibz_k[K2]
-        kpt1 = wfs.kpt_qs[ik1][s]
-        assert wfs.kd.comm.size == 1
-        kpt2 = wfs.kpt_qs[ik2][s]
+        kpt1 = gs.kpt_qs[ik1][s]
+        assert gs.kd.comm.size == 1
+        kpt2 = gs.kpt_qs[ik2][s]
         deps_nm = np.subtract(kpt1.eps_n[n1:n2][:, np.newaxis],
                               kpt2.eps_n[m1:m2])
 
