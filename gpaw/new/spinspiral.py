@@ -3,7 +3,7 @@ from gpaw.core.plane_waves import PlaneWaves
 from gpaw.core.pwacf import PlaneWaveAtomCenteredFunctions
 
 
-class QPW:
+class SpiralPW:
     def __init__(self,
                  pw: PlaneWaves,
                  qspiral_v):
@@ -20,15 +20,16 @@ class QPW:
         self.dv = pw.dv
 
 
-class SpiralPWAFC:
+class SpiralPWACF:
     def __init__(self, functions, positions, pw,
                  atomdist,
                  qspiral_v):
         self.pt_saiG = [
-            PlaneWaveAtomCenteredFunctions(functions,
-                                           positions,
-                                           QPW(pw, 0.5 * sign * qspiral_v),
-                                           atomdist=atomdist)
+            PlaneWaveAtomCenteredFunctions(
+                functions,
+                positions,
+                SpiralPW(pw, 0.5 * sign * qspiral_v),
+                atomdist=atomdist)
             for sign in [1, -1]]
 
     def empty(self, dims, comm):

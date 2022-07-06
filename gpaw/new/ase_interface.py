@@ -300,6 +300,7 @@ class ASECalculator:
                                           state.potential)
         nbands = ibzwfs.nbands
         self.params.nbands = nbands
+        self.params.keys.append('nbands')
 
     def gs_adapter(self):
         from gpaw.response.groundstate import ResponseGroundStateAdapter

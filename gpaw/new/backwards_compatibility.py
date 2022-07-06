@@ -85,6 +85,7 @@ class FakeDensity:
         self.nt_sg = None
         self.interpolate = calculation.pot_calc._interpolate_density
         self.nt_sR = self.state.density.nt_sR
+        self.nt_sG = self.nt_sR.data
         self.gd = self.nt_sR.desc._gd
         self.finegd = calculation.pot_calc.fine_grid._gd
 
