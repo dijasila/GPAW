@@ -287,7 +287,10 @@ class ASECalculator:
         if expert is not None:
             warnings.warn('Ignoring deprecated "expert" argument')
         state = self.calculation.state
-        ibzwfs = diagonalize(state, self.calculation.scf_loop.occ_calc, nbands)
+        ibzwfs = diagonalize(state.potential,
+                             state.ibzwfs,
+                             self.calculation.scf_loop.occ_calc,
+                             nbands)
         self.calculation.state = DFTState(ibzwfs,
                                           state.density,
                                           state.potential)

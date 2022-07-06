@@ -6,11 +6,12 @@ from gpaw.core.matrix import Matrix, create_distribution
 from gpaw.core.plane_waves import (PlaneWaveAtomCenteredFunctions,
                                    PlaneWaveExpansions, PlaneWaves)
 from gpaw.core.uniform_grid import UniformGridFunctions
-from gpaw.new.calculation import DFTState
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.typing import Array2D
 from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.new.wave_functions import WaveFunctions
+from gpaw.new.potential import Potential
+from gpaw.new.smearing import OccupationNumberCalculator
 
 
 def pw_matrix(pw: PlaneWaves,
@@ -19,7 +20,7 @@ def pw_matrix(pw: PlaneWaves,
               dS_aii: list[Array2D],
               vt_R: UniformGridFunctions,
               comm) -> tuple[Matrix, Matrix]:
-    """
+    """Calculate H and S matrices in plane-wave basis.
 
     :::
 
@@ -87,143 +88,19 @@ def pw_matrix(pw: PlaneWaves,
     return H_GG, S_GG
 
 
-def diagonalize_full_hamiltonian(self, ham, atoms, log,
-                                 nbands=None, ecut=None, scalapack=None,
-                                 expert=False):
-    """
-    if self.gd.comm.size > 1:
-        raise ValueError(
-            "Please use parallel={'domain': 1}")
-
-    S = self.bd.comm.size
-
-    if nbands is None and ecut is None:
-        nbands = pd.ngmin // S * S
-    elif nbands is None:
-        ecut /= Ha
-        vol = abs(np.linalg.det(self.gd.cell_cv))
-        nbands = int(vol * ecut**1.5 * 2**0.5 / 3 / pi**2)
-
-    if nbands % S != 0:
-        nbands += S - nbands % S
-
-    assert nbands <= pd.ngmin
-
-    if expert:
-        iu = nbands
-    else:
-        iu = None
-
-    self.bd = bd = BandDescriptor(nbands, self.bd.comm)
-    self.occupations.bd = bd
-
-    log('Diagonalizing full Hamiltonian ({} lowest bands)'.format(nbands))
-    log('Matrix size (min, max): {}, {}'.format(pd.ngmin,
-                                                pd.ngmax))
-    mem = 3 * pd.ngmax**2 * 16 / S / 1024**2
-    log('Approximate memory used per core to store H_GG, S_GG: {:.3f} MB'
-        .format(mem))
-    log('Notice: Up to twice the amount of memory might be allocated\n'
-        'during diagonalization algorithm.')
-    log('The least memory is required when the parallelization is purely\n'
-        'over states (bands) and not k-points, set '
-        "GPAW(..., parallel={'kpt': 1}, ...).")
-
-    if S > 1:
-        if isinstance(scalapack, (list, tuple)):
-            nprow, npcol, b = scalapack
-            assert nprow * npcol == S, (nprow, npcol, S)
-        else:
-            nprow = int(round(S**0.5))
-            while S % nprow != 0:
-                nprow -= 1
-            npcol = S // nprow
-            b = 64
-        log('ScaLapack grid: {}x{},'.format(nprow, npcol),
-            'block-size:', b)
-        bg = BlacsGrid(bd.comm, S, 1)
-        bg2 = BlacsGrid(bd.comm, nprow, npcol)
-        scalapack = True
-    else:
-        scalapack = False
-
-    self.set_positions(atoms.get_scaled_positions())
-    self.kpt_u[0].projections = None
-    self.allocate_arrays_for_projections(self.pt.my_atom_indices)
-
-    myslice = bd.get_slice()
-
-    pb = ProgressBar(log.fd)
-    nkpt = len(self.kpt_u)
-
-    for u, kpt in enumerate(self.kpt_u):
-        pb.update(u / nkpt)
-        npw = len(pd.Q_qG[kpt.q])
-        if scalapack:
-            mynpw = -(-npw // S)
-            md = BlacsDescriptor(bg, npw, npw, mynpw, npw)
-            md2 = BlacsDescriptor(bg2, npw, npw, b, b)
-        else:
-            md = md2 = MatrixDescriptor(npw, npw)
-
-        with self.timer('Build H and S'):
-            H_GG, S_GG = self.hs(ham, kpt.q, kpt.s, md)
-
-        if scalapack:
-            r = Redistributor(bd.comm, md, md2)
-            H_GG = r.redistribute(H_GG)
-            S_GG = r.redistribute(S_GG)
-
-        psit_nG = md2.empty(dtype=complex)
-        eps_n = np.empty(npw)
-
-        with self.timer('Diagonalize'):
-            if not scalapack:
-                md2.general_diagonalize_dc(H_GG, S_GG, psit_nG, eps_n,
-                                           iu=iu)
-            else:
-                md2.general_diagonalize_dc(H_GG, S_GG, psit_nG, eps_n)
-        del H_GG, S_GG
-
-        kpt.eps_n = eps_n[myslice].copy()
-
-        if scalapack:
-            md3 = BlacsDescriptor(bg, npw, npw, bd.maxmynbands, npw)
-            r = Redistributor(bd.comm, md2, md3)
-            psit_nG = r.redistribute(psit_nG)
-
-        kpt.psit = PlaneWaveExpansionWaveFunctions(
-            self.bd.nbands, pd, self.dtype,
-            psit_nG[:bd.mynbands].copy(),
-            kpt=kpt.q, dist=(self.bd.comm, self.bd.comm.size),
-            spin=kpt.s, collinear=self.collinear)
-        del psit_nG
-
-        with self.timer('Projections'):
-            self.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-
-        kpt.f_n = None
-
-    pb.finish()
-
-    self.calculate_occupation_numbers()
-
-    """
-    return 42  # nbands
-
-
-def diagonalize(state: DFTState,
-                occ_calc,
+def diagonalize(potential: Potential,
+                ibzwfs: IBZWaveFunctions,
+                occ_calc: OccupationNumberCalculator,
                 nbands: int) -> IBZWaveFunctions:
-    vt_sR = state.potential.vt_sR
-    dH_asii = state.potential.dH_asii
-    dS_aii = [delta_iiL[:, :, 0] * (4 * np.pi)**0.5
-              for delta_iiL in state.density.delta_aiiL]
-    ibzwfs = state.ibzwfs
+    """Diagonalize hamiltonian in plane-wave basis."""
+    vt_sR = potential.vt_sR
+    dH_asii = potential.dH_asii
+
     wfs_qs: list[list[WaveFunctions]] = []
     for wfs_s in ibzwfs.wfs_qs:
         wfs_qs.append([])
         for wfs in wfs_s:
+            dS_aii = [setup.dO_ii for setup in wfs.setups]
             assert isinstance(wfs, PWFDWaveFunctions)
             assert isinstance(wfs.pt_aiX, PlaneWaveAtomCenteredFunctions)
             H_GG, S_GG = pw_matrix(wfs.psit_nX.desc,

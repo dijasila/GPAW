@@ -299,12 +299,17 @@ class Matrix:
         """Calculate eigenvectors and eigenvalues.
 
         Matrix must be symmetric/hermitian and stored in lower half.
+        If ``S`` is given, solve a generalized eigenvalue problem.
 
+        Parameters
+        ----------
         cc: bool
             Complex conjugate matrix before finding eigenvalues.
         scalapack: tuple
             BLACS distribution for ScaLapack to use.  Default is to do serial
             diagonalization.
+        limit:
+            Number of eigenvector and values to find.  Defaults to all.
         """
         slcomm, rows, columns, blocksize = scalapack
 
@@ -475,7 +480,8 @@ class Matrix:
         # Now transpose tmp_mm adding the result to the original matrix:
         _gpaw.pblas_tran(M, M, 1.0, buf, 1.0, self.data, desc, desc, True)
 
-    def add_to_diagonal(self, d: ArrayLike1D) -> None:
+    def add_to_diagonal(self, d: ArrayLike1D | float) -> None:
+        """Add list of numbers or single number to diagonal of matrix."""
         n1, n2 = self.dist.my_row_range()
         M, N = self.shape
         assert M == N
