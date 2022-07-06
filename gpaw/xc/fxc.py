@@ -15,6 +15,7 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.pw.descriptor import PWDescriptor
 from gpaw.utilities.blas import axpy, gemmdot
 from gpaw.xc.rpa import RPACorrelation
+from gpaw.heg import HEG
 
 
 class FXCCorrelation(RPACorrelation):
@@ -798,7 +799,8 @@ class KernelWave:
     def get_fHxc_q(self, rs, q, Gphase, s2_g, w, scaled_Eg):
         # Construct fHxc(q,G,:), divided by scaled Coulomb interaction
 
-        qF = (9.0 * np.pi / 4.0)**(1.0 / 3.0) * 1.0 / rs
+        heg = HEG(rs)
+        qF = heg.qF
 
         if self.xc in ('rALDA', 'rALDAns', 'range_rALDA'):
             # rALDA (exchange only) kernel
@@ -910,7 +912,7 @@ class KernelWave:
         return fHxc_GG
 
     def get_spinfHxc_q(self, rs, q, Gphase, s2_g):
-        qF = (9.0 * np.pi / 4.0)**(1.0 / 3.0) * 1.0 / rs
+        qF = HEG(rs).qF
 
         if self.xc == 'rALDA':
 
@@ -1154,7 +1156,7 @@ class range_separated:
         table_SR[:, 0] = rs_r
         for iR, Rs in enumerate(rs_r):
 
-            qF = (9.0 * np.pi / 4.0)**(1.0 / 3.0) * 1.0 / Rs
+            qF = HEG(Rs)
 
             q_k = np.arange(k_step, 10.0 * qF, k_step)
 
@@ -1193,8 +1195,7 @@ class range_separated:
         erpa_q = np.zeros(len(q))
 
         for u, freqweight in zip(self.frequencies, self.freqweights):
-
-            chi0 = calc_lindhard(q, u, rs)
+            chi0 = HEG(rs).lindhard_function(q, u)
 
             eff_integrand = np.log(np.ones(len(q)) - veff * chi0) + veff * chi0
             eeff_q += eff_integrand * freqweight
@@ -1210,7 +1211,7 @@ class range_separated:
         return (eeff_q, erpa_q)
 
     def rALDA_corr_hole(self, q, rs):
-        qF = (9.0 * np.pi / 4.0)**(1.0 / 3.0) * 1.0 / rs
+        qF = HEG(rs).qF
 
         veff = 4.0 * np.pi / (q * q) * ((1.0 - 0.25 * q * q /
                                          (qF * qF)) * 0.5 *
@@ -1220,9 +1221,7 @@ class range_separated:
         esr_q = np.zeros(len(q))
 
         for u, freqweight in zip(self.frequencies, self.freqweights):
-
-            chi0 = calc_lindhard(q, u, rs)
-
+            chi0 = HEG(rs).lindhard_function(q, u)
             esr_u = np.zeros(len(q))
 
             for l, lweight in zip(self.l_l, self.lweights):
@@ -1234,21 +1233,6 @@ class range_separated:
 
         esr_q *= 1.0 / (4.0 * np.pi**3.0) * q * q
         return esr_q
-
-
-def calc_lindhard(q, u, rs):
-    # Calculate Lindhard function at imaginary frequency u
-
-    qF = (9.0 * np.pi / 4.0)**(1.0 / 3.0) * 1.0 / rs
-
-    Q = q / 2.0 / qF
-    U = u / q / qF
-    lchi = ((Q * Q - U * U - 1.0) / 4.0 / Q * np.log(
-        (U * U + (Q + 1.0) * (Q + 1.0)) / (U * U + (Q - 1.0) * (Q - 1.0))))
-    lchi += -1.0 + U * np.arctan((1.0 + Q) / U) + U * np.arctan(
-        (1.0 - Q) / U)
-    lchi *= qF / (2.0 * np.pi * np.pi)
-    return lchi
 
 
 class KernelDens:
