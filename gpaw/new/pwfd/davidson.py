@@ -4,7 +4,6 @@ from functools import partial
 from typing import Callable
 
 import numpy as np
-from ase.units import Ha
 from gpaw import debug
 from gpaw.core.arrays import DistributedArrays as DA
 from gpaw.core.atom_centered_functions import AtomArrays as AA
@@ -265,10 +264,13 @@ def calculate_weights(converge_bands: int | str,
             return weight_n
 
     else:
+        assert False
         # Converge state with energy up to CBM + delta:
         assert converge_bands.startswith('CBM+')
-        delta = float(converge_bands[4:]) / Ha
+        # delta = float(converge_bands[4:]) / Ha
+        return None
 
+        """
         if wfs.kpt_u[0].f_n is None:
             weight_un[:] = np.inf  # no eigenvalues yet
         else:
@@ -303,8 +305,8 @@ def calculate_weights(converge_bands: int | str,
             if (eps_skn[:, :, -1] < ecut - efermi).any():
                 # We don't have enough bands!
                 weight_un[:] = np.inf
-
-    return weight_un
+        """
+    return None
 
 
 class EmptyMatrix:

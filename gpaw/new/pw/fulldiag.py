@@ -233,6 +233,12 @@ def diagonalize(state: DFTState,
                                    vt_sR[wfs.spin],
                                    wfs.psit_nX.comm)
             eig_n = H_GG.eigh(S_GG, limit=nbands)
+            if eig_n[0] < -1000:
+                raise RuntimeError(
+                    f'Lowest eigenvalue is {eig_n[0]} Hartree. '
+                    'You might be suffering from MKL library bug MKLD-11440. '
+                    'See issue #241 in GPAW. '
+                    'Creashing to prevent corrupted results.')
             psit_nG = wfs.psit_nX.desc.empty(nbands)
             psit_nG.data[:nbands] = H_GG.data[:nbands].conj()
             new_wfs = PWFDWaveFunctions(

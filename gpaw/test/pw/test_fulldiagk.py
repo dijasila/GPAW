@@ -1,6 +1,9 @@
+import os
+
 from ase import Atoms
+
 from gpaw import GPAW
-from gpaw.mpi import world, serial_comm
+from gpaw.mpi import serial_comm, world
 
 
 def test_pw_fulldiagk(in_tmp_dir, scalapack):
@@ -53,6 +56,9 @@ def test_pw_fulldiagk(in_tmp_dir, scalapack):
         assert err < 2e-9, err
         err = abs(e[-1] - e2[-1])
         assert err < 1e-10, err
+
+    if os.environ.get('GPAW_NEW'):
+        return
 
     a.calc = GPAW(mode='pw',
                   h=0.15,
