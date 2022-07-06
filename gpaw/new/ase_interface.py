@@ -268,6 +268,10 @@ class ASECalculator:
     def spos_ac(self):
         return self.atoms.get_scaled_positions()
 
+    @property
+    def world(self):
+        return self.calculation.scf_loop.world
+
     def get_xc_difference(self, xcparams):
         """Calculate non-selfconsistent XC-energy difference."""
         state = self.calculation.state
@@ -296,6 +300,10 @@ class ASECalculator:
                                           state.potential)
         nbands = ibzwfs.nbands
         self.params.nbands = nbands
+
+    def gs_adapter(self):
+        from gpaw.response.groundstate import ResponseGroundStateAdapter
+        return ResponseGroundStateAdapter(self)
 
 
 def write_header(log, world, params):
