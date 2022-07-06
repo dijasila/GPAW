@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 import numpy as np
 
@@ -10,7 +12,7 @@ from gpaw.tddft.spectrum import photoabsorption_spectrum as spec_td
 from gpaw.lrtddft import LrTDDFT
 from gpaw.lrtddft import photoabsorption_spectrum as spec_lr
 from gpaw.lrtddft2 import LrTDDFT2
-from gpaw.mpi import world, serial_comm
+from gpaw.mpi import world, serial_comm, broadcast
 
 from gpaw.test.lcaotddft.test_molecule import only_on_master
 
@@ -19,7 +21,7 @@ pytestmark = [pytest.mark.usefixtures('module_tmp_path')]
 
 
 @pytest.fixture(scope='module')
-@only_on_master(world)
+@only_on_master(world, broadcast)
 def ground_state_calculation():
     atoms = molecule('Na2')
     atoms.center(vacuum=4.0)
@@ -30,12 +32,15 @@ def ground_state_calculation():
                 txt='gs.out')
     atoms.calc = calc
     atoms.get_potential_energy()
-    calc.write('gs.gpw', mode='all')
+
+    gpw_fpath = Path('gs.gpw').resolve()
+    calc.write(gpw_fpath, mode='all')
+    return gpw_fpath
 
 
 @pytest.fixture(scope='module')
 def time_propagation_calculation(ground_state_calculation):
-    td_calc = LCAOTDDFT('gs.gpw', txt='td.out')
+    td_calc = LCAOTDDFT(ground_state_calculation, txt='td.out')
     DipoleMomentWriter(td_calc, 'dm.dat')
     td_calc.absorption_kick([0, 0, 1e-5])
     td_calc.propagate(30, 150)
@@ -53,7 +58,7 @@ def time_propagation_calculation(ground_state_calculation):
 
 @pytest.fixture(scope='module')
 def lrtddft_calculation(ground_state_calculation):
-    calc = GPAW('gs.gpw', txt=None)
+    calc = GPAW(ground_state_calculation, txt=None)
     lr = LrTDDFT(calc, xc='LDA', txt='lr.out')
     lr.diagonalize()
     spec_lr(lr, 'spec_lr.dat',
@@ -70,7 +75,7 @@ def lrtddft_calculation(ground_state_calculation):
 
 @pytest.fixture(scope='module')
 def lrtddft2_calculation(ground_state_calculation):
-    calc = GPAW('gs.gpw', txt='lr2.out')
+    calc = GPAW(ground_state_calculation, txt='lr2.out')
     lr2 = LrTDDFT2('lr2', calc, fxc='LDA')
     lr2.calculate()
     lr2.get_spectrum('spec_lr2.dat', 0, 10.1, 0.1, width=0.5)
