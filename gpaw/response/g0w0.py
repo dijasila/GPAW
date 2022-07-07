@@ -15,7 +15,7 @@ import gpaw.mpi as mpi
 from gpaw import debug
 from gpaw.calculator import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.response.chi0 import Chi0
+from gpaw.response.chi0 import Chi0Calculator
 from gpaw.response.fxckernel_calc import calculate_kernel
 from gpaw.response.kernels import get_coulomb_kernel, get_integrated_kernel
 from gpaw.response.pair import NoCalculatorPairDensity
@@ -27,6 +27,7 @@ from gpaw.pw.descriptor import (PWDescriptor, PWMapping,
 from gpaw.xc.exx import EXX, select_kpts
 from gpaw.xc.fxc import XCFlags
 from gpaw.xc.tools import vxc
+from gpaw.response.context import calc_and_context
 from gpaw.response.temp import DielectricFunctionCalculator
 from gpaw.response.q0_correction import Q0Correction
 from gpaw.response.hilbert import GWHilbertTransforms
@@ -366,12 +367,12 @@ class G0W0:
         if nblocksmax:
             nblocks = get_max_nblocks(world, calc, ecut)
 
-        from gpaw.response.context import calc_and_context
-
-        calc, self.context = calc_and_context(calc, filename + '.txt', world, timer)
+        calc, self.context = calc_and_context(calc, filename + '.txt',
+                                              world, timer)
         self.gs = calc.gs_adapter()
 
-        self.pair = NoCalculatorPairDensity(self.gs, nblocks=nblocks, context=self.context)
+        self.pair = NoCalculatorPairDensity(self.gs, nblocks=nblocks,
+                                            context=self.context)
 
         self.timer = self.context.timer
         self.fd = self.context.fd
@@ -776,29 +777,28 @@ class G0W0:
 
             parameters = {'eta': 0,
                           'hilbert': False,
-                          'timeordered': False,
-                          'frequencies': frequencies}
+                          'timeordered': False}
         else:
             print('Using full frequency integration:', file=self.fd)
 
+            frequencies = self.frequencies
             parameters = {'eta': self.eta * Ha,
                           'hilbert': True,
-                          'timeordered': True,
-                          'frequencies': self.frequencies}
+                          'timeordered': True}
 
         self.fd.flush()
 
-        # chi0calc = Chi0Calculator(
+        from gpaw.response.chi0 import new_frequency_descriptor
+        chi_context = self.context.with_txt(self.filename + '.w.txt')
+        self.wd = new_frequency_descriptor(
+            self.gs, self.nbands, frequencies, fd=chi_context.fd)
 
-        chi0calc = Chi0(self.inputcalc,
-                        nbands=self.nbands,
-                        ecut=self.ecut * Ha,
-                        intraband=False,
-                        real_space_derivatives=False,
-                        txt=self.filename + '.w.txt',
-                        timer=self.timer,
-                        nblocks=self.blockcomm.size,
-                        **parameters)
+        chi0calc = Chi0Calculator(wd=self.wd, pair=self.pair,
+                                  nbands=self.nbands,
+                                  ecut=self.ecut * Ha,
+                                  intraband=False,
+                                  context=chi_context,
+                                  **parameters)
 
         if self.truncation == 'wigner-seitz':
             wstc = WignerSeitzTruncatedCoulomb(
@@ -808,7 +808,7 @@ class G0W0:
         else:
             wstc = None
 
-        self.wd = chi0calc.wd
+        # self.wd = chi0calc.wd
         self.hilbert_transform = GWHilbertTransforms(
             self.wd.omega_w, self.eta)
         print(self.wd, file=self.fd)

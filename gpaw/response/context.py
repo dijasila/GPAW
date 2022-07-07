@@ -37,3 +37,6 @@ class ResponseContext:
 
     def __del__(self):
         self.close()
+
+    def with_txt(self, txt):
+        return new_context(txt=txt, world=self.world, timer=self.timer)
