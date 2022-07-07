@@ -50,5 +50,5 @@ class Potential:
             return
         writer.write(
             potential=vt_sR.data * Ha,
-            atomic_hamiltonian_matrices=dH_asp.data,
+            atomic_hamiltonian_matrices=dH_asp.data * Ha,
             energies={name: val * Ha for name, val in self.energies.items()})
