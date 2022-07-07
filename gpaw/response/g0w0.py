@@ -258,10 +258,10 @@ class G0W0Calculator:
                  chi0calc,
                  restartfile=None,
                  kpts, bands, nbands=None, ppa,
-                 xc='RPA', fxc_mode='GW', do_GW_too=False,
-                 Eg=None,
+                 xckernel,
+                 fxc_mode='GW', do_GW_too=False,
                  truncation=None, integrate_gamma=0,
-                 ecut=150.0, eta, E0,
+                 eta, E0,
                  ecut_e,
                  frequencies=None,
                  q0_correction=False,
@@ -354,7 +354,7 @@ class G0W0Calculator:
         self.frequencies = frequencies
 
         self.ecut_e = ecut_e / Ha
-        self.ecut = ecut / Ha
+        self.ecut = chi0calc.ecut
 
         self.gs = gs
         self.context = context
@@ -369,33 +369,22 @@ class G0W0Calculator:
         self.fd = self.context.fd
         self.blockcomm = self.pair.blockcomm
         self.world = self.context.world
-        self.vol = self.pair.vol
 
         print(gw_logo, file=self.fd)
 
-        self.xc = xc
+        self.xckernel = xckernel
         self.fxc_mode = fxc_mode
         self.do_GW_too = do_GW_too
 
         if not self.fxc_mode == 'GW':
-            assert self.xc != 'RPA'
+            assert self.xckernel.xc != 'RPA'
 
         if self.do_GW_too:
-            assert self.xc != 'RPA'
+            assert self.xckernel.xc != 'RPA'
             assert self.fxc_mode != 'GW'
             if restartfile is not None:
                 raise RuntimeError('Restart function does not currently work '
                                    'with do_GW_too=True.')
-
-        if Eg is None and self.xc == 'JGMsx':
-            Eg = self.gs.get_band_gap()
-
-        if Eg is not None:
-            Eg /= Ha
-
-        self.Eg = Eg
-
-        self.xcflags = XCFlags(self.xc)
 
         self.filename = filename
         self.restartfile = restartfile
@@ -446,7 +435,6 @@ class G0W0Calculator:
 
         self.chi0calc = chi0calc
 
-
     @property
     def kd(self):
         return self.gs.kd
@@ -478,7 +466,7 @@ class G0W0Calculator:
         p('Broadening: {0:g} eV'.format(self.eta * Ha))
         p()
         p('fxc mode:', self.fxc_mode)
-        p('Kernel:', self.xc)
+        p('Kernel:', self.xckernel.xc)
         p('Do GW too:', self.do_GW_too)
         p()
 
@@ -708,7 +696,7 @@ class G0W0Calculator:
         o1_m[m_inb] = self.wd.omega_w[w_m[m_inb]]
         o2_m[m_inb] = self.wd.omega_w[w_m[m_inb] + 1]
 
-        x = 1.0 / (self.qd.nbzkpts * 2 * pi * self.vol)
+        x = 1.0 / (self.qd.nbzkpts * 2 * pi * self.gs.volume)
         sigma = 0.0
         dsigma = 0.0
         # Performing frequency integration
@@ -798,7 +786,7 @@ class G0W0Calculator:
                     # Nothing to cut away:
                     m2 = self.nbands
                 else:
-                    m2 = int(self.vol * ecut**1.5 * 2**0.5 / 3 / pi**2)
+                    m2 = int(self.gs.volume * ecut**1.5 * 2**0.5 / 3 / pi**2)
                     if m2 > self.nbands:
                         raise ValueError(f'Trying to extrapolate ecut to'
                                          f'larger number of bands ({m2})'
@@ -920,15 +908,6 @@ class G0W0Calculator:
         Wm_wGG = W_WgG.copy()
         return chi0.pd, Wm_wGG, Wp_wGG  # not Hilbert transformed yet
 
-    def _calculate_kernel(self, nG, iq, G2G):
-        return calculate_kernel(ecut=self.ecut,
-                                xcflags=self.xcflags,
-                                gs=self.gs, nG=nG,
-                                ns=self.nspins, iq=iq,
-                                cut_G=G2G, wd=self.wd,
-                                Eg=self.Eg,
-                                timer=self.timer, fd=self.fd)
-
     def dyson_and_W_old(self, wstc, iq, q_c, chi0calc, chi0,
                         ecut, Q_aGii, fxc_mode):
         nG = chi0.pd.ngmax
@@ -971,7 +950,7 @@ class G0W0Calculator:
                                                reduced=reduced,
                                                N=100)
         elif self.integrate_gamma == 0 and np.allclose(q_c, 0):
-            bzvol = (2 * np.pi)**3 / self.vol / self.qd.nbzkpts
+            bzvol = (2 * np.pi)**3 / self.gs.volume / self.qd.nbzkpts
             Rq0 = (3 * bzvol / (4 * np.pi))**(1. / 3.)
             V0 = 16 * np.pi**2 * Rq0 / bzvol
             sqrtV0 = (4 * np.pi)**(1.5) * Rq0**2 / bzvol / 2
@@ -984,7 +963,7 @@ class G0W0Calculator:
         if fxc_mode == 'GW':
             fv = delta_GG
         else:
-            fv = self._calculate_kernel(nG, iq, G2G)
+            fv = self.xckernel.calculate(nG, iq, G2G)
 
         # Generate fine grid in vicinity of gamma
         kd = self.kd
@@ -1182,7 +1161,7 @@ class G0W0Calculator:
             nW_G = np.dot(n_mG[m], dx_GG)
             dsigma -= np.vdot(n_mG[m], nW_G).real
 
-        x = 1 / (self.qd.nbzkpts * 2 * pi * self.vol)
+        x = 1 / (self.qd.nbzkpts * 2 * pi * self.gs.volume)
         return x * sigma, x * dsigma
 
     def save_restart_file(self, nQ):
@@ -1267,12 +1246,27 @@ def choose_bands(bands, relbands, nvalence):
     return bands
 
 
+class G0W0Kernel:
+    def __init__(self, xc, **kwargs):
+        self.xc = xc
+        self.xcflags = XCFlags(xc)
+        self._kwargs = kwargs
+
+
+    def calculate(self, nG, iq, G2G):
+        return calculate_kernel(
+            xcflags=self.xcflags,
+            nG=nG, iq=iq, cut_G=G2G, **self._kwargs)
+
+
 class G0W0(G0W0Calculator):
     def __init__(self, calc, filename='gw',
                  ecut=150.0,
                  ecut_extrapolation=False,
+                 xc='RPA',
                  ppa=False,
                  E0=Ha,
+                 Eg=None,
                  eta=0.1,
                  nbands=None,
                  bands=None,
@@ -1341,11 +1335,24 @@ class G0W0(G0W0Calculator):
             context=chi_context,
             **parameters)
 
+        if Eg is None and xc == 'JGMsx':
+            Eg = gs.get_band_gap()
+
+        if Eg is not None:
+            Eg /= Ha
+
+        xckernel = G0W0Kernel(xc=xc, ecut=ecut / Ha,
+                              gs=gs,
+                              ns=gs.nspins,
+                              wd=wd,
+                              Eg=Eg,
+                              timer=context.timer,
+                              fd=context.fd)
 
         super().__init__(gs=gs, filename=filename,
                          chi0calc=chi0calc,
-                         ecut=ecut,
                          ecut_e=ecut_e,
+                         xckernel=xckernel,
                          eta=eta,
                          ppa=ppa,
                          E0=E0,
