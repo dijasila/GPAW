@@ -130,7 +130,6 @@ def test_integrals(kind,
     arr1_LLv = integrals_on_regular_grid[kind]
     arr2_LLv = integrals_on_radial_grid[kind]
     if world.rank == 0 and lmax_test == lmax:
-        np.set_printoptions(precision=4, suppress=True, linewidth=2000)
         print(kind)
         for v in range(3):
             print('xyz'[v])
