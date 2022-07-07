@@ -94,8 +94,7 @@ class KPointPair:
 
 
 class NoCalculatorPairDensity:
-    def __init__(self, gs, *, context,
-                 ecut=50, ftol=1e-6,
+    def __init__(self, gs, *, context, ftol=1e-6,
                  threshold=1, real_space_derivatives=False, nblocks=1):
         self.gs = gs
         self.context = context

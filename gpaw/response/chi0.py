@@ -78,6 +78,7 @@ class Chi0Calculator:
         if ecut is None:
             ecut = 50.0
         ecut /= Ha
+        self.ecut = ecut
 
         self.eta = eta / Ha
         if rate == 'eta':
@@ -899,4 +900,4 @@ class Chi0(Chi0Calculator):
             context=context,
             nblocks=nblocks)
 
-        super().__init__(wd=wd, pair=pair, nbands=nbands, **kwargs)
+        super().__init__(wd=wd, pair=pair, nbands=nbands, ecut=ecut, **kwargs)
