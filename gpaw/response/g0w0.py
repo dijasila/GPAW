@@ -419,13 +419,6 @@ class G0W0Calculator:
         b1, b2 = bands
         self.shape = (self.gs.nspins, len(self.kpts), b2 - b1)
 
-        if nbands is None:
-            nbands = int(self.vol * self.ecut**1.5 * 2**0.5 / 3 / pi**2)
-        else:
-            if ecut_extrapolation:
-                raise RuntimeError(
-                    'nbands cannot be supplied with ecut-extrapolation.')
-
         self.nbands = nbands
         self.nspins = self.gs.nspins
 
@@ -473,16 +466,16 @@ class G0W0Calculator:
         self.fd.flush()
 
         from gpaw.response.chi0 import new_frequency_descriptor
-        self.chi_context = self.context.with_txt(self.filename + '.w.txt')
+        chi_context = self.context.with_txt(self.filename + '.w.txt')
         self.wd = new_frequency_descriptor(
-            self.gs, self.nbands, frequencies, fd=self.chi_context.fd)
+            self.gs, self.nbands, frequencies, fd=chi_context.fd)
 
         self.chi0calc = Chi0Calculator(
             wd=self.wd, pair=self.pair,
             nbands=self.nbands,
             ecut=self.ecut * Ha,
             intraband=False,
-            context=self.chi_context,
+            context=chi_context,
             **parameters)
 
     @property
@@ -1306,6 +1299,8 @@ class G0W0Calculator:
 class G0W0(G0W0Calculator):
     def __init__(self, calc, filename='gw',
                  ecut=150.0,
+                 ecut_extrapolation=False,
+                 nbands=None,
                  frequencies=None,
                  domega0=None,  # deprecated
                  omega2=None,  # deprecated
@@ -1333,8 +1328,17 @@ class G0W0(G0W0Calculator):
 
         kpts = list(select_kpts(kpts, gs.kd))
 
+        if nbands is None:
+            nbands = int(gs.volume * (ecut / Ha)**1.5 * 2**0.5 / 3 / pi**2)
+        else:
+            if ecut_extrapolation:
+                raise RuntimeError(
+                    'nbands cannot be supplied with ecut-extrapolation.')
+
         super().__init__(gs=gs, pair=pair, filename=filename,
                          ecut=ecut,
+                         ecut_extrapolation=ecut_extrapolation,
+                         nbands=nbands,
                          frequencies=frequencies,
                          context=context,
                          kpts=kpts,
