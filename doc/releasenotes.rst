@@ -34,6 +34,8 @@ Git master branch
 
 * The GW0 feature has been removed.
 
+* :ref:`LrTDDFT <lrtddft>` works now also with LCAO-mode wave functions.
+
 
 Version 22.1.0
 ==============

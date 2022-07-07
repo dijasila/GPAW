@@ -2,9 +2,7 @@ import numbers
 
 import numpy as np
 
-from ase.units import Ha
-from ase.utils import IOContext
-from ase.utils.timing import timer, Timer
+from ase.utils.timing import timer
 
 import gpaw.mpi as mpi
 from gpaw.calculator import GPAW
@@ -13,6 +11,7 @@ from gpaw.fd_operators import Gradient
 from gpaw.response.pw_parallelization import block_partition
 from gpaw.utilities.blas import mmm
 from gpaw.response.symmetry import KPointFinder
+from gpaw.response.context import new_context
 
 
 class KPoint:
@@ -95,24 +94,23 @@ class KPointPair:
 
 
 class NoCalculatorPairDensity:
-    def __init__(self, gs, *, fd, timer, world, ecut=50, ftol=1e-6,
+    def __init__(self, gs, *, context, ftol=1e-6,
                  threshold=1, real_space_derivatives=False, nblocks=1):
         self.gs = gs
-        self.fd = fd
-        self.timer = timer
-        self.world = world
+        self.context = context
+
+        self.fd = context.fd
+        self.timer = context.timer
+        self.world = context.world
 
         assert self.gs.kd.symmetry.symmorphic
 
-        if ecut is not None:
-            ecut /= Ha
-
-        self.ecut = ecut
         self.ftol = ftol
         self.threshold = threshold
         self.real_space_derivatives = real_space_derivatives
 
-        self.blockcomm, self.kncomm = block_partition(world, nblocks)
+        self.blockcomm, self.kncomm = block_partition(context.world, nblocks)
+        self.nblocks = nblocks
 
         self.fermi_level = self.gs.fermi_level
         self.spos_ac = self.gs.spos_ac
@@ -657,9 +655,26 @@ class NoCalculatorPairDensity:
 
         return ut_nvR
 
+    def __del__(self):
+        self.context.close()
+
+
+def normalize_args(calc, txt, world, timer):
+    context = new_context(txt, world, timer)
+    with context.timer('Read ground state'):
+        if not isinstance(calc, GPAW):
+            print('Reading ground state calculation:\n  %s' % calc,
+                  file=context.fd)
+            with disable_dry_run():
+                calc = GPAW(calc, communicator=mpi.serial_comm)
+        else:
+            assert calc.wfs.world.size == 1
+
+    return calc, context
+
 
 class PairDensity(NoCalculatorPairDensity):
-    def __init__(self, gs, ecut=50, *,
+    def __init__(self, gs, *,
                  world=mpi.world, txt='-', timer=None,
                  **kwargs):
         """Density matrix elements
@@ -676,29 +691,13 @@ class PairDensity(NoCalculatorPairDensity):
             Calculate nabla matrix elements (in the optical limit)
             using a real space finite difference approximation.
         """
-        self.iocontext = IOContext()
-        fd = self.iocontext.openfile(txt, world)
-        timer = timer or Timer()
 
-        with timer('Read ground state'):
-            if not isinstance(gs, GPAW):
-                print('Reading ground state calculation:\n  %s' % gs,
-                      file=fd)
-                with disable_dry_run():
-                    calc = GPAW(gs, communicator=mpi.serial_comm)
-            else:
-                calc = gs
-                assert calc.wfs.world.size == 1
+        # note: gs is just called gs for historical reasons.
+        # It's actually calc-or-filename union.
 
-        self.calc = calc
+        self.calc, context = normalize_args(gs, txt, world, timer)
 
         super().__init__(
-            gs=calc.gs_adapter(),
-            timer=timer,
-            fd=fd,
-            world=world,
-            ecut=ecut,
+            gs=self.calc.gs_adapter(),
+            context=context,
             **kwargs)
-
-    def __del__(self):
-        self.iocontext.close()

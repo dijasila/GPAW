@@ -17,6 +17,7 @@ from gpaw.pw.descriptor import PWDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.utilities import unpack, unpack2
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
+from gpaw.response.context import new_context
 
 
 def select_kpts(kpts, kd):
@@ -47,7 +48,7 @@ def select_kpts(kpts, kd):
 
 
 class EXX(NoCalculatorPairDensity):
-    def __init__(self, calc, xc=None, kpts=None, bands=None, ecut=None,
+    def __init__(self, gs, xc=None, kpts=None, bands=None, ecut=None,
                  stencil=2,
                  omega=None, world=mpi.world, txt=sys.stdout, timer=None):
         """Non self-consistent hybrid functional calculations.
@@ -74,13 +75,9 @@ class EXX(NoCalculatorPairDensity):
             for the ground-state calculations.
         """
 
-        from ase.utils import IOContext
-        self.iocontext = IOContext()
-        fd = self.iocontext.openfile(txt, world)
+        context = new_context(txt=txt, world=world, timer=timer)
 
-        super().__init__(gs=calc.gs_adapter(),
-                         ecut=ecut, world=world, fd=fd,
-                         timer=timer)
+        super().__init__(gs=gs, context=context)
 
         def _xc(name):
             return {'name': name, 'stencil': stencil}
@@ -120,8 +117,10 @@ class EXX(NoCalculatorPairDensity):
 
         self.bands = bands
 
-        if self.ecut is None:
-            self.ecut = self.gs.pd.ecut
+        if ecut is None:
+            ecut = self.gs.pd.ecut
+        self.ecut = ecut
+
         print('Plane-wave cutoff: %.3f eV' % (self.ecut * Hartree),
               file=self.fd)
 
@@ -152,9 +151,6 @@ class EXX(NoCalculatorPairDensity):
         self.V_asii = []  # valence-valence correction
         self.C_aii = []   # valence-core correction
         self.initialize_paw_exx_corrections()
-
-    def __del__(self):
-        self.iocontext.close()
 
     def calculate(self, restart: Union[Path, str] = None):
         """Do the calculation.

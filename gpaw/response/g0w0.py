@@ -365,15 +365,14 @@ class G0W0:
         if nblocksmax:
             nblocks = get_max_nblocks(world, calc, ecut)
 
-        self.pair = PairDensity(calc, ecut, world=world, nblocks=nblocks,
+        self.pair = PairDensity(calc, world=world, nblocks=nblocks,
                                 txt=filename + '.txt')
 
         # Steal attributes from self.pair:
         self.timer = self.pair.timer
         self.fd = self.pair.fd
-        self.calc = self.pair.calc
         self.gs = self.pair.gs
-        self.ecut = self.pair.ecut
+        self.ecut = ecut / Ha
         self.blockcomm = self.pair.blockcomm
         self.world = self.pair.world
         self.vol = self.pair.vol
@@ -1138,7 +1137,7 @@ class G0W0:
         if exx_skn is None:
             print('Calculating EXX contribution', file=self.fd)
             self.fd.flush()
-            exx = EXX(self.calc, kpts=self.kpts, bands=self.bands,
+            exx = EXX(self.gs, kpts=self.kpts, bands=self.bands,
                       txt=self.filename + '.exx.txt', timer=self.timer)
             exx.calculate()
             exx_skn = exx.get_eigenvalue_contributions() / Ha
