@@ -257,7 +257,7 @@ class G0W0Calculator:
     def __init__(self, gs, filename='gw', *,
                  pair,
                  restartfile=None,
-                 kpts=None, bands=None, relbands=None, nbands=None, ppa=False,
+                 kpts, bands=None, relbands=None, nbands=None, ppa=False,
                  xc='RPA', fxc_mode='GW', do_GW_too=False,
                  Eg=None,
                  truncation=None, integrate_gamma=0,
@@ -413,7 +413,7 @@ class G0W0Calculator:
         self.blocks1d = None
         self.blockdist = None
 
-        self.kpts = list(select_kpts(kpts, self.gs.kd))
+        self.kpts = kpts
         self.bands = bands = self.choose_bands(bands, relbands)
 
         b1, b2 = bands
@@ -466,7 +466,7 @@ class G0W0Calculator:
             bands = [self.gs.nvalence // 2 + b for b in relbands]
 
         if bands is None:
-            bands = [0, self.nocc2]
+            raise RuntimeError('Please choose bands in some other way')
 
         return bands
 
@@ -1308,6 +1308,7 @@ class G0W0(G0W0Calculator):
                  omega2=None,  # deprecated
                  nblocks=1,
                  nblocksmax=False,
+                 kpts=None,
                  world=mpi.world,
                  timer=None,
                  **kwargs):
@@ -1327,8 +1328,11 @@ class G0W0(G0W0Calculator):
         pair = NoCalculatorPairDensity(gs, nblocks=nblocks,
                                        context=context)
 
+        kpts = list(select_kpts(kpts, gs.kd))
+
         super().__init__(gs=gs, pair=pair, filename=filename,
                          ecut=ecut,
                          frequencies=frequencies,
                          context=context,
+                         kpts=kpts,
                          **kwargs)
