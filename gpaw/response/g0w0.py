@@ -356,6 +356,7 @@ class G0W0Calculator:
         self.ecut_e = ecut_e / Ha
 
         self.context = context
+        self.chi0calc = chi0calc
         self.pair = chi0calc.pair
         self.wd = chi0calc.wd
         self.gs = chi0calc.gs
@@ -407,14 +408,14 @@ class G0W0Calculator:
                                'work for spinpolarized systems.')
 
         self.pair_distribution = self.pair.distribute_k_points_and_bands(
-            b1, b2, self.kd.ibz2bz_k[self.kpts])
+            b1, b2, self.gs.kd.ibz2bz_k[self.kpts])
 
-        self.qd = get_qdescriptor(self.kd, self.gs.atoms)
+        self.qd = get_qdescriptor(self.gs.kd, self.gs.atoms)
 
         if q0_correction:
             assert self.truncation == '2D'
             self.q0_corrector = Q0Correction(
-                cell_cv=self.gs.gd.cell_cv, bzk_kc=self.kd.bzk_kc,
+                cell_cv=self.gs.gd.cell_cv, bzk_kc=self.gs.kd.bzk_kc,
                 N_c=self.qd.N_c)
         else:
             self.q0_corrector = None
@@ -430,8 +431,6 @@ class G0W0Calculator:
                   file=self.fd)
         else:
             print('Using full frequency integration', file=self.fd)
-
-        self.chi0calc = chi0calc
 
     def print_parameters(self, kpts, b1, b2):
         p = functools.partial(print, file=self.fd)
