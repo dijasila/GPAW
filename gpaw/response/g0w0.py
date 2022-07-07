@@ -255,6 +255,7 @@ def choose_ecut_things(ecut, ecut_extrapolation):
 
 class G0W0Calculator:
     def __init__(self, gs, filename='gw', *,
+                 pair,
                  restartfile=None,
                  kpts=None, bands=None, relbands=None, nbands=None, ppa=False,
                  xc='RPA', fxc_mode='GW', do_GW_too=False,
@@ -263,7 +264,7 @@ class G0W0Calculator:
                  ecut=150.0, eta=0.1, E0=1.0 * Ha,
                  frequencies=None,
                  q0_correction=False,
-                 nblocks=1, savepckl=True,
+                 savepckl=True,
                  context,
                  ecut_extrapolation=False):
 
@@ -352,9 +353,9 @@ class G0W0Calculator:
         """
         self.frequencies = frequencies
 
-        if ppa and nblocks > 1:
+        if ppa and pair.nblocks > 1:
             raise ValueError(
-                'PPA is currently not compatible with block parallellisation.')
+                'PPA is currently not compatible with block parallelisation.')
 
         ecut, ecut_e = choose_ecut_things(ecut, ecut_extrapolation)
         self.ecut_e = ecut_e / Ha
@@ -363,8 +364,7 @@ class G0W0Calculator:
 
         self.context = context
 
-        self.pair = NoCalculatorPairDensity(self.gs, nblocks=nblocks,
-                                            context=self.context)
+        self.pair = pair
 
         self.timer = self.context.timer
         self.fd = self.context.fd
@@ -1324,9 +1324,11 @@ class G0W0(G0W0Calculator):
 
         gs = calc.gs_adapter()
 
-        super().__init__(gs=gs, filename=filename,
+        pair = NoCalculatorPairDensity(gs, nblocks=nblocks,
+                                       context=context)
+
+        super().__init__(gs=gs, pair=pair, filename=filename,
                          ecut=ecut,
                          frequencies=frequencies,
                          context=context,
-                         nblocks=nblocks,
                          **kwargs)
