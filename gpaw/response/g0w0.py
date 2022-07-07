@@ -264,9 +264,8 @@ class G0W0Calculator:
                  frequencies=None,
                  q0_correction=False,
                  nblocks=1, savepckl=True,
-                 world=mpi.world, ecut_extrapolation=False,
-                 timer=None,
-                 nblocksmax=False):
+                 context,
+                 ecut_extrapolation=False):
 
         """G0W0 calculator.
 
@@ -353,20 +352,16 @@ class G0W0Calculator:
         """
         self.frequencies = frequencies
 
-        if ppa and (nblocks > 1 or nblocksmax):
+        if ppa and nblocks > 1:
             raise ValueError(
                 'PPA is currently not compatible with block parallellisation.')
 
         ecut, ecut_e = choose_ecut_things(ecut, ecut_extrapolation)
         self.ecut_e = ecut_e / Ha
 
-        # Check if nblocks is compatible, adjust if not
-        if nblocksmax:
-            nblocks = get_max_nblocks(world, calc, ecut)
-
-        calc, self.context = calc_and_context(calc, filename + '.txt',
-                                              world, timer)
         self.gs = calc.gs_adapter()
+
+        self.context = context
 
         self.pair = NoCalculatorPairDensity(self.gs, nblocks=nblocks,
                                             context=self.context)
@@ -1307,9 +1302,30 @@ class G0W0Calculator:
 
 class G0W0(G0W0Calculator):
     def __init__(self, calc, filename='gw',
+                 ecut=150.0,
                  frequencies=None,
                  domega0=None,  # deprecated
                  omega2=None,  # deprecated
+                 nblocks=1,
+                 nblocksmax=False,
+                 world=mpi.world,
+                 timer=None,
                  **kwargs):
         frequencies = get_frequencies(frequencies, domega0, omega2)
-        super().__init__(calc=calc, filename=filename, frequencies=frequencies, **kwargs)
+
+        gpwfile = calc
+        calc, context = calc_and_context(calc, filename + '.txt',
+                                         world, timer)
+
+        # Check if nblocks is compatible, adjust if not
+        if nblocksmax:
+            # At this point, calc must still be a string.
+            nblocks = get_max_nblocks(context.world, gpwfile, ecut)
+
+
+        super().__init__(calc=calc, filename=filename,
+                         ecut=ecut,
+                         frequencies=frequencies,
+                         context=context,
+                         nblocks=nblocks,
+                         **kwargs)
