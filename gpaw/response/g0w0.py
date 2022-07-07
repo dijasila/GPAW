@@ -407,11 +407,6 @@ class G0W0Calculator:
         self.eta = eta / Ha
         self.E0 = E0 / Ha
 
-        self.wd = None
-
-        self.blocks1d = None
-        self.blockdist = None
-
         self.kpts = kpts
         self.bands = bands = self.choose_bands(bands, relbands)
 
