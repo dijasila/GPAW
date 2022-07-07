@@ -18,7 +18,7 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.chi0 import Chi0
 from gpaw.response.fxckernel_calc import calculate_kernel
 from gpaw.response.kernels import get_coulomb_kernel, get_integrated_kernel
-from gpaw.response.pair import PairDensity
+from gpaw.response.pair import NoCalculatorPairDensity
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.utilities.progressbar import ProgressBar
@@ -266,6 +266,7 @@ class G0W0:
                  q0_correction=False,
                  nblocks=1, savepckl=True,
                  world=mpi.world, ecut_extrapolation=False,
+                 timer=None,
                  nblocksmax=False):
 
         """G0W0 calculator.
@@ -365,16 +366,18 @@ class G0W0:
         if nblocksmax:
             nblocks = get_max_nblocks(world, calc, ecut)
 
-        self.pair = PairDensity(calc, world=world, nblocks=nblocks,
-                                txt=filename + '.txt')
+        from gpaw.response.context import calc_and_context
 
-        # Steal attributes from self.pair:
-        self.timer = self.pair.timer
-        self.fd = self.pair.fd
-        self.gs = self.pair.gs
+        calc, self.context = calc_and_context(calc, filename + '.txt', world, timer)
+        self.gs = calc.gs_adapter()
+
+        self.pair = NoCalculatorPairDensity(self.gs, nblocks=nblocks, context=self.context)
+
+        self.timer = self.context.timer
+        self.fd = self.context.fd
         self.ecut = ecut / Ha
         self.blockcomm = self.pair.blockcomm
-        self.world = self.pair.world
+        self.world = self.context.world
         self.vol = self.pair.vol
 
         print(gw_logo, file=self.fd)
@@ -784,6 +787,8 @@ class G0W0:
                           'frequencies': self.frequencies}
 
         self.fd.flush()
+
+        # chi0calc = Chi0Calculator(
 
         chi0calc = Chi0(self.inputcalc,
                         nbands=self.nbands,
