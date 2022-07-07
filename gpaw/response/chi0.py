@@ -47,6 +47,7 @@ class Chi0Calculator:
                  intraband=True,
                  nbands=None,
                  timeordered=False,
+                 ecut=None,
                  eta=0.2,
                  disable_point_group=False, disable_time_reversal=False,
                  disable_non_symmorphic=True,
@@ -74,7 +75,9 @@ class Chi0Calculator:
         # XXX this is redundant as pair also does it.
         self.blockcomm, self.kncomm = block_partition(self.world, self.nblocks)
 
-        self.ecut = pair.ecut  # pair already converted with "/= Ha"
+        if ecut is None:
+            ecut = 50.0
+        ecut /= Ha
 
         self.eta = eta / Ha
         if rate == 'eta':
@@ -891,7 +894,7 @@ class Chi0(Chi0Calculator):
         wd = FrequencyDescriptor.from_array_or_dict(frequencies)
 
         pair = NoCalculatorPairDensity(
-            gs=gs, ecut=ecut, ftol=ftol, threshold=threshold,
+            gs=gs, ftol=ftol, threshold=threshold,
             real_space_derivatives=real_space_derivatives,
             context=context,
             nblocks=nblocks)

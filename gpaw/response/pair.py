@@ -2,7 +2,6 @@ import numbers
 
 import numpy as np
 
-from ase.units import Ha
 from ase.utils.timing import timer
 
 import gpaw.mpi as mpi
@@ -107,10 +106,6 @@ class NoCalculatorPairDensity:
 
         assert self.gs.kd.symmetry.symmorphic
 
-        if ecut is not None:
-            ecut /= Ha
-
-        self.ecut = ecut
         self.ftol = ftol
         self.threshold = threshold
         self.real_space_derivatives = real_space_derivatives
@@ -680,7 +675,7 @@ def normalize_args(calc, txt, world, timer):
 
 
 class PairDensity(NoCalculatorPairDensity):
-    def __init__(self, gs, ecut=50, *,
+    def __init__(self, gs, *,
                  world=mpi.world, txt='-', timer=None,
                  **kwargs):
         """Density matrix elements
@@ -706,5 +701,4 @@ class PairDensity(NoCalculatorPairDensity):
         super().__init__(
             gs=self.calc.gs_adapter(),
             context=context,
-            ecut=ecut,
             **kwargs)

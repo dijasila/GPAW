@@ -365,14 +365,14 @@ class G0W0:
         if nblocksmax:
             nblocks = get_max_nblocks(world, calc, ecut)
 
-        self.pair = PairDensity(calc, ecut, world=world, nblocks=nblocks,
+        self.pair = PairDensity(calc, world=world, nblocks=nblocks,
                                 txt=filename + '.txt')
 
         # Steal attributes from self.pair:
         self.timer = self.pair.timer
         self.fd = self.pair.fd
         self.gs = self.pair.gs
-        self.ecut = self.pair.ecut
+        self.ecut = ecut / Ha
         self.blockcomm = self.pair.blockcomm
         self.world = self.pair.world
         self.vol = self.pair.vol

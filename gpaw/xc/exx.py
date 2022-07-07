@@ -77,7 +77,7 @@ class EXX(NoCalculatorPairDensity):
 
         context = new_context(txt=txt, world=world, timer=timer)
 
-        super().__init__(gs=gs, ecut=ecut, context=context)
+        super().__init__(gs=gs, context=context)
 
         def _xc(name):
             return {'name': name, 'stencil': stencil}
@@ -117,8 +117,10 @@ class EXX(NoCalculatorPairDensity):
 
         self.bands = bands
 
-        if self.ecut is None:
-            self.ecut = self.gs.pd.ecut
+        if ecut is None:
+            ecut = self.gs.pd.ecut
+        self.ecut = ecut
+
         print('Plane-wave cutoff: %.3f eV' % (self.ecut * Hartree),
               file=self.fd)
 
