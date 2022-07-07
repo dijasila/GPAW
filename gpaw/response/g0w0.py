@@ -254,7 +254,7 @@ def choose_ecut_things(ecut, ecut_extrapolation):
 
 
 class G0W0Calculator:
-    def __init__(self, calc, filename='gw', *,
+    def __init__(self, gs, filename='gw', *,
                  restartfile=None,
                  kpts=None, bands=None, relbands=None, nbands=None, ppa=False,
                  xc='RPA', fxc_mode='GW', do_GW_too=False,
@@ -359,7 +359,7 @@ class G0W0Calculator:
         ecut, ecut_e = choose_ecut_things(ecut, ecut_extrapolation)
         self.ecut_e = ecut_e / Ha
 
-        self.gs = calc.gs_adapter()
+        self.gs = gs
 
         self.context = context
 
@@ -1322,8 +1322,9 @@ class G0W0(G0W0Calculator):
             # At this point, calc must still be a string.
             nblocks = get_max_nblocks(context.world, gpwfile, ecut)
 
+        gs = calc.gs_adapter()
 
-        super().__init__(calc=calc, filename=filename,
+        super().__init__(gs=gs, filename=filename,
                          ecut=ecut,
                          frequencies=frequencies,
                          context=context,
