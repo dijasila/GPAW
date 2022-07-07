@@ -402,9 +402,8 @@ class G0W0Calculator:
         self.shape = (self.gs.nspins, len(self.kpts), b2 - b1)
 
         self.nbands = nbands
-        self.nspins = self.gs.nspins
 
-        if self.nspins != 1 and self.fxc_mode != 'GW':
+        if self.gs.nspins != 1 and self.fxc_mode != 'GW':
             raise RuntimeError('Including a xc kernel does currently not '
                                'work for spinpolarized systems.')
 
@@ -474,10 +473,11 @@ class G0W0Calculator:
         eps_skn = np.empty(self.shape)  # KS-eigenvalues
         f_skn = np.empty(self.shape)  # occupation numbers
 
+        nspins = self.gs.nspins
         b1, b2 = self.bands
         for i, k in enumerate(self.kpts):
-            for s in range(self.nspins):
-                u = s + k * self.nspins
+            for s in range(nspins):
+                u = s + k * nspins
                 kpt = self.gs.kpt_u[u]
                 eps_skn[s, i] = kpt.eps_n[b1:b2]
                 f_skn[s, i] = kpt.f_n[b1:b2] / kpt.weight
@@ -822,7 +822,7 @@ class G0W0Calculator:
         chi0 = chi0calc.create_chi0(q_c, extend_head=False)
         chi0calc.fd = self.fd
         chi0calc.print_chi(chi0.pd)
-        chi0calc.update_chi0(chi0, m1, m2, range(self.nspins))
+        chi0calc.update_chi0(chi0, m1, m2, range(self.gs.nspins))
 
         if len(self.ecut_e) > 1:
             # Add chi from previous cutoff with remaining bands
@@ -1115,7 +1115,7 @@ class G0W0Calculator:
         b1, b2 = self.bands
         names = [line.split(':', 1)[0] for line in description]
         ibzk_kc = self.kd.ibzk_kc
-        for s in range(self.nspins):
+        for s in range(self.gs.nspins):
             for i, ik in enumerate(self.kpts):
                 print('\nk-point ' +
                       '{0} ({1}): ({2:.3f}, {3:.3f}, {4:.3f})'.format(
@@ -1252,7 +1252,6 @@ class G0W0Kernel:
         self.xcflags = XCFlags(xc)
         self._kwargs = kwargs
 
-
     def calculate(self, nG, iq, G2G):
         return calculate_kernel(
             xcflags=self.xcflags,
@@ -1283,18 +1282,15 @@ class G0W0(G0W0Calculator):
         frequencies = get_frequencies(frequencies, domega0, omega2)
 
         gpwfile = calc
-        calc, context = calc_and_context(calc, filename + '.txt',
+        calc, context = calc_and_context(gpwfile, filename + '.txt',
                                          world, timer)
+        gs = calc.gs_adapter()
 
         # Check if nblocks is compatible, adjust if not
         if nblocksmax:
-            # At this point, calc must still be a string.
             nblocks = get_max_nblocks(context.world, gpwfile, ecut)
 
-        gs = calc.gs_adapter()
-
-        pair = NoCalculatorPairDensity(gs, nblocks=nblocks,
-                                       context=context)
+        pair = NoCalculatorPairDensity(gs, nblocks=nblocks, context=context)
 
         kpts = list(select_kpts(kpts, gs.kd))
 
