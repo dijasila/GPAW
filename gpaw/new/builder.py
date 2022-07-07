@@ -24,7 +24,7 @@ from gpaw.new.smearing import OccupationNumberCalculator
 from gpaw.new.symmetry import create_symmetries_object
 from gpaw.new.xc import XCFunctional
 from gpaw.setup import Setups
-from gpaw.typing import DTypeLike
+from gpaw.typing import DTypeLike, Array2D, ArrayLike1D, ArrayLike2D
 from gpaw.utilities.gpts import get_number_of_grid_points
 
 
@@ -63,19 +63,8 @@ class DFTComponentsBuilder:
 
         self.check_cell(atoms.cell)
 
-        self.initial_magmoms = normalize_initial_magnetic_moments(
-            params.magmoms, atoms, params.spinpol or params.hund)
-
-        #c = par.charge / natoms
-        #for a, setup in enumerate(self.setups):
-        #    magmom_av[a, 2] = setup.get_hunds_rule_moment(c)
-
-        if self.initial_magmoms is None:
-            self.ncomponents = 1
-        elif self.initial_magmoms.ndim == 1:
-            self.ncomponents = 2
-        else:
-            self.ncomponents = 4
+        self.initial_magmom_av, self.ncomponents = normalize_initial_magmoms(
+            atoms, params.magmoms, params.spinpol or params.hund)
 
         self.soc = params.soc
         self.nspins = self.ncomponents % 3
@@ -88,6 +77,12 @@ class DFTComponentsBuilder:
                              params.basis,
                              self.xc.setup_name,
                              world)
+
+        if params.hund:
+            c = params.charge / len(atoms)
+            for a, setup in enumerate(self.setups):
+                self.initial_magmom_av[a, 2] = setup.get_hunds_rule_moment(c)
+
         symmetries = create_symmetries_object(atoms,
                                               self.setups.id_a,
                                               self.initial_magmoms,
@@ -111,8 +106,10 @@ class DFTComponentsBuilder:
         self.nbands = calculate_number_of_bands(params.nbands,
                                                 self.setups,
                                                 params.charge,
-                                                self.initial_magmoms,
+                                                self.initial_magmoms_av,
                                                 self.mode == 'lcao')
+        if self.ncomponents == 4:
+            self.nbands *= 2
 
         self.dtype: DTypeLike
         if params.force_complex_dtype:
@@ -179,7 +176,7 @@ class DFTComponentsBuilder:
                                           self.atomdist,
                                           self.setups,
                                           basis_set,
-                                          self.initial_magmoms,
+                                          self.initial_magmoms_av,
                                           self.params.charge,
                                           self.params.hund)
 
@@ -190,7 +187,7 @@ class DFTComponentsBuilder:
             self.ibz,
             self.nbands,
             self.communicators,
-            self.initial_magmoms,
+            self.initial_magmoms_av,
             np.linalg.inv(self.atoms.cell.complete()).T)
 
     def create_scf_loop(self):
@@ -276,24 +273,40 @@ def create_fourier_filter(grid):
     return filter
 
 
-def normalize_initial_magnetic_moments(magmoms,
-                                       atoms,
-                                       force_spinpol_calculation=False):
+def normalize_initial_magmoms(
+        atoms: Atoms,
+        magmoms: ArrayLike2D | ArrayLike1D | float = None,
+        force_spinpol_calculation: bool = False) -> tuple[Array2D, int]:
+    """Convert magnetic moments to (natoms, 3)-shaped array.
+
+    Also return number of wave function components (1, 2 or 4).
+
+    >>> h = Atoms('H', magmoms=[1])
+    >>> normalize_initial_magmoms(h)
+    ([[0, 0, 1.0]], 2)
+    >>> normalize_initial_magmoms(h, [[1, 0, 0]])
+    ([[1.0, 0, 0]], 4)
+    """
     if magmoms is None:
         magmoms = atoms.get_initial_magnetic_moments()
     elif isinstance(magmoms, float):
         magmoms = np.zeros(len(atoms)) + magmoms
     else:
-        magmoms = np.array(magmoms)
+        magmoms = np.array(magmoms, dtype=float)
 
     collinear = magmoms.ndim == 1
     if collinear and not magmoms.any():
-        magmoms = None
+        return np.zeros((len(atoms), 3)), 1
 
     if force_spinpol_calculation and magmoms is None:
-        magmoms = np.zeros(len(atoms))
+        return np.zeros((len(atoms), 3)), 2
 
-    return magmoms
+    if collinear:
+        magmom_av = np.zeros((len(atoms), 3))
+        magmom_av[:, 2] = magmoms
+        return magmom_av, 2
+
+    return magmoms, 4
 
 
 def create_kpts(kpts: dict[str, Any], atoms: Atoms) -> BZPoints:
@@ -304,10 +317,14 @@ def create_kpts(kpts: dict[str, Any], atoms: Atoms) -> BZPoints:
     return MonkhorstPackKPoints(size, offset)
 
 
-def calculate_number_of_bands(nbands, setups, charge, magmoms, is_lcao):
+def calculate_number_of_bands(nbands: int | str | None,
+                              setups: Setups,
+                              charge: float,
+                              initial_magmom_av: Array2D,
+                              is_lcao: bool) -> int:
     nao = setups.nao
     nvalence = setups.nvalence - charge
-    M = 0 if magmoms is None else np.linalg.norm(magmoms.sum(0))
+    M = np.linalg.norm(initial_magmom_av.sum(0))
 
     orbital_free = any(setup.orbital_free for setup in setups)
     if orbital_free:
@@ -346,9 +363,6 @@ def calculate_number_of_bands(nbands, setups, charge, magmoms, is_lcao):
     if nvalence > 2 * nbands and not orbital_free:
         raise ValueError(
             f'Too few bands!  Electrons: {nvalence}, bands: {nbands}')
-
-    if magmoms is not None and magmoms.ndim == 2:
-        nbands *= 2
 
     return nbands
 
