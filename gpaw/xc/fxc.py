@@ -15,6 +15,7 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.pw.descriptor import PWDescriptor
 from gpaw.utilities.blas import axpy, gemmdot
 from gpaw.xc.rpa import RPACorrelation
+from gpaw.heg import HEG
 from gpaw.response.groundstate import ResponseGroundStateAdapter
 
 
@@ -793,12 +794,13 @@ class KernelWave:
             scaled_kernel = l * self.get_spinfHxc_q(scaled_rs, scaled_q,
                                                     Gphase, s2_g)
 
-        return (scaled_kernel)
+        return scaled_kernel
 
     def get_fHxc_q(self, rs, q, Gphase, s2_g, w, scaled_Eg):
         # Construct fHxc(q,G,:), divided by scaled Coulomb interaction
 
-        qF = (9.0 * np.pi / 4.0)**(1.0 / 3.0) * 1.0 / rs
+        heg = HEG(rs)
+        qF = heg.qF
 
         if self.xc in ('rALDA', 'rALDAns', 'range_rALDA'):
             # rALDA (exchange only) kernel
@@ -907,11 +909,10 @@ class KernelWave:
         # Integrate over r with phase
         fHxc_Gr *= Gphase
         fHxc_GG = np.sum(fHxc_Gr, 1) / self.gridsize
-        return (fHxc_GG)
+        return fHxc_GG
 
     def get_spinfHxc_q(self, rs, q, Gphase, s2_g):
-
-        qF = (9.0 * np.pi / 4.0)**(1.0 / 3.0) * 1.0 / rs
+        qF = HEG(rs).qF
 
         if self.xc == 'rALDA':
 
@@ -934,10 +935,9 @@ class KernelWave:
 
         fspinHxc_Gr *= Gphase
         fspinHxc_GG = np.sum(fspinHxc_Gr, 1) / self.gridsize
-        return (fspinHxc_GG)
+        return fspinHxc_GG
 
     def get_PBE_fxc(self, pbe_rho, pbe_s2_g):
-
         pbe_kappa = 0.804
         pbe_mu = 0.2195149727645171
 
@@ -953,8 +953,7 @@ class KernelWave:
         f_g = 1.0 / 3.0 * v_g / pbe_rho
 
         pbe_f_g = f_g * F_g + 2.0 * v_g * Fn_g + e_g * Fnn_g
-
-        return (pbe_f_g)
+        return pbe_f_g
 
     def get_heg_A(self, rs):
         # Returns the A coefficient, where the
@@ -974,7 +973,7 @@ class KernelWave:
         heg_A += (1.0 / 27.0 * rs**2.0 * (9.0 * np.pi / 4.0)**(2.0 / 3.0) *
                   (2 * A_dec - rs * A_d2ec))
 
-        return (heg_A)
+        return heg_A
 
     def get_heg_B(self, rs):
         # Returns the B coefficient, where the
@@ -999,7 +998,7 @@ class KernelWave:
             mcs_denom += mcs_coeff * mcs_xs**mcs_j
 
         heg_B = mcs_num / mcs_denom
-        return (heg_B)
+        return heg_B
 
     def get_heg_C(self, rs):
         # Returns the C coefficient, where the
@@ -1013,7 +1012,7 @@ class KernelWave:
         heg_C = ((-1.0) * np.pi**(2.0 / 3.0) * (1.0 / 18.0)**(1.0 / 3.0) *
                  (rs * C_ec + rs**2.0 * C_dec))
 
-        return (heg_C)
+        return heg_C
 
     def get_heg_D(self, rs):
         # Returns a 'D' coefficient, where the
@@ -1028,7 +1027,7 @@ class KernelWave:
         # Correlation contribution
         heg_D += ((9.0 * np.pi / 4.0)**(2.0 / 3.0) * rs / 3.0 *
                   (22.0 / 15.0 * D_ec + 26.0 / 15.0 * rs * D_dec))
-        return (heg_D)
+        return heg_D
 
     def get_pw_lda(self, rs):
         # Returns LDA correlation energy and its first and second
@@ -1073,7 +1072,7 @@ class KernelWave:
                                      (pw_dlogarg**2.0) / (pw_logarg**2.0)))
         pw_d2ec += (-2.0 * pw_A * pw_alp) * pw_dlogarg / pw_logarg
 
-        return ((pw_ec, pw_dec, pw_d2ec))
+        return pw_ec, pw_dec, pw_d2ec
 
 
 class range_separated:
@@ -1144,11 +1143,9 @@ class range_separated:
 
         # RPA energy minus long range correlation
         print('Short range correlation energy/unit cell = %5.4f eV \n' %
-              ((E_SR) * Ha),
+              (E_SR * Ha),
               file=self.fd)
-        e = E_SR
-
-        return (e)
+        return E_SR
 
     def generate_tables(self):
 
@@ -1162,7 +1159,7 @@ class range_separated:
         table_SR[:, 0] = rs_r
         for iR, Rs in enumerate(rs_r):
 
-            qF = (9.0 * np.pi / 4.0)**(1.0 / 3.0) * 1.0 / Rs
+            qF = HEG(Rs)
 
             q_k = np.arange(k_step, 10.0 * qF, k_step)
 
@@ -1201,8 +1198,7 @@ class range_separated:
         erpa_q = np.zeros(len(q))
 
         for u, freqweight in zip(self.frequencies, self.freqweights):
-
-            chi0 = self.calc_lindhard(q, u, rs)
+            chi0 = HEG(rs).lindhard_function(q, u)
 
             eff_integrand = np.log(np.ones(len(q)) - veff * chi0) + veff * chi0
             eeff_q += eff_integrand * freqweight
@@ -1218,7 +1214,7 @@ class range_separated:
         return (eeff_q, erpa_q)
 
     def rALDA_corr_hole(self, q, rs):
-        qF = (9.0 * np.pi / 4.0)**(1.0 / 3.0) * 1.0 / rs
+        qF = HEG(rs).qF
 
         veff = 4.0 * np.pi / (q * q) * ((1.0 - 0.25 * q * q /
                                          (qF * qF)) * 0.5 *
@@ -1228,9 +1224,7 @@ class range_separated:
         esr_q = np.zeros(len(q))
 
         for u, freqweight in zip(self.frequencies, self.freqweights):
-
-            chi0 = self.calc_lindhard(q, u, rs)
-
+            chi0 = HEG(rs).lindhard_function(q, u)
             esr_u = np.zeros(len(q))
 
             for l, lweight in zip(self.l_l, self.lweights):
@@ -1241,23 +1235,7 @@ class range_separated:
             esr_q += freqweight * esr_u
 
         esr_q *= 1.0 / (4.0 * np.pi**3.0) * q * q
-
-        return (esr_q)
-
-    def calc_lindhard(self, q, u, rs):
-
-        # Calculate Lindhard function at imaginary frequency u
-
-        qF = (9.0 * np.pi / 4.0)**(1.0 / 3.0) * 1.0 / rs
-
-        Q = q / 2.0 / qF
-        U = u / q / qF
-        lchi = ((Q * Q - U * U - 1.0) / 4.0 / Q * np.log(
-            (U * U + (Q + 1.0) * (Q + 1.0)) / (U * U + (Q - 1.0) * (Q - 1.0))))
-        lchi += -1.0 + U * np.arctan((1.0 + Q) / U) + U * np.arctan(
-            (1.0 - Q) / U)
-        lchi *= qF / (2.0 * np.pi * np.pi)
-        return (lchi)
+        return esr_q
 
 
 class KernelDens:
