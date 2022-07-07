@@ -373,7 +373,7 @@ class G0W0:
         self.fd = self.pair.fd
         self.calc = self.pair.calc
         self.gs = self.pair.gs
-        self.ecut = ecut / Ha
+        self.ecut_Ha = ecut / Ha
         self.blockcomm = self.pair.blockcomm
         self.world = self.pair.world
         self.vol = self.pair.vol
@@ -425,7 +425,7 @@ class G0W0:
         self.shape = (self.gs.nspins, len(self.kpts), b2 - b1)
 
         if nbands is None:
-            nbands = int(self.vol * self.ecut**1.5 * 2**0.5 / 3 / pi**2)
+            nbands = int(self.vol * self.ecut_Ha**1.5 * 2**0.5 / 3 / pi**2)
         else:
             if ecut_extrapolation:
                 raise RuntimeError(
@@ -488,7 +488,7 @@ class G0W0:
         p()
         p('Computational parameters:')
         if not ecut_extrapolation:
-            p('Plane wave cut-off: {0:g} eV'.format(self.ecut * Ha))
+            p('Plane wave cut-off: {0:g} eV'.format(self.ecut_Ha * Ha))
         else:
             p('Extrapolating to infinite plane wave cut-off using points at:')
             p('  [%.3f, %.3f, %.3f] eV' % tuple(self.ecut_e[:] * Ha))
@@ -788,7 +788,7 @@ class G0W0:
 
         chi0calc = Chi0(self.inputcalc,
                         nbands=self.nbands,
-                        ecut=self.ecut * Ha,
+                        ecut=self.ecut_Ha * Ha,
                         intraband=False,
                         real_space_derivatives=False,
                         txt=self.filename + '.w.txt',
@@ -810,7 +810,7 @@ class G0W0:
         print(self.wd, file=self.fd)
 
         # Find maximum size of chi-0 matrices:
-        nGmax = max(count_reciprocal_vectors(self.ecut, self.gd, q_c)
+        nGmax = max(count_reciprocal_vectors(self.ecut_Ha, self.gd, q_c)
                     for q_c in self.qd.ibzk_kc)
         nw = len(self.wd)
 
@@ -840,15 +840,15 @@ class G0W0:
                 chi0bands = None
 
             m1 = chi0calc.nocc1
-            for ie, ecut in enumerate(self.ecut_e):
+            for ie, ecut_Ha in enumerate(self.ecut_e):
                 self.timer.start('W')
 
                 # First time calculation
-                if ecut == self.ecut:
+                if ecut_Ha == self.ecut_Ha:
                     # Nothing to cut away:
                     m2 = self.nbands
                 else:
-                    m2 = int(self.vol * ecut**1.5 * 2**0.5 / 3 / pi**2)
+                    m2 = int(self.vol * ecut_Ha**1.5 * 2**0.5 / 3 / pi**2)
                     if m2 > self.nbands:
                         raise ValueError(f'Trying to extrapolate ecut to'
                                          f'larger number of bands ({m2})'
@@ -856,7 +856,7 @@ class G0W0:
                                          f'({self.nbands}).')
                 pdi, Wdict, blocks1d, Q_aGii = self.calculate_w(
                     chi0calc, q_c, chi0bands,
-                    m1, m2, ecut, wstc, iq)
+                    m1, m2, ecut_Ha, wstc, iq)
                 m1 = m2
 
                 self.timer.stop('W')
@@ -877,7 +877,7 @@ class G0W0:
 
     @timer('WW')
     def calculate_w(self, chi0calc, q_c, chi0bands,
-                    m1, m2, ecut, wstc,
+                    m1, m2, ecut_Ha, wstc,
                     iq):
         """Calculates the screened potential for a specified q-point."""
 
@@ -900,7 +900,7 @@ class G0W0:
 
         for fxc_mode in self.fxc_modes:
             pdi, blocks1d, W_wGG = self.dyson_and_W_old(
-                wstc, iq, q_c, chi0calc, chi0, ecut, Q_aGii=chi0calc.Q_aGii,
+                wstc, iq, q_c, chi0calc, chi0, ecut_Ha, Q_aGii=chi0calc.Q_aGii,
                 fxc_mode=fxc_mode)
 
             if self.ppa:
@@ -913,10 +913,10 @@ class G0W0:
 
         return pdi, Wdict, blocks1d, chi0calc.Q_aGii
 
-    def dyson_and_W_new(self, wstc, iq, q_c, chi0calc, chi0, ecut):
+    def dyson_and_W_new(self, wstc, iq, q_c, chi0calc, chi0, ecut_Ha):
         assert not self.ppa
         assert not self.do_GW_too
-        assert ecut == chi0.pd.ecut
+        assert ecut_Ha == chi0.pd.ecut
         assert self.fxc_mode == 'GW'
 
         assert not np.allclose(q_c, 0)
@@ -971,7 +971,7 @@ class G0W0:
         return chi0.pd, Wm_wGG, Wp_wGG  # not Hilbert transformed yet
 
     def _calculate_kernel(self, nG, iq, G2G):
-        return calculate_kernel(ecut=self.ecut,
+        return calculate_kernel(ecut=self.ecut_Ha,
                                 xcflags=self.xcflags,
                                 gs=self.gs, nG=nG,
                                 ns=self.nspins, iq=iq,
@@ -980,7 +980,7 @@ class G0W0:
                                 timer=self.timer, fd=self.fd)
 
     def dyson_and_W_old(self, wstc, iq, q_c, chi0calc, chi0,
-                        ecut, Q_aGii, fxc_mode):
+                        ecut_Ha, Q_aGii, fxc_mode):
         nG = chi0.pd.ngmax
         blocks1d = chi0.blocks1d
 
@@ -994,12 +994,12 @@ class G0W0:
         chi0_wxvG = chi0.chi0_wxvG
         chi0_wvv = chi0.chi0_wvv
 
-        if ecut == pd.ecut:
+        if ecut_Ha == pd.ecut:
             pdi = pd
             G2G = None
 
-        elif ecut < pd.ecut:  # construct subset chi0 matrix with lower ecut
-            pdi = PWDescriptor(ecut, pd.gd, dtype=pd.dtype,
+        elif ecut_Ha < pd.ecut:  # construct subset chi0 matrix with lower ecut
+            pdi = PWDescriptor(ecut_Ha, pd.gd, dtype=pd.dtype,
                                kd=pd.kd)
             nG = pdi.ngmax
             blocks1d = Blocks1D(self.blockcomm, nG)
