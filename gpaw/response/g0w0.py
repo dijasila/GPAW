@@ -1223,7 +1223,7 @@ class G0W0Calculator:
             fd=self.fd if print_ac else None)
 
 
-def choose_bands(bands, relbands, nvalence):
+def choose_bands(bands, relbands, nvalence, nocc):
     if bands is not None and relbands is not None:
         raise ValueError('Use bands or relbands!')
 
@@ -1231,7 +1231,7 @@ def choose_bands(bands, relbands, nvalence):
         bands = [nvalence // 2 + b for b in relbands]
 
     if bands is None:
-        raise RuntimeError('Please choose bands in some other way')
+        bands = [0, nocc]
 
     return bands
 
@@ -1293,8 +1293,6 @@ class G0W0(G0W0Calculator):
 
         ecut, ecut_e = choose_ecut_things(ecut, ecut_extrapolation)
 
-        bands = choose_bands(bands, relbands, gs.nvalence)
-
         if ppa:
             # use small imaginary frequency to avoid dividing by zero:
             frequencies = [1e-10j, 1j * E0]
@@ -1320,6 +1318,8 @@ class G0W0(G0W0Calculator):
             intraband=False,
             context=chi_context,
             **parameters)
+
+        bands = choose_bands(bands, relbands, gs.nvalence, chi0calc.nocc2)
 
         if Eg is None and xc == 'JGMsx':
             Eg = gs.get_band_gap()
