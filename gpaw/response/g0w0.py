@@ -253,7 +253,7 @@ def choose_ecut_things(ecut, ecut_extrapolation):
     return ecut, ecut_e
 
 
-class G0W0:
+class G0W0Calculator:
     def __init__(self, calc, filename='gw', *,
                  restartfile=None,
                  kpts=None, bands=None, relbands=None, nbands=None, ppa=False,
@@ -262,8 +262,6 @@ class G0W0:
                  truncation=None, integrate_gamma=0,
                  ecut=150.0, eta=0.1, E0=1.0 * Ha,
                  frequencies=None,
-                 domega0=None,  # deprecated
-                 omega2=None,  # deprecated
                  q0_correction=False,
                  nblocks=1, savepckl=True,
                  world=mpi.world, ecut_extrapolation=False,
@@ -353,7 +351,7 @@ class G0W0:
         savepckl: bool
             Save output to a pckl file.
         """
-        self.frequencies = get_frequencies(frequencies, domega0, omega2)
+        self.frequencies = frequencies
 
         if ppa and (nblocks > 1 or nblocksmax):
             raise ValueError(
@@ -1305,3 +1303,13 @@ class G0W0:
             pd, W_GG, einv_GG, chi0_xvG, chi0_vv,
             sqrtV_G,
             fd=self.fd if print_ac else None)
+
+
+class G0W0(G0W0Calculator):
+    def __init__(self, calc, filename='gw',
+                 frequencies=None,
+                 domega0=None,  # deprecated
+                 omega2=None,  # deprecated
+                 **kwargs):
+        frequencies = get_frequencies(frequencies, domega0, omega2)
+        super().__init__(calc=calc, filename=filename, frequencies=frequencies, **kwargs)
