@@ -52,7 +52,7 @@ def test_kpts(xc, atoms):
     assert k1 == 4 and k2 == 7
     assert gap == pytest.approx(gaps['PBE'], abs=0.01)
     if world.size == 1:
-        xc2 = EXX(c, xc=xc, bands=(0, c.wfs.bd.nbands), txt=None)
+        xc2 = EXX(c.gs_adapter(), xc=xc, bands=(0, c.wfs.bd.nbands), txt=None)
         xc2.calculate()
         v2 = xc2.get_eigenvalue_contributions()
         assert np.allclose(v, v2), (v, v2)

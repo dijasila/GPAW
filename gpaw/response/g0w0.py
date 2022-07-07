@@ -371,7 +371,6 @@ class G0W0:
         # Steal attributes from self.pair:
         self.timer = self.pair.timer
         self.fd = self.pair.fd
-        self.calc = self.pair.calc
         self.gs = self.pair.gs
         self.ecut = ecut / Ha
         self.blockcomm = self.pair.blockcomm
@@ -1138,7 +1137,7 @@ class G0W0:
         if exx_skn is None:
             print('Calculating EXX contribution', file=self.fd)
             self.fd.flush()
-            exx = EXX(self.calc, kpts=self.kpts, bands=self.bands,
+            exx = EXX(self.gs, kpts=self.kpts, bands=self.bands,
                       txt=self.filename + '.exx.txt', timer=self.timer)
             exx.calculate()
             exx_skn = exx.get_eigenvalue_contributions() / Ha
