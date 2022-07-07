@@ -679,7 +679,7 @@ class SerialCommunicator:
     def compare(self, other):
         if self == other:
             return 'ident'
-        elif isinstance(other, SerialCommunicator):
+        elif other.size == 1:
             return 'congruent'
         else:
             raise NotImplementedError('Compare serial comm to other')

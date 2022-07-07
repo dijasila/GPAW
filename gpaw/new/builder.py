@@ -64,7 +64,11 @@ class DFTComponentsBuilder:
         self.check_cell(atoms.cell)
 
         self.initial_magmoms = normalize_initial_magnetic_moments(
-            params.magmoms, atoms, params.spinpol)
+            params.magmoms, atoms, params.spinpol or params.hund)
+
+        #c = par.charge / natoms
+        #for a, setup in enumerate(self.setups):
+        #    magmom_av[a, 2] = setup.get_hunds_rule_moment(c)
 
         if self.initial_magmoms is None:
             self.ncomponents = 1

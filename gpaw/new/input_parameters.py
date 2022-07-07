@@ -230,12 +230,7 @@ def mode(value='fd'):
 @input_parameter
 def nbands(value: str | int | None = None) -> int | float | None:
     """Number of electronic bands."""
-    if isinstance(value, int) or value is None:
-        return value
-    if value[-1] == '%':
-        return float(value[:-1]) / 100
-    raise ValueError('Integer expected: Only use a string '
-                     'if giving a percentage of occupied bands')
+    return value
 
 
 @input_parameter

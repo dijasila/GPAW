@@ -88,6 +88,7 @@ class FakeDensity:
         self.nt_sG = self.nt_sR.data
         self.gd = self.nt_sR.desc._gd
         self.finegd = calculation.pot_calc.fine_grid._gd
+        self._densities = calculation.densities()
 
     @cached_property
     def D_asp(self):
@@ -96,6 +97,11 @@ class FakeDensity:
 
     def interpolate_pseudo_density(self):
         self.nt_sg = self.interpolate(self.nt_sR)[0].data
+
+    def get_all_electron_density(self, *, atoms, gridrefinement):
+        n_sr = self._densities.all_electron_densities(
+            grid_refinement=gridrefinement)
+        return n_sr.data, n_sr.desc._gd
 
 
 class FakeHamiltonian:
