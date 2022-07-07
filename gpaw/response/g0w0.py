@@ -450,6 +450,41 @@ class G0W0Calculator:
         self.fd.flush()
         self.hilbert_transform = None  # initialized when we create Chi0
 
+        if self.ppa:
+            print('Using Godby-Needs plasmon-pole approximation:',
+                  file=self.fd)
+            print('  Fitting energy: i*E0, E0 = %.3f Hartee' % self.E0,
+                  file=self.fd)
+
+            # use small imaginary frequency to avoid dividing by zero:
+            frequencies = [1e-10j, 1j * self.E0 * Ha]
+
+            parameters = {'eta': 0,
+                          'hilbert': False,
+                          'timeordered': False}
+        else:
+            print('Using full frequency integration:', file=self.fd)
+
+            frequencies = self.frequencies
+            parameters = {'eta': self.eta * Ha,
+                          'hilbert': True,
+                          'timeordered': True}
+
+        self.fd.flush()
+
+        from gpaw.response.chi0 import new_frequency_descriptor
+        self.chi_context = self.context.with_txt(self.filename + '.w.txt')
+        self.wd = new_frequency_descriptor(
+            self.gs, self.nbands, frequencies, fd=self.chi_context.fd)
+
+        self.chi0calc = Chi0Calculator(
+            wd=self.wd, pair=self.pair,
+            nbands=self.nbands,
+            ecut=self.ecut * Ha,
+            intraband=False,
+            context=self.chi_context,
+            **parameters)
+
     @property
     def kd(self):
         return self.gs.kd
@@ -758,39 +793,7 @@ class G0W0Calculator:
             print('Using %s truncated Coloumb potential' % self.truncation,
                   file=self.fd)
 
-        if self.ppa:
-            print('Using Godby-Needs plasmon-pole approximation:',
-                  file=self.fd)
-            print('  Fitting energy: i*E0, E0 = %.3f Hartee' % self.E0,
-                  file=self.fd)
-
-            # use small imaginary frequency to avoid dividing by zero:
-            frequencies = [1e-10j, 1j * self.E0 * Ha]
-
-            parameters = {'eta': 0,
-                          'hilbert': False,
-                          'timeordered': False}
-        else:
-            print('Using full frequency integration:', file=self.fd)
-
-            frequencies = self.frequencies
-            parameters = {'eta': self.eta * Ha,
-                          'hilbert': True,
-                          'timeordered': True}
-
-        self.fd.flush()
-
-        from gpaw.response.chi0 import new_frequency_descriptor
-        chi_context = self.context.with_txt(self.filename + '.w.txt')
-        self.wd = new_frequency_descriptor(
-            self.gs, self.nbands, frequencies, fd=chi_context.fd)
-
-        chi0calc = Chi0Calculator(wd=self.wd, pair=self.pair,
-                                  nbands=self.nbands,
-                                  ecut=self.ecut * Ha,
-                                  intraband=False,
-                                  context=chi_context,
-                                  **parameters)
+        chi0calc = self.chi0calc
 
         if self.truncation == 'wigner-seitz':
             wstc = WignerSeitzTruncatedCoulomb(
