@@ -9,13 +9,13 @@ def create_background_charge(**kwargs):
     if 'z1' in kwargs:
         return JelliumSlab(**kwargs)
     return Jellium(**kwargs)
-    
+
 
 class Jellium():
     """ The Jellium object """
     def __init__(self, charge):
         """ Initialize the Jellium object
-        
+
         Input: charge, the total Jellium background charge.
         """
         self.charge = charge
@@ -26,7 +26,7 @@ class Jellium():
 
     def todict(self):
         return {'charge': self.charge}
-        
+
     def set_grid_descriptor(self, gd):
         """ Set the grid descriptor for the Jellium background charge"""
         self.gd = gd
@@ -76,7 +76,7 @@ class JelliumSlab(Jellium):
         dct.update(z1=self.z1 * Bohr + 0.0001,
                    z2=self.z2 * Bohr + 0.0001)
         return dct
-        
+
     def get_mask(self):
         r_gv = self.gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
         # r_gv: 4-dimensional ndarray

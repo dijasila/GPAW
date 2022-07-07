@@ -247,6 +247,14 @@ class Hamiltonian:
         finegrid_energies *= self.finegd.comm.size / self.world.size
         coarsegrid_e_kinetic *= self.gd.comm.size / self.world.size
         # (careful with array orderings/contents)
+
+        if 0:
+            print('kinetic', atomic_energies[0], coarsegrid_e_kinetic)
+            print('coulomb', atomic_energies[1], finegrid_energies[0])
+            print('zero', atomic_energies[2], finegrid_energies[1])
+            print('xc', atomic_energies[4], finegrid_energies[3])
+            print('external', atomic_energies[3], finegrid_energies[2])
+
         energies = atomic_energies  # kinetic, coulomb, zero, external, xc
         energies[1:] += finegrid_energies  # coulomb, zero, external, xc
         energies[0] += coarsegrid_e_kinetic  # kinetic
@@ -335,7 +343,6 @@ class Hamiltonian:
             e_xc += self.xc.calculate_paw_correction(self.setups[a], D_sp,
                                                      dH_asp[a], a=a)
         self.timer.stop('XC Correction')
-
         for a, D_sp in D_asp.items():
             e_kinetic -= (D_sp * dH_asp[a]).sum().real
 
@@ -356,6 +363,14 @@ class Hamiltonian:
         else:
             self.e_kinetic = self.e_kinetic0
         self.e_entropy = e_entropy
+        if 0:
+            print(self.e_kinetic0,
+                  self.e_band,
+                  self.e_coulomb,
+                  self.e_external,
+                  self.e_zero,
+                  self.e_xc,
+                  self.e_entropy)
 
         self.e_total_free = (self.e_kinetic + self.e_coulomb +
                              self.e_external + self.e_zero + self.e_xc +

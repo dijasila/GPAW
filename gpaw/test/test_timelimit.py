@@ -1,11 +1,13 @@
+import pytest
 from ase.build import molecule
-from gpaw import GPAW
+
+from gpaw import GPAW, KohnShamConvergenceError
 from gpaw.lcaotddft import LCAOTDDFT
 from gpaw.tddft import TDDFT
-from gpaw import KohnShamConvergenceError
 from gpaw.utilities.timelimit import TimeLimiter
 
 
+@pytest.mark.skip_for_new_gpaw
 def test_timelimit(in_tmp_dir):
     # Atoms
     atoms = molecule('Na2')

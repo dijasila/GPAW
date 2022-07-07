@@ -6,6 +6,7 @@ from gpaw.test import equal
 from gpaw.test import gen
 
 
+@pytest.mark.skip_for_new_gpaw
 @pytest.mark.libxc
 def test_ofdft_ofdft_pbc(in_tmp_dir):
     symbol = 'C'

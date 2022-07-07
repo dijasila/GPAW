@@ -21,7 +21,6 @@ def test_overlap(in_tmp_dir):
     nbands = 4
     txt = '-'
     txt = None
-    np.set_printoptions(precision=3, suppress=True)
 
     H2 = Cluster(molecule('H2'))
     H2.minimal_box(box, h)

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import sys
 from math import pi, exp, sqrt, log
 
@@ -1070,6 +1069,9 @@ class PAWSetupGenerator:
         setup.vbar_g = self.v0r_g * sqrt(4 * pi)
         setup.vbar_g[1:] /= self.rgd.r_g[1:]
         setup.vbar_g[0] = setup.vbar_g[1]
+        setup.vt_g = self.vtr_g * sqrt(4 * pi)
+        setup.vt_g[1:] /= self.rgd.r_g[1:]
+        setup.vt_g[0] = setup.vt_g[1]
         setup.Z = aea.Z
         setup.Nc = self.ncore
         setup.Nv = self.nvalence
@@ -1100,7 +1102,7 @@ class PAWSetupGenerator:
         else:
             reltype = 'non-relativistic'
         attrs = [('type', reltype),
-                 ('version', 2),
+                 ('version', 3),
                  ('name', 'gpaw-%s' % version)]
         setup.generatorattrs = attrs
         setup.version = '0.7'
@@ -1421,46 +1423,7 @@ def main(args):
         if args.plot:
             import matplotlib.pyplot as plt
         if args.logarithmic_derivatives:
-            r = 1.1 * gen.rcmax
-            emin = min(min(wave.e_n) for wave in gen.waves_l) - 0.8
-            emax = max(max(wave.e_n) for wave in gen.waves_l) + 0.8
-            lvalues, energies, r = parse_ld_str(
-                args.logarithmic_derivatives, (emin, emax, 0.05), r)
-            emin = energies[0]
-            de = energies[1] - emin
-
-            error = 0.0
-            for l in lvalues:
-                efix = []
-                # Fixed points:
-                if l < len(gen.waves_l):
-                    efix.extend(gen.waves_l[l].e_n)
-                if l == gen.l0:
-                    efix.append(0.0)
-
-                ld1 = gen.aea.logarithmic_derivative(l, energies, r)
-                ld2 = gen.logarithmic_derivative(l, energies, r)
-                for e in efix:
-                    i = int((e - emin) / de)
-                    if 0 <= i < len(energies):
-                        ld1 -= round(ld1[i] - ld2[i])
-                        if args.plot:
-                            ldfix = ld1[i]
-                            plt.plot([energies[i]], [ldfix],
-                                     'x' + colors[l])
-
-                if args.plot:
-                    plt.plot(energies, ld1, colors[l], label='spdfg'[l])
-                    plt.plot(energies, ld2, '--' + colors[l])
-
-                error = abs(ld1 - ld2).sum() * de
-                print('Logarithmic derivative error:', l, error)
-
-            if args.plot:
-                plt.xlabel('energy [Ha]')
-                plt.ylabel(r'$\arctan(d\log\phi_{\ell\epsilon}(r)/dr)/\pi'
-                           r'|_{r=r_c}$')
-                plt.legend(loc='best')
+            plot_log_derivs(gen, args.logarithmic_derivatives, args.plot)
 
         if args.plot:
             gen.plot()
@@ -1474,3 +1437,47 @@ def main(args):
                 plt.show()
             except KeyboardInterrupt:
                 pass
+
+
+def plot_log_derivs(gen, ld_str: str, plot: bool):
+    """Make nice log-derivs plot."""
+    import matplotlib.pyplot as plt
+    r = 1.1 * gen.rcmax
+    emin = min(min(wave.e_n) for wave in gen.waves_l) - 0.8
+    emax = max(max(wave.e_n) for wave in gen.waves_l) + 0.8
+    lvalues, energies, r = parse_ld_str(ld_str, (emin, emax, 0.05), r)
+    emin = energies[0]
+    de = energies[1] - emin
+
+    error = 0.0
+    for l in lvalues:
+        efix = []
+        # Fixed points:
+        if l < len(gen.waves_l):
+            efix.extend(gen.waves_l[l].e_n)
+        if l == gen.l0:
+            efix.append(0.0)
+
+        ld1 = gen.aea.logarithmic_derivative(l, energies, r)
+        ld2 = gen.logarithmic_derivative(l, energies, r)
+        for e in efix:
+            i = int((e - emin) / de)
+            if 0 <= i < len(energies):
+                ld1 -= round(ld1[i] - ld2[i])
+                if plot:
+                    ldfix = ld1[i]
+                    plt.plot([energies[i]], [ldfix],
+                             'x' + colors[l])
+
+        if plot:
+            plt.plot(energies, ld1, colors[l], label='spdfg'[l])
+            plt.plot(energies, ld2, '--' + colors[l])
+
+        error = abs(ld1 - ld2).sum() * de
+        print('Logarithmic derivative error:', l, error)
+
+    if plot:
+        plt.xlabel('energy [Ha]')
+        plt.ylabel(r'$\arctan(d\log\phi_{\ell\epsilon}(r)/dr)/\pi'
+                   r'|_{r=r_c}$')
+        plt.legend(loc='best')

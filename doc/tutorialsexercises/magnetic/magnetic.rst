@@ -9,3 +9,4 @@ Magnetic properties
 
    zfs/zfs
    iron/iron
+   spinspiral/spinspiral

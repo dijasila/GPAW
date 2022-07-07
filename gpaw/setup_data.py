@@ -2,7 +2,6 @@ import hashlib
 import os
 import re
 import xml.sax
-from distutils.version import LooseVersion
 from glob import glob
 from math import pi, sqrt
 from pathlib import Path
@@ -10,7 +9,7 @@ from typing import IO, Tuple
 
 import numpy as np
 from ase.data import atomic_names, atomic_numbers
-from ase.units import Bohr, Hartree
+from ase.units import Bohr, Ha
 
 from gpaw import setup_paths
 from gpaw.atom.radialgd import (AbinitRadialGridDescriptor,
@@ -72,6 +71,7 @@ class SetupData:
         self.nct_g = None
         self.nvt_g = None
         self.vbar_g = None
+        self.vt_g = None
 
         # Kinetic energy densities of core electrons
         self.tauc_g = None
@@ -140,9 +140,9 @@ class SetupData:
 
     def print_info(self, text, setup):
         if self.phicorehole_g is None:
-            text(self.symbol + '-setup:')
+            text(self.symbol + ':')
         else:
-            text(f'{self.symbol}-setup ({self.fcorehole:.1f} core hole):')
+            text(f'{self.symbol}:  # ({self.fcorehole:.1f} core hole)')
         text('  name:', atomic_names[atomic_numbers[self.symbol]])
         text('  id:', self.fingerprint)
         text('  Z:', self.Z)
@@ -153,30 +153,28 @@ class SetupData:
             text(f'  core: {self.Nc:.1f}')
         text('  charge:', self.Z - self.Nv - self.Nc)
         if setup.HubU is not None:
-            for index in range(len(setup.HubU)):
-                text('  Hubbard U: %f eV (l=%d, scale=%s)' %
-                     (setup.HubU[index] * Hartree,
-                      setup.Hubl[index],
-                      bool(setup.Hubs[index])))
+            for U, l, scale in zip(setup.HubU, setup.Hubl, setup.Hubs):
+                text(f'  Hubbard: {{U: {U * Ha},  # eV\n'
+                     f'            l: {l},\n'
+                     f'            scale: {bool(scale)}}}')
         text('  file:', self.filename)
-        text('  compensation charges: {}, rc={:.2f}, lmax={}'
-             .format(self.shape_function['type'],
-                     self.shape_function['rc'] * Bohr,
-                     setup.lmax))
-        text(('  cutoffs: {:.2f}(filt), {:.2f}(core),'
-              .format(setup.rcutfilter * Bohr,
-                      setup.rcore * Bohr)))
+        sf = self.shape_function
+        text(f'  compensation charges: {{type: {sf["type"]},\n'
+             f'                         rc: {sf["rc"] * Bohr:.2f},\n'
+             f'                         lmax: {setup.lmax}}}')
+        text(f'  cutoffs: {{filter: {setup.rcutfilter * Bohr:.2f},\n'
+             f'            core: {setup.rcore * Bohr:.2f}}}')
         text('  valence states:')
-        text('                energy  radius')
+        text('    #              energy  rcut')
         j = 0
         for n, l, f, eps in zip(self.n_j, self.l_j, self.f_j, self.eps_j):
             if n > 0:
                 f = f'({f:.2f})'
-                text('    %d%s%-5s %9.3f   %5.3f' % (
-                    n, 'spdf'[l], f, eps * Hartree, self.rcut_j[j] * Bohr))
+                text('    - %d%s%-5s %9.3f   %5.3f' % (
+                    n, 'spdf'[l], f, eps * Ha, self.rcut_j[j] * Bohr))
             else:
-                text('    *%s       %9.3f   %5.3f' % (
-                    'spdf'[l], eps * Hartree, self.rcut_j[j] * Bohr))
+                text('    -  %s       %9.3f   %5.3f' % (
+                    'spdf'[l], eps * Ha, self.rcut_j[j] * Bohr))
             j += 1
         text()
 
@@ -346,6 +344,12 @@ class SetupData:
                     print(f'{x!r}', end=' ', file=xml)
                 print(f'\n  </{name}>', file=xml)
 
+        if self.vt_g is not None:
+            xml.write('  <pseudo_potential grid="g1">\n')
+            for x in self.vt_g:
+                print(f'{x!r}', end=' ', file=xml)
+            print('\n  </pseudo_potential>', file=xml)
+
         print('  <kinetic_energy_differences>', end=' ', file=xml)
         nj = len(self.e_kin_jj)
         for j1 in range(nj):
@@ -419,7 +423,7 @@ You need to set the GPAW_SETUP_PATH environment variable to point to
 the directories where PAW dataset and basis files are stored.  See
 https://wiki.fysik.dtu.dk/gpaw/install.html#install-paw-datasets
 for details."""
-        raise RuntimeError(f'{err}\n{helpful_message}\n')
+        raise FileNotFoundError(f'{err}\n{helpful_message}\n')
 
     return filename, source
 
@@ -453,7 +457,7 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
         setup = self.setup
         if name == 'paw_setup' or name == 'paw_dataset':
             setup.version = attrs['version']
-            assert LooseVersion(setup.version) >= '0.4'
+            assert [int(v) for v in setup.version.split('.')] >= [0, 4]
         if name == 'atom':
             Z = float(attrs['Z'])
             setup.Z = Z
@@ -486,7 +490,8 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
             setup.rcut_j.append(float(attrs.get('rc', -1)))
             setup.id_j.append(attrs['id'])
             # Compatibility with old setups:
-            if LooseVersion(setup.version) < '0.6' and setup.f_j[-1] == 0:
+            version = [int(v) for v in setup.version.split('.')]
+            if version < [0, 6] and setup.f_j[-1] == 0:
                 setup.n_j[-1] = -1
         elif name == 'radial_grid':
             if attrs['eq'] == 'r=a*i/(n-i)':
@@ -515,7 +520,8 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
                       'localized_potential', 'yukawa_exchange_X_matrix',
                       'kinetic_energy_differences', 'exact_exchange_X_matrix',
                       'ae_core_kinetic_energy_density',
-                      'pseudo_core_kinetic_energy_density']:
+                      'pseudo_core_kinetic_energy_density',
+                      'pseudo_potential']:
             self.data = []
         elif name.startswith('GLLB_'):
             self.data = []
@@ -576,6 +582,8 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
             setup.tauct_g = x_g
         elif name in ['localized_potential', 'zero_potential']:  # XXX
             setup.vbar_g = x_g
+        elif name in ['pseudo_potential']:
+            setup.vt_g = x_g
         elif name.startswith('GLLB_'):
             # Add setup tags starting with GLLB_ to extra_xc_data. Remove
             # GLLB_ from front of string:

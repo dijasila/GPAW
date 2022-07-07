@@ -4,13 +4,13 @@ from ase.dft.bandgap import bandgap
 from gpaw import GPAW, FermiDirac
 from gpaw.test import equal
 
-# Setup up bulk NiO in an antiferromagnetic configuration.
-# Lattice constants:
-
 
 def test_Hubbard_U(in_tmp_dir):
+    """Setup up bulk NiO in an antiferromagnetic configuration."""
+    # Lattice constant:
     a = 4.19
     b = a / sqrt(2)
+
     m = 2
     k = 2  # number of k-points
 

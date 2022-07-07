@@ -687,8 +687,22 @@ class MixerWrapper:
         for basemixer in self.basemixers:
             basemixer.initialize_metric(gd)
 
-    def mix(self, nt_sG, D_asp):
-        return self.driver.mix(self.basemixers, nt_sG, D_asp)
+    def mix(self, nt_sR, D_asp=None):
+        if D_asp is not None:
+            return self.driver.mix(self.basemixers, nt_sR, D_asp)
+
+        # new interface:
+        density = nt_sR
+        nspins = density.nt_sR.dims[0]
+        D_asp = {a: D_sii.copy().reshape((nspins, -1))
+                 for a, D_sii in density.D_asii.items()}
+        error = self.driver.mix(self.basemixers,
+                                density.nt_sR.data,
+                                D_asp)
+        for a, D_sii in density.D_asii.items():
+            ni = D_sii.shape[1]
+            D_sii[:] = D_asp[a].reshape((-1, ni, ni))
+        return error
 
     def estimate_memory(self, mem, gd):
         for i, basemixer in enumerate(self.basemixers):
@@ -703,11 +717,10 @@ class MixerWrapper:
                  'Method: ' + self.driver.name,
                  'Backend: ' + self.driver.basemixerclass.name,
                  'Linear mixing parameter: %g' % self.beta,
-                 'Mixing with %d old densities' % self.nmaxold]
+                 f'old densities: {self.nmaxold}',
+                 'Damping of long wavelength oscillations: %g' % self.weight]
         if self.weight == 1:
-            lines.append('No damping of long wave oscillations')
-        else:
-            lines.append('Damping of long wave oscillations: %g' % self.weight)
+            lines[-1] += '  # (no daming)'
         return '\n  '.join(lines)
 
 

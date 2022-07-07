@@ -24,9 +24,13 @@ atom            Solve radial equation for an atom
 python          Run GPAW's parallel Python interpreter
 sbatch          Submit a GPAW Python script via sbatch
 dataset         Calculate density of states from gpw-file
-symmetry        Analyse symmetry
+symmetry        Analyse symmetry (and show IBZ **k**-points)
 install-data    Install PAW datasets, pseudopotential or basis sets
 ==============  =====================================================
+
+Example::
+
+    $ gpaw info
 
 
 Help
@@ -86,7 +90,7 @@ Options:
                       Number of cores to use for ScaLapack.  Default is one.
 -d, --dry-run         Just write out size of matrices.
 
-Typpically, you will want to run this in parallel and distrubute the matrices
+Typpically, you will want to run this in parallel and distribute the matrices
 using ScaLapack::
 
     $ gpaw -P 8 python -m gpaw.fulldiag abc.gpw --scalapack=8 ...

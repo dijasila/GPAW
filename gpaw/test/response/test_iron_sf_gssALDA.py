@@ -5,6 +5,7 @@ Fast test, where the kernel is scaled to fulfill the Goldstone theorem.
 """
 
 # Workflow modules
+import pytest
 import numpy as np
 
 # Script modules
@@ -21,6 +22,8 @@ from gpaw.test import findpeak, equal
 from gpaw.mpi import world
 
 
+@pytest.mark.kspair
+@pytest.mark.response
 def test_response_iron_sf_gssALDA(in_tmp_dir):
     # ------------------- Inputs ------------------- #
 
@@ -36,7 +39,7 @@ def test_response_iron_sf_gssALDA(in_tmp_dir):
     q_qc = [[0.0, 0.0, 0.0], [0.0, 0.0, 1. / 4.]]  # Two q-points along G-N
     frq_qw = [np.linspace(-0.080, 0.120, 26), np.linspace(0.100, 0.300, 26)]
     fxc = 'ALDA'
-    fxc_scaling = [True, None]
+    fxc_scaling = [True, None, 'fm']
     ecut = 300
     eta = 0.01
 
@@ -54,7 +57,6 @@ def test_response_iron_sf_gssALDA(in_tmp_dir):
                 kpts=monkhorst_pack((kpts, kpts, kpts)),
                 nbands=nb,
                 symmetry={'point_group': False},
-                idiotproof=False,
                 parallel={'domain': 1})
 
     Febcc.calc = calc
@@ -88,8 +90,8 @@ def test_response_iron_sf_gssALDA(in_tmp_dir):
     w1_w, chiks1_w, chi1_w = read_macroscopic_component('iron_dsus_1.csv')
     w2_w, chiks2_w, chi2_w = read_macroscopic_component('iron_dsus_2.csv')
 
-    wpeak1, Ipeak1 = findpeak(w1_w, chi1_w.imag)
-    wpeak2, Ipeak2 = findpeak(w2_w, chi2_w.imag)
+    wpeak1, Ipeak1 = findpeak(w1_w, -chi1_w.imag)
+    wpeak2, Ipeak2 = findpeak(w2_w, -chi2_w.imag)
 
     mw1 = wpeak1 * 1000
     mw2 = wpeak2 * 1000

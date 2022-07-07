@@ -15,6 +15,7 @@ from gpaw.xc import XC
 from gpaw.spherical_harmonics import Yarr
 from gpaw.sphere.lebedev import weight_n, R_nv
 from gpaw.response.kspair import get_calc
+from gpaw.response.groundstate import ResponseGroundStateAdapter
 
 
 def get_fxc(gs, fxc, response='susceptibility', mode='pw',
@@ -61,6 +62,7 @@ class FXC:
         self.cfd = self.fd
         self.timer = timer or Timer()
         self.calc = get_calc(gs, fd=self.fd, timer=self.timer)
+        self.gs = ResponseGroundStateAdapter(self.calc)
 
     def __call__(self, *args, txt=None, timer=None, **kwargs):
         # A specific output file can be supplied for each individual call
@@ -180,7 +182,7 @@ class PlaneWaveAdiabaticFXC(FXC):
             KxcPAW_GG = self.calculate_kernel_paw_correction(pd)
             Kxc_GG += KxcPAW_GG
 
-        print('', file=self.cfd)
+        print('Finished calculating fxc\n', flush=True, file=self.cfd)
 
         return Kxc_GG / pd.gd.volume
 
@@ -194,15 +196,13 @@ class PlaneWaveAdiabaticFXC(FXC):
             the PAW corrected all-electron spin density.
         """
         if self.rshe:
-            return self.calc.density.nt_sG  # smooth density
+            return self.gs.nt_sG  # smooth density
 
         print('    Calculating all-electron density', file=self.cfd)
         with self.timer('Calculating all-electron density'):
-            get_ae_density = self.calc.density.get_all_electron_density
-            n_sG, gd1 = get_ae_density(atoms=self.calc.atoms, gridrefinement=1)
+            n_sG, gd1 = self.gs.all_electron_density(gridrefinement=1)
             assert gd1 is gd
             assert gd1.comm.size == 1
-
             return n_sG
 
     @timer('Fourier transform of kernel from real-space grid')
@@ -251,7 +251,7 @@ class PlaneWaveAdiabaticFXC(FXC):
         dGl_mydG, dGn_mydGv = self._normalize_by_length(dG_mydGv)
 
         # Calculate PAW correction to each augmentation sphere (to each atom)
-        R_av = self.calc.atoms.positions / Bohr
+        R_av = self.gs.atoms.positions / Bohr
         for a, R_v in enumerate(R_av):
             # Calculate dfxc on Lebedev quadrature and radial grid
             # Please note: Using the radial grid descriptor with _add_fxc
@@ -340,13 +340,13 @@ class PlaneWaveAdiabaticFXC(FXC):
             smooth density
         (s=spin, L=(l,m) spherical harmonic index, g=radial grid index)
         """
-        setup = self.calc.wfs.setups[a]
+        setup = self.gs.setups[a]
         n_qg = setup.xc_correction.n_qg
         nt_qg = setup.xc_correction.nt_qg
         nc_g = setup.xc_correction.nc_g
         nct_g = setup.xc_correction.nct_g
 
-        D_sp = self.calc.density.D_asp[a]
+        D_sp = self.gs.D_asp[a]
         B_pqL = setup.xc_correction.B_pqL
         D_sLq = np.inner(D_sp, B_pqL.T)
         nspins = len(D_sp)
@@ -377,7 +377,7 @@ class PlaneWaveAdiabaticFXC(FXC):
         # Extract spin densities from ground state calculation
         n_sLg, nt_sLg = self._get_densities_in_augmentation_sphere(a)
 
-        setup = self.calc.wfs.setups[a]
+        setup = self.gs.setups[a]
         Y_nL = setup.xc_correction.Y_nL
         rgd = setup.xc_correction.rgd
         f_g = rgd.zeros()
@@ -600,12 +600,12 @@ class AdiabaticSusceptibilityFXC(PlaneWaveAdiabaticFXC):
         """Creator component to set up the right calculation."""
         if spincomponent in ['00', 'uu', 'dd']:
             assert self.spinpol_cut is None
-            assert len(self.calc.density.nt_sG) == 1  # nspins, see XXX below
+            assert len(self.gs.nt_sG) == 1  # nspins, see XXX below
 
             self._calculate_fxc = self.calculate_dens_fxc
             self._calculate_unpol_fxc = None
         elif spincomponent in ['+-', '-+']:
-            assert len(self.calc.density.nt_sG) == 2  # nspins
+            assert len(self.gs.nt_sG) == 2  # nspins
 
             self._calculate_fxc = self.calculate_trans_fxc
             self._calculate_unpol_fxc = self.calculate_trans_unpol_fxc

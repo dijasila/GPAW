@@ -5,7 +5,7 @@ from ase import Atoms
 from ase.units import Ha
 
 from gpaw import GPAW
-from gpaw.scf import WorkFunction, Energy, Criterion
+from gpaw.convergence_criteria import WorkFunction, Energy, Criterion
 
 
 class FourIterations(Criterion):

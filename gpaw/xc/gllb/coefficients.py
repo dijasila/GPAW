@@ -1,8 +1,8 @@
+from __future__ import annotations
+
 import numpy as np
-from scipy.special import erfcx
-
 from ase.units import Ha
-
+from scipy.special import erfcx
 
 K_G = 8 * np.sqrt(2) / (3 * np.pi**2)  # 0.382106112167171
 
@@ -28,11 +28,12 @@ class Coefficients:
     def __init__(self,
                  eps: float = 0.05,
                  width: float = None):
-        self.eps = eps / Ha
         if width is not None:
-            width = width / Ha
+            self.width = width / Ha
             self.eps = None  # Make sure that eps is not used with width
-        self.width = width
+        else:
+            self.width = None
+            self.eps = eps / Ha
 
     def initialize(self, wfs):
         self.wfs = wfs

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
@@ -378,7 +377,7 @@ class Density:
             raise ValueError('Not a mixer: %s' % mixer)
         self.mixer = MixerWrapper(mixer, self.ncomponents, self.gd)
 
-    def estimate_magnetic_moments(self):
+    def calculate_magnetic_moments(self):
         magmom_av = np.zeros_like(self.magmom_av)
         magmom_v = np.zeros(3)
         if self.nspins == 2:
@@ -401,6 +400,8 @@ class Density:
             magmom_v += self.gd.integrate(self.nt_vG)
 
         return magmom_v, magmom_av
+
+    estimate_magnetic_moments = calculate_magnetic_moments
 
     def get_correction(self, a, spin):
         """Integrated atomic density correction.
@@ -644,7 +645,7 @@ class Density:
                                                    self.redistributor,
                                                    kptband_comm)
         D_asp = \
-            redistribute_atomic_matrices(dens.D_asp, self.gd, self.nspins,
+            redistribute_atomic_matrices(dens.D_asp, self.gd, self.ncomponents,
                                          self.setups, self.atom_partition,
                                          kptband_comm)
         self.initialize_directly_from_arrays(new_nt_sG, None, D_asp)

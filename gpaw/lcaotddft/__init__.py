@@ -1,10 +1,12 @@
+import os
+
 import numpy as np
 from typing import Optional
-from gpaw.typing import ArrayLike
+from gpaw.typing import Any, Vector
 
 from ase.units import Bohr, Hartree
 
-from gpaw import GPAW
+from gpaw.calculator import GPAW
 from gpaw.external import ExternalPotential, ConstantElectricField
 from gpaw.lcaotddft.hamiltonian import TimeDependentHamiltonian
 from gpaw.lcaotddft.logger import TDDFTLogger
@@ -12,7 +14,23 @@ from gpaw.lcaotddft.propagators import create_propagator
 from gpaw.tddft.units import attosec_to_autime
 
 
-class LCAOTDDFT(GPAW):
+def LCAOTDDFT(filename: str, **kwargs) -> Any:
+    if os.environ.get('GPAW_NEW'):
+        from gpaw.new.rttddft import RTTDDFT
+        assert kwargs.get('propagator', None) in [None, 'ecn'], \
+            'Not implemented yet'
+        assert kwargs.get('rremisison', None) in [None], 'Not implemented yet'
+        assert kwargs.get('fxc', None) in [None], 'Not implemented yet'
+        assert kwargs.get('scale', None) in [None], 'Not implemented yet'
+        assert kwargs.get('parallel', None) in [None], 'Not implemented yet'
+        assert kwargs.get('communicator', None) in [None], \
+            'Not implemented yet'
+        new_tddft = RTTDDFT.from_dft_file(filename)
+        return new_tddft
+    return OldLCAOTDDFT(filename, **kwargs)
+
+
+class OldLCAOTDDFT(GPAW):
     """Real-time time-propagation TDDFT calculator with LCAO basis.
 
     Parameters
@@ -130,7 +148,7 @@ class LCAOTDDFT(GPAW):
         self.tddft_initialized = True
         self.timer.stop('Initialize TDDFT')
 
-    def absorption_kick(self, kick_strength: ArrayLike):
+    def absorption_kick(self, kick_strength: Vector):
         """Kick with a weak electric field.
 
         Parameters

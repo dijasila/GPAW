@@ -1,6 +1,6 @@
-from ase.units import Hartree, Bohr
+from ase.units import Bohr, Hartree
 
-from gpaw import GPAW
+from gpaw.calculator import GPAW
 from gpaw.io import Reader
 from gpaw.solvation.hamiltonian import SolvationRealSpaceHamiltonian
 
@@ -57,7 +57,7 @@ class SolvationGPAW(GPAW):
                         atomic_radii=atomic_radii,
                         u0=efpot.u0)
                 else:
-                    raise IOError('Reading the given effective potential'
+                    raise IOError('Reading the given effective potential '
                                   'is not implemented yet')
 
             if 'name' in impl_in.cavity.surface_calculator:

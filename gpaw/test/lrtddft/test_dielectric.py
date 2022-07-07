@@ -27,6 +27,7 @@ def lrtddft(H2):
     return exlst
 
 
+@pytest.mark.skip_for_new_gpaw
 def test_get(H2, lrtddft):
     energies, eps1, eps2, N, K, R = get_dielectric(lrtddft, H2.get_volume())
     for res in [eps1, eps2, N, K, R]:
@@ -34,6 +35,7 @@ def test_get(H2, lrtddft):
     assert (energies >= 0).all()
 
 
+@pytest.mark.skip_for_new_gpaw
 def test_write(H2, lrtddft, in_tmp_dir):
     fname = 'dielectric.dat'
     dielectric(lrtddft, H2.get_volume(), fname)

@@ -360,7 +360,7 @@ def plot_spectral_function(filename, color='blue', eref=None,
     plt.yticks(size=20)
     plt.ylabel('E(eV)', size=20)
     plt.axis([0, x[-1], emin, emax])
-    plt.savefig(filename + '.png')
+    plt.savefig(filename + '_spec.png')
     plt.show()
 
 

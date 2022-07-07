@@ -8,8 +8,9 @@ from scipy.linalg.blas import zher
 
 import _gpaw
 import gpaw.mpi as mpi
-from gpaw.utilities.blas import gemm, rk, mmm
+from gpaw.utilities.blas import rk, mmm
 from gpaw.utilities.progressbar import ProgressBar
+from gpaw.response.pw_parallelization import Blocks1D, block_partition
 
 
 def czher(alpha: float, x, A) -> None:
@@ -24,7 +25,7 @@ def czher(alpha: float, x, A) -> None:
 
 
 class Integrator:
-    def __init__(self, cell_cv, response='density', comm=mpi.world,
+    def __init__(self, cell_cv, comm=mpi.world,
                  txt='-', timer=None, nblocks=1, eshift=0.0):
         """Baseclass for Brillouin zone integration and band summation.
 
@@ -35,21 +36,12 @@ class Integrator:
         nblocks: block parallelization
         """
 
-        self.response = response
         self.comm = comm
         self.eshift = eshift
         self.nblocks = nblocks
         self.vol = abs(np.linalg.det(cell_cv))
-        if nblocks == 1:
-            self.blockcomm = self.comm.new_communicator([comm.rank])
-            self.kncomm = comm
-        else:
-            assert comm.size % nblocks == 0, comm.size
-            rank1 = comm.rank // nblocks * nblocks
-            rank2 = rank1 + nblocks
-            self.blockcomm = self.comm.new_communicator(range(rank1, rank2))
-            ranks = range(comm.rank % nblocks, comm.size, nblocks)
-            self.kncomm = self.comm.new_communicator(ranks)
+
+        self.blockcomm, self.kncomm = block_partition(comm, nblocks)
 
         self.fd = convert_string_to_fd(txt, comm)
 
@@ -63,8 +55,9 @@ class Integrator:
         rank = self.kncomm.rank
 
         n = (nterms + size - 1) // size
-        i1 = rank * n
+        i1 = min(rank * n, nterms)
         i2 = min(i1 + n, nterms)
+        assert i1 <= i2
         mydomain = []
         for i in range(i1, i2):
             unravelled_d = np.unravel_index(i, domainsize)
@@ -83,6 +76,9 @@ class Integrator:
 
     def integrate(self, *args, **kwargs):
         raise NotImplementedError
+
+    def _blocks1d(self, nG):
+        return Blocks1D(self.blockcomm, nG)
 
 
 class PointIntegrator(Integrator):
@@ -142,13 +138,6 @@ class PointIntegrator(Integrator):
         """
         if out_wxx is None:
             raise NotImplementedError
-
-        nG = out_wxx.shape[2]
-        mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
-        self.Ga = min(self.blockcomm.rank * mynG, nG)
-        self.Gb = min(self.Ga + mynG, nG)
-        # assert mynG * (self.blockcomm.size - 1) < nG, \
-        #     print('mynG', mynG, 'nG', nG, 'nblocks', self.blockcomm.size)
 
         mydomain_t = self.distribute_domain(domain)
         nbz = len(domain[0])
@@ -213,7 +202,6 @@ class PointIntegrator(Integrator):
     def update(self, n_mG, deps_m, wd, chi0_wGG, timeordered=False, eta=None):
         """Update chi."""
 
-        omega_w = wd.get_data()
         deps_m += self.eshift * np.sign(deps_m)
         if timeordered:
             deps1_m = deps_m + 1j * eta * np.sign(deps_m)
@@ -222,68 +210,131 @@ class PointIntegrator(Integrator):
             deps1_m = deps_m + 1j * eta
             deps2_m = deps_m - 1j * eta
 
-        for omega, chi0_GG in zip(omega_w, chi0_wGG):
-            if self.response == 'density':
-                x_m = (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
-            else:
-                x_m = - np.sign(deps_m) * 1. / (omega + deps1_m)
+        blocks1d = self._blocks1d(chi0_wGG.shape[2])
+
+        for omega, chi0_GG in zip(wd.omega_w, chi0_wGG):
+            x_m = (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
             if self.blockcomm.size > 1:
-                nx_mG = n_mG[:, self.Ga:self.Gb] * x_m[:, np.newaxis]
+                nx_mG = n_mG[:, blocks1d.myslice] * x_m[:, np.newaxis]
             else:
                 nx_mG = n_mG * x_m[:, np.newaxis]
 
-            gemm(1.0, n_mG.conj(), np.ascontiguousarray(nx_mG.T),
-                 1.0, chi0_GG)
+            mmm(1.0, np.ascontiguousarray(nx_mG.T), 'N', n_mG.conj(), 'N',
+                1.0, chi0_GG)
 
     @timer('CHI_0 hermetian update')
     def update_hermitian(self, n_mG, deps_m, wd, chi0_wGG):
         """If eta=0 use hermitian update."""
-        omega_w = wd.get_data()
         deps_m += self.eshift * np.sign(deps_m)
 
-        for w, omega in enumerate(omega_w):
+        blocks1d = self._blocks1d(chi0_wGG.shape[2])
+
+        for w, omega in enumerate(wd.omega_w):
             if self.blockcomm.size == 1:
                 x_m = (-2 * deps_m / (omega.imag**2 + deps_m**2) + 0j)**0.5
                 nx_mG = n_mG.conj() * x_m[:, np.newaxis]
                 rk(-1.0, nx_mG, 1.0, chi0_wGG[w], 'n')
             else:
                 x_m = 2 * deps_m / (omega.imag**2 + deps_m**2)
-                mynx_mG = n_mG[:, self.Ga:self.Gb] * x_m[:, np.newaxis]
+                mynx_mG = n_mG[:, blocks1d.myslice] * x_m[:, np.newaxis]
                 mmm(1.0, mynx_mG, 'C', n_mG, 'N', 1.0, chi0_wGG[w])
 
-    @timer('CHI_0 spectral function update')
+    @timer('CHI_0 spectral function update (old)')
+    def update_hilbert_old(self, n_mG, deps_m, wd, chi0_wGG):
+        """Update spectral function.
+
+        Updates spectral function A_wGG and saves it to chi0_wGG for
+        later hilbert-transform."""
+
+        deps_m += self.eshift * np.sign(deps_m)
+        o_m = abs(deps_m)
+        w_m = wd.get_floor_index(o_m)
+
+        o1_m = wd.omega_w[w_m]
+        o2_m = wd.omega_w[w_m + 1]
+        p_m = np.abs(1 / (o2_m - o1_m)**2)
+        p1_m = p_m * (o2_m - o_m)
+        p2_m = p_m * (o_m - o1_m)
+
+        blocks1d = self._blocks1d(chi0_wGG.shape[2])
+
+        if self.blockcomm.size > 1:
+            for p1, p2, n_G, w in zip(p1_m, p2_m, n_mG, w_m):
+                if w + 1 < wd.wmax:  # The last frequency is not reliable
+                    myn_G = n_G[blocks1d.myslice].reshape((-1, 1))
+                    mmm(p1, myn_G, 'N', n_G.reshape((-1, 1)), 'C',
+                        1.0, chi0_wGG[w])
+                    mmm(p2, myn_G, 'N', n_G.reshape((-1, 1)), 'C',
+                        1.0, chi0_wGG[w + 1])
+        else:
+            for p1, p2, n_G, w in zip(p1_m, p2_m, n_mG, w_m):
+                if w + 1 < wd.wmax:  # The last frequency is not reliable
+                    czher(p1, n_G.conj(), chi0_wGG[w])
+                    czher(p2, n_G.conj(), chi0_wGG[w + 1])
+
+    @timer('CHI_0 spectral function update (new)')
     def update_hilbert(self, n_mG, deps_m, wd, chi0_wGG):
         """Update spectral function.
 
         Updates spectral function A_wGG and saves it to chi0_wGG for
         later hilbert-transform."""
 
-        self.timer.start('prep')
-        omega_w = wd.get_data()
         deps_m += self.eshift * np.sign(deps_m)
         o_m = abs(deps_m)
-        w_m = wd.get_closest_index(o_m)
-        o1_m = omega_w[w_m]
-        o2_m = omega_w[w_m + 1]
-        p_m = np.abs(1 / (o2_m - o1_m)**2)
-        p1_m = p_m * (o2_m - o_m)
-        p2_m = p_m * (o_m - o1_m)
-        self.timer.stop('prep')
+        w_m = wd.get_floor_index(o_m)
 
-        if self.blockcomm.size > 1:
-            for p1, p2, n_G, w in zip(p1_m, p2_m, n_mG, w_m):
-                if w + 1 < wd.wmax:  # The last frequency is not reliable
-                    myn_G = n_G[self.Ga:self.Gb].reshape((-1, 1))
-                    gemm(p1, n_G.reshape((-1, 1)), myn_G,
-                         1.0, chi0_wGG[w], 'c')
-                    gemm(p2, n_G.reshape((-1, 1)), myn_G,
-                         1.0, chi0_wGG[w + 1], 'c')
-            return
+        blocks1d = self._blocks1d(chi0_wGG.shape[2])
 
-        for p1, p2, n_G, w in zip(p1_m, p2_m, n_mG, w_m):
-            if w + 1 < wd.wmax:  # The last frequency is not reliable
-                czher(p1, n_G.conj(), chi0_wGG[w])
-                czher(p2, n_G.conj(), chi0_wGG[w + 1])
+        # Sort frequencies
+        argsw_m = np.argsort(w_m)
+        sortedo_m = o_m[argsw_m]
+        sortedw_m = w_m[argsw_m]
+        sortedn_mG = n_mG[argsw_m]
+
+        index = 0
+        while 1:
+            if index == len(sortedw_m):
+                break
+
+            w = sortedw_m[index]
+            startindex = index
+            while 1:
+                index += 1
+                if index == len(sortedw_m):
+                    break
+                if w != sortedw_m[index]:
+                    break
+
+            endindex = index
+
+            # Here, we have same frequency range w, for set of
+            # electron-hole excitations from startindex to endindex.
+            o1 = wd.omega_w[w]
+            o2 = wd.omega_w[w + 1]
+            p = np.abs(1 / (o2 - o1)**2)
+            p1_m = np.array(p * (o2 - sortedo_m[startindex:endindex]))
+            p2_m = np.array(p * (sortedo_m[startindex:endindex] - o1))
+
+            if self.blockcomm.size > 1 and w + 1 < wd.wmax:
+                x_mG = sortedn_mG[startindex:endindex, blocks1d.myslice]
+                mmm(1.0,
+                    np.concatenate((p1_m[:, None] * x_mG,
+                                    p2_m[:, None] * x_mG),
+                                   axis=1).T.copy(),
+                    'N',
+                    sortedn_mG[startindex:endindex].T.copy(),
+                    'C',
+                    1.0,
+                    chi0_wGG[w:w + 2].reshape((2 * blocks1d.nlocal,
+                                               blocks1d.N)))
+
+            if self.blockcomm.size <= 1 and w + 1 < wd.wmax:
+                x_mG = sortedn_mG[startindex:endindex]
+                l_Gm = (p1_m[:, None] * x_mG).T.copy()
+                r_Gm = x_mG.T.copy()
+                mmm(1.0, r_Gm, 'N', l_Gm, 'C', 1.0, chi0_wGG[w])
+                l_Gm = (p2_m[:, None] * x_mG).T.copy()
+                mmm(1.0, r_Gm, 'N', l_Gm, 'C', 1.0, chi0_wGG[w + 1])
 
     @timer('CHI_0 intraband update')
     def update_intraband(self, vel_mv, chi0_wvv):
@@ -298,7 +349,6 @@ class PointIntegrator(Integrator):
                              timeordered=False, eta=None):
         """Optical limit update of chi."""
 
-        omega_w = wd.get_data()
         if timeordered:
             # avoid getting a zero from np.sign():
             deps1_m = deps_m + 1j * eta * np.sign(deps_m + 1e-20)
@@ -307,7 +357,7 @@ class PointIntegrator(Integrator):
             deps1_m = deps_m + 1j * eta
             deps2_m = deps_m - 1j * eta
 
-        for w, omega in enumerate(omega_w):
+        for w, omega in enumerate(wd.omega_w):
             x_m = (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
             chi0_wxvG[w, 0] += np.dot(x_m * n_mG[:, :3].T, n_mG.conj())
             chi0_wxvG[w, 1] += np.dot(x_m * n_mG[:, :3].T.conj(), n_mG)
@@ -316,13 +366,12 @@ class PointIntegrator(Integrator):
     def update_hilbert_optical_limit(self, n_mG, deps_m, wd, chi0_wxvG):
         """Optical limit update of chi-head and -wings."""
 
-        omega_w = wd.get_data()
         for deps, n_G in zip(deps_m, n_mG):
             o = abs(deps)
-            w = wd.get_closest_index(o)
-            if w + 2 > len(omega_w):
+            w = wd.get_floor_index(o)
+            if w + 2 > len(wd):
                 break
-            o1, o2 = omega_w[w:w + 2]
+            o1, o2 = wd.omega_w[w:w + 2]
             if o > o2:
                 continue
             else:
@@ -375,7 +424,8 @@ class TetrahedronIntegrator(Integrator):
         if kind == 'spectral function':
             return self.spectral_function_integration(*args, **kwargs)
         else:
-            raise NotImplementedError
+            raise ValueError("Expected kind='spectral function', got: ",
+                             kind)
 
     @timer('Spectral function integration')
     def spectral_function_integration(self, domain=None, integrand=None,
@@ -390,12 +440,7 @@ class TetrahedronIntegrator(Integrator):
         if out_wxx is None:
             raise NotImplementedError
 
-        nG = out_wxx.shape[2]
-        mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
-        self.Ga = min(self.blockcomm.rank * mynG, nG)
-        self.Gb = min(self.Ga + mynG, nG)
-        # assert mynG * (self.blockcomm.size - 1) < nG, \
-        #     print('mynG', mynG, 'nG', nG, 'nblocks', self.blockcomm.size)
+        blocks1d = self._blocks1d(out_wxx.shape[2])
 
         # Input domain
         td = self.tesselate(domain[0])
@@ -466,8 +511,6 @@ class TetrahedronIntegrator(Integrator):
                                             [nk], float)
                     deps_tMk[t, :, K] = deps_M
 
-        omega_w = x.get_data()
-
         # Calculate integrations weight
         pb = ProgressBar(self.fd)
         for _, arguments in pb.enumerate(myterms_t):
@@ -488,14 +531,16 @@ class TetrahedronIntegrator(Integrator):
                     continue
 
                 W_w = self.get_kpoint_weight(K, deps_k,
-                                             pts_k, omega_w[i0:i1],
+                                             pts_k, x.omega_w[i0:i1],
                                              td)
 
                 for iw, weight in enumerate(W_w):
                     if self.blockcomm.size > 1:
-                        myn_G = n_G[self.Ga:self.Gb].reshape((-1, 1))
-                        gemm(weight, n_G.reshape((-1, 1)), myn_G,
-                             1.0, out_wxx[i0 + iw], 'c')
+                        myn_G = n_G[blocks1d.myslice].reshape((-1, 1))
+                        # gemm(weight, n_G.reshape((-1, 1)), myn_G,
+                        #      1.0, out_wxx[i0 + iw], 'c')
+                        mmm(weight, myn_G, 'N', n_G.reshape((-1, 1)), 'C',
+                            1.0, out_wxx[i0 + iw])
                     else:
                         czher(weight, n_G.conj(), out_wxx[i0 + iw])
 

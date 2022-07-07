@@ -1,15 +1,9 @@
-import pytest
-from gpaw.utilities import compiled_with_sl
 from ase import Atoms
 from gpaw import GPAW, PW
 from gpaw.mpi import world, serial_comm
 
-pytestmark = pytest.mark.skipif(
-    world.size != 1 and not compiled_with_sl(),
-    reason='world.size != 1 and not compiled_with_sl()')
 
-
-def test_pw_fulldiag(in_tmp_dir):
+def test_pw_fulldiag(in_tmp_dir, scalapack):
     a = Atoms('H2',
               [(0, 0, 0), (0, 0, 0.74)],
               cell=(3, 3, 3),
