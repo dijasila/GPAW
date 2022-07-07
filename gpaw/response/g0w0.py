@@ -262,11 +262,11 @@ class G0W0Calculator:
                  Eg=None,
                  truncation=None, integrate_gamma=0,
                  ecut=150.0, eta=0.1, E0=1.0 * Ha,
+                 ecut_e,
                  frequencies=None,
                  q0_correction=False,
                  savepckl=True,
-                 context,
-                 ecut_extrapolation=False):
+                 context):
 
         """G0W0 calculator.
 
@@ -357,7 +357,6 @@ class G0W0Calculator:
             raise ValueError(
                 'PPA is currently not compatible with block parallelisation.')
 
-        ecut, ecut_e = choose_ecut_things(ecut, ecut_extrapolation)
         self.ecut_e = ecut_e / Ha
 
         self.gs = gs
@@ -439,7 +438,7 @@ class G0W0Calculator:
         else:
             self.q0_corrector = None
 
-        self.print_parameters(kpts, b1, b2, ecut_extrapolation)
+        self.print_parameters(kpts, b1, b2)
         self.fd.flush()
         self.hilbert_transform = None  # initialized when we create Chi0
 
@@ -498,7 +497,7 @@ class G0W0Calculator:
 
         return bands
 
-    def print_parameters(self, kpts, b1, b2, ecut_extrapolation):
+    def print_parameters(self, kpts, b1, b2):
         p = functools.partial(print, file=self.fd)
         p()
         p('Quasi particle states:')
@@ -510,11 +509,12 @@ class G0W0Calculator:
         p('Band range: ({0:d}, {1:d})'.format(b1, b2))
         p()
         p('Computational parameters:')
-        if not ecut_extrapolation:
+        if len(self.ecut_e) == 1:
             p('Plane wave cut-off: {0:g} eV'.format(self.ecut * Ha))
         else:
+            assert len(self.ecut_e) > 1
             p('Extrapolating to infinite plane wave cut-off using points at:')
-            p('  [%.3f, %.3f, %.3f] eV' % tuple(self.ecut_e[:] * Ha))
+            p('  [%.3f, %.3f, %.3f] eV' % tuple(self.ecut_e * Ha))
         p('Number of bands: {0:d}'.format(self.nbands))
         p('Coulomb cutoff:', self.truncation)
         p('Broadening: {0:g} eV'.format(self.eta * Ha))
@@ -1335,9 +1335,10 @@ class G0W0(G0W0Calculator):
                 raise RuntimeError(
                     'nbands cannot be supplied with ecut-extrapolation.')
 
+        ecut, ecut_e = choose_ecut_things(ecut, ecut_extrapolation)
         super().__init__(gs=gs, pair=pair, filename=filename,
                          ecut=ecut,
-                         ecut_extrapolation=ecut_extrapolation,
+                         ecut_e=ecut_e,
                          nbands=nbands,
                          frequencies=frequencies,
                          context=context,
