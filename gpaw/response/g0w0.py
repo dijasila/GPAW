@@ -254,7 +254,7 @@ def choose_ecut_things(ecut, ecut_extrapolation):
 
 
 class G0W0Calculator:
-    def __init__(self, gs, filename='gw', *,
+    def __init__(self, filename='gw', *,
                  chi0calc,
                  restartfile=None,
                  kpts, bands, nbands=None, ppa,
@@ -354,12 +354,11 @@ class G0W0Calculator:
         self.frequencies = frequencies
 
         self.ecut_e = ecut_e / Ha
-        self.ecut = chi0calc.ecut
 
-        self.gs = gs
         self.context = context
         self.pair = chi0calc.pair
         self.wd = chi0calc.wd
+        self.gs = chi0calc.gs
 
         if ppa and self.pair.nblocks > 1:
             raise ValueError(
@@ -415,7 +414,7 @@ class G0W0Calculator:
         if q0_correction:
             assert self.truncation == '2D'
             self.q0_corrector = Q0Correction(
-                cell_cv=self.gd.cell_cv, bzk_kc=self.kd.bzk_kc,
+                cell_cv=self.gs.gd.cell_cv, bzk_kc=self.kd.bzk_kc,
                 N_c=self.qd.N_c)
         else:
             self.q0_corrector = None
@@ -434,14 +433,6 @@ class G0W0Calculator:
 
         self.chi0calc = chi0calc
 
-    @property
-    def kd(self):
-        return self.gs.kd
-
-    @property
-    def gd(self):
-        return self.gs.gd
-
     def print_parameters(self, kpts, b1, b2):
         p = functools.partial(print, file=self.fd)
         p()
@@ -455,7 +446,7 @@ class G0W0Calculator:
         p()
         p('Computational parameters:')
         if len(self.ecut_e) == 1:
-            p('Plane wave cut-off: {0:g} eV'.format(self.ecut * Ha))
+            p('Plane wave cut-off: {0:g} eV'.format(self.chi0calc.ecut * Ha))
         else:
             assert len(self.ecut_e) > 1
             p('Extrapolating to infinite plane wave cut-off using points at:')
@@ -544,7 +535,7 @@ class G0W0Calculator:
                     q_c, 0, m2):
                 pb.update((nQ + progress) / self.qd.mynk)
 
-                k1 = self.kd.bz2ibz_k[kpt1.K]
+                k1 = self.gs.kd.bz2ibz_k[kpt1.K]
                 i = self.kpts.index(k1)
 
                 self.calculate_q(ie, i, kpt1, kpt2, pd0, Wdict,
@@ -607,7 +598,7 @@ class G0W0Calculator:
         N_c = pd0.gd.N_c
         i_cG = symop.apply(np.unravel_index(pd0.Q_qG[0], N_c))
 
-        q_c = self.kd.bzk_kc[kpt2.K] - self.kd.bzk_kc[kpt1.K]
+        q_c = self.gs.kd.bzk_kc[kpt2.K] - self.gs.kd.bzk_kc[kpt1.K]
 
         shift0_c = symop.get_shift0(q_c, pd0.kd.bzk_kc[0])
         shift_c = kpt1.shift_c - kpt2.shift_c - shift0_c
@@ -665,7 +656,7 @@ class G0W0Calculator:
     def check(self, ie, i_cG, shift0_c, N_c, q_c, Q_aGii):
         I0_G = np.ravel_multi_index(i_cG - shift0_c[:, None], N_c, 'wrap')
         qd1 = KPointDescriptor([q_c])
-        pd1 = PWDescriptor(self.ecut_e[ie], self.gd, complex, qd1)
+        pd1 = PWDescriptor(self.ecut_e[ie], self.gs.gd, complex, qd1)
         G_I = np.empty(N_c.prod(), int)
         G_I[:] = -1
         I1_G = pd1.Q_qG[0]
@@ -736,19 +727,18 @@ class G0W0Calculator:
 
         if self.truncation == 'wigner-seitz':
             wstc = WignerSeitzTruncatedCoulomb(
-                self.gd.cell_cv,
-                self.kd.N_c,
+                self.gs.gd.cell_cv,
+                self.gs.kd.N_c,
                 chi0calc.fd)
         else:
             wstc = None
 
-        # self.wd = chi0calc.wd
         self.hilbert_transform = GWHilbertTransforms(
             self.wd.omega_w, self.eta)
         print(self.wd, file=self.fd)
 
         # Find maximum size of chi-0 matrices:
-        nGmax = max(count_reciprocal_vectors(self.ecut, self.gd, q_c)
+        nGmax = max(count_reciprocal_vectors(chi0calc.ecut, self.gs.gd, q_c)
                     for q_c in self.qd.ibzk_kc)
         nw = len(self.wd)
 
@@ -782,7 +772,7 @@ class G0W0Calculator:
                 self.timer.start('W')
 
                 # First time calculation
-                if ecut == self.ecut:
+                if ecut == chi0calc.ecut:
                     # Nothing to cut away:
                     m2 = self.nbands
                 else:
@@ -876,7 +866,7 @@ class G0W0Calculator:
         dielectric_WgG = chi0.chi0_wGG  # XXX
         for iw, chi0_GG in enumerate(chi0.chi0_wGG):
             sqrtV_G = get_coulomb_kernel(chi0.pd,  # XXX was: pdi
-                                         self.kd.N_c,
+                                         self.gs.kd.N_c,
                                          truncation=self.truncation,
                                          wstc=wstc)**0.5
             e_GG = np.eye(nG) - chi0_GG * sqrtV_G * sqrtV_G[:, np.newaxis]
@@ -945,7 +935,7 @@ class G0W0Calculator:
         if self.integrate_gamma != 0:
             reduced = (self.integrate_gamma == 2)
             V0, sqrtV0 = get_integrated_kernel(pdi,
-                                               self.kd.N_c,
+                                               self.gs.kd.N_c,
                                                truncation=self.truncation,
                                                reduced=reduced,
                                                N=100)
@@ -966,7 +956,7 @@ class G0W0Calculator:
             fv = self.xckernel.calculate(nG, iq, G2G)
 
         # Generate fine grid in vicinity of gamma
-        kd = self.kd
+        kd = self.gs.kd
         if np.allclose(q_c, 0) and len(chi0_wGG) > 0:
             gamma_int = GammaIntegrator(truncation=self.truncation,
                                         kd=kd, pd=pd,
@@ -1114,7 +1104,7 @@ class G0W0Calculator:
 
         b1, b2 = self.bands
         names = [line.split(':', 1)[0] for line in description]
-        ibzk_kc = self.kd.ibzk_kc
+        ibzk_kc = self.gs.kd.ibzk_kc
         for s in range(self.gs.nspins):
             for i, ik in enumerate(self.kpts):
                 print('\nk-point ' +
@@ -1345,7 +1335,7 @@ class G0W0(G0W0Calculator):
                               timer=context.timer,
                               fd=context.fd)
 
-        super().__init__(gs=gs, filename=filename,
+        super().__init__(filename=filename,
                          chi0calc=chi0calc,
                          ecut_e=ecut_e,
                          xckernel=xckernel,
