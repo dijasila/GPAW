@@ -354,7 +354,6 @@ class G0W0:
             Save output to a pckl file.
         """
         self.frequencies = get_frequencies(frequencies, domega0, omega2)
-        self.inputcalc = calc
 
         if ppa and (nblocks > 1 or nblocksmax):
             raise ValueError(
