@@ -257,7 +257,7 @@ class G0W0Calculator:
     def __init__(self, gs, filename='gw', *,
                  pair,
                  restartfile=None,
-                 kpts, bands=None, relbands=None, nbands=None, ppa=False,
+                 kpts, bands, nbands=None, ppa=False,
                  xc='RPA', fxc_mode='GW', do_GW_too=False,
                  Eg=None,
                  truncation=None, integrate_gamma=0,
@@ -358,16 +358,14 @@ class G0W0Calculator:
                 'PPA is currently not compatible with block parallelisation.')
 
         self.ecut_e = ecut_e / Ha
+        self.ecut = ecut / Ha
 
         self.gs = gs
-
         self.context = context
-
         self.pair = pair
 
         self.timer = self.context.timer
         self.fd = self.context.fd
-        self.ecut = ecut / Ha
         self.blockcomm = self.pair.blockcomm
         self.world = self.context.world
         self.vol = self.pair.vol
@@ -408,9 +406,9 @@ class G0W0Calculator:
         self.E0 = E0 / Ha
 
         self.kpts = kpts
-        self.bands = bands = self.choose_bands(bands, relbands)
+        self.bands = bands
 
-        b1, b2 = bands
+        b1, b2 = self.bands
         self.shape = (self.gs.nspins, len(self.kpts), b2 - b1)
 
         self.nbands = nbands
@@ -479,18 +477,6 @@ class G0W0Calculator:
     @property
     def gd(self):
         return self.gs.gd
-
-    def choose_bands(self, bands, relbands):
-        if bands is not None and relbands is not None:
-            raise ValueError('Use bands or relbands!')
-
-        if relbands is not None:
-            bands = [self.gs.nvalence // 2 + b for b in relbands]
-
-        if bands is None:
-            raise RuntimeError('Please choose bands in some other way')
-
-        return bands
 
     def print_parameters(self, kpts, b1, b2):
         p = functools.partial(print, file=self.fd)
@@ -1291,11 +1277,26 @@ class G0W0Calculator:
             fd=self.fd if print_ac else None)
 
 
+def choose_bands(bands, relbands, nvalence):
+    if bands is not None and relbands is not None:
+        raise ValueError('Use bands or relbands!')
+
+    if relbands is not None:
+        bands = [nvalence // 2 + b for b in relbands]
+
+    if bands is None:
+        raise RuntimeError('Please choose bands in some other way')
+
+    return bands
+
+
 class G0W0(G0W0Calculator):
     def __init__(self, calc, filename='gw',
                  ecut=150.0,
                  ecut_extrapolation=False,
                  nbands=None,
+                 bands=None,
+                 relbands=None,
                  frequencies=None,
                  domega0=None,  # deprecated
                  omega2=None,  # deprecated
@@ -1331,10 +1332,14 @@ class G0W0(G0W0Calculator):
                     'nbands cannot be supplied with ecut-extrapolation.')
 
         ecut, ecut_e = choose_ecut_things(ecut, ecut_extrapolation)
+
+        bands = choose_bands(bands, relbands, gs.nvalence)
+
         super().__init__(gs=gs, pair=pair, filename=filename,
                          ecut=ecut,
                          ecut_e=ecut_e,
                          nbands=nbands,
+                         bands=bands,
                          frequencies=frequencies,
                          context=context,
                          kpts=kpts,
