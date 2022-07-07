@@ -255,13 +255,13 @@ def choose_ecut_things(ecut, ecut_extrapolation):
 
 class G0W0Calculator:
     def __init__(self, gs, filename='gw', *,
-                 pair,
+                 chi0calc,
                  restartfile=None,
-                 kpts, bands, nbands=None, ppa=False,
+                 kpts, bands, nbands=None, ppa,
                  xc='RPA', fxc_mode='GW', do_GW_too=False,
                  Eg=None,
                  truncation=None, integrate_gamma=0,
-                 ecut=150.0, eta=0.1, E0=1.0 * Ha,
+                 ecut=150.0, eta, E0,
                  ecut_e,
                  frequencies=None,
                  q0_correction=False,
@@ -353,16 +353,17 @@ class G0W0Calculator:
         """
         self.frequencies = frequencies
 
-        if ppa and pair.nblocks > 1:
-            raise ValueError(
-                'PPA is currently not compatible with block parallelisation.')
-
         self.ecut_e = ecut_e / Ha
         self.ecut = ecut / Ha
 
         self.gs = gs
         self.context = context
-        self.pair = pair
+        self.pair = chi0calc.pair
+        self.wd = chi0calc.wd
+
+        if ppa and self.pair.nblocks > 1:
+            raise ValueError(
+                'PPA is currently not compatible with block parallelisation.')
 
         self.timer = self.context.timer
         self.fd = self.context.fd
@@ -440,35 +441,11 @@ class G0W0Calculator:
                   file=self.fd)
             print('  Fitting energy: i*E0, E0 = %.3f Hartee' % self.E0,
                   file=self.fd)
-
-            # use small imaginary frequency to avoid dividing by zero:
-            frequencies = [1e-10j, 1j * self.E0 * Ha]
-
-            parameters = {'eta': 0,
-                          'hilbert': False,
-                          'timeordered': False}
         else:
-            print('Using full frequency integration:', file=self.fd)
+            print('Using full frequency integration', file=self.fd)
 
-            frequencies = self.frequencies
-            parameters = {'eta': self.eta * Ha,
-                          'hilbert': True,
-                          'timeordered': True}
+        self.chi0calc = chi0calc
 
-        self.fd.flush()
-
-        from gpaw.response.chi0 import new_frequency_descriptor
-        chi_context = self.context.with_txt(self.filename + '.w.txt')
-        self.wd = new_frequency_descriptor(
-            self.gs, self.nbands, frequencies, fd=chi_context.fd)
-
-        self.chi0calc = Chi0Calculator(
-            wd=self.wd, pair=self.pair,
-            nbands=self.nbands,
-            ecut=self.ecut * Ha,
-            intraband=False,
-            context=chi_context,
-            **parameters)
 
     @property
     def kd(self):
@@ -1294,6 +1271,9 @@ class G0W0(G0W0Calculator):
     def __init__(self, calc, filename='gw',
                  ecut=150.0,
                  ecut_extrapolation=False,
+                 ppa=False,
+                 E0=Ha,
+                 eta=0.1,
                  nbands=None,
                  bands=None,
                  relbands=None,
@@ -1335,9 +1315,40 @@ class G0W0(G0W0Calculator):
 
         bands = choose_bands(bands, relbands, gs.nvalence)
 
-        super().__init__(gs=gs, pair=pair, filename=filename,
+        if ppa:
+            # use small imaginary frequency to avoid dividing by zero:
+            frequencies = [1e-10j, 1j * E0]
+
+            parameters = {'eta': 0,
+                          'hilbert': False,
+                          'timeordered': False}
+        else:
+            # frequencies = self.frequencies
+            parameters = {'eta': eta,
+                          'hilbert': True,
+                          'timeordered': True}
+
+        from gpaw.response.chi0 import new_frequency_descriptor
+        chi_context = context.with_txt(filename + '.w.txt')
+        wd = new_frequency_descriptor(
+            gs, nbands, frequencies, fd=chi_context.fd)
+
+        chi0calc = Chi0Calculator(
+            wd=wd, pair=pair,
+            nbands=nbands,
+            ecut=ecut,
+            intraband=False,
+            context=chi_context,
+            **parameters)
+
+
+        super().__init__(gs=gs, filename=filename,
+                         chi0calc=chi0calc,
                          ecut=ecut,
                          ecut_e=ecut_e,
+                         eta=eta,
+                         ppa=ppa,
+                         E0=E0,
                          nbands=nbands,
                          bands=bands,
                          frequencies=frequencies,
