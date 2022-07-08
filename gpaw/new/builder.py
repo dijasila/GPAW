@@ -85,7 +85,7 @@ class DFTComponentsBuilder:
 
         symmetries = create_symmetries_object(atoms,
                                               self.setups.id_a,
-                                              self.initial_magmoms,
+                                              self.initial_magmom_av,
                                               params.symmetry)
         assert not (self.ncomponents == 4 and len(symmetries) > 1)
         bz = create_kpts(params.kpts, atoms)
@@ -106,7 +106,7 @@ class DFTComponentsBuilder:
         self.nbands = calculate_number_of_bands(params.nbands,
                                                 self.setups,
                                                 params.charge,
-                                                self.initial_magmoms_av,
+                                                self.initial_magmom_av,
                                                 self.mode == 'lcao')
         if self.ncomponents == 4:
             self.nbands *= 2
@@ -176,7 +176,8 @@ class DFTComponentsBuilder:
                                           self.atomdist,
                                           self.setups,
                                           basis_set,
-                                          self.initial_magmoms_av,
+                                          self.initial_magmom_av,
+                                          self.ncomponents,
                                           self.params.charge,
                                           self.params.hund)
 
@@ -187,7 +188,8 @@ class DFTComponentsBuilder:
             self.ibz,
             self.nbands,
             self.communicators,
-            self.initial_magmoms_av,
+            self.initial_magmom_av.sum(0),
+            self.ncomponents,
             np.linalg.inv(self.atoms.cell.complete()).T)
 
     def create_scf_loop(self):
@@ -275,7 +277,7 @@ def create_fourier_filter(grid):
 
 def normalize_initial_magmoms(
         atoms: Atoms,
-        magmoms: ArrayLike2D | ArrayLike1D | float = None,
+        magmoms: ArrayLike2D | ArrayLike1D | float | None = None,
         force_spinpol_calculation: bool = False) -> tuple[Array2D, int]:
     """Convert magnetic moments to (natoms, 3)-shaped array.
 
@@ -287,26 +289,27 @@ def normalize_initial_magmoms(
     >>> normalize_initial_magmoms(h, [[1, 0, 0]])
     ([[1.0, 0, 0]], 4)
     """
+    magmom_av = np.zeros((len(atoms), 3))
+    ncomponents = 2
+
     if magmoms is None:
-        magmoms = atoms.get_initial_magnetic_moments()
+        magmom_av[:, 2] = atoms.get_initial_magnetic_moments()
     elif isinstance(magmoms, float):
-        magmoms = np.zeros(len(atoms)) + magmoms
-    else:
-        magmoms = np.array(magmoms, dtype=float)
-
-    collinear = magmoms.ndim == 1
-    if collinear and not magmoms.any():
-        return np.zeros((len(atoms), 3)), 1
-
-    if force_spinpol_calculation and magmoms is None:
-        return np.zeros((len(atoms), 3)), 2
-
-    if collinear:
-        magmom_av = np.zeros((len(atoms), 3))
         magmom_av[:, 2] = magmoms
-        return magmom_av, 2
+    else:
+        magmoms = np.asarray(magmoms)
+        if magmoms.ndim == 1:
+            magmom_av[:, 2] = magmoms
+        else:
+            magmom_av[:] = magmoms
+            ncomponents = 4
 
-    return magmoms, 4
+    if (ncomponents == 2 and
+        not force_spinpol_calculation and
+        not magmom_av[:, 2].any()):
+        ncomponents = 1
+
+    return magmom_av, ncomponents
 
 
 def create_kpts(kpts: dict[str, Any], atoms: Atoms) -> BZPoints:
@@ -328,31 +331,32 @@ def calculate_number_of_bands(nbands: int | str | None,
 
     orbital_free = any(setup.orbital_free for setup in setups)
     if orbital_free:
-        nbands = 1
+        return 1
 
     if isinstance(nbands, str):
         if nbands == 'nao':
-            nbands = nao
+            N = nao
         elif nbands[-1] == '%':
             cfgbands = (nvalence + M) / 2
-            nbands = int(np.ceil(float(nbands[:-1]) / 100 * cfgbands))
+            N = int(np.ceil(float(nbands[:-1]) / 100 * cfgbands))
         else:
             raise ValueError('Integer expected: Only use a string '
                              'if giving a percentage of occupied bands')
-
-    if nbands is None:
+    elif nbands is None:
         # Number of bound partial waves:
         nbandsmax = sum(setup.get_default_nbands()
                         for setup in setups)
-        nbands = int(np.ceil((1.2 * (nvalence + M) / 2))) + 4
-        if nbands > nbandsmax:
-            nbands = nbandsmax
-        if is_lcao and nbands > nao:
-            nbands = nao
+        N = int(np.ceil((1.2 * (nvalence + M) / 2))) + 4
+        if N > nbandsmax:
+            N = nbandsmax
+        if is_lcao and N > nao:
+            N = nao
     elif nbands <= 0:
-        nbands = max(1, int(nvalence + M + 0.5) // 2 + (-nbands))
+        N = max(1, int(nvalence + M + 0.5) // 2 + (-nbands))
+    else:
+        N = nbands
 
-    if nbands > nao and is_lcao:
+    if N > nao and is_lcao:
         raise ValueError('Too many bands for LCAO calculation: '
                          f'{nbands}%d bands and only {nao} atomic orbitals!')
 
@@ -360,11 +364,11 @@ def calculate_number_of_bands(nbands: int | str | None,
         raise ValueError(
             f'Charge {charge} is not possible - not enough valence electrons')
 
-    if nvalence > 2 * nbands and not orbital_free:
+    if nvalence > 2 * N:
         raise ValueError(
             f'Too few bands!  Electrons: {nvalence}, bands: {nbands}')
 
-    return nbands
+    return N
 
 
 def create_uniform_grid(mode: str,

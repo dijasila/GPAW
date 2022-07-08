@@ -30,7 +30,8 @@ units = {'energy': Ha,
          'stress': Ha / Bohr**3,
          'dipole': Bohr,
          'magmom': 1.0,
-         'magmoms': 1.0}
+         'magmoms': 1.0,
+         'non_collinear_magmoms': 1.0}
 
 
 class DFTState:
@@ -107,7 +108,7 @@ class DFTCalculation:
         state = DFTState(ibzwfs, density, potential, vHt_x)
         scf_loop = builder.create_scf_loop()
 
-        write_atoms(atoms, builder.initial_magmoms, log)
+        write_atoms(atoms, builder.initial_magmom_av, log)
         log(state)
         log(builder.setups)
         log(scf_loop)
@@ -131,8 +132,9 @@ class DFTCalculation:
                                          self.state.density.ndensities)
         self.state.move(self.fracpos_ac, atomdist, delta_nct_R)
 
-        magmoms = self.results.get('magmoms')
-        write_atoms(atoms, magmoms, self.log)
+        mm_av = self.results.get('non_collinear_magmoms')
+        assert mm_av is not None
+        write_atoms(atoms, mm_av, self.log)
 
         self.results = {}
 
@@ -186,6 +188,7 @@ class DFTCalculation:
         mm_v, mm_av = self.state.density.calculate_magnetic_moments()
         self.results['magmom'] = mm_v[2]
         self.results['magmoms'] = mm_av[:, 2].copy()
+        self.results['non_collinear_magmoms'] = mm_av
 
         if self.state.density.ncomponents > 1:
             x, y, z = mm_v

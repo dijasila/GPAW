@@ -97,7 +97,7 @@ def diagonalize(potential: Potential,
     dH_asii = potential.dH_asii
 
     if nbands is None:
-        nbands = min(wfs.array_shape(global_shape=True)
+        nbands = min(wfs.array_shape(global_shape=True)[0]
                      for wfs in ibzwfs)
         array = np.array(nbands)
         ibzwfs.kpt_comm.max(array)

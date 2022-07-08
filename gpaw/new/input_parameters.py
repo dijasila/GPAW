@@ -53,10 +53,11 @@ class InputParameters:
     force_complex_dtype: bool
     gpts: None | Sequence[int]
     h: float | None
+    hund: bool
     kpts: dict[str, Any]
     magmoms: Any
     mode: dict[str, Any]
-    nbands: None | int | float
+    nbands: None | int | str
     parallel: dict[str, Any]
     poissonsolver: dict[str, Any]
     setups: Any
@@ -228,7 +229,7 @@ def mode(value='fd'):
 
 
 @input_parameter
-def nbands(value: str | int | None = None) -> int | float | None:
+def nbands(value: str | int | None = None) -> str | int | None:
     """Number of electronic bands."""
     return value
 
