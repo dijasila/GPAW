@@ -86,12 +86,12 @@ class RPACorrelation:
             energy from different q-points
         """
 
+        self.iocontext = IOContext()
         if isinstance(calc, str):
             calc = GPAW(calc, txt=None, communicator=mpi.serial_comm)
         self.calc = calc
         self.gs = ResponseGroundStateAdapter(calc)
 
-        self.iocontext = IOContext()
         self.fd = self.iocontext.openfile(txt, world)
 
         self.timer = Timer()
