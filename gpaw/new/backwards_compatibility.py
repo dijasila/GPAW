@@ -1,13 +1,13 @@
 import numpy as np
-from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.new import cached_property
-from gpaw.new.calculation import DFTCalculation
-from gpaw.utilities import pack
-from gpaw.band_descriptor import BandDescriptor
 from ase import Atoms
+from gpaw.band_descriptor import BandDescriptor
+from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.new import cached_property, prod
+from gpaw.new.calculation import DFTCalculation
+from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.projections import Projections
 from gpaw.pw.descriptor import PWDescriptor
-from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
+from gpaw.utilities import pack
 
 
 class FakeWFS:
@@ -50,13 +50,15 @@ class FakeWFS:
 
     @cached_property
     def kpt_qs(self):
-        return [[KPT(wfs, self.atom_partition)
+        ngpts = prod(self.gd.N_c)
+        return [[KPT(wfs, self.atom_partition, ngpts)
                  for wfs in wfs_s]
                 for wfs_s in self.state.ibzwfs.wfs_qs]
 
 
 class KPT:
-    def __init__(self, wfs, atom_partition):
+    def __init__(self, wfs, atom_partition, ngpts):
+        self.ngpts = ngpts
         self.wfs = wfs
         self.projections = Projections(
             wfs.nbands,
@@ -72,8 +74,15 @@ class KPT:
         self.q = wfs.q
         self.weight = wfs.spin_degeneracy * wfs.weight
         self.f_n = wfs.occ_n * self.weight
-        self.psit_nG = wfs.psit_nX.data
+        self.psit_nX = wfs.psit_nX
         self.P_ani = wfs.P_ani
+
+    @property
+    def psit_nG(self):
+        a_nG = self.psit_nX.data
+        if a_nG.ndim == 4:
+            return a_nG
+        return a_nG * self.ngpts
 
 
 class FakeDensity:

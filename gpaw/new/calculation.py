@@ -133,7 +133,6 @@ class DFTCalculation:
         self.state.move(self.fracpos_ac, atomdist, delta_nct_R)
 
         mm_av = self.results.get('non_collinear_magmoms')
-        assert mm_av is not None
         write_atoms(atoms, mm_av, self.log)
 
         self.results = {}
