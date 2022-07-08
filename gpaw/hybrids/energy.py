@@ -47,7 +47,7 @@ def non_self_consistent_energy(calc: Union[Calculator, str, Path],
     if isinstance(calc, (str, Path)):
         calc = GPAW(calc, txt=None, parallel={'band': 1, 'kpt': 1})
 
-    assert isinstance(calc, Calculator)  # for mypy
+    assert not isinstance(calc, (str, Path))  # for mypy
     wfs = calc.wfs
     dens = calc.density
     kd = wfs.kd

@@ -98,11 +98,16 @@ class FakeDensity:
         self.gd = self.nt_sR.desc._gd
         self.finegd = calculation.pot_calc.fine_grid._gd
         self._densities = calculation.densities()
+        self.ncomponents = len(self.nt_sG)
+        self.nspins = self.ncomponents % 3
 
     @cached_property
     def D_asp(self):
-        return {a: np.array([pack(D_ii) for D_ii in D_sii])
-                for a, D_sii in self.D_asii.items()}
+        D_asp = self.setups.empty_atomic_matrix(self.ncomponents,
+                                                self.atom_partition)
+        D_asp.update({a: np.array([pack(D_ii) for D_ii in D_sii])
+                      for a, D_sii in self.D_asii.items()})
+        return D_asp
 
     def interpolate_pseudo_density(self):
         self.nt_sg = self.interpolate(self.nt_sR)[0].data
