@@ -223,7 +223,7 @@ class BSE:
         if optical:
             v_G[0] = 0.0
 
-        self.pair = PairDensity(self.calc, self.ecut, world=serial_comm,
+        self.pair = PairDensity(self.calc, world=serial_comm,
                                 txt='pair.txt')
 
         # Calculate direct (screened) interaction and PAW corrections

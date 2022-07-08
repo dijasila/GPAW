@@ -10,13 +10,11 @@ class ResponseGroundStateAdapter:
         self.world = calc.world
         self.gd = wfs.gd
         self.bd = wfs.bd
-        self.pd = wfs.pd
         self.nspins = wfs.nspins
         self.dtype = wfs.dtype
 
         self.spos_ac = calc.spos_ac
 
-        self.wfs = wfs
         self.kpt_u = wfs.kpt_u
         self.kpt_qs = wfs.kpt_qs
         self.setups = wfs.setups
@@ -27,9 +25,18 @@ class ResponseGroundStateAdapter:
         self.volume = self.gd.volume
 
         self.nvalence = wfs.nvalence
+
+        self._wfs = wfs
         self._density = calc.density
         self._hamiltonian = calc.hamiltonian
         self._calc = calc
+
+    @property
+    def pd(self):
+        # This is an attribute error in FD/LCAO mode.
+        # We need to abstract away "calc" in all places used by response
+        # code, and that includes places that are also compatible with FD.
+        return self._wfs.pd
 
     def get_occupations_width(self):
         # Ugly hack only used by pair.intraband_pair_density I think.
@@ -37,7 +44,7 @@ class ResponseGroundStateAdapter:
         # More duplication can probably be eliminated around those.
 
         # Only works with Fermi-Dirac distribution
-        occs = self.wfs.occupations
+        occs = self._wfs.occupations
         assert occs.name in {'fermi-dirac', 'zero-width'}
 
         # No carriers when T=0
@@ -117,5 +124,5 @@ class ResponseGroundStateAdapter:
 
     def get_wave_function_array(self, u, n):
         # XXX used by gpaw/xc/tools.py in a hacky way
-        return self._calc.wfs._get_wave_function_array(
+        return self._wfs._get_wave_function_array(
             u, n, realspace=True)
