@@ -2,7 +2,6 @@ import pytest
 from ase.build import bulk
 from gpaw import GPAW, FermiDirac
 from gpaw.mpi import serial_comm
-from gpaw.test import equal
 from gpaw.xc.rpa import RPACorrelation
 
 
@@ -26,5 +25,5 @@ def test_rpa_rpa_energy_Si(in_tmp_dir):
     rpa = RPACorrelation(calc, qsym=True, nfrequencies=8)
     E_rpa_qsym = rpa.calculate(ecut=[ecut])
 
-    print(E_rpa_qsym, E_rpa_noqsym, 0.001)
-    equal(E_rpa_qsym, -12.61, 0.01)
+    assert E_rpa_qsym == pytest.approx(-12.61, abs=0.01)
+    assert E_rpa_qsym == pytest.approx(E_rpa_noqsym)
