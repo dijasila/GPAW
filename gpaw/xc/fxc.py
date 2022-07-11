@@ -16,7 +16,6 @@ from gpaw.pw.descriptor import PWDescriptor
 from gpaw.utilities.blas import axpy, gemmdot
 from gpaw.xc.rpa import RPACorrelation
 from gpaw.heg import HEG
-from gpaw.response.groundstate import ResponseGroundStateAdapter
 
 
 class FXCCorrelation(RPACorrelation):
