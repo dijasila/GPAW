@@ -343,8 +343,6 @@ class Chi0Calculator:
         if wings:
             mat_kwargs['extend_head'] = True
             mat_kwargs['block'] = False
-            if self.eta == 0:
-                extraargs['eta'] = self.eta
             # This is horrible but we need to update the wings manually
             # in order to make them work with ralda, RPA and GW. This entire
             # section can be deleted in the future if the ralda and RPA code is

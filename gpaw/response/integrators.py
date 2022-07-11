@@ -168,8 +168,8 @@ class PointIntegrator(Integrator):
             elif hermitian and not wings:
                 self.update_hermitian(n_MG, deps_M, x, out_wxx, **extraargs)
             elif hermitian and wings:
-                self.update_optical_limit(n_MG, deps_M, x, out_wxx,
-                                          **extraargs)
+                self.update_hermitian_optical_limit(n_MG, deps_M, x, out_wxx,
+                                                    **extraargs)
             elif hilbert and not wings:
                 self.update_hilbert(n_MG, deps_M, x, out_wxx, **extraargs)
             elif hilbert and wings:
@@ -359,6 +359,14 @@ class PointIntegrator(Integrator):
 
         for w, omega in enumerate(wd.omega_w):
             x_m = (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
+            chi0_wxvG[w, 0] += np.dot(x_m * n_mG[:, :3].T, n_mG.conj())
+            chi0_wxvG[w, 1] += np.dot(x_m * n_mG[:, :3].T.conj(), n_mG)
+
+    @timer('CHI_0 hermitian optical limit update')
+    def update_hermitian_optical_limit(self, n_mG, deps_m, wd, chi0_wxvG):
+        """Optical limit update of hermitian chi."""
+        for w, omega in enumerate(wd.omega_w):
+            x_m = - np.abs(2 * deps_m / (omega.imag**2 + deps_m**2))
             chi0_wxvG[w, 0] += np.dot(x_m * n_mG[:, :3].T, n_mG.conj())
             chi0_wxvG[w, 1] += np.dot(x_m * n_mG[:, :3].T.conj(), n_mG)
 
