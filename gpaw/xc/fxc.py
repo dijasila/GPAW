@@ -16,7 +16,6 @@ from gpaw.pw.descriptor import PWDescriptor
 from gpaw.utilities.blas import axpy, gemmdot
 from gpaw.xc.rpa import RPACorrelation
 from gpaw.heg import HEG
-from gpaw.response.groundstate import ResponseGroundStateAdapter
 
 
 class FXCCorrelation(RPACorrelation):
@@ -1076,11 +1075,10 @@ class KernelWave:
 
 
 class range_separated:
-    def __init__(self, calc, fd, frequencies, freqweights, l_l, lweights,
+    def __init__(self, gs, fd, frequencies, freqweights, l_l, lweights,
                  range_rc, xc):
 
-        self.calc = calc
-        self.gs = ResponseGroundStateAdapter(calc)
+        self.gs = gs
 
         self.fd = fd
         self.frequencies = frequencies
@@ -1098,7 +1096,7 @@ class range_separated:
                 (self.range_rc),
                 file=self.fd)
 
-        nval_g = self.gs.hacky_get_all_electron_density(
+        nval_g = self.gs.hacky_all_electron_density(
             gridrefinement=4, skip_core=True).flatten()
         self.dv = self.gs.density.gd.dv / 64.0  # 64 = gridrefinement^3
 
@@ -1159,7 +1157,7 @@ class range_separated:
         table_SR[:, 0] = rs_r
         for iR, Rs in enumerate(rs_r):
 
-            qF = HEG(Rs)
+            qF = HEG(Rs).qF
 
             q_k = np.arange(k_step, 10.0 * qF, k_step)
 
