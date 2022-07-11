@@ -237,7 +237,7 @@ class PointIntegrator(Integrator):
             else:
                 x_m = np.abs(2 * deps_m / (omega.imag**2 + deps_m**2))
                 mynx_mG = n_mG[:, blocks1d.myslice] * x_m[:, np.newaxis]
-                mmm(-1.0, mynx_mG, 'C', n_mG, 'N', 1.0, chi0_wGG[w])
+                mmm(-1.0, mynx_mG, 'T', n_mG.conj(), 'N', 1.0, chi0_wGG[w])
 
     @timer('CHI_0 spectral function update (old)')
     def update_hilbert_old(self, n_mG, deps_m, wd, chi0_wGG):
