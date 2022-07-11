@@ -162,7 +162,6 @@ def test_li_chi0_extend_head(in_tmp_dir, Li_gs, Li_chi0kwargs, request):
     chi0_extend_head_test(Li_gs, Li_chi0kwargs)
 
 
-@pytest.mark.serial  # see #547
 @pytest.mark.response
 def test_ni_chi0_extend_head(in_tmp_dir, Ni_gs, Ni_chi0kwargs, request):
     mark_tetrahedron_xfail(Ni_chi0kwargs, request)
