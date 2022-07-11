@@ -231,13 +231,13 @@ class PointIntegrator(Integrator):
 
         for w, omega in enumerate(wd.omega_w):
             if self.blockcomm.size == 1:
-                x_m = (-2 * deps_m / (omega.imag**2 + deps_m**2) + 0j)**0.5
+                x_m = np.abs(2 * deps_m / (omega.imag**2 + deps_m**2))**0.5
                 nx_mG = n_mG.conj() * x_m[:, np.newaxis]
                 rk(-1.0, nx_mG, 1.0, chi0_wGG[w], 'n')
             else:
-                x_m = 2 * deps_m / (omega.imag**2 + deps_m**2)
+                x_m = np.abs(2 * deps_m / (omega.imag**2 + deps_m**2))
                 mynx_mG = n_mG[:, blocks1d.myslice] * x_m[:, np.newaxis]
-                mmm(1.0, mynx_mG, 'C', n_mG, 'N', 1.0, chi0_wGG[w])
+                mmm(-1.0, mynx_mG, 'C', n_mG, 'N', 1.0, chi0_wGG[w])
 
     @timer('CHI_0 spectral function update (old)')
     def update_hilbert_old(self, n_mG, deps_m, wd, chi0_wGG):
