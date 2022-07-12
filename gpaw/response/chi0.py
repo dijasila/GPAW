@@ -343,8 +343,6 @@ class Chi0Calculator:
         if wings:
             mat_kwargs['extend_head'] = True
             mat_kwargs['block'] = False
-            if self.eta == 0:
-                extraargs['eta'] = self.eta
             # This is horrible but we need to update the wings manually
             # in order to make them work with ralda, RPA and GW. This entire
             # section can be deleted in the future if the ralda and RPA code is
@@ -486,22 +484,32 @@ class Chi0Calculator:
             # be confined inside Chi0.update_chi0, so that the update
             # terminology is self-consistent
             chi0_new = self.create_chi0(pd.kd.bzk_kc[0], extend_head=False)
-            # Make a wings object, but extended
+
+            # Make an extended wings object to temporarily hold the head AND
+            # wings data
             chi0_wxvG = np.zeros(chi0.wxvG_shape, complex)
-            # The wings are extracted
+
+            # Extract the head and wings data. The x = 0 wing represents the
+            # upper horizontal block, while the x = 1 wing represents the left
+            # vertical block.
+            # The data in A_wxx is distributed over "x"-rows, so we need to be
+            # careful
+            va = min(chi0.blocks1d.a, 3)  # Cartesian part of myslice
+            vb = min(chi0.blocks1d.b, 3)
+            # Fill in the x = 0 wing
+            chi0_wxvG[:, 0, va:vb] = A_wxx[:, :vb - va]
+            # Fill in the x = 1 wing
             chi0_wxvG[:, 1, :,
                       chi0.blocks1d.myslice] = np.transpose(
-                A_wxx[..., 0:3], (0, 2, 1))
-            va = min(chi0.blocks1d.a, 3)
-            vb = min(chi0.blocks1d.b, 3)
-            # print(self.world.rank, va, vb, chi0_wxvG[:, 0, va:vb].shape,
-            #       A_wxx[:, va:vb].shape, A_wxx.shape)
-            chi0_wxvG[:, 0, va:vb] = A_wxx[:, :vb - va]
+                A_wxx[..., :3], (0, 2, 1))
 
-            # Add contributions from different ranks
+            # The head and wings are not distributed in the Chi0Data object,
+            # so we collect the contributions from all blocks
             self.blockcomm.sum(chi0_wxvG)
-            # Insert values into the new Chi0Data object
+
             # Fill in the head
+            # The x = 0 wing of the extended wings object has the "normal"
+            # view of the head of chi0
             chi0_new.chi0_wvv[:] = chi0_wxvG[:, 0, :3, :3]
             # Fill in wings part of the data, but leave out the head
             chi0_new.chi0_wxvG[..., 1:] = chi0_wxvG[..., 3:]
@@ -517,15 +525,15 @@ class Chi0Calculator:
             chi0 = chi0_new
 
         elif optical_limit:
-            # Since chi_wGG is nonanalytic in the head
-            # and wings we have to take care that
-            # these are handled correctly. Note that
-            # it is important that the wings are overwritten first.
-            chi0.chi0_wGG[:, :, 0] = chi0.chi0_wxvG[
-                :, 1, 2,
-                chi0.blocks1d.myslice]
+            # By default, we fill in the G=0 entries of chi0_wGG with the
+            # wings evaluated along the z-direction.
+            # The x = 1 wing represents the left vertical block, which is
+            # distributed in chi0_wGG
+            chi0.chi0_wGG[:, :, 0] = chi0.chi0_wxvG[:, 1, 2,
+                                                    chi0.blocks1d.myslice]
 
-            if self.blockcomm.rank == 0:
+            if self.blockcomm.rank == 0:  # rank with G=0 row
+                # The x = 0 wing represents the upper horizontal block
                 chi0.chi0_wGG[:, 0, :] = chi0.chi0_wxvG[:, 0, 2, :]
                 chi0.chi0_wGG[:, 0, 0] = chi0.chi0_wvv[:, 2, 2]
 
