@@ -155,6 +155,13 @@ def test_Fe_chiks(in_tmp_dir, Fe_gs, q_c, eta, gammacentered):
 
     # Part 3: Check symmetry toggle
 
+    # Check that the plane wave representations are identical
+    for pd1, pd2 in zip(pd_sq[0], pd_sq[1]):
+        G1_Gc = get_pw_coordinates(pd1)
+        G2_Gc = get_pw_coordinates(pd2)
+        assert G1_Gc.shape == G2_Gc.shape
+        assert np.allclose(G1_Gc - G2_Gc, 0.)
+
     chiks1_qwGG = chiks_sqwGG[0]
     chiks2_qwGG = chiks_sqwGG[1]
     for chiks1_wGG, chiks2_wGG in zip(chiks1_qwGG, chiks2_qwGG):
