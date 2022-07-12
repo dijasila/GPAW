@@ -18,7 +18,7 @@ from gpaw.response.susceptibility import get_pw_coordinates
 
 
 @pytest.mark.response
-def test_Fe_chiks(in_tmp_dir):
+def test_Fe_chiks(in_tmp_dir, Fe_gs):
     """Check the reciprocity relation
 
     χ_(KS,GG')^(+-)(q, ω) = χ_(KS,-G'-G)^(+-)(-q, ω)
@@ -33,21 +33,10 @@ def test_Fe_chiks(in_tmp_dir):
 
     Also, we test that the response function does not change by toggling
     the symmetries within the same precision."""
+
     # ---------- Inputs ---------- #
 
-    # Part 1: Ground state calculation
-    xc = 'LDA'
-    kpts = 4
-    nbands = 6
-    pw = 200
-    occw = 0.01
-    conv = {'density': 1e-8,
-            'forces': 1e-8,
-            'bands': nbands}
-    a = 2.867
-    mm = 2.21
-
-    # Part 2: ChiKS calculation
+    # Part 1: ChiKS calculation
     ecut = 50
     eta_e = [0., 0.1]
     frequencies = [0., 0.05, 0.1, 0.2]
@@ -67,34 +56,15 @@ def test_Fe_chiks(in_tmp_dir):
     else:
         nblocks = 1
 
-    # Part 3: Check reciprocity
+    # Part 2: Check reciprocity
 
-    # Part 4: Check symmetry toggle
+    # Part 3: Check symmetry toggle
 
     # ---------- Script ---------- #
 
-    # Part 1: Ground state calculation
+    # Part 1: ChiKS calculation
+    calc, nbands = Fe_gs
 
-    atoms = bulk('Fe', 'bcc', a=a)
-    atoms.set_initial_magnetic_moments([mm])
-    atoms.center()
-
-    calc = GPAW(xc=xc,
-                mode=PW(pw),
-                kpts={'size': (kpts, kpts, kpts), 'gamma': True},
-                nbands=nbands + 4,
-                occupations=FermiDirac(occw),
-                idiotproof=False,
-                parallel={'domain': 1},
-                # symmetry='off',
-                spinpol=True,
-                convergence=conv
-                )
-
-    atoms.calc = calc
-    atoms.get_potential_energy()
-
-    # Part 2: ChiKS calculation
     chiks_seqwGG = []
     pd_seq = []
     for gammacentered, disable_syms in sym_settings:
@@ -122,7 +92,7 @@ def test_Fe_chiks(in_tmp_dir):
         chiks_seqwGG.append(chiks_eqwGG)
         pd_seq.append(pd_eq)
 
-    # Part 3: Check reciprocity
+    # Part 2: Check reciprocity
 
     for pd_eq, chiks_eqwGG in zip(pd_seq, chiks_seqwGG):
         for pd_q, chiks_qwGG in zip(pd_eq, chiks_eqwGG):  # One eta at a time
@@ -156,7 +126,7 @@ def test_Fe_chiks(in_tmp_dir):
                     assert np.allclose(chi2_GG[invmap_GG].T, chi1_GG,
                                        rtol=2.e-2)
 
-    # Part 4: Check symmetry toggle
+    # Part 3: Check symmetry toggle
 
     for s1, s2 in zip([0, 2], [1, 3]):
         chiks1_eqwGG = chiks_seqwGG[s1]
@@ -166,6 +136,49 @@ def test_Fe_chiks(in_tmp_dir):
             for chiks1_wGG, chiks2_wGG in zip(chiks1_qwGG, chiks2_qwGG):
                 assert np.allclose(chiks2_wGG, chiks1_wGG,
                                    rtol=2.e-2)
+
+
+# ---------- System ground state ---------- #
+
+
+@pytest.fixture(scope='module')
+def Fe_gs(module_tmp_path):
+
+    # ---------- Inputs ---------- #
+
+    xc = 'LDA'
+    kpts = 4
+    nbands = 6
+    pw = 200
+    occw = 0.01
+    conv = {'density': 1e-8,
+            'forces': 1e-8,
+            'bands': nbands}
+    a = 2.867
+    mm = 2.21
+
+    # ---------- Script ---------- #
+
+    atoms = bulk('Fe', 'bcc', a=a)
+    atoms.set_initial_magnetic_moments([mm])
+    atoms.center()
+
+    calc = GPAW(xc=xc,
+                mode=PW(pw),
+                kpts={'size': (kpts, kpts, kpts), 'gamma': True},
+                nbands=nbands + 4,
+                occupations=FermiDirac(occw),
+                idiotproof=False,
+                parallel={'domain': 1},
+                # symmetry='off',
+                spinpol=True,
+                convergence=conv
+                )
+
+    atoms.calc = calc
+    atoms.get_potential_energy()
+
+    return calc, nbands
 
 
 # ---------- Test functionality ---------- #
