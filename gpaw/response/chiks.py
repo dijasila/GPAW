@@ -52,24 +52,19 @@ class ChiKS(PlaneWaveKSLRF):
             'all' is an alias for '00', kept for backwards compability
             Likewise 0 or 1, can be used for 'uu' or 'dd'
         """
-        pd = self.get_PWDescriptor(q_c)
-
         # Initiate new call-output file, if supplied
         if txt is not None:
             self.cfd = convert_string_to_fd(txt, self.world)
         # Print to output file(s)
         if str(self.fd) != str(self.cfd) or txt is not None:
             print('Calculating Kohn-Sham susceptibility with '
-                  f'q_c={pd.kd.bzk_kc[0]} and spincomponent={spincomponent}',
+                  f'q_c={q_c} and spincomponent={spincomponent}',
                   file=self.fd)
             print(ctime(), file=self.fd)
 
         # Analyze the requested spin component
         self.spincomponent = spincomponent
         spinrot = get_spin_rotation(spincomponent)
-
-        # Initialize the PAW corrections before integration
-        self.pme.initialize_paw_corrections(pd)
 
         return PlaneWaveKSLRF.calculate(self, q_c, frequencies,
                                         spinrot=spinrot, A_x=A_x)
