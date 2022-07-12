@@ -35,13 +35,21 @@ def generate_eta_e():
     return eta_e
 
 
+def generate_gc_g():
+    # Compute chiks both on a gamma-centered and a q-centered pw grid
+    gc_g = [True, False]
+
+    return gc_g
+
+
 # ---------- Actual tests ---------- #
 
 
 @pytest.mark.response
-@pytest.mark.parametrize('q_c,eta', product(generate_q_qc(), 
-                                            generate_eta_e()))
-def test_Fe_chiks(in_tmp_dir, Fe_gs, q_c, eta):
+@pytest.mark.parametrize('q_c,eta,gammacentered', product(generate_q_qc(), 
+                                                          generate_eta_e(),
+                                                          generate_gc_g()))
+def test_Fe_chiks(in_tmp_dir, Fe_gs, q_c, eta, gammacentered):
     """Check the reciprocity relation
 
     χ_(KS,GG')^(+-)(q, ω) = χ_(KS,-G'-G)^(+-)(-q, ω)
@@ -62,10 +70,8 @@ def test_Fe_chiks(in_tmp_dir, Fe_gs, q_c, eta):
     # Part 1: ChiKS calculation
     ecut = 50
     frequencies = [0., 0.05, 0.1, 0.2]
-    sym_settings = [(True, True),  # gammacentered, disable symmetries
-                    (True, False),
-                    (False, True),
-                    (False, False)]
+    disable_syms_s = [True, False]
+
     if world.size > 1:
         nblocks = 2
     else:
@@ -89,7 +95,7 @@ def test_Fe_chiks(in_tmp_dir, Fe_gs, q_c, eta):
 
     chiks_sqwGG = []
     pd_sq = []
-    for gammacentered, disable_syms in sym_settings:
+    for disable_syms in disable_syms_s:
         chiks = ChiKS(calc,
                       ecut=ecut, nbands=nbands, eta=eta,
                       gammacentered=gammacentered,
@@ -150,12 +156,10 @@ def test_Fe_chiks(in_tmp_dir, Fe_gs, q_c, eta):
 
     # Part 3: Check symmetry toggle
 
-    for s1, s2 in zip([0, 2], [1, 3]):
-        chiks1_qwGG = chiks_sqwGG[s1]
-        chiks2_qwGG = chiks_sqwGG[s2]
-
-        for chiks1_wGG, chiks2_wGG in zip(chiks1_qwGG, chiks2_qwGG):
-            assert np.allclose(chiks2_wGG, chiks1_wGG, rtol=rtol)
+    chiks1_qwGG = chiks_sqwGG[0]
+    chiks2_qwGG = chiks_sqwGG[1]
+    for chiks1_wGG, chiks2_wGG in zip(chiks1_qwGG, chiks2_qwGG):
+        assert np.allclose(chiks2_wGG, chiks1_wGG, rtol=rtol)
 
 
 # ---------- System ground state ---------- #
