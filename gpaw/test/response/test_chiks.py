@@ -4,6 +4,7 @@ the Kohn-Sham system."""
 # General modules
 import pytest
 import numpy as np
+from itertools import product
 
 # Script modules
 from ase.build import bulk
@@ -27,12 +28,20 @@ def generate_q_qc():
     return q_qc
 
 
+def generate_eta_e():
+    # Try out both a vanishing and finite broadening
+    eta_e = [0., 0.1]
+
+    return eta_e
+
+
 # ---------- Actual tests ---------- #
 
 
 @pytest.mark.response
-@pytest.mark.parametrize('q_c', generate_q_qc())
-def test_Fe_chiks(in_tmp_dir, Fe_gs, q_c):
+@pytest.mark.parametrize('q_c,eta', product(generate_q_qc(), 
+                                            generate_eta_e()))
+def test_Fe_chiks(in_tmp_dir, Fe_gs, q_c, eta):
     """Check the reciprocity relation
 
     χ_(KS,GG')^(+-)(q, ω) = χ_(KS,-G'-G)^(+-)(-q, ω)
@@ -52,7 +61,6 @@ def test_Fe_chiks(in_tmp_dir, Fe_gs, q_c):
 
     # Part 1: ChiKS calculation
     ecut = 50
-    eta_e = [0., 0.1]
     frequencies = [0., 0.05, 0.1, 0.2]
     sym_settings = [(True, True),  # gammacentered, disable symmetries
                     (True, False),
@@ -79,83 +87,75 @@ def test_Fe_chiks(in_tmp_dir, Fe_gs, q_c):
     else:
         q_qc = [-q_c, q_c]
 
-    chiks_seqwGG = []
-    pd_seq = []
+    chiks_sqwGG = []
+    pd_sq = []
     for gammacentered, disable_syms in sym_settings:
-        chiks_eqwGG = []
-        pd_eq = []
-        for eta in eta_e:
-            chiks = ChiKS(calc,
-                          ecut=ecut, nbands=nbands, eta=eta,
-                          gammacentered=gammacentered,
-                          disable_time_reversal=disable_syms,
-                          disable_point_group=disable_syms,
-                          nblocks=nblocks)
+        chiks = ChiKS(calc,
+                      ecut=ecut, nbands=nbands, eta=eta,
+                      gammacentered=gammacentered,
+                      disable_time_reversal=disable_syms,
+                      disable_point_group=disable_syms,
+                      nblocks=nblocks)
 
-            pd_q = []
-            chiks_qwGG = []
-            for q_c in q_qc:
-                pd, chiks_wGG = chiks.calculate(q_c, frequencies,
-                                                spincomponent='+-')
-                chiks_wGG = chiks.distribute_frequencies(chiks_wGG)
-                pd_q.append(pd)
-                chiks_qwGG.append(chiks_wGG)
+        pd_q = []
+        chiks_qwGG = []
+        for q_c in q_qc:
+            pd, chiks_wGG = chiks.calculate(q_c, frequencies,
+                                            spincomponent='+-')
+            chiks_wGG = chiks.distribute_frequencies(chiks_wGG)
+            pd_q.append(pd)
+            chiks_qwGG.append(chiks_wGG)
 
-            chiks_eqwGG.append(chiks_qwGG)
-            pd_eq.append(pd_q)
-        chiks_seqwGG.append(chiks_eqwGG)
-        pd_seq.append(pd_eq)
+        chiks_sqwGG.append(chiks_qwGG)
+        pd_sq.append(pd_q)
 
     # Part 2: Check reciprocity
 
-    for pd_eq, chiks_eqwGG in zip(pd_seq, chiks_seqwGG):
-        for pd_q, chiks_qwGG in zip(pd_eq, chiks_eqwGG):  # One eta at a time
-            # Get the q and -q pair
-            if len(pd_q) == 2:
-                q1, q2 = 0, 1
-            else:
-                assert len(pd_q) == 1
-                assert np.allclose(q_c, 0.)
-                q1, q2 = 0, 0
+    for pd_q, chiks_qwGG in zip(pd_sq, chiks_sqwGG):
+        # Get the q and -q pair
+        if len(pd_q) == 2:
+            q1, q2 = 0, 1
+        else:
+            assert len(pd_q) == 1
+            assert np.allclose(q_c, 0.)
+            q1, q2 = 0, 0
 
-            invmap_GG = get_inverted_pw_mapping(pd_q[q1], pd_q[q2])
+        invmap_GG = get_inverted_pw_mapping(pd_q[q1], pd_q[q2])
 
-            # Check reciprocity of the reactive part of the static
-            # susceptibility. This specific check makes sure that the
-            # exchange constants calculated within the MFT remains
-            # reciprocal.
-            if rank == 0:  # Only the root has the static susc.
-                # Calculate the reactive part
-                chi1_GG, chi2_GG = chiks_qwGG[q1][0], chiks_qwGG[q2][0]
-                chi1r_GG = 1 / 2. * (chi1_GG + np.conj(chi1_GG).T)
-                chi2r_GG = 1 / 2. * (chi2_GG + np.conj(chi2_GG).T)
+        # Check reciprocity of the reactive part of the static
+        # susceptibility. This specific check makes sure that the
+        # exchange constants calculated within the MFT remains
+        # reciprocal.
+        if rank == 0:  # Only the root has the static susc.
+            # Calculate the reactive part
+            chi1_GG, chi2_GG = chiks_qwGG[q1][0], chiks_qwGG[q2][0]
+            chi1r_GG = 1 / 2. * (chi1_GG + np.conj(chi1_GG).T)
+            chi2r_GG = 1 / 2. * (chi2_GG + np.conj(chi2_GG).T)
 
-                # err = np.absolute(np.conj(chi2r_GG[invmap_GG])
-                #                   - chi1r_GG)
-                # is_bad = err > 1.e-8 + 2.e-2 * np.absolute(chi1r_GG)
-                # print(np.absolute(err[is_bad])
-                #       / np.absolute(chi1r_GG[is_bad]))
-                assert np.allclose(np.conj(chi2r_GG[invmap_GG]), chi1r_GG, 
-                                   rtol=rtol)
+            # err = np.absolute(np.conj(chi2r_GG[invmap_GG])
+            #                   - chi1r_GG)
+            # is_bad = err > 1.e-8 + 2.e-2 * np.absolute(chi1r_GG)
+            # print(np.absolute(err[is_bad])
+            #       / np.absolute(chi1r_GG[is_bad]))
+            assert np.allclose(np.conj(chi2r_GG[invmap_GG]), chi1r_GG, 
+                               rtol=rtol)
 
-            # Check the reciprocity of the full susceptibility
-            for chi1_GG, chi2_GG in zip(chiks_qwGG[q1], chiks_qwGG[q2]):
-                # err = np.absolute(chi1_GG - chi2_GG[invmap_GG].T)
-                # is_bad = err > 1.e-8 + 2.e-2 * np.absolute(chi1_GG)
-                # print(np.absolute(err[is_bad])
-                #       / np.absolute(chi1_GG[is_bad]))
-                assert np.allclose(chi2_GG[invmap_GG].T, chi1_GG, rtol=rtol)
+        # Check the reciprocity of the full susceptibility
+        for chi1_GG, chi2_GG in zip(chiks_qwGG[q1], chiks_qwGG[q2]):
+            # err = np.absolute(chi1_GG - chi2_GG[invmap_GG].T)
+            # is_bad = err > 1.e-8 + 2.e-2 * np.absolute(chi1_GG)
+            # print(np.absolute(err[is_bad])
+            #       / np.absolute(chi1_GG[is_bad]))
+            assert np.allclose(chi2_GG[invmap_GG].T, chi1_GG, rtol=rtol)
 
     # Part 3: Check symmetry toggle
 
     for s1, s2 in zip([0, 2], [1, 3]):
-        chiks1_eqwGG = chiks_seqwGG[s1]
-        chiks2_eqwGG = chiks_seqwGG[s2]
+        chiks1_qwGG = chiks_sqwGG[s1]
+        chiks2_qwGG = chiks_sqwGG[s2]
 
-        for chiks1_qwGG, chiks2_qwGG in zip(chiks1_eqwGG, chiks2_eqwGG):
-            for chiks1_wGG, chiks2_wGG in zip(chiks1_qwGG, chiks2_qwGG):
-                assert np.allclose(chiks2_wGG, chiks1_wGG,
-                                   rtol=rtol)
+        for chiks1_wGG, chiks2_wGG in zip(chiks1_qwGG, chiks2_qwGG):
+            assert np.allclose(chiks2_wGG, chiks1_wGG, rtol=rtol)
 
 
 # ---------- System ground state ---------- #
