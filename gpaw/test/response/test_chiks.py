@@ -64,6 +64,7 @@ def test_Fe_chiks(in_tmp_dir, Fe_gs, q_c):
         nblocks = 1
 
     # Part 2: Check reciprocity
+    rtol = 2.e-2
 
     # Part 3: Check symmetry toggle
 
@@ -135,7 +136,7 @@ def test_Fe_chiks(in_tmp_dir, Fe_gs, q_c):
                 # print(np.absolute(err[is_bad])
                 #       / np.absolute(chi1r_GG[is_bad]))
                 assert np.allclose(np.conj(chi2r_GG[invmap_GG]), chi1r_GG, 
-                                   rtol=2.e-2)
+                                   rtol=rtol)
 
             # Check the reciprocity of the full susceptibility
             for chi1_GG, chi2_GG in zip(chiks_qwGG[q1], chiks_qwGG[q2]):
@@ -143,7 +144,7 @@ def test_Fe_chiks(in_tmp_dir, Fe_gs, q_c):
                 # is_bad = err > 1.e-8 + 2.e-2 * np.absolute(chi1_GG)
                 # print(np.absolute(err[is_bad])
                 #       / np.absolute(chi1_GG[is_bad]))
-                assert np.allclose(chi2_GG[invmap_GG].T, chi1_GG, rtol=2.e-2)
+                assert np.allclose(chi2_GG[invmap_GG].T, chi1_GG, rtol=rtol)
 
     # Part 3: Check symmetry toggle
 
@@ -154,7 +155,7 @@ def test_Fe_chiks(in_tmp_dir, Fe_gs, q_c):
         for chiks1_qwGG, chiks2_qwGG in zip(chiks1_eqwGG, chiks2_eqwGG):
             for chiks1_wGG, chiks2_wGG in zip(chiks1_qwGG, chiks2_qwGG):
                 assert np.allclose(chiks2_wGG, chiks1_wGG,
-                                   rtol=2.e-2)
+                                   rtol=rtol)
 
 
 # ---------- System ground state ---------- #
