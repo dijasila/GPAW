@@ -547,6 +547,11 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         self.disable_point_group = disable_point_group
         self.disable_time_reversal = disable_time_reversal
         self.disable_non_symmorphic = disable_non_symmorphic
+        if (disable_time_reversal and disable_point_group
+            and disable_non_symmorphic):
+            self.disable_symmetries = True
+        else:
+            self.disable_symmetries = False
 
         self.bundle_integrals = bundle_integrals
 
@@ -563,7 +568,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         Parameters
         ----------
         q_c : list or ndarray or PWDescriptor
-            Momentum transfer (and possibly plane wave basis)
+            Wave vector
         frequencies : ndarray, dict or FrequencyDescriptor
             Array of frequencies to evaluate the response function at,
             dictionary of parameters for build-in frequency grids or a
@@ -576,8 +581,8 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         A_wGG : ndarray
             The linear response function.
         """
-        # Set up plane wave description with the gived momentum transfer q
-        self.pd = self.get_PWDescriptor(q_c)
+        # Set up internal plane wave description with the given wave vector q
+        self.pd = self._get_PWDescriptor(q_c)
         self.pwsa = self.get_PWSymmetryAnalyzer(self.pd)
 
         # Set up frequency descriptor for the given frequencies
@@ -592,50 +597,54 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         # In-place calculation
         return self._calculate(spinrot, A_x)
 
-    def get_PWDescriptor(self, q_c, gammacentered=False):
-        """Get the planewave descriptor for a certain momentum transfer q_c."""
-        from gpaw.pw.descriptor import PWDescriptor
-        if isinstance(q_c, PWDescriptor):
-            return q_c
-        else:
-            from gpaw.kpt_descriptor import KPointDescriptor
-            q_c = np.asarray(q_c, dtype=float)
-            qd = KPointDescriptor([q_c])
-            gd = self.calc.wfs.gd
-            if gammacentered:
-                ecut = self.ecut
-            else:
-                ecut = self.get_qspecific_ecut(qd, gd)
-            pd = PWDescriptor(ecut, gd, complex, qd,
-                              gammacentered=gammacentered)
-            return pd
+    def get_PWDescriptor(self, q_c):
+        """Get the resulting plane wave description for a calculation with wave vector
+        q_c."""
+        return self._get_PWDescriptor(q_c, internal=False)
 
-    def get_qspecific_ecut(self, qd, gd):
-        """Get the q-specific ecut that encompasses the global plane wave basis.
+    def _get_PWDescriptor(self, q_c, internal=True):
+        """Get plane wave descriptor for the wave vector q_c.
 
-        If we want to compute the linear response function on a plane wave
-        grid which is effectively centered in the gamma point instead of q, we
-        need to extend ecut. This is so, because the internal functionality
-        (to handle symmetries in particular) assumes that the plane wave
-        descriptor is centered at q.
-        Thus, we compute the linear response function with a q-centered plane
-        wave descriptor of a slightly extended ecut and reduce to the global
-        gamma-centered basis as a post processing step.
+        Parameters
+        ----------
+        q_c : list or ndarray
+            Wave vector
+        internal : bool
+            When using symmetries, the actual calculation of chiks_wGG must
+            happen using a q-centered plane wave basis. If internal==True,
+            as it is by default, the internal plane wave basis used in the
+            evaluation of chiks_wGG is returned, otherwise the external
+            descriptor is returned, corresponding to the requested chiks_wGG.
         """
-        if self.gammacentered:
+        gd = self.calc.wfs.gd
+
+        # Fall back to ecut of requested plane wave basis
+        ecut = self.ecut
+        gammacentered = self.gammacentered
+
+        # Update to internal basis, if needed
+        if internal and gammacentered and not self.disable_symmetries:
+            # In order to make use of the symmetries of the system to reduce
+            # the k-point integration, the internal code assumes a plane wave
+            # basis which is centered at q in reciprocal space.
+            gammacentered = False
+            # If we want to compute the linear response function on a plane
+            # wave grid which is effectively centered in the gamma point
+            # instead of q, we need to extend the internal ecut such that the
+            # q-centered grid encompasses all reciprocal lattice points inside
+            # the gamma-centered sphere.
+            # The reduction to the global gamma-centered basis will then be
+            # carried out as a post processing step.
+
+            # Compute the extended internal ecut
+            q_c = np.asarray(q_c, dtype=float)
             B_cv = 2.0 * np.pi * gd.icell_cv  # Reciprocal lattice vectors
-            q_v = qd.ibzk_qc[0] @ B_cv
-            q = np.linalg.norm(q_v)
+            q_v = q_c @ B_cv
+            ecut = get_ecut_to_encompass_centered_sphere(q_v, ecut)
 
-            # Calculate an ecut which should contain all |G|^2 < 2 * self.ecut
-            ecut = self.ecut + q * (np.sqrt(2 * self.ecut) + q / 2)
+        pd = get_PWDescriptor(ecut, gd, q_c, gammacentered=gammacentered)
 
-            return ecut
-
-        # If we are not computing the linear response function in the gamma
-        # centered basis, use the same ecut for all q (which in the end will
-        # result in different plane wave basis sets for each q)
-        return self.ecut
+        return pd
 
     @timer('Get PW symmetry analyser')
     def get_PWSymmetryAnalyzer(self, pd):
@@ -750,10 +759,10 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
             self.pwsa.symmetrize_wGG(tmpA_wGG)
         self.redistribute(tmpA_wGG, A_wGG)
 
-        if self.gammacentered:
+        if self.gammacentered and not self.disable_symmetries:
             # Reduce the q-specific basis to the global basis
-            pd = self.get_PWDescriptor(self.pd.kd.bzk_kc[0],
-                                       gammacentered=True)
+            q_c = self.pd.kd.bzk_kc[0]
+            pd = self.get_PWDescriptor(q_c)
             A_wGG = self.map_to(pd, A_wGG)
 
         return self.pd, A_wGG
@@ -799,6 +808,33 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
     @timer('Distribute frequencies')
     def distribute_frequencies(self, chiks_wGG):
         return self.blockdist.distribute_frequencies(chiks_wGG, len(self.wd))
+
+
+def get_ecut_to_encompass_centered_sphere(q_v, ecut):
+    """Calculate the minimal ecut which results in a q-centered plane wave
+    basis containing all the reciprocal lattice vectors G, which lie inside a
+    specific gamma-centered sphere:
+
+    |G|^2 < 2 * ecut
+    """
+    q = np.linalg.norm(q_v)
+    ecut = ecut + q * (np.sqrt(2 * ecut) + q / 2)
+
+    return ecut
+
+
+def get_PWDescriptor(ecut, gd, q_c, gammacentered=False):
+    """Get the plane wave descriptor for a specific wave vector q_c."""
+    from gpaw.kpt_descriptor import KPointDescriptor
+    from gpaw.pw.descriptor import PWDescriptor
+
+    q_c = np.asarray(q_c, dtype=float)
+    qd = KPointDescriptor([q_c])
+
+    pd = PWDescriptor(ecut, gd, complex, qd,
+                      gammacentered=gammacentered)
+
+    return pd
 
 
 class Integrator:  # --> KPointPairIntegrator in the future? XXX
