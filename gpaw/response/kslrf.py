@@ -974,12 +974,10 @@ class Integrator:  # --> KPointPairIntegrator in the future? XXX
         nk = bzk_kv.shape[0]
         size = self.kslrf.intrablockcomm.size
         ni = (nk + size - 1) // size
-        bzk_ipv = np.array([bzk_kv[i * size:(i + 1) * size]
-                            for i in range(ni)])
+        bzk_ipv = [bzk_kv[i * size:(i + 1) * size] for i in range(ni)]
 
         # Extract the weight corresponding to the process' own k-point pair
-        weight_ip = np.array([weight_k[i * size:(i + 1) * size]
-                              for i in range(ni)])
+        weight_ip = [weight_k[i * size:(i + 1) * size] for i in range(ni)]
         weight_i = [None] * len(weight_ip)
         krank = self.kslrf.intrablockcomm.rank
         for i, w_p in enumerate(weight_ip):
