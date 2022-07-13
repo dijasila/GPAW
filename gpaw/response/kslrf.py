@@ -717,13 +717,13 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         tmpA_wGG = self.redistribute(A_wGG)  # distribute over frequencies
         with self.timer('Symmetrizing Kohn-Sham linear response function'):
             self.pwsa.symmetrize_wGG(tmpA_wGG)
-        self.redistribute(tmpA_wGG, A_wGG)
+        A_wGG[:] = self.redistribute(tmpA_wGG)
 
         return self.pd, A_wGG
 
     @timer('Redistribute memory')
-    def redistribute(self, in_wGG, out_x=None):
-        return self.blockdist.redistribute(in_wGG, len(self.wd), out_x=out_x)
+    def redistribute(self, in_wGG):
+        return self.blockdist.redistribute(in_wGG, len(self.wd))
 
     @timer('Distribute frequencies')
     def distribute_frequencies(self, chiks_wGG):
