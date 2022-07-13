@@ -12,6 +12,7 @@ from gpaw.response.susceptibility import read_component
 from gpaw.mpi import size, world
 
 
+@pytest.mark.kspair
 @pytest.mark.response
 def test_response_two_aluminum_chi_RPA(in_tmp_dir):
     assert size <= 4**3
@@ -28,7 +29,6 @@ def test_response_two_aluminum_chi_RPA(in_tmp_dir):
                  nbands=4,
                  kpts=(8, 8, 8),
                  parallel={'domain': 1},
-                 idiotproof=False,  # allow uneven distribution of k-points
                  xc='LDA')
 
     atoms1.calc = calc1
@@ -40,7 +40,6 @@ def test_response_two_aluminum_chi_RPA(in_tmp_dir):
                  nbands=8,
                  kpts=(4, 8, 8),
                  parallel={'domain': 1},
-                 idiotproof=False,  # allow uneven distribution of k-points
                  xc='LDA')
 
     atoms2.calc = calc2

@@ -645,9 +645,9 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 else:
                     md2.general_diagonalize_dc(H_GG, S_GG, psit_nG, eps_n)
                     if eps_n[0] < -1000:
-                        msg = f"""Lowest eigenvalue is {eps_n[0]}.
+                        msg = f"""Lowest eigenvalue is {eps_n[0]} Hartree.
 You might be suffering from MKL library bug MKLD-11440.
-see issue #241 in GPAW. Creashing to prevent corrupted results."""
+See issue #241 in GPAW. Creashing to prevent corrupted results."""
                         raise RuntimeError(msg)
 
             del H_GG, S_GG

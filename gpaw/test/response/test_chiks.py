@@ -202,7 +202,6 @@ def Fe_gs(module_tmp_path):
                 kpts={'size': (kpts, kpts, kpts), 'gamma': True},
                 nbands=nbands + 4,
                 occupations=FermiDirac(occw),
-                idiotproof=False,
                 parallel={'domain': 1},
                 # symmetry='off',
                 spinpol=True,

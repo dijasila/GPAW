@@ -35,9 +35,7 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
             psit_nG = SimpleNamespace(
                 comm=domain_comm,
                 dims=(self.nbands,),
-                desc=SimpleNamespace(comm=domain_comm,
-                                     kpt_c=kpt_c,
-                                     dtype=self.dtype),
+                desc=self.wf_desc.new(kpt=kpt_c),
                 data=None)
             wfs = PWFDWaveFunctions(
                 spin=spin,

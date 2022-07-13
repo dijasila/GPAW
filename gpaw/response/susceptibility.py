@@ -16,6 +16,7 @@ from gpaw.response.chiks import ChiKS
 from gpaw.response.kxc import get_fxc
 from gpaw.response.kernels import get_coulomb_kernel
 from gpaw.response.pw_parallelization import Blocks1D
+from gpaw.response.groundstate import ResponseGroundStateAdapter
 
 
 class FourComponentSusceptibilityTensor:
@@ -49,6 +50,7 @@ class FourComponentSusceptibilityTensor:
 
         # Load ground state calculation
         self.calc = get_calc(gs, fd=self.fd, timer=self.timer)
+        self.gs = ResponseGroundStateAdapter(self.calc)
 
         # The plane wave basis is defined by keywords
         self.ecut = None if ecut is None else ecut / Hartree
@@ -170,7 +172,7 @@ class FourComponentSusceptibilityTensor:
 
         if filename is None:
             tup = (spincomponent,
-                   *tuple((q_c * self.calc.wfs.kd.N_c).round()))
+                   *tuple((q_c * self.gs.kd.N_c).round()))
             filename = 'chi%sGG_q«%+d-%+d-%+d».pckl' % tup
 
         (omega_w, G_Gc, chiks_wGG,
@@ -272,6 +274,7 @@ class FourComponentSusceptibilityTensor:
 
         # Initialize parallelization over frequencies
         self.blocks1d = Blocks1D(self.world, len(wd))
+
         return self._calculate_component(spincomponent, q_c, wd)
 
     def _calculate_component(self, spincomponent, q_c, wd):
@@ -300,7 +303,7 @@ class FourComponentSusceptibilityTensor:
 
     def get_hartree_kernel(self, pd):
         """Calculate the Hartree kernel"""
-        Kbare_G = get_coulomb_kernel(pd, self.calc.wfs.kd.N_c)
+        Kbare_G = get_coulomb_kernel(pd, self.gs.kd.N_c)
         vsqrt_G = Kbare_G ** 0.5
         Kh_GG = np.eye(len(vsqrt_G)) * vsqrt_G * vsqrt_G[:, np.newaxis]
 

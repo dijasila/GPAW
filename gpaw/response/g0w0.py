@@ -365,14 +365,14 @@ class G0W0:
         if nblocksmax:
             nblocks = get_max_nblocks(world, calc, ecut)
 
-        self.pair = PairDensity(calc, ecut, world=world, nblocks=nblocks,
+        self.pair = PairDensity(calc, world=world, nblocks=nblocks,
                                 txt=filename + '.txt')
 
         # Steal attributes from self.pair:
         self.timer = self.pair.timer
         self.fd = self.pair.fd
-        self.calc = self.pair.calc
-        self.ecut = self.pair.ecut
+        self.gs = self.pair.gs
+        self.ecut = ecut / Ha
         self.blockcomm = self.pair.blockcomm
         self.world = self.pair.world
         self.vol = self.pair.vol
@@ -394,9 +394,7 @@ class G0W0:
                                    'with do_GW_too=True.')
 
         if Eg is None and self.xc == 'JGMsx':
-            from ase.dft.bandgap import get_band_gap
-            gap, k1, k2 = get_band_gap(self.calc)
-            Eg = gap
+            Eg = self.gs.get_band_gap()
 
         if Eg is not None:
             Eg /= Ha
@@ -419,11 +417,11 @@ class G0W0:
         self.blocks1d = None
         self.blockdist = None
 
-        self.kpts = list(select_kpts(kpts, self.calc))
+        self.kpts = list(select_kpts(kpts, self.gs.kd))
         self.bands = bands = self.choose_bands(bands, relbands)
 
         b1, b2 = bands
-        self.shape = (self.calc.wfs.nspins, len(self.kpts), b2 - b1)
+        self.shape = (self.gs.nspins, len(self.kpts), b2 - b1)
 
         if nbands is None:
             nbands = int(self.vol * self.ecut**1.5 * 2**0.5 / 3 / pi**2)
@@ -433,7 +431,7 @@ class G0W0:
                     'nbands cannot be supplied with ecut-extrapolation.')
 
         self.nbands = nbands
-        self.nspins = self.calc.wfs.nspins
+        self.nspins = self.gs.nspins
 
         if self.nspins != 1 and self.fxc_mode != 'GW':
             raise RuntimeError('Including a xc kernel does currently not '
@@ -442,7 +440,7 @@ class G0W0:
         self.pair_distribution = self.pair.distribute_k_points_and_bands(
             b1, b2, self.kd.ibz2bz_k[self.kpts])
 
-        self.qd = get_qdescriptor(self.kd, self.calc.atoms)
+        self.qd = get_qdescriptor(self.kd, self.gs.atoms)
 
         if q0_correction:
             assert self.truncation == '2D'
@@ -458,18 +456,18 @@ class G0W0:
 
     @property
     def kd(self):
-        return self.calc.wfs.kd
+        return self.gs.kd
 
     @property
     def gd(self):
-        return self.calc.wfs.gd
+        return self.gs.gd
 
     def choose_bands(self, bands, relbands):
         if bands is not None and relbands is not None:
             raise ValueError('Use bands or relbands!')
 
         if relbands is not None:
-            bands = [self.calc.wfs.nvalence // 2 + b for b in relbands]
+            bands = [self.gs.nvalence // 2 + b for b in relbands]
 
         if bands is None:
             bands = [0, self.nocc2]
@@ -510,7 +508,7 @@ class G0W0:
         for i, k in enumerate(self.kpts):
             for s in range(self.nspins):
                 u = s + k * self.nspins
-                kpt = self.calc.wfs.kpt_u[u]
+                kpt = self.gs.kpt_u[u]
                 eps_skn[s, i] = kpt.eps_n[b1:b2]
                 f_skn[s, i] = kpt.f_n[b1:b2] / kpt.weight
 
@@ -655,7 +653,7 @@ class G0W0:
         for a, Q_Gii in enumerate(Q_aGii):
             x_G = np.exp(1j * np.dot(G_Gv, (pos_av[a] -
                                             np.dot(M_vv, pos_av[a]))))
-            U_ii = self.calc.wfs.setups[a].R_sii[symop.symno]
+            U_ii = self.gs.setups[a].R_sii[symop.symno]
             Q_Gii = np.dot(np.dot(U_ii, Q_Gii * x_G[:, None, None]),
                            U_ii.T).transpose(1, 0, 2)
             if symop.sign == -1:
@@ -974,7 +972,7 @@ class G0W0:
     def _calculate_kernel(self, nG, iq, G2G):
         return calculate_kernel(ecut=self.ecut,
                                 xcflags=self.xcflags,
-                                calc=self.calc, nG=nG,
+                                gs=self.gs, nG=nG,
                                 ns=self.nspins, iq=iq,
                                 cut_G=G2G, wd=self.wd,
                                 Eg=self.Eg,
@@ -1125,7 +1123,7 @@ class G0W0:
         if vxc_skn is None:
             print('Calculating Kohn-Sham XC contribution', file=self.fd)
             self.fd.flush()
-            vxc_skn = vxc(self.calc, self.calc.hamiltonian.xc) / Ha
+            vxc_skn = vxc(self.gs, self.gs.hamiltonian.xc) / Ha
             n1, n2 = self.bands
             vxc_skn = vxc_skn[:, self.kpts, n1:n2]
             np.save(fd, vxc_skn)
@@ -1139,7 +1137,7 @@ class G0W0:
         if exx_skn is None:
             print('Calculating EXX contribution', file=self.fd)
             self.fd.flush()
-            exx = EXX(self.calc, kpts=self.kpts, bands=self.bands,
+            exx = EXX(self.gs, kpts=self.kpts, bands=self.bands,
                       txt=self.filename + '.exx.txt', timer=self.timer)
             exx.calculate()
             exx_skn = exx.get_eigenvalue_contributions() / Ha

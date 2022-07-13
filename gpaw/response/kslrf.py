@@ -165,12 +165,13 @@ class KohnShamLinearResponseFunction:  # Future PairFunctionIntegrator? XXX
                                    transitionblockscomm=self.blockcomm,
                                    kptblockcomm=self.intrablockcomm,
                                    txt=self.fd, timer=self.timer)
+        self.gs = self.kspair.gs
 
         self.mode = mode
 
         self.bandsummation = bandsummation
-        self.nbands = nbands or self.calc.wfs.bd.nbands
-        assert self.nbands <= self.calc.wfs.bd.nbands
+        self.nbands = nbands or self.gs.bd.nbands
+        assert self.nbands <= self.gs.bd.nbands
         self.nocc1 = self.kspair.nocc1  # number of completely filled bands
         self.nocc2 = self.kspair.nocc2  # number of non-empty bands
 
@@ -271,7 +272,7 @@ class KohnShamLinearResponseFunction:  # Future PairFunctionIntegrator? XXX
                                                  nocc2=self.nocc2)
         s1_S, s2_S = get_spin_transitions_domain(self.bandsummation,
                                                  self.spinrot,
-                                                 self.calc.wfs.nspins)
+                                                 self.gs.nspins)
 
         return transitions_in_composite_index(n1_M, n2_M, s1_S, s2_S)
 
@@ -299,12 +300,12 @@ class KohnShamLinearResponseFunction:  # Future PairFunctionIntegrator? XXX
     def print_information(self, nt):
         """Basic information about the input ground state, parallelization
         and sum over states"""
-        ns = self.calc.wfs.nspins
+        ns = self.gs.nspins
         nbands = self.nbands
         nocc = self.nocc1
         npocc = self.nocc2
-        nk = self.calc.wfs.kd.nbzkpts
-        nik = self.calc.wfs.kd.nibzkpts
+        nk = self.gs.kd.nbzkpts
+        nik = self.gs.kd.nibzkpts
 
         if gpaw.dry_run:
             from gpaw.mpi import DryRunCommunicator
@@ -616,7 +617,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
             evaluation of chiks_wGG is returned, otherwise the external
             descriptor is returned, corresponding to the requested chiks_wGG.
         """
-        gd = self.calc.wfs.gd
+        gd = self.gs.gd
 
         # Fall back to ecut of requested plane wave basis
         ecut = self.ecut
@@ -651,7 +652,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         from gpaw.response.symmetry import PWSymmetryAnalyzer
 
         return PWSymmetryAnalyzer(
-            self.calc.wfs.kd, pd,
+            self.gs.kd, pd,
             timer=self.timer, txt=self.fd,
             disable_point_group=self.disable_point_group,
             disable_time_reversal=self.disable_time_reversal,
@@ -923,10 +924,8 @@ class Integrator:  # --> KPointPairIntegrator in the future? XXX
         """Calculate the total crystal volume, V = Nk * V0, corresponding to
         the ground state k-point grid."""
         # Get the total number of k-points on the ground state k-point grid
-        wfs = self.kslrf.calc.wfs
-        Nk = wfs.kd.nbzkpts
-        V0 = wfs.gd.volume
-        return Nk * V0
+        gs = self.kslrf.gs
+        return gs.kd.nbzkpts * gs.volume
 
     def _integrate(self, bzk_kv, weight_k,
                    n1_t, n2_t, s1_t, s2_t, tmp_x, **kwargs):
@@ -1016,7 +1015,7 @@ class PWPointIntegrator(Integrator):
         """
         # Generate k-point domain in relative coordinates
         K_gK = self.kslrf.pwsa.group_kpoints()  # What is g? XXX
-        bzk_kc = np.array([self.kslrf.calc.wfs.kd.bzk_kc[K_K[0]] for
+        bzk_kc = np.array([self.kslrf.gs.kd.bzk_kc[K_K[0]] for
                            K_K in K_gK])  # Why only K=0? XXX
         # Compute actual k-points in absolute reciprocal space coordinates
         bzk_kv = np.dot(bzk_kc, self.kslrf.pd.gd.icell_cv) * 2 * np.pi
@@ -1031,7 +1030,7 @@ class PWPointIntegrator(Integrator):
         # The spin prefactor does not naturally belong to the k-point pair
         # integrator. Move to "add_integrand" functionality, when Integrator is
         # made independent of kslrf XXX.
-        sfrac = 2 / self.kslrf.calc.wfs.nspins
+        sfrac = 2 / self.kslrf.gs.nspins
 
         A = sfrac
 

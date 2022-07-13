@@ -8,7 +8,8 @@ https://journals.aps.org/prb/abstract/10.1103/PhysRevB.62.11556
 .. literalinclude:: VCl2.py
 .. literalinclude:: plot.py
 
-.. figure:: VCl2.png
+.. figure:: mag2d.png
+.. figure:: mag1d.png
 
 Experiential:
 
