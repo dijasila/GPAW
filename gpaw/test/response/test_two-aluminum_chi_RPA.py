@@ -55,9 +55,7 @@ def test_response_two_aluminum_chi_RPA(in_tmp_dir):
 
     # Calculate susceptibility using Al
     fcst = FourComponentSusceptibilityTensor(calc1, fxc='RPA',
-                                             eta=0.2, ecut=50,
-                                             disable_point_group=False,
-                                             disable_time_reversal=False)
+                                             eta=0.2, ecut=50)
     for q, q_c in enumerate(q1_qc):
         fcst.get_component_array('00', q_c, w, array_ecut=25,
                                  filename='Al1_chiGG_q%d.pckl' % (q + 1))
@@ -67,9 +65,7 @@ def test_response_two_aluminum_chi_RPA(in_tmp_dir):
 
     # Calculate susceptibility using Al2
     fcst = FourComponentSusceptibilityTensor(calc2, fxc='RPA',
-                                             eta=0.2, ecut=50,
-                                             disable_point_group=False,
-                                             disable_time_reversal=False)
+                                             eta=0.2, ecut=50)
     for q, q_c in enumerate(q2_qc):
         fcst.get_component_array('00', q_c, w, array_ecut=25,
                                  filename='Al2_chiGG_q%d.pckl' % (q + 1))
