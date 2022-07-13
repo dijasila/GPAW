@@ -567,7 +567,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         """
         Parameters
         ----------
-        q_c : list or ndarray or PWDescriptor
+        q_c : list or ndarray
             Wave vector
         frequencies : ndarray, dict or FrequencyDescriptor
             Array of frequencies to evaluate the response function at,
