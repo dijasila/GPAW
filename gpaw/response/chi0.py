@@ -463,7 +463,7 @@ class Chi0Calculator:
                 chi0.chi0_wvv += chi0_wxvx[:, 0, :3, :3]
                 analyzer.symmetrize_wxvG(chi0.chi0_wxvG)
                 analyzer.symmetrize_wvv(chi0.chi0_wvv)
-        chi0.blockdist.redistribute(tmpA_wxx, chi0.nw, out_x=A_wxx)
+        A_wxx[:] = chi0.blockdist.redistribute(tmpA_wxx, chi0.nw)
 
         # If point summation was used then the normalization of the
         # response function is not right and we have to make up for this
