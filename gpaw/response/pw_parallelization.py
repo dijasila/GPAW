@@ -46,7 +46,7 @@ class PlaneWaveBlockDistributor:
         self.blockcomm = blockcomm
         self.intrablockcomm = intrablockcomm
 
-    def redistribute(self, in_wGG, nw, out_x=None):
+    def redistribute(self, in_wGG, nw):
         """Redistribute array.
 
         Switch between two kinds of parallel distributions:
@@ -60,10 +60,7 @@ class PlaneWaveBlockDistributor:
         comm = self.blockcomm
 
         if comm.size == 1:
-            if out_x is None:
-                return in_wGG
-            out_x[:] = in_wGG
-            return out_x
+            return in_wGG
 
         mynw = (nw + comm.size - 1) // comm.size
         nG = in_wGG.shape[2]
@@ -83,14 +80,20 @@ class PlaneWaveBlockDistributor:
 
         r = Redistributor(comm, mdin, mdout)
 
-        outshape = (mdout.shape[0], mdout.shape[1] // nG, nG)
-        if out_x is None:
-            out_wGG = np.empty(outshape, complex)
-        else:
-            out_wGG = out_x[:np.product(outshape)].reshape(outshape)
+        # mdout.shape[1] is always divisible by nG because
+        # every block starts at a multiple of nG, and the last block
+        # ends at nG² which of course also is divisible.  Nevertheless:
+        assert mdout.shape[1] % nG == 0
+        # (If it were not divisible, we would "lose" some numbers and the
+        #  redistribution would be corrupted.)
 
-        r.redistribute(in_wGG.reshape(mdin.shape),
-                       out_wGG.reshape(mdout.shape))
+        outshape = (mdout.shape[0], mdout.shape[1] // nG, nG)
+        out_wGG = np.empty(outshape, complex)
+
+        inbuf = in_wGG.reshape(mdin.shape)
+        outbuf = out_wGG.reshape(mdout.shape)
+
+        r.redistribute(inbuf, outbuf)
 
         return out_wGG
 
