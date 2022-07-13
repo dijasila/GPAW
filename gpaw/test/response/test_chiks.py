@@ -46,7 +46,7 @@ def generate_gc_g():
 
 
 @pytest.mark.response
-@pytest.mark.parametrize('q_c,eta,gammacentered', product(generate_q_qc(), 
+@pytest.mark.parametrize('q_c,eta,gammacentered', product(generate_q_qc(),
                                                           generate_eta_e(),
                                                           generate_gc_g()))
 def test_Fe_chiks(in_tmp_dir, Fe_gs, q_c, eta, gammacentered):
@@ -142,7 +142,7 @@ def test_Fe_chiks(in_tmp_dir, Fe_gs, q_c, eta, gammacentered):
             # is_bad = err > 1.e-8 + rtol * np.absolute(chi1r_GG)
             # print(is_bad)
             # print(np.absolute(err[is_bad]) / np.absolute(chi1r_GG[is_bad]))
-            assert np.allclose(np.conj(chi2r_GG[invmap_GG]), chi1r_GG, 
+            assert np.allclose(np.conj(chi2r_GG[invmap_GG]), chi1r_GG,
                                rtol=rtol)
 
         # Check the reciprocity of the full susceptibility
