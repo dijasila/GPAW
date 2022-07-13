@@ -503,7 +503,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
     """Class for doing KS-LRF calculations in plane wave mode"""
 
     def __init__(self, *args, eta=0.2, ecut=50, gammacentered=False,
-                 disable_point_group=True, disable_time_reversal=True,
+                 disable_point_group=False, disable_time_reversal=False,
                  disable_non_symmorphic=True, bundle_integrals=True,
                  kpointintegration='point integration', **kwargs):
         """Initialize the plane wave calculator mode.

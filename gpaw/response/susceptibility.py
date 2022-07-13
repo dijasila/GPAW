@@ -23,7 +23,7 @@ class FourComponentSusceptibilityTensor:
 
     def __init__(self, gs, fxc='ALDA', fxckwargs={},
                  eta=0.2, ecut=50, gammacentered=False,
-                 disable_point_group=True, disable_time_reversal=True,
+                 disable_point_group=False, disable_time_reversal=False,
                  bandsummation='pairwise', nbands=None, bundle_integrals=True,
                  world=mpi.world, nblocks=1, txt=sys.stdout):
         """
