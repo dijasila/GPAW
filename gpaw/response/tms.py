@@ -65,23 +65,7 @@ class TransverseMagneticSusceptibility(FCST):
                                         frequencies, array_ecut=array_ecut,
                                         filename=filename, txt=txt)
 
-    def _calculate_component(self, spincomponent, pd, wd):
-        """Calculate a transverse magnetic susceptibility element.
-
-        Returns
-        -------
-        pd, wd, chiks_wGG, chi_wGG : see gpaw.response.susceptibility
-        """
-        chiks_wGG = self.calculate_ks_component(spincomponent, pd,
-                                                wd, txt=self.cfd)
-        Kxc_GG = self.get_xc_kernel(spincomponent, pd,
-                                    chiks_wGG=chiks_wGG, txt=self.cfd)
-
-        chi_wGG = self.invert_dyson(chiks_wGG, Kxc_GG)
-
-        return pd, wd, chiks_wGG, chi_wGG
-
-    def get_xc_kernel(self, spincomponent, pd, chiks_wGG=None, txt=None):
+    def get_xc_kernel(self, spincomponent, pd, chiks_wGG=None):
         """Get the exchange correlation kernel."""
         Kxc_GG = self.fxc(spincomponent, pd, txt=self.cfd)
 

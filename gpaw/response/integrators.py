@@ -182,6 +182,9 @@ class PointIntegrator(Integrator):
                 self.update(n_MG, deps_M, x, out_wxx, **extraargs)
 
         # Sum over
+        # Can this really be valid, if the original input out_wxx is nonzero?
+        # This smells and should be investigated XXX
+        # There could also be similar errors elsewhere... XXX
         self.kncomm.sum(out_wxx)
 
         if (hermitian or hilbert) and self.blockcomm.size == 1 and not wings:
