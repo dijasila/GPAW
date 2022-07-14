@@ -120,10 +120,10 @@ def generate_fm_dynamic_spin_wave_matrix(J_qabx, q_qc, mm_ax):
     # Get J^ab(0)
     q0 = get_q0_index(q_qc)
     J0_acx = J_qabx[q0]
-    assert np.allclose(J0_acx.imag, 0.),\
-        "For a collinear system without spin-orbit coupling, the exchange "\
-        "constants are not only isotropic, but also reciprocal. In "\
-        "particular, this implies that [J^ab(q)]^*=J^ab(-q)."
+    # assert np.allclose(J0_acx.imag, 0.),\
+    #     "For a collinear system without spin-orbit coupling, the exchange "\
+    #     "constants are not only isotropic, but also reciprocal. In "\
+    #     "particular, this implies that [J^ab(q)]^*=J^ab(-q)."
 
     # Set up magnetic moment prefactor as outer product
     mm_inv_abx = 2. / np.sqrt(mm_ax[:, np.newaxis, ...]
