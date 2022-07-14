@@ -98,11 +98,13 @@ for n in range(2):
 
 # Secondly, we plot the dispersion with inequivalent spherical sites
 Eineq_qn = Esph1_qnr[..., np.where(np.abs(rc_r - rineq) < 1.e-8)[0][0]]
-plt.plot(pathq_q, Eineq_qn[:, 0], color=colors[1], label='ineq. spheres')
-plt.plot(pathq_q, Eineq_qn[:, 1], color=colors[1])
+plt.plot(pathq_q, Eineq_qn[:, 0], '-o',
+         mec='k', color=colors[1], label='ineq. spheres')
+plt.plot(pathq_q, Eineq_qn[:, 1], '-o',
+         mec='k', color=colors[1])
 
 # Lastly plot the magnon dispersion with only a single site in the unit cell
-plt.plot(pathq_q, Emix_qp[:, 0], '-o',
+plt.plot(pathq_q, Emix_qp[:, 0], '-v',
          mec='k', color=colors[2], label='unit cell')
 plt.plot(pathq_q, Emix_qp[:, 1], '-^',
          mec='k', color=colors[3], label='cylinder')
