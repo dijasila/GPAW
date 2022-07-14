@@ -29,8 +29,8 @@ Jsph2_qabr = np.load('Co_Jsph2_qabr.npy')
 Jmix_qp = np.load('Co_Jmix_qp.npy')
 
 # Define range of spherical radii to plot
-rmin = 0.9
-rmax = 1.5
+rmin = 1.0
+rmax = 1.4
 
 # Define a radius for the "best estimate"
 rbest = 1.2
