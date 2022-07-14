@@ -758,13 +758,8 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         tmpA_wGG = self.redistribute(A_wGG)  # distribute over frequencies
         with self.timer('Symmetrizing Kohn-Sham linear response function'):
             self.pwsa.symmetrize_wGG(tmpA_wGG)
-        A_wGG = self.redistribute(tmpA_wGG)  # distribute over plane waves
-        # Unfortunately, we cannot reuse the A_wGG array, as the redistributor
-        # will, for some reason, return the given output array without updating
-        # it. For example, the final A_wGG will be zero in the following case:
-        # A_wGG = np.zeros_like(A_wGG)
-        # self.redistribute(tmpA_wGG, out_x=A_wGG)
-        # This is not the wanted behaviour and should be fixed. XXX
+        A_wGG[:] = self.redistribute(tmpA_wGG)  # distribute over plane waves
+        # A_wGG = self.redistribute(tmpA_wGG)
 
         if self.gammacentered and not self.disable_symmetries:
             # Reduce the q-specific basis to the global basis
@@ -809,8 +804,8 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         return newA_wGG
 
     @timer('Redistribute memory')
-    def redistribute(self, in_wGG, out_x=None):
-        return self.blockdist.redistribute(in_wGG, len(self.wd), out_x=out_x)
+    def redistribute(self, in_wGG):
+        return self.blockdist.redistribute(in_wGG, len(self.wd))
 
     @timer('Distribute frequencies')
     def distribute_frequencies(self, chiks_wGG):

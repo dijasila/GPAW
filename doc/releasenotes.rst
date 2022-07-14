@@ -36,6 +36,12 @@ Git master branch
 
 * :ref:`LrTDDFT <lrtddft>` works now also with LCAO-mode wave functions.
 
+* GLLBSC functional uses now automatically Fermi level as the reference
+  energy (GLLBSCM behavior) when the system has no band gap.
+  This resolves "GLLBSC error: HOMO is higher than LUMO" observed in some
+  systems during SCF iterations.
+  See `!854 <https://gitlab.com/gpaw/gpaw/-/merge_requests/854>`_ for details.
+
 
 Version 22.1.0
 ==============
