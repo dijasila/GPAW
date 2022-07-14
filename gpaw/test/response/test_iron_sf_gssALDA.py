@@ -22,6 +22,7 @@ from gpaw.test import findpeak, equal
 from gpaw.mpi import world
 
 
+@pytest.mark.kspair
 @pytest.mark.response
 def test_response_iron_sf_gssALDA(in_tmp_dir):
     # ------------------- Inputs ------------------- #
@@ -41,6 +42,10 @@ def test_response_iron_sf_gssALDA(in_tmp_dir):
     fxc_scaling = [True, None, 'fm']
     ecut = 300
     eta = 0.01
+    if world.size > 1:
+        nblocks = 2
+    else:
+        nblocks = 1
 
     # ------------------- Script ------------------- #
 
@@ -56,7 +61,6 @@ def test_response_iron_sf_gssALDA(in_tmp_dir):
                 kpts=monkhorst_pack((kpts, kpts, kpts)),
                 nbands=nb,
                 symmetry={'point_group': False},
-                idiotproof=False,
                 parallel={'domain': 1})
 
     Febcc.calc = calc
@@ -71,7 +75,8 @@ def test_response_iron_sf_gssALDA(in_tmp_dir):
                                            eta=eta,
                                            ecut=ecut,
                                            fxckwargs=fxckwargs,
-                                           nblocks=1)
+                                           gammacentered=True,
+                                           nblocks=nblocks)
 
     for q in range(2):
         tms.get_macroscopic_component(

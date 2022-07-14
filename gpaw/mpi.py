@@ -713,6 +713,7 @@ rank = world.rank
 size = world.size
 parallel = (size > 1)
 
+assert aseworld is not None
 if world.size != aseworld.size:
     raise RuntimeError('Please use "gpaw python" to run in parallel')
 

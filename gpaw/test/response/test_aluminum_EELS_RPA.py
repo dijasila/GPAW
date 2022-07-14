@@ -26,7 +26,6 @@ def test_response_aluminum_EELS_RPA(in_tmp_dir):
                 nbands=4,
                 kpts=(4, 4, 4),
                 parallel={'band': 1},
-                idiotproof=False,  # allow uneven distribution of k-points
                 xc='LDA')
 
     atoms.calc = calc

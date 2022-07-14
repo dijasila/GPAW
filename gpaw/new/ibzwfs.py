@@ -71,7 +71,7 @@ class IBZWaveFunctions:
         self.dtype = wfs.dtype
         self.nbands = wfs.nbands
 
-        self.fermi_levels = None
+        self.fermi_levels: Array1D | None = None
 
         self.energies: dict[str, float] = {}
 
@@ -154,7 +154,7 @@ class IBZWaveFunctions:
                                        spin=0,
                                        grid_spacing=0.05,
                                        skip_paw_correction=False):
-        wfs = self.get_wfs(kpt, spin, band, band + 1)
+        wfs = self.get_wfs(kpt=kpt, spin=spin, n1=band, n2=band + 1)
         if wfs is None:
             return None
         assert isinstance(wfs, PWFDWaveFunctions)
@@ -170,6 +170,7 @@ class IBZWaveFunctions:
         return psi_r
 
     def get_wfs(self,
+                *,
                 kpt: int = 0,
                 spin: int = 0,
                 n1=0,
@@ -238,6 +239,7 @@ class IBZWaveFunctions:
         also the wave functions.
         """
         eig_skn, occ_skn = self.get_all_eigs_and_occs()
+        assert self.fermi_levels is not None
         writer.write(fermi_levels=self.fermi_levels * Ha,
                      eigenvalues=eig_skn * Ha,
                      occupations=occ_skn)

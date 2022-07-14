@@ -52,6 +52,8 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         if pw.comm.rank == 0:
             indices = self.pw0.indices(self.fftplan.tmp_Q.shape)
             nt0_g = self.pw0.zeros()
+        else:
+            nt0_g = None
 
         ndensities = nt_sR.dims[0] % 3
         for spin, (nt_R, nt_r) in enumerate(zip(nt_sR, nt_sr)):

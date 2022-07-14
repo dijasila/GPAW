@@ -30,7 +30,18 @@ Git master branch
 * :ref:`spinspiral calculations`.  See also
   :git:`~gpaw/test/spinspiral/h_chain_test.py`.
 
+* :ref:`soc`.
+
 * The GW0 feature has been removed.
+
+* :ref:`LrTDDFT <lrtddft>` works now also with LCAO-mode wave functions.
+
+* GLLBSC functional uses now automatically Fermi level as the reference
+  energy (GLLBSCM behavior) when the system has no band gap.
+  This resolves "GLLBSC error: HOMO is higher than LUMO" observed in some
+  systems during SCF iterations.
+  See `!854 <https://gitlab.com/gpaw/gpaw/-/merge_requests/854>`_ for details.
+
 
 Version 22.1.0
 ==============
@@ -119,9 +130,6 @@ Jan 12, 2022: :git:`22.1.0 <../22.1.0>`
 * Radiative emission (lifetimes, ...) are obtainable from
   real-time LCAO-TDDFT via the radiation-reaction potential.
   See the tutorial: :ref:`radiation_reaction_rttddft`.
-
-* Input parameters are now written to the log file in such a way that it
-  can be copy-pasted directly into a Python script.
 
 
 Version 21.6.0

@@ -48,7 +48,7 @@ def check(atoms, xc, i):
         c.write('tmp.gpw', 'all')
         c = GPAW('tmp.gpw', communicator=serial_comm, txt=None)
 
-    xc2 = EXX(c, xc=xc, bands=(0, 2), txt=None)
+    xc2 = EXX(c.gs_adapter(), xc=xc, bands=(0, 2), txt=None)
     xc2.calculate()
     # e0 = xc2.get_exx_energy()
     et0 = xc2.get_total_energy()

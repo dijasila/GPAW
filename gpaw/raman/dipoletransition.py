@@ -1,6 +1,6 @@
 import numpy as np
 
-from ase.parallel import world
+from gpaw.mpi import world
 from gpaw.typing import ArrayND
 
 

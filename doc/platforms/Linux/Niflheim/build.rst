@@ -89,6 +89,9 @@ submit to Niflheim.  Here are three ways to do it (pick one, and only one):
 
    (skips the *sm3090* GPU-enabled nodes).
 
+* If you have MyQueue version 22.7.0 or later (``mq --version``) then the
+  venv will automatically be activated if it was activated at submit time.
+
 
 Adding additional packages
 ==========================
@@ -102,6 +105,12 @@ to install ASR_::
     $ pip install ./asr  # from a git clone
     $ pip install -e asr  # use source code from a git clone directly
 
+.. warning::
+
+    Pip may need co compile some code.
+    It is therefore safest to use the ``thul`` login node to pip install
+    software as it is the oldest CPU architcture and the other login nodes
+    will understand its code.
 
 .. _ASR: https://asr.readthedocs.io/en/latest/
 

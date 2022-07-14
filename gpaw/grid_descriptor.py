@@ -18,8 +18,9 @@ from scipy.ndimage import map_coordinates
 import _gpaw
 import gpaw.mpi as mpi
 from gpaw.domain import Domain
+from gpaw.new import prod
 from gpaw.typing import Array1D, Array3D, Vector
-from gpaw.utilities.blas import gemm, r2k, rk
+from gpaw.utilities.blas import mmm, r2k, rk
 
 NONBLOCKING = False
 
@@ -299,8 +300,9 @@ class GridDescriptor(Domain):
                     self.comm.sum(result)
             return result
 
-        A_xg = np.ascontiguousarray(a_xg.reshape((-1,) + a_xg.shape[-3:]))
-        B_yg = np.ascontiguousarray(b_yg.reshape((-1,) + b_yg.shape[-3:]))
+        gsize = prod(a_xg.shape[-3:])
+        A_xg = np.ascontiguousarray(a_xg.reshape((-1, gsize)))
+        B_yg = np.ascontiguousarray(b_yg.reshape((-1, gsize)))
 
         if _transposed_result is None:
             result_yx = np.zeros((len(B_yg), len(A_xg)), A_xg.dtype)
@@ -313,7 +315,8 @@ class GridDescriptor(Domain):
         elif hermitian:
             r2k(0.5 * self.dv, A_xg, B_yg, 0.0, result_yx)
         else:
-            gemm(self.dv, A_xg, B_yg, 0.0, result_yx, 'c')
+            # gemm(self.dv, A_xg, B_yg, 0.0, result_yx, 'c')
+            mmm(self.dv, B_yg, 'N', A_xg, 'C', 0.0, result_yx)
 
         if global_integral:
             self.comm.sum(result_yx)

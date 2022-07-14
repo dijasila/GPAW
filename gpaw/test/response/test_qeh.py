@@ -29,7 +29,7 @@ class FragileBB(BuildingBlock):
         BuildingBlock.update_building_block(self, *args, **kwargs)
 
 
-def dielectric(calc, domega, omega2):
+def dielectric(calc, domega, omega2, rate=0.0):
     diel = DielectricFunction(calc=calc,
                               frequencies={'type': 'nonlinear',
                                            'omegamax': 10,
@@ -37,6 +37,7 @@ def dielectric(calc, domega, omega2):
                                            'omega2': omega2},
                               nblocks=1,
                               ecut=10,
+                              rate=rate,
                               truncation='2D')
     return diel
 
@@ -48,7 +49,7 @@ def test_basics(in_tmp_dir, gpw_files):
     interpolate_building_blocks = qeh.interpolate_building_blocks
     Heterostructure = qeh.Heterostructure
 
-    df = dielectric(gpw_files['graphene_pw_wfs'], 0.2, 0.6)
+    df = dielectric(gpw_files['graphene_pw_wfs'], 0.2, 0.6, rate=0.001)
     df2 = dielectric(gpw_files['mos2_pw_wfs'], 0.1, 0.5)
 
     # Testing to compute building block

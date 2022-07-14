@@ -16,7 +16,6 @@ def test_pw_slab():
     calc = GPAW(mode=PW(200),
                 eigensolver='rmm-diis',
                 parallel={'band': min(world.size, 4)},
-                idiotproof=0,
                 kpts=(k, k, 1))
     slab.calc = calc
     BFGS(slab).run(fmax=0.01)
