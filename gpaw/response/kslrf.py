@@ -759,7 +759,6 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         with self.timer('Symmetrizing Kohn-Sham linear response function'):
             self.pwsa.symmetrize_wGG(tmpA_wGG)
         A_wGG[:] = self.redistribute(tmpA_wGG)  # distribute over plane waves
-        # A_wGG = self.redistribute(tmpA_wGG)
 
         if self.gammacentered and not self.disable_symmetries:
             # Reduce the q-specific basis to the global basis
