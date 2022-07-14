@@ -206,16 +206,15 @@ def test_Co_hcp(in_tmp_dir):
     cc_v = np.sum(cell_cv, axis=0) / 2.  # Unit cell center
     ucsitekernels = ParallelepipedicSiteKernels([cc_v], [[cell_cv]])
 
-    # Initialize the exchange calculator with and without eta
+    # Initialize the exchange calculator with and without eta,
+    # as well as with and without symmetry
     chiks0 = ChiKS(calc,
-                   disable_point_group=False,
-                   disable_time_reversal=False,
+                   disable_point_group=True,
+                   disable_time_reversal=True,
                    ecut=ecut, nbands=nbands, eta=eta0,
                    gammacentered=True)
     isoexch_calc0 = IsotropicExchangeCalculator(chiks0)
     chiks1 = ChiKS(calc,
-                   disable_point_group=False,
-                   disable_time_reversal=False,
                    ecut=ecut, nbands=nbands, eta=eta1,
                    gammacentered=True)
     isoexch_calc1 = IsotropicExchangeCalculator(chiks1)
