@@ -46,7 +46,7 @@ qGA_qc = np.array([[0., 0., x / kpts]
                    for x in range(kpts // 2 + 1)])
 q_qc = np.vstack([qGM_qc, qMK_qc[1:], qKG_qc[1:], qGA_qc[1:]])
 
-# Define the Co site radii to try for the spherical site kernels
+# We define several Co site radii to try for the spherical site kernels
 rc_r = np.linspace(0.5, 1.75, 51)
 
 # ---------- Script ---------- #
@@ -98,7 +98,7 @@ ez_v = d_v / d  # normalized cylinder axis
 # Use the average covalent radii as the cylinder radius
 rc = np.average([covalent_radii[n] for n in atoms.get_atomic_numbers()])
 # Cylinder height
-hc = d + rc
+hc = d + 2 * rc
 cyl_sitekernels = CylindricalSiteKernels([center_v], [[ez_v]], [[rc]], [[hc]])
 # Because both the unit cell and cylindrical site kernels are placed at the
 # same position (the cell center), we may view them as spatial partitionings
