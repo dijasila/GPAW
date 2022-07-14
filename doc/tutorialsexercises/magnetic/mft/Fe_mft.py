@@ -37,7 +37,7 @@ qGH_qc = np.array([[x / kpts, -x / kpts, x / kpts]
                    for x in range(kpts // 2 + 1)])
 q_qc = np.vstack([qGN_qc, qNP_qc[1:], qPG_qc[1:], qGH_qc[1:]])
 
-# Define the Fe site radii to try for the spherical site kernels
+# We define several Fe site radii to try for the spherical site kernels
 rc_r = np.linspace(0.5, 1.75, 51)
 
 # ---------- Script ---------- #
