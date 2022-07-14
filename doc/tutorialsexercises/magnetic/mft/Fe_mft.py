@@ -45,7 +45,9 @@ rc_r = np.linspace(0.5, 1.75, 51)
 # Initialize the ChiKS calculator, which is responsible for computing the
 # transverse magnetic susceptibility of the Kohn-Sham system
 chiks = ChiKS(gpw,
-              ecut=ecut, nbands=nbands, eta=eta, txt='Fe_chiks.txt')
+              ecut=ecut, nbands=nbands, eta=eta,
+              gammacentered=True,  # Plane wave basis needs to be q-invariant
+              txt='Fe_chiks.txt')
 # When initialized from a file, the ChiKS calculator has a serial copy of
 # the ground state calculator. From it, we extract the atoms
 atoms = chiks.calc.atoms

@@ -61,7 +61,9 @@ atoms.get_potential_energy()
 
 # Initialize the ChiKS calculator
 chiks = ChiKS(calc,
-              ecut=ecut, nbands=nbands, eta=eta, txt='Co_chiks.txt')
+              ecut=ecut, nbands=nbands, eta=eta,
+              gammacentered=True,
+              txt='Co_chiks.txt')
 
 # Initialize the exchange calculator
 isoexch_calc = IsotropicExchangeCalculator(chiks)
