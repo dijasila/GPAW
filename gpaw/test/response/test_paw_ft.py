@@ -53,7 +53,6 @@ def test_Fe_bxc(in_tmp_dir):
                 kpts={'size': (kpts, kpts, kpts), 'gamma': True},
                 nbands=nbands + 4,
                 occupations=FermiDirac(occw),
-                idiotproof=False,
                 parallel={'domain': 1},
                 spinpol=True,
                 convergence=conv
