@@ -173,11 +173,35 @@ class IsotropicExchangeCalculator:
         pd, chiks_wGG = self.chiks.calculate(q_c, frequencies,
                                              spincomponent='+-',
                                              txt=txt)
+        symmetrize_reciprocity(pd, chiks_wGG)
 
         # Take the reactive part
         chiksr_GG = 1 / 2. * (chiks_wGG[0] + np.conj(chiks_wGG[0]).T)
 
         return pd, chiksr_GG
+
+
+def symmetrize_reciprocity(pd, A_wGG):
+    """In collinear systems without spin-orbit coupling, the plane wave
+    susceptibility is reciprocal in the sense that
+
+    χ_(GG')^(+-)(q, ω) = χ_(-G'-G)^(+-)(-q, ω)
+
+    This method symmetrizes A_wGG in the case where q=0.
+    """
+    from gpaw.test.response.test_chiks import get_inverted_pw_mapping
+
+    q_c = pd.kd.bzk_kc[0]
+    if np.allclose(q_c, 0.):
+        invmap_GG = get_inverted_pw_mapping(pd, pd)
+        for A_GG in A_wGG:
+            tmp_GG = np.zeros_like(A_GG)
+
+            # Symmetrize
+            # [χ_(GG')^(+-)(q, ω) + χ_(-G'-G)^(+-)(-q, ω)] / 2
+            tmp_GG += A_GG
+            tmp_GG += A_GG[invmap_GG].T
+            A_GG[:] = tmp_GG / 2.
 
 
 class PlaneWaveBxc(PlaneWaveAdiabaticFXC):
