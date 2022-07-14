@@ -7,7 +7,7 @@ from typing import IO, Any, Union
 from ase import Atoms
 from ase.units import Bohr, Ha
 from gpaw import __version__
-from gpaw.new import Timer
+from gpaw.new import Timer, cached_property
 from gpaw.new.calculation import DFTCalculation, DFTState, units
 from gpaw.new.gpw import read_gpw, write_gpw
 from gpaw.new.input_parameters import InputParameters
@@ -226,7 +226,13 @@ class ASECalculator:
         return self.calculation.electrostatic_potential().atomic_potentials()
 
     def get_pseudo_density(self, spin=None):
-        return self.calculation.densities.pseudo_densities().data
+        return self.calculation.densities().pseudo_densities().data
+
+    def get_all_electron_density(self, spin=None, gridrefinement=1):
+        assert spin is None
+        n_sr = self.calculation.densities().all_electron_densities(
+            grid_refinement=gridrefinement)
+        return n_sr.data.sum(0)
 
     def get_eigenvalues(self, kpt=0, spin=0):
         state = self.calculation.state
@@ -249,7 +255,7 @@ class ASECalculator:
     def calculate(self, atoms):
         self.get_potential_energy(atoms)
 
-    @property
+    @cached_property
     def wfs(self):
         from gpaw.new.backwards_compatibility import FakeWFS
         return FakeWFS(self.calculation, self.atoms)
@@ -268,6 +274,10 @@ class ASECalculator:
     def spos_ac(self):
         return self.atoms.get_scaled_positions()
 
+    @property
+    def world(self):
+        return self.calculation.scf_loop.world
+
     def get_xc_difference(self, xcparams):
         """Calculate non-selfconsistent XC-energy difference."""
         state = self.calculation.state
@@ -281,9 +291,9 @@ class ASECalculator:
         return (exct + dexc - state.potential.energies['xc']) * Ha
 
     def diagonalize_full_hamiltonian(self,
-                                     nbands=None,
+                                     nbands: int = None,
                                      scalapack=None,
-                                     expert=None):
+                                     expert: bool = None) -> None:
         if expert is not None:
             warnings.warn('Ignoring deprecated "expert" argument')
         state = self.calculation.state
@@ -296,6 +306,11 @@ class ASECalculator:
                                           state.potential)
         nbands = ibzwfs.nbands
         self.params.nbands = nbands
+        self.params.keys.append('nbands')
+
+    def gs_adapter(self):
+        from gpaw.response.groundstate import ResponseGroundStateAdapter
+        return ResponseGroundStateAdapter(self)
 
 
 def write_header(log, world, params):

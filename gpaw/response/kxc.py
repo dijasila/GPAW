@@ -201,7 +201,7 @@ class PlaneWaveAdiabaticFXC(FXC):
         print('    Calculating all-electron density', file=self.cfd)
         with self.timer('Calculating all-electron density'):
             n_sG, gd1 = self.gs.all_electron_density(gridrefinement=1)
-            assert gd1 is gd
+            assert (gd1.n_c == gd.n_c).all()
             assert gd1.comm.size == 1
             return n_sG
 

@@ -202,8 +202,8 @@ class PlaneWaves(Domain):
             return PlaneWaveAtomCenteredFunctions(functions, positions, self,
                                                   atomdist=atomdist)
 
-        from gpaw.new.spinspiral import SpiralPWAFC
-        return SpiralPWAFC(functions, positions, self,
+        from gpaw.new.spinspiral import SpiralPWACF
+        return SpiralPWACF(functions, positions, self,
                            atomdist=atomdist,
                            qspiral_v=self.qspiral_v)
 

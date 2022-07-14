@@ -6,7 +6,7 @@ from gpaw.utilities import convert_string_to_fd
 from ase.utils.timing import Timer, timer
 
 from gpaw import disable_dry_run
-from gpaw.calculator import GPAW
+from gpaw import GPAW
 import gpaw.mpi as mpi
 from gpaw.response.math_func import two_phi_planewave_integrals
 from gpaw.response.symmetry import KPointFinder
@@ -852,7 +852,7 @@ class KohnShamPair:
 
 def get_calc(gs, fd=None, timer=None):
     """Get ground state calculation object."""
-    if isinstance(gs, GPAW):
+    if not isinstance(gs, (str, Path)):
         return gs
     else:
         if timer is None:
