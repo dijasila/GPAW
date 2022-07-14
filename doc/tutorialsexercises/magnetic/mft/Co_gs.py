@@ -16,7 +16,7 @@ xc = 'LDA'
 pw = 800  # eV
 # For a hcp crystal, a k-point grid that samples a multiple of 6 k-points
 # along all axes will support calculations at the high-symmetry points M, K and
-# A. We choose N_k^(1/3)=30, also used in [arXiv:2204.04169].
+# A. We choose N_k^(1/3)=30, which is also used in [arXiv:2204.04169].
 kpts = 30  # final grid is (kpts, kpts, kpts)
 nbands_mft = 2 * 6  # natoms * (4s + 3d)
 nbands_gs = nbands_mft + 2 * 4  # + natoms * (4p + 5s)
