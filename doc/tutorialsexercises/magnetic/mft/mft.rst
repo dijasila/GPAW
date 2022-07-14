@@ -1,8 +1,8 @@
 .. _mft:
 
-===============================================
-Magnon energies from the magnetic force theorem
-===============================================
+=================================================
+Magnon dispersion from the magnetic force theorem
+=================================================
 
 A magnon is a collective spin wave excitation carrying a single unit of spin
 angular momentum. The magnon quasi-particles can be viewed as the bosons that
@@ -14,6 +14,37 @@ response formulation.
 =================
 Background theory
 =================
+
+In the classical isotropic Heisenberg model, the system energy can be computed
+directly from the orientations `\mathbf{u}_{ia}` of the magnetic moments of the
+crystal, where `\mathbf{R}_i` is the point on the Bravais lattice corresponding
+to the `i`'th unit cell and `a` indexes the sublattice. The energy is
+parametrized in terms of the Heisenberg exchange parameters as follows:
+
+.. math::
+
+   E_{\mathrm{H}} = - \frac{1}{2} \sum_{i,j} \sum_{a,b} J_{i,j}^{a,b}
+   \mathbf{u}_{ia} \cdot \mathbf{u}_{jb}.
+
+From the Heisenberg exchange parameters, one can compute the magnon dispersion
+of the system using linear spin wave theory. In particular, the magnon energies
+`\hbar\omega_n(\mathbf{q})`, where `n` is the mode index, is given as a
+function of the wave vector `\mathbf{q}` by the eigenvalues to the dynamic spin
+wave matrix
+
+.. math::
+
+   H^{ab}(\mathbf{q}) = \frac{g\mu_{\mathrm{B}}}{\sqrt{M_a M_b}}
+   \left[\sum_c \bar{J}^{ac}(\mathbf{0}) - \bar{J}^{ab}(\mathbf{q})\right].
+
+Here `M_a` denotes the sublattice magnetization and `\bar{J}^{ab}(\mathbf{q})`
+is the periodic part of the lattice Fourier transform of the exchange
+parameters:
+
+.. math::
+
+   \bar{J}^{ab}(\mathbf{q}) = \sum_i J_{0i}^{ab}
+   e^{i\mathbf{q}\cdot\mathbf{R}_i}.
 
 Using a classical, isotropic Heisenberg model, the magnon energy for a given
 wavevector, `\mathbf{q}`, can be computed from the Heisenberg exchange
