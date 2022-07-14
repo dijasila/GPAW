@@ -1,16 +1,17 @@
 import numbers
+from pathlib import Path
 
 import numpy as np
 
 from ase.utils.timing import timer
 
 import gpaw.mpi as mpi
-from gpaw.calculator import GPAW
 from gpaw import disable_dry_run
+from gpaw import GPAW
 from gpaw.fd_operators import Gradient
 from gpaw.response.pw_parallelization import block_partition
-from gpaw.utilities.blas import mmm
 from gpaw.response.symmetry import KPointFinder
+from gpaw.utilities.blas import mmm
 from gpaw.response.context import new_context
 
 
@@ -662,7 +663,7 @@ class NoCalculatorPairDensity:
 def normalize_args(calc, txt, world, timer):
     context = new_context(txt, world, timer)
     with context.timer('Read ground state'):
-        if not isinstance(calc, GPAW):
+        if isinstance(calc, (str, Path)):
             print('Reading ground state calculation:\n  %s' % calc,
                   file=context.fd)
             with disable_dry_run():

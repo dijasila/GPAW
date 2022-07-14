@@ -2,7 +2,6 @@ import pytest
 from ase.build import bulk
 from ase.dft.kpoints import monkhorst_pack
 from gpaw import GPAW, FermiDirac
-from gpaw.test import equal
 from gpaw.xc.fxc import FXCCorrelation
 from gpaw.mpi import world, serial_comm
 
@@ -40,6 +39,6 @@ def test_ralda_ralda_energy_Ni(in_tmp_dir, scalapack):
                            nfrequencies=8, skip_gamma=True)
     E_rapbe = rapbe.calculate(ecut=[50])
 
-    equal(E_rpa, -7.827, 0.01)
-    equal(E_ralda, -7.501, 0.01)
-    equal(E_rapbe, -7.444, 0.01)
+    assert E_rpa == pytest.approx(-7.827, abs=0.01)
+    assert E_ralda == pytest.approx(-7.501, abs=0.01)
+    assert E_rapbe == pytest.approx(-7.444, abs=0.01)

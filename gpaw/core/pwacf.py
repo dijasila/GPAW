@@ -146,7 +146,7 @@ class PWLFC(BaseLFC):
         if self.pw.dtype == float:
             self.eikR_a = np.ones(len(spos_ac))
         else:
-            self.eikR_a = np.exp(2j * pi * (spos_ac @ self.pw.kpt))
+            self.eikR_a = np.exp(2j * pi * (spos_ac @ self.pw.kpt_c))
 
         self.pos_av = np.dot(spos_ac, self.pw.cell)
 

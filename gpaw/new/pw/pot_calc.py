@@ -119,14 +119,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
             vt_sR.data[1] = vt_sR.data[0]
         vt_sR.data[density.ndensities:] = 0.0
 
-        vtmp_R = vt_sR.desc.empty()
-        e_kinetic = 0.0
-        for spin, (vt_R, vxct_r) in enumerate(zip(vt_sR, vxct_sr)):
-            vxct_r.fft_restrict(self.fftplan2, self.fftplan, out=vtmp_R)
-            vt_R.data += vtmp_R.data
-            e_kinetic -= vt_R.integrate(density.nt_sR[spin])
-            if spin < density.ndensities:
-                e_kinetic += vt_R.integrate(self.nct_R)
+        e_kinetic = self._restrict(vxct_sr, vt_sR, density)
 
         e_external = 0.0
 
@@ -135,6 +128,18 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                 'zero': e_zero,
                 'xc': e_xc,
                 'external': e_external}, vt_sR, vHt_h
+
+    def _restrict(self, vxct_sr, vt_sR, density=None):
+        vtmp_R = vt_sR.desc.empty()
+        e_kinetic = 0.0
+        for spin, (vt_R, vxct_r) in enumerate(zip(vt_sR, vxct_sr)):
+            vxct_r.fft_restrict(self.fftplan2, self.fftplan, out=vtmp_R)
+            vt_R.data += vtmp_R.data
+            if density:
+                e_kinetic -= vt_R.integrate(density.nt_sR[spin])
+                if spin < density.ndensities:
+                    e_kinetic += vt_R.integrate(self.nct_R)
+        return e_kinetic
 
     def _move_nct(self, fracpos_ac, ndensities):
         self.ghat_aLh.move(fracpos_ac)
