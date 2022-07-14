@@ -32,9 +32,6 @@ Jmix_qp = np.load('Co_Jmix_qp.npy')
 rmin = 1.0
 rmax = 1.4
 
-# Define a radius for the "best estimate"
-rbest = 1.2
-
 # Define a radius to plot the inequivalent spherical site model for
 rineq = 0.6
 
@@ -79,11 +76,13 @@ Esph2_qnr = np.sort(Esph2_qnr, axis=1)
 # sublattice site kernels
 colors = rcParams['axes.prop_cycle'].by_key()['color']
 # We define the lower bound on the magnon energy as the minimum within the
-# chosen rc range and the upper bound as the maximum value
+# chosen rc range, the "best estimate" as the median, and the upper bound
+# as the maximum value
 Evalid_qnr = Esph2_qnr[..., np.logical_and(rc_r >= rmin, rc_r <= rmax)]
 Emin_qn = np.min(Evalid_qnr, axis=2)
+E_qn = np.median(Evalid_qnr, axis=2)
 Emax_qn = np.max(Evalid_qnr, axis=2)
-Ebest_qn = Esph2_qnr[..., np.where(np.abs(rc_r - rbest) < 1.e-8)[0][0]]
+
 # Plot one mode at a time
 for n in range(2):
     plt.fill_between(pathq_q, Emin_qn[:, n], Emax_qn[:, n],
@@ -94,7 +93,7 @@ for n in range(2):
         label = 'eq. spheres'
     else:
         label = None
-    plt.plot(pathq_q, Ebest_qn[:, n], color=colors[0], label=label)
+    plt.plot(pathq_q, E_qn[:, n], color=colors[0], label=label)
 
 # Secondly, we plot the dispersion with inequivalent spherical sites
 Eineq_qn = Esph1_qnr[..., np.where(np.abs(rc_r - rineq) < 1.e-8)[0][0]]
