@@ -63,7 +63,6 @@ def test_Fe_bcc(in_tmp_dir):
                 kpts={'size': (kpts, kpts, kpts), 'gamma': True},
                 nbands=nbands + 4,
                 occupations=FermiDirac(occw),
-                idiotproof=False,
                 parallel={'domain': 1},
                 spinpol=True,
                 convergence=conv
@@ -85,7 +84,8 @@ def test_Fe_bcc(in_tmp_dir):
 
     # Initialize the exchange calculator
     chiks = ChiKS(calc,
-                  ecut=ecut, nbands=nbands, eta=eta)
+                  ecut=ecut, nbands=nbands, eta=eta,
+                  gammacentered=True)
     isoexch_calc = IsotropicExchangeCalculator(chiks)
 
     # Allocate array for the exchange constants
@@ -164,6 +164,18 @@ def test_Co_hcp(in_tmp_dir):
     # stable results
     rc_pa = np.array([[1.0, 1.0], [1.1, 1.1], [1.2, 1.2]])
 
+    # Part 3: Compare results to test values
+    # Unfortunately, the usage of symmetry leads to such extensive repetition
+    # of random noise, that one cannot trust individual values of J very well.
+    # This is improved when increasing the number of k-points, but the problem
+    # never completely vanishes
+    J_atol = 5.e-3
+    J_rtol = 5.e-2
+    # However, derived physical values have an increased error cancellation due
+    # to their collective nature.
+    mw_rtol = 5.e-3  # relative tolerance of absolute results
+    mw_ctol = 5.e-2  # relative tolerance on kernel and eta self-consistency
+
     # ---------- Script ---------- #
 
     # Part 1: Ground state calculation
@@ -178,7 +190,6 @@ def test_Co_hcp(in_tmp_dir):
                 occupations=FermiDirac(occw),
                 convergence=conv,
                 nbands=nbands + ebands,
-                idiotproof=False,
                 parallel={'domain': 1})
 
     atoms.calc = calc
@@ -197,10 +208,16 @@ def test_Co_hcp(in_tmp_dir):
 
     # Initialize the exchange calculator with and without eta
     chiks0 = ChiKS(calc,
-                   ecut=ecut, nbands=nbands, eta=eta0)
+                   disable_point_group=False,
+                   disable_time_reversal=False,
+                   ecut=ecut, nbands=nbands, eta=eta0,
+                   gammacentered=True)
     isoexch_calc0 = IsotropicExchangeCalculator(chiks0)
     chiks1 = ChiKS(calc,
-                   ecut=ecut, nbands=nbands, eta=eta1)
+                   disable_point_group=False,
+                   disable_time_reversal=False,
+                   ecut=ecut, nbands=nbands, eta=eta1,
+                   gammacentered=True)
     isoexch_calc1 = IsotropicExchangeCalculator(chiks1)
 
     # Allocate array for the spherical site exchange constants
@@ -258,20 +275,25 @@ def test_Co_hcp(in_tmp_dir):
     test_mwuc_q = np.array([0., 0.72440073, 1.2123005, 0.37567975])
 
     # Exchange constants
-    assert np.allclose(J_qabp[..., 1], test_J_qab, rtol=5e-3)
+    # err = np.absolute(J_qabp[..., 1] - test_J_qab)
+    # is_bad = err > J_atol + J_rtol * np.absolute(test_J_qab)
+    # print(is_bad)
+    # print(np.absolute(err[is_bad] / np.absolute(test_J_qab[is_bad])))
+    assert np.allclose(J_qabp[..., 1], test_J_qab,
+                       atol=J_atol, rtol=J_rtol)
 
     # Magnon energies
     assert np.all(np.abs(mw_qnp[0, 0, :]) < 1.e-8)  # Goldstone theorem
-    assert np.allclose(mwuc_qe[0, :], 0., atol=1.e-8)  # Goldstone
-    assert np.allclose(mw_qnp[1:, 0, 1], test_mw_qn[1:, 0], rtol=5.e-3)
-    assert np.allclose(mw_qnp[:, 1, 1], test_mw_qn[:, 1], rtol=5.e-3)
-    assert np.allclose(mwuc_qe[1:, 0], test_mwuc_q[1:], rtol=5.e-3)
+    assert np.allclose(mwuc_qe[0, :], 0.)  # Goldstone
+    assert np.allclose(mw_qnp[1:, 0, 1], test_mw_qn[1:, 0], rtol=mw_rtol)
+    assert np.allclose(mw_qnp[:, 1, 1], test_mw_qn[:, 1], rtol=mw_rtol)
+    assert np.allclose(mwuc_qe[1:, 0], test_mwuc_q[1:], rtol=mw_rtol)
 
     # Part 4: Check self-consistency of results
     # We should be in a radius range, where the magnon energies don't change
     assert np.allclose(mw_qnp[1:, 0, ::2], test_mw_qn[1:, 0, np.newaxis],
-                       rtol=5.e-2)
+                       rtol=mw_ctol)
     assert np.allclose(mw_qnp[:, 1, ::2], test_mw_qn[:, 1, np.newaxis],
-                       rtol=5.e-2)
+                       rtol=mw_ctol)
     # Check that a finite eta does not change the magnon energies too much
-    assert np.allclose(mwuc_qe[1:, 0], mwuc_qe[1:, 1], rtol=5.e-2)
+    assert np.allclose(mwuc_qe[1:, 0], mwuc_qe[1:, 1], rtol=mw_ctol)
