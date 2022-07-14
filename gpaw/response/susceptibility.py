@@ -457,6 +457,50 @@ def get_pw_coordinates(pd):
     return np.round(np.dot(G_Gv, np.linalg.inv(B_cv))).astype(int)
 
 
+def get_inverted_pw_mapping(pd1, pd2):
+    """Get the plane wave coefficients mapping GG' of pd1 into -G-G' of pd2"""
+    G1_Gc = get_pw_coordinates(pd1)
+    G2_Gc = get_pw_coordinates(pd2)
+
+    mG2_G1 = []
+    for G1_c in G1_Gc:
+        found_match = False
+        for G2, G2_c in enumerate(G2_Gc):
+            if np.all(G2_c == -G1_c):
+                mG2_G1.append(G2)
+                found_match = True
+                break
+        if not found_match:
+            raise ValueError('Could not match pd1 and pd2')
+
+    # Set up mapping from GG' to -G-G'
+    invmap_GG = tuple(np.meshgrid(mG2_G1, mG2_G1, indexing='ij'))
+
+    return invmap_GG
+
+
+def symmetrize_reciprocity(pd, A_wGG):
+    """In collinear systems without spin-orbit coupling, the plane wave
+    susceptibility is reciprocal in the sense that e.g.
+
+    χ_(GG')^(+-)(q, ω) = χ_(-G'-G)^(+-)(-q, ω)
+
+    This method symmetrizes A_wGG in the case where q=0.
+    """
+    from gpaw.test.response.test_chiks import get_inverted_pw_mapping
+
+    q_c = pd.kd.bzk_kc[0]
+    if np.allclose(q_c, 0.):
+        invmap_GG = get_inverted_pw_mapping(pd, pd)
+        for A_GG in A_wGG:
+            tmp_GG = np.zeros_like(A_GG)
+
+            # Symmetrize [χ_(GG')(q, ω) + χ_(-G'-G)(-q, ω)] / 2
+            tmp_GG += A_GG
+            tmp_GG += A_GG[invmap_GG].T
+            A_GG[:] = tmp_GG / 2.
+
+
 def write_macroscopic_component(omega_w, chiks_w, chi_w, filename, world):
     """Write the spatially averaged dynamic susceptibility."""
     assert isinstance(filename, str)
