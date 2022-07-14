@@ -46,9 +46,6 @@ class IsotropicExchangeCalculator:
         # Check that chiks has the assumed properties
         assumed_props = dict(
             gammacentered=True,
-            disable_point_group=True,
-            disable_time_reversal=True,
-            disable_non_symmorphic=True,
             kpointintegration='point integration',
             nblocks=1
         )
