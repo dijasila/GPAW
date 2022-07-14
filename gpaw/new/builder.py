@@ -285,9 +285,9 @@ def normalize_initial_magmoms(
 
     >>> h = Atoms('H', magmoms=[1])
     >>> normalize_initial_magmoms(h)
-    ([[0, 0, 1.0]], 2)
+    (array([[0., 0., 1.]]), 2)
     >>> normalize_initial_magmoms(h, [[1, 0, 0]])
-    ([[1.0, 0, 0]], 4)
+    (array([[1., 0., 0.]]), 4)
     """
     magmom_av = np.zeros((len(atoms), 3))
     ncomponents = 2
