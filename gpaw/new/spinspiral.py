@@ -16,6 +16,7 @@ class SpiralPW:
         self.G_plus_k_Gv = pw.G_plus_k_Gv + qspiral_v
         self.ekin_G = 0.5 * (self.G_plus_k_Gv**2).sum(1)
         self.kpt = pw.kpt_c + pw.cell_cv @ qspiral_v / (2 * pi)
+        self.kpt_c = self.kpt
         self.cell = pw.cell
         self.dv = pw.dv
 
