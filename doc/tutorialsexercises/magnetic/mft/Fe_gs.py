@@ -16,10 +16,10 @@ mm = 2.21  # Initial magnetic moment
 # Thus, to be formally consistent, we need to use the LDA functional for the
 # ground state.
 xc = 'LDA'
-# The plane wave energy cutoff of ground state calculation is chosen: 1) high
-# enough to provide well converged Kohn-Sham orbitals, 2) larger or equal to
-# the energy cutoff of the mft response calculation. In a benchmark study, the
-# latter will typically be the stricter requirement.
+# The plane wave energy cutoff of the ground state calculation is chosen:
+# 1) high enough to provide well converged Kohn-Sham orbitals,
+# 2) larger or equal to the energy cutoff of the mft response calculation.
+# In a benchmark study, the latter will typically be the stricter requirement.
 pw = 800  # eV
 # When specifying the k-point grid, one should keep in mind that the q-points
 # of the mft response calculation are required to be commensurate with the
