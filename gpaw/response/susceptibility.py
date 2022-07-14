@@ -282,16 +282,17 @@ class FourComponentSusceptibilityTensor:
         pd, chiks_wGG = self.calculate_ks_component(spincomponent, q_c,
                                                     wd, txt=self.cfd)
 
+        Kxc_GG = self.get_xc_kernel(spincomponent, pd, chiks_wGG=chiks_wGG)
         if spincomponent in ['+-', '-+']:
             # No Hartree kernel
-            K_GG = self.get_xc_kernel(spincomponent, pd, chiks_wGG=chiks_wGG)
+            assert Kxc_GG is not None
+            Khxc_GG = Kxc_GG
         else:
-            K_GG = self.get_hartree_kernel(pd)
-            Kxc_GG = self.fxc(spincomponent, pd, txt=self.cfd)
+            Khxc_GG = self.get_hartree_kernel(pd)
             if Kxc_GG is not None:  # Kxc can be None in the RPA case
-                K_GG += Kxc_GG
+                Khxc_GG += Kxc_GG
 
-        chi_wGG = self.invert_dyson(chiks_wGG, K_GG)
+        chi_wGG = self.invert_dyson(chiks_wGG, Khxc_GG)
 
         print('\nFinished calculating component', file=self.cfd)
         print('---------------', flush=True, file=self.cfd)
