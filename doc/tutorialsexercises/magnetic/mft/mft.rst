@@ -173,9 +173,8 @@ please reference both of the works [#Durhuus]_ and [#Skovhus]_.
 Example 1 (Introductory): bcc-Fe
 ================================
 
-In this first example, we will compute the magnon dispersion in the Fe,
-which is a itinerant ferromagnet with a single magnetic atom in the unit
-cell.
+In this first example, we will compute the magnon dispersion of iron, which
+is an itinerant ferromagnet with a single magnetic atom in the unit cell.
 
 First, you should download the ground state calculation script
 :download:`Fe_gs.py`
@@ -196,17 +195,47 @@ using two different site geometries:
 After the calculation, the `\mathbf{q}`-point path, spherical radii
 and exchange constants are stored in separate ``.npz`` files.
 
+Now it is time to visualize the data. GPAW distributes functionality to
+compute the magnon dispersion for a single site ferromagnet from its
+isotropic exchange constants `\bar{J}(\mathbf{q})`, namely through the
+method ``calculate_single_site_magnon_energies``. In the script
+:download:`Fe_plot_magnons_vs_rc.py`,
+the magnon energy of iron in the high-symmetry points N, P and H is
+plotted as a function of the spherical site radii, resulting in the
+following figure:
+
+.. image:: Fe_magnons_vs_rc.png
+	   :align: center
+
+Although there does not exist a unique definition of the correct magnetic
+site volumes, there clearly seems to be a range of spherical cutoff radii
+`r_{\mathrm{c}}\in[1.0, 1.5]` in which the MFT magnon energy for a given
+wave vector `\mathbf{q}` is well defined! It is not clear *a priori* that
+there always exists such a range, why it should always be double-checked,
+when performing MFT calculations.
+
+Finally, we use the script
+:download:`Fe_plot_magnon_dispersion.py`,
+to plot the magnon dispersion along the entire band path for both of our
+chosen site geometries:
+
+.. image:: Fe_magnon_dispersion.png
+	   :align: center
+
+Even though we are showing the entire range of magnon energies for
+`r_{\mathrm{c}}\in[1.0, 1.5]`, the spread is not visible on the frequency
+scale of the actual magnon dispersion, why we can conclude that the MFT
+magnon dispersion is well defined for the entire Brillouin Zone! This is
+confirmed by the calculations using the parallelepipedic site volumes, which
+yields identical results.
+
 
 Example 2 (Advanced): hcp-Co
 ============================
 
 In the remainder of this tutorial, the magnon spectrum of Co in the hcp
 crystal structure is computed as an example. The example scripts (in the
-order they should be run) are
-:download:`converge_gs.py`,
-:download:`high_sym_pts.py`,
-:download:`magnon_energy_plot.py`,
-:download:`high_sym_path.py`,
+order they should be run) are,
 :download:`magnon_dispersion_plot.py`.
 We map to a model with 2 magnetic sites, centered on the 2 atoms of the hcp
 unit cell, which results in 2 magnon bands.
