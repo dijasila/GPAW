@@ -306,7 +306,18 @@ cylindrical site volume.
 Excercises
 ==========
 
-Bla bla bla
+Now it is your own turn to experiment with GPAW's MFT module. To get you
+started, here are some suggestions:
+
+1) Compute and plot the iron magnon dispersion as a function of
+  a) The parallelepipedic site volume
+  b) The cylindrical site orientation, height and radius
+2) Compute and plot the cobalt magnon dispersion
+  a) Using a cylindrical site geometry for one cobalt atom and a spherical
+     geometry for the other
+  b) Using two equivalent parallelepipeds for the two cobalt sites
+3) Compute and plot the magnon dispersion of your favorite ferromagnet
+
 
 References
 ==========
