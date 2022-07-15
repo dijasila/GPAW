@@ -11,9 +11,11 @@ phonons quantize lattice vibrations. Here we show how to compute the magnon
 energy dispersion in GPAW, using the magnetic force theorem in a linear
 response formulation.
 
-=================
 Background theory
 =================
+
+Classical Heisenberg model
+--------------------------
 
 In the classical isotropic Heisenberg model, the magnetization of a crystal is
 partitioned into distinct magnetic sites with individual magnetic moments `M_a`
@@ -49,6 +51,9 @@ Fourier transform of the exchange parameters,
 
 where `\mathbf{R}_i` refers to the Bravais lattice point corresponding to the
 `i`'th unit cell.
+
+Magnetic force theorem
+----------------------
    
 Using a classical, isotropic Heisenberg model, the magnon energy for a given
 wavevector, `\mathbf{q}`, can be computed from the Heisenberg exchange
@@ -90,9 +95,8 @@ adiabatic spectrum of non-interacting magnons. Also, the algorithm really
 outputs `J^{\mu\nu}(\mathbf{q})` plus the Brillouin zone average of `J^{\mu\mu}
 (\mathbf{q})`.
 
-==============
-GPAW algorithm
-==============
+GPAW implementation
+===================
 
 `B^{xc}` and `\chi^{-+}_{KS}` can be computed ab-initio with a
 converged ground state as input. This is implemented in GPAW in a
@@ -113,9 +117,13 @@ The interface to all these calculations is the class
 
 .. autoclass:: gpaw.response.mft
 
-==========================
-Example : Co(hcp) spectrum
-==========================
+Example 1 (Introductory): bcc-Fe
+================================
+
+Bla Bla Bla
+
+Example 2 (Advanced): hcp-Co
+============================
 
 In the remainder of this tutorial, the magnon spectrum of Co in the hcp
 crystal structure is computed as an example. The example scripts (in the
