@@ -5,6 +5,7 @@ the high-symmetry points of the bcc lattice."""
 import numpy as np
 
 # Script modules
+from gpaw.mpi import rank
 from gpaw.response.site_kernels import (SphericalSiteKernels,
                                         ParallelepipedicSiteKernels)
 from gpaw.response.chiks import ChiKS
@@ -88,7 +89,8 @@ J_qr = J_qabp[:, 0, 0, :]
 Juc_q = Juc_qabp[:, 0, 0, 0]
 
 # Save the bandpath, spherical radii and computed exchange constants
-np.save('Fe_q_qc.npy', q_qc)
-np.save('Fe_rc_r.npy', rc_r)
-np.save('Fe_J_qr.npy', J_qr)
-np.save('Fe_Juc_q.npy', Juc_q)
+if rank == 0:
+    np.save('Fe_q_qc.npy', q_qc)
+    np.save('Fe_rc_r.npy', rc_r)
+    np.save('Fe_J_qr.npy', J_qr)
+    np.save('Fe_Juc_q.npy', Juc_q)

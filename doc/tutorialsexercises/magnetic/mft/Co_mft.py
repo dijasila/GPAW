@@ -8,6 +8,7 @@ import numpy as np
 from ase.data import covalent_radii
 
 from gpaw import restart
+from gpaw.mpi import rank
 from gpaw.response.site_kernels import (SphericalSiteKernels,
                                         CylindricalSiteKernels,
                                         ParallelepipedicSiteKernels)
@@ -122,8 +123,9 @@ for q, q_c in enumerate(q_qc):
     Jmix_qp[q] = isoexch_calc(q_c, mix_sitekernels)[0, 0, :]  # nsites == 1
 
 # Save the bandpath, spherical radii and computed exchange constants
-np.save('Co_q_qc.npy', q_qc)
-np.save('Co_rc_r.npy', rc_r)
-np.save('Co_Jsph1_qabr.npy', Jsph1_qabr)
-np.save('Co_Jsph2_qabr.npy', Jsph2_qabr)
-np.save('Co_Jmix_qp.npy', Jmix_qp)
+if rank == 0:
+    np.save('Co_q_qc.npy', q_qc)
+    np.save('Co_rc_r.npy', rc_r)
+    np.save('Co_Jsph1_qabr.npy', Jsph1_qabr)
+    np.save('Co_Jsph2_qabr.npy', Jsph2_qabr)
+    np.save('Co_Jmix_qp.npy', Jmix_qp)
