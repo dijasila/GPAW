@@ -17,8 +17,8 @@ Background theory
 
 In the classical isotropic Heisenberg model, the magnetization of a crystal is
 partitioned into distinct magnetic sites with individual magnetic moments `M_a`
-and orientation of the moments `\mathbf{u}_{ia}` (unit vector). Here, `a` is a
-sublattice index and `i` indexes the unit cells of the crystal.
+and orientation of the moments `\mathbf{u}_{ia}` (unit vector). Here, `i` is
+the unit cell index and `a` indexes the magnetic sublattices of the crystal.
 The system energy is then parametrized in terms of the Heisenberg exchange
 parameters as follows:
 
