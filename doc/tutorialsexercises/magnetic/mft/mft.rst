@@ -166,6 +166,9 @@ parallelepipedic site kernel geometries are supported through the
 ``SphericalSiteKernels``, ``CylindricalSiteKernels`` and
 ``ParallelepipedicSiteKernels`` classes.
 
+When using the GPAW code for computing MFT Heisenberg exchange constants,
+please reference both of the works [#Durhuus]_ and [#Skovhus]_.
+
 
 Example 1 (Introductory): bcc-Fe
 ================================
