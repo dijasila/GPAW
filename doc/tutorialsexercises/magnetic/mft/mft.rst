@@ -135,8 +135,8 @@ plane wave pair densities,
    \psi_{n\mathbf{k}s}^*(\mathbf{r}) \psi_{m\mathbf{k}'s'}(\mathbf{r})
 
 are computed directly from the Kohn-Sham orbitals
-`\psi_{n\mathbf{k}s}(\mathbf{r})`. For more details on the transeverse
-magnetic susceptibility and the details on its GPAW implementation, please
+`\psi_{n\mathbf{k}s}(\mathbf{r})`. For more details on the transverse
+magnetic susceptibility and its GPAW implementation, please
 refer to [#Skovhus]_. The ``ChiKS`` calculator evaluates the sum over
 `\mathbf{k}`-points by point integration on the Monkhorst-Pack grid
 specified by an input ground state DFT calculation. Because of this, it only
