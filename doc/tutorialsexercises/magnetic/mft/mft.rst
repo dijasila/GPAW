@@ -233,6 +233,22 @@ yields identical results.
 Example 2 (Advanced): hcp-Co
 ============================
 
+In the second example we will consider hcp-Co, which is also an itinerant
+ferromagnet, but this time with two magnetic atoms in the unit cell. This
+means that we will have two magnetic sublattices and two magnon modes, the
+usual acoustic Goldtone mode and an optical mode.
+
+Again, we start of by calculating the LSDA ground state using the script
+:download:`Co_gs.py`
+(resource estimate: 20 minutes on a 40 core node). However, this time we do
+not save the Kohn-Sham orbitals as they can take up a significant amount of
+disc space (hundreds of GB) for large systems. Instead, we will recalculate
+the orbitals as the first thing in the MFT calculation script
+:download:`Co_mft.py`.
+Typically, this will not take much extra time. In fact, it is (depending on
+your hard disk/file system) sometimes faster, as file io can be a real
+bottle-neck when working with hundreds of GBs of data.
+
 In the remainder of this tutorial, the magnon spectrum of Co in the hcp
 crystal structure is computed as an example. The example scripts (in the
 order they should be run) are,
