@@ -20,35 +20,35 @@ partitioned into distinct magnetic sites with individual magnetic moments `M_a`
 and orientation of the moments `\mathbf{u}_{ia}` (unit vector). Here, `i` is
 the unit cell index and `a` indexes the magnetic sublattices of the crystal.
 The system energy is then parametrized in terms of the Heisenberg exchange
-parameters as follows:
+parameters `J_{ij}^{ab}` as follows:
 
 .. math::
 
    E_{\mathrm{H}} = - \frac{1}{2} \sum_{i,j} \sum_{a,b} J_{ij}^{ab}
    \mathbf{u}_{ia} \cdot \mathbf{u}_{jb}.
 
-From the Heisenberg exchange parameters, one can compute the magnon dispersion
-of the system using linear spin wave theory. In particular, the magnon energies
-`\hbar\omega_n(\mathbf{q})`, where `n` is the mode index, is given as a
+From the exchange parameters, one can compute the magnon dispersion of the
+system using linear spin wave theory. In particular, the magnon energies
+`\hbar\omega_n(\mathbf{q})`, where `n` is the mode index, are given as a
 function of the wave vector `\mathbf{q}` by the eigenvalues to the dynamic spin
-wave matrix
+wave matrix:
 
 .. math::
 
    H^{ab}(\mathbf{q}) = \frac{g\mu_{\mathrm{B}}}{\sqrt{M_a M_b}}
-   \left[\sum_c \bar{J}^{ac}(\mathbf{0}) - \bar{J}^{ab}(\mathbf{q})\right].
+   \left[\sum_c \bar{J}^{ac}(\mathbf{0}) \delta_{ab}
+   - \bar{J}^{ab}(\mathbf{q})\right].
 
-Here `M_a` denotes the sublattice magnetization and `\bar{J}^{ab}(\mathbf{q})`
-is the periodic part of the lattice Fourier transform of the exchange
-parameters:
+Here `\bar{J}^{ab}(\mathbf{q})` denotes the periodic part of the lattice
+Fourier transform of the exchange parameters,
 
 .. math::
 
    \bar{J}^{ab}(\mathbf{q}) = \sum_i J_{0i}^{ab}
-   e^{i\mathbf{q}\cdot\mathbf{R}_i}.
+   e^{i\mathbf{q}\cdot\mathbf{R}_i},
 
-`\mathbf{R}_i` refers to the point on the Bravais lattice
-corresponding to the `i`'th unit cell
+where `\mathbf{R}_i` refers to the Bravais lattice point corresponding to the
+`i`'th unit cell.
    
 Using a classical, isotropic Heisenberg model, the magnon energy for a given
 wavevector, `\mathbf{q}`, can be computed from the Heisenberg exchange
