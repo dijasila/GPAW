@@ -42,6 +42,16 @@ Git master branch
   systems during SCF iterations.
   See `!854 <https://gitlab.com/gpaw/gpaw/-/merge_requests/854>`_ for details.
 
+* Functionality to compute magnon dispersions for ferromagnets in the classical
+  isotropic Heisenberg model has been added, see ``gpaw.response.heisenberg``
+
+* A new module ``gpaw.response.mft``, see :ref:`mft`, has been added for the
+  calculation of isotropic Heisenberg exchange parameters within a linear
+  response formulation of the magnetic force theorem. The module depends on a
+  novel ``SiteKernels`` interface, see ``gpaw.response.site_kernels``, to
+  discretize the DFT description into magnetic sublattices.
+  
+
 
 Version 22.1.0
 ==============
