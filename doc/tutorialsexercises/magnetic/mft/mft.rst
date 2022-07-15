@@ -52,48 +52,57 @@ Fourier transform of the exchange parameters,
 where `\mathbf{R}_i` refers to the Bravais lattice point corresponding to the
 `i`'th unit cell.
 
-Magnetic force theorem
-----------------------
+Magnetic force theorem (MFT)
+----------------------------
    
-Using a classical, isotropic Heisenberg model, the magnon energy for a given
-wavevector, `\mathbf{q}`, can be computed from the Heisenberg exchange
-parameters `J(\mathbf{q})`. In order to map DFT calculations onto a Heisenberg
-model, it is necessary to define a lattice of discrete magnetic moments. We
-define the `\mu`'th moment in the magnetic unit cell as
+In reference [#Durhuus]_, it is shown how the Kohn-Sham Hamiltonian in the
+local spin-density approximation can be mapped onto a classical isotropic
+Heisenberg model based on the magnetic force theorem. To do so, it is assumed
+that the ground state magnetization
+`\mathbf{m}(\mathbf{r})=m(\mathbf{r}) \mathbf{u}(\mathbf{r})` can be treated
+in the rigid spin approximation,
 
 .. math::
 
-    \mathbf{M}_{\mu} = \int_{\Omega_{\mu}} \mathbf{m}(\mathbf{r})
-    \mathrm{d}\mathbf{r}
+   \mathbf{u}(\mathbf{r}) \simeq \sum_i \sum_a
+   \Theta(\mathbf{r}\in\Omega_{ia}) \mathbf{u}_{ia},
 
-where `\mathbf{m}(\mathbf{r})` is magnetisation density and
-`\Omega_{\mu}` is a user-defined integration volume. Then, using linear
-response theory and the magnetic force theorem, one can show that the
-inter-site exchange is given by
+where `\Theta(\mathbf{r}\in\Omega_{ia})` is a unit step function, which is
+nonzero for positions `\mathbf{r}` inside the site volume `\Omega_{ia}`.
+In this way, it is the geometry of the sublattice site volumes, that defines
+what Heisenberg model the DFT problem is mapped onto, and it is not clear
+*a priori* that there should exist a unique choice for these geometries.
+
+Once the site geometries have been appropriately chosen, the exchange
+constants can be calculated in a linear response formulation of the magnetic
+force theorem,
+
+.. math::
+   
+   \bar{J}^{ab}(\mathbf{q}) = - \frac{2}{\Omega_{\mathrm{cell}}}
+   B^{\mathrm{xc}\dagger} K^{a\dagger}(\mathbf{q})
+   \chi_{\mathrm{KS}}^{'+-}(\mathbf{q}) K^{b}(\mathbf{q}) B^{\mathrm{xc}},
+
+where all quantities are given in a plane wave basis and matrix/vector
+multiplication in reciprocal lattice vectors `\mathbf{G}` is implied. In
+this MFT formula for the exchange constants, `\Omega_{\mathrm{cell}}`
+denotes the unit cell volume, `B^{\mathrm{xc}}(\mathbf{r})
+= \delta E_{\mathrm{xc}}^{\mathrm{LSDA}} / \delta m(\mathbf{r})`,
+`\chi_{\mathrm{KS}}^{'+-}(\mathbf{q})` is the reactive part of the static
+transverse magnetic Kohn-Sham susceptibility and so-called sublattice
+site kernels,
 
 .. math::
 
-    J^{\mu\nu}(\mathbf{q}) = \sum_{\mathbf{G}_1\mathbf{G}_2\mathbf{G}_3
-    \mathbf{G}_4}B^{xc}_{\mathbf{G}_1}
-    K^{\nu}_{\mathbf{G}_1\mathbf{G}_2}(\mathbf{q})
-    \chi^{-+}_{KS,\mathbf{G}_2\mathbf{G}_3}
-    (\mathbf{q})K^{\mu*}_{\mathbf{G}_3\mathbf{G}_4}(\mathbf{q})
-    B^{xc*}_{\mathbf{G}_4}
+   K_{\mathbf{GG}'}^{a}(\mathbf{q}) = \frac{1}{\Omega_{\mathrm{cell}}}
+   \int \mathrm{d}\mathbf{r}\:
+   e^{-i(\mathbf{G} - \mathbf{G}' + \mathbf{q})\cdot\mathbf{r}}
+   \Theta(\mathbf{r}\in\Omega_{a}),
 
-Here `B^{xc}` is the exchange-correlation B-field, `\chi^{-+}_{KS}` is the
-reactive part of the static, transverse magnetic susceptibility for the
-non-interacting Kohn-Sham system and `G_i` are reciprocal space vectors.
-`K^{\mu}`, known as the site-kernel for site `\mu`, carries all information
-about how the magnetic lattice is defined.
-See [#Durhuus]_ for background and derivations. See [#Skovhus]_ for
-how to compute `\chi^{-+}_{KS}` and other magnetic response functions
-ab-initio.
+have been introduced to encode the sublattice site geometries defined
+though `\Omega_{a}=\Omega_{0a}`. For additional details, please refer to
+[#Durhuus]_.
 
-Note that the present approach neglects Stoner excitations (adiabatic
-approximation) and magnon-magnon scattering, so the output is the
-adiabatic spectrum of non-interacting magnons. Also, the algorithm really
-outputs `J^{\mu\nu}(\mathbf{q})` plus the Brillouin zone average of `J^{\mu\mu}
-(\mathbf{q})`.
 
 GPAW implementation
 ===================
