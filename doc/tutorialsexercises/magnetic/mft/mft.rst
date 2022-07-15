@@ -89,8 +89,8 @@ this MFT formula for the exchange constants, `\Omega_{\mathrm{cell}}`
 denotes the unit cell volume, `B^{\mathrm{xc}}(\mathbf{r})
 = \delta E_{\mathrm{xc}}^{\mathrm{LSDA}} / \delta m(\mathbf{r})`,
 `\chi_{\mathrm{KS}}^{'+-}(\mathbf{q})` is the reactive part of the static
-transverse magnetic Kohn-Sham susceptibility and so-called sublattice
-site kernels,
+transverse magnetic susceptibility of the Kohn-Sham system, and so-called
+sublattice site kernels,
 
 .. math::
 
@@ -107,24 +107,65 @@ though `\Omega_{a}=\Omega_{0a}`. For additional details, please refer to
 GPAW implementation
 ===================
 
-`B^{xc}` and `\chi^{-+}_{KS}` can be computed ab-initio with a
-converged ground state as input. This is implemented in GPAW in a
-plane-wave basis. Once ground state and `B^{xc}` have been computed once for
-a given Monkhorst-Pack grid, `\chi^{-+}_{KS}(\mathbf{q})` and `K^{\mu}
-(\mathbf{q})` can be computed `\mathbf{q}`-point by `\mathbf{q}`-point
-(flowchart in [#Durhuus]_).
-However, `\chi^{-+}_{KS}(\mathbf{q})` is only computable at
-wavevectors (`\mathbf{q}`-points) included in the Monkhorst-Pack grid.
+In GPAW, the computation of MFT Heisenberg exchange constants is implemented
+through the ``IsotropicExchangeCalculator``. The calculator is constructed
+from a ``ChiKS`` instance, which is a separate calculator for computing the
+Kohn-Sham transverse magnetic plane wave susceptibility:
 
-In addition to the standard ground state convergence parameters, there is an
-energy cutoff, ``ecut``, for the number of `G`-vector components, plus the
-shape and positions of the integration regions specifying magnetic sites.
-Also, for the response calculation it is necessary to
-converge a number of unoccupied bands.
+.. math::
 
-The interface to all these calculations is the class
+   \chi_{\mathrm{KS},\mathbf{GG}'}^{+-}(\mathbf{q}, \omega + i \eta)
+   = \frac{1}{\Omega} \sum_{\mathbf{k}} \sum_{n,m}
+   \frac{f_{n\mathbf{k}\uparrow} - f_{m\mathbf{k}+\mathbf{q}\downarrow}}
+   {\hbar\omega - (\epsilon_{m\mathbf{k}+\mathbf{q}\downarrow}
+   - \epsilon_{n\mathbf{k}\uparrow}) + i\hbar\eta}
+     n_{n\mathbf{k}\uparrow,m\mathbf{k}+\mathbf{q}\downarrow}(\mathbf{G} +
+     \mathbf{q}) n_{m\mathbf{k}+\mathbf{q}\downarrow,n\mathbf{k}\uparrow}(
+     -\mathbf{G}' - \mathbf{q}).
 
-.. autoclass:: gpaw.response.mft
+Here, `\Omega` is the crystal volume, `\epsilon_{n\mathbf{k}s}` and
+`f_{n\mathbf{k}s}` the Kohn-Sham eigenvalues and occupation numbers and the
+plane wave pair densities,
+
+.. math::
+
+   n_{n\mathbf{k}s,m\mathbf{k}'s'}(\mathbf{G} + \mathbf{q}) =
+   \int_{\Omega_{\mathrm{cell}}} \mathrm{d}\mathbf{r}\:
+   e^{-i(\mathbf{G}+\mathbf{q})\cdot\mathbf{r}}
+   \psi_{n\mathbf{k}s}^*(\mathbf{r}) \psi_{m\mathbf{k}'s'}(\mathbf{r})
+
+are computed directly from the Kohn-Sham orbitals
+`\psi_{n\mathbf{k}s}(\mathbf{r})`. For more details on the transeverse
+magnetic susceptibility and the details on its GPAW implementation, please
+refer to [#Skovhus]_. The ``ChiKS`` calculator evaluates the sum over
+`\mathbf{k}`-points by point integration on the Monkhorst-Pack grid
+specified by an input ground state DFT calculation. Because of this, it only
+accepts wave vectors `\mathbf{q}` that are commensurate with the underlying
+`\mathbf{k}`-point grid. Furthermore, it takes input arguments ``ecut``,
+``nbands`` and ``eta`` in the constructor, specifying the plane wave energy
+cutoff, number of bands in the band summation and frequency broadening
+respectively.
+
+The ``IsotropicExchangeCalculator`` uses the ``ChiKS`` instance from which
+it is initialized to compute the reactive part of the susceptibility,
+
+.. math::
+
+   \chi_{\mathrm{KS},\mathbf{GG}'}^{'+-}(\mathbf{q}, \omega + i \eta)
+   = \frac{1}{2} \left[
+   \chi_{\mathrm{KS},\mathbf{GG}'}^{+-}(\mathbf{q}, \omega + i \eta)
+   +
+   \chi_{\mathrm{KS},-\mathbf{G}'-\mathbf{G}}^{-+}(-\mathbf{q},
+   -\omega + i \eta) \right],
+
+in the static limit `\omega=0` for a given wave vector `\mathbf{q}`.
+With this in hand, it uses a supplied ``SiteKernels`` instance defining
+the sublattice site geometries to compute the exchange constants
+`\bar{J}^{ab}(\mathbf{q})`. At present, spherical, cylindrical and
+parallelepipedic site kernel geometries are supported through the
+``SphericalSiteKernels``, ``CylindricalSiteKernels`` and
+``ParallelepipedicSiteKernels`` classes.
+
 
 Example 1 (Introductory): bcc-Fe
 ================================
