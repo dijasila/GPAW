@@ -209,10 +209,10 @@ following figure:
 
 Although there does not exist a unique definition of the correct magnetic
 site volumes, there clearly seems to be a range of spherical cutoff radii
-`r_{\mathrm{c}}\in[1.0 Å, 1.5 Å]` in which the MFT magnon energy for a
-given wave vector `\mathbf{q}` is well defined! It is not clear *a priori*
-that there always exists such a range, why it should always be
-double-checked, when performing MFT calculations.
+`r_{\mathrm{c}}\in[1.0\,\mathrm{Å}, 1.5\,\mathrm{Å}]` in which the MFT
+magnon energy for a given wave vector `\mathbf{q}` is well defined! It is
+not clear *a priori* that there always exists such a range, why it should
+always be double-checked, when performing MFT calculations.
 
 Finally, we use the script
 :download:`Fe_plot_magnon_dispersion.py`,
@@ -223,11 +223,11 @@ chosen site geometries:
 	   :align: center
 
 Even though we are showing the entire range of magnon energies for
-`r_{\mathrm{c}}\in[1.0 Å, 1.5 Å]`, the spread is not visible on the
-frequency scale of the actual magnon dispersion, why we can conclude that
-the MFT magnon dispersion is well defined for the entire Brillouin Zone!
-This is confirmed by the calculations using the parallelepipedic site
-volumes, which yields identical results.
+`r_{\mathrm{c}}\in[1.0\,\mathrm{Å}, 1.5\,\mathrm{Å}]`, the spread is not
+visible on the frequency scale of the actual magnon dispersion, why we can
+conclude that the MFT magnon dispersion is well defined for the entire
+Brillouin Zone! This is confirmed by the calculations using the
+parallelepipedic site volumes, which yields identical results.
 
 
 Example 2 (Advanced): hcp-Co
@@ -238,7 +238,7 @@ ferromagnet, but this time with two magnetic atoms in the unit cell. This
 means that we will have two magnetic sublattices and two magnon modes, the
 usual acoustic Goldtone mode and an optical mode.
 
-Again, we start of by calculating the LSDA ground state using the script
+Again, we start off by calculating the LSDA ground state using the script
 :download:`Co_gs.py`
 (resource estimate: 20 minutes on a 40 core node). However, this time we do
 not save the Kohn-Sham orbitals as they can take up a significant amount of
@@ -264,28 +264,28 @@ G-M-K-G-A using several different spatial partitionings into magnetic sites:
 
 Resource estimate: 4 hours on a 40 cores node.
 
-Bla bla bla
+We kick off our analysis of the results by computing the magnon mode
+energies using the build-in function ``calculate_fm_magnon_energies`` and
+plotting them at the high-symmetry points as a function of cutoff radius in
+the model of equally sized spherical sites. Excecuting the plotting script
+:download:`Co_plot_magnons_vs_rc.py`,
+results in the following figure:
 
 .. image:: Co_magnons_vs_rc.png
 	   :align: center
 
-Bla bla bla
-
-Now that we have appropriate parameters for the Heisenberg lattice, let's
-compute the magnon spectrum. One could sample the whole Brillouin zone and
-interpolate to get the full spectrum, but this is computationally expensive.
-Instead we look at the magnon dispersion on straight lines running between
-the high symmetry points. The calculation is in :download:`high_sym_path.py`
-and the plotting in :download:`magnon_dispersion_plot.py`.
+Once again there seems to be a well defined range of spherical radii,
+`r_{\mathrm{c}}\in[1.0\,\mathrm{Å}, 1.4\,\mathrm{Å}]`, within which the
+magnon mode energies are constant (well defined). Using the script
+:download:`Co_plot_magnon_dispersion.py`,
+we may then plot the full magnon dispersion for spheres inside this range,
+along with the magnon dispersion resulting from the other (more
+experimental) site kernel definitions:
 
 .. image:: Co_magnon_dispersion.png
 	   :align: center
 
-We note that the 2 bands are degenerate for the entire path K->H->A->L.
-The endpoints were also degenerate in the previous calculation.
-Also, there are parabolic dispersions around the A and Gamma points. The
-fact that all magnon energies are positive indicates that Co(hcp) is stable
-in the ferromagnetic state, at least against spin-rotations.
+Bla bla bla.
 
 Excercises
 ==========
