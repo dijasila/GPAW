@@ -173,7 +173,29 @@ please reference both of the works [#Durhuus]_ and [#Skovhus]_.
 Example 1 (Introductory): bcc-Fe
 ================================
 
-Bla Bla Bla
+In this first example, we will compute the magnon dispersion in the Fe,
+which is a itinerant ferromagnet with a single magnetic atom in the unit
+cell.
+
+First, you should download the ground state calculation script
+:download:`Fe_gs.py`
+and run it using a cluster available to you. Resource estimate: 10
+minutes on a 40 core node. The script will perform a LSDA ground state
+calculation and store all its data to a file, ``Fe_all.gpw``.
+
+Secondly, download and run the
+:download:`Fe_mft.py`
+script to perform the MFT calculation of the Heisenberg exchange
+parameters. Resource estimate: 30 minutes on a 40 core node. The script
+computes the exchange constants on the high-symmetry path G-N-P-G-H
+using two different site geometries:
+
+1) Spherical site volumes centered on the Fe atoms with varying radii.
+2) Parallelepipedic site volumes filling out the entire unit cell.
+
+After the calculation, the `\mathbf{q}`-point path, spherical radii
+and exchange constants are stored in separate ``.npz`` files.
+
 
 Example 2 (Advanced): hcp-Co
 ============================
@@ -210,8 +232,8 @@ high-symmetry points. This is done for different integration sphere radii,
 `r_c`. :download:`magnon_energy_plot.py` plots the result, which should
 look like
 
-.. image:: Fe_magnons_vs_rc.png
-           :height: 500 px
+.. image:: Co_magnons_vs_rc.png
+	   :align: center
 
 Here solid lines indicate the low energy magnon band and dashed lines the
 high energy band. Note that the bands at A, K, L and H are degenerate.
@@ -229,8 +251,8 @@ Instead we look at the magnon dispersion on straight lines running between
 the high symmetry points. The calculation is in :download:`high_sym_path.py`
 and the plotting in :download:`magnon_dispersion_plot.py`.
 
-.. image:: Fe_magnon_dispersion.png
-           :height: 500 px
+.. image:: Co_magnon_dispersion.png
+	   :align: center
 
 We note that the 2 bands are degenerate for the entire path K->H->A->L.
 The endpoints were also degenerate in the previous calculation.
