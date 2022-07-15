@@ -285,7 +285,23 @@ experimental) site kernel definitions:
 .. image:: Co_magnon_dispersion.png
 	   :align: center
 
-Bla bla bla.
+In the model with two spherical sites of inequal radii (0.6 Å and 1.2 Å
+respectively), the magnon bandwidth is decreased compared to the
+appropriate model of equivalent spherical sites because some of the
+magnetization on one of the cobalt atoms has been neglected in the model.
+However, this is not all. We have also broken the magnon mode degeneracy at
+the K-point because the magnetic sublattices in the Heisenberg model are no
+longer equivalent!
+
+For the two Heisenberg models with only a single magnetic sublattice, we can
+only get an estimate of the acoustic magnon mode dispersion. However, in the
+long wavelength limit `\mathbf{q}\rightarrow 0` the magnetic moment on the
+two cobalt atoms inside the unit cell will precess in-phase for an acoustic
+spin-wave, why both of the single sublattice models provide reasonable
+results in this limit. Interestingly, both models actually also provide a
+good describtion of the acoustic magnon dispersion on the entire G-M path, a
+conclusion extending even all the way to the K-point in the case of a
+cylindrical site volume.
 
 Excercises
 ==========
