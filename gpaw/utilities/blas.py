@@ -34,11 +34,11 @@ def mmm(alpha: T,
         c: Array2D) -> None:
     """Matrix-matrix multiplication using dgemm or zgemm.
 
-    For opa='n' and opb='n', we have::
+    For opa='N' and opb='N', we have:::
 
-        c <- alpha * a * b + beta * c.
+        c <- αab + βc.
 
-    Use 't' to transpose matrices and 'c' to transpose and complex conjugate
+    Use 'T' to transpose matrices and 'C' to transpose and complex conjugate
     matrices.
     """
 
@@ -115,21 +115,18 @@ def axpy(alpha, x, y):
 def rk(alpha, a, beta, c, trans='c'):
     """Rank-k update of a matrix.
 
-    Performs the operation::
+    For ``trans='c'`` the following operation is performed:::
 
-                        dag
-      c <- alpha * a . a    + beta * c
+              †
+      c <- αaa + βc,
 
-    where ``a.b`` denotes the matrix multiplication defined by::
+    and for ``trans='t'`` we get:::
 
-                 _
-                \
-      (a.b)   =  ) a         * b
-           ij   /_  ipklm...     pjklm...
-               pklm...
+             †
+      c <- αa a + βc
 
-    ``dag`` denotes the hermitian conjugate (complex conjugation plus a
-    swap of axis 0 and 1).
+    If the ``a`` array has more than 2 dimensions then the 2., 3., ...
+    axes are combined.
 
     Only the lower triangle of ``c`` will contain sensible numbers.
     """
