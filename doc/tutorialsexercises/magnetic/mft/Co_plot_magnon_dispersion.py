@@ -1,3 +1,4 @@
+# creates: Co_magnon_dispersion.png
 """Plot the magnon dispersion of Co(hcp)"""
 
 # General modules
