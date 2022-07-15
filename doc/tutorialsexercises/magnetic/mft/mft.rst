@@ -209,10 +209,10 @@ following figure:
 
 Although there does not exist a unique definition of the correct magnetic
 site volumes, there clearly seems to be a range of spherical cutoff radii
-`r_{\mathrm{c}}\in[1.0, 1.5]` in which the MFT magnon energy for a given
-wave vector `\mathbf{q}` is well defined! It is not clear *a priori* that
-there always exists such a range, why it should always be double-checked,
-when performing MFT calculations.
+`r_{\mathrm{c}}\in[1.0 Å, 1.5 Å]` in which the MFT magnon energy for a
+given wave vector `\mathbf{q}` is well defined! It is not clear *a priori*
+that there always exists such a range, why it should always be
+double-checked, when performing MFT calculations.
 
 Finally, we use the script
 :download:`Fe_plot_magnon_dispersion.py`,
@@ -223,11 +223,11 @@ chosen site geometries:
 	   :align: center
 
 Even though we are showing the entire range of magnon energies for
-`r_{\mathrm{c}}\in[1.0, 1.5]`, the spread is not visible on the frequency
-scale of the actual magnon dispersion, why we can conclude that the MFT
-magnon dispersion is well defined for the entire Brillouin Zone! This is
-confirmed by the calculations using the parallelepipedic site volumes, which
-yields identical results.
+`r_{\mathrm{c}}\in[1.0 Å, 1.5 Å]`, the spread is not visible on the
+frequency scale of the actual magnon dispersion, why we can conclude that
+the MFT magnon dispersion is well defined for the entire Brillouin Zone!
+This is confirmed by the calculations using the parallelepipedic site
+volumes, which yields identical results.
 
 
 Example 2 (Advanced): hcp-Co
@@ -249,45 +249,27 @@ Typically, this will not take much extra time. In fact, it is (depending on
 your hard disk/file system) sometimes faster, as file io can be a real
 bottle-neck when working with hundreds of GBs of data.
 
-In the remainder of this tutorial, the magnon spectrum of Co in the hcp
-crystal structure is computed as an example. The example scripts (in the
-order they should be run) are,
-:download:`magnon_dispersion_plot.py`.
-We map to a model with 2 magnetic sites, centered on the 2 atoms of the hcp
-unit cell, which results in 2 magnon bands.
+Following the recalculation of the Kohn-Sham orbitals,
+:download:`Co_mft.py`
+computes the Co MFT Heisenberg exchange constants for the band path
+G-M-K-G-A using several different spatial partitionings into magnetic sites:
 
-First step is to converge the ground state. This is done in
-:download:`converge_gs.py`. Here certain parameters must be carefully chosen
-to be consistent with subsequent response calculations.
-As mentioned above only wavevectors in the Monkhorst Pack grid can be
-simulated, so ``k`` determines which points and how many are computable.
-For instance, the high-symmetry point `L = (1/2, 0, 1/2)` requires ``k`` to
-be a multiple of 2. Incidentally all high symmetry points of the hcp lattice
-are included if ``k`` is a multiple of 6. The plane-wave cutoff for the
-ground state, ``pw``, should be larger than the response cutoff ``ecut``.
-Also ``nbands_gs`` `>=` ``nbands_response`` `> N_{occupied}` is required to
-have some converged unoccupied bands, where `N_{occupied} = 12` for Co
-(hcp).
+1) A partitioning where the two cobalt atoms are assigned each a spherical
+   site, but where only one of the spherical cutoff radii is varried.
+2) A similar partitioning with spheres of varying, but equal radii.
+3) A partitioning with only one sublattice that fills out the entire unit
+   cell.
+4) A partitioning with a single sublattice of cylindrical shape
+   encapsulating both cobalt atoms in the unit cell.
 
-With ground state converged, we can look at how integration regions affect
-magnon energies. In :download:`high_sym_pts.py` the magnon energy at all
-high-symmetry points is computed with an integration sphere centered at each
-atom. See the generated :download:`spts.json` file for coordinates of the
-high-symmetry points. This is done for different integration sphere radii,
-`r_c`. :download:`magnon_energy_plot.py` plots the result, which should
-look like
+Resource estimate: 4 hours on a 40 cores node.
+
+Bla bla bla
 
 .. image:: Co_magnons_vs_rc.png
 	   :align: center
 
-Here solid lines indicate the low energy magnon band and dashed lines the
-high energy band. Note that the bands at A, K, L and H are degenerate.
-The magnon energies go to 0 as the integration spheres shrink
-to nothing and diverge as the spheres overlap substantially (nearest
-neighbour distance is 2.5 Å). In between these extremes is a wide plateau
-where the results are insensitive to `r_c`, which suggests that all the
-relevant electron spins are included. `r_c` should be chosen in this plateau
-. The same conclusions hold for cylindrical integration regions.
+Bla bla bla
 
 Now that we have appropriate parameters for the Heisenberg lattice, let's
 compute the magnon spectrum. One could sample the whole Brillouin zone and
@@ -305,11 +287,16 @@ Also, there are parabolic dispersions around the A and Gamma points. The
 fact that all magnon energies are positive indicates that Co(hcp) is stable
 in the ferromagnetic state, at least against spin-rotations.
 
+Excercises
+==========
+
+Bla bla bla
+
 References
 ==========
 
 .. [#Durhuus] F. L. Durhuus, T. Skovhus and T. Olsen,
-           *Phys. Rev. B* **??**, ????? (2022)
+           *arXiv:2204.04169* (2022)
 
 .. [#Skovhus] T. Skovhus and T. Olsen,
            *Phys. Rev. B* **103**, 245110 (2021)
