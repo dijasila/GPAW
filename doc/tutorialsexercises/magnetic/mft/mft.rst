@@ -15,15 +15,16 @@ response formulation.
 Background theory
 =================
 
-In the classical isotropic Heisenberg model, the system energy can be computed
-directly from the orientations `\mathbf{u}_{ia}` of the magnetic moments of the
-crystal, where `\mathbf{R}_i` is the point on the Bravais lattice corresponding
-to the `i`'th unit cell and `a` indexes the sublattice. The energy is
-parametrized in terms of the Heisenberg exchange parameters as follows:
+In the classical isotropic Heisenberg model, the magnetization of a crystal is
+partitioned into distinct magnetic sites with individual magnetic moments `M_a`
+and orientation of the moments `\mathbf{u}_{ia}` (unit vector). Here, `a` is a
+sublattice index and `i` indexes the unit cells of the crystal.
+The system energy is then parametrized in terms of the Heisenberg exchange
+parameters as follows:
 
 .. math::
 
-   E_{\mathrm{H}} = - \frac{1}{2} \sum_{i,j} \sum_{a,b} J_{i,j}^{a,b}
+   E_{\mathrm{H}} = - \frac{1}{2} \sum_{i,j} \sum_{a,b} J_{ij}^{ab}
    \mathbf{u}_{ia} \cdot \mathbf{u}_{jb}.
 
 From the Heisenberg exchange parameters, one can compute the magnon dispersion
@@ -46,6 +47,9 @@ parameters:
    \bar{J}^{ab}(\mathbf{q}) = \sum_i J_{0i}^{ab}
    e^{i\mathbf{q}\cdot\mathbf{R}_i}.
 
+`\mathbf{R}_i` refers to the point on the Bravais lattice
+corresponding to the `i`'th unit cell
+   
 Using a classical, isotropic Heisenberg model, the magnon energy for a given
 wavevector, `\mathbf{q}`, can be computed from the Heisenberg exchange
 parameters `J(\mathbf{q})`. In order to map DFT calculations onto a Heisenberg
@@ -145,7 +149,7 @@ high-symmetry points. This is done for different integration sphere radii,
 `r_c`. :download:`magnon_energy_plot.py` plots the result, which should
 look like
 
-.. image:: high_sym_pts_energy_vs_rc.png
+.. image:: Fe_magnons_vs_rc.png
            :height: 500 px
 
 Here solid lines indicate the low energy magnon band and dashed lines the
@@ -164,7 +168,7 @@ Instead we look at the magnon dispersion on straight lines running between
 the high symmetry points. The calculation is in :download:`high_sym_path.py`
 and the plotting in :download:`magnon_dispersion_plot.py`.
 
-.. image:: Magnon_dispersion_Co_hcp.png
+.. image:: Fe_magnon_dispersion.png
            :height: 500 px
 
 We note that the 2 bands are degenerate for the entire path K->H->A->L.
