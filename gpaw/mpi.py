@@ -713,6 +713,7 @@ rank = world.rank
 size = world.size
 parallel = (size > 1)
 
+
 def verify_ase_world():
     # ASE does not like that GPAW uses world.size at import time.
     # .... because of GPAW's own import time communicator mish-mash.
