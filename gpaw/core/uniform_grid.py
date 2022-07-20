@@ -201,10 +201,13 @@ class UniformGrid(Domain):
 
     @property
     def _gd(self):
+        # Make sure gd can be pickled (in serial):
+        comm = self.comm if self.comm.size > 1 else serial_comm
+
         return GridDescriptor(self.size_c,
                               cell_cv=self.cell_cv,
                               pbc_c=self.pbc_c,
-                              comm=self.comm,
+                              comm=comm,
                               parsize_c=[len(d_p) - 1
                                          for d_p in self.decomp_cp])
 

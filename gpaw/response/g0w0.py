@@ -3,35 +3,34 @@ import os
 import pickle
 import warnings
 from math import pi
+from pathlib import Path
 
+import gpaw.mpi as mpi
 import numpy as np
 from ase.dft.kpoints import monkhorst_pack
 from ase.parallel import paropen
 from ase.units import Ha
 from ase.utils import opencew, pickleload
 from ase.utils.timing import timer
-
-import gpaw.mpi as mpi
-from gpaw import debug
-from gpaw.calculator import GPAW
+from gpaw import GPAW, debug
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.chi0 import Chi0Calculator
-from gpaw.response.fxckernel_calc import calculate_kernel
-from gpaw.response.kernels import get_coulomb_kernel, get_integrated_kernel
-from gpaw.response.pair import NoCalculatorPairDensity
-from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
-from gpaw.response.pw_parallelization import Blocks1D
-from gpaw.utilities.progressbar import ProgressBar
 from gpaw.pw.descriptor import (PWDescriptor, PWMapping,
                                 count_reciprocal_vectors)
+from gpaw.response.fxckernel_calc import calculate_kernel
+from gpaw.response.gamma_int import GammaIntegrator
+from gpaw.response.hilbert import GWHilbertTransforms
+from gpaw.response.kernels import get_coulomb_kernel, get_integrated_kernel
+from gpaw.response.pair import NoCalculatorPairDensity
+from gpaw.response.pw_parallelization import Blocks1D
+from gpaw.response.q0_correction import Q0Correction
+from gpaw.response.temp import DielectricFunctionCalculator
+from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
+from gpaw.utilities.progressbar import ProgressBar
 from gpaw.xc.exx import EXX, select_kpts
 from gpaw.xc.fxc import XCFlags
 from gpaw.xc.tools import vxc
 from gpaw.response.context import calc_and_context
-from gpaw.response.temp import DielectricFunctionCalculator
-from gpaw.response.q0_correction import Q0Correction
-from gpaw.response.hilbert import GWHilbertTransforms
-from gpaw.response.gamma_int import GammaIntegrator
 
 
 class Sigma:
@@ -74,6 +73,7 @@ class G0W0Outputs:
             return
 
         from scipy.stats import linregress
+
         # Do linear fit of selfenergy vs. inverse of number of plane waves
         # to extrapolate to infinite number of plane waves
 
@@ -191,7 +191,7 @@ gw_logo = """\
 
 def get_max_nblocks(world, calc, ecut):
     nblocks = world.size
-    if isinstance(calc, GPAW):
+    if not isinstance(calc, (str, Path)):
         raise Exception('Using a calulator is not implemented at '
                         'the moment, load from file!')
         # nblocks_calc = calc

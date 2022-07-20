@@ -1,21 +1,22 @@
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 from typing import IO, Any, Union
 
 from ase import Atoms
-from ase.units import Ha, Bohr
-
+from ase.units import Bohr, Ha
 from gpaw import __version__
-from gpaw.new import Timer
-from gpaw.new.calculation import DFTCalculation, units
+from gpaw.new import Timer, cached_property
+from gpaw.new.calculation import DFTCalculation, DFTState, units
 from gpaw.new.gpw import read_gpw, write_gpw
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
-from gpaw.typing import Array1D, Array2D, Array3D
-from gpaw.utilities.memory import maxrss
+from gpaw.new.pw.fulldiag import diagonalize
 from gpaw.new.xc import XC
+from gpaw.typing import Array1D, Array2D, Array3D
 from gpaw.utilities import pack
+from gpaw.utilities.memory import maxrss
 
 
 def GPAW(filename: Union[str, Path, IO[str]] = None,
@@ -31,6 +32,7 @@ def GPAW(filename: Union[str, Path, IO[str]] = None,
     if filename is not None:
         kwargs.pop('txt', None)
         kwargs.pop('parallel', None)
+        kwargs.pop('communicator', None)
         assert len(kwargs) == 0
         atoms, calculation, params, _ = read_gpw(filename, log,
                                                  params.parallel)
@@ -188,8 +190,8 @@ class ASECalculator:
 
     def get_pseudo_wave_function(self, band, kpt=0, spin=0) -> Array3D:
         state = self.calculation.state
-        wfs = state.ibzwfs.get_wfs(spin, kpt, band, band + 1)
-        basis = self.calculation.scf_loop.hamiltonian.basis
+        wfs = state.ibzwfs.get_wfs(spin=spin, kpt=kpt, n1=band, n2=band + 1)
+        basis = getattr(self.calculation.scf_loop.hamiltonian, 'basis', None)
         grid = state.density.nt_sR.desc
         wfs = wfs.to_uniform_grid_wave_functions(grid, basis)
         psit_R = wfs.psit_nX[0]
@@ -224,7 +226,13 @@ class ASECalculator:
         return self.calculation.electrostatic_potential().atomic_potentials()
 
     def get_pseudo_density(self, spin=None):
-        return self.calculation.densities.pseudo_densities().data
+        return self.calculation.densities().pseudo_densities().data
+
+    def get_all_electron_density(self, spin=None, gridrefinement=1):
+        assert spin is None
+        n_sr = self.calculation.densities().all_electron_densities(
+            grid_refinement=gridrefinement)
+        return n_sr.data.sum(0)
 
     def get_eigenvalues(self, kpt=0, spin=0):
         state = self.calculation.state
@@ -247,7 +255,7 @@ class ASECalculator:
     def calculate(self, atoms):
         self.get_potential_energy(atoms)
 
-    @property
+    @cached_property
     def wfs(self):
         from gpaw.new.backwards_compatibility import FakeWFS
         return FakeWFS(self.calculation, self.atoms)
@@ -266,6 +274,10 @@ class ASECalculator:
     def spos_ac(self):
         return self.atoms.get_scaled_positions()
 
+    @property
+    def world(self):
+        return self.calculation.scf_loop.world
+
     def get_xc_difference(self, xcparams):
         """Calculate non-selfconsistent XC-energy difference."""
         state = self.calculation.state
@@ -277,6 +289,28 @@ class ASECalculator:
             setup = self.setups[a]
             dexc += xc.calculate_paw_correction(setup, pack(D_sii))
         return (exct + dexc - state.potential.energies['xc']) * Ha
+
+    def diagonalize_full_hamiltonian(self,
+                                     nbands: int = None,
+                                     scalapack=None,
+                                     expert: bool = None) -> None:
+        if expert is not None:
+            warnings.warn('Ignoring deprecated "expert" argument')
+        state = self.calculation.state
+        ibzwfs = diagonalize(state.potential,
+                             state.ibzwfs,
+                             self.calculation.scf_loop.occ_calc,
+                             nbands)
+        self.calculation.state = DFTState(ibzwfs,
+                                          state.density,
+                                          state.potential)
+        nbands = ibzwfs.nbands
+        self.params.nbands = nbands
+        self.params.keys.append('nbands')
+
+    def gs_adapter(self):
+        from gpaw.response.groundstate import ResponseGroundStateAdapter
+        return ResponseGroundStateAdapter(self)
 
 
 def write_header(log, world, params):

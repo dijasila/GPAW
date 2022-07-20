@@ -7,9 +7,9 @@ from ase.utils.timing import timer
 import gpaw.mpi as mpi
 from gpaw.fd_operators import Gradient
 from gpaw.response.pw_parallelization import block_partition
-from gpaw.utilities.blas import mmm
 from gpaw.response.symmetry import KPointFinder
 from gpaw.response.context import calc_and_context
+from gpaw.utilities.blas import mmm
 
 
 class KPoint:

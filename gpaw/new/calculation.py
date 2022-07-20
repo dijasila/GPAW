@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any, Union
 
-import numpy as np
 from ase import Atoms
 from ase.geometry import cell_to_cellpar
 from ase.units import Bohr, Ha
@@ -31,7 +30,8 @@ units = {'energy': Ha,
          'stress': Ha / Bohr**3,
          'dipole': Bohr,
          'magmom': 1.0,
-         'magmoms': 1.0}
+         'magmoms': 1.0,
+         'non_collinear_magmoms': 1.0}
 
 
 class DFTState:
@@ -108,7 +108,7 @@ class DFTCalculation:
         state = DFTState(ibzwfs, density, potential, vHt_x)
         scf_loop = builder.create_scf_loop()
 
-        write_atoms(atoms, builder.grid, builder.initial_magmoms, log)
+        write_atoms(atoms, builder.initial_magmom_av, log)
         log(state)
         log(builder.setups)
         log(scf_loop)
@@ -132,11 +132,8 @@ class DFTCalculation:
                                          self.state.density.ndensities)
         self.state.move(self.fracpos_ac, atomdist, delta_nct_R)
 
-        magmoms = self.results.get('magmoms')
-        write_atoms(atoms,
-                    self.state.density.nt_sR.desc,
-                    magmoms,
-                    self.log)
+        mm_av = self.results['non_collinear_magmoms']
+        write_atoms(atoms, mm_av, self.log)
 
         self.results = {}
 
@@ -190,6 +187,7 @@ class DFTCalculation:
         mm_v, mm_av = self.state.density.calculate_magnetic_moments()
         self.results['magmom'] = mm_v[2]
         self.results['magmoms'] = mm_av[:, 2].copy()
+        self.results['non_collinear_magmoms'] = mm_av
 
         if self.state.density.ncomponents > 1:
             x, y, z = mm_v
@@ -269,14 +267,9 @@ class DFTCalculation:
         return AtomPartition(atomdist.comm, atomdist.rank_a)
 
 
-def write_atoms(atoms, grid, magmoms, log):
-    if magmoms is None:
-        magmoms = np.zeros((len(atoms), 3))
-    elif magmoms.ndim == 1:
-        m1 = magmoms
-        magmoms = np.zeros((len(atoms), 3))
-        magmoms[:, 2] = m1
-
+def write_atoms(atoms: Atoms,
+                magmom_av: Array2D,
+                log) -> None:
     log()
     with log.comment():
         log(plot(atoms))
@@ -284,7 +277,7 @@ def write_atoms(atoms, grid, magmoms, log):
     log('\natoms: [  # symbols, positions [Ang] and initial magnetic moments')
     symbols = atoms.get_chemical_symbols()
     for a, ((x, y, z), (mx, my, mz)) in enumerate(zip(atoms.positions,
-                                                      magmoms)):
+                                                      magmom_av)):
         symbol = symbols[a]
         c = ']' if a == len(atoms) - 1 else ','
         log(f'  [{symbol:>3}, [{x:11.6f}, {y:11.6f}, {z:11.6f}],'

@@ -42,6 +42,10 @@ def test_response_iron_sf_gssALDA(in_tmp_dir):
     fxc_scaling = [True, None, 'fm']
     ecut = 300
     eta = 0.01
+    if world.size > 1:
+        nblocks = 2
+    else:
+        nblocks = 1
 
     # ------------------- Script ------------------- #
 
@@ -71,7 +75,8 @@ def test_response_iron_sf_gssALDA(in_tmp_dir):
                                            eta=eta,
                                            ecut=ecut,
                                            fxckwargs=fxckwargs,
-                                           nblocks=1)
+                                           gammacentered=True,
+                                           nblocks=nblocks)
 
     for q in range(2):
         tms.get_macroscopic_component(
@@ -89,6 +94,9 @@ def test_response_iron_sf_gssALDA(in_tmp_dir):
     # Part 3: identify magnon peaks in scattering function
     w1_w, chiks1_w, chi1_w = read_macroscopic_component('iron_dsus_1.csv')
     w2_w, chiks2_w, chi2_w = read_macroscopic_component('iron_dsus_2.csv')
+
+    print(w1_w, -chi1_w.imag)
+    print(w2_w, -chi2_w.imag)
 
     wpeak1, Ipeak1 = findpeak(w1_w, -chi1_w.imag)
     wpeak2, Ipeak2 = findpeak(w2_w, -chi2_w.imag)

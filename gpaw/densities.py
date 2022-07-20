@@ -42,18 +42,26 @@ class Densities:
 
     def _pseudo_densities(self,
                           grid_spacing: float = None,  # Ang
+                          grid_refinement: int = None,
                           ) -> UniformGridFunctions:
         nt_sR = self.nt_sR.to_pbc_grid()
+        grid = nt_sR.desc
         if grid_spacing is not None:
-            grid = nt_sR.desc.uniform_grid_with_grid_spacing(
+            grid = grid.uniform_grid_with_grid_spacing(
                 grid_spacing / Bohr)
-            nt_sR = nt_sR.interpolate(grid=grid)
-        return nt_sR
+        elif grid_refinement is not None and grid_refinement > 1:
+            grid = grid.new(size=grid.size * grid_refinement)
+        else:
+            return nt_sR
+
+        return nt_sR.interpolate(grid=grid)
 
     def all_electron_densities(self,
+                               *,
                                grid_spacing: float = None,  # Ang
+                               grid_refinement: int = None,
                                ) -> UniformGridFunctions:
-        n_sR = self._pseudo_densities(grid_spacing)
+        n_sR = self._pseudo_densities(grid_spacing, grid_refinement)
 
         splines = {}
         for R_v, setup, D_sii in zip(self.fracpos_ac @ n_sR.desc.cell_cv,

@@ -154,7 +154,7 @@ class IBZWaveFunctions:
                                        spin=0,
                                        grid_spacing=0.05,
                                        skip_paw_correction=False):
-        wfs = self.get_wfs(kpt, spin, band, band + 1)
+        wfs = self.get_wfs(kpt=kpt, spin=spin, n1=band, n2=band + 1)
         if wfs is None:
             return None
         assert isinstance(wfs, PWFDWaveFunctions)
@@ -170,6 +170,7 @@ class IBZWaveFunctions:
         return psi_r
 
     def get_wfs(self,
+                *,
                 kpt: int = 0,
                 spin: int = 0,
                 n1=0,

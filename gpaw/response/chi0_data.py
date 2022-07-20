@@ -125,11 +125,11 @@ class Chi0Data:
         if self.optical_limit:
             return (self.nw, 3, 3)
         else:
-            None
+            return None
 
-    def redistribute(self, out_x=None):
+    def redistribute(self):
         """Return redistributed chi0_wGG array."""
-        return self.blockdist.redistribute(self.chi0_wGG, self.nw, out_x=out_x)
+        return self.blockdist.redistribute(self.chi0_wGG, self.nw)
 
     def distribute_frequencies(self):
         """Return chi0_wGG array with frequencies distributed to all cores."""

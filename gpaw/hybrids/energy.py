@@ -4,7 +4,8 @@ from typing import Union
 import numpy as np
 from ase.units import Ha
 
-from gpaw.calculator import GPAW
+from gpaw import GPAW
+from gpaw.calculator import GPAW as Calculator
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.mpi import serial_comm
 from gpaw.pw.descriptor import PWDescriptor
@@ -18,7 +19,7 @@ from .symmetry import Symmetry
 from gpaw.typing import Array1D
 
 
-def non_self_consistent_energy(calc: Union[GPAW, str, Path],
+def non_self_consistent_energy(calc: Union[Calculator, str, Path],
                                xcname: str,
                                ftol=1e-9) -> Array1D:
     """Calculate non self-consistent energy for Hybrid functional.
@@ -46,6 +47,7 @@ def non_self_consistent_energy(calc: Union[GPAW, str, Path],
     if isinstance(calc, (str, Path)):
         calc = GPAW(calc, txt=None, parallel={'band': 1, 'kpt': 1})
 
+    assert not isinstance(calc, (str, Path))  # for mypy
     wfs = calc.wfs
     dens = calc.density
     kd = wfs.kd

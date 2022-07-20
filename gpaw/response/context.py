@@ -1,3 +1,4 @@
+from pathlib import Path
 from ase.utils import IOContext
 from ase.utils.timing import Timer
 
@@ -14,14 +15,17 @@ def new_context(txt, world, timer):
 def calc_and_context(calc, txt, world, timer):
     context = new_context(txt, world, timer)
     with context.timer('Read ground state'):
-        if not isinstance(calc, GPAW):
-            print('Reading ground state calculation:\n  %s' % calc,
+        try:
+            path = Path(calc)
+        except TypeError:
+            pass
+        else:
+            print('Reading ground state calculation:\n  %s' % path,
                   file=context.fd)
             with disable_dry_run():
-                calc = GPAW(calc, communicator=mpi.serial_comm)
-        else:
-            assert calc.wfs.world.size == 1
+                calc = GPAW(path, communicator=mpi.serial_comm)
 
+    assert calc.wfs.world.size == 1
     return calc, context
 
 
