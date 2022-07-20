@@ -1,8 +1,11 @@
 """Test the site kernel calculation functionality of the response code"""
+
+# General modules
 import pytest
 import numpy as np
 import scipy.special as sc
 
+# Script modules
 from ase.build import bulk
 
 from gpaw import GPAW, PW
