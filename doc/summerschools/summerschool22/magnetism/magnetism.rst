@@ -28,7 +28,7 @@ Part 1: Critical temperature of |CrI3|
 Following the instructions in the Jupyter notebook
 :download:`magnetism1.ipynb`
 you will in this first part of the project set up a monolayer of |CrI3| (using 
-the input file
+the structure file
 :download:`CrI3.xyz`)
 and calculate its critical temperature.
 
@@ -45,20 +45,20 @@ The procedure will be as follows:
 Part 2: Noncollinear magnetism in |VI2|
 =======================================
 
-:download:`magnetism2.ipynb`, :download:`VI2.xyz`
+In materials where the dominant magnetic exchange coupling is antiferromagnetic,
+or in cases where different exchange couplings compete, the ground state may
+have a complicated noncollinear magnetic order. Completing the notebook 
+:download:`magnetism2.ipynb`,
+you will examine a prototypical monolayer with a noncollinear ground state,
+namely hexagonal |VI2|. Starting from the structure file
+:download:`VI2.xyz`,
+you will:
 
-If the magnetic atoms form a hexagonal lattice and the exchange coupling is
-anti-ferromagnetic, the ground state will have a non-collinear structure. In
-the notebook ``magnetism2.ipynb`` you will
-
-* Relax the atomic positions of the material
-
-* Compare a collinear anti-ferromagnetic structure with the ferromagnetic state
-
-* Obtain the non-collinear ground state
-
-* Calculate the magnetic anisotropy and discuss whether or not the material
-  will exhibit magnetic order at low temperature
+1) Relax the atomic structure
+2) Compare a collinear antiferromagnetic structure with the ferromagnetic state
+3) Obtain the noncollinear ground state
+4) Calculate the magnetic anisotropy and discuss whether or not the material
+   will exhibit magnetic order at low temperatures
 
 
 Part 3: Find new magnetic monolayers with high critical temperatures
