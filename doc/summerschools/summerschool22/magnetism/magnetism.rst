@@ -47,7 +47,7 @@ Part 2: Noncollinear magnetism in |VI2|
 
 In materials where the dominant magnetic exchange coupling is antiferromagnetic,
 or in cases where different exchange couplings compete, the ground state may
-have a complicated noncollinear magnetic order. Completing the notebook 
+have a complicated noncollinear magnetic order. Completing the notebook
 :download:`magnetism2.ipynb`,
 you will examine a prototypical monolayer with a noncollinear ground state,
 namely hexagonal |VI2|. Starting from the structure file
@@ -64,13 +64,19 @@ you will:
 Part 3: Find new magnetic monolayers with high critical temperatures
 ====================================================================
 
-:download:`magnetism3.ipynb`
+In this last part of the project, you will try to find new magnetic monolayers
+that can preserve a magnetic ordering at elevated temperatures.
+Using the notebook
+:download:`magnetism3.ipynb`,
+you will:
 
-In this last part you will search the database and pick one material you
-expect to have a large critical temperature. The total energy mapping analysis
-is carried out to obtain exchange coupling parameters and a first principles
-estimate of the critical temperature. The guidelines for the analysis is found
-in the notebook ``magnetism3.ipynb``.
+1) Search through a database of monolayers to pick a material you might expect
+   to have a high critical temperature
+2) Carry out a total energy mapping analysis to obtain exchange coupling and
+   anisotropy parameters
+3) Calculate a first principles estimate of the critical temperature
+
+You are welcome to repeat this procedure for as many monolayers as you like.
 
 .. |CrI3| replace:: CrI\ :sub:`3`
 
