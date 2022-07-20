@@ -28,15 +28,15 @@ def calculate_single_site_magnon_energies(J_qx, q_qc, mm):
         Magnon energies as a function of q and x. Same shape as input J_qx.
     """
     assert J_qx.shape[0] == q_qc.shape[0]
+    assert np.allclose(J_qx.imag, 0.),\
+        "The exchange constants of an isotropic system with a single "\
+        "magnetic sublattice are always real."
 
     q0 = get_q0_index(q_qc)
     J0_x = J_qx[q0]
 
     # Compute energies
     E_qx = 2. / mm * (J0_x[np.newaxis, ...] - J_qx)
-
-    # Imaginary part should be zero
-    assert np.allclose(E_qx.imag, 0.)
 
     return E_qx.real
 
@@ -113,11 +113,17 @@ def generate_fm_dynamic_spin_wave_matrix(J_qabx, q_qc, mm_ax):
     assert J_qabx.shape[1] == mm_ax.shape[0]
     assert J_qabx.shape[0] == q_qc.shape[0]
     assert J_qabx.shape[3:] == mm_ax.shape[1:]
+    assert np.allclose(J_qabx, np.conj(np.moveaxis(J_qabx, 2, 1))),\
+        "The isotropic exchange constants J^ab(q) are Hermitian by definition."
     na = mm_ax.shape[0]
 
     # Get J^ab(0)
     q0 = get_q0_index(q_qc)
     J0_acx = J_qabx[q0]
+    assert np.allclose(J0_acx.imag, 0.),\
+        "For a collinear system without spin-orbit coupling, the exchange "\
+        "constants are not only isotropic, but also reciprocal. In "\
+        "particular, this implies that [J^ab(q)]^*=J^ab(-q)."
 
     # Set up magnetic moment prefactor as outer product
     mm_inv_abx = 2. / np.sqrt(mm_ax[:, np.newaxis, ...]

@@ -12,7 +12,8 @@ from ase.build import bulk
 from gpaw import GPAW, PW, FermiDirac
 from gpaw.mpi import world, rank
 from gpaw.response.chiks import ChiKS
-from gpaw.response.susceptibility import get_pw_coordinates
+from gpaw.response.susceptibility import (get_pw_coordinates,
+                                          get_inverted_pw_mapping)
 
 
 # ---------- ChiKS parametrization ---------- #
@@ -212,28 +213,3 @@ def Fe_gs(module_tmp_path):
     atoms.get_potential_energy()
 
     return calc, nbands
-
-
-# ---------- Test functionality ---------- #
-
-
-def get_inverted_pw_mapping(pd1, pd2):
-    """Get the plane wave coefficients mapping GG' of pd1 into -G-G' of pd2"""
-    G1_Gc = get_pw_coordinates(pd1)
-    G2_Gc = get_pw_coordinates(pd2)
-
-    mG2_G1 = []
-    for G1_c in G1_Gc:
-        found_match = False
-        for G2, G2_c in enumerate(G2_Gc):
-            if np.all(G2_c == -G1_c):
-                mG2_G1.append(G2)
-                found_match = True
-                break
-        if not found_match:
-            raise ValueError('Could not match pd1 and pd2')
-
-    # Set up mapping from GG' to -G-G'
-    invmap_GG = tuple(np.meshgrid(mG2_G1, mG2_G1, indexing='ij'))
-
-    return invmap_GG
