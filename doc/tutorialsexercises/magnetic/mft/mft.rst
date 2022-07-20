@@ -240,7 +240,7 @@ usual acoustic Goldtone mode and an optical mode.
 
 Again, we start off by calculating the LSDA ground state using the script
 :download:`Co_gs.py`
-(resource estimate: 20 minutes on a 40 core node). However, this time we do
+(resource estimate: 15 minutes on a 40 core node). However, this time we do
 not save the Kohn-Sham orbitals as they can take up a significant amount of
 disc space (hundreds of GB) for large systems. Instead, we will recalculate
 the orbitals as the first thing in the MFT calculation script
@@ -262,7 +262,7 @@ G-M-K-G-A using several different spatial partitionings into magnetic sites:
 4) A partitioning with a single sublattice of cylindrical shape
    encapsulating both cobalt atoms in the unit cell.
 
-Resource estimate: 4 hours on a 40 cores node.
+Resource estimate: 2.5 hours on a 40 cores node.
 
 We kick off our analysis of the results by computing the magnon mode
 energies using the build-in function ``calculate_fm_magnon_energies`` and

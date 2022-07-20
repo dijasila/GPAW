@@ -20,7 +20,7 @@ from gpaw.response.mft import IsotropicExchangeCalculator
 
 # Parameters reused from the ground state
 gpw = 'Co.gpw'
-kpts = 30
+kpts = 24
 nbands = 2 * 6
 
 # Convergence criteria of Kohn-Sham orbitals
