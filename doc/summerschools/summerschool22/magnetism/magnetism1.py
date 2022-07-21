@@ -7,8 +7,6 @@ viz.view = lambda atoms, repeat=None: None
 """
 # Curie temperature of CrI$_3$
 
-In this exercise we will examine the magnetic poperties of 2D materials. In particular we would to determine the Curie temperature from first principles and try to predict a new 2D material that exhibits magnetic order above room temperature.
-
 In 2017, ferromagnetic order was observed in a monolayer of CrI$_3$ below 45 K (*Nature* **546** 270 (2017)). It comprises the first demonstration of magnetic order in a 2D material and has received a lot of attention due to the peculiar properties of magnetism in 2D. The physics of magnetic order in 2D is rather different than in 3D and in order to understand what is going on we will need to introduce a bit of theory. But before we get to that let us get started with the calculations.
 """
 
@@ -16,18 +14,18 @@ In 2017, ferromagnetic order was observed in a monolayer of CrI$_3$ below 45 K (
 """
 ## DFT calculation - finding the atomic structure of CrI$_3$
 
-We start by setting up the atomic structure of a CrI$_3$ monolayer and optimize the atomic positions and unit cell. There are two formula units in the minimal unit cell and the magnetic moments are large situated at the Cr atoms. A spin-polarized calculation is initiated by specifying the initial magnetic moments of the all the atoms in units of $\mu_B$.
+We start by setting up the atomic structure of a CrI$_3$ monolayer and optimizing the atomic positions and unit cell. There are two formula units in the minimal unit cell and only the Cr atoms bear significant magnetic moments. A spin-polarized calculation is initiated by specifying the initial magnetic moments of the all the atoms in units of $\mu_B$.
 
-1. What do you expect for the magnetic moment on th Cr atoms? (Hint: Use Hund's rule. The electronic configuration of a Cr atom is [Ar]3d$^5$4s$^1$ and each of the I atoms will still one electron)
+1. What do you expect the ionic value for the magnetic moment of the Cr atoms to be? (Hint: Use Hund's rule. The electronic configuration of a Cr atom is [Ar]3d$^5$4s$^1$ and each of the iodine atoms will steal one electron)
 
-Try to understand the individual lines in the input cell below and run it. The calculation will open the ase gui that shows the initial atomic structure. You may, for example, try to repeat the structure (under view) to get a better feeling for the material. Then look at the text output below the cell and answer the following questions:
+Try to understand the individual lines in the input cell below and run it. The calculation will open the ase gui to show the initial atomic structure. You may, for example, try to repeat the structure (under view) to get a better feeling for the material. Then look at the text output below the cell and answer the following questions:
 
-1.  How many electrons are used in the calculation? Which valence states of Cr and I are included?
-2.  What is the total magnetic moment after the first DFT calculation and on which atoms are the magnetic moments located?
-3.  What is the number of irreducible k-points (k-points not related by symmetry) in the calculation?
-4.  What is the maximum force on the atoms after the first DFT calculation? Does it become smaller after subsequent calculations?
+2.  How many electrons are used in the calculation? Which valence states of Cr and I are included?
+3.  What is the total magnetic moment after the first DFT calculation and on which atoms are the magnetic moments located?
+4.  What is the number of irreducible k-points (k-points not related by symmetry) in the calculation?
+5.  What is the maximum force on the atoms after the first DFT calculation? Does it become smaller after subsequent calculations?
 
-In order to get the script running fast we have set a few of the parameters at values, which are expected to produce a somewhat inaccurate result. Can you identify the parameters that need to be converged/modifies in order to produce a more accurate ground state?
+In order to get the script running fast, we have set a few of the computational parameters to values which are expected to produce a somewhat inaccurate result. Can you identify what parameters one would need to converge or modify in order to produce more accurate results?
 
 Leave the script running and continue with the theory section below.
 """
