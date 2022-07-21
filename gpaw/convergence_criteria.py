@@ -391,3 +391,37 @@ class MaxIter(Criterion):
         converged = context.niter >= self.n
         entry = '{:d}'.format(context.niter)
         return converged, entry
+
+
+class RelativeForces(Criterion):
+    name = 'relative forces'
+    tablename = 'rel-f'
+
+    def __init__(self, tol, calc_last=True):
+        self.tol = tol
+        self.description = ('Maximum relative change in the atomic forces across '
+                            'last 2 cycles: {:g}'.format(self.tol))
+        self.calc_last = calc_last
+        self.reset()
+
+    def __call__(self, context):
+        """Should return (bool, entry), where bool is True if converged and
+        False if not, and entry is a <=5 character string to be printed in
+        the user log file."""
+        with context.wfs.timer('Forces'):
+            F_av = calculate_forces(context.wfs, context.dens, context.ham)
+            F_av *= Ha / Bohr
+        error = np.inf
+        if self.old_F_av is not None:
+
+            error = np.max(np.linalg.norm(F_av - self.old_F_av, axis=1)) / \
+                np.max(np.linalg.norm(F_av, axis=1))
+        self.old_F_av = F_av
+        converged = (error < self.tol)
+        entry = ''
+        if np.isfinite(error):
+            entry = '{:+5.2f}'.format(np.log10(error))
+        return converged, entry
+
+    def reset(self):
+        self.old_F_av = None
