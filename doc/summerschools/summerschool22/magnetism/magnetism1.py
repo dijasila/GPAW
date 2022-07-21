@@ -16,7 +16,7 @@ In 2017, ferromagnetic order was observed in a monolayer of CrI$_3$ below 45 K (
 
 We start by setting up the atomic structure of a CrI$_3$ monolayer and optimizing the atomic positions and unit cell. There are two formula units in the minimal unit cell and only the Cr atoms bear significant magnetic moments. A spin-polarized calculation is initiated by specifying the initial magnetic moments of the all the atoms in units of $\mu_B$.
 
-1. What do you expect the ionic value for the magnetic moment of the Cr atoms to be? (Hint: Use Hund's rule. The electronic configuration of a Cr atom is [Ar]3d$^5$4s$^1$ and each of the iodine atoms will steal one electron)
+1. What do you expect the ionic value for the magnetic moment of the Cr atoms to be? (Hint: Use Hund's rule. The electronic configuration of a Cr atom is [Ar]3d$^5$4s$^1$ and each of the iodine atoms will steal one electron). Use your answer to fill in the spin state `S` in the cell below.
 
 Try to understand the individual lines in the input cell below and run it. The calculation will open the ase gui to show the initial atomic structure. You may, for example, try to repeat the structure (under view) to get a better feeling for the material. Then look at the text output below the cell and answer the following questions:
 
@@ -75,7 +75,7 @@ calc.write('CrI3_relaxed.gpw')
 
 ### The Heisenberg model
 
-If we want to calculate the Curie temperature of CrI$_3$ it is, in principle, clear what we have to do. We should calculate the magnetization as a function of temperature using standards methods from statistical physics, and record the temperature where the magnetization vanishes. Unfortunately, this requires knowledge of all the excited states of the system, which we do not have access to. In particular, the magnetization will be dominated by collective magnetic exciations, and these are not directly accessible from the Kohn-Sham spectrum produced by our DFT calculations.
+If we want to calculate the Curie temperature of CrI$_3$ it is, in principle, clear what we have to do. We should calculate the magnetization as a function of temperature using standard methods from statistical physics, and record the temperature where the magnetization vanishes. Unfortunately, this requires knowledge of all the excited states of the system, which we do not have access to. In particular, the magnetization will be dominated by collective magnetic exciations, and these are not directly accessible from the Kohn-Sham spectrum produced by our DFT calculations.
 
 Instead we will consider the Heisenberg Hamiltonian, which captures the basic physics of typical spin systems. It is given by
 
@@ -86,7 +86,7 @@ where $\mathbf{S}_i$ denotes the spin operator at site $i$ in units of $\hbar$ a
 1.   What are the magnetic sites of CrI$_3$?
 2.   How many nearest neighbors does each magnetic site have?
 3.   What are the possible values of $S_i^z$ for a magnetic site in CrI$_3$?
-4.   What are the unit of $J_{ij}?$
+4.   What is the unit of $J_{ij}$?
 
 In the following we will assume that the physics is dominated by neareast neighbor interactions such that $J_{ij}\equiv J$ if atoms $i$ and $j$ are nearest neighbors and zero otherwise. In 3D systems a reasonable estimate of the Curie temperature can be obtained from mean-field theory as
 
