@@ -90,7 +90,7 @@ where $\mathbf{S}_i$ denotes the spin operator at site $i$ in units of $\hbar$ a
 
 In the following, we will assume that the physics is dominated by neareast neighbor interactions such that $J_{ij}\equiv J$ if atoms $i$ and $j$ are nearest neighbors and zero otherwise. In 3D systems a reasonable estimate of the Curie temperature can be obtained from mean-field theory as
 
-$$T_c^{\mathrm{MF}}=\frac{nS(S+1)J}{3k_B},$$
+$$T_c^{\mathrm{MF}}=\frac{4nJS(S+1)}{3k_B},$$
 
 where $k_B$ is Boltzmann's constant, $n$ is the number of nearest neighbors, and $S$ is the maximum value of $S^z_i$.
 """
@@ -103,7 +103,7 @@ We now want to make a first principles calculation of the nearest neighbor excha
 
 $$J=\frac{E_{\mathrm{AFM}}-E_{\mathrm{FM}}}{6S^2},$$
 
-where $E_{\mathrm{FM}}$ and $E_{\mathrm{AFM}}$ are the energies of the ferromagnetic and antiferromagnetic configurations respectively. 
+where $E_{\mathrm{FM}}$ and $E_{\mathrm{AFM}}$ are the energies *per magnetic atom* of the ferromagnetic and antiferromagnetic configurations respectively.
 
 1.   Derive the expression for $J$ from the classical Heisenberg model yourself. In particular, how does the factor of 6 arise?
 
@@ -142,7 +142,7 @@ calc.write('CrI3_afm.gpw')
 
 # %%
 """
-$J$ and $T_c^{\mathrm{MF}}$ can then be evaluated by
+Finally, we can calculate $J$ and $T_c^{\mathrm{MF}}$ by extracting the *ab initio* energy difference from the `.gpw` files. Fill in the formulas for `J` and `T_c` below and evaluate the cell.
 """
 
 # %%
@@ -150,15 +150,15 @@ calc_fm = GPAW('CrI3_fm.gpw', txt=None)      # Ferromagnetic calculation
 calc_afm = GPAW('CrI3_afm.gpw', txt=None)    # Anti-ferromagnetic calculation
 
 N = 3
-E_fm = calc_fm.get_potential_energy() / 2    # Energy per site
-E_afm = calc_afm.get_potential_energy() / 2  # Energy per site
+E_fm = calc_fm.get_potential_energy() / 2    # Energy per magnetic atom
+E_afm = calc_afm.get_potential_energy() / 2  # Energy per magnetic atom
 dE = E_afm - E_fm
 
-J = dE / S**2 / 3  # student: J = ???
+J = dE / S**2 / 6  # student: J = ???
 print(f'J = {J * 1000:1.3f} meV')
 
 from ase.units import kB                     # Boltzmann's constant in eV/K
-T_c = N * J * S * (S + 1) / 3 / kB  # student: T_c = ???
+T_c = 4 * N * J * S * (S + 1) / 3 / kB  # student: T_c = ???
 print(f'T_c(MF) = {T_c:1.1f} K')
 
 # %%
