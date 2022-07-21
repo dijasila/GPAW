@@ -14,14 +14,14 @@ from ase.utils import opencew, pickleload
 from ase.utils.timing import timer
 from gpaw import GPAW, debug
 from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.response.chi0 import Chi0Calculator
 from gpaw.pw.descriptor import (PWDescriptor, PWMapping,
                                 count_reciprocal_vectors)
-from gpaw.response.chi0 import Chi0
 from gpaw.response.fxckernel_calc import calculate_kernel
 from gpaw.response.gamma_int import GammaIntegrator
 from gpaw.response.hilbert import GWHilbertTransforms
 from gpaw.response.kernels import get_coulomb_kernel, get_integrated_kernel
-from gpaw.response.pair import PairDensity
+from gpaw.response.pair import NoCalculatorPairDensity
 from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.response.q0_correction import Q0Correction
 from gpaw.response.temp import DielectricFunctionCalculator
@@ -30,6 +30,7 @@ from gpaw.utilities.progressbar import ProgressBar
 from gpaw.xc.exx import EXX, select_kpts
 from gpaw.xc.fxc import XCFlags
 from gpaw.xc.tools import vxc
+from gpaw.response.context import calc_and_context
 
 
 class Sigma:
@@ -252,21 +253,20 @@ def choose_ecut_things(ecut, ecut_extrapolation):
     return ecut, ecut_e
 
 
-class G0W0:
-    def __init__(self, calc, filename='gw', *,
+class G0W0Calculator:
+    def __init__(self, filename='gw', *,
+                 chi0calc,
                  restartfile=None,
-                 kpts=None, bands=None, relbands=None, nbands=None, ppa=False,
-                 xc='RPA', fxc_mode='GW', do_GW_too=False,
-                 Eg=None,
+                 kpts, bands, nbands=None, ppa,
+                 xckernel,
+                 fxc_mode='GW', do_GW_too=False,
                  truncation=None, integrate_gamma=0,
-                 ecut=150.0, eta=0.1, E0=1.0 * Ha,
+                 eta, E0,
+                 ecut_e,
                  frequencies=None,
-                 domega0=None,  # deprecated
-                 omega2=None,  # deprecated
                  q0_correction=False,
-                 nblocks=1, savepckl=True,
-                 world=mpi.world, ecut_extrapolation=False,
-                 nblocksmax=False):
+                 savepckl=True,
+                 context):
 
         """G0W0 calculator.
 
@@ -351,57 +351,45 @@ class G0W0:
         savepckl: bool
             Save output to a pckl file.
         """
-        self.frequencies = get_frequencies(frequencies, domega0, omega2)
-        self.inputcalc = calc
 
-        if ppa and (nblocks > 1 or nblocksmax):
-            raise ValueError(
-                'PPA is currently not compatible with block parallellisation.')
+        # Note: self.wd should be our only representation of the frequencies.
+        # We should therefore get rid of self.frequencies.
+        # It is currently only used by the restart code,
+        # so should be easy to remove after some further adaptation.
+        self.frequencies = frequencies
 
-        ecut, ecut_e = choose_ecut_things(ecut, ecut_extrapolation)
         self.ecut_e = ecut_e / Ha
 
-        # Check if nblocks is compatible, adjust if not
-        if nblocksmax:
-            nblocks = get_max_nblocks(world, calc, ecut)
+        self.context = context
+        self.chi0calc = chi0calc
+        self.pair = chi0calc.pair
+        self.wd = chi0calc.wd
+        self.gs = chi0calc.gs
 
-        self.pair = PairDensity(calc, world=world, nblocks=nblocks,
-                                txt=filename + '.txt')
+        if ppa and self.pair.nblocks > 1:
+            raise ValueError(
+                'PPA is currently not compatible with block parallelisation.')
 
-        # Steal attributes from self.pair:
-        self.timer = self.pair.timer
-        self.fd = self.pair.fd
-        self.gs = self.pair.gs
-        self.ecut = ecut / Ha
+        self.timer = self.context.timer
+        self.fd = self.context.fd
         self.blockcomm = self.pair.blockcomm
-        self.world = self.pair.world
-        self.vol = self.pair.vol
+        self.world = self.context.world
 
         print(gw_logo, file=self.fd)
 
-        self.xc = xc
+        self.xckernel = xckernel
         self.fxc_mode = fxc_mode
         self.do_GW_too = do_GW_too
 
         if not self.fxc_mode == 'GW':
-            assert self.xc != 'RPA'
+            assert self.xckernel.xc != 'RPA'
 
         if self.do_GW_too:
-            assert self.xc != 'RPA'
+            assert self.xckernel.xc != 'RPA'
             assert self.fxc_mode != 'GW'
             if restartfile is not None:
                 raise RuntimeError('Restart function does not currently work '
                                    'with do_GW_too=True.')
-
-        if Eg is None and self.xc == 'JGMsx':
-            Eg = self.gs.get_band_gap()
-
-        if Eg is not None:
-            Eg /= Ha
-
-        self.Eg = Eg
-
-        self.xcflags = XCFlags(self.xc)
 
         self.filename = filename
         self.restartfile = restartfile
@@ -412,69 +400,44 @@ class G0W0:
         self.eta = eta / Ha
         self.E0 = E0 / Ha
 
-        self.wd = None
+        self.kpts = kpts
+        self.bands = bands
 
-        self.blocks1d = None
-        self.blockdist = None
-
-        self.kpts = list(select_kpts(kpts, self.gs.kd))
-        self.bands = bands = self.choose_bands(bands, relbands)
-
-        b1, b2 = bands
+        b1, b2 = self.bands
         self.shape = (self.gs.nspins, len(self.kpts), b2 - b1)
 
-        if nbands is None:
-            nbands = int(self.vol * self.ecut**1.5 * 2**0.5 / 3 / pi**2)
-        else:
-            if ecut_extrapolation:
-                raise RuntimeError(
-                    'nbands cannot be supplied with ecut-extrapolation.')
-
         self.nbands = nbands
-        self.nspins = self.gs.nspins
 
-        if self.nspins != 1 and self.fxc_mode != 'GW':
+        if self.gs.nspins != 1 and self.fxc_mode != 'GW':
             raise RuntimeError('Including a xc kernel does currently not '
                                'work for spinpolarized systems.')
 
         self.pair_distribution = self.pair.distribute_k_points_and_bands(
-            b1, b2, self.kd.ibz2bz_k[self.kpts])
+            b1, b2, self.gs.kd.ibz2bz_k[self.kpts])
 
-        self.qd = get_qdescriptor(self.kd, self.gs.atoms)
+        self.qd = get_qdescriptor(self.gs.kd, self.gs.atoms)
 
         if q0_correction:
             assert self.truncation == '2D'
             self.q0_corrector = Q0Correction(
-                cell_cv=self.gd.cell_cv, bzk_kc=self.kd.bzk_kc,
+                cell_cv=self.gs.gd.cell_cv, bzk_kc=self.gs.kd.bzk_kc,
                 N_c=self.qd.N_c)
         else:
             self.q0_corrector = None
 
-        self.print_parameters(kpts, b1, b2, ecut_extrapolation)
+        self.print_parameters(kpts, b1, b2)
         self.fd.flush()
         self.hilbert_transform = None  # initialized when we create Chi0
 
-    @property
-    def kd(self):
-        return self.gs.kd
+        if self.ppa:
+            print('Using Godby-Needs plasmon-pole approximation:',
+                  file=self.fd)
+            print('  Fitting energy: i*E0, E0 = %.3f Hartee' % self.E0,
+                  file=self.fd)
+        else:
+            print('Using full frequency integration', file=self.fd)
 
-    @property
-    def gd(self):
-        return self.gs.gd
-
-    def choose_bands(self, bands, relbands):
-        if bands is not None and relbands is not None:
-            raise ValueError('Use bands or relbands!')
-
-        if relbands is not None:
-            bands = [self.gs.nvalence // 2 + b for b in relbands]
-
-        if bands is None:
-            bands = [0, self.nocc2]
-
-        return bands
-
-    def print_parameters(self, kpts, b1, b2, ecut_extrapolation):
+    def print_parameters(self, kpts, b1, b2):
         p = functools.partial(print, file=self.fd)
         p()
         p('Quasi particle states:')
@@ -486,17 +449,18 @@ class G0W0:
         p('Band range: ({0:d}, {1:d})'.format(b1, b2))
         p()
         p('Computational parameters:')
-        if not ecut_extrapolation:
-            p('Plane wave cut-off: {0:g} eV'.format(self.ecut * Ha))
+        if len(self.ecut_e) == 1:
+            p('Plane wave cut-off: {0:g} eV'.format(self.chi0calc.ecut * Ha))
         else:
+            assert len(self.ecut_e) > 1
             p('Extrapolating to infinite plane wave cut-off using points at:')
-            p('  [%.3f, %.3f, %.3f] eV' % tuple(self.ecut_e[:] * Ha))
+            p('  [%.3f, %.3f, %.3f] eV' % tuple(self.ecut_e * Ha))
         p('Number of bands: {0:d}'.format(self.nbands))
         p('Coulomb cutoff:', self.truncation)
         p('Broadening: {0:g} eV'.format(self.eta * Ha))
         p()
         p('fxc mode:', self.fxc_mode)
-        p('Kernel:', self.xc)
+        p('Kernel:', self.xckernel.xc)
         p('Do GW too:', self.do_GW_too)
         p()
 
@@ -504,10 +468,11 @@ class G0W0:
         eps_skn = np.empty(self.shape)  # KS-eigenvalues
         f_skn = np.empty(self.shape)  # occupation numbers
 
+        nspins = self.gs.nspins
         b1, b2 = self.bands
         for i, k in enumerate(self.kpts):
-            for s in range(self.nspins):
-                u = s + k * self.nspins
+            for s in range(nspins):
+                u = s + k * nspins
                 kpt = self.gs.kpt_u[u]
                 eps_skn[s, i] = kpt.eps_n[b1:b2]
                 f_skn[s, i] = kpt.f_n[b1:b2] / kpt.weight
@@ -574,7 +539,7 @@ class G0W0:
                     q_c, 0, m2):
                 pb.update((nQ + progress) / self.qd.mynk)
 
-                k1 = self.kd.bz2ibz_k[kpt1.K]
+                k1 = self.gs.kd.bz2ibz_k[kpt1.K]
                 i = self.kpts.index(k1)
 
                 self.calculate_q(ie, i, kpt1, kpt2, pd0, Wdict,
@@ -637,7 +602,7 @@ class G0W0:
         N_c = pd0.gd.N_c
         i_cG = symop.apply(np.unravel_index(pd0.Q_qG[0], N_c))
 
-        q_c = self.kd.bzk_kc[kpt2.K] - self.kd.bzk_kc[kpt1.K]
+        q_c = self.gs.kd.bzk_kc[kpt2.K] - self.gs.kd.bzk_kc[kpt1.K]
 
         shift0_c = symop.get_shift0(q_c, pd0.kd.bzk_kc[0])
         shift_c = kpt1.shift_c - kpt2.shift_c - shift0_c
@@ -695,7 +660,7 @@ class G0W0:
     def check(self, ie, i_cG, shift0_c, N_c, q_c, Q_aGii):
         I0_G = np.ravel_multi_index(i_cG - shift0_c[:, None], N_c, 'wrap')
         qd1 = KPointDescriptor([q_c])
-        pd1 = PWDescriptor(self.ecut_e[ie], self.gd, complex, qd1)
+        pd1 = PWDescriptor(self.ecut_e[ie], self.gs.gd, complex, qd1)
         G_I = np.empty(N_c.prod(), int)
         G_I[:] = -1
         I1_G = pd1.Q_qG[0]
@@ -726,7 +691,7 @@ class G0W0:
         o1_m[m_inb] = self.wd.omega_w[w_m[m_inb]]
         o2_m[m_inb] = self.wd.omega_w[w_m[m_inb] + 1]
 
-        x = 1.0 / (self.qd.nbzkpts * 2 * pi * self.vol)
+        x = 1.0 / (self.qd.nbzkpts * 2 * pi * self.gs.volume)
         sigma = 0.0
         dsigma = 0.0
         # Performing frequency integration
@@ -762,54 +727,22 @@ class G0W0:
             print('Using %s truncated Coloumb potential' % self.truncation,
                   file=self.fd)
 
-        if self.ppa:
-            print('Using Godby-Needs plasmon-pole approximation:',
-                  file=self.fd)
-            print('  Fitting energy: i*E0, E0 = %.3f Hartee' % self.E0,
-                  file=self.fd)
-
-            # use small imaginary frequency to avoid dividing by zero:
-            frequencies = [1e-10j, 1j * self.E0 * Ha]
-
-            parameters = {'eta': 0,
-                          'hilbert': False,
-                          'timeordered': False,
-                          'frequencies': frequencies}
-        else:
-            print('Using full frequency integration:', file=self.fd)
-
-            parameters = {'eta': self.eta * Ha,
-                          'hilbert': True,
-                          'timeordered': True,
-                          'frequencies': self.frequencies}
-
-        self.fd.flush()
-
-        chi0calc = Chi0(self.inputcalc,
-                        nbands=self.nbands,
-                        ecut=self.ecut * Ha,
-                        intraband=False,
-                        real_space_derivatives=False,
-                        txt=self.filename + '.w.txt',
-                        timer=self.timer,
-                        nblocks=self.blockcomm.size,
-                        **parameters)
+        chi0calc = self.chi0calc
 
         if self.truncation == 'wigner-seitz':
             wstc = WignerSeitzTruncatedCoulomb(
-                self.gd.cell_cv,
-                self.kd.N_c,
+                self.gs.gd.cell_cv,
+                self.gs.kd.N_c,
                 chi0calc.fd)
         else:
             wstc = None
 
-        self.wd = chi0calc.wd
         self.hilbert_transform = GWHilbertTransforms(
             self.wd.omega_w, self.eta)
         print(self.wd, file=self.fd)
 
         # Find maximum size of chi-0 matrices:
-        nGmax = max(count_reciprocal_vectors(self.ecut, self.gd, q_c)
+        nGmax = max(count_reciprocal_vectors(chi0calc.ecut, self.gs.gd, q_c)
                     for q_c in self.qd.ibzk_kc)
         nw = len(self.wd)
 
@@ -843,11 +776,11 @@ class G0W0:
                 self.timer.start('W')
 
                 # First time calculation
-                if ecut == self.ecut:
+                if ecut == chi0calc.ecut:
                     # Nothing to cut away:
                     m2 = self.nbands
                 else:
-                    m2 = int(self.vol * ecut**1.5 * 2**0.5 / 3 / pi**2)
+                    m2 = int(self.gs.volume * ecut**1.5 * 2**0.5 / 3 / pi**2)
                     if m2 > self.nbands:
                         raise ValueError(f'Trying to extrapolate ecut to'
                                          f'larger number of bands ({m2})'
@@ -883,7 +816,7 @@ class G0W0:
         chi0 = chi0calc.create_chi0(q_c, extend_head=False)
         chi0calc.fd = self.fd
         chi0calc.print_chi(chi0.pd)
-        chi0calc.update_chi0(chi0, m1, m2, range(self.nspins))
+        chi0calc.update_chi0(chi0, m1, m2, range(self.gs.nspins))
 
         if len(self.ecut_e) > 1:
             # Add chi from previous cutoff with remaining bands
@@ -937,7 +870,7 @@ class G0W0:
         dielectric_WgG = chi0.chi0_wGG  # XXX
         for iw, chi0_GG in enumerate(chi0.chi0_wGG):
             sqrtV_G = get_coulomb_kernel(chi0.pd,  # XXX was: pdi
-                                         self.kd.N_c,
+                                         self.gs.kd.N_c,
                                          truncation=self.truncation,
                                          wstc=wstc)**0.5
             e_GG = np.eye(nG) - chi0_GG * sqrtV_G * sqrtV_G[:, np.newaxis]
@@ -968,15 +901,6 @@ class G0W0:
         Wp_wGG = W_WgG.copy()
         Wm_wGG = W_WgG.copy()
         return chi0.pd, Wm_wGG, Wp_wGG  # not Hilbert transformed yet
-
-    def _calculate_kernel(self, nG, iq, G2G):
-        return calculate_kernel(ecut=self.ecut,
-                                xcflags=self.xcflags,
-                                gs=self.gs, nG=nG,
-                                ns=self.nspins, iq=iq,
-                                cut_G=G2G, wd=self.wd,
-                                Eg=self.Eg,
-                                timer=self.timer, fd=self.fd)
 
     def dyson_and_W_old(self, wstc, iq, q_c, chi0calc, chi0,
                         ecut, Q_aGii, fxc_mode):
@@ -1015,12 +939,12 @@ class G0W0:
         if self.integrate_gamma != 0:
             reduced = (self.integrate_gamma == 2)
             V0, sqrtV0 = get_integrated_kernel(pdi,
-                                               self.kd.N_c,
+                                               self.gs.kd.N_c,
                                                truncation=self.truncation,
                                                reduced=reduced,
                                                N=100)
         elif self.integrate_gamma == 0 and np.allclose(q_c, 0):
-            bzvol = (2 * np.pi)**3 / self.vol / self.qd.nbzkpts
+            bzvol = (2 * np.pi)**3 / self.gs.volume / self.qd.nbzkpts
             Rq0 = (3 * bzvol / (4 * np.pi))**(1. / 3.)
             V0 = 16 * np.pi**2 * Rq0 / bzvol
             sqrtV0 = (4 * np.pi)**(1.5) * Rq0**2 / bzvol / 2
@@ -1033,10 +957,10 @@ class G0W0:
         if fxc_mode == 'GW':
             fv = delta_GG
         else:
-            fv = self._calculate_kernel(nG, iq, G2G)
+            fv = self.xckernel.calculate(nG, iq, G2G)
 
         # Generate fine grid in vicinity of gamma
-        kd = self.kd
+        kd = self.gs.kd
         if np.allclose(q_c, 0) and len(chi0_wGG) > 0:
             gamma_int = GammaIntegrator(truncation=self.truncation,
                                         kd=kd, pd=pd,
@@ -1184,8 +1108,8 @@ class G0W0:
 
         b1, b2 = self.bands
         names = [line.split(':', 1)[0] for line in description]
-        ibzk_kc = self.kd.ibzk_kc
-        for s in range(self.nspins):
+        ibzk_kc = self.gs.kd.ibzk_kc
+        for s in range(self.gs.nspins):
             for i, ik in enumerate(self.kpts):
                 print('\nk-point ' +
                       '{0} ({1}): ({2:.3f}, {3:.3f}, {4:.3f})'.format(
@@ -1231,7 +1155,7 @@ class G0W0:
             nW_G = np.dot(n_mG[m], dx_GG)
             dsigma -= np.vdot(n_mG[m], nW_G).real
 
-        x = 1 / (self.qd.nbzkpts * 2 * pi * self.vol)
+        x = 1 / (self.qd.nbzkpts * 2 * pi * self.gs.volume)
         return x * sigma, x * dsigma
 
     def save_restart_file(self, nQ):
@@ -1301,3 +1225,130 @@ class G0W0:
             pd, W_GG, einv_GG, chi0_xvG, chi0_vv,
             sqrtV_G,
             fd=self.fd if print_ac else None)
+
+
+def choose_bands(bands, relbands, nvalence, nocc):
+    if bands is not None and relbands is not None:
+        raise ValueError('Use bands or relbands!')
+
+    if relbands is not None:
+        bands = [nvalence // 2 + b for b in relbands]
+
+    if bands is None:
+        bands = [0, nocc]
+
+    return bands
+
+
+class G0W0Kernel:
+    def __init__(self, xc, **kwargs):
+        self.xc = xc
+        self.xcflags = XCFlags(xc)
+        self._kwargs = kwargs
+
+    def calculate(self, nG, iq, G2G):
+        return calculate_kernel(
+            xcflags=self.xcflags,
+            nG=nG, iq=iq, cut_G=G2G, **self._kwargs)
+
+
+class G0W0(G0W0Calculator):
+    def __init__(self, calc, filename='gw',
+                 ecut=150.0,
+                 ecut_extrapolation=False,
+                 xc='RPA',
+                 ppa=False,
+                 E0=Ha,
+                 Eg=None,
+                 eta=0.1,
+                 nbands=None,
+                 bands=None,
+                 relbands=None,
+                 frequencies=None,
+                 domega0=None,  # deprecated
+                 omega2=None,  # deprecated
+                 nblocks=1,
+                 nblocksmax=False,
+                 kpts=None,
+                 world=mpi.world,
+                 timer=None,
+                 **kwargs):
+        frequencies = get_frequencies(frequencies, domega0, omega2)
+
+        gpwfile = calc
+        calc, context = calc_and_context(gpwfile, filename + '.txt',
+                                         world, timer)
+        gs = calc.gs_adapter()
+
+        # Check if nblocks is compatible, adjust if not
+        if nblocksmax:
+            nblocks = get_max_nblocks(context.world, gpwfile, ecut)
+
+        pair = NoCalculatorPairDensity(gs, nblocks=nblocks, context=context)
+
+        kpts = list(select_kpts(kpts, gs.kd))
+
+        if nbands is None:
+            nbands = int(gs.volume * (ecut / Ha)**1.5 * 2**0.5 / 3 / pi**2)
+        else:
+            if ecut_extrapolation:
+                raise RuntimeError(
+                    'nbands cannot be supplied with ecut-extrapolation.')
+
+        ecut, ecut_e = choose_ecut_things(ecut, ecut_extrapolation)
+
+        if ppa:
+            # use small imaginary frequency to avoid dividing by zero:
+            frequencies = [1e-10j, 1j * E0]
+
+            parameters = {'eta': 0,
+                          'hilbert': False,
+                          'timeordered': False}
+        else:
+            # frequencies = self.frequencies
+            parameters = {'eta': eta,
+                          'hilbert': True,
+                          'timeordered': True}
+
+        from gpaw.response.chi0 import new_frequency_descriptor
+        chi_context = context.with_txt(filename + '.w.txt')
+        wd = new_frequency_descriptor(
+            gs, nbands, frequencies, fd=chi_context.fd)
+
+        chi0calc = Chi0Calculator(
+            wd=wd, pair=pair,
+            nbands=nbands,
+            ecut=ecut,
+            intraband=False,
+            context=chi_context,
+            **parameters)
+
+        bands = choose_bands(bands, relbands, gs.nvalence, chi0calc.nocc2)
+
+        if Eg is None and xc == 'JGMsx':
+            Eg = gs.get_band_gap()
+
+        if Eg is not None:
+            Eg /= Ha
+
+        xckernel = G0W0Kernel(xc=xc, ecut=ecut / Ha,
+                              gs=gs,
+                              ns=gs.nspins,
+                              wd=wd,
+                              Eg=Eg,
+                              timer=context.timer,
+                              fd=context.fd)
+
+        super().__init__(filename=filename,
+                         chi0calc=chi0calc,
+                         ecut_e=ecut_e,
+                         xckernel=xckernel,
+                         eta=eta,
+                         ppa=ppa,
+                         E0=E0,
+                         nbands=nbands,
+                         bands=bands,
+                         frequencies=frequencies,
+                         context=context,
+                         kpts=kpts,
+                         **kwargs)
