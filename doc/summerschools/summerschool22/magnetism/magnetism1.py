@@ -79,7 +79,7 @@ If we want to calculate the Curie temperature of CrI$_3$ it is, in principle, cl
 
 Instead we will consider the Heisenberg Hamiltonian, which captures the basic physics of typical spin systems. It is given by
 
-$$H = -\frac{1}{2}\sum_{ij}J_{ij}\mathbf{S}_i\cdot \mathbf{S}_j,$$
+$$H = -\frac{1}{2}\sum_{i,j}J_{ij}\mathbf{S}_i\cdot \mathbf{S}_j,$$
 
 where $\mathbf{S}_i$ denotes the spin operator at site $i$ in units of $\hbar$ and $J_{ij}$ are magnetic exchange coupling constants. If we want to model a real material with the Heisenberg model we then need to identify a set of magnetic sites and calculate the exchange coupling constants $J_{ij}$.
 
@@ -99,13 +99,15 @@ where $k_B$ is Boltzmann's constant, $n$ is the number of nearest neighbors, and
 """
 ## DFT calculation of $J$
 
-We now want to make a first principles calculation of the nearest neighbor exchange coupling constant $J$. Since the exchange coupling essentially measures the energy difference between aligned and anti-aligned spin configurations we can obtain $J$ by considering the energy difference between a ferromagnetic and an anti-ferromagnetic calculation. Note that both can be obtained as DFT ground states subjected to different spin constraints. For the CrI$_3$ system, $J$ can calculated as
+We now want to make a first principles calculation of the nearest neighbor exchange coupling constant $J$. Since the exchange coupling parametrizes the energy difference between aligned and anti-aligned spin configurations, we can obtain $J$ by considering the energy difference between a ferromagnetic and an antiferromagnetic calculation. Note that both can be obtained as collinear DFT ground states subject to different spin constraints. For the CrI$_3$ system, $J$ can calculated as
 
-$$J=\frac{E_{\mathrm{AFM}}-E_{\mathrm{FM}}}{3S^2},$$
+$$J=\frac{E_{\mathrm{AFM}}-E_{\mathrm{FM}}}{6S^2},$$
 
-where $E_{\mathrm{FM}}$ is the energy of the anti-ferromagnetic configuration and $E_{\mathrm{AFM}}$ is the energy of the ferromagnetic configuration. Try to derive this expression from the Heisenberg model with classical spins. In particular, where did the factor of 3 come from?
+where $E_{\mathrm{FM}}$ and $E_{\mathrm{AFM}}$ are the energies of the ferromagnetic and antiferromagnetic configurations respectively. 
 
-We have compiled a database of various 2D materials at https://cmrdb.fysik.dtu.dk/?project=c2db, which are relaxed with the PBE functional. We will therefore refrain from doing a full coverged geometry optimization and simply download the optimized structure from the database. Search the database for CrI$_3$ and select the ferromagnetic structure (The present material has the prototype BiI$_3$). You can now look at various properties of the material like band structure and stability if you like. Download the .xyz filem, save it as CrI3.xyz, and run the cell below to obtain a .gpw file containing a converged ferromagnetic calculation. The calculation will take about 30 minutes. To speed it up, you can submit this and the next job to DTU computers on multiple CPU cores, i.e. parallelize over 8 k-points. Follow instructions [here](https://wiki.fysik.dtu.dk/gpaw/summerschools/summerschool18/submitting.html). If the relaxation in the cell above did not finish you may kill it. It is not crucial to complete the rest of the exercise. Continue with the theory below while you wait for the calculations to finish.
+1.   Derive the expression for $J$ from the classical Heisenberg model yourself. In particular, how does the factor of 6 arise?
+
+We have compiled a database of various 2D materials at https://cmrdb.fysik.dtu.dk/c2db/, which are relaxed with the PBE functional. We will therefore refrain from doing a full coverged geometry optimization and simply download the optimized structure from the database. Search the database for CrI$_3$ (it appears as Cr$_2$I$_6$ on the webpage). If you like, you can take a look at various properties of the material like band structure and stability. Download the `.xyz` file and save it as `CrI3.xyz`. You can also download the structure file directly from the summer school project site https://wiki.fysik.dtu.dk/gpaw/summerschools/summerschool22/magnetism/magnetism.html. With the input structure downloaded, run the cell below to obtain a `.gpw` file containing a converged ferromagnetic calculation. The calculation will take about 30 minutes. To speed up the process, you can submit the following two cells as batch jobs to the DTU computers with multiple CPU cores. To do so, follow the instructions [here](https://wiki.fysik.dtu.dk/gpaw/summerschools/summerschool22/submitting.html). If the relaxation in the cell above did not finish you may kill it. It is not crucial to complete in order to proceed with the rest of the exercise. Continue with the theory below while you wait for the calculations to finish.
 """
 
 # %%
