@@ -47,13 +47,20 @@ class Chi0Calculator:
                  intraband=True,
                  nbands=None,
                  timeordered=False,
+                 context=None,
                  ecut=None,
                  eta=0.2,
                  disable_point_group=False, disable_time_reversal=False,
                  disable_non_symmorphic=True,
                  integrationmode=None,
                  rate=0.0, eshift=0.0):
-        self.context = pair.context
+
+        if context is None:
+            context = pair.context
+
+        # TODO: More refactoring to avoid non-orthogonal inputs.
+        assert pair.context.world is context.world
+        self.context = context
 
         self.timer = self.context.timer
         self.fd = self.context.fd
@@ -877,30 +884,14 @@ class Chi0(Chi0Calculator):
             Class for calculating matrix elements of pairs of wavefunctions.
 
         """
-        from gpaw.response.pair import normalize_args
-        calc, context = normalize_args(calc, txt, world, timer)
+        from gpaw.response.context import calc_and_context
+        calc, context = calc_and_context(calc, txt, world, timer)
         gs = calc.gs_adapter()
         nbands = nbands or gs.bd.nbands
 
-        if domega0 is not None or omega2 is not None or omegamax is not None:
-            assert frequencies is None
-            frequencies = {'type': 'nonlinear',
-                           'domega0': domega0,
-                           'omega2': omega2,
-                           'omegamax': omegamax}
-            warnings.warn(f'Please use frequencies={frequencies}')
-
-        elif frequencies is None:
-            frequencies = {'type': 'nonlinear'}
-
-        if (isinstance(frequencies, dict) and
-            frequencies.get('omegamax') is None):
-            omegamax = find_maximum_frequency(gs.kpt_u,
-                                              nbands=nbands,
-                                              fd=context.fd)
-            frequencies['omegamax'] = omegamax * Ha
-
-        wd = FrequencyDescriptor.from_array_or_dict(frequencies)
+        wd = new_frequency_descriptor(gs, nbands, frequencies, fd=context.fd,
+                                      domega0=domega0,
+                                      omega2=omega2, omegamax=omegamax)
 
         pair = NoCalculatorPairDensity(
             gs=gs, ftol=ftol, threshold=threshold,
@@ -909,3 +900,27 @@ class Chi0(Chi0Calculator):
             nblocks=nblocks)
 
         super().__init__(wd=wd, pair=pair, nbands=nbands, ecut=ecut, **kwargs)
+
+
+def new_frequency_descriptor(gs, nbands, frequencies=None, *, fd,
+                             domega0=None, omega2=None, omegamax=None):
+    if domega0 is not None or omega2 is not None or omegamax is not None:
+        assert frequencies is None
+        frequencies = {'type': 'nonlinear',
+                       'domega0': domega0,
+                       'omega2': omega2,
+                       'omegamax': omegamax}
+        warnings.warn(f'Please use frequencies={frequencies}')
+
+    elif frequencies is None:
+        frequencies = {'type': 'nonlinear'}
+
+    if (isinstance(frequencies, dict) and
+        frequencies.get('omegamax') is None):
+        omegamax = find_maximum_frequency(gs.kpt_u,
+                                          nbands=nbands,
+                                          fd=fd)
+        frequencies['omegamax'] = omegamax * Ha
+
+    wd = FrequencyDescriptor.from_array_or_dict(frequencies)
+    return wd
