@@ -223,10 +223,10 @@ print(f'A = {A * 1000:1.3f} meV / hbar^2')
 
 # %%
 """
-We can also plot the total energy of the ground state as a function of angle
-with the out of plane direction. This is done by the cell below.
+We can also plot the total energy of the ground state as a function of the polar angle $\theta$.
 
-Run the cell and inspect the plot. Does it look like you would expect?
+3.   Run the cell below and inspect the plot. Does it look like you would expect?
+
 """
 
 # %%
