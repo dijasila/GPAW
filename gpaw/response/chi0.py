@@ -57,6 +57,9 @@ class Chi0Calculator:
 
         if context is None:
             context = pair.context
+
+        # TODO: More refactoring to avoid non-orthogonal inputs.
+        assert pair.context.world is context.world
         self.context = context
 
         self.timer = self.context.timer

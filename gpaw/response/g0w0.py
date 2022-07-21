@@ -351,6 +351,11 @@ class G0W0Calculator:
         savepckl: bool
             Save output to a pckl file.
         """
+
+        # Note: self.wd should be our only representation of the frequencies.
+        # We should therefore get rid of self.frequencies.
+        # It is currently only used by the restart code,
+        # so should be easy to remove after some further adaptation.
         self.frequencies = frequencies
 
         self.ecut_e = ecut_e / Ha
