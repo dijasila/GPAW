@@ -218,7 +218,7 @@ de_zy = e_z - e_y
 print(f'dE_zx = {de_zx * 1000:1.3f} meV')
 print(f'dE_zy = {de_zy * 1000:1.3f} meV')
 A = (de_zx + de_zy) / 2 / S**2 # student: A = ???
-print(f'A = {A * 1000:1.3f} meV / hbar^2')
+print(f'A = {A * 1000:1.3f} meV')
 
 
 # %%
@@ -250,15 +250,13 @@ plt.ylabel('E [meV]', size=18)
 
 # %%
 """
-Now we have obtained the the anisotropy constant A. But how do we get the critical temperature if we cannot apply mean-field theory? One
-way is to perform Monte-Carlo simulations of the Heisenberg model at different temperature and find the point where the total magnetization
-vanishes. The results are well approximated by the expression
+Now that we have calculated the anisotropy constant $A$, we are finally in a position to improve our estimate of the Curie temperature of CrI$_3$. But how do we get the critical temperature if we cannot apply mean-field theory? One way is to perform Monte-Carlo simulations of the classical Heisenberg model as a function of temperature and find the point where the total magnetization vanishes. The results of such simulations are well approximated by the expression [[2D Mater. 6 (2019) 015028]](https://iopscience.iop.org/article/10.1088/2053-1583/aaf06d)
 
 $$T_c=T_c^{\mathrm{Ising}}\tanh^{1/4}\Big[\frac{6}{N}\log\Big(1-0.033\frac{A}{J}\Big)\Big],$$
 
-where $N$ is the number of nearest neighbors and and $T_c^{\mathrm{Ising}}=1.52\cdot S^2J/k_B$ is the critical temperature of the
-corresponding Ising model. Calculate the critical temperature from this expression using the values of $A$ and $J$ found above. Do with
-python in the cell below.
+where $T_c^{\mathrm{Ising}}=1.52\cdot S^2J/k_B$ is the critical temperature of the ferromagnetic Ising model on a honeycomb lattice. 
+
+4.   Fill in the Monte-Carlo formula for `T_c` in the cell below and calculate the Curie temperature using the values of $A$ and $J$ found above.
 
 """
 
@@ -266,13 +264,11 @@ python in the cell below.
 from numpy import tanh, log
 
 T0 = 1.52
-T_c = T0 * S**2 * J / kB * (tanh(2 * log(1 - 0.033 * A / J)))**(0.25)  # student: T_c = ???
+T_c = T0 * S**2 * J / kB * (tanh(6 / N * log(1 - 0.033 * A / J)))**(0.25)  # student: T_c = ???
 print(f'T_c = {T_c:.1f} K')
 
 
 # %%
 """
-The result for $T_c$ should be in reasonable agreement with the experimental value. Of course, one should carefully check the convergence
-of all calculations in the present notebook. In fact a converged calculation yields $J = 3.1$ meV and $A=-0.38$ meV, which results in $T_c
-= 36$ K.
+The result for $T_c$ should be in reasonable agreement with the experimental value of 45 K (expect to obtain a value around 30 K). Of course one should carefully check the convergence of all calculations in the present notebook. In fact a converged calculation yields $J = 3.1$ meV and $A=-0.38$ meV, which results in $T_c = 37$ K.
 """
