@@ -200,14 +200,10 @@ where we have chosen the $z$-direction to be orthogonal to the plane.
 
 ## Magnetic anisotropy from DFT
 
-In the cell below the magnetic anisotropy is calculated for the ferromagnetic
-ground state. The function calculate_band_energy() will return the sum over
-occupied SOC corrected states. This energy will depend on the direction of
-the spins, which is specified by the polar and azimuthal angles $\theta$ and
-$\varphi$ respectively.
+In the cell below, the magnetic anisotropy is calculated for the ferromagnetic ground state. The function `calculate_band_energy()` will return the sum of Kohn-Sham eigenvalues for the occupied states. This energy will depend on the direction of the spins, which is specified by the polar and azimuthal angles $\theta$ and $\varphi$ respectively.
 
-What is the sign of $A$ in the Hamiltonian above? Does spin-orbit coupling
-break the rotational symmetry of the ground state?
+1.   What is the sign of $A$ in the Hamiltonian above? (Fill in the formula for `A` and evaluate the cell)
+2.   Does spin-orbit coupling break the rotational symmetry of the ground state?
 
 """
 
@@ -221,7 +217,8 @@ de_zx = e_z - e_x
 de_zy = e_z - e_y
 print(f'dE_zx = {de_zx * 1000:1.3f} meV')
 print(f'dE_zy = {de_zy * 1000:1.3f} meV')
-A = de_zx  # student: A = ???
+A = (de_zx + de_zy) / 2 / S**2 # student: A = ???
+print(f'A = {A * 1000:1.3f} meV / hbar^2')
 
 
 # %%
