@@ -27,19 +27,19 @@ Part 1: Critical temperature of |CrI3|
 
 Following the instructions in the Jupyter notebook
 :download:`magnetism1.ipynb`
-you will in this first part of the project set up a monolayer of |CrI3| (using 
-the structure file
-:download:`CrI3.xyz`)
-and calculate its critical temperature.
+you will in this first part of the project set up and relax a monolayer of |CrI3|
+after which you will calculate its critical temperature using a prerelaxed
+structure file (:download:`CrI3.xyz`).
 
 The procedure will be as follows:
 
 1) Set up the atomic structure and optimize the geometry of |CrI3|
-2) Calculate the Heisenberg exchange parameters based on a total energy mapping 
-   analysis
+2) Calculate the nearest neighbour Heisenberg exchange coupling based on a total
+   energy mapping analysis
 3) Show that the magnetic ground state is thermodynamically unstable when
    anisotropy is neglected (The Mermin-Wagner theorem)
-4) Calculate the magnetic anisotropy and estimate the critical temperature
+4) Calculate the single-ion magnetic anisotropy and estimate the critical
+   temperature
 
 
 Part 2: Noncollinear magnetism in |VI2|
