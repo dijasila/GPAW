@@ -399,8 +399,8 @@ class RelativeForces(Criterion):
 
     def __init__(self, tol, calc_last=True):
         self.tol = tol
-        self.description = ('Maximum relative change in the atomic forces across '
-                            'last 2 cycles: {:g}'.format(self.tol))
+        self.description = ('Maximum relative change in the atomic forces '
+                            'across last 2 cycles: {:g}'.format(self.tol))
         self.calc_last = calc_last
         self.reset()
 
