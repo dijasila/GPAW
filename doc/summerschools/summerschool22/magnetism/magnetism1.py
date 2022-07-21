@@ -90,9 +90,9 @@ where $\mathbf{S}_i$ denotes the spin operator at site $i$ in units of $\hbar$ a
 
 In the following, we will assume that the physics is dominated by neareast neighbor interactions such that $J_{ij}\equiv J$ if atoms $i$ and $j$ are nearest neighbors and zero otherwise. In 3D systems a reasonable estimate of the Curie temperature can be obtained from mean-field theory as
 
-$$T_c^{\mathrm{MF}}=\frac{4nJS(S+1)}{3k_B},$$
+$$T_c^{\mathrm{MF}}=\frac{NJS(S+1)}{3k_B},$$
 
-where $k_B$ is Boltzmann's constant, $n$ is the number of nearest neighbors, and $S$ is the maximum value of $S^z_i$.
+where $k_B$ is Boltzmann's constant, $N$ is the number of nearest neighbors, and $S$ is the maximum value of $S^z_i$.
 """
 
 # %%
@@ -101,11 +101,11 @@ where $k_B$ is Boltzmann's constant, $n$ is the number of nearest neighbors, and
 
 We now want to make a first principles calculation of the nearest neighbor exchange coupling constant $J$. Since the exchange coupling parametrizes the energy difference between aligned and anti-aligned spin configurations, we can obtain $J$ by considering the energy difference between a ferromagnetic and an antiferromagnetic calculation. Note that both can be obtained as collinear DFT ground states subject to different spin constraints. For the CrI$_3$ system, $J$ can calculated as
 
-$$J=\frac{E_{\mathrm{AFM}}-E_{\mathrm{FM}}}{6S^2},$$
+$$J=\frac{E_{\mathrm{AFM}}-E_{\mathrm{FM}}}{3S^2},$$
 
 where $E_{\mathrm{FM}}$ and $E_{\mathrm{AFM}}$ are the energies *per magnetic atom* of the ferromagnetic and antiferromagnetic configurations respectively.
 
-1.   Derive the expression for $J$ from the classical Heisenberg model yourself. In particular, how does the factor of 6 arise?
+1.   Derive the expression for $J$ from the classical Heisenberg model yourself. In particular, how does the factor of 3 arise?
 
 We have compiled a database of various 2D materials at https://cmrdb.fysik.dtu.dk/c2db/, which are relaxed with the PBE functional. We will therefore refrain from doing a full coverged geometry optimization and simply download the optimized structure from the database. Search the database for CrI$_3$ (it appears as Cr$_2$I$_6$ on the webpage). If you like, you can take a look at various properties of the material like band structure and stability. Download the `.xyz` file and save it as `CrI3.xyz`. You can also download the structure file directly from the summer school project site https://wiki.fysik.dtu.dk/gpaw/summerschools/summerschool22/magnetism/magnetism.html. With the input structure downloaded, run the cell below to obtain a `.gpw` file containing a converged ferromagnetic calculation. The calculation will take about 30 minutes. To speed up the process, you can copy the cell contents to a python script and submit it as a batch job to the DTU computers with multiple CPU cores. To do so, follow the instructions [here](https://wiki.fysik.dtu.dk/gpaw/summerschools/summerschool22/submitting.html). If the relaxation in the cell above did not finish you may kill it. It is not crucial to complete in order to proceed with the rest of the exercise. Continue with the theory below while you wait for the calculations to finish.
 """
@@ -154,11 +154,11 @@ E_fm = calc_fm.get_potential_energy() / 2    # Energy per magnetic atom
 E_afm = calc_afm.get_potential_energy() / 2  # Energy per magnetic atom
 dE = E_afm - E_fm
 
-J = dE / S**2 / 6  # student: J = ???
+J = dE / S**2 / 3  # student: J = ???
 print(f'J = {J * 1000:1.3f} meV')
 
 from ase.units import kB                     # Boltzmann's constant in eV/K
-T_c = 4 * N * J * S * (S + 1) / 3 / kB  # student: T_c = ???
+T_c = N * J * S * (S + 1) / 3 / kB  # student: T_c = ???
 print(f'T_c(MF) = {T_c:1.1f} K')
 
 # %%
@@ -166,7 +166,7 @@ print(f'T_c(MF) = {T_c:1.1f} K')
 ## More theory
 
 ### The Mermin-Wagner theorem
-Completing the previous calculations, you should have obtained a value of $T_c$, which is on the order of 200 K. This is much larger than the experimental value.  However in 2D materials mean-field theory fails miserably and the results cannot be trusted. In fact, at finite temperatures the Heisenberg model stated above does not exhibit magnetic order in two dimensions. The reason is that entropy is dominant over enthalpy, such that the free energy is always minimized by disordered configurations at finite temperatures. This is summarized by the Mermin-Wagner theorem, which states that:
+Completing the previous calculations, you should have obtained a value of $T_c$, which is on the order of 100 K. This is much larger than the experimental value.  However in 2D materials mean-field theory fails miserably and the results cannot be trusted. In fact, at finite temperatures the Heisenberg model stated above does not exhibit magnetic order in two dimensions. The reason is that entropy is dominant over enthalpy, such that the free energy is always minimized by disordered configurations at finite temperatures. This is summarized by the Mermin-Wagner theorem, which states that:
 
 *Continuous symmetries cannot be spontaneously broken at finite temperature for systems with short range interactions in dimensions $d\le2$*.
 
