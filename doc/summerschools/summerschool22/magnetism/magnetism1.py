@@ -166,35 +166,37 @@ print(f'T_c(MF) = {T_c:1.1f} K')
 ## More theory
 
 ### The Mermin-Wagner theorem
-You should obtain a value of $T_c$, which is on the order of 100 K. This is much larger than the experimental value.  However in 2D materials mean-field theory fails miserably and the result cannot be trusted. In fact, at finite temperatures the Heisenberg model stated above does not exhibit magnetic order in 2D. The reason is that entropy tends to dominate over internal energy in 2D, such that the free energy is always minimized by disordered configurations at finite temperatures. This is the content of the Mermin-Wagner theorem which states that:
+Completing the previous calculations, you should have obtained a value of $T_c$, which is on the order of 200 K. This is much larger than the experimental value.  However in 2D materials mean-field theory fails miserably and the results cannot be trusted. In fact, at finite temperatures the Heisenberg model stated above does not exhibit magnetic order in two dimensions. The reason is that entropy is dominant over enthalpy, such that the free energy is always minimized by disordered configurations at finite temperatures. This is summarized by the Mermin-Wagner theorem, which states that:
 
-*Continuous symmetries cannot be spontaneously broken at finite temperature in systems with short-range interactions in dimensions $d\le2$*.
+*Continuous symmetries cannot be spontaneously broken at finite temperature for systems with short range interactions in dimensions $d\le2$*.
 
-The Heisenberg model above has a continuous rotational symmetry of the spins and magnetic order is obtained by choosing a certain direction for all the spins. This is known as a spontaneously broken symmetry, because the magnetically ordered state has broken the symmetry of the Hamiltonian. The direction of magnetization is arbitrary and can be rotated at no energy cost, but the spins are aligned with respect to each other and the system is therefore magnetically ordered.
+The Heisenberg model above has a continuous rotational symmetry in the spin degrees of freedom and magnetic order is obtained by choosing a certain direction for all the spins. This means that the spin rotation symmetry is spontaneously broken in the magnetically ordered state. However, the direction of magnetization is arbitrary and can still be rotated without any energy cost, as long as the spins remain aligned with respect to each other.
 
-In the Heisenberg model it is straightforward to calculate the magnetic excitations in the spin-wave approximation, which yields the dispersion
+In the Heisenberg model it is straightforward to calculate the collective magnetic excitations of the system, yielding a quadratic spin wave dispersion for ferromagnetic systems
 
-$$\varepsilon(q)=aq^2$$
+$$\varepsilon(q)=Dq^2$$
 
-for small values of $q$. The excitations are bosons and the magnetization can thus be calculated from
+in the limit of $q\rightarrow 0$. The spin wave excitations are bosons lowering the total spin along the magnetized direction by a single unit. Hence, the magnetization at finite temperatures $T$ can be calculated from
 
-$$M=M_0 - \int_0^\infty\frac{g(\epsilon)d\varepsilon}{e^{\varepsilon/k_bT} - 1}$$
+$$M=M_0 - \int_0^\infty\frac{g(\epsilon)d\varepsilon}{e^{\varepsilon/k_B T} - 1}$$
 
-where $M_0$ is the ground state magnetization and $g(\varepsilon)$ is the density of states.
+where $M_0$ is the ground state magnetization and $g(\varepsilon)$ is the density of states for the spin waves.
 
-1.  Show that the integral diverges for $d\le2$ in the lower limit. (Hint you should start by calculating $g(\varepsilon)$. If you do not remember how to do that we give it here: $g(\varepsilon)=b\varepsilon^{(d-2)/2}$, where $d$ is the dimension of the problem).
+1.   Calculate the spin wave density of states $g(\varepsilon)$ as a function of dimensionality $d$. (Answer: $g(\varepsilon)=a_d D^{-d/2} \varepsilon^{(d-2)/2}$, where $D$ is the spin wave stiffness defined above and $a_d$ is a geometric constant depending on the dimension $d$)
+2.   Compute the bosonic occupation and show that it diverges for $d\le2$. (Hint: You can convince yourself that it does by Taylor expanding the $\varepsilon\rightarrow 0$ limit of the integral)
 
-The divergence of the integral in $d\le2$ signals that the ground state is unstable and comprises an example of the Mermin-Wagner theorem: in $d\le2$, the free energy is always dominated by entropy at finite temperatures and magnetic order cannot be maintained if a material has rotational symmetry of the spins. The instability in 2D is closely related to the vanishing energy of magnetic excitations in the limit of $q\rightarrow0$, which is a consequence of the rotational symmetry.
+The divergence of the integral for $d\le2$ shows that the ferromagnetic ground state is thermodynamically unstable and comprises an example of the Mermin-Wagner theorem: In $d\le2$, the free energy is always dominated by entropy at finite temperatures and magnetic order cannot be maintained if a material preserves the rotational symmetry of the spin degrees of freedom. The instability in two dimensions is closely related to the vanishing energy of magnetic excitations in the limit of $q\rightarrow0$, which in turn is a consequence of the rotational symmetry.
 
 ### Magnetic anisotropy
-The consequence of the Mermin Wagner theorem is that magnetic order in 2D is only possible if the rotational symmetry of the spins is *explicitly broken*. That is, there must be an additional term in the Hamiltonian that breaks the symmetry. Such a term can be provided by spin-orbit coupling which couples the spin to the lattice through the electronic orbitals.
+Thanks to the Mermin-Wagner theorem, magnetic order is only possible in two dimensions if the rotational symmetry of the spins is *explicitly broken*. That is, there must be an additional term in the Hamiltonian that breaks the symmetry. Such a term can be provided by spin-orbit coupling which couples the spin to the lattice through the electronic orbitals.
 We assume that CrI$_3$ is isotropic in the plane of the monolayer and introduce an anisotropy term in the Heisenberg Hamiltonian of the form
 
 $$H_{\mathrm{ani}}=A\sum_i(S_i^z)^2,$$
 
-where we have chosen the $z$-direction to be orthogonal to the plane. Try to
-describe the physics of this term in the cases of $A<0$ and $A>0$. Does the
-term fully break rotational symmetry of the ground state in both cases?
+where we have chosen the $z$-direction to be orthogonal to the plane.
+
+3.   Describe the physics of this term in the cases of $A<0$ and $A>0$. Does the term fully break rotational symmetry of the ground state in both cases?
+
 
 ## Magnetic anisotropy from DFT
 
