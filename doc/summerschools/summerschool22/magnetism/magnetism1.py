@@ -88,7 +88,7 @@ where $\mathbf{S}_i$ denotes the spin operator at site $i$ in units of $\hbar$ a
 3.   What are the possible values of $S_i^z$ for a magnetic site in CrI$_3$?
 4.   What is the unit of $J_{ij}$?
 
-In the following we will assume that the physics is dominated by neareast neighbor interactions such that $J_{ij}\equiv J$ if atoms $i$ and $j$ are nearest neighbors and zero otherwise. In 3D systems a reasonable estimate of the Curie temperature can be obtained from mean-field theory as
+In the following, we will assume that the physics is dominated by neareast neighbor interactions such that $J_{ij}\equiv J$ if atoms $i$ and $j$ are nearest neighbors and zero otherwise. In 3D systems a reasonable estimate of the Curie temperature can be obtained from mean-field theory as
 
 $$T_c^{\mathrm{MF}}=\frac{nS(S+1)J}{3k_B},$$
 
