@@ -50,11 +50,11 @@ or in cases where different exchange couplings compete, the ground state may
 have a complicated noncollinear magnetic order. Completing the notebook
 :download:`magnetism2.ipynb`,
 you will examine a prototypical monolayer with a noncollinear ground state,
-namely hexagonal |VI2|. Starting from the structure file
+namely |VI2|. Starting from the structure file
 :download:`VI2.xyz`,
 you will:
 
-1) Relax the atomic structure
+1) Relax the atomic structure using LDA
 2) Compare a collinear antiferromagnetic structure with the ferromagnetic state
 3) Obtain the noncollinear ground state
 4) Calculate the magnetic anisotropy and discuss whether or not the material
