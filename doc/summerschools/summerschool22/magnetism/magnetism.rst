@@ -61,11 +61,11 @@ you will:
    will exhibit magnetic order at low temperatures
 
 
-Part 3: Find new magnetic monolayers with high critical temperatures
-====================================================================
+Part 3: Find new ferromagnetic monolayers with high critical temperatures
+=========================================================================
 
-In this last part of the project, you will try to find new magnetic monolayers
-that can preserve a magnetic ordering at elevated temperatures.
+In this last part of the project, you will try to find new ferromagnetic
+monolayers that can preserve their magnetic ordering at elevated temperatures.
 Using the notebook
 :download:`magnetism3.ipynb`,
 you will:
