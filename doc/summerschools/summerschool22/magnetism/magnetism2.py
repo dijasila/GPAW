@@ -154,22 +154,24 @@ print(f'J = {J * 1000:1.2f} meV')
 
 # %%
 """
-### Non-collinear configuration
+## Noncollinear configuration
 
-As it turn out the optimal spin structure of a hexagonal lattice with anti-
-ferromagntice coupling is taking all spins at 120$^\circ$ angles with respect
-to each other. Draw this structure and convince yourself that it can be done.
+As it turn out, the optimal spin structure on a trigonal lattice with antiferromagntice exchange coupling is to place all spins at 120$^\circ$ angles with respect its neighbors.
 
-1. What is the minimal number of magnetic atoms required in the magnetic unit cell
-2. Verrify that the Heisenberg model with classical spins gives a lower energy with this configuration that the anti-aligned structure calculated above. The energy per site of this state should be
+1.   Draw this structure and convince yourself that it is indeed possible to put every spin at a 120$^\circ$ angle with respect to its neighbors.
+2.   What is the minimal number of magnetic atoms required in the magnetic unit cell to represent such a state?
+3.   Verrify that the Heisenberg model with classical spins gives a lower energy with this configuration than in the antialigned structure calculated above.
 
-$$E_{\mathrm{NC}}=E_0+\frac{3}{2}S^2J.$$
+You should obtain the following energy for the 120$^\circ$ noncolinnear configuration:
 
-We will now check if LDA can verify this prediction. To do that we need to
-perform a calculation with non-collinear spin. This is done in the cell
-below. Assert that the the total energy per site is lower than what we
-obtained with the collinear anti-ferromagnetic configuration above. Also
-check the local magnetic moments printet at the end of the calculation.
+$$E_{\mathrm{NC}}=E_0+\frac{3}{2}JS^2.$$
+
+We will now check if we can verify this prediction within the LSDA. To do that we need to perform a noncollinear DFT calculation, which is done in the cell below.
+
+4.   Read and try to understand the code to perform a noncollinear LSDA calculation in the 120$^\circ$ noncolinnear configuration.
+5.   Replace the `...` with code to make a noncolinnear LSDA calculation for the ferromagnetic state as well (we will need this for a late comparison).
+
+Run the cell and verify that the energy per magnetic atom is lower in the 120$^\circ$ noncolinnear configuration compared to both of the previous calculated states.
 """
 
 # %%
@@ -203,6 +205,7 @@ layer_nc.calc = calc
 layer_nc.get_potential_energy()
 calc.write('nc_nosoc.gpw')
 
+...
 # teacher:
 magmoms = np.zeros((len(layer_nc), 3), float)
 magmoms[0] = [m, 0, 0]
