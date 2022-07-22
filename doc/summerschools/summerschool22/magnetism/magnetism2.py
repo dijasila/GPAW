@@ -224,23 +224,16 @@ calc.write('fm_nosoc.gpw')
 
 # %%
 """
-### Anisotropy and exhange coupling from the non-collinear configuration
+## Anisotropy and exchange coupling from noncollinear DFT
 
-In the cell above we could have set 'soc'=True' to include spin-orbit
-coupling in the self-consistent non-collinear solution. However, it is more
-convenient for us to exclude it such that we can explicitly obtain the
-anisotropy based on this calculation.
+In the cell above we could have included spin-orbit coupling in a self-consistent way by setting 'soc'=True'. However, it is more convenient for us to exclude it such that we can explicitly compute the single-ion anisotropy parameter $A$ afterwards. If the localized spin Hamiltonian with nearest neighbor exchange interactions is a good model, we should be able to obtain both $J$ and $A$ from the noncollinear calculation as well.
 
-If the Heisenberg Hamiltonian with nearest neighbor interactions is a good
-model we should be able to obtain both $J$ and $A$ from the non-collinear
-calculation as well. Write some python code in the cell below that return $J$
-and $A$ based on the non-collinear calculation. The calculation of $J$
-requires two spin configurations and we could use the ferromagnetic
-calculation in the simple unit cell obtained at the top of the notebook as
-one of them. But, since the energy differences are rather small it is much
-better if you can obtain a ferromagnetic state with the same unit cell and
-parameters as we used for the non-collinear calculation. You may thus run the
-cell above once more, but with ferromagnetic alignment.
+1.   Fill in the cell below with code to compute the nearest neighbour exchange coupling $J$ based on the noncollinear calculations performed above.
+2.   Fill in code that computes the spin-orbit coupling corrected energies of the ferromagnetic state from the noncollinear calculation with spins directed along the $x$, $y$ and $z$ directions (Hint: the anisotropy is calculated by rotating the entire initial spin configuration first by $\theta$ and then by $\varphi$).
+3.   Repeat point 2, but for the 120$^\circ$ noncolinnear configuration. In this case, you cannot align all spins to one direction, but takes as a reference the first V atom.
+
+With the above code in place, please evaluate the cell. You should obtain a nearest neighbour exchange coupling of about -1.9 meV.
+
 """
 
 # %%
@@ -250,7 +243,7 @@ calc = GPAW('nc_nosoc.gpw', txt=None)
 E_nc = calc.get_potential_energy() / 3
 e_x, e_y, e_z = (
     soc_eigenstates(calc, theta=theta, phi=phi).calculate_band_energy() / 3
-    for theta, phi in [(90, 0), (90, 90), (0, 0)])
+    for theta, phi in [(0, 0), (0, 90), (90, 0)])
 de_zx = e_z - e_x
 de_zy = e_z - e_y
 print(f'NC: A_zx = {de_zx * 1000:1.3f} meV')
@@ -261,7 +254,7 @@ calc = GPAW('fm_nosoc.gpw', txt=None)
 E_fm = calc.get_potential_energy() / 3
 e_x, e_y, e_z = (
     soc_eigenstates(calc, theta=theta, phi=phi).calculate_band_energy() / 3
-    for theta, phi in [(90, 0), (90, 90), (0, 0)])
+    for theta, phi in [(0, 0), (0, 90), (90, 0)])
 de_zx = e_z - e_x
 de_zy = e_z - e_y
 print(f'FM: A_zx = {de_zx * 1000:1.3f} meV')
@@ -281,28 +274,19 @@ print(f'J = {J * 1000:1.2f} meV')
 
 # %%
 """
-### Critical temperature?
-Now answer the following questions:
+## Critical temperature?
 
-1. What is the easy axis? (Hint: the anisotropy is calculated by rotating
-   the initial spin configuration first by $\theta$ and then by $\varphi$).
-   Does it agree with waht you found above for the simple ferromagnetic state?
+Based on the noncollinear calculations above:
 
-2. Is there any rotational freedom left in the non-collinear ground state if
-   we assume in plane isotropy?
+1.   What is the easy axis of the system?
+2.   Does the easy axis agree with your initial findings for the simple ferromagnetic state?
 
-You might be able to convince yourself that some degree of in-plane
-anisotropy is required as well to obtain a finite critical temperature for
-magnetic order.
+You should find that the energy of the 120$^\circ$ noncolinnear configuration does not depend strongly on whether the first V atom is aligned to the $x$ or the $y$ direction.
 
-Clearly the non-collinear spin state of VI$_2$ is more difficult to describe
-than the ferromagnetic state in CrI$_3$ and we do not yet have a simple
-theoretical expression fot the critical temperature as a function of
-anisotropy and exchange coupling constants. However, with the rapid
-development of excperimental techniques to synthesize and characterize 2D
-materials it does seem plausible that such a non-collinear 2D material may be
-observed in the near future.
+3.   If we assume full in-plane isotropy is there any rotational freedom left in the noncollinear ground state?
+4.   What implications does this have for the critical temperature of the monolayer?
 
-Again, bear in mind that all the calculations in the present notebook ought
-to be properly converged with respect to $k$-points, plane wave cutoff etc.
+You might be able to convince yourself that some degree of in-plane anisotropy is required to obtain a finite critical temperature for the 120$^\circ$ noncolinnear magnetic order. Again, bear in mind that all the calculations in the present notebook ought to be properly converged with respect to $k$-points, plane wave cutoff etc. to achieve an accurate estimate of e.g. the in-plane anisotropy.
+
+Clearly the noncollinear spin state of VI$_2$ is more difficult to describe than the ferromagnetic state in CrI$_3$ and we do not yet have a simple theoretical expression for the critical temperature as a function of anisotropy and exchange coupling constants. However, with the rapid development of experimental techniques to synthesize and characterize 2D materials it does seem plausible that such a noncollinear 2D material may be observed in the future.
 """
