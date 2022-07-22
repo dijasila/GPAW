@@ -5,25 +5,21 @@ viz.view = lambda atoms, repeat=None: None
 
 # %%
 """
-# Non-collinear magnetism - VI$_2$
 
-Having looked at the ferromagnetic compound CrI$_3$, we now move on to a bit
-more complicated material. We will stay in the framework of 2D materials, but
-now move on to anti-ferromagnetic exchange coupling. We will still have the
-Hamiltonian
+# Noncollinear magnetism - VI$_2$
 
-$$H = -\frac{1}{2}\sum_{ij}J_{ij}\mathbf{S}_i\cdot \mathbf{S}_j+A\sum_i(S_i^z)^2$$
+For this part of the project, we will move on to a magnetic monolayer in which the dominant exchange coupling is antiferromagnetic, namely VI$_2$. We will still use the localized spin Hamiltonian
 
-in mind, but now with $J<0$. Go to the 2D database at
-https://cmrdb.fysik.dtu.dk/?project=c2db and search for VI$_2$ in the CdI$_2$
-prototype. Click on the *ferromagnetic* structure and download the .xyz file.
-Since we will need to do LDA calculations later on, we start by relaxing the
-structure with the LDA functional. We will be interested in the anti-
-ferromagnetic state later, but perform the relaxation in the ferromagnetic
-state, which has a smaller unit cell. Fill in the missing pieces and run the
-cell below. V has the electronic configuration [Ar]3d$^3$4s$^2$, which can be
-used to guess the initial magnetic moments. The calculation takes about 17
-minutes.
+$$H = -\frac{1}{2}\sum_{i,j}J_{ij}\mathbf{S}_i\cdot \mathbf{S}_j+A\sum_i(S_i^z)^2$$
+
+but here in the antiferromagnetic case, $J<0$.
+
+## Optimizing the atomic structure
+
+Since we will need to do LDA calculations later on, we will start of this part of the project by relaxing the atomic structure of VI$_2$ using the LDA functional. Usually, the difference in crystal structure between different magnetically ordered states is small, so we will perform the relaxation in the ferromagnetic state, which has a smaller unit cell.
+
+1.   First you should download the relaxed PBE crystal structure. Either, browse the C2DB at https://cmrdb.fysik.dtu.dk/c2db and download the `.xyz` file for VI$_2$ or dowload it directly from the summer school tutorial website [here](https://wiki.fysik.dtu.dk/gpaw/summerschools/summerschool22/magnetism/magnetism.html)
+2.   Fill in the expected ionic value for the V spins `S` below and run the cell to relax the crystal structure. The calculation takes about 17 minutes. (Hint: V has the electronic configuration [Ar]3d$^3$4s$^2$)
 
 """
 
@@ -54,16 +50,14 @@ calc.write('VI2_relaxed.gpw')
 
 # %%
 """
-### Magnetic anisotropy
+## Magnetic anisotropy
 
-Note that we switch off symmetry in the end of the script and do a last
-calculations with all $k$-points in the Brillouin zone. This is because
-spinors transform in a non-trivial way and the spin-orbit coupling can be
-obtained from the irreducible $k$-points without transforming the
-wavefunctions at symmetry related $k$-points. Evaluate the magnetic
-anisotropy in the cell below in a manner similar to the case of CrI$_3$. Is
-the easy-axis in plane or out of plane? Do you expect to find a finite
-critical temperature based on this?
+In the cell above, we not only performed a structural optimization, but we also took the relaxed structure, switched off the $k$-point symmetries and did a final DFT calculation with all the $k$-points in the Brillouin zone. We did this in order to be able to evaluate the the magnetic anisotropy arising from the spin-orbit coupling.
+
+1.   Adapt the code you used for CrI$_3$ to calculate the magnetic anisotropy in the cell below.
+2.   Is the easy-axis in-plane or out-of-plane?
+3.   Do you expect to the VI$_2$ to exhibit magnetic order at finite temperatures?
+
 """
 
 # %%
@@ -78,16 +72,18 @@ de_zx = e_z - e_x
 de_zy = e_z - e_y
 print(f'dE_zx = {de_zx * 1000:1.3f} meV')
 print(f'dE_zy = {de_zy * 1000:1.3f} meV')
-A = de_zx
+A = (de_zx + de_zy) / 2 / S**2
+print(f'A = {A * 1000:1.3f} meV')
 
 # %%
 """
-### Anti-ferromagnetic state
+## DFT calculations in a repeated cell
 
-We can do an anti-ferromagnetic calculation by repeating the structure we
-just relaxed and setting the initial magnetic moments accordingly. Fill in
-the missing values in the cell below and run it. The calculation takes about
-7 minutes.
+To realize that VI$_2$ is in fact an antiferromagnetic material, we need to do a calculation starting from an antiferromagnetic alignment of the spins. To do so, we need more than a single V atom in the unit cell. In the cell below, the atomic structure is repeated once to obtain two V atoms in the unit cell and it is shown how do a DFT calculation for the antiferromagnetic state.
+
+1.   Fill in the `kpts` for the repeated unit cell.
+2.   Replace the `...` with code to calculate the ferromagnetic state.
+3.   When you have finalzed the code for the ferromagnetic state, run the cell. The calculation takes about 7 minutes.
 
 """
 
@@ -114,38 +110,39 @@ calc.write('V2I4_fm.gpw')
 
 # %%
 """
-### Calculating J
+## Calculating J
 
-Is the total energy of anti-ferromagnetic state smaller than the
-ferromagnetic one? It should be. But since we are running with rather low
-parameters for $k$-point sampling and plane wave cutoff, we better perform a
-ferromagnetic calculation with exactly the same parameters to make sure. Run
-the cell above with in a ferromagnetic spin state and compare the resulting
-energies.
+Finally, we are in a position to calculate the nearest neighbour Heisenberg exchange coupling $J$. Before doing so, please compare the output of the antiferromagnetic and ferromagnetic calculations from the cell above.
 
-The anti-ferromagnetic state we constructed appears to have a lower energy,
-but can we really be sure that this is the magnetic ground state? The
-exchange coupling must be negative, which indicates that spins prefer to be
-anti-aligned. Draw the magnetic configuration of the lattice on a piece of
-paper and convince yourself that all spins cannot be anti-aligned on the
-hexagonal lattice. The anti-ferromagnetic structure we obtained must thus be
-frustrated and possibly not the true ground state.
+1.   Which state has the lowest energy?
+2.   What will the sign of $J$ be?
 
-Let us put that aside for the moment and try to calculate $J$. Use the
-Heisenberg model with classical spins, nearest neighbor interaction only, and
-$A=0$ to derive that the energy per site of the two configurations can be
-written as
+You should find that the antiferromagnetic state has a lower energy than the ferromagnetic one, but does this also mean that the calculated configuration is the correct magnetic ground state? Rather, it implies that the spins prefer to be antialigned, i.e. that the exchange coupling $J$ is negative.
 
-$$E_{\mathrm{FM}} = E_0 - \frac{1}{2}6S^2J$$
+3.   Draw the structural arrangement of the V atoms on a piece of paper. Which type of magnetic lattice do they form?
+4.   Fill in the spin configuration of the magnetic lattice and convince yourself that all spins cannot be antialigned to their nearest neighbours.
+
+The latter finding means that the antiferromagnetic system is frustrated and the antiferromagnetic configuration we have computed will not be the true ground state of the system.
+
+Leaving the magnetic frustration aside for the moment, we will first calculate $J$, which we can still do even though that we have not found the ground state yet.
+
+5.   Use the classical Heisenberg model with nearest neighbor interaction only (and $A=0$) to derive the energy per magnetic site of the ferromagnetic and antiferromagnetic configurations respectively.
+
+You should obtain the following:
+
+$$E_{\mathrm{FM}} = E_0 - 3JS^2$$
 
 and
 
-$$E_{\mathrm{AFM}} = E_0 + \frac{1}{2}2S^2J$$
+$$E_{\mathrm{AFM}} = E_0 + JS^2$$
 
-per site, where $E_0$ is some reference energy. Use these expressions to
-eliminate $E_0$ and express $J$ in terms of the energy difference. Use the
-energies obtained with DFT to calculate $J$. You should get -1.4 meV. Do it
-with python in the cell below.
+where $E_0$ is some reference energy.
+
+6.   Use these expressions to eliminate $E_0$ and express $J$ in terms of the energy difference per magnetic site of the two configurations.
+7.   Write code to extract `E_fm` and `E_afm` in the cell below.
+8.   Fill in the formula for `J` and evaluate the cell to calculate it.
+
+You should get a value for $J$ around -1.4 meV.
 """
 
 # %%
