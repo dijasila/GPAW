@@ -1,10 +1,9 @@
 import pytest
-from gpaw.mpi import world
 from ase import Atoms
-from gpaw import GPAW
-from gpaw import PW
+
+from gpaw import GPAW, PW
+from gpaw.mpi import world
 from gpaw.xc.fxc import FXCCorrelation
-from gpaw.test import equal
 
 
 @pytest.mark.response
@@ -66,7 +65,7 @@ def test_ralda_ralda_energy_H2(in_tmp_dir, scalapack):
     rapbe = FXCCorrelation('H.gpw', xc='rAPBE', nblocks=min(4, world.size))
     E_rapbe_H = rapbe.calculate(ecut=[200])
 
-    equal(E_ralda_H2, -0.8411, 0.001)
-    equal(E_ralda_H, 0.0029, 0.0001)
-    equal(E_rapbe_H2, -0.7233, 0.001)
-    equal(E_rapbe_H, 0.0161, 0.0001)
+    assert E_ralda_H2 == pytest.approx(-0.8411, abs=0.001)
+    assert E_ralda_H == pytest.approx(0.0029, abs=0.0001)
+    assert E_rapbe_H2 == pytest.approx(-0.7233, abs=0.001)
+    assert E_rapbe_H == pytest.approx(0.0161, abs=0.0001)

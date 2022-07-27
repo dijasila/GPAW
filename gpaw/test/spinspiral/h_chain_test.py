@@ -6,7 +6,7 @@ a = 2.5
 k = 4
 
 
-def test_afm_h_chain():
+def test_afm_h_chain(in_tmp_dir):
     """Compare 2*H AFM cell with 1*H q=1/2 spin-spiral cell."""
     h = Atoms('H',
               magmoms=[1],

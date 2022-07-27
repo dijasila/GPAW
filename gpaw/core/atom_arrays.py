@@ -375,16 +375,17 @@ class AtomArrays:
                [2., 3., 5.],
                [4., 5., 6.]])
         """
-        assert self.layout.dtype == float
         shape_a = []
         for (p,) in self.layout.shape_a:
             i = int((2 * p + 0.25)**0.5)
             shape_a.append((i, i))
-        layout = AtomArraysLayout(shape_a, self.layout.atomdist.comm)
+        layout = AtomArraysLayout(shape_a,
+                                  self.layout.atomdist.comm,
+                                  self.layout.dtype)
         a_axii = layout.empty(self.dims)
         for a_xp, a_xii in zip(self.values(), a_axii.values()):
             i = a_xii.shape[-1]
             a_xii[(...,) + np.tril_indices(i)] = a_xp
             u = (...,) + np.triu_indices(i, 1)
-            a_xii[u] = np.swapaxes(a_xii, -1, -2)[u]
+            a_xii[u] = np.swapaxes(a_xii, -1, -2)[u].conj()
         return a_axii

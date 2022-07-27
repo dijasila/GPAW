@@ -12,6 +12,7 @@ from gpaw.response.susceptibility import read_component
 from gpaw.mpi import size, world
 
 
+@pytest.mark.kspair
 @pytest.mark.response
 def test_response_two_aluminum_chi_RPA(in_tmp_dir):
     assert size <= 4**3
@@ -28,7 +29,6 @@ def test_response_two_aluminum_chi_RPA(in_tmp_dir):
                  nbands=4,
                  kpts=(8, 8, 8),
                  parallel={'domain': 1},
-                 idiotproof=False,  # allow uneven distribution of k-points
                  xc='LDA')
 
     atoms1.calc = calc1
@@ -40,7 +40,6 @@ def test_response_two_aluminum_chi_RPA(in_tmp_dir):
                  nbands=8,
                  kpts=(4, 8, 8),
                  parallel={'domain': 1},
-                 idiotproof=False,  # allow uneven distribution of k-points
                  xc='LDA')
 
     atoms2.calc = calc2
@@ -55,9 +54,7 @@ def test_response_two_aluminum_chi_RPA(in_tmp_dir):
 
     # Calculate susceptibility using Al
     fcst = FourComponentSusceptibilityTensor(calc1, fxc='RPA',
-                                             eta=0.2, ecut=50,
-                                             disable_point_group=False,
-                                             disable_time_reversal=False)
+                                             eta=0.2, ecut=50)
     for q, q_c in enumerate(q1_qc):
         fcst.get_component_array('00', q_c, w, array_ecut=25,
                                  filename='Al1_chiGG_q%d.pckl' % (q + 1))
@@ -67,9 +64,7 @@ def test_response_two_aluminum_chi_RPA(in_tmp_dir):
 
     # Calculate susceptibility using Al2
     fcst = FourComponentSusceptibilityTensor(calc2, fxc='RPA',
-                                             eta=0.2, ecut=50,
-                                             disable_point_group=False,
-                                             disable_time_reversal=False)
+                                             eta=0.2, ecut=50)
     for q, q_c in enumerate(q2_qc):
         fcst.get_component_array('00', q_c, w, array_ecut=25,
                                  filename='Al2_chiGG_q%d.pckl' % (q + 1))

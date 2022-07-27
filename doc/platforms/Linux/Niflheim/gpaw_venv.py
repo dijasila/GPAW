@@ -118,7 +118,7 @@ def main():
     if args.dftd3:
         run(' && '.join(dftd3.format(venv=venv).splitlines()))
 
-    # Compile ase-exc C-extension of old thul so that it works on
+    # Compile ase-ext C-extension on old thul so that it works on
     # newer architectures
     run(f'ssh thul ". {activate} && pip install -q ase-ext"')
 

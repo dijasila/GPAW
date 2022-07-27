@@ -2,24 +2,10 @@ from __future__ import annotations
 from math import sqrt, pi
 import numpy as np
 from ase.units import Bohr
-from gpaw.typing import ArrayLike1D
+from gpaw.typing import Vector
 from gpaw.core.atom_centered_functions import AtomArraysLayout
 from gpaw.utilities import unpack2, unpack
-from typing import Union
 from gpaw.core.atom_arrays import AtomArrays
-
-
-def magmoms2dims(magmoms: np.ndarray | None) -> tuple[int, int]:
-    """Convert magmoms input to number of density and magnetization components.
-
-    >>> magmoms2dims(None)
-    (1, 0)
-    """
-    if magmoms is None:
-        return 1, 0
-    if magmoms.ndim == 1:
-        return 2, 0
-    return 1, 3
 
 
 class Density:
@@ -40,9 +26,7 @@ class Density:
         self.charge = charge
 
         self.ncomponents = nt_sR.dims[0]
-        self.ndensities = {1: 1,
-                           2: 2,
-                           4: 1}[self.ncomponents]
+        self.ndensities = self.ncomponents % 3
         self.collinear = self.ncomponents != 4
         self.natoms = len(delta0_a)
 
@@ -101,16 +85,6 @@ class Density:
                                    rotation_ii, D_asii[a2], rotation_ii)
         self.D_asii.data *= 1.0 / len(symmetries)
 
-    def xxxxx_overlap_correction(self,
-                                 P_ani: AtomArrays,
-                                 out: AtomArrays) -> AtomArrays:
-        x = (4 * np.pi)**0.5
-        for a, I1, I2 in P_ani.layout.myindices:
-            ds = self.delta_aiiL[a][:, :, 0] * x
-            # use mmm ?????
-            out.data[..., I1:I2] = P_ani.data[..., I1:I2] @ ds
-        return out
-
     def move(self, delta_nct_R):
         self.nt_sR.data[:self.ndensities] += delta_nct_R.data
 
@@ -121,27 +95,26 @@ class Density:
                            atomdist,
                            setups,
                            basis_set,
-                           magmoms=None,
+                           magmom_av,
+                           ncomponents,
                            charge=0.0,
                            hund=False):
-        # density and magnitization components:
-        ndens, nmag = magmoms2dims(magmoms)
-
-        if magmoms is None:
-            magmoms = [None] * len(setups)
-
-        f_asi = {a: atomic_occupation_numbers(setup, magmom, hund,
+        f_asi = {a: atomic_occupation_numbers(setup,
+                                              magmom_v,
+                                              ncomponents,
+                                              hund,
                                               charge / len(setups))
-                 for a, (setup, magmom) in enumerate(zip(setups, magmoms))}
+                 for a, (setup, magmom_v) in enumerate(zip(setups, magmom_av))}
 
-        nt_sR = nct_R.desc.zeros(ndens + nmag)
+        nt_sR = nct_R.desc.zeros(ncomponents)
         basis_set.add_to_density(nt_sR.data, f_asi)
-        nt_sR.data[:ndens] += nct_R.data
+        ndensities = ncomponents % 3
+        nt_sR.data[:ndensities] += nct_R.data
 
         atom_array_layout = AtomArraysLayout([(setup.ni, setup.ni)
                                               for setup in setups],
                                              atomdist=atomdist)
-        D_asii = atom_array_layout.empty(ndens + nmag)
+        D_asii = atom_array_layout.empty(ncomponents)
         for a, D_sii in D_asii.items():
             D_sii[:] = unpack2(setups[a].initialize_density_matrix(f_asi[a]))
 
@@ -221,26 +194,19 @@ class Density:
 
 
 def atomic_occupation_numbers(setup,
-                              magmom: Union[float, ArrayLike1D] = None,
+                              magmom_v: Vector,
+                              ncomponents: int,
                               hund: bool = False,
                               charge: float = 0.0):
-    if magmom is None:
-        M = 0.0
-        nspins = 1
-    elif isinstance(magmom, float):
-        M = abs(magmom)
-        nspins = 2
-    else:
-        M = np.linalg.norm(magmom)  # type: ignore
-        nspins = 2
-
+    M = np.linalg.norm(magmom_v)
+    nspins = min(ncomponents, 2)
     f_si = setup.calculate_initial_occupation_numbers(
         M, hund, charge=charge, nspins=nspins)
 
-    if magmom is None:
+    if ncomponents == 1:
         pass
-    elif isinstance(magmom, float):
-        if magmom < 0:
+    elif ncomponents == 2:
+        if magmom_v[2] < 0:
             f_si = f_si[::-1].copy()
     else:
         f_i = f_si.sum(0)
@@ -248,6 +214,6 @@ def atomic_occupation_numbers(setup,
         f_si = np.zeros((4, len(f_i)))
         f_si[0] = f_i
         if M > 0:
-            f_si[1:] = np.asarray(magmom)[:, np.newaxis] / M * fm_i
+            f_si[1:] = np.asarray(magmom_v)[:, np.newaxis] / M * fm_i
 
     return f_si

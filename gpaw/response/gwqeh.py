@@ -98,7 +98,7 @@ class GWQEHCorrection(PairDensity):
         self.ecut /= Hartree
         self.eta = eta / Hartree
 
-        self.kpts = list(select_kpts(kpts, self.calc))
+        self.kpts = list(select_kpts(kpts, self.calc.wfs.kd))
 
         if bands is None:
             bands = [0, self.nocc2]
@@ -116,10 +116,10 @@ class GWQEHCorrection(PairDensity):
         self.Qp_sin = None
 
         self.ecutnb = 150 / Hartree
-        vol = abs(np.linalg.det(self.calc.wfs.gd.cell_cv))
-        self.vol = vol
+        self.vol = self.calc.wfs.gd.volume
         self.nbands = min(self.calc.get_number_of_bands(),
-                          int(vol * (self.ecutnb)**1.5 * 2**0.5 / 3 / pi**2))
+                          int(self.vol *
+                              self.ecutnb**1.5 * 2**0.5 / 3 / pi**2))
 
         self.nspins = self.calc.wfs.nspins
 

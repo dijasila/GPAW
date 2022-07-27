@@ -4,7 +4,7 @@ from time import ctime
 from gpaw.utilities import convert_string_to_fd
 from ase.utils.timing import timer
 
-from gpaw.utilities.blas import gemm
+from gpaw.utilities.blas import mmmx
 from gpaw.response.kslrf import PlaneWaveKSLRF
 from gpaw.response.kspair import PlaneWavePairDensity
 
@@ -52,24 +52,19 @@ class ChiKS(PlaneWaveKSLRF):
             'all' is an alias for '00', kept for backwards compability
             Likewise 0 or 1, can be used for 'uu' or 'dd'
         """
-        pd = self.get_PWDescriptor(q_c)
-
         # Initiate new call-output file, if supplied
         if txt is not None:
             self.cfd = convert_string_to_fd(txt, self.world)
         # Print to output file(s)
         if str(self.fd) != str(self.cfd) or txt is not None:
             print('Calculating Kohn-Sham susceptibility with '
-                  f'q_c={pd.kd.bzk_kc[0]} and spincomponent={spincomponent}',
+                  f'q_c={q_c} and spincomponent={spincomponent}',
                   file=self.fd)
             print(ctime(), file=self.fd)
 
         # Analyze the requested spin component
         self.spincomponent = spincomponent
         spinrot = get_spin_rotation(spincomponent)
-
-        # Initialize the PAW corrections before integration
-        self.pme.initialize_paw_corrections(pd)
 
         return PlaneWaveKSLRF.calculate(self, q_c, frequencies,
                                         spinrot=spinrot, A_x=A_x)
@@ -133,7 +128,8 @@ class ChiKS(PlaneWaveKSLRF):
                 nx_twmyG = x_tw[:, :, np.newaxis] * n_tmyG[:, np.newaxis, :]
 
             with self.timer('Perform sum over t-transitions of ncc * nx'):
-                gemm(1.0, nx_twmyG, ncc_Gt, 1.0, A_GwmyG)  # slow step
+                mmmx(1.0, ncc_Gt, 'N', nx_twmyG, 'N',
+                     1.0, A_GwmyG)  # slow step
         else:
             # Specify notation
             A_wmyGG = A_x
@@ -145,7 +141,8 @@ class ChiKS(PlaneWaveKSLRF):
 
             with self.timer('Perform sum over t-transitions of ncc * nx'):
                 for nx_myGt, A_myGG in zip(nx_wmyGt, A_wmyGG):
-                    gemm(1.0, ncc_tG, nx_myGt, 1.0, A_myGG)  # slow step
+                    mmmx(1.0, nx_myGt, 'N', ncc_tG, 'N',
+                         1.0, A_myGG)  # slow step
 
     @timer('Get temporal part')
     def get_temporal_part(self, n1_t, n2_t, s1_t, s2_t, df_t, deps_t):
@@ -163,7 +160,7 @@ class ChiKS(PlaneWaveKSLRF):
 
     def get_double_temporal_part(self, n1_t, n2_t, s1_t, s2_t, df_t, deps_t):
         """Get:
-        
+
                smu_ss' snu_s's (f_nks - f_n'k's')
         x_wt = ----------------------------------
                hw - (eps_n'k's'-eps_nks) + ih eta
@@ -205,7 +202,7 @@ class ChiKS(PlaneWaveKSLRF):
             - deps_t[np.newaxis, :]  # de = e2 - e1
         denom2_wt = self.wd.omega_w[:, np.newaxis] + 1j * self.eta\
             + deps_t[np.newaxis, :]
-        
+
         return nom1_t[np.newaxis, :] / denom1_wt\
             - nom2_t[np.newaxis, :] / denom2_wt
 

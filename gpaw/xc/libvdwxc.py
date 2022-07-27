@@ -768,7 +768,7 @@ def test_selfconsistent():
         print('Our rpw86 must be identical to that of libxc. Err=%e' % err1)
         print('RPW86 interpolated with Langreth-Vosko stuff differs by %f'
               % (cx_gga_results['lv_rpw86'] - cx_gga_results['rpw86']))
-        print('Each vdwdf with vdwcoef zero must yield same result as gga'
+        print('Each vdwdf with vdwcoef zero must yield same result as gga '
               'kernel')
         err_df1 = vdw_coef0_results['VDWDF'] - libxc_results['GGA_X_PBE_R+'
                                                              'LDA_C_PW']

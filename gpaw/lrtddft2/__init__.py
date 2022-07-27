@@ -462,5 +462,8 @@ class LrTDDFT2:
         f.close()
 
     def __del__(self):
-        self.iocontext.close()
-        self.timer.stop('LrTDDFT')
+        try:
+            self.iocontext.close()
+            self.timer.stop('LrTDDFT')
+        except AttributeError:
+            pass

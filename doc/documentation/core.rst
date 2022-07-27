@@ -453,3 +453,10 @@ FFTW
 
 .. automodule:: gpaw.fftw
    :members:
+
+
+BLAS
+----
+
+.. autofunction:: gpaw.utilities.blas.mmm
+.. autofunction:: gpaw.utilities.blas.rk

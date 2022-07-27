@@ -12,5 +12,6 @@ def test_pw_smallanglecell(in_tmp_dir):
     h2.calc = GPAW(mode=PW(ec), txt='sc.txt')
     e0 = h2.get_potential_energy()
     h2.cell[1, 0] = a
-    e = h2.get_potential_energy()
+    with pytest.warns(UserWarning):
+        e = h2.get_potential_energy()
     assert abs(e - e0) < 0.001, e - e0

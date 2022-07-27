@@ -2,7 +2,6 @@ import pytest
 from ase import Atoms
 from ase.lattice.hexagonal import Hexagonal
 from gpaw import GPAW, FermiDirac
-from gpaw.test import equal
 from gpaw.response.g0w0 import G0W0
 
 
@@ -51,5 +50,5 @@ def test_response_gw_MoS2_cut(in_tmp_dir, scalapack):
 
     ev = 2.669
     ec = 6.831
-    equal(e_qp[0], ev, 0.01)
-    equal(e_qp[1], ec, 0.01)
+    assert e_qp[0] == pytest.approx(ev, abs=0.01)
+    assert e_qp[1] == pytest.approx(ec, abs=0.01)
