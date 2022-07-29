@@ -1441,7 +1441,7 @@ class DirectMin(Eigensolver):
                 not self.iloop_outer.converged
             if astmnt or bstmnt:
                 update = True
-        if update:
+        if update and not wfs.occupations.use_fixed_occupations:
             self.choose_optimal_orbitals(wfs, ham, dens)
             if not sic_calc:
                 for kpt in wfs.kpt_u:
