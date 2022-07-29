@@ -38,6 +38,7 @@ class DirectMin(Eigensolver):
                  need_localization=True,
                  maxiter=50,
                  maxiterxst=10,
+                 maxstepxst=0.2,
                  kappa_tol=5.0e-4,
                  g_tol=5.0e-4,
                  g_tolxst=5.0e-4,
@@ -59,6 +60,7 @@ class DirectMin(Eigensolver):
         self.localizationtype = localizationtype
         self.maxiter = maxiter
         self.maxiterxst = maxiterxst
+        self.maxstepxst = maxstepxst
         self.kappa_tol = kappa_tol
         self.g_tol = g_tol
         self.g_tolxst = g_tolxst
@@ -301,7 +303,7 @@ class DirectMin(Eigensolver):
 
                 self.iloop_outer = ILEXST(
                     odd2, wfs, 'all', self.kappa_tol, self.maxiterxst,
-                    g_tol=self.g_tolxst, useprec=True)
+                    self.maxstepxst, g_tol=self.g_tolxst, useprec=True)
                 # if you have inner-outer loop then need to have
                 # U matrix of the same dimensionality in both loops
                 if 'SIC' in self.odd_parameters['name']:
@@ -1448,11 +1450,13 @@ class DirectMin(Eigensolver):
                     wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
                     super(DirectMin, self).subspace_diagonalize(
                         ham, wfs, kpt, True)
+                    wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
                     wfs.gd.comm.broadcast(kpt.eps_n, 0)
             wfs.calculate_occupation_numbers(dens.fixed)
             for kpt in wfs.kpt_u:
                 self.sort_wavefunctions(wfs, kpt)
             wfs.calculate_occupation_numbers(dens.fixed)
+            self.update_ks_energy(ham, wfs, dens, updateproj=True)
             self.iters = 0
             self.initialized = False
             self.need_init_odd = True

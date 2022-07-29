@@ -18,7 +18,8 @@ import time
 class InnerLoop:
 
     def __init__(self, odd_pot, wfs, nstates='all',
-                 tol=1.0e-3, maxiter=50, g_tol=5.0e-4, useprec=False):
+                 tol=1.0e-3, maxiter=50, maxstepxst=0.2,
+                 g_tol=5.0e-4, useprec=False):
 
         self.odd_pot = odd_pot
         self.n_kps = wfs.kd.nibzkpts
@@ -31,6 +32,7 @@ class InnerLoop:
         # self.line_search_method = 'AwcSwc'
         self.max_iter_line_search = 6
         self.n_counter = maxiter
+        self.maxstep = maxstepxst
         self.eg_count = 0
         self.total_eg_count = 0
         self.run_count = 0
@@ -178,7 +180,7 @@ class InnerLoop:
 
         self.sd = LSR1P(wfs, memory=50)
         self.ls = UnitStepLength(self.evaluate_phi_and_der_phi,
-                                 max_step=0.2)
+                                 max_step=self.maxstep)
 
         threelasten = []
         # get initial energy and gradients
