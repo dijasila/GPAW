@@ -21,7 +21,7 @@ def get_H2(calculator=None):
     H2 = Atoms([Atom('H', (a / 2, a / 2, (c - R) / 2)),
                 Atom('H', (a / 2, a / 2, (c + R) / 2))],
                cell=(a, a, c))
-    
+
     if calculator is not None:
         H2.calc = calculator
 
@@ -36,7 +36,7 @@ def get_H3(calculator=None):
                                 [R / 2, R / 2 * np.sqrt(3), 0]],
                cell=(a, a, c))
     H3.center()
-    
+
     if calculator is not None:
         H3.calc = calculator
 
@@ -54,7 +54,7 @@ def test_split(in_tmp_dir):
     n = world.size
     exst.split(n)
     H2.get_potential_energy()
-    
+
     if world.rank == 0:
         with open(fname) as f:
             string = f.read()
@@ -64,7 +64,7 @@ def test_split(in_tmp_dir):
 
 def test_lrtddft_excited_state():
     txt = None
-    
+
     calc = GPAW(xc='PBE', h=0.25, nbands=3, spinpol=False, txt=txt)
     H2 = get_H2(calc)
 
@@ -125,7 +125,7 @@ def test_io(in_tmp_dir):
     E0 = exst.calculator.get_potential_energy()
     dE1 = exlst[0].energy * Ha
     assert E1 == pytest.approx(E0 + dE1, 1.e-5)
-        
+
     parprint('----------- write trajectory')
     ftraj = 'H2exst.traj'
     F = H2.get_forces()
@@ -143,24 +143,24 @@ def test_io(in_tmp_dir):
     E1 = exst.get_potential_energy()
     parprint('-----', exst.get_potential_energy(), E0 + dE1)
     assert E1 == pytest.approx(E0 + dE1, 1.e-5)
-    
+
     parprint('----------- read trajectory')
     atoms = io.read(ftraj)
     assert atoms.get_potential_energy() == pytest.approx(E1, 1.e-5)
     assert atoms.get_forces() == pytest.approx(F, 1.e-5)
 
-    
+
 def test_log(in_tmp_dir):
     fname = 'ex0_silent.out'
     calc = GPAW(xc='PBE', h=0.25, nbands=5, txt=None)
     calc.calculate(get_H2(calc))
     exlst = LrTDDFT(calc, restrict={'eps': 0.4, 'jend': 3}, txt=None)
     exst = ExcitedState(exlst, 0, txt=fname)
-    del(calc)
-    del(exlst)
-    del(exst)
+    del calc
+    del exlst
+    del exst
     world.barrier()
-   
+
     if world.rank == 0:
         with open(fname) as f:
             string = f.read()
@@ -174,9 +174,9 @@ def test_log(in_tmp_dir):
     exlst = LrTDDFT(calc, restrict={'eps': 0.4, 'jend': 3}, log=calc.log)
     exst = ExcitedState(exlst, 0, log=exlst.log, parallel=2)
     exst.get_forces()
-    del(calc)
-    del(exlst)
-    del(exst)
+    del calc
+    del exlst
+    del exst
 
     if world.rank == 0:
         with paropen(fname) as f:
@@ -200,7 +200,7 @@ def test_forces():
     exlst = LrTDDFT(calc)
     exst = ExcitedState(exlst, 0)
     H2 = get_H2(exst)
-    
+
     parprint('---------------- serial')
 
     forces = H2.get_forces()
@@ -211,7 +211,7 @@ def test_forces():
 
     # forces in z direction should be opposite
     assert -forces[0, 2] == pytest.approx(forces[1, 2], abs=accuracy)
-   
+
     # next call should give back the stored forces
     forces1 = exst.get_forces(H2)
     assert (forces1 == forces).all()
@@ -222,7 +222,7 @@ def test_forces():
         exstp = ExcitedState(exlst, 0, parallel=2)
         forcesp = exstp.get_forces(H2)
         assert forcesp == pytest.approx(forces, abs=0.001)
-        
+
 
 def test_unequal_parralel_work():
     """Test whether parallel force calculation works for three atoms"""

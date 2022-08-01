@@ -705,8 +705,8 @@ class GridDescriptor(Domain):
         if mic:
             s_Gc -= self.pbc_c * (2 * s_Gc).astype(int)
             # sanity check
-            assert((s_Gc * self.pbc_c >= -0.5).all())
-            assert((s_Gc * self.pbc_c <= 0.5).all())
+            assert (s_Gc * self.pbc_c >= -0.5).all()
+            assert (s_Gc * self.pbc_c <= 0.5).all()
 
         return np.dot(s_Gc, self.cell_cv).T.copy()
 
