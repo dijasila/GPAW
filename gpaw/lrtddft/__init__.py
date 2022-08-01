@@ -85,7 +85,7 @@ class LrTDDFT(ExcitationList):
 
         if calculator is not None and calculator.initialized:
             # XXXX not ready for k-points
-            assert(len(calculator.wfs.kd.ibzk_kc) == 1)
+            assert len(calculator.wfs.kd.ibzk_kc) == 1
             if calculator.wfs.mode not in ['fd', 'lcao']:
                 raise RuntimeError('LrTDDFT supports only fd and lcao modes')
             if calculator.wfs.kd.comm.size > 1:

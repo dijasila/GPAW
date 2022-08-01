@@ -53,7 +53,7 @@ class Multipole:
         """Expand a function f_g in multipole moments
         units [e * Angstrom**l]"""
 
-        assert(f_g.shape == self.gd.empty().shape)
+        assert f_g.shape == self.gd.empty().shape
 
         q_L = []
         for L, y_g in enumerate(self.y_Lg):

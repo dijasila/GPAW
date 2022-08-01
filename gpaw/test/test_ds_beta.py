@@ -54,7 +54,7 @@ def test_ds_beta(in_tmp_dir):
             parprint('%8.4f %12.5f' % (csb.get_beta(Ekin), ds[-1]))
         parprint('error analytic GS:',
                  int(100 * abs(ds[1] / ds[0] - 1.) + .5), '%')
-        assert(abs(ds[1] / ds[0] - 1.) < 0.31)
+        assert abs(ds[1] / ds[0] - 1.) < 0.31
         parprint('error numeric GS:',
                  int(100 * abs(ds[2] / ds[0] - 1.) + .5), '%')
-        assert(abs(ds[2] / ds[0] - 1.) < 0.2)
+        assert abs(ds[2] / ds[0] - 1.) < 0.2

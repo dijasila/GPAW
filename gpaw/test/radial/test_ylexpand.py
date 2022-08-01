@@ -69,7 +69,7 @@ def test_radial_ylexpand(in_tmp_dir):
         # gl, w = yl.expand(calc.get_pseudo_wave_function(band=n))
         gl, w = yl.expand(calc.wfs.kpt_u[0].psit_nG[n])
         parprint('max_index(gl), n=', max_index(gl), n)
-        assert(max_index(gl) == n)
+        assert max_index(gl) == n
 
     # io
     fname = 'expandyl.dat'
