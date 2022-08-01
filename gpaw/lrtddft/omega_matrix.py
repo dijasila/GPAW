@@ -479,8 +479,8 @@ class OmegaMatrix:
     def singlets_triplets(self):
         """Split yourself into singlet and triplet transitions"""
 
-        assert(self.fullkss.npspins == 2)
-        assert(self.fullkss.nvspins == 1)
+        assert self.fullkss.npspins == 2
+        assert self.fullkss.nvspins == 1
 
         # strip kss from down spins
         skss = KSSingles()
@@ -582,7 +582,7 @@ class OmegaMatrix:
             for ij in range(nij):
                 for kq in range(nij):
                     evec[ij, kq] = self.full[map[ij], map[kq]]
-        assert(len(evec) > 0)
+        assert len(evec) > 0
 
         self.eigenvalues, v = eigh(evec)
         self.eigenvectors = v.T

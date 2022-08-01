@@ -426,11 +426,11 @@ class FDTDPoissonSolver:
         self.shift_indices_2 = self.shift_indices_1 + self.num_indices
 
         # Sanity checks
-        assert(all([self.shift_indices_1[w] >= 0 and
-                    self.shift_indices_2[w] <= self.cl.gd.N_c[w]
-                    for w in range(3)])), \
-            "Could not find appropriate quantum grid. " + \
-            "Move it further away from the boundary."
+        assert (all([self.shift_indices_1[w] >= 0 and
+                     self.shift_indices_2[w] <= self.cl.gd.N_c[w]
+                     for w in range(3)])), (
+            'Could not find appropriate quantum grid. '
+            'Move it further away from the boundary.')
 
         # Corner coordinates
         self.qm.corner1 = self.shift_indices_1 * self.cl.spacing
@@ -587,11 +587,11 @@ class FDTDPoissonSolver:
         #     % (self.cl.gd.N_c[0], self.cl.gd.N_c[1], self.cl.gd.N_c[2]))
 
         # Sanity checks
-        assert(all([self.extended_shift_indices_1[w] >= 0 and
-                    self.extended_shift_indices_2[w] <= self.cl.gd.N_c[w]
-                    for w in range(3)])), \
-            "Could not find appropriate quantum grid. " + \
-            "Move it further away from the boundary."
+        assert (all([self.extended_shift_indices_1[w] >= 0 and
+                     self.extended_shift_indices_2[w] <= self.cl.gd.N_c[w]
+                     for w in range(3)])), (
+            'Could not find appropriate quantum grid. '
+            'Move it further away from the boundary.')
 
         # Corner coordinates
         self.qm.extended_corner1 = \
