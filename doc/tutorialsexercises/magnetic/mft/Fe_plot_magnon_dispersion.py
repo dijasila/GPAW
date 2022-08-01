@@ -1,4 +1,4 @@
-# creates: Fe_magnon_dispersion.png
+# web-page: Fe_magnon_dispersion.png
 """Plot the magnon dispersion of Fe(bcc)"""
 
 # General modules

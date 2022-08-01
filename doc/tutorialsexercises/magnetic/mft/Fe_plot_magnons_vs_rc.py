@@ -1,4 +1,4 @@
-# creates: Fe_magnons_vs_rc.png
+# web-page: Fe_magnons_vs_rc.png
 """Plot the magnon energy as a function of the cutoff radius rc for all
 high-symmetry points of Fe (bcc)"""
 
