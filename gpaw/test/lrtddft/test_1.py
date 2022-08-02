@@ -121,7 +121,7 @@ def test_spin(lr, lr_vspin, lr_spin):
              finegd.integrate(ex.get_all_electron_density() * Bohr**3),
              finegd.integrate(ex_vspin.get_all_electron_density() *
                               Bohr**3))
-    assert(ddiff < 1.e-4)
+    assert ddiff < 1.e-4
 
     for i in range(2):
         parprint('i, real, virtual spin: ', i, lr_vspin[i], lr_spin[i])
@@ -139,7 +139,7 @@ def test_spin(lr, lr_vspin, lr_spin):
                                   * Bohr**3),
                  finegd.integrate(ex_spin.get_all_electron_density()
                                   * Bohr**3))
-        assert(ddiff < 3.e-3), ddiff
+        assert ddiff < 3.e-3, ddiff
 
 
 @pytest.mark.skip_for_new_gpaw

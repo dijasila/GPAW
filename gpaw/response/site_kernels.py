@@ -399,7 +399,7 @@ def spherical_geometry_factor(Q_Qv, rc):
 
 
 def cylindrical_geometry_factor(Q_Qv, ez_v, rc, hc):
-    """Calculate the site centered geometry factor for a cylindrical site kernel:
+    """Calculate site centered geometry factor for a cylindrical site kernel:
 
            /
     Θ(Q) = | dr e^(-iQ.r) θ(ρ<r_c) θ(|z|/2<h_c)

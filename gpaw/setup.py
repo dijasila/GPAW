@@ -1273,7 +1273,7 @@ class Setup(BaseSetup):
 
     def calculate_oscillator_strengths(self, phi_jg):
         # XXX implement oscillator strengths for lcorehole != 0
-        assert(self.lcorehole == 0)
+        assert self.lcorehole == 0
         self.A_ci = np.zeros((3, self.ni))
         nj = len(phi_jg)
         i = 0
