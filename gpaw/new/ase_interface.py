@@ -312,6 +312,9 @@ class ASECalculator:
         from gpaw.response.groundstate import ResponseGroundStateAdapter
         return ResponseGroundStateAdapter(self)
 
+    def initialize(self, atoms):
+        ...
+
 
 def write_header(log, world, params):
     from gpaw.io.logger import write_header as header

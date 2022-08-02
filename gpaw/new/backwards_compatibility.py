@@ -35,12 +35,27 @@ class FakeWFS:
         self.dtype = ibzwfs.dtype
         wfs = ibzwfs.wfs_qs[0][0]
         assert isinstance(wfs, PWFDWaveFunctions)
-        self.pd = PWDescriptor(wfs.psit_nX.desc.ecut,
-                               self.gd, self.dtype, self.kd)
-        self.pwgrid = grid.new(dtype=self.dtype)
+        if hasattr(wfs.psit_nX.desc, 'ecut'):
+            self.mode = 'pw'
+            self.pd = PWDescriptor(wfs.psit_nX.desc.ecut,
+                                   self.gd, self.dtype, self.kd)
+            self.pwgrid = grid.new(dtype=self.dtype)
+        else:
+            self.mode = 'fd'
 
     def _get_wave_function_array(self, u, n, realspace):
         return self.kpt_u[u].wfs.psit_nX[n].ifft(grid=self.pwgrid).data
+
+    def get_wave_function_array(self, n, k, s, realspace=True, periodic=False):
+        assert realspace
+        psit_X = self.kpt_qs[k][s].wfs.psit_nX[n]
+        if self.mode == 'pw':
+            psit_R = psit_X.ifft(grid=self.pwgrid, periodic=periodic)
+        else:
+            psit_R = psit_X
+            if periodic:
+                psit_R.multiply_by_eikr(-psit_R.desc.kpt_c)
+        return psit_R.data
 
     @cached_property
     def kpt_u(self):

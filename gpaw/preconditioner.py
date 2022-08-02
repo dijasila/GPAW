@@ -39,6 +39,7 @@ class Preconditioner:
             return self.__call__(residuals[np.newaxis], kpt,
                                  out=out[np.newaxis])[0]
         nb = len(residuals)  # number of bands
+        assert nb <= self.scratch0.shape[1]
         phases = kpt.phase_cd
         step = self.step
         if out is None:
