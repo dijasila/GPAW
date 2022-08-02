@@ -109,16 +109,16 @@ class ETDM:
             = mom_the_canonical_representation
         self.constraints = constraints
 
-        self.mmf = False
+        self.gmf = False
         self.searchdir_algo = search_direction(
             searchdir_algo, self, partial_diagonalizer)
         sd_name = self.searchdir_algo.name.replace('-', '').lower().split('_')
         if sd_name[0] == 'lbfgsp' and not self.use_prec:
             raise ValueError('Use l-bfgs-p with use_prec=True')
         if len(sd_name) == 2:
-            if sd_name[1] == 'mmf':
+            if sd_name[1] == 'gmf':
                 self.searchdir_algo.name = sd_name[0]
-                self.mmf = True
+                self.gmf = True
                 self.g_vec_u_original = None
                 self.pd = partial_diagonalizer
 
@@ -164,7 +164,7 @@ class ETDM:
 
         add = ''
         pd_add = ''
-        if self.mmf:
+        if self.gmf:
             add = ' with minimum mode following'
             pardi = {'Davidson': 'Finite difference generalized Davidson '
                      'algorithm'}
@@ -376,10 +376,10 @@ class ETDM:
                     self.get_energy_and_gradients(a_vec_u, n_dim, ham, wfs,
                                                   dens, c_ref)
             else:
-                g_vec_u = self.g_vec_u_original if self.mmf else self.g_vec_u
+                g_vec_u = self.g_vec_u_original if self.gmf else self.g_vec_u
 
             make_pd = False
-            if self.mmf:
+            if self.gmf:
                 with wfs.timer('Partial Hessian diagonalization'):
                     self.searchdir_algo.update_eigenpairs(
                         g_vec_u, wfs, ham, dens)
@@ -519,9 +519,9 @@ class ETDM:
             phi, g_vec_u = self.get_energy_and_gradients(x_mat_u, n_dim,
                                                          ham, wfs, dens, c_ref)
 
-            # If MMF is used save the original gradient and negate the parallel
+            # If GMF is used save the original gradient and negate the parallel
             # projection onto the eigenvectors with negative eigenvalues
-            if self.mmf:
+            if self.gmf:
                 self.g_vec_u_original = deepcopy(g_vec_u)
                 g_vec_u = self.searchdir_algo.negate_parallel_grad(g_vec_u)
 
@@ -749,7 +749,7 @@ class ETDM:
                 'orthonormalization': self.orthonormalization,
                 'constraints': self.constraints
                 }
-        if self.mmf:
+        if self.gmf:
             ret['partial_diagonalizer'] = \
                 self.searchdir_algo.partial_diagonalizer.todict()
         return ret
