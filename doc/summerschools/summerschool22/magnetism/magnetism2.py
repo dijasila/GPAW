@@ -243,7 +243,7 @@ calc = GPAW('nc_nosoc.gpw', txt=None)
 E_nc = calc.get_potential_energy() / 3
 e_x, e_y, e_z = (
     soc_eigenstates(calc, theta=theta, phi=phi).calculate_band_energy() / 3
-    for theta, phi in [(0, 0), (0, 90), (90, 0)])
+    for theta, phi in [(90, 0), (90, 90), (0, 0)])
 de_zx = e_z - e_x
 de_zy = e_z - e_y
 print(f'NC: A_zx = {de_zx * 1000:1.3f} meV')
@@ -254,7 +254,7 @@ calc = GPAW('fm_nosoc.gpw', txt=None)
 E_fm = calc.get_potential_energy() / 3
 e_x, e_y, e_z = (
     soc_eigenstates(calc, theta=theta, phi=phi).calculate_band_energy() / 3
-    for theta, phi in [(0, 0), (0, 90), (90, 0)])
+    for theta, phi in [(90, 0), (90, 90), (0, 0)])
 de_zx = e_z - e_x
 de_zy = e_z - e_y
 print(f'FM: A_zx = {de_zx * 1000:1.3f} meV')
