@@ -151,15 +151,15 @@ class ModeFollowingBase(object):
 
 class ModeFollowing(ModeFollowingBase, SearchDirectionBase):
     """
-    Minimum mode following class handling the MMF tag of the search direction
+    Minimum mode following class handling the GMF tag of the search direction
     class for ETDM and negation of the gradient projection.
     """
 
     def __init__(self, partial_diagonalizer, search_direction,
                  convex_step_length = 0.1):
         self.sd = search_direction
-        self.name = self.sd.name + '_mmf'
-        self.type = self.sd.type + '_mmf'
+        self.name = self.sd.name + '_gmf'
+        self.type = self.sd.type + '_gmf'
         super(ModeFollowing, self).__init__(partial_diagonalizer,
                                             convex_step_length)
 
@@ -172,7 +172,7 @@ class ModeFollowing(ModeFollowingBase, SearchDirectionBase):
 
     def todict(self):
         res = self.sd.todict()
-        res['name'] += '_mmf'                    # tag will be removed in etdm
+        res['name'] += '_gmf'                    # tag will be removed in etdm
         return res
 
     def update_data(self, wfs, x_k1, g_k1, precond=None):
