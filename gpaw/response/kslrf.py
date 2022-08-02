@@ -599,8 +599,8 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         return self._calculate(spinrot, A_x)
 
     def get_PWDescriptor(self, q_c):
-        """Get the resulting plane wave description for a calculation with wave vector
-        q_c."""
+        """Get the resulting plane wave description for a calculation
+        with wave vector q_c."""
         return self._get_PWDescriptor(q_c, internal=False)
 
     def _get_PWDescriptor(self, q_c, internal=True):

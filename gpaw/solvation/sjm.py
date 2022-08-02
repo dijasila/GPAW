@@ -511,8 +511,8 @@ class SJM(SolvationGPAW):
 
     def write_sjm_traces(self, path='sjm_traces', style='z',
                          props=('potential', 'cavity', 'background_charge')):
-        """Write traces of quantities in `props` to file on disk; traces will be
-        stored within specified path. Default is to save as vertical traces
+        """Write traces of quantities in `props` to file on disk; traces will
+        be stored within specified path. Default is to save as vertical traces
         (style 'z'), but can also save as cube (specify `style='cube'`)."""
         grid = self.density.finegd
         data = {'cavity': self.hamiltonian.cavity.g_g,

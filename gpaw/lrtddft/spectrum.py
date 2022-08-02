@@ -81,7 +81,7 @@ def spectrum(exlist=None,
             if form == 'r':
                 out.write('# length form')
             else:
-                assert(form == 'v')
+                assert form == 'v'
                 out.write('# velocity form')
             print('# om [%s]     osz          osz x       osz y       osz z'
                   % energyunit, file=out)

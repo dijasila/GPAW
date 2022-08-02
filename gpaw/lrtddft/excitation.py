@@ -93,7 +93,7 @@ class ExcitationList(list):
     def __sub__(self, other):
         result = self.__class__()
         result.dtype = self.dtype
-        assert(len(self) == len(other))
+        assert len(self) == len(other)
         for kss, ksso in zip(self, other):
             result.append(kss - ksso)
         return result

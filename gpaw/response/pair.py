@@ -1,18 +1,15 @@
 import numbers
-from pathlib import Path
 
 import numpy as np
 
 from ase.utils.timing import timer
 
 import gpaw.mpi as mpi
-from gpaw import disable_dry_run
-from gpaw import GPAW
 from gpaw.fd_operators import Gradient
 from gpaw.response.pw_parallelization import block_partition
 from gpaw.response.symmetry import KPointFinder
+from gpaw.response.context import calc_and_context
 from gpaw.utilities.blas import mmm
-from gpaw.response.context import new_context
 
 
 class KPoint:
@@ -660,20 +657,6 @@ class NoCalculatorPairDensity:
         self.context.close()
 
 
-def normalize_args(calc, txt, world, timer):
-    context = new_context(txt, world, timer)
-    with context.timer('Read ground state'):
-        if isinstance(calc, (str, Path)):
-            print('Reading ground state calculation:\n  %s' % calc,
-                  file=context.fd)
-            with disable_dry_run():
-                calc = GPAW(calc, communicator=mpi.serial_comm)
-        else:
-            assert calc.wfs.world.size == 1
-
-    return calc, context
-
-
 class PairDensity(NoCalculatorPairDensity):
     def __init__(self, gs, *,
                  world=mpi.world, txt='-', timer=None,
@@ -696,7 +679,7 @@ class PairDensity(NoCalculatorPairDensity):
         # note: gs is just called gs for historical reasons.
         # It's actually calc-or-filename union.
 
-        self.calc, context = normalize_args(gs, txt, world, timer)
+        self.calc, context = calc_and_context(gs, txt, world, timer)
 
         super().__init__(
             gs=self.calc.gs_adapter(),
