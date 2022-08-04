@@ -15,7 +15,7 @@ viz.view = lambda atoms, repeat=None: None
 
 # %%
 """
-Today you will study the LiPO$_4$ cathode. You will calculate the equilibrium potential and use Bayesian error estimation to quantify how sensitive the calculated equilibrium potential is towards choice of functional. After today you should be able to discuss:
+Today you will study the LiFePO$_4$ cathode. You will calculate the equilibrium potential and use Bayesian error estimation to quantify how sensitive the calculated equilibrium potential is towards choice of functional. After today you should be able to discuss:
 
 -  The volume change during charge/discharge.
 
@@ -51,6 +51,41 @@ from ase import Atoms
 """
 First we will construct an atoms object for FePO$_4$. ASE can read files from in a large number of different [formats](https://wiki.fysik.dtu.dk/ase/ase/io/io.html?highlight=read%20formats#file-input-and-output). However, in this case you will build it from scratch using the below information:
 """
+
+# %%
+# Positions:
+# Fe      2.73015081       1.46880951       4.56541172
+# Fe      2.23941067       4.40642872       2.14957739
+# Fe      7.20997230       4.40642925       0.26615813
+# Fe      7.70070740       1.46880983       2.68199421
+# O       1.16033403       1.46881052       3.40240205
+# O       3.80867172       4.40642951       0.98654342
+# O       8.77981469       4.40642875       1.42923946
+# O       6.13142032       1.46881092       3.84509827
+# O       4.37288562       1.46880982       0.81812712
+# O       0.59764596       4.40643021       3.23442747
+# O       5.56702590       4.40642886       4.01346264
+# O       9.34268360       1.46880929       1.59716233
+# O       1.64001691       0.26061277       1.17298291
+# O       3.32931769       5.61463705       3.58882629
+# O       8.30013707       3.19826250       3.65857000
+# O       6.61076951       2.67698811       1.24272700
+# O       8.30013642       5.61459688       3.65856912
+# O       6.61076982       0.26063178       1.24272567
+# O       1.64001666       2.67700652       1.17298270
+# O       3.32931675       3.19822249       3.58882660
+# P       0.90585688       1.46880966       1.89272372
+# P       4.06363530       4.40642949       4.30853266
+# P       9.03398503       4.40642957       2.93877879
+# P       5.87676435       1.46881009       0.52297232
+
+
+# Unit cell:
+#            periodic     x          y          z    
+#   1. axis:    yes    9.94012    0.00000    0.00000
+#   2. axis:    yes    0.00000    5.87524    0.00000
+#   3. axis:    yes    0.00000    0.00000    4.83157
+
 
 # %%
 """
@@ -118,7 +153,7 @@ Now examine the initial magnetic moments of the system using an [appropriate met
 """
 
 # %%
-magmoms = fepo4.get_initial_magnetic_moments()  # student: magmom = fepo4.xxx()
+magmoms = fepo4.get_initial_magnetic_moments()  # student: magmoms = fepo4.xxx()
 print(magmoms)
 
 # %%
@@ -135,14 +170,36 @@ For this calculation you will use the BEEF-vdW functional developed by [Wellendo
 """
 
 # %%
+params_GPAW = {}
+
+# %%
 """
 To save computational time while keeping the calculations physically sound, the following should be used:
 """
 
 # %%
+params_GPAW['mode']        = PW(500)                      # The used plane wave energy cutoff
+params_GPAW['nbands']      = -40                          # The number on empty bands had the system been spin-paired 
+params_GPAW['kpts']        = {'size': (2, 4, 5),          # The k-point mesh
+                              'gamma': True}
+params_GPAW['spinpol']     = True                         # Performing spin polarized calculations
+params_GPAW['xc']          = 'BEEF-vdW'                   # The used exchange-correlation functional
+params_GPAW['occupations'] = FermiDirac(width=0.1,        # The smearing
+                                        fixmagmom=True)   # Total magnetic moment fixed to the initial value
+params_GPAW['convergence'] = {'eigenstates': 1.0e-4,      # eV^2 / electron
+                              'energy':      2.0e-4,      # eV / electron
+                              'density':     1.0e-3}
+params_GPAW['mixer']       = Mixer(0.1, 5, weight=100.0)  # The mixer used during SCF optimization
+
+
+# %%
 """
-DFT suffers from a so-called self-interaction error. An electron interacts with the system electron density, to which it contributes itself. The error is most pronounced for highly localized orbitals. [Hubbard U correction](https://wiki.fysik.dtu.dk/gpaw/tutorials/hubbardu/hubbardu.html#dft-u-theory) is used to mitigate the self-interaction error of the highly localized *3d*-electrons of Fe. This is done in GPAW using the `setups` keyword.
+DFT suffers from a so-called self-interaction error. An electron interacts with the system electron density, to which it contributes itself. The error is most pronounced for highly localized orbitals. [Hubbard U correction](https://wiki.fysik.dtu.dk/gpaw/tutorialsexercises/energetics/hubbardu/hubbardu.html) is used to mitigate the self-interaction error of the highly localized *3d*-electrons of Fe. This is done in GPAW using the `setups` keyword.
 """
+
+# %%
+params_GPAW['setups']      = {'Fe': ':d,4.3'}             # U=4.3 applied to d orbitals
+
 
 # %%
 """
@@ -150,14 +207,35 @@ Make a GPAW calculator and attach it to the atoms object. Here you will use [get
 """
 
 # %%
+calc = GPAW(**params_GPAW)
+fepo4.calc = calc
+epot_fepo4_cell = fepo4.get_potential_energy()
+print(epot_fepo4_cell)
+write('fepo4_out.traj', fepo4)
+
+
+# %%
 """
 You will use the ensemble capability of the BEEF-vdW functional. You will need this later so you should write it to file so you do not have to start all over again later. Start by obtaining the required data from the calculator, i.e., the individual energy of each term in the BEEF-vdW functional expansion. Get the energy difference compared to BEEF-vdW for 2000 ensemble functionals.
 """
 
 # %%
+from ase.dft.bee import BEEFEnsemble
+
+ens = BEEFEnsemble(calc)
+dE = ens.get_ensemble_energies(2000)
+
+
+# %%
 """
 Print the energy differences to file. This is not the most efficient way of printing to file but can allow easier subsequent data treatment.
 """
+
+# %%
+with paropen('ensemble_fepo4.dat', 'a') as result:
+    for e in dE:
+        print(e, file=result)
+
 
 # %%
 """
@@ -288,6 +366,13 @@ view(lifepo4_wo_li)
 """
 You should now add Li into the structure using the fractional coordinates below:
 """
+
+# %%
+# Li  0    0    0
+# Li  0    0.5  0
+# Li  0.5  0.5  0.5
+# Li  0.5  0    0.5
+
 
 # %%
 """
