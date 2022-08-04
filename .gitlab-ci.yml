@@ -31,10 +31,10 @@ master:
       --extend-ignore E402
       doc
     - python -We:invalid -m compileall -f -q gpaw/
-    - echo "parallel_python_interpreter = True" >> siteconfig.py
-    - echo "libraries += ['openblas']" >> siteconfig.py
-    - python setup.py install
-    - gpaw-python -m gpaw info
+    # - echo "parallel_python_interpreter = True" >> siteconfig.py
+    # - echo "libraries += ['openblas']" >> siteconfig.py
+    # - python setup.py install
+    # - gpaw-python -m gpaw info
     - mq config --in-place
     - mq init
     - mq workflow -p agts.py -zT | tail -1 | tee count
