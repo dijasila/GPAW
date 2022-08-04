@@ -28,8 +28,8 @@ def search_direction(method, etdm=None, pd=None):
                      }[names[0]](**kwargs)
 
         if len(names) == 2:
-            if names[1] == 'mmf':
-                pd['mmf'] = True
+            if names[1] == 'gmf':
+                pd['gmf'] = True
                 searchdir = ModeFollowing(partial_diagonalizer(pd, etdm),
                                           searchdir, concave_step_length)
 

@@ -155,7 +155,7 @@ class Davidson(object):
     """
 
     def __init__(self, etdm, logfile, fd_mode=None, m=None, h=None,
-                 eps=None, cap_krylov=None, mmf=False,
+                 eps=None, cap_krylov=None, gmf=False,
                  remember_sp_order=False, sp_order=None, seed=None):
         """
         :param etdm:              ETDM object for which the partial
@@ -181,7 +181,7 @@ class Davidson(object):
                                   of the residuals of the target eigenpairs.
         :param cap_krylov:        If True, terminate the calculation if the
                                   Krylov space contains more m vectors.
-        :param mmf:               Toggle usage with minimum mode following
+        :param gmf:               Toggle usage with minimum mode following
                                   instead of stability analysis. The defaults
                                   and some actions will be different.
         :param remember_sp_order: If True the number of target eigenpairs is
@@ -198,7 +198,7 @@ class Davidson(object):
                                   Krylov space.
         """
 
-        self.mmf = mmf
+        self.gmf = gmf
         self.etdm = etdm
         self.fd_mode = fd_mode
         self.remember_sp_order = remember_sp_order
@@ -237,14 +237,14 @@ class Davidson(object):
         self.logger = GPAWLogger(world)
         self.logger.fd = logfile
         self.first_run = True
-        if self.mmf:
+        if self.gmf:
             self.lambda_all = None
             self.y_all = None
             self.x_all = None
         self.check_inputs()
 
     def check_inputs(self):
-        if self.mmf:
+        if self.gmf:
             defaults = {'fd_mode': 'forward',
                         'm': 10,
                         'h': 1e-3,
@@ -297,7 +297,7 @@ class Davidson(object):
                 'h': self.h,
                 'eps': self.eps,
                 'cap_krylov': self.cap_krylov,
-                'mmf': self.mmf,
+                'gmf': self.gmf,
                 'remember_sp_order': self.remember_sp_order,
                 'sp_order': self.sp_order}
 
@@ -312,7 +312,7 @@ class Davidson(object):
 
     def run(self, wfs, ham, dens, use_prev=False):
         self.initialize(wfs, use_prev)
-        if not self.mmf:
+        if not self.gmf:
             self.etdm.sort_orbitals_mom(wfs)
         self.n_iter = 0
         self.c_nm_ref = [deepcopy(wfs.kpt_u[x].C_nM)
@@ -347,7 +347,7 @@ class Davidson(object):
                 self.logger(
                     'Using target saddle point order of '
                     + str(self.sp_order) + '.', flush=True)
-        if self.mmf:
+        if self.gmf:
             self.x_all = []
             for i in range(len(self.lambda_all)):
                 self.x_all.append(
@@ -355,7 +355,7 @@ class Davidson(object):
             self.x_all = np.asarray(self.x_all).T
         for k, kpt in enumerate(wfs.kpt_u):
             kpt.C_nM = deepcopy(self.c_nm_ref[k])
-        if not self.mmf:
+        if not self.gmf:
             for kpt in wfs.kpt_u:
                 self.etdm.sort_orbitals(ham, wfs, kpt)
         self.first_run = False
@@ -401,7 +401,7 @@ class Davidson(object):
         if self.sp_order is not None:
             self.l = self.sp_order
         else:
-            self.l = appr_sp_order if self.mmf else appr_sp_order + 2
+            self.l = appr_sp_order if self.gmf else appr_sp_order + 2
         if self.l == 0:
             self.l = 1
         if self.l > self.dimtot * dimz:
@@ -503,7 +503,7 @@ class Davidson(object):
         eigv, eigvec = np.linalg.eigh(self.H)
         wfs.timer.stop('Rayleigh matrix diagonalization')
         eigvec = eigvec.T
-        if self.mmf:
+        if self.gmf:
             self.lambda_all = deepcopy(eigv)
             self.y_all = deepcopy(eigvec)
         self.lambda_ = eigv[: self.l]
@@ -544,7 +544,7 @@ class Davidson(object):
         wfs.timer.start('Krylov space augmentation')
         wfs.timer.start('New directions')
         for i in range(self.l):
-            if not self.converged[i] or (self.mmf and self.first_run):
+            if not self.converged[i] or (self.gmf and self.first_run):
                 self.t.append(self.C[i] * self.r[i])
         self.t = np.asarray(self.t)
         if len(self.V[0]) <= self.m:
