@@ -3,6 +3,7 @@ from ase import Atoms
 from gpaw import GPAW
 
 
+@pytest.mark.ci
 def test_fixdensity(in_tmp_dir):
     a = 2.5
     slab = Atoms('Li', cell=(a, a, 2 * a), pbc=1)

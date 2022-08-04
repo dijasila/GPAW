@@ -30,10 +30,7 @@ def GPAW(filename: Union[str, Path, IO[str]] = None,
     log = Logger(txt, world)
 
     if filename is not None:
-        kwargs.pop('txt', None)
-        kwargs.pop('parallel', None)
-        kwargs.pop('communicator', None)
-        assert len(kwargs) == 0
+        assert set(kwargs) <= {'txt', 'parallel', 'communicator'}, kwargs
         atoms, calculation, params, _ = read_gpw(filename, log,
                                                  params.parallel)
         return ASECalculator(params, log, calculation, atoms)
@@ -91,7 +88,7 @@ class ASECalculator:
                 self.calculation = None
 
         if self.calculation is None:
-            self.calculation = self.create_new_calculation(atoms)
+            self.create_new_calculation(atoms)
             self.converge()
         elif changes:
             self.move_atoms(atoms)
@@ -113,10 +110,9 @@ class ASECalculator:
 
     def create_new_calculation(self, atoms: Atoms) -> DFTCalculation:
         with self.timer('Init'):
-            calculation = DFTCalculation.from_parameters(atoms, self.params,
-                                                         self.log)
+            self.calculation = DFTCalculation.from_parameters(atoms, self.params,
+                                                              self.log)
         self.atoms = atoms.copy()
-        return calculation
 
     def move_atoms(self, atoms):
         with self.timer('Move'):
@@ -311,6 +307,24 @@ class ASECalculator:
     def gs_adapter(self):
         from gpaw.response.groundstate import ResponseGroundStateAdapter
         return ResponseGroundStateAdapter(self)
+
+    def fixed_density(self, **kwargs):
+        kwargs = {**dict(self.params.items()), **kwargs}
+        params = InputParameters(kwargs)
+        txt = params.txt
+        world = params.parallel['world']
+        log = Logger(txt, world)
+        calc =
+        builder = builder or create_builder(atoms, params)
+
+        if not isinstance(log, Logger):
+            log = Logger(log, builder.world)
+
+        basis_set = builder.create_basis_set()
+        ibzwfs = builder.create_ibz_wave_functions(basis_set, potential)
+        state = DFTState(ibzwfs, density, potential, vHt_x)
+        scf_loop = builder.create_scf_loop()
+
 
     def initialize(self, atoms):
         ...
