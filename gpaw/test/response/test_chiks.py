@@ -79,7 +79,7 @@ def test_Fe_chiks(in_tmp_dir, Fe_gs, q_c, eta, gammacentered):
         nblocks = 1
 
     # Part 2: Check reciprocity
-    rtol = 2.e-2
+    rtol = 2.5e-2
 
     # Part 3: Check symmetry toggle
 
