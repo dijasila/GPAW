@@ -38,6 +38,7 @@ def Phiold(n, mu, R, r):
     Rl = np.minimum.reduce([R, r])
     Xi = mu*Rg
     xi = mu*Rl
+
     if n == 0:
         prefactor = -1 / (2 * np.pi**0.5 * xi * Xi)
         A = np.exp(-(xi+Xi)**2)-np.exp(-(xi-Xi)**2)
@@ -80,7 +81,7 @@ def test_old_vs_new_spherical_kernel():
     for n in range(3):
         R = np.random.rand(100)*10
         r = np.random.rand(100)*10
-        params = (n, 0.3, R, r)
+        params = (n, 0.11, R, r)
         new, old = Phi(*params), Phiold(*params)
         assert np.allclose(new, old)
 
@@ -89,15 +90,37 @@ def test_wrt_lebedev_integrated_kernel():
         Test a double angular numerically integrated kernel with the generic implementation.
     """
     import matplotlib.pyplot as plt
+    s = 125
     for n in range(5):
-        R = np.ones((1000,)) #np.random.rand(1000)*10
-        r = np.logspace(-10, 10, 1001)[1:] # np.random.rand(1000)*10
-        params = (n, 0.11, R, r)
-        new, old = Phi(*params), PhiLebedev(*params)
-        plt.semilogx(r, old, '.')        
-        plt.semilogx(r, new, 'x') 
-        #assert np.allclose(new, old)
+        for RR in [1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1, 1e1, 1e2]:
+            R = RR*np.ones((1000,)) #np.random.rand(1000)*10
+            r = np.logspace(-5, 3, 1001)[1:] # np.random.rand(1000)*10
+            params = (n, 1.11, R.ravel(), r.ravel())
+            new, old = Phi(*params), PhiLebedev(*params)
+            #params = (n, 0.11, R.ravel(), r.ravel())
+            #new2, old2 = Phi(*params), PhiLebedev(*params)
+            #new -= new2
+            #old -= old2
+            #plt.semilogx(r, old, '-r')        
+            #plt.semilogx(r, new, '--b')
+            #plt.semilogx(r, np.abs(old-new), '-k')
+            plt.loglog(r, np.abs(old), '-r')        
+            plt.loglog(r, np.abs(new), '--b')
+            plt.loglog(r, np.abs(old-new), '-k')
+            plt.ylim([1e-7, 1e7])
         plt.show()
+
+    """
+    t = np.logspace(-5,5, s)
+    R, r = np.meshgrid(t,t)
+    params = (n, 0.11, R.ravel(), r.ravel())
+    new, old = Phi(*params), PhiLebedev(*params)
+    plt.contourf(np.log10(r), np.log10(R), np.reshape(np.log10(np.abs(old-new)+1e-20), (s, s) ))
+    plt.colorbar()
+    
+    #assert np.allclose(new, old)
+    plt.show()
+    """
 """
     class ScreenedCoulombKernelDebug:
     def __init__(self, rgd, omega):
