@@ -82,7 +82,7 @@ def Fn(n, Xi, xi):
     #print(match,'matches')
     #print((Xi < 1e-2) & (xi < 1e-2),'xxx')
 
-    return np.where((Xi * xi)**(2 * n + 1) < 1e-8,  taylor, prefactor * result)
+    return np.where((Xi * xi)**(2 * n + 1) < 1e-6,  taylor, prefactor * result)
 
 
 def Phi(n, mu, R, r):
@@ -103,8 +103,7 @@ def Phi(n, mu, R, r):
     for m in range(1, n+1):
         result += Fn(n-m, Xi, xi)*(Xi**(2*m)+xi**(2*m))/(xi*Xi)**m
 
-
-    result = np.where( xi < 0.4, Phinj(n, 2, Xi, xi), result)
+    result = np.where( xi < [1e-3, 1e-2, 1e-1, 1e-1, 1e-1, 1e-1][n], Phinj(n, 2, Xi, xi), result)
     result *= mu
 
     return result

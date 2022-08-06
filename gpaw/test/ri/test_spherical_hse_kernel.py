@@ -93,9 +93,9 @@ def test_wrt_lebedev_integrated_kernel():
     s = 125
     for n in range(5):
         for RR in [1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1, 1e1, 1e2]:
-            R = RR*np.ones((1000,)) #np.random.rand(1000)*10
-            r = np.logspace(-5, 3, 1001)[1:] # np.random.rand(1000)*10
-            params = (n, 1.11, R.ravel(), r.ravel())
+            R = RR*np.ones((5000,)) #np.random.rand(1000)*10
+            r = np.logspace(-5, 3, 5001)[1:] # np.random.rand(1000)*10
+            params = (n, 0.11, R.ravel(), r.ravel())
             new, old = Phi(*params), PhiLebedev(*params)
             #params = (n, 0.11, R.ravel(), r.ravel())
             #new2, old2 = Phi(*params), PhiLebedev(*params)
@@ -110,17 +110,18 @@ def test_wrt_lebedev_integrated_kernel():
             plt.ylim([1e-7, 1e7])
         plt.show()
 
-    """
-    t = np.logspace(-5,5, s)
-    R, r = np.meshgrid(t,t)
-    params = (n, 0.11, R.ravel(), r.ravel())
-    new, old = Phi(*params), PhiLebedev(*params)
-    plt.contourf(np.log10(r), np.log10(R), np.reshape(np.log10(np.abs(old-new)+1e-20), (s, s) ))
-    plt.colorbar()
+    for n in range(5):    
+        t = np.logspace(-5,5, s)
+        R, r = np.meshgrid(t,t)
+        params = (n, 0.11, R.ravel(), r.ravel())
+        new, old = Phi(*params), PhiLebedev(*params)
+        plt.contourf(np.log10(r), np.log10(R), np.reshape(np.log10(np.abs(old-new)+1e-7), (s, s) ))
+        plt.colorbar()
     
-    #assert np.allclose(new, old)
-    plt.show()
-    """
+    
+        #assert np.allclose(new, old)
+        plt.show()
+    
 """
     class ScreenedCoulombKernelDebug:
     def __init__(self, rgd, omega):
