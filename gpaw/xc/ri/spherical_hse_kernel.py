@@ -13,8 +13,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.special import erfc
 from math import factorial
-from gpaw.sphere.lebedev import weight_n, Y_nL, R_nv
-from gpaw.spherical_harmonics import Y
 
 
 def Hn(n, Xi, xi):
