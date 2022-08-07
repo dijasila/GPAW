@@ -36,23 +36,23 @@ def Phiold(n, mu, R, r):
     """
     Rg = np.maximum.reduce([R, r])
     Rl = np.minimum.reduce([R, r])
-    Xi = mu*Rg
-    xi = mu*Rl
-
+    Xi = mu * Rg
+    xi = mu * Rl
+ 
     if n == 0:
         prefactor = -1 / (2 * np.pi**0.5 * xi * Xi)
-        A = np.exp(-(xi + Xi)**2)-np.exp(-(xi - Xi)**2)
-        B = -np.pi**0.5*((xi - Xi)*erfc(Xi - xi) +
-                         (Xi + xi)*erfc(Xi + xi))
-        return mu*prefactor*(A+B)
+        A = np.exp(-(xi + Xi)**2) - np.exp(-(xi - Xi)**2)
+        B = -np.pi**0.5 * ((xi - Xi) * erfc(Xi - xi) +
+                           (Xi + xi) * erfc(Xi + xi))
+        return mu * prefactor * (A + B)
     if n == 1:
         prefactor = -1 / (2 * np.pi**0.5 * xi**2 * Xi**2)
-        A = 1/2*((np.exp(-(xi+Xi)**2) - np.exp(-(xi-Xi)**2))*(2*xi**2+2*xi*Xi-(1-2*Xi**2))-4*xi*Xi*np.exp(-(xi+Xi)**2))-np.pi**0.5*((xi**3-Xi**3)*erfc(Xi-xi)+(xi**3+Xi**3)*erfc(xi+Xi))  # noqa: E501
-        return mu*prefactor*A
+        A = 1 / 2 * ((np.exp(-(xi + Xi)**2) - np.exp(-(xi - Xi)**2)) * (2 * xi**2 + 2 * xi * Xi - (1 - 2 * Xi**2)) - 4 * xi * Xi * np.exp(-(xi + Xi)**2)) - np.pi**0.5 * ((xi**3 - Xi**3) * erfc(Xi - xi) + (xi**3 + Xi**3) * erfc(xi + Xi))  # noqa: E501
+        return mu * prefactor * A
     if n == 2:
         prefactor = -1 / (2 * np.pi**0.5 * xi**3 * Xi**3)
-        A = 1/4*((np.exp(-(xi+Xi)**2)-np.exp(-(xi-Xi)**2))*(4*(xi**4+xi**3*Xi+Xi**4)-2*xi**2*(1-2*Xi**2)+(1-2*xi*Xi)*(3-2*Xi**2))-4*np.exp(-(xi+Xi)**2)*xi*Xi*(2*xi**2-(3-2*Xi**2)))-np.pi**0.5*((xi**5-Xi**5)*erfc(Xi-xi)+(xi**5+Xi**5)*erfc(xi+Xi))  # noqa: E501
-        return mu*prefactor*A
+        A = 1 / 4 * ((np.exp(-(xi + Xi)**2) - np.exp(-(xi - Xi)**2)) * (4 * (xi**4 + xi**3 * Xi + Xi**4) - 2 * xi**2 * (1 - 2 * Xi**2) + (1 - 2 * xi * Xi) * (3 - 2 * Xi**2)) - 4 * np.exp(-(xi + Xi)**2) * xi * Xi * (2 * xi**2 - (3 - 2 * Xi**2))) - np.pi**0.5 * ((xi**5 - Xi**5) * erfc(Xi - xi) + (xi**5 + Xi**5) * erfc(xi + Xi))  # noqa: E501
+        return mu * prefactor * A
     raise NotImplementedError
 
 
@@ -68,7 +68,7 @@ def PhiLebedev(n, mu, R_x, r_x):
         C2_nv = r * R2_nv
 
         D_nn = np.sum((C1_nv[:, None, :] - C2_nv[None, :, :])**2, axis=2)**0.5
-        V_nn = erfc(D_nn*mu) / D_nn
+        V_nn = erfc(D_nn * mu) / D_nn
 
         V_x[x] = np.einsum('n,m,nm,n,m', weight_n, weight_n, V_nn, Y1_n, Y2_n)
 
@@ -81,11 +81,10 @@ def test_old_vs_new_spherical_kernel():
         the generic implementation.
     """
     for n in range(3):
-        R = np.random.rand(100)*10
-        r = np.random.rand(100)*10
+        R = np.random.rand(100) * 10
+        r = np.random.rand(100) * 10
         params = (n, 0.11, R, r)
         new, old = Phi(*params), Phiold(*params)
-        print(np.max(np.abs(new-old)))
 
         assert np.allclose(new, old, atol=1e-6)
 
@@ -99,15 +98,15 @@ def test_wrt_lebedev_integrated_kernel(plot=False):
     s = 25
     for n in range(5):
         for RR in [1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1, 1e1, 1e2]:
-            R = RR*np.ones((125,))
-            r = np.logspace(-5, 3, 125+1)[1:]
+            R = RR * np.ones((125,))
+            r = np.logspace(-5, 3, 125 + 1)[1:]
             params = (n, 0.11, R.ravel(), r.ravel())
             new, old = Phi(*params), PhiLebedev(*params)
             plot and plt.loglog(r, np.abs(old), '-r')
             plot and plt.loglog(r, np.abs(new), '--b')
-            plot and plt.loglog(r, np.abs(old-new), '-k')
+            plot and plt.loglog(r, np.abs(old - new), '-k')
             plot and plt.ylim([1e-7, 1e7])
-            err = np.abs(new-old)
+            err = np.abs(new - old)
 
             # The angular integration error (due to only 50 point grid) is
             # too large on small separations. Therefore, they should not
@@ -122,7 +121,7 @@ def test_wrt_lebedev_integrated_kernel(plot=False):
         params = (n, 0.11, R.ravel(), r.ravel())
         new, old = Phi(*params), PhiLebedev(*params)
         plt.contourf(np.log10(r), np.log10(R),
-                     np.reshape(np.log10(np.abs(old-new)+1e-7), (s, s)))
+                     np.reshape(np.log10(np.abs(old - new) + 1e-7), (s, s)))
         plt.colorbar()
         plt.show()
 
