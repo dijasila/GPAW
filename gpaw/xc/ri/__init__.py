@@ -51,7 +51,7 @@ class RIXC:
         """
         # if self.use_lda:
         #     return self.ldaxc.calculate(gd, nt_sr, vt_sr)
-        energy = self.ecc # + self.evv + self.evc
+        energy = self.ecc  # + self.evv + self.evc
         energy += self.localxc.calculate(gd, nt_sr, vt_sr)
         return energy
 
@@ -64,6 +64,7 @@ class RIXC:
     def summary(self, log):
         # Take no changes
         # if self.use_lda:
-        #     raise ValueError('Error: Due to an internal error, LDA was used thorough the calculation.')
+        #     raise ValueError('Error: Due to an
+        # internal error, LDA was used thorough the calculation.')
 
         log(self.get_description())
