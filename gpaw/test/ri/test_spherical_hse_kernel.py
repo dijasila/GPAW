@@ -9,7 +9,7 @@ Coulomb kernel. Based on
 """
 
 
-from gpaw.xc.ri spherical_hse_kernel import Phi
+from gpaw.xc.ri.spherical_hse_kernel import Phi
 from scipy.special import erfc
 import numpy as np
 from gpaw.sphere.lebedev import weight_n, Y_nL, R_nv
