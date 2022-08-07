@@ -16,15 +16,17 @@ from math import factorial
 
 
 def doublefactorial(n):
-     if n <= 0:
-         return 1
-     else:
-         return n * doublefactorial(n-2)
+    if n <= 0:
+        return 1
+    else:
+        return n * doublefactorial(n-2)
 
 
 def safeerfc(x):
-    #return erfc(x)
-    taylor = 1 - 2 * x / np.pi**0.5 + 2 * x**3 / (3*np.pi**0.5) - x**5 / (5*np.pi)**0.5
+    taylor = (1
+              - 2 * x / np.pi**0.5
+              + 2 * x**3 / (3*np.pi**0.5)
+              - x**5 / (5*np.pi)**0.5)
     return np.where(x < 1e-4, taylor, erfc(x))
 
 
@@ -34,13 +36,19 @@ def Dnk(n, k, Xi):
         sum = 0
         for m in range(1, n+1):
             sum += 2**(-m)*Xi**(-2*m) / doublefactorial(2*n-2*m+1)
-        return safeerfc(Xi) + np.exp(-Xi**2) / (np.pi**0.5)*2**(n+1)*Xi**(2*n+1) * sum
+        return (safeerfc(Xi)
+                + np.exp(-Xi**2)
+                / (np.pi**0.5) * 2**(n + 1) * Xi**(2 * n + 1) * sum)
     # Eq. 29
     sum = 0
     for m in range(1, k+1):
-        sum += comb(m-k-1, m-1)*2**(k-m)*Xi**(2*(k-m))  / doublefactorial(2*n+2*k-2*m+1)
+        sum += (comb(m-k-1, m-1)*2**(k-m)*Xi**(2*(k-m))
+                / doublefactorial(2*n+2*k-2*m+1))
 
-    return np.exp(-Xi**2) * 2**(n+1)*(2*n+1)*Xi**(2*n+1) / np.pi**0.5 / factorial(k) / (2*n+2*k+1) * sum
+    return (np.exp(-Xi**2)
+            * 2**(n+1)*(2*n+1)*Xi**(2*n+1)
+            / np.pi**0.5 / factorial(k)
+            / (2*n+2*k+1) * sum)
 
 
 def Phinj(n, j, Xi, xi):
@@ -49,6 +57,7 @@ def Phinj(n, j, Xi, xi):
     for k in range(j):
         sum += Dnk(n, k, Xi) / (Xi**(n+1))*xi**(n+2*k)
     return sum
+
 
 def Hn(n, Xi, xi):
     """
@@ -73,14 +82,7 @@ def Fn(n, Xi, xi):
 
     for p in range(0, n+1):
         result += (-1 / (4 * Xi * xi))**(p + 1) * factorial(n + p) / (factorial(p) * factorial(n - p)) * ((-1)**(n - p) * np.exp(-(xi + Xi)**2)-np.exp(-(xi - Xi)**2))  # noqa: E501
-    taylor =np.exp(-Xi**2-xi**2) * 2**(n+1)*(3+2*n+2*xi**2*Xi**2)*xi**n*Xi**n/(np.pi**0.5*doublefactorial(2*n+3))
-    #match = 0
-    #for x1, x2, a, b in zip(Xi, xi, taylor, prefactor * result):
-    #    if x1 < 4 and x2 < 4:
-    #        print(n,x1,x2,a,b, b/a)
-    #        match += 1
-    #print(match,'matches')
-    #print((Xi < 1e-2) & (xi < 1e-2),'xxx')
+    taylor = np.exp(-Xi**2 - xi**2) * 2**(n + 1) * (3 + 2 * n + 2 * xi**2 * Xi**2) * xi**n * Xi**n / (np.pi**0.5 * doublefactorial(2 * n + 3))  # noqa: E501
 
     return np.where((Xi * xi)**(2 * n + 1) < 1e-6,  taylor, prefactor * result)
 
@@ -103,7 +105,8 @@ def Phi(n, mu, R, r):
     for m in range(1, n+1):
         result += Fn(n-m, Xi, xi)*(Xi**(2*m)+xi**(2*m))/(xi*Xi)**m
 
-    result = np.where( xi < [1e-3, 1e-2, 1e-1, 1e-1, 1e-1, 1e-1][n], Phinj(n, 2, Xi, xi), result)
+    result = np.where(xi < [1e-3, 1e-2, 1e-1, 1e-1, 1e-1, 1e-1][n],
+                      Phinj(n, 2, Xi, xi), result)
     result *= mu
 
     return result
