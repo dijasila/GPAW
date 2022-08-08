@@ -752,7 +752,7 @@ rows = [r for n in names for r in db.select(name=n)]
 new_X = np.array([calculate_input_vector(r) for r in rows])
 new_X[:, :4] = [1, 0, 0, 0]
 
-pred_bg = best_model.predict(new_X)
+pred_bg = best_model.predict(new_X).flatten()
 
 print(f"Material    Found Symmetry   Gap    Predicted Gap\n{'-'*50}")
 for r, bg in zip(rows, pred_bg):
