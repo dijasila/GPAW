@@ -109,6 +109,7 @@ structures, giving four different symmetry types for each atomic composition.
 
 # %%
 # teacher
+from math import comb
 # general formula ABX
 Xs = {"Cl", "Br", "I"}
 As = set()
@@ -120,8 +121,9 @@ for row in db.select(project="organometal"):
     sym_classes.update((row.symmetry,))
 
 print(f"The A atoms are one of {As}. The B atoms are one of {Bs}. The used symmetry classes are {sym_classes}.")
-n_uniq = len(As) * len(Bs) * len(Xs)**3
-print(f"There are {n_uniq} unique compounds, and {len(sym_classes)*n_uniq} structures, when symmety is considered.")
+n_Xs = len(Xs)
+n_uniq = len(As) * len(Bs) * comb(2 * n_Xs - 1, n_Xs)
+print(f"There are {n_uniq} unique compounds, and {len(sym_classes)*n_uniq} structures, when symmetry is considered.")
 
 # %%
 """
@@ -764,7 +766,7 @@ Ideally there is a structure similar to it in the database. To generate the new 
 """
 
 # %%
-row = next(db.select(name='CsSnICl2', symmetry='cubic'))  # student: row = next(db.select(name='similar name', symmetry='similar symmetry'))
+row = next(db.select('Cs,Sn', symmetry='cubic'))  # student: row = next(db.select(name='similar name', symmetry='similar symmetry'))
 atoms = row.toatoms()
 symbols = atoms.get_chemical_symbols()
 new_symbols = ['Pb' if symbol == 'Sn' else symbol  # student: new_symbols = [? if symbol == ? else symbol
