@@ -14,7 +14,7 @@ from gpaw.gaunt import gaunt
 from gpaw.utilities import pack2
 from gpaw.atom.aeatom import (AllElectronAtom, Channel, parse_ld_str, colors,
                               GaussianBasis)
-
+from gpaw.xc.ri.ribasis import RIBasis
 
 class DatasetGenerationError(Exception):
     pass
@@ -809,9 +809,11 @@ class PAWSetupGenerator:
         plt.axis(xmin=0, xmax=self.rcmax)
         plt.legend()
 
-    def create_basis_set(self, tailnorm=0.0005, scale=200.0, splitnorm=0.16):
+    def create_basis_set(self, tailnorm=0.0005, scale=200.0, splitnorm=0.16, ri=None):
+        print('RI got', ri)
         rgd = self.rgd
-        self.basis = Basis(self.aea.symbol, 'dzp', readxml=False, rgd=rgd)
+        basiscls = Basis if ri is None else RIBasis
+        self.basis = basiscls(self.aea.symbol, 'dzp', readxml=False, rgd=rgd)
 
         # We print text to sdtout and put it in the basis-set file
         txt = 'Basis functions:\n'
@@ -889,6 +891,8 @@ class PAWSetupGenerator:
                                               scale=scale,
                                               splitnorm=splitnorm))
         self.basis.name = '%de.dzp' % self.nvalence
+
+        ri and self.basis.generate_ri_basis(ri)
 
         return self.basis
 
@@ -1391,6 +1395,8 @@ class CLICommand:
             '(for vdW-DF functionals).')
         add('--core-hole')
         add('-e', '--electrons', type=int)
+        add('--ri', type=str,
+            help='Calculate also resolution of identity basis.')
 
     @staticmethod
     def run(args):
@@ -1407,7 +1413,7 @@ def main(args):
 
     if args.create_basis_set or args.write:
         if args.create_basis_set:
-            basis = gen.create_basis_set()
+            basis = gen.create_basis_set(ri=args.ri)
             basis.write_xml()
 
         if args.write:
@@ -1418,6 +1424,9 @@ def main(args):
                     parameters.append('{0}={1!r}'.format(key, value))
             setup.generatordata = ',\n    '.join(parameters)
             setup.write_xml()
+
+    if not args.create_basis_set and args.ri:
+        raise ValueError('Basis set must be created in order to create the RI-basis set as well')
 
     if args.logarithmic_derivatives or args.plot:
         if args.plot:

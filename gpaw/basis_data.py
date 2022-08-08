@@ -90,6 +90,10 @@ class Basis:
         with open(filename, 'w') as fd:
             self.write_to(fd)
 
+    def _write(self, out):
+        for bf in self.bf_j:
+            out(bf.xml(indentation='  '))
+
     def write_to(self, fd):
         write = fd.write
         write('<paw_basis version="0.1">\n')
@@ -103,9 +107,8 @@ class Basis:
         write('\n  </generator>\n')
 
         write('  ' + self.rgd.xml())
-
-        for bf in self.bf_j:
-            write(bf.xml(indentation='  '))
+        
+        self._write(write)
 
         write('</paw_basis>\n')
 
