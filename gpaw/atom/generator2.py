@@ -16,6 +16,7 @@ from gpaw.atom.aeatom import (AllElectronAtom, Channel, parse_ld_str, colors,
                               GaussianBasis)
 from gpaw.xc.ri.ribasis import RIBasis
 
+
 class DatasetGenerationError(Exception):
     pass
 
@@ -809,7 +810,8 @@ class PAWSetupGenerator:
         plt.axis(xmin=0, xmax=self.rcmax)
         plt.legend()
 
-    def create_basis_set(self, tailnorm=0.0005, scale=200.0, splitnorm=0.16, ri=None):
+    def create_basis_set(self, tailnorm=0.0005, scale=200.0, splitnorm=0.16,
+                         ri=None):
         print('RI got', ri)
         rgd = self.rgd
         basiscls = Basis if ri is None else RIBasis
@@ -1426,7 +1428,8 @@ def main(args):
             setup.write_xml()
 
     if not args.create_basis_set and args.ri:
-        raise ValueError('Basis set must be created in order to create the RI-basis set as well')
+        raise ValueError('Basis set must be created in order to create the'
+                         'RI-basis set as well')
 
     if args.logarithmic_derivatives or args.plot:
         if args.plot:

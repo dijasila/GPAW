@@ -1,5 +1,6 @@
-from gpaw.basis_data import Basis
+from gpaw.basis_data import Basis, BasisFunction
 from collections import defaultdict
+
 
 class RIBasis(Basis):
     def __init__(self, symbol, name, readxml=True, rgd=None, world=None):
@@ -24,58 +25,67 @@ class RIBasis(Basis):
    
     def get_description(self):
         desc = Basis.get_description(self)
-        desc += f'  Number of RI-basis functions {self.nrio}\n'
+        desc += f'\n  Number of RI-basis functions {self.nrio}'
+        
+        ribf_lines = []
+        for ribf in self.ribf_j:
+            line = '\n    l=%d %s' % (ribf.l, ribf.type)
+            ribf_lines.append(line)
+        desc += '\n'.join(ribf_lines)
+
         return desc
 
     def generate_ri_basis(self, accuracy):
         lmax = 4
 
         # TODO: Hartree
-        def poisson(n_g,l):
+        def poisson(n_g, l):
             return Hartree(self.rgd, n_g, l)
 
-
-        # Auxiliary basis functions, separated for each angular momentum channel
+        # Auxiliary basis functions per angular momentum channel
         auxt_lng = defaultdict(lambda: [])
         # The Coulomb (or screened coulomb) solution to the basis functions,
         # truncated to the maximum extent of the original basis function.
         # i.e. not the fulll potential extending to infinity.
-        wauxt_lng = defaultdict(lambda: [])
+        # wauxt_lng = defaultdict(lambda: [])
 
         def add(aux_g, l):
-            auxt_lng[l].append(aux_g)
-            v_g = poisson(aux_g, l)
-            wauxt_lng[l].append(v_g)
+            ribf = BasisFunction(None, l, None, aux_g, type='auxiliary')
+            self.append_ri(ribf)
+            # auxt_lng[l].append(aux_g)
+            # v_g = poisson(aux_g, l)
+            # wauxt_lng[l].append(v_g)
 
         def basisloop():
             for j, bf in enumerate(self.bf_j):
                 yield j, bf.l, bf.phit_g
 
         # Double basis function loop to create product orbitals
-        for j1, l1, phit1_g  in basisloop():
-            for j2, l2, phit2_g  in basisloop():
+        for j1, l1, phit1_g in basisloop():
+            for j2, l2, phit2_g in basisloop():
                 # Loop only over ordered pairs
                 if j1 > j2:
                     continue
 
-                # Loop over all possible angular momentum states what the product
-                # l1 x l2 creates.
+                # Loop over all possible angular momentum states what the
+                # product l1 x l2 creates.
                 for l in range((l1 + l2) % 2, l1 + l2 + 1, 2):
                     if l > lmax:
                         continue
 
                     add(phit1_g * phit2_g, l)
 
-        
         for l, auxt_ng in auxt_lng.items():
             print(l, auxt_ng)
             print(f'    l={l}')
             for n, auxt_g in enumerate(auxt_ng):
                 print(f'        {n}')
         # Auxiliary basis functions
-        #setup.auxt_j, setup.wauxt_j, setup.sauxt_j, setup.wsauxt_j, setup.M_j = \
-        #    get_auxiliary_splines_screened(setup, self.lmax, rcmax, threshold=self.threshold)
-
+        # setup.auxt_j, setup.wauxt_j, setup.sauxt_j, setup.wsauxt_j,
+        # setup.M_j = \
+        #    get_auxiliary_splines_screened(setup,
+        #         self.lmax, rcmax, threshold=self.threshold)
+        print(self.get_description())
 
 
 def Hartree(rgd, n_g, l):
@@ -85,6 +95,7 @@ def Hartree(rgd, n_g, l):
     return v_g
 
 
+"""
 def _get_auxiliary_splines(setup, lmax, cutoff, poisson, threshold=1e-2):
     rgd = setup.rgd
     print('Threshold: %.10f' % threshold)
@@ -168,3 +179,4 @@ def _get_auxiliary_splines(setup, lmax, cutoff, poisson, threshold=1e-2):
             assert(np.abs(v_g[-1])<1e-6)
         print('l=%d %d -> %d' % (l, len(auxt_ng), len(auxt_ig)))
     return auxt_j, wauxt_j, sauxt_j, wsauxt_j, M_j
+    """
