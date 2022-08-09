@@ -309,6 +309,7 @@ class ASECalculator:
         return ResponseGroundStateAdapter(self)
 
     def fixed_density(self, **kwargs):
+        """
         kwargs = {**dict(self.params.items()), **kwargs}
         params = InputParameters(kwargs)
         txt = params.txt
@@ -324,7 +325,8 @@ class ASECalculator:
         ibzwfs = builder.create_ibz_wave_functions(basis_set, potential)
         state = DFTState(ibzwfs, density, potential, vHt_x)
         scf_loop = builder.create_scf_loop()
-
+        """
+        ...
 
     def initialize(self, atoms):
         ...
