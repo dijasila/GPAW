@@ -14,7 +14,7 @@ from gpaw.gaunt import gaunt
 from gpaw.utilities import pack2
 from gpaw.atom.aeatom import (AllElectronAtom, Channel, parse_ld_str, colors,
                               GaussianBasis)
-from gpaw.xc.ri.ribasis import RIBasis
+from gpaw.xc.ri.ribasis import generate_ri_basis
 
 
 class DatasetGenerationError(Exception):
@@ -813,9 +813,8 @@ class PAWSetupGenerator:
     def create_basis_set(self, tailnorm=0.0005, scale=200.0, splitnorm=0.16,
                          tag=None, ri=None):
         rgd = self.rgd
-        basiscls = Basis if ri is None else RIBasis
         name = 'dzp' if not tag else f'{tag}.dzp'
-        self.basis = basiscls(self.aea.symbol, name, readxml=False, rgd=rgd)
+        self.basis = Basis(self.aea.symbol, name, readxml=False, rgd=rgd)
 
         # We print text to sdtout and put it in the basis-set file
         txt = 'Basis functions:\n'
@@ -893,7 +892,7 @@ class PAWSetupGenerator:
                                               scale=scale,
                                               splitnorm=splitnorm))
 
-        ri and self.basis.generate_ri_basis(ri)
+        ri and generate_ri_basis(self.basis, ri)
 
         return self.basis
 
@@ -1427,7 +1426,7 @@ def main(args):
             setup.write_xml()
 
     if not args.create_basis_set and args.ri:
-        raise ValueError('Basis set must be created in order to create the'
+        raise ValueError('Basis set must be created in order to create the '
                          'RI-basis set as well')
 
     if args.logarithmic_derivatives or args.plot:
