@@ -14,8 +14,8 @@ class RIBasis(Basis):
     def append_ri(self, ribf):
         self.ribf_j.append(ribf)
 
-    def write(self, out):
-        Basis.write(self, out)
+    def _write(self, out):
+        Basis._write(self, out)
         for ribf in self.ribf_j:
             out(ribf.xml(indentation='  '))
 
