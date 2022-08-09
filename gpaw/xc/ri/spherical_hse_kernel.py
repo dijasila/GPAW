@@ -10,15 +10,8 @@ Based on
 
 
 import numpy as np
-from scipy.special import erfc, comb
+from scipy.special import erfc, comb, factorial2
 from math import factorial
-
-
-def doublefactorial(n):
-    if n <= 0:
-        return 1
-    else:
-        return n * doublefactorial(n - 2)
 
 
 def safeerfc(x):
@@ -34,7 +27,7 @@ def Dnk(n, k, Xi):
     if k == 0:
         sum = 0
         for m in range(1, n + 1):
-            sum += 2**(-m) * Xi**(-2 * m) / doublefactorial(2 * n - 2 * m + 1)
+            sum += 2**(-m) * Xi**(-2 * m) / factorial2(2 * n - 2 * m + 1)
         return (safeerfc(Xi)
                 + np.exp(-Xi**2)
                 / (np.pi**0.5) * 2**(n + 1) * Xi**(2 * n + 1) * sum)
@@ -42,7 +35,7 @@ def Dnk(n, k, Xi):
     sum = 0
     for m in range(1, k + 1):
         sum += (comb(m - k - 1, m - 1) * 2**(k - m) * Xi**(2 * (k - m))
-                / doublefactorial(2 * n + 2 * k - 2 * m + 1))
+                / factorial2(2 * n + 2 * k - 2 * m + 1))
 
     return (np.exp(-Xi**2)
             * 2**(n + 1) * (2 * n + 1) * Xi**(2 * n + 1)
@@ -81,7 +74,7 @@ def Fn(n, Xi, xi):
 
     for p in range(0, n + 1):
         result += (-1 / (4 * Xi * xi))**(p + 1) * factorial(n + p) / (factorial(p) * factorial(n - p)) * ((-1)**(n - p) * np.exp(-(xi + Xi)**2) - np.exp(-(xi - Xi)**2))  # noqa: E501
-    taylor = np.exp(-Xi**2 - xi**2) * 2**(n + 1) * (3 + 2 * n + 2 * xi**2 * Xi**2) * xi**n * Xi**n / (np.pi**0.5 * doublefactorial(2 * n + 3))  # noqa: E501
+    taylor = np.exp(-Xi**2 - xi**2) * 2**(n + 1) * (3 + 2 * n + 2 * xi**2 * Xi**2) * xi**n * Xi**n / (np.pi**0.5 * factorial2(2 * n + 3))  # noqa: E501
 
     return np.where((Xi * xi)**(2 * n + 1) < 1e-6, taylor, prefactor * result)
 
