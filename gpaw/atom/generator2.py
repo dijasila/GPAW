@@ -1414,11 +1414,7 @@ def main(args):
 
     if args.create_basis_set or args.write:
         if args.create_basis_set:
-<<<<<<< HEAD
-            basis = gen.create_basis_set(ri=args.ri)
-=======
-            basis = gen.create_basis_set(tag=args.tag)
->>>>>>> master
+            basis = gen.create_basis_set(tag=args.tag, ri=args.ri)
             basis.write_xml()
 
         if args.write:
