@@ -102,7 +102,6 @@ class Basis:
         with open(filename, 'w') as fd:
             self.write_to(fd)
 
-
     def write_to(self, fd):
         write = fd.write
         write('<paw_basis version="0.1">\n')
