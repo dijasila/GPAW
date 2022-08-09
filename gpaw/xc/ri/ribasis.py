@@ -1,4 +1,4 @@
-from gpaw.basis_data import Basis, BasisFunction
+from gpaw.basis_data import BasisFunction
 from collections import defaultdict
 
 
@@ -17,7 +17,8 @@ def generate_ri_basis(basis, accuracy):
     # wauxt_lng = defaultdict(lambda: [])
 
     def add(aux_g, l, rc=None):
-        ribf = BasisFunction(n=None, l=l, rc=rc, phit_g=aux_g, type='auxiliary')
+        ribf = BasisFunction(n=None, l=l, rc=rc, phit_g=aux_g,
+                             type='auxiliary')
         basis.append(ribf)
         # auxt_lng[l].append(aux_g)
         # v_g = poisson(aux_g, l)
@@ -40,7 +41,7 @@ def generate_ri_basis(basis, accuracy):
                 if l > lmax:
                     continue
 
-                add(phit1_g * phit2_g, l, rc=min(rc1,rc2))
+                add(phit1_g * phit2_g, l, rc=min(rc1, rc2))
 
     for l, auxt_ng in auxt_lng.items():
         print(l, auxt_ng)
