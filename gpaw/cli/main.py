@@ -30,10 +30,7 @@ commands = [
 def hook(parser, args):
     parser.add_argument('-P', '--parallel', type=int, metavar='N',
                         help='Run on N CPUs.')
-    args, extra = parser.parse_known_args(args)
-    if extra:
-        assert not args.arguments
-        args.arguments = extra
+    args = parser.parse_args(args)
 
     if args.command == 'python':
         args.traceback = True

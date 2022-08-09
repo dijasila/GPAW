@@ -811,11 +811,11 @@ class PAWSetupGenerator:
         plt.legend()
 
     def create_basis_set(self, tailnorm=0.0005, scale=200.0, splitnorm=0.16,
-                         ri=None):
-        print('RI got', ri)
+                         tag=None, ri=None):
         rgd = self.rgd
         basiscls = Basis if ri is None else RIBasis
-        self.basis = basiscls(self.aea.symbol, 'dzp', readxml=False, rgd=rgd)
+        name = 'dzp' if not tag else f'{tag}.dzp'
+        self.basis = basiscls(self.aea.symbol, name, readxml=False, rgd=rgd)
 
         # We print text to sdtout and put it in the basis-set file
         txt = 'Basis functions:\n'
@@ -892,7 +892,6 @@ class PAWSetupGenerator:
         self.basis.generatorattrs.update(dict(tailnorm=tailnorm,
                                               scale=scale,
                                               splitnorm=splitnorm))
-        self.basis.name = '%de.dzp' % self.nvalence
 
         ri and self.basis.generate_ri_basis(ri)
 
@@ -1415,7 +1414,11 @@ def main(args):
 
     if args.create_basis_set or args.write:
         if args.create_basis_set:
+<<<<<<< HEAD
             basis = gen.create_basis_set(ri=args.ri)
+=======
+            basis = gen.create_basis_set(tag=args.tag)
+>>>>>>> master
             basis.write_xml()
 
         if args.write:
