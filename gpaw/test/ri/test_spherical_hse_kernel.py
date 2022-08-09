@@ -102,10 +102,11 @@ def test_wrt_lebedev_integrated_kernel(plot=False):
             r = np.logspace(-5, 3, 125 + 1)[1:]
             params = (n, 0.11, R.ravel(), r.ravel())
             new, old = Phi(*params), PhiLebedev(*params)
-            plot and plt.loglog(r, np.abs(old), '-r')
-            plot and plt.loglog(r, np.abs(new), '--b')
-            plot and plt.loglog(r, np.abs(old - new), '-k')
-            plot and plt.ylim([1e-7, 1e7])
+            if plot:
+                plt.loglog(r, np.abs(old), '-r')
+                plt.loglog(r, np.abs(new), '--b')
+                plt.loglog(r, np.abs(old - new), '-k')
+                plt.ylim([1e-7, 1e7])
             err = np.abs(new - old)
 
             # The angular integration error (due to only 50 point grid) is
@@ -113,7 +114,8 @@ def test_wrt_lebedev_integrated_kernel(plot=False):
             # be compared directly.
             err = np.where(R - r < 0.3, 0 * err, err)
             assert np.allclose(err, 0, atol=1e-2, rtol=1e-2)
-        plot and plt.show()
+        if plot:
+            plt.show()
 
     for n in range(5 if plot else 0):
         t = np.logspace(-5, 5, s)
