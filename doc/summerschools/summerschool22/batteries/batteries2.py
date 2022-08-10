@@ -618,8 +618,8 @@ You will now calculate the error estimate for the Li intercallation energy in Fe
 """
 
 # %%
-fepo4_ens_cell = np.genfromtxt('ensemble_fepo4.dat')
-lifepo4_ens_cell = np.genfromtxt('ensemble_lifepo4.dat')
+fepo4_ens_cell = np.genfromtxt('ensemble_fepo4.dat', max_rows=2000)
+lifepo4_ens_cell = np.genfromtxt('ensemble_lifepo4.dat', max_rows=2000)
 
 print('number of functionals in ensemble=', len(fepo4_ens_cell))
 print('number of functionals in ensemble=', len(lifepo4_ens_cell))
