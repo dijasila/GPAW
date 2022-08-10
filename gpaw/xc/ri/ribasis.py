@@ -11,18 +11,11 @@ def generate_ri_basis(basis, accuracy):
 
     # Auxiliary basis functions per angular momentum channel
     auxt_lng = defaultdict(lambda: [])
-    # The Coulomb (or screened coulomb) solution to the basis functions,
-    # truncated to the maximum extent of the original basis function.
-    # i.e. not the fulll potential extending to infinity.
-    # wauxt_lng = defaultdict(lambda: [])
 
     def add(aux_g, l, rc=None):
         ribf = BasisFunction(n=None, l=l, rc=rc, phit_g=aux_g,
                              type='auxiliary')
         basis.append(ribf)
-        # auxt_lng[l].append(aux_g)
-        # v_g = poisson(aux_g, l)
-        # wauxt_lng[l].append(v_g)
 
     def basisloop():
         for j, bf in enumerate(basis.bf_j):
@@ -40,7 +33,9 @@ def generate_ri_basis(basis, accuracy):
             for l in range((l1 + l2) % 2, l1 + l2 + 1, 2):
                 if l > lmax:
                     continue
-
+ 
+                # min: The support of basis function is the intersection
+                # of the individual supports.
                 add(phit1_g * phit2_g, l, rc=min(rc1, rc2))
 
     for l, auxt_ng in auxt_lng.items():
@@ -48,12 +43,6 @@ def generate_ri_basis(basis, accuracy):
         print(f'    l={l}')
         for n, auxt_g in enumerate(auxt_ng):
             print(f'        {n}')
-    # Auxiliary basis functions
-    # setup.auxt_j, setup.wauxt_j, setup.sauxt_j, setup.wsauxt_j,
-    # setup.M_j = \
-    #    get_auxiliary_splines_screened(setup,
-    #         basis.lmax, rcmax, threshold=self.threshold)
-    print(basis.get_description())
 
 
 def Hartree(rgd, n_g, l):

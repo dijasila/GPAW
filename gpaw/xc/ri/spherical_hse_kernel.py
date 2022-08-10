@@ -116,22 +116,24 @@ remains below.
 class RadialHSE:
     def __init__(self, rgd, omega):
         self.rgd = rgd
-        r1_gg = np.zeros((rgd.N, rgd.N))
-        r2_gg = np.zeros((rgd.N, rgd.N))
-        d_gg = np.zeros((rgd.N, rgd.N))
+        self.omega = omega
+
+        self.r1_gg = np.zeros((rgd.N, rgd.N))
+        self.r2_gg = np.zeros((rgd.N, rgd.N))
+        self.d_gg = np.zeros((rgd.N, rgd.N))
         r_g = rgd.r_g.copy()
         r_g[0] = r_g[1]  # XXX
-        r1_gg[:] = r_g[None, :]
-        r2_gg[:] = r_g[:, None]
-        d_gg[:] = rgd.dr_g[None, :] * rgd.r_g[None, :]**2 * 4 * np.pi
-        self.V_lgg = []
-
-        for l in range(5):
-            kernel_gg = np.reshape(Phi(l, omega, r1_gg.ravel(),
-                                       r2_gg.ravel()),
-                                   d_gg.shape) / (2 * l + 1)
-            self.V_lgg.append(d_gg * kernel_gg)
+        self.r1_gg[:] = r_g[None, :]
+        self.r2_gg[:] = r_g[:, None]
+        self.d_gg[:] = rgd.dr_g[None, :] * rgd.r_g[None, :]**2 * 4 * np.pi
+        self.V_lgg = {}
 
     def screened_coulomb(self, n_g, l):
+        # Buffer different l-values for optimal performance
+        if l not in self.V_lgg:
+            kernel_gg = np.reshape(Phi(l, self.omega, self.r1_gg.ravel(),
+                                       self.r2_gg.ravel()),
+                                   self.d_gg.shape) / (2 * l + 1)
+            self.V_lgg[l] = self.d_gg * kernel_gg
         vr_g = (self.V_lgg[l] @ n_g) * self.rgd.r_g
         return vr_g
