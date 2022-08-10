@@ -156,46 +156,46 @@ class Davidson(object):
 
     def __init__(self, etdm, logfile, fd_mode=None, m=None, h=None,
                  eps=None, cap_krylov=None, gmf=False,
-                 remember_sp_order=False, sp_order=None, seed=None):
+                 accurate_first_pdiag=True, remember_sp_order=False,
+                 sp_order=None, seed=None):
         """
-        :param etdm:              ETDM object for which the partial
-                                  eigendecomposition should be performed.
-        :param logfile:           Name string of the Davidson log file. Use '-'
-                                  for stdout or None to discard.
-        :param fd_mode:           Finite difference mode for partial Hessian
-                                  evaluation. Must be one of 'central' for
-                                  central FD or 'forward' for forward FD.
-                                  Central FD uses two e/g evaluations per
-                                  Davidson step and target eigenpair with an
-                                  error scaling as O(h^2), forward FD uses one
-                                  with O(h) scaling.
-        :param m:                 Memory parameter indicating how large the
-                                  Krylov space should be able to become before
-                                  resetting it with the Ritz vectors of the
-                                  previous step or terminating the calculation
-                                  if cap_krylov is True.
-        :param h:                 Displacement (in radians of orbital rotation)
-                                  for finite difference partial Hessian
-                                  calculation.
-        :param eps:               Convergence threshold for maximum component
-                                  of the residuals of the target eigenpairs.
-        :param cap_krylov:        If True, terminate the calculation if the
-                                  Krylov space contains more m vectors.
-        :param gmf:               Toggle usage with minimum mode following
-                                  instead of stability analysis. The defaults
-                                  and some actions will be different.
+        :param etdm: ETDM object for which the partial eigendecomposition
+                     should be performed.
+        :param logfile: Name string of the Davidson log file. Use '-' for
+                        stdout or None to discard.
+        :param fd_mode: Finite difference mode for partial Hessian evaluation.
+                        Must be one of 'central' for central FD or 'forward'
+                        for forward FD. Central FD uses two e/g evaluations per
+                        Davidson step and target eigenpair with an error
+                        scaling as O(h^2), forward FD uses one with O(h)
+                        scaling.
+        :param m: Memory parameter indicating how large the Krylov space should
+                  be able to become before resetting it with the Ritz vectors
+                  of the previous step or terminating the calculation if
+                  cap_krylov is True.
+        :param h: Displacement (in radians of orbital rotation) for finite
+                  difference partial Hessian calculation.
+        :param eps: Convergence threshold for maximum component of the
+                    residuals of the target eigenpairs.
+        :param cap_krylov: If True, terminate the calculation if the Krylov
+                           space contains more than m vectors.
+        :param gmf: Toggle usage with generalized mode following instead of
+                    stability analysis. The defaults and some actions will be
+                    different.
+        :param accurate_first_pdiag: Approximate the target saddle point order
+                                     better by performing a more accurate first
+                                     partial diagonalization step at the
+                                     expense of more gradient evaluations
         :param remember_sp_order: If True the number of target eigenpairs is
                                   saved after converging the partial Hessian
                                   eigendecomposition once and recovered for all
                                   subsequent calculations. If False the number
                                   of target eigenpairs is always gathered from
                                   the diagonal Hessian approximation in ETDM.
-        :param sp_order:          If given use this value for the number of
-                                  target eigenpairs instead of gathering it
-                                  from the diagonal Hessian approximation in
-                                  ETDM.
-        :param seed:              Seed for random perturbation of initial
-                                  Krylov space.
+        :param sp_order: If given use this value for the number of target
+                         eigenpairs instead of gathering it from the diagonal
+                         Hessian approximation in ETDM.
+        :param seed: Seed for random perturbation of initial Krylov space.
         """
 
         self.gmf = gmf
@@ -236,7 +236,7 @@ class Davidson(object):
         self.logfile = logfile
         self.logger = GPAWLogger(world)
         self.logger.fd = logfile
-        self.first_run = True
+        self.first_run = accurate_first_pdiag
         if self.gmf:
             self.lambda_all = None
             self.y_all = None
