@@ -9,6 +9,10 @@ def RI(name, **args):
                               f'functional called: {name}.')
 
 
+EXXCW_NONE_ERROR = 'The setup does not contain erfc-screened exchange '\
+                   'core-core energy for given omega.'
+
+
 class RIXC:
     orbital_dependent = False  # SIC!
     type = 'ri'
@@ -25,6 +29,8 @@ class RIXC:
         self.ecc = 0
         for setup in wfs.setups:
             if self.omega is not None:
+                if setup.ExxC_w is None:
+                    raise RuntimeError(EXXCW_NONE_ERROR)
                 self.ecc += setup.ExxC_w[self.omega] * self.exx_fraction
             else:
                 self.ecc += setup.ExxC * self.exx_fraction
