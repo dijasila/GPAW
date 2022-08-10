@@ -5,11 +5,11 @@ from ase.units import Ha
 from ase.dft.kpoints import monkhorst_pack
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.pw_parallelization import Blocks1D
-from gpaw.pw.descriptor import (PWDescriptor, PWMapping,
-                                count_reciprocal_vectors)
+from gpaw.pw.descriptor import (PWDescriptor, PWMapping)
 from gpaw.response.gamma_int import GammaIntegrator
 from gpaw.response.kernels import get_coulomb_kernel, get_integrated_kernel
 from gpaw.response.temp import DielectricFunctionCalculator
+
 
 def get_qdescriptor(kd, atoms):
     # Find q-vectors and weights in the IBZ:
@@ -64,7 +64,7 @@ class WCalculator:
 
     def dyson_and_W_new(self, wstc, iq, q_c, chi0calc, chi0, ecut):
         assert not self.ppa
-        #assert not self.do_GW_too
+        # assert not self.do_GW_too
         assert ecut == chi0.pd.ecut
         assert self.fxc_mode == 'GW'
 

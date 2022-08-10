@@ -7,7 +7,6 @@ from pathlib import Path
 
 import gpaw.mpi as mpi
 import numpy as np
-from ase.dft.kpoints import monkhorst_pack
 from ase.parallel import paropen
 from ase.units import Ha
 from ase.utils import opencew, pickleload
@@ -15,16 +14,11 @@ from ase.utils.timing import timer
 from gpaw import GPAW, debug
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.chi0 import Chi0Calculator
-from gpaw.pw.descriptor import (PWDescriptor, PWMapping,
+from gpaw.pw.descriptor import (PWDescriptor,
                                 count_reciprocal_vectors)
 from gpaw.response.fxckernel_calc import calculate_kernel
-from gpaw.response.gamma_int import GammaIntegrator
 from gpaw.response.hilbert import GWHilbertTransforms
-from gpaw.response.kernels import get_coulomb_kernel, get_integrated_kernel
 from gpaw.response.pair import NoCalculatorPairDensity
-from gpaw.response.pw_parallelization import Blocks1D
-from gpaw.response.q0_correction import Q0Correction
-from gpaw.response.temp import DielectricFunctionCalculator
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.xc.exx import EXX, select_kpts
@@ -32,6 +26,7 @@ from gpaw.xc.fxc import XCFlags
 from gpaw.xc.tools import vxc
 from gpaw.response.context import calc_and_context
 from gpaw.response.screened_interaction import WCalculator
+
 
 class Sigma:
     def __init__(self, esknshape):
@@ -342,10 +337,10 @@ class G0W0Calculator(WCalculator):
             Save output to a pckl file.
         """
 
-        #Init for parent (WCalculator) class to avoid repetition
-        super().__init__(chi0calc,ppa,xckernel,
-                         context,E0,
-                         fxc_mode,truncation,
+        # Init for parent (WCalculator) class to avoid repetition
+        super().__init__(chi0calc, ppa, xckernel,
+                         context, E0,
+                         fxc_mode, truncation,
                          integrate_gamma,
                          q0_correction)
 
@@ -356,26 +351,16 @@ class G0W0Calculator(WCalculator):
         self.frequencies = frequencies
 
         self.ecut_e = ecut_e / Ha
-
-        #self.context = context
         self.chi0calc = chi0calc
-        #self.pair = chi0calc.pair
-        #self.wd = chi0calc.wd
-        #self.gs = chi0calc.gs
 
         if ppa and self.pair.nblocks > 1:
             raise ValueError(
                 'PPA is currently not compatible with block parallelisation.')
 
-        #self.timer = self.context.timer
-        #self.fd = self.context.fd
-        #self.blockcomm = self.pair.blockcomm
         self.world = self.context.world
 
         print(gw_logo, file=self.fd)
 
-        #self.xckernel = xckernel
-        #self.fxc_mode = fxc_mode
         self.do_GW_too = do_GW_too
 
         if not self.fxc_mode == 'GW':
@@ -391,11 +376,7 @@ class G0W0Calculator(WCalculator):
         self.filename = filename
         self.restartfile = restartfile
         self.savepckl = savepckl
-        #self.ppa = ppa
-        #self.truncation = truncation
-        #self.integrate_gamma = integrate_gamma
         self.eta = eta / Ha
-        #self.E0 = E0 / Ha
 
         self.kpts = kpts
         self.bands = bands
@@ -412,16 +393,6 @@ class G0W0Calculator(WCalculator):
         self.pair_distribution = self.pair.distribute_k_points_and_bands(
             b1, b2, self.gs.kd.ibz2bz_k[self.kpts])
 
-        #self.qd = get_qdescriptor(self.gs.kd, self.gs.atoms)
-        """
-        if q0_correction:
-            assert self.truncation == '2D'
-            self.q0_corrector = Q0Correction(
-                cell_cv=self.gs.gd.cell_cv, bzk_kc=self.gs.kd.bzk_kc,
-                N_c=self.qd.N_c)
-        else:
-            self.q0_corrector = None
-        """
         self.print_parameters(kpts, b1, b2)
         self.fd.flush()
         self.hilbert_transform = None  # initialized when we create Chi0
@@ -841,7 +812,6 @@ class G0W0Calculator(WCalculator):
             Wdict[fxc_mode] = W_xwGG
 
         return pdi, Wdict, blocks1d, chi0calc.Q_aGii
-
 
     @timer('Kohn-Sham XC-contribution')
     def calculate_ks_xc_contribution(self):
