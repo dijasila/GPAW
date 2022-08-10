@@ -19,7 +19,9 @@ def test_diamond():
 
     # NOTE: HSE06 does not yet work. This is just a placeholder for
     # integration test.
-    assert np.allclose(atoms.get_potential_energy(), +5.532720)
+    assert np.allclose(atoms.get_potential_energy(), +5.532720, atol=1e-4)
+
+    del setup_paths[0]
 
 
 if __name__ == "__main__":
