@@ -92,6 +92,7 @@ class SetupData:
         self.X_p = None
         self.X_pg = None
         self.ExxC = None
+        self.ExxC_w = None
         self.X_gamma = None
         self.extra_xc_data = {}
         self.phicorehole_g = None
@@ -365,6 +366,7 @@ class SetupData:
             print('\n  </exact_exchange_X_matrix>', file=xml)
 
             print(f'  <exact_exchange core-core="{self.ExxC!r}"/>', file=xml)
+            print(f'  <erfc_exchange core-core="{self.ExxC_w}"/>', file=xml)
 
         if self.X_pg is not None:
             print('  <yukawa_exchange_X_matrix>\n    ', end=' ', file=xml)

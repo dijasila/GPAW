@@ -314,6 +314,7 @@ class PAWSetupGenerator:
 
         self.fd = fd or sys.stdout
         self.yukawa_gamma = yukawa_gamma
+        self.exxcc_w = {}
         self.omega = omega
 
         if core_hole:
@@ -1095,6 +1096,7 @@ class PAWSetupGenerator:
 
         self.calculate_exx_integrals()
         setup.ExxC = self.exxcc
+        setup.ExxC_w = self.exxcc_w  # erfc screened core contributions
         setup.X_p = pack2(self.exxcv_ii[I][:, I])
         if self.yukawa_gamma > 0.0:
             self.calculate_yukawa_integrals()
@@ -1411,7 +1413,7 @@ class CLICommand:
         add('-e', '--electrons', type=int)
         add('--ri', type=str,
             help='Calculate also resolution of identity basis.')
-        add('--omega', type=float, default=0.11,
+        add('--omega', type=float, default=None,
             help='Calculate core-core and core-valence contributions'
                  ' to erfc screen HSE-potential')
 
