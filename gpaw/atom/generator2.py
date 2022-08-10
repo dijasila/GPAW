@@ -15,7 +15,7 @@ from gpaw.utilities import pack2
 from gpaw.atom.aeatom import (AllElectronAtom, Channel, parse_ld_str, colors,
                               GaussianBasis)
 from gpaw.xc.ri.ribasis import generate_ri_basis
-
+from gpaw.xc.ri.spherical_hse_kernel import RadialHSE
 
 class DatasetGenerationError(Exception):
     pass
@@ -303,7 +303,7 @@ class PAWSetupGenerator:
     def __init__(self, aea, projectors,
                  scalar_relativistic=False,
                  core_hole=None,
-                 fd=None, yukawa_gamma=0.0):
+                 fd=None, yukawa_gamma=0.0, omega=None):
         """fd: stream
             Text output.
 
@@ -313,6 +313,7 @@ class PAWSetupGenerator:
 
         self.fd = fd or sys.stdout
         self.yukawa_gamma = yukawa_gamma
+        self.omega = omega
 
         if core_hole:
             state, occ = core_hole.split(',')
@@ -1151,11 +1152,10 @@ class PAWSetupGenerator:
 
         return lmax, core, G_LLL
 
-    def calculate_exx_integrals(self):
+    def core_core_exchange(self, interaction):
+        # Calculate core contribution to EXX energy per interaction kernel
         (lmax, core, G_LLL) = self.find_core_states()
-
-        # Calculate core contribution to EXX energy:
-        self.exxcc = 0.0
+        E = 0.0
         j1 = 0
         for l1, phi1_g in core:
             f = 1.0
@@ -1165,13 +1165,23 @@ class PAWSetupGenerator:
                     G = (G_LLL[l1**2:(l1 + 1)**2,
                                l2**2:(l2 + 1)**2,
                                l**2:(l + 1)**2]**2).sum()
-                    vr_g = self.rgd.poisson(n_g, l)
+                    vr_g = interaction(n_g, l)
                     e = f * self.rgd.integrate(vr_g * n_g, -1) / 4 / pi
-                    self.exxcc -= e * G
+                    E -= e * G
                 f = 2.0
             j1 += 1
+        return E
 
+    def calculate_exx_integrals(self):
+
+        self.exxcc = self.core_core_exchange(self.rgd.poisson)
         self.log('EXX (core-core):', self.exxcc, 'Hartree')
+
+        if self.omega is not None:
+            hse = RadialHSE(self.rgd, self.omega)
+
+            self.exxcc_w = { self.omega : self.core_core_exchange(hse.screened_coulomb) } 
+            self.log(f'EXX omega={self.omega} (core-core):', self.exxcc_w[self.omega], 'Hartree')
 
         # Calculate core-valence contribution to EXX energy:
         ni = sum(len(waves) * (2 * l + 1)
@@ -1295,7 +1305,8 @@ def get_parameters(symbol, args):
                 r0=r0, v0=None, nderiv0=nderiv0,
                 pseudize=pseudize, rcore=rcore,
                 core_hole=args.core_hole,
-                yukawa_gamma=args.gamma)
+                yukawa_gamma=args.gamma,
+                omega=args.omega)
 
 
 def generate(symbol,
@@ -1312,12 +1323,12 @@ def generate(symbol,
              rcore=None,
              core_hole=None,
              *,
-             yukawa_gamma=0.0):
-
+             yukawa_gamma=0.0,
+             omega=None):
     aea = AllElectronAtom(symbol, xc, Z=Z,
                           configuration=configuration)
     gen = PAWSetupGenerator(aea, projectors, scalar_relativistic, core_hole,
-                            yukawa_gamma=yukawa_gamma)
+                            yukawa_gamma=yukawa_gamma, omega=omega)
 
     gen.construct_shape_function(alpha, radii, eps=1e-10)
     gen.calculate_core_density()
@@ -1397,6 +1408,9 @@ class CLICommand:
         add('-e', '--electrons', type=int)
         add('--ri', type=str,
             help='Calculate also resolution of identity basis.')
+        add('--omega', type=float, default=0.11,
+            help='Calculate core-core and core-valence contributions'
+                 ' to erfc screen HSE-potential')
 
     @staticmethod
     def run(args):
