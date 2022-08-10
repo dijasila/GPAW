@@ -6,6 +6,7 @@ from glob import glob
 from math import pi, sqrt
 from pathlib import Path
 from typing import IO, Tuple
+import json
 
 import numpy as np
 from ase.data import atomic_names, atomic_numbers
@@ -533,6 +534,8 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
         elif name == 'projector_function':
             self.id = attrs['state']
             self.data = []
+        elif name == 'erfc_exchange':
+            setup.ExxC = json.loads(attrs['core-core'])
         elif name == 'exact_exchange':
             setup.ExxC = float(attrs['core-core'])
         elif name == 'yukawa_exchange':

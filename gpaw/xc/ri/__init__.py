@@ -24,10 +24,10 @@ class RIXC:
     def initialize(self, density, hamiltonian, wfs):
         self.ecc = 0
         for setup in wfs.setups:
-            if setup.ExxC is not None:
-                self.ecc += setup.ExxC * self.exx_fraction
+            if self.omega is not None:
+                self.ecc += setup.ExxC_w[self.omega] * self.exx_fraction
             else:
-                print('Warning, setup does not have core exchange')
+                self.ecc += setup.ExxC * self.exx_fraction
         # self.ri_algorithm.initialize(density, hamiltonian, wfs)
 
     def get_setup_name(self):
