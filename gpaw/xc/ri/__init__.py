@@ -2,7 +2,7 @@ from gpaw.xc import XC
 
 
 def RI(name, **args):
-    if name == 'HSE06':
+    if name == 'HSE06WIP':
         return RIXC(name, exx_fraction=0.25,
                     omega=0.11, localxc='HYB_GGA_XC_HSE06')
     raise NotImplementedError(f'RI backend does not support '

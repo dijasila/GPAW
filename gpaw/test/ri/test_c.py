@@ -15,7 +15,7 @@ def test_diamond():
     atoms = bulk('C', 'diamond')
     atoms.calc = GPAW(kpts={'size': (2, 2, 2), 'gamma': True},
                       mode='lcao', basis='dzp',
-                      xc='HSE06:backend=ri')
+                      xc='HSE06WIP:backend=ri')
 
     # NOTE: HSE06 does not yet work. This is just a placeholder for
     # integration test.
