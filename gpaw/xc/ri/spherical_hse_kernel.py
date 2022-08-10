@@ -104,6 +104,7 @@ def Phi(n, mu, R, r):
 
     return result
 
+
 """
 
 Implementation of spherical harmonic expansion ends. GPAW spesific stuff
@@ -115,21 +116,22 @@ remains below.
 class RadialHSE:
     def __init__(self, rgd, omega):
         self.rgd = rgd
-        r1_gg = np.zeros( (rgd.N, rgd.N) )
-        r2_gg = np.zeros( (rgd.N, rgd.N) )
-        d_gg = np.zeros( (rgd.N, rgd.N) )
+        r1_gg = np.zeros((rgd.N, rgd.N))
+        r2_gg = np.zeros((rgd.N, rgd.N))
+        d_gg = np.zeros((rgd.N, rgd.N))
         r_g = rgd.r_g.copy()
         r_g[0] = r_g[1]  # XXX
         r1_gg[:] = r_g[None, :]
         r2_gg[:] = r_g[:, None]
-        d_gg[:] = rgd.dr_g[None ,:] * rgd.r_g[None,:]**2 * 4*np.pi
+        d_gg[:] = rgd.dr_g[None, :] * rgd.r_g[None, :]**2 * 4 * np.pi
         self.V_lgg = []
 
         for l in range(5):
-            kernel_gg = np.reshape(Phi(l, omega, r1_gg.ravel(), r2_gg.ravel()), d_gg.shape) / (2*l+1)
+            kernel_gg = np.reshape(Phi(l, omega, r1_gg.ravel(),
+                                       r2_gg.ravel()),
+                                   d_gg.shape) / (2 * l + 1)
             self.V_lgg.append(d_gg * kernel_gg)
 
     def screened_coulomb(self, n_g, l):
         vr_g = (self.V_lgg[l] @ n_g) * self.rgd.r_g
         return vr_g
-

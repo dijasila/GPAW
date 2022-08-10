@@ -17,6 +17,7 @@ from gpaw.atom.aeatom import (AllElectronAtom, Channel, parse_ld_str, colors,
 from gpaw.xc.ri.ribasis import generate_ri_basis
 from gpaw.xc.ri.spherical_hse_kernel import RadialHSE
 
+
 class DatasetGenerationError(Exception):
     pass
 
@@ -1180,8 +1181,10 @@ class PAWSetupGenerator:
         if self.omega is not None:
             hse = RadialHSE(self.rgd, self.omega)
 
-            self.exxcc_w = { self.omega : self.core_core_exchange(hse.screened_coulomb) } 
-            self.log(f'EXX omega={self.omega} (core-core):', self.exxcc_w[self.omega], 'Hartree')
+            self.exxcc_w = {self.omega:
+                            self.core_core_exchange(hse.screened_coulomb)}
+            self.log(f'EXX omega={self.omega} (core-core):',
+                     self.exxcc_w[self.omega], 'Hartree')
 
         # Calculate core-valence contribution to EXX energy:
         ni = sum(len(waves) * (2 * l + 1)
