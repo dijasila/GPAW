@@ -238,7 +238,7 @@ def choose_ecut_things(ecut, ecut_extrapolation):
     return ecut, ecut_e
 
 
-class G0W0Calculator(WCalculator):
+class G0W0Calculator:
     def __init__(self, filename='gw', *,
                  chi0calc,
                  restartfile=None,
@@ -337,12 +337,25 @@ class G0W0Calculator(WCalculator):
             Save output to a pckl file.
         """
 
-        # Init for parent (WCalculator) class to avoid repetition
-        super().__init__(chi0calc, ppa, xckernel,
-                         context, E0,
-                         fxc_mode, truncation,
-                         integrate_gamma,
-                         q0_correction)
+        # Create WCalculator object
+        self.wcalc = WCalculator(chi0calc, ppa, xckernel,
+                                 context, E0,
+                                 fxc_mode, truncation,
+                                 integrate_gamma,
+                                 q0_correction)
+        self.ppa = self.wcalc.ppa
+        self.fxc_mode = self.wcalc.fxc_mode
+        self.wd = self.wcalc.wd
+        self.pair = self.wcalc.pair
+        self.blockcomm = self.wcalc.blockcomm
+        self.gs = self.wcalc.gs
+        self.truncation = self.wcalc.truncation
+        self.context = self.wcalc.context
+        self.timer = self.wcalc.timer
+        self.integrate_gamma = self.wcalc.integrate_gamma
+        self.qd = self.wcalc.qd
+        self.xckernel = self.wcalc.xckernel
+        self.fd = self.wcalc.fd
 
         # Note: self.wd should be our only representation of the frequencies.
         # We should therefore get rid of self.frequencies.
@@ -358,6 +371,7 @@ class G0W0Calculator(WCalculator):
                 'PPA is currently not compatible with block parallelisation.')
 
         self.world = self.context.world
+        self.fd = self.fd
 
         print(gw_logo, file=self.fd)
 
@@ -799,7 +813,7 @@ class G0W0Calculator(WCalculator):
         Wdict = {}
 
         for fxc_mode in self.fxc_modes:
-            pdi, blocks1d, W_wGG = self.dyson_and_W_old(
+            pdi, blocks1d, W_wGG = self.wcalc.dyson_and_W_old(
                 wstc, iq, q_c, chi0calc, chi0, ecut, Q_aGii=chi0calc.Q_aGii,
                 fxc_mode=fxc_mode)
 
