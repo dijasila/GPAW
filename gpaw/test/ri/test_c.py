@@ -6,7 +6,7 @@ from argparse import Namespace
 
 
 @pytest.mark.skipif(world.size > 1, reason='Not parallelized')
-def test_diamond(in_tmp_dir):
+def test_diamond(in_tmp_dir, add_cwd_to_setup_paths):
     ns = Namespace(traceback=False, command='dataset', parallel=None,
                    symbol='C', xc_functional='PBE', configuration=None,
                    projectors=None, radius=None, zero_potential=None,
@@ -21,9 +21,6 @@ def test_diamond(in_tmp_dir):
     setup = gen.make_paw_setup()
     setup.write_xml()
 
-    from gpaw import setup_paths
-    setup_paths.insert(0, '.')
-
     from ase.build import bulk
     from gpaw import GPAW
     atoms = bulk('C', 'diamond')
@@ -31,7 +28,6 @@ def test_diamond(in_tmp_dir):
                       mode='lcao', basis='dzp',
                       xc='HSE06WIP:backend=ri')
 
-    del setup_paths[0]
     # NOTE: HSE06 does not yet work. This is just a placeholder for
     # integration test.
     assert np.allclose(atoms.get_potential_energy(), +5.315192)
