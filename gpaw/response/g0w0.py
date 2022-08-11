@@ -356,7 +356,7 @@ class G0W0Calculator:
         #self.qd = self.wcalc.qd
         #self.xckernel = self.wcalc.xckernel
         self.fd = self.wcalc.fd
-
+        self.timer = self.wcalc.timer
         # Note: self.wcalc.wd should be our only representation of the frequencies.
         # We should therefore get rid of self.frequencies.
         # It is currently only used by the restart code,
@@ -404,7 +404,7 @@ class G0W0Calculator:
             raise RuntimeError('Including a xc kernel does currently not '
                                'work for spinpolarized systems.')
 
-        self.pair_distribution = self.pair.distribute_k_points_and_bands(
+        self.pair_distribution = self.wcalc.pair.distribute_k_points_and_bands(
             b1, b2, self.wcalc.gs.kd.ibz2bz_k[self.kpts])
 
         self.print_parameters(kpts, b1, b2)
@@ -414,7 +414,7 @@ class G0W0Calculator:
         if self.wcalc.ppa:
             print('Using Godby-Needs plasmon-pole approximation:',
                   file=self.fd)
-            print('  Fitting energy: i*E0, E0 = %.3f Hartee' % self.E0,
+            print('  Fitting energy: i*E0, E0 = %.3f Hartee' % self.wcalc.E0,
                   file=self.fd)
         else:
             print('Using full frequency integration', file=self.fd)
@@ -510,7 +510,7 @@ class G0W0Calculator:
         sigmashape = (len(self.ecut_e), *self.shape)
 
         self.sigmas = {fxc_mode: Sigma(sigmashape)
-                       for fxc_mode in self.wcalc.fxc_modes}
+                       for fxc_mode in self.fxc_modes}
         # Loop over q in the IBZ:
         print('Summing all q:', file=self.fd)
         pb = ProgressBar(self.fd)
@@ -631,7 +631,7 @@ class G0W0Calculator:
             nn = kpt1.n1 + n - self.bands[0]
 
             assert set(Wdict) == set(sigmas)
-            for fxc_mode in self.wcalc.fxc_modes:
+            for fxc_mode in self.fxc_modes:
                 sigma = sigmas[fxc_mode]
                 W = Wdict[fxc_mode]
                 sigma_contrib, dsigma_contrib = calculate_sigma(
@@ -703,7 +703,7 @@ class G0W0Calculator:
         necessary to store a huge matrix for each q-point in the memory."""
         # The decorator $timer('W') doesn't work for generators, do we will
         # have to manually start and stop the timer here:
-        self.wcalc.timer.start('W')
+        self.timer.start('W')
         print('\nCalculating screened Coulomb potential', file=self.fd)
         if self.wcalc.truncation is not None:
             print('Using %s truncated Coloumb potential' % self.wcalc.truncation,
@@ -743,7 +743,7 @@ class G0W0Calculator:
             self.fd.flush()
 
         # Need to pause the timer in between iterations
-        self.wcalc.timer.stop('W')
+        self.timer.stop('W')
         for iq, q_c in enumerate(self.wcalc.qd.ibzk_kc):
             if iq <= self.last_q:
                 continue
@@ -755,7 +755,7 @@ class G0W0Calculator:
 
             m1 = chi0calc.nocc1
             for ie, ecut in enumerate(self.ecut_e):
-                self.wcalc.timer.start('W')
+                self.timer.start('W')
 
                 # First time calculation
                 if ecut == chi0calc.ecut:
@@ -773,7 +773,7 @@ class G0W0Calculator:
                     m1, m2, ecut, wstc, iq)
                 m1 = m2
 
-                self.wcalc.timer.stop('W')
+                self.timer.stop('W')
 
                 for Q_c, symop in QSymmetryOp.get_symops(self.wcalc.qd, iq, q_c):
                     yield (ie, pdi, Wdict, Q_c, m2, symop,
@@ -812,7 +812,7 @@ class G0W0Calculator:
 
         Wdict = {}
 
-        for fxc_mode in self.wcalc.fxc_modes:
+        for fxc_mode in self.fxc_modes:
             pdi, blocks1d, W_wGG = self.wcalc.dyson_and_W_old(
                 wstc, iq, q_c, chi0calc, chi0, ecut, Q_aGii=chi0calc.Q_aGii,
                 fxc_mode=fxc_mode)
@@ -820,7 +820,7 @@ class G0W0Calculator:
             if self.wcalc.ppa:
                 W_xwGG = W_wGG  # (ppa API is nonsense)
             else:
-                with self.wcalc.timer('Hilbert'):
+                with self.timer('Hilbert'):
                     W_xwGG = self.hilbert_transform(W_wGG)
 
             Wdict[fxc_mode] = W_xwGG
@@ -849,7 +849,7 @@ class G0W0Calculator:
             print('Calculating EXX contribution', file=self.fd)
             self.fd.flush()
             exx = EXX(self.wcalc.gs, kpts=self.kpts, bands=self.bands,
-                      txt=self.filename + '.exx.txt', timer=self.wcalc.timer)
+                      txt=self.filename + '.exx.txt', timer=self.timer)
             exx.calculate()
             exx_skn = exx.get_eigenvalue_contributions() / Ha
             np.save(fd, exx_skn)
@@ -918,7 +918,7 @@ class G0W0Calculator:
                     print(fxc_mode.rjust(69), file=self.fd)
                     actually_print_results(results[fxc_mode])
 
-        self.wcalc.timer.write(self.fd)
+        self.timer.write(self.fd)
 
     @timer('PPA-Sigma')
     def calculate_sigma_ppa(self, n_mG, deps_m, f_m, W, *unused):
