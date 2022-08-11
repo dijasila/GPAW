@@ -895,7 +895,8 @@ class PAWSetupGenerator:
                                               scale=scale,
                                               splitnorm=splitnorm))
 
-        ri and generate_ri_basis(self.basis, ri)
+        if ri:
+            generate_ri_basis(self.basis, ri)
 
         return self.basis
 

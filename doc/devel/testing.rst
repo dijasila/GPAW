@@ -60,6 +60,7 @@ Tests that should only run in serial can be marked like this::
 There are two special GPAW-fixtures:
 
 .. autofunction:: gpaw.test.conftest.in_tmp_dir
+.. autofunction:: gpaw.test.conftest.add_cwd_to_setup_paths
 .. autofunction:: gpaw.test.conftest.gpw_files
 
 Check the :git:`~gpaw/test/conftest.py` to see which gpw-files are available.
