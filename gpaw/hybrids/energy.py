@@ -31,9 +31,12 @@ def non_self_consistent_energy(calc: Union[Calculator, str, Path],
     ...                                       xcname='HSE06')
     >>> e_hyb = energies.sum()
 
+    The correction to the self-consistent energy will be
+    ``energies[1:].sum()``.
+
     The returned energy contributions are (in eV):
 
-    1. DFT total energy
+    1. DFT total free energy (not extrapolated to zero smearing)
     2. minus DFT XC energy
     3. Hybrid semi-local XC energy
     4. EXX core-core energy
