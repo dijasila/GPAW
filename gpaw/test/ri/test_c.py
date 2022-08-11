@@ -1,23 +1,19 @@
 import pytest
 import numpy as np
 from gpaw.mpi import world
-from gpaw.atom.generator2 import generate, get_parameters
-from argparse import Namespace
+from gpaw.atom.generator2 import generate
 
 
 @pytest.mark.skipif(world.size > 1, reason='Not parallelized')
 def test_diamond(in_tmp_dir, add_cwd_to_setup_paths):
-    ns = Namespace(traceback=False, command='dataset', parallel=None,
-                   symbol='C', xc_functional='PBE', configuration=None,
-                   projectors=None, radius=None, zero_potential=None,
-                   pseudo_core_density_radius=None, pseudize=None,
-                   plot=False, logarithmic_derivatives=None, write=True,
-                   scalar_relativistic=False, no_check=False, tag=None,
-                   alpha=None, gamma=0.0, create_basis_set=False,
-                   nlcc=False, core_hole=None, electrons=None,
-                   ri=None, omega=0.11)
+    parameters = {'symbol': 'C', 'Z': 6, 'xc': 'PBE',
+                  'projectors': '2s,s,2p,p,d', 'radii': [1.2],
+                  'scalar_relativistic': False, 'r0': 1.2,
+                  'v0': None,
+                  'nderiv0': 2, 'pseudize': ('poly', 4),
+                  'omega': 0.11}
 
-    gen = generate(**get_parameters('C', ns))
+    gen = generate(**parameters)
     setup = gen.make_paw_setup()
     setup.write_xml()
 
