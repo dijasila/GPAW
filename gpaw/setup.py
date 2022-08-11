@@ -19,6 +19,7 @@ from gpaw.xc import XC
 from gpaw.new import zip
 from gpaw.xc.ri.spherical_hse_kernel import RadialHSE
 
+
 def parse_hubbard_string(type: str) -> Tuple[str,
                                              List[int],
                                              List[float],
@@ -574,6 +575,7 @@ class BaseSetup:
         """Calculate and return erfc based valence valence
            exchange interactions."""
         hse = RadialHSE(self.local_corr.rgd2, omega).screened_coulomb_dv
+        
         def erfc_interaction(_, n_g, l):
             return hse(n_g, l)
         return self.calculate_vvx_interactions(erfc_interaction)
