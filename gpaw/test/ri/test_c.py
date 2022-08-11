@@ -4,6 +4,7 @@ from gpaw.mpi import world
 from gpaw.atom.generator2 import generate, get_parameters
 from argparse import Namespace
 
+
 @pytest.mark.skipif(world.size > 1, reason='Not parallelized')
 def test_diamond(in_tmp_dir):
     ns = Namespace(traceback=False, command='dataset', parallel=None,
@@ -19,7 +20,6 @@ def test_diamond(in_tmp_dir):
     gen = generate(**get_parameters('C', ns))
     setup = gen.make_paw_setup()
     setup.write_xml()
-
 
     from gpaw import setup_paths
     setup_paths.insert(0, '.')
