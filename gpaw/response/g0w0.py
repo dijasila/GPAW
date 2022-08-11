@@ -337,7 +337,8 @@ class G0W0Calculator:
         self.fd = self.wcalc.fd
         self.timer = self.wcalc.timer
 
-        # Note: self.wcalc.wd should be our only representation of the frequencies.
+        # Note: self.wcalc.wd should be our only representation
+        # of the frequencies.
         # We should therefore get rid of self.frequencies.
         # It is currently only used by the restart code,
         # so should be easy to remove after some further adaptation.
@@ -411,7 +412,8 @@ class G0W0Calculator:
         p()
         p('Computational parameters:')
         if len(self.ecut_e) == 1:
-            p('Plane wave cut-off: {0:g} eV'.format(self.wcalc.chi0calc.ecut * Ha))
+            p('Plane wave cut-off: {0:g} eV'.format(self.wcalc.chi0calc.ecut
+                                                    * Ha))
         else:
             assert len(self.ecut_e) > 1
             p('Extrapolating to infinite plane wave cut-off using points at:')
@@ -629,7 +631,8 @@ class G0W0Calculator:
         G_G = G_I[I0_G]
         assert len(I0_G) == len(I1_G)
         assert (G_G >= 0).all()
-        for a, Q_Gii in enumerate(self.wcalc.pair.initialize_paw_corrections(pd1)):
+        for a, Q_Gii in enumerate(
+                self.wcalc.pair.initialize_paw_corrections(pd1)):
             e = abs(Q_aGii[a] - Q_Gii[G_G]).max()
             assert e < 1e-12
 
@@ -685,8 +688,8 @@ class G0W0Calculator:
         self.timer.start('W')
         print('\nCalculating screened Coulomb potential', file=self.fd)
         if self.wcalc.truncation is not None:
-            print('Using %s truncated Coloumb potential' % self.wcalc.truncation,
-                  file=self.fd)
+            print('Using %s truncated Coloumb potential'
+                  % self.wcalc.truncation, file=self.fd)
 
         chi0calc = self.wcalc.chi0calc
 
@@ -703,7 +706,8 @@ class G0W0Calculator:
         print(self.wcalc.wd, file=self.fd)
 
         # Find maximum size of chi-0 matrices:
-        nGmax = max(count_reciprocal_vectors(chi0calc.ecut, self.wcalc.gs.gd, q_c)
+        nGmax = max(count_reciprocal_vectors(chi0calc.ecut,
+                                             self.wcalc.gs.gd, q_c)
                     for q_c in self.wcalc.qd.ibzk_kc)
         nw = len(self.wcalc.wd)
 
@@ -741,7 +745,8 @@ class G0W0Calculator:
                     # Nothing to cut away:
                     m2 = self.nbands
                 else:
-                    m2 = int(self.wcalc.gs.volume * ecut**1.5 * 2**0.5 / 3 / pi**2)
+                    m2 = int(self.wcalc.gs.volume * ecut**1.5
+                             * 2**0.5 / 3 / pi**2)
                     if m2 > self.nbands:
                         raise ValueError(f'Trying to extrapolate ecut to'
                                          f'larger number of bands ({m2})'
@@ -754,7 +759,8 @@ class G0W0Calculator:
 
                 self.timer.stop('W')
 
-                for Q_c, symop in QSymmetryOp.get_symops(self.wcalc.qd, iq, q_c):
+                for Q_c, symop in QSymmetryOp.get_symops(
+                        self.wcalc.qd, iq, q_c):
                     yield (ie, pdi, Wdict, Q_c, m2, symop,
                            blocks1d, Q_aGii)
 
