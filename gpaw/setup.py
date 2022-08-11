@@ -688,6 +688,7 @@ class LeanSetup(BaseSetup):
 
         # Required by exx
         self.X_p = s.X_p
+        self.X_wp = s.X_wp
         self.ExxC = s.ExxC
         self.ExxC_w = s.ExxC_w
 
@@ -807,6 +808,7 @@ class Setup(BaseSetup):
         self.ExxC = data.ExxC
         self.ExxC_w = data.ExxC_w
         self.X_p = data.X_p
+        self.X_wp = data.X_wp
 
         self.X_gamma = data.X_gamma
         self.X_pg = data.X_pg

@@ -1099,6 +1099,8 @@ class PAWSetupGenerator:
         setup.ExxC = self.exxcc
         setup.ExxC_w = self.exxcc_w  # erfc screened core contributions
         setup.X_p = pack2(self.exxcv_ii[I][:, I])
+        setup.X_wp = {omega:pack2(self.exxcv_wii[omega][I][:,I]) for omega in self.exxcv_wii}
+
         if self.yukawa_gamma > 0.0:
             self.calculate_yukawa_integrals()
             setup.X_pg = pack2(self.exxgcv_ii[I][:, I])
@@ -1178,6 +1180,10 @@ class PAWSetupGenerator:
 
     def calculate_exx_integrals(self):
 
+        # Calculate core-valence contribution to EXX energy:
+        ni = sum(len(waves) * (2 * l + 1)
+                 for l, waves in enumerate(self.waves_l))
+
         self.exxcc = self.core_core_exchange(self.rgd.poisson)
         self.log('EXX (core-core):', self.exxcc, 'Hartree')
 
@@ -1189,22 +1195,22 @@ class PAWSetupGenerator:
             self.log(f'EXX omega={self.omega} (core-core):',
                      self.exxcc_w[self.omega], 'Hartree')
 
-        # Calculate core-valence contribution to EXX energy:
-        ni = sum(len(waves) * (2 * l + 1)
-                 for l, waves in enumerate(self.waves_l))
+            self.exxcv_wii = {self.omega:
+                            self.calculate_exx_cv_integrals(ni, hse.screened_coulomb)}
 
-        self.exxcv_ii = self.calculate_exx_cv_integrals(ni)
+        self.exxcv_ii = self.calculate_exx_cv_integrals(ni, self.rgd.poisson)
 
     def calculate_yukawa_integrals(self):
         """Wrapper to calculate the rsf core-valence contribution."""
         ni = sum(len(waves) * (2 * l + 1)
                  for l, waves in enumerate(self.waves_l))
 
-        self.exxgcv_ii = self.calculate_exx_cv_integrals(ni,
-                                                         self.yukawa_gamma)
+        def interaction(n_g, l):
+            return self.rgd.yukawa(n_g, l, self.yukawa_gamma)
 
-    def calculate_exx_cv_integrals(self, ni, yukawa_gamma=0.0):
-        """Calculate exx (and rsf) core-valences."""
+        self.exxgcv_ii = self.calculate_exx_cv_integrals(ni, interaction)
+
+    def calculate_exx_cv_integrals(self, ni, interaction):
         (lmax, core, G_LLL) = self.find_core_states()
         cv_ii = np.zeros((ni, ni))
 
@@ -1222,13 +1228,7 @@ class PAWSetupGenerator:
                                 for l in range((l1 + lc) % 2,
                                                max(l1, l2) + lc + 1, 2):
                                     n2c = phi2_g * phi_g
-                                    if yukawa_gamma > 0.0:
-                                        vr_g = \
-                                            self.rgd.yukawa(n2c, l,
-                                                            yukawa_gamma)
-                                    else:
-                                        vr_g = \
-                                            self.rgd.poisson(n2c, l)
+                                    vr_g = interaction(n2c, l)
                                     e = (self.rgd.integrate(vr_g * n_g, -1) /
                                          (4 * pi))
                                     for mc in range(2 * lc + 1):

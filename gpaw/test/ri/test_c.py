@@ -26,9 +26,14 @@ def test_diamond(in_tmp_dir, add_cwd_to_setup_paths):
 
     # NOTE: HSE06 does not yet work. This is just a placeholder for
     # integration test.
-    assert np.allclose(atoms.get_potential_energy(), +5.315192)
+    assert np.allclose(atoms.get_potential_energy(), 5.224546994188186)
 
     calc = atoms.calc
 
-    assert np.allclose(calc.density.setups[0].M_pp, calc.density.setups[0].M_wpp[0.11], rtol=1e-2, atol=1e-4)
+    setup = calc.density.setups[0]
+    assert np.allclose(setup.M_pp,
+                       setup.M_wpp[0.11],
+                       rtol=1e-2, atol=1e-4)
+
+    print(setup.X_p-setup.X_wp[0.11], '2')
     

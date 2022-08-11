@@ -1,4 +1,7 @@
 from gpaw.xc import XC
+from gpaw.utilities import unpack2, pack
+from gpaw.hybrids.paw import pawexxvv
+import numpy as np
 
 
 def RI(name, **args):
@@ -62,7 +65,16 @@ class RIXC:
         return energy
 
     def calculate_paw_correction(self, setup, D_sp, dH_sp=None, a=None):
-        return self.localxc.calculate_paw_correction(setup, D_sp, dH_sp, a=a)
+        E = self.localxc.calculate_paw_correction(setup, D_sp, dH_sp, a=a)
+
+        for s, D_p in enumerate(D_sp):
+            D_ii = unpack2(D_p)
+            V_ii = pawexxvv(setup.M_wpp[self.omega], D_ii)  # *(dens.nspins/2)
+            dH_sp[s] += pack(V_ii) 
+
+            E += np.sum(V_ii.ravel() * D_ii.ravel())  # * prefactor
+
+        return E
 
     def get_kinetic_energy_correction(self):
         return 0  # self.ekin
