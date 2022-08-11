@@ -31,6 +31,31 @@ class WCalculator:
                  fxc_mode='GW',
                  truncation=None, integrate_gamma=0,
                  q0_correction=False):
+        """
+        W Calculator.
+        
+        Parameters
+        ----------
+        chi0calc:
+            Chi0 Calculator object
+        ppa: bool
+            Sets whether the Godby-Needs plasmon-pole approximation for the
+            dielectric function should be used.
+        xckernel: G0W0Kernel object
+        context: ResponseContext object
+        E0: float
+            Energy (in eV) used for fitting the plasmon-pole approximation
+        fxc_mode: str
+            Where to include the vertex corrections; polarizability and/or
+            self-energy. 'GWP': Polarizability only, 'GWS': Self-energy only,
+            'GWG': Both.
+        truncation: str
+            Coulomb truncation scheme. Can be either wigner-seitz,
+            2D, 1D, or 0D
+        q0_correction: bool
+            Analytic correction to the q=0 contribution applicable to 2D
+            systems.
+        """
         self.chi0calc = chi0calc
         self.ppa = ppa
         self.fxc_mode = fxc_mode

@@ -249,7 +249,7 @@ class G0W0Calculator:
                  frequencies=None,
                  savepckl=True):
 
-        """G0W0 calculator.
+        """G0W0 calculator, initialized through G0W0 object.
 
         The G0W0 calculator is used is used to calculate the quasi
         particle energies through the G0W0 approximation for a number
@@ -257,10 +257,10 @@ class G0W0Calculator:
 
         Parameters
         ----------
-        calc:
-            GPAW calculator object or filename of saved calculator object.
         filename: str
             Base filename of output files.
+        wcalc: WCalculator object
+            Defines the calculator for computing the screened interaction
         restartfile: str
             File that stores data necessary to restart a calculation.
         kpts: list
@@ -270,65 +270,21 @@ class G0W0Calculator:
             Range of band indices, like (n1, n2), to calculate the quasi
             particle energies for. Bands n where n1<=n<n2 will be
             calculated.  Note that the second band index is not included.
-        relbands:
-            Same as *bands* except that the numbers are relative to the
-            number of occupied bands.
-            E.g. (-1, 1) will use HOMO+LUMO.
         frequencies:
             Input parameters for frequency_grid.
             Can be array of frequencies to evaluate the response function at
             or dictionary of parameters for build-in nonlinear grid
             (see :ref:`frequency grid`).
-        ecut: float
-            Plane wave cut-off energy in eV.
-        ecut_extrapolation: bool or list
-            If set to True an automatic extrapolation of the selfenergy to
-            infinite cutoff will be performed based on three points
-            for the cutoff energy.
-            If an array is given, the extrapolation will be performed based on
-            the cutoff energies given in the array.
+        ecut_e: array(float)
+            Plane wave cut-off energies in eV. Defined with choose_ecut_things
         nbands: int
             Number of bands to use in the calculation. If None, the number will
             be determined from :ecut: to yield a number close to the number of
             plane waves used.
-        ppa: bool
-            Sets whether the Godby-Needs plasmon-pole approximation for the
-            dielectric function should be used.
-        xc: str
-            Kernel to use when including vertex corrections.
-        fxc_mode: str
-            Where to include the vertex corrections; polarizability and/or
-            self-energy. 'GWP': Polarizability only, 'GWS': Self-energy only,
-            'GWG': Both.
         do_GW_too: bool
             When carrying out a calculation including vertex corrections, it
             is possible to get the standard GW results at the same time
             (almost for free).
-        Eg: float
-            Gap to apply in the 'JGMs' (simplified jellium-with-gap) kernel.
-            If None the DFT gap is used.
-        truncation: str
-            Coulomb truncation scheme. Can be either wigner-seitz,
-            2D, 1D, or 0D
-        integrate_gamma: int
-            Method to integrate the Coulomb interaction. 1 is a numerical
-            integration at all q-points with G=[0,0,0] - this breaks the
-            symmetry slightly. 0 is analytical integration at q=[0,0,0] only -
-            this conserves the symmetry. integrate_gamma=2 is the same as 1,
-            but the average is only carried out in the non-periodic directions.
-        E0: float
-            Energy (in eV) used for fitting in the plasmon-pole approximation.
-        q0_correction: bool
-            Analytic correction to the q=0 contribution applicable to 2D
-            systems.
-        nblocks: int
-            Number of blocks chi0 should be distributed in so each core
-            does not have to store the entire matrix. This is to reduce
-            memory requirement. nblocks must be less than or equal to the
-            number of processors.
-        nblocksmax: bool
-            Cuts chi0 into as many blocks as possible to reduce memory
-            requirements as much as possible.
         savepckl: bool
             Save output to a pckl file.
         """
@@ -1042,6 +998,90 @@ class G0W0(G0W0Calculator):
                  integrate_gamma=0,
                  q0_correction=False,
                  **kwargs):
+        """G0W0 calculator wrapper.
+
+        The G0W0 calculator is used is used to calculate the quasi
+        particle energies through the G0W0 approximation for a number
+        of states.
+
+        Parameters
+        ----------
+        calc:
+            GPAW calculator object or filename of saved calculator object.
+        filename: str
+            Base filename of output files.
+        restartfile: str
+            File that stores data necessary to restart a calculation.
+        kpts: list
+            List of indices of the IBZ k-points to calculate the quasi particle
+            energies for.
+        bands:
+            Range of band indices, like (n1, n2), to calculate the quasi
+            particle energies for. Bands n where n1<=n<n2 will be
+            calculated.  Note that the second band index is not included.
+        relbands:
+            Same as *bands* except that the numbers are relative to the
+            number of occupied bands.
+            E.g. (-1, 1) will use HOMO+LUMO.
+        frequencies:
+            Input parameters for frequency_grid.
+            Can be array of frequencies to evaluate the response function at
+            or dictionary of parameters for build-in nonlinear grid
+            (see :ref:`frequency grid`).
+        ecut: float
+            Plane wave cut-off energy in eV.
+        ecut_extrapolation: bool or list
+            If set to True an automatic extrapolation of the selfenergy to
+            infinite cutoff will be performed based on three points
+            for the cutoff energy.
+            If an array is given, the extrapolation will be performed based on
+            the cutoff energies given in the array.
+        nbands: int
+            Number of bands to use in the calculation. If None, the number will
+            be determined from :ecut: to yield a number close to the number of
+            plane waves used.
+        ppa: bool
+            Sets whether the Godby-Needs plasmon-pole approximation for the
+            dielectric function should be used.
+        xc: str
+            Kernel to use when including vertex corrections.
+        fxc_mode: str
+            Where to include the vertex corrections; polarizability and/or
+            self-energy. 'GWP': Polarizability only, 'GWS': Self-energy only,
+            'GWG': Both.
+        do_GW_too: bool
+            When carrying out a calculation including vertex corrections, it
+            is possible to get the standard GW results at the same time
+            (almost for free).
+        Eg: float
+            Gap to apply in the 'JGMs' (simplified jellium-with-gap) kernel.
+            If None the DFT gap is used.
+        truncation: str
+            Coulomb truncation scheme. Can be either wigner-seitz,
+            2D, 1D, or 0D
+        integrate_gamma: int
+            Method to integrate the Coulomb interaction. 1 is a numerical
+            integration at all q-points with G=[0,0,0] - this breaks the
+            symmetry slightly. 0 is analytical integration at q=[0,0,0] only -
+            this conserves the symmetry. integrate_gamma=2 is the same as 1,
+            but the average is only carried out in the non-periodic directions.
+        E0: float
+            Energy (in eV) used for fitting in the plasmon-pole approximation.
+        q0_correction: bool
+            Analytic correction to the q=0 contribution applicable to 2D
+            systems.
+        nblocks: int
+            Number of blocks chi0 should be distributed in so each core
+            does not have to store the entire matrix. This is to reduce
+            memory requirement. nblocks must be less than or equal to the
+            number of processors.
+        nblocksmax: bool
+            Cuts chi0 into as many blocks as possible to reduce memory
+            requirements as much as possible.
+        savepckl: bool
+            Save output to a pckl file.
+        """
+
         frequencies = get_frequencies(frequencies, domega0, omega2)
 
         gpwfile = calc
