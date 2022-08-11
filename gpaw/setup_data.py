@@ -536,7 +536,7 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
             self.id = attrs['state']
             self.data = []
         elif name == 'erfc_exchange':
-            setup.ExxC_w |= {float(attrs['omega']): float(attrs['core-core'])}
+            setup.ExxC_w[float(attrs['omega'])] = float(attrs['core-core'])
         elif name == 'exact_exchange':
             setup.ExxC = float(attrs['core-core'])
         elif name == 'yukawa_exchange':
