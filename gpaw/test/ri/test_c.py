@@ -2,6 +2,7 @@ import pytest
 import numpy as np
 from gpaw.mpi import world
 
+
 @pytest.mark.skipif(world.size > 1, reason='Not parallelized')
 def test_diamond(in_tmp_dir):
     import subprocess
