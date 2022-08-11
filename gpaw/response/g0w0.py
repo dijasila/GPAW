@@ -240,18 +240,14 @@ def choose_ecut_things(ecut, ecut_extrapolation):
 
 class G0W0Calculator:
     def __init__(self, filename='gw', *,
-                 chi0calc,
+                 wcalc,
                  restartfile=None,
-                 kpts, bands, nbands=None, ppa,
-                 xckernel,
-                 fxc_mode='GW', do_GW_too=False,
-                 truncation=None, integrate_gamma=0,
-                 eta, E0,
+                 kpts, bands, nbands=None,
+                 do_GW_too=False,
+                 eta,
                  ecut_e,
                  frequencies=None,
-                 q0_correction=False,
-                 savepckl=True,
-                 context):
+                 savepckl=True):
 
         """G0W0 calculator.
 
@@ -337,26 +333,10 @@ class G0W0Calculator:
             Save output to a pckl file.
         """
 
-        # Create WCalculator object        
-        self.wcalc = WCalculator(chi0calc, ppa, xckernel,
-                                 context, E0,
-                                 fxc_mode, truncation,
-                                 integrate_gamma,
-                                 q0_correction)
-        #self.ppa = self.wcalc.ppa
-        #self.fxc_mode = self.wcalc.fxc_mode
-        #self.wd = self.wcalc.wd
-        #self.pair = self.wcalc.pair
-        #self.blockcomm = self.wcalc.blockcomm
-        #self.gs = self.wcalc.gs
-        #self.truncation = self.wcalc.truncation
-        #self.context = self.wcalc.context
-        #self.timer = self.wcalc.timer
-        #self.integrate_gamma = self.wcalc.integrate_gamma
-        #self.qd = self.wcalc.qd
-        #self.xckernel = self.wcalc.xckernel
+        self.wcalc = wcalc
         self.fd = self.wcalc.fd
         self.timer = self.wcalc.timer
+
         # Note: self.wcalc.wd should be our only representation of the frequencies.
         # We should therefore get rid of self.frequencies.
         # It is currently only used by the restart code,
@@ -364,9 +344,8 @@ class G0W0Calculator:
         self.frequencies = frequencies
 
         self.ecut_e = ecut_e / Ha
-        self.chi0calc = chi0calc
 
-        if ppa and self.wcalc.pair.nblocks > 1:
+        if self.wcalc.ppa and self.wcalc.pair.nblocks > 1:
             raise ValueError(
                 'PPA is currently not compatible with block parallelisation.')
 
@@ -432,7 +411,7 @@ class G0W0Calculator:
         p()
         p('Computational parameters:')
         if len(self.ecut_e) == 1:
-            p('Plane wave cut-off: {0:g} eV'.format(self.chi0calc.ecut * Ha))
+            p('Plane wave cut-off: {0:g} eV'.format(self.wcalc.chi0calc.ecut * Ha))
         else:
             assert len(self.ecut_e) > 1
             p('Extrapolating to infinite plane wave cut-off using points at:')
@@ -709,7 +688,7 @@ class G0W0Calculator:
             print('Using %s truncated Coloumb potential' % self.wcalc.truncation,
                   file=self.fd)
 
-        chi0calc = self.chi0calc
+        chi0calc = self.wcalc.chi0calc
 
         if self.wcalc.truncation == 'wigner-seitz':
             wstc = WignerSeitzTruncatedCoulomb(
@@ -1052,6 +1031,10 @@ class G0W0(G0W0Calculator):
                  kpts=None,
                  world=mpi.world,
                  timer=None,
+                 fxc_mode='GW',
+                 truncation=None,
+                 integrate_gamma=0,
+                 q0_correction=False,
                  **kwargs):
         frequencies = get_frequencies(frequencies, domega0, omega2)
 
@@ -1119,16 +1102,18 @@ class G0W0(G0W0Calculator):
                               timer=context.timer,
                               fd=context.fd)
 
+        wcalc = WCalculator(chi0calc, ppa, xckernel,
+                            context, E0,
+                            fxc_mode, truncation,
+                            integrate_gamma,
+                            q0_correction)
+
         super().__init__(filename=filename,
-                         chi0calc=chi0calc,
+                         wcalc=wcalc,
                          ecut_e=ecut_e,
-                         xckernel=xckernel,
                          eta=eta,
-                         ppa=ppa,
-                         E0=E0,
                          nbands=nbands,
                          bands=bands,
                          frequencies=frequencies,
-                         context=context,
                          kpts=kpts,
                          **kwargs)

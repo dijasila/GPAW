@@ -31,12 +31,13 @@ class WCalculator:
                  fxc_mode='GW',
                  truncation=None, integrate_gamma=0,
                  q0_correction=False):
+        self.chi0calc = chi0calc
         self.ppa = ppa
         self.fxc_mode = fxc_mode
         self.wd = chi0calc.wd
         self.pair = chi0calc.pair
         self.blockcomm = self.pair.blockcomm
-        self.gs = self.gs = chi0calc.gs
+        self.gs = chi0calc.gs
         self.truncation = truncation
         self.context = context
         self.timer = self.context.timer
