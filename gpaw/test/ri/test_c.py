@@ -2,11 +2,10 @@ import pytest
 import numpy as np
 from gpaw.mpi import world
 
-
 @pytest.mark.skipif(world.size > 1, reason='Not parallelized')
-def test_diamond():
+def test_diamond(in_tmp_dir):
     import subprocess
-    print(subprocess.run("gpaw -T dataset -f PBE C -w --omega=0.11".split()))
+    subprocess.run("gpaw -T dataset -f PBE C -w --omega=0.11".split())
 
     from gpaw import setup_paths
     setup_paths.insert(0, '.')
@@ -19,7 +18,7 @@ def test_diamond():
 
     # NOTE: HSE06 does not yet work. This is just a placeholder for
     # integration test.
-    assert np.allclose(atoms.get_potential_energy(), +5.532720)
+    assert np.allclose(atoms.get_potential_energy(), +5.315192)
 
 
 if __name__ == "__main__":
