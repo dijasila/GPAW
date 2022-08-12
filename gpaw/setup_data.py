@@ -547,7 +547,6 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
             setup.ExxC = float(attrs['core-core'])
         elif name == 'erfc_exchange_X_matrix':
             X_p = np.array([float(x) for x in ''.join(attrs['X_p']).split()])
-            print('LOADING X_p')
             setup.X_wp[float(attrs['omega'])] = X_p
         elif name == 'yukawa_exchange':
             setup.X_gamma = float(attrs['gamma'])
