@@ -166,6 +166,7 @@ get('summerschool2022',
     ['Intro_projects_CAMD2022.pdf'],
     target='summerschools/summerschool22')
 
+
 def setup(app):
     # Get png and csv files and other stuff from the AGTS scripts that run
     # every weekend:
