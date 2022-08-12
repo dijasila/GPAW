@@ -29,6 +29,7 @@ class RIXC:
         self.localxc = XC(localxc)
 
     def initialize(self, density, hamiltonian, wfs):
+        self.density = density
         self.ecc = 0
         for setup in wfs.setups:
             if self.omega is not None:
@@ -67,12 +68,15 @@ class RIXC:
     def calculate_paw_correction(self, setup, D_sp, dH_sp=None, a=None):
         E = self.localxc.calculate_paw_correction(setup, D_sp, dH_sp, a=a)
 
-        for s, D_p in enumerate(D_sp):
+        for s, (dH_p, D_p) in enumerate(zip(dH_sp, D_sp)):
             D_ii = unpack2(D_p)
             V_ii = pawexxvv(setup.M_wpp[self.omega], D_ii)  # *(dens.nspins/2)
-            dH_sp[s] += pack(V_ii)
+            dH_p += pack(V_ii)
 
             E += np.sum(V_ii.ravel() * D_ii.ravel())  # * prefactor
+
+            dH_p -= self.density.setups[a].X_p * self.exx_fraction
+            E -= self.exx_fraction * np.dot(D_p, self.density.setups[a].X_p)
 
         return E
 
