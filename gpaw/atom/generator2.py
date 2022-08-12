@@ -315,6 +315,7 @@ class PAWSetupGenerator:
         self.fd = fd or sys.stdout
         self.yukawa_gamma = yukawa_gamma
         self.exxcc_w = {}
+        self.exxcv_wii = {}
         self.omega = omega
 
         if core_hole:
