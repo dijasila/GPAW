@@ -6,18 +6,23 @@ Submitting jobs on the DTU computers
 
 Smaller calculations can be run in a Jupyter Notebook, but larger calculations
 require running on multiple CPU cores for an extended time.  Such jobs should
-be submitted with the ``qsub.py``.
+be submitted with the MyQueue tool.  MyQueue_ is a unified frontend
+for a number of different queuing systems available on HPC
+installations.  It supports submittting individual jobs as well as
+complete workflows.
+
+.. _MyQueue: https://myqueue.readthedocs.io/en/latest/
 
 
-Using ``qsub.py``
+Using MyQueue
 =================
 
-The script ``qsub.py`` acts as a GPAW-aware front-end to the queue system.
+The command ``mq`` acts as a front-end to the queue system.
 Usage::
 
-  qsub.py [-h] [-p PROCESSES] [-t TIME] [-z] script [argument [argument ...]]
+  mq submit -R CORES:TIME script
 
-Submit a GPAW Python script via qsub.
+Submit a GPAW Python script via the configured queueing system.
 
 positional arguments:
   script:
@@ -26,19 +31,26 @@ positional arguments:
   argument:
     Command-line argument for Python script.
 
-optional arguments:
-  -h, --help            show this help message and exit
-  -p PROCESSES, --processes PROCESSES
-                        Number of processes.
-  -t TIME, --time TIME  Max running time in hours.
-  -z, --dry-run         Don't actually submit script.
-
+selected optional arguments:
+  -h, --help            show help message and exit
+  -n NAME, --name NAME  Name used for task.
+  -R RESOURCES, --resources RESOURCES
+                        Examples: "8:1h", 8 cores for 1 hour. Use "m" for minutes, "h" for hours and "d" for days. "16:1:30m": 16 cores,
+                        1 process, half an hour.
+  -z, --dry-run         Show what will happen without doing anything.
+  -v, --verbose         More output.
+  -q, --quiet           Less output.
 
 .. code:: bash
 
-    $ qsub.py -p 8 -t 4 script.py  # 8 cores, 4 hours
-    $ qstat -u <username>
+    $ mq submit -R 8:4h script.py  # 8 cores, 4 hours
+    $ mq list
+    $ qstat hpc
     ...
+
+The last command shows the user's jobs in the hpc queue, which is the
+queue we use for the summer school.  ``mq list`` and ``qstat hpc`` give
+some of the same information.
 
 
 Choosing the number of processes
