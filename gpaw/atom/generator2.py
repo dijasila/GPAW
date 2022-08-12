@@ -1099,7 +1099,8 @@ class PAWSetupGenerator:
         setup.ExxC = self.exxcc
         setup.ExxC_w = self.exxcc_w  # erfc screened core contributions
         setup.X_p = pack2(self.exxcv_ii[I][:, I])
-        setup.X_wp = {omega:pack2(self.exxcv_wii[omega][I][:,I]) for omega in self.exxcv_wii}
+        setup.X_wp = {omega: pack2(self.exxcv_wii[omega][I][:, I])
+                      for omega in self.exxcv_wii}
 
         if self.yukawa_gamma > 0.0:
             self.calculate_yukawa_integrals()
@@ -1195,8 +1196,8 @@ class PAWSetupGenerator:
             self.log(f'EXX omega={self.omega} (core-core):',
                      self.exxcc_w[self.omega], 'Hartree')
 
-            self.exxcv_wii = {self.omega:
-                            self.calculate_exx_cv_integrals(ni, hse.screened_coulomb)}
+            X_ii = self.calculate_exx_cv_integrals(ni, hse.screened_coulomb)
+            self.exxcv_wii = {self.omega: X_ii}
 
         self.exxcv_ii = self.calculate_exx_cv_integrals(ni, self.rgd.poisson)
 

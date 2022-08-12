@@ -35,5 +35,5 @@ def test_diamond(in_tmp_dir, add_cwd_to_setup_paths):
                        setup.M_wpp[0.11],
                        rtol=1e-2, atol=1e-4)
 
-    print(setup.X_p-setup.X_wp[0.11], '2')
+    print(setup.X_p - setup.X_wp[0.11], '2')
     

@@ -70,7 +70,7 @@ class RIXC:
         for s, D_p in enumerate(D_sp):
             D_ii = unpack2(D_p)
             V_ii = pawexxvv(setup.M_wpp[self.omega], D_ii)  # *(dens.nspins/2)
-            dH_sp[s] += pack(V_ii) 
+            dH_sp[s] += pack(V_ii)
 
             E += np.sum(V_ii.ravel() * D_ii.ravel())  # * prefactor
 

@@ -366,12 +366,12 @@ class SetupData:
                 print(f'{x!r}', end=' ', file=xml)
             print('\n  </exact_exchange_X_matrix>', file=xml)
             
-
             print(f'  <exact_exchange core-core="{self.ExxC!r}"/>', file=xml)
             for omega, Ecc in self.ExxC_w.items():
                 print(f'  <erfc_exchange omega="{omega}" core-core="{Ecc}"/>',
                       file=xml)
-                print(f'  <erfc_exchange_X_matrix omega="{omega}" X_p="', end=' ', file=xml)
+                print(f'  <erfc_exchange_X_matrix omega="{omega}" X_p="',
+                      end=' ', file=xml)
                 for x in self.X_wp[omega]:
                     print(f'{x!r}', end=' ', file=xml)
                 print('"/>', file=xml)
