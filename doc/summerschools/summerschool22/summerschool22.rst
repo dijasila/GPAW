@@ -55,6 +55,14 @@ Mac and Linux users
    submitting
 
 
+Introductory slides
+-------------------
+
+The slides from the introduction to the exercises (Sunday) can be
+found here:
+:download:`Intro_projects_CAMD2022.pdf`
+
+
 Projects
 ========
 
