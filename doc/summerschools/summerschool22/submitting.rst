@@ -17,12 +17,12 @@ complete workflows.
 Using MyQueue
 =================
 
-The command ``mq`` acts as a GPAW-aware front-end to the queue system.
+The command ``mq`` acts as a front-end to the queue system.
 Usage::
 
   mq submit -R CORES:TIME script
 
-Submit a GPAW Python script via the configures queueing system.
+Submit a GPAW Python script via the configured queueing system.
 
 positional arguments:
   script:
