@@ -22,7 +22,7 @@ rather than the usual notebooks.  Basic knowledge of shell commands
 is an advantage.
 
 
-This exercise consist of three parts.  Specifically, we will:
+This exercise consists of three parts.  Specifically, we will:
 
  * Define simple tasks and run them as a workflow
    to obtain a band structure
@@ -33,8 +33,12 @@ This exercise consist of three parts.  Specifically, we will:
 Part 1: Write a basic workflow
 ==============================
 
-First we will write a simple workflow which performs a structure optimization
+First we will write a workflow which performs a structure optimization
 of Si followed by a ground-state calculation and then band structure.
+
+We need to write code for the tasks in each of the three steps, and
+then we need to write a workflow which generates those tasks.
+
 
 To get started, go to a clean directory and create an ASR repository::
 
@@ -43,28 +47,28 @@ To get started, go to a clean directory and create an ASR repository::
   asr init
 
 The repository will store calculations under the newly created,
-currently empty folder named tree/.  The file registry.dat is a
-database used for efficient indexing of tasks.
-
-:: bash
+currently empty folder named ``tree/``.  The ``asr info`` command
+will tell us a few basic things about the repository::
 
    asr info
 
-The info command tells us basic information about our repository.
-
 Let's perform a structure optimization of bulk Si.
-This function performs such an optimization::
+We write a function which performs such an optimization:
 
-.. literalinclude: tasks.py
+.. literalinclude:: tasks.py
+   :pyobject: relax
 
-We need to save the code to the special tasks.py file in the repository
-root.  For production workflows, one would probably import most tasks
-from installed packages.  However, tasks.py can be used for user-defined
-tasks that do not need to be installed as such.
+Since workflows run on the local computer whereas tasks (generally)
+run on compute nodes, we generally put them in different files.
+Save the function to ``tasks.py`` in the repository root directory.
+That file is special, as ASR will look up functions inside the file
+when running workflows.
+Next, we need to write a workflow.
+
 
 .. literalinclude: workflow.py
 
-Save the code to a file, e.g. named workflow.py.  Then execute the
+Save the code to a file, e.g. named ``workflow.py``.  Then execute the
 workflow by issuing the command::
 
   asr workflow workflow.py
