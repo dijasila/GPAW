@@ -12,3 +12,4 @@ Projects
     machinelearning/machinelearning
     photovoltaics/photovoltaics
     batteries/batteries
+    workflows/workflows
