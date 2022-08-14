@@ -226,11 +226,13 @@ The code saves the Brillouin zone path and band structure separately to
 ASE JSON files.  Once it runs, we can go to the directory and check
 that it looks correct::
 
-  asr reciprocal tree/bandstructure/bandpath.json
+  ase reciprocal tree/bandstructure/bandpath.json
 
 ::
 
-   asr bandstructure tree/bandstructure/bs.json
+   ase band-structure tree/bandstructure/bs.json
+
+Note that here we are using the ``ase`` tool, *not* the ``asr`` tool.
 
 You can delete all the tasks with ``asr remove tree/`` and run them from
 scratch by ``asr run tree/``, ``asr run tree/*``, or simply ``asr run
