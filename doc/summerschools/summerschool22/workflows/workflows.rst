@@ -92,25 +92,26 @@ Explanation:
 
 * The method returns ``asr.node(...)``, which is a specification of
   the *actual* calculation: The name of the task
-  (in ``tasks.py``) is given as a string, followed by input assignments.
-  The attribute ``self.atoms`` will become the input variable
-  of the same name.
+  (``'relax'``, which must exist in ``tasks.py``) is given as a string.
+  The inputs are then assigned, and will be forwarded to the
+  ``relax()`` function in ``tasks.py``.
+  The attributes ``self.atoms`` and ``self.calculator``
+  will refer to the input variables.
 
   When defining a node, ASR calculates a hash (i.e. checksum) of the inputs;
   the hash will become different if any inputs are changed.
 
-* The decorator ``@asr.task`` tells ASR to define a task from the
-  node returned by the method.
-  This decorator can also be equipped with additional information,
-  for example computational resources.
+* The decorator ``@asr.task`` can be used to attach information
+  about *how* the task runs, such as computational
+  resources.
 
 
-We think of the workflow class as *static declaration* of information, not as
+The workflow class serves as a *static declaration* of information, not as
 statements or commands to be executed (yet).
 To actually run it, we must at least choose a material and then tell
 the computer to run the workflow on it.
-We do this by adding a standalone function called ``workflow``,
-which ASR will call:
+We do this by adding a standalone function called ``workflow``
+for ASR to call:
 
 .. literalinclude:: workflow.py
    :pyobject: workflow
@@ -210,16 +211,17 @@ in the ``tree/groundstate`` directory.
 Run the ground state task and check that the ``.gpw`` file was created as
 expected.
 
-Finally, we write a band structure task and corresponding
-workflow method:
+Finally, we write a band structure task in ``tasks.py``:
 
 .. literalinclude:: tasks.py
    :pyobject: bandstructure
 
+A corresponding method should be added on the workflow:
+
 .. literalinclude:: workflow.py
    :pyobject: MyWorkflow.bandstructure
 
-Run the workflow and execute the task.
+Now run the workflow and the resulting tasks.
 The code saves the Brillouin zone path and band structure separately to
 ASE JSON files.  Once it runs, we can go to the directory and check
 that it looks correct::
@@ -230,9 +232,10 @@ that it looks correct::
 
    asr bandstructure tree/bandstructure/bs.json
 
-You can delete all of them with ``asr remove tree/`` and run them from
+You can delete all the tasks with ``asr remove tree/`` and run them from
 scratch by ``asr run tree/``, ``asr run tree/*``, or simply ``asr run
-tree/bandstructure``.  The run command always executes tasks in
+tree/bandstructure``.
+The run command always executes tasks in
 topological order, i.e., each task runs only when its dependencies
 are done.
 
@@ -286,7 +289,7 @@ Add this to a new file, named e.g. ``totree.py``, and execute the workflow::
 
 The totree command created some tasks for us.
 Actually they are not really tasks — they are just static pieces of data.
-But now that they exist, we can run other tasks on them.
+But now that they exist, we can run other tasks that depend on them.
 
 In the old workflow file (``workflow.py``),
 replace the ``workflow()`` function with the following function which
@@ -322,3 +325,8 @@ the jobs, such as ``mq ls`` or ``mq rm``.  See the myqueue documentation.
 If everything works well, we can submit the whole tree::
 
   asr submit tree/
+
+Note: In the current version, myqueue and ASR do not perfectly
+share the state of a task.  This can lead to
+mild misbehaviours if using both ``asr run`` and ``asr submit``,
+such as a job executing twice.
