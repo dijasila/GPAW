@@ -55,6 +55,15 @@ Mac and Linux users
    submitting
 
 
+iPad users (not recommended)
+----------------------------
+
+.. toctree::
+   :maxdepth: 1
+
+   ipad
+
+
 Introductory slides
 -------------------
 
