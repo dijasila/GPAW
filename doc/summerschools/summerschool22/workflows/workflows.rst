@@ -64,7 +64,7 @@ for the standard BFGS optimizer (see the ASE documentation on optimizers
 and cell filters if interested).
 
 Since workflows run on the local computer whereas computational tasks
-(generally) run on compute nodes, we seperate *workflow* code
+(generally) run on compute nodes, we separate *workflow* code
 and *computational*
 code in different files.  ASR can load user-defined functions from the
 special file ``tasks.py`` mentioned by info command.

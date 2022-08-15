@@ -8,7 +8,7 @@ Smaller calculations can be run in a Jupyter Notebook, but larger calculations
 require running on multiple CPU cores for an extended time.  Such jobs should
 be submitted with the MyQueue tool.  MyQueue_ is a unified frontend
 for a number of different queuing systems available on HPC
-installations.  It supports submittting individual jobs as well as
+installations.  It supports submitting individual jobs as well as
 complete workflows.
 
 .. _MyQueue: https://myqueue.readthedocs.io/en/latest/
