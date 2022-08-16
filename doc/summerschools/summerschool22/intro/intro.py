@@ -159,6 +159,7 @@ They can be accessed by index or by name.
 from collections import namedtuple
 SKN = namedtuple('IndexSKN', ('spin', 'kpt', 'band'))
 a = SKN(0, 3, 4)
+print(a)
 # The elements may be accessed by index (like a normal tuple) or by name:
 print(a[1])
 print(a.kpt)
@@ -337,14 +338,14 @@ ax.set_aspect('equal')
 # %%
 """
 # ASE (atomic simulation environment)
-## more details can be found here: https://wiki.fysik.dtu.dk/ase/index.html
+More details can be found here: https://wiki.fysik.dtu.dk/ase/index.html
 """
 
 # %%
 """
 ## Everything starts with a structure!
-In ASE the most important ingredients is the `Atom` amd `Atoms`
-objects used to setup an atomic structure
+In ASE the most important ingredients is the `Atom` and `Atoms`
+objects used to setup an atomic structure.
 ### Setting op a molecule using the `Atoms` object
 """
 

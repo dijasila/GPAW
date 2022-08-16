@@ -51,7 +51,7 @@ Now that we have obtained the ground state, it is time to calculate the dielectr
 
 These calculations are both time-wise and memory-wise heavier than what you previously encountered. Therefore we will need to submit these calculations to the databar so they can run over night. Open a new SSH terminal, edit and copy the below code into a script format (.py file), and submit the calculations from the terminal using the following command:
 
-qsub.py -t 15 -p 8 script.py
+mq submit -R 8:15h script.py
 
 This will submit the script with the name "script.py" to 8 cores with a maximum time of 15 hours.
 """
