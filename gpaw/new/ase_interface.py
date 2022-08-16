@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import warnings
 from pathlib import Path
+from types import SimpleNamespace
 from typing import IO, Any, Union
 
 from ase import Atoms
 from ase.units import Bohr, Ha
+
 from gpaw import __version__
 from gpaw.new import Timer, cached_property
+from gpaw.new.builder import builder as create_builder
 from gpaw.new.calculation import DFTCalculation, DFTState, units
 from gpaw.new.gpw import read_gpw, write_gpw
 from gpaw.new.input_parameters import InputParameters
@@ -108,10 +111,10 @@ class ASECalculator:
 
         return self.calculation.results[prop] * units[prop]
 
-    def create_new_calculation(self, atoms: Atoms) -> DFTCalculation:
+    def create_new_calculation(self, atoms: Atoms) -> None:
         with self.timer('Init'):
-            self.calculation = DFTCalculation.from_parameters(atoms, self.params,
-                                                              self.log)
+            self.calculation = DFTCalculation.from_parameters(
+                atoms, self.params, self.log)
         self.atoms = atoms.copy()
 
     def move_atoms(self, atoms):
@@ -314,17 +317,23 @@ class ASECalculator:
         txt = params.txt
         world = params.parallel['world']
         log = Logger(txt, world)
-        calc =
-        builder = builder or create_builder(atoms, params)
-
-        if not isinstance(log, Logger):
-            log = Logger(log, builder.world)
-
+        builder = create_builder(self.atoms, params)
         basis_set = builder.create_basis_set()
-        ibzwfs = builder.create_ibz_wave_functions(basis_set, potential)
-        state = DFTState(ibzwfs, density, potential, vHt_x)
+        state = self.calculation.state
+        ibzwfs = builder.create_ibz_wave_functions(basis_set, state.potential)
+        state = DFTState(ibzwfs, state.density, state.potential)
         scf_loop = builder.create_scf_loop()
+        scf_loop.update_density_and_potential = False
 
+        calculation = DFTCalculation(
+            state,
+            builder.setups,
+            scf_loop,
+            SimpleNamespace(fracpos_ac=self.calculation.fracpos_ac), None)
+
+        calculation.converge()
+
+        return ASECalculator(params, log, calculation, self.atoms)
 
     def initialize(self, atoms):
         ...

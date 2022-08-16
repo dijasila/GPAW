@@ -35,6 +35,7 @@ class SCFLoop:
         self.convergence = convergence
         self.maxiter = maxiter
         self.niter = 0
+        self.update_density_and_potential = True
 
     def __repr__(self):
         return 'SCFLoop(...)'
@@ -67,7 +68,8 @@ class SCFLoop:
 
         for self.niter in itertools.count(start=1):
             wfs_error = self.eigensolver.iterate(state, self.hamiltonian)
-            state.ibzwfs.calculate_occs(self.occ_calc)
+            if self.update_density_and_potential:
+                state.ibzwfs.calculate_occs(self.occ_calc)
 
             ctx = SCFContext(
                 state, self.niter,
@@ -85,10 +87,11 @@ class SCFLoop:
             if self.niter == maxiter:
                 raise SCFConvergenceError
 
-            state.density.update(pot_calc.nct_R, state.ibzwfs)
-            dens_error = self.mixer.mix(state.density)
-            state.potential, state.vHt_x, _ = pot_calc.calculate(
-                state.density, state.vHt_x)
+            if self.update_density_and_potential:
+                state.density.update(pot_calc.nct_R, state.ibzwfs)
+                dens_error = self.mixer.mix(state.density)
+                state.potential, state.vHt_x, _ = pot_calc.calculate(
+                    state.density, state.vHt_x)
 
 
 class SCFContext:
