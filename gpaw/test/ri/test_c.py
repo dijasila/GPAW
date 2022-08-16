@@ -52,8 +52,8 @@ def test_diamond(in_tmp_dir, add_cwd_to_setup_paths):
     tm_e = -32.35980873243 * Hartree
 
     assert np.allclose(tm_eigs, calc.get_eigenvalues()[:2], atol=0.1)
-    assert np.allclose(tm_e, calc.hamiltonian.setups.Eref * Hartree + atoms.get_potential_energy(),
-                       atol=0.1)
+    assert np.allclose(tm_e, calc.hamiltonian.setups.Eref * Hartree +
+                       atoms.get_potential_energy(), atol=0.1)
 
     atoms = bulk('C', 'diamond')
     atoms.calc = GPAW(kpts={'size': (2, 2, 2), 'gamma': True},
