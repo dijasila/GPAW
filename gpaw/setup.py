@@ -17,6 +17,7 @@ from gpaw.spline import Spline
 from gpaw.utilities import pack, unpack
 from gpaw.xc import XC
 from gpaw.new import zip
+from gpaw.xc.ri.spherical_hse_kernel import RadialHSE
 
 
 def parse_hubbard_string(type: str) -> Tuple[str,
@@ -558,7 +559,7 @@ class BaseSetup:
         """Calculate and return the Yukawa based interaction."""
         if self._Mg_pp is not None and gamma == self._gamma:
             return self._Mg_pp  # Cached
-
+        
         # Solves the radial screened poisson equation for density n_g
         def Yuk(self, n_g, l):
             """Solve radial screened poisson for density n_g."""
@@ -567,8 +568,23 @@ class BaseSetup:
                 self.local_corr.rgd2.r_g * self.local_corr.rgd2.dr_g
 
         self._gamma = gamma
+        self._Mg_pp = self.calculate_vvx_interactions(Yuk)
+        return self._Mg_pp
+
+    def calculate_erfc_interaction(self, omega):
+        """Calculate and return erfc based valence valence
+           exchange interactions."""
+        hse = RadialHSE(self.local_corr.rgd2, omega).screened_coulomb_dv
+        
+        def erfc_interaction(_, n_g, l):
+            return hse(n_g, l)
+        return self.calculate_vvx_interactions(erfc_interaction)
+
+    def calculate_vvx_interactions(self, interaction):
+        """Calculate valence valence interactions for generic
+           interaction."""
         (wg_lg, wn_lqg, wnt_lqg, wnc_g, wnct_g, wmct_g) = \
-            self.calculate_integral_potentials(Yuk)
+            self.calculate_integral_potentials(interaction)
         self._Mg_pp = self.calculate_coulomb_corrections(
             wn_lqg, wnt_lqg, wg_lg, wnc_g, wmct_g)[1]
         return self._Mg_pp
@@ -616,6 +632,7 @@ class LeanSetup(BaseSetup):
         self.M = s.M
         self.M_p = s.M_p
         self.M_pp = s.M_pp
+        self.M_wpp = s.M_wpp
         self.K_p = s.K_p
         self.MB = s.MB
         self.MB_p = s.MB_p
@@ -671,6 +688,7 @@ class LeanSetup(BaseSetup):
 
         # Required by exx
         self.X_p = s.X_p
+        self.X_wp = s.X_wp
         self.ExxC = s.ExxC
         self.ExxC_w = s.ExxC_w
 
@@ -733,6 +751,8 @@ class Setup(BaseSetup):
     ``M``         Constant correction to Coulomb energy
     ``M_p``       Linear correction to Coulomb energy
     ``M_pp``      2nd order correction to Coulomb energy and Exx energy
+    ``M_wpp``     2nd order correction to erfc screened Coulomb energy and Exx
+                  energy for given w.
     ``Kc``        Core kinetic energy
     ``K_p``       Linear correction to kinetic energy
     ``ExxC``      Core Exx energy
@@ -788,6 +808,7 @@ class Setup(BaseSetup):
         self.ExxC = data.ExxC
         self.ExxC_w = data.ExxC_w
         self.X_p = data.X_p
+        self.X_wp = data.X_wp
 
         self.X_gamma = data.X_gamma
         self.X_pg = data.X_pg
@@ -977,6 +998,10 @@ class Setup(BaseSetup):
                                                        wg_lg, wnc_g, wmct_g)
         self.M_p = M_p
         self.M_pp = M_pp
+
+        self.M_wpp = {}
+        for omega in self.ExxC_w:
+            self.M_wpp[omega] = self.calculate_erfc_interaction(omega)
 
         if xc.type == 'GLLB':
             if 'core_f' in self.extra_xc_data:
