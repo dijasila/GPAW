@@ -52,7 +52,7 @@ def test_diamond(in_tmp_dir, add_cwd_to_setup_paths):
     tm_e = -32.35980873243 * Hartree
 
     assert np.allclose(tm_eigs, calc.get_eigenvalues()[:2], atol=0.1)
-    assert np.allclose(tm_e, -1027.171946 + atoms.get_potential_energy(),
+    assert np.allclose(tm_e, calc.hamiltonian.setups.Eref * Hartree + atoms.get_potential_energy(),
                        atol=0.1)
 
     atoms = bulk('C', 'diamond')
@@ -67,6 +67,9 @@ def test_diamond(in_tmp_dir, add_cwd_to_setup_paths):
     calc = atoms.calc
 
     setup = calc.density.setups[0]
+    # With w=0 the values should agree exactly. For small systems
+    # with small paw-cutoffs, the values are very close nevertheless
+    # Thus assert with a moderate tolerance.
     assert np.allclose(setup.M_pp,
                        setup.M_wpp[0.11],
                        rtol=1e-2, atol=1e-4)
