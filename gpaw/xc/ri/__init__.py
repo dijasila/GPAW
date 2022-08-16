@@ -3,11 +3,16 @@ from gpaw.utilities import unpack2, pack
 from gpaw.hybrids.paw import pawexxvv
 import numpy as np
 
+HSE06 = dict(exx_fraction=0.25,
+             omega=0.11,
+             localxc='HYB_GGA_XC_HSE06')
 
 def RI(name, **args):
     if name == 'HSE06WIP':
-        return RIXC(name, exx_fraction=0.25,
-                    omega=0.11, localxc='HYB_GGA_XC_HSE06')
+        return RIXC(name, **HSE06)
+    elif name == 'HSE06REF':
+        from gpaw.xc.ri.reference_elements import ReferenceRIXC
+        return ReferenceRIXC(name, **HSE06)
     raise NotImplementedError(f'RI backend does not support '
                               f'functional called: {name}.')
 
