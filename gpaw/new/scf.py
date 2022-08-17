@@ -64,12 +64,17 @@ class SCFLoop:
 
         self.mixer.reset()
 
-        dens_error = self.mixer.mix(state.density)
+        if self.update_density_and_potential:
+            dens_error = self.mixer.mix(state.density)
+        else:
+            dens_error = 0.0
 
         for self.niter in itertools.count(start=1):
             wfs_error = self.eigensolver.iterate(state, self.hamiltonian)
-            if self.update_density_and_potential:
-                state.ibzwfs.calculate_occs(self.occ_calc)
+            print(wfs_error, dens_error)
+            state.ibzwfs.calculate_occs(
+                self.occ_calc,
+                fixed_fermi_level=not self.update_density_and_potential)
 
             ctx = SCFContext(
                 state, self.niter,

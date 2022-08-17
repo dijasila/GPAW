@@ -321,6 +321,7 @@ class ASECalculator:
         basis_set = builder.create_basis_set()
         state = self.calculation.state
         ibzwfs = builder.create_ibz_wave_functions(basis_set, state.potential)
+        ibzwfs.fermi_levels = state.ibzwfs.fermi_levels
         state = DFTState(ibzwfs, state.density, state.potential)
         scf_loop = builder.create_scf_loop()
         scf_loop.update_density_and_potential = False
@@ -329,7 +330,8 @@ class ASECalculator:
             state,
             builder.setups,
             scf_loop,
-            SimpleNamespace(fracpos_ac=self.calculation.fracpos_ac), None)
+            SimpleNamespace(fracpos_ac=self.calculation.fracpos_ac),
+            log)
 
         calculation.converge()
 
