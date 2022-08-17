@@ -278,6 +278,10 @@ class ASECalculator:
     def world(self):
         return self.calculation.scf_loop.world
 
+    @property
+    def setups(self):
+        return self.calculation.setups
+
     def get_xc_difference(self, xcparams):
         """Calculate non-selfconsistent XC-energy difference."""
         state = self.calculation.state
