@@ -3,11 +3,12 @@ from __future__ import annotations
 import itertools
 import warnings
 from types import SimpleNamespace
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 
 from gpaw.convergence_criteria import (Criterion, check_convergence,
                                        dict2criterion)
 from gpaw.scf import write_iteration
+from gpaw.typing import Array2D
 from gpaw.yml import indent
 
 if TYPE_CHECKING:
@@ -50,6 +51,7 @@ class SCFLoop:
                 pot_calc,
                 convergence=None,
                 maxiter=None,
+                calculate_forces=None,
                 log=None):
 
         cc = create_convergence_criteria(convergence or self.convergence)
@@ -78,7 +80,7 @@ class SCFLoop:
             ctx = SCFContext(
                 state, self.niter,
                 wfs_error, dens_error,
-                self.world)
+                self.world, calculate_forces)
 
             yield ctx
 
@@ -104,7 +106,8 @@ class SCFContext:
                  niter: int,
                  wfs_error: float,
                  dens_error: float,
-                 world):
+                 world,
+                 calculate_forces: Callable[[], Array2D]):
         self.state = state
         self.niter = niter
         energy = (sum(state.potential.energies.values()) +
@@ -121,6 +124,7 @@ class SCFContext:
             .calculate_magnetic_moments,
             fixed=False,
             error=dens_error)
+        self.calculate_forces = calculate_forces
 
 
 def create_convergence_criteria(criteria: dict[str, Any]
