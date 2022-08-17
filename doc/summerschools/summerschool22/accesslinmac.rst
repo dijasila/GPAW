@@ -4,7 +4,7 @@
 Starting and accessing a Jupyter Notebook (Linux / macOS)
 =========================================================
 
-To run a Jyputer Notebook in the DTU databar while displaying it output in your browser requires three steps.
+To run a Jupyter Notebook in the DTU databar while displaying it output in your browser requires three steps.
 
 * Starting the notebook on an interactive compute node.
 
@@ -30,7 +30,7 @@ Once you are logged in on the front-end, get a session on an interactive compute
 
   linuxsh -X
 
-  
+
 Starting a Jupyter Notebook
 ===========================
 
@@ -78,8 +78,8 @@ Your browser is now asking for your *Jupyter password* (the one you
 created when setting up your account).  You are now ready to open one
 of the notebooks, and run the exercises.
 
-Loggin out
-==========
+Logging out
+===========
 
 When you are done for the day, please
 

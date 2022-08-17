@@ -283,6 +283,7 @@ class PseudoPotential(BaseSetup):
         self.M = -data.Eh_compcharge
         self.M_p = np.zeros(_np)
         self.M_pp = np.zeros((_np, _np))
+        self.M_wpp = {}
 
         self.K_p = data.expand_hamiltonian_matrix()
         self.MB = 0.0
@@ -304,8 +305,10 @@ class PseudoPotential(BaseSetup):
         self.B_ii = None
         self.dC_ii = None
         self.X_p = None
+        self.X_wp = {}
         self.X_pg = None
         self.ExxC = None
+        self.ExxC_w = {}
         self.X_gamma = None
         self.dEH0 = 0.0
         self.dEH_p = np.zeros(_np)

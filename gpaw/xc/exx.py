@@ -310,7 +310,7 @@ class EXX(NoCalculatorPairDensity):
             V_sii = []
             for D_p in self.gs.D_asp[a]:
                 D_ii = unpack2(D_p)
-                V_ii = pawexxvv(atomdata, D_ii)
+                V_ii = pawexxvv(atomdata.M_pp, D_ii)
                 V_sii.append(V_ii)
             if atomdata.X_p is None:
                 C_ii = D_ii * 0.0
