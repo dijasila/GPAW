@@ -124,8 +124,10 @@ class IBZWaveFunctions:
                                 if self.fermi_levels is None else
                                 self.fermi_levels * Ha))
 
-        if not fixed_fermi_level or self.fermi_levels is None:
+        if not fixed_fermi_level:
             self.fermi_levels = np.array(fermi_levels) / Ha
+        else:
+            assert self.fermi_levels is not None
 
         for occ_n, wfs in zip(occ_un, self):
             wfs._occ_n = occ_n
