@@ -92,6 +92,7 @@ class ASECalculator:
 
         if self.calculation is None:
             self.create_new_calculation(atoms)
+            assert self.calculation is not None
             self.converge()
         elif changes:
             self.move_atoms(atoms)

@@ -57,6 +57,9 @@ class FakeWFS:
                 psit_R.multiply_by_eikr(-psit_R.desc.kpt_c)
         return psit_R.data
 
+    def collect_projections(self, k, s):
+        return self.kpt_qs[k][s].projections.collect()
+
     @cached_property
     def kpt_u(self):
         return [kpt
