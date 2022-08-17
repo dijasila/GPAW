@@ -137,3 +137,7 @@ class RadialHSE:
             self.V_lgg[l] = self.d_gg * kernel_gg
         vr_g = (self.V_lgg[l] @ n_g) * self.rgd.r_g
         return vr_g
+
+    def screened_coulomb_dv(self, n_g, l):
+        return self.screened_coulomb(n_g, l) * self.rgd.r_g * self.rgd.dr_g
+    
