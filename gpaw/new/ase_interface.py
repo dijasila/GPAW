@@ -282,6 +282,10 @@ class ASECalculator:
     def setups(self):
         return self.calculation.setups
 
+    @property
+    def initialized(self):
+        return self.calculation is not None
+
     def get_xc_difference(self, xcparams):
         """Calculate non-selfconsistent XC-energy difference."""
         state = self.calculation.state
@@ -343,7 +347,7 @@ class ASECalculator:
         return ASECalculator(params, log, calculation, self.atoms)
 
     def initialize(self, atoms):
-        ...
+        self.create_new_calculation(atoms)
 
 
 def write_header(log, world, params):

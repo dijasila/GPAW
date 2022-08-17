@@ -29,8 +29,8 @@ class FakeWFS:
         self.nvalence = int(round(ibzwfs.nelectrons))
         assert self.nvalence == ibzwfs.nelectrons
         self.world = calculation.scf_loop.world
-        assert ibzwfs.fermi_levels is not None
-        self.fermi_level, = ibzwfs.fermi_levels
+        if ibzwfs.fermi_levels is not None:
+            self.fermi_level, = ibzwfs.fermi_levels
         self.nspins = ibzwfs.nspins
         self.dtype = ibzwfs.dtype
         wfs = ibzwfs.wfs_qs[0][0]
