@@ -3,23 +3,18 @@ import atexit
 
 import _gpaw
 
-class CUDA:
+from .backend import DummyBackend
+
+class CUDA(DummyBackend):
     import pycuda.driver as drv
     import pycuda.tools as tools
     from pycuda.driver import memcpy_dtod
     from gpaw import gpuarray
 
     enabled = True
-    debug = False
-    debug_sync = False
-    use_hybrid_blas = False
-    device_no = None
-    device_ctx = None
 
-    def __init__(self, debug=False, debug_sync=False, use_hybrid_blas=False):
-        self.debug = debug
-        self.debug_sync = debug_sync
-        self.use_hybrid_blas = use_hybrid_blas
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         _gpaw.set_gpaw_cuda_debug(self.debug)
 
     def init(self, rank=0):

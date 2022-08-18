@@ -1,4 +1,6 @@
-backend = None
+from .backend import DummyBackend
+
+backend = DummyBackend()
 
 def setup(**kwargs):
     global backend
@@ -20,6 +22,8 @@ def setup(**kwargs):
     if kwargs.pop('cuda', False):
         from .cuda import CUDA
         backend = CUDA(**args)
+    else:
+        backend = DummyBackend(**args)
 
     for key in kwargs:
         print(f'Unknown GPU parameter: {key}')
