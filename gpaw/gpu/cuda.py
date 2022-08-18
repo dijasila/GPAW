@@ -1,4 +1,3 @@
-import platform
 import atexit
 
 import _gpaw
@@ -19,7 +18,7 @@ class CUDA(DummyBackend):
 
     def init(self, rank=0):
         if self.device_ctx is not None:
-            return True
+            return
         atexit.register(self.delete)
 
         # initialise CUDA driver
@@ -37,10 +36,6 @@ class CUDA(DummyBackend):
         # initialise C parameters and memory buffers
         _gpaw.gpaw_cuda_setdevice(self.device_no)
         _gpaw.gpaw_cuda_init()
-        if debug:
-            print('[{0}] GPU device {1} initialised (on host {2}).'.format(
-                rank, self.device_no, platform.node()))
-        return True
 
     def delete():
         if self.cuda_ctx is not None:
