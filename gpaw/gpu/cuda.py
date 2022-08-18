@@ -1,144 +1,116 @@
 import platform
-import numpy as np
-import warnings
 import atexit
-try:
+
+import _gpaw
+
+class CUDA:
     import pycuda.driver as drv
     import pycuda.tools as tools
     from pycuda.driver import memcpy_dtod
-except ImportError:
-    pass
+    from gpaw import gpuarray
 
-from gpaw import gpuarray
-import _gpaw
+    enabled = True
+    debug = False
+    debug_sync = False
+    use_hybrid_blas = False
+    device_no = None
+    device_ctx = None
 
-enabled = False
-debug = False
-debug_sync = False
-cuda_ctx = None
-use_hybrid_blas = False
+    def __init__(self, debug=False, debug_sync=False, use_hybrid_blas=False):
+        self.debug = debug
+        self.debug_sync = debug_sync
+        self.use_hybrid_blas = use_hybrid_blas
+        _gpaw.set_gpaw_cuda_debug(self.debug)
 
-class DebugCudaError(Exception):
-    pass
+    def init(self, rank=0):
+        if self.device_ctx is not None:
+            return True
+        atexit.register(self.delete)
 
-class DebugCudaWarning(UserWarning):
-    pass
+        # initialise CUDA driver
+        drv.init()
 
-def setup(**kwargs):
-    global enabled
-    global debug
-    global debug_sync
-    global use_hybrid_blas
+        # select device (round-robin based on MPI rank)
+        self.device_no = (rank) % drv.Device.count()
 
-    enabled = bool(kwargs.pop('cuda', False))
-    if kwargs.get('debug') == 'sync':
-        debug = True
-        debug_sync = True
-    else:
-        debug = bool(kwargs.pop('debug', False))
-    _gpaw.set_gpaw_cuda_debug(debug)
-    use_hybrid_blas = bool(kwargs.pop('hybrid_blas', False))
+        # create and activate CUDA context
+        device = drv.Device(self.device_no)
+        self.device_ctx = device.make_context(flags=drv.ctx_flags.SCHED_YIELD)
+        self.device_ctx.push()
+        self.device_ctx.set_cache_config(drv.func_cache.PREFER_L1)
 
-    for key in kwargs:
-        print(f'Unknown GPU parameter: {key}')
-
-
-def init(rank=0):
-    """
-    """
-    global cuda_ctx
-    global debug
-
-    atexit.register(delete)
-
-    if cuda_ctx is not None:
+        # initialise C parameters and memory buffers
+        _gpaw.gpaw_cuda_setdevice(self.device_no)
+        _gpaw.gpaw_cuda_init()
+        if debug:
+            print('[{0}] GPU device {1} initialised (on host {2}).'.format(
+                rank, self.device_no, platform.node()))
         return True
 
-    try:
-        drv.init()
-    except NameError:
-        errmsg = "PyCUDA not found."
-        raise NameError(errmsg)
-        return False
+    def delete():
+        if self.cuda_ctx is not None:
+            # deallocate memory buffers
+            _gpaw.gpaw_cuda_delete()
+            # deactivate and destroy CUDA context
+            self.cuda_ctx.pop()
+            self.cuda_ctx.detach()
+            del self.cuda_ctx
+            self.cuda_ctx = None
 
-    devno = (rank) % drv.Device.count()
+    def get_context():
+        return self.cuda_ctx
 
-    cuda_dev = drv.Device(devno)
-    cuda_ctx = cuda_dev.make_context(flags=drv.ctx_flags.SCHED_YIELD)
-    cuda_ctx.push()
+    def debug_test(x, y, text, reltol=1e-12, abstol=1e-13, raise_error=False):
+        import warnings
+        import numpy as np
 
-    cuda_ctx.set_cache_config(drv.func_cache.PREFER_L1)
-    _gpaw.gpaw_cuda_setdevice(devno)
-    _gpaw.gpaw_cuda_init()
-    if debug:
-        print('[{0}] GPU device {1} initialised (on host {2}).'.format(
-            rank, devno, platform.node()))
-    return True
+        class DebugCudaError(Exception):
+            pass
 
-def delete():
-    """
-    """
-    global cuda_ctx
+        class DebugCudaWarning(UserWarning):
+            pass
 
-    if cuda_ctx is not None:
-        _gpaw.gpaw_cuda_delete()
-        cuda_ctx.pop() #deactivate again
-        cuda_ctx.detach() #delete it
-
-    del cuda_ctx
-    cuda_ctx = None
-
-def get_context():
-    """
-    """
-    global cuda_ctx
-    return cuda_ctx
-
-def debug_test(x, y, text, reltol=1e-12, abstol=1e-13, raise_error=False):
-    """
-    """
-
-    if isinstance(x, gpuarray.GPUArray):
-        x_cpu = x.get()
-        x_type = 'GPU'
-    else:
-        x_cpu = x
-        x_type = 'CPU'
-
-    if isinstance(y, gpuarray.GPUArray):
-        y_cpu = y.get()
-        y_type = 'GPU'
-    else:
-        y_cpu = y
-        y_type = 'CPU'
-
-    if not np.allclose(x_cpu, y_cpu, reltol, abstol):
-        diff = abs(y_cpu - x_cpu)
-        if isinstance(diff, (float, complex)):
-            warnings.warn('%s error %s %s %s %s diff: %s' \
-                          % (text, y_type, y_cpu, x_type, x_cpu, \
-                             abs(y_cpu - x_cpu)), \
-                          DebugCudaWarning, stacklevel=2)
+        if isinstance(x, gpuarray.GPUArray):
+            x_cpu = x.get()
+            x_type = 'GPU'
         else:
-            error_i = np.unravel_index(np.argmax(diff - reltol * abs(y_cpu)), \
-                                       diff.shape)
-            warnings.warn('%s max rel error pos: %s %s: %s %s: %s diff: %s' \
-                          % (text, error_i, y_type, y_cpu[error_i], \
-                             x_type, x_cpu[error_i], \
-                             abs(y_cpu[error_i] - x_cpu[error_i])),  \
-                          DebugCudaWarning, stacklevel=2)
-            error_i = np.unravel_index(np.argmax(diff), diff.shape)
-            warnings.warn('%s max abs error pos: %s %s: %s %s: %s diff:%s' \
-                          % (text, error_i, y_type, y_cpu[error_i], \
-                             x_type, x_cpu[error_i], \
-                             abs(y_cpu[error_i] - x_cpu[error_i])),  \
-                          DebugCudaWarning, stacklevel=2)
-            warnings.warn('%s error shape: %s dtype: %s' \
-                          % (text, x_cpu.shape, x_cpu.dtype),  \
-                          DebugCudaWarning, stacklevel=2)
+            x_cpu = x
+            x_type = 'CPU'
 
-        if raise_error:
-            raise DebugCudaError
-        return False
+        if isinstance(y, gpuarray.GPUArray):
+            y_cpu = y.get()
+            y_type = 'GPU'
+        else:
+            y_cpu = y
+            y_type = 'CPU'
 
-    return True
+        if not np.allclose(x_cpu, y_cpu, reltol, abstol):
+            diff = abs(y_cpu - x_cpu)
+            if isinstance(diff, (float, complex)):
+                warnings.warn('%s error %s %s %s %s diff: %s' \
+                              % (text, y_type, y_cpu, x_type, x_cpu, \
+                                 abs(y_cpu - x_cpu)), \
+                              DebugCudaWarning, stacklevel=2)
+            else:
+                error_i = np.unravel_index(np.argmax(diff - reltol * abs(y_cpu)), \
+                                           diff.shape)
+                warnings.warn('%s max rel error pos: %s %s: %s %s: %s diff: %s' \
+                              % (text, error_i, y_type, y_cpu[error_i], \
+                                 x_type, x_cpu[error_i], \
+                                 abs(y_cpu[error_i] - x_cpu[error_i])),  \
+                              DebugCudaWarning, stacklevel=2)
+                error_i = np.unravel_index(np.argmax(diff), diff.shape)
+                warnings.warn('%s max abs error pos: %s %s: %s %s: %s diff:%s' \
+                              % (text, error_i, y_type, y_cpu[error_i], \
+                                 x_type, x_cpu[error_i], \
+                                 abs(y_cpu[error_i] - x_cpu[error_i])),  \
+                              DebugCudaWarning, stacklevel=2)
+                warnings.warn('%s error shape: %s dtype: %s' \
+                              % (text, x_cpu.shape, x_cpu.dtype),  \
+                              DebugCudaWarning, stacklevel=2)
+
+            if raise_error:
+                raise DebugCudaError
+            return False
+
+        return True
