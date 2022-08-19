@@ -19,7 +19,7 @@ except ImportError:
 import os
 
 
-srcpath = 'http://wiki.fysik.dtu.dk/gpaw-files'
+srcpath = 'https://wiki.fysik.dtu.dk/gpaw-files'
 agtspath = 'http://wiki.fysik.dtu.dk'
 
 
@@ -96,7 +96,7 @@ get('workshop13', ['workshop13_01_33-1.jpg'], 'static')
 get('workshop16', ['gpaw2016-photo.jpg'], 'static')
 
 
-# files from http://wiki.fysik.dtu.dk/gpaw-files/things/
+# files from https://wiki.fysik.dtu.dk/gpaw-files/things/
 
 # Warning: for the moment dcdft runs are not run (files are static)!
 dcdft_pbe_aims_stuff = """
