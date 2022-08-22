@@ -12,7 +12,7 @@ and do some simple machine learning for electronic structure properties. The
 driving idea is to predict complex properties of compounds from simpler
 properties, under the slogan that the fastest calculation is the one you
 don't have to run. We start by importing some relevant packages for
-scientific python and ase in particular.
+scientific python and `ase` in particular.
 """
 
 # %%
@@ -23,12 +23,12 @@ from ase.db import connect
 
 # %%
 """
-In current directory, there is an ase database file called 'organometal.db'.
+In the current directory, there is an `ase` database file called 'organometal.db'.
 It contains information about organometallic perovskites, and the goal is to
 predict properties for these. Along with the perovskite compounds, there are
 also reference calculations of the elements in their standard states. We
 start by connecting to the database (more info on the `ase db` module can be
-found [here]( https://wiki.fysik.dtu.dk/ase/ase/db/db.html#module-ase.db)),
+found [here](https://wiki.fysik.dtu.dk/ase/ase/db/db.html#module-ase.db)),
 and inspecting a single row:
 """
 
@@ -65,7 +65,7 @@ user:
 
 # %%
 """
-Each row also has a `toatoms()` method, which lets us extract an ase atoms object from the row.
+Each row also has a `toatoms()` method, which lets us extract an `ase.Atoms` object from the row.
 """
 
 # %%
@@ -78,14 +78,15 @@ When doing any kind of data analysis, the first step is always to become familia
 Counting the number of hits can be be done using `db.count(key=value)` for some key-value pair.
 
 How many rows are there in the database?
-How many belong to the `organometal` project? And how many to the `references` subproject?
+How many belong to the `organometal` _project_? And how many to the `references` _subproject_?
 """
 
 # %%
 # teacher
-print(db.count())
-print(db.count(project='organometal'))
-print(db.count(subproject='references'))
+N = db.count()
+om = db.count(project="organometal")
+refs = db.count(subproject="references")
+print(f"There are {N} entries, of which {om} are part of the `organometallic` project, and {refs} are references.")
 
 # %%
 """
@@ -101,40 +102,38 @@ structures, giving four different symmetry types for each atomic composition.
 
 2. Can you identify the four different symmetry classes?
 
-3. By making all possible combinations of both A, B, X, and symmetires, how
+3. By making all possible combinations of both A, B, X, and symmetries, how
    many structures could be generated in total? And how many unique are there,
    i.e. without considering the different symmetries?
 """
 
 # %%
 # teacher
+from math import comb
 # general formula ABX
-print(f"example of a name: {next(db.select('project')).name}")
-As = {r.name[:2] for r in db.select('project')}
-Bs = {r.name[2:4] for r in db.select('project')}
-symclasses = {r.symmetry for r in db.select('project')}
-Xs = ['I3', 'Br3', 'Cl3', 'I2Br', 'IBr2', 'I2Cl', 'ICl2',
-      'IBrCl', 'Br2Cl', 'BrCl2']
-print(f'{len(As)} As: {As}')
-print(f'{len(Bs)} Bs: {Bs}')
-print(f'{len(Xs)} Xs: {Xs}')
-print(f'{len(symclasses)} symclasses: {symclasses}')
-NA = len(As)
-NB = len(Bs)
-NS = len(symclasses)
-NH = len(Xs)
-print('possible structures:', NA * NB * NS * NH)
-print('possible structures without symmetry:', NA * NB * NH)
+Xs = {"Cl", "Br", "I"}
+As = set()
+Bs = set()
+sym_classes = set()
+for row in db.select(project="organometal"):
+    As.update((row.name[:2],))
+    Bs.update((row.name[2:4],))
+    sym_classes.update((row.symmetry,))
+
+print(f"The A atoms are one of {As}. The B atoms are one of {Bs}. The used symmetry classes are {sym_classes}.")
+n_Xs = len(Xs)
+n_uniq = len(As) * len(Bs) * comb(2 * n_Xs - 1, n_Xs)
+print(f"There are {n_uniq} unique compounds, and {len(sym_classes)*n_uniq} structures, when symmetry is considered.")
 
 # %%
 """
-As you can see from the exercise above, two organic molecules (methylammonium MA, formula CH$_6$N and formamidinium FA, formula CH$_5$N$_2$) can be used instead of Cs as cations in the inorganic perovskite template. Print the structure of MA and FA from the reference subproject in the database.
+As you can see from the exercise above, two organic molecules (methylammonium MA, formula CH$_6$N and formamidinium FA, formula CH$_5$N$_2$) can be used instead of Cs as cations in the inorganic perovskite template. View the structure of MA and FA from the reference subproject in the database.
 """
 
 # %%
 # teacher
-formulas = ['CH6N', 'CH5N2']
-view([db.get(formula=f).toatoms() for f in formulas])
+view(db.get(element="MA").toatoms())
+view(db.get(element="FA").toatoms())
 
 # %%
 """
@@ -143,8 +142,11 @@ Two good ideas are to plot distributions of interesting quantities, and to calcu
 
 # %%
 organometal_rows = [x for x in db.select(project='organometal')]
-plt.hist([x.gllbsc_disc for x in organometal_rows])
-plt.xlabel('Energy (eV)');
+discs = [x.gllbsc_disc for x in organometal_rows]
+print(f"Mean of `gllbsc_disc` = {np.mean(discs):.4f}")
+print(f"Variance of `gllbsc_disc` = {np.var(discs):.4f}")
+plt.hist(discs)
+plt.xlabel('Energy (eV)')
 plt.show()
 
 # %%
@@ -153,49 +155,48 @@ Make a histogram for each of the numeric quantities in the database, and calcula
 """
 
 # %%
+numeric_quantities = ["energy", "gllbsc_disc", "gllbsc_dir_gap", "gllbsc_ind_gap"]
 # teacher
-attributeNames = ['energy','gllbsc_dir_gap','gllbsc_disc','gllbsc_ind_gap']
-M = len(attributeNames)
-N = db.count(project='organometal')
-classes = [r.symmetry for r in db.select('project')]
+N = len(numeric_quantities)
+labels = ["Energy (eV)", "Discontinuity (eV)", "Direct Gap (eV)", "Indirect Gap (eV)"]
+all_data = list(db.select(project="organometal"))
+classes = [x.symmetry for x in all_data]
 y = np.array(classes)
-x1  = [x.ctime for x in organometal_rows];x2 = [x.energy for x in organometal_rows];x3 = [x.gllbsc_dir_gap for x in organometal_rows];
-x4 = [x.gllbsc_disc for x in organometal_rows];x5 = [x.gllbsc_ind_gap for x in organometal_rows]; x6 = [x.mtime for x in organometal_rows];
-X = np.zeros((N,len(attributeNames)))
-for i,x in enumerate([x2,x3,x4,x5]):
-    X[:,i] = np.array(x)
-# now plot that
-plt.figure(figsize=(10,8))
-u = np.floor(np.sqrt(M)); v = np.ceil(float(M)/u)
-for i in range(M):
-    plt.subplot(u,v,i+1)
-    for c in set(classes):
-        class_mask = (y==c)
-        plt.hist(X[class_mask,i])
-    plt.xlabel(attributeNames[i])
-plt.legend(list(set(classes)))
 
+fig, axs = plt.subplots(1, N, sharey=True, figsize=(14,4))
+axs[0].set_ylabel("Counts")
+for i, (colm, lab) in enumerate(zip(numeric_quantities, labels)):
+    x = [r[colm] for r in all_data]
+    axs[i].hist(x)
+    axs[i].set_xlabel(lab)
+    print(f"Mean of `{colm}` = {np.mean(x):.4f}")
+    print(f"Variance of `{colm}` = {np.var(x):.4f}\n")
+fig.tight_layout()
+plt.show()
 
-plt.figure(figsize=(16,12))
-for m1 in range(M):
-    for m2 in range(M):
-        plt.subplot(M, M, m1*M + m2 + 1)
+X = np.array([[x[c] for c in numeric_quantities] for x in all_data])
+fig, axs = plt.subplots(N, N, figsize=(14,14))
+for n1 in range(N):
+    for n2 in range(N):
         for c in set(classes):
-            class_mask = (y==c)
-            plt.plot(np.array(X[class_mask,m2]), np.array(X[class_mask,m1]), '.')
-            if m1==M-1:
-                plt.xlabel(attributeNames[m2])
+            ax = axs[n1, n2]
+            mask = (c==y)
+            ax.scatter(X[mask, n2], X[mask, n1])
+            if n1 == N-1:
+                ax.set_xlabel(numeric_quantities[n2])
             else:
-                plt.xticks([])
-            if m2==0:
-                plt.ylabel(attributeNames[m1])
+                ax.set_xticks([])
+            if n2 == 0:
+                ax.set_ylabel(numeric_quantities[n1])
             else:
-                plt.yticks([])
-plt.legend(list(set(classes)));
+                ax.set_yticks([])
+fig.tight_layout()
+axs[0, 0].legend(list(set(classes)), loc='upper left')
+plt.show()
 
 # %%
 """
-The energy contained in each row is an energy with respect to some arbitrary reference, which was set in the original calculation. A more sensible reference is provided by the materials with `subproject == 'references'`. We can calculate the heat for formation per unit cell of the 'MAPbI3' compound as follows:
+The energy contained in each row is an energy with respect to some arbitrary reference, which was set in the original calculation. A more sensible reference is provided by the materials with `subproject == 'references'`. We can calculate the heat of formation per unit cell of the 'MAPbI3' compound as follows:
 """
 
 # %%
@@ -206,11 +207,11 @@ for row in db.select(subproject='references'):
     en_refs[row.element] = row.energy / row.natoms
 
 E_standard = en_cubic - (8 * en_refs['MA'] + en_refs['Pb'] + 3 * en_refs['I'])
-print(f'hof={E_standard / row.natoms:.3f} eV/atom')
+print(f'hof = {E_standard / row.natoms:.3f} eV/atom')
 
 # %%
 """
-Based on this, can you calculate the heat of formation per formula unit of MAPbI$_3$ in the tetragonal phase versus the cubic phase? What about the heat of formation of FASnBr$_2$Cl in the orthorhombic_1 phase versus the cubic phase of the FASnBr$_3$ and FASnCl$_3$. (hint: tetragonal and orthorhombic phases have a unit cell larger than the cubic structure).
+Based on this, can you calculate the difference in heat of formation per formula unit of MAPbI$_3$ in the tetragonal phase versus the cubic phase? What about the heat of formation of FASnBr$_2$Cl in the orthorhombic_1 phase versus the cubic phase of the FASnBr$_3$, and of FASnCl$_3$. (hint: tetragonal and orthorhombic phases have a unit cell larger than the cubic structure).
 """
 
 # %%
@@ -277,7 +278,7 @@ for row in db.select(symmetry='cubic', limit=5):
 """
 We see that as expected, the row has a '1' in the first position, indicating that it has a cubic symmetry.
 
-We are now ready to generate the input matrix $X$ that we will use in the machine learning process
+We are now ready to generate the input matrix $X$ that we will use in the machine learning process. At the same time we extract the indirect band gap as the target vector, $y$.
 """
 
 # %%
@@ -296,7 +297,7 @@ print('Y.shape =', np.shape(y))
 r"""
 ## Modelling
 
-With the input and output in place, we are ready to do some first machine
+With the input and output in place, we are ready to do the initial machine
 learning. All supervised machine learning processes do the following, in a
 generalized sense:
 
@@ -317,17 +318,14 @@ The very simplest class of machine learning models are just generalized
 linear models, where the target, $y$, is assumed to be a linear function of
 the input variables. You can read more about them
 [here](http://scikit-learn.org/stable/modules/linear_model.html#ordinary-least-squares). For a
-linear function, we guess a functional form $f(\mathbf{x}) = \sum_n w_n x_n =
-\mathbf w \cdot \mathbf x$, and seek to optimize the weight vector, $\mathbf
-w$.
+linear function, we guess a functional form $f(\mathbf{x}) = \sum_n w_n x_n = \mathbf w \cdot \mathbf x$, and seek to optimize the weight vector, $\mathbf w$.
 
-If we choose the loss function $L = \sum_i (f(\mathbf{x}_i) - y_i))^2 =
-\sum_{i} (\sum_{n}w_i x_{in} - y_i)^2$, we will recover ordinary least
-squares regression. In matrix terms, the loss corresponds to the norm $ L =
-\left\| \mathbf{y} - \mathbf{X} \mathbf{w} \right\|^2$. The loss is minimal
-when the derivative with respect to the weight vector is zero. A bit of
-rearranging gives that this is true when $\mathbf w =
-(\mathbf{X}^T\mathbf{X}) ^ {-1} \mathbf{X}^T \mathbf{y}$
+If we choose the loss function
+$$ L = \sum_i (f(\mathbf{x}_i) - y_i))^2 = \sum_{i} \left(\sum_{n}w_i x_{in} - y_i\right)^2 $$
+, we will recover ordinary least squares regression. In matrix terms, the loss corresponds to the norm $ L = \left\| \mathbf{y} - \mathbf{X} \mathbf{w} \right\|^2$.
+The loss is minimal when the derivative with respect to the weight vector is zero. A bit of
+rearranging gives that this is true when
+$$ \mathbf w = (\mathbf{X}^T\mathbf{X}) ^ {-1} \mathbf{X}^T \mathbf{y} $$
 
 Here $\mathbf w$ is an (n_features, 1) weight vector that we are trying to
 find, $\mathbf{X}$ is an (n_samples , n_features) matrix of our observed
@@ -368,12 +366,14 @@ noise = np.random.normal(scale=0.2, size=nsamples).reshape(-1, 1)
 y_toy = np.dot(X_toy, coefficients) + noise
 w, loss = fit(X_toy, y_toy)
 plt.scatter(np.dot(X_toy, w), y_toy)
+plt.plot(plt.xlim(), plt.ylim(), ls='--', color='k')
+
 plt.show()
 print(w)
 
 # %%
 """
-Once that is working, try it on the original data! (hint: you have already calculated the materix $x$ and y above) Does everything work as it should?
+Once that is working, try it on the original data! (hint: you have already calculated the matrix $X$ and target vector $y$ above) Does everything work as it should?
 """
 
 # %%
@@ -398,19 +398,17 @@ We can alleviate this by adding a regularization term to our loss function, whic
 
 # %%
 # teacher
-def fit2(X, y, alpha):
-    alpha2 = alpha * X.shape[0]  # why scale it with the number of samples?
-    I = np.identity(X.shape[1])
-    w2 = np.linalg.inv(X.T @ X + alpha2 * I) @  X.T @ y  # solve would be more stable
-    loss2 = np.linalg.norm(y - X @ w2)**2 + alpha2 * np.linalg.norm(w2)**2
-    return w2, loss2
+def fit(X, y, alpha):
+    w = np.linalg.inv(X.T @ X + alpha * np.eye(X.shape[1])) @ X.T @ y
+    L = np.linalg.norm(y - X @ w)**2 + alpha * np.linalg.norm(w)**2
+    return w, L
 
-w, loss = fit2(X, y, 0.01)
+w, loss = fit(X, y, 1e-4)
 print(w.T , loss)
 print('yes e.g. first value == cubic is negative -> gives smaller bandgaps')
-plt.scatter(np.dot(X, w),y)
-plt.plot(plt.xlim(),plt.ylim(),ls = '--', color='k')
-plt.plot()
+plt.scatter(np.dot(X, w), y)
+plt.plot(plt.xlim(), plt.ylim(), ls='--', color='k')
+
 plt.show()
 
 # %%
@@ -426,24 +424,29 @@ linear.fit(X, y)
 ybar = linear.predict(X)
 ymax = np.array((y, ybar)).max() + 0.1
 plt.scatter(ybar, y)
-plt.xlim(0, ymax)
-plt.ylim(0, ymax)
-plt.plot([0, ymax], [0, ymax], 'k--')
+lims = [
+    np.min([plt.xlim(), plt.ylim()]),
+    np.max([plt.xlim(), plt.ylim()])
+]
+plt.plot(lims, lims, ls='--', color='k')
 plt.xlabel('Predicted Band Gap [eV]')
 plt.ylabel('Actual Band Gap [eV]')
 
 # We can wrap the above in a function, to avoid typing that same code again later
-def make_comparison_plot(X, y, model):
+def limits():
+    lims = [
+        np.min([plt.xlim(), plt.ylim()]),
+        np.max([plt.xlim(), plt.ylim()])
+    ]
+    plt.plot(lims, lims, ls='--', color='k')
+
+def make_comparison_plot(X, y, model, label):
     model.fit(X, y)
     ybar = model.predict(X)
-    ymax = np.array((y, ybar)).max() + 0.1
-    ymin = np.array((y, ybar)).min() - 0.1
     plt.scatter(ybar, y)
-    plt.xlim(ymin, ymax)
-    plt.ylim(ymin, ymax)
-    plt.plot([ymin, ymax], [ymin, ymax], 'k--')
-    plt.xlabel('Predicted Band Gap [eV]')
-    plt.ylabel('Actual Band Gap [eV]')
+    limits()
+    plt.xlabel(f'Predicted {label}')
+    plt.ylabel(f'Actual {label}')
 
 # %%
 """
@@ -468,7 +471,7 @@ We see that despite the singular matrix, sklearn is able to do a linear fit, and
 from sklearn import linear_model
 
 linear_regularized = linear_model.Ridge(alpha = .5)
-make_comparison_plot(X, y, linear_regularized)
+make_comparison_plot(X, y, linear_regularized, "Band Gap [eV]")
 
 # %%
 print(linear_regularized.coef_)
@@ -478,7 +481,7 @@ print(linear_regularized.intercept_)
 """
 From visual inspection, it seems that the regularized model performs about as well as the original linear model.
 
-To proceed with the machine learning, we need some way of evaluating the performance of a model which is better than visual inspection of predicted versus actual values, and an assessment of the reasonableness of model parameters. Scikit-learn provides a `score()' method for each model, which evaluates how good the fit is.
+To proceed with the machine learning, we need some way of evaluating the performance of a model, which is better than visual inspection of predicted versus actual values, and an assessment of the reasonableness of model parameters. Scikit-learn provides a `score()` method for each model, which evaluates how good the fit is.
 """
 
 # %%
@@ -486,9 +489,9 @@ linear_regularized.score(X, y)
 
 # %%
 """
-To truly compare between models, we should ideally train on some data, and evaluate the model on a different set of data. Otherwise, we could create a perfect model just by storing all the input data, and looking up the correct answer. The way to do this is by cross-validation, where the data is randomly split into a number of buckets, and for each bucket, the model is trained on all the other data, and then tested on the data in the bucket. Since the data might have a meaningful order in the database, it is important that the assignment of the data to each bucket is done at random. This is accomplished by `shuffle` argument to `KFold`.
+To truly compare between models, we should ideally train on some data, and evaluate the model on a different set of data. Otherwise, we could create a perfect model just by storing all the input data, and looking up the correct answer. The way to do this is by cross-validation, where the data is randomly split into a number of buckets, and for each bucket, the model is trained on all the other data, and then tested on the data in the bucket. Since the data might have a meaningful order in the database, it is important that the assignment of the data to each bucket is done at random. This is accomplished by the `shuffle` argument to `KFold`.
 
-This approach to evaluating the performance of a model is very general and can also be used to optimize the so-called hyperparameters of a model, such as the regularization parameter alpha. Here, we will not optimize alpha, but only compare the performance of the alpha=0 and alpha=0.5 model. The score has been chosen so that the closer it is to 1, the better.
+This approach of evaluating the performance of a model is very general and can also be used to optimize the so-called hyperparameters of a model, such as the regularization parameter $\alpha$. Here, we will not optimize $\alpha$, but only compare the performance of the `alpha=0` and `alpha=0.5` model. The score has been chosen so that the closer it is to 1, the better.
 """
 
 # %%
@@ -505,7 +508,6 @@ Having looked at the band gap, we turn now to the heat of formation, which was d
 """
 
 # %%
-plt.close()
 en_refs = {}
 for row in db.select(subproject='references'):
     en_refs[row.element] = row.energy/len(row.symbols)
@@ -530,25 +532,14 @@ from sklearn import linear_model
 linear_regularized = linear_model.Ridge(alpha=.5)
 
 HoF = np.array(HoF)
-w, loss = fit2(X, HoF, 0.01)
+w, loss = fit(X, HoF, 0.01)
 ybar2 = X @ w
 plt.scatter(np.dot(X, w), HoF)
-ymax = np.array((HoF, ybar2)).max() + 0.1
-ymin = np.array((HoF, ybar2)).min() - 0.1
-plt.xlim(ymin, ymax)
-plt.ylim(ymin, ymax)
-plt.plot([ymin, ymax], [ymin, ymax], ls='--', color='k')
+limits()
 plt.show()
+
 plt.figure()
-linear_regularized.fit(X, HoF)
-ybar = linear_regularized.predict(X)
-plt.xlim(ymin, ymax)
-plt.ylim(ymin, ymax)
-plt.plot([ymin, ymax], [ymin, ymax], 'k--')
-plt.xlabel('Predicted Heat of Formation [eV]')
-plt.ylabel('Actual Heat of Formation [eV]')
-plt.scatter(ybar, HoF)
-plt.show()
+make_comparison_plot(X, HoF, linear_regularized, "Heat of Formation [eV/Fu]")
 
 # %%
 """
@@ -562,32 +553,20 @@ You should start by creating the target vector, which describes which symmetry i
 """
 
 # %%
+# Define `X_hof` and `y_hof` in here
 # teacher
-from operator import itemgetter
-symmetry_map = {'cubic': 0,
-                'tetragonal': 1,
-                'orthorhombic_1': 2,
-                'orthorhombic_2': 3}
-names = []
-zipped = []
-for i,row in enumerate(db.select(project='organometal')):
-    names.append(row.name)
-    zipped.append([row.name, row.symmetry, HoF[i], row.gllbsc_ind_gap])
-out = []
-test = []
-for comp in set(names):
-    energies = [entry for entry in zipped if entry[0]==comp]
-    pref_sym = sorted(energies, key=itemgetter(2))[0][1]
-    out.append([comp, pref_sym])
-    test.append([comp, sorted(energies, key=itemgetter(2))[0][3]])
-y_hof = []
-print(test)
-for row in db.select(project='organometal'):
-    preferred = [x[1] for x in out if x[0] == row.name]
-    y_hof.append(symmetry_map[preferred[0]])
-X_hof = X[:,4:]
-y_hof = np.array(y_hof)
-print(y_hof.shape,X_hof.shape)
+from collections import defaultdict
+X_hof = X[:, 4:]
+
+collection = defaultdict(list)
+for vec, hof in zip(X, HoF):
+    symm_vec = vec[:4].tolist().index(1)
+    comp = (*vec[4:],)
+    collection[comp].append((symm_vec, hof))
+most_stable = {k: min(collection[k], key=lambda ls: ls[1])[0] for k in collection}
+
+y_hof = np.array([most_stable[(*k,)] for k in X_hof])
+print(y_hof.shape, X_hof.shape)
 
 # %%
 """
@@ -597,7 +576,7 @@ Once you have that, we can start modelling this data. To try something different
 # %%
 from sklearn import tree
 clf = tree.DecisionTreeClassifier()
-clf = clf.fit(X_hof, y_hof)  # student: clf = clf.fit(XXX)
+clf = clf.fit(X_hof, y_hof)  # student: clf = clf.fit(?, ?)
 
 
 # %%
@@ -642,37 +621,58 @@ plt.show()
 There is much more information we could include in the input vector, which might increase our predictive power of our model. An example could be the covalent radius of tin vs lead, or of the halogens, which will tend to increase or decrease the lattice constant of the whole crystal, and hence the energy. The covalent radii are available in `ase.data`, and can be imported as `from ase.data import covalent_radii`. Another example could be the electronegativities of the halogens, which will play a role in the character of the bonds. The mulliken electronegativities of chlorine, bromine and iodine are 8.3, 7.59 and 6.76 respectively
 
 Start by redoing a basic examination of the data: plot the band gap and heats of formation against some of the quantities you might add, and see if there is any correlation. For the quantities that do have a correlation, try adding them to the input vector, and see which (if any) result in an improved model for either the heat of formation, the relative energetic ordering of the symmetry classes, or the band gap.
-
 """
 
 # %%
 # teacher
-from ase.data import covalent_radii,atomic_numbers
-# use average covalent radii?
-covalent_radii[atomic_numbers['Cl']]
-X_add = []
-for row in db.select(project='organometal'):
-    cov_av = 0
-    n = 0
-    for sym in row.symbols:
-        if sym in ['Cl','Br','I']:
-            cov_av += covalent_radii[atomic_numbers[sym]]
-            n += 1
-    X_add.append(cov_av/n)
-print(X.shape)
-X_more = np.concatenate((X,np.array(X_add).reshape(len(X_add),1)),axis=1)
-print(X_more.shape)
-HoF = np.array(HoF)
-print(linear_regularized.score(X, HoF))
-#print(linear_regularized.score(X_more, HoF))
-w, loss1 = fit2(X_more, HoF,0.5)
-plt.scatter(np.dot(X_more, w),HoF)
+from ase.data import covalent_radii as c_r, atomic_numbers as num
 
-plt.plot(plt.xlim(),plt.ylim(),ls = '--', color='k')
+B_radii = np.array([c_r[num['Pb']], c_r[num['Sn']]])  # Pb, Sn
+X_radii = np.array([c_r[17], c_r[53], c_r[35]])  # Cl, I, Br
+elec_neg = np.array([8.3, 6.76, 7.59])  # Cl, I, Br
+
+B_r = [np.sum(r[3:5]*B_radii) for r in X_hof]
+X_r = [np.mean(r[5:8]*X_radii) for r in X_hof]
+eln = [np.mean(r[5:8]*elec_neg) for r in X_hof]
+
+from itertools import product
+
+properties = {
+    "B radius": B_r,
+    "X radius": X_r,
+    "Mulliken": eln
+}
+responses = {
+    "Band Gap": y,
+    "HoF": HoF
+}
+
+for (prop_name, prop), (resp_name, resp) in product(properties.items(), responses.items()):
+    plt.scatter(prop, resp)
+    plt.title(f"{resp_name} vs. {prop_name}")
+    plt.xlabel(prop_name)
+    plt.ylabel(resp_name)
+    plt.show()
+
+# %%
+# teacher
+"""
+The average covalent radius of the Xs, and the Mulliken electronegativity of the Xs, show correlations with both output variables, so could be added.
+"""
+
+# %%
+# teacher
+X_add = np.hstack((X, np.array(X_r).reshape(-1, 1), np.array(eln).reshape(-1, 1)))
+print(X_add.shape)
+
+w, loss_add = fit(X_add, HoF, 0.5)
+plt.scatter(np.dot(X_add, w), HoF)
+limits()
 plt.show()
-w, loss2 = fit2(X, HoF,0.5)
-print('Loss with covalent: ',loss1)
-print('Loss without: ', loss2)
+
+_, loss = fit(X, HoF, 0.5)
+print('Loss with covalent: ', loss_add)
+print('Loss without: ', loss)
 print('yes, loss is better')
 
 # %%
@@ -682,9 +682,9 @@ print('yes, loss is better')
 Most phenomena we encounter don't have nice linear relationships between inputs and outputs. We model nonlinear relationships in two different ways: we either introduce nonlinearity in our features, or in our model. The first
 is known as feature engineering, and requires a good method. The second makes optimizing the parameters of our model slightly more difficult, as we can lose many of the nice properties of the linear model, such as the closed-form solution.
 
-Here we will focus on gaussian process regression as a case study. You can read more about it here: http://scikit-learn.org/stable/modules/gaussian_process.html#gaussian-process. This lets us fit nonlinear functions and also provides a confidence interval indicating how well the machine is doing.
+Here we will focus on gaussian process regression as a case study. You can read more about it [here](http://scikit-learn.org/stable/modules/gaussian_process.html#gaussian-process). This lets us fit nonlinear functions and also provides a confidence interval indicating how well the machine is doing.
 
-Similar to the linear_regression, we can import it as from sklearn and create an example of the model with `model = GaussianProcessRegressor(kernel=YYY)`, where `YYY` is the kernel used. as a start, we should use a radial basis function, which is also available from sklearn. As usual, the model has a `fit()` and a `predict()` method, which sets the parameters of the model, and tries to predict outputs based on inputs
+Similar to the `linear_regression`, we can import it from `sklearn` and create an example of the model with `model = GaussianProcessRegressor(kernel=YYY)`, where `YYY` is the kernel used. As a start, we should use a radial basis function, which is also available from `sklearn`. As usual, the model has a `fit()` and a `predict()` method, which sets the parameters of the model, and tries to predict outputs based on inputs.
 """
 
 # %%
@@ -699,27 +699,35 @@ model.score(X, y)
 
 # %%
 """
-The model we have chosen is very dependent on the length scale we set for the kernel, and it is not given that the value chosen above (0.1). The fact that we have a score of 1.0 is an indication that we may be overfitting. The trick to selecting the best value of this parameter is again cross-validation. We can loop over different possible values of the hyperparameter to make different classes of models, and then evaluate the cross-validation score of each to see which performs best. Try this!
+The model we have chosen is very dependent on the length scale we set for the kernel, and it is not given that the value chosen above (0.1) is a good choice. The fact that we have a score of 1.0 is an indication that we may be overfitting. The trick to selecting the best value of this parameter is again cross-validation. We can loop over different possible values of the hyperparameter to make different classes of models, and then evaluate the cross-validation score of each to see which performs best. Try this!
 """
 
 # %%
 # teacher
-lengths = [0.1, 0.5, 1.0, 1.5, 2.0, 5.0, 10.0, 20.0]
-folds = model_selection.KFold(n_splits=4, shuffle=True, random_state=1)
-for length in lengths:
-    kernel = RBF(length_scale=length)
-    model = GaussianProcessRegressor(kernel=kernel)
-    print(length, model_selection.cross_val_score(model, X, y, cv=folds))
+best = (None, np.zeros(3))
+folds = model_selection.KFold(n_splits=3, shuffle=True, random_state=1)
+for sigma in [1e-2, 1e-1, 5e-1, 1, 5e1, 1e2]:
+    kernel = RBF(length_scale=sigma)
+    m = GaussianProcessRegressor(kernel=kernel)
+    score = model_selection.cross_val_score(m, X, y, cv=folds, scoring='explained_variance')
+    new = (m, score)
+    best = max(best, new, key=lambda t: t[1].mean())
+    print(f"Scored {score} for length scale {sigma:e}")
+
+best_model, best_score = best
+best_model.fit(X, y).kernel_
 
 
 # %%
 """
-Ideally you should find that length scales of ~1.0 perform best according to this scoring metric. In general, scikit has many tools for finding optimized hyperparameters for a given model - an example is [GridSearchCV](http://scikit-learn.org/stable/auto_examples/model_selection/plot_grid_search_digits.html), which automatically goes through all possible combinations of hyperparameters, finding the best one. You should note that there is a problem with using the Cross-validation scores we compute here to evaluate the performance of a given set of hyperparameters, which is very similar to the original problem of overfitting. Can you see what it is?
+Ideally you should find that length scales of ~1.0 perform best according to this scoring metric. In general, `scikit` has many tools for finding optimized hyperparameters for a given model - an example is [GridSearchCV](http://scikit-learn.org/stable/auto_examples/model_selection/plot_grid_search_digits.html), which automatically goes through all possible combinations of hyperparameters, finding the best one. You should note that there is a problem with using the Cross-validation scores we compute here to evaluate the performance of a given set of hyperparameters, which is very similar to the original problem of overfitting. Can you see what it is?
 """
 
 # %%
 # teacher
-# The hyperparameters have become parameters of our final model, and so by fitting the hyperparameters to the same data that we use to evaluate the model, we artificially increase the score of our model
+"""
+The hyperparameters have become parameters of our final model, and so by fitting the hyperparameters to the same data that we use to evaluate the model, we artificially increase the score of our model
+"""
 
 # %%
 """
@@ -727,36 +735,45 @@ Ideally you should find that length scales of ~1.0 perform best according to thi
 
 Now we've reached the stage where we start actually doing electronic structure calculations!
 
-We would like to test the models we have made by comparing the predicted quantities to calculated quantities. We are looking for materials which have a negative heat of formation, which are the most stable ones in their composition class out of all the different symmetry types, and which have a band gap of approximately 1.5 eV. Can you find a material matching the above criteria?
+We would like to test the models we have made by comparing the predicted quantities to calculated quantities. We are looking for a material that is not present in the database, and fulfills the following criteria:
+* It has a negative heat of formation
+* The cubic symmetry is the most stable for this composition class (due to computational cost of the other symmetry types)
+* It has a band gap of approximately 1.5 eV
+
+It might not be possible to find a material that fulfills all, so try to find one, where the band gap of the cubic symmetry structure is close to 1.5 eV.
 """
 
 # %%
-from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import RBF
+# Determine all the materials in the database, that do not have the cubic symmetry calculated
+names = set(r.name for r in db.select("symmetry!=cubic", project="organometal")) - \
+        set(r.name for r in db.select(project="organometal", symmetry="cubic"))
 
-kernel = RBF()
-model = GaussianProcessRegressor(kernel=kernel)
-model.fit(X, y)
-y_bar = model.predict(X)
-print('KRR: ', model.score(X,y))
-print('Linear Reg:', linear_regularized.score(X, y))
-plt.scatter(y_bar,y)
-plt.plot(plt.xlim(), plt.ylim(), ls = '--', color='k')
-plt.show()
+# teacher
+# /* New code
+rows = [r for n in names for r in db.select(name=n)]
+new_X = np.array([calculate_input_vector(r) for r in rows])
+new_X[:, :4] = [1, 0, 0, 0]
+
+pred_bg = best_model.predict(new_X).flatten()
+
+print(f"Material    Found Symmetry   Gap    Predicted Gap\n{'-'*50}")
+for r, bg in zip(rows, pred_bg):
+    print(f"{r.name: <12}{r.symmetry: <17}{r.gllbsc_ind_gap:.3f}  {bg:.3f}")
 
 # %%
 """
-Ideally there is a structure similar to it in the database. To generate the new structure, we can therefore start with the atoms object of the similar structure. Suppose the identical structure is already present, only with lead instead of tin in the structure. We can then generate an initial guess for the starting structure by doing
+Ideally there is a structure similar to it in the database. To generate the new structure, we can therefore start with the atoms object of the similar structure. Suppose the identical structure is already present, only with lead instead of tin in the structure. We can then generate an initial guess for the starting structure.
 """
 
 # %%
-row = next(db.select(name='MAPbI3', symmetry='cubic'))  # student: row = next(db.select(name='similar name', symmetry='similar symmetry'))
+row = next(db.select('Cs,Sn', symmetry='cubic'))  # student: row = next(db.select(name='similar name', symmetry='similar symmetry'))
 atoms = row.toatoms()
 symbols = atoms.get_chemical_symbols()
-new_symbols = ['Sn' if symbol == 'Pb' else symbol
+new_symbols = ['Pb' if symbol == 'Sn' else symbol  # student: new_symbols = [? if symbol == ? else symbol
                for symbol in symbols]
 atoms.set_chemical_symbols(new_symbols)
 view(atoms)
+atoms.write("chosen_material.xyz")
 
 # %%
 """
@@ -764,16 +781,18 @@ Hopefully, you should see that the structure looks as expected! Unfortunately, t
 
 **Tip**: You can save the following cell to a file, say `myrelax.py`, by uncommenting the first line and using the next cell to submit it to the cluster by writing the following in a cell:
 ~~~
-!qsub.py -p 8 -t 4 myrelax.py
+!mq submit myrelax.py -R 8:1:4h
 ~~~
 """
 
 # %%
 #%%writefile myrelax.py
 from gpaw import GPAW, FermiDirac, PW
+from ase.io import read
 from ase.optimize.bfgs import BFGS
 from ase.constraints import UnitCellFilter
 
+atoms = read('chosen_material.xyz')
 name = atoms.get_chemical_formula()
 calc = GPAW(mode=PW(500),
             kpts={'size': (4, 4, 4), 'gamma': True},
@@ -783,7 +802,7 @@ calc = GPAW(mode=PW(500),
 
 atoms.calc = calc
 uf = UnitCellFilter(atoms, mask=[1, 1, 1, 0, 0, 0])
-relax = BFGS(uf,logfile=name + '_relax.log',trajectory=name + '_relax.traj')
+relax = BFGS(uf, logfile=name + '_relax.log', trajectory='chosen_relax.traj')
 relax.run(fmax=0.05)  # force is really a stress here
 
 # %%
@@ -794,8 +813,9 @@ Once we have the relaxed structure, we are ready to roll! We need to calculate t
 # %%
 #%%writefile dft-gllb.py
 from ase.io import read
+from gpaw import GPAW, FermiDirac, PW
 
-atoms = read(name + '_relax.traj')
+atoms = read('chosen_relax.traj')
 calc = GPAW(mode=PW(500),
             kpts={'size': (8, 8, 8), 'gamma': True},
             xc='GLLBSC',
@@ -813,6 +833,8 @@ response = calc.hamiltonian.xc.response
 dxc_pot = response.calculate_discontinuity_potential(homo, lumo)
 KS_gap, dxc = response.calculate_discontinuity(dxc_pot)
 gap = KS_gap + dxc
+print(f"The gap is {gap:.3f} with components: Kohn-Sham gap {KS_gap:.3f} and "
+      f"discontinuity gap of {dxc:.3f}.")
 
 # %%
 """

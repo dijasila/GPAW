@@ -38,8 +38,15 @@ class Preconditioner:
                 return self.__call__(residuals[np.newaxis], kpt)[0]
             return self.__call__(residuals[np.newaxis], kpt,
                                  out=out[np.newaxis])[0]
+
         nb = len(residuals)  # number of bands
-        assert nb <= self.scratch0.shape[1], (nb, self.scratch0.shape)
+        nb0 = self.scratch0.shape[1]
+        if nb > nb0:
+            assert out is not None
+            for n1 in range(0, nb, nb0):
+                self(residuals[n1:n1 + nb0], kpt, out=out[n1:n1 + nb0])
+            return out
+
         phases = kpt.phase_cd
         step = self.step
         if out is None:

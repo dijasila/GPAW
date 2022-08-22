@@ -6,6 +6,7 @@ from ase.units import Ha
 
 from gpaw import KohnShamConvergenceError
 from gpaw.convergence_criteria import check_convergence
+from gpaw.forces import calculate_forces
 
 
 class SCFLoop:
@@ -221,6 +222,11 @@ class SCFEvent:
         self.wfs = wfs
         self.niter = niter
         self.log = log
+
+    def calculate_forces(self):
+        with self.wfs.timer('Forces'):
+            F_av = calculate_forces(self.wfs, self.dens, self.ham)
+        return F_av
 
 
 oops = """

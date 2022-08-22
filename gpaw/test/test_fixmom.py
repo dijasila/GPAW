@@ -21,5 +21,5 @@ def test_fixmom():
                 occupations=FermiDirac(0.1, fixmagmom=True))
     bulk.calc = calc
     bulk.get_potential_energy()
-    mom = calc.get_magnetic_moment()
+    mom = bulk.get_magnetic_moment()
     assert mom == pytest.approx(mom0, abs=0.005)

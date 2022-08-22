@@ -85,14 +85,9 @@ class LrTDDFT(ExcitationList):
 
         if calculator is not None and calculator.initialized:
             # XXXX not ready for k-points
-            assert len(calculator.wfs.kd.ibzk_kc) == 1
+            assert len(calculator.wfs.kd.bzk_kc) == 1
             if calculator.wfs.mode not in ['fd', 'lcao']:
                 raise RuntimeError('LrTDDFT supports only fd and lcao modes')
-            if calculator.wfs.kd.comm.size > 1:
-                err_txt = 'Spin parallelization with Linear response '
-                err_txt += "TDDFT. Use parallel={'domain': world.size} "
-                err_txt += 'calculator parameter.'
-                raise NotImplementedError(err_txt)
             if calculator.parameters.mode != 'lcao':
                 calculator.converge_wave_functions()
             if calculator.density.nct_G is None:

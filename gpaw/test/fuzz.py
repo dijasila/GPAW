@@ -224,7 +224,7 @@ def run2(atoms: Atoms,
     calculation = NewGPAW(gpw_file).calculation
 
     energy2 = calculation.results['energy'] * Ha
-    assert abs(energy2 - energy) < 1e-14, (energy2, energy)
+    assert abs(energy2 - energy) < 1e-13, (energy2, energy)
 
     if forces is not None:
         forces2 = calculation.results['forces'] * Ha / Bohr

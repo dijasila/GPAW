@@ -3,7 +3,7 @@ from ase.utils import IOContext
 from ase.utils.timing import Timer
 
 from gpaw import disable_dry_run
-from gpaw.calculator import GPAW
+from gpaw import GPAW
 import gpaw.mpi as mpi
 
 
