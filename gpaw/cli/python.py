@@ -19,7 +19,10 @@ class CLICommand:
                            help='Run library module as a script.')
         parser.add_argument('arguments', metavar='ARG',
                             help='Arguments passed to program in '
-                            'sys.argv[1:].',
+                            'sys.argv[1:].  '
+                            'Use -- to force all remaining arguments to be '
+                            'passed to target program (useful for passing '
+                            'options starting with -).',
                             nargs='*')
 
     @staticmethod
