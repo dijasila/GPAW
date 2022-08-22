@@ -8,7 +8,7 @@
 In this exercise we are going to calculate the absorption spectra of the material you have considered so far.
 In general, the absorption spectrum is given by the imaginary part of the macroscopic dielectric function. This means that our computational task is to calculate the macroscopic dielectric function for our material, and then plot the imaginary part. For more information about the dielectric function please consult:
 
-https://wiki.fysik.dtu.dk/gpaw/tutorials/dielectric_response/dielectric_response.html#df-tutorial
+https://wiki.fysik.dtu.dk/gpaw/tutorialsexercises/opticalresponse/dielectric_response/dielectric_response.html
 
 To calculate the dielectric function, we will use the Random Phase Approximation (RPA) correlation energy (so we say we calculate the absorption spectrum within the random phase approximation).
 (Details about RPA to calculate the total energy can be found here: https://wiki.fysik.dtu.dk/gpaw/documentation/xc/rpa.html#rpa)

@@ -12,6 +12,14 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.23.0b1
 
+
+Version 22.8.0
+==============
+
+Aug 18, 2022: :git:`22.8.0 <../22.8.0>`
+
+* Corresponding ASE release: ASE-3.22.1.
+
 * Updated :ref:`WSL installation instructions <wsl>`.
 
 * New feature for the :ref:`gpaw symmetry <cli>` command:  Will show number of
@@ -50,7 +58,6 @@ Git master branch
   response formulation of the magnetic force theorem. The module depends on a
   novel ``SiteKernels`` interface, see ``gpaw.response.site_kernels``, to
   discretize the DFT description into magnetic sublattices.
-  
 
 
 Version 22.1.0

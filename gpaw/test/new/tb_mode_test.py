@@ -1,6 +1,5 @@
 import pytest
 from ase import Atoms
-from ase.calculators.test import numeric_forces, numeric_stress
 from ase.optimize import BFGS
 from ase.constraints import ExpCellFilter
 from gpaw.new.ase_interface import GPAW
@@ -17,10 +16,9 @@ def test_tb_mode_molecule():
         symmetry='off',  # ??? should not be needed
         txt='-')  # None)
     atoms.get_potential_energy()
-    if 0:
-        f1 = atoms.get_forces()
-        f2 = numeric_forces(atoms)
-        assert abs(f1 - f2).max() < 0.0005
+    # f1 = atoms.get_forces()
+    # f2 = numeric_forces(atoms)
+    # assert abs(f1 - f2).max() < 0.0005
 
 
 @pytest.mark.serial
@@ -34,6 +32,7 @@ def test_tb_mode_bulk():
         kpts=(2, 2, 2))
     atoms.get_potential_energy()
     return
+    from ase.calculators.test import numeric_stress
     f = atoms.get_forces()
     assert abs(f).max() < 0.0001
     e = atoms.get_potential_energy()
