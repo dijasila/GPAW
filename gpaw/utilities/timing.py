@@ -8,7 +8,7 @@ import math
 
 import numpy as np
 from ase.utils.timing import Timer as BaseTimer
-from gpaw.cuda import debug_sync, get_context
+from gpaw.gpu import debug_sync, get_context
 
 import gpaw.mpi as mpi
 

@@ -9,11 +9,11 @@ from gpaw.utilities import unpack
 from gpaw.fd_operators import Laplace, Gradient
 from gpaw.overlap import Overlap
 from gpaw.wavefunctions.fd import FDWaveFunctions
-from gpaw.cuda import memcpy_dtod
+from gpaw.gpu import memcpy_dtod
 from gpaw import gpuarray
 
 import _gpaw
-import gpaw.cuda
+import gpaw.gpu
 
 
 class TimeDependentHamiltonian:
@@ -877,15 +877,15 @@ def add_linear_field(wfs, spos_ac, a_nG, b_nG, strength, kpt):
     gd = wfs.gd
 
     if isinstance(a_nG, gpuarray.GPUArray):
-        if gpaw.cuda.debug:
+        if gpaw.gpu.debug:
             a_nG_cpu = a_nG.get()
             b_nG_cpu = b_nG.get()
             add_linear_field_sub(a_nG_cpu, b_nG_cpu, gd, strength)
         _gpaw.add_linear_field_cuda_gpu(a_nG.gpudata, a_nG.shape,
                                         a_nG.dtype, b_nG.gpudata, gd.n_c,
                                         gd.beg_c, gd.h_cv, strength)
-        if gpaw.cuda.debug:
-            gpaw.cuda.debug_test(b_nG, b_nG_cpu, "add_linear_field")
+        if gpaw.gpu.debug:
+            gpaw.gpu.debug_test(b_nG, b_nG_cpu, "add_linear_field")
     else:
         add_linear_field_sub(a_nG, b_nG, gd, strength)
 

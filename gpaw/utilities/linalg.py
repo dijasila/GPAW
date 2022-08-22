@@ -5,7 +5,7 @@ from gpaw.utilities.blas import axpy, scal
 from gpaw import gpuarray
 
 import _gpaw
-import gpaw.cuda
+import gpaw.gpu
 
 
 def elementwise_multiply_add(a, b, c):
@@ -15,14 +15,14 @@ def elementwise_multiply_add(a, b, c):
     assert(type(c) == type(b))
 
     if isinstance(a, gpuarray.GPUArray):
-        if gpaw.cuda.debug:
+        if gpaw.gpu.debug:
             c_cpu = c.get()
         _gpaw.elementwise_multiply_add_gpu(a.gpudata, a.shape, a.dtype,
                                            b.gpudata, b.dtype,
                                            c.gpudata)
-        if gpaw.cuda.debug:
+        if gpaw.gpu.debug:
             c_cpu += a.get() * b.get()
-            gpaw.cuda.debug_test(c, c_cpu, "elementwise_multiply_add")
+            gpaw.gpu.debug_test(c, c_cpu, "elementwise_multiply_add")
     else:
         c += a * b
 
@@ -44,14 +44,14 @@ def multi_elementwise_multiply_add(a, b, c):
         elementwise_multiply_add(a, b, c)
 
     if isinstance(a, gpuarray.GPUArray):
-        if gpaw.cuda.debug:
+        if gpaw.gpu.debug:
             c_cpu = c.get()
         _gpaw.multi_elementwise_multiply_add_gpu(a.gpudata, a.shape, a.dtype,
                                                  b.gpudata, b.shape, b.dtype,
                                                  c.gpudata)
-        if gpaw.cuda.debug:
+        if gpaw.gpu.debug:
             multi_elementwise_multiply_add_cpu(a.get(), b.get(), c_cpu)
-            gpaw.cuda.debug_test(c, c_cpu, "multi_elementwise_multiply_add")
+            gpaw.gpu.debug_test(c, c_cpu, "multi_elementwise_multiply_add")
     else:
         multi_elementwise_multiply_add_cpu(a, b, c)
 
@@ -59,11 +59,11 @@ def change_sign(x):
     """
     """
     if isinstance(x, gpuarray.GPUArray):
-        if gpaw.cuda.debug:
+        if gpaw.gpu.debug:
             x_cpu =- x.get()
         _gpaw.csign_gpu(x.gpudata, x.shape, x.dtype)
-        if gpaw.cuda.debug:
-            gpaw.cuda.debug_test(x, x_cpu, "neg")
+        if gpaw.gpu.debug:
+            gpaw.gpu.debug_test(x, x_cpu, "neg")
     else:
         scal(-1.0, x)
 
@@ -79,12 +79,12 @@ def ax2py(a, x, y):
     """
     assert(type(x) == type(y))
     if isinstance(x, gpuarray.GPUArray):
-        if gpaw.cuda.debug:
+        if gpaw.gpu.debug:
             y_cpu = y.get()
         _gpaw.ax2py_gpu(a, x.gpudata, x.shape, y.gpudata, y.shape, x.dtype)
-        if gpaw.cuda.debug:
+        if gpaw.gpu.debug:
             ax2py_cpu(a, x.get(), y_cpu)
-            gpaw.cuda.debug_test(y, y_cpu, "ax2py")
+            gpaw.gpu.debug_test(y, y_cpu, "ax2py")
     else:
         ax2py_cpu(a, x, y)
 
@@ -103,7 +103,7 @@ def multi_ax2py(a, x, y):
         ax2py(a, x, y)
     else:
         if isinstance(x, gpuarray.GPUArray):
-            if gpaw.cuda.debug:
+            if gpaw.gpu.debug:
                 y_cpu = y.get()
                 if isinstance(a, gpuarray.GPUArray):
                     multi_ax2py_cpu(a.get(), x.get(), y_cpu)
@@ -118,7 +118,7 @@ def multi_ax2py(a, x, y):
                 _gpaw.multi_ax2py_gpu(a_gpu.gpudata,
                                       x.gpudata, x.shape, y.gpudata, y.shape,
                                       x.dtype)
-            if gpaw.cuda.debug:
-                gpaw.cuda.debug_test(y, y_cpu, "multi_ax2py")
+            if gpaw.gpu.debug:
+                gpaw.gpu.debug_test(y, y_cpu, "multi_ax2py")
         else:
             multi_ax2py_cpu(a, x, y)

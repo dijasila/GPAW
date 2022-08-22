@@ -12,8 +12,8 @@ import numpy as np
 from numpy.fft import fftn, ifftn
 
 import _gpaw
+import gpaw.gpu
 from gpaw import debug
-from gpaw import cuda
 from gpaw import gpuarray
 
 # Expansion coefficients for finite difference Laplacian.  The numbers are
@@ -99,14 +99,14 @@ class FDOperator:
             if not isinstance(out_xg, gpuarray.GPUArray):
                 _out = out_xg
                 out_xg = gpuarray.to_gpu(out_xg)
-            if cuda.debug:
+            if gpaw.gpu.debug:
                 in_debug = in_xg.get()
                 out_debug = out_xg.get()
                 self.operator.apply(in_debug, out_debug, phase_cd)
             self.operator.apply_cuda_gpu(in_xg.gpudata, out_xg.gpudata,
                                          in_xg.shape, in_xg.dtype, phase_cd)
-            if cuda.debug:
-                cuda.debug_test(out_debug, out_xg, "fd_operator")
+            if gpaw.gpu.debug:
+                gpaw.gpu.debug_test(out_debug, out_xg, "fd_operator")
             if _out:
                 out_xg.get(_out)
         else:
@@ -124,14 +124,14 @@ class FDOperator:
             if not isinstance(f_g, gpuarray.GPUArray):
                 _func = f_g
                 f_g = gpuarray.to_gpu(_func)
-            if cuda.debug:
+            if gpaw.gpu.debug:
                 f_debug = f_g.get()
                 s_debug = s_g.get()
                 self.operator.relax(relax_method, f_debug, s_debug, n, w)
             self.operator.relax_cuda_gpu(relax_method, f_g.gpudata,
                                          s_g.gpudata, n, w)
-            if cuda.debug:
-                cuda.debug_test(f_debug, f_g, "relax")
+            if gpaw.gpu.debug:
+                gpaw.gpu.debug_test(f_debug, f_g, "relax")
             if _func:
                 f_g.get(_func)
         else:

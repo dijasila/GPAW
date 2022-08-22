@@ -10,7 +10,7 @@ from gpaw import debug
 from gpaw import gpuarray
 
 import _gpaw
-import gpaw.cuda
+import gpaw.gpu
 
 
 def multi_axpy_cpu(a, x, y):
@@ -28,7 +28,7 @@ def multi_axpy(a, x, y):
         axpy(a, x, y)
     else:
         if isinstance(x, gpuarray.GPUArray):
-            if gpaw.cuda.debug:
+            if gpaw.gpu.debug:
                 y_cpu = y.get()
                 if isinstance(a, gpuarray.GPUArray):
                     multi_axpy_cpu(a.get(), x.get(), y_cpu)
@@ -44,8 +44,8 @@ def multi_axpy(a, x, y):
                 _gpaw.multi_axpy_cuda_gpu(a_gpu.gpudata, a.dtype,
                                           x.gpudata, x.shape,
                                           y.gpudata, y.shape, x.dtype)
-                if gpaw.cuda.debug:
-                    gpaw.cuda.debug_test(y, y_cpu, "multi_axpy",
+                if gpaw.gpu.debug:
+                    gpaw.gpu.debug_test(y, y_cpu, "multi_axpy",
                                          raise_error=True)
         else:
             multi_axpy_cpu(a, x, y)
@@ -72,10 +72,10 @@ def multi_dotc(x, y, s=None):
             s_gpu = gpuarray.empty(x.shape[0], dtype=x.dtype)
         _gpaw.multi_dotc_cuda_gpu(x.gpudata, x.shape, y.gpudata, x.dtype,
                                   s_gpu.gpudata)
-        if gpaw.cuda.debug:
+        if gpaw.gpu.debug:
             s_cpu = np.empty(x.shape[0], dtype=x.dtype)
             multi_dotc_cpu(x.get(), y.get(), s_cpu)
-            gpaw.cuda.debug_test(s_gpu, s_cpu, "multi_dotc")
+            gpaw.gpu.debug_test(s_gpu, s_cpu, "multi_dotc")
         if not isinstance(s, gpuarray.GPUArray):
             s = s_gpu.get(s)
     else:
@@ -105,10 +105,10 @@ def multi_dotu(x, y, s=None):
             s_gpu = gpuarray.empty(x.shape[0], dtype=x.dtype)
         _gpaw.multi_dotu_cuda_gpu(x.gpudata, x.shape, y.gpudata, x.dtype,
                                   s_gpu.gpudata)
-        if gpaw.cuda.debug:
+        if gpaw.gpu.debug:
             s_cpu = np.empty(x.shape[0], dtype=x.dtype)
             multi_dotu_cpu(x.get(), y.get(), s_cpu)
-            gpaw.cuda.debug_test(s_gpu, s_cpu, "multi_dotu")
+            gpaw.gpu.debug_test(s_gpu, s_cpu, "multi_dotu")
         if not isinstance(s, gpuarray.GPUArray):
             s = s_gpu.get(s)
     else:
@@ -130,7 +130,7 @@ def multi_scal(a, x):
         scal(a, x)
     else:
         if isinstance(x, gpuarray.GPUArray):
-            if gpaw.cuda.debug:
+            if gpaw.gpu.debug:
                 x_cpu = x.get()
                 if isinstance(a, gpuarray.GPUArray):
                     multi_scal_cpu(a.get(), x_cpu)
@@ -143,8 +143,8 @@ def multi_scal(a, x):
                 a_gpu = gpuarray.to_gpu(a)
                 _gpaw.multi_scal_cuda_gpu(a_gpu.gpudata, a.dtype,
                                           x.gpudata, x.shape, x.dtype)
-            if gpaw.cuda.debug:
-                gpaw.cuda.debug_test(x, x_cpu, "multi_scal")
+            if gpaw.gpu.debug:
+                gpaw.gpu.debug_test(x, x_cpu, "multi_scal")
         else:
             multi_scal_cpu(a, x)
 

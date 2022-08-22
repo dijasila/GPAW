@@ -5,8 +5,6 @@
 from typing import Optional
 from gpaw.projections import Projections
 
-import gpaw.cuda
-
 class KPoint:
     """Class for a single k-point.
 

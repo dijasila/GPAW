@@ -5,7 +5,7 @@ from gpaw.fd_operators import Laplace
 
 from gpaw.utilities.blas import axpy, scal
 from gpaw.utilities.linalg import change_sign
-from gpaw.cuda import memcpy_dtod
+from gpaw.gpu import memcpy_dtod
 from gpaw import extra_parameters
 from gpaw import gpuarray
 import _gpaw

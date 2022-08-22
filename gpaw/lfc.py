@@ -9,7 +9,7 @@ from gpaw.grid_descriptor import GridDescriptor, GridBoundsError
 from gpaw.utilities import smallest_safe_grid_spacing
 from gpaw import gpuarray
 
-import gpaw.cuda
+import gpaw.gpu
 
 """
 
@@ -411,14 +411,14 @@ class LocalizedFunctionsCollection(BaseLFC):
             if isinstance(a_xG, gpuarray.GPUArray):
                 if self.Mmax > 0 :
                     assert self.cuda
-                    if gpaw.cuda.debug:
+                    if gpaw.gpu.debug:
                         a_xG_cpu = a_xG.get()
                         self.lfc.add(c_xM, a_xG_cpu, q)
                     c_xM_gpu = gpuarray.to_gpu(c_xM)
                     self.lfc.add_cuda_gpu(c_xM_gpu.gpudata, c_xM_gpu.shape,
                                           a_xG.gpudata, a_xG.shape, q)
-                    if gpaw.cuda.debug:
-                        gpaw.cuda.debug_test(a_xG_cpu, a_xG, "lfc add")
+                    if gpaw.gpu.debug:
+                        gpaw.gpu.debug_test(a_xG_cpu, a_xG, "lfc add")
             else:
                 self.lfc.add(c_xM, a_xG, q)
             return
@@ -468,14 +468,14 @@ class LocalizedFunctionsCollection(BaseLFC):
         if isinstance(a_xG, gpuarray.GPUArray):
             if self.Mmax > 0:
                 assert self.cuda
-                if gpaw.cuda.debug:
+                if gpaw.gpu.debug:
                     a_xG_cpu = a_xG.get()
                     self.lfc.add(c_xM, a_xG_cpu, q)
                 c_xM_gpu = gpuarray.to_gpu(c_xM)
                 self.lfc.add_cuda_gpu(c_xM_gpu.gpudata, c_xM_gpu.shape,
                                       a_xG.gpudata, a_xG.shape, q)
-                if gpaw.cuda.debug:
-                    gpaw.cuda.debug_test(a_xG_cpu, a_xG, "lfc add")
+                if gpaw.gpu.debug:
+                    gpaw.gpu.debug_test(a_xG_cpu, a_xG, "lfc add")
         else:
             self.lfc.add(c_xM, a_xG, q)
 
@@ -589,11 +589,11 @@ class LocalizedFunctionsCollection(BaseLFC):
                                             c_xM_gpu.gpudata, c_xM_gpu.shape,
                                             q)
                 c_xM = c_xM_gpu.get() * self.gd.dv
-                if gpaw.cuda.debug:
+                if gpaw.gpu.debug:
                     assert not np.isnan(c_xM).any()
                     c_xM2 = np.zeros(xshape + (self.Mmax,), dtype)
                     self.lfc.integrate(a_xG.get(), c_xM2, q)
-                    gpaw.cuda.debug_test(c_xM2, c_xM, "lfc integrate")
+                    gpaw.gpu.debug_test(c_xM2, c_xM, "lfc integrate")
             else:
                 c_xM = np.zeros(xshape + (self.Mmax,), dtype)
         else:

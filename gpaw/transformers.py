@@ -14,7 +14,7 @@ from gpaw.utilities import is_contiguous
 from gpaw import gpuarray
 import _gpaw
 
-import gpaw.cuda
+import gpaw.gpu
 
 
 class _Transformer:
@@ -87,14 +87,14 @@ class _Transformer:
             if not isinstance(output, gpuarray.GPUArray):
                 _output = output
                 output = gpuarray.to_gpu(output)
-            if gpaw.cuda.debug:
+            if gpaw.gpu.debug:
                 input_cpu = input.get()
                 output_cpu = output.get()
                 self.transformer.apply(input_cpu, output_cpu, phases)
             self.transformer.apply_cuda_gpu(input.gpudata, output.gpudata,
                                             input.shape, input.dtype, phases)
-            if gpaw.cuda.debug:
-                gpaw.cuda.debug_test(output_cpu, output, "transformer")
+            if gpaw.gpu.debug:
+                gpaw.gpu.debug_test(output_cpu, output, "transformer")
             if _output:
                 output.get(_output)
                 output = _output

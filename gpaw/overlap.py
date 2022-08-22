@@ -10,7 +10,7 @@ functions.
 """
 import numpy as np
 
-from gpaw.cuda import memcpy_dtod
+from gpaw.gpu import memcpy_dtod
 from gpaw import gpuarray
 
 

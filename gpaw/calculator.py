@@ -51,7 +51,7 @@ from gpaw.xc.sic import SIC
 from gpaw.xc.hybrid import HybridXC # needed for disabling CUDA
 from gpaw.xc.mgga import MGGA # needed for disabling CUDA
 
-import gpaw.cuda
+import gpaw.gpu
 import gpaw.xc
 
 
@@ -578,13 +578,13 @@ class GPAW(Calculator):
 
         self.log('Initialize ...\n')
 
-        gpaw.cuda.setup(**self.parameters['gpu'])
-        self.cuda = gpaw.cuda.enabled
+        gpaw.gpu.setup(**self.parameters['gpu'])
+        self.cuda = gpaw.gpu.enabled
 
         if self.cuda:
             print('Note: only RMM-DIIS and FD have been implemented in CUDA')
             self.timer.start('Cuda')
-            gpaw.cuda.init(mpi.rank)
+            gpaw.gpu.init(mpi.rank)
             self.timer.stop('Cuda')
 
         gpaw.xc.use_xc_thread = self.parameters['xc_thread']

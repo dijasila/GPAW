@@ -22,8 +22,7 @@ from gpaw.utilities.tools import construct_reciprocal
 from gpaw.utilities.timing import NullTimer
 from gpaw import gpuarray
 import _gpaw
-
-import gpaw.cuda
+import gpaw.gpu
 
 POISSON_GRID_WARNING = """Grid unsuitable for FDPoissonSolver!
 
@@ -425,7 +424,7 @@ class FDPoissonSolver(BasePoissonSolver):
             return
         # Should probably be renamed allocate
         gd = self.gd
-        if self.cuda and gpaw.cuda.get_context() == None:
+        if self.cuda and gpaw.gpu.get_context() == None:
             self.cuda = False
         self.rhos = [gd.empty(cuda=self.cuda)]
         self.phis = [None]

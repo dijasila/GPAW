@@ -10,7 +10,7 @@ from gpaw.utilities.blas import scal
 
 from gpaw.tddft.utils import MultiBlas
 from gpaw.tddft.tdopers import DummyDensity
-from gpaw.cuda import memcpy_dtod
+from gpaw.gpu import memcpy_dtod
 from gpaw import gpuarray
 
 

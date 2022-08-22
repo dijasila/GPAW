@@ -25,7 +25,7 @@ from gpaw.utilities.partition import AtomPartition
 # from gpaw.utilities.debug import frozen
 from gpaw import gpuarray
 
-import gpaw.cuda
+import gpaw.gpu
 import _gpaw
 
 ENERGY_NAMES = ['e_kinetic', 'e_coulomb', 'e_zero', 'e_external', 'e_xc',
@@ -235,8 +235,8 @@ class Hamiltonian:
             with self.timer('Initialize Hamiltonian'):
                 self.initialize()
 
-        if gpaw.cuda.debug and self.cuda:
-            gpaw.cuda.debug_test(
+        if gpaw.gpu.debug and self.cuda:
+            gpaw.gpu.debug_test(
                     self.vt_sG, self.vt_sG_gpu, "Hamiltonian vt_sG")
 
         finegrid_energies = self.update_pseudo_potential(density)
@@ -467,8 +467,8 @@ class Hamiltonian:
             When False, existing P_ani are used
 
         """
-        if gpaw.cuda.debug and self.cuda:
-            gpaw.cuda.debug_test(
+        if gpaw.gpu.debug and self.cuda:
+            gpaw.gpu.debug_test(
                     self.vt_sG, self.vt_sG_gpu, "Hamiltonian vt_sG")
 
         wfs.kin.apply(a_xG, b_xG, kpt.phase_cd)
