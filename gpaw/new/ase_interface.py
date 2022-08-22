@@ -130,7 +130,7 @@ class ASECalculator:
         and dipole moment.
         """
         with self.timer('SCF'):
-            self.calculation.converge()
+            self.calculation.converge(calculate_forces=self._calculate_forces)
 
         # Calculate all the cheap things:
         self.calculation.energies()
@@ -139,13 +139,19 @@ class ASECalculator:
 
         self.calculation.write_converged()
 
+    def _calculate_forces(self) -> Array2D:  # units: Ha/Bohr
+        """Helper method for force-convergence criterium."""
+        with self.timer('Forces'):
+            self.calculation.forces()
+        return self.calculation.results['forces']
+
     def __del__(self):
         try:
             self.log('---')
             self.timer.write(self.log)
             mib = maxrss() / 1024**2
             self.log(f'\nMax RSS: {mib:.3f}  # MiB')
-        except NameError:
+        except (NameError, AttributeError):
             pass
 
     def get_potential_energy(self,

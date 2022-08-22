@@ -11,6 +11,7 @@ class UniformGridPotentialCalculator(PotentialCalculator):
                  poisson_solver,
                  nct_aR, nct_R,
                  interpolation_stencil_range=3):
+        self.fine_grid = fine_grid
         self.nct_aR = nct_aR
 
         fracpos_ac = nct_aR.fracpos_ac
