@@ -45,5 +45,7 @@ def init(rank=0):
     return True
 
 
-get_context = backend.get_context
-debug_test = backend.debug_test
+# for ease of use, make the module behave as if it would be the backend,
+#   i.e. gpu.enabled == gpu.backend.enabled etc.
+def __getattr__(key):
+    return getattr(backend, key)
