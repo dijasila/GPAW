@@ -5,10 +5,8 @@ import _gpaw
 from .backend import DummyBackend
 
 class CUDA(DummyBackend):
-    import pycuda.driver as drv
-    import pycuda.tools as tools
+    from pycuda import driver as _driver
     from pycuda.driver import memcpy_dtod
-    from gpaw import gpuarray
 
     enabled = True
 
@@ -22,16 +20,17 @@ class CUDA(DummyBackend):
         atexit.register(self.delete)
 
         # initialise CUDA driver
-        drv.init()
+        self._driver.init()
 
         # select device (round-robin based on MPI rank)
-        self.device_no = (rank) % drv.Device.count()
+        self.device_no = (rank) % self._driver.Device.count()
 
         # create and activate CUDA context
-        device = drv.Device(self.device_no)
-        self.device_ctx = device.make_context(flags=drv.ctx_flags.SCHED_YIELD)
+        device = self._driver.Device(self.device_no)
+        self.device_ctx = device.make_context(
+                flags=self._driver.ctx_flags.SCHED_YIELD)
         self.device_ctx.push()
-        self.device_ctx.set_cache_config(drv.func_cache.PREFER_L1)
+        self.device_ctx.set_cache_config(self._driver.func_cache.PREFER_L1)
 
         # initialise C parameters and memory buffers
         _gpaw.gpaw_cuda_setdevice(self.device_no)
@@ -53,6 +52,8 @@ class CUDA(DummyBackend):
     def debug_test(x, y, text, reltol=1e-12, abstol=1e-13, raise_error=False):
         import warnings
         import numpy as np
+
+        from gpaw import gpuarray
 
         class DebugCudaError(Exception):
             pass
