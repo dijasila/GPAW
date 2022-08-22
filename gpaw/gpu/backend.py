@@ -10,11 +10,11 @@ class DummyBackend:
         for key in kwargs:
             setattr(self, key, kwargs[key])
 
-    def init(self, rank=0):
+    # catch-all method to ignore anything not defined explicitly
+    def _pass(self, *args, **kwargs):
         pass
 
-    def delete():
-        pass
-
-    def get_context():
-        pass
+    def __getattr__(self, key):
+        if self.debug:
+            print("DummyBackend: ignoring undefined method '{0}'".format(key))
+        return self._pass
