@@ -36,20 +36,21 @@ class CUDA(DummyBackend):
         _gpaw.gpaw_cuda_setdevice(self.device_no)
         _gpaw.gpaw_cuda_init()
 
-    def delete():
-        if self.cuda_ctx is not None:
+    def delete(self):
+        if self.device_ctx is not None:
             # deallocate memory buffers
             _gpaw.gpaw_cuda_delete()
             # deactivate and destroy CUDA context
-            self.cuda_ctx.pop()
-            self.cuda_ctx.detach()
-            del self.cuda_ctx
-            self.cuda_ctx = None
+            self.device_ctx.pop()
+            self.device_ctx.detach()
+            del self.device_ctx
+            self.device_ctx = None
 
-    def get_context():
-        return self.cuda_ctx
+    def get_context(self):
+        return self.device_ctx
 
-    def debug_test(x, y, text, reltol=1e-12, abstol=1e-13, raise_error=False):
+    def debug_test(self, x, y, text, reltol=1e-12, abstol=1e-13,
+                   raise_error=False):
         import warnings
         import numpy as np
 
