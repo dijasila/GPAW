@@ -174,12 +174,13 @@ def run(atoms: Atoms,
         else:
             pckl_file = result_file.with_suffix('.pckl')
             pckl_file.write_bytes(pickle.dumps((atoms, params, result_file)))
-            subprocess.run(
-                ['mpiexec', '-np', str(ncores),
-                 sys.executable, '-m', 'gpaw.test.fuzz',
-                 '--pickle', str(pckl_file)],
-                check=True,
-                env=os.environ)
+            args = ['mpiexec', '-np', str(ncores),
+                    sys.executable, '-m', 'gpaw.test.fuzz',
+                    '--pickle', str(pckl_file)]
+            extra = os.environ.get('GPAW_MPI_OPTIONS')
+            if extra:
+                args[1:1] = extra.split()
+            subprocess.run(args, check=True, env=os.environ)
             result, _ = json.loads(result_file.read_text())
             pckl_file.unlink()
     else:
