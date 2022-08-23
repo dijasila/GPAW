@@ -24,7 +24,7 @@ def check(root: Path) -> int:
     for path in root.glob('**/*.py'):
         for n, line in enumerate(path.read_text().splitlines()):
             for url in re.findall(r'https?://\S+', line):
-                url = url.rstrip(",.')}")
+                url = url.rstrip(""",.'")}""")
                 if url not in OK and 'html/_downloads' not in str(path):
                     if not check1(path, n, url):
                         errors += 1
