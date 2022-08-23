@@ -88,7 +88,7 @@ class UniformGrid(Domain):
     @cached_property
     def phase_factors_cd(self):
         """Phase factor for block-boundary conditions."""
-        delta_d = np.array([1, -1])
+        delta_d = np.array([-1, 1])
         disp_cd = np.empty((3, 2))
         for pos, pbc, size, disp_d in zip(self.mypos_c, self.pbc_c,
                                           self.parsize_c, disp_cd):
