@@ -95,7 +95,7 @@ class DFTCalculation:
         builder = builder or create_builder(atoms, params)
 
         if not isinstance(log, Logger):
-            log = Logger(log, builder.world)
+            log = Logger(log, params.parallel['world'])
 
         basis_set = builder.create_basis_set()
 
