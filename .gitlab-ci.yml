@@ -90,6 +90,7 @@ docs:
     - cd doc
     - make
     - make doctest
+    - cd ..
     - python3 -c "from gpaw.utilities.urlcheck import test; test()"
   when: manual
   artifacts:
