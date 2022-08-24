@@ -27,7 +27,7 @@ class UniformGrid(Domain):
                  comm: MPIComm = serial_comm,
                  decomp: Sequence[Sequence[int]] = None,
                  dtype=None):
-        """Description of 3-D uniform grid.
+        """Description of 3D uniform grid.
 
         parameters
         ----------
@@ -92,7 +92,7 @@ class UniformGrid(Domain):
         disp_cd = np.empty((3, 2))
         for pos, pbc, size, disp_d in zip(self.mypos_c, self.pbc_c,
                                           self.parsize_c, disp_cd):
-            disp_d[:] = (pos + delta_d) // size
+            disp_d[:] = -((pos + delta_d) // size)
         return np.exp(2j * np.pi *
                       disp_cd *
                       self.kpt_c[:, np.newaxis])
@@ -477,10 +477,12 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         new.data[..., i:, j:, k:] = self.data
         return new
 
-    def multiply_by_eikr(self, kpt_c=None):
+    def multiply_by_eikr(self, kpt_c: Vector = None) -> None:
         """Multiply by `exp(ik.r)`."""
         if kpt_c is None:
             kpt_c = self.desc.kpt_c
+        else:
+            kpt_c = np.asarray(kpt_c)
         if kpt_c.any():
             self.data *= self.desc.eikr(kpt_c)
 
