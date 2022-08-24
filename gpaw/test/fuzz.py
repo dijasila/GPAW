@@ -291,7 +291,7 @@ def create_systems(system_names: list[str],
                     else:
                         continue
                 else:
-                    vatoms = atoms
+                    vatoms = ratoms
                 for pbc in pick(pbcs):
                     if pbc:
                         if vatoms.pbc.all():
