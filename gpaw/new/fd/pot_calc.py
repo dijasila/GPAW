@@ -1,5 +1,7 @@
-from gpaw.new.pot_calc import PotentialCalculator
+from math import pi
+
 from gpaw.core import UniformGrid
+from gpaw.new.pot_calc import PotentialCalculator
 
 
 class UniformGridPotentialCalculator(PotentialCalculator):
@@ -56,6 +58,7 @@ class UniformGridPotentialCalculator(PotentialCalculator):
             Nt1_s = nt_sR.integrate()
             Nt2_s = nt_sr.integrate()
             for Nt1, Nt2, nt_r in zip(Nt1_s, Nt2_s, nt_sr):
+                print(Nt1, Nt2)
                 if Nt2 > 1e-14:
                     nt_r.data *= Nt1 / Nt2
         return nt_sr
@@ -73,7 +76,16 @@ class UniformGridPotentialCalculator(PotentialCalculator):
         e_zero = self.vbar_r.integrate(charge_r)
 
         ccc_aL = density.calculate_compensation_charge_coefficients()
+
+        # Normalize: (LCAO basis functions may extend outside box)
+        comp_charge = (4 * pi)**0.5 * sum(ccc_L[0]
+                                          for ccc_L in ccc_aL.values())
+        comp_charge = ccc_aL.layout.atomdist.comm.sum(comp_charge)
+        pseudo_charge = charge_r.integrate()
+        charge_r.data *= -comp_charge / pseudo_charge
+
         self.ghat_aLr.add_to(charge_r, ccc_aL)
+
         if vHt_r is None:
             vHt_r = grid2.zeros()
         self.poisson_solver.solve(vHt_r, charge_r)
