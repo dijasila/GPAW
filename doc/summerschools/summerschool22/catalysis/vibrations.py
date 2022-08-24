@@ -5,7 +5,7 @@ The energy calculated with DFT is the electronic energy at 0K. However, to model
 
 We calculate the vibrational energy in the harmonic approximation using the finite displacement method. For further reading see for example:
 
-* [Stoffel et al, Angewandte Chemie Int. Ed., 49, 5242-5266 (2010)](https://onlinelibrary.wiley.com/doi/abs/10.1002/anie.200906780)
+* [Stoffel et al, Angewandte Chemie Int. Ed., 49, 5242-5266 (2010)](https://doi.org/10.1002/anie.200906780)
 * [Togo and Tanaka, Scripta Materialia 108, 1-5 (2015)](https://www.sciencedirect.com/science/article/pii/S1359646215003127)
 
 ### Vibrational energy of the initial and final states
