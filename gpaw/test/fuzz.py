@@ -59,7 +59,7 @@ def main(args: str | list[str] = None) -> int:
     if many:
         system_names = args.system or list(systems)
         args.repeat = args.repeat or '1x1x1,2x1x1'
-        args.vacuum = args.vacuum or '0.0,2.0,3.0'
+        args.vacuum = args.vacuum or '0.0,4.0'
         args.pbc = args.pbc or '0,1'
         args.mode = args.mode or 'pw,lcao,fd'
         args.code = args.code or 'new,old'

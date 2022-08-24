@@ -58,7 +58,6 @@ class UniformGridPotentialCalculator(PotentialCalculator):
             Nt1_s = nt_sR.integrate()
             Nt2_s = nt_sr.integrate()
             for Nt1, Nt2, nt_r in zip(Nt1_s, Nt2_s, nt_sr):
-                print(Nt1, Nt2)
                 if Nt2 > 1e-14:
                     nt_r.data *= Nt1 / Nt2
         return nt_sr
