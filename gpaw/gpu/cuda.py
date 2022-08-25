@@ -8,6 +8,8 @@ class CUDA(DummyBackend):
     from pycuda import driver as _driver
     from pycuda.driver import memcpy_dtod
 
+    from gpaw import gpuarray as _gpuarray
+
     enabled = True
 
     def __init__(self, **kwargs):
@@ -49,60 +51,14 @@ class CUDA(DummyBackend):
     def get_context(self):
         return self.device_ctx
 
-    def debug_test(self, x, y, text, reltol=1e-12, abstol=1e-13,
-                   raise_error=False):
-        import warnings
-        import numpy as np
+    def copy_to_host(self, x):
+        return x.get()
 
-        from gpaw import gpuarray
+    def copy_to_device(self, x):
+        return self._gpuarray.to_gpu(x)
 
-        class DebugCudaError(Exception):
-            pass
-
-        class DebugCudaWarning(UserWarning):
-            pass
-
-        if isinstance(x, gpuarray.GPUArray):
-            x_cpu = x.get()
-            x_type = 'GPU'
+    def is_device_array(self, x):
+        if isinstance(x, self._gpuarray.GPUArray):
+            return True
         else:
-            x_cpu = x
-            x_type = 'CPU'
-
-        if isinstance(y, gpuarray.GPUArray):
-            y_cpu = y.get()
-            y_type = 'GPU'
-        else:
-            y_cpu = y
-            y_type = 'CPU'
-
-        if not np.allclose(x_cpu, y_cpu, reltol, abstol):
-            diff = abs(y_cpu - x_cpu)
-            if isinstance(diff, (float, complex)):
-                warnings.warn('%s error %s %s %s %s diff: %s' \
-                              % (text, y_type, y_cpu, x_type, x_cpu, \
-                                 abs(y_cpu - x_cpu)), \
-                              DebugCudaWarning, stacklevel=2)
-            else:
-                error_i = np.unravel_index(np.argmax(diff - reltol * abs(y_cpu)), \
-                                           diff.shape)
-                warnings.warn('%s max rel error pos: %s %s: %s %s: %s diff: %s' \
-                              % (text, error_i, y_type, y_cpu[error_i], \
-                                 x_type, x_cpu[error_i], \
-                                 abs(y_cpu[error_i] - x_cpu[error_i])),  \
-                              DebugCudaWarning, stacklevel=2)
-                error_i = np.unravel_index(np.argmax(diff), diff.shape)
-                warnings.warn('%s max abs error pos: %s %s: %s %s: %s diff:%s' \
-                              % (text, error_i, y_type, y_cpu[error_i], \
-                                 x_type, x_cpu[error_i], \
-                                 abs(y_cpu[error_i] - x_cpu[error_i])),  \
-                              DebugCudaWarning, stacklevel=2)
-                warnings.warn('%s error shape: %s dtype: %s' \
-                              % (text, x_cpu.shape, x_cpu.dtype),  \
-                              DebugCudaWarning, stacklevel=2)
-
-            if raise_error:
-                raise DebugCudaError
             return False
-
-        return True
