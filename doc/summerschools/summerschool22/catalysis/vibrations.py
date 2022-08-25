@@ -177,9 +177,8 @@ d) Calculate how the vibrational energy affects the overall reaction energy.
 # %%
 # teacher:
 # Script for analysing energy contributions from vibrations
-from ase.io import read, write
+from ase.io import read
 from ase.thermochemistry import HarmonicThermo
-import numpy as np
 from matplotlib import pyplot as plt
 
 energies = vib.get_energies()  # initial vib. energy levels

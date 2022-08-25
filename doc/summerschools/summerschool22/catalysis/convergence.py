@@ -6,9 +6,11 @@ viz.view = lambda atoms, repeat=None: None
 # %%
 """
 Convergence checks
-=================
+==================
 
-In this notebook we look at the adsorption energy and height of a nitrogen atom on a Ru(0001) surface in the hcp site.  We check for convergence with respect to:
+In this notebook we look at the adsorption energy and height of a nitrogen
+atom on a Ru(0001) surface in the hcp site.  We check for convergence with
+respect to:
 
 * number of layers
 * number of k-points in the BZ
@@ -20,7 +22,12 @@ In this notebook we look at the adsorption energy and height of a nitrogen atom 
 Nitrogen atom
 -------------
 
-First step is an isolated nitrogen atom which has a magnetic moment of 3.  More information: [Atoms](https://wiki.fysik.dtu.dk/ase/ase/atoms.html#ase.Atoms) and [GPAW parameters](https://wiki.fysik.dtu.dk/gpaw/documentation/basic.html#parameters).
+First step is an isolated nitrogen atom which has a magnetic moment of 3.
+More information:
+[Atoms][1] and [GPAW parameters][2].
+
+[1]: https://wiki.fysik.dtu.dk/ase/ase/atoms.html#ase.Atoms
+[2]: https://wiki.fysik.dtu.dk/gpaw/documentation/basic.html#parameters
 """
 
 # %%
@@ -43,7 +50,9 @@ print(en, 'eV')
 Clean slab
 ----------
 
-We use the [ase.build.hcp0001()](https://wiki.fysik.dtu.dk/ase/ase/build/surface.html#ase.build.hcp0001) function to build the Ru(0001) surface.
+We use the [ase.build.hcp0001()][3] function to build the Ru(0001) surface.
+
+[3]: https://wiki.fysik.dtu.dk/ase/ase/build/surface.html#ase.build.hcp0001
 """
 
 # %%
@@ -84,7 +93,9 @@ nslab.center(vacuum=vacuum, axis=2)  # 2: z-axis
 
 # %%
 """
-Alternatively, you can just use the [add_adsorbate()](https://wiki.fysik.dtu.dk/ase/ase/build/surface.html#ase.build.add_adsorbate) function:
+Alternatively, you can just use the [add_adsorbate()][4] function:
+
+[4]: https://wiki.fysik.dtu.dk/ase/ase/build/surface.html#ase.build.add_adsorbate
 """
 
 # %%
@@ -123,7 +134,14 @@ nslab.get_forces()
 
 # %%
 """
-The force on the N-atom is quite big.  Let's freeze the surface and relax the adsorbate.  We use [ase.optimize.BFGSLineSearch](https://wiki.fysik.dtu.dk/ase/ase/optimize.html#module-ase.optimize) and [ase.constraints.FixAtoms](https://wiki.fysik.dtu.dk/ase/ase/constraints.html#ase.constraints.FixAtoms) for this task.
+The force on the N-atom is quite big.  Let's freeze the surface and relax the
+adsorbate.  We use
+[ase.optimize.BFGSLineSearch][5] and
+[ase.constraints.FixAtoms][6]
+for this task.
+
+[5]: https://wiki.fysik.dtu.dk/ase/ase/optimize.html#module-ase.optimize
+[6]: https://wiki.fysik.dtu.dk/ase/ase/constraints.html#ase.constraints.FixAtoms
 """
 
 # %%
@@ -142,10 +160,20 @@ print('Relaxed adsorption energy:', enru - eru - en, 'eV')
 
 # %%
 """
-In order to make it easy to check for convergence of the adsorption energy and height we write a little function that does all of the stuff above taking `nlayers`, `nkpts` and `ecut` as input parameters.
+In order to make it easy to check for convergence of the adsorption energy
+and height we write a little function that does all of the stuff above taking
+`nlayers`, `nkpts` and `ecut` as input parameters.
 
-The `adsorb()` function is shown below for completenes, but you should not use it inside this notebook.  Instead, please take a look at the [check_convergence.py](https://gitlab.com/gpaw/gpaw/blob/master/doc/summerschools/summerschool18/catalysis/check_convergence.py) script that also contains the definition of the `adsorb()` function.  The script will do a bunch of calculations with different parameters and store the results in a database file (`convergence.db`) that we analyse below ...
+The `adsorb()` function is shown below for completenes, but you should not
+use it inside this notebook.  Instead, please take a look at the
+[check_convergence.py][7]
+script that also contains the definition of the `adsorb()` function.  The
+script will do a bunch of calculations with different parameters and store
+the results in a database file (`convergence.db`) that we analyse below ...
+
+[7]: https://gitlab.com/gpaw/gpaw/blob/master/doc/summerschools/summerschool18/catalysis/check_convergence.py
 """
+
 
 # %%
 def adsorb(db, height=1.2, nlayers=3, nkpts=7, ecut=400):
@@ -227,7 +255,8 @@ def adsorb(db, height=1.2, nlayers=3, nkpts=7, ecut=400):
 
 # %%
 """
-Read more about ASE databases [here](https://wiki.fysik.dtu.dk/ase/ase/db/db.html#module-ase.db).
+Read more about ASE databases
+[here](https://wiki.fysik.dtu.dk/ase/ase/db/db.html#module-ase.db).
 """
 
 # %%
@@ -251,7 +280,9 @@ for ecut in range(350, 801, 50):  # plane-wave cutoff
 
 # %%
 """
-You can inspect database file with the [command line tool](https://wiki.fysik.dtu.dk/ase/ase/db/db.html#ase-db) `ase db` like this:
+You can inspect database file with the
+[command line tool](https://wiki.fysik.dtu.dk/ase/ase/db/db.html#ase-db)
+`ase db` like this:
 """
 
 # %%
@@ -262,8 +293,10 @@ You can inspect database file with the [command line tool](https://wiki.fysik.dt
 
 # %%
 """
-Now we can analyse the results of the convergence tests.  We extract the result from the database with a little helper function `select()`:
+Now we can analyse the results of the convergence tests.  We extract the
+result from the database with a little helper function `select()`:
 """
+
 
 # %%
 def select(nlayers, nkpts, ecut):
@@ -322,7 +355,8 @@ For accurate calculations you would need:
 * 5 layers of Ru
 * 9x9 Monkhorst-Pack grid for BZ sampling (for a 1x1 unit cell)
 
-For our quick'n'dirty calculations we will use 350 eV, 2 layers and a 4x4 $\Gamma$-centered Monkhorst-Pack grid (for a 2x2 unit cell).
+For our quick'n'dirty calculations we will use 350 eV, 2 layers and a
+4x4 $\\Gamma$-centered Monkhorst-Pack grid (for a 2x2 unit cell).
 """
 
 # %%
