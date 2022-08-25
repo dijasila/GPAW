@@ -264,7 +264,7 @@ def check(tag: str,
         return True
     if f is not None:
         error = abs(np.array(f) - f0).max()
-        if error > 0.0005:
+        if error > 0.001:
             print('Force error:', error)
             return False
     return True
