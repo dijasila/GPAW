@@ -59,7 +59,7 @@ def main(args: str | list[str] = None) -> int:
     if many:
         system_names = args.system or list(systems)
         args.repeat = args.repeat or '1x1x1,2x1x1'
-        args.vacuum = args.vacuum or '0.0,2.0,3.0'
+        args.vacuum = args.vacuum or '0.0,4.0'
         args.pbc = args.pbc or '0,1'
         args.mode = args.mode or 'pw,lcao,fd'
         args.code = args.code or 'new,old'
@@ -174,12 +174,13 @@ def run(atoms: Atoms,
         else:
             pckl_file = result_file.with_suffix('.pckl')
             pckl_file.write_bytes(pickle.dumps((atoms, params, result_file)))
-            subprocess.run(
-                ['mpiexec', '-np', str(ncores),
-                 sys.executable, '-m', 'gpaw.test.fuzz',
-                 '--pickle', str(pckl_file)],
-                check=True,
-                env=os.environ)
+            args = ['mpiexec', '-np', str(ncores),
+                    sys.executable, '-m', 'gpaw.test.fuzz',
+                    '--pickle', str(pckl_file)]
+            extra = os.environ.get('GPAW_MPI_OPTIONS')
+            if extra:
+                args[1:1] = extra.split()
+            subprocess.run(args, check=True, env=os.environ)
             result, _ = json.loads(result_file.read_text())
             pckl_file.unlink()
     else:
@@ -224,7 +225,7 @@ def run2(atoms: Atoms,
     calculation = NewGPAW(gpw_file).calculation
 
     energy2 = calculation.results['energy'] * Ha
-    assert abs(energy2 - energy) < 1e-14, (energy2, energy)
+    assert abs(energy2 - energy) < 1e-13, (energy2, energy)
 
     if forces is not None:
         forces2 = calculation.results['forces'] * Ha / Bohr
@@ -263,7 +264,7 @@ def check(tag: str,
         return True
     if f is not None:
         error = abs(np.array(f) - f0).max()
-        if error > 0.0005:
+        if error > 0.001:
             print('Force error:', error)
             return False
     return True
@@ -290,7 +291,7 @@ def create_systems(system_names: list[str],
                     else:
                         continue
                 else:
-                    vatoms = atoms
+                    vatoms = ratoms
                 for pbc in pick(pbcs):
                     if pbc:
                         if vatoms.pbc.all():
