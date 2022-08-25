@@ -22,12 +22,12 @@ finite displacement method. For further reading see for example:
 Vibrational energy of the initial and final states
 --------------------------------------------------
 
-(a) Calculating vibrations requires tighter convergence than normal energy
-    calculations. Therefore you should first take your already optimised initial
-    and final state geometries from the NEB calculations and relax them further
-    to `fmax=0.01eV/Å` with the QuasiNewton optimiser and an energy cutoff of
-    450eV. Converge the eigenstates to 1e-8. (Note that for other systems you
-    might need even tighter convergence!)
+a) Calculating vibrations requires tighter convergence than normal energy
+   calculations. Therefore you should first take your already optimised initial
+   and final state geometries from the NEB calculations and relax them further
+   to `fmax=0.01eV/Å` with the QuasiNewton optimiser and an energy cutoff of
+   450eV. Converge the eigenstates to 1e-8. (Note that for other systems you
+   might need even tighter convergence!)
 
 Submit the structures to the queue. The optimisation should take 10-15 mins
 for each structure on 8 cores.
@@ -58,18 +58,18 @@ for name in ['N2Ru-top.traj', '2Nads.traj']:
 
     dyn = QuasiNewton(slab,
                       trajectory='tight-' + name,
-                      maxstep = 0.02,
+                      maxstep=0.02,
                       logfile='tight-' + name[:-4] + 'log')
     dyn.run(fmax=0.01)
 
 # %%
 """
-(b) Once you have done this you can calculate the vibrations using the
-    [vibrations module in ASE][3] following
-    the template below. We only calculate the vibrations of the adsorbate and
-    assume that the frequencies of the substrate are unchanged - this is a
-    common assumption. Use 4 displacements to fit the frequencies and the same
-    calculator parameters as in a).
+b) Once you have done this you can calculate the vibrations using the
+   [vibrations module in ASE][3] following
+   the template below. We only calculate the vibrations of the adsorbate and
+   assume that the frequencies of the substrate are unchanged - this is a
+   common assumption. Use 4 displacements to fit the frequencies and the same
+   calculator parameters as in a).
 
 [3]: https://wiki.fysik.dtu.dk/ase/ase/vibrations/vibrations.html
 
@@ -138,14 +138,15 @@ a low energy, while the last one has a high energy?
 
 # %%
 """
-(c) Analyse the frequencies in the harmonic approximation:
+c) Analyse the frequencies in the harmonic approximation:
 """
 
 # %%
 from ase.thermochemistry import HarmonicThermo
 
 T = 300  # Kelvin
-energies = [0.01, 0.05, 0.10]  # An example only - insert your calculated energy levels here - in eV!
+# An example only - insert your calculated energy levels here - in eV:
+energies = [0.01, 0.05, 0.10]
 vibs = HarmonicThermo(energies)
 Efree = vibs.get_helmholtz_energy(T, verbose=True)
 print('Free energy at 300 K: ', Efree)
@@ -170,7 +171,7 @@ You can for example make a `for` loop and use the `get_entropy()` and
 """
 d) Calculate how the vibrational energy affects the overall reaction energy.
    How does it change with temperature? Which contribution is important for the
-    change in reaction energy?
+   change in reaction energy?
 """
 
 # %%
@@ -213,14 +214,14 @@ plt.savefig('vib.png')
 
 # %%
 """
-(e) To make sure that your NEB is converged you should also calculate the
-    vibrational energy of the transition state. Again, this requires tighter
-    convergence than we have used in the NEB exercise. This takes a while to run
-    so to save time, we provide the transition state geometry from a reasonably
-    converged NEB (i.e. `fmax=0.01`, a cutoff energy of 500eV and eigenstates
-    converged to 1e-8) in the file `TS.xyz`. Calculate the vibrations with these
-    parameters. How many imaginary modes do you get and how do they look? What
-    does this mean?
+e) To make sure that your NEB is converged you should also calculate the
+   vibrational energy of the transition state. Again, this requires tighter
+   convergence than we have used in the NEB exercise. This takes a while to run
+   so to save time, we provide the transition state geometry from a reasonably
+   converged NEB (i.e. `fmax=0.01`, a cutoff energy of 500eV and eigenstates
+   converged to 1e-8) in the file `TS.xyz`. Calculate the vibrations with these
+   parameters. How many imaginary modes do you get and how do they look? What
+   does this mean?
 """
 
 # %%

@@ -27,8 +27,8 @@ master:
     - >
       flake8
       --doctests
-      --exclude "doc/platforms/*,doc/*/summerschool22/*/*"
-      --extend-ignore E402
+      --exclude "doc/platforms/*"
+      --extend-ignore E402,E501
       doc
     - python -We:invalid -m compileall -f -q gpaw/
     # - echo "parallel_python_interpreter = True" >> siteconfig.py
