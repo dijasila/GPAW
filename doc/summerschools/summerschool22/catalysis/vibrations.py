@@ -163,14 +163,13 @@ Now try to calculate how the different contributions change with temperature.
 You can for example make a `for` loop and use the `get_entropy()` and
 `get_internal_energy()` methods [(see description here)][5].
 
-[5]: https://wiki.fysik.dtu.dk/ase/ase/thermochemistry/thermochemistry.html
-     #ase.thermochemistry.IdealGasThermo.get_enthalpy
+[5]: https://wiki.fysik.dtu.dk/ase/ase/thermochemistry/thermochemistry.html#ase.thermochemistry.IdealGasThermo.get_enthalpy
 """
 
 # %%
 """
-(d) Calculate how the vibrational energy affects the overall reaction energy.
-    How does it change with temperature? Which contribution is important for the
+d) Calculate how the vibrational energy affects the overall reaction energy.
+   How does it change with temperature? Which contribution is important for the
     change in reaction energy?
 """
 
