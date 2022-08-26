@@ -58,7 +58,4 @@ class CUDA(DummyBackend):
         return self._gpuarray.to_gpu(x)
 
     def is_device_array(self, x):
-        if isinstance(x, self._gpuarray.GPUArray):
-            return True
-        else:
-            return False
+        return isinstance(x, self._gpuarray.GPUArray)
