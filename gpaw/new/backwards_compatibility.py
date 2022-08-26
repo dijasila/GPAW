@@ -34,14 +34,16 @@ class FakeWFS:
         self.nspins = ibzwfs.nspins
         self.dtype = ibzwfs.dtype
         wfs = ibzwfs.wfs_qs[0][0]
-        assert isinstance(wfs, PWFDWaveFunctions)
-        if hasattr(wfs.psit_nX.desc, 'ecut'):
-            self.mode = 'pw'
-            self.pd = PWDescriptor(wfs.psit_nX.desc.ecut,
-                                   self.gd, self.dtype, self.kd)
-            self.pwgrid = grid.new(dtype=self.dtype)
+        if isinstance(wfs, PWFDWaveFunctions):
+            if hasattr(wfs.psit_nX.desc, 'ecut'):
+                self.mode = 'pw'
+                self.pd = PWDescriptor(wfs.psit_nX.desc.ecut,
+                                       self.gd, self.dtype, self.kd)
+                self.pwgrid = grid.new(dtype=self.dtype)
+            else:
+                self.mode = 'fd'
         else:
-            self.mode = 'fd'
+            self.mode = 'lcao'
 
     def _get_wave_function_array(self, u, n, realspace):
         return self.kpt_u[u].wfs.psit_nX[n].ifft(grid=self.pwgrid).data
@@ -92,8 +94,9 @@ class KPT:
         self.q = wfs.q
         self.weight = wfs.spin_degeneracy * wfs.weight
         self.f_n = wfs.occ_n * self.weight
-        self.psit_nX = wfs.psit_nX
         self.P_ani = wfs.P_ani
+        if isinstance(wfs, PWFDWaveFunctions):
+            self.psit_nX = wfs.psit_nX
 
     @property
     def psit_nG(self):
