@@ -6,7 +6,6 @@ from .backend import DummyBackend
 
 class CUDA(DummyBackend):
     from pycuda import driver as _driver
-    from pycuda.driver import memcpy_dtod
 
     from gpaw import gpuarray as _gpuarray
 
@@ -59,3 +58,6 @@ class CUDA(DummyBackend):
 
     def is_device_array(self, x):
         return isinstance(x, self._gpuarray.GPUArray)
+
+    def memcpy_dtod(self, tgt, src, n):
+        self._driver.memcpy_dtod(tgt.gpudata, src.gpudata, n)
