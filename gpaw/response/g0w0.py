@@ -4,6 +4,7 @@ import pickle
 import warnings
 from math import pi
 from pathlib import Path
+import pickle
 
 import gpaw.mpi as mpi
 import numpy as np
@@ -59,10 +60,32 @@ class G0W0Outputs:
         self.sigma_eskn = sigma_eskn
         self.dsigma_eskn = dsigma_eskn
 
+        self.ecut_e = ecut_e
         self.eps_skn = eps_skn
         self.vxc_skn = vxc_skn
         self.exx_skn = exx_skn
         self.f_skn = f_skn
+
+    def qp_equation(self, e):
+        return self.sigma_eskn[e] + (1-self.dsigma_eskn[e])**-1 * (
+            -self.vxc_skn + self.exx_skn + self.sigma_eskn[e])
+
+    def from_pickle(f, fd, ecut_e=None):
+        results = pickle.load(f)
+        if 'ecut_e' in results:
+            ecut_e = results['ecut_e']
+        elif ecut_e is None:
+            raise ValueError('Old result pickle doesn''t contain ecut_e,'
+                             ' so it must be provided as argument.')
+
+        output = G0W0Output(fd, shape, ecut_e,
+                            results['sigma'] / Ha,
+                            results['dsigma'],
+                            results['eps'] / Ha,
+                            results['vxc'] / Ha,
+                            results['exx'] / Ha,
+                            results['f'])
+        return output
 
     def extrapolate(self, fd, shape, ecut_e, sigma_eskn, dsigma_eskn):
         if len(ecut_e) == 1:
@@ -113,6 +136,7 @@ class G0W0Outputs:
 
     def get_results_eV(self):
         results = {
+            'ecut_e': self.ecut_e * Ha,
             'f': self.f_skn,
             'eps': self.eps_skn * Ha,
             'vxc': self.vxc_skn * Ha,
