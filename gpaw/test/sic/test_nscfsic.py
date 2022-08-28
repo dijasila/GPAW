@@ -22,7 +22,7 @@ def test_sic_nscfsic(in_tmp_dir):
         EE.append(NSCFSIC(calc).calculate())
 
     print("Difference to table VI of Phys. Rev. B 23, 5048 in eV")
-    # http://prola.aps.org/abstract/PRB/v23/i10/p5048_1
+    # https://journals.aps.org/prb/abstract/10.1103/PhysRevB.23.5048
     print("%10s%10s%10s%10s" % ("atom", "ref.", "gpaw", "diff"))
     for a, er, e in zip(atoms, EREF, EE):
         print("%10s%10.2f%10.2f%10.2f" % (a, er, e, er - e))

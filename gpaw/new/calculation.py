@@ -95,7 +95,7 @@ class DFTCalculation:
         builder = builder or create_builder(atoms, params)
 
         if not isinstance(log, Logger):
-            log = Logger(log, builder.world)
+            log = Logger(log, params.parallel['world'])
 
         basis_set = builder.create_basis_set()
 
@@ -139,21 +139,25 @@ class DFTCalculation:
 
         return self
 
-    def iconverge(self, convergence=None, maxiter=None):
+    def iconverge(self, convergence=None, maxiter=None, calculate_forces=None):
         self.state.ibzwfs.make_sure_wfs_are_read_from_gpw_file()
         for ctx in self.scf_loop.iterate(self.state,
                                          self.pot_calc,
                                          convergence,
                                          maxiter,
+                                         calculate_forces,
                                          log=self.log):
             yield ctx
 
     def converge(self,
                  convergence=None,
                  maxiter=None,
-                 steps=99999999999999999):
+                 steps=99999999999999999,
+                 calculate_forces=None):
         """Converge to self-consistent solution of Kohn-Sham equation."""
-        for step, _ in enumerate(self.iconverge(convergence, maxiter),
+        for step, _ in enumerate(self.iconverge(convergence,
+                                                maxiter,
+                                                calculate_forces),
                                  start=1):
             if step == steps:
                 break

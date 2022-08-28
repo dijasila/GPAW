@@ -96,7 +96,11 @@ class IBZWaveFunctions:
         return (f'{self.ibz.symmetries}\n'
                 f'{self.ibz}\n'
                 f'valence electrons: {self.nelectrons}\n'
-                f'spin-degeneracy: {self.spin_degeneracy}\n')
+                f'spin-degeneracy: {self.spin_degeneracy}\n'
+                'parallelization:\n'
+                f'    kpt:    {self.kpt_comm.size}\n'
+                f'    domain: {self.domain_comm.size}\n'
+                f'    band:   {self.band_comm.size}\n')
 
     def __iter__(self) -> Generator[WaveFunctions, None, None]:
         for wfs_s in self.wfs_qs:
@@ -124,8 +128,10 @@ class IBZWaveFunctions:
                                 if self.fermi_levels is None else
                                 self.fermi_levels * Ha))
 
-        if not fixed_fermi_level or self.fermi_levels is None:
+        if not fixed_fermi_level:
             self.fermi_levels = np.array(fermi_levels) / Ha
+        else:
+            assert self.fermi_levels is not None
 
         for occ_n, wfs in zip(occ_un, self):
             wfs._occ_n = occ_n
