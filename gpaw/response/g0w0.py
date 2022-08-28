@@ -4,7 +4,6 @@ import pickle
 import warnings
 from math import pi
 from pathlib import Path
-import pickle
 
 import gpaw.mpi as mpi
 import numpy as np
@@ -68,7 +67,7 @@ class G0W0Outputs:
         self.f_skn = f_skn
 
     def qp_equation(self, e):
-        return self.eps_skn + (1-self.dsigma_eskn[e])**-1 * (
+        return self.eps_skn + (1 - self.dsigma_eskn[e])**-1 * (
             -self.vxc_skn + self.exx_skn + self.sigma_eskn[e])
 
     def from_pickle(f, fd, ecut_e=None, extrapindices=None):
@@ -1333,15 +1332,15 @@ class G0W0(G0W0Calculator):
             if ecut is None:
                 raise ValueError('ecut must be given, unless '
                                  'ecut_extrapolation is a list.')
-        # Check if nblocks is compatible, adjust if not
-        if nblocksmax:
-            nblocks = get_max_nblocks(context.world, gpwfile, ecut)
-
         pair = NoCalculatorPairDensity(gs, nblocks=nblocks, context=context)
 
         kpts = list(select_kpts(kpts, gs.kd))
 
         ecut, ecut_e = choose_ecut_things(ecut, ecut_extrapolation)
+
+        # Check if nblocks is compatible, adjust if not
+        if nblocksmax:
+            nblocks = get_max_nblocks(context.world, gpwfile, ecut)
 
         if nbands is None:
             nbands = int(gs.volume * (ecut / Ha)**1.5 * 2**0.5 / 3 / pi**2)

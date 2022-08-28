@@ -42,7 +42,6 @@ def test_response_gw_hBN_extrapolate(in_tmp_dir, scalapack):
 
     gw = G0W0('hBN.gpw',
               'gw-hBN',
-              ecut=50,
               frequencies={'type': 'nonlinear',
                            'domega0': 0.1},
               eta=0.2,
