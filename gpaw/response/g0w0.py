@@ -826,11 +826,11 @@ class G0W0Calculator:
                     m2 = self.nbands
                 else:
                     m2 = int(self.gs.volume * ecut**1.5 * 2**0.5 / 3 / pi**2)
-                    if m2 > self.nbands:
+                    if m2 > self.gs.bd.nbands:
                         raise ValueError(f'Trying to extrapolate ecut to'
                                          f'larger number of bands ({m2})'
                                          f' than there are bands '
-                                         f'({self.nbands}).')
+                                         f'({self.gs.bd.nbands}).')
                 pdi, Wdict, blocks1d, Q_aGii = self.calculate_w(
                     chi0calc, q_c, chi0bands,
                     m1, m2, ecut, wstc, iq)
@@ -1299,7 +1299,7 @@ class G0W0Kernel:
 
 class G0W0(G0W0Calculator):
     def __init__(self, calc, filename='gw',
-                 ecut=150.0,
+                 ecut=None,
                  ecut_extrapolation=False,
                  xc='RPA',
                  ppa=False,
@@ -1325,6 +1325,14 @@ class G0W0(G0W0Calculator):
                                          world, timer)
         gs = calc.gs_adapter()
 
+        if ecut_extrapolation is not False and ecut_extrapolation is not True:
+            if ecut is not None:
+                raise ValueError('ecut must be None if'
+                                 ' ecut_extrapolation is a list.')
+        else:
+            if ecut is None:
+                raise ValueError('ecut must be given, unless '
+                                 'ecut_extrapolation is a list.')
         # Check if nblocks is compatible, adjust if not
         if nblocksmax:
             nblocks = get_max_nblocks(context.world, gpwfile, ecut)
@@ -1333,14 +1341,15 @@ class G0W0(G0W0Calculator):
 
         kpts = list(select_kpts(kpts, gs.kd))
 
+        ecut, ecut_e = choose_ecut_things(ecut, ecut_extrapolation)
+
         if nbands is None:
             nbands = int(gs.volume * (ecut / Ha)**1.5 * 2**0.5 / 3 / pi**2)
+            print('Setting nbands to ',nbands,' with ecut', ecut,'eV')
         else:
             if ecut_extrapolation:
                 raise RuntimeError(
                     'nbands cannot be supplied with ecut-extrapolation.')
-
-        ecut, ecut_e = choose_ecut_things(ecut, ecut_extrapolation)
 
         if ppa:
             # use small imaginary frequency to avoid dividing by zero:
