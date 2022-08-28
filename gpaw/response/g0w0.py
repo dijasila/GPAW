@@ -492,7 +492,8 @@ class G0W0:
             p('Plane wave cut-off: {0:g} eV'.format(self.ecut * Ha))
         else:
             p('Extrapolating to infinite plane wave cut-off using points at:')
-            p('  [%.3f, %.3f, %.3f] eV' % tuple(self.ecut_e[:] * Ha))
+            for ec in self.ecut_e:
+                p('  %.3f eV' % (ec * Ha))
         p('Number of bands: {0:d}'.format(self.nbands))
         p('Coulomb cutoff:', self.truncation)
         p('Broadening: {0:g} eV'.format(self.eta * Ha))
