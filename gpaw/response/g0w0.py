@@ -67,7 +67,6 @@ class G0W0Outputs:
         self.exx_skn = exx_skn
         self.f_skn = f_skn
 
-
     def qp_equation(self, e):
         return self.eps_skn + (1-self.dsigma_eskn[e])**-1 * (
             -self.vxc_skn + self.exx_skn + self.sigma_eskn[e])
@@ -79,9 +78,8 @@ class G0W0Outputs:
         elif ecut_e is None:
             raise ValueError('Old result pickle doesn''t contain ecut_e,'
                              ' so it must be provided as argument.')
-        ecut_e = np.array(ecut_e) 
+        ecut_e = np.array(ecut_e)
         shape = results['sigma_eskn'].shape[1:]
-        
         output = G0W0Outputs(fd, shape, ecut_e / Ha,
                              results['sigma_eskn'] / Ha,
                              results['dsigma_eskn'],
@@ -110,7 +108,7 @@ class G0W0Outputs:
               file=fd)
         print('  Performing linear fit to %d points' % len(ecut_e),
               file=fd)
-        
+
         if self.extrapindices is None:
             self.extrapindices = np.array(range(sigma_eskn.shape[0]))
 
@@ -121,7 +119,9 @@ class G0W0Outputs:
         invN_i = ecut_e[self.extrapindices]**(-3. / 2)
 
         def warn_corr(name, r2, s, k, n, invN_e, data_e):
-            print(f'Warning: Bad quality of linear fit (r^2={r2}) for', file=fd)
+            print(f'Warning: Possibly a bad quality of linear fit'
+                  f' (r^2={r2}) for band. Please check the data.',
+                  file=fd)
             print(f'     {name} s={s} k={n} n={n}.', file=fd)
             for invN, data in zip(invN_e, data_e):
                 print(' %.12f %.12f ' % (invN, data), file=fd)
@@ -1345,7 +1345,6 @@ class G0W0(G0W0Calculator):
 
         if nbands is None:
             nbands = int(gs.volume * (ecut / Ha)**1.5 * 2**0.5 / 3 / pi**2)
-            print('Setting nbands to ',nbands,' with ecut', ecut,'eV')
         else:
             if ecut_extrapolation:
                 raise RuntimeError(
