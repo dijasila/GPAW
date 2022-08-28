@@ -202,8 +202,8 @@ class PlaneWaves(Domain):
             return PlaneWaveAtomCenteredFunctions(functions, positions, self,
                                                   atomdist=atomdist)
 
-        from gpaw.new.spinspiral import SpiralPWAFC
-        return SpiralPWAFC(functions, positions, self,
+        from gpaw.new.spinspiral import SpiralPWACF
+        return SpiralPWACF(functions, positions, self,
                            atomdist=atomdist,
                            qspiral_v=self.qspiral_v)
 
@@ -291,7 +291,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         self._matrix = Matrix(*shape, data=data, dist=dist)
         return self._matrix
 
-    def ifft(self, *, plan=None, grid=None, out=None):
+    def ifft(self, *, plan=None, grid=None, out=None, periodic=False):
         """Do inverse FFT to uniform grid.
 
         Parameters
@@ -328,7 +328,8 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
             for out1 in out.flat():
                 out1.scatter_from(None)
 
-        out.multiply_by_eikr()
+        if not periodic:
+            out.multiply_by_eikr()
 
         return out
 

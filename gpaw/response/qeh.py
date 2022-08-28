@@ -74,10 +74,10 @@ class BuildingBlock:
             txt = open(txt, 'w', 1)
         self.fd = txt
 
-        calc = self.df.chi0.calc
-        kd = calc.wfs.kd
+        gs = self.df.chi0.gs
+        kd = gs.kd
         self.kd = kd
-        r = calc.wfs.gd.get_grid_point_coordinates()
+        r = gs.gd.get_grid_point_coordinates()
         self.z = r[2, 0, 0, :]
 
         nw = len(self.wd)
@@ -92,9 +92,9 @@ class BuildingBlock:
         offset_c = 0.5 * ((kd.N_c + 1) % 2) / kd.N_c
         bzq_qc = monkhorst_pack(kd.N_c) + offset_c
         qd = KPointDescriptor(bzq_qc)
-        qd.set_symmetry(calc.atoms, kd.symmetry)
+        qd.set_symmetry(gs.atoms, kd.symmetry)
         q_cs = qd.ibzk_kc
-        rcell_cv = 2 * pi * np.linalg.inv(calc.wfs.gd.cell_cv).T
+        rcell_cv = 2 * pi * np.linalg.inv(gs.gd.cell_cv).T
         if isotropic_q:  # only use q along [1 0 0] or [0 1 0] direction.
             Nk = kd.N_c[qdir]
             qx = np.array(range(1, Nk // 2)) / float(Nk)

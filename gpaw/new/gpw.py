@@ -25,6 +25,7 @@ def write_gpw(filename: str,
 
     world = params.parallel['world']
 
+    writer: ulm.Writer | ulm.DummyWriter
     if world.rank == 0:
         writer = ulm.Writer(filename, tag='gpaw')
     else:

@@ -1,6 +1,6 @@
 import numpy as np
 
-from gpaw.utilities.blas import gemm, mmm
+from gpaw.utilities.blas import mmm
 from gpaw.utilities import unpack
 
 
@@ -65,8 +65,8 @@ class DenseAtomicCorrection(BaseAtomicCorrection):
             assert dtype == P_Mi.dtype
             dXP_iM = np.zeros((dX_ii.shape[1], P_Mi.shape[0]), dtype)
             # (ATLAS can't handle uninitialized output array)
-            gemm(1.0, P_Mi, np.asarray(dX_ii, dtype), 0.0, dXP_iM, 'c')
-            gemm(1.0, dXP_iM, P_Mi[Mstart:Mstop], 1.0, X_MM)
+            mmm(1.0, np.asarray(dX_ii, dtype), 'N', P_Mi, 'C', 0.0, dXP_iM)
+            mmm(1.0, P_Mi[Mstart:Mstop], 'N', dXP_iM, 'N', 1.0, X_MM)
 
     def calculate_projections(self, wfs, kpt):
         for a, P_ni in kpt.P_ani.items():

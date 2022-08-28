@@ -3,6 +3,7 @@ import sys
 import numpy as np
 from scipy.optimize import leastsq
 
+from ase.units import Ha
 from gpaw.pw.descriptor import PWDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.pair import PairDensity
@@ -60,8 +61,10 @@ def get_bz_transitions(filename, q_c, bzk_kc,
     contributing to the linear response at wave vector q_c.
     """
 
-    pair = PairDensity(filename, ecut=ecut, txt=txt)
-    pd = get_pw_descriptor(q_c, pair.calc, pair.ecut)
+    ecut /= Ha
+
+    pair = PairDensity(filename, txt=txt)
+    pd = get_pw_descriptor(q_c, pair.calc, ecut)
 
     bzk_kv = np.dot(bzk_kc, pd.gd.icell_cv) * 2 * np.pi
 

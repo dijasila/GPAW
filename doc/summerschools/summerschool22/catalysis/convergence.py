@@ -20,7 +20,7 @@ In this notebook we look at the adsorption energy and height of a nitrogen atom 
 Nitrogen atom
 -------------
 
-First step is an isolated nitrogen atom which has a magnetic moment of 3.  More information: [Atoms](https://wiki.fysik.dtu.dk/ase/ase/atoms.html#ase.Atoms) and [GPAW parameters](https://wiki.fysik.dtu.dk/gpaw/dev/documentation/manual.html#parameters).
+First step is an isolated nitrogen atom which has a magnetic moment of 3.  More information: [Atoms](https://wiki.fysik.dtu.dk/ase/ase/atoms.html#ase.Atoms) and [GPAW parameters](https://wiki.fysik.dtu.dk/gpaw/documentation/basic.html#parameters).
 """
 
 # %%

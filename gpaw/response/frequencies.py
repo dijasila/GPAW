@@ -51,7 +51,7 @@ class FrequencyDescriptor:
             assert input['type'] == 'nonlinear'
             domega0 = input.get('domega0')
             omega2 = input.get('omega2')
-            omegamax = input.get('omegamax')
+            omegamax = input['omegamax']
             return NonLinearFrequencyDescriptor(
                 (0.1 if domega0 is None else domega0) / Ha,
                 (10.0 if omega2 is None else omega2) / Ha,

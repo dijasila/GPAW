@@ -679,7 +679,7 @@ class SerialCommunicator:
     def compare(self, other):
         if self == other:
             return 'ident'
-        elif isinstance(other, SerialCommunicator):
+        elif other.size == 1:
             return 'congruent'
         else:
             raise NotImplementedError('Compare serial comm to other')
@@ -713,6 +713,7 @@ rank = world.rank
 size = world.size
 parallel = (size > 1)
 
+assert aseworld is not None
 if world.size != aseworld.size:
     raise RuntimeError('Please use "gpaw python" to run in parallel')
 

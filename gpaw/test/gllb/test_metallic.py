@@ -26,24 +26,16 @@ def run(xc, repeat=1):
 
 @pytest.mark.gllb
 @pytest.mark.libxc
-def test_metallic_GLLBSC():
-    try:
-        run(xc='GLLBSC')
-    except RuntimeError as e:
-        assert 'GLLBSCM' in str(e), 'GLLBSCM not mentioned in the error'
-    else:
-        raise RuntimeError('GLLBSC should fail for metallic system')
-
-
-@pytest.mark.gllb
-@pytest.mark.libxc
 def test_metallic_GLLBSCM():
+    # GLLBSC should behave like GLLBSCM for metals and
+    # repeated cell should give exactly the same results
     x1_i, y1_i = run(xc='GLLBSCM', repeat=1)
-    x2_i, y2_i = run(xc='GLLBSCM', repeat=2)
-    # Test that the DOSes are the same
-    assert np.allclose(x1_i, x2_i, rtol=0, atol=1e-8), \
-        "DOS energies don't match, " \
-        "error = {}".format(np.max(np.abs(x1_i - x2_i)))
-    assert np.allclose(y1_i, y2_i, rtol=0, atol=1e-6), \
-        "DOS values don't match, " \
-        "error = {}".format(np.max(np.abs(y1_i - y2_i)))
+    for x_i, y_i in [run(xc='GLLBSC', repeat=1),
+                     run(xc='GLLBSCM', repeat=2)]:
+        # Test that the DOSes are the same
+        assert np.allclose(x1_i, x_i, rtol=0, atol=1e-8), \
+            "DOS energies don't match, " \
+            "error = {}".format(np.max(np.abs(x1_i - x_i)))
+        assert np.allclose(y1_i, y_i, rtol=0, atol=1e-6), \
+            "DOS values don't match, " \
+            "error = {}".format(np.max(np.abs(y1_i - y_i)))

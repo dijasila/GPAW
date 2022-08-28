@@ -88,7 +88,7 @@ def test_chi0_intraband(in_tmp_dir):
 
     wp = np.sqrt(4 * np.pi * n)
 
-    # From http://pubs.acs.org/doi/abs/10.1021/jp810808h
+    # From https://doi.org/10.1021/jp810808h
     wpref = 5.71 / Hartree
 
     equal(wp1, wp2, 1e-2)

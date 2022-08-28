@@ -1,8 +1,11 @@
 """Test the site kernel calculation functionality of the response code"""
+
+# General modules
 import pytest
 import numpy as np
 import scipy.special as sc
 
+# Script modules
 from ase.build import bulk
 
 from gpaw import GPAW, PW
@@ -17,6 +20,9 @@ from gpaw.response.susceptibility import get_pw_coordinates
 
 
 # ---------- Actual tests ---------- #
+
+
+pytestmark = pytest.mark.kspair
 
 
 @pytest.mark.ci
@@ -259,7 +265,7 @@ def test_Co_hcp_site_kernels():
                 kpts={'size': (kpts, kpts, kpts),
                       'gamma': True}
                 )
-    
+
     # Perform inexpensive calculator initialization
     calc.initialize(atoms)
 

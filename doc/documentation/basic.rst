@@ -123,11 +123,6 @@ given in the following sections.
       - ``bool``
       - ``False``
       - :ref:`Use Hund's rule <manual_hund>`
-    * - ``idiotproof``
-      - ``bool``
-      - ``True``
-      - Set to ``False`` to ignore setup fingerprint mismatch
-        (allows restart when the original setup files are not available)
     * - ``kpts``
       - *seq*
       - `\Gamma`-point

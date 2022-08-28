@@ -6,9 +6,9 @@ from gpaw.xc.fxc import KernelWave
 from ase.io.aff import affopen
 
 
-def actually_calculate_kernel(*, calc, xcflags, q_empty, tag, ecut_max, fd,
+def actually_calculate_kernel(*, gs, xcflags, q_empty, tag, ecut_max, fd,
                               timer, Eg, wd):
-    kd = calc.wfs.kd
+    kd = gs.kd
     bzq_qc = kd.get_bz_q_points(first=True)
     U_scc = kd.symmetry.op_scc
     ibzq_qc = kd.get_ibz_q_points(bzq_qc, U_scc)[0]
@@ -26,7 +26,7 @@ def actually_calculate_kernel(*, calc, xcflags, q_empty, tag, ecut_max, fd,
     kernel = KernelWave(
         l_l=l_l,
         omega_w=omega_w,
-        calc=calc,
+        gs=gs,
         xc=xcflags.xc,
         ibzq_qc=ibzq_qc,
         fd=fd,
@@ -39,10 +39,10 @@ def actually_calculate_kernel(*, calc, xcflags, q_empty, tag, ecut_max, fd,
     kernel.calculate_fhxc()
 
 
-def calculate_kernel(*, ecut, xcflags, calc, nG, ns, iq, cut_G=None,
+def calculate_kernel(*, ecut, xcflags, gs, nG, ns, iq, cut_G=None,
                      timer, fd, wd, Eg):
     xc = xcflags.xc
-    tag = calc.atoms.get_chemical_formula(mode='hill')
+    tag = gs.atoms.get_chemical_formula(mode='hill')
 
     ecut_max = ecut * Ha  # XXX very ugly this
     q_empty = None
@@ -56,7 +56,7 @@ def calculate_kernel(*, ecut, xcflags, calc, nG, ns, iq, cut_G=None,
         if q_empty is not None:
             actually_calculate_kernel(q_empty=q_empty, tag=tag,
                                       xcflags=xcflags, Eg=Eg,
-                                      ecut_max=ecut_max, calc=calc,
+                                      ecut_max=ecut_max, gs=gs,
                                       fd=fd, timer=timer,
                                       wd=wd)
             # (This creates the ulm file above.  Probably.)

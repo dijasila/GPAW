@@ -50,7 +50,7 @@ class PöschlTellerPotential(ExternalPotential):
 
     See:
 
-        https://en.wikipedia.org/wiki/Pöschl–Teller_potential
+        https://en.wikipedia.org/wiki/P%C3%B6schl%E2%80%93Teller_potential
     """
     def calculate_potential(self, gd):
         a = gd.cell_cv[2, 2]

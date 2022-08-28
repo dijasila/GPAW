@@ -20,7 +20,7 @@ master:
     - pip install -e .
     - gpaw install-data --register pawdata
     - gpaw test
-    - OMP_NUM_THREADS=2 pytest -v -m ci -We -Wi::ImportWarning
+    - OMP_NUM_THREADS=2 pytest -v -m ci -We -Wi::ImportWarning --color=yes
     - pip install types-PyYAML
     - mypy -p gpaw
     - flake8 --doctests gpaw
@@ -31,10 +31,10 @@ master:
       --extend-ignore E402
       doc
     - python -We:invalid -m compileall -f -q gpaw/
-    - echo "parallel_python_interpreter = True" >> siteconfig.py
-    - echo "libraries += ['openblas']" >> siteconfig.py
-    - python setup.py install > gpaw-python-install.output
-    - gpaw-python -m gpaw info
+    # - echo "parallel_python_interpreter = True" >> siteconfig.py
+    # - echo "libraries += ['openblas']" >> siteconfig.py
+    # - python setup.py install
+    # - gpaw-python -m gpaw info
     - mq config --in-place
     - mq init
     - mq workflow -p agts.py -zT | tail -1 | tee count
@@ -90,6 +90,8 @@ docs:
     - cd doc
     - make
     - make doctest
+    - cd ..
+    - python3 -c "from gpaw.utilities.urlcheck import test; test()"
   when: manual
   artifacts:
     paths:

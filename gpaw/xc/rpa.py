@@ -13,6 +13,7 @@ from gpaw import GPAW
 from gpaw.response.chi0 import Chi0
 from gpaw.response.kernels import get_coulomb_kernel
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
+from gpaw.response.groundstate import ResponseGroundStateAdapter
 
 
 def rpa(filename, ecut=200.0, blocks=1, extrapolate=4):
@@ -85,11 +86,12 @@ class RPACorrelation:
             energy from different q-points
         """
 
+        self.iocontext = IOContext()
         if isinstance(calc, str):
             calc = GPAW(calc, txt=None, communicator=mpi.serial_comm)
         self.calc = calc
+        self.gs = ResponseGroundStateAdapter(calc)
 
-        self.iocontext = IOContext()
         self.fd = self.iocontext.openfile(txt, world)
 
         self.timer = Timer()
@@ -129,7 +131,7 @@ class RPACorrelation:
         self.iocontext.close()
 
     def initialize_q_points(self, qsym):
-        kd = self.calc.wfs.kd
+        kd = self.gs.kd
         self.bzq_qc = kd.get_bz_q_points(first=True)
 
         if not qsym:
@@ -217,11 +219,11 @@ class RPACorrelation:
 
         self.blockcomm = chi0calc.blockcomm
 
-        wfs = self.calc.wfs
+        gs = self.gs
 
         if self.truncation == 'wigner-seitz':
-            self.wstc = WignerSeitzTruncatedCoulomb(wfs.gd.cell_cv,
-                                                    wfs.kd.N_c, self.fd)
+            self.wstc = WignerSeitzTruncatedCoulomb(gs.gd.cell_cv,
+                                                    gs.kd.N_c, self.fd)
         else:
             self.wstc = None
 
@@ -316,13 +318,15 @@ class RPACorrelation:
 
         chi0_wGG = chi0.redistribute()
 
+        kd = self.gs.kd
         if not chi0.pd.kd.gamma:
             e = self.calculate_energy(chi0.pd, chi0_wGG, cut_G)
             print('%.3f eV' % (e * Hartree), file=self.fd)
             self.fd.flush()
         else:
             from ase.dft import monkhorst_pack
-            kd = self.calc.wfs.kd
+            # XXXX again a redundant implementation of the thing
+            # now in gpaw.response.gamma_int !
             N = 4
             N_c = np.array([N, N, N])
             if self.truncation is not None:
@@ -360,7 +364,7 @@ class RPACorrelation:
     def calculate_energy(self, pd, chi0_wGG, cut_G, q_v=None):
         """Evaluate correlation energy from chi0."""
 
-        sqrV_G = get_coulomb_kernel(pd, self.calc.wfs.kd.N_c, q_v=q_v,
+        sqrV_G = get_coulomb_kernel(pd, self.gs.kd.N_c, q_v=q_v,
                                     truncation=self.truncation,
                                     wstc=self.wstc)**0.5
         if cut_G is not None:
@@ -408,13 +412,13 @@ class RPACorrelation:
         p('Started at:  ', ctime())
         p()
         p('Atoms                          :',
-          self.calc.atoms.get_chemical_formula(mode='hill'))
-        p('Ground state XC functional     :', self.calc.hamiltonian.xc.name)
-        p('Valence electrons              :', self.calc.wfs.setups.nvalence)
-        p('Number of bands                :', self.calc.wfs.bd.nbands)
-        p('Number of spins                :', self.calc.wfs.nspins)
-        p('Number of k-points             :', len(self.calc.wfs.kd.bzk_kc))
-        p('Number of irreducible k-points :', len(self.calc.wfs.kd.ibzk_kc))
+          self.gs.atoms.get_chemical_formula(mode='hill'))
+        p('Ground state XC functional     :', self.gs.xcname)
+        p('Valence electrons              :', self.gs.nvalence)
+        p('Number of bands                :', self.gs.bd.nbands)
+        p('Number of spins                :', self.gs.nspins)
+        p('Number of k-points             :', len(self.gs.kd.bzk_kc))
+        p('Number of irreducible k-points :', len(self.gs.kd.ibzk_kc))
         p('Number of q-points             :', len(self.bzq_qc))
         p('Number of irreducible q-points :', len(self.ibzq_qc))
         p()
