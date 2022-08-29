@@ -253,6 +253,7 @@ def adsorb(db, height=1.2, nlayers=3, nkpts=7, ecut=400):
 
     return height
 
+
 # %%
 """
 Read more about ASE databases
@@ -307,6 +308,7 @@ def select(nlayers, nkpts, ecut):
     enru = row.energy
     return row.height, enru - eru - en
 
+
 # %%
 # magic: %matplotlib notebook
 from matplotlib import pyplot as plt
@@ -320,7 +322,7 @@ axs[0].plot(n, h)
 axs[1].plot(n, e)
 axs[0].set_ylabel('height [Å]')
 axs[1].set_ylabel('ads. energy [eV]')
-axs[1].set_xlabel('number of layers');
+axs[1].set_xlabel('number of layers')
 
 # %%
 k = np.arange(4, 18)
@@ -331,7 +333,7 @@ axs[0].plot(k, h)
 axs[1].plot(k, e)
 axs[0].set_ylabel('height [Å]')
 axs[1].set_ylabel('ads. energy [eV]')
-axs[1].set_xlabel('number of k-points');
+axs[1].set_xlabel('number of k-points')
 
 # %%
 x = np.arange(350, 801, 50)
@@ -342,7 +344,7 @@ axs[0].plot(x, h)
 axs[1].plot(x, e)
 axs[0].set_ylabel('height [Å]')
 axs[1].set_ylabel('ads. energy [eV]')
-axs[1].set_xlabel('plane-wave cutoff energy [eV]');
+axs[1].set_xlabel('plane-wave cutoff energy [eV]')
 
 # %%
 """

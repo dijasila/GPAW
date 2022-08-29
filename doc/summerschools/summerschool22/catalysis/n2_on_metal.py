@@ -32,7 +32,7 @@ from ase import Atoms
 from gpaw import GPAW, PW
 from ase.constraints import FixAtoms
 from ase.optimize import QuasiNewton
-from ase.build import fcc111, hcp0001
+from ase.build import hcp0001
 from ase.visualize import view
 from ase.io import read, write
 import time
