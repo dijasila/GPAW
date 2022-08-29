@@ -16,7 +16,8 @@ from gpaw.response.pair import NoCalculatorPairDensity
 from gpaw.pw.descriptor import PWDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.utilities import unpack, unpack2
-from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
+from gpaw.response.wstc import (WignerSeitzTruncatedCoulomb,
+                                SpericallySTruncatedCoulomb)
 from gpaw.response.context import new_context
 
 
@@ -49,8 +50,8 @@ def select_kpts(kpts, kd):
 
 class EXX(NoCalculatorPairDensity):
     def __init__(self, gs, xc=None, kpts=None, bands=None, ecut=None,
-                 stencil=2,
-                 omega=None, world=mpi.world, txt=sys.stdout, timer=None):
+                 stencil=2, omega=None, truncation='wstc',
+                 world=mpi.world, txt=sys.stdout, timer=None):
         """Non self-consistent hybrid functional calculations.
 
         Eigenvalues and total energy can be calculated.
@@ -140,11 +141,20 @@ class EXX(NoCalculatorPairDensity):
             0, self.nocc2)
 
         if omega is None:
-            print('Using Wigner-Seitz truncated coulomb interaction.',
-                  file=self.fd)
-            self.wstc = WignerSeitzTruncatedCoulomb(self.gs.gd.cell_cv,
-                                                    self.gs.kd.N_c,
-                                                    self.fd)
+            if truncation == 'wstc':
+                print('Using Wigner-Seitz truncated coulomb interaction.',
+                      file=self.fd)
+                self.wstc = WignerSeitzTruncatedCoulomb(self.gs.gd.cell_cv,
+                                                        self.gs.kd.N_c,
+                                                        self.fd)
+            elif truncation == 'spherical':
+                print('Using spherically truncated coulomb interaction.',
+                      file=self.fd)
+                self.estc = SphericallyTruncatedCoulomb(self.gs.gd.cell_cv,
+                                                        self.gd.kd.N_c,
+                                                        self.fd)
+            else:
+                raise ValueError(f'Unknown Coulomb truncation: {kernel}.')
         self.iG_qG = {}  # cache
 
         # PAW matrices:

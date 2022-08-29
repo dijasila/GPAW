@@ -21,6 +21,29 @@ import gpaw.mpi as mpi
 from gpaw.fftw import get_efficient_fft_size
 from gpaw.grid_descriptor import GridDescriptor
 
+class SphericallyTruncatedCoulomb:
+    def __init__(self, cell_cv, nk_c, txt=None):
+        txt = txt or sys.stdout
+        self.nk_c = nk_c
+        bigcell_cv = cell_cv * nk_c[:, np.newaxis]
+        L_c = (np.linalg.inv(bigcell_cv)**2).sum(0)**-0.5
+        self.R = 0.5 * L_c.min()
+
+        print(f'Spherically screened coulomb kernel R={self.R}', file=txt)
+
+    def get_potential(self, pd, q_v=None):
+        K_G = pd.zeros()
+        qG_Gv = pd.get_reciprocal_vectors(add_q=True)
+        if q_v is not None:
+            qG_Gv += q_v
+        G2_G = np.sum(qG_Gv**2, axis=1)
+        G_G = G2_G**0.5
+        G0 = G2_G.argmin()
+        if G2_G[G0] < 1e-11:
+            K_G[G0] = 2*pi*self.R**2
+        with np.errstate(invalid='ignore'):
+            K_G += 4 * pi * (1 - np.cos(-self.R * G_G)) / G2_G
+        return K_G
 
 class WignerSeitzTruncatedCoulomb:
     def __init__(self, cell_cv, nk_c, txt=None):
