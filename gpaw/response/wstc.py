@@ -39,10 +39,10 @@ class SphericallyTruncatedCoulomb:
         G2_G = np.sum(qG_Gv**2, axis=1)
         G_G = G2_G**0.5
         G0 = G2_G.argmin()
-        if G2_G[G0] < 1e-11:
-            K_G[G0] = 2*pi*self.R**2
         with np.errstate(invalid='ignore'):
             K_G += 4 * pi * (1 - np.cos(-self.R * G_G)) / G2_G
+        if G2_G[G0] < 1e-11:
+            K_G[G0] = 2*pi*self.R**2
         return K_G
 
 class WignerSeitzTruncatedCoulomb:

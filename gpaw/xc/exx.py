@@ -17,7 +17,7 @@ from gpaw.pw.descriptor import PWDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.utilities import unpack, unpack2
 from gpaw.response.wstc import (WignerSeitzTruncatedCoulomb,
-                                SpericallySTruncatedCoulomb)
+                                SphericallyTruncatedCoulomb)
 from gpaw.response.context import new_context
 
 
@@ -51,6 +51,7 @@ def select_kpts(kpts, kd):
 class EXX(NoCalculatorPairDensity):
     def __init__(self, gs, xc=None, kpts=None, bands=None, ecut=None,
                  stencil=2, omega=None, truncation='wstc',
+                 no_valence_core=False,
                  world=mpi.world, txt=sys.stdout, timer=None):
         """Non self-consistent hybrid functional calculations.
 
@@ -79,6 +80,8 @@ class EXX(NoCalculatorPairDensity):
         context = new_context(txt=txt, world=world, timer=timer)
 
         super().__init__(gs=gs, context=context)
+
+        self.no_valence_core = no_valence_core
 
         def _xc(name):
             return {'name': name, 'stencil': stencil}
@@ -150,11 +153,12 @@ class EXX(NoCalculatorPairDensity):
             elif truncation == 'spherical':
                 print('Using spherically truncated coulomb interaction.',
                       file=self.fd)
-                self.estc = SphericallyTruncatedCoulomb(self.gs.gd.cell_cv,
-                                                        self.gd.kd.N_c,
+                self.wstc = SphericallyTruncatedCoulomb(self.gs.gd.cell_cv,
+                                                        self.gs.kd.N_c,
                                                         self.fd)
             else:
-                raise ValueError(f'Unknown Coulomb truncation: {kernel}.')
+                raise ValueError(f'Unknown Coulomb truncation: {truncation}.')
+
         self.iG_qG = {}  # cache
 
         # PAW matrices:
@@ -322,7 +326,7 @@ class EXX(NoCalculatorPairDensity):
                 D_ii = unpack2(D_p)
                 V_ii = pawexxvv(atomdata.M_pp, D_ii)
                 V_sii.append(V_ii)
-            if atomdata.X_p is None:
+            if self.no_valence_core or atomdata.X_p is None:
                 C_ii = D_ii * 0.0
             else:
                 C_ii = unpack(atomdata.X_p)

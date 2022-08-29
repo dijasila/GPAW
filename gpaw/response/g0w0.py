@@ -371,7 +371,7 @@ class G0W0Calculator:
             Gap to apply in the 'JGMs' (simplified jellium-with-gap) kernel.
             If None the DFT gap is used.
         truncation: str
-            Coulomb truncation scheme. Can be either wigner-seitz,
+            Coulomb truncation scheme. Can be either wigner-seitz, spherical,
             2D, 1D, or 0D
         integrate_gamma: int
             Method to integrate the Coulomb interaction. 1 is a numerical
@@ -779,6 +779,11 @@ class G0W0Calculator:
                 self.gs.gd.cell_cv,
                 self.gs.kd.N_c,
                 chi0calc.fd)
+        elif self.truncation == 'spherical':
+            wstc = SphericalTruncatedCoulomb(
+                self.gs.gd.cell_cv,
+                self.gs.kd.N_c,
+                chi0calc.fd)
         else:
             wstc = None
 
@@ -1107,6 +1112,7 @@ class G0W0Calculator:
             print('Calculating EXX contribution', file=self.fd)
             self.fd.flush()
             exx = EXX(self.gs, kpts=self.kpts, bands=self.bands,
+                      truncation=self.truncation, no_valence_core=True,
                       txt=self.filename + '.exx.txt', timer=self.timer)
             exx.calculate()
             exx_skn = exx.get_eigenvalue_contributions() / Ha

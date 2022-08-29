@@ -37,10 +37,11 @@ def get_coulomb_kernel(pd, N_c, truncation=None, q_v=None, wstc=None):
         if pd.kd.gamma and q_v is None:
             v_G[0] = 0.0
 
-    elif truncation == 'wigner-seitz':
+    elif truncation == 'wigner-seitz' or truncation == 'spherical':
         v_G = wstc.get_potential(pd, q_v=q_v)
         if pd.kd.gamma and q_v is None:
-            v_G[0] = 0.0
+            v_G[0] = 0.0 # What is this!?
+
     else:
         raise ValueError('Truncation scheme %s not implemented' % truncation)
 
