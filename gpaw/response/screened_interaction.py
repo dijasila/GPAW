@@ -326,11 +326,6 @@ class WCalculator:
                     W_GG[0, 1:] = einv_GG[0, 1:] * sqrtV_G[1:] * sqrtV0
                     W_GG[1:, 0] = einv_GG[1:, 0] * sqrtV0 * sqrtV_G[1:]
 
-                print('W_GG new')
-                print(W_GG[0,0])
-                print('integrate_gamma new')
-                print(self.integrate_gamma)
-
         if self.ppa:
             omegat_GG = self.E0 * np.sqrt(einv_wGG[1] /
                                           (einv_wGG[0] - einv_wGG[1]))
