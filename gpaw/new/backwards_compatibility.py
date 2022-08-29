@@ -8,6 +8,7 @@ from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.projections import Projections
 from gpaw.pw.descriptor import PWDescriptor
 from gpaw.utilities import pack
+from gpaw.wavefunctions.arrays import PlaneWaveExpansionWaveFunctions
 
 
 class FakeWFS:
@@ -34,6 +35,7 @@ class FakeWFS:
         self.nspins = ibzwfs.nspins
         self.dtype = ibzwfs.dtype
         wfs = ibzwfs.wfs_qs[0][0]
+        self.pd = None
         if isinstance(wfs, PWFDWaveFunctions):
             if hasattr(wfs.psit_nX.desc, 'ecut'):
                 self.mode = 'pw'
@@ -71,15 +73,16 @@ class FakeWFS:
     @cached_property
     def kpt_qs(self):
         ngpts = prod(self.gd.N_c)
-        return [[KPT(wfs, self.atom_partition, ngpts)
+        return [[KPT(wfs, self.atom_partition, ngpts, self.pd)
                  for wfs in wfs_s]
                 for wfs_s in self.state.ibzwfs.wfs_qs]
 
 
 class KPT:
-    def __init__(self, wfs, atom_partition, ngpts):
+    def __init__(self, wfs, atom_partition, ngpts, pd):
         self.ngpts = ngpts
         self.wfs = wfs
+        self.pd = pd
         self.projections = Projections(
             wfs.nbands,
             [I2 - I1 for (a, I1, I2) in wfs.P_ani.layout.myindices],
@@ -104,6 +107,16 @@ class KPT:
         if a_nG.ndim == 4:
             return a_nG
         return a_nG * self.ngpts
+
+    @cached_property
+    def psit(self):
+        return PlaneWaveExpansionWaveFunctions(
+            self.wfs.nbands, self.pd, self.wfs.dtype,
+            self.psit_nX.data * self.ngpts,
+            kpt=self.q,
+            dist=(),  # self.bd.comm, self.bd.comm.size),
+            spin=self.s,
+            collinear=self.wfs.ncomponents != 4)
 
 
 class FakeDensity:
@@ -144,6 +157,8 @@ class FakeHamiltonian:
         self.pot_calc = calculation.pot_calc
         self.finegd = self.pot_calc.fine_grid._gd
         self.grid = calculation.state.potential.vt_sR.desc
+        self.e_total_free = calculation.results['free_energy']
+        self.e_xc = calculation.state.potential.energies['xc']
 
     def restrict_and_collect(self, vxct_sg):
         fine_grid = self.pot_calc.fine_grid

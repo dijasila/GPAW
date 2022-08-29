@@ -167,7 +167,11 @@ def read_gpw(filename: Union[str, Path, IO[str]],
     density = Density.from_data_and_setups(nt_sR, D_asp.to_full(),
                                            builder.params.charge,
                                            builder.setups)
-    potential = Potential(vt_sR, dH_asp.to_full(), {})
+    potential = Potential(vt_sR,
+                          dH_asp.to_full(),
+                          {key: value / ha
+                           for key, value
+                           in reader.hamiltonian.energies.items()})
 
     ibzwfs = builder.read_ibz_wave_functions(reader)
 
