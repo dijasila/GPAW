@@ -88,7 +88,6 @@ slab = read('tight-N2Ru-top.traj')  # student: slab = read('your_structure')
 calc = GPAW(xc='PBE',
             mode=PW(450),  # student: mode=PW(450),
             kpts={'size': (4, 4, 1), 'gamma': True},  # student: kpts=?,
-            convergence={'eigenstates': 1e-8},  # student: convergence=?,
             symmetry={'point_group': False},
             txt='vib.txt')
 slab.calc = calc
@@ -112,7 +111,6 @@ slab = read('tight-2Nads.traj')
 calc = GPAW(xc='PBE',
             mode=PW(450),  # student: mode=PW(450),
             kpts={'size': (4, 4, 1), 'gamma': True},  # student: kpts=?,
-            convergence={'eigenstates': 1e-8},  # student: convergence=?,
             symmetry={'point_group': False},
             txt='vib2.txt')
 slab.calc = calc
