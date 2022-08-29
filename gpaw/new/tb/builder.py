@@ -168,6 +168,7 @@ class TBSCFLoop:
                 pot_calc,
                 convergence=None,
                 maxiter=None,
+                calculate_forces=None,
                 log=None):
         self.eigensolver.iterate(state, self.hamiltonian)
         state.ibzwfs.calculate_occs(self.occ_calc)
