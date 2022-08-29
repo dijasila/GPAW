@@ -21,7 +21,7 @@ from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.response.pair import PairDensity
 from gpaw.response.gamma_int import GammaIntegrator
 from gpaw.response.groundstate import ResponseGroundStateAdapter
-
+from gpaw.response.screened_interaction import WCalculator, initialize_w_calculator
 
 class BSE:
     def __init__(self,
@@ -107,6 +107,7 @@ class BSE:
         self.wfile = wfile
         self.write_h = write_h
         self.write_v = write_v
+        self.txt = txt
 
         # Find q-vectors and weights in the IBZ:
         self.kd = self.gs.kd
@@ -186,7 +187,7 @@ class BSE:
 
         # Chi0 object
         self._chi0calc = None  # Initialized later
-
+        self._wcalc = None # Initialized later
     def __del__(self):
         self.iocontext.close()
 
@@ -516,7 +517,7 @@ class BSE:
         m1, m2, spins = 0, self.nbands, 'all'
         chi0 = self._chi0calc.update_chi0(chi0, m1, m2, spins)
 
-        return chi0.pd, chi0.chi0_wGG, chi0.chi0_wxvG, chi0.chi0_wvv
+        return chi0 #chi0.pd, chi0.chi0_wGG, chi0.chi0_wxvG, chi0.chi0_wvv
 
     def initialize_chi0_calculator(self):
         """Initialize the Chi0 object to compute the static
@@ -540,11 +541,37 @@ class BSE:
         self.W_qGG = []
         self.pd_q = []
 
+        #F.N: Moved this here. chi0 will be calculated by WCalculator
+        if self._chi0calc is None:
+            self.initialize_chi0_calculator()
+        if self._wcalc is None:
+            self._wcalc = initialize_w_calculator(chi0calc=self._chi0calc,
+                                                  truncation=self.truncation,
+                                                  world=world,
+                                                  txt=self.txt,
+                                                  integrate_gamma=self.integrate_gamma)
+
+
         t0 = time()
         print('Calculating screened potential', file=self.fd)
         for iq, q_c in enumerate(self.qd.ibzk_kc):
-
-            pd, chi0_wGG, chi0_wxvG, chi0_wvv = self._calculate_chi0(q_c)
+            #pd, chi0_wGG, chi0_wxvG, chi0_wvv = self._calculate_chi0(q_c)
+            chi0 = self._calculate_chi0(q_c)
+            print ('---iq W ---')
+            print('ac=')
+            print(ac)
+            pd, blocks1d, W_wGG = self._wcalc.calculate_q(iq, q_c, chi0)
+            W_GG = W_wGG[0]
+            """
+            print(iq,W_GG[0,0])
+            print('shapeW')
+            print(W_GG.shape)
+            
+            #pd, chi0_wGG, chi0_wxvG, chi0_wvv = self._calculate_chi0(q_c)
+            pd = chi0.pd 
+            chi0_wGG = chi0.chi0_wGG 
+            chi0_wxvG = chi0.chi0_wxvG 
+            chi0_wvv = chi0.chi0_wvv
             nG = pd.ngmax
             chi0_GG = chi0_wGG[0]
 
@@ -580,9 +607,15 @@ class BSE:
                                             self.kd.N_c,
                                             truncation=self.truncation,
                                             wstc=self.wstc)**0.5
+                print('sqrV_G old')
+                print(sqrV_G[0])
                 sqrV_G *= ac**0.5  # Multiply by adiabatic coupling
+                print('after ac...')
+                print(sqrV_G[0])
                 e_GG = np.eye(nG) - chi0_GG * sqrV_G * sqrV_G[:, np.newaxis]
                 einv_GG = np.linalg.inv(e_GG)
+                print('einv_old')
+                print(einv_GG[0,1])
                 # W_GG = einv_GG * sqrV_G * sqrV_G[:, np.newaxis]
 
             # Now calculate W_GG
@@ -592,7 +625,13 @@ class BSE:
                                             self.kd.N_c,
                                             truncation=self.truncation,
                                             wstc=self.wstc)**0.5
+            print('sqrV_G again...')
+            print(sqrV_G[0])
             W_GG = einv_GG * sqrV_G * sqrV_G[:, np.newaxis]
+            print('W again')
+            print(W_GG[0,0])
+            print('integrate_gamma old')
+            print(self.integrate_gamma)
             if self.integrate_gamma != 0:
                 # Numerical integration of Coulomb interaction at all q-points
                 if self.integrate_gamma == 2:
@@ -619,10 +658,17 @@ class BSE:
             else:
                 pass
 
+            print('iq,W old')
+            print(iq,W_GG[0,0])
+            print('shapeW')
+            print(W_GG.shape)
+
             if pd.kd.gamma:
                 e = 1 / einv_GG[0, 0].real
                 print('    RPA dielectric constant is: %3.3f' % e,
                       file=self.fd)
+            # end comment here
+            """
             self.Q_qaGii.append(self._chi0calc.Q_aGii)
             self.pd_q.append(pd)
             self.W_qGG.append(W_GG)
