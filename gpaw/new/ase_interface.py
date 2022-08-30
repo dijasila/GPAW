@@ -5,9 +5,9 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import IO, Any, Union
 
+import numpy as np
 from ase import Atoms
 from ase.units import Bohr, Ha
-
 from gpaw import __version__
 from gpaw.new import Timer, cached_property
 from gpaw.new.builder import builder as create_builder
@@ -16,7 +16,7 @@ from gpaw.new.gpw import read_gpw, write_gpw
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
 from gpaw.new.pw.fulldiag import diagonalize
-from gpaw.new.xc import XC
+from gpaw.new.xc import XCFunctional
 from gpaw.typing import Array1D, Array2D, Array3D
 from gpaw.utilities import pack
 from gpaw.utilities.memory import maxrss
@@ -295,13 +295,15 @@ class ASECalculator:
     def get_xc_difference(self, xcparams):
         """Calculate non-selfconsistent XC-energy difference."""
         state = self.calculation.state
-        xc = XC(xcparams, state.density.ncomponents)
+        xc = XCFunctional(xcparams, state.density.ncomponents)
         exct = self.calculation.pot_calc.calculate_non_selfconsistent_exc(
             state.density.nt_sR, xc)
         dexc = 0.0
         for a, D_sii in state.density.D_asii.items():
             setup = self.setups[a]
-            dexc += xc.calculate_paw_correction(setup, pack(D_sii))
+            dexc += xc.calculate_paw_correction(
+                setup,
+                np.array([pack(D_ii) for D_ii in D_sii]))
         return (exct + dexc - state.potential.energies['xc']) * Ha
 
     def diagonalize_full_hamiltonian(self,
