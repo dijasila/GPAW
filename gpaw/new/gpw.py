@@ -176,7 +176,8 @@ def read_gpw(filename: Union[str, Path, IO[str]],
                 for name in ENERGY_NAMES}
     penergies = {key: e for key, e in energies.items()
                  if not key.startswith('total')}
-    e_band = penergies.pop('band')
+    e_band = penergies.pop('band', np.nan)
+    e_entropy = penergies.pop('entropy')
     penergies['kinetic'] -= e_band
 
     potential = Potential(vt_sR, dH_asp.to_full(), penergies)
@@ -184,7 +185,7 @@ def read_gpw(filename: Union[str, Path, IO[str]],
     ibzwfs = builder.read_ibz_wave_functions(reader)
     ibzwfs.energies = {
         'band': e_band,
-        'entropy': energies['entropy'],
+        'entropy': e_entropy,
         'extrapolation': (energies['total_extrapolated'] -
                           energies['total_free'])}
 
