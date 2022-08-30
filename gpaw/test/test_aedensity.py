@@ -19,9 +19,12 @@ def test_aedensity(in_tmp_dir):
                       Atom('Cl', [0, 0, d])],
                      pbc=False, cell=a)
         NaCl.center()
-        calc = GPAW(h=h, xc='LDA', nbands=5,
+        calc = GPAW(mode='pw',
+                    gpts=(32, 32, 36),
+                    #h=h,
+                    xc='LDA', nbands=5,
                     setups={'Na': '1'},
-                    convergence={'eigenstates': 1e-6}, spinpol=1)
+                    convergence={'eigenstates': 1e-6}, spinpol=1-1)
 
         NaCl.calc = calc
         e = NaCl.get_potential_energy()
@@ -33,8 +36,10 @@ def test_aedensity(in_tmp_dir):
     nt1 = calc.get_pseudo_density(gridrefinement=1)
     Zt1 = nt1.sum() * dv
     nt2 = calc.get_pseudo_density(gridrefinement=2)
+    nt4 = calc.get_pseudo_density(gridrefinement=4)
     Zt2 = nt2.sum() * dv / 8
-    print('Integral of pseudo density:', Zt1, Zt2)
+    Zt4 = nt4.sum() * dv / 4**3
+    print('Integral of pseudo density:', Zt1, Zt2, Zt4)
     equal(Zt1, Zt2, 1e-12)
 
     for gridrefinement in [1, 2, 4]:
