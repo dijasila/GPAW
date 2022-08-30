@@ -342,17 +342,21 @@ class G0W0Calculator:
             or dictionary of parameters for build-in nonlinear grid
             (see :ref:`frequency grid`).
         ecut: float
-            Plane wave cut-off energy in eV.
+            Plane wave cut-off energy in eV for the dielectric matrix.
+            If ecut_extrapolation is a list of energies, ecut cannot be
+            specified. In order to do ecut extrapolation to maximum ecut,
+            just set ecut_extrapolation=True.
         ecut_extrapolation: bool or list
             If set to True an automatic extrapolation of the selfenergy to
             infinite cutoff will be performed based on three points
-            for the cutoff energy.
+            for the cutoff energy (ecut).
             If an array is given, the extrapolation will be performed based on
             the cutoff energies given in the array.
         nbands: int
             Number of bands to use in the calculation. If None, the number will
             be determined from :ecut: to yield a number close to the number of
-            plane waves used.
+            plane waves used. If ecut_extrapolation is given, the number of
+            bands will be dynamic, and nbands cannot be specified.
         ppa: bool
             Sets whether the Godby-Needs plasmon-pole approximation for the
             dielectric function should be used.
@@ -1324,7 +1328,7 @@ class G0W0(G0W0Calculator):
                                          world, timer)
         gs = calc.gs_adapter()
 
-        if ecut_extrapolation is not False and ecut_extrapolation is not True:
+        if type(ecut_extrapolation) != bool:
             if ecut is not None:
                 raise ValueError('ecut must be None if'
                                  ' ecut_extrapolation is a list.')
