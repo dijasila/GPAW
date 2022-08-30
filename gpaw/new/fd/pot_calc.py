@@ -69,7 +69,6 @@ class UniformGridPotentialCalculator(PotentialCalculator):
 
         vxct_sr = grid2.zeros(nt_sr.dims)
         e_xc = self.xc.calculate(nt_sr, vxct_sr)
-
         charge_r = grid2.empty()
         charge_r.data[:] = nt_sr.data[:density.ndensities].sum(axis=0)
         e_zero = self.vbar_r.integrate(charge_r)
