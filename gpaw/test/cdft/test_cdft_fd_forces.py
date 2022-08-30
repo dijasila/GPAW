@@ -5,6 +5,7 @@ from gpaw import Mixer
 import numpy as np
 
 
+@pytest.mark.later
 def test_cdft_fd_forces(in_tmp_dir):
 
     sys = Atoms('N2', positions=([0., 0., 0.], [0., 0., 1]))
