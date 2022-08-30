@@ -305,6 +305,7 @@ class G0W0Calculator:
                  xckernel,
                  fxc_mode='GW', do_GW_too=False,
                  truncation=None, integrate_gamma=0,
+                 no_core_valence_exx=False,
                  eta, E0,
                  ecut_e,
                  frequencies=None,
@@ -403,6 +404,8 @@ class G0W0Calculator:
         self.frequencies = frequencies
 
         self.ecut_e = ecut_e / Ha
+
+        self.no_core_valence_exx = no_core_valence_exx
 
         self.context = context
         self.chi0calc = chi0calc
@@ -1112,7 +1115,8 @@ class G0W0Calculator:
             print('Calculating EXX contribution', file=self.fd)
             self.fd.flush()
             exx = EXX(self.gs, kpts=self.kpts, bands=self.bands,
-                      truncation=self.truncation, no_valence_core=True,
+                      truncation=self.truncation,
+                      no_valence_core=self.no_core_valence_exx,
                       txt=self.filename + '.exx.txt', timer=self.timer)
             exx.calculate()
             exx_skn = exx.get_eigenvalue_contributions() / Ha
