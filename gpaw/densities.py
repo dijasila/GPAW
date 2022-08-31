@@ -11,7 +11,7 @@ from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.setup import Setups
 from gpaw.spherical_harmonics import Y
 from gpaw.spline import Spline
-from gpaw.typing import Array1D, Array3D, ArrayLike2D, Vector
+from gpaw.typing import Array1D, Array3D, Vector, Array2D
 
 if TYPE_CHECKING:
     from gpaw.new.calculation import DFTCalculation
@@ -21,7 +21,7 @@ class Densities:
     def __init__(self,
                  nt_sR: UniformGridFunctions,
                  D_asii: AtomArrays,
-                 fracpos_ac: ArrayLike2D,
+                 fracpos_ac: Array2D,
                  setups: Setups):
         self.nt_sR = nt_sR
         self.D_asii = D_asii
