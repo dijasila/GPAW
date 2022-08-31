@@ -10,12 +10,12 @@ class XCFunctional:
         self.type = self.xc.type
 
     def __str__(self):
-        return f'name: {self.name}'
+        return f'name: {self.xc.get_description()}'
 
     def calculate(self, density, out) -> float:
         return self.xc.calculate(density.desc._gd, density.data, out.data)
 
-    def calculate_paw_correction(self, setup, d, h):
+    def calculate_paw_correction(self, setup, d, h=None):
         return self.xc.calculate_paw_correction(setup, d, h)
 
     def get_setup_name(self):

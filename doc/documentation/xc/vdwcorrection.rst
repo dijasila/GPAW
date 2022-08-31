@@ -23,13 +23,13 @@ The TS09 results are in good agreement to the results obtained with
 the FHI-aims code [#Hanke11jcc]_. Grimme D4 is available
 at github_.
 
-Calculating the S26 test set 
+Calculating the S26 test set
 ============================
 
 As an example of the usage, here the S26 (S22 plus 4 other pairs)
 test set is calculated:
 
-.. literalinclude:: s22_test.py
+.. literalinclude:: s22_set.py
 
 .. [#TS09] Tkatchenko and Scheffler Phys. Rev. Lett. 102 (2009) 073005
 .. [#Hanke11jcc] Felix Hanke J. Comp. Chem. 32 (2011) 1424
