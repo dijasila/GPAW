@@ -15,7 +15,14 @@ As a first example we calculate the spontaneous polarization of the ferroelectri
 
 .. literalinclude:: polarization_BaTiO3.py
 
-which calculates the polarization. It will take a few minutes on a single CPU, but can also be parallelized. It generates a .json file that contains the polarization and will read if the script is run again. It is thus possible to submit the polarization script and print the polarization by rerunning the script above in the terminal. The calculation adds the contribution from the electrons and the nucleii, which implies that the result is independent of the positions of the atoms relative to the unit cell. The results should be 0.33 `C/m^2`, which agrees with the values from literature.
+which calculates the polarization. It will take a few minutes on a single CPU,
+but can also be parallelized. It generates a .json file that contains the
+polarization and will read if the script is run again. It is thus possible to
+submit the polarization script and print the polarization by rerunning the
+script above in the terminal. The calculation adds the contribution from the
+electrons and the nucleii, which implies that the result is independent of the
+positions of the atoms relative to the unit cell. The results should be 0.45
+`C/m^2`, which agrees with the values from literature [#Zhang]_.
 
 
 Born effective charges of tetragonal BaTiO3
@@ -56,6 +63,9 @@ Finally the berry phase spectrum can be plottet with :download:`plot_phase.py` a
 
 Note the degeneracy of all phases at the time-reversal invariant points `\Gamma` and `M`. Also note that any horizontal line is transversed by an odd number of phases in half the Brillouin zone (for example the `\Gamma-M` line). We also display the expectation value of `S_z` according to color. This is possible because the individual phases correspond to the first moments of hybrid Wannier functions localized along the `x`-direction and these functions have a spinorial structure with a well-defined value of `\langle S_z\rangle`. [#Olsen]_
 
-.. [#Olsen] T. Olsen, E. Andersen, T. Okugawa, D. Torelli, T. Deilmann, K. S. Thygesen
+.. [#Olsen] T. Olsen, E. Andersen, T. Okugawa, D. Torelli, T. Deilmann,
+            K. S. Thygesen
             :arxiv:`1812.06666`
 
+.. [#Zhang] Yubo Zhang, Jianwei Sun, John P. Perdew, and Xifan Wu
+            :doi:`Phys. Rev. B 96, 035143 <10.1103/PhysRevB.96.035143>`
