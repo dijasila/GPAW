@@ -1,23 +1,30 @@
 from math import pi
 
+import numpy as np
 from ase.units import Ha
-from gpaw.core import PlaneWaves
+from gpaw.core import PlaneWaves, UniformGrid
+from gpaw.fftw import get_efficient_fft_size
 from gpaw.new.poisson import PoissonSolver
 from gpaw.typing import Array1D
 
 
 def make_poisson_solver(pw: PlaneWaves,
-                        pbc:c: Array1D,
+                        pbc_c: Array1D,
                         charge: float,
                         strength: float = 1.0,
                         dipolelayer: bool = False,
                         **kwargs) -> PoissonSolver:
     if charge != 0.0 and not pbc_c.any():
-        return ChargePWPoissonSolver(pw, charge, strength, **kwargs)
-    assert not kwargs
+        return ChargedPWPoissonSolver(pw, charge, strength, **kwargs)
+
     ps = PWPoissonSolver(pw, charge, strength)
+
     if dipolelayer:
-        ps = DipoleLayerPWPoissonSolver(ps, pbc_c)
+        axis, = np.where(~pbc_c)
+        ps = DipoleLayerPWPoissonSolver(ps, axis, **kwargs)
+    else:
+        assert not kwargs
+
     return ps
 
 
@@ -87,7 +94,7 @@ class ChargedPWPoissonSolver(PWPoissonSolver):
         * Correct energy to remove the artificial interaction with
           the compensation charge
         """
-        PWSpacePoissonSolver.__init__(self, pw, charge, strength)
+        super().__init__(pw, charge, strength)
 
         if alpha is None:
             # Shortest distance from center to edge of cell:
@@ -105,40 +112,50 @@ class ChargedPWPoissonSolver(PWPoissonSolver):
                                1j * (G_gv @ center_v))
         self.charge_g *= charge / pw.dv
 
-        grid = ...
-        R_Rv = pd.gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
+        # Multiple of 3 gives odd numbers of grid-points which makes
+        # sure that we don't devide by zero below.
+        size_c = [get_efficient_fft_size(N, 3)
+                  for N in pw.indices_cG.ptp(axis=1) + 1]
+        grid = UniformGrid(size=size_c, cell=pw.cell, comm=pw.comm)
+        R_Rv = grid.xyz()
         d_R = ((R_Rv - center_v)**2).sum(axis=3)**0.5
+        potential_R = charge * np.erf(alpha**0.5 * d_R) / d_R
+        self.potential_g = potential_R.fft(pw=pw)
 
-        with seterr(invalid='ignore'):
-            potential_R = erf(alpha**0.5 * d_R) / d_R
-        if ((pd.gd.N_c % 2) == 0).all():
-            R_c = pd.gd.N_c // 2
-            if pd.gd.is_my_grid_point(R_c):
-                potential_R[tuple(R_c - pd.gd.beg_c)] = (4 * alpha / pi)**0.5
-        self.potential_q = charge * pd.fft(potential_R)
-
-    def __str__(self):
-        return ('Using Gaussian-shaped compensation charge: e^(-ar^2) '
-                f'with a={self.alpha:.3f} bohr^-2')
+    def __str__(self) -> str:
+        txt, x = str(super()).rsplit('\n', 1)
+        assert x.startswith('  uniform background charge:')
+        txt += (
+            '  # using Gaussian-shaped compensation charge: e^(-alpha r^2)\n'
+            f'  alpha: {self.alpha}   # bohr^-2')
+        return txt
 
     def _solve(self,
-               vHt_q: Array1D,
-               rhot_q: Array1D) -> float:
-        neutral_q = rhot_q + self.charge_q
-        if self.pd.gd.comm.rank == 0:
-            error = neutral_q[0] * self.pd.gd.dv
-            assert error.imag == 0.0, error
-            assert abs(error.real) < 0.01, error
-            neutral_q[0] = 0.0
+               vHt_g,
+               rhot_g) -> float:
+        neutral_g = rhot_g.copy()
+        neutral_g.data += self.charge_g
 
-        vHt_q[:] = 4 * pi * neutral_q
-        vHt_q /= self.G2_q
-        epot = 0.5 * self.pd.integrate(vHt_q, neutral_q)
-        epot -= self.pd.integrate(self.potential_q, rhot_q)
+        if neutral_g.desc.comm.rank == 0:
+            error = neutral_g.data[0]  # * self.pd.gd.dv
+            assert error.imag == 0.0, error
+            assert abs(error.real) < 0.00001, error
+            neutral_g.data[0] = 0.0
+
+        vHt_g.data[:] = 2 * pi * neutral_g.data
+        vHt_g.data /= self.ekin_g
+        epot = 0.5 * vHt_g.integrate(neutral_g)
+        epot -= self.potential_g.integrate(rhot_g)
         epot -= self.charge**2 * (self.alpha / 2 / pi)**0.5
-        vHt_q -= self.potential_q
+        vHt_g.data -= self.potential_g.data
         return epot
 
+
+class DipoleLayerPWPoissonSolver(PoissonSolver):
+    def __init__(self,
+                 ps: PWPoissonSolver,
+                 axis: int):
+        """lkæjhasdjklh
 
     def pwsolve(self, vHt_q, dens):
         gd = self.poissonsolver.pd.gd
@@ -178,3 +195,4 @@ class ChargedPWPoissonSolver(PWPoissonSolver):
         else:
             sawtooth_q = None
         self.sawtooth_q = self.poissonsolver.pd.scatter(sawtooth_q)
+        """
