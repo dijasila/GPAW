@@ -1,15 +1,17 @@
 from __future__ import annotations
 
+from math import pi
 from typing import TYPE_CHECKING
 
 import numpy as np
 from ase.units import Bohr
+
 from gpaw.core.atom_arrays import AtomArrays
 from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.setup import Setups
-from gpaw.spline import Spline
-from gpaw.typing import Array3D, ArrayLike2D, Vector
 from gpaw.spherical_harmonics import Y
+from gpaw.spline import Spline
+from gpaw.typing import Array1D, Array3D, ArrayLike2D, Vector
 
 if TYPE_CHECKING:
     from gpaw.new.calculation import DFTCalculation
@@ -64,18 +66,34 @@ class Densities:
                                grid_refinement: int = None,
                                ) -> UniformGridFunctions:
         n_sR = self._pseudo_densities(grid_spacing, grid_refinement)
+        nspins = n_sR.dims[0] % 3
+        grid = n_sR.desc
 
         splines = {}
-        for R_v, setup, D_sii in zip(self.fracpos_ac @ n_sR.desc.cell_cv,
-                                     self.setups,
-                                     self.D_asii.values()):
+        for fracpos_c, setup, D_sii in zip(self.fracpos_ac,
+                                           self.setups,
+                                           self.D_asii.values()):
             if setup not in splines:
                 phi_j, phit_j, nc, nct = setup.get_partial_waves()[:4]
                 rcut = max(setup.rcut_j)
                 splines[setup] = (rcut, phi_j, phit_j, nc, nct)
             rcut, phi_j, phit_j, nc, nct = splines[setup]
 
-            add(R_v, n_sR, phi_j, phit_j, nc, nct, rcut, D_sii)
+            # Expected integral of PAW correction:
+            electrons_s = (setup.Nc - setup.Nct) / nspins
+            electrons_s += (4 * pi)**0.5 * np.einsum('sij, ij -> s',
+                                                     D_sii,
+                                                     setup.Delta_iiL[:, :, 0])
+
+            # Add PAW correction:
+            R_v = fracpos_c @ grid.cell_cv
+            electrons_s -= add(R_v, n_sR, phi_j, phit_j, nc, nct, rcut, D_sii)
+
+            # Add missing charge to grid point closest to atom:
+            R_c = tuple(
+                np.around(grid.size * fracpos_c).astype(int) % grid.size)
+            for n_R, e in zip(n_sR.data, electrons_s):
+                n_R[R_c] += e / grid.dv
 
         return n_sR.scaled(Bohr, Bohr**-3)
 
@@ -83,12 +101,21 @@ class Densities:
 def add(R_v: Vector,
         a_sR: UniformGridFunctions,
         phi_j: list[Spline],
-        phit_j: list[Spline], nc, nct,
+        phit_j: list[Spline],
+        nc: Spline,
+        nct: Spline,
         rcut: float,
-        D_sii: Array3D):
+        D_sii: Array3D) -> Array1D:
+    """Add PAW corrections to real-space grid.
+
+    Returns number of elctrons added.
+    """
     ug = a_sR.desc
     R_Rv = ug.xyz()
     lmax = max(phi.l for phi in phi_j)
+    ncomponents = a_sR.dims[0]
+    nspins = ncomponents % 3
+    electrons_s = np.zeros(nspins)
     start_c = 0 - ug.pbc
     stop_c = 1 + ug.pbc
     for u0 in range(start_c[0], stop_c[0]):
@@ -97,14 +124,18 @@ def add(R_v: Vector,
                 d_Rv = R_Rv - (R_v + (u0, u1, u2) @ ug.cell_cv)
                 d_R = (d_Rv**2).sum(3)**0.5
                 mask_R = d_R < rcut
-                if not mask_R.any():
+                npoints = mask_R.sum()
+                if npoints == 0:
                     continue
+
+                a_sr = np.zeros((ncomponents, npoints))
                 d_rv = d_Rv[mask_R]
                 d_r = d_R[mask_R]
                 Y_Lr = [Y(L, *d_rv.T) for L in range((lmax + 1)**2)]
                 phi_jr = [phi.map(d_r) for phi in phi_j]
                 phit_jr = [phit.map(d_r) for phit in phit_j]
                 l_j = [phi.l for phi in phi_j]
+
                 i1 = 0
                 for l1, phi1_r, phit1_r in zip(l_j, phi_jr, phit_jr):
                     i2 = 0
@@ -113,14 +144,18 @@ def add(R_v: Vector,
                     for l2, phi2_r, phit2_r in zip(l_j, phi_jr, phit_jr):
                         i2b = i2 + 2 * l2 + 1
                         D_smm = D_smi[:, :, i2:i2b]
-                        a_sr = np.einsum(
+                        b_sr = np.einsum(
                             'smn, mr, nr -> sr',
                             D_smm,
                             Y_Lr[l1**2:(l1 + 1)**2],
                             Y_Lr[l2**2:(l2 + 1)**2]) * (
                             phi1_r * phi2_r - phit1_r * phit2_r)
-                        a_sR.data[:, mask_R] += a_sr
+                        a_sr += b_sr
                         i2 = i2b
                     i1 = i1b
+
                 dn_r = nc.map(d_r) - nct.map(d_r)
-                a_sR.data[:, mask_R] += dn_r * (4 * np.pi)**-0.5
+                a_sr += dn_r * ((4 * pi)**-0.5 / nspins)
+                electrons_s += a_sr.sum(1) * a_sR.desc.dv
+                a_sR.data[:, mask_R] += a_sr
+    return electrons_s
