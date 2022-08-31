@@ -21,8 +21,9 @@ polarization and will read if the script is run again. It is thus possible to
 submit the polarization script and print the polarization by rerunning the
 script above in the terminal. The calculation adds the contribution from the
 electrons and the nucleii, which implies that the result is independent of the
-positions of the atoms relative to the unit cell. The results should be 0.45
-`C/m^2`, which agrees with the values from literature [#Zhang]_.
+positions of the atoms relative to the unit cell. The results should be 0.27
+C/m`^2` for LDA and  0.45 C/m`^2` for PBE , which agrees with the values from
+literature [#Zhang]_.
 
 
 Born effective charges of tetragonal BaTiO3
