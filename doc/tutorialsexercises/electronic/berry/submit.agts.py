@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from myqueue.workflow import run
 
 
@@ -14,4 +16,7 @@ def workflow():
 
 
 def check():
-    1 / 0  # will fix this after next AGTS-run!
+    txt = Path('polarization_BaTiO3.out').read_text()
+    # will fix this after next AGTS-run!
+    assert txt == ...
+    
