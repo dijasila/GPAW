@@ -1,4 +1,5 @@
 from myqueue.workflow import run
+from .gs_graph_Co import calculate
 
 
 def workflow():
@@ -16,6 +17,7 @@ def workflow():
     with r1, r2, r3:
         run(shell='rm', args=['N.gpw', 'N2.gpw'])  # clean up
 
-    with run(script='gs_graph_Co.py', cores=16, tmax='1d'):
-        with run(script='rpa_graph_Co.py', cores=16, tmax='10h'):
-            run(shell='rm', args=['gs_*.gpw'])  # clean up
+    ds = [1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 3.25, 3.5, 3.75,
+          4.0, 5.0, 6.0, 10.0]
+    for d in ds:
+        run(function=calculate, args=[d], cores=16, tmax='1d')

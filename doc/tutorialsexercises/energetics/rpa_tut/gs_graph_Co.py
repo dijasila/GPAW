@@ -1,57 +1,54 @@
+from pathlib import Path
+
 import numpy as np
-from ase.build import add_adsorbate, hcp0001
-from ase.dft.kpoints import monkhorst_pack
-from ase.parallel import paropen
+from ase import Atoms
+from ase.build import hcp0001
 from gpaw import GPAW, PW, FermiDirac
 from gpaw.hybrids.energy import non_self_consistent_energy as nsc_energy
+from gpaw.mpi import world
 from gpaw.xc.rpa import RPACorrelation
 
-kpts = monkhorst_pack((16, 16, 1))
-kpts += np.array([1 / 32, 1 / 32, 0])
+# Lattice parametes of Co:
+a = 2.51
+c = 4.07
+slab = hcp0001('Co', a=a, c=c, size=(1, 1, 4), vacuum=10.0)
+m = 1.3
+slab.set_initial_magnetic_moments([m, m, m, m])
 
-a = 2.51  # lattice parameter of Co
-slab = hcp0001('Co', a=a, c=4.07, size=(1, 1, 4))
-pos = slab.get_positions()
-cell = slab.get_cell()
-cell[2, 2] = 20. + pos[-1, 2]
-slab.set_cell(cell)
-slab.set_initial_magnetic_moments([0.7, 0.7, 0.7, 0.7])
+# Add graphite (we adjust height later):
+slab += Atoms('C2',
+              scaled_positions=[[0, 0, 0],
+                                [1 / 3, 1 / 3, 0]],
+              cell=slab.cell)
 
-ds = np.linspace(1.75, 3.25, 7)
 
-for d in ds:
-    pos = slab.get_positions()
-    add_adsorbate(slab, 'C', d, position=(pos[3, 0], pos[3, 1]))
-    add_adsorbate(slab, 'C', d, position=(cell[0, 0] / 3 + cell[1, 0] / 3,
-                                          cell[0, 1] / 3 + cell[1, 1] / 3))
-    # view(slab)
-    calc = GPAW(xc='PBE',
-                mode=PW(600),
-                nbands='200%',
-                kpts=kpts,
-                occupations=FermiDirac(width=0.01),
-                txt=f'gs_{d}.txt')
-    slab.calc = calc
-    E = slab.get_potential_energy()
-    E_hf = nsc_energy(calc, 'EXX')
+def calculate(d: float) -> None:
+    slab.positions[4:6, 2] = slab.positions[3, 2] + d
+    tag = f'{d:.3f}'
+    slab.calc = GPAW(xc='PBE',
+                     mode=PW(600),
+                     nbands='200%',
+                     kpts={'size': (16, 16, 1), 'gamma': True},
+                     occupations=FermiDirac(width=0.01),
+                     txt=f'gs-{tag}.txt')
+    slab.get_potential_energy()
+    E_hf = nsc_energy(slab.calc, 'EXX').sum()
 
-    calc.diagonalize_full_hamiltonian()
-    calc.write(f'gs.gpw', mode='all')
+    slab.calc.diagonalize_full_hamiltonian()
+    slab.calc.write('tmp.gpw', mode='all')
 
-    rpa = RPACorrelation('gs.gpw', txt=f'rpa_{d}.txt')
+    rpa = RPACorrelation('tmp.gpw', txt=f'rpa-{tag}.txt')
     E_rpa = rpa.calculate(ecut=[200],
                           frequency_scale=2.5,
                           skip_gamma=True,
-                          filename=f'restart_{d}.txt')
+                          filename=f'restart-{tag}.txt')
 
-    f = paropen(f'rpa_{ecut}.dat', 'a')
-    print(d, E_rpa, file=f)
-    f.close()
-
-    f = paropen('hf_acdf.dat', 'a')
-    print(d, E, E_hf, file=f)
-    f.close()
-
-    del slab[-2:]
+    if world.rank == 0:
+        Path('tmp.gpw').unlink()
+        with open(f'result-{tag}.out', 'w') as fd:
+            print(d, E_hf, E_rpa, file=fd)
 
 
+if __name__ == '__main__':
+    for d in np.linspace(1.75, 3.25, 7):
+        calculate(d)
