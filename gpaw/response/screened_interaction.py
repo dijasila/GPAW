@@ -11,7 +11,7 @@ from gpaw.response.kernels import get_coulomb_kernel, get_integrated_kernel
 from gpaw.response.temp import DielectricFunctionCalculator
 import gpaw.mpi as mpi
 from gpaw.response.context import new_context
-#from gpaw.response.g0w0 import G0W0Kernel
+
 
 def get_qdescriptor(kd, atoms):
     # Find q-vectors and weights in the IBZ:
@@ -21,6 +21,7 @@ def get_qdescriptor(kd, atoms):
     qd = KPointDescriptor(bzq_qc)
     qd.set_symmetry(atoms, kd.symmetry)
     return qd
+
 
 def initialize_w_calculator(chi0calc, txt='w.txt', ppa=False, xc='RPA',
                             world=mpi.world,timer=None,
@@ -140,11 +141,11 @@ class WCalculator:
             chi0 = chi0calc.create_chi0(q_c, extend_head=False)
 
         pdi, blocks1d, W_wGG = self.dyson_and_W_old(wstc, iq, q_c,
-                                                    self.chi0calc, chi0, 
+                                                    self.chi0calc, chi0,
                                                     self.chi0calc.ecut,
                                                     Q_aGii=self.chi0calc.Q_aGii,
                                                     fxc_mode=self.fxc_mode,
-                                                    only_correlation = False)
+                                                    only_correlation=False)
         return pdi, blocks1d, W_wGG
 
     def dyson_and_W_new(self, wstc, iq, q_c, chi0calc, chi0, ecut):
@@ -205,7 +206,7 @@ class WCalculator:
         return chi0.pd, Wm_wGG, Wp_wGG  # not Hilbert transformed yet
 
     def dyson_and_W_old(self, wstc, iq, q_c, chi0calc, chi0,
-                        ecut, Q_aGii, fxc_mode, only_correlation = True):
+                        ecut, Q_aGii, fxc_mode, only_correlation=True):
         nG = chi0.pd.ngmax
         blocks1d = chi0.blocks1d
 
@@ -300,15 +301,11 @@ class WCalculator:
             if self.ppa:
                 einv_wGG.append(einv_GG - delta_GG)
             else:
-                #F.N test
                 if only_correlation:
                     einv_GG = einv_GG - delta_GG
                 W_GG = chi0_GG
-                #W_GG[:] = (einv_GG - delta_GG) * (sqrtV_G *
-                #                                  sqrtV_G[:, np.newaxis])
-
                 W_GG[:] = (einv_GG) * (sqrtV_G *
-                                                  sqrtV_G[:, np.newaxis])
+                                       sqrtV_G[:, np.newaxis])
                 if self.q0_corrector is not None and np.allclose(q_c, 0):
                     if iw == 0:
                         print_ac = True
@@ -321,7 +318,6 @@ class WCalculator:
                                            sqrtV_G,
                                            print_ac=print_ac)
                 elif np.allclose(q_c, 0) or self.integrate_gamma != 0:
-                    #W_GG[0, 0] = (einv_GG[0, 0] - 1.0) * V0
                     W_GG[0, 0] = (einv_GG[0, 0]) * V0
                     W_GG[0, 1:] = einv_GG[0, 1:] * sqrtV_G[1:] * sqrtV0
                     W_GG[1:, 0] = einv_GG[1:, 0] * sqrtV0 * sqrtV_G[1:]
