@@ -1,9 +1,10 @@
 import numpy as np
+from ase.build import add_adsorbate, hcp0001
 from ase.dft.kpoints import monkhorst_pack
 from ase.parallel import paropen
-from ase.build import hcp0001, add_adsorbate
 from gpaw import GPAW, PW, FermiDirac
 from gpaw.hybrids.energy import non_self_consistent_energy as nsc_energy
+from gpaw.xc.rpa import RPACorrelation
 
 kpts = monkhorst_pack((16, 16, 1))
 kpts += np.array([1 / 32, 1 / 32, 0])
@@ -16,7 +17,7 @@ cell[2, 2] = 20. + pos[-1, 2]
 slab.set_cell(cell)
 slab.set_initial_magnetic_moments([0.7, 0.7, 0.7, 0.7])
 
-ds = [1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 3.25, 3.5, 3.75, 4.0, 5.0, 6.0, 10.0]
+ds = np.linspace(1.75, 3.25, 7)
 
 for d in ds:
     pos = slab.get_positions()
@@ -26,18 +27,31 @@ for d in ds:
     # view(slab)
     calc = GPAW(xc='PBE',
                 mode=PW(600),
+                nbands='200%',
                 kpts=kpts,
                 occupations=FermiDirac(width=0.01),
-                txt=f'hmm2_gs_{d}.txt')
+                txt=f'gs_{d}.txt')
     slab.calc = calc
     E = slab.get_potential_energy()
     E_hf = nsc_energy(calc, 'EXX')
 
     calc.diagonalize_full_hamiltonian()
-    calc.write(f'gs_{d}.gpw', mode='all')
+    calc.write(f'gs.gpw', mode='all')
+
+    rpa = RPACorrelation('gs.gpw', txt=f'rpa_{d}.txt')
+    E_rpa = rpa.calculate(ecut=[200],
+                          frequency_scale=2.5,
+                          skip_gamma=True,
+                          filename=f'restart_{d}.txt')
+
+    f = paropen(f'rpa_{ecut}.dat', 'a')
+    print(d, E_rpa, file=f)
+    f.close()
 
     f = paropen('hf_acdf.dat', 'a')
     print(d, E, E_hf, file=f)
     f.close()
 
     del slab[-2:]
+
+
