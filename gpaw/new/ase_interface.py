@@ -231,6 +231,11 @@ class ASECalculator:
     def get_number_of_grid_points(self):
         return self.calculation.state.density.nt_sR.desc.size
 
+    def get_effective_potential(self, spin=0):
+        assert spin == 0
+        vt_R = self.calculation.state.potential.vt_sR[spin]
+        return vt_R.to_pbc_grid().data * Ha
+
     def get_atomic_electrostatic_potentials(self):
         return self.calculation.electrostatic_potential().atomic_potentials()
 
@@ -238,13 +243,13 @@ class ASECalculator:
         assert spin is None
         nt_sr = self.calculation.densities().pseudo_densities(
             grid_refinement=gridrefinement)
-        return nt_sr.data.sum(0)
+        return nt_sr.to_pbc_grid().data.sum(0)
 
     def get_all_electron_density(self, spin=None, gridrefinement=1):
         assert spin is None
         n_sr = self.calculation.densities().all_electron_densities(
             grid_refinement=gridrefinement)
-        return n_sr.data.sum(0)
+        return n_sr.to_pbc_grid().data.sum(0)
 
     def get_eigenvalues(self, kpt=0, spin=0):
         state = self.calculation.state
