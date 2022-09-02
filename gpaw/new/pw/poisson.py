@@ -63,7 +63,7 @@ class PWPoissonSolver(PoissonSolver):
     def _solve(self,
                vHt_g,
                rhot_g) -> float:
-        vHt_g.data[:] = 2 * pi * self.stgrength * rhot_g.data
+        vHt_g.data[:] = 2 * pi * self.strength * rhot_g.data
         if self.pw.comm.rank == 0:
             # Use uniform backgroud charge in case we have a charged system:
             vHt_g.data[0] = 0.0

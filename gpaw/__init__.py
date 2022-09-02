@@ -199,7 +199,7 @@ with broadcast_imports:
 
 
 def GPAW(*args, **kwargs) -> Any:
-    if os.environ.get('GPAW_NEW'):
+    if not os.environ.get('GPAW_NEW'):
         from gpaw.new.ase_interface import GPAW as NewGPAW
         return NewGPAW(*args, **kwargs)
     return OldGPAW(*args, **kwargs)
