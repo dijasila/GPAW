@@ -3,25 +3,24 @@ from math import pi
 import numpy as np
 from ase.units import Ha
 from gpaw.core import PlaneWaves, UniformGrid
-from gpaw.fftw import get_efficient_fft_size
+from gpaw.core.plane_waves import PlaneWaveExpansions
+from gpaw.new import cached_property
 from gpaw.new.poisson import PoissonSolver
-from gpaw.typing import Array1D
 
 
 def make_poisson_solver(pw: PlaneWaves,
-                        pbc_c: Array1D,
+                        grid: UniformGrid,
                         charge: float,
                         strength: float = 1.0,
                         dipolelayer: bool = False,
                         **kwargs) -> PoissonSolver:
-    if charge != 0.0 and not pbc_c.any():
-        return ChargedPWPoissonSolver(pw, charge, strength, **kwargs)
+    if charge != 0.0 and not grid.pbc_c.any():
+        return ChargedPWPoissonSolver(pw, grid, charge, strength, **kwargs)
 
     ps = PWPoissonSolver(pw, charge, strength)
 
     if dipolelayer:
-        axis, = np.where(~pbc_c)
-        ps = DipoleLayerPWPoissonSolver(ps, axis, **kwargs)
+        ps = DipoleLayerPWPoissonSolver(ps, grid, **kwargs)
     else:
         assert not kwargs
 
@@ -52,8 +51,8 @@ class PWPoissonSolver(PoissonSolver):
         return txt
 
     def solve(self,
-              vHt_g,
-              rhot_g) -> float:
+              vHt_g: PlaneWaveExpansions,
+              rhot_g: PlaneWaveExpansions) -> float:
         """Solve Poisson equeation.
 
         Places result in vHt_g ndarray.
@@ -76,6 +75,7 @@ class PWPoissonSolver(PoissonSolver):
 class ChargedPWPoissonSolver(PWPoissonSolver):
     def __init__(self,
                  pw: PlaneWaves,
+                 grid: UniformGrid,
                  charge: float,
                  strength: float = 1.0,
                  alpha: float = None,
@@ -112,11 +112,6 @@ class ChargedPWPoissonSolver(PWPoissonSolver):
                                1j * (G_gv @ center_v))
         self.charge_g *= charge / pw.dv
 
-        # Multiple of 3 gives odd numbers of grid-points which makes
-        # sure that we don't devide by zero below.
-        size_c = [get_efficient_fft_size(N, 3)
-                  for N in pw.indices_cG.ptp(axis=1) + 1]
-        grid = UniformGrid(size=size_c, cell=pw.cell, comm=pw.comm)
         R_Rv = grid.xyz()
         d_R = ((R_Rv - center_v)**2).sum(axis=3)**0.5
         potential_R = charge * np.erf(alpha**0.5 * d_R) / d_R
@@ -154,45 +149,48 @@ class ChargedPWPoissonSolver(PWPoissonSolver):
 class DipoleLayerPWPoissonSolver(PoissonSolver):
     def __init__(self,
                  ps: PWPoissonSolver,
-                 axis: int):
-        """lkæjhasdjklh
+                 grid: UniformGrid):
+        self.ps = ps
+        self.grid = grid
+        (self.axis,) = np.where(~grid.pbc_c)
 
-    def pwsolve(self, vHt_q, dens):
-        gd = self.poissonsolver.pd.gd
-
+    def solve(self,
+              vHt_g: PlaneWaveExpansions,
+              rhot_g: PlaneWaveExpansions) -> float:
         if self.sawtooth_q is None:
             self.initialize_sawtooth()
 
-        epot = self.poissonsolver.solve(vHt_q, dens)
+        epot = self.ps.solve(vHt_g, rhot_g)
 
-        dip_v = dens.calculate_dipole_moment()
-        c = self.c
-        L = gd.cell_cv[c, c]
-        self.correction = 2 * np.pi * dip_v[c] * L / gd.volume
-        vHt_q -= 2 * self.correction * self.sawtooth_q
+        dip_v = -rhot_g.moment()
+        c = self.axis
+        L = self.grid.cell_cv[c, c]
+        self.correction = 2 * np.pi * dip_v[c] * L / self.grid.volume
+        vHt_g.data -= 2 * self.correction * self.sawtooth_g.data
 
-        return epot + 2 * np.pi * dip_v[c]**2 / gd.volume
+        return epot + 2 * np.pi * dip_v[c]**2 / self.grid.volume
 
-    def initialize_sawtooth(self):
-        gd = self.poissonsolver.pd.gd
-        if gd.comm.rank == 0:
-            c = self.c
-            L = gd.cell_cv[c, c]
+    @cached_property
+    def sawtooth_g(self) -> PlaneWaveExpansions:
+        grid = self.grid
+        if grid.comm.rank == 0:
+            c = self.axis
+            L = grid.cell_cv[c, c]
             w = self.width / 2
             assert w < L / 2
-            gc = int(w / gd.h_cv[c, c])
-            x = gd.coords(c)
+            gc = int(w / grid.size_c[c])
+            x = np.linspace(0, L, grid.size_c[c], endpoint=False)
             sawtooth = x / L - 0.5
             a = 1 / L - 0.75 / w
             b = 0.25 / w**3
             sawtooth[:gc] = x[:gc] * (a + b * x[:gc]**2)
             sawtooth[-gc:] = -sawtooth[gc:0:-1]
-            sawtooth_g = gd.empty(global_array=True)
+            sawtooth_r = grid.new(comm=None).empty()
             shape = [1, 1, 1]
             shape[c] = -1
-            sawtooth_g[:] = sawtooth.reshape(shape)
-            sawtooth_q = self.poissonsolver.pd.fft(sawtooth_g, local=True)
+            sawtooth_r[:] = sawtooth.reshape(shape)
+            sawtooth_g = sawtooth_r.fft(pw=self.ps.pw).data
         else:
-            sawtooth_q = None
-        self.sawtooth_q = self.poissonsolver.pd.scatter(sawtooth_q)
-        """
+            sawtooth_g = None
+
+        return self.pw.empty.scatter_from(sawtooth_g)
