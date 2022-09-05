@@ -45,7 +45,8 @@ class Sigma:
 
 class G0W0Outputs:
     def __init__(self, fd, shape, ecut_e, sigma_eskn, dsigma_eskn,
-                 eps_skn, vxc_skn, exx_skn, f_skn):
+                 eps_skn, vxc_skn, exx_skn, f_skn, extrapindices=None):
+        self.extrapindices = extrapindices
         self.extrapolate(fd, shape, ecut_e, sigma_eskn, dsigma_eskn)
         self.Z_skn = 1 / (1 - self.dsigma_skn)
 
@@ -59,10 +60,34 @@ class G0W0Outputs:
         self.sigma_eskn = sigma_eskn
         self.dsigma_eskn = dsigma_eskn
 
+        self.ecut_e = ecut_e
         self.eps_skn = eps_skn
         self.vxc_skn = vxc_skn
         self.exx_skn = exx_skn
         self.f_skn = f_skn
+
+    def qp_equation(self, e):
+        return self.eps_skn + (1 - self.dsigma_eskn[e])**-1 * (
+            -self.vxc_skn + self.exx_skn + self.sigma_eskn[e])
+
+    def from_pickle(f, fd, ecut_e=None, extrapindices=None):
+        results = pickle.load(f)
+        if 'ecut_e' in results:
+            ecut_e = results['ecut_e']
+        elif ecut_e is None:
+            raise ValueError('Old result pickle doesn''t contain ecut_e,'
+                             ' so it must be provided as argument.')
+        ecut_e = np.array(ecut_e)
+        shape = results['sigma_eskn'].shape[1:]
+        output = G0W0Outputs(fd, shape, ecut_e / Ha,
+                             results['sigma_eskn'] / Ha,
+                             results['dsigma_eskn'],
+                             results['eps'] / Ha,
+                             results['vxc'] / Ha,
+                             results['exx'] / Ha,
+                             results['f'],
+                             extrapindices=extrapindices)
+        return output
 
     def extrapolate(self, fd, shape, ecut_e, sigma_eskn, dsigma_eskn):
         if len(ecut_e) == 1:
@@ -82,30 +107,47 @@ class G0W0Outputs:
               file=fd)
         print('  Performing linear fit to %d points' % len(ecut_e),
               file=fd)
+
+        if self.extrapindices is None:
+            self.extrapindices = np.array(range(sigma_eskn.shape[0]))
+
         self.sigr2_skn = np.zeros(shape)
         self.dsigr2_skn = np.zeros(shape)
         self.sigma_skn = np.zeros(shape)
         self.dsigma_skn = np.zeros(shape)
-        invN_i = ecut_e**(-3. / 2)
+        invN_i = ecut_e[self.extrapindices]**(-3. / 2)
+
+        def warn_corr(name, r2, s, k, n, invN_e, data_e):
+            print(f'Warning: Possibly a bad quality of linear fit'
+                  f' (r^2={r2}) for band. Please check the data.',
+                  file=fd)
+            print(f'     {name} s={s} k={n} n={n}.', file=fd)
+            for invN, data in zip(invN_e, data_e):
+                print(' %.12f %.12f ' % (invN, data), file=fd)
+            print('Higher cutoff might be necesarry.', file=fd)
+
         for m in range(np.product(shape)):
             s, k, n = np.unravel_index(m, shape)
 
             slope, intercept, r_value, p_value, std_err = \
-                linregress(invN_i, sigma_eskn[:, s, k, n])
+                linregress(invN_i, sigma_eskn[self.extrapindices, s, k, n])
 
             self.sigr2_skn[s, k, n] = r_value**2
+            if r_value**2 < 0.9:
+                warn_corr('sigma_eskn', r_value**2, s, k, n,
+                          invN_i, sigma_eskn[self.extrapindices, s, k, n])
+
             self.sigma_skn[s, k, n] = intercept
 
             slope, intercept, r_value, p_value, std_err = \
-                linregress(invN_i, dsigma_eskn[:, s, k, n])
+                linregress(invN_i, dsigma_eskn[self.extrapindices, s, k, n])
+
+            if r_value**2 < 0.9:
+                warn_corr('dsigma_eskn', r_value**2, s, k, n,
+                          invN_i, dsigma_eskn[self.extrapindices, s, k, n])
 
             self.dsigr2_skn[s, k, n] = r_value**2
             self.dsigma_skn[s, k, n] = intercept
-
-        if np.any(self.sigr2_skn < 0.9) or np.any(self.dsigr2_skn < 0.9):
-            print('  Warning: Bad quality of linear fit for some (n,k). ',
-                  file=fd)
-            print('           Higher cutoff might be necesarry.', file=fd)
 
         print('  Minimum R^2 = %1.4f. (R^2 Should be close to 1)' %
               min(np.min(self.sigr2_skn), np.min(self.dsigr2_skn)),
@@ -113,6 +155,7 @@ class G0W0Outputs:
 
     def get_results_eV(self):
         results = {
+            'ecut_e': self.ecut_e * Ha,
             'f': self.f_skn,
             'eps': self.eps_skn * Ha,
             'vxc': self.vxc_skn * Ha,
@@ -299,17 +342,21 @@ class G0W0Calculator:
             or dictionary of parameters for build-in nonlinear grid
             (see :ref:`frequency grid`).
         ecut: float
-            Plane wave cut-off energy in eV.
+            Plane wave cut-off energy in eV for the dielectric matrix.
+            If ecut_extrapolation is a list of energies, ecut cannot be
+            specified. In order to do ecut extrapolation to maximum ecut,
+            just set ecut_extrapolation=True.
         ecut_extrapolation: bool or list
             If set to True an automatic extrapolation of the selfenergy to
             infinite cutoff will be performed based on three points
-            for the cutoff energy.
+            for the cutoff energy (ecut).
             If an array is given, the extrapolation will be performed based on
             the cutoff energies given in the array.
         nbands: int
             Number of bands to use in the calculation. If None, the number will
             be determined from :ecut: to yield a number close to the number of
-            plane waves used.
+            plane waves used. If ecut_extrapolation is given, the number of
+            bands will be dynamic, and nbands cannot be specified.
         ppa: bool
             Sets whether the Godby-Needs plasmon-pole approximation for the
             dielectric function should be used.
@@ -782,11 +829,11 @@ class G0W0Calculator:
                     m2 = self.nbands
                 else:
                     m2 = int(self.gs.volume * ecut**1.5 * 2**0.5 / 3 / pi**2)
-                    if m2 > self.nbands:
+                    if m2 > self.gs.bd.nbands:
                         raise ValueError(f'Trying to extrapolate ecut to'
                                          f'larger number of bands ({m2})'
                                          f' than there are bands '
-                                         f'({self.nbands}).')
+                                         f'({self.gs.bd.nbands}).')
                 pdi, Wdict, blocks1d, Q_aGii = self.calculate_w(
                     chi0calc, q_c, chi0bands,
                     m1, m2, ecut, wstc, iq)
@@ -1255,7 +1302,7 @@ class G0W0Kernel:
 
 class G0W0(G0W0Calculator):
     def __init__(self, calc, filename='gw',
-                 ecut=150.0,
+                 ecut=None,
                  ecut_extrapolation=False,
                  xc='RPA',
                  ppa=False,
@@ -1281,13 +1328,23 @@ class G0W0(G0W0Calculator):
                                          world, timer)
         gs = calc.gs_adapter()
 
-        # Check if nblocks is compatible, adjust if not
-        if nblocksmax:
-            nblocks = get_max_nblocks(context.world, gpwfile, ecut)
-
+        if type(ecut_extrapolation) != bool:
+            if ecut is not None:
+                raise ValueError('ecut must be None if'
+                                 ' ecut_extrapolation is a list.')
+        else:
+            if ecut is None:
+                raise ValueError('ecut must be given, unless '
+                                 'ecut_extrapolation is a list.')
         pair = NoCalculatorPairDensity(gs, nblocks=nblocks, context=context)
 
         kpts = list(select_kpts(kpts, gs.kd))
+
+        ecut, ecut_e = choose_ecut_things(ecut, ecut_extrapolation)
+
+        # Check if nblocks is compatible, adjust if not
+        if nblocksmax:
+            nblocks = get_max_nblocks(context.world, gpwfile, ecut)
 
         if nbands is None:
             nbands = int(gs.volume * (ecut / Ha)**1.5 * 2**0.5 / 3 / pi**2)
@@ -1295,8 +1352,6 @@ class G0W0(G0W0Calculator):
             if ecut_extrapolation:
                 raise RuntimeError(
                     'nbands cannot be supplied with ecut-extrapolation.')
-
-        ecut, ecut_e = choose_ecut_things(ecut, ecut_extrapolation)
 
         if ppa:
             # use small imaginary frequency to avoid dividing by zero:
