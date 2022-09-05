@@ -1,5 +1,4 @@
 from myqueue.workflow import run
-from .gs_graph_Co import calculate
 
 
 def workflow():
@@ -20,4 +19,4 @@ def workflow():
     ds = [1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 3.25, 3.5, 3.75,
           4.0, 5.0, 6.0, 10.0]
     for d in ds:
-        run(function=calculate, args=[d], cores=16, tmax='1d')
+        run(script='C2Co.py', args=[d], cores=40, tmax='5h')

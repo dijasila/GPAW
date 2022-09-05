@@ -1,6 +1,5 @@
 from pathlib import Path
 
-import numpy as np
 from ase import Atoms
 from ase.build import hcp0001
 from gpaw import GPAW, PW, FermiDirac
@@ -35,20 +34,21 @@ def calculate(d: float) -> None:
     E_hf = nsc_energy(slab.calc, 'EXX').sum()
 
     slab.calc.diagonalize_full_hamiltonian()
-    slab.calc.write('tmp.gpw', mode='all')
+    slab.calc.write(f'tmp-{tag}.gpw', mode='all')
 
-    rpa = RPACorrelation('tmp.gpw', txt=f'rpa-{tag}.txt')
-    E_rpa = rpa.calculate(ecut=[200],
-                          frequency_scale=2.5,
-                          skip_gamma=True,
-                          filename=f'restart-{tag}.txt')
+    rpa = RPACorrelation(f'tmp-{tag}.gpw',
+                         txt=f'rpa-{tag}.txt',
+                         skip_gamma=True,
+                         frequency_scale=2.5)
+    E_rpa = rpa.calculate(ecut=[200])[0]
 
     if world.rank == 0:
-        Path('tmp.gpw').unlink()
+        Path(f'tmp-{tag}.gpw').unlink()
         with open(f'result-{tag}.out', 'w') as fd:
             print(d, E_hf, E_rpa, file=fd)
 
 
 if __name__ == '__main__':
-    for d in np.linspace(1.75, 3.25, 7):
-        calculate(d)
+    import sys
+    d = float(sys.argv[1])
+    calculate(d)
