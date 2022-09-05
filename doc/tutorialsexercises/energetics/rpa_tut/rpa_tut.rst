@@ -143,7 +143,7 @@ role, we consider the case of graphene adsorbed on a Co(0001) surface
 [#Olsen]_ and [#Olsen0]_. First, the input .gpw files are generated with the
 following script:
 
-.. literalinclude:: gs_graph_Co.py
+.. literalinclude:: C2Co.py
 
 Note that besides diagonalizing the full Hamiltonian for each distance, the
 script calculates the EXX energy at the self-consistent PBE orbitals and
@@ -155,11 +155,7 @@ smearing to 0.01 eV. Due to the long range nature of the van der Waals
 interactions, a lot of vacuum have been included above the slab. The
 calculation should be parallelized over spin and irreducible *k*-points.
 
-The RPA calculations are done with the following script
-
-.. literalinclude:: rpa_graph_Co.py
-
-The calculations are rather time consuming (~ 1000 CPU hours per distance
+The RPA calculations are rather time consuming (~ 100 CPU hours per distance
 point), but can be parallelized very efficiently over bands, k-points
 (default) and frequencies (needs to be specified). Here we have changed the
 frequency scale from the default value of 2.0 to 2.5 to increase the density
