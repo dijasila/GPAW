@@ -5,7 +5,7 @@ from myqueue.workflow import run
 
 def workflow():
     with run(script='gs_BaTiO3.py', cores=8, tmax='30m'):
-        with run(script='polarization_BaTiO3.py', cores=8, tmax='1h'):
+        with run(script='polarization_BaTiO3.py')
             run(function=check)
         with run(script='born_BaTiO3.py', cores=8, tmax='10h'):
             run(script='get_borncharges.py')
@@ -16,6 +16,7 @@ def workflow():
 
 
 def check():
+    """Check with result from 10.1103/PhysRevB.96.035143"""
     txt = Path('polarization_BaTiO3.out').read_text()
-    # will fix this after next AGTS-run!
-    assert txt == ...
+    pz = float(txt.split()[1])
+    assert abs(pz - 0.47) < 0.02
