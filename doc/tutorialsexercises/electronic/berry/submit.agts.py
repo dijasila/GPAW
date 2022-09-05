@@ -19,4 +19,3 @@ def check():
     txt = Path('polarization_BaTiO3.out').read_text()
     # will fix this after next AGTS-run!
     assert txt == ...
-    
