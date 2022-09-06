@@ -1,4 +1,5 @@
-class DummyBackend:
+class BaseBackend:
+    label = 'base'
     enabled = False
     debug = False
     debug_sync = False
@@ -10,21 +11,17 @@ class DummyBackend:
         for key in kwargs:
             setattr(self, key, kwargs[key])
 
-    # catch-all method to ignore anything not defined explicitly
-    def _pass(self, *args, **kwargs):
+    def init(self, rank=0):
         pass
 
-    # accept undefined attributes, but ignore them
-    def __getattr__(self, key):
-        if self.debug:
-            print("DummyBackend: ignoring undefined method '{0}'".format(key))
-        return self._pass
+    def delete(self):
+        pass
 
     def copy_to_host(self, x):
-        return x
+        raise NotImplementedError
 
     def copy_to_device(self, x):
-        return x
+        raise NotImplementedError
 
     def to_host(self, x):
         if self.is_device_array(x):
@@ -42,7 +39,10 @@ class DummyBackend:
         return not self.is_device_array(x)
 
     def is_device_array(self, x):
-        return self.enabled
+        raise NotImplementedError
+
+    def memcpy_dtod(self, tgt, src, n):
+        raise NotImplementedError
 
     def debug_test(self, x, y, text, reltol=1e-12, abstol=1e-13,
                    raise_error=False):
@@ -92,3 +92,29 @@ class DummyBackend:
             return False
 
         return True
+
+
+class DummyBackend(BaseBackend):
+    label = 'dummy'
+
+    # catch-all method to ignore anything not defined explicitly
+    def _pass(self, *args, **kwargs):
+        pass
+
+    # accept undefined attributes, but ignore them
+    def __getattr__(self, key):
+        if self.debug:
+            print("DummyBackend: ignoring undefined method '{0}'".format(key))
+        return self._pass
+
+    def copy_to_host(self, x):
+        return x
+
+    def copy_to_device(self, x):
+        return x
+
+    def is_device_array(self, x):
+        return self.enabled
+
+    def memcpy_dtod(self, tgt, src, n):
+        pass

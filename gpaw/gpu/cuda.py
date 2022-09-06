@@ -2,13 +2,14 @@ import atexit
 
 import _gpaw
 
-from .backend import DummyBackend
+from .backend import BaseBackend
 
-class CUDA(DummyBackend):
+class CUDA(BaseBackend):
     from pycuda import driver as _driver
 
     from gpaw import gpuarray as _gpuarray
 
+    label = 'cuda'
     enabled = True
 
     def __init__(self, **kwargs):
