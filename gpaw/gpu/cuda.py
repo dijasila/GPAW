@@ -48,9 +48,6 @@ class CUDA(BaseBackend):
             del self.device_ctx
             self.device_ctx = None
 
-    def get_context(self):
-        return self.device_ctx
-
     def copy_to_host(self, x):
         return x.get()
 

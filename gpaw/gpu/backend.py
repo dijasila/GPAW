@@ -17,6 +17,9 @@ class BaseBackend:
     def delete(self):
         pass
 
+    def get_context(self):
+        return self.device_ctx
+
     def copy_to_host(self, x):
         raise NotImplementedError
 
