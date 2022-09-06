@@ -7,7 +7,7 @@ from .backend import BaseBackend
 class CUDA(BaseBackend):
     from pycuda import driver as _driver
 
-    from gpaw import gpuarray as _gpuarray
+    from gpaw.gpu import pycuda as _gpuarray
 
     label = 'cuda'
     enabled = True
