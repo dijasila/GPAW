@@ -1,6 +1,8 @@
 """Functionality to calculate the all-electron Fourier components of real space
 quantities within the PAW formalism."""
 
+from abc import ABC, abstractmethod
+
 import gpaw.mpi as mpi
 
 from gpaw.utilities import convert_string_to_fd
@@ -10,10 +12,10 @@ from gpaw.response.kspair import get_calc
 from gpaw.response.groundstate import ResponseGroundStateAdapter
 
 
-class PAWFT:
-    """Calculator for the all-electron plane wave components of real space
-    quantities which are closed form functionals of the ground state
-    (spin-)density."""
+class LocalPAWFT(ABC):
+    """Abstract base class for calculators of all-electron plane wave
+    components to some real space quantity which can be written as a closed
+    form functional of the local ground state (spin-)density."""
 
     def __init__(self, gs,
                  world=mpi.world, txt='-', timer=None,
@@ -63,3 +65,10 @@ class PAWFT:
 
             self.rshewmin = rshewmin if rshewmin is not None else 0.
             self.dfmask_g = None
+
+    @abstractmethod
+    def _add_real_space_functional(self, gd, n_sg, f_g):
+        """Calculate the real-space quantity in question as a functional of
+        the local (spin-)density on a real-space grid and add it to an array
+        on the same real-space grid."""
+        pass
