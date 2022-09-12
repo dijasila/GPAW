@@ -13,9 +13,22 @@ from gpaw.response.groundstate import ResponseGroundStateAdapter
 
 
 class LocalPAWFT(ABC):
-    """Abstract base class for calculators of all-electron plane wave
-    components to some real space quantity which can be written as a closed
-    form functional of the local ground state (spin-)density."""
+    """Abstract base class for calculators of all-electron plane-wave
+    components to some real space quantity f which can be written as a closed
+    form functional of the local ground state (spin-)density:
+
+    f[n](r) = f(n(r)).
+
+    Since n(r) is lattice periodic, so is f[n](r) and the plane-wave components
+    can be calculated as (see [PRB 103, 245110 (2021)] for definitions)
+
+           /
+    f(G) = |dr f(r) e^(-iG.r),
+           /
+            V0
+
+    where V0 is the unit-cell volume.
+    """
 
     def __init__(self, gs,
                  world=mpi.world, txt='-', timer=None,
