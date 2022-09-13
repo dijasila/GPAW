@@ -81,36 +81,82 @@ class LocalPAWFT(ABC):
             self.dfmask_g = None
 
     @abstractmethod
-    def _add_real_space_functional(self, gd, n_sg, f_g):
-        """Calculate the real-space quantity in question as a functional of
-        the local (spin-)density on a real-space grid and add it to an array
-        on the same real-space grid."""
+    def _add_f(self, gd, n_sr, f_r):
+        """Calculate the real-space quantity in question as a function of the local
+        (spin-)density on a given real-space grid and add it to a given output
+        array."""
         pass
 
-    def print(self, *args, **kwargs):
-        print(*args, file=self.fd, **kwargs)
+    def print(self, *args):
+        print(*args, file=self.fd, flush=True)
 
     @timer('LocalPAWFT')
     def __call__(self, pd):
-        self.print('Calculating f(G)', flush=True)
+        self.print('Calculating f(G)')
         f_G = self.calculate(pd)
-        self.print('Finished calculating f(G)', flush=True)
+        self.print('Finished calculating f(G)')
 
         return f_G
 
     def calculate(self, pd):
         """Calculate the plane-wave components f(G) for the reciprocal lattice vectors
         defined by the plane-wave descriptor pd."""
+        if self.rshe:
+            return self._calculate_w_rshe(pd)
+        else:
+            return self._calculate_wo_rshe(pd)
 
-        # Retrieve the (pseudo) spin-density and allocate f(r)
-        n_sr = self.get_density_on_grid()
-        f_r = np.zeros(np.shape(n_sr[0]))
+    def _calculate_w_rshe(self, pd):
+        """Calculate f(G) with an expansion of f(r) in real spherical harmonics inside
+        the augmentation spheres."""
+        # Retrieve the pseudo (spin-)density on the real-space grid
+        nt_sr = self.get_pseudo_density(pd.gd)
+
+        # Calculate ft(r) (t=tilde=pseudo)
+        ft_r = np.zeros(np.shape(nt_sr[0]))
+        self._add_f(pd.gd, nt_sr, ft_r)
 
         # FFT to reciprocal space
-        f_G = self.ft_from_grid(f_r, pd)
+        ft_G = self.fft_from_grid(ft_r, pd)
 
-        if self.rshe:  # Add PAW correction to Fourier transformed function
-            fPAW_G = self.calculate_paw_correction(pd)
-            f_G += fPAW_G
+        # Calculate PAW correction inside the augmentation spheres
+        fPAW_G = self.calculate_paw_correction(pd)
+
+        return ft_G + fPAW_G
+
+    def _calculate_wo_rshe(self, pd):
+        """Calculate f(G) directly from the all-electron density on a
+        real-space grid."""
+        # Retrieve the all-electron (spin-)density on the real-space grid
+        n_sr = self.get_all_electron_density(pd.gd)
+
+        # Calculate f(r)
+        f_r = np.zeros(np.shape(n_sr[0]))
+        self._add_f(pd.gd, n_sr, f_r)
+
+        # FFT to reciprocal space
+        f_G = self.fft_from_grid(f_r, pd)
 
         return f_G
+
+    def get_pseudo_density(self, pd):
+        """Return the pseudo (spin-)density on the coarse real-space grid of the
+        ground state."""
+        self.check_grid_equivalence(pd.gd, self.gs.gd)
+        return self.gs.nt_sG  # nt=pseudo density, G=coarse grid
+
+    @timer('Calculating the all-electron density')
+    def get_all_electron_density(self, pd):
+        """Calculate the all-electron (spin-)density on the coarse real-space
+        grid of the ground state."""
+        self.print('    Calculating the all-electron density')
+        n_sG, gd1 = self.gs.all_electron_density(gridrefinement=1)
+        self.check_grid_equivalence(pd.gd, gd1)
+
+        return n_sG
+
+    @staticmethod
+    def check_grid_equivalence(gd1, gd2):
+        assert gd1.comm.size == 1
+        assert gd2.comm.size == 1
+        assert (gd1.N_c == gd2.N_c).all()
