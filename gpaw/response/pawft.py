@@ -81,7 +81,7 @@ class LocalPAWFT(ABC):
             self.dfmask_g = None
 
     @abstractmethod
-    def _add_f(self, gd, n_sr, f_r):
+    def _add_f(self, gd, n_sR, f_R):
         """Calculate the real-space quantity in question as a function of the local
         (spin-)density on a given real-space grid and add it to a given output
         array."""
@@ -99,25 +99,25 @@ class LocalPAWFT(ABC):
         return f_G
 
     def calculate(self, pd):
-        """Calculate the plane-wave components f(G) for the reciprocal lattice vectors
-        defined by the plane-wave descriptor pd."""
+        """Calculate the plane-wave components f(G) for the reciprocal lattice
+        vectors defined by the plane-wave descriptor pd."""
         if self.rshe:
             return self._calculate_w_rshe(pd)
         else:
             return self._calculate_wo_rshe(pd)
 
     def _calculate_w_rshe(self, pd):
-        """Calculate f(G) with an expansion of f(r) in real spherical harmonics inside
-        the augmentation spheres."""
-        # Retrieve the pseudo (spin-)density on the real-space grid
-        nt_sr = self.get_pseudo_density(pd.gd)
+        """Calculate f(G) with an expansion of f(r) in real spherical harmonics
+        inside the augmentation spheres."""
+        # Retrieve the pseudo (spin-)density on the coarse real-space grid
+        nt_sR = self.get_pseudo_density(pd.gd)  # R = Coarse 3D real-space grid
 
         # Calculate ft(r) (t=tilde=pseudo)
-        ft_r = np.zeros(np.shape(nt_sr[0]))
-        self._add_f(pd.gd, nt_sr, ft_r)
+        ft_R = np.zeros(np.shape(nt_sR[0]))
+        self._add_f(pd.gd, nt_sR, ft_R)
 
         # FFT to reciprocal space
-        ft_G = self.fft_from_grid(ft_r, pd)
+        ft_G = self.fft_from_grid(ft_R, pd)  # G = 1D grid of |G|^2/2 < ecut
 
         # Calculate PAW correction inside the augmentation spheres
         fPAW_G = self.calculate_paw_correction(pd)
@@ -128,14 +128,15 @@ class LocalPAWFT(ABC):
         """Calculate f(G) directly from the all-electron density on a
         real-space grid."""
         # Retrieve the all-electron (spin-)density on the real-space grid
-        n_sr = self.get_all_electron_density(pd.gd)
+        # R = Coarse 3D real-space grid
+        n_sR = self.get_all_electron_density(pd.gd)
 
         # Calculate f(r)
-        f_r = np.zeros(np.shape(n_sr[0]))
-        self._add_f(pd.gd, n_sr, f_r)
+        f_R = np.zeros(np.shape(n_sR[0]))
+        self._add_f(pd.gd, n_sR, f_R)
 
         # FFT to reciprocal space
-        f_G = self.fft_from_grid(f_r, pd)
+        f_G = self.fft_from_grid(f_R, pd)  # G = 1D grid of |G|^2/2 < ecut
 
         return f_G
 
@@ -150,13 +151,36 @@ class LocalPAWFT(ABC):
         """Calculate the all-electron (spin-)density on the coarse real-space
         grid of the ground state."""
         self.print('    Calculating the all-electron density')
-        n_sG, gd1 = self.gs.all_electron_density(gridrefinement=1)
+        n_sR, gd1 = self.gs.all_electron_density(gridrefinement=1)
         self.check_grid_equivalence(pd.gd, gd1)
 
-        return n_sG
+        return n_sR
 
     @staticmethod
     def check_grid_equivalence(gd1, gd2):
         assert gd1.comm.size == 1
         assert gd2.comm.size == 1
         assert (gd1.N_c == gd2.N_c).all()
+
+    def fft_from_grid(self, f_R, pd):
+        """Perform a FFT to reciprocal space:
+                                        __
+               /                    V0  \
+        f(G) = |dr f(r) e^(-iG.r) ≃ ‾‾  /  f(r) e^(-iG.r)
+               /                    N   ‾‾
+               V0                       r
+
+        where N is the number of grid points."""
+        N_c = pd.gd.N_c
+        Q_G = pd.Q_qG[0]
+
+        # Perform the FFT
+        N = np.prod(pd.gd.N_c)
+        f_K = pd.gd.volume / N * np.fft.fftn(f_R)  # K = 3D Q-grid
+
+        # Change the view of the plane-wave components from the 3D grid in the
+        # Q-representation that numpy spits out to a 1D grid in the
+        # G-representation (GPAW internals)
+        f_G = f_K[np.unravel_index(Q_G, N_c)]  # Check w. JJ                   XXX
+
+        return f_G
