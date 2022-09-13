@@ -3,10 +3,12 @@ quantities within the PAW formalism."""
 
 from abc import ABC, abstractmethod
 
+import numpy as np
+
 import gpaw.mpi as mpi
 
 from gpaw.utilities import convert_string_to_fd
-from ase.utils.timing import Timer
+from ase.utils.timing import Timer, timer
 
 from gpaw.response.kspair import get_calc
 from gpaw.response.groundstate import ResponseGroundStateAdapter
@@ -58,7 +60,6 @@ class LocalPAWFT(ABC):
         # Output .txt filehandle and timer
         self.world = world
         self.fd = convert_string_to_fd(txt, world)
-        self.cfd = self.fd
         self.timer = timer or Timer()
         self.calc = get_calc(gs, fd=self.fd, timer=self.timer)
         self.gs = ResponseGroundStateAdapter(self.calc)
@@ -85,3 +86,31 @@ class LocalPAWFT(ABC):
         the local (spin-)density on a real-space grid and add it to an array
         on the same real-space grid."""
         pass
+
+    def print(self, *args, **kwargs):
+        print(*args, file=self.fd, **kwargs)
+
+    @timer('LocalPAWFT')
+    def __call__(self, pd):
+        self.print('Calculating f(G)', flush=True)
+        f_G = self.calculate(pd)
+        self.print('Finished calculating f(G)', flush=True)
+
+        return f_G
+
+    def calculate(self, pd):
+        """Calculate the plane-wave components f(G) for the reciprocal lattice vectors
+        defined by the plane-wave descriptor pd."""
+
+        # Retrieve the (pseudo) spin-density and allocate f(r)
+        n_sr = self.get_density_on_grid()
+        f_r = np.zeros(np.shape(n_sr[0]))
+
+        # FFT to reciprocal space
+        f_G = self.ft_from_grid(f_r, pd)
+
+        if self.rshe:  # Add PAW correction to Fourier transformed function
+            fPAW_G = self.calculate_paw_correction(pd)
+            f_G += fPAW_G
+
+        return f_G
