@@ -176,11 +176,11 @@ class LocalPAWFT(ABC):
 
         # Perform the FFT
         N = np.prod(pd.gd.N_c)
-        f_K = pd.gd.volume / N * np.fft.fftn(f_R)  # K = 3D Q-grid
+        f_K = pd.gd.volume / N * np.fft.fftn(f_R)  # K = 3D grid in Q-rep.
 
         # Change the view of the plane-wave components from the 3D grid in the
-        # Q-representation that numpy spits out to a 1D grid in the
-        # G-representation (GPAW internals)
+        # Q-representation that numpy spits out to the 1D grid in the
+        # G-representation, that GPAW relies on internally
         f_G = f_K[np.unravel_index(Q_G, N_c)]  # Check w. JJ                   XXX
 
         return f_G
