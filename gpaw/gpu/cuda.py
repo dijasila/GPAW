@@ -6,8 +6,6 @@ from .backends import BaseBackend
 
 class CUDA(BaseBackend):
     from pycuda import driver as _driver
-
-    from gpaw.gpu import pycuda as _gpuarray
     from gpaw.gpu.arrays import PyCudaArrayInterface
 
     label = 'cuda'

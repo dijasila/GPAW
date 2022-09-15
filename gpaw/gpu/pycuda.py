@@ -1,5 +1,4 @@
 import numpy as np
-from functools import reduce
 
 import pycuda.driver as drv
 from pycuda.gpuarray import GPUArray as pycuda_GPUArray
