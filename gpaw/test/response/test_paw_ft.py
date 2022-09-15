@@ -4,6 +4,7 @@
 import numpy as np
 
 # Script modules
+from ase import Atoms
 from ase.build import bulk
 
 from gpaw import GPAW, PW, FermiDirac
@@ -76,6 +77,25 @@ def test_Fe_bxc(in_tmp_dir):
 
 
 # ---------- Test functionality ---------- #
+
+
+def mock_up_calc_with_predefined_density(atom_centered_density):
+    """Given an atom centered density, mock up a ground state calculator
+    with that given density.
+
+    Parameters
+    ----------
+    atom_centered_density : method
+        Function generating an arbitrary electron density as a function
+        of the input position r.
+    """
+    # We use a Helium atom, since it does not have any frozen core and
+    # a cutoff radius, which is more representative of the periodic table,
+    # than it is the case for hydrogen
+    atoms = Atoms('He', cell=[10., 10., 10.])
+    atoms.center()
+
+    return atoms
 
 
 def get_inversion_pairs(pd0):
