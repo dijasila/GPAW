@@ -191,7 +191,7 @@ class BSE:
     def __del__(self):
         self.iocontext.close()
 
-    def calculate(self, optical=True, ac=1.0):
+    def calculate(self, optical=True):
 
         if self.spinors:
             # Calculate spinors. Here m is index of eigenvalues with SOC
@@ -231,7 +231,7 @@ class BSE:
         if self.mode == 'RPA':
             Q_aGii = self.pair.initialize_paw_corrections(pd0)
         else:
-            self.get_screened_potential(ac=ac)
+            self.get_screened_potential()
             if (self.qd.ibzk_kc - self.q_c < 1.0e-6).all():
                 iq0 = self.qd.bz2ibz_k[self.kd.where_is_q(self.q_c,
                                                           self.qd.bzk_kc)]
@@ -418,7 +418,7 @@ class BSE:
         H_sS = np.reshape(H_ksmnKsmn, (mySsize, self.nS))
         for iS in range(mySsize):
             # Multiply by occupations and adiabatic coupling
-            H_sS[iS] *= self.df_S[iS0 + iS] * ac
+            H_sS[iS] *= self.df_S[iS0 + iS]
             # add bare transition energies
             H_sS[iS, iS0 + iS] += self.deps_s[iS]
 
@@ -483,7 +483,7 @@ class BSE:
                                                             kpt2, pd, I_G)
         return rho_mnG, iq
 
-    def get_screened_potential(self, ac=1.0):
+    def get_screened_potential(self):
 
         if hasattr(self, 'W_qGG'):
             return
@@ -498,14 +498,14 @@ class BSE:
                 print('Reading screened potential from % s' % self.wfile,
                       file=self.fd)
             except FileNotFoundError:
-                self.calculate_screened_potential(ac)
+                self.calculate_screened_potential()
                 print('Saving screened potential to % s' % self.wfile,
                       file=self.fd)
                 if world.rank == 0:
                     np.savez(self.wfile,
                              Q=self.Q_qaGii, pd=self.pd_q, W=self.W_qGG)
         else:
-            self.calculate_screened_potential(ac)
+            self.calculate_screened_potential()
 
     def _calculate_chi0(self, q_c):
         """Use the Chi0 object to calculate the static susceptibility."""
@@ -534,7 +534,7 @@ class BSE:
                               )
         self.blockcomm = self._chi0calc.blockcomm
 
-    def calculate_screened_potential(self, ac):
+    def calculate_screened_potential(self):
         """Calculate W_GG(q)"""
 
         self.Q_qaGii = []
@@ -556,8 +556,6 @@ class BSE:
             #pd, chi0_wGG, chi0_wxvG, chi0_wvv = self._calculate_chi0(q_c)
             chi0 = self._calculate_chi0(q_c)
             print ('---iq W ---')
-            print('ac=')
-            print(ac)
             pd, blocks1d, W_wGG = self._wcalc.calculate_q(iq, q_c, chi0)
             W_GG = W_wGG[0]
             self.Q_qaGii.append(self._chi0calc.Q_aGii)
@@ -628,7 +626,7 @@ class BSE:
 
         return
 
-    def get_bse_matrix(self, q_c=[0.0, 0.0, 0.0], direction=0, ac=1.0,
+    def get_bse_matrix(self, q_c=[0.0, 0.0, 0.0], direction=0,
                        readfile=None, optical=True, write_eig=None):
         """Calculate and diagonalize BSE matrix"""
 
@@ -636,7 +634,7 @@ class BSE:
         self.direction = direction
 
         if readfile is None:
-            self.calculate(optical=optical, ac=ac)
+            self.calculate(optical=optical)
             if hasattr(self, 'w_T'):
                 return
             self.diagonalize()
@@ -655,11 +653,11 @@ class BSE:
         return
 
     def get_vchi(self, w_w=None, eta=0.1, q_c=[0.0, 0.0, 0.0],
-                 direction=0, ac=1.0, readfile=None, optical=True,
+                 direction=0, readfile=None, optical=True,
                  write_eig=None):
         """Returns v * chi where v is the bare Coulomb interaction"""
 
-        self.get_bse_matrix(q_c=q_c, direction=direction, ac=ac,
+        self.get_bse_matrix(q_c=q_c, direction=direction,
                             readfile=readfile, optical=optical,
                             write_eig=write_eig)
 
@@ -733,7 +731,7 @@ class BSE:
                           file=f)
                 f.close()
 
-        return vchi_w * ac
+        return vchi_w
 
     def get_dielectric_function(self, w_w=None, eta=0.1,
                                 q_c=[0.0, 0.0, 0.0], direction=0,
