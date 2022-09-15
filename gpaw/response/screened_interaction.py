@@ -11,6 +11,7 @@ from gpaw.response.kernels import get_coulomb_kernel, get_integrated_kernel
 from gpaw.response.temp import DielectricFunctionCalculator
 import gpaw.mpi as mpi
 from gpaw.response.context import new_context
+from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 
 
 def get_qdescriptor(kd, atoms):
@@ -24,14 +25,13 @@ def get_qdescriptor(kd, atoms):
 
 
 def initialize_w_calculator(chi0calc, txt='w.txt', ppa=False, xc='RPA',
-                            world=mpi.world,timer=None,
-                            E0=Ha,Eg=None,fxc_mode='GW',
-                            truncation=None,integrate_gamma=0,
+                            world=mpi.world, timer=None,
+                            E0=Ha, Eg=None, fxc_mode='GW',
+                            truncation=None, integrate_gamma=0,
                             q0_correction=False):
     from gpaw.response.g0w0 import G0W0Kernel
     """A function to initialize a WCalculator with more readable inputs
     than the actual calculator"""
-    #gpwfile = calc
     gs = chi0calc.gs
     context = new_context(txt, world, timer)
     if Eg is None and xc == 'JGMsx':
@@ -57,6 +57,7 @@ def initialize_w_calculator(chi0calc, txt='w.txt', ppa=False, xc='RPA',
                         integrate_gamma=integrate_gamma,
                         q0_correction=q0_correction)
     return wcalc
+
 
 class WCalculator:
     def __init__(self,
@@ -93,7 +94,7 @@ class WCalculator:
             Analytic correction to the q=0 contribution applicable to 2D
             systems.
         """
-        self.chi0calc= chi0calc
+        self.chi0calc = chi0calc
         self.ppa = ppa
         self.fxc_mode = fxc_mode
         self.wd = chi0calc.wd
@@ -123,29 +124,29 @@ class WCalculator:
         self.q0_corrector.add_q0_correction(
             pd, W_GG, einv_GG, chi0_xvG, chi0_vv,
             sqrtV_G,
-            fd = self.fd if print_ac else None)
+            fd=self.fd if print_ac else None)
 
-
-# Working on calculate_q wrapper!!! F. N!
-    def calculate_q(self,iq, q_c, chi0 = np.empty(1)):
+# calculate_q wrapper
+    def calculate_q(self, iq, q_c, chi0=np.empty(1)):
+        chi0calc = self.chi0calc
         if self.truncation == 'wigner-seitz':
             wstc = WignerSeitzTruncatedCoulomb(
-            self.wcalc.gs.gd.cell_cv,
-            self.wcalc.gs.kd.N_c,
-            chi0calc.fd)
+                self.wcalc.gs.gd.cell_cv,
+                self.wcalc.gs.kd.N_c,
+                chi0calc.fd)
         else:
             wstc = None
-        chi0calc=self.chi0calc
-        ecut=self.chi0calc.ecut
+        # ecut = self.chi0calc.ecut
         if np.all(chi0 == np.empty(1)):
             chi0 = chi0calc.create_chi0(q_c, extend_head=False)
 
-        pdi, blocks1d, W_wGG = self.dyson_and_W_old(wstc, iq, q_c,
-                                                    self.chi0calc, chi0,
-                                                    self.chi0calc.ecut,
-                                                    Q_aGii=self.chi0calc.Q_aGii,
-                                                    fxc_mode=self.fxc_mode,
-                                                    only_correlation=False)
+        pdi, blocks1d, W_wGG = self.dyson_and_W_old(
+            wstc, iq, q_c,
+            self.chi0calc, chi0,
+            self.chi0calc.ecut,
+            Q_aGii=self.chi0calc.Q_aGii,
+            fxc_mode=self.fxc_mode,
+            only_correlation=False)
         return pdi, blocks1d, W_wGG
 
     def dyson_and_W_new(self, wstc, iq, q_c, chi0calc, chi0, ecut):
@@ -301,7 +302,7 @@ class WCalculator:
             if self.ppa:
                 einv_wGG.append(einv_GG - delta_GG)
             else:
-                einv_GG_full=einv_GG.copy()
+                einv_GG_full = einv_GG.copy()
                 if only_correlation:
                     einv_GG = einv_GG - delta_GG
                 W_GG = chi0_GG
