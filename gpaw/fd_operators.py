@@ -12,9 +12,8 @@ import numpy as np
 from numpy.fft import fftn, ifftn
 
 import _gpaw
-import gpaw.gpu
 from gpaw import debug
-from gpaw import gpuarray
+from gpaw import gpu
 
 # Expansion coefficients for finite difference Laplacian.  The numbers are
 # from J. R. Chelikowsky et al., Phys. Rev. B 50, 11355 (1994):
@@ -94,24 +93,24 @@ class FDOperator:
         return '<' + self.description + '>'
 
     def apply(self, in_xg, out_xg, phase_cd=None):
-        if isinstance(in_xg, gpuarray.GPUArray):
+        if isinstance(in_xg, gpu.array.Array):
             _out = None
-            if not isinstance(out_xg, gpuarray.GPUArray):
+            if not isinstance(out_xg, gpu.array.Array):
                 _out = out_xg
-                out_xg = gpuarray.to_gpu(out_xg)
-            if gpaw.gpu.debug:
+                out_xg = gpu.array.to_gpu(out_xg)
+            if gpu.debug:
                 in_debug = in_xg.get()
                 out_debug = out_xg.get()
                 self.operator.apply(in_debug, out_debug, phase_cd)
             self.operator.apply_cuda_gpu(in_xg.gpudata, out_xg.gpudata,
                                          in_xg.shape, in_xg.dtype, phase_cd)
-            if gpaw.gpu.debug:
-                gpaw.gpu.debug_test(out_debug, out_xg, "fd_operator")
+            if gpu.debug:
+                gpu.debug_test(out_debug, out_xg, "fd_operator")
             if _out:
                 out_xg.get(_out)
         else:
             _out = None
-            if isinstance(out_xg, gpuarray.GPUArray):
+            if isinstance(out_xg, gpu.array.Array):
                 _out = out_xg
                 out_xg = out_xg.get()
             self.operator.apply(in_xg, out_xg, phase_cd)
@@ -119,24 +118,24 @@ class FDOperator:
                 _out.set(out_xg)
 
     def relax(self, relax_method, f_g, s_g, n, w=None):
-        if isinstance(s_g, gpuarray.GPUArray):
+        if isinstance(s_g, gpu.array.Array):
             _func = None
-            if not isinstance(f_g, gpuarray.GPUArray):
+            if not isinstance(f_g, gpu.array.Array):
                 _func = f_g
-                f_g = gpuarray.to_gpu(_func)
-            if gpaw.gpu.debug:
+                f_g = gpu.array.to_gpu(_func)
+            if gpu.debug:
                 f_debug = f_g.get()
                 s_debug = s_g.get()
                 self.operator.relax(relax_method, f_debug, s_debug, n, w)
             self.operator.relax_cuda_gpu(relax_method, f_g.gpudata,
                                          s_g.gpudata, n, w)
-            if gpaw.gpu.debug:
-                gpaw.gpu.debug_test(f_debug, f_g, "relax")
+            if gpu.debug:
+                gpu.debug_test(f_debug, f_g, "relax")
             if _func:
                 f_g.get(_func)
         else:
             _func = None
-            if isinstance(f_g, gpuarray.GPUArray):
+            if isinstance(f_g, gpu.array.Array):
                 _func = f_g
                 f_g = f_g.get()
             self.operator.relax(relax_method, f_g, s_g, n, w)

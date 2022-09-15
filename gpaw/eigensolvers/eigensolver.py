@@ -11,7 +11,7 @@ from gpaw.matrix import matrix_matrix_multiply as mmm
 from gpaw.utilities.blas import axpy
 from gpaw.utilities.mblas import multi_axpy
 from gpaw.xc.hybrid import HybridXC
-from gpaw import gpuarray
+from gpaw import gpu
 
 
 def reshape(a_x, shape):
@@ -57,7 +57,7 @@ class Eigensolver:
 
         if self.keep_htpsit:
             if self.cuda:
-                self.Htpsit_nG = gpuarray.empty_like(wfs.work_array)
+                self.Htpsit_nG = gpu.array.empty_like(wfs.work_array)
             else:
                 self.Htpsit_nG = np.empty_like(wfs.work_array)
 

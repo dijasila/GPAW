@@ -5,7 +5,7 @@ import scipy.linalg as linalg
 
 import _gpaw
 from gpaw import debug
-from gpaw import gpuarray
+from gpaw import gpu
 from gpaw.mpi import serial_comm, _Communicator
 import gpaw.utilities.blas as blas
 
@@ -122,9 +122,8 @@ class Matrix:
             self._array_cpu = np.empty(self.dist.shape, self.dtype)
             self._array_gpu = None
             if self.cuda:
-                self._array_gpu = gpuarray.GPUArray(self.dist.shape,
-                                                    self.dtype)
-        elif isinstance(data, gpuarray.GPUArray):
+                self._array_gpu = gpu.array.empty(self.dist.shape, self.dtype)
+        elif isinstance(data, gpu.array.Array):
             self._array_gpu = data.reshape(self.dist.shape)
             self._array_cpu = self._array_gpu.get()
             if not self.cuda:
@@ -136,7 +135,7 @@ class Matrix:
             self._array_cpu = data.reshape(self.dist.shape)
             self._array_gpu = None
             if self.cuda:
-                self._array_gpu = gpuarray.to_gpu(self._array_cpu)
+                self._array_gpu = gpu.array.to_gpu(self._array_cpu)
         self.on_gpu = bool(self.cuda)
 
     def view(self, i, j):
@@ -159,7 +158,7 @@ class Matrix:
     def use_gpu(self):
         if not self.cuda:
             self.cuda = True
-            self._array_gpu = gpuarray.empty_like(self._array_cpu)
+            self._array_gpu = gpu.array.empty_like(self._array_cpu)
         if not self.on_gpu:
             self.sync()
             self.on_gpu = True

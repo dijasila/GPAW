@@ -11,10 +11,8 @@ import numpy as np
 
 from gpaw import debug
 from gpaw.utilities import is_contiguous
-from gpaw import gpuarray
+from gpaw import gpu
 import _gpaw
-
-import gpaw.gpu
 
 
 class _Transformer:
@@ -78,29 +76,29 @@ class _Transformer:
                                              self.interpolate, self.cuda)
         
     def apply(self, input, output=None, phases=None):
-        use_gpu = isinstance(input, gpuarray.GPUArray)
+        use_gpu = isinstance(input, gpu.array.Array)
         if output is None:
             output = self.gdout.empty(input.shape[:-3], dtype=self.dtype,
                                       cuda=use_gpu)
         if use_gpu:
             _output = None
-            if not isinstance(output, gpuarray.GPUArray):
+            if not isinstance(output, gpu.array.Array):
                 _output = output
-                output = gpuarray.to_gpu(output)
-            if gpaw.gpu.debug:
+                output = gpu.array.to_gpu(output)
+            if gpu.debug:
                 input_cpu = input.get()
                 output_cpu = output.get()
                 self.transformer.apply(input_cpu, output_cpu, phases)
             self.transformer.apply_cuda_gpu(input.gpudata, output.gpudata,
                                             input.shape, input.dtype, phases)
-            if gpaw.gpu.debug:
-                gpaw.gpu.debug_test(output_cpu, output, "transformer")
+            if gpu.debug:
+                gpu.debug_test(output_cpu, output, "transformer")
             if _output:
                 output.get(_output)
                 output = _output
         else:
             _output = None
-            if isinstance(output, gpuarray.GPUArray):
+            if isinstance(output, gpu.array.Array):
                 _output = output
                 output = output.get()
             self.transformer.apply(input, output, phases)

@@ -3,7 +3,7 @@ import numpy as np
 
 from gpaw.utilities.blas import axpy, scal
 from gpaw.utilities.mblas import multi_axpy, multi_dotc, multi_dotu, multi_scal
-from gpaw import gpuarray
+from gpaw import gpu
 
 import _gpaw
 
@@ -31,7 +31,7 @@ class MultiBlas:
             self.timer.start('Multi zdotc')
         ss = multi_dotc(x, y, s)
         if self.gd.comm.size > 1:
-            if isinstance(ss, gpuarray.GPUArray):
+            if isinstance(ss, gpu.array.Array):
                 s_cpu = ss.get(pagelocked=True)
                 self.gd.comm.sum(s_cpu)
                 ss.set(s_cpu)
@@ -46,7 +46,7 @@ class MultiBlas:
             self.timer.start('Multi zdotu')
         ss = multi_dotu(x, y, s)
         if self.gd.comm.size > 1:
-            if isinstance(s, gpuarray.GPUArray):
+            if isinstance(s, gpu.array.Array):
                 s_cpu = ss.get(pagelocked=True)
                 self.gd.comm.sum(s_cpu)
                 ss.set(s_cpu)

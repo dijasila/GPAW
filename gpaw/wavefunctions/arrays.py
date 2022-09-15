@@ -1,7 +1,7 @@
 import numpy as np
 
 from gpaw.matrix import Matrix, create_distribution
-from gpaw.gpuarray import GPUArray
+from gpaw import gpu
 
 
 class MatrixInFile:
@@ -18,7 +18,7 @@ class ArrayWaveFunctions:
         if not collinear:
             N *= 2
         if data is None or isinstance(data, np.ndarray) \
-                        or isinstance(data, GPUArray):
+                        or isinstance(data, gpu.array.Array):
             self.matrix = Matrix(M, N, dtype, data, dist, cuda)
             self.in_memory = True
         elif isinstance(data, Matrix):
@@ -87,9 +87,9 @@ class ArrayWaveFunctions:
         return self
 
     def eval(self, matrix):
-        if isinstance(self.matrix.array, GPUArray):
+        if isinstance(self.matrix.array, gpu.array.Array):
             self.matrix.array.get(matrix.array)
-        elif isinstance(matrix.array, GPUArray):
+        elif isinstance(matrix.array, gpu.array.Array):
             matrix.array.set(self.matrix.array)
         else:
             matrix.array[:] = self.matrix.array

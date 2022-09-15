@@ -5,9 +5,8 @@ from gpaw.fd_operators import Laplace
 
 from gpaw.utilities.blas import axpy, scal
 from gpaw.utilities.linalg import change_sign
-from gpaw.gpu import memcpy_dtod
 from gpaw import extra_parameters
-from gpaw import gpuarray
+from gpaw import gpu
 import _gpaw
 
 
@@ -50,46 +49,26 @@ class Preconditioner:
 
         if self.cuda:
             # XXX GPUarray does not support properly multi-d slicing
+            shape0 = (self.scratch0.shape[0],) + (nb,) + self.scratch0.shape[2:]
+            shape1 = (self.scratch1.shape[0],) + (nb,) + self.scratch1.shape[2:]
+            shape2 = (self.scratch2.shape[0],) + (nb,) + self.scratch2.shape[2:]
+
             if out is None:
-                d0, q0 = gpuarray.GPUArray(
-                                shape=(self.scratch0.shape[0],) + (nb,)
-                                     + self.scratch0.shape[2:],
-                                dtype=self.scratch0.dtype,
-                                allocator=self.scratch0.allocator,
-                                base=self.scratch0,
-                                gpudata=self.scratch0.gpudata)
+                d0, q0 = gpu.array.get_slice(self.scratch0, shape0)
             else:
                 d0 = out
-                q0 = gpuarray.GPUArray(
-                                shape=(self.scratch0.shape[0],) + (nb,)
-                                     + self.scratch0.shape[2:],
-                                dtype=self.scratch0.dtype,
-                                allocator=self.scratch0.allocator,
-                                base=self.scratch0,
-                                gpudata=self.scratch0.gpudata)[0]
-            r1, d1, q1 = gpuarray.GPUArray(
-                            shape=(self.scratch1.shape[0],) + (nb,)
-                                 + self.scratch1.shape[2:],
-                            dtype=self.scratch1.dtype,
-                            allocator=self.scratch1.allocator,
-                            base=self.scratch1,
-                            gpudata=self.scratch1.gpudata)
-            r2, d2, q2 = gpuarray.GPUArray(
-                            shape=(self.scratch2.shape[0],) + (nb,)
-                                 + self.scratch2.shape[2:],
-                            dtype=self.scratch2.dtype,
-                            allocator=self.scratch2.allocator,
-                            base=self.scratch2,
-                            gpudata=self.scratch2.gpudata)
+                q0 = gpu.array.get_slice(self.scratch0, shape0)[0]
+            r1, d1, q1 = gpu.array.get_slice(self.scratch1, shape1)
+            r2, d2, q2 = gpu.array.get_slice(self.scratch2, shape2)
 
             self.restrictor0(residuals, r1, phases)
             change_sign(r1)
-            memcpy_dtod(d1.gpudata, r1.gpudata, r1.nbytes)
+            gpu.memcpy_dtod(d1, r1, r1.nbytes)
             scal(4 * step, d1)
             self.kin1.apply(d1, q1, phases)
             q1 -= r1
             self.restrictor1(q1, r2, phases)
-            memcpy_dtod(d2.gpudata, r2.gpudata, r2.nbytes)
+            gpu.memcpy_dtod(d2, r2, r2.nbytes)
             scal(16 * step, d2)
             self.kin2.apply(d2, q2, phases)
             q2 -= r2

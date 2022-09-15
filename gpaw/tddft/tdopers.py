@@ -9,11 +9,9 @@ from gpaw.utilities import unpack
 from gpaw.fd_operators import Laplace, Gradient
 from gpaw.overlap import Overlap
 from gpaw.wavefunctions.fd import FDWaveFunctions
-from gpaw.gpu import memcpy_dtod
-from gpaw import gpuarray
+from gpaw import gpu
 
 import _gpaw
-import gpaw.gpu
 
 
 class TimeDependentHamiltonian:
@@ -111,9 +109,10 @@ class TimeDependentHamiltonian:
             self.hamiltonian.vt_sG - self.vt_sG
 
         if self.cuda:
-            self.vt_sG_gpu = gpuarray.to_gpu(self.vt_sG)
+            self.vt_sG_gpu = gpu.array.to_gpu(self.vt_sG)
         if self.hamiltonian.cuda:
-            self.hamiltonian.vt_sG_gpu = gpuarray.to_gpu(self.hamiltonian.vt_sG)
+            self.hamiltonian.vt_sG_gpu = gpu.array.to_gpu(
+                    self.hamiltonian.vt_sG)
         for a, dH_sp in self.hamiltonian.dH_asp.items():
             dH_sp[:], self.dH_asp[a][:] = 0.5*(dH_sp + self.dH_asp[a]), \
                 dH_sp - self.dH_asp[a] #pack/unpack is linear for real values
@@ -133,7 +132,7 @@ class TimeDependentHamiltonian:
         """
         # Does exactly the same as Hamiltonian.apply_local_potential
         # but uses the difference between vt_sG at time t and t+dt.
-        if isinstance(psit_nG, gpuarray.GPUArray):
+        if isinstance(psit_nG, gpu.array.Array):
             vt_G = self.vt_sG_gpu[s]
             if len(psit_nG.shape) == 3:  # XXX Doesn't GPU arrays have ndim attr?
                 _gpaw.elementwise_multiply_add_gpu(
@@ -538,8 +537,8 @@ class TimeDependentOverlap(Overlap):
 
         """
         self.timer.start('Apply overlap')
-        if isinstance(psit, gpuarray.GPUArray):
-            memcpy_dtod(spsit.gpudata, psit.gpudata, psit.nbytes)
+        if isinstance(psit, gpu.array.Array):
+            gpu.memcpy_dtod(spsit, psit, psit.nbytes)
         else:
             spsit[:] = psit
 
@@ -876,16 +875,16 @@ def add_linear_field(wfs, spos_ac, a_nG, b_nG, strength, kpt):
 
     gd = wfs.gd
 
-    if isinstance(a_nG, gpuarray.GPUArray):
-        if gpaw.gpu.debug:
+    if isinstance(a_nG, gpu.array.Array):
+        if gpu.debug:
             a_nG_cpu = a_nG.get()
             b_nG_cpu = b_nG.get()
             add_linear_field_sub(a_nG_cpu, b_nG_cpu, gd, strength)
         _gpaw.add_linear_field_cuda_gpu(a_nG.gpudata, a_nG.shape,
                                         a_nG.dtype, b_nG.gpudata, gd.n_c,
                                         gd.beg_c, gd.h_cv, strength)
-        if gpaw.gpu.debug:
-            gpaw.gpu.debug_test(b_nG, b_nG_cpu, "add_linear_field")
+        if gpu.debug:
+            gpu.debug_test(b_nG, b_nG_cpu, "add_linear_field")
     else:
         add_linear_field_sub(a_nG, b_nG, gd, strength)
 

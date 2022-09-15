@@ -23,9 +23,8 @@ from gpaw.utilities import (unpack, pack2, unpack_atomic_matrices,
                             pack_atomic_matrices)
 from gpaw.utilities.partition import AtomPartition
 # from gpaw.utilities.debug import frozen
-from gpaw import gpuarray
+from gpaw import gpu
 
-import gpaw.gpu
 import _gpaw
 
 ENERGY_NAMES = ['e_kinetic', 'e_coulomb', 'e_zero', 'e_external', 'e_xc',
@@ -221,7 +220,7 @@ class Hamiltonian:
         self.vt_sG = self.vt_xG[:self.nspins]
         self.vt_vG = self.vt_xG[self.nspins:]
         if self.cuda:
-            self.vt_sG_gpu = gpuarray.to_gpu(self.vt_sG)
+            self.vt_sG_gpu = gpu.array.to_gpu(self.vt_sG)
 
     def update(self, density):
         """Calculate effective potential.
@@ -235,9 +234,8 @@ class Hamiltonian:
             with self.timer('Initialize Hamiltonian'):
                 self.initialize()
 
-        if gpaw.gpu.debug and self.cuda:
-            gpaw.gpu.debug_test(
-                    self.vt_sG, self.vt_sG_gpu, "Hamiltonian vt_sG")
+        if gpu.debug and self.cuda:
+            gpu.debug_test(self.vt_sG, self.vt_sG_gpu, "Hamiltonian vt_sG")
 
         finegrid_energies = self.update_pseudo_potential(density)
         coarsegrid_e_kinetic = self.calculate_kinetic_energy(density)
@@ -245,7 +243,7 @@ class Hamiltonian:
         if self.cuda:
             if self.vt_sG_gpu is None or \
                     self.vt_sG_gpu.shape != self.vt_sG.shape:
-                self.vt_sG_gpu = gpuarray.to_gpu(self.vt_sG)
+                self.vt_sG_gpu = gpu.array.to_gpu(self.vt_sG)
             else:
                 self.vt_sG_gpu.set(self.vt_sG)
 
@@ -429,13 +427,13 @@ class Hamiltonian:
             are not applied and calculate_projections is ignored.
 
         """
-        if self.cuda or isinstance(psit_nG, gpuarray.GPUArray):
+        if self.cuda or isinstance(psit_nG, gpu.array.Array):
             if self.cuda:
                 vt_G = self.vt_sG_gpu[s]
             else:
-                vt_G = gpuarray.to_gpu(self.vt_sG[s])
-            if not isinstance(psit_nG, gpuarray.GPUArray):
-                psit_nG = gpuarray.to_gpu(psit_nG)
+                vt_G = gpu.array.to_gpu(self.vt_sG[s])
+            if not isinstance(psit_nG, gpu.array.Array):
+                psit_nG = gpu.array.to_gpu(psit_nG)
             if len(psit_nG.shape) == 3:  # XXX Doesn't GPU arrays have ndim attr?
                 elementwise_multiply_add(psit_nG, vt_G, Htpsit_nG);
             else:
@@ -467,9 +465,8 @@ class Hamiltonian:
             When False, existing P_ani are used
 
         """
-        if gpaw.gpu.debug and self.cuda:
-            gpaw.gpu.debug_test(
-                    self.vt_sG, self.vt_sG_gpu, "Hamiltonian vt_sG")
+        if gpu.debug and self.cuda:
+            gpu.debug_test(self.vt_sG, self.vt_sG_gpu, "Hamiltonian vt_sG")
 
         wfs.kin.apply(a_xG, b_xG, kpt.phase_cd)
         self.apply_local_potential(a_xG, b_xG, kpt.s)

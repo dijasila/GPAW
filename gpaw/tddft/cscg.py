@@ -9,8 +9,7 @@ from gpaw.utilities.blas import axpy
 from gpaw.utilities.linalg import change_sign
 from gpaw.mpi import rank
 from gpaw.tddft.utils import MultiBlas
-from gpaw.cuda import memcpy_dtod
-from gpaw import gpuarray
+from gpaw import gpu
 
 
 class CSCG:
@@ -93,7 +92,7 @@ class CSCG:
         if self.timer is not None:
             self.timer.start('CSCG')
 
-        cuda = isinstance(x, gpuarray.GPUArray)
+        cuda = isinstance(x, gpu.array.Array)
 
         # number of vectors
         nvec = len(x)
@@ -105,9 +104,9 @@ class CSCG:
         z = self.gd.empty(B, dtype=complex, cuda=cuda)
 
         if cuda:
-            alpha = gpuarray.zeros((B,), dtype=complex)
-            rho = gpuarray.zeros((B,), dtype=complex)
-            rhop = gpuarray.zeros((B,), dtype=complex)
+            alpha = gpu.array.zeros((B,), dtype=complex)
+            rho = gpu.array.zeros((B,), dtype=complex)
+            rhop = gpu.array.zeros((B,), dtype=complex)
         else:
             alpha = np.zeros((B,), dtype=complex)
             rho = np.zeros((B,), dtype=complex)
@@ -193,8 +192,8 @@ class CSCG:
                     break
 
                 # finally update rho
-                if isinstance(rhop, gpuarray.GPUArray):
-                    memcpy_dtod(rhop.gpudata, rho.gpudata, rho.nbytes)
+                if isinstance(rhop, gpu.array.Array):
+                    gpu.memcpy_dtod(rhop, rho, rho.nbytes)
                 else:
                     rhop[:] = rho
 
