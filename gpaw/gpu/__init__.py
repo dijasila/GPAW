@@ -1,6 +1,6 @@
 import platform
 
-from .backend import DummyBackend
+from .backends import DummyBackend
 
 backend = DummyBackend()
 

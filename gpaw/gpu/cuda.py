@@ -2,7 +2,7 @@ import atexit
 
 import _gpaw
 
-from .backend import BaseBackend
+from .backends import BaseBackend
 
 class CUDA(BaseBackend):
     from pycuda import driver as _driver
