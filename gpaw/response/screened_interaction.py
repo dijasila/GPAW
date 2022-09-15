@@ -53,7 +53,7 @@ def initialize_w_calculator(chi0calc, txt='w.txt', ppa=False, xc='RPA',
                         context,
                         E0,
                         fxc_mode='GW',
-                        truncation=None,
+                        truncation=truncation,
                         integrate_gamma=integrate_gamma,
                         q0_correction=q0_correction)
     return wcalc
