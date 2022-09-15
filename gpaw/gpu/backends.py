@@ -1,15 +1,45 @@
+from gpaw.gpu import parameters
+
 class BaseBackend:
     label = 'base'
-    enabled = False
-    debug = False
-    debug_sync = False
-    use_hybrid_blas = False
     device_no = None
     device_ctx = None
 
     def __init__(self, **kwargs):
         for key in kwargs:
             setattr(self, key, kwargs[key])
+
+    @property
+    def enabled(self):
+        return parameters.enabled
+
+    @enabled.setter
+    def enabled(self, x):
+        parameters.enabled = bool(x)
+
+    @property
+    def debug(self):
+        return parameters.debug
+
+    @debug.setter
+    def debug(self, x):
+        parameters.debug = bool(x)
+
+    @property
+    def debug_sync(self):
+        return parameters.debug_sync
+
+    @debug_sync.setter
+    def debug_sync(self, x):
+        parameters.debug_sync = bool(x)
+
+    @property
+    def use_hybrid_blas(self):
+        return parameters.use_hybrid_blas
+
+    @use_hybrid_blas.setter
+    def use_hybrid_blas(self, x):
+        parameters.use_hybrid_blas = bool(x)
 
     def init(self, rank=0):
         pass
