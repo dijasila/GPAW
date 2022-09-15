@@ -174,7 +174,6 @@ class LocalPAWFT(ABC):
                V0                       r
 
         where N is the number of grid points."""
-        N_c = pd.gd.N_c
         Q_G = pd.Q_qG[0]
 
         # Perform the FFT
