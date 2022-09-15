@@ -15,6 +15,8 @@ class GPUArray(pycuda_GPUArray):
     and methods reshape() and view() are only modified to return an
     instance of this class.
 
+    Uses our own CUDA kernels for axpbyz(), axpbz(), and fill().
+
     Ideally, once slicing is supported by PyCUDA's GPUArray we could
     simply use it directly and drop this subclass."""
 
@@ -140,3 +142,10 @@ def zeros_like(other_ary):
             other_ary.shape, other_ary.dtype, other_ary.allocator)
     result.fill(0.0)
     return result
+
+def get_pointer(ary):
+    return ary.gpudata
+
+def get_slice(ary, shape):
+    return GPUArray(base=ary, allocator=ary.allocator, gpudata=ary.gpudata,
+                    dtype=ary.dtype, shape=shape)
