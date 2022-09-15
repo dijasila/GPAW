@@ -122,10 +122,10 @@ def test_Fe_bcc(in_tmp_dir):
 
     # Exchange constants
     assert np.allclose(J_qp.imag, 0.)
-    assert np.allclose(J_qp.real, test_J_pq.T, rtol=1e-3)
+    assert np.allclose(J_qp.real, test_J_pq.T, rtol=2e-3)
     
     # Magnon energies
-    assert np.allclose(mw_qp, test_mw_pq.T, rtol=1e-3)
+    assert np.allclose(mw_qp, test_mw_pq.T, rtol=2e-3)
 
 
 @pytest.mark.response
