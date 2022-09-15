@@ -3,9 +3,11 @@ import platform
 from .backends import DummyBackend
 
 backend = DummyBackend()
+array = backend.array
 
 def setup(**kwargs):
     global backend
+    global array
 
     debug = kwargs.pop('debug', False)
     if debug == 'sync':
@@ -26,6 +28,7 @@ def setup(**kwargs):
         backend = CUDA(**args)
     else:
         backend = DummyBackend(**args)
+    array = backend.array
 
     for key in kwargs:
         print(f'Unknown GPU parameter: {key}')

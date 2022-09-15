@@ -1,4 +1,5 @@
 from gpaw.gpu import parameters
+from gpaw.gpu.arrays import HostArrayInterface
 
 class BaseBackend:
     label = 'base'
@@ -129,6 +130,7 @@ class BaseBackend:
 
 class DummyBackend(BaseBackend):
     label = 'dummy'
+    array = HostArrayInterface()
 
     # catch-all method to ignore anything not defined explicitly
     def _pass(self, *args, **kwargs):

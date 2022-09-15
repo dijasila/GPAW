@@ -8,9 +8,11 @@ class CUDA(BaseBackend):
     from pycuda import driver as _driver
 
     from gpaw.gpu import pycuda as _gpuarray
+    from gpaw.gpu.arrays import PyCudaArrayInterface
 
     label = 'cuda'
     enabled = True
+    array = PyCudaArrayInterface()
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -52,10 +54,10 @@ class CUDA(BaseBackend):
         return x.get()
 
     def copy_to_device(self, x):
-        return self._gpuarray.to_gpu(x)
+        return self.array.to_gpu(x)
 
     def is_device_array(self, x):
-        return isinstance(x, self._gpuarray.GPUArray)
+        return isinstance(x, self.array.Array)
 
     def memcpy_dtod(self, tgt, src, n):
         self._driver.memcpy_dtod(tgt.gpudata, src.gpudata, n)
