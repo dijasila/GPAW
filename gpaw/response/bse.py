@@ -550,8 +550,6 @@ class BSE:
                                                   world=world,
                                                   txt=self.txt,
                                                   integrate_gamma=self.integrate_gamma)
-
-
         t0 = time()
         print('Calculating screened potential', file=self.fd)
         for iq, q_c in enumerate(self.qd.ibzk_kc):
@@ -562,113 +560,6 @@ class BSE:
             print(ac)
             pd, blocks1d, W_wGG = self._wcalc.calculate_q(iq, q_c, chi0)
             W_GG = W_wGG[0]
-            """
-            print(iq,W_GG[0,0])
-            print('shapeW')
-            print(W_GG.shape)
-            
-            #pd, chi0_wGG, chi0_wxvG, chi0_wvv = self._calculate_chi0(q_c)
-            pd = chi0.pd 
-            chi0_wGG = chi0.chi0_wGG 
-            chi0_wxvG = chi0.chi0_wxvG 
-            chi0_wvv = chi0.chi0_wvv
-            nG = pd.ngmax
-            chi0_GG = chi0_wGG[0]
-
-            # Calculate eps^{-1}_GG
-            if pd.kd.gamma:
-                # Generate fine grid in vicinity of gamma
-                kd = self.gs.kd
-                gamma_int = GammaIntegrator(kd=kd, pd=pd,
-                                            truncation=self.truncation,
-                                            chi0_wvv=chi0_wvv[:1],
-                                            chi0_wxvG=chi0_wxvG[:1])
-
-                einv_GG = np.zeros((nG, nG), complex)
-                # W_GG = np.zeros((nG, nG), complex)
-                for iqf in range(len(gamma_int.qf_qv)):
-                    chi0_GG[0] = gamma_int.a0_qwG[iqf, 0]
-                    chi0_GG[:, 0] = gamma_int.a1_qwG[iqf, 0]
-                    chi0_GG[0, 0] = gamma_int.a_wq[0, iqf]
-                    sqrV_G = get_coulomb_kernel(pd,
-                                                kd.N_c,
-                                                truncation=self.truncation,
-                                                wstc=self.wstc,
-                                                q_v=gamma_int.qf_qv[iqf])**0.5
-                    sqrV_G *= ac**0.5  # Multiply by adiabatic coupling
-                    e_GG = np.eye(nG) - chi0_GG * sqrV_G * sqrV_G[:,
-                                                                  np.newaxis]
-                    einv_GG += np.linalg.inv(e_GG) * gamma_int.weight_q[iqf]
-                    # einv_GG = np.linalg.inv(e_GG) * weight_q[iqf]
-                    # W_GG += (einv_GG * sqrV_G * sqrV_G[:, np.newaxis]
-                    #          * weight_q[iqf])
-            else:
-                sqrV_G = get_coulomb_kernel(pd,
-                                            self.kd.N_c,
-                                            truncation=self.truncation,
-                                            wstc=self.wstc)**0.5
-                print('sqrV_G old')
-                print(sqrV_G[0])
-                sqrV_G *= ac**0.5  # Multiply by adiabatic coupling
-                print('after ac...')
-                print(sqrV_G[0])
-                e_GG = np.eye(nG) - chi0_GG * sqrV_G * sqrV_G[:, np.newaxis]
-                einv_GG = np.linalg.inv(e_GG)
-                print('einv_old')
-                print(einv_GG[0,1])
-                # W_GG = einv_GG * sqrV_G * sqrV_G[:, np.newaxis]
-
-            # Now calculate W_GG
-            if pd.kd.gamma:
-                # Reset bare Coulomb interaction
-                sqrV_G = get_coulomb_kernel(pd,
-                                            self.kd.N_c,
-                                            truncation=self.truncation,
-                                            wstc=self.wstc)**0.5
-            print('sqrV_G again...')
-            print(sqrV_G[0])
-            W_GG = einv_GG * sqrV_G * sqrV_G[:, np.newaxis]
-            print('W again')
-            print(W_GG[0,0])
-            print('integrate_gamma old')
-            print(self.integrate_gamma)
-            if self.integrate_gamma != 0:
-                # Numerical integration of Coulomb interaction at all q-points
-                if self.integrate_gamma == 2:
-                    reduced = True
-                else:
-                    reduced = False
-                V0, sqrV0 = get_integrated_kernel(pd,
-                                                  self.kd.N_c,
-                                                  truncation=self.truncation,
-                                                  reduced=reduced,
-                                                  N=100)
-                W_GG[0, 0] = einv_GG[0, 0] * V0
-                W_GG[0, 1:] = einv_GG[0, 1:] * sqrV0 * sqrV_G[1:]
-                W_GG[1:, 0] = einv_GG[1:, 0] * sqrV_G[1:] * sqrV0
-            elif self.integrate_gamma == 0 and pd.kd.gamma:
-                # Analytical integration at gamma
-                bzvol = (2 * np.pi)**3 / self.vol / self.qd.nbzkpts
-                Rq0 = (3 * bzvol / (4 * np.pi))**(1. / 3.)
-                V0 = 16 * np.pi**2 * Rq0 / bzvol
-                sqrV0 = (4 * np.pi)**(1.5) * Rq0**2 / bzvol / 2
-                W_GG[0, 0] = einv_GG[0, 0] * V0
-                W_GG[0, 1:] = einv_GG[0, 1:] * sqrV0 * sqrV_G[1:]
-                W_GG[1:, 0] = einv_GG[1:, 0] * sqrV_G[1:] * sqrV0
-            else:
-                pass
-
-            print('iq,W old')
-            print(iq,W_GG[0,0])
-            print('shapeW')
-            print(W_GG.shape)
-
-            if pd.kd.gamma:
-                e = 1 / einv_GG[0, 0].real
-                print('    RPA dielectric constant is: %3.3f' % e,
-                      file=self.fd)
-            # end comment here
-            """
             self.Q_qaGii.append(self._chi0calc.Q_aGii)
             self.pd_q.append(pd)
             self.W_qGG.append(W_GG)
