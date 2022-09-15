@@ -1,6 +1,6 @@
 import platform
 
-from .backends import DummyBackend
+from gpaw.gpu.backends import DummyBackend
 
 backend = DummyBackend()
 array = backend.array
@@ -24,7 +24,7 @@ def setup(**kwargs):
             }
 
     if kwargs.pop('cuda', False):
-        from .cuda import CUDA
+        from gpaw.gpu.cuda import CUDA
         backend = CUDA(**args)
     else:
         backend = DummyBackend(**args)

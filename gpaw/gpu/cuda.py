@@ -1,8 +1,7 @@
 import atexit
 
 import _gpaw
-
-from .backends import BaseBackend
+from gpaw.gpu.backends import BaseBackend
 
 class CUDA(BaseBackend):
     from pycuda import driver as _driver
