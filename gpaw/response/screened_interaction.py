@@ -301,6 +301,7 @@ class WCalculator:
             if self.ppa:
                 einv_wGG.append(einv_GG - delta_GG)
             else:
+                einv_GG_full=einv_GG.copy()
                 if only_correlation:
                     einv_GG = einv_GG - delta_GG
                 W_GG = chi0_GG
@@ -312,7 +313,7 @@ class WCalculator:
                     else:
                         print_ac = False
                     this_w = wblocks1d.a + iw
-                    self.add_q0_correction(pdi, W_GG, einv_GG,
+                    self.add_q0_correction(pdi, W_GG, einv_GG_full,
                                            chi0_wxvG[this_w],
                                            chi0_wvv[this_w],
                                            sqrtV_G,
