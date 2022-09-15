@@ -49,6 +49,7 @@ class Basis:
         self.name = name
         self.rgd = rgd
         self.bf_j = []
+        self.ribf_j = []
         self.generatorattrs = {}
         self.generatordata = ''
         self.filename = None
@@ -62,8 +63,15 @@ class Basis:
         # updating it.  (we can do that later)
         return sum([2 * bf.l + 1 for bf in self.bf_j])
 
+    @property
+    def nrio(self):
+        return sum([2 * ribf.l + 1 for ribf in self.ribf_j])
+
     def append(self, bf):
-        self.bf_j.append(bf)
+        if bf.type != 'auxiliary':
+            self.bf_j.append(bf)
+        else:
+            self.ribf_j.append(bf)
 
     def get_grid_descriptor(self):
         return self.rgd
@@ -72,6 +80,10 @@ class Basis:
         return [self.rgd.spline(bf.phit_g, bf.rc, bf.l, points=400)
                 for bf in self.bf_j]
 
+    def ritosplines(self):
+        return [self.rgd.spline(ribf.phit_g, ribf.rc, ribf.l, points=400)
+                for ribf in self.ribf_j]
+   
     def read_xml(self, filename=None, world=None):
         parser = BasisSetXMLParser(self)
         parser.parse(filename, world=world)
@@ -103,10 +115,12 @@ class Basis:
         write('\n  </generator>\n')
 
         write('  ' + self.rgd.xml())
-
-        for bf in self.bf_j:
-            write(bf.xml(indentation='  '))
-
+       
+        # Write both the basis functions and auxiliary ones
+        for bfs in [self.bf_j, self.ribf_j]:
+            for bf in bfs:
+                write(bf.xml(indentation='  '))
+        
         write('</paw_basis>\n')
 
     def reduce(self, name):
@@ -154,6 +168,10 @@ class Basis:
 
         lines = [title, name, fileinfo, count1, count2]
         lines.extend(bf_lines)
+        lines.append(f'Number of RI-basis functions {self.nrio}')
+        for ribf in self.ribf_j:
+            lines.append('l=%d %s' % (ribf.l, ribf.type))
+        
         return '\n  '.join(lines)
 
 
@@ -253,6 +271,8 @@ class BasisSetXMLParser(xml.sax.handler.ContentHandler):
         if name == 'basis_function':
             phit_g = np.array([float(x) for x in ''.join(self.data).split()])
             bf = BasisFunction(self.n, self.l, self.rc, phit_g, self.type)
+            # Also auxiliary basis functions are added here. They are
+            # distinguished by their type='auxiliary'.
             basis.append(bf)
         elif name == 'generator':
             basis.generatordata = ''.join([line for line in self.data])

@@ -81,7 +81,7 @@ First we will construct an atoms object for FePO$_4$. ASE can read files from in
 
 
 # Unit cell:
-#            periodic     x          y          z    
+#            periodic     x          y          z
 #   1. axis:    yes    9.94012    0.00000    0.00000
 #   2. axis:    yes    0.00000    5.87524    0.00000
 #   3. axis:    yes    0.00000    0.00000    4.83157
@@ -179,7 +179,7 @@ To save computational time while keeping the calculations physically sound, the 
 
 # %%
 params_GPAW['mode']        = PW(500)                      # The used plane wave energy cutoff
-params_GPAW['nbands']      = -40                          # The number on empty bands had the system been spin-paired 
+params_GPAW['nbands']      = -40                          # The number on empty bands had the system been spin-paired
 params_GPAW['kpts']        = {'size': (2, 4, 5),          # The k-point mesh
                               'gamma': True}
 params_GPAW['spinpol']     = True                         # Performing spin polarized calculations
@@ -376,7 +376,7 @@ You should now add Li into the structure using the fractional coordinates below:
 
 # %%
 """
-Add Li atoms into the structure, e.g., by following the example in [this ASE tutorial](https://wiki.fysik.dtu.dk/ase/tutorials/manipulating_atoms.html?highlight=set_cell#manipulating-atoms).
+Add Li atoms into the structure, e.g., by following the example in [this ASE tutorial](https://wiki.fysik.dtu.dk/ase/gettingstarted/manipulating_atoms/manipulating_atoms.html?highlight=set_cell#manipulating-atoms).
 """
 
 # %%
@@ -618,8 +618,8 @@ You will now calculate the error estimate for the Li intercallation energy in Fe
 """
 
 # %%
-fepo4_ens_cell = np.genfromtxt('ensemble_fepo4.dat')
-lifepo4_ens_cell = np.genfromtxt('ensemble_lifepo4.dat')
+fepo4_ens_cell = np.genfromtxt('ensemble_fepo4.dat', max_rows=2000)
+lifepo4_ens_cell = np.genfromtxt('ensemble_lifepo4.dat', max_rows=2000)
 
 print('number of functionals in ensemble=', len(fepo4_ens_cell))
 print('number of functionals in ensemble=', len(lifepo4_ens_cell))

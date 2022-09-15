@@ -103,3 +103,41 @@ def Phi(n, mu, R, r):
     result *= mu
 
     return result
+
+
+"""
+
+Implementation of spherical harmonic expansion ends. GPAW spesific stuff
+remains below.
+
+"""
+
+
+class RadialHSE:
+    def __init__(self, rgd, omega):
+        self.rgd = rgd
+        self.omega = omega
+
+        self.r1_gg = np.zeros((rgd.N, rgd.N))
+        self.r2_gg = np.zeros((rgd.N, rgd.N))
+        self.d_gg = np.zeros((rgd.N, rgd.N))
+        r_g = rgd.r_g.copy()
+        r_g[0] = r_g[1]  # XXX
+        self.r1_gg[:] = r_g[None, :]
+        self.r2_gg[:] = r_g[:, None]
+        self.d_gg[:] = rgd.dr_g[None, :] * rgd.r_g[None, :]**2 * 4 * np.pi
+        self.V_lgg = {}
+
+    def screened_coulomb(self, n_g, l):
+        # Buffer different l-values for optimal performance
+        if l not in self.V_lgg:
+            kernel_gg = np.reshape(Phi(l, self.omega, self.r1_gg.ravel(),
+                                       self.r2_gg.ravel()),
+                                   self.d_gg.shape) / (2 * l + 1)
+            self.V_lgg[l] = self.d_gg * kernel_gg
+        vr_g = (self.V_lgg[l] @ n_g) * self.rgd.r_g
+        return vr_g
+
+    def screened_coulomb_dv(self, n_g, l):
+        return self.screened_coulomb(n_g, l) * self.rgd.r_g * self.rgd.dr_g
+    

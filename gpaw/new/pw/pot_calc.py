@@ -24,7 +24,10 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         self.ghat_aLh = setups.create_compensation_charges(
             fine_pw, fracpos_ac, atomdist)
 
+        self.pw = pw
+        self.fine_pw = fine_pw
         self.pw0 = pw.new(comm=None)  # not distributed
+
         self.h_g, self.g_r = fine_pw.map_indices(self.pw0)
 
         self.fftplan = grid.fft_plans()
@@ -150,8 +153,6 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         self.nct_aR.to_uniform_grid(out=self.nct_R, scale=1.0 / ndensities)
 
     def force_contributions(self, state):
-        raise NotImplementedError
-        # WIP!
         density = state.density
         potential = state.potential
         nt_R = density.nt_sR[0]
@@ -163,7 +164,9 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
             vt_R.data[:] = (
                 potential.vt_sR.data[:density.ndensities].sum(axis=0) /
                 density.ndensities)
+        vt_g = vt_R.fft(self.fftplan, pw=self.pw)
+        nt_g = nt_R.fft(self.fftplan, pw=self.pw)
 
         return (self.ghat_aLh.derivative(state.vHt_x),
-                self.nct_ag.derivative(vt_R),
-                self.vbar_ag.derivative(nt_R))
+                self.nct_ag.derivative(vt_g),
+                self.vbar_ag.derivative(nt_g))

@@ -269,6 +269,7 @@ def Ni_gs(module_tmp_path):
     # ---------- Script ---------- #
 
     atoms = bulk('Ni', 'fcc', a=a)
+    atoms.set_initial_magnetic_moments([0.6])
     calculate_gs(atoms, gpw, pw, kpts, nbands, ebands,
                  setups=setups, xc=xc, convergence=convergence)
 

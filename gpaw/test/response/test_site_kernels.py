@@ -265,7 +265,7 @@ def test_Co_hcp_site_kernels():
                 kpts={'size': (kpts, kpts, kpts),
                       'gamma': True}
                 )
-    
+
     # Perform inexpensive calculator initialization
     calc.initialize(atoms)
 

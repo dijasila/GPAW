@@ -20,7 +20,6 @@ def test_generic_si(in_tmp_dir):
     calc = GPAW(gpts=(n, n, n),
                 nbands=8 * 3,
                 occupations=FermiDirac(width=0.01),
-                verbose=1,
                 kpts=(1, 1, 1))
     bulk.calc = calc
     e1 = bulk.get_potential_energy()

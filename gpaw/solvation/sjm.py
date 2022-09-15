@@ -39,7 +39,7 @@ class SJM(SolvationGPAW):
     neutral periodic slab systems. Cell neutrality is achieved by adding a
     background charge in the solvent region above the slab
 
-    Further details are given in http://dx.doi.org/10.1021/acs.jpcc.8b02465
+    Further details are given in https://doi.org/10.1021/acs.jpcc.8b02465
     If you use this method, we appreciate it if you cite that work.
 
     The method can be run in two modes:

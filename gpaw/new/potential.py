@@ -43,7 +43,10 @@ class Potential:
                              P_nsi[:, 0] @ (x_ii + 1j * y_ii))
         return out_ansi
 
-    def write(self, writer):
+    def _write_gpw(self, writer, ibzwfs):
+        from gpaw.new.calculation import combine_energies
+        energies = combine_energies(self, ibzwfs)
+        energies['band'] = ibzwfs.energies['band']
         dH_asp = self.dH_asii.to_lower_triangle().gather()
         vt_sR = self.vt_sR.gather()
         if dH_asp is None:
@@ -51,4 +54,4 @@ class Potential:
         writer.write(
             potential=vt_sR.data * Ha,
             atomic_hamiltonian_matrices=dH_asp.data * Ha,
-            energies={name: val * Ha for name, val in self.energies.items()})
+            **{f'e_{name}': val * Ha for name, val in energies.items()})

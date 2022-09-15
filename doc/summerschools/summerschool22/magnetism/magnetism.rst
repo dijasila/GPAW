@@ -6,7 +6,7 @@ Magnetism in 2D
 
 This exercise investigates magnetic order in two dimensions. While a collinear
 spin-density functional theory calculation might reveal that it is
-energetically favorable for a given 2D material to order magnetically, two 
+energetically favorable for a given 2D material to order magnetically, two
 dimensional magnetic order at finite temperatures also requires presence of
 magnetic anisotropy, usually arising from the spin-orbit coupling.
 
@@ -18,7 +18,7 @@ crucial in order to sustain magnetic order in two dimensions.
 In the first part of the project, you will calculate the Curie temperature of
 a |CrI3| monolayer. Afterwards, you will investigate the magnetic order in
 |VI2|, which has antiferromagnetic coupling and noncollinear order. Finally,
-you will finish the project by performing a search for new magnetic 2D materials 
+you will finish the project by performing a search for new magnetic 2D materials
 with high critical temperatures based on a database of hypothetical monolayers.
 
 
@@ -34,7 +34,7 @@ structure file (:download:`CrI3.xyz`).
 The procedure will be as follows:
 
 1) Set up the atomic structure and optimize the geometry of |CrI3|
-2) Calculate the nearest neighbour Heisenberg exchange coupling based on a total
+2) Calculate the nearest neighbor Heisenberg exchange coupling based on a total
    energy mapping analysis
 3) Show that the magnetic ground state is thermodynamically unstable when
    anisotropy is neglected (The Mermin-Wagner theorem)
