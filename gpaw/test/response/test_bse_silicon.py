@@ -46,11 +46,6 @@ def test_response_bse_silicon(in_tmp_dir, scalapack):
         equal(w, w_, 0.01)
         equal(I, I_, 0.1)
 
-    #test adiabatic connection in W
-    #bse.calculate_screened_potential(ac=0.5)
-    #test_ac=bse.W_qGG[0][0,0]
-    #equal(test_ac,12.2328,0.001)
-
     if GS and nosym:
         atoms = bulk('Si', 'diamond', a=a)
         calc = GPAW(mode='pw',
