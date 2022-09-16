@@ -1,5 +1,3 @@
-import platform
-
 from gpaw.gpu.backends import DummyBackend
 
 backend = DummyBackend()
@@ -43,6 +41,7 @@ def init(rank=0):
         raise Exception("GPU could not be initialised")
 
     if backend.debug:
+        import platform
         print('[{0}] GPU device {1} initialised (on host {2}).'.format(
             rank, backend.device_no, platform.node()))
     return True
