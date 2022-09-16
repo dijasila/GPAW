@@ -46,8 +46,15 @@ def init(rank=0):
             rank, backend.device_no, platform.node()))
     return True
 
+__all__ = ['arrays', 'backends', 'parameters', 'cuda', 'pycuda']
 
 # for ease of use, make the module behave as if it would be the backend,
 #   i.e. gpu.enabled == gpu.backend.enabled etc.
 def __getattr__(key):
-    return getattr(backend, key)
+    if key in __all__:
+        import importlib
+        return importlib.import_module("." + key, __name__)
+    elif key in dir(backend):
+        return getattr(backend, key)
+    else:
+        raise AttributeError(f"module {__name__} has no attribute {key}")
