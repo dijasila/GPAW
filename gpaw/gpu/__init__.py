@@ -54,7 +54,7 @@ def __getattr__(key):
     if key in __all__:
         import importlib
         return importlib.import_module("." + key, __name__)
-    elif key in dir(backend):
+    elif key in backend.api:
         return getattr(backend, key)
     else:
         raise AttributeError(f"module {__name__} has no attribute {key}")

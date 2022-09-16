@@ -9,6 +9,7 @@ class BaseBackend:
     def __init__(self, **kwargs):
         for key in kwargs:
             setattr(self, key, kwargs[key])
+        self.api = [x for x in dir(self) if not x.startswith('_')]
 
     @property
     def enabled(self):
