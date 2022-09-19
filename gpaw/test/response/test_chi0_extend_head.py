@@ -157,23 +157,13 @@ def test_he_chi0_extend_head(in_tmp_dir, He_gs, He_chi0kwargs):
 
 
 @pytest.mark.response
-def test_li_chi0_extend_head(in_tmp_dir, Li_gs, Li_chi0kwargs, request):
-    mark_tetrahedron_xfail(Li_chi0kwargs, request)
+def test_li_chi0_extend_head(in_tmp_dir, Li_gs, Li_chi0kwargs):
     chi0_extend_head_test(Li_gs, Li_chi0kwargs)
 
 
 @pytest.mark.response
-def test_ni_chi0_extend_head(in_tmp_dir, Ni_gs, Ni_chi0kwargs, request):
-    mark_tetrahedron_xfail(Ni_chi0kwargs, request)
+def test_ni_chi0_extend_head(in_tmp_dir, Ni_gs, Ni_chi0kwargs):
     chi0_extend_head_test(Ni_gs, Ni_chi0kwargs)
-
-
-def mark_tetrahedron_xfail(chi0kwargs, request):
-    if ('integrationmode' in chi0kwargs and
-        chi0kwargs['integrationmode'] == 'tetrahedron integration'):
-        # Head and wings have not yet have a tetrahedron integration
-        # implementation. For now, we simply mark the tests with xfail.
-        request.node.add_marker(pytest.mark.xfail)
 
 
 def chi0_extend_head_test(my_gs, chi0kwargs):
