@@ -271,8 +271,6 @@ class G0W0Calculator:
                  do_GW_too=False,
                  eta,
                  ecut_e,
-                 exx_skn,
-                 vxc_skn,
                  frequencies=None,
                  savepckl=True):
         """G0W0 calculator, initialized through G0W0 object.
@@ -380,9 +378,6 @@ class G0W0Calculator:
                   file=self.fd)
         else:
             print('Using full frequency integration', file=self.fd)
-
-        self.vxc_skn = vxc_skn / Ha
-        self.exx_skn = exx_skn / Ha
 
     def print_parameters(self, kpts, b1, b2):
         p = functools.partial(print, file=self.fd)
@@ -798,6 +793,17 @@ class G0W0Calculator:
 
         return pdi, Wdict, blocks1d, chi0calc.Q_aGii
 
+    def calculate_vxc_and_exx(self):
+        """EXX and Kohn-Sham XC contribution."""
+        n1, n2 = self.bands
+        _, vxc_skn, exx_skn = non_self_consistent_eigenvalues(
+            self._gpwfile,
+            'EXX',
+            n1, n2,
+            kpt_indices=self.kpts,
+            snapshot=self.filename + '-vxc-exx.json')
+        return vxc_skn / Ha, exx_skn / Ha
+
     def read_contribution(self, filename):
         fd = opencew(filename)  # create, exclusive, write
         if fd is not None:
@@ -935,13 +941,14 @@ class G0W0Calculator:
 
     def calculate_g0w0_outputs(self, sigma):
         eps_skn, f_skn = self.get_eps_and_occs()
+        vxc_skn, exx_skn = self.calculate_vxc_and_exx()
         kwargs = dict(
             fd=self.fd,
             shape=self.shape,
             ecut_e=self.ecut_e,
             eps_skn=eps_skn,
-            vxc_skn=self.vxc_skn,
-            exx_skn=self.exx_skn,
+            vxc_skn=vxc_skn,
+            exx_skn=exx_skn,
             f_skn=f_skn)
 
         return G0W0Outputs(sigma_eskn=sigma.sigma_eskn,
@@ -1085,14 +1092,14 @@ class G0W0(G0W0Calculator):
 
         frequencies = get_frequencies(frequencies, domega0, omega2)
 
-        gpwfile = calc
-        calc, context = calc_and_context(gpwfile, filename + '.txt',
+        self._gpwfile = calc
+        calc, context = calc_and_context(self._gpwfile, filename + '.txt',
                                          world, timer)
         gs = calc.gs_adapter()
 
         # Check if nblocks is compatible, adjust if not
         if nblocksmax:
-            nblocks = get_max_nblocks(context.world, gpwfile, ecut)
+            nblocks = get_max_nblocks(context.world, self._gpwfile, ecut)
 
         pair = NoCalculatorPairDensity(gs, nblocks=nblocks, context=context)
 
@@ -1155,15 +1162,6 @@ class G0W0(G0W0Calculator):
                             integrate_gamma,
                             q0_correction)
 
-        # EXX and Kohn-Sham XC contribution:
-        n1, n2 = bands
-        _, vxc_skn, exx_skn = non_self_consistent_eigenvalues(
-            gpwfile,
-            'EXX',
-            n1, n2,
-            kpt_indices=kpts,
-            snapshot=filename + '-exx.json')
-
         super().__init__(filename=filename,
                          wcalc=wcalc,
                          ecut_e=ecut_e,
@@ -1172,6 +1170,4 @@ class G0W0(G0W0Calculator):
                          bands=bands,
                          frequencies=frequencies,
                          kpts=kpts,
-                         vxc_skn=vxc_skn,
-                         exx_skn=exx_skn,
                          **kwargs)
