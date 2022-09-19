@@ -464,25 +464,6 @@ class G0W0Calculator:
         All the values are ``ndarray``'s of shape
         (spins, IBZ k-points, bands)."""
 
-        #loaded = False
-        #if self.restartfile is not None:
-        #    loaded = self.load_restart_file()
-        #    if not loaded:
-        #        self.last_q = -1
-        #        self.previous_sigma = 0.
-        #        self.previous_dsigma = 0.
-        #
-        #    else:
-        #        print('Reading ' + str(self.last_q + 1) +
-        #              ' q-point(s) from the previous calculation: ' +
-        #              self.restartfile + '.sigma.pckl', file=self.fd)
-        #else:
-        #    self.last_q = -1
-        #    self.previous_sigma = 0.
-        #    self.previous_dsigma = 0.
-
-        # self.fd.flush()
-
         # Loop over q in the IBZ:
         print('Summing all q:', file=self.fd)
 
@@ -950,53 +931,6 @@ class G0W0Calculator:
 
         x = 1 / (self.wcalc.qd.nbzkpts * 2 * pi * self.wcalc.gs.volume)
         return x * sigma, x * dsigma
-
-    """def save_restart_file(self, nQ):
-        sigma = self.sigmas[self.wcalc.fxc_mode]
-        sigma_eskn_write = sigma.sigma_eskn.copy()
-        dsigma_eskn_write = sigma.dsigma_eskn.copy()
-        self.world.sum(sigma_eskn_write)
-        self.world.sum(dsigma_eskn_write)
-        data = {'last_q': nQ,
-                'sigma_eskn': sigma_eskn_write + self.previous_sigma,
-                'dsigma_eskn': dsigma_eskn_write + self.previous_dsigma,
-                'kpts': self.kpts,
-                'bands': self.bands,
-                'nbands': self.nbands,
-                'ecut_e': self.ecut_e,
-                'frequencies': self.frequencies,
-                'integrate_gamma': self.wcalc.integrate_gamma}
-
-        if self.world.rank == 0:
-            with open(self.restartfile + '.sigma.pckl', 'wb') as fd:
-                pickle.dump(data, fd, 2)
-
-    def load_restart_file(self):
-        try:
-            with open(self.restartfile + '.sigma.pckl', 'rb') as fd:
-                data = pickleload(fd)
-        except IOError:
-            return False
-        else:
-            if (data['kpts'] == self.kpts and
-                data['bands'] == self.bands and
-                data['nbands'] == self.nbands and
-                (data['ecut_e'] == self.ecut_e).all and
-                data['frequencies']['type'] == self.frequencies['type'] and
-                data['frequencies']['domega0'] ==
-                self.frequencies['domega0'] and
-                data['frequencies']['omega2'] == self.frequencies['omega2'] and
-                data['integrate_gamma'] == self.wcalc.integrate_gamma):
-                self.last_q = data['last_q']
-                self.previous_sigma = data['sigma_eskn']
-                self.previous_dsigma = data['dsigma_eskn']
-                return True
-            else:
-                raise ValueError(
-                    'Restart file not compatible with parameters used in '
-                    'current calculation. Check kpts, bands, nbands, ecut, '
-                    'domega0, omega2, integrate_gamma.')
-    """
 
     def calculate_g0w0_outputs(self, sigma):
         eps_skn, f_skn = self.get_eps_and_occs()
