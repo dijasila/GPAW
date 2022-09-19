@@ -441,7 +441,8 @@ class TetrahedronIntegrator(Integrator):
                                                       wings=True,
                                                       **kwargs)
         else:
-            raise ValueError("Expected kind='spectral function', got: ",
+            raise ValueError("Expected kind='spectral function",
+                             "or 'spectral function wings', got: ",
                              kind)
 
     @timer('Spectral function integration')
