@@ -503,7 +503,6 @@ class G0W0Calculator:
             if iq == 0:
                 sigmas = sigmas_contrib
             else:
-                print('Self.fxc_modes is', self.fxc_modes)
                 for fxc_mode in self.fxc_modes:
                     sigmas[fxc_mode] += sigmas_contrib[fxc_mode]
 
@@ -514,22 +513,9 @@ class G0W0Calculator:
         self.all_results = all_results
         self.print_results(self.all_results)
 
-        # After we have written the results restartfile is obsolete
-        #if self.restartfile is not None:
-        #    if self.world.rank == 0:
-        #        if os.path.isfile(self.restartfile + '.sigma.pckl'):
-        #            os.remove(self.restartfile + '.sigma.pckl')
-
         return self.results  # XXX ugly discrepancy
 
     def postprocess_single(self, fxc_name, sigma):
-        # sigma.sum(self.world)  # (Not so pretty that we finalize the sum here)
-
-        #if self.restartfile is not None and loaded:
-        #    assert not self.do_GW_too
-        #    sigma.sigma_eskn += self.previous_sigma
-        #    sigma.dsigma_eskn += self.previous_dsigma
-
         output = self.calculate_g0w0_outputs(sigma)
         result = output.get_results_eV()
 
@@ -721,13 +707,6 @@ class G0W0Calculator:
 
         # Need to pause the timer in between iterations
         self.timer.stop('W')
-
-        """with self.qcache.lock('inputs') as handle:
-            if handle is None:
-                self.validate_inputs(self.qcache['inputs'])
-            else:
-                handle.save(self.get_inputs())
-        """
         for key, sigmas in self.qcache.items():
             sigmas = {fxc_mode:Sigma.fromdict(sigma) for fxc_mode, sigma in sigmas.items()}
             for fxc_mode, sigma in sigmas.items():
