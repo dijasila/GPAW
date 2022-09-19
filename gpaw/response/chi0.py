@@ -642,7 +642,6 @@ class Chi0Calculator:
         if optical_limit:
             n_nmG = np.empty((len(n_n), len(m_m), nG + 2), dtype=tmp_nmG.dtype)
             n_nmG[:, :, 2:] = tmp_nmG
-
             n_nmv = self.pair.get_optical_pair_density(pd, kptpair, n_n, m_m,
                                                        block=block)
             n_nmG[:, :, :3] = n_nmv

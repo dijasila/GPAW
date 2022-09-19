@@ -97,10 +97,22 @@ def get_chi0_integrand(pair, pd, n_n, m_m, k_v, s):
 
     k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
 
+    q_c = pd.kd.bzk_kc[0]
+    optical_limit = np.allclose(q_c, 0.0)
+
     kptpair = pair.get_kpoint_pair(pd, s, k_c, n_n[0], n_n[-1] + 1,
                                    m_m[0], m_m[-1] + 1)
 
-    n_nmG = pair.get_pair_density(pd, kptpair, n_n, m_m)
+    nG = pd.ngmax
+    tmp_nmG = pair.get_pair_density(pd, kptpair, n_n, m_m)
+    if optical_limit:
+        n_nmG = np.empty((len(n_n), len(m_m), nG + 2), dtype=tmp_nmG.dtype)
+        n_nmG[:, :, 2:] = tmp_nmG
+        n_nmv = pair.get_optical_pair_density(pd, kptpair, n_n, m_m)
+        n_nmG[:, :, :3] = n_nmv
+    else:
+        n_nmG = tmp_nmG
+
     df_nm = kptpair.get_occupation_differences(n_n, m_m)
     eps_n = kptpair.kpt1.eps_n
     eps_m = kptpair.kpt2.eps_n
