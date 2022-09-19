@@ -137,7 +137,7 @@ class WCalculator:
         else:
             wstc = None
         # ecut = self.chi0calc.ecut
-        if chi0 == None:
+        if chi0 is None:
             chi0 = chi0calc.create_chi0(q_c, extend_head=False)
 
         pdi, blocks1d, W_wGG = self.dyson_and_W_old(
