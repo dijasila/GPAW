@@ -268,8 +268,8 @@ class EXX(NoCalculatorPairDensity):
             ut1cc_R = kpt1.ut_nR[n].conj()
             C1_aGi = [np.dot(Q_Gii, P1_ni[n].conj())
                       for Q_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
-            n_mG = self.calculate_pair_densities(ut1cc_R, C1_aGi, kpt2,
-                                                 pd, Q_G)
+            n_mG = self.calculate_pair_density(ut1cc_R, C1_aGi, kpt2,
+                                               pd, Q_G)
             e = self.calculate_n(pd, n_mG, kpt2)
             self.exxvv_sin[kpt1.s, i, n] += e
 

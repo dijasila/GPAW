@@ -478,8 +478,8 @@ class BSE:
             C1_aGi = [np.dot(Qa_Gii, P1_ni[m].conj())
                       for Qa_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
             ut1cc_R = kpt1.ut_nR[m].conj()
-            rho_mnG[m] = self.pair.calculate_pair_densities(ut1cc_R, C1_aGi,
-                                                            kpt2, pd, I_G)
+            rho_mnG[m] = self.pair.calculate_pair_density(ut1cc_R, C1_aGi,
+                                                          kpt2, pd, I_G)
         return rho_mnG, iq
 
     def get_screened_potential(self):

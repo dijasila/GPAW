@@ -637,8 +637,17 @@ class Chi0Calculator:
         m_m = np.arange(m1, m2)
         n_n = np.arange(n1, n2)
 
-        n_nmG = self.pair.get_pair_density(pd, kptpair, n_n, m_m,
-                                           Q_aGii=self.Q_aGii, block=block)
+        tmp_nmG = self.pair.get_pair_density(pd, kptpair, n_n, m_m,
+                                             Q_aGii=self.Q_aGii, block=block)
+        if optical_limit:
+            n_nmG = np.empty((len(n_n), len(m_m), nG + 2), dtype=tmp_nmG.dtype)
+            n_nmG[:, :, 2:] = tmp_nmG
+
+            n_nmv = self.pair.get_optical_pair_density(pd, kptpair, n_n, m_m,
+                                                       block=block)
+            n_nmG[:, :, :3] = n_nmv
+        else:
+            n_nmG = tmp_nmG
 
         if integrationmode is None:
             n_nmG *= weight
