@@ -433,13 +433,20 @@ class TetrahedronIntegrator(Integrator):
 
     def integrate(self, kind, *args, **kwargs):
         if kind == 'spectral function':
-            return self.spectral_function_integration(*args, **kwargs)
+            return self.spectral_function_integration(*args,
+                                                      wings=False,
+                                                      **kwargs)
+        elif kind == 'spectral function wings':
+            return self.spectral_function_integration(*args,
+                                                      wings=True,
+                                                      **kwargs)
         else:
             raise ValueError("Expected kind='spectral function', got: ",
                              kind)
 
     @timer('Spectral function integration')
-    def spectral_function_integration(self, domain=None, integrand=None,
+    def spectral_function_integration(self, wings=False,
+                                      domain=None, integrand=None,
                                       x=None, kwargs=None, out_wxx=None):
         """Integrate response function.
 
@@ -544,12 +551,16 @@ class TetrahedronIntegrator(Integrator):
                                              td)
                 W_Mw.append(W_w)
 
-            self.update_hilbert(n_MG, deps_Mk, W_Mw, i0_M, i1_M,
-                                out_wxx, blocks1d)
+            if wings:
+                self.update_hilbert_optical_limit(n_MG, deps_Mk, W_Mw,
+                                                  i0_M, i1_M, out_wxx)
+            else:
+                self.update_hilbert(n_MG, deps_Mk, W_Mw, i0_M, i1_M,
+                                    out_wxx, blocks1d)
 
         self.kncomm.sum(out_wxx)
 
-        if self.blockcomm.size == 1:
+        if self.blockcomm.size == 1 and not wings:
             # Fill in upper/lower triangle also:
             nx = out_wxx.shape[1]
             il = np.tril_indices(nx, -1)
@@ -574,6 +585,21 @@ class TetrahedronIntegrator(Integrator):
                         1.0, out_wxx[i0 + iw])
                 else:
                     czher(weight, n_G.conj(), out_wxx[i0 + iw])
+
+    def update_hilbert_optical_limit(self, n_MG, deps_Mk, W_Mw,
+                                     i0_M, i1_M, out_wxvG):
+        """Update optical limit output array with dissipative part of the head
+        and wings."""
+        for n_G, deps_k, W_w, i0, i1 in zip(n_MG, deps_Mk, W_Mw,
+                                            i0_M, i1_M):
+            assert self.blockcomm.size == 1
+            if i0 == i1:
+                continue
+
+            for iw, weight in enumerate(W_w):
+                x_vG = np.outer(n_G[:3], n_G.conj())
+                out_wxvG[i0 + iw, 0, :, :] += weight * x_vG
+                out_wxvG[i0 + iw, 1, :, :] += weight * x_vG.conj()
 
     @timer('Get kpoint weight')
     def get_kpoint_weight(self, K, deps_k, pts_k,
