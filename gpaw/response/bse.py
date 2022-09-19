@@ -129,10 +129,7 @@ class BSE:
             assert len(valence_bands[0]) == len(valence_bands[1])
             assert len(conduction_bands[0]) == len(conduction_bands[1])
         if valence_bands is None:
-            # XXX nvalence are the valence electrons on the setups,
-            # but that's not the actual number of valence electrons
-            # if the calculation is charged.  Is this a bug?
-            nv = self.gs.setups.nvalence
+            nv = self.gs.nvalence
             valence_bands = [[nv // 2 - 1]]
             if self.spins == 2:
                 valence_bands *= 2
@@ -710,9 +707,7 @@ class BSE:
             vchi_w /= np.dot(q_v, q_v)
 
         """Check f-sum rule."""
-        # XXX again we are accessing nvalence from setups rather than wfs,
-        # which may not be the right value if system is charged
-        nv = self.gs.setups.nvalence
+        nv = self.gs.nvalence
         dw_w = (w_w[1:] - w_w[:-1]) / Hartree
         wchi_w = (w_w[1:] * vchi_w[1:] + w_w[:-1] * vchi_w[:-1]) / Hartree / 2
         N = -np.dot(dw_w, wchi_w.imag) * self.vol / (2 * np.pi**2)
@@ -1001,8 +996,7 @@ class BSE:
         p('Atoms                          :',
           self.gs.atoms.get_chemical_formula(mode='hill'))
         p('Ground state XC functional     :', self.gs.xcname)
-        # XXX Maybe gs.nvalence instread ???
-        p('Valence electrons              :', self.gs.setups.nvalence)
+        p('Valence electrons              :', self.gs.nvalence)
         p('Spinor calculations            :', self.spinors)
         p('Number of bands                :', self.gs.bd.nbands)
         p('Number of spins                :', self.gs.nspins)
