@@ -12,20 +12,20 @@ from ase.units import Ha
 from ase.utils import opencew, pickleload
 from ase.utils.timing import timer
 from gpaw import GPAW, debug
+from gpaw.hybrids.eigenvalues import non_self_consistent_eigenvalues
 from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.pw.descriptor import PWDescriptor, count_reciprocal_vectors
 from gpaw.response.chi0 import Chi0Calculator
-from gpaw.pw.descriptor import (PWDescriptor,
-                                count_reciprocal_vectors)
+from gpaw.response.context import calc_and_context
 from gpaw.response.fxckernel_calc import calculate_kernel
 from gpaw.response.hilbert import GWHilbertTransforms
 from gpaw.response.pair import NoCalculatorPairDensity
+from gpaw.response.screened_interaction import WCalculator
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.utilities.progressbar import ProgressBar
-from gpaw.xc.exx import EXX, select_kpts
+from gpaw.xc.exx import select_kpts
 from gpaw.xc.fxc import XCFlags
 from gpaw.xc.tools import vxc
-from gpaw.response.context import calc_and_context
-from gpaw.response.screened_interaction import WCalculator
 
 
 class Sigma:
@@ -769,34 +769,18 @@ class G0W0Calculator:
 
         return pdi, Wdict, blocks1d, chi0calc.Q_aGii
 
-    @timer('Kohn-Sham XC-contribution')
-    def calculate_ks_xc_contribution(self):
-        name = self.filename + '.vxc.npy'
-        fd, vxc_skn = self.read_contribution(name)
-        if vxc_skn is None:
-            print('Calculating Kohn-Sham XC contribution', file=self.fd)
-            self.fd.flush()
-            vxc_skn = vxc(self.wcalc.gs, self.wcalc.gs.hamiltonian.xc) / Ha
-            n1, n2 = self.bands
-            vxc_skn = vxc_skn[:, self.kpts, n1:n2]
-            np.save(fd, vxc_skn)
-            fd.close()
-        return vxc_skn
-
-    @timer('EXX')
-    def calculate_exact_exchange(self):
-        name = self.filename + '.exx.npy'
-        fd, exx_skn = self.read_contribution(name)
-        if exx_skn is None:
-            print('Calculating EXX contribution', file=self.fd)
-            self.fd.flush()
-            exx = EXX(self.wcalc.gs, kpts=self.kpts, bands=self.bands,
-                      txt=self.filename + '.exx.txt', timer=self.timer)
-            exx.calculate()
-            exx_skn = exx.get_eigenvalue_contributions() / Ha
-            np.save(fd, exx_skn)
-            fd.close()
-        return exx_skn
+    @timer('EXX and Kohn-Sham XC-contribution')
+    def calculate_exact_exchange_and_ks_xc_contribution(self):
+        print('EXX and Kohn-Sham XC contribution', file=self.fd)
+        self.fd.flush()
+        n1, n2 = self.nbands
+        exc_skn, vxc_skn, vxx_skn = non_self_consistent_eigenvalues(
+            self.wcalc.gs,
+            'EXX',
+            n1, n2,
+            kpts_indices=self.kpts,
+            snapshot=self.filename + '.json')
+        return vxx_skn / Ha, vxc_skn / Ha
 
     def read_contribution(self, filename):
         fd = opencew(filename)  # create, exclusive, write
@@ -935,13 +919,14 @@ class G0W0Calculator:
 
     def calculate_g0w0_outputs(self, sigma):
         eps_skn, f_skn = self.get_eps_and_occs()
+        exx_skn, vxc_skn = self.calculate_exx_and_ks_xc_contribution()
         kwargs = dict(
             fd=self.fd,
             shape=self.shape,
             ecut_e=self.ecut_e,
             eps_skn=eps_skn,
-            vxc_skn=self.calculate_ks_xc_contribution(),
-            exx_skn=self.calculate_exact_exchange(),
+            vxc_skn=vxc_skn,
+            exx_skn=exx_skn,
             f_skn=f_skn)
 
         return G0W0Outputs(sigma_eskn=sigma.sigma_eskn,
