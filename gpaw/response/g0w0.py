@@ -44,9 +44,21 @@ class Sigma:
     def sum(self, comm):
         comm.sum(self._buf)
 
+    def __iadd__(self, other):
+        self._buf += other._buf
+        return self
+
+    @classmethod
+    def fromdict(cls, dct):
+        instance = cls(dct['iq'], dct['q_c'], dct['fxc'], dct['sigma_eskn'].shape, **dct['inputs'])
+        instance.sigma_eskn[:] = dct['sigma_eskn']
+        instance.dsigma_eskn[:] = dct['dsigma_eskn']
+        return instance
+
     def todict(self):
-        return {'q': self.iq,
+        return {'iq': self.iq,
                 'q_c': self.q_c,
+                'fxc': self.fxc,
                 'sigma_eskn': self.sigma_eskn,
                 'dsigma_eskn': self.dsigma_eskn,
                 'inputs': self.inputs }
@@ -459,18 +471,27 @@ class G0W0Calculator:
 
         self.fd.flush()
 
-        # Reset calculation
-        sigmashape = (len(self.ecut_e), *self.shape)
-        self.sigmas = {fxc_mode: Sigma(0, [0.0,0.0,0.0], fxc_mode, sigmashape)
-                       for fxc_mode in self.fxc_modes}
         # Loop over q in the IBZ:
         print('Summing all q:', file=self.fd)
 
         self.calculate_all_q_points()
+        return self.postprocess(loaded)
 
-        return self.postprocess(self.sigmas, loaded)
+    def postprocess(self, loaded):
+        # Integrate over all q-points, and accumulate the quasiparticle shifts
+        for iq, q_c in enumerate(self.wcalc.qd.ibzk_kc):
+            #if self.qcomm.rank == 0:
+            key = str(iq)
 
-    def postprocess(self, sigmas, loaded):
+            print(self.qcache[key],'Key is', type(self.qcache[key]))
+            sigmas_contrib = {fxc_mode:Sigma.fromdict(sigma) for fxc_mode, sigma in self.qcache[key].items()}
+
+            if iq == 0:
+                sigmas = sigmas_contrib
+            else:
+                for fxc_mode in self.fxc_modes:
+                    sigmas[fxc_mode] += sigmas_contrib[fxc_mode]
+
         all_results = {}
         for fxc_mode, sigma in sigmas.items():
             all_results[fxc_mode] = self.postprocess_single(fxc_mode, sigma,
@@ -688,16 +709,20 @@ class G0W0Calculator:
         
         for iq, q_c in enumerate(self.wcalc.qd.ibzk_kc):
             with self.qcache.lock(str(iq)) as qhandle:
-                #if qhandle is None: 
-                #    continue
+                if qhandle is None: 
+                    continue
 
                 result = self.calculate_q_point(iq, q_c, pb, wstc, chi0calc)
 
-                #if self.world.rank == 0: #  XXX: Replace with self.qcomm
-                #    qhandle.save(result)
+                if self.world.rank == 0: #  XXX: Replace with self.qcomm
+                    qhandle.save(result)
         pb.finish()
 
     def calculate_q_point(self, iq, q_c, pb, wstc, chi0calc):
+        # Reset calculation
+        sigmashape = (len(self.ecut_e), *self.shape)
+        sigmas = {fxc_mode: Sigma(iq, q_c, fxc_mode, sigmashape)
+                  for fxc_mode in self.fxc_modes}
 
         if len(self.ecut_e) > 1:
             chi0bands = chi0calc.create_chi0(q_c, extend_head=False)
@@ -739,14 +764,11 @@ class G0W0Calculator:
      
                     self.calculate_q(ie, i, kpt1, kpt2, pdi, Wdict,
                                      symop=symop,
-                                     sigmas=self.sigmas,
+                                     sigmas=sigmas,
                                      blocks1d=blocks1d,
                                      Q_aGii=Q_aGii)
 
-
-
-            if self.restartfile is not None:
-                self.save_restart_file(iq)
+        return sigmas
 
     @property
     def fxc_modes(self):
