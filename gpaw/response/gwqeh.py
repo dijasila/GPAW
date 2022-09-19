@@ -1,22 +1,21 @@
-import sys
-from math import pi
 import pickle
+import sys
 import warnings
+from math import pi
 
 import numpy as np
-
-from ase.utils.timing import timer
-from ase.units import Hartree
 from ase.dft.kpoints import monkhorst_pack
+from ase.units import Hartree
+from ase.utils.timing import timer
 
 import gpaw.mpi as mpi
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.response.chi0 import find_maximum_frequency
-from gpaw.response.hilbert import HilbertTransform
-from gpaw.response.frequencies import FrequencyDescriptor
-from gpaw.response.pair import PairDensity
 from gpaw.pw.descriptor import PWDescriptor
-from gpaw.xc.exx import select_kpts
+from gpaw.response.chi0 import find_maximum_frequency
+from gpaw.response.frequencies import FrequencyDescriptor
+from gpaw.response.g0w0 import select_kpts
+from gpaw.response.hilbert import HilbertTransform
+from gpaw.response.pair import PairDensity
 
 
 class GWQEHCorrection(PairDensity):

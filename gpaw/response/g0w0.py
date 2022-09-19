@@ -23,9 +23,7 @@ from gpaw.response.pair import NoCalculatorPairDensity
 from gpaw.response.screened_interaction import WCalculator
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.utilities.progressbar import ProgressBar
-from gpaw.xc.exx import select_kpts
 from gpaw.xc.fxc import XCFlags
-from gpaw.xc.tools import vxc
 
 
 class Sigma:
@@ -238,6 +236,33 @@ def choose_ecut_things(ecut, ecut_extrapolation):
     return ecut, ecut_e
 
 
+def select_kpts(kpts, kd):
+    """Function to process input parameters that take a list of k-points given
+    in different format and returns a list of indices of the corresponding
+    k-points in the IBZ."""
+
+    if kpts is None:
+        # Do all k-points in the IBZ:
+        return np.arange(kd.nibzkpts)
+
+    if np.asarray(kpts).ndim == 1:
+        return kpts
+
+    # Find k-points:
+    bzk_Kc = kd.bzk_kc
+    indices = []
+    for k_c in kpts:
+        d_Kc = bzk_Kc - k_c
+        d_Kc -= d_Kc.round()
+        K = abs(d_Kc).sum(1).argmin()
+        if not np.allclose(d_Kc[K], 0):
+            raise ValueError('Could not find k-point: {k_c}'
+                             .format(k_c=k_c))
+        k = kd.bz2ibz_k[K]
+        indices.append(k)
+    return indices
+
+
 class G0W0Calculator:
     def __init__(self, filename='gw', *,
                  wcalc,
@@ -246,9 +271,10 @@ class G0W0Calculator:
                  do_GW_too=False,
                  eta,
                  ecut_e,
+                 exx_skn,
+                 vxc_skn,
                  frequencies=None,
                  savepckl=True):
-
         """G0W0 calculator, initialized through G0W0 object.
 
         The G0W0 calculator is used is used to calculate the quasi
@@ -354,6 +380,9 @@ class G0W0Calculator:
                   file=self.fd)
         else:
             print('Using full frequency integration', file=self.fd)
+
+        self.vxc_skn = vxc_skn / Ha
+        self.exx_skn = exx_skn / Ha
 
     def print_parameters(self, kpts, b1, b2):
         p = functools.partial(print, file=self.fd)
@@ -769,19 +798,6 @@ class G0W0Calculator:
 
         return pdi, Wdict, blocks1d, chi0calc.Q_aGii
 
-    @timer('EXX and Kohn-Sham XC-contribution')
-    def calculate_exact_exchange_and_ks_xc_contribution(self):
-        print('EXX and Kohn-Sham XC contribution', file=self.fd)
-        self.fd.flush()
-        n1, n2 = self.nbands
-        exc_skn, vxc_skn, vxx_skn = non_self_consistent_eigenvalues(
-            self.wcalc.gs,
-            'EXX',
-            n1, n2,
-            kpts_indices=self.kpts,
-            snapshot=self.filename + '.json')
-        return vxx_skn / Ha, vxc_skn / Ha
-
     def read_contribution(self, filename):
         fd = opencew(filename)  # create, exclusive, write
         if fd is not None:
@@ -919,14 +935,13 @@ class G0W0Calculator:
 
     def calculate_g0w0_outputs(self, sigma):
         eps_skn, f_skn = self.get_eps_and_occs()
-        exx_skn, vxc_skn = self.calculate_exx_and_ks_xc_contribution()
         kwargs = dict(
             fd=self.fd,
             shape=self.shape,
             ecut_e=self.ecut_e,
             eps_skn=eps_skn,
-            vxc_skn=vxc_skn,
-            exx_skn=exx_skn,
+            vxc_skn=self.vxc_skn,
+            exx_skn=self.exx_skn,
             f_skn=f_skn)
 
         return G0W0Outputs(sigma_eskn=sigma.sigma_eskn,
@@ -1140,6 +1155,15 @@ class G0W0(G0W0Calculator):
                             integrate_gamma,
                             q0_correction)
 
+        # EXX and Kohn-Sham XC contribution:
+        n1, n2 = bands
+        _, vxc_skn, exx_skn = non_self_consistent_eigenvalues(
+            gpwfile,
+            'EXX',
+            n1, n2,
+            kpt_indices=kpts,
+            snapshot=filename + '-exx.json')
+
         super().__init__(filename=filename,
                          wcalc=wcalc,
                          ecut_e=ecut_e,
@@ -1148,4 +1172,6 @@ class G0W0(G0W0Calculator):
                          bands=bands,
                          frequencies=frequencies,
                          kpts=kpts,
+                         vxc_skn=vxc_skn,
+                         exx_skn=exx_skn,
                          **kwargs)
