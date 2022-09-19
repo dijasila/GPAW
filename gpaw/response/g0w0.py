@@ -46,7 +46,13 @@ class Sigma:
 
     def __iadd__(self, other):
         self._buf += other._buf
+        self.validate_inputs(other.inputs)
         return self
+
+    def validate_inputs(self, inputs):
+        equals = inputs == self.inputs
+        if not equals:
+            raise RuntimeError(f'There exists a cache with mismatching input parameters: {inputs} != {self.inputs}.')
 
     @classmethod
     def fromdict(cls, dct):
@@ -354,6 +360,8 @@ class G0W0Calculator:
         self.eta = eta / Ha
 
         self.qcache = FileCache('qcache_' + self.filename)
+        self.qcache.strip_empties() 
+        # Validate the cache
 
         self.kpts = kpts
         self.bands = bands
@@ -477,18 +485,21 @@ class G0W0Calculator:
         self.calculate_all_q_points()
         return self.postprocess(loaded)
 
+    def get_sigmas_dict(self, key):
+        return {fxc_mode:Sigma.fromdict(sigma) for fxc_mode, sigma in self.qcache[key].items()}
+
     def postprocess(self, loaded):
         # Integrate over all q-points, and accumulate the quasiparticle shifts
         for iq, q_c in enumerate(self.wcalc.qd.ibzk_kc):
             #if self.qcomm.rank == 0:
             key = str(iq)
 
-            print(self.qcache[key],'Key is', type(self.qcache[key]))
-            sigmas_contrib = {fxc_mode:Sigma.fromdict(sigma) for fxc_mode, sigma in self.qcache[key].items()}
+            sigmas_contrib = self.get_sigmas_dict(key)
 
             if iq == 0:
                 sigmas = sigmas_contrib
             else:
+                print('Self.fxc_modes is', self.fxc_modes)
                 for fxc_mode in self.fxc_modes:
                     sigmas[fxc_mode] += sigmas_contrib[fxc_mode]
 
@@ -706,7 +717,19 @@ class G0W0Calculator:
 
         # Need to pause the timer in between iterations
         self.timer.stop('W')
-        
+
+        """with self.qcache.lock('inputs') as handle:
+            if handle is None:
+                self.validate_inputs(self.qcache['inputs'])
+            else:
+                handle.save(self.get_inputs())
+        """
+        for key, sigmas in self.qcache.items():
+            sigmas = {fxc_mode:Sigma.fromdict(sigma) for fxc_mode, sigma in sigmas.items()}
+            for fxc_mode, sigma in sigmas.items():
+                sigma.validate_inputs(self.get_validation_inputs())
+
+        self.world.barrier()
         for iq, q_c in enumerate(self.wcalc.qd.ibzk_kc):
             with self.qcache.lock(str(iq)) as qhandle:
                 if qhandle is None: 
@@ -721,7 +744,7 @@ class G0W0Calculator:
     def calculate_q_point(self, iq, q_c, pb, wstc, chi0calc):
         # Reset calculation
         sigmashape = (len(self.ecut_e), *self.shape)
-        sigmas = {fxc_mode: Sigma(iq, q_c, fxc_mode, sigmashape)
+        sigmas = {fxc_mode: Sigma(iq, q_c, fxc_mode, sigmashape, **self.get_validation_inputs())
                   for fxc_mode in self.fxc_modes}
 
         if len(self.ecut_e) > 1:
@@ -769,6 +792,15 @@ class G0W0Calculator:
                                      Q_aGii=Q_aGii)
 
         return sigmas
+
+    def get_validation_inputs(self):
+        return {'kpts': self.kpts,
+                'bands': list(self.bands),
+                'nbands': self.nbands,
+                'ecut_e': self.ecut_e,
+                'frequencies': self.frequencies,
+                'fxc_modes': self.fxc_modes, 
+                'integrate_gamma': self.wcalc.integrate_gamma}
 
     @property
     def fxc_modes(self):
