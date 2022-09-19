@@ -129,7 +129,6 @@ class BSE:
             assert len(valence_bands[0]) == len(valence_bands[1])
             assert len(conduction_bands[0]) == len(conduction_bands[1])
         if valence_bands is None:
-            # XXX: changed from gs.setups.nvalence to gs.nvalence
             nv = self.gs.nvalence
             valence_bands = [[nv // 2 - 1]]
             if self.spins == 2:
@@ -708,8 +707,6 @@ class BSE:
             vchi_w /= np.dot(q_v, q_v)
 
         """Check f-sum rule."""
-        # XXX changed from gs.setups.nvalence to gs.nvalence to be
-        # consistent with df.py (and for charged calculations)
         nv = self.gs.nvalence
         dw_w = (w_w[1:] - w_w[:-1]) / Hartree
         wchi_w = (w_w[1:] * vchi_w[1:] + w_w[:-1] * vchi_w[:-1]) / Hartree / 2
@@ -999,7 +996,6 @@ class BSE:
         p('Atoms                          :',
           self.gs.atoms.get_chemical_formula(mode='hill'))
         p('Ground state XC functional     :', self.gs.xcname)
-        # XXX changed to gs.nvalence from gs.setups.nvalence
         p('Valence electrons              :', self.gs.nvalence)
         p('Spinor calculations            :', self.spinors)
         p('Number of bands                :', self.gs.bd.nbands)
