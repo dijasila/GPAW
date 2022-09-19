@@ -27,16 +27,29 @@ from gpaw.xc.tools import vxc
 from gpaw.response.context import calc_and_context
 from gpaw.response.screened_interaction import WCalculator
 
+from ase.utils.filecache import MultiFileJSONCache as FileCache
+
 
 class Sigma:
-    def __init__(self, esknshape):
+    def __init__(self, iq, q_c, fxc, esknshape, **inputs):
+        self.iq = iq
+        self.q_c = q_c
+        self.fxc = fxc
         self._buf = np.zeros((2, * esknshape))
         # self-energies and derivatives:
         self.sigma_eskn, self.dsigma_eskn = self._buf
 
+        self.inputs = inputs
+
     def sum(self, comm):
         comm.sum(self._buf)
 
+    def todict(self):
+        return {'q': self.iq,
+                'q_c': self.q_c,
+                'sigma_eskn': self.sigma_eskn,
+                'dsigma_eskn': self.dsigma_eskn,
+                'inputs': self.inputs }
 
 class G0W0Outputs:
     def __init__(self, fd, shape, ecut_e, sigma_eskn, dsigma_eskn,
@@ -328,6 +341,8 @@ class G0W0Calculator:
         self.savepckl = savepckl
         self.eta = eta / Ha
 
+        self.qcache = FileCache('qcache_' + self.filename)
+
         self.kpts = kpts
         self.bands = bands
 
@@ -446,28 +461,12 @@ class G0W0Calculator:
 
         # Reset calculation
         sigmashape = (len(self.ecut_e), *self.shape)
-
-        self.sigmas = {fxc_mode: Sigma(sigmashape)
+        self.sigmas = {fxc_mode: Sigma(0, [0.0,0.0,0.0], fxc_mode, sigmashape)
                        for fxc_mode in self.fxc_modes}
         # Loop over q in the IBZ:
         print('Summing all q:', file=self.fd)
-        pb = ProgressBar(self.fd)
-        for nQ, (ie, pd0, Wdict, q_c, m2, symop, blocks1d, Q_aGii) in \
-                enumerate(self.calculate_screened_potential()):
 
-            for progress, kpt1, kpt2 in self.pair_distribution.kpt_pairs_by_q(
-                    q_c, 0, m2):
-                pb.update((nQ + progress) / self.wcalc.qd.mynk)
-
-                k1 = self.wcalc.gs.kd.bz2ibz_k[kpt1.K]
-                i = self.kpts.index(k1)
-
-                self.calculate_q(ie, i, kpt1, kpt2, pd0, Wdict,
-                                 symop=symop,
-                                 sigmas=self.sigmas,
-                                 blocks1d=blocks1d,
-                                 Q_aGii=Q_aGii)
-        pb.finish()
+        self.calculate_all_q_points()
 
         return self.postprocess(self.sigmas, loaded)
 
@@ -634,14 +633,16 @@ class G0W0Calculator:
 
         return sigma, dsigma
 
-    def calculate_screened_potential(self):
-        """Calculates the screened potential for each q-point in the 1st BZ.
+    def calculate_all_q_points(self):
+        """XXX UPDATE THIS. No longer a generator. Calculates the screened potential for each q-point in the 1st BZ.
         Since many q-points are related by symmetry, the actual calculation is
         only done for q-points in the IBZ and the rest are obtained by symmetry
         transformations. Results are returned as a generator to that it is not
         necessary to store a huge matrix for each q-point in the memory."""
         # The decorator $timer('W') doesn't work for generators, do we will
         # have to manually start and stop the timer here:
+        pb = ProgressBar(self.fd)
+
         self.timer.start('W')
         print('\nCalculating screened Coulomb potential', file=self.fd)
         if self.wcalc.truncation is not None:
@@ -684,45 +685,68 @@ class G0W0Calculator:
 
         # Need to pause the timer in between iterations
         self.timer.stop('W')
+        
         for iq, q_c in enumerate(self.wcalc.qd.ibzk_kc):
-            if iq <= self.last_q:
-                continue
+            with self.qcache.lock(str(iq)) as qhandle:
+                #if qhandle is None: 
+                #    continue
 
-            if len(self.ecut_e) > 1:
-                chi0bands = chi0calc.create_chi0(q_c, extend_head=False)
+                result = self.calculate_q_point(iq, q_c, pb, wstc, chi0calc)
+
+                #if self.world.rank == 0: #  XXX: Replace with self.qcomm
+                #    qhandle.save(result)
+        pb.finish()
+
+    def calculate_q_point(self, iq, q_c, pb, wstc, chi0calc):
+
+        if len(self.ecut_e) > 1:
+            chi0bands = chi0calc.create_chi0(q_c, extend_head=False)
+        else:
+            chi0bands = None
+
+        m1 = chi0calc.nocc1
+        for ie, ecut in enumerate(self.ecut_e):
+            self.timer.start('W')
+
+            # First time calculation
+            if ecut == chi0calc.ecut:
+                # Nothing to cut away:
+                m2 = self.nbands
             else:
-                chi0bands = None
+                m2 = int(self.wcalc.gs.volume * ecut**1.5
+                         * 2**0.5 / 3 / pi**2)
+                if m2 > self.nbands:
+                    raise ValueError(f'Trying to extrapolate ecut to'
+                                     f'larger number of bands ({m2})'
+                                     f' than there are bands '
+                                     f'({self.nbands}).')
+            pdi, Wdict, blocks1d, Q_aGii = self.calculate_w(
+                chi0calc, q_c, chi0bands,
+                m1, m2, ecut, wstc, iq)
+            m1 = m2
 
-            m1 = chi0calc.nocc1
-            for ie, ecut in enumerate(self.ecut_e):
-                self.timer.start('W')
+            self.timer.stop('W')
 
-                # First time calculation
-                if ecut == chi0calc.ecut:
-                    # Nothing to cut away:
-                    m2 = self.nbands
-                else:
-                    m2 = int(self.wcalc.gs.volume * ecut**1.5
-                             * 2**0.5 / 3 / pi**2)
-                    if m2 > self.nbands:
-                        raise ValueError(f'Trying to extrapolate ecut to'
-                                         f'larger number of bands ({m2})'
-                                         f' than there are bands '
-                                         f'({self.nbands}).')
-                pdi, Wdict, blocks1d, Q_aGii = self.calculate_w(
-                    chi0calc, q_c, chi0bands,
-                    m1, m2, ecut, wstc, iq)
-                m1 = m2
+            for nQ, (bzq_c, symop) in enumerate(QSymmetryOp.get_symops(
+                    self.wcalc.qd, iq, q_c)):
 
-                self.timer.stop('W')
+                for progress, kpt1, kpt2 in self.pair_distribution.kpt_pairs_by_q(
+                        bzq_c, 0, m2):
+                    pb.update((nQ + progress) / self.wcalc.qd.mynk)
+     
+                    k1 = self.wcalc.gs.kd.bz2ibz_k[kpt1.K]
+                    i = self.kpts.index(k1)
+     
+                    self.calculate_q(ie, i, kpt1, kpt2, pdi, Wdict,
+                                     symop=symop,
+                                     sigmas=self.sigmas,
+                                     blocks1d=blocks1d,
+                                     Q_aGii=Q_aGii)
 
-                for Q_c, symop in QSymmetryOp.get_symops(
-                        self.wcalc.qd, iq, q_c):
-                    yield (ie, pdi, Wdict, Q_c, m2, symop,
-                           blocks1d, Q_aGii)
 
-                if self.restartfile is not None:
-                    self.save_restart_file(iq)
+
+            if self.restartfile is not None:
+                self.save_restart_file(iq)
 
     @property
     def fxc_modes(self):
