@@ -532,28 +532,20 @@ class TetrahedronIntegrator(Integrator):
                 t = np.ravel_multi_index(arguments[:-1], shape)
             deps_Mk = deps_tMk[t]
             teteps_Mk = deps_Mk[:, neighbours_k[K]]
-            i0_M, i1_M = x.get_index_range(teteps_Mk.min(1), teteps_Mk.max(1))
-
             n_MG = get_matrix_element(bzk_kc[K],
                                       *arguments[:-1])
-            for n_G, deps_k, i0, i1 in zip(n_MG, deps_Mk,
-                                           i0_M, i1_M):
-                if i0 == i1:
-                    continue
 
+            # Generate frequency weights
+            i0_M, i1_M = x.get_index_range(teteps_Mk.min(1), teteps_Mk.max(1))
+            W_Mw = []
+            for deps_k, i0, i1 in zip(deps_Mk, i0_M, i1_M):
                 W_w = self.get_kpoint_weight(K, deps_k,
                                              pts_k, x.omega_w[i0:i1],
                                              td)
+                W_Mw.append(W_w)
 
-                for iw, weight in enumerate(W_w):
-                    if self.blockcomm.size > 1:
-                        myn_G = n_G[blocks1d.myslice].reshape((-1, 1))
-                        # gemm(weight, n_G.reshape((-1, 1)), myn_G,
-                        #      1.0, out_wxx[i0 + iw], 'c')
-                        mmm(weight, myn_G, 'N', n_G.reshape((-1, 1)), 'C',
-                            1.0, out_wxx[i0 + iw])
-                    else:
-                        czher(weight, n_G.conj(), out_wxx[i0 + iw])
+            self.update_hilbert(n_MG, deps_Mk, W_Mw, i0_M, i1_M,
+                                out_wxx, blocks1d)
 
         self.kncomm.sum(out_wxx)
 
@@ -564,6 +556,24 @@ class TetrahedronIntegrator(Integrator):
             iu = il[::-1]
             for out_xx in out_wxx:
                 out_xx[il] = out_xx[iu].conj()
+
+    def update_hilbert(self, n_MG, deps_Mk, W_Mw, i0_M, i1_M,
+                       out_wxx, blocks1d):
+        """Update output array with dissipative part."""
+        for n_G, deps_k, W_w, i0, i1 in zip(n_MG, deps_Mk, W_Mw,
+                                            i0_M, i1_M):
+            if i0 == i1:
+                continue
+
+            for iw, weight in enumerate(W_w):
+                if self.blockcomm.size > 1:
+                    myn_G = n_G[blocks1d.myslice].reshape((-1, 1))
+                    # gemm(weight, n_G.reshape((-1, 1)), myn_G,
+                    #      1.0, out_wxx[i0 + iw], 'c')
+                    mmm(weight, myn_G, 'N', n_G.reshape((-1, 1)), 'C',
+                        1.0, out_wxx[i0 + iw])
+                else:
+                    czher(weight, n_G.conj(), out_wxx[i0 + iw])
 
     @timer('Get kpoint weight')
     def get_kpoint_weight(self, K, deps_k, pts_k,
