@@ -13,8 +13,6 @@ import gpaw.mpi as mpi
 from gpaw.utilities import convert_string_to_fd
 from gpaw.spherical_harmonics import Yarr
 from gpaw.sphere.lebedev import weight_n, R_nv
-from gpaw.response.kspair import get_calc
-from gpaw.response.groundstate import ResponseGroundStateAdapter
 
 
 class LocalPAWFT(ABC):
@@ -42,8 +40,9 @@ class LocalPAWFT(ABC):
 
         Parameters
         ----------
-        gs : str/obj
-            Filename or GPAW calculator object of ground state calculation
+        gs : ResponseGroundStateAdapter
+            Adapter containing relevant information about the underlying DFT
+            ground state
         world : mpi.world
         txt : str or filehandle
             defines output file through gpaw.utilities.convert_string_to_fd
@@ -60,12 +59,10 @@ class LocalPAWFT(ABC):
             contributes with less than a fraction of rshewmin on average, it
             will not be included.
         """
-        # Output .txt filehandle and timer
         self.world = world
-        self.fd = convert_string_to_fd(txt, world)
+        self.fd = convert_string_to_fd(txt, world)  # output filehandle
         self.timer = timer or Timer()
-        self.calc = get_calc(gs, fd=self.fd, timer=self.timer)
-        self.gs = ResponseGroundStateAdapter(self.calc)
+        self.gs = gs
 
         # Do not carry out the expansion in real spherical harmonics, if lmax
         # is chosen as None
