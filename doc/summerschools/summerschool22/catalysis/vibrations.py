@@ -26,7 +26,7 @@ a) Calculating vibrations requires tighter convergence than normal energy
    calculations. Therefore you should first take your already optimised initial
    and final state geometries from the NEB calculations and relax them further
    to `fmax=0.01eV/Å` with the QuasiNewton optimiser and an energy cutoff of
-   450eV. Converge the eigenstates to 1e-8. (Note that for other systems you
+   500eV. Converge the eigenstates to 1e-8. (Note that for other systems you
    might need even tighter convergence!)
 
 Submit the structures to the queue. The optimisation should take 10-15 mins
@@ -50,7 +50,7 @@ for name in ['N2Ru-top.traj', '2Nads.traj']:
     slab.set_constraint(constraint)
 
     calc = GPAW(xc='PBE',
-                mode=PW(450),
+                mode=PW(500),
                 txt='tight-' + name[:-4] + 'txt',
                 kpts={'size': (4, 4, 1), 'gamma': True},
                 convergence={'eigenstates': 1e-8})
@@ -86,7 +86,7 @@ from gpaw import GPAW, PW
 
 slab = read('tight-N2Ru-top.traj')  # student: slab = read('your_structure')
 calc = GPAW(xc='PBE',
-            mode=PW(450),  # student: mode=PW(450),
+            mode=PW(500),
             kpts={'size': (4, 4, 1), 'gamma': True},  # student: kpts=?,
             symmetry={'point_group': False},
             txt='vib.txt')
@@ -109,7 +109,7 @@ from gpaw import GPAW, PW
 
 slab = read('tight-2Nads.traj')
 calc = GPAW(xc='PBE',
-            mode=PW(450),  # student: mode=PW(450),
+            mode=PW(500),
             kpts={'size': (4, 4, 1), 'gamma': True},  # student: kpts=?,
             symmetry={'point_group': False},
             txt='vib2.txt')
@@ -237,8 +237,7 @@ ts.set_constraint(constraint)
 calc = GPAW(xc='PBE',
             mode=PW(500),
             txt='ts.txt',
-            kpts={'size': (4, 4, 1), 'gamma': True},
-            convergence={'eigenstates': 1e-8})
+            kpts={'size': (4, 4, 1), 'gamma': True})
 ts.calc = calc
 
 neb = NEB(images, k=1.0, climb=True)
@@ -255,8 +254,7 @@ ts.calc = GPAW(xc='PBE',
                mode=PW(500),
                txt='vibts.txt',
                kpts={'size': (4, 4, 1), 'gamma': True},
-               symmetry={'point_group': False},
-               convergence={'eigenstates': 1e-8})
+               symmetry={'point_group': False})
 vib = Vibrations(ts, name='vibts', indices=(8, 9), nfree=4, delta=0.02)
 vib.run()
 vib.summary(log='vibts_summary.log')
