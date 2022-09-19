@@ -9,6 +9,9 @@ from gpaw.pw.descriptor import (PWDescriptor, PWMapping)
 from gpaw.response.gamma_int import GammaIntegrator
 from gpaw.response.kernels import get_coulomb_kernel, get_integrated_kernel
 from gpaw.response.temp import DielectricFunctionCalculator
+import gpaw.mpi as mpi
+from gpaw.response.context import new_context
+from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 
 
 def get_qdescriptor(kd, atoms):
@@ -19,6 +22,41 @@ def get_qdescriptor(kd, atoms):
     qd = KPointDescriptor(bzq_qc)
     qd.set_symmetry(atoms, kd.symmetry)
     return qd
+
+
+def initialize_w_calculator(chi0calc, txt='w.txt', ppa=False, xc='RPA',
+                            world=mpi.world, timer=None,
+                            E0=Ha, Eg=None, fxc_mode='GW',
+                            truncation=None, integrate_gamma=0,
+                            q0_correction=False):
+    from gpaw.response.g0w0 import G0W0Kernel
+    """A function to initialize a WCalculator with more readable inputs
+    than the actual calculator"""
+    gs = chi0calc.gs
+    context = new_context(txt, world, timer)
+    if Eg is None and xc == 'JGMsx':
+        Eg = gs.get_band_gap()
+    elif Eg is not None:
+        Eg /= Ha
+
+    xckernel = G0W0Kernel(xc=xc, ecut=chi0calc.ecut,
+                          gs=gs,
+                          ns=gs.nspins,
+                          wd=chi0calc.wd,
+                          Eg=Eg,
+                          timer=context.timer,
+                          fd=context.fd)
+
+    wcalc = WCalculator(chi0calc,
+                        ppa,
+                        xckernel,
+                        context,
+                        E0,
+                        fxc_mode='GW',
+                        truncation=truncation,
+                        integrate_gamma=integrate_gamma,
+                        q0_correction=q0_correction)
+    return wcalc
 
 
 class WCalculator:
@@ -88,6 +126,29 @@ class WCalculator:
             sqrtV_G,
             fd=self.fd if print_ac else None)
 
+# calculate_q wrapper
+    def calculate_q(self, iq, q_c, chi0=None):
+        chi0calc = self.chi0calc
+        if self.truncation == 'wigner-seitz':
+            wstc = WignerSeitzTruncatedCoulomb(
+                self.wcalc.gs.gd.cell_cv,
+                self.wcalc.gs.kd.N_c,
+                chi0calc.fd)
+        else:
+            wstc = None
+        # ecut = self.chi0calc.ecut
+        if chi0 is None:
+            chi0 = chi0calc.create_chi0(q_c, extend_head=False)
+
+        pdi, blocks1d, W_wGG = self.dyson_and_W_old(
+            wstc, iq, q_c,
+            self.chi0calc, chi0,
+            self.chi0calc.ecut,
+            Q_aGii=self.chi0calc.Q_aGii,
+            fxc_mode=self.fxc_mode,
+            only_correlation=False)
+        return pdi, blocks1d, W_wGG
+
     def dyson_and_W_new(self, wstc, iq, q_c, chi0calc, chi0, ecut):
         assert not self.ppa
         # assert not self.do_GW_too
@@ -146,7 +207,7 @@ class WCalculator:
         return chi0.pd, Wm_wGG, Wp_wGG  # not Hilbert transformed yet
 
     def dyson_and_W_old(self, wstc, iq, q_c, chi0calc, chi0,
-                        ecut, Q_aGii, fxc_mode):
+                        ecut, Q_aGii, fxc_mode, only_correlation=True):
         nG = chi0.pd.ngmax
         blocks1d = chi0.blocks1d
 
@@ -235,31 +296,31 @@ class WCalculator:
                     einv_GG += dfc.get_einv_GG() * gamma_int.weight_q[iqf]
             else:
                 sqrtV_G = get_sqrtV_G(kd.N_c)
-
                 dfc = DielectricFunctionCalculator(
                     sqrtV_G, chi0_GG, mode=fxc_mode, fv_GG=fv)
                 einv_GG = dfc.get_einv_GG()
-
             if self.ppa:
                 einv_wGG.append(einv_GG - delta_GG)
             else:
+                einv_GG_full = einv_GG.copy()
+                if only_correlation:
+                    einv_GG -= delta_GG
                 W_GG = chi0_GG
-                W_GG[:] = (einv_GG - delta_GG) * (sqrtV_G *
-                                                  sqrtV_G[:, np.newaxis])
-
+                W_GG[:] = (einv_GG) * (sqrtV_G *
+                                       sqrtV_G[:, np.newaxis])
                 if self.q0_corrector is not None and np.allclose(q_c, 0):
                     if iw == 0:
                         print_ac = True
                     else:
                         print_ac = False
                     this_w = wblocks1d.a + iw
-                    self.add_q0_correction(pdi, W_GG, einv_GG,
+                    self.add_q0_correction(pdi, W_GG, einv_GG_full,
                                            chi0_wxvG[this_w],
                                            chi0_wvv[this_w],
                                            sqrtV_G,
                                            print_ac=print_ac)
                 elif np.allclose(q_c, 0) or self.integrate_gamma != 0:
-                    W_GG[0, 0] = (einv_GG[0, 0] - 1.0) * V0
+                    W_GG[0, 0] = einv_GG[0, 0] * V0
                     W_GG[0, 1:] = einv_GG[0, 1:] * sqrtV_G[1:] * sqrtV0
                     W_GG[1:, 0] = einv_GG[1:, 0] * sqrtV0 * sqrtV_G[1:]
 
