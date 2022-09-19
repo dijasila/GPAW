@@ -352,14 +352,18 @@ class G0W0Calculator:
             assert self.wcalc.fxc_mode != 'GW'
             if restartfile is not None:
                 raise RuntimeError('Restart function does not currently work '
-                                   'with do_GW_too=True.')
+                                   'with do_GW_too=True.')  # Or does it?
 
         self.filename = filename
+        if restartfile is None:
+            restartfile = 'qcache_' + self.filename
+
         self.restartfile = restartfile
         self.savepckl = savepckl
         self.eta = eta / Ha
 
-        self.qcache = FileCache('qcache_' + self.filename)
+        
+        self.qcache = FileCache(self.restartfile) 
         self.qcache.strip_empties() 
         # Validate the cache
 
@@ -460,35 +464,35 @@ class G0W0Calculator:
         All the values are ``ndarray``'s of shape
         (spins, IBZ k-points, bands)."""
 
-        loaded = False
-        if self.restartfile is not None:
-            loaded = self.load_restart_file()
-            if not loaded:
-                self.last_q = -1
-                self.previous_sigma = 0.
-                self.previous_dsigma = 0.
+        #loaded = False
+        #if self.restartfile is not None:
+        #    loaded = self.load_restart_file()
+        #    if not loaded:
+        #        self.last_q = -1
+        #        self.previous_sigma = 0.
+        #        self.previous_dsigma = 0.
+        #
+        #    else:
+        #        print('Reading ' + str(self.last_q + 1) +
+        #              ' q-point(s) from the previous calculation: ' +
+        #              self.restartfile + '.sigma.pckl', file=self.fd)
+        #else:
+        #    self.last_q = -1
+        #    self.previous_sigma = 0.
+        #    self.previous_dsigma = 0.
 
-            else:
-                print('Reading ' + str(self.last_q + 1) +
-                      ' q-point(s) from the previous calculation: ' +
-                      self.restartfile + '.sigma.pckl', file=self.fd)
-        else:
-            self.last_q = -1
-            self.previous_sigma = 0.
-            self.previous_dsigma = 0.
-
-        self.fd.flush()
+        # self.fd.flush()
 
         # Loop over q in the IBZ:
         print('Summing all q:', file=self.fd)
 
         self.calculate_all_q_points()
-        return self.postprocess(loaded)
+        return self.postprocess()
 
     def get_sigmas_dict(self, key):
         return {fxc_mode:Sigma.fromdict(sigma) for fxc_mode, sigma in self.qcache[key].items()}
 
-    def postprocess(self, loaded):
+    def postprocess(self):
         # Integrate over all q-points, and accumulate the quasiparticle shifts
         for iq, q_c in enumerate(self.wcalc.qd.ibzk_kc):
             #if self.qcomm.rank == 0:
@@ -505,26 +509,26 @@ class G0W0Calculator:
 
         all_results = {}
         for fxc_mode, sigma in sigmas.items():
-            all_results[fxc_mode] = self.postprocess_single(fxc_mode, sigma,
-                                                            loaded)
+            all_results[fxc_mode] = self.postprocess_single(fxc_mode, sigma)
+
         self.all_results = all_results
         self.print_results(self.all_results)
 
         # After we have written the results restartfile is obsolete
-        if self.restartfile is not None:
-            if self.world.rank == 0:
-                if os.path.isfile(self.restartfile + '.sigma.pckl'):
-                    os.remove(self.restartfile + '.sigma.pckl')
+        #if self.restartfile is not None:
+        #    if self.world.rank == 0:
+        #        if os.path.isfile(self.restartfile + '.sigma.pckl'):
+        #            os.remove(self.restartfile + '.sigma.pckl')
 
         return self.results  # XXX ugly discrepancy
 
-    def postprocess_single(self, fxc_name, sigma, loaded):
-        sigma.sum(self.world)  # (Not so pretty that we finalize the sum here)
+    def postprocess_single(self, fxc_name, sigma):
+        # sigma.sum(self.world)  # (Not so pretty that we finalize the sum here)
 
-        if self.restartfile is not None and loaded:
-            assert not self.do_GW_too
-            sigma.sigma_eskn += self.previous_sigma
-            sigma.dsigma_eskn += self.previous_dsigma
+        #if self.restartfile is not None and loaded:
+        #    assert not self.do_GW_too
+        #    sigma.sigma_eskn += self.previous_sigma
+        #    sigma.dsigma_eskn += self.previous_dsigma
 
         output = self.calculate_g0w0_outputs(sigma)
         result = output.get_results_eV()
@@ -791,13 +795,16 @@ class G0W0Calculator:
                                      blocks1d=blocks1d,
                                      Q_aGii=Q_aGii)
 
+        for sigma in sigmas.values():
+            sigma.sum(self.world)
+
         return sigmas
 
     def get_validation_inputs(self):
         return {'kpts': self.kpts,
                 'bands': list(self.bands),
                 'nbands': self.nbands,
-                'ecut_e': self.ecut_e,
+                'ecut_e': list(self.ecut_e),
                 'frequencies': self.frequencies,
                 'fxc_modes': self.fxc_modes, 
                 'integrate_gamma': self.wcalc.integrate_gamma}
@@ -965,7 +972,7 @@ class G0W0Calculator:
         x = 1 / (self.wcalc.qd.nbzkpts * 2 * pi * self.wcalc.gs.volume)
         return x * sigma, x * dsigma
 
-    def save_restart_file(self, nQ):
+    """def save_restart_file(self, nQ):
         sigma = self.sigmas[self.wcalc.fxc_mode]
         sigma_eskn_write = sigma.sigma_eskn.copy()
         dsigma_eskn_write = sigma.dsigma_eskn.copy()
@@ -1010,6 +1017,7 @@ class G0W0Calculator:
                     'Restart file not compatible with parameters used in '
                     'current calculation. Check kpts, bands, nbands, ecut, '
                     'domega0, omega2, integrate_gamma.')
+    """
 
     def calculate_g0w0_outputs(self, sigma):
         eps_skn, f_skn = self.get_eps_and_occs()
