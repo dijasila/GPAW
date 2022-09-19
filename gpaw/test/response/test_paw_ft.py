@@ -98,6 +98,38 @@ def mock_up_calc_with_predefined_density(atom_centered_density):
     return atoms
 
 
+class MockedResponseGroundStateAdapter:
+    def __init__(self, atoms, atom_centered_density):
+        self.atoms = atoms
+        self.atom_centered_density = atom_centered_density
+
+        self.gd = self.create_real_space_grid()
+        self.nt_sG = self.calculate_pseudo_density()
+        self.setups = self.initialize_paw_setups()
+        self.D_asp = self.initialize_core_electrons()
+
+    def create_real_space_grid(self, atoms):
+        # Should return gd
+        pass
+
+    def calculate_pseudo_density(self, atom_centered_density):
+        # Calculate and return pseudo density
+        pass
+
+    def initialize_paw_setups(self):
+        # Create PAW setups and fill in the pseudo and all electron
+        # density on the radial grid
+        pass
+
+    def initialize_core_electrons(self):
+        # Setup core electron array to reflect no core electrons
+        pass
+
+    def all_electron_density(self, gridrefinement=1):
+        # Calculate and return the all electron density
+        pass
+
+
 def get_inversion_pairs(pd0):
     """Get all pairs of G-indices which correspond to inverted reciprocal
     lattice vectors G and -G."""
