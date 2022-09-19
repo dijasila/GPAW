@@ -258,7 +258,7 @@ def Ni_gs(module_tmp_path):
 
     a = 3.524
     xc = 'LDA'
-    kpts = 4
+    kpts = 5
     setups = {'Ni': '10'}
     nbands = 1 + 5  # 4s + 3d valence bands
     ebands = 3 + 1  # Include also 4p and 5s for numerical consistency
