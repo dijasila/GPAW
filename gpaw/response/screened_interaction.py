@@ -127,7 +127,7 @@ class WCalculator:
             fd=self.fd if print_ac else None)
 
 # calculate_q wrapper
-    def calculate_q(self, iq, q_c, chi0=np.empty(1)):
+    def calculate_q(self, iq, q_c, chi0=None):
         chi0calc = self.chi0calc
         if self.truncation == 'wigner-seitz':
             wstc = WignerSeitzTruncatedCoulomb(
@@ -137,7 +137,7 @@ class WCalculator:
         else:
             wstc = None
         # ecut = self.chi0calc.ecut
-        if np.all(chi0 == np.empty(1)):
+        if chi0 == None:
             chi0 = chi0calc.create_chi0(q_c, extend_head=False)
 
         pdi, blocks1d, W_wGG = self.dyson_and_W_old(
@@ -304,7 +304,7 @@ class WCalculator:
             else:
                 einv_GG_full = einv_GG.copy()
                 if only_correlation:
-                    einv_GG = einv_GG - delta_GG
+                    einv_GG -= delta_GG
                 W_GG = chi0_GG
                 W_GG[:] = (einv_GG) * (sqrtV_G *
                                        sqrtV_G[:, np.newaxis])
@@ -320,7 +320,7 @@ class WCalculator:
                                            sqrtV_G,
                                            print_ac=print_ac)
                 elif np.allclose(q_c, 0) or self.integrate_gamma != 0:
-                    W_GG[0, 0] = (einv_GG[0, 0]) * V0
+                    W_GG[0, 0] = einv_GG[0, 0] * V0
                     W_GG[0, 1:] = einv_GG[0, 1:] * sqrtV_G[1:] * sqrtV0
                     W_GG[1:, 0] = einv_GG[1:, 0] * sqrtV0 * sqrtV_G[1:]
 

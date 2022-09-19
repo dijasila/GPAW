@@ -106,8 +106,7 @@ class BSE:
         self.wfile = wfile
         self.write_h = write_h
         self.write_v = write_v
-        self.txt = txt
-
+        
         # Find q-vectors and weights in the IBZ:
         self.kd = self.gs.kd
         if -1 in self.kd.bz2bz_ks:
@@ -549,7 +548,7 @@ class BSE:
                 chi0calc=self._chi0calc,
                 truncation=self.truncation,
                 world=world,
-                txt=self.txt,
+                txt=self.fd,
                 integrate_gamma=self.integrate_gamma)
         t0 = time()
         print('Calculating screened potential', file=self.fd)
