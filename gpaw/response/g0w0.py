@@ -397,8 +397,15 @@ class G0W0Calculator:
         if self.qcomm.rank == 0:
             # We pass a serial communicator because the parallel handling
             # is somewhat wonky, we'd rather do that ourselves:
-            self.qcache = FileCache(self.restartfile,
-                                    comm=mpi.SerialCommunicator())
+            try:
+                self.qcache = FileCache(self.restartfile,
+                                        comm=mpi.SerialCommunicator())
+            except TypeError as err:
+                raise RuntimeError(
+                    'File cache requires ASE master '
+                    'from September 20 2022 or newer.  '
+                    'You may need to pull newest ASE.') from err
+
             self.qcache.strip_empties()
 
         self.kpts = kpts
