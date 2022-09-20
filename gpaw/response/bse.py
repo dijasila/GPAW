@@ -129,10 +129,7 @@ class BSE:
             assert len(valence_bands[0]) == len(valence_bands[1])
             assert len(conduction_bands[0]) == len(conduction_bands[1])
         if valence_bands is None:
-            # XXX nvalence are the valence electrons on the setups,
-            # but that's not the actual number of valence electrons
-            # if the calculation is charged.  Is this a bug?
-            nv = self.gs.setups.nvalence
+            nv = self.gs.nvalence
             valence_bands = [[nv // 2 - 1]]
             if self.spins == 2:
                 valence_bands *= 2
@@ -250,7 +247,8 @@ class BSE:
         optical_limit = np.allclose(self.q_c, 0.0)
 
         get_pair = self.pair.get_kpoint_pair
-        get_rho = self.pair.get_pair_density
+        get_pair_density = self.pair.get_pair_density
+        get_optical_pair_density = self.pair.get_optical_pair_density
         if self.spinors:
             # Get all pair densities to allow for SOC mixing
             # Use twice as many no-SOC states as BSE bands to allow mixing
@@ -288,12 +286,10 @@ class BSE:
 
                 df_mn = pair.get_occupation_differences(self.val_sn[s],
                                                         self.con_sn[s])
-                rho_mnG = get_rho(pd0, pair,
-                                  m_m, n_n,
-                                  optical_limit=optical_limit,
-                                  direction=self.direction,
-                                  Q_aGii=Q_aGii,
-                                  extend_head=False)
+                rho_mnG = get_pair_density(pd0, pair, m_m, n_n, Q_aGii=Q_aGii)
+                if optical_limit:
+                    n_mnv = get_optical_pair_density(pd0, pair, m_m, n_n)
+                    rho_mnG[:, :, 0] = n_mnv[:, :, self.direction]
                 if self.spinors:
                     if optical_limit:
                         deps0_mn = -pair.get_transition_energies(m_m, n_n)
@@ -478,8 +474,8 @@ class BSE:
             C1_aGi = [np.dot(Qa_Gii, P1_ni[m].conj())
                       for Qa_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
             ut1cc_R = kpt1.ut_nR[m].conj()
-            rho_mnG[m] = self.pair.calculate_pair_densities(ut1cc_R, C1_aGi,
-                                                            kpt2, pd, I_G)
+            rho_mnG[m] = self.pair.calculate_pair_density(ut1cc_R, C1_aGi,
+                                                          kpt2, pd, I_G)
         return rho_mnG, iq
 
     def get_screened_potential(self):
@@ -710,9 +706,7 @@ class BSE:
             vchi_w /= np.dot(q_v, q_v)
 
         """Check f-sum rule."""
-        # XXX again we are accessing nvalence from setups rather than wfs,
-        # which may not be the right value if system is charged
-        nv = self.gs.setups.nvalence
+        nv = self.gs.nvalence
         dw_w = (w_w[1:] - w_w[:-1]) / Hartree
         wchi_w = (w_w[1:] * vchi_w[1:] + w_w[:-1] * vchi_w[:-1]) / Hartree / 2
         N = -np.dot(dw_w, wchi_w.imag) * self.vol / (2 * np.pi**2)
@@ -1001,8 +995,7 @@ class BSE:
         p('Atoms                          :',
           self.gs.atoms.get_chemical_formula(mode='hill'))
         p('Ground state XC functional     :', self.gs.xcname)
-        # XXX Maybe gs.nvalence instread ???
-        p('Valence electrons              :', self.gs.setups.nvalence)
+        p('Valence electrons              :', self.gs.nvalence)
         p('Spinor calculations            :', self.spinors)
         p('Number of bands                :', self.gs.bd.nbands)
         p('Number of spins                :', self.gs.nspins)

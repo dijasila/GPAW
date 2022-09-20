@@ -582,7 +582,7 @@ class G0W0Calculator:
             eps1 = kpt1.eps_n[n]
             C1_aGi = [np.dot(Qa_Gii, P1_ni[n].conj())
                       for Qa_Gii, P1_ni in zip(myQ_aGii, kpt1.P_ani)]
-            n_mG = self.wcalc.pair.calculate_pair_densities(
+            n_mG = self.wcalc.pair.calculate_pair_density(
                 ut1cc_R, C1_aGi, kpt2, pd0, I_G)
             if symop.sign == 1:
                 n_mG = n_mG.conj()
