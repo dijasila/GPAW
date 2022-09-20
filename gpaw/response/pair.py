@@ -280,9 +280,29 @@ class NoCalculatorPairDensity:
 
         return KPointPair(kpt1, kpt2, Q_G)
 
+    def get_full_pair_density(self, pd, kptpair, n_n, m_m,
+                              Q_aGii=None, block=False):
+        """Get the full pair density, including the optical limit head for q=0.
+        """
+        q_c = pd.kd.bzk_kc[0]
+        optical_limit = np.allclose(q_c, 0.0)
+
+        tmp_nmG = self.get_pair_density(pd, kptpair, n_n, m_m,
+                                        Q_aGii=Q_aGii, block=block)
+        if optical_limit:
+            nG = pd.ngmax
+            n_nmG = np.empty((len(n_n), len(m_m), nG + 2), dtype=tmp_nmG.dtype)
+            n_nmG[:, :, 2:] = tmp_nmG
+            n_nmv = self.get_optical_pair_density(pd, kptpair, n_n, m_m,
+                                                  block=block)
+            n_nmG[:, :, :3] = n_nmv
+        else:
+            n_nmG = tmp_nmG
+
+        return n_nmG
+
     @timer('get_pair_density')
-    def get_pair_density(self, pd, kptpair, n_n, m_m,
-                         Q_aGii=None, block=False):
+    def get_pair_density(self, pd, kptpair, n_n, m_m, Q_aGii=None, block=False):
         """Get pair density for a kpoint pair."""
         cpd = self.calculate_pair_density
 
