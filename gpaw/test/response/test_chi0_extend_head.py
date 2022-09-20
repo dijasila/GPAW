@@ -8,7 +8,7 @@ from pathlib import Path
 # Script modules
 from ase import Atoms
 from ase.build import bulk
-from ase.dft.kpoints import monkhorst_pack
+from ase.lattice.hexagonal import Graphene
 
 from gpaw import GPAW, PW
 from gpaw.mpi import world
@@ -117,6 +117,23 @@ def generate_magnetic_metal_chi0_params():
     return chi0_params
 
 
+def generate_graphene_chi0_params():
+    """Try to mimic the exact parameters of the qeh test."""
+    # Get metallic defaults
+    chi0_params = generate_metal_chi0_params()
+
+    chi0kwargs = dict(rate=0.001,
+                      hilbert=True,
+                      frequencies={'type': 'nonlinear',
+                                   'omegamax': 10,
+                                   'domega0': 0.2,
+                                   'omega2': 0.6})
+
+    chi0_params.append(chi0kwargs)
+
+    return chi0_params
+
+
 @pytest.fixture(scope='module', params=generate_semic_chi0_params())
 def He_chi0kwargs(request, He_gs):
     chi0kwargs = request.param
@@ -141,6 +158,14 @@ def Ni_chi0kwargs(request, Ni_gs):
     return chi0kwargs
 
 
+@pytest.fixture(scope='module', params=generate_graphene_chi0_params())
+def graphene_chi0kwargs(request, graphene_gs):
+    chi0kwargs = request.param
+    assure_nbands(chi0kwargs, graphene_gs)
+
+    return chi0kwargs
+
+
 def assure_nbands(chi0kwargs, my_gs):
     # Fill in nbands parameter, if not already specified
     if 'nbands' not in chi0kwargs:
@@ -152,7 +177,8 @@ def assure_nbands(chi0kwargs, my_gs):
 
 
 @pytest.mark.response
-def test_he_chi0_extend_head(in_tmp_dir, He_gs, He_chi0kwargs):
+def test_he_chi0_extend_head(in_tmp_dir, He_gs, He_chi0kwargs, request):
+    mark_hilbert_xfail(He_chi0kwargs, request)
     chi0_extend_head_test(He_gs, He_chi0kwargs)
 
 
@@ -164,6 +190,21 @@ def test_li_chi0_extend_head(in_tmp_dir, Li_gs, Li_chi0kwargs):
 @pytest.mark.response
 def test_ni_chi0_extend_head(in_tmp_dir, Ni_gs, Ni_chi0kwargs):
     chi0_extend_head_test(Ni_gs, Ni_chi0kwargs)
+
+
+@pytest.mark.response
+def test_graphene_chi0_extend_head(in_tmp_dir, graphene_gs,
+                                   graphene_chi0kwargs, request):
+    mark_hilbert_xfail(graphene_chi0kwargs, request,
+                       custom_frequencies=True)
+    chi0_extend_head_test(graphene_gs, graphene_chi0kwargs)
+
+
+def mark_hilbert_xfail(chi0kwargs, request, custom_frequencies=False):
+    if chi0kwargs['hilbert']:
+        if not custom_frequencies \
+           or isinstance(chi0kwargs['frequencies'], dict):
+            request.node.add_marker(pytest.mark.xfail)
 
 
 def chi0_extend_head_test(my_gs, chi0kwargs):
@@ -266,13 +307,44 @@ def Ni_gs(module_tmp_path):
     return gpw, nbands
 
 
+@pytest.fixture(scope='module')
+def graphene_gs(module_tmp_path):
+    # ---------- Inputs ---------- #
+
+    a = 2.45
+    pbc = (1, 1, 0)
+    vacuum = 4.0
+    xc = 'LDA'
+    kpts = 6
+    nbands = 2 * (1 + 3)  # 2s + 2p valence bands
+    ebands = 2 * (1 + 3)  # Include also 3s and 3p for numerical consistency
+    pw = 250
+    convergence = {'bands': nbands}
+    gpw = Path('graphene.gpw').resolve()
+
+    # ---------- Script ---------- #
+
+    atoms = Graphene(symbol='C',
+                     latticeconstant={'a': a, 'c': 1.0},
+                     size=(1, 1, 1))
+    atoms.pbc = pbc
+    atoms.center(axis=2, vacuum=vacuum)
+
+    calculate_gs(atoms, gpw, pw, kpts, nbands, ebands,
+                 xc=xc, convergence=convergence)
+
+    return gpw, nbands
+
+
 # ---------- Script functionality ---------- #
 
 
 def calculate_gs(atoms, gpw, pw, kpts, nbands, ebands,
                  **kwargs):
     calc = GPAW(mode=PW(pw),
-                kpts=monkhorst_pack((kpts, kpts, kpts)),
+                kpts={'size': tuple([kpts * periodic + (1 - periodic)
+                                     for periodic in atoms.pbc]),
+                      'gamma': True},
                 nbands=nbands + ebands,
                 symmetry={'point_group': True},
                 parallel={'domain': 1},
