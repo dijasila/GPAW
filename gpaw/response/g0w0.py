@@ -240,6 +240,7 @@ def choose_ecut_things(ecut, ecut_extrapolation):
 
 class G0W0Calculator:
     def __init__(self, filename='gw', *,
+                 chi0calc,
                  wcalc,
                  restartfile=None,
                  kpts, bands, nbands=None,
@@ -288,7 +289,7 @@ class G0W0Calculator:
         savepckl: bool
             Save output to a pckl file.
         """
-
+        self.chi0calc=chi0calc
         self.wcalc = wcalc
         self.fd = self.wcalc.fd
         self.timer = self.wcalc.timer
@@ -368,7 +369,7 @@ class G0W0Calculator:
         p()
         p('Computational parameters:')
         if len(self.ecut_e) == 1:
-            p('Plane wave cut-off: {0:g} eV'.format(self.wcalc.chi0calc.ecut
+            p('Plane wave cut-off: {0:g} eV'.format(self.chi0calc.ecut
                                                     * Ha))
         else:
             assert len(self.ecut_e) > 1
@@ -648,7 +649,7 @@ class G0W0Calculator:
             print('Using %s truncated Coloumb potential'
                   % self.wcalc.truncation, file=self.fd)
 
-        chi0calc = self.wcalc.chi0calc
+        chi0calc = self.chi0calc
 
         if self.wcalc.truncation == 'wigner-seitz':
             wstc = WignerSeitzTruncatedCoulomb(
@@ -756,7 +757,7 @@ class G0W0Calculator:
         
         for fxc_mode in self.fxc_modes:
             pdi,blocks1d,chi0_wGG,chi0_wxvG,chi0_wvv=chi0calc.reduce_ecut(ecut,chi0)
-            pdi,W_wGG = self.wcalc.dyson_and_W_old2(
+            pdi,W_wGG = self.wcalc.dyson_and_W_old(
                 wstc, iq, q_c, chi0, fxc_mode,pdi,chi0_wGG,chi0_wxvG,chi0_wvv,
                 only_correlation=True)
 
@@ -1150,13 +1151,17 @@ class G0W0(G0W0Calculator):
                               timer=context.timer,
                               fd=context.fd)
 
-        wcalc = WCalculator(chi0calc, ppa, xckernel,
+        wcalc = WCalculator(chi0calc.wd,
+                            chi0calc.pair,
+                            chi0calc.gs,
+                            ppa, xckernel,
                             context, E0,
                             fxc_mode, truncation,
                             integrate_gamma,
                             q0_correction)
 
         super().__init__(filename=filename,
+                         chi0calc=chi0calc,
                          wcalc=wcalc,
                          ecut_e=ecut_e,
                          eta=eta,
