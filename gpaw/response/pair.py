@@ -280,16 +280,32 @@ class NoCalculatorPairDensity:
 
         return KPointPair(kpt1, kpt2, Q_G)
 
+    def get_full_pair_density(self, pd, kptpair, n_n, m_m,
+                              Q_aGii=None, block=False):
+        """Get the full pair density, including the optical limit head for q=0.
+        """
+        q_c = pd.kd.bzk_kc[0]
+        optical_limit = np.allclose(q_c, 0.0)
+
+        tmp_nmG = self.get_pair_density(pd, kptpair, n_n, m_m,
+                                        Q_aGii=Q_aGii, block=block)
+        if optical_limit:
+            nG = pd.ngmax
+            n_nmG = np.empty((len(n_n), len(m_m), nG + 2), dtype=tmp_nmG.dtype)
+            n_nmG[:, :, 2:] = tmp_nmG
+            n_nmv = self.get_optical_pair_density(pd, kptpair, n_n, m_m,
+                                                  block=block)
+            n_nmG[:, :, :3] = n_nmv
+        else:
+            n_nmG = tmp_nmG
+
+        return n_nmG
+
     @timer('get_pair_density')
     def get_pair_density(self, pd, kptpair, n_n, m_m,
-                         optical_limit=False, intraband=False,
-                         Q_aGii=None, block=False, direction=2,
-                         extend_head=True):
+                         Q_aGii=None, block=False):
         """Get pair density for a kpoint pair."""
-        ol = optical_limit = np.allclose(pd.kd.bzk_kc[0], 0.0)
-        eh = extend_head
-        cpd = self.calculate_pair_densities  # General pair densities
-        opd = self.optical_pair_density  # Interband pair densities / q
+        cpd = self.calculate_pair_density
 
         if Q_aGii is None:
             Q_aGii = self.initialize_paw_corrections(pd)
@@ -299,10 +315,7 @@ class NoCalculatorPairDensity:
         Q_G = kptpair.Q_G  # Fourier components of kpoint pair
         nG = len(Q_G)
 
-        if extend_head:
-            n_nmG = np.zeros((len(n_n), len(m_m), nG + 2 * ol), pd.dtype)
-        else:
-            n_nmG = np.zeros((len(n_n), len(m_m), nG), pd.dtype)
+        n_nmG = np.zeros((len(n_n), len(m_m), nG), pd.dtype)
 
         for j, n in enumerate(n_n):
             Q_G = kptpair.Q_G
@@ -311,16 +324,24 @@ class NoCalculatorPairDensity:
             with self.timer('paw'):
                 C1_aGi = [np.dot(Q_Gii, P1_ni[n - kpt1.na].conj())
                           for Q_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
-                n_nmG[j, :, 2 * ol * eh:] = cpd(ut1cc_R, C1_aGi, kpt2, pd, Q_G,
-                                                block=block)
-            if optical_limit:
-                if extend_head:
-                    n_nmG[j, :, 0:3] = opd(n, m_m, kpt1, kpt2,
-                                           block=block)
-                else:
-                    n_nmG[j, :, 0] = opd(n, m_m, kpt1, kpt2,
-                                         block=block)[:, direction]
+                n_nmG[j] = cpd(ut1cc_R, C1_aGi, kpt2, pd, Q_G, block=block)
+
         return n_nmG
+
+    @timer('get_optical_pair_density')
+    def get_optical_pair_density(self, pd, kptpair, n_n, m_m, block=False):
+        """Get the optical limit (G=0) of the pair density for a k-pair."""
+        copd = self.calculate_optical_pair_density
+
+        kpt1 = kptpair.kpt1
+        kpt2 = kptpair.kpt2
+
+        n_nmv = np.zeros((len(n_n), len(m_m), 3), pd.dtype)
+
+        for j, n in enumerate(n_n):
+            n_nmv[j] = copd(n, m_m, kpt1, kpt2, block=block)
+
+        return n_nmv
 
     @timer('get_pair_momentum')
     def get_pair_momentum(self, pd, kptpair, n_n, m_m, Q_avGii=None):
@@ -373,9 +394,9 @@ class NoCalculatorPairDensity:
         for j, n in enumerate(n_n):
             ut1cc_R = kpt1.ut_nR[n].conj()
 
-            n_mG = self.calculate_pair_densities(ut1cc_R,
-                                                 [], kpt2,
-                                                 pd, Q_G)
+            n_mG = self.calculate_pair_density(ut1cc_R,
+                                               [], kpt2,
+                                               pd, Q_G)
 
             n_nmvG[j] = 1j * kqG_Gv.T[np.newaxis] * n_mG[:, np.newaxis]
 
@@ -386,9 +407,9 @@ class NoCalculatorPairDensity:
                 Cv1_aGi = [np.dot(P1_ni[n].conj(), Q_vGii[v])
                            for Q_vGii, P1_ni in zip(Q_avGii, kpt1.P_ani)]
 
-                nv_mG = self.calculate_pair_densities(utvcc_R,
-                                                      Cv1_aGi, kpt2,
-                                                      pd, Q_G)
+                nv_mG = self.calculate_pair_density(utvcc_R,
+                                                    Cv1_aGi, kpt2,
+                                                    pd, Q_G)
 
                 n_nmvG[j, :, v] += nv_mG
 
@@ -398,8 +419,8 @@ class NoCalculatorPairDensity:
         return n_nmvG
 
     @timer('Calculate pair-densities')
-    def calculate_pair_densities(self, ut1cc_R, C1_aGi, kpt2, pd, Q_G,
-                                 block=True):
+    def calculate_pair_density(self, ut1cc_R, C1_aGi, kpt2, pd, Q_G,
+                               block=True):
         """Calculate FFT of pair-densities and add PAW corrections.
 
         ut1cc_R: 3-d complex ndarray
@@ -437,7 +458,7 @@ class NoCalculatorPairDensity:
             return n_MG[:kpt2.n2 - kpt2.n1]
 
     @timer('Optical limit')
-    def optical_pair_velocity(self, n, m_m, kpt1, kpt2, block=False):
+    def calculate_optical_pair_velocity(self, n, m_m, kpt1, kpt2, block=False):
         if self.ut_sKnvR is None or kpt1.K not in self.ut_sKnvR[kpt1.s]:
             self.ut_sKnvR = self.calculate_derivatives(kpt1)
 
@@ -474,15 +495,14 @@ class NoCalculatorPairDensity:
 
         return -1j * n0_mv
 
-    def optical_pair_density(self, n, m_m, kpt1, kpt2,
-                             block=False):
+    def calculate_optical_pair_density(self, n, m_m, kpt1, kpt2, block=False):
         # Relative threshold for perturbation theory
         threshold = self.threshold
 
         eps1 = kpt1.eps_n[n - kpt1.n1]
         deps_m = (eps1 - kpt2.eps_n)[m_m - kpt2.n1]
-        n0_mv = self.optical_pair_velocity(n, m_m, kpt1, kpt2,
-                                           block=block)
+        n0_mv = self.calculate_optical_pair_velocity(n, m_m, kpt1, kpt2,
+                                                     block=block)
 
         deps_m = deps_m.copy()
         deps_m[deps_m == 0.0] = np.inf
