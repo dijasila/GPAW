@@ -1,6 +1,6 @@
 from gpaw.gpu import backends
 
-backend = backends.DummyBackend()
+backend = backends.HostBackend()
 array = backend.array
 
 def setup(**kwargs):
@@ -25,7 +25,7 @@ def setup(**kwargs):
         from gpaw.gpu.cuda import CUDA
         backend = CUDA(**args)
     else:
-        backend = backends.DummyBackend(**args)
+        backend = backends.HostBackend(**args)
     array = backend.array
 
     for key in kwargs:

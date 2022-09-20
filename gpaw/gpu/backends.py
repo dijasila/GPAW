@@ -154,3 +154,20 @@ class DummyBackend(BaseBackend):
 
     def memcpy_dtod(self, tgt, src, n):
         pass
+
+
+class HostBackend(BaseBackend):
+    label = 'host'
+    array = HostArrayInterface()
+
+    def copy_to_host(self, src, tgt=None, stream=None):
+        return self.array.copy_to_host(src, tgt=tgt, stream=stream)
+
+    def copy_to_device(self, src, tgt=None, stream=None):
+        return self.array.copy_to_device(src, tgt=tgt, stream=stream)
+
+    def is_device_array(self, x):
+        return False
+
+    def memcpy_dtod(self, tgt, src, n):
+        pass
