@@ -26,7 +26,8 @@ from gpaw.utilities.progressbar import ProgressBar
 from gpaw.xc.fxc import XCFlags
 
 from ase.utils.filecache import MultiFileJSONCache as FileCache
-
+from contextlib import ExitStack
+from ase.parallel import broadcast
 
 class Sigma:
     def __init__(self, iq, q_c, fxc, esknshape, **inputs):
@@ -365,6 +366,7 @@ class G0W0Calculator:
                 'PPA is currently not compatible with block parallelisation.')
 
         self.world = self.wcalc.context.world
+        self.qcomm = self.world  # No q-point parallelization yet
         self.fd = self.fd
 
         print(gw_logo, file=self.fd)
@@ -389,9 +391,10 @@ class G0W0Calculator:
         self.savepckl = savepckl
         self.eta = eta / Ha
 
-        self.qcache = FileCache(self.restartfile)
-        if self.world.rank == 0:
+        if self.qcomm.rank == 0:
+            self.qcache = FileCache(self.restartfile, comm=mpi.SerialCommunicator())
             self.qcache.strip_empties()
+
         # Validate the cache
 
         self.kpts = kpts
@@ -501,7 +504,17 @@ class G0W0Calculator:
         return {fxc_mode: Sigma.fromdict(sigma)
                 for fxc_mode, sigma in self.qcache[key].items()}
 
+
     def postprocess(self):
+        all_results = None
+        if self.world.rank == 0:
+            all_results = self._postprocess()
+
+        self.all_results = broadcast(all_results, comm=self.world)
+        print(self.world.rank, all_results,'all_results')
+        return self.results
+
+    def _postprocess(self):
         # Integrate over all q-points, and accumulate the quasiparticle shifts
         for iq, q_c in enumerate(self.wcalc.qd.ibzk_kc):
             # if self.qcomm.rank == 0:
@@ -519,10 +532,9 @@ class G0W0Calculator:
         for fxc_mode, sigma in sigmas.items():
             all_results[fxc_mode] = self.postprocess_single(fxc_mode, sigma)
 
-        self.all_results = all_results
-        self.print_results(self.all_results)
+        self.print_results(all_results)
 
-        return self.results  # XXX ugly discrepancy
+        return all_results
 
     def postprocess_single(self, fxc_name, sigma):
         output = self.calculate_g0w0_outputs(sigma)
@@ -542,6 +554,7 @@ class G0W0Calculator:
 
     @property
     def results(self):
+        print('WTF', self.all_results, self.world.rank)
         return self.all_results[self.wcalc.fxc_mode]
 
     def calculate_q(self, ie, k, kpt1, kpt2, pd0, Wdict,
@@ -718,7 +731,7 @@ class G0W0Calculator:
 
         # Need to pause the timer in between iterations
         self.timer.stop('W')
-        if self.world.rank == 0:
+        if self.qcomm.rank == 0:
             for key, sigmas in self.qcache.items():
                 sigmas = {fxc_mode: Sigma.fromdict(sigma)
                           for fxc_mode, sigma in sigmas.items()}
@@ -727,13 +740,21 @@ class G0W0Calculator:
 
         self.world.barrier()
         for iq, q_c in enumerate(self.wcalc.qd.ibzk_kc):
-            with self.qcache.lock(str(iq)) as qhandle:
-                if qhandle is None:
+            with ExitStack() as stack:
+                if self.qcomm.rank == 0:
+                    qhandle = stack.enter_context(self.qcache.lock(str(iq)))
+                    skip = qhandle is None
+                else:
+                    skip = False
+
+                skip = broadcast(skip, comm=self.qcomm)
+                
+                if skip:
                     continue
-
+                                
                 result = self.calculate_q_point(iq, q_c, pb, wstc, chi0calc)
-
-                if self.world.rank == 0:
+                
+                if self.qcomm.rank == 0:
                     qhandle.save(result)
         pb.finish()
 
