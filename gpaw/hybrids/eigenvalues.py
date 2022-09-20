@@ -114,8 +114,8 @@ def _semi_local(calc: GPAW,
     e_dft_sin = np.array([[calc.get_eigenvalues(k, spin)[n1:n2]
                            for k in kpt_indices]
                           for spin in range(nspins)])
-    v_dft_sin = vxc(calc.gs_adapter())[:, kpt_indices, n1:n2]
-    v_hyb_sl_sin = vxc(calc.gs_adapter(), xc)[:, kpt_indices, n1:n2]
+    v_dft_sin = vxc(calc.gs_adapter(), n1=n1, n2=n2)[:, kpt_indices]
+    v_hyb_sl_sin = vxc(calc.gs_adapter(), xc, n1=n1, n2=n2)[:, kpt_indices]
     return e_dft_sin / Ha, v_dft_sin / Ha, v_hyb_sl_sin / Ha
 
 
