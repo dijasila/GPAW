@@ -547,6 +547,10 @@ class Chi0Calculator:
         return chi0
 
     def reduce_ecut(self, ecut, chi0: Chi0Data):
+        """ 
+        Function to provide chi0 quantities with reduced ecut
+        needed for ecut extrapolation. See g0w0.py for usage.
+        """
         from gpaw.pw.descriptor import (PWDescriptor,
                                         PWMapping)
         from gpaw.response.pw_parallelization import Blocks1D
