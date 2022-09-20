@@ -131,7 +131,7 @@ class Chi0Calculator:
     def pbc(self):
         return self.gs.pbc
 
-    def create_chi0(self, q_c, extend_head=True):
+    def create_chi0(self, q_c, extend_head=False):
         # Extract descriptor arguments
         plane_waves = (q_c, self.ecut, self.gs.gd)
         parallelization = (self.world, self.blockcomm, self.kncomm)
