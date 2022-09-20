@@ -9,7 +9,7 @@ import gpaw.mpi as mpi
 import numpy as np
 from ase.parallel import paropen
 from ase.units import Ha
-from ase.utils import opencew, pickleload
+from ase.utils import opencew
 from ase.utils.timing import timer
 from gpaw import GPAW, debug
 from gpaw.kpt_descriptor import KPointDescriptor
@@ -52,11 +52,13 @@ class Sigma:
     def validate_inputs(self, inputs):
         equals = inputs == self.inputs
         if not equals:
-            raise RuntimeError(f'There exists a cache with mismatching input parameters: {inputs} != {self.inputs}.')
+            raise RuntimeError('There exists a cache with mismatching input '
+                               f'parameters: {inputs} != {self.inputs}.')
 
     @classmethod
     def fromdict(cls, dct):
-        instance = cls(dct['iq'], dct['q_c'], dct['fxc'], dct['sigma_eskn'].shape, **dct['inputs'])
+        instance = cls(dct['iq'], dct['q_c'], dct['fxc'],
+                       dct['sigma_eskn'].shape, **dct['inputs'])
         instance.sigma_eskn[:] = dct['sigma_eskn']
         instance.dsigma_eskn[:] = dct['dsigma_eskn']
         return instance
@@ -67,7 +69,8 @@ class Sigma:
                 'fxc': self.fxc,
                 'sigma_eskn': self.sigma_eskn,
                 'dsigma_eskn': self.dsigma_eskn,
-                'inputs': self.inputs }
+                'inputs': self.inputs}
+
 
 class G0W0Outputs:
     def __init__(self, fd, shape, ecut_e, sigma_eskn, dsigma_eskn,
@@ -362,9 +365,8 @@ class G0W0Calculator:
         self.savepckl = savepckl
         self.eta = eta / Ha
 
-        
-        self.qcache = FileCache(self.restartfile) 
-        self.qcache.strip_empties() 
+        self.qcache = FileCache(self.restartfile)
+        self.qcache.strip_empties()
         # Validate the cache
 
         self.kpts = kpts
@@ -471,12 +473,13 @@ class G0W0Calculator:
         return self.postprocess()
 
     def get_sigmas_dict(self, key):
-        return {fxc_mode:Sigma.fromdict(sigma) for fxc_mode, sigma in self.qcache[key].items()}
+        return {fxc_mode: Sigma.fromdict(sigma)
+                for fxc_mode, sigma in self.qcache[key].items()}
 
     def postprocess(self):
         # Integrate over all q-points, and accumulate the quasiparticle shifts
         for iq, q_c in enumerate(self.wcalc.qd.ibzk_kc):
-            #if self.qcomm.rank == 0:
+            # if self.qcomm.rank == 0:
             key = str(iq)
 
             sigmas_contrib = self.get_sigmas_dict(key)
@@ -637,7 +640,9 @@ class G0W0Calculator:
         return sigma, dsigma
 
     def calculate_all_q_points(self):
-        """XXX UPDATE THIS. No longer a generator. Calculates the screened potential for each q-point in the 1st BZ.
+        """XXX UPDATE THIS.
+        No longer a generator.
+        Calculates the screened potential for each q-point in the 1st BZ.
         Since many q-points are related by symmetry, the actual calculation is
         only done for q-points in the IBZ and the rest are obtained by symmetry
         transformations. Results are returned as a generator to that it is not
@@ -689,26 +694,28 @@ class G0W0Calculator:
         # Need to pause the timer in between iterations
         self.timer.stop('W')
         for key, sigmas in self.qcache.items():
-            sigmas = {fxc_mode:Sigma.fromdict(sigma) for fxc_mode, sigma in sigmas.items()}
+            sigmas = {fxc_mode: Sigma.fromdict(sigma)
+                      for fxc_mode, sigma in sigmas.items()}
             for fxc_mode, sigma in sigmas.items():
                 sigma.validate_inputs(self.get_validation_inputs())
 
         self.world.barrier()
         for iq, q_c in enumerate(self.wcalc.qd.ibzk_kc):
             with self.qcache.lock(str(iq)) as qhandle:
-                if qhandle is None: 
+                if qhandle is None:
                     continue
 
                 result = self.calculate_q_point(iq, q_c, pb, wstc, chi0calc)
 
-                if self.world.rank == 0: #  XXX: Replace with self.qcomm
+                if self.world.rank == 0:  # XXX: Replace with self.qcomm
                     qhandle.save(result)
         pb.finish()
 
     def calculate_q_point(self, iq, q_c, pb, wstc, chi0calc):
         # Reset calculation
         sigmashape = (len(self.ecut_e), *self.shape)
-        sigmas = {fxc_mode: Sigma(iq, q_c, fxc_mode, sigmashape, **self.get_validation_inputs())
+        sigmas = {fxc_mode: Sigma(iq, q_c, fxc_mode, sigmashape,
+                  **self.get_validation_inputs())
                   for fxc_mode in self.fxc_modes}
 
         if len(self.ecut_e) > 1:
@@ -742,8 +749,8 @@ class G0W0Calculator:
             for nQ, (bzq_c, symop) in enumerate(QSymmetryOp.get_symops(
                     self.wcalc.qd, iq, q_c)):
 
-                for progress, kpt1, kpt2 in self.pair_distribution.kpt_pairs_by_q(
-                        bzq_c, 0, m2):
+                for (progress, kpt1, kpt2)\
+                    in self.pair_distribution.kpt_pairs_by_q(bzq_c, 0, m2):
                     pb.update((nQ + progress) / self.wcalc.qd.mynk)
      
                     k1 = self.wcalc.gs.kd.bz2ibz_k[kpt1.K]
@@ -766,7 +773,7 @@ class G0W0Calculator:
                 'nbands': self.nbands,
                 'ecut_e': list(self.ecut_e),
                 'frequencies': self.frequencies,
-                'fxc_modes': self.fxc_modes, 
+                'fxc_modes': self.fxc_modes,
                 'integrate_gamma': self.wcalc.integrate_gamma}
 
     @property
