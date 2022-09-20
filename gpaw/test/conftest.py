@@ -11,7 +11,7 @@ from ase.build import bulk
 from ase.io import read
 from gpaw import GPAW, PW, Davidson, FermiDirac, setup_paths
 from gpaw.cli.info import info
-from gpaw.mpi import broadcast, world
+from gpaw.mpi import broadcast, world, serial_comm
 from gpaw.utilities import devnull
 
 
@@ -288,6 +288,18 @@ class GPWFiles:
 
     def ti2o4_pw_nosym(self):
         return self.ti2o4('off')
+
+    def si_pw(self):
+        si = bulk('Si')
+        calc = GPAW(mode='pw',
+                    xc='LDA',
+                    occupations=FermiDirac(width=0.001),
+                    kpts={'size': (2, 2, 2), 'gamma': True},
+                    communicator=serial_comm,
+                    txt='si.gs.txt')
+        si.calc = calc
+        si.get_potential_energy()
+        return si.calc
 
     def bn_pw(self):
         atoms = bulk('BN', 'zincblende', a=3.615)
