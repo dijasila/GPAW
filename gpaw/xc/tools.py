@@ -9,7 +9,7 @@ def vxc(gs, xc=None, coredensity=True, n1=0, n2=0):
     """Calculate XC-contribution to eigenvalues."""
 
     if n2 <= 0:
-        n2 += gs.nbands
+        n2 += gs.bd.nbands
 
     ham = gs.hamiltonian
     dens = gs.density
