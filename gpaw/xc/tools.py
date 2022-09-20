@@ -55,11 +55,11 @@ def vxc(gs, xc=None, coredensity=True, n1=0, n2=0):
                                            vxct_G, global_integral=False)
 
         for a, dvxc_sii in dvxc_asii.items():
-            P_ni = kpt.P_ani[a]
             m1 = max(n1, gs.bd.beg) - gs.bd.beg
             m2 = min(n2, gs.bd.end) - gs.bd.beg
             if m1 < m2:
-                vxc_n[m1:m2] += ((P_ni[m1:m2] @ dvxc_sii[kpt.s]) *
+                P_ni = kpt.P_ani[a][m1:m2]
+                vxc_n[m1:m2] += ((P_ni @ dvxc_sii[kpt.s]) *
                                  P_ni.conj()).sum(1).real
 
     gs.gd.comm.sum(vxc_un)
