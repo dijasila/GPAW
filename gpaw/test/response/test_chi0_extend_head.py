@@ -157,6 +157,7 @@ def Ni_chi0kwargs(request, Ni_gs):
 
     return chi0kwargs
 
+
 @pytest.fixture(scope='module', params=generate_graphene_chi0_params())
 def graphene_chi0kwargs(request, graphene_gs):
     chi0kwargs = request.param
