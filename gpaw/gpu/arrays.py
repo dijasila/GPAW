@@ -19,11 +19,11 @@ class BaseArrayInterface:
     def sum(self, x, axis=0, out=None):
         return self._module.sum(x, axis=axis, out=out)
 
-    def to_gpu(self, x):
-        return self._module.to_gpu(x)
+    def copy_to_host(self, src, tgt=None, stream=None):
+        return self._module.copy_to_host(src, tgt=tgt, stream=stream)
 
-    def to_gpu_async(self, x, stream=None):
-        return self._module.to_gpu_async(x, stream=stream)
+    def copy_to_device(self, src, tgt=None, stream=None):
+        return self._module.copy_to_device(src, tgt=tgt, stream=stream)
 
     def empty(self, shape, dtype=float, order='C'):
         return self._module.empty(shape, dtype=dtype, order=order)
@@ -51,6 +51,26 @@ class PyCudaArrayInterface(BaseArrayInterface):
     def sum(self, x, axis=0, out=None):
         return self._module.sum(x, axis=axis, result=out)
 
+    def copy_to_host(self, src, tgt=None, stream=None):
+        if stream:
+            return src.get_async(ary=tgt, stream=stream)
+        else:
+            return src.get(ary=tgt)
+
+    def copy_to_device(self, src, tgt=None, stream=None):
+        if stream:
+            if tgt:
+                tgt.set_async(src, stream=stream)
+                return tgt
+            else:
+                return self._module.to_gpu_async(src, stream=stream)
+        else:
+            if tgt:
+                tgt.set(src)
+                return tgt
+            else:
+                return self._module.to_gpu(src)
+
 
 class HostArrayInterface(BaseArrayInterface):
     import numpy as _module
@@ -62,11 +82,15 @@ class HostArrayInterface(BaseArrayInterface):
     def axpbz(self, a, x, b, z):
         z = a * x + b
 
-    def to_gpu(self, x):
-        return x.copy()
+    def copy_to_host(self, src, tgt=None, stream=None):
+        if tgt:
+            tgt[:] = src[:]
+        else:
+            tgt = src.copy()
+        return tgt
 
-    def to_gpu_async(self, x, stream=None):
-        return x.copy()
+    def copy_to_device(self, src, tgt=None, stream=None):
+        return self.copy_to_host(src, tgt)
 
     def get_pointer(self, x):
         return x.ctypes.data

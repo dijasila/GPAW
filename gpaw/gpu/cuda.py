@@ -47,11 +47,11 @@ class CUDA(BaseBackend):
             del self.device_ctx
             self.device_ctx = None
 
-    def copy_to_host(self, x):
-        return x.get()
+    def copy_to_host(self, src, tgt=None, stream=None):
+        return self.array.copy_to_host(src, tgt=tgt, stream=stream)
 
-    def copy_to_device(self, x):
-        return self.array.to_gpu(x)
+    def copy_to_device(self, src, tgt=None, stream=None):
+        return self.array.copy_to_device(src, tgt=tgt, stream=stream)
 
     def is_device_array(self, x):
         return isinstance(x, self.array.Array)
