@@ -15,6 +15,7 @@ import _gpaw
 from gpaw import debug
 from gpaw import gpu
 
+
 # Expansion coefficients for finite difference Laplacian.  The numbers are
 # from J. R. Chelikowsky et al., Phys. Rev. B 50, 11355 (1994):
 laplace = [[0],
@@ -93,54 +94,57 @@ class FDOperator:
         return '<' + self.description + '>'
 
     def apply(self, in_xg, out_xg, phase_cd=None):
-        if isinstance(in_xg, gpu.array.Array):
+        if gpu.is_device_array(in_xg):
             _out = None
-            if not isinstance(out_xg, gpu.array.Array):
+            if gpu.is_host_array(out_xg):
                 _out = out_xg
-                out_xg = gpu.array.to_gpu(out_xg)
+                out_xg = gpu.copy_to_device(out_xg)
             if gpu.debug:
-                in_debug = in_xg.get()
-                out_debug = out_xg.get()
+                in_debug = gpu.copy_to_host(in_xg)
+                out_debug = gpu.copy_to_host(out_xg)
                 self.operator.apply(in_debug, out_debug, phase_cd)
-            self.operator.apply_cuda_gpu(in_xg.gpudata, out_xg.gpudata,
+            self.operator.apply_cuda_gpu(gpu.array.get_pointer(in_xg),
+                                         gpu.array.get_pointer(out_xg),
                                          in_xg.shape, in_xg.dtype, phase_cd)
             if gpu.debug:
                 gpu.debug_test(out_debug, out_xg, "fd_operator")
             if _out:
-                out_xg.get(_out)
+                gpu.copy_to_host(out_xg, _out)
         else:
             _out = None
-            if isinstance(out_xg, gpu.array.Array):
+            if gpu.is_device_array(out_xg):
                 _out = out_xg
-                out_xg = out_xg.get()
+                out_xg = gpu.copy_to_host(out_xg)
             self.operator.apply(in_xg, out_xg, phase_cd)
             if _out:
-                _out.set(out_xg)
+                gpu.copy_to_device(out_xg, _out)
 
     def relax(self, relax_method, f_g, s_g, n, w=None):
-        if isinstance(s_g, gpu.array.Array):
+        if gpu.is_device_array(s_g):
             _func = None
-            if not isinstance(f_g, gpu.array.Array):
+            if gpu.is_host_array(f_g):
                 _func = f_g
-                f_g = gpu.array.to_gpu(_func)
+                f_g = gpu.copy_to_device(_func)
             if gpu.debug:
-                f_debug = f_g.get()
-                s_debug = s_g.get()
+                f_debug = gpu.copy_to_host(f_g)
+                s_debug = gpu.copy_to_host(s_g)
                 self.operator.relax(relax_method, f_debug, s_debug, n, w)
-            self.operator.relax_cuda_gpu(relax_method, f_g.gpudata,
-                                         s_g.gpudata, n, w)
+            self.operator.relax_cuda_gpu(relax_method,
+                                         gpu.array.get_pointer(f_g),
+                                         gpu.array.get_pointer(s_g),
+                                         n, w)
             if gpu.debug:
                 gpu.debug_test(f_debug, f_g, "relax")
             if _func:
-                f_g.get(_func)
+                gpu.copy_to_host(f_g, _func)
         else:
             _func = None
-            if isinstance(f_g, gpu.array.Array):
+            if gpu.is_device_array(f_g):
                 _func = f_g
-                f_g = f_g.get()
+                f_g = gpu.copy_to_host(f_g)
             self.operator.relax(relax_method, f_g, s_g, n, w)
             if _func:
-                _func.set(f_g)
+                gpu.copy_to_device(f_g, _func)
 
     def get_diagonal_element(self):
         return self.operator.get_diagonal_element()

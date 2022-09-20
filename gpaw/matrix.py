@@ -123,9 +123,9 @@ class Matrix:
             self._array_gpu = None
             if self.cuda:
                 self._array_gpu = gpu.array.empty(self.dist.shape, self.dtype)
-        elif isinstance(data, gpu.array.Array):
+        elif gpu.is_device_array(data):
             self._array_gpu = data.reshape(self.dist.shape)
-            self._array_cpu = self._array_gpu.get()
+            self._array_cpu = gpu.copy_to_host(self._array_gpu)
             if not self.cuda:
                 self._array_gpu = None
         elif isinstance(data, tuple):
@@ -135,7 +135,7 @@ class Matrix:
             self._array_cpu = data.reshape(self.dist.shape)
             self._array_gpu = None
             if self.cuda:
-                self._array_gpu = gpu.array.to_gpu(self._array_cpu)
+                self._array_gpu = gpu.copy_to_device(self._array_cpu)
         self.on_gpu = bool(self.cuda)
 
     def view(self, i, j):
@@ -149,9 +149,9 @@ class Matrix:
     def sync(self):
         try:
             if self.on_gpu:
-                self._array_gpu.get(self._array_cpu)
+                gpu.copy_to_host(self._array_gpu, self._array_cpu)
             else:
-                self._array_gpu.set(self._array_cpu)
+                gpu.copy_to_device(self._array_cpu, self._array_gpu)
         except AttributeError:
             pass
 

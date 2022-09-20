@@ -406,15 +406,17 @@ class LocalizedFunctionsCollection(BaseLFC):
             assert q == -1 and a_xG.ndim == 3
             c_xM = np.empty(self.Mmax)
             c_xM.fill(c_axi)
-            if isinstance(a_xG, gpu.array.Array):
+            if gpu.is_device_array(a_xG):
                 if self.Mmax > 0 :
                     assert self.cuda
                     if gpu.debug:
-                        a_xG_cpu = a_xG.get()
+                        a_xG_cpu = gpu.copy_to_host(a_xG)
                         self.lfc.add(c_xM, a_xG_cpu, q)
-                    c_xM_gpu = gpu.array.to_gpu(c_xM)
-                    self.lfc.add_cuda_gpu(c_xM_gpu.gpudata, c_xM_gpu.shape,
-                                          a_xG.gpudata, a_xG.shape, q)
+                    c_xM_gpu = gpu.copy_to_device(c_xM)
+                    self.lfc.add_cuda_gpu(gpu.array.get_pointer(c_xM_gpu),
+                                          c_xM_gpu.shape,
+                                          gpu.array.get_pointer(a_xG),
+                                          a_xG.shape, q)
                     if gpu.debug:
                         gpu.debug_test(a_xG_cpu, a_xG, "lfc add")
             else:
@@ -463,15 +465,17 @@ class LocalizedFunctionsCollection(BaseLFC):
             c_xM[..., M1:M2] = c_xi
             M1 = M2
 
-        if isinstance(a_xG, gpu.array.Array):
+        if gpu.is_device_array(a_xG):
             if self.Mmax > 0:
                 assert self.cuda
                 if gpu.debug:
-                    a_xG_cpu = a_xG.get()
+                    a_xG_cpu = gpu.copy_to_host(a_xG)
                     self.lfc.add(c_xM, a_xG_cpu, q)
-                c_xM_gpu = gpu.array.to_gpu(c_xM)
-                self.lfc.add_cuda_gpu(c_xM_gpu.gpudata, c_xM_gpu.shape,
-                                      a_xG.gpudata, a_xG.shape, q)
+                c_xM_gpu = gpu.copy_to_device(c_xM)
+                self.lfc.add_cuda_gpu(gpu.array.get_pointer(c_xM_gpu),
+                                      c_xM_gpu.shape,
+                                      gpu.array.get_pointer(a_xG),
+                                      a_xG.shape, q)
                 if gpu.debug:
                     gpu.debug_test(a_xG_cpu, a_xG, "lfc add")
         else:
@@ -579,18 +583,19 @@ class LocalizedFunctionsCollection(BaseLFC):
 
         dtype = a_xG.dtype
 
-        if isinstance(a_xG, gpu.array.Array):
+        if gpu.is_device_array(a_xG):
             assert self.cuda
             if self.Mmax > 0:
                 c_xM_gpu = gpu.array.zeros(xshape + (self.Mmax,), dtype)
-                self.lfc.integrate_cuda_gpu(a_xG.gpudata, a_xG.shape,
-                                            c_xM_gpu.gpudata, c_xM_gpu.shape,
-                                            q)
-                c_xM = c_xM_gpu.get() * self.gd.dv
+                self.lfc.integrate_cuda_gpu(gpu.array.get_pointer(a_xG),
+                                            a_xG.shape,
+                                            gpu.array.get_pointer(c_xM_gpu),
+                                            c_xM_gpu.shape, q)
+                c_xM = gpu.copy_to_host(c_xM_gpu) * self.gd.dv
                 if gpu.debug:
                     assert not np.isnan(c_xM).any()
                     c_xM2 = np.zeros(xshape + (self.Mmax,), dtype)
-                    self.lfc.integrate(a_xG.get(), c_xM2, q)
+                    self.lfc.integrate(gpu.copy_to_host(a_xG), c_xM2, q)
                     gpu.debug_test(c_xM2, c_xM, "lfc integrate")
             else:
                 c_xM = np.zeros(xshape + (self.Mmax,), dtype)

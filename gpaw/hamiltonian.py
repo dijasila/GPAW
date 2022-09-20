@@ -9,6 +9,7 @@ import functools
 import numpy as np
 from ase.units import Ha
 
+import _gpaw
 from gpaw.arraydict import ArrayDict
 from gpaw.external import create_external_potential
 from gpaw.hubbard import hubbard
@@ -25,7 +26,6 @@ from gpaw.utilities.partition import AtomPartition
 # from gpaw.utilities.debug import frozen
 from gpaw import gpu
 
-import _gpaw
 
 ENERGY_NAMES = ['e_kinetic', 'e_coulomb', 'e_zero', 'e_external', 'e_xc',
                 'e_entropy', 'e_total_free', 'e_total_extrapolated']
@@ -220,7 +220,7 @@ class Hamiltonian:
         self.vt_sG = self.vt_xG[:self.nspins]
         self.vt_vG = self.vt_xG[self.nspins:]
         if self.cuda:
-            self.vt_sG_gpu = gpu.array.to_gpu(self.vt_sG)
+            self.vt_sG_gpu = gpu.copy_to_device(self.vt_sG)
 
     def update(self, density):
         """Calculate effective potential.
@@ -243,9 +243,9 @@ class Hamiltonian:
         if self.cuda:
             if self.vt_sG_gpu is None or \
                     self.vt_sG_gpu.shape != self.vt_sG.shape:
-                self.vt_sG_gpu = gpu.array.to_gpu(self.vt_sG)
+                self.vt_sG_gpu = gpu.copy_to_device(self.vt_sG)
             else:
-                self.vt_sG_gpu.set(self.vt_sG)
+                gpu.copy_to_device(self.vt_sG, self.vt_sG_gpu)
 
         with self.timer('Calculate atomic Hamiltonians'):
             W_aL = self.calculate_atomic_hamiltonians(density)
@@ -427,20 +427,20 @@ class Hamiltonian:
             are not applied and calculate_projections is ignored.
 
         """
-        if self.cuda or isinstance(psit_nG, gpu.array.Array):
+        if self.cuda or gpu.is_device_array(psit_nG):
             if self.cuda:
                 vt_G = self.vt_sG_gpu[s]
             else:
-                vt_G = gpu.array.to_gpu(self.vt_sG[s])
-            if not isinstance(psit_nG, gpu.array.Array):
-                psit_nG = gpu.array.to_gpu(psit_nG)
-            if len(psit_nG.shape) == 3:  # XXX Doesn't GPU arrays have ndim attr?
+                vt_G = gpu.copy_to_device(self.vt_sG[s])
+            if gpu.is_host_array(psit_nG):
+                psit_nG = gpu.copy_to_device(psit_nG)
+            if len(psit_nG.shape) == 3:
                 elementwise_multiply_add(psit_nG, vt_G, Htpsit_nG);
             else:
                 multi_elementwise_multiply_add(psit_nG, vt_G, Htpsit_nG);
         else:
             vt_G = self.vt_sG[s]
-            if len(psit_nG.shape) == 3:  # XXX Doesn't GPU arrays have ndim attr?
+            if len(psit_nG.shape) == 3:
                 Htpsit_nG += psit_nG * vt_G
             else:
                 for psit_G, Htpsit_G in zip(psit_nG, Htpsit_nG):

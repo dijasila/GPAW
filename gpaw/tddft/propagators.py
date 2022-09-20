@@ -80,7 +80,7 @@ class DummyPropagator:
         if self.preconditioner is not None:
             self.preconditioner.apply(self.kpt, psi, psin)
         else:
-            if isinstance(psi, gpu.array.Array):
+            if gpu.is_device_array(psi):
                 gpu.memcpy_dtod(psin, psi, psi.nbytes)
             else:
                 psin[:] = psi
@@ -446,7 +446,7 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
         for [kpt, rhs_kpt] in zip(self.wfs.kpt_u, self.old_kpt_u):
             # Average of psit(t) and predicted psit(t+dt)
             psit_nG = kpt.psit_nG
-            if isinstance(psit_nG, gpu.array.Array):
+            if gpu.is_device_array(psit_nG):
                 gpu.memcpy_dtod(self.sinvhpsit, psit_nG, psit_nG.nbytes)
             else:
                 self.sinvhpsit[:] = psit_nG

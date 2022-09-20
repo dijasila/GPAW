@@ -5,13 +5,12 @@ operators."""
 
 import numpy as np
 
+import _gpaw
 from gpaw.utilities import unpack
 from gpaw.fd_operators import Laplace, Gradient
 from gpaw.overlap import Overlap
 from gpaw.wavefunctions.fd import FDWaveFunctions
 from gpaw import gpu
-
-import _gpaw
 
 
 class TimeDependentHamiltonian:
@@ -109,9 +108,9 @@ class TimeDependentHamiltonian:
             self.hamiltonian.vt_sG - self.vt_sG
 
         if self.cuda:
-            self.vt_sG_gpu = gpu.array.to_gpu(self.vt_sG)
+            self.vt_sG_gpu = gpu.copy_to_device(self.vt_sG)
         if self.hamiltonian.cuda:
-            self.hamiltonian.vt_sG_gpu = gpu.array.to_gpu(
+            self.hamiltonian.vt_sG_gpu = gpu.copy_to_device(
                     self.hamiltonian.vt_sG)
         for a, dH_sp in self.hamiltonian.dH_asp.items():
             dH_sp[:], self.dH_asp[a][:] = 0.5*(dH_sp + self.dH_asp[a]), \
@@ -132,17 +131,25 @@ class TimeDependentHamiltonian:
         """
         # Does exactly the same as Hamiltonian.apply_local_potential
         # but uses the difference between vt_sG at time t and t+dt.
-        if isinstance(psit_nG, gpu.array.Array):
+        if gpu.is_device_array(psit_nG):
             vt_G = self.vt_sG_gpu[s]
-            if len(psit_nG.shape) == 3:  # XXX Doesn't GPU arrays have ndim attr?
+            if len(psit_nG.shape) == 3:
                 _gpaw.elementwise_multiply_add_gpu(
-                        psit_nG.gpudata, psit_nG.shape, psit_nG.dtype,
-                        vt_G.gpudata, vt_G.dtype, Htpsit_nG.gpudata);
+                        gpu.array.get_pointer(psit_nG),
+                        psit_nG.shape,
+                        psit_nG.dtype,
+                        gpu.array.get_pointer(vt_G),
+                        vt_G.dtype,
+                        gpu.array.get_pointer(Htpsit_nG))
             else:
                 for psit_G, Htpsit_G in zip(psit_nG, Htpsit_nG):
                     _gpaw.elementwise_multiply_add_gpu(
-                            psit_G.gpudata, psit_G.shape, psit_G.dtype,
-                            vt_G.gpudata, vt_G.dtype, Htpsit_G.gpudata);
+                            gpu.array.get_pointer(psit_G),
+                            psit_G.shape,
+                            psit_G.dtype,
+                            gpu.array.get_pointer(vt_G),
+                            vt_G.dtype,
+                            gpu.array.get_pointer(Htpsit_G))
         else:
             vt_G = self.vt_sG[s]
             if psit_nG.ndim == 3:
@@ -537,7 +544,7 @@ class TimeDependentOverlap(Overlap):
 
         """
         self.timer.start('Apply overlap')
-        if isinstance(psit, gpu.array.Array):
+        if gpu.is_device_array(psit):
             gpu.memcpy_dtod(spsit, psit, psit.nbytes)
         else:
             spsit[:] = psit
@@ -875,14 +882,19 @@ def add_linear_field(wfs, spos_ac, a_nG, b_nG, strength, kpt):
 
     gd = wfs.gd
 
-    if isinstance(a_nG, gpu.array.Array):
+    if gpu.is_device_array(a_nG):
         if gpu.debug:
-            a_nG_cpu = a_nG.get()
-            b_nG_cpu = b_nG.get()
+            a_nG_cpu = gpu.copy_to_host(a_nG)
+            b_nG_cpu = gpu.copy_to_host(b_nG)
             add_linear_field_sub(a_nG_cpu, b_nG_cpu, gd, strength)
-        _gpaw.add_linear_field_cuda_gpu(a_nG.gpudata, a_nG.shape,
-                                        a_nG.dtype, b_nG.gpudata, gd.n_c,
-                                        gd.beg_c, gd.h_cv, strength)
+        _gpaw.add_linear_field_cuda_gpu(gpu.array.get_pointer(a_nG),
+                                        a_nG.shape,
+                                        a_nG.dtype,
+                                        gpu.array.get_pointer(b_nG),
+                                        gd.n_c,
+                                        gd.beg_c,
+                                        gd.h_cv,
+                                        strength)
         if gpu.debug:
             gpu.debug_test(b_nG, b_nG_cpu, "add_linear_field")
     else:

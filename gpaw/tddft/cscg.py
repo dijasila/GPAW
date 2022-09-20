@@ -92,7 +92,7 @@ class CSCG:
         if self.timer is not None:
             self.timer.start('CSCG')
 
-        cuda = isinstance(x, gpu.array.Array)
+        cuda = gpu.is_device_array(x)
 
         # number of vectors
         nvec = len(x)
@@ -192,7 +192,7 @@ class CSCG:
                     break
 
                 # finally update rho
-                if isinstance(rhop, gpu.array.Array):
+                if gpu.is_device_array(rhop):
                     gpu.memcpy_dtod(rhop, rho, rho.nbytes)
                 else:
                     rhop[:] = rho

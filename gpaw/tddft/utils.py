@@ -1,11 +1,10 @@
 # Written by Lauri Lehtovaara 2008
 import numpy as np
 
+import _gpaw
 from gpaw.utilities.blas import axpy, scal
 from gpaw.utilities.mblas import multi_axpy, multi_dotc, multi_dotu, multi_scal
 from gpaw import gpu
-
-import _gpaw
 
 
 class MultiBlas:
@@ -31,10 +30,10 @@ class MultiBlas:
             self.timer.start('Multi zdotc')
         ss = multi_dotc(x, y, s)
         if self.gd.comm.size > 1:
-            if isinstance(ss, gpu.array.Array):
-                s_cpu = ss.get(pagelocked=True)
+            if gpu.is_device_array(ss):
+                s_cpu = gpu.copy_to_host(ss) # pagelocked=True
                 self.gd.comm.sum(s_cpu)
-                ss.set(s_cpu)
+                gpu.copy_to_device(s_cpu, ss)
             else:
                 self.gd.comm.sum(ss)
         if self.timer is not None:
@@ -46,10 +45,10 @@ class MultiBlas:
             self.timer.start('Multi zdotu')
         ss = multi_dotu(x, y, s)
         if self.gd.comm.size > 1:
-            if isinstance(s, gpu.array.Array):
-                s_cpu = ss.get(pagelocked=True)
+            if gpu.is_device_array(s):
+                s_cpu = gpu.copy_to_host(ss) # pagelocked=True
                 self.gd.comm.sum(s_cpu)
-                ss.set(s_cpu)
+                gpu.copy_to_device(s_cpu, ss)
             else:
                 self.gd.comm.sum(ss)
         if self.timer is not None:
