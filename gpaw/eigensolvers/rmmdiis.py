@@ -196,9 +196,6 @@ class RMMDIIS(Eigensolver):
 
             self.timer.start('DIIS step')
             # DIIS step
-            if self.cuda:
-                psitb_cpu = np.empty(psitb.array.shape, dtype=psitb.array.dtype)
-                Rb_cpu = np.empty(Rb.array.shape, dtype=Rb.array.dtype)
             for nit in range(1, self.niter):
                 # Do not perform DIIS if error is small
                 # if abs(error_block / B) < self.rtol:
