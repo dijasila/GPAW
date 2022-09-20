@@ -12,20 +12,18 @@ from ase.units import Ha
 from ase.utils import opencew
 from ase.utils.timing import timer
 from gpaw import GPAW, debug
+from gpaw.hybrids.eigenvalues import non_self_consistent_eigenvalues
 from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.pw.descriptor import PWDescriptor, count_reciprocal_vectors
 from gpaw.response.chi0 import Chi0Calculator
-from gpaw.pw.descriptor import (PWDescriptor,
-                                count_reciprocal_vectors)
+from gpaw.response.context import calc_and_context
 from gpaw.response.fxckernel_calc import calculate_kernel
 from gpaw.response.hilbert import GWHilbertTransforms
 from gpaw.response.pair import NoCalculatorPairDensity
+from gpaw.response.screened_interaction import WCalculator
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.utilities.progressbar import ProgressBar
-from gpaw.xc.exx import EXX, select_kpts
 from gpaw.xc.fxc import XCFlags
-from gpaw.xc.tools import vxc
-from gpaw.response.context import calc_and_context
-from gpaw.response.screened_interaction import WCalculator
 
 from ase.utils.filecache import MultiFileJSONCache as FileCache
 
@@ -272,6 +270,33 @@ def choose_ecut_things(ecut, ecut_extrapolation):
     return ecut, ecut_e
 
 
+def select_kpts(kpts, kd):
+    """Function to process input parameters that take a list of k-points given
+    in different format and returns a list of indices of the corresponding
+    k-points in the IBZ."""
+
+    if kpts is None:
+        # Do all k-points in the IBZ:
+        return np.arange(kd.nibzkpts)
+
+    if np.asarray(kpts).ndim == 1:
+        return kpts
+
+    # Find k-points:
+    bzk_Kc = kd.bzk_kc
+    indices = []
+    for k_c in kpts:
+        d_Kc = bzk_Kc - k_c
+        d_Kc -= d_Kc.round()
+        K = abs(d_Kc).sum(1).argmin()
+        if not np.allclose(d_Kc[K], 0):
+            raise ValueError('Could not find k-point: {k_c}'
+                             .format(k_c=k_c))
+        k = kd.bz2ibz_k[K]
+        indices.append(k)
+    return indices
+
+
 class G0W0Calculator:
     def __init__(self, filename='gw', *,
                  wcalc,
@@ -282,7 +307,6 @@ class G0W0Calculator:
                  ecut_e,
                  frequencies=None,
                  savepckl=True):
-
         """G0W0 calculator, initialized through G0W0 object.
 
         The G0W0 calculator is used is used to calculate the quasi
@@ -564,7 +588,7 @@ class G0W0Calculator:
             eps1 = kpt1.eps_n[n]
             C1_aGi = [np.dot(Qa_Gii, P1_ni[n].conj())
                       for Qa_Gii, P1_ni in zip(myQ_aGii, kpt1.P_ani)]
-            n_mG = self.wcalc.pair.calculate_pair_densities(
+            n_mG = self.wcalc.pair.calculate_pair_density(
                 ut1cc_R, C1_aGi, kpt2, pd0, I_G)
             if symop.sign == 1:
                 n_mG = n_mG.conj()
@@ -823,34 +847,16 @@ class G0W0Calculator:
 
         return pdi, Wdict, blocks1d, chi0calc.Q_aGii
 
-    @timer('Kohn-Sham XC-contribution')
-    def calculate_ks_xc_contribution(self):
-        name = self.filename + '.vxc.npy'
-        fd, vxc_skn = self.read_contribution(name)
-        if vxc_skn is None:
-            print('Calculating Kohn-Sham XC contribution', file=self.fd)
-            self.fd.flush()
-            vxc_skn = vxc(self.wcalc.gs, self.wcalc.gs.hamiltonian.xc) / Ha
-            n1, n2 = self.bands
-            vxc_skn = vxc_skn[:, self.kpts, n1:n2]
-            np.save(fd, vxc_skn)
-            fd.close()
-        return vxc_skn
-
-    @timer('EXX')
-    def calculate_exact_exchange(self):
-        name = self.filename + '.exx.npy'
-        fd, exx_skn = self.read_contribution(name)
-        if exx_skn is None:
-            print('Calculating EXX contribution', file=self.fd)
-            self.fd.flush()
-            exx = EXX(self.wcalc.gs, kpts=self.kpts, bands=self.bands,
-                      txt=self.filename + '.exx.txt', timer=self.timer)
-            exx.calculate()
-            exx_skn = exx.get_eigenvalue_contributions() / Ha
-            np.save(fd, exx_skn)
-            fd.close()
-        return exx_skn
+    def calculate_vxc_and_exx(self):
+        """EXX and Kohn-Sham XC contribution."""
+        n1, n2 = self.bands
+        _, vxc_skn, exx_skn = non_self_consistent_eigenvalues(
+            self._gpwfile,
+            'EXX',
+            n1, n2,
+            kpt_indices=self.kpts,
+            snapshot=self.filename + '-vxc-exx.json')
+        return vxc_skn / Ha, exx_skn / Ha
 
     def read_contribution(self, filename):
         fd = opencew(filename)  # create, exclusive, write
@@ -943,13 +949,14 @@ class G0W0Calculator:
 
     def calculate_g0w0_outputs(self, sigma):
         eps_skn, f_skn = self.get_eps_and_occs()
+        vxc_skn, exx_skn = self.calculate_vxc_and_exx()
         kwargs = dict(
             fd=self.fd,
             shape=self.shape,
             ecut_e=self.ecut_e,
             eps_skn=eps_skn,
-            vxc_skn=self.calculate_ks_xc_contribution(),
-            exx_skn=self.calculate_exact_exchange(),
+            vxc_skn=vxc_skn,
+            exx_skn=exx_skn,
             f_skn=f_skn)
 
         return G0W0Outputs(sigma_eskn=sigma.sigma_eskn,
@@ -1093,14 +1100,14 @@ class G0W0(G0W0Calculator):
 
         frequencies = get_frequencies(frequencies, domega0, omega2)
 
-        gpwfile = calc
-        calc, context = calc_and_context(gpwfile, filename + '.txt',
+        self._gpwfile = calc
+        calc, context = calc_and_context(self._gpwfile, filename + '.txt',
                                          world, timer)
         gs = calc.gs_adapter()
 
         # Check if nblocks is compatible, adjust if not
         if nblocksmax:
-            nblocks = get_max_nblocks(context.world, gpwfile, ecut)
+            nblocks = get_max_nblocks(context.world, self._gpwfile, ecut)
 
         pair = NoCalculatorPairDensity(gs, nblocks=nblocks, context=context)
 
