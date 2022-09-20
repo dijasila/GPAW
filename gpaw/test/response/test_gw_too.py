@@ -2,14 +2,27 @@ import pytest
 from gpaw.mpi import world
 import numpy as np
 from gpaw.response.g0w0 import G0W0
+from gpaw import GPAW, PW
+from ase.build import bulk
 import pickle
 
 
 @pytest.mark.response
 def test_do_GW_too(in_tmp_dir, gpw_files, scalapack):
+    atoms = bulk('C')
+    atoms.center()
+    calc = GPAW(mode=PW(200),
+                convergence={'bands': 6},
+                nbands=12,
+                kpts={'gamma': True, 'size': (2, 2, 2)},
+                xc='LDA')
+
+    atoms.calc = calc
+    atoms.get_potential_energy()
+    calc.write('gs-gw.wfs', 'all')
 
     ecut_extrapolation = True
-    gw0 = G0W0(gpw_files['bn_pw_wfs'],
+    gw0 = G0W0('gs-gw.wfs',
                bands=(3, 5),
                nblocks=1,
                ecut_extrapolation=ecut_extrapolation,
@@ -18,7 +31,7 @@ def test_do_GW_too(in_tmp_dir, gpw_files, scalapack):
 
     results0 = gw0.calculate()
 
-    gw = G0W0(gpw_files['bn_pw_wfs'],
+    gw = G0W0('gs-gw.wfs',
               bands=(3, 5),
               nblocks=1,
               xc='rALDA',
