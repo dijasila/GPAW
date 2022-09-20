@@ -309,8 +309,8 @@ class GWQEHCorrection(PairDensity):
                         C1_aGi = [np.dot(Qa_Gii, P1_ni[n].conj())
                                   for Qa_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
 
-                        n_mG = self.calculate_pair_densities(ut1cc_R, C1_aGi,
-                                                             kpt2, pd0, I_G)
+                        n_mG = self.calculate_pair_density(ut1cc_R, C1_aGi,
+                                                           kpt2, pd0, I_G)
                         if self.sign == 1:
                             n_mG = n_mG.conj()
 
