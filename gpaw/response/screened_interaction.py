@@ -127,8 +127,8 @@ class WCalculator:
             fd=self.fd if print_ac else None)
 
 # calculate_q wrapper
-    def calculate_q(self, iq, q_c, chi0=None):
-        chi0calc = self.chi0calc
+    def calculate_q(self, iq, q_c, chi0):
+        #chi0calc = self.chi0calc
         if self.truncation == 'wigner-seitz':
             wstc = WignerSeitzTruncatedCoulomb(
                 self.wcalc.gs.gd.cell_cv,
@@ -137,17 +137,13 @@ class WCalculator:
         else:
             wstc = None
         # ecut = self.chi0calc.ecut
-        if chi0 is None:
-            chi0 = chi0calc.create_chi0(q_c, extend_head=False)
+        #if chi0 is None:
+        #    chi0 = chi0calc.create_chi0(q_c, extend_head=False)            
+        pd, W_wGG = self.dyson_and_W_old2(wstc, iq, q_c,
+                                      chi0,
+                                      fxc_mode=self.fxc_mode)
 
-        pdi, blocks1d, W_wGG = self.dyson_and_W_old(
-            wstc, iq, q_c,
-            self.chi0calc, chi0,
-            self.chi0calc.ecut,
-            Q_aGii=self.chi0calc.Q_aGii,
-            fxc_mode=self.fxc_mode,
-            only_correlation=False)
-        return pdi, blocks1d, W_wGG
+        return pd, W_wGG
 
     def dyson_and_W_new(self, wstc, iq, q_c, chi0calc, chi0, ecut):
         assert not self.ppa
@@ -345,9 +341,16 @@ class WCalculator:
         return pdi, blocks1d, W_wGG
 
 
-    def dyson_and_W_old2(self, wstc, iq, q_c, chi0, chi0_wGG,chi0_wxvG,chi0_wvv,
-                         nG, pd, pdi, fxc_mode, only_correlation=True):
-
+    def dyson_and_W_old2(self, wstc, iq, q_c, chi0,fxc_mode,
+                         pdi=None, chi0_wGG=None,chi0_wxvG=None,
+                         chi0_wvv=None, only_correlation=False):
+        pd=chi0.pd
+        if(pdi is None):
+            chi0_wGG = chi0.chi0_wGG
+            chi0_wxvG = chi0.chi0_wxvG
+            chi0_wvv = chi0.chi0_wvv
+            pdi = pd
+        nG=pdi.ngmax
         wblocks1d = Blocks1D(self.blockcomm, len(self.wd))
         if self.integrate_gamma != 0:
             reduced = (self.integrate_gamma == 2)
@@ -444,11 +447,11 @@ class WCalculator:
                 W_GG[1:, 0] = pi * R_GG[1:, 0] * sqrtV0 * sqrtV_G[1:]
 
             self.timer.stop('Dyson eq.')
-            return pdi, blocks1d, [W_GG, omegat_GG]
+            return pdi, [W_GG, omegat_GG]
 
         # XXX This creates a new, large buffer.  We could perhaps
         # avoid that.  Buffer used to exist but was removed due to #456.
         W_wGG = chi0.blockdist.redistribute(chi0_wGG, chi0.nw)
 
         self.timer.stop('Dyson eq.')
-        return W_wGG
+        return pdi, W_wGG
