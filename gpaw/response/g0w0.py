@@ -29,6 +29,7 @@ from ase.utils.filecache import MultiFileJSONCache as FileCache
 from contextlib import ExitStack
 from ase.parallel import broadcast
 
+
 class Sigma:
     def __init__(self, iq, q_c, fxc, esknshape, **inputs):
         self.iq = iq
@@ -366,7 +367,9 @@ class G0W0Calculator:
                 'PPA is currently not compatible with block parallelisation.')
 
         self.world = self.wcalc.context.world
-        self.qcomm = self.world  # No q-point parallelization yet
+
+        # TODO: # implement q-point parallelism over this.
+        self.qcomm = self.world
         self.fd = self.fd
 
         print(gw_logo, file=self.fd)
@@ -392,10 +395,11 @@ class G0W0Calculator:
         self.eta = eta / Ha
 
         if self.qcomm.rank == 0:
-            self.qcache = FileCache(self.restartfile, comm=mpi.SerialCommunicator())
+            # We pass a serial communicator because the parallel handling
+            # is somewhat wonky, we'd rather do that ourselves:
+            self.qcache = FileCache(self.restartfile,
+                                    comm=mpi.SerialCommunicator())
             self.qcache.strip_empties()
-
-        # Validate the cache
 
         self.kpts = kpts
         self.bands = bands
@@ -498,26 +502,34 @@ class G0W0Calculator:
         print('Summing all q:', file=self.fd)
 
         self.calculate_all_q_points()
-        return self.postprocess()
 
-    def get_sigmas_dict(self, key):
-        return {fxc_mode: Sigma.fromdict(sigma)
-                for fxc_mode, sigma in self.qcache[key].items()}
-
-
-    def postprocess(self):
-        all_results = None
-        if self.world.rank == 0:
-            all_results = self._postprocess()
-
-        self.all_results = broadcast(all_results, comm=self.world)
-        print(self.world.rank, all_results,'all_results')
+        sigmas = self.read_sigmas()
+        self.all_results = self.postprocess(sigmas)
+        # Note: self.results is a pointer pointing to one of the results,
+        # for historical reasons.
         return self.results
 
-    def _postprocess(self):
+    def postprocess(self, sigmas):
+        all_results = {}
+        for fxc_mode, sigma in sigmas.items():
+            all_results[fxc_mode] = self.postprocess_single(fxc_mode, sigma)
+
+        self.print_results(all_results)
+        return all_results
+
+    def read_sigmas(self):
+        if self.world.rank == 0:
+            sigmas = self._read_sigmas()
+        else:
+            sigmas = None
+
+        return broadcast(sigmas, comm=self.world)
+
+    def _read_sigmas(self):
+        assert self.world.rank == 0
+
         # Integrate over all q-points, and accumulate the quasiparticle shifts
         for iq, q_c in enumerate(self.wcalc.qd.ibzk_kc):
-            # if self.qcomm.rank == 0:
             key = str(iq)
 
             sigmas_contrib = self.get_sigmas_dict(key)
@@ -528,13 +540,12 @@ class G0W0Calculator:
                 for fxc_mode in self.fxc_modes:
                     sigmas[fxc_mode] += sigmas_contrib[fxc_mode]
 
-        all_results = {}
-        for fxc_mode, sigma in sigmas.items():
-            all_results[fxc_mode] = self.postprocess_single(fxc_mode, sigma)
+        return sigmas
 
-        self.print_results(all_results)
-
-        return all_results
+    def get_sigmas_dict(self, key):
+        assert self.world.rank == 0
+        return {fxc_mode: Sigma.fromdict(sigma)
+                for fxc_mode, sigma in self.qcache[key].items()}
 
     def postprocess_single(self, fxc_name, sigma):
         output = self.calculate_g0w0_outputs(sigma)
@@ -554,7 +565,6 @@ class G0W0Calculator:
 
     @property
     def results(self):
-        print('WTF', self.all_results, self.world.rank)
         return self.all_results[self.wcalc.fxc_mode]
 
     def calculate_q(self, ie, k, kpt1, kpt2, pd0, Wdict,
@@ -748,12 +758,12 @@ class G0W0Calculator:
                     skip = False
 
                 skip = broadcast(skip, comm=self.qcomm)
-                
+
                 if skip:
                     continue
-                                
+
                 result = self.calculate_q_point(iq, q_c, pb, wstc, chi0calc)
-                
+
                 if self.qcomm.rank == 0:
                     qhandle.save(result)
         pb.finish()
@@ -799,10 +809,10 @@ class G0W0Calculator:
                 for (progress, kpt1, kpt2)\
                     in self.pair_distribution.kpt_pairs_by_q(bzq_c, 0, m2):
                     pb.update((nQ + progress) / self.wcalc.qd.mynk)
-     
+
                     k1 = self.wcalc.gs.kd.bz2ibz_k[kpt1.K]
                     i = self.kpts.index(k1)
-     
+
                     self.calculate_q(ie, i, kpt1, kpt2, pdi, Wdict,
                                      symop=symop,
                                      sigmas=sigmas,
