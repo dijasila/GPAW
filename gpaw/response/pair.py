@@ -302,7 +302,8 @@ class NoCalculatorPairDensity:
         return n_nmG
 
     @timer('get_pair_density')
-    def get_pair_density(self, pd, kptpair, n_n, m_m, Q_aGii=None, block=False):
+    def get_pair_density(self, pd, kptpair, n_n, m_m,
+                         Q_aGii=None, block=False):
         """Get pair density for a kpoint pair."""
         cpd = self.calculate_pair_density
 
