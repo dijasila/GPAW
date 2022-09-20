@@ -7,8 +7,6 @@ from ase import Atoms
 
 from gpaw import GPAW, PW
 from gpaw.hybrids.eigenvalues import non_self_consistent_eigenvalues
-from gpaw.xc.exx import EXX
-from gpaw.mpi import world
 
 n = 7
 
@@ -51,8 +49,3 @@ def test_kpts(xc, atoms):
     k1, k2, gap = bandgap(e0)
     assert k1 == 4 and k2 == 7
     assert gap == pytest.approx(gaps['PBE'], abs=0.01)
-    if world.size == 1:
-        xc2 = EXX(c.gs_adapter(), xc=xc, bands=(0, c.wfs.bd.nbands), txt=None)
-        xc2.calculate()
-        v2 = xc2.get_eigenvalue_contributions()
-        assert np.allclose(v, v2), (v, v2)
