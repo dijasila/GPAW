@@ -4,7 +4,7 @@ import pickle
 import warnings
 from math import pi
 from pathlib import Path
-
+from gpaw.response.pw_parallelization import Blocks1D
 import gpaw.mpi as mpi
 import numpy as np
 from ase.parallel import paropen
@@ -15,7 +15,8 @@ from gpaw import GPAW, debug
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.chi0 import Chi0Calculator
 from gpaw.pw.descriptor import (PWDescriptor,
-                                count_reciprocal_vectors)
+                                count_reciprocal_vectors,
+                                PWMapping)
 from gpaw.response.fxckernel_calc import calculate_kernel
 from gpaw.response.hilbert import GWHilbertTransforms
 from gpaw.response.pair import NoCalculatorPairDensity
@@ -26,7 +27,6 @@ from gpaw.xc.fxc import XCFlags
 from gpaw.xc.tools import vxc
 from gpaw.response.context import calc_and_context
 from gpaw.response.screened_interaction import WCalculator
-
 
 class Sigma:
     def __init__(self, esknshape):
@@ -755,8 +755,40 @@ class G0W0Calculator:
         Wdict = {}
 
         for fxc_mode in self.fxc_modes:
-            pdi, blocks1d, W_wGG = self.wcalc.dyson_and_W_old(
-                wstc, iq, q_c, chi0calc, chi0, ecut, Q_aGii=chi0calc.Q_aGii,
+            nG = chi0.pd.ngmax
+            blocks1d = chi0.blocks1d
+            
+            # The copy() is only required when doing GW_too, since we need
+            # to run this whole thin twice.
+            chi0_wGG = chi0.blockdist.redistribute(chi0.chi0_wGG.copy(), chi0.nw)
+
+            pd = chi0.pd
+            chi0_wxvG = chi0.chi0_wxvG
+            chi0_wvv = chi0.chi0_wvv
+
+            if ecut == pd.ecut:
+                pdi = pd
+                G2G = None
+
+            elif ecut < pd.ecut:  # construct subset chi0 matrix with lower ecut
+                pdi = PWDescriptor(ecut, pd.gd, dtype=pd.dtype,
+                               kd=pd.kd)
+                nG = pdi.ngmax
+                blocks1d = Blocks1D(self.wcalc.blockcomm, nG)
+                G2G = PWMapping(pdi, pd).G2_G1
+                chi0_wGG = chi0_wGG.take(G2G, axis=1).take(G2G, axis=2)
+
+                if chi0_wxvG is not None:
+                    chi0_wxvG = chi0_wxvG.take(G2G, axis=3)
+                Q_aGii = chi0calc.Q_aGii
+                if Q_aGii is not None:
+                    for a, Q_Gii in enumerate(Q_aGii):
+                        Q_aGii[a] = Q_Gii.take(G2G, axis=0)
+
+            
+            #HERE
+            W_wGG = self.wcalc.dyson_and_W_old2(
+                wstc, iq, q_c, chi0, chi0_wGG,chi0_wxvG,chi0_wvv,nG,pd,pdi,
                 fxc_mode=fxc_mode)
 
             if self.wcalc.ppa:
