@@ -366,7 +366,8 @@ class G0W0Calculator:
         self.eta = eta / Ha
 
         self.qcache = FileCache(self.restartfile)
-        self.qcache.strip_empties()
+        if self.world.rank == 0:
+            self.qcache.strip_empties()
         # Validate the cache
 
         self.kpts = kpts
@@ -693,11 +694,12 @@ class G0W0Calculator:
 
         # Need to pause the timer in between iterations
         self.timer.stop('W')
-        for key, sigmas in self.qcache.items():
-            sigmas = {fxc_mode: Sigma.fromdict(sigma)
-                      for fxc_mode, sigma in sigmas.items()}
-            for fxc_mode, sigma in sigmas.items():
-                sigma.validate_inputs(self.get_validation_inputs())
+        if self.world.rank == 0:
+            for key, sigmas in self.qcache.items():
+                sigmas = {fxc_mode: Sigma.fromdict(sigma)
+                          for fxc_mode, sigma in sigmas.items()}
+                for fxc_mode, sigma in sigmas.items():
+                    sigma.validate_inputs(self.get_validation_inputs())
 
         self.world.barrier()
         for iq, q_c in enumerate(self.wcalc.qd.ibzk_kc):
@@ -707,7 +709,7 @@ class G0W0Calculator:
 
                 result = self.calculate_q_point(iq, q_c, pb, wstc, chi0calc)
 
-                if self.world.rank == 0:  # XXX: Replace with self.qcomm
+                if self.world.rank == 0:
                     qhandle.save(result)
         pb.finish()
 

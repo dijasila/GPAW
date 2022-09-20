@@ -1,7 +1,6 @@
 import pytest
 import numpy as np
 from gpaw.response.g0w0 import G0W0
-from os.path import exists
 from gpaw.mpi import world
 
 
@@ -28,8 +27,6 @@ def test_restart_file(in_tmp_dir, gpw_files):
         gw.calculate()
 
     assert gw.doom == 12
-
-    #assert exists('restartfile.sigma.pckl')
 
     # Use FragileG0W0 also in the restart.
     # The FragileG0W0 cannot by itself calculate the full thing because
