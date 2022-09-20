@@ -8,6 +8,7 @@ from pathlib import Path
 # Script modules
 from ase import Atoms
 from ase.build import bulk
+from ase.lattice.hexagonal import Graphene
 from ase.dft.kpoints import monkhorst_pack
 
 from gpaw import GPAW, PW
@@ -140,6 +141,13 @@ def Ni_chi0kwargs(request, Ni_gs):
 
     return chi0kwargs
 
+@pytest.fixture(scope='module', params=generate_metal_chi0_params())
+def graphene_chi0kwargs(request, graphene_gs):
+    chi0kwargs = request.param
+    assure_nbands(chi0kwargs, graphene_gs)
+
+    return chi0kwargs
+
 
 def assure_nbands(chi0kwargs, my_gs):
     # Fill in nbands parameter, if not already specified
@@ -164,6 +172,12 @@ def test_li_chi0_extend_head(in_tmp_dir, Li_gs, Li_chi0kwargs):
 @pytest.mark.response
 def test_ni_chi0_extend_head(in_tmp_dir, Ni_gs, Ni_chi0kwargs):
     chi0_extend_head_test(Ni_gs, Ni_chi0kwargs)
+
+
+@pytest.mark.response
+def test_graphene_chi0_extend_head(in_tmp_dir, graphene_gs,
+                                   graphene_chi0kwargs):
+    chi0_extend_head_test(graphene_gs, graphene_chi0kwargs)
 
 
 def chi0_extend_head_test(my_gs, chi0kwargs):
@@ -266,13 +280,43 @@ def Ni_gs(module_tmp_path):
     return gpw, nbands
 
 
+@pytest.fixture(scope='module')
+def graphene_gs(module_tmp_path):
+    # ---------- Inputs ---------- #
+
+    a = 2.45
+    pbc = (1, 1, 0)
+    vacuum = 4.0
+    xc = 'LDA'
+    kpts = 6
+    nbands = 1 + 3  # 2s + 2p valence bands
+    ebands = 1 + 3  # Include also 3s and 3p for numerical consistency
+    pw = 250
+    convergence = {'bands': nbands}
+    gpw = Path('graphene.gpw').resolve()
+
+    # ---------- Script ---------- #
+
+    atoms = Graphene(symbol='C',
+                     latticeconstant={'a': a, 'c': 1.0},
+                     size=(1, 1, 1))
+    atoms.pbc = pbc
+    atoms.center(axis=2, vacuum=vacuum)
+
+    calculate_gs(atoms, gpw, pw, kpts, nbands, ebands,
+                 xc=xc, convergence=convergence)
+
+    return gpw, nbands
+
+
 # ---------- Script functionality ---------- #
 
 
 def calculate_gs(atoms, gpw, pw, kpts, nbands, ebands,
                  **kwargs):
     calc = GPAW(mode=PW(pw),
-                kpts=monkhorst_pack((kpts, kpts, kpts)),
+                kpts=monkhorst_pack(tuple([kpts * periodic + (1 - periodic)
+                                           for periodic in atoms.pbc])),
                 nbands=nbands + ebands,
                 symmetry={'point_group': True},
                 parallel={'domain': 1},
