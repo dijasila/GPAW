@@ -304,7 +304,7 @@ class Chi0Calculator:
         eig_kwargs = {'kd': kd, 'pd': pd}
 
         if not chi0.extend_head:
-            mat_kwargs['extend_head'] = False
+            mat_kwargs['include_optical_elements'] = False
 
         # Determine what "kind" of integral to make.
         extraargs = {}  # Initialize extra arguments to integration method.
@@ -348,7 +348,7 @@ class Chi0Calculator:
                              **extraargs)
         # extraargs: Extra arguments to integration method
         if wings:
-            mat_kwargs['extend_head'] = True
+            mat_kwargs['include_optical_elements'] = True
             mat_kwargs['block'] = False
             # This is horrible but we need to update the wings manually
             # in order to make them work with ralda, RPA and GW. This entire
@@ -576,7 +576,7 @@ class Chi0Calculator:
                            m1=None, m2=None,
                            pd=None, kd=None,
                            symmetry=None, integrationmode=None,
-                           extend_head=True, block=True):
+                           include_optical_elements=True, block=True):
         """A function that returns pair-densities.
 
         A pair density is defined as::
@@ -609,8 +609,8 @@ class Chi0Calculator:
             Symmetry analyzer object for handling symmetries of the kpoints.
         integrationmode : str
             The integration mode employed.
-        extend_head: Bool
-            Extend the head to include non-analytic behaviour
+        include_optical_elements : bool
+            Include the optical pair density in the head, if q=0
 
         Return
         ------
@@ -622,7 +622,6 @@ class Chi0Calculator:
         k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
 
         q_c = pd.kd.bzk_kc[0]
-
         optical_limit = np.allclose(q_c, 0.0)
 
         nG = pd.ngmax
@@ -637,9 +636,14 @@ class Chi0Calculator:
         m_m = np.arange(m1, m2)
         n_n = np.arange(n1, n2)
 
-        n_nmG = self.pair.get_full_pair_density(pd, kptpair, n_n, m_m,
-                                                Q_aGii=self.Q_aGii,
-                                                block=block)
+        if optical_limit and include_optical_elements:
+            n_nmG = self.pair.get_full_pair_density(pd, kptpair, n_n, m_m,
+                                                    Q_aGii=self.Q_aGii,
+                                                    block=block)
+        else:
+            n_nmG = self.pair.get_pair_density(pd, kptpair, n_n, m_m,
+                                               Q_aGii=self.Q_aGii,
+                                               block=block)
 
         if integrationmode is None:
             n_nmG *= weight
@@ -648,12 +652,8 @@ class Chi0Calculator:
         df_nm[df_nm <= 1e-20] = 0.0
         n_nmG *= df_nm[..., np.newaxis]**0.5
 
-        if not extend_head and optical_limit:
-            n_nmG = np.copy(n_nmG[:, :, 2:])
-            optical_limit = False
-
-        if extend_head and optical_limit:
-            return n_nmG.reshape(-1, nG + 2 * optical_limit)
+        if optical_limit and include_optical_elements:
+            return n_nmG.reshape(-1, nG + 2)
         else:
             return n_nmG.reshape(-1, nG)
 
