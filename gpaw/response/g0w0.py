@@ -4,7 +4,6 @@ import pickle
 import warnings
 from math import pi
 from pathlib import Path
-from gpaw.response.pw_parallelization import Blocks1D
 import gpaw.mpi as mpi
 import numpy as np
 from ase.parallel import paropen
@@ -15,8 +14,7 @@ from gpaw import GPAW, debug
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.chi0 import Chi0Calculator
 from gpaw.pw.descriptor import (PWDescriptor,
-                                count_reciprocal_vectors,
-                                PWMapping)
+                                count_reciprocal_vectors)
 from gpaw.response.fxckernel_calc import calculate_kernel
 from gpaw.response.hilbert import GWHilbertTransforms
 from gpaw.response.pair import NoCalculatorPairDensity
@@ -27,6 +25,7 @@ from gpaw.xc.fxc import XCFlags
 from gpaw.xc.tools import vxc
 from gpaw.response.context import calc_and_context
 from gpaw.response.screened_interaction import WCalculator
+
 
 class Sigma:
     def __init__(self, esknshape):
@@ -289,7 +288,7 @@ class G0W0Calculator:
         savepckl: bool
             Save output to a pckl file.
         """
-        self.chi0calc=chi0calc
+        self.chi0calc = chi0calc
         self.wcalc = wcalc
         self.fd = self.wcalc.fd
         self.timer = self.wcalc.timer
@@ -756,10 +755,16 @@ class G0W0Calculator:
         Wdict = {}
         
         for fxc_mode in self.fxc_modes:
-            pdi,blocks1d,chi0_wGG,chi0_wxvG,chi0_wvv=chi0calc.reduce_ecut(ecut,chi0)
-            pdi,W_wGG = self.wcalc.dyson_and_W_old(
-                wstc, iq, q_c, chi0, fxc_mode,pdi,chi0_wGG,chi0_wxvG,chi0_wvv,
-                only_correlation=True)
+            pdi, blocks1d, G2G, chi0_wGG, chi0_wxvG, chi0_wvv = \
+                chi0calc.reduce_ecut(ecut, chi0)
+            pdi, W_wGG = self.wcalc.dyson_and_W_old(wstc, iq,
+                                                    q_c, chi0,
+                                                    fxc_mode,
+                                                    pdi, G2G,
+                                                    chi0_wGG,
+                                                    chi0_wxvG,
+                                                    chi0_wvv,
+                                                    only_correlation=True)
 
             if self.wcalc.ppa:
                 W_xwGG = W_wGG  # (ppa API is nonsense)

@@ -546,11 +546,10 @@ class Chi0Calculator:
 
         return chi0
 
-    def reduce_ecut(self,ecut,chi0):
+    def reduce_ecut(self, ecut, chi0: Chi0Data):
         from gpaw.pw.descriptor import (PWDescriptor,
-                                PWMapping)
+                                        PWMapping)
         from gpaw.response.pw_parallelization import Blocks1D
-        #here
         nG = chi0.pd.ngmax
         blocks1d = chi0.blocks1d
             
@@ -581,9 +580,8 @@ class Chi0Calculator:
                 for a, Q_Gii in enumerate(Q_aGii):
                     Q_aGii[a] = Q_Gii.take(G2G, axis=0)
 
-        return pdi, blocks1d, chi0_wGG, chi0_wxvG, chi0_wvv
+        return pdi, blocks1d, G2G, chi0_wGG, chi0_wxvG, chi0_wvv
         
-    
     @timer('Get kpoints')
     def get_kpoints(self, pd, integrationmode=None):
         """Get the integration domain."""

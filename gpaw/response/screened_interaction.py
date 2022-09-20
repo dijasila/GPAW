@@ -5,7 +5,6 @@ from ase.units import Ha
 from ase.dft.kpoints import monkhorst_pack
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.pw_parallelization import Blocks1D
-from gpaw.pw.descriptor import (PWDescriptor, PWMapping)
 from gpaw.response.gamma_int import GammaIntegrator
 from gpaw.response.kernels import get_coulomb_kernel, get_integrated_kernel
 from gpaw.response.temp import DielectricFunctionCalculator
@@ -49,7 +48,7 @@ def initialize_w_calculator(chi0calc, txt='w.txt', ppa=False, xc='RPA',
     wd = chi0calc.wd
     pair = chi0calc.pair
 
-    wcalc = WCalculator(wd,pair,gs,ppa,
+    wcalc = WCalculator(wd, pair, gs, ppa,
                         xckernel,
                         context,
                         E0,
@@ -62,7 +61,7 @@ def initialize_w_calculator(chi0calc, txt='w.txt', ppa=False, xc='RPA',
 
 class WCalculator:
     def __init__(self,
-                 wd,pair,gs,
+                 wd, pair, gs,
                  ppa,
                  xckernel,
                  context,
@@ -197,17 +196,16 @@ class WCalculator:
         Wm_wGG = W_WgG.copy()
         return chi0.pd, Wm_wGG, Wp_wGG  # not Hilbert transformed yet
 
-
-    def dyson_and_W_old(self, wstc, iq, q_c, chi0,fxc_mode,
-                         pdi=None, chi0_wGG=None,chi0_wxvG=None,
-                         chi0_wvv=None, only_correlation=False):
-        pd=chi0.pd
+    def dyson_and_W_old(self, wstc, iq, q_c, chi0, fxc_mode,
+                        pdi=None, G2G=None, chi0_wGG=None, chi0_wxvG=None,
+                        chi0_wvv=None, only_correlation=False):
+        pd = chi0.pd
         if(pdi is None):
             chi0_wGG = chi0.chi0_wGG
             chi0_wxvG = chi0.chi0_wxvG
             chi0_wvv = chi0.chi0_wvv
             pdi = pd
-        nG=pdi.ngmax
+        nG = pdi.ngmax
         wblocks1d = Blocks1D(self.blockcomm, len(self.wd))
         if self.integrate_gamma != 0:
             reduced = (self.integrate_gamma == 2)
