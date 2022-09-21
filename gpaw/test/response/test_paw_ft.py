@@ -7,6 +7,7 @@ from functools import partial
 
 # Script modules
 from ase import Atoms
+from ase.units import Bohr
 from ase.build import bulk
 
 from gpaw import GPAW, PW, FermiDirac
@@ -244,6 +245,12 @@ class MockedResponseGroundStateAdapter:
 
     def get_mocked_pseudo_density(self):
         """Mock up the pseudo density on the real space grid."""
+        # We assume a single atom, centered in the unit cell
+        pos_ac = self.atoms.get_scaled_positions()
+        assert pos_ac.shape[0] == 1
+        assert np.allclose(pos_ac, np.array([[0.5, 0.5, 0.5]]))
+
+        # Extract data
         rcut = np.max(self.setups[0].data.rcut_j)
         rgd = self.setups[0].xc_correction.rgd
         gcut = rgd.floor(rcut)
@@ -265,7 +272,7 @@ class MockedResponseGroundStateAdapter:
         # on the cubic real space grid
         nt_G = self.gd.zeros()
         lfc = LFC(self.gd, [[spline]])
-        lfc.set_positions(self.atoms.positions)
+        lfc.set_positions(pos_ac)
         lfc.add(nt_G)  # Add pseudo density from spline to pseudo density array
 
         # Make it possible to set up a spin polarized one in the future? XXX
