@@ -28,28 +28,19 @@ def initialize_w_calculator(chi0calc, txt='w.txt', ppa=False, xc='RPA',
                             E0=Ha, Eg=None, fxc_mode='GW',
                             truncation=None, integrate_gamma=0,
                             q0_correction=False):
-    from gpaw.response.g0w0 import G0W0Kernel
     """A function to initialize a WCalculator with more readable inputs
     than the actual calculator.
     chi0calc: Chi0Calculator
+
     txt: str
          Text output file
-    ppa: bool
-         Sets whether the Godby-Needs plasmon-pole approximation for the
-         dielectric function should be used.
     xc: str
          Kernel to use when including vertex corrections.
     world: MPI communicator
     timer: timer
-    E0: float
-        Energy (in eV) used for fitting the ppa
     Eg: float
         Gap to apply in the 'JGMs' (simplified jellium-with-gap) kernel.
         If None the DFT gap is used.
-    fxc_mode: str
-        Where to include the vertex corrections; polarizability and/or
-        self-energy. 'GWP': Polarizability only, 'GWS': Self-energy only,
-        'GWG': Both.
     truncation: str
          Coulomb truncation scheme. Can be either wigner-seitz,
          2D, 1D, or 0D
@@ -59,10 +50,9 @@ def initialize_w_calculator(chi0calc, txt='w.txt', ppa=False, xc='RPA',
          symmetry slightly. 0 is analytical integration at q=[0,0,0] only
          this conserves the symmetry. integrate_gamma=2 is the same as 1,
          but the average is only carried out in the non-periodic directions.
-    q0_correction: bool
-         Analytic correction to the q=0 contribution applicable to 2D
-         systems.
+    Remaining kwargs: See WCalculator
     """
+    from gpaw.response.g0w0 import G0W0Kernel
     gs = chi0calc.gs
     context = new_context(txt, world, timer)
     if Eg is None and xc == 'JGMsx':
