@@ -79,8 +79,8 @@ def test_Fe_bxc(in_tmp_dir):
 # ---------- Test functionality ---------- #
 
 
-def mock_up_calc_with_predefined_density(atom_centered_density):
-    """Given an atom centered density, mock up a ground state calculator
+def get_mocked_gs_adapter(atom_centered_density, **kwargs):
+    """Given an atom centered density, mock up a ground state adapter
     with that given density.
 
     Parameters
@@ -88,6 +88,8 @@ def mock_up_calc_with_predefined_density(atom_centered_density):
     atom_centered_density : method
         Function generating an arbitrary electron density as a function
         of the input position r.
+    kwargs : dict
+        Arguments for the GPAW calculator.
     """
     # We use a Helium atom, since it does not have any frozen core and
     # a cutoff radius, which is more representative of the periodic table,
@@ -95,7 +97,10 @@ def mock_up_calc_with_predefined_density(atom_centered_density):
     atoms = Atoms('He', cell=[10., 10., 10.])
     atoms.center()
 
-    return atoms
+    calc = GPAW(**kwargs)
+    gs = MockedResponseGroundStateAdapter(atoms, calc, atom_centered_density)
+
+    return gs
 
 
 class MockedResponseGroundStateAdapter:
