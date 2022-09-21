@@ -10,6 +10,7 @@ from ase import Atoms
 from ase.build import bulk
 
 from gpaw import GPAW, PW, FermiDirac
+from gpaw.xc.pawcorrection import PAWXCCorrection
 from gpaw.response.pawft import AllElectronDensityFT
 from gpaw.response.mft import PlaneWaveBxc
 from gpaw.response.susceptibility import get_pw_coordinates
@@ -171,6 +172,7 @@ def get_mocked_gs_adapter(atom_centered_density, **kwargs):
 
 class MockedResponseGroundStateAdapter:
     def __init__(self, atoms, calc, atom_centered_density):
+        assert len(atoms) == 1
         self.atoms = atoms
         self.atom_centered_density = atom_centered_density
 
@@ -178,21 +180,65 @@ class MockedResponseGroundStateAdapter:
         self._calc = calc
 
         self.gd = self.get_real_space_grid()
-        self.setups = self.initialize_paw_setups()
-        self.nt_sG = self.calculate_pseudo_density()
+        self.setups = self.get_mocked_paw_setups()
+        self.nt_sG = self.get_mocked_pseudo_density()
 
     def get_real_space_grid(self):
         """Take the real-space grid from the initialized calculator."""
         return self._calc.wfs.gd
 
-    def initialize_paw_setups(self):
+    def get_mocked_paw_setups(self):
         # Create PAW setups and fill in the pseudo and all electron
         # density on the radial grid
-        setups = self._calc.wfs.setups
+        setup = self._calc.wfs.setups[0]  # only a single atom
+        xc_correction = setup.xc_correction
+        rgd = xc_correction.rgd
 
-        return setups
+        # NB: Hard-coded to 1s angular dependence for now! XXX
+        # Calculate all-electron partial wave
+        n_g = self.atom_centered_density(rgd.r_g)
+        w_jg = np.zeros((xc_correction.nj, len(n_g)), dtype=float)
+        w_jg[0, :] += np.sqrt(n_g)
 
-    def calculate_pseudo_density(self, atom_centered_density):
+        # Pseudize to get the pseudo partial wave
+        rcut = setup.data.rcut_j[0]
+        gcut = rgd.floor(rcut)
+        wt_jg = w_jg.copy()
+        wt_jg[0, :] = rgd.pseudize(w_jg[0, :], gcut, l=0)
+
+        # No core electrons!
+        nc_g = rgd.zeros()
+        nct_g = rgd.zeros()
+
+        # Get remaining xc_correction arguments
+        jl = list(enumerate(setup.data.l_j))
+        lmax = int(np.sqrt(xc_correction.Lmax)) - 1
+        e_xc0 = xc_correction.e_xc0
+        phicorehole_g = None
+        fcorehole = 0.0
+        tauc_g = xc_correction.tauc_g
+        tauct_g = xc_correction.tauct_g
+
+        # Set up mocked xc_correction object
+        mocked_xc_correction = PAWXCCorrection(
+            w_jg,
+            wt_jg,
+            nc_g,
+            nct_g,
+            rgd,
+            jl,
+            lmax,
+            e_xc0,
+            phicorehole_g,
+            fcorehole,
+            tauc_g,
+            tauct_g)
+
+        setup.xc_correction = mocked_xc_correction
+
+        return [setup]
+
+    def get_mocked_pseudo_density(self):
         # Calculate and return pseudo density
         pass
 
