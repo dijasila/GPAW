@@ -50,7 +50,7 @@ def initialize_w_calculator(chi0calc, txt='w.txt', ppa=False, xc='RPA',
          symmetry slightly. 0 is analytical integration at q=[0,0,0] only
          this conserves the symmetry. integrate_gamma=2 is the same as 1,
          but the average is only carried out in the non-periodic directions.
-    Remaining kwargs: See WCalculator
+    Remaining arguments: See WCalculator
     """
     from gpaw.response.g0w0 import G0W0Kernel
     gs = chi0calc.gs
