@@ -2,20 +2,86 @@
 
 # General modules
 import numpy as np
+import pytest
+from functools import partial
 
 # Script modules
 from ase import Atoms
 from ase.build import bulk
 
 from gpaw import GPAW, PW, FermiDirac
+from gpaw.response.pawft import AllElectronDensityFT
 from gpaw.response.mft import PlaneWaveBxc
 from gpaw.response.susceptibility import get_pw_coordinates
 from gpaw.test.response.test_site_kernels import get_PWDescriptor
 
 
+# ---------- Test parametrization ---------- #
+
+
+def ae_1s_density(r_gv, a0=1.0):
+    """Construct the density from a 1s orbital on an atom centered
+    grid r_gv, (g=grid index, v=cartesian coordinates)."""
+    prefactor = 1 / (np.pi * a0**3.)
+    n_g = prefactor * np.exp(-2. * np.linalg.norm(r_gv, axis=-1) / a0)
+
+    return n_g
+
+
+def ae_1s_density_plane_waves(pd, atom_position_v, a0=1.0):
+    """Calculate the plane-wave components of the density from a 1s
+    orbital centered at a given position analytically."""
+    # To do: Write me XXX
+    pass
+
+
 # ---------- Actual tests ---------- #
 
 
+@pytest.mark.response
+def test_atomic_orbital_densities(in_tmp_dir):
+    """Test that the LocalPAWFT is able to correctly Fourier transform
+    the all-electron density of atomic orbitals."""
+    # ---------- Inputs ---------- #
+
+    # Ground state calculator
+    mode = PW(200)
+    nbands = 6
+
+    # Atomic densities
+    a0_a = np.arange(0.5, 1.5)
+
+    # Plane-wave components
+    ecut = 100
+
+    # To do: Test the calculator params of LocalPAWFT XXX
+    # To do: Test different orbitals XXX
+    # To do: Test combinations of orbitals XXX
+
+    # ---------- Script ---------- #
+
+    for a0 in a0_a:
+        # Set up ground state adapter
+        atom_centered_density = partial(ae_1s_density, a0=a0)
+        gs = get_mocked_gs_adapter(atom_centered_density,
+                                   mode=mode, nbands=nbands)
+
+        # Set up FT calculator and plane-wave descriptor
+        aenft = AllElectronDensityFT(gs)
+        pd = get_PWDescriptor(gs.atoms, gs.get_calc(), [0., 0., 0.],
+                              ecut=ecut,
+                              gammacentered=True)
+
+        # Calculate the plane-wave components of the all electron density
+        n_G = aenft(pd)
+
+        # Calculate analytically and check validity of results
+        atom_position_v = gs.atoms.positions[0]
+        ntest_G = ae_1s_density_plane_waves(pd, atom_position_v, a0=a0)
+        assert np.allclose(n_G, ntest_G)
+        
+
+@pytest.mark.response
 def test_Fe_bxc(in_tmp_dir):
     """Test the symmetry relation
 
@@ -109,16 +175,16 @@ class MockedResponseGroundStateAdapter:
         self.atom_centered_density = atom_centered_density
 
         calc.initialize(atoms)
+        self._calc = calc
 
-        self.gd = self.get_real_space_grid(calc)
+        self.gd = self.get_real_space_grid()
         self.nt_sG = self.calculate_pseudo_density()
-        self.setups = self.initialize_paw_setups(calc)
-        self.D_asp = self.initialize_core_electrons(calc)
+        self.setups = self.initialize_paw_setups()
+        self.D_asp = self.initialize_core_electrons()
 
-    @staticmethod
-    def get_real_space_grid(calc):
+    def get_real_space_grid(self):
         """Take the real-space grid from the initialized calculator."""
-        return calc.wfs.gd
+        return self._calc.wfs.gd
 
     def calculate_pseudo_density(self, atom_centered_density):
         # Calculate and return pseudo density
@@ -132,6 +198,9 @@ class MockedResponseGroundStateAdapter:
     def initialize_core_electrons(self):
         # Setup core electron array to reflect no core electrons
         pass
+
+    def get_calc(self):
+        return self._calc
 
     def all_electron_density(self, gridrefinement=1):
         # Calculate and return the all electron density
