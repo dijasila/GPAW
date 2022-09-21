@@ -1,5 +1,5 @@
 import pytest
-from gpaw import GPAW, FermiDirac
+from gpaw import GPAW
 from gpaw.xc.fxc import FXCCorrelation
 from ase.units import Hartree
 
@@ -8,7 +8,8 @@ from ase.units import Hartree
 def test_xc_short_range(in_tmp_dir, gpw_files):
     calc = GPAW(gpw_files['si_pw'], parallel={'domain': 1})
     calc.diagonalize_full_hamiltonian()
-    # have to write/read this file or FXCCorrelation crashes when passed calc with mpi.world > 1
+    # have to write/read this file or FXCCorrelation crashes
+    # when passed calc with mpi.world > 1
     calc.write('si.lda_wfcs.gpw', mode='all')
 
     fxc = FXCCorrelation('si.lda_wfcs.gpw',
