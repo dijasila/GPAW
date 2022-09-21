@@ -1,6 +1,6 @@
 class BaseArrayInterface:
     _module = None  # replace with array module (pycuda, numpy, ...)
-    _array = None   # replace with array class (GPUArray, numpy.array, ...)
+    _array = None   # replace with array class (GPUArray, ndarray, ...)
 
     @property
     def Array(self):
@@ -74,7 +74,7 @@ class PyCudaArrayInterface(BaseArrayInterface):
 
 class HostArrayInterface(BaseArrayInterface):
     import numpy as _module
-    _array = _module.array
+    _array = _module.ndarray
 
     def axpbyz(self, a, x, b, y, z):
         z = a * x + b * y
