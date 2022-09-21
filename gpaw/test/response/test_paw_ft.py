@@ -11,7 +11,7 @@ from ase.build import bulk
 
 from gpaw import GPAW, PW, FermiDirac
 from gpaw.lfc import LFC
-from gpaw.atom.radialgd import RadialGridDescriptor
+from gpaw.atom.radialgd import AERadialGridDescriptor
 from gpaw.xc.pawcorrection import PAWXCCorrection
 from gpaw.response.pawft import AllElectronDensityFT
 from gpaw.response.mft import PlaneWaveBxc
@@ -247,19 +247,13 @@ class MockedResponseGroundStateAdapter:
         rcut = np.max(self.setups[0].data.rcut_j)
         rgd = self.setups[0].xc_correction.rgd
         gcut = rgd.floor(rcut)
-        r_g = rgd.r_g
-        dr_g = rgd.dr_g
 
         # We start out by setting up a new radial grid descriptor, which
         # matches the atomic one inside the PAW sphere, but extends all the
         # way to the edge of the unit cell
-        newr_g = list(r_g[:gcut])
-        newdr_g = list(dr_g[:gcut])
         redge = np.linalg.norm(self.atoms.positions[0]) / np.sqrt(3)
-        dr = newr_g[-1] - newr_g[-2]
-        newr_g += list(np.arange(newr_g[-1], redge, dr)[1:])
-        newdr_g += [dr] * (len(newr_g) - gcut)
-        newrgd = RadialGridDescriptor(np.array(newr_g), np.array(newdr_g))
+        Ng = int(np.floor(redge / (rgd.a + rgd.b * redge)) + 1)
+        newrgd = AERadialGridDescriptor(rgd.a, rgd.b, N=Ng)
 
         # Generate pseudo density and splines on the new radial grid
         # NB: Hard-coded to 1s angular dependence for now! XXX
