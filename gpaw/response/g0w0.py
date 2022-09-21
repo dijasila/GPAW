@@ -28,6 +28,15 @@ from gpaw.xc.fxc import XCFlags
 from ase.utils.filecache import MultiFileJSONCache as FileCache
 from contextlib import ExitStack
 from ase.parallel import broadcast
+from gpaw.mpi import Parallelization
+
+def split_qcommunicators(comm, nq):
+    par = Parallelization(comm, None)
+    assert comm.size % nq == 0
+    communicators = par.build_communicators(nq, comm.size // nq, 1)
+    assert communicators['d'].size == comm.size // nq, (communicators['d'].size, nq)
+    return communicators['d']
+    
 
 
 class Sigma:
@@ -308,7 +317,8 @@ class G0W0Calculator:
                  eta,
                  ecut_e,
                  frequencies=None,
-                 savepckl=True):
+                 savepckl=True,
+                 qparallel=1):
         """G0W0 calculator, initialized through G0W0 object.
 
         The G0W0 calculator is used is used to calculate the quasi
@@ -352,6 +362,7 @@ class G0W0Calculator:
         self.wcalc = wcalc
         self.fd = self.wcalc.fd
         self.timer = self.wcalc.timer
+        self.qparallel = qparallel
 
         # Note: self.wcalc.wd should be our only representation
         # of the frequencies.
@@ -367,9 +378,7 @@ class G0W0Calculator:
                 'PPA is currently not compatible with block parallelisation.')
 
         self.world = self.wcalc.context.world
-
-        # TODO: # implement q-point parallelism over this.
-        self.qcomm = self.world
+        self.qcomm = split_qcommunicators(self.world, self.qparallel)
         self.fd = self.fd
 
         print(gw_logo, file=self.fd)
@@ -1044,6 +1053,7 @@ class G0W0(G0W0Calculator):
                  omega2=None,  # deprecated
                  nblocks=1,
                  nblocksmax=False,
+                 qparallel=1,
                  kpts=None,
                  world=mpi.world,
                  timer=None,
@@ -1136,6 +1146,7 @@ class G0W0(G0W0Calculator):
             Save output to a pckl file.
         """
 
+
         frequencies = get_frequencies(frequencies, domega0, omega2)
 
         self._gpwfile = calc
@@ -1216,4 +1227,5 @@ class G0W0(G0W0Calculator):
                          bands=bands,
                          frequencies=frequencies,
                          kpts=kpts,
+                         qparallel=qparallel,
                          **kwargs)
