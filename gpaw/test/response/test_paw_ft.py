@@ -99,18 +99,21 @@ def mock_up_calc_with_predefined_density(atom_centered_density):
 
 
 class MockedResponseGroundStateAdapter:
-    def __init__(self, atoms, atom_centered_density):
+    def __init__(self, atoms, calc, atom_centered_density):
         self.atoms = atoms
         self.atom_centered_density = atom_centered_density
 
-        self.gd = self.create_real_space_grid()
-        self.nt_sG = self.calculate_pseudo_density()
-        self.setups = self.initialize_paw_setups()
-        self.D_asp = self.initialize_core_electrons()
+        calc.initialize(atoms)
 
-    def create_real_space_grid(self, atoms):
-        # Should return gd
-        pass
+        self.gd = self.get_real_space_grid(calc)
+        self.nt_sG = self.calculate_pseudo_density()
+        self.setups = self.initialize_paw_setups(calc)
+        self.D_asp = self.initialize_core_electrons(calc)
+
+    @staticmethod
+    def get_real_space_grid(calc):
+        """Take the real-space grid from the initialized calculator."""
+        return calc.wfs.gd
 
     def calculate_pseudo_density(self, atom_centered_density):
         # Calculate and return pseudo density
