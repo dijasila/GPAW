@@ -499,3 +499,14 @@ class LocalPAWFT(ABC):
         Gdir_myGv[mask0] = G_myGv[mask0] / Gnorm_myG[mask0][:, np.newaxis]
 
         return Gnorm_myG, Gdir_myGv
+
+
+class AllElectronDensityFT(LocalPAWFT):
+    """Calculator class for the plane-wave components of the all-electron
+    density n(G)."""
+
+    def _add_f(self, gd, n_sR, f_R):
+        """Calculate the real-space quantity in question as a function of the local
+        (spin-)density on a given real-space grid and add it to a given output
+        array."""
+        f_R += np.sum(n_sR, axis=0)
