@@ -129,8 +129,9 @@ class ConstantElectricField(ExternalPotential):
         direction: vector
             Polarisation direction.
         """
-        d_v = np.asarray(direction)
-        self.field_v = strength * d_v / (d_v**2).sum()**0.5 * Bohr / Ha
+        self.direction_v = np.array(direction, dtype=float)
+        self.direction_v /= np.linalg.norm(self.direction_v)
+        self.field_v = strength * self.direction_v * Bohr / Ha
         self.tolerance = tolerance
         self.name = 'ConstantElectricField'
 
@@ -156,7 +157,7 @@ class ConstantElectricField(ExternalPotential):
         strength = (self.field_v**2).sum()**0.5
         return {'name': self.name,
                 'strength': strength * Ha / Bohr,
-                'direction': self.field_v / strength}
+                'direction': self.direction_v}
 
 
 class ProductPotential(ExternalPotential):
@@ -377,7 +378,7 @@ def static_polarizability(atoms, strength=0.01):
     calc = atoms.calc
     assert calc.parameters.external is None
     dipole_gs = calc.get_dipole_moment()
-    
+
     alpha = np.zeros((3, 3))
     for c in range(3):
         axes = np.zeros(3)
