@@ -10,6 +10,8 @@ from ase import Atoms
 from ase.build import bulk
 
 from gpaw import GPAW, PW, FermiDirac
+from gpaw.lfc import LFC
+from gpaw.atom.radialgd import RadialGridDescriptor
 from gpaw.xc.pawcorrection import PAWXCCorrection
 from gpaw.response.pawft import AllElectronDensityFT
 from gpaw.response.mft import PlaneWaveBxc
@@ -56,6 +58,7 @@ def test_atomic_orbital_densities(in_tmp_dir):
     ecut = 100
 
     # To do: Test the calculator params of LocalPAWFT XXX
+    # To do: Test the all-electron version of LocalPAWFT XXX
     # To do: Test different orbitals XXX
     # To do: Test combinations of orbitals XXX
 
@@ -188,8 +191,8 @@ class MockedResponseGroundStateAdapter:
         return self._calc.wfs.gd
 
     def get_mocked_paw_setups(self):
-        # Create PAW setups and fill in the pseudo and all electron
-        # density on the radial grid
+        """Mock up the PAW setups to fill in the pseudo and all electron
+        density on the radial grid."""
         setup = self._calc.wfs.setups[0]  # only a single atom
         xc_correction = setup.xc_correction
         rgd = xc_correction.rgd
@@ -201,12 +204,12 @@ class MockedResponseGroundStateAdapter:
         w_jg[0, :] += np.sqrt(n_g)
 
         # Pseudize to get the pseudo partial wave
-        rcut = setup.data.rcut_j[0]
+        rcut = np.max(setup.data.rcut_j)
         gcut = rgd.floor(rcut)
         wt_jg = w_jg.copy()
         wt_jg[0, :] = rgd.pseudize(w_jg[0, :], gcut, l=0)
 
-        # No core electrons!
+        # No core electrons so far! XXX
         nc_g = rgd.zeros()
         nct_g = rgd.zeros()
 
@@ -239,8 +242,40 @@ class MockedResponseGroundStateAdapter:
         return [setup]
 
     def get_mocked_pseudo_density(self):
-        # Calculate and return pseudo density
-        pass
+        """Mock up the pseudo density on the real space grid."""
+        rcut = np.max(self.setups[0].data.rcut_j)
+        rgd = self.setups[0].xc_correction.rgd
+        gcut = rgd.floor(rcut)
+        r_g = rgd.r_g
+        dr_g = rgd.dr_r
+
+        # We start out by setting up a new radial grid descriptor, which
+        # matches the atomic one inside the PAW sphere, but extends all the
+        # way to the edge of the unit cell
+        newr_g = list(r_g[:gcut])
+        newdr_g = list(dr_g[:gcut])
+        redge = np.linalg.norm(self.atoms.positions[0]) / np.sqrt(3)
+        dr = newr_g[-1] - newr_g[-2]
+        newr_g += list(np.arange(newr_g[-1], redge, dr)[1:])
+        newdr_g += [dr] * (len(newr_g) - gcut)
+        newrgd = RadialGridDescriptor(np.array(newr_g), np.array(newdr_g))
+
+        # Generate pseudo density and splines on the new radial grid
+        # NB: Hard-coded to 1s angular dependence for now! XXX
+        n_g = self.atom_centered_density(newrgd.r_g)
+        nt_g = newrgd.pseudize(n_g, gcut, l=0)
+        spline = newrgd.spline(nt_g, l=0)
+
+        # Use the LocalizedFunctionsCollection to generate pseudo density
+        # on the cubic real space grid
+        nt_G = self.gd.zeros()
+        lfc = LFC(self.gd, [[spline]])
+        lfc.set_positions(self.atoms.positions)
+        lfc.add(nt_G)  # Add pseudo density from spline to pseudo density array
+
+        nt_sG = np.array([nt_G])
+
+        return nt_sG
 
     @property
     def D_asp(self):
