@@ -208,7 +208,7 @@ class MockedResponseGroundStateAdapter:
         rcut = np.max(setup.data.rcut_j)
         gcut = rgd.floor(rcut)
         wt_jg = w_jg.copy()
-        wt_jg[0, :] = rgd.pseudize(w_jg[0, :], gcut, l=0)
+        wt_jg[0, :] = rgd.pseudize(w_jg[0, :], gcut, l=0)[0]
 
         # No core electrons so far! XXX
         nc_g = rgd.zeros()
@@ -248,7 +248,7 @@ class MockedResponseGroundStateAdapter:
         rgd = self.setups[0].xc_correction.rgd
         gcut = rgd.floor(rcut)
         r_g = rgd.r_g
-        dr_g = rgd.dr_r
+        dr_g = rgd.dr_g
 
         # We start out by setting up a new radial grid descriptor, which
         # matches the atomic one inside the PAW sphere, but extends all the
@@ -264,8 +264,8 @@ class MockedResponseGroundStateAdapter:
         # Generate pseudo density and splines on the new radial grid
         # NB: Hard-coded to 1s angular dependence for now! XXX
         n_g = self.atom_centered_density(newrgd.r_g)
-        nt_g = newrgd.pseudize(n_g, gcut, l=0)
-        spline = newrgd.spline(nt_g, l=0)
+        nt_g, _ = newrgd.pseudize(n_g, gcut, l=0)
+        spline = newrgd.spline(nt_g, l=0, rcut=redge)
 
         # Use the LocalizedFunctionsCollection to generate pseudo density
         # on the cubic real space grid
@@ -274,6 +274,7 @@ class MockedResponseGroundStateAdapter:
         lfc.set_positions(self.atoms.positions)
         lfc.add(nt_G)  # Add pseudo density from spline to pseudo density array
 
+        # Make it possible to set up a spin polarized one in the future? XXX
         nt_sG = np.array([nt_G])
 
         return nt_sG
