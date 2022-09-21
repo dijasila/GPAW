@@ -22,11 +22,12 @@ from gpaw.test.response.test_site_kernels import get_PWDescriptor
 # ---------- Test parametrization ---------- #
 
 
-def ae_1s_density(r_gv, a0=1.0):
-    """Construct the density from a 1s orbital on an atom centered
-    grid r_gv, (g=grid index, v=cartesian coordinates)."""
+def ae_1s_density(r_g, a0=1.0):
+    """Construct the radial dependence of the density from a 1s orbital on the
+    radial grid r_g."""
+    assert np.all(r_g >= 0)
     prefactor = 1 / (np.pi * a0**3.)
-    n_g = prefactor * np.exp(-2. * np.linalg.norm(r_gv, axis=-1) / a0)
+    n_g = prefactor * np.exp(-2. * r_g / a0)
 
     return n_g
 
@@ -52,7 +53,7 @@ def test_atomic_orbital_densities(in_tmp_dir):
     nbands = 6
 
     # Atomic densities
-    a0_a = np.arange(0.5, 1.5)
+    a0_a = np.linspace(0.5, 1.5, 10)
 
     # Plane-wave components
     ecut = 100
@@ -156,8 +157,8 @@ def get_mocked_gs_adapter(atom_centered_density, **kwargs):
     Parameters
     ----------
     atom_centered_density : method
-        Function generating an arbitrary electron density as a function
-        of the input position r.
+        Function generating an arbitrary radial dependency of the electron
+        density as a function of the radius r_g.
     kwargs : dict
         Arguments for the GPAW calculator.
     """
