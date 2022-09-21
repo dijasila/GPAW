@@ -140,19 +140,19 @@ class LocalPAWFT(ABC):
 
         return f_G
 
-    def get_pseudo_density(self, pd):
+    def get_pseudo_density(self, gd):
         """Return the pseudo (spin-)density on the coarse real-space grid of the
         ground state."""
-        self.check_grid_equivalence(pd.gd, self.gs.gd)
+        self.check_grid_equivalence(gd, self.gs.gd)
         return self.gs.nt_sG  # nt=pseudo density, G=coarse grid
 
     @timer('Calculating the all-electron density')
-    def get_all_electron_density(self, pd):
+    def get_all_electron_density(self, gd):
         """Calculate the all-electron (spin-)density on the coarse real-space
         grid of the ground state."""
         self.print('    Calculating the all-electron density')
         n_sR, gd1 = self.gs.all_electron_density(gridrefinement=1)
-        self.check_grid_equivalence(pd.gd, gd1)
+        self.check_grid_equivalence(gd, gd1)
 
         return n_sR
 
