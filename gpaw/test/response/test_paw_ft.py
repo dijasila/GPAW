@@ -178,26 +178,27 @@ class MockedResponseGroundStateAdapter:
         self._calc = calc
 
         self.gd = self.get_real_space_grid()
-        self.nt_sG = self.calculate_pseudo_density()
         self.setups = self.initialize_paw_setups()
-        self.D_asp = self.initialize_core_electrons()
+        self.nt_sG = self.calculate_pseudo_density()
 
     def get_real_space_grid(self):
         """Take the real-space grid from the initialized calculator."""
         return self._calc.wfs.gd
 
+    def initialize_paw_setups(self):
+        # Create PAW setups and fill in the pseudo and all electron
+        # density on the radial grid
+        setups = self._calc.wfs.setups
+
+        return setups
+
     def calculate_pseudo_density(self, atom_centered_density):
         # Calculate and return pseudo density
         pass
 
-    def initialize_paw_setups(self):
-        # Create PAW setups and fill in the pseudo and all electron
-        # density on the radial grid
-        pass
-
-    def initialize_core_electrons(self):
-        # Setup core electron array to reflect no core electrons
-        pass
+    @property
+    def D_asp(self):
+        return self._calc.density.D_asp
 
     def get_calc(self):
         return self._calc
