@@ -11,7 +11,7 @@ from ase.build import bulk
 from ase.io import read
 from gpaw import GPAW, PW, Davidson, FermiDirac, setup_paths
 from gpaw.cli.info import info
-from gpaw.mpi import broadcast, world, serial_comm
+from gpaw.mpi import broadcast, world
 from gpaw.utilities import devnull
 
 
@@ -295,8 +295,6 @@ class GPWFiles:
                     xc='LDA',
                     occupations=FermiDirac(width=0.001),
                     kpts={'size': (2, 2, 2), 'gamma': True},
-                    #parallel={'domain': 1},
-                    #communicator=serial_comm,
                     txt='si.gs.txt')
         si.calc = calc
         si.get_potential_energy()

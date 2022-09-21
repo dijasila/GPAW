@@ -1,9 +1,8 @@
 import pytest
-from gpaw.mpi import serial_comm
-from ase.build import bulk
 from gpaw import GPAW, FermiDirac
 from gpaw.xc.fxc import FXCCorrelation
 from ase.units import Hartree
+
 
 @pytest.mark.response
 def test_xc_short_range(in_tmp_dir, gpw_files):
@@ -18,4 +17,3 @@ def test_xc_short_range(in_tmp_dir, gpw_files):
     E_i = fxc.calculate(ecut=[2.25 * Hartree], nbands=100)
 
     assert E_i[0] == pytest.approx(-16.0465, abs=0.01)
-
