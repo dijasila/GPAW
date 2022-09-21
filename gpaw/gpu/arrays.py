@@ -1,14 +1,6 @@
 class BaseArrayInterface:
     _module = None  # replace with array module (pycuda, numpy, ...)
-    _array = None   # replace with array class (GPUArray, ndarray, ...)
-
-    @property
-    def Array(self):
-        return self._array
-
-    @Array.setter
-    def Array(self, x):
-        self._array = x
+    Array = None    # replace with array class (GPUArray, ndarray, ...)
 
     def axpbyz(self, a, x, b, y, z):
         return self._module.axpbyz(a, x, b, y, z)
@@ -46,7 +38,7 @@ class BaseArrayInterface:
 
 class PyCudaArrayInterface(BaseArrayInterface):
     from gpaw.gpu import pycuda as _module
-    _array = _module.GPUArray
+    Array = _module.GPUArray
 
     def sum(self, x, axis=0, out=None):
         return self._module.sum(x, axis=axis, result=out)
@@ -74,7 +66,7 @@ class PyCudaArrayInterface(BaseArrayInterface):
 
 class HostArrayInterface(BaseArrayInterface):
     import numpy as _module
-    _array = _module.ndarray
+    Array = _module.ndarray
 
     def axpbyz(self, a, x, b, y, z):
         z = a * x + b * y
