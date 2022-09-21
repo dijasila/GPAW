@@ -1,10 +1,37 @@
-
+import numpy as np
 from ase import Atoms
-from gpaw import GPAW
+from gpaw import GPAW, PW
+from gpaw.external import ConstantElectricField, ConstantPotential
 from gpaw.test import equal
-from gpaw import PW
 
-from gpaw.external import ConstantPotential
+
+def test_stark_pw():
+    h = Atoms('H', pbc=(1, 1, 0), magmoms=[1])
+    h.center(vacuum=3.0)
+    e = []
+    d = []
+    fields = np.linspace(-0.1, 0.1, 5)
+    for field in fields:
+        h.calc = GPAW(mode=PW(500),
+                      external=ConstantElectricField(field),
+                      poissonsolver={'dipolelayer': 'xy'},
+                      convergence={'eigenstates': 1e-10},
+                      txt=f'H{field:+f}.txt')
+        e.append(h.get_potential_energy())
+        d.append(h.get_dipole_moment()[2])
+
+    p = np.polyfit(fields, e, 2)
+    p4 = np.polyfit(fields, e, 4)
+    pd = np.polyfit(fields, d, 1)
+    print(p, pd)
+    print(p4)
+    from ase.units import Bohr, Ha
+    to_au = Ha / Bohr**2
+    print(p * to_au, pd * to_au)
+
+    import matplotlib.pyplot as plt
+    plt.plot(fields, e)
+    plt.show()
 
 
 def test_ext_potential_external_pw():
