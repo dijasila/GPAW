@@ -183,6 +183,7 @@ class MockedResponseGroundStateAdapter:
 
         calc.initialize(atoms)
         self._calc = calc
+        self._D_asp = self._calc.density.D_asp
 
         self.gd = self.get_real_space_grid()
         self.setups = self.get_mocked_paw_setups()
@@ -240,8 +241,12 @@ class MockedResponseGroundStateAdapter:
             tauct_g)
 
         setup.xc_correction = mocked_xc_correction
+        setups = [setup]
 
-        return [setup]
+        # Set setups onto the private calculator object
+        self._calc.wfs.setups = setups
+
+        return setups
 
     def get_mocked_pseudo_density(self):
         """Mock up the pseudo density on the real space grid."""
@@ -282,7 +287,18 @@ class MockedResponseGroundStateAdapter:
 
     @property
     def D_asp(self):
-        return self._calc.density.D_asp
+        if self._D_asp is None:
+            density = self._calc.density
+            # D_asp = self.setups.empty_atomic_matrix(density.ncomponents,
+            #                                         density.atom_partition)
+            Dshapes_a = [(density.ncomponents, setup.ni * (setup.ni + 1) // 2)
+                         for setup in self.setups]
+            D_asp = density.atom_partition.arraydict(Dshapes_a, float)
+            self._calc.wfs.calculate_atomic_density_matrices(D_asp)
+
+            self._D_asp = D_asp
+
+        return self._D_asp
 
     def get_calc(self):
         return self._calc
