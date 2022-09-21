@@ -295,7 +295,8 @@ class GPWFiles:
                     xc='LDA',
                     occupations=FermiDirac(width=0.001),
                     kpts={'size': (2, 2, 2), 'gamma': True},
-                    communicator=serial_comm,
+                    #parallel={'domain': 1},
+                    #communicator=serial_comm,
                     txt='si.gs.txt')
         si.calc = calc
         si.get_potential_energy()

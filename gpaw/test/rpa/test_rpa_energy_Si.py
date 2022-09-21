@@ -1,11 +1,12 @@
 import pytest
+from gpaw.mpi import serial_comm
 from gpaw import GPAW
 from gpaw.xc.rpa import RPACorrelation
 
 
 @pytest.mark.response
 def test_rpa_rpa_energy_Si(in_tmp_dir, gpw_files):
-    calc = GPAW(gpw_files['si_pw'])
+    calc = GPAW(gpw_files['si_pw'], communicator=serial_comm)
     calc.diagonalize_full_hamiltonian(nbands=50)
 
     ecut = 50
