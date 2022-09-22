@@ -23,21 +23,29 @@ from gpaw.test.response.test_site_kernels import get_PWDescriptor
 # ---------- Test parametrization ---------- #
 
 
-def ae_1s_density(r_g, a0=1.0):
+def ae_1s_density(r_g, a=1.0):
     """Construct the radial dependence of the density from a 1s orbital on the
     radial grid r_g."""
     assert np.all(r_g >= 0)
-    prefactor = 1 / (np.pi * a0**3.)
-    n_g = prefactor * np.exp(-2. * r_g / a0)
+    prefactor = 1 / (np.pi * a**3.)
+    n_g = prefactor * np.exp(-2. * r_g / a)
 
     return n_g
 
 
-def ae_1s_density_plane_waves(pd, atom_position_v, a0=1.0):
+def ae_1s_density_plane_waves(pd, pos_v, a=1.0):
     """Calculate the plane-wave components of the density from a 1s
     orbital centered at a given position analytically."""
-    # To do: Write me XXX
-    pass
+    # List of all plane waves
+    G_Gv = np.array([pd.G_Qv[Q] for Q in pd.Q_qG[0]])
+    Gnorm_G = np.linalg.norm(G_Gv, axis=1)
+
+    position_prefactor_G = np.exp(-1.j * np.dot(G_Gv, pos_v))
+    atomcentered_n_G = 1 / (1 + (Gnorm_G * a / 2.)**2.)**2.
+
+    n_G = position_prefactor_G * atomcentered_n_G
+
+    return n_G
 
 
 # ---------- Actual tests ---------- #
@@ -54,7 +62,7 @@ def test_atomic_orbital_densities(in_tmp_dir):
     nbands = 6
 
     # Atomic densities
-    a0_a = np.linspace(0.5, 1.5, 10)
+    a_a = np.linspace(0.5, 1.5, 10)
 
     # Plane-wave components
     ecut = 100
@@ -66,9 +74,9 @@ def test_atomic_orbital_densities(in_tmp_dir):
 
     # ---------- Script ---------- #
 
-    for a0 in a0_a:
+    for a in a_a:
         # Set up ground state adapter
-        atom_centered_density = partial(ae_1s_density, a0=a0)
+        atom_centered_density = partial(ae_1s_density, a=a)
         gs = get_mocked_gs_adapter(atom_centered_density,
                                    mode=mode, nbands=nbands)
 
@@ -82,8 +90,8 @@ def test_atomic_orbital_densities(in_tmp_dir):
         n_G = aenft(pd)
 
         # Calculate analytically and check validity of results
-        atom_position_v = gs.atoms.positions[0]
-        ntest_G = ae_1s_density_plane_waves(pd, atom_position_v, a0=a0)
+        pos_v = gs.atoms.positions[0]
+        ntest_G = ae_1s_density_plane_waves(pd, pos_v, a=a)
         assert np.allclose(n_G, ntest_G)
         
 
