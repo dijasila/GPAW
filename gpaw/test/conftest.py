@@ -289,6 +289,17 @@ class GPWFiles:
     def ti2o4_pw_nosym(self):
         return self.ti2o4('off')
 
+    def si_pw(self):
+        si = bulk('Si')
+        calc = GPAW(mode='pw',
+                    xc='LDA',
+                    occupations=FermiDirac(width=0.001),
+                    kpts={'size': (2, 2, 2), 'gamma': True},
+                    txt='si.gs.txt')
+        si.calc = calc
+        si.get_potential_energy()
+        return si.calc
+
     def bn_pw(self):
         atoms = bulk('BN', 'zincblende', a=3.615)
         atoms.calc = GPAW(mode=PW(400),
