@@ -134,13 +134,13 @@ def test_propagation(time_propagation_reference,
         if 'band' in parallel:
             # XXX band parallelization is inaccurate!
             rtol = 7e-4
-            atol = 3e-8
+            atol = 5e-8
     else:
         # Other propagators match qualitatively
         rtol = 5e-2
         if 'band' in parallel:
             # XXX band parallelization is inaccurate!
-            atol = 3e-8
+            atol = 5e-8
     check_dm(module_tmp_path / 'dm.dat', 'dm.dat', rtol=rtol, atol=atol)
 
 
