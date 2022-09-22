@@ -230,7 +230,7 @@ class WCalculator:
         # These quantities can be calculated using chi0calc.reduced_ecut()
         pd = chi0.pd
         if pdi is None:
-            chi0_wGG = chi0.chi0_wGG
+            chi0_wGG = chi0.blockdist.redistribute(chi0.chi0_wGG, chi0.nw)
             chi0_wxvG = chi0.chi0_wxvG
             chi0_wvv = chi0.chi0_wvv
             pdi = pd
