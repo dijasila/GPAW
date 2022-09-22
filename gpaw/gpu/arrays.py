@@ -51,13 +51,13 @@ class PyCudaArrayInterface(BaseArrayInterface):
 
     def copy_to_device(self, src, tgt=None, stream=None):
         if stream:
-            if tgt:
+            if tgt is not None:
                 tgt.set_async(src, stream=stream)
                 return tgt
             else:
                 return self._module.to_gpu_async(src, stream=stream)
         else:
-            if tgt:
+            if tgt is not None:
                 tgt.set(src)
                 return tgt
             else:
@@ -75,7 +75,7 @@ class HostArrayInterface(BaseArrayInterface):
         z = a * x + b
 
     def copy_to_host(self, src, tgt=None, stream=None):
-        if tgt:
+        if tgt is not None:
             tgt[:] = src[:]
         else:
             tgt = src.copy()
