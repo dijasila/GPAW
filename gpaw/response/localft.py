@@ -484,7 +484,7 @@ class LocalPAWFTEngine:
 
     @timer('Expand PAW correction in real spherical harmonics')
     def _perform_rshe(self, df_ng, Y_nL):
-        """Expand the angular dependence of Δf_a[n_a,ñ_a](r) in real spherical
+        r"""Expand the angular dependence of Δf_a[n_a,ñ_a](r) in real spherical
         harmonics.
 
           a      / ^    ^                ^
