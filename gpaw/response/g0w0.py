@@ -8,7 +8,7 @@ import gpaw.mpi as mpi
 import numpy as np
 from ase.parallel import paropen
 from ase.units import Ha
-from ase.utils import opencew, pickleload
+from ase.utils import opencew
 from ase.utils.timing import timer
 from gpaw import GPAW, debug
 from gpaw.hybrids.eigenvalues import non_self_consistent_eigenvalues
@@ -24,15 +24,54 @@ from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.xc.fxc import XCFlags
 
+from ase.utils.filecache import MultiFileJSONCache as FileCache
+from contextlib import ExitStack
+from ase.parallel import broadcast
+
 
 class Sigma:
-    def __init__(self, esknshape):
-        self._buf = np.zeros((2, * esknshape))
+    def __init__(self, iq, q_c, fxc, esknshape, **inputs):
+        """Inputs are used for cache invalidation, and are stored for each
+           file.
+        """
+        self.iq = iq
+        self.q_c = q_c
+        self.fxc = fxc
+        self._buf = np.zeros((2, *esknshape))
         # self-energies and derivatives:
         self.sigma_eskn, self.dsigma_eskn = self._buf
 
+        self.inputs = inputs
+
     def sum(self, comm):
         comm.sum(self._buf)
+
+    def __iadd__(self, other):
+        self.validate_inputs(other.inputs)
+        self._buf += other._buf
+        return self
+
+    def validate_inputs(self, inputs):
+        equals = inputs == self.inputs
+        if not equals:
+            raise RuntimeError('There exists a cache with mismatching input '
+                               f'parameters: {inputs} != {self.inputs}.')
+
+    @classmethod
+    def fromdict(cls, dct):
+        instance = cls(dct['iq'], dct['q_c'], dct['fxc'],
+                       dct['sigma_eskn'].shape, **dct['inputs'])
+        instance.sigma_eskn[:] = dct['sigma_eskn']
+        instance.dsigma_eskn[:] = dct['dsigma_eskn']
+        return instance
+
+    def todict(self):
+        return {'iq': self.iq,
+                'q_c': self.q_c,
+                'fxc': self.fxc,
+                'sigma_eskn': self.sigma_eskn,
+                'dsigma_eskn': self.dsigma_eskn,
+                'inputs': self.inputs}
 
 
 class G0W0Outputs:
@@ -331,6 +370,9 @@ class G0W0Calculator:
                 'PPA is currently not compatible with block parallelisation.')
 
         self.world = self.wcalc.context.world
+
+        # TODO: # implement q-point parallelism over this.
+        self.qcomm = self.world
         self.fd = self.fd
 
         print(gw_logo, file=self.fd)
@@ -345,12 +387,29 @@ class G0W0Calculator:
             assert self.wcalc.fxc_mode != 'GW'
             if restartfile is not None:
                 raise RuntimeError('Restart function does not currently work '
-                                   'with do_GW_too=True.')
+                                   'with do_GW_too=True.')  # Or does it?
 
         self.filename = filename
+        if restartfile is None:
+            restartfile = 'qcache_' + self.filename
+
         self.restartfile = restartfile
         self.savepckl = savepckl
         self.eta = eta / Ha
+
+        if self.qcomm.rank == 0:
+            # We pass a serial communicator because the parallel handling
+            # is somewhat wonky, we'd rather do that ourselves:
+            try:
+                self.qcache = FileCache(self.restartfile,
+                                        comm=mpi.SerialCommunicator())
+            except TypeError as err:
+                raise RuntimeError(
+                    'File cache requires ASE master '
+                    'from September 20 2022 or newer.  '
+                    'You may need to pull newest ASE.') from err
+
+            self.qcache.strip_empties()
 
         self.kpts = kpts
         self.bands = bands
@@ -449,76 +508,56 @@ class G0W0Calculator:
         All the values are ``ndarray``'s of shape
         (spins, IBZ k-points, bands)."""
 
-        loaded = False
-        if self.restartfile is not None:
-            loaded = self.load_restart_file()
-            if not loaded:
-                self.last_q = -1
-                self.previous_sigma = 0.
-                self.previous_dsigma = 0.
-
-            else:
-                print('Reading ' + str(self.last_q + 1) +
-                      ' q-point(s) from the previous calculation: ' +
-                      self.restartfile + '.sigma.pckl', file=self.fd)
-        else:
-            self.last_q = -1
-            self.previous_sigma = 0.
-            self.previous_dsigma = 0.
-
-        self.fd.flush()
-
-        # Reset calculation
-        sigmashape = (len(self.ecut_e), *self.shape)
-
-        self.sigmas = {fxc_mode: Sigma(sigmashape)
-                       for fxc_mode in self.fxc_modes}
         # Loop over q in the IBZ:
         print('Summing all q:', file=self.fd)
-        pb = ProgressBar(self.fd)
-        for nQ, (ie, pd0, Wdict, q_c, m2, symop, blocks1d, Q_aGii) in \
-                enumerate(self.calculate_screened_potential()):
 
-            for progress, kpt1, kpt2 in self.pair_distribution.kpt_pairs_by_q(
-                    q_c, 0, m2):
-                pb.update((nQ + progress) / self.wcalc.qd.mynk)
+        self.calculate_all_q_points()
 
-                k1 = self.wcalc.gs.kd.bz2ibz_k[kpt1.K]
-                i = self.kpts.index(k1)
+        sigmas = self.read_sigmas()
+        self.all_results = self.postprocess(sigmas)
+        # Note: self.results is a pointer pointing to one of the results,
+        # for historical reasons.
+        return self.results
 
-                self.calculate_q(ie, i, kpt1, kpt2, pd0, Wdict,
-                                 symop=symop,
-                                 sigmas=self.sigmas,
-                                 blocks1d=blocks1d,
-                                 Q_aGii=Q_aGii)
-        pb.finish()
-
-        return self.postprocess(self.sigmas, loaded)
-
-    def postprocess(self, sigmas, loaded):
+    def postprocess(self, sigmas):
         all_results = {}
         for fxc_mode, sigma in sigmas.items():
-            all_results[fxc_mode] = self.postprocess_single(fxc_mode, sigma,
-                                                            loaded)
-        self.all_results = all_results
-        self.print_results(self.all_results)
+            all_results[fxc_mode] = self.postprocess_single(fxc_mode, sigma)
 
-        # After we have written the results restartfile is obsolete
-        if self.restartfile is not None:
-            if self.world.rank == 0:
-                if os.path.isfile(self.restartfile + '.sigma.pckl'):
-                    os.remove(self.restartfile + '.sigma.pckl')
+        self.print_results(all_results)
+        return all_results
 
-        return self.results  # XXX ugly discrepancy
+    def read_sigmas(self):
+        if self.world.rank == 0:
+            sigmas = self._read_sigmas()
+        else:
+            sigmas = None
 
-    def postprocess_single(self, fxc_name, sigma, loaded):
-        sigma.sum(self.world)  # (Not so pretty that we finalize the sum here)
+        return broadcast(sigmas, comm=self.world)
 
-        if self.restartfile is not None and loaded:
-            assert not self.do_GW_too
-            sigma.sigma_eskn += self.previous_sigma
-            sigma.dsigma_eskn += self.previous_dsigma
+    def _read_sigmas(self):
+        assert self.world.rank == 0
 
+        # Integrate over all q-points, and accumulate the quasiparticle shifts
+        for iq, q_c in enumerate(self.wcalc.qd.ibzk_kc):
+            key = str(iq)
+
+            sigmas_contrib = self.get_sigmas_dict(key)
+
+            if iq == 0:
+                sigmas = sigmas_contrib
+            else:
+                for fxc_mode in self.fxc_modes:
+                    sigmas[fxc_mode] += sigmas_contrib[fxc_mode]
+
+        return sigmas
+
+    def get_sigmas_dict(self, key):
+        assert self.world.rank == 0
+        return {fxc_mode: Sigma.fromdict(sigma)
+                for fxc_mode, sigma in self.qcache[key].items()}
+
+    def postprocess_single(self, fxc_name, sigma):
         output = self.calculate_g0w0_outputs(sigma)
         result = output.get_results_eV()
 
@@ -658,14 +697,13 @@ class G0W0Calculator:
 
         return sigma, dsigma
 
-    def calculate_screened_potential(self):
-        """Calculates the screened potential for each q-point in the 1st BZ.
-        Since many q-points are related by symmetry, the actual calculation is
-        only done for q-points in the IBZ and the rest are obtained by symmetry
-        transformations. Results are returned as a generator to that it is not
-        necessary to store a huge matrix for each q-point in the memory."""
-        # The decorator $timer('W') doesn't work for generators, do we will
-        # have to manually start and stop the timer here:
+    def calculate_all_q_points(self):
+        """Main loop over irreducible Brillouin zone points.
+        Handles restarts of individual qpoints using FileCache from ASE,
+        and subsequently calls calculate_q."""
+       
+        pb = ProgressBar(self.fd)
+
         self.timer.start('W')
         print('\nCalculating screened Coulomb potential', file=self.fd)
         if self.wcalc.truncation is not None:
@@ -708,45 +746,97 @@ class G0W0Calculator:
 
         # Need to pause the timer in between iterations
         self.timer.stop('W')
+        if self.qcomm.rank == 0:
+            for key, sigmas in self.qcache.items():
+                sigmas = {fxc_mode: Sigma.fromdict(sigma)
+                          for fxc_mode, sigma in sigmas.items()}
+                for fxc_mode, sigma in sigmas.items():
+                    sigma.validate_inputs(self.get_validation_inputs())
+
+        self.world.barrier()
         for iq, q_c in enumerate(self.wcalc.qd.ibzk_kc):
-            if iq <= self.last_q:
-                continue
-
-            if len(self.ecut_e) > 1:
-                chi0bands = chi0calc.create_chi0(q_c, extend_head=False)
-            else:
-                chi0bands = None
-
-            m1 = chi0calc.nocc1
-            for ie, ecut in enumerate(self.ecut_e):
-                self.timer.start('W')
-
-                # First time calculation
-                if ecut == chi0calc.ecut:
-                    # Nothing to cut away:
-                    m2 = self.nbands
+            with ExitStack() as stack:
+                if self.qcomm.rank == 0:
+                    qhandle = stack.enter_context(self.qcache.lock(str(iq)))
+                    skip = qhandle is None
                 else:
-                    m2 = int(self.wcalc.gs.volume * ecut**1.5
-                             * 2**0.5 / 3 / pi**2)
-                    if m2 > self.nbands:
-                        raise ValueError(f'Trying to extrapolate ecut to'
-                                         f'larger number of bands ({m2})'
-                                         f' than there are bands '
-                                         f'({self.nbands}).')
-                pdi, Wdict, blocks1d, Q_aGii = self.calculate_w(
-                    chi0calc, q_c, chi0bands,
-                    m1, m2, ecut, wstc, iq)
-                m1 = m2
+                    skip = False
 
-                self.timer.stop('W')
+                skip = broadcast(skip, comm=self.qcomm)
 
-                for Q_c, symop in QSymmetryOp.get_symops(
-                        self.wcalc.qd, iq, q_c):
-                    yield (ie, pdi, Wdict, Q_c, m2, symop,
-                           blocks1d, Q_aGii)
+                if skip:
+                    continue
 
-                if self.restartfile is not None:
-                    self.save_restart_file(iq)
+                result = self.calculate_q_point(iq, q_c, pb, wstc, chi0calc)
+
+                if self.qcomm.rank == 0:
+                    qhandle.save(result)
+        pb.finish()
+
+    def calculate_q_point(self, iq, q_c, pb, wstc, chi0calc):
+        # Reset calculation
+        sigmashape = (len(self.ecut_e), *self.shape)
+        sigmas = {fxc_mode: Sigma(iq, q_c, fxc_mode, sigmashape,
+                  **self.get_validation_inputs())
+                  for fxc_mode in self.fxc_modes}
+
+        if len(self.ecut_e) > 1:
+            chi0bands = chi0calc.create_chi0(q_c, extend_head=False)
+        else:
+            chi0bands = None
+
+        m1 = chi0calc.nocc1
+        for ie, ecut in enumerate(self.ecut_e):
+            self.timer.start('W')
+
+            # First time calculation
+            if ecut == chi0calc.ecut:
+                # Nothing to cut away:
+                m2 = self.nbands
+            else:
+                m2 = int(self.wcalc.gs.volume * ecut**1.5
+                         * 2**0.5 / 3 / pi**2)
+                if m2 > self.nbands:
+                    raise ValueError(f'Trying to extrapolate ecut to'
+                                     f'larger number of bands ({m2})'
+                                     f' than there are bands '
+                                     f'({self.nbands}).')
+            pdi, Wdict, blocks1d, Q_aGii = self.calculate_w(
+                chi0calc, q_c, chi0bands,
+                m1, m2, ecut, wstc, iq)
+            m1 = m2
+
+            self.timer.stop('W')
+
+            for nQ, (bzq_c, symop) in enumerate(QSymmetryOp.get_symops(
+                    self.wcalc.qd, iq, q_c)):
+
+                for (progress, kpt1, kpt2)\
+                    in self.pair_distribution.kpt_pairs_by_q(bzq_c, 0, m2):
+                    pb.update((nQ + progress) / self.wcalc.qd.mynk)
+
+                    k1 = self.wcalc.gs.kd.bz2ibz_k[kpt1.K]
+                    i = self.kpts.index(k1)
+
+                    self.calculate_q(ie, i, kpt1, kpt2, pdi, Wdict,
+                                     symop=symop,
+                                     sigmas=sigmas,
+                                     blocks1d=blocks1d,
+                                     Q_aGii=Q_aGii)
+
+        for sigma in sigmas.values():
+            sigma.sum(self.world)
+
+        return sigmas
+
+    def get_validation_inputs(self):
+        return {'kpts': self.kpts,
+                'bands': list(self.bands),
+                'nbands': self.nbands,
+                'ecut_e': list(self.ecut_e),
+                'frequencies': self.frequencies,
+                'fxc_modes': self.fxc_modes,
+                'integrate_gamma': self.wcalc.integrate_gamma}
 
     @property
     def fxc_modes(self):
@@ -899,52 +989,6 @@ class G0W0Calculator:
 
         x = 1 / (self.wcalc.qd.nbzkpts * 2 * pi * self.wcalc.gs.volume)
         return x * sigma, x * dsigma
-
-    def save_restart_file(self, nQ):
-        sigma = self.sigmas[self.wcalc.fxc_mode]
-        sigma_eskn_write = sigma.sigma_eskn.copy()
-        dsigma_eskn_write = sigma.dsigma_eskn.copy()
-        self.world.sum(sigma_eskn_write)
-        self.world.sum(dsigma_eskn_write)
-        data = {'last_q': nQ,
-                'sigma_eskn': sigma_eskn_write + self.previous_sigma,
-                'dsigma_eskn': dsigma_eskn_write + self.previous_dsigma,
-                'kpts': self.kpts,
-                'bands': self.bands,
-                'nbands': self.nbands,
-                'ecut_e': self.ecut_e,
-                'frequencies': self.frequencies,
-                'integrate_gamma': self.wcalc.integrate_gamma}
-
-        if self.world.rank == 0:
-            with open(self.restartfile + '.sigma.pckl', 'wb') as fd:
-                pickle.dump(data, fd, 2)
-
-    def load_restart_file(self):
-        try:
-            with open(self.restartfile + '.sigma.pckl', 'rb') as fd:
-                data = pickleload(fd)
-        except IOError:
-            return False
-        else:
-            if (data['kpts'] == self.kpts and
-                data['bands'] == self.bands and
-                data['nbands'] == self.nbands and
-                (data['ecut_e'] == self.ecut_e).all and
-                data['frequencies']['type'] == self.frequencies['type'] and
-                data['frequencies']['domega0'] ==
-                self.frequencies['domega0'] and
-                data['frequencies']['omega2'] == self.frequencies['omega2'] and
-                data['integrate_gamma'] == self.wcalc.integrate_gamma):
-                self.last_q = data['last_q']
-                self.previous_sigma = data['sigma_eskn']
-                self.previous_dsigma = data['dsigma_eskn']
-                return True
-            else:
-                raise ValueError(
-                    'Restart file not compatible with parameters used in '
-                    'current calculation. Check kpts, bands, nbands, ecut, '
-                    'domega0, omega2, integrate_gamma.')
 
     def calculate_g0w0_outputs(self, sigma):
         eps_skn, f_skn = self.get_eps_and_occs()
