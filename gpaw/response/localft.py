@@ -16,9 +16,10 @@ from gpaw.sphere.lebedev import weight_n, R_nv
 
 
 class LocalFTCalculator(ABC):
-    """Calculator base class for calculators of all-electron plane-wave
-    components to arbitrary real-space functionals f[n](r) which can be
-    written as closed form functions of the local ground state (spin-)density:
+    r"""Calculator base class for calculators of all-electron plane-wave
+    components to arbitrary real-valued real-space functionals f[n](r) which
+    can be written as closed form functions of the local ground state
+    (spin-)density:
 
     f[n](r) = f(n(r)).
 
@@ -143,7 +144,7 @@ class LocalGridFTCalculator(LocalFTCalculator):
 
         return f_G
 
-    @timer('Calculating the all-electron density')
+    @timer('Calculate the all-electron density')
     def get_all_electron_density(self, gd):
         """Calculate the all-electron (spin-)density on the coarse real-space
         grid of the ground state."""
@@ -282,7 +283,17 @@ class LocalPAWFTEngine:
         print(*args, file=self.fd, flush=flush)
 
     def calculate(self, pd, nt_sR, R_av, micro_setups, add_f):
-        """Describe calculation XXX."""
+        r"""Calculate the Fourier transform f(G) by splitting up the calculation
+        into a pseudo density contribution and a PAW correction accounting for
+        the difference
+
+        Δf[n,ñ](r) = f(n(r)) - f(ñ(r)),
+
+        such that:
+
+        f(G) = f[ñ](G) + Δf[n,ñ](G).
+
+        See [PRB 103, 245110 (2021)] for definitions and notation details."""
         self._add_f = add_f
 
         ft_G = self.calculate_pseudo_contribution(pd, nt_sR)
@@ -291,7 +302,12 @@ class LocalPAWFTEngine:
         return ft_G + fPAW_G
 
     def calculate_pseudo_contribution(self, pd, nt_sR):
-        """Some description XXX."""
+        """Calculate the pseudo density contribution by performing a FFT of
+        f(ñ(r)) on the cubic real-space grid.
+
+        NB: This operation assumes that the function f is a slowly varrying
+        function of the pseudo density ñ(r) everywhere in space, such that
+        f(ñ(r)) is accurately described on the cubic real-space grid."""
         # Calculate ft(r) (t=tilde=pseudo)
         ft_R = np.zeros(np.shape(nt_sR[0]))
         self._add_f(pd.gd, nt_sR, ft_R)
@@ -301,10 +317,22 @@ class LocalPAWFTEngine:
 
         return ft_G
 
-    @timer('Calculate PAW corrections to kernel')
+    @timer('Calculate PAW corrections')
     def calculate_paw_corrections(self, pd, R_av, micro_setups):
-        """Calculate PAW correction inside the augmentation spheres."""
-        self.print('    Calculating PAW correction\n')
+        r"""Calculate the PAW corrections to f(G), for each augmentation sphere
+        at a time:
+                      __
+                      \   /
+        Δf[n,ñ](G) =  /   |dr Δf_a[n_a,ñ_a](r - R_a) e^(-iG.r)
+                      ‾‾  /
+                      a    V0
+
+        where Δf_a is the atom centered difference between the all electron
+        and pseudo quantities inside augmentation sphere a:
+
+        Δf_a[n_a,ñ_a](r) = f(n_a(r)) - f(ñ_a(r)).
+        """
+        self.print('    Calculating PAW corrections\n')
 
         # Extract reciprocal lattice vectors
         nG = pd.ngmax
@@ -328,7 +356,6 @@ class LocalPAWFTEngine:
         return fPAW_G
 
     def _distribute_correction(self, nG):
-        """Distribute correction"""
         nGpr = (nG + self.world.size - 1) // self.world.size
         Ga = min(self.world.rank * nGpr, nG)
         Gb = min(Ga + nGpr, nG)
@@ -336,17 +363,28 @@ class LocalPAWFTEngine:
         return range(Ga, Gb)
 
     def _add_paw_correction(self, a, R_v, micro_setup, G_myG, G_myGv, fPAW_G):
-        """Perform the actual calculation of the PAW correction XXX from a
-        given atom a to the plane-wave components f(G) by expanding the
-        correction in real spherical harmonics:
+        r"""Calculate the PAW correction of augmentation sphere a,
 
-        More description to come XXX
+                              /
+        Δf_a(G) = e^(-iG.R_a) |dr Δf_a[n_a,ñ_a](r) e^(-iG.r),
+                              /
+                              V0
 
-        """
+        by expanding both the atom centered correction and the plane wave in
+        real spherical harmonics, see [PRB 103, 245110 (2021)]:
+
+                                 l               a
+                              __ __             R_c
+                              \  \      l    ^  /                   a
+        Δf_a(G) = e^(-iG.R_a) /  /  (-i)  Y (G) |4πr^2 dr j(|G|r) Δf (r)
+                              ‾‾ ‾‾        lm   /          l        lm
+                              l m=-l            0
+
+        The calculated atomic correction is then added to the output array."""
         # Radial and angular grid information
         rgd, Y_nL = micro_setup.rgd, micro_setup.Y_nL
 
-        # Calculate df on Lebedev quadrature and radial grid
+        # Calculate df on Lebedev quadrature (angular grid) and radial grid
         df_ng = self._calculate_df(micro_setup)
 
         # Calculate the surface norm square of df
@@ -370,19 +408,22 @@ class LocalPAWFTEngine:
         # and rshe coefficients
         with self.timer('Integrate PAW correction'):
             angular_coef_MmyG = ii_MmyG * Y_MmyG
+            # Radial integral, dv = 4πr^2
             radial_coef_MmyG = np.tensordot(j_gMmyG * df_gL[:, L_M,
                                                             np.newaxis],
                                             dv_g, axes=([0, 0]))
+            # Angular integral (sum over l,m)
             atomic_corr_myG = np.sum(angular_coef_MmyG * radial_coef_MmyG,
                                      axis=0)
 
             position_prefactor_myG = np.exp(-1j * np.inner(G_myGv, R_v))
+
+            # Add to output array
             fPAW_G[G_myG] += position_prefactor_myG * atomic_corr_myG
 
     @timer('Calculate PAW correction inside augmentation spheres')
     def _calculate_df(self, micro_setup):
-        """Calculate the difference between f(n(r)) (all-electron spin
-        density) and f(ñ(r)) (pseudo spin density).
+        r"""Calculate Δf_a[n_a,ñ_a](r).
 
         Returns
         -------
@@ -443,11 +484,16 @@ class LocalPAWFTEngine:
 
     @timer('Expand PAW correction in real spherical harmonics')
     def _perform_rshe(self, df_ng, Y_nL):
-        """Perform expansion of df in real spherical harmonics. Note that the
-        Lebedev quadrature, which is used to calculate the expansion
-        coefficients, is exact to order l=11. This implies that functions
-        containing angular components l<=5 can be expanded exactly.
-        Assumes df_ng to be a real function.
+        """Expand the angular dependence of Δf_a[n_a,ñ_a](r) in real spherical
+        harmonics.
+
+          a      / ^    ^                ^
+        Δf (r) = |dr Y (r) Δf_a[n_a,ñ_a](rr)
+          lm     /    lm
+
+        Note that the Lebedev quadrature, which is used to perform the angular
+        integral above, is exact up to polynomial order l=11. This implies that
+        corrections containing angular components l<=5 can be expanded exactly.
 
         Returns
         -------
@@ -541,7 +587,7 @@ class LocalPAWFTEngine:
                                                                rshew, included)
         self.print(info, flush=False)
 
-    @timer('Expand plane waves')
+    @timer('Expand plane waves in real spherical harmonics')
     def _expand_plane_waves(self, G_myGv, r_g, L_M, l_M):
         r"""Expand plane waves in spherical Bessel functions and real spherical
         harmonics:
@@ -593,7 +639,7 @@ class LocalPAWFTEngine:
 
 
 def fft_from_grid(f_R, pd):
-    """Perform a FFT to reciprocal space:
+    r"""Perform a FFT to reciprocal space:
                                     __
            /                    V0  \
     f(G) = |dr f(r) e^(-iG.r) ≃ ‾‾  /  f(r) e^(-iG.r)
