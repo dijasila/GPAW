@@ -130,7 +130,7 @@ class WaveFunction:
         # For spinors the number of bands is doubled and a
         # spin dimension is added
         Ns = calc.wfs.nspins
-        Nn = calc.wfs.bd.nbands
+        Nn = self.v_msn.shape[0]
 
         if calc.wfs.collinear:
             u_snR = [[calc.wfs.get_wave_function_array(n, self.bz_index, s,
