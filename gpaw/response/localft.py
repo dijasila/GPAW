@@ -310,8 +310,9 @@ class LocalPAWFTEngine:
         function of the pseudo density ñ(r) everywhere in space, such that
         f(ñ(r)) is accurately described on the cubic real-space grid."""
         # Calculate ft(r) (t=tilde=pseudo)
-        ft_R = np.zeros(np.shape(nt_sR[0]))
-        self._add_f(pd.gd, nt_sR, ft_R)
+        gd = pd.gd
+        ft_R = gd.zeros()
+        self._add_f(gd, nt_sR, ft_R)
 
         # FFT to reciprocal space
         ft_G = fft_from_grid(ft_R, pd)  # G = 1D grid of |G|^2/2 < ecut
