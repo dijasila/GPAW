@@ -185,7 +185,7 @@ class LocalPAWFTCalculator:
         """Return the pseudo (spin-)density on the coarse real-space grid of the
         ground state."""
         self.check_grid_equivalence(gd, self.gs.gd)
-        return self.gs.nt_sG  # nt=pseudo density, G=coarse grid
+        return self.gs.nt_sR  # nt=pseudo density, R=coarse grid
 
     def extract_atom_centered_quantities(self):
         """Extract all relevant atom centered quantities that the engine needs
