@@ -1,7 +1,5 @@
-"""Functionality to calculate the all-electron Fourier components of real space
-quantities within the PAW formalism."""
-
-from abc import ABC, abstractmethod
+"""Functionality to calculate the all-electron Fourier components of local
+functions of the electon (spin-)density."""
 
 import numpy as np
 from scipy.special import spherical_jn
@@ -15,7 +13,7 @@ from gpaw.spherical_harmonics import Yarr
 from gpaw.sphere.lebedev import weight_n, R_nv
 
 
-class LocalPAWFT(ABC):
+class LocalPAWFT:
     """Abstract base class for calculators of all-electron plane-wave
     components to some real space functional f[n](r) which can be written as a
     closed form function of the local ground state (spin-)density:
@@ -80,18 +78,35 @@ class LocalPAWFT(ABC):
             self.rshewmin = rshewmin if rshewmin is not None else 0.
             self.dfmask_g = None
 
-    @abstractmethod
-    def _add_f(self, gd, n_sR, f_R):
-        """Calculate the real-space quantity in question as a function of the local
-        (spin-)density on a given real-space grid and add it to a given output
-        array."""
-        pass
+        self._add_f = None
 
     def print(self, *args, flush=True):
         print(*args, file=self.fd, flush=flush)
 
     @timer('LocalPAWFT')
-    def __call__(self, pd):
+    def __call__(self, pd, add_f):
+        """Calculate the plane-wave components f(G).
+
+        Parameters
+        ----------
+        pd : PlaneWaveDescriptor
+            Defines the plane-wave basis to calculate the components in.
+        add_f : method
+            Defines the local function of the electron (spin-)density to
+            Fourier transform. Should take arguments gd (GridDescriptor),
+            n_sR (electron spin-density on the real space grid of gd) and
+            f_R (output array) and add the function f(R) to the output array.
+            Example:
+            >>> def add_total_density(gd, n_sR, f_R):
+            >>>     f_R += np.sum(n_sR, axis=0)
+
+        Returns
+        -------
+        f_G : np.array
+            Plane-wave components of the function f, indexes by the reciprocal
+            lattice vectors G.
+        """
+        self._add_f = add_f
         self.print('Calculating f(G)')
         f_G = self.calculate(pd)
         self.print('Finished calculating f(G)')
@@ -499,14 +514,3 @@ class LocalPAWFT(ABC):
         Gdir_myGv[mask0] = G_myGv[mask0] / Gnorm_myG[mask0][:, np.newaxis]
 
         return Gnorm_myG, Gdir_myGv
-
-
-class AllElectronDensityFT(LocalPAWFT):
-    """Calculator class for the plane-wave components of the all-electron
-    density n(G)."""
-
-    def _add_f(self, gd, n_sR, f_R):
-        """Calculate the real-space quantity in question as a function of the local
-        (spin-)density on a given real-space grid and add it to a given output
-        array."""
-        f_R += np.sum(n_sR, axis=0)
