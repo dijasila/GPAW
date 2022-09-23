@@ -32,10 +32,13 @@ from ase.parallel import broadcast
 
 class Sigma:
     def __init__(self, iq, q_c, fxc, esknshape, **inputs):
+        """Inputs are used for cache invalidation, and are stored for each
+           file.
+        """
         self.iq = iq
         self.q_c = q_c
         self.fxc = fxc
-        self._buf = np.zeros((2, * esknshape))
+        self._buf = np.zeros((2, *esknshape))
         # self-energies and derivatives:
         self.sigma_eskn, self.dsigma_eskn = self._buf
 
@@ -45,8 +48,8 @@ class Sigma:
         comm.sum(self._buf)
 
     def __iadd__(self, other):
-        self._buf += other._buf
         self.validate_inputs(other.inputs)
+        self._buf += other._buf
         return self
 
     def validate_inputs(self, inputs):
@@ -695,15 +698,10 @@ class G0W0Calculator:
         return sigma, dsigma
 
     def calculate_all_q_points(self):
-        """XXX UPDATE THIS.
-        No longer a generator.
-        Calculates the screened potential for each q-point in the 1st BZ.
-        Since many q-points are related by symmetry, the actual calculation is
-        only done for q-points in the IBZ and the rest are obtained by symmetry
-        transformations. Results are returned as a generator to that it is not
-        necessary to store a huge matrix for each q-point in the memory."""
-        # The decorator $timer('W') doesn't work for generators, do we will
-        # have to manually start and stop the timer here:
+        """Main loop over irreducible Brillouin zone points.
+        Handles restarts of individual qpoints using FileCache from ASE,
+        and subsequently calls calculate_q."""
+       
         pb = ProgressBar(self.fd)
 
         self.timer.start('W')
