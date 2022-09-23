@@ -14,7 +14,7 @@ from gpaw.lfc import LFC
 from gpaw.atom.radialgd import AERadialGridDescriptor
 from gpaw.xc.pawcorrection import PAWXCCorrection
 from gpaw.utilities.partition import AtomPartition
-from gpaw.response.localft import LocalPAWFT
+from gpaw.response.localft import LocalFTCalculator
 from gpaw.response.mft import PlaneWaveBxc
 from gpaw.response.susceptibility import get_pw_coordinates
 from gpaw.test.response.test_site_kernels import get_PWDescriptor
@@ -81,13 +81,13 @@ def test_atomic_orbital_densities(in_tmp_dir):
                                    mode=mode, nbands=nbands)
 
         # Set up FT calculator and plane-wave descriptor
-        aenft = LocalPAWFT(gs)
+        localft_calc = LocalFTCalculator.from_rshe_parameters(gs)
         pd = get_PWDescriptor(gs.atoms, gs.get_calc(), [0., 0., 0.],
                               ecut=ecut,
                               gammacentered=True)
 
         # Calculate the plane-wave components of the all electron density
-        n_G = aenft(pd, add_total_density)
+        n_G = localft_calc(pd, add_total_density)
 
         # Calculate analytically and check validity of results
         pos_v = gs.atoms.positions[0]

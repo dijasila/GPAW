@@ -1,6 +1,8 @@
 """Functionality to calculate the all-electron Fourier components of local
 functions of the electon (spin-)density."""
 
+from abc import ABC, abstractmethod
+
 import numpy as np
 from scipy.special import spherical_jn
 
@@ -13,10 +15,10 @@ from gpaw.spherical_harmonics import Yarr
 from gpaw.sphere.lebedev import weight_n, R_nv
 
 
-class LocalPAWFT:
-    """Abstract base class for calculators of all-electron plane-wave
-    components to some real space functional f[n](r) which can be written as a
-    closed form function of the local ground state (spin-)density:
+class LocalFTCalculator(ABC):
+    """Calculator base class for calculators of all-electron plane-wave
+    components to arbitrary real-space functionals f[n](r) which can be
+    written as closed form functions of the local ground state (spin-)density:
 
     f[n](r) = f(n(r)).
 
@@ -32,9 +34,8 @@ class LocalPAWFT:
     """
 
     def __init__(self, gs,
-                 world=mpi.world, txt='-', timer=None,
-                 rshelmax=-1, rshewmin=None):
-        """Constructor for the PAWFT
+                 world=mpi.world, txt='-', timer=None):
+        """Constructor for the LocalFTCalculator
 
         Parameters
         ----------
@@ -45,9 +46,26 @@ class LocalPAWFT:
         txt : str or filehandle
             defines output file through gpaw.utilities.convert_string_to_fd
         timer : ase.utils.timing.Timer instance
+        """
+        self.world = world
+        self.fd = convert_string_to_fd(txt, world)  # output filehandle
+        self.timer = timer or Timer()
+        self.gs = gs
+
+        self._add_f = None
+
+    @staticmethod
+    def from_rshe_parameters(gs,
+                             world=mpi.world, txt='-', timer=None,
+                             rshelmax=-1, rshewmin=None):
+        """Construct the LocalFTCalculator based on parameters for the
+        expansion of the PAW correction in real spherical harmonics
+
+        Parameters
+        ----------
         rshelmax : int or None
-            Expand quantity in real spherical harmonics inside augmentation
-            spheres. If None, the plane wave components will be calculated
+            Expand f(r) in real spherical harmonics inside the augmentation
+            spheres. If None, the plane-wave components will be calculated
             without augmentation. The value of rshelmax indicates the maximum
             index l to perform the expansion in (l < 6).
         rshewmin : float or None
@@ -57,33 +75,16 @@ class LocalPAWFT:
             contributes with less than a fraction of rshewmin on average, it
             will not be included.
         """
-        self.world = world
-        self.fd = convert_string_to_fd(txt, world)  # output filehandle
-        self.timer = timer or Timer()
-        self.gs = gs
-
-        # Do not carry out the expansion in real spherical harmonics, if lmax
-        # is chosen as None
-        self.rshe = rshelmax is not None
-
-        if self.rshe:
-            # Perform rshe up to l<=lmax(<=5)
-            if rshelmax == -1:
-                self.rshelmax = 5
-            else:
-                assert isinstance(rshelmax, int)
-                assert rshelmax in range(6)
-                self.rshelmax = rshelmax
-
-            self.rshewmin = rshewmin if rshewmin is not None else 0.
-            self.dfmask_g = None
-
-        self._add_f = None
+        if rshelmax is None:
+            return LocalGridFTCalculator(gs, world=world, txt=txt, timer=timer)
+        else:
+            return LocalPAWFTCalculator(gs, world=world, txt=txt, timer=timer,
+                                        rshelmax=rshelmax, rshewmin=rshewmin)
 
     def print(self, *args, flush=True):
         print(*args, file=self.fd, flush=flush)
 
-    @timer('LocalPAWFT')
+    @timer('LocalFT')
     def __call__(self, pd, add_f):
         """Calculate the plane-wave components f(G).
 
@@ -98,7 +99,7 @@ class LocalPAWFT:
             f_R (output array) and add the function f(R) to the output array.
             Example:
             >>> def add_total_density(gd, n_sR, f_R):
-            >>>     f_R += np.sum(n_sR, axis=0)
+            ...     f_R += np.sum(n_sR, axis=0)
 
         Returns
         -------
@@ -113,53 +114,37 @@ class LocalPAWFT:
 
         return f_G
 
+    @abstractmethod
     def calculate(self, pd):
-        """Calculate the plane-wave components f(G) for the reciprocal lattice
-        vectors defined by the plane-wave descriptor pd."""
-        if self.rshe:
-            return self._calculate_w_rshe(pd)
-        else:
-            return self._calculate_wo_rshe(pd)
+        pass
 
-    def _calculate_w_rshe(self, pd):
-        """Calculate f(G) with an expansion of f(r) in real spherical harmonics
-        inside the augmentation spheres."""
-        # Retrieve the pseudo (spin-)density on the coarse real-space grid
-        nt_sR = self.get_pseudo_density(pd.gd)  # R = Coarse 3D real-space grid
+    @staticmethod
+    def check_grid_equivalence(gd1, gd2):
+        assert gd1.comm.size == 1
+        assert gd2.comm.size == 1
+        assert (gd1.N_c == gd2.N_c).all()
 
-        # Calculate ft(r) (t=tilde=pseudo)
-        ft_R = np.zeros(np.shape(nt_sR[0]))
-        self._add_f(pd.gd, nt_sR, ft_R)
 
-        # FFT to reciprocal space
-        ft_G = self.fft_from_grid(ft_R, pd)  # G = 1D grid of |G|^2/2 < ecut
+class LocalGridFTCalculator(LocalFTCalculator):
 
-        # Calculate PAW correction inside the augmentation spheres
-        fPAW_G = self.calculate_paw_correction(pd)
-
-        return ft_G + fPAW_G
-
-    def _calculate_wo_rshe(self, pd):
-        """Calculate f(G) directly from the all-electron density on a
+    def calculate(self, pd):
+        """Calculate f(G) directly from the all-electron density on the cubic
         real-space grid."""
-        # Retrieve the all-electron (spin-)density on the real-space grid
-        # R = Coarse 3D real-space grid
         n_sR = self.get_all_electron_density(pd.gd)
+        f_G = self._calculate(pd, n_sR)
 
+        return f_G
+
+    def _calculate(self, pd, n_sR):
+        """In-place calculation of the plane-wave components."""
         # Calculate f(r)
         f_R = np.zeros(np.shape(n_sR[0]))
         self._add_f(pd.gd, n_sR, f_R)
 
         # FFT to reciprocal space
-        f_G = self.fft_from_grid(f_R, pd)  # G = 1D grid of |G|^2/2 < ecut
+        f_G = fft_from_grid(f_R, pd)  # G = 1D grid of |G|^2/2 < ecut
 
         return f_G
-
-    def get_pseudo_density(self, gd):
-        """Return the pseudo (spin-)density on the coarse real-space grid of the
-        ground state."""
-        self.check_grid_equivalence(gd, self.gs.gd)
-        return self.gs.nt_sG  # nt=pseudo density, G=coarse grid
 
     @timer('Calculating the all-electron density')
     def get_all_electron_density(self, gd):
@@ -171,33 +156,48 @@ class LocalPAWFT:
 
         return n_sR
 
-    @staticmethod
-    def check_grid_equivalence(gd1, gd2):
-        assert gd1.comm.size == 1
-        assert gd2.comm.size == 1
-        assert (gd1.N_c == gd2.N_c).all()
 
-    def fft_from_grid(self, f_R, pd):
-        """Perform a FFT to reciprocal space:
-                                        __
-               /                    V0  \
-        f(G) = |dr f(r) e^(-iG.r) ≃ ‾‾  /  f(r) e^(-iG.r)
-               /                    N   ‾‾
-               V0                       r
+class LocalPAWFTCalculator:
 
-        where N is the number of grid points."""
-        Q_G = pd.Q_qG[0]
+    def __init__(self, gs,
+                 world=mpi.world, txt='-', timer=None,
+                 rshelmax=-1, rshewmin=None):
+        super().__init__(gs, world=world, txt=txt, timer=timer)
 
-        # Perform the FFT
-        N = np.prod(pd.gd.N_c)
-        f_Q123 = pd.gd.volume / N * np.fft.fftn(f_R)  # Q123 = 3D grid in Q-rep
+        # Perform rshe up to l<=lmax(<=5)
+        if rshelmax == -1:
+            self.rshelmax = 5
+        else:
+            assert isinstance(rshelmax, int)
+            assert rshelmax in range(6)
+            self.rshelmax = rshelmax
 
-        # Change the view of the plane-wave components from the 3D grid in the
-        # Q-representation that numpy spits out to the 1D grid in the
-        # G-representation, that GPAW relies on internally
-        f_G = f_Q123.ravel()[Q_G]
+        self.rshewmin = rshewmin if rshewmin is not None else 0.
+        self.dfmask_g = None
 
-        return f_G
+    def calculate(self, pd):
+        """Calculate f(G) with an expansion of f(r) in real spherical harmonics
+        inside the augmentation spheres."""
+        # Retrieve the pseudo (spin-)density on the coarse real-space grid
+        nt_sR = self.get_pseudo_density(pd.gd)  # R = Coarse 3D real-space grid
+
+        # Calculate ft(r) (t=tilde=pseudo)
+        ft_R = np.zeros(np.shape(nt_sR[0]))
+        self._add_f(pd.gd, nt_sR, ft_R)
+
+        # FFT to reciprocal space
+        ft_G = fft_from_grid(ft_R, pd)  # G = 1D grid of |G|^2/2 < ecut
+
+        # Calculate PAW correction inside the augmentation spheres
+        fPAW_G = self.calculate_paw_correction(pd)
+
+        return ft_G + fPAW_G
+
+    def get_pseudo_density(self, gd):
+        """Return the pseudo (spin-)density on the coarse real-space grid of the
+        ground state."""
+        self.check_grid_equivalence(gd, self.gs.gd)
+        return self.gs.nt_sG  # nt=pseudo density, G=coarse grid
 
     @timer('Calculate PAW corrections to kernel')
     def calculate_paw_correction(self, pd):
@@ -514,3 +514,26 @@ class LocalPAWFT:
         Gdir_myGv[mask0] = G_myGv[mask0] / Gnorm_myG[mask0][:, np.newaxis]
 
         return Gnorm_myG, Gdir_myGv
+
+
+def fft_from_grid(f_R, pd):
+    """Perform a FFT to reciprocal space:
+                                    __
+           /                    V0  \
+    f(G) = |dr f(r) e^(-iG.r) ≃ ‾‾  /  f(r) e^(-iG.r)
+           /                    N   ‾‾
+           V0                       r
+
+    where N is the number of grid points."""
+    Q_G = pd.Q_qG[0]
+
+    # Perform the FFT
+    N = np.prod(pd.gd.N_c)
+    f_Q123 = pd.gd.volume / N * np.fft.fftn(f_R)  # Q123 = 3D grid in Q-rep
+
+    # Change the view of the plane-wave components from the 3D grid in the
+    # Q-representation that numpy spits out to the 1D grid in the
+    # G-representation, that GPAW relies on internally
+    f_G = f_Q123.ravel()[Q_G]
+
+    return f_G
