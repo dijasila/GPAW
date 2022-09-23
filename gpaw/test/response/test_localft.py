@@ -76,11 +76,11 @@ def test_localft_grid_calculator(in_tmp_dir):
     # ---------- Script ---------- #
 
     # Set up grid descriptor
-    lattice_constant = cell_volume**(1/3.) / Bohr  # a.u.
+    lattice_constant = cell_volume**(1 / 3.) / Bohr  # a.u.
     cell_cv = np.array([[lattice_constant, 0., 0.],
                         [0., lattice_constant, 0.],
                         [0., 0., lattice_constant]])
-    N_c = np.array([int(N_grid_points**(1/3.))]*3)
+    N_c = np.array([int(N_grid_points**(1 / 3.))] * 3)
     gd = GridDescriptor(N_c, cell_cv=cell_cv)
 
     # Set up plane-wave descriptor

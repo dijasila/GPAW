@@ -182,8 +182,8 @@ class LocalPAWFTCalculator:
         return f_G
 
     def get_pseudo_density(self, gd):
-        """Return the pseudo (spin-)density on the coarse real-space grid of the
-        ground state."""
+        """Return the pseudo (spin-)density on the coarse real-space grid of
+        the ground state."""
         self.check_grid_equivalence(gd, self.gs.gd)
         return self.gs.nt_sR  # nt=pseudo density, R=coarse grid
 
@@ -284,9 +284,9 @@ class LocalPAWFTEngine:
         print(*args, file=self.fd, flush=flush)
 
     def calculate(self, pd, nt_sR, R_av, micro_setups, add_f):
-        r"""Calculate the Fourier transform f(G) by splitting up the calculation
-        into a pseudo density contribution and a PAW correction accounting for
-        the difference
+        r"""Calculate the Fourier transform f(G) by splitting up the
+        calculation into a pseudo density contribution and a PAW correction
+        accounting for the difference
 
         Δf[n,ñ](r) = f(n(r)) - f(ñ(r)),
 
