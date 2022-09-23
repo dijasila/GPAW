@@ -136,8 +136,9 @@ class LocalGridFTCalculator(LocalFTCalculator):
     def _calculate(self, pd, n_sR, add_f):
         """In-place calculation of the plane-wave components."""
         # Calculate f(r)
-        f_R = np.zeros(np.shape(n_sR[0]))
-        add_f(pd.gd, n_sR, f_R)
+        gd = pd.gd
+        f_R = gd.zeros()
+        add_f(gd, n_sR, f_R)
 
         # FFT to reciprocal space
         f_G = fft_from_grid(f_R, pd)  # G = 1D grid of |G|^2/2 < ecut
