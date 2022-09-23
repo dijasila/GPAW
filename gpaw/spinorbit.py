@@ -130,25 +130,25 @@ class WaveFunction:
         # For spinors the number of bands is doubled and a
         # spin dimension is added
         Ns = calc.wfs.nspins
-        Nn = self.v_msn.shape[0]
+        Nm, _, Nn = self.v_msn.shape
 
         if calc.wfs.collinear:
             u_snR = [[calc.wfs.get_wave_function_array(n, self.bz_index, s,
                                                        periodic=periodic)
                       for n in range(Nn)]
                      for s in range(Ns)]
-            u_msR = np.empty((2 * Nn, 2) + u_snR[0][0].shape, complex)
+            u_msR = np.empty((Nm, 2) + u_snR[0][0].shape, complex)
             np.einsum('mn, nabc -> mabc', self.v_msn[:, 0], u_snR[0],
                       out=u_msR[:, 0])
             np.einsum('mn, nabc -> mabc', self.v_msn[:, 1], u_snR[-1],
                       out=u_msR[:, 1])
         else:
             u_msR = np.array(
-                [calc.wfs.get_wave_function_array(n, self.bz_index, 0,
+                [calc.wfs.get_wave_function_array(m, self.bz_index, 0,
                                                   periodic=periodic)
-                 for n in range(Nn)])
+                 for m in range(Nm)])
             u_msR = np.einsum('mM, Msxyz -> Msxyz',
-                              self.v_msn.reshape((Nn, Nn)), u_msR)
+                              self.v_msn.reshape((Nm, Nm)), u_msR)
 
         return u_msR
 
