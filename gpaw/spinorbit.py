@@ -132,15 +132,23 @@ class WaveFunction:
         Ns = calc.wfs.nspins
         Nn = calc.wfs.bd.nbands
 
-        u_snR = [[calc.wfs.get_wave_function_array(n, self.bz_index, s,
-                                                   periodic=periodic)
-                  for n in range(Nn)]
-                 for s in range(Ns)]
-        u_msR = np.empty((2 * Nn, 2) + u_snR[0][0].shape, complex)
-        np.einsum('mn, nabc -> mabc', self.v_msn[:, 0], u_snR[0],
-                  out=u_msR[:, 0])
-        np.einsum('mn, nabc -> mabc', self.v_msn[:, 1], u_snR[-1],
-                  out=u_msR[:, 1])
+        if calc.wfs.collinear:
+            u_snR = [[calc.wfs.get_wave_function_array(n, self.bz_index, s,
+                                                       periodic=periodic)
+                      for n in range(Nn)]
+                     for s in range(Ns)]
+            u_msR = np.empty((2 * Nn, 2) + u_snR[0][0].shape, complex)
+            np.einsum('mn, nabc -> mabc', self.v_msn[:, 0], u_snR[0],
+                      out=u_msR[:, 0])
+            np.einsum('mn, nabc -> mabc', self.v_msn[:, 1], u_snR[-1],
+                      out=u_msR[:, 1])
+        else:
+            u_msR = np.array(
+                [calc.wfs.get_wave_function_array(n, self.bz_index, 0,
+                                                  periodic=periodic)
+                 for n in range(Nn)])
+            u_msR = np.einsum('mM, Msxyz -> Msxyz',
+                              self.v_msn.reshape((Nn, Nn)), u_msR)
 
         return u_msR
 

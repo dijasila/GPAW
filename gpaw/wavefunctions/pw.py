@@ -356,7 +356,11 @@ class PWWaveFunctions(FDPWWaveFunctions):
         psit_G = kpt.psit_nG[n]
 
         if realspace:
-            psit_R = self.pd.ifft(psit_G, kpt.q)
+            if psit_G.ndim == 2:
+                psit_R = np.array([self.pd.ifft(psits_G, kpt.q)
+                                   for psits_G in psit_G])
+            else:
+                psit_R = self.pd.ifft(psit_G, kpt.q)
             if self.kd.gamma or periodic:
                 return psit_R
 

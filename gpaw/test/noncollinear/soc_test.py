@@ -70,6 +70,8 @@ def test_non_collinear_plus_soc():
     bzwfs = soc_eigenstates(a.calc, n2=28)
     eigs = bzwfs.eigenvalues()[8]
     check(eigs, 0.15, 0.007)
+    u_msR = bzwfs[0].wavefunctions(a.calc, periodic=True)
+    print(u_msR.shape)
 
 
 @pytest.mark.soc
