@@ -54,14 +54,14 @@ PyObject* GG_shuffle(PyObject *self, PyObject *args)
         return NULL;
     }
 
-    unsigned int* G0_G = (unsigned int*)malloc(nG * sizeof(unsigned int));
-    unsigned int* G1_G = (unsigned int*)malloc(nG * sizeof(unsigned int));
+    int* G0_G = (int*)malloc(nG * sizeof(int));
+    int* G1_G = (int*)malloc(nG * sizeof(int));
     
-    unsigned int* G_G = (unsigned int*)PyArray_DATA(G_G_obj);
+    int* G_G = (int*)PyArray_DATA(G_G_obj);
 
     int stride0 = PyArray_STRIDES(A_GG_obj)[0];
     int stride1 = PyArray_STRIDES(A_GG_obj)[1];
-    for (unsigned int G=0; G < nG; G++)
+    for (int G=0; G < nG; G++)
     {
         if (sign==1)
         {
