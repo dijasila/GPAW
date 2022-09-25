@@ -376,20 +376,21 @@ class PWSymmetryAnalyzer:
 
         
         for A_GG in A_wGG:
-            tmp_GG = np.zeros_like(A_GG)
-            #tmp2_GG = np.zeros_like(A_GG)
+            tmp_GG = np.zeros_like(A_GG, order='C')
+            tmp2_GG = np.zeros_like(A_GG)
 
             for s in self.s_s:
                 G_G, sign, _ = self.G_sG[s]
                 GG_shuffle(G_G, sign, A_GG, tmp_GG)
 
-                #if sign == 1:
-                #    tmp2_GG += A_GG[G_G, :][:, G_G]
-                #if sign == -1:
-                #    tmp2_GG += A_GG[G_G, :][:, G_G].T
-
+                if sign == 1:
+                    tmp2_GG += A_GG[G_G, :][:, G_G]
+                if sign == -1:
+                    tmp2_GG += A_GG[G_G, :][:, G_G].T
+            
+            print(tmp_GG[:4,:4], tmp2_GG[:4,:4])
         
-            #assert np.allclose(tmp_GG, tmp2_GG)
+            assert np.allclose(tmp_GG, tmp2_GG)
             A_GG[:] = tmp_GG / self.how_many_symmetries()
 
     @timer('symmetrize_wxx')

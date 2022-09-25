@@ -44,7 +44,8 @@ PyObject* GG_shuffle(PyObject *self, PyObject *args)
 
     if (!PyArray_IS_C_CONTIGUOUS(tmp_GG_obj))
     {
-         PyErr_SetString(PyExc_TypeError, "tmp_GG need to be c-contiguous.");
+        PyErr_SetString(PyExc_TypeError, "tmp_GG need to be c-contiguous.");
+        return NULL;
     }
 
     if (!((sign == 1) || (sign == -1)))
