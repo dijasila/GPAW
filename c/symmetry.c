@@ -2,91 +2,97 @@
  *  Please see the accompanying LICENSE file for further information. */
 #include "extensions.h"
 
+
+
 PyObject* GG_shuffle(PyObject *self, PyObject *args)
 {
-    printf("Entering GG_shuffle\n");
     PyArrayObject* G_G_obj;
     int sign;
-    PyArrayObject* tmp_GG_obj;
     PyArrayObject* A_GG_obj;
+    PyArrayObject* tmp_GG_obj;
 
+    // def GG_shuffle(G_G:int32 array, sign:int, A_GG:complex128 array, tmp_GG:complex128 array)
     if (!PyArg_ParseTuple(args, "OiOO",
                           &G_G_obj, &sign, &A_GG_obj, &tmp_GG_obj))
         return NULL;
 
 
-    //printf("%p %p %p\n", G_G_obj, tmp_GG_obj, A_GG_obj);
-    //printf("Args parsed, sign=%d\n", sign);
     int nG = PyArray_DIMS(G_G_obj)[0];
-    //printf("nG=%d\n", nG);
     // Check dimensions
     if ((nG != PyArray_DIMS(tmp_GG_obj)[0]) ||
         (nG != PyArray_DIMS(tmp_GG_obj)[1]) ||
         (nG != PyArray_DIMS(A_GG_obj)[0]) ||
         (nG != PyArray_DIMS(A_GG_obj)[1]))
      {
-         //printf("un\n");
          PyErr_SetString(PyExc_TypeError, "Unmatched dimensions at GG_shuffle.");
          return NULL;
      }
-    //printf("Check done %d\n", sizeof(int));
-
-    
+   
+    // Check input types 
     if ((PyArray_TYPE(tmp_GG_obj) != NPY_COMPLEX128) ||
         (PyArray_TYPE(A_GG_obj) != NPY_COMPLEX128))
     {
-         printf("Returning error done\n");
          PyErr_SetString(PyExc_TypeError, "Expected complex arrays.");
          return NULL;
     }
-    //printf("A check passed\n");
-
-    //printf("G_G type %d\n", PyArray_TYPE(G_G_obj));
-    //printf("NPY_INT type %d\n", NPY_INT);
+    
     if (PyArray_TYPE(G_G_obj) != NPY_INT)
     {
-         //printf("One more test failed\n");
          PyErr_SetString(PyExc_TypeError, "G_G expected to be an integer array.");
          return NULL;
     }
 
-    //printf("Checks complete\n");
+    if (!PyArray_IS_C_CONTIGUOUS(tmp_GG_obj))
+    {
+         PyErr_SetString(PyExc_TypeError, "tmp_GG need to be c-contiguous.");
+    }
+
+    if (!((sign == 1) || (sign == -1)))
+    {
+        PyErr_SetString(PyExc_TypeError, "Sign must be 1 or -1.");
+        return NULL;
+    }
+
+    unsigned int* G0_G = (unsigned int*)malloc(nG * sizeof(unsigned int));
+    unsigned int* G1_G = (unsigned int*)malloc(nG * sizeof(unsigned int));
+    
+    unsigned int* G_G = (unsigned int*)PyArray_DATA(G_G_obj);
+
+    int stride0 = PyArray_STRIDES(A_GG_obj)[0];
+    int stride1 = PyArray_STRIDES(A_GG_obj)[1];
+    for (unsigned int G=0; G < nG; G++)
+    {
+        if (sign==1)
+        {
+            G0_G[G] = G_G[G] * stride0; 
+            G1_G[G] = G_G[G] * stride1; 
+        }
+        else  // Transpose
+        {
+            G0_G[G] = G_G[G] * stride1; 
+            G1_G[G] = G_G[G] * stride0;
+        }
+    }
 
     double complex* A_GG = (double complex*)PyArray_DATA(A_GG_obj);
     double complex* tmp_GG = (double complex*)PyArray_DATA(tmp_GG_obj);
-    unsigned int* G_G = (unsigned int*)PyArray_DATA(G_G_obj);
-    //printf("Got data\n");
 
-     if (sign == 1)
-     {
+    for (int G0=0; G0<nG; G0++)
+    {
+        int take0 = G0_G[G0];
+        for (int G1=0; G1<nG; G1++)
+        {
+            int take1 = G1_G[G1];
+            // Instead of numpy magic, we do some C magic.
+            char* ptr = (char*)A_GG + take0 + take1;
+            double complex* value_ptr = (double_complex*) ptr;
+            *(tmp_GG++) += *value_ptr;
+        }
+    }
 
-         for (int G0=0; G0<nG; G0++)
-         {
-             int take0 = G_G[G0];
-             for (int G1=0; G1<nG; G1++)
-             {
-                 int take1 = G_G[G1];
-                 *(tmp_GG++) += A_GG[ take0*nG + take1 ];
-             }
-         }
-     }
-     else if (sign==-1)
-     {
-         for (int G0=0; G0<nG; G0++)
-         {
-             int take0 = G_G[G0];
-             for (int G1=0; G1<nG; G1++)
-             {
-                 int take1 = G_G[G1];
-                 *(tmp_GG++) += A_GG[ take0 + take1 * nG ];
-             }
-         }
-     }  else
-     {
-         PyErr_SetString(PyExc_TypeError, "Unknown sign.");
-         return NULL;
-     }
-     Py_RETURN_NONE;
+    free(G0_G);
+    free(G1_G);
+    Py_RETURN_NONE;
 }
 
 //
