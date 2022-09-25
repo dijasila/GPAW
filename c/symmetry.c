@@ -2,6 +2,93 @@
  *  Please see the accompanying LICENSE file for further information. */
 #include "extensions.h"
 
+PyObject* GG_shuffle(PyObject *self, PyObject *args)
+{
+    printf("Entering GG_shuffle\n");
+    PyArrayObject* G_G_obj;
+    int sign;
+    PyArrayObject* tmp_GG_obj;
+    PyArrayObject* A_GG_obj;
+
+    if (!PyArg_ParseTuple(args, "OiOO",
+                          &G_G_obj, &sign, &A_GG_obj, &tmp_GG_obj))
+        return NULL;
+
+
+    //printf("%p %p %p\n", G_G_obj, tmp_GG_obj, A_GG_obj);
+    //printf("Args parsed, sign=%d\n", sign);
+    int nG = PyArray_DIMS(G_G_obj)[0];
+    //printf("nG=%d\n", nG);
+    // Check dimensions
+    if ((nG != PyArray_DIMS(tmp_GG_obj)[0]) ||
+        (nG != PyArray_DIMS(tmp_GG_obj)[1]) ||
+        (nG != PyArray_DIMS(A_GG_obj)[0]) ||
+        (nG != PyArray_DIMS(A_GG_obj)[1]))
+     {
+         //printf("un\n");
+         PyErr_SetString(PyExc_TypeError, "Unmatched dimensions at GG_shuffle.");
+         return NULL;
+     }
+    //printf("Check done %d\n", sizeof(int));
+
+    
+    if ((PyArray_TYPE(tmp_GG_obj) != NPY_COMPLEX128) ||
+        (PyArray_TYPE(A_GG_obj) != NPY_COMPLEX128))
+    {
+         printf("Returning error done\n");
+         PyErr_SetString(PyExc_TypeError, "Expected complex arrays.");
+         return NULL;
+    }
+    //printf("A check passed\n");
+
+    //printf("G_G type %d\n", PyArray_TYPE(G_G_obj));
+    //printf("NPY_INT type %d\n", NPY_INT);
+    if (PyArray_TYPE(G_G_obj) != NPY_INT)
+    {
+         //printf("One more test failed\n");
+         PyErr_SetString(PyExc_TypeError, "G_G expected to be an integer array.");
+         return NULL;
+    }
+
+    //printf("Checks complete\n");
+
+    double complex* A_GG = (double complex*)PyArray_DATA(A_GG_obj);
+    double complex* tmp_GG = (double complex*)PyArray_DATA(tmp_GG_obj);
+    unsigned int* G_G = (unsigned int*)PyArray_DATA(G_G_obj);
+    //printf("Got data\n");
+
+     if (sign == 1)
+     {
+
+         for (int G0=0; G0<nG; G0++)
+         {
+             int take0 = G_G[G0];
+             for (int G1=0; G1<nG; G1++)
+             {
+                 int take1 = G_G[G1];
+                 *(tmp_GG++) += A_GG[ take0*nG + take1 ];
+             }
+         }
+     }
+     else if (sign==-1)
+     {
+         for (int G0=0; G0<nG; G0++)
+         {
+             int take0 = G_G[G0];
+             for (int G1=0; G1<nG; G1++)
+             {
+                 int take1 = G_G[G1];
+                 *(tmp_GG++) += A_GG[ take0 + take1 * nG ];
+             }
+         }
+     }  else
+     {
+         PyErr_SetString(PyExc_TypeError, "Unknown sign.");
+         return NULL;
+     }
+     Py_RETURN_NONE;
+}
+
 //
 // Apply symmetry operation op_cc to a and add result to b:
 //
