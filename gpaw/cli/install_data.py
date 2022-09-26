@@ -4,7 +4,6 @@ from io import BytesIO
 import tarfile
 import re
 from urllib.request import urlopen
-from urllib.error import HTTPError
 import ssl
 
 
@@ -35,6 +34,7 @@ again, or rummage around the GPAW web page until a solution is found.
 Writing e-mails to gpaw-users@listserv.fysik.dtu.dk or reporting
 an issue on https://gitlab.com/gpaw/gpaw/issues is also
 likely to help."""
+
 
 def urlopen_nocertcheck(src):
     """Open a URL on a server without checking the certificate.
