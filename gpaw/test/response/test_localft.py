@@ -3,10 +3,8 @@
 # General modules
 import numpy as np
 import pytest
-from functools import partial
 
 # Script modules
-from ase import Atoms
 from ase.units import Bohr, Ha
 from ase.build import bulk
 
@@ -16,9 +14,7 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.lfc import LFC
 from gpaw.atom.radialgd import AERadialGridDescriptor
-from gpaw.xc.pawcorrection import PAWXCCorrection
-from gpaw.utilities.partition import AtomPartition
-from gpaw.response.localft import LocalFTCalculator
+from gpaw.response.localft import LocalFTCalculator, MicroSetup
 from gpaw.response.mft import PlaneWaveBxc
 from gpaw.response.susceptibility import get_pw_coordinates
 from gpaw.test.response.test_site_kernels import get_PWDescriptor
@@ -65,7 +61,7 @@ def test_localft_grid_calculator(in_tmp_dir):
     N_grid_points = 1e6
 
     # 1s orbital radii
-    a_a = np.linspace(0.5, 1.5, 10)
+    a_a = np.linspace(0.5, 1.5, 10)  # a.u.
 
     # Plane-wave cutoff
     ecut = 20  # eV
@@ -107,50 +103,117 @@ def test_localft_grid_calculator(in_tmp_dir):
         # Calculate analytically and check validity of results
         ntest_G = ae_1s_density_plane_waves(pd, R_v, a=a)
         assert np.allclose(n_G, ntest_G, rtol=rtol)
-    
+
 
 @pytest.mark.response
-def old_test_atomic_orbital_densities(in_tmp_dir):
-    """Test that the LocalPAWFT is able to correctly Fourier transform
-    the all-electron density of atomic orbitals."""
+def test_localft_paw_engine(in_tmp_dir):
+    """Test that the LocalPAWFTEngine is able to correctly Fourier
+    transform the all-electron density of an 1s orbital."""
     # ---------- Inputs ---------- #
 
-    # Ground state calculator
-    mode = PW(200)
-    nbands = 6
+    # Real-space grid
+    cell_volume = 1e3  # Ångstrøm
+    N_grid_points = 1e6 / 2**3.
 
-    # Atomic densities
-    a_a = np.linspace(0.5, 1.5, 10)
+    # Radial grid (using standard parameters from Li)
+    rgd_a = 0.0023570226039551583
+    rgd_b = 0.0004528985507246377
+    rgd_N = 2000
+    rcut = 2.0  # a.u.
 
-    # Plane-wave components
-    ecut = 100
+    # 1s orbital radii
+    a_a = np.linspace(0.5, 1.5, 10)  # a.u.
 
-    # To do: Test the calculator params of LocalPAWFT XXX
-    # To do: Test the all-electron version of LocalPAWFT XXX
-    # To do: Test different orbitals XXX
-    # To do: Test combinations of orbitals XXX
+    # Plane-wave cutoff
+    ecut = 20  # eV
+
+    # Settings for the expansion in real spherical harmonics
+    rshe_params_p = [{}]
+
+    # Test tolerance
+    rtol = 1e-3
+
+    # To-do: Use newrgd instead of rgd XXX
+    # To-do: Find out what redge gives the most precise results XXX
+    # To-do: Adjust parameters to improve tolerance XXX
+    # To-do: Adjust parameters to speed up test (use fewer L?) XXX
+    # To-do: Adopt adjusted parameters in grid test XXX
+    # To-do: Use alternative rshe parameters, neglecting L>0 XXX
 
     # ---------- Script ---------- #
 
-    for a in a_a:
-        # Set up ground state adapter
-        atom_centered_density = partial(ae_1s_density, a=a)
-        gs = get_mocked_gs_adapter(atom_centered_density,
-                                   mode=mode, nbands=nbands)
+    # Set up grid descriptor
+    lattice_constant = cell_volume**(1 / 3.) / Bohr  # a.u.
+    cell_cv = np.array([[lattice_constant, 0., 0.],
+                        [0., lattice_constant, 0.],
+                        [0., 0., lattice_constant]])
+    N_c = np.array([int(N_grid_points**(1 / 3.))] * 3)
+    gd = GridDescriptor(N_c, cell_cv=cell_cv)
 
-        # Set up FT calculator and plane-wave descriptor
-        localft_calc = LocalFTCalculator.from_rshe_parameters(gs)
-        pd = get_PWDescriptor(gs.atoms, gs.get_calc(), [0., 0., 0.],
-                              ecut=ecut,
-                              gammacentered=True)
+    # Set up atomic position at the center of the unit cell
+    R_v = np.array([lattice_constant, lattice_constant,
+                    lattice_constant]) / 2.
+    pos_ac = np.array([[0.5, 0.5, 0.5]])  # Relative atomic positions
 
-        # Calculate the plane-wave components of the all electron density
-        n_G = localft_calc(pd, add_total_density)
+    # Set up radial grid descriptor
+    rgd = AERadialGridDescriptor(rgd_a, rgd_b, N=rgd_N)
 
-        # Calculate analytically and check validity of results
-        R_v = gs.atoms.positions[0]
-        ntest_G = ae_1s_density_plane_waves(pd, R_v, a=a)
-        assert np.allclose(n_G, ntest_G)
+    # Set up plane-wave descriptor
+    qd = KPointDescriptor(np.array([[0., 0., 0.]]))
+    pd = PWDescriptor(ecut / Ha, gd, complex, qd)
+
+    for rshe_params in rshe_params_p:
+        # Initialize the LocalPAWFTCalculator without a ground state adapter
+        localft_calc = LocalFTCalculator.from_rshe_parameters(None,
+                                                              **rshe_params)
+
+        for a in a_a:  # Test different orbital radii
+
+            # Calculate the pseudo and ae densities on the radial grid
+            n_g = ae_1s_density(rgd.r_g, a=a)
+            gcut = rgd.floor(rcut)
+            nt_g, _ = rgd.pseudize(n_g, gcut)
+
+            # Set up pseudo and ae densities on the Lebedev quadrature
+            from gpaw.sphere.lebedev import Y_nL
+            nL = Y_nL.shape[1]
+            n_sLg = np.zeros((1, nL, rgd_N), dtype=float)
+            nt_sLg = np.zeros((1, nL, rgd_N), dtype=float)
+            # 1s <=> (l,m) = (0,0) <=> L=0
+            n_sLg[0, 0, :] += np.sqrt(4. * np.pi) * n_g  # Y_0 = 1 / sqrt(4pi)
+            nt_sLg[0, 0, :] += np.sqrt(4. * np.pi) * nt_g
+
+            # Calculate the pseudo density on the real-space grid
+            # ------------------------------------------------- #
+            # We start out by setting up a new radial grid descriptor, which
+            # matches the atomic one inside the PAW sphere, but extends all the
+            # way to the edge of the unit cell
+            redge = np.sqrt(3) * lattice_constant / 2.  # cell corner distance
+            Ng = int(np.floor(redge / (rgd_a + rgd_b * redge)) + 1)
+            newrgd = AERadialGridDescriptor(rgd_a, rgd_b, N=Ng)
+            # Generate pseudo density and splines on the new radial grid
+            newn_g = ae_1s_density(newrgd.r_g, a=a)
+            newnt_g, _ = newrgd.pseudize(newn_g, gcut, l=0)
+            spline = newrgd.spline(newnt_g, l=0, rcut=redge)
+            # Use the LocalizedFunctionsCollection to generate pseudo density
+            # on the cubic real space grid
+            nt_R = gd.zeros()
+            lfc = LFC(gd, [[spline]])
+            lfc.set_positions(pos_ac)
+            lfc.add(nt_R, c_axi=np.sqrt(4. * np.pi))  # Y_0 = 1 / sqrt(4pi)
+            nt_sR = np.array([nt_R])
+
+            # Create MicroSetup
+            micro_setup = MicroSetup(rgd, Y_nL, n_sLg, nt_sLg)
+            micro_setups = [micro_setup]
+
+            # Compute the plane-wave components numerically
+            n_G = localft_calc.engine.calculate(pd, nt_sR, [R_v], micro_setups,
+                                                add_total_density)
+
+            # Calculate analytically and check validity of results
+            ntest_G = ae_1s_density_plane_waves(pd, R_v, a=a)
+            assert np.allclose(n_G, ntest_G, rtol=rtol)
         
 
 @pytest.mark.response
@@ -219,166 +282,6 @@ def dont_test_Fe_bxc(in_tmp_dir):
 
 def add_total_density(gd, n_sR, f_R):
     f_R += np.sum(n_sR, axis=0)
-
-
-def get_mocked_gs_adapter(atom_centered_density, **kwargs):
-    """Given an atom centered density, mock up a ground state adapter
-    with that given density.
-
-    Parameters
-    ----------
-    atom_centered_density : method
-        Function generating an arbitrary radial dependency of the electron
-        density as a function of the radius r_g.
-    kwargs : dict
-        Arguments for the GPAW calculator.
-    """
-    # We use a Helium atom, since it does not have any frozen core and
-    # a cutoff radius, which is more representative of the periodic table,
-    # than it is the case for hydrogen
-    atoms = Atoms('He', cell=[10., 10., 10.])
-    atoms.center()
-
-    calc = GPAW(**kwargs)
-    gs = MockedResponseGroundStateAdapter(atoms, calc, atom_centered_density)
-
-    return gs
-
-
-class MockedResponseGroundStateAdapter:
-    def __init__(self, atoms, calc, atom_centered_density):
-        assert len(atoms) == 1
-        self.atoms = atoms
-        self.atom_centered_density = atom_centered_density
-
-        calc.initialize(atoms)
-        self._calc = calc
-        self._D_asp = self._calc.density.D_asp
-
-        self.gd = self.get_real_space_grid()
-        self.setups = self.get_mocked_paw_setups()
-        self.nt_sG = self.get_mocked_pseudo_density()
-
-    def get_real_space_grid(self):
-        """Take the real-space grid from the initialized calculator."""
-        return self._calc.wfs.gd
-
-    def get_mocked_paw_setups(self):
-        """Mock up the PAW setups to fill in the pseudo and all electron
-        density on the radial grid."""
-        setup = self._calc.wfs.setups[0]  # only a single atom
-        xc_correction = setup.xc_correction
-        rgd = xc_correction.rgd
-
-        # NB: Hard-coded to 1s angular dependence for now! XXX
-        # Calculate all-electron partial wave
-        n_g = self.atom_centered_density(rgd.r_g)
-        w_jg = np.zeros((xc_correction.nj, len(n_g)), dtype=float)
-        w_jg[0, :] += np.sqrt(n_g)
-
-        # Pseudize to get the pseudo partial wave
-        rcut = np.max(setup.data.rcut_j)
-        gcut = rgd.floor(rcut)
-        wt_jg = w_jg.copy()
-        wt_jg[0, :] = rgd.pseudize(w_jg[0, :], gcut, l=0)[0]
-
-        # No core electrons so far! XXX
-        nc_g = rgd.zeros()
-        nct_g = rgd.zeros()
-
-        # Get remaining xc_correction arguments
-        jl = list(enumerate(setup.data.l_j))
-        lmax = int(np.sqrt(xc_correction.Lmax)) - 1
-        e_xc0 = xc_correction.e_xc0
-        phicorehole_g = None
-        fcorehole = 0.0
-        tauc_g = xc_correction.tauc_g
-        tauct_g = xc_correction.tauct_g
-
-        # Set up mocked xc_correction object
-        mocked_xc_correction = PAWXCCorrection(
-            w_jg,
-            wt_jg,
-            nc_g,
-            nct_g,
-            rgd,
-            jl,
-            lmax,
-            e_xc0,
-            phicorehole_g,
-            fcorehole,
-            tauc_g,
-            tauct_g)
-
-        setup.xc_correction = mocked_xc_correction
-        setups = [setup]
-
-        # Set setups onto the private calculator object
-        self._calc.wfs.setups = setups
-
-        return setups
-
-    def get_mocked_pseudo_density(self):
-        """Mock up the pseudo density on the real space grid."""
-        # We assume a single atom, centered in the unit cell
-        pos_ac = self.atoms.get_scaled_positions()
-        assert pos_ac.shape[0] == 1
-        assert np.allclose(pos_ac, np.array([[0.5, 0.5, 0.5]]))
-
-        # Extract data
-        rcut = np.max(self.setups[0].data.rcut_j)
-        rgd = self.setups[0].xc_correction.rgd
-        gcut = rgd.floor(rcut)
-
-        # We start out by setting up a new radial grid descriptor, which
-        # matches the atomic one inside the PAW sphere, but extends all the
-        # way to the edge of the unit cell
-        redge = np.linalg.norm(self.atoms.positions[0]) / np.sqrt(3)
-        Ng = int(np.floor(redge / (rgd.a + rgd.b * redge)) + 1)
-        newrgd = AERadialGridDescriptor(rgd.a, rgd.b, N=Ng)
-
-        # Generate pseudo density and splines on the new radial grid
-        # NB: Hard-coded to 1s angular dependence for now! XXX
-        n_g = self.atom_centered_density(newrgd.r_g)
-        nt_g, _ = newrgd.pseudize(n_g, gcut, l=0)
-        spline = newrgd.spline(nt_g, l=0, rcut=redge)
-
-        # Use the LocalizedFunctionsCollection to generate pseudo density
-        # on the cubic real space grid
-        nt_G = self.gd.zeros()
-        lfc = LFC(self.gd, [[spline]])
-        lfc.set_positions(pos_ac)
-        lfc.add(nt_G)  # Add pseudo density from spline to pseudo density array
-
-        # Make it possible to set up a spin polarized one in the future? XXX
-        nt_sG = np.array([nt_G])
-
-        return nt_sG
-
-    @property
-    def D_asp(self):
-        if self._D_asp is None:
-            density = self._calc.density
-            atom_partition = AtomPartition(self.gd.comm,
-                                           np.zeros(len(self.atoms), int),
-                                           'density-gd')
-            # D_asp = self.setups.empty_atomic_matrix(density.ncomponents,
-            #                                         density.atom_partition)
-            Dshapes_a = [(density.ncomponents, setup.ni * (setup.ni + 1) // 2)
-                         for setup in self.setups]
-            D_asp = atom_partition.arraydict(Dshapes_a, float)
-            self._calc.wfs.calculate_atomic_density_matrices(D_asp)
-
-            self._D_asp = D_asp
-
-        return self._D_asp
-
-    def get_calc(self):
-        return self._calc
-
-    def all_electron_density(self, gridrefinement=1):
-        # Calculate and return the all electron density
-        pass
 
 
 def get_inversion_pairs(pd0):
