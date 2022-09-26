@@ -156,7 +156,7 @@ class LocalGridFTCalculator(LocalFTCalculator):
         return n_sR
 
 
-class LocalPAWFTCalculator:
+class LocalPAWFTCalculator(LocalFTCalculator):
 
     def __init__(self, gs,
                  world=mpi.world, txt='-', timer=None,
