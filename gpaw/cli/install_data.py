@@ -4,6 +4,8 @@ from io import BytesIO
 import tarfile
 import re
 from urllib.request import urlopen
+from urllib.error import HTTPError
+import ssl
 
 
 sources = [('gpaw', 'official GPAW setups releases [default]'),
@@ -33,6 +35,18 @@ again, or rummage around the GPAW web page until a solution is found.
 Writing e-mails to gpaw-users@listserv.fysik.dtu.dk or reporting
 an issue on https://gitlab.com/gpaw/gpaw/issues is also
 likely to help."""
+
+def urlopen_nocertcheck(src):
+    """Open a URL on a server without checking the certificate.
+
+    Some data is read from a DTU server with a self-signed
+    certificate.  That causes trouble on some machines.
+    """
+
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    return urlopen(src, context=ctx)
 
 
 class CLICommand:
@@ -147,7 +161,7 @@ def main(args, parser):
     else:
         tarfname = url.rsplit('/', 1)[1]
         print('Selected %s.  Downloading...' % tarfname)
-        response = urlopen(url)
+        response = urlopen_nocertcheck(url)
         targzfile = tarfile.open(fileobj=BytesIO(response.read()))
 
     if not os.path.exists(targetpath):
@@ -230,13 +244,13 @@ def main(args, parser):
 def get_urls(source):
     page = baseurls[source]
     if source == 'gpaw':
-        response = urlopen(page)
+        response = urlopen_nocertcheck(page)
         pattern = 'https://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-*.tar.gz'
         lines = (line.strip().decode() for line in response)
         urls = [line for line in lines if fnmatch.fnmatch(line, pattern)]
 
     elif source == 'sg15':
-        response = urlopen(page)
+        response = urlopen_nocertcheck(page)
 
         # We want sg15_oncv_2015-10-07.tar.gz, but they may upload
         # newer files, too.
