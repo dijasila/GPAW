@@ -215,7 +215,7 @@ class DielectricFunction:
     def get_chi(self, xc='RPA', q_c=[0, 0, 0], spin='all',
                 direction='x', return_VchiV=True, q_v=None,
                 rshelmax=-1, rshewmin=None,
-                spinpol_cut=None, density_cut=None, fxc_scaling=None):
+                spinpol_cut=None, density_cut=None):
         """ Returns v^1/2 chi v^1/2 for the density response and chi for the
         spin response. The truncated Coulomb interaction is included as
         v^-1/2 v_t v^-1/2. This is in order to conform with
@@ -241,13 +241,6 @@ class DielectricFunction:
             unpolarized limit (make sure divergent terms cancel out correctly)
         density_cut : float
             cutoff density below which f_xc is set to zero
-        fxc_scaling : list
-            Possible scaling of kernel to hit Goldstone mode.
-            If w=0 is included in the present calculation and
-            fxc_scaling=[True, None], the fxc_scaling to match
-            kappaM_w[0] = 0. will be calculated. If
-            fxc_scaling = [True, float], Kxc will be scaled by float.
-            Default is None, i.e. no scaling
         """
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c, spin)
 
@@ -319,7 +312,6 @@ class DielectricFunction:
                                    q_v=None,
                                    rshelmax=-1, rshewmin=None,
                                    spinpol_cut=None, density_cut=None,
-                                   fxc_scaling=None,
                                    filename='chiM_w.csv'):
         """Calculate the dynamic susceptibility.
 
@@ -332,7 +324,6 @@ class DielectricFunction:
                                              rshewmin=rshewmin,
                                              spinpol_cut=spinpol_cut,
                                              density_cut=density_cut,
-                                             fxc_scaling=fxc_scaling,
                                              return_VchiV=False)
 
         rf0_w = np.zeros(len(chi_wGG), dtype=complex)
