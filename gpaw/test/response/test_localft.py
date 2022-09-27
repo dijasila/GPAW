@@ -15,7 +15,8 @@ from gpaw.grid_descriptor import GridDescriptor
 from gpaw.lfc import LFC
 from gpaw.atom.radialgd import AERadialGridDescriptor
 from gpaw.response.localft import (LocalFTCalculator, MicroSetup,
-                                   add_total_density)
+                                   add_total_density, add_LSDA_Bxc)
+from gpaw.response.groundstate import ResponseGroundStateAdapter
 from gpaw.response.susceptibility import get_pw_coordinates
 from gpaw.test.response.test_site_kernels import get_PWDescriptor
 
@@ -209,7 +210,7 @@ def test_localft_paw_engine(in_tmp_dir, a):
         
 
 @pytest.mark.response
-def dont_test_Fe_bxc(in_tmp_dir):
+def test_Fe_bxc(in_tmp_dir):
     """Test the symmetry relation
 
     (B^xc_G)^* = B^xc_-G
@@ -256,12 +257,15 @@ def dont_test_Fe_bxc(in_tmp_dir):
     atoms.get_potential_energy()
 
     # Part 2: Bxc calculation
-    Bxc_calc = PlaneWaveBxc(calc)
+
+    # Set up calculator and plane-wave descriptor
+    gs = ResponseGroundStateAdapter(calc)
+    localft_calc = LocalFTCalculator.from_rshe_parameters(gs)
     pd0 = get_PWDescriptor(atoms, calc, [0., 0., 0.],
                            ecut=ecut,
                            gammacentered=True)
 
-    Bxc_G = Bxc_calc(pd0)
+    Bxc_G = localft_calc(pd0, add_LSDA_Bxc)
 
     # Part 3: Check symmetry relation
     G1_G, G2_G = get_inversion_pairs(pd0)
