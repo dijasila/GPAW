@@ -1,5 +1,4 @@
-"""Contains methods for calculating LR-TDDFT kernels.
-Substitutes gpaw.response.fxc in the new format."""
+"""Contains methods for calculating local LR-TDDFT kernels."""
 
 from pathlib import Path
 
