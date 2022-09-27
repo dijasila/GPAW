@@ -16,13 +16,12 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.pw.descriptor import PWDescriptor, count_reciprocal_vectors
 from gpaw.response.chi0 import Chi0Calculator
 from gpaw.response.context import calc_and_context
-from gpaw.response.fxckernel_calc import calculate_kernel
+from gpaw.response.g0w0_kernels import G0W0Kernel
 from gpaw.response.hilbert import GWHilbertTransforms
 from gpaw.response.pair import NoCalculatorPairDensity
 from gpaw.response.screened_interaction import WCalculator
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.utilities.progressbar import ProgressBar
-from gpaw.xc.fxc import XCFlags
 
 from ase.utils.filecache import MultiFileJSONCache as FileCache
 from contextlib import ExitStack
@@ -1018,18 +1017,6 @@ def choose_bands(bands, relbands, nvalence, nocc):
         bands = [0, nocc]
 
     return bands
-
-
-class G0W0Kernel:
-    def __init__(self, xc, **kwargs):
-        self.xc = xc
-        self.xcflags = XCFlags(xc)
-        self._kwargs = kwargs
-
-    def calculate(self, nG, iq, G2G):
-        return calculate_kernel(
-            xcflags=self.xcflags,
-            nG=nG, iq=iq, cut_G=G2G, **self._kwargs)
 
 
 class G0W0(G0W0Calculator):

@@ -11,7 +11,7 @@ from scipy.special import p_roots
 import gpaw.mpi as mpi
 from gpaw import GPAW
 from gpaw.response.chi0 import Chi0
-from gpaw.response.kernels import get_coulomb_kernel
+from gpaw.response.coulomb_kernels import get_coulomb_kernel
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.response.groundstate import ResponseGroundStateAdapter
 
