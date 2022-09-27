@@ -116,7 +116,7 @@ def test_localft_paw_engine(in_tmp_dir):
 
     # Real-space grid
     lc_to_a_ratio = 10  # lattice constant to orbital radii
-    N_grid_points = 1e6
+    N_grid_points = 50**3
 
     # Radial grid (using standard parameters from Li)
     rgd_a = 0.0023570226039551583
@@ -132,9 +132,6 @@ def test_localft_paw_engine(in_tmp_dir):
     # Test tolerance
     rtol = 5e-4
 
-    # To-do: Find out what redge gives the most precise results XXX
-    # To-do: Adjust parameters to improve tolerance XXX
-    # To-do: Adjust parameters to speed up test (use fewer L?) XXX
     # To-do: Adopt adjusted parameters in grid test XXX
     # To-do: Use alternative rshe parameters, neglecting L>0 XXX
 
@@ -176,6 +173,7 @@ def test_localft_paw_engine(in_tmp_dir):
 
             # Set up pseudo and ae densities on the Lebedev quadrature
             from gpaw.sphere.lebedev import Y_nL
+            Y_nL = Y_nL[:, :9]  # include only s, p and d
             nL = Y_nL.shape[1]
             n_sLg = np.zeros((1, nL, Ng), dtype=float)
             nt_sLg = np.zeros((1, nL, Ng), dtype=float)
