@@ -111,26 +111,26 @@ def test_localft_paw_engine(in_tmp_dir):
     transform the all-electron density of an 1s orbital."""
     # ---------- Inputs ---------- #
 
+    # 1s orbital radii
+    a_a = np.linspace(0.5, 1.5, 10)  # a.u.
+
     # Real-space grid
-    cell_volume = 1e3  # Ångstrøm
-    N_grid_points = 1e6 / 2**3.
+    lc_to_a_ratio = 10  # lattice constant to orbital radii
+    N_grid_points = 1e6
 
     # Radial grid (using standard parameters from Li)
     rgd_a = 0.0023570226039551583
     rgd_b = 0.0004528985507246377
     rcut = 2.0  # a.u.
 
-    # 1s orbital radii
-    a_a = np.linspace(0.5, 1.5, 10)  # a.u.
-
     # Plane-wave cutoff
-    ecut = 20  # eV
+    relative_ecut = 20  # eV relative to a=1
 
     # Settings for the expansion in real spherical harmonics
     rshe_params_p = [{}]
 
     # Test tolerance
-    rtol = 1e-3
+    rtol = 5e-4
 
     # To-do: Find out what redge gives the most precise results XXX
     # To-do: Adjust parameters to improve tolerance XXX
@@ -140,35 +140,34 @@ def test_localft_paw_engine(in_tmp_dir):
 
     # ---------- Script ---------- #
 
-    # Set up grid descriptor
-    lattice_constant = cell_volume**(1 / 3.) / Bohr  # a.u.
-    cell_cv = np.array([[lattice_constant, 0., 0.],
-                        [0., lattice_constant, 0.],
-                        [0., 0., lattice_constant]])
-    N_c = np.array([int(N_grid_points**(1 / 3.))] * 3)
-    gd = GridDescriptor(N_c, cell_cv=cell_cv)
+    for a in a_a:  # Test different orbital radii
+        # Set up grid descriptor
+        lattice_constant = lc_to_a_ratio * a  # a.u.
+        cell_cv = np.array([[lattice_constant, 0., 0.],
+                            [0., lattice_constant, 0.],
+                            [0., 0., lattice_constant]])
+        N_c = np.array([int(N_grid_points**(1 / 3.))] * 3)
+        gd = GridDescriptor(N_c, cell_cv=cell_cv)
 
-    # Set up atomic position at the center of the unit cell
-    R_v = np.array([lattice_constant, lattice_constant,
-                    lattice_constant]) / 2.
-    pos_ac = np.array([[0.5, 0.5, 0.5]])  # Relative atomic positions
+        # Set up atomic position at the center of the unit cell
+        R_v = np.array([lattice_constant, lattice_constant,
+                        lattice_constant]) / 2.
+        pos_ac = np.array([[0.5, 0.5, 0.5]])  # Relative atomic positions
 
-    # Set up radial grid descriptor extending all the way to the edge of the
-    # unit cell
-    redge = np.sqrt(3) * lattice_constant / 2.  # center-corner distance
-    Ng = int(np.floor(redge / (rgd_a + rgd_b * redge)) + 1)
-    rgd = AERadialGridDescriptor(rgd_a, rgd_b, N=Ng)
+        # Set up radial grid descriptor extending all the way to the edge of the
+        # unit cell
+        redge = np.sqrt(3) * lattice_constant / 2.  # center-corner distance
+        Ng = int(np.floor(redge / (rgd_a + rgd_b * redge)) + 1)
+        rgd = AERadialGridDescriptor(rgd_a, rgd_b, N=Ng)
 
-    # Set up plane-wave descriptor
-    qd = KPointDescriptor(np.array([[0., 0., 0.]]))
-    pd = PWDescriptor(ecut / Ha, gd, complex, qd)
+        # Set up plane-wave descriptor
+        qd = KPointDescriptor(np.array([[0., 0., 0.]]))
+        pd = PWDescriptor(relative_ecut / Ha / a**2., gd, complex, qd)
 
-    for rshe_params in rshe_params_p:
-        # Initialize the LocalPAWFTCalculator without a ground state adapter
-        localft_calc = LocalFTCalculator.from_rshe_parameters(None,
-                                                              **rshe_params)
-
-        for a in a_a:  # Test different orbital radii
+        for rshe_params in rshe_params_p:
+            # Initialize the LocalPAWFTCalculator without a ground state adapter
+            localft_calc = LocalFTCalculator.from_rshe_parameters(None,
+                                                                  **rshe_params)
 
             # Calculate the pseudo and ae densities on the radial grid
             n_g = ae_1s_density(rgd.r_g, a=a)
