@@ -2,8 +2,20 @@ from ase.units import Ha
 import os
 import gpaw.mpi as mpi
 import numpy as np
-from gpaw.xc.fxc import KernelWave
+from gpaw.xc.fxc import KernelWave, XCFlags
 from ase.io.aff import affopen
+
+
+class G0W0Kernel:
+    def __init__(self, xc, **kwargs):
+        self.xc = xc
+        self.xcflags = XCFlags(xc)
+        self._kwargs = kwargs
+
+    def calculate(self, nG, iq, G2G):
+        return calculate_kernel(
+            xcflags=self.xcflags,
+            nG=nG, iq=iq, cut_G=G2G, **self._kwargs)
 
 
 def actually_calculate_kernel(*, gs, xcflags, q_empty, tag, ecut_max, fd,

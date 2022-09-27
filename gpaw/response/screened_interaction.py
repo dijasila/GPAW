@@ -53,7 +53,7 @@ def initialize_w_calculator(chi0calc, txt='w.txt', ppa=False, xc='RPA',
          but the average is only carried out in the non-periodic directions.
     Remaining arguments: See WCalculator
     """
-    from gpaw.response.g0w0 import G0W0Kernel
+    from gpaw.response.g0w0_kernels import G0W0Kernel
     gs = chi0calc.gs
     context = new_context(txt, world, timer)
     if Eg is None and xc == 'JGMsx':
