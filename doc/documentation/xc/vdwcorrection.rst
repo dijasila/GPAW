@@ -10,10 +10,10 @@ are obtained from ab-initio calculations, the method requires
 nearly no additional computational cost and performs very well:
 
 ======================= ===  ===== ====== ======= ==== =========
-                        PBE  TPSS  vdW-DF vdW-DF2 TS09 Grimme D4
+.                       PBE  TPSS  vdW-DF vdW-DF2 TS09 Grimme D4
 ======================= ===  ===== ====== ======= ==== =========
-Mean absolute deviation 115  154   76     48      21   14
-RMS deviation           108  128   60     42      16   14
+Mean absolute deviation 115  154   76     48      16   14
+RMS deviation           108  128   60     42      21   14
 ======================= ===  ===== ====== ======= ==== =========
 
 Error in energies compared to CCSD results of the S26 test set.
