@@ -4,7 +4,7 @@ import numpy as np
 # GPAW modules
 import gpaw.mpi as mpi
 from gpaw.response.chiks import ChiKS
-from gpaw.response.kxc import PlaneWaveAdiabaticFXC
+from gpaw.response.fxc_kernels import PlaneWaveAdiabaticFXC
 from gpaw.response.site_kernels import SiteKernels
 from gpaw.response.susceptibility import symmetrize_reciprocity
 from gpaw.xc import XC

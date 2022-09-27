@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from gpaw.response.kxc import AdiabaticSusceptibilityFXC
+from gpaw.response.fxc_kernels import AdiabaticSusceptibilityFXC
 
 
 def get_density_xc_kernel(pd, chi0, functional='ALDA',
