@@ -214,8 +214,7 @@ class DielectricFunction:
 
     def get_chi(self, xc='RPA', q_c=[0, 0, 0], spin='all',
                 direction='x', return_VchiV=True, q_v=None,
-                rshelmax=-1, rshewmin=None,
-                spinpol_cut=None, density_cut=None):
+                rshelmax=-1, rshewmin=None):
         """ Returns v^1/2 chi v^1/2 for the density response and chi for the
         spin response. The truncated Coulomb interaction is included as
         v^-1/2 v_t v^-1/2. This is in order to conform with
@@ -236,11 +235,6 @@ class DielectricFunction:
             coefficients to use in the expansion. If any coefficient
             contributes with less than a fraction of rshewmin on average,
             it will not be included.
-        spinpol_cut : float
-            cutoff spin polarization below which f_xc is evaluated in
-            unpolarized limit (make sure divergent terms cancel out correctly)
-        density_cut : float
-            cutoff density below which f_xc is set to zero
         """
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c, spin)
 
@@ -284,8 +278,7 @@ class DielectricFunction:
             Kxc_GG = get_xc_kernel(pd,
                                    self.chi0,
                                    functional=xc,
-                                   chi0_wGG=chi0_wGG,
-                                   density_cut=density_cut)
+                                   chi0_wGG=chi0_wGG)
             K_GG += Kxc_GG / vsqr_G / vsqr_G[:, np.newaxis]
 
         # Invert Dyson eq.
@@ -311,7 +304,6 @@ class DielectricFunction:
     def get_dynamic_susceptibility(self, xc='ALDA', q_c=[0, 0, 0],
                                    q_v=None,
                                    rshelmax=-1, rshewmin=None,
-                                   spinpol_cut=None, density_cut=None,
                                    filename='chiM_w.csv'):
         """Calculate the dynamic susceptibility.
 
@@ -322,8 +314,6 @@ class DielectricFunction:
         pd, chi0_wGG, chi_wGG = self.get_chi(xc=xc, q_c=q_c,
                                              rshelmax=rshelmax,
                                              rshewmin=rshewmin,
-                                             spinpol_cut=spinpol_cut,
-                                             density_cut=density_cut,
                                              return_VchiV=False)
 
         rf0_w = np.zeros(len(chi_wGG), dtype=complex)
