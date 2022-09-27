@@ -13,6 +13,7 @@ import gpaw.mpi as mpi
 from gpaw.utilities import convert_string_to_fd
 from gpaw.spherical_harmonics import Yarr
 from gpaw.sphere.lebedev import weight_n, R_nv
+from gpaw.xc import XC
 
 
 class LocalFTCalculator(ABC):
@@ -193,7 +194,8 @@ class LocalPAWFTCalculator(LocalFTCalculator):
         bundled as a list of MicroSetups for each atom."""
         R_av = self.gs.atoms.positions / Bohr
 
-        micro_setups = [self.extract_micro_setup(a) for a in len(self.atoms)]
+        micro_setups = [self.extract_micro_setup(a)
+                        for a in range(len(self.gs.atoms))]
 
         return R_av, micro_setups
 
@@ -661,3 +663,26 @@ def fft_from_grid(f_R, pd):
     f_G = f_Q123.ravel()[Q_G]
 
     return f_G
+
+
+# ---------- Local functions of the (spin-)density ---------- #
+
+
+def add_LSDA_Bxc(gd, n_sR, Bxc_R):
+    """Calculate B^(xc) in the local spin-density approximation for a collinear
+    system and add it to the output array Bxc_R:
+
+                δE_xc[n,m]   1
+    B^(xc)(r) = ‾‾‾‾‾‾‾‾‾‾ = ‾ [V_LSDA^↑(r) - V_LSDA^↓(r)]
+                  δm(r)      2
+    """
+    # Allocate an array for the spin-dependent xc potential on the real
+    # space grid
+    v_sR = np.zeros(np.shape(n_sR))
+
+    # Calculate the spin-dependent potential
+    xc = XC('LDA')
+    xc.calculate(gd, n_sR, v_sg=v_sR)
+
+    # Add B^(xc) in real space to the output array
+    Bxc_R += (v_sR[0] - v_sR[1]) / 2
