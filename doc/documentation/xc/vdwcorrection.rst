@@ -33,6 +33,6 @@ test set is calculated:
 .. literalinclude:: s26_set.py
 
 .. [#TS09] :doi:`Tkatchenko and Scheffler Phys. Rev. Lett. 102 (2009)
-                 <07300510.1002/jcc.21724>`
+                 <10.1002/jcc.21724>`
 .. [#Hanke11jcc] Felix Hanke J. Comp. Chem. 32 (2011) 1424
 .. _github: https://github.com/dftd4/dftd4
