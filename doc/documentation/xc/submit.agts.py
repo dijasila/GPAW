@@ -8,8 +8,8 @@ from myqueue.workflow import run
 
 
 def workflow():
-    with run(script='s22_set.py', cores=8, tmax='1d'):
-        run(function=check_s22)
+    with run(script='s26_set.py', cores=8, tmax='1d'):
+        run(function=check_s26)
     run(script='hydrogen_atom.py', cores=16)
     if compiled_with_libvdwxc():
         run(script='libvdwxc-example.py')
@@ -17,7 +17,7 @@ def workflow():
             run(script='libvdwxc-pfft-example.py', cores=8)
 
 
-def check_s22():
+def check_s26():
     E = []
     E0 = []
     for line in Path('energies_TS09.dat').read_text().splitlines():
@@ -30,8 +30,9 @@ def check_s22():
         E.append(e)
         E0.append(e0)
     dE = np.array(E) - E0
-    print((dE**2).mean()**0.5)
-    print(dE.mean())
-
-
-# check_s22()
+    rms = (dE**2).mean()**0.5
+    amean = abs(dE).mean()
+    print(rms, amean)
+    # references from https://doi.org/10.1002/jcc.21724
+    assert abs(rms - 0.021) < 0.002
+    assert abs(amean - 0.016) < 0.002
