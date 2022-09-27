@@ -1,42 +1,15 @@
-"""This module calculates XC kernels for response function calculations.
-"""
+"""XC density kernels for response function calculations."""
 
 import numpy as np
 
 from gpaw.response.kxc import AdiabaticSusceptibilityFXC
-from gpaw.response.tms import get_goldstone_scaling
-
-
-def get_xc_kernel(pd, chi0, functional='ALDA', kernel='density',
-                  rshelmax=-1, rshewmin=None,
-                  chi0_wGG=None,
-                  fxc_scaling=None):
-    """
-    Factory function that calls the relevant functions below
-    """
-
-    if kernel == 'density':
-        return get_density_xc_kernel(pd, chi0, functional=functional,
-                                     rshelmax=rshelmax, rshewmin=rshewmin,
-                                     chi0_wGG=chi0_wGG)
-    elif kernel in ['+-', '-+']:
-        # Currently only collinear adiabatic xc kernels are implemented
-        # for which the +- and -+ kernels are the same
-        return get_transverse_xc_kernel(pd, chi0, functional=functional,
-                                        rshelmax=rshelmax, rshewmin=rshewmin,
-                                        chi0_wGG=chi0_wGG,
-                                        fxc_scaling=fxc_scaling)
-    else:
-        raise ValueError('%s kernels not implemented' % kernel)
 
 
 def get_density_xc_kernel(pd, chi0, functional='ALDA',
                           rshelmax=-1, rshewmin=None,
                           chi0_wGG=None):
-    """
-    Density-density xc kernels
-    Factory function that calls the relevant functions below
-    """
+    """Density-density xc kernels.
+    Factory function that calls the relevant functions below."""
 
     calc = chi0.calc
     fd = chi0.fd
@@ -65,56 +38,9 @@ def get_density_xc_kernel(pd, chi0, functional='ALDA',
         Kxc_sGG = get_bootstrap_kernel(pd, chi0, chi0_wGG, fd)
     else:
         raise ValueError('Invalid functional for the density-density '
-                         'fxc kernel:', functional)
+                         'xc kernel:', functional)
 
     return Kxc_sGG[0]
-
-
-def get_transverse_xc_kernel(pd, chi0, functional='ALDA_x',
-                             rshelmax=-1, rshewmin=None,
-                             chi0_wGG=None,
-                             fxc_scaling=None):
-    """ +-/-+ xc kernels
-    Currently only collinear ALDA kernels are implemented
-    Factory function that calls the relevant functions below
-    """
-
-    calc = chi0.calc
-    fd = chi0.fd
-    nspins = len(calc.density.nt_sG)
-    assert nspins == 2
-
-    if functional in ['ALDA_x', 'ALDA_X', 'ALDA']:
-        # Adiabatic kernel
-        print("Calculating transverse %s kernel" % functional, file=fd)
-        Kcalc = AdiabaticSusceptibilityFXC(calc, functional,
-                                           world=chi0.world, txt=fd,
-                                           timer=chi0.timer,
-                                           rshelmax=rshelmax,
-                                           rshewmin=rshewmin)
-    else:
-        raise ValueError("%s spin kernel not implemented" % functional)
-
-    Kxc_GG = Kcalc('+-', pd)
-
-    if fxc_scaling is not None:
-        assert isinstance(fxc_scaling[0], bool)
-        if fxc_scaling[0]:
-            if fxc_scaling[1] is None:
-                assert pd.kd.gamma
-                print('Finding rescaling of kernel to fulfill the '
-                      'Goldstone theorem', file=chi0.fd)
-                mode = fxc_scaling[2]
-                assert mode in ['fm', 'afm']
-                fxc_scaling[1] = get_goldstone_scaling(mode,
-                                                       chi0.wd.omega_w,
-                                                       -chi0_wGG, Kxc_GG,
-                                                       world=chi0.world)
-
-            assert isinstance(fxc_scaling[1], float)
-            Kxc_GG *= fxc_scaling[1]
-
-    return Kxc_GG
 
 
 def calculate_lr_kernel(pd, calc, alpha=0.2):

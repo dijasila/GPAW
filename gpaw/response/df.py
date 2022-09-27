@@ -13,7 +13,7 @@ from gpaw.response.chi0 import Chi0
 
 from gpaw.response.kernels import get_coulomb_kernel
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
-from gpaw.response.fxc import get_xc_kernel
+from gpaw.response.fxc import get_density_xc_kernel
 
 
 class DielectricFunction:
@@ -275,10 +275,10 @@ class DielectricFunction:
             chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv[W], d_v).T)
 
         if xc != 'RPA':
-            Kxc_GG = get_xc_kernel(pd,
-                                   self.chi0,
-                                   functional=xc,
-                                   chi0_wGG=chi0_wGG)
+            Kxc_GG = get_density_xc_kernel(pd,
+                                           self.chi0,
+                                           functional=xc,
+                                           chi0_wGG=chi0_wGG)
             K_GG += Kxc_GG / vsqr_G / vsqr_G[:, np.newaxis]
 
         # Invert Dyson eq.
@@ -404,10 +404,10 @@ class DielectricFunction:
                 chi0_wGG[:, 0, 0] *= np.dot(q_v, d_v)**2
 
         if xc != 'RPA':
-            Kxc_GG = get_xc_kernel(pd,
-                                   self.chi0,
-                                   functional=xc,
-                                   chi0_wGG=chi0_wGG)
+            Kxc_GG = get_density_xc_kernel(pd,
+                                           self.chi0,
+                                           functional=xc,
+                                           chi0_wGG=chi0_wGG)
 
         if calculate_chi:
             chi_wGG = []
