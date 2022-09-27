@@ -14,7 +14,7 @@ from gpaw.response.kspair import get_calc
 from gpaw.response.frequencies import FrequencyDescriptor
 from gpaw.response.chiks import ChiKS
 from gpaw.response.kxc import get_fxc
-from gpaw.response.kernels import get_coulomb_kernel
+from gpaw.response.coulomb_kernels import get_coulomb_kernel
 from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.response.groundstate import ResponseGroundStateAdapter
 

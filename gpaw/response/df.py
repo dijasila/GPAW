@@ -11,7 +11,7 @@ import gpaw.mpi as mpi
 
 from gpaw.response.chi0 import Chi0
 
-from gpaw.response.kernels import get_coulomb_kernel
+from gpaw.response.coulomb_kernels import get_coulomb_kernel
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.response.fxc import get_density_xc_kernel
 
