@@ -668,6 +668,10 @@ def fft_from_grid(f_R, pd):
 # ---------- Local functions of the (spin-)density ---------- #
 
 
+def add_total_density(gd, n_sR, n_R):
+    n_R += np.sum(n_sR, axis=0)
+
+
 def add_LSDA_Bxc(gd, n_sR, Bxc_R):
     """Calculate B^(xc) in the local spin-density approximation for a collinear
     system and add it to the output array Bxc_R:

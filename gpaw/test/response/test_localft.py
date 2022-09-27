@@ -14,8 +14,8 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.lfc import LFC
 from gpaw.atom.radialgd import AERadialGridDescriptor
-from gpaw.response.localft import LocalFTCalculator, MicroSetup
-from gpaw.response.mft import PlaneWaveBxc
+from gpaw.response.localft import (LocalFTCalculator, MicroSetup,
+                                   add_total_density)
 from gpaw.response.susceptibility import get_pw_coordinates
 from gpaw.test.response.test_site_kernels import get_PWDescriptor
 
@@ -270,10 +270,6 @@ def dont_test_Fe_bxc(in_tmp_dir):
 
 
 # ---------- Test functionality ---------- #
-
-
-def add_total_density(gd, n_sR, f_R):
-    f_R += np.sum(n_sR, axis=0)
 
 
 def get_inversion_pairs(pd0):
