@@ -9,6 +9,7 @@ from ase.units import Ha
 from ase.build import bulk
 
 from gpaw import GPAW, PW, FermiDirac
+import gpaw.mpi as mpi
 from gpaw.pw.descriptor import PWDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.grid_descriptor import GridDescriptor
@@ -83,7 +84,7 @@ def test_localft_grid_calculator(in_tmp_dir, a):
                         [0., lattice_constant, 0.],
                         [0., 0., lattice_constant]])
     N_c = np.array([int(N_grid_points**(1 / 3.))] * 3)
-    gd = GridDescriptor(N_c, cell_cv=cell_cv)
+    gd = GridDescriptor(N_c, cell_cv=cell_cv, comm=mpi.serial_comm)
 
     # Set up plane-wave descriptor
     qd = KPointDescriptor(np.array([[0., 0., 0.]]))
@@ -150,7 +151,7 @@ def test_localft_paw_engine(in_tmp_dir, a):
                         [0., lattice_constant, 0.],
                         [0., 0., lattice_constant]])
     N_c = np.array([int(N_grid_points**(1 / 3.))] * 3)
-    gd = GridDescriptor(N_c, cell_cv=cell_cv)
+    gd = GridDescriptor(N_c, cell_cv=cell_cv, comm=mpi.serial_comm)
 
     # Set up radial grid descriptor extending all the way to the edge of the
     # unit cell
