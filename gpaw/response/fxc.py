@@ -10,9 +10,7 @@ from gpaw.response.tms import get_goldstone_scaling
 def get_xc_kernel(pd, chi0, functional='ALDA', kernel='density',
                   rshelmax=-1, rshewmin=None,
                   chi0_wGG=None,
-                  fxc_scaling=None,
-                  density_cut=None,
-                  spinpol_cut=None):
+                  fxc_scaling=None):
     """
     Factory function that calls the relevant functions below
     """
@@ -20,25 +18,21 @@ def get_xc_kernel(pd, chi0, functional='ALDA', kernel='density',
     if kernel == 'density':
         return get_density_xc_kernel(pd, chi0, functional=functional,
                                      rshelmax=rshelmax, rshewmin=rshewmin,
-                                     chi0_wGG=chi0_wGG,
-                                     density_cut=density_cut)
+                                     chi0_wGG=chi0_wGG)
     elif kernel in ['+-', '-+']:
         # Currently only collinear adiabatic xc kernels are implemented
         # for which the +- and -+ kernels are the same
         return get_transverse_xc_kernel(pd, chi0, functional=functional,
                                         rshelmax=rshelmax, rshewmin=rshewmin,
                                         chi0_wGG=chi0_wGG,
-                                        fxc_scaling=fxc_scaling,
-                                        density_cut=density_cut,
-                                        spinpol_cut=spinpol_cut)
+                                        fxc_scaling=fxc_scaling)
     else:
         raise ValueError('%s kernels not implemented' % kernel)
 
 
 def get_density_xc_kernel(pd, chi0, functional='ALDA',
                           rshelmax=-1, rshewmin=None,
-                          chi0_wGG=None,
-                          density_cut=None):
+                          chi0_wGG=None):
     """
     Density-density xc kernels
     Factory function that calls the relevant functions below
@@ -56,8 +50,7 @@ def get_density_xc_kernel(pd, chi0, functional='ALDA',
                                            world=chi0.world, txt=fd,
                                            timer=chi0.timer,
                                            rshelmax=rshelmax,
-                                           rshewmin=rshewmin,
-                                           density_cut=density_cut)
+                                           rshewmin=rshewmin)
         Kxc_GG = Kcalc('00', pd)
         if pd.kd.gamma:
             Kxc_GG[0, :] = 0.0
@@ -80,9 +73,7 @@ def get_density_xc_kernel(pd, chi0, functional='ALDA',
 def get_transverse_xc_kernel(pd, chi0, functional='ALDA_x',
                              rshelmax=-1, rshewmin=None,
                              chi0_wGG=None,
-                             fxc_scaling=None,
-                             density_cut=None,
-                             spinpol_cut=None):
+                             fxc_scaling=None):
     """ +-/-+ xc kernels
     Currently only collinear ALDA kernels are implemented
     Factory function that calls the relevant functions below
@@ -100,9 +91,7 @@ def get_transverse_xc_kernel(pd, chi0, functional='ALDA_x',
                                            world=chi0.world, txt=fd,
                                            timer=chi0.timer,
                                            rshelmax=rshelmax,
-                                           rshewmin=rshewmin,
-                                           density_cut=density_cut,
-                                           spinpol_cut=spinpol_cut)
+                                           rshewmin=rshewmin)
     else:
         raise ValueError("%s spin kernel not implemented" % functional)
 
