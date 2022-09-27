@@ -6,7 +6,8 @@ from ase.dft.kpoints import monkhorst_pack
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.response.gamma_int import GammaIntegrator
-from gpaw.response.kernels import get_coulomb_kernel, get_integrated_kernel
+from gpaw.response.coulomb_kernels import (get_coulomb_kernel,
+                                           get_integrated_kernel)
 from gpaw.response.temp import DielectricFunctionCalculator
 import gpaw.mpi as mpi
 from gpaw.response.context import new_context
@@ -52,7 +53,7 @@ def initialize_w_calculator(chi0calc, txt='w.txt', ppa=False, xc='RPA',
          but the average is only carried out in the non-periodic directions.
     Remaining arguments: See WCalculator
     """
-    from gpaw.response.g0w0 import G0W0Kernel
+    from gpaw.response.g0w0_kernels import G0W0Kernel
     gs = chi0calc.gs
     context = new_context(txt, world, timer)
     if Eg is None and xc == 'JGMsx':
