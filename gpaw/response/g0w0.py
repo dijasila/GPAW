@@ -701,7 +701,7 @@ class G0W0Calculator:
         """Main loop over irreducible Brillouin zone points.
         Handles restarts of individual qpoints using FileCache from ASE,
         and subsequently calls calculate_q."""
-       
+
         pb = ProgressBar(self.fd)
 
         self.timer.start('W')
@@ -867,7 +867,7 @@ class G0W0Calculator:
                 chi0bands.chi0_wvv[:] = chi0.chi0_wvv.copy()
 
         Wdict = {}
-        
+
         for fxc_mode in self.fxc_modes:
             pdi, blocks1d, G2G, chi0_wGG, chi0_wxvG, chi0_wvv = \
                 chi0calc.reduce_ecut(ecut, chi0)
@@ -1030,6 +1030,26 @@ class G0W0Kernel:
         return calculate_kernel(
             xcflags=self.xcflags,
             nG=nG, iq=iq, cut_G=G2G, **self._kwargs)
+
+
+def G0W0_calculate_qparallel(calc, qcores=1, filename='gw', world=None,
+                             restartfile=None, **kwargs):
+    N = world.size // qcores
+    my_qpar_rank = world.rank // N
+
+    ranks = [rank for rank in range(world.size) if rank // N == my_qpar_rank]
+    internal_qcomm = world.new_communicator(ranks)
+
+    if N * qpar != world.size:
+        raise ValueError('Number of cores must be divisible by qcores.')
+
+    if restartfile is None:
+        raise ValueError('Restart file must be specified.')
+
+    filename = filename + f'_qpar{qpar_rank}'
+    calc = G0W0(calc, filename=filename, world=internal_qcomm,
+                restartfile=restartfile, **kwargs)
+    return calc.calculate()
 
 
 class G0W0(G0W0Calculator):
