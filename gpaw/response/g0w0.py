@@ -311,6 +311,7 @@ class G0W0Calculator:
                  eta,
                  ecut_e,
                  frequencies=None,
+                 full_world=None,
                  savepckl=True):
         """G0W0 calculator, initialized through G0W0 object.
 
@@ -371,8 +372,13 @@ class G0W0Calculator:
 
         self.world = self.wcalc.context.world
 
-        # TODO: # implement q-point parallelism over this.
+        if full_world is None:
+            self.full_world = self.world
+        else:
+            self.full_world = full_world
+        
         self.qcomm = self.world
+ 
         self.fd = self.fd
 
         print(gw_logo, file=self.fd)
@@ -397,7 +403,12 @@ class G0W0Calculator:
         self.savepckl = savepckl
         self.eta = eta / Ha
 
-        if self.qcomm.rank == 0:
+        # Note: self.world = q-point worker
+        # self.full_world The communicator with all q-point workers.
+        # This syntax is because for now, it would be too cumbersome and
+        # difficult to change all worlds to some qpt_comm.
+
+        if self.world.rank == 0:
             # We pass a serial communicator because the parallel handling
             # is somewhat wonky, we'd rather do that ourselves:
             try:
@@ -409,7 +420,11 @@ class G0W0Calculator:
                     'from September 20 2022 or newer.  '
                     'You may need to pull newest ASE.') from err
 
+        # Only the full_world master will strip empties from the FileCache
+        # after which all ranks wait.
+        if self.full_world.rank == 0:
             self.qcache.strip_empties()
+        self.full_world.barrier()
 
         self.kpts = kpts
         self.bands = bands
@@ -528,15 +543,15 @@ class G0W0Calculator:
         return all_results
 
     def read_sigmas(self):
-        if self.world.rank == 0:
+        if self.full_world.rank == 0:
             sigmas = self._read_sigmas()
         else:
             sigmas = None
 
-        return broadcast(sigmas, comm=self.world)
+        return broadcast(sigmas, comm=self.full_world)
 
     def _read_sigmas(self):
-        assert self.world.rank == 0
+        assert self.full_world.rank == 0
 
         # Integrate over all q-points, and accumulate the quasiparticle shifts
         for iq, q_c in enumerate(self.wcalc.qd.ibzk_kc):
@@ -553,7 +568,7 @@ class G0W0Calculator:
         return sigmas
 
     def get_sigmas_dict(self, key):
-        assert self.world.rank == 0
+        assert self.full_world.rank == 0
         return {fxc_mode: Sigma.fromdict(sigma)
                 for fxc_mode, sigma in self.qcache[key].items()}
 
@@ -701,7 +716,7 @@ class G0W0Calculator:
         """Main loop over irreducible Brillouin zone points.
         Handles restarts of individual qpoints using FileCache from ASE,
         and subsequently calls calculate_q."""
-       
+
         pb = ProgressBar(self.fd)
 
         self.timer.start('W')
@@ -744,16 +759,16 @@ class G0W0Calculator:
                   % (siz / 1024**2, sizA / 1024**2), file=self.fd)
             self.fd.flush()
 
-        # Need to pause the timer in between iterations
         self.timer.stop('W')
-        if self.qcomm.rank == 0:
+        if self.full_world.rank == 0:
             for key, sigmas in self.qcache.items():
                 sigmas = {fxc_mode: Sigma.fromdict(sigma)
                           for fxc_mode, sigma in sigmas.items()}
                 for fxc_mode, sigma in sigmas.items():
                     sigma.validate_inputs(self.get_validation_inputs())
+        
+        self.full_world.barrier()
 
-        self.world.barrier()
         for iq, q_c in enumerate(self.wcalc.qd.ibzk_kc):
             with ExitStack() as stack:
                 if self.qcomm.rank == 0:
@@ -867,7 +882,7 @@ class G0W0Calculator:
                 chi0bands.chi0_wvv[:] = chi0.chi0_wvv.copy()
 
         Wdict = {}
-        
+
         for fxc_mode in self.fxc_modes:
             pdi, blocks1d, G2G, chi0_wGG, chi0_wxvG, chi0_wvv = \
                 chi0calc.reduce_ecut(ecut, chi0)
@@ -1032,6 +1047,27 @@ class G0W0Kernel:
             nG=nG, iq=iq, cut_G=G2G, **self._kwargs)
 
 
+def G0W0_calculate_qparallel(calc, qcores=1, filename='gw', world=mpi.world,
+                             restartfile=None, **kwargs):
+    N = world.size // qcores
+    my_qpar_rank = world.rank // N
+
+    ranks = [rank for rank in range(world.size) if rank // N == my_qpar_rank]
+    internal_qcomm = world.new_communicator(ranks)
+
+    if N * qcores != world.size:
+        raise ValueError('Number of cores must be divisible by qcores.')
+
+    if restartfile is None:
+        raise ValueError('Restart file must be specified.')
+
+    filename = filename + f'_qpar{my_qpar_rank}'
+    calc = G0W0(calc, filename=filename, world=internal_qcomm,
+                full_world=world,
+                restartfile=restartfile, **kwargs)
+    return calc.calculate()
+
+
 class G0W0(G0W0Calculator):
     def __init__(self, calc, filename='gw',
                  ecut=150.0,
@@ -1051,6 +1087,7 @@ class G0W0(G0W0Calculator):
                  nblocksmax=False,
                  kpts=None,
                  world=mpi.world,
+                 full_world=None,
                  timer=None,
                  fxc_mode='GW',
                  truncation=None,
@@ -1225,4 +1262,5 @@ class G0W0(G0W0Calculator):
                          bands=bands,
                          frequencies=frequencies,
                          kpts=kpts,
+                         full_world=full_world,
                          **kwargs)
