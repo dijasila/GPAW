@@ -16,7 +16,7 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.pw.descriptor import PWDescriptor, count_reciprocal_vectors
 from gpaw.response.chi0 import Chi0Calculator
 from gpaw.response.context import calc_and_context
-from gpaw.response.fxckernel_calc import calculate_kernel
+from gpaw.response.g0w0_kernels import calculate_kernel
 from gpaw.response.hilbert import GWHilbertTransforms
 from gpaw.response.pair import NoCalculatorPairDensity
 from gpaw.response.screened_interaction import WCalculator
