@@ -9,6 +9,7 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.bztools import get_reduced_bz, unique_rows
 from _gpaw import GG_shuffle
 
+
 class KPointFinder:
     def __init__(self, bzk_kc):
         self.kdtree = cKDTree(self._round(bzk_kc))
@@ -373,22 +374,21 @@ class PWSymmetryAnalyzer:
     @timer('symmetrize_wGG')
     def symmetrize_wGG(self, A_wGG):
         """Symmetrize an array in GG'."""
-
         
         for A_GG in A_wGG:
             tmp_GG = np.zeros_like(A_GG, order='C')
-            #tmp2_GG = np.zeros_like(A_GG)
+            # tmp2_GG = np.zeros_like(A_GG)
 
             for s in self.s_s:
                 G_G, sign, _ = self.G_sG[s]
                 GG_shuffle(G_G, sign, A_GG, tmp_GG)
 
-                #if sign == 1:
-                #    tmp2_GG += A_GG[G_G, :][:, G_G]
-                #if sign == -1:
-                #    tmp2_GG += A_GG[G_G, :][:, G_G].T
+                # if sign == 1:
+                #     tmp2_GG += A_GG[G_G, :][:, G_G]
+                # if sign == -1:
+                #     tmp2_GG += A_GG[G_G, :][:, G_G].T
             
-            #assert np.allclose(tmp_GG, tmp2_GG)
+            # assert np.allclose(tmp_GG, tmp2_GG)
             A_GG[:] = tmp_GG / self.how_many_symmetries()
 
     @timer('symmetrize_wxx')
@@ -430,7 +430,7 @@ class PWSymmetryAnalyzer:
         # Inplace overwriting
         A_wxx[:] = tmp_wxx / self.how_many_symmetries()
 
-    timer('symmetrize_wxvG')
+    @timer('symmetrize_wxvG')
     def symmetrize_wxvG(self, A_wxvG):
         """Symmetrize chi0_wxvG"""
         A_cv = self.pd.gd.cell_cv
@@ -454,7 +454,7 @@ class PWSymmetryAnalyzer:
         # Overwrite the input
         A_wxvG[:] = tmp_wxvG / self.how_many_symmetries()
 
-    timer('symmetrize_wvv')
+    @timer('symmetrize_wvv')
     def symmetrize_wvv(self, A_wvv):
         """Symmetrize chi_wvv."""
         A_cv = self.pd.gd.cell_cv
