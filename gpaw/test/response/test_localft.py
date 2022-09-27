@@ -118,7 +118,6 @@ def test_localft_paw_engine(in_tmp_dir):
     # Radial grid (using standard parameters from Li)
     rgd_a = 0.0023570226039551583
     rgd_b = 0.0004528985507246377
-    rgd_N = 2000
     rcut = 2.0  # a.u.
 
     # 1s orbital radii
@@ -133,7 +132,6 @@ def test_localft_paw_engine(in_tmp_dir):
     # Test tolerance
     rtol = 1e-3
 
-    # To-do: Use newrgd instead of rgd XXX
     # To-do: Find out what redge gives the most precise results XXX
     # To-do: Adjust parameters to improve tolerance XXX
     # To-do: Adjust parameters to speed up test (use fewer L?) XXX
@@ -155,8 +153,11 @@ def test_localft_paw_engine(in_tmp_dir):
                     lattice_constant]) / 2.
     pos_ac = np.array([[0.5, 0.5, 0.5]])  # Relative atomic positions
 
-    # Set up radial grid descriptor
-    rgd = AERadialGridDescriptor(rgd_a, rgd_b, N=rgd_N)
+    # Set up radial grid descriptor extending all the way to the edge of the
+    # unit cell
+    redge = np.sqrt(3) * lattice_constant / 2.  # center-corner distance
+    Ng = int(np.floor(redge / (rgd_a + rgd_b * redge)) + 1)
+    rgd = AERadialGridDescriptor(rgd_a, rgd_b, N=Ng)
 
     # Set up plane-wave descriptor
     qd = KPointDescriptor(np.array([[0., 0., 0.]]))
@@ -177,24 +178,16 @@ def test_localft_paw_engine(in_tmp_dir):
             # Set up pseudo and ae densities on the Lebedev quadrature
             from gpaw.sphere.lebedev import Y_nL
             nL = Y_nL.shape[1]
-            n_sLg = np.zeros((1, nL, rgd_N), dtype=float)
-            nt_sLg = np.zeros((1, nL, rgd_N), dtype=float)
-            # 1s <=> (l,m) = (0,0) <=> L=0
+            n_sLg = np.zeros((1, nL, Ng), dtype=float)
+            nt_sLg = np.zeros((1, nL, Ng), dtype=float)
+            # 1s <=> (l,m) = (0,0) <=> L = 0
             n_sLg[0, 0, :] += np.sqrt(4. * np.pi) * n_g  # Y_0 = 1 / sqrt(4pi)
             nt_sLg[0, 0, :] += np.sqrt(4. * np.pi) * nt_g
 
             # Calculate the pseudo density on the real-space grid
             # ------------------------------------------------- #
-            # We start out by setting up a new radial grid descriptor, which
-            # matches the atomic one inside the PAW sphere, but extends all the
-            # way to the edge of the unit cell
-            redge = np.sqrt(3) * lattice_constant / 2.  # cell corner distance
-            Ng = int(np.floor(redge / (rgd_a + rgd_b * redge)) + 1)
-            newrgd = AERadialGridDescriptor(rgd_a, rgd_b, N=Ng)
-            # Generate pseudo density and splines on the new radial grid
-            newn_g = ae_1s_density(newrgd.r_g, a=a)
-            newnt_g, _ = newrgd.pseudize(newn_g, gcut, l=0)
-            spline = newrgd.spline(newnt_g, l=0, rcut=redge)
+            # Generate splines on for the pseudo density on the radial grid
+            spline = rgd.spline(nt_g, l=0, rcut=redge)
             # Use the LocalizedFunctionsCollection to generate pseudo density
             # on the cubic real space grid
             nt_R = gd.zeros()
