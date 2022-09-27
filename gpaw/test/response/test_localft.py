@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 
 # Script modules
-from ase.units import Bohr, Ha
+from ase.units import Ha
 from ase.build import bulk
 
 from gpaw import GPAW, PW, FermiDirac
@@ -54,28 +54,30 @@ def ae_1s_density_plane_waves(pd, R_v, a=1.0):
 # ---------- Actual tests ---------- #
 
 @pytest.mark.response
-def test_localft_grid_calculator(in_tmp_dir):
+@pytest.mark.parametrize("a", testa_a)
+def test_localft_grid_calculator(in_tmp_dir, a):
     """Test that the LocalGridFTCalculator is able to correctly Fourier
     transform the all-electron density of an 1s orbital."""
     # ---------- Inputs ---------- #
 
     # Real-space grid
-    cell_volume = 1e3  # Ångstrøm
-    N_grid_points = 1e6
-
-    # 1s orbital radii
-    a_a = np.linspace(0.5, 1.5, 10)  # a.u.
+    lc_to_a_ratio = 10  # lattice constant to orbital radii
+    N_grid_points = 50**3
 
     # Plane-wave cutoff
-    ecut = 20  # eV
+    relative_ecut = 20  # eV relative to a=1
 
     # Test tolerance
     rtol = 1e-3
 
     # ---------- Script ---------- #
 
+    # Set up atomic position at the center of the unit cell
+    lattice_constant = lc_to_a_ratio * a  # a.u.
+    R_v = np.array([lattice_constant, lattice_constant,
+                    lattice_constant]) / 2.  # Place atom at the center
+
     # Set up grid descriptor
-    lattice_constant = cell_volume**(1 / 3.) / Bohr  # a.u.
     cell_cv = np.array([[lattice_constant, 0., 0.],
                         [0., lattice_constant, 0.],
                         [0., 0., lattice_constant]])
@@ -84,28 +86,27 @@ def test_localft_grid_calculator(in_tmp_dir):
 
     # Set up plane-wave descriptor
     qd = KPointDescriptor(np.array([[0., 0., 0.]]))
-    pd = PWDescriptor(ecut / Ha, gd, complex, qd)
+    pd = PWDescriptor(relative_ecut / Ha / a**2., gd, complex, qd)
 
-    # Initialize the LocalGridFTCalculator without a ground state adapter
-    localft_calc = LocalFTCalculator.from_rshe_parameters(None, rshelmax=None)
+    # Calculate the plane-wave components analytically
+    ntest_G = ae_1s_density_plane_waves(pd, R_v, a=a)
 
     # Calculate the atomic radius at all grid points
-    R_v = np.array([lattice_constant, lattice_constant,
-                    lattice_constant]) / 2.  # Place atom at the center
     r_vR = gd.get_grid_point_coordinates()
     r_R = np.linalg.norm(r_vR - R_v[:, np.newaxis, np.newaxis, np.newaxis],
                          axis=0)
 
-    for a in a_a:  # Test different orbital radii
-        # Calculate the all-electron density on the real-space grid
-        n_sR = np.array([ae_1s_density(r_R, a=a)])
+    # Calculate the all-electron density on the real-space grid
+    n_sR = np.array([ae_1s_density(r_R, a=a)])
 
-        # Compute the plane-wave components numerically
-        n_G = localft_calc._calculate(pd, n_sR, add_total_density)
+    # Initialize the LocalGridFTCalculator without a ground state adapter
+    localft_calc = LocalFTCalculator.from_rshe_parameters(None, rshelmax=None)
 
-        # Calculate analytically and check validity of results
-        ntest_G = ae_1s_density_plane_waves(pd, R_v, a=a)
-        assert np.allclose(n_G, ntest_G, rtol=rtol)
+    # Compute the plane-wave components numerically
+    n_G = localft_calc._calculate(pd, n_sR, add_total_density)
+
+    # Check validity of results
+    assert np.allclose(n_G, ntest_G, rtol=rtol)
 
 
 @pytest.mark.response
@@ -134,8 +135,6 @@ def test_localft_paw_engine(in_tmp_dir, a):
 
     # Test tolerance
     rtol = 5e-4
-
-    # To-do: Adopt adjusted parameters in grid test XXX
 
     # ---------- Script ---------- #
 
