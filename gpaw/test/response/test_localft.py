@@ -127,13 +127,15 @@ def test_localft_paw_engine(in_tmp_dir):
     relative_ecut = 20  # eV relative to a=1
 
     # Settings for the expansion in real spherical harmonics
-    rshe_params_p = [{}]
+    rshe_params_p = [{},
+                     {'rshelmax': 0},  # test that only l=0 contributes
+                     {'rshewmin': 1e-8}]  # test coefficient filter
 
     # Test tolerance
     rtol = 5e-4
 
+    # To-do: Make the orbital radii an externally varried parameter XXX
     # To-do: Adopt adjusted parameters in grid test XXX
-    # To-do: Use alternative rshe parameters, neglecting L>0 XXX
 
     # ---------- Script ---------- #
 
