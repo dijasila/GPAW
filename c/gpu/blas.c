@@ -9,7 +9,7 @@
 #include <cublas_v2.h>
 #include <pthread.h>
 
-#include "gpaw-cuda-int.h"
+#include "gpu-complex.h"
 
 #define HYBRID_GEMM_SIZE_N_GPU  (512/2)
 #define HYBRID_GEMM_SIZE_K_GPU  (512/2)
@@ -41,8 +41,6 @@
 
 
 cublasHandle_t _gpaw_cublas_handle;
-
-extern "C" {
 
 typedef struct _hybrid_pace_t {
     unsigned int times;
@@ -141,10 +139,8 @@ void dsyr2k_(const char *uplo, const char *trans, int *n, int *k,
 void zher2k_(const char *uplo, const char *trans, int *n, int *k,
              void *alpha, void *a, int *lda, void *b, int *ldb,
              double *beta, void *c, int *ldc);
-}
 
 
-extern "C"
 void blas_init_cuda()
 {
     gpaw_cubSCall(cublasCreate(&_gpaw_cublas_handle));
@@ -204,7 +200,6 @@ void hybrid_pace_update(hybrid_pace_t *pace, double time_gpu,
 }
 
 
-extern "C"
 void hybrid_func_init(hybrid_func_params_t *pg)
 {
     for (int i=0; i < 2; i++) {
@@ -219,7 +214,6 @@ void hybrid_func_init(hybrid_func_params_t *pg)
 }
 
 
-extern "C"
 static void hybrid_param_alloc(hybrid_params_t *ph, int size_a,
                                int size_b, int size_c, int size_c_gpu)
 {
@@ -272,7 +266,6 @@ static void hybrid_param_alloc(hybrid_params_t *ph, int size_a,
 }
 
 
-extern "C"
 static void hybrid_gemm_benchmark(hybrid_func_params_t *pg,
                                   hybrid_params_t *ph)
 {
@@ -365,7 +358,6 @@ static void hybrid_gemm_benchmark(hybrid_func_params_t *pg,
 }
 
 
-extern "C"
 static void hybrid_syrk_benchmark(hybrid_func_params_t *ps,
                                   hybrid_params_t *ph)
 {
@@ -451,7 +443,6 @@ static void hybrid_syrk_benchmark(hybrid_func_params_t *ps,
 }
 
 
-extern "C"
 static void hybrid_syr2k_benchmark(hybrid_func_params_t *ps,
                                    hybrid_params_t *ph)
 {
@@ -542,7 +533,6 @@ static void hybrid_syr2k_benchmark(hybrid_func_params_t *ps,
 }
 
 
-extern "C"
 static void hybrid_gemm_update_paces(hybrid_func_params_t *pg)
 {
     float time_gpu;
@@ -575,7 +565,6 @@ static void hybrid_gemm_update_paces(hybrid_func_params_t *pg)
 }
 
 
-extern "C"
 static void hybrid_syrk_update_paces(hybrid_func_params_t *ps)
 {
     float time_gpu1, time_gpu2;
@@ -604,7 +593,6 @@ static void hybrid_syrk_update_paces(hybrid_func_params_t *ps)
 }
 
 
-extern "C"
 static void hybrid_syr2k_update_paces(hybrid_func_params_t *ps)
 {
     float time_gpu1, time_gpu2;
@@ -649,7 +637,6 @@ static cublasOperation_t cublas_operation(int op)
 }
 
 
-extern "C"
 PyObject* scal_cuda_gpu(PyObject *self, PyObject *args)
 {
     Py_complex alpha;
@@ -686,7 +673,7 @@ static void _mmm_cuda(cublasOperation_t cu_opa, cublasOperation_t cu_opb,
                       int m, int n, int k,
                       Py_complex alpha, CUdeviceptr a, int lda,
                       CUdeviceptr b, int ldb, Py_complex beta,
-                      CUdeviceptr c, int ldc, bool real)
+                      CUdeviceptr c, int ldc, int real)
 {
     if (real) {
         gpaw_cubSCall(
@@ -704,7 +691,6 @@ static void _mmm_cuda(cublasOperation_t cu_opa, cublasOperation_t cu_opb,
     }
 }
 
-extern "C"
 PyObject* mmm_gpu(PyObject *self, PyObject *args)
 {
     Py_complex alpha;
@@ -727,7 +713,7 @@ PyObject* mmm_gpu(PyObject *self, PyObject *args)
 
     cublasOperation_t cu_opa = cublas_operation(opa);
     cublasOperation_t cu_opb = cublas_operation(opb);
-    bool real = (bytes == NPY_SIZEOF_DOUBLE);
+    int real = (bytes == NPY_SIZEOF_DOUBLE);
 
     _mmm_cuda(cu_opa, cu_opb, m, n, k, alpha, a, lda, b, ldb, beta,
               c, ldc, real);
@@ -740,7 +726,7 @@ static void _gemm_cuda(cublasOperation_t transa_c,
                        Py_complex alpha, CUdeviceptr a_gpu, int lda,
                        CUdeviceptr b_gpu, int ldb, Py_complex beta,
                        CUdeviceptr c_gpu, int ldc,
-                       bool real)
+                       int real)
 {
     _mmm_cuda(transa_c, CUBLAS_OP_N, m, n, k, alpha, a_gpu, lda,
               b_gpu, ldb, beta, c_gpu, ldc, real);
@@ -751,7 +737,7 @@ static void _gemm_cuda_hybrid(char transa, cublasOperation_t transa_c,
                               Py_complex alpha, CUdeviceptr a_gpu, int lda,
                               CUdeviceptr b_gpu, int ldb, Py_complex beta,
                               CUdeviceptr c_gpu, int ldc,
-                              bool real)
+                              int real)
 {
     int n_off = 0, m_off = 0;
     int lda2, ldc2;
@@ -909,7 +895,6 @@ static void _gemm_cuda_hybrid(char transa, cublasOperation_t transa_c,
     cudaStreamWaitEvent(0, pg->event_gpu[1], 0);
 }
 
-extern "C"
 PyObject* gemm_cuda_gpu(PyObject *self, PyObject *args)
 {
     Py_complex alpha;
@@ -929,7 +914,7 @@ PyObject* gemm_cuda_gpu(PyObject *self, PyObject *args)
                           &transa, &hybrid))
         return NULL;
 
-    bool real = 0;
+    int real = 0;
     if (type->type_num == NPY_DOUBLE) {
         real = 1;
     }
@@ -973,7 +958,6 @@ PyObject* gemm_cuda_gpu(PyObject *self, PyObject *args)
 }
 
 
-extern "C"
 PyObject* gemv_cuda_gpu(PyObject *self, PyObject *args)
 {
     Py_complex alpha;
@@ -1033,7 +1017,6 @@ PyObject* gemv_cuda_gpu(PyObject *self, PyObject *args)
 }
 
 
-extern "C"
 PyObject* axpy_cuda_gpu(PyObject *self, PyObject *args)
 {
     Py_complex alpha;
@@ -1074,7 +1057,7 @@ PyObject* axpy_cuda_gpu(PyObject *self, PyObject *args)
 static void _rk_cuda_gpu(int n, int k,
                          double alpha, CUdeviceptr a_gpu, int lda,
                          double beta, CUdeviceptr c_gpu, int ldc,
-                         bool real)
+                         int real)
 {
     if (real) {
         gpaw_cubSCall(
@@ -1096,7 +1079,7 @@ static void _rk_cuda_gpu(int n, int k,
 static void _rk_cuda_gpu_hybrid(int n, int k,
                                 double alpha, CUdeviceptr a_gpu, int lda,
                                 double beta, CUdeviceptr c_gpu, int ldc,
-                                bool real)
+                                int real)
 {
     double beta2=0;
     int lda2;
@@ -1204,7 +1187,6 @@ static void _rk_cuda_gpu_hybrid(int n, int k,
     cudaEventRecord(ps->event_gpu[3], 0);
 }
 
-extern "C"
 PyObject* rk_cuda_gpu(PyObject *self, PyObject *args)
 {
     double alpha;
@@ -1220,7 +1202,7 @@ PyObject* rk_cuda_gpu(PyObject *self, PyObject *args)
                           &beta, &c_gpu, &c_shape, &type, &hybrid))
         return NULL;
 
-    bool real = 0;
+    int real = 0;
     if (type->type_num == NPY_DOUBLE) {
         real = 1;
     }
@@ -1247,7 +1229,7 @@ PyObject* rk_cuda_gpu(PyObject *self, PyObject *args)
 static void _r2k_cuda_gpu(int n, int k,
                           Py_complex alpha, CUdeviceptr a_gpu, int lda,
                           CUdeviceptr b_gpu, double beta,
-                          CUdeviceptr c_gpu, int ldc, bool real)
+                          CUdeviceptr c_gpu, int ldc, int real)
 {
     if (real) {
         gpaw_cubSCall(
@@ -1270,7 +1252,7 @@ static void _r2k_cuda_gpu(int n, int k,
 static void _r2k_cuda_gpu_hybrid(int n, int k,
                                  Py_complex alpha, CUdeviceptr a_gpu, int lda,
                                  CUdeviceptr b_gpu, double beta,
-                                 CUdeviceptr c_gpu, int ldc, bool real)
+                                 CUdeviceptr c_gpu, int ldc, int real)
 {
     double beta2 = 0;
     int lda2;
@@ -1393,7 +1375,6 @@ static void _r2k_cuda_gpu_hybrid(int n, int k,
     cudaEventRecord(ps2->event_gpu[3], 0);
 }
 
-extern "C"
 PyObject* r2k_cuda_gpu(PyObject *self, PyObject *args)
 {
     Py_complex alpha;
@@ -1412,7 +1393,7 @@ PyObject* r2k_cuda_gpu(PyObject *self, PyObject *args)
                           &type, &hybrid))
         return NULL;
 
-    bool real = 0;
+    int real = 0;
     if (type->type_num == NPY_DOUBLE) {
         real = 1;
     }
@@ -1439,7 +1420,6 @@ PyObject* r2k_cuda_gpu(PyObject *self, PyObject *args)
 }
 
 
-extern "C"
 PyObject* dotc_cuda_gpu(PyObject *self, PyObject *args)
 {
     CUdeviceptr a_gpu;
@@ -1481,7 +1461,6 @@ PyObject* dotc_cuda_gpu(PyObject *self, PyObject *args)
 }
 
 
-extern "C"
 PyObject* dotu_cuda_gpu(PyObject *self, PyObject *args)
 {
     CUdeviceptr a_gpu;
