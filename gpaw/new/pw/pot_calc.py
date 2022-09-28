@@ -177,7 +177,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                     density.ndensities)
             self._vt_g = vt_R.fft(self.fftplan, pw=self.pw)
             self._nt_g = nt_R.fft(self.fftplan, pw=self.pw)
-        return self._nt_g, self._vt_g
+        return self._vt_g, self._nt_g
 
     def force_contributions(self, state):
         vt_g, nt_g = self._force_stress_helper(state)
