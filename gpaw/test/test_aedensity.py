@@ -37,4 +37,4 @@ def test_aedensity():
         n = calc.get_all_electron_density(gridrefinement=gridrefinement)
         Z = n.sum() * dv / gridrefinement**3
         print('Integral of all-electron density:', Z)
-        assert Z == pytest.approx(28, abs=1e-10)
+        assert Z == pytest.approx(28, abs=1e-5)

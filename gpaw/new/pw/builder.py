@@ -74,7 +74,7 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         fine_pw = pw.new(ecut=8 * self.ecut)
         poisson_solver = self.create_poisson_solver(
             fine_pw,
-            self.params.poissonsolver or {'strength': 0.0})
+            self.params.poissonsolver or {'strength': 1.0})
         return PlaneWavePotentialCalculator(self.grid,
                                             self.fine_grid,
                                             pw,

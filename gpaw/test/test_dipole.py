@@ -101,7 +101,7 @@ def test_dipole():
         ref_value = 2.07342988218
         err2 = abs(dvz1 - ref_value)
 
-        if 1:
+        if 0:
             import matplotlib.pyplot as plt
             plt.imshow(vyz1)
             plt.figure()
