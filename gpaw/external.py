@@ -151,7 +151,15 @@ class ConstantElectricField(ExternalPotential):
         r_gv = gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
         f_g = (r_gv - center_v) @ self.direction_v
 
-        # Set potential to zero at boundary of box (for PW-mode):
+        # Set potential to zero at boundary of box (important for PW-mode).
+        # Say we have 8 grid points.  Instead of a potential like this:
+        #
+        # -4 -3 -2 -1  0  1  2  3
+        #
+        # we want:
+        #
+        #  0 -3 -2 -1  0  1  2  3
+
         L = L_c.sum()
         f_g[abs(abs(f_g) - L / 2) < 1e-5] = 0.0
 
