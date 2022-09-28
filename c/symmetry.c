@@ -9,18 +9,18 @@ PyObject* GG_shuffle(PyObject *self, PyObject *args)
     PyArrayObject* G_G_obj;
     int sign;
     PyArrayObject* A_GG_obj;
-    PyArrayObject* tmp_GG_obj;
+    PyArrayObject* B_GG_obj;
 
-    // def GG_shuffle(G_G:int32 array, sign:int, A_GG:complex128 array, tmp_GG:complex128 array)
+    // def GG_shuffle(G_G:int32 array, sign:int, A_GG:complex128 array, B_GG:complex128 array)
     if (!PyArg_ParseTuple(args, "OiOO",
-                          &G_G_obj, &sign, &A_GG_obj, &tmp_GG_obj))
+                          &G_G_obj, &sign, &A_GG_obj, &B_GG_obj))
         return NULL;
 
 
     int nG = PyArray_DIMS(G_G_obj)[0];
     // Check dimensions
-    if ((nG != PyArray_DIMS(tmp_GG_obj)[0]) ||
-        (nG != PyArray_DIMS(tmp_GG_obj)[1]) ||
+    if ((nG != PyArray_DIMS(B_GG_obj)[0]) ||
+        (nG != PyArray_DIMS(B_GG_obj)[1]) ||
         (nG != PyArray_DIMS(A_GG_obj)[0]) ||
         (nG != PyArray_DIMS(A_GG_obj)[1]))
      {
@@ -29,7 +29,7 @@ PyObject* GG_shuffle(PyObject *self, PyObject *args)
      }
    
     // Check input types 
-    if ((PyArray_TYPE(tmp_GG_obj) != NPY_COMPLEX128) ||
+    if ((PyArray_TYPE(B_GG_obj) != NPY_COMPLEX128) ||
         (PyArray_TYPE(A_GG_obj) != NPY_COMPLEX128))
     {
          PyErr_SetString(PyExc_TypeError, "Expected complex arrays.");
@@ -42,9 +42,9 @@ PyObject* GG_shuffle(PyObject *self, PyObject *args)
          return NULL;
     }
 
-    if (!PyArray_IS_C_CONTIGUOUS(tmp_GG_obj))
+    if (!PyArray_IS_C_CONTIGUOUS(B_GG_obj))
     {
-        PyErr_SetString(PyExc_TypeError, "tmp_GG need to be c-contiguous.");
+        PyErr_SetString(PyExc_TypeError, "B_GG need to be c-contiguous.");
         return NULL;
     }
 
@@ -76,7 +76,7 @@ PyObject* GG_shuffle(PyObject *self, PyObject *args)
     }
 
     double complex* A_GG = (double complex*)PyArray_DATA(A_GG_obj);
-    double complex* tmp_GG = (double complex*)PyArray_DATA(tmp_GG_obj);
+    double complex* B_GG = (double complex*)PyArray_DATA(B_GG_obj);
 
     for (int G0=0; G0<nG; G0++)
     {
@@ -87,7 +87,7 @@ PyObject* GG_shuffle(PyObject *self, PyObject *args)
             // Instead of numpy magic, we do some C magic.
             char* ptr = (char*)A_GG + take0 + take1;
             double complex* value_ptr = (double_complex*) ptr;
-            *(tmp_GG++) += *value_ptr;
+            *(B_GG++) += *value_ptr;
         }
     }
 
