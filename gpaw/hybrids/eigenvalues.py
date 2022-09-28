@@ -83,7 +83,6 @@ def non_self_consistent_eigenvalues(calc: Union[GPAW, str, Path],
             calc, xc, n1, n2, kpt_indices)
         write_snapshot(e_dft_sin, v_dft_sin, v_hyb_sl_sin, v_hyb_nl_sin,
                        path, wfs.world)
-
     # Non-local hybrid contribution
     if v_hyb_nl_sin is None:
         v_hyb_nl_sin = [[] for s in range(wfs.nspins)]
@@ -135,7 +134,7 @@ def _non_local(calc: GPAW,
 
     nocc = max(((kpt.f_n / kpt.weight) > ftol).sum()
                for kpt in wfs.kpt_u)
-    nocc = kd.comm.max(int(nocc))
+    nocc = kd.comm.max(wfs.bd.comm.sum(int(nocc)))
 
     coulomb = coulomb_interaction(omega, wfs.gd, kd)
     sym = Symmetry(kd)
