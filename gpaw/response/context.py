@@ -44,3 +44,6 @@ class ResponseContext:
 
     def with_txt(self, txt):
         return new_context(txt=txt, world=self.world, timer=self.timer)
+
+    def print(self, *args, flush=True):
+        print(*args, file=self.fd, flush=flush)
