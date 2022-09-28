@@ -8,7 +8,7 @@
 
 #include "../gpu-complex.h"
 
-#ifndef CUGPAWCOMPLEX
+#ifndef GPU_USE_COMPLEX
 #  define BLOCK_X  128
 #  define MAX_BLOCKS  (65535)
 #endif

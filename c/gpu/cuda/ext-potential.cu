@@ -13,7 +13,7 @@
 
 #include "../gpu-complex.h"
 
-#ifndef CUGPAWCOMPLEX
+#ifndef GPU_USE_COMPLEX
 #define BLOCK_SIZEX 32
 #define BLOCK_SIZEY 8
 #define XDIV 4
@@ -56,8 +56,8 @@ __global__ void Zcuda(add_linear_field_cuda_kernel)(
     }
 }
 
-#ifndef CUGPAWCOMPLEX
-#define CUGPAWCOMPLEX
+#ifndef GPU_USE_COMPLEX
+#define GPU_USE_COMPLEX
 #include "ext-potential.cu"
 
 extern "C"
@@ -123,4 +123,4 @@ PyObject* add_linear_field_cuda_gpu(PyObject *self, PyObject *args)
     else
         Py_RETURN_NONE;
 }
-#endif // !CUGPAWCOMPLEX
+#endif

@@ -5,7 +5,7 @@
 
 #include "../gpu-complex.h"
 
-#ifndef CUGPAWCOMPLEX
+#ifndef GPU_USE_COMPLEX
 #  define BLOCK_X_FERMI 16
 #  define BLOCK_Y_FERMI 4
 #  define BLOCK_X_KEPLER 32
@@ -273,8 +273,8 @@ void Zcuda(bmgs_restrict_cuda_gpu)(int k, const Tcuda* a, const int size[3],
     gpaw_cudaSafeCall(cudaGetLastError());
 }
 
-#ifndef CUGPAWCOMPLEX
-#define CUGPAWCOMPLEX
+#ifndef GPU_USE_COMPLEX
+#define GPU_USE_COMPLEX
 #include "restrict.cu"
 
 extern "C"
@@ -314,5 +314,5 @@ double bmgs_restrict_cuda_cpu(int k, double* a, const int n[3],
           - t0.tv_usec / 1000000.0;
     return flops;
 }
-#endif // !CUGPAWCOMPLEX
+#endif
 #endif // BLOCK_X

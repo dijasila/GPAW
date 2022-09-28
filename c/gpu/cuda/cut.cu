@@ -6,7 +6,7 @@
 #include "../gpu-complex.h"
 #include "../debug.h"
 
-#ifndef CUGPAWCOMPLEX
+#ifndef GPU_USE_COMPLEX
 #define BLOCK_MAX 32
 #define GRID_MAX 65535
 #define BLOCK_TOTALMAX 256
@@ -76,13 +76,13 @@ static void debug_memcpy_post(const double *in, double *out)
 extern "C"
 static void Zcuda(debug_bmgs_cut)(
         const int sizea[3], const int starta[3], const int sizeb[3],
-#ifdef CUGPAWCOMPLEX
+#ifdef GPU_USE_COMPLEX
         cuDoubleComplex phase,
 #endif
         int blocks, int ng, int ng2)
 {
     for (int m=0; m < blocks; m++) {
-#ifndef CUGPAWCOMPLEX
+#ifndef GPU_USE_COMPLEX
         bmgs_cut_cpu(debug_in_cpu + m * ng, sizea, starta,
                      debug_out_cpu + m * ng2, sizeb);
 #else
@@ -112,7 +112,7 @@ static void Zcuda(debug_bmgs_cut)(
  */
 __global__ void Zcuda(bmgs_cut_cuda_kernel)(
         const Tcuda* a, const int3 c_sizea, Tcuda* b, const int3 c_sizeb,
-#ifdef CUGPAWCOMPLEX
+#ifdef GPU_USE_COMPLEX
         cuDoubleComplex phase,
 #endif
         int blocks, int xdiv)
@@ -131,7 +131,7 @@ __global__ void Zcuda(bmgs_cut_cuda_kernel)(
 
     while (xind < c_sizeb.x) {
         if ((i2 < c_sizeb.z) && (i1 < c_sizeb.y)) {
-#ifndef CUGPAWCOMPLEX
+#ifndef GPU_USE_COMPLEX
             b[0] = a[0];
 #else
             b[0] = MULTT(phase, a[0]);
@@ -150,7 +150,7 @@ extern "C"
 static void Zcuda(_bmgs_cut_cuda_gpu)(
         const Tcuda* a, const int sizea[3], const int starta[3],
         Tcuda* b, const int sizeb[3],
-#ifdef CUGPAWCOMPLEX
+#ifdef GPU_USE_COMPLEX
         cuDoubleComplex phase,
 #endif
         int blocks, cudaStream_t stream)
@@ -179,7 +179,7 @@ static void Zcuda(_bmgs_cut_cuda_gpu)(
 
     Zcuda(bmgs_cut_cuda_kernel)<<<dimGrid, dimBlock, 0, stream>>>(
             (Tcuda*) a, hc_sizea, (Tcuda*) b, hc_sizeb,
-#ifdef CUGPAWCOMPLEX
+#ifdef GPU_USE_COMPLEX
          phase,
 #endif
          blocks, xdiv);
@@ -210,7 +210,7 @@ extern "C"
 void Zcuda(bmgs_cut_cuda_gpu)(
         const Tcuda* a, const int sizea[3], const int starta[3],
         Tcuda* b, const int sizeb[3],
-#ifdef CUGPAWCOMPLEX
+#ifdef GPU_USE_COMPLEX
         cuDoubleComplex phase,
 #endif
         int blocks, cudaStream_t stream)
@@ -220,7 +220,7 @@ void Zcuda(bmgs_cut_cuda_gpu)(
     const double *in = (double *) a;
     double *out = (double *) b;
 
-#ifndef CUGPAWCOMPLEX
+#ifndef GPU_USE_COMPLEX
     int ng = sizea[0] * sizea[1] * sizea[2];
     int ng2 = sizeb[0] * sizeb[1] * sizeb[2];
 #else
@@ -231,14 +231,14 @@ void Zcuda(bmgs_cut_cuda_gpu)(
         debug_allocate(ng, ng2, blocks);
         debug_memcpy_pre(in, out);
     }
-#ifndef CUGPAWCOMPLEX
+#ifndef GPU_USE_COMPLEX
     _bmgs_cut_cuda_gpu(a, sizea, starta, b, sizeb, blocks, stream);
 #else
     _bmgs_cut_cuda_gpuz(a, sizea, starta, b, sizeb, phase, blocks, stream);
 #endif
     if (gpaw_cuda_debug) {
         debug_memcpy_post(in, out);
-#ifndef CUGPAWCOMPLEX
+#ifndef GPU_USE_COMPLEX
         debug_bmgs_cut(sizea, starta, sizeb, blocks, ng, ng2);
 #else
         debug_bmgs_cutz(sizea, starta, sizeb, phase, blocks, ng, ng2);
@@ -247,7 +247,7 @@ void Zcuda(bmgs_cut_cuda_gpu)(
     }
 }
 
-#ifndef CUGPAWCOMPLEX
-#define CUGPAWCOMPLEX
+#ifndef GPU_USE_COMPLEX
+#define GPU_USE_COMPLEX
 #include "cut.cu"
 #endif

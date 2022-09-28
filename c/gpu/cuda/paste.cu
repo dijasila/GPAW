@@ -9,7 +9,7 @@
 #include "../gpu-complex.h"
 #include "../debug.h"
 
-#ifndef CUGPAWCOMPLEX
+#ifndef GPU_USE_COMPLEX
 #  define BLOCK_SIZEX 32
 #  define BLOCK_SIZEY 16
 #  define BLOCK_MAX 32
@@ -99,7 +99,7 @@ void Zcuda(debug_bmgs_paste)(const int sizea[3], const int sizeb[3],
     for (int m=0; m < blocks; m++) {
         if (zero)
             memset(debug_out_cpu + m * ng2, 0, ng2 * sizeof(double));
-#ifndef CUGPAWCOMPLEX
+#ifndef GPU_USE_COMPLEX
         bmgs_paste_cpu(debug_in_cpu + m * ng, sizea,
                        debug_out_cpu + m * ng2, sizeb,
                        startb);
@@ -358,7 +358,7 @@ void Zcuda(_bmgs_paste_launcher)(Tfunc function, int zero,
     const double *in = (double *) a;
     double *out = (double *) b;
 
-#ifndef CUGPAWCOMPLEX
+#ifndef GPU_USE_COMPLEX
     int ng = sizea[0] * sizea[1] * sizea[2];
     int ng2 = sizeb[0] * sizeb[1] * sizeb[2];
 #else
@@ -417,8 +417,8 @@ void Zcuda(bmgs_paste_zero_cuda_gpu)(const Tcuda* a, const int sizea[3],
             a, sizea, b, sizeb, startb, blocks, stream);
 }
 
-#ifndef CUGPAWCOMPLEX
-#define CUGPAWCOMPLEX
+#ifndef GPU_USE_COMPLEX
+#define GPU_USE_COMPLEX
 #include "paste.cu"
 
 extern "C"

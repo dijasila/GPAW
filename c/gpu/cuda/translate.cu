@@ -9,7 +9,7 @@
 
 #include "../gpu-complex.h"
 
-#ifndef CUGPAWCOMPLEX
+#ifndef GPU_USE_COMPLEX
 #define BLOCK_MAX 32
 #define GRID_MAX 65535
 #define BLOCK_TOTALMAX 256
@@ -19,7 +19,7 @@
 __global__ void Zcuda(bmgs_translate_cuda_kernel)(
         const Tcuda* a, const int3 c_sizea,
         Tcuda* b, const int3 c_sizeb,
-#ifdef CUGPAWCOMPLEX
+#ifdef GPU_USE_COMPLEX
         cuDoubleComplex phase,
 #endif
         int blocks, int xdiv)
@@ -38,7 +38,7 @@ __global__ void Zcuda(bmgs_translate_cuda_kernel)(
 
     while (xind < c_sizeb.x) {
         if ((i2 < c_sizeb.z) && (i1 < c_sizeb.y)) {
-#ifndef CUGPAWCOMPLEX
+#ifndef GPU_USE_COMPLEX
             b[0] = a[0];
 #else
             b[0] = MULTT(phase, a[0]);
@@ -54,7 +54,7 @@ extern "C"
 void Zcuda(bmgs_translate_cuda_gpu)(
         Tcuda* a, const int sizea[3], const int size[3],
         const int start1[3], const int start2[3],
-#ifdef CUGPAWCOMPLEX
+#ifdef GPU_USE_COMPLEX
         cuDoubleComplex phase,
 #endif
         int blocks, cudaStream_t stream)
@@ -86,14 +86,14 @@ void Zcuda(bmgs_translate_cuda_gpu)(
 
     Zcuda(bmgs_translate_cuda_kernel)<<<dimGrid, dimBlock, 0, stream>>>
         ((Tcuda*) a, hc_sizea, (Tcuda*) b, hc_size,
-#ifdef CUGPAWCOMPLEX
+#ifdef GPU_USE_COMPLEX
          phase,
 #endif
          blocks, xdiv);
     gpaw_cudaSafeCall(cudaGetLastError());
 }
 
-#ifndef CUGPAWCOMPLEX
-#define CUGPAWCOMPLEX
+#ifndef GPU_USE_COMPLEX
+#define GPU_USE_COMPLEX
 #include "translate.cu"
 #endif

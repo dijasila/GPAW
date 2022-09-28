@@ -14,7 +14,7 @@
 
 #include "../gpu-complex.h"
 
-#ifndef CUGPAWCOMPLEX
+#ifndef GPU_USE_COMPLEX
 #  define MBLAS_BLOCK_X  (128)
 #  define MAX_BLOCKS     (65535)
 #  define MIN_BLOCKS     (MAX_BLOCKS)
@@ -62,8 +62,8 @@ __global__ void Zcuda(multi_axpy_cuda_kernel)(int n, const Tcuda *alpha,
 }
 
 
-#ifndef CUGPAWCOMPLEX
-#define CUGPAWCOMPLEX
+#ifndef GPU_USE_COMPLEX
+#define GPU_USE_COMPLEX
 #include "mblas.cu"
 
 extern "C"

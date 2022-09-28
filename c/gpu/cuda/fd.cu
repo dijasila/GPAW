@@ -25,7 +25,7 @@
 #define BLOCK_X_KEPLERZ  (32)
 #define BLOCK_Y_KEPLERZ  (16)
 
-#ifndef CUGPAWCOMPLEX
+#ifndef GPU_USE_COMPLEX
 #define BLOCK_X   (BLOCK_X_DEF)
 #define BLOCK_Y   (BLOCK_Y_DEF)
 #define MYJ_X     (MYJ)
@@ -806,8 +806,8 @@ double Zcuda(bmgs_fd_cuda_cpu)(const bmgsstencil* s, const Tcuda* a,
     return flops;
 }
 
-#ifndef CUGPAWCOMPLEX
-#define CUGPAWCOMPLEX
+#ifndef GPU_USE_COMPLEX
+#define GPU_USE_COMPLEX
 #include "fd.cu"
 
 extern "C"
@@ -989,5 +989,5 @@ bmgsstencil_gpu bmgs_stencil_to_gpu(const bmgsstencil* s)
     return s_gpu;
 }
 
-#endif // !CUGPAWCOMPLEX
+#endif
 #endif // MYJ

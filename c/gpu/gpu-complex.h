@@ -19,7 +19,7 @@
 #undef IMAG
 #undef NEG
 
-#ifndef CUGPAWCOMPLEX
+#ifndef GPU_USE_COMPLEX
 #  define Tcuda          double
 #  define Zcuda(f)       f
 #  define MULTT(a,b)     ((a) * (b))

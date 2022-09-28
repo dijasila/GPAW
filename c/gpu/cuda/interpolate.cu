@@ -5,7 +5,7 @@
 
 #include "../gpu-complex.h"
 
-#ifndef CUGPAWCOMPLEX
+#ifndef GPU_USE_COMPLEX
 #  define BLOCK_X 32
 #  define BLOCK_Y 16
 #  define BCACHE_X ((BLOCK_X)+1)
@@ -174,8 +174,8 @@ void Zcuda(bmgs_interpolate_cuda_gpu)(int k, int skip[3][2],
     gpaw_cudaSafeCall(cudaGetLastError());
 }
 
-#ifndef CUGPAWCOMPLEX
-#define CUGPAWCOMPLEX
+#ifndef GPU_USE_COMPLEX
+#define GPU_USE_COMPLEX
 #include "interpolate.cu"
 
 extern "C"

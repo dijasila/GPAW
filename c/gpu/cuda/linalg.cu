@@ -9,7 +9,7 @@
 
 #include "../gpu-complex.h"
 
-#ifndef CUGPAWCOMPLEX
+#ifndef GPU_USE_COMPLEX
 #  define BLOCK_X  128
 #  define MAX_BLOCKS  (65535)
 #endif
@@ -84,8 +84,8 @@ __global__ void Zcuda(multi_ax2py_kernel)(int n, int nvec, double *a,
     }
 }
 
-#ifndef CUGPAWCOMPLEX
-#define CUGPAWCOMPLEX
+#ifndef GPU_USE_COMPLEX
+#define GPU_USE_COMPLEX
 #include "linalg.cu"
 
 __global__ void elmenwise_mul_add_kernelzz(

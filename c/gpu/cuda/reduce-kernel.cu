@@ -54,7 +54,7 @@ __global__ void INNAME(reduce_kernel)(
 
     if (tid < 32) {
         volatile Tcuda *smem = Zcuda(sdata);
-#ifdef CUGPAWCOMPLEX
+#ifdef GPU_USE_COMPLEX
         if (REDUCE_THREADS >= 64) {
             smem[tid].x = mySum.x = mySum.x + smem[tid + 32].x;
             smem[tid].y = mySum.y = mySum.y + smem[tid + 32].y;

@@ -28,7 +28,7 @@ __global__ void INNAME(integrate_mul_kernel)(
         const LFVolume_gpu *v = &volume_W[volume_WMi_gpu[bloy * WMimax
                                                          + vv]];
         int *nGBcum = v->nGBcum;
-#ifdef CUGPAWCOMPLEX
+#ifdef GPU_USE_COMPLEX
         Tcuda phase = v->phase_k[q];
 #endif
         int len_A_gm = v->len_A_gm;
@@ -58,7 +58,7 @@ __global__ void INNAME(integrate_mul_kernel)(
             double *A_gm2 = v->A_gm;
             Tcuda *out_t2 = out_t;
             if (i_b < len_A_gm) {
-#ifdef CUGPAWCOMPLEX
+#ifdef GPU_USE_COMPLEX
                 a_Gv = MULTT(a_G[i * nG + a_ind], phase);
 #else
                 a_Gv = a_G[i * nG + a_ind];
@@ -90,7 +90,7 @@ __global__ void INNAME(integrate_mul_kernel)(
                                 bcum = ccum;
                             }
                         }
-#ifdef CUGPAWCOMPLEX
+#ifdef GPU_USE_COMPLEX
                         IADD(mySum, MULTD(MULTT(a_G[i * nG + v->GB1[aai]
                                                     + i_bb - aacum], phase),
                                           A_gm2[i_bb]));
@@ -132,7 +132,7 @@ __global__ void INNAME(integrate_mul_kernel)(
 
                 if (tid < 32) {
                     volatile Tcuda *smem = Zcuda(sdata);
-#ifdef CUGPAWCOMPLEX
+#ifdef GPU_USE_COMPLEX
                     if (REDUCE_LFC_THREADS >= 64) {
                         smem[tid].x = mySum.x = mySum.x + smem[tid + 32].x;
                         smem[tid].y = mySum.y = mySum.y + smem[tid + 32].y;

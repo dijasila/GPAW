@@ -17,7 +17,7 @@ extern "C" {
 }
 #include "../gpu-complex.h"
 
-#ifndef CUGPAWCOMPLEX
+#ifndef GPU_USE_COMPLEX
 
 #define INLINE inline
 static INLINE void* gpaw_malloc(int n)
@@ -32,7 +32,7 @@ static INLINE void* gpaw_malloc(int n)
 #include "cuda.h"
 #include "cuda_runtime_api.h"
 
-#endif // !CUGPAWCOMPLEX
+#endif
 
 #include "lfc-reduce.cu"
 
@@ -79,7 +79,7 @@ __global__ void Zcuda(add_kernel)(Tcuda *a_G, const Tcuda *c_M, int *G_B1,
                 A_gm += len;
                 IADD(avv, MULTD(c_Mt[m+1], A_gm[0]));
             }
-#ifdef CUGPAWCOMPLEX
+#ifdef GPU_USE_COMPLEX
             avv = MULTT(avv,
                         cuConj(phase_i[max_k * nimax * B + q * nimax + i]));
 #endif
@@ -89,8 +89,8 @@ __global__ void Zcuda(add_kernel)(Tcuda *a_G, const Tcuda *c_M, int *G_B1,
     }
 }
 
-#ifndef CUGPAWCOMPLEX
-#define CUGPAWCOMPLEX
+#ifndef GPU_USE_COMPLEX
+#define GPU_USE_COMPLEX
 #include "lfc.cu"
 
 extern "C"
