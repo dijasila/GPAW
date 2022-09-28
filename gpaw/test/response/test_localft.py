@@ -57,7 +57,7 @@ def ae_1s_density_plane_waves(pd, R_v, a=1.0):
 
 @pytest.mark.response
 @pytest.mark.parametrize("a", testa_a)
-def test_localft_grid_calculator(in_tmp_dir, a):
+def test_localft_grid_calculator(a):
     """Test that the LocalGridFTCalculator is able to correctly Fourier
     transform the all-electron density of an 1s orbital."""
     # ---------- Inputs ---------- #
@@ -113,7 +113,7 @@ def test_localft_grid_calculator(in_tmp_dir, a):
 
 @pytest.mark.response
 @pytest.mark.parametrize("a", testa_a)
-def test_localft_paw_engine(in_tmp_dir, a):
+def test_localft_paw_engine(a):
     """Test that the LocalPAWFTEngine is able to correctly Fourier
     transform the all-electron density of an 1s orbital."""
     # ---------- Inputs ---------- #
@@ -211,7 +211,7 @@ def test_localft_paw_engine(in_tmp_dir, a):
         
 
 @pytest.mark.response
-def test_Fe_bxc(in_tmp_dir):
+def test_Fe_bxc():
     """Test the symmetry relation
 
     (B^xc_G)^* = B^xc_-G
