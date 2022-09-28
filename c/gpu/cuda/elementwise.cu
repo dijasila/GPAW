@@ -6,7 +6,7 @@
 #include <cuda.h>
 #include <cuda_runtime_api.h>
 
-#include <gpaw-cuda-int.h>
+#include "../gpu-complex.h"
 
 #ifndef CUGPAWCOMPLEX
 #  define BLOCK_X  128

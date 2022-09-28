@@ -23,7 +23,7 @@
 #ifdef GPAW_CUDA
 #include <cuda.h>
 #include <cuda_runtime_api.h>
-#include "cuda/gpaw-cuda.h"
+#include "gpu/bmgs.h"
 
 PyObject* Transformer_apply_cuda_gpu(TransformerObject *self, PyObject *args);
 #endif

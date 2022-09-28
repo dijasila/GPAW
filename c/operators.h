@@ -7,7 +7,7 @@
 #include "bc.h"
 
 #ifdef GPAW_CUDA
-#include "cuda/gpaw-cuda.h"
+#include "gpu/bmgs.h"
 #endif
 
 #ifdef __OPERATORS_C

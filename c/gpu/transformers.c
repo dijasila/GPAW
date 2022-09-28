@@ -11,7 +11,7 @@
 #define __TRANSFORMERS_C
 #include "../transformers.h"
 #undef __TRANSFORMERS_C
-#include "gpaw-cuda.h"
+#include "bmgs.h"
 
 extern int gpaw_cuda_debug;
 

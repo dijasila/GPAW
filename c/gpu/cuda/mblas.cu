@@ -12,7 +12,7 @@
 #include <sys/time.h>
 #include <cuComplex.h>
 
-#include "gpaw-cuda-int.h"
+#include "../gpu-complex.h"
 
 #ifndef CUGPAWCOMPLEX
 #  define MBLAS_BLOCK_X  (128)
@@ -64,7 +64,7 @@ __global__ void Zcuda(multi_axpy_cuda_kernel)(int n, const Tcuda *alpha,
 
 #ifndef CUGPAWCOMPLEX
 #define CUGPAWCOMPLEX
-#include "mblas-cuda.cu"
+#include "mblas.cu"
 
 extern "C"
 PyObject* multi_scal_cuda_gpu(PyObject *self, PyObject *args)

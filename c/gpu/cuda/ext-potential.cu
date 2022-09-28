@@ -11,7 +11,7 @@
 #define NO_IMPORT_ARRAY
 #include <numpy/arrayobject.h>
 
-#include "gpaw-cuda-int.h"
+#include "../gpu-complex.h"
 
 #ifndef CUGPAWCOMPLEX
 #define BLOCK_SIZEX 32
@@ -58,7 +58,7 @@ __global__ void Zcuda(add_linear_field_cuda_kernel)(
 
 #ifndef CUGPAWCOMPLEX
 #define CUGPAWCOMPLEX
-#include "ext-pot-cuda.cu"
+#include "ext-potential.cu"
 
 extern "C"
 PyObject* add_linear_field_cuda_gpu(PyObject *self, PyObject *args)

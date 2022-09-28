@@ -3,7 +3,7 @@
 #include <sys/types.h>
 #include <sys/time.h>
 
-#include "gpaw-cuda-int.h"
+#include "../gpu-complex.h"
 
 #ifndef CUGPAWCOMPLEX
 #  define BLOCK_X 32
@@ -176,7 +176,7 @@ void Zcuda(bmgs_interpolate_cuda_gpu)(int k, int skip[3][2],
 
 #ifndef CUGPAWCOMPLEX
 #define CUGPAWCOMPLEX
-#include "interpolate-cuda.cu"
+#include "interpolate.cu"
 
 extern "C"
 double bmgs_interpolate_cuda_cpu(int k, int skip[3][2], const double* a,

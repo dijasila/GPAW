@@ -11,7 +11,7 @@
 #define __OPERATORS_C
 #include <../operators.h>
 #undef __OPERATORS_C
-#include "gpaw-cuda.h"
+#include "bmgs.h"
 
 extern int gpaw_cuda_debug;
 

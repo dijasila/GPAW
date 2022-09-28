@@ -2,7 +2,7 @@
 #include <assert.h>
 #include "../bc.h"
 #include "../extensions.h"
-#include "gpaw-cuda.h"
+#include "bmgs.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>

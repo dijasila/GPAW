@@ -6,8 +6,8 @@
 #include <sys/types.h>
 #include <sys/time.h>
 
-#include "gpaw-cuda-int.h"
-#include "gpaw-cuda-debug.h"
+#include "../gpu-complex.h"
+#include "../debug.h"
 
 #ifndef CUGPAWCOMPLEX
 #  define BLOCK_SIZEX 32
@@ -419,7 +419,7 @@ void Zcuda(bmgs_paste_zero_cuda_gpu)(const Tcuda* a, const int sizea[3],
 
 #ifndef CUGPAWCOMPLEX
 #define CUGPAWCOMPLEX
-#include "paste-cuda.cu"
+#include "paste.cu"
 
 extern "C"
 double bmgs_paste_cuda_cpu(const double* a, const int sizea[3],

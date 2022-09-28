@@ -3,8 +3,8 @@
 #include <cuda_runtime_api.h>
 #include <string.h>
 
-#include "gpaw-cuda-int.h"
-#include "gpaw-cuda-debug.h"
+#include "../gpu-complex.h"
+#include "../debug.h"
 
 #ifndef CUGPAWCOMPLEX
 #define BLOCK_MAX 32
@@ -249,5 +249,5 @@ void Zcuda(bmgs_cut_cuda_gpu)(
 
 #ifndef CUGPAWCOMPLEX
 #define CUGPAWCOMPLEX
-#include "cut-cuda.cu"
+#include "cut.cu"
 #endif

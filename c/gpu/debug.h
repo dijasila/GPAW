@@ -1,5 +1,5 @@
-#ifndef GPAW_CUDA_DEBUG_H
-#define GPAW_CUDA_DEBUG_H
+#ifndef GPU_DEBUG_H
+#define GPU_DEBUG_H
 
 #define GPAW_MALLOC(T, n) (T*)(malloc((n) * sizeof(T)))
 

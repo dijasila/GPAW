@@ -8,7 +8,7 @@
 #include <sys/time.h>
 #include <cuComplex.h>
 
-#include "gpaw-cuda-int.h"
+#include "../gpu-complex.h"
 
 #undef MYJ_X
 #undef NDOUBLE
@@ -430,35 +430,35 @@ __global__ void FD_kernel_onlyb(
 #define MYJ  (2/2)
 #  define FD_kernel Zcuda(fd_kernel2_fermi)
 #  define FD_kernel_onlyb Zcuda(fd_kernel2_onlyb_fermi)
-#  include "fd-cuda.cu"
+#  include "fd.cu"
 #  undef FD_kernel
 #  undef FD_kernel_onlyb
 #  undef MYJ
 #define MYJ  (4/2)
 #  define FD_kernel Zcuda(fd_kernel4_fermi)
 #  define FD_kernel_onlyb Zcuda(fd_kernel4_onlyb_fermi)
-#  include "fd-cuda.cu"
+#  include "fd.cu"
 #  undef FD_kernel
 #  undef FD_kernel_onlyb
 #  undef MYJ
 #define MYJ  (6/2)
 #  define FD_kernel Zcuda(fd_kernel6_fermi)
 #  define FD_kernel_onlyb Zcuda(fd_kernel6_onlyb_fermi)
-#  include "fd-cuda.cu"
+#  include "fd.cu"
 #  undef FD_kernel
 #  undef FD_kernel_onlyb
 #  undef MYJ
 #define MYJ  (8/2)
 #  define FD_kernel Zcuda(fd_kernel8_fermi)
 #  define FD_kernel_onlyb Zcuda(fd_kernel8_onlyb_fermi)
-#  include "fd-cuda.cu"
+#  include "fd.cu"
 #  undef FD_kernel
 #  undef FD_kernel_onlyb
 #  undef MYJ
 #define MYJ  (10/2)
 #  define FD_kernel Zcuda(fd_kernel10_fermi)
 #  define FD_kernel_onlyb Zcuda(fd_kernel10_onlyb_fermi)
-#  include "fd-cuda.cu"
+#  include "fd.cu"
 #  undef FD_kernel
 #  undef FD_kernel_onlyb
 #  undef MYJ
@@ -475,35 +475,35 @@ __global__ void FD_kernel_onlyb(
 #define MYJ  (2/2)
 #  define FD_kernel Zcuda(fd_kernel2_kepler)
 #  define FD_kernel_onlyb Zcuda(fd_kernel2_onlyb_kepler)
-#  include "fd-cuda.cu"
+#  include "fd.cu"
 #  undef FD_kernel
 #  undef FD_kernel_onlyb
 #  undef MYJ
 #define MYJ  (4/2)
 #  define FD_kernel Zcuda(fd_kernel4_kepler)
 #  define FD_kernel_onlyb Zcuda(fd_kernel4_onlyb_kepler)
-#  include "fd-cuda.cu"
+#  include "fd.cu"
 #  undef FD_kernel
 #  undef FD_kernel_onlyb
 #  undef MYJ
 #define MYJ  (6/2)
 #  define FD_kernel Zcuda(fd_kernel6_kepler)
 #  define FD_kernel_onlyb Zcuda(fd_kernel6_onlyb_kepler)
-#  include "fd-cuda.cu"
+#  include "fd.cu"
 #  undef FD_kernel
 #  undef FD_kernel_onlyb
 #  undef MYJ
 #define MYJ  (8/2)
 #  define FD_kernel Zcuda(fd_kernel8_kepler)
 #  define FD_kernel_onlyb Zcuda(fd_kernel8_onlyb_kepler)
-#  include "fd-cuda.cu"
+#  include "fd.cu"
 #  undef FD_kernel
 #  undef FD_kernel_onlyb
 #  undef MYJ
 #define MYJ  (10/2)
 #  define FD_kernel Zcuda(fd_kernel10_kepler)
 #  define FD_kernel_onlyb Zcuda(fd_kernel10_onlyb_kepler)
-#  include "fd-cuda.cu"
+#  include "fd.cu"
 #  undef FD_kernel
 #  undef FD_kernel_onlyb
 #  undef MYJ
@@ -808,7 +808,7 @@ double Zcuda(bmgs_fd_cuda_cpu)(const bmgsstencil* s, const Tcuda* a,
 
 #ifndef CUGPAWCOMPLEX
 #define CUGPAWCOMPLEX
-#include "fd-cuda.cu"
+#include "fd.cu"
 
 extern "C"
 dim3 bmgs_fd_cuda_get_blockDim(int ndouble)

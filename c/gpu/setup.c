@@ -1,7 +1,7 @@
 #include <string.h>
 #include <assert.h>
 #include "../extensions.h"
-#include "gpaw-cuda-int.h"
+#include "gpu-complex.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <cuda.h>

@@ -7,7 +7,7 @@
 #include <sys/types.h>
 #include <sys/time.h>
 
-#include "gpaw-cuda-int.h"
+#include "../gpu-complex.h"
 
 #ifndef CUGPAWCOMPLEX
 #define BLOCK_MAX 32
@@ -95,5 +95,5 @@ void Zcuda(bmgs_translate_cuda_gpu)(
 
 #ifndef CUGPAWCOMPLEX
 #define CUGPAWCOMPLEX
-#include "translate-cuda.cu"
+#include "translate.cu"
 #endif

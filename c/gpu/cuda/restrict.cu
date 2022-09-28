@@ -3,7 +3,7 @@
 #include <sys/types.h>
 #include <sys/time.h>
 
-#include "gpaw-cuda-int.h"
+#include "../gpu-complex.h"
 
 #ifndef CUGPAWCOMPLEX
 #  define BLOCK_X_FERMI 16
@@ -214,7 +214,7 @@ __global__ void RESTRICT_kernel(const Tcuda* a, const int3 n,
 #define BLOCK_X   (BLOCK_X_FERMI)
 #define BLOCK_Y   (BLOCK_Y_FERMI)
 #  define RESTRICT_kernel Zcuda(restrict_kernel_fermi)
-#  include "restrict-cuda.cu"
+#  include "restrict.cu"
 #  undef RESTRICT_kernel
 #undef BLOCK_X
 #undef BLOCK_Y
@@ -222,7 +222,7 @@ __global__ void RESTRICT_kernel(const Tcuda* a, const int3 n,
 #define BLOCK_X   (BLOCK_X_KEPLER)
 #define BLOCK_Y   (BLOCK_Y_KEPLER)
 #  define RESTRICT_kernel Zcuda(restrict_kernel_kepler)
-#  include "restrict-cuda.cu"
+#  include "restrict.cu"
 #  undef RESTRICT_kernel
 #undef BLOCK_X
 #undef BLOCK_Y
@@ -275,7 +275,7 @@ void Zcuda(bmgs_restrict_cuda_gpu)(int k, const Tcuda* a, const int size[3],
 
 #ifndef CUGPAWCOMPLEX
 #define CUGPAWCOMPLEX
-#include "restrict-cuda.cu"
+#include "restrict.cu"
 
 extern "C"
 double bmgs_restrict_cuda_cpu(int k, double* a, const int n[3],

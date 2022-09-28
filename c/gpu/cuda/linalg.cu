@@ -7,7 +7,7 @@
 #include <cuda_runtime_api.h>
 #include <cublas.h>
 
-#include <gpaw-cuda-int.h>
+#include "../gpu-complex.h"
 
 #ifndef CUGPAWCOMPLEX
 #  define BLOCK_X  128
@@ -86,7 +86,7 @@ __global__ void Zcuda(multi_ax2py_kernel)(int n, int nvec, double *a,
 
 #ifndef CUGPAWCOMPLEX
 #define CUGPAWCOMPLEX
-#include "linalg-cuda.cu"
+#include "linalg.cu"
 
 __global__ void elmenwise_mul_add_kernelzz(
         int n, const cuDoubleComplex* a, const cuDoubleComplex* b,

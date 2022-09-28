@@ -10,7 +10,7 @@
 #ifdef CUDA_MPI
 #include <cuda.h>
 #include <cuda_runtime_api.h>
-#include "cuda/gpaw-cuda-common.h"
+#include "gpu/gpu.h"
 
 void gpaw_cuda_setdevice(int gpuid);
 void gpaw_cuda_init_c();

@@ -1,11 +1,11 @@
-#ifndef GPAW_CUDA_H
-#define GPAW_CUDA_H
+#ifndef GPU_BMGS_H
+#define GPU_BMGS_H
 
 #include <cuda.h>
 #include <cuda_runtime_api.h>
 #include <cuComplex.h>
 
-#include"gpaw-cuda-common.h"
+#include "gpu.h"
 
 int bmgs_fd_boundary_test(const bmgsstencil_gpu* s, int boundary,
                           int ndouble);

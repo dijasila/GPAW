@@ -15,7 +15,7 @@
 extern "C" {
 #include "../lfc.h"
 }
-#include "gpaw-cuda-int.h"
+#include "../gpu-complex.h"
 
 #ifndef CUGPAWCOMPLEX
 
@@ -91,7 +91,7 @@ __global__ void Zcuda(add_kernel)(Tcuda *a_G, const Tcuda *c_M, int *G_B1,
 
 #ifndef CUGPAWCOMPLEX
 #define CUGPAWCOMPLEX
-#include "lfc-cuda.cu"
+#include "lfc.cu"
 
 extern "C"
 void lfc_dealloc_cuda(LFCObject *self)
