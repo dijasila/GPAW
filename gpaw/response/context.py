@@ -7,13 +7,8 @@ from gpaw import GPAW
 import gpaw.mpi as mpi
 
 
-def new_context(txt, world, timer):
-    timer = timer or Timer()
-    return ResponseContext(txt=txt, timer=timer, world=world)
-
-
 def calc_and_context(calc, txt, world, timer):
-    context = new_context(txt, world, timer)
+    context = ResponseContext(txt=txt, world=world, timer=timer)
     with context.timer('Read ground state'):
         try:
             path = Path(calc)
@@ -30,10 +25,10 @@ def calc_and_context(calc, txt, world, timer):
 
 
 class ResponseContext:
-    def __init__(self, txt, timer, world):
+    def __init__(self, txt='-', timer=None, world=mpi.world):
         self.iocontext = IOContext()
         self.fd = self.iocontext.openfile(txt, world)
-        self.timer = timer
+        self.timer = timer or Timer()
         self.world = world
 
     def close(self):
@@ -43,7 +38,7 @@ class ResponseContext:
         self.close()
 
     def with_txt(self, txt):
-        return new_context(txt=txt, world=self.world, timer=self.timer)
+        return ResponseContext(txt=txt, world=self.world, timer=self.timer)
 
     def print(self, *args, flush=True):
         print(*args, file=self.fd, flush=flush)

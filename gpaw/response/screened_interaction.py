@@ -10,7 +10,7 @@ from gpaw.response.coulomb_kernels import (get_coulomb_kernel,
                                            get_integrated_kernel)
 from gpaw.response.temp import DielectricFunctionCalculator
 import gpaw.mpi as mpi
-from gpaw.response.context import new_context
+from gpaw.response.context import ResponseContext
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 
 
@@ -55,7 +55,7 @@ def initialize_w_calculator(chi0calc, txt='w.txt', ppa=False, xc='RPA',
     """
     from gpaw.response.g0w0_kernels import G0W0Kernel
     gs = chi0calc.gs
-    context = new_context(txt, world, timer)
+    context = ResponseContext(txt, world, timer)
     if Eg is None and xc == 'JGMsx':
         Eg = gs.get_band_gap()
     elif Eg is not None:
