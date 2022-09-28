@@ -94,9 +94,11 @@ def gpw_files(request, tmp_path_factory):
     * Bulk BN (zinkblende) with 2x2x2 k-points and 9 converged bands:
       ``bn_pw``.
 
-    * Graphene with 6x6x1 k-points: graphene_pw
+    * Graphene with 6x6x1 k-points: ``graphene_pw``
 
-    * MoS2 with 6x6x1 k-points: mos2_pw
+    * MoS2 with 6x6x1 k-points: ``mos2_pw``
+
+    * Bulk Si, LDA, 2x2x2 k-point (gamma centered): ``si_pw``
 
     Files with wave functions are also availabe (add ``_wfs`` to the names).
     """
