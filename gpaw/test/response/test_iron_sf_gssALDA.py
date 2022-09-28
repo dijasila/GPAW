@@ -16,6 +16,8 @@ from ase.dft.kpoints import monkhorst_pack
 from ase.parallel import parprint
 
 from gpaw import GPAW, PW
+from gpaw.response.context import ResponseContext
+from gpaw.response.groundstate import ResponseGroundStateAdapter
 from gpaw.response.tms import TransverseMagneticSusceptibility
 from gpaw.response.susceptibility import read_macroscopic_component
 from gpaw.test import findpeak, equal
@@ -69,13 +71,18 @@ def test_response_iron_sf_gssALDA(in_tmp_dir):
     t2 = time.time()
 
     # Part 2: magnetic response calculation
+    context = ResponseContext()
+    gs = ResponseGroundStateAdapter.from_gpw_file('Fe', context=context)
     fxckwargs = {'rshelmax': None, 'fxc_scaling': fxc_scaling}
-    tms = TransverseMagneticSusceptibility('Fe',
+    tms = TransverseMagneticSusceptibility(gs,
                                            fxc=fxc,
                                            eta=eta,
                                            ecut=ecut,
                                            fxckwargs=fxckwargs,
                                            gammacentered=True,
+                                           txt=context.fd,
+                                           timer=context.timer,
+                                           world=context.world,
                                            nblocks=nblocks)
 
     for q in range(2):

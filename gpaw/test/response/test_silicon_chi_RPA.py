@@ -7,6 +7,7 @@ from ase.parallel import parprint
 
 from gpaw import GPAW, PW, FermiDirac
 from gpaw.test import findpeak, equal
+from gpaw.response.groundstate import ResponseGroundStateAdapter
 from gpaw.response.df import DielectricFunction
 from gpaw.response.susceptibility import FourComponentSusceptibilityTensor
 from gpaw.response.susceptibility import read_macroscopic_component
@@ -52,7 +53,8 @@ def test_response_silicon_chi_RPA(in_tmp_dir):
     world.barrier()
 
     # Using FCST
-    fcst = FourComponentSusceptibilityTensor(calc, fxc='RPA',
+    gs = ResponseGroundStateAdapter(calc)
+    fcst = FourComponentSusceptibilityTensor(gs, fxc='RPA',
                                              eta=0.2, ecut=50)
     fcst.get_macroscopic_component('00', q, w, filename='Si_chi2.csv')
 

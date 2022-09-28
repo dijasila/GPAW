@@ -11,6 +11,7 @@ from ase.build import bulk
 
 from gpaw import GPAW, PW, FermiDirac
 from gpaw import mpi
+from gpaw.response.groundstate import ResponseGroundStateAdapter
 from gpaw.response.chiks import ChiKS
 from gpaw.response.mft import IsotropicExchangeCalculator
 from gpaw.response.site_kernels import (SphericalSiteKernels,
@@ -83,7 +84,8 @@ def test_Fe_bcc(in_tmp_dir):
                                                    [[atoms.get_cell()]]))
 
     # Initialize the exchange calculator
-    chiks = ChiKS(calc,
+    gs = ResponseGroundStateAdapter(calc)
+    chiks = ChiKS(gs,
                   ecut=ecut, nbands=nbands, eta=eta,
                   gammacentered=True)
     isoexch_calc = IsotropicExchangeCalculator(chiks)
@@ -208,13 +210,14 @@ def test_Co_hcp(in_tmp_dir):
 
     # Initialize the exchange calculator with and without eta,
     # as well as with and without symmetry
-    chiks0 = ChiKS(calc,
+    gs = ResponseGroundStateAdapter(calc)
+    chiks0 = ChiKS(gs,
                    disable_point_group=True,
                    disable_time_reversal=True,
                    ecut=ecut, nbands=nbands, eta=eta0,
                    gammacentered=True)
     isoexch_calc0 = IsotropicExchangeCalculator(chiks0)
-    chiks1 = ChiKS(calc,
+    chiks1 = ChiKS(gs,
                    ecut=ecut, nbands=nbands, eta=eta1,
                    gammacentered=True)
     isoexch_calc1 = IsotropicExchangeCalculator(chiks1)

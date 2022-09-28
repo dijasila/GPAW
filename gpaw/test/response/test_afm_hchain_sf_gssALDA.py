@@ -11,6 +11,7 @@ from ase.dft.kpoints import monkhorst_pack
 from gpaw import PW, GPAW
 from gpaw.mpi import world
 from gpaw.test import findpeak
+from gpaw.response.groundstate import ResponseGroundStateAdapter
 from gpaw.response.tms import TransverseMagneticSusceptibility
 from gpaw.response.susceptibility import read_macroscopic_component
 
@@ -75,7 +76,8 @@ def test_response_afm_hchain_gssALDA(in_tmp_dir):
     fxckwargs = {'rshelmax': rshelmax,
                  'rshewmin': rshewmin,
                  'fxc_scaling': fxc_scaling}
-    tms = TransverseMagneticSusceptibility(calc,
+    gs = ResponseGroundStateAdapter(calc)
+    tms = TransverseMagneticSusceptibility(gs,
                                            nbands=nbands,
                                            fxc=fxc,
                                            eta=eta,

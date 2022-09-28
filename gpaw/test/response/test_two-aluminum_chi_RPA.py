@@ -7,6 +7,7 @@ from ase.parallel import parprint
 
 from gpaw import GPAW, PW
 from gpaw.test import findpeak, equal
+from gpaw.response.groundstate import ResponseGroundStateAdapter
 from gpaw.response.susceptibility import FourComponentSusceptibilityTensor
 from gpaw.response.susceptibility import read_component
 from gpaw.mpi import size, world
@@ -53,7 +54,8 @@ def test_response_two_aluminum_chi_RPA(in_tmp_dir):
     w = np.linspace(0, 24, 241)
 
     # Calculate susceptibility using Al
-    fcst = FourComponentSusceptibilityTensor(calc1, fxc='RPA',
+    gs1 = ResponseGroundStateAdapter(calc1)
+    fcst = FourComponentSusceptibilityTensor(gs1, fxc='RPA',
                                              eta=0.2, ecut=50)
     for q, q_c in enumerate(q1_qc):
         fcst.get_component_array('00', q_c, w, array_ecut=25,
@@ -63,7 +65,8 @@ def test_response_two_aluminum_chi_RPA(in_tmp_dir):
     t4 = time.time()
 
     # Calculate susceptibility using Al2
-    fcst = FourComponentSusceptibilityTensor(calc2, fxc='RPA',
+    gs2 = ResponseGroundStateAdapter(calc2)
+    fcst = FourComponentSusceptibilityTensor(gs2, fxc='RPA',
                                              eta=0.2, ecut=50)
     for q, q_c in enumerate(q2_qc):
         fcst.get_component_array('00', q_c, w, array_ecut=25,

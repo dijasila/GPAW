@@ -124,16 +124,18 @@ class KohnShamPair:
         """
         Parameters
         ----------
+        gs : ResponseGroundStateAdapter
         transitionblockscomm : gpaw.mpi.Communicator
             Communicator for distributing the transitions among processes
         kptblockcomm : gpaw.mpi.Communicator
             Communicator for distributing k-points among processes
         """
+        assert isinstance(gs, ResponseGroundStateAdapter)
+        self.gs = gs
+
         self.world = world
         self.fd = convert_string_to_fd(txt, world)
         self.timer = timer or Timer()
-        calc = get_calc(gs, fd=self.fd, timer=self.timer)
-        self.gs = ResponseGroundStateAdapter(calc)
         self.calc_parallel = self.check_calc_parallelisation()
 
         self.transitionblockscomm = transitionblockscomm

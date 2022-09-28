@@ -11,7 +11,6 @@ def get_density_xc_kernel(pd, chi0, functional='ALDA',
     """Density-density xc kernels.
     Factory function that calls the relevant functions below."""
 
-    calc = chi0.calc
     fd = chi0.fd
     nspins = len(chi0.gs.nt_sR)
     assert nspins == 1
@@ -19,7 +18,7 @@ def get_density_xc_kernel(pd, chi0, functional='ALDA',
     if functional[0] == 'A':
         # Standard adiabatic kernel
         print('Calculating %s kernel' % functional, file=fd)
-        Kcalc = AdiabaticSusceptibilityFXC(calc, functional,
+        Kcalc = AdiabaticSusceptibilityFXC(chi0.gs, functional,
                                            world=chi0.world, txt=fd,
                                            timer=chi0.timer,
                                            rshelmax=rshelmax,
@@ -32,7 +31,7 @@ def get_density_xc_kernel(pd, chi0, functional='ALDA',
     elif functional[:2] == 'LR':
         print('Calculating LR kernel with alpha = %s' % functional[2:],
               file=fd)
-        Kxc_sGG = calculate_lr_kernel(pd, calc, alpha=float(functional[2:]))
+        Kxc_sGG = calculate_lr_kernel(pd, alpha=float(functional[2:]))
     elif functional == 'Bootstrap':
         print('Calculating Bootstrap kernel', file=fd)
         Kxc_sGG = get_bootstrap_kernel(pd, chi0, chi0_wGG, fd)
@@ -43,7 +42,7 @@ def get_density_xc_kernel(pd, chi0, functional='ALDA',
     return Kxc_sGG[0]
 
 
-def calculate_lr_kernel(pd, calc, alpha=0.2):
+def calculate_lr_kernel(pd, alpha=0.2):
     """Long range kernel: fxc = \alpha / |q+G|^2"""
 
     assert pd.kd.gamma

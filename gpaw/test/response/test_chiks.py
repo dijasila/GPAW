@@ -11,6 +11,7 @@ from ase.build import bulk
 
 from gpaw import GPAW, PW, FermiDirac
 from gpaw.mpi import world, rank
+from gpaw.response.groundstate import ResponseGroundStateAdapter
 from gpaw.response.chiks import ChiKS
 from gpaw.response.susceptibility import (get_pw_coordinates,
                                           get_inverted_pw_mapping)
@@ -87,6 +88,7 @@ def test_Fe_chiks(in_tmp_dir, Fe_gs, q_c, eta, gammacentered):
 
     # Part 1: ChiKS calculation
     calc, nbands = Fe_gs
+    gs = ResponseGroundStateAdapter(calc)
 
     # Calculate chiks for q and -q
     if np.allclose(q_c, 0.):
@@ -97,7 +99,7 @@ def test_Fe_chiks(in_tmp_dir, Fe_gs, q_c, eta, gammacentered):
     chiks_sqwGG = []
     pd_sq = []
     for disable_syms in disable_syms_s:
-        chiks = ChiKS(calc,
+        chiks = ChiKS(gs,
                       ecut=ecut, nbands=nbands, eta=eta,
                       gammacentered=gammacentered,
                       disable_time_reversal=disable_syms,

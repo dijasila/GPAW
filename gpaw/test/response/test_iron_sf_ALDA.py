@@ -17,6 +17,7 @@ from ase.dft.kpoints import monkhorst_pack
 from ase.parallel import parprint
 
 from gpaw import GPAW, PW
+from gpaw.response.groundstate import ResponseGroundStateAdapter
 from gpaw.response.tms import TransverseMagneticSusceptibility
 from gpaw.response.susceptibility import read_macroscopic_component
 from gpaw.test import findpeak, equal
@@ -89,11 +90,12 @@ def test_response_iron_sf_ALDA(in_tmp_dir, scalapack):
     t2 = time.time()
 
     # Part 2: magnetic response calculation
+    gs = ResponseGroundStateAdapter(calc)
 
     for s, ((rshelmax, rshewmin, bandsummation, bundle_integrals,
              disable_syms), frq_w) in enumerate(zip(strat_sd, frq_sw)):
         tms = TransverseMagneticSusceptibility(
-            calc,
+            gs,
             fxc=fxc,
             eta=eta,
             ecut=ecut,

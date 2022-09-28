@@ -26,7 +26,7 @@ class FourComponentSusceptibilityTensor:
                  eta=0.2, ecut=50, gammacentered=False,
                  disable_point_group=False, disable_time_reversal=False,
                  bandsummation='pairwise', nbands=None, bundle_integrals=True,
-                 world=mpi.world, nblocks=1, txt=sys.stdout):
+                 world=mpi.world, nblocks=1, timer=None, txt=sys.stdout):
         """
         Currently, everything is in plane wave mode.
         If additional modes are implemented, maybe look to fxc to see how
@@ -34,30 +34,30 @@ class FourComponentSusceptibilityTensor:
 
         Parameters
         ----------
-        gs : see gpaw.response.chiks, gpaw.response.kslrf
+        gs : ResponseGroundStateAdapter
         fxc, fxckwargs : see gpaw.response.fxc
         eta, ecut, gammacentered
         disable_point_group,
         disable_time_reversal,
         bandsummation, nbands, bundle_integrals,
-        world, nblocks, txt : see gpaw.response.chiks, gpaw.response.kslrf
+        world,
+        nblocks, timer, txt : see gpaw.response.chiks, gpaw.response.kslrf
         """
+        assert isinstance(gs, ResponseGroundStateAdapter)
+        self.gs = gs
+
         # Initiate output file and timer
         self.world = world
         self.fd = convert_string_to_fd(txt, world)
         self.cfd = self.fd
-        self.timer = Timer()
-
-        # Load ground state calculation
-        self.calc = get_calc(gs, fd=self.fd, timer=self.timer)
-        self.gs = ResponseGroundStateAdapter(self.calc)
+        self.timer = timer or Timer()
 
         # The plane wave basis is defined by keywords
         self.ecut = None if ecut is None else ecut / Hartree
         self.gammacentered = gammacentered
 
         # Initiate Kohn-Sham susceptibility and fxc objects
-        self.chiks = ChiKS(self.calc, eta=eta, ecut=ecut,
+        self.chiks = ChiKS(self.gs, eta=eta, ecut=ecut,
                            gammacentered=gammacentered,
                            disable_point_group=disable_point_group,
                            disable_time_reversal=disable_time_reversal,
@@ -65,7 +65,7 @@ class FourComponentSusceptibilityTensor:
                            bundle_integrals=bundle_integrals,
                            world=world, nblocks=nblocks, txt=self.fd,
                            timer=self.timer)
-        self.fxc = get_fxc(self.calc, fxc,
+        self.fxc = get_fxc(gs, fxc,
                            response='susceptibility', mode='pw',
                            world=self.chiks.world, txt=self.chiks.fd,
                            timer=self.timer, **fxckwargs)
@@ -76,7 +76,7 @@ class FourComponentSusceptibilityTensor:
     def get_macroscopic_component(self, spincomponent, q_c, frequencies,
                                   filename=None, txt=None):
         """Calculates the spatially averaged (macroscopic) component of the
-        susceptibility tensor and writes it to a file.
+        susceptibility tensor and write it to a file (optional).
 
         Parameters
         ----------
@@ -84,9 +84,6 @@ class FourComponentSusceptibilityTensor:
         frequencies : see gpaw.response.chiks, gpaw.response.kslrf
         filename : str
             Save chiks_w and chi_w to file of given name.
-            Defaults to:
-            'chi%s_q«%+d-%+d-%+d».csv' % (spincomponent,
-                                          *tuple((q_c * kd.N_c).round()))
         txt : str
             Save output of the calculation of this specific component into
             a file with the filename of the given input.
@@ -95,20 +92,15 @@ class FourComponentSusceptibilityTensor:
         -------
         see calculate_macroscopic_component
         """
-
-        if filename is None:
-            tup = (spincomponent,
-                   *tuple((q_c * self.calc.wfs.kd.N_c).round()))
-            filename = 'chi%s_q«%+d-%+d-%+d».csv' % tup
-
         (omega_w,
          chiks_w,
          chi_w) = self.calculate_macroscopic_component(spincomponent, q_c,
                                                        frequencies,
                                                        txt=txt)
 
-        write_macroscopic_component(omega_w, chiks_w, chi_w,
-                                    filename, self.world)
+        if filename is not None:
+            write_macroscopic_component(omega_w, chiks_w, chi_w,
+                                        filename, self.world)
 
         return omega_w, chiks_w, chi_w
 
@@ -149,7 +141,7 @@ class FourComponentSusceptibilityTensor:
                             array_ecut=50, filename=None, txt=None):
         """Calculates a specific spin component of the susceptibility tensor,
         collects it as a numpy array in a reduced plane wave description
-        and writes it to a file.
+        and writes it to a file (optional).
 
         Parameters
         ----------
@@ -158,9 +150,6 @@ class FourComponentSusceptibilityTensor:
         array_ecut : see calculate_component_array
         filename : str
             Save chiks_w and chi_w to pickle file of given name.
-            Defaults to:
-            'chi%sGG_q«%+d-%+d-%+d».pckl' % (spincomponent,
-                                             *tuple((q_c * kd.N_c).round()))
         txt : str
             Save output of the calculation of this specific component into
             a file with the filename of the given input.
@@ -169,12 +158,6 @@ class FourComponentSusceptibilityTensor:
         -------
         see calculate_component_array
         """
-
-        if filename is None:
-            tup = (spincomponent,
-                   *tuple((q_c * self.gs.kd.N_c).round()))
-            filename = 'chi%sGG_q«%+d-%+d-%+d».pckl' % tup
-
         (omega_w, G_Gc, chiks_wGG,
          chi_wGG) = self.calculate_component_array(spincomponent,
                                                    q_c,
@@ -182,9 +165,9 @@ class FourComponentSusceptibilityTensor:
                                                    array_ecut=array_ecut,
                                                    txt=txt)
 
-        # Write susceptibilities to a pickle file
-        write_component(omega_w, G_Gc, chiks_wGG, chi_wGG,
-                        filename, self.world)
+        if filename is not None:
+            write_component(omega_w, G_Gc, chiks_wGG, chi_wGG,
+                            filename, self.world)
 
         return omega_w, G_Gc, chiks_wGG, chi_wGG
 

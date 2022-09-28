@@ -13,7 +13,6 @@ import gpaw.mpi as mpi
 from gpaw.xc import XC
 from gpaw.spherical_harmonics import Yarr
 from gpaw.sphere.lebedev import weight_n, R_nv
-from gpaw.response.kspair import get_calc
 from gpaw.response.groundstate import ResponseGroundStateAdapter
 
 
@@ -48,20 +47,20 @@ class FXC:
         """
         Parameters
         ----------
-        gs : str/obj
-            Filename or GPAW calculator object of ground state calculation
+        gs : ResponseGroundStateAdapter
         world : mpi.world
         txt : str or filehandle
             defines output file through gpaw.utilities.convert_string_to_fd
         timer : ase.utils.timing.Timer instance
         """
+        assert isinstance(gs, ResponseGroundStateAdapter)
+        self.gs = gs
+
         # Output .txt filehandle and timer
         self.world = world
         self.fd = convert_string_to_fd(txt, world)
         self.cfd = self.fd
         self.timer = timer or Timer()
-        self.calc = get_calc(gs, fd=self.fd, timer=self.timer)
-        self.gs = ResponseGroundStateAdapter(self.calc)
 
     def __call__(self, *args, txt=None, timer=None, **kwargs):
         # A specific output file can be supplied for each individual call

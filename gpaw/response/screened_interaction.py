@@ -55,7 +55,7 @@ def initialize_w_calculator(chi0calc, txt='w.txt', ppa=False, xc='RPA',
     """
     from gpaw.response.g0w0_kernels import G0W0Kernel
     gs = chi0calc.gs
-    context = ResponseContext(txt, world, timer)
+    context = ResponseContext(txt=txt, timer=timer, world=world)
     if Eg is None and xc == 'JGMsx':
         Eg = gs.get_band_gap()
     elif Eg is not None:

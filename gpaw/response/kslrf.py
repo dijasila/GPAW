@@ -10,7 +10,8 @@ import gpaw
 import gpaw.mpi as mpi
 from gpaw.utilities.memory import maxrss
 from gpaw.utilities.progressbar import ProgressBar
-from gpaw.response.kspair import KohnShamPair, get_calc
+from gpaw.response.groundstate import ResponseGroundStateAdapter
+from gpaw.response.kspair import KohnShamPair
 from gpaw.response.frequencies import FrequencyDescriptor
 from gpaw.response.pw_parallelization import (block_partition, Blocks1D,
                                               PlaneWaveBlockDistributor)
@@ -92,9 +93,7 @@ class KohnShamLinearResponseFunction:  # Future PairFunctionIntegrator? XXX
 
         Parameters
         ----------
-        gs : str
-            The groundstate calculation file that the linear response
-            calculation is based on.
+        gs : ResponseGroundStateAdapter
         mode: str
             Calculation mode.
             Currently, only a plane wave mode is implemented.
@@ -137,6 +136,9 @@ class KohnShamLinearResponseFunction:  # Future PairFunctionIntegrator? XXX
             Runs the calculation, returning the response function.
             Returned format can varry depending on response and mode.
         """
+        assert isinstance(gs, ResponseGroundStateAdapter)
+        self.gs = gs
+
         # Output .txt filehandle
         self.fd = convert_string_to_fd(txt, world)
         self.cfd = self.fd
@@ -152,11 +154,8 @@ class KohnShamLinearResponseFunction:  # Future PairFunctionIntegrator? XXX
         # Timer
         self.timer = timer or Timer()
 
-        # Load ground state calculation
-        self.calc = get_calc(gs, fd=self.fd, timer=self.timer)
-
         # The KohnShamPair class handles data extraction from ground state
-        self.kspair = KohnShamPair(self.calc, world=world,
+        self.kspair = KohnShamPair(gs, world=world,
                                    # Let each process handle slow steps only
                                    # for a fraction of all transitions.
                                    # t-transitions are distributed through
@@ -165,7 +164,6 @@ class KohnShamLinearResponseFunction:  # Future PairFunctionIntegrator? XXX
                                    transitionblockscomm=self.blockcomm,
                                    kptblockcomm=self.intrablockcomm,
                                    txt=self.fd, timer=self.timer)
-        self.gs = self.kspair.gs
 
         self.mode = mode
 
