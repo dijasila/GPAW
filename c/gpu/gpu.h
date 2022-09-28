@@ -1,5 +1,5 @@
-#ifndef GPAW_CUDA_EXT_H
-#define GPAW_CUDA_EXT_H
+#ifndef GPU_GPU_H
+#define GPU_GPU_H
 
 #include <stdio.h>
 #include <cuda.h>
@@ -48,6 +48,13 @@
     (((n) > 0) ? ((n) + GPAW_CUDA_PITCH - 1 - ((n) - 1) % GPAW_CUDA_PITCH) \
                : 0)
 
+#ifndef MAX
+#  define MAX(a,b)  (((a) > (b)) ? (a) : (b))
+#endif
+#ifndef MIN
+#  define MIN(a,b)  (((a) < (b)) ? (a) : (b))
+#endif
+
 typedef struct
 {
     int ncoefs;
@@ -63,6 +70,20 @@ typedef struct
     long n[3];
     long j[3];
 } bmgsstencil_gpu;
+
+#ifndef BMGS_H
+typedef struct
+{
+    int ncoefs;
+    double* coefs;
+    long* offsets;
+    long n[3];
+    long j[3];
+} bmgsstencil;
+#endif
+
+extern struct cudaDeviceProp _gpaw_cuda_dev_prop;
+extern int _gpaw_cuda_dev;
 
 static inline cudaError_t __gpaw_cudaSafeCall(cudaError_t err,
                                               const char *file, int line)

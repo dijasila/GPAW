@@ -2,7 +2,7 @@
 #include <cuda_runtime_api.h>
 #include <cuComplex.h>
 
-#include "gpaw-cuda-common.h"
+#include "gpu.h"
 
 #undef Tcuda
 #undef Zcuda
@@ -51,26 +51,8 @@
 #  define NEG(a)         cuCneg(a)
 #endif
 
-#ifndef GPAW_CUDA_INT_H
-#define GPAW_CUDA_INT_H
-
-#include <Python.h>
-
-#ifndef MAX
-#  define MAX(a,b)  (((a) > (b)) ? (a) : (b))
-#endif
-#ifndef MIN
-#  define MIN(a,b)  (((a) < (b)) ? (a) : (b))
-#endif
-
-typedef struct
-{
-    int ncoefs;
-    double* coefs;
-    long* offsets;
-    long n[3];
-    long j[3];
-} bmgsstencil;
+#ifndef GPU_COMPLEX_H
+#define GPU_COMPLEX_H
 
 __host__ __device__ static __inline__ cuDoubleComplex cuCmulD(
         cuDoubleComplex x, double y)
@@ -99,8 +81,5 @@ __host__ __device__ static __inline__ cuDoubleComplex cuCadd4(
             cuCreal(x) + cuCreal(y) + cuCreal(z) + cuCreal(w),
             cuCimag(x) + cuCimag(y) + cuCimag(z) + cuCimag(w));
 }
-
-extern struct cudaDeviceProp _gpaw_cuda_dev_prop;
-extern int _gpaw_cuda_dev;
 
 #endif
