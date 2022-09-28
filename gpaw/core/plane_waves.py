@@ -378,6 +378,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         """Scatter data from rank-0 to all ranks."""
         comm = self.desc.comm
         if comm.size == 1:
+            assert data is not None
             self.data[:] = data
             return
 
@@ -510,7 +511,6 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
             d_c = [b_s[1:] @ (1.0 / np.arange(1, len(b_s)))
                    for b_s in b_cs]
             m_v = np.dot(d_c, pw.cell_cv) / pi * pw.dv
-            print(m_v)
         else:
             m_v = np.empty(3)
         pw.comm.broadcast(m_v, 0)

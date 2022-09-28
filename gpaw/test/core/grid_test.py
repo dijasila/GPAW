@@ -76,7 +76,7 @@ def test_moment():
     assert abs(f.integrate()) < 1e-14
     assert f.moment() == pytest.approx([0, moment, 0])
 
-    pw = PlaneWaves(cell=grid.cell, ecut=700)
+    pw = PlaneWaves(cell=grid.cell, ecut=700, comm=world)
     f2 = f.fft(pw=pw)
 
     assert abs(f2.integrate()) < 1e-14
