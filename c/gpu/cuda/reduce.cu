@@ -31,7 +31,7 @@ static void reduceNumBlocksAndThreads(int n, int *blocks, int *threads)
                   REDUCE_MAX_BLOCKS);
 }
 
-#endif // !REDUCE
+#endif
 #define REDUCE
 
 #define INFUNC(a,b) MAPFUNC(a,b)

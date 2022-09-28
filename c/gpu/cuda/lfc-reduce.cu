@@ -42,7 +42,7 @@ static void lfc_reduceNumBlocksAndThreads2(int n,int *blocks, int *threads)
                   REDUCE_LFC_MAX_BLOCKS2);
 }
 
-#endif // !REDUCE_LFC
+#endif
 #define REDUCE_LFC
 
 #define INNAME(f) Zcuda(f ## _map512)

@@ -412,7 +412,7 @@ __global__ void RELAX_kernel_onlyb(
     }
 }
 
-#else // -> !MYJ
+#else
 #undef BLOCK_X
 #undef BLOCK_Y
 #define BLOCK_X   (BLOCK_X_FERMI)
@@ -826,4 +826,4 @@ double bmgs_relax_cuda_cpu(const int relax_method, const bmgsstencil* s,
           - t0.tv_usec / 1000000.0;
     return flops;
 }
-#endif // MYJ
+#endif

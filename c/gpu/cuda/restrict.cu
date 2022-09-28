@@ -209,7 +209,7 @@ __global__ void RESTRICT_kernel(const Tcuda* a, const int3 n,
     }
 }
 
-#else // -> !BLOCK_X
+#else
 
 #define BLOCK_X   (BLOCK_X_FERMI)
 #define BLOCK_Y   (BLOCK_Y_FERMI)
@@ -315,4 +315,4 @@ double bmgs_restrict_cuda_cpu(int k, double* a, const int n[3],
     return flops;
 }
 #endif
-#endif // BLOCK_X
+#endif

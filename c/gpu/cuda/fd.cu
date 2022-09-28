@@ -417,7 +417,7 @@ __global__ void FD_kernel_onlyb(
 }
 
 
-#else // -> !MYJ
+#else
 #undef BLOCK_X_DEF
 #undef BLOCK_Y_DEF
 #undef BLOCK_X_DEFZ
@@ -990,4 +990,4 @@ bmgsstencil_gpu bmgs_stencil_to_gpu(const bmgsstencil* s)
 }
 
 #endif
-#endif // MYJ
+#endif
