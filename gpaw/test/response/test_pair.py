@@ -35,18 +35,19 @@ def test_response_pair(in_tmp_dir, scalapack):
         deps_nm = kptpair.get_transition_energies(np.arange(0, nb),
                                                   np.arange(0, nb))
 
-        n_nmG = pair.get_pair_density(pd, kptpair, np.arange(0, nb),
-                                      np.arange(0, nb), optical_limit=ol)
+        n_nmG = pair.get_full_pair_density(pd, kptpair,
+                                           np.arange(0, nb),
+                                           np.arange(0, nb))
 
         n_nmvG = pair.get_pair_momentum(pd, kptpair, np.arange(0, nb),
                                         np.arange(0, nb))
 
         if ol:
+            copv = pair.calculate_optical_pair_velocity
             n2_nmv = np.zeros((nb, nb, 3), complex)
             for n in range(0, nb):
-                n2_nmv[n] = pair.optical_pair_velocity(n, np.arange(0, nb),
-                                                       kptpair.kpt1,
-                                                       kptpair.kpt2)
+                n2_nmv[n] = copv(n, np.arange(0, nb),
+                                 kptpair.kpt1, kptpair.kpt2)
 
         # Check for nan's
         assert not np.isnan(n_nmG).any()

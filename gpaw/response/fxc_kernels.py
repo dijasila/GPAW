@@ -1,5 +1,4 @@
-"""Contains methods for calculating LR-TDDFT kernels.
-Substitutes gpaw.response.fxc in the new format."""
+"""Contains methods for calculating local LR-TDDFT kernels."""
 
 from pathlib import Path
 
@@ -575,16 +574,10 @@ class AdiabaticSusceptibilityFXC(PlaneWaveAdiabaticFXC):
 
     def __init__(self, gs, functional,
                  world=mpi.world, txt='-', timer=None,
-                 rshelmax=-1, rshewmin=None, filename=None,
-                 density_cut=None, spinpol_cut=None, **ignored):
+                 rshelmax=-1, rshewmin=None, filename=None, **ignored):
         """
         gs, world, txt, timer : see PlaneWaveAdiabaticFXC, FXC
         functional, rshelmax, rshewmin, filename : see PlaneWaveAdiabaticFXC
-        density_cut : float
-            cutoff density below which f_xc is set to zero
-        spinpol_cut : float
-            Cutoff spin polarization. Below, f_xc is evaluated in zeta=0 limit
-            Note: only implemented for spincomponents '+-' and '-+'
         """
         assert functional in ['ALDA_x', 'ALDA_X', 'ALDA']
 
@@ -593,63 +586,24 @@ class AdiabaticSusceptibilityFXC(PlaneWaveAdiabaticFXC):
                                        rshelmax=rshelmax, rshewmin=rshewmin,
                                        filename=filename)
 
-        self.density_cut = density_cut
-        self.spinpol_cut = spinpol_cut
-
     def calculate(self, spincomponent, pd):
         """Creator component to set up the right calculation."""
         if spincomponent in ['00', 'uu', 'dd']:
-            assert self.spinpol_cut is None
             assert len(self.gs.nt_sR) == 1  # nspins, see XXX below
 
             self._calculate_fxc = self.calculate_dens_fxc
-            self._calculate_unpol_fxc = None
         elif spincomponent in ['+-', '-+']:
             assert len(self.gs.nt_sR) == 2  # nspins
 
             self._calculate_fxc = self.calculate_trans_fxc
-            self._calculate_unpol_fxc = self.calculate_trans_unpol_fxc
         else:
             raise ValueError(spincomponent)
 
         return PlaneWaveAdiabaticFXC.calculate(self, pd)
 
     def _add_fxc(self, gd, n_sG, fxc_G):
-        """
-        Calculate fxc, using the cutoffs from input above
-
-        ALDA_x is an explicit algebraic version
-        ALDA_X uses the libxc package
-        """
-        _calculate_fxc = self._calculate_fxc
-        _calculate_unpol_fxc = self._calculate_unpol_fxc
-
-        # Mask small zeta
-        if self.spinpol_cut is not None:
-            zetasmall_G = np.abs((n_sG[0] - n_sG[1]) /
-                                 (n_sG[0] + n_sG[1])) < self.spinpol_cut
-        else:
-            zetasmall_G = np.full(np.shape(n_sG[0]), False,
-                                  np.array(False).dtype)
-
-        # Mask small n
-        if self.density_cut:
-            npos_G = np.abs(np.sum(n_sG, axis=0)) > self.density_cut
-        else:
-            npos_G = np.full(np.shape(n_sG[0]), True, np.array(True).dtype)
-
-        # Don't use small zeta limit if n is small
-        zetasmall_G = np.logical_and(zetasmall_G, npos_G)
-
-        # In small zeta limit, use unpolarized fxc
-        if zetasmall_G.any():
-            fxc_G[zetasmall_G] += _calculate_unpol_fxc(gd, n_sG)[zetasmall_G]
-
-        # Set fxc to zero if n is small
-        allfine_G = np.logical_and(np.invert(zetasmall_G), npos_G)
-
-        # Above both spinpol_cut and density_cut calculate polarized fxc
-        fxc_G[allfine_G] += _calculate_fxc(gd, n_sG)[allfine_G]
+        """Calculate fxc and add it to the output array."""
+        fxc_G += self._calculate_fxc(gd, n_sG)
 
     def calculate_dens_fxc(self, gd, n_sG):
         if self.functional == 'ALDA_x':
@@ -679,27 +633,3 @@ class AdiabaticSusceptibilityFXC(PlaneWaveAdiabaticFXC):
             xc.calculate(gd, n_sG, v_sg=v_sG)
 
             return (v_sG[0] - v_sG[1]) / m_G
-
-    def calculate_trans_unpol_fxc(self, gd, n_sG):
-        """Calculate unpolarized fxc of spincomponents '+-', '-+'."""
-        n_G = np.sum(n_sG, axis=0)
-        fx_G = - (3. / np.pi)**(1. / 3.) * 2. / 3. * n_G**(-2. / 3.)
-        if self.functional in ('ALDA_x', 'ALDA_X'):
-            return fx_G
-        else:
-            # From Perdew & Wang 1992
-            A = 0.016887
-            a1 = 0.11125
-            b1 = 10.357
-            b2 = 3.6231
-            b3 = 0.88026
-            b4 = 0.49671
-
-            rs_G = 3. / (4. * np.pi) * n_G**(-1. / 3.)
-            X_G = 2. * A * (b1 * rs_G**(1. / 2.)
-                            + b2 * rs_G + b3 * rs_G**(3. / 2.) + b4 * rs_G**2.)
-            ac_G = 2. * A * (1 + a1 * rs_G) * np.log(1. + 1. / X_G)
-
-            fc_G = 2. * ac_G / n_G
-
-            return fx_G + fc_G
