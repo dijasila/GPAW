@@ -58,7 +58,7 @@ class ResponseGroundStateAdapter:
         return abs(np.linalg.det(cell_cv[nonpbc][:, nonpbc]))
 
     @property
-    def nt_sG(self):
+    def nt_sR(self):
         # Used by fxc_kernels
         return self._density.nt_sG
 

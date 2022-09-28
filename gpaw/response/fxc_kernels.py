@@ -195,7 +195,7 @@ class PlaneWaveAdiabaticFXC(FXC):
             the PAW corrected all-electron spin density.
         """
         if self.rshe:
-            return self.gs.nt_sG  # smooth density
+            return self.gs.nt_sR  # smooth density
 
         print('    Calculating all-electron density', file=self.cfd)
         with self.timer('Calculating all-electron density'):
@@ -589,11 +589,11 @@ class AdiabaticSusceptibilityFXC(PlaneWaveAdiabaticFXC):
     def calculate(self, spincomponent, pd):
         """Creator component to set up the right calculation."""
         if spincomponent in ['00', 'uu', 'dd']:
-            assert len(self.gs.nt_sG) == 1  # nspins, see XXX below
+            assert len(self.gs.nt_sR) == 1  # nspins, see XXX below
 
             self._calculate_fxc = self.calculate_dens_fxc
         elif spincomponent in ['+-', '-+']:
-            assert len(self.gs.nt_sG) == 2  # nspins
+            assert len(self.gs.nt_sR) == 2  # nspins
 
             self._calculate_fxc = self.calculate_trans_fxc
         else:
