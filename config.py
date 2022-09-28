@@ -224,7 +224,7 @@ def build_cuda(gpu_compiler, gpu_compile_args, gpu_include_dirs,
     includes.append(cfgDict['INCLUDEPY'])
     includes.extend(include_dirs)
     includes.extend(gpu_include_dirs)
-    includes.append('c/cuda')
+    includes.append('c/gpu')
     includes = ' '.join(['-I' + incdir for incdir in includes])
 
     ccflags = ' '.join(extra_compile_args + ['-fPIC'])
@@ -233,15 +233,17 @@ def build_cuda(gpu_compiler, gpu_compile_args, gpu_include_dirs,
     objects = []
 
     build_path = Path('build/temp.%s' % plat)
-    build_path_cuda = Path(build_path, 'c/cuda')
-    if not build_path_cuda.exists():
-        try:
-            build_path_cuda.mkdir(parents=True)
-        except FileExistsError:
-            pass
+    build_path_gpu = Path(build_path, 'c/gpu')
+    build_path_cuda = Path(build_path, 'c/gpu/cuda')
+    for _build_path in [build_path_gpu, build_path_cuda]:
+        if not _build_path.exists():
+            try:
+                _build_path.mkdir(parents=True)
+            except FileExistsError:
+                pass
 
     # compile C files
-    cfiles = Path('c/cuda').glob('*.c')
+    cfiles = Path('c/gpu').glob('*.c')
     cfiles = [str(source) for source in cfiles]
     cfiles.sort()
     for src in cfiles:
@@ -260,19 +262,18 @@ def build_cuda(gpu_compiler, gpu_compile_args, gpu_include_dirs,
             return error
 
     # compile CUDA files
-    cudafiles = ['c/cuda/fd-cuda.cu',
-                 'c/cuda/interpolate-cuda.cu',
-                 'c/cuda/paste-cuda.cu',
-                 'c/cuda/relax-cuda.cu',
-                 'c/cuda/restrict-cuda.cu',
-                 'c/cuda/cut-cuda.cu',
-                 'c/cuda/translate-cuda.cu',
-                 'c/cuda/lfc-cuda.cu',
-                 'c/cuda/ext-pot-cuda.cu',
-                 'c/cuda/mblas-cuda.cu',
-                 'c/cuda/blas-cuda.cu',
-                 'c/cuda/linalg-cuda.cu',
-                 'c/cuda/elementwise.cu']
+    cudafiles = ['c/gpu/cuda/fd.cu',
+                 'c/gpu/cuda/interpolate.cu',
+                 'c/gpu/cuda/paste.cu',
+                 'c/gpu/cuda/relax.cu',
+                 'c/gpu/cuda/restrict.cu',
+                 'c/gpu/cuda/cut.cu',
+                 'c/gpu/cuda/translate.cu',
+                 'c/gpu/cuda/lfc.cu',
+                 'c/gpu/cuda/ext-potential.cu',
+                 'c/gpu/cuda/mblas.cu',
+                 'c/gpu/cuda/linalg.cu',
+                 'c/gpu/cuda/elementwise.cu']
     for src in cudafiles:
         obj = os.path.join(build_path, src[:-2] + 'o')
         objects.append(obj)

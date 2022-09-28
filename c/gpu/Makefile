@@ -1,11 +1,12 @@
 include make.inc
 
-CUSRC = fd-cuda.cu interpolate-cuda.cu paste-cuda.cu relax-cuda.cu \
-		restrict-cuda.cu cut-cuda.cu translate-cuda.cu lfc-cuda.cu \
-		ext-pot-cuda.cu mblas-cuda.cu blas-cuda.cu linalg-cuda.cu \
+CUSRX = fd.cu interpolate.cu paste.cu relax.cu \
+		restrict.cu cut.cu translate.cu lfc.cu \
+		ext-potential.cu mblas.cu linalg.cu \
 		elementwise.cu
+CUSRC = $(addprefix cuda/, $(CUSRX))
 
-CSRC  = gpaw-cuda.c operators-cuda.c bc-cuda.c transformers-cuda.c
+CSRC  = setup.c bc.c blas.c operators.c transformers.c
 
 CUGPAWLIB = libgpaw-cuda.a
 
@@ -31,6 +32,6 @@ depend:
 .c.o:
 	$(CC) $(CCFLAGS) -c $< -o $@
 
-%.o: %.cu
+cuda/%.o: cuda/%.cu
 	$(NVCC) $(NVCCFLAGS) -c $< -o $@
 
