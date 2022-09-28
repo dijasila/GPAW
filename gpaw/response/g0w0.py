@@ -913,7 +913,7 @@ class G0W0Calculator:
             'EXX',
             n1, n2,
             kpt_indices=self.kpts,
-            snapshot=self.filename + '-vxc-exx.json')
+            snapshot=self.restartfile + '-vxc-exx.json')
         return vxc_skn / Ha, exx_skn / Ha
 
     def read_contribution(self, filename):
