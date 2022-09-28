@@ -2,6 +2,8 @@ from math import pi
 
 import numpy as np
 from ase.units import Ha
+from scipy.special import erf
+
 from gpaw.core import PlaneWaves, UniformGrid
 from gpaw.core.plane_waves import PlaneWaveExpansions
 from gpaw.new import cached_property
@@ -20,10 +22,8 @@ def make_poisson_solver(pw: PlaneWaves,
     ps = PWPoissonSolver(pw, charge, strength)
 
     if dipolelayer:
-        ps = DipoleLayerPWPoissonSolver(ps, grid, **kwargs)
-    else:
-        assert not kwargs
-
+        return DipoleLayerPWPoissonSolver(ps, grid, **kwargs)
+    assert not kwargs
     return ps
 
 
@@ -114,7 +114,7 @@ class ChargedPWPoissonSolver(PWPoissonSolver):
 
         R_Rv = grid.xyz()
         d_R = ((R_Rv - center_v)**2).sum(axis=3)**0.5
-        potential_R = charge * np.erf(alpha**0.5 * d_R) / d_R
+        potential_R = charge * erf(alpha**0.5 * d_R) / d_R
         self.potential_g = potential_R.fft(pw=pw)
 
     def __str__(self) -> str:
@@ -157,9 +157,6 @@ class DipoleLayerPWPoissonSolver(PoissonSolver):
     def solve(self,
               vHt_g: PlaneWaveExpansions,
               rhot_g: PlaneWaveExpansions) -> float:
-        if self.sawtooth_q is None:
-            self.initialize_sawtooth()
-
         epot = self.ps.solve(vHt_g, rhot_g)
 
         dip_v = -rhot_g.moment()
