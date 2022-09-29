@@ -28,7 +28,7 @@ libvdwxc will automatically parallelize with as many cores as are
 available for domain decomposition.  If you parallelize over *k*-points
 or bands, and *especially* if you use planewave mode, be sure to pass
 the parallelization keyword ``augment_grids=True`` to make use of *all*
-cores including those for *k*-point and band parallelization.
+cores including those for *k*-point and band parallelization (see :ref:`manual_parallel`).
 
 Here is a more complex example:
 
