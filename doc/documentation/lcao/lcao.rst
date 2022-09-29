@@ -101,7 +101,7 @@ such as ``basis={'H' : 'dzp', 'O' : 'mine', 'C' : 'szp'}``.
 For larger systems, to get good performance, be sure to enable ScaLAPACK
 to parallelize the cubic-scaling diagonalization step and distribute
 many matrices.  If possible, install and enable Elpa [Elpa]_ to further save
-time.  See the :ref:` parallel keyword <manual_parallel>`.
+time.  See the :ref:`parallel keyword <manual_parallel>`.
 
 
 Example

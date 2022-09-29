@@ -46,16 +46,18 @@ def update_dict(default: dict, value: dict | None) -> dict[str, Any]:
 class InputParameters:
     basis: Any
     charge: float
+    communicator: Any
     convergence: dict[str, Any]
     eigensolver: dict[str, Any]
     experimental: dict[str, Any]
     force_complex_dtype: bool
     gpts: None | Sequence[int]
     h: float | None
+    hund: bool
     kpts: dict[str, Any]
     magmoms: Any
     mode: dict[str, Any]
-    nbands: None | int | float
+    nbands: None | int | str
     parallel: dict[str, Any]
     poissonsolver: dict[str, Any]
     setups: Any
@@ -87,9 +89,14 @@ class InputParameters:
             raise ValueError("""You can't use both "gpts" and "h"!""")
 
         if self.experimental is not None:
-            warnings.warn('Please use new "soc" and "magmoms" parameters.')
-            self.magmoms = self.experimental.pop('magmoms')
-            self.soc = self.experimental.pop('soc')
+            if self.experimental.pop('niter_fixdensity', None) is not None:
+                warnings.warn('Ignoring "niter_fixdensity".')
+            if 'soc' in self.experimental:
+                warnings.warn('Please use new "soc" parameter.')
+                self.soc = self.experimental.pop('soc')
+            if 'magmoms' in self.experimental:
+                warnings.warn('Please use new "magmoms" parameter.')
+                self.magmoms = self.experimental.pop('magmoms')
             assert not self.experimental
 
         bands = self.convergence.pop('bands', None)
@@ -110,6 +117,11 @@ class InputParameters:
             self.force_complex_dtype = force_complex_dtype
             self.keys.append('force_complex_dtype')
             self.keys.sort()
+
+        if self.communicator is not None:
+            self.parallel['world'] = self.communicator
+            warnings.warn('Please use parallel={''world'': ...} '
+                          'instead of communicator=...')
 
     def __repr__(self) -> str:
         p = ', '.join(f'{key}={value!r}'
@@ -133,6 +145,11 @@ def charge(value=0.0):
 
 
 @input_parameter
+def communicator(value=None):
+    return None
+
+
+@input_parameter
 def convergence(value=None):
     """Accuracy of the self-consistency cycle."""
     return value or {}
@@ -142,7 +159,10 @@ def convergence(value=None):
 def eigensolver(value=None) -> dict:
     """Eigensolver."""
     if isinstance(value, str):
-        return {'name': value}
+        value = {'name': value}
+    if value and value['name'] != 'dav':
+        warnings.warn(f'{value["name"]} not implemented.  Using dav instead')
+        return {'name': 'dav'}
     return value or {}
 
 
@@ -209,14 +229,9 @@ def mode(value='fd'):
 
 
 @input_parameter
-def nbands(value: str | int | None = None) -> int | float | None:
+def nbands(value: str | int | None = None) -> str | int | None:
     """Number of electronic bands."""
-    if isinstance(value, int) or value is None:
-        return value
-    if nbands[-1] == '%':
-        return float(value[:-1]) / 100
-    raise ValueError('Integer expected: Only use a string '
-                     'if giving a percentage of occupied bands')
+    return value
 
 
 @input_parameter

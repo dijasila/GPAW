@@ -62,9 +62,20 @@ def run(cmd: str, **kwargs) -> subprocess.CompletedProcess:
 
 
 def compile_gpaw_c_code(gpaw: Path, activate: Path) -> None:
-    # xeon16, xeon24, xeon40:
+    """Compile for all architectures: xeon16, xeon24, xeon40, ..."""
+    # Remove targets:
+    for path in gpaw.glob('build/lib.linux-x86_64-*/_gpaw.*.so'):
+        path.unlink()
+
+    # Compile:
     for host in ['thul', 'sylg', 'svol', 'surt']:
         run(f'ssh {host} ". {activate} && pip install -q -e {gpaw}"')
+
+    # Clean up:
+    for path in gpaw.glob('_gpaw.*.so'):
+        path.unlink()
+    for path in gpaw.glob('build/temp.linux-x86_64-*'):
+        shutil.rmtree(path)
 
 
 def main():
@@ -118,7 +129,7 @@ def main():
     if args.dftd3:
         run(' && '.join(dftd3.format(venv=venv).splitlines()))
 
-    # Compile ase-exc C-extension of old thul so that it works on
+    # Compile ase-ext C-extension on old thul so that it works on
     # newer architectures
     run(f'ssh thul ". {activate} && pip install -q ase-ext"')
 
@@ -134,11 +145,6 @@ def main():
         f = gpaw / f'build/lib.linux-x86_64-{fro}-{version}'
         t = gpaw / f'build/lib.linux-x86_64-{to}-{version}'
         f.symlink_to(t)
-
-    for path in gpaw.glob('build/temp.linux-x86_64-*'):
-        shutil.rmtree(path)
-    for path in gpaw.glob('_gpaw.*.so'):
-        path.unlink()
 
     # Create .pth file to load correct .so file:
     pth = ('import sys, os; '

@@ -6,15 +6,25 @@ viz.view = lambda atoms, repeat=None: None
 # %%
 """
 # Introduction to Python and ASE and some useful libraries
+
+Python is a programming language that has become a de-facto standard within scientific programming.  It is also very popular for teaching programming and computer science. One of the advantages of the language is that it is relatively easy to read and understand pre-existing code.
+
+### Python Notebooks
+
+We are working with Python notebooks.  A notebook is split into cells (this is a text cell, most cells contain a block of Python code).  You can execute a cell by pressing Shift+Enter.  You can edit a text cell by doubleclicking it.  You can change the type of a cell on the menu bar above, use "Markup" for text and "Code" for Python code.  There are also buttons for adding and removing cells.  Cells can be split into two (or merged) on the Edit menu.
 """
 
 # %%
 """
-## What is Python?
-#### An interpretted language
-You can google stuff, we mainly need simple things and
+## Importing the necesary modules
 
-some links for reference:
+A lot of helper packages for e.g. numeric calculations, plotting, atomic-scale simulations etc are available in Python, but you need to "import" the module to get access to it (you also often need to install it, but that has been taken care of here).
+
+A few packages support special integration with Notebooks, this includes the plotting package ``matplotlib``, where the integration is enabled with a notebook-specific command starting with the ``%`` character.
+
+You can add comments to Python code by using the ``#`` character.
+
+Some links for reference:
 * [Python](https://www.python.org/)
 * Numerical package [NumPy](http://www.numpy.org/)
 * Scientific package [Scipy](https://www.scipy.org/)
@@ -22,9 +32,13 @@ some links for reference:
 """
 
 # %%
+# magic: %matplotlib notebook
+import matplotlib.pyplot as plt    # For nice plotting
+import numpy as np                 # Mathematical operations
+
+# %%
 """
-# Lets try and run some stuff
-(hit shift + enter to run a cell)
+Let's try some simple stuff.
 """
 
 # %%
@@ -46,8 +60,52 @@ help(print)
 
 # %%
 """
-## Some datastructures
-#### A `list` is an ordered collection of arbitrary objects
+## Variables and data types
+
+In python, variables contain data of different types, such as numbers or text strings.  You can print a variable with the ``print()`` function:
+"""
+
+# %%
+a = 42
+mypi = 3.14
+b = "some text"
+print(a)
+print("Pi is approximately", mypi)
+print(b)
+
+# %%
+"""
+The usual mathematical operations are possible.  The operator for exponentiation is the double star.
+"""
+
+# %%
+print(2 * a)
+print(16**2)
+print(a + 2 * mypi)
+
+# %%
+"""
+### A `list` is an ordered collection of arbitrary objects
+
+You will need lists of data. A list of data can be specified at once, or built gradually. The latter is demonstated later.
+"""
+
+# %%
+primes = [2, 3, 5, 7, 11, 13, 17, 19, 23]
+print(primes)
+
+# %%
+"""
+Lists are indexed starting with 0, so primes[1] is the *second* prime.  You can also access a list from the end, using negative numbers.
+"""
+
+# %%
+print(primes[1])
+print(primes[-1])
+
+# %%
+"""
+A `list` can contain arbitrary objects
 """
 
 # %%
@@ -59,19 +117,20 @@ print(l[-2])  # indexing with negative numbers counts from the end
 
 # %%
 """
-#### A `dict`  is a mapping from keys to values
+### A `dict`  is a mapping from keys to values
 """
 
 # %%
 d = {'s': 0, 'p': 1}
 print(d)
 print(d['p'])
+print('Removing an element from the dictionary')
 del d['s']
 print(d)
 
 # %%
 """
-#### A `tuple`  is an ordered collection like a list but is *immutable*
+### A `tuple`  is an ordered collection like a list but is *immutable*
 useful for keywords in `dict`
 """
 
@@ -90,9 +149,23 @@ except Exception as x:
 print('y = ', y)
 
 # %%
-# lets try and use a namedtuple as keys for a dict
+"""
+### A ``namedtuple`` is a tuple where the elements also have names.
+
+They can be accessed by index or by name.
+"""
+
+# %%
 from collections import namedtuple
 SKN = namedtuple('IndexSKN', ('spin', 'kpt', 'band'))
+a = SKN(0, 3, 4)
+print(a)
+# The elements may be accessed by index (like a normal tuple) or by name:
+print(a[1])
+print(a.kpt)
+
+# %%
+# lets try and use a namedtuple as keys for a dict
 d = {}
 d[SKN(0, 10, 5)] = 3.14
 d[SKN(0, 1, 3)] = 2.72
@@ -123,10 +196,11 @@ print(x.mean())
 # Multidimensional array
 a = np.zeros((3, 2))
 a[:, 1] = 1.0
-a[1, :] = 1.0
-print(a.shape)
-print(a.ndim)
-print(a.dtype)
+a[1, :] = 2.0
+print("The shape of the array:", a.shape)
+print("Number of dimensions:", a.ndim)
+print("Data type:", a.dtype)
+print("And one can print the entire array (if it is not too big):")
 print(a)
 
 # %%
@@ -155,7 +229,7 @@ eps, U = np.linalg.eig(H)
 
 #  Make print of numpy arrays less messy:
 np.set_printoptions(precision=3, suppress=True)
-print(eps.real)
+print('The eigenvalues are:', eps.real)
 
 # lets try and sort them
 sorted_indices = eps.real.argsort()
@@ -166,8 +240,11 @@ print('after sorting: ', eps.real)
 # Check that U diagonalizes H
 D1 = np.diag(eps)  # Diagonal matrix
 D2 = U.T.conj() @ H @ U  # Diagonalized H matrix
-print(D2 - D1)
-# are the numbers in the two matrices close to each other?
+print('Diagonal matrix (from eigenvalues):')
+print(D1)
+print('Diagonal matrix (tranforming H):')
+print(D2)
+print('Are the numbers in the two matrices close to each other?')
 print(np.allclose(D2, D1))
 
 # %%
@@ -185,15 +262,55 @@ print(np.allclose(D2, D1))
 # magic: %matplotlib notebook
 import matplotlib.pyplot as plt
 import numpy as np
-# Start a new figure
-plt.figure()
-# lets plot a line
-x = [0, 1]
-y = [0, 1]
-plt.plot(x, y)
 
 # %%
-# more advanced example
+# Some data
+x = [1.4, 2.0, 3.0, 3.3]
+y = [10, -1.1, 2.2, 5.0]
+y2 = [1, 2, 3, 5]
+
+# %%
+plt.figure()   # Start a new figure
+# Plot y versus x (called "Series 1" in the legend).
+#   b = blue.  o = show points.  - = show line.
+plt.plot(x, y, 'bo-', label="Series 1")
+# Plot y2 versus x (called "Series 2" in the legend).
+#   r = red.  x = show points as x'es.   -- = show dashed line
+plt.plot(x, y2, 'rx--', label="Series 2")
+plt.title("Title of the plot")
+plt.xlabel("Label of the x-axis")
+plt.ylabel("Label of the y-axis")
+# plt.ylim(0, 10)     # Uncomment to set range of y values to show - similar for x.
+plt.legend()  # Make a legend, let matplotlib decide where to place it.
+plt.show()
+
+# %%
+"""
+You can save the plot as a figure by pressing the "floppy disk" icon.  Note that in some browsers it does not work, then you can stop the interactive plot by clicking the blue on/off button in the upper right corner, and then save the plot as any other figure in your browser (probably by left-clicking it).
+
+Sometimes, you need larger fonts in a plot that you want to include in a report.  Below is the same plot, but with larger fonts.  We also overrule the placement of the legend.
+"""
+
+# %%
+plt.figure()
+plt.plot(x, y, 'bo-', label="Series 1")
+plt.plot(x, y2, 'rx--', label="Series 2")
+plt.title("Title of the plot", size=24)
+plt.xlabel("Label of the x-axis", size=16)
+plt.ylabel("Label of the y-axis", size=16)
+# Make tick marks larger, and increase the font.
+plt.tick_params(axis='both', which='major', labelsize=16, size=10)
+plt.ylim(-0.2, 10.2)     # Set range of y values to show - similar for x.
+plt.legend(loc="upper left", fontsize=16)  # Make a legend, specify location.
+plt.tight_layout()   # Fixes that otherwise some of the labels are cropped.
+plt.show()
+
+# %%
+"""
+More advanced example with multiple sub-plots.
+"""
+
+# %%
 fig, axs = plt.subplots(1, 2, sharey=True)
 x = np.linspace(0, 2 * np.pi, 100)
 axs[0].plot(x, np.cos(x), label='cos')
@@ -203,7 +320,11 @@ axs[1].legend()
 plt.show()
 
 # %%
-# plotting a countour
+"""
+Plotting a countour
+"""
+
+# %%
 x = np.linspace(-1, 1, 100)
 y = np.linspace(-2, 2, 100)
 X, Y = np.meshgrid(x, y)
@@ -216,63 +337,15 @@ ax.set_aspect('equal')
 
 # %%
 """
-# Benzene tight-binding exercise
-#### 1. Setup a nearest neighbour Huckel model (aka tight-binding model) for the pi system of a benzene molecule with a hopping parameter t=-1
-#### 2. Use matplotlib to try and visualize the Huckel wave-functions by using plt.scatter
-"""
-
-# %%
-t = -1
-H = np.eye(6, 6, 1) + np.eye(6, 6, -1)
-H[0, -1] = H[-1, 0] = 1
-H *= t
-# H[0, 0] = 1.0e-5  # small perturbation
-eps, U = np.linalg.eigh(H)
-
-# %%
-"""
-If the lines above are not 100% transparent to you, make a new notebook
-cell and check what the functions do!
-
-What does ``np.eye()`` do?
-
-What does ``np.linalg.eigh()`` do?
-"""
-
-# %%
-# positions of carbon atoms in the xy plane
-angles = np.arange(6) * 2 * np.pi / 6
-x_positions = np.cos(angles)
-y_positions = np.sin(angles)
-
-# lets visualize the wave functions with a
-# simple scatter plot
-fig, axs = plt.subplots(1, 6)
-fig.set_figwidth(10)
-for ax, wfs in zip(axs, U.T):
-    ax.scatter(x_positions, y_positions, c='k', zorder=2)  # C atoms postions
-    ax.scatter(x_positions, y_positions, s=abs(wfs) * 1000, c=np.sign(wfs))
-    ax.set_aspect('equal', 'box')
-    ax.set_axis_off()
-    ax.set_ylim(y_positions.min() * 1.5, y_positions.max() * 1.5)
-
-# %%
-plt.figure()
-plt.plot(eps, 'o')
-plt.xlabel('band index')
-plt.ylabel('Eigenvalue')
-
-# %%
-"""
 # ASE (atomic simulation environment)
-## more details can be found here: https://wiki.fysik.dtu.dk/ase/index.html
+More details can be found here: https://wiki.fysik.dtu.dk/ase/index.html
 """
 
 # %%
 """
 ## Everything starts with a structure!
-In ASE the most important ingredients is the `Atom` amd `Atoms`
-objects used to setup an atomic structure
+In ASE the most important ingredients is the `Atom` and `Atoms`
+objects used to setup an atomic structure.
 ### Setting op a molecule using the `Atoms` object
 """
 
@@ -389,5 +462,7 @@ calc = a.calc.fixed_density(
     symmetry='off',
     nbands=-10,
     convergence={'bands': -5})
+
+# %%
 bs = calc.band_structure()
 bs.plot(emax=10, filename='al-dft.png')

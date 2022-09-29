@@ -118,7 +118,7 @@ class HirshfeldPartitioning:
 
             den_sg, gd = self.calculator.density.get_all_electron_density(
                 self.atoms)
-            assert(gd == self.calculator.density.finegd)
+            assert gd == self.calculator.density.finegd
             self.den_g = den_sg.sum(axis=0)
 
     def get_calculator(self):
@@ -144,7 +144,7 @@ class HirshfeldPartitioning:
         """
         finegd = self.calculator.density.finegd
         denfree_g, gd = self.hdensity.get_density([atom_index])
-        assert(gd == finegd)
+        assert gd == finegd
 
         # the atoms r^3 grid
         position = self.atoms[atom_index].position / Bohr
@@ -175,7 +175,7 @@ class HirshfeldPartitioning:
             den_sg, gd = self.calculator.density.get_all_electron_density(
                 self.atoms)
             den_g = den_sg.sum(axis=0)
-        assert(den_g.shape == tuple(finegd.n_c))
+        assert den_g.shape == tuple(finegd.n_c)
 
         charges = []
         for ia, atom in enumerate(self.atoms):

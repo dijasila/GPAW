@@ -55,6 +55,23 @@ Mac and Linux users
    submitting
 
 
+iPad users (not recommended)
+----------------------------
+
+.. toctree::
+   :maxdepth: 1
+
+   ipad
+
+
+Introductory slides
+-------------------
+
+The slides from the introduction to the exercises (Sunday) can be
+found here:
+:download:`Intro_projects_CAMD2022.pdf`
+
+
 Projects
 ========
 

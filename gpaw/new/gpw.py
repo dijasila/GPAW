@@ -16,6 +16,10 @@ from gpaw.utilities import unpack, unpack2
 from gpaw.new.logger import Logger
 import gpaw.mpi as mpi
 
+ENERGY_NAMES = ['kinetic', 'coulomb', 'zero', 'external', 'xc', 'entropy',
+                'total_free', 'total_extrapolated',
+                'band']
+
 
 def write_gpw(filename: str,
               atoms,
@@ -25,6 +29,7 @@ def write_gpw(filename: str,
 
     world = params.parallel['world']
 
+    writer: ulm.Writer | ulm.DummyWriter
     if world.rank == 0:
         writer = ulm.Writer(filename, tag='gpaw')
     else:
@@ -46,7 +51,8 @@ def write_gpw(filename: str,
 
         state = calculation.state
         state.density.write(writer.child('density'))
-        state.potential.write(writer.child('hamiltonian'))
+        state.potential._write_gpw(writer.child('hamiltonian'),
+                                   calculation.state.ibzwfs)
         wf_writer = writer.child('wave_functions')
         state.ibzwfs.write(wf_writer, skip_wfs)
 
@@ -145,7 +151,8 @@ def read_gpw(filename: Union[str, Path, IO[str]],
                                           for setup in builder.setups],
                                          atomdist=builder.atomdist)
     D_asp = atom_array_layout.empty(builder.ncomponents)
-    dH_asp = atom_array_layout.empty(builder.ncomponents)
+    dtype = float if builder.ncomponents < 4 else complex
+    dH_asp = atom_array_layout.new(dtype=dtype).empty(builder.ncomponents)
 
     if kpt_band_comm.rank == 0:
         nt_sR.scatter_from(nt_sR_array)
@@ -165,9 +172,22 @@ def read_gpw(filename: Union[str, Path, IO[str]],
     density = Density.from_data_and_setups(nt_sR, D_asp.to_full(),
                                            builder.params.charge,
                                            builder.setups)
-    potential = Potential(vt_sR, dH_asp.to_full(), {})
+    energies = {name: reader.hamiltonian.get(f'e_{name}', np.nan)
+                for name in ENERGY_NAMES}
+    penergies = {key: e for key, e in energies.items()
+                 if not key.startswith('total')}
+    e_band = penergies.pop('band', np.nan)
+    e_entropy = penergies.pop('entropy')
+    penergies['kinetic'] -= e_band
+
+    potential = Potential(vt_sR, dH_asp.to_full(), penergies)
 
     ibzwfs = builder.read_ibz_wave_functions(reader)
+    ibzwfs.energies = {
+        'band': e_band,
+        'entropy': e_entropy,
+        'extrapolation': (energies['total_extrapolated'] -
+                          energies['total_free'])}
 
     calculation = DFTCalculation(
         DFTState(ibzwfs, density, potential),

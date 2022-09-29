@@ -11,9 +11,9 @@ import gpaw.mpi as mpi
 
 from gpaw.response.chi0 import Chi0
 
-from gpaw.response.kernels import get_coulomb_kernel
+from gpaw.response.coulomb_kernels import get_coulomb_kernel
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
-from gpaw.response.fxc import get_xc_kernel
+from gpaw.response.density_kernels import get_density_xc_kernel
 
 
 class DielectricFunction:
@@ -26,7 +26,7 @@ class DielectricFunction:
                  omega2=None,  # deprecated
                  omegamax=None,  # deprecated
                  ecut=50,
-                 gammacentered=False, hilbert=True,
+                 hilbert=True,
                  nbands=None, eta=0.2, ftol=1e-6, threshold=1,
                  intraband=True, nblocks=1, world=mpi.world, txt=sys.stdout,
                  truncation=None, disable_point_group=False,
@@ -52,8 +52,6 @@ class DielectricFunction:
             (see :ref:`frequency grid`).
         ecut: float
             Plane-wave cut-off.
-        gammacentered: bool
-            Center the grid of plane waves around the gamma point or q-vector
         hilbert: bool
             Use hilbert transform.
         nbands: int
@@ -86,7 +84,7 @@ class DielectricFunction:
         self.chi0 = Chi0(calc, frequencies=frequencies,
                          domega0=domega0, omega2=omega2, omegamax=omegamax,
                          ecut=ecut, nbands=nbands, eta=eta,
-                         gammacentered=gammacentered, hilbert=hilbert,
+                         hilbert=hilbert,
                          ftol=ftol, threshold=threshold,
                          intraband=intraband, world=world, nblocks=nblocks,
                          txt=txt,
@@ -121,13 +119,13 @@ class DielectricFunction:
         """
 
         if self.name:
-            kd = self.chi0.calc.wfs.kd
+            kd = self.chi0.gs.kd
             name = self.name + '%+d%+d%+d.pckl' % tuple((q_c * kd.N_c).round())
             if os.path.isfile(name):
                 return self.read(name)
 
         chi0 = self.chi0.calculate(q_c, spin)
-        chi0_wGG = chi0.blockdist.distribute_frequencies(chi0.chi0_wGG)
+        chi0_wGG = chi0.distribute_frequencies()
 
         self.chi0.timer.write(self.chi0.fd)
         if self.name:
@@ -216,8 +214,7 @@ class DielectricFunction:
 
     def get_chi(self, xc='RPA', q_c=[0, 0, 0], spin='all',
                 direction='x', return_VchiV=True, q_v=None,
-                rshelmax=-1, rshewmin=None,
-                spinpol_cut=None, density_cut=None, fxc_scaling=None):
+                rshelmax=-1, rshewmin=None):
         """ Returns v^1/2 chi v^1/2 for the density response and chi for the
         spin response. The truncated Coulomb interaction is included as
         v^-1/2 v_t v^-1/2. This is in order to conform with
@@ -238,22 +235,10 @@ class DielectricFunction:
             coefficients to use in the expansion. If any coefficient
             contributes with less than a fraction of rshewmin on average,
             it will not be included.
-        spinpol_cut : float
-            cutoff spin polarization below which f_xc is evaluated in
-            unpolarized limit (make sure divergent terms cancel out correctly)
-        density_cut : float
-            cutoff density below which f_xc is set to zero
-        fxc_scaling : list
-            Possible scaling of kernel to hit Goldstone mode.
-            If w=0 is included in the present calculation and
-            fxc_scaling=[True, None], the fxc_scaling to match
-            kappaM_w[0] = 0. will be calculated. If
-            fxc_scaling = [True, float], Kxc will be scaled by float.
-            Default is None, i.e. no scaling
         """
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c, spin)
 
-        N_c = self.chi0.calc.wfs.kd.N_c
+        N_c = self.chi0.gs.kd.N_c
 
         Kbare_G = get_coulomb_kernel(pd,
                                      N_c,
@@ -290,11 +275,10 @@ class DielectricFunction:
             chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv[W], d_v).T)
 
         if xc != 'RPA':
-            Kxc_GG = get_xc_kernel(pd,
-                                   self.chi0,
-                                   functional=xc,
-                                   chi0_wGG=chi0_wGG,
-                                   density_cut=density_cut)
+            Kxc_GG = get_density_xc_kernel(pd,
+                                           self.chi0,
+                                           functional=xc,
+                                           chi0_wGG=chi0_wGG)
             K_GG += Kxc_GG / vsqr_G / vsqr_G[:, np.newaxis]
 
         # Invert Dyson eq.
@@ -320,8 +304,6 @@ class DielectricFunction:
     def get_dynamic_susceptibility(self, xc='ALDA', q_c=[0, 0, 0],
                                    q_v=None,
                                    rshelmax=-1, rshewmin=None,
-                                   spinpol_cut=None, density_cut=None,
-                                   fxc_scaling=None,
                                    filename='chiM_w.csv'):
         """Calculate the dynamic susceptibility.
 
@@ -332,9 +314,6 @@ class DielectricFunction:
         pd, chi0_wGG, chi_wGG = self.get_chi(xc=xc, q_c=q_c,
                                              rshelmax=rshelmax,
                                              rshewmin=rshewmin,
-                                             spinpol_cut=spinpol_cut,
-                                             density_cut=density_cut,
-                                             fxc_scaling=fxc_scaling,
                                              return_VchiV=False)
 
         rf0_w = np.zeros(len(chi_wGG), dtype=complex)
@@ -379,9 +358,9 @@ class DielectricFunction:
             In RPA:   P = chi^0
             In TDDFT: P = (1 - chi^0 * f_xc)^{-1} chi^0
 
-        in addition to RPA one can use the kernels, ALDA, rALDA, rAPBE,
-        Bootstrap and LRalpha (long-range kerne), where alpha is a user
-        specified parameter (for example xc='LR0.25')
+        in addition to RPA one can use the kernels, ALDA, Bootstrap and
+        LRalpha (long-range kerne), where alpha is a user specified parameter
+        (for example xc='LR0.25')
 
         The head of the inverse symmetrized dielectric matrix is equal
         to the head of the inverse dielectric matrix (inverse dielectric
@@ -393,7 +372,7 @@ class DielectricFunction:
             print('add_intraband=True is not supported at this time')
             raise NotImplementedError
 
-        N_c = self.chi0.calc.wfs.kd.N_c
+        N_c = self.chi0.gs.kd.N_c
         if self.truncation == 'wigner-seitz':
             self.wstc = WignerSeitzTruncatedCoulomb(pd.gd.cell_cv, N_c)
         else:
@@ -425,10 +404,10 @@ class DielectricFunction:
                 chi0_wGG[:, 0, 0] *= np.dot(q_v, d_v)**2
 
         if xc != 'RPA':
-            Kxc_GG = get_xc_kernel(pd,
-                                   self.chi0,
-                                   functional=xc,
-                                   chi0_wGG=chi0_wGG)
+            Kxc_GG = get_density_xc_kernel(pd,
+                                           self.chi0,
+                                           functional=xc,
+                                           chi0_wGG=chi0_wGG)
 
         if calculate_chi:
             chi_wGG = []
@@ -582,8 +561,8 @@ class DielectricFunction:
         dimension of alpha is \AA to the power of non-periodic directions
         """
 
-        cell_cv = self.chi0.calc.wfs.gd.cell_cv
-        pbc_c = self.chi0.calc.atoms.pbc
+        cell_cv = self.chi0.gs.gd.cell_cv
+        pbc_c = self.chi0.gs.pbc
 
         if pbc_c.all():
             V = 1.0
@@ -662,7 +641,7 @@ class DielectricFunction:
 
         print('', file=fd)
         print('Sum rule:', file=fd)
-        nv = self.chi0.calc.wfs.nvalence
+        nv = self.chi0.gs.nvalence
         print('N1 = %f, %f  %% error' % (N1, (N1 - nv) / nv * 100), file=fd)
 
     def get_eigenmodes(self, q_c=[0, 0, 0], w_max=None, name=None,
@@ -757,7 +736,7 @@ class DielectricFunction:
                 v_ind = np.append(v_ind, v_temp[np.newaxis, :], axis=0)
                 n_ind = np.append(n_ind, n_temp[np.newaxis, :], axis=0)
 
-        kd = self.chi0.calc.wfs.kd
+        kd = self.chi0.gs.kd
         if name is None and self.name:
             name = (self.name + '%+d%+d%+d-eigenmodes.pckl' %
                     tuple((q_c * kd.N_c).round()))

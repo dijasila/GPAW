@@ -1,22 +1,21 @@
-import sys
-from math import pi
 import pickle
+import sys
 import warnings
+from math import pi
 
 import numpy as np
-
-from ase.utils.timing import timer
-from ase.units import Hartree
 from ase.dft.kpoints import monkhorst_pack
+from ase.units import Hartree
+from ase.utils.timing import timer
 
 import gpaw.mpi as mpi
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.response.chi0 import find_maximum_frequency
-from gpaw.response.hilbert import HilbertTransform
-from gpaw.response.frequencies import FrequencyDescriptor
-from gpaw.response.pair import PairDensity
 from gpaw.pw.descriptor import PWDescriptor
-from gpaw.xc.exx import select_kpts
+from gpaw.response.chi0 import find_maximum_frequency
+from gpaw.response.frequencies import FrequencyDescriptor
+from gpaw.response.g0w0 import select_kpts
+from gpaw.response.hilbert import HilbertTransform
+from gpaw.response.pair import PairDensity
 
 
 class GWQEHCorrection(PairDensity):
@@ -98,7 +97,7 @@ class GWQEHCorrection(PairDensity):
         self.ecut /= Hartree
         self.eta = eta / Hartree
 
-        self.kpts = list(select_kpts(kpts, self.calc))
+        self.kpts = list(select_kpts(kpts, self.calc.wfs.kd))
 
         if bands is None:
             bands = [0, self.nocc2]
@@ -116,10 +115,10 @@ class GWQEHCorrection(PairDensity):
         self.Qp_sin = None
 
         self.ecutnb = 150 / Hartree
-        vol = abs(np.linalg.det(self.calc.wfs.gd.cell_cv))
-        self.vol = vol
+        self.vol = self.calc.wfs.gd.volume
         self.nbands = min(self.calc.get_number_of_bands(),
-                          int(vol * (self.ecutnb)**1.5 * 2**0.5 / 3 / pi**2))
+                          int(self.vol *
+                              self.ecutnb**1.5 * 2**0.5 / 3 / pi**2))
 
         self.nspins = self.calc.wfs.nspins
 
@@ -309,8 +308,8 @@ class GWQEHCorrection(PairDensity):
                         C1_aGi = [np.dot(Qa_Gii, P1_ni[n].conj())
                                   for Qa_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
 
-                        n_mG = self.calculate_pair_densities(ut1cc_R, C1_aGi,
-                                                             kpt2, pd0, I_G)
+                        n_mG = self.calculate_pair_density(ut1cc_R, C1_aGi,
+                                                           kpt2, pd0, I_G)
                         if self.sign == 1:
                             n_mG = n_mG.conj()
 

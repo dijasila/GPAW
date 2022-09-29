@@ -14,6 +14,7 @@ from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new import cached_property
 from gpaw.typing import (Array1D, Array2D, Array3D, Array4D, ArrayLike1D,
                          ArrayLike2D, Vector)
+from gpaw.new import zip
 
 
 class UniformGrid(Domain):
@@ -26,7 +27,7 @@ class UniformGrid(Domain):
                  comm: MPIComm = serial_comm,
                  decomp: Sequence[Sequence[int]] = None,
                  dtype=None):
-        """Description of 3-D uniform grid.
+        """Description of 3D uniform grid.
 
         parameters
         ----------
@@ -68,7 +69,7 @@ class UniformGrid(Domain):
         Domain.__init__(self, cell, pbc, kpt, comm, dtype)
         self.myshape = tuple(self.mysize_c)
 
-        self.dv = abs(np.linalg.det(self.cell_cv)) / self.size_c.prod()
+        self.dv = self.volume / self.size_c.prod()
 
     @property
     def size(self):
@@ -87,11 +88,11 @@ class UniformGrid(Domain):
     @cached_property
     def phase_factors_cd(self):
         """Phase factor for block-boundary conditions."""
-        delta_d = np.array([1, -1])
+        delta_d = np.array([-1, 1])
         disp_cd = np.empty((3, 2))
         for pos, pbc, size, disp_d in zip(self.mypos_c, self.pbc_c,
                                           self.parsize_c, disp_cd):
-            disp_d[:] = (pos + delta_d) // size
+            disp_d[:] = -((pos + delta_d) // size)
         return np.exp(2j * np.pi *
                       disp_cd *
                       self.kpt_c[:, np.newaxis])
@@ -200,10 +201,13 @@ class UniformGrid(Domain):
 
     @property
     def _gd(self):
+        # Make sure gd can be pickled (in serial):
+        comm = self.comm if self.comm.size > 1 else serial_comm
+
         return GridDescriptor(self.size_c,
                               cell_cv=self.cell_cv,
                               pbc_c=self.pbc_c,
-                              comm=self.comm,
+                              comm=comm,
                               parsize_c=[len(d_p) - 1
                                          for d_p in self.decomp_cp])
 
@@ -473,10 +477,12 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         new.data[..., i:, j:, k:] = self.data
         return new
 
-    def multiply_by_eikr(self, kpt_c=None):
+    def multiply_by_eikr(self, kpt_c: Vector = None) -> None:
         """Multiply by `exp(ik.r)`."""
         if kpt_c is None:
             kpt_c = self.desc.kpt_c
+        else:
+            kpt_c = np.asarray(kpt_c)
         if kpt_c.any():
             self.data *= self.desc.eikr(kpt_c)
 
@@ -501,7 +507,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         if out is None:
             if grid is None:
                 raise ValueError('Please specify "grid" or "out".')
-            out = grid.empty()
+            out = grid.empty(self.dims)
 
         if not out.desc.pbc_c.all() or not self.desc.pbc_c.all():
             raise ValueError('Grids must have pbc=True!')
@@ -523,6 +529,11 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
 
         plan1 = plan1 or self.desc.fft_plans()
         plan2 = plan2 or out.desc.fft_plans()
+
+        if self.dims:
+            for input, output in zip(self.flat(), out.flat()):
+                input.interpolate(plan1, plan2, grid, output)
+            return out
 
         plan1.tmp_R[:] = self.data
         kpt_c = self.desc.kpt_c

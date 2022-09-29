@@ -94,6 +94,12 @@ def gpw_files(request, tmp_path_factory):
     * Bulk BN (zinkblende) with 2x2x2 k-points and 9 converged bands:
       ``bn_pw``.
 
+    * Graphene with 6x6x1 k-points: ``graphene_pw``
+
+    * MoS2 with 6x6x1 k-points: ``mos2_pw``
+
+    * Bulk Si, LDA, 2x2x2 k-point (gamma centered): ``si_pw``
+
     Files with wave functions are also availabe (add ``_wfs`` to the names).
     """
     path = os.environ.get('GPW_TEST_FILES')
@@ -117,6 +123,7 @@ class GPWFiles:
     """Create gpw-files."""
     def __init__(self, path: Path):
         self.path = path
+        path.mkdir(exist_ok=True)
         self.gpw_files = {}
         for file in path.glob('*.gpw'):
             self.gpw_files[file.name[:-4]] = file
@@ -284,6 +291,17 @@ class GPWFiles:
     def ti2o4_pw_nosym(self):
         return self.ti2o4('off')
 
+    def si_pw(self):
+        si = bulk('Si')
+        calc = GPAW(mode='pw',
+                    xc='LDA',
+                    occupations=FermiDirac(width=0.001),
+                    kpts={'size': (2, 2, 2), 'gamma': True},
+                    txt='si.gs.txt')
+        si.calc = calc
+        si.get_potential_energy()
+        return si.calc
+
     def bn_pw(self):
         atoms = bulk('BN', 'zincblende', a=3.615)
         atoms.calc = GPAW(mode=PW(400),
@@ -292,6 +310,38 @@ class GPWFiles:
                           convergence={'bands': 9},
                           occupations=FermiDirac(0.001),
                           txt=self.path / 'bn_pw.txt')
+        atoms.get_potential_energy()
+        return atoms.calc
+
+    def graphene_pw(self):
+        from ase.lattice.hexagonal import Graphene
+        atoms = Graphene(symbol='C',
+                         latticeconstant={'a': 2.45, 'c': 1.0},
+                         size=(1, 1, 1))
+        atoms.pbc = (1, 1, 0)
+        atoms.center(axis=2, vacuum=4.0)
+        ecut = 250
+        nkpts = 6
+        atoms.calc = GPAW(mode=PW(ecut),
+                          kpts={'size': (nkpts, nkpts, 1), 'gamma': True},
+                          nbands=len(atoms) * 6,
+                          txt=self.path / 'graphene_pw.txt')
+        atoms.get_potential_energy()
+        return atoms.calc
+
+    def mos2_pw(self):
+        from ase.build import mx2
+        atoms = mx2(formula='MoS2', kind='2H', a=3.184, thickness=3.127,
+                    size=(1, 1, 1), vacuum=5)
+        atoms.pbc = (1, 1, 1)
+        ecut = 250
+        nkpts = 6
+        atoms.calc = GPAW(mode=PW(ecut),
+                          xc='LDA',
+                          kpts={'size': (nkpts, nkpts, 1), 'gamma': True},
+                          occupations=FermiDirac(0.01),
+                          txt=self.path / 'mos2_pw.txt')
+
         atoms.get_potential_energy()
         return atoms.calc
 
@@ -329,8 +379,9 @@ def pytest_configure(config):
                  'elph: Electron-phonon',
                  'intel: fails on INTEL toolchain',
                  'response: tests of the response code',
+                 'kspair: tests of kspair in the response code',
                  'serial: run in serial only',
-                 'skip_for_new_gpaw: know failure for new refactored GPAW']:
+                 'later: know failure for new refactored GPAW']:
         config.addinivalue_line('markers', line)
 
 

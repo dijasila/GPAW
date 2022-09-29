@@ -3,7 +3,7 @@ import numpy as np
 
 from ase import Atoms
 
-from gpaw import GPAW, PW
+from gpaw import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.pw.descriptor import PWDescriptor
 from gpaw.response.pair import PairDensity
@@ -12,43 +12,42 @@ from gpaw.response.math_func import two_phi_nabla_planewave_integrals
 
 @pytest.mark.response
 def test_response_pair(in_tmp_dir, scalapack):
-    np.set_printoptions(precision=1)
-
     nb = 6
 
-    a = Atoms('H', cell=(3 * np.eye(3)), pbc=True)
+    a = Atoms('H', cell=[2.5] * 3, pbc=True)
 
-    calc = GPAW(mode=PW(600), kpts=[[0, 0, 0], [0.25, 0, 0]],
+    calc = GPAW(mode='pw', kpts=[[0, 0, 0], [0.25, 0, 0]],
                 parallel=dict(domain=1))
     a.calc = calc
     a.get_potential_energy()
     calc.diagonalize_full_hamiltonian(nbands=nb, expert=True)
     calc.write('a.gpw', 'all')
 
-    pair = PairDensity('a.gpw', ecut=100)
+    pair = PairDensity('a.gpw')
 
     # Check continuity eq.
     for q_c in [[0, 0, 0], [1. / 4, 0, 0]]:
         ol = np.allclose(q_c, 0.0)
         qd = KPointDescriptor([q_c])
-        pd = PWDescriptor(pair.ecut, calc.wfs.gd, complex, qd)
+        pd = PWDescriptor(0.25, calc.wfs.gd, complex, qd)
         kptpair = pair.get_kpoint_pair(pd, 0, [0, 0, 0],
                                        0, nb, 0, nb)
         deps_nm = kptpair.get_transition_energies(np.arange(0, nb),
                                                   np.arange(0, nb))
 
-        n_nmG = pair.get_pair_density(pd, kptpair, np.arange(0, nb),
-                                      np.arange(0, nb), optical_limit=ol)
+        n_nmG = pair.get_full_pair_density(pd, kptpair,
+                                           np.arange(0, nb),
+                                           np.arange(0, nb))
 
         n_nmvG = pair.get_pair_momentum(pd, kptpair, np.arange(0, nb),
                                         np.arange(0, nb))
 
         if ol:
+            copv = pair.calculate_optical_pair_velocity
             n2_nmv = np.zeros((nb, nb, 3), complex)
             for n in range(0, nb):
-                n2_nmv[n] = pair.optical_pair_velocity(n, np.arange(0, nb),
-                                                       kptpair.kpt1,
-                                                       kptpair.kpt2)
+                n2_nmv[n] = copv(n, np.arange(0, nb),
+                                 kptpair.kpt1, kptpair.kpt2)
 
         # Check for nan's
         assert not np.isnan(n_nmG).any()

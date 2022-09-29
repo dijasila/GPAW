@@ -2,13 +2,25 @@ from ase.units import Ha
 import os
 import gpaw.mpi as mpi
 import numpy as np
-from gpaw.xc.fxc import KernelWave
+from gpaw.xc.fxc import KernelWave, XCFlags
 from ase.io.aff import affopen
 
 
-def actually_calculate_kernel(*, calc, xcflags, q_empty, tag, ecut_max, fd,
+class G0W0Kernel:
+    def __init__(self, xc, **kwargs):
+        self.xc = xc
+        self.xcflags = XCFlags(xc)
+        self._kwargs = kwargs
+
+    def calculate(self, nG, iq, G2G):
+        return calculate_kernel(
+            xcflags=self.xcflags,
+            nG=nG, iq=iq, cut_G=G2G, **self._kwargs)
+
+
+def actually_calculate_kernel(*, gs, xcflags, q_empty, tag, ecut_max, fd,
                               timer, Eg, wd):
-    kd = calc.wfs.kd
+    kd = gs.kd
     bzq_qc = kd.get_bz_q_points(first=True)
     U_scc = kd.symmetry.op_scc
     ibzq_qc = kd.get_ibz_q_points(bzq_qc, U_scc)[0]
@@ -26,7 +38,7 @@ def actually_calculate_kernel(*, calc, xcflags, q_empty, tag, ecut_max, fd,
     kernel = KernelWave(
         l_l=l_l,
         omega_w=omega_w,
-        calc=calc,
+        gs=gs,
         xc=xcflags.xc,
         ibzq_qc=ibzq_qc,
         fd=fd,
@@ -39,10 +51,10 @@ def actually_calculate_kernel(*, calc, xcflags, q_empty, tag, ecut_max, fd,
     kernel.calculate_fhxc()
 
 
-def calculate_kernel(*, ecut, xcflags, calc, nG, ns, iq, cut_G=None,
+def calculate_kernel(*, ecut, xcflags, gs, nG, ns, iq, cut_G=None,
                      timer, fd, wd, Eg):
     xc = xcflags.xc
-    tag = calc.atoms.get_chemical_formula(mode='hill')
+    tag = gs.atoms.get_chemical_formula(mode='hill')
 
     ecut_max = ecut * Ha  # XXX very ugly this
     q_empty = None
@@ -56,7 +68,7 @@ def calculate_kernel(*, ecut, xcflags, calc, nG, ns, iq, cut_G=None,
         if q_empty is not None:
             actually_calculate_kernel(q_empty=q_empty, tag=tag,
                                       xcflags=xcflags, Eg=Eg,
-                                      ecut_max=ecut_max, calc=calc,
+                                      ecut_max=ecut_max, gs=gs,
                                       fd=fd, timer=timer,
                                       wd=wd)
             # (This creates the ulm file above.  Probably.)

@@ -91,7 +91,7 @@ def write_configuration(define_macros, include_dirs, libraries, library_dirs,
 
 def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
                       extra_link_args, extra_compile_args,
-                      runtime_library_dirs, extra_objects,
+                      runtime_library_dirs, extra_objects, build_temp,
                       mpicompiler, mpilinker, mpi_libraries, mpi_library_dirs,
                       mpi_include_dirs, mpi_runtime_library_dirs,
                       mpi_define_macros):
@@ -112,7 +112,7 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
                'c/operators.c', 'c/woperators.c', 'c/transformers.c',
                'c/elpa.c',
                'c/blacs.c', 'c/utilities.c', 'c/xc/libvdwxc.c']
-    objects = ' '.join(['build/temp.%s/' % plat + x[:-1] + 'o'
+    objects = ' '.join([os.path.join(build_temp ,x[:-1] + 'o')
                         for x in cfiles])
 
     if not os.path.isdir('build/bin.{}/'.format(plat)):
@@ -180,7 +180,7 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
 
     # Compile the parallel sources
     for src in sources:
-        obj = 'build/temp.{}/'.format(plat) + src[:-1] + 'o'
+        obj = os.path.join(build_temp, src[:-1] + 'o')
         cmd = ('{} {} {} {} -o {} -c {} ').format(
                mpicompiler,
                macros,

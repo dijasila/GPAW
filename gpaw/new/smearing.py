@@ -5,7 +5,15 @@ from gpaw.typing import ArrayLike2D, Array2D
 
 
 class OccupationNumberCalculator:
-    def __init__(self, dct, pbc, ibz, nbands, comms, magmoms, rcell):
+    def __init__(self,
+                 dct,
+                 pbc,
+                 ibz,
+                 nbands,
+                 comms,
+                 magmom_v,
+                 ncomponents,
+                 rcell):
         if dct is None:
             if pbc.any():
                 dct = {'name': 'fermi-dirac',
@@ -13,11 +21,11 @@ class OccupationNumberCalculator:
             else:
                 dct = {'width': 0.0}
 
-        if magmoms is None:
-            dct.pop('fixmagmom', None)
-            magmom = 0.0
-        else:
-            magmom = magmoms.sum(0)
+        if dct.get('fixmagmom'):
+            if ncomponents == 1:
+                dct = dct.copy()
+                del dct['fixmagmom']
+            assert ncomponents == 2
 
         kwargs = dct.copy()
         name = kwargs.pop('name', '')
@@ -33,9 +41,9 @@ class OccupationNumberCalculator:
             parallel_layout=ParallelLayout(bd,
                                            comms['k'],
                                            comms['d']),
-            fixed_magmom_value=magmom,
+            fixed_magmom_value=magmom_v[2],
             rcell=rcell,
-            monkhorst_pack_size=ibz.bz.size_c,
+            monkhorst_pack_size=getattr(ibz.bz, 'size_c', None),
             bz2ibzmap=ibz.bz2ibz_K)
         self.extrapolate_factor = self.occ.extrapolate_factor
 
