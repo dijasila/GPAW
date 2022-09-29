@@ -3,14 +3,13 @@ from functools import partial
 from time import ctime
 
 from ase.units import Hartree
-from gpaw.utilities import convert_string_to_fd
-from ase.utils.timing import Timer, timer
+from ase.utils.timing import timer
 
 import gpaw
-import gpaw.mpi as mpi
 from gpaw.utilities.memory import maxrss
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.response.groundstate import ResponseGroundStateAdapter
+from gpaw.response.context import ResponseContext
 from gpaw.response.kspair import KohnShamPair
 from gpaw.response.frequencies import FrequencyDescriptor
 from gpaw.response.pw_parallelization import (block_partition, Blocks1D,
@@ -86,14 +85,15 @@ class KohnShamLinearResponseFunction:  # Future PairFunctionIntegrator? XXX
     add_integrand adds wk (...)_k to the output array for each k-point.
     """
 
-    def __init__(self, gs, mode=None,
-                 bandsummation='pairwise', nbands=None, kpointintegration=None,
-                 world=mpi.world, nblocks=1, txt='-', timer=None):
+    def __init__(self, gs, context=None, mode=None,
+                 bandsummation='pairwise', nbands=None,
+                 kpointintegration=None, nblocks=1):
         """Construct the KSLRF object
 
         Parameters
         ----------
         gs : ResponseGroundStateAdapter
+        context : ResponseContext
         mode: str
             Calculation mode.
             Currently, only a plane wave mode is implemented.
@@ -106,15 +106,9 @@ class KohnShamLinearResponseFunction:  # Future PairFunctionIntegrator? XXX
         kpointintegration : str
             Brillouin Zone integration for the Kohn-Sham orbital wave vector.
             Currently, only point integration is supported
-        world : obj
-            MPI communicator.
         nblocks : int
             Divide the response function storage into nblocks. Useful when the
             response function is large and memory requirements are restrictive.
-        txt : str
-            Output file.
-        timer : func
-            gpaw.utilities.timing.timer wrapper instance
 
         Attributes
         ----------
@@ -138,32 +132,29 @@ class KohnShamLinearResponseFunction:  # Future PairFunctionIntegrator? XXX
         """
         assert isinstance(gs, ResponseGroundStateAdapter)
         self.gs = gs
+        if context is None:
+            self.context = ResponseContext()
+        else:
+            assert isinstance(context, ResponseContext)
+            self.context = context
 
-        # Output .txt filehandle
-        self.fd = convert_string_to_fd(txt, world)
-        self.cfd = self.fd
-        print('Initializing KohnShamLinearResponseFunction', file=self.fd)
+        self.context.print('Initializing KohnShamLinearResponseFunction')
 
         # Communicators for parallelization
-        self.world = world
         self.blockcomm = None
         self.intrablockcomm = None
         self.initialize_communicators(nblocks)
         self.nblocks = self.blockcomm.size
 
-        # Timer
-        self.timer = timer or Timer()
-
         # The KohnShamPair class handles data extraction from ground state
-        self.kspair = KohnShamPair(gs, world=world,
+        self.kspair = KohnShamPair(gs, self.context,
                                    # Let each process handle slow steps only
                                    # for a fraction of all transitions.
                                    # t-transitions are distributed through
                                    # blockcomm, k-points through
                                    # intrablockcomm.
                                    transitionblockscomm=self.blockcomm,
-                                   kptblockcomm=self.intrablockcomm,
-                                   txt=self.fd, timer=self.timer)
+                                   kptblockcomm=self.intrablockcomm)
 
         self.mode = mode
 
@@ -180,6 +171,10 @@ class KohnShamLinearResponseFunction:  # Future PairFunctionIntegrator? XXX
 
         # Attributes related to the specific response function
         self.pme = None
+
+    @property
+    def timer(self, *args, **kwargs):
+        return self.context.timer(*args, **kwargs)
 
     def initialize_communicators(self, nblocks):
         """Set up MPI communicators to distribute the memory needed to store
@@ -208,11 +203,11 @@ class KohnShamLinearResponseFunction:  # Future PairFunctionIntegrator? XXX
             Communicate between processes belonging to the same memory block.
             There will be size // nblocks processes per memory block.
         """
-        world = self.world
+        world = self.context.world
         self.blockcomm, self.intrablockcomm = block_partition(world,
                                                               nblocks)
 
-        print('Number of blocks:', nblocks, file=self.fd)
+        self.context.print('Number of blocks:', nblocks)
 
     @timer('Calculate Kohn-Sham linear response function')
     def calculate(self, spinrot=None, A_x=None):
@@ -237,11 +232,11 @@ class KohnShamLinearResponseFunction:  # Future PairFunctionIntegrator? XXX
         # Print information about the prepared calculation
         self.print_information(len(n1_t))
         if gpaw.dry_run:  # Exit after setting up
-            print('    Dry run exit', file=self.fd)
+            self.context.print('    Dry run exit')
             raise SystemExit
 
-        print('----------', file=self.cfd)
-        print('Initializing PairMatrixElement', file=self.cfd, flush=True)
+        self.context.print('\n----------', flush=False)
+        self.context.print('Initializing PairMatrixElement')
         self.initialize_pme()
 
         A_x = self.setup_output_array(A_x)
@@ -252,8 +247,6 @@ class KohnShamLinearResponseFunction:  # Future PairFunctionIntegrator? XXX
         # Different calculation modes might want the response function output
         # in different formats
         out = self.post_process(A_x)
-
-        print('', file=self.cfd)
 
         return out
 
@@ -310,14 +303,14 @@ class KohnShamLinearResponseFunction:  # Future PairFunctionIntegrator? XXX
             size = gpaw.dry_run
             world = DryRunCommunicator(size)
         else:
-            world = self.world
+            world = self.context.world
         wsize = world.size
         knsize = self.intrablockcomm.size
         bsize = self.blockcomm.size
 
         spinrot = self.spinrot
 
-        p = partial(print, file=self.cfd)
+        p = partial(self.context.print, flush=False)
 
         p('Called a response.kslrf.KohnShamLinearResponseFunction.calculate()')
         p('%s' % ctime())
@@ -337,7 +330,7 @@ class KohnShamLinearResponseFunction:  # Future PairFunctionIntegrator? XXX
         p('The sum over band and spin transitions is performed using:')
         p('    Spin rotation: %s' % spinrot)
         p('    Total number of composite band and spin transitions: %d' % nt)
-        p('')
+        self.context.print('')
 
 
 def get_band_transitions_domain(bandsummation, nbands, nocc1=None, nocc2=None):
@@ -589,7 +582,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
 
         # Set up block parallelization
         self.blocks1d = Blocks1D(self.blockcomm, self.pd.ngmax)
-        self.blockdist = PlaneWaveBlockDistributor(self.world,
+        self.blockdist = PlaneWaveBlockDistributor(self.context.world,
                                                    self.blockcomm,
                                                    self.intrablockcomm)
 
@@ -651,7 +644,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
 
         return PWSymmetryAnalyzer(
             self.gs.kd, pd,
-            timer=self.timer, txt=self.fd,
+            timer=self.context.timer, txt=self.context.fd,
             disable_point_group=self.disable_point_group,
             disable_time_reversal=self.disable_time_reversal,
             disable_non_symmorphic=self.disable_non_symmorphic)
@@ -676,7 +669,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         ngmax = pd.ngmax
         Asize = nw * pd.ngmax**2 * 16. / 1024**2 / self.blockcomm.size
 
-        p = partial(print, file=self.cfd)
+        p = partial(self.context.print, flush=False)
 
         p('The response function is calculated in the PlaneWave mode, using:')
         p('    q_c: [%f, %f, %f]' % (q_c[0], q_c[1], q_c[2]))
@@ -689,7 +682,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         p('        A_wGG: %f M / cpu' % Asize)
         p('        Memory usage before allocation: %f M / cpu' % (maxrss() /
                                                                   1024**2))
-        p('')
+        self.context.print('')
 
     def setup_output_array(self, A_x=None):
         """Initialize the output array in blocks"""
@@ -860,7 +853,11 @@ class Integrator:  # --> KPointPairIntegrator in the future? XXX
         kslrf : KohnShamLinearResponseFunction instance
         """
         self.kslrf = kslrf
-        self.timer = self.kslrf.timer
+        self.context = self.kslrf.context
+
+    @property
+    def timer(self, *args, **kwargs):
+        return self.context.timer(*args, **kwargs)
 
     @timer('Integrate response function')
     def integrate(self, n1_t, n2_t, s1_t, s2_t, out_x, **kwargs):
@@ -939,12 +936,11 @@ class Integrator:  # --> KPointPairIntegrator in the future? XXX
         bzk_ipv, weight_i = self.slice_kpoint_domain(bzk_kv, weight_k)
 
         # Perform sum over k-points
-        pb = ProgressBar(self.kslrf.cfd)
+        pb = ProgressBar(self.context.fd)
         # Each process will do its own k-points, but it has to follow the
         # others, as it may have to send them information about its
         # partition of the ground state
-        print('\nIntegrating response function',
-              file=self.kslrf.cfd, flush=True)
+        self.context.print('\nIntegrating response function')
         for i, k_pv in pb.enumerate(bzk_ipv):
             kskptpair = self.kslrf.get_ks_kpoint_pairs(k_pv, n1_t, n2_t,
                                                        s1_t, s2_t)
