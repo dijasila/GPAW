@@ -6,14 +6,13 @@ from functools import partial
 import numpy as np
 from scipy.special import spherical_jn
 
-from ase.utils.timing import timer
 from ase.units import Bohr
 
 from gpaw.xc import XC
 from gpaw.spherical_harmonics import Yarr
 from gpaw.sphere.lebedev import weight_n, R_nv
 from gpaw.response.groundstate import ResponseGroundStateAdapter
-from gpaw.response.context import ResponseContext
+from gpaw.response.context import ResponseContext, timer
 
 
 def get_fxc(gs, context, fxc, response='susceptibility', mode='pw', **kwargs):
@@ -53,10 +52,6 @@ class FXC:
         self.gs = gs
         assert isinstance(context, ResponseContext)
         self.context = context
-
-    @property
-    def timer(self, *args, **kwargs):
-        return self.context.timer(*args, **kwargs)
 
     def __call__(self, *args, **kwargs):
 
