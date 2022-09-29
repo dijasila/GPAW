@@ -58,7 +58,7 @@ def initialize_system():
     td_calc.propagate(100, 2)
 
 
-@pytest.mark.skip_for_new_gpaw
+@pytest.mark.later
 def test_magnetic_moment_values(initialize_system, module_tmp_path,
                                 in_tmp_dir):
     with open('mm_ref.dat', 'w') as f:
@@ -79,13 +79,13 @@ def test_magnetic_moment_values(initialize_system, module_tmp_path,
     check_txt_data(module_tmp_path / 'mm.dat', 'mm_ref.dat', atol=2e-14)
 
 
-@pytest.mark.skip_for_new_gpaw
+@pytest.mark.later
 def test_magnetic_moment_grid_evaluation(initialize_system, module_tmp_path):
     dpath = module_tmp_path
     check_txt_data(dpath / 'mm.dat', dpath / 'mm_grid.dat', atol=2e-8)
 
 
-@pytest.mark.skip_for_new_gpaw
+@pytest.mark.later
 @pytest.mark.parametrize('parallel', parallel_i)
 def test_magnetic_moment_parallel(initialize_system, module_tmp_path, parallel,
                                   in_tmp_dir):
@@ -103,7 +103,7 @@ def test_magnetic_moment_parallel(initialize_system, module_tmp_path, parallel,
         check_txt_data(module_tmp_path / fname, fname, atol=7e-14)
 
 
-@pytest.mark.skip_for_new_gpaw
+@pytest.mark.later
 @pytest.mark.parametrize('parallel', parallel_i)
 def test_magnetic_moment_restart(initialize_system, module_tmp_path, parallel,
                                  in_tmp_dir):

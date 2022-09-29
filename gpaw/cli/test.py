@@ -40,6 +40,7 @@ for details.""", file=sys.stderr)
     a = 2.5
     d = 0.9
     chain = Atoms('H', cell=[a, a, d], pbc=(False, False, True))
+    chain.center()
     chain.calc = GPAW(mode=PW(200),
                       kpts=(1, 1, 8),
                       txt='test.txt')
