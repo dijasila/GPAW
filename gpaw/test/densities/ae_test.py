@@ -15,7 +15,12 @@ def test_ae_density():
     phit0 = Spline(0, rc, [2, 0])
     phi1 = Spline(1, rc, [1, 0])
     phit1 = Spline(1, rc, [2, 0])
-    add([0.5, 0.5, 0.5], n_sR, [phi0, phi1], [phit0, phit1], rc, D_sii)
+    nc = Spline(0, rc, [0, 0])
+    add([0.5, 0.5, 0.5],
+        n_sR,
+        [phi0, phi1], [phit0, phit1],
+        nc, nc,
+        rc, D_sii)
     y, v = n_sR.xy(0, 5, ..., 5)
     v *= 4 * np.pi
     y = abs(y - 0.5)

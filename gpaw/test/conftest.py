@@ -94,9 +94,11 @@ def gpw_files(request, tmp_path_factory):
     * Bulk BN (zinkblende) with 2x2x2 k-points and 9 converged bands:
       ``bn_pw``.
 
-    * Graphene with 6x6x1 k-points: graphene_pw
+    * Graphene with 6x6x1 k-points: ``graphene_pw``
 
-    * MoS2 with 6x6x1 k-points: mos2_pw
+    * MoS2 with 6x6x1 k-points: ``mos2_pw``
+
+    * Bulk Si, LDA, 2x2x2 k-point (gamma centered): ``si_pw``
 
     Files with wave functions are also availabe (add ``_wfs`` to the names).
     """
@@ -289,6 +291,17 @@ class GPWFiles:
     def ti2o4_pw_nosym(self):
         return self.ti2o4('off')
 
+    def si_pw(self):
+        si = bulk('Si')
+        calc = GPAW(mode='pw',
+                    xc='LDA',
+                    occupations=FermiDirac(width=0.001),
+                    kpts={'size': (2, 2, 2), 'gamma': True},
+                    txt='si.gs.txt')
+        si.calc = calc
+        si.get_potential_energy()
+        return si.calc
+
     def bn_pw(self):
         atoms = bulk('BN', 'zincblende', a=3.615)
         atoms.calc = GPAW(mode=PW(400),
@@ -368,7 +381,7 @@ def pytest_configure(config):
                  'response: tests of the response code',
                  'kspair: tests of kspair in the response code',
                  'serial: run in serial only',
-                 'skip_for_new_gpaw: know failure for new refactored GPAW']:
+                 'later: know failure for new refactored GPAW']:
         config.addinivalue_line('markers', line)
 
 

@@ -36,7 +36,7 @@ def run(atoms, symm, nblocks):
     # will be returned and asserted outside this function.
     for omegamax in [0.2, None]:
         gw = G0W0('si.gpw',
-                  'gw',
+                  f'gw_{omegamax}',
                   nbands=8,
                   integrate_gamma=0,
                   kpts=[(0, 0, 0), (0.5, 0.5, 0)],  # Gamma, X

@@ -58,17 +58,17 @@ class ResponseGroundStateAdapter:
         return abs(np.linalg.det(cell_cv[nonpbc][:, nonpbc]))
 
     @property
-    def nt_sG(self):
-        # Used by kxc
+    def nt_sR(self):
+        # Used by fxc_kernels
         return self._density.nt_sG
 
     @property
     def D_asp(self):
-        # Used by kxc
+        # Used by fxc_kernels
         return self._density.D_asp
 
     def all_electron_density(self, gridrefinement=2):
-        # used by kxc
+        # Used by fxc_kernels
         return self._density.get_all_electron_density(
             atoms=self.atoms, gridrefinement=gridrefinement)
 
