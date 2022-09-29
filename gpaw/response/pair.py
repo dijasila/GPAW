@@ -553,14 +553,6 @@ class NoCalculatorPairDensity:
             setups=self.gs.setups, pd=pd, soft=soft,
             spos_ac=self.spos_ac)
 
-    @timer('Initialize PAW corrections')
-    def initialize_paw_nabla_corrections(self, pd, soft=False):
-        print('Initializing nabla PAW Corrections', file=self.fd)
-        from gpaw.response.paw import calculate_paw_nabla_corrections
-        return calculate_paw_nabla_corrections(
-            setups=self.gs.setups, pd=pd, soft=soft,
-            spos_ac=self.spos_ac)
-
     def calculate_derivatives(self, kpt):
         ut_sKnvR = [{}, {}]
         ut_nvR = self.make_derivative(kpt.s, kpt.K, kpt.n1, kpt.n2)
