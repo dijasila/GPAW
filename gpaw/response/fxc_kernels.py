@@ -169,7 +169,7 @@ class PlaneWaveAdiabaticFXC(FXC):
             return self.gs.nt_sR  # smooth density
 
         self.context.print('    Calculating all-electron density')
-        with self.timer('Calculating all-electron density'):
+        with self.context.timer('Calculating all-electron density'):
             n_sG, gd1 = self.gs.all_electron_density(gridrefinement=1)
             assert (gd1.n_c == gd.n_c).all()
             assert gd1.comm.size == 1
@@ -243,7 +243,7 @@ class PlaneWaveAdiabaticFXC(FXC):
                                                  r_g, L_M, l_M)
 
             # Perform integration
-            with self.timer('Integrate PAW correction'):
+            with self.context.timer('Integrate PAW correction'):
                 coefatomR_dG = np.exp(-1j * np.inner(dG_mydGv, R_v))
                 coefatomang_MdG = ii_MmydG * Y_MmydG
                 coefatomrad_MdG = np.tensordot(j_gMmydG * df_gL[:, L_M,
@@ -524,7 +524,7 @@ class PlaneWaveAdiabaticFXC(FXC):
          dG_gMmydG) = [a.reshape(len(r_g), nM, nmydG)
                        for a in np.meshgrid(r_g, l_M, dG_mydG, indexing='ij')]
 
-        with self.timer('Compute spherical bessel functions'):
+        with self.context.timer('Compute spherical bessel functions'):
             # Slow step
             j_gMmydG = spherical_jn(l_gMmydG, dG_gMmydG * r_gMmydG)
 
