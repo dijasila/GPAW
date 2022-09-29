@@ -1,6 +1,5 @@
 import numpy as np
-from gpaw.response.math_func import (two_phi_planewave_integrals,
-                                     two_phi_nabla_planewave_integrals)
+from gpaw.response.math_func import two_phi_planewave_integrals
 from gpaw.pw.lfc import PWLFC
 
 
