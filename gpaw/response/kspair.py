@@ -2,7 +2,7 @@ from pathlib import Path
 
 import numpy as np
 
-from ase.utils import timer
+from ase.utils.timing import timer
 
 from gpaw import disable_dry_run
 from gpaw import GPAW
