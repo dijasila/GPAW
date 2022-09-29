@@ -75,14 +75,12 @@ def test_response_iron_sf_gssALDA(in_tmp_dir):
     gs = ResponseGroundStateAdapter.from_gpw_file('Fe', context=context)
     fxckwargs = {'rshelmax': None, 'fxc_scaling': fxc_scaling}
     tms = TransverseMagneticSusceptibility(gs,
+                                           context=context,
                                            fxc=fxc,
                                            eta=eta,
                                            ecut=ecut,
                                            fxckwargs=fxckwargs,
                                            gammacentered=True,
-                                           txt=context.fd,
-                                           timer=context.timer,
-                                           world=context.world,
                                            nblocks=nblocks)
 
     for q in range(2):
