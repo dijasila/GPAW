@@ -5,6 +5,7 @@ from ase.lattice.compounds import L1_2
 from gpaw import GPAW, PW, Mixer, Davidson
 
 
+@pytest.mark.later
 @pytest.mark.slow
 def test_xc_qna_stress(in_tmp_dir):
     name = 'Cu3Au'
