@@ -50,9 +50,9 @@ void transformer_init_buffers(TransformerObject *self, int blocks)
     int ng2 = (bc->ndouble * size2[0] * size2[1] * size2[2]) * blocks;
 
     if (ng2 > transformer_buf_size) {
-        cudaFree(transformer_buf_gpu);
-        cudaGetLastError();
-        GPAW_CUDAMALLOC(&transformer_buf_gpu, double, ng2);
+        gpuFree(transformer_buf_gpu);
+        gpuCheckLastError();
+        gpuMalloc(&transformer_buf_gpu, sizeof(double) * ng2);
         transformer_buf_size = ng2;
     }
 }
@@ -79,8 +79,8 @@ void transformer_dealloc_cuda(int force)
         transformer_init_count = 1;
 
     if (transformer_init_count == 1) {
-        cudaFree(transformer_buf_gpu);
-        cudaGetLastError();
+        gpuFree(transformer_buf_gpu);
+        gpuCheckLastError();
         transformer_init_buffers_cuda();
         return;
     }
@@ -138,10 +138,10 @@ void debug_transformer_deallocate()
  */
 void debug_transformer_memcpy_pre(const double *in, double *out)
 {
-    GPAW_CUDAMEMCPY(debug_in_cpu, in, double, debug_size_in,
-                    cudaMemcpyDeviceToHost);
-    GPAW_CUDAMEMCPY(debug_out_cpu, out, double, debug_size_out,
-                    cudaMemcpyDeviceToHost);
+    gpuMemcpy(debug_in_cpu, in, sizeof(double) * debug_size_in,
+              gpuMemcpyDeviceToHost);
+    gpuMemcpy(debug_out_cpu, out, sizeof(double) * debug_size_out,
+              gpuMemcpyDeviceToHost);
 }
 
 /*
@@ -149,8 +149,8 @@ void debug_transformer_memcpy_pre(const double *in, double *out)
  */
 void debug_transformer_memcpy_post(double *out)
 {
-    GPAW_CUDAMEMCPY(debug_out_gpu, out, double, debug_size_out,
-                    cudaMemcpyDeviceToHost);
+    gpuMemcpy(debug_out_gpu, out, sizeof(double) * debug_size_out,
+              gpuMemcpyDeviceToHost);
 }
 
 /*
@@ -225,7 +225,7 @@ void debug_transformer_apply(TransformerObject* self,
     for (i=0; i < debug_size_out; i++) {
         out_err = MAX(out_err, fabs(debug_out_cpu[i] - debug_out_gpu[i]));
     }
-    if (out_err > GPAW_CUDA_ABS_TOL) {
+    if (out_err > GPU_ERROR_ABS_TOL) {
         fprintf(stderr,
                 "[%d] Debug CUDA transformer apply (out): error %g\n",
                 rank, out_err);
@@ -335,8 +335,8 @@ PyObject* Transformer_apply_cuda_gpu(TransformerObject *self, PyObject *args)
     if ((bc->maxsend || bc->maxrecv) && bc->comm != MPI_COMM_NULL)
         MPI_Comm_size(bc->comm, &mpi_size);
 
-    int blocks = MAX(1, MIN(nin, MIN((GPAW_CUDA_BLOCKS_MIN) * mpi_size,
-                                     (GPAW_CUDA_BLOCKS_MAX) / bc->ndouble)));
+    int blocks = MAX(1, MIN(nin, MIN((GPU_BLOCKS_MIN) * mpi_size,
+                                     (GPU_BLOCKS_MAX) / bc->ndouble)));
 
     if (gpaw_cuda_debug) {
         debug_transformer_allocate(self, nin, blocks);

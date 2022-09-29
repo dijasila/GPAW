@@ -8,45 +8,56 @@
 #include <float.h>
 #include <Python.h>
 
-#define GPAW_CUDA_BLOCKS_MIN       (16)
-#define GPAW_CUDA_BLOCKS_MAX       (96)
-#define GPAW_CUDA_PITCH            (16)  /* in doubles */
-#define GPAW_CUDA_ASYNC_SIZE       (8*1024)
-#define GPAW_CUDA_RJOIN_SIZE       (16*1024)
-#define GPAW_CUDA_SJOIN_SIZE       (16*1024)
-#define GPAW_CUDA_RJOIN_SAME_SIZE  (96*1024)
-#define GPAW_CUDA_SJOIN_SAME_SIZE  (96*1024)
-#define GPAW_CUDA_OVERLAP_SIZE     (GPAW_CUDA_ASYNC_SIZE)
-#define GPAW_CUDA_ABS_TOL          (1e-13)
-#define GPAW_CUDA_ABS_TOL_EXCT     (DBL_EPSILON)
+#define GPU_BLOCKS_MIN          (16)
+#define GPU_BLOCKS_MAX          (96)
+#define GPU_PITCH               (16)  /* in doubles */
 
-#define GPAW_BOUNDARY_NORMAL  (1<<(0))
-#define GPAW_BOUNDARY_SKIP    (1<<(1))
-#define GPAW_BOUNDARY_ONLY    (1<<(2))
-#define GPAW_BOUNDARY_X0      (1<<(3))
-#define GPAW_BOUNDARY_X1      (1<<(4))
-#define GPAW_BOUNDARY_Y0      (1<<(5))
-#define GPAW_BOUNDARY_Y1      (1<<(6))
-#define GPAW_BOUNDARY_Z0      (1<<(7))
-#define GPAW_BOUNDARY_Z1      (1<<(8))
+#define GPU_ASYNC_SIZE          (8*1024)
+#define GPU_RJOIN_SIZE          (16*1024)
+#define GPU_SJOIN_SIZE          (16*1024)
+#define GPU_RJOIN_SAME_SIZE     (96*1024)
+#define GPU_SJOIN_SAME_SIZE     (96*1024)
+#define GPU_OVERLAP_SIZE        (GPU_ASYNC_SIZE)
 
-#define gpaw_cuSCall(err)       __gpaw_cudaSafeCall(err, __FILE__, __LINE__)
-#define gpaw_cudaSafeCall(err)  __gpaw_cudaSafeCall(err, __FILE__, __LINE__)
-#define gpaw_cubSCall(err)    __gpaw_cublasSafeCall(err, __FILE__, __LINE__)
+#define GPU_ERROR_ABS_TOL       (1e-13)
+#define GPU_ERROR_ABS_TOL_EXCT  (DBL_EPSILON)
 
-#define GPAW_CUDAMALLOC(pp, T, n) \
-    gpaw_cudaSafeCall(cudaMalloc((void**) (pp), sizeof(T) * (n)));
-#define GPAW_CUDAMEMCPY(p1, p2, T, n, type) \
-    gpaw_cudaSafeCall(cudaMemcpy(p1, p2, sizeof(T) * (n), type));
-#define GPAW_CUDAMEMCPY_A(p1, p2, T, n, type, stream) \
-    gpaw_cudaSafeCall(cudaMemcpyAsync(p1, p2, sizeof(T) * (n), type, stream));
-#define GPAW_CUDAMALLOC_HOST(pp, T, n) \
-    gpaw_cudaSafeCall(cudaHostAlloc((void**) (pp), sizeof(T) * (n), \
-                      cudaHostAllocPortable));
+#define GPAW_BOUNDARY_NORMAL    (1<<(0))
+#define GPAW_BOUNDARY_SKIP      (1<<(1))
+#define GPAW_BOUNDARY_ONLY      (1<<(2))
+#define GPAW_BOUNDARY_X0        (1<<(3))
+#define GPAW_BOUNDARY_X1        (1<<(4))
+#define GPAW_BOUNDARY_Y0        (1<<(5))
+#define GPAW_BOUNDARY_Y1        (1<<(6))
+#define GPAW_BOUNDARY_Z0        (1<<(7))
+#define GPAW_BOUNDARY_Z1        (1<<(8))
+
+#define gpuSafeCall(err)        __cudaSafeCall(err, __FILE__, __LINE__)
+#define gpublasSafeCall(err)    __cublasSafeCall(err, __FILE__, __LINE__)
+#define gpuCheckLastError()     gpuSafeCall(cudaGetLastError())
+
+#define gpuFree(p)              gpuSafeCall(cudaFree(p))
+#define gpuFreeHost(p)          gpuSafeCall(cudaFreeHost(p))
+#define gpuMalloc(pp, size)     gpuSafeCall(cudaMalloc((void**) (pp), size))
+#define gpuHostAlloc(pp, size) \
+        gpuSafeCall(cudaHostAlloc((void**) (pp), size, cudaHostAllocPortable))
+#define gpuMemcpy(dst, src, count, kind) \
+        gpuSafeCall(cudaMemcpy(dst, src, count, kind))
+#define gpuMemcpyAsync(dst, src, count, kind, stream) \
+        gpuSafeCall(cudaMemcpyAsync(dst, src, count, kind, stream))
+
+#define gpuMemcpyDeviceToHost   cudaMemcpyDeviceToHost
+#define gpuMemcpyHostToDevice   cudaMemcpyHostToDevice
+#define gpuDeviceProp           cudaDeviceProp
+
+#define gpuSetDevice(id)        gpuSafeCall(cudaSetDevice(id))
+#define gpuGetDevice(dev)       gpuSafeCall(cudaGetDevice(dev))
+#define gpuGetDeviceProperties(prop, dev) \
+        gpuSafeCall(cudaGetDeviceProperties(prop, dev))
+
 
 #define NEXTPITCHDIV(n) \
-    (((n) > 0) ? ((n) + GPAW_CUDA_PITCH - 1 - ((n) - 1) % GPAW_CUDA_PITCH) \
-               : 0)
+        (((n) > 0) ? ((n) + GPU_PITCH - 1 - ((n) - 1) % GPU_PITCH) : 0)
 
 #ifndef MAX
 #  define MAX(a,b)  (((a) > (b)) ? (a) : (b))
@@ -85,8 +96,8 @@ typedef struct
 extern struct cudaDeviceProp _gpaw_cuda_dev_prop;
 extern int _gpaw_cuda_dev;
 
-static inline cudaError_t __gpaw_cudaSafeCall(cudaError_t err,
-                                              const char *file, int line)
+static inline cudaError_t __cudaSafeCall(cudaError_t err,
+                                         const char *file, int line)
 {
     if (cudaSuccess != err) {
         char str[100];
@@ -98,8 +109,8 @@ static inline cudaError_t __gpaw_cudaSafeCall(cudaError_t err,
     return err;
 }
 
-static inline cublasStatus_t __gpaw_cublasSafeCall(cublasStatus_t err,
-                                                   const char *file, int line)
+static inline cublasStatus_t __cublasSafeCall(cublasStatus_t err,
+                                              const char *file, int line)
 {
     if (CUBLAS_STATUS_SUCCESS != err) {
         char str[100];

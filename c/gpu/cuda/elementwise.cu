@@ -140,7 +140,7 @@ PyObject* axpbyz_gpu(PyObject *self, PyObject *args)
             (a, (cuDoubleComplex*) x, b, (cuDoubleComplex*) y,
              (cuDoubleComplex*) z, n);
     }
-    gpaw_cudaSafeCall(cudaGetLastError());
+    gpuCheckLastError();
     if (PyErr_Occurred())
         return NULL;
     else
@@ -184,7 +184,7 @@ PyObject* axpbz_gpu(PyObject *self, PyObject *args)
         axpbz_kernelz<<<dimGrid, dimBlock, 0>>>
             (a, (cuDoubleComplex*) x, b, (cuDoubleComplex*) z, n);
     }
-    gpaw_cudaSafeCall(cudaGetLastError());
+    gpuCheckLastError();
     if (PyErr_Occurred())
         return NULL;
     else
@@ -239,7 +239,7 @@ PyObject* fill_gpu(PyObject *self, PyObject *args)
         fill_kernelz<<<dimGrid, dimBlock, 0>>>
             (real, imag, (cuDoubleComplex*) x, n);
     }
-    gpaw_cudaSafeCall(cudaGetLastError());
+    gpuCheckLastError();
     if (PyErr_Occurred())
         return NULL;
     else

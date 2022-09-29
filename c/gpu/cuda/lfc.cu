@@ -204,13 +204,13 @@ PyObject * NewLFCObject_cuda(LFCObject *self, PyObject *args)
             (PyArrayObject*) PyList_GetItem(A_Wgm_obj, W);
 
         double *work_A_gm = GPAW_MALLOC(double, self->ngm_W[W]);
-        GPAW_CUDAMALLOC(&(v_gpu->A_gm), double, self->ngm_W[W]);
+        gpuMalloc(&(v_gpu->A_gm), sizeof(double) * self->ngm_W[W]);
 
         memcpy(work_A_gm, v->A_gm, sizeof(double) * self->ngm_W[W]);
         transp(work_A_gm, PyArray_DIMS(A_gm_obj)[0],
                PyArray_DIMS(A_gm_obj)[1], sizeof(double));
-        GPAW_CUDAMEMCPY(v_gpu->A_gm, work_A_gm, double, self->ngm_W[W],
-                        cudaMemcpyHostToDevice);
+        gpuMemcpy(v_gpu->A_gm, work_A_gm, sizeof(double) * self->ngm_W[W],
+                  gpuMemcpyHostToDevice);
         free(work_A_gm);
 
         v_gpu->nm = v->nm;
@@ -223,7 +223,7 @@ PyObject * NewLFCObject_cuda(LFCObject *self, PyObject *args)
         v_gpu->nB = 0;
     }
 
-    GPAW_CUDAMALLOC(&(self->volume_W_gpu), LFVolume_gpu, self->nW);
+    gpuMalloc(&(self->volume_W_gpu), sizeof(LFVolume_gpu) * self->nW);
 
     int* i_W = self->i_W;
     LFVolume_gpu** volume_i = GPAW_MALLOC(LFVolume_gpu*, nimax);
@@ -322,16 +322,15 @@ PyObject * NewLFCObject_cuda(LFCObject *self, PyObject *args)
         self->max_len_A_gm = MAX(self->max_len_A_gm, v->len_A_gm);
 
         int *GB_gpu;
-        GPAW_CUDAMALLOC(&(GB_gpu), int, v->nB);
-        GPAW_CUDAMEMCPY(GB_gpu, v->GB1, int, v->nB,
-                        cudaMemcpyHostToDevice);
+        gpuMalloc(&(GB_gpu), sizeof(int) * v->nB);
+        gpuMemcpy(GB_gpu, v->GB1, sizeof(int) * v->nB, gpuMemcpyHostToDevice);
         free(v->GB1);
         v->GB1 = GB_gpu;
         free(GB2s[W]);
 
-        GPAW_CUDAMALLOC(&(GB_gpu), int, v->nB + 1);
-        GPAW_CUDAMEMCPY(GB_gpu, v->nGBcum, int, v->nB + 1,
-                        cudaMemcpyHostToDevice);
+        gpuMalloc(&(GB_gpu), sizeof(int) * (v->nB + 1));
+        gpuMemcpy(GB_gpu, v->nGBcum, sizeof(int) * (v->nB + 1),
+                  gpuMemcpyHostToDevice);
         free(v->nGBcum);
         v->nGBcum = GB_gpu;
 
@@ -341,9 +340,9 @@ PyObject * NewLFCObject_cuda(LFCObject *self, PyObject *args)
                 phase_k[q].x = creal(self->phase_kW[self->nW*q+W]);
                 phase_k[q].y = cimag(self->phase_kW[self->nW*q+W]);
             }
-            GPAW_CUDAMALLOC(&(v->phase_k), cuDoubleComplex, max_k);
-            GPAW_CUDAMEMCPY(v->phase_k, phase_k, cuDoubleComplex, max_k,
-                            cudaMemcpyHostToDevice);
+            gpuMalloc(&(v->phase_k), sizeof(cuDoubleComplex) * max_k);
+            gpuMemcpy(v->phase_k, phase_k, sizeof(cuDoubleComplex) * max_k,
+                      gpuMemcpyHostToDevice);
         }
     }
 
@@ -387,49 +386,49 @@ PyObject * NewLFCObject_cuda(LFCObject *self, PyObject *args)
     }
     self->WMimax = WMimax;
 
-    GPAW_CUDAMALLOC(&(self->WMi_gpu), int, self->Mcount);
-    GPAW_CUDAMEMCPY(self->WMi_gpu, WMi_gpu, int, self->Mcount,
-                    cudaMemcpyHostToDevice);
+    gpuMalloc(&(self->WMi_gpu), sizeof(int) * self->Mcount);
+    gpuMemcpy(self->WMi_gpu, WMi_gpu, sizeof(int) * self->Mcount,
+              gpuMemcpyHostToDevice);
 
-    GPAW_CUDAMALLOC(&(self->volume_WMi_gpu), int, self->Mcount * WMimax);
-    GPAW_CUDAMEMCPY(self->volume_WMi_gpu, volume_WMi_gpu2, int,
-                    self->Mcount * WMimax, cudaMemcpyHostToDevice);
+    gpuMalloc(&(self->volume_WMi_gpu), sizeof(int) * self->Mcount * WMimax);
+    gpuMemcpy(self->volume_WMi_gpu, volume_WMi_gpu2,
+              sizeof(int) * self->Mcount * WMimax, gpuMemcpyHostToDevice);
 
     self->nB_gpu = nB_gpu;
 
-    GPAW_CUDAMALLOC(&(self->G_B1_gpu), int, nB_gpu);
-    GPAW_CUDAMEMCPY(self->G_B1_gpu, G_B1_gpu, int, nB_gpu,
-                    cudaMemcpyHostToDevice);
+    gpuMalloc(&(self->G_B1_gpu), sizeof(int) * nB_gpu);
+    gpuMemcpy(self->G_B1_gpu, G_B1_gpu, sizeof(int) * nB_gpu,
+              gpuMemcpyHostToDevice);
 
-    GPAW_CUDAMALLOC(&(self->G_B2_gpu), int, nB_gpu);
-    GPAW_CUDAMEMCPY(self->G_B2_gpu, G_B2_gpu, int, nB_gpu,
-                    cudaMemcpyHostToDevice);
+    gpuMalloc(&(self->G_B2_gpu), sizeof(int) * nB_gpu);
+    gpuMemcpy(self->G_B2_gpu, G_B2_gpu, sizeof(int) * nB_gpu,
+              gpuMemcpyHostToDevice);
 
-    GPAW_CUDAMALLOC(&(self->ni_gpu), int, nB_gpu);
-    GPAW_CUDAMEMCPY(self->ni_gpu, ni_gpu, int, nB_gpu,
-                    cudaMemcpyHostToDevice);
+    gpuMalloc(&(self->ni_gpu), sizeof(int) * nB_gpu);
+    gpuMemcpy(self->ni_gpu, ni_gpu, sizeof(int) * nB_gpu,
+              gpuMemcpyHostToDevice);
 
     transp(volume_i_gpu, nB_gpu, nimax, sizeof(LFVolume_gpu*));
-    GPAW_CUDAMALLOC(&(self->volume_i_gpu), LFVolume_gpu*,
-                    nB_gpu * nimax);
-    GPAW_CUDAMEMCPY(self->volume_i_gpu, volume_i_gpu, LFVolume_gpu*,
-                    nB_gpu * nimax, cudaMemcpyHostToDevice);
+    gpuMalloc(&(self->volume_i_gpu), sizeof(LFVolume_gpu*) * nB_gpu * nimax);
+    gpuMemcpy(self->volume_i_gpu, volume_i_gpu,
+              sizeof(LFVolume_gpu*) * nB_gpu * nimax, gpuMemcpyHostToDevice);
 
     transp(A_gm_i_gpu, nB_gpu, nimax, sizeof(int));
-    GPAW_CUDAMALLOC(&(self->A_gm_i_gpu), int, nB_gpu * nimax);
-    GPAW_CUDAMEMCPY(self->A_gm_i_gpu, A_gm_i_gpu, int, nB_gpu * nimax,
-                    cudaMemcpyHostToDevice);
+    gpuMalloc(&(self->A_gm_i_gpu), sizeof(int) * nB_gpu * nimax);
+    gpuMemcpy(self->A_gm_i_gpu, A_gm_i_gpu, sizeof(int) * nB_gpu * nimax,
+              gpuMemcpyHostToDevice);
 
     if (self->bloch_boundary_conditions) {
-        GPAW_CUDAMALLOC(&(self->phase_i_gpu), cuDoubleComplex,
-                        max_k * nB_gpu * nimax);
-        GPAW_CUDAMEMCPY(self->phase_i_gpu, phase_i_gpu, cuDoubleComplex,
-                        max_k * nB_gpu * nimax, cudaMemcpyHostToDevice);
+        gpuMalloc(&(self->phase_i_gpu),
+                  sizeof(cuDoubleComplex) * max_k * nB_gpu * nimax);
+        gpuMemcpy(self->phase_i_gpu, phase_i_gpu,
+                  sizeof(cuDoubleComplex) * max_k * nB_gpu * nimax,
+                  gpuMemcpyHostToDevice);
     }
     self->volume_W_cuda = volume_W_gpu;
 
-    GPAW_CUDAMEMCPY(self->volume_W_gpu, volume_W_gpu, LFVolume_gpu,
-                    self->nW, cudaMemcpyHostToDevice);
+    gpuMemcpy(self->volume_W_gpu, volume_W_gpu,
+              sizeof(LFVolume_gpu) * self->nW, gpuMemcpyHostToDevice);
     free(volume_i);
     free(volume_i_gpu);
     free(A_gm_i_gpu);
@@ -479,13 +478,13 @@ PyObject* integrate_cuda_gpu(LFCObject *lfc, PyObject *args)
         double* c_M = (double*) c_xM_gpu;
 
         lfc_reducemap(lfc, a_G, nG, c_M, nM, nx, q);
-        gpaw_cudaSafeCall(cudaGetLastError());
+        gpuCheckLastError();
     } else {
         const cuDoubleComplex* a_G = (const cuDoubleComplex*) a_xG_gpu;
         cuDoubleComplex* c_M = (cuDoubleComplex*) c_xM_gpu;
 
         lfc_reducemapz(lfc, a_G, nG, c_M, nM, nx, q);
-        gpaw_cudaSafeCall(cudaGetLastError());
+        gpuCheckLastError();
     }
     if (PyErr_Occurred())
         return NULL;
@@ -533,7 +532,7 @@ PyObject* add_cuda_gpu(LFCObject *lfc, PyObject *args)
                 lfc->volume_i_gpu, lfc->A_gm_i_gpu, lfc->ni_gpu,
                 lfc->nimax, nG, nM, lfc->phase_i_gpu, lfc->max_k, q,
                 lfc->nB_gpu);
-        gpaw_cudaSafeCall(cudaGetLastError());
+        gpuCheckLastError();
     } else {
         cuDoubleComplex* a_G = (cuDoubleComplex*) a_xG_gpu;
         const cuDoubleComplex* c_M = (const cuDoubleComplex*) c_xM_gpu;
@@ -548,7 +547,7 @@ PyObject* add_cuda_gpu(LFCObject *lfc, PyObject *args)
                 lfc->volume_i_gpu, lfc->A_gm_i_gpu, lfc->ni_gpu,
                 lfc->nimax, nG, nM, lfc->phase_i_gpu, lfc->max_k, q,
                 lfc->nB_gpu);
-        gpaw_cudaSafeCall(cudaGetLastError());
+        gpuCheckLastError();
     }
     if (PyErr_Occurred())
         return NULL;

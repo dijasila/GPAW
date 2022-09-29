@@ -52,10 +52,10 @@ static void debug_deallocate()
  */
 static void debug_memcpy_pre(const double *in, double *out)
 {
-    GPAW_CUDAMEMCPY(debug_in_cpu, in, double, debug_size_in,
-                    cudaMemcpyDeviceToHost);
-    GPAW_CUDAMEMCPY(debug_out_cpu, out, double, debug_size_out,
-                    cudaMemcpyDeviceToHost);
+    gpuMemcpy(debug_in_cpu, in, sizeof(double) * debug_size_in,
+              gpuMemcpyDeviceToHost);
+    gpuMemcpy(debug_out_cpu, out, sizeof(double) * debug_size_out,
+              gpuMemcpyDeviceToHost);
 }
 
 /*
@@ -63,10 +63,10 @@ static void debug_memcpy_pre(const double *in, double *out)
  */
 static void debug_memcpy_post(const double *in, double *out)
 {
-    GPAW_CUDAMEMCPY(debug_in_gpu, in, double, debug_size_in,
-                    cudaMemcpyDeviceToHost);
-    GPAW_CUDAMEMCPY(debug_out_gpu, out, double, debug_size_out,
-                    cudaMemcpyDeviceToHost);
+    gpuMemcpy(debug_in_gpu, in, sizeof(double) * debug_size_in,
+              gpuMemcpyDeviceToHost);
+    gpuMemcpy(debug_out_gpu, out, sizeof(double) * debug_size_out,
+              gpuMemcpyDeviceToHost);
 }
 #endif
 
@@ -99,10 +99,10 @@ static void Zcuda(debug_bmgs_cut)(
     for (int i=0; i < debug_size_out; i++) {
         out_err = MAX(out_err, fabs(debug_out_cpu[i] - debug_out_gpu[i]));
     }
-    if (in_err > GPAW_CUDA_ABS_TOL_EXCT) {
+    if (in_err > GPU_ERROR_ABS_TOL_EXCT) {
         fprintf(stderr, "Debug CUDA cut (in): error %g\n", in_err);
     }
-    if (out_err > GPAW_CUDA_ABS_TOL_EXCT) {
+    if (out_err > GPU_ERROR_ABS_TOL_EXCT) {
         fprintf(stderr, "Debug CUDA cut (out): error %g\n", out_err);
     }
 }
@@ -183,7 +183,7 @@ static void Zcuda(_bmgs_cut_cuda_gpu)(
          phase,
 #endif
          blocks, xdiv);
-    gpaw_cudaSafeCall(cudaGetLastError());
+    gpuCheckLastError();
 }
 
 /*

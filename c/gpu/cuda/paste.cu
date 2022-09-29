@@ -66,10 +66,10 @@ static void debug_deallocate()
  */
 static void debug_memcpy_pre(const double *in, double *out)
 {
-    GPAW_CUDAMEMCPY(debug_in_cpu, in, double, debug_size_in,
-                    cudaMemcpyDeviceToHost);
-    GPAW_CUDAMEMCPY(debug_out_cpu, out, double, debug_size_out,
-                    cudaMemcpyDeviceToHost);
+    gpuMemcpy(debug_in_cpu, in, sizeof(double) * debug_size_in,
+              gpuMemcpyDeviceToHost);
+    gpuMemcpy(debug_out_cpu, out, sizeof(double) * debug_size_out,
+              gpuMemcpyDeviceToHost);
 }
 
 /*
@@ -77,10 +77,10 @@ static void debug_memcpy_pre(const double *in, double *out)
  */
 static void debug_memcpy_post(const double *in, double *out)
 {
-    GPAW_CUDAMEMCPY(debug_in_gpu, in, double, debug_size_in,
-                    cudaMemcpyDeviceToHost);
-    GPAW_CUDAMEMCPY(debug_out_gpu, out, double, debug_size_out,
-                    cudaMemcpyDeviceToHost);
+    gpuMemcpy(debug_in_gpu, in, sizeof(double) * debug_size_in,
+              gpuMemcpyDeviceToHost);
+    gpuMemcpy(debug_out_gpu, out, sizeof(double) * debug_size_out,
+              gpuMemcpyDeviceToHost);
 }
 #else
 #  undef Tfunc
@@ -117,14 +117,14 @@ void Zcuda(debug_bmgs_paste)(const int sizea[3], const int sizeb[3],
     for (int i=0; i < debug_size_out; i++) {
         out_err = MAX(out_err, fabs(debug_out_cpu[i] - debug_out_gpu[i]));
     }
-    if (in_err > GPAW_CUDA_ABS_TOL_EXCT) {
+    if (in_err > GPU_ERROR_ABS_TOL_EXCT) {
         if (zero)
             fprintf(stderr, "Debug CUDA paste zero (in): error %g\n",
                     in_err);
         else
             fprintf(stderr, "Debug CUDA paste (in): error %g\n", in_err);
     }
-    if (out_err > GPAW_CUDA_ABS_TOL_EXCT) {
+    if (out_err > GPU_ERROR_ABS_TOL_EXCT) {
         if (zero)
             fprintf(stderr, "Debug CUDA paste zero (out): error %g\n",
                     out_err);
@@ -291,7 +291,7 @@ static void Zcuda(_bmgs_paste_cuda_gpu)(
     b += startb[2] + (startb[1] + startb[0] * sizeb[1]) * sizeb[2];
     Zcuda(bmgs_paste_cuda_kernel)<<<dimGrid, dimBlock, 0, stream>>>
         ((double*) a, hc_sizea, (double*) b, hc_sizeb, blocks, xdiv);
-    gpaw_cudaSafeCall(cudaGetLastError());
+    gpuCheckLastError();
 }
 
 /*
@@ -336,7 +336,7 @@ static void Zcuda(_bmgs_paste_zero_cuda_gpu)(
     Zcuda(bmgs_paste_zero_cuda_kernel)<<<dimGrid, dimBlock, 0, stream>>>
         ((Tcuda*) a, hc_sizea, (Tcuda*) b, hc_sizeb, hc_startb,
          bc_blocks, blocks);
-    gpaw_cudaSafeCall(cudaGetLastError());
+    gpuCheckLastError();
 }
 
 /*
@@ -432,23 +432,19 @@ double bmgs_paste_cuda_cpu(const double* a, const int sizea[3],
     int asize = sizea[0] * sizea[1] * sizea[2];
     int bsize = sizeb[0] * sizeb[1] * sizeb[2];
 
-    gpaw_cudaSafeCall(cudaMalloc(&adev, sizeof(double) * asize));
-    gpaw_cudaSafeCall(cudaMalloc(&bdev, sizeof(double) * bsize));
-    gpaw_cudaSafeCall(
-            cudaMemcpy(adev, a, sizeof(double) * asize,
-                       cudaMemcpyHostToDevice));
+    gpuMalloc(&adev, sizeof(double) * asize);
+    gpuMalloc(&bdev, sizeof(double) * bsize);
+    gpuMemcpy(adev, a, sizeof(double) * asize, gpuMemcpyHostToDevice);
 
     gettimeofday(&t0, NULL);
     bmgs_paste_cuda_gpu(adev, sizea, bdev, sizeb, startb, 1, 0);
     cudaThreadSynchronize();
-    gpaw_cudaSafeCall(cudaGetLastError());
+    gpuCheckLastError();
     gettimeofday(&t1,NULL);
 
-    gpaw_cudaSafeCall(
-            cudaMemcpy(b, bdev, sizeof(double) * bsize,
-                       cudaMemcpyDeviceToHost));
-    gpaw_cudaSafeCall(cudaFree(adev));
-    gpaw_cudaSafeCall(cudaFree(bdev));
+    gpuMemcpy(b, bdev, sizeof(double) * bsize, gpuMemcpyDeviceToHost);
+    gpuFree(adev);
+    gpuFree(bdev);
 
     flops = t1.tv_sec * 1.0 + t1.tv_usec / 1000000.0 - t0.tv_sec * 1.0
           - t0.tv_usec / 1000000.0;
@@ -466,23 +462,19 @@ double bmgs_paste_zero_cuda_cpu(const double* a, const int sizea[3],
     int asize = sizea[0] * sizea[1] * sizea[2];
     int bsize = sizeb[0] * sizeb[1] * sizeb[2];
 
-    gpaw_cudaSafeCall(cudaMalloc(&adev, sizeof(double) * asize));
-    gpaw_cudaSafeCall(cudaMalloc(&bdev, sizeof(double) * bsize));
-    gpaw_cudaSafeCall(
-            cudaMemcpy(adev, a, sizeof(double) * asize,
-                       cudaMemcpyHostToDevice));
+    gpuMalloc(&adev, sizeof(double) * asize);
+    gpuMalloc(&bdev, sizeof(double) * bsize);
+    gpuMemcpy(adev, a, sizeof(double) * asize, gpuMemcpyHostToDevice);
 
     gettimeofday(&t0, NULL);
     bmgs_paste_zero_cuda_gpu(adev, sizea, bdev, sizeb, startb, 1, 0);
     cudaThreadSynchronize();
-    gpaw_cudaSafeCall(cudaGetLastError());
+    gpuCheckLastError();
     gettimeofday(&t1,NULL);
 
-    gpaw_cudaSafeCall(
-            cudaMemcpy(b, bdev, sizeof(double) * bsize,
-                       cudaMemcpyDeviceToHost));
-    gpaw_cudaSafeCall(cudaFree(adev));
-    gpaw_cudaSafeCall(cudaFree(bdev));
+    gpuMemcpy(b, bdev, sizeof(double) * bsize, gpuMemcpyDeviceToHost);
+    gpuFree(adev);
+    gpuFree(bdev);
 
     flops = t1.tv_sec * 1.0 + t1.tv_usec / 1000000.0 - t0.tv_sec * 1.0
           - t0.tv_usec / 1000000.0;

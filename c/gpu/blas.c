@@ -143,7 +143,7 @@ void zher2k_(const char *uplo, const char *trans, int *n, int *k,
 
 void blas_init_cuda()
 {
-    gpaw_cubSCall(cublasCreate(&_gpaw_cublas_handle));
+    gpublasSafeCall(cublasCreate(&_gpaw_cublas_handle));
 }
 
 
@@ -221,47 +221,47 @@ static void hybrid_param_alloc(hybrid_params_t *ph, int size_a,
         for (int i=0; i < 3; i++)
             cudaStreamCreate(&ph->stream[i]);
         if (!ph->a)
-            cudaFreeHost(ph->a);
+            gpuFreeHost(ph->a);
         ph->a = NULL;
         ph->size_a = 0;
         if (!ph->b)
-            cudaFreeHost(ph->b);
+            gpuFreeHost(ph->b);
         ph->b = NULL;
         ph->size_b = 0;
         if (!ph->c)
-            cudaFreeHost(ph->c);
+            gpuFreeHost(ph->c);
         ph->c = NULL;
         ph->size_c = 0;
         if (!ph->a)
-            cudaFree(ph->c_gpu);
+            gpuFree(ph->c_gpu);
         ph->c_gpu = NULL;
         ph->size_c_gpu = 0;
         ph->init = 1;
     }
     if (ph->size_a < size_a) {
         if (!ph->a)
-            cudaFreeHost(ph->a);
+            gpuFreeHost(ph->a);
         ph->size_a = size_a;
-        GPAW_CUDAMALLOC_HOST(&ph->a, double, ph->size_a);
+        gpuHostAlloc(&ph->a, sizeof(double) * ph->size_a);
     }
     if (ph->size_b < size_b) {
         if (!ph->b)
-            cudaFreeHost(ph->b);
+            gpuFreeHost(ph->b);
         ph->size_b = size_b;
-        GPAW_CUDAMALLOC_HOST(&ph->b, double, ph->size_b);
+        gpuHostAlloc(&ph->b, sizeof(double) * ph->size_b);
 
     }
     if (ph->size_c < size_c) {
         if (!ph->c)
-            cudaFreeHost(ph->c);
+            gpuFreeHost(ph->c);
         ph->size_c = size_c;
-        GPAW_CUDAMALLOC_HOST(&ph->c, double, ph->size_c);
+        gpuHostAlloc(&ph->c, sizeof(double) * ph->size_c);
     }
     if (ph->size_c_gpu < size_c_gpu) {
         if (!ph->c_gpu)
-            cudaFree(ph->c_gpu);
+            gpuFree(ph->c_gpu);
         ph->size_c_gpu = size_c_gpu;
-        GPAW_CUDAMALLOC(&ph->c_gpu, double, ph->size_c_gpu);
+        gpuMalloc(&ph->c_gpu, sizeof(double) * ph->size_c_gpu);
     }
 }
 
@@ -291,17 +291,17 @@ static void hybrid_gemm_benchmark(hybrid_func_params_t *pg,
 
     hybrid_pace_init(&pg->bench, 1);
 
-    GPAW_CUDAMALLOC(&a_gpu, double, k1 * m1);
-    GPAW_CUDAMALLOC(&b_gpu, double, k1 * n1);
+    gpuMalloc(&a_gpu, sizeof(double) * k1 * m1);
+    gpuMalloc(&b_gpu, sizeof(double) * k1 * n1);
 
     hybrid_param_alloc(ph, k2 * m2, k2 * n2, n2 * m2, n1 * m1);
 
     for (int i=0; i < times+1; i++) {
-        gpaw_cubSCall(
+        gpublasSafeCall(
                 cublasSetStream(_gpaw_cublas_handle, ph->stream[0]));
         /* DGEMM on GPU device */
         cudaEventRecord(pg->event_gpu[0], ph->stream[0]);
-        gpaw_cubSCall(
+        gpublasSafeCall(
                 cublasDgemm(_gpaw_cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N,
                             m1, n1, k1, &alpha, (double*) a_gpu, lda1,
                             (double*) b_gpu, ldb1,
@@ -309,13 +309,13 @@ static void hybrid_gemm_benchmark(hybrid_func_params_t *pg,
         cudaEventRecord(pg->event_gpu[1], ph->stream[0]);
         /* data transfer device -> host */
         cudaEventRecord(pg->event_dtoh[0], ph->stream[1]);
-        gpaw_cubSCall(
+        gpublasSafeCall(
                 cublasGetMatrixAsync(m2, k2, sizeof(double),
                                      (void*) a_gpu, m2, (void*) ph->a, m2,
                                      ph->stream[1]));
         cudaEventRecord(pg->event_dtoh[1], ph->stream[1]);
 
-        gpaw_cudaSafeCall(
+        gpuSafeCall(
                 cudaStreamSynchronize(ph->stream[1]));
         /* DGEMM on host CPU */
         Py_BEGIN_ALLOW_THREADS;
@@ -324,14 +324,14 @@ static void hybrid_gemm_benchmark(hybrid_func_params_t *pg,
         Py_END_ALLOW_THREADS;
         /* data transfer host -> device */
         cudaEventRecord(pg->event_htod[0], ph->stream[1]);
-        gpaw_cubSCall(
+        gpublasSafeCall(
                 cublasSetMatrixAsync(m2, n2, sizeof(double),
                                      (void*) ph->c, m2, (void*) ph->c_gpu, m2,
                                      ph->stream[1]));
         cudaEventRecord(pg->event_htod[1], ph->stream[1]);
 
-        gpaw_cudaSafeCall(cudaStreamSynchronize(ph->stream[0]));
-        gpaw_cudaSafeCall(cudaStreamSynchronize(ph->stream[1]));
+        gpuSafeCall(cudaStreamSynchronize(ph->stream[0]));
+        gpuSafeCall(cudaStreamSynchronize(ph->stream[1]));
         /* elapsed time for each part */
         cudaEventElapsedTime(&time_gpu, pg->event_gpu[0], pg->event_gpu[1]);
         cudaEventElapsedTime(&time_cpu, pg->event_dtoh[1], pg->event_htod[0]);
@@ -352,9 +352,9 @@ static void hybrid_gemm_benchmark(hybrid_func_params_t *pg,
     pg->bench.htod /= times;
     pg->bench.times=1;
 
-    gpaw_cubSCall(cublasSetStream(_gpaw_cublas_handle, 0));
-    cudaFree(a_gpu);
-    cudaFree(b_gpu);
+    gpublasSafeCall(cublasSetStream(_gpaw_cublas_handle, 0));
+    gpuFree(a_gpu);
+    gpuFree(b_gpu);
 }
 
 
@@ -379,44 +379,44 @@ static void hybrid_syrk_benchmark(hybrid_func_params_t *ps,
 
     hybrid_pace_init(&ps->bench, 1);
 
-    GPAW_CUDAMALLOC(&a_gpu, double, k1 * n1);
-    GPAW_CUDAMALLOC(&b_gpu, double, k1 * n1);
+    gpuMalloc(&a_gpu, sizeof(double) * k1 * n1);
+    gpuMalloc(&b_gpu, sizeof(double) * k1 * n1);
 
     hybrid_param_alloc(ph, k2 * n2, k2 * n2, n2 * n2, n1 * n1);
 
     for (int i=0; i < times+1; i++) {
-        gpaw_cubSCall(
+        gpublasSafeCall(
                 cublasSetStream(_gpaw_cublas_handle, ph->stream[0]));
         /* DSYRK on GPU device */
         cudaEventRecord(ps->event_gpu[0], ph->stream[0]);
-        gpaw_cubSCall(
+        gpublasSafeCall(
                 cublasDsyrk(_gpaw_cublas_handle, CUBLAS_FILL_MODE_UPPER,
                             CUBLAS_OP_T, n1, k1, &alpha, (double*) a_gpu, lda1,
                             &beta, (double*) ph->c_gpu, ldc1));
         cudaEventRecord(ps->event_gpu[1], ph->stream[0]);
         /* data transfer device -> host */
         cudaEventRecord(ps->event_dtoh[0], ph->stream[1]);
-        gpaw_cubSCall(
+        gpublasSafeCall(
                 cublasGetMatrixAsync(n2, k2, sizeof(double),
                                      (void*) a_gpu, n2, (void*) ph->a, n2,
                                      ph->stream[1]));
         cudaEventRecord(ps->event_dtoh[1], ph->stream[1]);
 
-        gpaw_cudaSafeCall(cudaStreamSynchronize(ph->stream[1]));
+        gpuSafeCall(cudaStreamSynchronize(ph->stream[1]));
         /* DSYRK on host CPU */
         Py_BEGIN_ALLOW_THREADS;
         dsyrk_("u", "t", &n2, &k2, &alpha, ph->a, &lda2, &beta, ph->c, &ldc2);
         Py_END_ALLOW_THREADS;
         /* data transfer host -> device */
         cudaEventRecord(ps->event_htod[0], ph->stream[1]);
-        gpaw_cubSCall(
+        gpublasSafeCall(
                 cublasSetMatrixAsync(n2, n2, sizeof(double),
                                      (void*) ph->c, n2, (void*) ph->c_gpu, n2,
                                      ph->stream[1]));
         cudaEventRecord(ps->event_htod[1], ph->stream[1]);
 
-        gpaw_cudaSafeCall(cudaStreamSynchronize(ph->stream[0]));
-        gpaw_cudaSafeCall(cudaStreamSynchronize(ph->stream[1]));
+        gpuSafeCall(cudaStreamSynchronize(ph->stream[0]));
+        gpuSafeCall(cudaStreamSynchronize(ph->stream[1]));
         /* elapsed time for each part */
         cudaEventElapsedTime(&time_gpu, ps->event_gpu[0], ps->event_gpu[1]);
         cudaEventElapsedTime(&time_cpu, ps->event_dtoh[1], ps->event_htod[0]);
@@ -437,9 +437,9 @@ static void hybrid_syrk_benchmark(hybrid_func_params_t *ps,
     ps->bench.htod /= times;
     ps->bench.times = 1;
 
-    gpaw_cubSCall(cublasSetStream(_gpaw_cublas_handle, 0));
-    cudaFree(a_gpu);
-    cudaFree(b_gpu);
+    gpublasSafeCall(cublasSetStream(_gpaw_cublas_handle, 0));
+    gpuFree(a_gpu);
+    gpuFree(b_gpu);
 }
 
 
@@ -466,17 +466,17 @@ static void hybrid_syr2k_benchmark(hybrid_func_params_t *ps,
 
     hybrid_pace_init(&ps->bench, 1);
 
-    GPAW_CUDAMALLOC(&a_gpu, double, k1 * n1);
-    GPAW_CUDAMALLOC(&b_gpu, double, k1 * n1);
+    gpuMalloc(&a_gpu, sizeof(double) * k1 * n1);
+    gpuMalloc(&b_gpu, sizeof(double) * k1 * n1);
 
     hybrid_param_alloc(ph, k2 * n2, k2 * n2, n2 * n2, n1 * n1);
 
     for (int i=0; i < times+1; i++) {
-        gpaw_cubSCall(
+        gpublasSafeCall(
                 cublasSetStream(_gpaw_cublas_handle, ph->stream[0]));
         /* DSYR2K on GPU device */
         cudaEventRecord(ps->event_gpu[0], ph->stream[0]);
-        gpaw_cubSCall(
+        gpublasSafeCall(
                 cublasDsyr2k(_gpaw_cublas_handle, CUBLAS_FILL_MODE_UPPER,
                              CUBLAS_OP_T, n1, k1, &alpha,
                              (double*) a_gpu, lda1, (double*) b_gpu, ldb1,
@@ -484,13 +484,13 @@ static void hybrid_syr2k_benchmark(hybrid_func_params_t *ps,
         cudaEventRecord(ps->event_gpu[1], ph->stream[0]);
         /* data transfer device -> host */
         cudaEventRecord(ps->event_dtoh[0], ph->stream[1]);
-        gpaw_cubSCall(
+        gpublasSafeCall(
                 cublasGetMatrixAsync(n2, k2, sizeof(double),
                                      (void*) a_gpu, n2, (void*) ph->a, n2,
                                      ph->stream[1]));
         cudaEventRecord(ps->event_dtoh[1], ph->stream[1]);
 
-        gpaw_cudaSafeCall(cudaStreamSynchronize(ph->stream[1]));
+        gpuSafeCall(cudaStreamSynchronize(ph->stream[1]));
         /* DSYR2K on host CPU */
         Py_BEGIN_ALLOW_THREADS;
         dsyr2k_("u", "t", &n2, &k2,
@@ -499,14 +499,14 @@ static void hybrid_syr2k_benchmark(hybrid_func_params_t *ps,
         Py_END_ALLOW_THREADS;
         /* data transfer host -> device */
         cudaEventRecord(ps->event_htod[0], ph->stream[1]);
-        gpaw_cubSCall(
+        gpublasSafeCall(
                 cublasSetMatrixAsync(n2, n2, sizeof(double),
                                      (void*) ph->c, n2, (void*) ph->c_gpu, n2,
                                      ph->stream[1]));
         cudaEventRecord(ps->event_htod[1], ph->stream[1]);
 
-        gpaw_cudaSafeCall(cudaStreamSynchronize(ph->stream[0]));
-        gpaw_cudaSafeCall(cudaStreamSynchronize(ph->stream[1]));
+        gpuSafeCall(cudaStreamSynchronize(ph->stream[0]));
+        gpuSafeCall(cudaStreamSynchronize(ph->stream[1]));
         /* elapsed time for each part */
         cudaEventElapsedTime(&time_gpu, ps->event_gpu[0], ps->event_gpu[1]);
         cudaEventElapsedTime(&time_cpu, ps->event_dtoh[1], ps->event_htod[0]);
@@ -527,9 +527,9 @@ static void hybrid_syr2k_benchmark(hybrid_func_params_t *ps,
     ps->bench.htod /= times;
     ps->bench.times = 1;
 
-    gpaw_cubSCall(cublasSetStream(_gpaw_cublas_handle, 0));
-    cudaFree(a_gpu);
-    cudaFree(b_gpu);
+    gpublasSafeCall(cublasSetStream(_gpaw_cublas_handle, 0));
+    gpuFree(a_gpu);
+    gpuFree(b_gpu);
 }
 
 
@@ -540,8 +540,8 @@ static void hybrid_gemm_update_paces(hybrid_func_params_t *pg)
     float time_dtoh;
     float time_htod;
 
-    gpaw_cudaSafeCall(cudaEventSynchronize(pg->event_htod[1]));
-    gpaw_cudaSafeCall(cudaEventSynchronize(pg->event_gpu[1]));
+    gpuSafeCall(cudaEventSynchronize(pg->event_htod[1]));
+    gpuSafeCall(cudaEventSynchronize(pg->event_gpu[1]));
 
     cudaEventElapsedTime(&time_gpu, pg->event_gpu[0], pg->event_gpu[1]);
     cudaEventElapsedTime(&time_cpu, pg->event_dtoh[1], pg->event_htod[0]);
@@ -572,7 +572,7 @@ static void hybrid_syrk_update_paces(hybrid_func_params_t *ps)
     float time_dtoh;
     float time_htod;
 
-    gpaw_cudaSafeCall(cudaEventSynchronize(ps->event_gpu[3]));
+    gpuSafeCall(cudaEventSynchronize(ps->event_gpu[3]));
 
     cudaEventElapsedTime(&time_gpu1, ps->event_gpu[0], ps->event_gpu[1]);
     cudaEventElapsedTime(&time_gpu2, ps->event_gpu[2], ps->event_gpu[3]);
@@ -600,7 +600,7 @@ static void hybrid_syr2k_update_paces(hybrid_func_params_t *ps)
     float time_dtoh;
     float time_htod;
 
-    gpaw_cudaSafeCall(cudaEventSynchronize(ps->event_gpu[3]));
+    gpuSafeCall(cudaEventSynchronize(ps->event_gpu[3]));
 
     cudaEventElapsedTime(&time_gpu1, ps->event_gpu[0], ps->event_gpu[1]);
     cudaEventElapsedTime(&time_gpu2, ps->event_gpu[2], ps->event_gpu[3]);
@@ -654,12 +654,12 @@ PyObject* scal_cuda_gpu(PyObject *self, PyObject *args)
         n *= (int) PyLong_AsLong(PyTuple_GetItem(x_shape, d));
     int incx = 1;
     if (type->type_num == NPY_DOUBLE) {
-        gpaw_cubSCall(
+        gpublasSafeCall(
                 cublasDscal(_gpaw_cublas_handle, n, &alpha.real,
                             (double*) x_gpu, incx));
     } else {
         cuDoubleComplex alpha_gpu = {alpha.real, alpha.imag};
-        gpaw_cubSCall(
+        gpublasSafeCall(
                 cublasZscal(_gpaw_cublas_handle, n, &alpha_gpu,
                     (cuDoubleComplex*) x_gpu, incx));
     }
@@ -676,14 +676,14 @@ static void _mmm_cuda(cublasOperation_t cu_opa, cublasOperation_t cu_opb,
                       CUdeviceptr c, int ldc, int real)
 {
     if (real) {
-        gpaw_cubSCall(
+        gpublasSafeCall(
                 cublasDgemm(_gpaw_cublas_handle, cu_opa, cu_opb, m, n, k,
                             &(alpha.real), (double*) a, lda, (double*) b, ldb,
                             &(beta.real), (double*) c, ldc));
     } else {
         cuDoubleComplex cu_alpha = {alpha.real, alpha.imag};
         cuDoubleComplex cu_beta = {beta.real, beta.imag};
-        gpaw_cubSCall(
+        gpublasSafeCall(
                 cublasZgemm(_gpaw_cublas_handle, cu_opa, cu_opb, m, n, k,
                             &cu_alpha, (cuDoubleComplex*) a, lda,
                             (cuDoubleComplex*) b, ldb,
@@ -825,17 +825,17 @@ static void _gemm_cuda_hybrid(char transa, cublasOperation_t transa_c,
         return;
     }
 
-    gpaw_cubSCall(
+    gpublasSafeCall(
             cublasSetStream(_gpaw_cublas_handle, ph->stream[0]));
     cudaEventRecord(pg->event_gpu[0], ph->stream[0]);
     _gemm_cuda(transa_c, pg->m1, pg->n1, k, alpha, a_gpu, lda,
                b_gpu, ldb, beta, c_gpu, ldc, real);
     cudaEventRecord(pg->event_gpu[1], ph->stream[0]);
-    gpaw_cubSCall(
+    gpublasSafeCall(
             cublasSetStream(_gpaw_cublas_handle, 0));
     cudaEventRecord(pg->event_dtoh[0], ph->stream[1]);
     if (transa == 'n') {
-        gpaw_cubSCall(
+        gpublasSafeCall(
                 cublasGetMatrixAsync(pg->m2, k,
                                      sizeof(double) * pg->ndouble,
                                      (void*) ((double*) a_gpu
@@ -843,7 +843,7 @@ static void _gemm_cuda_hybrid(char transa, cublasOperation_t transa_c,
                                      lda, (void*) ph->a, lda2,
                                      ph->stream[1]));
     } else {
-        gpaw_cubSCall(
+        gpublasSafeCall(
                 cublasGetMatrixAsync(k, pg->m2,
                                      sizeof(double) * pg->ndouble,
                                      (void*) ((double*) a_gpu
@@ -851,7 +851,7 @@ static void _gemm_cuda_hybrid(char transa, cublasOperation_t transa_c,
                                      lda, (void*) ph->a, lda2,
                                      ph->stream[1]));
     }
-    gpaw_cubSCall(
+    gpublasSafeCall(
             cublasGetMatrixAsync(k, pg->n2,
                                  sizeof(double) * pg->ndouble,
                                  (void*) ((double*) b_gpu
@@ -859,7 +859,7 @@ static void _gemm_cuda_hybrid(char transa, cublasOperation_t transa_c,
                                  ldb, (void*) ph->b, ldb,
                                  ph->stream[1]));
     if (!beta_null) {
-        gpaw_cubSCall(
+        gpublasSafeCall(
                 cublasGetMatrixAsync(pg->m2, pg->n2,
                                      sizeof(double) * pg->ndouble,
                                      (void*) ((double*) c_gpu
@@ -870,7 +870,7 @@ static void _gemm_cuda_hybrid(char transa, cublasOperation_t transa_c,
     }
     cudaEventRecord(pg->event_dtoh[1], ph->stream[1]);
     Py_BEGIN_ALLOW_THREADS;
-    gpaw_cudaSafeCall(cudaEventSynchronize(pg->event_dtoh[1]));
+    gpuSafeCall(cudaEventSynchronize(pg->event_dtoh[1]));
     if (real) {
         dgemm_(&transa, "n", &pg->m2, &pg->n2, &k,
                &(alpha.real), ph->a, &lda2, ph->b, &ldb,
@@ -882,7 +882,7 @@ static void _gemm_cuda_hybrid(char transa, cublasOperation_t transa_c,
     }
     Py_END_ALLOW_THREADS;
     cudaEventRecord(pg->event_htod[0], ph->stream[1]);
-    gpaw_cubSCall(
+    gpublasSafeCall(
             cublasSetMatrixAsync(pg->m2, pg->n2,
                                  sizeof(double) * pg->ndouble,
                                  (void*) ph->c, ldc2,
@@ -996,7 +996,7 @@ PyObject* gemv_cuda_gpu(PyObject *self, PyObject *args)
     incx = 1;
     incy = 1;
     if (type->type_num == NPY_DOUBLE) {
-        gpaw_cubSCall(
+        gpublasSafeCall(
                 cublasDgemv(_gpaw_cublas_handle, trans_c, m, n,
                             &alpha.real, (double*) a_gpu, lda,
                             (double*) x_gpu, incx,
@@ -1004,7 +1004,7 @@ PyObject* gemv_cuda_gpu(PyObject *self, PyObject *args)
     } else {
         cuDoubleComplex alpha_gpu = {alpha.real, alpha.imag};
         cuDoubleComplex beta_gpu = {beta.real, beta.imag};
-        gpaw_cubSCall(
+        gpublasSafeCall(
                 cublasZgemv(_gpaw_cublas_handle, trans_c, m, n,
                             &alpha_gpu, (cuDoubleComplex*) a_gpu, lda,
                             (cuDoubleComplex*) x_gpu, incx,
@@ -1037,13 +1037,13 @@ PyObject* axpy_cuda_gpu(PyObject *self, PyObject *args)
     int incx = 1;
     int incy = 1;
     if (type->type_num == NPY_DOUBLE) {
-        gpaw_cubSCall(
+        gpublasSafeCall(
                 cublasDaxpy(_gpaw_cublas_handle, n, &alpha.real,
                             (double*) x_gpu, incx,
                             (double*) y_gpu, incy));
     } else {
         cuDoubleComplex alpha_gpu = {alpha.real, alpha.imag};
-        gpaw_cubSCall(
+        gpublasSafeCall(
                 cublasZaxpy(_gpaw_cublas_handle, n, &alpha_gpu,
                             (cuDoubleComplex*) x_gpu, incx,
                             (cuDoubleComplex*) y_gpu, incy));
@@ -1060,14 +1060,14 @@ static void _rk_cuda_gpu(int n, int k,
                          int real)
 {
     if (real) {
-        gpaw_cubSCall(
+        gpublasSafeCall(
                 cublasDsyrk(_gpaw_cublas_handle,
                     CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_T,
                     n, k,
                     &alpha, (double*) a_gpu, lda,
                     &beta, (double*) c_gpu, ldc));
     } else {
-        gpaw_cubSCall(
+        gpublasSafeCall(
                 cublasZherk(_gpaw_cublas_handle,
                     CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_T,
                     n, k,
@@ -1123,17 +1123,17 @@ static void _rk_cuda_gpu_hybrid(int n, int k,
         return;
     }
 
-    gpaw_cubSCall(cublasSetStream(_gpaw_cublas_handle, ph->stream[0]));
+    gpublasSafeCall(cublasSetStream(_gpaw_cublas_handle, ph->stream[0]));
     cudaEventRecord(ps->event_gpu[0], ph->stream[0]);
     if (real) {
-        gpaw_cubSCall(
+        gpublasSafeCall(
                 cublasDsyrk(_gpaw_cublas_handle,
                     CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_T,
                     n, ps->k1,
                     &alpha, (double*) a_gpu, lda,
                     &beta, (double*) c_gpu, ldc));
     } else {
-        gpaw_cubSCall(
+        gpublasSafeCall(
                 cublasZherk(_gpaw_cublas_handle,
                     CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_T,
                     n, ps->k1,
@@ -1142,10 +1142,10 @@ static void _rk_cuda_gpu_hybrid(int n, int k,
     }
     cudaEventRecord(ps->event_gpu[1], ph->stream[0]);
     cudaEventRecord(ps->event_gpu[3], ph->stream[2]);
-    gpaw_cubSCall(cublasSetStream(_gpaw_cublas_handle, 0));
+    gpublasSafeCall(cublasSetStream(_gpaw_cublas_handle, 0));
 
     cudaEventRecord(ps->event_dtoh[0], ph->stream[1]);
-    gpaw_cubSCall(
+    gpublasSafeCall(
             cublasGetMatrixAsync(ps->k2, n,
                                  sizeof(double) * ps->ndouble,
                                  (void*) ((double*) a_gpu
@@ -1156,7 +1156,7 @@ static void _rk_cuda_gpu_hybrid(int n, int k,
     cudaEventRecord(ps->event_dtoh[1], ph->stream[1]);
 
     Py_BEGIN_ALLOW_THREADS;
-    gpaw_cudaSafeCall(cudaEventSynchronize(ps->event_dtoh[1]));
+    gpuSafeCall(cudaEventSynchronize(ps->event_dtoh[1]));
     if (real) {
         dsyrk_("u", "t", &ps->n, &ps->k2,
                &alpha, ph->a, &lda2,
@@ -1169,7 +1169,7 @@ static void _rk_cuda_gpu_hybrid(int n, int k,
     Py_END_ALLOW_THREADS;
 
     cudaEventRecord(ps->event_htod[0], ph->stream[1]);
-    gpaw_cubSCall(
+    gpublasSafeCall(
             cublasSetMatrixAsync(ps->n, ps->n,
                                  sizeof(double) * ps->ndouble,
                                  (void*) ph->c, ldc,
@@ -1181,7 +1181,7 @@ static void _rk_cuda_gpu_hybrid(int n, int k,
     cudaStreamWaitEvent(0, ps->event_gpu[1], 0);
     cudaStreamWaitEvent(0, ps->event_htod[1], 0);
     cudaEventRecord(ps->event_gpu[2], 0);
-    gpaw_cubSCall(
+    gpublasSafeCall(
             cublasDaxpy(_gpaw_cublas_handle, ps->n * ps->n * ps->ndouble,
                 &alpha_, (double*) ph->c_gpu, 1, (double*) c_gpu, 1));
     cudaEventRecord(ps->event_gpu[3], 0);
@@ -1232,7 +1232,7 @@ static void _r2k_cuda_gpu(int n, int k,
                           CUdeviceptr c_gpu, int ldc, int real)
 {
     if (real) {
-        gpaw_cubSCall(
+        gpublasSafeCall(
                 cublasDsyr2k(_gpaw_cublas_handle,
                     CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_T, n, k,
                     &alpha.real, (double*) a_gpu, lda,
@@ -1240,7 +1240,7 @@ static void _r2k_cuda_gpu(int n, int k,
                     &beta, (double*) c_gpu, ldc));
     } else {
         cuDoubleComplex alpha_gpu = {alpha.real, alpha.imag};
-        gpaw_cubSCall(
+        gpublasSafeCall(
                 cublasZher2k(_gpaw_cublas_handle,
                     CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_T, n, k,
                     &alpha_gpu, (cuDoubleComplex*) a_gpu, lda,
@@ -1299,12 +1299,12 @@ static void _r2k_cuda_gpu_hybrid(int n, int k,
         return;
     }
 
-    gpaw_cubSCall(
+    gpublasSafeCall(
             cublasSetStream(_gpaw_cublas_handle, ph->stream[0]));
     cudaEventRecord(ps2->event_gpu[0], ph->stream[0]);
 
     if (real) {
-        gpaw_cubSCall(
+        gpublasSafeCall(
                 cublasDsyr2k(_gpaw_cublas_handle,
                     CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_T, n, ps2->k1,
                     &alpha.real, (double*) a_gpu, lda,
@@ -1312,7 +1312,7 @@ static void _r2k_cuda_gpu_hybrid(int n, int k,
                     &beta, (double*) c_gpu, ldc));
     } else {
         cuDoubleComplex alpha_gpu = {alpha.real, alpha.imag};
-        gpaw_cubSCall(
+        gpublasSafeCall(
                 cublasZher2k(_gpaw_cublas_handle,
                     CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_T, n, ps2->k1,
                     &alpha_gpu, (cuDoubleComplex*) a_gpu, lda,
@@ -1321,17 +1321,17 @@ static void _r2k_cuda_gpu_hybrid(int n, int k,
     }
     cudaEventRecord(ps2->event_gpu[1], ph->stream[0]);
     cudaEventRecord(ps2->event_gpu[3], ph->stream[2]);
-    gpaw_cubSCall(cublasSetStream(_gpaw_cublas_handle, 0));
+    gpublasSafeCall(cublasSetStream(_gpaw_cublas_handle, 0));
 
     cudaEventRecord(ps2->event_dtoh[0], ph->stream[1]);
-    gpaw_cubSCall(
+    gpublasSafeCall(
             cublasGetMatrixAsync(ps2->k2, n,
                                  sizeof(double) * ps2->ndouble,
                                  (void*) ((double*) a_gpu
                                      + ps2->k1 * ps2->ndouble),
                                  lda, (void*) ph->a, lda2,
                                  ph->stream[1]));
-    gpaw_cubSCall(
+    gpublasSafeCall(
             cublasGetMatrixAsync(ps2->k2, n,
                                  sizeof(double) * ps2->ndouble,
                                  (void*) ((double*) b_gpu
@@ -1342,7 +1342,7 @@ static void _r2k_cuda_gpu_hybrid(int n, int k,
     cudaEventRecord(ps2->event_dtoh[1], ph->stream[1]);
 
     Py_BEGIN_ALLOW_THREADS;
-    gpaw_cudaSafeCall(cudaEventSynchronize(ps2->event_dtoh[1]));
+    gpuSafeCall(cudaEventSynchronize(ps2->event_dtoh[1]));
     if (real) {
         dsyr2k_("u", "t", &ps2->n, &ps2->k2,
                 &alpha.real, ph->a, &lda2, ph->b, &lda2, &beta2,
@@ -1355,7 +1355,7 @@ static void _r2k_cuda_gpu_hybrid(int n, int k,
     Py_END_ALLOW_THREADS;
 
     cudaEventRecord(ps2->event_htod[0],ph->stream[1]);
-    gpaw_cubSCall(
+    gpublasSafeCall(
             cublasSetMatrixAsync(ps2->n, ps2->n,
                                  sizeof(double) * ps2->ndouble,
                                  (void*) ph->c, ldc,
@@ -1367,7 +1367,7 @@ static void _r2k_cuda_gpu_hybrid(int n, int k,
     cudaStreamWaitEvent(0, ps2->event_gpu[1], 0);
     cudaStreamWaitEvent(0, ps2->event_htod[1], 0);
     cudaEventRecord(ps2->event_gpu[2], 0);
-    gpaw_cubSCall(
+    gpublasSafeCall(
             cublasDaxpy(_gpaw_cublas_handle,
                         ps2->n * ps2->n * ps2->ndouble,
                         &alpha_, (double*) ph->c_gpu, 1,
@@ -1439,7 +1439,7 @@ PyObject* dotc_cuda_gpu(PyObject *self, PyObject *args)
     int incy = 1;
     if (type->type_num == NPY_DOUBLE) {
         double result;
-        gpaw_cubSCall(
+        gpublasSafeCall(
                 cublasDdot(_gpaw_cublas_handle, n,
                            (double*) a_gpu, incx,
                            (double*) b_gpu, incy, &result));
@@ -1449,7 +1449,7 @@ PyObject* dotc_cuda_gpu(PyObject *self, PyObject *args)
             return PyFloat_FromDouble(result);
     } else {
         cuDoubleComplex result;
-        gpaw_cubSCall(
+        gpublasSafeCall(
                 cublasZdotc(_gpaw_cublas_handle, n,
                             (cuDoubleComplex*) a_gpu, incx,
                             (cuDoubleComplex*) b_gpu, incy, &result));
@@ -1480,7 +1480,7 @@ PyObject* dotu_cuda_gpu(PyObject *self, PyObject *args)
     int incy = 1;
     if (type->type_num == NPY_DOUBLE) {
         double result;
-        gpaw_cubSCall(
+        gpublasSafeCall(
                 cublasDdot(_gpaw_cublas_handle, n,
                     (double*) a_gpu, incx,
                     (double*) b_gpu, incy, &result));
@@ -1490,7 +1490,7 @@ PyObject* dotu_cuda_gpu(PyObject *self, PyObject *args)
             return PyFloat_FromDouble(result);
     } else {
         cuDoubleComplex result;
-        gpaw_cubSCall(
+        gpublasSafeCall(
                 cublasZdotu(_gpaw_cublas_handle, n,
                     (cuDoubleComplex*) a_gpu, incx,
                     (cuDoubleComplex*) b_gpu, incy, &result));

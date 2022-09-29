@@ -171,7 +171,7 @@ void Zcuda(bmgs_interpolate_cuda_gpu)(int k, int skip[3][2],
 
     Zcuda(interpolate_kernel)<<<dimGrid, dimBlock, 0>>>(
             a, n, b, b_n, skip0, skip1, xdiv, blocks);
-    gpaw_cudaSafeCall(cudaGetLastError());
+    gpuCheckLastError();
 }
 
 #ifndef GPU_USE_COMPLEX
@@ -193,27 +193,23 @@ double bmgs_interpolate_cuda_cpu(int k, int skip[3][2], const double* a,
     asize = blocks * n[0] * n[1] * n[2];
     bsize = blocks * b_n[0] * b_n[1] * b_n[2];
 
-    gpaw_cudaSafeCall(cudaMalloc(&adev, sizeof(double) * asize));
-    gpaw_cudaSafeCall(cudaMalloc(&bdev, sizeof(double) * bsize));
+    gpuMalloc(&adev, sizeof(double) * asize);
+    gpuMalloc(&bdev, sizeof(double) * bsize);
 
-    gpaw_cudaSafeCall(
-            cudaMemcpy(adev, a, sizeof(double) * asize,
-                       cudaMemcpyHostToDevice));
+    gpuMemcpy(adev, a, sizeof(double) * asize, gpuMemcpyHostToDevice);
 
     gettimeofday(&t0, NULL);
 
     bmgs_interpolate_cuda_gpu(k, skip, adev, n, bdev, b_n, blocks);
     cudaThreadSynchronize();
-    gpaw_cudaSafeCall(cudaGetLastError());
+    gpuCheckLastError();
 
     gettimeofday(&t1,NULL);
 
-    gpaw_cudaSafeCall(
-            cudaMemcpy(b, bdev, sizeof(double) * bsize,
-                       cudaMemcpyDeviceToHost));
+    gpuMemcpy(b, bdev, sizeof(double) * bsize, gpuMemcpyDeviceToHost);
 
-    gpaw_cudaSafeCall(cudaFree(adev));
-    gpaw_cudaSafeCall(cudaFree(bdev));
+    gpuFree(adev);
+    gpuFree(bdev);
 
     flops = t1.tv_sec * 1.0 + t1.tv_usec / 1000000.0 - t0.tv_sec * 1.0
           - t0.tv_usec / 1000000.0;

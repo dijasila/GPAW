@@ -776,7 +776,7 @@ void bmgs_relax_cuda_gpu(const int relax_method,
              s_gpu->coefs0_gpu, s_gpu->coefs1_gpu, s_gpu->coefs2_gpu,
              adev, bdev, src, hc_n, jb, boundary, w, xdiv);
     }
-    gpaw_cudaSafeCall(cudaGetLastError());
+    gpuCheckLastError();
 }
 
 extern "C"
@@ -794,33 +794,25 @@ double bmgs_relax_cuda_cpu(const int relax_method, const bmgsstencil* s,
           + s->n[0] * (s->j[1] + s->n[1] * (s->n[2] + s->j[2]));
     bsize = s->n[0] * s->n[1] * s->n[2];
 
-    gpaw_cudaSafeCall(cudaMalloc(&adev, sizeof(double) * asize));
-    gpaw_cudaSafeCall(cudaMalloc(&bdev, sizeof(double) * bsize));
-    gpaw_cudaSafeCall(cudaMalloc(&srcdev, sizeof(double) * bsize));
+    gpuMalloc(&adev, sizeof(double) * asize);
+    gpuMalloc(&bdev, sizeof(double) * bsize);
+    gpuMalloc(&srcdev, sizeof(double) * bsize);
 
-    gpaw_cudaSafeCall(
-            cudaMemcpy(adev, a, sizeof(double) * asize,
-                       cudaMemcpyHostToDevice));
-    gpaw_cudaSafeCall(
-            cudaMemcpy(bdev, b, sizeof(double) * bsize,
-                       cudaMemcpyHostToDevice));
-    gpaw_cudaSafeCall(
-            cudaMemcpy(srcdev, src, sizeof(double) * bsize,
-                       cudaMemcpyHostToDevice));
+    gpuMemcpy(adev, a, sizeof(double) * asize, gpuMemcpyHostToDevice);
+    gpuMemcpy(bdev, b, sizeof(double) * bsize, gpuMemcpyHostToDevice);
+    gpuMemcpy(srcdev, src, sizeof(double) * bsize, gpuMemcpyHostToDevice);
 
     gettimeofday(&t0, NULL);
     bmgs_relax_cuda_gpu(relax_method, &s_gpu, adev, bdev,srcdev, w,
                         GPAW_BOUNDARY_NORMAL,0);
     cudaThreadSynchronize();
-    gpaw_cudaSafeCall(cudaGetLastError());
+    gpuCheckLastError();
     gettimeofday(&t1, NULL);
 
-    gpaw_cudaSafeCall(
-            cudaMemcpy(b, bdev, sizeof(double) * bsize,
-                       cudaMemcpyDeviceToHost));
-    gpaw_cudaSafeCall(cudaFree(adev));
-    gpaw_cudaSafeCall(cudaFree(bdev));
-    gpaw_cudaSafeCall(cudaFree(srcdev));
+    gpuMemcpy(b, bdev, sizeof(double) * bsize, gpuMemcpyDeviceToHost);
+    gpuFree(adev);
+    gpuFree(bdev);
+    gpuFree(srcdev);
 
     flops = t1.tv_sec * 1.0 + t1.tv_usec / 1000000.0 - t0.tv_sec * 1.0
           - t0.tv_usec / 1000000.0;

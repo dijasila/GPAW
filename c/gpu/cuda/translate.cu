@@ -90,7 +90,7 @@ void Zcuda(bmgs_translate_cuda_gpu)(
          phase,
 #endif
          blocks, xdiv);
-    gpaw_cudaSafeCall(cudaGetLastError());
+    gpuCheckLastError();
 }
 
 #ifndef GPU_USE_COMPLEX

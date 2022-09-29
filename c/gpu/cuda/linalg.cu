@@ -167,7 +167,7 @@ PyObject* elementwise_multiply_add_gpu(PyObject *self, PyObject *args)
                  (cuDoubleComplex*) c_gpu);
         }
     }
-    gpaw_cudaSafeCall(cudaGetLastError());
+    gpuCheckLastError();
     if (PyErr_Occurred())
         return NULL;
     else
@@ -256,7 +256,7 @@ PyObject* multi_elementwise_multiply_add_gpu(PyObject *self,
             }
         }
     }
-    gpaw_cudaSafeCall(cudaGetLastError());
+    gpuCheckLastError();
     if (PyErr_Occurred())
         return NULL;
     else
@@ -292,7 +292,7 @@ PyObject* ax2py_gpu(PyObject *self, PyObject *args)
         ax2py_kernelz<<<dimGrid, dimBlock, 0>>>
             (n, alpha, (Tcuda*) x_gpu, (double*) y_gpu);
     }
-    gpaw_cudaSafeCall(cudaGetLastError());
+    gpuCheckLastError();
     if (PyErr_Occurred())
         return NULL;
     else
@@ -323,7 +323,7 @@ PyObject* csign_gpu(PyObject *self, PyObject *args)
     } else {
         csign_kernelz<<<dimGrid, dimBlock, 0>>>(n, (Tcuda*) x_gpu);
     }
-    gpaw_cudaSafeCall(cudaGetLastError());
+    gpuCheckLastError();
     if (PyErr_Occurred())
         return NULL;
     else
@@ -370,7 +370,7 @@ PyObject* multi_ax2py_gpu(PyObject *self, PyObject *args)
         multi_ax2py_kernelz<<<dimGrid, dimBlock, 0>>>
             (n, nvec, alpha, (cuDoubleComplex*) x_gpu, (double*) y_gpu);
     }
-    gpaw_cudaSafeCall(cudaGetLastError());
+    gpuCheckLastError();
     if (PyErr_Occurred())
         return NULL;
     else

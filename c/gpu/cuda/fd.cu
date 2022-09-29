@@ -761,7 +761,7 @@ void Zcuda(bmgs_fd_cuda_gpu)(
                 (double*) adev, (double*) bdev, hc_n, jb, boundary, xdiv,
                 blocks);
     }
-    gpaw_cudaSafeCall(cudaGetLastError());
+    gpuCheckLastError();
 }
 
 
@@ -778,28 +778,24 @@ double Zcuda(bmgs_fd_cuda_cpu)(const bmgsstencil* s, const Tcuda* a,
     asize = s->j[0] + s->n[0] * (s->j[1] + s->n[1] * (s->n[2] + s->j[2]));
     bsize = s->n[0] * s->n[1] * s->n[2];
 
-    gpaw_cudaSafeCall(cudaGetLastError());
-    gpaw_cudaSafeCall(cudaMalloc(&adev, sizeof(Tcuda) * asize * blocks));
-    gpaw_cudaSafeCall(cudaMalloc(&bdev, sizeof(Tcuda) * bsize * blocks));
+    gpuCheckLastError();
+    gpuMalloc(&adev, sizeof(Tcuda) * asize * blocks);
+    gpuMalloc(&bdev, sizeof(Tcuda) * bsize * blocks);
 
-    gpaw_cudaSafeCall(
-            cudaMemcpy(adev, a, sizeof(Tcuda) * asize * blocks,
-                       cudaMemcpyHostToDevice));
-    gpaw_cudaSafeCall(cudaGetLastError());
+    gpuMemcpy(adev, a, sizeof(Tcuda) * asize * blocks, gpuMemcpyHostToDevice);
+    gpuCheckLastError();
 
     gettimeofday(&t0, NULL);
     Zcuda(bmgs_fd_cuda_gpu)(&s_gpu, adev, bdev, GPAW_BOUNDARY_NORMAL,
                             blocks, 0);
     cudaThreadSynchronize();
-    gpaw_cudaSafeCall(cudaGetLastError());
+    gpuCheckLastError();
     gettimeofday(&t1,NULL);
 
-    gpaw_cudaSafeCall(
-            cudaMemcpy(b, bdev, sizeof(Tcuda) * bsize * blocks,
-                       cudaMemcpyDeviceToHost));
+    gpuMemcpy(b, bdev, sizeof(Tcuda) * bsize * blocks, gpuMemcpyDeviceToHost);
 
-    gpaw_cudaSafeCall(cudaFree(adev));
-    gpaw_cudaSafeCall(cudaFree(bdev));
+    gpuFree(adev);
+    gpuFree(bdev);
 
     flops = t1.tv_sec * 1.0 + t1.tv_usec / 1000000.0 - t0.tv_sec * 1.0
           - t0.tv_usec / 1000000.0;
@@ -967,25 +963,25 @@ bmgsstencil_gpu bmgs_stencil_to_gpu(const bmgsstencil* s)
     s_gpu.coef_relax = s->coefs[0];
 
     if (ncoefs > 0) {
-        GPAW_CUDAMALLOC(&(s_gpu.coefs_gpu), double, ncoefs);
-        GPAW_CUDAMEMCPY(s_gpu.coefs_gpu, coefs, double, ncoefs,
-                        cudaMemcpyHostToDevice);
+        gpuMalloc(&(s_gpu.coefs_gpu), sizeof(double) * ncoefs);
+        gpuMemcpy(s_gpu.coefs_gpu, coefs, sizeof(double) * ncoefs,
+                  gpuMemcpyHostToDevice);
 
-        GPAW_CUDAMALLOC(&(s_gpu.offsets_gpu), long, ncoefs);
-        GPAW_CUDAMEMCPY(s_gpu.offsets_gpu, offsets, long, ncoefs,
-                        cudaMemcpyHostToDevice);
+        gpuMalloc(&(s_gpu.offsets_gpu), sizeof(long) * ncoefs);
+        gpuMemcpy(s_gpu.offsets_gpu, offsets, sizeof(long) * ncoefs,
+                  gpuMemcpyHostToDevice);
     }
-    GPAW_CUDAMALLOC(&(s_gpu.coefs0_gpu), double, ncoefs0);
-    GPAW_CUDAMEMCPY(s_gpu.coefs0_gpu, coefs0, double, ncoefs0,
-                    cudaMemcpyHostToDevice);
+    gpuMalloc(&(s_gpu.coefs0_gpu), sizeof(double) * ncoefs0);
+    gpuMemcpy(s_gpu.coefs0_gpu, coefs0, sizeof(double) * ncoefs0,
+              gpuMemcpyHostToDevice);
 
-    GPAW_CUDAMALLOC(&(s_gpu.coefs1_gpu), double, ncoefs1);
-    GPAW_CUDAMEMCPY(s_gpu.coefs1_gpu, coefs1, double, ncoefs1,
-                    cudaMemcpyHostToDevice);
+    gpuMalloc(&(s_gpu.coefs1_gpu), sizeof(double) * ncoefs1);
+    gpuMemcpy(s_gpu.coefs1_gpu, coefs1, sizeof(double) * ncoefs1,
+              gpuMemcpyHostToDevice);
 
-    GPAW_CUDAMALLOC(&(s_gpu.coefs2_gpu), double, ncoefs2);
-    GPAW_CUDAMEMCPY(s_gpu.coefs2_gpu, coefs2, double, ncoefs2,
-                    cudaMemcpyHostToDevice);
+    gpuMalloc(&(s_gpu.coefs2_gpu), sizeof(double) * ncoefs2);
+    gpuMemcpy(s_gpu.coefs2_gpu, coefs2, sizeof(double) * ncoefs2,
+              gpuMemcpyHostToDevice);
     return s_gpu;
 }
 

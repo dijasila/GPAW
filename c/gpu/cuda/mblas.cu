@@ -115,7 +115,7 @@ PyObject* multi_scal_cuda_gpu(PyObject *self, PyObject *args)
         multi_scal_cuda_kernelz<<<dimGrid, dimBlock, 0>>>
             (n, alpha, (cuDoubleComplex*) x_gpu);
     }
-    gpaw_cudaSafeCall(cudaGetLastError());
+    gpuCheckLastError();
     if (PyErr_Occurred())
         return NULL;
     else
@@ -174,7 +174,7 @@ PyObject* multi_axpy_cuda_gpu(PyObject *self, PyObject *args)
             (n, alpha, (cuDoubleComplex*) x_gpu,
              (cuDoubleComplex*) y_gpu);
     }
-    gpaw_cudaSafeCall(cudaGetLastError());
+    gpuCheckLastError();
     if (PyErr_Occurred())
         return NULL;
     else
@@ -217,7 +217,7 @@ PyObject* multi_dotu_cuda_gpu(PyObject *self, PyObject *args)
                         (cuDoubleComplex *) b_gpu,
                         result, n, nvec);
     }
-    gpaw_cudaSafeCall(cudaGetLastError());
+    gpuCheckLastError();
     if (PyErr_Occurred())
         return NULL;
     else
@@ -254,7 +254,7 @@ PyObject* multi_dotc_cuda_gpu(PyObject *self, PyObject *args)
                         (cuDoubleComplex*) b_gpu,
                         result, n, nvec);
     }
-    gpaw_cudaSafeCall(cudaGetLastError());
+    gpuCheckLastError();
     if (PyErr_Occurred())
         return NULL;
     else

@@ -5,7 +5,7 @@
 #define REDUCE_LFC_MAX_BLOCKS   (32)
 #define REDUCE_LFC_MAX_BLOCKS2  (32)
 #define REDUCE_LFC_MAX_YBLOCKS  (65535)
-#define REDUCE_LFC_BUFFER_SIZE  ((2 * GPAW_CUDA_BLOCKS_MAX \
+#define REDUCE_LFC_BUFFER_SIZE  ((2 * GPU_BLOCKS_MAX \
                                  * MAX(REDUCE_LFC_MAX_BLOCKS, \
                                        REDUCE_LFC_MAX_BLOCKS2)) * 16)
 
@@ -178,9 +178,7 @@ void Zcuda(lfc_reducemap)(LFCObject *lfc, const Tcuda *a_G, int nG,
 
     if (lfc_reduce_buffer_size < nM * REDUCE_LFC_BUFFER_SIZE) {
         lfc_reduce_dealloc_cuda();
-        gpaw_cudaSafeCall(
-                cudaMalloc((void**) (&lfc_reduce_buffer),
-                           nM * REDUCE_LFC_BUFFER_SIZE));
+        gpuMalloc(&lfc_reduce_buffer, nM * REDUCE_LFC_BUFFER_SIZE);
         lfc_reduce_buffer_size = nM * REDUCE_LFC_BUFFER_SIZE;
     }
     lfc_reduceNumBlocksAndThreads(lfc->max_len_A_gm, &blocks, &threads);
@@ -295,7 +293,7 @@ void Zcuda(lfc_reducemap)(LFCObject *lfc, const Tcuda *a_G, int nG,
             default:
                 assert(0);
         }
-        assert(!gpaw_cudaSafeCall(cudaGetLastError()));
+        assert(!gpuCheckLastError());
 
         int s = blocks;
         int count = 0;
@@ -377,7 +375,7 @@ void Zcuda(lfc_reducemap)(LFCObject *lfc, const Tcuda *a_G, int nG,
                 default:
                     assert(0);
             }
-            assert(!gpaw_cudaSafeCall(cudaGetLastError()));
+            assert(!gpuCheckLastError());
             s = (s + (threads2 * 2 - 1)) / (threads2 * 2);
         }
     }

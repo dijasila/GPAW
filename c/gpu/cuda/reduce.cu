@@ -3,7 +3,7 @@
 #define REDUCE_MAX_THREADS  (256)
 #define REDUCE_MAX_BLOCKS   (64)
 #define REDUCE_MAX_NVEC     (128*1024)
-#define REDUCE_BUFFER_SIZE  ((REDUCE_MAX_NVEC + 2 * GPAW_CUDA_BLOCKS_MAX \
+#define REDUCE_BUFFER_SIZE  ((REDUCE_MAX_NVEC + 2 * GPU_BLOCKS_MAX \
                               * REDUCE_MAX_BLOCKS) * 16)
 
 static void *reduce_buffer = NULL;
@@ -167,8 +167,7 @@ void MAPNAME(reducemap)(const Tcuda *d_idata1, const Tcuda *d_idata2,
     int blocks, threads;
 
     if (reduce_buffer == NULL) {
-        gpaw_cudaSafeCall(
-                cudaMalloc((void**) (&reduce_buffer), REDUCE_BUFFER_SIZE));
+        gpuMalloc(&reduce_buffer, REDUCE_BUFFER_SIZE);
     }
     reduceNumBlocksAndThreads(size, &blocks, &threads);
 
@@ -256,7 +255,7 @@ void MAPNAME(reducemap)(const Tcuda *d_idata1, const Tcuda *d_idata2,
             default:
                 assert(0);
         }
-        gpaw_cudaSafeCall(cudaGetLastError());
+        gpuCheckLastError();
 
         s = blocks;
         int count = 0;
@@ -328,7 +327,7 @@ void MAPNAME(reducemap)(const Tcuda *d_idata1, const Tcuda *d_idata2,
                 default:
                     assert(0);
             }
-            gpaw_cudaSafeCall(cudaGetLastError());
+            gpuCheckLastError();
 
             s = (s + (threads2 * 2 - 1)) / (threads2 * 2);
         }

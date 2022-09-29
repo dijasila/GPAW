@@ -58,9 +58,9 @@ void operator_alloc_buffers(OperatorObject *self, int blocks)
     int ng2 = (bc->ndouble * size2[0] * size2[1] * size2[2]) * blocks;
 
     if (ng2 > operator_buf_size) {
-        cudaFree(operator_buf_gpu);
-        cudaGetLastError();
-        GPAW_CUDAMALLOC(&operator_buf_gpu, double, ng2);
+        gpuFree(operator_buf_gpu);
+        gpuCheckLastError();
+        gpuMalloc(&operator_buf_gpu, sizeof(double) * ng2);
         operator_buf_size = ng2;
     }
     if (!operator_streams) {
@@ -101,14 +101,14 @@ void operator_dealloc_cuda(int force)
     }
     if (operator_init_count == 1) {
         cudaError_t rval;
-        rval = cudaFree(operator_buf_gpu);
+        rval = gpuFree(operator_buf_gpu);
         if (rval == cudaSuccess && operator_streams) {
             for (int i=0; i < OPERATOR_NSTREAMS; i++) {
-                gpaw_cudaSafeCall(cudaStreamSynchronize(operator_stream[i]));
-                gpaw_cudaSafeCall(cudaStreamDestroy(operator_stream[i]));
+                gpuSafeCall(cudaStreamSynchronize(operator_stream[i]));
+                gpuSafeCall(cudaStreamDestroy(operator_stream[i]));
             }
             for (int i=0; i < 2; i++) {
-                gpaw_cudaSafeCall(cudaEventDestroy(operator_event[i]));
+                gpuSafeCall(cudaEventDestroy(operator_event[i]));
             }
         }
         operator_init_buffers_cuda();
@@ -163,10 +163,10 @@ void debug_operator_deallocate()
  */
 void debug_operator_memcpy_pre(const double *in, double *out)
 {
-    GPAW_CUDAMEMCPY(debug_in_cpu, in, double, debug_size_arr,
-                    cudaMemcpyDeviceToHost);
-    GPAW_CUDAMEMCPY(debug_out_cpu, out, double, debug_size_arr,
-                    cudaMemcpyDeviceToHost);
+    gpuMemcpy(debug_in_cpu, in, sizeof(double) * debug_size_arr,
+              gpuMemcpyDeviceToHost);
+    gpuMemcpy(debug_out_cpu, out, sizeof(double) * debug_size_arr,
+              gpuMemcpyDeviceToHost);
 }
 
 /*
@@ -174,10 +174,10 @@ void debug_operator_memcpy_pre(const double *in, double *out)
  */
 void debug_operator_memcpy_post(double *out, double *buf)
 {
-    GPAW_CUDAMEMCPY(debug_out_gpu, out, double, debug_size_arr,
-                    cudaMemcpyDeviceToHost);
-    GPAW_CUDAMEMCPY(debug_buf_gpu, buf, double, debug_size_buf,
-                    cudaMemcpyDeviceToHost);
+    gpuMemcpy(debug_out_gpu, out, sizeof(double) * debug_size_arr,
+              gpuMemcpyDeviceToHost);
+    gpuMemcpy(debug_buf_gpu, buf, sizeof(double) * debug_size_buf,
+              gpuMemcpyDeviceToHost);
 }
 
 /*
@@ -218,12 +218,12 @@ void debug_operator_relax(OperatorObject* self, int relax_method, int nrelax,
     int rank = 0;
     if (bc->comm != MPI_COMM_NULL)
         MPI_Comm_rank(bc->comm, &rank);
-    if (buf_err > GPAW_CUDA_ABS_TOL) {
+    if (buf_err > GPU_ERROR_ABS_TOL) {
         fprintf(stderr,
                 "[%d] Debug CUDA operator relax (buf): error %g\n",
                 rank, buf_err);
     }
-    if (fun_err > GPAW_CUDA_ABS_TOL) {
+    if (fun_err > GPU_ERROR_ABS_TOL) {
         fprintf(stderr,
                 "[%d] Debug CUDA operator relax (fun): error %g\n",
                 rank, fun_err);
@@ -276,7 +276,7 @@ static void _operator_relax_cuda_gpu(OperatorObject* self, int relax_method,
                         * blocks * sizeof(double);
         }
     }
-    cuda_overlap &= (nsendrecvs > GPAW_CUDA_OVERLAP_SIZE);
+    cuda_overlap &= (nsendrecvs > GPU_OVERLAP_SIZE);
     if (cuda_overlap)
         cudaEventRecord(operator_event[1], 0);
 
@@ -410,7 +410,7 @@ void debug_operator_apply(OperatorObject* self, int nin, int blocks,
     int buf_err_n = 0;
     for (i = 0; i < debug_size_buf; i++) {
         err = fabs(debug_buf_cpu[i] - debug_buf_gpu[i]);
-        if (err > GPAW_CUDA_ABS_TOL)
+        if (err > GPU_ERROR_ABS_TOL)
             buf_err_n++;
         buf_err = MAX(buf_err, err);
     }
@@ -418,19 +418,19 @@ void debug_operator_apply(OperatorObject* self, int nin, int blocks,
     int out_err_n = 0;
     for (i = 0; i < debug_size_arr; i++) {
         err = fabs(debug_out_cpu[i] - debug_out_gpu[i]);
-        if (err > GPAW_CUDA_ABS_TOL)
+        if (err > GPU_ERROR_ABS_TOL)
             out_err_n++;
         out_err = MAX(out_err, err);
     }
     int rank = 0;
     if (bc->comm != MPI_COMM_NULL)
         MPI_Comm_rank(bc->comm, &rank);
-    if (buf_err > GPAW_CUDA_ABS_TOL) {
+    if (buf_err > GPU_ERROR_ABS_TOL) {
         fprintf(stderr,
                 "[%d] Debug CUDA operator apply (buf): error %g (count %d/%d)\n",
                 rank, buf_err, buf_err_n, debug_size_buf);
     }
-    if (out_err > GPAW_CUDA_ABS_TOL) {
+    if (out_err > GPU_ERROR_ABS_TOL) {
         fprintf(stderr,
                 "[%d] Debug CUDA operator apply (out): error %g (count %d/%d)\n",
                 rank, out_err, out_err_n, debug_size_arr);
@@ -480,7 +480,7 @@ static void _operator_apply_cuda_gpu(OperatorObject *self,
                         * blocks * sizeof(double);
         }
     }
-    cuda_overlap &= (nsendrecvs > GPAW_CUDA_OVERLAP_SIZE);
+    cuda_overlap &= (nsendrecvs > GPU_OVERLAP_SIZE);
     if  (cuda_overlap)
         cudaEventRecord(operator_event[1], 0);
 
@@ -592,8 +592,8 @@ PyObject * Operator_apply_cuda_gpu(OperatorObject* self, PyObject* args)
     if ((bc->maxsend || bc->maxrecv) && bc->comm != MPI_COMM_NULL) {
         MPI_Comm_size(bc->comm, &mpi_size);
     }
-    int blocks = MAX(1, MIN(nin, MIN((GPAW_CUDA_BLOCKS_MIN) * mpi_size,
-                                     (GPAW_CUDA_BLOCKS_MAX) / bc->ndouble)));
+    int blocks = MAX(1, MIN(nin, MIN((GPU_BLOCKS_MIN) * mpi_size,
+                                     (GPU_BLOCKS_MAX) / bc->ndouble)));
 
     if (gpaw_cuda_debug) {
         debug_operator_allocate(self, nin, blocks);

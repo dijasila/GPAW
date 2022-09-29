@@ -76,30 +76,30 @@ void bc_alloc_buffers(const boundary_conditions* bc, int blocks)
             nrecvs += NEXTPITCHDIV(bc->nrecv[i][d] * blocks);
         }
     }
-    bc_sbuffs_max=MAX(nsends, bc_sbuffs_max);
 
+    bc_sbuffs_max=MAX(nsends, bc_sbuffs_max);
     if (bc_sbuffs_max > bc_sbuffs_size) {
 #ifndef CUDA_MPI
-        cudaFreeHost(bc_sbuffs);
-        cudaGetLastError();
-        GPAW_CUDAMALLOC_HOST(&bc_sbuffs, double, bc_sbuffs_max);
+        gpuFreeHost(bc_sbuffs);
+        gpuCheckLastError();
+        gpuHostAlloc(&bc_sbuffs, sizeof(double) * bc_sbuffs_max);
 #endif
-        cudaFree(bc_sbuffs_gpu);
-        cudaGetLastError();
-        GPAW_CUDAMALLOC(&bc_sbuffs_gpu, double, bc_sbuffs_max);
+        gpuFree(bc_sbuffs_gpu);
+        gpuCheckLastError();
+        gpuMalloc(&bc_sbuffs_gpu, sizeof(double) * bc_sbuffs_max);
         bc_sbuffs_size = bc_sbuffs_max;
     }
 
     bc_rbuffs_max=MAX(nrecvs, bc_rbuffs_max);
     if (bc_rbuffs_max > bc_rbuffs_size) {
 #ifndef CUDA_MPI
-        cudaFreeHost(bc_rbuffs);
-        cudaGetLastError();
-        GPAW_CUDAMALLOC_HOST(&bc_rbuffs, double, bc_rbuffs_max);
+        gpuFreeHost(bc_rbuffs);
+        gpuCheckLastError();
+        gpuHostAlloc(&bc_rbuffs, sizeof(double) * bc_rbuffs_max);
 #endif
-        cudaFree(bc_rbuffs_gpu);
-        cudaGetLastError();
-        GPAW_CUDAMALLOC(&bc_rbuffs_gpu, double, bc_rbuffs_max);
+        gpuFree(bc_rbuffs_gpu);
+        gpuCheckLastError();
+        gpuMalloc(&bc_rbuffs_gpu, sizeof(double) * bc_rbuffs_max);
         bc_rbuffs_size = bc_rbuffs_max;
     }
 
@@ -127,9 +127,9 @@ void bc_dealloc_cuda(int force)
     if (bc_init_count == 1) {
 #ifndef CUDA_MPI
         cudaError_t rval;
-        rval = cudaFreeHost(bc_sbuffs);
+        rval = gpuFreeHost(bc_sbuffs);
         if (rval == cudaSuccess) {
-            cudaFreeHost(bc_rbuffs);
+            gpuFreeHost(bc_rbuffs);
             if (bc_streams) {
                 cudaStreamDestroy(bc_recv_stream);
                 for (int d=0; d<3; d++) {
@@ -141,8 +141,8 @@ void bc_dealloc_cuda(int force)
             }
         }
 #endif
-        cudaFree(bc_sbuffs_gpu);
-        cudaFree(bc_rbuffs_gpu);
+        gpuFree(bc_sbuffs_gpu);
+        gpuFree(bc_rbuffs_gpu);
         bc_init_buffers_cuda();
         return;
     }
@@ -160,22 +160,22 @@ void bc_cuda_check_msg_size(boundary_conditions* bc, int nin)
 
         bc->cuda_rjoin[i] = 0;
         if (bc->recvproc[i][0] >= 0 && bc->recvproc[i][1] >= 0) {
-            if (maxrecv < GPAW_CUDA_RJOIN_SIZE)
+            if (maxrecv < GPU_RJOIN_SIZE)
                 bc->cuda_rjoin[i] = 1;
-            else if ((maxrecv < GPAW_CUDA_RJOIN_SAME_SIZE) &&
+            else if ((maxrecv < GPU_RJOIN_SAME_SIZE) &&
                     (bc->recvproc[i][0] == bc->recvproc[i][1]))
                 bc->cuda_rjoin[i] = 1;
         }
         bc->cuda_sjoin[i] = 0;
         if (bc->sendproc[i][0] >= 0 && bc->sendproc[i][1] >= 0) {
-            if (maxsend < GPAW_CUDA_SJOIN_SIZE)
+            if (maxsend < GPU_SJOIN_SIZE)
                 bc->cuda_sjoin[i] = 1;
-            else if ((maxsend < GPAW_CUDA_SJOIN_SAME_SIZE) &&
+            else if ((maxsend < GPU_SJOIN_SAME_SIZE) &&
                     (bc->sendproc[i][0] == bc->sendproc[i][1]))
                 bc->cuda_sjoin[i] = 1;
         }
 
-        if (MAX(maxsend, maxrecv) < GPAW_CUDA_ASYNC_SIZE)
+        if (MAX(maxsend, maxrecv) < GPU_ASYNC_SIZE)
             bc->cuda_async[i] = 0;
         else
             bc->cuda_async[i] = 1;
@@ -304,9 +304,9 @@ void bc_unpack_cuda_gpu_sync(const boundary_conditions* bc,
 
 #ifndef CUDA_MPI
     if (bc->sendproc[i][0] >= 0 || bc->sendproc[i][1] >= 0)
-        GPAW_CUDAMEMCPY(bc_sbuff[i][0], bc_sbuff_gpu[i][0], double,
-                (bc->nsend[i][0] + bc->nsend[i][1]) * nin,
-                cudaMemcpyDeviceToHost);
+        gpuMemcpy(bc_sbuff[i][0], bc_sbuff_gpu[i][0],
+                  sizeof(double) * (bc->nsend[i][0] + bc->nsend[i][1]) * nin,
+                  gpuMemcpyDeviceToHost);
 #endif
 
     // Start sending:
@@ -353,9 +353,9 @@ void bc_unpack_cuda_gpu_sync(const boundary_conditions* bc,
     }
     if (!bc_recv_done[i][0] || !bc_recv_done[i][1]) {
 #ifndef CUDA_MPI
-        GPAW_CUDAMEMCPY(bc_rbuff_gpu[i][0], bc_rbuff[i][0], double,
-                (bc->nrecv[i][0] + bc->nrecv[i][1]) * nin,
-                cudaMemcpyHostToDevice);
+        gpuMemcpy(bc_rbuff_gpu[i][0], bc_rbuff[i][0],
+                  sizeof(double) * (bc->nrecv[i][0] + bc->nrecv[i][1]) * nin,
+                  cudaMemcpyHostToDevice);
 #endif
         bc_recv_done[i][0] = 1;
         bc_recv_done[i][1] = 1;
@@ -419,17 +419,22 @@ void bc_unpack_cuda_gpu_async(const boundary_conditions* bc,
                             size, phase, nin, kernel_stream);
                 }
                 if (!bc->cuda_sjoin[i]) {
-                    GPAW_CUDAMEMCPY_A(bc_sbuff[i][d], bc_sbuff_gpu[i][d],
-                            double, bc->nsend[i][d] * nin,
-                            cudaMemcpyDeviceToHost, kernel_stream);
+                    gpuMemcpyAsync(bc_sbuff[i][d],
+                                   bc_sbuff_gpu[i][d],
+                                   sizeof(double) * bc->nsend[i][d] * nin,
+                                   gpuMemcpyDeviceToHost,
+                                   kernel_stream);
                     cudaEventRecord(bc_sendcpy_event[i][d], kernel_stream);
                 }
             }
         }
         if (bc->cuda_sjoin[i]) {
-            GPAW_CUDAMEMCPY_A(bc_sbuff[i][0], bc_sbuff_gpu[i][0], double,
-                    (bc->nsend[i][0] + bc->nsend[i][1]) * nin,
-                    cudaMemcpyDeviceToHost, kernel_stream);
+            gpuMemcpyAsync(bc_sbuff[i][0],
+                           bc_sbuff_gpu[i][0],
+                           sizeof(double)
+                               * (bc->nsend[i][0] + bc->nsend[i][1]) * nin,
+                           gpuMemcpyDeviceToHost,
+                           kernel_stream);
             cudaEventRecord(bc_sendcpy_event[i][0], kernel_stream);
         }
     }
@@ -484,11 +489,12 @@ void bc_unpack_cuda_gpu_async(const boundary_conditions* bc,
                 int status;
                 MPI_Testall(2, recvreq[i3], &status, MPI_STATUSES_IGNORE);
                 if (status) {
-                    GPAW_CUDAMEMCPY_A(bc_rbuff_gpu[i3][0], bc_rbuff[i3][0],
-                            double,
-                            (bc->nrecv[i3][0] + bc->nrecv[i3][1]) * nin,
-                            cudaMemcpyHostToDevice,
-                            bc_recv_stream);
+                    gpuMemcpyAsync(bc_rbuff_gpu[i3][0], bc_rbuff[i3][0],
+                                   sizeof(double)
+                                       * (bc->nrecv[i3][0] + bc->nrecv[i3][1])
+                                       * nin,
+                                   cudaMemcpyHostToDevice,
+                                   bc_recv_stream);
                     for (int d=0; d<2; d++) {
                         if (!bc_recv_done[i3][d]) {
                             if (real)
@@ -513,11 +519,12 @@ void bc_unpack_cuda_gpu_async(const boundary_conditions* bc,
                 int status;
                 MPI_Test(&recvreq[i3][ddd[i2]], &status, MPI_STATUS_IGNORE);
                 if (status) {
-                    GPAW_CUDAMEMCPY_A(bc_rbuff_gpu[i3][ddd[i2]],
-                            bc_rbuff[i3][ddd[i2]], double,
-                            (bc->nrecv[i3][ddd[i2]]) * nin,
-                            cudaMemcpyHostToDevice,
-                            bc_recv_stream);
+                    gpuMemcpyAsync(bc_rbuff_gpu[i3][ddd[i2]],
+                                   bc_rbuff[i3][ddd[i2]],
+                                   sizeof(double)
+                                       * (bc->nrecv[i3][ddd[i2]]) * nin,
+                                   cudaMemcpyHostToDevice,
+                                   bc_recv_stream);
                     if (real)
                         bmgs_paste_cuda_gpu(bc_rbuff_gpu[i3][ddd[i2]],
                                 bc->recvsize[i3][ddd[i2]],

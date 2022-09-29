@@ -117,7 +117,7 @@ PyObject* add_linear_field_cuda_gpu(PyObject *self, PyObject *args)
                 (cuDoubleComplex*) b_gpu, hc_n, hc_beg,
                 h_strength, blocks);
     }
-    gpaw_cudaSafeCall(cudaGetLastError());
+    gpuCheckLastError();
     if (PyErr_Occurred())
         return NULL;
     else
