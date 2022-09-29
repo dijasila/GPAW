@@ -1,13 +1,12 @@
 from math import pi
 
 import numpy as np
-from ase.units import Ha
-from scipy.special import erf
-
+from ase.units import Bohr, Ha
 from gpaw.core import PlaneWaves, UniformGrid
 from gpaw.core.plane_waves import PlaneWaveExpansions
 from gpaw.new import cached_property
 from gpaw.new.poisson import PoissonSolver
+from scipy.special import erf
 
 
 def make_poisson_solver(pw: PlaneWaves,
@@ -149,9 +148,11 @@ class ChargedPWPoissonSolver(PWPoissonSolver):
 class DipoleLayerPWPoissonSolver(PoissonSolver):
     def __init__(self,
                  ps: PWPoissonSolver,
-                 grid: UniformGrid):
+                 grid: UniformGrid,
+                 width: float = 1.0):  # Ångström
         self.ps = ps
         self.grid = grid
+        self.width = width / Bohr
         (self.axis,) = np.where(~grid.pbc_c)
 
     def solve(self,
@@ -185,9 +186,11 @@ class DipoleLayerPWPoissonSolver(PoissonSolver):
             sawtooth_r = grid.new(comm=None).empty()
             shape = [1, 1, 1]
             shape[c] = -1
-            sawtooth_r[:] = sawtooth.reshape(shape)
+            sawtooth_r.data[:] = sawtooth.reshape(shape)
             sawtooth_g = sawtooth_r.fft(pw=self.ps.pw).data
         else:
             sawtooth_g = None
 
-        return self.pw.empty.scatter_from(sawtooth_g)
+        result_g = self.ps.pw.empty()
+        result_g.scatter_from(sawtooth_g)
+        return result_g
