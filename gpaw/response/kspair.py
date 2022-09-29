@@ -2,15 +2,13 @@ from pathlib import Path
 
 import numpy as np
 
-from ase.utils.timing import timer
-
 from gpaw import disable_dry_run
 from gpaw import GPAW
 import gpaw.mpi as mpi
 from gpaw.response.math_func import two_phi_planewave_integrals
 from gpaw.response.symmetry import KPointFinder
 from gpaw.response.groundstate import ResponseGroundStateAdapter
-from gpaw.response.context import ResponseContext
+from gpaw.response.context import ResponseContext, timer
 
 
 class KohnShamKPoint:
@@ -162,10 +160,6 @@ class KohnShamPair:
         self.nocc1 = None  # number of completely filled bands
         self.nocc2 = None  # number of non-empty bands
         self.count_occupied_bands()
-
-    @property
-    def timer(self, *args, **kwargs):
-        return self.context.timer(*args, **kwargs)
 
     def check_calc_parallelisation(self):
         """Check how ground state calculation is distributed in memory"""
@@ -328,7 +322,7 @@ class KohnShamPair:
             data = (K, eps_myt, f_myt, ut_mytR, P, shift_c)
 
         # Wait for communication to finish
-        with self.timer('Waiting to complete mpi.send'):
+        with self.context.timer('Waiting to complete mpi.send'):
             while self.srequests:
                 self.context.world.wait(self.srequests.pop(0))
 
@@ -650,7 +644,7 @@ class KohnShamPair:
                 sreq4 = world.send(psit_rhG, r2, tag=204, block=False)
                 self.srequests += [sreq1, sreq2, sreq3, sreq4]
 
-        with self.timer('Waiting to complete mpi.receive'):
+        with self.context.timer('Waiting to complete mpi.receive'):
             while self.rrequests:
                 world.wait(self.rrequests.pop(0))
 
@@ -738,18 +732,18 @@ class KohnShamPair:
             # Extract data from the ground state
             for myu, myn_rn, h_rn in zip(myu_eu, myn_eurn, h_eurn):
                 kpt = kpt_u[myu]
-                with self.timer('Extracting eps, f and P_I from GS'):
+                with self.context.timer('Extracting eps, f and P_I from GS'):
                     eps_h[h_rn] = kpt.eps_n[myn_rn]
                     f_h[h_rn] = kpt.f_n[myn_rn] / kpt.weight
                     Ph.array[h_rn] = kpt.projections.array[myn_rn]
 
-                with self.timer('Extracting, fourier transforming and '
-                                'symmetrizing wave function'):
+                with self.context.timer('Extracting, fourier transforming and '
+                                        'symmetrizing wave function'):
                     for myn, h in zip(myn_rn, h_rn):
                         ut_hR[h] = T(gs.pd.ifft(kpt.psit_nG[myn], kpt.q))
 
             # Symmetrize projections
-            with self.timer('Apply symmetry operations'):
+            with self.context.timer('Apply symmetry operations'):
                 P_ahi = []
                 for a1, U_ii in zip(a_a, U_aii):
                     P_hi = np.ascontiguousarray(Ph[a1])
@@ -827,7 +821,8 @@ class KohnShamPair:
         gs = self.gs
         ik = gs.kd.bz2ibz_k[K]
         ut_hR = gs.gd.empty(len(psit_hG), gs.dtype)
-        with self.timer('Fourier transform and symmetrize wave functions'):
+        with self.context.timer('Fourier transform and symmetrize '
+                                'wave functions'):
             for h, psit_G in enumerate(psit_hG):
                 ut_hR[h] = T(self.pd0.ifft(psit_G, ik))
 
@@ -889,10 +884,6 @@ class PairMatrixElement:
         self.gs = kspair.gs
         self.context = kspair.context
         self.transitionblockscomm = kspair.transitionblockscomm
-
-    @property
-    def timer(self, *args, **kwargs):
-        return self.context.timer(*args, **kwargs)
 
     def initialize(self, *args, **kwargs):
         """Initialize e.g. PAW corrections or other operations
@@ -972,7 +963,7 @@ class PlaneWavePairDensity(PairMatrixElement):
         n_mytG = pd.empty(mynt)
 
         # Calculate smooth part of the pair densities:
-        with self.timer('Calculate smooth part'):
+        with self.context.timer('Calculate smooth part'):
             ut1cc_mytR = kskptpair.kpt1.ut_tR.conj()
             n_mytR = ut1cc_mytR * kskptpair.kpt2.ut_tR
             # Unvectorized
@@ -980,7 +971,7 @@ class PlaneWavePairDensity(PairMatrixElement):
                 n_mytG[myt] = pd.fft(n_mytR[myt], 0, Q_G) * pd.gd.dv
 
         # Calculate PAW corrections with numpy
-        with self.timer('PAW corrections'):
+        with self.context.timer('PAW corrections'):
             P1 = kskptpair.kpt1.projections
             P2 = kskptpair.kpt2.projections
             for (Q_Gii, (a1, P1_myti),

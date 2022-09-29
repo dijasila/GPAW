@@ -1,4 +1,7 @@
+from inspect import isgeneratorfunction
+from functools import wraps
 from pathlib import Path
+
 from ase.utils import IOContext
 from ase.utils.timing import Timer
 
@@ -42,3 +45,50 @@ class ResponseContext:
 
     def print(self, *args, flush=True):
         print(*args, file=self.fd, flush=flush)
+
+
+class timer:
+    """Decorator for timing a method call.
+    NB: Includes copy-paste from ase, which is suboptimal...
+
+    Example::
+
+        from gpaw.response.context import timer
+
+        class A:
+            def __init__(self, context):
+                self.context = context
+
+            @timer('Add two numbers')
+            def add(self, x, y):
+                return x + y
+
+        """
+    def __init__(self, name):
+        self.name = name
+
+    def __call__(self, method):
+        if isgeneratorfunction(method):
+            @wraps(method)
+            def new_method(slf, *args, **kwargs):
+                gen = method(slf, *args, **kwargs)
+                while True:
+                    slf.context.timer.start(self.name)
+                    try:
+                        x = next(gen)
+                    except StopIteration:
+                        break
+                    finally:
+                        slf.context.timer.stop()
+                    yield x
+        else:
+            @wraps(method)
+            def new_method(slf, *args, **kwargs):
+                slf.context.timer.start(self.name)
+                x = method(slf, *args, **kwargs)
+                try:
+                    slf.context.timer.stop()
+                except IndexError:
+                    pass
+                return x
+        return new_method

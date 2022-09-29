@@ -3,13 +3,12 @@ from functools import partial
 from time import ctime
 
 from ase.units import Hartree
-from ase.utils.timing import timer
 
 import gpaw
 from gpaw.utilities.memory import maxrss
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.response.groundstate import ResponseGroundStateAdapter
-from gpaw.response.context import ResponseContext
+from gpaw.response.context import ResponseContext, timer
 from gpaw.response.kspair import KohnShamPair
 from gpaw.response.frequencies import FrequencyDescriptor
 from gpaw.response.pw_parallelization import (block_partition, Blocks1D,
@@ -171,10 +170,6 @@ class KohnShamLinearResponseFunction:  # Future PairFunctionIntegrator? XXX
 
         # Attributes related to the specific response function
         self.pme = None
-
-    @property
-    def timer(self, *args, **kwargs):
-        return self.context.timer(*args, **kwargs)
 
     def initialize_communicators(self, nblocks):
         """Set up MPI communicators to distribute the memory needed to store
@@ -747,7 +742,8 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
             A_wGG = A_x
 
         tmpA_wGG = self.redistribute(A_wGG)  # distribute over frequencies
-        with self.timer('Symmetrizing Kohn-Sham linear response function'):
+        with self.context.timer('Symmetrizing Kohn-Sham linear '
+                                'response function'):
             self.pwsa.symmetrize_wGG(tmpA_wGG)
         A_wGG[:] = self.redistribute(tmpA_wGG)  # distribute over plane waves
 
@@ -855,10 +851,6 @@ class Integrator:  # --> KPointPairIntegrator in the future? XXX
         self.kslrf = kslrf
         self.context = self.kslrf.context
 
-    @property
-    def timer(self, *args, **kwargs):
-        return self.context.timer(*args, **kwargs)
-
     @timer('Integrate response function')
     def integrate(self, n1_t, n2_t, s1_t, s2_t, out_x, **kwargs):
         r"""Estimate the reciprocal space integral as the sum over a discrete
@@ -952,7 +944,7 @@ class Integrator:  # --> KPointPairIntegrator in the future? XXX
                                          tmp_x, **kwargs)
 
         # Sum over the k-points that have been distributed between processes
-        with self.timer('Sum over distributed k-points'):
+        with self.context.timer('Sum over distributed k-points'):
             self.kslrf.intrablockcomm.sum(tmp_x)
 
     def slice_kpoint_domain(self, bzk_kv, weight_k):
