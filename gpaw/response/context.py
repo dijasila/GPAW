@@ -57,14 +57,13 @@ class ResponseContext:
     def new_txt_and_timer(self, txt, timer=None):
         self.write_timer()
         # Close old output file and create a new
-        self.print('Closing')
         self.close()
         self.open(txt)
         self.set_timer(timer)
 
     def write_timer(self):
         self.timer.write(self.fd)
-        self.print('\n%s' % ctime())
+        self.print(ctime())
 
 
 class timer:
