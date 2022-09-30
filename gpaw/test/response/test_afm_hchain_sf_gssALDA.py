@@ -86,9 +86,10 @@ def test_response_afm_hchain_gssALDA(in_tmp_dir):
                                            gammacentered=True,
                                            nblocks=nblocks)
     for q, q_c in enumerate(q_qc):
+        filename = 'h-chain_macro_tms_q%d.csv' % q
+        txt = 'h-chain_macro_tms_q%d.txt' % q
         tms.get_macroscopic_component('+-', q_c, frq_w,
-                                      filename=('h-chain_macro_tms'
-                                                + '_q%d.csv' % q))
+                                      filename=filename, txt=txt)
 
     tms.context.write_timer()
     world.barrier()
