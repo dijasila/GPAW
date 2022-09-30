@@ -4,7 +4,6 @@ import numpy as np
 
 from ase.units import Ha, Bohr
 
-from gpaw import GPAW, disable_dry_run
 import gpaw.mpi as mpi
 
 
@@ -40,6 +39,7 @@ class ResponseGroundStateAdapter:
     @staticmethod
     def from_gpw_file(gpw, context=None):
         """Initiate the ground state adapter directly from a .gpw file."""
+        from gpaw import GPAW, disable_dry_run
         assert Path(gpw).is_file()
 
         if context is None:

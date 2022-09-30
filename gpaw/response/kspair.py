@@ -1,14 +1,8 @@
-from pathlib import Path
-
 import numpy as np
 
-from gpaw import disable_dry_run
-from gpaw import GPAW
-import gpaw.mpi as mpi
+from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
 from gpaw.response.math_func import two_phi_planewave_integrals
 from gpaw.response.symmetry import KPointFinder
-from gpaw.response.groundstate import ResponseGroundStateAdapter
-from gpaw.response.context import ResponseContext, timer
 
 
 class KohnShamKPoint:

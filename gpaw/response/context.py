@@ -2,31 +2,11 @@ from time import ctime
 
 from inspect import isgeneratorfunction
 from functools import wraps
-from pathlib import Path
 
 from ase.utils import IOContext
 from ase.utils.timing import Timer
 
-from gpaw import disable_dry_run
-from gpaw import GPAW
 import gpaw.mpi as mpi
-
-
-def calc_and_context(calc, txt, world, timer):
-    context = ResponseContext(txt=txt, world=world, timer=timer)
-    with context.timer('Read ground state'):
-        try:
-            path = Path(calc)
-        except TypeError:
-            pass
-        else:
-            print('Reading ground state calculation:\n  %s' % path,
-                  file=context.fd)
-            with disable_dry_run():
-                calc = GPAW(path, communicator=mpi.serial_comm)
-
-    assert calc.wfs.world.size == 1
-    return calc, context
 
 
 class ResponseContext:
