@@ -590,8 +590,7 @@ class Chi0Calculator:
     def get_kpoints(self, pd, integrationmode=None):
         """Get the integration domain."""
         analyzer = PWSymmetryAnalyzer(
-            self.gs.kd, pd,
-            timer=self.timer, txt=self.fd,
+            self.gs.kd, pd, self.context,
             disable_point_group=self.disable_point_group,
             disable_time_reversal=self.disable_time_reversal,
             disable_non_symmorphic=self.disable_non_symmorphic)
