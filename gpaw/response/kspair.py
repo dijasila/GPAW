@@ -850,28 +850,6 @@ class KohnShamPair:
             self.gs, K, k_c, apply_strange_shift=True)
 
 
-def get_calc(gs, fd=None, timer=None):
-    """Get ground state calculation object."""
-    if not isinstance(gs, (str, Path)):
-        return gs
-    else:
-        if timer is None:
-            def timer(*unused):
-                def __enter__(self):
-                    pass
-
-                def __exit__(self):
-                    pass
-
-        with timer('Read ground state'):
-            assert Path(gs).is_file()
-            if fd is not None:
-                print('Reading ground state calculation:\n  %s' % gs,
-                      file=fd)
-            with disable_dry_run():
-                return GPAW(gs, txt=None, communicator=mpi.serial_comm)
-
-
 class PairMatrixElement:
     """Class for calculating matrix elements for transitions in Kohn-Sham
     linear response functions."""
