@@ -348,7 +348,7 @@ PyObject* Transformer_apply_cuda_gpu(TransformerObject *self, PyObject *args)
     _transformer_apply_cuda_gpu(self, in, out, nin, blocks, real, ph);
 
     if (gpaw_cuda_debug) {
-        cudaDeviceSynchronize();
+        gpuDeviceSynchronize();
         debug_transformer_memcpy_post(out);
         debug_transformer_apply(self, nin, blocks, real, ph);
         debug_transformer_deallocate();

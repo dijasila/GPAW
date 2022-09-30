@@ -12,10 +12,10 @@
 static int bc_init_count = 0;
 
 #ifndef CUDA_MPI
-static cudaStream_t bc_recv_stream;
+static gpuStream_t bc_recv_stream;
 static int bc_streams = 0;
-static cudaEvent_t bc_sendcpy_event[3][2];
-static cudaEvent_t bc_recv_event[3][2];
+static gpuEvent_t bc_sendcpy_event[3][2];
+static gpuEvent_t bc_recv_event[3][2];
 #endif
 static int bc_recv_done[3][2];
 
@@ -105,14 +105,14 @@ void bc_alloc_buffers(const boundary_conditions* bc, int blocks)
 
 #ifndef CUDA_MPI
     if (!bc_streams) {
-        cudaStreamCreate(&bc_recv_stream);
+        gpuStreamCreate(&bc_recv_stream);
         bc_streams = 1;
         for (int d=0; d<3; d++) {
             for (int i=0; i<2; i++) {
-                cudaEventCreateWithFlags(&bc_sendcpy_event[d][i],
-                        cudaEventDefault|cudaEventDisableTiming);
-                cudaEventCreateWithFlags(&bc_recv_event[d][i],
-                        cudaEventDefault|cudaEventDisableTiming);
+                gpuEventCreateWithFlags(&bc_sendcpy_event[d][i],
+                        gpuEventDefault|gpuEventDisableTiming);
+                gpuEventCreateWithFlags(&bc_recv_event[d][i],
+                        gpuEventDefault|gpuEventDisableTiming);
             }
         }
     }
@@ -131,11 +131,11 @@ void bc_dealloc_cuda(int force)
         if (bc_rbuffs != NULL)
             gpuFreeHost(bc_rbuffs);
         if (bc_streams) {
-            cudaStreamDestroy(bc_recv_stream);
+            gpuStreamDestroy(bc_recv_stream);
             for (int d=0; d<3; d++) {
                 for (int i=0; i<2; i++) {
-                    cudaEventDestroy(bc_sendcpy_event[d][i]);
-                    cudaEventDestroy(bc_recv_event[d][i]);
+                    gpuEventDestroy(bc_sendcpy_event[d][i]);
+                    gpuEventDestroy(bc_recv_event[d][i]);
                 }
             }
         }
@@ -231,7 +231,7 @@ void bc_cuda_prepare_buffers(boundary_conditions* bc, int nin)
 void bc_unpack_paste_cuda_gpu(boundary_conditions* bc,
         const double* aa1, double* aa2,
         MPI_Request recvreq[3][2],
-        cudaStream_t kernel_stream, int nin)
+        gpuStream_t kernel_stream, int nin)
 {
     bool real = (bc->ndouble == 1);
 
@@ -279,7 +279,7 @@ void bc_unpack_cuda_gpu_sync(const boundary_conditions* bc,
         MPI_Request recvreq[3][2],
         MPI_Request sendreq[2],
         const double_complex phases[2],
-        cudaStream_t kernel_stream, int nin)
+        gpuStream_t kernel_stream, int nin)
 {
     bool real = (bc->ndouble == 1);
     bc_alloc_buffers(bc, nin);
@@ -320,7 +320,7 @@ void bc_unpack_cuda_gpu_sync(const boundary_conditions* bc,
                         MPI_DOUBLE, p, 1 - d + 1000 * i, bc->comm,
                         &sendreq[d]) == MPI_SUCCESS);
 #else
-            cudaStreamSynchronize(kernel_stream);
+            gpuStreamSynchronize(kernel_stream);
             assert(MPI_Isend(bc_sbuff_gpu[i][d], bc->nsend[i][d] * nin,
                         MPI_DOUBLE, p, 1 - d + 1000 * i, bc->comm,
                         &sendreq[d]) == MPI_SUCCESS);
@@ -390,7 +390,7 @@ void bc_unpack_cuda_gpu_async(const boundary_conditions* bc,
         MPI_Request recvreq[3][2],
         MPI_Request sendreq[2],
         const double_complex phases[2],
-        cudaStream_t kernel_stream,
+        gpuStream_t kernel_stream,
         int nin)
 {
     bool real = (bc->ndouble == 1);
@@ -425,7 +425,7 @@ void bc_unpack_cuda_gpu_async(const boundary_conditions* bc,
                                    sizeof(double) * bc->nsend[i][d] * nin,
                                    gpuMemcpyDeviceToHost,
                                    kernel_stream);
-                    cudaEventRecord(bc_sendcpy_event[i][d], kernel_stream);
+                    gpuEventRecord(bc_sendcpy_event[i][d], kernel_stream);
                 }
             }
         }
@@ -436,7 +436,7 @@ void bc_unpack_cuda_gpu_async(const boundary_conditions* bc,
                                * (bc->nsend[i][0] + bc->nsend[i][1]) * nin,
                            gpuMemcpyDeviceToHost,
                            kernel_stream);
-            cudaEventRecord(bc_sendcpy_event[i][0], kernel_stream);
+            gpuEventRecord(bc_sendcpy_event[i][0], kernel_stream);
         }
     }
     for (int d=0; d<2; d++)
@@ -458,7 +458,7 @@ void bc_unpack_cuda_gpu_async(const boundary_conditions* bc,
 
     do {
         if (!send_done[dd] &&
-                cudaEventQuery(bc_sendcpy_event[i][dd]) == cudaSuccess) {
+                gpuEventQuery(bc_sendcpy_event[i][dd]) == cudaSuccess) {
             MPI_Isend(bc_sbuff[i][dd],
                     bc->nsend[i][dd] * nin, MPI_DOUBLE,
                     bc->sendproc[i][dd],
@@ -510,7 +510,7 @@ void bc_unpack_cuda_gpu_async(const boundary_conditions* bc,
                                         (cuDoubleComplex*)(aa2),
                                         bc->size2, bc->recvstart[i3][d], nin,
                                         bc_recv_stream);
-                            cudaEventRecord(bc_recv_event[i3][d],
+                            gpuEventRecord(bc_recv_event[i3][d],
                                     bc_recv_stream);
                             bc_recv_done[i3][d] = 1;
                         }
@@ -538,7 +538,7 @@ void bc_unpack_cuda_gpu_async(const boundary_conditions* bc,
                                 (cuDoubleComplex*)(aa2),
                                 bc->size2, bc->recvstart[i3][ddd[i2]], nin,
                                 bc_recv_stream);
-                    cudaEventRecord(bc_recv_event[i3][ddd[i2]], bc_recv_stream);
+                    gpuEventRecord(bc_recv_event[i3][ddd[i2]], bc_recv_stream);
                     bc_recv_done[i3][ddd[i2]] = 1;
                 }
             }
@@ -573,7 +573,7 @@ void bc_unpack_cuda_gpu_async(const boundary_conditions* bc,
     }
     for (int d=0; d<2; d++) {
         if (bc->recvproc[i][d] >= 0)
-            cudaStreamWaitEvent(kernel_stream, bc_recv_event[i][d], 0);
+            gpuStreamWaitEvent(kernel_stream, bc_recv_event[i][d], 0);
     }
 #endif
 }
@@ -584,7 +584,7 @@ void bc_unpack_cuda_gpu_async(const boundary_conditions* bc,
         MPI_Request recvreq[3][2],
         MPI_Request sendreq[2],
         const double_complex phases[2],
-        cudaStream_t kernel_stream,
+        gpuStream_t kernel_stream,
         int nin)
 
 {
@@ -598,7 +598,7 @@ void bc_unpack_cuda_gpu(const boundary_conditions* bc,
         MPI_Request recvreq[3][2],
         MPI_Request sendreq[2],
         const double_complex phases[2],
-        cudaStream_t kernel_stream,
+        gpuStream_t kernel_stream,
         int nin)
 {
 #ifndef CUDA_MPI

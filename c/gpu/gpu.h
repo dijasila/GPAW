@@ -8,37 +8,54 @@
 #include <float.h>
 #include <Python.h>
 
-#define GPU_BLOCKS_MIN          (16)
-#define GPU_BLOCKS_MAX          (96)
-#define GPU_PITCH               (16)  /* in doubles */
+#define GPU_BLOCKS_MIN            (16)
+#define GPU_BLOCKS_MAX            (96)
+#define GPU_PITCH                 (16)  /* in doubles */
 
-#define GPU_ASYNC_SIZE          (8*1024)
-#define GPU_RJOIN_SIZE          (16*1024)
-#define GPU_SJOIN_SIZE          (16*1024)
-#define GPU_RJOIN_SAME_SIZE     (96*1024)
-#define GPU_SJOIN_SAME_SIZE     (96*1024)
-#define GPU_OVERLAP_SIZE        (GPU_ASYNC_SIZE)
+#define GPU_ASYNC_SIZE            (8*1024)
+#define GPU_RJOIN_SIZE            (16*1024)
+#define GPU_SJOIN_SIZE            (16*1024)
+#define GPU_RJOIN_SAME_SIZE       (96*1024)
+#define GPU_SJOIN_SAME_SIZE       (96*1024)
+#define GPU_OVERLAP_SIZE          (GPU_ASYNC_SIZE)
 
-#define GPU_ERROR_ABS_TOL       (1e-13)
-#define GPU_ERROR_ABS_TOL_EXCT  (DBL_EPSILON)
+#define GPU_ERROR_ABS_TOL         (1e-13)
+#define GPU_ERROR_ABS_TOL_EXCT    (DBL_EPSILON)
 
-#define GPAW_BOUNDARY_NORMAL    (1<<(0))
-#define GPAW_BOUNDARY_SKIP      (1<<(1))
-#define GPAW_BOUNDARY_ONLY      (1<<(2))
-#define GPAW_BOUNDARY_X0        (1<<(3))
-#define GPAW_BOUNDARY_X1        (1<<(4))
-#define GPAW_BOUNDARY_Y0        (1<<(5))
-#define GPAW_BOUNDARY_Y1        (1<<(6))
-#define GPAW_BOUNDARY_Z0        (1<<(7))
-#define GPAW_BOUNDARY_Z1        (1<<(8))
+#define GPAW_BOUNDARY_NORMAL      (1<<(0))
+#define GPAW_BOUNDARY_SKIP        (1<<(1))
+#define GPAW_BOUNDARY_ONLY        (1<<(2))
+#define GPAW_BOUNDARY_X0          (1<<(3))
+#define GPAW_BOUNDARY_X1          (1<<(4))
+#define GPAW_BOUNDARY_Y0          (1<<(5))
+#define GPAW_BOUNDARY_Y1          (1<<(6))
+#define GPAW_BOUNDARY_Z0          (1<<(7))
+#define GPAW_BOUNDARY_Z1          (1<<(8))
 
-#define gpuSafeCall(err)        __cudaSafeCall(err, __FILE__, __LINE__)
-#define gpublasSafeCall(err)    __cublasSafeCall(err, __FILE__, __LINE__)
-#define gpuCheckLastError()     gpuSafeCall(cudaGetLastError())
+#define gpuSafeCall(err)          __cudaSafeCall(err, __FILE__, __LINE__)
+#define gpublasSafeCall(err)      __cublasSafeCall(err, __FILE__, __LINE__)
+#define gpuCheckLastError()       gpuSafeCall(cudaGetLastError())
 
-#define gpuFree(p)              gpuSafeCall(cudaFree(p))
-#define gpuFreeHost(p)          gpuSafeCall(cudaFreeHost(p))
-#define gpuMalloc(pp, size)     gpuSafeCall(cudaMalloc((void**) (pp), size))
+#define gpuMemcpyDeviceToHost     cudaMemcpyDeviceToHost
+#define gpuMemcpyHostToDevice     cudaMemcpyHostToDevice
+#define gpuDeviceProp             cudaDeviceProp
+#define gpuSuccess                cudaSuccess
+#define gpuEventDefault           cudaEventDefault
+#define gpuEventBlockingSync      cudaEventBlockingSync
+#define gpuEventDisableTiming     cudaEventDisableTiming
+
+#define gpuStream_t               cudaStream_t
+#define gpuEvent_t                cudaEvent_t
+
+#define gpuSetDevice(id)          gpuSafeCall(cudaSetDevice(id))
+#define gpuGetDevice(dev)         gpuSafeCall(cudaGetDevice(dev))
+#define gpuGetDeviceProperties(prop, dev) \
+        gpuSafeCall(cudaGetDeviceProperties(prop, dev))
+#define gpuDeviceSynchronize()    gpuSafeCall(cudaDeviceSynchronize())
+
+#define gpuFree(p)                gpuSafeCall(cudaFree(p))
+#define gpuFreeHost(p)            gpuSafeCall(cudaFreeHost(p))
+#define gpuMalloc(pp, size)       gpuSafeCall(cudaMalloc((void**) (pp), size))
 #define gpuHostAlloc(pp, size) \
         gpuSafeCall(cudaHostAlloc((void**) (pp), size, cudaHostAllocPortable))
 #define gpuMemcpy(dst, src, count, kind) \
@@ -46,16 +63,24 @@
 #define gpuMemcpyAsync(dst, src, count, kind, stream) \
         gpuSafeCall(cudaMemcpyAsync(dst, src, count, kind, stream))
 
-#define gpuMemcpyDeviceToHost   cudaMemcpyDeviceToHost
-#define gpuMemcpyHostToDevice   cudaMemcpyHostToDevice
-#define gpuDeviceProp           cudaDeviceProp
+#define gpuStreamCreate(stream)   gpuSafeCall(cudaStreamCreate(stream))
+#define gpuStreamDestroy(stream)  gpuSafeCall(cudaStreamDestroy(stream))
+#define gpuStreamWaitEvent(stream, event, flags) \
+        gpuSafeCall(cudaStreamWaitEvent(stream, event, flags))
+#define gpuStreamSynchronize(stream) \
+        gpuSafeCall(cudaStreamSynchronize(stream))
 
-#define gpuSetDevice(id)        gpuSafeCall(cudaSetDevice(id))
-#define gpuGetDevice(dev)       gpuSafeCall(cudaGetDevice(dev))
-#define gpuGetDeviceProperties(prop, dev) \
-        gpuSafeCall(cudaGetDeviceProperties(prop, dev))
-
-#define gpuDeviceSynchronize()  gpuSafeCall(cudaDeviceSynchronize())
+#define gpuEventCreate(event)     gpuSafeCall(cudaEventCreate(event))
+#define gpuEventCreateWithFlags(event, flags) \
+        gpuSafeCall(cudaEventCreateWithFlags(event, flags))
+#define gpuEventDestroy(event)    gpuSafeCall(cudaEventDestroy(event))
+#define gpuEventQuery(event)      cudaEventQuery(event)
+#define gpuEventRecord(event, stream) \
+        gpuSafeCall(cudaEventRecord(event, stream))
+#define gpuEventSynchronize(event) \
+        gpuSafeCall(cudaEventSynchronize(event))
+#define gpuEventElapsedTime(ms, start, end) \
+        gpuSafeCall(cudaEventElapsedTime(ms, start, end))
 
 #define NEXTPITCHDIV(n) \
         (((n) > 0) ? ((n) + GPU_PITCH - 1 - ((n) - 1) % GPU_PITCH) : 0)

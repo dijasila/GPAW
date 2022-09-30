@@ -17,8 +17,8 @@ extern int gpaw_cuda_debug;
 
 #define OPERATOR_NSTREAMS (2)
 
-static cudaStream_t operator_stream[OPERATOR_NSTREAMS];
-static cudaEvent_t operator_event[2];
+static gpuStream_t operator_stream[OPERATOR_NSTREAMS];
+static gpuEvent_t operator_event[2];
 static int operator_streams = 0;
 
 static double *operator_buf_gpu = NULL;
@@ -65,12 +65,12 @@ void operator_alloc_buffers(OperatorObject *self, int blocks)
     }
     if (!operator_streams) {
         for (int i=0; i < OPERATOR_NSTREAMS; i++) {
-            cudaStreamCreate(&(operator_stream[i]));
+            gpuStreamCreate(&(operator_stream[i]));
         }
         for (int i=0; i < 2; i++) {
-            cudaEventCreateWithFlags(
+            gpuEventCreateWithFlags(
                     &operator_event[i],
-                    cudaEventDefault|cudaEventDisableTiming);
+                    gpuEventDefault|gpuEventDisableTiming);
         }
         operator_streams = OPERATOR_NSTREAMS;
     }
@@ -105,11 +105,11 @@ void operator_dealloc_cuda(int force)
             gpuFree(operator_buf_gpu);
         if (operator_streams) {
             for (int i=0; i < OPERATOR_NSTREAMS; i++) {
-                gpuSafeCall(cudaStreamSynchronize(operator_stream[i]));
-                gpuSafeCall(cudaStreamDestroy(operator_stream[i]));
+                gpuStreamSynchronize(operator_stream[i]);
+                gpuStreamDestroy(operator_stream[i]);
             }
             for (int i=0; i < 2; i++) {
-                gpuSafeCall(cudaEventDestroy(operator_event[i]));
+                gpuEventDestroy(operator_event[i]);
             }
         }
         operator_init_buffers_cuda();
@@ -279,20 +279,20 @@ static void _operator_relax_cuda_gpu(OperatorObject* self, int relax_method,
     }
     cuda_overlap &= (nsendrecvs > GPU_OVERLAP_SIZE);
     if (cuda_overlap)
-        cudaEventRecord(operator_event[1], 0);
+        gpuEventRecord(operator_event[1], 0);
 
     for (int n=0; n < nrelax; n++ ) {
         if (cuda_overlap) {
-            cudaStreamWaitEvent(operator_stream[0], operator_event[1], 0);
+            gpuStreamWaitEvent(operator_stream[0], operator_event[1], 0);
             bc_unpack_paste_cuda_gpu(bc, fun, operator_buf_gpu, recvreq,
                                      operator_stream[0], 1);
-            cudaEventRecord(operator_event[0], operator_stream[0]);
+            gpuEventRecord(operator_event[0], operator_stream[0]);
 
             bmgs_relax_cuda_gpu(relax_method, &self->stencil_gpu,
                                 operator_buf_gpu, fun, src, w,
                                 boundary|GPAW_BOUNDARY_SKIP,
                                 operator_stream[0]);
-            cudaStreamWaitEvent(operator_stream[1], operator_event[0], 0);
+            gpuStreamWaitEvent(operator_stream[1], operator_event[0], 0);
             for (int i=0; i < 3; i++) {
                 bc_unpack_cuda_gpu_async(bc, fun, operator_buf_gpu, i,
                                          recvreq, sendreq[i], ph + 2 * i,
@@ -302,7 +302,7 @@ static void _operator_relax_cuda_gpu(OperatorObject* self, int relax_method,
                                 operator_buf_gpu, fun, src, w,
                                 boundary|GPAW_BOUNDARY_ONLY,
                                 operator_stream[1]);
-            cudaEventRecord(operator_event[1], operator_stream[1]);
+            gpuEventRecord(operator_event[1], operator_stream[1]);
         } else {
             bc_unpack_paste_cuda_gpu(bc, fun, operator_buf_gpu, recvreq,
                                      0, 1);
@@ -317,8 +317,8 @@ static void _operator_relax_cuda_gpu(OperatorObject* self, int relax_method,
     }
 
     if (cuda_overlap) {
-        cudaStreamWaitEvent(0, operator_event[1], 0);
-        cudaStreamSynchronize(operator_stream[0]);
+        gpuStreamWaitEvent(0, operator_event[1], 0);
+        gpuStreamSynchronize(operator_stream[0]);
     }
 }
 
@@ -356,7 +356,7 @@ PyObject* Operator_relax_cuda_gpu(OperatorObject* self, PyObject* args)
     _operator_relax_cuda_gpu(self, relax_method, fun, src, nrelax, w);
 
     if (gpaw_cuda_debug) {
-        cudaDeviceSynchronize();
+        gpuDeviceSynchronize();
         debug_operator_memcpy_post(fun, operator_buf_gpu);
         debug_operator_relax(self, relax_method, nrelax, w);
         debug_operator_deallocate();
@@ -483,17 +483,17 @@ static void _operator_apply_cuda_gpu(OperatorObject *self,
     }
     cuda_overlap &= (nsendrecvs > GPU_OVERLAP_SIZE);
     if  (cuda_overlap)
-        cudaEventRecord(operator_event[1], 0);
+        gpuEventRecord(operator_event[1], 0);
 
     for (int n=0; n < nin; n += blocks) {
         const double *in2 = in + n * ng;
         double *out2 = out + n * ng;
         int myblocks = MIN(blocks, nin - n);
         if (cuda_overlap) {
-            cudaStreamWaitEvent(operator_stream[0], operator_event[1], 0);
+            gpuStreamWaitEvent(operator_stream[0], operator_event[1], 0);
             bc_unpack_paste_cuda_gpu(bc, in2, operator_buf_gpu, recvreq,
                                      operator_stream[0], myblocks);
-            cudaEventRecord(operator_event[0], operator_stream[0]);
+            gpuEventRecord(operator_event[0], operator_stream[0]);
 
             if (real) {
                 bmgs_fd_cuda_gpu(&self->stencil_gpu, operator_buf_gpu, out2,
@@ -506,7 +506,7 @@ static void _operator_apply_cuda_gpu(OperatorObject *self,
                                   boundary|GPAW_BOUNDARY_SKIP, myblocks,
                                   operator_stream[0]);
             }
-            cudaStreamWaitEvent(operator_stream[1], operator_event[0], 0);
+            gpuStreamWaitEvent(operator_stream[1], operator_event[0], 0);
             for (int i=0; i < 3; i++) {
                 bc_unpack_cuda_gpu_async(bc, in2, operator_buf_gpu, i,
                                          recvreq, sendreq[i], ph + 2 * i,
@@ -523,7 +523,7 @@ static void _operator_apply_cuda_gpu(OperatorObject *self,
                                   boundary|GPAW_BOUNDARY_ONLY, myblocks,
                                   operator_stream[1]);
             }
-            cudaEventRecord(operator_event[1], operator_stream[1]);
+            gpuEventRecord(operator_event[1], operator_stream[1]);
         } else {
             bc_unpack_paste_cuda_gpu(bc, in2, operator_buf_gpu, recvreq,
                                      0, myblocks);
@@ -545,8 +545,8 @@ static void _operator_apply_cuda_gpu(OperatorObject *self,
     }
 
     if (cuda_overlap) {
-        cudaStreamWaitEvent(0, operator_event[1], 0);
-        cudaStreamSynchronize(operator_stream[0]);
+        gpuStreamWaitEvent(0, operator_event[1], 0);
+        gpuStreamSynchronize(operator_stream[0]);
     }
 }
 
@@ -604,7 +604,7 @@ PyObject * Operator_apply_cuda_gpu(OperatorObject* self, PyObject* args)
     _operator_apply_cuda_gpu(self, in, out, nin, blocks, real, ph);
 
     if (gpaw_cuda_debug) {
-        cudaDeviceSynchronize();
+        gpuDeviceSynchronize();
         debug_operator_memcpy_post(out, operator_buf_gpu);
         debug_operator_apply(self, nin, blocks, real, ph);
         debug_operator_deallocate();
