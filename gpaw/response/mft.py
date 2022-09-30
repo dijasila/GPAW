@@ -2,6 +2,7 @@
 import numpy as np
 
 # GPAW modules
+from gpaw.utilities import convert_string_to_fd
 from gpaw.response.chiks import ChiKS
 from gpaw.response.localft import LocalFTCalculator, add_LSDA_Bxc
 from gpaw.response.site_kernels import SiteKernels
@@ -9,6 +10,7 @@ from gpaw.response.susceptibility import symmetrize_reciprocity
 
 # ASE modules
 from ase.units import Hartree
+from ase.utils.timing import Timer
 
 
 class IsotropicExchangeCalculator:
@@ -53,16 +55,14 @@ class IsotropicExchangeCalculator:
                 f'Expected chiks.{key} == {item}. Got: {getattr(chiks, key)}'
 
         self.chiks = chiks
+        self.context = chiks.context
 
         # Initialize the B^(xc) calculator
         # Once the response context object is ready, the user should be allowed
         # to supply the Bxc_calc themselves. This will expose the rshe
         # arguments to the user, which is not the case at present. XXX
         self.localft_calc = LocalFTCalculator.from_rshe_parameters(
-            self.chiks.gs,
-            world=self.chiks.world,
-            txt=self.chiks.fd,
-            timer=self.chiks.timer)
+            self.chiks.gs, self.context)
 
         # Bxc field buffer
         self._Bxc_G = None
@@ -169,10 +169,19 @@ class IsotropicExchangeCalculator:
         where it was used that n^+(r) and n^-(r) are each others Hermitian
         conjugates to reach the last equality.
         """
+        # Initiate new call-output file, if supplied
+        # These things should happen on the context object directly!           XXX
+        if txt is not None:
+            # Write timing so far to old output file
+            self.context.timer.write(self.context.fd)
+            self.context.timer = Timer()
+            # Initiate new output file
+            self.context.fd.close()
+            self.context.fd = convert_string_to_fd(txt, self.context.world)
+
         frequencies = [0.]
         pd, chiks_wGG = self.chiks.calculate(q_c, frequencies,
-                                             spincomponent='+-',
-                                             txt=txt)
+                                             spincomponent='+-')
         symmetrize_reciprocity(pd, chiks_wGG)
 
         # Take the reactive part
