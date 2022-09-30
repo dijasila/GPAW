@@ -46,8 +46,7 @@ def test_response_pair(in_tmp_dir, scalapack):
             copv = pair.calculate_optical_pair_velocity
             n2_nmv = np.zeros((nb, nb, 3), complex)
             for n in range(0, nb):
-                n2_nmv[n] = copv(n, np.arange(0, nb),
-                                 kptpair.kpt1, kptpair.kpt2)
+                n2_nmv[n] = copv(n, kptpair.kpt1, kptpair.kpt2)
 
         # Check for nan's
         assert not np.isnan(n_nmG).any()
