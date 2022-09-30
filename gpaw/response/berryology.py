@@ -112,10 +112,8 @@ def get_berrycurvature(calc, kpts_k=None, n1=0, n2=None, mi=None, mf=None, width
 
     return berryc_xy_k, berryc_yz_k, berryc_zx_k
 
-def get_optical_conductivity(calc, kpts_k=None, n1=0, n2=None, mi=None, mf=None, width=None,
-                              theta=0.0, phi=0.0, scale=1.0, fermi_shift=None):
-    berryc_xy_k, berryc_yz_k, berryc_zx_k = get_berrycurvature(calc, kpts_k=None, n1=0, n2=None, mi=None, mf=None, width=None,
-                                                               theta=0.0, phi=0.0, scale=1.0, fermi_shift=fermi_shift)
+def get_optical_conductivity(*args, **kwargs):
+    berryc_xy_k, berryc_yz_k, berryc_zx_k = get_berrycurvature(*args, **kwargs)
     
     sigma_xy = (_e**2/_hplanck)*berryc_xy_k
     sigma_yz = (_e**2/_hplanck)*berryc_yz_k
