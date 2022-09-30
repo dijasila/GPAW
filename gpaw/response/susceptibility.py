@@ -4,7 +4,6 @@ import pickle
 import numpy as np
 
 from ase.units import Hartree
-from ase.utils.timing import Timer
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
 from gpaw.response.frequencies import FrequencyDescriptor
@@ -46,9 +45,6 @@ class FourComponentSusceptibilityTensor:
         else:
             assert isinstance(context, ResponseContext)
             self.context = context
-
-        # Initiate output file and timer
-        self.timer = timer or Timer()
 
         # The plane wave basis is defined by keywords
         self.ecut = None if ecut is None else ecut / Hartree
