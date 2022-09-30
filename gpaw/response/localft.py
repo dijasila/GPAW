@@ -50,7 +50,6 @@ class LocalFTCalculator(ABC):
         self.gs = gs
         assert isinstance(context, ResponseContext)
         self.context = context
-        
 
     @staticmethod
     def from_rshe_parameters(gs, context,

@@ -127,7 +127,8 @@ class ChiKS(PlaneWaveKSLRF):
                 n_myGt = np.ascontiguousarray(n_tG[:, myslice].T)
                 nx_wmyGt = x_wt[:, np.newaxis, :] * n_myGt[np.newaxis, :, :]
 
-            with self.context.timer('Perform sum over t-transitions of ncc * nx'):
+            with self.context.timer('Perform sum over t-transitions of '
+                                    'ncc * nx'):
                 for nx_myGt, A_myGG in zip(nx_wmyGt, A_wmyGG):
                     mmmx(1.0, nx_myGt, 'N', ncc_tG, 'N',
                          1.0, A_myGG)  # slow step
