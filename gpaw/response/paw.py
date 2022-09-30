@@ -1,6 +1,5 @@
 import numpy as np
-from gpaw.response.math_func import (two_phi_planewave_integrals,
-                                     two_phi_nabla_planewave_integrals)
+from gpaw.response.math_func import two_phi_planewave_integrals
 
 
 def calculate_paw_corrections(setups, pd, spos_ac):
@@ -30,29 +29,3 @@ def calculate_paw_corrections(setups, pd, spos_ac):
             Q_aGii[a][0] = atomdata.dO_ii
 
     return Q_aGii
-
-
-def calculate_paw_nabla_corrections(setups, spos_ac, pd, soft):
-    G_Gv = pd.get_reciprocal_vectors()
-    pos_av = np.dot(spos_ac, pd.gd.cell_cv)
-
-    # Collect integrals for all species:
-    Q_xvGii = {}
-    for id, atomdata in setups.setups.items():
-        if soft:
-            raise NotImplementedError
-        else:
-            Q_vGii = two_phi_nabla_planewave_integrals(G_Gv, atomdata)
-            ni = atomdata.ni
-            Q_vGii.shape = (3, -1, ni, ni)
-
-        Q_xvGii[id] = Q_vGii
-
-    Q_avGii = []
-    for a, atomdata in enumerate(setups):
-        id = setups.id_a[a]
-        Q_vGii = Q_xvGii[id]
-        x_G = np.exp(-1j * np.dot(G_Gv, pos_av[a]))
-        Q_avGii.append(x_G[np.newaxis, :, np.newaxis, np.newaxis] * Q_vGii)
-
-    return Q_avGii
