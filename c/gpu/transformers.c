@@ -79,8 +79,10 @@ void transformer_dealloc_cuda(int force)
         transformer_init_count = 1;
 
     if (transformer_init_count == 1) {
-        gpuFree(transformer_buf_gpu);
-        gpuCheckLastError();
+        if (transformer_buf_gpu != NULL) {
+            gpuFree(transformer_buf_gpu);
+            gpuCheckLastError();
+        }
         transformer_init_buffers_cuda();
         return;
     }

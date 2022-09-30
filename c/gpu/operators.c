@@ -101,8 +101,9 @@ void operator_dealloc_cuda(int force)
     }
     if (operator_init_count == 1) {
         cudaError_t rval;
-        rval = gpuFree(operator_buf_gpu);
-        if (rval == cudaSuccess && operator_streams) {
+        if (operator_buf_gpu != NULL)
+            gpuFree(operator_buf_gpu);
+        if (operator_streams) {
             for (int i=0; i < OPERATOR_NSTREAMS; i++) {
                 gpuSafeCall(cudaStreamSynchronize(operator_stream[i]));
                 gpuSafeCall(cudaStreamDestroy(operator_stream[i]));

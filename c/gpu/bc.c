@@ -126,23 +126,24 @@ void bc_dealloc_cuda(int force)
 
     if (bc_init_count == 1) {
 #ifndef CUDA_MPI
-        cudaError_t rval;
-        rval = gpuFreeHost(bc_sbuffs);
-        if (rval == cudaSuccess) {
+        if (bc_sbuffs != NULL)
+            gpuFreeHost(bc_sbuffs);
+        if (bc_rbuffs != NULL)
             gpuFreeHost(bc_rbuffs);
-            if (bc_streams) {
-                cudaStreamDestroy(bc_recv_stream);
-                for (int d=0; d<3; d++) {
-                    for (int i=0; i<2; i++) {
-                        cudaEventDestroy(bc_sendcpy_event[d][i]);
-                        cudaEventDestroy(bc_recv_event[d][i]);
-                    }
+        if (bc_streams) {
+            cudaStreamDestroy(bc_recv_stream);
+            for (int d=0; d<3; d++) {
+                for (int i=0; i<2; i++) {
+                    cudaEventDestroy(bc_sendcpy_event[d][i]);
+                    cudaEventDestroy(bc_recv_event[d][i]);
                 }
             }
         }
 #endif
-        gpuFree(bc_sbuffs_gpu);
-        gpuFree(bc_rbuffs_gpu);
+        if (bc_sbuffs_gpu != NULL)
+            gpuFree(bc_sbuffs_gpu);
+        if (bc_rbuffs_gpu != NULL)
+            gpuFree(bc_rbuffs_gpu);
         bc_init_buffers_cuda();
         return;
     }
