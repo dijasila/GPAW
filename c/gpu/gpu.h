@@ -55,6 +55,7 @@
 #define gpuGetDeviceProperties(prop, dev) \
         gpuSafeCall(cudaGetDeviceProperties(prop, dev))
 
+#define gpuDeviceSynchronize()  gpuSafeCall(cudaDeviceSynchronize())
 
 #define NEXTPITCHDIV(n) \
         (((n) > 0) ? ((n) + GPU_PITCH - 1 - ((n) - 1) % GPU_PITCH) : 0)

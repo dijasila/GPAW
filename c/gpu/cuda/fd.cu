@@ -788,7 +788,7 @@ double Zcuda(bmgs_fd_cuda_cpu)(const bmgsstencil* s, const Tcuda* a,
     gettimeofday(&t0, NULL);
     Zcuda(bmgs_fd_cuda_gpu)(&s_gpu, adev, bdev, GPAW_BOUNDARY_NORMAL,
                             blocks, 0);
-    cudaThreadSynchronize();
+    gpuDeviceSynchronize();
     gpuCheckLastError();
     gettimeofday(&t1,NULL);
 

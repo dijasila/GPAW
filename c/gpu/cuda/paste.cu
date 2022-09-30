@@ -438,7 +438,7 @@ double bmgs_paste_cuda_cpu(const double* a, const int sizea[3],
 
     gettimeofday(&t0, NULL);
     bmgs_paste_cuda_gpu(adev, sizea, bdev, sizeb, startb, 1, 0);
-    cudaThreadSynchronize();
+    gpuDeviceSynchronize();
     gpuCheckLastError();
     gettimeofday(&t1,NULL);
 
@@ -468,7 +468,7 @@ double bmgs_paste_zero_cuda_cpu(const double* a, const int sizea[3],
 
     gettimeofday(&t0, NULL);
     bmgs_paste_zero_cuda_gpu(adev, sizea, bdev, sizeb, startb, 1, 0);
-    cudaThreadSynchronize();
+    gpuDeviceSynchronize();
     gpuCheckLastError();
     gettimeofday(&t1,NULL);
 

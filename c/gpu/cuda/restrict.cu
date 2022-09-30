@@ -296,7 +296,7 @@ double bmgs_restrict_cuda_cpu(int k, double* a, const int n[3],
 
     gettimeofday(&t0, NULL);
     bmgs_restrict_cuda_gpu(k, adev, n, bdev, b_n, blocks);
-    cudaThreadSynchronize();
+    gpuDeviceSynchronize();
     gpuCheckLastError();
     gettimeofday(&t1, NULL);
 

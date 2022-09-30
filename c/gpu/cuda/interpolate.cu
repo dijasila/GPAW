@@ -201,7 +201,7 @@ double bmgs_interpolate_cuda_cpu(int k, int skip[3][2], const double* a,
     gettimeofday(&t0, NULL);
 
     bmgs_interpolate_cuda_gpu(k, skip, adev, n, bdev, b_n, blocks);
-    cudaThreadSynchronize();
+    gpuDeviceSynchronize();
     gpuCheckLastError();
 
     gettimeofday(&t1,NULL);

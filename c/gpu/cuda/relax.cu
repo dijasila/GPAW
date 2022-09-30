@@ -805,7 +805,7 @@ double bmgs_relax_cuda_cpu(const int relax_method, const bmgsstencil* s,
     gettimeofday(&t0, NULL);
     bmgs_relax_cuda_gpu(relax_method, &s_gpu, adev, bdev,srcdev, w,
                         GPAW_BOUNDARY_NORMAL,0);
-    cudaThreadSynchronize();
+    gpuDeviceSynchronize();
     gpuCheckLastError();
     gettimeofday(&t1, NULL);
 
