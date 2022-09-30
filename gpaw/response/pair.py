@@ -8,9 +8,10 @@ from ase.utils.timing import timer
 from gpaw import GPAW, disable_dry_run
 import gpaw.mpi as mpi
 from gpaw.fd_operators import Gradient
+
+from gpaw.response import ResponseContext
 from gpaw.response.pw_parallelization import block_partition
 from gpaw.response.symmetry import KPointFinder
-from gpaw.response.context import ResponseContext
 from gpaw.utilities.blas import mmm
 
 

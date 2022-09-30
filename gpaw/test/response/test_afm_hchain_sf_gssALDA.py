@@ -11,7 +11,8 @@ from ase.dft.kpoints import monkhorst_pack
 from gpaw import PW, GPAW
 from gpaw.mpi import world
 from gpaw.test import findpeak
-from gpaw.response.groundstate import ResponseGroundStateAdapter
+
+from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.tms import TransverseMagneticSusceptibility
 from gpaw.response.susceptibility import read_macroscopic_component
 

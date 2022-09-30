@@ -6,13 +6,12 @@ import numpy as np
 from ase.units import Hartree
 from ase.utils.timing import Timer
 
+from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
 from gpaw.response.frequencies import FrequencyDescriptor
 from gpaw.response.chiks import ChiKS
 from gpaw.response.fxc_kernels import get_fxc
 from gpaw.response.coulomb_kernels import get_coulomb_kernel
 from gpaw.response.pw_parallelization import Blocks1D
-from gpaw.response.groundstate import ResponseGroundStateAdapter
-from gpaw.response.context import ResponseContext, timer
 
 
 class FourComponentSusceptibilityTensor:

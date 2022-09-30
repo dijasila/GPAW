@@ -7,8 +7,8 @@ from ase.units import Hartree
 import gpaw
 from gpaw.utilities.memory import maxrss
 from gpaw.utilities.progressbar import ProgressBar
-from gpaw.response.groundstate import ResponseGroundStateAdapter
-from gpaw.response.context import ResponseContext, timer
+
+from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
 from gpaw.response.kspair import KohnShamPair
 from gpaw.response.frequencies import FrequencyDescriptor
 from gpaw.response.pw_parallelization import (block_partition, Blocks1D,

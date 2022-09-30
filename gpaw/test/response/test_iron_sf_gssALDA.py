@@ -16,12 +16,12 @@ from ase.dft.kpoints import monkhorst_pack
 from ase.parallel import parprint
 
 from gpaw import GPAW, PW
-from gpaw.response.context import ResponseContext
-from gpaw.response.groundstate import ResponseGroundStateAdapter
-from gpaw.response.tms import TransverseMagneticSusceptibility
-from gpaw.response.susceptibility import read_macroscopic_component
 from gpaw.test import findpeak, equal
 from gpaw.mpi import world
+
+from gpaw.response import ResponseGroundStateAdapter, ResponseContext
+from gpaw.response.tms import TransverseMagneticSusceptibility
+from gpaw.response.susceptibility import read_macroscopic_component
 
 
 @pytest.mark.kspair

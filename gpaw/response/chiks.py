@@ -1,9 +1,10 @@
 import numpy as np
 
 from gpaw.utilities.blas import mmmx
+
+from gpaw.response import timer
 from gpaw.response.kslrf import PlaneWaveKSLRF
 from gpaw.response.kspair import PlaneWavePairDensity
-from gpaw.response.context import timer
 
 
 class ChiKS(PlaneWaveKSLRF):

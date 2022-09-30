@@ -4,24 +4,27 @@ import pickle
 import warnings
 from math import pi
 from pathlib import Path
-import gpaw.mpi as mpi
+
 import numpy as np
+
 from ase.parallel import paropen
 from ase.units import Ha
 from ase.utils import opencew
 from ase.utils.timing import timer
+
 from gpaw import GPAW, debug
+import gpaw.mpi as mpi
 from gpaw.hybrids.eigenvalues import non_self_consistent_eigenvalues
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.pw.descriptor import PWDescriptor, count_reciprocal_vectors
+from gpaw.utilities.progressbar import ProgressBar
+
 from gpaw.response.chi0 import Chi0Calculator
-from gpaw.response.context import calc_and_context
 from gpaw.response.g0w0_kernels import G0W0Kernel
 from gpaw.response.hilbert import GWHilbertTransforms
-from gpaw.response.pair import NoCalculatorPairDensity
+from gpaw.response.pair import NoCalculatorPairDensity, calc_and_context
 from gpaw.response.screened_interaction import WCalculator
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
-from gpaw.utilities.progressbar import ProgressBar
 
 from ase.utils.filecache import MultiFileJSONCache as FileCache
 from contextlib import ExitStack

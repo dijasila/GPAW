@@ -11,7 +11,8 @@ from ase.build import bulk
 
 from gpaw import GPAW, PW, FermiDirac
 from gpaw.mpi import world, rank
-from gpaw.response.groundstate import ResponseGroundStateAdapter
+
+from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.chiks import ChiKS
 from gpaw.response.susceptibility import (get_pw_coordinates,
                                           get_inverted_pw_mapping)

@@ -11,7 +11,8 @@ from ase.build import bulk
 
 from gpaw import GPAW, PW, FermiDirac
 from gpaw import mpi
-from gpaw.response.groundstate import ResponseGroundStateAdapter
+
+from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.chiks import ChiKS
 from gpaw.response.mft import IsotropicExchangeCalculator
 from gpaw.response.site_kernels import (SphericalSiteKernels,

@@ -15,10 +15,10 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.lfc import LFC
 from gpaw.atom.radialgd import AERadialGridDescriptor
+
+from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.localft import (LocalFTCalculator, MicroSetup,
                                    add_total_density, add_LSDA_Bxc)
-from gpaw.response.groundstate import ResponseGroundStateAdapter
-from gpaw.response.context import ResponseContext
 from gpaw.response.susceptibility import get_pw_coordinates
 from gpaw.test.response.test_site_kernels import get_PWDescriptor
 

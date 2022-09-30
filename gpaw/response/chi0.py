@@ -925,7 +925,7 @@ class Chi0(Chi0Calculator):
             Class for calculating matrix elements of pairs of wavefunctions.
 
         """
-        from gpaw.response.context import calc_and_context
+        from gpaw.response.pair import calc_and_context
         calc, context = calc_and_context(calc, txt, world, timer)
         gs = calc.gs_adapter()
         nbands = nbands or gs.bd.nbands

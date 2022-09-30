@@ -7,11 +7,12 @@ from ase.parallel import parprint
 
 from gpaw import GPAW, PW, FermiDirac
 from gpaw.test import findpeak, equal
-from gpaw.response.groundstate import ResponseGroundStateAdapter
+from gpaw.mpi import size, world
+
+from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.df import DielectricFunction
 from gpaw.response.susceptibility import FourComponentSusceptibilityTensor
 from gpaw.response.susceptibility import read_macroscopic_component
-from gpaw.mpi import size, world
 
 
 @pytest.mark.kspair

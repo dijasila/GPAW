@@ -10,8 +10,7 @@ from scipy.special import spherical_jn
 
 from ase.units import Bohr
 
-from gpaw.response.groundstate import ResponseGroundStateAdapter
-from gpaw.response.context import ResponseContext, timer
+from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
 from gpaw.spherical_harmonics import Yarr
 from gpaw.sphere.lebedev import weight_n, R_nv
 from gpaw.xc import XC
