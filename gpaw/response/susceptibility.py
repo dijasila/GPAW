@@ -64,7 +64,7 @@ class FourComponentSusceptibilityTensor:
                            disable_time_reversal=disable_time_reversal,
                            bandsummation=bandsummation, nbands=nbands,
                            bundle_integrals=bundle_integrals, nblocks=nblocks)
-        self.fxc = get_fxc(gs, context, fxc,
+        self.fxc = get_fxc(gs, self.context, fxc,
                            response='susceptibility', mode='pw', **fxckwargs)
 
         # Parallelization over frequencies depends on the frequency input
