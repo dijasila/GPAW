@@ -1,9 +1,8 @@
 import numpy as np
 from gpaw.response.math_func import two_phi_planewave_integrals
-from gpaw.pw.lfc import PWLFC
 
 
-def calculate_paw_corrections(setups, pd, spos_ac, soft):
+def calculate_paw_corrections(setups, pd, spos_ac):
     q_v = pd.K_qv[0]
     optical_limit = np.allclose(q_v, 0)
 
@@ -16,21 +15,9 @@ def calculate_paw_corrections(setups, pd, spos_ac, soft):
     # Collect integrals for all species:
     Q_xGii = {}
     for id, atomdata in setups.setups.items():
-        if soft:
-            ghat = PWLFC([atomdata.ghat_l], pd)
-            ghat.set_positions(np.zeros((1, 3)))
-            Q_LG = ghat.expand().T
-            if atomdata.Delta_iiL is None:
-                ni = atomdata.ni
-                Q_Gii = np.zeros((Q_LG.shape[1], ni, ni))
-            else:
-                Q_Gii = np.dot(atomdata.Delta_iiL, Q_LG).T
-        else:
-            ni = atomdata.ni
-            Q_Gii = two_phi_planewave_integrals(G_Gv, atomdata)
-            Q_Gii.shape = (-1, ni, ni)
-
-        Q_xGii[id] = Q_Gii
+        ni = atomdata.ni
+        Q_Gii = two_phi_planewave_integrals(G_Gv, atomdata)
+        Q_xGii[id] = Q_Gii.reshape(-1, ni, ni)
 
     Q_aGii = []
     for a, atomdata in enumerate(setups):
