@@ -54,10 +54,10 @@ PyObject* GG_shuffle(PyObject *self, PyObject *args)
         return NULL;
     }
 
-    int* G0_G = (int*)malloc(nG * sizeof(int));
-    int* G1_G = (int*)malloc(nG * sizeof(int));
+    npy_int32* G0_G = (npy_int32*)malloc(nG * sizeof(npy_int32));
+    npy_int32* G1_G = (npy_int32*)malloc(nG * sizeof(npy_int32));
     
-    int* G_G = (int*)PyArray_DATA(G_G_obj);
+    npy_int32* G_G = (npy_int32*)PyArray_DATA(G_G_obj);
 
     int stride0 = PyArray_STRIDES(A_GG_obj)[0];
     int stride1 = PyArray_STRIDES(A_GG_obj)[1];
@@ -78,12 +78,12 @@ PyObject* GG_shuffle(PyObject *self, PyObject *args)
     double complex* A_GG = (double complex*)PyArray_DATA(A_GG_obj);
     double complex* B_GG = (double complex*)PyArray_DATA(B_GG_obj);
 
-    for (int G0=0; G0<nG; G0++)
+    for (npy_int32 G0=0; G0<nG; G0++)
     {
-        int take0 = G0_G[G0];
-        for (int G1=0; G1<nG; G1++)
+        npy_int32 take0 = G0_G[G0];
+        for (npy_int32 G1=0; G1<nG; G1++)
         {
-            int take1 = G1_G[G1];
+            npy_int32 take1 = G1_G[G1];
             // Instead of numpy magic, we do some C magic.
             char* ptr = (char*)A_GG + take0 + take1;
             double complex* value_ptr = (double_complex*) ptr;
