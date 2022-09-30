@@ -53,16 +53,14 @@ class IsotropicExchangeCalculator:
                 f'Expected chiks.{key} == {item}. Got: {getattr(chiks, key)}'
 
         self.chiks = chiks
+        self.context = chiks.context
 
         # Initialize the B^(xc) calculator
         # Once the response context object is ready, the user should be allowed
         # to supply the Bxc_calc themselves. This will expose the rshe
         # arguments to the user, which is not the case at present. XXX
         self.localft_calc = LocalFTCalculator.from_rshe_parameters(
-            self.chiks.gs,
-            world=self.chiks.world,
-            txt=self.chiks.fd,
-            timer=self.chiks.timer)
+            self.chiks.gs, self.context)
 
         # Bxc field buffer
         self._Bxc_G = None
@@ -169,10 +167,13 @@ class IsotropicExchangeCalculator:
         where it was used that n^+(r) and n^-(r) are each others Hermitian
         conjugates to reach the last equality.
         """
+        # Initiate new output file, if supplied
+        if txt is not None:
+            self.context.new_txt_and_timer(txt)
+
         frequencies = [0.]
         pd, chiks_wGG = self.chiks.calculate(q_c, frequencies,
-                                             spincomponent='+-',
-                                             txt=txt)
+                                             spincomponent='+-')
         symmetrize_reciprocity(pd, chiks_wGG)
 
         # Take the reactive part

@@ -1,24 +1,20 @@
 """Contains methods for calculating local LR-TDDFT kernels."""
 
 from pathlib import Path
+from functools import partial
 
 import numpy as np
 from scipy.special import spherical_jn
 
-from gpaw.utilities import convert_string_to_fd
-from ase.utils.timing import Timer, timer
 from ase.units import Bohr
 
-import gpaw.mpi as mpi
 from gpaw.xc import XC
 from gpaw.spherical_harmonics import Yarr
 from gpaw.sphere.lebedev import weight_n, R_nv
-from gpaw.response.kspair import get_calc
-from gpaw.response.groundstate import ResponseGroundStateAdapter
+from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
 
 
-def get_fxc(gs, fxc, response='susceptibility', mode='pw',
-            world=mpi.world, txt='-', timer=None, **kwargs):
+def get_fxc(gs, context, fxc, response='susceptibility', mode='pw', **kwargs):
     """Factory function getting an initiated version of the fxc class."""
     functional = fxc
 
@@ -29,7 +25,7 @@ def get_fxc(gs, fxc, response='susceptibility', mode='pw',
         return dummy_fxc
 
     fxc = create_fxc(functional, response, mode)
-    return fxc(gs, functional, world=world, txt=txt, timer=timer, **kwargs)
+    return fxc(gs, context, functional, **kwargs)
 
 
 def create_fxc(functional, response, mode):
@@ -44,49 +40,24 @@ def create_fxc(functional, response, mode):
 class FXC:
     """Base class to calculate exchange-correlation kernels."""
 
-    def __init__(self, gs, world=mpi.world, txt='-', timer=None):
+    def __init__(self, gs, context):
         """
         Parameters
         ----------
-        gs : str/obj
-            Filename or GPAW calculator object of ground state calculation
-        world : mpi.world
-        txt : str or filehandle
-            defines output file through gpaw.utilities.convert_string_to_fd
-        timer : ase.utils.timing.Timer instance
+        gs : ResponseGroundStateAdapter
+        context : ResponseContext
         """
-        # Output .txt filehandle and timer
-        self.world = world
-        self.fd = convert_string_to_fd(txt, world)
-        self.cfd = self.fd
-        self.timer = timer or Timer()
-        self.calc = get_calc(gs, fd=self.fd, timer=self.timer)
-        self.gs = ResponseGroundStateAdapter(self.calc)
+        assert isinstance(gs, ResponseGroundStateAdapter)
+        self.gs = gs
+        assert isinstance(context, ResponseContext)
+        self.context = context
 
-    def __call__(self, *args, txt=None, timer=None, **kwargs):
-        # A specific output file can be supplied for each individual call
-        if txt is not None:
-            self.cfd = convert_string_to_fd(txt, self.world)
-        else:
-            self.cfd = self.fd
+    def __call__(self, *args, **kwargs):
 
         if self.is_calculated():
             Kxc_GG = self.read(*args, **kwargs)
         else:
-            # A specific timer may also be supplied
-            if timer is not None:
-                # Swap timers to use supplied one
-                self.timer, timer = timer, self.timer
-
-            if str(self.fd) != str(self.cfd):
-                print('Calculating fxc', file=self.fd)
-
             Kxc_GG = self.calculate(*args, **kwargs)
-
-            if timer is not None:
-                # Swap timers back
-                self.timer, timer = timer, self.timer
-
             self.write(Kxc_GG)
 
         return Kxc_GG
@@ -109,13 +80,12 @@ class FXC:
 class PlaneWaveAdiabaticFXC(FXC):
     """Adiabatic exchange-correlation kernels in plane wave mode using PAW."""
 
-    def __init__(self, gs, functional,
-                 world=mpi.world, txt='-', timer=None,
+    def __init__(self, gs, context, functional,
                  rshelmax=-1, rshewmin=None, filename=None, **ignored):
         """
         Parameters
         ----------
-        gs, world, txt, timer : see FXC
+        gs, context : see FXC
         functional : str
             xc-functional
         rshelmax : int or None
@@ -130,7 +100,7 @@ class PlaneWaveAdiabaticFXC(FXC):
             contributes with less than a fraction of rshewmin on average,
             it will not be included.
         """
-        FXC.__init__(self, gs, world=world, txt=txt, timer=timer)
+        FXC.__init__(self, gs, context)
 
         self.functional = functional
 
@@ -166,12 +136,12 @@ class PlaneWaveAdiabaticFXC(FXC):
 
     @timer('Calculate XC kernel')
     def calculate(self, pd):
-        print('Calculating fxc', file=self.cfd)
+        self.context.print('Calculating fxc')
         # Get the spin density we need and allocate fxc
         n_sG = self.get_density_on_grid(pd.gd)
         fxc_G = np.zeros(np.shape(n_sG[0]))
 
-        print('    Calculating fxc on real space grid', file=self.cfd)
+        self.context.print('    Calculating fxc on real space grid')
         self._add_fxc(pd.gd, n_sG, fxc_G)
 
         # Fourier transform to reciprocal space
@@ -181,7 +151,7 @@ class PlaneWaveAdiabaticFXC(FXC):
             KxcPAW_GG = self.calculate_kernel_paw_correction(pd)
             Kxc_GG += KxcPAW_GG
 
-        print('Finished calculating fxc\n', flush=True, file=self.cfd)
+        self.context.print('Finished calculating fxc\n')
 
         return Kxc_GG / pd.gd.volume
 
@@ -197,8 +167,8 @@ class PlaneWaveAdiabaticFXC(FXC):
         if self.rshe:
             return self.gs.nt_sR  # smooth density
 
-        print('    Calculating all-electron density', file=self.cfd)
-        with self.timer('Calculating all-electron density'):
+        self.context.print('    Calculating all-electron density')
+        with self.context.timer('Calculating all-electron density'):
             n_sG, gd1 = self.gs.all_electron_density(gridrefinement=1)
             assert (gd1.n_c == gd.n_c).all()
             assert gd1.comm.size == 1
@@ -206,8 +176,7 @@ class PlaneWaveAdiabaticFXC(FXC):
 
     @timer('Fourier transform of kernel from real-space grid')
     def ft_from_grid(self, fxc_G, pd):
-        print('    Fourier transforming kernel from real-space grid',
-              file=self.cfd)
+        self.context.print('    Fourier transforming kernel from real-space')
         nG = pd.gd.N_c
         nG0 = nG[0] * nG[1] * nG[2]
 
@@ -228,8 +197,7 @@ class PlaneWaveAdiabaticFXC(FXC):
 
     @timer('Calculate PAW corrections to kernel')
     def calculate_kernel_paw_correction(self, pd):
-        print("    Calculating PAW corrections to the kernel\n",
-              file=self.cfd)
+        self.context.print("    Calculating PAW corrections to the kernel\n")
 
         # Calculate (G-G') reciprocal space vectors
         dG_GGv = self._calculate_dG(pd)
@@ -274,7 +242,7 @@ class PlaneWaveAdiabaticFXC(FXC):
                                                  r_g, L_M, l_M)
 
             # Perform integration
-            with self.timer('Integrate PAW correction'):
+            with self.context.timer('Integrate PAW correction'):
                 coefatomR_dG = np.exp(-1j * np.inner(dG_mydGv, R_v))
                 coefatomang_MdG = ii_MmydG * Y_MmydG
                 coefatomrad_MdG = np.tensordot(j_gMmydG * df_gL[:, L_M,
@@ -283,7 +251,7 @@ class PlaneWaveAdiabaticFXC(FXC):
                 coefatom_dG = np.sum(coefatomang_MdG * coefatomrad_MdG, axis=0)
                 KxcPAW_dG[dG_mydG] += coefatom_dG * coefatomR_dG
 
-        self.world.sum(KxcPAW_dG)
+        self.context.world.sum(KxcPAW_dG)
 
         # Unfold PAW correction
         KxcPAW_GG = KxcPAW_dG[dG_K].reshape(dG_GGv.shape[:2])
@@ -292,12 +260,13 @@ class PlaneWaveAdiabaticFXC(FXC):
 
     def _calculate_dG(self, pd):
         """Calculate (G-G') reciprocal space vectors"""
+        world = self.context.world
         npw = pd.ngmax
         G_Gv = pd.get_reciprocal_vectors()
 
         # Distribute dG to calculate
-        nGpr = (npw + self.world.size - 1) // self.world.size
-        Ga = min(self.world.rank * nGpr, npw)
+        nGpr = (npw + world.size - 1) // world.size
+        Ga = min(world.rank * nGpr, npw)
         Gb = min(Ga + nGpr, npw)
         G_myG = range(Ga, Gb)
 
@@ -305,14 +274,15 @@ class PlaneWaveAdiabaticFXC(FXC):
         dG_GGv = np.zeros((npw, npw, 3))
         for v in range(3):
             dG_GGv[Ga:Gb, :, v] = np.subtract.outer(G_Gv[G_myG, v], G_Gv[:, v])
-        self.world.sum(dG_GGv)
+        world.sum(dG_GGv)
 
         return dG_GGv
 
     def _distribute_correction(self, ndG):
         """Distribute correction"""
-        ndGpr = (ndG + self.world.size - 1) // self.world.size
-        dGa = min(self.world.rank * ndGpr, ndG)
+        world = self.context.world
+        ndGpr = (ndG + world.size - 1) // world.size
+        dGa = min(world.rank * ndGpr, ndG)
         dGb = min(dGa + ndGpr, ndG)
 
         return range(dGa, dGb)
@@ -497,22 +467,21 @@ class PlaneWaveAdiabaticFXC(FXC):
         rshew_L = np.average(dfSw_gL, axis=0)
 
         # Print information about the expansion
-        print('    RSHE of atom', a, file=self.cfd)
-        print('      {0:6}  {1:10}  {2:10}  {3:8}'.format('(l,m)',
-                                                          'max weight',
-                                                          'avg weight',
-                                                          'included'),
-              file=self.cfd)
+        p = partial(self.context.print, flush=False)
+        p('    RSHE of atom', a)
+        p('      {0:6}  {1:10}  {2:10}  {3:8}'.format('(l,m)',
+                                                      'max weight',
+                                                      'avg weight',
+                                                      'included'))
         for L, (dfSw_g, rshew) in enumerate(zip(dfSw_gL.T, rshew_L)):
             self.print_rshe_info(L, nL, dfSw_g, rshew)
 
         tot_avg_cov = np.average(np.sum(dfSw_gL, axis=1))
         avg_cov = np.average(np.sum(dfSw_gL[:, :nL]
                                     [:, rshew_L[:nL] > self.rshewmin], axis=1))
-        print(f'      In total: {avg_cov} of the dfSns is covered on average',
-              file=self.cfd)
-        print(f'      In total: {tot_avg_cov} of the dfSns could be covered',
-              'on average\n', flush=True, file=self.cfd)
+        p(f'      In total: {avg_cov} of the dfSns is covered on average')
+        self.context.print(f'      In total: {tot_avg_cov} of the dfSns could',
+                           'be covered on average\n')
 
         return rshew_L
 
@@ -521,10 +490,10 @@ class PlaneWaveAdiabaticFXC(FXC):
         l = int(np.sqrt(L))
         m = L - l**2 - l
         included = 'yes' if (rshew > self.rshewmin and L < nL) else 'no'
-        print('      {0:6}  {1:1.8f}  {2:1.8f}  {3:8}'.format(f'({l},{m})',
-                                                              np.max(dfSw_g),
-                                                              rshew, included),
-              file=self.cfd)
+        p = partial(self.context.print, flush=False)
+        p('      {0:6}  {1:1.8f}  {2:1.8f}  {3:8}'.format(f'({l},{m})',
+                                                          np.max(dfSw_g),
+                                                          rshew, included))
 
     @timer('Expand plane waves')
     def _expand_plane_waves(self, dG_mydG, dGn_mydGv, r_g, L_M, l_M):
@@ -554,7 +523,7 @@ class PlaneWaveAdiabaticFXC(FXC):
          dG_gMmydG) = [a.reshape(len(r_g), nM, nmydG)
                        for a in np.meshgrid(r_g, l_M, dG_mydG, indexing='ij')]
 
-        with self.timer('Compute spherical bessel functions'):
+        with self.context.timer('Compute spherical bessel functions'):
             # Slow step
             j_gMmydG = spherical_jn(l_gMmydG, dG_gMmydG * r_gMmydG)
 
@@ -572,17 +541,15 @@ class AdiabaticSusceptibilityFXC(PlaneWaveAdiabaticFXC):
     """Adiabatic exchange-correlation kernel for susceptibility calculations in
     the plane wave mode"""
 
-    def __init__(self, gs, functional,
-                 world=mpi.world, txt='-', timer=None,
+    def __init__(self, gs, context, functional,
                  rshelmax=-1, rshewmin=None, filename=None, **ignored):
         """
-        gs, world, txt, timer : see PlaneWaveAdiabaticFXC, FXC
+        gs, context : see PlaneWaveAdiabaticFXC, FXC
         functional, rshelmax, rshewmin, filename : see PlaneWaveAdiabaticFXC
         """
         assert functional in ['ALDA_x', 'ALDA_X', 'ALDA']
 
-        PlaneWaveAdiabaticFXC.__init__(self, gs, functional,
-                                       world=world, txt=txt, timer=timer,
+        PlaneWaveAdiabaticFXC.__init__(self, gs, context, functional,
                                        rshelmax=rshelmax, rshewmin=rshewmin,
                                        filename=filename)
 

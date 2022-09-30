@@ -1,14 +1,17 @@
 import numbers
+from pathlib import Path
 
 import numpy as np
 
 from ase.utils.timing import timer
 
+from gpaw import GPAW, disable_dry_run
 import gpaw.mpi as mpi
 from gpaw.fd_operators import Gradient
+
+from gpaw.response import ResponseContext
 from gpaw.response.pw_parallelization import block_partition
 from gpaw.response.symmetry import KPointFinder
-from gpaw.response.context import calc_and_context
 from gpaw.utilities.blas import mmm
 
 
@@ -705,3 +708,20 @@ class PairDensity(NoCalculatorPairDensity):
             gs=self.calc.gs_adapter(),
             context=context,
             **kwargs)
+
+
+def calc_and_context(calc, txt, world, timer):
+    context = ResponseContext(txt=txt, world=world, timer=timer)
+    with context.timer('Read ground state'):
+        try:
+            path = Path(calc)
+        except TypeError:
+            pass
+        else:
+            print('Reading ground state calculation:\n  %s' % path,
+                  file=context.fd)
+            with disable_dry_run():
+                calc = GPAW(path, communicator=mpi.serial_comm)
+
+    assert calc.wfs.world.size == 1
+    return calc, context

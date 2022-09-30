@@ -3,14 +3,16 @@ from math import pi
 from gpaw.response.q0_correction import Q0Correction
 from ase.units import Ha
 from ase.dft.kpoints import monkhorst_pack
+
+import gpaw.mpi as mpi
 from gpaw.kpt_descriptor import KPointDescriptor
+
+from gpaw.response import ResponseContext
 from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.response.gamma_int import GammaIntegrator
 from gpaw.response.coulomb_kernels import (get_coulomb_kernel,
                                            get_integrated_kernel)
 from gpaw.response.temp import DielectricFunctionCalculator
-import gpaw.mpi as mpi
-from gpaw.response.context import new_context
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 
 
@@ -55,7 +57,7 @@ def initialize_w_calculator(chi0calc, txt='w.txt', ppa=False, xc='RPA',
     """
     from gpaw.response.g0w0_kernels import G0W0Kernel
     gs = chi0calc.gs
-    context = new_context(txt, world, timer)
+    context = ResponseContext(txt=txt, timer=timer, world=world)
     if Eg is None and xc == 'JGMsx':
         Eg = gs.get_band_gap()
     elif Eg is not None:

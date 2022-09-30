@@ -14,11 +14,11 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.pw.descriptor import PWDescriptor
 from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.mpi import world, serial_comm, broadcast
+from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.chi0 import Chi0
 from gpaw.response.coulomb_kernels import get_coulomb_kernel
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.response.pair import PairDensity
-from gpaw.response.groundstate import ResponseGroundStateAdapter
 from gpaw.response.screened_interaction import initialize_w_calculator
 
 
