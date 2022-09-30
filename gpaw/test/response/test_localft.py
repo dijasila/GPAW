@@ -103,7 +103,7 @@ def test_localft_grid_calculator(a):
     n_sR = np.array([ae_1s_density(r_R, a=a)])
 
     # Initialize the LocalGridFTCalculator with an empty ground state adapter
-    gs = EmptyGSAdapter()
+    gs = EmptyGSAdapter()  # hack to pass isinstance in constructor
     context = ResponseContext()
     localft_calc = LocalFTCalculator.from_rshe_parameters(gs, context,
                                                           rshelmax=None)
@@ -201,7 +201,7 @@ def test_localft_paw_engine(a):
     micro_setup = MicroSetup(rgd, Y_nL, n_sLg, nt_sLg)
     micro_setups = [micro_setup]
 
-    gs = EmptyGSAdapter()
+    gs = EmptyGSAdapter()  # hack to pass isinstance in constructor
     context = ResponseContext()
     for rshe_params in rshe_params_p:
         # Initialize the LocalPAWFTCalculator with an empty gs adapter
@@ -285,6 +285,11 @@ def test_Fe_bxc():
 
 
 class EmptyGSAdapter(ResponseGroundStateAdapter):
+    # Make an empty subclass to pass isinstance in constructor
+    # In a future where the response code has been liberated from GPAW
+    # calculator objects, the
+    # >>> assert isinstance(gs, ResponseGroundStateAdapter)
+    # statements can be deleted, making this class redundant.
 
     def __init__(self):
         pass
