@@ -31,8 +31,8 @@ class ResponseContext:
     def with_txt(self, txt):
         return ResponseContext(txt=txt, world=self.world, timer=self.timer)
 
-    def print(self, *args, flush=True):
-        print(*args, file=self.fd, flush=flush)
+    def print(self, *args, flush=True, **kwargs):
+        print(*args, file=self.fd, flush=flush, **kwargs)
 
     def new_txt_and_timer(self, txt, timer=None):
         self.write_timer()
