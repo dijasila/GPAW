@@ -458,7 +458,7 @@ class NoCalculatorPairDensity:
             return n_MG[:kpt2.n2 - kpt2.n1]
 
     @timer('Optical limit')
-    def calculate_optical_pair_velocity(self, n, m_m, kpt1, kpt2, block=False):
+    def calculate_optical_pair_velocity(self, n, kpt1, kpt2, block=False):
         if self.ut_sKnvR is None or kpt1.K not in self.ut_sKnvR[kpt1.s]:
             self.ut_sKnvR = self.calculate_derivatives(kpt1)
 
@@ -501,7 +501,7 @@ class NoCalculatorPairDensity:
 
         eps1 = kpt1.eps_n[n - kpt1.n1]
         deps_m = (eps1 - kpt2.eps_n)[m_m - kpt2.n1]
-        n0_mv = self.calculate_optical_pair_velocity(n, m_m, kpt1, kpt2,
+        n0_mv = self.calculate_optical_pair_velocity(n, kpt1, kpt2,
                                                      block=block)
 
         deps_m = deps_m.copy()
