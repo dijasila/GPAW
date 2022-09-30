@@ -1,11 +1,9 @@
-from time import ctime
 from pathlib import Path
 import pickle
 
 import numpy as np
 
 from ase.units import Hartree
-from gpaw.utilities import convert_string_to_fd
 from ase.utils.timing import Timer
 
 from gpaw.response.frequencies import FrequencyDescriptor
@@ -230,14 +228,10 @@ class FourComponentSusceptibilityTensor:
             The process' block of the full susceptibility component
         """
 
-        # Initiate new call-output file, if supplied
-        # These things should happen on the context object directly!           XXX
+        # Initiate new output file, if supplied
         if txt is not None:
-            # Write timing so far to old output file
-            self.write_timer()
-            # Initiate new output file
-            self.context.fd.close()
-            self.context.fd = convert_string_to_fd(txt, self.context.world)
+            self.context.new_txt_and_timer(txt)
+
         # Print to output file
         self.context.print('---------------', flush=False)
         self.context.print('Calculating susceptibility spincomponent='
@@ -282,12 +276,6 @@ class FourComponentSusceptibilityTensor:
         Kh_GG = np.eye(len(vsqrt_G)) * vsqrt_G * vsqrt_G[:, np.newaxis]
 
         return Kh_GG
-
-    def write_timer(self):
-        """Write timer to call-output file and initiate a new."""
-        # These things should happen on the context object itself              XXX
-        self.context.timer.write(self.context.fd)
-        self.context.timer = Timer()
 
     def calculate_ks_component(self, spincomponent, q_c, wd):
         """Calculate a single component of the Kohn-Sham susceptibility tensor.
@@ -357,12 +345,6 @@ class FourComponentSusceptibilityTensor:
             allA_wGG = allA_wGG[:len(wd), :, :]
 
         return allA_wGG
-
-    def close(self):
-        # These things should happen directly on the context                 XXX
-        self.context.timer.write(self.context.fd)
-        self.context.print('\nClosing, %s' % ctime())
-        self.context.fd.close()
 
 
 def invert_dyson_single_frequency(chiks_GG, Khxc_GG):

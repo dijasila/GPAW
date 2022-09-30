@@ -87,7 +87,7 @@ def test_response_iron_sf_gssALDA(in_tmp_dir):
         tms.get_macroscopic_component(
             '+-', q_qc[q], frq_qw[q],
             filename='iron_dsus' + '_%d.csv' % (q + 1))
-        tms.write_timer()
+        tms.context.write_timer()
 
     t3 = time.time()
 

@@ -109,7 +109,7 @@ def test_response_iron_sf_ALDA(in_tmp_dir, scalapack):
         tms.get_macroscopic_component(
             '+-', q_c, frq_w,
             filename='iron_dsus' + '_G%d.csv' % (s + 1))
-        tms.write_timer()
+        tms.context.write_timer()
 
     t3 = time.time()
 

@@ -1,3 +1,5 @@
+from time import ctime
+
 from inspect import isgeneratorfunction
 from functools import wraps
 from pathlib import Path
@@ -29,10 +31,16 @@ def calc_and_context(calc, txt, world, timer):
 
 class ResponseContext:
     def __init__(self, txt='-', timer=None, world=mpi.world):
-        self.iocontext = IOContext()
-        self.fd = self.iocontext.openfile(txt, world)
-        self.timer = timer or Timer()
         self.world = world
+        self.open(txt)
+        self.set_timer(timer)
+
+    def open(self, txt):
+        self.iocontext = IOContext()
+        self.fd = self.iocontext.openfile(txt, self.world)
+
+    def set_timer(self, timer):
+        self.timer = timer or Timer()
 
     def close(self):
         self.iocontext.close()
@@ -45,6 +53,18 @@ class ResponseContext:
 
     def print(self, *args, flush=True):
         print(*args, file=self.fd, flush=flush)
+
+    def new_txt_and_timer(self, txt, timer=None):
+        self.write_timer()
+        # Close old output file and create a new
+        self.print('Closing')
+        self.close()
+        self.open(txt)
+        self.set_timer(timer)
+
+    def write_timer(self):
+        self.timer.write(self.fd)
+        self.print('\n%s' % ctime())
 
 
 class timer:

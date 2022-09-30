@@ -90,7 +90,7 @@ def test_response_afm_hchain_gssALDA(in_tmp_dir):
                                       filename=('h-chain_macro_tms'
                                                 + '_q%d.csv' % q))
 
-    tms.write_timer()
+    tms.context.write_timer()
     world.barrier()
 
     # Part 3: Identify magnon peak in finite q scattering function
