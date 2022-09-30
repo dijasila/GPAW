@@ -3,14 +3,15 @@ functions of the electon (spin-)density."""
 
 from abc import ABC, abstractmethod
 
+from functools import partial
+
 import numpy as np
 from scipy.special import spherical_jn
 
-from ase.utils.timing import Timer, timer
 from ase.units import Bohr
 
-import gpaw.mpi as mpi
-from gpaw.utilities import convert_string_to_fd
+from gpaw.response.groundstate import ResponseGroundStateAdapter
+from gpaw.response.context import ResponseContext, timer
 from gpaw.spherical_harmonics import Yarr
 from gpaw.sphere.lebedev import weight_n, R_nv
 from gpaw.xc import XC
@@ -35,8 +36,7 @@ class LocalFTCalculator(ABC):
     where V0 is the unit-cell volume.
     """
 
-    def __init__(self, gs,
-                 world=mpi.world, txt='-', timer=None):
+    def __init__(self, gs, context):
         """Constructor for the LocalFTCalculator
 
         Parameters
@@ -44,19 +44,16 @@ class LocalFTCalculator(ABC):
         gs : ResponseGroundStateAdapter
             Adapter containing relevant information about the underlying DFT
             ground state
-        world : mpi.world
-        txt : str or filehandle
-            defines output file through gpaw.utilities.convert_string_to_fd
-        timer : ase.utils.timing.Timer instance
+        context : ResponseContext
         """
-        self.world = world
-        self.fd = convert_string_to_fd(txt, world)  # output filehandle
-        self.timer = timer or Timer()
+        assert isinstance(gs, ResponseGroundStateAdapter)
         self.gs = gs
+        assert isinstance(context, ResponseContext)
+        self.context = context
+        
 
     @staticmethod
-    def from_rshe_parameters(gs,
-                             world=mpi.world, txt='-', timer=None,
+    def from_rshe_parameters(gs, context,
                              rshelmax=-1, rshewmin=None):
         """Construct the LocalFTCalculator based on parameters for the
         expansion of the PAW correction in real spherical harmonics
@@ -76,13 +73,10 @@ class LocalFTCalculator(ABC):
             will not be included.
         """
         if rshelmax is None:
-            return LocalGridFTCalculator(gs, world=world, txt=txt, timer=timer)
+            return LocalGridFTCalculator(gs, context)
         else:
-            return LocalPAWFTCalculator(gs, world=world, txt=txt, timer=timer,
+            return LocalPAWFTCalculator(gs, context,
                                         rshelmax=rshelmax, rshewmin=rshewmin)
-
-    def print(self, *args, flush=True):
-        print(*args, file=self.fd, flush=flush)
 
     @timer('LocalFT')
     def __call__(self, pd, add_f):
@@ -107,9 +101,9 @@ class LocalFTCalculator(ABC):
             Plane-wave components of the function f, indexes by the reciprocal
             lattice vectors G.
         """
-        self.print('Calculating f(G)')
+        self.context.print('Calculating f(G)')
         f_G = self.calculate(pd, add_f)
-        self.print('Finished calculating f(G)')
+        self.context.print('Finished calculating f(G)')
 
         return f_G
 
@@ -150,7 +144,7 @@ class LocalGridFTCalculator(LocalFTCalculator):
     def get_all_electron_density(self, gd):
         """Calculate the all-electron (spin-)density on the coarse real-space
         grid of the ground state."""
-        self.print('    Calculating the all-electron density')
+        self.context.print('    Calculating the all-electron density')
         n_sR, gd1 = self.gs.all_electron_density(gridrefinement=1)
         self.check_grid_equivalence(gd, gd1)
 
@@ -159,13 +153,10 @@ class LocalGridFTCalculator(LocalFTCalculator):
 
 class LocalPAWFTCalculator(LocalFTCalculator):
 
-    def __init__(self, gs,
-                 world=mpi.world, txt='-', timer=None,
-                 rshelmax=-1, rshewmin=None):
-        super().__init__(gs, world=world, txt=txt, timer=timer)
+    def __init__(self, gs, context, rshelmax=-1, rshewmin=None):
+        super().__init__(gs, context)
 
-        self.engine = LocalPAWFTEngine(self.world, self.fd, self.timer,
-                                       rshelmax, rshewmin)
+        self.engine = LocalPAWFTEngine(self.context, rshelmax, rshewmin)
 
     def calculate(self, pd, add_f):
         """Calculate f(G) with an expansion of f(r) in real spherical harmonics
@@ -262,12 +253,9 @@ class MicroSetup:
 
 class LocalPAWFTEngine:
 
-    def __init__(self, world=mpi.world, txt='-', timer=None,
-                 rshelmax=-1, rshewmin=None):
+    def __init__(self, context, rshelmax=-1, rshewmin=None):
         """Construct the engine."""
-        self.world = world
-        self.fd = convert_string_to_fd(txt, world)  # output filehandle
-        self.timer = timer or Timer()
+        self.context = context
 
         # Perform rshe up to l<=lmax(<=5)
         if rshelmax == -1:
@@ -281,9 +269,6 @@ class LocalPAWFTEngine:
         self.dfmask_g = None
 
         self._add_f = None
-
-    def print(self, *args, flush=True):
-        print(*args, file=self.fd, flush=flush)
 
     def calculate(self, pd, nt_sR, R_av, micro_setups, add_f):
         r"""Calculate the Fourier transform f(G) by splitting up the
@@ -336,7 +321,7 @@ class LocalPAWFTEngine:
 
         Δf_a[n_a,ñ_a](r) = f(n_a(r)) - f(ñ_a(r)).
         """
-        self.print('    Calculating PAW corrections\n')
+        self.context.print('    Calculating PAW corrections\n')
 
         # Extract reciprocal lattice vectors
         nG = pd.ngmax
@@ -355,13 +340,14 @@ class LocalPAWFTEngine:
             self._add_paw_correction(a, R_v, micro_setup,
                                      G_myG, G_myGv, fPAW_G)
 
-        self.world.sum(fPAW_G)
+        self.context.world.sum(fPAW_G)
 
         return fPAW_G
 
     def _distribute_correction(self, nG):
-        nGpr = (nG + self.world.size - 1) // self.world.size
-        Ga = min(self.world.rank * nGpr, nG)
+        world = self.context.world
+        nGpr = (nG + world.size - 1) // world.size
+        Ga = min(world.rank * nGpr, nG)
         Gb = min(Ga + nGpr, nG)
 
         return range(Ga, Gb)
@@ -410,7 +396,7 @@ class LocalPAWFTEngine:
 
         # Calculate the PAW correction as an integral over the radial grid
         # and rshe coefficients
-        with self.timer('Integrate PAW correction'):
+        with self.context.timer('Integrate PAW correction'):
             angular_coef_MmyG = ii_MmyG * Y_MmyG
             # Radial integral, dv = 4πr^2
             radial_coef_MmyG = np.tensordot(j_gMmyG * df_gL[:, L_M,
@@ -564,22 +550,22 @@ class LocalPAWFTEngine:
     def print_reduced_rshe_info(self, a, nL, dfSw_gL, rshew_L):
         """Print information about the reduced expansion in real spherical
         harmonics at atom (augmentation sphere) a."""
-        self.print('    RSHE of atom', a, flush=False)
-        self.print('      {0:6}  {1:10}  {2:10}  {3:8}'.format('(l,m)',
-                                                               'max weight',
-                                                               'avg weight',
-                                                               'included'),
-                   flush=False)
+        p = partial(self.context.print, flush=False)
+        p('    RSHE of atom', a)
+        p('      {0:6}  {1:10}  {2:10}  {3:8}'.format('(l,m)',
+                                                      'max weight',
+                                                      'avg weight',
+                                                      'included'))
         for L, (dfSw_g, rshew) in enumerate(zip(dfSw_gL.T, rshew_L)):
             self.print_rshe_coef_info(L, nL, dfSw_g, rshew)
 
         tot_avg_cov = np.average(np.sum(dfSw_gL, axis=1))
         avg_cov = np.average(np.sum(dfSw_gL[:, :nL]
                                     [:, rshew_L[:nL] > self.rshewmin], axis=1))
-        self.print(f'      In total: {avg_cov} of the dfSns is covered on'
-                   ' average', flush=False)
-        self.print(f'      In total: {tot_avg_cov} of the dfSns could be'
-                   ' covered on average\n')
+        p(f'      In total: {avg_cov} of the dfSns is covered on average')
+        p(f'      In total: {tot_avg_cov} of the dfSns could be covered on'
+          ' average')
+        self.context.print('')
 
     def print_rshe_coef_info(self, L, nL, dfSw_g, rshew):
         """Print information about a specific rshe coefficient"""
@@ -589,7 +575,7 @@ class LocalPAWFTEngine:
         info = '      {0:6}  {1:1.8f}  {2:1.8f}  {3:8}'.format(f'({l},{m})',
                                                                np.max(dfSw_g),
                                                                rshew, included)
-        self.print(info, flush=False)
+        self.context.print(info, flush=False)
 
     @timer('Expand plane waves in real spherical harmonics')
     def _expand_plane_waves(self, G_myGv, r_g, L_M, l_M):
@@ -622,7 +608,7 @@ class LocalPAWFTEngine:
                          for a in np.meshgrid(r_g, l_M, Gnorm_myG,
                                               indexing='ij')]
 
-        with self.timer('Compute spherical bessel functions'):
+        with self.context.timer('Compute spherical bessel functions'):
             # Slow step
             j_gMmyG = spherical_jn(l_gMmyG, Gnorm_gMmyG * r_gMmyG)
 
