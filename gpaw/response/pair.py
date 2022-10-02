@@ -1,14 +1,17 @@
 import numbers
+from pathlib import Path
 
 import numpy as np
 
 from ase.utils.timing import timer
 
+from gpaw import GPAW, disable_dry_run
 import gpaw.mpi as mpi
 from gpaw.fd_operators import Gradient
+
+from gpaw.response import ResponseContext
 from gpaw.response.pw_parallelization import block_partition
 from gpaw.response.symmetry import KPointFinder
-from gpaw.response.context import calc_and_context
 from gpaw.utilities.blas import mmm
 
 
@@ -343,81 +346,6 @@ class NoCalculatorPairDensity:
 
         return n_nmv
 
-    @timer('get_pair_momentum')
-    def get_pair_momentum(self, pd, kptpair, n_n, m_m, Q_avGii=None):
-        r"""Calculate matrix elements of the momentum operator.
-
-        Calculates::
-
-          n_{nm\mathrm{k}}\int_{\Omega_{\mathrm{cell}}}\mathrm{d}\mathbf{r}
-          \psi_{n\mathrm{k}}^*(\mathbf{r})
-          e^{-i\,(\mathrm{q} + \mathrm{G})\cdot\mathbf{r}}
-          \nabla\psi_{m\mathrm{k} + \mathrm{q}}(\mathbf{r})
-
-        pd: PlaneWaveDescriptor
-            Plane wave descriptor of a single q_c.
-        kptpair: KPointPair
-            KpointPair object containing the two kpoints.
-        n_n: list
-            List of left-band indices (n).
-        m_m:
-            List of right-band indices (m).
-        """
-        gs = self.gs
-
-        kpt1 = kptpair.kpt1
-        kpt2 = kptpair.kpt2
-        Q_G = kptpair.Q_G  # Fourier components of kpoint pair
-
-        # For the same band we
-        kd = gs.kd
-        gd = gs.gd
-        k_c = kd.bzk_kc[kpt1.K] + kpt1.shift_c
-        k_v = 2 * np.pi * np.dot(k_c, np.linalg.inv(gd.cell_cv).T)
-
-        # Calculate k + G
-        G_Gv = pd.get_reciprocal_vectors(add_q=True)
-        kqG_Gv = k_v[np.newaxis] + G_Gv
-
-        # Pair velocities
-        n_nmvG = pd.zeros((len(n_n), len(m_m), 3))
-
-        # Calculate derivatives of left-wavefunction
-        # (there will typically be fewer of these)
-        ut_nvR = self.make_derivative(kpt1.s, kpt1.K, kpt1.n1, kpt1.n2)
-
-        # PAW-corrections
-        if Q_avGii is None:
-            Q_avGii = self.initialize_paw_nabla_corrections(pd)
-
-        # Iterate over occupied bands
-        for j, n in enumerate(n_n):
-            ut1cc_R = kpt1.ut_nR[n].conj()
-
-            n_mG = self.calculate_pair_density(ut1cc_R,
-                                               [], kpt2,
-                                               pd, Q_G)
-
-            n_nmvG[j] = 1j * kqG_Gv.T[np.newaxis] * n_mG[:, np.newaxis]
-
-            # Treat each cartesian component at a time
-            for v in range(3):
-                # Minus from integration by parts
-                utvcc_R = -ut_nvR[n, v].conj()
-                Cv1_aGi = [np.dot(P1_ni[n].conj(), Q_vGii[v])
-                           for Q_vGii, P1_ni in zip(Q_avGii, kpt1.P_ani)]
-
-                nv_mG = self.calculate_pair_density(utvcc_R,
-                                                    Cv1_aGi, kpt2,
-                                                    pd, Q_G)
-
-                n_nmvG[j, :, v] += nv_mG
-
-        # We want the momentum operator
-        n_nmvG *= -1j
-
-        return n_nmvG
-
     @timer('Calculate pair-densities')
     def calculate_pair_density(self, ut1cc_R, C1_aGi, kpt2, pd, Q_G,
                                block=True):
@@ -458,7 +386,7 @@ class NoCalculatorPairDensity:
             return n_MG[:kpt2.n2 - kpt2.n1]
 
     @timer('Optical limit')
-    def calculate_optical_pair_velocity(self, n, m_m, kpt1, kpt2, block=False):
+    def calculate_optical_pair_velocity(self, n, kpt1, kpt2, block=False):
         if self.ut_sKnvR is None or kpt1.K not in self.ut_sKnvR[kpt1.s]:
             self.ut_sKnvR = self.calculate_derivatives(kpt1)
 
@@ -501,7 +429,7 @@ class NoCalculatorPairDensity:
 
         eps1 = kpt1.eps_n[n - kpt1.n1]
         deps_m = (eps1 - kpt2.eps_n)[m_m - kpt2.n1]
-        n0_mv = self.calculate_optical_pair_velocity(n, m_m, kpt1, kpt2,
+        n0_mv = self.calculate_optical_pair_velocity(n, kpt1, kpt2,
                                                      block=block)
 
         deps_m = deps_m.copy()
@@ -622,18 +550,10 @@ class NoCalculatorPairDensity:
             self.gs, K, k_c, apply_strange_shift=False)
 
     @timer('Initialize PAW corrections')
-    def initialize_paw_corrections(self, pd, soft=False):
+    def initialize_paw_corrections(self, pd):
         from gpaw.response.paw import calculate_paw_corrections
         return calculate_paw_corrections(
-            setups=self.gs.setups, pd=pd, soft=soft,
-            spos_ac=self.spos_ac)
-
-    @timer('Initialize PAW corrections')
-    def initialize_paw_nabla_corrections(self, pd, soft=False):
-        print('Initializing nabla PAW Corrections', file=self.fd)
-        from gpaw.response.paw import calculate_paw_nabla_corrections
-        return calculate_paw_nabla_corrections(
-            setups=self.gs.setups, pd=pd, soft=soft,
+            setups=self.gs.setups, pd=pd,
             spos_ac=self.spos_ac)
 
     def calculate_derivatives(self, kpt):
@@ -705,3 +625,20 @@ class PairDensity(NoCalculatorPairDensity):
             gs=self.calc.gs_adapter(),
             context=context,
             **kwargs)
+
+
+def calc_and_context(calc, txt, world, timer):
+    context = ResponseContext(txt=txt, world=world, timer=timer)
+    with context.timer('Read ground state'):
+        try:
+            path = Path(calc)
+        except TypeError:
+            pass
+        else:
+            print('Reading ground state calculation:\n  %s' % path,
+                  file=context.fd)
+            with disable_dry_run():
+                calc = GPAW(path, communicator=mpi.serial_comm)
+
+    assert calc.wfs.world.size == 1
+    return calc, context

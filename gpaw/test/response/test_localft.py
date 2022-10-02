@@ -15,9 +15,10 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.lfc import LFC
 from gpaw.atom.radialgd import AERadialGridDescriptor
+
+from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.localft import (LocalFTCalculator, MicroSetup,
                                    add_total_density, add_LSDA_Bxc)
-from gpaw.response.groundstate import ResponseGroundStateAdapter
 from gpaw.response.susceptibility import get_pw_coordinates
 from gpaw.test.response.test_site_kernels import get_PWDescriptor
 
@@ -101,8 +102,11 @@ def test_localft_grid_calculator(a):
     # Calculate the all-electron density on the real-space grid
     n_sR = np.array([ae_1s_density(r_R, a=a)])
 
-    # Initialize the LocalGridFTCalculator without a ground state adapter
-    localft_calc = LocalFTCalculator.from_rshe_parameters(None, rshelmax=None)
+    # Initialize the LocalGridFTCalculator with an empty ground state adapter
+    gs = EmptyGSAdapter()  # hack to pass isinstance in constructor
+    context = ResponseContext()
+    localft_calc = LocalFTCalculator.from_rshe_parameters(gs, context,
+                                                          rshelmax=None)
 
     # Compute the plane-wave components numerically
     n_G = localft_calc._calculate(pd, n_sR, add_total_density)
@@ -197,9 +201,11 @@ def test_localft_paw_engine(a):
     micro_setup = MicroSetup(rgd, Y_nL, n_sLg, nt_sLg)
     micro_setups = [micro_setup]
 
+    gs = EmptyGSAdapter()  # hack to pass isinstance in constructor
+    context = ResponseContext()
     for rshe_params in rshe_params_p:
-        # Initialize the LocalPAWFTCalculator without a ground state adapter
-        localft_calc = LocalFTCalculator.from_rshe_parameters(None,
+        # Initialize the LocalPAWFTCalculator with an empty gs adapter
+        localft_calc = LocalFTCalculator.from_rshe_parameters(gs, context,
                                                               **rshe_params)
 
         # Compute the plane-wave components numerically
@@ -261,7 +267,8 @@ def test_Fe_bxc():
 
     # Set up calculator and plane-wave descriptor
     gs = ResponseGroundStateAdapter(calc)
-    localft_calc = LocalFTCalculator.from_rshe_parameters(gs)
+    context = ResponseContext()
+    localft_calc = LocalFTCalculator.from_rshe_parameters(gs, context)
     pd0 = get_PWDescriptor(atoms, calc, [0., 0., 0.],
                            ecut=ecut,
                            gammacentered=True)
@@ -275,6 +282,17 @@ def test_Fe_bxc():
 
 
 # ---------- Test functionality ---------- #
+
+
+class EmptyGSAdapter(ResponseGroundStateAdapter):
+    # Make an empty subclass to pass isinstance in constructor
+    # In a future where the response code has been liberated from GPAW
+    # calculator objects, the
+    # >>> assert isinstance(gs, ResponseGroundStateAdapter)
+    # statements can be deleted, making this class redundant.
+
+    def __init__(self):
+        pass
 
 
 def get_inversion_pairs(pd0):

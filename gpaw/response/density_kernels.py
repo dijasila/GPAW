@@ -11,17 +11,15 @@ def get_density_xc_kernel(pd, chi0, functional='ALDA',
     """Density-density xc kernels.
     Factory function that calls the relevant functions below."""
 
-    calc = chi0.calc
-    fd = chi0.fd
+    p = chi0.context.print
     nspins = len(chi0.gs.nt_sR)
     assert nspins == 1
 
     if functional[0] == 'A':
         # Standard adiabatic kernel
-        print('Calculating %s kernel' % functional, file=fd)
-        Kcalc = AdiabaticSusceptibilityFXC(calc, functional,
-                                           world=chi0.world, txt=fd,
-                                           timer=chi0.timer,
+        p('Calculating %s kernel' % functional)
+        Kcalc = AdiabaticSusceptibilityFXC(chi0.gs, chi0.context,
+                                           functional,
                                            rshelmax=rshelmax,
                                            rshewmin=rshewmin)
         Kxc_GG = Kcalc('00', pd)
@@ -30,12 +28,11 @@ def get_density_xc_kernel(pd, chi0, functional='ALDA',
             Kxc_GG[:, 0] = 0.0
         Kxc_sGG = np.array([Kxc_GG])
     elif functional[:2] == 'LR':
-        print('Calculating LR kernel with alpha = %s' % functional[2:],
-              file=fd)
-        Kxc_sGG = calculate_lr_kernel(pd, calc, alpha=float(functional[2:]))
+        p('Calculating LR kernel with alpha = %s' % functional[2:])
+        Kxc_sGG = calculate_lr_kernel(pd, alpha=float(functional[2:]))
     elif functional == 'Bootstrap':
-        print('Calculating Bootstrap kernel', file=fd)
-        Kxc_sGG = get_bootstrap_kernel(pd, chi0, chi0_wGG, fd)
+        p('Calculating Bootstrap kernel')
+        Kxc_sGG = get_bootstrap_kernel(pd, chi0, chi0_wGG, chi0.context)
     else:
         raise ValueError('Invalid functional for the density-density '
                          'xc kernel:', functional)
@@ -43,7 +40,7 @@ def get_density_xc_kernel(pd, chi0, functional='ALDA',
     return Kxc_sGG[0]
 
 
-def calculate_lr_kernel(pd, calc, alpha=0.2):
+def calculate_lr_kernel(pd, alpha=0.2):
     """Long range kernel: fxc = \alpha / |q+G|^2"""
 
     assert pd.kd.gamma
@@ -55,7 +52,7 @@ def calculate_lr_kernel(pd, calc, alpha=0.2):
     return np.array([np.diag(f_G)])
 
 
-def get_bootstrap_kernel(pd, chi0, chi0_wGG, fd):
+def get_bootstrap_kernel(pd, chi0, chi0_wGG, context):
     """ Bootstrap kernel (see below) """
 
     if chi0.world.rank == 0:
@@ -70,11 +67,12 @@ def get_bootstrap_kernel(pd, chi0, chi0_wGG, fd):
         chi0_GG = np.zeros((nG, nG), complex)
         chi0.world.broadcast(chi0_GG, 0)
 
-    return calculate_bootstrap_kernel(pd, chi0_GG, fd)
+    return calculate_bootstrap_kernel(pd, chi0_GG, context)
 
 
-def calculate_bootstrap_kernel(pd, chi0_GG, fd):
+def calculate_bootstrap_kernel(pd, chi0_GG, context):
     """Bootstrap kernel PRL 107, 186401"""
+    p = context.print
 
     if pd.kd.gamma:
         v_G = np.zeros(len(pd.G2_qG[0]))
@@ -99,13 +97,12 @@ def calculate_bootstrap_kernel(pd, chi0_GG, fd):
 
         alpha = dminv_GG[0, 0] / (K_GG[0, 0] * chi0_GG[0, 0])
         Kxc_GG = alpha * K_GG
-        print(iscf, 'alpha =', alpha, file=fd)
+        p(iscf, 'alpha =', alpha, flush=False)
         error = np.abs(dminvold_GG - dminv_GG).sum()
         if np.sum(error) < 0.1:
-            print('Self consistent fxc finished in %d iterations !' % iscf,
-                  file=fd)
+            p('Self consistent fxc finished in %d iterations !' % iscf)
             break
         if iscf > 100:
-            print('Too many fxc scf steps !', file=fd)
+            p('Too many fxc scf steps !')
 
     return np.array([Kxc_GG])

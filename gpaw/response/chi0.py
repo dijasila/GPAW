@@ -590,8 +590,7 @@ class Chi0Calculator:
     def get_kpoints(self, pd, integrationmode=None):
         """Get the integration domain."""
         analyzer = PWSymmetryAnalyzer(
-            self.gs.kd, pd,
-            timer=self.timer, txt=self.fd,
+            self.gs.kd, pd, self.context,
             disable_point_group=self.disable_point_group,
             disable_time_reversal=self.disable_time_reversal,
             disable_non_symmorphic=self.disable_non_symmorphic)
@@ -925,7 +924,7 @@ class Chi0(Chi0Calculator):
             Class for calculating matrix elements of pairs of wavefunctions.
 
         """
-        from gpaw.response.context import calc_and_context
+        from gpaw.response.pair import calc_and_context
         calc, context = calc_and_context(calc, txt, world, timer)
         gs = calc.gs_adapter()
         nbands = nbands or gs.bd.nbands
