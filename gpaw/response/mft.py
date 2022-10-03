@@ -140,7 +140,8 @@ class IsotropicExchangeCalculator:
             # Plane-wave descriptor for q=0
             return self.chiks.get_PWDescriptor([0., 0., 0.])
         elif arg == 'chiksr0_GG':
-            return self.get_chiksr(np.array([0., 0., 0.]))
+            _, chiksr0_GG = self.get_chiksr(np.array([0., 0., 0.]))
+            return chiksr0_GG
         else:
             raise NotImplementedError(f'The BxcCalculator argument {arg} has '
                                       'not yet been implemented')
