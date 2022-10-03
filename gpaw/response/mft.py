@@ -89,8 +89,12 @@ class IsotropicExchangeCalculator:
         assert isinstance(bxc_calc, BxcCalculator)
         assert bxc_calc.context is self.context
 
+        # Initiate new output file, if supplied
+        if txt is not None:
+            self.context.new_txt_and_timer(txt)
+
         # Get ingredients
-        pd, chiksr_GG = self.get_chiksr(q_c, txt=txt)
+        pd, chiksr_GG = self.get_chiksr(q_c)
         Bxc_G = self.get_Bxc(bxc_calc)
         V0 = pd.gd.volume
 
@@ -138,17 +142,17 @@ class IsotropicExchangeCalculator:
             raise NotImplementedError(f'The BxcCalculator argument {arg} has '
                                       'not yet been implemented')
 
-    def get_chiksr(self, q_c, txt=None):
+    def get_chiksr(self, q_c):
         """Get χ_KS^('+-)(q) from buffer."""
         q_c = np.asarray(q_c)
         if self.currentq_c is None or not np.allclose(q_c, self.currentq_c):
             # Calculate chiks for any new q-point or if buffer is empty
             self.currentq_c = q_c
-            self._pd, self._chiksr_GG = self._calculate_chiksr(q_c, txt=txt)
+            self._pd, self._chiksr_GG = self._calculate_chiksr(q_c)
 
         return self._pd, self._chiksr_GG
 
-    def _calculate_chiksr(self, q_c, txt=None):
+    def _calculate_chiksr(self, q_c):
         r"""Use the ChiKS calculator to calculate the reactive part of the
         static Kohn-Sham susceptibility χ_KS^('+-)(q).
 
@@ -175,10 +179,6 @@ class IsotropicExchangeCalculator:
         where it was used that n^+(r) and n^-(r) are each others Hermitian
         conjugates to reach the last equality.
         """
-        # Initiate new output file, if supplied
-        if txt is not None:
-            self.context.new_txt_and_timer(txt)
-
         frequencies = [0.]
         pd, chiks_wGG = self.chiks.calculate(q_c, frequencies,
                                              spincomponent='+-')
