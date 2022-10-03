@@ -42,7 +42,7 @@ class LrTDDFT2:
                  max_occ=None,
                  min_unocc=None,
                  max_unocc=None,
-                 max_energy_diff=1e9,
+                 max_energy_diff=None,
                  recalculate=None,
                  lr_communicators=None,
                  txt='-'):
@@ -112,7 +112,10 @@ class LrTDDFT2:
         self.max_occ = max_occ
         self.min_unocc = min_unocc
         self.max_unocc = max_unocc
-        self.max_energy_diff = max_energy_diff / ase.units.Hartree
+        if max_energy_diff is not None:
+            self.max_energy_diff = max_energy_diff / ase.units.Hartree
+        else:
+            self.max_energy_diff = None
         self.recalculate = recalculate
         # Don't init calculator yet if it's not needed (to save memory)
         self.calc = gs_calc
@@ -152,7 +155,7 @@ class LrTDDFT2:
         if self.max_unocc is None:
             self.max_unocc = self.max_occ
         if self.max_energy_diff is None:
-            self.max_energy_diff = 1e9
+            self.max_energy_diff = np.inf
 
         self.min_occ = max(self.min_occ, 0)
         self.min_unocc = max(self.min_unocc, 0)
