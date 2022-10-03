@@ -141,11 +141,31 @@ class LrTDDFT2:
         self.txt = self.iocontext.openfile(txt, self.lr_comms.parent_comm)
 
         # Check and set unset params
+        kpt = self.calc.wfs.kpt_u[self.kpt_ind]
+        nbands = len(kpt.f_n)
+
+        # If min/max_occ/unocc were not given, but max_energy_diff was,
+        # check that calc has enough states for max_energy_diff
+        # (i.e., KS eigenvalue difference between HOMO and highest
+        # state is below max_energy_diff)
+        if ((self.min_occ is None or self.min_unocc is None
+             or self.max_occ is None or self.max_unocc is None)
+            and self.max_energy_diff is not None):
+            n_homo = np.sum(kpt.f_n > self.min_pop_diff) - 1
+            n_highest = nbands - 1  # XXX use highest converged state instead
+            eps_n = kpt.eps_n
+            eps_diff = eps_n[n_highest] - eps_n[n_homo]
+            if eps_diff <= self.max_energy_diff:
+                msg = ('Error in LrTDDFT2: not enough states in '
+                       'the calculator for the requested max_energy_diff='
+                       f'{self.max_energy_diff * Hartree:.4f} eV. '
+                       f'Max eigenvalue difference from HOMO (n={n_homo}) is '
+                       f'{eps_diff * Hartree:.4f} eV.')
+                raise RuntimeError(msg)
 
         # If min/max_occ/unocc were not given, initialized them to include
         # everything: min_occ/unocc => 0, max_occ/unocc to nubmer of wfs,
         # energy diff to numerical infinity
-        nbands = len(self.calc.wfs.kpt_u[self.kpt_ind].f_n)
         if self.min_occ is None:
             self.min_occ = 0
         if self.min_unocc is None:
