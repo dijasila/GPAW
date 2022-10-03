@@ -6,7 +6,7 @@ import glob
 
 import numpy as np
 
-import ase.units
+from ase.units import Hartree
 from ase.utils import IOContext
 
 from gpaw.xc import XC
@@ -113,7 +113,7 @@ class LrTDDFT2:
         self.min_unocc = min_unocc
         self.max_unocc = max_unocc
         if max_energy_diff is not None:
-            self.max_energy_diff = max_energy_diff / ase.units.Hartree
+            self.max_energy_diff = max_energy_diff / Hartree
         else:
             self.max_energy_diff = None
         self.recalculate = recalculate
@@ -337,8 +337,8 @@ class LrTDDFT2:
         if units == 'au':
             pass
         elif units == 'eVang':
-            omega_au /= ase.units.Hartree
-            width_au /= ase.units.Hartree
+            omega_au /= Hartree
+            width_au /= Hartree
         else:
             raise RuntimeError(
                 'Error in calculate_response_wavefunction: Invalid units.')
