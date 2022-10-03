@@ -420,7 +420,7 @@ lxcXCFunctional_Calculate(lxcXCFunctionalObject *self, PyObject *args)
     double **in;
     double **out;
     if (gpu[0] || gpu[1]) {
-      cudaMemcpy(inblock_d[0], inblock[0], insize, cudaMemcpyHostToDevice);
+      gpuMemcpy(inblock_d[0], inblock[0], insize, gpuMemcpyHostToDevice);
     }
 
     double *n_sg_cpu = inblock[0];
@@ -468,8 +468,8 @@ lxcXCFunctional_Calculate(lxcXCFunctionalObject *self, PyObject *args)
         }
 
       if (gpu[i]) {
-        cudaMemcpy(outblock[0], outblock_d[0], outsize,
-                   cudaMemcpyDeviceToHost);
+        gpuMemcpy(outblock[0], outblock_d[0], outsize,
+                   gpuMemcpyDeviceToHost);
       }
 
       // if we have more than 1 functional, add results
@@ -579,7 +579,7 @@ lxcXCFunctional_CalculateFXC(lxcXCFunctionalObject *self, PyObject *args)
     double **in;
     double **out;
     if (gpu[0] || gpu[1]) {
-      cudaMemcpy(inblock_d[0], inblock[0], insize, cudaMemcpyHostToDevice);
+      gpuMemcpy(inblock_d[0], inblock[0], insize, gpuMemcpyHostToDevice);
     }
     double *n_sg_cpu = inblock[0];
 
@@ -621,8 +621,8 @@ lxcXCFunctional_CalculateFXC(lxcXCFunctionalObject *self, PyObject *args)
         }
 
       if(gpu[i]){
-        cudaMemcpy(outblock[0], outblock_d[0], outsize,
-                   cudaMemcpyDeviceToHost);
+        gpuMemcpy(outblock[0], outblock_d[0], outsize,
+                   gpuMemcpyDeviceToHost);
       }
 
       // if we have more than 1 functional, add results
@@ -716,7 +716,7 @@ PyObject * NewlxcXCFunctionalObject(PyObject *obj, PyObject *args)
     scratch_lapl = (double*)malloc(laplsize);
     memset(scratch_lapl,0,laplsize);
     scratch_vlapl = (double*)malloc(laplsize);
-    cudaMalloc((void **) &scratch_d, LIBXCSCRATCHSIZE * sizeof(double));
+    gpuMalloc(&scratch_d, LIBXCSCRATCHSIZE * sizeof(double));
   }
 
   if (!PyArg_ParseTuple(args, "iiii", &xc, &x, &c, &nspin)) {

@@ -99,21 +99,21 @@ void lfc_dealloc_cuda(LFCObject *self)
     if (self->cuda) {
         for (int W=0; W < self->nW; W++) {
             LFVolume_gpu* volume_gpu = &self->volume_W_cuda[W];
-            cudaFree(volume_gpu->A_gm);
-            cudaFree(volume_gpu->GB1);
-            cudaFree(volume_gpu->nGBcum);
-            cudaFree(volume_gpu->phase_k);
+            gpuFree(volume_gpu->A_gm);
+            gpuFree(volume_gpu->GB1);
+            gpuFree(volume_gpu->nGBcum);
+            gpuFree(volume_gpu->phase_k);
         }
         free(self->volume_W_cuda);
-        cudaFree(self->volume_W_gpu);
-        cudaFree(self->G_B1_gpu);
-        cudaFree(self->G_B2_gpu);
-        cudaFree(self->volume_i_gpu);
-        cudaFree(self->A_gm_i_gpu);
-        cudaFree(self->volume_WMi_gpu);
-        cudaFree(self->WMi_gpu);
-        cudaFree(self->ni_gpu);
-        cudaGetLastError();
+        gpuFree(self->volume_W_gpu);
+        gpuFree(self->G_B1_gpu);
+        gpuFree(self->G_B2_gpu);
+        gpuFree(self->volume_i_gpu);
+        gpuFree(self->A_gm_i_gpu);
+        gpuFree(self->volume_WMi_gpu);
+        gpuFree(self->WMi_gpu);
+        gpuFree(self->ni_gpu);
+        gpuCheckLastError();
     }
 }
 
