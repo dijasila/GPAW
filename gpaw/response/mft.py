@@ -267,7 +267,7 @@ class GoldstoneBxcCalculator(LSDABxcCalculator):
     of the Kohn-Sham system under a rigid rotation of the spin axis. To comply
     with this invariance and to satisfy the Goldstone theorem,
 
-    m = χ_KS^('+-)(q) B^(xc)
+    m = 2 χ_KS^('+-)(q=0) B^(xc)
 
     in the plane-wave basis. This calculator inverts this expression to obtain
     the plane wave components of B^(xc)."""
@@ -278,6 +278,6 @@ class GoldstoneBxcCalculator(LSDABxcCalculator):
 
     def _calculate(self, pd0, chiksr0_GG):
         m_G = self.localft_calc(pd0, add_magnetization)
-        Bxc_G = np.linalg.inv(chiksr0_GG) @ m_G
+        Bxc_G = np.linalg.inv(chiksr0_GG) @ m_G / 2.
 
         return Bxc_G
