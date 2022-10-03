@@ -159,4 +159,4 @@ def shift_current(
 
                 sum2_l += fnm * tmp
 
-    return sum2_l
+    return 2 * np.pi * sum2_l
