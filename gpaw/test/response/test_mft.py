@@ -12,9 +12,9 @@ from ase.build import bulk
 from gpaw import GPAW, PW, FermiDirac
 from gpaw import mpi
 
-from gpaw.response import ResponseGroundStateAdapter
+from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chiks import ChiKS
-from gpaw.response.mft import IsotropicExchangeCalculator
+from gpaw.response.mft import IsotropicExchangeCalculator, LSDABxcCalculator
 from gpaw.response.site_kernels import (SphericalSiteKernels,
                                         CylindricalSiteKernels,
                                         ParallelepipedicSiteKernels)
@@ -84,12 +84,14 @@ def test_Fe_bcc(in_tmp_dir):
     sitekernels.append(ParallelepipedicSiteKernels(positions,
                                                    [[atoms.get_cell()]]))
 
-    # Initialize the exchange calculator
+    # Initialize the exchange calculator and bxc calculator
     gs = ResponseGroundStateAdapter(calc)
-    chiks = ChiKS(gs,
+    context = ResponseContext()
+    chiks = ChiKS(gs, context,
                   ecut=ecut, nbands=nbands, eta=eta,
                   gammacentered=True)
     isoexch_calc = IsotropicExchangeCalculator(chiks)
+    bxc_calc = LSDABxcCalculator(gs, context)
 
     # Allocate array for the exchange constants
     nq = len(q_qc)
@@ -99,7 +101,7 @@ def test_Fe_bcc(in_tmp_dir):
 
     # Calcualate the exchange constant for each q-point
     for q, q_c in enumerate(q_qc):
-        J_qabp[q] = isoexch_calc(q_c, sitekernels)
+        J_qabp[q] = isoexch_calc(q_c, sitekernels, bxc_calc)
     # Since we only have a single site, reduce the array
     J_qp = J_qabp[:, 0, 0, :]
 
@@ -212,16 +214,19 @@ def test_Co_hcp(in_tmp_dir):
     # Initialize the exchange calculator with and without eta,
     # as well as with and without symmetry
     gs = ResponseGroundStateAdapter(calc)
-    chiks0 = ChiKS(gs,
+    context = ResponseContext()
+    chiks0 = ChiKS(gs, context,
                    disable_point_group=True,
                    disable_time_reversal=True,
                    ecut=ecut, nbands=nbands, eta=eta0,
                    gammacentered=True)
     isoexch_calc0 = IsotropicExchangeCalculator(chiks0)
-    chiks1 = ChiKS(gs,
+    chiks1 = ChiKS(gs, context,
                    ecut=ecut, nbands=nbands, eta=eta1,
                    gammacentered=True)
     isoexch_calc1 = IsotropicExchangeCalculator(chiks1)
+    # Initialize the bxc calculator
+    bxc_calc = LSDABxcCalculator(gs, context)
 
     # Allocate array for the spherical site exchange constants
     nq = len(q_qc)
@@ -234,9 +239,9 @@ def test_Co_hcp(in_tmp_dir):
 
     # Calcualate the exchange constants for each q-point
     for q, q_c in enumerate(q_qc):
-        J_qabp[q] = isoexch_calc0(q_c, sitekernels)
-        Juc_qe[q, 0] = isoexch_calc0(q_c, ucsitekernels)[0, 0, 0]
-        Juc_qe[q, 1] = isoexch_calc1(q_c, ucsitekernels)[0, 0, 0]
+        J_qabp[q] = isoexch_calc0(q_c, sitekernels, bxc_calc)
+        Juc_qe[q, 0] = isoexch_calc0(q_c, ucsitekernels, bxc_calc)[0, 0, 0]
+        Juc_qe[q, 1] = isoexch_calc1(q_c, ucsitekernels, bxc_calc)[0, 0, 0]
 
     # Calculate the magnon energy
     mm_ap = calc.get_magnetic_moment() / 2.\
