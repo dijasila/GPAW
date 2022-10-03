@@ -1,7 +1,10 @@
 # General modules
+from abc import ABC, abstractmethod, abstractproperty
+
 import numpy as np
 
 # GPAW modules
+from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chiks import ChiKS
 from gpaw.response.localft import LocalFTCalculator, add_LSDA_Bxc
 from gpaw.response.site_kernels import SiteKernels
@@ -55,22 +58,12 @@ class IsotropicExchangeCalculator:
         self.chiks = chiks
         self.context = chiks.context
 
-        # Initialize the B^(xc) calculator
-        # Once the response context object is ready, the user should be allowed
-        # to supply the Bxc_calc themselves. This will expose the rshe
-        # arguments to the user, which is not the case at present. XXX
-        self.localft_calc = LocalFTCalculator.from_rshe_parameters(
-            self.chiks.gs, self.context)
-
-        # Bxc field buffer
-        self._Bxc_G = None
-
         # chiksr buffer
         self.currentq_c = None
         self._pd = None
         self._chiksr_GG = None
 
-    def __call__(self, q_c, site_kernels, txt=None):
+    def __call__(self, q_c, site_kernels, bxc_calc, txt=None):
         """Calculate the isotropic exchange constants for a given wavevector.
 
         Parameters
@@ -79,6 +72,8 @@ class IsotropicExchangeCalculator:
             Wave vector q in relative coordinates
         site_kernels : SiteKernels
             Site kernels instance defining the magnetic sites of the crystal
+        bxc_calc : BxcCalculator
+            Calculator, which calculates the plane-wave components of B^(xc)
         txt : str
             Separate file to store the chiks calculation output in (optional).
             If not supplied, the output will be written to the standard text
@@ -91,10 +86,12 @@ class IsotropicExchangeCalculator:
             and b for all the site partitions p given by the site_kernels.
         """
         assert isinstance(site_kernels, SiteKernels)
+        assert isinstance(bxc_calc, BxcCalculator)
+        assert bxc_calc.context is self.context
 
         # Get ingredients
-        Bxc_G = self.get_Bxc()
         pd, chiksr_GG = self.get_chiksr(q_c, txt=txt)
+        Bxc_G = self.get_Bxc(bxc_calc)
         V0 = pd.gd.volume
 
         # Allocate an array for the exchange constants
@@ -114,21 +111,32 @@ class IsotropicExchangeCalculator:
 
         return J_abp * Hartree  # Convert from Hartree to eV
 
-    def get_Bxc(self):
-        """Get B^(xc)_G from buffer."""
-        if self._Bxc_G is None:  # Calculate, if buffer is empty
-            self._Bxc_G = self._calculate_Bxc()
+    def get_Bxc(self, bxc_calc):
+        """Retrieve the B^(xc) plane-wave components from the BxcCalculator."""
 
-        return self._Bxc_G
+        if bxc_calc.in_buffer():  # Check buffer for preexisting calculation
+            return bxc_calc.from_buffer()
 
-    def _calculate_Bxc(self):
-        """Use the PlaneWaveBxc calculator to calculate the plane wave
-        coefficients B^xc_G"""
-        # Create a plane wave descriptor encoding the plane wave basis. Input
-        # q_c is arbitrary, since we are assuming that chiks.gammacentered == 1
-        pd0 = self.chiks.get_PWDescriptor([0., 0., 0.])
+        # Perform actual calculation
+        bxc_args = self.prepare_bxc_args(bxc_calc)
+        Bxc_G = bxc_calc.calculate(*bxc_args)
 
-        return self.localft_calc(pd0, add_LSDA_Bxc)
+        return Bxc_G
+
+    def prepare_bxc_args(self, bxc_calc):
+        """Prepare the necessary arguments for the BxcCalculator."""
+        bxc_args = tuple([self.get_bxc_arg(arg) for arg in bxc_calc.args])
+
+        return bxc_args
+
+    def get_bxc_arg(self, arg):
+        """Factory function to retrieve different BxcCalculator arguments."""
+        if arg == 'pd0':
+            # Plane-wave descriptor for q=0
+            return self.chiks.get_PWDescriptor([0., 0., 0.])
+        else:
+            raise NotImplementedError(f'The BxcCalculator argument {arg} has '
+                                      'not yet been implemented')
 
     def get_chiksr(self, q_c, txt=None):
         """Get χ_KS^('+-)(q) from buffer."""
@@ -180,3 +188,69 @@ class IsotropicExchangeCalculator:
         chiksr_GG = 1 / 2. * (chiks_wGG[0] + np.conj(chiks_wGG[0]).T)
 
         return pd, chiksr_GG
+
+
+class BxcCalculator(ABC):
+
+    """Abstract calculator base class for calculations of the plane-wave
+    components of B^(xc). Keeps calculated components in a buffer and knows
+    what arguments to give its self.calculate(*args) method."""
+
+    def __init__(self, gs, context):
+        """Construct the BxcCalculator with an empty buffer."""
+        assert isinstance(gs, ResponseGroundStateAdapter)
+        self.gs = gs
+        assert isinstance(context, ResponseContext)
+        self.context = context
+
+        # Bxc field buffer
+        self._Bxc_G = None
+
+    def in_buffer(self):
+        return self._Bxc_G is not None
+
+    def from_buffer(self):
+        assert self.in_buffer()
+        return self._Bxc_G
+
+    def calculate(self, *args):
+        """Calculate the Bxc plane-wave components and fill buffer."""
+        self._Bxc_G = self._calculate(*args)
+        return self._Bxc_G
+
+    @abstractmethod
+    def _calculate(self, *args):
+        pass
+
+    @abstractproperty
+    def args(self):
+        # Return a list of the arguments (as strings) to self._calculate()
+        pass
+
+
+class LSDABxcCalculator(BxcCalculator):
+
+    def __init__(self, gs, context,
+                 rshelmax=-1, rshewmin=None):
+        """Construct a BxcCalculator for the LSDA based on a local Fourier
+        transform of B^(xc) evaluated explicitly in real space.
+
+        Parameters
+        ----------
+        rshelmax : int or None
+            See LocalFTCalculator
+        rshewmin : float or None
+            See LocalFTCalculator
+        """
+        BxcCalculator.__init__(self, gs, context)
+
+        # Construct a LocalFTCalculator to carry out the FT
+        self.localft_calc = LocalFTCalculator.from_rshe_parameters(
+            gs, context, rshelmax=rshelmax, rshewmin=rshewmin)
+
+    @property
+    def args(self):
+        return ['pd0']
+
+    def _calculate(self, pd0):
+        return self.localft_calc(pd0, add_LSDA_Bxc)
