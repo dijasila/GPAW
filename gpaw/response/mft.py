@@ -6,7 +6,8 @@ import numpy as np
 # GPAW modules
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chiks import ChiKS
-from gpaw.response.localft import LocalFTCalculator, add_LSDA_Bxc
+from gpaw.response.localft import (LocalFTCalculator,
+                                   add_LSDA_Bxc, add_magnetization)
 from gpaw.response.site_kernels import SiteKernels
 from gpaw.response.susceptibility import symmetrize_reciprocity
 
@@ -229,11 +230,13 @@ class BxcCalculator(ABC):
 
 
 class LSDABxcCalculator(BxcCalculator):
+    """Calculator for the LSDA magnetic xc potential. The calculation is based
+    on a local Fourier transform of B^(xc) evaluated explicitly in real space.
+    """
 
     def __init__(self, gs, context,
                  rshelmax=-1, rshewmin=None):
-        """Construct a BxcCalculator for the LSDA based on a local Fourier
-        transform of B^(xc) evaluated explicitly in real space.
+        """Construct the BxcCalculator with an internal LocalFTCalculator
 
         Parameters
         ----------
@@ -254,3 +257,24 @@ class LSDABxcCalculator(BxcCalculator):
 
     def _calculate(self, pd0):
         return self.localft_calc(pd0, add_LSDA_Bxc)
+
+
+class GoldstoneBxcCalculator(LSDABxcCalculator):
+    """Calculator for magnetic xc potentials computed based on the invariance
+    of the Kohn-Sham system under a rigid rotation of the spin axis. To comply
+    with this invariance and to satisfy the Goldstone theorem,
+
+    m = χ_KS^('+-)(q) B^(xc)
+
+    in the plane-wave basis. This calculator inverts this expression to obtain
+    the plane wave components of B^(xc)."""
+
+    @property
+    def args(self):
+        return ['pd0', 'chiksr0_GG']
+
+    def _calculate(self, pd0, chiksr0_GG):
+        m_G = self.localft_calc(pd0, add_magnetization)
+        Bxc_G = np.linalg.inv(chiksr0_GG) @ m_G
+
+        return Bxc_G
