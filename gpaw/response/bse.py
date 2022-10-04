@@ -225,15 +225,15 @@ class BSE:
 
         # Calculate direct (screened) interaction and PAW corrections
         if self.mode == 'RPA':
-            Q_aGii = self.gs.paw_corrections(pd0).Q_aGii
+            pawcorr = self.gs.paw_corrections(pd0)
         else:
             self.get_screened_potential()
             if (self.qd.ibzk_kc - self.q_c < 1.0e-6).all():
                 iq0 = self.qd.bz2ibz_k[self.kd.where_is_q(self.q_c,
                                                           self.qd.bzk_kc)]
-                Q_aGii = self.Q_qaGii[iq0]
+                pawcorr = self.pawcorr_q[iq0]  # Q_qaGii[iq0]
             else:
-                Q_aGii = self.gs.paw_corrections(pd0).Q_aGii
+                pawcorr = self.gs.paw_corrections(pd0)
 
         # Calculate pair densities, eigenvalues and occupations
         so = self.spinors + 1
@@ -286,7 +286,7 @@ class BSE:
 
                 df_mn = pair.get_occupation_differences(self.val_sn[s],
                                                         self.con_sn[s])
-                rho_mnG = get_pair_density(pd0, pair, m_m, n_n, Q_aGii=Q_aGii)
+                rho_mnG = get_pair_density(pd0, pair, m_m, n_n, Q_aGii=pawcorr.Q_aGii)
                 if optical_limit:
                     n_mnv = get_optical_pair_density(pd0, pair, m_m, n_n)
                     rho_mnG[:, :, 0] = n_mnv[:, :, self.direction]
@@ -454,7 +454,7 @@ class BSE:
                                               np.linalg.inv(pd.gd.cell_cv).T))
 
         Q_aGii = []
-        for a, Q_Gii in enumerate(self.Q_qaGii[iq]):
+        for a, Q_Gii in enumerate(self.pawcorr_q[iq].Q_aGii):
             x_G = np.exp(1j * np.dot(G_Gv, (spos_av[a] -
                                             np.dot(M_vv, spos_av[a]))))
             U_ii = self.gs.setups[a].R_sii[sym]
@@ -487,7 +487,7 @@ class BSE:
             # Read screened potential from file
             try:
                 data = np.load(self.wfile + '.npz')
-                self.Q_qaGii = data['Q']
+                self.pawcorr_q = [PAWCorrections(Q_aGii) for Q_aGii in data['Q']]
                 self.W_qGG = data['W']
                 self.pd_q = data['pd']
                 print('Reading screened potential from % s' % self.wfile,
@@ -498,7 +498,8 @@ class BSE:
                       file=self.fd)
                 if world.rank == 0:
                     np.savez(self.wfile,
-                             Q=self.Q_qaGii, pd=self.pd_q, W=self.W_qGG)
+                             Q=[pawcorr.Q_aGii for pawcorr in self.pawcorr_q],
+                             pd=self.pd_q, W=self.W_qGG)
         else:
             self.calculate_screened_potential()
 
@@ -532,7 +533,7 @@ class BSE:
     def calculate_screened_potential(self):
         """Calculate W_GG(q)"""
 
-        self.Q_qaGii = []
+        self.pawcorr_q = []
         self.W_qGG = []
         self.pd_q = []
 
@@ -553,7 +554,8 @@ class BSE:
             chi0 = self._calculate_chi0(q_c)
             pd, W_wGG = self._wcalc.calculate_q(iq, q_c, chi0)
             W_GG = W_wGG[0]
-            self.Q_qaGii.append(self._chi0calc.Q_aGii)
+            from gpaw.response.paw import PAWCorrections
+            self.pawcorr_q.append(PAWCorrections(self._chi0calc.Q_aGii))
             self.pd_q.append(pd)
             self.W_qGG.append(W_GG)
 
