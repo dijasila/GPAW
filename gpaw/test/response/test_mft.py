@@ -106,7 +106,8 @@ def test_Fe_bcc(in_tmp_dir):
 
     # Calcualate the exchange constant for each q-point
     for q, q_c in enumerate(q_qc):
-        Jl_qabp[q] = isoexch_calc(q_c, sitekernels, lsda_bxc_calc)
+        txt = f'Fe_mft_q«{q}».txt'
+        Jl_qabp[q] = isoexch_calc(q_c, sitekernels, lsda_bxc_calc, txt=txt)
         Jg_qabp[q] = isoexch_calc(q_c, sitekernels, gsto_bxc_calc)
     # Since we only have a single site, reduce the array
     Jl_qp = Jl_qabp[:, 0, 0, :]
