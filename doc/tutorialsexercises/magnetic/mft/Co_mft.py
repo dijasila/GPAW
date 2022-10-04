@@ -9,11 +9,12 @@ from ase.data import covalent_radii
 
 from gpaw import restart
 from gpaw.mpi import rank
+from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.site_kernels import (SphericalSiteKernels,
                                         CylindricalSiteKernels,
                                         ParallelepipedicSiteKernels)
 from gpaw.response.chiks import ChiKS
-from gpaw.response.mft import IsotropicExchangeCalculator
+from gpaw.response.mft import IsotropicExchangeCalculator, LSDABxcCalculator
 
 
 # ---------- Inputs ---------- #
@@ -61,13 +62,15 @@ atoms.calc = calc
 atoms.get_potential_energy()
 
 # Initialize the ChiKS calculator
-chiks = ChiKS(calc,
+context = ResponseContext(txt='Co_mft.txt')
+gs = ResponseGroundStateAdapter(calc)
+chiks = ChiKS(gs, context,
               ecut=ecut, nbands=nbands, eta=eta,
-              gammacentered=True,
-              txt='Co_chiks.txt')
+              gammacentered=True)
 
-# Initialize the exchange calculator
+# Initialize the exchange calculator and the bxc calculator
 isoexch_calc = IsotropicExchangeCalculator(chiks)
+bxc_calc = LSDABxcCalculator(gs, context)
 
 # Initialize site kernels with two sublattices
 positions = atoms.positions  # sublattice positions
@@ -118,9 +121,10 @@ Jmix_qp = np.empty((nq, 2), dtype=complex)
 
 # Compute the isotropic exchange coupling along the chosen bandpath
 for q, q_c in enumerate(q_qc):
-    Jsph1_qabr[q] = isoexch_calc(q_c, sph_sitekernels1)
-    Jsph2_qabr[q] = isoexch_calc(q_c, sph_sitekernels2)
-    Jmix_qp[q] = isoexch_calc(q_c, mix_sitekernels)[0, 0, :]  # nsites == 1
+    Jsph1_qabr[q] = isoexch_calc(q_c, sph_sitekernels1, bxc_calc)
+    Jsph2_qabr[q] = isoexch_calc(q_c, sph_sitekernels2, bxc_calc)
+    Jmix_abp = isoexch_calc(q_c, mix_sitekernels, bxc_calc)
+    Jmix_qp[q] = Jmix_abp[0, 0, :]  # nsites == 1
 
 # Save the bandpath, spherical radii and computed exchange constants
 if rank == 0:

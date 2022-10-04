@@ -6,10 +6,11 @@ import numpy as np
 
 # Script modules
 from gpaw.mpi import rank
+from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.site_kernels import (SphericalSiteKernels,
                                         ParallelepipedicSiteKernels)
 from gpaw.response.chiks import ChiKS
-from gpaw.response.mft import IsotropicExchangeCalculator
+from gpaw.response.mft import IsotropicExchangeCalculator, LSDABxcCalculator
 
 
 # ---------- Inputs ---------- #
@@ -45,16 +46,17 @@ rc_r = np.linspace(0.5, 1.75, 51)
 
 # Initialize the ChiKS calculator, which is responsible for computing the
 # transverse magnetic susceptibility of the Kohn-Sham system
-chiks = ChiKS(gpw,
+context = ResponseContext(txt='Fe_mft.txt')
+gs = ResponseGroundStateAdapter.from_gpw_file(gpw, context=context)
+chiks = ChiKS(gs, context,
               ecut=ecut, nbands=nbands, eta=eta,
-              gammacentered=True,  # Plane wave basis needs to be q-invariant
-              txt='Fe_chiks.txt')
-# When initialized from a file, the ChiKS calculator has a serial copy of
-# the ground state calculator. From it, we extract the atoms
-atoms = chiks.calc.atoms
+              gammacentered=True)  # Plane wave basis needs to be q-invariant
+# We extract the atoms directly from the ground state adapter
+atoms = gs.atoms
 
-# Initialize the exchange calculator
+# Initialize the exchange calculator and the bxc calculator
 isoexch_calc = IsotropicExchangeCalculator(chiks)
+bxc_calc = LSDABxcCalculator(gs, context)
 
 # Initialize the site kernels
 positions = atoms.positions  # sublattice positions
@@ -82,8 +84,10 @@ for q, q_c in enumerate(q_qc):
     # magnetic susceptibility untill we ask for a new q-vector. Thus, we may
     # compute the exchange constants with multiple different site kernels
     # instances, virtually without any computational overhead.
-    J_qabp[q] = isoexch_calc(q_c, sitekernels)
-    Juc_qabp[q] = isoexch_calc(q_c, ucsitekernels)
+    # Similarly, also the BxcCalculator keeps a copy of the calculated Bxc_G,
+    # such that we can call it as many times as we like without any overhead.
+    J_qabp[q] = isoexch_calc(q_c, sitekernels, bxc_calc)
+    Juc_qabp[q] = isoexch_calc(q_c, ucsitekernels, bxc_calc)
 # Since we only have a single site, reduce the arrays
 J_qr = J_qabp[:, 0, 0, :]
 Juc_q = Juc_qabp[:, 0, 0, 0]
