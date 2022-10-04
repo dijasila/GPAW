@@ -160,11 +160,14 @@ it is initialized to compute the reactive part of the susceptibility,
 
 in the static limit `\omega=0` for a given wave vector `\mathbf{q}`.
 With this in hand, it uses a supplied ``SiteKernels`` instance defining
-the sublattice site geometries to compute the exchange constants
-`\bar{J}^{ab}(\mathbf{q})`. At present, spherical, cylindrical and
-parallelepipedic site kernel geometries are supported through the
-``SphericalSiteKernels``, ``CylindricalSiteKernels`` and
-``ParallelepipedicSiteKernels`` classes.
+the sublattice site geometries as well as a ``BxcCalculator`` capable of
+calculating the plane-wave components of `B^{\mathrm{xc}}(\mathbf{r})` to
+compute the exchange constants `\bar{J}^{ab}(\mathbf{q})`. At present,
+spherical, cylindrical and parallelepipedic site kernel geometries are
+supported through the ``SphericalSiteKernels``, ``CylindricalSiteKernels``
+and ``ParallelepipedicSiteKernels`` classes respectively. For
+`B^{\mathrm{xc}}`, the LSDA exchange-correlation field is implemented via
+the ``LSDABxcCalculator``.
 
 When using the GPAW code for computing MFT Heisenberg exchange constants,
 please reference both of the works [#Durhuus]_ and [#Skovhus]_.
