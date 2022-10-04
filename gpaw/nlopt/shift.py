@@ -18,19 +18,29 @@ def get_shift(
         band_n=None,
         out_name='shift.npy',
         mml_name='mml.npz'):
-    """
-    Calculate RPA shift current for nonmagnetic semiconductors
+    """Calculate RPA shift current for nonmagnetic semiconductors.
 
-    Input:
-        freqs           Excitation frequency array (a numpy array or list)
-        eta             Broadening, a number or an array (default 0.05 eV)
-        pol             Tensor element (default 'yyy')
-        Etol, ftol      Tol. in energy and fermi to consider degeneracy
-        band_n          List of bands in the sum (default 0 to nb)
-        out_name        Output filename (default 'shift.npy')
-        mml_name        The momentum filename (default 'mml.npz')
-    Output:
-        shift.npy       Numpy array containing the spectrum and frequencies
+    Parameters
+    ==========
+    freqs:
+        Excitation frequency array (a numpy array or list).
+    eta:
+        Broadening, a number or an array (default 0.05 eV).
+    pol:
+        Tensor element (default 'yyy').
+    Etol, ftol:
+        Tol. in energy and fermi to consider degeneracy.
+    band_n:
+        List of bands in the sum (default 0 to nb).
+    out_name:
+        Output filename (default 'shift.npy').
+    mml_name:
+        The momentum filename (default 'mml.npz').
+
+    Returns
+    =======
+    shift:
+        Numpy array containing the spectrum and frequencies.
     """
 
     # Start a timer
@@ -87,7 +97,7 @@ def get_shift(
 
     if world.rank == 0:
         pb.finish()
-        
+
     with timer('Gather data from cores'):
         world.sum(sum2_l)
 

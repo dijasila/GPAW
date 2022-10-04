@@ -12,6 +12,9 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.23.0b1
 
+* Missing factor of `2\pi` now included in RPA shift current:
+  :func:`gpaw.nlopt.shift.get_shift`.
+
 
 Version 22.8.0
 ==============
