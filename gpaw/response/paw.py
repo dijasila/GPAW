@@ -51,6 +51,13 @@ class PAWCorrections:
                   for Qa_Gii, P1_ni in zip(self.Q_aGii, P_ani)]
         return C1_aGi
 
+    def reduce_ecut(self, G2G):
+        Q_aGii = []
+        if Q_aGii is not None:
+            for a, Q_Gii in enumerate(self.Q_aGii):
+                Q_aGii.append(Q_Gii.take(G2G, axis=0))
+        return PAWCorrections(Q_aGii)
+
     def almost_equal(self, otherpawcorr, G_G):
         for a, Q_Gii in enumerate(otherpawcorr.Q_aGii):
             e = abs(self.Q_aGii[a] - Q_Gii[G_G]).max()

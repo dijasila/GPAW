@@ -579,10 +579,9 @@ class Chi0Calculator:
 
             if chi0_wxvG is not None:
                 chi0_wxvG = chi0_wxvG.take(G2G, axis=3)
-            Q_aGii = self.pawcorr.Q_aGii
-            if Q_aGii is not None:
-                for a, Q_Gii in enumerate(Q_aGii):
-                    Q_aGii[a] = Q_Gii.take(G2G, axis=0)
+
+            if self.pawcorr is not None:
+                self.pawcorr = self.pawcorr.reduce_ecut(G2G)
 
         return pdi, blocks1d, G2G, chi0_wGG, chi0_wxvG, chi0_wvv
 
