@@ -128,10 +128,6 @@ class Chi0Calculator:
             print('Using integration method: PointIntegrator', file=self.fd)
 
     @property
-    def Q_aGii(self):
-        return self.pawcorr.Q_aGii
-
-    @property
     def pbc(self):
         return self.gs.pbc
 

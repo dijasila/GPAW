@@ -890,8 +890,7 @@ class G0W0Calculator:
 
             Wdict[fxc_mode] = W_xwGG
 
-        from gpaw.response.paw import PAWCorrections
-        return pdi, Wdict, blocks1d, PAWCorrections(chi0calc.Q_aGii)
+        return pdi, Wdict, blocks1d, chi0calc.pawcorr
 
     def calculate_vxc_and_exx(self):
         """EXX and Kohn-Sham XC contribution."""

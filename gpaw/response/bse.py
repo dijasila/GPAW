@@ -554,8 +554,7 @@ class BSE:
             chi0 = self._calculate_chi0(q_c)
             pd, W_wGG = self._wcalc.calculate_q(iq, q_c, chi0)
             W_GG = W_wGG[0]
-            from gpaw.response.paw import PAWCorrections
-            self.pawcorr_q.append(PAWCorrections(self._chi0calc.Q_aGii))
+            self.pawcorr_q.append(self._chi0calc.pawcorr)
             self.pd_q.append(pd)
             self.W_qGG.append(W_GG)
 
