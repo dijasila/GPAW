@@ -604,7 +604,7 @@ class G0W0Calculator:
                                                pos_av, M_vv)
 
         if debug:
-            self.check(ie, i_cG, shift0_c, N_c, q_c, mypawcorr.Q_aGii)
+            self.check(ie, i_cG, shift0_c, N_c, q_c, mypawcorr)
 
         if self.wcalc.ppa:
             calculate_sigma = self.calculate_sigma_ppa
@@ -634,7 +634,7 @@ class G0W0Calculator:
                 sigma.sigma_eskn[ie, kpt1.s, k, nn] += sigma_contrib
                 sigma.dsigma_eskn[ie, kpt1.s, k, nn] += dsigma_contrib
 
-    def check(self, ie, i_cG, shift0_c, N_c, q_c, Q_aGii):
+    def check(self, ie, i_cG, shift0_c, N_c, q_c, pawcorr):
         I0_G = np.ravel_multi_index(i_cG - shift0_c[:, None], N_c, 'wrap')
         qd1 = KPointDescriptor([q_c])
         pd1 = PWDescriptor(self.ecut_e[ie], self.wcalc.gs.gd, complex, qd1)
@@ -643,12 +643,12 @@ class G0W0Calculator:
         I1_G = pd1.Q_qG[0]
         G_I[I1_G] = np.arange(len(I0_G))
         G_G = G_I[I0_G]
+        # This indexing magic should definitely be moved to a method.
+        # What on earth is it really?
+
         assert len(I0_G) == len(I1_G)
         assert (G_G >= 0).all()
-        for a, Q_Gii in enumerate(
-                self.wcalc.gs.paw_corrections(pd1).Q_aGii):
-            e = abs(Q_aGii[a] - Q_Gii[G_G]).max()
-            assert e < 1e-12
+        assert pawcorr.almost_equal(self.wcalc.gs.paw_corrections(pd1), G_G)
 
     @timer('Sigma')
     def calculate_sigma(self, n_mG, deps_m, f_m, C_swGG, blocks1d):

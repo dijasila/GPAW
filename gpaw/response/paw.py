@@ -51,6 +51,13 @@ class PAWCorrections:
                   for Qa_Gii, P1_ni in zip(self.Q_aGii, P_ani)]
         return C1_aGi
 
+    def almost_equal(self, otherpawcorr, G_G):
+        for a, Q_Gii in enumerate(otherpawcorr.Q_aGii):
+            e = abs(self.Q_aGii[a] - Q_Gii[G_G]).max()
+            if e > 1e-12:
+                return False
+        return True
+
 
 def calculate_paw_corrections(setups, pd, spos_ac):
     q_v = pd.K_qv[0]
