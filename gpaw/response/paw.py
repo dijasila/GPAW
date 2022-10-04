@@ -24,8 +24,7 @@ class PAWCorrections:
 
         Q_aGii = []
         for a, Q_Gii in enumerate(self.Q_aGii):
-            x_G = np.exp(1j * np.dot(G_Gv, (self.pos_av[a] -
-                                            np.dot(M_vv, self.pos_av[a]))))
+            x_G = self._get_x_G(M_vv)
             U_ii = self.setups[a].R_sii[sym]
 
             Q_Gii = np.einsum('ij,kjl,ml->kim',
@@ -39,11 +38,15 @@ class PAWCorrections:
 
         return self._new(Q_aGii)
 
+    def _get_x_G(self, M_vv):
+        # This doesn't really belong here.  Or does it?  Maybe this formula
+        # is only used with PAW corrections.
+        return np.exp(1j * (G_Gv @ (self.pos_av[a] - M_vv @ self.pos_av[a])))
+
     def remap_somehow_else(self, symop, G_Gv, M_vv):
         myQ_aGii = []
         for a, Q_Gii in enumerate(self.Q_aGii):
-            x_G = np.exp(1j * np.dot(G_Gv, (self.pos_av[a] -
-                                            np.dot(M_vv, self.pos_av[a]))))
+            x_G = self._get_x_G(M_vv)
             U_ii = self.setups[a].R_sii[symop.symno]
             Q_Gii = np.dot(np.dot(U_ii, Q_Gii * x_G[:, None, None]),
                            U_ii.T).transpose(1, 0, 2)
@@ -56,7 +59,7 @@ class PAWCorrections:
         assert isinstance(P_ani, list)
         assert len(P_ani) == len(self.Q_aGii)
 
-        C1_aGi = [np.dot(Qa_Gii, P1_ni[band].conj())
+        C1_aGi = [Qa_Gii @ P1_ni[band].conj()
                   for Qa_Gii, P1_ni in zip(self.Q_aGii, P_ani)]
         return C1_aGi
 
@@ -98,7 +101,7 @@ def calculate_paw_corrections(setups, pd, spos_ac):
     for a, atomdata in enumerate(setups):
         id = setups.id_a[a]
         Q_Gii = Q_xGii[id]
-        x_G = np.exp(-1j * np.dot(G_Gv, pos_av[a]))
+        x_G = np.exp(-1j * (G_Gv @ pos_av[a]))
         Q_aGii.append(x_G[:, np.newaxis, np.newaxis] * Q_Gii)
         if optical_limit:
             Q_aGii[a][0] = atomdata.dO_ii
