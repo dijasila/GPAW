@@ -599,19 +599,12 @@ class G0W0Calculator:
         pos_av = np.dot(self.wcalc.pair.spos_ac, pd0.gd.cell_cv)
         M_vv = symop.get_M_vv(pd0.gd.cell_cv)
 
-        myQ_aGii = []
-        for a, Q_Gii in enumerate(pawcorr.Q_aGii):
-            x_G = np.exp(1j * np.dot(G_Gv, (pos_av[a] -
-                                            np.dot(M_vv, pos_av[a]))))
-            U_ii = self.wcalc.gs.setups[a].R_sii[symop.symno]
-            Q_Gii = np.dot(np.dot(U_ii, Q_Gii * x_G[:, None, None]),
-                           U_ii.T).transpose(1, 0, 2)
-            if symop.sign == -1:
-                Q_Gii = Q_Gii.conj()
-            myQ_aGii.append(Q_Gii)
+
+        mypawcorr = pawcorr.remap_somehow_else(self.wcalc.gs.setups, symop, G_Gv,
+                                               pos_av, M_vv)
 
         if debug:
-            self.check(ie, i_cG, shift0_c, N_c, q_c, myQ_aGii)
+            self.check(ie, i_cG, shift0_c, N_c, q_c, mypawcorr.Q_aGii)
 
         if self.wcalc.ppa:
             calculate_sigma = self.calculate_sigma_ppa
@@ -622,7 +615,7 @@ class G0W0Calculator:
             ut1cc_R = kpt1.ut_nR[n].conj()
             eps1 = kpt1.eps_n[n]
             C1_aGi = [np.dot(Qa_Gii, P1_ni[n].conj())
-                      for Qa_Gii, P1_ni in zip(myQ_aGii, kpt1.P_ani)]
+                      for Qa_Gii, P1_ni in zip(mypawcorr.Q_aGii, kpt1.P_ani)]
             n_mG = self.wcalc.pair.calculate_pair_density(
                 ut1cc_R, C1_aGi, kpt2, pd0, I_G)
             if symop.sign == 1:

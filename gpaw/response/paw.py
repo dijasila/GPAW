@@ -30,6 +30,19 @@ class PAWCorrections:
             Q_aGii.append(Q_Gii)
         return PAWCorrections(Q_aGii)
 
+    def remap_somehow_else(self, setups, symop, G_Gv, pos_av, M_vv):
+        myQ_aGii = []
+        for a, Q_Gii in enumerate(self.Q_aGii):
+            x_G = np.exp(1j * np.dot(G_Gv, (pos_av[a] -
+                                            np.dot(M_vv, pos_av[a]))))
+            U_ii = setups[a].R_sii[symop.symno]
+            Q_Gii = np.dot(np.dot(U_ii, Q_Gii * x_G[:, None, None]),
+                           U_ii.T).transpose(1, 0, 2)
+            if symop.sign == -1:
+                Q_Gii = Q_Gii.conj()
+            myQ_aGii.append(Q_Gii)
+        return PAWCorrections(myQ_aGii)
+
     def multiply(self, P_ani, band):
         assert isinstance(P_ani, list)
         assert len(P_ani) == len(self.Q_aGii)
