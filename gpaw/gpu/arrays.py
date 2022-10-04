@@ -63,16 +63,38 @@ class PyCudaArrayInterface(BaseArrayInterface):
             else:
                 return self._module.to_gpu(src)
 
+class CuPyArrayInterface(BaseArrayInterface):
+    import cupy as _module
+    Array = _module.ndarray
+
+    def axpbyz(self, a, x, b, y, z):
+        z[:] = a * x + b * y
+
+    def axpbz(self, a, x, b, z):
+        z[:] = a * x + b
+
+    def copy_to_host(self, src, tgt=None, stream=None):
+        return self._module.asnumpy(src, stream)
+
+    def copy_to_device(self, src, tgt=None, stream=None):
+        return self._module.asarray(src)
+
+    def get_pointer(self, x):
+        return x.data.ptr
+
+    def get_slice(self, x, shape):
+        slices = [slice(0,x) for x in shape]
+        return x[slices]
 
 class HostArrayInterface(BaseArrayInterface):
     import numpy as _module
     Array = _module.ndarray
 
     def axpbyz(self, a, x, b, y, z):
-        z = a * x + b * y
+        z[:] = a * x + b * y
 
     def axpbz(self, a, x, b, z):
-        z = a * x + b
+        z[:] = a * x + b
 
     def copy_to_host(self, src, tgt=None, stream=None):
         if tgt is not None:
