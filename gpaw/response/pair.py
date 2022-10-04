@@ -311,7 +311,7 @@ class NoCalculatorPairDensity:
         cpd = self.calculate_pair_density
 
         if Q_aGii is None:
-            Q_aGii = self.initialize_paw_corrections(pd)
+            Q_aGii = self.gs.paw_corrections(pd).Q_aGii
 
         kpt1 = kptpair.kpt1
         kpt2 = kptpair.kpt2
@@ -549,12 +549,12 @@ class NoCalculatorPairDensity:
         return construct_symmetry_operators(
             self.gs, K, k_c, apply_strange_shift=False)
 
-    @timer('Initialize PAW corrections')
-    def initialize_paw_corrections(self, pd):
-        from gpaw.response.paw import calculate_paw_corrections
-        return calculate_paw_corrections(
-            setups=self.gs.setups, pd=pd,
-            spos_ac=self.spos_ac)
+    #@timer('Initialize PAW corrections')
+    #def initialize_paw_corrections(self, pd):
+    #    from gpaw.response.paw import calculate_paw_corrections
+    #    return calculate_paw_corrections(
+    #        setups=self.gs.setups, pd=pd,
+    #        spos_ac=self.spos_ac)
 
     def calculate_derivatives(self, kpt):
         ut_sKnvR = [{}, {}]

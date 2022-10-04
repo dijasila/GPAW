@@ -233,7 +233,7 @@ class Chi0Calculator:
             wings = False
 
         # Reset PAW correction in case momentum has change
-        self.Q_aGii = self.pair.initialize_paw_corrections(pd)
+        self.Q_aGii = self.gs.paw_corrections(pd).Q_aGii
         A_wxx = chi0.chi0_wGG  # Change notation
 
         # Initialize integrator. The integrator class is a general class
@@ -667,7 +667,7 @@ class Chi0Calculator:
         weight = np.sqrt(symmetry.get_kpoint_weight(k_c) /
                          symmetry.how_many_symmetries())
         if self.Q_aGii is None:
-            self.Q_aGii = self.pair.initialize_paw_corrections(pd)
+            self.Q_aGii = self.gs.paw_corrections(pd).Q_aGii
 
         kptpair = self.pair.get_kpoint_pair(pd, s, k_c, n1, n2,
                                             m1, m2, block=block)

@@ -241,7 +241,7 @@ class GWQEHCorrection(PairDensity):
             pd0.ngmax = 1
             G_Gv = pd0.get_reciprocal_vectors()
 
-            self.Q_aGii = self.initialize_paw_corrections(pd0)
+            self.Q_aGii = self.gs.paw_corrections(pd0).Q_aGii
 
             # Loop over all k-points in the BZ and find those that are related
             # to the current IBZ k-point by symmetry

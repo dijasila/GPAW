@@ -154,3 +154,9 @@ class ResponseGroundStateAdapter:
         # XXX used by gpaw/xc/tools.py in a hacky way
         return self._wfs._get_wave_function_array(
             u, n, realspace=True)
+
+    def paw_corrections(self, pd):
+        from gpaw.response.paw import calculate_paw_corrections, PAWCorrections
+        Q_aGii = calculate_paw_corrections(
+            setups=self.setups, spos_ac=self.spos_ac, pd=pd)
+        return PAWCorrections(Q_aGii)

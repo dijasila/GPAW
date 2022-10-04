@@ -654,7 +654,7 @@ class G0W0Calculator:
         assert len(I0_G) == len(I1_G)
         assert (G_G >= 0).all()
         for a, Q_Gii in enumerate(
-                self.wcalc.pair.initialize_paw_corrections(pd1)):
+                self.wcalc.gs.paw_corrections(pd1).Q_aGii):
             e = abs(Q_aGii[a] - Q_Gii[G_G]).max()
             assert e < 1e-12
 

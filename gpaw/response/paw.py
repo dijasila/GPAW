@@ -2,6 +2,11 @@ import numpy as np
 from gpaw.response.math_func import two_phi_planewave_integrals
 
 
+class PAWCorrections:
+    def __init__(self, Q_aGii):
+        self.Q_aGii = Q_aGii
+
+
 def calculate_paw_corrections(setups, pd, spos_ac):
     q_v = pd.K_qv[0]
     optical_limit = np.allclose(q_v, 0)

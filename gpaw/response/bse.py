@@ -225,7 +225,7 @@ class BSE:
 
         # Calculate direct (screened) interaction and PAW corrections
         if self.mode == 'RPA':
-            Q_aGii = self.pair.initialize_paw_corrections(pd0)
+            Q_aGii = self.gs.paw_corrections(pd0).Q_aGii
         else:
             self.get_screened_potential()
             if (self.qd.ibzk_kc - self.q_c < 1.0e-6).all():
@@ -233,7 +233,7 @@ class BSE:
                                                           self.qd.bzk_kc)]
                 Q_aGii = self.Q_qaGii[iq0]
             else:
-                Q_aGii = self.pair.initialize_paw_corrections(pd0)
+                Q_aGii = self.gs.paw_corrections(pd0).Q_aGii
 
         # Calculate pair densities, eigenvalues and occupations
         so = self.spinors + 1
