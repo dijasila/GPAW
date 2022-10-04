@@ -20,6 +20,7 @@ from gpaw.response.coulomb_kernels import get_coulomb_kernel
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.response.pair import PairDensity
 from gpaw.response.screened_interaction import initialize_w_calculator
+from gpaw.response.paw import PAWCorrections
 
 
 class BSE:
@@ -449,30 +450,18 @@ class BSE:
         I_G = np.ravel_multi_index(i_cG + shift_c[:, None], N_c, 'wrap')
         G_Gv = pd.get_reciprocal_vectors()
         spos_ac = self.gs.spos_ac
-        spos_av = np.dot(spos_ac, pd.gd.cell_cv)
+
+        pos_av = np.dot(spos_ac, pd.gd.cell_cv)
         M_vv = np.dot(pd.gd.cell_cv.T, np.dot(U_cc.T,
                                               np.linalg.inv(pd.gd.cell_cv).T))
 
-        Q_aGii = []
-        for a, Q_Gii in enumerate(self.pawcorr_q[iq].Q_aGii):
-            x_G = np.exp(1j * np.dot(G_Gv, (spos_av[a] -
-                                            np.dot(M_vv, spos_av[a]))))
-            U_ii = self.gs.setups[a].R_sii[sym]
-
-            Q_Gii = np.einsum('ij,kjl,ml->kim',
-                              U_ii,
-                              Q_Gii * x_G[:, None, None],
-                              U_ii,
-                              optimize='optimal')
-            if sign == -1:
-                Q_Gii = Q_Gii.conj()
-            Q_aGii.append(Q_Gii)
+        pawcorr = self.pawcorr_q[iq].remap_somehow(self.gs.setups, pos_av, M_vv,
+                                                   G_Gv, sym, sign)
 
         rho_mnG = np.zeros((len(kpt1.eps_n), len(kpt2.eps_n), len(G_Gv)),
                            complex)
         for m in range(len(rho_mnG)):
-            C1_aGi = [np.dot(Qa_Gii, P1_ni[m].conj())
-                      for Qa_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
+            C1_aGi = pawcorr.multiply(kpt1.P_ani, band=m)
             ut1cc_R = kpt1.ut_nR[m].conj()
             rho_mnG[m] = self.pair.calculate_pair_density(ut1cc_R, C1_aGi,
                                                           kpt2, pd, I_G)
