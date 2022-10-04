@@ -3,11 +3,19 @@ from gpaw.response.math_func import two_phi_planewave_integrals
 
 
 class PAWCorrections:
-    def __init__(self, Q_aGii):
+    def __init__(self, Q_aGii, pd, setups, pos_av):
         # Sometimes we loop over these in ways that are very dangerous.
         # It must be list, not dictionary.
         assert isinstance(Q_aGii, list)
         self.Q_aGii = Q_aGii
+
+        self.pd = pd
+        self.setups = setups
+        self.pos_av = pos_av
+
+    def _new(self, Q_aGii):
+        return PAWCorrections(Q_aGii, pd=self.pd, setups=self.setups,
+                              pos_av=self.pos_av)
 
     def remap_somehow(self, setups, pos_av, M_vv, G_Gv, sym, sign):
         # This method is envious of setups and spos, which were used to create
@@ -28,7 +36,8 @@ class PAWCorrections:
             if sign == -1:
                 Q_Gii = Q_Gii.conj()
             Q_aGii.append(Q_Gii)
-        return PAWCorrections(Q_aGii)
+
+        return self._new(Q_aGii)
 
     def remap_somehow_else(self, setups, symop, G_Gv, pos_av, M_vv):
         myQ_aGii = []
@@ -41,7 +50,7 @@ class PAWCorrections:
             if symop.sign == -1:
                 Q_Gii = Q_Gii.conj()
             myQ_aGii.append(Q_Gii)
-        return PAWCorrections(myQ_aGii)
+        return self._new(myQ_aGii)
 
     def multiply(self, P_ani, band):
         assert isinstance(P_ani, list)
@@ -56,7 +65,9 @@ class PAWCorrections:
         if Q_aGii is not None:
             for a, Q_Gii in enumerate(self.Q_aGii):
                 Q_aGii.append(Q_Gii.take(G2G, axis=0))
-        return PAWCorrections(Q_aGii)
+
+        # XXX actually we should return this with another PW descriptor.
+        return self._new(Q_aGii)
 
     def almost_equal(self, otherpawcorr, G_G):
         for a, Q_Gii in enumerate(otherpawcorr.Q_aGii):
@@ -92,4 +103,4 @@ def calculate_paw_corrections(setups, pd, spos_ac):
         if optical_limit:
             Q_aGii[a][0] = atomdata.dO_ii
 
-    return Q_aGii
+    return PAWCorrections(Q_aGii, pd=pd, setups=setups, pos_av=pos_av)

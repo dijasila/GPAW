@@ -476,9 +476,13 @@ class BSE:
             # Read screened potential from file
             try:
                 data = np.load(self.wfile + '.npz')
-                self.pawcorr_q = [PAWCorrections(Q_aGii) for Q_aGii in data['Q']]
-                self.W_qGG = data['W']
                 self.pd_q = data['pd']
+                assert len(data['pd']) == len(data['Q'])
+                self.pawcorr_q = [PAWCorrections(Q_aGii, pd=pd,
+                                                 setups=self.gs.setups,
+                                                 pos_av=self.gs.get_pos_av())
+                                  for Q_aGii, pd in zip(data['Q'], self.pd_q)]
+                self.W_qGG = data['W']
                 print('Reading screened potential from % s' % self.wfile,
                       file=self.fd)
             except FileNotFoundError:
