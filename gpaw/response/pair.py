@@ -306,7 +306,7 @@ class NoCalculatorPairDensity:
 
     @timer('get_pair_density')
     def get_pair_density(self, pd, kptpair, n_n, m_m, *,
-                         pawcorr=None, block=False):
+                         pawcorr, block=False):
         """Get pair density for a kpoint pair."""
         cpd = self.calculate_pair_density
 
@@ -322,8 +322,7 @@ class NoCalculatorPairDensity:
             with self.timer('conj'):
                 ut1cc_R = kpt1.ut_nR[n - kpt1.na].conj()
             with self.timer('paw'):
-                C1_aGi = [np.dot(Q_Gii, P1_ni[n - kpt1.na].conj())
-                          for Q_Gii, P1_ni in zip(pawcorr.Q_aGii, kpt1.P_ani)]
+                C1_aGi = pawcorr.multiply(kpt1.P_ani, band=n - kpt1.na)
                 n_nmG[j] = cpd(ut1cc_R, C1_aGi, kpt2, pd, Q_G, block=block)
 
         return n_nmG
