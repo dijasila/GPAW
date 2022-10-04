@@ -580,7 +580,7 @@ class G0W0Calculator:
         return self.all_results[self.wcalc.fxc_mode]
 
     def calculate_q(self, ie, k, kpt1, kpt2, pd0, Wdict,
-                    *, symop, sigmas, blocks1d, Q_aGii):
+                    *, symop, sigmas, blocks1d, pawcorr):
         """Calculates the contribution to the self-energy and its derivative
         for a given set of k-points, kpt1 and kpt2."""
 
@@ -600,7 +600,7 @@ class G0W0Calculator:
         M_vv = symop.get_M_vv(pd0.gd.cell_cv)
 
         myQ_aGii = []
-        for a, Q_Gii in enumerate(Q_aGii):
+        for a, Q_Gii in enumerate(pawcorr.Q_aGii):
             x_G = np.exp(1j * np.dot(G_Gv, (pos_av[a] -
                                             np.dot(M_vv, pos_av[a]))))
             U_ii = self.wcalc.gs.setups[a].R_sii[symop.symno]
@@ -803,7 +803,7 @@ class G0W0Calculator:
                                      f'larger number of bands ({m2})'
                                      f' than there are bands '
                                      f'({self.nbands}).')
-            pdi, Wdict, blocks1d, Q_aGii = self.calculate_w(
+            pdi, Wdict, blocks1d, pawcorr = self.calculate_w(
                 chi0calc, q_c, chi0bands,
                 m1, m2, ecut, wstc, iq)
             m1 = m2
@@ -824,7 +824,7 @@ class G0W0Calculator:
                                      symop=symop,
                                      sigmas=sigmas,
                                      blocks1d=blocks1d,
-                                     Q_aGii=Q_aGii)
+                                     pawcorr=pawcorr)
 
         for sigma in sigmas.values():
             sigma.sum(self.world)
@@ -869,7 +869,7 @@ class G0W0Calculator:
                 chi0bands.chi0_wvv[:] = chi0.chi0_wvv.copy()
 
         Wdict = {}
-        
+
         for fxc_mode in self.fxc_modes:
             pdi, blocks1d, G2G, chi0_wGG, chi0_wxvG, chi0_wvv = \
                 chi0calc.reduce_ecut(ecut, chi0)
@@ -890,7 +890,8 @@ class G0W0Calculator:
 
             Wdict[fxc_mode] = W_xwGG
 
-        return pdi, Wdict, blocks1d, chi0calc.Q_aGii
+        from gpaw.response.paw import PAWCorrections
+        return pdi, Wdict, blocks1d, PAWCorrections(chi0calc.Q_aGii)
 
     def calculate_vxc_and_exx(self):
         """EXX and Kohn-Sham XC contribution."""
