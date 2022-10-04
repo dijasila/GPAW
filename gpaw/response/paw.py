@@ -17,16 +17,16 @@ class PAWCorrections:
         return PAWCorrections(Q_aGii, pd=self.pd, setups=self.setups,
                               pos_av=self.pos_av)
 
-    def remap_somehow(self, setups, pos_av, M_vv, G_Gv, sym, sign):
+    def remap_somehow(self, M_vv, G_Gv, sym, sign):
         # This method is envious of setups and spos, which were used to create
         # PAWCorrections in the first place.  We can conclude that PAWCorrections
         # should likely store both on self.
 
         Q_aGii = []
         for a, Q_Gii in enumerate(self.Q_aGii):
-            x_G = np.exp(1j * np.dot(G_Gv, (pos_av[a] -
-                                            np.dot(M_vv, pos_av[a]))))
-            U_ii = setups[a].R_sii[sym]
+            x_G = np.exp(1j * np.dot(G_Gv, (self.pos_av[a] -
+                                            np.dot(M_vv, self.pos_av[a]))))
+            U_ii = self.setups[a].R_sii[sym]
 
             Q_Gii = np.einsum('ij,kjl,ml->kim',
                               U_ii,
@@ -39,12 +39,12 @@ class PAWCorrections:
 
         return self._new(Q_aGii)
 
-    def remap_somehow_else(self, setups, symop, G_Gv, pos_av, M_vv):
+    def remap_somehow_else(self, symop, G_Gv, M_vv):
         myQ_aGii = []
         for a, Q_Gii in enumerate(self.Q_aGii):
-            x_G = np.exp(1j * np.dot(G_Gv, (pos_av[a] -
-                                            np.dot(M_vv, pos_av[a]))))
-            U_ii = setups[a].R_sii[symop.symno]
+            x_G = np.exp(1j * np.dot(G_Gv, (self.pos_av[a] -
+                                            np.dot(M_vv, self.pos_av[a]))))
+            U_ii = self.setups[a].R_sii[symop.symno]
             Q_Gii = np.dot(np.dot(U_ii, Q_Gii * x_G[:, None, None]),
                            U_ii.T).transpose(1, 0, 2)
             if symop.sign == -1:

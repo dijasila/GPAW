@@ -449,14 +449,11 @@ class BSE:
         shift_c = kpt1.shift_c - kpt2.shift_c - shift0_c
         I_G = np.ravel_multi_index(i_cG + shift_c[:, None], N_c, 'wrap')
         G_Gv = pd.get_reciprocal_vectors()
-        spos_ac = self.gs.spos_ac
 
-        pos_av = np.dot(spos_ac, pd.gd.cell_cv)
         M_vv = np.dot(pd.gd.cell_cv.T, np.dot(U_cc.T,
                                               np.linalg.inv(pd.gd.cell_cv).T))
 
-        pawcorr = self.pawcorr_q[iq].remap_somehow(self.gs.setups, pos_av, M_vv,
-                                                   G_Gv, sym, sign)
+        pawcorr = self.pawcorr_q[iq].remap_somehow(M_vv, G_Gv, sym, sign)
 
         rho_mnG = np.zeros((len(kpt1.eps_n), len(kpt2.eps_n), len(G_Gv)),
                            complex)

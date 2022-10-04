@@ -596,12 +596,9 @@ class G0W0Calculator:
 
         G_Gv = pd0.get_reciprocal_vectors()
 
-        pos_av = np.dot(self.wcalc.pair.spos_ac, pd0.gd.cell_cv)
         M_vv = symop.get_M_vv(pd0.gd.cell_cv)
 
-
-        mypawcorr = pawcorr.remap_somehow_else(self.wcalc.gs.setups, symop, G_Gv,
-                                               pos_av, M_vv)
+        mypawcorr = pawcorr.remap_somehow_else(symop, G_Gv, M_vv)
 
         if debug:
             self.check(ie, i_cG, shift0_c, N_c, q_c, mypawcorr)
