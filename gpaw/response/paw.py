@@ -7,6 +7,8 @@ class PAWCorrections:
         # Sometimes we loop over these in ways that are very dangerous.
         # It must be list, not dictionary.
         assert isinstance(Q_aGii, list)
+        assert len(Q_aGii) == len(pos_av) == len(setups)
+
         self.Q_aGii = Q_aGii
 
         self.pd = pd
@@ -18,13 +20,14 @@ class PAWCorrections:
                               pos_av=self.pos_av)
 
     def remap_somehow(self, M_vv, G_Gv, sym, sign):
-        # This method is envious of setups and spos, which were used to create
-        # PAWCorrections in the first place.  We can conclude that PAWCorrections
-        # should likely store both on self.
+        # This method is envious of setups and spos, which were used
+        # to create PAWCorrections in the first place.  We can
+        # conclude that PAWCorrections should likely store both on
+        # self.
 
         Q_aGii = []
         for a, Q_Gii in enumerate(self.Q_aGii):
-            x_G = self._get_x_G(M_vv)
+            x_G = self._get_x_G(G_Gv, M_vv, self.pos_av[a])
             U_ii = self.setups[a].R_sii[sym]
 
             Q_Gii = np.einsum('ij,kjl,ml->kim',
@@ -38,15 +41,15 @@ class PAWCorrections:
 
         return self._new(Q_aGii)
 
-    def _get_x_G(self, M_vv):
+    def _get_x_G(self, G_Gv, M_vv, pos_v):
         # This doesn't really belong here.  Or does it?  Maybe this formula
         # is only used with PAW corrections.
-        return np.exp(1j * (G_Gv @ (self.pos_av[a] - M_vv @ self.pos_av[a])))
+        return np.exp(1j * (G_Gv @ (pos_v - M_vv @ pos_v)))
 
     def remap_somehow_else(self, symop, G_Gv, M_vv):
         myQ_aGii = []
         for a, Q_Gii in enumerate(self.Q_aGii):
-            x_G = self._get_x_G(M_vv)
+            x_G = self._get_x_G(G_Gv, M_vv, self.pos_av[a])
             U_ii = self.setups[a].R_sii[symop.symno]
             Q_Gii = np.dot(np.dot(U_ii, Q_Gii * x_G[:, None, None]),
                            U_ii.T).transpose(1, 0, 2)
@@ -64,13 +67,8 @@ class PAWCorrections:
         return C1_aGi
 
     def reduce_ecut(self, G2G):
-        Q_aGii = []
-        if Q_aGii is not None:
-            for a, Q_Gii in enumerate(self.Q_aGii):
-                Q_aGii.append(Q_Gii.take(G2G, axis=0))
-
         # XXX actually we should return this with another PW descriptor.
-        return self._new(Q_aGii)
+        return self._new([Q_Gii.take(G2G, axis=0) for Q_Gii in self.Q_aGii])
 
     def almost_equal(self, otherpawcorr, G_G):
         for a, Q_Gii in enumerate(otherpawcorr.Q_aGii):

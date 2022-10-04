@@ -287,7 +287,8 @@ class BSE:
 
                 df_mn = pair.get_occupation_differences(self.val_sn[s],
                                                         self.con_sn[s])
-                rho_mnG = get_pair_density(pd0, pair, m_m, n_n, pawcorr=pawcorr)
+                rho_mnG = get_pair_density(pd0, pair, m_m, n_n,
+                                           pawcorr=pawcorr)
                 if optical_limit:
                     n_mnv = get_optical_pair_density(pd0, pair, m_m, n_n)
                     rho_mnG[:, :, 0] = n_mnv[:, :, self.direction]
