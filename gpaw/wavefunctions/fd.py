@@ -128,7 +128,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                         nt_G += (psi0_G.conj() * d * psi_G).real
 
         if self.cuda and kpt.psit.matrix.on_gpu:
-            self.nt_G_gpu.get(nt_G)
+            gpu.copy_to_host(self.nt_G_gpu, nt_G)
 
     def calculate_kinetic_energy_density(self):
         if self.taugrad_v is None:

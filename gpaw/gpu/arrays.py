@@ -74,16 +74,45 @@ class CuPyArrayInterface(BaseArrayInterface):
         z[:] = a * x + b
 
     def copy_to_host(self, src, tgt=None, stream=None):
-        return self._module.asnumpy(src, stream)
+        if stream is None:
+            if tgt is not None:
+                tgt[:] = self._module.asnumpy(src, stream)
+            else:
+                tgt = self._module.asnumpy(src, stream)
+            self._module.cuda.get_current_stream().synchronize()
+        else:
+            with stream:
+                if tgt is not None:
+                    tgt[:] = self._module.asnumpy(src, stream)
+                else:
+                    tgt = self._module.asnumpy(src, stream)
+        return tgt
+
 
     def copy_to_device(self, src, tgt=None, stream=None):
-        return self._module.asarray(src)
+        if stream is None:
+            if tgt is not None:
+                tgt[:] = self._module.asarray(src)
+            else:
+                tgt = self._module.asarray(src)
+            self._module.cuda.get_current_stream().synchronize()
+        else:
+            with stream:
+                if tgt is not None:
+                    tgt[:] = self._module.asarray(src)
+                else:
+                    tgt = self._module.asarray(src)
+        return tgt
+
+    def memcpy_dtod(self, tgt, src):
+        tgt[:] = src[:]
+        self._module.cuda.get_current_stream().synchronize()
 
     def get_pointer(self, x):
         return x.data.ptr
 
     def get_slice(self, x, shape):
-        slices = [slice(0,x) for x in shape]
+        slices = tuple([slice(n) for n in shape])
         return x[slices]
 
 class HostArrayInterface(BaseArrayInterface):
@@ -110,5 +139,5 @@ class HostArrayInterface(BaseArrayInterface):
         return x.ctypes.data
 
     def get_slice(self, x, shape):
-        slices = [slice(0,x) for x in shape]
+        slices = [slice(n) for n in shape]
         return x[slices]

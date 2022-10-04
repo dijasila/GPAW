@@ -6,7 +6,7 @@ from gpaw.gpu.backends import BaseBackend
 class CUDA(BaseBackend):
     # from pycuda import driver as _driver
     # from gpaw.gpu.arrays import PyCudaArrayInterface
-    from cupy.cuda import runtime
+    from cupy.cuda import runtime, get_current_stream
     from gpaw.gpu.arrays import CuPyArrayInterface
 
     label = 'cuda'
@@ -59,4 +59,7 @@ class CUDA(BaseBackend):
         return isinstance(x, self.array.Array)
 
     def memcpy_dtod(self, tgt, src, n):
-        self._driver.memcpy_dtod(tgt.gpudata, src.gpudata, n)
+        self.array.memcpy_dtod(tgt, src)
+
+    def synchronize(self):
+        self.get_current_stream().synchronize() 

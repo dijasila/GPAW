@@ -79,6 +79,9 @@ class BaseBackend:
     def memcpy_dtod(self, tgt, src, n):
         raise NotImplementedError
 
+    def synchronize(self):
+        pass
+
     def debug_test(self, x, y, text, reltol=1e-12, abstol=1e-13,
                    raise_error=False):
         import warnings
