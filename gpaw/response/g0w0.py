@@ -614,8 +614,7 @@ class G0W0Calculator:
         for n in range(kpt1.n2 - kpt1.n1):
             ut1cc_R = kpt1.ut_nR[n].conj()
             eps1 = kpt1.eps_n[n]
-            C1_aGi = [np.dot(Qa_Gii, P1_ni[n].conj())
-                      for Qa_Gii, P1_ni in zip(mypawcorr.Q_aGii, kpt1.P_ani)]
+            C1_aGi = mypawcorr.multiply(kpt1.P_ani, band=n)
             n_mG = self.wcalc.pair.calculate_pair_density(
                 ut1cc_R, C1_aGi, kpt2, pd0, I_G)
             if symop.sign == 1:
