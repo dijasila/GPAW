@@ -246,6 +246,9 @@ class EffectiveModel(BasisTransform):
         D0 = G0_inv - G_inv
         return D0.real
 
+    def __len__(self):
+        return len(self.indices)
+
 
 class Subdiagonalization(BasisTransform):
     """Class to perform a subdiagonalization of the Hamiltonian.
@@ -554,7 +557,11 @@ class LocalOrbitals(TightBinding):
 
     def get_orbitals(self, indices):
         """Get orbitals on the real-space grid."""
-        return get_orbitals(self.calc, self.model.U_MM[:, indices])
+        if not hasattr(self, 'model'):
+            basis = self.subdiag
+        else:
+            basis = self.model
+        return get_orbitals(self.calc, basis.U_MM[:, indices])
 
     def get_projections(self, q=0):
         P_aMi = {a: P_aqMi[q] for a, P_aqMi in self.calc.wfs.P_aqMi.items()}
