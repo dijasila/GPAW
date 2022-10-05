@@ -2,7 +2,7 @@ import numpy as np
 from gpaw.response.math_func import two_phi_planewave_integrals
 
 
-class PAWCorrections:
+class PWPAWCorrectionData:
     def __init__(self, Q_aGii, pd, setups, pos_av):
         # Sometimes we loop over these in ways that are very dangerous.
         # It must be list, not dictionary.
@@ -16,8 +16,8 @@ class PAWCorrections:
         self.pos_av = pos_av
 
     def _new(self, Q_aGii):
-        return PAWCorrections(Q_aGii, pd=self.pd, setups=self.setups,
-                              pos_av=self.pos_av)
+        return PWPAWCorrectionData(Q_aGii, pd=self.pd, setups=self.setups,
+                                   pos_av=self.pos_av)
 
     def remap_somehow(self, M_vv, G_Gv, sym, sign):
         Q_aGii = []
@@ -99,4 +99,4 @@ def calculate_paw_corrections(setups, pd, spos_ac):
         if optical_limit:
             Q_aGii[a][0] = atomdata.dO_ii
 
-    return PAWCorrections(Q_aGii, pd=pd, setups=setups, pos_av=pos_av)
+    return PWPAWCorrectionData(Q_aGii, pd=pd, setups=setups, pos_av=pos_av)

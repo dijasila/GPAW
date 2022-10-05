@@ -20,7 +20,7 @@ from gpaw.response.coulomb_kernels import get_coulomb_kernel
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.response.pair import PairDensity
 from gpaw.response.screened_interaction import initialize_w_calculator
-from gpaw.response.paw import PAWCorrections
+from gpaw.response.paw import PWPAWCorrectionData
 
 
 class BSE:
@@ -476,10 +476,12 @@ class BSE:
                 data = np.load(self.wfile + '.npz')
                 self.pd_q = data['pd']
                 assert len(data['pd']) == len(data['Q'])
-                self.pawcorr_q = [PAWCorrections(Q_aGii, pd=pd,
-                                                 setups=self.gs.setups,
-                                                 pos_av=self.gs.get_pos_av())
-                                  for Q_aGii, pd in zip(data['Q'], self.pd_q)]
+                self.pawcorr_q = [
+                    PWPAWCorrectionData(
+                        Q_aGii, pd=pd,
+                        setups=self.gs.setups,
+                        pos_av=self.gs.get_pos_av())
+                    for Q_aGii, pd in zip(data['Q'], self.pd_q)]
                 self.W_qGG = data['W']
                 print('Reading screened potential from % s' % self.wfile,
                       file=self.fd)
