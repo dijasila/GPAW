@@ -129,12 +129,12 @@ class BasisTransform:
 
     Attributes
     ----------
-    U_MM : np.ndarray
-        Rotation matrix between 2 basis.
+    U_MM : array_like
+        2-D rotation matrix between 2 basis.
     indices : array_like, optional
-        Subset of indices in the new basis.
-    U_Mw : np.ndarray
-        Same as `U_MM` but the include only `indices` of the new basis.
+        1-D array of sub-indices of the new basis.
+    U_Mw : array_like, optional
+        Same as `U_MM` but includes only `indices` of the new basis.
 
     Methods
     -------
@@ -148,6 +148,13 @@ class BasisTransform:
     """
 
     def __init__(self, U_MM: npt.NDArray, indices: npt.ArrayLike = None) -> None:
+        """
+
+        Parameters
+        ----------
+        See class docstring
+
+        """
         self.U_MM = U_MM
         self.indices = indices
         if indices is not None:
@@ -177,15 +184,31 @@ class BasisTransform:
 
 
 class EffectiveModel(BasisTransform):
-    """Class for an effective model."""
+    """Class for an effective model.
+
+    See Also
+    --------
+    BasisTranform
+
+
+    Methods
+    -------
+    get_static_correction(H_MM: npt.NDArray, S_MM: npt.NDArray, z: Numeric = 0. + 1e-5j)
+        Hybridization of the effective model with the rest evaluated at `z`.
+
+    """
 
     def __init__(self, U_MM: npt.NDArray, indices: npt.ArrayLike, S_MM: npt.NDArray = None) -> None:
         """
 
-        Parameters:
+        See Also
+        --------
+        BasisTransform
+
+        Parameters
         ----------
-        S_MM : (M,M) array_like, optional
-            LCAO overlap matrix. If provided, the resulting basis
+        S_MM : array_like, optional
+            2-D LCAO overlap matrix. If provided, the resulting basis
             is orthogonalized.
         """
         if S_MM is not None:
@@ -198,7 +221,16 @@ class EffectiveModel(BasisTransform):
         super().__init__(U_MM, indices)
 
     def get_static_correction(self, H_MM: npt.NDArray, S_MM: npt.NDArray, z: Numeric = 0. + 1e-5j):
-        """Get static correction to model Hamiltonian."""
+        """Get static correction to model Hamiltonian.
+
+        Parameters
+        ----------
+        H_MM, S_MM : array_like
+            2-D LCAO Hamiltonian and overlap matrices.
+        z : complex
+            Energy with a small positive immaginary shift.
+
+        """
         w = self.indices  # Alias
 
         Hp_MM = self.rotate_matrix(H_MM, keep_rest=True)
@@ -223,28 +255,33 @@ class Subdiagonalization(BasisTransform):
 
     Attributes
     ----------
-    H_MM, S_MMM : np.ndarray
-        LCAO Hamiltonian and overlap matrices.
-    U_MM : np.ndarray
-        Rotation matrix that subdiagonalizes the LCAO Hamiltonian.
+    blocks : list of array_like
+        List of blocks to subdiagonalize.
+    H_MM, S_MM : array_like
+        2-D LCAO Hamiltonian and overlap matrices.
+    U_MM : array_like
+        2-D rotation matrix that subdiagonalizes the LCAO Hamiltonian.
+    eps_M : array_like
+        1-D array of local orbital energies.
 
-    Methods:
-    --------
-    get_effective_model(index_list, ortho=None)
-        Builds and effective model.
+    Methods
+    -------
+    group_energies(round=1)
+        Group local orbitals based on energy
+    group_symmetries(cutoff=0.9)
+        Group local orbitals based on symmetries and energy.
+    get_effective_model(indices, ortho=None)
+        Builds and effective model from an array of indices.
 
     """
 
     def __init__(self, H_MM: npt.NDArray, S_MM: npt.NDArray, blocks: List[List]) -> None:
         """
+
         Parameters
         ----------
-        H_MM : (M,M) NDArray
-            LCAO Hamiltonian.
-        S_MM : (M,M) NDArray
-            LCAO Overlap.
-        blocks : list of lists
-            Subdiagonalization blocks given as a list of list indices.
+        See class docstring
+
         """
         self.blocks = blocks
         self.H_MM = H_MM
@@ -253,8 +290,85 @@ class Subdiagonalization(BasisTransform):
             self.H_MM, self.S_MM, blocks)
         super().__init__(U_MM)
 
+    def group_energies(self, round=1):
+        """Group local orbitals based on energy.
+
+        Parameters
+        ----------
+        round : int
+            Round energies to the given number of decimals.
+
+        """
+        eps = self.eps_M.round(round)
+        show = np.where(~eps.mask)[0]
+        groups = defaultdict(list)
+        for index in show:
+            groups[eps[index]].append(index)
+
+        self.groups = groups
+        return self.groups
+
+    def group_symmetries(self, cutoff=0.9, round=1):
+        """Group local orbitals based on symmetry and energy.
+
+        Parameters
+        ----------
+        round : int
+            Round energies to the given number of decimals.
+        cutoff : float
+            Minimum overlap between two orbitlas to be considered as 
+            having the same symmetry.
+
+        """
+        col_1 = []
+        col_2 = []
+        groups = defaultdict(set)
+        blocks = self.blocks
+        for b1, b2 in zip(*np.triu_indices(len(blocks), k=1)):
+            if len(blocks[b1]) != len(blocks[b2]):
+                continue
+            U1 = self.U_MM[np.ix_(blocks[b1], blocks[b1])]
+            U2 = self.U_MM[np.ix_(blocks[b2], blocks[b2])]
+            for o1, o2 in np.ndindex(len(blocks[b1]), len(blocks[b1])):
+                # o12 = abs(np.correlate(U1[:, o1], U2[:, o2]))
+                v1 = abs(U1[:, o1])
+                v2 = abs(U2[:, o2])
+                o12 = 2 * v1.dot(v2) / (v1.dot(v1) + v2.dot(v2))
+                if o12 >= cutoff:
+                    i1 = blocks[b1][o1]
+                    i2 = blocks[b2][o2]
+                    i1, i2 = min(i1, i2), max(i1, i2)
+                    present = False
+                    for i, i3 in enumerate(col_2):
+                        if i1 == i3:
+                            present = True
+                            break
+                    if present:
+                        a1 = col_1[i]
+                    else:
+                        a1 = i1
+                    col_1.append(a1)
+                    col_2.append(i2)
+                    groups[a1].add(i2)
+        # Use also energy information
+        new = defaultdict(list)
+        for k, v in groups.items():
+            v.add(k)
+            new[self.eps_M[k].round(round)] += groups[k]
+        self.groups = {k: list(sorted(new[k])) for k in sorted(new)}  # groups
+        return self.groups
+
     def get_model(self, indices, ortho=False):
-        """Get a local orbital model for the subdiagonalized space."""
+        """Extract an effective model from the subdiagonalized space.
+
+        Parameters
+        ----------
+        indices : array_like
+            1-D array of indices to include in the model from 
+            the new basis.
+        ortho : bool, default=False
+            Whether to orthogonalize the model basis.
+        """
         return EffectiveModel(self.U_MM, indices, self.S_MM if ortho else None)
 
 
@@ -263,32 +377,15 @@ class LocalOrbitals(TightBinding):
 
     Attributes
     ----------
-    subdiag : Subdiagonalization
-    model : EffectiveModel
-
-    H_NMM, S_NMM: np.ndarray
-        LCAO Hamiltonian and overlap matrices.
-    N0: int
-        Home unit cell index.
+    TODO
 
     Methods:
     --------
-    set_effmodel(self, list_indices)
-        Set the effective model from the a list of indices.
-    h_and_s:
-        Returns H_NMM in Hartree and S_NNM.
-    get_hamiltonian(self)
-        Returns H_NMM[N0]
-    get_overlap(self)
-        Returns S_NMM[N0]
-    get_orbitals(self)
-        Returns the orbitals on the grid.
-    get_projections(self, q=0)
-        Returns the rotated projections.
-    get_xc(self)
-        Returns the exchenge and correlation.
-    get_Fcore(self)
-        pass
+    subdiagonalize(self, symbols=None, blocks=None, groupby='energy')
+        Subdiagonalize the LCAO Hamiltonian.
+    take_model(self, indices=None, minimal=True, cutoff=1e-3, ortho=False)
+        Take an effective model of local orbitals.
+    TODO
 
     """
 
@@ -323,8 +420,20 @@ class LocalOrbitals(TightBinding):
                 raise RuntimeError(
                     "Must include central unit cell, i.e. R=[0,0,0].") from exc
 
-    def subdiagonalize(self, symbols=None, blocks=None):
-        """Subdiagonalize Hamiltonian and overlap matrices."""
+    def subdiagonalize(self, symbols=None, blocks=None, groupby='energy'):
+        """Subdiagonalize Hamiltonian and overlap matrices.
+
+        Parameters
+        ----------
+        symbols : array_like, optional
+            Element or elements to subdiagonalize.
+        blocks : list of array_like, optional
+            List of blocks to subdiagonalize.
+        groupby : {'energy,'symmetry'}, optional
+            Group local orbitals based on energy or
+            symmetry and energy. Default is 'energy'.
+
+        """
         if symbols is not None:
             atoms = self.calc.atoms.symbols.search(symbols)
             blocks = [get_bfi(self.calc, [c]) for c in atoms]
@@ -335,21 +444,37 @@ class LocalOrbitals(TightBinding):
         self.subdiag = Subdiagonalization(
             self.H_NMM[self.N0], self.S_NMM[self.N0], blocks)
 
-        # Group orbitals with same symmetry.
-        eps = self.subdiag.eps_M.round(1)
-        show = np.where(~eps.mask)[0]
-        groups = defaultdict(list)
-        for index in show:
-            groups[eps[index]].append(index)
-
-        self.groups = groups
+        if groupby == 'energy':
+            self.groups = self.subdiag.group_energies()
+        elif groupby == 'symmetry':
+            self.groups = self.subdiag.group_symmetries()
+        else:
+            raise RuntimeError(
+                f"""Invalid groupby type. {groupby} not in {'energy', 'symmetry'}""")
 
     def take_model(self, indices=None, minimal=True, cutoff=1e-3, ortho=False):
-        """Build an effective model."""
+        """Build an effective model.
+
+        Parameters
+        ----------
+        indices : array_like
+            1-D array of indices to include in the model
+            from the new basis.
+        minimal : bool, default=True
+            Whether to add (minimal=False) or not (minimal=True) 
+            the orbitals with an overlap larger than `cuoff` with any of the
+            orbital specified by `indices`.
+        cutoff : float
+            Minimal overlap to consider when `minimal` is False.
+        ortho : bool, default=False
+            Whether to orthogonalize the model.
+
+        """
         if self.subdiag is None:
             raise RuntimeError("""Not yet subdiagonalized.""")
 
         eps = self.subdiag.eps_M.round(1)
+        indices_from_input = indices is not None
 
         if indices is None:
             # Find active orbitals with energy closest to Fermi.
@@ -401,26 +526,38 @@ class LocalOrbitals(TightBinding):
         self.H_Nww = H_Nww
         self.S_Nww = S_Nww
 
-        if minimal:
+        if minimal and not indices_from_input:
+            print("Add static correction.")
             # Add static correction of hybridization to minimal model.
             self.H_Nww[self.N0] += self.model.get_static_correction(
                 self.H_NMM[self.N0], self.S_NMM[self.N0])
 
     def h_and_s(self):
-        """Returns the Hamiltonian and overlap in Hartree units."""
-
+        # Hartree units.
         # Bypass TightBinding method.
         eV = 1 / Hartree
         return self.H_Nww * eV, self.S_Nww
 
+    def band_structure(self, path_kc, blochstates=False):
+        # Broute force hack to restore matrices.
+        H_NMM = self.H_NMM
+        S_NMM = self.S_NMM
+        ret = TightBinding.band_structure(self, path_kc, blochstates)
+        self.H_NMM = H_NMM
+        self.S_NMM = S_NMM
+        return ret
+
     def get_hamiltonian(self):
+        """Get the Hamiltonian in the home unit cell."""
         return self.H_Nww[self.N0]
 
     def get_overlap(self):
+        """Get the overlap in the home unit cell."""
         return self.S_Nww[self.N0]
 
-    def get_orbitals(self):
-        return get_orbitals(self.calc, self.model.U_Mw)
+    def get_orbitals(self, indices):
+        """Get orbitals on the real-space grid."""
+        return get_orbitals(self.calc, self.model.U_MM[:, indices])
 
     def get_projections(self, q=0):
         P_aMi = {a: P_aqMi[q] for a, P_aqMi in self.calc.wfs.P_aqMi.items()}
