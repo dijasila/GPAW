@@ -36,33 +36,6 @@ class BaseArrayInterface:
         return self._module.get_slice(x, shape)
 
 
-class PyCudaArrayInterface(BaseArrayInterface):
-    from gpaw.gpu import pycuda as _module
-    Array = _module.GPUArray
-
-    def sum(self, x, axis=0, out=None):
-        return self._module.sum(x, axis=axis, result=out)
-
-    def copy_to_host(self, src, tgt=None, stream=None):
-        if stream:
-            return src.get_async(ary=tgt, stream=stream)
-        else:
-            return src.get(ary=tgt)
-
-    def copy_to_device(self, src, tgt=None, stream=None):
-        if stream:
-            if tgt is not None:
-                tgt.set_async(src, stream=stream)
-                return tgt
-            else:
-                return self._module.to_gpu_async(src, stream=stream)
-        else:
-            if tgt is not None:
-                tgt.set(src)
-                return tgt
-            else:
-                return self._module.to_gpu(src)
-
 class CuPyArrayInterface(BaseArrayInterface):
     import cupy as _module
     Array = _module.ndarray

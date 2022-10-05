@@ -46,7 +46,7 @@ def init(rank=0):
             rank, backend.device_no, platform.node()))
     return True
 
-__all__ = ['arrays', 'backends', 'parameters', 'cuda', 'pycuda']
+__all__ = ['arrays', 'backends', 'parameters', 'cuda']
 
 # for ease of use, make the module behave as if it would be the backend,
 #   i.e. gpu.enabled == gpu.backend.enabled etc.
