@@ -20,11 +20,6 @@ class PAWCorrections:
                               pos_av=self.pos_av)
 
     def remap_somehow(self, M_vv, G_Gv, sym, sign):
-        # This method is envious of setups and spos, which were used
-        # to create PAWCorrections in the first place.  We can
-        # conclude that PAWCorrections should likely store both on
-        # self.
-
         Q_aGii = []
         for a, Q_Gii in enumerate(self.Q_aGii):
             x_G = self._get_x_G(G_Gv, M_vv, self.pos_av[a])
