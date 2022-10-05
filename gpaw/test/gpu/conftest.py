@@ -1,7 +1,7 @@
 import pytest
 
 
-@pytest.fixture(scope='session', autouse=True)
+@pytest.fixture(scope='session')
 def gpu():
     cupy = pytest.importorskip('cupy')
     try:
