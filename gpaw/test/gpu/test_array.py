@@ -1,14 +1,11 @@
 import pytest
 import numpy as np
-from gpaw import gpu
 
-@pytest.mark.gpu
-def test_array():
-    gpu.setup(cuda=True)
-    gpu.init()
+def test_array(gpu):
 
-    a = np.random.random((100, 100))
-    b = np.random.random((100, 100))
+    rng = np.random.RandomState(42)
+    a = rng.random((100, 100))
+    b = rng.random((100, 100))
     c = np.zeros_like(a)
 
     c[:] = a + b
@@ -19,7 +16,6 @@ def test_array():
     c_gpu = gpu.array.zeros_like(a_gpu)
 
     c_gpu[:] = a_gpu + b_gpu
-
     sum_gpu = gpu.copy_to_host(c_gpu.sum())
 
-    assert sum_cpu == pytest.approx(sum_gpu, abs=1e-10) 
+    assert sum_cpu == pytest.approx(sum_gpu, abs=1e-14) 
