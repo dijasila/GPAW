@@ -1,22 +1,19 @@
-import stat
+from __future__ import annotations
+
 from collections import defaultdict
-from curses import wrapper
-from functools import wraps
-from typing import List, Tuple, Union
 
 import numpy as np
-import numpy.typing as npt
 from ase.units import Hartree
 from gpaw import GPAW
-from gpaw.lcao.pwf2 import LCAOwrap
 from gpaw.lcao.tightbinding import TightBinding  # as LCAOTightBinding
-from gpaw.lcao.tools import get_bfi, get_lcao_hamiltonian
+from gpaw.lcao.tools import get_bfi
+from gpaw.typing import Array1D, Array2D, ArrayLike
 from gpaw.utilities.blas import r2k
 from gpaw.utilities.tools import lowdin, tri2full
 from scipy.linalg import eigh
 
 # Numeric type
-Numeric = Union[int, float, complex]
+Numeric = int | float | complex
 
 
 def get_subspace(A_MM, index):
@@ -66,7 +63,7 @@ def subdiagonalize_atoms(calc, H_MM, S_MM, atom_list=None):
     return subdiagonalize(H_MM, S_MM, block_lists)
 
 
-def get_orbitals(calc, U_Mw: npt.NDArray, q=0):
+def get_orbitals(calc, U_Mw: Array2D, q=0):
     """Get orbitals from AOs coefficients.
 
     Parameters
@@ -147,7 +144,7 @@ class BasisTransform:
 
     """
 
-    def __init__(self, U_MM: npt.NDArray, indices: npt.ArrayLike = None) -> None:
+    def __init__(self, U_MM: Array2D, indices: Array1D = None) -> None:
         """
 
         Parameters
@@ -198,7 +195,7 @@ class EffectiveModel(BasisTransform):
 
     """
 
-    def __init__(self, U_MM: npt.NDArray, indices: npt.ArrayLike, S_MM: npt.NDArray = None) -> None:
+    def __init__(self, U_MM: Array2D, indices: Array1D, S_MM: Array2D = None) -> None:
         """
 
         See Also
@@ -220,7 +217,7 @@ class EffectiveModel(BasisTransform):
 
         super().__init__(U_MM, indices)
 
-    def get_static_correction(self, H_MM: npt.NDArray, S_MM: npt.NDArray, z: Numeric = 0. + 1e-5j):
+    def get_static_correction(self, H_MM: Array2D, S_MM: Array2D, z: Numeric = 0. + 1e-5j):
         """Get static correction to model Hamiltonian.
 
         Parameters
@@ -275,7 +272,7 @@ class Subdiagonalization(BasisTransform):
 
     """
 
-    def __init__(self, H_MM: npt.NDArray, S_MM: npt.NDArray, blocks: List[List]) -> None:
+    def __init__(self, H_MM: Array2D, S_MM: Array2D, blocks: list[list]) -> None:
         """
 
         Parameters
@@ -290,7 +287,7 @@ class Subdiagonalization(BasisTransform):
             self.H_MM, self.S_MM, blocks)
         super().__init__(U_MM)
 
-    def group_energies(self, round=1):
+    def group_energies(self, round: int = 1):
         """Group local orbitals based on energy.
 
         Parameters
@@ -308,7 +305,7 @@ class Subdiagonalization(BasisTransform):
         self.groups = groups
         return self.groups
 
-    def group_symmetries(self, cutoff=0.9, round=1):
+    def group_symmetries(self, cutoff: float = 0.9, round: int = 1):
         """Group local orbitals based on symmetry and energy.
 
         Parameters
@@ -358,7 +355,7 @@ class Subdiagonalization(BasisTransform):
         self.groups = {k: list(sorted(new[k])) for k in sorted(new)}  # groups
         return self.groups
 
-    def get_model(self, indices, ortho=False):
+    def get_model(self, indices: Array1D, ortho: bool = False):
         """Extract an effective model from the subdiagonalized space.
 
         Parameters
@@ -420,7 +417,7 @@ class LocalOrbitals(TightBinding):
                 raise RuntimeError(
                     "Must include central unit cell, i.e. R=[0,0,0].") from exc
 
-    def subdiagonalize(self, symbols=None, blocks=None, groupby='energy'):
+    def subdiagonalize(self, symbols: Array1D = None, blocks: list[list] = None, groupby: str = 'energy'):
         """Subdiagonalize Hamiltonian and overlap matrices.
 
         Parameters
@@ -452,7 +449,7 @@ class LocalOrbitals(TightBinding):
             raise RuntimeError(
                 f"""Invalid groupby type. {groupby} not in {'energy', 'symmetry'}""")
 
-    def take_model(self, indices=None, minimal=True, cutoff=1e-3, ortho=False):
+    def take_model(self, indices: Array1D = None, minimal: bool = True, cutoff: float = 1e-3, ortho: bool = False):
         """Build an effective model.
 
         Parameters
