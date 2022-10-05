@@ -162,4 +162,4 @@ class ResponseGroundStateAdapter:
 
     def get_pos_av(self):
         # gd.cell_cv must always be the same as pd.gd.cell_cv, right??
-        return np.dot(self.spos_ac, self.pd.gd.cell_cv)
+        return np.dot(self.spos_ac, self.gd.cell_cv)
