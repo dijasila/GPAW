@@ -508,7 +508,7 @@ class LocalOrbitals(TightBinding):
             indices += extend
 
         self.indices = indices
-        self.model = self.subdiag.get_model(indices)
+        self.model = self.subdiag.get_model(indices, ortho=ortho)
 
         if self.gamma:
             H_Nww = self.model.rotate_matrix(self.H_NMM[0])[None, ...]
