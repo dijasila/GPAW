@@ -54,6 +54,8 @@ master:
 
 docker:
   image: registry.gitlab.com/ase/ase:gpaw-test
+  tags:
+    - camd-experimental
   script:
     - pip install --editable .
     - gpaw install-data --register gpaw-datasets
