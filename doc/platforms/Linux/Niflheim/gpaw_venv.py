@@ -159,7 +159,8 @@ def main():
 
     packages = ['myqueue',
                 'graphviz',
-                'qeh']
+                'qeh',
+                'sphinx_rtd_theme']
     run(f'. {activate} && pip install -q ' + ' '.join(packages))
 
     for name in ['ase', 'gpaw']:
