@@ -14,13 +14,10 @@ functionals like optPBE, optB88, and BEEF-vdW.
 `Install <http://libvdwxc.readthedocs.io>`_ libvdwxc,
 making sure that its dependencies FFTW3 and
 FFTW3-MPI are available on the system.  For truly large systems, you
-may install PFFT to achieve better scalability, but FFTW3-MPI may well
-be more efficient except for very large systems.
+may install PFFT to achieve better scalability.  For realistically-sized systems, FFTW3-MPI is efficient
+and might be a bit faster than PFFT.
 
-Currently there is no stable libvdwxc release yet.  Clone the project from
-git and install manually.
-
-Run a calculation as follows:
+Run a calculation by specifying backend, like {'name':'BEEF-vdW', 'backend':'libvdwxc'}, as in this example:
 
 .. literalinclude:: libvdwxc-example.py
 
@@ -28,11 +25,4 @@ libvdwxc will automatically parallelize with as many cores as are
 available for domain decomposition.  If you parallelize over *k*-points
 or bands, and *especially* if you use planewave mode, be sure to pass
 the parallelization keyword ``augment_grids=True`` to make use of *all*
-cores including those for *k*-point and band parallelization (see :ref:`manual_parallel`).
-
-Here is a more complex example:
-
-.. literalinclude:: libvdwxc-pfft-example.py
-
-Normally you should probably not bother to set pfft_grid as it is
-chosen automatically.
+cores including those for *k*-point and band parallelization (see :ref:`parallel_runs`).
