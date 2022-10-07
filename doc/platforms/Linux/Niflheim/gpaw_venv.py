@@ -13,7 +13,7 @@ from sys import version_info
 if version_info < (3, 7):
     raise ValueError('Please use Python-3.7 or later')
 
-version = f'{version_info[0]}.{version_info[1]}'  # Python version in the venv that we are creating
+version = '3.10'  # Python version in the venv that we are creating
 
 module_cmds_all = """\
 module purge
