@@ -17,8 +17,7 @@ void reduce_init_buffers_cuda()
 extern "C"
 void reduce_dealloc_cuda()
 {
-    if (reduce_buffer)
-        gpuFree(reduce_buffer);
+    gpuFree(reduce_buffer);
     gpuCheckLastError();
     reduce_init_buffers_cuda();
 }

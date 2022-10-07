@@ -53,8 +53,8 @@
         gpuSafeCall(cudaGetDeviceProperties(prop, dev))
 #define gpuDeviceSynchronize()    gpuSafeCall(cudaDeviceSynchronize())
 
-#define gpuFree(p)                gpuSafeCall(cudaFree(p))
-#define gpuFreeHost(p)            gpuSafeCall(cudaFreeHost(p))
+#define gpuFree(p)                if ((p) != NULL) gpuSafeCall(cudaFree(p))
+#define gpuFreeHost(p)            if ((p) != NULL) gpuSafeCall(cudaFreeHost(p))
 #define gpuMalloc(pp, size)       gpuSafeCall(cudaMalloc((void**) (pp), size))
 #define gpuHostAlloc(pp, size) \
         gpuSafeCall(cudaHostAlloc((void**) (pp), size, cudaHostAllocPortable))

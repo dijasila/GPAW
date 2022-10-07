@@ -126,10 +126,8 @@ void bc_dealloc_cuda(int force)
 
     if (bc_init_count == 1) {
 #ifndef CUDA_MPI
-        if (bc_sbuffs != NULL)
-            gpuFreeHost(bc_sbuffs);
-        if (bc_rbuffs != NULL)
-            gpuFreeHost(bc_rbuffs);
+        gpuFreeHost(bc_sbuffs);
+        gpuFreeHost(bc_rbuffs);
         if (bc_streams) {
             gpuStreamDestroy(bc_recv_stream);
             for (int d=0; d<3; d++) {
@@ -140,10 +138,8 @@ void bc_dealloc_cuda(int force)
             }
         }
 #endif
-        if (bc_sbuffs_gpu != NULL)
-            gpuFree(bc_sbuffs_gpu);
-        if (bc_rbuffs_gpu != NULL)
-            gpuFree(bc_rbuffs_gpu);
+        gpuFree(bc_sbuffs_gpu);
+        gpuFree(bc_rbuffs_gpu);
         bc_init_buffers_cuda();
         return;
     }
