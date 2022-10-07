@@ -126,10 +126,8 @@ void bc_dealloc_cuda(int force)
 
     if (bc_init_count == 1) {
 #ifndef CUDA_MPI
-        if (bc_sbuffs != NULL)
-            gpuFreeHost(bc_sbuffs);
-        if (bc_rbuffs != NULL)
-            gpuFreeHost(bc_rbuffs);
+        gpuFreeHost(bc_sbuffs);
+        gpuFreeHost(bc_rbuffs);
         if (bc_streams) {
             gpuStreamDestroy(bc_recv_stream);
             for (int d=0; d<3; d++) {
@@ -140,10 +138,8 @@ void bc_dealloc_cuda(int force)
             }
         }
 #endif
-        if (bc_sbuffs_gpu != NULL)
-            gpuFree(bc_sbuffs_gpu);
-        if (bc_rbuffs_gpu != NULL)
-            gpuFree(bc_rbuffs_gpu);
+        gpuFree(bc_sbuffs_gpu);
+        gpuFree(bc_rbuffs_gpu);
         bc_init_buffers_cuda();
         return;
     }
@@ -356,7 +352,7 @@ void bc_unpack_cuda_gpu_sync(const boundary_conditions* bc,
 #ifndef CUDA_MPI
         gpuMemcpy(bc_rbuff_gpu[i][0], bc_rbuff[i][0],
                   sizeof(double) * (bc->nrecv[i][0] + bc->nrecv[i][1]) * nin,
-                  cudaMemcpyHostToDevice);
+                  gpuMemcpyHostToDevice);
 #endif
         bc_recv_done[i][0] = 1;
         bc_recv_done[i][1] = 1;
@@ -494,7 +490,7 @@ void bc_unpack_cuda_gpu_async(const boundary_conditions* bc,
                                    sizeof(double)
                                        * (bc->nrecv[i3][0] + bc->nrecv[i3][1])
                                        * nin,
-                                   cudaMemcpyHostToDevice,
+                                   gpuMemcpyHostToDevice,
                                    bc_recv_stream);
                     for (int d=0; d<2; d++) {
                         if (!bc_recv_done[i3][d]) {
@@ -524,7 +520,7 @@ void bc_unpack_cuda_gpu_async(const boundary_conditions* bc,
                                    bc_rbuff[i3][ddd[i2]],
                                    sizeof(double)
                                        * (bc->nrecv[i3][ddd[i2]]) * nin,
-                                   cudaMemcpyHostToDevice,
+                                   gpuMemcpyHostToDevice,
                                    bc_recv_stream);
                     if (real)
                         bmgs_paste_cuda_gpu(bc_rbuff_gpu[i3][ddd[i2]],

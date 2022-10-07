@@ -22,8 +22,8 @@ void lfc_reduce_init_buffers_cuda()
 extern "C"
 void lfc_reduce_dealloc_cuda()
 {
-    cudaFree(lfc_reduce_buffer);
-    cudaGetLastError();
+    gpuFree(lfc_reduce_buffer);
+    gpuCheckLastError();
     lfc_reduce_init_buffers_cuda();
 }
 
