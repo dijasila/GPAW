@@ -26,3 +26,5 @@ available for domain decomposition.  If you parallelize over *k*-points
 or bands, and *especially* if you use planewave mode, be sure to pass
 the parallelization keyword ``augment_grids=True`` to make use of *all*
 cores including those for *k*-point and band parallelization (see :ref:`parallel_runs`).
+
+Note that libvdwxc 0.4 has no stress term implementation.
