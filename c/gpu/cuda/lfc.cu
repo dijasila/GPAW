@@ -221,6 +221,7 @@ PyObject * NewLFCObject_cuda(LFCObject *self, PyObject *args)
         GB2s[W] = GPAW_MALLOC(int, self->ngm_W[W]);
         v_gpu->nGBcum = GPAW_MALLOC(int, self->ngm_W[W] + 1);
         v_gpu->nB = 0;
+        v_gpu->phase_k = NULL;
     }
 
     gpuMalloc(&(self->volume_W_gpu), sizeof(LFVolume_gpu) * self->nW);
