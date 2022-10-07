@@ -114,6 +114,24 @@ to install ASR_::
 
 .. _ASR: https://asr.readthedocs.io/en/latest/
 
+Updating the virtual environment
+================================
+
+You can update the GPAW installation inside a virtual environment by
+updating the git clone of gpaw, and then rerun the installation script
+with the ``--recompile`` option.
+
+Example::
+  cd venv1/gpaw
+  git pull
+  cd ../..
+  python venv1/gpaw/doc/platforms/Linux/Niflheim/gpaw_venv.py --recompile venv1
+
+Note that rebuilding GPAW will **not** update the toolchain.  If the
+venv was installed with the 2020b toolchain, it will stay on the 2020b
+toolchain.  To upgrade to the 2022a toolchain, you need to install a
+new virtual environment.
+
 
 Full script
 ===========

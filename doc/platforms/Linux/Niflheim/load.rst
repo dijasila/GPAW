@@ -57,7 +57,7 @@ I have an ongoing project
   using different versions for different project.
 
 I am a normal user
-  You should load ``GPAW/21.1.0-intel-2020b``.
+  You should load ``GPAW/22.8.0-intel-2022a``.
 
   This will give the newest version of GPAW, as recommended by the
   developers.  It has new features and is significantly faster, in
@@ -67,10 +67,10 @@ I am a normal user
   the same version for ongoing projects.  See below for a description
   on how to do that.
 
-I am sligtly conservative or need ``libvwdxc``.
-  The version of GPAW compiled with the FOSS toolchain is somewhat
-  slower in many situations, but is better tested and may use less
-  memory.  You may also have to use this version if you want the
+I am sligtly conservative or need ``libvwdxc``.  The version of GPAW
+  compiled with the FOSS toolchain (``GPAW/22.8.0-foss-2022a``) is
+  somewhat slower in many situations, but is better tested and may use
+  less memory.  You may also have to use this version if you want the
   functionality from ``libvwdxc`` library, but be aware that many vad
   der Waals potentials do not use ``libvwdxc``.
   
@@ -80,8 +80,8 @@ Loading GPAW pulls all that stuff in, in versions consistent with the
 chosen GPAW version.
 
 If you want to generate Wannier functions with the Wannier90 module,
-you need to explicitly load ``Wannier90/3.1.0-foss-2020b`` or
-``Wannier90/3.1.0-intel-2020b``.
+you need to explicitly load ``Wannier90/3.1.0-foss-2022a`` or
+``Wannier90/3.1.0-intel-2022a``.
 
 
 Intel or foss versions?
@@ -114,6 +114,20 @@ Use ``module list`` to list your modules. Check for consistency:
 
      
 ==============   ==================================
+foss/2022a       foss-2022a
+
+                 gompi-2022a
+		 
+                 GCCcore-11.3.0
+--------------   ----------------------------------
+intel/2022a      intel-2022a
+
+                 intel-compilers-2022.1.0
+		 
+                 iimpi-2022a
+		 
+                 GCCcore-11.3.0
+--------------   ----------------------------------
 foss/2020b       foss-2020b
 
                  gompi-2020b
@@ -193,3 +207,7 @@ The ``module purge`` command in the special branch is because SLURM
 will remember which modules you have loaded when you submit the job,
 and that will typically be the default version, which must then be
 unloaded.
+
+**NOTE:** An easier alternative may be to  :ref:`build different
+versions of GPAW yourself <build on niflheim>` using virtual
+environments.
