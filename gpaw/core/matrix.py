@@ -6,12 +6,15 @@ from typing import Dict, Tuple, Union
 import _gpaw
 import gpaw.utilities.blas as blas
 import numpy as np
+import scipy
 import scipy.linalg as linalg
 from gpaw import debug
 from gpaw.mpi import MPIComm, _Communicator, serial_comm
 from gpaw.typing import Array1D, ArrayLike1D, ArrayLike2D
 
 _global_blacs_context_store: Dict[Tuple[_Communicator, int, int], int] = {}
+
+SCIPY_VERSION = [int(x) for x in scipy.__version__.split('.')[:2]]
 
 
 def suggest_blocking(N: int, ncpus: int) -> tuple[int, int, int]:
@@ -412,11 +415,15 @@ class Matrix:
                 blas.mmm(1.0, L_MM, 'N', H.data, 'N', 0.0, tmp_MM)
                 blas.r2k(0.5, tmp_MM, L_MM, 0.0, H.data)
                 # Ht_MM = L_MM @ self.data @ L_MM.conj().T
+                if SCIPY_VERSION >= [1, 9]:
+                    driver = 'evx' if M == 1 else 'evd'
+                else:
+                    driver = None
                 eig_n, Ct_Mn = linalg.eigh(
                     H.data,
                     overwrite_a=True,
                     check_finite=debug,
-                    driver='evx' if M == 1 else 'evd')
+                    driver=driver)
                 assert Ct_Mn.flags.f_contiguous
                 blas.mmm(1.0, L_MM, 'C', Ct_Mn.T, 'T', 0.0, H.data)
                 # self.data[:] = L_MM.T.conj() @ Ct_Mn
@@ -442,7 +449,8 @@ class Matrix:
     def add_hermitian_conjugate(self, scale: float = 1.0) -> None:
         """Add hermitian conjugate to myself."""
         if self.dist.comm.size == 1:
-            self.data *= 0.5
+            if scale != 1.0:
+                self.data *= scale
             self.data += self.data.conj().T
             return
         tmp = self.copy()

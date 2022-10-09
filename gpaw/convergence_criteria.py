@@ -5,7 +5,6 @@ import numpy as np
 from ase.calculators.calculator import InputError
 from ase.units import Bohr, Ha
 
-from gpaw.forces import calculate_forces
 from gpaw.mpi import broadcast_float
 
 
@@ -282,9 +281,8 @@ class Forces(Criterion):
         the user log file."""
         if np.isinf(self.tol) and self.rtol is None:  # criterion is off; backwards compatibility
             return True, ''
-        with context.wfs.timer('Forces'):
-            F_av = calculate_forces(context.wfs, context.dens, context.ham)
-            F_av *= Ha / Bohr
+        F_av = context.calculate_forces()
+        F_av *= Ha / Bohr
         error = np.inf
         if self.old_F_av is not None:
             error = ((F_av - self.old_F_av)**2).sum(1).max()**0.5

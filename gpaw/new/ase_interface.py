@@ -2,18 +2,21 @@ from __future__ import annotations
 
 import warnings
 from pathlib import Path
+from types import SimpleNamespace
 from typing import IO, Any, Union
 
+import numpy as np
 from ase import Atoms
 from ase.units import Bohr, Ha
 from gpaw import __version__
 from gpaw.new import Timer, cached_property
+from gpaw.new.builder import builder as create_builder
 from gpaw.new.calculation import DFTCalculation, DFTState, units
 from gpaw.new.gpw import read_gpw, write_gpw
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
 from gpaw.new.pw.fulldiag import diagonalize
-from gpaw.new.xc import XC
+from gpaw.new.xc import XCFunctional
 from gpaw.typing import Array1D, Array2D, Array3D
 from gpaw.utilities import pack
 from gpaw.utilities.memory import maxrss
@@ -30,10 +33,7 @@ def GPAW(filename: Union[str, Path, IO[str]] = None,
     log = Logger(txt, world)
 
     if filename is not None:
-        kwargs.pop('txt', None)
-        kwargs.pop('parallel', None)
-        kwargs.pop('communicator', None)
-        assert len(kwargs) == 0
+        assert set(kwargs) <= {'txt', 'parallel', 'communicator'}, kwargs
         atoms, calculation, params, _ = read_gpw(filename, log,
                                                  params.parallel)
         return ASECalculator(params, log, calculation, atoms)
@@ -91,7 +91,8 @@ class ASECalculator:
                 self.calculation = None
 
         if self.calculation is None:
-            self.calculation = self.create_new_calculation(atoms)
+            self.create_new_calculation(atoms)
+            assert self.calculation is not None
             self.converge()
         elif changes:
             self.move_atoms(atoms)
@@ -111,12 +112,11 @@ class ASECalculator:
 
         return self.calculation.results[prop] * units[prop]
 
-    def create_new_calculation(self, atoms: Atoms) -> DFTCalculation:
+    def create_new_calculation(self, atoms: Atoms) -> None:
         with self.timer('Init'):
-            calculation = DFTCalculation.from_parameters(atoms, self.params,
-                                                         self.log)
+            self.calculation = DFTCalculation.from_parameters(
+                atoms, self.params, self.log)
         self.atoms = atoms.copy()
-        return calculation
 
     def move_atoms(self, atoms):
         with self.timer('Move'):
@@ -130,7 +130,7 @@ class ASECalculator:
         and dipole moment.
         """
         with self.timer('SCF'):
-            self.calculation.converge()
+            self.calculation.converge(calculate_forces=self._calculate_forces)
 
         # Calculate all the cheap things:
         self.calculation.energies()
@@ -139,13 +139,19 @@ class ASECalculator:
 
         self.calculation.write_converged()
 
+    def _calculate_forces(self) -> Array2D:  # units: Ha/Bohr
+        """Helper method for force-convergence criterium."""
+        with self.timer('Forces'):
+            self.calculation.forces()
+        return self.calculation.results['forces']
+
     def __del__(self):
         try:
             self.log('---')
             self.timer.write(self.log)
             mib = maxrss() / 1024**2
             self.log(f'\nMax RSS: {mib:.3f}  # MiB')
-        except NameError:
+        except (NameError, AttributeError):
             pass
 
     def get_potential_energy(self,
@@ -222,17 +228,28 @@ class ASECalculator:
         state = self.calculation.state
         return state.ibzwfs.nbands
 
+    def get_number_of_grid_points(self):
+        return self.calculation.state.density.nt_sR.desc.size
+
+    def get_effective_potential(self, spin=0):
+        assert spin == 0
+        vt_R = self.calculation.state.potential.vt_sR[spin]
+        return vt_R.to_pbc_grid().data * Ha
+
     def get_atomic_electrostatic_potentials(self):
         return self.calculation.electrostatic_potential().atomic_potentials()
 
-    def get_pseudo_density(self, spin=None):
-        return self.calculation.densities().pseudo_densities().data
+    def get_pseudo_density(self, spin=None, gridrefinement=1):
+        assert spin is None
+        nt_sr = self.calculation.densities().pseudo_densities(
+            grid_refinement=gridrefinement)
+        return nt_sr.to_pbc_grid().data.sum(0)
 
     def get_all_electron_density(self, spin=None, gridrefinement=1):
         assert spin is None
         n_sr = self.calculation.densities().all_electron_densities(
             grid_refinement=gridrefinement)
-        return n_sr.data.sum(0)
+        return n_sr.to_pbc_grid().data.sum(0)
 
     def get_eigenvalues(self, kpt=0, spin=0):
         state = self.calculation.state
@@ -278,16 +295,26 @@ class ASECalculator:
     def world(self):
         return self.calculation.scf_loop.world
 
+    @property
+    def setups(self):
+        return self.calculation.setups
+
+    @property
+    def initialized(self):
+        return self.calculation is not None
+
     def get_xc_difference(self, xcparams):
         """Calculate non-selfconsistent XC-energy difference."""
         state = self.calculation.state
-        xc = XC(xcparams, state.density.ncomponents)
+        xc = XCFunctional(xcparams, state.density.ncomponents)
         exct = self.calculation.pot_calc.calculate_non_selfconsistent_exc(
             state.density.nt_sR, xc)
         dexc = 0.0
         for a, D_sii in state.density.D_asii.items():
             setup = self.setups[a]
-            dexc += xc.calculate_paw_correction(setup, pack(D_sii))
+            dexc += xc.calculate_paw_correction(
+                setup,
+                np.array([pack(D_ii) for D_ii in D_sii]))
         return (exct + dexc - state.potential.energies['xc']) * Ha
 
     def diagonalize_full_hamiltonian(self,
@@ -311,6 +338,35 @@ class ASECalculator:
     def gs_adapter(self):
         from gpaw.response.groundstate import ResponseGroundStateAdapter
         return ResponseGroundStateAdapter(self)
+
+    def fixed_density(self, **kwargs):
+        kwargs = {**dict(self.params.items()), **kwargs}
+        params = InputParameters(kwargs)
+        txt = params.txt
+        world = params.parallel['world']
+        log = Logger(txt, world)
+        builder = create_builder(self.atoms, params)
+        basis_set = builder.create_basis_set()
+        state = self.calculation.state
+        ibzwfs = builder.create_ibz_wave_functions(basis_set, state.potential)
+        ibzwfs.fermi_levels = state.ibzwfs.fermi_levels
+        state = DFTState(ibzwfs, state.density, state.potential)
+        scf_loop = builder.create_scf_loop()
+        scf_loop.update_density_and_potential = False
+
+        calculation = DFTCalculation(
+            state,
+            builder.setups,
+            scf_loop,
+            SimpleNamespace(fracpos_ac=self.calculation.fracpos_ac),
+            log)
+
+        calculation.converge()
+
+        return ASECalculator(params, log, calculation, self.atoms)
+
+    def initialize(self, atoms):
+        self.create_new_calculation(atoms)
 
 
 def write_header(log, world, params):

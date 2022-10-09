@@ -1,4 +1,4 @@
-# creates: Co_magnons_vs_rc.png
+# web-page: Co_magnons_vs_rc.png
 """Plot the magnon energy as a function of the cutoff radius rc for all the
 high-symmetry points of Co (hcp)"""
 

@@ -294,6 +294,7 @@ class AtomArrays:
                     b2 = b1 + size
                     A = aa[a]
                     A[:] = buf[..., b1:b2].reshape(A.shape)
+                    b1 = b2
             for a, array in self._arrays.items():
                 aa[a] = array
         else:

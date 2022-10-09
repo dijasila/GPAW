@@ -2,12 +2,10 @@
 import numpy as np
 
 # GPAW modules
-import gpaw.mpi as mpi
 from gpaw.response.chiks import ChiKS
-from gpaw.response.kxc import PlaneWaveAdiabaticFXC
+from gpaw.response.localft import LocalFTCalculator, add_LSDA_Bxc
 from gpaw.response.site_kernels import SiteKernels
 from gpaw.response.susceptibility import symmetrize_reciprocity
-from gpaw.xc import XC
 
 # ASE modules
 from ase.units import Hartree
@@ -55,15 +53,14 @@ class IsotropicExchangeCalculator:
                 f'Expected chiks.{key} == {item}. Got: {getattr(chiks, key)}'
 
         self.chiks = chiks
+        self.context = chiks.context
 
         # Initialize the B^(xc) calculator
         # Once the response context object is ready, the user should be allowed
         # to supply the Bxc_calc themselves. This will expose the rshe
         # arguments to the user, which is not the case at present. XXX
-        self.Bxc_calc = PlaneWaveBxc(self.chiks.calc,
-                                     world=self.chiks.world,
-                                     txt=self.chiks.fd,
-                                     timer=self.chiks.timer)
+        self.localft_calc = LocalFTCalculator.from_rshe_parameters(
+            self.chiks.gs, self.context)
 
         # Bxc field buffer
         self._Bxc_G = None
@@ -131,7 +128,7 @@ class IsotropicExchangeCalculator:
         # q_c is arbitrary, since we are assuming that chiks.gammacentered == 1
         pd0 = self.chiks.get_PWDescriptor([0., 0., 0.])
 
-        return self.Bxc_calc(pd0)
+        return self.localft_calc(pd0, add_LSDA_Bxc)
 
     def get_chiksr(self, q_c, txt=None):
         """Get χ_KS^('+-)(q) from buffer."""
@@ -170,77 +167,16 @@ class IsotropicExchangeCalculator:
         where it was used that n^+(r) and n^-(r) are each others Hermitian
         conjugates to reach the last equality.
         """
+        # Initiate new output file, if supplied
+        if txt is not None:
+            self.context.new_txt_and_timer(txt)
+
         frequencies = [0.]
         pd, chiks_wGG = self.chiks.calculate(q_c, frequencies,
-                                             spincomponent='+-',
-                                             txt=txt)
+                                             spincomponent='+-')
         symmetrize_reciprocity(pd, chiks_wGG)
 
         # Take the reactive part
         chiksr_GG = 1 / 2. * (chiks_wGG[0] + np.conj(chiks_wGG[0]).T)
 
         return pd, chiksr_GG
-
-
-class PlaneWaveBxc(PlaneWaveAdiabaticFXC):
-    """Calculator class for the plane wave coefficients of B^(xc)
-
-               /
-    B^(xc)_G = |dr B^(xc)(r) e^(-iG.r)
-               /
-                V0
-
-    where V0 is the cell volume and
-
-                δE_xc[n,m]   1
-    B^(xc)(r) = ‾‾‾‾‾‾‾‾‾‾ = ‾ [V_xc^↑(r) - V_xc^↓(r)]
-                  δm(r)      2
-
-    in the local spin-density approximation for a collinear system."""
-
-    def __init__(self, gs,
-                 world=mpi.world, txt='-', timer=None,
-                 rshelmax=-1, rshewmin=1.e-8):  # Overwrites rshewmin default
-        """Construct the calculator based on functionality to compute fxc
-        kernels. This is a temporary hack to leverage the PAW functionality
-        of that code, but implies a significant computational overhead.
-
-        Parameters
-        ----------
-        gs, world, txt, timer : see FXC
-        rshelmax, rshewmin : see PlaneWaveAdiabaticFXC
-        """
-        PlaneWaveAdiabaticFXC.__init__(self, gs, '',
-                                       world=world, txt=txt, timer=timer,
-                                       rshelmax=rshelmax, rshewmin=rshewmin)
-
-    def __call__(self, pd):
-        """Calculate the plane wave components of Bxc"""
-        # Use the fxc kernel functionality to compute B^(xc)_(G-G') / V0,
-        # see [PRB 103, 245110 (2021)]
-        Bxc_GG = self.calculate(pd)
-
-        # Extract B^(xc)_G as the first column of the "kernel", renormalizing
-        # by the cell volume
-        V0 = pd.gd.volume
-        Bxc_G = V0 * Bxc_GG[:, 0]
-
-        return Bxc_G
-
-    def _add_fxc(self, gd, n_sG, fxc_G):
-        """This function defines the "fxc kernel" to Fourier transform."""
-        self._add_Bxc(gd, n_sG, fxc_G)
-
-    def _add_Bxc(self, gd, n_sG, Bxc_G):
-        """Calculate Bxc in real space and add it to the array Bxc_G (here
-        G denotes the real space grid points)."""
-        # Allocate an array for the spin-dependent xc potential on the real
-        # space grid
-        v_sG = np.zeros(np.shape(n_sG))
-
-        # Calculate the spin-dependent potential
-        xc = XC('LDA')
-        xc.calculate(gd, n_sG, v_sg=v_sG)
-
-        # Add B^(xc) in real space to the output array
-        Bxc_G += (v_sG[0] - v_sG[1]) / 2

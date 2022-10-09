@@ -391,7 +391,7 @@ static PyObject* moduleinit(void)
 #else
     PyObject_SetAttrString(m, "have_openmp", Py_False);
 #endif
-    PyObject_SetAttrString(m, "version", PyLong_FromLong(1));
+    PyObject_SetAttrString(m, "version", PyLong_FromLong(2));
 
     Py_INCREF(&LFCType);
     Py_INCREF(&OperatorType);

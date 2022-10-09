@@ -160,7 +160,7 @@ class RefinerPotentialCoupler(PotentialCoupler):
 class MultipolesPotentialCoupler(PotentialCoupler):
     def __init__(self, *args, **kwargs):
         # The latest appearance of this class is in
-        # https://trac.fysik.dtu.dk/projects/gpaw/browser/
+        # trac.fysik.dtu.dk/projects/gpaw/browser/
         # branches/electrodynamics/gpaw/fdtd/potential_couplers.py?rev=11708
         #
         # Re-added here a dummy class for compatibility with FDTDPoissonSolver.

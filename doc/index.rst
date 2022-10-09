@@ -47,6 +47,8 @@ Force: -0.639 eV/Å
 News
 ====
 
+* :ref:`GPAW version 22.8.0 <releasenotes>` released (Aug 18, 2022).
+
 * :ref:`GPAW version 22.1.0 <releasenotes>` released (Jan 12, 2022).
 
 * :ref:`GPAW version 21.6.0 <releasenotes>` released (Jun 24, 2021).

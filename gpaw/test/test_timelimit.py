@@ -7,7 +7,7 @@ from gpaw.tddft import TDDFT
 from gpaw.utilities.timelimit import TimeLimiter
 
 
-@pytest.mark.skip_for_new_gpaw
+@pytest.mark.later
 def test_timelimit(in_tmp_dir):
     # Atoms
     atoms = molecule('Na2')

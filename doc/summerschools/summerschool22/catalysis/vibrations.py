@@ -1,17 +1,36 @@
 # %%
 """
-## Extra exercise - vibrational energy
-The energy calculated with DFT is the electronic energy at 0K. However, to model catalytic reactions we are usually intereseted in the energy landscape at finite temperature. In this exercise we will calculate the energy contributions from vibrations and see how they affect the splitting of N<sub>2</sub> on Ru.
+Extra exercise - vibrational energy
+===================================
 
-We calculate the vibrational energy in the harmonic approximation using the finite displacement method. For further reading see for example:
+The energy calculated with DFT is the electronic energy at 0K. However, to
+model catalytic reactions we are usually intereseted in the energy landscape
+at finite temperature. In this exercise we will calculate the energy
+contributions from vibrations and see how they affect the splitting of
+N<sub>2</sub> on Ru.
 
-* [Stoffel et al, Angewandte Chemie Int. Ed., 49, 5242-5266 (2010)](https://onlinelibrary.wiley.com/doi/abs/10.1002/anie.200906780)
-* [Togo and Tanaka, Scripta Materialia 108, 1-5 (2015)](https://www.sciencedirect.com/science/article/pii/S1359646215003127)
+We calculate the vibrational energy in the harmonic approximation using the
+finite displacement method. For further reading see for example:
 
-### Vibrational energy of the initial and final states
-a) Calculating vibrations requires tighter convergence than normal energy calculations. Therefore you should first take your already optimised initial and final state geometries from the NEB calculations and relax them further to `fmax=0.01eV/Å` with the QuasiNewton optimiser and an energy cutoff of 450eV. Converge the eigenstates to 1e-8. (Note that for other systems you might need even tighter convergence!)
+* [Stoffel et al, Angewandte Chemie Int. Ed., 49, 5242-5266 (2010)][1]
+* [Togo and Tanaka, Scripta Materialia 108, 1-5 (2015)][2]
 
-Submit the structures to the queue. The optimisation should take 10-15 mins for each structure on 8 cores.
+[1]: https://onlinelibrary.wiley.com/doi/abs/10.1002/anie.200906780
+[2]: https://www.sciencedirect.com/science/article/pii/S1359646215003127
+
+
+Vibrational energy of the initial and final states
+--------------------------------------------------
+
+a) Calculating vibrations requires tighter convergence than normal energy
+   calculations. Therefore you should first take your already optimised initial
+   and final state geometries from the NEB calculations and relax them further
+   to `fmax=0.01eV/Å` with the QuasiNewton optimiser and an energy cutoff of
+   500eV. Converge the eigenstates to 1e-8. (Note that for other systems you
+   might need even tighter convergence!)
+
+Submit the structures to the queue. The optimisation should take 10-15 mins
+for each structure on 8 cores.
 """
 
 # %%
@@ -23,7 +42,7 @@ from ase.optimize import QuasiNewton
 import numpy as np
 from ase.io import read, write
 
-for name in ['N2Ru.traj', '2Nads.traj']:
+for name in ['N2Ru-top.traj', '2Nads.traj']:
     slab = read(name)
 
     z = slab.positions[:, 2]
@@ -31,7 +50,7 @@ for name in ['N2Ru.traj', '2Nads.traj']:
     slab.set_constraint(constraint)
 
     calc = GPAW(xc='PBE',
-                mode=PW(450),
+                mode=PW(500),
                 txt='tight-' + name[:-4] + 'txt',
                 kpts={'size': (4, 4, 1), 'gamma': True},
                 convergence={'eigenstates': 1e-8})
@@ -39,14 +58,24 @@ for name in ['N2Ru.traj', '2Nads.traj']:
 
     dyn = QuasiNewton(slab,
                       trajectory='tight-' + name,
-                      maxstep = 0.02,
+                      maxstep=0.02,
                       logfile='tight-' + name[:-4] + 'log')
     dyn.run(fmax=0.01)
 
 # %%
 """
-b) Once you have done this you can calculate the vibrations using the [vibrations module in ASE](https://wiki.fysik.dtu.dk/ase/ase/vibrations/vibrations.html) following the template below. We only calculate the vibrations of the adsorbate and assume that the frequencies of the substrate are unchanged - this is a common assumption. Use 4 displacements to fit the frequencies and the same calculator parameters as in a).
-Submit the calculations for the initial and the final state to the queue. It will take a while to run, but you can start preparing your analysis (part c and d) or read some of the references in the meantime.
+b) Once you have done this you can calculate the vibrations using the
+   [vibrations module in ASE][3] following
+   the template below. We only calculate the vibrations of the adsorbate and
+   assume that the frequencies of the substrate are unchanged - this is a
+   common assumption. Use 4 displacements to fit the frequencies and the same
+   calculator parameters as in a).
+
+[3]: https://wiki.fysik.dtu.dk/ase/ase/vibrations/vibrations.html
+
+Submit the calculations for the initial and the final state to the queue. It
+will take a while to run, but you can start preparing your analysis (part c
+and d) or read some of the references in the meantime.
 """
 
 # %%
@@ -55,11 +84,10 @@ from ase.io import read
 from ase.vibrations import Vibrations
 from gpaw import GPAW, PW
 
-slab = read('tight-N2Ru.traj')  # student: slab = read('path_to_your_structure')
+slab = read('tight-N2Ru-top.traj')  # student: slab = read('your_structure')
 calc = GPAW(xc='PBE',
-            mode=PW(450),  # student: mode=PW(450),
+            mode=PW(500),
             kpts={'size': (4, 4, 1), 'gamma': True},  # student: kpts=?,
-            convergence={'eigenstates': 1e-8},  # student; convergence=?,
             symmetry={'point_group': False},
             txt='vib.txt')
 slab.calc = calc
@@ -81,9 +109,8 @@ from gpaw import GPAW, PW
 
 slab = read('tight-2Nads.traj')
 calc = GPAW(xc='PBE',
-            mode=PW(450),  # student: mode=PW(450),
+            mode=PW(500),
             kpts={'size': (4, 4, 1), 'gamma': True},  # student: kpts=?,
-            convergence={'eigenstates': 1e-8},  # student; convergence=?,
             symmetry={'point_group': False},
             txt='vib2.txt')
 slab.calc = calc
@@ -100,7 +127,11 @@ for i in range(6):
 
 # %%
 """
-The final three lines write out the frequencies and `.traj` files with animations of the different modes in order of their energy. Take a look at the vibrational modes in the files. Do you understand why the first mode has a low energy, while the last one has a high energy?
+
+The final three lines write out the frequencies and `.traj` files with
+animations of the different modes in order of their energy. Take a look at
+the vibrational modes in the files. Do you understand why the first mode has
+a low energy, while the last one has a high energy?
 """
 
 # %%
@@ -112,28 +143,40 @@ c) Analyse the frequencies in the harmonic approximation:
 from ase.thermochemistry import HarmonicThermo
 
 T = 300  # Kelvin
-energies = [0.01, 0.05, 0.10]  # An example only - insert your calculated energy levels here - in eV!
+# An example only - insert your calculated energy levels here - in eV:
+energies = [0.01, 0.05, 0.10]
 vibs = HarmonicThermo(energies)
 Efree = vibs.get_helmholtz_energy(T, verbose=True)
 print('Free energy at 300 K: ', Efree)
 
 # %%
 """
-The `verbose` keyword gives a detailed description of the different contributions to the free energy. For more information on what the different contributions are see the [ASE background webpage](https://wiki.fysik.dtu.dk/ase/ase/thermochemistry/thermochemistry.html#background) (go to the **Harmonic limit** sub-heading).
-Now try to calculate how the different contributions change with temperature. You can for example make a `for` loop and use the `get_entropy()` and `get_internal_energy()` methods [(see description here)](https://wiki.fysik.dtu.dk/ase/ase/thermochemistry/thermochemistry.html#ase.thermochemistry.IdealGasThermo.get_enthalpy).
+The `verbose` keyword gives a detailed description of the different
+contributions to the free energy. For more information on what the different
+contributions are see the [ASE background webpage][4]
+(go to the **Harmonic limit** sub-heading).
+
+[4]: https://wiki.fysik.dtu.dk/ase/ase/thermochemistry/thermochemistry.html
+
+Now try to calculate how the different contributions change with temperature.
+You can for example make a `for` loop and use the `get_entropy()` and
+`get_internal_energy()` methods [(see description here)][5].
+
+[5]: https://wiki.fysik.dtu.dk/ase/ase/thermochemistry/thermochemistry.html#ase.thermochemistry.IdealGasThermo.get_enthalpy
 """
 
 # %%
 """
-d) Calculate how the vibrational energy affects the overall reaction energy. How does it change with temperature? Which contribution is important for the change in reaction energy?
+d) Calculate how the vibrational energy affects the overall reaction energy.
+   How does it change with temperature? Which contribution is important for the
+   change in reaction energy?
 """
 
 # %%
 # teacher:
 # Script for analysing energy contributions from vibrations
-from ase.io import read, write
+from ase.io import read
 from ase.thermochemistry import HarmonicThermo
-import numpy as np
 from matplotlib import pyplot as plt
 
 energies = vib.get_energies()  # initial vib. energy levels
@@ -168,7 +211,14 @@ plt.savefig('vib.png')
 
 # %%
 """
-e) To make sure that your NEB is converged you should also calculate the vibrational energy of the transition state. Again, this requires tighter convergence than we have used in the NEB exercise. This takes a while to run so to save time, we provide the transition state geometry from a reasonably converged NEB (i.e. `fmax=0.01`, a cutoff energy of 500eV and eigenstates converged to 1e-8) in the file `TS.xyz`. Calculate the vibrations with these parameters. How many imaginary modes do you get and how do they look? What does this mean?
+e) To make sure that your NEB is converged you should also calculate the
+   vibrational energy of the transition state. Again, this requires tighter
+   convergence than we have used in the NEB exercise. This takes a while to run
+   so to save time, we provide the transition state geometry from a reasonably
+   converged NEB (i.e. `fmax=0.01`, a cutoff energy of 500eV and eigenstates
+   converged to 1e-8) in the file `TS.xyz`. Calculate the vibrations with these
+   parameters. How many imaginary modes do you get and how do they look? What
+   does this mean?
 """
 
 # %%
@@ -187,8 +237,7 @@ ts.set_constraint(constraint)
 calc = GPAW(xc='PBE',
             mode=PW(500),
             txt='ts.txt',
-            kpts={'size': (4, 4, 1), 'gamma': True},
-            convergence={'eigenstates': 1e-8})
+            kpts={'size': (4, 4, 1), 'gamma': True})
 ts.calc = calc
 
 neb = NEB(images, k=1.0, climb=True)
@@ -205,23 +254,22 @@ ts.calc = GPAW(xc='PBE',
                mode=PW(500),
                txt='vibts.txt',
                kpts={'size': (4, 4, 1), 'gamma': True},
-               symmetry={'point_group': False},
-               convergence={'eigenstates': 1e-8})
+               symmetry={'point_group': False})
 vib = Vibrations(ts, name='vibts', indices=(8, 9), nfree=4, delta=0.02)
 vib.run()
 vib.summary(log='vibts_summary.log')
 for i in range(6):
     vib.write_mode(i)
 
-#---------------------
-#  #    meV     cm^-1
-#---------------------
-#  0   73.7i    594.2i
-#  1    7.8      63.0
-#  2   39.6     319.6
-#  3   46.0     371.1
-#  4   67.9     547.4
-#  5   68.8     554.8
-#---------------------
-#Zero-point energy: 0.115 eV
-#The imaginary mode is beautifully along the reaction coordinate!
+# ---------------------
+#   #    meV     cm^-1
+# ---------------------
+#   0   73.7i    594.2i
+#   1    7.8      63.0
+#   2   39.6     319.6
+#   3   46.0     371.1
+#   4   67.9     547.4
+#   5   68.8     554.8
+# ---------------------
+# Zero-point energy: 0.115 eV
+# The imaginary mode is beautifully along the reaction coordinate!

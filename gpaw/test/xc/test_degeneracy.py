@@ -33,7 +33,7 @@ def test_xc_degeneracy():
     gs = calc.gs_adapter()
 
     # Calculate non-selfconsistent PBE eigenvalues:
-    epbe0 = e - vxc(gs)[0, 0] + vxc(gs, 'PBE')[0, 0]
+    epbe0 = e[:2] - vxc(gs, n2=2)[0, 0] + vxc(gs, 'PBE', n2=2)[0, 0]
 
     # Calculate selfconsistent PBE eigenvalues:
     calc.set(xc='PBE')

@@ -19,7 +19,7 @@ except ImportError:
 import os
 
 
-srcpath = 'http://wiki.fysik.dtu.dk/gpaw-files'
+srcpath = 'https://wiki.fysik.dtu.dk/gpaw-files'
 agtspath = 'http://wiki.fysik.dtu.dk'
 
 
@@ -96,7 +96,7 @@ get('workshop13', ['workshop13_01_33-1.jpg'], 'static')
 get('workshop16', ['gpaw2016-photo.jpg'], 'static')
 
 
-# files from http://wiki.fysik.dtu.dk/gpaw-files/things/
+# files from https://wiki.fysik.dtu.dk/gpaw-files/things/
 
 # Warning: for the moment dcdft runs are not run (files are static)!
 dcdft_pbe_aims_stuff = """
@@ -149,7 +149,7 @@ get('.', ['carlsberg.png'])
 
 get('static', ['NOMAD_Logo_supported_by.png'])
 
-# Summer school 2018
+# Summer school 2022
 get('summerschool2018',
     ['CreateTunnelWin.png', 'JupyterRunningMac.png', 'JupyterRunningWin.png',
      'Logged_in_Mac.png', 'Logged_in_Win.png', 'Moba_ssh.png',
@@ -162,6 +162,9 @@ get('summerschool2018',
     ['C144Li18.png', 'C64.png', 'final.png', 'initial.png',
      'Li2.png', 'lifepo4_wo_li.traj', 'NEB_init.traj'],
     target='summerschools/summerschool22/batteries')
+get('summerschool2022',
+    ['Intro_projects_CAMD2022.pdf'],
+    target='summerschools/summerschool22')
 
 
 def setup(app):

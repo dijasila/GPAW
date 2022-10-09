@@ -7,8 +7,8 @@ import contextlib
 from pathlib import Path
 from typing import List, Dict, Union, Any, TYPE_CHECKING
 
-__version__ = '22.1.1b1'
-__ase_version_required__ = '3.23.0b1'
+__version__ = '22.8.1b1'
+__ase_version_required__ = '3.22.1'
 __all__ = ['GPAW',
            'Mixer', 'MixerSum', 'MixerDif', 'MixerSum2',
            'CG', 'Davidson', 'RMMDIIS', 'DirectLCAO',
@@ -65,7 +65,7 @@ with broadcast_imports:
     import _gpaw
 
 
-if getattr(_gpaw, 'version', 0) < 1:
+if getattr(_gpaw, 'version', 0) != 2:
     raise ImportError('Please recompile GPAW''s C-extensions!')
 
 

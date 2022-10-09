@@ -32,4 +32,4 @@ def test_fileio_file_reference(in_tmp_dir):
     calc = GPAW('tmp', communicator=comm)
     wf1 = calc.get_pseudo_wave_function(2, 1, 1)
     diff = np.abs(wf0 - wf1)
-    assert(np.all(diff < 1e-12))
+    assert np.all(diff < 1e-12)
