@@ -268,8 +268,9 @@ class Forces(Criterion):
     name = 'forces'
     tablename = 'force'
 
-    def __init__(self, tol, calc_last=True):
+    def __init__(self, tol, rtol=None, calc_last=True):
         self.tol = tol
+        self.rtol = rtol
         self.description = ('Maximum change in the atomic [forces] across '
                             'last 2 cycles: {:g} eV/Ang'.format(self.tol))
         self.calc_last = calc_last
@@ -279,7 +280,7 @@ class Forces(Criterion):
         """Should return (bool, entry), where bool is True if converged and
         False if not, and entry is a <=5 character string to be printed in
         the user log file."""
-        if np.isinf(self.tol):  # criterion is off; backwards compatibility
+        if np.isinf(self.tol) and self.rtol is None:  # criterion is off; backwards compatibility
             return True, ''
         with context.wfs.timer('Forces'):
             F_av = calculate_forces(context.wfs, context.dens, context.ham)
@@ -287,6 +288,7 @@ class Forces(Criterion):
         error = np.inf
         if self.old_F_av is not None:
             error = ((F_av - self.old_F_av)**2).sum(1).max()**0.5
+            relative_error = error / np.max(np.linalg.norm(F_av, axis=1))
         self.old_F_av = F_av
         converged = (error < self.tol)
         entry = ''
@@ -395,7 +397,7 @@ class MaxIter(Criterion):
 
 class RelativeForces(Criterion):
     name = 'relative forces'
-    tablename = 'rel-f'
+    tablename = 'r-force'
 
     def __init__(self, tol, calc_last=True):
         self.tol = tol
