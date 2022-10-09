@@ -267,11 +267,11 @@ class Forces(Criterion):
     name = 'forces'
     tablename = 'force'
 
-    def __init__(self, tol, rtol=None, calc_last=True):
+    def __init__(self, tol, rtol=np.inf, calc_last=True):
         self.tol = tol
         self.rtol = rtol
         self.description = ('Maximum change in the atomic [forces] across '
-                            'last 2 cycles: {:g} eV/Ang'.format(self.tol))
+                            'last 2 cycles: {:g} eV/Ang OR\n Maximum error relative to the maximum force is below {:g}'.format(self.tol, self.rtol))
         self.calc_last = calc_last
         self.reset()
 
@@ -279,16 +279,19 @@ class Forces(Criterion):
         """Should return (bool, entry), where bool is True if converged and
         False if not, and entry is a <=5 character string to be printed in
         the user log file."""
-        if np.isinf(self.tol) and self.rtol is None:  # criterion is off; backwards compatibility
+        if np.isinf(self.tol) and np.isinf(self.rtol):  # criterion is off; backwards compatibility
             return True, ''
         F_av = context.calculate_forces()
         F_av *= Ha / Bohr
         error = np.inf
+        max_force = np.max(np.linalg.norm(F_av, axis=1))
         if self.old_F_av is not None:
             error = ((F_av - self.old_F_av)**2).sum(1).max()**0.5
-            relative_error = error / np.max(np.linalg.norm(F_av, axis=1))
         self.old_F_av = F_av
-        converged = (error < self.tol)
+
+        error_threshold = min(self.tol, self.rtol * max_force)
+        converged = error < error_threshold
+
         entry = ''
         if np.isfinite(error):
             if error:
