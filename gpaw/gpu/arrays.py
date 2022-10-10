@@ -52,7 +52,7 @@ class CuPyArrayInterface(BaseArrayInterface):
                 tgt[:] = self._module.asnumpy(src, stream)
             else:
                 tgt = self._module.asnumpy(src, stream)
-            self._module.cuda.get_current_stream().synchronize()
+            self._module.cuda.runtime.deviceSynchronize()
         else:
             with stream:
                 if tgt is not None:
@@ -68,7 +68,7 @@ class CuPyArrayInterface(BaseArrayInterface):
                 tgt[:] = self._module.asarray(src)
             else:
                 tgt = self._module.asarray(src)
-            self._module.cuda.get_current_stream().synchronize()
+            self._module.cuda.runtime.deviceSynchronize()
         else:
             with stream:
                 if tgt is not None:
@@ -79,7 +79,7 @@ class CuPyArrayInterface(BaseArrayInterface):
 
     def memcpy_dtod(self, tgt, src):
         tgt[:] = src[:]
-        self._module.cuda.get_current_stream().synchronize()
+        self._module.cuda.runtime.deviceSynchronize()
 
     def get_pointer(self, x):
         return x.data.ptr

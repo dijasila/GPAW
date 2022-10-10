@@ -49,4 +49,4 @@ class CUDA(BaseBackend):
         self.array.memcpy_dtod(tgt, src)
 
     def synchronize(self):
-        self._cuda.get_current_stream().synchronize()
+        self._cuda.runtime.deviceSynchronize()
