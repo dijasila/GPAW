@@ -4,7 +4,7 @@ import _gpaw
 from gpaw.gpu.backends import BaseBackend
 
 class CUDA(BaseBackend):
-    from cupy.cuda import runtime, get_current_stream
+    from cupy import cuda as _cuda
     from gpaw.gpu.arrays import CuPyArrayInterface
 
     label = 'cuda'
@@ -21,8 +21,9 @@ class CUDA(BaseBackend):
         atexit.register(self.delete)
 
         # select device (round-robin based on MPI rank)
-        self.device_no = (rank) % self.runtime.getDeviceCount() 
+        self.device_no = (rank) % self._cuda.runtime.getDeviceCount()
 
+        # create and activate CUDA context
         self.device_ctx = True
 
         # initialise C parameters and memory buffers
@@ -48,4 +49,4 @@ class CUDA(BaseBackend):
         self.array.memcpy_dtod(tgt, src)
 
     def synchronize(self):
-        self.get_current_stream().synchronize() 
+        self._cuda.get_current_stream().synchronize()
