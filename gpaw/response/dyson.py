@@ -1,15 +1,15 @@
 import numpy as np
 
-from gpaw.gpu.arrays import CuPyArrayInterface
-from gpaw import gpu
-import cupy
 import os
 
-GPAW_CUPY = bool(int(os.environ.get('GPAW_CUPY', False)))
+GPAW_CUPY = bool(int(os.environ.get('GPAW_CUPY', 0)))
 
 print('GPAW_CUPY:', GPAW_CUPY)
 
 if GPAW_CUPY:
+    from gpaw.gpu.arrays import CuPyArrayInterface
+    from gpaw import gpu
+    import cupy
     gpu.setup(cuda=True)
 
 def CUPYBridge_inveps(f):
