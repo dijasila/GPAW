@@ -1,4 +1,4 @@
-.. _ehrenfest:
+.. _abinitiomd:
 
 =====================================
 ab initio molecular dynamics (DFT/MD)
