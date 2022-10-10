@@ -4,14 +4,13 @@
 #include <numpy/arrayobject.h>
 #include <stdlib.h>
 #include <pthread.h>
-#include <cuda.h>
-#include <cuda_runtime_api.h>
 
 #include <../extensions.h>
 #define __OPERATORS_C
 #include <../operators.h>
 #undef __OPERATORS_C
 #include "bmgs.h"
+#include "gpu.h"
 
 extern int gpaw_cuda_debug;
 

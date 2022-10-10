@@ -1,11 +1,10 @@
 #include <string.h>
 #include <assert.h>
 #include "../extensions.h"
+#include "gpu.h"
 #include "gpu-complex.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <cuda.h>
-#include <cuda_runtime_api.h>
 
 void bc_init_buffers_cuda();
 void blas_init_cuda();

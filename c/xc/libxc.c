@@ -7,10 +7,10 @@
 #define NO_IMPORT_ARRAY
 #include <numpy/arrayobject.h>
 #include <assert.h>
-#include <cuda_runtime.h>
 #include <xc.h>
 #include "xc_gpaw.h"
 #include "../extensions.h"
+#include "../gpu/gpu.h"
 
 typedef struct
 {

@@ -3,11 +3,10 @@
 #include "../bc.h"
 #include "../extensions.h"
 #include "bmgs.h"
+#include "gpu.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include <cuda.h>
-#include <cuda_runtime_api.h>
 
 static int bc_init_count = 0;
 
@@ -454,7 +453,7 @@ void bc_unpack_cuda_gpu_async(const boundary_conditions* bc,
 
     do {
         if (!send_done[dd] &&
-                gpuEventQuery(bc_sendcpy_event[i][dd]) == cudaSuccess) {
+                gpuEventQuery(bc_sendcpy_event[i][dd]) == gpuSuccess) {
             MPI_Isend(bc_sbuff[i][dd],
                     bc->nsend[i][dd] * nin, MPI_DOUBLE,
                     bc->sendproc[i][dd],

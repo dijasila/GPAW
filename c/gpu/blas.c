@@ -4,11 +4,9 @@
 #include <numpy/arrayobject.h>
 
 #include <float.h>
-#include <cuda.h>
-#include <cuda_runtime_api.h>
-#include <cublas_v2.h>
 #include <pthread.h>
 
+#include "gpu.h"
 #include "gpu-complex.h"
 
 #define HYBRID_GEMM_SIZE_N_GPU  (512/2)
