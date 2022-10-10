@@ -267,11 +267,13 @@ class Forces(Criterion):
     name = 'forces'
     tablename = 'force'
 
-    def __init__(self, tol, rtol=np.inf, calc_last=True):
-        self.tol = tol
+    def __init__(self, atol, rtol=np.inf, calc_last=True):
+        self.atol = atol
         self.rtol = rtol
         self.description = ('Maximum change in the atomic [forces] across '
-                            'last 2 cycles: {:g} eV/Ang OR\n Maximum error relative to the maximum force is below {:g}'.format(self.tol, self.rtol))
+                            'last 2 cycles: {:g} eV/Ang OR\n'
+                            'Maximum error relative to the maximum '
+                            'force is below {:g}'.format(self.atol, self.rtol))
         self.calc_last = calc_last
         self.reset()
 
@@ -279,7 +281,7 @@ class Forces(Criterion):
         """Should return (bool, entry), where bool is True if converged and
         False if not, and entry is a <=5 character string to be printed in
         the user log file."""
-        if np.isinf(self.tol) and np.isinf(self.rtol):  # criterion is off; backwards compatibility
+        if np.isinf(self.atol) and np.isinf(self.rtol):  # criterion is off; backwards compatibility
             return True, ''
         F_av = context.calculate_forces()
         F_av *= Ha / Bohr
@@ -289,7 +291,7 @@ class Forces(Criterion):
             error = ((F_av - self.old_F_av)**2).sum(1).max()**0.5
         self.old_F_av = F_av
 
-        error_threshold = min(self.tol, self.rtol * max_force)
+        error_threshold = min(self.atol, self.rtol * max_force)
         converged = error < error_threshold
 
         entry = ''
@@ -394,37 +396,3 @@ class MaxIter(Criterion):
         converged = context.niter >= self.n
         entry = '{:d}'.format(context.niter)
         return converged, entry
-
-
-class RelativeForces(Criterion):
-    name = 'relative forces'
-    tablename = 'r-force'
-
-    def __init__(self, tol, calc_last=True):
-        self.tol = tol
-        self.description = ('Maximum relative change in the atomic forces '
-                            'across last 2 cycles: {:g}'.format(self.tol))
-        self.calc_last = calc_last
-        self.reset()
-
-    def __call__(self, context):
-        """Should return (bool, entry), where bool is True if converged and
-        False if not, and entry is a <=5 character string to be printed in
-        the user log file."""
-        with context.wfs.timer('Forces'):
-            F_av = calculate_forces(context.wfs, context.dens, context.ham)
-            F_av *= Ha / Bohr
-        error = np.inf
-        if self.old_F_av is not None:
-
-            error = np.max(np.linalg.norm(F_av - self.old_F_av, axis=1)) / \
-                np.max(np.linalg.norm(F_av, axis=1))
-        self.old_F_av = F_av
-        converged = (error < self.tol)
-        entry = ''
-        if np.isfinite(error):
-            entry = '{:+5.2f}'.format(np.log10(error))
-        return converged, entry
-
-    def reset(self):
-        self.old_F_av = None
