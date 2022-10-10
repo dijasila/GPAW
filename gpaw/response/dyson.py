@@ -12,7 +12,7 @@ print('GPAW_CUPY:', GPAW_CUPY)
 if GPAW_CUPY:
     gpu.setup(cuda=True)
 
-def CUPYBridge(f):
+def CUPYBridge_inveps(f):
     def identity(*args, **kwargs):
         f(*args, **kwargs)
 
@@ -37,7 +37,7 @@ def CUPYBridge(f):
     
     return bridge
 
-@CUPYBridge
+@CUPYBridge_inveps
 def calculate_inveps(sqrV_G, chi0_GG, mode, fv_GG=None, weight=1.0, out_GG=None, lib=np):
     """
 
