@@ -12,7 +12,7 @@ from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.response.gamma_int import GammaIntegrator
 from gpaw.response.coulomb_kernels import (get_coulomb_kernel,
                                            get_integrated_kernel)
-from gpaw.response.temp import DielectricFunctionCalculator
+from gpaw.response.dyson import calculate_inveps
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 
 
@@ -281,8 +281,8 @@ class WCalculator:
                 q_v=q_v)**0.5
 
         for iw, chi0_GG in enumerate(chi0_wGG):
+            einv_GG = np.zeros((nG, nG), complex)
             if np.allclose(q_c, 0):
-                einv_GG = np.zeros((nG, nG), complex)
                 for iqf in range(len(gamma_int.qf_qv)):
                     chi0_GG[0, :] = gamma_int.a0_qwG[iqf, iw]
                     chi0_GG[:, 0] = gamma_int.a1_qwG[iqf, iw]
@@ -290,14 +290,13 @@ class WCalculator:
 
                     sqrtV_G = get_sqrtV_G(kd.N_c, q_v=gamma_int.qf_qv[iqf])
 
-                    dfc = DielectricFunctionCalculator(
-                        sqrtV_G, chi0_GG, mode=fxc_mode, fv_GG=fv)
-                    einv_GG += dfc.get_einv_GG() * gamma_int.weight_q[iqf]
+                    calculate_inveps(sqrtV_G, chi0_GG, mode=fxc_mode, 
+                                     fv_GG=fv, weight=gamma_int.weight_q[iqf],
+                                     out_GG=einv_GG)
             else:
                 sqrtV_G = get_sqrtV_G(kd.N_c)
-                dfc = DielectricFunctionCalculator(
-                    sqrtV_G, chi0_GG, mode=fxc_mode, fv_GG=fv)
-                einv_GG = dfc.get_einv_GG()
+                calculate_inveps(sqrtV_G, chi0_GG, mode=fxc_mode, fv_GG=fv, 
+                                 weight=1.0, out_GG=einv_GG)
             if self.ppa:
                 einv_wGG.append(einv_GG - delta_GG)
             else:
