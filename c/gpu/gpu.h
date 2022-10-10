@@ -36,6 +36,7 @@
 #define gpublasSafeCall(err)      __cublasSafeCall(err, __FILE__, __LINE__)
 #define gpuCheckLastError()       gpuSafeCall(cudaGetLastError())
 
+#define gpuMemcpyKind             cudaMemcpyKind
 #define gpuMemcpyDeviceToHost     cudaMemcpyDeviceToHost
 #define gpuMemcpyHostToDevice     cudaMemcpyHostToDevice
 #define gpuDeviceProp             cudaDeviceProp
@@ -46,6 +47,14 @@
 
 #define gpuStream_t               cudaStream_t
 #define gpuEvent_t                cudaEvent_t
+
+#define gpuDoubleComplex          cuDoubleComplex
+#define make_gpuDoubleComplex     make_cuDoubleComplex
+#define gpuCreal                  cuCreal
+#define gpuCimag                  cuCimag
+#define gpuCadd                   cuCadd
+#define gpuCmul                   cuCmul
+#define gpuConj                   cuConj
 
 #define gpuSetDevice(id)          gpuSafeCall(cudaSetDevice(id))
 #define gpuGetDevice(dev)         gpuSafeCall(cudaGetDevice(dev))

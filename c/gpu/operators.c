@@ -99,7 +99,6 @@ void operator_dealloc_cuda(int force)
         operator_init_count = 1;
     }
     if (operator_init_count == 1) {
-        cudaError_t rval;
         gpuFree(operator_buf_gpu);
         if (operator_streams) {
             for (int i=0; i < OPERATOR_NSTREAMS; i++) {
@@ -499,8 +498,8 @@ static void _operator_apply_cuda_gpu(OperatorObject *self,
                                  operator_stream[0]);
             } else {
                 bmgs_fd_cuda_gpuz(&self->stencil_gpu,
-                                  (const cuDoubleComplex*) operator_buf_gpu,
-                                  (cuDoubleComplex*) out2,
+                                  (const gpuDoubleComplex*) operator_buf_gpu,
+                                  (gpuDoubleComplex*) out2,
                                   boundary|GPAW_BOUNDARY_SKIP, myblocks,
                                   operator_stream[0]);
             }
@@ -516,8 +515,8 @@ static void _operator_apply_cuda_gpu(OperatorObject *self,
                                  operator_stream[1]);
             } else {
                 bmgs_fd_cuda_gpuz(&self->stencil_gpu,
-                                  (const cuDoubleComplex*) operator_buf_gpu,
-                                  (cuDoubleComplex*) out2,
+                                  (const gpuDoubleComplex*) operator_buf_gpu,
+                                  (gpuDoubleComplex*) out2,
                                   boundary|GPAW_BOUNDARY_ONLY, myblocks,
                                   operator_stream[1]);
             }
@@ -535,8 +534,8 @@ static void _operator_apply_cuda_gpu(OperatorObject *self,
                                  GPAW_BOUNDARY_NORMAL, myblocks, 0);
             } else {
                 bmgs_fd_cuda_gpuz(&self->stencil_gpu,
-                                  (const cuDoubleComplex*) (operator_buf_gpu),
-                                  (cuDoubleComplex*) out2,
+                                  (const gpuDoubleComplex*) (operator_buf_gpu),
+                                  (gpuDoubleComplex*) out2,
                                   GPAW_BOUNDARY_NORMAL, myblocks, 0);
             }
         }

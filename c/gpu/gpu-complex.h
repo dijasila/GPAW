@@ -1,7 +1,4 @@
-#include <cuda.h>
-#include <cuda_runtime_api.h>
 #include <cuComplex.h>
-
 #include "gpu.h"
 
 #undef Tcuda
@@ -35,51 +32,51 @@
 #  define IMAG(a)        (0)
 #  define NEG(a)         (-(a))
 #else
-#  define Tcuda          cuDoubleComplex
+#  define Tcuda          gpuDoubleComplex
 #  define Zcuda(f)       f ## z
-#  define MULTT(a,b)     cuCmul((a), (b))
-#  define MULTD(a,b)     cuCmulD((a), (b))
+#  define MULTT(a,b)     gpuCmul((a), (b))
+#  define MULTD(a,b)     gpuCmulD((a), (b))
 #  define MULDT(b,a)     MULTD((a), (b))
-#  define ADD(a,b)       cuCadd((a), (b))
-#  define ADD3(a,b,c)    cuCadd3((a), (b), (c))
-#  define ADD4(a,b,c,d)  cuCadd4((a), (b), (c), (d))
-#  define IADD(a,b)      {(a).x += cuCreal(b); (a).y += cuCimag(b);}
-#  define MAKED(a)       make_cuDoubleComplex(a, 0)
-#  define CONJ(a)        cuConj(a)
-#  define REAL(a)        cuCreal(a)
-#  define IMAG(a)        cuCimag(a)
-#  define NEG(a)         cuCneg(a)
+#  define ADD(a,b)       gpuCadd((a), (b))
+#  define ADD3(a,b,c)    gpuCadd3((a), (b), (c))
+#  define ADD4(a,b,c,d)  gpuCadd4((a), (b), (c), (d))
+#  define IADD(a,b)      {(a).x += gpuCreal(b); (a).y += gpuCimag(b);}
+#  define MAKED(a)       make_gpuDoubleComplex(a, 0)
+#  define CONJ(a)        gpuConj(a)
+#  define REAL(a)        gpuCreal(a)
+#  define IMAG(a)        gpuCimag(a)
+#  define NEG(a)         gpuCneg(a)
 #endif
 
 #ifndef GPU_COMPLEX_H
 #define GPU_COMPLEX_H
 
-__host__ __device__ static __inline__ cuDoubleComplex cuCmulD(
-        cuDoubleComplex x, double y)
+__host__ __device__ static __inline__ gpuDoubleComplex gpuCmulD(
+        gpuDoubleComplex x, double y)
 {
-    return make_cuDoubleComplex(cuCreal(x) * y, cuCimag(x) * y);
+    return make_gpuDoubleComplex(gpuCreal(x) * y, gpuCimag(x) * y);
 }
 
-__host__ __device__ static __inline__ cuDoubleComplex cuCneg(
-        cuDoubleComplex x)
+__host__ __device__ static __inline__ gpuDoubleComplex gpuCneg(
+        gpuDoubleComplex x)
 {
-    return make_cuDoubleComplex(-cuCreal(x), -cuCimag(x));
+    return make_gpuDoubleComplex(-gpuCreal(x), -gpuCimag(x));
 }
 
-__host__ __device__ static __inline__ cuDoubleComplex cuCadd3(
-        cuDoubleComplex x, cuDoubleComplex y, cuDoubleComplex z)
+__host__ __device__ static __inline__ gpuDoubleComplex gpuCadd3(
+        gpuDoubleComplex x, gpuDoubleComplex y, gpuDoubleComplex z)
 {
-    return make_cuDoubleComplex(cuCreal(x) + cuCreal(y) + cuCreal(z),
-                                cuCimag(x) + cuCimag(y) + cuCimag(z));
+    return make_gpuDoubleComplex(gpuCreal(x) + gpuCreal(y) + gpuCreal(z),
+                                 gpuCimag(x) + gpuCimag(y) + gpuCimag(z));
 }
 
-__host__ __device__ static __inline__ cuDoubleComplex cuCadd4(
-        cuDoubleComplex x, cuDoubleComplex y, cuDoubleComplex z,
-        cuDoubleComplex w)
+__host__ __device__ static __inline__ gpuDoubleComplex gpuCadd4(
+        gpuDoubleComplex x, gpuDoubleComplex y, gpuDoubleComplex z,
+        gpuDoubleComplex w)
 {
-    return make_cuDoubleComplex(
-            cuCreal(x) + cuCreal(y) + cuCreal(z) + cuCreal(w),
-            cuCimag(x) + cuCimag(y) + cuCimag(z) + cuCimag(w));
+    return make_gpuDoubleComplex(
+            gpuCreal(x) + gpuCreal(y) + gpuCreal(z) + gpuCreal(w),
+            gpuCimag(x) + gpuCimag(y) + gpuCimag(z) + gpuCimag(w));
 }
 
 #endif

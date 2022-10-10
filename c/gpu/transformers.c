@@ -276,9 +276,9 @@ static void _transformer_apply_cuda_gpu(TransformerObject* self,
                                           myblocks);
             } else {
                 bmgs_interpolate_cuda_gpuz(self->k, self->skip,
-                                           (cuDoubleComplex*) (buf),
+                                           (gpuDoubleComplex*) (buf),
                                            bc->size2,
-                                           (cuDoubleComplex*) (out2),
+                                           (gpuDoubleComplex*) (out2),
                                            self->size_out, myblocks);
             }
         } else {
@@ -287,9 +287,9 @@ static void _transformer_apply_cuda_gpu(TransformerObject* self,
                                        out2, self->size_out, myblocks);
             } else {
                 bmgs_restrict_cuda_gpuz(self->k,
-                                        (cuDoubleComplex*) (buf),
+                                        (gpuDoubleComplex*) (buf),
                                         bc->size2,
-                                        (cuDoubleComplex*) (out2),
+                                        (gpuDoubleComplex*) (out2),
                                         self->size_out, myblocks);
             }
         }
