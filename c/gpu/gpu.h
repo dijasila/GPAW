@@ -142,7 +142,6 @@ typedef struct
 #endif
 
 extern struct cudaDeviceProp _gpaw_cuda_dev_prop;
-extern int _gpaw_cuda_dev;
 
 static inline gpuError_t __gpuSafeCall(gpuError_t err,
                                        const char *file, int line)

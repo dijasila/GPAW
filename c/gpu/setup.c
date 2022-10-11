@@ -19,7 +19,6 @@ void reduce_dealloc_cuda();
 void lfc_reduce_dealloc_cuda();
 
 struct gpuDeviceProp _gpaw_cuda_dev_prop;
-int _gpaw_cuda_dev;
 int gpaw_cuda_debug=0;  // if true, debug CUDA kernels
 
 PyObject* set_gpaw_cuda_debug(PyObject *self, PyObject *args)
@@ -31,8 +30,9 @@ PyObject* set_gpaw_cuda_debug(PyObject *self, PyObject *args)
 
 void gpaw_cuda_init_c()
 {
-    gpuGetDevice(&_gpaw_cuda_dev);
-    gpuGetDeviceProperties(&_gpaw_cuda_dev_prop, _gpaw_cuda_dev);
+    int device;
+    gpuGetDevice(&device);
+    gpuGetDeviceProperties(&_gpaw_cuda_dev_prop, device);
 
     bc_init_buffers_cuda();
     transformer_init_buffers_cuda();
