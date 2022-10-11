@@ -19,8 +19,13 @@ def workflow():
     with r1, r2, r3:
         run(shell='rm', args=['N.gpw', 'N2.gpw'])  # clean up
 
+    deps = []
     for d in ds:
-        run(script='C2Cu.py', args=['HSE06', d], cores=40, tmax='5h')
+        r = run(script='C2Cu.py', args=['RPA', d], cores=40, tmax='5h')
+        deps.append(r)
 
     for xc in ['LDA', 'vdW-DF']:
-        run(script='C2Cu.py', args=[xc] + ds, cores=24, tmax='5h')
+        r = run(script='C2Cu.py', args=[xc] + ds, cores=24, tmax='5h')
+        deps.append(r)
+
+    run(script='plot_c2cu.py', deps=deps)
