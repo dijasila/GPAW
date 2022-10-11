@@ -1,4 +1,8 @@
 from myqueue.workflow import run
+from C2Cu import
+
+ds = [1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 3.25, 3.5, 3.75,
+      4.0, 5.0, 6.0, 10.0]
 
 
 def workflow():
@@ -16,7 +20,8 @@ def workflow():
     with r1, r2, r3:
         run(shell='rm', args=['N.gpw', 'N2.gpw'])  # clean up
 
-    ds = [1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 3.25, 3.5, 3.75,
-          4.0, 5.0, 6.0, 10.0]
     for d in ds:
-        run(script='C2Co.py', args=[d], cores=40, tmax='5h')
+        run(script='C2Co.py', args=['HSE06', d], cores=40, tmax='5h')
+
+    for xc in ['LDA', 'vdW-DF']:
+        run(script='C2Co.py', args=[xc] + fd, cores=24, tmax='5h')
