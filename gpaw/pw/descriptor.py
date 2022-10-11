@@ -5,7 +5,7 @@ import numpy as np
 import _gpaw
 import gpaw.fftw as fftw
 from gpaw.utilities.blas import mmm, r2k, rk
-
+from gpaw.response.dyson import CUPYBridge_from_CPU_to_xp
 
 class PWDescriptor:
     ndim = 1  # all 3d G-vectors are stored in a 1d ndarray
@@ -122,6 +122,7 @@ class PWDescriptor:
         else:
             self.tmp_G = None
 
+    @CUPYBridge_from_CPU_to_xp
     def get_reciprocal_vectors(self, q=0, add_q=True):
         """Returns reciprocal lattice vectors plus q, G + q,
         in xyz coordinates."""

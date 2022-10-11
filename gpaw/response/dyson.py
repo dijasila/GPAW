@@ -2,6 +2,8 @@ import numpy as np
 
 import os
 
+# XXX Move these to separate file
+
 GPAW_CUPY = bool(int(os.environ.get('GPAW_CUPY', 0)))
 
 print('GPAW_CUPY:', GPAW_CUPY)
@@ -39,6 +41,31 @@ def CUPYBridge_inveps(f):
             out_GG[:] = gpu.copy_to_host(gpu_out_GG)
     
     return bridge
+
+def CUPYBridge_dyson_and_W(f):
+    def fun(*args, **kwargs):
+        if GPAW_CUPY:
+            kwargs['xp'] = cupy
+        return f(*args, **kwargs)
+    return fun
+
+
+def CUPYBridge_from_CPU_to_xp(f):
+    """
+
+        The function wrapped with this decorator will be completely CPU.
+        This context manager makes the function to accept xp parameter, 
+        and given the xp parameter, it will automatically convert the return
+        value to xp library.
+    """
+    def fun(*args, **kwargs):
+        xp = kwargs.pop('xp',np)
+        return xp.asarray(f(*args, **kwargs))
+
+    if GPAW_CUPY:
+        return fun
+
+    return fun
 
 @CUPYBridge_inveps
 def calculate_inveps(sqrV_G, chi0_GG, mode, fv_GG=None, weight=1.0, out_GG=None, lib=np):

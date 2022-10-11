@@ -5,18 +5,20 @@ import numpy as np
 from ase.dft import monkhorst_pack
 
 
-def get_coulomb_kernel(pd, N_c, truncation=None, q_v=None, wstc=None):
+def get_coulomb_kernel(pd, N_c, truncation=None, q_v=None, wstc=None, xp=np):
     """Factory function that calls the specified flavour
     of the Coulomb interaction"""
+    
 
-    qG_Gv = pd.get_reciprocal_vectors(add_q=True)
+    qG_Gv = pd.get_reciprocal_vectors(add_q=True, xp=xp)
     if q_v is not None:
         assert pd.kd.gamma
+        q_v = xp.asarray(q_v)
         qG_Gv += q_v
 
     if truncation is None:
         if pd.kd.gamma and q_v is None:
-            v_G = np.zeros(len(pd.G2_qG[0]))
+            v_G = xp.zeros(len(pd.G2_qG[0]))
             v_G[0] = 4 * np.pi
             v_G[1:] = 4 * np.pi / (qG_Gv[1:]**2).sum(axis=1)
         else:
