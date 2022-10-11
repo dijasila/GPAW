@@ -1,5 +1,5 @@
 from ase.lattice.hexagonal import Graphene
-from gpaw import GPAW, restart
+from gpaw import GPAW
 from ase import Atoms
 from ase.io import Trajectory
 from ase.units import fs
@@ -22,12 +22,11 @@ gra = Graphene(symbol='C',
 gra.center(vacuum=10.0, axis=2)
 gra.center()
 
-# Starting position of the projectile with an impact point at the
-# center of a hexagon
+# Projectile impact point at the above a hexagon center
 projpos = [[gra[15].position[0], gra[15].position[1] + 1.41245, 15.0]]
 
 H = Atoms('H', cell=gra.cell, positions=projpos)
-H.mass = 1.0 # Set mass to one atomic mass unit to avoid isotope average
+H.mass = 1.0  # Set mass to one atomic mass unit to avoid isotope average
 
 # Combine target and projectile
 atoms = gra + H
@@ -43,8 +42,8 @@ atoms.calc = calc
 atoms.get_potential_energy()
 
 # Moving to the MD part
-Ekin = 100  # kinetic energy of the ion (in eV)
-timestep = 0.1 # timestep in fs
+Ekin = 100  # Kinetic energy of the ion (in eV)
+timestep = 0.1  # Timestep in fs
 
 # Filename for saving trajectory
 ekin_str = '_ek' + str(int(Ekin)) + 'eV'
@@ -57,12 +56,12 @@ dyn = VelocityVerlet(atoms, timestep * fs)
 
 # Saving the positions of all atoms after every time step
 traj = Trajectory(traj_file, 'w', atoms)
-dyn.attach(traj.write, interval = 1)
+dyn.attach(traj.write, interval=1)
 
 # Giving the target atom a kinetic energy of ene in the -z direction
 atoms[proj_idx].momentum[2] = -(2 * Ekin * atoms[proj_idx].mass)**0.5
 
-#Running the simulation for 80 timesteps
+# Running the simulation for 80 timesteps
 dyn.run(80)
 
 traj.close()
