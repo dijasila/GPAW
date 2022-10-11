@@ -22,25 +22,6 @@ struct gpuDeviceProp _gpaw_cuda_dev_prop;
 int _gpaw_cuda_dev;
 int gpaw_cuda_debug=0;  // if true, debug CUDA kernels
 
-void _gpaw_cuda_setdevice(int gpuid)
-{
-    gpuSetDevice(gpuid);
-}
-
-PyObject* gpaw_cuda_setdevice(PyObject *self, PyObject *args)
-{
-    int gpuid;
-    if (!PyArg_ParseTuple(args, "i", &gpuid))
-        return NULL;
-
-    _gpaw_cuda_setdevice(gpuid);
-
-    if (PyErr_Occurred())
-        return NULL;
-    else
-        Py_RETURN_NONE;
-}
-
 PyObject* set_gpaw_cuda_debug(PyObject *self, PyObject *args)
 {
     if (!PyArg_ParseTuple(args, "p", &gpaw_cuda_debug))
