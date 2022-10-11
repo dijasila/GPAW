@@ -32,8 +32,8 @@
 #define GPAW_BOUNDARY_Z0          (1<<(7))
 #define GPAW_BOUNDARY_Z1          (1<<(8))
 
-#define gpuSafeCall(err)          __cudaSafeCall(err, __FILE__, __LINE__)
-#define gpublasSafeCall(err)      __cublasSafeCall(err, __FILE__, __LINE__)
+#define gpuSafeCall(err)          __gpuSafeCall(err, __FILE__, __LINE__)
+#define gpublasSafeCall(err)      __gpublasSafeCall(err, __FILE__, __LINE__)
 #define gpuCheckLastError()       gpuSafeCall(cudaGetLastError())
 
 #define gpuMemcpyKind             cudaMemcpyKind
@@ -47,6 +47,8 @@
 
 #define gpuStream_t               cudaStream_t
 #define gpuEvent_t                cudaEvent_t
+#define gpuError_t                cudaError_t
+#define gpublasStatus_t           cublasStatus_t
 
 #define gpuDoubleComplex          cuDoubleComplex
 #define make_gpuDoubleComplex     make_cuDoubleComplex
@@ -55,6 +57,15 @@
 #define gpuCadd                   cuCadd
 #define gpuCmul                   cuCmul
 #define gpuConj                   cuConj
+
+#define GPUBLAS_STATUS_SUCCESS           CUBLAS_STATUS_SUCCESS
+#define GPUBLAS_STATUS_NOT_INITIALIZED   CUBLAS_STATUS_NOT_INITIALIZED
+#define GPUBLAS_STATUS_ALLOC_FAILED      CUBLAS_STATUS_ALLOC_FAILED
+#define GPUBLAS_STATUS_INVALID_VALUE     CUBLAS_STATUS_INVALID_VALUE
+#define GPUBLAS_STATUS_ARCH_MISMATCH     CUBLAS_STATUS_ARCH_MISMATCH
+#define GPUBLAS_STATUS_MAPPING_ERROR     CUBLAS_STATUS_MAPPING_ERROR
+#define GPUBLAS_STATUS_EXECUTION_FAILED  CUBLAS_STATUS_EXECUTION_FAILED
+#define GPUBLAS_STATUS_INTERNAL_ERROR    CUBLAS_STATUS_INTERNAL_ERROR
 
 #define gpuSetDevice(id)          gpuSafeCall(cudaSetDevice(id))
 #define gpuGetDevice(dev)         gpuSafeCall(cudaGetDevice(dev))
@@ -90,6 +101,8 @@
         gpuSafeCall(cudaEventSynchronize(event))
 #define gpuEventElapsedTime(ms, start, end) \
         gpuSafeCall(cudaEventElapsedTime(ms, start, end))
+
+#define gpuGetErrorString(err)    cudaGetErrorString(err)
 
 #define NEXTPITCHDIV(n) \
         (((n) > 0) ? ((n) + GPU_PITCH - 1 - ((n) - 1) % GPU_PITCH) : 0)
@@ -131,62 +144,63 @@ typedef struct
 extern struct cudaDeviceProp _gpaw_cuda_dev_prop;
 extern int _gpaw_cuda_dev;
 
-static inline cudaError_t __cudaSafeCall(cudaError_t err,
-                                         const char *file, int line)
+static inline gpuError_t __gpuSafeCall(gpuError_t err,
+                                       const char *file, int line)
 {
-    if (cudaSuccess != err) {
+    if (gpuSuccess != err) {
         char str[100];
-        snprintf(str, 100, "%s(%i): Cuda error: %s.\n",
-                 file, line, cudaGetErrorString(err));
+        snprintf(str, 100, "%s(%i): GPU error: %s.\n",
+                 file, line, gpuGetErrorString(err));
         PyErr_SetString(PyExc_RuntimeError, str);
         fprintf(stderr, str);
     }
     return err;
 }
 
-static inline cublasStatus_t __cublasSafeCall(cublasStatus_t err,
-                                              const char *file, int line)
+static inline gpublasStatus_t __gpublasSafeCall(gpublasStatus_t err,
+                                                const char *file, int line)
 {
-    if (CUBLAS_STATUS_SUCCESS != err) {
+    if (GPUBLAS_STATUS_SUCCESS != err) {
         char str[100];
         switch (err) {
-            case CUBLAS_STATUS_NOT_INITIALIZED:
+            case GPUBLAS_STATUS_NOT_INITIALIZED:
                 snprintf(str, 100,
-                         "%s(%i): Cublas error: CUBLAS_STATUS_NOT_INITIALIZED.\n",
+                         "%s(%i): GPU BLAS error: NOT INITIALIZED.\n",
                          file, line);
                 break;
-            case CUBLAS_STATUS_ALLOC_FAILED:
+            case GPUBLAS_STATUS_ALLOC_FAILED:
                 snprintf(str, 100,
-                         "%s(%i): Cublas error: CUBLAS_STATUS_ALLOC_FAILED.\n",
+                         "%s(%i): GPU BLAS error: ALLOC FAILED.\n",
                          file, line);
                 break;
-            case CUBLAS_STATUS_INVALID_VALUE:
+            case GPUBLAS_STATUS_INVALID_VALUE:
                 snprintf(str, 100,
-                         "%s(%i): Cublas error: CUBLAS_STATUS_INVALID_VALUE.\n",
+                         "%s(%i): GPU BLAS error: INVALID VALUE.\n",
                          file, line);
                 break;
-            case CUBLAS_STATUS_ARCH_MISMATCH:
+            case GPUBLAS_STATUS_ARCH_MISMATCH:
                 snprintf(str, 100,
-                         "%s(%i): Cublas error: CUBLAS_STATUS_ARCH_MISMATCH.\n",
+                         "%s(%i): GPU BLAS error: ARCH MISMATCH.\n",
                          file, line);
                 break;
-            case CUBLAS_STATUS_MAPPING_ERROR:
+            case GPUBLAS_STATUS_MAPPING_ERROR:
                 snprintf(str, 100,
-                         "%s(%i): Cublas error: CUBLAS_STATUS_MAPPING_ERROR.\n",
+                         "%s(%i): GPU BLAS error: MAPPING ERROR.\n",
                          file, line);
                 break;
-            case CUBLAS_STATUS_EXECUTION_FAILED:
+            case GPUBLAS_STATUS_EXECUTION_FAILED:
                 snprintf(str, 100,
-                         "%s(%i): Cublas error: CUBLAS_STATUS_EXECUTION_FAILED.\n",
+                         "%s(%i): GPU BLAS error: EXECUTION FAILED.\n",
                          file, line);
                 break;
-            case CUBLAS_STATUS_INTERNAL_ERROR:
+            case GPUBLAS_STATUS_INTERNAL_ERROR:
                 snprintf(str, 100,
-                         "%s(%i): Cublas error: CUBLAS_STATUS_INTERNAL_ERROR.\n",
+                         "%s(%i): GPU BLAS error: INTERNAL ERROR.\n",
                          file, line);
                 break;
             default:
-                snprintf(str, 100, "%s(%i): Cublas error: Unknown error %X.\n",
+                snprintf(str, 100,
+                         "%s(%i): GPU BLAS error: UNKNOWN ERROR '%X'.\n",
                          file, line, err);
         }
         PyErr_SetString(PyExc_RuntimeError, str);
