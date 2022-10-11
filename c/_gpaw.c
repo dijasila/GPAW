@@ -8,12 +8,7 @@
 #include <numpy/arrayobject.h>
 
 #ifdef CUDA_MPI
-#include <cuda.h>
-#include <cuda_runtime_api.h>
 #include "gpu/gpu.h"
-
-void gpaw_cuda_setdevice(int gpuid);
-void gpaw_cuda_init_c();
 #endif
 
 #ifdef PARALLEL
@@ -538,45 +533,6 @@ gpaw_main()
 int
 main(int argc, char **argv)
 {
-#ifdef CUDA_MPI
-    // Initialize CUDA before MPI
-    Py_Initialize();
-
-    int cuda=0;
-    for (int i=0; i < argc; i++)
-        if (strcmp(argv[i], "--cuda") == 0)
-            cuda = 1;
-
-    char* local_rank = getenv("MV2_COMM_WORLD_LOCAL_RANK");
-    if (local_rank == NULL)
-        local_rank = getenv("OMPI_COMM_WORLD_LOCAL_RANK");
-    if (local_rank == NULL)
-        local_rank = getenv("SLURM_LOCALID");
-
-    if (cuda) {
-        PyRun_SimpleString("import pycuda.driver as drv");
-        PyRun_SimpleString("import pycuda.tools as tools");
-        PyRun_SimpleString("drv.init()");
-        if (local_rank != NULL) {
-            int cuda_dev, device_count;
-            char cmd[64];
-
-            gpaw_cudaSafeCall(cudaGetDeviceCount(&device_count));
-            cuda_dev = atoi(local_rank) % device_count;
-
-            snprintf(cmd, 64, "current_dev = drv.Device(%d)", cuda_dev);
-            PyRun_SimpleString(cmd);
-            PyRun_SimpleString("cuda_ctx = current_dev.make_context()");
-        } else {
-            PyRun_SimpleString("cuda_ctx=tools.make_default_context()");
-        }
-        PyRun_SimpleString("cuda_ctx.push()");
-        PyRun_SimpleString("cuda_ctx.set_cache_config(drv.func_cache.PREFER_L1)");
-        _gpaw_cuda_setdevice(cuda_dev);
-        gpaw_cuda_init_c();
-    }
-#endif
-
 #ifdef GPAW_CUDA
     int granted;
     MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &granted);
@@ -605,9 +561,7 @@ main(int argc, char **argv)
 
     Py_SetProgramName(wargv[0]);
     PyImport_AppendInittab("_gpaw", &moduleinit);
-#ifndef CUDA_MPI
     Py_Initialize();
-#endif
     PySys_SetArgvEx(argc, wargv, 0);
 
 #ifdef GPAW_WITH_ELPA
