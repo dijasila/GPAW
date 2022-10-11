@@ -94,8 +94,10 @@ def test_Fe_bcc(in_tmp_dir):
                   ecut=ecut, nbands=nbands, eta=eta,
                   gammacentered=True)
     isoexch_calc = IsotropicExchangeCalculator(chiks)
-    lsda_bxc_calc = LSDABxcCalculator(gs, context)
-    gsto_bxc_calc = GoldstoneBxcCalculator(gs, context)
+    lsda_bxc_calc = LSDABxcCalculator(gs, context,
+                                      filename='LSDABxc.npy')
+    gsto_bxc_calc = GoldstoneBxcCalculator(gs, context,
+                                           filename='GoldstoneBxc.npy')
 
     # Allocate array for the exchange constants
     nq = len(q_qc)
@@ -160,6 +162,18 @@ def test_Fe_bcc(in_tmp_dir):
     G1_G, G2_G = get_inversion_pairs(pd0)
     assert np.allclose(np.conj(Bxcl_G[G1_G]), Bxcl_G[G2_G])
     assert np.allclose(np.conj(Bxcg_G[G1_G]), Bxcg_G[G2_G])
+
+    # Check that the Bxc fields are logged properly as .npy files
+    # Only rank == 0 writes the files, so we only perform the check on
+    # that rank to avoid waiting for the file system to get up-to-date
+    if context.world.rank == 0:
+        new_lsda_bxc_calc = LSDABxcCalculator(gs, context,
+                                              filename='LSDABxc.npy')
+        new_gsto_bxc_calc = GoldstoneBxcCalculator(gs, context,
+                                                   filename='GoldstoneBxc.npy')
+        assert new_lsda_bxc_calc.in_buffer() and new_gsto_bxc_calc.in_buffer()
+        assert np.allclose(Bxcl_G, new_lsda_bxc_calc.from_buffer())
+        assert np.allclose(Bxcg_G, new_gsto_bxc_calc.from_buffer())
 
     # Exchange constants
     assert np.allclose(Jl_qp.imag, 0.)

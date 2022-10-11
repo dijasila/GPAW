@@ -1,5 +1,6 @@
 # General modules
 from abc import ABC, abstractmethod, abstractproperty
+from pathlib import Path
 
 import numpy as np
 
@@ -200,7 +201,7 @@ class BxcCalculator(ABC):
     components of B^(xc). Keeps calculated components in a buffer and knows
     what arguments to give its self.calculate(*args) method."""
 
-    def __init__(self, gs, context):
+    def __init__(self, gs, context, filename=None):
         """Construct the BxcCalculator with an empty buffer."""
         assert isinstance(gs, ResponseGroundStateAdapter)
         self.gs = gs
@@ -209,8 +210,12 @@ class BxcCalculator(ABC):
 
         # Bxc field buffer
         self._Bxc_G = None
+        self.filename = filename
+        self.check_file_buffer()
 
     def in_buffer(self):
+        if self._Bxc_G is None:
+            self.check_file_buffer()
         return self._Bxc_G is not None
 
     def from_buffer(self):
@@ -220,7 +225,27 @@ class BxcCalculator(ABC):
     def calculate(self, *args):
         """Calculate the Bxc plane-wave components and fill buffer."""
         self._Bxc_G = self._calculate(*args)
+        if self.filename is not None:
+            self.write_file_buffer()
         return self._Bxc_G
+
+    def check_file_buffer(self):
+        if self.filename is not None and Path(self.filename).is_file():
+            self._Bxc_G = self.read_file_buffer()
+
+    def write_file_buffer(self):
+        assert self._Bxc_G is not None
+        assert self.filename is not None
+        if self.context.world.rank == 0:
+            with open(self.filename, 'wb') as fd:
+                np.save(fd, self._Bxc_G)
+
+    def read_file_buffer(self):
+        assert self.filename is not None and Path(self.filename).is_file()
+        with open(self.filename, 'rb') as fd:
+            _Bxc_G = np.load(fd)
+
+        return _Bxc_G
 
     @abstractmethod
     def _calculate(self, *args):
@@ -237,7 +262,7 @@ class LSDABxcCalculator(BxcCalculator):
     on a local Fourier transform of B^(xc) evaluated explicitly in real space.
     """
 
-    def __init__(self, gs, context,
+    def __init__(self, gs, context, filename=None,
                  rshelmax=-1, rshewmin=None):
         """Construct the BxcCalculator with an internal LocalFTCalculator
 
@@ -248,7 +273,7 @@ class LSDABxcCalculator(BxcCalculator):
         rshewmin : float or None
             See LocalFTCalculator
         """
-        BxcCalculator.__init__(self, gs, context)
+        BxcCalculator.__init__(self, gs, context, filename=filename)
 
         # Construct a LocalFTCalculator to carry out the FT
         self.localft_calc = LocalFTCalculator.from_rshe_parameters(
