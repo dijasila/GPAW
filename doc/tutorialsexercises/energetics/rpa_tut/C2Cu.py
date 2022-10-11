@@ -59,7 +59,7 @@ def calculate(xc: str, d: float) -> float:
 
 if __name__ == '__main__':
     import sys
-    xc = float(sys.argv[1])
-    for arg in sys.atgv[2:]:
+    xc = sys.argv[1]
+    for arg in sys.argv[2:]:
         d = float(arg)
         calculate(xc, d)
