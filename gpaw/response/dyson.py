@@ -28,12 +28,15 @@ def CUPYBridge_inveps(f):
     # assignment (if done properly).
     def bridge(sqrV_g, chi0_GG, mode, fv_GG, weight=1.0, out_GG=None, lib=np):
         if not gpu.is_device_array(out_GG):
-            gpu_out_GG = cupy.asarray(out_GG)
+            gpu_out_GG = gpu.copy_to_device(out_GG)
         else:
             gpu_out_GG = out_GG
-        f(cupy.asarray(sqrV_g), cupy.asarray(chi0_GG), mode, weight=weight, out_GG=gpu_out_GG, lib=cupy)
+        f(gpu.copy_to_device(sqrV_g),
+          gpu.copy_to_device(chi0_GG),
+          mode, weight=weight, 
+          out_GG=gpu_out_GG, lib=cupy)
         if not gpu.is_device_array(out_GG):
-            out_GG[:] = cupy.asnumpy(gpu_out_GG)
+            out_GG[:] = gpu.copy_to_host(gpu_out_GG)
     
     return bridge
 
