@@ -1,9 +1,9 @@
 from ase.lattice.hexagonal import Graphene
-from gpaw import GPAW
+from gpaw import GPAW, restart
 from ase import Atoms
 from ase.io import Trajectory
-from ase.parallel import parprint
-from ase.units import Bohr, _amu, _me
+from ase.units import fs
+from ase.md.verlet import VelocityVerlet
 from gpaw.utilities import h2gpts
 
 name = 'graphene_h'
@@ -17,16 +17,17 @@ c = 3.355
 gra = Graphene(symbol='C',
                latticeconstant={'a': a, 'c': c},
                size=(index1, index2, 1),
-               pbc=(1, 1, 0))
+               )
 
-gra.center(vacuum=15.0, axis=2)
+gra.center(vacuum=10.0, axis=2)
 gra.center()
 
 # Starting position of the projectile with an impact point at the
 # center of a hexagon
-projpos = [[gra[15].position[0], gra[15].position[1] + 1.41245, 25.0]]
+projpos = [[gra[15].position[0], gra[15].position[1] + 1.41245, 15.0]]
 
 H = Atoms('H', cell=gra.cell, positions=projpos)
+H.mass = 1.0 # Set mass to one atomic mass unit to avoid isotope average
 
 # Combine target and projectile
 atoms = gra + H
@@ -42,30 +43,26 @@ atoms.calc = calc
 atoms.get_potential_energy()
 
 # Moving to the MD part
-Ekin = 40e3  # kinetic energy of the ion (in eV)
-timestep = 1.0 # timestep in fs
+Ekin = 100  # kinetic energy of the ion (in eV)
+timestep = 0.1 # timestep in fs
 
 # Filename for saving trajectory
-ekin_str = '_ek' + str(int(Ekin / 1000)) + 'keV'
-strbody = name + ekin_str
-traj_file = strbody + '.traj'
+ekin_str = '_ek' + str(int(Ekin)) + 'eV'
+traj_file = name + ekin_str + '.traj'
 
 proj_idx = 50  # atomic index of the projectile
 
 # Integrator for the equations of motion, timestep depends on system
-dyn = VelocityVerlet(atoms, timestep*units.fs)
+dyn = VelocityVerlet(atoms, timestep * fs)
 
 # Saving the positions of all atoms after every time step
 traj = Trajectory(traj_file, 'w', atoms)
-dyn.attach(traj.write, interval=1)
-
-# Running one timestep before impact
-dyn.run(1)
+dyn.attach(traj.write, interval = 1)
 
 # Giving the target atom a kinetic energy of ene in the -z direction
-atoms[atom].momentum[2] = -(2*Ekin*atoms[proj_idx].mass)**0.5
+atoms[proj_idx].momentum[2] = -(2 * Ekin * atoms[proj_idx].mass)**0.5
 
-#Running the simulation for 500 timesteps
-dyn.run(500)
+#Running the simulation for 80 timesteps
+dyn.run(80)
 
 traj.close()

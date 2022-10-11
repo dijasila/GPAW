@@ -18,16 +18,16 @@ However, note that TDDFT/MD is required to account for electronic stopping
 
 The following script simulates the impact of a hydrogen atom with an initial
 velocity corresponding to a kinetic energy of 40 keV, transmitting through the
-center of a hexagon in a graphene target.
+center of a hexagon in a graphene target. The impact point in this case is the 
+center of a carbon hexagon, but this can be modified by changing the x-y position 
+of the H atom (``projpos``).
 
-In a realistic calculation, one might have to change the default convergence 
-parameters depending on the projectile used, and to verify the convergence of 
-the results with respect to the timestep and *k*-points. Here, slightly less 
-strict criteria are used. The impact point in this case is the center of a 
-carbon hexagon, but this can be modified by changing the x-y position of the 
-H atom (``projpos``).
+In a realistic calculation, one should consider the choice of the exchange-
+correlation functional, and verify the convergence of the results with respect to 
+the grid spacing, timestep and *k*-points. Here, less accurate parameters are used 
+so that the calculation can be run on 4-8 CPU cores. 
 
-.. literalinclude:: graphene_h_md.py
+.. literalinclude:: atomtransmission.py
 
 
 ----------
