@@ -35,10 +35,7 @@ def setup(**kwargs):
 def init(rank=0):
     global backend
 
-    try:
-        backend.init(rank)
-    except Exception:
-        raise Exception("GPU could not be initialised")
+    backend.init(rank)
 
     if backend.debug:
         import platform
