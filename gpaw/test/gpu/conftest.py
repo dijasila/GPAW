@@ -1,15 +1,16 @@
 import pytest
+from gpaw.mpi import world
 
 
 @pytest.fixture(scope='session')
 def gpu():
-    cupy = pytest.importorskip('cupy')
-    try:
-        cupy.cuda.runtime.getDeviceCount()
-    except Exception as err:
-        pytest.skip(reason=f'Cannot find GPU devices: {err}')
-
     from gpaw import gpu
-    gpu.setup(cuda=True)
-    gpu.init()
+    try:
+        gpu.setup(cuda=True)
+        gpu.init(world.rank)
+    except ImportError as err:
+        pytest.skip(reason=f'Cannot import GPU backend ({err})')
+    except Exception as err:
+        pytest.skip(reason=f'Cannot find GPU devices ({err})')
+
     return gpu
