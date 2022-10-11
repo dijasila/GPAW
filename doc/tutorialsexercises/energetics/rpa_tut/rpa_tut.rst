@@ -14,7 +14,7 @@ covalent bonds (slightly worse than PBE).
 
 For more details on the theory and implementation we refer to :ref:`rpa`.
 Below we give examples on how to calculate the RPA atomization energy of
-`N_2` and the correlation energy of graphene an a Co(0001) surface. Note
+`N_2` and the correlation energy of graphene an a Cu(111) surface. Note
 that some of the calculations in this tutorial will need a lot of CPU time
 and is essentially not possible without a supercomputer.
 
@@ -139,11 +139,10 @@ Example 2: Adsorption of graphene on metal surfaces
 ===================================================
 
 As an example where dispersive interactions are known to play a prominent
-role, we consider the case of graphene adsorbed on a Co(0001) surface
-[#Olsen]_ and [#Olsen0]_. First, the input .gpw files are generated with the
-following script:
+role, we consider the case of graphene adsorbed on a Cu(111) surface
+[#Olsen]_ and [#Olsen0]_.
 
-.. literalinclude:: C2Co.py
+.. literalinclude:: C2Cu.py
 
 Note that besides diagonalizing the full Hamiltonian for each distance, the
 script calculates the EXX energy at the self-consistent PBE orbitals and
