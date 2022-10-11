@@ -24,10 +24,10 @@ class CUDA(BaseBackend):
         self.device_no = (rank) % self._cuda.runtime.getDeviceCount()
 
         # create and activate CUDA context
+        self._cuda.runtime.setDevice(self.device_no)
         self.device_ctx = True
 
         # initialise C parameters and memory buffers
-        _gpaw.gpaw_cuda_setdevice(self.device_no)
         _gpaw.gpaw_cuda_init()
 
     def delete(self):
