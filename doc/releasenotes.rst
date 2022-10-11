@@ -15,6 +15,8 @@ Git master branch
 * Missing factor of `2\pi` now included in RPA shift current:
   :func:`gpaw.nlopt.shift.get_shift`.
 
+* New tutorial: :ref:`abinitiomd`.
+
 
 Version 22.8.0
 ==============
