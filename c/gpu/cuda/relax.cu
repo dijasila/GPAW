@@ -671,7 +671,7 @@ void bmgs_relax_cuda_gpu(const int relax_method,
                 const double* src, const long3 c_n,
                 const int3 a_size, const int3 b_size,
                 const double w, const int xdiv);
-        if (_gpaw_cuda_dev_prop.major < 3) {
+        if (_gpaw_gpu_dev_prop.major < 3) {
             switch (s_gpu->ncoefs0) {
                 case 3:
                     relax_kernel = relax_kernel2_fermi;
@@ -729,7 +729,7 @@ void bmgs_relax_cuda_gpu(const int relax_method,
                 const double* src, const long3 c_n,
                 const int3 c_jb, const int boundary,
                 const double w, const int xdiv);
-        if (_gpaw_cuda_dev_prop.major < 3) {
+        if (_gpaw_gpu_dev_prop.major < 3) {
             switch (s_gpu->ncoefs0) {
                 case 3:
                     relax_kernel = relax_kernel2_onlyb_fermi;

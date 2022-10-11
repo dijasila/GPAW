@@ -683,7 +683,7 @@ void Zcuda(bmgs_fd_cuda_gpu)(
                           const double* a, double* b, const int3 c_n,
                           const int3 a_size, const int3 b_size,
                           const int xdiv, const int blocks);
-        if (_gpaw_cuda_dev_prop.major < 3) {
+        if (_gpaw_gpu_dev_prop.major < 3) {
             switch (s_gpu->ncoefs0) {
                 case 3:
                     fd_kernel = Zcuda(fd_kernel2_fermi);
@@ -811,7 +811,7 @@ dim3 bmgs_fd_cuda_get_blockDim(int ndouble)
 {
     dim3 dimBlock(1,1,1);
 
-    switch (_gpaw_cuda_dev_prop.major) {
+    switch (_gpaw_gpu_dev_prop.major) {
         case 0:
         case 1:
         case 2:

@@ -141,7 +141,7 @@ typedef struct
 } bmgsstencil;
 #endif
 
-extern struct cudaDeviceProp _gpaw_cuda_dev_prop;
+extern struct gpuDeviceProp _gpaw_gpu_dev_prop;
 
 static inline gpuError_t __gpuSafeCall(gpuError_t err,
                                        const char *file, int line)

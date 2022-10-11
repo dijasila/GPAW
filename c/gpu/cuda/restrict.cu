@@ -237,7 +237,7 @@ void Zcuda(bmgs_restrict_cuda_gpu)(int k, const Tcuda* a, const int size[3],
 
     dim3 dimBlock(1,1);
 
-    switch (_gpaw_cuda_dev_prop.major) {
+    switch (_gpaw_gpu_dev_prop.major) {
         case 0:
         case 1:
         case 2:
@@ -259,7 +259,7 @@ void Zcuda(bmgs_restrict_cuda_gpu)(int k, const Tcuda* a, const int size[3],
     int3 n = {size[0], size[1], size[2]};
     int3 b_n = {sizeb[0], sizeb[1], sizeb[2]};
 
-    switch (_gpaw_cuda_dev_prop.major) {
+    switch (_gpaw_gpu_dev_prop.major) {
         case 0:
         case 1:
         case 2:
