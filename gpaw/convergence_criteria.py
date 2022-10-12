@@ -276,9 +276,9 @@ class Forces(Criterion):
         self.atol = atol
         self.rtol = rtol
         self.description = ('Maximum change in the atomic [forces] across '
-                            'last 2 cycles: {:g} eV/Ang OR\n'
+                            f'last 2 cycles: {self.atol} eV/Ang OR\n'
                             'Maximum error relative to the maximum '
-                            'force is below {:g}'.format(self.atol, self.rtol))
+                            f'force is below {self.rtol}')
         self.calc_last = calc_last
         self.reset()
 
@@ -286,7 +286,7 @@ class Forces(Criterion):
         """Should return (bool, entry), where bool is True if converged and
         False if not, and entry is a <=5 character string to be printed in
         the user log file."""
-        
+
         # criterion is off; backwards compatibility
         if np.isinf(self.atol) and np.isinf(self.rtol):  
             return True, ''
