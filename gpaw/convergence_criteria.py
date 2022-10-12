@@ -288,7 +288,7 @@ class Forces(Criterion):
         the user log file."""
 
         # criterion is off; backwards compatibility
-        if np.isinf(self.atol) and np.isinf(self.rtol):  
+        if np.isinf(self.atol) and np.isinf(self.rtol):
             return True, ''
         F_av = context.calculate_forces()
         F_av *= Ha / Bohr
