@@ -31,7 +31,7 @@ def get_orthonormal_subspace(H_MM: Array2D, S_MM: Array2D, indices: Array1D = No
     return eps, v
 
 
-def subdiagonalize(H_MM: Array2D, S_MM: Array2D, blocks: list(list)):
+def subdiagonalize(H_MM: Array2D, S_MM: Array2D, blocks: list[list[int]]):
     """Subdiagonalize blocks."""
     nM = len(H_MM)
     v_MM = np.eye(nM)
@@ -272,7 +272,7 @@ class Subdiagonalization(BasisTransform):
 
     """
 
-    def __init__(self, H_MM: Array2D, S_MM: Array2D, blocks: list(list)) -> None:
+    def __init__(self, H_MM: Array2D, S_MM: Array2D, blocks: list[list[int]]) -> None:
         """
 
         Parameters
@@ -286,17 +286,19 @@ class Subdiagonalization(BasisTransform):
         self.eps_M, U_MM = subdiagonalize(
             self.H_MM, self.S_MM, blocks)
         super().__init__(U_MM)
+        # Groups of local orbitals with the same symmetry.
+        self.groups = None
 
-    def group_energies(self, round: int = 1):
-        """Group local orbitals based on energy.
+    def group_energies(self, decimals: int = 1):
+        """Group local orbitals with a similar energy.
 
         Parameters
         ----------
-        round : int
+        decimals : int
             Round energies to the given number of decimals.
 
         """
-        eps = self.eps_M.round(round)
+        eps = self.eps_M.round(decimals)
         show = np.where(~eps.mask)[0]
         groups = defaultdict(list)
         for index in show:
@@ -305,36 +307,42 @@ class Subdiagonalization(BasisTransform):
         self.groups = groups
         return self.groups
 
-    def group_symmetries(self, cutoff: float = 0.9, round: int = 1):
-        """Group local orbitals based on symmetry and energy.
+    def group_symmetries(self, decimals: int = 1, cutoff: float = 0.9):
+        """Group local orbitals with a similar spatial symmetry and energy.
 
         Parameters
         ----------
-        round : int
+        decimals : int
             Round energies to the given number of decimals.
         cutoff : float
-            Minimum overlap between two orbitlas to be considered as 
-            having the same symmetry.
+            Sets minimum degree of overlap. Can be any value between 0 and 1.
 
         """
-        col_1 = []
-        col_2 = []
+        col_1 = []  # Keyword.
+        col_2 = []  # Value.
         groups = defaultdict(set)
         blocks = self.blocks
+        # Loop over pair of blocks.
         for b1, b2 in zip(*np.triu_indices(len(blocks), k=1)):
             if len(blocks[b1]) != len(blocks[b2]):
+                # Blocks with different dimensions not compatible.
                 continue
             U1 = self.U_MM[np.ix_(blocks[b1], blocks[b1])]
             U2 = self.U_MM[np.ix_(blocks[b2], blocks[b2])]
+            # Compute pair overlap between orbitals in the two blocks.
             for o1, o2 in np.ndindex(len(blocks[b1]), len(blocks[b1])):
-                # o12 = abs(np.correlate(U1[:, o1], U2[:, o2]))
                 v1 = abs(U1[:, o1])
                 v2 = abs(U2[:, o2])
                 o12 = 2 * v1.dot(v2) / (v1.dot(v1) + v2.dot(v2))
+                # Overlap larger than cutoff?
                 if o12 >= cutoff:
+                    # Yes.
                     i1 = blocks[b1][o1]
                     i2 = blocks[b2][o2]
+                    # Use orbital with minimal index as keyword.
                     i1, i2 = min(i1, i2), max(i1, i2)
+                    # Check if `i1` is already present in `col_2` and
+                    # use corresponding keyword in col_1 instead.
                     present = False
                     for i, i3 in enumerate(col_2):
                         if i1 == i3:
@@ -347,11 +355,11 @@ class Subdiagonalization(BasisTransform):
                     col_1.append(a1)
                     col_2.append(i2)
                     groups[a1].add(i2)
-        # Use also energy information
+        # Try to further group by energy.
         new = defaultdict(list)
         for k, v in groups.items():
             v.add(k)
-            new[self.eps_M[k].round(round)] += groups[k]
+            new[self.eps_M[k].round(decimals)] += groups[k]
         self.groups = {k: list(sorted(new[k])) for k in sorted(new)}  # groups
         return self.groups
 
@@ -419,7 +427,7 @@ class LocalOrbitals(TightBinding):
                 raise RuntimeError(
                     "Must include central unit cell, i.e. R=[0,0,0].") from exc
 
-    def subdiagonalize(self, symbols: Array1D = None, blocks: list(list) = None, groupby: str = 'energy'):
+    def subdiagonalize(self, symbols: Array1D = None, blocks: list[list[int]] = None, groupby: str = 'energy'):
         """Subdiagonalize Hamiltonian and overlap matrices.
 
         Parameters
@@ -443,14 +451,29 @@ class LocalOrbitals(TightBinding):
         self.subdiag = Subdiagonalization(
             self.H_NMM[self.N0], self.S_NMM[self.N0], blocks)
 
-        if groupby == 'energy':
-            self.groups = self.subdiag.group_energies()
-        elif groupby == 'symmetry':
-            self.groups = self.subdiag.group_symmetries()
+        self.groupby(groupby)
+
+    def groupby(self, method: str = 'energy', decimals: int = 1, cutoff: float = 0.9):
+        """Group local orbitals by symmetry.
+
+        Parameters
+        ----------
+        method : {'energy,'symmetry'}, optional
+            Group local orbitals based on energy or
+            symmetry and energy. Default is 'energy'.
+        decimals, cutoff : optional
+            Parameters passed to the group methods.
+
+        """
+        if method == 'energy':
+            self.groups = self.subdiag.group_energies(decimals=decimals)
+        elif method == 'symmetry':
+            self.groups = self.subdiag.group_symmetries(
+                decimals=decimals, cutoff=cutoff)
         else:
             raise RuntimeError(
-                f"""Invalid groupby type. {groupby} not in {'energy', 'symmetry'}""")
-        # Ensure previous model is thrown away.
+                f"""Invalid method type. {method} not in {'energy', 'symmetry'}""")
+        # Ensure previous model is invalid.
         self.model = None
 
     def take_model(self, indices: Array1D = None, minimal: bool = True, cutoff: float = 1e-3, ortho: bool = False):
@@ -466,7 +489,8 @@ class LocalOrbitals(TightBinding):
             the orbitals with an overlap larger than `cuoff` with any of the
             orbital specified by `indices`.
         cutoff : float
-            Minimal overlap to consider when `minimal` is False.
+            Cutoff value for the maximum matrix element connecting a group
+            with the minimal model.
         ortho : bool, default=False
             Whether to orthogonalize the model.
 
