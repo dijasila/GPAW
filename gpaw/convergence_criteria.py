@@ -253,11 +253,16 @@ class Forces(Criterion):
 
     Parameters:
 
-    tol : float
-        Tolerance for conversion; that is, the force on each atom is compared
-        with its force from the previous iteration, and the change in each
-        atom's force is calculated as an l2-norm (Euclidean distance). The
-        atom with the largest norm must be less than tol. [eV/Angstrom]
+    atol : float
+        Absolute tolerance for convergence; that is, the force on each atom
+        is compared with its force from the previous iteration, and the change
+        in each atom's force is calculated as an l2-norm 
+        (Euclidean distance). The atom with the largest norm must be less 
+        than tol. [eV/Angstrom]
+    rtol : float
+        Relative tolerance for convergence. The difference in the l2-norm of
+        force on each atom is calculated, and convergence is achieved when
+        the largest difference between two iterations is rtol * max force.
     calc_last : bool
         If True, calculates forces last; that is, it waits until all other
         convergence criteria are satisfied before checking to see if the

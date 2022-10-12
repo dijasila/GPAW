@@ -15,6 +15,9 @@ Git master branch
 * Missing factor of `2\pi` now included in RPA shift current:
   :func:`gpaw.nlopt.shift.get_shift`.
 
+* Added relative tolerance for force convergence. This is useful for geometry 
+  optimizations to adaptively converge forces. See :ref:`custom_convergence`
+
 
 Version 22.8.0
 ==============
