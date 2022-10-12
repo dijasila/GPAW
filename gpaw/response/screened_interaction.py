@@ -15,7 +15,7 @@ from gpaw.response.coulomb_kernels import (get_coulomb_kernel,
 from gpaw.response.dyson import calculate_inveps
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 
-from gpaw.response.dyson import CUPYBridge_dyson_and_W
+from gpaw.response.dyson import CUPYBridge_dyson_and_W, CUPYBridge_dyson_work
 from gpaw import gpu
 
 def get_qdescriptor(kd, atoms):
@@ -227,6 +227,8 @@ class WCalculator:
         Wm_wGG = W_WgG.copy()
         return chi0.pd, Wm_wGG, Wp_wGG  # not Hilbert transformed yet
 
+
+
     @CUPYBridge_dyson_and_W
     def dyson_and_W_old(self, wstc, iq, q_c, chi0, fxc_mode,
                         pdi=None, G2G=None, chi0_wGG=None, chi0_wxvG=None,
@@ -239,7 +241,21 @@ class WCalculator:
             chi0_wGG = chi0.blockdist.redistribute(chi0.chi0_wGG, chi0.nw)
             chi0_wxvG = chi0.chi0_wxvG
             chi0_wvv = chi0.chi0_wvv
-            pdi = pd
+            pdi = chi0.pd
+
+        pdi, W_wGG = self.dyson_work(wstc, iq, q_c, fxc_mode, chi0, pdi, G2G, chi0_wGG, chi0_wxvG, chi0_wvv, only_correlation, xp)
+
+        # XXX This creates a new, large buffer.  We could perhaps
+        # avoid that.  Buffer used to exist but was removed due to #456.
+        # TODI: This shouldn't be run with PPA
+        # chi0_wGG[:] = chi0.blockdist.redistribute(W_wGG, chi0.nw)
+        return pdi, W_wGG
+
+    @CUPYBridge_dyson_work
+    def dyson_work(self, wstc, iq, q_c, fxc_mode, chi0, pdi, G2G, 
+                   chi0_wGG, chi0_wxvG, chi0_wvv, only_correlation, xp=np):
+        
+        pd = chi0.pd 
         nG = pdi.ngmax
         wblocks1d = Blocks1D(self.blockcomm, len(self.wd))
         if self.integrate_gamma != 0:
@@ -271,7 +287,7 @@ class WCalculator:
             gamma_int = GammaIntegrator(truncation=self.truncation,
                                         kd=kd, pd=pd,
                                         chi0_wvv=chi0_wvv[wblocks1d.myslice],
-                                        chi0_wxvG=chi0_wxvG[wblocks1d.myslice])
+                                        chi0_wxvG=chi0_wxvG[wblocks1d.myslice], xp=xp)
 
         self.timer.start('Dyson eq.')
 
@@ -282,7 +298,7 @@ class WCalculator:
                 truncation=self.truncation,
                 wstc=wstc,
                 q_v=q_v, xp=xp)**0.5
-
+        
         for iw, chi0_GG in enumerate(chi0_wGG):
             einv_GG = xp.zeros((nG, nG), complex)
             if np.allclose(q_c, 0):
@@ -325,7 +341,7 @@ class WCalculator:
                     W_GG[0, 0] = einv_GG[0, 0] * V0
                     W_GG[0, 1:] = einv_GG[0, 1:] * sqrtV_G[1:] * sqrtV0
                     W_GG[1:, 0] = einv_GG[1:, 0] * sqrtV0 * sqrtV_G[1:]
-                chi0_GG[:] = gpu.copy_to_host(W_GG)
+                chi0_GG[:] = W_GG # gpu.copy_to_host(W_GG)
 
         if self.ppa:
             omegat_GG = self.E0 * np.sqrt(einv_wGG[1] /
@@ -340,9 +356,6 @@ class WCalculator:
             self.timer.stop('Dyson eq.')
             return pdi, [W_GG, omegat_GG]
 
-        # XXX This creates a new, large buffer.  We could perhaps
-        # avoid that.  Buffer used to exist but was removed due to #456.
-        W_wGG = chi0.blockdist.redistribute(chi0_wGG, chi0.nw)
 
         self.timer.stop('Dyson eq.')
-        return pdi, W_wGG
+        return pdi, chi0_wGG

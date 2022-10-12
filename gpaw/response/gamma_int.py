@@ -3,7 +3,7 @@ from ase.dft.kpoints import monkhorst_pack
 
 
 class GammaIntegrator:
-    def __init__(self, truncation, kd, pd, chi0_wvv, chi0_wxvG):
+    def __init__(self, truncation, kd, pd, chi0_wvv, chi0_wxvG, xp=np):
         N = 4
         N_c = np.array([N, N, N])
         if truncation is not None:
@@ -19,5 +19,5 @@ class GammaIntegrator:
                             for chi0_vq in
                             np.dot(chi0_wvv, self.qf_qv.T)],
                            axis=1)
-        self.a0_qwG = np.dot(self.qf_qv, chi0_wxvG[:, 0])
-        self.a1_qwG = np.dot(self.qf_qv, chi0_wxvG[:, 1])
+        self.a0_qwG = xp.asarray(np.dot(self.qf_qv, chi0_wxvG[:, 0]))
+        self.a1_qwG = xp.asarray(np.dot(self.qf_qv, chi0_wxvG[:, 1]))

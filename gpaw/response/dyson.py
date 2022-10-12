@@ -49,6 +49,43 @@ def CUPYBridge_dyson_and_W(f):
         return f(*args, **kwargs)
     return fun
 
+def to_gpu(array):
+   if array is None:
+       return
+   if gpu.is_device_array(array):
+       return array
+   return gpu.copy_to_device(array)
+
+def CUPYBridge_dyson_work(dyson_work):
+    def identity(*args, **kwargs):
+        return dyson_work(*args, **kwargs)
+    
+    # If GPAW_CUPY environment variavble is not set or
+    # is set to 0, we will just run the normal function.
+    if not GPAW_CUPY:
+        return identity
+    
+    def dyson_work_bridge(self, wstc, iq, q_c, fxc_mode, chi0, pdi, G2G,
+                   chi0_wGG, chi0_wxvG, chi0_wvv, only_correlation, xp=np):
+        G2G = to_gpu(G2G)
+        # Possible pattern_ Input and output (see below)
+        if not gpu.is_device_array(chi0_wGG):
+            chi0_wGG_gpu = gpu.copy_to_device(chi0_wGG)
+        else:
+            chi0_wGG_gpu = chi0_wGG
+
+        pdi, W_wGG_gpu = dyson_work(self, wstc, iq, q_c, fxc_mode, chi0, pdi, G2G,
+                           chi0_wGG_gpu, chi0_wxvG, chi0_wvv, only_correlation, xp=cupy)
+
+        if not gpu.is_device_array(chi0_wGG):
+            return pdi, gpu.copy_to_host(W_wGG_gpu)
+        else:
+            return pdi, W_wGG_gpu
+
+    return dyson_work_bridge
+
+
+
 
 def CUPYBridge_from_CPU_to_xp(f):
     """
