@@ -39,7 +39,8 @@ def get_shift(
 
     Returns
     =======
-    Numpy array containing the spectrum and frequencies.
+    np.ndarray
+        Numpy array containing the spectrum and frequencies.
     """
 
     # Start a timer
