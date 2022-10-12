@@ -256,8 +256,8 @@ class Forces(Criterion):
     atol : float
         Absolute tolerance for convergence; that is, the force on each atom
         is compared with its force from the previous iteration, and the change
-        in each atom's force is calculated as an l2-norm 
-        (Euclidean distance). The atom with the largest norm must be less 
+        in each atom's force is calculated as an l2-norm
+        (Euclidean distance). The atom with the largest norm must be less
         than tol. [eV/Angstrom]
     rtol : float
         Relative tolerance for convergence. The difference in the l2-norm of
@@ -286,7 +286,9 @@ class Forces(Criterion):
         """Should return (bool, entry), where bool is True if converged and
         False if not, and entry is a <=5 character string to be printed in
         the user log file."""
-        if np.isinf(self.atol) and np.isinf(self.rtol):  # criterion is off; backwards compatibility
+        
+        # criterion is off; backwards compatibility
+        if np.isinf(self.atol) and np.isinf(self.rtol):  
             return True, ''
         F_av = context.calculate_forces()
         F_av *= Ha / Bohr
