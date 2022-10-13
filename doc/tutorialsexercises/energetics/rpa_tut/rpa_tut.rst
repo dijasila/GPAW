@@ -14,7 +14,7 @@ covalent bonds (slightly worse than PBE).
 
 For more details on the theory and implementation we refer to :ref:`rpa`.
 Below we give examples on how to calculate the RPA atomization energy of
-`N_2` and the correlation energy of graphene an a Co(0001) surface. Note
+`N_2` and the correlation energy of graphene an a Cu(111) surface. Note
 that some of the calculations in this tutorial will need a lot of CPU time
 and is essentially not possible without a supercomputer.
 
@@ -135,15 +135,16 @@ of RPA thus only comes into play for systems where dispersive interactions
 dominate.
 
 
+.. _c2cu rpa:
+
 Example 2: Adsorption of graphene on metal surfaces
 ===================================================
 
 As an example where dispersive interactions are known to play a prominent
-role, we consider the case of graphene adsorbed on a Co(0001) surface
-[#Olsen]_ and [#Olsen0]_. First, the input .gpw files are generated with the
-following script:
+role, we consider the case of graphene adsorbed on a Cu(111) surface
+[#Olsen]_ and [#Olsen0]_.
 
-.. literalinclude:: gs_graph_Co.py
+.. literalinclude:: c2cu.py
 
 Note that besides diagonalizing the full Hamiltonian for each distance, the
 script calculates the EXX energy at the self-consistent PBE orbitals and
@@ -155,11 +156,7 @@ smearing to 0.01 eV. Due to the long range nature of the van der Waals
 interactions, a lot of vacuum have been included above the slab. The
 calculation should be parallelized over spin and irreducible *k*-points.
 
-The RPA calculations are done with the following script
-
-.. literalinclude:: rpa_graph_Co.py
-
-The calculations are rather time consuming (~ 1000 CPU hours per distance
+The RPA calculations are rather time consuming (~50 CPU hours per distance
 point), but can be parallelized very efficiently over bands, k-points
 (default) and frequencies (needs to be specified). Here we have changed the
 frequency scale from the default value of 2.0 to 2.5 to increase the density
@@ -176,20 +173,18 @@ converges much faster than absolute correlation energies and a reasonably
 converged potential energy surface can be obtained using a fixed cutoff of
 200 eV for this system.
 
-The result is shown in the Figure below along with LDA, PBE and vdW-DF
-results. The solid RPA line was obtained using spline interpolation.
+The result is shown in the figure below along with LDA, PBE and vdW-DF
+results.
 
-.. image:: pes_graph.png
-           :height: 600 px
+.. image:: c2cu.png
+   :height: 600 px
 
-Both LDA and PBE predicts adsorption at 2.0 A from the metal slab, but do
+LDA predicts adsorption at 2 Å from the metal slab, but do
 not include van der Waals attraction. The van der Waals functional shows a
 significant amount of dispersive interactions far from the slab and predicts
-a physisorbed minimum 3.75 A from the slab. RPA captures both covalent and
+a physisorbed minimum 3.75 Å from the slab. RPA captures both covalent and
 dispersive interactions and the resulting potential energy surface is a
-delicate balance between the two types of interactions. Two minima are seen
-and the covalent bound state at 2.2 A is slightly lower that the physisorbed
-state at 3.2 A, which is in good agreement with experiment.
+delicate balance between the two types of interactions.
 
 
 .. [#Furche] F. Furche,
