@@ -15,6 +15,8 @@ Git master branch
 * Missing factor of `2\pi` now included in RPA shift current:
   :func:`gpaw.nlopt.shift.get_shift`.
 
+* Updated RPA-energy tutorial: :ref:`c2cu rpa`.
+
 * New tutorial: :ref:`abinitiomd`.
 
 
