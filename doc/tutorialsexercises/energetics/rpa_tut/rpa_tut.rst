@@ -142,7 +142,7 @@ As an example where dispersive interactions are known to play a prominent
 role, we consider the case of graphene adsorbed on a Cu(111) surface
 [#Olsen]_ and [#Olsen0]_.
 
-.. literalinclude:: C2Cu.py
+.. literalinclude:: c2cu.py
 
 Note that besides diagonalizing the full Hamiltonian for each distance, the
 script calculates the EXX energy at the self-consistent PBE orbitals and
@@ -171,20 +171,18 @@ converges much faster than absolute correlation energies and a reasonably
 converged potential energy surface can be obtained using a fixed cutoff of
 200 eV for this system.
 
-The result is shown in the Figure below along with LDA, PBE and vdW-DF
-results. The solid RPA line was obtained using spline interpolation.
+The result is shown in the figure below along with LDA, PBE and vdW-DF
+results.
 
-.. image:: pes_graph.png
-           :height: 600 px
+.. image:: c2cu.png
+   :height: 600 px
 
-Both LDA and PBE predicts adsorption at 2.0 A from the metal slab, but do
+LDA predicts adsorption at 2 Å from the metal slab, but do
 not include van der Waals attraction. The van der Waals functional shows a
 significant amount of dispersive interactions far from the slab and predicts
-a physisorbed minimum 3.75 A from the slab. RPA captures both covalent and
+a physisorbed minimum 3.75 Å from the slab. RPA captures both covalent and
 dispersive interactions and the resulting potential energy surface is a
-delicate balance between the two types of interactions. Two minima are seen
-and the covalent bound state at 2.2 A is slightly lower that the physisorbed
-state at 3.2 A, which is in good agreement with experiment.
+delicate balance between the two types of interactions.
 
 
 .. [#Furche] F. Furche,

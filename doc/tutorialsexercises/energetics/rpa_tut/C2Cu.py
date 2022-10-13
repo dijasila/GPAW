@@ -55,7 +55,7 @@ def calculate(xc: str, d: float) -> float:
 
         if world.rank == 0:
             Path(f'{xc0}-{tag}.gpw').unlink()
-            with open(f'RPAc-{tag}.result', 'w') as fd:
+            with open(f'RPA-{tag}.result', 'w') as fd:
                 print(d, e, e_hf, e_rpac, file=fd)
 
     return e
