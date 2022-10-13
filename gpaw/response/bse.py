@@ -14,13 +14,12 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.pw.descriptor import PWDescriptor
 from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.mpi import world, serial_comm, broadcast
+from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.chi0 import Chi0
-from gpaw.response.kernels import get_coulomb_kernel
-from gpaw.response.kernels import get_integrated_kernel
+from gpaw.response.coulomb_kernels import get_coulomb_kernel
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.response.pair import PairDensity
-from gpaw.response.gamma_int import GammaIntegrator
-from gpaw.response.groundstate import ResponseGroundStateAdapter
+from gpaw.response.screened_interaction import initialize_w_calculator
 
 
 class BSE:
@@ -107,7 +106,7 @@ class BSE:
         self.wfile = wfile
         self.write_h = write_h
         self.write_v = write_v
-
+        
         # Find q-vectors and weights in the IBZ:
         self.kd = self.gs.kd
         if -1 in self.kd.bz2bz_ks:
@@ -130,10 +129,7 @@ class BSE:
             assert len(valence_bands[0]) == len(valence_bands[1])
             assert len(conduction_bands[0]) == len(conduction_bands[1])
         if valence_bands is None:
-            # XXX nvalence are the valence electrons on the setups,
-            # but that's not the actual number of valence electrons
-            # if the calculation is charged.  Is this a bug?
-            nv = self.gs.setups.nvalence
+            nv = self.gs.nvalence
             valence_bands = [[nv // 2 - 1]]
             if self.spins == 2:
                 valence_bands *= 2
@@ -186,11 +182,12 @@ class BSE:
 
         # Chi0 object
         self._chi0calc = None  # Initialized later
+        self._wcalc = None  # Initialized later
 
     def __del__(self):
         self.iocontext.close()
 
-    def calculate(self, optical=True, ac=1.0):
+    def calculate(self, optical=True):
 
         if self.spinors:
             # Calculate spinors. Here m is index of eigenvalues with SOC
@@ -230,7 +227,7 @@ class BSE:
         if self.mode == 'RPA':
             Q_aGii = self.pair.initialize_paw_corrections(pd0)
         else:
-            self.get_screened_potential(ac=ac)
+            self.get_screened_potential()
             if (self.qd.ibzk_kc - self.q_c < 1.0e-6).all():
                 iq0 = self.qd.bz2ibz_k[self.kd.where_is_q(self.q_c,
                                                           self.qd.bzk_kc)]
@@ -250,7 +247,8 @@ class BSE:
         optical_limit = np.allclose(self.q_c, 0.0)
 
         get_pair = self.pair.get_kpoint_pair
-        get_rho = self.pair.get_pair_density
+        get_pair_density = self.pair.get_pair_density
+        get_optical_pair_density = self.pair.get_optical_pair_density
         if self.spinors:
             # Get all pair densities to allow for SOC mixing
             # Use twice as many no-SOC states as BSE bands to allow mixing
@@ -288,12 +286,10 @@ class BSE:
 
                 df_mn = pair.get_occupation_differences(self.val_sn[s],
                                                         self.con_sn[s])
-                rho_mnG = get_rho(pd0, pair,
-                                  m_m, n_n,
-                                  optical_limit=optical_limit,
-                                  direction=self.direction,
-                                  Q_aGii=Q_aGii,
-                                  extend_head=False)
+                rho_mnG = get_pair_density(pd0, pair, m_m, n_n, Q_aGii=Q_aGii)
+                if optical_limit:
+                    n_mnv = get_optical_pair_density(pd0, pair, m_m, n_n)
+                    rho_mnG[:, :, 0] = n_mnv[:, :, self.direction]
                 if self.spinors:
                     if optical_limit:
                         deps0_mn = -pair.get_transition_energies(m_m, n_n)
@@ -417,7 +413,7 @@ class BSE:
         H_sS = np.reshape(H_ksmnKsmn, (mySsize, self.nS))
         for iS in range(mySsize):
             # Multiply by occupations and adiabatic coupling
-            H_sS[iS] *= self.df_S[iS0 + iS] * ac
+            H_sS[iS] *= self.df_S[iS0 + iS]
             # add bare transition energies
             H_sS[iS, iS0 + iS] += self.deps_s[iS]
 
@@ -478,11 +474,11 @@ class BSE:
             C1_aGi = [np.dot(Qa_Gii, P1_ni[m].conj())
                       for Qa_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
             ut1cc_R = kpt1.ut_nR[m].conj()
-            rho_mnG[m] = self.pair.calculate_pair_densities(ut1cc_R, C1_aGi,
-                                                            kpt2, pd, I_G)
+            rho_mnG[m] = self.pair.calculate_pair_density(ut1cc_R, C1_aGi,
+                                                          kpt2, pd, I_G)
         return rho_mnG, iq
 
-    def get_screened_potential(self, ac=1.0):
+    def get_screened_potential(self):
 
         if hasattr(self, 'W_qGG'):
             return
@@ -497,14 +493,14 @@ class BSE:
                 print('Reading screened potential from % s' % self.wfile,
                       file=self.fd)
             except FileNotFoundError:
-                self.calculate_screened_potential(ac)
+                self.calculate_screened_potential()
                 print('Saving screened potential to % s' % self.wfile,
                       file=self.fd)
                 if world.rank == 0:
                     np.savez(self.wfile,
                              Q=self.Q_qaGii, pd=self.pd_q, W=self.W_qGG)
         else:
-            self.calculate_screened_potential(ac)
+            self.calculate_screened_potential()
 
     def _calculate_chi0(self, q_c):
         """Use the Chi0 object to calculate the static susceptibility."""
@@ -516,7 +512,7 @@ class BSE:
         m1, m2, spins = 0, self.nbands, 'all'
         chi0 = self._chi0calc.update_chi0(chi0, m1, m2, spins)
 
-        return chi0.pd, chi0.chi0_wGG, chi0.chi0_wxvG, chi0.chi0_wvv
+        return chi0  # chi0.pd, chi0.chi0_wGG, chi0.chi0_wxvG, chi0.chi0_wvv
 
     def initialize_chi0_calculator(self):
         """Initialize the Chi0 object to compute the static
@@ -533,96 +529,30 @@ class BSE:
                               )
         self.blockcomm = self._chi0calc.blockcomm
 
-    def calculate_screened_potential(self, ac):
+    def calculate_screened_potential(self):
         """Calculate W_GG(q)"""
 
         self.Q_qaGii = []
         self.W_qGG = []
         self.pd_q = []
 
+        # F.N: Moved this here. chi0 will be calculated by WCalculator
+        if self._chi0calc is None:
+            self.initialize_chi0_calculator()
+        if self._wcalc is None:
+            self._wcalc = initialize_w_calculator(
+                chi0calc=self._chi0calc,
+                truncation=self.truncation,
+                world=world,
+                txt=self.fd,
+                integrate_gamma=self.integrate_gamma)
         t0 = time()
         print('Calculating screened potential', file=self.fd)
         for iq, q_c in enumerate(self.qd.ibzk_kc):
-
-            pd, chi0_wGG, chi0_wxvG, chi0_wvv = self._calculate_chi0(q_c)
-            nG = pd.ngmax
-            chi0_GG = chi0_wGG[0]
-
-            # Calculate eps^{-1}_GG
-            if pd.kd.gamma:
-                # Generate fine grid in vicinity of gamma
-                kd = self.gs.kd
-                gamma_int = GammaIntegrator(kd=kd, pd=pd,
-                                            truncation=self.truncation,
-                                            chi0_wvv=chi0_wvv[:1],
-                                            chi0_wxvG=chi0_wxvG[:1])
-
-                einv_GG = np.zeros((nG, nG), complex)
-                # W_GG = np.zeros((nG, nG), complex)
-                for iqf in range(len(gamma_int.qf_qv)):
-                    chi0_GG[0] = gamma_int.a0_qwG[iqf, 0]
-                    chi0_GG[:, 0] = gamma_int.a1_qwG[iqf, 0]
-                    chi0_GG[0, 0] = gamma_int.a_wq[0, iqf]
-                    sqrV_G = get_coulomb_kernel(pd,
-                                                kd.N_c,
-                                                truncation=self.truncation,
-                                                wstc=self.wstc,
-                                                q_v=gamma_int.qf_qv[iqf])**0.5
-                    sqrV_G *= ac**0.5  # Multiply by adiabatic coupling
-                    e_GG = np.eye(nG) - chi0_GG * sqrV_G * sqrV_G[:,
-                                                                  np.newaxis]
-                    einv_GG += np.linalg.inv(e_GG) * gamma_int.weight_q[iqf]
-                    # einv_GG = np.linalg.inv(e_GG) * weight_q[iqf]
-                    # W_GG += (einv_GG * sqrV_G * sqrV_G[:, np.newaxis]
-                    #          * weight_q[iqf])
-            else:
-                sqrV_G = get_coulomb_kernel(pd,
-                                            self.kd.N_c,
-                                            truncation=self.truncation,
-                                            wstc=self.wstc)**0.5
-                sqrV_G *= ac**0.5  # Multiply by adiabatic coupling
-                e_GG = np.eye(nG) - chi0_GG * sqrV_G * sqrV_G[:, np.newaxis]
-                einv_GG = np.linalg.inv(e_GG)
-                # W_GG = einv_GG * sqrV_G * sqrV_G[:, np.newaxis]
-
-            # Now calculate W_GG
-            if pd.kd.gamma:
-                # Reset bare Coulomb interaction
-                sqrV_G = get_coulomb_kernel(pd,
-                                            self.kd.N_c,
-                                            truncation=self.truncation,
-                                            wstc=self.wstc)**0.5
-            W_GG = einv_GG * sqrV_G * sqrV_G[:, np.newaxis]
-            if self.integrate_gamma != 0:
-                # Numerical integration of Coulomb interaction at all q-points
-                if self.integrate_gamma == 2:
-                    reduced = True
-                else:
-                    reduced = False
-                V0, sqrV0 = get_integrated_kernel(pd,
-                                                  self.kd.N_c,
-                                                  truncation=self.truncation,
-                                                  reduced=reduced,
-                                                  N=100)
-                W_GG[0, 0] = einv_GG[0, 0] * V0
-                W_GG[0, 1:] = einv_GG[0, 1:] * sqrV0 * sqrV_G[1:]
-                W_GG[1:, 0] = einv_GG[1:, 0] * sqrV_G[1:] * sqrV0
-            elif self.integrate_gamma == 0 and pd.kd.gamma:
-                # Analytical integration at gamma
-                bzvol = (2 * np.pi)**3 / self.vol / self.qd.nbzkpts
-                Rq0 = (3 * bzvol / (4 * np.pi))**(1. / 3.)
-                V0 = 16 * np.pi**2 * Rq0 / bzvol
-                sqrV0 = (4 * np.pi)**(1.5) * Rq0**2 / bzvol / 2
-                W_GG[0, 0] = einv_GG[0, 0] * V0
-                W_GG[0, 1:] = einv_GG[0, 1:] * sqrV0 * sqrV_G[1:]
-                W_GG[1:, 0] = einv_GG[1:, 0] * sqrV_G[1:] * sqrV0
-            else:
-                pass
-
-            if pd.kd.gamma:
-                e = 1 / einv_GG[0, 0].real
-                print('    RPA dielectric constant is: %3.3f' % e,
-                      file=self.fd)
+            # pd, chi0_wGG, chi0_wxvG, chi0_wvv = self._calculate_chi0(q_c)
+            chi0 = self._calculate_chi0(q_c)
+            pd, W_wGG = self._wcalc.calculate_q(iq, q_c, chi0)
+            W_GG = W_wGG[0]
             self.Q_qaGii.append(self._chi0calc.Q_aGii)
             self.pd_q.append(pd)
             self.W_qGG.append(W_GG)
@@ -691,7 +621,7 @@ class BSE:
 
         return
 
-    def get_bse_matrix(self, q_c=[0.0, 0.0, 0.0], direction=0, ac=1.0,
+    def get_bse_matrix(self, q_c=[0.0, 0.0, 0.0], direction=0,
                        readfile=None, optical=True, write_eig=None):
         """Calculate and diagonalize BSE matrix"""
 
@@ -699,7 +629,7 @@ class BSE:
         self.direction = direction
 
         if readfile is None:
-            self.calculate(optical=optical, ac=ac)
+            self.calculate(optical=optical)
             if hasattr(self, 'w_T'):
                 return
             self.diagonalize()
@@ -718,11 +648,11 @@ class BSE:
         return
 
     def get_vchi(self, w_w=None, eta=0.1, q_c=[0.0, 0.0, 0.0],
-                 direction=0, ac=1.0, readfile=None, optical=True,
+                 direction=0, readfile=None, optical=True,
                  write_eig=None):
         """Returns v * chi where v is the bare Coulomb interaction"""
 
-        self.get_bse_matrix(q_c=q_c, direction=direction, ac=ac,
+        self.get_bse_matrix(q_c=q_c, direction=direction,
                             readfile=readfile, optical=optical,
                             write_eig=write_eig)
 
@@ -776,9 +706,7 @@ class BSE:
             vchi_w /= np.dot(q_v, q_v)
 
         """Check f-sum rule."""
-        # XXX again we are accessing nvalence from setups rather than wfs,
-        # which may not be the right value if system is charged
-        nv = self.gs.setups.nvalence
+        nv = self.gs.nvalence
         dw_w = (w_w[1:] - w_w[:-1]) / Hartree
         wchi_w = (w_w[1:] * vchi_w[1:] + w_w[:-1] * vchi_w[:-1]) / Hartree / 2
         N = -np.dot(dw_w, wchi_w.imag) * self.vol / (2 * np.pi**2)
@@ -796,7 +724,7 @@ class BSE:
                           file=f)
                 f.close()
 
-        return vchi_w * ac
+        return vchi_w
 
     def get_dielectric_function(self, w_w=None, eta=0.1,
                                 q_c=[0.0, 0.0, 0.0], direction=0,
@@ -1067,8 +995,7 @@ class BSE:
         p('Atoms                          :',
           self.gs.atoms.get_chemical_formula(mode='hill'))
         p('Ground state XC functional     :', self.gs.xcname)
-        # XXX Maybe gs.nvalence instread ???
-        p('Valence electrons              :', self.gs.setups.nvalence)
+        p('Valence electrons              :', self.gs.nvalence)
         p('Spinor calculations            :', self.spinors)
         p('Number of bands                :', self.gs.bd.nbands)
         p('Number of spins                :', self.gs.nspins)

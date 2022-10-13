@@ -69,7 +69,7 @@ class UniformGrid(Domain):
         Domain.__init__(self, cell, pbc, kpt, comm, dtype)
         self.myshape = tuple(self.mysize_c)
 
-        self.dv = abs(np.linalg.det(self.cell_cv)) / self.size_c.prod()
+        self.dv = self.volume / self.size_c.prod()
 
     @property
     def size(self):

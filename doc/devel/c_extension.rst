@@ -10,7 +10,7 @@ demonstrated how a C function is made available to Python through a
 Python extension (more details can be found in the official `Python
 documentation`_.  The wrapper code from ``c/blas.c`` shows how to wrap
 the two BLAS functions ``daxpy`` and ``zaxpy`` in Python::
-  
+
  PyObject* axpy(PyObject *self, PyObject *args)
  {
    PyObject* alpha;
@@ -63,7 +63,7 @@ We could use the C extension code directly as::
   x = np.array([1.1, 1.2, 1.3])
   y = np.zeros(3)
   _gpaw.axpy(a, x, y)
- 
+
 Instead, we wrap the code in a Python function ``axpy``
 in the file ``gpaw/utilities/blas.py``::
 
@@ -86,6 +86,21 @@ those checks in the C code (where it would be much more cumbersome to
 code).  If the code is run in production mode (``debug == False``,
 default), then the Python wrapper function is bypassed for calls to
 the function.
+
+
+Versioning of the C-code
+========================
+
+Please update the version number in :git:`c/_gpaw.c` and
+:git:`gpaw/__init__.py` whenever changes are made that will make the Python
+code not work with the old C-code.
+
+Version numbers:
+
+1) Jun 29, 2022: Compatibilty with numpy-1.23 (:mr:`1181`).
+2) Sep 7, 2022: Remove old spherical harmonics C-code and add `\ell=7`
+   functions (:mr:`914`)
+3) ...
 
 
 .. _Python documentation: http://docs.python.org/extending/index.html

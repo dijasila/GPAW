@@ -92,7 +92,6 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
 
         # vt_sG[:] = pd2.ifft(vt_Q)
         eext = self.vext.update_potential_pw(self, dens)
-        eext /= self.finegd.comm.size
 
         self.timer.start('XC 3D grid')
 

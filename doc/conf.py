@@ -25,9 +25,11 @@ extensions = ['images',
 
 if sphinxcontrib:
     extensions.append('sphinxcontrib.spelling')
-extlinks = {'doi': ('https://doi.org/%s', 'doi: %s'),
-            'arxiv': ('https://arxiv.org/abs/%s', 'arXiv: %s'),
-            'xkcd': ('https://xkcd.com/%s', 'XKCD: %s')}
+extlinks = {
+    'doi': ('https://doi.org/%s', 'doi: %s'),
+    'arxiv': ('https://arxiv.org/abs/%s', 'arXiv: %s'),
+    'mr': ('https://gitlab.com/gpaw/gpaw/-/merge_requests/%s', 'MR: !%s'),
+    'xkcd': ('https://xkcd.com/%s', 'XKCD: %s')}
 spelling_word_list_filename = 'words.txt'
 spelling_show_suggestions = True
 templates_path = ['templates']

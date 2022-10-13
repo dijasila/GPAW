@@ -39,6 +39,9 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         self.vbar_ag.add_to(self.vbar_g)
         self.vbar0_g = self.vbar_g.gather()
 
+        self._nt_g = None
+        self._vt_g = None
+
     def calculate_charges(self, vHt_h):
         return self.ghat_aLh.integrate(vHt_h)
 
@@ -126,6 +129,8 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
 
         e_external = 0.0
 
+        self._reset()
+
         return {'kinetic': e_kinetic,
                 'coulomb': e_coulomb,
                 'zero': e_zero,
@@ -151,22 +156,37 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         self.vbar0_g = self.vbar_g.gather()
         self.nct_aR.move(fracpos_ac)
         self.nct_aR.to_uniform_grid(out=self.nct_R, scale=1.0 / ndensities)
+        self._reset()
+
+    def _reset(self):
+        self._vt_g = None
+        self._nt_g = None
+
+    def _force_stress_helper(self, state):
+        if self._vt_g is None:
+            density = state.density
+            potential = state.potential
+            nt_R = density.nt_sR[0]
+            vt_R = potential.vt_sR[0]
+            if density.ndensities > 1:
+                nt_R = nt_R.desc.empty()
+                nt_R.data[:] = density.nt_sR.data[:density.ndensities].sum(
+                    axis=0)
+                vt_R = vt_R.desc.empty()
+                vt_R.data[:] = (
+                    potential.vt_sR.data[:density.ndensities].sum(axis=0) /
+                    density.ndensities)
+            self._vt_g = vt_R.fft(self.fftplan, pw=self.pw)
+            self._nt_g = nt_R.fft(self.fftplan, pw=self.pw)
+        return self._vt_g, self._nt_g
 
     def force_contributions(self, state):
-        density = state.density
-        potential = state.potential
-        nt_R = density.nt_sR[0]
-        vt_R = potential.vt_sR[0]
-        if density.ndensities > 1:
-            nt_R = nt_R.desc.empty()
-            nt_R.data[:] = density.nt_sR.data[:density.ndensities].sum(axis=0)
-            vt_R = vt_R.desc.empty()
-            vt_R.data[:] = (
-                potential.vt_sR.data[:density.ndensities].sum(axis=0) /
-                density.ndensities)
-        vt_g = vt_R.fft(self.fftplan, pw=self.pw)
-        nt_g = nt_R.fft(self.fftplan, pw=self.pw)
+        vt_g, nt_g = self._force_stress_helper(state)
 
         return (self.ghat_aLh.derivative(state.vHt_x),
                 self.nct_ag.derivative(vt_g),
                 self.vbar_ag.derivative(nt_g))
+
+    def stress_contributions(self, state):
+        vt_g, nt_g = self._force_stress_helper(state)
+        return ...

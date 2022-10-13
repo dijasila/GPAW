@@ -1,5 +1,10 @@
+from pathlib import Path
+
 import numpy as np
+
 from ase.units import Ha, Bohr
+
+import gpaw.mpi as mpi
 
 
 class ResponseGroundStateAdapter:
@@ -31,6 +36,29 @@ class ResponseGroundStateAdapter:
         self._hamiltonian = calc.hamiltonian
         self._calc = calc
 
+    @staticmethod
+    def from_gpw_file(gpw, context=None):
+        """Initiate the ground state adapter directly from a .gpw file."""
+        from gpaw import GPAW, disable_dry_run
+        assert Path(gpw).is_file()
+
+        if context is None:
+            def timer(*unused):
+                def __enter__(self):
+                    pass
+
+                def __exit__(self):
+                    pass
+        else:
+            timer = context.timer
+            context.print('Reading ground state calculation:\n  %s' % gpw)
+
+        with timer('Read ground state'):
+            with disable_dry_run():
+                calc = GPAW(gpw, txt=None, communicator=mpi.serial_comm)
+
+        return ResponseGroundStateAdapter(calc)
+
     @property
     def pd(self):
         # This is an attribute error in FD/LCAO mode.
@@ -58,17 +86,17 @@ class ResponseGroundStateAdapter:
         return abs(np.linalg.det(cell_cv[nonpbc][:, nonpbc]))
 
     @property
-    def nt_sG(self):
-        # Used by kxc
+    def nt_sR(self):
+        # Used by fxc_kernels
         return self._density.nt_sG
 
     @property
     def D_asp(self):
-        # Used by kxc
+        # Used by fxc_kernels
         return self._density.D_asp
 
     def all_electron_density(self, gridrefinement=2):
-        # used by kxc
+        # Used by fxc_kernels
         return self._density.get_all_electron_density(
             atoms=self.atoms, gridrefinement=gridrefinement)
 

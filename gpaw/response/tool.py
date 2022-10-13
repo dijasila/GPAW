@@ -94,13 +94,13 @@ def get_chi0_integrand(pair, pd, n_n, m_m, k_v, s):
     and energy differences of transitions from certain kpoint
     and spin.
     """
-
     k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
 
     kptpair = pair.get_kpoint_pair(pd, s, k_c, n_n[0], n_n[-1] + 1,
                                    m_m[0], m_m[-1] + 1)
 
-    n_nmG = pair.get_pair_density(pd, kptpair, n_n, m_m)
+    n_nmG = pair.get_full_pair_density(pd, kptpair, n_n, m_m)
+
     df_nm = kptpair.get_occupation_differences(n_n, m_m)
     eps_n = kptpair.kpt1.eps_n
     eps_m = kptpair.kpt2.eps_n

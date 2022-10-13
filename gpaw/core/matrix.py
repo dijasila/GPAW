@@ -449,7 +449,8 @@ class Matrix:
     def add_hermitian_conjugate(self, scale: float = 1.0) -> None:
         """Add hermitian conjugate to myself."""
         if self.dist.comm.size == 1:
-            self.data *= 0.5
+            if scale != 1.0:
+                self.data *= scale
             self.data += self.data.conj().T
             return
         tmp = self.copy()

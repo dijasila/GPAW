@@ -19,10 +19,10 @@ def test_rpa_rpa_energy_N2(in_tmp_dir, scalapack):
     N2.calc = calc
     E_n2_pbe = N2.get_potential_energy()
 
+    E_n2_hf = nsc_energy(N2.calc, 'EXX')
+
     calc.diagonalize_full_hamiltonian(nbands=104, scalapack=True)
     calc.write('N2.gpw', mode='all')
-
-    E_n2_hf = nsc_energy('N2.gpw', 'EXX')
 
     rpa = RPACorrelation('N2.gpw', nfrequencies=8)
     E_n2_rpa = rpa.calculate(ecut=[ecut])

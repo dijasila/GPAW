@@ -17,10 +17,12 @@ from ase.dft.kpoints import monkhorst_pack
 from ase.parallel import parprint
 
 from gpaw import GPAW, PW
-from gpaw.response.tms import TransverseMagneticSusceptibility
-from gpaw.response.susceptibility import read_macroscopic_component
 from gpaw.test import findpeak, equal
 from gpaw.mpi import world
+
+from gpaw.response import ResponseGroundStateAdapter
+from gpaw.response.tms import TransverseMagneticSusceptibility
+from gpaw.response.susceptibility import read_macroscopic_component
 
 
 pytestmark = pytest.mark.skipif(world.size < 4, reason='world.size < 4')
@@ -89,11 +91,12 @@ def test_response_iron_sf_ALDA(in_tmp_dir, scalapack):
     t2 = time.time()
 
     # Part 2: magnetic response calculation
+    gs = ResponseGroundStateAdapter(calc)
 
     for s, ((rshelmax, rshewmin, bandsummation, bundle_integrals,
              disable_syms), frq_w) in enumerate(zip(strat_sd, frq_sw)):
         tms = TransverseMagneticSusceptibility(
-            calc,
+            gs,
             fxc=fxc,
             eta=eta,
             ecut=ecut,
@@ -107,7 +110,7 @@ def test_response_iron_sf_ALDA(in_tmp_dir, scalapack):
         tms.get_macroscopic_component(
             '+-', q_c, frq_w,
             filename='iron_dsus' + '_G%d.csv' % (s + 1))
-        tms.write_timer()
+        tms.context.write_timer()
 
     t3 = time.time()
 
