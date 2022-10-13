@@ -152,7 +152,21 @@ class WCalculator:
             sqrtV_G,
             fd=self.fd if print_ac else None)
 
-# calculate_q wrapper
+    def calc_in_Wannier(self,Uwan):
+        """
+        #from bse
+	for iq, q_c in enumerate(self.qd.ibzk_kc):
+            # pd, chi0_wGG, chi0_wxvG, chi0_wvv = self._calculate_chi0(q_c)                                                                                                                                 
+            chi0 = self._calculate_chi0(q_c)
+            pd, W_wGG = self._wcalc.calculate_q(iq, q_c, chi0)
+            W_GG = W_wGG[0]
+            self.Q_qaGii.append(self._chi0calc.Q_aGii)
+            self.pd_q.append(pd)
+            self.W_qGG.append(W_GG)
+
+        """
+        
+    # calculate_q wrapper
     def calculate_q(self, iq, q_c, chi0):
         if self.truncation == 'wigner-seitz':
             wstc = WignerSeitzTruncatedCoulomb(
