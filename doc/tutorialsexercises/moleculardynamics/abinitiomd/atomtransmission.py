@@ -16,7 +16,7 @@ gra.center()
 # Starting position of the projectile with an impact point at the
 # center of a hexagon.
 # Set mass to one atomic mass unit to avoid isotope average.
-atoms = gra + Atoms('H', mass=1.0)
+atoms = gra + Atoms('H', masses=[1.0])
 d = a / 3**0.5
 atoms.positions[-1] = atoms.positions[22] + (0, d, 5)
 atoms.pbc = (True, True, True)
