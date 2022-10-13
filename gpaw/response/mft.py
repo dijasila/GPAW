@@ -33,7 +33,7 @@ class IsotropicExchangeCalculator:
     Heisenberg model. This is not a uniquely defined procedure, why the user
     has to define them externally through the SiteKernels interface."""
 
-    def __init__(self, chiks):
+    def __init__(self, chiks, localft_calc):
         """Construct the IsotropicExchangeCalculator object
 
         Parameters
@@ -55,12 +55,11 @@ class IsotropicExchangeCalculator:
         self.chiks = chiks
         self.context = chiks.context
 
-        # Initialize the B^(xc) calculator
-        # Once the response context object is ready, the user should be allowed
-        # to supply the Bxc_calc themselves. This will expose the rshe
-        # arguments to the user, which is not the case at present. XXX
-        self.localft_calc = LocalFTCalculator.from_rshe_parameters(
-            self.chiks.gs, self.context)
+        # Check assumed properties of the LocalFTCalculator
+        assert isinstance(localft_calc, LocalFTCalculator)
+        assert localft_calc.context is self.context
+        assert localft_calc.gs is chiks.gs
+        self.localft_calc = localft_calc
 
         # Bxc field buffer
         self._Bxc_G = None

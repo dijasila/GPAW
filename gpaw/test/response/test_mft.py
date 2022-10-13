@@ -12,8 +12,9 @@ from ase.build import bulk
 from gpaw import GPAW, PW, FermiDirac
 from gpaw import mpi
 
-from gpaw.response import ResponseGroundStateAdapter
+from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chiks import ChiKS
+from gpaw.response.localft import LocalFTCalculator, LocalPAWFTCalculator
 from gpaw.response.mft import IsotropicExchangeCalculator
 from gpaw.response.site_kernels import (SphericalSiteKernels,
                                         CylindricalSiteKernels,
@@ -86,10 +87,12 @@ def test_Fe_bcc(in_tmp_dir):
 
     # Initialize the exchange calculator
     gs = ResponseGroundStateAdapter(calc)
-    chiks = ChiKS(gs,
+    context = ResponseContext()
+    chiks = ChiKS(gs, context,
                   ecut=ecut, nbands=nbands, eta=eta,
                   gammacentered=True)
-    isoexch_calc = IsotropicExchangeCalculator(chiks)
+    localft_calc = LocalFTCalculator.from_rshe_parameters(gs, context)
+    isoexch_calc = IsotropicExchangeCalculator(chiks, localft_calc)
 
     # Allocate array for the exchange constants
     nq = len(q_qc)
@@ -212,16 +215,18 @@ def test_Co_hcp(in_tmp_dir):
     # Initialize the exchange calculator with and without eta,
     # as well as with and without symmetry
     gs = ResponseGroundStateAdapter(calc)
-    chiks0 = ChiKS(gs,
+    context = ResponseContext()
+    chiks0 = ChiKS(gs, context,
                    disable_point_group=True,
                    disable_time_reversal=True,
                    ecut=ecut, nbands=nbands, eta=eta0,
                    gammacentered=True)
-    isoexch_calc0 = IsotropicExchangeCalculator(chiks0)
-    chiks1 = ChiKS(gs,
+    localft_calc = LocalPAWFTCalculator(gs, context)
+    isoexch_calc0 = IsotropicExchangeCalculator(chiks0, localft_calc)
+    chiks1 = ChiKS(gs, context,
                    ecut=ecut, nbands=nbands, eta=eta1,
                    gammacentered=True)
-    isoexch_calc1 = IsotropicExchangeCalculator(chiks1)
+    isoexch_calc1 = IsotropicExchangeCalculator(chiks1, localft_calc)
 
     # Allocate array for the spherical site exchange constants
     nq = len(q_qc)
