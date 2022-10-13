@@ -12,6 +12,8 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.23.0b1
 
+* Updated RPA-energy tutorial: :ref:`c2cu rpa`.
+
 
 Version 22.8.0
 ==============

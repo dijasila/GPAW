@@ -135,6 +135,8 @@ of RPA thus only comes into play for systems where dispersive interactions
 dominate.
 
 
+.. _c2cu rpa:
+
 Example 2: Adsorption of graphene on metal surfaces
 ===================================================
 
