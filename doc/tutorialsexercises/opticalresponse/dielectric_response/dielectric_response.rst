@@ -140,6 +140,7 @@ Fermi-smearing in GPAW. This will be dealt with in the following more realistic
 calculation.
 
 .. image:: si_abs.png
+    :height: 400 px
     :align: center
 
 
