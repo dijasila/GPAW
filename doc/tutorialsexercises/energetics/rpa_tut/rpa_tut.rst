@@ -156,7 +156,7 @@ smearing to 0.01 eV. Due to the long range nature of the van der Waals
 interactions, a lot of vacuum have been included above the slab. The
 calculation should be parallelized over spin and irreducible *k*-points.
 
-The RPA calculations are rather time consuming (~ 100 CPU hours per distance
+The RPA calculations are rather time consuming (~50 CPU hours per distance
 point), but can be parallelized very efficiently over bands, k-points
 (default) and frequencies (needs to be specified). Here we have changed the
 frequency scale from the default value of 2.0 to 2.5 to increase the density
