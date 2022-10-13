@@ -6,9 +6,11 @@ import numpy as np
 
 # Script modules
 from gpaw.mpi import rank
+from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.site_kernels import (SphericalSiteKernels,
                                         ParallelepipedicSiteKernels)
 from gpaw.response.chiks import ChiKS
+from gpaw.response.localft import LocalPAWFTCalculator
 from gpaw.response.mft import IsotropicExchangeCalculator
 
 
@@ -43,18 +45,26 @@ rc_r = np.linspace(0.5, 1.75, 51)
 
 # ---------- Script ---------- #
 
+# Initialize the ResponseContext and ResponseGroundStateAdapter, which are
+# responsible for output file handling and ground state data extraction in the
+# response code respectively
+context = ResponseContext(txt='Fe_mft.txt')
+gs = ResponseGroundStateAdapter.from_gpw_file(gpw, context=context)
+# We extract the atoms directly from the ground state adapter
+atoms = gs.atoms
+
 # Initialize the ChiKS calculator, which is responsible for computing the
 # transverse magnetic susceptibility of the Kohn-Sham system
-chiks = ChiKS(gpw,
+chiks = ChiKS(gs, context,
               ecut=ecut, nbands=nbands, eta=eta,
-              gammacentered=True,  # Plane wave basis needs to be q-invariant
-              txt='Fe_chiks.txt')
-# When initialized from a file, the ChiKS calculator has a serial copy of
-# the ground state calculator. From it, we extract the atoms
-atoms = chiks.calc.atoms
+              gammacentered=True)  # Plane wave basis needs to be q-invariant
+
+# Initialize the LocalFTCalculator, which is responsible for computing the
+# plane-wave components of B^(xc)
+localft_calc = LocalPAWFTCalculator(gs, context)
 
 # Initialize the exchange calculator
-isoexch_calc = IsotropicExchangeCalculator(chiks)
+isoexch_calc = IsotropicExchangeCalculator(chiks, localft_calc)
 
 # Initialize the site kernels
 positions = atoms.positions  # sublattice positions
