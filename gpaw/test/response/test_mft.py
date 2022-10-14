@@ -99,16 +99,21 @@ def test_Fe_bcc(in_tmp_dir):
     nsites = sitekernels.nsites
     npartitions = sitekernels.npartitions
     J_qabp = np.empty((nq, nsites, nsites, npartitions), dtype=complex)
+    Jcorr_qabp = np.empty((nq, nsites, nsites, npartitions), dtype=complex)
 
     # Calcualate the exchange constant for each q-point
     for q, q_c in enumerate(q_qc):
         J_qabp[q] = isoexch_calc(q_c, sitekernels)
+        Jcorr_qabp[q] = isoexch_calc(q_c, sitekernels, goldstone_corr=True)
     # Since we only have a single site, reduce the array
     J_qp = J_qabp[:, 0, 0, :]
+    Jcorr_qp = Jcorr_qabp[:, 0, 0, :]
 
     # Calculate the magnon energies
     mm_ap = mm * np.ones((1, npartitions))  # Magnetic moments
     mw_qp = calculate_fm_magnon_energies(J_qabp, q_qc, mm_ap)[:, 0, :]
+    mwcorr_qp = calculate_fm_magnon_energies(Jcorr_qabp, q_qc,
+                                             mm_ap)[:, 0, :]
 
     # Part 3: Compare results to test values
     test_J_pq = np.array([[1.61655323, 0.88149124, 1.10008928],
@@ -118,6 +123,13 @@ def test_Fe_bcc(in_tmp_dir):
                           [1.734752, 0.87124284, 1.13880145],
                           [3.82381708, 0.31159032, 1.18094396],
                           [1.79888576, 0.92972442, 1.2054906]])
+    test_Jcorr_pq = np.array([[1.95759780, 1.07330322, 1.35750894],
+                              [2.23204696, 1.13209006, 1.49725225],
+                              [5.54876640, 0.26737450, 1.60165340],
+                              [1.39200645, 0.75656477, 0.98147728],
+                              [2.08586484, 1.07289269, 1.39945063],
+                              [4.53659562, 0.37610478, 1.44762008],
+                              [2.16040169, 1.12318879, 1.47239633]])
     test_mw_pq = np.array([[0., 0.66521177, 0.46738581],
                            [0., 0.84222041, 0.57640002],
                            [0., 4.05369028, 3.07212255],
@@ -125,13 +137,23 @@ def test_Fe_bcc(in_tmp_dir):
                            [0., 0.78145439, 0.53931965],
                            [0., 3.17848551, 2.39173871],
                            [0., 0.78656857, 0.5370069]])
+    test_mwcorr_pq = np.array([[0., 0.80026658, 0.54353597],
+                               [0., 0.99543611, 0.66547613],
+                               [0., 4.77954018, 3.57257421],
+                               [0., 0.57506034, 0.37186035],
+                               [0., 0.91671688, 0.62166507],
+                               [0., 3.76515008, 2.79593925],
+                               [0., 0.93865420, 0.62313018]])
 
     # Exchange constants
     assert np.allclose(J_qp.imag, 0.)
     assert np.allclose(J_qp.real, test_J_pq.T, rtol=2e-3)
+    assert np.allclose(Jcorr_qp.imag, 0.)
+    assert np.allclose(Jcorr_qp.real, test_Jcorr_pq.T, rtol=2e-3)
     
     # Magnon energies
     assert np.allclose(mw_qp, test_mw_pq.T, rtol=2e-3)
+    assert np.allclose(mwcorr_qp, test_mwcorr_pq.T, rtol=2e-3)
 
 
 @pytest.mark.response

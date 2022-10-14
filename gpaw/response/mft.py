@@ -204,13 +204,19 @@ class IsotropicExchangeCalculator:
         identity will be slightly broken leading to a Goldstone inconsistency.
 
         To correct for this inconsistency, we may choose to add a minimal
-        correction, first suggested in [PRB 85, 054305 (2012)],
+        correction [paper in preparation],
 
-                                         <B^(xc)|
-        δχ_KS^('+-) = (|m> - |m^χ>) ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
-                                    2 <B^(xc)|B^(xc)>
+        2 δχ_KS^('+-) = |δm><B^(xc)| + |B^(xc)><δm|
+
+                                     <δm|B^(xc)>
+                        - |B^(xc)> ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾ <B^(xc)|
+                                   <B^(xc)|B^(xc)>
 
         where
+
+        |δm> = |m> - |m^χ>
+
+        with:
 
         |m^χ> = 2 χ_KS^('+-)(q=0) |B^(xc)>.
         """
@@ -219,8 +225,12 @@ class IsotropicExchangeCalculator:
         Bxc_G = self.get_Bxc()
 
         mchi_G = 2. * chiksr0_GG @ Bxc_G
+        dm_G = m_G - mchi_G
 
-        chiksr_corr_GG = np.outer((m_G - mchi_G) / 2.,
-                                  np.conj(Bxc_G) / np.linalg.norm(Bxc_G)**2.)
+        chiksr_corr_GG = np.outer(dm_G, np.conj(Bxc_G))\
+            + np.outer(Bxc_G, np.conj(dm_G))\
+            - np.outer(Bxc_G, np.conj(Bxc_G))\
+            * np.dot(np.conj(dm_G), Bxc_G) / np.dot(np.conj(Bxc_G), Bxc_G)
+        chiksr_corr_GG /= 2.
 
         return chiksr_corr_GG
