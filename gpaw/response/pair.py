@@ -283,15 +283,15 @@ class NoCalculatorPairDensity:
 
         return KPointPair(kpt1, kpt2, Q_G)
 
-    def get_full_pair_density(self, pd, kptpair, n_n, m_m,
-                              Q_aGii=None, block=False):
+    def get_full_pair_density(self, pd, kptpair, n_n, m_m, *,
+                              pawcorr, block=False):
         """Get the full pair density, including the optical limit head for q=0.
         """
         q_c = pd.kd.bzk_kc[0]
         optical_limit = np.allclose(q_c, 0.0)
 
         tmp_nmG = self.get_pair_density(pd, kptpair, n_n, m_m,
-                                        Q_aGii=Q_aGii, block=block)
+                                        pawcorr=pawcorr, block=block)
         if optical_limit:
             nG = pd.ngmax
             n_nmG = np.empty((len(n_n), len(m_m), nG + 2), dtype=tmp_nmG.dtype)
@@ -305,13 +305,10 @@ class NoCalculatorPairDensity:
         return n_nmG
 
     @timer('get_pair_density')
-    def get_pair_density(self, pd, kptpair, n_n, m_m,
-                         Q_aGii=None, block=False):
+    def get_pair_density(self, pd, kptpair, n_n, m_m, *,
+                         pawcorr, block=False):
         """Get pair density for a kpoint pair."""
         cpd = self.calculate_pair_density
-
-        if Q_aGii is None:
-            Q_aGii = self.initialize_paw_corrections(pd)
 
         kpt1 = kptpair.kpt1
         kpt2 = kptpair.kpt2
@@ -325,8 +322,7 @@ class NoCalculatorPairDensity:
             with self.timer('conj'):
                 ut1cc_R = kpt1.ut_nR[n - kpt1.na].conj()
             with self.timer('paw'):
-                C1_aGi = [np.dot(Q_Gii, P1_ni[n - kpt1.na].conj())
-                          for Q_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
+                C1_aGi = pawcorr.multiply(kpt1.P_ani, band=n - kpt1.na)
                 n_nmG[j] = cpd(ut1cc_R, C1_aGi, kpt2, pd, Q_G, block=block)
 
         return n_nmG
@@ -548,13 +544,6 @@ class NoCalculatorPairDensity:
         from gpaw.response.symmetry_ops import construct_symmetry_operators
         return construct_symmetry_operators(
             self.gs, K, k_c, apply_strange_shift=False)
-
-    @timer('Initialize PAW corrections')
-    def initialize_paw_corrections(self, pd):
-        from gpaw.response.paw import calculate_paw_corrections
-        return calculate_paw_corrections(
-            setups=self.gs.setups, pd=pd,
-            spos_ac=self.spos_ac)
 
     def calculate_derivatives(self, kpt):
         ut_sKnvR = [{}, {}]

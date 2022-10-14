@@ -154,3 +154,12 @@ class ResponseGroundStateAdapter:
         # XXX used by gpaw/xc/tools.py in a hacky way
         return self._wfs._get_wave_function_array(
             u, n, realspace=True)
+
+    def paw_corrections(self, pd):
+        from gpaw.response.paw import calculate_paw_corrections
+        return calculate_paw_corrections(
+            setups=self.setups, spos_ac=self.spos_ac, pd=pd)
+
+    def get_pos_av(self):
+        # gd.cell_cv must always be the same as pd.gd.cell_cv, right??
+        return np.dot(self.spos_ac, self.gd.cell_cv)
