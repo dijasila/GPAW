@@ -1,4 +1,5 @@
 # web-page: mac_eps.csv
+# literalinclude0
 # Refer to G. Kresse, Phys. Rev. B 73, 045112 (2006)
 # for comparison of macroscopic and microscopic dielectric constant
 # and absorption peaks.
@@ -29,14 +30,14 @@ calc = calc.fixed_density(
 
 calc.diagonalize_full_hamiltonian(nbands=70)  # diagonalize Hamiltonian
 calc.write('si_large.gpw', 'all')  # write wavefunctions
-
+# literalinclude1
 # Getting absorption spectrum
 df = DielectricFunction(calc='si_large.gpw',
                         eta=0.05,
                         domega0=0.02,
                         ecut=150)
 df.get_dielectric_function(filename='si_abs.csv')
-
+# literalinclude2
 # Getting macroscopic constant
 df = DielectricFunction(calc='si_large.gpw',
                         frequencies=[0.0],
