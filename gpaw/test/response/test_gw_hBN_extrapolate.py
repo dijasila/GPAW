@@ -1,5 +1,5 @@
-""" Tests extrapolation to infinite energy cutoff + block paralellization.
-It takes ~109 s on one core"""
+""" Tests extrapolation to infinite energy cutoff + block parallelization.
+It takes ~10 s on one core"""
 
 import pytest
 from gpaw.test import equal

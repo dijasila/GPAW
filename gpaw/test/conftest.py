@@ -95,13 +95,16 @@ def gpw_files(request, tmp_path_factory):
     * Bulk BN (zinkblende) with 2x2x2 k-points and 9 converged bands:
       ``bn_pw``.
 
+    * h-BN layer with 3x3x1 (gamma center) k-points and 26 converged bands:
+      ``hbn_pw``.
+
     * Graphene with 6x6x1 k-points: ``graphene_pw``
 
     * MoS2 with 6x6x1 k-points: ``mos2_pw``
 
     * Bulk Si, LDA, 2x2x2 k-point (gamma centered): ``si_pw``
 
-    Files with wave functions are also availabe (add ``_wfs`` to the names).
+    Files with wave functions are also available (add ``_wfs`` to the names).
     """
     path = os.environ.get('GPW_TEST_FILES')
     if not path:
