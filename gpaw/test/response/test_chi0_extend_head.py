@@ -47,22 +47,25 @@ def generate_semic_chi0_params():
     ck2['frequencies'] = None
     chi0_params.append(ck2)
 
-    ck3 = chi0kwargs.copy()  # Check timeordering
+    ck3 = chi0kwargs.copy()  # Check time ordering wo. hilbert
     ck3['timeordered'] = True
     chi0_params.append(ck3)
-
-    ck4 = chi0kwargs.copy()  # Check nbands
-    ck4['nbands'] = None
+    ck4 = ck2.copy()  # Check time ordering w. hilbert
+    ck4['timeordered'] = True
     chi0_params.append(ck4)
 
-    ck5 = chi0kwargs.copy()  # Check eta=0.
-    ck5['frequencies'] = 1.j * ck5['frequencies'][1:]
-    ck5['eta'] = 0.
+    ck5 = chi0kwargs.copy()  # Check nbands
+    ck5['nbands'] = None
     chi0_params.append(ck5)
 
-    ck6 = chi0kwargs.copy()  # Check real space derivs.
-    ck6['real_space_derivatives'] = True
+    ck6 = chi0kwargs.copy()  # Check eta=0.
+    ck6['frequencies'] = 1.j * ck6['frequencies'][1:]
+    ck6['eta'] = 0.
     chi0_params.append(ck6)
+
+    ck7 = chi0kwargs.copy()  # Check real space derivs.
+    ck7['real_space_derivatives'] = True
+    chi0_params.append(ck7)
 
     return chi0_params
 
