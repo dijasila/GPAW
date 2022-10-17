@@ -425,9 +425,14 @@ class Chi0Calculator:
             # Again, not so pretty but that's how it is
             plasmafreq_vv = plasmafreq_wvv[0].copy()
             if self.include_intraband:
-                drude_chi_wvv = plasmafreq_vv[np.newaxis]\
-                    / (self.wd.omega_w[:, np.newaxis, np.newaxis]
-                       + 1.j * self.rate)**2
+                try:
+                    with np.errstate(divide='raise'):
+                        drude_chi_wvv = (
+                            plasmafreq_vv[np.newaxis] /
+                            (self.wd.omega_w[:, np.newaxis, np.newaxis]
+                             + 1.j * self.rate)**2)
+                except FloatingPointError:
+                    raise ValueError('Please set rate to a positive value.')
                 if chi0.extend_head:
                     va = min(chi0.blocks1d.a, 3)
                     vb = min(chi0.blocks1d.b, 3)
@@ -556,7 +561,7 @@ class Chi0Calculator:
         from gpaw.response.pw_parallelization import Blocks1D
         nG = chi0.pd.ngmax
         blocks1d = chi0.blocks1d
-            
+
         # The copy() is only required when doing GW_too, since we need
         # to run this whole thin twice.
         chi0_wGG = chi0.blockdist.redistribute(chi0.chi0_wGG.copy(), chi0.nw)
