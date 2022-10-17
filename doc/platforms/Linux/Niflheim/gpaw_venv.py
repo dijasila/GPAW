@@ -26,10 +26,14 @@ module load pytest-xdist/2.5.0-GCCcore-11.3.0
 module load Wannier90/3.1.0-{tchain}-2022a
 """
 
+# Loading imkl and setting FLEXIBLAS is a workaround for EasyBuild bug #16387
+# https://github.com/easybuilders/easybuild-easyconfigs/issues/16387
 module_cmds_tc = {
     'foss': """\
 module load libxc/5.2.3-GCC-11.3.0
 module load libvdwxc/0.4.0-foss-2022a
+module load imkl/2022.1.0
+export FLEXIBLAS=imkl
 """,
     'intel': """\
 module load libxc/5.2.3-intel-compilers-2022.1.0
