@@ -654,47 +654,19 @@ class G0W0Calculator:
         """Calculates a contribution to the self-energy and its derivative for
         a given (k, k-q)-pair from its corresponding pair-density and
         energy."""
-        o_m = abs(deps_m)
-        # Add small number to avoid zeros for degenerate states:
-        sgn_m = np.sign(deps_m + 1e-15)
+        from gpaw.response.sigma import SigmaCalculator
+        factor = 1.0 / (self.wcalc.qd.nbzkpts * 2 * pi * self.wcalc.gs.volume)
 
-        # Pick +i*eta or -i*eta:
-        s_m = (1 + sgn_m * np.sign(0.5 - f_m)).astype(int) // 2
+        calculator = SigmaCalculator(wd=self.wcalc.wd, factor=factor)
 
-        w_m = self.wcalc.wd.get_floor_index(o_m, safe=False)
-        m_inb = np.where(w_m < len(self.wcalc.wd) - 1)[0]
-        o1_m = np.empty(len(o_m))
-        o2_m = np.empty(len(o_m))
-        o1_m[m_inb] = self.wcalc.wd.omega_w[w_m[m_inb]]
-        o2_m[m_inb] = self.wcalc.wd.omega_w[w_m[m_inb] + 1]
-
-        x = 1.0 / (self.wcalc.qd.nbzkpts * 2 * pi * self.wcalc.gs.volume)
-        sigma = 0.0
-        dsigma = 0.0
-        # Performing frequency integration
-        for o, o1, o2, sgn, s, w, n_G in zip(o_m, o1_m, o2_m,
-                                             sgn_m, s_m, w_m, n_mG):
-
-            if w >= len(self.wcalc.wd.omega_w) - 1:
-                continue
-
-            C1_GG = C_swGG[s][w]
-            C2_GG = C_swGG[s][w + 1]
-            p = x * sgn
-            myn_G = n_G[blocks1d.myslice]
-
-            sigma1 = p * np.dot(np.dot(myn_G, C1_GG), n_G.conj()).imag
-            sigma2 = p * np.dot(np.dot(myn_G, C2_GG), n_G.conj()).imag
-            sigma += ((o - o1) * sigma2 + (o2 - o) * sigma1) / (o2 - o1)
-            dsigma += sgn * (sigma2 - sigma1) / (o2 - o1)
-
-        return sigma, dsigma
+        sigma = calculator.calculate_sigma(n_mG, deps_m, f_m, C_swGG, blocks1d)
+        return sigma
 
     def calculate_all_q_points(self):
         """Main loop over irreducible Brillouin zone points.
         Handles restarts of individual qpoints using FileCache from ASE,
         and subsequently calls calculate_q."""
-       
+
         pb = ProgressBar(self.fd)
 
         self.timer.start('W')
@@ -960,28 +932,10 @@ class G0W0Calculator:
 
     @timer('PPA-Sigma')
     def calculate_sigma_ppa(self, n_mG, deps_m, f_m, W, *unused):
-        W_GG, omegat_GG = W
-
-        sigma = 0.0
-        dsigma = 0.0
-
-        for m in range(len(n_mG)):
-            deps_GG = deps_m[m]
-            sign_GG = 2 * f_m[m] - 1
-            x1_GG = 1 / (deps_GG + omegat_GG - 1j * self.eta)
-            x2_GG = 1 / (deps_GG - omegat_GG + 1j * self.eta)
-            x3_GG = 1 / (deps_GG + omegat_GG - 1j * self.eta * sign_GG)
-            x4_GG = 1 / (deps_GG - omegat_GG - 1j * self.eta * sign_GG)
-            x_GG = W_GG * (sign_GG * (x1_GG - x2_GG) + x3_GG + x4_GG)
-            dx_GG = W_GG * (sign_GG * (x1_GG**2 - x2_GG**2) +
-                            x3_GG**2 + x4_GG**2)
-            nW_G = np.dot(n_mG[m], x_GG)
-            sigma += np.vdot(n_mG[m], nW_G).real
-            nW_G = np.dot(n_mG[m], dx_GG)
-            dsigma -= np.vdot(n_mG[m], nW_G).real
-
-        x = 1 / (self.wcalc.qd.nbzkpts * 2 * pi * self.wcalc.gs.volume)
-        return x * sigma, x * dsigma
+        from gpaw.response.sigma import PPASigmaCalculator
+        factor = 1 / (self.wcalc.qd.nbzkpts * 2 * pi * self.wcalc.gs.volume)
+        calculator = PPASigmaCalculator(eta=self.eta, factor=factor)
+        return calculator.calculate_sigma(n_mG, deps_m, f_m, W)
 
     def calculate_g0w0_outputs(self, sigma):
         eps_skn, f_skn = self.get_eps_and_occs()
