@@ -181,7 +181,6 @@ def assure_nbands(chi0kwargs, my_gs):
 
 @pytest.mark.response
 def test_he_chi0_extend_head(in_tmp_dir, He_gs, He_chi0kwargs, request):
-    mark_hilbert_xfail(He_chi0kwargs, request)
     chi0_extend_head_test(He_gs, He_chi0kwargs)
 
 
@@ -198,16 +197,7 @@ def test_ni_chi0_extend_head(in_tmp_dir, Ni_gs, Ni_chi0kwargs):
 @pytest.mark.response
 def test_graphene_chi0_extend_head(in_tmp_dir, graphene_gs,
                                    graphene_chi0kwargs, request):
-    mark_hilbert_xfail(graphene_chi0kwargs, request,
-                       custom_frequencies=True)
     chi0_extend_head_test(graphene_gs, graphene_chi0kwargs)
-
-
-def mark_hilbert_xfail(chi0kwargs, request, custom_frequencies=False):
-    if chi0kwargs['hilbert']:
-        if not custom_frequencies \
-           or isinstance(chi0kwargs['frequencies'], dict):
-            request.node.add_marker(pytest.mark.xfail)
 
 
 def chi0_extend_head_test(my_gs, chi0kwargs):
