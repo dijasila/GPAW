@@ -47,22 +47,25 @@ def generate_semic_chi0_params():
     ck2['frequencies'] = None
     chi0_params.append(ck2)
 
-    ck3 = chi0kwargs.copy()  # Check timeordering
+    ck3 = chi0kwargs.copy()  # Check time ordering wo. hilbert
     ck3['timeordered'] = True
     chi0_params.append(ck3)
-
-    ck4 = chi0kwargs.copy()  # Check nbands
-    ck4['nbands'] = None
+    ck4 = ck2.copy()  # Check time ordering w. hilbert
+    ck4['timeordered'] = True
     chi0_params.append(ck4)
 
-    ck5 = chi0kwargs.copy()  # Check eta=0.
-    ck5['frequencies'] = 1.j * ck5['frequencies'][1:]
-    ck5['eta'] = 0.
+    ck5 = chi0kwargs.copy()  # Check nbands
+    ck5['nbands'] = None
     chi0_params.append(ck5)
 
-    ck6 = chi0kwargs.copy()  # Check real space derivs.
-    ck6['real_space_derivatives'] = True
+    ck6 = chi0kwargs.copy()  # Check eta=0.
+    ck6['frequencies'] = 1.j * ck6['frequencies'][1:]
+    ck6['eta'] = 0.
     chi0_params.append(ck6)
+
+    ck7 = chi0kwargs.copy()  # Check real space derivs.
+    ck7['real_space_derivatives'] = True
+    chi0_params.append(ck7)
 
     return chi0_params
 
@@ -178,7 +181,6 @@ def assure_nbands(chi0kwargs, my_gs):
 
 @pytest.mark.response
 def test_he_chi0_extend_head(in_tmp_dir, He_gs, He_chi0kwargs, request):
-    mark_hilbert_xfail(He_chi0kwargs, request)
     chi0_extend_head_test(He_gs, He_chi0kwargs)
 
 
@@ -195,16 +197,7 @@ def test_ni_chi0_extend_head(in_tmp_dir, Ni_gs, Ni_chi0kwargs):
 @pytest.mark.response
 def test_graphene_chi0_extend_head(in_tmp_dir, graphene_gs,
                                    graphene_chi0kwargs, request):
-    mark_hilbert_xfail(graphene_chi0kwargs, request,
-                       custom_frequencies=True)
     chi0_extend_head_test(graphene_gs, graphene_chi0kwargs)
-
-
-def mark_hilbert_xfail(chi0kwargs, request, custom_frequencies=False):
-    if chi0kwargs['hilbert']:
-        if not custom_frequencies \
-           or isinstance(chi0kwargs['frequencies'], dict):
-            request.node.add_marker(pytest.mark.xfail)
 
 
 def chi0_extend_head_test(my_gs, chi0kwargs):
