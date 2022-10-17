@@ -265,6 +265,7 @@ def test_Co_hcp(in_tmp_dir):
     nsites = sitekernels.nsites
     npartitions = sitekernels.npartitions
     J_qabp = np.empty((nq, nsites, nsites, npartitions), dtype=complex)
+    Jcorr_qabp = np.empty((nq, nsites, nsites, npartitions), dtype=complex)
 
     # Allocate array for the unit cell site exchange constants
     Juc_qe = np.empty((nq, 2), dtype=complex)
@@ -272,6 +273,15 @@ def test_Co_hcp(in_tmp_dir):
     # Calcualate the exchange constants for each q-point
     for q, q_c in enumerate(q_qc):
         J_qabp[q] = isoexch_calc0(q_c, sitekernels)
+        Jcorr_qabp[q] = isoexch_calc0(q_c, sitekernels, goldstone_corr=True)
+        if np.allclose(q_c, 0.):
+            # Make sure that the correction is working as intended
+            pd0, chiksr0_GG = isoexch_calc0.get_chiksr(np.array([0., 0., 0.]))
+            m_G = isoexch_calc0.localft_calc(pd0, add_magnetization)
+            Bxc_G = isoexch_calc0.get_Bxc()
+            chiksr0_GG = chiksr0_GG + isoexch_calc0.get_goldstone_correction()
+            mchi_G = 2. * chiksr0_GG @ Bxc_G
+            assert np.allclose(m_G, mchi_G)
         Juc_qe[q, 0] = isoexch_calc0(q_c, ucsitekernels)[0, 0, 0]
         Juc_qe[q, 1] = isoexch_calc1(q_c, ucsitekernels)[0, 0, 0]
 
@@ -280,26 +290,12 @@ def test_Co_hcp(in_tmp_dir):
         * np.ones((nsites, npartitions))
     mw_qnp = calculate_fm_magnon_energies(J_qabp, q_qc, mm_ap)
     mw_qnp = np.sort(mw_qnp, axis=1)  # Make sure the eigenvalues are sorted
+    mwcorr_qnp = calculate_fm_magnon_energies(Jcorr_qabp, q_qc, mm_ap)
+    mwcorr_qnp = np.sort(mwcorr_qnp, axis=1)
     mwuc_qe = calculate_single_site_magnon_energies(Juc_qe, q_qc,
                                                     calc.get_magnetic_moment())
 
     # Part 3: Compare results to test values
-    test_J_qab = np.array([[[1.37280875 - 0.j,
-                             0.28516328 - 0.00007259j],
-                            [0.28516328 + 0.00007259j,
-                             1.37280875 - 0.j]],
-                           [[0.99644998 + 0.j,
-                             0.08202191 - 0.04867163j],
-                            [0.08202191 + 0.04867163j,
-                             0.99644998 + 0.j]],
-                           [[0.95005156 - 0.j,
-                             -0.03339854 - 0.05672191j],
-                            [-0.03339854 + 0.05672191j,
-                             0.950051561 + 0.j]],
-                           [[1.30187481 - 0.j,
-                             0.00000039 - 0.00525360j],
-                            [0.00000039 + 0.00525360j,
-                             1.30187481 + 0.j]]])
     test_J_qab = np.array([[[1.37280847 + 0.j, 0.28516320 + 0.00007375j],
                             [0.28516320 - 0.00007375j, 1.37280847 - 0.j]],
                            [[0.99649489 - 0.j, 0.08201540 - 0.04905246j],
@@ -308,10 +304,22 @@ def test_Co_hcp(in_tmp_dir):
                             [-0.0329297 + 0.05777656j, 0.95009010 + 0.j]],
                            [[1.30186322 - 0.j, 0.00000038 - 0.00478552j],
                             [0.00000038 + 0.00478552j, 1.30186322 - 0.j]]])
+    test_Jcorr_qab = np.array([[[1.38488443 + 0.j, 0.297239160 + 0.j],
+                                [0.29723916 + 0.j, 1.384884430 + 0.j]],
+                               [[1.00845260 + 0.j, 0.088034249 - 0.05938509j],
+                                [0.08803425 + 0.05938509j, 1.00845260 + 0.j]],
+                               [[0.96189789 + 0.j, -0.03881925 - 0.06801072j],
+                                [-0.03881925 + 0.06801072j, 0.96189789 + 0.j]],
+                               [[1.31359555 + 0.j, 0.00000038 - 0.01651785j],
+                                [0.00000038 + 0.01651785j, 1.31359555 + 0.j]]])
     test_mw_qn = np.array([[0., 0.673172311],
                            [0.667961643, 0.893557698],
                            [0.757038564, 0.914026524],
                            [0.414677028, 0.425972649]])
+    test_mwcorr_qn = np.array([[0., 0.701679491],
+                               [0.669812099, 0.920493548],
+                               [0.757671646, 0.942533678],
+                               [0.415487530, 0.454480499]])
     test_mwuc_q = np.array([0., 0.72440073, 1.2123005, 0.37567975])
 
     # Exchange constants
@@ -321,19 +329,30 @@ def test_Co_hcp(in_tmp_dir):
     # print(np.absolute(err[is_bad] / np.absolute(test_J_qab[is_bad])))
     assert np.allclose(J_qabp[..., 1], test_J_qab,
                        atol=J_atol, rtol=J_rtol)
+    assert np.allclose(Jcorr_qabp[..., 1], test_Jcorr_qab,
+                       atol=J_atol, rtol=J_rtol)
 
     # Magnon energies
     assert np.all(np.abs(mw_qnp[0, 0, :]) < 1.e-8)  # Goldstone theorem
+    assert np.all(np.abs(mwcorr_qnp[0, 0, :]) < 1.e-8)  # Goldstone theorem
     assert np.allclose(mwuc_qe[0, :], 0.)  # Goldstone
     assert np.allclose(mw_qnp[1:, 0, 1], test_mw_qn[1:, 0], rtol=mw_rtol)
     assert np.allclose(mw_qnp[:, 1, 1], test_mw_qn[:, 1], rtol=mw_rtol)
+    assert np.allclose(mwcorr_qnp[1:, 0, 1], test_mwcorr_qn[1:, 0],
+                       rtol=mw_rtol)
+    assert np.allclose(mwcorr_qnp[:, 1, 1], test_mwcorr_qn[:, 1],
+                       rtol=mw_rtol)
     assert np.allclose(mwuc_qe[1:, 0], test_mwuc_q[1:], rtol=mw_rtol)
 
     # Part 4: Check self-consistency of results
     # We should be in a radius range, where the magnon energies don't change
-    assert np.allclose(mw_qnp[1:, 0, ::2], test_mw_qn[1:, 0, np.newaxis],
-                       rtol=mw_ctol)
-    assert np.allclose(mw_qnp[:, 1, ::2], test_mw_qn[:, 1, np.newaxis],
-                       rtol=mw_ctol)
+    assert np.allclose(mw_qnp[1:, 0, ::2],
+                       test_mw_qn[1:, 0, np.newaxis], rtol=mw_ctol)
+    assert np.allclose(mw_qnp[:, 1, ::2],
+                       test_mw_qn[:, 1, np.newaxis], rtol=mw_ctol)
+    assert np.allclose(mwcorr_qnp[1:, 0, ::2],
+                       test_mwcorr_qn[1:, 0, np.newaxis], rtol=mw_ctol)
+    assert np.allclose(mwcorr_qnp[:, 1, ::2],
+                       test_mwcorr_qn[:, 1, np.newaxis], rtol=mw_ctol)
     # Check that a finite eta does not change the magnon energies too much
     assert np.allclose(mwuc_qe[1:, 0], mwuc_qe[1:, 1], rtol=mw_ctol)
