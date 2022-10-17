@@ -99,8 +99,8 @@ def get_chi0_integrand(pair, pd, n_n, m_m, k_v, s):
     kptpair = pair.get_kpoint_pair(pd, s, k_c, n_n[0], n_n[-1] + 1,
                                    m_m[0], m_m[-1] + 1)
 
-    paird_paw_corr = pair.gs.pair_density_paw_corrections
-    pawcorr = paird_paw_corr(pd, alter_optical_limit=True)
+    pairden_paw_corr = pair.gs.pair_density_paw_corrections
+    pawcorr = pairden_paw_corr(pd, alter_optical_limit=True)
     n_nmG = pair.get_full_pair_density(pd, kptpair, n_n, m_m, pawcorr=pawcorr)
 
     df_nm = kptpair.get_occupation_differences(n_n, m_m)
