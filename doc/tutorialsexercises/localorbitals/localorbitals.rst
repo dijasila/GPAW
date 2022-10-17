@@ -78,7 +78,7 @@ As a first example we generate the local orbitals (LOs) of an
 isolated benzene molecule :download:`C6H6.py`. 
 
 .. literalinclude:: C6H6.py
-    :lines: 70-109
+    :start-after: Atoms
 
 Here, we have omitted the ``import`` statements and the declaration of 
 the ``compare_eigvals`` helper function to visually compare the 
@@ -99,7 +99,7 @@ As a second example we generate the local orbitals (LOs) of a
 graphene nanoribbon :download:`C4H2.py`. 
 
 .. literalinclude:: C4H2.py
-    :lines: 60-80
+    :start-after: Atoms
 
 Again, we have omitted the ``import`` statements and the declaration of 
 the ``compare_bandstructure`` helper function to compare the 

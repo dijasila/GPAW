@@ -1,3 +1,4 @@
+# creates: C4H2_minimal.png, C4H2_extended.png
 import numpy as np
 from ase.build import graphene_nanoribbon
 from ase.io import write
@@ -40,22 +41,15 @@ def compare_bandstructure(lcao, los, fname, title):
     plt.savefig(fname, bbox_inches='tight')
 
 
-# Graphene nanoribbon
+# Atoms
 gnr = graphene_nanoribbon(2, 1, type='zigzag', saturated=True,
                           C_H=1.1, C_C=1.4, vacuum=5.0)
 
 # LCAO calculation
-try:
-    calc = GPAW('C4H2.gpw')
-    if calc.wfs.S_qMM is None:
-        calc.wfs.set_positions(calc.spos_ac)
-    calc.atoms = gnr
-except:
-    calc = GPAW(mode='lcao', xc='PBE', basis='szp(dzp)', txt=None, kpts={'size': (1, 1, 11), 'gamma': True},
+calc = GPAW(mode='lcao', xc='PBE', basis='szp(dzp)', txt=None, kpts={'size': (1, 1, 11), 'gamma': True},
             symmetry={'point_group': False, 'time_reversal': True})
-    calc.atoms = gnr
-    calc.get_potential_energy()
-    calc.write('C4H2.gpw', mode='all')
+calc.atoms = gnr
+calc.get_potential_energy()
 
 # LCAO Tight Binding model
 tb = TightBinding(calc.atoms, calc)

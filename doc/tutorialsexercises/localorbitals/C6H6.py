@@ -1,3 +1,4 @@
+# creates: C6H6_minimal.png, C6H6_extended.png
 import numpy as np
 from ase.build import molecule
 from ase.io import write
@@ -55,17 +56,13 @@ def compare_eigvals(lcao_eigs, los_eigs, fname, title):
     plt.savefig(fname, bbox_inches='tight')
 
 
-# Molecule
+# Atoms
 benzene = molecule('C6H6', vacuum=10)
 
 # LCAO calculation
-try:
-    calc = GPAW('C6H6.gpw')
-except:
-    calc = GPAW(mode='lcao', xc='PBE', basis='szp(dzp)', txt=None)
-    calc.atoms = benzene
-    calc.get_potential_energy()
-    calc.write('C6H6.gpw', mode='all')
+calc = GPAW(mode='lcao', xc='PBE', basis='szp(dzp)', txt=None)
+calc.atoms = benzene
+calc.get_potential_energy()
 
 lcao = LCAOwrap(calc)
 
