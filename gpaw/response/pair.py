@@ -278,8 +278,8 @@ class NoCalculatorPairDensity:
                                     load_wfs=load_wfs, block=block)
 
         with self.timer('fft indices'):
-            Q_G = self.get_fft_indices(kpt1.K, kpt2.K, q_c, pd,
-                                       kpt1.shift_c - kpt2.shift_c)
+            Q_G = fft_indices(self.gs.kd, kpt1.K, kpt2.K, q_c, pd,
+                              kpt1.shift_c - kpt2.shift_c)
 
         return KPointPair(kpt1, kpt2, Q_G)
 
@@ -528,18 +528,6 @@ class NoCalculatorPairDensity:
 
         return vel_nv[n_n - na]
 
-    def get_fft_indices(self, K1, K2, q_c, pd, shift0_c):
-        """Get indices for G-vectors inside cutoff sphere."""
-        kd = self.gs.kd
-        N_G = pd.Q_qG[0]
-        shift_c = (shift0_c +
-                   (q_c - kd.bzk_kc[K2] + kd.bzk_kc[K1]).round().astype(int))
-        if shift_c.any():
-            n_cG = np.unravel_index(N_G, pd.gd.N_c)
-            n_cG = [n_G + shift for n_G, shift in zip(n_cG, shift_c)]
-            N_G = np.ravel_multi_index(n_cG, pd.gd.N_c, 'wrap')
-        return N_G
-
     def construct_symmetry_operators(self, K, k_c=None):
         from gpaw.response.symmetry_ops import construct_symmetry_operators
         return construct_symmetry_operators(
@@ -614,6 +602,18 @@ class PairDensity(NoCalculatorPairDensity):
             gs=self.calc.gs_adapter(),
             context=context,
             **kwargs)
+
+
+def fft_indices(kd, K1, K2, q_c, pd, shift0_c):
+    """Get indices for G-vectors inside cutoff sphere."""
+    N_G = pd.Q_qG[0]
+    shift_c = (shift0_c +
+               (q_c - kd.bzk_kc[K2] + kd.bzk_kc[K1]).round().astype(int))
+    if shift_c.any():
+        n_cG = np.unravel_index(N_G, pd.gd.N_c)
+        n_cG = [n_G + shift for n_G, shift in zip(n_cG, shift_c)]
+        N_G = np.ravel_multi_index(n_cG, pd.gd.N_c, 'wrap')
+    return N_G
 
 
 def calc_and_context(calc, txt, world, timer):

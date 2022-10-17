@@ -946,18 +946,12 @@ class PlaneWavePairDensity(PairMatrixElement):
     @timer('Get G-vector indices')
     def get_fft_indices(self, kskptpair, pd):
         """Get indices for G-vectors inside cutoff sphere."""
+        from gpaw.response.pair import fft_indices
+
         kpt1 = kskptpair.kpt1
         kpt2 = kskptpair.kpt2
         kd = self.gs.kd
         q_c = pd.kd.bzk_kc[0]
 
-        N_G = pd.Q_qG[0]
-
-        shift_c = kpt1.shift_c - kpt2.shift_c
-        shift_c += (q_c - kd.bzk_kc[kpt2.K]
-                    + kd.bzk_kc[kpt1.K]).round().astype(int)
-        if shift_c.any():
-            n_cG = np.unravel_index(N_G, pd.gd.N_c)
-            n_cG = [n_G + shift for n_G, shift in zip(n_cG, shift_c)]
-            N_G = np.ravel_multi_index(n_cG, pd.gd.N_c, 'wrap')
-        return N_G
+        return fft_indices(kd=kd, K1=kpt1.K, K2=kpt2.K, q_c=q_c, pd=pd,
+                           shift0_c=kpt1.shift_c - kpt2.shift_c)
