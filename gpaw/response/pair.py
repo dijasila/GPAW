@@ -96,7 +96,7 @@ class KPointPair:
 
 class NoCalculatorPairDensity:
     def __init__(self, gs, *, context, ftol=1e-6,
-                 threshold=1, real_space_derivatives=False, nblocks=1):
+                 threshold=1, nblocks=1):
         self.gs = gs
         self.context = context
 
@@ -108,7 +108,6 @@ class NoCalculatorPairDensity:
 
         self.ftol = ftol
         self.threshold = threshold
-        self.real_space_derivatives = real_space_derivatives
 
         self.blockcomm, self.kncomm = block_partition(context.world, nblocks)
         self.nblocks = nblocks
@@ -553,9 +552,16 @@ class NoCalculatorPairDensity:
         return ut_sKnvR
 
     @timer('Derivatives')
-    def make_derivative(self, s, K, n1, n2):
+    def make_derivative(self, s, K, n1, n2, real_space_derivatives=False):
+        """Calculate derivatives.
+
+        real_space_derivatives : bool
+            Calculate nabla matrix elements (in the optical limit)
+            using a real space finite difference approximation.
+        """
+
         gs = self.gs
-        if self.real_space_derivatives:
+        if real_space_derivatives:
             grad_v = [Gradient(gs.gd, v, 1.0, 4, complex).apply
                       for v in range(3)]
 
@@ -571,7 +577,7 @@ class NoCalculatorPairDensity:
         ut_nvR = gs.gd.zeros((n2 - n1, 3), complex)
         for n in range(n1, n2):
             for v in range(3):
-                if self.real_space_derivatives:
+                if real_space_derivatives:
                     ut_R = T(gs.pd.ifft(psit_nG[n], ik))
                     grad_v[v](ut_R, ut_nvR[n - n1, v],
                               np.ones((3, 2), complex))
@@ -600,9 +606,6 @@ class PairDensity(NoCalculatorPairDensity):
         threshold : float
             Numerical threshold for the optical limit k dot p perturbation
             theory expansion.
-        real_space_derivatives : bool
-            Calculate nabla matrix elements (in the optical limit)
-            using a real space finite difference approximation.
         """
 
         # note: gs is just called gs for historical reasons.

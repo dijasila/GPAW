@@ -779,7 +779,6 @@ class Chi0(Chi0Calculator):
                  frequencies: Union[dict, Array1D] = None,
                  ecut=50,
                  ftol=1e-6, threshold=1,
-                 real_space_derivatives=False,
                  world=mpi.world, txt='-', timer=None,
                  nblocks=1,
                  nbands=None,
@@ -819,9 +818,6 @@ class Chi0(Chi0Calculator):
         threshold : float
             Numerical threshold for the optical limit k dot p perturbation
             theory expansion (used in gpaw/response/pair.py).
-        real_space_derivatives : bool
-            Switch for calculating nabla matrix elements (in the optical limit)
-            using a real space finite difference approximation.
         intraband : bool
             Switch for including the intraband contribution to the density
             response function.
@@ -870,7 +866,6 @@ class Chi0(Chi0Calculator):
 
         pair = NoCalculatorPairDensity(
             gs=gs, ftol=ftol, threshold=threshold,
-            real_space_derivatives=real_space_derivatives,
             context=context,
             nblocks=nblocks)
 
