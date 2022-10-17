@@ -14,7 +14,8 @@ from gpaw import mpi
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chiks import ChiKS
-from gpaw.response.localft import LocalFTCalculator, LocalPAWFTCalculator
+from gpaw.response.localft import (LocalFTCalculator, LocalPAWFTCalculator,
+                                   add_magnetization)
 from gpaw.response.mft import IsotropicExchangeCalculator
 from gpaw.response.site_kernels import (SphericalSiteKernels,
                                         CylindricalSiteKernels,
@@ -105,6 +106,15 @@ def test_Fe_bcc(in_tmp_dir):
     for q, q_c in enumerate(q_qc):
         J_qabp[q] = isoexch_calc(q_c, sitekernels)
         Jcorr_qabp[q] = isoexch_calc(q_c, sitekernels, goldstone_corr=True)
+        if np.allclose(q_c, 0.):
+            # Make sure that the correction is working as intended
+            pd0, chiksr0_GG = isoexch_calc.get_chiksr(np.array([0., 0., 0.]))
+            m_G = isoexch_calc.localft_calc(pd0, add_magnetization)
+            Bxc_G = isoexch_calc.get_Bxc()
+            chiksr0_GG = chiksr0_GG + isoexch_calc.get_goldstone_correction()
+            mchi_G = 2. * chiksr0_GG @ Bxc_G
+            assert np.allclose(m_G, mchi_G)
+            
     # Since we only have a single site, reduce the array
     J_qp = J_qabp[:, 0, 0, :]
     Jcorr_qp = Jcorr_qabp[:, 0, 0, :]
@@ -154,6 +164,8 @@ def test_Fe_bcc(in_tmp_dir):
     # Magnon energies
     assert np.allclose(mw_qp, test_mw_pq.T, rtol=2e-3)
     assert np.allclose(mwcorr_qp, test_mwcorr_pq.T, rtol=2e-3)
+
+    raise ValueError
 
 
 @pytest.mark.response
