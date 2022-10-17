@@ -173,7 +173,3 @@ class ResponseGroundStateAdapter:
             nocc1 = min((f_n > 1 - ftol).sum(), nocc1)
             nocc2 = max((f_n > ftol).sum(), nocc2)
         return nocc1, nocc2
-        #print('Number of completely filled bands:', nocc1, file=self.fd)
-        #print('Number of non-empty bands:', self.nocc2, file=self.fd)
-        #print('Total number of bands:', self.gs.bd.nbands,
-        #      file=self.fd)
