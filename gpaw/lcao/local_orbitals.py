@@ -105,19 +105,6 @@ def get_Fcore():
     pass
 
 
-def dots(*args):
-    """Multi dot."""
-    x = args[0]
-    for M in args[1:]:
-        x = np.dot(x, M)
-    return x
-
-
-def rotate_matrix(M, U):
-    """Rotate a matrix."""
-    return dots(U.T.conj(), M, U)
-
-
 class BasisTransform:
     """Class to perform a basis transformation.
 
@@ -163,7 +150,7 @@ class BasisTransform:
 
     def rotate_matrix(self, A_MM: Array2D, keep_rest: bool = False):
         U_Mx = self.get_rotation(keep_rest)
-        return dots(U_Mx.T.conj(), A_MM, U_Mx)
+        return U_Mx.T.conj() @ A_MM @ U_Mx
 
     def rotate_projections(self, P_aMi, keep_rest: bool = False):
         U_Mx = self.get_rotation(keep_rest)
@@ -236,7 +223,8 @@ class EffectiveModel(BasisTransform):
 
         # Coupled
         G = np.linalg.inv(z * Sp_MM - Hp_MM)
-        G_inv = np.linalg.inv(rotate_matrix(G, Up_Mw))
+        # G_inv = np.linalg.inv(rotate_matrix(G, Up_Mw))
+        G_inv = np.linalg.inv(Up_Mw.T.conj() @ G @ Up_Mw)
         # Uncoupled
         G0_inv = z * S_ww - H_ww
         # Hybridization
