@@ -2,7 +2,6 @@ import pickle
 
 import numpy as np
 from ase.utils import gcd
-from ase.units import Ha
 from scipy.interpolate import InterpolatedUnivariateSpline
 
 from gpaw import GPAW
