@@ -44,7 +44,7 @@ master:
     - mq init
     - mq workflow -p agts.py -zT | tail -1 | tee count
     - python -c "assert int(open('count').read().split()[0]) >= 422"
-    - python -c "import pathlib; assert len(list(pathlib.Path().glob('**/*.png'))) <= 6"
+    - python -c "import pathlib; assert len(list(pathlib.Path().glob('**/*.png'))) <= 5"
     - >
       interrogate -m -i -f 33.1
       -e gpaw/test
