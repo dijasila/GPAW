@@ -425,9 +425,14 @@ class Chi0Calculator:
             # Again, not so pretty but that's how it is
             plasmafreq_vv = plasmafreq_wvv[0].copy()
             if self.include_intraband:
-                drude_chi_wvv = plasmafreq_vv[np.newaxis]\
-                    / (self.wd.omega_w[:, np.newaxis, np.newaxis]
-                       + 1.j * self.rate)**2
+                try:
+                    with np.errstate(divide='raise'):
+                        drude_chi_wvv = (
+                            plasmafreq_vv[np.newaxis] /
+                            (self.wd.omega_w[:, np.newaxis, np.newaxis]
+                             + 1.j * self.rate)**2)
+                except FloatingPointError:
+                    raise ValueError('Please set rate to a positive value.')
                 if chi0.extend_head:
                     va = min(chi0.blocks1d.a, 3)
                     vb = min(chi0.blocks1d.b, 3)
@@ -556,7 +561,7 @@ class Chi0Calculator:
         from gpaw.response.pw_parallelization import Blocks1D
         nG = chi0.pd.ngmax
         blocks1d = chi0.blocks1d
-            
+
         # The copy() is only required when doing GW_too, since we need
         # to run this whole thin twice.
         chi0_wGG = chi0.blockdist.redistribute(chi0.chi0_wGG.copy(), chi0.nw)
@@ -576,7 +581,7 @@ class Chi0Calculator:
             blocks1d = Blocks1D(self.pair.blockcomm, nG)
             G2G = PWMapping(pdi, pd).G2_G1
             chi0_wGG = chi0_wGG.take(G2G, axis=1).take(G2G, axis=2)
-                
+
             if chi0_wxvG is not None:
                 chi0_wxvG = chi0_wxvG.take(G2G, axis=3)
             Q_aGii = self.Q_aGii
@@ -585,7 +590,7 @@ class Chi0Calculator:
                     Q_aGii[a] = Q_Gii.take(G2G, axis=0)
 
         return pdi, blocks1d, G2G, chi0_wGG, chi0_wxvG, chi0_wvv
-        
+
     @timer('Get kpoints')
     def get_kpoints(self, pd, integrationmode=None):
         """Get the integration domain."""
