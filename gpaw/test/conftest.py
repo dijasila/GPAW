@@ -8,6 +8,7 @@ import pytest
 from _pytest.tmpdir import _mk_tmp
 from ase import Atoms
 from ase.build import bulk
+from ase.lattice.hexagonal import Graphene
 from ase.io import read
 from gpaw import GPAW, PW, Davidson, FermiDirac, setup_paths
 from gpaw.cli.info import info
@@ -310,6 +311,23 @@ class GPWFiles:
                           convergence={'bands': 9},
                           occupations=FermiDirac(0.001),
                           txt=self.path / 'bn_pw.txt')
+        atoms.get_potential_energy()
+        return atoms.calc
+
+    def hbn_pw(self):
+        atoms = Graphene(symbol='B',
+                         latticeconstant={'a': 2.5, 'c': 1.0},
+                         size=(1, 1, 1))
+        atoms[0].symbol = 'N'
+        atoms.pbc = (1, 1, 0)
+        atoms.center(axis=2, vacuum=3.0)
+        atoms.calc = GPAW(mode=PW(400),
+                          xc='LDA',
+                          nbands=50,
+                          occupations=FermiDirac(0.001),
+                          parallel={'domain': 1},
+                          convergence={'bands': 26},
+                          kpts={'size': (3, 3, 1), 'gamma': True})
         atoms.get_potential_energy()
         return atoms.calc
 
