@@ -580,7 +580,7 @@ class G0W0Calculator:
         return self.all_results[self.wcalc.fxc_mode]
 
     def calculate_q(self, ie, k, kpt1, kpt2, pd0, Wdict,
-                    *, symop, sigmas, blocks1d, Q_aGii):
+                    *, symop, sigmas, blocks1d, pawcorr):
         """Calculates the contribution to the self-energy and its derivative
         for a given set of k-points, kpt1 and kpt2."""
 
@@ -596,22 +596,12 @@ class G0W0Calculator:
 
         G_Gv = pd0.get_reciprocal_vectors()
 
-        pos_av = np.dot(self.wcalc.pair.spos_ac, pd0.gd.cell_cv)
         M_vv = symop.get_M_vv(pd0.gd.cell_cv)
 
-        myQ_aGii = []
-        for a, Q_Gii in enumerate(Q_aGii):
-            x_G = np.exp(1j * np.dot(G_Gv, (pos_av[a] -
-                                            np.dot(M_vv, pos_av[a]))))
-            U_ii = self.wcalc.gs.setups[a].R_sii[symop.symno]
-            Q_Gii = np.dot(np.dot(U_ii, Q_Gii * x_G[:, None, None]),
-                           U_ii.T).transpose(1, 0, 2)
-            if symop.sign == -1:
-                Q_Gii = Q_Gii.conj()
-            myQ_aGii.append(Q_Gii)
+        mypawcorr = pawcorr.remap_somehow_else(symop, G_Gv, M_vv)
 
         if debug:
-            self.check(ie, i_cG, shift0_c, N_c, q_c, myQ_aGii)
+            self.check(ie, i_cG, shift0_c, N_c, q_c, mypawcorr)
 
         if self.wcalc.ppa:
             calculate_sigma = self.calculate_sigma_ppa
@@ -621,8 +611,7 @@ class G0W0Calculator:
         for n in range(kpt1.n2 - kpt1.n1):
             ut1cc_R = kpt1.ut_nR[n].conj()
             eps1 = kpt1.eps_n[n]
-            C1_aGi = [np.dot(Qa_Gii, P1_ni[n].conj())
-                      for Qa_Gii, P1_ni in zip(myQ_aGii, kpt1.P_ani)]
+            C1_aGi = mypawcorr.multiply(kpt1.P_ani, band=n)
             n_mG = self.wcalc.pair.calculate_pair_density(
                 ut1cc_R, C1_aGi, kpt2, pd0, I_G)
             if symop.sign == 1:
@@ -642,7 +631,7 @@ class G0W0Calculator:
                 sigma.sigma_eskn[ie, kpt1.s, k, nn] += sigma_contrib
                 sigma.dsigma_eskn[ie, kpt1.s, k, nn] += dsigma_contrib
 
-    def check(self, ie, i_cG, shift0_c, N_c, q_c, Q_aGii):
+    def check(self, ie, i_cG, shift0_c, N_c, q_c, pawcorr):
         I0_G = np.ravel_multi_index(i_cG - shift0_c[:, None], N_c, 'wrap')
         qd1 = KPointDescriptor([q_c])
         pd1 = PWDescriptor(self.ecut_e[ie], self.wcalc.gs.gd, complex, qd1)
@@ -651,12 +640,12 @@ class G0W0Calculator:
         I1_G = pd1.Q_qG[0]
         G_I[I1_G] = np.arange(len(I0_G))
         G_G = G_I[I0_G]
+        # This indexing magic should definitely be moved to a method.
+        # What on earth is it really?
+
         assert len(I0_G) == len(I1_G)
         assert (G_G >= 0).all()
-        for a, Q_Gii in enumerate(
-                self.wcalc.pair.initialize_paw_corrections(pd1)):
-            e = abs(Q_aGii[a] - Q_Gii[G_G]).max()
-            assert e < 1e-12
+        assert pawcorr.almost_equal(self.wcalc.gs.paw_corrections(pd1), G_G)
 
     @timer('Sigma')
     def calculate_sigma(self, n_mG, deps_m, f_m, C_swGG, blocks1d):
@@ -803,7 +792,7 @@ class G0W0Calculator:
                                      f'larger number of bands ({m2})'
                                      f' than there are bands '
                                      f'({self.nbands}).')
-            pdi, Wdict, blocks1d, Q_aGii = self.calculate_w(
+            pdi, Wdict, blocks1d, pawcorr = self.calculate_w(
                 chi0calc, q_c, chi0bands,
                 m1, m2, ecut, wstc, iq)
             m1 = m2
@@ -824,7 +813,7 @@ class G0W0Calculator:
                                      symop=symop,
                                      sigmas=sigmas,
                                      blocks1d=blocks1d,
-                                     Q_aGii=Q_aGii)
+                                     pawcorr=pawcorr)
 
         for sigma in sigmas.values():
             sigma.sum(self.world)
@@ -869,7 +858,7 @@ class G0W0Calculator:
                 chi0bands.chi0_wvv[:] = chi0.chi0_wvv.copy()
 
         Wdict = {}
-        
+
         for fxc_mode in self.fxc_modes:
             pdi, blocks1d, G2G, chi0_wGG, chi0_wxvG, chi0_wvv = \
                 chi0calc.reduce_ecut(ecut, chi0)
@@ -890,7 +879,7 @@ class G0W0Calculator:
 
             Wdict[fxc_mode] = W_xwGG
 
-        return pdi, Wdict, blocks1d, chi0calc.Q_aGii
+        return pdi, Wdict, blocks1d, chi0calc.pawcorr
 
     def calculate_vxc_and_exx(self):
         """EXX and Kohn-Sham XC contribution."""

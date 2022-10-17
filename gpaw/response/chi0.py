@@ -113,7 +113,7 @@ class Chi0Calculator:
         self.nocc1 = self.pair.nocc1  # number of completely filled bands
         self.nocc2 = self.pair.nocc2  # number of non-empty bands
 
-        self.Q_aGii = None
+        self.pawcorr = None
 
         if sum(self.pbc) == 1:
             raise ValueError('1-D not supported atm.')
@@ -233,7 +233,7 @@ class Chi0Calculator:
             wings = False
 
         # Reset PAW correction in case momentum has change
-        self.Q_aGii = self.pair.initialize_paw_corrections(pd)
+        self.pawcorr = self.gs.paw_corrections(pd)
         A_wxx = chi0.chi0_wGG  # Change notation
 
         # Initialize integrator. The integrator class is a general class
@@ -576,16 +576,15 @@ class Chi0Calculator:
             blocks1d = Blocks1D(self.pair.blockcomm, nG)
             G2G = PWMapping(pdi, pd).G2_G1
             chi0_wGG = chi0_wGG.take(G2G, axis=1).take(G2G, axis=2)
-                
+
             if chi0_wxvG is not None:
                 chi0_wxvG = chi0_wxvG.take(G2G, axis=3)
-            Q_aGii = self.Q_aGii
-            if Q_aGii is not None:
-                for a, Q_Gii in enumerate(Q_aGii):
-                    Q_aGii[a] = Q_Gii.take(G2G, axis=0)
+
+            if self.pawcorr is not None:
+                self.pawcorr = self.pawcorr.reduce_ecut(G2G)
 
         return pdi, blocks1d, G2G, chi0_wGG, chi0_wxvG, chi0_wvv
-        
+
     @timer('Get kpoints')
     def get_kpoints(self, pd, integrationmode=None):
         """Get the integration domain."""
@@ -666,8 +665,8 @@ class Chi0Calculator:
         nG = pd.ngmax
         weight = np.sqrt(symmetry.get_kpoint_weight(k_c) /
                          symmetry.how_many_symmetries())
-        if self.Q_aGii is None:
-            self.Q_aGii = self.pair.initialize_paw_corrections(pd)
+        if self.pawcorr is None:
+            self.pawcorr = self.gs.paw_corrections(pd)
 
         kptpair = self.pair.get_kpoint_pair(pd, s, k_c, n1, n2,
                                             m1, m2, block=block)
@@ -677,11 +676,11 @@ class Chi0Calculator:
 
         if optical_limit and include_optical_elements:
             n_nmG = self.pair.get_full_pair_density(pd, kptpair, n_n, m_m,
-                                                    Q_aGii=self.Q_aGii,
+                                                    pawcorr=self.pawcorr,
                                                     block=block)
         else:
             n_nmG = self.pair.get_pair_density(pd, kptpair, n_n, m_m,
-                                               Q_aGii=self.Q_aGii,
+                                               pawcorr=self.pawcorr,
                                                block=block)
 
         if integrationmode is None:
