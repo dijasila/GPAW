@@ -49,7 +49,7 @@ class PPASigmaCalculator:
         self.eta = eta
         self.factor = factor
 
-    def calculate_sigma(self, n_mG, deps_m, f_m, W):
+    def calculate_sigma(self, n_mG, deps_m, f_m, W, _unused):
         # XXX It is completely impossible to infer the meaning of these
         # arrays since they're often named "_m" but then later
         # multiplied with "_GG" arrays.

@@ -603,11 +603,6 @@ class G0W0Calculator:
         if debug:
             self.check(ie, i_cG, shift0_c, N_c, q_c, mypawcorr)
 
-        if self.wcalc.ppa:
-            calculate_sigma = self.calculate_sigma_ppa
-        else:
-            calculate_sigma = self.calculate_sigma
-
         for n in range(kpt1.n2 - kpt1.n1):
             ut1cc_R = kpt1.ut_nR[n].conj()
             eps1 = kpt1.eps_n[n]
@@ -626,7 +621,7 @@ class G0W0Calculator:
             for fxc_mode in self.fxc_modes:
                 sigma = sigmas[fxc_mode]
                 W = Wdict[fxc_mode]
-                sigma_contrib, dsigma_contrib = calculate_sigma(
+                sigma_contrib, dsigma_contrib = self.calculate_sigma(
                     n_mG, deps_m, f_m, W, blocks1d)
                 sigma.sigma_eskn[ie, kpt1.s, k, nn] += sigma_contrib
                 sigma.dsigma_eskn[ie, kpt1.s, k, nn] += dsigma_contrib
@@ -654,13 +649,17 @@ class G0W0Calculator:
         """Calculates a contribution to the self-energy and its derivative for
         a given (k, k-q)-pair from its corresponding pair-density and
         energy."""
-        from gpaw.response.sigma import SigmaCalculator
+        import gpaw.response.sigma as sigma
+
         factor = 1.0 / (self.wcalc.qd.nbzkpts * 2 * pi * self.wcalc.gs.volume)
+        if self.wcalc.ppa:
+            calculator = sigma.PPASigmaCalculator(eta=self.eta,
+                                                  factor=factor)
 
-        calculator = SigmaCalculator(wd=self.wcalc.wd, factor=factor)
-
-        sigma = calculator.calculate_sigma(n_mG, deps_m, f_m, C_swGG, blocks1d)
-        return sigma
+        else:
+            calculator = sigma.SigmaCalculator(wd=self.wcalc.wd,
+                                               factor=factor)
+        return calculator.calculate_sigma(n_mG, deps_m, f_m, C_swGG, blocks1d)
 
     def calculate_all_q_points(self):
         """Main loop over irreducible Brillouin zone points.
@@ -929,13 +928,6 @@ class G0W0Calculator:
                     actually_print_results(results[fxc_mode])
 
         self.timer.write(self.fd)
-
-    @timer('PPA-Sigma')
-    def calculate_sigma_ppa(self, n_mG, deps_m, f_m, W, *unused):
-        from gpaw.response.sigma import PPASigmaCalculator
-        factor = 1 / (self.wcalc.qd.nbzkpts * 2 * pi * self.wcalc.gs.volume)
-        calculator = PPASigmaCalculator(eta=self.eta, factor=factor)
-        return calculator.calculate_sigma(n_mG, deps_m, f_m, W)
 
     def calculate_g0w0_outputs(self, sigma):
         eps_skn, f_skn = self.get_eps_and_occs()
