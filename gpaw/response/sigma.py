@@ -2,11 +2,12 @@ import numpy as np
 
 
 class SigmaCalculator:
-    def __init__(self, wd, factor):
+    def __init__(self, wd, factor, blocks1d):
         self.wd = wd
         self.factor = factor
+        self.blocks1d = blocks1d
 
-    def calculate_sigma(self, n_mG, deps_m, f_m, C_swGG, blocks1d):
+    def calculate_sigma(self, n_mG, deps_m, f_m, C_swGG):
         wd = self.wd
         o_m = abs(deps_m)
         # Add small number to avoid zeros for degenerate states:
@@ -34,10 +35,10 @@ class SigmaCalculator:
             C1_GG = C_swGG[s][w]
             C2_GG = C_swGG[s][w + 1]
             p = self.factor * sgn
-            myn_G = n_G[blocks1d.myslice]
+            myn_G = n_G[self.blocks1d.myslice]
 
-            sigma1 = p * np.dot(np.dot(myn_G, C1_GG), n_G.conj()).imag
-            sigma2 = p * np.dot(np.dot(myn_G, C2_GG), n_G.conj()).imag
+            sigma1 = p * (myn_G @ C1_GG @ n_G.conj()).imag
+            sigma2 = p * (myn_G @ C2_GG @ n_G.conj()).imag
             sigma += ((o - o1) * sigma2 + (o2 - o) * sigma1) / (o2 - o1)
             dsigma += sgn * (sigma2 - sigma1) / (o2 - o1)
 
@@ -45,11 +46,18 @@ class SigmaCalculator:
 
 
 class PPASigmaCalculator:
-    def __init__(self, eta, factor):
+    # XXX This should probably be moved to a dedicated ppa module
+    # once the dust settles from current refactoring.
+
+    def __init__(self, eta, factor, blocks1d):
         self.eta = eta
         self.factor = factor
 
-    def calculate_sigma(self, n_mG, deps_m, f_m, W, _unused):
+        if blocks1d.blockcomm.size > 1:
+            raise ValueError(
+                'PPA is currently not compatible with block parallelisation.')
+
+    def calculate_sigma(self, n_mG, deps_m, f_m, W):
         # XXX It is completely impossible to infer the meaning of these
         # arrays since they're often named "_m" but then later
         # multiplied with "_GG" arrays.

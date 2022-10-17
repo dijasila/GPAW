@@ -367,10 +367,6 @@ class G0W0Calculator:
 
         self.ecut_e = ecut_e / Ha
 
-        if self.wcalc.ppa and self.wcalc.pair.nblocks > 1:
-            raise ValueError(
-                'PPA is currently not compatible with block parallelisation.')
-
         self.world = self.wcalc.context.world
 
         # TODO: # implement q-point parallelism over this.
@@ -654,12 +650,14 @@ class G0W0Calculator:
         factor = 1.0 / (self.wcalc.qd.nbzkpts * 2 * pi * self.wcalc.gs.volume)
         if self.wcalc.ppa:
             calculator = sigma.PPASigmaCalculator(eta=self.eta,
-                                                  factor=factor)
+                                                  factor=factor,
+                                                  blocks1d=blocks1d)
 
         else:
             calculator = sigma.SigmaCalculator(wd=self.wcalc.wd,
-                                               factor=factor)
-        return calculator.calculate_sigma(n_mG, deps_m, f_m, C_swGG, blocks1d)
+                                               factor=factor,
+                                               blocks1d=blocks1d)
+        return calculator.calculate_sigma(n_mG, deps_m, f_m, C_swGG)
 
     def calculate_all_q_points(self):
         """Main loop over irreducible Brillouin zone points.
