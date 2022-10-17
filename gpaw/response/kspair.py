@@ -1,7 +1,7 @@
 import numpy as np
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
-from gpaw.response.math_func import two_phi_planewave_integrals
+from gpaw.response.paw import get_pair_density_paw_corrections
 from gpaw.response.symmetry import KPointFinder
 
 
@@ -877,7 +877,7 @@ class PlaneWavePairDensity(PairMatrixElement):
         PairMatrixElement.__init__(self, kspair)
 
         # Save PAW correction for all calls with same q_c
-        self.Q_aGii = None
+        self.pawcorr = None
         self.currentq_c = None
 
     def initialize(self, pd):
@@ -888,34 +888,14 @@ class PlaneWavePairDensity(PairMatrixElement):
     def initialize_paw_corrections(self, pd):
         """Initialize PAW corrections, if not done already, for the given q"""
         q_c = pd.kd.bzk_kc[0]
-        if self.Q_aGii is None or not np.allclose(q_c - self.currentq_c, 0.):
-            self.Q_aGii = self._initialize_paw_corrections(pd)
+        if self.pawcorr is None or not np.allclose(q_c - self.currentq_c, 0.):
+            self.pawcorr = self._initialize_paw_corrections(pd)
             self.currentq_c = q_c
 
     def _initialize_paw_corrections(self, pd):
-        spos_ac = self.gs.spos_ac
         setups = self.gs.setups
-        G_Gv = pd.get_reciprocal_vectors()
-
-        pos_av = np.dot(spos_ac, pd.gd.cell_cv)
-
-        # Collect integrals for all species:
-        Q_xGii = {}
-        for id, atomdata in setups.setups.items():
-            Q_Gii = two_phi_planewave_integrals(G_Gv, atomdata)
-            ni = atomdata.ni
-            Q_Gii.shape = (-1, ni, ni)
-
-            Q_xGii[id] = Q_Gii
-
-        Q_aGii = []
-        for a, atomdata in enumerate(setups):
-            id = setups.id_a[a]
-            Q_Gii = Q_xGii[id]
-            x_G = np.exp(-1j * np.dot(G_Gv, pos_av[a]))
-            Q_aGii.append(x_G[:, np.newaxis, np.newaxis] * Q_Gii)
-
-        return Q_aGii
+        spos_ac = self.gs.spos_ac
+        return get_pair_density_paw_corrections(setups, pd, spos_ac)
 
     @timer('Calculate pair density')
     def __call__(self, kskptpair, pd):
@@ -961,7 +941,7 @@ class PlaneWavePairDensity(PairMatrixElement):
         """Make sure PAW correction has been initialized properly
         and return projectors"""
         self.initialize_paw_corrections(pd)
-        return self.Q_aGii
+        return self.pawcorr.Q_aGii
 
     @timer('Get G-vector indices')
     def get_fft_indices(self, kskptpair, pd):
