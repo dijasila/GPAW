@@ -42,7 +42,8 @@ f = paropen('graphite_q_list', 'w')  # write q
 
 for i in range(1, 6):  # loop over different q
     df = DielectricFunction(calc='graphite.gpw',
-                            domega0=0.01,
+                            frequencies={'type': 'nonlinear',
+                                         'domega0': 0.01},
                             eta=0.2,  # Broadening parameter.
                             ecut=100,
                             # write different output for different q:
