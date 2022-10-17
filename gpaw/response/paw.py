@@ -73,14 +73,36 @@ class PWPAWCorrectionData:
         return True
 
 
-def calculate_paw_corrections(setups, pd, spos_ac):
-    q_v = pd.K_qv[0]
-    optical_limit = np.allclose(q_v, 0)
+def get_pair_density_paw_corrections(setups, pd, spos_ac,
+                                     alter_optical_limit=False):
+    """Calculate and bundle paw corrections to the pair densities as a
+    PWPAWCorrectionData object.
 
+    NB: Due to the convolution of head, wings and body in Chi0, this method
+    can alter the G=0 element in the optical limit. This is a bad behaviour
+    and should be changed in the future when things are properly separated.
+    Ultimately, this function will be redundant and
+    calculate_pair_density_paw_corrections() could be used directly.
+    """
+    pawcorr = calculate_pair_density_paw_corrections(setups, pd, spos_ac)
+
+    if alter_optical_limit:
+        q_v = pd.K_qv[0]
+        optical_limit = np.allclose(q_v, 0)
+        if optical_limit:
+            Q_aGii = pawcorr.Q_aGii.copy()
+
+            for a, atomdata in enumerate(setups):
+                Q_aGii[a][0] = atomdata.dO_ii
+
+            pawcorr = PWPAWCorrectionData(Q_aGii, pd=pd, setups=setups,
+                                          pos_av=pawcorr.pos_av)
+
+    return pawcorr
+
+
+def calculate_pair_density_paw_corrections(setups, pd, spos_ac):
     G_Gv = pd.get_reciprocal_vectors()
-    if optical_limit:
-        G_Gv[0] = 1
-
     pos_av = spos_ac @ pd.gd.cell_cv
 
     # Collect integrals for all species:
@@ -96,7 +118,5 @@ def calculate_paw_corrections(setups, pd, spos_ac):
         Q_Gii = Q_xGii[id]
         x_G = np.exp(-1j * (G_Gv @ pos_av[a]))
         Q_aGii.append(x_G[:, np.newaxis, np.newaxis] * Q_Gii)
-        if optical_limit:
-            Q_aGii[a][0] = atomdata.dO_ii
 
     return PWPAWCorrectionData(Q_aGii, pd=pd, setups=setups, pos_av=pos_av)
