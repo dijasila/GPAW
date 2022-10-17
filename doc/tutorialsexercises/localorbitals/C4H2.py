@@ -18,7 +18,7 @@ def compare_bandstructure(lcao, los, fname, title):
     """Compare the bandstructure of the of the low-energy model with 
     the full LCAO calculation as horizontal lines"""
     # Define a bandpath
-    global calc
+    calc = lcao.calc
     bp = calc.atoms.cell.bandpath('GX', npoints=60)
     xcoords, special_xcoords, labels = bp.get_linear_kpoint_axis()
     # Get the bandstructure

@@ -23,7 +23,7 @@ def get_eigvals(model, erng=[-10, 10]):
     erng : (float,float), optional
         Energy range of min and max eigenvalues.
     """
-    global calc
+    calc = model.calc
     # Compute eigenvalues from H and S.
     H = model.get_hamiltonian()
     S = model.get_overlap()
