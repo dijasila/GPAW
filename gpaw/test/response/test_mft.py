@@ -12,14 +12,17 @@ from ase.build import bulk
 from gpaw import GPAW, PW, FermiDirac
 from gpaw import mpi
 
-from gpaw.response import ResponseGroundStateAdapter
+from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chiks import ChiKS
-from gpaw.response.mft import IsotropicExchangeCalculator
+from gpaw.response.mft import (IsotropicExchangeCalculator,
+                               LSDABxcCalculator, GoldstoneBxcCalculator)
 from gpaw.response.site_kernels import (SphericalSiteKernels,
                                         CylindricalSiteKernels,
                                         ParallelepipedicSiteKernels)
 from gpaw.response.heisenberg import (calculate_single_site_magnon_energies,
                                       calculate_fm_magnon_energies)
+from gpaw.test.response.test_site_kernels import get_PWDescriptor
+from gpaw.test.response.test_localft import get_inversion_pairs
 
 
 @pytest.mark.response
@@ -84,51 +87,103 @@ def test_Fe_bcc(in_tmp_dir):
     sitekernels.append(ParallelepipedicSiteKernels(positions,
                                                    [[atoms.get_cell()]]))
 
-    # Initialize the exchange calculator
+    # Initialize the exchange calculator and bxc calculators
     gs = ResponseGroundStateAdapter(calc)
-    chiks = ChiKS(gs,
+    context = ResponseContext()
+    chiks = ChiKS(gs, context,
                   ecut=ecut, nbands=nbands, eta=eta,
                   gammacentered=True)
     isoexch_calc = IsotropicExchangeCalculator(chiks)
+    lsda_bxc_calc = LSDABxcCalculator(gs, context,
+                                      filename='LSDABxc.npy')
+    gsto_bxc_calc = GoldstoneBxcCalculator(gs, context,
+                                           filename='GoldstoneBxc.npy')
 
     # Allocate array for the exchange constants
     nq = len(q_qc)
     nsites = sitekernels.nsites
     npartitions = sitekernels.npartitions
-    J_qabp = np.empty((nq, nsites, nsites, npartitions), dtype=complex)
+    Jl_qabp = np.empty((nq, nsites, nsites, npartitions), dtype=complex)
+    Jg_qabp = np.empty((nq, nsites, nsites, npartitions), dtype=complex)
 
     # Calcualate the exchange constant for each q-point
     for q, q_c in enumerate(q_qc):
-        J_qabp[q] = isoexch_calc(q_c, sitekernels)
+        txt = f'Fe_mft_q«{q}».txt'
+        Jl_qabp[q] = isoexch_calc(q_c, sitekernels, lsda_bxc_calc, txt=txt)
+        Jg_qabp[q] = isoexch_calc(q_c, sitekernels, gsto_bxc_calc)
     # Since we only have a single site, reduce the array
-    J_qp = J_qabp[:, 0, 0, :]
+    Jl_qp = Jl_qabp[:, 0, 0, :]
+    Jg_qp = Jg_qabp[:, 0, 0, :]
+
+    # Extract the magnetic xc potential from the calculators
+    assert lsda_bxc_calc.in_buffer() and gsto_bxc_calc.in_buffer()
+    Bxcl_G = lsda_bxc_calc.from_buffer()
+    Bxcg_G = gsto_bxc_calc.from_buffer()
 
     # Calculate the magnon energies
     mm_ap = mm * np.ones((1, npartitions))  # Magnetic moments
-    mw_qp = calculate_fm_magnon_energies(J_qabp, q_qc, mm_ap)[:, 0, :]
+    mwl_qp = calculate_fm_magnon_energies(Jl_qabp, q_qc, mm_ap)[:, 0, :]
+    mwg_qp = calculate_fm_magnon_energies(Jg_qabp, q_qc, mm_ap)[:, 0, :]
 
     # Part 3: Compare results to test values
-    test_J_pq = np.array([[1.61655323, 0.88149124, 1.10008928],
-                          [1.86800734, 0.93735081, 1.23108285],
-                          [4.67979867, 0.2004699, 1.28510023],
-                          [1.14516166, 0.62140228, 0.78470217],
-                          [1.734752, 0.87124284, 1.13880145],
-                          [3.82381708, 0.31159032, 1.18094396],
-                          [1.79888576, 0.92972442, 1.2054906]])
-    test_mw_pq = np.array([[0., 0.66521177, 0.46738581],
-                           [0., 0.84222041, 0.57640002],
-                           [0., 4.05369028, 3.07212255],
-                           [0., 0.47398746, 0.32620549],
-                           [0., 0.78145439, 0.53931965],
-                           [0., 3.17848551, 2.39173871],
-                           [0., 0.78656857, 0.5370069]])
+    test_Jl_pq = np.array([[1.61655323, 0.88149124, 1.10008928],
+                           [1.86800734, 0.93735081, 1.23108285],
+                           [4.67979867, 0.2004699, 1.28510023],
+                           [1.14516166, 0.62140228, 0.78470217],
+                           [1.734752, 0.87124284, 1.13880145],
+                           [3.82381708, 0.31159032, 1.18094396],
+                           [1.79888576, 0.92972442, 1.2054906]])
+    test_Jg_pq = np.array([[1.60080254, 0.88368456, 1.08409183],
+                           [2.41061506, 0.78447108, 1.05312028],
+                           [7.93690142, 0.36354499, 1.57553707],
+                           [1.25460343, 0.68691519, 0.85445696],
+                           [2.16870230, 1.21354926, 1.15777672],
+                           [5.16091847, 0.20213561, 1.02231494],
+                           [2.32270945, 0.83722209, 1.22373215]])
+    test_mwl_pq = np.array([[0., 0.66521177, 0.46738581],
+                            [0., 0.84222041, 0.57640002],
+                            [0., 4.05369028, 3.07212255],
+                            [0., 0.47398746, 0.32620549],
+                            [0., 0.78145439, 0.53931965],
+                            [0., 3.17848551, 2.39173871],
+                            [0., 0.78656857, 0.5370069]])
+    test_mwg_pq = np.array([[0., 0.64897555, 0.46761150],
+                            [0., 1.47162352, 1.22850206],
+                            [0., 6.85371623, 5.75689082],
+                            [0., 0.51374501, 0.36212350],
+                            [0., 0.86439189, 0.91486478],
+                            [0., 4.48758630, 3.74534255],
+                            [0., 1.34433245, 0.99454959]])
+
+    # Symmetry of the magnetic xc potentials
+    pd0 = get_PWDescriptor(atoms, calc, [0., 0., 0.],
+                           ecut=ecut,
+                           gammacentered=True)
+    G1_G, G2_G = get_inversion_pairs(pd0)
+    assert np.allclose(np.conj(Bxcl_G[G1_G]), Bxcl_G[G2_G])
+    assert np.allclose(np.conj(Bxcg_G[G1_G]), Bxcg_G[G2_G])
+
+    # Check that the Bxc fields are logged properly as .npy files
+    # Only rank == 0 writes the files, so we only perform the check on
+    # that rank to avoid waiting for the file system to get up-to-date
+    if context.world.rank == 0:
+        new_lsda_bxc_calc = LSDABxcCalculator(gs, context,
+                                              filename='LSDABxc.npy')
+        new_gsto_bxc_calc = GoldstoneBxcCalculator(gs, context,
+                                                   filename='GoldstoneBxc.npy')
+        assert new_lsda_bxc_calc.in_buffer() and new_gsto_bxc_calc.in_buffer()
+        assert np.allclose(Bxcl_G, new_lsda_bxc_calc.from_buffer())
+        assert np.allclose(Bxcg_G, new_gsto_bxc_calc.from_buffer())
 
     # Exchange constants
-    assert np.allclose(J_qp.imag, 0.)
-    assert np.allclose(J_qp.real, test_J_pq.T, rtol=2e-3)
+    assert np.allclose(Jl_qp.imag, 0.)
+    assert np.allclose(Jl_qp.real, test_Jl_pq.T, rtol=2e-3)
+    assert np.allclose(Jg_qp.imag, 0.)
+    assert np.allclose(Jg_qp.real, test_Jg_pq.T, rtol=2e-3)
     
     # Magnon energies
-    assert np.allclose(mw_qp, test_mw_pq.T, rtol=2e-3)
+    assert np.allclose(mwl_qp, test_mwl_pq.T, rtol=2e-3)
+    assert np.allclose(mwg_qp, test_mwg_pq.T, rtol=2e-3)
 
 
 @pytest.mark.response
@@ -212,16 +267,19 @@ def test_Co_hcp(in_tmp_dir):
     # Initialize the exchange calculator with and without eta,
     # as well as with and without symmetry
     gs = ResponseGroundStateAdapter(calc)
-    chiks0 = ChiKS(gs,
+    context = ResponseContext()
+    chiks0 = ChiKS(gs, context,
                    disable_point_group=True,
                    disable_time_reversal=True,
                    ecut=ecut, nbands=nbands, eta=eta0,
                    gammacentered=True)
     isoexch_calc0 = IsotropicExchangeCalculator(chiks0)
-    chiks1 = ChiKS(gs,
+    chiks1 = ChiKS(gs, context,
                    ecut=ecut, nbands=nbands, eta=eta1,
                    gammacentered=True)
     isoexch_calc1 = IsotropicExchangeCalculator(chiks1)
+    # Initialize the bxc calculator
+    bxc_calc = LSDABxcCalculator(gs, context)
 
     # Allocate array for the spherical site exchange constants
     nq = len(q_qc)
@@ -234,9 +292,9 @@ def test_Co_hcp(in_tmp_dir):
 
     # Calcualate the exchange constants for each q-point
     for q, q_c in enumerate(q_qc):
-        J_qabp[q] = isoexch_calc0(q_c, sitekernels)
-        Juc_qe[q, 0] = isoexch_calc0(q_c, ucsitekernels)[0, 0, 0]
-        Juc_qe[q, 1] = isoexch_calc1(q_c, ucsitekernels)[0, 0, 0]
+        J_qabp[q] = isoexch_calc0(q_c, sitekernels, bxc_calc)
+        Juc_qe[q, 0] = isoexch_calc0(q_c, ucsitekernels, bxc_calc)[0, 0, 0]
+        Juc_qe[q, 1] = isoexch_calc1(q_c, ucsitekernels, bxc_calc)[0, 0, 0]
 
     # Calculate the magnon energy
     mm_ap = calc.get_magnetic_moment() / 2.\
