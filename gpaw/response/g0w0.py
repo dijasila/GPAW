@@ -650,14 +650,12 @@ class G0W0Calculator:
         factor = 1.0 / (self.wcalc.qd.nbzkpts * 2 * pi * self.wcalc.gs.volume)
         if self.wcalc.ppa:
             calculator = sigma.PPASigmaCalculator(eta=self.eta,
-                                                  factor=factor,
-                                                  blocks1d=blocks1d)
-
+                                                  factor=factor)
         else:
             calculator = sigma.SigmaCalculator(wd=self.wcalc.wd,
-                                               factor=factor,
-                                               blocks1d=blocks1d)
-        return calculator.calculate_sigma(n_mG, deps_m, f_m, C_swGG)
+                                               factor=factor)
+        return calculator.calculate_sigma(n_mG, deps_m, f_m, C_swGG,
+                                          blocks1d=blocks1d)
 
     def calculate_all_q_points(self):
         """Main loop over irreducible Brillouin zone points.
