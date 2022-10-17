@@ -428,6 +428,8 @@ class G0W0Calculator:
         self.fd.flush()
         self.hilbert_transform = None  # initialized when we create Chi0
 
+        self.sigma_calculator = self._build_sigma_calculator()
+
         if self.wcalc.ppa:
             print('Using Godby-Needs plasmon-pole approximation:',
                   file=self.fd)
@@ -435,6 +437,15 @@ class G0W0Calculator:
                   file=self.fd)
         else:
             print('Using full frequency integration', file=self.fd)
+
+    def _build_sigma_calculator(self):
+        import gpaw.response.sigma as sigma
+        factor = 1.0 / (self.wcalc.qd.nbzkpts * 2 * pi * self.wcalc.gs.volume)
+
+        if self.wcalc.ppa:
+            return sigma.PPASigmaCalculator(eta=self.eta, factor=factor)
+
+        return sigma.SigmaCalculator(wd=self.wcalc.wd, factor=factor)
 
     def print_parameters(self, kpts, b1, b2):
         p = functools.partial(print, file=self.fd)
@@ -645,17 +656,8 @@ class G0W0Calculator:
         """Calculates a contribution to the self-energy and its derivative for
         a given (k, k-q)-pair from its corresponding pair-density and
         energy."""
-        import gpaw.response.sigma as sigma
-
-        factor = 1.0 / (self.wcalc.qd.nbzkpts * 2 * pi * self.wcalc.gs.volume)
-        if self.wcalc.ppa:
-            calculator = sigma.PPASigmaCalculator(eta=self.eta,
-                                                  factor=factor)
-        else:
-            calculator = sigma.SigmaCalculator(wd=self.wcalc.wd,
-                                               factor=factor)
-        return calculator.calculate_sigma(n_mG, deps_m, f_m, C_swGG,
-                                          blocks1d=blocks1d)
+        return self.sigma_calculator.calculate_sigma(
+            n_mG, deps_m, f_m, C_swGG, blocks1d=blocks1d)
 
     def calculate_all_q_points(self):
         """Main loop over irreducible Brillouin zone points.
