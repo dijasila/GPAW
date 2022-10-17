@@ -102,6 +102,12 @@ class IsotropicExchangeCalculator:
             chiksr_GG = chiksr_GG + self.get_goldstone_correction()
         V0 = pd.gd.volume
 
+        if np.allclose(q_c, 0.):
+            m_G = self.localft_calc(pd, add_magnetization)
+            mchi_G = 2. * chiksr_GG @ Bxc_G
+            print(np.abs(m_G - mchi_G) / np.abs(m_G))
+            print(chiksr_GG - np.conj(chiksr_GG).T)
+
         # Allocate an array for the exchange constants
         nsites = site_kernels.nsites
         J_pab = np.empty(site_kernels.shape + (nsites,), dtype=complex)
@@ -206,11 +212,11 @@ class IsotropicExchangeCalculator:
         To correct for this inconsistency, we may choose to add a minimal
         correction [paper in preparation],
 
-        2 δχ_KS^('+-) = |δm><B^(xc)| + |B^(xc)><δm|
+        2 <B^(xc)|B^(xc)> δχ_KS^('+-) = |δm><B^(xc)| + |B^(xc)><δm|
 
-                                     <δm|B^(xc)>
-                        - |B^(xc)> ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾ <B^(xc)|
-                                   <B^(xc)|B^(xc)>
+                                                     <δm|B^(xc)>
+                                        - |B^(xc)> ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾ <B^(xc)|
+                                                   <B^(xc)|B^(xc)>
 
         where
 
@@ -231,6 +237,6 @@ class IsotropicExchangeCalculator:
             + np.outer(Bxc_G, np.conj(dm_G))\
             - np.outer(Bxc_G, np.conj(Bxc_G))\
             * np.dot(np.conj(dm_G), Bxc_G) / np.dot(np.conj(Bxc_G), Bxc_G)
-        chiksr_corr_GG /= 2.
+        chiksr_corr_GG /= 2. * np.dot(np.conj(Bxc_G), Bxc_G)
 
         return chiksr_corr_GG
