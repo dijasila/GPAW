@@ -30,7 +30,7 @@ from ase.utils.filecache import MultiFileJSONCache as FileCache
 from contextlib import ExitStack
 from ase.parallel import broadcast
 
-
+# update
 class Sigma:
     def __init__(self, iq, q_c, fxc, esknshape, **inputs):
         """Inputs are used for cache invalidation, and are stored for each
@@ -75,7 +75,7 @@ class Sigma:
                 'dsigma_eskn': self.dsigma_eskn,
                 'inputs': self.inputs}
 
-
+# update
 class G0W0Outputs:
     def __init__(self, fd, shape, ecut_e, sigma_eskn, dsigma_eskn,
                  eps_skn, vxc_skn, exx_skn, f_skn):
@@ -166,7 +166,7 @@ class G0W0Outputs:
 
         return results
 
-
+# update
 class QSymmetryOp:
     def __init__(self, symno, U_cc, sign):
         self.symno = symno
@@ -302,7 +302,7 @@ def select_kpts(kpts, kd):
         indices.append(k)
     return indices
 
-
+# update
 class G0W0Calculator:
     def __init__(self, filename='gw', *,
                  chi0calc,

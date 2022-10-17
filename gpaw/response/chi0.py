@@ -7,7 +7,6 @@ from typing import Union
 
 import numpy as np
 from ase.units import Ha
-from ase.utils.timing import timer
 
 import gpaw
 import gpaw.mpi as mpi
@@ -24,7 +23,7 @@ from gpaw.response.pw_parallelization import block_partition
 from gpaw.response.symmetry import PWSymmetryAnalyzer
 from gpaw.typing import Array1D
 from gpaw.utilities.memory import maxrss
-
+from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
 
 def find_maximum_frequency(kpt_u, nbands=0, fd=None):
     """Determine the maximum electron-hole pair transition energy."""
@@ -62,9 +61,6 @@ class Chi0Calculator:
         assert pair.context.world is context.world
         self.context = context
 
-        self.timer = self.context.timer
-        self.fd = self.context.fd
-
         self.pair = pair
         self.gs = pair.gs
 
@@ -75,12 +71,11 @@ class Chi0Calculator:
         self.eshift = eshift / Ha
 
         self.vol = self.gs.volume
-        self.world = self.context.world
         self.nblocks = pair.nblocks
         self.calc = self.gs._calc  # XXX remove me
 
         # XXX this is redundant as pair also does it.
-        self.blockcomm, self.kncomm = block_partition(self.world, self.nblocks)
+        self.blockcomm, self.kncomm = block_partition(self.context.world, self.nblocks)
 
         if ecut is None:
             ecut = 50.0
@@ -97,7 +92,7 @@ class Chi0Calculator:
         self.include_intraband = intraband
 
         self.wd = wd
-        print(self.wd, file=self.fd)
+        self.context.print(self.wd, flush=False)
 
         if not isinstance(self.wd, NonLinearFrequencyDescriptor):
             assert not hilbert
@@ -118,14 +113,12 @@ class Chi0Calculator:
         if sum(self.pbc) == 1:
             raise ValueError('1-D not supported atm.')
 
-        print('Nonperiodic BCs: ', (~self.pbc),
-              file=self.fd)
+        self.context.print('Nonperiodic BCs: ', (~self.pbc), flush=False)
 
         if integrationmode is not None:
-            print('Using integration method: ' + self.integrationmode,
-                  file=self.fd)
+            self.context.print('Using integration method: ' + self.integrationmode, flush=False)
         else:
-            print('Using integration method: PointIntegrator', file=self.fd)
+            self.context.print('Using integration method: PointIntegrator', flush=False)
 
     @property
     def pbc(self):
@@ -134,7 +127,7 @@ class Chi0Calculator:
     def create_chi0(self, q_c, extend_head=True):
         # Extract descriptor arguments
         plane_waves = (q_c, self.ecut, self.gs.gd)
-        parallelization = (self.world, self.blockcomm, self.kncomm)
+        parallelization = (self.context.world, self.blockcomm, self.kncomm)
 
         # Construct the Chi0Data object
         # In the future, the frequencies should be specified at run-time
@@ -253,10 +246,9 @@ class Chi0Calculator:
 
         kwargs = dict(
             cell_cv=self.gs.gd.cell_cv,
-            comm=self.world,
-            timer=self.timer,
-            eshift=self.eshift,
-            txt=self.fd)
+            comm=self.context.world,
+            timer=self.context.timer,
+            eshift=self.eshift)
 
         integrator = cls(**kwargs, nblocks=self.nblocks)
         intnoblock = cls(**kwargs)
@@ -330,7 +322,7 @@ class Chi0Calculator:
             extraargs['timeordered'] = self.timeordered
 
         # Integrate response function
-        print('Integrating response function.', file=self.fd)
+        self.context.print('Integrating response function.')
         # Define band summation. Includes transitions from all
         # completely and partially filled bands to range(m1, m2)
         bandsum = {'n1': 0, 'n2': self.nocc2, 'm1': m1, 'm2': m2}
@@ -372,7 +364,7 @@ class Chi0Calculator:
             # The integrator only returns the spectral function and a Hilbert
             # transform is performed to return the real part of the density
             # response function.
-            with self.timer('Hilbert transform'):
+            with self.context.timer('Hilbert transform'):
                 # Make Hilbert transform
                 ht = HilbertTransform(np.array(self.wd.omega_w), self.eta,
                                       timeordered=self.timeordered)
@@ -400,7 +392,7 @@ class Chi0Calculator:
 
             # Not so elegant solution but it works
             plasmafreq_wvv = np.zeros((1, 3, 3), complex)  # Output array
-            print('Integrating intraband density response.', file=self.fd)
+            self.context.print('Integrating intraband density response.')
 
             # Depending on which integration method is used we
             # have to pass different arguments
@@ -448,9 +440,8 @@ class Chi0Calculator:
                 self.plasmafreq_vv = 4 * np.pi * plasmafreq_vv * prefactor
 
             analyzer.symmetrize_wvv(self.plasmafreq_vv[np.newaxis])
-            print('Plasma frequency:', file=self.fd)
-            print((self.plasmafreq_vv**0.5 * Ha).round(2),
-                  file=self.fd)
+            self.context.print('Plasma frequency:', flush=False)
+            self.context.print((self.plasmafreq_vv**0.5 * Ha).round(2))
 
         # The response function is integrated only over the IBZ. The
         # chi calculated above must therefore be extended to include the
@@ -787,7 +778,7 @@ class Chi0Calculator:
             world = SerialCommunicator()
             world.size = size
         else:
-            world = self.world
+            world = self.context.world
 
         q_c = pd.kd.bzk_kc[0]
         nw = len(self.wd)
@@ -808,7 +799,7 @@ class Chi0Calculator:
         bsize = self.blockcomm.size
         chisize = nw * pd.ngmax**2 * 16. / 1024**2 / bsize
 
-        p = partial(print, file=self.fd)
+        p = partial(self.context.print, flush=False)
 
         p('%s' % ctime())
         p('Called response.chi0.calculate with')
@@ -836,11 +827,11 @@ class Chi0Calculator:
         p('        Occupied states: %f M / cpu' % occsize)
         p('        Memory usage before allocation: %f M / cpu' % (maxrss() /
                                                                   1024**2))
-        p()
+        self.context.print('')
 
 
 class Chi0(Chi0Calculator):
-    """Class for calculating non-interacting response functions."""
+    """Class for calculating non-interacting response functions. Backwards compatible. """
 
     def __init__(self,
                  calc,
