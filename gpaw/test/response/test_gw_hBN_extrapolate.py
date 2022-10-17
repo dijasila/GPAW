@@ -2,11 +2,6 @@
 It takes ~109 s on one core"""
 
 import pytest
-import numpy as np
-
-from ase.lattice.hexagonal import Graphene
-
-from gpaw import GPAW, FermiDirac
 from gpaw.test import equal
 from gpaw.response.g0w0 import G0W0
 
