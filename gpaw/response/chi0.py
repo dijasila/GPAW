@@ -354,15 +354,21 @@ class Chi0Calculator:
             # section can be deleted in the future if the ralda and RPA code is
             # made compatible with the head and wing extension that other parts
             # of the code is using.
+
+            get_matrix_element = functools.partial(
+                self.get_matrix_element, **mat_kwargs)
+            get_eigenvalues = functools.partial(
+                self.get_eigenvalues, **eig_kwargs)
+
             chi0_wxvx = np.zeros(np.array(chi0.chi0_wxvG.shape) +
                                  [0, 0, 0, 2],
                                  complex)  # Notice the wxv"x" for head extend
             intnoblock.integrate(kind=kind + ' wings',  # kind'o int.
                                  domain=domain,  # Integration domain
-                                 integrand=(self.get_matrix_element,  # Intgrnd
-                                            self.get_eigenvalues),  # Integrand
+                                 integrand=(get_matrix_element,  # Intgrnd
+                                            get_eigenvalues),  # Integrand
                                  x=self.wd,  # Frequency Descriptor
-                                 kwargs=(mat_kwargs, eig_kwargs),
+                                 # kwargs=(mat_kwargs, eig_kwargs),
                                  # Arguments for integrand functions
                                  out_wxx=chi0_wxvx,  # Output array
                                  **extraargs)
