@@ -419,8 +419,7 @@ class NoCalculatorPairDensity:
         return n0_mv
 
     @timer('Intraband')
-    def intraband_pair_density(self, kpt, n_n=None,
-                               only_partially_occupied=False):
+    def intraband_pair_density(self, kpt, n_n=None):
         """Calculate intraband matrix elements of nabla"""
         # Bands and check for block parallelization
         na, nb, n1 = kpt.na, kpt.nb, kpt.n1
@@ -447,15 +446,6 @@ class NoCalculatorPairDensity:
             # Just include all bands to be sure
             partocc_n = np.ones(len(f_n), dtype=bool)
 
-        if only_partially_occupied and not partocc_n.any():
-            return None
-
-        if only_partially_occupied:
-            # Check for block par. consistency
-            assert (partocc_n < nb).all(), \
-                print('Include more unoccupied bands ', +
-                      'or less block parr.', file=self.fd)
-
         # Break bands into degenerate chunks
         degchunks_cn = []  # indexing c as chunk number
         for n in n_n:
@@ -464,8 +454,7 @@ class NoCalculatorPairDensity:
 
             # Has this chunk already been computed?
             oldchunk = any([n in chunk for chunk in degchunks_cn])
-            if not oldchunk and \
-               (partocc_n[n - n1] or not only_partially_occupied):
+            if not oldchunk and partocc_n[n - n1]:
                 assert all([ind in n_n for ind in inds_n]), \
                     print('\nYou are cutting over a degenerate band ' +
                           'using block parallelization.',
