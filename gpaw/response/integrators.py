@@ -447,8 +447,8 @@ class TetrahedronIntegrator(Integrator):
 
     @timer('Spectral function integration')
     def spectral_function_integration(self, wings=False,
-                                      domain=None, integrand=None,
-                                      x=None, kwargs=None, out_wxx=None):
+                                      *, domain, integrand,
+                                      x, kwargs=None, out_wxx):
         """Integrate response function.
 
         Assume that the integral has the
@@ -456,9 +456,8 @@ class TetrahedronIntegrator(Integrator):
         method it is possible calculate frequency dependent weights
         and do a point summation using these weights."""
 
-        if out_wxx is None:
-            raise NotImplementedError
-
+        wd = x  # XXX Rename.  But it clashes with some other methods
+        # that are **kwargs'ed somewhere, so requires attention.
         blocks1d = self._blocks1d(out_wxx.shape[2])
 
         # Input domain
@@ -544,11 +543,12 @@ class TetrahedronIntegrator(Integrator):
                                       *arguments[:-1])
 
             # Generate frequency weights
-            i0_M, i1_M = x.get_index_range(teteps_Mk.min(1), teteps_Mk.max(1))
+            i0_M, i1_M = wd.get_index_range(
+                teteps_Mk.min(1), teteps_Mk.max(1))
             W_Mw = []
             for deps_k, i0, i1 in zip(deps_Mk, i0_M, i1_M):
                 W_w = self.get_kpoint_weight(K, deps_k,
-                                             pts_k, x.omega_w[i0:i1],
+                                             pts_k, wd.omega_w[i0:i1],
                                              td)
                 W_Mw.append(W_w)
 
