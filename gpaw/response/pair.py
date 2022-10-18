@@ -454,7 +454,7 @@ class NoCalculatorPairDensity:
 
             # Has this chunk already been computed?
             oldchunk = any([n in chunk for chunk in degchunks_cn])
-            if not oldchunk and partocc_n[n - n1]:
+            if not oldchunk:
                 assert all([ind in n_n for ind in inds_n]), \
                     print('\nYou are cutting over a degenerate band ' +
                           'using block parallelization.',
