@@ -416,8 +416,7 @@ class NoCalculatorPairDensity:
         return n0_mv
 
     @timer('Intraband')
-    def intraband_pair_density(self, kpt, n_n=None,
-                               only_partially_occupied=False):
+    def intraband_pair_density(self, kpt, n_n=None):
         """Calculate intraband matrix elements of nabla"""
         # Bands and check for block parallelization
         na, nb, n1 = kpt.na, kpt.nb, kpt.n1
@@ -433,25 +432,6 @@ class NoCalculatorPairDensity:
         k_c = kd.bzk_kc[kpt.K] + kpt.shift_c
         k_v = 2 * np.pi * np.dot(k_c, np.linalg.inv(gd.cell_cv).T)
         atomdata_a = self.gs.setups
-        f_n = kpt.f_n
-
-        width = self.gs.get_occupations_width()
-
-        if width > 1e-15:
-            dfde_n = -1 / width * (f_n - f_n**2.0)  # Analytical derivative
-            partocc_n = np.abs(dfde_n) > 1e-5  # Is part. occupied?
-        else:
-            # Just include all bands to be sure
-            partocc_n = np.ones(len(f_n), dtype=bool)
-
-        if only_partially_occupied and not partocc_n.any():
-            return None
-
-        if only_partially_occupied:
-            # Check for block par. consistency
-            assert (partocc_n < nb).all(), \
-                print('Include more unoccupied bands ', +
-                      'or less block parr.', file=self.fd)
 
         # Break bands into degenerate chunks
         degchunks_cn = []  # indexing c as chunk number
@@ -461,8 +441,7 @@ class NoCalculatorPairDensity:
 
             # Has this chunk already been computed?
             oldchunk = any([n in chunk for chunk in degchunks_cn])
-            if not oldchunk and \
-               (partocc_n[n - n1] or not only_partially_occupied):
+            if not oldchunk:
                 assert all([ind in n_n for ind in inds_n]), \
                     print('\nYou are cutting over a degenerate band ' +
                           'using block parallelization.',
