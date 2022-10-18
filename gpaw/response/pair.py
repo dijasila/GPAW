@@ -552,19 +552,8 @@ class NoCalculatorPairDensity:
         return ut_sKnvR
 
     @timer('Derivatives')
-    def make_derivative(self, s, K, n1, n2, real_space_derivatives=False):
-        """Calculate derivatives.
-
-        real_space_derivatives : bool
-            Calculate nabla matrix elements (in the optical limit)
-            using a real space finite difference approximation.
-        """
-
+    def make_derivative(self, s, K, n1, n2):
         gs = self.gs
-        if real_space_derivatives:
-            grad_v = [Gradient(gs.gd, v, 1.0, 4, complex).apply
-                      for v in range(3)]
-
         U_cc, T, a_a, U_aii, shift_c, time_reversal = \
             self.construct_symmetry_operators(K)
         A_cv = gs.gd.cell_cv
@@ -577,14 +566,9 @@ class NoCalculatorPairDensity:
         ut_nvR = gs.gd.zeros((n2 - n1, 3), complex)
         for n in range(n1, n2):
             for v in range(3):
-                if real_space_derivatives:
-                    ut_R = T(gs.pd.ifft(psit_nG[n], ik))
-                    grad_v[v](ut_R, ut_nvR[n - n1, v],
-                              np.ones((3, 2), complex))
-                else:
-                    ut_R = T(gs.pd.ifft(iG_Gv[:, v] * psit_nG[n], ik))
-                    for v2 in range(3):
-                        ut_nvR[n - n1, v2] += ut_R * M_vv[v, v2]
+                ut_R = T(gs.pd.ifft(iG_Gv[:, v] * psit_nG[n], ik))
+                for v2 in range(3):
+                    ut_nvR[n - n1, v2] += ut_R * M_vv[v, v2]
 
         return ut_nvR
 
