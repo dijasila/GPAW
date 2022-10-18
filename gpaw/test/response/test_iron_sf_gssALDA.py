@@ -94,5 +94,3 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
     # Scattering function intensity:
     assert Ipeak1 == pytest.approx(test_Ipeak1, abs=5)
     assert Ipeak2 == pytest.approx(test_Ipeak2, abs=5)
-    #equal(Ipeak1, test_Ipeak1, 5)
-    #equal(Ipeak2, test_Ipeak2, 5)
