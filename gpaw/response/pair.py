@@ -435,16 +435,6 @@ class NoCalculatorPairDensity:
         k_c = kd.bzk_kc[kpt.K] + kpt.shift_c
         k_v = 2 * np.pi * np.dot(k_c, np.linalg.inv(gd.cell_cv).T)
         atomdata_a = self.gs.setups
-        f_n = kpt.f_n
-
-        width = self.gs.get_occupations_width()
-
-        if width > 1e-15:
-            dfde_n = -1 / width * (f_n - f_n**2.0)  # Analytical derivative
-            partocc_n = np.abs(dfde_n) > 1e-5  # Is part. occupied?
-        else:
-            # Just include all bands to be sure
-            partocc_n = np.ones(len(f_n), dtype=bool)
 
         # Break bands into degenerate chunks
         degchunks_cn = []  # indexing c as chunk number
