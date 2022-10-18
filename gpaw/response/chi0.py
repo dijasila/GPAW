@@ -229,228 +229,11 @@ class Chi0Calculator:
         pairden_paw_corr = self.gs.pair_density_paw_corrections
         self.pawcorr = pairden_paw_corr(pd, alter_optical_limit=True)
 
-        self.update_chi0_body(chi0, m1, m2, spins)
-
-        # Initialize integrator. The integrator class is a general class
-        # for brillouin zone integration that can integrate user defined
-        # functions over user defined domains and sum over bands.
-        integrator: Integrator
-        intnoblock: Integrator
-
-        if self.integrationmode is None or \
-           self.integrationmode == 'point integration':
-            cls = PointIntegrator
-        elif self.integrationmode == 'tetrahedron integration':
-            cls = TetrahedronIntegrator  # type: ignore
-        else:
-            raise ValueError(f'Integration mode "{self.integrationmode}"'
-                             ' not implemented.')
-
-        kwargs = dict(
-            cell_cv=self.gs.gd.cell_cv,
-            comm=self.world,
-            timer=self.timer,
-            eshift=self.eshift,
-            txt=self.fd)
-
-        intnoblock = cls(**kwargs)
-
-        # The integration domain is determined by the following function
-        # that reduces the integration domain to the irreducible zone
-        # of the little group of q.
-        bzk_kv, analyzer = self.get_kpoints(
-            pd, integrationmode=self.integrationmode)
-        domain = (bzk_kv, spins)
-
-        if self.integrationmode == 'tetrahedron integration':
-            # If there are non-periodic directions it is possible that the
-            # integration domain is not compatible with the symmetry operations
-            # which essentially means that too large domains will be
-            # integrated. We normalize by vol(BZ) / vol(domain) to make
-            # sure that to fix this.
-            domainvol = convex_hull_volume(
-                bzk_kv) * analyzer.how_many_symmetries()
-            bzvol = (2 * np.pi)**3 / self.vol
-            factor = bzvol / domainvol
-        else:
-            factor = 1
-
-        prefactor = (2 * factor * analyzer.how_many_symmetries() /
-                     (gs.nspins * (2 * np.pi)**3))  # Remember prefactor
-
-        if self.integrationmode is None:
-            nbzkpts = gs.kd.nbzkpts
-            prefactor *= len(bzk_kv) / nbzkpts
-
-        if optical_limit:
-            chi0.chi0_wxvG /= prefactor
-            chi0.chi0_wvv /= prefactor
-
-        # The functions that are integrated are defined in the bottom
-        # of this file and take a number of constant keyword arguments
-        # which the integrator class accepts through the use of the
-        # kwargs keyword.
-        kd = gs.kd
-        mat_kwargs = {'kd': kd, 'pd': pd,
-                      'symmetry': analyzer,
-                      'integrationmode': self.integrationmode,
-                      'include_optical_elements': False}
-        eig_kwargs = {'kd': kd, 'pd': pd}
-
-        # Determine what "kind" of integral to make.
-        extraargs = {}  # Initialize extra arguments to integration method.
-        if self.eta == 0:
-            # If eta is 0 then we must be working with imaginary frequencies.
-            # In this case chi is hermitian and it is therefore possible to
-            # reduce the computational costs by a only computing half of the
-            # response function.
-            kind = 'hermitian response function'
-        elif self.hilbert:
-            # The spectral function integrator assumes that the form of the
-            # integrand is a function (a matrix element) multiplied by
-            # a delta function and should return a function of at user defined
-            # x's (frequencies). Thus the integrand is tuple of two functions
-            # and takes an additional argument (x).
-            kind = 'spectral function'
-        else:
-            # Otherwise, we can make no simplifying assumptions of the
-            # form of the response function and we simply perform a brute
-            # force calculation of the response function.
-            kind = 'response function'
-            extraargs['eta'] = self.eta
-            extraargs['timeordered'] = self.timeordered
-
         # Integrate response function
         print('Integrating response function.', file=self.fd)
-        # Define band summation. Includes transitions from all
-        # completely and partially filled bands to range(m1, m2)
-        bandsum = {'n1': 0, 'n2': self.nocc2, 'm1': m1, 'm2': m2}
-        mat_kwargs.update(bandsum)
-        eig_kwargs.update(bandsum)
-
+        self.update_chi0_body(chi0, m1, m2, spins)
         if optical_limit:
-            mat_kwargs['include_optical_elements'] = True
-            mat_kwargs['block'] = False
-            # This is horrible but we need to update the wings manually
-            # in order to make them work with ralda, RPA and GW. This entire
-            # section can be deleted in the future if the ralda and RPA code is
-            # made compatible with the head and wing extension that other parts
-            # of the code is using.
-            chi0_wxvx = np.zeros(np.array(chi0.chi0_wxvG.shape) +
-                                 [0, 0, 0, 2],
-                                 complex)  # Notice the wxv"x" for head extend
-            intnoblock.integrate(kind=kind + ' wings',  # kind'o int.
-                                 domain=domain,  # Integration domain
-                                 integrand=(self.get_matrix_element,  # Intgrnd
-                                            self.get_eigenvalues),  # Integrand
-                                 x=self.wd,  # Frequency Descriptor
-                                 kwargs=(mat_kwargs, eig_kwargs),
-                                 # Arguments for integrand functions
-                                 out_wxx=chi0_wxvx,  # Output array
-                                 **extraargs)
-
-        if self.hilbert and optical_limit:
-            # The integrator only returns the spectral function and a Hilbert
-            # transform is performed to return the real part of the density
-            # response function.
-            with self.timer('Hilbert transform'):
-                # Make Hilbert transform
-                ht = HilbertTransform(np.array(self.wd.omega_w), self.eta,
-                                      timeordered=self.timeordered)
-                ht(chi0_wxvx)
-
-        # In the optical limit additional work must be performed
-        # for the intraband response.
-        # Only compute the intraband response if there are partially
-        # unoccupied bands and only if the user has not disabled its
-        # calculation using the include_intraband keyword.
-        if optical_limit and self.nocc1 != self.nocc2:
-            # The intraband response is essentially just the calculation
-            # of the free space Drude plasma frequency. The calculation is
-            # similarly to the interband transitions documented above.
-            mat_kwargs = {'kd': kd, 'symmetry': analyzer,
-                          'n1': self.nocc1, 'n2': self.nocc2,
-                          'pd': pd}  # Integrand arguments
-            eig_kwargs = {'kd': kd,
-                          'n1': self.nocc1, 'n2': self.nocc2,
-                          'pd': pd}  # Integrand arguments
-            domain = (bzk_kv, spins)  # Integration domain
-            fermi_level = self.pair.fermi_level  # Fermi level
-
-            # Not so elegant solution but it works
-            plasmafreq_wvv = np.zeros((1, 3, 3), complex)  # Output array
-            print('Integrating intraband density response.', file=self.fd)
-
-            # Depending on which integration method is used we
-            # have to pass different arguments
-            extraargs = {}
-            if self.integrationmode is None:
-                # Calculate intraband transitions at finite fermi smearing
-                extraargs['intraband'] = True  # Calculate intraband
-            elif self.integrationmode == 'tetrahedron integration':
-                # Calculate intraband transitions at T=0
-                extraargs['x'] = FrequencyGridDescriptor([-fermi_level])
-
-            intnoblock.integrate(kind='spectral function',  # Kind of integral
-                                 domain=domain,  # Integration domain
-                                 # Integrands
-                                 integrand=(self.get_intraband_response,
-                                            self.get_intraband_eigenvalue),
-                                 # Integrand arguments
-                                 kwargs=(mat_kwargs, eig_kwargs),
-                                 out_wxx=plasmafreq_wvv,  # Output array
-                                 **extraargs)  # Extra args for int. method
-
-            # Again, not so pretty but that's how it is
-            plasmafreq_vv = plasmafreq_wvv[0].copy()
-            if self.include_intraband:
-                try:
-                    with np.errstate(divide='raise'):
-                        drude_chi_wvv = (
-                            plasmafreq_vv[np.newaxis] /
-                            (self.wd.omega_w[:, np.newaxis, np.newaxis]
-                             + 1.j * self.rate)**2)
-                except FloatingPointError:
-                    raise ValueError('Please set rate to a positive value.')
-                # Fill into head part of tmp head AND wings array
-                chi0_wxvx[:, 0, :3, :3] += drude_chi_wvv
-
-            # Save the plasmafrequency
-            try:
-                self.plasmafreq_vv += 4 * np.pi * plasmafreq_vv * prefactor
-            except AttributeError:
-                self.plasmafreq_vv = 4 * np.pi * plasmafreq_vv * prefactor
-
-            analyzer.symmetrize_wvv(self.plasmafreq_vv[np.newaxis])
-            print('Plasma frequency:', file=self.fd)
-            print((self.plasmafreq_vv**0.5 * Ha).round(2),
-                  file=self.fd)
-
-        if optical_limit:
-            # Fill in wings part of the data, but leave out the head
-            chi0.chi0_wxvG[..., 1:] += chi0_wxvx[..., 3:]
-            # Fill in the head
-            chi0.chi0_wvv += chi0_wxvx[:, 0, :3, :3]
-            analyzer.symmetrize_wxvG(chi0.chi0_wxvG)
-            analyzer.symmetrize_wvv(chi0.chi0_wvv)
-
-            # If point summation was used then the normalization of the
-            # response function is not right and we have to make up for this
-            # fact.
-            chi0.chi0_wxvG *= prefactor
-            chi0.chi0_wvv *= prefactor
-
-            # By default, we fill in the G=0 entries of chi0_wGG with the
-            # wings evaluated along the z-direction.
-            # The x = 1 wing represents the left vertical block, which is
-            # distributed in chi0_wGG
-            chi0.chi0_wGG[:, :, 0] = chi0.chi0_wxvG[:, 1, 2,
-                                                    chi0.blocks1d.myslice]
-
-            if self.blockcomm.rank == 0:  # rank with G=0 row
-                # The x = 0 wing represents the upper horizontal block
-                chi0.chi0_wGG[:, 0, :] = chi0.chi0_wxvG[:, 0, 2, :]
-                chi0.chi0_wGG[:, 0, 0] = chi0.chi0_wvv[:, 2, 2]
+            self.update_chi0_wings(chi0, m1, m2, spins)
 
         return chi0
 
@@ -463,20 +246,11 @@ class Chi0Calculator:
 
         integrator = self.initialize_integrator()
         domain, analyzer, prefactor = self.get_integration_domain(pd, spins)
+        mat_kwargs, eig_kwargs = self.get_integrator_arguments(pd, m1, m2,
+                                                               analyzer)
         kind, extraargs = self.get_integral_kind()
 
-        # Prepare keyword arguments for the integrator
-        kd = self.gs.kd
-        mat_kwargs = {'kd': kd, 'pd': pd,
-                      'symmetry': analyzer,
-                      'integrationmode': self.integrationmode,
-                      'include_optical_elements': False}
-        eig_kwargs = {'kd': kd, 'pd': pd}
-        # Define band summation. Includes transitions from all
-        # completely and partially filled bands to range(m1, m2)
-        bandsum = {'n1': 0, 'n2': self.nocc2, 'm1': m1, 'm2': m2}
-        mat_kwargs.update(bandsum)
-        eig_kwargs.update(bandsum)
+        mat_kwargs['include_optical_elements'] = False  # Change? XXX
 
         A_wxx /= prefactor
         integrator.integrate(kind=kind,  # Kind of integral
@@ -512,6 +286,134 @@ class Chi0Calculator:
         tmpA_wxx = chi0.blockdist.redistribute(A_wxx, chi0.nw)
         analyzer.symmetrize_wGG(tmpA_wxx)
         A_wxx[:] = chi0.blockdist.redistribute(tmpA_wxx, chi0.nw)
+
+    def update_chi0_wings(self,
+                          chi0: Chi0Data,
+                          m1, m2, spins):
+        """In-place calculation of the optical limit wings."""
+        pd = chi0.pd
+
+        integrator = self.initialize_integrator(block_distributed=False)
+        domain, analyzer, prefactor = self.get_integration_domain(pd, spins)
+        mat_kwargs, eig_kwargs = self.get_integrator_arguments(pd, m1, m2,
+                                                               analyzer)
+        kind, extraargs = self.get_integral_kind()
+
+        mat_kwargs['include_optical_elements'] = True  # Change? XXX
+        mat_kwargs['block'] = False
+
+        chi0.chi0_wxvG /= prefactor
+        chi0.chi0_wvv /= prefactor
+
+        chi0_wxvx = np.zeros(np.array(chi0.chi0_wxvG.shape) +
+                             [0, 0, 0, 2],
+                             complex)  # Notice the wxv"x" for head extend
+        integrator.integrate(kind=kind + ' wings',  # kind'o int.
+                             domain=domain,  # Integration domain
+                             integrand=(self.get_matrix_element,  # Intgrnd
+                                        self.get_eigenvalues),  # Integrand
+                             x=self.wd,  # Frequency Descriptor
+                             kwargs=(mat_kwargs, eig_kwargs),
+                             # Arguments for integrand functions
+                             out_wxx=chi0_wxvx,  # Output array
+                             **extraargs)
+
+        if self.hilbert:
+            with self.timer('Hilbert transform'):
+                ht = HilbertTransform(np.array(self.wd.omega_w), self.eta,
+                                      timeordered=self.timeordered)
+                ht(chi0_wxvx)
+
+        # In the optical limit additional work must be performed
+        # for the intraband response.
+        # Only compute the intraband response if there are partially
+        # unoccupied bands and only if the user has not disabled its
+        # calculation using the include_intraband keyword.
+        if self.nocc1 != self.nocc2:
+            # The intraband response is essentially just the calculation
+            # of the free space Drude plasma frequency. The calculation is
+            # similarly to the interband transitions documented above.
+            mat_kwargs = {'kd': self.gs.kd, 'symmetry': analyzer,
+                          'n1': self.nocc1, 'n2': self.nocc2,
+                          'pd': pd}  # Integrand arguments
+            eig_kwargs = {'kd': self.gs.kd,
+                          'n1': self.nocc1, 'n2': self.nocc2,
+                          'pd': pd}  # Integrand arguments
+            fermi_level = self.pair.fermi_level  # Fermi level
+
+            # Not so elegant solution but it works
+            plasmafreq_wvv = np.zeros((1, 3, 3), complex)  # Output array
+            print('Integrating intraband density response.', file=self.fd)
+
+            # Depending on which integration method is used we
+            # have to pass different arguments
+            extraargs = {}
+            if self.integrationmode is None:
+                # Calculate intraband transitions at finite fermi smearing
+                extraargs['intraband'] = True  # Calculate intraband
+            elif self.integrationmode == 'tetrahedron integration':
+                # Calculate intraband transitions at T=0
+                extraargs['x'] = FrequencyGridDescriptor([-fermi_level])
+
+            integrator.integrate(kind='spectral function',  # Kind of integral
+                                 domain=domain,  # Integration domain
+                                 # Integrands
+                                 integrand=(self.get_intraband_response,
+                                            self.get_intraband_eigenvalue),
+                                 # Integrand arguments
+                                 kwargs=(mat_kwargs, eig_kwargs),
+                                 out_wxx=plasmafreq_wvv,  # Output array
+                                 **extraargs)  # Extra args for int. method
+
+            # Again, not so pretty but that's how it is
+            plasmafreq_vv = plasmafreq_wvv[0].copy()
+            if self.include_intraband:
+                try:
+                    with np.errstate(divide='raise'):
+                        drude_chi_wvv = (
+                            plasmafreq_vv[np.newaxis] /
+                            (self.wd.omega_w[:, np.newaxis, np.newaxis]
+                             + 1.j * self.rate)**2)
+                except FloatingPointError:
+                    raise ValueError('Please set rate to a positive value.')
+                # Fill into head part of tmp head AND wings array
+                chi0_wxvx[:, 0, :3, :3] += drude_chi_wvv
+
+            # Save the plasmafrequency
+            try:
+                self.plasmafreq_vv += 4 * np.pi * plasmafreq_vv * prefactor
+            except AttributeError:
+                self.plasmafreq_vv = 4 * np.pi * plasmafreq_vv * prefactor
+
+            analyzer.symmetrize_wvv(self.plasmafreq_vv[np.newaxis])
+            print('Plasma frequency:', file=self.fd)
+            print((self.plasmafreq_vv**0.5 * Ha).round(2),
+                  file=self.fd)
+
+        # Fill in wings part of the data, but leave out the head
+        chi0.chi0_wxvG[..., 1:] += chi0_wxvx[..., 3:]
+        # Fill in the head
+        chi0.chi0_wvv += chi0_wxvx[:, 0, :3, :3]
+        analyzer.symmetrize_wxvG(chi0.chi0_wxvG)
+        analyzer.symmetrize_wvv(chi0.chi0_wvv)
+
+        # If point summation was used then the normalization of the
+        # response function is not right and we have to make up for this
+        # fact.
+        chi0.chi0_wxvG *= prefactor
+        chi0.chi0_wvv *= prefactor
+
+        # By default, we fill in the G=0 entries of chi0_wGG with the
+        # wings evaluated along the z-direction.
+        # The x = 1 wing represents the left vertical block, which is
+        # distributed in chi0_wGG
+        chi0.chi0_wGG[:, :, 0] = chi0.chi0_wxvG[:, 1, 2,
+                                                chi0.blocks1d.myslice]
+
+        if self.blockcomm.rank == 0:  # rank with G=0 row
+            # The x = 0 wing represents the upper horizontal block
+            chi0.chi0_wGG[:, 0, :] = chi0.chi0_wxvG[:, 0, 2, :]
+            chi0.chi0_wGG[:, 0, 0] = chi0.chi0_wvv[:, 2, 2]
 
     def initialize_integrator(self, block_distributed=True):
         """The integrator class is a general class for brillouin zone
@@ -572,6 +474,21 @@ class Chi0Calculator:
             prefactor *= len(bzk_kv) / nbzkpts
 
         return domain, analyzer, prefactor
+
+    def get_integrator_arguments(self, pd, m1, m2, analyzer):
+        # Prepare keyword arguments for the integrator
+        kd = self.gs.kd
+        mat_kwargs = {'kd': kd, 'pd': pd,
+                      'symmetry': analyzer,
+                      'integrationmode': self.integrationmode}
+        eig_kwargs = {'kd': kd, 'pd': pd}
+        # Define band summation. Includes transitions from all
+        # completely and partially filled bands to range(m1, m2)
+        bandsum = {'n1': 0, 'n2': self.nocc2, 'm1': m1, 'm2': m2}
+        mat_kwargs.update(bandsum)
+        eig_kwargs.update(bandsum)
+
+        return mat_kwargs, eig_kwargs
 
     def get_integral_kind(self):
         """Determine what "kind" of integral to make."""
