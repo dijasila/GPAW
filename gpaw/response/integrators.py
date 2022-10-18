@@ -448,7 +448,7 @@ class TetrahedronIntegrator(Integrator):
     @timer('Spectral function integration')
     def spectral_function_integration(self, wings=False,
                                       *, domain, integrand,
-                                      x, kwargs=None, out_wxx):
+                                      x, out_wxx):
         """Integrate response function.
 
         Assume that the integral has the
@@ -464,14 +464,6 @@ class TetrahedronIntegrator(Integrator):
         td = self.tesselate(domain[0])
         args = domain[1:]
         get_matrix_element, get_eigenvalues = integrand
-
-        # The kwargs contain any constant
-        # arguments provided by the user
-        if kwargs is not None:
-            get_matrix_element = partial(get_matrix_element,
-                                         **kwargs[0])
-            get_eigenvalues = partial(get_eigenvalues,
-                                      **kwargs[1])
 
         # Relevant quantities
         bzk_kc = td.points

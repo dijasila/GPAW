@@ -4,6 +4,7 @@ import warnings
 from functools import partial
 from time import ctime
 from typing import Union
+import functools
 
 import numpy as np
 from ase.units import Ha
@@ -329,8 +330,6 @@ class Chi0Calculator:
         bandsum = {'n1': 0, 'n2': self.nocc2, 'm1': m1, 'm2': m2}
         mat_kwargs.update(bandsum)
         eig_kwargs.update(bandsum)
-
-        import functools
 
         get_matrix_element = functools.partial(
             self.get_matrix_element, **mat_kwargs)
