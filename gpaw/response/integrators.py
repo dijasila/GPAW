@@ -153,11 +153,12 @@ class PointIntegrator(Integrator):
             elif hermitian and wings:
                 self.update_hermitian_optical_limit(n_MG, deps_M, x, out_wxx)
             elif hilbert and not wings:
-                self.update_hilbert(n_MG, deps_M, x, out_wxx, **extraargs)
+                self.update_hilbert(n_MG, deps_M, x, out_wxx)
             elif hilbert and wings:
-                self.update_hilbert_optical_limit(n_MG, deps_M, x,
-                                                  out_wxx, **extraargs)
+                self.update_hilbert_optical_limit(n_MG, deps_M, x, out_wxx)
             elif wings:
+                # XXX "eta" can be in extraargs, but not "timeordered"
+                # because we took that as input next to extraargs
                 self.update_optical_limit(n_MG, deps_M, x, out_wxx,
                                           **extraargs)
             else:
