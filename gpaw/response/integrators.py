@@ -82,15 +82,11 @@ class Integrator:
 
 
 class PointIntegrator(Integrator):
+    """Integrate brillouin zone using a broadening technique.
 
-    def __init__(self, *args, **kwargs):
-
-        """Integrate brillouin zone using a broadening technique.
-
-        The broadening technique consists of smearing out the
-        delta functions appearing in many integrals by some factor
-        eta. In this code we use Lorentzians."""
-        Integrator.__init__(self, *args, **kwargs)
+    The broadening technique consists of smearing out the
+    delta functions appearing in many integrals by some factor
+    eta. In this code we use Lorentzians."""
 
     def integrate(self, kind='pointwise', *args, **kwargs):
         print('Integral kind:', kind, file=self.fd)
