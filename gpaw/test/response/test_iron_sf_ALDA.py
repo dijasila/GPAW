@@ -7,32 +7,27 @@ have changed for:
  * Different chi0 transitions summation strategies
 """
 
-import numpy as np
-import pytest
-
 import time
 
-from ase.build import bulk
-from ase.dft.kpoints import monkhorst_pack
+import numpy as np
+import pytest
 from ase.parallel import parprint
-
-from gpaw import GPAW, PW
-from gpaw.test import findpeak, equal
+from gpaw import GPAW
 from gpaw.mpi import world
-
 from gpaw.response import ResponseGroundStateAdapter
-from gpaw.response.tms import TransverseMagneticSusceptibility
 from gpaw.response.susceptibility import read_macroscopic_component
-
+from gpaw.response.tms import TransverseMagneticSusceptibility
+from gpaw.test import equal, findpeak
 
 pytestmark = pytest.mark.skipif(world.size < 4, reason='world.size < 4')
 
 
 @pytest.mark.kspair
 @pytest.mark.response
-def test_response_iron_sf_ALDA(in_tmp_dir, scalapack):
+def test_response_iron_sf_ALDA(in_tmp_dir, scalapack, gpw_files):
     # ------------------- Inputs ------------------- #
 
+    """
     # Part 1: ground state calculation
     xc = 'LDA'
     kpts = 4
@@ -42,6 +37,7 @@ def test_response_iron_sf_ALDA(in_tmp_dir, scalapack):
             'forces': 1.e-8}
     a = 2.867
     mm = 2.21
+    """
 
     # Part 2: magnetic response calculation
     q_c = [0.0, 0.0, 1 / 4.]
@@ -75,19 +71,8 @@ def test_response_iron_sf_ALDA(in_tmp_dir, scalapack):
 
     t1 = time.time()
 
-    Febcc = bulk('Fe', 'bcc', a=a)
-    Febcc.set_initial_magnetic_moments([mm])
+    calc = GPAW(gpw_files['fe_pw_wfs'])
 
-    calc = GPAW(xc=xc,
-                mode=PW(pw),
-                kpts=monkhorst_pack((kpts, kpts, kpts)),
-                nbands=nb,
-                convergence=conv,
-                symmetry={'point_group': False},
-                parallel={'domain': 1})
-
-    Febcc.calc = calc
-    Febcc.get_potential_energy()
     t2 = time.time()
 
     # Part 2: magnetic response calculation

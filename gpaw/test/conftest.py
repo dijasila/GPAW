@@ -366,6 +366,33 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
+    def fe_pw(self):
+        xc = 'LDA'
+        kpts = 4
+        nbands = 6
+        pw = 400
+        occw = 0.05
+        conv = {# 'density': 1e-8,
+                # 'forces': 1e-8,
+                'bands': nbands}
+        a = 2.867
+        mm = 2.21
+        atoms = bulk('Fe', 'bcc', a=a)
+        atoms.set_initial_magnetic_moments([mm])
+        atoms.center()
+
+        atoms.calc = GPAW(
+            xc=xc,
+            mode=PW(pw),
+            kpts={'size': (kpts, kpts, kpts), 'gamma': True},
+            nbands=nbands + 4,
+            occupations=FermiDirac(occw),
+            convergence=conv)
+
+        atoms.get_potential_energy()
+
+        return atoms.calc
+
 
 class GPAWPlugin:
     def __init__(self):
