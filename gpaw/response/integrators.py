@@ -125,7 +125,7 @@ class PointIntegrator(Integrator):
             raise NotImplementedError
 
     def response_function_integration(self, domain=None, integrand=None,
-                                      x=None, kwargs=None, out_wxx=None,
+                                      x=None, out_wxx=None,
                                       timeordered=False, hermitian=False,
                                       intraband=False, hilbert=False,
                                       wings=False, **extraargs):
@@ -145,14 +145,6 @@ class PointIntegrator(Integrator):
 
         prefactor = (2 * np.pi)**3 / self.vol / nbz
         out_wxx /= prefactor
-
-        # The kwargs contain any constant
-        # arguments provided by the user
-        if kwargs is not None:
-            get_matrix_element = partial(get_matrix_element,
-                                         **kwargs[0])
-            get_eigenvalues = partial(get_eigenvalues,
-                                      **kwargs[1])
 
         # Sum kpoints
         # Calculate integrations weight
@@ -404,9 +396,6 @@ class TetrahedronIntegrator(Integrator):
     Tetrahedron integration uses linear interpolation of
     the eigenenergies and of the matrix elements
     between the vertices of the tetrahedron."""
-
-    def __init__(self, *args, **kwargs):
-        Integrator.__init__(self, *args, **kwargs)
 
     @timer('Tesselate')
     def tesselate(self, vertices):
