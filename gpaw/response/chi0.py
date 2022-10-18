@@ -127,10 +127,6 @@ class Chi0Calculator:
 
         # Number of completely filled bands and number of non-empty bands.
         self.nocc1, self.nocc2 = self.gs.count_occupied_bands(ftol)
-        print('Number of completely filled bands:', self.nocc1, file=self.fd)
-        print('Number of non-empty bands:', self.nocc2, file=self.fd)
-        print('Total number of bands:', self.gs.bd.nbands,
-              file=self.fd)
 
     @property
     def pbc(self):
