@@ -35,7 +35,6 @@ class Chi0Data:
         self.wd = wd
         self.pd = pd
         self.blockdist = blockdist
-        self.extend_head = False
 
         # Check if in optical limit
         q_c, = pd.kd.ibzk_kc

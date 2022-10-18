@@ -225,12 +225,6 @@ class Chi0Calculator:
         # Are we calculating the optical limit.
         optical_limit = chi0.optical_limit
 
-        # Use wings in optical limit, if head cannot be extended
-        if optical_limit and not chi0.extend_head:
-            wings = True
-        else:
-            wings = False
-
         # Reset PAW correction in case momentum has change
         pairden_paw_corr = self.gs.pair_density_paw_corrections
         self.pawcorr = pairden_paw_corr(pd, alter_optical_limit=True)
@@ -289,7 +283,7 @@ class Chi0Calculator:
             prefactor *= len(bzk_kv) / nbzkpts
 
         A_wxx /= prefactor
-        if wings:
+        if optical_limit:
             chi0.chi0_wxvG /= prefactor
             chi0.chi0_wvv /= prefactor
 
@@ -300,11 +294,9 @@ class Chi0Calculator:
         kd = gs.kd
         mat_kwargs = {'kd': kd, 'pd': pd,
                       'symmetry': analyzer,
-                      'integrationmode': self.integrationmode}
+                      'integrationmode': self.integrationmode,
+                      'include_optical_elements': False}  # Remove! XXX
         eig_kwargs = {'kd': kd, 'pd': pd}
-
-        if not chi0.extend_head:
-            mat_kwargs['include_optical_elements'] = False
 
         # Determine what "kind" of integral to make.
         extraargs = {}  # Initialize extra arguments to integration method.
@@ -347,7 +339,7 @@ class Chi0Calculator:
                              out_wxx=A_wxx,  # Output array
                              **extraargs)
         # extraargs: Extra arguments to integration method
-        if wings:
+        if optical_limit:
             mat_kwargs['include_optical_elements'] = True
             mat_kwargs['block'] = False
             # This is horrible but we need to update the wings manually
@@ -377,7 +369,7 @@ class Chi0Calculator:
                 ht = HilbertTransform(np.array(self.wd.omega_w), self.eta,
                                       timeordered=self.timeordered)
                 ht(A_wxx)
-                if wings:
+                if optical_limit:
                     ht(chi0_wxvx)
 
         # In the optical limit additional work must be performed
@@ -433,13 +425,8 @@ class Chi0Calculator:
                              + 1.j * self.rate)**2)
                 except FloatingPointError:
                     raise ValueError('Please set rate to a positive value.')
-                if chi0.extend_head:
-                    va = min(chi0.blocks1d.a, 3)
-                    vb = min(chi0.blocks1d.b, 3)
-                    A_wxx[:, :vb - va, :3] += drude_chi_wvv[:, va:vb]
-                else:
-                    # Fill into head part of tmp head AND wings array
-                    chi0_wxvx[:, 0, :3, :3] += drude_chi_wvv
+                # Fill into head part of tmp head AND wings array
+                chi0_wxvx[:, 0, :3, :3] += drude_chi_wvv
 
             # Save the plasmafrequency
             try:
@@ -463,80 +450,23 @@ class Chi0Calculator:
         A_wxx *= prefactor
 
         tmpA_wxx = chi0.blockdist.redistribute(A_wxx, chi0.nw)
-        if chi0.extend_head:
-            analyzer.symmetrize_wxx(tmpA_wxx,
-                                    optical_limit=optical_limit)
-        else:
-            analyzer.symmetrize_wGG(tmpA_wxx)
-            if wings:
-                # Fill in wings part of the data, but leave out the head
-                chi0.chi0_wxvG[..., 1:] += chi0_wxvx[..., 3:]
-                # Fill in the head
-                chi0.chi0_wvv += chi0_wxvx[:, 0, :3, :3]
-                analyzer.symmetrize_wxvG(chi0.chi0_wxvG)
-                analyzer.symmetrize_wvv(chi0.chi0_wvv)
+        analyzer.symmetrize_wGG(tmpA_wxx)
         A_wxx[:] = chi0.blockdist.redistribute(tmpA_wxx, chi0.nw)
 
-        # If point summation was used then the normalization of the
-        # response function is not right and we have to make up for this
-        # fact.
+        if optical_limit:
+            # Fill in wings part of the data, but leave out the head
+            chi0.chi0_wxvG[..., 1:] += chi0_wxvx[..., 3:]
+            # Fill in the head
+            chi0.chi0_wvv += chi0_wxvx[:, 0, :3, :3]
+            analyzer.symmetrize_wxvG(chi0.chi0_wxvG)
+            analyzer.symmetrize_wvv(chi0.chi0_wvv)
 
-        if wings:
+            # If point summation was used then the normalization of the
+            # response function is not right and we have to make up for this
+            # fact.
             chi0.chi0_wxvG *= prefactor
             chi0.chi0_wvv *= prefactor
 
-        # In the optical limit, we have extended the wings and the head to
-        # account for their nonanalytic behaviour which means that the size of
-        # the chi0_wGG matrix is nw * (nG + 2)**2. Below we extract these
-        # parameters.
-        if optical_limit and chi0.extend_head:
-            # We always return chi0 in the extend_head=False format. This
-            # makes the update terminology inaccurate as we have to make a
-            # new Chi0Data instance. In the future, extend_head=True should
-            # be confined inside Chi0.update_chi0, so that the update
-            # terminology is self-consistent
-            chi0_new = self.create_chi0(pd.kd.bzk_kc[0], extend_head=False)
-
-            # Make an extended wings object to temporarily hold the head AND
-            # wings data
-            chi0_wxvG = np.zeros(chi0.wxvG_shape, complex)
-
-            # Extract the head and wings data. The x = 0 wing represents the
-            # upper horizontal block, while the x = 1 wing represents the left
-            # vertical block.
-            # The data in A_wxx is distributed over "x"-rows, so we need to be
-            # careful
-            va = min(chi0.blocks1d.a, 3)  # Cartesian part of myslice
-            vb = min(chi0.blocks1d.b, 3)
-            # Fill in the x = 0 wing
-            chi0_wxvG[:, 0, va:vb] = A_wxx[:, :vb - va]
-            # Fill in the x = 1 wing
-            chi0_wxvG[:, 1, :,
-                      chi0.blocks1d.myslice] = np.transpose(
-                A_wxx[..., :3], (0, 2, 1))
-
-            # The head and wings are not distributed in the Chi0Data object,
-            # so we collect the contributions from all blocks
-            self.blockcomm.sum(chi0_wxvG)
-
-            # Fill in the head
-            # The x = 0 wing of the extended wings object has the "normal"
-            # view of the head of chi0
-            chi0_new.chi0_wvv[:] = chi0_wxvG[:, 0, :3, :3]
-            # Fill in wings part of the data, but leave out the head
-            chi0_new.chi0_wxvG[..., 1:] = chi0_wxvG[..., 3:]
-            # Jesus, this is complicated
-
-            # It is easiest to redistribute over freqs to pick body
-            tmpA_wxx = chi0.blockdist.redistribute(A_wxx, chi0.nw)
-            chi0_wGG = tmpA_wxx[:, 2:, 2:]
-            chi0_new.chi0_wGG = chi0_new.blockdist.redistribute(chi0_wGG,
-                                                                chi0.nw)
-
-            # Rename
-            chi0 = chi0_new
-
-        elif optical_limit:
             # By default, we fill in the G=0 entries of chi0_wGG with the
             # wings evaluated along the z-direction.
             # The x = 1 wing represents the left vertical block, which is
