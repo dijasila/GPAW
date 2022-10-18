@@ -667,7 +667,7 @@ class Chi0Calculator:
 
         return deps_nm.reshape(-1)
 
-    def get_intraband_response(self, k_v, s, n1=None, n2=None,
+    def get_intraband_response(self, k_v, s, n1, n2,
                                kd=None, symmetry=None, pd=None,
                                integrationmode=None):
         k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
