@@ -342,7 +342,6 @@ class Chi0Calculator:
                              integrand=(get_matrix_element,  # Integrand
                                         get_eigenvalues),  # Integrand
                              x=self.wd,  # Frequency Descriptor
-                             kwargs=({}, {}),
                              # Arguments for integrand functions
                              out_wxx=A_wxx,  # Output array
                              **extraargs)
