@@ -503,7 +503,7 @@ class BSE:
         if self._chi0calc is None:
             self.initialize_chi0_calculator()
 
-        chi0 = self._chi0calc.create_chi0(q_c, extend_head=False)
+        chi0 = self._chi0calc.create_chi0(q_c)
         # Do all bands and all spins
         m1, m2, spins = 0, self.nbands, 'all'
         chi0 = self._chi0calc.update_chi0(chi0, m1, m2, spins)
