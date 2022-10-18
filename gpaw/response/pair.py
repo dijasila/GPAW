@@ -94,8 +94,7 @@ class KPointPair:
 
 
 class NoCalculatorPairDensity:
-    def __init__(self, gs, *, context, ftol=1e-6,
-                 threshold=1, nblocks=1):
+    def __init__(self, gs, *, context, threshold=1, nblocks=1):
         self.gs = gs
         self.context = context
 
@@ -105,19 +104,10 @@ class NoCalculatorPairDensity:
 
         assert self.gs.kd.symmetry.symmorphic
 
-        self.ftol = ftol
         self.threshold = threshold
 
         self.blockcomm, self.kncomm = block_partition(context.world, nblocks)
         self.nblocks = nblocks
-
-        self.fermi_level = self.gs.fermi_level
-        self.spos_ac = self.gs.spos_ac
-
-        self.nocc1 = None  # number of completely filled bands
-        self.nocc2 = None  # number of non-empty bands
-        self.count_occupied_bands()
-
         self.ut_sKnvR = None  # gradient of wave functions for optical limit
 
         self.vol = self.gs.gd.volume
@@ -128,18 +118,6 @@ class NoCalculatorPairDensity:
 
     def find_kpoint(self, k_c):
         return self.kptfinder.find(k_c)
-
-    def count_occupied_bands(self):
-        self.nocc1 = 9999999
-        self.nocc2 = 0
-        for kpt in self.gs.kpt_u:
-            f_n = kpt.f_n / kpt.weight
-            self.nocc1 = min((f_n > 1 - self.ftol).sum(), self.nocc1)
-            self.nocc2 = max((f_n > self.ftol).sum(), self.nocc2)
-        print('Number of completely filled bands:', self.nocc1, file=self.fd)
-        print('Number of non-empty bands:', self.nocc2, file=self.fd)
-        print('Total number of bands:', self.gs.bd.nbands,
-              file=self.fd)
 
     def distribute_k_points_and_bands(self, band1, band2, kpts=None):
         """Distribute spins, k-points and bands.
@@ -583,9 +561,6 @@ class PairDensity(NoCalculatorPairDensity):
 
         Parameters
         ----------
-        ftol : float
-            Threshold determining whether a band is completely filled
-            (f > 1 - ftol) or completely empty (f < ftol).
         threshold : float
             Numerical threshold for the optical limit k dot p perturbation
             theory expansion.

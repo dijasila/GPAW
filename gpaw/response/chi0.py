@@ -53,6 +53,7 @@ class Chi0Calculator:
                  disable_point_group=False, disable_time_reversal=False,
                  disable_non_symmorphic=True,
                  integrationmode=None,
+                 ftol=1e-6,
                  rate=0.0, eshift=0.0):
 
         if context is None:
@@ -110,9 +111,6 @@ class Chi0Calculator:
             assert not timeordered
             assert not self.wd.omega_w.real.any()
 
-        self.nocc1 = self.pair.nocc1  # number of completely filled bands
-        self.nocc2 = self.pair.nocc2  # number of non-empty bands
-
         self.pawcorr = None
 
         if sum(self.pbc) == 1:
@@ -126,6 +124,9 @@ class Chi0Calculator:
                   file=self.fd)
         else:
             print('Using integration method: PointIntegrator', file=self.fd)
+
+        # Number of completely filled bands and number of non-empty bands.
+        self.nocc1, self.nocc2 = self.gs.count_occupied_bands(ftol)
 
     @property
     def pbc(self):
@@ -388,7 +389,6 @@ class Chi0Calculator:
                           'n1': self.nocc1, 'n2': self.nocc2,
                           'pd': pd}  # Integrand arguments
             domain = (bzk_kv, spins)  # Integration domain
-            fermi_level = self.pair.fermi_level  # Fermi level
 
             # Not so elegant solution but it works
             plasmafreq_wvv = np.zeros((1, 3, 3), complex)  # Output array
@@ -402,7 +402,8 @@ class Chi0Calculator:
                 extraargs['intraband'] = True  # Calculate intraband
             elif self.integrationmode == 'tetrahedron integration':
                 # Calculate intraband transitions at T=0
-                extraargs['x'] = FrequencyGridDescriptor([-fermi_level])
+                extraargs['x'] = FrequencyGridDescriptor(
+                    [-self.gs.fermi_level])
 
             intnoblock.integrate(kind='spectral function',  # Kind of integral
                                  domain=domain,  # Integration domain
@@ -660,7 +661,7 @@ class Chi0Calculator:
                               kpt2.eps_n[m1:m2])
 
         if filter:
-            fermi_level = self.pair.fermi_level
+            fermi_level = self.gs.fermi_level
             deps_nm[kpt1.eps_n[n1:n2] > fermi_level, :] = np.nan
             deps_nm[:, kpt2.eps_n[m1:m2] < fermi_level] = np.nan
 
@@ -865,7 +866,7 @@ class Chi0(Chi0Calculator):
                                       omega2=omega2, omegamax=omegamax)
 
         pair = NoCalculatorPairDensity(
-            gs=gs, ftol=ftol, threshold=threshold,
+            gs=gs, threshold=threshold,
             context=context,
             nblocks=nblocks)
 

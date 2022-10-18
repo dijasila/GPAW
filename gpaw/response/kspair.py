@@ -168,13 +168,8 @@ class KohnShamPair:
         """Count number of occupied and unoccupied bands in ground state
         calculation. Can be used to omit null-transitions between two occupied
         bands or between two unoccupied bands."""
-        ftol = 1.e-9  # Could be given as input
-        nocc1 = 9999999
-        nocc2 = 0
-        for kpt in self.gs.kpt_u:
-            f_n = kpt.f_n / kpt.weight
-            nocc1 = min((f_n > 1 - ftol).sum(), nocc1)
-            nocc2 = max((f_n > ftol).sum(), nocc2)
+
+        nocc1, nocc2 = self.gs.count_occupied_bands(ftol=1e-9)
         nocc1 = int(nocc1)
         nocc2 = int(nocc2)
 
