@@ -774,7 +774,7 @@ class G0W0Calculator:
                   for fxc_mode in self.fxc_modes}
 
         if len(self.ecut_e) > 1:
-            chi0bands = chi0calc.create_chi0(q_c, extend_head=False)
+            chi0bands = chi0calc.create_chi0(q_c)
         else:
             chi0bands = None
 
@@ -844,7 +844,7 @@ class G0W0Calculator:
                     iq):
         """Calculates the screened potential for a specified q-point."""
 
-        chi0 = chi0calc.create_chi0(q_c, extend_head=False)
+        chi0 = chi0calc.create_chi0(q_c)
         chi0calc.fd = self.fd
         chi0calc.print_chi(chi0.pd)
         chi0calc.update_chi0(chi0, m1, m2, range(self.wcalc.gs.nspins))

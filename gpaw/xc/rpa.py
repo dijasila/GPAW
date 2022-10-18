@@ -239,9 +239,9 @@ class RPACorrelation:
                 p()
                 continue
 
-            chi0_s = [chi0calc.create_chi0(q_c, extend_head=False)]
+            chi0_s = [chi0calc.create_chi0(q_c)]
             if spin:
-                chi0_s.append(chi0calc.create_chi0(q_c, extend_head=False))
+                chi0_s.append(chi0calc.create_chi0(q_c))
 
             pd = chi0_s[0].pd
             nG = pd.ngmax
