@@ -367,7 +367,6 @@ class Chi0Calculator:
                                  integrand=(get_matrix_element,  # Intgrnd
                                             get_eigenvalues),  # Integrand
                                  x=self.wd,  # Frequency Descriptor
-                                 # kwargs=(mat_kwargs, eig_kwargs),
                                  # Arguments for integrand functions
                                  out_wxx=chi0_wxvx,  # Output array
                                  **extraargs)
@@ -426,7 +425,6 @@ class Chi0Calculator:
                                  integrand=(get_intraband_response,
                                             get_intraband_eigenvalue),
                                  # Integrand arguments
-                                 #kwargs=(mat_kwargs, eig_kwargs),
                                  out_wxx=plasmafreq_wvv,  # Output array
                                  **extraargs)  # Extra args for int. method
 
