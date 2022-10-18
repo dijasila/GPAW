@@ -165,7 +165,7 @@ class NoCalculatorPairDensity:
         return PairDistribution(self, mysKn1n2)
 
     @timer('Get a k-point')
-    def get_k_point(self, s, k_c, n1, n2, load_wfs=True, block=False):
+    def get_k_point(self, s, k_c, n1, n2, block=False):
         """Return wave functions for a specific k-point and spin.
 
         s: int
@@ -215,10 +215,6 @@ class NoCalculatorPairDensity:
         eps_n = kpt.eps_n[n1:n2]
         f_n = kpt.f_n[n1:n2] / kpt.weight
 
-        if not load_wfs:
-            return KPoint(s, K, n1, n2, blocksize, na, nb,
-                          None, eps_n, f_n, None, shift_c)
-
         with self.timer('load wfs'):
             psit_nG = kpt.psit_nG
             ut_nR = gs.gd.empty(nb - na, gs.dtype)
@@ -237,8 +233,7 @@ class NoCalculatorPairDensity:
                       ut_nR, eps_n, f_n, P_ani, shift_c)
 
     @timer('Get kpoint pair')
-    def get_kpoint_pair(self, pd, s, Kork_c, n1, n2, m1, m2,
-                        load_wfs=True, block=False):
+    def get_kpoint_pair(self, pd, s, Kork_c, n1, n2, m1, m2, block=False):
         assert m1 <= m2
         assert n1 <= n2
 
@@ -251,10 +246,9 @@ class NoCalculatorPairDensity:
 
         q_c = pd.kd.bzk_kc[0]
         with self.timer('get k-points'):
-            kpt1 = self.get_k_point(s, k_c, n1, n2, load_wfs=load_wfs)
+            kpt1 = self.get_k_point(s, k_c, n1, n2)
             # K2 = wfs.kd.find_k_plus_q(q_c, [kpt1.K])[0]
-            kpt2 = self.get_k_point(s, k_c + q_c, m1, m2,
-                                    load_wfs=load_wfs, block=block)
+            kpt2 = self.get_k_point(s, k_c + q_c, m1, m2, block=block)
 
         with self.timer('fft indices'):
             Q_G = self.get_fft_indices(kpt1.K, kpt2.K, q_c, pd,
