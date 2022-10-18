@@ -1,5 +1,3 @@
-from functools import partial
-
 import numpy as np
 from gpaw.utilities import convert_string_to_fd
 from ase.utils.timing import timer, Timer
@@ -118,10 +116,10 @@ class PointIntegrator(Integrator):
                                                       wings=True,
                                                       *args, **kwargs)
         else:
-            raise NotImplementedError
+            raise ValueError(kind)
 
-    def response_function_integration(self, domain=None, integrand=None,
-                                      x=None, out_wxx=None,
+    def response_function_integration(self, *, domain, integrand,
+                                      x=None, out_wxx,
                                       timeordered=False, hermitian=False,
                                       intraband=False, hilbert=False,
                                       wings=False, **extraargs):
@@ -132,9 +130,6 @@ class PointIntegrator(Integrator):
         out: np.ndarray
         timeordered: Bool
         """
-        if out_wxx is None:
-            raise NotImplementedError
-
         mydomain_t = self.distribute_domain(domain)
         nbz = len(domain[0])
         get_matrix_element, get_eigenvalues = integrand
