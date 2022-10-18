@@ -76,7 +76,8 @@ class Chi0Calculator:
         self.calc = self.gs._calc  # XXX remove me
 
         # XXX this is redundant as pair also does it.
-        self.blockcomm, self.kncomm = block_partition(self.context.world, self.nblocks)
+        self.blockcomm, self.kncomm = block_partition(self.context.world,
+                                                      self.nblocks)
 
         if ecut is None:
             ecut = 50.0
@@ -117,7 +118,8 @@ class Chi0Calculator:
         self.context.print('Nonperiodic BCs: ', (~self.pbc), flush=False)
 
         if integrationmode is not None:
-            self.context.print('Using integration method: ' + self.integrationmode)
+            self.context.print('Using integration method: ' +
+                               self.integrationmode)
         else:
             self.context.print('Using integration method: PointIntegrator')
 
@@ -412,9 +414,9 @@ class Chi0Calculator:
                 try:
                     with np.errstate(divide='raise'):
                         drude_chi_wvv = (
-                                plasmafreq_vv[np.newaxis] /
-                                (self.wd.omega_w[:, np.newaxis, np.newaxis]
-                                 + 1.j * self.rate) ** 2)
+                            plasmafreq_vv[np.newaxis] /
+                            (self.wd.omega_w[:, np.newaxis, np.newaxis]
+                             + 1.j * self.rate) ** 2)
                 except FloatingPointError:
                     raise ValueError('Please set rate to a positive value.')
                 # Fill into head part of tmp head AND wings array
@@ -457,13 +459,13 @@ class Chi0Calculator:
             # fact.
             chi0.chi0_wxvG *= prefactor
             chi0.chi0_wvv *= prefactor
-            
+
             # By default, we fill in the G=0 entries of chi0_wGG with the
             # wings evaluated along the z-direction.
             # The x = 1 wing represents the left vertical block, which is
             # distributed in chi0_wGG
-            chi0.chi0_wGG[:, :, 0] = chi0.chi0_wxvG[:, 1, 2,
-                                     chi0.blocks1d.myslice]
+            chi0.chi0_wGG[:, :, 0] = \
+                chi0.chi0_wxvG[:, 1, 2, chi0.blocks1d.myslice]
 
             if self.blockcomm.rank == 0:  # rank with G=0 row
                 # The x = 0 wing represents the upper horizontal block

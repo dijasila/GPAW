@@ -3,13 +3,11 @@ from pathlib import Path
 
 import numpy as np
 
-from ase.utils.timing import timer
-
 from gpaw import GPAW, disable_dry_run
 import gpaw.mpi as mpi
 from gpaw.fd_operators import Gradient
 
-from gpaw.response import ResponseContext
+from gpaw.response import ResponseContext, timer
 from gpaw.response.pw_parallelization import block_partition
 from gpaw.response.symmetry import KPointFinder
 from gpaw.utilities.blas import mmm
@@ -100,17 +98,14 @@ class NoCalculatorPairDensity:
         self.gs = gs
         self.context = context
 
-        self.fd = context.fd
-        self.timer = context.timer
-        self.world = context.world
-
         assert self.gs.kd.symmetry.symmorphic
 
         self.ftol = ftol
         self.threshold = threshold
         self.real_space_derivatives = real_space_derivatives
 
-        self.blockcomm, self.kncomm = block_partition(context.world, nblocks)
+        self.blockcomm, self.kncomm = block_partition(self.context.world,
+                                                      nblocks)
         self.nblocks = nblocks
 
         self.fermi_level = self.gs.fermi_level
@@ -126,7 +121,7 @@ class NoCalculatorPairDensity:
 
         self.kd = self.gs.kd
         self.kptfinder = KPointFinder(self.kd.bzk_kc)
-        print('Number of blocks:', nblocks, file=self.fd)
+        self.context.print('Number of blocks:', nblocks)
 
     def find_kpoint(self, k_c):
         return self.kptfinder.find(k_c)
@@ -138,10 +133,11 @@ class NoCalculatorPairDensity:
             f_n = kpt.f_n / kpt.weight
             self.nocc1 = min((f_n > 1 - self.ftol).sum(), self.nocc1)
             self.nocc2 = max((f_n > self.ftol).sum(), self.nocc2)
-        print('Number of completely filled bands:', self.nocc1, file=self.fd)
-        print('Number of non-empty bands:', self.nocc2, file=self.fd)
-        print('Total number of bands:', self.gs.bd.nbands,
-              file=self.fd)
+        self.context.print('Number of completely filled bands:', self.nocc1,
+                           flush=False)
+        self.context.print('Number of non-empty bands:', self.nocc2,
+                           flush=False)
+        self.context.print('Total number of bands:', self.gs.bd.nbands)
 
     def distribute_k_points_and_bands(self, band1, band2, kpts=None):
         """Distribute spins, k-points and bands.
@@ -175,13 +171,13 @@ class NoCalculatorPairDensity:
                     mysKn1n2.append((s, K, n1 + band1, n2 + band1))
                 i += nbands
 
-        print('BZ k-points:', gs.kd, file=self.fd)
-        print('Distributing spins, k-points and bands (%d x %d x %d)' %
-              (ns, nk, nbands),
-              'over %d process%s' %
-              (self.kncomm.size, ['es', ''][self.kncomm.size == 1]),
-              file=self.fd)
-        print('Number of blocks:', self.blockcomm.size, file=self.fd)
+        p = self.context.print
+        p('BZ k-points:', gs.kd, flush=False)
+        p('Distributing spins, k-points and bands (%d x %d x %d)' %
+          (ns, nk, nbands), 'over %d process%s' %
+          (self.kncomm.size, ['es', ''][self.kncomm.size == 1]),
+          flush=False)
+        p('Number of blocks:', self.blockcomm.size)
 
         return PairDistribution(self, mysKn1n2)
 
@@ -240,13 +236,13 @@ class NoCalculatorPairDensity:
             return KPoint(s, K, n1, n2, blocksize, na, nb,
                           None, eps_n, f_n, None, shift_c)
 
-        with self.timer('load wfs'):
+        with self.context.timer('load wfs'):
             psit_nG = kpt.psit_nG
             ut_nR = gs.gd.empty(nb - na, gs.dtype)
             for n in range(na, nb):
                 ut_nR[n - na] = T(gs.pd.ifft(psit_nG[n], ik))
 
-        with self.timer('Load projections'):
+        with self.context.timer('Load projections'):
             P_ani = []
             for b, U_ii in zip(a_a, U_aii):
                 P_ni = np.dot(kpt.P_ani[b][na:nb], U_ii)
@@ -271,13 +267,13 @@ class NoCalculatorPairDensity:
             k_c = Kork_c
 
         q_c = pd.kd.bzk_kc[0]
-        with self.timer('get k-points'):
+        with self.context.timer('get k-points'):
             kpt1 = self.get_k_point(s, k_c, n1, n2, load_wfs=load_wfs)
             # K2 = wfs.kd.find_k_plus_q(q_c, [kpt1.K])[0]
             kpt2 = self.get_k_point(s, k_c + q_c, m1, m2,
                                     load_wfs=load_wfs, block=block)
 
-        with self.timer('fft indices'):
+        with self.context.timer('fft indices'):
             Q_G = self.get_fft_indices(kpt1.K, kpt2.K, q_c, pd,
                                        kpt1.shift_c - kpt2.shift_c)
 
@@ -319,9 +315,9 @@ class NoCalculatorPairDensity:
 
         for j, n in enumerate(n_n):
             Q_G = kptpair.Q_G
-            with self.timer('conj'):
+            with self.context.timer('conj'):
                 ut1cc_R = kpt1.ut_nR[n - kpt1.na].conj()
-            with self.timer('paw'):
+            with self.context.timer('paw'):
                 C1_aGi = pawcorr.multiply(kpt1.P_ani, band=n - kpt1.na)
                 n_nmG[j] = cpd(ut1cc_R, C1_aGi, kpt2, pd, Q_G, block=block)
 
@@ -366,10 +362,10 @@ class NoCalculatorPairDensity:
 
         for ut_R, n_G in zip(kpt2.ut_nR, n_mG):
             n_R = ut1cc_R * ut_R
-            with self.timer('fft'):
+            with self.context.timer('fft'):
                 n_G[:] = pd.fft(n_R, 0, Q_G) * dv
         # PAW corrections:
-        with self.timer('gemm'):
+        with self.context.timer('gemm'):
             for C1_Gi, P2_mi in zip(C1_aGi, kpt2.P_ani):
                 # gemm(1.0, C1_Gi, P2_mi, 1.0, n_mG[:myblocksize], 't')
                 mmm(1.0, P2_mi, 'N', C1_Gi, 'T', 1.0, n_mG[:myblocksize])
@@ -474,8 +470,8 @@ class NoCalculatorPairDensity:
         if only_partially_occupied:
             # Check for block par. consistency
             assert (partocc_n < nb).all(), \
-                print('Include more unoccupied bands ', +
-                      'or less block parr.', file=self.fd)
+                self.context.print('Include more unoccupied bands ',
+                                   + 'or less block parr.')
 
         # Break bands into degenerate chunks
         degchunks_cn = []  # indexing c as chunk number
@@ -488,9 +484,9 @@ class NoCalculatorPairDensity:
             if not oldchunk and \
                (partocc_n[n - n1] or not only_partially_occupied):
                 assert all([ind in n_n for ind in inds_n]), \
-                    print('\nYou are cutting over a degenerate band ' +
-                          'using block parallelization.',
-                          inds_n, n_n, file=self.fd)
+                    self.context.print(
+                        '\nYou are cutting over a degenerate band ' +
+                        'using block parallelization.', inds_n, n_n)
                 degchunks_cn.append((inds_n))
 
         # Calculate matrix elements by diagonalizing each block

@@ -10,6 +10,7 @@ from gpaw.utilities.blas import rk, mmm
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.response.pw_parallelization import Blocks1D, block_partition
 
+
 def czher(alpha: float, x, A) -> None:
     """Hermetian rank-1 update of upper half of A.
 
@@ -37,7 +38,8 @@ class Integrator:
         self.nblocks = nblocks
         self.vol = abs(np.linalg.det(cell_cv))
 
-        self.blockcomm, self.kncomm = block_partition(self.context.world, nblocks)
+        self.blockcomm, self.kncomm = block_partition(self.context.world,
+                                                      nblocks)
 
     def distribute_domain(self, domain_dl):
         """Distribute integration domain. """
@@ -58,9 +60,11 @@ class Integrator:
                 arguments.append(domain_l[index])
             mydomain.append(tuple(arguments))
 
-        self.context.print('Distributing domain %s' % (domainsize, ),
-              'over %d process%s' %
-              (self.kncomm.size, ['es', ''][self.kncomm.size == 1]), flush=False)
+        self.context.print('Distributing domain %s' % (domainsize,),
+                           'over %d process%s' %
+                           (self.kncomm.size,
+                            ['es', ''][self.kncomm.size == 1]),
+                           flush=False)
         self.context.print('Number of blocks:', self.blockcomm.size)
 
         return mydomain
@@ -134,7 +138,7 @@ class PointIntegrator(Integrator):
         nbz = len(domain[0])
         get_matrix_element, get_eigenvalues = integrand
 
-        prefactor = (2 * np.pi)**3 / self.vol / nbz
+        prefactor = (2 * np.pi) ** 3 / self.vol / nbz
         out_wxx /= prefactor
 
         # The kwargs contain any constant
@@ -229,7 +233,7 @@ class PointIntegrator(Integrator):
                 nx_mG = n_mG.conj() * x_m[:, np.newaxis]
                 rk(-1.0, nx_mG, 1.0, chi0_wGG[w], 'n')
             else:
-                x_m = np.abs(2 * deps_m / (omega.imag**2 + deps_m**2))
+                x_m = np.abs(2 * deps_m / (omega.imag ** 2 + deps_m ** 2))
                 mynx_mG = n_mG[:, blocks1d.myslice] * x_m[:, np.newaxis]
                 mmm(-1.0, mynx_mG, 'T', n_mG.conj(), 'N', 1.0, chi0_wGG[w])
 
@@ -246,7 +250,7 @@ class PointIntegrator(Integrator):
 
         o1_m = wd.omega_w[w_m]
         o2_m = wd.omega_w[w_m + 1]
-        p_m = np.abs(1 / (o2_m - o1_m)**2)
+        p_m = np.abs(1 / (o2_m - o1_m) ** 2)
         p1_m = p_m * (o2_m - o_m)
         p2_m = p_m * (o_m - o1_m)
 
@@ -305,7 +309,7 @@ class PointIntegrator(Integrator):
             # electron-hole excitations from startindex to endindex.
             o1 = wd.omega_w[w]
             o2 = wd.omega_w[w + 1]
-            p = np.abs(1 / (o2 - o1)**2)
+            p = np.abs(1 / (o2 - o1) ** 2)
             p1_m = np.array(p * (o2 - sortedo_m[startindex:endindex]))
             p2_m = np.array(p * (sortedo_m[startindex:endindex] - o1))
 
@@ -360,7 +364,7 @@ class PointIntegrator(Integrator):
     def update_hermitian_optical_limit(self, n_mG, deps_m, wd, chi0_wxvG):
         """Optical limit update of hermitian chi."""
         for w, omega in enumerate(wd.omega_w):
-            x_m = - np.abs(2 * deps_m / (omega.imag**2 + deps_m**2))
+            x_m = - np.abs(2 * deps_m / (omega.imag ** 2 + deps_m ** 2))
             chi0_wxvG[w, 0] += np.dot(x_m * n_mG[:, :3].T, n_mG.conj())
             chi0_wxvG[w, 1] += np.dot(x_m * n_mG[:, :3].T.conj(), n_mG)
 
@@ -379,7 +383,7 @@ class PointIntegrator(Integrator):
             else:
                 assert o1 <= o <= o2, (o1, o, o2)
 
-            p = 1 / (o2 - o1)**2
+            p = 1 / (o2 - o1) ** 2
             p1 = p * (o2 - o)
             p2 = p * (o - o1)
             x_vG = np.outer(n_G[:3], n_G.conj())
@@ -476,7 +480,7 @@ class TetrahedronIntegrator(Integrator):
                 A_kv = np.append(td.points[K_k],
                                  np.ones(4)[:, np.newaxis], axis=1)
 
-                D_kv = np.append((A_kv[:, :-1]**2).sum(1)[:, np.newaxis],
+                D_kv = np.append((A_kv[:, :-1] ** 2).sum(1)[:, np.newaxis],
                                  A_kv, axis=1)
                 a = np.linalg.det(D_kv[:, np.arange(5) != 0])
 

@@ -30,6 +30,7 @@ from ase.utils.filecache import MultiFileJSONCache as FileCache
 from contextlib import ExitStack
 from ase.parallel import broadcast
 
+
 # update
 class Sigma:
     def __init__(self, iq, q_c, fxc, esknshape, **inputs):
@@ -74,6 +75,7 @@ class Sigma:
                 'sigma_eskn': self.sigma_eskn,
                 'dsigma_eskn': self.dsigma_eskn,
                 'inputs': self.inputs}
+
 
 # update
 class G0W0Outputs:
@@ -165,6 +167,7 @@ class G0W0Outputs:
             results['dsigr2_skn'] = self.dsigr2_skn
 
         return results
+
 
 # update
 class QSymmetryOp:
@@ -301,6 +304,7 @@ def select_kpts(kpts, kd):
         k = kd.bz2ibz_k[K]
         indices.append(k)
     return indices
+
 
 # update
 class G0W0Calculator:

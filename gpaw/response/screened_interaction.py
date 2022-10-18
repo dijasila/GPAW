@@ -150,7 +150,7 @@ class WCalculator:
         self.q0_corrector.add_q0_correction(
             pd, W_GG, einv_GG, chi0_xvG, chi0_vv,
             sqrtV_G,
-            fd=self.fd if print_ac else None)
+            context=self.context if print_ac else None)
 
 # calculate_q wrapper
     def calculate_q(self, iq, q_c, chi0):
@@ -213,7 +213,7 @@ class WCalculator:
         wgg_grid.redistribute(WgG_grid, dielectric_wgg, dielectric_WgG)
         inveps_WgG = dielectric_WgG
 
-        self.timer.start('Dyson eq.')
+        self.context.timer.start('Dyson eq.')
 
         for iw, inveps_gG in enumerate(inveps_WgG):
             inveps_gG -= np.identity(nG)[my_gslice]
@@ -270,7 +270,7 @@ class WCalculator:
                                         chi0_wvv=chi0_wvv[wblocks1d.myslice],
                                         chi0_wxvG=chi0_wxvG[wblocks1d.myslice])
 
-        self.timer.start('Dyson eq.')
+        self.context.timer.start('Dyson eq.')
 
         def get_sqrtV_G(N_c, q_v=None):
             return get_coulomb_kernel(
@@ -333,12 +333,12 @@ class WCalculator:
                 W_GG[0, 1:] = pi * R_GG[0, 1:] * sqrtV_G[1:] * sqrtV0
                 W_GG[1:, 0] = pi * R_GG[1:, 0] * sqrtV0 * sqrtV_G[1:]
 
-            self.timer.stop('Dyson eq.')
+            self.context.timer.stop('Dyson eq.')
             return pdi, [W_GG, omegat_GG]
 
         # XXX This creates a new, large buffer.  We could perhaps
         # avoid that.  Buffer used to exist but was removed due to #456.
         W_wGG = chi0.blockdist.redistribute(chi0_wGG, chi0.nw)
 
-        self.timer.stop('Dyson eq.')
+        self.context.timer.stop('Dyson eq.')
         return pdi, W_wGG

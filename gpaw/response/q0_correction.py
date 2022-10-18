@@ -10,7 +10,7 @@ class Q0Correction:
         self.x0density = 0.1  # ? 0.01
 
     def add_q0_correction(self, pd, W_GG, einv_GG, chi0_xvG, chi0_vv,
-                          sqrtV_G, fd=None):
+                          sqrtV_G, context=None):
         from ase.dft import monkhorst_pack
         pi = np.pi
         cell_cv = self.cell_cv
@@ -49,11 +49,12 @@ class Q0Correction:
                          q0density).astype(int)
         npts_c[2] = 1
         npts_c += (npts_c + 1) % 2
-        if fd is not None:
-            print('Applying analytical 2D correction to W:',
-                  file=fd)
-            print('    Evaluating Gamma point contribution to W on a ' +
-                  '%dx%dx%d grid' % tuple(npts_c), file=fd)
+
+        if context is not None:
+            context.print('Applying analytical 2D correction to W:',
+                          flush=False)
+            context.print('    Evaluating Gamma point contribution to W on a '
+                          + '%dx%dx%d grid' % tuple(npts_c))
 
         qpts_qc = monkhorst_pack(npts_c)
         qgamma = np.argmin(np.sum(qpts_qc**2, axis=1))

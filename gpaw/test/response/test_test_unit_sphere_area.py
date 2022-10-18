@@ -9,12 +9,13 @@ from gpaw.response.chi0 import FrequencyGridDescriptor
 
 from gpaw.response import ResponseContext
 
+
 def unit(x_c):
     return np.array([[1.]], complex)
 
 
 def unit_sphere(x_c):
-    return np.array([(x_c**2).sum()**0.5], float)
+    return np.array([(x_c ** 2).sum() ** 0.5], float)
 
 
 @pytest.mark.response
