@@ -371,8 +371,8 @@ class PointIntegrator(Integrator):
         for deps, n_G in zip(deps_m, n_mG):
             o = abs(deps)
             w = wd.get_floor_index(o)
-            if w + 2 > len(wd):
-                break
+            if w + 1 >= wd.wmax:
+                continue
             o1, o2 = wd.omega_w[w:w + 2]
             if o > o2:
                 continue
