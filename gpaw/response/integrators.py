@@ -122,7 +122,7 @@ class PointIntegrator(Integrator):
                                       x=None, out_wxx,
                                       timeordered=False, hermitian=False,
                                       intraband=False, hilbert=False,
-                                      wings=False, **extraargs):
+                                      wings=False, eta=None):
         """Integrate a response function over bands and kpoints.
 
         func: method
@@ -147,22 +147,25 @@ class PointIntegrator(Integrator):
             deps_M = get_eigenvalues(*arguments)
 
             if intraband:
+                assert eta is None
                 self.update_intraband(n_MG, out_wxx)
             elif hermitian and not wings:
+                assert eta is None
                 self.update_hermitian(n_MG, deps_M, x, out_wxx)
             elif hermitian and wings:
+                assert eta is None
                 self.update_hermitian_optical_limit(n_MG, deps_M, x, out_wxx)
             elif hilbert and not wings:
+                assert eta is None
                 self.update_hilbert(n_MG, deps_M, x, out_wxx)
             elif hilbert and wings:
+                assert eta is None
                 self.update_hilbert_optical_limit(n_MG, deps_M, x, out_wxx)
             elif wings:
-                # XXX "eta" can be in extraargs, but not "timeordered"
-                # because we took that as input next to extraargs
                 self.update_optical_limit(n_MG, deps_M, x, out_wxx,
-                                          **extraargs)
+                                          eta=eta)
             else:
-                self.update(n_MG, deps_M, x, out_wxx, **extraargs)
+                self.update(n_MG, deps_M, x, out_wxx, eta=eta)
 
         # Sum over
         # Can this really be valid, if the original input out_wxx is nonzero?
