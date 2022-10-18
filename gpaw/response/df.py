@@ -637,7 +637,7 @@ class DielectricFunction:
         for iw in range(len(spectrum)):
             w = iw * dw
             N1 += spectrum[iw] * w
-        N1 *= dw * self.chi0.vol / (2 * pi**2)
+        N1 *= dw * self.chi0.gs.volume / (2 * pi**2)
 
         print('', file=fd)
         print('Sum rule:', file=fd)

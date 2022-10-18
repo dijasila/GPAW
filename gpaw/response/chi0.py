@@ -75,7 +75,6 @@ class Chi0Calculator:
         self.integrationmode = integrationmode
         self.eshift = eshift / Ha
 
-        self.vol = self.gs.volume
         self.world = self.context.world
         self.nblocks = pair.nblocks
         self.calc = self.gs._calc  # XXX remove me
@@ -271,7 +270,7 @@ class Chi0Calculator:
             # sure that to fix this.
             domainvol = convex_hull_volume(
                 bzk_kv) * analyzer.how_many_symmetries()
-            bzvol = (2 * np.pi)**3 / self.vol
+            bzvol = (2 * np.pi)**3 / self.gs.volume
             factor = bzvol / domainvol
         else:
             factor = 1
