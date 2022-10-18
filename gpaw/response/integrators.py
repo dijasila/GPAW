@@ -225,39 +225,6 @@ class PointIntegrator(Integrator):
                 mynx_mG = n_mG[:, blocks1d.myslice] * x_m[:, np.newaxis]
                 mmm(-1.0, mynx_mG, 'T', n_mG.conj(), 'N', 1.0, chi0_wGG[w])
 
-    @timer('CHI_0 spectral function update (old)')
-    def update_hilbert_old(self, n_mG, deps_m, wd, chi0_wGG):
-        """Update spectral function.
-
-        Updates spectral function A_wGG and saves it to chi0_wGG for
-        later hilbert-transform."""
-
-        deps_m += self.eshift * np.sign(deps_m)
-        o_m = abs(deps_m)
-        w_m = wd.get_floor_index(o_m)
-
-        o1_m = wd.omega_w[w_m]
-        o2_m = wd.omega_w[w_m + 1]
-        p_m = np.abs(1 / (o2_m - o1_m)**2)
-        p1_m = p_m * (o2_m - o_m)
-        p2_m = p_m * (o_m - o1_m)
-
-        blocks1d = self._blocks1d(chi0_wGG.shape[2])
-
-        if self.blockcomm.size > 1:
-            for p1, p2, n_G, w in zip(p1_m, p2_m, n_mG, w_m):
-                if w + 1 < wd.wmax:  # The last frequency is not reliable
-                    myn_G = n_G[blocks1d.myslice].reshape((-1, 1))
-                    mmm(p1, myn_G, 'N', n_G.reshape((-1, 1)), 'C',
-                        1.0, chi0_wGG[w])
-                    mmm(p2, myn_G, 'N', n_G.reshape((-1, 1)), 'C',
-                        1.0, chi0_wGG[w + 1])
-        else:
-            for p1, p2, n_G, w in zip(p1_m, p2_m, n_mG, w_m):
-                if w + 1 < wd.wmax:  # The last frequency is not reliable
-                    czher(p1, n_G.conj(), chi0_wGG[w])
-                    czher(p2, n_G.conj(), chi0_wGG[w + 1])
-
     @timer('CHI_0 spectral function update (new)')
     def update_hilbert(self, n_mG, deps_m, wd, chi0_wGG):
         """Update spectral function.
