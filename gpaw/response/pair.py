@@ -398,13 +398,11 @@ class NoCalculatorPairDensity:
         return n0_mv
 
     @timer('Intraband')
-    def intraband_pair_density(self, kpt, n_n=None):
+    def intraband_pair_density(self, kpt, n_n):
         """Calculate intraband matrix elements of nabla"""
         # Bands and check for block parallelization
         na, nb, n1 = kpt.na, kpt.nb, kpt.n1
         vel_nv = np.zeros((nb - na, 3), dtype=complex)
-        if n_n is None:
-            n_n = np.arange(na, nb)
         assert np.max(n_n) < nb, 'This is too many bands'
         assert np.min(n_n) >= na, 'This is too few bands'
 
