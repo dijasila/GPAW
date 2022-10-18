@@ -228,7 +228,8 @@ class Chi0Calculator:
         # Reset PAW correction in case momentum has change
         pairden_paw_corr = self.gs.pair_density_paw_corrections
         self.pawcorr = pairden_paw_corr(pd, alter_optical_limit=True)
-        A_wxx = chi0.chi0_wGG  # Change notation
+
+        self.update_chi0_body(chi0, m1, m2, spins)
 
         # Initialize integrator. The integrator class is a general class
         # for brillouin zone integration that can integrate user defined
@@ -252,7 +253,6 @@ class Chi0Calculator:
             eshift=self.eshift,
             txt=self.fd)
 
-        integrator = cls(**kwargs, nblocks=self.nblocks)
         intnoblock = cls(**kwargs)
 
         # The integration domain is determined by the following function
@@ -282,7 +282,6 @@ class Chi0Calculator:
             nbzkpts = gs.kd.nbzkpts
             prefactor *= len(bzk_kv) / nbzkpts
 
-        A_wxx /= prefactor
         if optical_limit:
             chi0.chi0_wxvG /= prefactor
             chi0.chi0_wvv /= prefactor
@@ -329,16 +328,6 @@ class Chi0Calculator:
         mat_kwargs.update(bandsum)
         eig_kwargs.update(bandsum)
 
-        integrator.integrate(kind=kind,  # Kind of integral
-                             domain=domain,  # Integration domain
-                             integrand=(self.get_matrix_element,  # Integrand
-                                        self.get_eigenvalues),  # Integrand
-                             x=self.wd,  # Frequency Descriptor
-                             kwargs=(mat_kwargs, eig_kwargs),
-                             # Arguments for integrand functions
-                             out_wxx=A_wxx,  # Output array
-                             **extraargs)
-        # extraargs: Extra arguments to integration method
         if optical_limit:
             mat_kwargs['include_optical_elements'] = True
             mat_kwargs['block'] = False
@@ -360,7 +349,7 @@ class Chi0Calculator:
                                  out_wxx=chi0_wxvx,  # Output array
                                  **extraargs)
 
-        if self.hilbert:
+        if self.hilbert and optical_limit:
             # The integrator only returns the spectral function and a Hilbert
             # transform is performed to return the real part of the density
             # response function.
@@ -368,9 +357,7 @@ class Chi0Calculator:
                 # Make Hilbert transform
                 ht = HilbertTransform(np.array(self.wd.omega_w), self.eta,
                                       timeordered=self.timeordered)
-                ht(A_wxx)
-                if optical_limit:
-                    ht(chi0_wxvx)
+                ht(chi0_wxvx)
 
         # In the optical limit additional work must be performed
         # for the intraband response.
@@ -439,20 +426,6 @@ class Chi0Calculator:
             print((self.plasmafreq_vv**0.5 * Ha).round(2),
                   file=self.fd)
 
-        # The response function is integrated only over the IBZ. The
-        # chi calculated above must therefore be extended to include the
-        # response from the full BZ. This extension can be performed as a
-        # simple post processing of the response function that makes
-        # sure that the response function fulfills the symmetries of the little
-        # group of q. Due to the specific details of the implementation the chi
-        # calculated above is normalized by the number of symmetries (as seen
-        # below) and then symmetrized.
-        A_wxx *= prefactor
-
-        tmpA_wxx = chi0.blockdist.redistribute(A_wxx, chi0.nw)
-        analyzer.symmetrize_wGG(tmpA_wxx)
-        A_wxx[:] = chi0.blockdist.redistribute(tmpA_wxx, chi0.nw)
-
         if optical_limit:
             # Fill in wings part of the data, but leave out the head
             chi0.chi0_wxvG[..., 1:] += chi0_wxvx[..., 3:]
@@ -480,6 +453,151 @@ class Chi0Calculator:
                 chi0.chi0_wGG[:, 0, 0] = chi0.chi0_wvv[:, 2, 2]
 
         return chi0
+
+    def update_chi0_body(self,
+                         chi0: Chi0Data,
+                         m1, m2, spins):
+        """In-place calculation of the body."""
+        A_wxx = chi0.chi0_wGG  # Change notation (necessary? XXX)
+        pd = chi0.pd
+
+        integrator = self.initialize_integrator()
+        domain, analyzer, prefactor = self.get_integration_domain(pd, spins)
+        kind, extraargs = self.get_integral_kind()
+
+        # Prepare keyword arguments for the integrator
+        kd = self.gs.kd
+        mat_kwargs = {'kd': kd, 'pd': pd,
+                      'symmetry': analyzer,
+                      'integrationmode': self.integrationmode,
+                      'include_optical_elements': False}
+        eig_kwargs = {'kd': kd, 'pd': pd}
+        # Define band summation. Includes transitions from all
+        # completely and partially filled bands to range(m1, m2)
+        bandsum = {'n1': 0, 'n2': self.nocc2, 'm1': m1, 'm2': m2}
+        mat_kwargs.update(bandsum)
+        eig_kwargs.update(bandsum)
+
+        A_wxx /= prefactor
+        integrator.integrate(kind=kind,  # Kind of integral
+                             domain=domain,  # Integration domain
+                             integrand=(self.get_matrix_element,  # Integrand
+                                        self.get_eigenvalues),  # Integrand
+                             x=self.wd,  # Frequency Descriptor
+                             kwargs=(mat_kwargs, eig_kwargs),
+                             # Arguments for integrand functions
+                             out_wxx=A_wxx,  # Output array
+                             **extraargs)
+
+        if self.hilbert:
+            # The integrator only returns the spectral function and a Hilbert
+            # transform is performed to return the real part of the density
+            # response function.
+            with self.timer('Hilbert transform'):
+                # Make Hilbert transform
+                ht = HilbertTransform(np.array(self.wd.omega_w), self.eta,
+                                      timeordered=self.timeordered)
+                ht(A_wxx)
+
+        # The response function is integrated only over the IBZ. The
+        # chi calculated above must therefore be extended to include the
+        # response from the full BZ. This extension can be performed as a
+        # simple post processing of the response function that makes
+        # sure that the response function fulfills the symmetries of the little
+        # group of q. Due to the specific details of the implementation the chi
+        # calculated above is normalized by the number of symmetries (as seen
+        # below) and then symmetrized.
+        A_wxx *= prefactor
+
+        tmpA_wxx = chi0.blockdist.redistribute(A_wxx, chi0.nw)
+        analyzer.symmetrize_wGG(tmpA_wxx)
+        A_wxx[:] = chi0.blockdist.redistribute(tmpA_wxx, chi0.nw)
+
+    def initialize_integrator(self, block_distributed=True):
+        """The integrator class is a general class for brillouin zone
+        integration that can integrate user defined functions over user
+        defined domains and sum over bands."""
+        integrator: Integrator
+
+        if self.integrationmode is None or \
+           self.integrationmode == 'point integration':
+            cls = PointIntegrator
+        elif self.integrationmode == 'tetrahedron integration':
+            cls = TetrahedronIntegrator  # type: ignore
+        else:
+            raise ValueError(f'Integration mode "{self.integrationmode}"'
+                             ' not implemented.')
+
+        kwargs = dict(
+            cell_cv=self.gs.gd.cell_cv,
+            comm=self.world,
+            timer=self.timer,
+            eshift=self.eshift,
+            txt=self.fd)
+
+        if block_distributed:
+            integrator = cls(**kwargs, nblocks=self.nblocks)
+        else:
+            integrator = cls(**kwargs)
+
+        return integrator
+
+    def get_integration_domain(self, pd, spins):
+        """Get integrator domain and prefactor for the integral."""
+        # The integration domain is determined by the following function
+        # that reduces the integration domain to the irreducible zone
+        # of the little group of q.
+        bzk_kv, analyzer = self.get_kpoints(
+            pd, integrationmode=self.integrationmode)
+        domain = (bzk_kv, spins)
+
+        if self.integrationmode == 'tetrahedron integration':
+            # If there are non-periodic directions it is possible that the
+            # integration domain is not compatible with the symmetry operations
+            # which essentially means that too large domains will be
+            # integrated. We normalize by vol(BZ) / vol(domain) to make
+            # sure that to fix this.
+            domainvol = convex_hull_volume(
+                bzk_kv) * analyzer.how_many_symmetries()
+            bzvol = (2 * np.pi)**3 / self.vol
+            factor = bzvol / domainvol
+        else:
+            factor = 1
+
+        prefactor = (2 * factor * analyzer.how_many_symmetries() /
+                     (self.gs.nspins * (2 * np.pi)**3))  # Remember prefactor
+
+        if self.integrationmode is None:
+            nbzkpts = self.gs.kd.nbzkpts
+            prefactor *= len(bzk_kv) / nbzkpts
+
+        return domain, analyzer, prefactor
+
+    def get_integral_kind(self):
+        """Determine what "kind" of integral to make."""
+        extraargs = {}  # Initialize extra arguments to integration method.
+        if self.eta == 0:
+            # If eta is 0 then we must be working with imaginary frequencies.
+            # In this case chi is hermitian and it is therefore possible to
+            # reduce the computational costs by a only computing half of the
+            # response function.
+            kind = 'hermitian response function'
+        elif self.hilbert:
+            # The spectral function integrator assumes that the form of the
+            # integrand is a function (a matrix element) multiplied by
+            # a delta function and should return a function of at user defined
+            # x's (frequencies). Thus the integrand is tuple of two functions
+            # and takes an additional argument (x).
+            kind = 'spectral function'
+        else:
+            # Otherwise, we can make no simplifying assumptions of the
+            # form of the response function and we simply perform a brute
+            # force calculation of the response function.
+            kind = 'response function'
+            extraargs['eta'] = self.eta
+            extraargs['timeordered'] = self.timeordered
+
+        return kind, extraargs
 
     def reduce_ecut(self, ecut, chi0: Chi0Data):
         """
