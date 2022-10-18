@@ -546,10 +546,10 @@ class Chi0Calculator:
         return bzk_kv, analyzer
 
     @timer('Get matrix element')
-    def get_matrix_element(self, k_v, s, n1=None, n2=None,
-                           m1=None, m2=None,
-                           pd=None, kd=None,
-                           symmetry=None, integrationmode=None,
+    def get_matrix_element(self, k_v, s, n1, n2,
+                           m1, m2,
+                           pd=None, kd=None, *,
+                           symmetry, integrationmode=None,
                            include_optical_elements=True, block=True):
         """A function that returns pair-densities.
 
@@ -633,9 +633,9 @@ class Chi0Calculator:
             return n_nmG.reshape(-1, nG)
 
     @timer('Get eigenvalues')
-    def get_eigenvalues(self, k_v, s, n1=None, n2=None,
-                        m1=None, m2=None,
-                        kd=None, pd=None, gs=None,
+    def get_eigenvalues(self, k_v, s, n1, n2,
+                        m1, m2,
+                        kd=None, *, pd, gs=None,
                         filter=False):
         """A function that can return the eigenvalues.
 
@@ -668,7 +668,7 @@ class Chi0Calculator:
         return deps_nm.reshape(-1)
 
     def get_intraband_response(self, k_v, s, n1, n2,
-                               kd=None, symmetry=None, pd=None,
+                               kd=None, symmetry=None, *, pd,
                                integrationmode=None):
         k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
         kpt1 = self.pair.get_k_point(s, k_c, n1, n2)
@@ -692,7 +692,7 @@ class Chi0Calculator:
 
     @timer('Intraband eigenvalue')
     def get_intraband_eigenvalue(self, k_v, s,
-                                 n1=None, n2=None, kd=None, pd=None):
+                                 n1, n2, kd=None, *, pd):
         """A function that can return the eigenvalues.
 
         A simple function describing the integrand of
