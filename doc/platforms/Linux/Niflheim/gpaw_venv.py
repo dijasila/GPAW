@@ -41,6 +41,7 @@ export GPAW_SETUP_PATH=$GPAW_SETUP_PATH:{venv}/gpaw-basis-pvalence-0.9.20000
 # Set matplotlib backend:
 if [[ $SLURM_SUBMIT_DIR ]]; then
     export MPLBACKEND=Agg
+    export PYTHONWARNINGS=i::????
 else
     export MPLBACKEND=TkAgg
 fi
