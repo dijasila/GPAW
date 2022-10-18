@@ -25,22 +25,10 @@ from gpaw.response.heisenberg import (calculate_single_site_magnon_energies,
 
 
 @pytest.mark.response
-def test_Fe_bcc(in_tmp_dir):
+def test_Fe_bcc(in_tmp_dir, gpw_files):
     # ---------- Inputs ---------- #
 
-    # Part 1: Ground state calculation
-    xc = 'LDA'
-    kpts = 4
-    nbands = 6
-    pw = 200
-    occw = 0.01
-    conv = {'density': 1e-8,
-            'forces': 1e-8,
-            'bands': nbands}
-    a = 2.867
-    mm = 2.21
-
-    # Part 2: MFT calculation
+    # MFT calculation
     ecut = 50
     eta = 0.
     # Do the high symmetry points of the bcc lattice
@@ -56,26 +44,11 @@ def test_Fe_bcc(in_tmp_dir):
 
     # ---------- Script ---------- #
 
-    # Part 1: Ground state calculation
+    calc = GPAW(gpw_files['fe_pw_wfs'])
+    nbands = calc.parameters.convergence['bands']
+    atoms = calc.atoms
 
-    atoms = bulk('Fe', 'bcc', a=a)
-    atoms.set_initial_magnetic_moments([mm])
-    atoms.center()
-
-    calc = GPAW(xc=xc,
-                mode=PW(pw),
-                kpts={'size': (kpts, kpts, kpts), 'gamma': True},
-                nbands=nbands + 4,
-                occupations=FermiDirac(occw),
-                parallel={'domain': 1},
-                spinpol=True,
-                convergence=conv
-                )
-
-    atoms.calc = calc
-    atoms.get_potential_energy()
-
-    # Part 2: MFT calculation
+    # MFT calculation
 
     # Set up site kernels with a single site
     positions = atoms.get_positions()
@@ -114,12 +87,13 @@ def test_Fe_bcc(in_tmp_dir):
             chiksr0_GG = chiksr0_GG + isoexch_calc.get_goldstone_correction()
             mchi_G = 2. * chiksr0_GG @ Bxc_G
             assert np.allclose(m_G, mchi_G)
-            
+
     # Since we only have a single site, reduce the array
     J_qp = J_qabp[:, 0, 0, :]
     Jcorr_qp = Jcorr_qabp[:, 0, 0, :]
 
     # Calculate the magnon energies
+    mm = 2.21
     mm_ap = mm * np.ones((1, npartitions))  # Magnetic moments
     mw_qp = calculate_fm_magnon_energies(J_qabp, q_qc, mm_ap)[:, 0, :]
     mwcorr_qp = calculate_fm_magnon_energies(Jcorr_qabp, q_qc,
@@ -157,10 +131,11 @@ def test_Fe_bcc(in_tmp_dir):
 
     # Exchange constants
     assert np.allclose(J_qp.imag, 0.)
+    assert J_qp.real == pytest.approx(test_J_pq.T, rel=2e-3)
     assert np.allclose(J_qp.real, test_J_pq.T, rtol=2e-3)
     assert np.allclose(Jcorr_qp.imag, 0.)
     assert np.allclose(Jcorr_qp.real, test_Jcorr_pq.T, rtol=2e-3)
-    
+
     # Magnon energies
     assert np.allclose(mw_qp, test_mw_pq.T, rtol=2e-3)
     assert np.allclose(mwcorr_qp, test_mwcorr_pq.T, rtol=2e-3)
