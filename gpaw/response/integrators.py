@@ -147,12 +147,11 @@ class PointIntegrator(Integrator):
             deps_M = get_eigenvalues(*arguments)
 
             if intraband:
-                self.update_intraband(n_MG, out_wxx, **extraargs)
+                self.update_intraband(n_MG, out_wxx)
             elif hermitian and not wings:
-                self.update_hermitian(n_MG, deps_M, x, out_wxx, **extraargs)
+                self.update_hermitian(n_MG, deps_M, x, out_wxx)
             elif hermitian and wings:
-                self.update_hermitian_optical_limit(n_MG, deps_M, x, out_wxx,
-                                                    **extraargs)
+                self.update_hermitian_optical_limit(n_MG, deps_M, x, out_wxx)
             elif hilbert and not wings:
                 self.update_hilbert(n_MG, deps_M, x, out_wxx, **extraargs)
             elif hilbert and wings:
