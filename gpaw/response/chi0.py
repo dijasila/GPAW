@@ -330,12 +330,19 @@ class Chi0Calculator:
         mat_kwargs.update(bandsum)
         eig_kwargs.update(bandsum)
 
+        import functools
+
+        get_matrix_element = functools.partial(
+            self.get_matrix_element, **mat_kwargs)
+        get_eigenvalues = functools.partial(
+            self.get_eigenvalues, **eig_kwargs)
+
         integrator.integrate(kind=kind,  # Kind of integral
                              domain=domain,  # Integration domain
-                             integrand=(self.get_matrix_element,  # Integrand
-                                        self.get_eigenvalues),  # Integrand
+                             integrand=(get_matrix_element,  # Integrand
+                                        get_eigenvalues),  # Integrand
                              x=self.wd,  # Frequency Descriptor
-                             kwargs=(mat_kwargs, eig_kwargs),
+                             kwargs=({}, {}),
                              # Arguments for integrand functions
                              out_wxx=A_wxx,  # Output array
                              **extraargs)
