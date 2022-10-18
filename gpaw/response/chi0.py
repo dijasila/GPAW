@@ -416,13 +416,18 @@ class Chi0Calculator:
                 extraargs['x'] = FrequencyGridDescriptor(
                     [-self.gs.fermi_level])
 
+            get_intraband_response = functools.partial(
+                self.get_intraband_response, **mat_kwargs)
+            get_intraband_eigenvalue = functools.partial(
+                self.get_intraband_eigenvalue, **eig_kwargs)
+
             intnoblock.integrate(kind='spectral function',  # Kind of integral
                                  domain=domain,  # Integration domain
                                  # Integrands
-                                 integrand=(self.get_intraband_response,
-                                            self.get_intraband_eigenvalue),
+                                 integrand=(get_intraband_response,
+                                            get_intraband_eigenvalue),
                                  # Integrand arguments
-                                 kwargs=(mat_kwargs, eig_kwargs),
+                                 #kwargs=(mat_kwargs, eig_kwargs),
                                  out_wxx=plasmafreq_wvv,  # Output array
                                  **extraargs)  # Extra args for int. method
 
