@@ -307,6 +307,7 @@ class G0W0Calculator:
     def __init__(self, filename='gw', *,
                  chi0calc,
                  wcalc,
+                 context=None,
                  restartfile=None,
                  kpts, bands, nbands=None,
                  do_GW_too=False,
@@ -316,7 +317,7 @@ class G0W0Calculator:
                  savepckl=True):
         """G0W0 calculator, initialized through G0W0 object.
 
-        The G0W0 calculator is used is used to calculate the quasi
+        The G0W0 calculator is used to calculate the quasi
         particle energies through the G0W0 approximation for a number
         of states.
 
