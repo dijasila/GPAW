@@ -295,7 +295,7 @@ class Chi0Calculator:
         mat_kwargs = {'kd': kd, 'pd': pd,
                       'symmetry': analyzer,
                       'integrationmode': self.integrationmode,
-                      'include_optical_elements': False}  # Remove! XXX
+                      'include_optical_elements': False}
         eig_kwargs = {'kd': kd, 'pd': pd}
 
         # Determine what "kind" of integral to make.
