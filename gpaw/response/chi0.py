@@ -293,7 +293,6 @@ class Chi0Calculator:
         # of this file and take a number of constant keyword arguments
         # which the integrator class accepts through the use of the
         # kwargs keyword.
-        kd = gs.kd
         mat_kwargs = {'pd': pd,
                       'symmetry': analyzer,
                       'integrationmode': self.integrationmode,
