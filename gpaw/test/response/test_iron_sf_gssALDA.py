@@ -80,16 +80,24 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
     test_fxcs = 1.033
     test_mw1 = -0.03  # meV
     test_mw2 = 176.91  # meV
+    test_mw2 = 162  # meV
     test_Ipeak1 = 71.20  # a.u.
     test_Ipeak2 = 44.46  # a.u.
+
+    import matplotlib.pyplot as plt
+    plt.plot(w1_w, -chi1_w.imag)
+    plt.plot(w2_w, -chi2_w.imag)
+    plt.show()
 
     # fxc_scaling:
     equal(fxc_scaling[1], test_fxcs, 0.005)
 
     # Magnon peak:
     equal(mw1, test_mw1, 0.1)
-    equal(mw2, test_mw2, eta * 650)
+    assert mw2 == pytest.approx(test_mw2, abs=eta * 650)
 
     # Scattering function intensity:
-    equal(Ipeak1, test_Ipeak1, 5)
-    equal(Ipeak2, test_Ipeak2, 5)
+    assert Ipeak1 == pytest.approx(test_Ipeak1, abs=5)
+    assert Ipeak2 == pytest.approx(test_Ipeak2, abs=5)
+    #equal(Ipeak1, test_Ipeak1, 5)
+    #equal(Ipeak2, test_Ipeak2, 5)

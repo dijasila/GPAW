@@ -102,7 +102,9 @@ def gpw_files(request, tmp_path_factory):
 
     * MoS2 with 6x6x1 k-points: ``mos2_pw``
 
-    * Bulk Si, LDA, 2x2x2 k-point (gamma centered): ``si_pw``
+    * Bulk Si, LDA, 2x2x2 k-points (gamma centered): ``si_pw``
+
+    * Bulk Fe, LDA, 4x4x4 k-points, 6 converged bands: ``fe_pw``
 
     Files with wave functions are also available (add ``_wfs`` to the names).
     """
@@ -370,7 +372,7 @@ class GPWFiles:
         xc = 'LDA'
         kpts = 4
         nbands = 6
-        pw = 400
+        pw = 300
         occw = 0.05
         conv = {'bands': nbands}
         a = 2.867
@@ -382,10 +384,11 @@ class GPWFiles:
         atoms.calc = GPAW(
             xc=xc,
             mode=PW(pw),
-            kpts={'size': (kpts, kpts, kpts), 'gamma': True},
+            kpts={'size': (kpts, kpts, kpts)},
             nbands=nbands + 4,
             occupations=FermiDirac(occw),
-            convergence=conv)
+            convergence=conv,
+            txt=self.path / 'fe_pw.txt')
 
         atoms.get_potential_energy()
 
