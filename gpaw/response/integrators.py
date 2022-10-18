@@ -433,17 +433,17 @@ class TetrahedronIntegrator(Integrator):
 
     def integrate(self, kind, *args, **kwargs):
         if kind == 'spectral function':
-            return self.spectral_function_integration(*args,
-                                                      wings=False,
-                                                      **kwargs)
+            wings = False
         elif kind == 'spectral function wings':
-            return self.spectral_function_integration(*args,
-                                                      wings=True,
-                                                      **kwargs)
+            wings = True
         else:
             raise ValueError("Expected kind='spectral function'",
                              "or 'spectral function wings', got: ",
                              kind)
+
+        return self.spectral_function_integration(*args,
+                                                  wings=wings,
+                                                  **kwargs)
 
     @timer('Spectral function integration')
     def spectral_function_integration(self, wings=False,
