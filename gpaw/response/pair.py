@@ -60,18 +60,6 @@ class KPointPair:
         self.kpt2 = kpt2
         self.Q_G = Q_G
 
-    def get_k1(self):
-        """ Return KPoint object 1."""
-        return self.kpt1
-
-    def get_k2(self):
-        """ Return KPoint object 2."""
-        return self.kpt2
-
-    def get_planewave_indices(self):
-        """ Return the planewave indices associated with this pair."""
-        return self.Q_G
-
     def get_transition_energies(self, n_n, m_m):
         """Return the energy difference for specified bands."""
         n_n = np.array(n_n)
