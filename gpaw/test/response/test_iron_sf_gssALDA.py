@@ -77,17 +77,12 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
     mw2 = wpeak2 * 1000
 
     # Part 4: compare new results to test values
-    test_fxcs = 1.033
+    test_fxcs = 1.011
     test_mw1 = -0.03  # meV
     test_mw2 = 176.91  # meV
-    test_mw2 = 162  # meV
+    test_mw2 = 260  # meV
     test_Ipeak1 = 71.20  # a.u.
-    test_Ipeak2 = 44.46  # a.u.
-
-    import matplotlib.pyplot as plt
-    plt.plot(w1_w, -chi1_w.imag)
-    plt.plot(w2_w, -chi2_w.imag)
-    plt.show()
+    test_Ipeak2 = 35  # a.u.
 
     # fxc_scaling:
     equal(fxc_scaling[1], test_fxcs, 0.005)
