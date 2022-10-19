@@ -235,7 +235,7 @@ class Chi0Calculator:
         intnoblock: Integrator
 
         if self.integrationmode is None or \
-                self.integrationmode == 'point integration':
+           self.integrationmode == 'point integration':
             cls = PointIntegrator
         elif self.integrationmode == 'tetrahedron integration':
             cls = TetrahedronIntegrator  # type: ignore
@@ -466,8 +466,8 @@ class Chi0Calculator:
             # wings evaluated along the z-direction.
             # The x = 1 wing represents the left vertical block, which is
             # distributed in chi0_wGG
-            chi0.chi0_wGG[:, :, 0] = \
-                chi0.chi0_wxvG[:, 1, 2, chi0.blocks1d.myslice]
+            chi0.chi0_wGG[:, :, 0] = chi0.chi0_wxvG[:, 1, 2,
+                                                    chi0.blocks1d.myslice]
 
             if self.blockcomm.rank == 0:  # rank with G=0 row
                 # The x = 0 wing represents the upper horizontal block
