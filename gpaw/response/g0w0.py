@@ -1068,10 +1068,6 @@ class G0W0(G0W0Calculator):
         """
         frequencies = get_frequencies(frequencies, domega0, omega2)
 
-        # self._gpwfile = calc
-        # calc, context = calc_and_context(self._gpwfile, filename + '.txt',
-        #                                  world, timer)
-        # gs = calc.gs_adapter()
         self._gpwfile = calc
         context = ResponseContext(txt=filename + '.txt',
                                   world=world, timer=timer)
