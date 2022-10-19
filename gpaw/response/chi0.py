@@ -851,15 +851,8 @@ class Chi0(Chi0Calculator):
             Class for calculating matrix elements of pairs of wavefunctions.
 
         """
-        from gpaw.calculator import GPAW as OldGPAW
-        from gpaw.response import ResponseContext, ResponseGroundStateAdapter
-        context = ResponseContext(txt=txt, timer=timer, world=world)
-        if isinstance(calc, OldGPAW):
-            assert calc.wfs.world.size == 1
-            gs = calc.gs_adapter()
-        else:
-            gs = ResponseGroundStateAdapter.from_gpw_file(calc,
-                                                          context=context)
+        from gpaw.response.pair import get_gs_and_context
+        gs, context = get_gs_and_context(calc, txt, world, timer)
         nbands = nbands or gs.bd.nbands
 
         wd = new_frequency_descriptor(gs, nbands, frequencies, context=context,

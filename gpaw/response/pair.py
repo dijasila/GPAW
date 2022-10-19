@@ -6,7 +6,7 @@ import numpy as np
 from gpaw import GPAW, disable_dry_run
 import gpaw.mpi as mpi
 
-from gpaw.response import ResponseContext, timer
+from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
 from gpaw.response.pw_parallelization import block_partition
 from gpaw.response.symmetry import KPointFinder
 from gpaw.utilities.blas import mmm
@@ -543,6 +543,22 @@ def fft_indices(kd, K1, K2, q_c, pd, shift0_c):
         n_cG = [n_G + shift for n_G, shift in zip(n_cG, shift_c)]
         N_G = np.ravel_multi_index(n_cG, pd.gd.N_c, 'wrap')
     return N_G
+
+
+def get_gs_and_context(calc, txt, world, timer):
+    """Interface to initialize gs and context from old input arguments.
+    Should be phased out in the future!"""
+    from gpaw.calculator import GPAW as OldGPAW
+
+    context = ResponseContext(txt=txt, timer=timer, world=world)
+
+    if isinstance(calc, OldGPAW):
+        assert calc.wfs.world.size == 1
+        gs = calc.gs_adapter()
+    else:
+        gs = ResponseGroundStateAdapter.from_gpw_file(calc, context=context)
+
+    return gs, context
 
 
 def calc_and_context(calc, txt, world, timer):
