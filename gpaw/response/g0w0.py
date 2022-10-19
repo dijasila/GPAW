@@ -23,7 +23,7 @@ from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chi0 import Chi0Calculator
 from gpaw.response.g0w0_kernels import G0W0Kernel
 from gpaw.response.hilbert import GWHilbertTransforms
-from gpaw.response.pair import NoCalculatorPairDensity, calc_and_context
+from gpaw.response.pair import NoCalculatorPairDensity
 from gpaw.response.screened_interaction import WCalculator
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 
