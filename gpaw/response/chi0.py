@@ -26,7 +26,7 @@ from gpaw.typing import Array1D
 from gpaw.utilities.memory import maxrss
 
 
-def find_maximum_frequency(kpt_u, nbands=0, fd=None):
+def find_maximum_frequency(kpt_u, nbands=0, context=None):
     """Determine the maximum electron-hole pair transition energy."""
     epsmin = 10000.0
     epsmax = -10000.0
@@ -34,9 +34,10 @@ def find_maximum_frequency(kpt_u, nbands=0, fd=None):
         epsmin = min(epsmin, kpt.eps_n[0])
         epsmax = max(epsmax, kpt.eps_n[nbands - 1])
 
-    if fd is not None:
-        print('Minimum eigenvalue: %10.3f eV' % (epsmin * Ha), file=fd)
-        print('Maximum eigenvalue: %10.3f eV' % (epsmax * Ha), file=fd)
+    if context is not None:
+        context.print('Minimum eigenvalue: %10.3f eV' % (epsmin * Ha),
+                      flush=False)
+        context.print('Maximum eigenvalue: %10.3f eV' % (epsmax * Ha))
 
     return epsmax - epsmin
 
@@ -855,7 +856,7 @@ class Chi0(Chi0Calculator):
         gs = calc.gs_adapter()
         nbands = nbands or gs.bd.nbands
 
-        wd = new_frequency_descriptor(gs, nbands, frequencies, fd=context.fd,
+        wd = new_frequency_descriptor(gs, nbands, frequencies, context=context,
                                       domega0=domega0,
                                       omega2=omega2, omegamax=omegamax)
 
@@ -867,7 +868,7 @@ class Chi0(Chi0Calculator):
         super().__init__(wd=wd, pair=pair, nbands=nbands, ecut=ecut, **kwargs)
 
 
-def new_frequency_descriptor(gs, nbands, frequencies=None, *, fd,
+def new_frequency_descriptor(gs, nbands, frequencies=None, *, context=None,
                              domega0=None, omega2=None, omegamax=None):
     if domega0 is not None or omega2 is not None or omegamax is not None:
         assert frequencies is None
@@ -884,7 +885,7 @@ def new_frequency_descriptor(gs, nbands, frequencies=None, *, fd,
             frequencies.get('omegamax') is None):
         omegamax = find_maximum_frequency(gs.kpt_u,
                                           nbands=nbands,
-                                          fd=fd)
+                                          context=context)
         frequencies['omegamax'] = omegamax * Ha
 
     wd = FrequencyDescriptor.from_array_or_dict(frequencies)

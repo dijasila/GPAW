@@ -1107,7 +1107,7 @@ class G0W0(G0W0Calculator):
         from gpaw.response.chi0 import new_frequency_descriptor
         chi_context = context.with_txt(filename + '.w.txt')
         wd = new_frequency_descriptor(
-            gs, nbands, frequencies, fd=chi_context.fd)
+            gs, nbands, frequencies, context=chi_context)
 
         chi0calc = Chi0Calculator(
             wd=wd, pair=pair,
