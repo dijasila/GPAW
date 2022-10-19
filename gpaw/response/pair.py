@@ -5,7 +5,6 @@ import numpy as np
 
 from gpaw import GPAW, disable_dry_run
 import gpaw.mpi as mpi
-from gpaw.fd_operators import Gradient
 
 from gpaw.response import ResponseContext, timer
 from gpaw.response.pw_parallelization import block_partition
@@ -93,28 +92,17 @@ class KPointPair:
 
 
 class NoCalculatorPairDensity:
-    def __init__(self, gs, *, context, ftol=1e-6,
-                 threshold=1, real_space_derivatives=False, nblocks=1):
+    def __init__(self, gs, *, context, threshold=1, nblocks=1):
         self.gs = gs
         self.context = context
 
         assert self.gs.kd.symmetry.symmorphic
 
-        self.ftol = ftol
         self.threshold = threshold
-        self.real_space_derivatives = real_space_derivatives
 
         self.blockcomm, self.kncomm = block_partition(self.context.world,
                                                       nblocks)
         self.nblocks = nblocks
-
-        self.fermi_level = self.gs.fermi_level
-        self.spos_ac = self.gs.spos_ac
-
-        self.nocc1 = None  # number of completely filled bands
-        self.nocc2 = None  # number of non-empty bands
-        self.count_occupied_bands()
-
         self.ut_sKnvR = None  # gradient of wave functions for optical limit
 
         self.vol = self.gs.gd.volume
@@ -125,19 +113,6 @@ class NoCalculatorPairDensity:
 
     def find_kpoint(self, k_c):
         return self.kptfinder.find(k_c)
-
-    def count_occupied_bands(self):
-        self.nocc1 = 9999999
-        self.nocc2 = 0
-        for kpt in self.gs.kpt_u:
-            f_n = kpt.f_n / kpt.weight
-            self.nocc1 = min((f_n > 1 - self.ftol).sum(), self.nocc1)
-            self.nocc2 = max((f_n > self.ftol).sum(), self.nocc2)
-        self.context.print('Number of completely filled bands:', self.nocc1,
-                           flush=False)
-        self.context.print('Number of non-empty bands:', self.nocc2,
-                           flush=False)
-        self.context.print('Total number of bands:', self.gs.bd.nbands)
 
     def distribute_k_points_and_bands(self, band1, band2, kpts=None):
         """Distribute spins, k-points and bands.
@@ -182,7 +157,7 @@ class NoCalculatorPairDensity:
         return PairDistribution(self, mysKn1n2)
 
     @timer('Get a k-point')
-    def get_k_point(self, s, k_c, n1, n2, load_wfs=True, block=False):
+    def get_k_point(self, s, k_c, n1, n2, block=False):
         """Return wave functions for a specific k-point and spin.
 
         s: int
@@ -232,10 +207,6 @@ class NoCalculatorPairDensity:
         eps_n = kpt.eps_n[n1:n2]
         f_n = kpt.f_n[n1:n2] / kpt.weight
 
-        if not load_wfs:
-            return KPoint(s, K, n1, n2, blocksize, na, nb,
-                          None, eps_n, f_n, None, shift_c)
-
         with self.context.timer('load wfs'):
             psit_nG = kpt.psit_nG
             ut_nR = gs.gd.empty(nb - na, gs.dtype)
@@ -254,8 +225,7 @@ class NoCalculatorPairDensity:
                       ut_nR, eps_n, f_n, P_ani, shift_c)
 
     @timer('Get kpoint pair')
-    def get_kpoint_pair(self, pd, s, Kork_c, n1, n2, m1, m2,
-                        load_wfs=True, block=False):
+    def get_kpoint_pair(self, pd, s, Kork_c, n1, n2, m1, m2, block=False):
         assert m1 <= m2
         assert n1 <= n2
 
@@ -268,14 +238,13 @@ class NoCalculatorPairDensity:
 
         q_c = pd.kd.bzk_kc[0]
         with self.context.timer('get k-points'):
-            kpt1 = self.get_k_point(s, k_c, n1, n2, load_wfs=load_wfs)
+            kpt1 = self.get_k_point(s, k_c, n1, n2)
             # K2 = wfs.kd.find_k_plus_q(q_c, [kpt1.K])[0]
-            kpt2 = self.get_k_point(s, k_c + q_c, m1, m2,
-                                    load_wfs=load_wfs, block=block)
+            kpt2 = self.get_k_point(s, k_c + q_c, m1, m2, block=block)
 
         with self.context.timer('fft indices'):
-            Q_G = self.get_fft_indices(kpt1.K, kpt2.K, q_c, pd,
-                                       kpt1.shift_c - kpt2.shift_c)
+            Q_G = fft_indices(self.gs.kd, kpt1.K, kpt2.K, q_c, pd,
+                              kpt1.shift_c - kpt2.shift_c)
 
         return KPointPair(kpt1, kpt2, Q_G)
 
@@ -351,7 +320,7 @@ class NoCalculatorPairDensity:
         kpt2: KPoint object
             Right hand side k-point object.
         pd: PWDescriptor
-            Plane-wave descriptor for for q=k2-k1.
+            Plane-wave descriptor for q=k2-k1.
         Q_G: 1-d int ndarray
             Mapping from flattened 3-d FFT grid to 0.5(G+q)^2<ecut sphere.
         """
@@ -436,8 +405,7 @@ class NoCalculatorPairDensity:
         return n0_mv
 
     @timer('Intraband')
-    def intraband_pair_density(self, kpt, n_n=None,
-                               only_partially_occupied=False):
+    def intraband_pair_density(self, kpt, n_n=None):
         """Calculate intraband matrix elements of nabla"""
         # Bands and check for block parallelization
         na, nb, n1 = kpt.na, kpt.nb, kpt.n1
@@ -453,25 +421,6 @@ class NoCalculatorPairDensity:
         k_c = kd.bzk_kc[kpt.K] + kpt.shift_c
         k_v = 2 * np.pi * np.dot(k_c, np.linalg.inv(gd.cell_cv).T)
         atomdata_a = self.gs.setups
-        f_n = kpt.f_n
-
-        width = self.gs.get_occupations_width()
-
-        if width > 1e-15:
-            dfde_n = -1 / width * (f_n - f_n**2.0)  # Analytical derivative
-            partocc_n = np.abs(dfde_n) > 1e-5  # Is part. occupied?
-        else:
-            # Just include all bands to be sure
-            partocc_n = np.ones(len(f_n), dtype=bool)
-
-        if only_partially_occupied and not partocc_n.any():
-            return None
-
-        if only_partially_occupied:
-            # Check for block par. consistency
-            assert (partocc_n < nb).all(), \
-                self.context.print('Include more unoccupied bands ',
-                                   + 'or less block parr.')
 
         # Break bands into degenerate chunks
         degchunks_cn = []  # indexing c as chunk number
@@ -481,8 +430,7 @@ class NoCalculatorPairDensity:
 
             # Has this chunk already been computed?
             oldchunk = any([n in chunk for chunk in degchunks_cn])
-            if not oldchunk and \
-               (partocc_n[n - n1] or not only_partially_occupied):
+            if not oldchunk:
                 assert all([ind in n_n for ind in inds_n]), \
                     self.context.print(
                         '\nYou are cutting over a degenerate band ' +
@@ -524,18 +472,6 @@ class NoCalculatorPairDensity:
 
         return vel_nv[n_n - na]
 
-    def get_fft_indices(self, K1, K2, q_c, pd, shift0_c):
-        """Get indices for G-vectors inside cutoff sphere."""
-        kd = self.gs.kd
-        N_G = pd.Q_qG[0]
-        shift_c = (shift0_c +
-                   (q_c - kd.bzk_kc[K2] + kd.bzk_kc[K1]).round().astype(int))
-        if shift_c.any():
-            n_cG = np.unravel_index(N_G, pd.gd.N_c)
-            n_cG = [n_G + shift for n_G, shift in zip(n_cG, shift_c)]
-            N_G = np.ravel_multi_index(n_cG, pd.gd.N_c, 'wrap')
-        return N_G
-
     def construct_symmetry_operators(self, K, k_c=None):
         from gpaw.response.symmetry_ops import construct_symmetry_operators
         return construct_symmetry_operators(
@@ -551,10 +487,6 @@ class NoCalculatorPairDensity:
     @timer('Derivatives')
     def make_derivative(self, s, K, n1, n2):
         gs = self.gs
-        if self.real_space_derivatives:
-            grad_v = [Gradient(gs.gd, v, 1.0, 4, complex).apply
-                      for v in range(3)]
-
         U_cc, T, a_a, U_aii, shift_c, time_reversal = \
             self.construct_symmetry_operators(K)
         A_cv = gs.gd.cell_cv
@@ -567,14 +499,9 @@ class NoCalculatorPairDensity:
         ut_nvR = gs.gd.zeros((n2 - n1, 3), complex)
         for n in range(n1, n2):
             for v in range(3):
-                if self.real_space_derivatives:
-                    ut_R = T(gs.pd.ifft(psit_nG[n], ik))
-                    grad_v[v](ut_R, ut_nvR[n - n1, v],
-                              np.ones((3, 2), complex))
-                else:
-                    ut_R = T(gs.pd.ifft(iG_Gv[:, v] * psit_nG[n], ik))
-                    for v2 in range(3):
-                        ut_nvR[n - n1, v2] += ut_R * M_vv[v, v2]
+                ut_R = T(gs.pd.ifft(iG_Gv[:, v] * psit_nG[n], ik))
+                for v2 in range(3):
+                    ut_nvR[n - n1, v2] += ut_R * M_vv[v, v2]
 
         return ut_nvR
 
@@ -590,15 +517,9 @@ class PairDensity(NoCalculatorPairDensity):
 
         Parameters
         ----------
-        ftol : float
-            Threshold determining whether a band is completely filled
-            (f > 1 - ftol) or completely empty (f < ftol).
         threshold : float
             Numerical threshold for the optical limit k dot p perturbation
             theory expansion.
-        real_space_derivatives : bool
-            Calculate nabla matrix elements (in the optical limit)
-            using a real space finite difference approximation.
         """
 
         # note: gs is just called gs for historical reasons.
@@ -610,6 +531,18 @@ class PairDensity(NoCalculatorPairDensity):
             gs=self.calc.gs_adapter(),
             context=context,
             **kwargs)
+
+
+def fft_indices(kd, K1, K2, q_c, pd, shift0_c):
+    """Get indices for G-vectors inside cutoff sphere."""
+    N_G = pd.Q_qG[0]
+    shift_c = (shift0_c +
+               (q_c - kd.bzk_kc[K2] + kd.bzk_kc[K1]).round().astype(int))
+    if shift_c.any():
+        n_cG = np.unravel_index(N_G, pd.gd.N_c)
+        n_cG = [n_G + shift for n_G, shift in zip(n_cG, shift_c)]
+        N_G = np.ravel_multi_index(n_cG, pd.gd.N_c, 'wrap')
+    return N_G
 
 
 def calc_and_context(calc, txt, world, timer):
