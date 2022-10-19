@@ -92,7 +92,8 @@ class KPointPair:
 
 
 class NoCalculatorPairDensity:
-    def __init__(self, gs, *, context, threshold=1, nblocks=1):
+    def __init__(self, gs, context, *,
+                 threshold=1, nblocks=1):
         self.gs = gs
         self.context = context
 
@@ -526,10 +527,7 @@ class PairDensity(NoCalculatorPairDensity):
         # It's actually calc-or-filename union.
         gs, context = get_gs_and_context(gs, txt, world, timer)
 
-        super().__init__(
-            gs=gs,
-            context=context,
-            **kwargs)
+        super().__init__(gs, context, **kwargs)
 
 
 def fft_indices(kd, K1, K2, q_c, pd, shift0_c):

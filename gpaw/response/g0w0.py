@@ -1078,7 +1078,8 @@ class G0W0(G0W0Calculator):
         if nblocksmax:
             nblocks = get_max_nblocks(context.world, self._gpwfile, ecut)
 
-        pair = NoCalculatorPairDensity(gs, nblocks=nblocks, context=context)
+        pair = NoCalculatorPairDensity(gs, context,
+                                       nblocks=nblocks)
 
         kpts = list(select_kpts(kpts, gs.kd))
 

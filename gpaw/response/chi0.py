@@ -859,10 +859,9 @@ class Chi0(Chi0Calculator):
                                       domega0=domega0,
                                       omega2=omega2, omegamax=omegamax)
 
-        pair = NoCalculatorPairDensity(
-            gs=gs, threshold=threshold,
-            context=context,
-            nblocks=nblocks)
+        pair = NoCalculatorPairDensity(gs, context,
+                                       threshold=threshold,
+                                       nblocks=nblocks)
 
         super().__init__(wd=wd, pair=pair, nbands=nbands, ecut=ecut, **kwargs)
 
