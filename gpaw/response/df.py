@@ -399,7 +399,7 @@ class DielectricFunction:
 
         if xc != 'RPA':
             Kxc_GG = get_density_xc_kernel(pd,
-                                           self.chi0,
+                                           self.chi0.gs, self.context,
                                            functional=xc,
                                            chi0_wGG=chi0_wGG)
 
