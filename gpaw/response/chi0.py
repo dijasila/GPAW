@@ -476,7 +476,7 @@ class Chi0Calculator:
                 extraargs['intraband'] = True  # Calculate intraband
             elif self.integrationmode == 'tetrahedron integration':
                 # Calculate intraband transitions at T=0
-                fermi_level = self.pair.fermi_level
+                fermi_level = self.gs.fermi_level
                 extraargs['x'] = FrequencyGridDescriptor([-fermi_level])
         elif self.eta == 0:
             # If eta is 0 then we must be working with imaginary frequencies.
