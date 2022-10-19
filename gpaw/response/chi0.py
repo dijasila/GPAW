@@ -327,7 +327,7 @@ class Chi0Calculator:
         chi0_wxvx = np.zeros(np.array(chi0.chi0_wxvG.shape) +
                              [0, 0, 0, 2],
                              complex)  # Notice the wxv"x" for head extend
-        integrator.integrate(kind=kind + ' wings',  # kind'o int.
+        integrator.integrate(kind=kind + ' wings',  # Kind of integral
                              domain=domain,  # Integration domain
                              integrand=(self.get_matrix_element,  # Intgrnd
                                         self.get_eigenvalues),  # Integrand
@@ -369,24 +369,13 @@ class Chi0Calculator:
         (mat_kwargs,
          eig_kwargs) = self.get_integrator_arguments(pd, m1, m2, analyzer,
                                                      only_intraband=True)
+        kind, extraargs = self.get_integral_kind(only_intraband=True)
 
-        # Not so elegant solution but it works
         plasmafreq_wvv = np.zeros((1, 3, 3), complex)  # Output array
-
-        # Depending on which integration method is used we
-        # have to pass different arguments
-        extraargs = {}
-        if self.integrationmode is None:
-            # Calculate intraband transitions at finite fermi smearing
-            extraargs['intraband'] = True  # Calculate intraband
-        elif self.integrationmode == 'tetrahedron integration':
-            # Calculate intraband transitions at T=0
-            fermi_level = self.pair.fermi_level
-            extraargs['x'] = FrequencyGridDescriptor([-fermi_level])
-
-        integrator.integrate(kind='spectral function',  # Kind of integral
+        integrator.integrate(kind=kind,  # Kind of integral
                              domain=domain,  # Integration domain
                              # Integrands
+                             # Rename to plasmafreq? XXX
                              integrand=(self.get_intraband_response,
                                         self.get_intraband_eigenvalue),
                              # Integrand arguments
@@ -394,7 +383,8 @@ class Chi0Calculator:
                              out_wxx=plasmafreq_wvv,  # Output array
                              **extraargs)  # Extra args for int. method
 
-        # Again, not so pretty but that's how it is
+        # Calculate the Drude dielectric response function from the
+        # free-space plasma frequency
         plasmafreq_vv = plasmafreq_wvv[0].copy()
         try:
             with np.errstate(divide='raise'):
@@ -405,11 +395,11 @@ class Chi0Calculator:
         except FloatingPointError:
             raise ValueError('Please set rate to a positive value.')
 
-        # Fill into the chi0 head part
+        # Fill into the chi0 head
         analyzer.symmetrize_wvv(drude_chi_wvv)
         chi0.chi0_wvv[:] += prefactor * drude_chi_wvv
 
-        # Print the plasma frequency for anyone to use
+        # Store the plasma frequency and print it for anyone to use
         try:
             self.plasmafreq_vv += 4 * np.pi * plasmafreq_vv * prefactor
         except AttributeError:
@@ -503,10 +493,21 @@ class Chi0Calculator:
 
         return mat_kwargs, eig_kwargs
 
-    def get_integral_kind(self):
+    def get_integral_kind(self, only_intraband=False):
         """Determine what "kind" of integral to make."""
         extraargs = {}  # Initialize extra arguments to integration method.
-        if self.eta == 0:
+        if only_intraband:
+            # The plasma frequency integral is special in the way, that only
+            # the spectral part is needed
+            kind = 'spectral function'
+            if self.integrationmode is None:
+                # Calculate intraband transitions at finite fermi smearing
+                extraargs['intraband'] = True  # Calculate intraband
+            elif self.integrationmode == 'tetrahedron integration':
+                # Calculate intraband transitions at T=0
+                fermi_level = self.pair.fermi_level
+                extraargs['x'] = FrequencyGridDescriptor([-fermi_level])
+        elif self.eta == 0:
             # If eta is 0 then we must be working with imaginary frequencies.
             # In this case chi is hermitian and it is therefore possible to
             # reduce the computational costs by a only computing half of the
