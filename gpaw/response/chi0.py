@@ -269,13 +269,11 @@ class Chi0Calculator:
                                                                analyzer)
         kind, extraargs = self.get_integral_kind()
 
-        mat_kwargs['include_optical_elements'] = False  # Change? XXX
-
         chi0_wGG /= prefactor
         integrator.integrate(kind=kind,  # Kind of integral
                              domain=domain,  # Integration domain
-                             integrand=(self.get_matrix_element,  # Integrand
-                                        self.get_eigenvalues),  # Integrand
+                             integrand=(self.get_matrix_element,
+                                        self.get_eigenvalues),
                              x=self.wd,  # Frequency Descriptor
                              kwargs=(mat_kwargs, eig_kwargs),
                              # Arguments for integrand functions
@@ -308,16 +306,13 @@ class Chi0Calculator:
                                                                analyzer)
         kind, extraargs = self.get_integral_kind()
 
-        mat_kwargs['include_optical_elements'] = True  # Change? XXX
-        mat_kwargs['block'] = False
-
         tmp_chi0_wxvx = np.zeros(np.array(chi0.chi0_wxvG.shape) +
                                  [0, 0, 0, 2],  # Do both head and wings
                                  complex)
         integrator.integrate(kind=kind + ' wings',  # Kind of integral
                              domain=domain,  # Integration domain
-                             integrand=(self.get_matrix_element,  # Intgrnd
-                                        self.get_eigenvalues),  # Integrand
+                             integrand=(self.get_optical_matrix_element,
+                                        self.get_eigenvalues),
                              x=self.wd,  # Frequency Descriptor
                              kwargs=(mat_kwargs, eig_kwargs),
                              # Arguments for integrand functions
@@ -571,11 +566,12 @@ class Chi0Calculator:
         return bzk_kv, analyzer
 
     @timer('Get matrix element')
-    def get_matrix_element(self, k_v, s, n1=None, n2=None,
+    def get_matrix_element(self, k_v, s,
+                           n1=None, n2=None,
                            m1=None, m2=None,
                            pd=None, kd=None,
-                           symmetry=None, integrationmode=None,
-                           include_optical_elements=True, block=True):
+                           symmetry=None,
+                           integrationmode=None):
         """A function that returns pair-densities.
 
         A pair density is defined as::
@@ -608,8 +604,6 @@ class Chi0Calculator:
             Symmetry analyzer object for handling symmetries of the kpoints.
         integrationmode : str
             The integration mode employed.
-        include_optical_elements : bool
-            Include the optical pair density in the head, if q=0
 
         Return
         ------
@@ -620,8 +614,42 @@ class Chi0Calculator:
 
         k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
 
-        q_c = pd.kd.bzk_kc[0]
-        optical_limit = np.allclose(q_c, 0.0)
+        nG = pd.ngmax
+        weight = np.sqrt(symmetry.get_kpoint_weight(k_c) /
+                         symmetry.how_many_symmetries())
+        if self.pawcorr is None:
+            pairden_paw_corr = self.gs.pair_density_paw_corrections
+            self.pawcorr = pairden_paw_corr(pd, alter_optical_limit=True)
+
+        kptpair = self.pair.get_kpoint_pair(pd, s, k_c, n1, n2,
+                                            m1, m2, block=True)
+        m_m = np.arange(m1, m2)
+        n_n = np.arange(n1, n2)
+        n_nmG = self.pair.get_pair_density(pd, kptpair, n_n, m_m,
+                                           pawcorr=self.pawcorr,
+                                           block=True)
+
+        if integrationmode is None:
+            n_nmG *= weight
+
+        df_nm = kptpair.get_occupation_differences(n_n, m_m)
+        df_nm[df_nm <= 1e-20] = 0.0
+        n_nmG *= df_nm[..., np.newaxis]**0.5
+
+        return n_nmG.reshape(-1, nG)
+
+    @timer('Get matrix element')
+    def get_optical_matrix_element(self, k_v, s,
+                                   n1=None, n2=None,
+                                   m1=None, m2=None,
+                                   pd=None, kd=None,
+                                   symmetry=None,
+                                   integrationmode=None):
+        """A function that returns optical pair densities.
+        NB: In dire need of further documentation!"""
+        assert m1 <= m2
+
+        k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
 
         nG = pd.ngmax
         weight = np.sqrt(symmetry.get_kpoint_weight(k_c) /
@@ -631,19 +659,12 @@ class Chi0Calculator:
             self.pawcorr = pairden_paw_corr(pd, alter_optical_limit=True)
 
         kptpair = self.pair.get_kpoint_pair(pd, s, k_c, n1, n2,
-                                            m1, m2, block=block)
-
+                                            m1, m2, block=False)
         m_m = np.arange(m1, m2)
         n_n = np.arange(n1, n2)
-
-        if optical_limit and include_optical_elements:
-            n_nmG = self.pair.get_full_pair_density(pd, kptpair, n_n, m_m,
-                                                    pawcorr=self.pawcorr,
-                                                    block=block)
-        else:
-            n_nmG = self.pair.get_pair_density(pd, kptpair, n_n, m_m,
-                                               pawcorr=self.pawcorr,
-                                               block=block)
+        n_nmG = self.pair.get_full_pair_density(pd, kptpair, n_n, m_m,
+                                                pawcorr=self.pawcorr,
+                                                block=False)
 
         if integrationmode is None:
             n_nmG *= weight
@@ -652,10 +673,7 @@ class Chi0Calculator:
         df_nm[df_nm <= 1e-20] = 0.0
         n_nmG *= df_nm[..., np.newaxis]**0.5
 
-        if optical_limit and include_optical_elements:
-            return n_nmG.reshape(-1, nG + 2)
-        else:
-            return n_nmG.reshape(-1, nG)
+        return n_nmG.reshape(-1, nG + 2)
 
     @timer('Get eigenvalues')
     def get_eigenvalues(self, k_v, s, n1=None, n2=None,
