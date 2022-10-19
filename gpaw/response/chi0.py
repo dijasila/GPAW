@@ -266,13 +266,13 @@ class Chi0Calculator:
             # sure that to fix this.
             domainvol = convex_hull_volume(
                 bzk_kv) * analyzer.how_many_symmetries()
-            bzvol = (2 * np.pi) ** 3 / self.vol
+            bzvol = (2 * np.pi)**3 / self.vol
             factor = bzvol / domainvol
         else:
             factor = 1
 
         prefactor = (2 * factor * analyzer.how_many_symmetries() /
-                     (gs.nspins * (2 * np.pi) ** 3))  # Remember prefactor
+                     (gs.nspins * (2 * np.pi)**3))  # Remember prefactor
 
         if self.integrationmode is None:
             nbzkpts = gs.kd.nbzkpts
@@ -418,7 +418,7 @@ class Chi0Calculator:
                         drude_chi_wvv = (
                             plasmafreq_vv[np.newaxis] /
                             (self.wd.omega_w[:, np.newaxis, np.newaxis]
-                             + 1.j * self.rate) ** 2)
+                             + 1.j * self.rate)**2)
                 except FloatingPointError:
                     raise ValueError('Please set rate to a positive value.')
                 # Fill into head part of tmp head AND wings array
@@ -432,7 +432,7 @@ class Chi0Calculator:
 
             analyzer.symmetrize_wvv(self.plasmafreq_vv[np.newaxis])
             self.context.print('Plasma frequency:', flush=False)
-            self.context.print((self.plasmafreq_vv ** 0.5 * Ha).round(2))
+            self.context.print((self.plasmafreq_vv**0.5 * Ha).round(2))
 
         # The response function is integrated only over the IBZ. The
         # chi calculated above must therefore be extended to include the
@@ -619,7 +619,7 @@ class Chi0Calculator:
 
         df_nm = kptpair.get_occupation_differences(n_n, m_m)
         df_nm[df_nm <= 1e-20] = 0.0
-        n_nmG *= df_nm[..., np.newaxis] ** 0.5
+        n_nmG *= df_nm[..., np.newaxis]**0.5
 
         if optical_limit and include_optical_elements:
             return n_nmG.reshape(-1, nG + 2)
@@ -674,7 +674,7 @@ class Chi0Calculator:
             f_n = kpt1.f_n
             width = self.gs.get_occupations_width()
             if width > 1e-15:
-                dfde_n = - 1. / width * (f_n - f_n ** 2.0)
+                dfde_n = - 1. / width * (f_n - f_n**2.0)
             else:
                 dfde_n = np.zeros_like(f_n)
             vel_nv *= np.sqrt(-dfde_n[:, np.newaxis])
@@ -730,9 +730,9 @@ class Chi0Calculator:
         npocc = self.nocc2
         ngridpoints = gd.N_c[0] * gd.N_c[1] * gd.N_c[2]
         nstat = (ns * npocc + world.size - 1) // world.size
-        occsize = nstat * ngridpoints * 16. / 1024 ** 2
+        occsize = nstat * ngridpoints * 16. / 1024**2
         bsize = self.blockcomm.size
-        chisize = nw * pd.ngmax ** 2 * 16. / 1024 ** 2 / bsize
+        chisize = nw * pd.ngmax**2 * 16. / 1024**2 / bsize
 
         p = partial(self.context.print, flush=False)
 
@@ -761,7 +761,7 @@ class Chi0Calculator:
         p('        chi0_wGG: %f M / cpu' % chisize)
         p('        Occupied states: %f M / cpu' % occsize)
         p('        Memory usage before allocation: %f M / cpu' % (maxrss() /
-                                                                  1024 ** 2))
+                                                                  1024**2))
         self.context.print('')
 
 
@@ -882,7 +882,7 @@ def new_frequency_descriptor(gs, nbands, frequencies=None, *, context=None,
         frequencies = {'type': 'nonlinear'}
 
     if (isinstance(frequencies, dict) and
-            frequencies.get('omegamax') is None):
+        frequencies.get('omegamax') is None):
         omegamax = find_maximum_frequency(gs.kpt_u,
                                           nbands=nbands,
                                           context=context)

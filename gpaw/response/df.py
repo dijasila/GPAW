@@ -243,7 +243,7 @@ class DielectricFunction:
                                      N_c,
                                      truncation=None,
                                      q_v=q_v)
-        vsqr_G = Kbare_G ** 0.5
+        vsqr_G = Kbare_G**0.5
         nG = len(vsqr_G)
 
         if self.truncation is not None:
@@ -375,7 +375,7 @@ class DielectricFunction:
                                  N_c,
                                  truncation=self.truncation,
                                  wstc=self.wstc,
-                                 q_v=q_v) ** 0.5
+                                 q_v=q_v)**0.5
         nG = len(K_G)
 
         if pd.kd.gamma:
@@ -395,7 +395,7 @@ class DielectricFunction:
                 print('Restoring q dependence of head and wings of chi0')
                 chi0_wGG[:, 1:, 0] *= np.dot(q_v, d_v)
                 chi0_wGG[:, 0, 1:] *= np.dot(q_v, d_v)
-                chi0_wGG[:, 0, 0] *= np.dot(q_v, d_v) ** 2
+                chi0_wGG[:, 0, 0] *= np.dot(q_v, d_v)**2
 
         if xc != 'RPA':
             Kxc_GG = get_density_xc_kernel(pd,
@@ -416,10 +416,10 @@ class DielectricFunction:
             if symmetric:
                 e_GG = np.eye(nG) - P_GG * K_G * K_G[:, np.newaxis]
             else:
-                K_GG = (K_G ** 2 * np.ones([nG, nG])).T
+                K_GG = (K_G**2 * np.ones([nG, nG])).T
                 e_GG = np.eye(nG) - P_GG * K_GG
             if calculate_chi:
-                K_GG = np.diag(K_G ** 2)
+                K_GG = np.diag(K_G**2)
                 if xc != 'RPA':
                     K_GG += Kxc_GG
                 chi_wGG.append(np.dot(np.linalg.inv(np.eye(nG) -
@@ -595,10 +595,10 @@ class DielectricFunction:
             for iw in range(Nw):
                 print('%.6f, %.6f, %.6f, %.6f, %.6f' %
                       (self.chi0.wd.omega_w[iw] * Hartree,
-                       alpha0_w[iw].real * Bohr ** (sum(~pbc_c)),
-                       alpha0_w[iw].imag * Bohr ** (sum(~pbc_c)),
-                       alpha_w[iw].real * Bohr ** (sum(~pbc_c)),
-                       alpha_w[iw].imag * Bohr ** (sum(~pbc_c))), file=fd)
+                       alpha0_w[iw].real * Bohr**(sum(~pbc_c)),
+                       alpha0_w[iw].imag * Bohr**(sum(~pbc_c)),
+                       alpha_w[iw].real * Bohr**(sum(~pbc_c)),
+                       alpha_w[iw].imag * Bohr**(sum(~pbc_c))), file=fd)
             fd.close()
 
         return alpha0_w * Bohr**(sum(~pbc_c)), alpha_w * Bohr**(sum(~pbc_c))
@@ -623,7 +623,7 @@ class DielectricFunction:
         for iw in range(len(spectrum)):
             w = iw * dw
             N1 += spectrum[iw] * w
-        N1 *= dw * self.chi0.vol / (2 * pi ** 2)
+        N1 *= dw * self.chi0.vol / (2 * pi**2)
 
         self.context.print('', flush=False)
         self.context.print('Sum rule:', flush=False)
@@ -824,7 +824,7 @@ class DielectricFunction:
             Vchi_GG = (np.linalg.inv(e_wGG[i]) -
                        np.eye(nG))[Glist, :][:, Glist]
 
-            qG_G = np.sum(qG ** 2, axis=1) ** 0.5
+            qG_G = np.sum(qG**2, axis=1)**0.5
             Eavg_w[i] = np.trace(Vchi_GG * np.diag(V_G * qG_G))
 
             # Fourier transform:
