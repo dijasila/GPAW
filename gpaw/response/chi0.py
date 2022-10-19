@@ -212,34 +212,46 @@ class Chi0Calculator:
         chi0 : Chi0Data
         """
         assert m1 <= m2
-        # Parse spins
-        gs = self.gs
 
+        # Parse spins
+        nspins = self.gs.nspins
         if spins == 'all':
-            spins = range(gs.nspins)
+            spins = range(nspins)
         else:
             for spin in spins:
-                assert spin in range(gs.nspins)
+                assert spin in range(nspins)
 
         pd = chi0.pd
-        # Are we calculating the optical limit.
-        optical_limit = chi0.optical_limit
+        optical_limit = chi0.optical_limit  # Calculating the optical limit?
 
         # Reset PAW correction in case momentum has change
         pairden_paw_corr = self.gs.pair_density_paw_corrections
         self.pawcorr = pairden_paw_corr(pd, alter_optical_limit=True)
 
-        # Integrate response function
+        # Integrate chi0 body
         print('Integrating response function.', file=self.fd)
-        self.update_chi0_body(chi0, m1, m2, spins)
+        self._update_chi0_body(chi0, m1, m2, spins)
+
         if optical_limit:
-            self.update_chi0_wings(chi0, m1, m2, spins)
+            # Integrate the chi0 wings
+            self._update_chi0_wings(chi0, m1, m2, spins)
+
+            # In the optical limit, we fill in the G=0 entries of chi0_wGG with
+            # the wings evaluated along the z-direction by default.
+            # The x = 1 wing represents the left vertical block, which is
+            # distributed in chi0_wGG
+            chi0.chi0_wGG[:, :, 0] = chi0.chi0_wxvG[:, 1, 2,
+                                                    chi0.blocks1d.myslice]
+            if self.blockcomm.rank == 0:  # rank with G=0 row
+                # The x = 0 wing represents the upper horizontal block
+                chi0.chi0_wGG[:, 0, :] = chi0.chi0_wxvG[:, 0, 2, :]
+                chi0.chi0_wGG[:, 0, 0] = chi0.chi0_wvv[:, 2, 2]
 
         return chi0
 
-    def update_chi0_body(self,
-                         chi0: Chi0Data,
-                         m1, m2, spins):
+    def _update_chi0_body(self,
+                          chi0: Chi0Data,
+                          m1, m2, spins):
         """In-place calculation of the body."""
         A_wxx = chi0.chi0_wGG  # Change notation (necessary? XXX)
         pd = chi0.pd
@@ -287,9 +299,9 @@ class Chi0Calculator:
         analyzer.symmetrize_wGG(tmpA_wxx)
         A_wxx[:] = chi0.blockdist.redistribute(tmpA_wxx, chi0.nw)
 
-    def update_chi0_wings(self,
-                          chi0: Chi0Data,
-                          m1, m2, spins):
+    def _update_chi0_wings(self,
+                           chi0: Chi0Data,
+                           m1, m2, spins):
         """In-place calculation of the optical limit wings."""
         pd = chi0.pd
 
@@ -402,18 +414,6 @@ class Chi0Calculator:
         # fact.
         chi0.chi0_wxvG *= prefactor
         chi0.chi0_wvv *= prefactor
-
-        # By default, we fill in the G=0 entries of chi0_wGG with the
-        # wings evaluated along the z-direction.
-        # The x = 1 wing represents the left vertical block, which is
-        # distributed in chi0_wGG
-        chi0.chi0_wGG[:, :, 0] = chi0.chi0_wxvG[:, 1, 2,
-                                                chi0.blocks1d.myslice]
-
-        if self.blockcomm.rank == 0:  # rank with G=0 row
-            # The x = 0 wing represents the upper horizontal block
-            chi0.chi0_wGG[:, 0, :] = chi0.chi0_wxvG[:, 0, 2, :]
-            chi0.chi0_wGG[:, 0, 0] = chi0.chi0_wvv[:, 2, 2]
 
     def initialize_integrator(self, block_distributed=True):
         """The integrator class is a general class for brillouin zone
