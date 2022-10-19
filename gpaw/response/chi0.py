@@ -350,10 +350,8 @@ class Chi0Calculator:
         tmp_plasmafreq_wvv = np.zeros((1, 3, 3), complex)  # Output array
         integrator.integrate(kind=kind,  # Kind of integral
                              domain=domain,  # Integration domain
-                             # Integrands
-                             # Rename to plasmafreq? XXX
-                             integrand=(self.get_intraband_response,
-                                        self.get_intraband_eigenvalue),
+                             integrand=(self.get_plasmafreq_matrix_element,
+                                        self.get_plasmafreq_eigenvalue),
                              # Integrand arguments
                              kwargs=(mat_kwargs, eig_kwargs),
                              out_wxx=tmp_plasmafreq_wvv,  # Output array
@@ -646,7 +644,7 @@ class Chi0Calculator:
                                    symmetry=None,
                                    integrationmode=None):
         """A function that returns optical pair densities.
-        NB: In dire need of further documentation!"""
+        NB: In dire need of further documentation! XXX"""
         assert m1 <= m2
 
         k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
@@ -676,10 +674,11 @@ class Chi0Calculator:
         return n_nmG.reshape(-1, nG + 2)
 
     @timer('Get eigenvalues')
-    def get_eigenvalues(self, k_v, s, n1=None, n2=None,
+    def get_eigenvalues(self, k_v, s,
+                        n1=None, n2=None,
                         m1=None, m2=None,
-                        kd=None, pd=None, gs=None,
-                        filter=False):
+                        kd=None, pd=None,
+                        gs=None, filter=False):
         """A function that can return the eigenvalues.
 
         A simple function describing the integrand of
@@ -710,9 +709,12 @@ class Chi0Calculator:
 
         return deps_nm.reshape(-1)
 
-    def get_intraband_response(self, k_v, s, n1=None, n2=None,
-                               kd=None, symmetry=None, pd=None,
-                               integrationmode=None):
+    def get_plasmafreq_matrix_element(self, k_v, s,
+                                      n1=None, n2=None,
+                                      kd=None, pd=None,
+                                      symmetry=None,
+                                      integrationmode=None):
+        """NB: In dire need of documentation! XXX."""
         k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
         kpt1 = self.pair.get_k_point(s, k_c, n1, n2)
         n_n = range(n1, n2)
@@ -733,10 +735,10 @@ class Chi0Calculator:
 
         return vel_nv
 
-    @timer('Intraband eigenvalue')
-    def get_intraband_eigenvalue(self, k_v, s,
-                                 n1=None, n2=None, kd=None, pd=None):
-        """A function that can return the eigenvalues.
+    def get_plasmafreq_eigenvalue(self, k_v, s,
+                                  n1=None, n2=None,
+                                  kd=None, pd=None):
+        """A function that can return the intraband eigenvalues.
 
         A simple function describing the integrand of
         the response function which gives an output that
