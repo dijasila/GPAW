@@ -236,6 +236,12 @@ class Chi0Calculator:
             # Integrate the chi0 wings
             self._update_chi0_wings(chi0, m1, m2, spins)
 
+            # In the optical limit of metals, additional work must be performed
+            # for the intraband response (one must add the plasma frequency to
+            # the head of the chi0 wings).
+            if self.nocc1 != self.nocc2 and self.include_intraband:
+                self._update_chi0_plasmafreq(chi0, m1, m2, spins)
+
             # In the optical limit, we fill in the G=0 entries of chi0_wGG with
             # the wings evaluated along the z-direction by default.
             # The x = 1 wing represents the left vertical block, which is
@@ -336,72 +342,6 @@ class Chi0Calculator:
                                       timeordered=self.timeordered)
                 ht(chi0_wxvx)
 
-        # In the optical limit additional work must be performed
-        # for the intraband response.
-        # Only compute the intraband response if there are partially
-        # unoccupied bands and only if the user has not disabled its
-        # calculation using the include_intraband keyword.
-        if self.nocc1 != self.nocc2:
-            # The intraband response is essentially just the calculation
-            # of the free space Drude plasma frequency. The calculation is
-            # similarly to the interband transitions documented above.
-            mat_kwargs = {'kd': self.gs.kd, 'symmetry': analyzer,
-                          'n1': self.nocc1, 'n2': self.nocc2,
-                          'pd': pd}  # Integrand arguments
-            eig_kwargs = {'kd': self.gs.kd,
-                          'n1': self.nocc1, 'n2': self.nocc2,
-                          'pd': pd}  # Integrand arguments
-            fermi_level = self.pair.fermi_level  # Fermi level
-
-            # Not so elegant solution but it works
-            plasmafreq_wvv = np.zeros((1, 3, 3), complex)  # Output array
-            print('Integrating intraband density response.', file=self.fd)
-
-            # Depending on which integration method is used we
-            # have to pass different arguments
-            extraargs = {}
-            if self.integrationmode is None:
-                # Calculate intraband transitions at finite fermi smearing
-                extraargs['intraband'] = True  # Calculate intraband
-            elif self.integrationmode == 'tetrahedron integration':
-                # Calculate intraband transitions at T=0
-                extraargs['x'] = FrequencyGridDescriptor([-fermi_level])
-
-            integrator.integrate(kind='spectral function',  # Kind of integral
-                                 domain=domain,  # Integration domain
-                                 # Integrands
-                                 integrand=(self.get_intraband_response,
-                                            self.get_intraband_eigenvalue),
-                                 # Integrand arguments
-                                 kwargs=(mat_kwargs, eig_kwargs),
-                                 out_wxx=plasmafreq_wvv,  # Output array
-                                 **extraargs)  # Extra args for int. method
-
-            # Again, not so pretty but that's how it is
-            plasmafreq_vv = plasmafreq_wvv[0].copy()
-            if self.include_intraband:
-                try:
-                    with np.errstate(divide='raise'):
-                        drude_chi_wvv = (
-                            plasmafreq_vv[np.newaxis] /
-                            (self.wd.omega_w[:, np.newaxis, np.newaxis]
-                             + 1.j * self.rate)**2)
-                except FloatingPointError:
-                    raise ValueError('Please set rate to a positive value.')
-                # Fill into head part of tmp head AND wings array
-                chi0_wxvx[:, 0, :3, :3] += drude_chi_wvv
-
-            # Save the plasmafrequency
-            try:
-                self.plasmafreq_vv += 4 * np.pi * plasmafreq_vv * prefactor
-            except AttributeError:
-                self.plasmafreq_vv = 4 * np.pi * plasmafreq_vv * prefactor
-
-            analyzer.symmetrize_wvv(self.plasmafreq_vv[np.newaxis])
-            print('Plasma frequency:', file=self.fd)
-            print((self.plasmafreq_vv**0.5 * Ha).round(2),
-                  file=self.fd)
-
         # Fill in wings part of the data, but leave out the head
         chi0.chi0_wxvG[..., 1:] += chi0_wxvx[..., 3:]
         # Fill in the head
@@ -414,6 +354,72 @@ class Chi0Calculator:
         # fact.
         chi0.chi0_wxvG *= prefactor
         chi0.chi0_wvv *= prefactor
+
+    def _update_chi0_plasmafreq(self,
+                                chi0: Chi0Data,
+                                m1, m2, spins):
+        """In-place calculation of the free space Drude plasma frequency
+        from the intraband transitions of a metal."""
+        pd = chi0.pd
+
+        integrator = self.initialize_integrator(block_distributed=False)
+        domain, analyzer, prefactor = self.get_integration_domain(pd, spins)
+        mat_kwargs = {'kd': self.gs.kd, 'symmetry': analyzer,
+                      'n1': self.nocc1, 'n2': self.nocc2,
+                      'pd': pd}  # Integrand arguments
+        eig_kwargs = {'kd': self.gs.kd,
+                      'n1': self.nocc1, 'n2': self.nocc2,
+                      'pd': pd}  # Integrand arguments
+
+        # Not so elegant solution but it works
+        plasmafreq_wvv = np.zeros((1, 3, 3), complex)  # Output array
+
+        # Depending on which integration method is used we
+        # have to pass different arguments
+        extraargs = {}
+        if self.integrationmode is None:
+            # Calculate intraband transitions at finite fermi smearing
+            extraargs['intraband'] = True  # Calculate intraband
+        elif self.integrationmode == 'tetrahedron integration':
+            # Calculate intraband transitions at T=0
+            fermi_level = self.pair.fermi_level
+            extraargs['x'] = FrequencyGridDescriptor([-fermi_level])
+
+        print('Integrating intraband density response.', file=self.fd)
+        integrator.integrate(kind='spectral function',  # Kind of integral
+                             domain=domain,  # Integration domain
+                             # Integrands
+                             integrand=(self.get_intraband_response,
+                                        self.get_intraband_eigenvalue),
+                             # Integrand arguments
+                             kwargs=(mat_kwargs, eig_kwargs),
+                             out_wxx=plasmafreq_wvv,  # Output array
+                             **extraargs)  # Extra args for int. method
+
+        # Again, not so pretty but that's how it is
+        plasmafreq_vv = plasmafreq_wvv[0].copy()
+        try:
+            with np.errstate(divide='raise'):
+                drude_chi_wvv = (
+                    plasmafreq_vv[np.newaxis] /
+                    (self.wd.omega_w[:, np.newaxis, np.newaxis]
+                     + 1.j * self.rate)**2)
+        except FloatingPointError:
+            raise ValueError('Please set rate to a positive value.')
+
+        # Fill into the chi0 head part
+        analyzer.symmetrize_wvv(drude_chi_wvv)
+        chi0.chi0_wvv[:] += prefactor * drude_chi_wvv
+
+        # Print the plasma frequency for anyone to use
+        try:
+            self.plasmafreq_vv += 4 * np.pi * plasmafreq_vv * prefactor
+        except AttributeError:
+            self.plasmafreq_vv = 4 * np.pi * plasmafreq_vv * prefactor
+        analyzer.symmetrize_wvv(self.plasmafreq_vv[np.newaxis])
+        print('Plasma frequency:', file=self.fd)
+        print((self.plasmafreq_vv**0.5 * Ha).round(2),
+              file=self.fd)
 
     def initialize_integrator(self, block_distributed=True):
         """The integrator class is a general class for brillouin zone
