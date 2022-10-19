@@ -625,8 +625,8 @@ class DielectricFunction:
             N1 += spectrum[iw] * w
         N1 *= dw * self.chi0.vol / (2 * pi ** 2)
 
-        self.context.print('')
-        self.context.print('Sum rule:')
+        self.context.print('', flush=False)
+        self.context.print('Sum rule:', flush=False)
         nv = self.chi0.gs.nvalence
         self.context.print('N1 = %f, %f  %% error' %
                            (N1, (N1 - nv) / nv * 100))
