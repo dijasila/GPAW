@@ -522,13 +522,12 @@ class PairDensity(NoCalculatorPairDensity):
             theory expansion.
         """
 
-        # note: gs is just called gs for historical reasons.
+        # Note: The input gs is just called gs for historical reasons.
         # It's actually calc-or-filename union.
-
-        self.calc, context = calc_and_context(gs, txt, world, timer)
+        gs, context = get_gs_and_context(gs, txt, world, timer)
 
         super().__init__(
-            gs=self.calc.gs_adapter(),
+            gs=gs,
             context=context,
             **kwargs)
 
@@ -559,20 +558,3 @@ def get_gs_and_context(calc, txt, world, timer):
         gs = ResponseGroundStateAdapter.from_gpw_file(calc, context=context)
 
     return gs, context
-
-
-def calc_and_context(calc, txt, world, timer):
-    context = ResponseContext(txt=txt, world=world, timer=timer)
-    with context.timer('Read ground state'):
-        try:
-            path = Path(calc)
-        except TypeError:
-            pass
-        else:
-            print('Reading ground state calculation:\n  %s' % path,
-                  file=context.fd)
-            with disable_dry_run():
-                calc = GPAW(path, communicator=mpi.serial_comm)
-
-    assert calc.wfs.world.size == 1
-    return calc, context
