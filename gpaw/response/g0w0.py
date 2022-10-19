@@ -19,6 +19,7 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.pw.descriptor import PWDescriptor, count_reciprocal_vectors
 from gpaw.utilities.progressbar import ProgressBar
 
+from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chi0 import Chi0Calculator
 from gpaw.response.g0w0_kernels import G0W0Kernel
 from gpaw.response.hilbert import GWHilbertTransforms
@@ -991,7 +992,7 @@ class G0W0(G0W0Calculator):
         Parameters
         ----------
         calc:
-            GPAW calculator object or filename of saved calculator object.
+            Filename of saved calculator object.
         filename: str
             Base filename of output files.
         restartfile: str
@@ -1065,13 +1066,17 @@ class G0W0(G0W0Calculator):
         savepckl: bool
             Save output to a pckl file.
         """
-
         frequencies = get_frequencies(frequencies, domega0, omega2)
 
+        # self._gpwfile = calc
+        # calc, context = calc_and_context(self._gpwfile, filename + '.txt',
+        #                                  world, timer)
+        # gs = calc.gs_adapter()
         self._gpwfile = calc
-        calc, context = calc_and_context(self._gpwfile, filename + '.txt',
-                                         world, timer)
-        gs = calc.gs_adapter()
+        context = ResponseContext(txt=filename + '.txt',
+                                  world=world, timer=timer)
+        gs = ResponseGroundStateAdapter.from_gpw_file(self._gpwfile,
+                                                      context=context)
 
         # Check if nblocks is compatible, adjust if not
         if nblocksmax:
