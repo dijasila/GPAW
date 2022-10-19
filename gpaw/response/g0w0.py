@@ -307,7 +307,6 @@ class G0W0Calculator:
     def __init__(self, filename='gw', *,
                  chi0calc,
                  wcalc,
-                 context=None,
                  restartfile=None,
                  kpts, bands, nbands=None,
                  do_GW_too=False,
