@@ -159,13 +159,16 @@ class WCalculator:
             # pd, chi0_wGG, chi0_wxvG, chi0_wvv = self._calculate_chi0(q_c)                                                                                                                                 
             chi0 = self._calculate_chi0(q_c)
             pd, W_wGG = self._wcalc.calculate_q(iq, q_c, chi0)
-            W_GG = W_wGG[0]
+            W_GG = W_wGG[0] #reshape to W_GGw
             self.Q_qaGii.append(self._chi0calc.Q_aGii)
             self.pd_q.append(pd)
             self.W_qGG.append(W_GG)
 
         """
-        
+        """
+        Need to move get_density_matrix from bse to here and use that to get the
+        correct density matrices to multiply with W_GGw
+        """        
     # calculate_q wrapper
     def calculate_q(self, iq, q_c, chi0):
         if self.truncation == 'wigner-seitz':
