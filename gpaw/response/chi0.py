@@ -53,6 +53,7 @@ class Chi0Calculator:
                  disable_point_group=False, disable_time_reversal=False,
                  disable_non_symmorphic=True,
                  integrationmode=None,
+                 ftol=1e-6,
                  rate=0.0, eshift=0.0):
 
         if context is None:
@@ -110,9 +111,6 @@ class Chi0Calculator:
             assert not timeordered
             assert not self.wd.omega_w.real.any()
 
-        self.nocc1 = self.pair.nocc1  # number of completely filled bands
-        self.nocc2 = self.pair.nocc2  # number of non-empty bands
-
         self.pawcorr = None
 
         if sum(self.pbc) == 1:
@@ -126,6 +124,9 @@ class Chi0Calculator:
                   file=self.fd)
         else:
             print('Using integration method: PointIntegrator', file=self.fd)
+
+        # Number of completely filled bands and number of non-empty bands.
+        self.nocc1, self.nocc2 = self.gs.count_occupied_bands(ftol)
 
     @property
     def pbc(self):
@@ -703,7 +704,7 @@ class Chi0Calculator:
                               kpt2.eps_n[m1:m2])
 
         if filter:
-            fermi_level = self.pair.fermi_level
+            fermi_level = self.gs.fermi_level
             deps_nm[kpt1.eps_n[n1:n2] > fermi_level, :] = np.nan
             deps_nm[:, kpt2.eps_n[m1:m2] < fermi_level] = np.nan
 
@@ -825,7 +826,6 @@ class Chi0(Chi0Calculator):
                  frequencies: Union[dict, Array1D] = None,
                  ecut=50,
                  ftol=1e-6, threshold=1,
-                 real_space_derivatives=False,
                  world=mpi.world, txt='-', timer=None,
                  nblocks=1,
                  nbands=None,
@@ -865,9 +865,6 @@ class Chi0(Chi0Calculator):
         threshold : float
             Numerical threshold for the optical limit k dot p perturbation
             theory expansion (used in gpaw/response/pair.py).
-        real_space_derivatives : bool
-            Switch for calculating nabla matrix elements (in the optical limit)
-            using a real space finite difference approximation.
         intraband : bool
             Switch for including the intraband contribution to the density
             response function.
@@ -915,8 +912,7 @@ class Chi0(Chi0Calculator):
                                       omega2=omega2, omegamax=omegamax)
 
         pair = NoCalculatorPairDensity(
-            gs=gs, ftol=ftol, threshold=threshold,
-            real_space_derivatives=real_space_derivatives,
+            gs=gs, threshold=threshold,
             context=context,
             nblocks=nblocks)
 

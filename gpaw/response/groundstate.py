@@ -164,3 +164,12 @@ class ResponseGroundStateAdapter:
     def get_pos_av(self):
         # gd.cell_cv must always be the same as pd.gd.cell_cv, right??
         return np.dot(self.spos_ac, self.gd.cell_cv)
+
+    def count_occupied_bands(self, ftol):
+        nocc1 = 9999999
+        nocc2 = 0
+        for kpt in self.kpt_u:
+            f_n = kpt.f_n / kpt.weight
+            nocc1 = min((f_n > 1 - ftol).sum(), nocc1)
+            nocc2 = max((f_n > ftol).sum(), nocc2)
+        return nocc1, nocc2
