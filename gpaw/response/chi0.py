@@ -395,19 +395,15 @@ class Chi0Calculator:
         except FloatingPointError:
             raise ValueError('Please set rate to a positive value.')
 
-        # Fill into the chi0 head
+        # Fill the Drude dielectric function into the chi0 head
         analyzer.symmetrize_wvv(drude_chi_wvv)
         chi0.chi0_wvv[:] += prefactor * drude_chi_wvv
 
-        # Store the plasma frequency and print it for anyone to use
-        try:
-            self.plasmafreq_vv += 4 * np.pi * plasmafreq_vv * prefactor
-        except AttributeError:
-            self.plasmafreq_vv = 4 * np.pi * plasmafreq_vv * prefactor
-        analyzer.symmetrize_wvv(self.plasmafreq_vv[np.newaxis])
+        # Store the plasma frequency itself and print it for anyone to use
+        analyzer.symmetrize_wvv(plasmafreq_vv[np.newaxis])
+        self.plasmafreq_vv += 4 * np.pi * plasmafreq_vv * prefactor
         print('Plasma frequency:', file=self.fd)
-        print((self.plasmafreq_vv**0.5 * Ha).round(2),
-              file=self.fd)
+        print((self.plasmafreq_vv**0.5 * Ha).round(2), file=self.fd)
 
     def initialize_integrator(self, block_distributed=True):
         """The integrator class is a general class for brillouin zone
