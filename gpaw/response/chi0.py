@@ -237,10 +237,11 @@ class Chi0Calculator:
             self._update_chi0_wings(chi0, m1, m2, spins)
 
             # In the optical limit of metals, additional work must be performed
-            # for the intraband response (one must add the plasma frequency to
-            # the head of the chi0 wings).
+            # (one must add the Drude dielectric response from the free-space
+            # plasma frequency of the intraband transitions to the head of the
+            # chi0 wings).
             if self.nocc1 != self.nocc2 and self.include_intraband:
-                self._update_chi0_plasmafreq(chi0, m1, m2, spins)
+                self._update_chi0_drude(chi0, m1, m2, spins)
 
             # In the optical limit, we fill in the G=0 entries of chi0_wGG with
             # the wings evaluated along the z-direction by default.
@@ -355,21 +356,19 @@ class Chi0Calculator:
         chi0.chi0_wxvG *= prefactor
         chi0.chi0_wvv *= prefactor
 
-    def _update_chi0_plasmafreq(self,
-                                chi0: Chi0Data,
-                                m1, m2, spins):
-        """In-place calculation of the free space Drude plasma frequency
-        from the intraband transitions of a metal."""
+    def _update_chi0_drude(self,
+                           chi0: Chi0Data,
+                           m1, m2, spins):
+        """In-place calculation of the Drude dielectric response function,
+        based on the free-space plasma frequency of the intraband transitions.
+        """
         pd = chi0.pd
 
         integrator = self.initialize_integrator(block_distributed=False)
         domain, analyzer, prefactor = self.get_integration_domain(pd, spins)
-        mat_kwargs = {'kd': self.gs.kd, 'symmetry': analyzer,
-                      'n1': self.nocc1, 'n2': self.nocc2,
-                      'pd': pd}  # Integrand arguments
-        eig_kwargs = {'kd': self.gs.kd,
-                      'n1': self.nocc1, 'n2': self.nocc2,
-                      'pd': pd}  # Integrand arguments
+        (mat_kwargs,
+         eig_kwargs) = self.get_integrator_arguments(pd, m1, m2, analyzer,
+                                                     only_intraband=True)
 
         # Not so elegant solution but it works
         plasmafreq_wvv = np.zeros((1, 3, 3), complex)  # Output array
@@ -385,7 +384,6 @@ class Chi0Calculator:
             fermi_level = self.pair.fermi_level
             extraargs['x'] = FrequencyGridDescriptor([-fermi_level])
 
-        print('Integrating intraband density response.', file=self.fd)
         integrator.integrate(kind='spectral function',  # Kind of integral
                              domain=domain,  # Integration domain
                              # Integrands
@@ -481,16 +479,25 @@ class Chi0Calculator:
 
         return domain, analyzer, prefactor
 
-    def get_integrator_arguments(self, pd, m1, m2, analyzer):
+    def get_integrator_arguments(self, pd, m1, m2, analyzer,
+                                 only_intraband=False):
         # Prepare keyword arguments for the integrator
         kd = self.gs.kd
         mat_kwargs = {'kd': kd, 'pd': pd,
                       'symmetry': analyzer,
                       'integrationmode': self.integrationmode}
         eig_kwargs = {'kd': kd, 'pd': pd}
-        # Define band summation. Includes transitions from all
-        # completely and partially filled bands to range(m1, m2)
-        bandsum = {'n1': 0, 'n2': self.nocc2, 'm1': m1, 'm2': m2}
+
+        # Define band summation.
+        if not only_intraband:
+            # Normally, we include transitions from all completely and
+            # partially filled bands to range(m1, m2)
+            bandsum = {'n1': 0, 'n2': self.nocc2, 'm1': m1, 'm2': m2}
+        else:
+            # When doing a calculation of the intraband response, we need only
+            # the partially filled bands
+            bandsum = {'n1': self.nocc1, 'n2': self.nocc2}
+            mat_kwargs.pop('integrationmode')  # Can we clean up here? XXX
         mat_kwargs.update(bandsum)
         eig_kwargs.update(bandsum)
 
