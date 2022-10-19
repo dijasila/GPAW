@@ -5,20 +5,20 @@ import numpy as np
 from gpaw.response.fxc_kernels import AdiabaticSusceptibilityFXC
 
 
-def get_density_xc_kernel(pd, chi0, functional='ALDA',
+def get_density_xc_kernel(pd, gs, context, functional='ALDA',
                           rshelmax=-1, rshewmin=None,
                           chi0_wGG=None):
     """Density-density xc kernels.
     Factory function that calls the relevant functions below."""
 
-    p = chi0.context.print
-    nspins = len(chi0.gs.nt_sR)
+    p = context.print
+    nspins = len(gs.nt_sR)
     assert nspins == 1
 
     if functional[0] == 'A':
         # Standard adiabatic kernel
         p('Calculating %s kernel' % functional)
-        Kcalc = AdiabaticSusceptibilityFXC(chi0.gs, chi0.context,
+        Kcalc = AdiabaticSusceptibilityFXC(gs, context,
                                            functional,
                                            rshelmax=rshelmax,
                                            rshewmin=rshewmin)
@@ -32,7 +32,7 @@ def get_density_xc_kernel(pd, chi0, functional='ALDA',
         Kxc_sGG = calculate_lr_kernel(pd, alpha=float(functional[2:]))
     elif functional == 'Bootstrap':
         p('Calculating Bootstrap kernel')
-        Kxc_sGG = get_bootstrap_kernel(pd, chi0_wGG, chi0.context)
+        Kxc_sGG = get_bootstrap_kernel(pd, chi0_wGG, context)
     else:
         raise ValueError('Invalid functional for the density-density '
                          'xc kernel:', functional)
