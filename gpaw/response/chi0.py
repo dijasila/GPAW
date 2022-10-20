@@ -72,7 +72,6 @@ class Chi0Calculator:
         self.integrationmode = integrationmode
         self.eshift = eshift / Ha
 
-        self.world = self.context.world
         self.nblocks = pair.nblocks
         self.calc = self.gs._calc  # XXX remove me
 
