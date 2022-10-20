@@ -265,14 +265,17 @@ class Chi0Calculator:
                                                                analyzer)
         kind, extraargs = self.get_integral_kind()
 
+        get_matrix_element = partial(
+            self.get_matrix_element, **mat_kwargs)
+        get_eigenvalues = partial(
+            self.get_eigenvalues, **eig_kwargs)
+
         chi0_wGG /= prefactor
         integrator.integrate(kind=kind,  # Kind of integral
                              domain=domain,  # Integration domain
-                             integrand=(self.get_matrix_element,
-                                        self.get_eigenvalues),
+                             integrand=(get_matrix_element,
+                                        get_eigenvalues),
                              x=self.wd,  # Frequency Descriptor
-                             kwargs=(mat_kwargs, eig_kwargs),
-                             # Arguments for integrand functions
                              out_wxx=chi0_wGG,  # Output array
                              **extraargs)
         if self.hilbert:
@@ -302,16 +305,19 @@ class Chi0Calculator:
                                                                analyzer)
         kind, extraargs = self.get_integral_kind()
 
+        get_optical_matrix_element = partial(
+            self.get_optical_matrix_element, **mat_kwargs)
+        get_eigenvalues = partial(
+            self.get_eigenvalues, **eig_kwargs)
+
         tmp_chi0_wxvx = np.zeros(np.array(chi0.chi0_wxvG.shape) +
                                  [0, 0, 0, 2],  # Do both head and wings
                                  complex)
         integrator.integrate(kind=kind + ' wings',  # Kind of integral
                              domain=domain,  # Integration domain
-                             integrand=(self.get_optical_matrix_element,
-                                        self.get_eigenvalues),
+                             integrand=(get_optical_matrix_element,
+                                        get_eigenvalues),
                              x=self.wd,  # Frequency Descriptor
-                             kwargs=(mat_kwargs, eig_kwargs),
-                             # Arguments for integrand functions
                              out_wxx=tmp_chi0_wxvx,  # Output array
                              **extraargs)
         if self.hilbert:
@@ -343,13 +349,16 @@ class Chi0Calculator:
                                                      only_intraband=True)
         kind, extraargs = self.get_integral_kind(only_intraband=True)
 
+        get_plasmafreq_matrix_element = partial(
+            self.get_plasmafreq_matrix_element, **mat_kwargs)
+        get_plasmafreq_eigenvalue = partial(
+            self.get_plasmafreq_eigenvalue, **eig_kwargs)
+
         tmp_plasmafreq_wvv = np.zeros((1, 3, 3), complex)  # Output array
         integrator.integrate(kind=kind,  # Kind of integral
                              domain=domain,  # Integration domain
-                             integrand=(self.get_plasmafreq_matrix_element,
-                                        self.get_plasmafreq_eigenvalue),
-                             # Integrand arguments
-                             kwargs=(mat_kwargs, eig_kwargs),
+                             integrand=(get_plasmafreq_matrix_element,
+                                        get_plasmafreq_eigenvalue),
                              out_wxx=tmp_plasmafreq_wvv,  # Output array
                              **extraargs)  # Extra args for int. method
         tmp_plasmafreq_wvv *= prefactor
@@ -436,11 +445,10 @@ class Chi0Calculator:
     def get_integrator_arguments(self, pd, m1, m2, analyzer,
                                  only_intraband=False):
         # Prepare keyword arguments for the integrator
-        kd = self.gs.kd
-        mat_kwargs = {'kd': kd, 'pd': pd,
+        mat_kwargs = {'pd': pd,
                       'symmetry': analyzer,
                       'integrationmode': self.integrationmode}
-        eig_kwargs = {'kd': kd, 'pd': pd}
+        eig_kwargs = {'pd': pd}
 
         # Define band summation.
         if not only_intraband:
@@ -559,10 +567,8 @@ class Chi0Calculator:
 
     @timer('Get matrix element')
     def get_matrix_element(self, k_v, s, n1, n2,
-                           m1, m2,
-                           pd=None, kd=None, *,
-                           symmetry=None,
-                           integrationmode=None):
+                           m1, m2, *, pd,
+                           symmetry, integrationmode=None):
         """A function that returns pair-densities.
 
         A pair density is defined as::
@@ -589,8 +595,6 @@ class Chi0Calculator:
         m2 : int
             Upper unoccupied band index.
         pd : PlanewaveDescriptor instance
-        kd : KpointDescriptor instance
-            Calculator kpoint descriptor.
         symmetry: gpaw.response.pair.PWSymmetryAnalyzer instance
             Symmetry analyzer object for handling symmetries of the kpoints.
         integrationmode : str
@@ -631,10 +635,9 @@ class Chi0Calculator:
 
     @timer('Get matrix element')
     def get_optical_matrix_element(self, k_v, s,
-                                   n1=None, n2=None,
-                                   m1=None, m2=None,
-                                   pd=None, kd=None,
-                                   symmetry=None,
+                                   n1, n2,
+                                   m1, m2, *,
+                                   pd, symmetry,
                                    integrationmode=None):
         """A function that returns optical pair densities.
         NB: In dire need of further documentation! XXX"""
@@ -668,7 +671,7 @@ class Chi0Calculator:
 
     @timer('Get eigenvalues')
     def get_eigenvalues(self, k_v, s, n1, n2,
-                        m1, m2, kd=None, *, pd,
+                        m1, m2, *, pd,
                         gs=None, filter=False):
         """A function that can return the eigenvalues.
 
@@ -701,8 +704,8 @@ class Chi0Calculator:
         return deps_nm.reshape(-1)
 
     def get_plasmafreq_matrix_element(self, k_v, s, n1, n2,
-                                      kd=None, *, pd,
-                                      symmetry=None,
+                                      *, pd,
+                                      symmetry,
                                       integrationmode=None):
         """NB: In dire need of documentation! XXX."""
         k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
@@ -726,7 +729,7 @@ class Chi0Calculator:
         return vel_nv
 
     def get_plasmafreq_eigenvalue(self, k_v, s,
-                                  n1, n2, kd=None, *, pd):
+                                  n1, n2, *, pd):
         """A function that can return the intraband eigenvalues.
 
         A simple function describing the integrand of
