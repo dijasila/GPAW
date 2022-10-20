@@ -44,7 +44,7 @@ class PairDistribution:
         mykpts = self.mykpts
         for u, kpt1 in enumerate(mykpts):
             progress = u / len(mykpts)
-            K2 = pair.kd.find_k_plus_q(q_c, [kpt1.K])[0]
+            K2 = pair.gs.kd.find_k_plus_q(q_c, [kpt1.K])[0]
             kpt2 = pair.get_k_point(kpt1.s, K2, m1, m2, block=True)
 
             yield progress, kpt1, kpt2
@@ -98,10 +98,7 @@ class NoCalculatorPairDensity:
         self.nblocks = nblocks
         self.ut_sKnvR = None  # gradient of wave functions for optical limit
 
-        self.vol = self.gs.gd.volume
-
-        self.kd = self.gs.kd
-        self.kptfinder = KPointFinder(self.kd.bzk_kc)
+        self.kptfinder = KPointFinder(self.gs.kd.bzk_kc)
         print('Number of blocks:', nblocks, file=self.fd)
 
     def find_kpoint(self, k_c):
