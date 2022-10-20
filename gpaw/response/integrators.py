@@ -143,6 +143,7 @@ class PointIntegrator(Integrator):
 
             if intraband:
                 assert eta is None
+                assert x is None
                 self.update_intraband(n_MG, out_wxx)
             elif hermitian and not wings:
                 assert eta is None
@@ -157,9 +158,11 @@ class PointIntegrator(Integrator):
                 assert eta is None
                 self.update_hilbert_optical_limit(n_MG, deps_M, x, out_wxx)
             elif wings:
+                # XXX what about timeordered?  See #632
                 self.update_optical_limit(n_MG, deps_M, x, out_wxx,
                                           eta=eta)
             else:
+                # XXX what about timeordered?  See #632
                 self.update(n_MG, deps_M, x, out_wxx, eta=eta)
 
         # Sum over

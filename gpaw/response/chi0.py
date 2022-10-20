@@ -567,8 +567,7 @@ class Chi0Calculator:
 
     @timer('Get matrix element')
     def get_matrix_element(self, k_v, s, n1, n2,
-                           m1, m2,
-                           pd, *,
+                           m1, m2, *, pd,
                            symmetry, integrationmode=None):
         """A function that returns pair-densities.
 
