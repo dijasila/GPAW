@@ -8,6 +8,7 @@ import pytest
 from _pytest.tmpdir import _mk_tmp
 from ase import Atoms
 from ase.build import bulk
+from ase.lattice.hexagonal import Graphene
 from ase.io import read
 from gpaw import GPAW, PW, Davidson, FermiDirac, setup_paths
 from gpaw.cli.info import info
@@ -94,13 +95,16 @@ def gpw_files(request, tmp_path_factory):
     * Bulk BN (zinkblende) with 2x2x2 k-points and 9 converged bands:
       ``bn_pw``.
 
+    * h-BN layer with 3x3x1 (gamma center) k-points and 26 converged bands:
+      ``hbn_pw``.
+
     * Graphene with 6x6x1 k-points: ``graphene_pw``
 
     * MoS2 with 6x6x1 k-points: ``mos2_pw``
 
     * Bulk Si, LDA, 2x2x2 k-point (gamma centered): ``si_pw``
 
-    Files with wave functions are also availabe (add ``_wfs`` to the names).
+    Files with wave functions are also available (add ``_wfs`` to the names).
     """
     path = os.environ.get('GPW_TEST_FILES')
     if not path:
@@ -310,6 +314,23 @@ class GPWFiles:
                           convergence={'bands': 9},
                           occupations=FermiDirac(0.001),
                           txt=self.path / 'bn_pw.txt')
+        atoms.get_potential_energy()
+        return atoms.calc
+
+    def hbn_pw(self):
+        atoms = Graphene(symbol='B',
+                         latticeconstant={'a': 2.5, 'c': 1.0},
+                         size=(1, 1, 1))
+        atoms[0].symbol = 'N'
+        atoms.pbc = (1, 1, 0)
+        atoms.center(axis=2, vacuum=3.0)
+        atoms.calc = GPAW(mode=PW(400),
+                          xc='LDA',
+                          nbands=50,
+                          occupations=FermiDirac(0.001),
+                          parallel={'domain': 1},
+                          convergence={'bands': 26},
+                          kpts={'size': (3, 3, 1), 'gamma': True})
         atoms.get_potential_energy()
         return atoms.calc
 

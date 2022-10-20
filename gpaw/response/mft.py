@@ -3,7 +3,8 @@ import numpy as np
 
 # GPAW modules
 from gpaw.response.chiks import ChiKS
-from gpaw.response.localft import LocalFTCalculator, add_LSDA_Bxc
+from gpaw.response.localft import (LocalFTCalculator, add_LSDA_Bxc,
+                                   add_magnetization)
 from gpaw.response.site_kernels import SiteKernels
 from gpaw.response.susceptibility import symmetrize_reciprocity
 
@@ -33,7 +34,7 @@ class IsotropicExchangeCalculator:
     Heisenberg model. This is not a uniquely defined procedure, why the user
     has to define them externally through the SiteKernels interface."""
 
-    def __init__(self, chiks):
+    def __init__(self, chiks, localft_calc):
         """Construct the IsotropicExchangeCalculator object
 
         Parameters
@@ -55,12 +56,11 @@ class IsotropicExchangeCalculator:
         self.chiks = chiks
         self.context = chiks.context
 
-        # Initialize the B^(xc) calculator
-        # Once the response context object is ready, the user should be allowed
-        # to supply the Bxc_calc themselves. This will expose the rshe
-        # arguments to the user, which is not the case at present. XXX
-        self.localft_calc = LocalFTCalculator.from_rshe_parameters(
-            self.chiks.gs, self.context)
+        # Check assumed properties of the LocalFTCalculator
+        assert isinstance(localft_calc, LocalFTCalculator)
+        assert localft_calc.context is self.context
+        assert localft_calc.gs is chiks.gs
+        self.localft_calc = localft_calc
 
         # Bxc field buffer
         self._Bxc_G = None
@@ -69,8 +69,9 @@ class IsotropicExchangeCalculator:
         self.currentq_c = None
         self._pd = None
         self._chiksr_GG = None
+        self._chiksr_corr_GG = None
 
-    def __call__(self, q_c, site_kernels, txt=None):
+    def __call__(self, q_c, site_kernels, goldstone_corr=False, txt=None):
         """Calculate the isotropic exchange constants for a given wavevector.
 
         Parameters
@@ -79,6 +80,8 @@ class IsotropicExchangeCalculator:
             Wave vector q in relative coordinates
         site_kernels : SiteKernels
             Site kernels instance defining the magnetic sites of the crystal
+        goldstone_corr : bool
+            Include a minimal Goldstone correction to χ_KS^('+-)(q).
         txt : str
             Separate file to store the chiks calculation output in (optional).
             If not supplied, the output will be written to the standard text
@@ -95,6 +98,8 @@ class IsotropicExchangeCalculator:
         # Get ingredients
         Bxc_G = self.get_Bxc()
         pd, chiksr_GG = self.get_chiksr(q_c, txt=txt)
+        if goldstone_corr:
+            chiksr_GG = chiksr_GG + self.get_goldstone_correction()
         V0 = pd.gd.volume
 
         # Allocate an array for the exchange constants
@@ -180,3 +185,52 @@ class IsotropicExchangeCalculator:
         chiksr_GG = 1 / 2. * (chiks_wGG[0] + np.conj(chiks_wGG[0]).T)
 
         return pd, chiksr_GG
+
+    def get_goldstone_correction(self):
+        """Get δχ_KS^('+-)_GG' from buffer."""
+        if self._chiksr_corr_GG is None:  # Calculate, if buffer is empty
+            self._chiksr_corr_GG = self._calculate_goldstone_correction()
+
+        return self._chiksr_corr_GG
+
+    def _calculate_goldstone_correction(self):
+        r"""In a complete representation of the Kohn-Sham susceptibility, the
+        rotational invariance of the spin axis in absence of spin-orbit
+        coupling implies that
+
+        |m> = 2 χ_KS^('+-)(q=0) |B^(xc)>,
+
+        written in the plane-wave basis. However, using a finite basis, this
+        identity will be slightly broken leading to a Goldstone inconsistency.
+
+        To correct for this inconsistency, we may choose to add a minimal
+        correction [paper in preparation],
+
+        2 <B^(xc)|B^(xc)> δχ_KS^('+-) = |δm><B^(xc)| + |B^(xc)><δm|
+
+                                                     <δm|B^(xc)>
+                                        - |B^(xc)> ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾ <B^(xc)|
+                                                   <B^(xc)|B^(xc)>
+
+        where
+
+        |δm> = |m> - |m^χ>
+
+        with:
+
+        |m^χ> = 2 χ_KS^('+-)(q=0) |B^(xc)>.
+        """
+        pd0, chiksr0_GG = self.get_chiksr(np.array([0., 0., 0.]))
+        m_G = self.localft_calc(pd0, add_magnetization)
+        Bxc_G = self.get_Bxc()
+
+        mchi_G = 2. * chiksr0_GG @ Bxc_G
+        dm_G = m_G - mchi_G
+
+        chiksr_corr_GG = np.outer(dm_G, np.conj(Bxc_G))\
+            + np.outer(Bxc_G, np.conj(dm_G))\
+            - np.outer(Bxc_G, np.conj(Bxc_G))\
+            * np.dot(np.conj(dm_G), Bxc_G) / np.dot(np.conj(Bxc_G), Bxc_G)
+        chiksr_corr_GG /= 2. * np.dot(np.conj(Bxc_G), Bxc_G)
+
+        return chiksr_corr_GG

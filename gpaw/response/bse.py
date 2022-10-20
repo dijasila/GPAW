@@ -20,6 +20,7 @@ from gpaw.response.coulomb_kernels import get_coulomb_kernel
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.response.pair import PairDensity
 from gpaw.response.screened_interaction import initialize_w_calculator
+from gpaw.response.paw import PWPAWCorrectionData
 
 
 class BSE:
@@ -225,15 +226,17 @@ class BSE:
 
         # Calculate direct (screened) interaction and PAW corrections
         if self.mode == 'RPA':
-            Q_aGii = self.pair.initialize_paw_corrections(pd0)
+            pairden_paw_corr = self.gs.pair_density_paw_corrections
+            pawcorr = pairden_paw_corr(pd0, alter_optical_limit=True)
         else:
             self.get_screened_potential()
             if (self.qd.ibzk_kc - self.q_c < 1.0e-6).all():
                 iq0 = self.qd.bz2ibz_k[self.kd.where_is_q(self.q_c,
                                                           self.qd.bzk_kc)]
-                Q_aGii = self.Q_qaGii[iq0]
+                pawcorr = self.pawcorr_q[iq0]  # Q_qaGii[iq0]
             else:
-                Q_aGii = self.pair.initialize_paw_corrections(pd0)
+                pairden_paw_corr = self.gs.pair_density_paw_corrections
+                pawcorr = pairden_paw_corr(pd0, alter_optical_limit=True)
 
         # Calculate pair densities, eigenvalues and occupations
         so = self.spinors + 1
@@ -286,7 +289,8 @@ class BSE:
 
                 df_mn = pair.get_occupation_differences(self.val_sn[s],
                                                         self.con_sn[s])
-                rho_mnG = get_pair_density(pd0, pair, m_m, n_n, Q_aGii=Q_aGii)
+                rho_mnG = get_pair_density(pd0, pair, m_m, n_n,
+                                           pawcorr=pawcorr)
                 if optical_limit:
                     n_mnv = get_optical_pair_density(pd0, pair, m_m, n_n)
                     rho_mnG[:, :, 0] = n_mnv[:, :, self.direction]
@@ -448,31 +452,16 @@ class BSE:
         shift_c = kpt1.shift_c - kpt2.shift_c - shift0_c
         I_G = np.ravel_multi_index(i_cG + shift_c[:, None], N_c, 'wrap')
         G_Gv = pd.get_reciprocal_vectors()
-        spos_ac = self.gs.spos_ac
-        spos_av = np.dot(spos_ac, pd.gd.cell_cv)
+
         M_vv = np.dot(pd.gd.cell_cv.T, np.dot(U_cc.T,
                                               np.linalg.inv(pd.gd.cell_cv).T))
 
-        Q_aGii = []
-        for a, Q_Gii in enumerate(self.Q_qaGii[iq]):
-            x_G = np.exp(1j * np.dot(G_Gv, (spos_av[a] -
-                                            np.dot(M_vv, spos_av[a]))))
-            U_ii = self.gs.setups[a].R_sii[sym]
-
-            Q_Gii = np.einsum('ij,kjl,ml->kim',
-                              U_ii,
-                              Q_Gii * x_G[:, None, None],
-                              U_ii,
-                              optimize='optimal')
-            if sign == -1:
-                Q_Gii = Q_Gii.conj()
-            Q_aGii.append(Q_Gii)
+        pawcorr = self.pawcorr_q[iq].remap_somehow(M_vv, G_Gv, sym, sign)
 
         rho_mnG = np.zeros((len(kpt1.eps_n), len(kpt2.eps_n), len(G_Gv)),
                            complex)
         for m in range(len(rho_mnG)):
-            C1_aGi = [np.dot(Qa_Gii, P1_ni[m].conj())
-                      for Qa_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
+            C1_aGi = pawcorr.multiply(kpt1.P_ani, band=m)
             ut1cc_R = kpt1.ut_nR[m].conj()
             rho_mnG[m] = self.pair.calculate_pair_density(ut1cc_R, C1_aGi,
                                                           kpt2, pd, I_G)
@@ -487,9 +476,15 @@ class BSE:
             # Read screened potential from file
             try:
                 data = np.load(self.wfile + '.npz')
-                self.Q_qaGii = data['Q']
-                self.W_qGG = data['W']
                 self.pd_q = data['pd']
+                assert len(data['pd']) == len(data['Q'])
+                self.pawcorr_q = [
+                    PWPAWCorrectionData(
+                        Q_aGii, pd=pd,
+                        setups=self.gs.setups,
+                        pos_av=self.gs.get_pos_av())
+                    for Q_aGii, pd in zip(data['Q'], self.pd_q)]
+                self.W_qGG = data['W']
                 print('Reading screened potential from % s' % self.wfile,
                       file=self.fd)
             except FileNotFoundError:
@@ -498,7 +493,8 @@ class BSE:
                       file=self.fd)
                 if world.rank == 0:
                     np.savez(self.wfile,
-                             Q=self.Q_qaGii, pd=self.pd_q, W=self.W_qGG)
+                             Q=[pawcorr.Q_aGii for pawcorr in self.pawcorr_q],
+                             pd=self.pd_q, W=self.W_qGG)
         else:
             self.calculate_screened_potential()
 
@@ -507,7 +503,7 @@ class BSE:
         if self._chi0calc is None:
             self.initialize_chi0_calculator()
 
-        chi0 = self._chi0calc.create_chi0(q_c, extend_head=False)
+        chi0 = self._chi0calc.create_chi0(q_c)
         # Do all bands and all spins
         m1, m2, spins = 0, self.nbands, 'all'
         chi0 = self._chi0calc.update_chi0(chi0, m1, m2, spins)
@@ -532,7 +528,7 @@ class BSE:
     def calculate_screened_potential(self):
         """Calculate W_GG(q)"""
 
-        self.Q_qaGii = []
+        self.pawcorr_q = []
         self.W_qGG = []
         self.pd_q = []
 
@@ -553,7 +549,7 @@ class BSE:
             chi0 = self._calculate_chi0(q_c)
             pd, W_wGG = self._wcalc.calculate_q(iq, q_c, chi0)
             W_GG = W_wGG[0]
-            self.Q_qaGii.append(self._chi0calc.Q_aGii)
+            self.pawcorr_q.append(self._chi0calc.pawcorr)
             self.pd_q.append(pd)
             self.W_qGG.append(W_GG)
 
