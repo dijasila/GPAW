@@ -7,7 +7,6 @@ from typing import Union
 
 import numpy as np
 from ase.units import Ha
-from ase.utils.timing import timer
 
 import gpaw
 import gpaw.mpi as mpi
@@ -19,6 +18,7 @@ from gpaw.response.frequencies import (FrequencyDescriptor,
 from gpaw.response.hilbert import HilbertTransform
 from gpaw.response.integrators import (Integrator, PointIntegrator,
                                        TetrahedronIntegrator)
+from gpaw.response import timer
 from gpaw.response.pair import NoCalculatorPairDensity
 from gpaw.response.pw_parallelization import block_partition
 from gpaw.response.symmetry import PWSymmetryAnalyzer
@@ -26,7 +26,7 @@ from gpaw.typing import Array1D
 from gpaw.utilities.memory import maxrss
 
 
-def find_maximum_frequency(kpt_u, nbands=0, fd=None):
+def find_maximum_frequency(kpt_u, context, nbands=0):
     """Determine the maximum electron-hole pair transition energy."""
     epsmin = 10000.0
     epsmax = -10000.0
@@ -34,9 +34,9 @@ def find_maximum_frequency(kpt_u, nbands=0, fd=None):
         epsmin = min(epsmin, kpt.eps_n[0])
         epsmax = max(epsmax, kpt.eps_n[nbands - 1])
 
-    if fd is not None:
-        print('Minimum eigenvalue: %10.3f eV' % (epsmin * Ha), file=fd)
-        print('Maximum eigenvalue: %10.3f eV' % (epsmax * Ha), file=fd)
+    context.print('Minimum eigenvalue: %10.3f eV' % (epsmin * Ha),
+                  flush=False)
+    context.print('Maximum eigenvalue: %10.3f eV' % (epsmax * Ha))
 
     return epsmax - epsmin
 
@@ -63,9 +63,6 @@ class Chi0Calculator:
         assert pair.context.world is context.world
         self.context = context
 
-        self.timer = self.context.timer
-        self.fd = self.context.fd
-
         self.pair = pair
         self.gs = pair.gs
 
@@ -80,7 +77,8 @@ class Chi0Calculator:
         self.calc = self.gs._calc  # XXX remove me
 
         # XXX this is redundant as pair also does it.
-        self.blockcomm, self.kncomm = block_partition(self.world, self.nblocks)
+        self.blockcomm, self.kncomm = block_partition(self.context.world,
+                                                      self.nblocks)
 
         if ecut is None:
             ecut = 50.0
@@ -97,7 +95,7 @@ class Chi0Calculator:
         self.include_intraband = intraband
 
         self.wd = wd
-        print(self.wd, file=self.fd)
+        self.context.print(self.wd, flush=False)
 
         if not isinstance(self.wd, NonLinearFrequencyDescriptor):
             assert not hilbert
@@ -115,14 +113,13 @@ class Chi0Calculator:
         if sum(self.pbc) == 1:
             raise ValueError('1-D not supported atm.')
 
-        print('Nonperiodic BCs: ', (~self.pbc),
-              file=self.fd)
+        self.context.print('Nonperiodic BCs: ', (~self.pbc), flush=False)
 
         if integrationmode is not None:
-            print('Using integration method: ' + self.integrationmode,
-                  file=self.fd)
+            self.context.print('Using integration method: ' +
+                               self.integrationmode)
         else:
-            print('Using integration method: PointIntegrator', file=self.fd)
+            self.context.print('Using integration method: PointIntegrator')
 
         # Number of completely filled bands and number of non-empty bands.
         self.nocc1, self.nocc2 = self.gs.count_occupied_bands(ftol)
@@ -134,7 +131,7 @@ class Chi0Calculator:
     def create_chi0(self, q_c):
         # Extract descriptor arguments
         plane_waves = (q_c, self.ecut, self.gs.gd)
-        parallelization = (self.world, self.blockcomm, self.kncomm)
+        parallelization = (self.context.world, self.blockcomm, self.kncomm)
 
         # Construct the Chi0Data object
         # In the future, the frequencies should be specified at run-time
@@ -229,7 +226,7 @@ class Chi0Calculator:
         self.pawcorr = pairden_paw_corr(pd, alter_optical_limit=True)
 
         # Integrate chi0 body
-        print('Integrating response function.', file=self.fd)
+        self.context.print('Integrating response function.')
         self._update_chi0_body(chi0, m1, m2, spins)
 
         if optical_limit:
@@ -283,7 +280,7 @@ class Chi0Calculator:
             # The integrator only returns the spectral function and a Hilbert
             # transform is performed to return the real part of the density
             # response function.
-            with self.timer('Hilbert transform'):
+            with self.context.timer('Hilbert transform'):
                 # Make Hilbert transform
                 ht = HilbertTransform(np.array(self.wd.omega_w), self.eta,
                                       timeordered=self.timeordered)
@@ -319,7 +316,7 @@ class Chi0Calculator:
                              out_wxx=tmp_chi0_wxvx,  # Output array
                              **extraargs)
         if self.hilbert:
-            with self.timer('Hilbert transform'):
+            with self.context.timer('Hilbert transform'):
                 ht = HilbertTransform(np.array(self.wd.omega_w), self.eta,
                                       timeordered=self.timeordered)
                 ht(tmp_chi0_wxvx)
@@ -362,8 +359,8 @@ class Chi0Calculator:
         plasmafreq_vv = tmp_plasmafreq_wvv[0].copy()
         analyzer.symmetrize_wvv(plasmafreq_vv[np.newaxis])
         self.plasmafreq_vv += 4 * np.pi * plasmafreq_vv
-        print('Plasma frequency:', file=self.fd)
-        print((self.plasmafreq_vv**0.5 * Ha).round(2), file=self.fd)
+        self.context.print('Plasma frequency:', flush=False)
+        self.context.print((self.plasmafreq_vv**0.5 * Ha).round(2), flush=True)
     
         # Calculate the Drude dielectric response function from the
         # free-space plasma frequency
@@ -396,10 +393,8 @@ class Chi0Calculator:
 
         kwargs = dict(
             cell_cv=self.gs.gd.cell_cv,
-            comm=self.world,
-            timer=self.timer,
-            eshift=self.eshift,
-            txt=self.fd)
+            context=self.context,
+            eshift=self.eshift)
 
         if block_distributed:
             integrator = cls(**kwargs, nblocks=self.nblocks)
@@ -759,7 +754,7 @@ class Chi0Calculator:
             world = SerialCommunicator()
             world.size = size
         else:
-            world = self.world
+            world = self.context.world
 
         q_c = pd.kd.bzk_kc[0]
         nw = len(self.wd)
@@ -780,7 +775,7 @@ class Chi0Calculator:
         bsize = self.blockcomm.size
         chisize = nw * pd.ngmax**2 * 16. / 1024**2 / bsize
 
-        p = partial(print, file=self.fd)
+        p = partial(self.context.print, flush=False)
 
         p('%s' % ctime())
         p('Called response.chi0.calculate with')
@@ -808,11 +803,12 @@ class Chi0Calculator:
         p('        Occupied states: %f M / cpu' % occsize)
         p('        Memory usage before allocation: %f M / cpu' % (maxrss() /
                                                                   1024**2))
-        p()
+        self.context.print('')
 
 
 class Chi0(Chi0Calculator):
-    """Class for calculating non-interacting response functions."""
+    """Class for calculating non-interacting response functions.
+    Tries to be backwards compatible, for now. """
 
     def __init__(self,
                  calc,
@@ -896,24 +892,22 @@ class Chi0(Chi0Calculator):
             Class for calculating matrix elements of pairs of wavefunctions.
 
         """
-        from gpaw.response.pair import calc_and_context
-        calc, context = calc_and_context(calc, txt, world, timer)
-        gs = calc.gs_adapter()
+        from gpaw.response.pair import get_gs_and_context
+        gs, context = get_gs_and_context(calc, txt, world, timer)
         nbands = nbands or gs.bd.nbands
 
-        wd = new_frequency_descriptor(gs, nbands, frequencies, fd=context.fd,
+        wd = new_frequency_descriptor(gs, context, nbands, frequencies,
                                       domega0=domega0,
                                       omega2=omega2, omegamax=omegamax)
 
-        pair = NoCalculatorPairDensity(
-            gs=gs, threshold=threshold,
-            context=context,
-            nblocks=nblocks)
+        pair = NoCalculatorPairDensity(gs, context,
+                                       threshold=threshold,
+                                       nblocks=nblocks)
 
         super().__init__(wd=wd, pair=pair, nbands=nbands, ecut=ecut, **kwargs)
 
 
-def new_frequency_descriptor(gs, nbands, frequencies=None, *, fd,
+def new_frequency_descriptor(gs, context, nbands, frequencies=None, *,
                              domega0=None, omega2=None, omegamax=None):
     if domega0 is not None or omega2 is not None or omegamax is not None:
         assert frequencies is None
@@ -928,9 +922,8 @@ def new_frequency_descriptor(gs, nbands, frequencies=None, *, fd,
 
     if (isinstance(frequencies, dict) and
         frequencies.get('omegamax') is None):
-        omegamax = find_maximum_frequency(gs.kpt_u,
-                                          nbands=nbands,
-                                          fd=fd)
+        omegamax = find_maximum_frequency(gs.kpt_u, context,
+                                          nbands=nbands)
         frequencies['omegamax'] = omegamax * Ha
 
     wd = FrequencyDescriptor.from_array_or_dict(frequencies)

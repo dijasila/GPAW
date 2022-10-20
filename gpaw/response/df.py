@@ -1,4 +1,3 @@
-
 import os
 import sys
 import pickle
@@ -92,14 +91,14 @@ class DielectricFunction:
                          disable_time_reversal=disable_time_reversal,
                          integrationmode=integrationmode,
                          rate=rate, eshift=eshift)
-
+        self.context = self.chi0.context
         self.name = name
 
         self.wd = self.chi0.wd
 
         nw = len(self.wd)
 
-        world = self.chi0.world
+        world = self.context.world
         from gpaw.response.pw_parallelization import Blocks1D
 
         self.blocks1d = Blocks1D(world, nw)
@@ -127,7 +126,7 @@ class DielectricFunction:
         chi0 = self.chi0.calculate(q_c, spin)
         chi0_wGG = chi0.distribute_frequencies()
 
-        self.chi0.timer.write(self.chi0.fd)
+        self.context.write_timer()
         if self.name:
             self.write(name, chi0.pd, chi0_wGG, chi0.chi0_wxvG, chi0.chi0_wvv)
 
@@ -136,7 +135,7 @@ class DielectricFunction:
     def write(self, name, pd, chi0_wGG, chi0_wxvG, chi0_wvv):
         nw = len(self.wd)
         nG = pd.ngmax
-        world = self.chi0.world
+        world = self.context.world
         mynw = self.blocks1d.blocksize
 
         if world.rank == 0:
@@ -159,49 +158,48 @@ class DielectricFunction:
             world.send(chi0_wGG, 0)
 
     def read(self, name):
-        print('Reading from', name, file=self.chi0.fd)
-        fd = open(name, 'rb')
-        omega_w, pd, chi0_wGG, chi0_wxvG, chi0_wvv = pickle.load(fd)
-        for omega in self.wd.omega_w:
-            assert np.any(np.abs(omega - omega_w) < 1e-8)
+        self.context.print('Reading from', name)
+        with open(name, 'rb') as fd:
+            omega_w, pd, chi0_wGG, chi0_wxvG, chi0_wvv = pickle.load(fd)
+            for omega in self.wd.omega_w:
+                assert np.any(np.abs(omega - omega_w) < 1e-8)
 
-        wmin = np.argmin(np.abs(np.min(self.wd.omega_w) - omega_w))
-        world = self.chi0.world
+            wmin = np.argmin(np.abs(np.min(self.wd.omega_w) - omega_w))
+            world = self.context.world
 
-        nw = len(omega_w)
-        nG = pd.ngmax
+            nw = len(omega_w)
+            nG = pd.ngmax
 
-        blocks1d = self.blocks1d
+            blocks1d = self.blocks1d
 
-        mynw = blocks1d.blocksize
+            mynw = blocks1d.blocksize
 
-        if chi0_wGG is not None:
-            # Old file format:
-            chi0_wGG = chi0_wGG[wmin + blocks1d.a:blocks1d.b].copy()
-        else:
-            if world.rank == 0:
-                chi0_wGG = np.empty((mynw, nG, nG), complex)
-                for _ in range(wmin):
-                    pickle.load(fd)
-                for chi0_GG in chi0_wGG:
-                    chi0_GG[:] = pickle.load(fd)
-                tmp_wGG = np.empty((mynw, nG, nG), complex)
-                w1 = mynw
-                for rank in range(1, world.size):
-                    w2 = min(w1 + mynw, nw)
-                    for w in range(w2 - w1):
-                        tmp_wGG[w] = pickle.load(fd)
-                    world.send(tmp_wGG[:w2 - w1], rank)
-                    w1 = w2
+            if chi0_wGG is not None:
+                # Old file format:
+                chi0_wGG = chi0_wGG[wmin + blocks1d.a:blocks1d.b].copy()
             else:
-                chi0_wGG = np.empty((self.blocks1d.nlocal, nG, nG), complex)
-                world.receive(chi0_wGG, 0)
+                if world.rank == 0:
+                    chi0_wGG = np.empty((mynw, nG, nG), complex)
+                    for _ in range(wmin):
+                        pickle.load(fd)
+                    for chi0_GG in chi0_wGG:
+                        chi0_GG[:] = pickle.load(fd)
+                    tmp_wGG = np.empty((mynw, nG, nG), complex)
+                    w1 = mynw
+                    for rank in range(1, world.size):
+                        w2 = min(w1 + mynw, nw)
+                        for w in range(w2 - w1):
+                            tmp_wGG[w] = pickle.load(fd)
+                        world.send(tmp_wGG[:w2 - w1], rank)
+                        w1 = w2
+                else:
+                    chi0_wGG = np.empty((self.blocks1d.nlocal, nG, nG),
+                                        complex)
+                    world.receive(chi0_wGG, 0)
 
-        if chi0_wvv is not None:
-            chi0_wxvG = chi0_wxvG[wmin:wmin + nw]
-            chi0_wvv = chi0_wvv[wmin:wmin + nw]
-
-        fd.close()
+            if chi0_wvv is not None:
+                chi0_wxvG = chi0_wxvG[wmin:wmin + nw]
+                chi0_wvv = chi0_wvv[wmin:wmin + nw]
 
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
@@ -276,7 +274,7 @@ class DielectricFunction:
 
         if xc != 'RPA':
             Kxc_GG = get_density_xc_kernel(pd,
-                                           self.chi0,
+                                           self.chi0.gs, self.context,
                                            functional=xc,
                                            chi0_wGG=chi0_wGG)
             K_GG += Kxc_GG / vsqr_G / vsqr_G[:, np.newaxis]
@@ -327,13 +325,8 @@ class DielectricFunction:
         rf_w = self.collect(rf_w)
 
         if filename is not None and mpi.rank == 0:
-            with open(filename, 'w') as fd:
-                for omega, rf0, rf in zip(self.wd.omega_w * Hartree,
-                                          rf0_w,
-                                          rf_w):
-                    print('%.6f, %.6f, %.6f, %.6f, %.6f' %
-                          (omega, rf0.real, rf0.imag, rf.real, rf.imag),
-                          file=fd)
+            write_response_function(filename, self.wd.omega_w * Hartree,
+                                    rf0_w, rf_w)
 
         return rf0_w, rf_w
 
@@ -405,7 +398,7 @@ class DielectricFunction:
 
         if xc != 'RPA':
             Kxc_GG = get_density_xc_kernel(pd,
-                                           self.chi0,
+                                           self.chi0.gs, self.context,
                                            functional=xc,
                                            chi0_wGG=chi0_wGG)
 
@@ -465,13 +458,8 @@ class DielectricFunction:
         df_LFC_w = self.collect(df_LFC_w)
 
         if filename is not None and mpi.rank == 0:
-            with open(filename, 'w') as fd:
-                for omega, nlfc, lfc in zip(self.wd.omega_w * Hartree,
-                                            df_NLFC_w,
-                                            df_LFC_w):
-                    print('%.6f, %.6f, %.6f, %.6f, %.6f' %
-                          (omega, nlfc.real, nlfc.imag, lfc.real, lfc.imag),
-                          file=fd)
+            write_response_function(filename, self.wd.omega_w * Hartree,
+                                    df_NLFC_w, df_LFC_w)
 
         return df_NLFC_w, df_LFC_w
 
@@ -492,9 +480,8 @@ class DielectricFunction:
             Dielectric constant with local field correction.
         """
 
-        fd = self.chi0.fd
-        print('', file=fd)
-        print('%s Macroscopic Dielectric Constant:' % xc, file=fd)
+        self.context.print('', flush=False)
+        self.context.print('%s Macroscopic Dielectric Constant:' % xc)
 
         df_NLFC_w, df_LFC_w = self.get_dielectric_function(
             xc=xc,
@@ -503,9 +490,9 @@ class DielectricFunction:
             q_v=q_v)
         eps0 = np.real(df_NLFC_w[0])
         eps = np.real(df_LFC_w[0])
-        print('  %s direction' % direction, file=fd)
-        print('    Without local field: %f' % eps0, file=fd)
-        print('    Include local field: %f' % eps, file=fd)
+        self.context.print('  %s direction' % direction, flush=False)
+        self.context.print('    Without local field: %f' % eps0, flush=False)
+        self.context.print('    Include local field: %f' % eps)
 
         return eps0, eps
 
@@ -552,10 +539,10 @@ class DielectricFunction:
         dielectric function by Im(eps_M) = 4 pi * Im(alpha). In systems
         with reduced dimensionality the converged value of alpha is
         independent of the cell volume. This is not the case for eps_M,
-        which is ill defined. A truncated Coulomb kernel will always give
+        which is ill-defined. A truncated Coulomb kernel will always give
         eps_M = 1.0, whereas the polarizability maintains its structure.
 
-        By default, generate a file 'polarizability.csv'. The five colomns are:
+        By default, generate a file 'polarizability.csv'. The five columns are:
         frequency (eV), Real(alpha0), Imag(alpha0), Real(alpha), Imag(alpha)
         alpha0 is the result without local field effects and the
         dimension of alpha is \AA to the power of non-periodic directions
@@ -590,7 +577,7 @@ class DielectricFunction:
             # the standard one. In a 2D system \chi should be calculated with a
             # truncated Coulomb potential and eps_M = 1.0
 
-            print('Using truncated Coulomb interaction', file=self.chi0.fd)
+            self.context.print('Using truncated Coulomb interaction')
 
             pd, chi0_wGG, chi_wGG = self.get_chi(xc=xc,
                                                  q_c=q_c,
@@ -618,7 +605,7 @@ class DielectricFunction:
     def check_sum_rule(self, spectrum=None):
         """Check f-sum rule.
 
-        It takes the y of a spectrum as an entry and it check its integral.
+        It takes the y of a spectrum as an entry and it checks its integral.
 
         spectrum: np.ndarray
             Input spectrum
@@ -627,8 +614,6 @@ class DielectricFunction:
         """
 
         assert (self.wd.omega_w[1:] - self.wd.omega_w[:-1]).ptp() < 1e-10
-
-        fd = self.chi0.fd
 
         if spectrum is None:
             raise ValueError('No spectrum input ')
@@ -639,17 +624,18 @@ class DielectricFunction:
             N1 += spectrum[iw] * w
         N1 *= dw * self.chi0.gs.volume / (2 * pi**2)
 
-        print('', file=fd)
-        print('Sum rule:', file=fd)
+        self.context.print('', flush=False)
+        self.context.print('Sum rule:', flush=False)
         nv = self.chi0.gs.nvalence
-        print('N1 = %f, %f  %% error' % (N1, (N1 - nv) / nv * 100), file=fd)
+        self.context.print('N1 = %f, %f  %% error' %
+                           (N1, (N1 - nv) / nv * 100))
 
     def get_eigenmodes(self, q_c=[0, 0, 0], w_max=None, name=None,
                        eigenvalue_only=False, direction='x',
                        checkphase=True):
         """Plasmon eigenmodes as eigenvectors of the dielectric matrix."""
 
-        assert self.chi0.world.size == 1
+        assert self.context.world.size == 1
 
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
         e_wGG = self.get_dielectric_matrix(xc='RPA', q_c=q_c,
@@ -713,7 +699,7 @@ class DielectricFunction:
                 # linear interp for crossing point
                 w0 = np.real(-eig[i - 1, k]) / a + w_w[i - 1]
                 eig0 = a * (w0 - w_w[i - 1]) + eig[i - 1, k]
-                print('crossing found at w = %1.2f eV' % w0)
+                self.context.print('crossing found at w = %1.2f eV' % w0)
                 omega0 = np.append(omega0, w0)
                 eigen0 = np.append(eigen0, eig0)
 
@@ -784,7 +770,7 @@ class DielectricFunction:
         Returns: real space grid, frequency points, EELS(w,r)
         """
 
-        assert self.chi0.world.size == 1
+        assert self.context.world.size == 1
 
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
         e_wGG = self.get_dielectric_matrix(xc='RPA', q_c=q_c,
@@ -850,3 +836,11 @@ class DielectricFunction:
                         pickle.HIGHEST_PROTOCOL)
 
         return r * Bohr, w_w, E_wr, Ec_wr, Eavg_w
+
+
+def write_response_function(filename, omega_w, rf0_w, rf_w):
+    with open(filename, 'w') as fd:
+        for omega, rf0, rf in zip(omega_w, rf0_w, rf_w):
+            print('%.6f, %.6f, %.6f, %.6f, %.6f' %
+                  (omega, rf0.real, rf0.imag, rf.real, rf.imag),
+                  file=fd)
