@@ -33,8 +33,6 @@ class GWBands:
 
         self.acell_cv = self.gd.cell_cv
         self.bcell_cv = 2 * np.pi * self.gd.icell_cv
-        self.vol = self.gd.volume
-        self.BZvol = (2 * np.pi)**3 / self.vol
 
     def find_k_along_path(self, plot_BZ=True):
         """Finds the k-points along the bandpath present in the

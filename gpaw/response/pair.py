@@ -40,7 +40,7 @@ class PairDistribution:
         mykpts = self.mykpts
         for u, kpt1 in enumerate(mykpts):
             progress = u / len(mykpts)
-            K2 = pair.kd.find_k_plus_q(q_c, [kpt1.K])[0]
+            K2 = pair.gs.kd.find_k_plus_q(q_c, [kpt1.K])[0]
             kpt2 = pair.get_k_point(kpt1.s, K2, m1, m2, block=True)
 
             yield progress, kpt1, kpt2
@@ -55,18 +55,6 @@ class KPointPair:
         self.kpt1 = kpt1
         self.kpt2 = kpt2
         self.Q_G = Q_G
-
-    def get_k1(self):
-        """ Return KPoint object 1."""
-        return self.kpt1
-
-    def get_k2(self):
-        """ Return KPoint object 2."""
-        return self.kpt2
-
-    def get_planewave_indices(self):
-        """ Return the planewave indices associated with this pair."""
-        return self.Q_G
 
     def get_transition_energies(self, n_n, m_m):
         """Return the energy difference for specified bands."""
@@ -104,10 +92,7 @@ class NoCalculatorPairDensity:
         self.nblocks = nblocks
         self.ut_sKnvR = None  # gradient of wave functions for optical limit
 
-        self.vol = self.gs.gd.volume
-
-        self.kd = self.gs.kd
-        self.kptfinder = KPointFinder(self.kd.bzk_kc)
+        self.kptfinder = KPointFinder(self.gs.kd.bzk_kc)
         self.context.print('Number of blocks:', nblocks)
 
     def find_kpoint(self, k_c):
@@ -404,13 +389,11 @@ class NoCalculatorPairDensity:
         return n0_mv
 
     @timer('Intraband')
-    def intraband_pair_density(self, kpt, n_n=None):
+    def intraband_pair_density(self, kpt, n_n):
         """Calculate intraband matrix elements of nabla"""
         # Bands and check for block parallelization
         na, nb, n1 = kpt.na, kpt.nb, kpt.n1
         vel_nv = np.zeros((nb - na, 3), dtype=complex)
-        if n_n is None:
-            n_n = np.arange(na, nb)
         assert np.max(n_n) < nb, 'This is too many bands'
         assert np.min(n_n) >= na, 'This is too few bands'
 
