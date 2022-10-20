@@ -72,7 +72,6 @@ class Chi0Calculator:
         self.integrationmode = integrationmode
         self.eshift = eshift / Ha
 
-        self.vol = self.gs.volume
         self.nblocks = pair.nblocks
         self.calc = self.gs._calc  # XXX remove me
 
@@ -420,7 +419,7 @@ class Chi0Calculator:
             # sure that to fix this.
             domainvol = convex_hull_volume(
                 bzk_kv) * analyzer.how_many_symmetries()
-            bzvol = (2 * np.pi)**3 / self.vol
+            bzvol = (2 * np.pi)**3 / self.gs.volume
             factor = bzvol / domainvol
         else:
             factor = 1
@@ -559,10 +558,9 @@ class Chi0Calculator:
         return bzk_kv, analyzer
 
     @timer('Get matrix element')
-    def get_matrix_element(self, k_v, s,
-                           n1=None, n2=None,
-                           m1=None, m2=None,
-                           pd=None, kd=None,
+    def get_matrix_element(self, k_v, s, n1, n2,
+                           m1, m2,
+                           pd=None, kd=None, *,
                            symmetry=None,
                            integrationmode=None):
         """A function that returns pair-densities.
@@ -669,10 +667,8 @@ class Chi0Calculator:
         return n_nmG.reshape(-1, nG + 2)
 
     @timer('Get eigenvalues')
-    def get_eigenvalues(self, k_v, s,
-                        n1=None, n2=None,
-                        m1=None, m2=None,
-                        kd=None, pd=None,
+    def get_eigenvalues(self, k_v, s, n1, n2,
+                        m1, m2, kd=None, *, pd,
                         gs=None, filter=False):
         """A function that can return the eigenvalues.
 
@@ -704,9 +700,8 @@ class Chi0Calculator:
 
         return deps_nm.reshape(-1)
 
-    def get_plasmafreq_matrix_element(self, k_v, s,
-                                      n1=None, n2=None,
-                                      kd=None, pd=None,
+    def get_plasmafreq_matrix_element(self, k_v, s, n1, n2,
+                                      kd=None, *, pd,
                                       symmetry=None,
                                       integrationmode=None):
         """NB: In dire need of documentation! XXX."""
@@ -731,8 +726,7 @@ class Chi0Calculator:
         return vel_nv
 
     def get_plasmafreq_eigenvalue(self, k_v, s,
-                                  n1=None, n2=None,
-                                  kd=None, pd=None):
+                                  n1, n2, kd=None, *, pd):
         """A function that can return the intraband eigenvalues.
 
         A simple function describing the integrand of
