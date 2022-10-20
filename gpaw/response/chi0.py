@@ -596,8 +596,6 @@ class Chi0Calculator:
         m2 : int
             Upper unoccupied band index.
         pd : PlanewaveDescriptor instance
-        kd : KpointDescriptor instance
-            Calculator kpoint descriptor.
         symmetry: gpaw.response.pair.PWSymmetryAnalyzer instance
             Symmetry analyzer object for handling symmetries of the kpoints.
         integrationmode : str
