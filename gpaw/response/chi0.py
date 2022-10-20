@@ -337,15 +337,22 @@ class Chi0Calculator:
         mat_kwargs.update(bandsum)
         eig_kwargs.update(bandsum)
 
-        integrator.integrate(kind=kind,  # Kind of integral
-                             domain=domain,  # Integration domain
-                             integrand=(self.get_matrix_element,  # Integrand
-                                        self.get_eigenvalues),  # Integrand
-                             x=self.wd,  # Frequency Descriptor
-                             kwargs=(mat_kwargs, eig_kwargs),
-                             # Arguments for integrand functions
-                             out_wxx=A_wxx,  # Output array
-                             **extraargs)
+
+        if kind == 'spectral function':
+            print('Would be going to integrator.integrate, instead doing it better')
+            print('Here are my arguments')
+            print(kind, domain, self.wd, mat_kwargs, eig_kwargs, A_wxx.shape)
+
+        with self.timer('Integrator.integrate'): 
+            integrator.integrate(kind=kind,  # Kind of integral
+                                 domain=domain,  # Integration domain
+                                 integrand=(self.get_matrix_element,  # Integrand
+                                            self.get_eigenvalues),  # Integrand
+                                 x=self.wd,  # Frequency Descriptor
+                                 kwargs=(mat_kwargs, eig_kwargs),
+                                 # Arguments for integrand functions
+                                 out_wxx=A_wxx,  # Output array
+                                 **extraargs)
         # extraargs: Extra arguments to integration method
         if wings:
             mat_kwargs['include_optical_elements'] = True
@@ -358,15 +365,16 @@ class Chi0Calculator:
             chi0_wxvx = np.zeros(np.array(chi0.chi0_wxvG.shape) +
                                  [0, 0, 0, 2],
                                  complex)  # Notice the wxv"x" for head extend
-            intnoblock.integrate(kind=kind + ' wings',  # kind'o int.
-                                 domain=domain,  # Integration domain
-                                 integrand=(self.get_matrix_element,  # Intgrnd
-                                            self.get_eigenvalues),  # Integrand
-                                 x=self.wd,  # Frequency Descriptor
-                                 kwargs=(mat_kwargs, eig_kwargs),
-                                 # Arguments for integrand functions
-                                 out_wxx=chi0_wxvx,  # Output array
-                                 **extraargs)
+            with self.timer('Wings integrate'):
+                intnoblock.integrate(kind=kind + ' wings',  # kind'o int.
+                                     domain=domain,  # Integration domain
+                                     integrand=(self.get_matrix_element,  # Intgrnd
+                                                self.get_eigenvalues),  # Integrand
+                                     x=self.wd,  # Frequency Descriptor
+                                     kwargs=(mat_kwargs, eig_kwargs),
+                                     # Arguments for integrand functions
+                                     out_wxx=chi0_wxvx,  # Output array
+                                     **extraargs)
 
         if self.hilbert:
             # The integrator only returns the spectral function and a Hilbert
@@ -385,67 +393,68 @@ class Chi0Calculator:
         # Only compute the intraband response if there are partially
         # unoccupied bands and only if the user has not disabled its
         # calculation using the include_intraband keyword.
-        if optical_limit and self.nocc1 != self.nocc2:
-            # The intraband response is essentially just the calculation
-            # of the free space Drude plasma frequency. The calculation is
-            # similarly to the interband transitions documented above.
-            mat_kwargs = {'kd': kd, 'symmetry': analyzer,
-                          'n1': self.nocc1, 'n2': self.nocc2,
-                          'pd': pd}  # Integrand arguments
-            eig_kwargs = {'kd': kd,
-                          'n1': self.nocc1, 'n2': self.nocc2,
-                          'pd': pd}  # Integrand arguments
-            domain = (bzk_kv, spins)  # Integration domain
-            fermi_level = self.pair.fermi_level  # Fermi level
+        with self.timer('Optical limit'):
+            if optical_limit and self.nocc1 != self.nocc2:
+                # The intraband response is essentially just the calculation
+                # of the free space Drude plasma frequency. The calculation is
+                # similarly to the interband transitions documented above.
+                mat_kwargs = {'kd': kd, 'symmetry': analyzer,
+                              'n1': self.nocc1, 'n2': self.nocc2,
+                              'pd': pd}  # Integrand arguments
+                eig_kwargs = {'kd': kd,
+                              'n1': self.nocc1, 'n2': self.nocc2,
+                              'pd': pd}  # Integrand arguments
+                domain = (bzk_kv, spins)  # Integration domain
+                fermi_level = self.pair.fermi_level  # Fermi level
 
-            # Not so elegant solution but it works
-            plasmafreq_wvv = np.zeros((1, 3, 3), complex)  # Output array
-            print('Integrating intraband density response.', file=self.fd)
+                # Not so elegant solution but it works
+                plasmafreq_wvv = np.zeros((1, 3, 3), complex)  # Output array
+                print('Integrating intraband density response.', file=self.fd)
 
-            # Depending on which integration method is used we
-            # have to pass different arguments
-            extraargs = {}
-            if self.integrationmode is None:
-                # Calculate intraband transitions at finite fermi smearing
-                extraargs['intraband'] = True  # Calculate intraband
-            elif self.integrationmode == 'tetrahedron integration':
-                # Calculate intraband transitions at T=0
-                extraargs['x'] = FrequencyGridDescriptor([-fermi_level])
+                # Depending on which integration method is used we
+                # have to pass different arguments
+                extraargs = {}
+                if self.integrationmode is None:
+                    # Calculate intraband transitions at finite fermi smearing
+                    extraargs['intraband'] = True  # Calculate intraband
+                elif self.integrationmode == 'tetrahedron integration':
+                    # Calculate intraband transitions at T=0
+                    extraargs['x'] = FrequencyGridDescriptor([-fermi_level])
 
-            intnoblock.integrate(kind='spectral function',  # Kind of integral
-                                 domain=domain,  # Integration domain
-                                 # Integrands
-                                 integrand=(self.get_intraband_response,
-                                            self.get_intraband_eigenvalue),
-                                 # Integrand arguments
-                                 kwargs=(mat_kwargs, eig_kwargs),
-                                 out_wxx=plasmafreq_wvv,  # Output array
-                                 **extraargs)  # Extra args for int. method
+                intnoblock.integrate(kind='spectral function',  # Kind of integral
+                                     domain=domain,  # Integration domain
+                                     # Integrands
+                                     integrand=(self.get_intraband_response,
+                                                self.get_intraband_eigenvalue),
+                                     # Integrand arguments
+                                     kwargs=(mat_kwargs, eig_kwargs),
+                                     out_wxx=plasmafreq_wvv,  # Output array
+                                     **extraargs)  # Extra args for int. method
 
-            # Again, not so pretty but that's how it is
-            plasmafreq_vv = plasmafreq_wvv[0].copy()
-            if self.include_intraband:
-                drude_chi_wvv = plasmafreq_vv[np.newaxis]\
-                    / (self.wd.omega_w[:, np.newaxis, np.newaxis]
-                       + 1.j * self.rate)**2
-                if chi0.extend_head:
-                    va = min(chi0.blocks1d.a, 3)
-                    vb = min(chi0.blocks1d.b, 3)
-                    A_wxx[:, :vb - va, :3] += drude_chi_wvv[:, va:vb]
-                else:
-                    # Fill into head part of tmp head AND wings array
-                    chi0_wxvx[:, 0, :3, :3] += drude_chi_wvv
+                # Again, not so pretty but that's how it is
+                plasmafreq_vv = plasmafreq_wvv[0].copy()
+                if self.include_intraband:
+                    drude_chi_wvv = plasmafreq_vv[np.newaxis]\
+                        / (self.wd.omega_w[:, np.newaxis, np.newaxis]
+                           + 1.j * self.rate)**2
+                    if chi0.extend_head:
+                        va = min(chi0.blocks1d.a, 3)
+                        vb = min(chi0.blocks1d.b, 3)
+                        A_wxx[:, :vb - va, :3] += drude_chi_wvv[:, va:vb]
+                    else:
+                        # Fill into head part of tmp head AND wings array
+                        chi0_wxvx[:, 0, :3, :3] += drude_chi_wvv
 
-            # Save the plasmafrequency
-            try:
-                self.plasmafreq_vv += 4 * np.pi * plasmafreq_vv * prefactor
-            except AttributeError:
-                self.plasmafreq_vv = 4 * np.pi * plasmafreq_vv * prefactor
+                # Save the plasmafrequency
+                try:
+                    self.plasmafreq_vv += 4 * np.pi * plasmafreq_vv * prefactor
+                except AttributeError:
+                    self.plasmafreq_vv = 4 * np.pi * plasmafreq_vv * prefactor
 
-            analyzer.symmetrize_wvv(self.plasmafreq_vv[np.newaxis])
-            print('Plasma frequency:', file=self.fd)
-            print((self.plasmafreq_vv**0.5 * Ha).round(2),
-                  file=self.fd)
+                analyzer.symmetrize_wvv(self.plasmafreq_vv[np.newaxis])
+                print('Plasma frequency:', file=self.fd)
+                print((self.plasmafreq_vv**0.5 * Ha).round(2),
+                      file=self.fd)
 
         # The response function is integrated only over the IBZ. The
         # chi calculated above must therefore be extended to include the
@@ -457,20 +466,25 @@ class Chi0Calculator:
         # below) and then symmetrized.
         A_wxx *= prefactor
 
-        tmpA_wxx = chi0.blockdist.redistribute(A_wxx, chi0.nw)
+        with self.timer('Redistribute'):
+            tmpA_wxx = chi0.blockdist.redistribute(A_wxx, chi0.nw)
         if chi0.extend_head:
-            analyzer.symmetrize_wxx(tmpA_wxx,
-                                    optical_limit=optical_limit)
+            with self.timer('symmetrize wxx'):
+                analyzer.symmetrize_wxx(tmpA_wxx,
+                                        optical_limit=optical_limit)
         else:
-            analyzer.symmetrize_wGG(tmpA_wxx)
+            with self.timer('symmetrize_wGG'):
+                analyzer.symmetrize_wGG(tmpA_wxx)
             if wings:
-                # Fill in wings part of the data, but leave out the head
-                chi0.chi0_wxvG[..., 1:] += chi0_wxvx[..., 3:]
-                # Fill in the head
-                chi0.chi0_wvv += chi0_wxvx[:, 0, :3, :3]
-                analyzer.symmetrize_wxvG(chi0.chi0_wxvG)
-                analyzer.symmetrize_wvv(chi0.chi0_wvv)
-        A_wxx[:] = chi0.blockdist.redistribute(tmpA_wxx, chi0.nw)
+                with self.timer('Symmetrize wings'):
+                    # Fill in wings part of the data, but leave out the head
+                    chi0.chi0_wxvG[..., 1:] += chi0_wxvx[..., 3:]
+                    # Fill in the head
+                    chi0.chi0_wvv += chi0_wxvx[:, 0, :3, :3]
+                    analyzer.symmetrize_wxvG(chi0.chi0_wxvG)
+                    analyzer.symmetrize_wvv(chi0.chi0_wvv)
+        with self.timer('redistribute2'):
+            A_wxx[:] = chi0.blockdist.redistribute(tmpA_wxx, chi0.nw)
 
         # If point summation was used then the normalization of the
         # response function is not right and we have to make up for this
@@ -480,6 +494,7 @@ class Chi0Calculator:
             chi0.chi0_wxvG *= prefactor
             chi0.chi0_wvv *= prefactor
 
+        self.timer.start('rest')
         # In the optical limit, we have extended the wings and the head to
         # account for their nonanalytic behaviour which means that the size of
         # the chi0_wGG matrix is nw * (nG + 2)**2. Below we extract these
@@ -543,7 +558,7 @@ class Chi0Calculator:
                 # The x = 0 wing represents the upper horizontal block
                 chi0.chi0_wGG[:, 0, :] = chi0.chi0_wxvG[:, 0, 2, :]
                 chi0.chi0_wGG[:, 0, 0] = chi0.chi0_wvv[:, 2, 2]
-
+        self.timer.stop('rest')
         return chi0
 
     def reduce_ecut(self, ecut, chi0: Chi0Data):

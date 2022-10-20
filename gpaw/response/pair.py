@@ -453,8 +453,10 @@ class NoCalculatorPairDensity:
         if not block or self.blockcomm.size == 1:
             return n_mG
         else:
+            self.timer.start('Huge all-gather')
             n_MG = pd.empty(kpt2.blocksize * self.blockcomm.size)
             self.blockcomm.all_gather(n_mG, n_MG)
+            self.timer.stop('Huge all-gather')
             return n_MG[:kpt2.n2 - kpt2.n1]
 
     @timer('Optical limit')

@@ -8,9 +8,15 @@ class GammaIntegrator:
         N_c = np.array([N, N, N])
         if truncation is not None:
             # Only average periodic directions if trunction is used
-            N_c[kd.N_c == 1] = 1
+            if truncation == 'wigner-seitz':
+                print('Not truncating')
+                pass
+            else:
+                N_c[kd.N_c == 1] = 1
         qf_qc = monkhorst_pack(N_c) / kd.N_c
-        qf_qc *= 1.0e-6
+        if truncation != 'wigner-seitz':
+            qf_qc *= 1.0e-6
+            print('multiplying with 1e-6')
         U_scc = kd.symmetry.op_scc
         qf_qc = kd.get_ibz_q_points(qf_qc, U_scc)[0]
         self.weight_q = kd.q_weights
