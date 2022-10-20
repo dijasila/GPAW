@@ -1,13 +1,11 @@
 from functools import partial
 
 import numpy as np
-from gpaw.utilities import convert_string_to_fd
-from ase.utils.timing import timer, Timer
+from gpaw.response import timer
 from scipy.spatial import Delaunay
 from scipy.linalg.blas import zher
 
 import _gpaw
-import gpaw.mpi as mpi
 from gpaw.utilities.blas import rk, mmm
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.response.pw_parallelization import Blocks1D, block_partition
@@ -25,27 +23,23 @@ def czher(alpha: float, x, A) -> None:
 
 
 class Integrator:
-    def __init__(self, cell_cv, comm=mpi.world,
-                 txt='-', timer=None, nblocks=1, eshift=0.0):
+    def __init__(self, cell_cv, context, nblocks=1, eshift=0.0):
         """Baseclass for Brillouin zone integration and band summation.
 
         Simple class to calculate integrals over Brilloun zones
         and summation of bands.
 
-        comm: mpi.communicator
+        context: ResponseContext
         nblocks: block parallelization
         """
 
-        self.comm = comm
+        self.context = context
         self.eshift = eshift
         self.nblocks = nblocks
         self.vol = abs(np.linalg.det(cell_cv))
 
-        self.blockcomm, self.kncomm = block_partition(comm, nblocks)
-
-        self.fd = convert_string_to_fd(txt, comm)
-
-        self.timer = timer or Timer()
+        self.blockcomm, self.kncomm = block_partition(self.context.world,
+                                                      nblocks)
 
     def distribute_domain(self, domain_dl):
         """Distribute integration domain. """
@@ -66,11 +60,12 @@ class Integrator:
                 arguments.append(domain_l[index])
             mydomain.append(tuple(arguments))
 
-        print('Distributing domain %s' % (domainsize, ),
-              'over %d process%s' %
-              (self.kncomm.size, ['es', ''][self.kncomm.size == 1]),
-              file=self.fd)
-        print('Number of blocks:', self.blockcomm.size, file=self.fd)
+        self.context.print('Distributing domain %s' % (domainsize,),
+                           'over %d process%s' %
+                           (self.kncomm.size,
+                            ['es', ''][self.kncomm.size == 1]),
+                           flush=False)
+        self.context.print('Number of blocks:', self.blockcomm.size)
 
         return mydomain
 
@@ -93,7 +88,7 @@ class PointIntegrator(Integrator):
         Integrator.__init__(self, *args, **kwargs)
 
     def integrate(self, kind='pointwise', *args, **kwargs):
-        print('Integral kind:', kind, file=self.fd)
+        self.context.print('Integral kind:', kind)
         if kind == 'pointwise':
             return self.pointwise_integration(*args, **kwargs)
         elif kind == 'hermitian response function':
@@ -156,7 +151,7 @@ class PointIntegrator(Integrator):
 
         # Sum kpoints
         # Calculate integrations weight
-        pb = ProgressBar(self.fd)
+        pb = ProgressBar(self.context.fd)
         for _, arguments in pb.enumerate(mydomain_t):
             n_MG = get_matrix_element(*arguments)
             if n_MG is None:
@@ -478,7 +473,7 @@ class TetrahedronIntegrator(Integrator):
         bzk_kc = td.points
         nk = len(bzk_kc)
 
-        with self.timer('pts'):
+        with self.context.timer('pts'):
             # Point to simplex
             pts_k = [[] for n in range(nk)]
             for s, K_k in enumerate(td.simplices):
@@ -499,7 +494,7 @@ class TetrahedronIntegrator(Integrator):
             for k in range(nk):
                 pts_k[k] = np.array(pts_k[k], int)
 
-        with self.timer('neighbours'):
+        with self.context.timer('neighbours'):
             # Nearest neighbours
             neighbours_k = [None for n in range(nk)]
 
@@ -510,7 +505,7 @@ class TetrahedronIntegrator(Integrator):
         myterms_t = self.distribute_domain(list(args) +
                                            [list(range(nk))])
 
-        with self.timer('eigenvalues'):
+        with self.context.timer('eigenvalues'):
             # Store eigenvalues
             deps_tMk = None  # t for term
             shape = [len(domain_l) for domain_l in args]
@@ -531,7 +526,7 @@ class TetrahedronIntegrator(Integrator):
                     deps_tMk[t, :, K] = deps_M
 
         # Calculate integrations weight
-        pb = ProgressBar(self.fd)
+        pb = ProgressBar(self.context.fd)
         for _, arguments in pb.enumerate(myterms_t):
             K = arguments[-1]
             if len(shape) == 0:
@@ -609,7 +604,7 @@ class TetrahedronIntegrator(Integrator):
         simplices_s = pts_k[K]
         W_w = np.zeros(len(omega_w), float)
         vol_s = self.get_simplex_volume(td, simplices_s)
-        with self.timer('Tetrahedron weight'):
+        with self.context.timer('Tetrahedron weight'):
             _gpaw.tetrahedron_weight(deps_k, td.simplices, K,
                                      simplices_s,
                                      W_w, omega_w, vol_s)
