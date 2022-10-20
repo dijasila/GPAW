@@ -16,6 +16,17 @@ from gpaw.response.temp import DielectricFunctionCalculator
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 
 
+def calculate_chi0(q_c, chi0calc,nbands):
+    """Use the Chi0 object to calculate the static susceptibility."""
+    chi0 = chi0calc.create_chi0(q_c)
+    # Do all bands and all spins
+    m1, m2, spins = 0, nbands, 'all'
+    chi0 = chi0calc.update_chi0(chi0, m1, m2, spins)
+
+    return chi0  # chi0.pd, chi0.chi0_wGG, chi0.chi0_wxvG, chi0.chi0_wvv
+
+
+
 def get_qdescriptor(kd, atoms):
     # Find q-vectors and weights in the IBZ:
     assert -1 not in kd.bz2bz_ks
@@ -24,6 +35,58 @@ def get_qdescriptor(kd, atoms):
     qd = KPointDescriptor(bzq_qc)
     qd.set_symmetry(atoms, kd.symmetry)
     return qd
+
+def get_density_matrix(self, kpt1, kpt2, kd, qd, pd_q, pawcorr_q, known_iq=None):
+    """
+    If iq is known pd_q and pawcorr_q are lists with len of IBZ, otherwise they are lists 
+    with one element with value for correct iq
+    """
+    Q_c = kd.bzk_kc[kpt2.K] - kd.bzk_kc[kpt1.K]
+    iQ = qd.where_is_q(Q_c, qd.bzk_kc)
+    iq = qd.bz2ibz_k[iQ]
+    q_c = qd.ibzk_kc[iq]
+
+    # if iq is known check so that it is correct
+    if known_iq is not None:
+        assert(known_iq == iq)
+        iq_in_list=0 # pd_q and pawcorr_q lists with one element with correct value
+    else:
+        iq_in_list=iq
+    
+    # Find symmetry that transforms Q_c into q_c
+    sym = qd.sym_k[iQ]
+    U_cc = qd.symmetry.op_scc[sym]
+    time_reversal = qd.time_reversal_k[iQ]
+    sign = 1 - 2 * time_reversal
+    d_c = sign * np.dot(U_cc, q_c) - Q_c
+    assert np.allclose(d_c.round(), d_c)
+
+    pd = pd_q[iq_in_list]
+    N_c = pd.gd.N_c
+    i_cG = sign * np.dot(U_cc, np.unravel_index(pd.Q_qG[0], N_c))
+
+    shift0_c = Q_c - sign * np.dot(U_cc, q_c)
+    assert np.allclose(shift0_c.round(), shift0_c)
+    shift0_c = shift0_c.round().astype(int)
+
+    shift_c = kpt1.shift_c - kpt2.shift_c - shift0_c
+    I_G = np.ravel_multi_index(i_cG + shift_c[:, None], N_c, 'wrap')
+    G_Gv = pd.get_reciprocal_vectors()
+
+    M_vv = np.dot(pd.gd.cell_cv.T, np.dot(U_cc.T,
+                                              np.linalg.inv(pd.gd.cell_cv).T))
+
+    pawcorr = pawcorr_q[iq_in_list].remap_somehow(M_vv, G_Gv, sym, sign)
+
+    rho_mnG = np.zeros((len(kpt1.eps_n), len(kpt2.eps_n), len(G_Gv)),
+                           complex)
+    for m in range(len(rho_mnG)):
+        C1_aGi = pawcorr.multiply(kpt1.P_ani, band=m)
+        ut1cc_R = kpt1.ut_nR[m].conj()
+        rho_mnG[m] = self.pair.calculate_pair_density(ut1cc_R, C1_aGi,
+                                                          kpt2, pd, I_G)
+    return rho_mnG, iq
+
 
 
 def initialize_w_calculator(chi0calc, txt='w.txt', ppa=False, xc='RPA',
@@ -151,24 +214,45 @@ class WCalculator:
             pd, W_GG, einv_GG, chi0_xvG, chi0_vv,
             sqrtV_G,
             fd=self.fd if print_ac else None)
+    
+    def calc_in_Wannier(self,Uwan,chi0calc):
+        """Calculates the screened interaction matrix in Wannier basis
 
-    def calc_in_Wannier(self,Uwan):
+        W_n1,n2;n3,n4(R=0) = <w^*_{n1,R=0} w_{n2, R=0} | W |w^*_{n3,R=0} w_{n4, R=0} >
+
+        w_{n R} = V/(2pi)^3 \int_{BZ} dk e^{-kR} psi^w_{nk}
+        psi^w_{nk} = \sum_n' U_nn'(k) \psi^{KS}_{n'k}
+
+        w^*_{n1,R=0} w_{n2, R=0} = C * \int_{k,k' in BZ} \psi^w*_{n1k} \psi^w_{n2k'}
+
+        \psi^w*_{n1k} \psi^w_{n2k'} = \sum_{mm'} (U_{n1,m}(k) \psi^{KS}_{m k} )^* U_{n2,m'}(k') \psi^{KS}_{m' k'}
+        First calculates W in KS-basis where we need the pair densities, then multiply with transformation 
+        matrices and sum over k and k'. Do in loop over IBZ with additional loop over equivalent k-points.
         """
-        #from bse
+
+        # TODO: copy get_density_matrix from BSE.
+        # what is difference between kd and qd in bse?
+        # qd in bse is same as self.qd here!
+        Q_qaGii=[]
+        pd_q=[]
+        W_qwGG=[]
+        # From bse. First calculate W in IBZ in PW basis
+        # and transform to DFT eigen basis
 	for iq, q_c in enumerate(self.qd.ibzk_kc):
-            # pd, chi0_wGG, chi0_wxvG, chi0_wvv = self._calculate_chi0(q_c)                                                                                                                                 
-            chi0 = self._calculate_chi0(q_c)
-            pd, W_wGG = self._wcalc.calculate_q(iq, q_c, chi0)
-            W_GG = W_wGG[0] #reshape to W_GGw
-            self.Q_qaGii.append(self._chi0calc.Q_aGii)
-            self.pd_q.append(pd)
-            self.W_qGG.append(W_GG)
+            #optical_limit = np.allclose(q_c,0.0)
+            chi0 = chi0calc.create_chi0(q_c)
+            chi0 = calculate_chi0(q_c, chi0calc,nbands)
+            pd, W_wGG = self.calculate_q(iq, q_c, chi0)
+            # XXX make sure W distributed as wGG, add chi0.distributre_as()
+            # Wwann += self.add_wannier_contr(iq,q_c,W_wGG,Uwan,direction=0)
+            Q_qaGii.append(chi0calc.Q_aGii)
+            pd_q.append(pd)
+            W_qwGG.append(W_wGG)
+            
+        #Need to move get_density_matrix from bse to here and use that to get the
+        #correct density matrices to multiply with W_GGw
 
-        """
-        """
-        Need to move get_density_matrix from bse to here and use that to get the
-        correct density matrices to multiply with W_GGw
-        """        
+        
     # calculate_q wrapper
     def calculate_q(self, iq, q_c, chi0):
         if self.truncation == 'wigner-seitz':

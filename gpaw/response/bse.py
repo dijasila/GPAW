@@ -500,14 +500,15 @@ class BSE:
 
     def _calculate_chi0(self, q_c):
         """Use the Chi0 object to calculate the static susceptibility."""
+        from gpaw.response.screened_interaction import calculate_chi0
         if self._chi0calc is None:
             self.initialize_chi0_calculator()
 
-        chi0 = self._chi0calc.create_chi0(q_c)
+        # chi0 = self._chi0calc.create_chi0(q_c)
         # Do all bands and all spins
-        m1, m2, spins = 0, self.nbands, 'all'
-        chi0 = self._chi0calc.update_chi0(chi0, m1, m2, spins)
-
+        # m1, m2, spins = 0, self.nbands, 'all'
+        # chi0 = self._chi0calc.update_chi0(chi0, m1, m2, spins)
+        chi0 = calculate_chi0(q_c,self._chi0calc,self.nbands)
         return chi0  # chi0.pd, chi0.chi0_wGG, chi0.chi0_wxvG, chi0.chi0_wvv
 
     def initialize_chi0_calculator(self):
