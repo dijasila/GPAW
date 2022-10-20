@@ -35,20 +35,23 @@ class Potential:
         out_ansi = out_ani
 
         for (a, P_nsi), out_nsi in zip(P_ansi.items(), out_ansi.values()):
-            v_ii, x_ii, y_ii, z_ii = self.dH_asii[a]
-            assert v_ii.dtype == float, 'soc == True ????'
+            v_ii, x_ii, y_ii, z_ii = (dh_ii.T for dh_ii in self.dH_asii[a])
+            assert v_ii.dtype == complex
             out_nsi[:, 0] = (P_nsi[:, 0] @ (v_ii + z_ii) +
                              P_nsi[:, 1] @ (x_ii - 1j * y_ii))
             out_nsi[:, 1] = (P_nsi[:, 1] @ (v_ii - z_ii) +
                              P_nsi[:, 0] @ (x_ii + 1j * y_ii))
         return out_ansi
 
-    def write(self, writer):
+    def _write_gpw(self, writer, ibzwfs):
+        from gpaw.new.calculation import combine_energies
+        energies = combine_energies(self, ibzwfs)
+        energies['band'] = ibzwfs.energies['band']
         dH_asp = self.dH_asii.to_lower_triangle().gather()
         vt_sR = self.vt_sR.gather()
         if dH_asp is None:
             return
         writer.write(
             potential=vt_sR.data * Ha,
-            atomic_hamiltonian_matrices=dH_asp.data,
-            energies={name: val * Ha for name, val in self.energies.items()})
+            atomic_hamiltonian_matrices=dH_asp.data * Ha,
+            **{f'e_{name}': val * Ha for name, val in energies.items()})

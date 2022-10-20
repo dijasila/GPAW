@@ -65,25 +65,9 @@ class TransverseMagneticSusceptibility(FCST):
                                         frequencies, array_ecut=array_ecut,
                                         filename=filename, txt=txt)
 
-    def _calculate_component(self, spincomponent, pd, wd):
-        """Calculate a transverse magnetic susceptibility element.
-
-        Returns
-        -------
-        pd, wd, chiks_wGG, chi_wGG : see gpaw.response.susceptibility
-        """
-        chiks_wGG = self.calculate_ks_component(spincomponent, pd,
-                                                wd, txt=self.cfd)
-        Kxc_GG = self.get_xc_kernel(spincomponent, pd,
-                                    chiks_wGG=chiks_wGG, txt=self.cfd)
-
-        chi_wGG = self.invert_dyson(chiks_wGG, Kxc_GG)
-
-        return pd, wd, chiks_wGG, chi_wGG
-
-    def get_xc_kernel(self, spincomponent, pd, chiks_wGG=None, txt=None):
+    def get_xc_kernel(self, spincomponent, pd, chiks_wGG=None):
         """Get the exchange correlation kernel."""
-        Kxc_GG = self.fxc(spincomponent, pd, txt=self.cfd)
+        Kxc_GG = self.fxc(spincomponent, pd)
 
         fxc_scaling = self.fxc_scaling
 
@@ -92,14 +76,15 @@ class TransverseMagneticSusceptibility(FCST):
             if fxc_scaling[0]:
                 if fxc_scaling[1] is None:
                     assert pd.kd.gamma
-                    print('Finding rescaling of kernel to fulfill the '
-                          'Goldstone theorem', file=self.fd)
+                    self.context.print('Finding rescaling of kernel to fulfill'
+                                       ' the Goldstone theorem')
                     mode = fxc_scaling[2]
                     assert mode in ['fm', 'afm']
                     omega_w = self.chiks.wd.omega_w
+                    world = self.context.world
                     fxc_scaling[1] = get_goldstone_scaling(mode, omega_w,
                                                            chiks_wGG, Kxc_GG,
-                                                           world=self.world)
+                                                           world=world)
 
                 assert isinstance(fxc_scaling[1], float)
                 Kxc_GG *= fxc_scaling[1]

@@ -7,12 +7,15 @@ from ase.parallel import parprint
 
 from gpaw import GPAW, PW, FermiDirac
 from gpaw.test import findpeak, equal
+from gpaw.mpi import size, world
+
+from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.df import DielectricFunction
 from gpaw.response.susceptibility import FourComponentSusceptibilityTensor
 from gpaw.response.susceptibility import read_macroscopic_component
-from gpaw.mpi import size, world
 
 
+@pytest.mark.kspair
 @pytest.mark.response
 def test_response_silicon_chi_RPA(in_tmp_dir):
     assert size <= 4**3
@@ -28,7 +31,6 @@ def test_response_silicon_chi_RPA(in_tmp_dir):
                 nbands=8,
                 kpts=(4, 4, 4),
                 parallel={'domain': 1},
-                idiotproof=False,  # allow uneven distribution of k-points
                 occupations=FermiDirac(width=0.05),
                 xc='LDA')
 
@@ -52,7 +54,8 @@ def test_response_silicon_chi_RPA(in_tmp_dir):
     world.barrier()
 
     # Using FCST
-    fcst = FourComponentSusceptibilityTensor(calc, fxc='RPA',
+    gs = ResponseGroundStateAdapter(calc)
+    fcst = FourComponentSusceptibilityTensor(gs, fxc='RPA',
                                              eta=0.2, ecut=50)
     fcst.get_macroscopic_component('00', q, w, filename='Si_chi2.csv')
 

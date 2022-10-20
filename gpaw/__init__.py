@@ -7,8 +7,8 @@ import contextlib
 from pathlib import Path
 from typing import List, Dict, Union, Any, TYPE_CHECKING
 
-__version__ = '22.1.1b1'
-__ase_version_required__ = '3.23.0b1'
+__version__ = '22.8.1b1'
+__ase_version_required__ = '3.22.1'
 __all__ = ['GPAW',
            'Mixer', 'MixerSum', 'MixerDif', 'MixerSum2',
            'CG', 'Davidson', 'RMMDIIS', 'DirectLCAO',
@@ -22,8 +22,10 @@ setup_paths: List[Union[str, Path]] = []
 is_gpaw_python = '_gpaw' in sys.builtin_module_names
 dry_run = 0
 
-# When type-checking, we want the debug-wrappers enabled:
-debug: bool = TYPE_CHECKING or bool(sys.flags.debug)
+# When type-checking or running pytest, we want the debug-wrappers enabled:
+debug: bool = (TYPE_CHECKING or
+               'pytest' in sys.modules or
+               bool(sys.flags.debug))
 
 
 @contextlib.contextmanager
@@ -61,6 +63,10 @@ with broadcast_imports:
     if is_gpaw_python:
         sys.setdlopenflags(old_dlopen_flags)
     import _gpaw
+
+
+if getattr(_gpaw, 'version', 0) != 2:
+    raise ImportError('Please recompile GPAW''s C-extensions!')
 
 
 class ConvergenceError(Exception):

@@ -97,7 +97,7 @@ class SymmetryChecker:
                    band: int,
                    spin: int = 0) -> Dict[str, Any]:
         """Check wave function from GPAW calculation."""
-        wfs = calc.get_pseudo_wave_function(band, spin=spin, pad=True)
+        wfs = calc.get_pseudo_wave_function(band, spin=spin)
         grid_vectors = (calc.atoms.cell.T / wfs.shape).T
         return self.check_function(wfs, grid_vectors)
 

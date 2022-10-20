@@ -12,6 +12,21 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.23.0b1
 
+* Missing factor of `2\pi` now included in RPA shift current:
+  :func:`gpaw.nlopt.shift.get_shift`.
+
+* Updated RPA-energy tutorial: :ref:`c2cu rpa`.
+
+* New tutorial: :ref:`abinitiomd`.
+
+
+Version 22.8.0
+==============
+
+Aug 18, 2022: :git:`22.8.0 <../22.8.0>`
+
+* Corresponding ASE release: ASE-3.22.1.
+
 * Updated :ref:`WSL installation instructions <wsl>`.
 
 * New feature for the :ref:`gpaw symmetry <cli>` command:  Will show number of
@@ -30,7 +45,27 @@ Git master branch
 * :ref:`spinspiral calculations`.  See also
   :git:`~gpaw/test/spinspiral/h_chain_test.py`.
 
+* :ref:`soc`.
+
 * The GW0 feature has been removed.
+
+* :ref:`LrTDDFT <lrtddft>` works now also with LCAO-mode wave functions.
+
+* GLLBSC functional uses now automatically Fermi level as the reference
+  energy (GLLBSCM behavior) when the system has no band gap.
+  This resolves "GLLBSC error: HOMO is higher than LUMO" observed in some
+  systems during SCF iterations.
+  See `!854 <https://gitlab.com/gpaw/gpaw/-/merge_requests/854>`_ for details.
+
+* Functionality to compute magnon dispersions for ferromagnets in the classical
+  isotropic Heisenberg model has been added, see ``gpaw.response.heisenberg``
+
+* A new module ``gpaw.response.mft``, see :ref:`mft`, has been added for the
+  calculation of isotropic Heisenberg exchange parameters within a linear
+  response formulation of the magnetic force theorem. The module depends on a
+  novel ``SiteKernels`` interface, see ``gpaw.response.site_kernels``, to
+  discretize the DFT description into magnetic sublattices.
+
 
 Version 22.1.0
 ==============
@@ -119,9 +154,6 @@ Jan 12, 2022: :git:`22.1.0 <../22.1.0>`
 * Radiative emission (lifetimes, ...) are obtainable from
   real-time LCAO-TDDFT via the radiation-reaction potential.
   See the tutorial: :ref:`radiation_reaction_rttddft`.
-
-* Input parameters are now written to the log file in such a way that it
-  can be copy-pasted directly into a Python script.
 
 
 Version 21.6.0
@@ -465,7 +497,7 @@ Aug 1, 2019: :git:`19.8.0 <../19.8.0>`
 * How to do :ref:`ehrenfest` has now been documented.
 
 * Non self-consistent hybrid functional calculations can now be continued if
-  they run out of time.  See :meth:`gpaw.xc.exx.EXX.calculate`.
+  they run out of time.
 
 * When using a convergence criteria on the accuracy of the forces
   (see :ref:`manual_convergence`), the forces will only be calculated when the

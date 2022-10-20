@@ -6,12 +6,15 @@ from typing import Dict, Tuple, Union
 import _gpaw
 import gpaw.utilities.blas as blas
 import numpy as np
+import scipy
 import scipy.linalg as linalg
 from gpaw import debug
 from gpaw.mpi import MPIComm, _Communicator, serial_comm
-from gpaw.typing import Array1D, ArrayLike2D
+from gpaw.typing import Array1D, ArrayLike1D, ArrayLike2D
 
 _global_blacs_context_store: Dict[Tuple[_Communicator, int, int], int] = {}
+
+SCIPY_VERSION = [int(x) for x in scipy.__version__.split('.')[:2]]
 
 
 def suggest_blocking(N: int, ncpus: int) -> tuple[int, int, int]:
@@ -290,16 +293,26 @@ class Matrix:
         if S is not self:
             S.redist(self)
 
-    def eigh(self, cc=False, scalapack=(None, 1, 1, None)) -> Array1D:
+    def eigh(self,
+             S=None,
+             *,
+             cc=False,
+             scalapack=(None, 1, 1, None),
+             limit: int = None) -> Array1D:
         """Calculate eigenvectors and eigenvalues.
 
         Matrix must be symmetric/hermitian and stored in lower half.
+        If ``S`` is given, solve a generalized eigenvalue problem.
 
+        Parameters
+        ----------
         cc: bool
             Complex conjugate matrix before finding eigenvalues.
         scalapack: tuple
             BLACS distribution for ScaLapack to use.  Default is to do serial
             diagonalization.
+        limit:
+            Number of eigenvector and values to find.  Defaults to all.
         """
         slcomm, rows, columns, blocksize = scalapack
 
@@ -313,6 +326,10 @@ class Matrix:
         if redist:
             H = self.new(dist=dist)
             self.redist(H)
+            if S is not None:
+                S0 = S
+                S = S0.new(dist=dist)
+                self.redist(S)
         else:
             assert self.dist.comm.size == slcomm.size
             H = self
@@ -325,16 +342,30 @@ class Matrix:
                     np.negative(H.data.imag, H.data.imag)
                 if debug:
                     H.data[np.triu_indices(H.shape[0], 1)] = 42.0
-                eps[:], H.data.T[:] = linalg.eigh(
-                    H.data,
-                    lower=True,
-                    overwrite_a=True,
-                    check_finite=debug,
-                    driver='evx' if H.data.size == 1 else 'evd')
+                if S is None:
+                    eps[:], H.data.T[:] = linalg.eigh(
+                        H.data,
+                        lower=True,
+                        overwrite_a=True,
+                        check_finite=debug,
+                        driver='evx' if H.data.size == 1 else 'evd')
+                else:
+                    eps, evecs = linalg.eigh(
+                        H.data,
+                        S.data,
+                        lower=True,
+                        overwrite_a=True,
+                        overwrite_b=True,
+                        check_finite=debug,
+                        subset_by_index=(0, limit - 1) if limit else None,
+                        driver='evx' if H.data.size == 1 else 'evd')
+                    limit = limit or len(eps)
+                    H.data.T[:, :limit] = evecs
             self.dist.comm.broadcast(eps, 0)
         else:
             if slcomm.rank < rows * columns:
                 assert cc
+                assert S is None
                 array = H.data.copy()
                 info = _gpaw.scalapack_diagonalize_dc(array, H.dist.desc, 'U',
                                                       H.data, eps)
@@ -384,11 +415,15 @@ class Matrix:
                 blas.mmm(1.0, L_MM, 'N', H.data, 'N', 0.0, tmp_MM)
                 blas.r2k(0.5, tmp_MM, L_MM, 0.0, H.data)
                 # Ht_MM = L_MM @ self.data @ L_MM.conj().T
+                if SCIPY_VERSION >= [1, 9]:
+                    driver = 'evx' if M == 1 else 'evd'
+                else:
+                    driver = None
                 eig_n, Ct_Mn = linalg.eigh(
                     H.data,
                     overwrite_a=True,
                     check_finite=debug,
-                    driver='evx' if M == 1 else 'evd')
+                    driver=driver)
                 assert Ct_Mn.flags.f_contiguous
                 blas.mmm(1.0, L_MM, 'C', Ct_Mn.T, 'T', 0.0, H.data)
                 # self.data[:] = L_MM.T.conj() @ Ct_Mn
@@ -414,7 +449,8 @@ class Matrix:
     def add_hermitian_conjugate(self, scale: float = 1.0) -> None:
         """Add hermitian conjugate to myself."""
         if self.dist.comm.size == 1:
-            self.data *= 0.5
+            if scale != 1.0:
+                self.data *= scale
             self.data += self.data.conj().T
             return
         tmp = self.copy()
@@ -451,6 +487,13 @@ class Matrix:
         _gpaw.scalapack_set(buf, desc, 0.0, 0.0, 'L', M, M, 1, 1)
         # Now transpose tmp_mm adding the result to the original matrix:
         _gpaw.pblas_tran(M, M, 1.0, buf, 1.0, self.data, desc, desc, True)
+
+    def add_to_diagonal(self, d: ArrayLike1D | float) -> None:
+        """Add list of numbers or single number to diagonal of matrix."""
+        n1, n2 = self.dist.my_row_range()
+        M, N = self.shape
+        assert M == N
+        self.data.ravel()[n1::N + 1] += d
 
 
 def _matrix(M):

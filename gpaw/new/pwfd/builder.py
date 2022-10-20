@@ -18,7 +18,7 @@ from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 
 class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
     def create_eigensolver(self, hamiltonian):
-        eigsolv_params = self.params.eigensolver
+        eigsolv_params = self.params.eigensolver.copy()
         name = eigsolv_params.pop('name', 'dav')
         assert name == 'dav'
         return Davidson(self.nbands,
@@ -35,9 +35,7 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
             psit_nG = SimpleNamespace(
                 comm=domain_comm,
                 dims=(self.nbands,),
-                desc=SimpleNamespace(comm=domain_comm,
-                                     kpt_c=kpt_c,
-                                     dtype=self.dtype),
+                desc=self.wf_desc.new(kpt=kpt_c),
                 data=None)
             wfs = PWFDWaveFunctions(
                 spin=spin,

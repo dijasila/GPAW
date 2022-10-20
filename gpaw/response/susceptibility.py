@@ -1,31 +1,27 @@
-import sys
-from time import ctime
 from pathlib import Path
 import pickle
 
 import numpy as np
 
 from ase.units import Hartree
-from gpaw.utilities import convert_string_to_fd
-from ase.utils.timing import Timer, timer
 
-import gpaw.mpi as mpi
-from gpaw.response.kspair import get_calc
+from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
 from gpaw.response.frequencies import FrequencyDescriptor
 from gpaw.response.chiks import ChiKS
-from gpaw.response.kxc import get_fxc
-from gpaw.response.kernels import get_coulomb_kernel
+from gpaw.response.fxc_kernels import get_fxc
+from gpaw.response.coulomb_kernels import get_coulomb_kernel
 from gpaw.response.pw_parallelization import Blocks1D
 
 
 class FourComponentSusceptibilityTensor:
     """Class calculating the full four-component susceptibility tensor"""
 
-    def __init__(self, gs, fxc='ALDA', fxckwargs={},
+    def __init__(self, gs, context=None,
+                 fxc='ALDA', fxckwargs={},
                  eta=0.2, ecut=50, gammacentered=False,
-                 disable_point_group=True, disable_time_reversal=True,
-                 bandsummation='pairwise', nbands=None, bundle_integrals=True,
-                 world=mpi.world, nblocks=1, txt=sys.stdout):
+                 disable_point_group=False, disable_time_reversal=False,
+                 bandsummation='pairwise', nbands=None,
+                 bundle_integrals=True, nblocks=1):
         """
         Currently, everything is in plane wave mode.
         If additional modes are implemented, maybe look to fxc to see how
@@ -33,40 +29,36 @@ class FourComponentSusceptibilityTensor:
 
         Parameters
         ----------
-        gs : see gpaw.response.chiks, gpaw.response.kslrf
+        gs : ResponseGroundStateAdapter
+        context : ResponseContext
         fxc, fxckwargs : see gpaw.response.fxc
         eta, ecut, gammacentered
         disable_point_group,
         disable_time_reversal,
         bandsummation, nbands, bundle_integrals,
-        world, nblocks, txt : see gpaw.response.chiks, gpaw.response.kslrf
+        nblocks : see gpaw.response.chiks, gpaw.response.kslrf
         """
-        # Initiate output file and timer
-        self.world = world
-        self.fd = convert_string_to_fd(txt, world)
-        self.cfd = self.fd
-        self.timer = Timer()
-
-        # Load ground state calculation
-        self.calc = get_calc(gs, fd=self.fd, timer=self.timer)
+        assert isinstance(gs, ResponseGroundStateAdapter)
+        self.gs = gs
+        if context is None:
+            self.context = ResponseContext()
+        else:
+            assert isinstance(context, ResponseContext)
+            self.context = context
 
         # The plane wave basis is defined by keywords
         self.ecut = None if ecut is None else ecut / Hartree
         self.gammacentered = gammacentered
 
         # Initiate Kohn-Sham susceptibility and fxc objects
-        self.chiks = ChiKS(self.calc, eta=eta, ecut=ecut,
+        self.chiks = ChiKS(self.gs, context=self.context, eta=eta, ecut=ecut,
                            gammacentered=gammacentered,
                            disable_point_group=disable_point_group,
                            disable_time_reversal=disable_time_reversal,
                            bandsummation=bandsummation, nbands=nbands,
-                           bundle_integrals=bundle_integrals,
-                           world=world, nblocks=nblocks, txt=self.fd,
-                           timer=self.timer)
-        self.fxc = get_fxc(self.calc, fxc,
-                           response='susceptibility', mode='pw',
-                           world=self.chiks.world, txt=self.chiks.fd,
-                           timer=self.timer, **fxckwargs)
+                           bundle_integrals=bundle_integrals, nblocks=nblocks)
+        self.fxc = get_fxc(gs, self.context, fxc,
+                           response='susceptibility', mode='pw', **fxckwargs)
 
         # Parallelization over frequencies depends on the frequency input
         self.blocks1d = None
@@ -74,7 +66,7 @@ class FourComponentSusceptibilityTensor:
     def get_macroscopic_component(self, spincomponent, q_c, frequencies,
                                   filename=None, txt=None):
         """Calculates the spatially averaged (macroscopic) component of the
-        susceptibility tensor and writes it to a file.
+        susceptibility tensor and write it to a file (optional).
 
         Parameters
         ----------
@@ -82,9 +74,6 @@ class FourComponentSusceptibilityTensor:
         frequencies : see gpaw.response.chiks, gpaw.response.kslrf
         filename : str
             Save chiks_w and chi_w to file of given name.
-            Defaults to:
-            'chi%s_q«%+d-%+d-%+d».csv' % (spincomponent,
-                                          *tuple((q_c * kd.N_c).round()))
         txt : str
             Save output of the calculation of this specific component into
             a file with the filename of the given input.
@@ -93,20 +82,15 @@ class FourComponentSusceptibilityTensor:
         -------
         see calculate_macroscopic_component
         """
-
-        if filename is None:
-            tup = (spincomponent,
-                   *tuple((q_c * self.calc.wfs.kd.N_c).round()))
-            filename = 'chi%s_q«%+d-%+d-%+d».csv' % tup
-
         (omega_w,
          chiks_w,
          chi_w) = self.calculate_macroscopic_component(spincomponent, q_c,
                                                        frequencies,
                                                        txt=txt)
 
-        write_macroscopic_component(omega_w, chiks_w, chi_w,
-                                    filename, self.world)
+        if filename is not None:
+            write_macroscopic_component(omega_w, chiks_w, chi_w,
+                                        filename, self.context.world)
 
         return omega_w, chiks_w, chi_w
 
@@ -147,7 +131,7 @@ class FourComponentSusceptibilityTensor:
                             array_ecut=50, filename=None, txt=None):
         """Calculates a specific spin component of the susceptibility tensor,
         collects it as a numpy array in a reduced plane wave description
-        and writes it to a file.
+        and writes it to a file (optional).
 
         Parameters
         ----------
@@ -156,9 +140,6 @@ class FourComponentSusceptibilityTensor:
         array_ecut : see calculate_component_array
         filename : str
             Save chiks_w and chi_w to pickle file of given name.
-            Defaults to:
-            'chi%sGG_q«%+d-%+d-%+d».pckl' % (spincomponent,
-                                             *tuple((q_c * kd.N_c).round()))
         txt : str
             Save output of the calculation of this specific component into
             a file with the filename of the given input.
@@ -167,12 +148,6 @@ class FourComponentSusceptibilityTensor:
         -------
         see calculate_component_array
         """
-
-        if filename is None:
-            tup = (spincomponent,
-                   *tuple((q_c * self.calc.wfs.kd.N_c).round()))
-            filename = 'chi%sGG_q«%+d-%+d-%+d».pckl' % tup
-
         (omega_w, G_Gc, chiks_wGG,
          chi_wGG) = self.calculate_component_array(spincomponent,
                                                    q_c,
@@ -180,9 +155,9 @@ class FourComponentSusceptibilityTensor:
                                                    array_ecut=array_ecut,
                                                    txt=txt)
 
-        # Write susceptibilities to a pickle file
-        write_component(omega_w, G_Gc, chiks_wGG, chi_wGG,
-                        filename, self.world)
+        if filename is not None:
+            write_component(omega_w, G_Gc, chiks_wGG, chi_wGG,
+                            filename, self.context.world)
 
         return omega_w, G_Gc, chiks_wGG, chi_wGG
 
@@ -247,105 +222,80 @@ class FourComponentSusceptibilityTensor:
         chi_wGG : ndarray
             The process' block of the full susceptibility component
         """
-        pd = self.get_PWDescriptor(q_c)
 
-        # Initiate new call-output file, if supplied
+        # Initiate new output file, if supplied
         if txt is not None:
-            # Store timer and close old call-output file
-            self.write_timer()
-            if str(self.fd) != str(self.cfd):
-                print('\nClosing, %s' % ctime(), file=self.cfd)
-                self.cfd.close()
-            # Initiate new output file
-            self.cfd = convert_string_to_fd(txt, self.world)
-        # Print to output file(s)
-        if str(self.fd) != str(self.cfd):
-            print('---------------', file=self.fd)
-            print(f'Calculating susceptibility spincomponent={spincomponent}'
-                  f'with q_c={pd.kd.bzk_kc[0]}', flush=True, file=self.fd)
-        if txt is not None:
-            print('---------------', file=self.fd)
-            print(f'Calculating susceptibility spincomponent={spincomponent}'
-                  f'with q_c={pd.kd.bzk_kc[0]}', file=self.cfd)
-            print('---------------', flush=True, file=self.cfd)
+            self.context.new_txt_and_timer(txt)
+
+        # Print to output file
+        self.context.print('---------------', flush=False)
+        self.context.print('Calculating susceptibility spincomponent='
+                           f'{spincomponent} with q_c={q_c}', flush=False)
+        self.context.print('---------------')
 
         wd = FrequencyDescriptor.from_array_or_dict(frequencies)
 
         # Initialize parallelization over frequencies
-        self.blocks1d = Blocks1D(self.world, len(wd))
-        return self._calculate_component(spincomponent, pd, wd)
+        self.blocks1d = Blocks1D(self.context.world, len(wd))
 
-    def get_PWDescriptor(self, q_c):
-        """Get the planewave descriptor defining the plane wave basis for the
-        given momentum transfer q_c."""
-        from gpaw.kpt_descriptor import KPointDescriptor
-        from gpaw.pw.descriptor import PWDescriptor
-        q_c = np.asarray(q_c, dtype=float)
-        qd = KPointDescriptor([q_c])
-        pd = PWDescriptor(self.ecut, self.calc.wfs.gd,
-                          complex, qd, gammacentered=self.gammacentered)
-        return pd
+        return self._calculate_component(spincomponent, q_c, wd)
 
-    def _calculate_component(self, spincomponent, pd, wd):
+    def _calculate_component(self, spincomponent, q_c, wd):
         """In-place calculation of the given spin-component."""
+        pd, chiks_wGG = self.calculate_ks_component(spincomponent, q_c, wd)
+
+        Kxc_GG = self.get_xc_kernel(spincomponent, pd, chiks_wGG=chiks_wGG)
         if spincomponent in ['+-', '-+']:
             # No Hartree kernel
-            K_GG = self.fxc(spincomponent, pd, txt=self.cfd)
+            assert Kxc_GG is not None
+            Khxc_GG = Kxc_GG
         else:
-            # Calculate Hartree kernel
-            Kbare_G = get_coulomb_kernel(pd, self.calc.wfs.kd.N_c)
-            vsqrt_G = Kbare_G ** 0.5
-            K_GG = np.eye(len(vsqrt_G)) * vsqrt_G * vsqrt_G[:, np.newaxis]
+            Khxc_GG = self.get_hartree_kernel(pd)
+            if Kxc_GG is not None:  # Kxc can be None in the RPA case
+                Khxc_GG += Kxc_GG
 
-            # Calculate exchange-correlation kernel
-            Kxc_GG = self.fxc(spincomponent, pd, txt=self.cfd)
-            if Kxc_GG is not None:
-                K_GG += Kxc_GG
+        chi_wGG = self.invert_dyson(chiks_wGG, Khxc_GG)
 
-        chiks_wGG = self.calculate_ks_component(spincomponent, pd,
-                                                wd, txt=self.cfd)
-
-        chi_wGG = self.invert_dyson(chiks_wGG, K_GG)
-
-        print('\nFinished calculating component', file=self.cfd)
-        print('---------------', flush=True, file=self.cfd)
+        self.context.print('\nFinished calculating component', flush=False)
+        self.context.print('---------------')
 
         return pd, wd, chiks_wGG, chi_wGG
 
-    def write_timer(self):
-        """Write timer to call-output file and initiate a new."""
-        self.timer.write(self.cfd)
-        self.timer = Timer()
+    def get_xc_kernel(self, spincomponent, pd, **ignored):
+        return self.fxc(spincomponent, pd)
 
-        # Update all other class instance timers
-        self.chiks.timer = self.timer
-        self.chiks.integrator.timer = self.timer
-        self.chiks.kspair.timer = self.timer
-        self.chiks.pme.timer = self.timer
-        self.fxc.timer = self.timer
+    def get_hartree_kernel(self, pd):
+        """Calculate the Hartree kernel"""
+        Kbare_G = get_coulomb_kernel(pd, self.gs.kd.N_c)
+        vsqrt_G = Kbare_G ** 0.5
+        Kh_GG = np.eye(len(vsqrt_G)) * vsqrt_G * vsqrt_G[:, np.newaxis]
 
-    def calculate_ks_component(self, spincomponent, pd, wd, txt=None):
+        return Kh_GG
+
+    def calculate_ks_component(self, spincomponent, q_c, wd):
         """Calculate a single component of the Kohn-Sham susceptibility tensor.
 
         Parameters
         ----------
-        spincomponent : see gpaw.response.chiks, gpaw.response.kslrf
-        pd, wd : see calculate_component
+        spincomponent, q_c : see gpaw.response.chiks, gpaw.response.kslrf
+        wd : see calculate_component
 
         Returns
         -------
+        pd : PWDescriptor
+            see gpaw.response.chiks, gpaw.response.kslrf
         chiks_wGG : ndarray
             The process' block of the Kohn-Sham susceptibility component
         """
         # ChiKS calculates the susceptibility distributed over plane waves
-        _, chiks_wGG = self.chiks.calculate(pd, wd, txt=txt,
-                                            spincomponent=spincomponent)
+        pd, chiks_wGG = self.chiks.calculate(q_c, wd,
+                                             spincomponent=spincomponent)
 
         # Redistribute memory, so each block has its own frequencies, but all
         # plane waves (for easy invertion of the Dyson-like equation)
         chiks_wGG = self.chiks.distribute_frequencies(chiks_wGG)
 
-        return chiks_wGG
+        return pd, chiks_wGG
 
     @timer('Invert dyson-like equation')
     def invert_dyson(self, chiks_wGG, Khxc_GG):
@@ -353,7 +303,7 @@ class FourComponentSusceptibilityTensor:
 
         chi = chi_ks + chi_ks Khxc chi
         """
-        print('Inverting Dyson-like equation', flush=True, file=self.cfd)
+        self.context.print('Inverting Dyson-like equation')
         chi_wGG = np.empty_like(chiks_wGG)
         for w, chiks_GG in enumerate(chiks_wGG):
             chi_GG = invert_dyson_single_frequency(chiks_GG, Khxc_GG)
@@ -375,7 +325,7 @@ class FourComponentSusceptibilityTensor:
         tmp_wGG[:blocks1d.nlocal] = A_wGG
 
         # Allocate array for the gathered data
-        if self.world.rank == 0:
+        if self.context.world.rank == 0:
             # Make room for all frequencies
             Npadded = blocks1d.blocksize * blocks1d.blockcomm.size
             shape = (Npadded,) + A_wGG.shape[1:]
@@ -383,20 +333,13 @@ class FourComponentSusceptibilityTensor:
         else:
             allA_wGG = None
 
-        self.world.gather(tmp_wGG, 0, allA_wGG)
+        self.context.world.gather(tmp_wGG, 0, allA_wGG)
 
         # Return array for w indeces on frequency grid
         if allA_wGG is not None:
             allA_wGG = allA_wGG[:len(wd), :, :]
 
         return allA_wGG
-
-    def close(self):
-        self.timer.write(self.cfd)
-        print('\nClosing, %s' % ctime(), file=self.cfd)
-        self.cfd.close()
-        print('\nClosing, %s' % ctime(), file=self.fd)
-        self.fd.close()
 
 
 def invert_dyson_single_frequency(chiks_GG, Khxc_GG):
@@ -457,6 +400,50 @@ def get_pw_coordinates(pd):
     return np.round(np.dot(G_Gv, np.linalg.inv(B_cv))).astype(int)
 
 
+def get_inverted_pw_mapping(pd1, pd2):
+    """Get the plane wave coefficients mapping GG' of pd1 into -G-G' of pd2"""
+    G1_Gc = get_pw_coordinates(pd1)
+    G2_Gc = get_pw_coordinates(pd2)
+
+    mG2_G1 = []
+    for G1_c in G1_Gc:
+        found_match = False
+        for G2, G2_c in enumerate(G2_Gc):
+            if np.all(G2_c == -G1_c):
+                mG2_G1.append(G2)
+                found_match = True
+                break
+        if not found_match:
+            raise ValueError('Could not match pd1 and pd2')
+
+    # Set up mapping from GG' to -G-G'
+    invmap_GG = tuple(np.meshgrid(mG2_G1, mG2_G1, indexing='ij'))
+
+    return invmap_GG
+
+
+def symmetrize_reciprocity(pd, A_wGG):
+    """In collinear systems without spin-orbit coupling, the plane wave
+    susceptibility is reciprocal in the sense that e.g.
+
+    χ_(GG')^(+-)(q, ω) = χ_(-G'-G)^(+-)(-q, ω)
+
+    This method symmetrizes A_wGG in the case where q=0.
+    """
+    from gpaw.test.response.test_chiks import get_inverted_pw_mapping
+
+    q_c = pd.kd.bzk_kc[0]
+    if np.allclose(q_c, 0.):
+        invmap_GG = get_inverted_pw_mapping(pd, pd)
+        for A_GG in A_wGG:
+            tmp_GG = np.zeros_like(A_GG)
+
+            # Symmetrize [χ_(GG')(q, ω) + χ_(-G'-G)(-q, ω)] / 2
+            tmp_GG += A_GG
+            tmp_GG += A_GG[invmap_GG].T
+            A_GG[:] = tmp_GG / 2.
+
+
 def write_macroscopic_component(omega_w, chiks_w, chi_w, filename, world):
     """Write the spatially averaged dynamic susceptibility."""
     assert isinstance(filename, str)
@@ -470,7 +457,7 @@ def write_macroscopic_component(omega_w, chiks_w, chi_w, filename, world):
 
 def read_macroscopic_component(filename):
     """Read a stored macroscopic susceptibility file"""
-    d = np.loadtxt(filename, delimiter=', ')
+    d = np.loadtxt(filename, delimiter=',')
     omega_w = d[:, 0]
     chiks_w = np.array(d[:, 1], complex)
     chiks_w.imag = d[:, 2]

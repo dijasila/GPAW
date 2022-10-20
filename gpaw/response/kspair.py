@@ -1,15 +1,8 @@
-from pathlib import Path
-
 import numpy as np
 
-from gpaw.utilities import convert_string_to_fd
-from ase.utils.timing import Timer, timer
-
-from gpaw import disable_dry_run
-from gpaw.calculator import GPAW
-import gpaw.mpi as mpi
-from gpaw.response.math_func import two_phi_planewave_integrals
-from gpaw.response.pair import KPointFinder
+from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
+from gpaw.response.paw import get_pair_density_paw_corrections
+from gpaw.response.symmetry import KPointFinder
 
 
 class KohnShamKPoint:
@@ -118,20 +111,23 @@ class KohnShamPair:
     """Class for extracting pairs of Kohn-Sham orbitals from a ground
     state calculation."""
 
-    def __init__(self, gs, world=mpi.world, transitionblockscomm=None,
-                 kptblockcomm=None, txt='-', timer=None):
+    def __init__(self, gs, context,
+                 transitionblockscomm=None, kptblockcomm=None):
         """
         Parameters
         ----------
+        gs : ResponseGroundStateAdapter
+        context : ResponseContext
         transitionblockscomm : gpaw.mpi.Communicator
             Communicator for distributing the transitions among processes
         kptblockcomm : gpaw.mpi.Communicator
             Communicator for distributing k-points among processes
         """
-        self.world = world
-        self.fd = convert_string_to_fd(txt, world)
-        self.timer = timer or Timer()
-        self.calc = get_calc(gs, fd=self.fd, timer=self.timer)
+        assert isinstance(gs, ResponseGroundStateAdapter)
+        self.gs = gs
+        assert isinstance(context, ResponseContext)
+        self.context = context
+
         self.calc_parallel = self.check_calc_parallelisation()
 
         self.transitionblockscomm = transitionblockscomm
@@ -144,7 +140,7 @@ class KohnShamPair:
         self.tb = None
 
         # Prepare to find k-point data from vector
-        kd = self.calc.wfs.kd
+        kd = self.gs.kd
         self.kptfinder = KPointFinder(kd.bzk_kc)
 
         # Prepare to use other processes' k-points
@@ -161,54 +157,50 @@ class KohnShamPair:
 
     def check_calc_parallelisation(self):
         """Check how ground state calculation is distributed in memory"""
-        if self.calc.world.size == 1:
+        if self.gs.world.size == 1:
             return False
         else:
-            assert self.world.rank == self.calc.wfs.world.rank
-            assert self.calc.wfs.gd.comm.size == 1
+            assert self.context.world.rank == self.gs.world.rank
+            assert self.gs.gd.comm.size == 1
             return True
 
     def count_occupied_bands(self):
         """Count number of occupied and unoccupied bands in ground state
         calculation. Can be used to omit null-transitions between two occupied
         bands or between two unoccupied bands."""
-        ftol = 1.e-9  # Could be given as input
-        nocc1 = 9999999
-        nocc2 = 0
-        for kpt in self.calc.wfs.kpt_u:
-            f_n = kpt.f_n / kpt.weight
-            nocc1 = min((f_n > 1 - ftol).sum(), nocc1)
-            nocc2 = max((f_n > ftol).sum(), nocc2)
+
+        nocc1, nocc2 = self.gs.count_occupied_bands(ftol=1e-9)
         nocc1 = int(nocc1)
         nocc2 = int(nocc2)
 
         # Collect nocc for all k-points
-        nocc1 = self.calc.wfs.kd.comm.min(nocc1)
-        nocc2 = self.calc.wfs.kd.comm.max(nocc2)
+        nocc1 = self.gs.kd.comm.min(nocc1)
+        nocc2 = self.gs.kd.comm.max(nocc2)
 
         # Sum over band distribution
-        nocc1 = self.calc.wfs.bd.comm.sum(nocc1)
-        nocc2 = self.calc.wfs.bd.comm.sum(nocc2)
+        nocc1 = self.gs.bd.comm.sum(nocc1)
+        nocc2 = self.gs.bd.comm.sum(nocc2)
 
         self.nocc1 = int(nocc1)
         self.nocc2 = int(nocc2)
-        print('Number of completely filled bands:', self.nocc1, file=self.fd)
-        print('Number of partially filled bands:', self.nocc2, file=self.fd)
-        print('Total number of bands:', self.calc.wfs.bd.nbands,
-              file=self.fd)
+        self.context.print('Number of completely filled bands:',
+                           self.nocc1, flush=False)
+        self.context.print('Number of partially filled bands:',
+                           self.nocc2, flush=False)
+        self.context.print('Total number of bands:', self.gs.bd.nbands)
 
     @property
     def pd0(self):
         """Get a PWDescriptor that includes all k-points"""
         if self._pd0 is None:
             from gpaw.pw.descriptor import PWDescriptor
-            wfs = self.calc.wfs
-            assert wfs.gd.comm.size == 1
+            gs = self.gs
+            assert gs.gd.comm.size == 1
 
-            kd0 = wfs.kd.copy()
-            pd, gd = wfs.pd, wfs.gd
+            kd0 = gs.kd.copy()
+            pd, gd = gs.pd, gs.gd
 
-            # Extract stuff from self.calc.wfs.pd
+            # Extract stuff from pd
             ecut, dtype = pd.ecut, pd.dtype
             fftwflags, gammacentered = pd.fftwflags, pd.gammacentered
 
@@ -319,9 +311,9 @@ class KohnShamPair:
             data = (K, eps_myt, f_myt, ut_mytR, P, shift_c)
 
         # Wait for communication to finish
-        with self.timer('Waiting to complete mpi.send'):
+        with self.context.timer('Waiting to complete mpi.send'):
             while self.srequests:
-                self.world.wait(self.srequests.pop(0))
+                self.context.world.wait(self.srequests.pop(0))
 
         return data
 
@@ -371,7 +363,7 @@ class KohnShamPair:
         For the serial communicator, all processes can access all data,
         and resultantly, there is no need to send any data.
         """
-        wfs = self.calc.wfs
+        world = self.context.world
         get_extraction_info = self.create_get_extraction_info()
 
         # Kpoint data
@@ -382,11 +374,11 @@ class KohnShamPair:
         myn_eueh = []
 
         # Data distribution protocol
-        nrh_r2 = np.zeros(self.world.size, dtype=int)
-        ik_r2 = [None for _ in range(self.world.size)]
+        nrh_r2 = np.zeros(world.size, dtype=int)
+        ik_r2 = [None for _ in range(world.size)]
         eh_eur2reh = []
         rh_eur2reh = []
-        h_r1rh = [list([]) for _ in range(self.world.size)]
+        h_r1rh = [list([]) for _ in range(world.size)]
 
         # h to t index mapping
         myt_myt = np.arange(self.tb - self.ta)
@@ -400,10 +392,10 @@ class KohnShamPair:
         nh = 0
         for p, k_c in enumerate(k_pc):  # p indicates the receiving process
             K = self.kptfinder.find(k_c)
-            ik = wfs.kd.bz2ibz_k[K]
+            ik = self.gs.kd.bz2ibz_k[K]
             for r2 in range(p * self.transitionblockscomm.size,
                             min((p + 1) * self.transitionblockscomm.size,
-                                self.world.size)):
+                                world.size)):
                 ik_r2[r2] = ik
 
             if p == self.kptblockcomm.rank:
@@ -421,18 +413,18 @@ class KohnShamPair:
                 n_ct = n_t[thiss_t]
                 r2_ct = r2_t[t_ct]
 
-                # Find out where data is in wfs
-                u = ik * wfs.nspins + s
+                # Find out where data is in GS
+                u = ik * self.gs.nspins + s
                 myu, r1_ct, myn_ct = get_extraction_info(u, n_ct, r2_ct)
 
                 # If the process is extracting or receiving data,
                 # figure out how to do so
-                if self.world.rank in np.append(r1_ct, r2_ct):
+                if world.rank in np.append(r1_ct, r2_ct):
                     # Does this process have anything to send?
-                    thisr1_ct = r1_ct == self.world.rank
+                    thisr1_ct = r1_ct == world.rank
                     if np.any(thisr1_ct):
-                        eh_r2reh = [list([]) for _ in range(self.world.size)]
-                        rh_r2reh = [list([]) for _ in range(self.world.size)]
+                        eh_r2reh = [list([]) for _ in range(world.size)]
+                        rh_r2reh = [list([]) for _ in range(world.size)]
                         # Find composite indeces h = (n, s)
                         n_et = n_ct[thisr1_ct]
                         n_eh = np.unique(n_et)
@@ -460,7 +452,7 @@ class KohnShamPair:
                         rh_eur2reh.append(rh_r2reh)
 
                     # Does this process have anything to receive?
-                    thisr2_ct = r2_ct == self.world.rank
+                    thisr2_ct = r2_ct == world.rank
                     if np.any(thisr2_ct):
                         # Find unique composite indeces h = (n, s)
                         n_rt = n_ct[thisr2_ct]
@@ -508,18 +500,18 @@ class KohnShamPair:
 
     def get_parallel_extraction_info(self, u, n_ct, *unused):
         """Figure out where to extract the data from in the gs calc"""
-        wfs = self.calc.wfs
-        # Find out where data is in wfs
-        k, s = divmod(u, wfs.nspins)
-        kptrank, q = wfs.kd.who_has(k)
-        myu = q * wfs.nspins + s
+        gs = self.gs
+        # Find out where data is in GS
+        k, s = divmod(u, gs.nspins)
+        kptrank, q = gs.kd.who_has(k)
+        myu = q * gs.nspins + s
         r1_ct, myn_ct = [], []
         for n in n_ct:
-            bandrank, myn = wfs.bd.who_has(n)
+            bandrank, myn = gs.bd.who_has(n)
             # XXX this will fail when using non-standard nesting
             # of communicators.
-            r1 = (kptrank * wfs.gd.comm.size * wfs.bd.comm.size
-                  + bandrank * wfs.gd.comm.size)
+            r1 = (kptrank * gs.gd.comm.size * gs.bd.comm.size
+                  + bandrank * gs.gd.comm.size)
             r1_ct.append(r1)
             myn_ct.append(myn)
 
@@ -528,8 +520,7 @@ class KohnShamPair:
     @timer('Allocate transfer arrays')
     def allocate_transfer_arrays(self, data, nrh_r2, ik_r2, h_r1rh):
         """Allocate arrays for intermediate storage of data."""
-        wfs = self.calc.wfs
-        kptex = wfs.kpt_u[0]
+        kptex = self.gs.kpt_u[0]
         Pshape = kptex.projections.array.shape
         Pdtype = kptex.projections.matrix.dtype
         psitdtype = kptex.psit.array.dtype
@@ -581,8 +572,7 @@ class KohnShamPair:
 
     @timer('Extracting eps, f and P_I from wfs')
     def extract_wfs_data(self, myu, myn_eh):
-        wfs = self.calc.wfs
-        kpt = wfs.kpt_u[myu]
+        kpt = self.gs.kpt_u[myu]
         # Get eig and occ
         eps_eh, f_eh = kpt.eps_n[myn_eh], kpt.f_n[myn_eh] / kpt.weight
 
@@ -597,8 +587,7 @@ class KohnShamPair:
                           eh_r2reh, rh_r2reh, psit_r2rhG):
         """Add the plane wave coefficients of the smooth part of
         the wave function to the psit_r2rtG arrays."""
-        wfs = self.calc.wfs
-        kpt = wfs.kpt_u[myu]
+        kpt = self.gs.kpt_u[myu]
 
         for eh_reh, rh_reh, psit_rhG in zip(eh_r2reh, rh_r2reh, psit_r2rhG):
             if eh_reh:
@@ -609,8 +598,9 @@ class KohnShamPair:
     def distribute_extracted_data(self, eps_r1rh, f_r1rh, P_r1rhI, psit_r1rhG,
                                   eps_r2rh, f_r2rh, P_r2rhI, psit_r2rhG):
         """Send the extracted data to appropriate destinations"""
+        world = self.context.world
         # Store the data extracted by the process itself
-        rank = self.world.rank
+        rank = world.rank
         # Check if there is actually some data to store
         if eps_r2rh[rank] is not None:
             eps_r1rh[rank] = eps_r2rh[rank]
@@ -625,14 +615,10 @@ class KohnShamPair:
                                                        P_r1rhI, psit_r1rhG)):
                 # Check if there is any data to receive
                 if r1 != rank and eps_rh is not None:
-                    rreq1 = self.world.receive(eps_rh, r1,
-                                               tag=201, block=False)
-                    rreq2 = self.world.receive(f_rh, r1,
-                                               tag=202, block=False)
-                    rreq3 = self.world.receive(P_rhI, r1,
-                                               tag=203, block=False)
-                    rreq4 = self.world.receive(psit_rhG, r1,
-                                               tag=204, block=False)
+                    rreq1 = world.receive(eps_rh, r1, tag=201, block=False)
+                    rreq2 = world.receive(f_rh, r1, tag=202, block=False)
+                    rreq3 = world.receive(P_rhI, r1, tag=203, block=False)
+                    rreq4 = world.receive(psit_rhG, r1, tag=204, block=False)
                     self.rrequests += [rreq1, rreq2, rreq3, rreq4]
 
         # Send data
@@ -641,15 +627,15 @@ class KohnShamPair:
                                                    P_r2rhI, psit_r2rhG)):
             # Check if there is any data to send
             if r2 != rank and eps_rh is not None:
-                sreq1 = self.world.send(eps_rh, r2, tag=201, block=False)
-                sreq2 = self.world.send(f_rh, r2, tag=202, block=False)
-                sreq3 = self.world.send(P_rhI, r2, tag=203, block=False)
-                sreq4 = self.world.send(psit_rhG, r2, tag=204, block=False)
+                sreq1 = world.send(eps_rh, r2, tag=201, block=False)
+                sreq2 = world.send(f_rh, r2, tag=202, block=False)
+                sreq3 = world.send(P_rhI, r2, tag=203, block=False)
+                sreq4 = world.send(psit_rhG, r2, tag=204, block=False)
                 self.srequests += [sreq1, sreq2, sreq3, sreq4]
 
-        with self.timer('Waiting to complete mpi.receive'):
+        with self.context.timer('Waiting to complete mpi.receive'):
             while self.rrequests:
-                self.world.wait(self.rrequests.pop(0))
+                world.wait(self.rrequests.pop(0))
 
     @timer('Collecting kptdata')
     def collect_kptdata(self, data, h_r1rh,
@@ -662,7 +648,6 @@ class KohnShamPair:
         K, k_c, ik = data
 
         # Allocate data arrays
-        wfs = self.calc.wfs
         maxh_r1 = [max(h_rh) for h_rh in h_r1rh if h_rh]
         if maxh_r1:
             nh = max(maxh_r1) + 1
@@ -671,9 +656,10 @@ class KohnShamPair:
             nh = 1
         eps_h = np.empty(nh)
         f_h = np.empty(nh)
-        Ph = wfs.kpt_u[0].projections.new(nbands=nh, bcomm=None)
-        psit_hG = np.empty((nh, self.pd0.ng_q[ik]),
-                           dtype=wfs.kpt_u[0].psit.array.dtype)
+        kpt0 = self.gs.kpt_u[0]
+        Ph = kpt0.projections.new(nbands=nh, bcomm=None)
+        assert self.gs.dtype == kpt0.psit.array.dtype
+        psit_hG = np.empty((nh, self.pd0.ng_q[ik]), self.gs.dtype)
 
         # Store extracted data in the arrays
         for (h_rh, eps_rh,
@@ -691,13 +677,13 @@ class KohnShamPair:
     def unfold_arrays(self, eps_h, f_h, Ph, ut_hR, h_myt, myt_myt):
         """Create transition data arrays from the composite h = (n, s) index"""
 
-        wfs = self.calc.wfs
+        gs = self.gs
         # Allocate data arrays for the k-point
         mynt = self.mynt
         eps_myt = np.empty(mynt)
         f_myt = np.empty(mynt)
-        P = wfs.kpt_u[0].projections.new(nbands=mynt, bcomm=None)
-        ut_mytR = wfs.gd.empty(self.mynt, wfs.dtype)
+        P = gs.kpt_u[0].projections.new(nbands=mynt, bcomm=None)
+        ut_mytR = gs.gd.empty(self.mynt, gs.dtype)
 
         # Unfold k-point data
         eps_myt[myt_myt] = eps_h[h_myt]
@@ -710,14 +696,15 @@ class KohnShamPair:
     @timer('Extracting data from the ground state calculator object')
     def serial_extract_kptdata(self, k_pc, n_t, s_t):
         # All processes can access all data. Each process extracts it own data.
-        wfs = self.calc.wfs
+        gs = self.gs
+        kpt_u = gs.kpt_u
 
         # Do data extraction for the processes, which have data to extract
         if self.kptblockcomm.rank in range(len(k_pc)):
             # Find k-point indeces
             k_c = k_pc[self.kptblockcomm.rank]
             K = self.kptfinder.find(k_c)
-            ik = wfs.kd.bz2ibz_k[K]
+            ik = gs.kd.bz2ibz_k[K]
             # Construct symmetry operators
             (_, T, a_a, U_aii, shift_c,
              time_reversal) = self.construct_symmetry_operators(K, k_c=k_c)
@@ -728,24 +715,24 @@ class KohnShamPair:
             # Allocate transfer arrays
             eps_h = np.empty(nh)
             f_h = np.empty(nh)
-            Ph = wfs.kpt_u[0].projections.new(nbands=nh, bcomm=None)
-            ut_hR = wfs.gd.empty(nh, wfs.dtype)
+            Ph = kpt_u[0].projections.new(nbands=nh, bcomm=None)
+            ut_hR = gs.gd.empty(nh, gs.dtype)
 
             # Extract data from the ground state
             for myu, myn_rn, h_rn in zip(myu_eu, myn_eurn, h_eurn):
-                kpt = wfs.kpt_u[myu]
-                with self.timer('Extracting eps, f and P_I from wfs'):
+                kpt = kpt_u[myu]
+                with self.context.timer('Extracting eps, f and P_I from GS'):
                     eps_h[h_rn] = kpt.eps_n[myn_rn]
                     f_h[h_rn] = kpt.f_n[myn_rn] / kpt.weight
                     Ph.array[h_rn] = kpt.projections.array[myn_rn]
 
-                with self.timer('Extracting, fourier transforming and '
-                                'symmetrizing wave function'):
+                with self.context.timer('Extracting, fourier transforming and '
+                                        'symmetrizing wave function'):
                     for myn, h in zip(myn_rn, h_rn):
-                        ut_hR[h] = T(wfs.pd.ifft(kpt.psit_nG[myn], kpt.q))
+                        ut_hR[h] = T(gs.pd.ifft(kpt.psit_nG[myn], kpt.q))
 
             # Symmetrize projections
-            with self.timer('Apply symmetry operations'):
+            with self.context.timer('Apply symmetry operations'):
                 P_ahi = []
                 for a1, U_ii in zip(a_a, U_aii):
                     P_hi = np.ascontiguousarray(Ph[a1])
@@ -772,7 +759,6 @@ class KohnShamPair:
         For the serial communicator, all processes can access all data,
         and resultantly, there is no need to send any data.
         """
-        wfs = self.calc.wfs
 
         # Only extract the transitions handled by the process itself
         myt_myt = np.arange(self.tb - self.ta)
@@ -802,8 +788,8 @@ class KohnShamPair:
                 thish_myt = np.logical_and(thisn_myt, thiss_myt)
                 h_myt[thish_myt] = h
 
-            # Find out where data is in wfs
-            u = ik * wfs.nspins + s
+            # Find out where data is
+            u = ik * self.gs.nspins + s
             # The process has access to all data
             myu = u
             myn_rn = n_rn
@@ -821,10 +807,11 @@ class KohnShamPair:
          time_reversal) = self.construct_symmetry_operators(K, k_c=k_c)
 
         # Symmetrize wave functions
-        wfs = self.calc.wfs
-        ik = wfs.kd.bz2ibz_k[K]
-        ut_hR = wfs.gd.empty(len(psit_hG), wfs.dtype)
-        with self.timer('Fourier transform and symmetrize wave functions'):
+        gs = self.gs
+        ik = gs.kd.bz2ibz_k[K]
+        ut_hR = gs.gd.empty(len(psit_hG), gs.dtype)
+        with self.context.timer('Fourier transform and symmetrize '
+                                'wave functions'):
             for h, psit_G in enumerate(psit_hG):
                 ut_hR[h] = T(self.pd0.ifft(psit_G, ik))
 
@@ -849,29 +836,7 @@ class KohnShamPair:
     def construct_symmetry_operators(self, K, k_c=None):
         from gpaw.response.symmetry_ops import construct_symmetry_operators
         return construct_symmetry_operators(
-            self, K, k_c, apply_strange_shift=True, spos_ac=self.calc.spos_ac)
-
-
-def get_calc(gs, fd=None, timer=None):
-    """Get ground state calculation object."""
-    if isinstance(gs, GPAW):
-        return gs
-    else:
-        if timer is None:
-            def timer(*unused):
-                def __enter__(self):
-                    pass
-
-                def __exit__(self):
-                    pass
-
-        with timer('Read ground state'):
-            assert Path(gs).is_file()
-            if fd is not None:
-                print('Reading ground state calculation:\n  %s' % gs,
-                      file=fd)
-            with disable_dry_run():
-                return GPAW(gs, txt=None, communicator=mpi.serial_comm)
+            self.gs, K, k_c, apply_strange_shift=True)
 
 
 class PairMatrixElement:
@@ -883,9 +848,8 @@ class PairMatrixElement:
         ----------
         kslrf : KohnShamLinearResponseFunction instance
         """
-        self.calc = kspair.calc
-        self.fd = kspair.fd
-        self.timer = kspair.timer
+        self.gs = kspair.gs
+        self.context = kspair.context
         self.transitionblockscomm = kspair.transitionblockscomm
 
     def initialize(self, *args, **kwargs):
@@ -908,7 +872,7 @@ class PlaneWavePairDensity(PairMatrixElement):
         PairMatrixElement.__init__(self, kspair)
 
         # Save PAW correction for all calls with same q_c
-        self.Q_aGii = None
+        self.pawcorr = None
         self.currentq_c = None
 
     def initialize(self, pd):
@@ -919,40 +883,20 @@ class PlaneWavePairDensity(PairMatrixElement):
     def initialize_paw_corrections(self, pd):
         """Initialize PAW corrections, if not done already, for the given q"""
         q_c = pd.kd.bzk_kc[0]
-        if self.Q_aGii is None or not np.allclose(q_c - self.currentq_c, 0.):
-            self.Q_aGii = self._initialize_paw_corrections(pd)
+        if self.pawcorr is None or not np.allclose(q_c - self.currentq_c, 0.):
+            self.pawcorr = self._initialize_paw_corrections(pd)
             self.currentq_c = q_c
 
     def _initialize_paw_corrections(self, pd):
-        wfs = self.calc.wfs
-        spos_ac = self.calc.spos_ac
-        G_Gv = pd.get_reciprocal_vectors()
-
-        pos_av = np.dot(spos_ac, pd.gd.cell_cv)
-
-        # Collect integrals for all species:
-        Q_xGii = {}
-        for id, atomdata in wfs.setups.setups.items():
-            Q_Gii = two_phi_planewave_integrals(G_Gv, atomdata)
-            ni = atomdata.ni
-            Q_Gii.shape = (-1, ni, ni)
-
-            Q_xGii[id] = Q_Gii
-
-        Q_aGii = []
-        for a, atomdata in enumerate(wfs.setups):
-            id = wfs.setups.id_a[a]
-            Q_Gii = Q_xGii[id]
-            x_G = np.exp(-1j * np.dot(G_Gv, pos_av[a]))
-            Q_aGii.append(x_G[:, np.newaxis, np.newaxis] * Q_Gii)
-
-        return Q_aGii
+        setups = self.gs.setups
+        spos_ac = self.gs.spos_ac
+        return get_pair_density_paw_corrections(setups, pd, spos_ac)
 
     @timer('Calculate pair density')
     def __call__(self, kskptpair, pd):
         """Calculate the pair densities for all transitions t of the (k,k+q)
         k-point pair:
-        
+
         n_kt(G+q) = <nks| e^-i(G+q)r |n'k+qs'>_V0
 
                     /
@@ -966,7 +910,7 @@ class PlaneWavePairDensity(PairMatrixElement):
         n_mytG = pd.empty(mynt)
 
         # Calculate smooth part of the pair densities:
-        with self.timer('Calculate smooth part'):
+        with self.context.timer('Calculate smooth part'):
             ut1cc_mytR = kskptpair.kpt1.ut_tR.conj()
             n_mytR = ut1cc_mytR * kskptpair.kpt2.ut_tR
             # Unvectorized
@@ -974,7 +918,7 @@ class PlaneWavePairDensity(PairMatrixElement):
                 n_mytG[myt] = pd.fft(n_mytR[myt], 0, Q_G) * pd.gd.dv
 
         # Calculate PAW corrections with numpy
-        with self.timer('PAW corrections'):
+        with self.context.timer('PAW corrections'):
             P1 = kskptpair.kpt1.projections
             P2 = kskptpair.kpt2.projections
             for (Q_Gii, (a1, P1_myti),
@@ -992,23 +936,17 @@ class PlaneWavePairDensity(PairMatrixElement):
         """Make sure PAW correction has been initialized properly
         and return projectors"""
         self.initialize_paw_corrections(pd)
-        return self.Q_aGii
+        return self.pawcorr.Q_aGii
 
     @timer('Get G-vector indices')
     def get_fft_indices(self, kskptpair, pd):
         """Get indices for G-vectors inside cutoff sphere."""
+        from gpaw.response.pair import fft_indices
+
         kpt1 = kskptpair.kpt1
         kpt2 = kskptpair.kpt2
-        kd = self.calc.wfs.kd
+        kd = self.gs.kd
         q_c = pd.kd.bzk_kc[0]
 
-        N_G = pd.Q_qG[0]
-
-        shift_c = kpt1.shift_c - kpt2.shift_c
-        shift_c += (q_c - kd.bzk_kc[kpt2.K]
-                    + kd.bzk_kc[kpt1.K]).round().astype(int)
-        if shift_c.any():
-            n_cG = np.unravel_index(N_G, pd.gd.N_c)
-            n_cG = [n_G + shift for n_G, shift in zip(n_cG, shift_c)]
-            N_G = np.ravel_multi_index(n_cG, pd.gd.N_c, 'wrap')
-        return N_G
+        return fft_indices(kd=kd, K1=kpt1.K, K2=kpt2.K, q_c=q_c, pd=pd,
+                           shift0_c=kpt1.shift_c - kpt2.shift_c)

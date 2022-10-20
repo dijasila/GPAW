@@ -4,7 +4,7 @@ from time import time
 
 import ase.io.ulm as ulm
 import numpy as np
-from ase.units import Bohr, Ha
+from ase.units import Ha
 from ase.utils.timing import timer
 from scipy.special import p_roots, sici
 
@@ -15,6 +15,7 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.pw.descriptor import PWDescriptor
 from gpaw.utilities.blas import axpy, gemmdot
 from gpaw.xc.rpa import RPACorrelation
+from gpaw.heg import HEG
 
 
 class FXCCorrelation(RPACorrelation):
@@ -62,7 +63,7 @@ class FXCCorrelation(RPACorrelation):
         self.xc = xc
         self.density_cut = density_cut
         if unit_cells is None:
-            unit_cells = self.calc.wfs.kd.N_c
+            unit_cells = self.gs.kd.N_c
         self.unit_cells = unit_cells
         self.range_rc = range_rc  # Range separation parameter in Bohr
         self.av_scheme = av_scheme  # Either 'density' or 'wavevector'
@@ -72,7 +73,7 @@ class FXCCorrelation(RPACorrelation):
 
         if tag is None:
 
-            tag = self.calc.atoms.get_chemical_formula(mode='hill')
+            tag = self.gs.atoms.get_chemical_formula(mode='hill')
 
             if self.av_scheme is not None:
 
@@ -102,6 +103,15 @@ class FXCCorrelation(RPACorrelation):
                                       (self.tag, self.xc, self.ecut_max, iq)):
                     q_empty = iq
 
+            kernelkwargs = dict(
+                gs=self.gs,
+                xc=self.xc,
+                ibzq_qc=self.ibzq_qc,
+                fd=self.fd,
+                ecut=self.ecut_max,
+                tag=self.tag,
+                timer=self.timer)
+
             if q_empty is not None:
 
                 if self.av_scheme == 'wavevector':
@@ -111,31 +121,22 @@ class FXCCorrelation(RPACorrelation):
                           file=self.fd)
                     print(file=self.fd)
 
+                    kernelkwargs.update(l_l=self.l_l,
+                                        q_empty=q_empty,
+                                        omega_w=self.omega_w,
+                                        Eg=self.Eg)
+
                     if self.linear_kernel:
-                        kernel = KernelWave(self.calc, self.xc, self.ibzq_qc,
-                                            self.fd, None, q_empty, None,
-                                            self.Eg, self.ecut_max, self.tag,
-                                            self.timer)
-
+                        kernelkwargs.update(l_l=None, omega_w=None)
                     elif not self.dyn_kernel:
-                        kernel = KernelWave(self.calc, self.xc, self.ibzq_qc,
-                                            self.fd, self.l_l, q_empty, None,
-                                            self.Eg, self.ecut_max, self.tag,
-                                            self.timer)
+                        kernelkwargs.update(omega_w=None)
 
-                    else:
-                        kernel = KernelWave(self.calc, self.xc, self.ibzq_qc,
-                                            self.fd, self.l_l, q_empty,
-                                            self.omega_w, self.Eg,
-                                            self.ecut_max, self.tag,
-                                            self.timer)
+                    kernel = KernelWave(**kernelkwargs)
 
                 else:
-
-                    kernel = KernelDens(self.calc, self.xc, self.ibzq_qc,
-                                        self.fd, self.unit_cells,
-                                        self.density_cut, self.ecut_max,
-                                        self.tag, self.timer)
+                    kernel = KernelDens(**kernelkwargs,
+                                        unit_cells=self.unit_cells,
+                                        density_cut=self.density_cut)
 
                 kernel.calculate_fhxc()
                 del kernel
@@ -146,13 +147,13 @@ class FXCCorrelation(RPACorrelation):
 
         if self.xc in ('range_RPA', 'range_rALDA'):
 
-            shortrange = range_separated(self.calc, self.fd, self.omega_w,
+            shortrange = range_separated(self.gs, self.fd, self.omega_w,
                                          self.weight_w, self.l_l,
                                          self.weight_l, self.range_rc, self.xc)
 
             self.shortrange = shortrange.calculate()
 
-        if self.calc.wfs.nspins == 1:
+        if self.gs.nspins == 1:
             spin = False
         else:
             spin = True
@@ -162,56 +163,39 @@ class FXCCorrelation(RPACorrelation):
         return e
 
     @timer('Chi0(q)')
-    def calculate_q(self, chi0, pd, chi0_swGG, chi0_swxvG, chi0_swvv, m1, m2,
-                    cut_G, A2_x):
-        if chi0_swxvG is None:
-            chi0_swxvG = range(2)  # Not used
-            chi0_swvv = range(2)  # Not used
-
-        chi0._calculate(pd,
-                        chi0_swGG[0],
-                        chi0_swxvG[0],
-                        chi0_swvv[0],
-                        m1,
-                        m2, [0],
-                        extend_head=False)
-        if len(chi0_swGG) == 2:
-            chi0._calculate(pd,
-                            chi0_swGG[1],
-                            chi0_swxvG[1],
-                            chi0_swvv[1],
-                            m1,
-                            m2, [1],
-                            extend_head=False)
+    def calculate_q(self, chi0calc, chi0_s, m1, m2,
+                    cut_G):
+        for s, chi0 in enumerate(chi0_s):
+            chi0calc.update_chi0(chi0,
+                                 m1,
+                                 m2, [s])
         print('E_c(q) = ', end='', file=self.fd)
 
+        pd = chi0.pd
+        nw = chi0.nw
+        mynw = nw // self.nblocks
+        assert nw % self.nblocks == 0
+        nspins = len(chi0_s)
+        nG = pd.ngmax
+        chi0_swGG = np.empty((nspins, mynw, nG, nG), complex)
+        for chi0_wGG, chi0 in zip(chi0_swGG, chi0_s):
+            chi0_wGG[:] = chi0.redistribute()
         if self.nblocks > 1:
-            if len(chi0_swGG) == 2:
-                chi0_0wGG = chi0.redistribute(chi0_swGG[0], A2_x)
-                nredist = np.product(chi0_0wGG.shape)
-                chi0.redistribute(chi0_swGG[1], A2_x[nredist:])
-                chi0_swGG = A2_x[:2 * nredist].reshape((2, ) + chi0_0wGG.shape)
-                chi0_swGG = np.swapaxes(chi0_swGG, 2, 3)
-            else:
-                chi0_0wGG = chi0.redistribute(chi0_swGG[0], A2_x)
-                nredist = np.product(chi0_0wGG.shape)
-                chi0_swGG = A2_x[:1 * nredist].reshape((1, ) + chi0_0wGG.shape)
-                chi0_swGG = np.swapaxes(chi0_swGG, 2, 3)
+            chi0_swGG = np.swapaxes(chi0_swGG, 2, 3)
 
         if not pd.kd.gamma:
             e = self.calculate_energy(pd, chi0_swGG, cut_G)
             print('%.3f eV' % (e * Ha), file=self.fd)
             self.fd.flush()
         else:
-            nw = len(self.omega_w)
-            mynw = nw // self.nblocks
             w1 = self.blockcomm.rank * mynw
             w2 = w1 + mynw
             e = 0.0
             for v in range(3):
-                chi0_swGG[:, :, 0] = chi0_swxvG[:, w1:w2, 0, v]
-                chi0_swGG[:, :, :, 0] = chi0_swxvG[:, w1:w2, 1, v]
-                chi0_swGG[:, :, 0, 0] = chi0_swvv[:, w1:w2, v, v]
+                for chi0_wGG, chi0 in zip(chi0_swGG, chi0_s):
+                    chi0_wGG[:, 0] = chi0.chi0_wxvG[w1:w2, 0, v]
+                    chi0_wGG[:, :, 0] = chi0.chi0_wxvG[w1:w2, 1, v]
+                    chi0_wGG[:, 0, 0] = chi0.chi0_wvv[w1:w2, v, v]
                 ev = self.calculate_energy(pd, chi0_swGG, cut_G)
                 e += ev
                 print('%.3f' % (ev * Ha), end='', file=self.fd)
@@ -475,16 +459,16 @@ class FXCCorrelation(RPACorrelation):
 
 
 class KernelWave:
-    def __init__(self, calc, xc, ibzq_qc, fd, l_l, q_empty, omega_w, Eg, ecut,
+    def __init__(self, gs, xc, ibzq_qc, fd, l_l, q_empty, omega_w, Eg, ecut,
                  tag, timer):
 
-        self.calc = calc
-        self.gd = calc.density.gd
+        self.gs = gs
+        self.gd = gs.density.gd
         self.xc = xc
         self.ibzq_qc = ibzq_qc
         self.fd = fd
         self.l_l = l_l
-        self.ns = calc.wfs.nspins
+        self.ns = self.gs.nspins
         self.q_empty = q_empty
         self.omega_w = omega_w
         self.Eg = Eg
@@ -496,9 +480,9 @@ class KernelWave:
             self.l_l = [1.0]
 
         # Density grid
-        self.n_g = calc.get_all_electron_density(gridrefinement=2)
-        self.n_g = self.n_g.flatten() * Bohr**3
-        # Density now in units electrons/cubic Bohr
+        n_sg, finegd = self.gs.all_electron_density(gridrefinement=2)
+        self.n_g = n_sg.sum(axis=0).flatten()
+
         #  For atoms with large vacuum regions
         #  this apparently can take negative values!
         mindens = np.amin(self.n_g)
@@ -509,7 +493,7 @@ class KernelWave:
             print('These will be reset to 1E-12 elec/bohr^3)', file=self.fd)
             self.n_g[np.where(self.n_g < 0.0)] = 1.0E-12
 
-        r_g = self.gd.refine().get_grid_point_coordinates()  # already in Bohr
+        r_g = finegd.get_grid_point_coordinates()
         self.x_g = 1.0 * r_g[0].flatten()
         self.y_g = 1.0 * r_g[1].flatten()
         self.z_g = 1.0 * r_g[2].flatten()
@@ -527,8 +511,7 @@ class KernelWave:
 
         # Enhancement factor for GGA
         if self.xc == 'rAPBE' or self.xc == 'rAPBEns':
-            nf_g = calc.get_all_electron_density(gridrefinement=4)
-            nf_g *= Bohr**3
+            nf_g = self.gs.hacky_all_electron_density(gridrefinement=4)
             gdf = self.gd.refine().refine()
             grad_v = [Gradient(gdf, v, n=1).apply for v in range(3)]
             gradnf_vg = gdf.empty(3)
@@ -810,12 +793,13 @@ class KernelWave:
             scaled_kernel = l * self.get_spinfHxc_q(scaled_rs, scaled_q,
                                                     Gphase, s2_g)
 
-        return (scaled_kernel)
+        return scaled_kernel
 
     def get_fHxc_q(self, rs, q, Gphase, s2_g, w, scaled_Eg):
         # Construct fHxc(q,G,:), divided by scaled Coulomb interaction
 
-        qF = (9.0 * np.pi / 4.0)**(1.0 / 3.0) * 1.0 / rs
+        heg = HEG(rs)
+        qF = heg.qF
 
         if self.xc in ('rALDA', 'rALDAns', 'range_rALDA'):
             # rALDA (exchange only) kernel
@@ -924,11 +908,10 @@ class KernelWave:
         # Integrate over r with phase
         fHxc_Gr *= Gphase
         fHxc_GG = np.sum(fHxc_Gr, 1) / self.gridsize
-        return (fHxc_GG)
+        return fHxc_GG
 
     def get_spinfHxc_q(self, rs, q, Gphase, s2_g):
-
-        qF = (9.0 * np.pi / 4.0)**(1.0 / 3.0) * 1.0 / rs
+        qF = HEG(rs).qF
 
         if self.xc == 'rALDA':
 
@@ -951,10 +934,9 @@ class KernelWave:
 
         fspinHxc_Gr *= Gphase
         fspinHxc_GG = np.sum(fspinHxc_Gr, 1) / self.gridsize
-        return (fspinHxc_GG)
+        return fspinHxc_GG
 
     def get_PBE_fxc(self, pbe_rho, pbe_s2_g):
-
         pbe_kappa = 0.804
         pbe_mu = 0.2195149727645171
 
@@ -970,8 +952,7 @@ class KernelWave:
         f_g = 1.0 / 3.0 * v_g / pbe_rho
 
         pbe_f_g = f_g * F_g + 2.0 * v_g * Fn_g + e_g * Fnn_g
-
-        return (pbe_f_g)
+        return pbe_f_g
 
     def get_heg_A(self, rs):
         # Returns the A coefficient, where the
@@ -991,7 +972,7 @@ class KernelWave:
         heg_A += (1.0 / 27.0 * rs**2.0 * (9.0 * np.pi / 4.0)**(2.0 / 3.0) *
                   (2 * A_dec - rs * A_d2ec))
 
-        return (heg_A)
+        return heg_A
 
     def get_heg_B(self, rs):
         # Returns the B coefficient, where the
@@ -1016,7 +997,7 @@ class KernelWave:
             mcs_denom += mcs_coeff * mcs_xs**mcs_j
 
         heg_B = mcs_num / mcs_denom
-        return (heg_B)
+        return heg_B
 
     def get_heg_C(self, rs):
         # Returns the C coefficient, where the
@@ -1030,7 +1011,7 @@ class KernelWave:
         heg_C = ((-1.0) * np.pi**(2.0 / 3.0) * (1.0 / 18.0)**(1.0 / 3.0) *
                  (rs * C_ec + rs**2.0 * C_dec))
 
-        return (heg_C)
+        return heg_C
 
     def get_heg_D(self, rs):
         # Returns a 'D' coefficient, where the
@@ -1045,7 +1026,7 @@ class KernelWave:
         # Correlation contribution
         heg_D += ((9.0 * np.pi / 4.0)**(2.0 / 3.0) * rs / 3.0 *
                   (22.0 / 15.0 * D_ec + 26.0 / 15.0 * rs * D_dec))
-        return (heg_D)
+        return heg_D
 
     def get_pw_lda(self, rs):
         # Returns LDA correlation energy and its first and second
@@ -1090,14 +1071,15 @@ class KernelWave:
                                      (pw_dlogarg**2.0) / (pw_logarg**2.0)))
         pw_d2ec += (-2.0 * pw_A * pw_alp) * pw_dlogarg / pw_logarg
 
-        return ((pw_ec, pw_dec, pw_d2ec))
+        return pw_ec, pw_dec, pw_d2ec
 
 
 class range_separated:
-    def __init__(self, calc, fd, frequencies, freqweights, l_l, lweights,
+    def __init__(self, gs, fd, frequencies, freqweights, l_l, lweights,
                  range_rc, xc):
 
-        self.calc = calc
+        self.gs = gs
+
         self.fd = fd
         self.frequencies = frequencies
         self.freqweights = freqweights
@@ -1114,9 +1096,9 @@ class range_separated:
                 (self.range_rc),
                 file=self.fd)
 
-        nval_g = calc.get_all_electron_density(
-            gridrefinement=4, skip_core=True).flatten() * Bohr**3
-        self.dv = self.calc.density.gd.dv / 64.0  # 64 = gridrefinement^3
+        nval_g = self.gs.hacky_all_electron_density(
+            gridrefinement=4, skip_core=True).flatten()
+        self.dv = self.gs.density.gd.dv / 64.0  # 64 = gridrefinement^3
 
         density_cut = 3.0 / (4.0 * np.pi * self.cutoff_rs**3.0)
         if (nval_g < 0.0).any():
@@ -1132,7 +1114,8 @@ class range_separated:
                   file=self.fd)
 
         densitysum = np.sum(nval_g * self.dv)
-        valence = self.calc.wfs.setups.nvalence
+        # XXX probably wrong for charged systems
+        valence = self.gs.setups.nvalence
 
         print('Density integrates to %s electrons' % (densitysum),
               file=self.fd)
@@ -1158,11 +1141,9 @@ class range_separated:
 
         # RPA energy minus long range correlation
         print('Short range correlation energy/unit cell = %5.4f eV \n' %
-              ((E_SR) * Ha),
+              (E_SR * Ha),
               file=self.fd)
-        e = E_SR
-
-        return (e)
+        return E_SR
 
     def generate_tables(self):
 
@@ -1176,7 +1157,7 @@ class range_separated:
         table_SR[:, 0] = rs_r
         for iR, Rs in enumerate(rs_r):
 
-            qF = (9.0 * np.pi / 4.0)**(1.0 / 3.0) * 1.0 / Rs
+            qF = HEG(Rs).qF
 
             q_k = np.arange(k_step, 10.0 * qF, k_step)
 
@@ -1215,8 +1196,7 @@ class range_separated:
         erpa_q = np.zeros(len(q))
 
         for u, freqweight in zip(self.frequencies, self.freqweights):
-
-            chi0 = self.calc_lindhard(q, u, rs)
+            chi0 = HEG(rs).lindhard_function(q, u)
 
             eff_integrand = np.log(np.ones(len(q)) - veff * chi0) + veff * chi0
             eeff_q += eff_integrand * freqweight
@@ -1232,7 +1212,7 @@ class range_separated:
         return (eeff_q, erpa_q)
 
     def rALDA_corr_hole(self, q, rs):
-        qF = (9.0 * np.pi / 4.0)**(1.0 / 3.0) * 1.0 / rs
+        qF = HEG(rs).qF
 
         veff = 4.0 * np.pi / (q * q) * ((1.0 - 0.25 * q * q /
                                          (qF * qF)) * 0.5 *
@@ -1242,9 +1222,7 @@ class range_separated:
         esr_q = np.zeros(len(q))
 
         for u, freqweight in zip(self.frequencies, self.freqweights):
-
-            chi0 = self.calc_lindhard(q, u, rs)
-
+            chi0 = HEG(rs).lindhard_function(q, u)
             esr_u = np.zeros(len(q))
 
             for l, lweight in zip(self.l_l, self.lweights):
@@ -1255,31 +1233,15 @@ class range_separated:
             esr_q += freqweight * esr_u
 
         esr_q *= 1.0 / (4.0 * np.pi**3.0) * q * q
-
-        return (esr_q)
-
-    def calc_lindhard(self, q, u, rs):
-
-        # Calculate Lindhard function at imaginary frequency u
-
-        qF = (9.0 * np.pi / 4.0)**(1.0 / 3.0) * 1.0 / rs
-
-        Q = q / 2.0 / qF
-        U = u / q / qF
-        lchi = ((Q * Q - U * U - 1.0) / 4.0 / Q * np.log(
-            (U * U + (Q + 1.0) * (Q + 1.0)) / (U * U + (Q - 1.0) * (Q - 1.0))))
-        lchi += -1.0 + U * np.arctan((1.0 + Q) / U) + U * np.arctan(
-            (1.0 - Q) / U)
-        lchi *= qF / (2.0 * np.pi * np.pi)
-        return (lchi)
+        return esr_q
 
 
 class KernelDens:
-    def __init__(self, calc, xc, ibzq_qc, fd, unit_cells, density_cut, ecut,
+    def __init__(self, gs, xc, ibzq_qc, fd, unit_cells, density_cut, ecut,
                  tag, timer):
 
-        self.calc = calc
-        self.gd = calc.density.gd
+        self.gs = gs
+        self.gd = self.gs.density.gd
         self.xc = xc
         self.ibzq_qc = ibzq_qc
         self.fd = fd
@@ -1291,12 +1253,10 @@ class KernelDens:
 
         self.A_x = -(3 / 4.) * (3 / np.pi)**(1 / 3.)
 
-        self.n_g = calc.get_all_electron_density(gridrefinement=1)
-        self.n_g *= Bohr**3
+        self.n_g = self.gs.hacky_all_electron_density(gridrefinement=1)
 
         if xc[-3:] == 'PBE':
-            nf_g = calc.get_all_electron_density(gridrefinement=2)
-            nf_g *= Bohr**3
+            nf_g = self.gs.hacky_all_electron_density(gridrefinement=2)
             gdf = self.gd.refine()
             grad_v = [Gradient(gdf, v, n=1).apply for v in range(3)]
             gradnf_vg = gdf.empty(3)
@@ -1324,9 +1284,9 @@ class KernelDens:
         ng_c = gd.N_c
         cell_cv = gd.cell_cv
         icell_cv = 2 * np.pi * np.linalg.inv(cell_cv)
-        vol = np.linalg.det(cell_cv)
+        vol = gd.volume
 
-        ns = self.calc.wfs.nspins
+        ns = self.gs.nspins
         n_g = self.n_g  # density on rough grid
 
         fx_g = ns * self.get_fxc_g(n_g)  # local exchange kernel
@@ -1360,7 +1320,7 @@ class KernelDens:
             # with more than one unit cell only the exchange kernel is
             # calculated on the grid. The bare Coulomb kernel is added
             # in PW basis and Vlocal_g only the exchange part
-            dv = self.calc.density.gd.dv
+            dv = self.gs.density.gd.dv
             gc = (3 * dv / 4 / np.pi)**(1 / 3.)
             Vlocal_g -= 2 * np.pi * gc**2 / dv
             print('    Lattice point sampling: ' + '(%s x %s x %s)^2 ' %
@@ -1519,12 +1479,12 @@ class KernelDens:
         # Standard ALDA exchange kernel
         # Use with care. Results are very difficult to converge
         # Sensitive to density_cut
-        ns = self.calc.wfs.nspins
+        ns = self.gs.nspins
         gd = self.gd
         pd = self.pd
         cell_cv = gd.cell_cv
         icell_cv = 2 * np.pi * np.linalg.inv(cell_cv)
-        vol = np.linalg.det(cell_cv)
+        vol = gd.volume
 
         fxc_sg = ns * self.get_fxc_g(ns * self.n_g)
         fxc_sg[np.where(self.n_g < self.density_cut)] = 0.0
@@ -1582,7 +1542,7 @@ class KernelDens:
         if index is None:
             gradn_vg = self.gradn_vg
         else:
-            gradn_vg = self.calc.density.gd.empty(3)
+            gradn_vg = self.gs.density.gd.empty(3)
             for v in range(3):
                 gradn_vg[v] = (self.gradn_vg[v] +
                                self.gradn_vg[v].flatten()[index]) / 2
@@ -1608,155 +1568,66 @@ class KernelDens:
         fxc_g = f_g * F_g
         fxc_g += 2 * v_g * Fn_g
         fxc_g += e_g * Fnn_g
-        """
-        # Contributions from varying the gradient
-        #Fgrad_vg = np.zeros_like(gradn_vg)
-        #Fngrad_vg = np.zeros_like(gradn_vg)
-        #for v in range(3):
-        #    axpy(1.0, mu / den_g**2 * gradn_vg[v] / (2 * kf_g**2 * n_g**2),
-        #         Fgrad_vg[v])
-        #    axpy(-8.0, Fgrad_vg[v] / (3 * n_g), Fngrad_vg[v])
-        #    axpy(-2.0, Fgrad_vg[v] * Fn_g / kappa, Fngrad_vg[v])
-
-        #tmp = np.zeros_like(fxc_g)
-        #tmp1 = np.zeros_like(fxc_g)
-
-        #for v in range(3):
-            #self.grad_v[v](Fgrad_vg[v], tmp)
-            #axpy(-2.0, tmp * v_g, fxc_g)
-            #for u in range(3):
-                #self.grad_v[u](Fgrad_vg[u] * tmp, tmp1)
-                #axpy(-4.0/kappa, tmp1 * e_g, fxc_g)
-            #self.grad_v[v](Fngrad_vg[v], tmp)
-            #axpy(-2.0, tmp * e_g, fxc_g)
-        #self.laplace(mu / den_g**2 / (2 * kf_g**2 * n_g**2), tmp)
-        #axpy(1.0, tmp * e_g, fxc_g)
-        """
-
         return fxc_g
 
 
-"""
-    def get_fxc_libxc_g(self, n_g):
-        ### NOT USED AT THE MOMENT
-        gd = self.calc.density.gd.refine()
+class XCFlags:
+    _accepted_flags = {
+        'RPA',
+        'range_RPA',  # range separated RPA a la Bruneval
+        'rALDA',  # renormalized kernels
+        'rAPBE',
+        'range_rALDA',
+        'rALDAns',  # no spin (ns)
+        'rAPBEns',
+        'rALDAc',  # rALDA + correlation
+        'CP',  # Constantin Pitarke
+        'CP_dyn',  # Dynamical form of CP
+        'CDOP',  # Corradini et al
+        'CDOPs',  # CDOP without local term
+        'JGMs',  # simplified jellium-with-gap kernel
+        'JGMsx',  # simplified jellium-with-gap kernel,
+        # constructed with exchange part only
+        # so that it scales linearly with l
+        'ALDA'}  # standard ALDA
 
-        xc = XC('GGA_X_' + self.xc[2:])
-        #xc = XC('LDA_X')
-        #sigma = np.zeros_like(n_g).flat[:]
-        xc.set_grid_descriptor(gd)
-        sigma_xg, gradn_svg = xc.calculate_sigma(np.array([n_g]))
+    _spin_kernels = {'rALDA', 'rAPBE', 'ALDA'}
 
-        dedsigma_xg = np.zeros_like(sigma_xg)
-        e_g = np.zeros_like(n_g)
-        v_sg = np.array([np.zeros_like(n_g)])
+    _linear_kernels = {'rALDAns', 'rAPBEns', 'range_RPA', 'JGMsx', 'RPA',
+                       'rALDA', 'rAPBE', 'range_rALDA', 'ALDA'}
 
-        xc.calculate_gga(e_g, np.array([n_g]), v_sg, sigma_xg, dedsigma_xg)
+    def __init__(self, xc):
+        if xc not in self._accepted_flags:
+            raise RuntimeError('%s kernel not recognized' % self.xc)
 
-        sigma = sigma_xg[0].flat[:]
-        gradn_vg = gradn_svg[0]
-        dedsigma_g = dedsigma_xg[0]
+        self.xc = xc
 
-        libxc = LibXC('GGA_X_' + self.xc[2:])
-        #libxc = LibXC('LDA_X')
-        libxc.initialize(1)
-        libxc_fxc = libxc.xc.calculate_fxc_spinpaired
+    @property
+    def spin_kernel(self):
+        # rALDA/rAPBE are the only kernels which have spin-dependent forms
+        return self.xc in self._spin_kernels
 
-        fxc_g = np.zeros_like(n_g).flat[:]
-        d2edndsigma_g = np.zeros_like(n_g).flat[:]
-        d2ed2sigma_g = np.zeros_like(n_g).flat[:]
+    @property
+    def linear_kernel(self):
+        # Scales linearly with coupling constant
+        return self.xc in self._linear_kernels
 
-        libxc_fxc(n_g.flat[:], fxc_g, sigma, d2edndsigma_g, d2ed2sigma_g)
-        fxc_g = fxc_g.reshape(np.shape(n_g))
-        d2edndsigma_g = d2edndsigma_g.reshape(np.shape(n_g))
-        d2ed2sigma_g = d2ed2sigma_g.reshape(np.shape(n_g))
-
-        tmp = np.zeros_like(fxc_g)
-        tmp1 = np.zeros_like(fxc_g)
-
-        #for v in range(3):
-            #self.grad_v[v](d2edndsigma_g * gradn_vg[v], tmp)
-            #axpy(-4.0, tmp, fxc_g)
-
-        #for u in range(3):
-            #for v in range(3):
-                #self.grad_v[v](d2ed2sigma_g * gradn_vg[u] * gradn_vg[v], tmp)
-                #self.grad_v[u](tmp, tmp1)
-                #axpy(4.0, tmp1, fxc_g)
-
-        #self.laplace(dedsigma_g, tmp)
-        #axpy(2.0, tmp, fxc_g)
-
-        return fxc_g[::2, ::2, ::2]
-
-    def get_numerical_fxc_sg(self, n_sg):
-        ### NOT USED AT THE MOMENT
-        gd = self.calc.density.gd.refine()
-        delta = 1.e-4
-
-        if self.xc[2:] == 'LDA':
-            xc = XC('LDA_X')
-            v1xc_sg = np.zeros_like(n_sg)
-            v2xc_sg = np.zeros_like(n_sg)
-            xc.calculate(gd, (1 + delta) * n_sg, v1xc_sg)
-            xc.calculate(gd, (1 - delta) * n_sg, v2xc_sg)
-            fxc_sg = (v1xc_sg - v2xc_sg) / (2 * delta * n_sg)
-        else:
-            fxc_sg = np.zeros_like(n_sg)
-            xc = XC('GGA_X_' + self.xc[2:])
-            vxc_sg = np.zeros_like(n_sg)
-            xc.calculate(gd, n_sg, vxc_sg)
-            for s in range(len(n_sg)):
-                for x in range(len(n_sg[0])):
-                    for y in range(len(n_sg[0, 0])):
-                        for z in range(len(n_sg[0, 0, 0])):
-                            v1xc_sg = np.zeros_like(n_sg)
-                            n1_sg = n_sg.copy()
-                            n1_sg[s, x, y, z] *= (1 + delta)
-                            xc.calculate(gd, n1_sg, v1xc_sg)
-                            num = v1xc_sg[s, x, y, z] - vxc_sg[s, x, y, z]
-                            den = delta * n_sg[s, x, y, z]
-                            fxc_sg[s, x, y, z] = num / den
-
-        return fxc_sg[:, ::2, ::2, ::2]
-"""
+    @property
+    def dyn_kernel(self):
+        return self.xc == 'CP_dyn'
 
 
 def set_flags(self):
     """ Based on chosen fxc and av. scheme set up true-false flags """
 
-    if self.xc not in (
-            'RPA',
-            'range_RPA',  # range separated RPA a la Bruneval
-            'rALDA',  # renormalized kernels
-            'rAPBE',
-            'range_rALDA',
-            'rALDAns',  # no spin (ns)
-            'rAPBEns',
-            'rALDAc',  # rALDA + correlation
-            'CP',  # Constantin Pitarke
-            'CP_dyn',  # Dynamical form of CP
-            'CDOP',  # Corradini et al
-            'CDOPs',  # CDOP without local term
-            'JGMs',  # simplified jellium-with-gap kernel
-            'JGMsx',  # simplified jellium-with-gap kernel,
-            # constructed with exchange part only
-            # so that it scales linearly with l
-            'ALDA'  # standard ALDA
-    ):
-        raise RuntimeError('%s kernel not recognized' % self.xc)
+    flags = XCFlags(self.xc)
 
     if (self.xc == 'rALDA' or self.xc == 'rAPBE' or self.xc == 'ALDA'):
-
         if self.av_scheme is None:
             self.av_scheme = 'density'
             # Two-point scheme default for rALDA and rAPBE
 
-        self.spin_kernel = True
-        # rALDA/rAPBE are the only kernels which have spin-dependent forms
-
-    else:
-        self.spin_kernel = False
+    self.spin_kernel = flags.spin_kernel
 
     if self.av_scheme == 'density':
         assert (self.xc == 'rALDA' or self.xc == 'rAPBE'
@@ -1768,16 +1639,8 @@ def set_flags(self):
     else:
         self.av_scheme = None
 
-    if self.xc in ('rALDAns', 'rAPBEns', 'range_RPA', 'JGMsx', 'RPA', 'rALDA',
-                   'rAPBE', 'range_rALDA', 'ALDA'):
-        self.linear_kernel = True  # Scales linearly with coupling constant
-    else:
-        self.linear_kernel = False
-
-    if self.xc == 'CP_dyn':
-        self.dyn_kernel = True
-    else:
-        self.dyn_kernel = False
+    self.linear_kernel = flags.linear_kernel
+    self.dyn_kernel = flags.dyn_kernel
 
     if self.xc == 'JGMs' or self.xc == 'JGMsx':
         assert (self.Eg is not None), 'JGMs kernel requires a band gap!'

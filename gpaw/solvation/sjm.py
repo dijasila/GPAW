@@ -39,7 +39,7 @@ class SJM(SolvationGPAW):
     neutral periodic slab systems. Cell neutrality is achieved by adding a
     background charge in the solvent region above the slab
 
-    Further details are given in http://dx.doi.org/10.1021/acs.jpcc.8b02465
+    Further details are given in https://doi.org/10.1021/acs.jpcc.8b02465
     If you use this method, we appreciate it if you cite that work.
 
     The method can be run in two modes:
@@ -511,8 +511,8 @@ class SJM(SolvationGPAW):
 
     def write_sjm_traces(self, path='sjm_traces', style='z',
                          props=('potential', 'cavity', 'background_charge')):
-        """Write traces of quantities in `props` to file on disk; traces will be
-        stored within specified path. Default is to save as vertical traces
+        """Write traces of quantities in `props` to file on disk; traces will
+        be stored within specified path. Default is to save as vertical traces
         (style 'z'), but can also save as cube (specify `style='cube'`)."""
         grid = self.density.finegd
         data = {'cavity': self.hamiltonian.cavity.g_g,
@@ -864,7 +864,7 @@ class SJMPower12Potential(Power12Potential):
                     self.H2O_layer = int(self.H2O_layer)
                 else:
                     raise InputError('Only an integer number of water '
-                                     'molecules is possible in the water'
+                                     'molecules is possible in the water '
                                      'layer')
 
                 allwaters = atoms[allwater_oxygen_ind]

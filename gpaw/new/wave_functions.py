@@ -41,7 +41,7 @@ class WaveFunctions:
         self.band_comm = band_comm
         self.nbands = nbands
 
-        assert domain_comm is atomdist.comm
+        assert domain_comm.size == atomdist.comm.size
 
         self.nspins = ncomponents % 3
         self.spin_degeneracy = ncomponents % 2 + 1

@@ -80,6 +80,7 @@ def test_response_na_plasmon(in_tmp_dir):
         df1 = DielectricFunction('gs_Na_small.gpw',
                                  ecut=40,
                                  name='chi0',
+                                 rate=0.001,
                                  **kwargs)
 
         df1NLFCx, df1LFCx = df1.get_dielectric_function(direction='x')
@@ -94,6 +95,7 @@ def test_response_na_plasmon(in_tmp_dir):
         df2 = DielectricFunction('gs_Na_large.gpw',
                                  ecut=40,
                                  name='chi1',
+                                 rate=0.001,
                                  **kwargs)
 
         df2NLFCx, df2LFCx = df2.get_dielectric_function(direction='x')

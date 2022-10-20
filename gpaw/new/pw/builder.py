@@ -5,7 +5,7 @@ from gpaw.core.matrix import Matrix
 from gpaw.core.plane_waves import PlaneWaveExpansions
 from gpaw.new.builder import create_uniform_grid
 from gpaw.new.pw.hamiltonian import PWHamiltonian, SpinorPWHamiltonian
-from gpaw.new.pw.poisson import ReciprocalSpacePoissonSolver
+from gpaw.new.pw.poisson import make_poisson_solver
 from gpaw.new.pw.pot_calc import PlaneWavePotentialCalculator
 from gpaw.new.pwfd.builder import PWFDDFTComponentsBuilder
 from gpaw.new.spinors import SpinorWaveFunctionDescriptor
@@ -62,8 +62,11 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
                 pw, self.fracpos_ac, self.atomdist)
         return self._nct_ag
 
-    def create_poisson_solver(self, fine_grid_pw, params):
-        return ReciprocalSpacePoissonSolver(fine_grid_pw)
+    def create_poisson_solver(self, fine_pw, params):
+        return make_poisson_solver(fine_pw,
+                                   self.fine_grid,
+                                   self.params.charge,
+                                   **params)
 
     def create_potential_calculator(self):
         nct_ag = self.get_pseudo_core_densities()
@@ -71,7 +74,7 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         fine_pw = pw.new(ecut=8 * self.ecut)
         poisson_solver = self.create_poisson_solver(
             fine_pw,
-            self.params.poissonsolver)
+            self.params.poissonsolver or {'strength': 1.0})
         return PlaneWavePotentialCalculator(self.grid,
                                             self.fine_grid,
                                             pw,
@@ -79,7 +82,8 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
                                             self.setups,
                                             self.xc,
                                             poisson_solver,
-                                            nct_ag, self.nct_R)
+                                            nct_ag, self.nct_R,
+                                            self.soc)
 
     def create_hamiltonian_operator(self, blocksize=10):
         if self.ncomponents < 4:

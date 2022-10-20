@@ -41,23 +41,12 @@ class PlaneWaveBlockDistributor:
     """Functionality to shuffle block distribution of pair functions
     in the plane wave basis."""
 
-    def __init__(self, world, blockcomm, intrablockcomm,
-                 wd, blocks1d):
+    def __init__(self, world, blockcomm, intrablockcomm):
         self.world = world
         self.blockcomm = blockcomm
         self.intrablockcomm = intrablockcomm
 
-        # NB: It seems that the only thing we need from the wd is
-        # nw, why we should consider simply passing nw instead.
-        self.nw = len(wd)
-
-        # CAUTION: Currently the redistribute functionality is used
-        # also for arrays with different distribution than Blocks1D.
-        # For this reason, Blocks1D is actually not used below, but we
-        # keep for now, to make the vision more clear.
-        self.blocks1d = blocks1d
-
-    def redistribute(self, in_wGG, out_x=None):
+    def redistribute(self, in_wGG, nw):
         """Redistribute array.
 
         Switch between two kinds of parallel distributions:
@@ -73,11 +62,7 @@ class PlaneWaveBlockDistributor:
         if comm.size == 1:
             return in_wGG
 
-        nw = self.nw
         mynw = (nw + comm.size - 1) // comm.size
-        # CAUTION: It is not always the case that nG == self.blocks1d.nglobal
-        # This happens, because chi0 wants to reuse the function
-        # for the heads and wings part as well
         nG = in_wGG.shape[2]
         mynG = (nG + comm.size - 1) // comm.size
 
@@ -95,18 +80,24 @@ class PlaneWaveBlockDistributor:
 
         r = Redistributor(comm, mdin, mdout)
 
-        outshape = (mdout.shape[0], mdout.shape[1] // nG, nG)
-        if out_x is None:
-            out_wGG = np.empty(outshape, complex)
-        else:
-            out_wGG = out_x[:np.product(outshape)].reshape(outshape)
+        # mdout.shape[1] is always divisible by nG because
+        # every block starts at a multiple of nG, and the last block
+        # ends at nG² which of course also is divisible.  Nevertheless:
+        assert mdout.shape[1] % nG == 0
+        # (If it were not divisible, we would "lose" some numbers and the
+        #  redistribution would be corrupted.)
 
-        r.redistribute(in_wGG.reshape(mdin.shape),
-                       out_wGG.reshape(mdout.shape))
+        outshape = (mdout.shape[0], mdout.shape[1] // nG, nG)
+        out_wGG = np.empty(outshape, complex)
+
+        inbuf = in_wGG.reshape(mdin.shape)
+        outbuf = out_wGG.reshape(mdout.shape)
+
+        r.redistribute(inbuf, outbuf)
 
         return out_wGG
 
-    def distribute_frequencies(self, in_wGG):
+    def distribute_frequencies(self, in_wGG, nw):
         """Distribute frequencies to all cores."""
 
         world = self.world
@@ -115,7 +106,6 @@ class PlaneWaveBlockDistributor:
         if world.size == 1:
             return in_wGG
 
-        nw = self.nw
         mynw = (nw + world.size - 1) // world.size
         nG = in_wGG.shape[2]
         mynG = (nG + comm.size - 1) // comm.size

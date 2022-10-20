@@ -9,7 +9,7 @@ import pickle
 from contextlib import contextmanager
 from typing import Any
 
-from ase.parallel import world as aseworld
+from ase.parallel import world as aseworld, MPI as ASE_MPI
 import numpy as np
 
 import gpaw
@@ -679,7 +679,7 @@ class SerialCommunicator:
     def compare(self, other):
         if self == other:
             return 'ident'
-        elif isinstance(other, SerialCommunicator):
+        elif other.size == 1:
             return 'congruent'
         else:
             raise NotImplementedError('Compare serial comm to other')
@@ -713,8 +713,29 @@ rank = world.rank
 size = world.size
 parallel = (size > 1)
 
-if world.size != aseworld.size:
-    raise RuntimeError('Please use "gpaw python" to run in parallel')
+
+def verify_ase_world():
+    # ASE does not like that GPAW uses world.size at import time.
+    # .... because of GPAW's own import time communicator mish-mash.
+    # Now, GPAW wants to verify world.size and cannot do so,
+    # because of what ASE does for GPAW's sake.
+    # This really needs improvement!
+    assert aseworld is not None
+
+    if isinstance(aseworld, ASE_MPI):
+        # We only want to check if the communicator was already initialized.
+        # Otherwise the communicator will be initialized as a side effect
+        # of accessing the .size attribute,
+        # which ASE's tests will complain about.
+        check_size = aseworld.comm is not None
+    else:
+        check_size = True  # A real communicator, so we want to check that
+
+    if check_size and world.size != aseworld.size:
+        raise RuntimeError('Please use "gpaw python" to run in parallel')
+
+
+verify_ase_world()
 
 
 def broadcast(obj, root=0, comm=world):

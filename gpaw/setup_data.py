@@ -90,8 +90,10 @@ class SetupData:
 
         # Optional quantities, normally not used
         self.X_p = None
+        self.X_wp = {}
         self.X_pg = None
         self.ExxC = None
+        self.ExxC_w = {}
         self.X_gamma = None
         self.extra_xc_data = {}
         self.phicorehole_g = None
@@ -363,8 +365,16 @@ class SetupData:
             for x in self.X_p:
                 print(f'{x!r}', end=' ', file=xml)
             print('\n  </exact_exchange_X_matrix>', file=xml)
-
+            
             print(f'  <exact_exchange core-core="{self.ExxC!r}"/>', file=xml)
+            for omega, Ecc in self.ExxC_w.items():
+                print(f'  <erfc_exchange omega="{omega}" core-core="{Ecc}"/>',
+                      file=xml)
+                print(f'  <erfc_exchange_X_matrix omega="{omega}" X_p="',
+                      end=' ', file=xml)
+                for x in self.X_wp[omega]:
+                    print(f'{x!r}', end=' ', file=xml)
+                print('"/>', file=xml)
 
         if self.X_pg is not None:
             print('  <yukawa_exchange_X_matrix>\n    ', end=' ', file=xml)
@@ -531,8 +541,13 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
         elif name == 'projector_function':
             self.id = attrs['state']
             self.data = []
+        elif name == 'erfc_exchange':
+            setup.ExxC_w[float(attrs['omega'])] = float(attrs['core-core'])
         elif name == 'exact_exchange':
             setup.ExxC = float(attrs['core-core'])
+        elif name == 'erfc_exchange_X_matrix':
+            X_p = np.array([float(x) for x in ''.join(attrs['X_p']).split()])
+            setup.X_wp[float(attrs['omega'])] = X_p
         elif name == 'yukawa_exchange':
             setup.X_gamma = float(attrs['gamma'])
         elif name == 'core_hole_state':

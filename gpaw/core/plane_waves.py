@@ -4,14 +4,15 @@ from math import pi
 
 import _gpaw
 import numpy as np
+
+import gpaw.fftw as fftw
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.domain import Domain
 from gpaw.core.matrix import Matrix
 from gpaw.core.pwacf import PlaneWaveAtomCenteredFunctions
-from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.core.uniform_grid import UniformGrid, UniformGridFunctions
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.new import prod
-from gpaw.new import zip
+from gpaw.new import prod, zip
 from gpaw.pw.descriptor import pad
 from gpaw.typing import (Array1D, Array2D, Array3D, ArrayLike1D, ArrayLike2D,
                          Vector)
@@ -201,8 +202,8 @@ class PlaneWaves(Domain):
             return PlaneWaveAtomCenteredFunctions(functions, positions, self,
                                                   atomdist=atomdist)
 
-        from gpaw.new.spinspiral import SpiralPWAFC
-        return SpiralPWAFC(functions, positions, self,
+        from gpaw.new.spinspiral import SpiralPWACF
+        return SpiralPWACF(functions, positions, self,
                            atomdist=atomdist,
                            qspiral_v=self.qspiral_v)
 
@@ -290,7 +291,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         self._matrix = Matrix(*shape, data=data, dist=dist)
         return self._matrix
 
-    def ifft(self, *, plan=None, grid=None, out=None):
+    def ifft(self, *, plan=None, grid=None, out=None, periodic=False):
         """Do inverse FFT to uniform grid.
 
         Parameters
@@ -327,11 +328,18 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
             for out1 in out.flat():
                 out1.scatter_from(None)
 
-        out.multiply_by_eikr()
+        if not periodic:
+            out.multiply_by_eikr()
 
         return out
 
-    interpolate = ifft
+    def interpolate(self,
+                    plan1: fftw.FFTPlans = None,
+                    plan2: fftw.FFTPlans = None,
+                    grid: UniformGrid = None,
+                    out: UniformGridFunctions = None) -> UniformGridFunctions:
+        assert plan1 is None
+        return self.ifft(plan=plan2, grid=grid, out=out)
 
     def gather(self, out=None, broadcast=False):
         """Gather coefficients on master."""
@@ -370,6 +378,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         """Scatter data from rank-0 to all ranks."""
         comm = self.desc.comm
         if comm.size == 1:
+            assert data is not None
             self.data[:] = data
             return
 
@@ -480,6 +489,32 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
 
     def to_pbc_grid(self):
         return self
+
+    def randomize(self) -> None:
+        """Insert random numbers between -0.5 and 0.5 into data."""
+        seed = [self.comm.rank, self.desc.comm.rank]
+        rng = np.random.default_rng(seed)
+        a = self.data.view(float)
+        rng.random(a.shape, out=a)
+        a -= 0.5
+
+    def moment(self):
+        pw = self.desc
+        # Masks:
+        m0_G, m1_G, m2_G = [i_G == 0 for i_G in pw.indices_cG]
+        a_G = self.gather()
+        if a_G is not None:
+            b_G = a_G.data.imag
+            b_cs = [b_G[m1_G & m2_G],
+                    b_G[m0_G & m2_G],
+                    b_G[m0_G & m1_G]]
+            d_c = [b_s[1:] @ (1.0 / np.arange(1, len(b_s)))
+                   for b_s in b_cs]
+            m_v = np.dot(d_c, pw.cell_cv) / pi * pw.dv
+        else:
+            m_v = np.empty(3)
+        pw.comm.broadcast(m_v, 0)
+        return m_v
 
 
 class Empty:

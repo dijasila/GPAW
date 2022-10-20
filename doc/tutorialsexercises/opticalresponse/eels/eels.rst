@@ -53,7 +53,7 @@ k-points then that will be ``[1.0 / N, 0, 0]``:
 The calculation (see :download:`eels.py`) takes some time due to a sum over
 k-points. To speed up the calculation, run it in parallel::
 
-    $ mpiexec -np 4 python3 silver_EELS.py
+    $ mpiexec -np 4 gpaw python silver_EELS.py
 
 The calculation saves the file ``eels.csv`` by default, where the first
 column is the energy grid, and the second and third columns are the loss

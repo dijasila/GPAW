@@ -45,6 +45,8 @@ class BuildingBlock:
             Note that this does not hold for (semi)metals!
 
         """
+        assert isotropic_q, "Non-isotropic calculation" \
+            + " temporarily turned-off until properly tested."
         if qmax is not None:
             assert isotropic_q
         self.filename = filename
@@ -72,10 +74,10 @@ class BuildingBlock:
             txt = open(txt, 'w', 1)
         self.fd = txt
 
-        calc = self.df.chi0.calc
-        kd = calc.wfs.kd
+        gs = self.df.chi0.gs
+        kd = gs.kd
         self.kd = kd
-        r = calc.wfs.gd.get_grid_point_coordinates()
+        r = gs.gd.get_grid_point_coordinates()
         self.z = r[2, 0, 0, :]
 
         nw = len(self.wd)
@@ -90,9 +92,9 @@ class BuildingBlock:
         offset_c = 0.5 * ((kd.N_c + 1) % 2) / kd.N_c
         bzq_qc = monkhorst_pack(kd.N_c) + offset_c
         qd = KPointDescriptor(bzq_qc)
-        qd.set_symmetry(calc.atoms, kd.symmetry)
+        qd.set_symmetry(gs.atoms, kd.symmetry)
         q_cs = qd.ibzk_kc
-        rcell_cv = 2 * pi * np.linalg.inv(calc.wfs.gd.cell_cv).T
+        rcell_cv = 2 * pi * np.linalg.inv(gs.gd.cell_cv).T
         if isotropic_q:  # only use q along [1 0 0] or [0 1 0] direction.
             Nk = kd.N_c[qdir]
             qx = np.array(range(1, Nk // 2)) / float(Nk)
@@ -134,7 +136,7 @@ class BuildingBlock:
         q_infs[: self.nq_inftot, qdir] = \
             np.linspace(1e-05, q_cut, self.nq_inftot + 1)[:-1]
         if not isotropic_q:  # y-direction
-            q_infs[self.nq_inf:self.nq_inftot + 1, 1] = \
+            q_infs[self.nq_inf:self.nq_inftot, 1] = \
                 np.linspace(0, q_cut, self.nq_inf + 1)[1:]
 
         # add q_inf to list
@@ -180,7 +182,7 @@ class BuildingBlock:
 
             nw = len(self.wd)
             world = self.df.chi0.world
-            w1 = min(self.df.mynw * world.rank, nw)
+            w1 = min(self.df.blocks1d.blocksize * world.rank, nw)
 
             _, _, chiM_qw, chiD_qw, _, drhoM_qz, drhoD_qz = \
                 get_chi_2D(self.wd.omega_w, pd, chi_wGG)
@@ -266,7 +268,7 @@ class BuildingBlock:
 
         from scipy.interpolate import RectBivariateSpline
         from scipy.interpolate import interp1d
-        from gpaw.response.frequencies import LinearFrequencyDescriptor
+        from gpaw.response.frequencies import FrequencyGridDescriptor
         if not self.complete:
             self.calculate_building_block()
         q_grid *= Bohr
@@ -336,15 +338,16 @@ class BuildingBlock:
         self.drhoD_qz = yr(q_grid, self.z) + 1j * yi(q_grid, self.z)
 
         self.q_abs = q_grid
-        self.wd = LinearFrequencyDescriptor(w_grid)
+        self.wd = FrequencyGridDescriptor(w_grid)
         self.save_chi_file(filename=self.filename + '_int')
 
     def collect(self, a_w):
         world = self.df.chi0.world
-        b_w = np.zeros(self.df.mynw, a_w.dtype)
-        b_w[:self.df.w2 - self.df.w1] = a_w
+        mynw = self.df.blocks1d.blocksize
+        b_w = np.zeros(mynw, a_w.dtype)
+        b_w[:self.df.blocks1d.nlocal] = a_w
         nw = len(self.wd)
-        A_w = np.empty(world.size * self.df.mynw, a_w.dtype)
+        A_w = np.empty(world.size * mynw, a_w.dtype)
         world.all_gather(b_w, A_w)
         return A_w[:nw]
 
@@ -377,134 +380,12 @@ def check_building_blocks(BBfiles=None):
         return True
     for name in BBfiles[1:]:
         data = np.load(name + '-chi.npz')
-        if not ((data['q_abs'] == q).all and
-                (data['omega_w'] == w).all):
+        if len(w) != len(data['omega_w']):
+            return False
+        elif not ((data['q_abs'] == q).all() and
+                  (data['omega_w'] == w).all()):
             return False
     return True
-
-
-def interpolate_building_blocks(BBfiles=None, BBmotherfile=None,
-                                q_grid=None, w_grid=None):
-    """ Interpolate building blocks to same frequency-
-    and q- grid
-
-    BBfiles: list of str
-        list of names of BB files to be interpolated
-    BBmother: str
-        name of BB file to match the grids to. Will
-        also be interpolated to common grid.
-    q_grid: float
-        q-grid in Ang. Should start at q=0
-    w_grid: float
-        in eV
-    """
-
-    from scipy.interpolate import RectBivariateSpline, interp1d
-
-    if BBmotherfile is not None:
-        BBfiles.append(BBmotherfile)
-
-    q_max = 1000
-    w_max = 1000
-    for name in BBfiles:
-        data = np.load(open(name + '-chi.npz', 'rb'))
-        q_abs = data['q_abs']
-        q_max = np.min([q_abs[-1], q_max])
-        ow = data['omega_w']
-        w_max = np.min([ow[-1], w_max])
-
-    if BBmotherfile is not None:
-        data = np.load(BBmotherfile + "-chi.npz")
-        q_grid = data['q_abs']
-        w_grid = data['omega_w']
-    else:
-        q_grid = q_grid * Bohr
-        w_grid = w_grid / Hartree
-
-    q_grid = [q for q in q_grid if q < q_max]
-    q_grid.append(q_max)
-    w_grid = [w for w in w_grid if w < w_max]
-    w_grid.append(w_max)
-    q_grid = np.array(q_grid)
-    w_grid = np.array(w_grid)
-    for name in BBfiles:
-        assert data['isotropic_q']
-        data = np.load(name + '-chi.npz')
-        q_abs = data['q_abs']
-        w = data['omega_w']
-        z = data['z']
-        chiM_qw = data['chiM_qw']
-        chiD_qw = data['chiD_qw']
-        drhoM_qz = data['drhoM_qz']
-        drhoD_qz = data['drhoD_qz']
-
-        # chi monopole
-        omit_q0 = False
-        if np.isclose(q_abs[0], 0) and not np.isclose(chiM_qw[0, 0], 0):
-            omit_q0 = True  # omit q=0 from interpolation
-            q0_abs = q_abs[0].copy()
-            q_abs[0] = 0.
-            chi0_w = chiM_qw[0].copy()
-            chiM_qw[0] = np.zeros_like(chi0_w)
-
-        yr = RectBivariateSpline(q_abs, w,
-                                 chiM_qw.real,
-                                 s=0)
-
-        yi = RectBivariateSpline(q_abs, w,
-                                 chiM_qw.imag, s=0)
-
-        chiM_qw = yr(q_grid, w_grid) + 1j * yi(q_grid, w_grid)
-
-        if omit_q0:
-            yr = interp1d(w, chi0_w.real)
-            yi = interp1d(w, chi0_w.imag)
-            chi0_w = yr(w_grid) + 1j * yi(w_grid)
-            q_abs[0] = q0_abs
-            if np.isclose(q_grid[0], 0):
-                chiM_qw[0] = chi0_w
-
-        # chi dipole
-        yr = RectBivariateSpline(q_abs, w,
-                                 chiD_qw.real,
-                                 s=0)
-        yi = RectBivariateSpline(q_abs, w,
-                                 chiD_qw.imag,
-                                 s=0)
-
-        chiD_qw = yr(q_grid, w_grid) + 1j * yi(q_grid, w_grid)
-
-        # drho monopole
-
-        yr = RectBivariateSpline(q_abs, z,
-                                 drhoM_qz.real, s=0)
-        yi = RectBivariateSpline(q_abs, z,
-                                 drhoM_qz.imag, s=0)
-
-        drhoM_qz = yr(q_grid, z) + 1j * yi(q_grid, z)
-
-        # drho dipole
-        yr = RectBivariateSpline(q_abs, z,
-                                 drhoD_qz.real, s=0)
-        yi = RectBivariateSpline(q_abs, z,
-                                 drhoD_qz.imag, s=0)
-
-        drhoD_qz = yr(q_grid, z) + 1j * yi(q_grid, z)
-
-        q_abs = q_grid
-        omega_w = w_grid
-
-        data = {'q_abs': q_abs,
-                'omega_w': omega_w,
-                'chiM_qw': chiM_qw,
-                'chiD_qw': chiD_qw,
-                'z': z,
-                'drhoM_qz': drhoM_qz,
-                'drhoD_qz': drhoD_qz,
-                'isotropic_q': True}
-
-        np.savez_compressed(name + "_int-chi.npz",
-                            **data)
 
 
 def get_chi_2D(omega_w=None, pd=None, chi_wGG=None, q0=None,

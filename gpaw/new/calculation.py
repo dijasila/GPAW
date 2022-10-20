@@ -2,23 +2,27 @@ from __future__ import annotations
 
 from typing import Any, Union
 
-import numpy as np
 from ase import Atoms
 from ase.geometry import cell_to_cellpar
 from ase.units import Bohr, Ha
-
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.electrostatic_potential import ElectrostaticPotential
+from gpaw.new import cached_property
 from gpaw.new.builder import builder as create_builder
 from gpaw.new.density import Density
 from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
 from gpaw.new.potential import Potential
+from gpaw.new.scf import SCFLoop
 from gpaw.output import plot
+from gpaw.setup import Setups
 from gpaw.typing import Array1D, Array2D
 from gpaw.utilities import (check_atoms_too_close,
                             check_atoms_too_close_to_boundary)
+from gpaw.utilities.partition import AtomPartition
+from gpaw.densities import Densities
 
 units = {'energy': Ha,
          'free_energy': Ha,
@@ -26,7 +30,8 @@ units = {'energy': Ha,
          'stress': Ha / Bohr**3,
          'dipole': Bohr,
          'magmom': 1.0,
-         'magmoms': 1.0}
+         'magmoms': 1.0,
+         'non_collinear_magmoms': 1.0}
 
 
 class DFTState:
@@ -58,8 +63,8 @@ class DFTState:
 class DFTCalculation:
     def __init__(self,
                  state: DFTState,
-                 setups,
-                 scf_loop,
+                 setups: Setups,
+                 scf_loop: SCFLoop,
                  pot_calc,
                  log: Logger):
         self.state = state
@@ -90,7 +95,7 @@ class DFTCalculation:
         builder = builder or create_builder(atoms, params)
 
         if not isinstance(log, Logger):
-            log = Logger(log, builder.world)
+            log = Logger(log, params.parallel['world'])
 
         basis_set = builder.create_basis_set()
 
@@ -103,7 +108,7 @@ class DFTCalculation:
         state = DFTState(ibzwfs, density, potential, vHt_x)
         scf_loop = builder.create_scf_loop()
 
-        write_atoms(atoms, builder.grid, builder.initial_magmoms, log)
+        write_atoms(atoms, builder.initial_magmom_av, log)
         log(state)
         log(builder.setups)
         log(scf_loop)
@@ -127,31 +132,32 @@ class DFTCalculation:
                                          self.state.density.ndensities)
         self.state.move(self.fracpos_ac, atomdist, delta_nct_R)
 
-        magmoms = self.results.get('magmoms')
-        write_atoms(atoms,
-                    self.state.density.nt_sR.desc,
-                    magmoms,
-                    self.log)
+        mm_av = self.results['non_collinear_magmoms']
+        write_atoms(atoms, mm_av, self.log)
 
         self.results = {}
 
         return self
 
-    def iconverge(self, convergence=None, maxiter=None):
+    def iconverge(self, convergence=None, maxiter=None, calculate_forces=None):
         self.state.ibzwfs.make_sure_wfs_are_read_from_gpw_file()
         for ctx in self.scf_loop.iterate(self.state,
                                          self.pot_calc,
                                          convergence,
                                          maxiter,
+                                         calculate_forces,
                                          log=self.log):
             yield ctx
 
     def converge(self,
                  convergence=None,
                  maxiter=None,
-                 steps=99999999999999999):
+                 steps=99999999999999999,
+                 calculate_forces=None):
         """Converge to self-consistent solution of Kohn-Sham equation."""
-        for step, _ in enumerate(self.iconverge(convergence, maxiter),
+        for step, _ in enumerate(self.iconverge(convergence,
+                                                maxiter,
+                                                calculate_forces),
                                  start=1):
             if step == steps:
                 break
@@ -159,21 +165,19 @@ class DFTCalculation:
             self.log(scf_steps=step)
 
     def energies(self):
-        energies1 = self.state.potential.energies.copy()
-        energies2 = self.state.ibzwfs.energies
-        energies1['kinetic'] += energies2['band']
-        energies1['entropy'] = energies2['entropy']
-        free_energy = sum(energies1.values())
-        extrapolated_energy = free_energy + energies2['extrapolation']
+        energies = combine_energies(self.state.potential, self.state.ibzwfs)
 
-        self.log('energies:  # [eV]')
-        for name, e in energies1.items():
-            self.log(f'  {name + ":":10}   {e * Ha:14.6f}')
-        self.log(f'  total:       {free_energy * Ha:14.6f}')
-        self.log(f'  extrapolated:{extrapolated_energy * Ha:14.6f}')
+        self.log('energies:  # eV')
+        for name, e in energies.items():
+            if not name.startswith('total'):
+                self.log(f'  {name + ":":10}   {e * Ha:14.6f}')
+        total_free = energies['total_free']
+        total_extrapolated = energies['total_extrapolated']
+        self.log(f'  total:       {total_free * Ha:14.6f}')
+        self.log(f'  extrapolated:{total_extrapolated * Ha:14.6f}\n')
 
-        self.results['free_energy'] = free_energy
-        self.results['energy'] = extrapolated_energy
+        self.results['free_energy'] = total_free
+        self.results['energy'] = total_extrapolated
 
     def dipole(self):
         dipole_v = self.state.density.calculate_dipole_moment(self.fracpos_ac)
@@ -185,16 +189,17 @@ class DFTCalculation:
         mm_v, mm_av = self.state.density.calculate_magnetic_moments()
         self.results['magmom'] = mm_v[2]
         self.results['magmoms'] = mm_av[:, 2].copy()
+        self.results['non_collinear_magmoms'] = mm_av
 
         if self.state.density.ncomponents > 1:
             x, y, z = mm_v
-            self.log(f'total magnetic moment: [{x:.6f}, {y:.6f}, {z:.6f}]')
+            self.log(f'total magnetic moment: [{x:.6f}, {y:.6f}, {z:.6f}]\n')
             self.log('local magnetic moments: [')
             for a, (setup, m_v) in enumerate(zip(self.setups, mm_av)):
                 x, y, z = m_v
                 c = ',' if a < len(mm_av) - 1 else ']'
                 self.log(f'  [{x:9.6f}, {y:9.6f}, {z:9.6f}]{c}'
-                         '  # {setup.symbol:2} {a}')
+                         f'  # {setup.symbol:2} {a}')
             self.log()
         return mm_v, mm_av
 
@@ -230,7 +235,7 @@ class DFTCalculation:
 
         F_av = self.state.ibzwfs.ibz.symmetries.symmetrize_forces(F_av)
 
-        self.log('\nforces: [  # [eV/Ang]')
+        self.log('\nforces: [  # eV/Ang')
         s = Ha / Bohr
         for a, setup in enumerate(self.setups):
             x, y, z = F_av[a] * s
@@ -242,7 +247,7 @@ class DFTCalculation:
 
     def stress(self):
         stress_vv = self.pot_calc.stress_contribution(self.state)
-        self.log('\nstress tensor: [  # [eV/Ang^3]')
+        self.log('\nstress tensor: [  # eV/Ang^3')
         for (x, y, z), c in zip(stress_vv * (Ha / Bohr**3), ',,]'):
             self.log(f'  [{x:13.6f}, {y:13.6f}, {z:13.6f}]{c}')
         self.results['stress'] = stress_vv.flat[[0, 4, 8, 5, 2, 1]]
@@ -251,15 +256,33 @@ class DFTCalculation:
         self.state.ibzwfs.write_summary(self.log)
         self.log.fd.flush()
 
+    def electrostatic_potential(self) -> ElectrostaticPotential:
+        return ElectrostaticPotential.from_calculation(self)
 
-def write_atoms(atoms, grid, magmoms, log):
-    if magmoms is None:
-        magmoms = np.zeros((len(atoms), 3))
-    elif magmoms.ndim == 1:
-        m1 = magmoms
-        magmoms = np.zeros((len(atoms), 3))
-        magmoms[:, 2] = m1
+    def densities(self) -> Densities:
+        return Densities.from_calculation(self)
 
+    @cached_property
+    def _atom_partition(self):
+        # Backwards compatibility helper
+        atomdist = self.state.density.D_asii.layout.atomdist
+        return AtomPartition(atomdist.comm, atomdist.rank_a)
+
+
+def combine_energies(potential: Potential,
+                     ibzwfs: IBZWaveFunctions) -> dict[str, float]:
+    energies = potential.energies.copy()
+    energies['kinetic'] += ibzwfs.energies['band']
+    energies['entropy'] = ibzwfs.energies['entropy']
+    energies['total_free'] = sum(energies.values())
+    energies['total_extrapolated'] = (energies['total_free'] +
+                                      ibzwfs.energies['extrapolation'])
+    return energies
+
+
+def write_atoms(atoms: Atoms,
+                magmom_av: Array2D,
+                log) -> None:
     log()
     with log.comment():
         log(plot(atoms))
@@ -267,7 +290,7 @@ def write_atoms(atoms, grid, magmoms, log):
     log('\natoms: [  # symbols, positions [Ang] and initial magnetic moments')
     symbols = atoms.get_chemical_symbols()
     for a, ((x, y, z), (mx, my, mz)) in enumerate(zip(atoms.positions,
-                                                      magmoms)):
+                                                      magmom_av)):
         symbol = symbols[a]
         c = ']' if a == len(atoms) - 1 else ','
         log(f'  [{symbol:>3}, [{x:11.6f}, {y:11.6f}, {z:11.6f}],'

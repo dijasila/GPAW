@@ -15,8 +15,10 @@ from typing import TypeVar
 import numpy as np
 import scipy.linalg.blas as blas
 
-from gpaw import debug
 import _gpaw
+from gpaw import debug
+from gpaw.new import prod
+from gpaw.typing import Array2D, ArrayND
 
 __all__ = ['mmm']
 
@@ -24,19 +26,19 @@ T = TypeVar('T', float, complex)
 
 
 def mmm(alpha: T,
-        a: np.ndarray,
+        a: Array2D,
         opa: str,
-        b: np.ndarray,
+        b: Array2D,
         opb: str,
         beta: T,
-        c: np.ndarray) -> None:
+        c: Array2D) -> None:
     """Matrix-matrix multiplication using dgemm or zgemm.
 
-    For opa='n' and opb='n', we have::
+    For opa='N' and opb='N', we have:::
 
-        c <- alpha * a * b + beta * c.
+        c <- αab + βc.
 
-    Use 't' to transpose matrices and 'c' to transpose and complex conjugate
+    Use 'T' to transpose matrices and 'C' to transpose and complex conjugate
     matrices.
     """
 
@@ -54,8 +56,9 @@ def mmm(alpha: T,
     assert a2 == b1
     assert c.shape == (a1, b2)
 
-    assert a.strides[1] == b.strides[1] == c.strides[1] == c.itemsize, (
-        a.strides, b.strides, c.strides, c.itemsize)
+    assert a.strides[1] == c.itemsize or a.size == 0
+    assert b.strides[1] == c.itemsize or b.size == 0
+    assert c.strides[1] == c.itemsize or c.size == 0
     assert a.dtype == b.dtype == c.dtype
     if a.dtype == float:
         assert not isinstance(alpha, complex)
@@ -66,51 +69,28 @@ def mmm(alpha: T,
     _gpaw.mmm(alpha, a, opa, b, opb, beta, c)
 
 
-def gemm(alpha, a, b, beta, c, transa='n'):
-    """General Matrix Multiply.
+def to2d(array: ArrayND) -> Array2D:
+    """2D view af ndarray.
 
-    Performs the operation::
-
-      c <- alpha * b.a + beta * c
-
-    If transa is "n", ``b.a`` denotes the matrix multiplication defined by::
-
-                      _
-                     \
-      (b.a)        =  ) b  * a
-           ijkl...   /_  ip   pjkl...
-                      p
-
-    If transa is "t" or "c", ``b.a`` denotes the matrix multiplication
-    defined by::
-
-                      _
-                     \
-      (b.a)        =  ) b    *    a
-           ij        /_  iklm...   jklm...
-                     klm...
-
-    where in case of "c" also complex conjugate of a is taken.
+    >>> to2d(np.zeros((2, 3, 4))).shape
+    (2, 12)
     """
-    assert np.isfinite(c).all()
+    shape = array.shape
+    return array.reshape((shape[0], prod(shape[1:])))
 
-    assert (a.dtype == float and b.dtype == float and c.dtype == float and
-            isinstance(alpha, float) and isinstance(beta, float) or
-            a.dtype == complex and b.dtype == complex and c.dtype == complex)
-    if transa == 'n':
-        assert a.size == 0 or a[0].flags.contiguous
-        assert c.flags.contiguous or c.ndim == 2 and c.strides[1] == c.itemsize
-        assert b.ndim == 2
-        assert b.size == 0 or b.strides[1] == b.itemsize
-        assert a.shape[0] == b.shape[1]
-        assert c.shape == b.shape[0:1] + a.shape[1:]
-    else:
-        assert a.flags.contiguous
-        assert b.size == 0 or b[0].flags.contiguous
-        assert c.strides[1] == c.itemsize
-        assert a.shape[1:] == b.shape[1:]
-        assert c.shape == (b.shape[0], a.shape[0])
-    _gpaw.gemm(alpha, a, b, beta, c, transa)
+
+def mmmx(alpha: T,
+         a: ArrayND,
+         opa: str,
+         b: ArrayND,
+         opb: str,
+         beta: T,
+         c: ArrayND) -> None:
+    """Matrix-matrix multiplication using dgemm or zgemm.
+
+    Arrays a, b and c are converted to 2D arrays before calling mmm().
+    """
+    mmm(alpha, to2d(a), opa, to2d(b), opb, beta, to2d(c))
 
 
 def axpy(alpha, x, y):
@@ -135,21 +115,18 @@ def axpy(alpha, x, y):
 def rk(alpha, a, beta, c, trans='c'):
     """Rank-k update of a matrix.
 
-    Performs the operation::
+    For ``trans='c'`` the following operation is performed:::
 
-                        dag
-      c <- alpha * a . a    + beta * c
+              †
+      c <- αaa + βc,
 
-    where ``a.b`` denotes the matrix multiplication defined by::
+    and for ``trans='t'`` we get:::
 
-                 _
-                \
-      (a.b)   =  ) a         * b
-           ij   /_  ipklm...     pjklm...
-               pklm...
+             †
+      c <- αa a + βc
 
-    ``dag`` denotes the hermitian conjugate (complex conjugation plus a
-    swap of axis 0 and 1).
+    If the ``a`` array has more than 2 dimensions then the 2., 3., ...
+    axes are combined.
 
     Only the lower triangle of ``c`` will contain sensible numbers.
     """
@@ -252,7 +229,7 @@ def _gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
         out = np.zeros(outshape, a.dtype)
     else:
         out = out.reshape(outshape)
-    gemm(alpha, b, a, beta, out, trans)
+    mmmx(alpha, a, 'N', b, trans.upper(), beta, out)
 
     # Determine actual shape of result array
     if trans == 'n':
@@ -263,24 +240,6 @@ def _gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
 
 
 if not hasattr(_gpaw, 'mmm'):
-    def gemm(alpha, a, b, beta, c, transa='n'):  # noqa
-        if c.size == 0:
-            return
-        if beta == 0:
-            c[:] = 0.0
-        else:
-            c *= beta
-        if a.size == 0:
-            return
-        if transa == 'n':
-            c += alpha * b.dot(a.reshape((len(a), -1))).reshape(c.shape)
-        elif transa == 't':
-            c += alpha * b.reshape((len(b), -1)).dot(
-                a.reshape((len(a), -1)).T)
-        else:
-            c += alpha * b.reshape((len(b), -1)).dot(
-                a.reshape((len(a), -1)).T.conj())
-
     def rk(alpha, a, beta, c, trans='c'):  # noqa
         if c.size == 0:
             return
@@ -329,7 +288,6 @@ if not hasattr(_gpaw, 'mmm'):
 
 elif not debug:
     mmm = _gpaw.mmm  # noqa
-    gemm = _gpaw.gemm  # noqa
     rk = _gpaw.rk  # noqa
     r2k = _gpaw.r2k  # noqa
     gemmdot = _gemmdot

@@ -87,7 +87,6 @@ class GPAW(Calculator):
         'random': False,
         'hund': False,
         'maxiter': 333,
-        'idiotproof': True,
         'symmetry': {'point_group': True,
                      'time_reversal': True,
                      'symmorphic': True,
@@ -285,7 +284,7 @@ class GPAW(Calculator):
         self.log('Reading from {}'.format(filename))
 
         self.reader = reader = Reader(filename)
-        assert reader.version <= 3
+        assert reader.version <= 3, 'Can''t read new GPW-files'
 
         atoms = read_atoms(reader.atoms)
         self._set_atoms(atoms)
@@ -487,6 +486,10 @@ class GPAW(Calculator):
         if 'txt' in kwargs:
             self.log.fd = kwargs.pop('txt')
 
+        if 'idiotproof' in kwargs:
+            del kwargs['idiotproof']
+            warnings.warn('Ignoring deprecated keyword "idiotproof"')
+
         changed_parameters = Calculator.set(self, **kwargs)
 
         for key in ['setups', 'basis']:
@@ -513,7 +516,7 @@ class GPAW(Calculator):
                 self.wfs.set_eigensolver(None)
 
             if key in ['mixer', 'verbose', 'txt', 'hund', 'random',
-                       'eigensolver', 'idiotproof']:
+                       'eigensolver']:
                 continue
 
             if key in ['convergence', 'fixdensity', 'maxiter']:
@@ -715,9 +718,13 @@ class GPAW(Calculator):
                 N_c = self.density.gd.N_c
             else:
                 N_c = get_number_of_grid_points(cell_cv, h, mode, realspace,
-                                                self.symmetry, self.log)
+                                                self.symmetry)
 
         self.setups.set_symmetry(self.symmetry)
+
+        if not collinear and len(self.symmetry.op_scc) > 1:
+            raise ValueError('Can''t use symmetries with non-collinear '
+                             'calculations')
 
         if isinstance(par.background_charge, dict):
             background = create_background_charge(**par.background_charge)
@@ -1304,12 +1311,11 @@ class GPAW(Calculator):
 
         Return list of energies in eV, one for each atom:
 
-        .. math::
+        :::
 
-            Y_{00}
-            \int d\mathbf{r}
-            \tilde{v}_H(\mathbf{r})
-            \hat{g}_{00}^a(\mathbf{r} - \mathbf{R}^a)
+              / _ ~  _  ^a  _ _a
+          Y   |dr v (r) g  (r-R )
+           00 /    H     00
 
         """
         ham = self.hamiltonian
@@ -2075,3 +2081,11 @@ class GPAW(Calculator):
             self, soc=soc,
             theta=theta, phi=phi,
             shift_fermi_level=shift_fermi_level)
+
+    def gs_adapter(self):
+        # Temporary helper to convert response code and related parts
+        # so it does not depend directly on calc.
+        #
+        # This method can be removed once we finish that process.
+        from gpaw.response.groundstate import ResponseGroundStateAdapter
+        return ResponseGroundStateAdapter(self)

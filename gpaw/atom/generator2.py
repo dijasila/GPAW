@@ -14,6 +14,8 @@ from gpaw.gaunt import gaunt
 from gpaw.utilities import pack2
 from gpaw.atom.aeatom import (AllElectronAtom, Channel, parse_ld_str, colors,
                               GaussianBasis)
+from gpaw.xc.ri.ribasis import generate_ri_basis
+from gpaw.xc.ri.spherical_hse_kernel import RadialHSE
 
 
 class DatasetGenerationError(Exception):
@@ -302,7 +304,7 @@ class PAWSetupGenerator:
     def __init__(self, aea, projectors,
                  scalar_relativistic=False,
                  core_hole=None,
-                 fd=None, yukawa_gamma=0.0):
+                 fd=None, yukawa_gamma=0.0, omega=None):
         """fd: stream
             Text output.
 
@@ -312,6 +314,9 @@ class PAWSetupGenerator:
 
         self.fd = fd or sys.stdout
         self.yukawa_gamma = yukawa_gamma
+        self.exxcc_w = {}
+        self.exxcv_wii = {}
+        self.omega = omega
 
         if core_hole:
             state, occ = core_hole.split(',')
@@ -324,6 +329,7 @@ class PAWSetupGenerator:
             self.core_hole = None
 
         if projectors[-1].isupper():
+            assert projectors[-2] == ',', projectors
             self.l0 = 'SPDFG'.find(projectors[-1])
             projectors = projectors[:-2]
         else:
@@ -809,9 +815,11 @@ class PAWSetupGenerator:
         plt.axis(xmin=0, xmax=self.rcmax)
         plt.legend()
 
-    def create_basis_set(self, tailnorm=0.0005, scale=200.0, splitnorm=0.16):
+    def create_basis_set(self, tailnorm=0.0005, scale=200.0, splitnorm=0.16,
+                         tag=None, ri=None):
         rgd = self.rgd
-        self.basis = Basis(self.aea.symbol, 'dzp', readxml=False, rgd=rgd)
+        name = 'dzp' if not tag else f'{tag}.dzp'
+        self.basis = Basis(self.aea.symbol, name, readxml=False, rgd=rgd)
 
         # We print text to sdtout and put it in the basis-set file
         txt = 'Basis functions:\n'
@@ -888,7 +896,9 @@ class PAWSetupGenerator:
         self.basis.generatorattrs.update(dict(tailnorm=tailnorm,
                                               scale=scale,
                                               splitnorm=splitnorm))
-        self.basis.name = '%de.dzp' % self.nvalence
+
+        if ri:
+            generate_ri_basis(self.basis, ri)
 
         return self.basis
 
@@ -1089,7 +1099,11 @@ class PAWSetupGenerator:
 
         self.calculate_exx_integrals()
         setup.ExxC = self.exxcc
+        setup.ExxC_w = self.exxcc_w  # erfc screened core contributions
         setup.X_p = pack2(self.exxcv_ii[I][:, I])
+        setup.X_wp = {omega: pack2(self.exxcv_wii[omega][I][:, I])
+                      for omega in self.exxcv_wii}
+
         if self.yukawa_gamma > 0.0:
             self.calculate_yukawa_integrals()
             setup.X_pg = pack2(self.exxgcv_ii[I][:, I])
@@ -1147,11 +1161,10 @@ class PAWSetupGenerator:
 
         return lmax, core, G_LLL
 
-    def calculate_exx_integrals(self):
+    def core_core_exchange(self, interaction):
+        # Calculate core contribution to EXX energy per interaction kernel
         (lmax, core, G_LLL) = self.find_core_states()
-
-        # Calculate core contribution to EXX energy:
-        self.exxcc = 0.0
+        E = 0.0
         j1 = 0
         for l1, phi1_g in core:
             f = 1.0
@@ -1161,30 +1174,46 @@ class PAWSetupGenerator:
                     G = (G_LLL[l1**2:(l1 + 1)**2,
                                l2**2:(l2 + 1)**2,
                                l**2:(l + 1)**2]**2).sum()
-                    vr_g = self.rgd.poisson(n_g, l)
+                    vr_g = interaction(n_g, l)
                     e = f * self.rgd.integrate(vr_g * n_g, -1) / 4 / pi
-                    self.exxcc -= e * G
+                    E -= e * G
                 f = 2.0
             j1 += 1
+        return E
 
-        self.log('EXX (core-core):', self.exxcc, 'Hartree')
+    def calculate_exx_integrals(self):
 
         # Calculate core-valence contribution to EXX energy:
         ni = sum(len(waves) * (2 * l + 1)
                  for l, waves in enumerate(self.waves_l))
 
-        self.exxcv_ii = self.calculate_exx_cv_integrals(ni)
+        self.exxcc = self.core_core_exchange(self.rgd.poisson)
+        self.log('EXX (core-core):', self.exxcc, 'Hartree')
+
+        if self.omega is not None:
+            hse = RadialHSE(self.rgd, self.omega)
+
+            self.exxcc_w = {self.omega:
+                            self.core_core_exchange(hse.screened_coulomb)}
+            self.log(f'EXX omega={self.omega} (core-core):',
+                     self.exxcc_w[self.omega], 'Hartree')
+
+            X_ii = self.calculate_exx_cv_integrals(ni, hse.screened_coulomb)
+            self.exxcv_wii = {self.omega: X_ii}
+
+        self.exxcv_ii = self.calculate_exx_cv_integrals(ni, self.rgd.poisson)
 
     def calculate_yukawa_integrals(self):
         """Wrapper to calculate the rsf core-valence contribution."""
         ni = sum(len(waves) * (2 * l + 1)
                  for l, waves in enumerate(self.waves_l))
 
-        self.exxgcv_ii = self.calculate_exx_cv_integrals(ni,
-                                                         self.yukawa_gamma)
+        def interaction(n_g, l):
+            return self.rgd.yukawa(n_g, l, self.yukawa_gamma)
 
-    def calculate_exx_cv_integrals(self, ni, yukawa_gamma=0.0):
-        """Calculate exx (and rsf) core-valences."""
+        self.exxgcv_ii = self.calculate_exx_cv_integrals(ni, interaction)
+
+    def calculate_exx_cv_integrals(self, ni, interaction):
         (lmax, core, G_LLL) = self.find_core_states()
         cv_ii = np.zeros((ni, ni))
 
@@ -1202,13 +1231,7 @@ class PAWSetupGenerator:
                                 for l in range((l1 + lc) % 2,
                                                max(l1, l2) + lc + 1, 2):
                                     n2c = phi2_g * phi_g
-                                    if yukawa_gamma > 0.0:
-                                        vr_g = \
-                                            self.rgd.yukawa(n2c, l,
-                                                            yukawa_gamma)
-                                    else:
-                                        vr_g = \
-                                            self.rgd.poisson(n2c, l)
+                                    vr_g = interaction(n2c, l)
                                     e = (self.rgd.integrate(vr_g * n_g, -1) /
                                          (4 * pi))
                                     for mc in range(2 * lc + 1):
@@ -1291,7 +1314,8 @@ def get_parameters(symbol, args):
                 r0=r0, v0=None, nderiv0=nderiv0,
                 pseudize=pseudize, rcore=rcore,
                 core_hole=args.core_hole,
-                yukawa_gamma=args.gamma)
+                yukawa_gamma=args.gamma,
+                omega=args.omega)
 
 
 def generate(symbol,
@@ -1308,12 +1332,12 @@ def generate(symbol,
              rcore=None,
              core_hole=None,
              *,
-             yukawa_gamma=0.0):
-
+             yukawa_gamma=0.0,
+             omega=None):
     aea = AllElectronAtom(symbol, xc, Z=Z,
                           configuration=configuration)
     gen = PAWSetupGenerator(aea, projectors, scalar_relativistic, core_hole,
-                            yukawa_gamma=yukawa_gamma)
+                            yukawa_gamma=yukawa_gamma, omega=omega)
 
     gen.construct_shape_function(alpha, radii, eps=1e-10)
     gen.calculate_core_density()
@@ -1391,6 +1415,11 @@ class CLICommand:
             '(for vdW-DF functionals).')
         add('--core-hole')
         add('-e', '--electrons', type=int)
+        add('--ri', type=str,
+            help='Calculate also resolution of identity basis.')
+        add('--omega', type=float, default=None,
+            help='Calculate core-core and core-valence contributions'
+                 ' to erfc screen HSE-potential')
 
     @staticmethod
     def run(args):
@@ -1407,7 +1436,7 @@ def main(args):
 
     if args.create_basis_set or args.write:
         if args.create_basis_set:
-            basis = gen.create_basis_set()
+            basis = gen.create_basis_set(tag=args.tag, ri=args.ri)
             basis.write_xml()
 
         if args.write:
@@ -1418,6 +1447,10 @@ def main(args):
                     parameters.append('{0}={1!r}'.format(key, value))
             setup.generatordata = ',\n    '.join(parameters)
             setup.write_xml()
+
+    if not args.create_basis_set and args.ri:
+        raise ValueError('Basis set must be created in order to create the '
+                         'RI-basis set as well')
 
     if args.logarithmic_derivatives or args.plot:
         if args.plot:

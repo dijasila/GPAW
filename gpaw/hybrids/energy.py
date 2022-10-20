@@ -4,7 +4,8 @@ from typing import Union
 import numpy as np
 from ase.units import Ha
 
-from gpaw.calculator import GPAW
+from gpaw import GPAW
+from gpaw.calculator import GPAW as Calculator
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.mpi import serial_comm
 from gpaw.pw.descriptor import PWDescriptor
@@ -18,7 +19,7 @@ from .symmetry import Symmetry
 from gpaw.typing import Array1D
 
 
-def non_self_consistent_energy(calc: Union[GPAW, str, Path],
+def non_self_consistent_energy(calc: Union[Calculator, str, Path],
                                xcname: str,
                                ftol=1e-9) -> Array1D:
     """Calculate non self-consistent energy for Hybrid functional.
@@ -30,9 +31,12 @@ def non_self_consistent_energy(calc: Union[GPAW, str, Path],
     ...                                       xcname='HSE06')
     >>> e_hyb = energies.sum()
 
+    The correction to the self-consistent energy will be
+    ``energies[1:].sum()``.
+
     The returned energy contributions are (in eV):
 
-    1. DFT total energy
+    1. DFT total free energy (not extrapolated to zero smearing)
     2. minus DFT XC energy
     3. Hybrid semi-local XC energy
     4. EXX core-core energy
@@ -46,6 +50,7 @@ def non_self_consistent_energy(calc: Union[GPAW, str, Path],
     if isinstance(calc, (str, Path)):
         calc = GPAW(calc, txt=None, parallel={'band': 1, 'kpt': 1})
 
+    assert not isinstance(calc, (str, Path))  # for mypy
     wfs = calc.wfs
     dens = calc.density
     kd = wfs.kd
@@ -54,7 +59,7 @@ def non_self_consistent_energy(calc: Union[GPAW, str, Path],
 
     nocc = max(((kpt.f_n / kpt.weight) > ftol).sum()
                for kpt in wfs.kpt_u)
-    nocc = kd.comm.max(int(nocc))
+    nocc = kd.comm.max(wfs.bd.comm.sum(int(nocc)))
 
     xcname, exx_fraction, omega = parse_name(xcname)
 
