@@ -19,10 +19,11 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.pw.descriptor import PWDescriptor, count_reciprocal_vectors
 from gpaw.utilities.progressbar import ProgressBar
 
+from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chi0 import Chi0Calculator
 from gpaw.response.g0w0_kernels import G0W0Kernel
 from gpaw.response.hilbert import GWHilbertTransforms
-from gpaw.response.pair import NoCalculatorPairDensity, calc_and_context
+from gpaw.response.pair import NoCalculatorPairDensity
 from gpaw.response.screened_interaction import WCalculator
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 
@@ -316,7 +317,7 @@ class G0W0Calculator:
                  savepckl=True):
         """G0W0 calculator, initialized through G0W0 object.
 
-        The G0W0 calculator is used is used to calculate the quasi
+        The G0W0 calculator is used to calculate the quasi
         particle energies through the G0W0 approximation for a number
         of states.
 
@@ -991,7 +992,7 @@ class G0W0(G0W0Calculator):
         Parameters
         ----------
         calc:
-            GPAW calculator object or filename of saved calculator object.
+            Filename of saved calculator object.
         filename: str
             Base filename of output files.
         restartfile: str
@@ -1065,19 +1066,20 @@ class G0W0(G0W0Calculator):
         savepckl: bool
             Save output to a pckl file.
         """
-
         frequencies = get_frequencies(frequencies, domega0, omega2)
 
         self._gpwfile = calc
-        calc, context = calc_and_context(self._gpwfile, filename + '.txt',
-                                         world, timer)
-        gs = calc.gs_adapter()
+        context = ResponseContext(txt=filename + '.txt',
+                                  world=world, timer=timer)
+        gs = ResponseGroundStateAdapter.from_gpw_file(self._gpwfile,
+                                                      context=context)
 
         # Check if nblocks is compatible, adjust if not
         if nblocksmax:
             nblocks = get_max_nblocks(context.world, self._gpwfile, ecut)
 
-        pair = NoCalculatorPairDensity(gs, nblocks=nblocks, context=context)
+        pair = NoCalculatorPairDensity(gs, context,
+                                       nblocks=nblocks)
 
         kpts = list(select_kpts(kpts, gs.kd))
 
@@ -1105,8 +1107,7 @@ class G0W0(G0W0Calculator):
 
         from gpaw.response.chi0 import new_frequency_descriptor
         chi_context = context.with_txt(filename + '.w.txt')
-        wd = new_frequency_descriptor(
-            gs, nbands, frequencies, fd=chi_context.fd)
+        wd = new_frequency_descriptor(gs, chi_context, nbands, frequencies)
 
         chi0calc = Chi0Calculator(
             wd=wd, pair=pair,

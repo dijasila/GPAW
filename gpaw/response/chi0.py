@@ -7,7 +7,6 @@ from typing import Union
 
 import numpy as np
 from ase.units import Ha
-from ase.utils.timing import timer
 
 import gpaw
 import gpaw.mpi as mpi
@@ -19,6 +18,7 @@ from gpaw.response.frequencies import (FrequencyDescriptor,
 from gpaw.response.hilbert import HilbertTransform
 from gpaw.response.integrators import (Integrator, PointIntegrator,
                                        TetrahedronIntegrator)
+from gpaw.response import timer
 from gpaw.response.pair import NoCalculatorPairDensity
 from gpaw.response.pw_parallelization import block_partition
 from gpaw.response.symmetry import PWSymmetryAnalyzer
@@ -26,7 +26,7 @@ from gpaw.typing import Array1D
 from gpaw.utilities.memory import maxrss
 
 
-def find_maximum_frequency(kpt_u, nbands=0, fd=None):
+def find_maximum_frequency(kpt_u, context, nbands=0):
     """Determine the maximum electron-hole pair transition energy."""
     epsmin = 10000.0
     epsmax = -10000.0
@@ -34,9 +34,9 @@ def find_maximum_frequency(kpt_u, nbands=0, fd=None):
         epsmin = min(epsmin, kpt.eps_n[0])
         epsmax = max(epsmax, kpt.eps_n[nbands - 1])
 
-    if fd is not None:
-        print('Minimum eigenvalue: %10.3f eV' % (epsmin * Ha), file=fd)
-        print('Maximum eigenvalue: %10.3f eV' % (epsmax * Ha), file=fd)
+    context.print('Minimum eigenvalue: %10.3f eV' % (epsmin * Ha),
+                  flush=False)
+    context.print('Maximum eigenvalue: %10.3f eV' % (epsmax * Ha))
 
     return epsmax - epsmin
 
@@ -63,9 +63,6 @@ class Chi0Calculator:
         assert pair.context.world is context.world
         self.context = context
 
-        self.timer = self.context.timer
-        self.fd = self.context.fd
-
         self.pair = pair
         self.gs = pair.gs
 
@@ -75,13 +72,12 @@ class Chi0Calculator:
         self.integrationmode = integrationmode
         self.eshift = eshift / Ha
 
-        self.vol = self.gs.volume
-        self.world = self.context.world
         self.nblocks = pair.nblocks
         self.calc = self.gs._calc  # XXX remove me
 
         # XXX this is redundant as pair also does it.
-        self.blockcomm, self.kncomm = block_partition(self.world, self.nblocks)
+        self.blockcomm, self.kncomm = block_partition(self.context.world,
+                                                      self.nblocks)
 
         if ecut is None:
             ecut = 50.0
@@ -98,7 +94,7 @@ class Chi0Calculator:
         self.include_intraband = intraband
 
         self.wd = wd
-        print(self.wd, file=self.fd)
+        self.context.print(self.wd, flush=False)
 
         if not isinstance(self.wd, NonLinearFrequencyDescriptor):
             assert not hilbert
@@ -116,14 +112,13 @@ class Chi0Calculator:
         if sum(self.pbc) == 1:
             raise ValueError('1-D not supported atm.')
 
-        print('Nonperiodic BCs: ', (~self.pbc),
-              file=self.fd)
+        self.context.print('Nonperiodic BCs: ', (~self.pbc), flush=False)
 
         if integrationmode is not None:
-            print('Using integration method: ' + self.integrationmode,
-                  file=self.fd)
+            self.context.print('Using integration method: ' +
+                               self.integrationmode)
         else:
-            print('Using integration method: PointIntegrator', file=self.fd)
+            self.context.print('Using integration method: PointIntegrator')
 
         # Number of completely filled bands and number of non-empty bands.
         self.nocc1, self.nocc2 = self.gs.count_occupied_bands(ftol)
@@ -135,7 +130,7 @@ class Chi0Calculator:
     def create_chi0(self, q_c):
         # Extract descriptor arguments
         plane_waves = (q_c, self.ecut, self.gs.gd)
-        parallelization = (self.world, self.blockcomm, self.kncomm)
+        parallelization = (self.context.world, self.blockcomm, self.kncomm)
 
         # Construct the Chi0Data object
         # In the future, the frequencies should be specified at run-time
@@ -230,7 +225,7 @@ class Chi0Calculator:
         self.pawcorr = pairden_paw_corr(pd, alter_optical_limit=True)
 
         # Integrate chi0 body
-        print('Integrating response function.', file=self.fd)
+        self.context.print('Integrating response function.')
         self._update_chi0_body(chi0, m1, m2, spins)
 
         if optical_limit:
@@ -270,21 +265,24 @@ class Chi0Calculator:
                                                                analyzer)
         kind, extraargs = self.get_integral_kind()
 
+        get_matrix_element = partial(
+            self.get_matrix_element, **mat_kwargs)
+        get_eigenvalues = partial(
+            self.get_eigenvalues, **eig_kwargs)
+
         chi0_wGG /= prefactor
         integrator.integrate(kind=kind,  # Kind of integral
                              domain=domain,  # Integration domain
-                             integrand=(self.get_matrix_element,
-                                        self.get_eigenvalues),
+                             integrand=(get_matrix_element,
+                                        get_eigenvalues),
                              x=self.wd,  # Frequency Descriptor
-                             kwargs=(mat_kwargs, eig_kwargs),
-                             # Arguments for integrand functions
                              out_wxx=chi0_wGG,  # Output array
                              **extraargs)
         if self.hilbert:
             # The integrator only returns the spectral function and a Hilbert
             # transform is performed to return the real part of the density
             # response function.
-            with self.timer('Hilbert transform'):
+            with self.context.timer('Hilbert transform'):
                 # Make Hilbert transform
                 ht = HilbertTransform(np.array(self.wd.omega_w), self.eta,
                                       timeordered=self.timeordered)
@@ -307,20 +305,23 @@ class Chi0Calculator:
                                                                analyzer)
         kind, extraargs = self.get_integral_kind()
 
+        get_optical_matrix_element = partial(
+            self.get_optical_matrix_element, **mat_kwargs)
+        get_eigenvalues = partial(
+            self.get_eigenvalues, **eig_kwargs)
+
         tmp_chi0_wxvx = np.zeros(np.array(chi0.chi0_wxvG.shape) +
                                  [0, 0, 0, 2],  # Do both head and wings
                                  complex)
         integrator.integrate(kind=kind + ' wings',  # Kind of integral
                              domain=domain,  # Integration domain
-                             integrand=(self.get_optical_matrix_element,
-                                        self.get_eigenvalues),
+                             integrand=(get_optical_matrix_element,
+                                        get_eigenvalues),
                              x=self.wd,  # Frequency Descriptor
-                             kwargs=(mat_kwargs, eig_kwargs),
-                             # Arguments for integrand functions
                              out_wxx=tmp_chi0_wxvx,  # Output array
                              **extraargs)
         if self.hilbert:
-            with self.timer('Hilbert transform'):
+            with self.context.timer('Hilbert transform'):
                 ht = HilbertTransform(np.array(self.wd.omega_w), self.eta,
                                       timeordered=self.timeordered)
                 ht(tmp_chi0_wxvx)
@@ -348,13 +349,16 @@ class Chi0Calculator:
                                                      only_intraband=True)
         kind, extraargs = self.get_integral_kind(only_intraband=True)
 
+        get_plasmafreq_matrix_element = partial(
+            self.get_plasmafreq_matrix_element, **mat_kwargs)
+        get_plasmafreq_eigenvalue = partial(
+            self.get_plasmafreq_eigenvalue, **eig_kwargs)
+
         tmp_plasmafreq_wvv = np.zeros((1, 3, 3), complex)  # Output array
         integrator.integrate(kind=kind,  # Kind of integral
                              domain=domain,  # Integration domain
-                             integrand=(self.get_plasmafreq_matrix_element,
-                                        self.get_plasmafreq_eigenvalue),
-                             # Integrand arguments
-                             kwargs=(mat_kwargs, eig_kwargs),
+                             integrand=(get_plasmafreq_matrix_element,
+                                        get_plasmafreq_eigenvalue),
                              out_wxx=tmp_plasmafreq_wvv,  # Output array
                              **extraargs)  # Extra args for int. method
         tmp_plasmafreq_wvv *= prefactor
@@ -363,8 +367,8 @@ class Chi0Calculator:
         plasmafreq_vv = tmp_plasmafreq_wvv[0].copy()
         analyzer.symmetrize_wvv(plasmafreq_vv[np.newaxis])
         self.plasmafreq_vv += 4 * np.pi * plasmafreq_vv
-        print('Plasma frequency:', file=self.fd)
-        print((self.plasmafreq_vv**0.5 * Ha).round(2), file=self.fd)
+        self.context.print('Plasma frequency:', flush=False)
+        self.context.print((self.plasmafreq_vv**0.5 * Ha).round(2), flush=True)
     
         # Calculate the Drude dielectric response function from the
         # free-space plasma frequency
@@ -397,10 +401,8 @@ class Chi0Calculator:
 
         kwargs = dict(
             cell_cv=self.gs.gd.cell_cv,
-            comm=self.world,
-            timer=self.timer,
-            eshift=self.eshift,
-            txt=self.fd)
+            context=self.context,
+            eshift=self.eshift)
 
         if block_distributed:
             integrator = cls(**kwargs, nblocks=self.nblocks)
@@ -426,7 +428,7 @@ class Chi0Calculator:
             # sure that to fix this.
             domainvol = convex_hull_volume(
                 bzk_kv) * analyzer.how_many_symmetries()
-            bzvol = (2 * np.pi)**3 / self.vol
+            bzvol = (2 * np.pi)**3 / self.gs.volume
             factor = bzvol / domainvol
         else:
             factor = 1
@@ -443,11 +445,10 @@ class Chi0Calculator:
     def get_integrator_arguments(self, pd, m1, m2, analyzer,
                                  only_intraband=False):
         # Prepare keyword arguments for the integrator
-        kd = self.gs.kd
-        mat_kwargs = {'kd': kd, 'pd': pd,
+        mat_kwargs = {'pd': pd,
                       'symmetry': analyzer,
                       'integrationmode': self.integrationmode}
-        eig_kwargs = {'kd': kd, 'pd': pd}
+        eig_kwargs = {'pd': pd}
 
         # Define band summation.
         if not only_intraband:
@@ -565,12 +566,9 @@ class Chi0Calculator:
         return bzk_kv, analyzer
 
     @timer('Get matrix element')
-    def get_matrix_element(self, k_v, s,
-                           n1=None, n2=None,
-                           m1=None, m2=None,
-                           pd=None, kd=None,
-                           symmetry=None,
-                           integrationmode=None):
+    def get_matrix_element(self, k_v, s, n1, n2,
+                           m1, m2, *, pd,
+                           symmetry, integrationmode=None):
         """A function that returns pair-densities.
 
         A pair density is defined as::
@@ -597,8 +595,6 @@ class Chi0Calculator:
         m2 : int
             Upper unoccupied band index.
         pd : PlanewaveDescriptor instance
-        kd : KpointDescriptor instance
-            Calculator kpoint descriptor.
         symmetry: gpaw.response.pair.PWSymmetryAnalyzer instance
             Symmetry analyzer object for handling symmetries of the kpoints.
         integrationmode : str
@@ -639,10 +635,9 @@ class Chi0Calculator:
 
     @timer('Get matrix element')
     def get_optical_matrix_element(self, k_v, s,
-                                   n1=None, n2=None,
-                                   m1=None, m2=None,
-                                   pd=None, kd=None,
-                                   symmetry=None,
+                                   n1, n2,
+                                   m1, m2, *,
+                                   pd, symmetry,
                                    integrationmode=None):
         """A function that returns optical pair densities.
         NB: In dire need of further documentation! XXX"""
@@ -675,10 +670,8 @@ class Chi0Calculator:
         return n_nmG.reshape(-1, nG + 2)
 
     @timer('Get eigenvalues')
-    def get_eigenvalues(self, k_v, s,
-                        n1=None, n2=None,
-                        m1=None, m2=None,
-                        kd=None, pd=None,
+    def get_eigenvalues(self, k_v, s, n1, n2,
+                        m1, m2, *, pd,
                         gs=None, filter=False):
         """A function that can return the eigenvalues.
 
@@ -710,10 +703,9 @@ class Chi0Calculator:
 
         return deps_nm.reshape(-1)
 
-    def get_plasmafreq_matrix_element(self, k_v, s,
-                                      n1=None, n2=None,
-                                      kd=None, pd=None,
-                                      symmetry=None,
+    def get_plasmafreq_matrix_element(self, k_v, s, n1, n2,
+                                      *, pd,
+                                      symmetry,
                                       integrationmode=None):
         """NB: In dire need of documentation! XXX."""
         k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
@@ -737,8 +729,7 @@ class Chi0Calculator:
         return vel_nv
 
     def get_plasmafreq_eigenvalue(self, k_v, s,
-                                  n1=None, n2=None,
-                                  kd=None, pd=None):
+                                  n1, n2, *, pd):
         """A function that can return the intraband eigenvalues.
 
         A simple function describing the integrand of
@@ -765,7 +756,7 @@ class Chi0Calculator:
             world = SerialCommunicator()
             world.size = size
         else:
-            world = self.world
+            world = self.context.world
 
         q_c = pd.kd.bzk_kc[0]
         nw = len(self.wd)
@@ -786,7 +777,7 @@ class Chi0Calculator:
         bsize = self.blockcomm.size
         chisize = nw * pd.ngmax**2 * 16. / 1024**2 / bsize
 
-        p = partial(print, file=self.fd)
+        p = partial(self.context.print, flush=False)
 
         p('%s' % ctime())
         p('Called response.chi0.calculate with')
@@ -814,11 +805,12 @@ class Chi0Calculator:
         p('        Occupied states: %f M / cpu' % occsize)
         p('        Memory usage before allocation: %f M / cpu' % (maxrss() /
                                                                   1024**2))
-        p()
+        self.context.print('')
 
 
 class Chi0(Chi0Calculator):
-    """Class for calculating non-interacting response functions."""
+    """Class for calculating non-interacting response functions.
+    Tries to be backwards compatible, for now. """
 
     def __init__(self,
                  calc,
@@ -902,24 +894,22 @@ class Chi0(Chi0Calculator):
             Class for calculating matrix elements of pairs of wavefunctions.
 
         """
-        from gpaw.response.pair import calc_and_context
-        calc, context = calc_and_context(calc, txt, world, timer)
-        gs = calc.gs_adapter()
+        from gpaw.response.pair import get_gs_and_context
+        gs, context = get_gs_and_context(calc, txt, world, timer)
         nbands = nbands or gs.bd.nbands
 
-        wd = new_frequency_descriptor(gs, nbands, frequencies, fd=context.fd,
+        wd = new_frequency_descriptor(gs, context, nbands, frequencies,
                                       domega0=domega0,
                                       omega2=omega2, omegamax=omegamax)
 
-        pair = NoCalculatorPairDensity(
-            gs=gs, threshold=threshold,
-            context=context,
-            nblocks=nblocks)
+        pair = NoCalculatorPairDensity(gs, context,
+                                       threshold=threshold,
+                                       nblocks=nblocks)
 
         super().__init__(wd=wd, pair=pair, nbands=nbands, ecut=ecut, **kwargs)
 
 
-def new_frequency_descriptor(gs, nbands, frequencies=None, *, fd,
+def new_frequency_descriptor(gs, context, nbands, frequencies=None, *,
                              domega0=None, omega2=None, omegamax=None):
     if domega0 is not None or omega2 is not None or omegamax is not None:
         assert frequencies is None
@@ -934,9 +924,8 @@ def new_frequency_descriptor(gs, nbands, frequencies=None, *, fd,
 
     if (isinstance(frequencies, dict) and
         frequencies.get('omegamax') is None):
-        omegamax = find_maximum_frequency(gs.kpt_u,
-                                          nbands=nbands,
-                                          fd=fd)
+        omegamax = find_maximum_frequency(gs.kpt_u, context,
+                                          nbands=nbands)
         frequencies['omegamax'] = omegamax * Ha
 
     wd = FrequencyDescriptor.from_array_or_dict(frequencies)

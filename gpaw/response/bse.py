@@ -117,7 +117,6 @@ class BSE:
         bzq_qc = monkhorst_pack(self.kd.N_c) + offset_c
         self.qd = KPointDescriptor(bzq_qc)
         self.qd.set_symmetry(self.gs.atoms, self.kd.symmetry)
-        self.vol = self.gs.volume
 
         # bands
         self.spins = self.gs.nspins
@@ -400,7 +399,7 @@ class BSE:
         # if self.mode == 'BSE':
         #     del self.Q_qaGii, self.W_qGG, self.pd_q
 
-        H_ksmnKsmn /= self.vol
+        H_ksmnKsmn /= self.gs.volume
 
         mySsize = myKsize * Nv * Nc * Ns
         if myKsize > 0:
@@ -694,7 +693,7 @@ class BSE:
         for iw, w in enumerate(w_w / Hartree):
             tmp_T = 1. / (w - w_T + 1j * eta)
             vchi_w[iw] += np.dot(tmp_T, C_T)
-        vchi_w *= 4 * np.pi / self.vol
+        vchi_w *= 4 * np.pi / self.gs.volume
 
         if not np.allclose(self.q_c, 0.0):
             cell_cv = self.gs.gd.cell_cv
@@ -706,7 +705,7 @@ class BSE:
         nv = self.gs.nvalence
         dw_w = (w_w[1:] - w_w[:-1]) / Hartree
         wchi_w = (w_w[1:] * vchi_w[1:] + w_w[:-1] * vchi_w[:-1]) / Hartree / 2
-        N = -np.dot(dw_w, wchi_w.imag) * self.vol / (2 * np.pi**2)
+        N = -np.dot(dw_w, wchi_w.imag) * self.gs.volume / (2 * np.pi**2)
         print(file=self.fd)
         print('Checking f-sum rule:', file=self.fd)
         print('  Valence = %s, N = %f' % (nv, N), file=self.fd)

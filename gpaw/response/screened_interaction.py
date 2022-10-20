@@ -201,8 +201,15 @@ class WCalculator:
         if q0_correction:
             assert self.truncation == '2D'
             self.q0_corrector = Q0Correction(
-                cell_cv=self.gs.gd.cell_cv, bzk_kc=self.gs.kd.bzk_kc,
+                cell_cv=self.gs.gd.cell_cv,
+                bzk_kc=self.gs.kd.bzk_kc,
                 N_c=self.qd.N_c)
+
+            npts_c = self.q0_corrector.npts_c
+            self.context.print('Applying analytical 2D correction to W:',
+                               flush=False)
+            self.context.print('    Evaluating Gamma point contribution to W '
+                               + 'on a %dx%dx%d grid' % tuple(npts_c))
         else:
             self.q0_corrector = None
 
@@ -254,6 +261,7 @@ class WCalculator:
 
         
     # calculate_q wrapper
+
     def calculate_q(self, iq, q_c, chi0):
         if self.truncation == 'wigner-seitz':
             wstc = WignerSeitzTruncatedCoulomb(
@@ -314,7 +322,7 @@ class WCalculator:
         wgg_grid.redistribute(WgG_grid, dielectric_wgg, dielectric_WgG)
         inveps_WgG = dielectric_WgG
 
-        self.timer.start('Dyson eq.')
+        self.context.timer.start('Dyson eq.')
 
         for iw, inveps_gG in enumerate(inveps_WgG):
             inveps_gG -= np.identity(nG)[my_gslice]
@@ -371,7 +379,7 @@ class WCalculator:
                                         chi0_wvv=chi0_wvv[wblocks1d.myslice],
                                         chi0_wxvG=chi0_wxvG[wblocks1d.myslice])
 
-        self.timer.start('Dyson eq.')
+        self.context.timer.start('Dyson eq.')
 
         def get_sqrtV_G(N_c, q_v=None):
             return get_coulomb_kernel(
@@ -409,16 +417,12 @@ class WCalculator:
                 W_GG[:] = (einv_GG) * (sqrtV_G *
                                        sqrtV_G[:, np.newaxis])
                 if self.q0_corrector is not None and np.allclose(q_c, 0):
-                    if iw == 0:
-                        print_ac = True
-                    else:
-                        print_ac = False
                     this_w = wblocks1d.a + iw
-                    self.add_q0_correction(pdi, W_GG, einv_GG_full,
-                                           chi0_wxvG[this_w],
-                                           chi0_wvv[this_w],
-                                           sqrtV_G,
-                                           print_ac=print_ac)
+                    self.q0_corrector.add_q0_correction(pdi, W_GG,
+                                                        einv_GG_full,
+                                                        chi0_wxvG[this_w],
+                                                        chi0_wvv[this_w],
+                                                        sqrtV_G)
                 elif np.allclose(q_c, 0) or self.integrate_gamma != 0:
                     W_GG[0, 0] = einv_GG[0, 0] * V0
                     W_GG[0, 1:] = einv_GG[0, 1:] * sqrtV_G[1:] * sqrtV0
@@ -434,12 +438,12 @@ class WCalculator:
                 W_GG[0, 1:] = pi * R_GG[0, 1:] * sqrtV_G[1:] * sqrtV0
                 W_GG[1:, 0] = pi * R_GG[1:, 0] * sqrtV0 * sqrtV_G[1:]
 
-            self.timer.stop('Dyson eq.')
+            self.context.timer.stop('Dyson eq.')
             return pdi, [W_GG, omegat_GG]
 
         # XXX This creates a new, large buffer.  We could perhaps
         # avoid that.  Buffer used to exist but was removed due to #456.
         W_wGG = chi0.blockdist.redistribute(chi0_wGG, chi0.nw)
 
-        self.timer.stop('Dyson eq.')
+        self.context.timer.stop('Dyson eq.')
         return pdi, W_wGG
