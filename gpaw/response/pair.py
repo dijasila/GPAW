@@ -1,9 +1,7 @@
 import numbers
-from pathlib import Path
 
 import numpy as np
 
-from gpaw import GPAW, disable_dry_run
 import gpaw.mpi as mpi
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
