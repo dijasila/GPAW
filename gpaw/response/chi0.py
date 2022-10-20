@@ -227,7 +227,7 @@ class Chi0Calculator:
         self.pawcorr = pairden_paw_corr(pd, alter_optical_limit=True)
 
         # Integrate chi0 body
-        print('Integrating response function.', file=self.fd)
+        self.context.print('Integrating response function.')
         self._update_chi0_body(chi0, m1, m2, spins)
 
         if optical_limit:
@@ -281,7 +281,7 @@ class Chi0Calculator:
             # The integrator only returns the spectral function and a Hilbert
             # transform is performed to return the real part of the density
             # response function.
-            with self.timer('Hilbert transform'):
+            with self.context.timer('Hilbert transform'):
                 # Make Hilbert transform
                 ht = HilbertTransform(np.array(self.wd.omega_w), self.eta,
                                       timeordered=self.timeordered)
@@ -317,7 +317,7 @@ class Chi0Calculator:
                              out_wxx=tmp_chi0_wxvx,  # Output array
                              **extraargs)
         if self.hilbert:
-            with self.timer('Hilbert transform'):
+            with self.context.timer('Hilbert transform'):
                 ht = HilbertTransform(np.array(self.wd.omega_w), self.eta,
                                       timeordered=self.timeordered)
                 ht(tmp_chi0_wxvx)
@@ -360,8 +360,8 @@ class Chi0Calculator:
         plasmafreq_vv = tmp_plasmafreq_wvv[0].copy()
         analyzer.symmetrize_wvv(plasmafreq_vv[np.newaxis])
         self.plasmafreq_vv += 4 * np.pi * plasmafreq_vv
-        print('Plasma frequency:', file=self.fd)
-        print((self.plasmafreq_vv**0.5 * Ha).round(2), file=self.fd)
+        self.context.print('Plasma frequency:', flush=False)
+        self.context.print((self.plasmafreq_vv**0.5 * Ha).round(2), flush=True)
     
         # Calculate the Drude dielectric response function from the
         # free-space plasma frequency
