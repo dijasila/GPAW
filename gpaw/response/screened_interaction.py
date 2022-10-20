@@ -215,12 +215,6 @@ class WCalculator:
 
         self.E0 = E0 / Ha
 
-    def add_q0_correction(self, pd, W_GG, einv_GG, chi0_xvG, chi0_vv,
-                          sqrtV_G, print_ac=False):
-        self.q0_corrector.add_q0_correction(
-            pd, W_GG, einv_GG, chi0_xvG, chi0_vv,
-            sqrtV_G,
-            fd=self.fd if print_ac else None)
     
     def calc_in_Wannier(self,Uwan,chi0calc):
         """Calculates the screened interaction matrix in Wannier basis
