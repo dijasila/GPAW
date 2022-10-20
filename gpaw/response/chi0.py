@@ -4,7 +4,6 @@ import warnings
 from functools import partial
 from time import ctime
 from typing import Union
-import functools
 
 import numpy as np
 from ase.units import Ha
@@ -452,7 +451,6 @@ class Chi0Calculator:
     def get_integrator_arguments(self, pd, m1, m2, analyzer,
                                  only_intraband=False):
         # Prepare keyword arguments for the integrator
-        kd = self.gs.kd
         mat_kwargs = {'pd': pd,
                       'symmetry': analyzer,
                       'integrationmode': self.integrationmode}
@@ -740,7 +738,7 @@ class Chi0Calculator:
         return vel_nv
 
     def get_plasmafreq_eigenvalue(self, k_v, s,
-                                 n1, n2, *, pd):
+                                  n1, n2, *, pd):
         """A function that can return the intraband eigenvalues.
 
         A simple function describing the integrand of
