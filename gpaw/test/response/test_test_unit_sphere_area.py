@@ -15,7 +15,7 @@ def unit(x_c):
 
 
 def unit_sphere(x_c):
-    return np.array([(x_c ** 2).sum() ** 0.5], float)
+    return np.array([(x_c**2).sum()**0.5], float)
 
 
 @pytest.mark.response
