@@ -138,8 +138,15 @@ class WCalculator:
         if q0_correction:
             assert self.truncation == '2D'
             self.q0_corrector = Q0Correction(
-                cell_cv=self.gs.gd.cell_cv, bzk_kc=self.gs.kd.bzk_kc,
-                N_c=self.qd.N_c, context=self.context)
+                cell_cv=self.gs.gd.cell_cv,
+                bzk_kc=self.gs.kd.bzk_kc,
+                N_c=self.qd.N_c)
+
+            npts_c = self.q0_corrector.npts_c
+            self.context.print('Applying analytical 2D correction to W:',
+                               flush=False)
+            self.context.print('    Evaluating Gamma point contribution to W '
+                               + 'on a %dx%dx%d grid' % tuple(npts_c))
         else:
             self.q0_corrector = None
 

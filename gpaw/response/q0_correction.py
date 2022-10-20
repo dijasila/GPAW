@@ -2,7 +2,7 @@ import numpy as np
 
 
 class Q0Correction:
-    def __init__(self, cell_cv, bzk_kc, N_c, context):
+    def __init__(self, cell_cv, bzk_kc, N_c):
         self.cell_cv = cell_cv
         self.bzk_kc = bzk_kc
         self.N_c = N_c
@@ -22,11 +22,6 @@ class Q0Correction:
         npts_c[2] = 1
         npts_c += (npts_c + 1) % 2
         self.npts_c = npts_c
-
-        context.print('Applying analytical 2D correction to W:',
-                      flush=False)
-        context.print('    Evaluating Gamma point contribution to W on a '
-                      + '%dx%dx%d grid' % tuple(npts_c))
 
     def add_q0_correction(self, pd, W_GG, einv_GG, chi0_xvG, chi0_vv, sqrtV_G):
         from ase.dft import monkhorst_pack
