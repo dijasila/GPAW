@@ -159,48 +159,47 @@ class DielectricFunction:
 
     def read(self, name):
         self.context.print('Reading from', name)
-        fd = open(name, 'rb')
-        omega_w, pd, chi0_wGG, chi0_wxvG, chi0_wvv = pickle.load(fd)
-        for omega in self.wd.omega_w:
-            assert np.any(np.abs(omega - omega_w) < 1e-8)
+        with open(name, 'rb') as fd:
+            omega_w, pd, chi0_wGG, chi0_wxvG, chi0_wvv = pickle.load(fd)
+            for omega in self.wd.omega_w:
+                assert np.any(np.abs(omega - omega_w) < 1e-8)
 
-        wmin = np.argmin(np.abs(np.min(self.wd.omega_w) - omega_w))
-        world = self.context.world
+            wmin = np.argmin(np.abs(np.min(self.wd.omega_w) - omega_w))
+            world = self.context.world
 
-        nw = len(omega_w)
-        nG = pd.ngmax
+            nw = len(omega_w)
+            nG = pd.ngmax
 
-        blocks1d = self.blocks1d
+            blocks1d = self.blocks1d
 
-        mynw = blocks1d.blocksize
+            mynw = blocks1d.blocksize
 
-        if chi0_wGG is not None:
-            # Old file format:
-            chi0_wGG = chi0_wGG[wmin + blocks1d.a:blocks1d.b].copy()
-        else:
-            if world.rank == 0:
-                chi0_wGG = np.empty((mynw, nG, nG), complex)
-                for _ in range(wmin):
-                    pickle.load(fd)
-                for chi0_GG in chi0_wGG:
-                    chi0_GG[:] = pickle.load(fd)
-                tmp_wGG = np.empty((mynw, nG, nG), complex)
-                w1 = mynw
-                for rank in range(1, world.size):
-                    w2 = min(w1 + mynw, nw)
-                    for w in range(w2 - w1):
-                        tmp_wGG[w] = pickle.load(fd)
-                    world.send(tmp_wGG[:w2 - w1], rank)
-                    w1 = w2
+            if chi0_wGG is not None:
+                # Old file format:
+                chi0_wGG = chi0_wGG[wmin + blocks1d.a:blocks1d.b].copy()
             else:
-                chi0_wGG = np.empty((self.blocks1d.nlocal, nG, nG), complex)
-                world.receive(chi0_wGG, 0)
+                if world.rank == 0:
+                    chi0_wGG = np.empty((mynw, nG, nG), complex)
+                    for _ in range(wmin):
+                        pickle.load(fd)
+                    for chi0_GG in chi0_wGG:
+                        chi0_GG[:] = pickle.load(fd)
+                    tmp_wGG = np.empty((mynw, nG, nG), complex)
+                    w1 = mynw
+                    for rank in range(1, world.size):
+                        w2 = min(w1 + mynw, nw)
+                        for w in range(w2 - w1):
+                            tmp_wGG[w] = pickle.load(fd)
+                        world.send(tmp_wGG[:w2 - w1], rank)
+                        w1 = w2
+                else:
+                    chi0_wGG = np.empty((self.blocks1d.nlocal, nG, nG),
+                                        complex)
+                    world.receive(chi0_wGG, 0)
 
-        if chi0_wvv is not None:
-            chi0_wxvG = chi0_wxvG[wmin:wmin + nw]
-            chi0_wvv = chi0_wvv[wmin:wmin + nw]
-
-        fd.close()
+            if chi0_wvv is not None:
+                chi0_wxvG = chi0_wxvG[wmin:wmin + nw]
+                chi0_wvv = chi0_wvv[wmin:wmin + nw]
 
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
