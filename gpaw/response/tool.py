@@ -45,10 +45,10 @@ def get_orbitals(calc):
     return orb_MG
 
 
-def get_pw_descriptor(q_c, calc, ecut, gammacentered=False):
+def get_pw_descriptor(q_c, gs, ecut, gammacentered=False):
     """Get the planewave descriptor of q_c."""
     qd = KPointDescriptor([q_c])
-    pd = PWDescriptor(ecut, calc.wfs.gd,
+    pd = PWDescriptor(ecut, gs.gd,
                       complex, qd, gammacentered=gammacentered)
     return pd
 
@@ -64,15 +64,15 @@ def get_bz_transitions(filename, q_c, bzk_kc,
     ecut /= Ha
 
     pair = PairDensity(filename, txt=txt)
-    pd = get_pw_descriptor(q_c, pair.calc, ecut)
+    pd = get_pw_descriptor(q_c, pair.gs, ecut)
 
     bzk_kv = np.dot(bzk_kc, pd.gd.icell_cv) * 2 * np.pi
 
     if spins == 'all':
-        spins = range(pair.calc.wfs.nspins)
+        spins = range(pair.gs.nspins)
     else:
         for spin in spins:
-            assert spin in range(pair.calc.wfs.nspins)
+            assert spin in range(pair.gs.nspins)
 
     domain_dl = (bzk_kv, spins)
     domainsize_d = [len(domain_l) for domain_l in domain_dl]
