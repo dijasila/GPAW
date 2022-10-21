@@ -86,11 +86,17 @@ eigenvalues of the low-energy model with the full LCAO calculation as horizontal
 
 .. image:: C6H6_minimal.png
     :alt: minimal
-    :width: 500
+    :width: 300
 
 .. image:: C6H6_extended.png
     :alt: extended
-    :width: 500
+    :width: 300
+
+Isourfaces of local orbitals with *pz*-character.
+
+.. image:: C6H6_pzLOs.png
+  :alt: extended
+  :width: 700
 
 Local Orbitals in graphene nanoribbon
 =====================================
@@ -108,8 +114,8 @@ bands of the low-energy model with the full LCAO calculation.
 
 .. image:: C4H2_minimal.png
     :alt: minimal
-    :width: 500
+    :width: 300
 
 .. image:: C4H2_extended.png
     :alt: extended
-    :width: 500
+    :width: 300
