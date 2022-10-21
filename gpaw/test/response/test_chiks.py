@@ -96,6 +96,7 @@ def test_Fe_chiks(in_tmp_dir, Fe_gs, q_c, eta, gammacentered):
     # Part 4: Check matrix symmetry
 
     # Part 5: Check symmetry toggle
+    srtol = 1.e-2
 
     # ---------- Script ---------- #
 
@@ -206,7 +207,7 @@ def test_Fe_chiks(in_tmp_dir, Fe_gs, q_c, eta, gammacentered):
         # is_bad = err > 1.e-8 + rtol * np.absolute(chiks1_wGG)
         # print(is_bad)
         # print(np.absolute(err[is_bad] / np.absolute(chiks1_wGG[is_bad])))
-        assert np.allclose(chiks2_wGG, chiks1_wGG, rtol=rtol)
+        assert np.allclose(chiks2_wGG, chiks1_wGG, rtol=srtol)
 
 
 # ---------- System ground state ---------- #
