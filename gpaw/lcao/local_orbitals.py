@@ -3,7 +3,9 @@ from __future__ import annotations
 from collections import defaultdict
 
 import numpy as np
-from ase.units import Hartree
+from ase.data import covalent_radii
+from ase.data.colors import jmol_colors
+from ase.units import Bohr, Hartree
 from gpaw import GPAW
 from gpaw.lcao.tightbinding import TightBinding  # as LCAOTightBinding
 from gpaw.lcao.tools import get_bfi
@@ -573,8 +575,12 @@ class LocalOrbitals(TightBinding):
         if self.model is None:
             basis = self.subdiag
         else:
+            # Maybe model is orthogonal and subdiag does not know.
             basis = self.model
         return get_orbitals(self.calc, basis.U_MM[:, indices])
+    
+    def plot_group(self, group):
+        return plot2D_orbitals(self, self.groups[group])
 
     def get_projections(self, q=0):
         P_aMi = {a: P_aqMi[q] for a, P_aqMi in self.calc.wfs.P_aqMi.items()}
@@ -585,3 +591,136 @@ class LocalOrbitals(TightBinding):
 
     def get_Fcore(self):
         pass
+
+
+## PLOTTING TOOLS ###
+
+
+def get_plane_dirs(plane):
+    """Get normal and in-plane directions for a plane identified 
+    by any combination of {'x','y','z'}.
+
+    Parameters
+    ----------
+    plane : str
+        Pair of chars identifying the plane, e.g. 'xy'.
+
+    Returns
+    -------
+    norm_dir : int
+        Normal direction
+    norm_dir : list
+        In-plane directions
+    """
+    plane_dirs = ['xyz'.index(i) for i in sorted(plane)]
+    norm_dir = [i for i in [0, 1, 2] if i not in plane_dirs]
+    return norm_dir[0], plane_dirs
+
+
+def get_atoms(calc, indices):
+    """Get the list of atoms corresponding to the given indices.
+
+    Parameters
+    ----------
+    calc : GPAW
+        Calculator
+    indices : array_like
+        List of orbitals for which to retreive the atoms to which they belong.
+
+    Returns
+    -------
+    a_list : list
+        List of atoms for each index.
+    unique : list
+        Indices of first occurrences of an atom.
+    """
+    atoms = calc.atoms
+    a_list = []
+    unique = []
+    for a in range(len(atoms)):
+        matches = np.where(np.isin(get_bfi(calc, [a]), indices))[0]
+        if len(matches) > 0:
+            a_list += [a] * len(matches)
+            unique.append(len(a_list) - len(matches))
+    return a_list, unique
+
+
+def plot2D_orbitals(los, indices, plane='yz'):
+    """Plot a 2D slice of the orbitals.
+
+    Parameters
+    ----------
+    los : LocalOrbitals
+        Local orbital wrapper
+    indices : array_like    
+        List of orbitals to display
+    plane : str, optional
+        Pair of chars identifying the plane, by default 'yz'.
+
+    Returns
+    -------
+    _type_
+        _description_
+    """
+
+    try:
+        from matplotlib import pyplot as plt
+    except:
+        RuntimeError(
+            'This function requires matplotlib which is not installed.')
+
+    norm_dir, plane_dirs = get_plane_dirs(plane)
+
+    calc = los.calc
+    atoms = los.calc.atoms
+    def get_coord(c): return calc.wfs.gd.coords(c, pad=False) * Bohr
+
+    w_wG = los.get_orbitals(indices)
+
+    radii = covalent_radii[calc.atoms.numbers]
+    colors = jmol_colors[calc.atoms.numbers]
+    pos = atoms.positions
+
+    # Take planes at atomic positions.
+    a_list, _ = get_atoms(calc, indices)
+    slice_planes = np.searchsorted(get_coord(norm_dir), pos[a_list, norm_dir])
+
+    # Take box limited by external atoms plus 4 Ang vacuum.
+    box_lims = [(l - 2, u + 2) for l, u in zip(pos[:, plane_dirs].min(0),
+                                               pos[:, plane_dirs].max(0))]
+    box_widths = [lims[1] - lims[0] for lims in box_lims]
+    ratio = box_widths[0] / box_widths[1]  # Cell ratio
+    num_orbs = len(indices)
+    max_cols = 5
+    nrows = (num_orbs - 1) // max_cols + 1
+    ncols = min(num_orbs, max_cols)
+
+    figsize = 3
+    fig, axs = plt.subplots(nrows, ncols, figsize=(
+        ratio * figsize, figsize), sharex=True, sharey=True)
+
+    X, Y = np.meshgrid(get_coord(plane_dirs[0]), get_coord(
+        plane_dirs[1]), indexing='ij')
+    take_plane = [slice(None)] * 3
+
+    for r, c in np.ndindex(nrows, ncols):
+
+        w = r * ncols + c
+        ax = axs[r, c]
+        if w >= num_orbs:
+            ax.axis('off')
+            continue
+
+        take_plane[norm_dir] = slice_planes[w]
+        C = w_wG[w][tuple(take_plane)]
+
+        ax.pcolormesh(X, Y, C, cmap='jet', shading='gouraud')
+        ax.set_xlim(box_lims[0])
+        ax.set_ylim(box_lims[1])
+        if ax.is_first_col and ax.is_last_row:
+            ax.set_xlabel('$y$')
+            ax.set_ylabel('$z$')
+
+        ax.scatter(pos[:, plane_dirs[0]], pos[:, plane_dirs[1]],
+                   c=colors, s=radii * 30)
+    return fig
