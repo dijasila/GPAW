@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <float.h>
 #include <Python.h>
-#include "cuda.h"
+#include "gpaw_cuda.h"
 
 #define GPU_BLOCKS_MIN            (16)
 #define GPU_BLOCKS_MAX            (96)
