@@ -12,6 +12,8 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.23.0b1
 
+* Local orbitals added in LCAO mode to construct effective 
+  tight-binding Hamiltonians :ref:`los in lcao`.
 
 Version 22.8.0
 ==============

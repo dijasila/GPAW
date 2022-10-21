@@ -1,4 +1,4 @@
-.. _los_tutorial:
+.. _los tutorial:
 
 ==============
 Local Orbitals      
@@ -12,8 +12,8 @@ point is a DFT calculation in LCAO mode::
   calc = GPAW(mode='lcao', ...)
   los = LocalOrbitals(calc)
 
-The local orbitals are obtained from a subdiagonalization of the LCAO Hamiltonian. 
-A subdiagonalization is essentially a rotation that brings the 
+The local orbitals are obtained from a sub-diagonalization of the LCAO Hamiltonian. 
+A sub-diagonalization is essentially a rotation that brings the 
 Hamiltonian in a form where some blocks are diagonal matrices. 
 Each block should include all Atomic Orbitals of a given atom. 
 This tranformation can be performed with the ``subdiagonalization`` method::
@@ -22,20 +22,20 @@ This tranformation can be performed with the ``subdiagonalization`` method::
 
 The blocks can be specified with one of the two keyword arguments:
 
-``symbols``: Element or elements to subdiagonalize, optional.
+``symbols``: Element or elements to sub-diagonalize, optional.
   Automatically constructs the blocks for the specified element or elements.
 
-``blocks``: Blocks to subdiagonalize, optional. 
+``blocks``: Blocks to sub-diagonalize, optional. 
   Directly provides the blocks in the form of a list of orbital indices, e.g. [[3,4,5],[6,7..]..].
 
-Once the Hamiltonian is subdiagonalized, the method tries to group the obtained
+Once the Hamiltonian is sub-diagonalized, the method tries to group the obtained
 LOs by symmetry:
 
 ``groupby``: Grouping criteria.
   - *energy* : Groups the LOs by energy
   - *symmetry* : Groups the LOs by spatial symmetry and energy
 
-It is possible to fine-tune the grouping after a subdiagonalization with the 
+It is possible to fine-tune the grouping after a sub-diagonalization with the 
 following method::
 
   los.groupby(method: str = 'energy', decimals: int = 1, cutoff: float = 0.9),
@@ -51,7 +51,7 @@ Next, we construct a low-energy model from a subset of LOs and/or AOs::
   los.take_model(indices: Array1D = None, minimal: bool = True, cutoff: float = 1e-3, ortho: bool = False)
 
 ``indices``: Orbitals to include in the low-energy model, optional
-  Explicitely lists the orbital indices in the subdiagonalized Hamiltonian. 
+  Explicitely lists the orbital indices in the sub-diagonalized Hamiltonian. 
   When left unspecified, the method will automacally select the orbitals in 
   each ``block`` with the energy closest to the Fermi level. We call this 
   ``minimal`` model. 
@@ -65,9 +65,8 @@ Next, we construct a low-energy model from a subset of LOs and/or AOs::
   this flag only for minimal models.
 
 
-.. [#LOS]   G. Gandus, A. Valli, D. Passerone, and R. Stadler,  
-            "Smart local orbitals for efficient calculations within density functional theory and beyond." 
-            The Journal of Chemical Physics **153**, 194103 (2020)
+.. [#LOS]   G. Gandus, et al.,  
+    The Journal of Chemical Physics **153**, 194103 (2020)
 
 
 
