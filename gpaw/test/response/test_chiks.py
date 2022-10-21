@@ -88,14 +88,12 @@ def test_Fe_chiks(in_tmp_dir, Fe_gs, q_c, eta, gammacentered):
     else:
         nblocks = 1
 
-    # Part 2: Check reciprocity
+    # Part 2: Check reciprocity and inversion symmetry
     rtol = 2.5e-2
 
-    # Part 3: Check inversion symmetry
+    # Part 3: Check matrix symmetry
 
-    # Part 4: Check matrix symmetry
-
-    # Part 5: Check symmetry toggle
+    # Part 4: Check symmetry toggle
     srtol = 1.e-2
 
     # ---------- Script ---------- #
@@ -132,7 +130,7 @@ def test_Fe_chiks(in_tmp_dir, Fe_gs, q_c, eta, gammacentered):
         chiks_sqwGG.append(chiks_qwGG)
         pd_sq.append(pd_q)
 
-    # Part 2: Check reciprocity
+    # Part 2: Check reciprocity and inversion symmetry
     for pd_q, chiks_qwGG in zip(pd_sq, chiks_sqwGG):
         # Get the q and -q pair
         if len(pd_q) == 2:
@@ -160,29 +158,17 @@ def test_Fe_chiks(in_tmp_dir, Fe_gs, q_c, eta, gammacentered):
         for chi1_GG, chi2_GG in zip(chiks_qwGG[q1], chiks_qwGG[q2]):
             assert np.allclose(chi2_GG[invmap_GG].T, chi1_GG, rtol=rtol)
 
-    # Part 3: Check inversion symmetry
-    for pd_q, chiks_qwGG in zip(pd_sq, chiks_sqwGG):
-        # Get the q and -q pair
-        if len(pd_q) == 2:
-            q1, q2 = 0, 1
-        else:
-            assert len(pd_q) == 1
-            assert np.allclose(q_c, 0.)
-            q1, q2 = 0, 0
-
-        invmap_GG = get_inverted_pw_mapping(pd_q[q1], pd_q[q2])
-
         # Check inversion symmetry of the full susceptibility
         for chi1_GG, chi2_GG in zip(chiks_qwGG[q1], chiks_qwGG[q2]):
             assert np.allclose(chi2_GG[invmap_GG], chi1_GG, rtol=rtol)
 
-    # Part 4: Check matrix symmetry
+    # Part 3: Check matrix symmetry
     for chiks_qwGG in chiks_sqwGG:
         for chiks_wGG in chiks_qwGG:
             for chiks_GG in chiks_wGG:
                 assert np.allclose(chiks_GG.T, chiks_GG, rtol=rtol)
 
-    # Part 5: Check symmetry toggle
+    # Part 4: Check symmetry toggle
 
     # Check that the plane wave representations are identical
     for pd1, pd2 in zip(pd_sq[0], pd_sq[1]):
