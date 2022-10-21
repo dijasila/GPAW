@@ -113,11 +113,12 @@ class BSE:
         if -1 in self.kd.bz2bz_ks:
             print('***WARNING*** Symmetries may not be right ' +
                   'Use gamma-centered grid to be sure', file=self.fd)
+        """
         offset_c = 0.5 * ((self.kd.N_c + 1) % 2) / self.kd.N_c
         bzq_qc = monkhorst_pack(self.kd.N_c) + offset_c
         self.qd = KPointDescriptor(bzq_qc)
         self.qd.set_symmetry(self.gs.atoms, self.kd.symmetry)
-
+        """
         # bands
         self.spins = self.gs.nspins
         if self.spins == 2:
@@ -178,12 +179,20 @@ class BSE:
         else:
             self.wstc = None
 
+        # Chi0 and W calculators
+        self.initialize_chi0_calculator()
+        self._wcalc = initialize_w_calculator(
+            chi0calc=self._chi0calc,
+            truncation=self.truncation,
+            world=world,
+            txt=self.fd,
+            integrate_gamma=self.integrate_gamma)
+
+        self.qd = self._wcalc.qd
+
         self.print_initialization(self.td, self.eshift, self.gw_skn)
 
-        # Chi0 object
-        self._chi0calc = None  # Initialized later
-        self._wcalc = None  # Initialized later
-
+        
     def __del__(self):
         self.iocontext.close()
 
@@ -357,10 +366,14 @@ class BSE:
                                                           vf_s[s1])
                             kptc2 = self.pair.get_k_point(s1, ikq, ci_s[s1],
                                                           cf_s[s1])
-                            rho3_mmG, iq = self.get_density_matrix(kptv1,
-                                                                   kptv2)
-                            rho4_nnG, iq = self.get_density_matrix(kptc1,
-                                                                   kptc2)
+                            rho3_mmG, iq = self._wcalc.get_density_matrix(kptv1,
+                                                                          kptv2,
+                                                                          self.pd_q,
+                                                                          self.pawcorr_q)
+                            rho4_nnG, iq = self._wcalc.get_density_matrix(kptc1,
+                                                                          kptc2,
+                                                                          self.pd_q,
+                                                                          self.pawcorr_q)
                             if self.spinors:
                                 vec0_mn = v_kmsn[iK1, mvi:mvf, 0, ni:nf]
                                 vec1_mn = v_kmsn[iK1, mvi:mvf, 1, ni:nf]
@@ -425,47 +438,6 @@ class BSE:
         if self.write_h:
             self.par_save('H_SS.ulm', 'H_SS', self.H_sS)
 
-    def get_density_matrix(self, kpt1, kpt2):
-
-        Q_c = self.kd.bzk_kc[kpt2.K] - self.kd.bzk_kc[kpt1.K]
-        iQ = self.qd.where_is_q(Q_c, self.qd.bzk_kc)
-        iq = self.qd.bz2ibz_k[iQ]
-        q_c = self.qd.ibzk_kc[iq]
-
-        # Find symmetry that transforms Q_c into q_c
-        sym = self.qd.sym_k[iQ]
-        U_cc = self.qd.symmetry.op_scc[sym]
-        time_reversal = self.qd.time_reversal_k[iQ]
-        sign = 1 - 2 * time_reversal
-        d_c = sign * np.dot(U_cc, q_c) - Q_c
-        assert np.allclose(d_c.round(), d_c)
-
-        pd = self.pd_q[iq]
-        N_c = pd.gd.N_c
-        i_cG = sign * np.dot(U_cc, np.unravel_index(pd.Q_qG[0], N_c))
-
-        shift0_c = Q_c - sign * np.dot(U_cc, q_c)
-        assert np.allclose(shift0_c.round(), shift0_c)
-        shift0_c = shift0_c.round().astype(int)
-
-        shift_c = kpt1.shift_c - kpt2.shift_c - shift0_c
-        I_G = np.ravel_multi_index(i_cG + shift_c[:, None], N_c, 'wrap')
-        G_Gv = pd.get_reciprocal_vectors()
-
-        M_vv = np.dot(pd.gd.cell_cv.T, np.dot(U_cc.T,
-                                              np.linalg.inv(pd.gd.cell_cv).T))
-
-        pawcorr = self.pawcorr_q[iq].remap_somehow(M_vv, G_Gv, sym, sign)
-
-        rho_mnG = np.zeros((len(kpt1.eps_n), len(kpt2.eps_n), len(G_Gv)),
-                           complex)
-        for m in range(len(rho_mnG)):
-            C1_aGi = pawcorr.multiply(kpt1.P_ani, band=m)
-            ut1cc_R = kpt1.ut_nR[m].conj()
-            rho_mnG[m] = self.pair.calculate_pair_density(ut1cc_R, C1_aGi,
-                                                          kpt2, pd, I_G)
-        return rho_mnG, iq
-
     def get_screened_potential(self):
 
         if hasattr(self, 'W_qGG'):
@@ -521,7 +493,7 @@ class BSE:
                               hilbert=False,
                               nbands=self.nbands,
                               txt='chi0.txt',
-                              world=world,
+                              world=world
                               )
         self.blockcomm = self._chi0calc.blockcomm
 
@@ -532,22 +504,12 @@ class BSE:
         self.W_qGG = []
         self.pd_q = []
 
-        # F.N: Moved this here. chi0 will be calculated by WCalculator
-        if self._chi0calc is None:
-            self.initialize_chi0_calculator()
-        if self._wcalc is None:
-            self._wcalc = initialize_w_calculator(
-                chi0calc=self._chi0calc,
-                truncation=self.truncation,
-                world=world,
-                txt=self.fd,
-                integrate_gamma=self.integrate_gamma)
         t0 = time()
         print('Calculating screened potential', file=self.fd)
         for iq, q_c in enumerate(self.qd.ibzk_kc):
             # pd, chi0_wGG, chi0_wxvG, chi0_wvv = self._calculate_chi0(q_c)
             chi0 = self._calculate_chi0(q_c)
-            pd, W_wGG = self._wcalc.calculate_q(iq, q_c, chi0)
+            pd, W_wGG = self._wcalc.calculate_q(iq, q_c, chi0, out_dist = 'wGG')
             W_GG = W_wGG[0]
             self.pawcorr_q.append(self._chi0calc.pawcorr)
             self.pd_q.append(pd)
