@@ -5,20 +5,28 @@ from ase.io import write
 from gpaw import GPAW
 from gpaw.lcao.local_orbitals import LocalOrbitals
 from gpaw.lcao.tightbinding import TightBinding
-from gpaw.lcao.tools import get_bfi
 from matplotlib import pyplot as plt
-from scipy.linalg import eigvalsh
 
 plt.style.use('bmh')
 plt.rcParams['font.size'] = 13
 plt.rcParams['lines.linewidth'] = 2
 
 
-def compare_bandstructure(lcao, los, fname, title):
-    """Compare the bandstructure of the of the low-energy model with 
-    the full LCAO calculation as horizontal lines"""
+def compare_bandstructure(lcao, los, figname, figtitle):
+    """Compare bands between LCAO and LO model.
+
+    Parameters
+    ----------
+    lcao : TightBinding
+        A TB wrapper aroubd an LCAO calculation.
+    los : LocalOrbitals
+        A LO wrapper around an LCAO calculation.
+    figname : str
+        Save the figure using `figname`.
+    figtitle : str
+        Title of the figure
+    """
     # Define a bandpath
-    calc = lcao.calc
     bp = calc.atoms.cell.bandpath('GX', npoints=60)
     xcoords, special_xcoords, labels = bp.get_linear_kpoint_axis()
     # Get the bandstructure
@@ -26,19 +34,20 @@ def compare_bandstructure(lcao, los, fname, title):
     los_eps = los.band_structure(bp.kpts, blochstates=False)
     # Plot
     plt.figure()
-    lines = plt.plot(xcoords, lcao_eps - calc.get_fermi_level(), 'tab:blue')
+    fermi = lcao.calc.get_fermi_level()
+    lines = plt.plot(xcoords, lcao_eps - fermi, 'tab:blue')
     lines[0].set_label('LCAO')
-    lines = plt.plot(xcoords, los_eps - calc.get_fermi_level(),
+    lines = plt.plot(xcoords, los_eps - fermi,
                      '-.', color='tab:orange')
     lines[0].set_label('LOs')
     plt.legend()
     plt.hlines(
         0., xmin=special_xcoords[0], xmax=special_xcoords[1], color='k', linestyle='--')
     plt.ylim(-10., 10.)
-    plt.title(title)
+    plt.title(figtitle)
     plt.xticks(special_xcoords, labels)
     plt.ylabel('Energy (eV)')
-    plt.savefig(fname, bbox_inches='tight')
+    plt.savefig(figname, bbox_inches='tight')
 
 
 # Atoms
@@ -46,12 +55,12 @@ gnr = graphene_nanoribbon(2, 1, type='zigzag', saturated=True,
                           C_H=1.1, C_C=1.4, vacuum=5.0)
 
 # LCAO calculation
-calc = GPAW(mode='lcao', xc='PBE', basis='szp(dzp)', txt=None, kpts={'size': (1, 1, 11), 'gamma': True},
+calc = GPAW(mode='lcao', xc='LDA', basis='szp(dzp)', txt=None, kpts={'size': (1, 1, 11), 'gamma': True},
             symmetry={'point_group': False, 'time_reversal': True})
 calc.atoms = gnr
 calc.get_potential_energy()
 
-# LCAO Tight Binding model
+# Start post-process
 tb = TightBinding(calc.atoms, calc)
 
 # Construct a LocalOrbital Object
@@ -59,7 +68,6 @@ los = LocalOrbitals(calc)
 
 # Subdiagonalize carbon atoms and group by symmetry and energy.
 los.subdiagonalize('C', groupby='symmetry')
-print("Groups of LOs\n", los.groups)
 
 # Take minimal model
 los.take_model(minimal=True)

@@ -1,7 +1,6 @@
-# creates: C6H6_minimal.png, C6H6_extended.png
+# creates: C6H6_minimal.png, C6H6_extended.png, C6H6_pzLOs.png
 import numpy as np
 from ase.build import molecule
-from ase.io import write
 from gpaw import GPAW
 from gpaw.lcao.local_orbitals import LocalOrbitals
 from gpaw.lcao.pwf2 import LCAOwrap
@@ -23,7 +22,6 @@ def get_eigvals(model, erng=[-10, 10]):
     erng : (float,float), optional
         Energy range of min and max eigenvalues.
     """
-    calc = model.calc
     # Compute eigenvalues from H and S.
     H = model.get_hamiltonian()
     S = model.get_overlap()
@@ -31,39 +29,51 @@ def get_eigvals(model, erng=[-10, 10]):
         eigs = np.linalg.eigvalsh(H)
     else:
         eigs = eigvalsh(H, S)
-    lims = calc.get_fermi_level() + erng[0], calc.get_fermi_level() + erng[1]
-    mask = (eigs > lims[0]) & (eigs < lims[1])
-    return eigs[mask]
+    eigs = eigs[(eigs > erng[0]) & (eigs < erng[1])]
+    return eigs
 
 
-def compare_eigvals(lcao_eigs, los_eigs, fname, title):
-    """Compare the eigenvalues of the low-energy model with 
-    the full LCAO calculation as horizontal lines.
+def compare_eigvals(lcao, los, figname, figtitle):
+    """Compare eigenvalues between LCAO and LO model.
+
+    Parameters
+    ----------
+    lcao : LCAOWrap
+        An LCAO wrapper around an LCAO calculation.
+    los : LocalOrbitals  
+        A LO wrapper around an LCAO calculation
+    figname : str
+        Save the figure using `figname`.
+    figtitle : str
+        Title of the figure
     """
-    global calc
-    # Get the eigenvalues
-    lcao_eigs = get_eigvals(lcao)
-    los_eigs = get_eigvals(los)
+    # Get eigenvalues
+    fermi = lcao.calc.get_fermi_level()
+    erng = [fermi + elim for elim in [-10, 10]]
+    lcao_eigs = get_eigvals(lcao, erng)
+    los_eigs = get_eigvals(los, erng)
+    # Plot eigenvalues
     plt.figure()
-    plt.hlines(lcao_eigs - calc.get_fermi_level(), -1, -0.01, color='tab:blue')
-    plt.hlines(los_eigs - calc.get_fermi_level(), 0.01,
+    plt.hlines(lcao_eigs, -1, -0.01, color='tab:blue')
+    plt.hlines(los_eigs, 0.01,
                1, linestyles='-.', color='tab:orange')
     plt.hlines(0., -1., 1., linestyle='--', color='black')
     plt.grid(axis='x')
     _ = plt.xticks(labels=['LCAO', 'LOs'], ticks=[-0.5, 0.5])
-    plt.title(title)
+    plt.title(figtitle)
     plt.ylabel('Energy (eV)')
-    plt.savefig(fname, bbox_inches='tight')
+    plt.savefig(figname, bbox_inches='tight')
 
 
 # Atoms
-benzene = molecule('C6H6', vacuum=10)
+benzene = molecule('C6H6', vacuum=5)
 
 # LCAO calculation
-calc = GPAW(mode='lcao', xc='PBE', basis='szp(dzp)', txt=None)
+calc = GPAW(mode='lcao', xc='LDA', basis='szp(dzp)', txt=None)
 calc.atoms = benzene
 calc.get_potential_energy()
 
+# LCAO wrapper
 lcao = LCAOwrap(calc)
 
 # Construct a LocalOrbital Object
@@ -71,36 +81,29 @@ los = LocalOrbitals(calc)
 
 # Subdiagonalize carbon atoms and group by energy.
 los.subdiagonalize('C', groupby='energy')
-print("Groups of LOs\n", los.groups)
+# Groups of LOs are stored in a dictionary >>> los.groups
 
-# Dump s-type LOs in cube format
-w_wG = los.get_orbitals(los.groups[-19.2])
-for w, w_G in enumerate(w_wG):
-    write(f's-lo-{w}.cube', calc.atoms, data=w_G)
+# Dump pz-type LOs in cube format
+fig = los.plot_group(-6.9)
+fig.savefig('C6H6_pzLOs.png', dpi=300, bbox_inches='tight')
 
 # Take minimal model
 los.take_model(minimal=True)
-print("Number of LOs in low-energy model:", len(los.model))
-print("Size of matrices", los.get_hamiltonian().shape)
+# Get the size of the model >>> len(los.model)
+# Assert that the Hamiltonian has the same dimensions >> los.get_hamiltonian().shape
 
 # Assert model indeed conicides with pz-type LOs
-assert los.indices == los.groups[-6.8]
-
-# Dump model to cube files
-w_wG = los.get_orbitals(los.indices)
-for w, w_G in enumerate(w_wG):
-    write(f'pz-lo-{w}.cube', calc.atoms, data=w_G)
+assert los.indices == los.groups[-6.9]
 
 # Compare eigenvalues with LCAO
 compare_eigvals(lcao, los, "C6H6_minimal.png", "minimal=True")
 
 # Extend with groups of LOs that overlap with the minimal model
 los.take_model(minimal=False)
-print("Number of LOs in low-energy model:", len(los.model))
-print("Size of matrices", los.get_hamiltonian().shape)
+# Get the size of the model >>> len(los.model)
 
 # Assert model is extended with other groups.
-assert los.indices == (los.groups[-6.8] + los.groups[20.1] + los.groups[21.5])
+assert los.indices == (los.groups[-6.9] + los.groups[20.2] + los.groups[21.6])
 
 # Compare eigenvalues with LCAO
 compare_eigvals(lcao, los, "C6H6_extended.png", "minimal=False")
