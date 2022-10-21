@@ -153,20 +153,11 @@ def test_Fe_chiks(in_tmp_dir, Fe_gs, q_c, eta, gammacentered):
             chi1_GG, chi2_GG = chiks_qwGG[q1][0], chiks_qwGG[q2][0]
             chi1r_GG = 1 / 2. * (chi1_GG + np.conj(chi1_GG).T)
             chi2r_GG = 1 / 2. * (chi2_GG + np.conj(chi2_GG).T)
-
-            # err = np.absolute(np.conj(chi2r_GG[invmap_GG]) - chi1r_GG)
-            # is_bad = err > 1.e-8 + rtol * np.absolute(chi1r_GG)
-            # print(is_bad)
-            # print(np.absolute(err[is_bad]) / np.absolute(chi1r_GG[is_bad]))
             assert np.allclose(np.conj(chi2r_GG[invmap_GG]), chi1r_GG,
                                rtol=rtol)
 
         # Check the reciprocity of the full susceptibility
         for chi1_GG, chi2_GG in zip(chiks_qwGG[q1], chiks_qwGG[q2]):
-            # err = np.absolute(chi1_GG - chi2_GG[invmap_GG].T)
-            # is_bad = err > 1.e-8 + rtol * np.absolute(chi1_GG)
-            # print(is_bad)
-            # print(np.absolute(err[is_bad]) / np.absolute(chi1_GG[is_bad]))
             assert np.allclose(chi2_GG[invmap_GG].T, chi1_GG, rtol=rtol)
 
     # Part 3: Check inversion symmetry
@@ -203,10 +194,6 @@ def test_Fe_chiks(in_tmp_dir, Fe_gs, q_c, eta, gammacentered):
     chiks1_qwGG = chiks_sqwGG[0]
     chiks2_qwGG = chiks_sqwGG[1]
     for chiks1_wGG, chiks2_wGG in zip(chiks1_qwGG, chiks2_qwGG):
-        # err = np.absolute(chiks1_wGG - chiks2_wGG)
-        # is_bad = err > 1.e-8 + rtol * np.absolute(chiks1_wGG)
-        # print(is_bad)
-        # print(np.absolute(err[is_bad] / np.absolute(chiks1_wGG[is_bad])))
         assert np.allclose(chiks2_wGG, chiks1_wGG, rtol=srtol)
 
 
