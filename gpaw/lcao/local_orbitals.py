@@ -578,7 +578,7 @@ class LocalOrbitals(TightBinding):
             # Maybe model is orthogonal and subdiag does not know.
             basis = self.model
         return get_orbitals(self.calc, basis.U_MM[:, indices])
-    
+
     def plot_group(self, group):
         return plot2D_orbitals(self, self.groups[group])
 
@@ -691,22 +691,22 @@ def plot2D_orbitals(los, indices, plane='yz'):
     box_widths = [lims[1] - lims[0] for lims in box_lims]
     ratio = box_widths[0] / box_widths[1]  # Cell ratio
     num_orbs = len(indices)
-    max_cols = 5
+    max_cols = 6
     nrows = (num_orbs - 1) // max_cols + 1
     ncols = min(num_orbs, max_cols)
 
-    figsize = 3
+    figsize = 5
     fig, axs = plt.subplots(nrows, ncols, figsize=(
-        ratio * figsize, figsize), sharex=True, sharey=True)
+        ncols / nrows * ratio * figsize, figsize))
 
     X, Y = np.meshgrid(get_coord(plane_dirs[0]), get_coord(
         plane_dirs[1]), indexing='ij')
     take_plane = [slice(None)] * 3
 
-    for r, c in np.ndindex(nrows, ncols):
-
-        w = r * ncols + c
-        ax = axs[r, c]
+    it = np.nditer(axs, flags=['refs_ok', 'c_index', 'multi_index'])
+    for _ in it:
+        ax = axs[it.multi_index]
+        w = np.ravel_multi_index(it.multi_index, axs.shape)
         if w >= num_orbs:
             ax.axis('off')
             continue
@@ -717,10 +717,8 @@ def plot2D_orbitals(los, indices, plane='yz'):
         ax.pcolormesh(X, Y, C, cmap='jet', shading='gouraud')
         ax.set_xlim(box_lims[0])
         ax.set_ylim(box_lims[1])
-        if ax.is_first_col and ax.is_last_row:
-            ax.set_xlabel('$y$')
-            ax.set_ylabel('$z$')
+        ax.axis('off')
 
         ax.scatter(pos[:, plane_dirs[0]], pos[:, plane_dirs[1]],
-                   c=colors, s=radii * 30)
+                   c=colors, s=radii * 1e3 / (nrows * 2))
     return fig
