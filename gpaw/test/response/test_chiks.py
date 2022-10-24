@@ -52,7 +52,7 @@ def generate_gc_g():
 @pytest.mark.parametrize('q_c,eta,gammacentered', product(generate_q_qc(),
                                                           generate_eta_e(),
                                                           generate_gc_g()))
-def test_Fe_chiks(in_tmp_dir, Fe_gs, q_c, eta, gammacentered):
+def test_chiks_symmetry(in_tmp_dir, Fe_gs, q_c, eta, gammacentered):
     """Check the reciprocity relation,
 
     χ_(KS,GG')^(+-)(q, ω) = χ_(KS,-G'-G)^(+-)(-q, ω),
