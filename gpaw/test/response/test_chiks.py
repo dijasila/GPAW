@@ -82,7 +82,7 @@ def test_Fe_chiks(in_tmp_dir, gpw_files, q_c, eta, gammacentered):
     # ---------- Script ---------- #
 
     # Part 1: ChiKS calculation
-    calc = GPAW(gpw_files['fe_pw_wfs'])
+    calc = GPAW(gpw_files['fe_pw_wfs'], parallel=dict(domain=1))
     nbands = calc.parameters.convergence['bands']
 
     gs = ResponseGroundStateAdapter(calc)

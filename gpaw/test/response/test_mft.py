@@ -44,7 +44,7 @@ def test_Fe_bcc(in_tmp_dir, gpw_files):
 
     # ---------- Script ---------- #
 
-    calc = GPAW(gpw_files['fe_pw_wfs'])
+    calc = GPAW(gpw_files['fe_pw_wfs'], parallel=dict(domain=1))
     nbands = calc.parameters.convergence['bands']
     atoms = calc.atoms
 

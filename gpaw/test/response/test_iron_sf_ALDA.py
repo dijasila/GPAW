@@ -17,7 +17,7 @@ from gpaw.mpi import world
 from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.susceptibility import read_macroscopic_component
 from gpaw.response.tms import TransverseMagneticSusceptibility
-from gpaw.test import equal, findpeak
+from gpaw.test import findpeak
 
 pytestmark = pytest.mark.skipif(world.size < 4, reason='world.size < 4')
 
@@ -71,7 +71,7 @@ def test_response_iron_sf_ALDA(in_tmp_dir, scalapack, gpw_files):
 
     t1 = time.time()
 
-    calc = GPAW(gpw_files['fe_pw_wfs'])
+    calc = GPAW(gpw_files['fe_pw_wfs'], parallel=dict(domain=1))
 
     t2 = time.time()
 
@@ -133,38 +133,38 @@ def test_response_iron_sf_ALDA(in_tmp_dir, scalapack, gpw_files):
     mw8 = wpeak8 * 1000
 
     # Part 4: compare new results to test values
-    test_mw1 = 234.63  # meV
-    test_mw2 = 397.33  # meV
+    test_mw1 = 271.6  # meV
+    test_mw2 = 399.9  # meV
     test_mw4 = 398.83  # meV
-    test_Ipeak1 = 56.74  # a.u.
+    test_Ipeak1 = 38.1  # a.u.
     test_Ipeak2 = 55.80  # a.u.
-    test_Ipeak4 = 58.23  # a.u.
+    test_Ipeak4 = 54.7  # a.u.
 
     # Different kernel strategies should remain the same
     # Magnon peak:
-    equal(mw1, test_mw1, eta * 250)
-    equal(mw2, test_mw2, eta * 250)
-    equal(mw4, test_mw4, eta * 250)
+    assert mw1 == pytest.approx(test_mw1, abs=eta * 250)
+    assert mw2 == pytest.approx(test_mw2, abs=eta * 250)
+    assert mw4 == pytest.approx(test_mw4, abs=eta * 250)
 
     # Scattering function intensity:
-    equal(Ipeak1, test_Ipeak1, 2.5)
-    equal(Ipeak2, test_Ipeak2, 2.5)
-    equal(Ipeak4, test_Ipeak4, 2.5)
+    assert Ipeak1 == pytest.approx(test_Ipeak1, abs=2.5)
+    assert Ipeak2 == pytest.approx(test_Ipeak2, abs=2.5)
+    assert Ipeak4 == pytest.approx(test_Ipeak4, abs=2.5)
 
     # The bundled and unbundled integration methods should give the same
-    equal(mw2, mw3, eta * 100)
-    equal(Ipeak2, Ipeak3, 1.0)
+    assert mw2 == pytest.approx(mw3, abs=eta * 100)
+    assert Ipeak2 == pytest.approx(Ipeak3, abs=1.0)
 
     # The two transitions summation strategies should give identical results
-    equal(mw4, mw5, eta * 100)
-    equal(Ipeak4, Ipeak5, 1.0)
+    assert mw4 == pytest.approx(mw5, abs=eta * 100)
+    assert Ipeak4 == pytest.approx(Ipeak5, abs=1.0)
 
     # Toggling symmetry should preserve the result
-    equal(mw6, mw4, eta * 100)
-    equal(Ipeak6, Ipeak4, 1.0)
+    assert mw6 == pytest.approx(mw4, abs=eta * 100)
+    assert Ipeak6 == pytest.approx(Ipeak4, abs=1.0)
 
     # Including vanishing coefficients should not matter for the result
-    equal(mw7, mw4, eta * 100)
-    equal(Ipeak7, Ipeak4, 1.0)
-    equal(mw8, mw2, eta * 100)
-    equal(Ipeak8, Ipeak2, 1.0)
+    assert mw7 == pytest.approx(mw4, abs=eta * 100)
+    assert Ipeak7 == pytest.approx(Ipeak4, abs=1.0)
+    assert mw8 == pytest.approx(mw2, abs=eta * 100)
+    assert Ipeak8 == pytest.approx(Ipeak2, abs=1.0)
