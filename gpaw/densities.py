@@ -66,7 +66,8 @@ class Densities:
                                grid_refinement: int = None,
                                ) -> UniformGridFunctions:
         n_sR = self._pseudo_densities(grid_spacing, grid_refinement)
-        nspins = n_sR.dims[0] % 3
+        ncomponents = n_sR.dims[0]
+        nspins = ncomponents % 3
         grid = n_sR.desc
 
         splines = {}
@@ -80,7 +81,8 @@ class Densities:
             rcut, phi_j, phit_j, nc, nct = splines[setup]
 
             # Expected integral of PAW correction:
-            electrons_s = (setup.Nc - setup.Nct) / nspins
+            electrons_s = np.zeros(ncomponents)
+            electrons_s[:nspins] = (setup.Nc - setup.Nct) / nspins
             electrons_s += (4 * pi)**0.5 * np.einsum('sij, ij -> s',
                                                      D_sii,
                                                      setup.Delta_iiL[:, :, 0])
@@ -115,7 +117,7 @@ def add(R_v: Vector,
     lmax = max(phi.l for phi in phi_j)
     ncomponents = a_sR.dims[0]
     nspins = ncomponents % 3
-    electrons_s = np.zeros(nspins)
+    electrons_s = np.zeros(ncomponents)
     start_c = 0 - ug.pbc
     stop_c = 1 + ug.pbc
     for u0 in range(start_c[0], stop_c[0]):
@@ -155,7 +157,7 @@ def add(R_v: Vector,
                     i1 = i1b
 
                 dn_r = nc.map(d_r) - nct.map(d_r)
-                a_sr += dn_r * ((4 * pi)**-0.5 / nspins)
+                a_sr[:nspins] += dn_r * ((4 * pi)**-0.5 / nspins)
                 electrons_s += a_sr.sum(1) * a_sR.desc.dv
                 a_sR.data[:, mask_R] += a_sr
     return electrons_s

@@ -19,10 +19,11 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.pw.descriptor import PWDescriptor, count_reciprocal_vectors
 from gpaw.utilities.progressbar import ProgressBar
 
+from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chi0 import Chi0Calculator
 from gpaw.response.g0w0_kernels import G0W0Kernel
 from gpaw.response.hilbert import GWHilbertTransforms
-from gpaw.response.pair import NoCalculatorPairDensity, calc_and_context
+from gpaw.response.pair import NoCalculatorPairDensity
 from gpaw.response.screened_interaction import WCalculator
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 
@@ -316,7 +317,7 @@ class G0W0Calculator:
                  savepckl=True):
         """G0W0 calculator, initialized through G0W0 object.
 
-        The G0W0 calculator is used is used to calculate the quasi
+        The G0W0 calculator is used to calculate the quasi
         particle energies through the G0W0 approximation for a number
         of states.
 
@@ -366,10 +367,6 @@ class G0W0Calculator:
         self.frequencies = frequencies
 
         self.ecut_e = ecut_e / Ha
-
-        if self.wcalc.ppa and self.wcalc.pair.nblocks > 1:
-            raise ValueError(
-                'PPA is currently not compatible with block parallelisation.')
 
         self.world = self.wcalc.context.world
 
@@ -432,6 +429,8 @@ class G0W0Calculator:
         self.fd.flush()
         self.hilbert_transform = None  # initialized when we create Chi0
 
+        self.sigma_calculator = self._build_sigma_calculator()
+
         if self.wcalc.ppa:
             print('Using Godby-Needs plasmon-pole approximation:',
                   file=self.fd)
@@ -439,6 +438,15 @@ class G0W0Calculator:
                   file=self.fd)
         else:
             print('Using full frequency integration', file=self.fd)
+
+    def _build_sigma_calculator(self):
+        import gpaw.response.sigma as sigma
+        factor = 1.0 / (self.wcalc.qd.nbzkpts * 2 * pi * self.wcalc.gs.volume)
+
+        if self.wcalc.ppa:
+            return sigma.PPASigmaCalculator(eta=self.eta, factor=factor)
+
+        return sigma.SigmaCalculator(wd=self.wcalc.wd, factor=factor)
 
     def print_parameters(self, kpts, b1, b2):
         p = functools.partial(print, file=self.fd)
@@ -580,7 +588,7 @@ class G0W0Calculator:
         return self.all_results[self.wcalc.fxc_mode]
 
     def calculate_q(self, ie, k, kpt1, kpt2, pd0, Wdict,
-                    *, symop, sigmas, blocks1d, Q_aGii):
+                    *, symop, sigmas, blocks1d, pawcorr):
         """Calculates the contribution to the self-energy and its derivative
         for a given set of k-points, kpt1 and kpt2."""
 
@@ -596,33 +604,17 @@ class G0W0Calculator:
 
         G_Gv = pd0.get_reciprocal_vectors()
 
-        pos_av = np.dot(self.wcalc.pair.spos_ac, pd0.gd.cell_cv)
         M_vv = symop.get_M_vv(pd0.gd.cell_cv)
 
-        myQ_aGii = []
-        for a, Q_Gii in enumerate(Q_aGii):
-            x_G = np.exp(1j * np.dot(G_Gv, (pos_av[a] -
-                                            np.dot(M_vv, pos_av[a]))))
-            U_ii = self.wcalc.gs.setups[a].R_sii[symop.symno]
-            Q_Gii = np.dot(np.dot(U_ii, Q_Gii * x_G[:, None, None]),
-                           U_ii.T).transpose(1, 0, 2)
-            if symop.sign == -1:
-                Q_Gii = Q_Gii.conj()
-            myQ_aGii.append(Q_Gii)
+        mypawcorr = pawcorr.remap_somehow_else(symop, G_Gv, M_vv)
 
         if debug:
-            self.check(ie, i_cG, shift0_c, N_c, q_c, myQ_aGii)
-
-        if self.wcalc.ppa:
-            calculate_sigma = self.calculate_sigma_ppa
-        else:
-            calculate_sigma = self.calculate_sigma
+            self.check(ie, i_cG, shift0_c, N_c, q_c, mypawcorr)
 
         for n in range(kpt1.n2 - kpt1.n1):
             ut1cc_R = kpt1.ut_nR[n].conj()
             eps1 = kpt1.eps_n[n]
-            C1_aGi = [np.dot(Qa_Gii, P1_ni[n].conj())
-                      for Qa_Gii, P1_ni in zip(myQ_aGii, kpt1.P_ani)]
+            C1_aGi = mypawcorr.multiply(kpt1.P_ani, band=n)
             n_mG = self.wcalc.pair.calculate_pair_density(
                 ut1cc_R, C1_aGi, kpt2, pd0, I_G)
             if symop.sign == 1:
@@ -637,12 +629,12 @@ class G0W0Calculator:
             for fxc_mode in self.fxc_modes:
                 sigma = sigmas[fxc_mode]
                 W = Wdict[fxc_mode]
-                sigma_contrib, dsigma_contrib = calculate_sigma(
+                sigma_contrib, dsigma_contrib = self.calculate_sigma(
                     n_mG, deps_m, f_m, W, blocks1d)
                 sigma.sigma_eskn[ie, kpt1.s, k, nn] += sigma_contrib
                 sigma.dsigma_eskn[ie, kpt1.s, k, nn] += dsigma_contrib
 
-    def check(self, ie, i_cG, shift0_c, N_c, q_c, Q_aGii):
+    def check(self, ie, i_cG, shift0_c, N_c, q_c, pawcorr):
         I0_G = np.ravel_multi_index(i_cG - shift0_c[:, None], N_c, 'wrap')
         qd1 = KPointDescriptor([q_c])
         pd1 = PWDescriptor(self.ecut_e[ie], self.wcalc.gs.gd, complex, qd1)
@@ -651,59 +643,28 @@ class G0W0Calculator:
         I1_G = pd1.Q_qG[0]
         G_I[I1_G] = np.arange(len(I0_G))
         G_G = G_I[I0_G]
+        # This indexing magic should definitely be moved to a method.
+        # What on earth is it really?
+
         assert len(I0_G) == len(I1_G)
         assert (G_G >= 0).all()
-        for a, Q_Gii in enumerate(
-                self.wcalc.pair.initialize_paw_corrections(pd1)):
-            e = abs(Q_aGii[a] - Q_Gii[G_G]).max()
-            assert e < 1e-12
+        pairden_paw_corr = self.wcalc.gs.pair_density_paw_corrections
+        pawcorr_wcalc1 = pairden_paw_corr(pd1, alter_optical_limit=True)
+        assert pawcorr.almost_equal(pawcorr_wcalc1, G_G)
 
     @timer('Sigma')
     def calculate_sigma(self, n_mG, deps_m, f_m, C_swGG, blocks1d):
         """Calculates a contribution to the self-energy and its derivative for
         a given (k, k-q)-pair from its corresponding pair-density and
         energy."""
-        o_m = abs(deps_m)
-        # Add small number to avoid zeros for degenerate states:
-        sgn_m = np.sign(deps_m + 1e-15)
-
-        # Pick +i*eta or -i*eta:
-        s_m = (1 + sgn_m * np.sign(0.5 - f_m)).astype(int) // 2
-
-        w_m = self.wcalc.wd.get_floor_index(o_m, safe=False)
-        m_inb = np.where(w_m < len(self.wcalc.wd) - 1)[0]
-        o1_m = np.empty(len(o_m))
-        o2_m = np.empty(len(o_m))
-        o1_m[m_inb] = self.wcalc.wd.omega_w[w_m[m_inb]]
-        o2_m[m_inb] = self.wcalc.wd.omega_w[w_m[m_inb] + 1]
-
-        x = 1.0 / (self.wcalc.qd.nbzkpts * 2 * pi * self.wcalc.gs.volume)
-        sigma = 0.0
-        dsigma = 0.0
-        # Performing frequency integration
-        for o, o1, o2, sgn, s, w, n_G in zip(o_m, o1_m, o2_m,
-                                             sgn_m, s_m, w_m, n_mG):
-
-            if w >= len(self.wcalc.wd.omega_w) - 1:
-                continue
-
-            C1_GG = C_swGG[s][w]
-            C2_GG = C_swGG[s][w + 1]
-            p = x * sgn
-            myn_G = n_G[blocks1d.myslice]
-
-            sigma1 = p * np.dot(np.dot(myn_G, C1_GG), n_G.conj()).imag
-            sigma2 = p * np.dot(np.dot(myn_G, C2_GG), n_G.conj()).imag
-            sigma += ((o - o1) * sigma2 + (o2 - o) * sigma1) / (o2 - o1)
-            dsigma += sgn * (sigma2 - sigma1) / (o2 - o1)
-
-        return sigma, dsigma
+        return self.sigma_calculator.calculate_sigma(
+            n_mG, deps_m, f_m, C_swGG, blocks1d=blocks1d)
 
     def calculate_all_q_points(self):
         """Main loop over irreducible Brillouin zone points.
         Handles restarts of individual qpoints using FileCache from ASE,
         and subsequently calls calculate_q."""
-       
+
         pb = ProgressBar(self.fd)
 
         self.timer.start('W')
@@ -783,7 +744,7 @@ class G0W0Calculator:
                   for fxc_mode in self.fxc_modes}
 
         if len(self.ecut_e) > 1:
-            chi0bands = chi0calc.create_chi0(q_c, extend_head=False)
+            chi0bands = chi0calc.create_chi0(q_c)
         else:
             chi0bands = None
 
@@ -803,7 +764,7 @@ class G0W0Calculator:
                                      f'larger number of bands ({m2})'
                                      f' than there are bands '
                                      f'({self.nbands}).')
-            pdi, Wdict, blocks1d, Q_aGii = self.calculate_w(
+            pdi, Wdict, blocks1d, pawcorr = self.calculate_w(
                 chi0calc, q_c, chi0bands,
                 m1, m2, ecut, wstc, iq)
             m1 = m2
@@ -824,7 +785,7 @@ class G0W0Calculator:
                                      symop=symop,
                                      sigmas=sigmas,
                                      blocks1d=blocks1d,
-                                     Q_aGii=Q_aGii)
+                                     pawcorr=pawcorr)
 
         for sigma in sigmas.values():
             sigma.sum(self.world)
@@ -853,7 +814,7 @@ class G0W0Calculator:
                     iq):
         """Calculates the screened potential for a specified q-point."""
 
-        chi0 = chi0calc.create_chi0(q_c, extend_head=False)
+        chi0 = chi0calc.create_chi0(q_c)
         chi0calc.fd = self.fd
         chi0calc.print_chi(chi0.pd)
         chi0calc.update_chi0(chi0, m1, m2, range(self.wcalc.gs.nspins))
@@ -869,7 +830,7 @@ class G0W0Calculator:
                 chi0bands.chi0_wvv[:] = chi0.chi0_wvv.copy()
 
         Wdict = {}
-        
+
         for fxc_mode in self.fxc_modes:
             pdi, blocks1d, G2G, chi0_wGG, chi0_wxvG, chi0_wvv = \
                 chi0calc.reduce_ecut(ecut, chi0)
@@ -890,7 +851,7 @@ class G0W0Calculator:
 
             Wdict[fxc_mode] = W_xwGG
 
-        return pdi, Wdict, blocks1d, chi0calc.Q_aGii
+        return pdi, Wdict, blocks1d, chi0calc.pawcorr
 
     def calculate_vxc_and_exx(self):
         """EXX and Kohn-Sham XC contribution."""
@@ -967,31 +928,6 @@ class G0W0Calculator:
 
         self.timer.write(self.fd)
 
-    @timer('PPA-Sigma')
-    def calculate_sigma_ppa(self, n_mG, deps_m, f_m, W, *unused):
-        W_GG, omegat_GG = W
-
-        sigma = 0.0
-        dsigma = 0.0
-
-        for m in range(len(n_mG)):
-            deps_GG = deps_m[m]
-            sign_GG = 2 * f_m[m] - 1
-            x1_GG = 1 / (deps_GG + omegat_GG - 1j * self.eta)
-            x2_GG = 1 / (deps_GG - omegat_GG + 1j * self.eta)
-            x3_GG = 1 / (deps_GG + omegat_GG - 1j * self.eta * sign_GG)
-            x4_GG = 1 / (deps_GG - omegat_GG - 1j * self.eta * sign_GG)
-            x_GG = W_GG * (sign_GG * (x1_GG - x2_GG) + x3_GG + x4_GG)
-            dx_GG = W_GG * (sign_GG * (x1_GG**2 - x2_GG**2) +
-                            x3_GG**2 + x4_GG**2)
-            nW_G = np.dot(n_mG[m], x_GG)
-            sigma += np.vdot(n_mG[m], nW_G).real
-            nW_G = np.dot(n_mG[m], dx_GG)
-            dsigma -= np.vdot(n_mG[m], nW_G).real
-
-        x = 1 / (self.wcalc.qd.nbzkpts * 2 * pi * self.wcalc.gs.volume)
-        return x * sigma, x * dsigma
-
     def calculate_g0w0_outputs(self, sigma):
         eps_skn, f_skn = self.get_eps_and_occs()
         vxc_skn, exx_skn = self.calculate_vxc_and_exx()
@@ -1056,7 +992,7 @@ class G0W0(G0W0Calculator):
         Parameters
         ----------
         calc:
-            GPAW calculator object or filename of saved calculator object.
+            Filename of saved calculator object.
         filename: str
             Base filename of output files.
         restartfile: str
@@ -1130,19 +1066,20 @@ class G0W0(G0W0Calculator):
         savepckl: bool
             Save output to a pckl file.
         """
-
         frequencies = get_frequencies(frequencies, domega0, omega2)
 
         self._gpwfile = calc
-        calc, context = calc_and_context(self._gpwfile, filename + '.txt',
-                                         world, timer)
-        gs = calc.gs_adapter()
+        context = ResponseContext(txt=filename + '.txt',
+                                  world=world, timer=timer)
+        gs = ResponseGroundStateAdapter.from_gpw_file(self._gpwfile,
+                                                      context=context)
 
         # Check if nblocks is compatible, adjust if not
         if nblocksmax:
             nblocks = get_max_nblocks(context.world, self._gpwfile, ecut)
 
-        pair = NoCalculatorPairDensity(gs, nblocks=nblocks, context=context)
+        pair = NoCalculatorPairDensity(gs, context,
+                                       nblocks=nblocks)
 
         kpts = list(select_kpts(kpts, gs.kd))
 
@@ -1170,8 +1107,7 @@ class G0W0(G0W0Calculator):
 
         from gpaw.response.chi0 import new_frequency_descriptor
         chi_context = context.with_txt(filename + '.w.txt')
-        wd = new_frequency_descriptor(
-            gs, nbands, frequencies, fd=chi_context.fd)
+        wd = new_frequency_descriptor(gs, chi_context, nbands, frequencies)
 
         chi0calc = Chi0Calculator(
             wd=wd, pair=pair,

@@ -15,6 +15,8 @@ from gpaw.response.coulomb_kernels import (get_coulomb_kernel,
 from gpaw.response.dyson import calculate_inveps
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 
+from gpaw.response.dyson import CUPYBridge_dyson_and_W, CUPYBridge_dyson_work
+from gpaw import gpu
 
 def get_qdescriptor(kd, atoms):
     # Find q-vectors and weights in the IBZ:
@@ -138,19 +140,19 @@ class WCalculator:
         if q0_correction:
             assert self.truncation == '2D'
             self.q0_corrector = Q0Correction(
-                cell_cv=self.gs.gd.cell_cv, bzk_kc=self.gs.kd.bzk_kc,
+                cell_cv=self.gs.gd.cell_cv,
+                bzk_kc=self.gs.kd.bzk_kc,
                 N_c=self.qd.N_c)
+
+            npts_c = self.q0_corrector.npts_c
+            self.context.print('Applying analytical 2D correction to W:',
+                               flush=False)
+            self.context.print('    Evaluating Gamma point contribution to W '
+                               + 'on a %dx%dx%d grid' % tuple(npts_c))
         else:
             self.q0_corrector = None
 
         self.E0 = E0 / Ha
-
-    def add_q0_correction(self, pd, W_GG, einv_GG, chi0_xvG, chi0_vv,
-                          sqrtV_G, print_ac=False):
-        self.q0_corrector.add_q0_correction(
-            pd, W_GG, einv_GG, chi0_xvG, chi0_vv,
-            sqrtV_G,
-            fd=self.fd if print_ac else None)
 
 # calculate_q wrapper
     def calculate_q(self, iq, q_c, chi0):
@@ -213,7 +215,7 @@ class WCalculator:
         wgg_grid.redistribute(WgG_grid, dielectric_wgg, dielectric_WgG)
         inveps_WgG = dielectric_WgG
 
-        self.timer.start('Dyson eq.')
+        self.context.timer.start('Dyson eq.')
 
         for iw, inveps_gG in enumerate(inveps_WgG):
             inveps_gG -= np.identity(nG)[my_gslice]
@@ -225,9 +227,12 @@ class WCalculator:
         Wm_wGG = W_WgG.copy()
         return chi0.pd, Wm_wGG, Wp_wGG  # not Hilbert transformed yet
 
+
+
+    @CUPYBridge_dyson_and_W
     def dyson_and_W_old(self, wstc, iq, q_c, chi0, fxc_mode,
                         pdi=None, G2G=None, chi0_wGG=None, chi0_wxvG=None,
-                        chi0_wvv=None, only_correlation=False):
+                        chi0_wvv=None, only_correlation=False, xp=np):
         # If called with reduced ecut for ecut extrapolation
         # pdi, G2G, chi0_wGG, chi0_wxvG, chi0_wvv have to be given.
         # These quantities can be calculated using chi0calc.reduced_ecut()
@@ -236,7 +241,21 @@ class WCalculator:
             chi0_wGG = chi0.blockdist.redistribute(chi0.chi0_wGG, chi0.nw)
             chi0_wxvG = chi0.chi0_wxvG
             chi0_wvv = chi0.chi0_wvv
-            pdi = pd
+            pdi = chi0.pd
+
+        pdi, W_wGG = self.dyson_work(wstc, iq, q_c, fxc_mode, chi0, pdi, G2G, chi0_wGG, chi0_wxvG, chi0_wvv, only_correlation, xp)
+
+        # XXX This creates a new, large buffer.  We could perhaps
+        # avoid that.  Buffer used to exist but was removed due to #456.
+        # TODI: This shouldn't be run with PPA
+        # chi0_wGG[:] = chi0.blockdist.redistribute(W_wGG, chi0.nw)
+        return pdi, W_wGG
+
+    @CUPYBridge_dyson_work
+    def dyson_work(self, wstc, iq, q_c, fxc_mode, chi0, pdi, G2G, 
+                   chi0_wGG, chi0_wxvG, chi0_wvv, only_correlation, xp=np):
+        
+        pd = chi0.pd 
         nG = pdi.ngmax
         wblocks1d = Blocks1D(self.blockcomm, len(self.wd))
         if self.integrate_gamma != 0:
@@ -252,7 +271,7 @@ class WCalculator:
             V0 = 16 * np.pi**2 * Rq0 / bzvol
             sqrtV0 = (4 * np.pi)**(1.5) * Rq0**2 / bzvol / 2
 
-        delta_GG = np.eye(nG)
+        delta_GG = xp.eye(nG)
 
         if self.ppa:
             einv_wGG = []
@@ -268,33 +287,33 @@ class WCalculator:
             gamma_int = GammaIntegrator(truncation=self.truncation,
                                         kd=kd, pd=pd,
                                         chi0_wvv=chi0_wvv[wblocks1d.myslice],
-                                        chi0_wxvG=chi0_wxvG[wblocks1d.myslice])
+                                        chi0_wxvG=chi0_wxvG[wblocks1d.myslice], xp=xp)
 
-        self.timer.start('Dyson eq.')
+        self.context.timer.start('Dyson eq.')
 
-        def get_sqrtV_G(N_c, q_v=None):
+        def get_sqrtV_G(N_c, q_v=None, xp=np):
             return get_coulomb_kernel(
                 pdi,
                 N_c,
                 truncation=self.truncation,
                 wstc=wstc,
-                q_v=q_v)**0.5
-
+                q_v=q_v, xp=xp)**0.5
+        
         for iw, chi0_GG in enumerate(chi0_wGG):
-            einv_GG = np.zeros((nG, nG), complex)
+            einv_GG = xp.zeros((nG, nG), complex)
             if np.allclose(q_c, 0):
                 for iqf in range(len(gamma_int.qf_qv)):
                     chi0_GG[0, :] = gamma_int.a0_qwG[iqf, iw]
                     chi0_GG[:, 0] = gamma_int.a1_qwG[iqf, iw]
                     chi0_GG[0, 0] = gamma_int.a_wq[iw, iqf]
 
-                    sqrtV_G = get_sqrtV_G(kd.N_c, q_v=gamma_int.qf_qv[iqf])
+                    sqrtV_G = get_sqrtV_G(kd.N_c, q_v=gamma_int.qf_qv[iqf], xp=xp)
 
                     calculate_inveps(sqrtV_G, chi0_GG, mode=fxc_mode, 
                                      fv_GG=fv, weight=gamma_int.weight_q[iqf],
                                      out_GG=einv_GG)
             else:
-                sqrtV_G = get_sqrtV_G(kd.N_c)
+                sqrtV_G = get_sqrtV_G(kd.N_c, xp=xp)
                 calculate_inveps(sqrtV_G, chi0_GG, mode=fxc_mode, fv_GG=fv, 
                                  weight=1.0, out_GG=einv_GG)
             if self.ppa:
@@ -303,24 +322,22 @@ class WCalculator:
                 einv_GG_full = einv_GG.copy()
                 if only_correlation:
                     einv_GG -= delta_GG
-                W_GG = chi0_GG
+                W_GG = xp.zeros_like(chi0_GG)
+                #W_GG = chi0_GG
                 W_GG[:] = (einv_GG) * (sqrtV_G *
                                        sqrtV_G[:, np.newaxis])
                 if self.q0_corrector is not None and np.allclose(q_c, 0):
-                    if iw == 0:
-                        print_ac = True
-                    else:
-                        print_ac = False
                     this_w = wblocks1d.a + iw
-                    self.add_q0_correction(pdi, W_GG, einv_GG_full,
-                                           chi0_wxvG[this_w],
-                                           chi0_wvv[this_w],
-                                           sqrtV_G,
-                                           print_ac=print_ac)
+                    self.q0_corrector.add_q0_correction(pdi, W_GG,
+                                                        einv_GG_full,
+                                                        chi0_wxvG[this_w],
+                                                        chi0_wvv[this_w],
+                                                        sqrtV_G)
                 elif np.allclose(q_c, 0) or self.integrate_gamma != 0:
                     W_GG[0, 0] = einv_GG[0, 0] * V0
                     W_GG[0, 1:] = einv_GG[0, 1:] * sqrtV_G[1:] * sqrtV0
                     W_GG[1:, 0] = einv_GG[1:, 0] * sqrtV0 * sqrtV_G[1:]
+                chi0_GG[:] = W_GG # gpu.copy_to_host(W_GG)
 
         if self.ppa:
             omegat_GG = self.E0 * np.sqrt(einv_wGG[1] /
@@ -332,12 +349,9 @@ class WCalculator:
                 W_GG[0, 1:] = pi * R_GG[0, 1:] * sqrtV_G[1:] * sqrtV0
                 W_GG[1:, 0] = pi * R_GG[1:, 0] * sqrtV0 * sqrtV_G[1:]
 
-            self.timer.stop('Dyson eq.')
+            self.context.timer.stop('Dyson eq.')
             return pdi, [W_GG, omegat_GG]
 
-        # XXX This creates a new, large buffer.  We could perhaps
-        # avoid that.  Buffer used to exist but was removed due to #456.
-        W_wGG = chi0.blockdist.redistribute(chi0_wGG, chi0.nw)
 
-        self.timer.stop('Dyson eq.')
+        self.context.timer.stop('Dyson eq.')
         return pdi, W_wGG

@@ -656,6 +656,10 @@ def add_total_density(gd, n_sR, n_R):
     n_R += np.sum(n_sR, axis=0)
 
 
+def add_magnetization(gd, n_sR, m_R):
+    m_R += n_sR[0] - n_sR[1]
+
+
 def add_LSDA_Bxc(gd, n_sR, Bxc_R):
     """Calculate B^(xc) in the local spin-density approximation for a collinear
     system and add it to the output array Bxc_R:
