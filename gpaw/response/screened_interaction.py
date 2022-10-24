@@ -354,4 +354,4 @@ class WCalculator:
 
 
         self.context.timer.stop('Dyson eq.')
-        return pdi, W_wGG
+        return pdi, chi0_wGG

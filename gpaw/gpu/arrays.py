@@ -37,8 +37,11 @@ class BaseArrayInterface:
 
 
 class PyCudaArrayInterface(BaseArrayInterface):
-    from gpaw.gpu import pycuda as _module
-    Array = _module.GPUArray
+
+    def __init__(self):
+        from gpaw.gpu import pycuda as _module
+        self._module = _module
+        self.Array = _module.GPUArray
 
     def sum(self, x, axis=0, out=None):
         return self._module.sum(x, axis=axis, result=out)
@@ -64,8 +67,10 @@ class PyCudaArrayInterface(BaseArrayInterface):
                 return self._module.to_gpu(src)
 
 class CuPyArrayInterface(BaseArrayInterface):
-    import cupy as _module
-    Array = _module.ndarray
+    def __init__(self):
+        import cupy as _module
+        self._module = _module
+        self.Array = _module.ndarray
 
     def axpbyz(self, a, x, b, y, z):
         z[:] = a * x + b * y
