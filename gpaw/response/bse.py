@@ -475,11 +475,10 @@ class BSE:
         if self._chi0calc is None:
             self.initialize_chi0_calculator()
 
-        # chi0 = self._chi0calc.create_chi0(q_c)
+        chi0 = self._chi0calc.create_chi0(q_c)
         # Do all bands and all spins
-        # m1, m2, spins = 0, self.nbands, 'all'
-        # chi0 = self._chi0calc.update_chi0(chi0, m1, m2, spins)
-        chi0 = calculate_chi0(q_c,self._chi0calc,self.nbands)
+        m1, m2, spins = 0, self.nbands, 'all'
+        chi0 = self._chi0calc.update_chi0(chi0, m1, m2, spins)
         return chi0  # chi0.pd, chi0.chi0_wGG, chi0.chi0_wxvG, chi0.chi0_wvv
 
     def initialize_chi0_calculator(self):
@@ -508,7 +507,7 @@ class BSE:
         print('Calculating screened potential', file=self.fd)
         for iq, q_c in enumerate(self.qd.ibzk_kc):
             # pd, chi0_wGG, chi0_wxvG, chi0_wvv = self._calculate_chi0(q_c)
-            chi0 = self._calculate_chi0(q_c)
+            chi0 = self._calculate_chi0(q_c) #XXX can replace with self._chi0calc.calculate(q_c)
             pd, W_wGG = self._wcalc.calculate_q(iq, q_c, chi0, out_dist = 'wGG')
             W_GG = W_wGG[0]
             self.pawcorr_q.append(self._chi0calc.pawcorr)

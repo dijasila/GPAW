@@ -37,7 +37,14 @@ def get_qdescriptor(kd, atoms):
     return qd
 
 
-
+def ibz2bz_map(qd):
+    """ Maps each k in BZ to corresponding k in IBZ. """
+    out_map=[[] for _ in range(qd.nibzkpts)]
+    for iK in range(qd.nbzkpts):
+        ik = qd.bz2ibz_k[iK]
+        out_map[ik].append(iK)
+    return out_map
+        
 def initialize_w_calculator(chi0calc, txt='w.txt', ppa=False, xc='RPA',
                             world=mpi.world, timer=None,
                             E0=Ha, Eg=None, fxc_mode='GW',
@@ -180,7 +187,9 @@ class WCalculator:
         First calculates W in KS-basis where we need the pair densities, then multiply with transformation 
         matrices and sum over k and k'. Do in loop over IBZ with additional loop over equivalent k-points.
         """
-        print('test1',self.qd.ibz2bz_k[0],'test2',self.qd.ibz2bz_k[3])
+        ibz2bz = ibz2bz_map(self.qd)
+        s1 = 0 #XXX assume only single spin for the moment
+
         # First calculate W in IBZ in PW basis
         # and transform to DFT eigen basis
         for iq, q_c in enumerate(self.qd.ibzk_kc):
@@ -190,18 +199,19 @@ class WCalculator:
             #chi0 = calculate_chi0(q_c, chi0calc, chi0calc.nbands)
             pd, W_wGG = self.calculate_q(iq, q_c, chi0, out_dist='wGG')
             pawcorr = chi0calc.pawcorr
-            # Loop over equivalent k-points
-            for iQ in self.qd.ibz2bz_k[iq]:
-                ikq_k = self.gs.kd.find_k_plus_q(iQ)
+            # Loop over all equivalent k-points
+            for iQ in ibz2bz[iq]:
+                # Loop over BZ k-points
                 for iK1 in range(self.gs.kd.nbzkpts):
-                    iK2 = ikq_k[iK1]
                     kpt1 = self.pair.get_k_point(s1, iK1, bandrange[0], bandrange[-1])
+                    K2_c = self.gs.kd.bzk_kc[kpt1.K] + self.gs.kd.bzk_kc[iQ]  # Find k2 = K1 + Q
+                    iK2 = self.gs.kd.where_is_q(K2_c, self.gs.kd.bzk_kc)
                     kpt2 = self.pair.get_k_point(s1, iK2, bandrange[0], bandrange[-1])
-                    rho_mnG, iqloc = self._wcalc.get_density_matrix(kpt1,
-                                                                    kpt2,
-                                                                    pd_q=[pd],
-                                                                    pawcorr_q=[pawcorr],
-                                                                    known_iq=iq)
+                    rho_mnG, iqloc = self.get_density_matrix(kpt1,
+                                                             kpt2,
+                                                             pd_q=[pd],
+                                                             pawcorr_q=[pawcorr],
+                                                             known_iq=iQ)
                     assert iqloc == iq
                     # W in products of KS eigenstates
                     W_wijkl = np.einsum('ijk,lkm,pqm->lipjq',
@@ -408,7 +418,7 @@ class WCalculator:
 
     def get_density_matrix(self,kpt1, kpt2, pd_q, pawcorr_q, known_iq=None):
         """
-        If iq is known pd_q and pawcorr_q are lists with len of IBZ, otherwise they are lists 
+        If iq is known () pd_q and pawcorr_q are lists with len of IBZ, otherwise they are lists 
         with one element with value for correct iq
         """
         kd=self.gs.kd
@@ -417,11 +427,16 @@ class WCalculator:
         iQ = qd.where_is_q(Q_c, qd.bzk_kc)
         iq = qd.bz2ibz_k[iQ]
         q_c = qd.ibzk_kc[iq]
-
+            
         # if iq is known check so that it is correct
         if known_iq is not None:
-            assert(known_iq == iq)
+            print('known_iq: ',known_iq, 'iQ', iQ)
+            print(qd.bzk_kc[iQ])
+            print(qd.bzk_kc[known_iq])
+            print('---Q_c, kpt1,kpt2----')
+            print(Q_c,kd.bzk_kc[kpt1.K],kd.bzk_kc[kpt2.K])
             iq_in_list=0 # pd_q and pawcorr_q lists with one element with correct value
+            assert (known_iq == iQ)
         else:
             iq_in_list=iq
     
