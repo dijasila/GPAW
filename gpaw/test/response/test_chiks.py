@@ -154,12 +154,10 @@ def test_chiks_symmetry(in_tmp_dir, Fe_gs, q_c, eta, gammacentered):
             assert np.allclose(np.conj(chi2r_GG[invmap_GG]), chi1r_GG,
                                rtol=rtol)
 
-        # Check the reciprocity of the full susceptibility
         for chi1_GG, chi2_GG in zip(chiks_qwGG[q1], chiks_qwGG[q2]):
+            # Check the reciprocity of the full susceptibility
             assert np.allclose(chi2_GG[invmap_GG].T, chi1_GG, rtol=rtol)
-
-        # Check inversion symmetry of the full susceptibility
-        for chi1_GG, chi2_GG in zip(chiks_qwGG[q1], chiks_qwGG[q2]):
+            # Check inversion symmetry of the full susceptibility
             assert np.allclose(chi2_GG[invmap_GG], chi1_GG, rtol=rtol)
 
     # Part 3: Check matrix symmetry
