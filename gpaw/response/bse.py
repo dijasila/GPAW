@@ -545,7 +545,7 @@ class BSE:
         print('Calculating screened potential', file=self.fd)
         for iq, q_c in enumerate(self.qd.ibzk_kc):
             # pd, chi0_wGG, chi0_wxvG, chi0_wvv = self._calculate_chi0(q_c)
-            chi0 = self._calculate_chi0(q_c)
+            chi0 = self._chi0calc.calculate(q_c) # self._calculate_chi0(q_c)
             pd, W_wGG = self._wcalc.calculate_q(iq, q_c, chi0)
             W_GG = W_wGG[0]
             self.pawcorr_q.append(self._chi0calc.pawcorr)
