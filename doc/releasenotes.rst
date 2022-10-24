@@ -15,6 +15,10 @@ Git master branch
 * Missing factor of `2\pi` now included in RPA shift current:
   :func:`gpaw.nlopt.shift.get_shift`.
 
+* Updated RPA-energy tutorial: :ref:`c2cu rpa`.
+
+* New tutorial: :ref:`abinitiomd`.
+
 
 Version 22.8.0
 ==============
@@ -493,7 +497,7 @@ Aug 1, 2019: :git:`19.8.0 <../19.8.0>`
 * How to do :ref:`ehrenfest` has now been documented.
 
 * Non self-consistent hybrid functional calculations can now be continued if
-  they run out of time.  See :meth:`gpaw.xc.exx.EXX.calculate`.
+  they run out of time.
 
 * When using a convergence criteria on the accuracy of the forces
   (see :ref:`manual_convergence`), the forces will only be calculated when the

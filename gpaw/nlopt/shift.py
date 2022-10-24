@@ -39,7 +39,7 @@ def get_shift(
 
     Returns
     =======
-    shift:
+    np.ndarray
         Numpy array containing the spectrum and frequencies.
     """
 

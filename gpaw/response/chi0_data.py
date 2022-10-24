@@ -20,7 +20,7 @@ class Chi0Data:
     """Data object containing the chi0 data arrays for a single q-point,
     while holding also the corresponding basis descriptors and block
     distributor."""
-    def __init__(self, wd, pd, blockdist, extend_head, xp=np):
+    def __init__(self, wd, pd, blockdist, xp=np):
         """Construct the Chi0Data object
 
         Parameters
@@ -31,16 +31,10 @@ class Chi0Data:
             Descriptor for the spatial (plane wave) degrees of freedom
         blockdist : PlaneWaveBlockDistributor
             Distributor for the block parallelization
-        extend_head: bool
-            If True: Extend the wings and head of chi in the optical limit to
-            take into account the non-analytic nature of chi. Effectively
-            means that chi has dimension (nw, nG + 2, nG + 2) in the optical
-            limit.
         """
         self.wd = wd
         self.pd = pd
         self.blockdist = blockdist
-        self.extend_head = extend_head
         self.xp = xp
 
         # Check if in optical limit
@@ -50,8 +44,6 @@ class Chi0Data:
 
         # Initialize block distibution of plane wave basis
         nG = pd.ngmax
-        if optical_limit and extend_head:
-            nG += 2
         self.blocks1d = Blocks1D(blockdist.blockcomm, nG)
 
         # Data arrays
@@ -62,8 +54,7 @@ class Chi0Data:
         self.allocate_arrays(xp=xp)
 
     @staticmethod
-    def from_descriptor_arguments(frequencies, plane_waves, parallelization,
-                                  extend_head):
+    def from_descriptor_arguments(frequencies, plane_waves, parallelization):
         """Contruct the necesarry descriptors and initialize the Chi0Data
         object."""
         # Construct wd
@@ -88,13 +79,13 @@ class Chi0Data:
             assert len(parallelization) == 3
             blockdist = PlaneWaveBlockDistributor(*parallelization)
 
-        return Chi0Data(wd, pd, blockdist, extend_head)
+        return Chi0Data(wd, pd, blockdist)
 
     def allocate_arrays(self, xp=np):
         """Allocate data arrays."""
         self.chi0_wGG = xp.zeros(self.wGG_shape, complex)
 
-        if self.optical_limit and not self.extend_head:
+        if self.optical_limit:
             self.chi0_wxvG = xp.zeros(self.wxvG_shape, complex)
             self.chi0_wvv = xp.zeros(self.wvv_shape, complex)
 

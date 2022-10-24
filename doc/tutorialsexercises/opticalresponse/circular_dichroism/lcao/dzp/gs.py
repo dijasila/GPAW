@@ -13,7 +13,10 @@ calc = GPAW(mode='lcao',
             h=0.3,
             xc='PBE',
             nbands=16,
-            poissonsolver={'remove_moment': 1 + 3 + 5},
+            poissonsolver={
+                'MomentCorrectionPoissonSolver': {
+                    'poissonsolver': 'fast',
+                    'moment_corrections': 1 + 3 + 5}},
             convergence={'density': 1e-12},
             txt='gs.out')
 atoms.calc = calc
