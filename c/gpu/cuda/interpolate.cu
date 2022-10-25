@@ -169,8 +169,8 @@ void Zcuda(bmgs_interpolate_cuda_gpu)(int k, int skip[3][2],
                 2 * n.y - 2 - skip0.y + skip1.y,
                 2 * n.z - 2 - skip0.z + skip1.z};
 
-    Zcuda(interpolate_kernel)<<<dimGrid, dimBlock, 0>>>(
-            a, n, b, b_n, skip0, skip1, xdiv, blocks);
+    gpuLaunchKernel(Zcuda(interpolate_kernel), dimGrid, dimBlock, 0, 0,
+                    a, n, b, b_n, skip0, skip1, xdiv, blocks);
     gpuCheckLastError();
 }
 

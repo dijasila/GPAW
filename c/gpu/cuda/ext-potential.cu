@@ -107,15 +107,17 @@ PyObject* add_linear_field_cuda_gpu(PyObject *self, PyObject *args)
     dim3 dimGrid(gridx, gridy);
 
     if (type->type_num == NPY_DOUBLE) {
-        add_linear_field_cuda_kernel<<<dimGrid, dimBlock, 0>>>(
-                (double*) a_gpu, hc_sizea,
-                (double*) b_gpu, hc_n, hc_beg,
-                h_strength, blocks);
+        gpuLaunchKernel(add_linear_field_cuda_kernel,
+                        dimGrid, dimBlock, 0, 0,
+                        (double*) a_gpu, hc_sizea,
+                        (double*) b_gpu, hc_n, hc_beg,
+                        h_strength, blocks);
     } else {
-        add_linear_field_cuda_kernelz<<<dimGrid, dimBlock, 0>>>(
-                (cuDoubleComplex*) a_gpu, hc_sizea,
-                (cuDoubleComplex*) b_gpu, hc_n, hc_beg,
-                h_strength, blocks);
+        gpuLaunchKernel(add_linear_field_cuda_kernelz,
+                        dimGrid, dimBlock, 0, 0,
+                        (cuDoubleComplex*) a_gpu, hc_sizea,
+                        (cuDoubleComplex*) b_gpu, hc_n, hc_beg,
+                        h_strength, blocks);
     }
     gpuCheckLastError();
     if (PyErr_Occurred())

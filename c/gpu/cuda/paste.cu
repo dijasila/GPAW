@@ -289,8 +289,9 @@ static void Zcuda(_bmgs_paste_cuda_gpu)(
     gridx = xdiv * gridx;
     dim3 dimGrid(gridx, gridy);
     b += startb[2] + (startb[1] + startb[0] * sizeb[1]) * sizeb[2];
-    Zcuda(bmgs_paste_cuda_kernel)<<<dimGrid, dimBlock, 0, stream>>>
-        ((double*) a, hc_sizea, (double*) b, hc_sizeb, blocks, xdiv);
+    gpuLaunchKernel(
+            Zcuda(bmgs_paste_cuda_kernel), dimGrid, dimBlock, 0, stream,
+            (double*) a, hc_sizea, (double*) b, hc_sizeb, blocks, xdiv);
     gpuCheckLastError();
 }
 
@@ -333,9 +334,10 @@ static void Zcuda(_bmgs_paste_zero_cuda_gpu)(
     dim3 dimBlock(BLOCK_SIZEX, BLOCK_SIZEY);
     dim3 dimGrid(gridx, gridy);
 
-    Zcuda(bmgs_paste_zero_cuda_kernel)<<<dimGrid, dimBlock, 0, stream>>>
-        ((Tcuda*) a, hc_sizea, (Tcuda*) b, hc_sizeb, hc_startb,
-         bc_blocks, blocks);
+    gpuLaunchKernel(
+            Zcuda(bmgs_paste_zero_cuda_kernel), dimGrid, dimBlock, 0, stream,
+            (Tcuda*) a, hc_sizea, (Tcuda*) b, hc_sizeb, hc_startb,
+            bc_blocks, blocks);
     gpuCheckLastError();
 }
 

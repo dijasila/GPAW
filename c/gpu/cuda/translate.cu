@@ -84,12 +84,13 @@ void Zcuda(bmgs_translate_cuda_gpu)(
              + (start2[1] + start2[0] * hc_sizea.y) * hc_sizea.z;
     a += start1[2] + (start1[1] + start1[0] * hc_sizea.y) * hc_sizea.z;
 
-    Zcuda(bmgs_translate_cuda_kernel)<<<dimGrid, dimBlock, 0, stream>>>
-        ((Tcuda*) a, hc_sizea, (Tcuda*) b, hc_size,
+    gpuLaunchKernel(
+            Zcuda(bmgs_translate_cuda_kernel), dimGrid, dimBlock, 0, stream,
+            (Tcuda*) a, hc_sizea, (Tcuda*) b, hc_size,
 #ifdef GPU_USE_COMPLEX
-         phase,
+            phase,
 #endif
-         blocks, xdiv);
+            blocks, xdiv);
     gpuCheckLastError();
 }
 

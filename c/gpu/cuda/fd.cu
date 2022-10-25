@@ -724,7 +724,8 @@ void Zcuda(bmgs_fd_cuda_gpu)(
                     assert(0);
             }
         }
-        (*fd_kernel)<<<dimGrid, dimBlock, 0, stream>>>(
+        gpuLaunchKernel(
+                (*fd_kernel), dimGrid, dimBlock, 0, stream,
                 s_gpu->ncoefs, s_gpu->coefs_gpu, offsets_gpu,
                 s_gpu->coefs0_gpu, s_gpu->coefs1_gpu, s_gpu->coefs2_gpu,
                 (double*) adev, (double*) bdev, hc_n, sizea, sizeb, xdiv,
@@ -755,7 +756,8 @@ void Zcuda(bmgs_fd_cuda_gpu)(
             default:
                 assert(0);
         }
-        (*fd_kernel)<<<dimGrid, dimBlock, 0, stream>>>(
+        gpuLaunchKernel(
+                (*fd_kernel), dimGrid, dimBlock, 0, stream,
                 s_gpu->ncoefs, s_gpu->coefs_gpu, offsets_gpu,
                 s_gpu->coefs0_gpu, s_gpu->coefs1_gpu, s_gpu->coefs2_gpu,
                 (double*) adev, (double*) bdev, hc_n, jb, boundary, xdiv,

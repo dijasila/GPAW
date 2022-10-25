@@ -149,22 +149,26 @@ PyObject* elementwise_multiply_add_gpu(PyObject *self, PyObject *args)
     dim3 dimGrid(gridx, 1);
     if (a_type->type_num == NPY_DOUBLE) {
         if (y_type->type_num == NPY_DOUBLE) {
-            elmenwise_mul_add_kernelx<<<dimGrid, dimBlock, 0>>>
-                (n, (double*) x_gpu, (double*) y_gpu, (double*) c_gpu);
+            gpuLaunchKernel(
+                    elmenwise_mul_add_kernelx, dimGrid, dimBlock, 0, 0,
+                    n, (double*) x_gpu, (double*) y_gpu, (double*) c_gpu);
         } else {
-            elmenwise_mul_add_kernelxz<<<dimGrid, dimBlock, 0>>>
-                (n, (double*) x_gpu, (cuDoubleComplex*) y_gpu,
-                 (cuDoubleComplex*) c_gpu);
+            gpuLaunchKernel(
+                    elmenwise_mul_add_kernelxz, dimGrid, dimBlock, 0, 0,
+                    n, (double*) x_gpu, (cuDoubleComplex*) y_gpu,
+                    (cuDoubleComplex*) c_gpu);
         }
     } else {
         if (y_type->type_num == NPY_DOUBLE) {
-            elmenwise_mul_add_kernelxz<<<dimGrid, dimBlock, 0>>>
-                (n, (double*) y_gpu, (cuDoubleComplex*) x_gpu,
-                 (cuDoubleComplex*) c_gpu);
+            gpuLaunchKernel(
+                    elmenwise_mul_add_kernelxz, dimGrid, dimBlock, 0, 0,
+                    n, (double*) y_gpu, (cuDoubleComplex*) x_gpu,
+                    (cuDoubleComplex*) c_gpu);
         } else {
-            elmenwise_mul_add_kernelzz<<<dimGrid, dimBlock, 0>>>
-                (n, (cuDoubleComplex*) x_gpu, (cuDoubleComplex*) y_gpu,
-                 (cuDoubleComplex*) c_gpu);
+            gpuLaunchKernel(
+                    elmenwise_mul_add_kernelzz, dimGrid, dimBlock, 0, 0,
+                    n, (cuDoubleComplex*) x_gpu, (cuDoubleComplex*) y_gpu,
+                    (cuDoubleComplex*) c_gpu);
         }
     }
     gpuCheckLastError();
@@ -206,53 +210,59 @@ PyObject* multi_elementwise_multiply_add_gpu(PyObject *self,
     if (x_type->type_num == NPY_DOUBLE) {
         if (y_type->type_num == NPY_DOUBLE) {
             if (x_nd > y_nd) {
-                multi_elmenwise_mul_add_kernel1x
-                    <<<dimGrid, dimBlock, 0>>>
-                    (n, (double*) x_gpu, (double*) y_gpu,
-                     (double*) c_gpu);
+                gpuLaunchKernel(
+                        multi_elmenwise_mul_add_kernel1x,
+                        dimGrid, dimBlock, 0, 0,
+                        n, (double*) x_gpu, (double*) y_gpu, (double*) c_gpu);
             } else {
-                multi_elmenwise_mul_add_kernel2x
-                    <<<dimGrid, dimBlock, 0>>>
-                    (n, (double*) x_gpu, (double*) y_gpu,
-                     (double*) c_gpu);
+                gpuLaunchKernel(
+                        multi_elmenwise_mul_add_kernel2x,
+                        dimGrid, dimBlock, 0, 0,
+                        n, (double*) x_gpu, (double*) y_gpu, (double*) c_gpu);
             }
         } else {
             if (x_nd > y_nd) {
-                multi_elmenwise_mul_add_kernel1xz
-                    <<<dimGrid, dimBlock, 0>>>
-                    (n, (double*) x_gpu, (cuDoubleComplex*) y_gpu,
-                     (cuDoubleComplex*) c_gpu);
+                gpuLaunchKernel(
+                        multi_elmenwise_mul_add_kernel1xz,
+                        dimGrid, dimBlock, 0, 0,
+                        n, (double*) x_gpu, (cuDoubleComplex*) y_gpu,
+                        (cuDoubleComplex*) c_gpu);
             } else {
-                multi_elmenwise_mul_add_kernel2xz
-                    <<<dimGrid, dimBlock, 0>>>
-                    (n, (double*) x_gpu, (cuDoubleComplex*) y_gpu,
-                     (cuDoubleComplex*) c_gpu);
+                gpuLaunchKernel(
+                        multi_elmenwise_mul_add_kernel2xz,
+                        dimGrid, dimBlock, 0, 0,
+                        n, (double*) x_gpu, (cuDoubleComplex*) y_gpu,
+                        (cuDoubleComplex*) c_gpu);
             }
         }
     } else {
         if (y_type->type_num == NPY_DOUBLE) {
             if (y_nd > x_nd) {
-                multi_elmenwise_mul_add_kernel1xz
-                    <<<dimGrid, dimBlock, 0>>>
-                    (n, (double*) y_gpu, (cuDoubleComplex*) x_gpu,
-                     (cuDoubleComplex*) c_gpu);
+                gpuLaunchKernel(
+                        multi_elmenwise_mul_add_kernel1xz,
+                        dimGrid, dimBlock, 0, 0,
+                        n, (double*) y_gpu, (cuDoubleComplex*) x_gpu,
+                        (cuDoubleComplex*) c_gpu);
             } else {
-                multi_elmenwise_mul_add_kernel2xz
-                    <<<dimGrid, dimBlock, 0>>>
-                    (n, (double*) y_gpu, (cuDoubleComplex*) x_gpu,
-                     (cuDoubleComplex*) c_gpu);
+                gpuLaunchKernel(
+                        multi_elmenwise_mul_add_kernel2xz,
+                        dimGrid, dimBlock, 0, 0,
+                        n, (double*) y_gpu, (cuDoubleComplex*) x_gpu,
+                        (cuDoubleComplex*) c_gpu);
             }
         } else {
             if (x_nd > y_nd) {
-                multi_elmenwise_mul_add_kernel1zz
-                    <<<dimGrid, dimBlock, 0>>>
-                    (n, (cuDoubleComplex*) x_gpu,
-                     (cuDoubleComplex*) y_gpu, (cuDoubleComplex*) c_gpu);
+                gpuLaunchKernel(
+                        multi_elmenwise_mul_add_kernel1zz,
+                        dimGrid, dimBlock, 0, 0,
+                        n, (cuDoubleComplex*) x_gpu,
+                        (cuDoubleComplex*) y_gpu, (cuDoubleComplex*) c_gpu);
             } else {
-                multi_elmenwise_mul_add_kernel2zz
-                    <<<dimGrid, dimBlock, 0>>>
-                    (n, (cuDoubleComplex*) x_gpu,
-                     (cuDoubleComplex*) y_gpu, (cuDoubleComplex*) c_gpu);
+                gpuLaunchKernel(
+                        multi_elmenwise_mul_add_kernel2zz,
+                        dimGrid, dimBlock, 0, 0,
+                        n, (cuDoubleComplex*) x_gpu,
+                        (cuDoubleComplex*) y_gpu, (cuDoubleComplex*) c_gpu);
             }
         }
     }
@@ -285,12 +295,13 @@ PyObject* ax2py_gpu(PyObject *self, PyObject *args)
     dim3 dimBlock(BLOCK_X, 1);
     dim3 dimGrid(gridx, 1);
     if (type->type_num == NPY_DOUBLE) {
-        ax2py_kernel<<<dimGrid, dimBlock, 0>>>
-            (n, alpha, (double*) x_gpu, (double*) y_gpu);
-
+        gpuLaunchKernel(
+                ax2py_kernel, dimGrid, dimBlock, 0, 0,
+                n, alpha, (double*) x_gpu, (double*) y_gpu);
     } else {
-        ax2py_kernelz<<<dimGrid, dimBlock, 0>>>
-            (n, alpha, (Tcuda*) x_gpu, (double*) y_gpu);
+        gpuLaunchKernel(
+                ax2py_kernelz, dimGrid, dimBlock, 0, 0,
+                n, alpha, (Tcuda*) x_gpu, (double*) y_gpu);
     }
     gpuCheckLastError();
     if (PyErr_Occurred())
@@ -319,9 +330,13 @@ PyObject* csign_gpu(PyObject *self, PyObject *args)
     dim3 dimBlock(BLOCK_X, 1);
     dim3 dimGrid(gridx, 1);
     if (type->type_num == NPY_DOUBLE) {
-        csign_kernel<<<dimGrid, dimBlock, 0>>>(n, (double*) x_gpu);
+        gpuLaunchKernel(
+                csign_kernel, dimGrid, dimBlock, 0, 0,
+                n, (double*) x_gpu);
     } else {
-        csign_kernelz<<<dimGrid, dimBlock, 0>>>(n, (Tcuda*) x_gpu);
+        gpuLaunchKernel(
+                csign_kernelz, dimGrid, dimBlock, 0, 0,
+                n, (Tcuda*) x_gpu);
     }
     gpuCheckLastError();
     if (PyErr_Occurred())
@@ -358,8 +373,9 @@ PyObject* multi_ax2py_gpu(PyObject *self, PyObject *args)
         dim3 dimBlock(BLOCK_X, 1);
         dim3 dimGrid(gridx, gridy);
 
-        multi_ax2py_kernel<<<dimGrid, dimBlock, 0>>>
-            (n, nvec, alpha, (double*) x_gpu, (double*) y_gpu);
+        gpuLaunchKernel(
+                multi_ax2py_kernel, dimGrid, dimBlock, 0, 0,
+                n, nvec, alpha, (double*) x_gpu, (double*) y_gpu);
     } else {
         double *alpha = (double*) alpha_gpu;
         int gridx = MIN(MAX((n + BLOCK_X - 1) / BLOCK_X, 1), MAX_BLOCKS);
@@ -367,8 +383,9 @@ PyObject* multi_ax2py_gpu(PyObject *self, PyObject *args)
 
         dim3 dimBlock(BLOCK_X, 1);
         dim3 dimGrid(gridx, gridy);
-        multi_ax2py_kernelz<<<dimGrid, dimBlock, 0>>>
-            (n, nvec, alpha, (cuDoubleComplex*) x_gpu, (double*) y_gpu);
+        gpuLaunchKernel(
+                multi_ax2py_kernelz, dimGrid, dimBlock, 0, 0,
+                n, nvec, alpha, (cuDoubleComplex*) x_gpu, (double*) y_gpu);
     }
     gpuCheckLastError();
     if (PyErr_Occurred())
