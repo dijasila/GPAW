@@ -51,7 +51,8 @@ def write_input(calc,
                 dis_froz_max=0.1,
                 dis_mix_ratio=0.5,
                 search_shells=None,
-                spinors=False):
+                spinors=False,
+                write_u_matrices=False):
 
     if seed is None:
         seed = calc.atoms.get_chemical_formula()
@@ -111,6 +112,8 @@ def write_input(calc,
         print('spinors = True', file=f)
     else:
         print('spinors = False', file=f)
+    if write_u_matrices:
+        print('write_u_matrices = True', file=f)
     print('write_hr = True', file=f)
     if write_xyz:
         print('write_xyz = True', file=f)
