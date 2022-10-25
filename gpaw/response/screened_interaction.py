@@ -44,7 +44,8 @@ def ibz2bz_map(qd):
         ik = qd.bz2ibz_k[iK]
         out_map[ik].append(iK)
     return out_map
-        
+
+
 def initialize_w_calculator(chi0calc, txt='w.txt', ppa=False, xc='RPA',
                             world=mpi.world, timer=None,
                             E0=Ha, Eg=None, fxc_mode='GW',
@@ -189,36 +190,49 @@ class WCalculator:
         """
         ibz2bz = ibz2bz_map(self.qd)
         s1 = 0 #XXX assume only single spin for the moment
-
+        s2 = 0
+        
+        def get_k1_k2(s1,iK1,iQ,bandrange):
+            # get kpt1, kpt1+q kpoint pairs used in density matrix
+            kpt1 = self.pair.get_k_point(s1, iK1, bandrange[0], bandrange[-1])
+            K2_c = self.gs.kd.bzk_kc[kpt1.K] + self.gs.kd.bzk_kc[iQ]  # Find k2 = K1 + Q                                                                                                            
+            iK2 = self.gs.kd.where_is_q(K2_c, self.gs.kd.bzk_kc)
+            kpt2 = self.pair.get_k_point(s1, iK2, bandrange[0], bandrange[-1])
+            return kpt1, kpt2
+        
         # First calculate W in IBZ in PW basis
         # and transform to DFT eigen basis
         for iq, q_c in enumerate(self.qd.ibzk_kc):
             #optical_limit = np.allclose(q_c,0.0)
             # Calculate chi0 and W for IBZ k-point q
             chi0 = chi0calc.calculate(q_c)
-            #chi0 = calculate_chi0(q_c, chi0calc, chi0calc.nbands)
             pd, W_wGG = self.calculate_q(iq, q_c, chi0, out_dist='wGG')
             pawcorr = chi0calc.pawcorr
             # Loop over all equivalent k-points
             for iQ in ibz2bz[iq]:
-                # Loop over BZ k-points
+                # Loop 1 over BZ k-points
                 for iK1 in range(self.gs.kd.nbzkpts):
-                    kpt1 = self.pair.get_k_point(s1, iK1, bandrange[0], bandrange[-1])
-                    K2_c = self.gs.kd.bzk_kc[kpt1.K] + self.gs.kd.bzk_kc[iQ]  # Find k2 = K1 + Q
-                    iK2 = self.gs.kd.where_is_q(K2_c, self.gs.kd.bzk_kc)
-                    kpt2 = self.pair.get_k_point(s1, iK2, bandrange[0], bandrange[-1])
-                    rho_mnG, iqloc = self.get_density_matrix(kpt1,
-                                                             kpt2,
-                                                             pd_q=[pd],
-                                                             pawcorr_q=[pawcorr],
-                                                             known_iq=iQ)
-                    assert iqloc == iq
-                    # W in products of KS eigenstates
-                    W_wijkl = np.einsum('ijk,lkm,pqm->lipjq',
-                                       rho_mnG.conj(),
-                                       W_wGG,
-                                       rho_mnG,
-                                       optimize='optimal')
+                    kpt1, kpt2 = get_k1_k2(s1,iK1,iQ,bandrange)
+                    rho1_mnG, iqloc = self.get_density_matrix(kpt1,
+                                                              kpt2,
+                                                              pd_q=[pd],
+                                                              pawcorr_q=[pawcorr],
+                                                              known_iq=iQ)
+                    # Loop 2 over BZ k-points
+                    for iK2 in range(self.gs.kd.nbzkpts):
+                        kpt1, kpt2 = get_k1_k2(s2,iK2,iQ,bandrange)
+                        rho2_mnG, iqloc = self.get_density_matrix(kpt1,
+                                                                  kpt2,
+                                                                  pd_q=[pd],
+                                                                  pawcorr_q=[pawcorr],
+                                                                  known_iq=iQ)
+                        assert iqloc == iq
+                        # W in products of KS eigenstates
+                        W_wijkl = np.einsum('ijk,lkm,pqm->lipjq',
+                                            rho1_mnG.conj(),
+                                            W_wGG,
+                                            rho2_mnG,
+                                            optimize='optimal')
 
 
         
