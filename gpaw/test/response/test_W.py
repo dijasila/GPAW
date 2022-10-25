@@ -13,6 +13,7 @@ from ase.units import Bohr, Hartree
 from gpaw.wannier import calculate_overlaps
 from ase.dft.wannier import Wannier
 
+"""
 @pytest.mark.response
 def test_W_in_Wann(in_tmp_dir):
     atoms=bulk('Na')
@@ -29,7 +30,7 @@ def test_W_in_Wann(in_tmp_dir):
     chi0calc = Chi0(calc, frequencies=omega, hilbert=False,ecut=100, txt='test.log',intraband=False)
     wcalc = initialize_w_calculator(chi0calc, world=world)
     wcalc.calc_in_Wannier(chi0calc,Uwan=None,bandrange=[0,2])
-
+"""
 def test_w90(in_tmp_dir):
     from ase import Atoms
     from ase.build import bulk
@@ -53,6 +54,18 @@ def test_w90(in_tmp_dir):
     a.calc = calc
     a.get_potential_energy()
     calc.write('GaAs.gpw', mode='all')
+
+    calc = GPAW(mode=PW(600),
+                xc='LDA',
+                occupations=FermiDirac(width=0.01),
+                convergence={'density': 1.e-6},
+                kpts={'size': (2, 2, 2), 'gamma': True},
+                txt='gs_GaAs.txt')
+
+    a.calc = calc
+    a.get_potential_energy()
+    calc.write('GaAs_symm.gpw', mode='all')
+
     
     seed = 'GaAs'
 
@@ -74,6 +87,8 @@ def test_w90(in_tmp_dir):
 
     os.system('wannier90.x ' + seed)
 
+    # switching to calculation with symmetry
+    calc = GPAW(seed + '_symm.gpw', txt=None)
     omega = np.array([0, 1.0, 2.0])
     chi0calc = Chi0(calc, frequencies=omega, hilbert=False,ecut=100, txt='test.log',intraband=False)
     wcalc = initialize_w_calculator(chi0calc, world=world)

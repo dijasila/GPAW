@@ -240,8 +240,8 @@ class WCalculator:
                                             rho2_mnG,
                                             optimize='optimal')
 
-
-
+                        
+                        #Wwan_wijkl += np.einsum('ia,jb,kc,ld,wabcd->wijkl')
     def read_uwan(self, seed):
         if "_u.mat" not in seed:
             seed += "_u.mat"
