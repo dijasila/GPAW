@@ -46,6 +46,7 @@ def ibz2bz_map(qd):
     return out_map
 
 
+
 def initialize_w_calculator(chi0calc, txt='w.txt', ppa=False, xc='RPA',
                             world=mpi.world, timer=None,
                             E0=Ha, Eg=None, fxc_mode='GW',
@@ -191,7 +192,12 @@ class WCalculator:
         ibz2bz = ibz2bz_map(self.qd)
         s1 = 0 #XXX assume only single spin for the moment
         s2 = 0
-        
+
+        if type(Uwan) == str:  # read w90 transformation matrix from file
+            Uwan, nk, nwan = self.read_uwan(Uwan)
+            assert nk == self.gs.kd.nbzkpts
+            assert bandrange[1] - bandrange[0] == nwan
+
         def get_k1_k2(s1,iK1,iQ,bandrange):
             # get kpt1, kpt1+q kpoint pairs used in density matrix
             kpt1 = self.pair.get_k_point(s1, iK1, bandrange[0], bandrange[-1])
@@ -235,7 +241,31 @@ class WCalculator:
                                             optimize='optimal')
 
 
-        
+
+    def read_uwan(self, seed):
+        if "_u.mat" not in seed:
+            seed += "_u.mat"
+        print("Reading Wannier transformation matrices from file " + seed, file = self.context.fd)
+        f = open(seed, "r")
+        kd = self.gs.kd
+        f.readline()  # first line is a comment
+        nk, nw1, nw2 = [int(i) for i in f.readline().split()]
+        assert nw1 == nw2
+        assert nk == kd.nbzkpts
+        uwan = np.empty([nw1, nw2, nk], dtype=complex)
+        iklist = [] # list to store found iks
+        for ik1 in range(nk):
+            f.readline()  # empty line
+            K_c = [float(rdum) for rdum in f.readline().split()]
+            ik = kd.where_is_q(K_c, kd.bzk_kc)
+            iklist.append(ik)
+            for ib1 in range(nw1):
+                for ib2 in range(nw2):
+                    rdum1, rdum2 = [float(rdum) for rdum in f.readline().split()]
+                    uwan[ib1, ib2, ik] = complex(rdum1, rdum2)
+        assert set(iklist) == set(range(nk)) # check so that all k:s were found
+        return uwan, nk, nw1
+
     # calculate_q wrapper
     def calculate_q(self, iq, q_c, chi0, out_dist='WgG'):
         if self.truncation == 'wigner-seitz':
