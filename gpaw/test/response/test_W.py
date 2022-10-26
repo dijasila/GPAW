@@ -39,6 +39,7 @@ def test_w90(in_tmp_dir):
     import gpaw.wannier90 as w90
     from gpaw import GPAW
 
+    k = 2
     cell = bulk('Ga', 'fcc', a=5.68).cell
     a = Atoms('GaAs', cell=cell, pbc=True,
               scaled_positions=((0, 0, 0), (0.25, 0.25, 0.25)))
@@ -48,7 +49,7 @@ def test_w90(in_tmp_dir):
                 occupations=FermiDirac(width=0.01),
                 convergence={'density': 1.e-6},
                 symmetry='off',
-                kpts={'size': (2, 2, 2), 'gamma': True},
+                kpts={'size': (k, k, k), 'gamma': True},
                 txt='gs_GaAs.txt')
 
     a.calc = calc
@@ -59,7 +60,7 @@ def test_w90(in_tmp_dir):
                 xc='LDA',
                 occupations=FermiDirac(width=0.01),
                 convergence={'density': 1.e-6},
-                kpts={'size': (2, 2, 2), 'gamma': True},
+                kpts={'size': (k, k, k), 'gamma': True},
                 txt='gs_GaAs.txt')
 
     a.calc = calc
@@ -89,7 +90,14 @@ def test_w90(in_tmp_dir):
 
     # switching to calculation with symmetry
     calc = GPAW(seed + '_symm.gpw', txt=None)
-    omega = np.array([0, 1.0, 2.0])
+    omega = np.array([0])
     chi0calc = Chi0(calc, frequencies=omega, hilbert=False,ecut=100, txt='test.log',intraband=False)
     wcalc = initialize_w_calculator(chi0calc, world=world)
-    wcalc.calc_in_Wannier(chi0calc,Uwan=seed,bandrange=[0,4])
+    Wwann = wcalc.calc_in_Wannier(chi0calc,Uwan=seed,bandrange=[0,4])
+    print(Wwann[0,0,0,0,0])
+    print(Wwann[0,1,1,1,1])
+    print(Wwann[0,2,2,2,2])
+    print(Wwann[0,3,3,3,3])
+    print(Wwann[0,1,1,1,2])
+    print(Wwann.shape)
+    assert False
