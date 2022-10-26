@@ -1,6 +1,7 @@
 from gpaw.gpu import parameters
 from gpaw.gpu.arrays import HostArrayInterface
 
+
 class BaseBackend:
     label = 'base'
     device_no = None
@@ -101,28 +102,41 @@ class BaseBackend:
 
         if not np.allclose(x_cpu, y_cpu, reltol, abstol):
             diff = abs(y_cpu - x_cpu)
+            error = {
+                'text': text,
+                'y_type': y_type,
+                'x_type': x_type,
+            }
             if isinstance(diff, (float, complex)):
-                warnings.warn(
-                        '%s error %s %s %s %s diff: %s' \
-                              % (text, y_type, y_cpu, x_type, x_cpu, \
-                                 abs(y_cpu - x_cpu)), \
+                msg = '{text}: {error}: {diff} ({y_type}: {y}  {x_type}: {x})'
+                warnings.warn(msg.format(**error,
+                                         error='error',
+                                         y=y_cpu,
+                                         x=x_cpu,
+                                         diff=diff),
                               DebugGpuWarning, stacklevel=2)
             else:
-                error_i = np.unravel_index(np.argmax(diff - reltol * abs(y_cpu)), \
-                                           diff.shape)
-                warnings.warn('%s max rel error pos: %s %s: %s %s: %s diff: %s' \
-                              % (text, error_i, y_type, y_cpu[error_i], \
-                                 x_type, x_cpu[error_i], \
-                                 abs(y_cpu[error_i] - x_cpu[error_i])),  \
+                msg = ('{text}: {error}: {diff} @ position: {pos}'
+                       ' ({y_type}: {y}  {x_type}: {x})')
+                pos = np.unravel_index(np.argmax(diff - reltol * abs(y_cpu)),
+                                       diff.shape)
+                warnings.warn(msg.format(**error,
+                                         error='max relative error',
+                                         y=y_cpu[pos],
+                                         x=x_cpu[pos],
+                                         diff=abs(y_cpu[pos] - x_cpu[pos]),
+                                         pos=pos),
                               DebugGpuWarning, stacklevel=2)
-                error_i = np.unravel_index(np.argmax(diff), diff.shape)
-                warnings.warn('%s max abs error pos: %s %s: %s %s: %s diff:%s' \
-                              % (text, error_i, y_type, y_cpu[error_i], \
-                                 x_type, x_cpu[error_i], \
-                                 abs(y_cpu[error_i] - x_cpu[error_i])),  \
+                pos = np.unravel_index(np.argmax(diff), diff.shape)
+                warnings.warn(msg.format(**error,
+                                         error='max absolute error',
+                                         y=y_cpu[pos],
+                                         x=x_cpu[pos],
+                                         diff=abs(y_cpu[pos] - x_cpu[pos]),
+                                         pos=pos),
                               DebugGpuWarning, stacklevel=2)
-                warnings.warn('%s error shape: %s dtype: %s' \
-                              % (text, x_cpu.shape, x_cpu.dtype),  \
+                msg = '{}: error: shape: {}  dtype: {}'
+                warnings.warn(msg.format(text, x_cpu.shape, x_cpu.dtype),
                               DebugGpuWarning, stacklevel=2)
 
             if raise_error:

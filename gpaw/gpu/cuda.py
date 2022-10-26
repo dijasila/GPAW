@@ -3,6 +3,7 @@ import atexit
 import _gpaw
 from gpaw.gpu.backends import BaseBackend
 
+
 class CUDA(BaseBackend):
     label = 'cuda'
     enabled = True

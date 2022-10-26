@@ -3,6 +3,7 @@ from gpaw.gpu import backends
 backend = backends.HostBackend()
 array = backend.array
 
+
 def setup(**kwargs):
     global backend
     global array
@@ -16,10 +17,10 @@ def setup(**kwargs):
     use_hybrid_blas = bool(kwargs.pop('hybrid_blas', False))
 
     args = {
-            'debug': debug,
-            'debug_sync': debug_sync,
-            'use_hybrid_blas': use_hybrid_blas,
-            }
+        'debug': debug,
+        'debug_sync': debug_sync,
+        'use_hybrid_blas': use_hybrid_blas,
+    }
 
     if kwargs.pop('cuda', False):
         from gpaw.gpu.cuda import CUDA
@@ -43,7 +44,9 @@ def init(rank=0):
             rank, backend.device_no, platform.node()))
     return True
 
+
 __all__ = ['arrays', 'backends', 'parameters', 'cuda']
+
 
 # for ease of use, make the module behave as if it would be the backend,
 #   i.e. gpu.enabled == gpu.backend.enabled etc.

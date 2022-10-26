@@ -64,7 +64,6 @@ class CuPyArrayInterface(BaseArrayInterface):
                     tgt = self._module.asnumpy(src, stream)
         return tgt
 
-
     def copy_to_device(self, src, tgt=None, stream=None):
         if stream is None:
             if tgt is not None:
@@ -90,6 +89,7 @@ class CuPyArrayInterface(BaseArrayInterface):
     def get_slice(self, x, shape):
         slices = tuple([slice(n) for n in shape])
         return x[slices]
+
 
 class HostArrayInterface(BaseArrayInterface):
     def __init__(self):
