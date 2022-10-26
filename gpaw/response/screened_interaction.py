@@ -247,9 +247,8 @@ class WCalculator:
 
         # XXX This creates a new, large buffer.  We could perhaps
         # avoid that.  Buffer used to exist but was removed due to #456.
-        # TODI: This shouldn't be run with PPA
-        # chi0_wGG[:] = chi0.blockdist.redistribute(W_wGG, chi0.nw)
-        return pdi, W_wGG
+        # TODO: This shouldn't be run with PPA
+        return pdi, chi0.blockdist.redistribute(W_wGG, chi0.nw)
 
     @CUPYBridge_dyson_work
     def dyson_work(self, wstc, iq, q_c, fxc_mode, chi0, pdi, G2G, 

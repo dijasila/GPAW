@@ -30,14 +30,16 @@ def CUPYBridge_inveps(f):
     # assignment (if done properly).
     def bridge(sqrV_g, chi0_GG, mode, fv_GG, weight=1.0, out_GG=None, lib=np):
         if not gpu.is_device_array(out_GG):
+            print('CUPYBridge_inveps copy_to_device')
             gpu_out_GG = gpu.copy_to_device(out_GG)
         else:
             gpu_out_GG = out_GG
-        f(gpu.copy_to_device(sqrV_g),
-          gpu.copy_to_device(chi0_GG),
+        f(to_gpu(sqrV_g),
+          to_gpu(chi0_GG),
           mode, weight=weight, 
           out_GG=gpu_out_GG, lib=cupy)
         if not gpu.is_device_array(out_GG):
+            print('CUPYBridge_inveps copy_to_host')
             out_GG[:] = gpu.copy_to_host(gpu_out_GG)
     
     return bridge
@@ -54,6 +56,7 @@ def to_gpu(array):
        return
    if gpu.is_device_array(array):
        return array
+   print('to_gpu copy_to_device')
    return gpu.copy_to_device(array)
 
 def CUPYBridge_dyson_work(dyson_work):
@@ -71,6 +74,7 @@ def CUPYBridge_dyson_work(dyson_work):
         # Possible pattern_ Input and output (see below)
         if not gpu.is_device_array(chi0_wGG):
             chi0_wGG_gpu = gpu.copy_to_device(chi0_wGG)
+            print('CUPYBridge_dyson_work copy_to_device')
         else:
             chi0_wGG_gpu = chi0_wGG
 
@@ -78,6 +82,7 @@ def CUPYBridge_dyson_work(dyson_work):
                            chi0_wGG_gpu, chi0_wxvG, chi0_wvv, only_correlation, xp=cupy)
 
         if not gpu.is_device_array(chi0_wGG):
+            print('CUPYBridge_dyson_work copy_to_host')
             return pdi, gpu.copy_to_host(W_wGG_gpu)
         else:
             return pdi, W_wGG_gpu
