@@ -4,15 +4,15 @@ import _gpaw
 from gpaw.gpu.backends import BaseBackend
 
 class CUDA(BaseBackend):
-    from cupy import cuda as _cuda
-    from gpaw.gpu.arrays import CuPyArrayInterface
-
     label = 'cuda'
     enabled = True
-    array = CuPyArrayInterface()
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        from cupy import cuda
+        from gpaw.gpu.arrays import CuPyArrayInterface
+        self._cuda = cuda
+        self.array = CuPyArrayInterface()
         _gpaw.set_gpaw_cuda_debug(self.debug)
 
     def init(self, rank=0):
