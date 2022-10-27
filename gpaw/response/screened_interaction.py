@@ -209,6 +209,7 @@ class WCalculator:
         nfreq = len(chi0calc.wd)
         Wwan_wijkl = np.zeros([nfreq,nwan,nwan,nwan,nwan],dtype=complex)
         total_k=0
+        #Wmat = [] # TEST 
         # First calculate W in IBZ in PW basis
         # and transform to DFT eigen basis
         for iq, q_c in enumerate(self.qd.ibzk_kc):
@@ -229,7 +230,7 @@ class WCalculator:
                                                               kpt2,
                                                               pd_q=[pd],
                                                               pawcorr_q=[pawcorr],
-                                                              known_iq=iQ)
+                                                              known_iQ=iQ)
                     assert iqloc == iq
                     rho_mnG.append(rholoc)
                     iKpQ.append(iK2loc)
@@ -243,6 +244,8 @@ class WCalculator:
                                             W_wGG,
                                             rho_mnG[iK3],
                                             optimize='optimal')
+                        # TEST!!!!
+                        #Wmat.append(W_wijkl)
 
                         #Wwan_wijkl += W_wijkl
                         Wwan_wijkl += np.einsum('ia,jb,kc,ld,wabcd->wijkl',
@@ -254,7 +257,17 @@ class WCalculator:
                         
         factor = Ha * self.gs.kd.nbzkpts**3 # factor from BZ summation and taking from Hartree to eV
         Wwan_wijkl /= factor
-        print("total_k,nk**4",total_k,self.gs.kd.nbzkpts**3)
+
+        # TEST
+        """
+        for i in range(len(Wmat)):
+            for j in range(len(Wmat)):
+                if Wmat[i].shape == Wmat[j].shape:
+                    #print('same shape',i,j)
+                    matdiff = np.abs(Wmat[i] - Wmat[j])
+                    if matdiff.max() < 0.001 and i != j:
+                        print('same val', i, j)
+        """
         return Wwan_wijkl
     
     def read_uwan(self, seed):
@@ -476,7 +489,7 @@ class WCalculator:
         return pdi, W_wGG
 
 
-    def get_density_matrix(self,kpt1, kpt2, pd_q, pawcorr_q, known_iq=None):
+    def get_density_matrix(self,kpt1, kpt2, pd_q, pawcorr_q, known_iQ=None):
         """
         If iq is known () pd_q and pawcorr_q are lists with len of IBZ, otherwise they are lists 
         with one element with value for correct iq
@@ -489,9 +502,9 @@ class WCalculator:
         q_c = qd.ibzk_kc[iq]
             
         # if iq is known check so that it is correct
-        if known_iq is not None:
+        if known_iQ is not None:
             iq_in_list=0 # pd_q and pawcorr_q lists with one element with correct value
-            assert (known_iq == iQ)
+            assert (known_iQ == iQ)
         else:
             iq_in_list=iq
     
