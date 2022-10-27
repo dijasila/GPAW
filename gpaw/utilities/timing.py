@@ -8,16 +8,16 @@ import math
 
 import numpy as np
 from ase.utils.timing import Timer as BaseTimer
-from gpaw.gpu import debug_sync, get_context
+from gpaw import gpu
 
 import gpaw.mpi as mpi
 
 
 class Timer(BaseTimer):
     def synchronize(self):
-        if debug_sync:
+        if gpu.debug_sync:
             try:
-                get_context().synchronize()
+                gpu.synchronize()
             except AttributeError:
                 pass
 

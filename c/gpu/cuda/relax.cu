@@ -712,11 +712,12 @@ void bmgs_relax_cuda_gpu(const int relax_method,
                     assert(0);
             }
         }
-        (*relax_kernel)<<<dimGrid, dimBlock, 0, stream>>>
-            (relax_method, s_gpu->coef_relax, s_gpu->ncoefs,
-             s_gpu->coefs_gpu, s_gpu->offsets_gpu,
-             s_gpu->coefs0_gpu, s_gpu->coefs1_gpu, s_gpu->coefs2_gpu,
-             adev, bdev, src, hc_n, sizea, sizeb, w, xdiv);
+        gpuLaunchKernel(
+                (*relax_kernel), dimGrid, dimBlock, 0, stream,
+                relax_method, s_gpu->coef_relax, s_gpu->ncoefs,
+                s_gpu->coefs_gpu, s_gpu->offsets_gpu,
+                s_gpu->coefs0_gpu, s_gpu->coefs1_gpu, s_gpu->coefs2_gpu,
+                adev, bdev, src, hc_n, sizea, sizeb, w, xdiv);
     } else if ((boundary & GPAW_BOUNDARY_ONLY) != 0) {
         void (*relax_kernel)(
                 const int relax_method, const double coef_relax,
@@ -770,11 +771,12 @@ void bmgs_relax_cuda_gpu(const int relax_method,
                     assert(0);
             }
         }
-        (*relax_kernel)<<<dimGrid, dimBlock, 0, stream>>>
-            (relax_method, s_gpu->coef_relax, s_gpu->ncoefs,
-             s_gpu->coefs_gpu, s_gpu->offsets_gpu,
-             s_gpu->coefs0_gpu, s_gpu->coefs1_gpu, s_gpu->coefs2_gpu,
-             adev, bdev, src, hc_n, jb, boundary, w, xdiv);
+        gpuLaunchKernel(
+                (*relax_kernel), dimGrid, dimBlock, 0, stream,
+                relax_method, s_gpu->coef_relax, s_gpu->ncoefs,
+                s_gpu->coefs_gpu, s_gpu->offsets_gpu,
+                s_gpu->coefs0_gpu, s_gpu->coefs1_gpu, s_gpu->coefs2_gpu,
+                adev, bdev, src, hc_n, jb, boundary, w, xdiv);
     }
     gpuCheckLastError();
 }

@@ -192,64 +192,84 @@ void MAPNAME(reducemap)(const Tcuda *d_idata1, const Tcuda *d_idata2,
         int s = size;
         switch (threads) {
             case 512:
-                MAPNAME(reduce_kernel_map512)<<<dimGrid, dimBlock, smemSize>>>
-                    (d_idata1 + i * size, d_idata2 + i * size,
-                     (Tcuda*) work_buffer1, result_gpu + i, s, size,
-                     block_out, cunvec);
+                gpuLaunchKernel(
+                        MAPNAME(reduce_kernel_map512),
+                        dimGrid, dimBlock, smemSize, 0,
+                        d_idata1 + i * size, d_idata2 + i * size,
+                        (Tcuda*) work_buffer1, result_gpu + i, s, size,
+                        block_out, cunvec);
                 break;
             case 256:
-                MAPNAME(reduce_kernel_map256)<<<dimGrid, dimBlock, smemSize>>>
-                    (d_idata1 + i * size, d_idata2 + i * size,
-                     (Tcuda*) work_buffer1, result_gpu + i, s, size,
-                     block_out, cunvec);
+                gpuLaunchKernel(
+                        MAPNAME(reduce_kernel_map256),
+                        dimGrid, dimBlock, smemSize, 0,
+                        d_idata1 + i * size, d_idata2 + i * size,
+                        (Tcuda*) work_buffer1, result_gpu + i, s, size,
+                        block_out, cunvec);
                 break;
             case 128:
-                MAPNAME(reduce_kernel_map128)<<<dimGrid, dimBlock, smemSize>>>
-                    (d_idata1 + i * size, d_idata2 + i * size,
-                     (Tcuda*) work_buffer1, result_gpu + i, s, size,
-                     block_out, cunvec);
+                gpuLaunchKernel(
+                        MAPNAME(reduce_kernel_map128),
+                        dimGrid, dimBlock, smemSize, 0,
+                        d_idata1 + i * size, d_idata2 + i * size,
+                        (Tcuda*) work_buffer1, result_gpu + i, s, size,
+                        block_out, cunvec);
                 break;
             case 64:
-                MAPNAME(reduce_kernel_map64)<<<dimGrid, dimBlock, smemSize>>>
-                    (d_idata1 + i * size, d_idata2 + i * size,
-                     (Tcuda*) work_buffer1, result_gpu + i, s, size,
-                     block_out, cunvec);
+                gpuLaunchKernel(
+                        MAPNAME(reduce_kernel_map64),
+                        dimGrid, dimBlock, smemSize, 0,
+                        d_idata1 + i * size, d_idata2 + i * size,
+                        (Tcuda*) work_buffer1, result_gpu + i, s, size,
+                        block_out, cunvec);
                 break;
             case 32:
-                MAPNAME(reduce_kernel_map32)<<<dimGrid, dimBlock, smemSize>>>
-                    (d_idata1 + i * size, d_idata2 + i * size,
-                     (Tcuda*) work_buffer1, result_gpu + i, s, size,
-                     block_out, cunvec);
+                gpuLaunchKernel(
+                        MAPNAME(reduce_kernel_map32),
+                        dimGrid, dimBlock, smemSize, 0,
+                        d_idata1 + i * size, d_idata2 + i * size,
+                        (Tcuda*) work_buffer1, result_gpu + i, s, size,
+                        block_out, cunvec);
                 break;
             case 16:
-                MAPNAME(reduce_kernel_map16)<<<dimGrid, dimBlock, smemSize>>>
-                    (d_idata1 + i * size, d_idata2 + i * size,
-                     (Tcuda*) work_buffer1, result_gpu + i, s, size,
-                     block_out, cunvec);
+                gpuLaunchKernel(
+                        MAPNAME(reduce_kernel_map16),
+                        dimGrid, dimBlock, smemSize, 0,
+                        d_idata1 + i * size, d_idata2 + i * size,
+                        (Tcuda*) work_buffer1, result_gpu + i, s, size,
+                        block_out, cunvec);
                 break;
             case  8:
-                MAPNAME(reduce_kernel_map8)<<<dimGrid, dimBlock, smemSize>>>
-                    (d_idata1 + i * size, d_idata2 + i * size,
-                     (Tcuda*) work_buffer1, result_gpu + i, s, size,
-                     block_out, cunvec);
+                gpuLaunchKernel(
+                        MAPNAME(reduce_kernel_map8),
+                        dimGrid, dimBlock, smemSize, 0,
+                        d_idata1 + i * size, d_idata2 + i * size,
+                        (Tcuda*) work_buffer1, result_gpu + i, s, size,
+                        block_out, cunvec);
                 break;
             case  4:
-                MAPNAME(reduce_kernel_map4)<<<dimGrid, dimBlock, smemSize>>>
-                    (d_idata1 + i * size, d_idata2 + i * size,
-                     (Tcuda*) work_buffer1, result_gpu + i, s, size,
-                     block_out, cunvec);
+                gpuLaunchKernel(
+                        MAPNAME(reduce_kernel_map4),
+                        dimGrid, dimBlock, smemSize, 0,
+                        d_idata1 + i * size, d_idata2 + i * size,
+                        (Tcuda*) work_buffer1, result_gpu + i, s, size,
+                        block_out, cunvec);
                 break;
             case  2:
-                MAPNAME(reduce_kernel_map2)<<<dimGrid, dimBlock, smemSize>>>
-                    (d_idata1 + i * size, d_idata2 + i * size,
-                     (Tcuda*) work_buffer1, result_gpu + i, s, size,
-                     block_out, cunvec);
+                gpuLaunchKernel(
+                        MAPNAME(reduce_kernel_map2),
+                        dimGrid, dimBlock, smemSize, 0,
+                        d_idata1 + i * size, d_idata2 + i * size,
+                        (Tcuda*) work_buffer1, result_gpu + i, s, size,
+                        block_out, cunvec);
                 break;
             case  1:
-                MAPNAME(reduce_kernel_map1)<<<dimGrid, dimBlock, smemSize>>>
-                    (d_idata1 + i * size, d_idata2 + i * size,
-                     (Tcuda*) work_buffer1, result_gpu + i, s, size,
-                     block_out, cunvec);
+                gpuLaunchKernel(
+                        MAPNAME(reduce_kernel_map1),
+                        dimGrid, dimBlock, smemSize, 0,
+                        d_idata1 + i * size, d_idata2 + i * size,
+                        (Tcuda*) work_buffer1, result_gpu + i, s, size,
+                        block_out, cunvec);
                 break;
             default:
                 assert(0);
@@ -274,54 +294,74 @@ void MAPNAME(reducemap)(const Tcuda *d_idata1, const Tcuda *d_idata2,
 
             switch (threads2) {
                 case 512:
-                    MAPNAME(reduce_kernel512)<<<dimGrid, dimBlock, smemSize>>>
-                        ((Tcuda*) work1, NULL, (Tcuda*) work2, result_gpu + i,
-                         s, block_in, block_out, cunvec);
+                    gpuLaunchKernel(
+                            MAPNAME(reduce_kernel512),
+                            dimGrid, dimBlock, smemSize, 0,
+                            (Tcuda*) work1, NULL, (Tcuda*) work2,
+                            result_gpu + i, s, block_in, block_out, cunvec);
                     break;
                 case 256:
-                    MAPNAME(reduce_kernel256)<<<dimGrid, dimBlock, smemSize>>>
-                        ((Tcuda*) work1, NULL, (Tcuda*) work2, result_gpu + i,
-                         s, block_in, block_out, cunvec);
+                    gpuLaunchKernel(
+                            MAPNAME(reduce_kernel256),
+                            dimGrid, dimBlock, smemSize, 0,
+                            (Tcuda*) work1, NULL, (Tcuda*) work2,
+                            result_gpu + i, s, block_in, block_out, cunvec);
                     break;
                 case 128:
-                    MAPNAME(reduce_kernel128)<<<dimGrid, dimBlock, smemSize>>>
-                        ((Tcuda*) work1, NULL, (Tcuda*) work2, result_gpu + i,
-                         s, block_in, block_out, cunvec);
+                    gpuLaunchKernel(
+                            MAPNAME(reduce_kernel128),
+                            dimGrid, dimBlock, smemSize, 0,
+                            (Tcuda*) work1, NULL, (Tcuda*) work2,
+                            result_gpu + i, s, block_in, block_out, cunvec);
                     break;
                 case 64:
-                    MAPNAME(reduce_kernel64)<<<dimGrid, dimBlock, smemSize>>>
-                        ((Tcuda*) work1, NULL, (Tcuda*) work2, result_gpu + i,
-                         s, block_in, block_out, cunvec);
+                    gpuLaunchKernel(
+                            MAPNAME(reduce_kernel64),
+                            dimGrid, dimBlock, smemSize, 0,
+                            (Tcuda*) work1, NULL, (Tcuda*) work2,
+                            result_gpu + i, s, block_in, block_out, cunvec);
                     break;
                 case 32:
-                    MAPNAME(reduce_kernel32)<<<dimGrid, dimBlock, smemSize>>>
-                        ((Tcuda*) work1, NULL, (Tcuda*) work2, result_gpu + i,
-                         s, block_in, block_out, cunvec);
+                    gpuLaunchKernel(
+                            MAPNAME(reduce_kernel32),
+                            dimGrid, dimBlock, smemSize, 0,
+                            (Tcuda*) work1, NULL, (Tcuda*) work2,
+                            result_gpu + i, s, block_in, block_out, cunvec);
                     break;
                 case 16:
-                    MAPNAME(reduce_kernel16)<<<dimGrid, dimBlock, smemSize>>>
-                        ((Tcuda*) work1, NULL, (Tcuda*) work2, result_gpu + i,
-                         s, block_in, block_out, cunvec);
+                    gpuLaunchKernel(
+                            MAPNAME(reduce_kernel16),
+                            dimGrid, dimBlock, smemSize, 0,
+                            (Tcuda*) work1, NULL, (Tcuda*) work2,
+                            result_gpu + i, s, block_in, block_out, cunvec);
                     break;
                 case  8:
-                    MAPNAME(reduce_kernel8)<<<dimGrid, dimBlock, smemSize>>>
-                        ((Tcuda*) work1, NULL, (Tcuda*) work2, result_gpu + i,
-                         s, block_in, block_out, cunvec);
+                    gpuLaunchKernel(
+                            MAPNAME(reduce_kernel8),
+                            dimGrid, dimBlock, smemSize, 0,
+                            (Tcuda*) work1, NULL, (Tcuda*) work2,
+                            result_gpu + i, s, block_in, block_out, cunvec);
                     break;
                 case  4:
-                    MAPNAME(reduce_kernel4)<<<dimGrid, dimBlock, smemSize>>>
-                        ((Tcuda*) work1, NULL, (Tcuda*) work2, result_gpu + i,
-                         s, block_in, block_out, cunvec);
+                    gpuLaunchKernel(
+                            MAPNAME(reduce_kernel4),
+                            dimGrid, dimBlock, smemSize, 0,
+                            (Tcuda*) work1, NULL, (Tcuda*) work2,
+                            result_gpu + i, s, block_in, block_out, cunvec);
                     break;
                 case  2:
-                    MAPNAME(reduce_kernel2)<<<dimGrid, dimBlock, smemSize>>>
-                        ((Tcuda*) work1, NULL, (Tcuda*) work2, result_gpu + i,
-                         s, block_in, block_out, cunvec);
+                    gpuLaunchKernel(
+                            MAPNAME(reduce_kernel2),
+                            dimGrid, dimBlock, smemSize, 0,
+                            (Tcuda*) work1, NULL, (Tcuda*) work2,
+                            result_gpu + i, s, block_in, block_out, cunvec);
                     break;
                 case  1:
-                    MAPNAME(reduce_kernel1)<<<dimGrid, dimBlock, smemSize>>>
-                        ((Tcuda*) work1, NULL, (Tcuda*) work2, result_gpu + i,
-                         s, block_in, block_out, cunvec);
+                    gpuLaunchKernel(
+                            MAPNAME(reduce_kernel1),
+                            dimGrid, dimBlock, smemSize, 0,
+                            (Tcuda*) work1, NULL, (Tcuda*) work2,
+                            result_gpu + i, s, block_in, block_out, cunvec);
                     break;
                 default:
                     assert(0);

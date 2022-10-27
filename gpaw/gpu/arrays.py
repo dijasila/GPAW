@@ -1,6 +1,7 @@
 class BaseArrayInterface:
-    _module = None  # replace with array module (pycuda, numpy, ...)
-    Array = None    # replace with array class (GPUArray, ndarray, ...)
+    def __init__(self):
+        self._module = None  # replace with array module (cupy, numpy, ...)
+        self.Array = None    # replace with array class (numpy.ndarray ...)
 
     def axpbyz(self, a, x, b, y, z):
         return self._module.axpbyz(a, x, b, y, z)
@@ -37,8 +38,10 @@ class BaseArrayInterface:
 
 
 class CuPyArrayInterface(BaseArrayInterface):
-    import cupy as _module
-    Array = _module.ndarray
+    def __init__(self):
+        import cupy as _module
+        self._module = _module
+        self.Array = _module.ndarray
 
     def axpbyz(self, a, x, b, y, z):
         z[:] = a * x + b * y
@@ -89,8 +92,10 @@ class CuPyArrayInterface(BaseArrayInterface):
         return x[slices]
 
 class HostArrayInterface(BaseArrayInterface):
-    import numpy as _module
-    Array = _module.ndarray
+    def __init__(self):
+        import numpy as _module
+        self._module = _module
+        self.Array = _module.ndarray
 
     def axpbyz(self, a, x, b, y, z):
         z[:] = a * x + b * y

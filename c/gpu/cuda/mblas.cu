@@ -91,8 +91,9 @@ PyObject* multi_scal_cuda_gpu(PyObject *self, PyObject *args)
         dim3 dimBlock(MBLAS_BLOCK_X, 1);
         dim3 dimGrid(gridx, gridy);
 
-        multi_scal_cuda_kernel<<<dimGrid, dimBlock, 0>>>
-            (n, (double *) alpha_gpu, (double*) x_gpu);
+        gpuLaunchKernel(
+                multi_scal_cuda_kernel, dimGrid, dimBlock, 0, 0,
+                n, (double *) alpha_gpu, (double*) x_gpu);
     } else if (a_type->type_num == NPY_DOUBLE) {
         double *alpha = (double*) (alpha_gpu);
         int gridx = MIN(MAX((2 * n + MBLAS_BLOCK_X - 1)
@@ -102,8 +103,9 @@ PyObject* multi_scal_cuda_gpu(PyObject *self, PyObject *args)
         dim3 dimBlock(MBLAS_BLOCK_X, 1);
         dim3 dimGrid(gridx, gridy);
 
-        multi_scal_cuda_kernel<<<dimGrid, dimBlock, 0>>>
-            (2 * n, alpha, (double *) x_gpu);
+        gpuLaunchKernel(
+                multi_scal_cuda_kernel, dimGrid, dimBlock, 0, 0,
+                2 * n, alpha, (double *) x_gpu);
     } else {
         cuDoubleComplex *alpha = (cuDoubleComplex*) (alpha_gpu);
         int gridx = MIN(MAX((n + MBLAS_BLOCK_X - 1) / MBLAS_BLOCK_X, 1),
@@ -112,8 +114,9 @@ PyObject* multi_scal_cuda_gpu(PyObject *self, PyObject *args)
         dim3 dimBlock(MBLAS_BLOCK_X, 1);
         dim3 dimGrid(gridx, gridy);
 
-        multi_scal_cuda_kernelz<<<dimGrid, dimBlock, 0>>>
-            (n, alpha, (cuDoubleComplex*) x_gpu);
+        gpuLaunchKernel(
+                multi_scal_cuda_kernelz, dimGrid, dimBlock, 0, 0,
+                n, alpha, (cuDoubleComplex*) x_gpu);
     }
     gpuCheckLastError();
     if (PyErr_Occurred())
@@ -149,8 +152,9 @@ PyObject* multi_axpy_cuda_gpu(PyObject *self, PyObject *args)
         dim3 dimBlock(MBLAS_BLOCK_X, 1);
         dim3 dimGrid(gridx, gridy);
 
-        multi_axpy_cuda_kernel<<<dimGrid, dimBlock, 0>>>
-            (n, alpha, (double*) x_gpu, (double*) y_gpu);
+        gpuLaunchKernel(
+                multi_axpy_cuda_kernel, dimGrid, dimBlock, 0, 0,
+                n, alpha, (double*) x_gpu, (double*) y_gpu);
     } else  if (a_type->type_num == NPY_DOUBLE) {
         double *alpha = (double*) alpha_gpu;
         int gridx = MIN(MAX((2 * n + MBLAS_BLOCK_X - 1)
@@ -160,8 +164,9 @@ PyObject* multi_axpy_cuda_gpu(PyObject *self, PyObject *args)
         dim3 dimBlock(MBLAS_BLOCK_X, 1);
         dim3 dimGrid(gridx, gridy);
 
-        multi_axpy_cuda_kernel<<<dimGrid, dimBlock, 0>>>
-            (2 * n, alpha, (double*) x_gpu, (double*) y_gpu);
+        gpuLaunchKernel(
+                multi_axpy_cuda_kernel, dimGrid, dimBlock, 0, 0,
+                2 * n, alpha, (double*) x_gpu, (double*) y_gpu);
     } else {
         cuDoubleComplex *alpha = (cuDoubleComplex*) alpha_gpu;
         int gridx = MIN(MAX((n + MBLAS_BLOCK_X - 1) / MBLAS_BLOCK_X, 1),
@@ -170,9 +175,10 @@ PyObject* multi_axpy_cuda_gpu(PyObject *self, PyObject *args)
         dim3 dimBlock(MBLAS_BLOCK_X, 1);
         dim3 dimGrid(gridx, gridy);
 
-        multi_axpy_cuda_kernelz<<<dimGrid, dimBlock, 0>>>
-            (n, alpha, (cuDoubleComplex*) x_gpu,
-             (cuDoubleComplex*) y_gpu);
+        gpuLaunchKernel(
+                multi_axpy_cuda_kernelz, dimGrid, dimBlock, 0, 0,
+                n, alpha, (cuDoubleComplex*) x_gpu,
+                (cuDoubleComplex*) y_gpu);
     }
     gpuCheckLastError();
     if (PyErr_Occurred())

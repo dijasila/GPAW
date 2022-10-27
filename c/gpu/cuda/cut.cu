@@ -177,12 +177,12 @@ static void Zcuda(_bmgs_cut_cuda_gpu)(
 
     a += starta[2] + (starta[1] + starta[0] * hc_sizea.y) * hc_sizea.z;
 
-    Zcuda(bmgs_cut_cuda_kernel)<<<dimGrid, dimBlock, 0, stream>>>(
-            (Tcuda*) a, hc_sizea, (Tcuda*) b, hc_sizeb,
+    gpuLaunchKernel(Zcuda(bmgs_cut_cuda_kernel), dimGrid, dimBlock, 0, stream,
+                    (Tcuda*) a, hc_sizea, (Tcuda*) b, hc_sizeb,
 #ifdef GPU_USE_COMPLEX
-         phase,
+                    phase,
 #endif
-         blocks, xdiv);
+                    blocks, xdiv);
     gpuCheckLastError();
 }
 

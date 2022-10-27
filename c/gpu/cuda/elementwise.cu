@@ -132,13 +132,13 @@ PyObject* axpbyz_gpu(PyObject *self, PyObject *args)
     dim3 dimBlock(BLOCK_X, 1);
     dim3 dimGrid(gridx, 1);
     if (type->type_num == NPY_DOUBLE) {
-        axpbyz_kernel<<<dimGrid, dimBlock, 0>>>
-            (a, (double*) x, b, (double*) y, (double *) z, n);
+        gpuLaunchKernel(axpbyz_kernel, dimGrid, dimBlock, 0, 0,
+                        a, (double*) x, b, (double*) y, (double *) z, n);
 
     } else {
-        axpbyz_kernelz<<<dimGrid, dimBlock, 0>>>
-            (a, (cuDoubleComplex*) x, b, (cuDoubleComplex*) y,
-             (cuDoubleComplex*) z, n);
+        gpuLaunchKernel(axpbyz_kernelz, dimGrid, dimBlock, 0, 0,
+                        a, (cuDoubleComplex*) x, b, (cuDoubleComplex*) y,
+                        (cuDoubleComplex*) z, n);
     }
     gpuCheckLastError();
     if (PyErr_Occurred())
@@ -177,12 +177,12 @@ PyObject* axpbz_gpu(PyObject *self, PyObject *args)
     dim3 dimBlock(BLOCK_X, 1);
     dim3 dimGrid(gridx, 1);
     if (type->type_num == NPY_DOUBLE) {
-        axpbz_kernel<<<dimGrid, dimBlock, 0>>>
-            (a, (double*) x, b, (double *) z, n);
+        gpuLaunchKernel(axpbz_kernel, dimGrid, dimBlock, 0, 0,
+                        a, (double*) x, b, (double *) z, n);
 
     } else {
-        axpbz_kernelz<<<dimGrid, dimBlock, 0>>>
-            (a, (cuDoubleComplex*) x, b, (cuDoubleComplex*) z, n);
+        gpuLaunchKernel(axpbz_kernelz, dimGrid, dimBlock, 0, 0,
+                        a, (cuDoubleComplex*) x, b, (cuDoubleComplex*) z, n);
     }
     gpuCheckLastError();
     if (PyErr_Occurred())
@@ -232,12 +232,12 @@ PyObject* fill_gpu(PyObject *self, PyObject *args)
     dim3 dimBlock(BLOCK_X, 1);
     dim3 dimGrid(gridx, 1);
     if (type->type_num == NPY_DOUBLE) {
-        fill_kernel<<<dimGrid, dimBlock, 0>>>
-            (real, (double*) x, n);
+        gpuLaunchKernel(fill_kernel, dimGrid, dimBlock, 0, 0,
+                        real, (double*) x, n);
 
     } else {
-        fill_kernelz<<<dimGrid, dimBlock, 0>>>
-            (real, imag, (cuDoubleComplex*) x, n);
+        gpuLaunchKernel(fill_kernelz, dimGrid, dimBlock, 0, 0,
+                        real, imag, (cuDoubleComplex*) x, n);
     }
     gpuCheckLastError();
     if (PyErr_Occurred())

@@ -263,12 +263,14 @@ void Zcuda(bmgs_restrict_cuda_gpu)(int k, const Tcuda* a, const int size[3],
         case 0:
         case 1:
         case 2:
-            Zcuda(restrict_kernel_fermi)<<<dimGrid, dimBlock, 0>>>
-                (a, n ,b, b_n, xdiv, blocks);
+            gpuLaunchKernel(
+                    Zcuda(restrict_kernel_fermi), dimGrid, dimBlock, 0, 0,
+                    a, n ,b, b_n, xdiv, blocks);
             break;
         default:
-            Zcuda(restrict_kernel_kepler)<<<dimGrid, dimBlock, 0>>>
-                (a, n, b, b_n, xdiv, blocks);
+            gpuLaunchKernel(
+                    Zcuda(restrict_kernel_kepler), dimGrid, dimBlock, 0, 0,
+                    a, n, b, b_n, xdiv, blocks);
     }
     gpuCheckLastError();
 }

@@ -528,7 +528,8 @@ PyObject* add_cuda_gpu(LFCObject *lfc, PyObject *args)
         dim3 dimBlock(blockx, BLOCK_Y);
         dim3 dimGrid(gridx, nx);
 
-        add_kernel<<<dimGrid, dimBlock, 0>>>(
+        gpuLaunchKernel(
+                add_kernel, dimGrid, dimBlock, 0, 0,
                 a_G, c_M, lfc->G_B1_gpu, lfc->G_B2_gpu,
                 lfc->volume_i_gpu, lfc->A_gm_i_gpu, lfc->ni_gpu,
                 lfc->nimax, nG, nM, lfc->phase_i_gpu, lfc->max_k, q,
@@ -543,7 +544,8 @@ PyObject* add_cuda_gpu(LFCObject *lfc, PyObject *args)
         dim3 dimBlock(blockx, BLOCK_Y);
         dim3 dimGrid(gridx, nx);
 
-        add_kernelz<<<dimGrid, dimBlock, 0>>>(
+        gpuLaunchKernel(
+                add_kernelz, dimGrid, dimBlock, 0, 0,
                 a_G, c_M, lfc->G_B1_gpu, lfc->G_B2_gpu,
                 lfc->volume_i_gpu, lfc->A_gm_i_gpu, lfc->ni_gpu,
                 lfc->nimax, nG, nM, lfc->phase_i_gpu, lfc->max_k, q,

@@ -74,4 +74,7 @@
 #define gpuEventElapsedTime(ms, start, end) \
         gpuSafeCall(cudaEventElapsedTime(ms, start, end))
 
+#define gpuLaunchKernel(kernel, dimGrid, dimBlock, shared, stream, ...) \
+        kernel<<<dimGrid, dimBlock, shared, stream>>>(__VA_ARGS__)
+
 #endif
