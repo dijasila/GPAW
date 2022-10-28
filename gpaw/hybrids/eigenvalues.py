@@ -1,4 +1,5 @@
 """Calculate non self-consistent eigenvalues for hybrid functionals."""
+from __future__ import annotations
 import functools
 import json
 from pathlib import Path
@@ -6,7 +7,9 @@ from typing import Generator, List, Optional, Tuple, Union
 
 import numpy as np
 from ase.units import Ha
-from gpaw.calculator import GPAW
+from gpaw.calculator import GPAWOld
+from gpaw import GPAW
+from gpaw.new.ase_interface import ASECalculator
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.mpi import serial_comm
 from gpaw.pw.descriptor import PWDescriptor
@@ -23,15 +26,16 @@ from .paw import calculate_paw_stuff
 from .symmetry import Symmetry
 
 
-def non_self_consistent_eigenvalues(calc: Union[GPAW, str, Path],
-                                    xcname: str,
-                                    n1: int = 0,
-                                    n2: int = 0,
-                                    kpt_indices: List[int] = None,
-                                    snapshot: Union[str, Path] = None,
-                                    ftol: float = 1e-9) -> Tuple[Array3D,
-                                                                 Array3D,
-                                                                 Array3D]:
+def non_self_consistent_eigenvalues(
+        calc: Union[GPAWOld, ASECalculator, str, Path],
+        xcname: str,
+        n1: int = 0,
+        n2: int = 0,
+        kpt_indices: List[int] = None,
+        snapshot: Union[str, Path] = None,
+        ftol: float = 1e-9) -> tuple[Array3D,
+                                     Array3D,
+                                     Array3D]:
     """Calculate non self-consistent eigenvalues for a hybrid functional.
 
     Based on a self-consistent DFT calculation (calc).  Only eigenvalues n1 to
@@ -48,7 +52,7 @@ def non_self_consistent_eigenvalues(calc: Union[GPAW, str, Path],
     >>> eig_hyb = eig_dft - vxc_dft + vxc_hyb
     """
 
-    if not isinstance(calc, GPAW):
+    if not isinstance(calc, (GPAWOld, ASECalculator):
         if calc == '<gpw-file>':  # for doctest
             return (np.zeros((1, 1, 1)),
                     np.zeros((1, 1, 1)),
