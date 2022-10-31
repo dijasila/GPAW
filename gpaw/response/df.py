@@ -13,6 +13,8 @@ from gpaw.response.chi0 import Chi0
 from gpaw.response.coulomb_kernels import get_coulomb_kernel
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.response.density_kernels import get_density_xc_kernel
+from gpaw.response.chi0 import Chi0Calculator, new_frequency_descriptor
+from gpaw.response.pair import get_gs_and_context, NoCalculatorPairDensity
 
 
 class DielectricFunction:
@@ -80,6 +82,29 @@ class DielectricFunction:
             Shift unoccupied bands
         """
 
+
+        gs, context = get_gs_and_context(calc, txt, world, timer=None)
+
+        wd = new_frequency_descriptor(gs, context, nbands, frequencies,
+                                      domega0=domega0,
+                                      omega2=omega2, omegamax=omegamax)
+
+        pair = NoCalculatorPairDensity(
+            gs=gs, context=context, threshold=threshold, nblocks=nblocks)
+
+        chi0calc = Chi0Calculator(
+            wd=wd,
+            pair=pair,
+            ecut=ecut, nbands=nbands, eta=eta,
+            hilbert=hilbert,
+            ftol=ftol,
+            intraband=intraband,
+            disable_point_group=disable_point_group,
+            disable_time_reversal=disable_time_reversal,
+            integrationmode=integrationmode,
+            rate=rate, eshift=eshift
+        )
+
         self.chi0 = Chi0(calc, frequencies=frequencies,
                          domega0=domega0, omega2=omega2, omegamax=omegamax,
                          ecut=ecut, nbands=nbands, eta=eta,
@@ -91,17 +116,18 @@ class DielectricFunction:
                          disable_time_reversal=disable_time_reversal,
                          integrationmode=integrationmode,
                          rate=rate, eshift=eshift)
-        self.context = self.chi0.context
+
+        self.chi0 = chi0calc
+        
+        self.context = context  # self.chi0.context
         self.name = name
 
-        self.wd = self.chi0.wd
-
-        nw = len(self.wd)
+        self.wd = wd  # self.chi0.wd
 
         world = self.context.world
         from gpaw.response.pw_parallelization import Blocks1D
 
-        self.blocks1d = Blocks1D(world, nw)
+        self.blocks1d = Blocks1D(world, len(wd))
         self.truncation = truncation
 
     def calculate_chi0(self, q_c, spin='all'):
