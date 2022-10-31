@@ -155,7 +155,7 @@ class WCalculator:
         self.E0 = E0 / Ha
 
 # calculate_q wrapper
-    def calculate_q(self, iq, q_c, chi0):
+    def calculate_q(self, iq, q_c, chi0, out_dist='WgG'):
         if self.truncation == 'wigner-seitz':
             wstc = WignerSeitzTruncatedCoulomb(
                 self.wcalc.gs.gd.cell_cv,
@@ -166,7 +166,8 @@ class WCalculator:
 
         pd, W_wGG = self.dyson_and_W_old(wstc, iq, q_c,
                                          chi0,
-                                         fxc_mode=self.fxc_mode)
+                                         fxc_mode=self.fxc_mode,
+                                         out_dist=out_dist)
 
         return pd, W_wGG
 
@@ -232,7 +233,7 @@ class WCalculator:
     @CUPYBridge_dyson_and_W
     def dyson_and_W_old(self, wstc, iq, q_c, chi0, fxc_mode,
                         pdi=None, G2G=None, chi0_wGG=None, chi0_wxvG=None,
-                        chi0_wvv=None, only_correlation=False, xp=np):
+                        chi0_wvv=None, only_correlation=False, out_dist='WgG', xp=np):
         # If called with reduced ecut for ecut extrapolation
         # pdi, G2G, chi0_wGG, chi0_wxvG, chi0_wvv have to be given.
         # These quantities can be calculated using chi0calc.reduced_ecut()
@@ -302,9 +303,7 @@ class WCalculator:
             einv_GG = xp.zeros((nG, nG), complex)
             if np.allclose(q_c, 0):
                 for iqf in range(len(gamma_int.qf_qv)):
-                    chi0_GG[0, :] = gamma_int.a0_qwG[iqf, iw]
-                    chi0_GG[:, 0] = gamma_int.a1_qwG[iqf, iw]
-                    chi0_GG[0, 0] = gamma_int.a_wq[iw, iqf]
+                    gamma_int.set_appendages(chi0_GG, iw, iqf)
 
                     sqrtV_G = get_sqrtV_G(kd.N_c, q_v=gamma_int.qf_qv[iqf], xp=xp)
 
@@ -351,6 +350,14 @@ class WCalculator:
             self.context.timer.stop('Dyson eq.')
             return pdi, [W_GG, omegat_GG]
 
+    if out_dist == 'WgG':
+            # XXX This creates a new, large buffer.  We could perhaps
+            # avoid that.  Buffer used to exist but was removed due to #456.
+            W_wGG = chi0.blockdist.redistribute(chi0_wGG, chi0.nw)
+        elif out_dist == 'wGG':
+            W_wGG = chi0_wGG
+        else:
+            raise ValueError('Wrong outdist in W_and_dyson_old')
 
         self.context.timer.stop('Dyson eq.')
         return pdi, chi0_wGG

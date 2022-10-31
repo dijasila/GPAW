@@ -1,7 +1,6 @@
 import numpy as np
 from ase.dft.kpoints import monkhorst_pack
 
-
 class GammaIntegrator:
     def __init__(self, truncation, kd, pd, chi0_wvv, chi0_wxvG, xp=np):
         N = 4
@@ -21,3 +20,9 @@ class GammaIntegrator:
                            axis=1)
         self.a0_qwG = xp.asarray(np.dot(self.qf_qv, chi0_wxvG[:, 0]))
         self.a1_qwG = xp.asarray(np.dot(self.qf_qv, chi0_wxvG[:, 1]))
+
+    def set_appendages(self, chi0_GG, iw, iqf):
+        # Most likely this method should be moved to a Chi0Appendages class.
+        chi0_GG[0, :] = self.a0_qwG[iqf, iw]
+        chi0_GG[:, 0] = self.a1_qwG[iqf, iw]
+        chi0_GG[0, 0] = self.a_wq[iw, iqf]

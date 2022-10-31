@@ -73,7 +73,6 @@ class Chi0Calculator:
         self.eshift = eshift / Ha
 
         self.nblocks = pair.nblocks
-        self.calc = self.gs._calc  # XXX remove me
 
         # XXX this is redundant as pair also does it.
         self.blockcomm, self.kncomm = block_partition(self.context.world,
@@ -256,7 +255,6 @@ class Chi0Calculator:
                           chi0: Chi0Data,
                           m1, m2, spins):
         """In-place calculation of the body."""
-        chi0_wGG = chi0.chi0_wGG  # Change notation
         pd = chi0.pd
 
         integrator = self.initialize_integrator()
@@ -270,13 +268,20 @@ class Chi0Calculator:
         get_eigenvalues = partial(
             self.get_eigenvalues, **eig_kwargs)
 
+        chi0_wGG = chi0.chi0_wGG  # Change notation
         chi0_wGG /= prefactor
+        if self.hilbert:
+            # Allocate a temporary array for the spectral function
+            out_wGG = np.zeros_like(chi0_wGG)
+        else:
+            # Use the preallocated array for direct updates
+            out_wGG = chi0_wGG
         integrator.integrate(kind=kind,  # Kind of integral
                              domain=domain,  # Integration domain
                              integrand=(get_matrix_element,
                                         get_eigenvalues),
                              x=self.wd,  # Frequency Descriptor
-                             out_wxx=chi0_wGG,  # Output array
+                             out_wxx=out_wGG,  # Output array
                              **extraargs)
         if self.hilbert:
             # The integrator only returns the spectral function and a Hilbert
@@ -286,7 +291,9 @@ class Chi0Calculator:
                 # Make Hilbert transform
                 ht = HilbertTransform(np.array(self.wd.omega_w), self.eta,
                                       timeordered=self.timeordered)
-                ht(chi0_wGG)
+                ht(out_wGG)
+            # Update the actual chi0 array
+            chi0_wGG += out_wGG
         chi0_wGG *= prefactor
 
         tmp_chi0_wGG = chi0.blockdist.redistribute(chi0_wGG, chi0.nw)
