@@ -80,7 +80,6 @@ class DielectricFunction:
             Shift unoccupied bands
         """
 
-
         gs, context = get_gs_and_context(calc, txt, world, timer=None)
         nbands = nbands or gs.bd.nbands
 
