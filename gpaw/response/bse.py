@@ -742,11 +742,9 @@ class BSE:
         epsilon_w += 1.0
 
         if world.rank == 0 and filename is not None:
-            f = open(filename, 'w')
-            for iw, w in enumerate(w_w):
-                print('%.9f, %.9f, %.9f' %
-                      (w, epsilon_w[iw].real, epsilon_w[iw].imag), file=f)
-            f.close()
+            from gpaw.response.df import write_response_function
+            write_response_function(filename, w_w,
+                                    epsilon_w.real, epsilon_w.imag)
         world.barrier()
 
         print('Calculation completed at:', ctime(), file=self.fd)
