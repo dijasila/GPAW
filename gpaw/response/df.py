@@ -8,8 +8,6 @@ from ase.units import Hartree, Bohr
 
 import gpaw.mpi as mpi
 
-from gpaw.response.chi0 import Chi0
-
 from gpaw.response.coulomb_kernels import get_coulomb_kernel
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.response.density_kernels import get_density_xc_kernel
@@ -105,20 +103,7 @@ class DielectricFunction:
             rate=rate, eshift=eshift
         )
 
-        self.chi0 = Chi0(calc, frequencies=frequencies,
-                         domega0=domega0, omega2=omega2, omegamax=omegamax,
-                         ecut=ecut, nbands=nbands, eta=eta,
-                         hilbert=hilbert,
-                         ftol=ftol, threshold=threshold,
-                         intraband=intraband, world=world, nblocks=nblocks,
-                         txt=txt,
-                         disable_point_group=disable_point_group,
-                         disable_time_reversal=disable_time_reversal,
-                         integrationmode=integrationmode,
-                         rate=rate, eshift=eshift)
-
         self.chi0 = chi0calc
-        
         self.context = context  # self.chi0.context
         self.name = name
 
