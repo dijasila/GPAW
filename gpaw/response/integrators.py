@@ -1,13 +1,9 @@
-from functools import partial
-
 import numpy as np
-from gpaw.utilities import convert_string_to_fd
-from ase.utils.timing import timer, Timer
+from gpaw.response import timer
 from scipy.spatial import Delaunay
 from scipy.linalg.blas import zher
 
 import _gpaw
-import gpaw.mpi as mpi
 from gpaw.utilities.blas import rk, mmm
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.response.pw_parallelization import Blocks1D, block_partition
@@ -25,27 +21,23 @@ def czher(alpha: float, x, A) -> None:
 
 
 class Integrator:
-    def __init__(self, cell_cv, comm=mpi.world,
-                 txt='-', timer=None, nblocks=1, eshift=0.0):
+    def __init__(self, cell_cv, context, nblocks=1, eshift=0.0):
         """Baseclass for Brillouin zone integration and band summation.
 
         Simple class to calculate integrals over Brilloun zones
         and summation of bands.
 
-        comm: mpi.communicator
+        context: ResponseContext
         nblocks: block parallelization
         """
 
-        self.comm = comm
+        self.context = context
         self.eshift = eshift
         self.nblocks = nblocks
         self.vol = abs(np.linalg.det(cell_cv))
 
-        self.blockcomm, self.kncomm = block_partition(comm, nblocks)
-
-        self.fd = convert_string_to_fd(txt, comm)
-
-        self.timer = timer or Timer()
+        self.blockcomm, self.kncomm = block_partition(self.context.world,
+                                                      nblocks)
 
     def distribute_domain(self, domain_dl):
         """Distribute integration domain. """
@@ -66,11 +58,12 @@ class Integrator:
                 arguments.append(domain_l[index])
             mydomain.append(tuple(arguments))
 
-        print('Distributing domain %s' % (domainsize, ),
-              'over %d process%s' %
-              (self.kncomm.size, ['es', ''][self.kncomm.size == 1]),
-              file=self.fd)
-        print('Number of blocks:', self.blockcomm.size, file=self.fd)
+        self.context.print('Distributing domain %s' % (domainsize,),
+                           'over %d process%s' %
+                           (self.kncomm.size,
+                            ['es', ''][self.kncomm.size == 1]),
+                           flush=False)
+        self.context.print('Number of blocks:', self.blockcomm.size)
 
         return mydomain
 
@@ -82,18 +75,14 @@ class Integrator:
 
 
 class PointIntegrator(Integrator):
+    """Integrate brillouin zone using a broadening technique.
 
-    def __init__(self, *args, **kwargs):
-
-        """Integrate brillouin zone using a broadening technique.
-
-        The broadening technique consists of smearing out the
-        delta functions appearing in many integrals by some factor
-        eta. In this code we use Lorentzians."""
-        Integrator.__init__(self, *args, **kwargs)
+    The broadening technique consists of smearing out the
+    delta functions appearing in many integrals by some factor
+    eta. In this code we use Lorentzians."""
 
     def integrate(self, kind='pointwise', *args, **kwargs):
-        print('Integral kind:', kind, file=self.fd)
+        self.context.print('Integral kind:', kind)
         if kind == 'pointwise':
             return self.pointwise_integration(*args, **kwargs)
         elif kind == 'hermitian response function':
@@ -122,13 +111,13 @@ class PointIntegrator(Integrator):
                                                       wings=True,
                                                       *args, **kwargs)
         else:
-            raise NotImplementedError
+            raise ValueError(kind)
 
-    def response_function_integration(self, domain=None, integrand=None,
-                                      x=None, kwargs=None, out_wxx=None,
+    def response_function_integration(self, *, domain, integrand,
+                                      x=None, out_wxx,
                                       timeordered=False, hermitian=False,
                                       intraband=False, hilbert=False,
-                                      wings=False, **extraargs):
+                                      wings=False, eta=None):
         """Integrate a response function over bands and kpoints.
 
         func: method
@@ -136,9 +125,6 @@ class PointIntegrator(Integrator):
         out: np.ndarray
         timeordered: Bool
         """
-        if out_wxx is None:
-            raise NotImplementedError
-
         mydomain_t = self.distribute_domain(domain)
         nbz = len(domain[0])
         get_matrix_element, get_eigenvalues = integrand
@@ -146,17 +132,9 @@ class PointIntegrator(Integrator):
         prefactor = (2 * np.pi)**3 / self.vol / nbz
         out_wxx /= prefactor
 
-        # The kwargs contain any constant
-        # arguments provided by the user
-        if kwargs is not None:
-            get_matrix_element = partial(get_matrix_element,
-                                         **kwargs[0])
-            get_eigenvalues = partial(get_eigenvalues,
-                                      **kwargs[1])
-
         # Sum kpoints
         # Calculate integrations weight
-        pb = ProgressBar(self.fd)
+        pb = ProgressBar(self.context.fd)
         for _, arguments in pb.enumerate(mydomain_t):
             n_MG = get_matrix_element(*arguments)
             if n_MG is None:
@@ -164,22 +142,28 @@ class PointIntegrator(Integrator):
             deps_M = get_eigenvalues(*arguments)
 
             if intraband:
-                self.update_intraband(n_MG, out_wxx, **extraargs)
+                assert eta is None
+                assert x is None
+                self.update_intraband(n_MG, out_wxx)
             elif hermitian and not wings:
-                self.update_hermitian(n_MG, deps_M, x, out_wxx, **extraargs)
+                assert eta is None
+                self.update_hermitian(n_MG, deps_M, x, out_wxx)
             elif hermitian and wings:
-                self.update_hermitian_optical_limit(n_MG, deps_M, x, out_wxx,
-                                                    **extraargs)
+                assert eta is None
+                self.update_hermitian_optical_limit(n_MG, deps_M, x, out_wxx)
             elif hilbert and not wings:
-                self.update_hilbert(n_MG, deps_M, x, out_wxx, **extraargs)
+                assert eta is None
+                self.update_hilbert(n_MG, deps_M, x, out_wxx)
             elif hilbert and wings:
-                self.update_hilbert_optical_limit(n_MG, deps_M, x,
-                                                  out_wxx, **extraargs)
+                assert eta is None
+                self.update_hilbert_optical_limit(n_MG, deps_M, x, out_wxx)
             elif wings:
+                # XXX what about timeordered?  See #632
                 self.update_optical_limit(n_MG, deps_M, x, out_wxx,
-                                          **extraargs)
+                                          eta=eta)
             else:
-                self.update(n_MG, deps_M, x, out_wxx, **extraargs)
+                # XXX what about timeordered?  See #632
+                self.update(n_MG, deps_M, x, out_wxx, eta=eta)
 
         # Sum over
         # Can this really be valid, if the original input out_wxx is nonzero?
@@ -241,39 +225,6 @@ class PointIntegrator(Integrator):
                 x_m = np.abs(2 * deps_m / (omega.imag**2 + deps_m**2))
                 mynx_mG = n_mG[:, blocks1d.myslice] * x_m[:, np.newaxis]
                 mmm(-1.0, mynx_mG, 'T', n_mG.conj(), 'N', 1.0, chi0_wGG[w])
-
-    @timer('CHI_0 spectral function update (old)')
-    def update_hilbert_old(self, n_mG, deps_m, wd, chi0_wGG):
-        """Update spectral function.
-
-        Updates spectral function A_wGG and saves it to chi0_wGG for
-        later hilbert-transform."""
-
-        deps_m += self.eshift * np.sign(deps_m)
-        o_m = abs(deps_m)
-        w_m = wd.get_floor_index(o_m)
-
-        o1_m = wd.omega_w[w_m]
-        o2_m = wd.omega_w[w_m + 1]
-        p_m = np.abs(1 / (o2_m - o1_m)**2)
-        p1_m = p_m * (o2_m - o_m)
-        p2_m = p_m * (o_m - o1_m)
-
-        blocks1d = self._blocks1d(chi0_wGG.shape[2])
-
-        if self.blockcomm.size > 1:
-            for p1, p2, n_G, w in zip(p1_m, p2_m, n_mG, w_m):
-                if w + 1 < wd.wmax:  # The last frequency is not reliable
-                    myn_G = n_G[blocks1d.myslice].reshape((-1, 1))
-                    mmm(p1, myn_G, 'N', n_G.reshape((-1, 1)), 'C',
-                        1.0, chi0_wGG[w])
-                    mmm(p2, myn_G, 'N', n_G.reshape((-1, 1)), 'C',
-                        1.0, chi0_wGG[w + 1])
-        else:
-            for p1, p2, n_G, w in zip(p1_m, p2_m, n_mG, w_m):
-                if w + 1 < wd.wmax:  # The last frequency is not reliable
-                    czher(p1, n_G.conj(), chi0_wGG[w])
-                    czher(p2, n_G.conj(), chi0_wGG[w + 1])
 
     @timer('CHI_0 spectral function update (new)')
     def update_hilbert(self, n_mG, deps_m, wd, chi0_wGG):
@@ -405,9 +356,6 @@ class TetrahedronIntegrator(Integrator):
     the eigenenergies and of the matrix elements
     between the vertices of the tetrahedron."""
 
-    def __init__(self, *args, **kwargs):
-        Integrator.__init__(self, *args, **kwargs)
-
     @timer('Tesselate')
     def tesselate(self, vertices):
         """Get tesselation descriptor."""
@@ -433,22 +381,22 @@ class TetrahedronIntegrator(Integrator):
 
     def integrate(self, kind, *args, **kwargs):
         if kind == 'spectral function':
-            return self.spectral_function_integration(*args,
-                                                      wings=False,
-                                                      **kwargs)
+            wings = False
         elif kind == 'spectral function wings':
-            return self.spectral_function_integration(*args,
-                                                      wings=True,
-                                                      **kwargs)
+            wings = True
         else:
             raise ValueError("Expected kind='spectral function'",
                              "or 'spectral function wings', got: ",
                              kind)
 
+        return self.spectral_function_integration(*args,
+                                                  wings=wings,
+                                                  **kwargs)
+
     @timer('Spectral function integration')
     def spectral_function_integration(self, wings=False,
-                                      domain=None, integrand=None,
-                                      x=None, kwargs=None, out_wxx=None):
+                                      *, domain, integrand,
+                                      x, out_wxx):
         """Integrate response function.
 
         Assume that the integral has the
@@ -456,9 +404,8 @@ class TetrahedronIntegrator(Integrator):
         method it is possible calculate frequency dependent weights
         and do a point summation using these weights."""
 
-        if out_wxx is None:
-            raise NotImplementedError
-
+        wd = x  # XXX Rename.  But it clashes with some other methods
+        # that are **kwargs'ed somewhere, so requires attention.
         blocks1d = self._blocks1d(out_wxx.shape[2])
 
         # Input domain
@@ -466,19 +413,11 @@ class TetrahedronIntegrator(Integrator):
         args = domain[1:]
         get_matrix_element, get_eigenvalues = integrand
 
-        # The kwargs contain any constant
-        # arguments provided by the user
-        if kwargs is not None:
-            get_matrix_element = partial(get_matrix_element,
-                                         **kwargs[0])
-            get_eigenvalues = partial(get_eigenvalues,
-                                      **kwargs[1])
-
         # Relevant quantities
         bzk_kc = td.points
         nk = len(bzk_kc)
 
-        with self.timer('pts'):
+        with self.context.timer('pts'):
             # Point to simplex
             pts_k = [[] for n in range(nk)]
             for s, K_k in enumerate(td.simplices):
@@ -499,7 +438,7 @@ class TetrahedronIntegrator(Integrator):
             for k in range(nk):
                 pts_k[k] = np.array(pts_k[k], int)
 
-        with self.timer('neighbours'):
+        with self.context.timer('neighbours'):
             # Nearest neighbours
             neighbours_k = [None for n in range(nk)]
 
@@ -510,7 +449,7 @@ class TetrahedronIntegrator(Integrator):
         myterms_t = self.distribute_domain(list(args) +
                                            [list(range(nk))])
 
-        with self.timer('eigenvalues'):
+        with self.context.timer('eigenvalues'):
             # Store eigenvalues
             deps_tMk = None  # t for term
             shape = [len(domain_l) for domain_l in args]
@@ -531,7 +470,7 @@ class TetrahedronIntegrator(Integrator):
                     deps_tMk[t, :, K] = deps_M
 
         # Calculate integrations weight
-        pb = ProgressBar(self.fd)
+        pb = ProgressBar(self.context.fd)
         for _, arguments in pb.enumerate(myterms_t):
             K = arguments[-1]
             if len(shape) == 0:
@@ -544,11 +483,12 @@ class TetrahedronIntegrator(Integrator):
                                       *arguments[:-1])
 
             # Generate frequency weights
-            i0_M, i1_M = x.get_index_range(teteps_Mk.min(1), teteps_Mk.max(1))
+            i0_M, i1_M = wd.get_index_range(
+                teteps_Mk.min(1), teteps_Mk.max(1))
             W_Mw = []
             for deps_k, i0, i1 in zip(deps_Mk, i0_M, i1_M):
                 W_w = self.get_kpoint_weight(K, deps_k,
-                                             pts_k, x.omega_w[i0:i1],
+                                             pts_k, wd.omega_w[i0:i1],
                                              td)
                 W_Mw.append(W_w)
 
@@ -609,7 +549,7 @@ class TetrahedronIntegrator(Integrator):
         simplices_s = pts_k[K]
         W_w = np.zeros(len(omega_w), float)
         vol_s = self.get_simplex_volume(td, simplices_s)
-        with self.timer('Tetrahedron weight'):
+        with self.context.timer('Tetrahedron weight'):
             _gpaw.tetrahedron_weight(deps_k, td.simplices, K,
                                      simplices_s,
                                      W_w, omega_w, vol_s)

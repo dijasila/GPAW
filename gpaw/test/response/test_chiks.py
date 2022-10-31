@@ -46,15 +46,23 @@ def generate_gc_g():
 @pytest.mark.parametrize('q_c,eta,gammacentered', product(generate_q_qc(),
                                                           generate_eta_e(),
                                                           generate_gc_g()))
-def test_Fe_chiks(in_tmp_dir, gpw_files, q_c, eta, gammacentered):
-    """Check the reciprocity relation
+def test_chiks_symmetry(in_tmp_dir, gpw_files, q_c, eta, gammacentered):
+    """Check the reciprocity relation,
 
-    χ_(KS,GG')^(+-)(q, ω) = χ_(KS,-G'-G)^(+-)(-q, ω)
+    χ_(KS,GG')^(+-)(q, ω) = χ_(KS,-G'-G)^(+-)(-q, ω),
 
-    for a real life system with d-electrons (bcc-Fe).
+    the inversion symmetry relation,
+
+    χ_(KS,GG')^(+-)(q, ω) = χ_(KS,-G-G')^(+-)(-q, ω),
+
+    and the combination of the two,
+
+    χ_(KS,GG')^(+-)(q, ω) = χ_(KS,G'G)^(+-)(q, ω),
+
+    for a real life system with d-electrons and inversion symmetry (bcc-Fe).
 
     Unfortunately, there will always be random noise in the wave functions,
-    such that this symmetry is not fulfilled exactly. However, we should be
+    such that these symmetries are not fulfilled exactly. However, we should be
     able to fulfill it within 2%, which is tested here. Generally speaking,
     the "symmetry" noise can be reduced making running with symmetry='off' in
     the ground state calculation.
@@ -74,10 +82,13 @@ def test_Fe_chiks(in_tmp_dir, gpw_files, q_c, eta, gammacentered):
     else:
         nblocks = 1
 
-    # Part 2: Check reciprocity
+    # Part 2: Check reciprocity and inversion symmetry
     rtol = 2.5e-2
 
-    # Part 3: Check symmetry toggle
+    # Part 3: Check matrix symmetry
+
+    # Part 4: Check symmetry toggle
+    srtol = 1.e-2
 
     # ---------- Script ---------- #
 
@@ -115,8 +126,7 @@ def test_Fe_chiks(in_tmp_dir, gpw_files, q_c, eta, gammacentered):
         chiks_sqwGG.append(chiks_qwGG)
         pd_sq.append(pd_q)
 
-    # Part 2: Check reciprocity
-
+    # Part 2: Check reciprocity and inversion symmetry
     for pd_q, chiks_qwGG in zip(pd_sq, chiks_sqwGG):
         # Get the q and -q pair
         if len(pd_q) == 2:
@@ -137,23 +147,22 @@ def test_Fe_chiks(in_tmp_dir, gpw_files, q_c, eta, gammacentered):
             chi1_GG, chi2_GG = chiks_qwGG[q1][0], chiks_qwGG[q2][0]
             chi1r_GG = 1 / 2. * (chi1_GG + np.conj(chi1_GG).T)
             chi2r_GG = 1 / 2. * (chi2_GG + np.conj(chi2_GG).T)
-
-            # err = np.absolute(np.conj(chi2r_GG[invmap_GG]) - chi1r_GG)
-            # is_bad = err > 1.e-8 + rtol * np.absolute(chi1r_GG)
-            # print(is_bad)
-            # print(np.absolute(err[is_bad]) / np.absolute(chi1r_GG[is_bad]))
             assert np.allclose(np.conj(chi2r_GG[invmap_GG]), chi1r_GG,
                                rtol=rtol)
 
-        # Check the reciprocity of the full susceptibility
         for chi1_GG, chi2_GG in zip(chiks_qwGG[q1], chiks_qwGG[q2]):
-            # err = np.absolute(chi1_GG - chi2_GG[invmap_GG].T)
-            # is_bad = err > 1.e-8 + rtol * np.absolute(chi1_GG)
-            # print(is_bad)
-            # print(np.absolute(err[is_bad]) / np.absolute(chi1_GG[is_bad]))
+            # Check the reciprocity of the full susceptibility
             assert np.allclose(chi2_GG[invmap_GG].T, chi1_GG, rtol=rtol)
+            # Check inversion symmetry of the full susceptibility
+            assert np.allclose(chi2_GG[invmap_GG], chi1_GG, rtol=rtol)
 
-    # Part 3: Check symmetry toggle
+    # Part 3: Check matrix symmetry
+    for chiks_qwGG in chiks_sqwGG:
+        for chiks_wGG in chiks_qwGG:
+            for chiks_GG in chiks_wGG:
+                assert np.allclose(chiks_GG.T, chiks_GG, rtol=rtol)
+
+    # Part 4: Check symmetry toggle
 
     # Check that the plane wave representations are identical
     for pd1, pd2 in zip(pd_sq[0], pd_sq[1]):
@@ -165,8 +174,4 @@ def test_Fe_chiks(in_tmp_dir, gpw_files, q_c, eta, gammacentered):
     chiks1_qwGG = chiks_sqwGG[0]
     chiks2_qwGG = chiks_sqwGG[1]
     for chiks1_wGG, chiks2_wGG in zip(chiks1_qwGG, chiks2_qwGG):
-        # err = np.absolute(chiks1_wGG - chiks2_wGG)
-        # is_bad = err > 1.e-8 + rtol * np.absolute(chiks1_wGG)
-        # print(is_bad)
-        # print(np.absolute(err[is_bad] / np.absolute(chiks1_wGG[is_bad])))
-        assert np.allclose(chiks2_wGG, chiks1_wGG, rtol=rtol)
+        assert np.allclose(chiks2_wGG, chiks1_wGG, rtol=srtol)

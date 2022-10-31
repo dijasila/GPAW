@@ -10,8 +10,8 @@ single water molecule in the gas-phase. The theoretical background
 can be found in Ref. [#WM20]_.
 
 
-Accurate Forces
-===============
+Accurate Forces from an IR calculation
+======================================
 
 A pre-condition for accurate forces and thus accurate vibrational frequencies
 is relaxation with a rather small maximal force and a smaller gid-spacing
@@ -33,8 +33,29 @@ with the result:
 Only the last three vibrations are meaningful.
 
 
-Excitations at each displacement
-================================
+Static Raman from polarizabilities
+==================================
+
+The photon energy of the excitation laser in Raman experiments is often
+well below electronic excitations of the molecules. Then the 
+approximation to obtain Raman spectra from static polarizabilities
+is valid. Here, we use the static polariability obtained from external electric fields.
+
+.. literalinclude:: H2O_static_raman.py
+
+We can get the resulting frequencies and intensities
+
+.. literalinclude:: H2O_Placzek_static_summary.py
+
+with the result:
+
+.. literalinclude:: H2O_Placzek_static_summary.txt
+
+Again, only the last three vibrations are meaningful.
+
+
+Resonant Raman: Excitations at each displacement
+================================================
 
 We need to calculate the excitations at each displament and use
 linear response TDDFT for this. This is the most time consuming
@@ -49,7 +70,7 @@ to this.
 
 
 Raman intensities
-=================
+-----------------
 
 We have to choose an approximation to evaluate the Raman intensities.
 The most common is the Placzek approximation which we also apply here.
@@ -66,7 +87,7 @@ Note, that the absolute intensity [#WM20]_ is given in the summary.
 
 
 Raman spectrum
-==============
+--------------
 
 .. image:: H2O_rraman_spectrum.png
 

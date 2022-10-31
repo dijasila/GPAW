@@ -117,7 +117,6 @@ class BSE:
         bzq_qc = monkhorst_pack(self.kd.N_c) + offset_c
         self.qd = KPointDescriptor(bzq_qc)
         self.qd.set_symmetry(self.gs.atoms, self.kd.symmetry)
-        self.vol = self.gs.volume
 
         # bands
         self.spins = self.gs.nspins
@@ -400,7 +399,7 @@ class BSE:
         # if self.mode == 'BSE':
         #     del self.Q_qaGii, self.W_qGG, self.pd_q
 
-        H_ksmnKsmn /= self.vol
+        H_ksmnKsmn /= self.gs.volume
 
         mySsize = myKsize * Nv * Nc * Ns
         if myKsize > 0:
@@ -498,18 +497,6 @@ class BSE:
         else:
             self.calculate_screened_potential()
 
-    def _calculate_chi0(self, q_c):
-        """Use the Chi0 object to calculate the static susceptibility."""
-        if self._chi0calc is None:
-            self.initialize_chi0_calculator()
-
-        chi0 = self._chi0calc.create_chi0(q_c, extend_head=False)
-        # Do all bands and all spins
-        m1, m2, spins = 0, self.nbands, 'all'
-        chi0 = self._chi0calc.update_chi0(chi0, m1, m2, spins)
-
-        return chi0  # chi0.pd, chi0.chi0_wGG, chi0.chi0_wxvG, chi0.chi0_wvv
-
     def initialize_chi0_calculator(self):
         """Initialize the Chi0 object to compute the static
         susceptibility."""
@@ -545,8 +532,7 @@ class BSE:
         t0 = time()
         print('Calculating screened potential', file=self.fd)
         for iq, q_c in enumerate(self.qd.ibzk_kc):
-            # pd, chi0_wGG, chi0_wxvG, chi0_wvv = self._calculate_chi0(q_c)
-            chi0 = self._calculate_chi0(q_c)
+            chi0 = self._chi0calc.calculate(q_c)
             pd, W_wGG = self._wcalc.calculate_q(iq, q_c, chi0)
             W_GG = W_wGG[0]
             self.pawcorr_q.append(self._chi0calc.pawcorr)
@@ -693,7 +679,7 @@ class BSE:
         for iw, w in enumerate(w_w / Hartree):
             tmp_T = 1. / (w - w_T + 1j * eta)
             vchi_w[iw] += np.dot(tmp_T, C_T)
-        vchi_w *= 4 * np.pi / self.vol
+        vchi_w *= 4 * np.pi / self.gs.volume
 
         if not np.allclose(self.q_c, 0.0):
             cell_cv = self.gs.gd.cell_cv
@@ -705,7 +691,7 @@ class BSE:
         nv = self.gs.nvalence
         dw_w = (w_w[1:] - w_w[:-1]) / Hartree
         wchi_w = (w_w[1:] * vchi_w[1:] + w_w[:-1] * vchi_w[:-1]) / Hartree / 2
-        N = -np.dot(dw_w, wchi_w.imag) * self.vol / (2 * np.pi**2)
+        N = -np.dot(dw_w, wchi_w.imag) * self.gs.volume / (2 * np.pi**2)
         print(file=self.fd)
         print('Checking f-sum rule:', file=self.fd)
         print('  Valence = %s, N = %f' % (nv, N), file=self.fd)
