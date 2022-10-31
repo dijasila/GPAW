@@ -1,6 +1,7 @@
 import numpy as np
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
 from gpaw.typing import Array2D
+from gpaw.new import zip
 
 
 def forces(ibzwfs: LCAOWaveFunctions) -> Array2D:
@@ -17,12 +18,20 @@ def forces(ibzwfs: LCAOWaveFunctions) -> Array2D:
     domain_comm.sum(dThetadR_qvMM)
     domain_comm.sum(dTdR_qvMM)
 
+    F_av = np.zeros((len(ibzwfs.setups), 3))
+    indices = []
+    M1 = 0
+    for a, P_Mi in ibzwfs.P_aMi.items():
+        M2 = M1 + len(P_Mi)
+        indices.append((a, M1, M2))
+        M1 = M2
+
     for wfs, dTdR_vMM in zip(ibzwfs, dTdR_qvMM):
         #Transpose?
         rho_MM = wfs.calculate_density_matrix()
         erho_MM = wfs.calculate_density_matrix(eigs=True)
 
-        Fkin_av = get_kinetic_term(rho_MM, dTdR_vMM)
+        add_kinetic_term(rho_MM, dTdR_vMM, F_av, indices)
         Fpot_av = get_pot_term()
         Ftheta_av = get_den_mat_term()
         Frho_av = get_den_mat_paw_term()
@@ -31,26 +40,23 @@ def forces(ibzwfs: LCAOWaveFunctions) -> Array2D:
     return Fkin_av + Fpot_av + Ftheta_av + Frho_av + Fatom_av
 
 
-def get_kinetic_term(self):
-    """Calculate Kinetic energy term in LCAO"""
-    # Kinetic energy contribution
-    #
-    #           ----- d T
-    #  a         \       mu nu
-    # F += 2 Re   )   -------- rho
-    #            /    d R         nu mu
-    #           -----    mu nu
-    #        mu in a; nu
-    #
-    Fkin_av = np.zeros_like(Fkin_av)
-    dEdTrhoT_vMM = (self.dTdR_qvMM[kpt.q] *
-                    self.rhoT_uMM[u][np.newaxis]).real
-    # XXX load distribution!
-    for a, M1, M2 in self.my_slices():
-        Fkin_av[a, :] += \
-            2.0 * dEdTrhoT_vMM[:, M1:M2].sum(-1).sum(-1)
+def add_kinetic_term(rho_MM, dTdR_vMM, F_av, indices):
+    """Calculate Kinetic energy term in LCAO
 
-    return Fkin_av
+    :::
+
+                      dT
+     _a        --- --   μν
+     F += 2 Re >   >  ---- ρ
+               --- --  _    νμ
+               μ=a ν  dR
+                        νμ
+            """
+
+    for a, M1, M2 in indices:
+        F_av[a, :] += 2 * np.einsum('vmM, Mm -> v',
+                                    dTdR_vMM[:, M1:M2],
+                                    rho_MM[:, M1:M2])
 
 
 def get_den_mat_term(self):

@@ -12,7 +12,6 @@ from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.new.wave_functions import WaveFunctions
 from gpaw.setup import Setups
 from gpaw.typing import Array2D, Array3D
-from gpaw.new.lcao.forces import forces
 
 
 class LCAOWaveFunctions(WaveFunctions):
@@ -181,4 +180,5 @@ class LCAOWaveFunctions(WaveFunctions):
             ncomponents=self.ncomponents)
 
     def force_contribution(self, dH_asii: AtomArrays, F_av: Array2D):
-        return forces(self.manytci, self.setups)
+        from gpaw.new.lcao.forces import forces
+        return forces(self)
