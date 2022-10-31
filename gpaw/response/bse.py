@@ -826,11 +826,8 @@ class BSE:
         alpha_w *= Bohr**(sum(~pbc_c))
 
         if world.rank == 0 and filename is not None:
-            fd = open(filename, 'w')
-            for iw, w in enumerate(w_w):
-                print('%.9f, %.9f, %.9f' %
-                      (w, alpha_w[iw].real, alpha_w[iw].imag), file=fd)
-            fd.close()
+            from gpaw.response.df import write_response_function
+            write_response_function(filename, w_w, alpha_w.real, alpha_w.imag)
 
         print('Calculation completed at:', ctime(), file=self.fd)
         print(file=self.fd)
