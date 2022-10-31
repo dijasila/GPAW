@@ -73,7 +73,6 @@ class Chi0Calculator:
         self.eshift = eshift / Ha
 
         self.nblocks = pair.nblocks
-        self.calc = self.gs._calc  # XXX remove me
 
         # XXX this is redundant as pair also does it.
         self.blockcomm, self.kncomm = block_partition(self.context.world,
