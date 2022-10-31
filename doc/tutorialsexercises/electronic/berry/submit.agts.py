@@ -5,7 +5,7 @@ from myqueue.workflow import run
 
 def workflow():
     with run(script='gs_BaTiO3.py', cores=8, tmax='30m'):
-        with run(script='polarization_BaTiO3.py'):
+        with run(script='polarization_BaTiO3.py', tmax='1h'):
             run(function=check)
         with run(script='born_BaTiO3.py', cores=8, tmax='10h'):
             run(script='get_borncharges.py')
