@@ -83,7 +83,7 @@ def test_chiks_symmetry(in_tmp_dir, gpw_files, q_c, eta, gammacentered):
         nblocks = 1
 
     # Part 2: Check reciprocity and inversion symmetry
-    # Attempt to lower symmetry.
+    # TODO attempt to lower tolerance back to 2.5% (#641)
     rtol = 5.0e-2  # 2.5e-2
 
     # Part 3: Check matrix symmetry
