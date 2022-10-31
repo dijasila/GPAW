@@ -97,10 +97,6 @@ class RPACorrelation:
         self.gs = gs
         self.context = context
 
-        if isinstance(calc, str):
-            calc = GPAW(calc, txt=None, communicator=mpi.serial_comm)
-        self.calc = calc
-
         if frequencies is None:
             frequencies, weights = get_gauss_legendre_points(nfrequencies,
                                                              frequency_max,
