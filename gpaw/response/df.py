@@ -510,7 +510,6 @@ class DielectricFunction:
         # Calculate V^1/2 \chi V^1/2
         pd, Vchi0_wGG, Vchi_wGG = self.get_chi(xc=xc, q_c=q_c,
                                                direction=direction)
-        Nw = self.wd.omega_w.shape[0]
 
         # Calculate eels = -Im 4 \pi / q^2  \chi
         eels_NLFC_w = -(1. / (1. - Vchi0_wGG[:, 0, 0])).imag
@@ -521,14 +520,10 @@ class DielectricFunction:
         eels_LFC_w = self.collect(eels_LFC_w)
 
         # Write to file
-        if filename is not None and mpi.rank == 0:
-            fd = open(filename, 'w')
-            print('# energy, eels_NLFC_w, eels_LFC_w', file=fd)
-            for iw in range(Nw):
-                print('%.6f, %.6f, %.6f' %
-                      (self.chi0.wd.omega_w[iw] * Hartree,
-                       eels_NLFC_w[iw], eels_LFC_w[iw]), file=fd)
-            fd.close()
+        if filename is not None and self.context.world.rank == 0:
+            omega_w = self.chi0.wd.omega_w
+            write_response_function(filename, omega_w * Hartree,
+                                    eels_NLFC_w, eels_LFC_w)
 
         return eels_NLFC_w, eels_LFC_w
 
@@ -588,19 +583,18 @@ class DielectricFunction:
             alpha_w = self.collect(alpha_w)
             alpha0_w = self.collect(alpha0_w)
 
-        Nw = len(alpha_w)
-        if filename is not None and mpi.rank == 0:
-            fd = open(filename, 'w')
-            for iw in range(Nw):
-                print('%.6f, %.6f, %.6f, %.6f, %.6f' %
-                      (self.chi0.wd.omega_w[iw] * Hartree,
-                       alpha0_w[iw].real * Bohr**(sum(~pbc_c)),
-                       alpha0_w[iw].imag * Bohr**(sum(~pbc_c)),
-                       alpha_w[iw].real * Bohr**(sum(~pbc_c)),
-                       alpha_w[iw].imag * Bohr**(sum(~pbc_c))), file=fd)
-            fd.close()
+        # Convert to external units
+        hypervol = Bohr**(sum(~pbc_c))
+        alpha0_w *= hypervol
+        alpha_w *= hypervol
 
-        return alpha0_w * Bohr**(sum(~pbc_c)), alpha_w * Bohr**(sum(~pbc_c))
+        # Write results file
+        if filename is not None and self.context.world.rank == 0:
+            omega_w = self.chi0.wd.omega_w
+            write_response_function(filename, omega_w * Hartree,
+                                    alpha0_w, alpha_w)
+
+        return alpha0_w, alpha_w
 
     def check_sum_rule(self, spectrum=None):
         """Check f-sum rule.
@@ -634,6 +628,29 @@ class DielectricFunction:
 def write_response_function(filename, omega_w, rf0_w, rf_w):
     with open(filename, 'w') as fd:
         for omega, rf0, rf in zip(omega_w, rf0_w, rf_w):
-            print('%.6f, %.6f, %.6f, %.6f, %.6f' %
-                  (omega, rf0.real, rf0.imag, rf.real, rf.imag),
-                  file=fd)
+            if rf0_w.dtype == complex:
+                print('%.6f, %.6f, %.6f, %.6f, %.6f' %
+                      (omega, rf0.real, rf0.imag, rf.real, rf.imag),
+                      file=fd)
+            else:
+                print('%.6f, %.6f, %.6f' % (omega, rf0, rf), file=fd)
+
+
+def read_response_function(filename):
+    """Read a stored response function file"""
+    d = np.loadtxt(filename, delimiter=',')
+    omega_w = np.array(d[:, 0], float)
+
+    if d.shape[1] == 3:
+        # Real response function
+        rf0_w = np.array(d[:, 1], float)
+        rf_w = np.array(d[:, 2], float)
+    elif d.shape[1] == 5:
+        rf0_w = np.array(d[:, 1], complex)
+        rf0_w.imag = d[:, 2]
+        rf_w = np.array(d[:, 3], complex)
+        rf_w.imag = d[:, 4]
+    else:
+        raise ValueError(f'Unexpected array dimension {d.shape}')
+
+    return omega_w, rf0_w, rf_w

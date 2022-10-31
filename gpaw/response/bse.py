@@ -16,6 +16,7 @@ from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.mpi import world, serial_comm, broadcast
 from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.chi0 import Chi0
+from gpaw.response.df import write_response_function
 from gpaw.response.coulomb_kernels import get_coulomb_kernel
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.response.pair import PairDensity
@@ -742,11 +743,8 @@ class BSE:
         epsilon_w += 1.0
 
         if world.rank == 0 and filename is not None:
-            f = open(filename, 'w')
-            for iw, w in enumerate(w_w):
-                print('%.9f, %.9f, %.9f' %
-                      (w, epsilon_w[iw].real, epsilon_w[iw].imag), file=f)
-            f.close()
+            write_response_function(filename, w_w,
+                                    epsilon_w.real, epsilon_w.imag)
         world.barrier()
 
         print('Calculation completed at:', ctime(), file=self.fd)
@@ -828,11 +826,7 @@ class BSE:
         alpha_w *= Bohr**(sum(~pbc_c))
 
         if world.rank == 0 and filename is not None:
-            fd = open(filename, 'w')
-            for iw, w in enumerate(w_w):
-                print('%.9f, %.9f, %.9f' %
-                      (w, alpha_w[iw].real, alpha_w[iw].imag), file=fd)
-            fd.close()
+            write_response_function(filename, w_w, alpha_w.real, alpha_w.imag)
 
         print('Calculation completed at:', ctime(), file=self.fd)
         print(file=self.fd)
