@@ -633,3 +633,23 @@ def write_response_function(filename, omega_w, rf0_w, rf_w):
                       file=fd)
             else:
                 print('%.6f, %.6f, %.6f' % (omega, rf0, rf), file=fd)
+
+
+def read_response_function(filename):
+    """Read a stored response function file"""
+    d = np.loadtxt(filename, delimiter=',')
+    omega_w = d[:, 0]
+
+    if d.shape[1] == 3:
+        # Real response function
+        rf0_w = np.array(d[:, 1], float)
+        rf_w = np.array(d[:, 2], float)
+    elif d.shape[1] == 5:
+        rf0_w = np.array(d[:, 1], complex)
+        rf0_w.imag = d[:, 2]
+        rf_w = np.array(d[:, 3], complex)
+        rf_w.imag = d[:, 4]
+    else:
+        raise ValueError(f'Unexpected array dimension {d.shape}')
+
+    return omega_w, rf0_w, rf_w

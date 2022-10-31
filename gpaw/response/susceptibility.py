@@ -444,18 +444,6 @@ def symmetrize_reciprocity(pd, A_wGG):
             A_GG[:] = tmp_GG / 2.
 
 
-def read_macroscopic_component(filename):
-    """Read a stored macroscopic susceptibility file"""
-    d = np.loadtxt(filename, delimiter=',')
-    omega_w = d[:, 0]
-    chiks_w = np.array(d[:, 1], complex)
-    chiks_w.imag = d[:, 2]
-    chi_w = np.array(d[:, 3], complex)
-    chi_w.imag = d[:, 4]
-
-    return omega_w, chiks_w, chi_w
-
-
 def write_component(omega_w, G_Gc, chiks_wGG, chi_wGG, filename, world):
     """Write the dynamic susceptibility as a pickle file."""
     assert isinstance(filename, str)
