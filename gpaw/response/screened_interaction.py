@@ -153,7 +153,7 @@ class WCalculator:
         self.E0 = E0 / Ha
 
 # calculate_q wrapper
-    def calculate_q(self, iq, q_c, chi0):
+    def calculate_q(self, iq, q_c, chi0, out_dist='WgG'):
         if self.truncation == 'wigner-seitz':
             wstc = WignerSeitzTruncatedCoulomb(
                 self.wcalc.gs.gd.cell_cv,
@@ -164,7 +164,8 @@ class WCalculator:
 
         pd, W_wGG = self.dyson_and_W_old(wstc, iq, q_c,
                                          chi0,
-                                         fxc_mode=self.fxc_mode)
+                                         fxc_mode=self.fxc_mode,
+                                         out_dist=out_dist)
 
         return pd, W_wGG
 
