@@ -12,6 +12,7 @@ from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.new.wave_functions import WaveFunctions
 from gpaw.setup import Setups
 from gpaw.typing import Array2D, Array3D
+from gpaw.new.lcao.forces import forces
 
 
 class LCAOWaveFunctions(WaveFunctions):
@@ -19,6 +20,7 @@ class LCAOWaveFunctions(WaveFunctions):
                  *,
                  setups: Setups,
                  density_adder: Callable[[Array2D, Array3D], None],
+                 manytci,
                  C_nM: Matrix,
                  S_MM: Matrix,
                  T_MM: Array2D,
@@ -46,6 +48,7 @@ class LCAOWaveFunctions(WaveFunctions):
                          domain_comm=domain_comm,
                          band_comm=C_nM.dist.comm)
         self.density_adder = density_adder
+        self.manytci = manytci
         self.C_nM = C_nM
         self.T_MM = T_MM
         self.S_MM = S_MM
@@ -106,7 +109,7 @@ class LCAOWaveFunctions(WaveFunctions):
             return C_nM.data
         return None
 
-    def calculate_density_matrix(self) -> np.ndarray:
+    def calculate_density_matrix(self, eigs=False) -> np.ndarray:
         """Calculate the density matrix.
 
         The density matrix is:::
@@ -122,6 +125,8 @@ class LCAOWaveFunctions(WaveFunctions):
         """
         if self.domain_comm.rank == 0:
             f_n = self.weight * self.spin_degeneracy * self.myocc_n
+            if eigs:
+                f_n *= self.myeig_n
             C_nM = self.C_nM.data
             rho_MM = (C_nM.T.conj() * f_n) @ C_nM
             self.band_comm.sum(rho_MM)
@@ -174,3 +179,6 @@ class LCAOWaveFunctions(WaveFunctions):
             k=self.k,
             weight=self.weight,
             ncomponents=self.ncomponents)
+
+    def force_contribution(self, dH_asii: AtomArrays, F_av: Array2D):
+        return forces(self.manytci, self.setups)

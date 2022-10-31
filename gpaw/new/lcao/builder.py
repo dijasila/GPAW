@@ -123,6 +123,7 @@ def create_lcao_ibzwfs(basis, potential,
         return LCAOWaveFunctions(
             setups=setups,
             density_adder=partial(basis.construct_density, q=q),
+            manytci=manytci,
             C_nM=C_nM,
             S_MM=Matrix(nao, nao, data=S_qMM[q],
                         dist=(band_comm, band_comm.size, 1)),
