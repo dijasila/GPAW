@@ -64,8 +64,8 @@ class BuildingBlock:
 
         self.df = df  # dielectric function object
         self.df.truncation = '2D'  # in case you forgot!
-        self.wd = self.df.chi0.wd
-        self.world = self.df.chi0.context.world
+        self.wd = self.df.wd
+        self.world = self.df.chi0calc.context.world
 
         if self.world.rank != 0:
             from gpaw.utilities import devnull
@@ -74,7 +74,7 @@ class BuildingBlock:
             txt = open(txt, 'w', 1)
         self.fd = txt
 
-        gs = self.df.chi0.gs
+        gs = self.df.gs
         kd = gs.kd
         self.kd = kd
         r = gs.gd.get_grid_point_coordinates()
@@ -181,7 +181,7 @@ class BuildingBlock:
             print('calculated chi!', file=self.fd)
 
             nw = len(self.wd)
-            world = self.df.chi0.context.world
+            world = self.df.chi0calc.context.world
             w1 = min(self.df.blocks1d.blocksize * world.rank, nw)
 
             _, _, chiM_qw, chiD_qw, _, drhoM_qz, drhoD_qz = \
@@ -341,8 +341,12 @@ class BuildingBlock:
         self.wd = FrequencyGridDescriptor(w_grid)
         self.save_chi_file(filename=self.filename + '_int')
 
+    @property
+    def context(self):
+        return self.df.chi0calc.context
+
     def collect(self, a_w):
-        world = self.df.chi0.context.world
+        world = self.context.world
         mynw = self.df.blocks1d.blocksize
         b_w = np.zeros(mynw, a_w.dtype)
         b_w[:self.df.blocks1d.nlocal] = a_w
@@ -353,7 +357,7 @@ class BuildingBlock:
 
     def clear_temp_files(self):
         if not self.savechi0:
-            world = self.df.chi0.context.world
+            world = self.context.world
             if world.rank == 0:
                 while len(self.temp_files) > 0:
                     filename = self.temp_files.pop()
