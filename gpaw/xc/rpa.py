@@ -338,37 +338,14 @@ class RPACorrelation:
                 chi0_wvv=chi0.chi0_wvv[w1:w2],
                 chi0_wxvG=chi0.chi0_wxvG[w1:w2])
 
-            from ase.dft import monkhorst_pack
-            # XXXX again a redundant implementation of the thing
-            # now in gpaw.response.gamma_int !
-            N = 4
-            N_c = np.array([N, N, N])
-            if self.truncation is not None:
-                N_c[kd.N_c == 1] = 1
-            q_qc = monkhorst_pack(N_c) / kd.N_c
-            q_qc *= 1.0e-6
-            U_scc = kd.symmetry.op_scc
-            q_qc = kd.get_ibz_q_points(q_qc, U_scc)[0]
-            weight_q = kd.q_weights
-            q_qv = 2 * np.pi * np.dot(q_qc, chi0.pd.gd.icell_cv)
-
-            a_qw = np.sum(np.dot(chi0.chi0_wvv[w1:w2], q_qv.T) * q_qv.T,
-                          axis=1).T
-            a0_qwG = np.dot(q_qv, chi0.chi0_wxvG[w1:w2, 0])
-            a1_qwG = np.dot(q_qv, chi0.chi0_wxvG[w1:w2, 1])
-
-            assert abs(a0_qwG - gamma_int.a0_qwG).max() == 0
-            assert abs(a1_qwG - gamma_int.a1_qwG).max() == 0
-            assert abs(a_qw - gamma_int.a_wq.T).max() == 0
-
             e = 0
-            for iq in range(len(q_qv)):
+            for iq in range(len(gamma_int.qf_qv)):
                 chi0_wGG[:, 0] = gamma_int.a0_qwG[iq]
                 chi0_wGG[:, :, 0] = gamma_int.a1_qwG[iq]
                 chi0_wGG[:, 0, 0] = gamma_int.a_wq[:, iq]
                 ev = self.calculate_energy(chi0.pd, chi0_wGG, cut_G,
-                                           q_v=q_qv[iq])
-                e += ev * weight_q[iq]
+                                           q_v=gamma_int.qf_qv[iq])
+                e += ev * gamma_int.weight_q[iq]
             print('%.3f eV' % (e * Hartree), file=self.fd)
             self.fd.flush()
 
