@@ -1080,15 +1080,15 @@ class G0W0(G0W0Calculator):
                           'timeordered': True}
 
         from gpaw.response.chi0 import new_frequency_descriptor
-        chi_context = context.with_txt(filename + '.w.txt')
-        wd = new_frequency_descriptor(gs, chi_context, nbands, frequencies)
+        w_context = context.with_txt(filename + '.w.txt')
+        wd = new_frequency_descriptor(gs, w_context, nbands, frequencies)
 
         chi0calc = Chi0Calculator(
             wd=wd, pair=pair,
             nbands=nbands,
             ecut=ecut,
             intraband=False,
-            context=chi_context,
+            context=w_context,
             **parameters)
 
         bands = choose_bands(bands, relbands, gs.nvalence, chi0calc.nocc2)
@@ -1104,14 +1104,13 @@ class G0W0(G0W0Calculator):
                               ns=gs.nspins,
                               wd=wd,
                               Eg=Eg,
-                              timer=context.timer,
-                              fd=context.fd)
+                              context=context)
 
         wcalc = WCalculator(chi0calc.wd,
                             chi0calc.pair,
                             chi0calc.gs,
                             ppa, xckernel,
-                            context, E0,
+                            w_context, E0,
                             fxc_mode, truncation,
                             integrate_gamma,
                             q0_correction)

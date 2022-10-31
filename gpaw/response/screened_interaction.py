@@ -68,8 +68,7 @@ def initialize_w_calculator(chi0calc, txt='w.txt', ppa=False, xc='RPA',
                           ns=gs.nspins,
                           wd=chi0calc.wd,
                           Eg=Eg,
-                          timer=context.timer,
-                          fd=context.fd)
+                          context=context)
     wd = chi0calc.wd
     pair = chi0calc.pair
 
