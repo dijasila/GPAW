@@ -329,37 +329,27 @@ class RPACorrelation:
             print('%.3f eV' % (e * Hartree), file=self.fd)
             self.fd.flush()
         else:
-            from ase.dft import monkhorst_pack
-            # XXXX again a redundant implementation of the thing
-            # now in gpaw.response.gamma_int !
-            N = 4
-            N_c = np.array([N, N, N])
-            if self.truncation is not None:
-                N_c[kd.N_c == 1] = 1
-            q_qc = monkhorst_pack(N_c) / kd.N_c
-            q_qc *= 1.0e-6
-            U_scc = kd.symmetry.op_scc
-            q_qc = kd.get_ibz_q_points(q_qc, U_scc)[0]
-            weight_q = kd.q_weights
-            q_qv = 2 * np.pi * np.dot(q_qc, chi0.pd.gd.icell_cv)
+            from gpaw.response.gamma_int import GammaIntegrator
 
             nw = len(self.omega_w)
             mynw = nw // self.nblocks
             w1 = self.blockcomm.rank * mynw
             w2 = w1 + mynw
-            a_qw = np.sum(np.dot(chi0.chi0_wvv[w1:w2], q_qv.T) * q_qv.T,
-                          axis=1).T
-            a0_qwG = np.dot(q_qv, chi0.chi0_wxvG[w1:w2, 0])
-            a1_qwG = np.dot(q_qv, chi0.chi0_wxvG[w1:w2, 1])
+
+            gamma_int = GammaIntegrator(
+                truncation=self.truncation,
+                kd=kd,
+                pd=chi0.pd,
+                chi0_wvv=chi0.chi0_wvv[w1:w2],
+                chi0_wxvG=chi0.chi0_wxvG[w1:w2])
 
             e = 0
-            for iq in range(len(q_qv)):
-                chi0_wGG[:, 0] = a0_qwG[iq]
-                chi0_wGG[:, :, 0] = a1_qwG[iq]
-                chi0_wGG[:, 0, 0] = a_qw[iq]
+            for iqf in range(len(gamma_int.qf_qv)):
+                for iw in range(w1, w2):
+                    gamma_int.set_appendages(chi0_wGG[iw], iw, iqf)
                 ev = self.calculate_energy(chi0.pd, chi0_wGG, cut_G,
-                                           q_v=q_qv[iq])
-                e += ev * weight_q[iq]
+                                           q_v=gamma_int.qf_qv[iqf])
+                e += ev * gamma_int.weight_q[iqf]
             print('%.3f eV' % (e * Hartree), file=self.fd)
             self.fd.flush()
 
