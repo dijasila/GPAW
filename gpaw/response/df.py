@@ -510,7 +510,6 @@ class DielectricFunction:
         # Calculate V^1/2 \chi V^1/2
         pd, Vchi0_wGG, Vchi_wGG = self.get_chi(xc=xc, q_c=q_c,
                                                direction=direction)
-        Nw = self.wd.omega_w.shape[0]
 
         # Calculate eels = -Im 4 \pi / q^2  \chi
         eels_NLFC_w = -(1. / (1. - Vchi0_wGG[:, 0, 0])).imag
@@ -521,14 +520,10 @@ class DielectricFunction:
         eels_LFC_w = self.collect(eels_LFC_w)
 
         # Write to file
-        if filename is not None and mpi.rank == 0:
-            fd = open(filename, 'w')
-            print('# energy, eels_NLFC_w, eels_LFC_w', file=fd)
-            for iw in range(Nw):
-                print('%.6f, %.6f, %.6f' %
-                      (self.chi0.wd.omega_w[iw] * Hartree,
-                       eels_NLFC_w[iw], eels_LFC_w[iw]), file=fd)
-            fd.close()
+        if filename is not None and self.context.world.rank == 0:
+            omega_w = self.chi0.wd.omega_w
+            write_response_function(filename, omega_w * Hartree,
+                                    eels_NLFC_w, eels_LFC_w)
 
         return eels_NLFC_w, eels_LFC_w
 
@@ -841,6 +836,9 @@ class DielectricFunction:
 def write_response_function(filename, omega_w, rf0_w, rf_w):
     with open(filename, 'w') as fd:
         for omega, rf0, rf in zip(omega_w, rf0_w, rf_w):
-            print('%.6f, %.6f, %.6f, %.6f, %.6f' %
-                  (omega, rf0.real, rf0.imag, rf.real, rf.imag),
-                  file=fd)
+            if rf0_w.dtype == complex:
+                print('%.6f, %.6f, %.6f, %.6f, %.6f' %
+                      (omega, rf0.real, rf0.imag, rf.real, rf.imag),
+                      file=fd)
+            else:
+                print('%.6f, %.6f, %.6f' % (omega, rf0, rf), file=fd)
