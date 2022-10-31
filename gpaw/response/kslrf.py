@@ -740,11 +740,13 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         else:
             A_wGG = A_x
 
-        tmpA_wGG = self.redistribute(A_wGG)  # distribute over frequencies
+        # distribute over frequencies
+        tmpA_wGG = self.distribute_as(A_wGG, 'wGG')
         with self.context.timer('Symmetrizing Kohn-Sham linear '
                                 'response function'):
             self.pwsa.symmetrize_wGG(tmpA_wGG)
-        A_wGG[:] = self.redistribute(tmpA_wGG)  # distribute over plane waves
+        # distribute over plane waves
+        A_wGG[:] = self.distribute_as(tmpA_wGG, 'WgG')
 
         if self.gammacentered and not self.disable_symmetries:
             # Reduce the q-specific basis to the global basis
@@ -767,7 +769,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
                                   indexing='ij'))
 
         # Distribute over frequencies
-        tmpA_wGG = self.redistribute(A_wGG)
+        tmpA_wGG = self.distribute_as(A_wGG, 'wGG')
 
         # Change relevant properties on self to support the global basis
         # from this point onwards
@@ -784,13 +786,13 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
             newtmpA_wGG[w][G2_GG] = tmpA_GG[G1_GG]
 
         # Distribute over plane waves
-        newA_wGG = self.redistribute(newtmpA_wGG)
+        newA_wGG = self.distribute_as(newtmpA_wGG, 'WgG')
 
         return newA_wGG
 
     @timer('Redistribute memory')
-    def redistribute(self, in_wGG):
-        return self.blockdist.redistribute(in_wGG, len(self.wd))
+    def distribute_as(self, in_wGG, out_dist):
+        return self.blockdist.distribute_as(in_wGG, len(self.wd), out_dist)
 
     @timer('Distribute frequencies')
     def distribute_frequencies(self, chiks_wGG):
