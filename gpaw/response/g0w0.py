@@ -738,10 +738,7 @@ class G0W0Calculator:
                   **self.get_validation_inputs())
                   for fxc_mode in self.fxc_modes}
 
-        if len(self.ecut_e) > 1:
-            chi0bands = chi0calc.create_chi0(q_c)
-        else:
-            chi0bands = None
+        chi0 = chi0calc.create_chi0(q_c)
 
         m1 = chi0calc.nocc1
         for ie, ecut in enumerate(self.ecut_e):
@@ -760,7 +757,7 @@ class G0W0Calculator:
                                      f' than there are bands '
                                      f'({self.nbands}).')
             pdi, Wdict, blocks1d, pawcorr = self.calculate_w(
-                chi0calc, q_c, chi0bands,
+                chi0calc, q_c, chi0,
                 m1, m2, ecut, wstc, iq)
             m1 = m2
 
@@ -797,25 +794,13 @@ class G0W0Calculator:
                 'integrate_gamma': self.wcalc.integrate_gamma}
 
     @timer('WW')
-    def calculate_w(self, chi0calc, q_c, chi0bands,
+    def calculate_w(self, chi0calc, q_c, chi0,
                     m1, m2, ecut, wstc,
                     iq):
         """Calculates the screened potential for a specified q-point."""
 
-        chi0 = chi0calc.create_chi0(q_c)
-        chi0calc.fd = self.fd
         chi0calc.print_chi(chi0.pd)
         chi0calc.update_chi0(chi0, m1, m2, range(self.wcalc.gs.nspins))
-
-        if len(self.ecut_e) > 1:
-            # Add chi from previous cutoff with remaining bands
-            chi0.chi0_wGG += chi0bands.chi0_wGG
-            chi0bands.chi0_wGG[:] = chi0.chi0_wGG.copy()
-            if chi0.optical_limit:
-                chi0.chi0_wxvG += chi0bands.chi0_wxvG
-                chi0bands.chi0_wxvG[:] = chi0.chi0_wxvG.copy()
-                chi0.chi0_wvv += chi0bands.chi0_wvv
-                chi0bands.chi0_wvv[:] = chi0.chi0_wvv.copy()
 
         Wdict = {}
 
