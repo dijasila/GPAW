@@ -15,105 +15,16 @@ from gpaw.response.chi0 import Chi0Calculator, new_frequency_descriptor
 from gpaw.response.pair import get_gs_and_context, NoCalculatorPairDensity
 
 
-class DielectricFunction:
-    """This class defines dielectric function related physical quantities."""
-
-    def __init__(self, calc, *,
-                 name=None,
-                 frequencies=None,
-                 domega0=None,  # deprecated
-                 omega2=None,  # deprecated
-                 omegamax=None,  # deprecated
-                 ecut=50,
-                 hilbert=True,
-                 nbands=None, eta=0.2, ftol=1e-6, threshold=1,
-                 intraband=True, nblocks=1, world=mpi.world, txt=sys.stdout,
-                 truncation=None, disable_point_group=False,
-                 disable_time_reversal=False,
-                 integrationmode=None, rate=0.0,
-                 eshift=0.0):
-        """Creates a DielectricFunction object.
-
-        calc: str
-            The groundstate calculation file that the linear response
-            calculation is based on.
-        name: str
-            If defined, save the response function to::
-
-                name + '%+d%+d%+d.pckl' % tuple((q_c * kd.N_c).round())
-
-            where q_c is the reduced momentum and N_c is the number of
-            kpoints along each direction.
-        frequencies:
-            Input parameters for frequency_grid.
-            Can be array of frequencies to evaluate the response function at
-            or dictionary of paramaters for build-in nonlinear grid
-            (see :ref:`frequency grid`).
-        ecut: float
-            Plane-wave cut-off.
-        hilbert: bool
-            Use hilbert transform.
-        nbands: int
-            Number of bands from calc.
-        eta: float
-            Broadening parameter.
-        ftol: float
-            Threshold for including close to equally occupied orbitals,
-            f_ik - f_jk > ftol.
-        threshold: float
-            Threshold for matrix elements in optical response perturbation
-            theory.
-        intraband: bool
-            Include intraband transitions.
-        world: comm
-            mpi communicator.
-        nblocks: int
-            Split matrices in nblocks blocks and distribute them G-vectors or
-            frequencies over processes.
-        txt: str
-            Output file.
-        truncation: str
-            'wigner-seitz' for Wigner Seitz truncated Coulomb.
-            '2D, 1D or 0d for standard analytical truncation schemes.
-            Non-periodic directions are determined from k-point grid
-        eshift: float
-            Shift unoccupied bands
-        """
-
-        gs, context = get_gs_and_context(calc, txt, world, timer=None)
-        nbands = nbands or gs.bd.nbands
-
-        wd = new_frequency_descriptor(gs, context, nbands, frequencies,
-                                      domega0=domega0,
-                                      omega2=omega2, omegamax=omegamax)
-
-        pair = NoCalculatorPairDensity(
-            gs=gs, context=context, threshold=threshold, nblocks=nblocks)
-
-        chi0calc = Chi0Calculator(
-            wd=wd,
-            pair=pair,
-            ecut=ecut, nbands=nbands, eta=eta,
-            hilbert=hilbert,
-            ftol=ftol,
-            intraband=intraband,
-            disable_point_group=disable_point_group,
-            disable_time_reversal=disable_time_reversal,
-            integrationmode=integrationmode,
-            rate=rate, eshift=eshift
-        )
-
+class DielectricFunctionCalculator:
+    def __init__(self, chi0calc, name, truncation):
+        from gpaw.response.pw_parallelization import Blocks1D
         self.chi0calc = chi0calc
-        self.context = context
         self.name = name
 
-        self.wd = wd
-
-        world = self.context.world
-        from gpaw.response.pw_parallelization import Blocks1D
-
-        self.blocks1d = Blocks1D(world, len(wd))
         self.truncation = truncation
+        self.context = chi0calc.context
+        self.wd = chi0calc.wd
+        self.blocks1d = Blocks1D(self.context.world, len(self.wd))
 
     def calculate_chi0(self, q_c, spin='all'):
         """Calculates the response function.
@@ -734,6 +645,98 @@ class DielectricFunction:
                         pickle.HIGHEST_PROTOCOL)
 
         return r * Bohr, w_w, E_wr, Ec_wr, Eavg_w
+
+
+class DielectricFunction(DielectricFunctionCalculator):
+    """This class defines dielectric function related physical quantities."""
+
+    def __init__(self, calc, *,
+                 name=None,
+                 frequencies=None,
+                 domega0=None,  # deprecated
+                 omega2=None,  # deprecated
+                 omegamax=None,  # deprecated
+                 ecut=50,
+                 hilbert=True,
+                 nbands=None, eta=0.2, ftol=1e-6, threshold=1,
+                 intraband=True, nblocks=1, world=mpi.world, txt=sys.stdout,
+                 truncation=None, disable_point_group=False,
+                 disable_time_reversal=False,
+                 integrationmode=None, rate=0.0,
+                 eshift=0.0):
+        """Creates a DielectricFunction object.
+
+        calc: str
+            The groundstate calculation file that the linear response
+            calculation is based on.
+        name: str
+            If defined, save the response function to::
+
+                name + '%+d%+d%+d.pckl' % tuple((q_c * kd.N_c).round())
+
+            where q_c is the reduced momentum and N_c is the number of
+            kpoints along each direction.
+        frequencies:
+            Input parameters for frequency_grid.
+            Can be array of frequencies to evaluate the response function at
+            or dictionary of paramaters for build-in nonlinear grid
+            (see :ref:`frequency grid`).
+        ecut: float
+            Plane-wave cut-off.
+        hilbert: bool
+            Use hilbert transform.
+        nbands: int
+            Number of bands from calc.
+        eta: float
+            Broadening parameter.
+        ftol: float
+            Threshold for including close to equally occupied orbitals,
+            f_ik - f_jk > ftol.
+        threshold: float
+            Threshold for matrix elements in optical response perturbation
+            theory.
+        intraband: bool
+            Include intraband transitions.
+        world: comm
+            mpi communicator.
+        nblocks: int
+            Split matrices in nblocks blocks and distribute them G-vectors or
+            frequencies over processes.
+        txt: str
+            Output file.
+        truncation: str
+            'wigner-seitz' for Wigner Seitz truncated Coulomb.
+            '2D, 1D or 0d for standard analytical truncation schemes.
+            Non-periodic directions are determined from k-point grid
+        eshift: float
+            Shift unoccupied bands
+        """
+
+        gs, context = get_gs_and_context(calc, txt, world, timer=None)
+        nbands = nbands or gs.bd.nbands
+
+        wd = new_frequency_descriptor(gs, context, nbands, frequencies,
+                                      domega0=domega0,
+                                      omega2=omega2, omegamax=omegamax)
+
+        pair = NoCalculatorPairDensity(
+            gs=gs, context=context, threshold=threshold, nblocks=nblocks)
+
+        chi0calc = Chi0Calculator(
+            wd=wd,
+            pair=pair,
+            ecut=ecut, nbands=nbands, eta=eta,
+            hilbert=hilbert,
+            ftol=ftol,
+            intraband=intraband,
+            disable_point_group=disable_point_group,
+            disable_time_reversal=disable_time_reversal,
+            integrationmode=integrationmode,
+            rate=rate, eshift=eshift
+        )
+
+        super().__init__(chi0calc=chi0calc,
+                         name=name, truncation=truncation)
 
 
 def write_response_function(filename, omega_w, rf0_w, rf_w):
