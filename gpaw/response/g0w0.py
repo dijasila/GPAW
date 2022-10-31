@@ -310,7 +310,7 @@ class G0W0Calculator:
                  wcalc,
                  restartfile=None,
                  kpts, bands, nbands=None,
-                 do_GW_too=False,
+                 fxc_modes,
                  eta,
                  ecut_e,
                  frequencies=None,
@@ -376,12 +376,17 @@ class G0W0Calculator:
 
         print(gw_logo, file=self.fd)
 
-        self.do_GW_too = do_GW_too
+        self.fxc_modes = fxc_modes
 
-        if not self.wcalc.fxc_mode == 'GW':
+        if self.wcalc.fxc_mode != 'GW':
             assert self.wcalc.xckernel.xc != 'RPA'
 
-        if self.do_GW_too:
+        if len(self.fxc_modes) == 2:
+            # With multiple fxc_modes, we previously could do only
+            # GW plus one other fxc_mode.  Now we can have any set
+            # of modes, but whether things are consistent or not may
+            # depend on how wcalc is configured.
+            assert 'GW' in self.fxc_modes
             assert self.wcalc.xckernel.xc != 'RPA'
             assert self.wcalc.fxc_mode != 'GW'
             if restartfile is not None:
@@ -472,9 +477,8 @@ class G0W0Calculator:
         p('Coulomb cutoff:', self.wcalc.truncation)
         p('Broadening: {0:g} eV'.format(self.eta * Ha))
         p()
-        p('fxc mode:', self.wcalc.fxc_mode)
+        p('fxc modes:', ', '.join(sorted(self.fxc_modes)))
         p('Kernel:', self.wcalc.xckernel.xc)
-        p('Do GW too:', self.do_GW_too)
         p()
 
     def get_eps_and_occs(self):
@@ -577,15 +581,6 @@ class G0W0Calculator:
                 pickle.dump(result, fd, 2)
 
         return result
-
-    @property
-    def results_GW(self):
-        if self.do_GW_too:
-            return self.all_results['GW']
-
-    @property
-    def results(self):
-        return self.all_results[self.wcalc.fxc_mode]
 
     def calculate_q(self, ie, k, kpt1, kpt2, pd0, Wdict,
                     *, symop, sigmas, blocks1d, pawcorr):
@@ -801,13 +796,6 @@ class G0W0Calculator:
                 'fxc_modes': self.fxc_modes,
                 'integrate_gamma': self.wcalc.integrate_gamma}
 
-    @property
-    def fxc_modes(self):
-        modes = [self.wcalc.fxc_mode]
-        if self.do_GW_too:
-            modes.append('GW')
-        return modes
-
     @timer('WW')
     def calculate_w(self, chi0calc, q_c, chi0bands,
                     m1, m2, ecut, wstc,
@@ -982,6 +970,7 @@ class G0W0(G0W0Calculator):
                  truncation=None,
                  integrate_gamma=0,
                  q0_correction=False,
+                 do_GW_too=False,
                  **kwargs):
         """G0W0 calculator wrapper.
 
@@ -1142,13 +1131,28 @@ class G0W0(G0W0Calculator):
                             integrate_gamma,
                             q0_correction)
 
+        fxc_modes = [wcalc.fxc_mode]
+        if do_GW_too:
+            fxc_modes.append('GW')
+
         super().__init__(filename=filename,
                          chi0calc=chi0calc,
                          wcalc=wcalc,
                          ecut_e=ecut_e,
                          eta=eta,
+                         fxc_modes=fxc_modes,
                          nbands=nbands,
                          bands=bands,
                          frequencies=frequencies,
                          kpts=kpts,
                          **kwargs)
+
+    @property
+    def results_GW(self):
+        # Compatibility with old "do_GW_too" behaviour
+        if 'GW' in self.fxc_modes and self.wcalc.fxc_mode != 'GW':
+            return self.all_results['GW']
+
+    @property
+    def results(self):
+        return self.all_results[self.wcalc.fxc_mode]
