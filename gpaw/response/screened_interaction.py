@@ -284,9 +284,7 @@ class WCalculator:
             if np.allclose(q_c, 0):
                 einv_GG = np.zeros((nG, nG), complex)
                 for iqf in range(len(gamma_int.qf_qv)):
-                    chi0_GG[0, :] = gamma_int.a0_qwG[iqf, iw]
-                    chi0_GG[:, 0] = gamma_int.a1_qwG[iqf, iw]
-                    chi0_GG[0, 0] = gamma_int.a_wq[iw, iqf]
+                    gamma_int.set_appendages(chi0_GG, iw, iqf)
 
                     sqrtV_G = get_sqrtV_G(kd.N_c, q_v=gamma_int.qf_qv[iqf])
 

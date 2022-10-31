@@ -339,13 +339,12 @@ class RPACorrelation:
                 chi0_wxvG=chi0.chi0_wxvG[w1:w2])
 
             e = 0
-            for iq in range(len(gamma_int.qf_qv)):
-                chi0_wGG[:, 0] = gamma_int.a0_qwG[iq]
-                chi0_wGG[:, :, 0] = gamma_int.a1_qwG[iq]
-                chi0_wGG[:, 0, 0] = gamma_int.a_wq[:, iq]
+            for iqf in range(len(gamma_int.qf_qv)):
+                for iw in range(w1, w2):
+                    gamma_int.set_appendages(chi0_wGG[iw], iw, iqf)
                 ev = self.calculate_energy(chi0.pd, chi0_wGG, cut_G,
-                                           q_v=gamma_int.qf_qv[iq])
-                e += ev * gamma_int.weight_q[iq]
+                                           q_v=gamma_int.qf_qv[iqf])
+                e += ev * gamma_int.weight_q[iqf]
             print('%.3f eV' % (e * Hartree), file=self.fd)
             self.fd.flush()
 
