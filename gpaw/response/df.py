@@ -584,8 +584,9 @@ class DielectricFunction:
             alpha0_w = self.collect(alpha0_w)
 
         # Convert to external units
-        alpha0_w *= Bohr**(sum(~pbc_c))
-        alpha_w *= Bohr**(sum(~pbc_c))
+        hypervol = Bohr**(sum(~pbc_c))
+        alpha0_w *= hypervol
+        alpha_w *= hypervol
 
         # Write results file
         if filename is not None and self.context.world.rank == 0:
