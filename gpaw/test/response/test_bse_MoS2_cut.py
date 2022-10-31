@@ -53,11 +53,16 @@ def test_response_bse_MoS2_cut(in_tmp_dir, scalapack):
               mode='BSE',
               truncation='2D')
 
-    bse.get_polarizability(write_eig=None,
-                           eta=0.02,
-                           w_w=np.linspace(0., 5., 5001))
+    outw_w, outalpha_w = bse.get_polarizability(write_eig=None,
+                                                eta=0.02,
+                                                w_w=np.linspace(0., 5., 5001))
     world.barrier()
-    w_w, _, alphaimag_w = read_response_function('pol_bse.csv')
+    w_w, alphareal_w, alphaimag_w = read_response_function('pol_bse.csv')
+
+    # Check consistency with written results
+    assert np.allclose(outw_w, w_w, atol=1e-5, rtol=1e-4)
+    assert np.allclose(outalpha_w.real, alphareal_w, atol=1e-5, rtol=1e-4)
+    assert np.allclose(outalpha_w.imag, alphaimag_w, atol=1e-5, rtol=1e-4)
 
     w0, I0 = findpeak(w_w[:1100], alphaimag_w[:1100])
     w1, I1 = findpeak(w_w[1100:1300], alphaimag_w[1100:1300])
