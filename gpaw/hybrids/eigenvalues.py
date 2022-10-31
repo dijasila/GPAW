@@ -7,7 +7,7 @@ from typing import Generator, List, Optional, Tuple, Union
 
 import numpy as np
 from ase.units import Ha
-from gpaw.calculator import GPAWOld
+from gpaw.calculator import GPAW as GPAWOld
 from gpaw import GPAW
 from gpaw.new.ase_interface import ASECalculator
 from gpaw.kpt_descriptor import KPointDescriptor
@@ -52,7 +52,7 @@ def non_self_consistent_eigenvalues(
     >>> eig_hyb = eig_dft - vxc_dft + vxc_hyb
     """
 
-    if not isinstance(calc, (GPAWOld, ASECalculator):
+    if not isinstance(calc, (GPAWOld, ASECalculator)):
         if calc == '<gpw-file>':  # for doctest
             return (np.zeros((1, 1, 1)),
                     np.zeros((1, 1, 1)),
