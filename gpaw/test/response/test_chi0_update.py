@@ -55,7 +55,7 @@ def test_si_update_consistency(in_tmp_dir):
     spins = range(chi0.gs.nspins)
     # Add chi0 contribution from all the unoccupied bands
     chi0.update_chi0(chi0_full, chi0.nocc1, chi0.nbands, spins)
-    # Add chi0 contribution from *some* of the unoccupied bands 
+    # Add chi0 contribution from *some* of the unoccupied bands
     chi0.update_chi0(chi0_steps, chi0.nocc1, intermediate_m, spins)
     # Add chi0 contribution from the remaining unoccupied bands
     chi0.update_chi0(chi0_steps, intermediate_m, chi0.nbands, spins)
