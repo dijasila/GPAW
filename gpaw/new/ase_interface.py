@@ -255,6 +255,11 @@ class ASECalculator:
         state = self.calculation.state
         return state.ibzwfs.get_eigs_and_occs(k=kpt, s=spin)[0] * Ha
 
+    def get_occupations_numbers(self, kpt=0, spin=0):
+        state = self.calculation.state
+        weight = state.ibzwfs.ibz.weight_k[kpt] * state.ibzwfs.spin_degeneracy
+        return state.ibzwfs.get_eigs_and_occs(k=kpt, s=spin)[1] * weight
+
     def get_reference_energy(self):
         return self.calculation.setups.Eref * Ha
 
