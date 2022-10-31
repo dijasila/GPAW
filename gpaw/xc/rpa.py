@@ -10,12 +10,11 @@ from scipy.special import p_roots
 
 import gpaw.mpi as mpi
 from gpaw import GPAW
-from gpaw.response.chi0 import Chi0, Chi0Calculator
+from gpaw.response.chi0 import Chi0Calculator
 from gpaw.response.coulomb_kernels import get_coulomb_kernel
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
-from gpaw.response.groundstate import ResponseGroundStateAdapter
 from gpaw.response.frequencies import FrequencyDescriptor
-from gpaw.response.pair import get_gs_and_context
+from gpaw.response.pair import get_gs_and_context, NoCalculatorPairDensity
 
 
 def rpa(filename, ecut=200.0, blocks=1, extrapolate=4):
@@ -218,42 +217,23 @@ class RPACorrelation:
 
         wd = FrequencyDescriptor(1j * self.omega_w)
 
-        chi0calc = Chi0(
-            self.calc, frequencies=1j * Hartree * self.omega_w,
-            eta=0.0, intraband=False, hilbert=False,
-            txt='chi0.txt', timer=self.timer, world=self.world,
-            nblocks=self.nblocks,
-            ecut=ecutmax * Hartree)
-
-        from gpaw.response.pair import NoCalculatorPairDensity
-
         pair = NoCalculatorPairDensity(
             self.gs,
             context=self.context.with_txt('chi0.txt'),
             nblocks=self.nblocks)
 
-        chi0calc1 = Chi0Calculator(wd=wd,
-                                   pair=pair,
-                                   eta=0.0,
-                                   intraband=False,
-                                   hilbert=False,
-                                   ecut=ecutmax * Hartree)
-
-        print(wd.omega_w)
-        print(chi0calc.wd.omega_w)
-        err = abs(wd.omega_w - chi0calc.wd.omega_w).max()
-        print('err', err)
-
-        # skdjfsdjkfdskjf
-
+        chi0calc = Chi0Calculator(wd=wd,
+                                  pair=pair,
+                                  eta=0.0,
+                                  intraband=False,
+                                  hilbert=False,
+                                  ecut=ecutmax * Hartree)
 
         self.blockcomm = chi0calc.blockcomm
 
-        gs = self.gs
-
         if self.truncation == 'wigner-seitz':
-            self.wstc = WignerSeitzTruncatedCoulomb(gs.gd.cell_cv,
-                                                    gs.kd.N_c, self.fd)
+            self.wstc = WignerSeitzTruncatedCoulomb(self.gs.gd.cell_cv,
+                                                    self.gs.kd.N_c, self.fd)
         else:
             self.wstc = None
 
