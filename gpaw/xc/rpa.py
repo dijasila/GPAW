@@ -321,7 +321,7 @@ class RPACorrelation:
 
         print('E_c(q) = ', end='', file=self.fd)
 
-        chi0_wGG = chi0.redistribute()
+        chi0_wGG = chi0.distribute_as('wGG')
 
         kd = self.gs.kd
         if not chi0.pd.kd.gamma:

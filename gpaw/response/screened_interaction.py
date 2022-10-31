@@ -234,10 +234,26 @@ class WCalculator:
         # These quantities can be calculated using chi0calc.reduced_ecut()
         pd = chi0.pd
         if pdi is None:
-            chi0_wGG = chi0.blockdist.redistribute(chi0.chi0_wGG, chi0.nw)
+            chi0_wGG = chi0.blockdist.distribute_as(chi0.chi0_wGG,
+                                                    chi0.nw, 'wGG')
             chi0_wxvG = chi0.chi0_wxvG
             chi0_wvv = chi0.chi0_wvv
             pdi = pd
+        else:
+            assert chi0.blockdist.check_distribution(chi0_wGG, chi0.nw, 'wGG')
+        pdi, W_wGG = self.dyson_old(wstc, iq, q_c, fxc_mode, pdi, chi0_wGG,
+                                    chi0_wxvG, G2G, chi0_wvv, only_correlation)
+        if out_dist == 'WgG' and not self.ppa:
+            # XXX This creates a new, large buffer.  We could perhaps
+            # avoid that.  Buffer used to exist but was removed due to #456.
+            W_wGG = chi0.blockdist.distribute_as(W_wGG, chi0.nw, out_dist)
+        if out_dist != 'wGG' and out_dist != 'WgG':
+            raise ValueError('Wrong outdist in W_and_dyson_old')
+        return pdi, W_wGG
+
+    def dyson_old(self, wstc, iq, q_c, fxc_mode,
+                  pdi=None, chi0_wGG=None, chi0_wxvG=None, G2G=None,
+                  chi0_wvv=None, only_correlation=False):
         nG = pdi.ngmax
         wblocks1d = Blocks1D(self.blockcomm, len(self.wd))
         if self.integrate_gamma != 0:
@@ -267,7 +283,7 @@ class WCalculator:
         kd = self.gs.kd
         if np.allclose(q_c, 0) and len(chi0_wGG) > 0:
             gamma_int = GammaIntegrator(truncation=self.truncation,
-                                        kd=kd, pd=pd,
+                                        kd=kd, pd=pdi,
                                         chi0_wvv=chi0_wvv[wblocks1d.myslice],
                                         chi0_wxvG=chi0_wxvG[wblocks1d.myslice])
 
@@ -330,14 +346,6 @@ class WCalculator:
 
             self.context.timer.stop('Dyson eq.')
             return pdi, [W_GG, omegat_GG]
-        if out_dist == 'WgG':
-            # XXX This creates a new, large buffer.  We could perhaps
-            # avoid that.  Buffer used to exist but was removed due to #456.
-            W_wGG = chi0.blockdist.redistribute(chi0_wGG, chi0.nw)
-        elif out_dist == 'wGG':
-            W_wGG = chi0_wGG
-        else:
-            raise ValueError('Wrong outdist in W_and_dyson_old')
 
         self.context.timer.stop('Dyson eq.')
-        return pdi, W_wGG
+        return pdi, chi0_wGG
