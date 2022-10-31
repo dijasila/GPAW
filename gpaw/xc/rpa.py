@@ -10,10 +10,12 @@ from scipy.special import p_roots
 
 import gpaw.mpi as mpi
 from gpaw import GPAW
-from gpaw.response.chi0 import Chi0
+from gpaw.response.chi0 import Chi0, Chi0Calculator
 from gpaw.response.coulomb_kernels import get_coulomb_kernel
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.response.groundstate import ResponseGroundStateAdapter
+from gpaw.response.frequencies import FrequencyDescriptor
+from gpaw.response.pair import get_gs_and_context
 
 
 def rpa(filename, ecut=200.0, blocks=1, extrapolate=4):
@@ -87,14 +89,18 @@ class RPACorrelation:
         """
 
         self.iocontext = IOContext()
+
+        self.timer = Timer()
+        self.fd = self.iocontext.openfile(txt, world)
+
+        gs, context = get_gs_and_context(calc, self.fd, world, self.timer)
+
+        self.gs = gs
+        self.context = context
+
         if isinstance(calc, str):
             calc = GPAW(calc, txt=None, communicator=mpi.serial_comm)
         self.calc = calc
-        self.gs = ResponseGroundStateAdapter(calc)
-
-        self.fd = self.iocontext.openfile(txt, world)
-
-        self.timer = Timer()
 
         if frequencies is None:
             frequencies, weights = get_gauss_legendre_points(nfrequencies,
@@ -210,12 +216,36 @@ class RPACorrelation:
             self.read()
             self.world.barrier()
 
+        wd = FrequencyDescriptor(1j * self.omega_w)
+
         chi0calc = Chi0(
             self.calc, frequencies=1j * Hartree * self.omega_w,
             eta=0.0, intraband=False, hilbert=False,
             txt='chi0.txt', timer=self.timer, world=self.world,
             nblocks=self.nblocks,
             ecut=ecutmax * Hartree)
+
+        from gpaw.response.pair import NoCalculatorPairDensity
+
+        pair = NoCalculatorPairDensity(
+            self.gs,
+            context=self.context.with_txt('chi0.txt'),
+            nblocks=self.nblocks)
+
+        chi0calc1 = Chi0Calculator(wd=wd,
+                                   pair=pair,
+                                   eta=0.0,
+                                   intraband=False,
+                                   hilbert=False,
+                                   ecut=ecutmax * Hartree)
+
+        print(wd.omega_w)
+        print(chi0calc.wd.omega_w)
+        err = abs(wd.omega_w - chi0calc.wd.omega_w).max()
+        print('err', err)
+
+        # skdjfsdjkfdskjf
+
 
         self.blockcomm = chi0calc.blockcomm
 
