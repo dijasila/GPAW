@@ -9,11 +9,11 @@ from ase.utils.timing import Timer, timer
 from scipy.special import p_roots
 
 import gpaw.mpi as mpi
-from gpaw import GPAW
-from gpaw.response.chi0 import Chi0
+from gpaw.response.chi0 import Chi0Calculator
 from gpaw.response.coulomb_kernels import get_coulomb_kernel
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
-from gpaw.response.groundstate import ResponseGroundStateAdapter
+from gpaw.response.frequencies import FrequencyDescriptor
+from gpaw.response.pair import get_gs_and_context, NoCalculatorPairDensity
 
 
 def rpa(filename, ecut=200.0, blocks=1, extrapolate=4):
@@ -87,14 +87,14 @@ class RPACorrelation:
         """
 
         self.iocontext = IOContext()
-        if isinstance(calc, str):
-            calc = GPAW(calc, txt=None, communicator=mpi.serial_comm)
-        self.calc = calc
-        self.gs = ResponseGroundStateAdapter(calc)
-
-        self.fd = self.iocontext.openfile(txt, world)
 
         self.timer = Timer()
+        self.fd = self.iocontext.openfile(txt, world)
+
+        gs, context = get_gs_and_context(calc, self.fd, world, self.timer)
+
+        self.gs = gs
+        self.context = context
 
         if frequencies is None:
             frequencies, weights = get_gauss_legendre_points(nfrequencies,
@@ -210,20 +210,25 @@ class RPACorrelation:
             self.read()
             self.world.barrier()
 
-        chi0calc = Chi0(
-            self.calc, frequencies=1j * Hartree * self.omega_w,
-            eta=0.0, intraband=False, hilbert=False,
-            txt='chi0.txt', timer=self.timer, world=self.world,
-            nblocks=self.nblocks,
-            ecut=ecutmax * Hartree)
+        wd = FrequencyDescriptor(1j * self.omega_w)
+
+        pair = NoCalculatorPairDensity(
+            self.gs,
+            context=self.context.with_txt('chi0.txt'),
+            nblocks=self.nblocks)
+
+        chi0calc = Chi0Calculator(wd=wd,
+                                  pair=pair,
+                                  eta=0.0,
+                                  intraband=False,
+                                  hilbert=False,
+                                  ecut=ecutmax * Hartree)
 
         self.blockcomm = chi0calc.blockcomm
 
-        gs = self.gs
-
         if self.truncation == 'wigner-seitz':
-            self.wstc = WignerSeitzTruncatedCoulomb(gs.gd.cell_cv,
-                                                    gs.kd.N_c, self.fd)
+            self.wstc = WignerSeitzTruncatedCoulomb(self.gs.gd.cell_cv,
+                                                    self.gs.kd.N_c, self.fd)
         else:
             self.wstc = None
 
