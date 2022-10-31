@@ -82,6 +82,7 @@ class DielectricFunction:
 
 
         gs, context = get_gs_and_context(calc, txt, world, timer=None)
+        nbands = nbands or gs.bd.nbands
 
         wd = new_frequency_descriptor(gs, context, nbands, frequencies,
                                       domega0=domega0,
