@@ -583,19 +583,17 @@ class DielectricFunction:
             alpha_w = self.collect(alpha_w)
             alpha0_w = self.collect(alpha0_w)
 
-        Nw = len(alpha_w)
-        if filename is not None and mpi.rank == 0:
-            fd = open(filename, 'w')
-            for iw in range(Nw):
-                print('%.6f, %.6f, %.6f, %.6f, %.6f' %
-                      (self.chi0.wd.omega_w[iw] * Hartree,
-                       alpha0_w[iw].real * Bohr**(sum(~pbc_c)),
-                       alpha0_w[iw].imag * Bohr**(sum(~pbc_c)),
-                       alpha_w[iw].real * Bohr**(sum(~pbc_c)),
-                       alpha_w[iw].imag * Bohr**(sum(~pbc_c))), file=fd)
-            fd.close()
+        # Convert to external units
+        alpha0_w *= Bohr**(sum(~pbc_c))
+        alpha_w *= Bohr**(sum(~pbc_c))
 
-        return alpha0_w * Bohr**(sum(~pbc_c)), alpha_w * Bohr**(sum(~pbc_c))
+        # Write results file
+        if filename is not None and self.context.world.rank == 0:
+            omega_w = self.chi0.wd.omega_w
+            write_response_function(filename, omega_w * Hartree,
+                                    alpha0_w, alpha_w)
+
+        return alpha0_w, alpha_w
 
     def check_sum_rule(self, spectrum=None):
         """Check f-sum rule.
