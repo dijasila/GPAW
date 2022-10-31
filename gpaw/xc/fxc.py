@@ -73,13 +73,10 @@ class FXCCorrelation(RPACorrelation):
         self.Eg = Eg  # Band gap in eV
 
         # XXX create context reference, remove when super class RPA removed
-        self.iocontext = IOContext()
-        self.timer = Timer()
-        self.fd = self.iocontext.openfile(txt, world)
-        gs, context = get_gs_and_context(calc, self.fd, world, self.timer)
+        gs, context = get_gs_and_context(calc, txt, world, timer=None)
         self.gs = gs
-
         self.context = context
+        
         set_flags(self)
 
         if tag is None:

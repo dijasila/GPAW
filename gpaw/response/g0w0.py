@@ -356,6 +356,7 @@ class G0W0Calculator:
         """
         self.chi0calc = chi0calc
         self.wcalc = wcalc
+        self.context = self.wcalc.context
         self.fd = self.wcalc.fd
         self.timer = self.wcalc.timer
 

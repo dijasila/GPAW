@@ -128,11 +128,9 @@ class WCalculator:
         self.gs = gs
         self.truncation = truncation
         self.context = context
-        self.timer = self.context.timer
         self.integrate_gamma = integrate_gamma
         self.qd = get_qdescriptor(self.gs.kd, self.gs.atoms)
         self.xckernel = xckernel
-        self.fd = self.context.fd
 
         if q0_correction:
             assert self.truncation == '2D'
@@ -156,8 +154,8 @@ class WCalculator:
         if self.truncation == 'wigner-seitz':
             wstc = WignerSeitzTruncatedCoulomb(
                 self.wcalc.gs.gd.cell_cv,
-                self.wcalc.gs.kd.N_c,
-                self.fd)
+                self.wcalc.gs.kd.N_c)
+            self.context.print(wstc.get_description())
         else:
             wstc = None
 
