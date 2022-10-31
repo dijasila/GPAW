@@ -638,7 +638,7 @@ def write_response_function(filename, omega_w, rf0_w, rf_w):
 def read_response_function(filename):
     """Read a stored response function file"""
     d = np.loadtxt(filename, delimiter=',')
-    omega_w = d[:, 0]
+    omega_w = np.array(d[:, 0], float)
 
     if d.shape[1] == 3:
         # Real response function
