@@ -605,8 +605,15 @@ class SpinDifferenceMixerDriver:
             basemixer_x.mix_single_density(nt_sG[1], Dx_ap)
             basemixer_y.mix_single_density(nt_sG[2], Dy_ap)
             basemixer_z.mix_single_density(nt_sG[3], Dz_ap)
-
-        return dNt
+            
+            dMt = np.inf
+            if len(basemixer_x.R_iG) > 0:
+                R_vG = np.array([basemixer_x.R_iG[-1],
+                                 basemixer_y.R_iG[-1],
+                                 basemixer_z.R_iG[-1]])
+                dM_G = np.linalg.norm(R_vG, axis = 0)
+                dMt = basemixer_x.calculate_charge_sloshing(dM_G)
+        return dNt, dMt
 
 
 # Dictionaries to get mixers by name:

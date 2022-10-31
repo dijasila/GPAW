@@ -13,7 +13,7 @@ def get_criterion(name):
     and raises sensible error if missing."""
     # All built-in criteria should be in this list.
     criteria = [Energy, Density, Eigenstates, Forces, WorkFunction,
-                MinIter, MaxIter]
+                MinIter, MaxIter, Magnetization]
     criteria = {c.name: c for c in criteria}
     try:
         return criteria[name]
@@ -201,6 +201,43 @@ class Density(Criterion):
             return True, ''
         # Make sure all agree on the density error.
         error = broadcast_float(context.dens.error, context.wfs.world) / nv
+        converged = (error < self.tol)
+        if (error is None or np.isinf(error) or error == 0):
+            entry = ''
+        else:
+            entry = '{:+5.2f}'.format(np.log10(error))
+        return converged, entry
+
+class Magnetization(Criterion):
+    """A convergence criterion for the electron density.
+
+    Parameters:
+
+    tol : float
+        Tolerance for conversion; that is the maximum change in the electron
+        density, calculated as the integrated absolute value of the density
+        change, normalized per valence electron. [electrons/(valence electron)]
+    """
+    name = 'magnetization'
+    tablename = 'magn'
+
+    def __init__(self, tol):
+        self.tol = tol
+        self.description = ('Maximum integral of absolute [magn]etization change: '
+                            '{:g} electrons / valence electron'
+                            .format(self.tol))
+
+    def __call__(self, context):
+        """Should return (bool, entry), where bool is True if converged and
+        False if not, and entry is a <=5 character string to be printed in
+        the user log file."""
+        if context.dens.fixed:
+            return True, ''
+        nv = context.wfs.nvalence
+        if nv == 0:
+            return True, ''
+        # Make sure all agree on the density error.
+        error = broadcast_float(context.dens.merror, context.wfs.world) / nv
         converged = (error < self.tol)
         if (error is None or np.isinf(error) or error == 0):
             entry = ''
