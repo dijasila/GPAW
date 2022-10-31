@@ -104,11 +104,11 @@ class DielectricFunction:
             rate=rate, eshift=eshift
         )
 
-        self.chi0 = chi0calc
-        self.context = context  # self.chi0.context
+        self.chi0calc = chi0calc
+        self.context = context
         self.name = name
 
-        self.wd = wd  # self.chi0.wd
+        self.wd = wd
 
         world = self.context.world
         from gpaw.response.pw_parallelization import Blocks1D
@@ -130,12 +130,12 @@ class DielectricFunction:
         """
 
         if self.name:
-            kd = self.chi0.gs.kd
+            kd = self.gs.kd
             name = self.name + '%+d%+d%+d.pckl' % tuple((q_c * kd.N_c).round())
             if os.path.isfile(name):
                 return self.read(name)
 
-        chi0 = self.chi0.calculate(q_c, spin)
+        chi0 = self.chi0calc.calculate(q_c, spin)
         chi0_wGG = chi0.distribute_frequencies()
 
         self.context.write_timer()
@@ -248,7 +248,7 @@ class DielectricFunction:
         """
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c, spin)
 
-        N_c = self.chi0.gs.kd.N_c
+        N_c = self.gs.kd.N_c
 
         Kbare_G = get_coulomb_kernel(pd,
                                      N_c,
@@ -286,7 +286,7 @@ class DielectricFunction:
 
         if xc != 'RPA':
             Kxc_GG = get_density_xc_kernel(pd,
-                                           self.chi0.gs, self.context,
+                                           self.gs, self.context,
                                            functional=xc,
                                            chi0_wGG=chi0_wGG)
             K_GG += Kxc_GG / vsqr_G / vsqr_G[:, np.newaxis]
@@ -377,7 +377,7 @@ class DielectricFunction:
             print('add_intraband=True is not supported at this time')
             raise NotImplementedError
 
-        N_c = self.chi0.gs.kd.N_c
+        N_c = self.gs.kd.N_c
         if self.truncation == 'wigner-seitz':
             self.wstc = WignerSeitzTruncatedCoulomb(pd.gd.cell_cv, N_c)
         else:
@@ -410,7 +410,7 @@ class DielectricFunction:
 
         if xc != 'RPA':
             Kxc_GG = get_density_xc_kernel(pd,
-                                           self.chi0.gs, self.context,
+                                           self.gs, self.context,
                                            functional=xc,
                                            chi0_wGG=chi0_wGG)
 
@@ -538,11 +538,15 @@ class DielectricFunction:
             print('# energy, eels_NLFC_w, eels_LFC_w', file=fd)
             for iw in range(Nw):
                 print('%.6f, %.6f, %.6f' %
-                      (self.chi0.wd.omega_w[iw] * Hartree,
+                      (self.wd.omega_w[iw] * Hartree,
                        eels_NLFC_w[iw], eels_LFC_w[iw]), file=fd)
             fd.close()
 
         return eels_NLFC_w, eels_LFC_w
+
+    @property
+    def gs(self):
+        return self.chi0calc.gs
 
     def get_polarizability(self, xc='RPA', direction='x', q_c=[0, 0, 0],
                            filename='polarizability.csv'):
@@ -560,8 +564,8 @@ class DielectricFunction:
         dimension of alpha is \AA to the power of non-periodic directions
         """
 
-        cell_cv = self.chi0.gs.gd.cell_cv
-        pbc_c = self.chi0.gs.pbc
+        cell_cv = self.gs.gd.cell_cv
+        pbc_c = self.gs.pbc
 
         if pbc_c.all():
             V = 1.0
@@ -605,7 +609,7 @@ class DielectricFunction:
             fd = open(filename, 'w')
             for iw in range(Nw):
                 print('%.6f, %.6f, %.6f, %.6f, %.6f' %
-                      (self.chi0.wd.omega_w[iw] * Hartree,
+                      (self.wd.omega_w[iw] * Hartree,
                        alpha0_w[iw].real * Bohr**(sum(~pbc_c)),
                        alpha0_w[iw].imag * Bohr**(sum(~pbc_c)),
                        alpha_w[iw].real * Bohr**(sum(~pbc_c)),
@@ -629,16 +633,16 @@ class DielectricFunction:
 
         if spectrum is None:
             raise ValueError('No spectrum input ')
-        dw = self.chi0.wd.omega_w[1] - self.chi0.wd.omega_w[0]
+        dw = self.wd.omega_w[1] - self.wd.omega_w[0]
         N1 = 0
         for iw in range(len(spectrum)):
             w = iw * dw
             N1 += spectrum[iw] * w
-        N1 *= dw * self.chi0.gs.volume / (2 * pi**2)
+        N1 *= dw * self.gs.volume / (2 * pi**2)
 
         self.context.print('', flush=False)
         self.context.print('Sum rule:', flush=False)
-        nv = self.chi0.gs.nvalence
+        nv = self.gs.nvalence
         self.context.print('N1 = %f, %f  %% error' %
                            (N1, (N1 - nv) / nv * 100))
 
