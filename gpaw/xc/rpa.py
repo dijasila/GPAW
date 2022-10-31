@@ -324,6 +324,20 @@ class RPACorrelation:
             print('%.3f eV' % (e * Hartree), file=self.fd)
             self.fd.flush()
         else:
+            from gpaw.response.gamma_int import GammaIntegrator
+
+            nw = len(self.omega_w)
+            mynw = nw // self.nblocks
+            w1 = self.blockcomm.rank * mynw
+            w2 = w1 + mynw
+
+            gamma_int = GammaIntegrator(
+                truncation=self.truncation,
+                kd=kd,
+                pd=chi0.pd,
+                chi0_wvv=chi0.chi0_wvv[w1:w2],
+                chi0_wxvG=chi0.chi0_wxvG[w1:w2])
+
             from ase.dft import monkhorst_pack
             # XXXX again a redundant implementation of the thing
             # now in gpaw.response.gamma_int !
@@ -338,20 +352,20 @@ class RPACorrelation:
             weight_q = kd.q_weights
             q_qv = 2 * np.pi * np.dot(q_qc, chi0.pd.gd.icell_cv)
 
-            nw = len(self.omega_w)
-            mynw = nw // self.nblocks
-            w1 = self.blockcomm.rank * mynw
-            w2 = w1 + mynw
             a_qw = np.sum(np.dot(chi0.chi0_wvv[w1:w2], q_qv.T) * q_qv.T,
                           axis=1).T
             a0_qwG = np.dot(q_qv, chi0.chi0_wxvG[w1:w2, 0])
             a1_qwG = np.dot(q_qv, chi0.chi0_wxvG[w1:w2, 1])
 
+            assert abs(a0_qwG - gamma_int.a0_qwG).max() == 0
+            assert abs(a1_qwG - gamma_int.a1_qwG).max() == 0
+            assert abs(a_qw - gamma_int.a_wq.T).max() == 0
+
             e = 0
             for iq in range(len(q_qv)):
-                chi0_wGG[:, 0] = a0_qwG[iq]
-                chi0_wGG[:, :, 0] = a1_qwG[iq]
-                chi0_wGG[:, 0, 0] = a_qw[iq]
+                chi0_wGG[:, 0] = gamma_int.a0_qwG[iq]
+                chi0_wGG[:, :, 0] = gamma_int.a1_qwG[iq]
+                chi0_wGG[:, 0, 0] = gamma_int.a_wq[:, iq]
                 ev = self.calculate_energy(chi0.pd, chi0_wGG, cut_G,
                                            q_v=q_qv[iq])
                 e += ev * weight_q[iq]
