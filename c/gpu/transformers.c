@@ -310,8 +310,8 @@ static void _transformer_apply_cuda_gpu(TransformerObject* self,
 PyObject* Transformer_apply_cuda_gpu(TransformerObject *self, PyObject *args)
 {
     PyArrayObject* phases = 0;
-    CUdeviceptr input_gpu;
-    CUdeviceptr output_gpu;
+    gpuDeviceptr_t input_gpu;
+    gpuDeviceptr_t output_gpu;
     PyObject *shape;
     PyArray_Descr *type;
 
