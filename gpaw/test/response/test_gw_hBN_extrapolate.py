@@ -27,6 +27,3 @@ def test_response_gw_hBN_extrapolate(in_tmp_dir, scalapack, gpw_files):
     ec = 3.1999
     equal(e_qp[0], ev, 0.01)
     equal(e_qp[1], ec, 0.01)
-
-test_response_gw_hBN_extrapolate(None, None)
-
