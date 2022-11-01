@@ -81,7 +81,7 @@ __global__ void Zcuda(add_kernel)(Tcuda *a_G, const Tcuda *c_M, int *G_B1,
             }
 #ifdef GPU_USE_COMPLEX
             avv = MULTT(avv,
-                        cuConj(phase_i[max_k * nimax * B + q * nimax + i]));
+                        gpuConj(phase_i[max_k * nimax * B + q * nimax + i]));
 #endif
             IADD(av, avv);
         }
@@ -451,7 +451,7 @@ PyObject * NewLFCObject_cuda(LFCObject *self, PyObject *args)
 extern "C"
 PyObject* integrate_cuda_gpu(LFCObject *lfc, PyObject *args)
 {
-    CUdeviceptr a_xG_gpu, c_xM_gpu;
+    gpuDeviceptr_t a_xG_gpu, c_xM_gpu;
     PyObject *shape, *c_shape;
     int q;
 
@@ -496,7 +496,7 @@ PyObject* integrate_cuda_gpu(LFCObject *lfc, PyObject *args)
 extern "C"
 PyObject* add_cuda_gpu(LFCObject *lfc, PyObject *args)
 {
-    CUdeviceptr a_xG_gpu, c_xM_gpu;
+    gpuDeviceptr_t a_xG_gpu, c_xM_gpu;
     PyObject *shape, *c_shape;
     int q;
 

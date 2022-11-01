@@ -20,10 +20,10 @@
 
 typedef void (*launch_func)(const double *, const int *,
                             double *, const int *, const int *, int,
-                            cudaStream_t);
+                            gpuStream_t);
 typedef void (*launch_funcz)(const cuDoubleComplex *, const int *,
                              cuDoubleComplex *, const int *, const int *, int,
-                             cudaStream_t);
+                             gpuStream_t);
 
 extern int gpaw_cuda_debug;
 
@@ -268,7 +268,7 @@ extern "C"
 static void Zcuda(_bmgs_paste_cuda_gpu)(
         const Tcuda* a, const int sizea[3],
         Tcuda* b, const int sizeb[3], const int startb[3],
-        int blocks, cudaStream_t stream)
+        int blocks, gpuStream_t stream)
 {
     int3 hc_sizea, hc_sizeb;
     hc_sizea.x = sizea[0];
@@ -303,7 +303,7 @@ extern "C"
 static void Zcuda(_bmgs_paste_zero_cuda_gpu)(
         const Tcuda* a, const int sizea[3],
         Tcuda* b, const int sizeb[3], const int startb[3],
-        int blocks, cudaStream_t stream)
+        int blocks, gpuStream_t stream)
 {
     int3 bc_blocks;
     int3 hc_sizea, hc_sizeb, hc_startb;
@@ -355,7 +355,7 @@ void Zcuda(_bmgs_paste_launcher)(Tfunc function, int zero,
                                  const Tcuda* a, const int sizea[3],
                                  Tcuda* b, const int sizeb[3],
                                  const int startb[3], int blocks,
-                                 cudaStream_t stream)
+                                 gpuStream_t stream)
 {
     const double *in = (double *) a;
     double *out = (double *) b;
@@ -393,7 +393,7 @@ extern "C"
 void Zcuda(bmgs_paste_cuda_gpu)(const Tcuda* a, const int sizea[3],
                                 Tcuda* b, const int sizeb[3],
                                 const int startb[3], int blocks,
-                                cudaStream_t stream)
+                                gpuStream_t stream)
 {
     if (!(sizea[0] && sizea[1] && sizea[2]))
         return;
@@ -410,7 +410,7 @@ extern "C"
 void Zcuda(bmgs_paste_zero_cuda_gpu)(const Tcuda* a, const int sizea[3],
                                      Tcuda* b, const int sizeb[3],
                                      const int startb[3], int blocks,
-                                     cudaStream_t stream)
+                                     gpuStream_t stream)
 {
     if (!(sizea[0] && sizea[1] && sizea[2]))
         return;

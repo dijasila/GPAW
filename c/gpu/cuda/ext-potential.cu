@@ -63,8 +63,8 @@ __global__ void Zcuda(add_linear_field_cuda_kernel)(
 extern "C"
 PyObject* add_linear_field_cuda_gpu(PyObject *self, PyObject *args)
 {
-    CUdeviceptr a_gpu;
-    CUdeviceptr b_gpu;
+    gpuDeviceptr_t a_gpu;
+    gpuDeviceptr_t b_gpu;
     PyObject *shape;
     PyArrayObject *c_ni, *c_begi, *c_vi, *strengthi;
     PyArray_Descr *type;
@@ -115,8 +115,8 @@ PyObject* add_linear_field_cuda_gpu(PyObject *self, PyObject *args)
     } else {
         gpuLaunchKernel(add_linear_field_cuda_kernelz,
                         dimGrid, dimBlock, 0, 0,
-                        (cuDoubleComplex*) a_gpu, hc_sizea,
-                        (cuDoubleComplex*) b_gpu, hc_n, hc_beg,
+                        (gpuDoubleComplex*) a_gpu, hc_sizea,
+                        (gpuDoubleComplex*) b_gpu, hc_n, hc_beg,
                         h_strength, blocks);
     }
     gpuCheckLastError();

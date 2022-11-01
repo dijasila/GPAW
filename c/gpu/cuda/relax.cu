@@ -511,7 +511,7 @@ void bmgs_relax_cuda_gpu(const int relax_method,
                          const bmgsstencil_gpu* s_gpu,
                          double* adev, double* bdev, const double* src,
                          const double w, int boundary,
-                         cudaStream_t stream)
+                         gpuStream_t stream)
 {
     int3 jb;
     int3 bjb;

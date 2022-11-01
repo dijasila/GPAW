@@ -153,7 +153,7 @@ static void Zcuda(_bmgs_cut_cuda_gpu)(
 #ifdef GPU_USE_COMPLEX
         cuDoubleComplex phase,
 #endif
-        int blocks, cudaStream_t stream)
+        int blocks, gpuStream_t stream)
 {
     int3 hc_sizea, hc_sizeb;
     hc_sizea.x = sizea[0];
@@ -213,7 +213,7 @@ void Zcuda(bmgs_cut_cuda_gpu)(
 #ifdef GPU_USE_COMPLEX
         cuDoubleComplex phase,
 #endif
-        int blocks, cudaStream_t stream)
+        int blocks, gpuStream_t stream)
 {
     if (!(sizea[0] && sizea[1] && sizea[2]))
         return;

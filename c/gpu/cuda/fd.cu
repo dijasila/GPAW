@@ -522,7 +522,7 @@ dim3 bmgs_fd_cuda_get_blockDim(int ndouble);
 extern "C"
 void Zcuda(bmgs_fd_cuda_gpu)(
         const bmgsstencil_gpu* s_gpu, const Tcuda* adev, Tcuda* bdev,
-        int boundary, int blocks, cudaStream_t stream)
+        int boundary, int blocks, gpuStream_t stream)
 {
     int3 bjb;
     int3 jb;

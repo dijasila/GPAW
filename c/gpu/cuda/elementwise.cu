@@ -53,8 +53,8 @@ __global__ void axpbyz_kernelz(double a, cuDoubleComplex *x,
     int stride = gridDim.x * blockDim.x;
 
     for (; tid < n; tid += stride) {
-        (z[tid]).x = a * cuCreal(x[tid]) + b * cuCreal(y[tid]);
-        (z[tid]).y = a * cuCimag(x[tid]) + b * cuCimag(y[tid]);
+        (z[tid]).x = a * gpuCreal(x[tid]) + b * gpuCreal(y[tid]);
+        (z[tid]).y = a * gpuCimag(x[tid]) + b * gpuCimag(y[tid]);
     }
 }
 
@@ -68,8 +68,8 @@ __global__ void axpbz_kernelz(double a, cuDoubleComplex *x, double b,
     int stride = gridDim.x * blockDim.x;
 
     for (; tid < n; tid += stride) {
-        (z[tid]).x = a * cuCreal(x[tid]) + b;
-        (z[tid]).y = a * cuCimag(x[tid]) + b;
+        (z[tid]).x = a * gpuCreal(x[tid]) + b;
+        (z[tid]).y = a * gpuCimag(x[tid]) + b;
     }
 }
 
@@ -114,7 +114,7 @@ extern "C"
 PyObject* axpbyz_gpu(PyObject *self, PyObject *args)
 {
     double a, b;
-    CUdeviceptr x, y, z;
+    gpuDeviceptr_t x, y, z;
     PyObject *shape;
     PyArray_Descr *type;
 
@@ -159,7 +159,7 @@ extern "C"
 PyObject* axpbz_gpu(PyObject *self, PyObject *args)
 {
     double a, b;
-    CUdeviceptr x, z;
+    gpuDeviceptr_t x, z;
     PyObject *shape;
     PyArray_Descr *type;
 
@@ -203,7 +203,7 @@ extern "C"
 PyObject* fill_gpu(PyObject *self, PyObject *args)
 {
     PyObject *value;
-    CUdeviceptr x;
+    gpuDeviceptr_t x;
     PyObject *shape;
     PyArray_Descr *type;
 

@@ -94,7 +94,7 @@ __global__ void elmenwise_mul_add_kernelzz(
 {
     int i = blockIdx.x * BLOCK_X + threadIdx.x;
     while (i < n) {
-        c[i] = cuCadd(c[i], cuCmul(a[i], b[i]));
+        c[i] = gpuCadd(c[i], gpuCmul(a[i], b[i]));
         i += gridDim.x * BLOCK_X;
     }
 }
@@ -108,7 +108,7 @@ __global__ void multi_elmenwise_mul_add_kernel1zz(
     a += k * n;
     c += k * n;
     while (i < n) {
-        c[i] = cuCadd(c[i], cuCmul(a[i], b[i]));
+        c[i] = gpuCadd(c[i], gpuCmul(a[i], b[i]));
         i += gridDim.x * BLOCK_X;
     }
 }
@@ -122,7 +122,7 @@ __global__ void multi_elmenwise_mul_add_kernel2zz(
     b += k * n;
     c += k * n;
     while (i < n) {
-        c[i] = cuCadd(c[i], cuCmul(a[i], b[i]));
+        c[i] = gpuCadd(c[i], gpuCmul(a[i], b[i]));
         i += gridDim.x * BLOCK_X;
     }
 }
@@ -130,7 +130,7 @@ __global__ void multi_elmenwise_mul_add_kernel2zz(
 extern "C"
 PyObject* elementwise_multiply_add_gpu(PyObject *self, PyObject *args)
 {
-    CUdeviceptr x_gpu, y_gpu, c_gpu;
+    gpuDeviceptr_t x_gpu, y_gpu, c_gpu;
     PyObject *a_shape;
     PyArray_Descr *a_type, *y_type;
 
@@ -182,7 +182,7 @@ extern "C"
 PyObject* multi_elementwise_multiply_add_gpu(PyObject *self,
                                              PyObject *args)
 {
-    CUdeviceptr x_gpu, y_gpu, c_gpu;
+    gpuDeviceptr_t x_gpu, y_gpu, c_gpu;
     PyObject *x_shape, *y_shape, *shape;
     PyArray_Descr *x_type, *y_type;
 
@@ -277,7 +277,7 @@ extern "C"
 PyObject* ax2py_gpu(PyObject *self, PyObject *args)
 {
     double alpha;
-    CUdeviceptr x_gpu, y_gpu;
+    gpuDeviceptr_t x_gpu, y_gpu;
     PyObject *x_shape, y_shape;
     PyArray_Descr *type;
 
@@ -313,7 +313,7 @@ PyObject* ax2py_gpu(PyObject *self, PyObject *args)
 extern "C"
 PyObject* csign_gpu(PyObject *self, PyObject *args)
 {
-    CUdeviceptr x_gpu;
+    gpuDeviceptr_t x_gpu;
     PyObject *x_shape;
     PyArray_Descr *type;
 
@@ -348,9 +348,9 @@ PyObject* csign_gpu(PyObject *self, PyObject *args)
 extern "C"
 PyObject* multi_ax2py_gpu(PyObject *self, PyObject *args)
 {
-    CUdeviceptr alpha_gpu;
-    CUdeviceptr x_gpu;
-    CUdeviceptr y_gpu;
+    gpuDeviceptr_t alpha_gpu;
+    gpuDeviceptr_t x_gpu;
+    gpuDeviceptr_t y_gpu;
     PyObject *x_shape, *y_shape;
     PyArray_Descr *type;
 

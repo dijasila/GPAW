@@ -57,7 +57,7 @@ void Zcuda(bmgs_translate_cuda_gpu)(
 #ifdef GPU_USE_COMPLEX
         cuDoubleComplex phase,
 #endif
-        int blocks, cudaStream_t stream)
+        int blocks, gpuStream_t stream)
 {
     if (!(size[0] && size[1] && size[2]))
         return;
