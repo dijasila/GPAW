@@ -118,10 +118,19 @@ class Chi0Data:
         else:
             return None
 
-    def redistribute(self):
-        """Return redistributed chi0_wGG array."""
-        return self.blockdist.redistribute(self.chi0_wGG, self.nw)
-
     def distribute_frequencies(self):
         """Return chi0_wGG array with frequencies distributed to all cores."""
         return self.blockdist.distribute_frequencies(self.chi0_wGG, self.nw)
+
+    def distribute_as(self, out_dist):
+        """Distribute self.chi0_wGG as given in out_dist.
+        out_dist: str 'wGG' for parallell over w and
+        'WgG' for parallel over G"""
+        return self.blockdist.distribute_as(self.chi0_wGG, self.nw, out_dist)
+
+    def check_distribution(self, test_dist):
+        """Checks if self.chi0_wGG is distributed according to test_dist"""
+        _, __, same_dist = self.blockdist.check_distribution(self.chi0_wGG,
+                                                             self.nw,
+                                                             test_dist)
+        return same_dist

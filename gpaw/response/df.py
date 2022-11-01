@@ -510,7 +510,6 @@ class DielectricFunction:
         # Calculate V^1/2 \chi V^1/2
         pd, Vchi0_wGG, Vchi_wGG = self.get_chi(xc=xc, q_c=q_c,
                                                direction=direction)
-        Nw = self.wd.omega_w.shape[0]
 
         # Calculate eels = -Im 4 \pi / q^2  \chi
         eels_NLFC_w = -(1. / (1. - Vchi0_wGG[:, 0, 0])).imag
@@ -521,14 +520,10 @@ class DielectricFunction:
         eels_LFC_w = self.collect(eels_LFC_w)
 
         # Write to file
-        if filename is not None and mpi.rank == 0:
-            fd = open(filename, 'w')
-            print('# energy, eels_NLFC_w, eels_LFC_w', file=fd)
-            for iw in range(Nw):
-                print('%.6f, %.6f, %.6f' %
-                      (self.chi0.wd.omega_w[iw] * Hartree,
-                       eels_NLFC_w[iw], eels_LFC_w[iw]), file=fd)
-            fd.close()
+        if filename is not None and self.context.world.rank == 0:
+            omega_w = self.chi0.wd.omega_w
+            write_response_function(filename, omega_w * Hartree,
+                                    eels_NLFC_w, eels_LFC_w)
 
         return eels_NLFC_w, eels_LFC_w
 
@@ -588,19 +583,18 @@ class DielectricFunction:
             alpha_w = self.collect(alpha_w)
             alpha0_w = self.collect(alpha0_w)
 
-        Nw = len(alpha_w)
-        if filename is not None and mpi.rank == 0:
-            fd = open(filename, 'w')
-            for iw in range(Nw):
-                print('%.6f, %.6f, %.6f, %.6f, %.6f' %
-                      (self.chi0.wd.omega_w[iw] * Hartree,
-                       alpha0_w[iw].real * Bohr**(sum(~pbc_c)),
-                       alpha0_w[iw].imag * Bohr**(sum(~pbc_c)),
-                       alpha_w[iw].real * Bohr**(sum(~pbc_c)),
-                       alpha_w[iw].imag * Bohr**(sum(~pbc_c))), file=fd)
-            fd.close()
+        # Convert to external units
+        hypervol = Bohr**(sum(~pbc_c))
+        alpha0_w *= hypervol
+        alpha_w *= hypervol
 
-        return alpha0_w * Bohr**(sum(~pbc_c)), alpha_w * Bohr**(sum(~pbc_c))
+        # Write results file
+        if filename is not None and self.context.world.rank == 0:
+            omega_w = self.chi0.wd.omega_w
+            write_response_function(filename, omega_w * Hartree,
+                                    alpha0_w, alpha_w)
+
+        return alpha0_w, alpha_w
 
     def check_sum_rule(self, spectrum=None):
         """Check f-sum rule.
@@ -630,217 +624,33 @@ class DielectricFunction:
         self.context.print('N1 = %f, %f  %% error' %
                            (N1, (N1 - nv) / nv * 100))
 
-    def get_eigenmodes(self, q_c=[0, 0, 0], w_max=None, name=None,
-                       eigenvalue_only=False, direction='x',
-                       checkphase=True):
-        """Plasmon eigenmodes as eigenvectors of the dielectric matrix."""
-
-        assert self.context.world.size == 1
-
-        pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
-        e_wGG = self.get_dielectric_matrix(xc='RPA', q_c=q_c,
-                                           direction=direction,
-                                           symmetric=False)
-
-        kd = pd.kd
-
-        # Get real space grid for plasmon modes:
-        r = pd.gd.get_grid_point_coordinates()
-        w_w = self.wd.omega_w * Hartree
-        if w_max:
-            w_w = w_w[np.where(w_w < w_max)]
-        Nw = len(w_w)
-        nG = e_wGG.shape[1]
-
-        eig = np.zeros([Nw, nG], dtype=complex)
-        eig_all = np.zeros([Nw, nG], dtype=complex)
-
-        # Find eigenvalues and eigenvectors:
-        e_GG = e_wGG[0]
-        eig_all[0], vec = np.linalg.eig(e_GG)
-        eig[0] = eig_all[0]
-        vec_dual = np.linalg.inv(vec)
-        omega0 = np.array([])
-        eigen0 = np.array([], dtype=complex)
-        v_ind = np.zeros([0, r.shape[1], r.shape[2], r.shape[3]],
-                         dtype=complex)
-        n_ind = np.zeros([0, r.shape[1], r.shape[2], r.shape[3]],
-                         dtype=complex)
-
-        # Loop to find the eigenvalues that crosses zero
-        # from negative to positive values:
-        for i in np.array(range(1, Nw)):
-            e_GG = e_wGG[i]  # epsilon_GG'(omega + d-omega)
-            eig_all[i], vec_p = np.linalg.eig(e_GG)
-            vec_dual_p = np.linalg.inv(vec_p)
-            overlap = np.abs(np.dot(vec_dual, vec_p))
-            index = list(np.argsort(overlap)[:, -1])
-            if len(np.unique(index)) < nG:  # add missing indices
-                addlist = []
-                removelist = []
-                for j in range(nG):
-                    if index.count(j) < 1:
-                        addlist.append(j)
-                    if index.count(j) > 1:
-                        for l in range(1, index.count(j)):
-                            removelist += \
-                                list(np.argwhere(np.array(index) == j)[l])
-                for j in range(len(addlist)):
-                    index[removelist[j]] = addlist[j]
-
-            vec = vec_p[:, index]
-            vec_dual = vec_dual_p[index, :]
-            eig[i] = eig_all[i, index]
-            for k in [k for k in range(nG)
-                      # Eigenvalue crossing:
-                      if (eig[i - 1, k] < 0 and eig[i, k] > 0)]:
-                a = np.real((eig[i, k] - eig[i - 1, k]) /
-                            (w_w[i] - w_w[i - 1]))
-                # linear interp for crossing point
-                w0 = np.real(-eig[i - 1, k]) / a + w_w[i - 1]
-                eig0 = a * (w0 - w_w[i - 1]) + eig[i - 1, k]
-                self.context.print('crossing found at w = %1.2f eV' % w0)
-                omega0 = np.append(omega0, w0)
-                eigen0 = np.append(eigen0, eig0)
-
-                # Fourier Transform:
-                qG = pd.get_reciprocal_vectors(add_q=True)
-                coef_G = np.diagonal(np.inner(qG, qG)) / (4 * pi)
-                qGr_R = np.inner(qG, r.T).T
-                factor = np.exp(1j * qGr_R)
-                v_temp = np.dot(factor, vec[:, k])
-                n_temp = np.dot(factor, vec[:, k] * coef_G)
-                if checkphase:  # rotate eigenvectors in complex plane
-                    integral = np.zeros([81])
-                    phases = np.linspace(0, 2, 81)
-                    for ip in range(81):
-                        v_int = v_temp * np.exp(1j * pi * phases[ip])
-                        integral[ip] = abs(np.imag(v_int)).sum()
-                    phase = phases[np.argsort(integral)][0]
-                    v_temp *= np.exp(1j * pi * phase)
-                    n_temp *= np.exp(1j * pi * phase)
-                v_ind = np.append(v_ind, v_temp[np.newaxis, :], axis=0)
-                n_ind = np.append(n_ind, n_temp[np.newaxis, :], axis=0)
-
-        kd = self.chi0.gs.kd
-        if name is None and self.name:
-            name = (self.name + '%+d%+d%+d-eigenmodes.pckl' %
-                    tuple((q_c * kd.N_c).round()))
-        elif name:
-            name = (name + '%+d%+d%+d-eigenmodes.pckl' %
-                    tuple((q_c * kd.N_c).round()))
-        else:
-            name = '%+d%+d%+d-eigenmodes.pckl' % tuple((q_c * kd.N_c).round())
-
-        # Returns: real space grid, frequency grid,
-        # sorted eigenvalues, zero-crossing frequencies + eigenvalues,
-        # induced potential + density in real space.
-        if eigenvalue_only:
-            with open(name, 'wb') as fd:
-                pickle.dump((r * Bohr, w_w, eig),
-                            fd, pickle.HIGHEST_PROTOCOL)
-            return r * Bohr, w_w, eig
-        else:
-            with open(name, 'wb') as fd:
-                pickle.dump((r * Bohr, w_w, eig, omega0, eigen0,
-                             v_ind, n_ind), fd,
-                            pickle.HIGHEST_PROTOCOL)
-            return r * Bohr, w_w, eig, omega0, eigen0, v_ind, n_ind
-
-    def get_spatial_eels(self, q_c=[0, 0, 0], direction='x',
-                         w_max=None, filename='eels', r=None, perpdir=None):
-        r"""Spatially resolved loss spectrum.
-
-        The spatially resolved loss spectrum is calculated as the inverse
-        fourier transform of ``VChiV = (eps^{-1}-I)V``::
-
-            EELS(w,r) = - Im [sum_{G,G'} e^{iGr} Vchi_{GG'}(w) V_G'e^{-iG'r}]
-                          \delta(w-G\dot v_e )
-
-        Input parameters:
-
-        direction: 'x', 'y', or 'z'
-            The direction for scanning acroos the structure
-            (perpendicular to the electron beam) .
-        w_max: float
-            maximum frequency
-        filename: str
-            name of output
-
-        Returns: real space grid, frequency points, EELS(w,r)
-        """
-
-        assert self.context.world.size == 1
-
-        pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
-        e_wGG = self.get_dielectric_matrix(xc='RPA', q_c=q_c,
-                                           symmetric=False)
-
-        if r is None:
-            r = pd.gd.get_grid_point_coordinates()
-            ix = r.shape[1] // 2 * 0
-            iy = r.shape[2] // 2 * 0
-            iz = r.shape[3] // 2
-            if direction == 'x':
-                r = r[:, :, iy, iz]
-                perpdir = [1, 2]
-            if direction == 'y':
-                r = r[:, ix, :, iz]
-                perpdir = [0, 2]
-            if direction == 'z':
-                r = r[:, ix, iy, :]
-                perpdir = [0, 1]
-
-        nG = e_wGG.shape[1]
-        Gvec = pd.G_Qv[pd.Q_qG[0]]
-        Glist = []
-
-        # Only use G-vectors that are zero along electron beam
-        # due to \delta(w-G\dot v_e )
-        q_v = pd.K_qv[0]
-        for iG in range(nG):
-            if perpdir is not None:
-                if Gvec[iG, perpdir[0]] == 0 and Gvec[iG, perpdir[1]] == 0:
-                    Glist.append(iG)
-            elif not np.abs(np.dot(q_v, Gvec[iG])) < \
-                    np.linalg.norm(q_v) * np.linalg.norm(Gvec[iG]):
-                Glist.append(iG)
-        qG = Gvec[Glist] + pd.K_qv
-
-        w_w = self.wd.omega_w * Hartree
-        if w_max:
-            w_w = w_w[np.where(w_w < w_max)]
-        Nw = len(w_w)
-        qGr = np.inner(qG, r.T).T
-        phase = np.exp(1j * qGr)
-        V_G = (4 * pi) / np.diagonal(np.inner(qG, qG))
-        phase2 = np.exp(-1j * qGr) * V_G
-        E_wrr = np.zeros([Nw, r.shape[1], r.shape[1]])
-        E_wr = np.zeros([Nw, r.shape[1]])
-        Eavg_w = np.zeros([Nw], complex)
-        Ec_wr = np.zeros([Nw, r.shape[1]], complex)
-        for i in range(Nw):
-            Vchi_GG = (np.linalg.inv(e_wGG[i]) -
-                       np.eye(nG))[Glist, :][:, Glist]
-
-            qG_G = np.sum(qG**2, axis=1)**0.5
-            Eavg_w[i] = np.trace(Vchi_GG * np.diag(V_G * qG_G))
-
-            # Fourier transform:
-            E_wrr[i] = -np.imag(np.dot(np.dot(phase, Vchi_GG), phase2.T))
-            E_wr[i] = np.diagonal(E_wrr[i])
-            Ec_wr[i] = np.diagonal(np.dot(np.dot(phase, Vchi_GG *
-                                                 np.diag(qG_G)), phase2.T))
-        with open('%s.pickle' % filename, 'wb') as fd:
-            pickle.dump((r * Bohr, w_w, E_wr), fd,
-                        pickle.HIGHEST_PROTOCOL)
-
-        return r * Bohr, w_w, E_wr, Ec_wr, Eavg_w
-
 
 def write_response_function(filename, omega_w, rf0_w, rf_w):
     with open(filename, 'w') as fd:
         for omega, rf0, rf in zip(omega_w, rf0_w, rf_w):
-            print('%.6f, %.6f, %.6f, %.6f, %.6f' %
-                  (omega, rf0.real, rf0.imag, rf.real, rf.imag),
-                  file=fd)
+            if rf0_w.dtype == complex:
+                print('%.6f, %.6f, %.6f, %.6f, %.6f' %
+                      (omega, rf0.real, rf0.imag, rf.real, rf.imag),
+                      file=fd)
+            else:
+                print('%.6f, %.6f, %.6f' % (omega, rf0, rf), file=fd)
+
+
+def read_response_function(filename):
+    """Read a stored response function file"""
+    d = np.loadtxt(filename, delimiter=',')
+    omega_w = np.array(d[:, 0], float)
+
+    if d.shape[1] == 3:
+        # Real response function
+        rf0_w = np.array(d[:, 1], float)
+        rf_w = np.array(d[:, 2], float)
+    elif d.shape[1] == 5:
+        rf0_w = np.array(d[:, 1], complex)
+        rf0_w.imag = d[:, 2]
+        rf_w = np.array(d[:, 3], complex)
+        rf_w.imag = d[:, 4]
+    else:
+        raise ValueError(f'Unexpected array dimension {d.shape}')
+
+    return omega_w, rf0_w, rf_w
