@@ -242,8 +242,10 @@ class WCalculator:
             pdi = pd
         else:
             assert chi0.blockdist.check_distribution(chi0_wGG, chi0.nw, 'wGG')
-        pdi, W_wGG = self._dyson_old(wstc, iq, q_c, fxc_mode, pdi, chi0_wGG,
-                                    chi0_wxvG, G2G, chi0_wvv, only_correlation)
+        pdi, W_wGG = self._dyson_old(wstc, iq, q_c,
+                                     fxc_mode, pdi, chi0_wGG,
+                                     chi0_wxvG, G2G, chi0_wvv,
+                                     only_correlation)
         if out_dist == 'WgG' and not self.ppa:
             # XXX This creates a new, large buffer.  We could perhaps
             # avoid that.  Buffer used to exist but was removed due to #456.
@@ -253,8 +255,8 @@ class WCalculator:
         return pdi, W_wGG
 
     def _dyson_old(self, wstc, iq, q_c, fxc_mode,
-                  pdi=None, chi0_wGG=None, chi0_wxvG=None, G2G=None,
-                  chi0_wvv=None, only_correlation=False):
+                   pdi=None, chi0_wGG=None, chi0_wxvG=None, G2G=None,
+                   chi0_wvv=None, only_correlation=False):
         nG = pdi.ngmax
         wblocks1d = Blocks1D(self.blockcomm, len(self.wd))
         if self.integrate_gamma != 0:
