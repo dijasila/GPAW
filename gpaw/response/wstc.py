@@ -9,7 +9,6 @@ See:
     Wigner-Seitz truncated interactions: Towards chemical accuracy
     in nontrivial systems
 """
-import sys
 from math import pi
 
 import numpy as np
@@ -54,15 +53,14 @@ class WignerSeitzTruncatedCoulomb:
 
         self.K_Q = np.fft.fftn(v_ijk) * self.gd.dv
     
-    
     def get_description(self):
         descriptors = []
-        descriptors.append('Inner radius for %dx%dx%d Wigner-Seitz cell: %.3f '
-            'Ang' % (tuple(self.nk_c) + (self.rc * Bohr,)))
+        descriptors.append('Inner radius for %dx%dx%d Wigner-Seitz cell: '
+                           '%.3f Ang' % (tuple(self.nk_c) + (self.rc * Bohr,)))
         descriptors.append('Range-separation parameter: %.3f Ang^-1' % (
             self.a / Bohr))
         descriptors.append('FFT size for calculating truncated Coulomb: '
-            '%dx%dx%d' % tuple(self.gd.N_c))
+                           '%dx%dx%d' % tuple(self.gd.N_c))
         
         return '\n'.join(descriptors)
     
