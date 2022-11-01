@@ -381,6 +381,10 @@ class PWSymmetryAnalyzer:
                 G_G, sign, _ = self.G_sG[s]
                 GG_shuffle(G_G, sign, A_GG, tmp_GG)
 
+                # This is the exact operation that GG_shuffle does.
+                # Uncomment lines involving tmp2_GG to test the
+                # implementation in action:
+                #
                 # if sign == 1:
                 #     tmp2_GG += A_GG[G_G, :][:, G_G]
                 # if sign == -1:
