@@ -137,9 +137,10 @@ class G0W0Outputs:
             self.dsigma_skn[s, k, n] = intercept
 
         if np.any(self.sigr2_skn < 0.9) or np.any(self.dsigr2_skn < 0.9):
-            context.print('  Warning: Bad quality of linear fit for some (n,k). ',
-                  flush=False)
-            context.print('           Higher cutoff might be necessary.', flush=False)
+            context.print('  Warning: Bad quality of linear fit for some ('
+                          'n,k). ', flush=False)
+            context.print('           Higher cutoff might be necessary.', 
+                          flush=False)
 
         context.print('  Minimum R^2 = %1.4f. (R^2 Should be close to 1)' %
               min(np.min(self.sigr2_skn), np.min(self.dsigr2_skn)))
@@ -366,11 +367,6 @@ class G0W0Calculator:
 
         self.ecut_e = ecut_e / Ha
 
-        self.world = self.wcalc.context.world
-
-        # TODO: # implement q-point parallelism over this.
-        self.qcomm = self.world
-
         self.context.print(gw_logo)
 
         self.fxc_modes = fxc_modes
@@ -398,7 +394,7 @@ class G0W0Calculator:
         self.savepckl = savepckl
         self.eta = eta / Ha
 
-        if self.qcomm.rank == 0:
+        if self.context.world.rank == 0:
             # We pass a serial communicator because the parallel handling
             # is somewhat wonky, we'd rather do that ourselves:
             try:
@@ -461,8 +457,7 @@ class G0W0Calculator:
         p()
         p('Computational parameters:')
         if len(self.ecut_e) == 1:
-            p('Plane wave cut-off: {0:g} eV'.format(self.chi0calc.ecut
-                                                    * Ha))
+            p('Plane wave cut-off: {0:g} eV'.format(self.chi0calc.ecut * Ha))
         else:
             assert len(self.ecut_e) > 1
             p('Extrapolating to infinite plane wave cut-off using points at:')
@@ -537,15 +532,15 @@ class G0W0Calculator:
         return all_results
 
     def read_sigmas(self):
-        if self.world.rank == 0:
+        if self.context.world.rank == 0:
             sigmas = self._read_sigmas()
         else:
             sigmas = None
 
-        return broadcast(sigmas, comm=self.world)
+        return broadcast(sigmas, comm=self.context.world)
 
     def _read_sigmas(self):
-        assert self.world.rank == 0
+        assert self.context.world.rank == 0
 
         # Integrate over all q-points, and accumulate the quasiparticle shifts
         for iq, q_c in enumerate(self.wcalc.qd.ibzk_kc):
@@ -562,7 +557,7 @@ class G0W0Calculator:
         return sigmas
 
     def get_sigmas_dict(self, key):
-        assert self.world.rank == 0
+        assert self.context.world.rank == 0
         return {fxc_mode: Sigma.fromdict(sigma)
                 for fxc_mode, sigma in self.qcache[key].items()}
 
@@ -668,8 +663,8 @@ class G0W0Calculator:
         if self.wcalc.truncation == 'wigner-seitz':
             wstc = WignerSeitzTruncatedCoulomb(
                 self.wcalc.gs.gd.cell_cv,
-                self.wcalc.gs.kd.N_c,
-                chi0calc.fd)
+                self.wcalc.gs.kd.N_c)
+            self.context.print(wstc.get_description())
         else:
             wstc = None
 
@@ -689,7 +684,7 @@ class G0W0Calculator:
         mynw = (nw + size - 1) // size
 
         # some memory sizes...
-        if self.world.rank == 0:
+        if self.context.world.rank == 0:
             siz = (nw * mynGmax * nGmax +
                    max(mynw * nGmax, nw * mynGmax) * nGmax) * 16
             sizA = (nw * nGmax * nGmax + nw * nGmax * nGmax) * 16
@@ -698,30 +693,30 @@ class G0W0Calculator:
 
         # Need to pause the timer in between iterations
         self.context.timer.stop('W')
-        if self.qcomm.rank == 0:
+        if self.context.world.rank == 0:
             for key, sigmas in self.qcache.items():
                 sigmas = {fxc_mode: Sigma.fromdict(sigma)
                           for fxc_mode, sigma in sigmas.items()}
                 for fxc_mode, sigma in sigmas.items():
                     sigma.validate_inputs(self.get_validation_inputs())
 
-        self.world.barrier()
+        self.context.world.barrier()
         for iq, q_c in enumerate(self.wcalc.qd.ibzk_kc):
             with ExitStack() as stack:
-                if self.qcomm.rank == 0:
+                if self.context.world.rank == 0:
                     qhandle = stack.enter_context(self.qcache.lock(str(iq)))
                     skip = qhandle is None
                 else:
                     skip = False
 
-                skip = broadcast(skip, comm=self.qcomm)
+                skip = broadcast(skip, comm=self.context.world)
 
                 if skip:
                     continue
 
                 result = self.calculate_q_point(iq, q_c, pb, wstc, chi0calc)
 
-                if self.qcomm.rank == 0:
+                if self.context.world.rank == 0:
                     qhandle.save(result)
         pb.finish()
 
@@ -774,7 +769,7 @@ class G0W0Calculator:
                                      pawcorr=pawcorr)
 
         for sigma in sigmas.values():
-            sigma.sum(self.world)
+            sigma.sum(self.context.world)
 
         return sigmas
 
@@ -848,7 +843,7 @@ class G0W0Calculator:
                 return None, x_skn
             self.context.print('Removing bad file (wrong shape of array):', filename)
 
-        if self.world.rank == 0:
+        if self.context.world.rank == 0:
             os.remove(filename)
 
         return opencew(filename), None

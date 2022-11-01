@@ -228,7 +228,8 @@ class RPACorrelation:
 
         if self.truncation == 'wigner-seitz':
             self.wstc = WignerSeitzTruncatedCoulomb(self.gs.gd.cell_cv,
-                                                    self.gs.kd.N_c, self.fd)
+                                                    self.gs.kd.N_c)
+            self.context.print(self.wstc.get_description())
         else:
             self.wstc = None
 
