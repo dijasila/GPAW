@@ -6,15 +6,14 @@ def test_GG_shuffle():
     N = 1000
     G_G = np.arange(N, dtype=np.int32)
     np.random.shuffle(G_G)
-    A_GG = np.zeros((N,N), dtype=np.complex)
-    B_GG = np.zeros((N,N), dtype=np.complex)
+    A_GG = np.zeros((N,N), dtype=np.complex128)
+    B_GG = np.zeros((N,N), dtype=np.complex128)
     A_GG[:] = np.random.rand(N,N)
     A_GG[:] += 1j*np.random.rand(N,N)
 
     start = time.perf_counter()
     GG_shuffle(G_G, 1, A_GG, B_GG)
     Cversion= time.perf_counter()-start
-
 
     start = time.perf_counter()
     B2_GG = A_GG.copy()[:, G_G][G_G]
