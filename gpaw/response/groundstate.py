@@ -1,5 +1,10 @@
+from pathlib import Path
+
 import numpy as np
+
 from ase.units import Ha, Bohr
+
+import gpaw.mpi as mpi
 
 
 class ResponseGroundStateAdapter:
@@ -31,6 +36,29 @@ class ResponseGroundStateAdapter:
         self._hamiltonian = calc.hamiltonian
         self._calc = calc
 
+    @staticmethod
+    def from_gpw_file(gpw, context=None):
+        """Initiate the ground state adapter directly from a .gpw file."""
+        from gpaw import GPAW, disable_dry_run
+        assert Path(gpw).is_file()
+
+        if context is None:
+            def timer(*unused):
+                def __enter__(self):
+                    pass
+
+                def __exit__(self):
+                    pass
+        else:
+            timer = context.timer
+            context.print('Reading ground state calculation:\n  %s' % gpw)
+
+        with timer('Read ground state'):
+            with disable_dry_run():
+                calc = GPAW(gpw, txt=None, communicator=mpi.serial_comm)
+
+        return ResponseGroundStateAdapter(calc)
+
     @property
     def pd(self):
         # This is an attribute error in FD/LCAO mode.
@@ -58,17 +86,17 @@ class ResponseGroundStateAdapter:
         return abs(np.linalg.det(cell_cv[nonpbc][:, nonpbc]))
 
     @property
-    def nt_sG(self):
-        # Used by kxc
+    def nt_sR(self):
+        # Used by fxc_kernels
         return self._density.nt_sG
 
     @property
     def D_asp(self):
-        # Used by kxc
+        # Used by fxc_kernels
         return self._density.D_asp
 
     def all_electron_density(self, gridrefinement=2):
-        # used by kxc
+        # Used by fxc_kernels
         return self._density.get_all_electron_density(
             atoms=self.atoms, gridrefinement=gridrefinement)
 
@@ -126,3 +154,22 @@ class ResponseGroundStateAdapter:
         # XXX used by gpaw/xc/tools.py in a hacky way
         return self._wfs._get_wave_function_array(
             u, n, realspace=True)
+
+    def pair_density_paw_corrections(self, pd, alter_optical_limit=False):
+        from gpaw.response.paw import get_pair_density_paw_corrections
+        return get_pair_density_paw_corrections(
+            setups=self.setups, pd=pd, spos_ac=self.spos_ac,
+            alter_optical_limit=alter_optical_limit)
+
+    def get_pos_av(self):
+        # gd.cell_cv must always be the same as pd.gd.cell_cv, right??
+        return np.dot(self.spos_ac, self.gd.cell_cv)
+
+    def count_occupied_bands(self, ftol):
+        nocc1 = 9999999
+        nocc2 = 0
+        for kpt in self.kpt_u:
+            f_n = kpt.f_n / kpt.weight
+            nocc1 = min((f_n > 1 - ftol).sum(), nocc1)
+            nocc2 = max((f_n > ftol).sum(), nocc2)
+        return nocc1, nocc2

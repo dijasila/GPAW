@@ -235,6 +235,7 @@ setup(name='gpaw',
       license='GPLv3+',
       platforms=['unix'],
       packages=find_packages(),
+      package_data={'gpaw': ['py.typed']},
       entry_points={
           'console_scripts': ['gpaw = gpaw.cli.main:main'],
           'ase.ioformats': ['gpaw-yaml = gpaw.entry_points:gpaw_yaml']},

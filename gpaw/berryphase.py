@@ -206,6 +206,7 @@ def get_polarization_phase(calc):
     if not exists(berryname) and world.rank == 0:
         # Calculate and save berry phases
         calc = GPAW(calc, communicator=serial_comm, txt=None)
+        assert len(calc.symmetry.op_scc) == 1
         nspins = calc.wfs.nspins
         data = {}
         for c in [0, 1, 2]:

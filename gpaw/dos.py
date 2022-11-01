@@ -161,12 +161,10 @@ class DOSCalculator:
         filename: str
             Name of restart-file or GPAW calculator object.
         """
-        from gpaw.calculator import GPAW
-
-        if isinstance(filename, GPAW):
-            calc = filename
-        else:
+        if isinstance(filename, (str, Path)):
             calc = GPAW(filename, txt=None)
+        else:
+            calc = filename
 
         wfs: Union[BZWaveFunctions, IBZWaveFunctions]
         if soc:

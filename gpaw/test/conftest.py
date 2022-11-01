@@ -8,6 +8,7 @@ import pytest
 from _pytest.tmpdir import _mk_tmp
 from ase import Atoms
 from ase.build import bulk
+from ase.lattice.hexagonal import Graphene
 from ase.io import read
 from gpaw import GPAW, PW, Davidson, FermiDirac, setup_paths
 from gpaw.cli.info import info
@@ -94,11 +95,18 @@ def gpw_files(request, tmp_path_factory):
     * Bulk BN (zinkblende) with 2x2x2 k-points and 9 converged bands:
       ``bn_pw``.
 
-    * Graphene with 6x6x1 k-points: graphene_pw
+    * h-BN layer with 3x3x1 (gamma center) k-points and 26 converged bands:
+      ``hbn_pw``.
 
-    * MoS2 with 6x6x1 k-points: mos2_pw
+    * Graphene with 6x6x1 k-points: ``graphene_pw``
 
-    Files with wave functions are also availabe (add ``_wfs`` to the names).
+    * MoS2 with 6x6x1 k-points: ``mos2_pw``
+
+    * Bulk Si, LDA, 2x2x2 k-points (gamma centered): ``si_pw``
+
+    * Bulk Fe, LDA, 4x4x4 k-points, 6 converged bands: ``fe_pw``
+
+    Files with wave functions are also available (add ``_wfs`` to the names).
     """
     path = os.environ.get('GPW_TEST_FILES')
     if not path:
@@ -311,6 +319,23 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
+    def hbn_pw(self):
+        atoms = Graphene(symbol='B',
+                         latticeconstant={'a': 2.5, 'c': 1.0},
+                         size=(1, 1, 1))
+        atoms[0].symbol = 'N'
+        atoms.pbc = (1, 1, 0)
+        atoms.center(axis=2, vacuum=3.0)
+        atoms.calc = GPAW(mode=PW(400),
+                          xc='LDA',
+                          nbands=50,
+                          occupations=FermiDirac(0.001),
+                          parallel={'domain': 1},
+                          convergence={'bands': 26},
+                          kpts={'size': (3, 3, 1), 'gamma': True})
+        atoms.get_potential_energy()
+        return atoms.calc
+
     def graphene_pw(self):
         from ase.lattice.hexagonal import Graphene
         atoms = Graphene(symbol='C',
@@ -341,6 +366,32 @@ class GPWFiles:
                           txt=self.path / 'mos2_pw.txt')
 
         atoms.get_potential_energy()
+        return atoms.calc
+
+    def fe_pw(self):
+        xc = 'LDA'
+        kpts = 4
+        nbands = 6
+        pw = 300
+        occw = 0.05
+        conv = {'bands': nbands}
+        a = 2.867
+        mm = 2.21
+        atoms = bulk('Fe', 'bcc', a=a)
+        atoms.set_initial_magnetic_moments([mm])
+        atoms.center()
+
+        atoms.calc = GPAW(
+            xc=xc,
+            mode=PW(pw),
+            kpts={'size': (kpts, kpts, kpts)},
+            nbands=nbands + 4,
+            occupations=FermiDirac(occw),
+            convergence=conv,
+            txt=self.path / 'fe_pw.txt')
+
+        atoms.get_potential_energy()
+
         return atoms.calc
 
 
@@ -379,7 +430,7 @@ def pytest_configure(config):
                  'response: tests of the response code',
                  'kspair: tests of kspair in the response code',
                  'serial: run in serial only',
-                 'skip_for_new_gpaw: know failure for new refactored GPAW']:
+                 'later: know failure for new refactored GPAW']:
         config.addinivalue_line('markers', line)
 
 
