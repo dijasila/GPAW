@@ -523,9 +523,7 @@ class Chi0Calculator:
         nG = chi0.pd.ngmax
         blocks1d = chi0.blocks1d
 
-        # The copy() is only required when doing GW_too, since we need
-        # to run this whole thin twice.
-        chi0_wGG = chi0.blockdist.distribute_as(chi0.chi0_wGG.copy(),
+        chi0_wGG = chi0.blockdist.distribute_as(chi0.chi0_wGG,
                                                 chi0.nw, 'wGG')
 
         pd = chi0.pd
