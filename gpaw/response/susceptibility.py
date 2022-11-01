@@ -1,4 +1,3 @@
-from pathlib import Path
 import pickle
 
 import numpy as np
@@ -88,9 +87,9 @@ class FourComponentSusceptibilityTensor:
                                                        frequencies,
                                                        txt=txt)
 
-        if filename is not None:
-            write_macroscopic_component(omega_w, chiks_w, chi_w,
-                                        filename, self.context.world)
+        if filename is not None and self.context.world.rank == 0:
+            from gpaw.response.df import write_response_function
+            write_response_function(filename, omega_w, chiks_w, chi_w)
 
         return omega_w, chiks_w, chi_w
 
@@ -442,29 +441,6 @@ def symmetrize_reciprocity(pd, A_wGG):
             tmp_GG += A_GG
             tmp_GG += A_GG[invmap_GG].T
             A_GG[:] = tmp_GG / 2.
-
-
-def write_macroscopic_component(omega_w, chiks_w, chi_w, filename, world):
-    """Write the spatially averaged dynamic susceptibility."""
-    assert isinstance(filename, str)
-    if world.rank == 0:
-        with Path(filename).open('w') as fd:
-            for omega, chiks, chi in zip(omega_w, chiks_w, chi_w):
-                print('%.6f, %.6f, %.6f, %.6f, %.6f' %
-                      (omega, chiks.real, chiks.imag, chi.real, chi.imag),
-                      file=fd)
-
-
-def read_macroscopic_component(filename):
-    """Read a stored macroscopic susceptibility file"""
-    d = np.loadtxt(filename, delimiter=',')
-    omega_w = d[:, 0]
-    chiks_w = np.array(d[:, 1], complex)
-    chiks_w.imag = d[:, 2]
-    chi_w = np.array(d[:, 3], complex)
-    chi_w.imag = d[:, 4]
-
-    return omega_w, chiks_w, chi_w
 
 
 def write_component(omega_w, G_Gc, chiks_wGG, chi_wGG, filename, world):

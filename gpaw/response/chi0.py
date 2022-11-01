@@ -73,7 +73,6 @@ class Chi0Calculator:
         self.eshift = eshift / Ha
 
         self.nblocks = pair.nblocks
-        self.calc = self.gs._calc  # XXX remove me
 
         # XXX this is redundant as pair also does it.
         self.blockcomm, self.kncomm = block_partition(self.context.world,
@@ -297,9 +296,11 @@ class Chi0Calculator:
             chi0_wGG += out_wGG
         chi0_wGG *= prefactor
 
-        tmp_chi0_wGG = chi0.blockdist.redistribute(chi0_wGG, chi0.nw)
+        tmp_chi0_wGG = chi0.blockdist.distribute_as(chi0_wGG,
+                                                    chi0.nw, 'wGG')
         analyzer.symmetrize_wGG(tmp_chi0_wGG)
-        chi0_wGG[:] = chi0.blockdist.redistribute(tmp_chi0_wGG, chi0.nw)
+        chi0_wGG[:] = chi0.blockdist.distribute_as(tmp_chi0_wGG,
+                                                   chi0.nw, 'WgG')
 
     def _update_chi0_wings(self,
                            chi0: Chi0Data,
@@ -514,6 +515,7 @@ class Chi0Calculator:
         """
         Function to provide chi0 quantities with reduced ecut
         needed for ecut extrapolation. See g0w0.py for usage.
+        Note: Returns chi0_wGG array in wGG distribution.
         """
         from gpaw.pw.descriptor import (PWDescriptor,
                                         PWMapping)
@@ -523,7 +525,8 @@ class Chi0Calculator:
 
         # The copy() is only required when doing GW_too, since we need
         # to run this whole thin twice.
-        chi0_wGG = chi0.blockdist.redistribute(chi0.chi0_wGG.copy(), chi0.nw)
+        chi0_wGG = chi0.blockdist.distribute_as(chi0.chi0_wGG.copy(),
+                                                chi0.nw, 'wGG')
 
         pd = chi0.pd
         chi0_wxvG = chi0.chi0_wxvG
