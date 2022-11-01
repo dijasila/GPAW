@@ -139,11 +139,11 @@ class G0W0Outputs:
         if np.any(self.sigr2_skn < 0.9) or np.any(self.dsigr2_skn < 0.9):
             context.print('  Warning: Bad quality of linear fit for some ('
                           'n,k). ', flush=False)
-            context.print('           Higher cutoff might be necessary.', 
+            context.print('           Higher cutoff might be necessary.',
                           flush=False)
 
         context.print('  Minimum R^2 = %1.4f. (R^2 Should be close to 1)' %
-              min(np.min(self.sigr2_skn), np.min(self.dsigr2_skn)))
+                      min(np.min(self.sigr2_skn), np.min(self.dsigr2_skn)))
 
     def get_results_eV(self):
         results = {
@@ -655,8 +655,8 @@ class G0W0Calculator:
         self.context.timer.start('W')
         self.context.print('\nCalculating screened Coulomb potential')
         if self.wcalc.truncation is not None:
-            self.context.print('Using %s truncated Coloumb potential'
-                  % self.wcalc.truncation)
+            self.context.print('Using %s truncated Coloumb potential' %
+                               self.wcalc.truncation)
 
         chi0calc = self.chi0calc
 
@@ -688,8 +688,9 @@ class G0W0Calculator:
             siz = (nw * mynGmax * nGmax +
                    max(mynw * nGmax, nw * mynGmax) * nGmax) * 16
             sizA = (nw * nGmax * nGmax + nw * nGmax * nGmax) * 16
-            self.context.print('  memory estimate for chi0: local=%.2f MB, global=%.2f MB'
-                  % (siz / 1024**2, sizA / 1024**2))
+            self.context.print(
+                '  memory estimate for chi0: local=%.2f MB, global=%.2f MB'
+                % (siz / 1024**2, sizA / 1024**2))
 
         # Need to pause the timer in between iterations
         self.context.timer.stop('W')
@@ -841,7 +842,8 @@ class G0W0Calculator:
             self.context.print('Read:', filename)
             if x_skn.shape == self.shape:
                 return None, x_skn
-            self.context.print('Removing bad file (wrong shape of array):', filename)
+            self.context.print('Removing bad file (wrong shape of array):',
+                               filename)
 
         if self.context.world.rank == 0:
             os.remove(filename)
@@ -867,19 +869,19 @@ class G0W0Calculator:
         ibzk_kc = self.wcalc.gs.kd.ibzk_kc
         for s in range(self.wcalc.gs.nspins):
             for i, ik in enumerate(self.kpts):
-                self.context.print('\nk-point ' +
-                      '{0} ({1}): ({2:.3f}, {3:.3f}, {4:.3f})'.format(
-                          i, ik, *ibzk_kc[ik]) + '                ' +
-                      self.wcalc.fxc_mode)
-                self.context.print('band' +
-                      ''.join('{0:>8}'.format(name) for name in names))
+                self.context.print(
+                    '\nk-point ' + '{0} ({1}): ({2:.3f}, {3:.3f}, '
+                    '{4:.3f})'.format(i, ik, *ibzk_kc[ik]) +
+                    '                ' + self.wcalc.fxc_mode)
+                self.context.print('band' + ''.join('{0:>8}'.format(name)
+                                                    for name in names))
 
                 def actually_print_results(resultset):
                     for n in range(b2 - b1):
-                        self.context.print('{0:4}'.format(n + b1) +
-                              ''.join('{0:8.3f}'
-                                      .format(resultset[name][s, i, n])
-                                      for name in names))
+                        self.context.print(
+                            '{0:4}'.format(n + b1) +
+                            ''.join('{0:8.3f}'.format(
+                                resultset[name][s, i, n]) for name in names))
 
                 for fxc_mode in results:
                     self.context.print(fxc_mode.rjust(69))

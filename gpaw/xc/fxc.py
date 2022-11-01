@@ -5,8 +5,6 @@ from time import time
 import ase.io.ulm as ulm
 import numpy as np
 from ase.units import Ha
-from ase.utils.timing import Timer
-from ase.utils import IOContext
 from gpaw.response import timer
 from scipy.special import p_roots, sici
 
@@ -20,6 +18,7 @@ from gpaw.utilities.blas import axpy, gemmdot
 from gpaw.xc.rpa import RPACorrelation
 from gpaw.heg import HEG
 from gpaw.response.pair import get_gs_and_context
+
 
 class FXCCorrelation(RPACorrelation):
     def __init__(self,
@@ -123,8 +122,9 @@ class FXCCorrelation(RPACorrelation):
 
                 if self.av_scheme == 'wavevector':
 
-                    self.context.print('Calculating %s kernel starting from q '
-                         'point %s' % (self.xc, q_empty), flush=False)
+                    self.context.print('Calculating %s kernel starting from '
+                                       'q point %s' % (self.xc, q_empty),
+                                       flush=False)
                     self.context.print('')
 
                     kernelkwargs.update(l_l=self.l_l,
@@ -148,8 +148,8 @@ class FXCCorrelation(RPACorrelation):
                 del kernel
 
             else:
-                self.context.print('%s kernel already calculated' % self.xc, 
-                         flush=False)
+                self.context.print('%s kernel already calculated' %
+                                   self.xc, flush=False)
                 self.context.print('')
 
         if self.xc in ('range_RPA', 'range_rALDA'):
@@ -505,12 +505,12 @@ class KernelWave:
         assert len(self.n_g) == self.gridsize
 
         if self.omega_w is not None:
-             self.context.print('Calculating dynamical kernel at %s '
-                                'frequencies' % len(self.omega_w))
+            self.context.print('Calculating dynamical kernel at %s '
+                               'frequencies' % len(self.omega_w))
 
         if self.Eg is not None:
-             self.context.print('Band gap of %s eV used to evaluate kernel' 
-                                % (self.Eg * Ha))
+            self.context.print('Band gap of %s eV used to evaluate kernel'
+                               % (self.Eg * Ha))
 
         # Enhancement factor for GGA
         if self.xc == 'rAPBE' or self.xc == 'rAPBEns':
@@ -537,19 +537,19 @@ class KernelWave:
             apbe_g = self.get_PBE_fxc(self.n_g, self.s2_g)
             poskern_ind = np.where(apbe_g >= 0.0)
             if len(poskern_ind[0]) > 0:
-                self.context.print('The APBE kernel takes positive values at '
-                      + '%s grid points out of a total of %s (%3.2f%%).' %
-                      (len(poskern_ind[0]), self.gridsize,
-                       100.0 * len(poskern_ind[0]) / self.gridsize),
-                                   flush=False)
+                self.context.print(
+                    'The APBE kernel takes positive values at '
+                    + '%s grid points out of a total of %s (%3.2f%%).'
+                    % (len(poskern_ind[0]), self.gridsize, 100.0 * len(
+                        poskern_ind[0]) / self.gridsize), flush=False)
                 self.context.print('The ALDA kernel will be used at these '
-                                 'points')
+                                   'points')
                 self.s2_g[poskern_ind] = 0.0
 
     def calculate_fhxc(self):
 
-        self.context.print('Calculating %s kernel at %d eV cutoff' %  (
-            self.xc, self.ecut), flush=False)
+        self.context.print('Calculating %s kernel at %d eV cutoff'
+                           % (self.xc, self.ecut), flush=False)
 
         for iq, q_c in enumerate(self.ibzq_qc):
 
@@ -1102,21 +1102,23 @@ class range_separated:
 
         density_cut = 3.0 / (4.0 * np.pi * self.cutoff_rs**3.0)
         if (nval_g < 0.0).any():
-            self.context.print('Warning, negative densities found! (Magnitude '
-                           '%s)' % np.abs(np.amin(nval_g)), flush=False)
+            self.context.print('Warning, negative densities found! ('
+                               'Magnitude %s)' % np.abs(np.amin(nval_g)),
+                               flush=False)
             self.context.print('These will be ignored', flush=False)
         if (nval_g < density_cut).any():
             nval_g = nval_g[np.where(nval_g > density_cut)]
-            self.context.print('Not calculating correlation energy ',
-                  'contribution for densities < %3.2e elecs/Bohr ^ 3' %
-                  (density_cut), flush=False)
+            self.context.print(
+                'Not calculating correlation energy ',
+                'contribution for densities < %3.2e elecs/Bohr ^ 3'
+                % (density_cut), flush=False)
 
         densitysum = np.sum(nval_g * self.dv)
         # XXX probably wrong for charged systems
         valence = self.gs.setups.nvalence
 
         self.context.print('Density integrates to %s electrons' % (densitysum),
-              flush=False)
+                           flush=False)
 
         self.context.print('Renormalized to %s electrons' % (valence))
 
@@ -1128,8 +1130,8 @@ class range_separated:
 
     def calculate(self):
 
-        self.context.print('Generating tables of electron gas energies...', 
-                   flush=False)
+        self.context.print('Generating tables of electron gas energies...',
+                           flush=False)
 
         table_SR = self.generate_tables()
 
@@ -1139,8 +1141,8 @@ class range_separated:
                                 table_SR[:, 1])) * self.dv
 
         # RPA energy minus long range correlation
-        self.context.print('Short range correlation energy/unit cell = %5.4f '
-                          'eV \n' % (E_SR * Ha))
+        self.context.print('Short range correlation energy/unit cell = '
+                           '%5.4f eV \n' % (E_SR * Ha))
         return E_SR
 
     def generate_tables(self):
@@ -1267,8 +1269,8 @@ class KernelDens:
     @timer('FHXC')
     def calculate_fhxc(self):
 
-        self.context.print('Calculating %s kernel at %d eV cutoff' % (self.xc, 
-            self.ecut))
+        self.context.print('Calculating %s kernel at %d eV cutoff' % (
+            self.xc, self.ecut))
         if self.xc[0] == 'r':
             self.calculate_rkernel()
         else:
@@ -1298,7 +1300,7 @@ class KernelDens:
         rz_g = r_vg[2].flatten()
 
         self.context.print('    %d grid points and %d plane waves at the '
-            'Gamma point' % (ng, self.pd.ngmax), flush=False)
+                           'Gamma point' % (ng, self.pd.ngmax), flush=False)
 
         # Unit cells
         R_Rv = []
@@ -1319,9 +1321,10 @@ class KernelDens:
             dv = self.gs.density.gd.dv
             gc = (3 * dv / 4 / np.pi)**(1 / 3.)
             Vlocal_g -= 2 * np.pi * gc**2 / dv
-            self.context.print('    Lattice point sampling: ' + '(%s x %s x '
-                '%s)^2 ' % (nR_v[0], nR_v[1], nR_v[2]) + ' Reduced to %s '
-                'lattice points' % len(R_Rv), flush=False)
+            self.context.print(
+                '    Lattice point sampling: (%s x %s x %s)^2 '
+                % (nR_v[0], nR_v[1], nR_v[2]) + ' Reduced to %s lattice points'
+                % len(R_Rv), flush=False)
 
         l_g_size = -(-ng // mpi.world.size)
         l_g_range = range(mpi.world.rank * l_g_size,
@@ -1343,14 +1346,15 @@ class KernelDens:
             if i == 1:
                 self.context.print(
                     '      Finished 1 cell in %s seconds' % int(time() - t0) +
-                    ' - estimated %s seconds left' % int( (len(R_Rv) - 1) * 
-                    (time() - t0)))
+                    ' - estimated %s seconds left' % int((len(R_Rv) - 1) *
+                                                         (time() - t0)))
             if len(R_Rv) > 5:
                 if (i + 1) % (len(R_Rv) / 5 + 1) == 0:
-                    self.context.print('      Finished %s cells in %s '
-                        'seconds' % (i, int(time() - t0)) + ' - estimated '
-                        '%s seconds left' % int( (len(R_Rv) - i) * (time() -
-                        t0) / i))
+                    self.context.print(
+                        '      Finished %s cells in %s seconds'
+                        % (i, int(time() - t0)) + ' - estimated '
+                        '%s seconds left' % int((len(R_Rv) - i) * (time() -
+                                                                   t0) / i))
             for g in l_g_range:
                 rx = rx_g[g] + R_v[0]
                 ry = ry_g[g] + R_v[1]
