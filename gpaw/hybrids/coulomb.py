@@ -2,18 +2,13 @@ from math import pi
 
 import numpy as np
 
-from io import StringIO
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb as WSTC
 
 
 def coulomb_interaction(omega, gd, kd):
     if omega:
         return ShortRangeCoulomb(omega)
-    # Wigner-Seitz truncated Coulomb:
-    output = StringIO()
-    coulomb = WSTC(gd.cell_cv, kd.N_c, txt=output)
-    coulomb.description = output.getvalue()
-    return coulomb
+    return WSTC(gd.cell_cv, kd.N_c)
 
 
 class ShortRangeCoulomb:
