@@ -44,7 +44,7 @@ master:
     - mq init
     - mq workflow -p agts.py -zT | tail -1 | tee count
     - python -c "assert int(open('count').read().split()[0]) >= 422"
-    - python -c "import pathlib; assert len(list(pathlib.Path().glob('**/*.png'))) <= 6"
+    - python -c "import pathlib; assert len(list(pathlib.Path().glob('**/*.png'))) <= 5"
     - >
       interrogate -m -i -f 33.1
       -e gpaw/test
@@ -56,7 +56,7 @@ libxc:
   script:
     - git clone https://gitlab.com/libxc/libxc.git
     - cd libxc
-    - git checkout 5.2.3
+    - git checkout 6.0.0
     - autoreconf -i
     - ./configure --enable-shared --disable-fortran --prefix=$HOME/libxc
     - make > libxc-install.out

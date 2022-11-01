@@ -32,7 +32,7 @@ class BuildingBlock:
             Determines how linear response calculation is performed
         isotropic_q: bool
             If True, only q-points along one direction (1 0 0) in the
-            2D BZ is included, thus asuming an isotropic material
+            2D BZ is included, thus assuming an isotropic material
         direction: 'x' or 'y'
             Direction used for isotropic q sampling.
         qmax: float
@@ -40,7 +40,7 @@ class BuildingBlock:
             irreducible BZ. Only works for isotropic q-sampling.
         nq_inf: int
             number of extra q points in the limit q->0 along each direction,
-            extrapolated from q=0, assumung that the head of chi0_wGG goes
+            extrapolated from q=0, assuming that the head of chi0_wGG goes
             as q^2 and the wings as q.
             Note that this does not hold for (semi)metals!
 
@@ -65,7 +65,7 @@ class BuildingBlock:
         self.df = df  # dielectric function object
         self.df.truncation = '2D'  # in case you forgot!
         self.wd = self.df.chi0.wd
-        self.world = self.df.chi0.world
+        self.world = self.df.chi0.context.world
 
         if self.world.rank != 0:
             from gpaw.utilities import devnull
@@ -181,7 +181,7 @@ class BuildingBlock:
             print('calculated chi!', file=self.fd)
 
             nw = len(self.wd)
-            world = self.df.chi0.world
+            world = self.df.chi0.context.world
             w1 = min(self.df.blocks1d.blocksize * world.rank, nw)
 
             _, _, chiM_qw, chiD_qw, _, drhoM_qz, drhoD_qz = \
@@ -342,7 +342,7 @@ class BuildingBlock:
         self.save_chi_file(filename=self.filename + '_int')
 
     def collect(self, a_w):
-        world = self.df.chi0.world
+        world = self.df.chi0.context.world
         mynw = self.df.blocks1d.blocksize
         b_w = np.zeros(mynw, a_w.dtype)
         b_w[:self.df.blocks1d.nlocal] = a_w
@@ -353,7 +353,7 @@ class BuildingBlock:
 
     def clear_temp_files(self):
         if not self.savechi0:
-            world = self.df.chi0.world
+            world = self.df.chi0.context.world
             if world.rank == 0:
                 while len(self.temp_files) > 0:
                     filename = self.temp_files.pop()

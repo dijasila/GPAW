@@ -3,6 +3,7 @@ import numpy as np
 from ase.build import bulk
 from gpaw import GPAW, FermiDirac
 from gpaw.response.bse import BSE
+from gpaw.response.df import read_response_function
 from gpaw.test import findpeak, equal
 
 
@@ -36,13 +37,13 @@ def test_response_bse_silicon(in_tmp_dir, scalapack):
                   nbands=8,
                   write_h=False,
                   write_v=False)
-        w_w, eps_w = bse.get_dielectric_function(filename=None,
-                                                 eta=0.2,
-                                                 w_w=np.linspace(0, 10, 2001))
+        bse.get_dielectric_function(eta=0.2,
+                                    w_w=np.linspace(0, 10, 2001))
+        w_w, epsreal_w, epsimag_w = read_response_function('df_bse.csv')
     if check:
         w_ = 2.552
         I_ = 421.15
-        w, I = findpeak(w_w, eps_w.imag)
+        w, I = findpeak(w_w, epsimag_w)
         equal(w, w_, 0.01)
         equal(I, I_, 0.1)
 

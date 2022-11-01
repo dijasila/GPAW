@@ -251,6 +251,12 @@ class BZWaveFunctions:
         """Eigenvalues in eV for the whole BZ."""
         return self._collect(attrgetter('eig_m'), broadcast=broadcast)
 
+    def occupation_numbers(self,
+                           broadcast: bool = True
+                           ) -> Array2D:
+        """Occupation numbers for the whole BZ."""
+        return self._collect(attrgetter('f_m'), broadcast=broadcast)
+
     def eigenvectors(self,
                      broadcast: bool = True
                      ) -> Array4D:
