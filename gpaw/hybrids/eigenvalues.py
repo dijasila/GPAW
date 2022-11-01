@@ -59,6 +59,7 @@ def non_self_consistent_eigenvalues(
                     np.zeros((1, 1, 1)))
         calc = GPAW(Path(calc), txt=None, parallel={'band': 1, 'kpt': 1})
 
+    assert isinstance(calc, (GPAWOld, ASECalculator))
     wfs = calc.wfs
 
     if n2 <= 0:
@@ -107,7 +108,7 @@ def non_self_consistent_eigenvalues(
             (v_hyb_sl_sin + v_hyb_nl_sin) * Ha)
 
 
-def _semi_local(calc: GPAW,
+def _semi_local(calc: GPAWOld | ASECalculator,
                 xc,
                 n1: int,
                 n2: int,
@@ -126,7 +127,7 @@ def _semi_local(calc: GPAW,
     return e_dft_sin / Ha, v_dft_sin / Ha, v_hyb_sl_sin / Ha
 
 
-def _non_local(calc: GPAW,
+def _non_local(calc: GPAWOld | ASECalculator,
                n1: int,
                n2: int,
                kpt_indices_s: List[List[int]],

@@ -1,17 +1,18 @@
 from __future__ import annotations
+
 from typing import Generator
 
 import numpy as np
 from ase.dft.bandgap import bandgap
 from ase.io.ulm import Writer
 from ase.units import Bohr, Ha
-from gpaw.core.atom_arrays import AtomArrays
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new.brillouin import IBZ
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
+from gpaw.new.potential import Potential
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.new.wave_functions import WaveFunctions
-from gpaw.typing import Array1D
+from gpaw.typing import Array1D, Array2D
 
 
 def create_ibz_wave_functions(ibz: IBZ,
@@ -229,10 +230,10 @@ class IBZWaveFunctions:
                     occ_skn[s, k, :] = occ_n
         return eig_skn, occ_skn
 
-    def forces(self, dH_asii: AtomArrays):
-        F_av = np.zeros((dH_asii.natoms, 3))
+    def forces(self, potential: Potential) -> Array2D:
+        F_av = np.zeros((potential.dH_asii.natoms, 3))
         for wfs in self:
-            wfs.force_contribution(dH_asii, F_av)
+            wfs.force_contribution(potential, F_av)
         self.kpt_comm.sum(F_av)
         return F_av
 

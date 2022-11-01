@@ -9,6 +9,7 @@ from gpaw.new.lcao.eigensolver import LCAOEigensolver
 from gpaw.new.lcao.hamiltonian import LCAOHamiltonian
 from gpaw.new.lcao.hybrids import HybridLCAOEigensolver, HybridXCFunctional
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
+from gpaw.new.lcao.forces import TCIDerivatives
 from gpaw.utilities.timing import NullTimer
 
 
@@ -114,6 +115,8 @@ def create_lcao_ibzwfs(basis, potential,
 
     nao = setups.nao
 
+    tci_derivatives = TCIDerivatives(manytci, atomdist, nao)
+
     def create_wfs(spin, q, k, kpt_c, weight):
         C_nM = Matrix(nbands, 2 * nao if ncomponents == 4 else nao,
                       dtype,
@@ -123,7 +126,8 @@ def create_lcao_ibzwfs(basis, potential,
         return LCAOWaveFunctions(
             setups=setups,
             density_adder=partial(basis.construct_density, q=q),
-            manytci=manytci,
+            tci_derivatives=tci_derivatives,
+            basis=basis,
             C_nM=C_nM,
             S_MM=Matrix(nao, nao, data=S_qMM[q],
                         dist=(band_comm, band_comm.size, 1)),

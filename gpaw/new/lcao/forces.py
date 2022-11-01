@@ -1,43 +1,76 @@
+from __future__ import annotations
+from typing import Tuple
+
 import numpy as np
-from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
-from gpaw.typing import Array2D
+from gpaw.lfc import BasisFunctions
 from gpaw.new import zip
+from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
+from gpaw.new.potential import Potential
+from gpaw.typing import Array2D, Array3D
+
+Derivatives = Tuple[Array3D,
+                    Array3D,
+                    dict[int, Array3D]]
 
 
-def forces(ibzwfs: LCAOWaveFunctions) -> Array2D:
-    domain_comm = ibzwfs.domain_comm
+class TCIDerivatives:
+    def __init__(self, manytci, atomdist, nao: int):
+        self.manytci = manytci
+        self.atomdist = atomdist
+        self.nao = nao
 
-    dThetadR_qvMM, dTdR_qvMM = ibzwfs.manytci.O_qMM_T_qMM(
-        domain_comm,
-        0, ibzwfs.setups.nao,
-        False, derivative=True)
-    dPdR_aqvMi = ibzwfs.manytci.P_aqMi(
-        ibzwfs.atomdist.indices,
-        derivative=True)
+        self._derivatives_q: dict[int, Derivatives] = {}
 
-    domain_comm.sum(dThetadR_qvMM)
-    domain_comm.sum(dTdR_qvMM)
+    def calculate_derivatives(self,
+                              q: int) -> Derivatives:
+        if not self._derivatives_q:
+            dThetadR_qvMM, dTdR_qvMM = self.manytci.O_qMM_T_qMM(
+                self.atomdist.comm,
+                0, self.nao,
+                False, derivative=True)
 
-    F_av = np.zeros((len(ibzwfs.setups), 3))
+            self.atomdist.comm.sum(dThetadR_qvMM)
+            self.atomdist.comm.sum(dTdR_qvMM)
+
+            dPdR_aqvMi = self.manytci.P_aqMi(
+                self.atomdist.indices,
+                derivative=True)
+
+            dPdR_qavMi = [{a: dPdR_qvMi[q]
+                           for a, dPdR_qvMi in dPdR_aqvMi.items()}
+                          for q in range(len(dThetadR_qvMM))]
+
+            self._derivatives_q = {
+                q: (dThetadR_vMM, dTdR_vMM, dPdR_avMi)
+                for q, (dThetadR_vMM, dTdR_vMM, dPdR_avMi)
+                in enumerate(zip(dThetadR_qvMM, dTdR_qvMM, dPdR_qavMi))}
+
+        return self._derivatives_q[q]
+
+
+def add_force_contributions(wfs: LCAOWaveFunctions,
+                            potential: Potential,
+                            F_av: Array2D) -> None:
+    (dThetadR_vMM,
+     dTdR_vMM,
+     dPdR_avMi) = wfs.tci_derivatives.calculate_derivatives(wfs.q)
+
     indices = []
     M1 = 0
-    for a, P_Mi in ibzwfs.P_aMi.items():
+    for a, P_Mi in wfs.P_aMi.items():
         M2 = M1 + len(P_Mi)
         indices.append((a, M1, M2))
         M1 = M2
 
-    for wfs, dTdR_vMM in zip(ibzwfs, dTdR_qvMM):
-        #Transpose?
-        rho_MM = wfs.calculate_density_matrix()
-        erho_MM = wfs.calculate_density_matrix(eigs=True)
+    # Transpose?
+    rhoT_MM = wfs.calculate_density_matrix().T
+    erho_MM = wfs.calculate_density_matrix(eigs=True)
 
-        add_kinetic_term(rho_MM, dTdR_vMM, F_av, indices)
-        Fpot_av = get_pot_term()
-        Ftheta_av = get_den_mat_term()
-        Frho_av = get_den_mat_paw_term()
-        Fatom_av = get_atomic_density_term()
-
-    return Fkin_av + Fpot_av + Ftheta_av + Frho_av + Fatom_av
+    add_kinetic_term(rhoT_MM, dTdR_vMM, F_av, indices)
+    add_pot_term(potential.vt_sR, wfs.basis, wfs.q, rhoT_MM, F_av)
+    #Ftheta_av = get_den_mat_term()
+    #Frho_av = get_den_mat_paw_term()
+    #Fatom_av = get_atomic_density_term()
 
 
 def add_kinetic_term(rho_MM, dTdR_vMM, F_av, indices):
@@ -59,6 +92,22 @@ def add_kinetic_term(rho_MM, dTdR_vMM, F_av, indices):
                                     rho_MM[:, M1:M2])
 
 
+def add_pot_term(vt_R, basis, q, rhoT_MM, F_av) -> None:
+    """Calculate potential term"""
+    # Potential contribution
+    #
+    #           -----      /  d Phi  (r)
+    #  a         \        |        mu    ~
+    # F += -2 Re  )       |   ---------- v (r)  Phi  (r) dr rho
+    #            /        |     d R                nu          nu mu
+    #           -----    /         a
+    #        mu in a; nu
+    #
+    F_av += basis.calculate_force_contribution(vt_R,
+                                               rhoT_MM,
+                                               q)
+
+'''
 def get_den_mat_term(self):
     """Calculate density matrix term in LCAO"""
     Ftheta_av = np.zeros_like(self.Fref_av)
@@ -79,31 +128,6 @@ def get_den_mat_term(self):
             Ftheta_av[a, :] += \
                 -2.0 * dThetadRE_vMM[:, M1:M2].sum(-1).sum(-1)
     return Ftheta_av
-
-
-def get_pot_term(self):
-    """Calculate potential term"""
-    Fpot_av = np.zeros_like(self.Fref_av)
-    # Potential contribution
-    #
-    #           -----      /  d Phi  (r)
-    #  a         \        |        mu    ~
-    # F += -2 Re  )       |   ---------- v (r)  Phi  (r) dr rho
-    #            /        |     d R                nu          nu mu
-    #           -----    /         a
-    #        mu in a; nu
-    #
-    self.timer.start('Potential')
-    vt_sG = self.hamiltonian.vt_sG
-    Fpot_av = np.zeros_like(Fpot_av)
-    for u, kpt in enumerate(self.kpt_u):
-        vt_G = vt_sG[kpt.s]
-        Fpot_av += self.bfs.calculate_force_contribution(vt_G,
-                                                         self.rhoT_uMM[u],
-                                                         kpt.q)
-    self.timer.stop('Potential')
-
-    return Fpot_av
 
 
 def get_den_mat_paw_term(self):
@@ -469,3 +493,4 @@ def get_at_den_and_den_paw_blacs(self):
     Frho_av_sum += Frho_av
 
     return Fatom_av_sum, Frho_av_sum
+'''
