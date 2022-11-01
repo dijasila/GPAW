@@ -157,8 +157,8 @@ class WCalculator:
         if self.truncation == 'wigner-seitz':
             wstc = WignerSeitzTruncatedCoulomb(
                 self.wcalc.gs.gd.cell_cv,
-                self.wcalc.gs.kd.N_c,
-                self.fd)
+                self.wcalc.gs.kd.N_c)
+            print(wstc.get_description(), self.fd)
         else:
             wstc = None
 
