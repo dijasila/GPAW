@@ -5,7 +5,6 @@ import sys
 
 import numpy as np
 from ase.units import Hartree, Bohr
-from ase.utils import IOContext
 from ase.dft import monkhorst_pack
 from scipy.linalg import eigh
 
@@ -14,7 +13,7 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.pw.descriptor import PWDescriptor
 from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.mpi import world, serial_comm, broadcast
-from gpaw.response import ResponseGroundStateAdapter
+from gpaw.response import ResponseContext, ResponseGroundStateAdapter, timer
 from gpaw.response.chi0 import Chi0
 from gpaw.response.df import write_response_function
 from gpaw.response.coulomb_kernels import get_coulomb_kernel
@@ -93,17 +92,16 @@ class BSE:
 
         assert mode in ['RPA', 'TDHF', 'BSE']
 
-        self.iocontext = IOContext()
-        self.fd = self.iocontext.openfile(txt)
+        self.context = ResponseContext(txt, world=world, timer=timer)
 
         self.ecut = ecut / Hartree
         self.nbands = nbands
         self.mode = mode
         self.truncation = truncation
         if integrate_gamma == 0 and truncation is not None:
-            print('***WARNING*** Analytical Coulomb integration is ' +
+            self.context.print('***WARNING*** Analytical Coulomb integration is ' +
                   'not expected to work with Coulomb truncation. ' +
-                  'Use integrate_gamma=1', file=self.fd)
+                  'Use integrate_gamma=1')
         self.integrate_gamma = integrate_gamma
         self.wfile = wfile
         self.write_h = write_h
@@ -112,8 +110,8 @@ class BSE:
         # Find q-vectors and weights in the IBZ:
         self.kd = self.gs.kd
         if -1 in self.kd.bz2bz_ks:
-            print('***WARNING*** Symmetries may not be right ' +
-                  'Use gamma-centered grid to be sure', file=self.fd)
+            self.context.print('***WARNING*** Symmetries may not be right ' +
+                  'Use gamma-centered grid to be sure')
         offset_c = 0.5 * ((self.kd.N_c + 1) % 2) / self.kd.N_c
         bzq_qc = monkhorst_pack(self.kd.N_c) + offset_c
         self.qd = KPointDescriptor(bzq_qc)
@@ -124,9 +122,9 @@ class BSE:
         if self.spins == 2:
             if self.spinors:
                 self.spinors = False
-                print('***WARNING*** Presently the spinor version' +
+                self.context.print('***WARNING*** Presently the spinor version' +
                       'does not work for spin-polarized calculations.' +
-                      'Performing scalar calculation', file=self.fd)
+                      'Performing scalar calculation')
             assert len(valence_bands[0]) == len(valence_bands[1])
             assert len(conduction_bands[0]) == len(conduction_bands[1])
         if valence_bands is None:
@@ -175,7 +173,8 @@ class BSE:
         # Wigner-Seitz stuff
         if self.truncation == 'wigner-seitz':
             self.wstc = WignerSeitzTruncatedCoulomb(self.gs.gd.cell_cv,
-                                                    self.kd.N_c, self.fd)
+                                                    self.kd.N_c)
+            self.context.print(self.wstc.get_description())
         else:
             self.wstc = None
 
@@ -185,9 +184,6 @@ class BSE:
         self._chi0calc = None  # Initialized later
         self._wcalc = None  # Initialized later
 
-    def __del__(self):
-        self.iocontext.close()
-
     def calculate(self, optical=True):
 
         if self.spinors:
@@ -196,7 +192,7 @@ class BSE:
             # for unoccupied states and n is used for occupied states so be
             # careful!
 
-            print('Diagonalizing spin-orbit Hamiltonian', file=self.fd)
+            self.context.print('Diagonalizing spin-orbit Hamiltonian')
             if world.rank == 0:
                 # XXX Probably not a good idea for this to be serial!
                 soc = self.gs.soc_eigenstates(scale=self.scale)
@@ -331,8 +327,8 @@ class BSE:
 
         # Calculate Hamiltonian
         t0 = time()
-        print('Calculating %s matrix elements at q_c = %s'
-              % (self.mode, self.q_c), file=self.fd)
+        self.context.print('Calculating %s matrix elements at q_c = %s'
+              % (self.mode, self.q_c))
         H_ksmnKsmn = np.zeros((myKsize, Ns, Nv, Nc, nK, Ns, Nv, Nc), complex)
         for ik1, iK1 in enumerate(myKrange):
             for s1 in range(Ns):
@@ -392,10 +388,10 @@ class BSE:
             if iK1 % (myKsize // 5 + 1) == 0:
                 dt = time() - t0
                 tleft = dt * myKsize / (iK1 + 1) - dt
-                print('  Finished %s pair orbitals in %s - Estimated %s left' %
+                self.context.print('  Finished %s pair orbitals in %s - Estimated %s left' %
                       ((iK1 + 1) * Nv * Nc * Ns * world.size,
                        timedelta(seconds=round(dt)),
-                       timedelta(seconds=round(tleft))), file=self.fd)
+                       timedelta(seconds=round(tleft))))
 
         # if self.mode == 'BSE':
         #     del self.Q_qaGii, self.W_qGG, self.pd_q
@@ -485,12 +481,10 @@ class BSE:
                         pos_av=self.gs.get_pos_av())
                     for Q_aGii, pd in zip(data['Q'], self.pd_q)]
                 self.W_qGG = data['W']
-                print('Reading screened potential from % s' % self.wfile,
-                      file=self.fd)
+                self.context.print('Reading screened potential from % s' % self.wfile)
             except FileNotFoundError:
                 self.calculate_screened_potential()
-                print('Saving screened potential to % s' % self.wfile,
-                      file=self.fd)
+                self.context.print('Saving screened potential to % s' % self.wfile)
                 if world.rank == 0:
                     np.savez(self.wfile,
                              Q=[pawcorr.Q_aGii for pawcorr in self.pawcorr_q],
@@ -528,10 +522,9 @@ class BSE:
                 chi0calc=self._chi0calc,
                 truncation=self.truncation,
                 world=world,
-                txt=self.fd,
                 integrate_gamma=self.integrate_gamma)
         t0 = time()
-        print('Calculating screened potential', file=self.fd)
+        self.context.print('Calculating screened potential')
         for iq, q_c in enumerate(self.qd.ibzk_kc):
             chi0 = self._chi0calc.calculate(q_c)
             pd, W_wGG = self._wcalc.calculate_q(iq, q_c, chi0, out_dist='WgG')
@@ -543,22 +536,21 @@ class BSE:
             if iq % (self.qd.nibzkpts // 5 + 1) == 2:
                 dt = time() - t0
                 tleft = dt * self.qd.nibzkpts / (iq + 1) - dt
-                print('  Finished %s q-points in %s - Estimated %s left' %
+                self.context.print('  Finished %s q-points in %s - Estimated %s left' %
                       (iq + 1, timedelta(seconds=round(dt)),
-                       timedelta(seconds=round(tleft))), file=self.fd)
+                       timedelta(seconds=round(tleft))))
 
     def diagonalize(self):
 
-        print('Diagonalizing Hamiltonian', file=self.fd)
+        self.context.print('Diagonalizing Hamiltonian')
         """The t and T represent local and global
            eigenstates indices respectively
         """
 
         # Non-Hermitian matrix can only use linalg.eig
         if not self.td:
-            print('  Using numpy.linalg.eig...', file=self.fd)
-            print('  Eliminated %s pair orbitals' % len(self.excludef_S),
-                  file=self.fd)
+            self.context.print('  Using numpy.linalg.eig...')
+            self.context.print('  Eliminated %s pair orbitals' % len(self.excludef_S))
 
             self.H_SS = self.collect_A_SS(self.H_sS)
             self.w_T = np.zeros(self.nS - len(self.excludef_S), complex)
@@ -572,10 +564,10 @@ class BSE:
         # Here the eigenvectors are returned as complex conjugated rows
         else:
             if world.size == 1:
-                print('  Using lapack...', file=self.fd)
+                self.context.print('  Using lapack...')
                 self.w_T, self.v_St = eigh(self.H_sS)
             else:
-                print('  Using scalapack...', file=self.fd)
+                self.context.print('  Using scalapack...')
                 nS = self.nS
                 ns = -(-self.kd.nbzkpts // world.size) * (
                     self.nv * self.nc *
@@ -617,11 +609,11 @@ class BSE:
                 return
             self.diagonalize()
         elif readfile == 'H_SS':
-            print('Reading Hamiltonian from file', file=self.fd)
+            self.context.print('Reading Hamiltonian from file')
             self.par_load('H_SS.ulm', 'H_SS')
             self.diagonalize()
         elif readfile == 'v_TS':
-            print('Reading eigenstates from file', file=self.fd)
+            self.context.print('Reading eigenstates from file')
             self.par_load('v_TS.ulm', 'v_TS')
         else:
             raise ValueError('%s array not recognized' % readfile)
@@ -643,8 +635,8 @@ class BSE:
         rhoG0_S = self.rhoG0_S
         df_S = self.df_S
 
-        print('Calculating response function at %s frequency points' %
-              len(w_w), file=self.fd)
+        self.context.print('Calculating response function at %s frequency points' %
+              len(w_w))
         vchi_w = np.zeros(len(w_w), dtype=complex)
 
         if not self.td:
@@ -693,10 +685,10 @@ class BSE:
         dw_w = (w_w[1:] - w_w[:-1]) / Hartree
         wchi_w = (w_w[1:] * vchi_w[1:] + w_w[:-1] * vchi_w[:-1]) / Hartree / 2
         N = -np.dot(dw_w, wchi_w.imag) * self.gs.volume / (2 * np.pi**2)
-        print(file=self.fd)
-        print('Checking f-sum rule:', file=self.fd)
-        print('  Valence = %s, N = %f' % (nv, N), file=self.fd)
-        print(file=self.fd)
+        self.context.print('', flush=False)
+        self.context.print('Checking f-sum rule:', flush=False)
+        self.context.print('  Valence = %s, N = %f' % (nv, N), flush=False)
+        self.context.print('')
 
         if write_eig is not None:
             if world.rank == 0:
@@ -747,8 +739,8 @@ class BSE:
                                     epsilon_w.real, epsilon_w.imag)
         world.barrier()
 
-        print('Calculation completed at:', ctime(), file=self.fd)
-        print(file=self.fd)
+        self.context.print('Calculation completed at:', ctime(), flush=False)
+        self.context.print('')
 
         return w_w, epsilon_w
 
@@ -790,8 +782,8 @@ class BSE:
             f.close()
         world.barrier()
 
-        print('Calculation completed at:', ctime(), file=self.fd)
-        print(file=self.fd)
+        self.context.print('Calculation completed at:', ctime(), flush=False)
+        self.context.print('')
 
         return w_w, eels_w
 
@@ -828,8 +820,8 @@ class BSE:
         if world.rank == 0 and filename is not None:
             write_response_function(filename, w_w, alpha_w.real, alpha_w.imag)
 
-        print('Calculation completed at:', ctime(), file=self.fd)
-        print(file=self.fd)
+        self.context.print('Calculation completed at:', ctime(), flush=False)
+        self.context.print('')
 
         return w_w, alpha_w
 
@@ -861,8 +853,8 @@ class BSE:
                 print('%.9f, %.9f' % (w, abs_w[iw]), file=fd)
             fd.close()
 
-        print('Calculation completed at:', ctime(), file=self.fd)
-        print(file=self.fd)
+        self.context.print('Calculation completed at:', ctime(), flush=False)
+        self.context.print('')
 
         return w_w, abs_w
 
@@ -962,7 +954,7 @@ class BSE:
         return myKrange, myKsize, mySsize
 
     def print_initialization(self, td, eshift, gw_skn):
-        p = functools.partial(print, file=self.fd)
+        p = functools.partial(self.context.print, flush=False)
         p('----------------------------------------------------------')
         p('%s Hamiltonian' % self.mode)
         p('----------------------------------------------------------')
@@ -1016,4 +1008,4 @@ class BSE:
         p('    K-point/band decomposition           : % s' % world.size)
         p('  Hamiltonian')
         p('    Pair orbital decomposition           : % s' % world.size)
-        p()
+        self.context.print('')
