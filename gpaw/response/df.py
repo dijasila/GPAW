@@ -44,7 +44,9 @@ class DielectricFunctionCalculator:
 
         # We cache the computed data since chi0 may otherwise be redundantly
         # calculated e.g. if the user calculates multiple directions.
-        key = tuple((q_c * self.gs.kd.N_c).round())
+        key = (spin, *(q_c * self.gs.kd.N_c).round())
+
+        # Spin='all' is a terrible cache key since it really signifies
 
         if key not in self._chi0cache:
             chi0 = self.chi0calc.calculate(q_c, spin)
@@ -52,7 +54,10 @@ class DielectricFunctionCalculator:
             self.context.write_timer()
             things = chi0.pd, chi0_wGG, chi0.chi0_wxvG, chi0.chi0_wvv
             self._chi0cache[key] = things
-        return self._chi0cache[key]
+
+        pd, *more_things = self._chi0cache[key]
+        return (pd, *[thing.copy() if thing is not None else thing
+                      for thing in more_things])
 
     def collect(self, a_w):
         return self.blocks1d.collect(a_w)
