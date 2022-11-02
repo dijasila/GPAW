@@ -6,7 +6,7 @@ import numpy as np
 from ase.data import covalent_radii
 from ase.data.colors import jmol_colors
 from ase.units import Bohr, Hartree
-from gpaw.calculator import GPAW
+from gpaw import GPAW
 from gpaw.lcao.tightbinding import TightBinding  # as LCAOTightBinding
 from gpaw.lcao.tools import get_bfi
 from gpaw.typing import Array1D, Array2D, Array4D
@@ -33,7 +33,7 @@ def get_orthonormal_subspace(H_MM: Array2D, S_MM: Array2D, indices: Array1D = No
     return eps, v
 
 
-def subdiagonalize(H_MM: Array2D, S_MM: Array2D, blocks: list[list[int]]):
+def subdiagonalize(H_MM: Array2D, S_MM: Array2D, blocks: list[Array1D]):
     """Subdiagonalize blocks."""
     nM = len(H_MM)
     v_MM = np.eye(nM)
@@ -158,12 +158,12 @@ class BasisTransform:
         U_Mx = self.get_rotation(keep_rest)
         P_awi = {}
         for a, P_Mi in P_aMi.items():
-            P_awi[a] = np.tensordot(U_Mx, P_Mi, axes=[[0], [0]])
+            P_awi[a] = np.tensordot(U_Mx, P_Mi, axes=([0], [0]))
         return P_awi
 
     def rotate_function(self, Psi_MG: Array4D, keep_rest: bool = False):
         U_Mx = self.get_rotation(keep_rest)
-        return np.tensordot(U_Mx, Psi_MG, axes=[[0], [0]])
+        return np.tensordot(U_Mx, Psi_MG, axes=([0], [0]))
 
 
 class EffectiveModel(BasisTransform):
@@ -262,7 +262,7 @@ class Subdiagonalization(BasisTransform):
 
     """
 
-    def __init__(self, H_MM: Array2D, S_MM: Array2D, blocks: list[list[int]]) -> None:
+    def __init__(self, H_MM: Array2D, S_MM: Array2D, blocks: list[Array1D]) -> None:
         """
 
         Parameters
@@ -359,7 +359,7 @@ class Subdiagonalization(BasisTransform):
         Parameters
         ----------
         indices : array_like
-            1-D array of indices to include in the model from
+            1-D array of indices to include in the model from 
             the new basis.
         ortho : bool, default=False
             Whether to orthogonalize the model basis.
@@ -417,7 +417,7 @@ class LocalOrbitals(TightBinding):
                 raise RuntimeError(
                     "Must include central unit cell, i.e. R=[0,0,0].") from exc
 
-    def subdiagonalize(self, symbols: Array1D = None, blocks: list[list[int]] = None, groupby: str = 'energy'):
+    def subdiagonalize(self, symbols: Array1D = None, blocks: list[Array1D] = None, groupby: str = 'energy'):
         """Subdiagonalize Hamiltonian and overlap matrices.
 
         Parameters
@@ -475,7 +475,7 @@ class LocalOrbitals(TightBinding):
             1-D array of indices to include in the model
             from the new basis.
         minimal : bool, default=True
-            Whether to add (minimal=False) or not (minimal=True)
+            Whether to add (minimal=False) or not (minimal=True) 
             the orbitals with an overlap larger than `cuoff` with any of the
             orbital specified by `indices`.
         cutoff : float
@@ -597,7 +597,7 @@ class LocalOrbitals(TightBinding):
 
 
 def get_plane_dirs(plane):
-    """Get normal and in-plane directions for a plane identified
+    """Get normal and in-plane directions for a plane identified 
     by any combination of {'x','y','z'}.
 
     Parameters
@@ -652,7 +652,7 @@ def plot2D_orbitals(los, indices, plane='yz'):
     ----------
     los : LocalOrbitals
         Local orbital wrapper
-    indices : array_like
+    indices : array_like    
         List of orbitals to display
     plane : str, optional
         Pair of chars identifying the plane, by default 'yz'.
