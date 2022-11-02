@@ -29,6 +29,7 @@ class KPointFinder:
 
 
 class PWSymmetryAnalyzer:
+
     """Class for handling planewave symmetries."""
     def __init__(self, kd, pd, context,
                  disable_point_group=False,
@@ -372,25 +373,22 @@ class PWSymmetryAnalyzer:
     @timer('symmetrize_wGG')
     def symmetrize_wGG(self, A_wGG):
         """Symmetrize an array in GG'."""
-        
+
         for A_GG in A_wGG:
             tmp_GG = np.zeros_like(A_GG)
-            # tmp2_GG = np.zeros_like(A_GG)
 
             for s in self.s_s:
                 G_G, sign, _ = self.G_sG[s]
-                GG_shuffle(G_G, sign, A_GG, tmp_GG)
+                if A_GG.flags.c_contiguous:
+                    # Optimized C-routine to do the thing below
+                    # only implemented for c-contiguous arrays.
+                    GG_shuffle(G_G, sign, A_GG, tmp_GG)
+                else:
+                    if sign == 1:
+                        tmp_GG += A_GG[G_G, :][:, G_G]
+                    if sign == -1:
+                        tmp_GG += A_GG[G_G, :][:, G_G].T
 
-                # This is the exact operation that GG_shuffle does.
-                # Uncomment lines involving tmp2_GG to test the
-                # implementation in action:
-                #
-                # if sign == 1:
-                #     tmp2_GG += A_GG[G_G, :][:, G_G]
-                # if sign == -1:
-                #     tmp2_GG += A_GG[G_G, :][:, G_G].T
-            
-            # assert np.allclose(tmp_GG, tmp2_GG)
             A_GG[:] = tmp_GG / self.how_many_symmetries()
 
     @timer('symmetrize_wxx')
