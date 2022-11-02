@@ -262,7 +262,6 @@ __global__ void Zcuda(bmgs_paste_zero_cuda_kernel)(
  * Launch CUDA kernel to copy a smaller array into a given position in a
  * larger one on the GPU.
  */
-extern "C"
 static void Zcuda(_bmgs_paste_cuda_gpu)(
         const Tcuda* a, const int sizea[3],
         Tcuda* b, const int sizeb[3], const int startb[3],
@@ -297,7 +296,6 @@ static void Zcuda(_bmgs_paste_cuda_gpu)(
  * Launch CUDA kernel to copy a smaller array into a given position in a
  * larger one and set all other elements to 0.
  */
-extern "C"
 static void Zcuda(_bmgs_paste_zero_cuda_gpu)(
         const Tcuda* a, const int sizea[3],
         Tcuda* b, const int sizeb[3], const int startb[3],
@@ -348,7 +346,6 @@ static void Zcuda(_bmgs_paste_zero_cuda_gpu)(
  *   (int)   zero     -- set all elements to 0 on the CPU when debugging
  *   ...
  */
-extern "C"
 void Zcuda(_bmgs_paste_launcher)(Tfunc function, int zero,
                                  const Tcuda* a, const int sizea[3],
                                  Tcuda* b, const int sizeb[3],

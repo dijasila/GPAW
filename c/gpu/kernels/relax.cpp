@@ -504,7 +504,6 @@ extern "C"
 int bmgs_fd_boundary_test(const bmgsstencil_gpu* s, int boundary,
                           int ndouble);
 
-extern "C"
 dim3 bmgs_fd_cuda_get_blockDim(int ndouble);
 
 extern "C"

@@ -12,9 +12,7 @@
 #define NO_IMPORT_ARRAY
 #include <numpy/arrayobject.h>
 
-extern "C" {
-#include "../lfc.h"
-}
+#include "../../lfc.h"
 #include "../gpu.h"
 #include "../gpu-complex.h"
 

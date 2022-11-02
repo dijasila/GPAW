@@ -516,7 +516,6 @@ extern "C"
 int bmgs_fd_boundary_test(
         const bmgsstencil_gpu* s, int boundary, int ndouble);
 
-extern "C"
 dim3 bmgs_fd_cuda_get_blockDim(int ndouble);
 
 extern "C"
@@ -808,7 +807,6 @@ double Zcuda(bmgs_fd_cuda_cpu)(const bmgsstencil* s, const Tcuda* a,
 #define GPU_USE_COMPLEX
 #include "fd.cpp"
 
-extern "C"
 dim3 bmgs_fd_cuda_get_blockDim(int ndouble)
 {
     dim3 dimBlock(1,1,1);
