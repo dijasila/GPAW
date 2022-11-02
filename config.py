@@ -275,7 +275,7 @@ def build_cuda(gpu_compiler, gpu_compile_args, gpu_include_dirs,
                'c/gpu/kernels/linalg.cpp',
                'c/gpu/kernels/elementwise.cpp']
     for src in kernels:
-        obj = os.path.join(build_path, src[:-2] + 'o')
+        obj = os.path.join(build_path, src + '.o')
         objects.append(obj)
         cmd = ("%s %s %s -x cu --compiler-options='%s' %s -o %s -c %s ") % \
               (gpu_compiler,
