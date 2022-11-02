@@ -26,6 +26,10 @@ class DielectricFunctionCalculator:
         self.wd = chi0calc.wd
         self.blocks1d = Blocks1D(self.context.world, len(self.wd))
 
+    @property
+    def gs(self):
+        return self.chi0calc.gs
+
     def calculate_chi0(self, q_c, spin='all'):
         """Calculates the response function.
 
@@ -448,10 +452,6 @@ class DielectricFunctionCalculator:
                                     eels_NLFC_w, eels_LFC_w)
 
         return eels_NLFC_w, eels_LFC_w
-
-    @property
-    def gs(self):
-        return self.chi0calc.gs
 
     def get_polarizability(self, xc='RPA', direction='x', q_c=[0, 0, 0],
                            filename='polarizability.csv'):
