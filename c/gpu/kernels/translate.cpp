@@ -93,5 +93,5 @@ void Zcuda(bmgs_translate_cuda_gpu)(
 
 #ifndef GPU_USE_COMPLEX
 #define GPU_USE_COMPLEX
-#include "translate.cu"
+#include "translate.cpp"
 #endif

@@ -38,61 +38,61 @@ static void reduceNumBlocksAndThreads(int n, int *blocks, int *threads)
 
 #define INNAME(f) MAPNAME(f ## _map512)
 #define REDUCE_THREADS   512
-#include "reduce-kernel.cu"
+#include "reduce-kernel.cpp"
 #undef  REDUCE_THREADS
 #undef  INNAME
 
 #define INNAME(f) MAPNAME(f ## _map256)
 #define REDUCE_THREADS   256
-#include "reduce-kernel.cu"
+#include "reduce-kernel.cpp"
 #undef  REDUCE_THREADS
 #undef  INNAME
 
 #define INNAME(f) MAPNAME(f ## _map128)
 #define REDUCE_THREADS   128
-#include "reduce-kernel.cu"
+#include "reduce-kernel.cpp"
 #undef  REDUCE_THREADS
 #undef  INNAME
 
 #define INNAME(f) MAPNAME(f ## _map64)
 #define REDUCE_THREADS   64
-#include "reduce-kernel.cu"
+#include "reduce-kernel.cpp"
 #undef  REDUCE_THREADS
 #undef  INNAME
 
 #define INNAME(f) MAPNAME(f ## _map32)
 #define REDUCE_THREADS   32
-#include "reduce-kernel.cu"
+#include "reduce-kernel.cpp"
 #undef  REDUCE_THREADS
 #undef  INNAME
 
 #define INNAME(f) MAPNAME(f ## _map16)
 #define REDUCE_THREADS   16
-#include "reduce-kernel.cu"
+#include "reduce-kernel.cpp"
 #undef  REDUCE_THREADS
 #undef  INNAME
 
 #define INNAME(f) MAPNAME(f ## _map8)
 #define REDUCE_THREADS   8
-#include "reduce-kernel.cu"
+#include "reduce-kernel.cpp"
 #undef  REDUCE_THREADS
 #undef  INNAME
 
 #define INNAME(f) MAPNAME(f ## _map4)
 #define REDUCE_THREADS   4
-#include "reduce-kernel.cu"
+#include "reduce-kernel.cpp"
 #undef  REDUCE_THREADS
 #undef  INNAME
 
 #define INNAME(f) MAPNAME(f ## _map2)
 #define REDUCE_THREADS   2
-#include "reduce-kernel.cu"
+#include "reduce-kernel.cpp"
 #undef  REDUCE_THREADS
 #undef  INNAME
 
 #define INNAME(f) MAPNAME(f ## _map1)
 #define REDUCE_THREADS   1
-#include "reduce-kernel.cu"
+#include "reduce-kernel.cpp"
 #undef  REDUCE_THREADS
 #undef  INNAME
 
@@ -101,61 +101,61 @@ static void reduceNumBlocksAndThreads(int n, int *blocks, int *threads)
 
 #define INNAME(f) MAPNAME(f ## 512)
 #define REDUCE_THREADS   512
-#include "reduce-kernel.cu"
+#include "reduce-kernel.cpp"
 #undef  REDUCE_THREADS
 #undef  INNAME
 
 #define INNAME(f) MAPNAME(f ## 256)
 #define REDUCE_THREADS   256
-#include "reduce-kernel.cu"
+#include "reduce-kernel.cpp"
 #undef  REDUCE_THREADS
 #undef  INNAME
 
 #define INNAME(f) MAPNAME(f ## 128)
 #define REDUCE_THREADS   128
-#include "reduce-kernel.cu"
+#include "reduce-kernel.cpp"
 #undef  REDUCE_THREADS
 #undef  INNAME
 
 #define INNAME(f) MAPNAME(f ## 64)
 #define REDUCE_THREADS   64
-#include "reduce-kernel.cu"
+#include "reduce-kernel.cpp"
 #undef  REDUCE_THREADS
 #undef  INNAME
 
 #define INNAME(f) MAPNAME(f ## 32)
 #define REDUCE_THREADS   32
-#include "reduce-kernel.cu"
+#include "reduce-kernel.cpp"
 #undef  REDUCE_THREADS
 #undef  INNAME
 
 #define INNAME(f) MAPNAME(f ## 16)
 #define REDUCE_THREADS   16
-#include "reduce-kernel.cu"
+#include "reduce-kernel.cpp"
 #undef  REDUCE_THREADS
 #undef  INNAME
 
 #define INNAME(f) MAPNAME(f ## 8)
 #define REDUCE_THREADS   8
-#include "reduce-kernel.cu"
+#include "reduce-kernel.cpp"
 #undef  REDUCE_THREADS
 #undef  INNAME
 
 #define INNAME(f) MAPNAME(f ## 4)
 #define REDUCE_THREADS   4
-#include "reduce-kernel.cu"
+#include "reduce-kernel.cpp"
 #undef  REDUCE_THREADS
 #undef  INNAME
 
 #define INNAME(f) MAPNAME(f ## 2)
 #define REDUCE_THREADS   2
-#include "reduce-kernel.cu"
+#include "reduce-kernel.cpp"
 #undef  REDUCE_THREADS
 #undef  INNAME
 
 #define INNAME(f) MAPNAME(f ## 1)
 #define REDUCE_THREADS   1
-#include "reduce-kernel.cu"
+#include "reduce-kernel.cpp"
 #undef  REDUCE_THREADS
 #undef  INNAME
 

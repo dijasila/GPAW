@@ -21,13 +21,13 @@
 
 #define MAPNAME(f) Zcuda(f ## _dotu)
 #define MAPFUNC(a,b) MULTT((a), (b))
-#include "reduce.cu"
+#include "reduce.cpp"
 #undef MAPNAME
 #undef MAPFUNC
 
 #define MAPNAME(f) Zcuda(f ## _dotc)
 #define MAPFUNC(a,b) MULTT(CONJ(a), (b))
-#include "reduce.cu"
+#include "reduce.cpp"
 #undef MAPNAME
 #undef MAPFUNC
 
@@ -63,7 +63,7 @@ __global__ void Zcuda(multi_axpy_cuda_kernel)(int n, const Tcuda *alpha,
 
 #ifndef GPU_USE_COMPLEX
 #define GPU_USE_COMPLEX
-#include "mblas.cu"
+#include "mblas.cpp"
 
 extern "C"
 PyObject* multi_scal_cuda_gpu(PyObject *self, PyObject *args)

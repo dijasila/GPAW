@@ -33,7 +33,7 @@ static INLINE void* gpaw_malloc(int n)
 
 #endif
 
-#include "lfc-reduce.cu"
+#include "lfc-reduce.cpp"
 
 
 __global__ void Zcuda(add_kernel)(Tcuda *a_G, const Tcuda *c_M, int *G_B1,
@@ -90,7 +90,7 @@ __global__ void Zcuda(add_kernel)(Tcuda *a_G, const Tcuda *c_M, int *G_B1,
 
 #ifndef GPU_USE_COMPLEX
 #define GPU_USE_COMPLEX
-#include "lfc.cu"
+#include "lfc.cpp"
 
 extern "C"
 void lfc_dealloc_cuda(LFCObject *self)

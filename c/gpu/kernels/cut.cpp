@@ -247,5 +247,5 @@ void Zcuda(bmgs_cut_cuda_gpu)(
 
 #ifndef GPU_USE_COMPLEX
 #define GPU_USE_COMPLEX
-#include "cut.cu"
+#include "cut.cpp"
 #endif

@@ -83,7 +83,7 @@ __global__ void Zcuda(multi_ax2py_kernel)(int n, int nvec, double *a,
 
 #ifndef GPU_USE_COMPLEX
 #define GPU_USE_COMPLEX
-#include "linalg.cu"
+#include "linalg.cpp"
 
 __global__ void elmenwise_mul_add_kernelzz(
         int n, const gpuDoubleComplex* a, const gpuDoubleComplex* b,

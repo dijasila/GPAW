@@ -419,7 +419,7 @@ void Zcuda(bmgs_paste_zero_cuda_gpu)(const Tcuda* a, const int sizea[3],
 
 #ifndef GPU_USE_COMPLEX
 #define GPU_USE_COMPLEX
-#include "paste.cu"
+#include "paste.cpp"
 
 extern "C"
 double bmgs_paste_cuda_cpu(const double* a, const int sizea[3],

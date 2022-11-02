@@ -422,35 +422,35 @@ __global__ void RELAX_kernel_onlyb(
 #define MYJ  (2/2)
 #  define RELAX_kernel relax_kernel2_fermi
 #  define RELAX_kernel_onlyb relax_kernel2_onlyb_fermi
-#  include "relax.cu"
+#  include "relax.cpp"
 #  undef RELAX_kernel
 #  undef RELAX_kernel_onlyb
 #  undef MYJ
 #define MYJ  (4/2)
 #  define RELAX_kernel relax_kernel4_fermi
 #  define RELAX_kernel_onlyb relax_kernel4_onlyb_fermi
-#  include "relax.cu"
+#  include "relax.cpp"
 #  undef RELAX_kernel
 #  undef RELAX_kernel_onlyb
 #  undef MYJ
 #define MYJ  (6/2)
 #  define RELAX_kernel relax_kernel6_fermi
 #  define RELAX_kernel_onlyb relax_kernel6_onlyb_fermi
-#  include "relax.cu"
+#  include "relax.cpp"
 #  undef RELAX_kernel
 #  undef RELAX_kernel_onlyb
 #  undef MYJ
 #define MYJ  (8/2)
 #  define RELAX_kernel relax_kernel8_fermi
 #  define RELAX_kernel_onlyb relax_kernel8_onlyb_fermi
-#  include "relax.cu"
+#  include "relax.cpp"
 #  undef RELAX_kernel
 #  undef RELAX_kernel_onlyb
 #  undef MYJ
 #define MYJ  (10/2)
 #  define RELAX_kernel relax_kernel10_fermi
 #  define RELAX_kernel_onlyb relax_kernel10_onlyb_fermi
-#  include "relax.cu"
+#  include "relax.cpp"
 #  undef RELAX_kernel
 #  undef RELAX_kernel_onlyb
 #  undef MYJ
@@ -463,35 +463,35 @@ __global__ void RELAX_kernel_onlyb(
 #define MYJ  (2/2)
 #  define RELAX_kernel relax_kernel2_kepler
 #  define RELAX_kernel_onlyb relax_kernel2_onlyb_kepler
-#  include "relax.cu"
+#  include "relax.cpp"
 #  undef RELAX_kernel
 #  undef RELAX_kernel_onlyb
 #  undef MYJ
 #define MYJ  (4/2)
 #  define RELAX_kernel relax_kernel4_kepler
 #  define RELAX_kernel_onlyb relax_kernel4_onlyb_kepler
-#  include "relax.cu"
+#  include "relax.cpp"
 #  undef RELAX_kernel
 #  undef RELAX_kernel_onlyb
 #  undef MYJ
 #define MYJ  (6/2)
 #  define RELAX_kernel relax_kernel6_kepler
 #  define RELAX_kernel_onlyb relax_kernel6_onlyb_kepler
-#  include "relax.cu"
+#  include "relax.cpp"
 #  undef RELAX_kernel
 #  undef RELAX_kernel_onlyb
 #  undef MYJ
 #define MYJ  (8/2)
 #  define RELAX_kernel relax_kernel8_kepler
 #  define RELAX_kernel_onlyb relax_kernel8_onlyb_kepler
-#  include "relax.cu"
+#  include "relax.cpp"
 #  undef RELAX_kernel
 #  undef RELAX_kernel_onlyb
 #  undef MYJ
 #define MYJ  (10/2)
 #  define RELAX_kernel relax_kernel10_kepler
 #  define RELAX_kernel_onlyb relax_kernel10_onlyb_kepler
-#  include "relax.cu"
+#  include "relax.cpp"
 #  undef RELAX_kernel
 #  undef RELAX_kernel_onlyb
 #  undef MYJ

@@ -56,7 +56,7 @@ __global__ void Zcuda(add_linear_field_cuda_kernel)(
 
 #ifndef GPU_USE_COMPLEX
 #define GPU_USE_COMPLEX
-#include "ext-potential.cu"
+#include "ext-potential.cpp"
 
 extern "C"
 PyObject* add_linear_field_cuda_gpu(PyObject *self, PyObject *args)
