@@ -359,7 +359,7 @@ class Subdiagonalization(BasisTransform):
         Parameters
         ----------
         indices : array_like
-            1-D array of indices to include in the model from 
+            1-D array of indices to include in the model from
             the new basis.
         ortho : bool, default=False
             Whether to orthogonalize the model basis.
@@ -475,7 +475,7 @@ class LocalOrbitals(TightBinding):
             1-D array of indices to include in the model
             from the new basis.
         minimal : bool, default=True
-            Whether to add (minimal=False) or not (minimal=True) 
+            Whether to add (minimal=False) or not (minimal=True)
             the orbitals with an overlap larger than `cuoff` with any of the
             orbital specified by `indices`.
         cutoff : float
@@ -597,7 +597,7 @@ class LocalOrbitals(TightBinding):
 
 
 def get_plane_dirs(plane):
-    """Get normal and in-plane directions for a plane identified 
+    """Get normal and in-plane directions for a plane identified
     by any combination of {'x','y','z'}.
 
     Parameters
@@ -652,7 +652,7 @@ def plot2D_orbitals(los, indices, plane='yz'):
     ----------
     los : LocalOrbitals
         Local orbital wrapper
-    indices : array_like    
+    indices : array_like
         List of orbitals to display
     plane : str, optional
         Pair of chars identifying the plane, by default 'yz'.
