@@ -1,6 +1,4 @@
-import os
 import sys
-import pickle
 from math import pi
 
 import numpy as np
