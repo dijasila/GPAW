@@ -38,13 +38,6 @@ def test_chi0_intraband(in_tmp_dir):
     a1.calc.write('intraband_spinpaired.gpw', 'all')
     a2.calc.write('intraband_spinpolarized.gpw', 'all')
 
-    # Calculate the dielectric functions
-    if world.rank == 0:
-        try:
-            os.remove('intraband_spinpaired+0+0+0.pckl')
-        except OSError:
-            pass
-
     df1 = DielectricFunction('intraband_spinpaired.gpw',
                              frequencies={'type': 'nonlinear',
                                           'domega0': 0.03},
@@ -58,11 +51,6 @@ def test_chi0_intraband(in_tmp_dir):
     df1NLFCz, df1LFCz = df1.get_dielectric_function(direction='z')
     wp1_vv = df1.chi0calc.plasmafreq_vv**0.5
     wp1 = wp1_vv[0, 0]
-    if world.rank == 0:
-        try:
-            os.remove('intraband_spinpolarized+0+0+0.pckl')
-        except OSError:
-            pass
 
     df2 = DielectricFunction('intraband_spinpolarized.gpw',
                              frequencies={'type': 'nonlinear',
