@@ -47,31 +47,6 @@ class DielectricFunctionCalculator:
         self.context.write_timer()
         return chi0.pd, chi0_wGG, chi0.chi0_wxvG, chi0.chi0_wvv
 
-    def write(self, name, pd, chi0_wGG, chi0_wxvG, chi0_wvv):
-        nw = len(self.wd)
-        nG = pd.ngmax
-        world = self.context.world
-        mynw = self.blocks1d.blocksize
-
-        if world.rank == 0:
-            fd = open(name, 'wb')
-            pickle.dump((self.wd.omega_w, pd, None, chi0_wxvG, chi0_wvv),
-                        fd, pickle.HIGHEST_PROTOCOL)
-            for chi0_GG in chi0_wGG:
-                pickle.dump(chi0_GG, fd, pickle.HIGHEST_PROTOCOL)
-
-            tmp_wGG = np.empty((mynw, nG, nG), complex)
-            w1 = mynw
-            for rank in range(1, world.size):
-                w2 = min(w1 + mynw, nw)
-                world.receive(tmp_wGG[:w2 - w1], rank)
-                for w in range(w2 - w1):
-                    pickle.dump(tmp_wGG[w], fd, pickle.HIGHEST_PROTOCOL)
-                w1 = w2
-            fd.close()
-        else:
-            world.send(chi0_wGG, 0)
-
     def read(self, name):
         self.context.print('Reading from', name)
         with open(name, 'rb') as fd:
