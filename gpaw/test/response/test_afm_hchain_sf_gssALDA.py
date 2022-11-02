@@ -11,8 +11,10 @@ from ase.dft.kpoints import monkhorst_pack
 from gpaw import PW, GPAW
 from gpaw.mpi import world
 from gpaw.test import findpeak
+
+from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.tms import TransverseMagneticSusceptibility
-from gpaw.response.susceptibility import read_macroscopic_component
+from gpaw.response.df import read_response_function
 
 
 @pytest.mark.kspair
@@ -75,7 +77,8 @@ def test_response_afm_hchain_gssALDA(in_tmp_dir):
     fxckwargs = {'rshelmax': rshelmax,
                  'rshewmin': rshewmin,
                  'fxc_scaling': fxc_scaling}
-    tms = TransverseMagneticSusceptibility(calc,
+    gs = ResponseGroundStateAdapter(calc)
+    tms = TransverseMagneticSusceptibility(gs,
                                            nbands=nbands,
                                            fxc=fxc,
                                            eta=eta,
@@ -84,17 +87,18 @@ def test_response_afm_hchain_gssALDA(in_tmp_dir):
                                            gammacentered=True,
                                            nblocks=nblocks)
     for q, q_c in enumerate(q_qc):
+        filename = 'h-chain_macro_tms_q%d.csv' % q
+        txt = 'h-chain_macro_tms_q%d.txt' % q
         tms.get_macroscopic_component('+-', q_c, frq_w,
-                                      filename=('h-chain_macro_tms'
-                                                + '_q%d.csv' % q))
+                                      filename=filename, txt=txt)
 
-    tms.write_timer()
+    tms.context.write_timer()
     world.barrier()
 
     # Part 3: Identify magnon peak in finite q scattering function
-    w0_w, _, chi0_w = read_macroscopic_component('h-chain_macro_tms_q0.csv')
-    w1_w, _, chi1_w = read_macroscopic_component('h-chain_macro_tms_q1.csv')
-    w2_w, _, chi2_w = read_macroscopic_component('h-chain_macro_tms_q2.csv')
+    w0_w, _, chi0_w = read_response_function('h-chain_macro_tms_q0.csv')
+    w1_w, _, chi1_w = read_response_function('h-chain_macro_tms_q1.csv')
+    w2_w, _, chi2_w = read_response_function('h-chain_macro_tms_q2.csv')
 
     wpeak1, Ipeak1 = findpeak(w1_w, -chi1_w.imag / np.pi)
     wpeak2, Ipeak2 = findpeak(w2_w, -chi2_w.imag / np.pi)

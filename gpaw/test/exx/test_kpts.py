@@ -7,21 +7,26 @@ from ase import Atoms
 
 from gpaw import GPAW, PW
 from gpaw.hybrids.eigenvalues import non_self_consistent_eigenvalues
-from gpaw.xc.exx import EXX
-from gpaw.mpi import world
+from gpaw.mpi import size
 
 n = 7
 
 
 @pytest.fixture(scope='module')
-def atoms():
+def atoms() -> Atoms:
     a = Atoms('HH',
               cell=[2, 2, 2.5, 90, 90, 60],
               pbc=1,
               positions=[[0, 0, 0], [0, 0, 0.75]])
+    parallel = dict(zip(['domain', 'kpt', 'band'],
+                        {1: [1, 1, 1],
+                         2: [2, 1, 1],
+                         4: [2, 2, 1],
+                         8: [2, 2, 2]}[size]))
     a.calc = GPAW(mode=PW(200),
                   kpts=(n, n, 1),
-                  xc='PBE')
+                  xc='PBE',
+                  parallel=parallel)
     a.get_potential_energy()
     return a
 
@@ -41,7 +46,7 @@ gaps = {'EXX': 21.45,
 
 @pytest.mark.libxc
 @pytest.mark.parametrize('xc', ['EXX', 'PBE0', 'HSE06'])
-def test_kpts(xc, atoms):
+def test_kpts(xc: str, atoms: Atoms) -> None:
     c = atoms.calc
     e0, v0, v = non_self_consistent_eigenvalues(c, xc)
     e = e0 - v0 + v
@@ -51,8 +56,3 @@ def test_kpts(xc, atoms):
     k1, k2, gap = bandgap(e0)
     assert k1 == 4 and k2 == 7
     assert gap == pytest.approx(gaps['PBE'], abs=0.01)
-    if world.size == 1:
-        xc2 = EXX(c.gs_adapter(), xc=xc, bands=(0, c.wfs.bd.nbands), txt=None)
-        xc2.calculate()
-        v2 = xc2.get_eigenvalue_contributions()
-        assert np.allclose(v, v2), (v, v2)

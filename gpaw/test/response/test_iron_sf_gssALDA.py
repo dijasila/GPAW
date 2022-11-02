@@ -16,10 +16,12 @@ from ase.dft.kpoints import monkhorst_pack
 from ase.parallel import parprint
 
 from gpaw import GPAW, PW
-from gpaw.response.tms import TransverseMagneticSusceptibility
-from gpaw.response.susceptibility import read_macroscopic_component
 from gpaw.test import findpeak, equal
 from gpaw.mpi import world
+
+from gpaw.response import ResponseGroundStateAdapter, ResponseContext
+from gpaw.response.tms import TransverseMagneticSusceptibility
+from gpaw.response.df import read_response_function
 
 
 @pytest.mark.kspair
@@ -69,8 +71,11 @@ def test_response_iron_sf_gssALDA(in_tmp_dir):
     t2 = time.time()
 
     # Part 2: magnetic response calculation
+    context = ResponseContext()
+    gs = ResponseGroundStateAdapter.from_gpw_file('Fe', context=context)
     fxckwargs = {'rshelmax': None, 'fxc_scaling': fxc_scaling}
-    tms = TransverseMagneticSusceptibility('Fe',
+    tms = TransverseMagneticSusceptibility(gs,
+                                           context=context,
                                            fxc=fxc,
                                            eta=eta,
                                            ecut=ecut,
@@ -82,7 +87,7 @@ def test_response_iron_sf_gssALDA(in_tmp_dir):
         tms.get_macroscopic_component(
             '+-', q_qc[q], frq_qw[q],
             filename='iron_dsus' + '_%d.csv' % (q + 1))
-        tms.write_timer()
+        tms.context.write_timer()
 
     t3 = time.time()
 
@@ -92,8 +97,8 @@ def test_response_iron_sf_gssALDA(in_tmp_dir):
     world.barrier()
 
     # Part 3: identify magnon peaks in scattering function
-    w1_w, chiks1_w, chi1_w = read_macroscopic_component('iron_dsus_1.csv')
-    w2_w, chiks2_w, chi2_w = read_macroscopic_component('iron_dsus_2.csv')
+    w1_w, chiks1_w, chi1_w = read_response_function('iron_dsus_1.csv')
+    w2_w, chiks2_w, chi2_w = read_response_function('iron_dsus_2.csv')
 
     print(w1_w, -chi1_w.imag)
     print(w2_w, -chi2_w.imag)

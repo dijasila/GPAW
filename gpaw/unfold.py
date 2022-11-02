@@ -38,8 +38,6 @@ class Unfold:
 
         self.acell_cv = self.gd.cell_cv
         self.bcell_cv = 2 * np.pi * self.gd.icell_cv
-        self.vol = self.gd.volume
-        self.BZvol = (2 * np.pi)**3 / self.vol
 
         self.nb = self.calc.get_number_of_bands()
 

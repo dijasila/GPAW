@@ -11,7 +11,10 @@ pytestmark = pytest.mark.skipif(world.size > 1,
 def test_gamma_point_calculation():
     atoms = molecule('C6H6', vacuum=2)
 
-    calc = GPAW(mode='lcao', xc='LDA', basis='szp(dzp)', txt=None)
+    calc = GPAW(mode='lcao',
+                xc='LDA',
+                basis='szp(dzp)',
+                txt=None)
     calc.atoms = atoms
     calc.get_potential_energy()
 
@@ -39,8 +42,14 @@ def test_k_point_calculation():
     atoms = graphene_nanoribbon(2, 1, type='zigzag', saturated=True,
                                 C_H=1.1, C_C=1.4, vacuum=2)
 
-    calc = GPAW(mode='lcao', xc='LDA', basis='szp(dzp)', txt=None, kpts={'size': (1, 1, 11), 'gamma': True},
-                symmetry={'point_group': False, 'time_reversal': True})
+    calc = GPAW(mode='lcao',
+                xc='LDA',
+                basis='szp(dzp)',
+                txt=None,
+                kpts={'size': (1, 1, 11),
+                      'gamma': True},
+                symmetry={'point_group': False,
+                          'time_reversal': True})
     calc.atoms = atoms
     calc.get_potential_energy()
 

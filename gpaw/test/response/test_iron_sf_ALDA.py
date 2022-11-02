@@ -17,10 +17,12 @@ from ase.dft.kpoints import monkhorst_pack
 from ase.parallel import parprint
 
 from gpaw import GPAW, PW
-from gpaw.response.tms import TransverseMagneticSusceptibility
-from gpaw.response.susceptibility import read_macroscopic_component
 from gpaw.test import findpeak, equal
 from gpaw.mpi import world
+
+from gpaw.response import ResponseGroundStateAdapter
+from gpaw.response.tms import TransverseMagneticSusceptibility
+from gpaw.response.df import read_response_function
 
 
 pytestmark = pytest.mark.skipif(world.size < 4, reason='world.size < 4')
@@ -89,11 +91,12 @@ def test_response_iron_sf_ALDA(in_tmp_dir, scalapack):
     t2 = time.time()
 
     # Part 2: magnetic response calculation
+    gs = ResponseGroundStateAdapter(calc)
 
     for s, ((rshelmax, rshewmin, bandsummation, bundle_integrals,
              disable_syms), frq_w) in enumerate(zip(strat_sd, frq_sw)):
         tms = TransverseMagneticSusceptibility(
-            calc,
+            gs,
             fxc=fxc,
             eta=eta,
             ecut=ecut,
@@ -107,7 +110,7 @@ def test_response_iron_sf_ALDA(in_tmp_dir, scalapack):
         tms.get_macroscopic_component(
             '+-', q_c, frq_w,
             filename='iron_dsus' + '_G%d.csv' % (s + 1))
-        tms.write_timer()
+        tms.context.write_timer()
 
     t3 = time.time()
 
@@ -117,14 +120,14 @@ def test_response_iron_sf_ALDA(in_tmp_dir, scalapack):
     world.barrier()
 
     # Part 3: identify magnon peak in scattering functions
-    w1_w, chiks1_w, chi1_w = read_macroscopic_component('iron_dsus_G1.csv')
-    w2_w, chiks2_w, chi2_w = read_macroscopic_component('iron_dsus_G2.csv')
-    w3_w, chiks3_w, chi3_w = read_macroscopic_component('iron_dsus_G3.csv')
-    w4_w, chiks4_w, chi4_w = read_macroscopic_component('iron_dsus_G4.csv')
-    w5_w, chiks5_w, chi5_w = read_macroscopic_component('iron_dsus_G5.csv')
-    w6_w, chiks6_w, chi6_w = read_macroscopic_component('iron_dsus_G6.csv')
-    w7_w, chiks7_w, chi7_w = read_macroscopic_component('iron_dsus_G7.csv')
-    w8_w, chiks8_w, chi8_w = read_macroscopic_component('iron_dsus_G8.csv')
+    w1_w, chiks1_w, chi1_w = read_response_function('iron_dsus_G1.csv')
+    w2_w, chiks2_w, chi2_w = read_response_function('iron_dsus_G2.csv')
+    w3_w, chiks3_w, chi3_w = read_response_function('iron_dsus_G3.csv')
+    w4_w, chiks4_w, chi4_w = read_response_function('iron_dsus_G4.csv')
+    w5_w, chiks5_w, chi5_w = read_response_function('iron_dsus_G5.csv')
+    w6_w, chiks6_w, chi6_w = read_response_function('iron_dsus_G6.csv')
+    w7_w, chiks7_w, chi7_w = read_response_function('iron_dsus_G7.csv')
+    w8_w, chiks8_w, chi8_w = read_response_function('iron_dsus_G8.csv')
 
     wpeak1, Ipeak1 = findpeak(w1_w, -chi1_w.imag)
     wpeak2, Ipeak2 = findpeak(w2_w, -chi2_w.imag)

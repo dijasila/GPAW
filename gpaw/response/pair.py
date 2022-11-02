@@ -2,13 +2,11 @@ import numbers
 
 import numpy as np
 
-from ase.utils.timing import timer
-
 import gpaw.mpi as mpi
-from gpaw.fd_operators import Gradient
+
+from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
 from gpaw.response.pw_parallelization import block_partition
 from gpaw.response.symmetry import KPointFinder
-from gpaw.response.context import calc_and_context
 from gpaw.utilities.blas import mmm
 
 
@@ -42,7 +40,7 @@ class PairDistribution:
         mykpts = self.mykpts
         for u, kpt1 in enumerate(mykpts):
             progress = u / len(mykpts)
-            K2 = pair.kd.find_k_plus_q(q_c, [kpt1.K])[0]
+            K2 = pair.gs.kd.find_k_plus_q(q_c, [kpt1.K])[0]
             kpt2 = pair.get_k_point(kpt1.s, K2, m1, m2, block=True)
 
             yield progress, kpt1, kpt2
@@ -57,18 +55,6 @@ class KPointPair:
         self.kpt1 = kpt1
         self.kpt2 = kpt2
         self.Q_G = Q_G
-
-    def get_k1(self):
-        """ Return KPoint object 1."""
-        return self.kpt1
-
-    def get_k2(self):
-        """ Return KPoint object 2."""
-        return self.kpt2
-
-    def get_planewave_indices(self):
-        """ Return the planewave indices associated with this pair."""
-        return self.Q_G
 
     def get_transition_energies(self, n_n, m_m):
         """Return the energy difference for specified bands."""
@@ -92,53 +78,25 @@ class KPointPair:
 
 
 class NoCalculatorPairDensity:
-    def __init__(self, gs, *, context, ftol=1e-6,
-                 threshold=1, real_space_derivatives=False, nblocks=1):
+    def __init__(self, gs, context, *,
+                 threshold=1, nblocks=1):
         self.gs = gs
         self.context = context
 
-        self.fd = context.fd
-        self.timer = context.timer
-        self.world = context.world
-
         assert self.gs.kd.symmetry.symmorphic
 
-        self.ftol = ftol
         self.threshold = threshold
-        self.real_space_derivatives = real_space_derivatives
 
-        self.blockcomm, self.kncomm = block_partition(context.world, nblocks)
+        self.blockcomm, self.kncomm = block_partition(self.context.world,
+                                                      nblocks)
         self.nblocks = nblocks
-
-        self.fermi_level = self.gs.fermi_level
-        self.spos_ac = self.gs.spos_ac
-
-        self.nocc1 = None  # number of completely filled bands
-        self.nocc2 = None  # number of non-empty bands
-        self.count_occupied_bands()
-
         self.ut_sKnvR = None  # gradient of wave functions for optical limit
 
-        self.vol = self.gs.gd.volume
-
-        self.kd = self.gs.kd
-        self.kptfinder = KPointFinder(self.kd.bzk_kc)
-        print('Number of blocks:', nblocks, file=self.fd)
+        self.kptfinder = KPointFinder(self.gs.kd.bzk_kc)
+        self.context.print('Number of blocks:', nblocks)
 
     def find_kpoint(self, k_c):
         return self.kptfinder.find(k_c)
-
-    def count_occupied_bands(self):
-        self.nocc1 = 9999999
-        self.nocc2 = 0
-        for kpt in self.gs.kpt_u:
-            f_n = kpt.f_n / kpt.weight
-            self.nocc1 = min((f_n > 1 - self.ftol).sum(), self.nocc1)
-            self.nocc2 = max((f_n > self.ftol).sum(), self.nocc2)
-        print('Number of completely filled bands:', self.nocc1, file=self.fd)
-        print('Number of non-empty bands:', self.nocc2, file=self.fd)
-        print('Total number of bands:', self.gs.bd.nbands,
-              file=self.fd)
 
     def distribute_k_points_and_bands(self, band1, band2, kpts=None):
         """Distribute spins, k-points and bands.
@@ -172,18 +130,18 @@ class NoCalculatorPairDensity:
                     mysKn1n2.append((s, K, n1 + band1, n2 + band1))
                 i += nbands
 
-        print('BZ k-points:', gs.kd, file=self.fd)
-        print('Distributing spins, k-points and bands (%d x %d x %d)' %
-              (ns, nk, nbands),
-              'over %d process%s' %
-              (self.kncomm.size, ['es', ''][self.kncomm.size == 1]),
-              file=self.fd)
-        print('Number of blocks:', self.blockcomm.size, file=self.fd)
+        p = self.context.print
+        p('BZ k-points:', gs.kd, flush=False)
+        p('Distributing spins, k-points and bands (%d x %d x %d)' %
+          (ns, nk, nbands), 'over %d process%s' %
+          (self.kncomm.size, ['es', ''][self.kncomm.size == 1]),
+          flush=False)
+        p('Number of blocks:', self.blockcomm.size)
 
         return PairDistribution(self, mysKn1n2)
 
     @timer('Get a k-point')
-    def get_k_point(self, s, k_c, n1, n2, load_wfs=True, block=False):
+    def get_k_point(self, s, k_c, n1, n2, block=False):
         """Return wave functions for a specific k-point and spin.
 
         s: int
@@ -233,17 +191,13 @@ class NoCalculatorPairDensity:
         eps_n = kpt.eps_n[n1:n2]
         f_n = kpt.f_n[n1:n2] / kpt.weight
 
-        if not load_wfs:
-            return KPoint(s, K, n1, n2, blocksize, na, nb,
-                          None, eps_n, f_n, None, shift_c)
-
-        with self.timer('load wfs'):
+        with self.context.timer('load wfs'):
             psit_nG = kpt.psit_nG
             ut_nR = gs.gd.empty(nb - na, gs.dtype)
             for n in range(na, nb):
                 ut_nR[n - na] = T(gs.pd.ifft(psit_nG[n], ik))
 
-        with self.timer('Load projections'):
+        with self.context.timer('Load projections'):
             P_ani = []
             for b, U_ii in zip(a_a, U_aii):
                 P_ni = np.dot(kpt.P_ani[b][na:nb], U_ii)
@@ -255,8 +209,7 @@ class NoCalculatorPairDensity:
                       ut_nR, eps_n, f_n, P_ani, shift_c)
 
     @timer('Get kpoint pair')
-    def get_kpoint_pair(self, pd, s, Kork_c, n1, n2, m1, m2,
-                        load_wfs=True, block=False):
+    def get_kpoint_pair(self, pd, s, Kork_c, n1, n2, m1, m2, block=False):
         assert m1 <= m2
         assert n1 <= n2
 
@@ -268,138 +221,79 @@ class NoCalculatorPairDensity:
             k_c = Kork_c
 
         q_c = pd.kd.bzk_kc[0]
-        with self.timer('get k-points'):
-            kpt1 = self.get_k_point(s, k_c, n1, n2, load_wfs=load_wfs)
+        with self.context.timer('get k-points'):
+            kpt1 = self.get_k_point(s, k_c, n1, n2)
             # K2 = wfs.kd.find_k_plus_q(q_c, [kpt1.K])[0]
-            kpt2 = self.get_k_point(s, k_c + q_c, m1, m2,
-                                    load_wfs=load_wfs, block=block)
+            kpt2 = self.get_k_point(s, k_c + q_c, m1, m2, block=block)
 
-        with self.timer('fft indices'):
-            Q_G = self.get_fft_indices(kpt1.K, kpt2.K, q_c, pd,
-                                       kpt1.shift_c - kpt2.shift_c)
+        with self.context.timer('fft indices'):
+            Q_G = fft_indices(self.gs.kd, kpt1.K, kpt2.K, q_c, pd,
+                              kpt1.shift_c - kpt2.shift_c)
 
         return KPointPair(kpt1, kpt2, Q_G)
 
-    @timer('get_pair_density')
-    def get_pair_density(self, pd, kptpair, n_n, m_m,
-                         optical_limit=False, intraband=False,
-                         Q_aGii=None, block=False, direction=2,
-                         extend_head=True):
-        """Get pair density for a kpoint pair."""
-        ol = optical_limit = np.allclose(pd.kd.bzk_kc[0], 0.0)
-        eh = extend_head
-        cpd = self.calculate_pair_densities  # General pair densities
-        opd = self.optical_pair_density  # Interband pair densities / q
+    def get_full_pair_density(self, pd, kptpair, n_n, m_m, *,
+                              pawcorr, block=False):
+        """Get the full pair density, including the optical limit head for q=0.
+        """
+        q_c = pd.kd.bzk_kc[0]
+        optical_limit = np.allclose(q_c, 0.0)
 
-        if Q_aGii is None:
-            Q_aGii = self.initialize_paw_corrections(pd)
+        tmp_nmG = self.get_pair_density(pd, kptpair, n_n, m_m,
+                                        pawcorr=pawcorr, block=block)
+        if optical_limit:
+            nG = pd.ngmax
+            n_nmG = np.empty((len(n_n), len(m_m), nG + 2), dtype=tmp_nmG.dtype)
+            n_nmG[:, :, 2:] = tmp_nmG
+            n_nmv = self.get_optical_pair_density(pd, kptpair, n_n, m_m,
+                                                  block=block)
+            n_nmG[:, :, :3] = n_nmv
+        else:
+            n_nmG = tmp_nmG
+
+        return n_nmG
+
+    @timer('get_pair_density')
+    def get_pair_density(self, pd, kptpair, n_n, m_m, *,
+                         pawcorr, block=False):
+        """Get pair density for a kpoint pair."""
+        cpd = self.calculate_pair_density
 
         kpt1 = kptpair.kpt1
         kpt2 = kptpair.kpt2
         Q_G = kptpair.Q_G  # Fourier components of kpoint pair
         nG = len(Q_G)
 
-        if extend_head:
-            n_nmG = np.zeros((len(n_n), len(m_m), nG + 2 * ol), pd.dtype)
-        else:
-            n_nmG = np.zeros((len(n_n), len(m_m), nG), pd.dtype)
+        n_nmG = np.zeros((len(n_n), len(m_m), nG), pd.dtype)
 
         for j, n in enumerate(n_n):
             Q_G = kptpair.Q_G
-            with self.timer('conj'):
+            with self.context.timer('conj'):
                 ut1cc_R = kpt1.ut_nR[n - kpt1.na].conj()
-            with self.timer('paw'):
-                C1_aGi = [np.dot(Q_Gii, P1_ni[n - kpt1.na].conj())
-                          for Q_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
-                n_nmG[j, :, 2 * ol * eh:] = cpd(ut1cc_R, C1_aGi, kpt2, pd, Q_G,
-                                                block=block)
-            if optical_limit:
-                if extend_head:
-                    n_nmG[j, :, 0:3] = opd(n, m_m, kpt1, kpt2,
-                                           block=block)
-                else:
-                    n_nmG[j, :, 0] = opd(n, m_m, kpt1, kpt2,
-                                         block=block)[:, direction]
+            with self.context.timer('paw'):
+                C1_aGi = pawcorr.multiply(kpt1.P_ani, band=n - kpt1.na)
+                n_nmG[j] = cpd(ut1cc_R, C1_aGi, kpt2, pd, Q_G, block=block)
+
         return n_nmG
 
-    @timer('get_pair_momentum')
-    def get_pair_momentum(self, pd, kptpair, n_n, m_m, Q_avGii=None):
-        r"""Calculate matrix elements of the momentum operator.
-
-        Calculates::
-
-          n_{nm\mathrm{k}}\int_{\Omega_{\mathrm{cell}}}\mathrm{d}\mathbf{r}
-          \psi_{n\mathrm{k}}^*(\mathbf{r})
-          e^{-i\,(\mathrm{q} + \mathrm{G})\cdot\mathbf{r}}
-          \nabla\psi_{m\mathrm{k} + \mathrm{q}}(\mathbf{r})
-
-        pd: PlaneWaveDescriptor
-            Plane wave descriptor of a single q_c.
-        kptpair: KPointPair
-            KpointPair object containing the two kpoints.
-        n_n: list
-            List of left-band indices (n).
-        m_m:
-            List of right-band indices (m).
-        """
-        gs = self.gs
+    @timer('get_optical_pair_density')
+    def get_optical_pair_density(self, pd, kptpair, n_n, m_m, block=False):
+        """Get the optical limit (G=0) of the pair density for a k-pair."""
+        copd = self.calculate_optical_pair_density
 
         kpt1 = kptpair.kpt1
         kpt2 = kptpair.kpt2
-        Q_G = kptpair.Q_G  # Fourier components of kpoint pair
 
-        # For the same band we
-        kd = gs.kd
-        gd = gs.gd
-        k_c = kd.bzk_kc[kpt1.K] + kpt1.shift_c
-        k_v = 2 * np.pi * np.dot(k_c, np.linalg.inv(gd.cell_cv).T)
+        n_nmv = np.zeros((len(n_n), len(m_m), 3), pd.dtype)
 
-        # Calculate k + G
-        G_Gv = pd.get_reciprocal_vectors(add_q=True)
-        kqG_Gv = k_v[np.newaxis] + G_Gv
-
-        # Pair velocities
-        n_nmvG = pd.zeros((len(n_n), len(m_m), 3))
-
-        # Calculate derivatives of left-wavefunction
-        # (there will typically be fewer of these)
-        ut_nvR = self.make_derivative(kpt1.s, kpt1.K, kpt1.n1, kpt1.n2)
-
-        # PAW-corrections
-        if Q_avGii is None:
-            Q_avGii = self.initialize_paw_nabla_corrections(pd)
-
-        # Iterate over occupied bands
         for j, n in enumerate(n_n):
-            ut1cc_R = kpt1.ut_nR[n].conj()
+            n_nmv[j] = copd(n, m_m, kpt1, kpt2, block=block)
 
-            n_mG = self.calculate_pair_densities(ut1cc_R,
-                                                 [], kpt2,
-                                                 pd, Q_G)
-
-            n_nmvG[j] = 1j * kqG_Gv.T[np.newaxis] * n_mG[:, np.newaxis]
-
-            # Treat each cartesian component at a time
-            for v in range(3):
-                # Minus from integration by parts
-                utvcc_R = -ut_nvR[n, v].conj()
-                Cv1_aGi = [np.dot(P1_ni[n].conj(), Q_vGii[v])
-                           for Q_vGii, P1_ni in zip(Q_avGii, kpt1.P_ani)]
-
-                nv_mG = self.calculate_pair_densities(utvcc_R,
-                                                      Cv1_aGi, kpt2,
-                                                      pd, Q_G)
-
-                n_nmvG[j, :, v] += nv_mG
-
-        # We want the momentum operator
-        n_nmvG *= -1j
-
-        return n_nmvG
+        return n_nmv
 
     @timer('Calculate pair-densities')
-    def calculate_pair_densities(self, ut1cc_R, C1_aGi, kpt2, pd, Q_G,
-                                 block=True):
+    def calculate_pair_density(self, ut1cc_R, C1_aGi, kpt2, pd, Q_G,
+                               block=True):
         """Calculate FFT of pair-densities and add PAW corrections.
 
         ut1cc_R: 3-d complex ndarray
@@ -410,7 +304,7 @@ class NoCalculatorPairDensity:
         kpt2: KPoint object
             Right hand side k-point object.
         pd: PWDescriptor
-            Plane-wave descriptor for for q=k2-k1.
+            Plane-wave descriptor for q=k2-k1.
         Q_G: 1-d int ndarray
             Mapping from flattened 3-d FFT grid to 0.5(G+q)^2<ecut sphere.
         """
@@ -421,10 +315,10 @@ class NoCalculatorPairDensity:
 
         for ut_R, n_G in zip(kpt2.ut_nR, n_mG):
             n_R = ut1cc_R * ut_R
-            with self.timer('fft'):
+            with self.context.timer('fft'):
                 n_G[:] = pd.fft(n_R, 0, Q_G) * dv
         # PAW corrections:
-        with self.timer('gemm'):
+        with self.context.timer('gemm'):
             for C1_Gi, P2_mi in zip(C1_aGi, kpt2.P_ani):
                 # gemm(1.0, C1_Gi, P2_mi, 1.0, n_mG[:myblocksize], 't')
                 mmm(1.0, P2_mi, 'N', C1_Gi, 'T', 1.0, n_mG[:myblocksize])
@@ -437,7 +331,7 @@ class NoCalculatorPairDensity:
             return n_MG[:kpt2.n2 - kpt2.n1]
 
     @timer('Optical limit')
-    def optical_pair_velocity(self, n, m_m, kpt1, kpt2, block=False):
+    def calculate_optical_pair_velocity(self, n, kpt1, kpt2, block=False):
         if self.ut_sKnvR is None or kpt1.K not in self.ut_sKnvR[kpt1.s]:
             self.ut_sKnvR = self.calculate_derivatives(kpt1)
 
@@ -474,15 +368,14 @@ class NoCalculatorPairDensity:
 
         return -1j * n0_mv
 
-    def optical_pair_density(self, n, m_m, kpt1, kpt2,
-                             block=False):
+    def calculate_optical_pair_density(self, n, m_m, kpt1, kpt2, block=False):
         # Relative threshold for perturbation theory
         threshold = self.threshold
 
         eps1 = kpt1.eps_n[n - kpt1.n1]
         deps_m = (eps1 - kpt2.eps_n)[m_m - kpt2.n1]
-        n0_mv = self.optical_pair_velocity(n, m_m, kpt1, kpt2,
-                                           block=block)
+        n0_mv = self.calculate_optical_pair_velocity(n, kpt1, kpt2,
+                                                     block=block)
 
         deps_m = deps_m.copy()
         deps_m[deps_m == 0.0] = np.inf
@@ -496,14 +389,11 @@ class NoCalculatorPairDensity:
         return n0_mv
 
     @timer('Intraband')
-    def intraband_pair_density(self, kpt, n_n=None,
-                               only_partially_occupied=False):
+    def intraband_pair_density(self, kpt, n_n):
         """Calculate intraband matrix elements of nabla"""
         # Bands and check for block parallelization
         na, nb, n1 = kpt.na, kpt.nb, kpt.n1
         vel_nv = np.zeros((nb - na, 3), dtype=complex)
-        if n_n is None:
-            n_n = np.arange(na, nb)
         assert np.max(n_n) < nb, 'This is too many bands'
         assert np.min(n_n) >= na, 'This is too few bands'
 
@@ -513,25 +403,6 @@ class NoCalculatorPairDensity:
         k_c = kd.bzk_kc[kpt.K] + kpt.shift_c
         k_v = 2 * np.pi * np.dot(k_c, np.linalg.inv(gd.cell_cv).T)
         atomdata_a = self.gs.setups
-        f_n = kpt.f_n
-
-        width = self.gs.get_occupations_width()
-
-        if width > 1e-15:
-            dfde_n = -1 / width * (f_n - f_n**2.0)  # Analytical derivative
-            partocc_n = np.abs(dfde_n) > 1e-5  # Is part. occupied?
-        else:
-            # Just include all bands to be sure
-            partocc_n = np.ones(len(f_n), dtype=bool)
-
-        if only_partially_occupied and not partocc_n.any():
-            return None
-
-        if only_partially_occupied:
-            # Check for block par. consistency
-            assert (partocc_n < nb).all(), \
-                print('Include more unoccupied bands ', +
-                      'or less block parr.', file=self.fd)
 
         # Break bands into degenerate chunks
         degchunks_cn = []  # indexing c as chunk number
@@ -541,12 +412,11 @@ class NoCalculatorPairDensity:
 
             # Has this chunk already been computed?
             oldchunk = any([n in chunk for chunk in degchunks_cn])
-            if not oldchunk and \
-               (partocc_n[n - n1] or not only_partially_occupied):
+            if not oldchunk:
                 assert all([ind in n_n for ind in inds_n]), \
-                    print('\nYou are cutting over a degenerate band ' +
-                          'using block parallelization.',
-                          inds_n, n_n, file=self.fd)
+                    self.context.print(
+                        '\nYou are cutting over a degenerate band ' +
+                        'using block parallelization.', inds_n, n_n)
                 degchunks_cn.append((inds_n))
 
         # Calculate matrix elements by diagonalizing each block
@@ -584,37 +454,10 @@ class NoCalculatorPairDensity:
 
         return vel_nv[n_n - na]
 
-    def get_fft_indices(self, K1, K2, q_c, pd, shift0_c):
-        """Get indices for G-vectors inside cutoff sphere."""
-        kd = self.gs.kd
-        N_G = pd.Q_qG[0]
-        shift_c = (shift0_c +
-                   (q_c - kd.bzk_kc[K2] + kd.bzk_kc[K1]).round().astype(int))
-        if shift_c.any():
-            n_cG = np.unravel_index(N_G, pd.gd.N_c)
-            n_cG = [n_G + shift for n_G, shift in zip(n_cG, shift_c)]
-            N_G = np.ravel_multi_index(n_cG, pd.gd.N_c, 'wrap')
-        return N_G
-
     def construct_symmetry_operators(self, K, k_c=None):
         from gpaw.response.symmetry_ops import construct_symmetry_operators
         return construct_symmetry_operators(
             self.gs, K, k_c, apply_strange_shift=False)
-
-    @timer('Initialize PAW corrections')
-    def initialize_paw_corrections(self, pd, soft=False):
-        from gpaw.response.paw import calculate_paw_corrections
-        return calculate_paw_corrections(
-            setups=self.gs.setups, pd=pd, soft=soft,
-            spos_ac=self.spos_ac)
-
-    @timer('Initialize PAW corrections')
-    def initialize_paw_nabla_corrections(self, pd, soft=False):
-        print('Initializing nabla PAW Corrections', file=self.fd)
-        from gpaw.response.paw import calculate_paw_nabla_corrections
-        return calculate_paw_nabla_corrections(
-            setups=self.gs.setups, pd=pd, soft=soft,
-            spos_ac=self.spos_ac)
 
     def calculate_derivatives(self, kpt):
         ut_sKnvR = [{}, {}]
@@ -626,10 +469,6 @@ class NoCalculatorPairDensity:
     @timer('Derivatives')
     def make_derivative(self, s, K, n1, n2):
         gs = self.gs
-        if self.real_space_derivatives:
-            grad_v = [Gradient(gs.gd, v, 1.0, 4, complex).apply
-                      for v in range(3)]
-
         U_cc, T, a_a, U_aii, shift_c, time_reversal = \
             self.construct_symmetry_operators(K)
         A_cv = gs.gd.cell_cv
@@ -642,14 +481,9 @@ class NoCalculatorPairDensity:
         ut_nvR = gs.gd.zeros((n2 - n1, 3), complex)
         for n in range(n1, n2):
             for v in range(3):
-                if self.real_space_derivatives:
-                    ut_R = T(gs.pd.ifft(psit_nG[n], ik))
-                    grad_v[v](ut_R, ut_nvR[n - n1, v],
-                              np.ones((3, 2), complex))
-                else:
-                    ut_R = T(gs.pd.ifft(iG_Gv[:, v] * psit_nG[n], ik))
-                    for v2 in range(3):
-                        ut_nvR[n - n1, v2] += ut_R * M_vv[v, v2]
+                ut_R = T(gs.pd.ifft(iG_Gv[:, v] * psit_nG[n], ik))
+                for v2 in range(3):
+                    ut_nvR[n - n1, v2] += ut_R * M_vv[v, v2]
 
         return ut_nvR
 
@@ -665,23 +499,41 @@ class PairDensity(NoCalculatorPairDensity):
 
         Parameters
         ----------
-        ftol : float
-            Threshold determining whether a band is completely filled
-            (f > 1 - ftol) or completely empty (f < ftol).
         threshold : float
             Numerical threshold for the optical limit k dot p perturbation
             theory expansion.
-        real_space_derivatives : bool
-            Calculate nabla matrix elements (in the optical limit)
-            using a real space finite difference approximation.
         """
 
-        # note: gs is just called gs for historical reasons.
+        # Note: The input gs is just called gs for historical reasons.
         # It's actually calc-or-filename union.
+        gs, context = get_gs_and_context(gs, txt, world, timer)
 
-        self.calc, context = calc_and_context(gs, txt, world, timer)
+        super().__init__(gs, context, **kwargs)
 
-        super().__init__(
-            gs=self.calc.gs_adapter(),
-            context=context,
-            **kwargs)
+
+def fft_indices(kd, K1, K2, q_c, pd, shift0_c):
+    """Get indices for G-vectors inside cutoff sphere."""
+    N_G = pd.Q_qG[0]
+    shift_c = (shift0_c +
+               (q_c - kd.bzk_kc[K2] + kd.bzk_kc[K1]).round().astype(int))
+    if shift_c.any():
+        n_cG = np.unravel_index(N_G, pd.gd.N_c)
+        n_cG = [n_G + shift for n_G, shift in zip(n_cG, shift_c)]
+        N_G = np.ravel_multi_index(n_cG, pd.gd.N_c, 'wrap')
+    return N_G
+
+
+def get_gs_and_context(calc, txt, world, timer):
+    """Interface to initialize gs and context from old input arguments.
+    Should be phased out in the future!"""
+    from gpaw.calculator import GPAW as OldGPAW
+
+    context = ResponseContext(txt=txt, timer=timer, world=world)
+
+    if isinstance(calc, OldGPAW):
+        assert calc.wfs.world.size == 1
+        gs = calc.gs_adapter()
+    else:
+        gs = ResponseGroundStateAdapter.from_gpw_file(calc, context=context)
+
+    return gs, context

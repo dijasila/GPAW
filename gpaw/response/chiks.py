@@ -1,10 +1,8 @@
 import numpy as np
-from time import ctime
-
-from gpaw.utilities import convert_string_to_fd
-from ase.utils.timing import timer
 
 from gpaw.utilities.blas import mmmx
+
+from gpaw.response import timer
 from gpaw.response.kslrf import PlaneWaveKSLRF
 from gpaw.response.kspair import PlaneWavePairDensity
 
@@ -40,8 +38,7 @@ class ChiKS(PlaneWaveKSLRF):
         self.spincomponent = None
 
     @timer('Calculate the Kohn-Sham susceptibility')
-    def calculate(self, q_c, frequencies, spincomponent='all',
-                  A_x=None, txt=None):
+    def calculate(self, q_c, frequencies, spincomponent='all', A_x=None):
         """Calculate a component of the susceptibility tensor.
 
         Parameters
@@ -52,15 +49,6 @@ class ChiKS(PlaneWaveKSLRF):
             'all' is an alias for '00', kept for backwards compability
             Likewise 0 or 1, can be used for 'uu' or 'dd'
         """
-        # Initiate new call-output file, if supplied
-        if txt is not None:
-            self.cfd = convert_string_to_fd(txt, self.world)
-        # Print to output file(s)
-        if str(self.fd) != str(self.cfd) or txt is not None:
-            print('Calculating Kohn-Sham susceptibility with '
-                  f'q_c={q_c} and spincomponent={spincomponent}',
-                  file=self.fd)
-            print(ctime(), file=self.fd)
 
         # Analyze the requested spin component
         self.spincomponent = spincomponent
@@ -122,24 +110,26 @@ class ChiKS(PlaneWaveKSLRF):
             x_tw = np.ascontiguousarray(x_wt.T)
             n_Gt = np.ascontiguousarray(n_tG.T)
 
-            with self.timer('Set up ncc and nx'):
+            with self.context.timer('Set up ncc and nx'):
                 ncc_Gt = n_Gt.conj()
                 n_tmyG = n_tG[:, myslice]
                 nx_twmyG = x_tw[:, :, np.newaxis] * n_tmyG[:, np.newaxis, :]
 
-            with self.timer('Perform sum over t-transitions of ncc * nx'):
+            with self.context.timer('Perform sum over t-transitions '
+                                    'of ncc * nx'):
                 mmmx(1.0, ncc_Gt, 'N', nx_twmyG, 'N',
                      1.0, A_GwmyG)  # slow step
         else:
             # Specify notation
             A_wmyGG = A_x
 
-            with self.timer('Set up ncc and nx'):
+            with self.context.timer('Set up ncc and nx'):
                 ncc_tG = n_tG.conj()
                 n_myGt = np.ascontiguousarray(n_tG[:, myslice].T)
                 nx_wmyGt = x_wt[:, np.newaxis, :] * n_myGt[np.newaxis, :, :]
 
-            with self.timer('Perform sum over t-transitions of ncc * nx'):
+            with self.context.timer('Perform sum over t-transitions of '
+                                    'ncc * nx'):
                 for nx_myGt, A_myGG in zip(nx_wmyGt, A_wmyGG):
                     mmmx(1.0, nx_myGt, 'N', ncc_tG, 'N',
                          1.0, A_myGG)  # slow step
