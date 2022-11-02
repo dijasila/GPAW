@@ -14,7 +14,7 @@ from gpaw.test import findpeak
 
 from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.tms import TransverseMagneticSusceptibility
-from gpaw.response.susceptibility import read_macroscopic_component
+from gpaw.response.df import read_response_function
 
 
 @pytest.mark.kspair
@@ -96,9 +96,9 @@ def test_response_afm_hchain_gssALDA(in_tmp_dir):
     world.barrier()
 
     # Part 3: Identify magnon peak in finite q scattering function
-    w0_w, _, chi0_w = read_macroscopic_component('h-chain_macro_tms_q0.csv')
-    w1_w, _, chi1_w = read_macroscopic_component('h-chain_macro_tms_q1.csv')
-    w2_w, _, chi2_w = read_macroscopic_component('h-chain_macro_tms_q2.csv')
+    w0_w, _, chi0_w = read_response_function('h-chain_macro_tms_q0.csv')
+    w1_w, _, chi1_w = read_response_function('h-chain_macro_tms_q1.csv')
+    w2_w, _, chi2_w = read_response_function('h-chain_macro_tms_q2.csv')
 
     wpeak1, Ipeak1 = findpeak(w1_w, -chi1_w.imag / np.pi)
     wpeak2, Ipeak2 = findpeak(w2_w, -chi2_w.imag / np.pi)
