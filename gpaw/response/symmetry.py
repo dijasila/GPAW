@@ -374,7 +374,7 @@ class PWSymmetryAnalyzer:
         """Symmetrize an array in GG'."""
         
         for A_GG in A_wGG:
-            tmp_GG = np.zeros_like(A_GG)
+            tmp_GG = np.zeros_like(A_GG, order='C')
             # tmp2_GG = np.zeros_like(A_GG)
 
             for s in self.s_s:
