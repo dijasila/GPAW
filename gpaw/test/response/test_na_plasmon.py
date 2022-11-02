@@ -72,14 +72,8 @@ def test_response_na_plasmon(in_tmp_dir):
     dfs4 = []
     dfs5 = []
     for kwargs in settings:
-        try:
-            os.remove('chi0+0+0+0.pckl')
-        except OSError:
-            pass
-
         df1 = DielectricFunction('gs_Na_small.gpw',
                                  ecut=40,
-                                 name='chi0',
                                  rate=0.001,
                                  **kwargs)
 
@@ -87,14 +81,8 @@ def test_response_na_plasmon(in_tmp_dir):
         df1NLFCy, df1LFCy = df1.get_dielectric_function(direction='y')
         df1NLFCz, df1LFCz = df1.get_dielectric_function(direction='z')
 
-        try:
-            os.remove('chi1+0+0+0.pckl')
-        except OSError:
-            pass
-
         df2 = DielectricFunction('gs_Na_large.gpw',
                                  ecut=40,
-                                 name='chi1',
                                  rate=0.001,
                                  **kwargs)
 
