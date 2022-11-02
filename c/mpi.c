@@ -230,7 +230,7 @@ static void mpi_ensure_initialized(void)
     {
         // if not, let's initialize it
         int use_threads = 0;
-#ifdef GPAW_CUDA
+#ifdef GPAW_GPU
         use_threads = 1;
 #endif
 #ifdef _OPENMP

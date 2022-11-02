@@ -6,7 +6,7 @@
 
 #include "bc.h"
 
-#ifdef GPAW_CUDA
+#ifdef GPAW_GPU
 #include "gpu/bmgs.h"
 #endif
 
@@ -19,7 +19,7 @@ typedef struct
   MPI_Request recvreq[2];
   MPI_Request sendreq[2];
   int nthreads;
-#ifdef GPAW_CUDA
+#ifdef GPAW_GPU
   int cuda;
   bmgsstencil_gpu stencil_gpu;
 #endif
@@ -30,7 +30,7 @@ struct _OperatorObject;
 typedef struct _OperatorObject OperatorObject;
 #endif
 
-#ifdef GPAW_CUDA
+#ifdef GPAW_GPU
 void operator_init_cuda(OperatorObject *self);
 void operator_dealloc_cuda(int force);
 #endif

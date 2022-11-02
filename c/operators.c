@@ -32,9 +32,8 @@
   #define GPAW_ASYNC2 1
 #endif
 
-#ifdef GPAW_CUDA
-#include <cuda.h>
-#include <cuda_runtime_api.h>
+#ifdef GPAW_GPU
+#include "gpu/gpu.h"
 PyObject* Operator_relax_cuda_gpu(OperatorObject *self, PyObject *args);
 PyObject* Operator_apply_cuda_gpu(OperatorObject *self, PyObject *args);
 #endif
@@ -42,7 +41,7 @@ PyObject* Operator_apply_cuda_gpu(OperatorObject *self, PyObject *args);
 static void Operator_dealloc(OperatorObject *self)
 {
 
-#ifdef GPAW_CUDA
+#ifdef GPAW_GPU
   if (self->cuda) {
     operator_dealloc_cuda(0);
     bc_dealloc_cuda(0);
@@ -358,7 +357,7 @@ static PyMethodDef Operator_Methods[] = {
      (PyCFunction)Operator_apply, METH_VARARGS, NULL},
     {"relax",
      (PyCFunction)Operator_relax, METH_VARARGS, NULL},
-#ifdef GPAW_CUDA
+#ifdef GPAW_GPU
     {"apply_cuda_gpu",
      (PyCFunction)Operator_apply_cuda_gpu, METH_VARARGS, NULL},
     {"relax_cuda_gpu",
@@ -420,7 +419,7 @@ PyObject * NewOperatorObject(PyObject *obj, PyObject *args)
     comm = ((MPIObject*)comm_obj)->comm;
 
   self->bc = bc_init(LONGP(size), padding, padding, nb, comm, real, cfd);
-#ifdef GPAW_CUDA
+#ifdef GPAW_GPU
   self->cuda = cuda;
   if (self->cuda) {
     operator_init_cuda(self);

@@ -24,7 +24,7 @@ typedef struct
   MPI_Request sendreq[2];
   int skip[3][2];
   int size_out[3];          /* Size of the output grid */
-#ifdef GPAW_CUDA
+#ifdef GPAW_GPU
   int cuda;
 #endif
 } TransformerObject;
@@ -35,7 +35,7 @@ typedef struct _TransformerObject TransformerObject;
 
 #endif
 
-#ifdef GPAW_CUDA
+#ifdef GPAW_GPU
 void transformer_init_cuda(TransformerObject *self);
 void transformer_dealloc_cuda(int force);
 #endif
