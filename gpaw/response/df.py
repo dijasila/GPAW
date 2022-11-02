@@ -46,7 +46,11 @@ class DielectricFunctionCalculator:
         # calculated e.g. if the user calculates multiple directions.
         key = (spin, *(q_c * self.gs.kd.N_c).round())
 
-        # Spin='all' is a terrible cache key since it really signifies
+        # Spin='all' is a terrible cache key since it's inconsistent
+        # with specifying spins one integer at the time.
+        # We might as well change it to do the caching by spin index,
+        # or maybe we can work around the caching entirely with a more
+        # explicit API design.
 
         if key not in self._chi0cache:
             chi0 = self.chi0calc.calculate(q_c, spin)
