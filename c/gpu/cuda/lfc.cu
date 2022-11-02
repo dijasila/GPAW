@@ -15,6 +15,7 @@
 extern "C" {
 #include "../lfc.h"
 }
+#include "../gpu.h"
 #include "../gpu-complex.h"
 
 #ifndef GPU_USE_COMPLEX
@@ -29,8 +30,6 @@ static INLINE void* gpaw_malloc(int n)
 #define GPAW_MALLOC(T, n) (T*)(gpaw_malloc((n) * sizeof(T)))
 
 #define BLOCK_Y 16
-#include "cuda.h"
-#include "cuda_runtime_api.h"
 
 #endif
 
@@ -40,7 +39,7 @@ static INLINE void* gpaw_malloc(int n)
 __global__ void Zcuda(add_kernel)(Tcuda *a_G, const Tcuda *c_M, int *G_B1,
                                   int *G_B2, LFVolume_gpu **volume_i,
                                   int *A_gm_i, int *ni, int nimax, int na_G,
-                                  int nM, cuDoubleComplex *phase_i,
+                                  int nM, gpuDoubleComplex *phase_i,
                                   int max_k, int q, int nB_gpu)
 {
     int G = threadIdx.x;
@@ -237,13 +236,13 @@ PyObject * NewLFCObject_cuda(LFCObject *self, PyObject *args)
     int *G_B1_gpu = GPAW_MALLOC(int, self->nB);
     int *G_B2_gpu = GPAW_MALLOC(int, self->nB);
 
-    cuDoubleComplex *phase_i_gpu;
-    cuDoubleComplex *phase_i;
+    gpuDoubleComplex *phase_i_gpu;
+    gpuDoubleComplex *phase_i;
 
     if (self->bloch_boundary_conditions) {
-        phase_i_gpu = GPAW_MALLOC(cuDoubleComplex,
+        phase_i_gpu = GPAW_MALLOC(gpuDoubleComplex,
                                   max_k * self->nB * nimax);
-        phase_i = GPAW_MALLOC(cuDoubleComplex, max_k * nimax);
+        phase_i = GPAW_MALLOC(gpuDoubleComplex, max_k * nimax);
     }
 
     int nB_gpu=0;
@@ -336,13 +335,13 @@ PyObject * NewLFCObject_cuda(LFCObject *self, PyObject *args)
         v->nGBcum = GB_gpu;
 
         if (self->bloch_boundary_conditions) {
-            cuDoubleComplex phase_k[max_k];
+            gpuDoubleComplex phase_k[max_k];
             for (int q=0; q < max_k; q++) {
                 phase_k[q].x = creal(self->phase_kW[self->nW*q+W]);
                 phase_k[q].y = cimag(self->phase_kW[self->nW*q+W]);
             }
-            gpuMalloc(&(v->phase_k), sizeof(cuDoubleComplex) * max_k);
-            gpuMemcpy(v->phase_k, phase_k, sizeof(cuDoubleComplex) * max_k,
+            gpuMalloc(&(v->phase_k), sizeof(gpuDoubleComplex) * max_k);
+            gpuMemcpy(v->phase_k, phase_k, sizeof(gpuDoubleComplex) * max_k,
                       gpuMemcpyHostToDevice);
         }
     }
@@ -421,9 +420,9 @@ PyObject * NewLFCObject_cuda(LFCObject *self, PyObject *args)
 
     if (self->bloch_boundary_conditions) {
         gpuMalloc(&(self->phase_i_gpu),
-                  sizeof(cuDoubleComplex) * max_k * nB_gpu * nimax);
+                  sizeof(gpuDoubleComplex) * max_k * nB_gpu * nimax);
         gpuMemcpy(self->phase_i_gpu, phase_i_gpu,
-                  sizeof(cuDoubleComplex) * max_k * nB_gpu * nimax,
+                  sizeof(gpuDoubleComplex) * max_k * nB_gpu * nimax,
                   gpuMemcpyHostToDevice);
     }
     self->volume_W_cuda = volume_W_gpu;
@@ -481,8 +480,8 @@ PyObject* integrate_cuda_gpu(LFCObject *lfc, PyObject *args)
         lfc_reducemap(lfc, a_G, nG, c_M, nM, nx, q);
         gpuCheckLastError();
     } else {
-        const cuDoubleComplex* a_G = (const cuDoubleComplex*) a_xG_gpu;
-        cuDoubleComplex* c_M = (cuDoubleComplex*) c_xM_gpu;
+        const gpuDoubleComplex* a_G = (const gpuDoubleComplex*) a_xG_gpu;
+        gpuDoubleComplex* c_M = (gpuDoubleComplex*) c_xM_gpu;
 
         lfc_reducemapz(lfc, a_G, nG, c_M, nM, nx, q);
         gpuCheckLastError();
@@ -536,8 +535,8 @@ PyObject* add_cuda_gpu(LFCObject *lfc, PyObject *args)
                 lfc->nB_gpu);
         gpuCheckLastError();
     } else {
-        cuDoubleComplex* a_G = (cuDoubleComplex*) a_xG_gpu;
-        const cuDoubleComplex* c_M = (const cuDoubleComplex*) c_xM_gpu;
+        gpuDoubleComplex* a_G = (gpuDoubleComplex*) a_xG_gpu;
+        const gpuDoubleComplex* c_M = (const gpuDoubleComplex*) c_xM_gpu;
 
         int blockx = lfc->max_nG;
         int gridx = (lfc->nB_gpu + BLOCK_Y - 1) / BLOCK_Y;

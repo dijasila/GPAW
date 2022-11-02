@@ -3,9 +3,7 @@
 #define NO_IMPORT_ARRAY
 #include <numpy/arrayobject.h>
 
-#include <cuda.h>
-#include <cuda_runtime_api.h>
-
+#include "../gpu.h"
 #include "../gpu-complex.h"
 
 #ifndef GPU_USE_COMPLEX
@@ -45,9 +43,9 @@ __global__ void axpbz_kernel(double a, double *x, double b,
  * CUDA kernel for axpbyz, i.e. z[i] = a * x[i] + b * y[i],
  * on complex numbers.
  */
-__global__ void axpbyz_kernelz(double a, cuDoubleComplex *x,
-                               double b, cuDoubleComplex *y,
-                               cuDoubleComplex *z, int n)
+__global__ void axpbyz_kernelz(double a, gpuDoubleComplex *x,
+                               double b, gpuDoubleComplex *y,
+                               gpuDoubleComplex *z, int n)
 {
     int tid = threadIdx.x + blockIdx.x * blockDim.x;
     int stride = gridDim.x * blockDim.x;
@@ -61,8 +59,8 @@ __global__ void axpbyz_kernelz(double a, cuDoubleComplex *x,
 /*
  * CUDA kernel for axpbz, i.e. z[i] = a * x[i] + b, on complex numbers.
  */
-__global__ void axpbz_kernelz(double a, cuDoubleComplex *x, double b,
-                              cuDoubleComplex *z, int n)
+__global__ void axpbz_kernelz(double a, gpuDoubleComplex *x, double b,
+                              gpuDoubleComplex *z, int n)
 {
     int tid = threadIdx.x + blockIdx.x * blockDim.x;
     int stride = gridDim.x * blockDim.x;
@@ -90,7 +88,7 @@ __global__ void fill_kernel(double a, double *z, int n)
  * CUDA kernel to fill an array of complex numbers with a given
  * complex value.
  */
-__global__ void fill_kernelz(double real, double imag, cuDoubleComplex *z,
+__global__ void fill_kernelz(double real, double imag, gpuDoubleComplex *z,
                              int n)
 {
     int tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -137,8 +135,8 @@ PyObject* axpbyz_gpu(PyObject *self, PyObject *args)
 
     } else {
         gpuLaunchKernel(axpbyz_kernelz, dimGrid, dimBlock, 0, 0,
-                        a, (cuDoubleComplex*) x, b, (cuDoubleComplex*) y,
-                        (cuDoubleComplex*) z, n);
+                        a, (gpuDoubleComplex*) x, b, (gpuDoubleComplex*) y,
+                        (gpuDoubleComplex*) z, n);
     }
     gpuCheckLastError();
     if (PyErr_Occurred())
@@ -182,7 +180,7 @@ PyObject* axpbz_gpu(PyObject *self, PyObject *args)
 
     } else {
         gpuLaunchKernel(axpbz_kernelz, dimGrid, dimBlock, 0, 0,
-                        a, (cuDoubleComplex*) x, b, (cuDoubleComplex*) z, n);
+                        a, (gpuDoubleComplex*) x, b, (gpuDoubleComplex*) z, n);
     }
     gpuCheckLastError();
     if (PyErr_Occurred())
@@ -237,7 +235,7 @@ PyObject* fill_gpu(PyObject *self, PyObject *args)
 
     } else {
         gpuLaunchKernel(fill_kernelz, dimGrid, dimBlock, 0, 0,
-                        real, imag, (cuDoubleComplex*) x, n);
+                        real, imag, (gpuDoubleComplex*) x, n);
     }
     gpuCheckLastError();
     if (PyErr_Occurred())

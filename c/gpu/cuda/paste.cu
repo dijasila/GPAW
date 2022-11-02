@@ -1,11 +1,9 @@
-#include <cuda.h>
-#include <driver_types.h>
-#include <cuda_runtime_api.h>
 #include <stdio.h>
 #include <time.h>
 #include <sys/types.h>
 #include <sys/time.h>
 
+#include "../gpu.h"
 #include "../gpu-complex.h"
 #include "../debug.h"
 
@@ -21,8 +19,8 @@
 typedef void (*launch_func)(const double *, const int *,
                             double *, const int *, const int *, int,
                             gpuStream_t);
-typedef void (*launch_funcz)(const cuDoubleComplex *, const int *,
-                             cuDoubleComplex *, const int *, const int *, int,
+typedef void (*launch_funcz)(const gpuDoubleComplex *, const int *,
+                             gpuDoubleComplex *, const int *, const int *, int,
                              gpuStream_t);
 
 extern int gpaw_cuda_debug;

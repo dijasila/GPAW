@@ -10,7 +10,6 @@
 #include <complex.h>
 #include <sys/types.h>
 #include <sys/time.h>
-#include <cuComplex.h>
 
 #include "../gpu-complex.h"
 
@@ -107,7 +106,7 @@ PyObject* multi_scal_cuda_gpu(PyObject *self, PyObject *args)
                 multi_scal_cuda_kernel, dimGrid, dimBlock, 0, 0,
                 2 * n, alpha, (double *) x_gpu);
     } else {
-        cuDoubleComplex *alpha = (cuDoubleComplex*) (alpha_gpu);
+        gpuDoubleComplex *alpha = (gpuDoubleComplex*) (alpha_gpu);
         int gridx = MIN(MAX((n + MBLAS_BLOCK_X - 1) / MBLAS_BLOCK_X, 1),
                         MAX_BLOCKS);
         int gridy = nvec;
@@ -116,7 +115,7 @@ PyObject* multi_scal_cuda_gpu(PyObject *self, PyObject *args)
 
         gpuLaunchKernel(
                 multi_scal_cuda_kernelz, dimGrid, dimBlock, 0, 0,
-                n, alpha, (cuDoubleComplex*) x_gpu);
+                n, alpha, (gpuDoubleComplex*) x_gpu);
     }
     gpuCheckLastError();
     if (PyErr_Occurred())
@@ -168,7 +167,7 @@ PyObject* multi_axpy_cuda_gpu(PyObject *self, PyObject *args)
                 multi_axpy_cuda_kernel, dimGrid, dimBlock, 0, 0,
                 2 * n, alpha, (double*) x_gpu, (double*) y_gpu);
     } else {
-        cuDoubleComplex *alpha = (cuDoubleComplex*) alpha_gpu;
+        gpuDoubleComplex *alpha = (gpuDoubleComplex*) alpha_gpu;
         int gridx = MIN(MAX((n + MBLAS_BLOCK_X - 1) / MBLAS_BLOCK_X, 1),
                         MAX_BLOCKS);
         int gridy = nvec;
@@ -177,8 +176,8 @@ PyObject* multi_axpy_cuda_gpu(PyObject *self, PyObject *args)
 
         gpuLaunchKernel(
                 multi_axpy_cuda_kernelz, dimGrid, dimBlock, 0, 0,
-                n, alpha, (cuDoubleComplex*) x_gpu,
-                (cuDoubleComplex*) y_gpu);
+                n, alpha, (gpuDoubleComplex*) x_gpu,
+                (gpuDoubleComplex*) y_gpu);
     }
     gpuCheckLastError();
     if (PyErr_Occurred())
@@ -218,9 +217,9 @@ PyObject* multi_dotu_cuda_gpu(PyObject *self, PyObject *args)
         reducemap_dotu((double*) a_gpu, (double*) b_gpu, result, n,
                        nvec);
     } else {
-        cuDoubleComplex *result = (cuDoubleComplex *) res_gpu;
-        reducemap_dotuz((cuDoubleComplex *) a_gpu,
-                        (cuDoubleComplex *) b_gpu,
+        gpuDoubleComplex *result = (gpuDoubleComplex *) res_gpu;
+        reducemap_dotuz((gpuDoubleComplex *) a_gpu,
+                        (gpuDoubleComplex *) b_gpu,
                         result, n, nvec);
     }
     gpuCheckLastError();
@@ -255,9 +254,9 @@ PyObject* multi_dotc_cuda_gpu(PyObject *self, PyObject *args)
         reducemap_dotc((double*) a_gpu, (double*) b_gpu, result, n,
                        nvec);
     } else {
-        cuDoubleComplex *result = (cuDoubleComplex *) res_gpu;
-        reducemap_dotcz((cuDoubleComplex*) a_gpu,
-                        (cuDoubleComplex*) b_gpu,
+        gpuDoubleComplex *result = (gpuDoubleComplex *) res_gpu;
+        reducemap_dotcz((gpuDoubleComplex*) a_gpu,
+                        (gpuDoubleComplex*) b_gpu,
                         result, n, nvec);
     }
     gpuCheckLastError();

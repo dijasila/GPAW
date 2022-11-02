@@ -6,8 +6,8 @@
 #include <float.h>
 #include <sys/types.h>
 #include <sys/time.h>
-#include <cuComplex.h>
 
+#include "../gpu.h"
 #include "../gpu-complex.h"
 
 #undef MYJ_X

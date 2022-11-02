@@ -1,8 +1,6 @@
-#include <cuda.h>
-#include <driver_types.h>
-#include <cuda_runtime_api.h>
 #include <string.h>
 
+#include "../gpu.h"
 #include "../gpu-complex.h"
 #include "../debug.h"
 
@@ -77,7 +75,7 @@ extern "C"
 static void Zcuda(debug_bmgs_cut)(
         const int sizea[3], const int starta[3], const int sizeb[3],
 #ifdef GPU_USE_COMPLEX
-        cuDoubleComplex phase,
+        gpuDoubleComplex phase,
 #endif
         int blocks, int ng, int ng2)
 {
@@ -113,7 +111,7 @@ static void Zcuda(debug_bmgs_cut)(
 __global__ void Zcuda(bmgs_cut_cuda_kernel)(
         const Tcuda* a, const int3 c_sizea, Tcuda* b, const int3 c_sizeb,
 #ifdef GPU_USE_COMPLEX
-        cuDoubleComplex phase,
+        gpuDoubleComplex phase,
 #endif
         int blocks, int xdiv)
 {
@@ -151,7 +149,7 @@ static void Zcuda(_bmgs_cut_cuda_gpu)(
         const Tcuda* a, const int sizea[3], const int starta[3],
         Tcuda* b, const int sizeb[3],
 #ifdef GPU_USE_COMPLEX
-        cuDoubleComplex phase,
+        gpuDoubleComplex phase,
 #endif
         int blocks, gpuStream_t stream)
 {
@@ -211,7 +209,7 @@ void Zcuda(bmgs_cut_cuda_gpu)(
         const Tcuda* a, const int sizea[3], const int starta[3],
         Tcuda* b, const int sizeb[3],
 #ifdef GPU_USE_COMPLEX
-        cuDoubleComplex phase,
+        gpuDoubleComplex phase,
 #endif
         int blocks, gpuStream_t stream)
 {

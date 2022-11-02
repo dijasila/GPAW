@@ -4,6 +4,7 @@
 #include <sys/types.h>
 #include <sys/time.h>
 
+#include "../gpu.h"
 #include "../gpu-complex.h"
 
 #define BLOCK_X_FERMI   (16)

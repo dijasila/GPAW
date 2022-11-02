@@ -1,12 +1,9 @@
-#include <cuda.h>
-#include <cublas.h>
-#include <driver_types.h>
-#include <cuda_runtime_api.h>
 #include <stdio.h>
 #include <time.h>
 #include <sys/types.h>
 #include <sys/time.h>
 
+#include "../gpu.h"
 #include "../gpu-complex.h"
 
 #ifndef GPU_USE_COMPLEX
@@ -20,7 +17,7 @@ __global__ void Zcuda(bmgs_translate_cuda_kernel)(
         const Tcuda* a, const int3 c_sizea,
         Tcuda* b, const int3 c_sizeb,
 #ifdef GPU_USE_COMPLEX
-        cuDoubleComplex phase,
+        gpuDoubleComplex phase,
 #endif
         int blocks, int xdiv)
 {
@@ -55,7 +52,7 @@ void Zcuda(bmgs_translate_cuda_gpu)(
         Tcuda* a, const int sizea[3], const int size[3],
         const int start1[3], const int start2[3],
 #ifdef GPU_USE_COMPLEX
-        cuDoubleComplex phase,
+        gpuDoubleComplex phase,
 #endif
         int blocks, gpuStream_t stream)
 {

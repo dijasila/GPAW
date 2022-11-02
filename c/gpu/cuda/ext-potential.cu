@@ -1,6 +1,3 @@
-#include <cuda.h>
-#include <driver_types.h>
-#include <cuda_runtime_api.h>
 #include <stdio.h>
 #include <time.h>
 #include <sys/types.h>
@@ -11,6 +8,7 @@
 #define NO_IMPORT_ARRAY
 #include <numpy/arrayobject.h>
 
+#include "../gpu.h"
 #include "../gpu-complex.h"
 
 #ifndef GPU_USE_COMPLEX
