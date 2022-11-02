@@ -16,10 +16,9 @@ from gpaw.response.pair import get_gs_and_context, NoCalculatorPairDensity
 
 
 class DielectricFunctionCalculator:
-    def __init__(self, chi0calc, name, truncation):
+    def __init__(self, chi0calc, truncation):
         from gpaw.response.pw_parallelization import Blocks1D
         self.chi0calc = chi0calc
-        self.name = name
 
         self.truncation = truncation
         self.context = chi0calc.context
@@ -43,19 +42,9 @@ class DielectricFunctionCalculator:
             (not used in transverse reponse functions)
         """
 
-        if self.name:
-            kd = self.gs.kd
-            name = self.name + '%+d%+d%+d.pckl' % tuple((q_c * kd.N_c).round())
-            if os.path.isfile(name):
-                return self.read(name)
-
         chi0 = self.chi0calc.calculate(q_c, spin)
         chi0_wGG = chi0.distribute_frequencies()
-
         self.context.write_timer()
-        if self.name:
-            self.write(name, chi0.pd, chi0_wGG, chi0.chi0_wxvG, chi0.chi0_wvv)
-
         return chi0.pd, chi0_wGG, chi0.chi0_wxvG, chi0.chi0_wvv
 
     def write(self, name, pd, chi0_wGG, chi0_wxvG, chi0_wvv):
@@ -555,7 +544,6 @@ class DielectricFunction(DielectricFunctionCalculator):
     """This class defines dielectric function related physical quantities."""
 
     def __init__(self, calc, *,
-                 name=None,
                  frequencies=None,
                  domega0=None,  # deprecated
                  omega2=None,  # deprecated
@@ -573,13 +561,6 @@ class DielectricFunction(DielectricFunctionCalculator):
         calc: str
             The groundstate calculation file that the linear response
             calculation is based on.
-        name: str
-            If defined, save the response function to::
-
-                name + '%+d%+d%+d.pckl' % tuple((q_c * kd.N_c).round())
-
-            where q_c is the reduced momentum and N_c is the number of
-            kpoints along each direction.
         frequencies:
             Input parameters for frequency_grid.
             Can be array of frequencies to evaluate the response function at
@@ -639,8 +620,7 @@ class DielectricFunction(DielectricFunctionCalculator):
             rate=rate, eshift=eshift
         )
 
-        super().__init__(chi0calc=chi0calc,
-                         name=name, truncation=truncation)
+        super().__init__(chi0calc=chi0calc, truncation=truncation)
 
 
 def write_response_function(filename, omega_w, rf0_w, rf_w):
