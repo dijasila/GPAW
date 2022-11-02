@@ -7,7 +7,7 @@ from gpaw.test import equal, findpeak
 
 
 @pytest.fixture
-def gpwfile():
+def gpwfile(in_tmp_dir):
     cluster = Atoms('Au2', [(0, 0, 0), (0, 0, 2.564)])
     cluster.set_cell((6, 6, 6), scale_atoms=False)
     cluster.center()
