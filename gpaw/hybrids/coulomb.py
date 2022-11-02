@@ -14,9 +14,11 @@ def coulomb_interaction(omega, gd, kd):
 class ShortRangeCoulomb:
     def __init__(self, omega):
         self.omega = omega
-        self.description = (
-            f'Short-range Coulomb: erfc(omega*r)/r (omega = {omega} bohr^-1)')
 
+    def get_description(self):
+        return f'Short-range Coulomb: erfc(omega*r)/r (omega = {self.omega} ' \
+               'bohr^-1)'
+    
     def get_potential(self, pd):
         G2_G = pd.G2_qG[0]
         x_G = 1 - np.exp(-G2_G / (4 * self.omega**2))
