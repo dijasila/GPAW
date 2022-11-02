@@ -65,7 +65,7 @@ class BuildingBlock:
         self.df = df  # dielectric function object
         self.df.truncation = '2D'  # in case you forgot!
         self.wd = self.df.wd
-        self.world = self.df.chi0calc.context.world
+        self.world = self.context.world
 
         if self.world.rank != 0:
             from gpaw.utilities import devnull
@@ -181,7 +181,7 @@ class BuildingBlock:
             print('calculated chi!', file=self.fd)
 
             nw = len(self.wd)
-            world = self.df.chi0calc.context.world
+            world = self.context.world
             w1 = min(self.df.blocks1d.blocksize * world.rank, nw)
 
             _, _, chiM_qw, chiD_qw, _, drhoM_qz, drhoD_qz = \
@@ -343,7 +343,7 @@ class BuildingBlock:
 
     @property
     def context(self):
-        return self.df.chi0calc.context
+        return self.df.context
 
     def collect(self, a_w):
         world = self.context.world
