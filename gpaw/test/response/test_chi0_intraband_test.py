@@ -51,7 +51,6 @@ def test_chi0_intraband(in_tmp_dir):
                              ecut=10,
                              rate=0.1,
                              integrationmode='tetrahedron integration',
-                             name='intraband_spinpaired',
                              txt='intraband_spinpaired_df.txt')
 
     df1NLFCx, df1LFCx = df1.get_dielectric_function(direction='x')
@@ -71,7 +70,6 @@ def test_chi0_intraband(in_tmp_dir):
                              ecut=10,
                              rate=0.1,
                              integrationmode='tetrahedron integration',
-                             name='intraband_spinpolarized',
                              txt='intraband_spinpolarized_df.txt')
 
     df2NLFCx, df2LFCx = df2.get_dielectric_function(direction='x')
