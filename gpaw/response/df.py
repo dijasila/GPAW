@@ -25,6 +25,8 @@ class DielectricFunctionCalculator:
         self.wd = chi0calc.wd
         self.blocks1d = Blocks1D(self.context.world, len(self.wd))
 
+        self._chi0cache = {}
+
     @property
     def gs(self):
         return self.chi0calc.gs
@@ -42,10 +44,17 @@ class DielectricFunctionCalculator:
             (not used in transverse reponse functions)
         """
 
-        chi0 = self.chi0calc.calculate(q_c, spin)
-        chi0_wGG = chi0.distribute_frequencies()
-        self.context.write_timer()
-        return chi0.pd, chi0_wGG, chi0.chi0_wxvG, chi0.chi0_wvv
+        # We cache the computed data since chi0 may otherwise be redundantly
+        # calculated e.g. if the user calculates multiple directions.
+        key = tuple((q_c * self.gs.kd.N_c).round())
+
+        if key not in self._chi0cache:
+            chi0 = self.chi0calc.calculate(q_c, spin)
+            chi0_wGG = chi0.distribute_frequencies()
+            self.context.write_timer()
+            things = chi0.pd, chi0_wGG, chi0.chi0_wxvG, chi0.chi0_wvv
+            self._chi0cache[key] = things
+        return self._chi0cache[key]
 
     def collect(self, a_w):
         return self.blocks1d.collect(a_w)
