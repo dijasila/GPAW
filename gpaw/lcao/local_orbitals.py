@@ -6,7 +6,7 @@ import numpy as np
 from ase.data import covalent_radii
 from ase.data.colors import jmol_colors
 from ase.units import Bohr, Hartree
-from gpaw import GPAW
+from gpaw import GPAW, OldGPAW
 from gpaw.lcao.tightbinding import TightBinding  # as LCAOTightBinding
 from gpaw.lcao.tools import get_bfi
 from gpaw.typing import Array1D, Array2D, Array4D
@@ -48,7 +48,7 @@ def subdiagonalize(H_MM: Array2D, S_MM: Array2D, blocks: list[Array1D]):
     return epsx_M, v_MM
 
 
-def subdiagonalize_atoms(calc: GPAW, H_MM: Array2D, S_MM: Array2D, atom_indices: Array1D = None):
+def subdiagonalize_atoms(calc: OldGPAW, H_MM: Array2D, S_MM: Array2D, atom_indices: Array1D = None):
     """Subdiagonalize atomic sub-spaces."""
     if atom_indices is None:
         atom_indices = range(len(calc.atoms))
@@ -62,7 +62,7 @@ def subdiagonalize_atoms(calc: GPAW, H_MM: Array2D, S_MM: Array2D, atom_indices:
     return subdiagonalize(H_MM, S_MM, block_lists)
 
 
-def get_orbitals(calc: GPAW, U_Mw: Array2D, q: int = 0):
+def get_orbitals(calc: OldGPAW, U_Mw: Array2D, q: int = 0):
     """Get orbitals from AOs coefficients.
 
     Parameters
@@ -79,7 +79,7 @@ def get_orbitals(calc: GPAW, U_Mw: Array2D, q: int = 0):
     return w_wG
 
 
-def get_xc(calc: GPAW, v_wG: Array4D, P_awi=None):
+def get_xc(calc: OldGPAW, v_wG: Array4D, P_awi=None):
     """Get exchange-correlation part of the Hamiltonian."""
     if calc.density.nt_sg is None:
         calc.density.interpolate_pseudo_density()
@@ -384,7 +384,7 @@ class LocalOrbitals(TightBinding):
 
     """
 
-    def __init__(self, calc: GPAW):
+    def __init__(self, calc: OldGPAW):
 
         self.calc = calc
         self.gamma = calc.wfs.kd.gamma  # Gamma point calculation
