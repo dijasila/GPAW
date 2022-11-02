@@ -7,10 +7,11 @@ from ase.parallel import parprint
 
 from gpaw import GPAW, PW, FermiDirac
 from gpaw.test import findpeak, equal
-from gpaw.response.df import DielectricFunction
-from gpaw.response.susceptibility import FourComponentSusceptibilityTensor
-from gpaw.response.susceptibility import read_macroscopic_component
 from gpaw.mpi import size, world
+
+from gpaw.response import ResponseGroundStateAdapter
+from gpaw.response.df import DielectricFunction, read_response_function
+from gpaw.response.susceptibility import FourComponentSusceptibilityTensor
 
 
 @pytest.mark.kspair
@@ -52,7 +53,8 @@ def test_response_silicon_chi_RPA(in_tmp_dir):
     world.barrier()
 
     # Using FCST
-    fcst = FourComponentSusceptibilityTensor(calc, fxc='RPA',
+    gs = ResponseGroundStateAdapter(calc)
+    fcst = FourComponentSusceptibilityTensor(gs, fxc='RPA',
                                              eta=0.2, ecut=50)
     fcst.get_macroscopic_component('00', q, w, filename='Si_chi2.csv')
 
@@ -66,10 +68,10 @@ def test_response_silicon_chi_RPA(in_tmp_dir):
     parprint('For excited state calc 2, it took', (t4 - t3) / 60, 'minutes')
 
     # The two response codes should hold identical results
-    d1 = np.loadtxt('Si_chi1.csv', delimiter=',')
-    wpeak1, Ipeak1 = findpeak(d1[:, 0], -d1[:, 4])
-    w_w, chiks_w, chi_w = read_macroscopic_component('Si_chi2.csv')
-    wpeak2, Ipeak2 = findpeak(w_w, -chi_w.imag)
+    w1_w, chiks1_w, chi1_w = read_response_function('Si_chi1.csv')
+    wpeak1, Ipeak1 = findpeak(w1_w, -chi1_w.imag)
+    w2_w, chiks2_w, chi2_w = read_response_function('Si_chi2.csv')
+    wpeak2, Ipeak2 = findpeak(w2_w, -chi2_w.imag)
 
     equal(wpeak1, wpeak2, 0.02)
     equal(Ipeak1, Ipeak2, 1.0)

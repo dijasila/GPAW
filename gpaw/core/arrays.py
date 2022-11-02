@@ -64,6 +64,9 @@ class DistributedArrays(Generic[DomainType]):
     def new(self, data=None) -> DistributedArrays:
         raise NotImplementedError
 
+    def copy(self):
+        return self.new(data=self.data.copy())
+
     def __getitem__(self, index):
         raise NotImplementedError
 

@@ -109,7 +109,9 @@ GPAW implementation
 
 In GPAW, the computation of MFT Heisenberg exchange constants is implemented
 through the ``IsotropicExchangeCalculator``. The calculator is constructed
-from a ``ChiKS`` instance, which is a separate calculator for computing the
+from a ``ChiKS`` intance and a ``LocalFTCalculator``, where the latter takes
+care of Fourier transforming `B^{\mathrm{xc}}(\mathbf{r})` into plane-wave
+components, whereas the former is a separate calculator for computing the
 Kohn-Sham transverse magnetic plane wave susceptibility:
 
 .. math::
@@ -136,15 +138,15 @@ plane wave pair densities,
 
 are computed directly from the Kohn-Sham orbitals
 `\psi_{n\mathbf{k}s}(\mathbf{r})`. For more details on the transverse
-magnetic susceptibility and its GPAW implementation, please
-refer to [#Skovhus]_. The ``ChiKS`` calculator evaluates the sum over
-`\mathbf{k}`-points by point integration on the Monkhorst-Pack grid
-specified by an input ground state DFT calculation. Because of this, it only
-accepts wave vectors `\mathbf{q}` that are commensurate with the underlying
-`\mathbf{k}`-point grid. Furthermore, it takes input arguments ``ecut``,
-``nbands`` and ``eta`` in the constructor, specifying the plane wave energy
-cutoff, number of bands in the band summation and frequency broadening
-respectively.
+magnetic susceptibility, PAW corrections to Fourier transforms and their
+respective GPAW implementations, please refer to [#Skovhus]_. Specifically,
+the ``ChiKS`` calculator evaluates the sum over `\mathbf{k}`-points by point
+integration on the Monkhorst-Pack grid specified by an input ground state
+DFT calculation. Because of this, it only accepts wave vectors `\mathbf{q}`
+that are commensurate with the underlying `\mathbf{k}`-point grid.
+Furthermore, it takes input arguments ``ecut``, ``nbands`` and ``eta`` in
+the constructor, specifying the plane wave energy cutoff, number of bands in
+the band summation and frequency broadening respectively.
 
 The ``IsotropicExchangeCalculator`` uses the ``ChiKS`` instance from which
 it is initialized to compute the reactive part of the susceptibility,

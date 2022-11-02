@@ -14,12 +14,14 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.pw.descriptor import PWDescriptor
 from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.mpi import world, serial_comm, broadcast
+from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.chi0 import Chi0
-from gpaw.response.kernels import get_coulomb_kernel
+from gpaw.response.df import write_response_function
+from gpaw.response.coulomb_kernels import get_coulomb_kernel
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.response.pair import PairDensity
-from gpaw.response.groundstate import ResponseGroundStateAdapter
 from gpaw.response.screened_interaction import initialize_w_calculator
+from gpaw.response.paw import PWPAWCorrectionData
 
 
 class BSE:
@@ -116,7 +118,6 @@ class BSE:
         bzq_qc = monkhorst_pack(self.kd.N_c) + offset_c
         self.qd = KPointDescriptor(bzq_qc)
         self.qd.set_symmetry(self.gs.atoms, self.kd.symmetry)
-        self.vol = self.gs.volume
 
         # bands
         self.spins = self.gs.nspins
@@ -129,10 +130,7 @@ class BSE:
             assert len(valence_bands[0]) == len(valence_bands[1])
             assert len(conduction_bands[0]) == len(conduction_bands[1])
         if valence_bands is None:
-            # XXX nvalence are the valence electrons on the setups,
-            # but that's not the actual number of valence electrons
-            # if the calculation is charged.  Is this a bug?
-            nv = self.gs.setups.nvalence
+            nv = self.gs.nvalence
             valence_bands = [[nv // 2 - 1]]
             if self.spins == 2:
                 valence_bands *= 2
@@ -228,15 +226,17 @@ class BSE:
 
         # Calculate direct (screened) interaction and PAW corrections
         if self.mode == 'RPA':
-            Q_aGii = self.pair.initialize_paw_corrections(pd0)
+            pairden_paw_corr = self.gs.pair_density_paw_corrections
+            pawcorr = pairden_paw_corr(pd0, alter_optical_limit=True)
         else:
             self.get_screened_potential()
             if (self.qd.ibzk_kc - self.q_c < 1.0e-6).all():
                 iq0 = self.qd.bz2ibz_k[self.kd.where_is_q(self.q_c,
                                                           self.qd.bzk_kc)]
-                Q_aGii = self.Q_qaGii[iq0]
+                pawcorr = self.pawcorr_q[iq0]  # Q_qaGii[iq0]
             else:
-                Q_aGii = self.pair.initialize_paw_corrections(pd0)
+                pairden_paw_corr = self.gs.pair_density_paw_corrections
+                pawcorr = pairden_paw_corr(pd0, alter_optical_limit=True)
 
         # Calculate pair densities, eigenvalues and occupations
         so = self.spinors + 1
@@ -250,7 +250,8 @@ class BSE:
         optical_limit = np.allclose(self.q_c, 0.0)
 
         get_pair = self.pair.get_kpoint_pair
-        get_rho = self.pair.get_pair_density
+        get_pair_density = self.pair.get_pair_density
+        get_optical_pair_density = self.pair.get_optical_pair_density
         if self.spinors:
             # Get all pair densities to allow for SOC mixing
             # Use twice as many no-SOC states as BSE bands to allow mixing
@@ -288,12 +289,11 @@ class BSE:
 
                 df_mn = pair.get_occupation_differences(self.val_sn[s],
                                                         self.con_sn[s])
-                rho_mnG = get_rho(pd0, pair,
-                                  m_m, n_n,
-                                  optical_limit=optical_limit,
-                                  direction=self.direction,
-                                  Q_aGii=Q_aGii,
-                                  extend_head=False)
+                rho_mnG = get_pair_density(pd0, pair, m_m, n_n,
+                                           pawcorr=pawcorr)
+                if optical_limit:
+                    n_mnv = get_optical_pair_density(pd0, pair, m_m, n_n)
+                    rho_mnG[:, :, 0] = n_mnv[:, :, self.direction]
                 if self.spinors:
                     if optical_limit:
                         deps0_mn = -pair.get_transition_energies(m_m, n_n)
@@ -400,7 +400,7 @@ class BSE:
         # if self.mode == 'BSE':
         #     del self.Q_qaGii, self.W_qGG, self.pd_q
 
-        H_ksmnKsmn /= self.vol
+        H_ksmnKsmn /= self.gs.volume
 
         mySsize = myKsize * Nv * Nc * Ns
         if myKsize > 0:
@@ -452,34 +452,19 @@ class BSE:
         shift_c = kpt1.shift_c - kpt2.shift_c - shift0_c
         I_G = np.ravel_multi_index(i_cG + shift_c[:, None], N_c, 'wrap')
         G_Gv = pd.get_reciprocal_vectors()
-        spos_ac = self.gs.spos_ac
-        spos_av = np.dot(spos_ac, pd.gd.cell_cv)
+
         M_vv = np.dot(pd.gd.cell_cv.T, np.dot(U_cc.T,
                                               np.linalg.inv(pd.gd.cell_cv).T))
 
-        Q_aGii = []
-        for a, Q_Gii in enumerate(self.Q_qaGii[iq]):
-            x_G = np.exp(1j * np.dot(G_Gv, (spos_av[a] -
-                                            np.dot(M_vv, spos_av[a]))))
-            U_ii = self.gs.setups[a].R_sii[sym]
-
-            Q_Gii = np.einsum('ij,kjl,ml->kim',
-                              U_ii,
-                              Q_Gii * x_G[:, None, None],
-                              U_ii,
-                              optimize='optimal')
-            if sign == -1:
-                Q_Gii = Q_Gii.conj()
-            Q_aGii.append(Q_Gii)
+        pawcorr = self.pawcorr_q[iq].remap_somehow(M_vv, G_Gv, sym, sign)
 
         rho_mnG = np.zeros((len(kpt1.eps_n), len(kpt2.eps_n), len(G_Gv)),
                            complex)
         for m in range(len(rho_mnG)):
-            C1_aGi = [np.dot(Qa_Gii, P1_ni[m].conj())
-                      for Qa_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
+            C1_aGi = pawcorr.multiply(kpt1.P_ani, band=m)
             ut1cc_R = kpt1.ut_nR[m].conj()
-            rho_mnG[m] = self.pair.calculate_pair_densities(ut1cc_R, C1_aGi,
-                                                            kpt2, pd, I_G)
+            rho_mnG[m] = self.pair.calculate_pair_density(ut1cc_R, C1_aGi,
+                                                          kpt2, pd, I_G)
         return rho_mnG, iq
 
     def get_screened_potential(self):
@@ -491,9 +476,15 @@ class BSE:
             # Read screened potential from file
             try:
                 data = np.load(self.wfile + '.npz')
-                self.Q_qaGii = data['Q']
-                self.W_qGG = data['W']
                 self.pd_q = data['pd']
+                assert len(data['pd']) == len(data['Q'])
+                self.pawcorr_q = [
+                    PWPAWCorrectionData(
+                        Q_aGii, pd=pd,
+                        setups=self.gs.setups,
+                        pos_av=self.gs.get_pos_av())
+                    for Q_aGii, pd in zip(data['Q'], self.pd_q)]
+                self.W_qGG = data['W']
                 print('Reading screened potential from % s' % self.wfile,
                       file=self.fd)
             except FileNotFoundError:
@@ -502,21 +493,10 @@ class BSE:
                       file=self.fd)
                 if world.rank == 0:
                     np.savez(self.wfile,
-                             Q=self.Q_qaGii, pd=self.pd_q, W=self.W_qGG)
+                             Q=[pawcorr.Q_aGii for pawcorr in self.pawcorr_q],
+                             pd=self.pd_q, W=self.W_qGG)
         else:
             self.calculate_screened_potential()
-
-    def _calculate_chi0(self, q_c):
-        """Use the Chi0 object to calculate the static susceptibility."""
-        if self._chi0calc is None:
-            self.initialize_chi0_calculator()
-
-        chi0 = self._chi0calc.create_chi0(q_c, extend_head=False)
-        # Do all bands and all spins
-        m1, m2, spins = 0, self.nbands, 'all'
-        chi0 = self._chi0calc.update_chi0(chi0, m1, m2, spins)
-
-        return chi0  # chi0.pd, chi0.chi0_wGG, chi0.chi0_wxvG, chi0.chi0_wvv
 
     def initialize_chi0_calculator(self):
         """Initialize the Chi0 object to compute the static
@@ -536,7 +516,7 @@ class BSE:
     def calculate_screened_potential(self):
         """Calculate W_GG(q)"""
 
-        self.Q_qaGii = []
+        self.pawcorr_q = []
         self.W_qGG = []
         self.pd_q = []
 
@@ -553,11 +533,10 @@ class BSE:
         t0 = time()
         print('Calculating screened potential', file=self.fd)
         for iq, q_c in enumerate(self.qd.ibzk_kc):
-            # pd, chi0_wGG, chi0_wxvG, chi0_wvv = self._calculate_chi0(q_c)
-            chi0 = self._calculate_chi0(q_c)
-            pd, blocks1d, W_wGG = self._wcalc.calculate_q(iq, q_c, chi0)
+            chi0 = self._chi0calc.calculate(q_c)
+            pd, W_wGG = self._wcalc.calculate_q(iq, q_c, chi0, out_dist='WgG')
             W_GG = W_wGG[0]
-            self.Q_qaGii.append(self._chi0calc.Q_aGii)
+            self.pawcorr_q.append(self._chi0calc.pawcorr)
             self.pd_q.append(pd)
             self.W_qGG.append(W_GG)
 
@@ -701,7 +680,7 @@ class BSE:
         for iw, w in enumerate(w_w / Hartree):
             tmp_T = 1. / (w - w_T + 1j * eta)
             vchi_w[iw] += np.dot(tmp_T, C_T)
-        vchi_w *= 4 * np.pi / self.vol
+        vchi_w *= 4 * np.pi / self.gs.volume
 
         if not np.allclose(self.q_c, 0.0):
             cell_cv = self.gs.gd.cell_cv
@@ -710,12 +689,10 @@ class BSE:
             vchi_w /= np.dot(q_v, q_v)
 
         """Check f-sum rule."""
-        # XXX again we are accessing nvalence from setups rather than wfs,
-        # which may not be the right value if system is charged
-        nv = self.gs.setups.nvalence
+        nv = self.gs.nvalence
         dw_w = (w_w[1:] - w_w[:-1]) / Hartree
         wchi_w = (w_w[1:] * vchi_w[1:] + w_w[:-1] * vchi_w[:-1]) / Hartree / 2
-        N = -np.dot(dw_w, wchi_w.imag) * self.vol / (2 * np.pi**2)
+        N = -np.dot(dw_w, wchi_w.imag) * self.gs.volume / (2 * np.pi**2)
         print(file=self.fd)
         print('Checking f-sum rule:', file=self.fd)
         print('  Valence = %s, N = %f' % (nv, N), file=self.fd)
@@ -766,11 +743,8 @@ class BSE:
         epsilon_w += 1.0
 
         if world.rank == 0 and filename is not None:
-            f = open(filename, 'w')
-            for iw, w in enumerate(w_w):
-                print('%.9f, %.9f, %.9f' %
-                      (w, epsilon_w[iw].real, epsilon_w[iw].imag), file=f)
-            f.close()
+            write_response_function(filename, w_w,
+                                    epsilon_w.real, epsilon_w.imag)
         world.barrier()
 
         print('Calculation completed at:', ctime(), file=self.fd)
@@ -852,11 +826,7 @@ class BSE:
         alpha_w *= Bohr**(sum(~pbc_c))
 
         if world.rank == 0 and filename is not None:
-            fd = open(filename, 'w')
-            for iw, w in enumerate(w_w):
-                print('%.9f, %.9f, %.9f' %
-                      (w, alpha_w[iw].real, alpha_w[iw].imag), file=fd)
-            fd.close()
+            write_response_function(filename, w_w, alpha_w.real, alpha_w.imag)
 
         print('Calculation completed at:', ctime(), file=self.fd)
         print(file=self.fd)
@@ -1001,8 +971,7 @@ class BSE:
         p('Atoms                          :',
           self.gs.atoms.get_chemical_formula(mode='hill'))
         p('Ground state XC functional     :', self.gs.xcname)
-        # XXX Maybe gs.nvalence instread ???
-        p('Valence electrons              :', self.gs.setups.nvalence)
+        p('Valence electrons              :', self.gs.nvalence)
         p('Spinor calculations            :', self.spinors)
         p('Number of bands                :', self.gs.bd.nbands)
         p('Number of spins                :', self.gs.nspins)

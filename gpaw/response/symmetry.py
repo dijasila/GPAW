@@ -1,12 +1,13 @@
-import sys
 import functools
 
 import numpy as np
 from scipy.spatial import Delaunay, cKDTree
-from ase.utils.timing import timer
 
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.bztools import get_reduced_bz, unique_rows
+from _gpaw import GG_shuffle
+
+from gpaw.response import timer
 
 
 class KPointFinder:
@@ -29,11 +30,10 @@ class KPointFinder:
 
 class PWSymmetryAnalyzer:
     """Class for handling planewave symmetries."""
-    def __init__(self, kd, pd, txt=sys.stdout,
+    def __init__(self, kd, pd, context,
                  disable_point_group=False,
                  disable_non_symmorphic=True,
-                 disable_time_reversal=False,
-                 *, timer):
+                 disable_time_reversal=False):
         """Creates a PWSymmetryAnalyzer object.
 
         Determines which of the symmetries of the atomic structure
@@ -47,8 +47,7 @@ class PWSymmetryAnalyzer:
         pd: PWDescriptor
             Plane wave descriptor that contains the reciprocal
             lattice .
-        txt: str
-            Output file.
+        context: ResponseContext
         disable_point_group: bool
             Switch for disabling point group symmetries.
         disable_non_symmorphic:
@@ -58,7 +57,7 @@ class PWSymmetryAnalyzer:
         """
         self.pd = pd
         self.kd = kd
-        self.fd = txt
+        self.context = context
 
         assert disable_non_symmorphic, ('You are not allowed to use '
                                         'non-symmorphic syms, sorry.')
@@ -69,9 +68,10 @@ class PWSymmetryAnalyzer:
         self.disable_non_symmorphic = disable_non_symmorphic
         if (kd.symmetry.has_inversion or not kd.symmetry.time_reversal) and \
            not self.disable_time_reversal:
-            print('\nThe ground calculation does not support time-reversal ' +
-                  'symmetry possibly because it has an inversion center ' +
-                  'or that it has been manually deactivated. \n', file=self.fd)
+            self.context.print('\nThe ground calculation does not support time'
+                               '-reversal symmetry possibly because it has an '
+                               'inversion center or that it has been manually '
+                               'deactivated.\n')
             self.disable_time_reversal = True
 
         self.disable_symmetries = (self.disable_point_group and
@@ -85,7 +85,6 @@ class PWSymmetryAnalyzer:
         self.nsym = 2 * self.nU
         self.use_time_reversal = not self.disable_time_reversal
 
-        self.timer = timer
         self.kptfinder = KPointFinder(kd.bzk_kc)
         self.initialize()
 
@@ -118,13 +117,13 @@ class PWSymmetryAnalyzer:
         self.initialize_G_maps()
 
         # Print info
-        print(self.infostring, file=self.fd)
+        self.context.print(self.infostring)
         self.print_symmetries()
 
     def print_symmetries(self):
         """Handsome print function for symmetry operations."""
 
-        p = functools.partial(print, file=self.fd)
+        p = functools.partial(self.context.print, flush=False)
 
         p()
         nx = 6 if self.disable_non_symmorphic else 3
@@ -141,7 +140,7 @@ class PWSymmetryAnalyzer:
                     op_c = sign * op_cc[c]
                     p('  (%2d %2d %2d)' % tuple(op_c), end='')
                 p()
-            p()
+            self.context.print()  # flush output
 
     @timer('Analyze')
     def analyze_kpoints(self):
@@ -337,8 +336,8 @@ class PWSymmetryAnalyzer:
         try:
             s = np.argwhere(bzk2rbz_s == K2)[0][0]
         except IndexError:
-            print('K = {0} cannot be mapped into K = {1}'.format(K1, K2),
-                  file=self.fd)
+            self.context.print(f'K = {K1} cannot be mapped into '
+                               f'K = {K2}')
             raise
         return s_s[s]
 
@@ -370,21 +369,31 @@ class PWSymmetryAnalyzer:
 
         return TR(a_MG[..., G_G])
 
+    @timer('symmetrize_wGG')
     def symmetrize_wGG(self, A_wGG):
         """Symmetrize an array in GG'."""
-
+        
         for A_GG in A_wGG:
-            tmp_GG = np.zeros_like(A_GG)
+            tmp_GG = np.zeros_like(A_GG, order='C')
+            # tmp2_GG = np.zeros_like(A_GG)
 
             for s in self.s_s:
                 G_G, sign, _ = self.G_sG[s]
-                if sign == 1:
-                    tmp_GG += A_GG[G_G, :][:, G_G]
-                if sign == -1:
-                    tmp_GG += A_GG[G_G, :][:, G_G].T
+                GG_shuffle(G_G, sign, A_GG, tmp_GG)
 
+                # This is the exact operation that GG_shuffle does.
+                # Uncomment lines involving tmp2_GG to test the
+                # implementation in action:
+                #
+                # if sign == 1:
+                #     tmp2_GG += A_GG[G_G, :][:, G_G]
+                # if sign == -1:
+                #     tmp2_GG += A_GG[G_G, :][:, G_G].T
+            
+            # assert np.allclose(tmp_GG, tmp2_GG)
             A_GG[:] = tmp_GG / self.how_many_symmetries()
 
+    @timer('symmetrize_wxx')
     def symmetrize_wxx(self, A_wxx, optical_limit=False):
         """Symmetrize an array in xx'."""
         tmp_wxx = np.zeros_like(A_wxx)
@@ -423,6 +432,7 @@ class PWSymmetryAnalyzer:
         # Inplace overwriting
         A_wxx[:] = tmp_wxx / self.how_many_symmetries()
 
+    @timer('symmetrize_wxvG')
     def symmetrize_wxvG(self, A_wxvG):
         """Symmetrize chi0_wxvG"""
         A_cv = self.pd.gd.cell_cv
@@ -446,6 +456,7 @@ class PWSymmetryAnalyzer:
         # Overwrite the input
         A_wxvG[:] = tmp_wxvG / self.how_many_symmetries()
 
+    @timer('symmetrize_wvv')
     def symmetrize_wvv(self, A_wvv):
         """Symmetrize chi_wvv."""
         A_cv = self.pd.gd.cell_cv
@@ -518,6 +529,7 @@ class PWSymmetryAnalyzer:
 
         return G_G, sign
 
+    @timer('Initialize_G_maps')
     def initialize_G_maps(self):
         """Calculate the Gvector mappings."""
         pd = self.pd
@@ -548,7 +560,7 @@ class PWSymmetryAnalyzer:
                     raise IndexError
             UG_sGc[s] = UG_Gc
             Q_sG[s] = UQ_G
-            G_sG[s] = [G_G, sign, shift_c]
+            G_sG[s] = [np.array(G_G, dtype=np.int32), sign, shift_c]
         self.G_Gc = G_Gc
         self.UG_sGc = UG_sGc
         self.Q_sG = Q_sG

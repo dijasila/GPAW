@@ -178,6 +178,7 @@ class build_ext(_build_ext):
         self.include_dirs.append(np.get_include())
 
         _build_ext.run(self)
+        print("Temp and build", self.build_lib, self.build_temp)
 
         if parallel_python_interpreter:
             include_dirs.append(np.get_include())
@@ -185,7 +186,7 @@ class build_ext(_build_ext):
             error = build_interpreter(
                 define_macros, include_dirs, libraries,
                 library_dirs, extra_link_args, extra_compile_args,
-                runtime_library_dirs, extra_objects,
+                runtime_library_dirs, extra_objects, self.build_temp,
                 mpicompiler, mpilinker, mpi_libraries,
                 mpi_library_dirs,
                 mpi_include_dirs,
@@ -234,6 +235,7 @@ setup(name='gpaw',
       license='GPLv3+',
       platforms=['unix'],
       packages=find_packages(),
+      package_data={'gpaw': ['py.typed']},
       entry_points={
           'console_scripts': ['gpaw = gpaw.cli.main:main'],
           'ase.ioformats': ['gpaw-yaml = gpaw.entry_points:gpaw_yaml']},

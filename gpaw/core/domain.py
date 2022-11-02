@@ -45,6 +45,8 @@ class Domain:
         self.pbc_c = np.array(pbc, bool)
         self.comm = comm
 
+        self.volume = abs(np.linalg.det(self.cell_cv))
+
         assert dtype in [None, float, complex]
 
         if kpt is not None:
