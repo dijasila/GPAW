@@ -140,7 +140,8 @@ class WCalculator:
             self.q0_corrector = Q0Correction(
                 cell_cv=self.gs.gd.cell_cv,
                 bzk_kc=self.gs.kd.bzk_kc,
-                N_c=self.qd.N_c)
+                N_c=self.qd.N_c,
+                pbc=self.gs.pbc)
 
             npts_c = self.q0_corrector.npts_c
             self.context.print('Applying analytical 2D correction to W:',
