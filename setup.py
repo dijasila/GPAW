@@ -157,6 +157,8 @@ for flag, name in [(noblas, 'GPAW_WITHOUT_BLAS'),
                    (cuda, 'GPAW_CUDA')]:
     if flag:
         define_macros.append((name, '1'))
+if cuda:
+    define_macros.append(('GPAW_GPU', '1'))
 
 sources = [Path('c/bmgs/bmgs.c')]
 sources += Path('c').glob('*.c')
