@@ -191,7 +191,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         return self.pd.integrate(a_xg, b_yg, global_integral)
 
     def bytes_per_wave_function(self):
-        return 16 * self.pd.ngmax
+        return 16 * self.pd.maxmyng
 
     def set_setups(self, setups):
         self.timer.start('PWDescriptor')
