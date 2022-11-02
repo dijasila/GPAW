@@ -1,10 +1,7 @@
-import os
-
 import numpy as np
 import pytest
 
 from gpaw import GPAW, PW
-from gpaw.mpi import world
 from gpaw.test import equal, findpeak
 from gpaw.response.df import DielectricFunction
 from ase.build import bulk
