@@ -67,7 +67,9 @@ def add_force_contributions(wfs: LCAOWaveFunctions,
     rhoT_MM = wfs.calculate_density_matrix().T
     erhoT_MM = wfs.calculate_density_matrix(eigs=True).T
 
+    print(F_av)
     add_kinetic_term(rhoT_MM, dTdR_vMM, F_av, indices)
+    print(F_av);asdg
     add_pot_term(potential.vt_sR[wfs.spin], wfs.basis, wfs.q, rhoT_MM, F_av)
     add_den_mat_term(erhoT_MM, dThetadR_vMM, F_av, indices)
     add_den_mat_paw_term()
