@@ -14,6 +14,7 @@ from gpaw.utilities.blas import r2k
 from gpaw.utilities.tools import lowdin, tri2full
 from scipy.linalg import eigh
 
+Hello Guido!
 
 def get_subspace(A_MM: Array2D, indices: Array1D):
     """Get the subspace spanned by the basis function listed in index."""
