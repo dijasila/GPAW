@@ -14,12 +14,15 @@ si.calc = GPAW(mode=PW(400),
                occupations=FermiDirac(0.01))
 si.get_potential_energy()
 
+bp = si.cell.bandpath('LGX', npoints=100)
+bp.plot()
+
 # Restart from ground state and fix density:
 calc2 = si.calc.fixed_density(
     nbands=16,
     basis='dzp',
     symmetry='off',
-    kpts={'path': 'LGX', 'npoints': 100},
+    kpts=bp,
     convergence={'bands': 8})
 
 bs = calc2.band_structure()
