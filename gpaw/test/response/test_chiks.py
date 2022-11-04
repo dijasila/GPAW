@@ -147,20 +147,20 @@ def test_chiks_symmetry(in_tmp_dir, gpw_files, q_c, eta, gammacentered):
             chi1_GG, chi2_GG = chiks_qwGG[q1][0], chiks_qwGG[q2][0]
             chi1r_GG = 1 / 2. * (chi1_GG + np.conj(chi1_GG).T)
             chi2r_GG = 1 / 2. * (chi2_GG + np.conj(chi2_GG).T)
-            assert np.allclose(np.conj(chi2r_GG[invmap_GG]), chi1r_GG,
-                               rtol=rtol)
+            assert np.conj(chi2r_GG[invmap_GG]) == pytest.approx(chi1r_GG,
+                                                                 rel=rtol)
 
         for chi1_GG, chi2_GG in zip(chiks_qwGG[q1], chiks_qwGG[q2]):
             # Check the reciprocity of the full susceptibility
-            assert np.allclose(chi2_GG[invmap_GG].T, chi1_GG, rtol=rtol)
+            assert chi2_GG[invmap_GG].T == pytest.approx(chi1_GG, rel=rtol)
             # Check inversion symmetry of the full susceptibility
-            assert np.allclose(chi2_GG[invmap_GG], chi1_GG, rtol=rtol)
+            assert chi2_GG[invmap_GG] == pytest.approx(chi1_GG, rel=rtol)
 
     # Part 3: Check matrix symmetry
     for chiks_qwGG in chiks_sqwGG:
         for chiks_wGG in chiks_qwGG:
             for chiks_GG in chiks_wGG:
-                assert np.allclose(chiks_GG.T, chiks_GG, rtol=rtol)
+                assert chiks_GG.T == pytest.approx(chiks_GG, rel=rtol)
 
     # Part 4: Check symmetry toggle
 
