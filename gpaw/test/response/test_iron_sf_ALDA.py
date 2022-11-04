@@ -10,14 +10,8 @@ have changed for:
 import numpy as np
 import pytest
 
-import time
-
-from ase.build import bulk
-from ase.dft.kpoints import monkhorst_pack
-from ase.parallel import parprint
-
-from gpaw import GPAW, PW
-from gpaw.test import findpeak, equal
+from gpaw import GPAW
+from gpaw.test import findpeak
 from gpaw.mpi import world
 
 from gpaw.response import ResponseGroundStateAdapter
@@ -30,20 +24,10 @@ pytestmark = pytest.mark.skipif(world.size < 4, reason='world.size < 4')
 
 @pytest.mark.kspair
 @pytest.mark.response
-def test_response_iron_sf_ALDA(in_tmp_dir, scalapack):
-    # ------------------- Inputs ------------------- #
+def test_response_iron_sf_ALDA(in_tmp_dir, gpw_files, scalapack):
+    # ---------- Inputs ---------- #
 
-    # Part 1: ground state calculation
-    xc = 'LDA'
-    kpts = 4
-    nb = 6
-    pw = 300
-    conv = {'density': 1.e-8,
-            'forces': 1.e-8}
-    a = 2.867
-    mm = 2.21
-
-    # Part 2: magnetic response calculation
+    # Magnetic response calculation
     q_c = [0.0, 0.0, 1 / 4.]
     fxc = 'ALDA'
     ecut = 300
@@ -59,38 +43,20 @@ def test_response_iron_sf_ALDA(in_tmp_dir, scalapack):
                 (-1, 0.000001, 'double', True, True),
                 (-1, None, 'pairwise', True, False),
                 (3, None, 'pairwise', True, False)]
-    frq_sw = [np.linspace(0.160, 0.320, 21),
-              np.linspace(0.320, 0.480, 21),
-              np.linspace(0.320, 0.480, 21),
-              np.linspace(0.320, 0.480, 21),
-              np.linspace(0.320, 0.480, 21),
-              np.linspace(0.320, 0.480, 21),
-              np.linspace(0.320, 0.480, 21),
-              np.linspace(0.320, 0.480, 21),
-              np.linspace(0.320, 0.480, 21)]
+    frq_sw = [np.linspace(0.320, 0.480, 21),
+              np.linspace(0.420, 0.580, 21),
+              np.linspace(0.420, 0.580, 21),
+              np.linspace(0.420, 0.580, 21),
+              np.linspace(0.420, 0.580, 21),
+              np.linspace(0.420, 0.580, 21),
+              np.linspace(0.420, 0.580, 21),
+              np.linspace(0.420, 0.580, 21),
+              np.linspace(0.420, 0.580, 21)]
 
-    # ------------------- Script ------------------- #
+    # ---------- Script ---------- #
 
-    # Part 1: ground state calculation
-
-    t1 = time.time()
-
-    Febcc = bulk('Fe', 'bcc', a=a)
-    Febcc.set_initial_magnetic_moments([mm])
-
-    calc = GPAW(xc=xc,
-                mode=PW(pw),
-                kpts=monkhorst_pack((kpts, kpts, kpts)),
-                nbands=nb,
-                convergence=conv,
-                symmetry={'point_group': False},
-                parallel={'domain': 1})
-
-    Febcc.calc = calc
-    Febcc.get_potential_energy()
-    t2 = time.time()
-
-    # Part 2: magnetic response calculation
+    calc = GPAW(gpw_files['fe_pw_wfs'], parallel=dict(domain=1))
+    nbands = calc.parameters.convergence['bands']
     gs = ResponseGroundStateAdapter(calc)
 
     for s, ((rshelmax, rshewmin, bandsummation, bundle_integrals,
@@ -98,6 +64,7 @@ def test_response_iron_sf_ALDA(in_tmp_dir, scalapack):
         tms = TransverseMagneticSusceptibility(
             gs,
             fxc=fxc,
+            nbands=nbands,
             eta=eta,
             ecut=ecut,
             bandsummation=bandsummation,
@@ -112,14 +79,9 @@ def test_response_iron_sf_ALDA(in_tmp_dir, scalapack):
             filename='iron_dsus' + '_G%d.csv' % (s + 1))
         tms.context.write_timer()
 
-    t3 = time.time()
-
-    parprint('Ground state calculation took', (t2 - t1) / 60, 'minutes')
-    parprint('Excited state calculations took', (t3 - t2) / 60, 'minutes')
-
     world.barrier()
 
-    # Part 3: identify magnon peak in scattering functions
+    # Identify magnon peak in scattering functions
     w1_w, chiks1_w, chi1_w = read_response_function('iron_dsus_G1.csv')
     w2_w, chiks2_w, chi2_w = read_response_function('iron_dsus_G2.csv')
     w3_w, chiks3_w, chi3_w = read_response_function('iron_dsus_G3.csv')
@@ -128,6 +90,8 @@ def test_response_iron_sf_ALDA(in_tmp_dir, scalapack):
     w6_w, chiks6_w, chi6_w = read_response_function('iron_dsus_G6.csv')
     w7_w, chiks7_w, chi7_w = read_response_function('iron_dsus_G7.csv')
     w8_w, chiks8_w, chi8_w = read_response_function('iron_dsus_G8.csv')
+    print(-chi1_w.imag)
+    print(-chi2_w.imag)
 
     wpeak1, Ipeak1 = findpeak(w1_w, -chi1_w.imag)
     wpeak2, Ipeak2 = findpeak(w2_w, -chi2_w.imag)
@@ -147,39 +111,40 @@ def test_response_iron_sf_ALDA(in_tmp_dir, scalapack):
     mw7 = wpeak7 * 1000
     mw8 = wpeak8 * 1000
 
-    # Part 4: compare new results to test values
-    test_mw1 = 234.63  # meV
-    test_mw2 = 397.33  # meV
-    test_mw4 = 398.83  # meV
-    test_Ipeak1 = 56.74  # a.u.
-    test_Ipeak2 = 55.80  # a.u.
-    test_Ipeak4 = 58.23  # a.u.
+    # Compare new results to test values
+    print(mw1, mw2, mw4, Ipeak1, Ipeak2, Ipeak4)
+    test_mw1 = 398.  # meV
+    test_mw2 = 508.  # meV
+    test_mw4 = 510.  # meV
+    test_Ipeak1 = 36.7  # a.u.
+    test_Ipeak2 = 49.1  # a.u.
+    test_Ipeak4 = 47.6  # a.u.
 
     # Different kernel strategies should remain the same
     # Magnon peak:
-    equal(mw1, test_mw1, eta * 250)
-    equal(mw2, test_mw2, eta * 250)
-    equal(mw4, test_mw4, eta * 250)
+    assert mw1 == pytest.approx(test_mw1, abs=10.)
+    assert mw2 == pytest.approx(test_mw2, abs=10.)
+    assert mw4 == pytest.approx(test_mw4, abs=10.)
 
     # Scattering function intensity:
-    equal(Ipeak1, test_Ipeak1, 2.5)
-    equal(Ipeak2, test_Ipeak2, 2.5)
-    equal(Ipeak4, test_Ipeak4, 2.5)
+    assert Ipeak1 == pytest.approx(test_Ipeak1, abs=5.0)
+    assert Ipeak2 == pytest.approx(test_Ipeak2, abs=5.0)
+    assert Ipeak4 == pytest.approx(test_Ipeak4, abs=5.0)
 
     # The bundled and unbundled integration methods should give the same
-    equal(mw2, mw3, eta * 100)
-    equal(Ipeak2, Ipeak3, 1.0)
+    assert mw2 == pytest.approx(mw3, abs=1.)
+    assert Ipeak2 == pytest.approx(Ipeak3, abs=0.5)
 
     # The two transitions summation strategies should give identical results
-    equal(mw4, mw5, eta * 100)
-    equal(Ipeak4, Ipeak5, 1.0)
+    assert mw4 == pytest.approx(mw5, abs=10.)
+    assert Ipeak4 == pytest.approx(Ipeak5, abs=5.0)
 
     # Toggling symmetry should preserve the result
-    equal(mw6, mw4, eta * 100)
-    equal(Ipeak6, Ipeak4, 1.0)
+    assert mw6 == pytest.approx(mw4, abs=10.)
+    assert Ipeak6 == pytest.approx(Ipeak4, abs=5.0)
 
     # Including vanishing coefficients should not matter for the result
-    equal(mw7, mw4, eta * 100)
-    equal(Ipeak7, Ipeak4, 1.0)
-    equal(mw8, mw2, eta * 100)
-    equal(Ipeak8, Ipeak2, 1.0)
+    assert mw7 == pytest.approx(mw4, abs=1.)
+    assert Ipeak7 == pytest.approx(Ipeak4, abs=0.5)
+    assert mw8 == pytest.approx(mw2, abs=1.)
+    assert Ipeak8 == pytest.approx(Ipeak2, abs=0.5)
