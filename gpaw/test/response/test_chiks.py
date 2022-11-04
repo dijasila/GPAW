@@ -175,4 +175,4 @@ def test_chiks_symmetry(in_tmp_dir, gpw_files, q_c, eta, gammacentered):
     chiks1_qwGG = chiks_sqwGG[0]
     chiks2_qwGG = chiks_sqwGG[1]
     for chiks1_wGG, chiks2_wGG in zip(chiks1_qwGG, chiks2_qwGG):
-        assert chiks2_wGG == pytest.approx(chiks1_wGG, rel=srtol, abs=1e-2)
+        assert chiks2_wGG == pytest.approx(chiks1_wGG, rel=srtol)

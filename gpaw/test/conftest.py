@@ -373,7 +373,7 @@ class GPWFiles:
         kpts = 4
         nbands = 6
         pw = 300
-        occw = 0.05
+        occw = 0.01
         conv = {'bands': nbands}
         a = 2.867
         mm = 2.21
