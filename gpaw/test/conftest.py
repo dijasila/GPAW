@@ -374,7 +374,9 @@ class GPWFiles:
         nbands = 6
         pw = 300
         occw = 0.01
-        conv = {'bands': nbands}
+        conv = {'bands': nbands,
+                'density': 1.e-8,
+                'forces': 1.e-8}
         a = 2.867
         mm = 2.21
         atoms = bulk('Fe', 'bcc', a=a)
