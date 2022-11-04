@@ -31,7 +31,7 @@ def test_response_iron_sf_ALDA(in_tmp_dir, gpw_files, scalapack):
     q_c = [0.0, 0.0, 1 / 4.]
     fxc = 'ALDA'
     ecut = 300
-    eta = 0.01
+    eta = 0.1
 
     # Test different kernel, summation and symmetry strategies
     # rshelmax, rshewmin, bandsummation, bundle_integrals, disable_syms
@@ -113,38 +113,38 @@ def test_response_iron_sf_ALDA(in_tmp_dir, gpw_files, scalapack):
 
     # Compare new results to test values
     print(mw1, mw2, mw4, Ipeak1, Ipeak2, Ipeak4)
-    test_mw1 = 398.  # meV
-    test_mw2 = 508.  # meV
-    test_mw4 = 510.  # meV
-    test_Ipeak1 = 36.7  # a.u.
-    test_Ipeak2 = 49.1  # a.u.
-    test_Ipeak4 = 47.6  # a.u.
+    test_mw1 = 402.  # meV
+    test_mw2 = 517.  # meV
+    test_mw4 = 518.  # meV
+    test_Ipeak1 = 4.10  # a.u.
+    test_Ipeak2 = 5.05  # a.u.
+    test_Ipeak4 = 5.04  # a.u.
 
     # Different kernel strategies should remain the same
     # Magnon peak:
-    assert mw1 == pytest.approx(test_mw1, abs=10.)
-    assert mw2 == pytest.approx(test_mw2, abs=10.)
-    assert mw4 == pytest.approx(test_mw4, abs=10.)
+    assert mw1 == pytest.approx(test_mw1, abs=20.)
+    assert mw2 == pytest.approx(test_mw2, abs=20.)
+    assert mw4 == pytest.approx(test_mw4, abs=20.)
 
     # Scattering function intensity:
-    assert Ipeak1 == pytest.approx(test_Ipeak1, abs=5.0)
-    assert Ipeak2 == pytest.approx(test_Ipeak2, abs=5.0)
-    assert Ipeak4 == pytest.approx(test_Ipeak4, abs=5.0)
+    assert Ipeak1 == pytest.approx(test_Ipeak1, abs=0.5)
+    assert Ipeak2 == pytest.approx(test_Ipeak2, abs=0.5)
+    assert Ipeak4 == pytest.approx(test_Ipeak4, abs=0.5)
 
     # The bundled and unbundled integration methods should give the same
-    assert mw2 == pytest.approx(mw3, abs=1.)
-    assert Ipeak2 == pytest.approx(Ipeak3, abs=0.5)
+    assert mw2 == pytest.approx(mw3, abs=2.)
+    assert Ipeak2 == pytest.approx(Ipeak3, abs=0.1)
 
     # The two transitions summation strategies should give identical results
-    assert mw4 == pytest.approx(mw5, abs=10.)
-    assert Ipeak4 == pytest.approx(Ipeak5, abs=5.0)
+    assert mw4 == pytest.approx(mw5, abs=20.)
+    assert Ipeak4 == pytest.approx(Ipeak5, abs=0.5)
 
     # Toggling symmetry should preserve the result
-    assert mw6 == pytest.approx(mw4, abs=10.)
-    assert Ipeak6 == pytest.approx(Ipeak4, abs=5.0)
+    assert mw6 == pytest.approx(mw4, abs=20.)
+    assert Ipeak6 == pytest.approx(Ipeak4, abs=0.5)
 
     # Including vanishing coefficients should not matter for the result
-    assert mw7 == pytest.approx(mw4, abs=1.)
-    assert Ipeak7 == pytest.approx(Ipeak4, abs=0.5)
-    assert mw8 == pytest.approx(mw2, abs=1.)
-    assert Ipeak8 == pytest.approx(Ipeak2, abs=0.5)
+    assert mw7 == pytest.approx(mw4, abs=2.)
+    assert Ipeak7 == pytest.approx(Ipeak4, abs=0.1)
+    assert mw8 == pytest.approx(mw2, abs=2.)
+    assert Ipeak8 == pytest.approx(Ipeak2, abs=0.1)
