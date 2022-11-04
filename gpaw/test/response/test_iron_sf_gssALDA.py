@@ -28,7 +28,7 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
     fxc = 'ALDA'
     fxc_scaling = [True, None, 'fm']
     ecut = 300
-    eta = 0.02
+    eta = 0.1
     if world.size > 1:
         nblocks = 2
     else:
@@ -72,19 +72,20 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
     mw2 = wpeak2 * 1000
 
     # Compare new results to test values
-    test_fxcs = 1.033
-    test_mw1 = -0.03  # meV
-    test_mw2 = 338.  # meV
-    test_Ipeak1 = 37.4  # a.u.
-    test_Ipeak2 = 16.1  # a.u.
+    test_fxcs = 1.034
+    test_mw1 = 0.  # meV
+    test_mw2 = 363.  # meV
+    test_Ipeak1 = 7.48  # a.u.
+    test_Ipeak2 = 3.47  # a.u.
 
     # fxc_scaling:
+    print(fxc_scaling[1], mw1, mw2, Ipeak1, Ipeak2)
     assert fxc_scaling[1] == pytest.approx(test_fxcs, abs=0.005)
 
     # Magnon peak:
-    assert mw1 == pytest.approx(test_mw1, abs=1.)
+    assert mw1 == pytest.approx(test_mw1, abs=20.)
     assert mw2 == pytest.approx(test_mw2, abs=50.)
 
     # Scattering function intensity:
-    assert Ipeak1 == pytest.approx(test_Ipeak1, abs=5)
-    assert Ipeak2 == pytest.approx(test_Ipeak2, abs=5)
+    assert Ipeak1 == pytest.approx(test_Ipeak1, abs=1.)
+    assert Ipeak2 == pytest.approx(test_Ipeak2, abs=1.)
