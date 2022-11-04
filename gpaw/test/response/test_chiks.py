@@ -63,7 +63,7 @@ def test_chiks_symmetry(in_tmp_dir, gpw_files, q_c, eta, gammacentered):
 
     Unfortunately, there will always be random noise in the wave functions,
     such that these symmetries are not fulfilled exactly. However, we should be
-    able to fulfill it within 2.5%, which is tested here. Generally speaking,
+    able to fulfill it within 3%, which is tested here. Generally speaking,
     the "symmetry" noise can be reduced making running with symmetry='off' in
     the ground state calculation.
 
@@ -84,12 +84,12 @@ def test_chiks_symmetry(in_tmp_dir, gpw_files, q_c, eta, gammacentered):
         nblocks = 1
 
     # Part 2: Check reciprocity and inversion symmetry
-    rtol = 2.5e-2
+    rtol = 0.03
 
     # Part 3: Check matrix symmetry
 
     # Part 4: Check symmetry and bandsummation toggles
-    trtol = 5.e-3
+    trtol = 0.007
 
     # ---------- Script ---------- #
 
