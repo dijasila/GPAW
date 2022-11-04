@@ -7,7 +7,7 @@ from ase.parallel import parprint
 
 from gpaw import GPAW, PW
 from gpaw.test import findpeak
-from gpaw.response.df import DielectricFunction
+from gpaw.response.df import DielectricFunction, read_response_function
 from gpaw.mpi import size, world
 
 
@@ -50,10 +50,11 @@ def test_response_aluminum_EELS_ALDA(in_tmp_dir):
     parprint('For excited state calc, it took', (t3 - t2) / 60, 'minutes')
 
     world.barrier()
-    d = np.loadtxt('EELS_Al_ALDA.csv', delimiter=',')
+    omega_w, eels0_w, eels_w = read_response_function('EELS_Al_ALDA.csv')
+
     # New results are compared with test values
-    wpeak1, Ipeak1 = findpeak(d[:, 0], d[:, 1])
-    wpeak2, Ipeak2 = findpeak(d[:, 0], d[:, 2])
+    wpeak1, Ipeak1 = findpeak(omega_w, eels0_w)
+    wpeak2, Ipeak2 = findpeak(omega_w, eels_w)
 
     test_wpeak1 = 15.7002862696  # eV
     test_Ipeak1 = 28.5590363176

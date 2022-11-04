@@ -57,7 +57,7 @@ def test_chi0_intraband(in_tmp_dir):
     df1NLFCx, df1LFCx = df1.get_dielectric_function(direction='x')
     df1NLFCy, df1LFCy = df1.get_dielectric_function(direction='y')
     df1NLFCz, df1LFCz = df1.get_dielectric_function(direction='z')
-    wp1_vv = df1.chi0.plasmafreq_vv**0.5
+    wp1_vv = df1.chi0calc.plasmafreq_vv**0.5
     wp1 = wp1_vv[0, 0]
     if world.rank == 0:
         try:
@@ -77,11 +77,11 @@ def test_chi0_intraband(in_tmp_dir):
     df2NLFCx, df2LFCx = df2.get_dielectric_function(direction='x')
     df2NLFCy, df2LFCy = df2.get_dielectric_function(direction='y')
     df2NLFCz, df2LFCz = df2.get_dielectric_function(direction='z')
-    wp2_vv = df2.chi0.plasmafreq_vv**0.5
+    wp2_vv = df2.chi0calc.plasmafreq_vv**0.5
     wp2 = wp2_vv[0, 0]
 
     # Compare plasmon frequencies and intensities
-    w_w = df1.chi0.wd.omega_w
+    w_w = df1.chi0calc.wd.omega_w
 
     # Analytical Drude result
     n = 1 / (a1.get_volume() * Bohr**-3)

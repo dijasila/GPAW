@@ -140,7 +140,8 @@ class WCalculator:
             self.q0_corrector = Q0Correction(
                 cell_cv=self.gs.gd.cell_cv,
                 bzk_kc=self.gs.kd.bzk_kc,
-                N_c=self.qd.N_c)
+                N_c=self.qd.N_c,
+                pbc=self.gs.pbc)
 
             npts_c = self.q0_corrector.npts_c
             self.context.print('Applying analytical 2D correction to W:',
@@ -153,18 +154,20 @@ class WCalculator:
         self.E0 = E0 / Ha
 
 # calculate_q wrapper
-    def calculate_q(self, iq, q_c, chi0):
+    def calculate_q(self, iq, q_c, chi0, out_dist='WgG'):
         if self.truncation == 'wigner-seitz':
             wstc = WignerSeitzTruncatedCoulomb(
                 self.wcalc.gs.gd.cell_cv,
-                self.wcalc.gs.kd.N_c,
-                self.fd)
+                self.wcalc.gs.kd.N_c)
+            # self.context.print(wstc.get_description()) # uncomment & add to
+            # stdout in a separate merge request related to issue #604
         else:
             wstc = None
 
         pd, W_wGG = self.dyson_and_W_old(wstc, iq, q_c,
                                          chi0,
-                                         fxc_mode=self.fxc_mode)
+                                         fxc_mode=self.fxc_mode,
+                                         out_dist=out_dist)
 
         return pd, W_wGG
 
@@ -227,16 +230,32 @@ class WCalculator:
 
     def dyson_and_W_old(self, wstc, iq, q_c, chi0, fxc_mode,
                         pdi=None, G2G=None, chi0_wGG=None, chi0_wxvG=None,
-                        chi0_wvv=None, only_correlation=False):
+                        chi0_wvv=None, only_correlation=False, out_dist='WgG'):
         # If called with reduced ecut for ecut extrapolation
         # pdi, G2G, chi0_wGG, chi0_wxvG, chi0_wvv have to be given.
         # These quantities can be calculated using chi0calc.reduced_ecut()
         pd = chi0.pd
         if pdi is None:
-            chi0_wGG = chi0.blockdist.redistribute(chi0.chi0_wGG, chi0.nw)
+            chi0_wGG = chi0.blockdist.distribute_as(chi0.chi0_wGG,
+                                                    chi0.nw, 'wGG')
             chi0_wxvG = chi0.chi0_wxvG
             chi0_wvv = chi0.chi0_wvv
             pdi = pd
+        else:
+            assert chi0.blockdist.check_distribution(chi0_wGG, chi0.nw, 'wGG')
+        pdi, W_wGG = self.dyson_old(wstc, iq, q_c, fxc_mode, pdi, chi0_wGG,
+                                    chi0_wxvG, G2G, chi0_wvv, only_correlation)
+        if out_dist == 'WgG' and not self.ppa:
+            # XXX This creates a new, large buffer.  We could perhaps
+            # avoid that.  Buffer used to exist but was removed due to #456.
+            W_wGG = chi0.blockdist.distribute_as(W_wGG, chi0.nw, out_dist)
+        if out_dist != 'wGG' and out_dist != 'WgG':
+            raise ValueError('Wrong outdist in W_and_dyson_old')
+        return pdi, W_wGG
+
+    def dyson_old(self, wstc, iq, q_c, fxc_mode,
+                  pdi=None, chi0_wGG=None, chi0_wxvG=None, G2G=None,
+                  chi0_wvv=None, only_correlation=False):
         nG = pdi.ngmax
         wblocks1d = Blocks1D(self.blockcomm, len(self.wd))
         if self.integrate_gamma != 0:
@@ -266,7 +285,7 @@ class WCalculator:
         kd = self.gs.kd
         if np.allclose(q_c, 0) and len(chi0_wGG) > 0:
             gamma_int = GammaIntegrator(truncation=self.truncation,
-                                        kd=kd, pd=pd,
+                                        kd=kd, pd=pdi,
                                         chi0_wvv=chi0_wvv[wblocks1d.myslice],
                                         chi0_wxvG=chi0_wxvG[wblocks1d.myslice])
 
@@ -284,9 +303,7 @@ class WCalculator:
             if np.allclose(q_c, 0):
                 einv_GG = np.zeros((nG, nG), complex)
                 for iqf in range(len(gamma_int.qf_qv)):
-                    chi0_GG[0, :] = gamma_int.a0_qwG[iqf, iw]
-                    chi0_GG[:, 0] = gamma_int.a1_qwG[iqf, iw]
-                    chi0_GG[0, 0] = gamma_int.a_wq[iw, iqf]
+                    gamma_int.set_appendages(chi0_GG, iw, iqf)
 
                     sqrtV_G = get_sqrtV_G(kd.N_c, q_v=gamma_int.qf_qv[iqf])
 
@@ -332,9 +349,5 @@ class WCalculator:
             self.context.timer.stop('Dyson eq.')
             return pdi, [W_GG, omegat_GG]
 
-        # XXX This creates a new, large buffer.  We could perhaps
-        # avoid that.  Buffer used to exist but was removed due to #456.
-        W_wGG = chi0.blockdist.redistribute(chi0_wGG, chi0.nw)
-
         self.context.timer.stop('Dyson eq.')
-        return pdi, W_wGG
+        return pdi, chi0_wGG
