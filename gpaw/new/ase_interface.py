@@ -52,7 +52,6 @@ class ASECalculator:
         self.params = params
         self.log = log
         self.calculation = calculation
-        self.observers = []
 
         self.atoms = atoms
         self.timer = Timer()
@@ -116,11 +115,8 @@ class ASECalculator:
     def create_new_calculation(self, atoms: Atoms) -> None:
         with self.timer('Init'):
             self.calculation = DFTCalculation.from_parameters(
-                atoms, self.params, self.log, self.observers)
+                atoms, self.params, self.log)
         self.atoms = atoms.copy()
-
-    def attach(self, function):
-        self.observers.append(function)
 
     def move_atoms(self, atoms):
         with self.timer('Move'):

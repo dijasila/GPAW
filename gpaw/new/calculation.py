@@ -81,7 +81,6 @@ class DFTCalculation:
                         atoms: Atoms,
                         params: Union[dict, InputParameters],
                         log=None,
-                        observers=None,
                         builder=None) -> DFTCalculation:
         """Create DFTCalculation object from parameters and atoms."""
 
@@ -115,15 +114,11 @@ class DFTCalculation:
         log(scf_loop)
         log(pot_calc)
 
-        attach(scf_loop, observers[0])
-
         return cls(state,
                    builder.setups,
                    scf_loop,
                    pot_calc,
                    log)
-
-
 
     def move_atoms(self, atoms) -> DFTCalculation:
         check_atoms_too_close(atoms)
@@ -311,39 +306,3 @@ def write_atoms(atoms: Atoms,
     a, b, c, A, B, C = cell_to_cellpar(atoms.cell)
     log(f'lengths:  [{a:10.6f}, {b:10.6f}, {c:10.6f}]  # Ang')
     log(f'angles:   [{A:10.6f}, {B:10.6f}, {C:10.6f}]\n')
-
-def attach(scf_loop, function, n=1, *args, **kwargs):
-    """Register observer function to run during the SCF cycle.
-    
-    Call *function* using *args* and
-    *kwargs* as arguments.
-    
-    If *n* is positive, then
-    *function* will be called every *n* SCF iterations + the
-    final iteration if it would not be otherwise
-    
-    If *n* is negative, then *function* will only be
-    called on iteration *abs(n)*.
-    
-    If *n* is 0, then *function* will only be called
-    on convergence"""
-    
-    try:
-        slf = function.__self__
-    except AttributeError:
-        pass
-    else:
-        if slf is scf_loop:
-            # function is a bound method of self.  Store the name
-            # of the method and avoid circular reference:
-            function = function.__func__.__name__
-
-    # Replace self in args with another unique reference
-    # to avoid circular reference
-    if not hasattr(scf_loop, 'self_ref'):
-        scf_loop.self_ref = object()
-    self_ = scf_loop.self_ref
-    args = tuple([self_ if arg is scf_loop else arg for arg in args])
-    
-    scf_loop.observers.append((function, n, args, kwargs))
-        
