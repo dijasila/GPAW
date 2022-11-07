@@ -103,6 +103,8 @@ def axpy(alpha, x, y):
     """
     if x.size == 0:
         return
+    assert x.flags.contiguous
+    assert y.flags.contiguous
     x = x.ravel()
     y = y.ravel()
     if x.dtype == float:
