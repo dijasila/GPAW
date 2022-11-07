@@ -492,17 +492,8 @@ class WCalculator:
             self.context.timer.stop('Dyson eq.')
             return pdi, [W_GG, omegat_GG]
 
-        if out_dist == 'WgG':
-            # XXX This creates a new, large buffer.  We could perhaps
-            # avoid that.  Buffer used to exist but was removed due to #456.
-            W_wGG = chi0.blockdist.redistribute(chi0_wGG, chi0.nw)
-        elif out_dist == 'wGG':
-            W_wGG = chi0_wGG
-        else:
-            raise ValueError('Wrong outdist in W_and_dyson_old')
-        
         self.context.timer.stop('Dyson eq.')
-        return pdi, W_wGG
+        return pdi, chi0_wGG
 
 
     def get_density_matrix(self,kpt1, kpt2, pd_q, pawcorr_q, known_iQ=None):
