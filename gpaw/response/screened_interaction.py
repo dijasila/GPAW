@@ -68,8 +68,7 @@ def initialize_w_calculator(chi0calc, txt='w.txt', ppa=False, xc='RPA',
                           ns=gs.nspins,
                           wd=chi0calc.wd,
                           Eg=Eg,
-                          timer=context.timer,
-                          fd=context.fd)
+                          context=context)
     wd = chi0calc.wd
     pair = chi0calc.pair
 
@@ -129,11 +128,9 @@ class WCalculator:
         self.gs = gs
         self.truncation = truncation
         self.context = context
-        self.timer = self.context.timer
         self.integrate_gamma = integrate_gamma
         self.qd = get_qdescriptor(self.gs.kd, self.gs.atoms)
         self.xckernel = xckernel
-        self.fd = self.context.fd
 
         if q0_correction:
             assert self.truncation == '2D'
@@ -159,8 +156,8 @@ class WCalculator:
             wstc = WignerSeitzTruncatedCoulomb(
                 self.wcalc.gs.gd.cell_cv,
                 self.wcalc.gs.kd.N_c)
-            # self.context.print(wstc.get_description()) # uncomment & add to
-            # stdout in a separate merge request related to issue #604
+            self.context.print(wstc.get_description())
+
         else:
             wstc = None
 
