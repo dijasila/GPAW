@@ -189,7 +189,7 @@ class WCalculator:
         First calculates W in KS-basis where we need the pair densities, then multiply with transformation 
         matrices and sum over k and k'. Do in loop over IBZ with additional loop over equivalent k-points.
         """
-        ibz2bz = ibz2bz_map(self.qd)
+        ibz2bz = ibz2bz_map(self.gs.kd)
         s1 = 0 #XXX assume only single spin for the moment
         s2 = 0
 
@@ -201,7 +201,7 @@ class WCalculator:
         def get_k1_k2(s1,iK1,iQ,bandrange):
             # get kpt1, kpt1+q kpoint pairs used in density matrix
             kpt1 = self.pair.get_k_point(s1, iK1, bandrange[0], bandrange[-1])
-            K2_c = self.gs.kd.bzk_kc[kpt1.K] + self.qd.bzk_kc[iQ]  # Find k2 = K1 + Q                                                                                                            
+            K2_c = self.gs.kd.bzk_kc[kpt1.K] + self.gs.kd.bzk_kc[iQ]  # Find k2 = K1 + Q                                                                                                            
             iK2 = self.gs.kd.where_is_q(K2_c, self.gs.kd.bzk_kc)
             kpt2 = self.pair.get_k_point(s1, iK2, bandrange[0], bandrange[-1])
             return kpt1, kpt2, iK2
@@ -212,7 +212,7 @@ class WCalculator:
         #Wmat = [] # TEST 
         # First calculate W in IBZ in PW basis
         # and transform to DFT eigen basis
-        for iq, q_c in enumerate(self.qd.ibzk_kc):
+        for iq, q_c in enumerate(self.gs.kd.ibzk_kc):
             #optical_limit = np.allclose(q_c,0.0)
             # Calculate chi0 and W for IBZ k-point q
             chi0 = chi0calc.calculate(q_c)
@@ -220,7 +220,7 @@ class WCalculator:
             pawcorr = chi0calc.pawcorr
             # Loop over all equivalent k-points
             for iQ in ibz2bz[iq]:
-                print('iq,iQ,q_c,Q_c',iq,iQ,q_c,self.qd.bzk_kc[iQ])
+                print('iq,iQ,q_c,Q_c',iq,iQ,q_c,self.gs.kd.bzk_kc[iQ])
                 # Loop over BZ k-points to get density matrices
                 rho_mnG = []
                 iKpQ = []
