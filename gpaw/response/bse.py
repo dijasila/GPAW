@@ -110,7 +110,7 @@ class BSE:
         # Find q-vectors and weights in the IBZ:
         self.kd = self.gs.kd
         if -1 in self.kd.bz2bz_ks:
-            self.context.print('***WARNING*** Symmetries may not be right ' +
+            self.context.print('***WARNING*** Symmetries may not be right. '
                                'Use gamma-centered grid to be sure')
         offset_c = 0.5 * ((self.kd.N_c + 1) % 2) / self.kd.N_c
         bzq_qc = monkhorst_pack(self.kd.N_c) + offset_c

@@ -123,9 +123,7 @@ class FXCCorrelation(RPACorrelation):
                 if self.av_scheme == 'wavevector':
 
                     self.context.print('Calculating %s kernel starting from '
-                                       'q point %s' % (self.xc, q_empty),
-                                       flush=False)
-                    self.context.print('')
+                                       'q point %s \n' % (self.xc, q_empty))
 
                     kernelkwargs.update(l_l=self.l_l,
                                         q_empty=q_empty,
@@ -148,9 +146,8 @@ class FXCCorrelation(RPACorrelation):
                 del kernel
 
             else:
-                self.context.print('%s kernel already calculated' %
-                                   self.xc, flush=False)
-                self.context.print('')
+                self.context.print('%s kernel already calculated\n' %
+                                   self.xc)
 
         if self.xc in ('range_RPA', 'range_rALDA'):
 
@@ -1094,7 +1091,7 @@ class range_separated:
         if self.xc == 'range_RPA':
             self.context.print(
                 'Using range-separated RPA approach, with parameter %s Bohr' %
-                (self.range_rc), flush=False)
+                self.range_rc, flush=False)
 
         nval_g = self.gs.hacky_all_electron_density(
             gridrefinement=4, skip_core=True).flatten()
@@ -1111,16 +1108,16 @@ class range_separated:
             self.context.print(
                 'Not calculating correlation energy ',
                 'contribution for densities < %3.2e elecs/Bohr ^ 3'
-                % (density_cut), flush=False)
+                % density_cut, flush=False)
 
         densitysum = np.sum(nval_g * self.dv)
         # XXX probably wrong for charged systems
         valence = self.gs.setups.nvalence
 
-        self.context.print('Density integrates to %s electrons' % (densitysum),
+        self.context.print('Density integrates to %s electrons' % densitysum,
                            flush=False)
 
-        self.context.print('Renormalized to %s electrons' % (valence))
+        self.context.print('Renormalized to %s electrons' % valence)
 
         nval_g *= valence / densitysum
         self.rs_g = (3.0 / (4.0 * np.pi * nval_g))**(1.0 / 3.0)
