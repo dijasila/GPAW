@@ -25,22 +25,10 @@ from gpaw.response.heisenberg import (calculate_single_site_magnon_energies,
 
 
 @pytest.mark.response
-def test_Fe_bcc(in_tmp_dir):
+def test_Fe_bcc(in_tmp_dir, gpw_files):
     # ---------- Inputs ---------- #
 
-    # Part 1: Ground state calculation
-    xc = 'LDA'
-    kpts = 4
-    nbands = 6
-    pw = 200
-    occw = 0.01
-    conv = {'density': 1e-8,
-            'forces': 1e-8,
-            'bands': nbands}
-    a = 2.867
-    mm = 2.21
-
-    # Part 2: MFT calculation
+    # MFT calculation
     ecut = 50
     eta = 0.
     # Do the high symmetry points of the bcc lattice
@@ -56,26 +44,11 @@ def test_Fe_bcc(in_tmp_dir):
 
     # ---------- Script ---------- #
 
-    # Part 1: Ground state calculation
+    calc = GPAW(gpw_files['fe_pw_wfs'], parallel=dict(domain=1))
+    nbands = calc.parameters.convergence['bands']
+    atoms = calc.atoms
 
-    atoms = bulk('Fe', 'bcc', a=a)
-    atoms.set_initial_magnetic_moments([mm])
-    atoms.center()
-
-    calc = GPAW(xc=xc,
-                mode=PW(pw),
-                kpts={'size': (kpts, kpts, kpts), 'gamma': True},
-                nbands=nbands + 4,
-                occupations=FermiDirac(occw),
-                parallel={'domain': 1},
-                spinpol=True,
-                convergence=conv
-                )
-
-    atoms.calc = calc
-    atoms.get_potential_energy()
-
-    # Part 2: MFT calculation
+    # MFT calculation
 
     # Set up site kernels with a single site
     positions = atoms.get_positions()
@@ -114,56 +87,57 @@ def test_Fe_bcc(in_tmp_dir):
             chiksr0_GG = chiksr0_GG + isoexch_calc.get_goldstone_correction()
             mchi_G = 2. * chiksr0_GG @ Bxc_G
             assert np.allclose(m_G, mchi_G)
-            
+
     # Since we only have a single site, reduce the array
     J_qp = J_qabp[:, 0, 0, :]
     Jcorr_qp = Jcorr_qabp[:, 0, 0, :]
 
     # Calculate the magnon energies
+    mm = 2.21
     mm_ap = mm * np.ones((1, npartitions))  # Magnetic moments
     mw_qp = calculate_fm_magnon_energies(J_qabp, q_qc, mm_ap)[:, 0, :]
     mwcorr_qp = calculate_fm_magnon_energies(Jcorr_qabp, q_qc,
                                              mm_ap)[:, 0, :]
 
     # Part 3: Compare results to test values
-    test_J_pq = np.array([[1.61655323, 0.88149124, 1.10008928],
-                          [1.86800734, 0.93735081, 1.23108285],
-                          [4.67979867, 0.2004699, 1.28510023],
-                          [1.14516166, 0.62140228, 0.78470217],
-                          [1.734752, 0.87124284, 1.13880145],
-                          [3.82381708, 0.31159032, 1.18094396],
-                          [1.79888576, 0.92972442, 1.2054906]])
-    test_Jcorr_pq = np.array([[1.81836945, 0.99502974, 1.25261581],
-                              [2.08343107, 1.05262169, 1.38878372],
-                              [5.19401810, 0.24007218, 1.47269204],
-                              [1.29125180, 0.70138938, 0.90130762],
-                              [1.94253045, 0.99059941, 1.29323870],
-                              [4.24567869, 0.34981170, 1.33895435],
-                              [2.01281608, 1.04424143, 1.36362852]])
-    test_mw_pq = np.array([[0., 0.66521177, 0.46738581],
-                           [0., 0.84222041, 0.57640002],
-                           [0., 4.05369028, 3.07212255],
-                           [0., 0.47398746, 0.32620549],
-                           [0., 0.78145439, 0.53931965],
-                           [0., 3.17848551, 2.39173871],
-                           [0., 0.78656857, 0.5370069]])
-    test_mwcorr_pq = np.array([[0., 0.74510381, 0.51249808],
-                               [0., 0.93285916, 0.62914456],
-                               [0., 4.48320898, 3.36830730],
-                               [0., 0.53381214, 0.35328111],
-                               [0., 0.86147605, 0.58809479],
-                               [0., 3.52567148, 2.63102960],
-                               [0., 0.87653815, 0.58801004]])
+    test_J_pq = np.array([[2.15051951, 1.12395610, 1.54858351],
+                          [2.56344127, 1.16932864, 1.70081544],
+                          [6.64900630, 0.28104345, 1.85766385],
+                          [1.54621618, 0.80251888, 1.12014556],
+                          [2.37688312, 1.16377756, 1.60827630],
+                          [5.25764886, 0.36524012, 1.63536373],
+                          [2.47529644, 1.16850822, 1.70046082]])
+    test_Jcorr_pq = np.array([[2.30741555, 1.21623564, 1.66941592],
+                              [2.75429827, 1.26541094, 1.83201723],
+                              [7.16713735, 0.31821777, 2.02056205],
+                              [1.66384400, 0.87050736, 1.21515619],
+                              [2.55650736, 1.27046443, 1.73778105],
+                              [5.64302344, 0.39436590, 1.75707094],
+                              [2.66322433, 1.26109736, 1.83458584]])
+    test_mw_pq = np.array([[0., 0.92901667, 0.54473846],
+                           [0., 1.26164039, 0.78065686],
+                           [0., 5.76286231, 4.33605652],
+                           [0., 0.67302923, 0.38558426],
+                           [0., 1.09783308, 0.69557178],
+                           [0., 4.42751922, 3.27808609],
+                           [0., 1.18261377, 0.70120870]])
+    test_mwcorr_pq = np.array([[0., 0.98749313, 0.57737523],
+                               [0., 1.34740935, 0.83464347],
+                               [0., 6.19811727, 4.65753421],
+                               [0., 0.71795171, 0.40605232],
+                               [0., 1.16383976, 0.74092879],
+                               [0., 4.74991633, 3.51669910],
+                               [0., 1.26889319, 0.74989909]])
 
     # Exchange constants
-    assert np.allclose(J_qp.imag, 0.)
-    assert np.allclose(J_qp.real, test_J_pq.T, rtol=2e-3)
-    assert np.allclose(Jcorr_qp.imag, 0.)
-    assert np.allclose(Jcorr_qp.real, test_Jcorr_pq.T, rtol=2e-3)
-    
+    assert J_qp.imag == pytest.approx(0.0)
+    assert J_qp.real.T == pytest.approx(test_J_pq, rel=2e-3)
+    assert Jcorr_qp.imag == pytest.approx(0.0)
+    assert Jcorr_qp.real.T == pytest.approx(test_Jcorr_pq, rel=2e-3)
+
     # Magnon energies
-    assert np.allclose(mw_qp, test_mw_pq.T, rtol=2e-3)
-    assert np.allclose(mwcorr_qp, test_mwcorr_pq.T, rtol=2e-3)
+    assert mw_qp.T == pytest.approx(test_mw_pq, rel=2e-3)
+    assert mwcorr_qp.T == pytest.approx(test_mwcorr_pq, rel=2e-3)
 
 
 @pytest.mark.response

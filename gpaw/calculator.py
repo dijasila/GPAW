@@ -362,7 +362,7 @@ class GPAW(Calculator):
 
         if system_changes:
             self.log('System changes:', ', '.join(system_changes), '\n')
-            if system_changes == ['positions']:
+            if self.density is not None and system_changes == ['positions']:
                 # Only positions have changed:
                 self.density.reset()
             else:

@@ -15,8 +15,8 @@ calc.write('si.gpw', 'all')  # use 'all' option to write wavefunction
 # Ground state gpw file (with wavefunction) as input
 df = DielectricFunction(
     calc='si.gpw',
-    frequency={'type': 'nonlinear',
-               'domega0': 0.05},  # using nonlinear frequency grid
+    frequencies={'type': 'nonlinear',
+                 'domega0': 0.05},  # using nonlinear frequency grid
     rate='eta')
 # By default, a file called 'df.csv' is generated
 df.get_dielectric_function()

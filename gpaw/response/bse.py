@@ -16,6 +16,7 @@ from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.mpi import world, serial_comm, broadcast
 from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.chi0 import Chi0
+from gpaw.response.df import write_response_function
 from gpaw.response.coulomb_kernels import get_coulomb_kernel
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.response.pair import PairDensity
@@ -469,16 +470,6 @@ class BSE:
         else:
             self.calculate_screened_potential()
 
-    def _calculate_chi0(self, q_c):
-        """Use the Chi0 object to calculate the static susceptibility."""
-        if self._chi0calc is None:
-            self.initialize_chi0_calculator()
-        chi0 = self._chi0calc.create_chi0(q_c)
-        # Do all bands and all spins
-        m1, m2, spins = 0, self.nbands, 'all'
-        chi0 = self._chi0calc.update_chi0(chi0, m1, m2, spins)
-        return chi0  # chi0.pd, chi0.chi0_wGG, chi0.chi0_wxvG, chi0.chi0_wvv
-
     def initialize_chi0_calculator(self):
         """Initialize the Chi0 object to compute the static
         susceptibility."""
@@ -504,9 +495,8 @@ class BSE:
         t0 = time()
         print('Calculating screened potential', file=self.fd)
         for iq, q_c in enumerate(self.qd.ibzk_kc):
-            # pd, chi0_wGG, chi0_wxvG, chi0_wvv = self._calculate_chi0(q_c)
-            chi0 = self._calculate_chi0(q_c) #XXX can replace with self._chi0calc.calculate(q_c)
-            pd, W_wGG = self._wcalc.calculate_q(iq, q_c, chi0, out_dist = 'wGG')
+            chi0 = self._chi0calc.calculate(q_c)
+            pd, W_wGG = self._wcalc.calculate_q(iq, q_c, chi0, out_dist='WgG')
             W_GG = W_wGG[0]
             self.pawcorr_q.append(self._chi0calc.pawcorr)
             self.pd_q.append(pd)
@@ -715,11 +705,8 @@ class BSE:
         epsilon_w += 1.0
 
         if world.rank == 0 and filename is not None:
-            f = open(filename, 'w')
-            for iw, w in enumerate(w_w):
-                print('%.9f, %.9f, %.9f' %
-                      (w, epsilon_w[iw].real, epsilon_w[iw].imag), file=f)
-            f.close()
+            write_response_function(filename, w_w,
+                                    epsilon_w.real, epsilon_w.imag)
         world.barrier()
 
         print('Calculation completed at:', ctime(), file=self.fd)
@@ -801,11 +788,7 @@ class BSE:
         alpha_w *= Bohr**(sum(~pbc_c))
 
         if world.rank == 0 and filename is not None:
-            fd = open(filename, 'w')
-            for iw, w in enumerate(w_w):
-                print('%.9f, %.9f, %.9f' %
-                      (w, alpha_w[iw].real, alpha_w[iw].imag), file=fd)
-            fd.close()
+            write_response_function(filename, w_w, alpha_w.real, alpha_w.imag)
 
         print('Calculation completed at:', ctime(), file=self.fd)
         print(file=self.fd)

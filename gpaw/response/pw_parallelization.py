@@ -46,7 +46,7 @@ class PlaneWaveBlockDistributor:
         self.blockcomm = blockcomm
         self.intrablockcomm = intrablockcomm
 
-    def redistribute(self, in_wGG, nw):
+    def _redistribute(self, in_wGG, nw):
         """Redistribute array.
 
         Switch between two kinds of parallel distributions:
@@ -97,6 +97,53 @@ class PlaneWaveBlockDistributor:
 
         return out_wGG
 
+    def check_distribution(self, in_wGG, nw, dist_type):
+        """ Checks if array in_wGG is distributed as dist_type. """
+        if dist_type != 'wGG' and dist_type != 'WgG':
+            raise ValueError('Invalid dist_type.')
+        comm = self.blockcomm
+        nG = in_wGG.shape[2]
+        if comm.size == 1:
+            return nw, nG, True  # All distributions are equivalent
+        mynw = (nw + comm.size - 1) // comm.size
+        mynG = (nG + comm.size - 1) // comm.size
+
+        # At the moment on wGG and WgG distribution possible
+        if in_wGG.shape[1] < in_wGG.shape[2]:
+            assert in_wGG.shape[0] == nw
+            mydist = 'WgG'
+        else:
+            assert in_wGG.shape[1] == in_wGG.shape[2]
+            mydist = 'wGG'
+        return mynw, mynG, mydist == dist_type
+        
+    def distribute_as(self, in_wGG, nw, out_dist):
+        """Redistribute array.
+
+        Switch between two kinds of parallel distributions:
+
+        1) parallel over G-vectors (second dimension of in_wGG, out_dist = WgG)
+        2) parallel over frequency (first dimension of in_wGG, out_dist = wGG)
+
+        Returns new array using the memory in the 1-d array out_x.
+        """
+        # check so that out_dist is valid
+        if out_dist != 'wGG' and out_dist != 'WgG':
+            raise ValueError('Invalid out_dist')
+        
+        comm = self.blockcomm
+
+        if comm.size == 1:
+            return in_wGG
+        
+        # Check distribution and redistribute if necessary
+        mynw, mynG, same_dist = self.check_distribution(in_wGG, nw, out_dist)
+
+        if same_dist:
+            return in_wGG
+        else:
+            return self._redistribute(in_wGG, nw)
+    
     def distribute_frequencies(self, in_wGG, nw):
         """Distribute frequencies to all cores."""
 
