@@ -655,10 +655,10 @@ PyObject* scal_cuda_gpu(PyObject *self, PyObject *args)
                 gpublasDscal(_gpaw_gpublas_handle, n, &alpha.real,
                             (double*) x_gpu, incx));
     } else {
-        gpuDoubleComplex alpha_gpu = {alpha.real, alpha.imag};
+        gpublasDoubleComplex alpha_gpu = {alpha.real, alpha.imag};
         gpublasSafeCall(
                 gpublasZscal(_gpaw_gpublas_handle, n, &alpha_gpu,
-                    (gpuDoubleComplex*) x_gpu, incx));
+                    (gpublasDoubleComplex*) x_gpu, incx));
     }
     if (PyErr_Occurred())
         return NULL;
@@ -678,13 +678,13 @@ static void _mmm_cuda(gpublasOperation_t gpu_opa, gpublasOperation_t gpu_opb,
                             &(alpha.real), (double*) a, lda, (double*) b, ldb,
                             &(beta.real), (double*) c, ldc));
     } else {
-        gpuDoubleComplex alpha_gpu = {alpha.real, alpha.imag};
-        gpuDoubleComplex beta_gpu = {beta.real, beta.imag};
+        gpublasDoubleComplex alpha_gpu = {alpha.real, alpha.imag};
+        gpublasDoubleComplex beta_gpu = {beta.real, beta.imag};
         gpublasSafeCall(
                 gpublasZgemm(_gpaw_gpublas_handle, gpu_opa, gpu_opb, m, n, k,
-                            &alpha_gpu, (gpuDoubleComplex*) a, lda,
-                            (gpuDoubleComplex*) b, ldb,
-                            &beta_gpu, (gpuDoubleComplex*) c, ldc));
+                            &alpha_gpu, (gpublasDoubleComplex*) a, lda,
+                            (gpublasDoubleComplex*) b, ldb,
+                            &beta_gpu, (gpublasDoubleComplex*) c, ldc));
     }
 }
 
@@ -999,13 +999,13 @@ PyObject* gemv_cuda_gpu(PyObject *self, PyObject *args)
                             (double*) x_gpu, incx,
                             &beta.real, (double*) y_gpu, incy));
     } else {
-        gpuDoubleComplex alpha_gpu = {alpha.real, alpha.imag};
-        gpuDoubleComplex beta_gpu = {beta.real, beta.imag};
+        gpublasDoubleComplex alpha_gpu = {alpha.real, alpha.imag};
+        gpublasDoubleComplex beta_gpu = {beta.real, beta.imag};
         gpublasSafeCall(
                 gpublasZgemv(_gpaw_gpublas_handle, trans_c, m, n,
-                            &alpha_gpu, (gpuDoubleComplex*) a_gpu, lda,
-                            (gpuDoubleComplex*) x_gpu, incx,
-                            &beta_gpu, (gpuDoubleComplex*) y_gpu, incy));
+                            &alpha_gpu, (gpublasDoubleComplex*) a_gpu, lda,
+                            (gpublasDoubleComplex*) x_gpu, incx,
+                            &beta_gpu, (gpublasDoubleComplex*) y_gpu, incy));
     }
     if (PyErr_Occurred())
         return NULL;
@@ -1039,11 +1039,11 @@ PyObject* axpy_cuda_gpu(PyObject *self, PyObject *args)
                             (double*) x_gpu, incx,
                             (double*) y_gpu, incy));
     } else {
-        gpuDoubleComplex alpha_gpu = {alpha.real, alpha.imag};
+        gpublasDoubleComplex alpha_gpu = {alpha.real, alpha.imag};
         gpublasSafeCall(
                 gpublasZaxpy(_gpaw_gpublas_handle, n, &alpha_gpu,
-                            (gpuDoubleComplex*) x_gpu, incx,
-                            (gpuDoubleComplex*) y_gpu, incy));
+                            (gpublasDoubleComplex*) x_gpu, incx,
+                            (gpublasDoubleComplex*) y_gpu, incy));
     }
     if (PyErr_Occurred())
         return NULL;
@@ -1068,8 +1068,8 @@ static void _rk_cuda_gpu(int n, int k,
                 gpublasZherk(_gpaw_gpublas_handle,
                     GPUBLAS_FILL_MODE_UPPER, GPUBLAS_OP_T,
                     n, k,
-                    &alpha, (gpuDoubleComplex*) a_gpu, lda,
-                    &beta, (gpuDoubleComplex*) c_gpu, ldc));
+                    &alpha, (gpublasDoubleComplex*) a_gpu, lda,
+                    &beta, (gpublasDoubleComplex*) c_gpu, ldc));
     }
 }
 
@@ -1134,8 +1134,8 @@ static void _rk_cuda_gpu_hybrid(int n, int k,
                 gpublasZherk(_gpaw_gpublas_handle,
                     GPUBLAS_FILL_MODE_UPPER, GPUBLAS_OP_T,
                     n, ps->k1,
-                    &alpha, (gpuDoubleComplex*) a_gpu, lda,
-                    &beta, (gpuDoubleComplex*) c_gpu, ldc));
+                    &alpha, (gpublasDoubleComplex*) a_gpu, lda,
+                    &beta, (gpublasDoubleComplex*) c_gpu, ldc));
     }
     gpuEventRecord(ps->event_gpu[1], ph->stream[0]);
     gpuEventRecord(ps->event_gpu[3], ph->stream[2]);
@@ -1236,13 +1236,13 @@ static void _r2k_cuda_gpu(int n, int k,
                     (double*) b_gpu, lda,
                     &beta, (double*) c_gpu, ldc));
     } else {
-        gpuDoubleComplex alpha_gpu = {alpha.real, alpha.imag};
+        gpublasDoubleComplex alpha_gpu = {alpha.real, alpha.imag};
         gpublasSafeCall(
                 gpublasZher2k(_gpaw_gpublas_handle,
                     GPUBLAS_FILL_MODE_UPPER, GPUBLAS_OP_T, n, k,
-                    &alpha_gpu, (gpuDoubleComplex*) a_gpu, lda,
-                    (gpuDoubleComplex*) b_gpu, lda,
-                    &beta, (gpuDoubleComplex*) c_gpu, ldc));
+                    &alpha_gpu, (gpublasDoubleComplex*) a_gpu, lda,
+                    (gpublasDoubleComplex*) b_gpu, lda,
+                    &beta, (gpublasDoubleComplex*) c_gpu, ldc));
     }
 }
 
@@ -1308,13 +1308,13 @@ static void _r2k_cuda_gpu_hybrid(int n, int k,
                     (double*) b_gpu, lda,
                     &beta, (double*) c_gpu, ldc));
     } else {
-        gpuDoubleComplex alpha_gpu = {alpha.real, alpha.imag};
+        gpublasDoubleComplex alpha_gpu = {alpha.real, alpha.imag};
         gpublasSafeCall(
                 gpublasZher2k(_gpaw_gpublas_handle,
                     GPUBLAS_FILL_MODE_UPPER, GPUBLAS_OP_T, n, ps2->k1,
-                    &alpha_gpu, (gpuDoubleComplex*) a_gpu, lda,
-                    (gpuDoubleComplex*) b_gpu, lda,
-                    &beta, (gpuDoubleComplex*) c_gpu, ldc));
+                    &alpha_gpu, (gpublasDoubleComplex*) a_gpu, lda,
+                    (gpublasDoubleComplex*) b_gpu, lda,
+                    &beta, (gpublasDoubleComplex*) c_gpu, ldc));
     }
     gpuEventRecord(ps2->event_gpu[1], ph->stream[0]);
     gpuEventRecord(ps2->event_gpu[3], ph->stream[2]);
@@ -1445,11 +1445,11 @@ PyObject* dotc_cuda_gpu(PyObject *self, PyObject *args)
         else
             return PyFloat_FromDouble(result);
     } else {
-        gpuDoubleComplex result;
+        gpublasDoubleComplex result;
         gpublasSafeCall(
                 gpublasZdotc(_gpaw_gpublas_handle, n,
-                            (gpuDoubleComplex*) a_gpu, incx,
-                            (gpuDoubleComplex*) b_gpu, incy, &result));
+                            (gpublasDoubleComplex*) a_gpu, incx,
+                            (gpublasDoubleComplex*) b_gpu, incy, &result));
         if (PyErr_Occurred())
             return NULL;
         else
@@ -1486,11 +1486,11 @@ PyObject* dotu_cuda_gpu(PyObject *self, PyObject *args)
         else
             return PyFloat_FromDouble(result);
     } else {
-        gpuDoubleComplex result;
+        gpublasDoubleComplex result;
         gpublasSafeCall(
                 gpublasZdotu(_gpaw_gpublas_handle, n,
-                    (gpuDoubleComplex*) a_gpu, incx,
-                    (gpuDoubleComplex*) b_gpu, incy, &result));
+                    (gpublasDoubleComplex*) a_gpu, incx,
+                    (gpublasDoubleComplex*) b_gpu, incy, &result));
         if (PyErr_Occurred())
             return NULL;
         else

@@ -22,6 +22,7 @@
 #define gpuDeviceProp             cudaDeviceProp
 
 #define gpuDoubleComplex          cuDoubleComplex
+#define gpublasDoubleComplex      cuDoubleComplex
 #define make_gpuDoubleComplex     make_cuDoubleComplex
 #define gpuCreal                  cuCreal
 #define gpuCimag                  cuCimag
@@ -73,6 +74,7 @@
 #define gpublasStatus_t           cublasStatus_t
 #define gpublasHandle_t           cublasHandle_t
 #define gpublasOperation_t        cublasOperation_t
+
 #define gpublasCreate             cublasCreate
 #define gpublasSetStream          cublasSetStream
 #define gpublasDgemm              cublasDgemm
