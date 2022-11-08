@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from typing import Sequence
 
 import numpy as np
 from ase.data import covalent_radii
 from ase.data.colors import jmol_colors
 from ase.units import Bohr, Hartree
-from gpaw import GPAW, OldGPAW
+from gpaw.calculator import GPAW
 from gpaw.lcao.tightbinding import TightBinding  # as LCAOTightBinding
 from gpaw.lcao.tools import get_bfi
 from gpaw.typing import Array1D, Array2D, Array4D
@@ -15,14 +16,16 @@ from gpaw.utilities.tools import lowdin, tri2full
 from scipy.linalg import eigh
 
 
-def get_subspace(A_MM: Array2D, indices: Array1D):
+def get_subspace(A_MM: Array2D, indices: Sequence[int]):
     """Get the subspace spanned by the basis function listed in index."""
     assert A_MM.ndim == 2 and A_MM.shape[0] == A_MM.shape[1]
     return A_MM.take(indices, 0).take(indices, 1)
 
 
-def get_orthonormal_subspace(H_MM: Array2D, S_MM: Array2D, indices: Array1D = None):
-    """Get orthonormal eigen-values and -vectors of subspace listed in index."""
+def get_orthonormal_subspace(H_MM: Array2D,
+                             S_MM: Array2D,
+                             indices: Sequence[int] = None):
+    """Get orthonormal eigenvalues and -vectors of subspace listed in index."""
     if indices is not None:
         h_ww = get_subspace(H_MM, indices)
         s_ww = get_subspace(S_MM, indices)
@@ -33,7 +36,9 @@ def get_orthonormal_subspace(H_MM: Array2D, S_MM: Array2D, indices: Array1D = No
     return eps, v
 
 
-def subdiagonalize(H_MM: Array2D, S_MM: Array2D, blocks: list[Array1D]):
+def subdiagonalize(H_MM: Array2D,
+                   S_MM: Array2D,
+                   blocks: Sequence[Sequence[int]]):
     """Subdiagonalize blocks."""
     nM = len(H_MM)
     v_MM = np.eye(nM)
@@ -44,11 +49,14 @@ def subdiagonalize(H_MM: Array2D, S_MM: Array2D, blocks: list[Array1D]):
         v_MM[np.ix_(block, block)] = v
         eps_M[block] = eps
         mask_M[block] = 0
-    epsx_M = np.ma.masked_array(eps_M, mask=mask_M)
+    epsx_M = np.ma.masked_array(eps_M, mask=mask_M)  # type: ignore
     return epsx_M, v_MM
 
 
-def subdiagonalize_atoms(calc: OldGPAW, H_MM: Array2D, S_MM: Array2D, atom_indices: Array1D = None):
+def subdiagonalize_atoms(calc: GPAW,
+                         H_MM: Array2D,
+                         S_MM: Array2D,
+                         atom_indices: int | Sequence[int] | None = None):
     """Subdiagonalize atomic sub-spaces."""
     if atom_indices is None:
         atom_indices = range(len(calc.atoms))
@@ -62,7 +70,7 @@ def subdiagonalize_atoms(calc: OldGPAW, H_MM: Array2D, S_MM: Array2D, atom_indic
     return subdiagonalize(H_MM, S_MM, block_lists)
 
 
-def get_orbitals(calc: OldGPAW, U_Mw: Array2D, q: int = 0):
+def get_orbitals(calc: GPAW, U_Mw: Array2D, q: int = 0):
     """Get orbitals from AOs coefficients.
 
     Parameters
@@ -79,7 +87,7 @@ def get_orbitals(calc: OldGPAW, U_Mw: Array2D, q: int = 0):
     return w_wG
 
 
-def get_xc(calc: OldGPAW, v_wG: Array4D, P_awi=None):
+def get_xc(calc: GPAW, v_wG: Array4D, P_awi=None):
     """Get exchange-correlation part of the Hamiltonian."""
     if calc.density.nt_sg is None:
         calc.density.interpolate_pseudo_density()
@@ -97,8 +105,9 @@ def get_xc(calc: OldGPAW, v_wG: Array4D, P_awi=None):
 
     # Atomic PAW corrections required? XXX
     if P_awi is not None:
-        raise NotImplementedError("""Atomic PAW corrections not included.
-                                  Have a look at pwf2::get_xc2 for inspiration.""")
+        raise NotImplementedError(
+            'Atomic PAW corrections not included. '
+            'Have a look at pwf2::get_xc2 for inspiration.')
 
     return xc_ww * Hartree
 
@@ -130,7 +139,7 @@ class BasisTransform:
 
     """
 
-    def __init__(self, U_MM: Array2D, indices: Array1D = None) -> None:
+    def __init__(self, U_MM: Array2D, indices: Sequence[int] = None) -> None:
         """
 
         Parameters
@@ -140,6 +149,7 @@ class BasisTransform:
         """
         self.U_MM = U_MM
         self.indices = indices
+        self.U_Mw: Array2D | None
         if indices is not None:
             self.U_Mw = np.ascontiguousarray(U_MM[:, indices])
         else:
@@ -176,12 +186,17 @@ class EffectiveModel(BasisTransform):
 
     Methods
     -------
-    get_static_correction(H_MM: npt.NDArray, S_MM: npt.NDArray, z: complex = 0. + 1e-5j)
+    get_static_correction(H_MM: npt.NDArray,
+                          S_MM: npt.NDArray,
+                          z: complex = 0. + 1e-5j)
         Hybridization of the effective model with the rest evaluated at `z`.
 
     """
 
-    def __init__(self, U_MM: Array2D, indices: Array1D, S_MM: Array2D = None) -> None:
+    def __init__(self,
+                 U_MM: Array2D,
+                 indices: Sequence[int],
+                 S_MM: Array2D = None) -> None:
         """
 
         See Also
@@ -196,6 +211,7 @@ class EffectiveModel(BasisTransform):
         """
         if S_MM is not None:
             lowdin(self.U_Mw, self.rotate_matrix(S_MM))
+            assert self.U_Mw is not None
             np.testing.assert_allclose(self.rotate_matrix(
                 S_MM), np.eye(self.U_Mw.shape[1]))
             U_MM = U_MM[:]
@@ -203,7 +219,10 @@ class EffectiveModel(BasisTransform):
 
         super().__init__(U_MM, indices)
 
-    def get_static_correction(self, H_MM: Array2D, S_MM: Array2D, z: complex = 0. + 1e-5j):
+    def get_static_correction(self,
+                              H_MM: Array2D,
+                              S_MM: Array2D,
+                              z: complex = 0. + 1e-5j):
         """Get static correction to model Hamiltonian.
 
         Parameters
@@ -215,6 +234,7 @@ class EffectiveModel(BasisTransform):
 
         """
         w = self.indices  # Alias
+        assert w is not None
 
         Hp_MM = self.rotate_matrix(H_MM, keep_rest=True)
         Sp_MM = self.rotate_matrix(S_MM, keep_rest=True)
@@ -262,7 +282,10 @@ class Subdiagonalization(BasisTransform):
 
     """
 
-    def __init__(self, H_MM: Array2D, S_MM: Array2D, blocks: list[Array1D]) -> None:
+    def __init__(self,
+                 H_MM: Array2D,
+                 S_MM: Array2D,
+                 blocks: Sequence[Sequence[int]]) -> None:
         """
 
         Parameters
@@ -277,7 +300,7 @@ class Subdiagonalization(BasisTransform):
             self.H_MM, self.S_MM, blocks)
         super().__init__(U_MM)
         # Groups of local orbitals with the same symmetry.
-        self.groups = None
+        self.groups: dict[float, list[int]] | None = None
 
     def group_energies(self, decimals: int = 1):
         """Group local orbitals with a similar energy.
@@ -308,8 +331,8 @@ class Subdiagonalization(BasisTransform):
             Sets minimum degree of overlap. Can be any value between 0 and 1.
 
         """
-        col_1 = []  # Keyword.
-        col_2 = []  # Value.
+        col_1: list[int] = []  # Keyword.
+        col_2: list[int] = []  # Value.
         groups = defaultdict(set)
         blocks = self.blocks
         # Loop over pair of blocks.
@@ -346,14 +369,16 @@ class Subdiagonalization(BasisTransform):
                     col_2.append(i2)
                     groups[a1].add(i2)
         # Try to further group by energy.
-        new = defaultdict(list)
+        new: dict[float, list[int]] = defaultdict(list)
         for k, v in groups.items():
             v.add(k)
             new[self.eps_M[k].round(decimals)] += groups[k]
         self.groups = {k: list(sorted(new[k])) for k in sorted(new)}  # groups
         return self.groups
 
-    def get_model(self, indices: Array1D, ortho: bool = False):
+    def get_model(self,
+                  indices: Sequence[int],
+                  ortho: bool = False) -> EffectiveModel:
         """Extract an effective model from the subdiagonalized space.
 
         Parameters
@@ -384,12 +409,11 @@ class LocalOrbitals(TightBinding):
 
     """
 
-    def __init__(self, calc: OldGPAW):
-
+    def __init__(self, calc: GPAW):
         self.calc = calc
         self.gamma = calc.wfs.kd.gamma  # Gamma point calculation
-        self.subdiag = None
-        self.model = None
+        self.subdiag: Subdiagonalization | None = None
+        self.model: EffectiveModel | None = None
 
         if self.gamma:
             self.calc = calc
@@ -411,13 +435,16 @@ class LocalOrbitals(TightBinding):
             self.H_NMM, self.S_NMM = TightBinding.h_and_s(self)
             self.H_NMM *= Hartree  # eV
             try:
-                self.N0 = np.argwhere(
-                    self.R_cN.T.dot(self.R_cN) < 1e-13).flat[0]
+                self.N0 = int(np.argwhere(
+                    self.R_cN.T.dot(self.R_cN) < 1e-13).flat[0])
             except Exception as exc:
                 raise RuntimeError(
                     "Must include central unit cell, i.e. R=[0,0,0].") from exc
 
-    def subdiagonalize(self, symbols: Array1D = None, blocks: list[Array1D] = None, groupby: str = 'energy'):
+    def subdiagonalize(self,
+                       symbols: Array1D = None,
+                       blocks: Sequence[Sequence[int]] = None,
+                       groupby: str = 'energy'):
         """Subdiagonalize Hamiltonian and overlap matrices.
 
         Parameters
@@ -443,7 +470,10 @@ class LocalOrbitals(TightBinding):
 
         self.groupby(groupby)
 
-    def groupby(self, method: str = 'energy', decimals: int = 1, cutoff: float = 0.9):
+    def groupby(self,
+                method: str = 'energy',
+                decimals: int = 1,
+                cutoff: float = 0.9):
         """Group local orbitals by symmetry.
 
         Parameters
@@ -455,6 +485,7 @@ class LocalOrbitals(TightBinding):
             Parameters passed to the group methods.
 
         """
+        assert self.subdiag is not None
         if method == 'energy':
             self.groups = self.subdiag.group_energies(decimals=decimals)
         elif method == 'symmetry':
@@ -462,11 +493,15 @@ class LocalOrbitals(TightBinding):
                 decimals=decimals, cutoff=cutoff)
         else:
             raise RuntimeError(
-                f"""Invalid method type. {method} not in {'energy', 'symmetry'}""")
+                f"Invalid method type. {method} not in {'energy', 'symmetry'}")
         # Ensure previous model is invalid.
         self.model = None
 
-    def take_model(self, indices: Array1D = None, minimal: bool = True, cutoff: float = 1e-3, ortho: bool = False):
+    def take_model(self,
+                   indices: list[int] = None,
+                   minimal: bool = True,
+                   cutoff: float = 1e-3,
+                   ortho: bool = False):
         """Build an effective model.
 
         Parameters
@@ -504,7 +539,8 @@ class LocalOrbitals(TightBinding):
                 # diffs.append(abs(eb[ib]))
 
         if not minimal:
-            # Find orbitals that connect to active with a matrix element larger than cutoff
+            # Find orbitals that connect to active with a matrix
+            # element larger than cutoff
 
             # Look at gamma of 1st neighbor
             H_MM = self.H_NMM[(self.N0 + 1) % len(self.H_NMM)]
@@ -593,7 +629,7 @@ class LocalOrbitals(TightBinding):
         pass
 
 
-## PLOTTING TOOLS ###
+# Plotting tools
 
 
 def get_plane_dirs(plane):
@@ -663,17 +699,15 @@ def plot2D_orbitals(los, indices, plane='yz'):
         _description_
     """
 
-    try:
-        from matplotlib import pyplot as plt
-    except:
-        RuntimeError(
-            'This function requires matplotlib which is not installed.')
+    import matplotlib.pyplot as plt
 
     norm_dir, plane_dirs = get_plane_dirs(plane)
 
     calc = los.calc
     atoms = los.calc.atoms
-    def get_coord(c): return calc.wfs.gd.coords(c, pad=False) * Bohr
+
+    def get_coord(c):
+        return calc.wfs.gd.coords(c, pad=False) * Bohr
 
     w_wG = los.get_orbitals(indices)
 
