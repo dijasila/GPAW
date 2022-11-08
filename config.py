@@ -224,7 +224,6 @@ def build_cuda(gpu_compiler, gpu_compile_args, gpu_include_dirs,
     includes.append(cfgDict['INCLUDEPY'])
     includes.extend(include_dirs)
     includes.extend(gpu_include_dirs)
-    includes.append('c/gpu')
     includes = ' '.join(['-I' + incdir for incdir in includes])
 
     ccflags = ' '.join(extra_compile_args + ['-fPIC'])
