@@ -40,7 +40,7 @@ def compare_eigvals(lcao, los, figname, figtitle):
     ----------
     lcao : LCAOWrap
         An LCAO wrapper around an LCAO calculation.
-    los : LocalOrbitals  
+    los : LocalOrbitals
         A LO wrapper around an LCAO calculation
     figname : str
         Save the figure using `figname`.
@@ -90,7 +90,8 @@ fig.savefig('C6H6_pzLOs.png', dpi=300, bbox_inches='tight')
 # Take minimal model
 los.take_model(minimal=True)
 # Get the size of the model >>> len(los.model)
-# Assert that the Hamiltonian has the same dimensions >> los.get_hamiltonian().shape
+# Assert that the Hamiltonian has the same
+# dimensions >> los.get_hamiltonian().shape
 
 # Assert model indeed conicides with pz-type LOs
 assert los.indices == los.groups[-6.9]

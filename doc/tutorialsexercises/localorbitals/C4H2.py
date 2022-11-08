@@ -1,7 +1,5 @@
 # creates: C4H2_minimal.png, C4H2_extended.png
-import numpy as np
 from ase.build import graphene_nanoribbon
-from ase.io import write
 from gpaw import GPAW
 from gpaw.lcao.local_orbitals import LocalOrbitals
 from gpaw.lcao.tightbinding import TightBinding
@@ -41,8 +39,9 @@ def compare_bandstructure(lcao, los, figname, figtitle):
                      '-.', color='tab:orange')
     lines[0].set_label('LOs')
     plt.legend()
-    plt.hlines(
-        0., xmin=special_xcoords[0], xmax=special_xcoords[1], color='k', linestyle='--')
+    plt.hlines(0.,
+               xmin=special_xcoords[0], xmax=special_xcoords[1],
+               color='k', linestyle='--')
     plt.ylim(-10., 10.)
     plt.title(figtitle)
     plt.xticks(special_xcoords, labels)
@@ -55,8 +54,14 @@ gnr = graphene_nanoribbon(2, 1, type='zigzag', saturated=True,
                           C_H=1.1, C_C=1.4, vacuum=5.0)
 
 # LCAO calculation
-calc = GPAW(mode='lcao', xc='LDA', basis='szp(dzp)', txt=None, kpts={'size': (1, 1, 11), 'gamma': True},
-            symmetry={'point_group': False, 'time_reversal': True})
+calc = GPAW(mode='lcao',
+            xc='LDA',
+            basis='szp(dzp)',
+            txt=None,
+            kpts={'size': (1, 1, 11),
+                  'gamma': True},
+            symmetry={'point_group': False,
+                      'time_reversal': True})
 calc.atoms = gnr
 calc.get_potential_energy()
 
