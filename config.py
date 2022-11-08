@@ -207,9 +207,9 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     error = os.system(cmd)
     return error
 
-def build_cuda(gpu_compiler, gpu_compile_args, gpu_include_dirs,
-               compiler, extra_compile_args, include_dirs, define_macros,
-               parallel_python_interpreter):
+def build_gpu(gpu_compiler, gpu_compile_args, gpu_include_dirs,
+              compiler, extra_compile_args, include_dirs, define_macros,
+              parallel_python_interpreter, cuda, hip):
 
     cfgDict = get_config_vars()
     plat = distutils.util.get_platform() + '-' + sys.version[0:3]
@@ -227,7 +227,7 @@ def build_cuda(gpu_compiler, gpu_compile_args, gpu_include_dirs,
     includes = ' '.join(['-I' + incdir for incdir in includes])
 
     ccflags = ' '.join(extra_compile_args + ['-fPIC'])
-    nvccflags = ' '.join(gpu_compile_args)
+    gpuflags = ' '.join(gpu_compile_args)
 
     objects = []
 
@@ -261,6 +261,8 @@ def build_cuda(gpu_compiler, gpu_compile_args, gpu_include_dirs,
             return error
 
     # compile GPU kernels
+    if cuda:
+        gpuflags += " -x cu --compiler-options='%s'" % ccflags
     kernels = ['c/gpu/kernels/fd.cpp',
                'c/gpu/kernels/interpolate.cpp',
                'c/gpu/kernels/paste.cpp',
@@ -276,11 +278,10 @@ def build_cuda(gpu_compiler, gpu_compile_args, gpu_include_dirs,
     for src in kernels:
         obj = os.path.join(build_path, src + '.o')
         objects.append(obj)
-        cmd = ("%s %s %s -x cu --compiler-options='%s' %s -o %s -c %s ") % \
+        cmd = ("%s %s %s %s -o %s -c %s ") % \
               (gpu_compiler,
                macros,
-               nvccflags,
-               ccflags,
+               gpuflags,
                includes,
                obj,
                src)
@@ -290,7 +291,7 @@ def build_cuda(gpu_compiler, gpu_compile_args, gpu_include_dirs,
             return error
 
     # link into a static lib
-    lib = 'build/temp.%s/libgpaw-cuda.a' % plat
+    lib = 'build/temp.%s/libgpaw-gpu.a' % plat
     cmd = ('ar cr %s %s') % (lib, ' '.join(objects))
     print(cmd)
     error = os.system(cmd)
