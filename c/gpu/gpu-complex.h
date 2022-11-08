@@ -1,6 +1,9 @@
 #ifdef GPAW_CUDA
 #include <cuComplex.h>
 #endif
+#ifdef GPAW_HIP
+#include <hip/hip_complex.h>
+#endif
 #include "gpu-runtime.h"
 
 #undef Tcuda
