@@ -13,7 +13,7 @@ Git master branch
 * Corresponding ASE release: ASE-3.23.0b1
 
 * Local orbitals added in LCAO mode to construct effective
-  tight-binding Hamiltonians: :ref:`los in lcao`.
+  tight-binding Hamiltonians: :ref:`los in lcao`, :ref:`los tutorial`.
 
 * Missing factor of `2\pi` now included in RPA shift current:
   :func:`gpaw.nlopt.shift.get_shift`.
