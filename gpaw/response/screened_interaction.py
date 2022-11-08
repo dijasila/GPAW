@@ -244,30 +244,116 @@ class WCalculator:
                                             W_wGG,
                                             rho_mnG[iK3],
                                             optimize='optimal')
-                        # TEST!!!!
-                        #Wmat.append(W_wijkl)
-
-                        #Wwan_wijkl += W_wijkl
+                        
+                        Wwan_wijkl += W_wijkl
+                        """
                         Wwan_wijkl += np.einsum('ia,jb,kc,ld,wabcd->wijkl',
                                                 Uwan[:,:,iK1],
                                                 Uwan[:,:,iK3].conj(),
                                                 Uwan[:,:,iKpQ[iK1]].conj(),
                                                 Uwan[:,:,iKpQ[iK3]],
                                                 W_wijkl)
+                        """
+        factor = Ha * self.gs.kd.nbzkpts**3 # factor from BZ summation and taking from Hartree to eV
+        Wwan_wijkl /= factor
+
+        return Wwan_wijkl
+    
+    def calc_in_Wannier2(self,chi0calc,Uwan,bandrange):
+        """Calculates the screened interaction matrix in Wannier basis.
+        XXX NOTE: At the moment it is assumed a single spin channel and no SOC!
+
+        W_n1,n2;n3,n4(R=0) = <w^*_{n1,R=0} w_{n2, R=0} | W |w^*_{n3,R=0} w_{n4, R=0} >
+
+        w_{n R} = V/(2pi)^3 \int_{BZ} dk e^{-kR} psi^w_{nk}
+        psi^w_{nk} = \sum_n' U_nn'(k) \psi^{KS}_{n'k}
+
+        w^*_{n1,R=0} w_{n2, R=0} = C * \int_{k,k' in BZ} \psi^w*_{n1k} \psi^w_{n2k'}
+
+        \psi^w*_{n1k} \psi^w_{n2k'} = \sum_{mm'} (U_{n1,m}(k) \psi^{KS}_{m k} )^* U_{n2,m'}(k') \psi^{KS}_{m' k'}
+        First calculates W in KS-basis where we need the pair densities, then multiply with transformation 
+        matrices and sum over k and k'. Do in loop over IBZ with additional loop over equivalent k-points.
+        """
+        ibz2bz = ibz2bz_map(self.gs.kd)
+        s1 = 0 #XXX assume only single spin for the moment
+        s2 = 0
+
+        if type(Uwan) == str:  # read w90 transformation matrix from file
+            Uwan, nk, nwan = self.read_uwan(Uwan)
+            assert nk == self.gs.kd.nbzkpts
+            assert bandrange[1] - bandrange[0] == nwan
+
+        def get_k1_k2(s1,iK1,iQ,bandrange):
+            # get kpt1, kpt1+q kpoint pairs used in density matrix
+            kpt1 = self.pair.get_k_point(s1, iK1, bandrange[0], bandrange[-1])
+            K2_c = self.gs.kd.bzk_kc[kpt1.K] + self.gs.kd.bzk_kc[iQ]  # Find k2 = K1 + Q                                                                                                            
+            iK2 = self.gs.kd.where_is_q(K2_c, self.gs.kd.bzk_kc)
+            kpt2 = self.pair.get_k_point(s1, iK2, bandrange[0], bandrange[-1])
+            return kpt1, kpt2, iK2
+        
+        def get_k1_k2b(s1,iK1,iK3,bandrange):
+            # get kpt1, kpt1+q kpoint pairs used in density matrix
+            kpt1 = self.pair.get_k_point(s1, iK1, bandrange[0], bandrange[-1])
+            kpt2 = self.pair.get_k_point(s1, iK3, bandrange[0], bandrange[-1])
+            return kpt1, kpt2
+        
+        nfreq = len(chi0calc.wd)
+        Wwan_wijkl = np.zeros([nfreq,nwan,nwan,nwan,nwan],dtype=complex)
+        total_k=0
+        #Wmat = [] # TEST 
+        # First calculate W in IBZ in PW basis
+        # and transform to DFT eigen basis
+        Warr=[]
+        pawcorrarr=[]
+        pdarr=[]
+        for iq, q_c in enumerate(self.gs.kd.ibzk_kc):
+            #optical_limit = np.allclose(q_c,0.0)
+            # Calculate chi0 and W for IBZ k-point q
+            chi0 = chi0calc.calculate(q_c)
+            pd, W_wGG = self.calculate_q(iq, q_c, chi0, out_dist='wGG')
+            pawcorr = chi0calc.pawcorr
+            pdarr.append(pd)
+            Warr.append(W_wGG)
+            pawcorrarr.append(pawcorr)
+            
+        for iK2, K2_c in enumerate(self.gs.kd.bzk_kc):
+                # Double loop over BZ k-points
+                ikq_k = self.gs.kd.find_k_plus_q(K2_c)
+                for iK1 in range(self.gs.kd.nbzkpts):
+                    iK1pK2 = ikq_k[iK1]
+                    for iK3 in range(self.gs.kd.nbzkpts):
+                        iK3pK2 = ikq_k[iK3]
+                        # W in products of KS eigenstates
+                        kpt1, kpt2 = get_k1_k2b(s1,iK1,iK3,bandrange) 
+                        rho1, iq = self.get_density_matrix(kpt1,
+                                                           kpt2,
+                                                           pd_q=pdarr,
+                                                           pawcorr_q=pawcorrarr)
+                        # W in products of KS eigenstates
+                        kpt1, kpt2 = get_k1_k2b(s1,iK1pK2,iK3pK2,bandrange) 
+                        rho2, iq = self.get_density_matrix(kpt1,
+                                                           kpt2,
+                                                           pd_q=pdarr,
+                                                           pawcorr_q=pawcorrarr)
+
+                        W_wijkl = np.einsum('ijk,lkm,pqm->lipjq',
+                                            rho1.conj(),
+                                            Warr[iq],
+                                            rho2,
+                                            optimize='optimal')
+                        
+                        # Wwan_wijkl += W_wijkl
+                        
+                        Wwan_wijkl += np.einsum('ia,jb,kc,ld,wabcd->wijkl',
+                                                Uwan[:,:,iK1],
+                                                Uwan[:,:,iK1pK2].conj(),
+                                                Uwan[:,:,iK3].conj(),
+                                                Uwan[:,:,iK3pK2],
+                                                W_wijkl)
                         
         factor = Ha * self.gs.kd.nbzkpts**3 # factor from BZ summation and taking from Hartree to eV
         Wwan_wijkl /= factor
 
-        # TEST
-        """
-        for i in range(len(Wmat)):
-            for j in range(len(Wmat)):
-                if Wmat[i].shape == Wmat[j].shape:
-                    #print('same shape',i,j)
-                    matdiff = np.abs(Wmat[i] - Wmat[j])
-                    if matdiff.max() < 0.001 and i != j:
-                        print('same val', i, j)
-        """
         return Wwan_wijkl
     
     def read_uwan(self, seed):
@@ -538,8 +624,7 @@ class WCalculator:
         M_vv = np.dot(pd.gd.cell_cv.T, np.dot(U_cc.T,
                                               np.linalg.inv(pd.gd.cell_cv).T))
 
-        pawcorr = pawcorr_q[iq_in_list].remap_somehow(M_vv, G_Gv, sym, sign)
-
+        pawcorr = pawcorr_q[iq_in_list].remap_somehow(M_vv, G_Gv, sym, sign)        
         rho_mnG = np.zeros((len(kpt1.eps_n), len(kpt2.eps_n), len(G_Gv)),
                            complex)
         for m in range(len(rho_mnG)):
