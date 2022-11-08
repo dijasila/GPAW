@@ -64,7 +64,7 @@ void bc_unpack2(const boundary_conditions* bc,
     double* rbuf, int nin);
 
 #ifdef GPAW_GPU
-#include "gpu/cuda.h"
+#include "gpu/gpu-runtime.h"
 
 void bc_init_cuda(boundary_conditions* bc);
 void bc_dealloc_cuda(int force);

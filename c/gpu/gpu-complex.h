@@ -1,5 +1,7 @@
+#ifdef GPAW_CUDA
 #include <cuComplex.h>
-#include "gpu.h"
+#endif
+#include "gpu-runtime.h"
 
 #undef Tcuda
 #undef Zcuda
