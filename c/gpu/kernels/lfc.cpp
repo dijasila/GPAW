@@ -115,7 +115,7 @@ void lfc_dealloc_cuda(LFCObject *self)
 }
 
 extern "C"
-static void *transp(void *matrix, int rows, int cols, size_t item_size)
+void *transp(void *matrix, int rows, int cols, size_t item_size)
 {
 #define ALIGNMENT 16    /* power of 2 >= minimum array boundary alignment;
                        maybe unnecessary but machine dependent */
