@@ -2,15 +2,14 @@ import numpy as np
 
 
 class Q0Correction:
-    def __init__(self, cell_cv, bzk_kc, N_c, pbc):
+    def __init__(self, cell_cv, bzk_kc, N_c):
         self.cell_cv = cell_cv
         self.bzk_kc = bzk_kc
         self.N_c = N_c
-        # Check that z-axis is non-periodic
-        assert pbc[2] == 0 and pbc[0] == 1 and pbc[1] == 1
 
-        # Check that basic assumptions of cell
+        # Check that basic assumptions of cell and k-grid
         # for Q0Correction are fulfilled
+        assert N_c[2] == 1  # z-axis is non periodic direction
         assert (all(cell_cv[:2, 2] == 0) and all(cell_cv[2, :2] == 0)
                 and cell_cv[2, 2] > 0)
         
