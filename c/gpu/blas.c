@@ -620,17 +620,17 @@ static void hybrid_syr2k_update_paces(hybrid_func_params_t *ps)
 
 static gpublasOperation_t gpublas_operation(int op)
 {
-    gpublasOperation_t cu_op;
+    gpublasOperation_t gpu_op;
 
     if (op == 'N' || op == 'n')
-        cu_op = GPUBLAS_OP_N;
+        gpu_op = GPUBLAS_OP_N;
     else if (op == 'T' || op == 't')
-        cu_op = GPUBLAS_OP_T;
+        gpu_op = GPUBLAS_OP_T;
     else if (op == 'C' || op == 'c')
-        cu_op = GPUBLAS_OP_C;
+        gpu_op = GPUBLAS_OP_C;
     else
         assert(0);
-    return cu_op;
+    return gpu_op;
 }
 
 
@@ -666,7 +666,7 @@ PyObject* scal_cuda_gpu(PyObject *self, PyObject *args)
         Py_RETURN_NONE;
 }
 
-static void _mmm_cuda(gpublasOperation_t cu_opa, gpublasOperation_t cu_opb,
+static void _mmm_cuda(gpublasOperation_t gpu_opa, gpublasOperation_t gpu_opb,
                       int m, int n, int k,
                       Py_complex alpha, gpuDeviceptr_t a, int lda,
                       gpuDeviceptr_t b, int ldb, Py_complex beta,
@@ -674,17 +674,17 @@ static void _mmm_cuda(gpublasOperation_t cu_opa, gpublasOperation_t cu_opb,
 {
     if (real) {
         gpublasSafeCall(
-                gpublasDgemm(_gpaw_gpublas_handle, cu_opa, cu_opb, m, n, k,
+                gpublasDgemm(_gpaw_gpublas_handle, gpu_opa, gpu_opb, m, n, k,
                             &(alpha.real), (double*) a, lda, (double*) b, ldb,
                             &(beta.real), (double*) c, ldc));
     } else {
-        gpuDoubleComplex cu_alpha = {alpha.real, alpha.imag};
-        gpuDoubleComplex cu_beta = {beta.real, beta.imag};
+        gpuDoubleComplex alpha_gpu = {alpha.real, alpha.imag};
+        gpuDoubleComplex beta_gpu = {beta.real, beta.imag};
         gpublasSafeCall(
-                gpublasZgemm(_gpaw_gpublas_handle, cu_opa, cu_opb, m, n, k,
-                            &cu_alpha, (gpuDoubleComplex*) a, lda,
+                gpublasZgemm(_gpaw_gpublas_handle, gpu_opa, gpu_opb, m, n, k,
+                            &alpha_gpu, (gpuDoubleComplex*) a, lda,
                             (gpuDoubleComplex*) b, ldb,
-                            &cu_beta, (gpuDoubleComplex*) c, ldc));
+                            &beta_gpu, (gpuDoubleComplex*) c, ldc));
     }
 }
 
@@ -708,11 +708,11 @@ PyObject* mmm_gpu(PyObject *self, PyObject *args)
                           &beta, &c, &ldc, &bytes, &m, &n, &k))
         return NULL;
 
-    gpublasOperation_t cu_opa = gpublas_operation(opa);
-    gpublasOperation_t cu_opb = gpublas_operation(opb);
+    gpublasOperation_t gpu_opa = gpublas_operation(opa);
+    gpublasOperation_t gpu_opb = gpublas_operation(opb);
     int real = (bytes == NPY_SIZEOF_DOUBLE);
 
-    _mmm_cuda(cu_opa, cu_opb, m, n, k, alpha, a, lda, b, ldb, beta,
+    _mmm_cuda(gpu_opa, gpu_opb, m, n, k, alpha, a, lda, b, ldb, beta,
               c, ldc, real);
 
     Py_RETURN_NONE;
