@@ -33,7 +33,6 @@ def init(rank=0):
         import platform
         print('[{0}] GPU device {1} initialised (on host {2}).'.format(
             rank, backend.device_no, platform.node()))
-    return True
 
 
 __all__ = ['arrays', 'backends', 'parameters', 'cuda']
