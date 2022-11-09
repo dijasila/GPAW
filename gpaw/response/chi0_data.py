@@ -20,7 +20,7 @@ class Chi0Data:
     """Data object containing the chi0 data arrays for a single q-point,
     while holding also the corresponding basis descriptors and block
     distributor."""
-    def __init__(self, wd, pd, blockdist):
+    def __init__(self, wd, pd, blockdist, *, xp):
         """Construct the Chi0Data object
 
         Parameters
@@ -35,6 +35,7 @@ class Chi0Data:
         self.wd = wd
         self.pd = pd
         self.blockdist = blockdist
+        self.xp = xp
 
         # Check if in optical limit
         q_c, = pd.kd.ibzk_kc
@@ -50,10 +51,10 @@ class Chi0Data:
         self.chi0_wxvG = None
         self.chi0_wvv = None
 
-        self.allocate_arrays()
+        self._allocate_arrays(xp=xp)
 
     @staticmethod
-    def from_descriptor_arguments(frequencies, plane_waves, parallelization):
+    def from_descriptor_arguments(frequencies, plane_waves, parallelization, *, xp):
         """Contruct the necesarry descriptors and initialize the Chi0Data
         object."""
         # Construct wd
@@ -78,15 +79,15 @@ class Chi0Data:
             assert len(parallelization) == 3
             blockdist = PlaneWaveBlockDistributor(*parallelization)
 
-        return Chi0Data(wd, pd, blockdist)
+        return Chi0Data(wd, pd, blockdist, xp=xp)
 
-    def allocate_arrays(self):
+    def _allocate_arrays(self, *, xp):
         """Allocate data arrays."""
-        self.chi0_wGG = np.zeros(self.wGG_shape, complex)
+        self.chi0_wGG = np.zeros(self.wGG_shape, complex) # XXX
 
         if self.optical_limit:
-            self.chi0_wxvG = np.zeros(self.wxvG_shape, complex)
-            self.chi0_wvv = np.zeros(self.wvv_shape, complex)
+            self.chi0_wxvG = np.zeros(self.wxvG_shape, complex) #XXX
+            self.chi0_wvv = np.zeros(self.wvv_shape, complex) # XXX
 
     @property
     def nw(self):

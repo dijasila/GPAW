@@ -271,7 +271,7 @@ class GridDescriptor(Domain):
 
     def integrate(self, a_xg, b_yg=None,
                   global_integral=True, hermitian=False,
-                  _transposed_result=None):
+                  _transposed_result=None, xp=None):
         """Integrate function(s) over domain.
 
         a_xg: ndarray
@@ -301,11 +301,11 @@ class GridDescriptor(Domain):
             return result
 
         gsize = prod(a_xg.shape[-3:])
-        A_xg = np.ascontiguousarray(a_xg.reshape((-1, gsize)))
-        B_yg = np.ascontiguousarray(b_yg.reshape((-1, gsize)))
+        A_xg = xp.ascontiguousarray(a_xg.reshape((-1, gsize)))
+        B_yg = xp.ascontiguousarray(b_yg.reshape((-1, gsize)))
 
         if _transposed_result is None:
-            result_yx = np.zeros((len(B_yg), len(A_xg)), A_xg.dtype)
+            result_yx = xp.zeros((len(B_yg), len(A_xg)), A_xg.dtype)
         else:
             result_yx = _transposed_result
             global_integral = False
@@ -316,7 +316,10 @@ class GridDescriptor(Domain):
             r2k(0.5 * self.dv, A_xg, B_yg, 0.0, result_yx)
         else:
             # gemm(self.dv, A_xg, B_yg, 0.0, result_yx, 'c')
-            mmm(self.dv, B_yg, 'N', A_xg, 'C', 0.0, result_yx)
+            if xp == np:
+                mmm(self.dv, B_yg, 'N', A_xg, 'C', 0.0, result_yx)
+            else:
+                result_yx[:] = self.dv * B_yg @ A_xg.conj().T
 
         if global_integral:
             self.comm.sum(result_yx)

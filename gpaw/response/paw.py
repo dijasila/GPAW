@@ -3,33 +3,38 @@ from gpaw.response.math_func import two_phi_planewave_integrals
 
 
 class PWPAWCorrectionData:
-    def __init__(self, Q_aGii, pd, setups, pos_av):
+    def __init__(self, Q_aGii, pd, setups, pos_av, *, xp):
         # Sometimes we loop over these in ways that are very dangerous.
         # It must be list, not dictionary.
         assert isinstance(Q_aGii, list)
         assert len(Q_aGii) == len(pos_av) == len(setups)
-
-        self.Q_aGii = Q_aGii
+        print(Q_aGii)
+        print(type(Q_aGii))
+        print(type(Q_aGii[0]))
+        print(xp)
+        print(xp.asarray(Q_aGii[0]))
+        self.Q_aGii = [xp.asarray(Q_Gii) for Q_Gii in Q_aGii]
 
         self.pd = pd
         self.setups = setups
         self.pos_av = pos_av
+        self.xp = xp
 
     def _new(self, Q_aGii):
         return PWPAWCorrectionData(Q_aGii, pd=self.pd, setups=self.setups,
-                                   pos_av=self.pos_av)
+                                   pos_av=self.pos_av, xp=self.xp)
 
     def remap_somehow(self, M_vv, G_Gv, sym, sign):
         Q_aGii = []
         for a, Q_Gii in enumerate(self.Q_aGii):
             x_G = self._get_x_G(G_Gv, M_vv, self.pos_av[a])
-            U_ii = self.setups[a].R_sii[sym]
+            U_ii = self.xp.asarray(self.setups[a].R_sii[sym])
 
-            Q_Gii = np.einsum('ij,kjl,ml->kim',
-                              U_ii,
-                              Q_Gii * x_G[:, None, None],
-                              U_ii,
-                              optimize='optimal')
+            Q_Gii = self.xp.einsum('ij,kjl,ml->kim',
+                                   U_ii,
+                                   Q_Gii * x_G[:, None, None],
+                                   U_ii,
+                                   optimize='optimal')
             if sign == -1:
                 Q_Gii = Q_Gii.conj()
             Q_aGii.append(Q_Gii)
@@ -39,14 +44,15 @@ class PWPAWCorrectionData:
     def _get_x_G(self, G_Gv, M_vv, pos_v):
         # This doesn't really belong here.  Or does it?  Maybe this formula
         # is only used with PAW corrections.
-        return np.exp(1j * (G_Gv @ (pos_v - M_vv @ pos_v)))
+        return self.xp.exp(1j * (G_Gv @ (pos_v - M_vv @ pos_v)))
 
     def remap_somehow_else(self, symop, G_Gv, M_vv):
         myQ_aGii = []
+        xp = self.xp
         for a, Q_Gii in enumerate(self.Q_aGii):
             x_G = self._get_x_G(G_Gv, M_vv, self.pos_av[a])
-            U_ii = self.setups[a].R_sii[symop.symno]
-            Q_Gii = np.dot(np.dot(U_ii, Q_Gii * x_G[:, None, None]),
+            U_ii = xp.asarray(self.setups[a].R_sii[symop.symno])
+            Q_Gii = xp.dot(xp.dot(U_ii, Q_Gii * x_G[:, None, None]),
                            U_ii.T).transpose(1, 0, 2)
             if symop.sign == -1:
                 Q_Gii = Q_Gii.conj()
@@ -74,7 +80,7 @@ class PWPAWCorrectionData:
 
 
 def get_pair_density_paw_corrections(setups, pd, spos_ac,
-                                     alter_optical_limit=False):
+                                     alter_optical_limit=False, *, xp):
     """Calculate and bundle paw corrections to the pair densities as a
     PWPAWCorrectionData object.
 
@@ -84,7 +90,7 @@ def get_pair_density_paw_corrections(setups, pd, spos_ac,
     Ultimately, this function will be redundant and
     calculate_pair_density_paw_corrections() could be used directly.
     """
-    pawcorr = calculate_pair_density_paw_corrections(setups, pd, spos_ac)
+    pawcorr = calculate_pair_density_paw_corrections(setups, pd, spos_ac, xp=xp)
 
     if alter_optical_limit:
         q_v = pd.K_qv[0]
@@ -93,15 +99,15 @@ def get_pair_density_paw_corrections(setups, pd, spos_ac,
             Q_aGii = pawcorr.Q_aGii.copy()
 
             for a, atomdata in enumerate(setups):
-                Q_aGii[a][0] = atomdata.dO_ii
+                Q_aGii[a][0] = xp.asarray(atomdata.dO_ii)
 
             pawcorr = PWPAWCorrectionData(Q_aGii, pd=pd, setups=setups,
-                                          pos_av=pawcorr.pos_av)
+                                          pos_av=pawcorr.pos_av, xp=xp)
 
     return pawcorr
 
 
-def calculate_pair_density_paw_corrections(setups, pd, spos_ac):
+def calculate_pair_density_paw_corrections(setups, pd, spos_ac, *, xp):
     G_Gv = pd.get_reciprocal_vectors()
     pos_av = spos_ac @ pd.gd.cell_cv
 
@@ -119,4 +125,4 @@ def calculate_pair_density_paw_corrections(setups, pd, spos_ac):
         x_G = np.exp(-1j * (G_Gv @ pos_av[a]))
         Q_aGii.append(x_G[:, np.newaxis, np.newaxis] * Q_Gii)
 
-    return PWPAWCorrectionData(Q_aGii, pd=pd, setups=setups, pos_av=pos_av)
+    return PWPAWCorrectionData(Q_aGii, pd=pd, setups=setups, pos_av=pos_av, xp=xp)

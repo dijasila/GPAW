@@ -28,6 +28,9 @@ class KPoint:
         # PairDensity.construct_symmetry_operators() method
 
 
+    def P_ani_as(self, *, xp):
+        return [xp.asarray(P_ni) for P_ni in self.P_ani]
+
 class PairDistribution:
     def __init__(self, pair, mysKn1n2):
         self.pair = pair
@@ -79,9 +82,10 @@ class KPointPair:
 
 class NoCalculatorPairDensity:
     def __init__(self, gs, context, *,
-                 threshold=1, nblocks=1):
+                 threshold=1, nblocks=1, xp):
         self.gs = gs
         self.context = context
+        self.xp = xp
 
         assert self.gs.kd.symmetry.symmorphic
 
@@ -197,6 +201,8 @@ class NoCalculatorPairDensity:
             for n in range(na, nb):
                 ut_nR[n - na] = T(gs.pd.ifft(psit_nG[n], ik))
 
+        ut_nR = self.xp.asarray(ut_nR)
+
         with self.context.timer('Load projections'):
             P_ani = []
             for b, U_ii in zip(a_a, U_aii):
@@ -264,17 +270,17 @@ class NoCalculatorPairDensity:
         Q_G = kptpair.Q_G  # Fourier components of kpoint pair
         nG = len(Q_G)
 
-        n_nmG = np.zeros((len(n_n), len(m_m), nG), pd.dtype)
+        n_nmG = self.xp.zeros((len(n_n), len(m_m), nG), pd.dtype)
 
         for j, n in enumerate(n_n):
             Q_G = kptpair.Q_G
             with self.context.timer('conj'):
                 ut1cc_R = kpt1.ut_nR[n - kpt1.na].conj()
             with self.context.timer('paw'):
-                C1_aGi = pawcorr.multiply(kpt1.P_ani, band=n - kpt1.na)
+                C1_aGi = pawcorr.multiply(kpt1.P_ani_as(xp=self.xp), band=n - kpt1.na)
                 n_nmG[j] = cpd(ut1cc_R, C1_aGi, kpt2, pd, Q_G, block=block)
 
-        return n_nmG
+        return self.xp.asnumpy(n_nmG)
 
     @timer('get_optical_pair_density')
     def get_optical_pair_density(self, pd, kptpair, n_n, m_m, block=False):
@@ -310,18 +316,19 @@ class NoCalculatorPairDensity:
         """
 
         dv = pd.gd.dv
-        n_mG = pd.empty(kpt2.blocksize)
+        n_mG = pd.empty(kpt2.blocksize, xp=self.xp)
         myblocksize = kpt2.nb - kpt2.na
 
         for ut_R, n_G in zip(kpt2.ut_nR, n_mG):
             n_R = ut1cc_R * ut_R
             with self.context.timer('fft'):
-                n_G[:] = pd.fft(n_R, 0, Q_G) * dv
+                n_G[:] = pd.fft(n_R, 0, Q_G, xp=self.xp) * dv
         # PAW corrections:
         with self.context.timer('gemm'):
-            for C1_Gi, P2_mi in zip(C1_aGi, kpt2.P_ani):
+            for C1_Gi, P2_mi in zip(C1_aGi, kpt2.P_ani_as(xp=self.xp)):
                 # gemm(1.0, C1_Gi, P2_mi, 1.0, n_mG[:myblocksize], 't')
-                mmm(1.0, P2_mi, 'N', C1_Gi, 'T', 1.0, n_mG[:myblocksize])
+                n_mG[:myblocksize] = P2_mi @ C1_Gi.T
+                # mmm(1.0, P2_mi, 'N', C1_Gi, 'T', 1.0, n_mG[:myblocksize])
 
         if not block or self.blockcomm.size == 1:
             return n_mG
@@ -338,7 +345,7 @@ class NoCalculatorPairDensity:
         kd = self.gs.kd
         gd = self.gs.gd
         k_c = kd.bzk_kc[kpt1.K] + kpt1.shift_c
-        k_v = 2 * np.pi * np.dot(k_c, np.linalg.inv(gd.cell_cv).T)
+        k_v = self.xp.asarray(2 * np.pi * np.dot(k_c, np.linalg.inv(gd.cell_cv).T))
 
         ut_vR = self.ut_sKnvR[kpt1.s][kpt1.K][n - kpt1.n1]
         atomdata_a = self.gs.setups
@@ -346,19 +353,20 @@ class NoCalculatorPairDensity:
                  for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
 
         blockbands = kpt2.nb - kpt2.na
-        n0_mv = np.empty((kpt2.blocksize, 3), dtype=complex)
-        nt_m = np.empty(kpt2.blocksize, dtype=complex)
+        n0_mv = self.xp.empty((kpt2.blocksize, 3), dtype=complex)
+        nt_m = self.xp.empty(kpt2.blocksize, dtype=complex)
         n0_mv[:blockbands] = -self.gs.gd.integrate(ut_vR,
-                                                   kpt2.ut_nR).T
+                                                   kpt2.ut_nR, xp=self.xp).T
         nt_m[:blockbands] = self.gs.gd.integrate(kpt1.ut_nR[n - kpt1.na],
-                                                 kpt2.ut_nR)
+                                                 kpt2.ut_nR, xp=self.xp)
 
         n0_mv[:blockbands] += (1j * nt_m[:blockbands, np.newaxis] *
                                k_v[np.newaxis, :])
 
         for C_vi, P_mi in zip(C_avi, kpt2.P_ani):
             # gemm(1.0, C_vi, P_mi, 1.0, n0_mv[:blockbands], 'c')
-            mmm(1.0, P_mi, 'N', C_vi, 'C', 1.0, n0_mv[:blockbands])
+            # mmm(1.0, P_mi, 'N', C_vi, 'C', 1.0, n0_mv[:blockbands])
+            n0_mv[:blockbands] = self.xp.asarray(P_mi @ C_vi.conj().T)
 
         if block and self.blockcomm.size > 1:
             n0_Mv = np.empty((kpt2.blocksize * self.blockcomm.size, 3),
@@ -376,7 +384,7 @@ class NoCalculatorPairDensity:
         deps_m = (eps1 - kpt2.eps_n)[m_m - kpt2.n1]
         n0_mv = self.calculate_optical_pair_velocity(n, kpt1, kpt2,
                                                      block=block)
-
+        n0_mv = xp.asnumpy(n0_mv)
         deps_m = deps_m.copy()
         deps_m[deps_m == 0.0] = np.inf
 
@@ -485,7 +493,7 @@ class NoCalculatorPairDensity:
                 for v2 in range(3):
                     ut_nvR[n - n1, v2] += ut_R * M_vv[v, v2]
 
-        return ut_nvR
+        return self.xp.asarray(ut_nvR)
 
     def __del__(self):
         self.context.close()
