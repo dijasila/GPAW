@@ -8,16 +8,9 @@ def setup(**kwargs):
     global backend
     global array
 
-    debug = kwargs.pop('debug', False)
-    if debug == 'sync':
-        debug = True
-        debug_sync = True
-    else:
-        debug_sync = False
-
     args = {
-        'debug': debug,
-        'debug_sync': debug_sync,
+        'debug': kwargs.pop('debug', False),
+        'debug_sync': kwargs.pop('debug_sync', False),
     }
 
     if kwargs.pop('cuda', False):
