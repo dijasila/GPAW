@@ -23,6 +23,8 @@ def setup(**kwargs):
     for key in kwargs:
         print(f'Unknown GPU parameter: {key}')
 
+    return backend
+
 
 def init(rank=0):
     global backend
