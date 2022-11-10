@@ -108,8 +108,8 @@ class RPACorrelation:
         self.omega_w = frequencies / Hartree
         self.weight_w = weights / Hartree
 
-        if nblocks > 1:
-            assert len(self.omega_w) % nblocks == 0
+        # TODO: We should avoid this requirement.
+        assert len(self.omega_w) % nblocks == 0
 
         self.nblocks = nblocks
         self.world = world
@@ -331,26 +331,19 @@ class RPACorrelation:
             self.fd.flush()
         else:
             from gpaw.response.gamma_int import GammaIntegrator
+            from gpaw.response.pw_parallelization import Blocks1D
 
-            nw = len(self.omega_w)
-            mynw = nw // self.nblocks
-            # mynw = -(-nw // self.nblocks)
-            w1 = self.blockcomm.rank * mynw
-            w2 = w1 + mynw
-            # w2 = min(w1 + mynw, nw)
-
-            assert w2 - w1 == len(chi0_wGG)
-
+            wblocks = Blocks1D(self.blockcomm, len(self.omega_w))
             gamma_int = GammaIntegrator(
                 truncation=self.truncation,
                 kd=kd,
                 pd=chi0.pd,
-                chi0_wvv=chi0.chi0_wvv[w1:w2],
-                chi0_wxvG=chi0.chi0_wxvG[w1:w2])
+                chi0_wvv=chi0.chi0_wvv[wblocks.myslice],
+                chi0_wxvG=chi0.chi0_wxvG[wblocks.myslice])
 
             e = 0
             for iqf in range(len(gamma_int.qf_qv)):
-                for iw in range(mynw):
+                for iw in range(wblocks.nlocal):
                     gamma_int.set_appendages(chi0_wGG[iw], iw, iqf)
                 ev = self.calculate_energy(chi0.pd, chi0_wGG, cut_G,
                                            q_v=gamma_int.qf_qv[iqf])
