@@ -44,7 +44,13 @@ class DielectricFunctionCalculator:
 
         # We cache the computed data since chi0 may otherwise be redundantly
         # calculated e.g. if the user calculates multiple directions.
-        key = (spin, *(q_c * self.gs.kd.N_c).round())
+        #
+        # May be called multiple times with same q_c, and we want to
+        # be able to recognize previous seen values of q_c.
+        # We do this by rounding and converting to string with fixed
+        # precision (so not very elegant).
+        q_key = [f'{q:.10f}' for q in q_c]
+        key = (spin, *q_key)
 
         # Spin='all' is a terrible cache key since it's inconsistent
         # with specifying spins one integer at the time.
