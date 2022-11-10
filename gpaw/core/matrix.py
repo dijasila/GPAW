@@ -80,7 +80,7 @@ class Matrix:
             """
         self.shape = (M, N)
 
-        if data is not None:
+        if data is not None and not hasattr(data, 'dtype'):
             data = np.asarray(data)
 
         if dtype is None:
