@@ -517,9 +517,9 @@ class LCAOforces:
         if not self.isblacs:
             F_av = np.zeros_like(self.Fref_av)
             Fkin_av = self.get_kinetic_term()
-            print(Fkin_av);asdf
             Fpot_av = self.get_pot_term()
             Ftheta_av = self.get_den_mat_term()
+            print(Fkin_av + Fpot_av + Ftheta_av);asdf
             Frho_av = self.get_den_mat_paw_term()
             Fatom_av = self.get_atomic_density_term()
 
