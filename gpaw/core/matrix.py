@@ -91,13 +91,14 @@ class Matrix:
         self.dtype = np.dtype(dtype)
         assert dtype == float or dtype == complex, dtype
 
+        xp = ...
         dist = dist or ()
         if isinstance(dist, tuple):
-            dist = create_distribution(M, N, *dist)
+            dist = create_distribution(M, N, *dist, xp=xp)
         self.dist = dist
 
         if data is None:
-            self.data = np.empty(dist.shape, self.dtype)
+            self.data = xp.empty(dist.shape, self.dtype)
         else:
             self.data = data.reshape(dist.shape)
 
