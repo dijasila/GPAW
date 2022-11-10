@@ -334,8 +334,12 @@ class RPACorrelation:
 
             nw = len(self.omega_w)
             mynw = nw // self.nblocks
+            # mynw = -(-nw // self.nblocks)
             w1 = self.blockcomm.rank * mynw
             w2 = w1 + mynw
+            # w2 = min(w1 + mynw, nw)
+
+            assert w2 - w1 == len(chi0_wGG)
 
             gamma_int = GammaIntegrator(
                 truncation=self.truncation,
@@ -346,7 +350,7 @@ class RPACorrelation:
 
             e = 0
             for iqf in range(len(gamma_int.qf_qv)):
-                for iw in range(w1, w2):
+                for iw in range(mynw):
                     gamma_int.set_appendages(chi0_wGG[iw], iw, iqf)
                 ev = self.calculate_energy(chi0.pd, chi0_wGG, cut_G,
                                            q_v=gamma_int.qf_qv[iqf])
