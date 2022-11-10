@@ -67,7 +67,7 @@ def add_force_contributions(wfs: LCAOWaveFunctions,
     rhoT_MM = wfs.calculate_density_matrix().T
     erhoT_MM = wfs.calculate_density_matrix(eigs=True).T
 
-    print(F_av)
+    print(F_av, indices)
     add_kinetic_term(rhoT_MM, dTdR_vMM, F_av, indices)
     print(F_av);asdg
     add_pot_term(potential.vt_sR[wfs.spin], wfs.basis, wfs.q, rhoT_MM, F_av)
@@ -76,7 +76,7 @@ def add_force_contributions(wfs: LCAOWaveFunctions,
     add_atomic_density_term()
 
 
-def add_kinetic_term(rho_MM, dTdR_vMM, F_av, indices):
+def add_kinetic_term(rhoT_MM, dTdR_vMM, F_av, indices):
     """Calculate Kinetic energy term in LCAO
 
     :::
@@ -92,7 +92,7 @@ def add_kinetic_term(rho_MM, dTdR_vMM, F_av, indices):
     for a, M1, M2 in indices:
         F_av[a, :] += 2 * np.einsum('vmM, Mm -> v',
                                     dTdR_vMM[:, M1:M2],
-                                    rho_MM[:, M1:M2])
+                                    rhoT_MM[:, M1:M2])
 
 
 def add_pot_term(vt_R: UniformGrid,
