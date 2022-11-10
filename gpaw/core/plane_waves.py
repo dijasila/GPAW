@@ -105,7 +105,8 @@ class PlaneWaves(Domain):
 
     def empty(self,
               dims: int | tuple[int, ...] = (),
-              comm: MPIComm = serial_comm) -> PlaneWaveExpansions:
+              comm: MPIComm = serial_comm,
+              xp=np) -> PlaneWaveExpansions:
         """Create new PlaneWaveExpanions object.
 
         parameters
@@ -115,7 +116,7 @@ class PlaneWaves(Domain):
         comm:
             Distribute dimensions along this communicator.
         """
-        return PlaneWaveExpansions(self, dims, comm)
+        return PlaneWaveExpansions(self, dims, comm, xp=xp)
 
     def new(self,
             *,
@@ -213,7 +214,8 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
                  pw: PlaneWaves,
                  dims: int | tuple[int, ...] = (),
                  comm: MPIComm = serial_comm,
-                 data: np.ndarray = None):
+                 data: np.ndarray = None,
+                 xp=np):
         """Object for storing function(s) as a plane-wave expansions.
 
         parameters
@@ -229,7 +231,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         """
         DistributedArrays. __init__(self, dims, pw.myshape,
                                     comm, pw.comm,
-                                    data, pw.dv, complex)
+                                    data, pw.dv, complex, xp)
         self.desc = pw
         self._matrix: Matrix | None
 

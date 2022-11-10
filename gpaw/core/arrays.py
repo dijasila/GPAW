@@ -28,7 +28,8 @@ class DistributedArrays(Generic[DomainType]):
                  domain_comm: MPIComm,
                  data: np.ndarray | None,
                  dv: float,
-                 dtype):
+                 dtype,
+                 xp=None):
         self.myshape = myshape
         self.comm = comm
         self.domain_comm = domain_comm
@@ -55,8 +56,10 @@ class DistributedArrays(Generic[DomainType]):
             if data.dtype != dtype:
                 raise ValueError(
                     f'Bad dtype for data: {data.dtype} != {dtype}')
+            if xp is not None:
+                assert (xp is np) == isinstance(data, np.ndarray), xp
         else:
-            data = np.empty(fullshape, dtype)
+            data = (xp or np).empty(fullshape, dtype)
 
         self.data = data
         self._matrix: Matrix | None = None

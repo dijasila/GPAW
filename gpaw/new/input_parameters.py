@@ -256,7 +256,8 @@ def parallel(value: dict[str, Any] = None) -> dict[str, Any]:
                        'use_elpa': False,
                        'elpasolver': '2stage',
                        'buffer_size': None,
-                       'world': None},
+                       'world': None,
+                       'gpu': False},
                       value)
     dct['world'] = dct['world'] or world
     return dct

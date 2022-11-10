@@ -10,6 +10,7 @@ from ase.calculators.calculator import kpts2sizeandoffsets
 from ase.units import Bohr
 
 from gpaw.core import UniformGrid
+from gpaw.core.domain import Domain
 from gpaw.core.atom_arrays import (AtomArrays, AtomArraysLayout,
                                    AtomDistribution)
 from gpaw.mixer import MixerWrapper, get_mixer_from_keywords
@@ -145,7 +146,7 @@ class DFTComponentsBuilder:
             self.grid.comm)
 
     @cached_property
-    def wf_desc(self):
+    def wf_desc(self) -> Domain:
         return self.create_wf_description()
 
     def __repr__(self):
