@@ -1120,8 +1120,8 @@ to C-extensions, use Python's :option:`python:-d` option:
 
     $ python3 -d script.py
 
-If you run Python through the ``gpaw python`` command, then you run your
-script in dry-run mode::
+If you run Python through the ``gpaw python`` command, then you can run your
+script in dry-run mode like this::
 
     $ gpaw python --dry-run=N script.py
 
