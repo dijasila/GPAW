@@ -559,7 +559,7 @@ class BaseSetup:
         """Calculate and return the Yukawa based interaction."""
         if self._Mg_pp is not None and gamma == self._gamma:
             return self._Mg_pp  # Cached
-        
+
         # Solves the radial screened poisson equation for density n_g
         def Yuk(self, n_g, l):
             """Solve radial screened poisson for density n_g."""
@@ -575,7 +575,7 @@ class BaseSetup:
         """Calculate and return erfc based valence valence
            exchange interactions."""
         hse = RadialHSE(self.local_corr.rgd2, omega).screened_coulomb_dv
-        
+
         def erfc_interaction(_, n_g, l):
             return hse(n_g, l)
         return self.calculate_vvx_interactions(erfc_interaction)
@@ -1584,7 +1584,7 @@ if __name__ == '__main__':
     print("""\
 This is not the setup.py you are looking for!  This setup.py defines a
 Setup class used to hold the atomic data needed for a specific atom.
-For building the GPAW code you must use the setup.py distutils script
+For building the GPAW code you must use the setup.py setuptools script
 at the root of the code tree.  Just do "cd .." and you will be at the
 right place.""")
     raise SystemExit

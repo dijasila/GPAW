@@ -277,7 +277,7 @@ def random(value=False):
 @input_parameter
 def setups(value='paw'):
     """PAW datasets or pseudopotentials."""
-    return value if isinstance(value, dict) else {None: value}
+    return value if isinstance(value, dict) else {'default': value}
 
 
 @input_parameter

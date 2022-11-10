@@ -72,7 +72,7 @@ class Davidson(Eigensolver):
             wfs = state.ibzwfs.wfs_qs[0][0]
             assert isinstance(wfs, PWFDWaveFunctions)
             dtype = wfs.psit_nX.data.dtype
-            self.work_arrays = np.empty(shape, dtype)
+            self.work_arrays = wfs.psit_nX.xp.empty(shape, dtype)
 
         dS = state.ibzwfs.wfs_qs[0][0].setups.overlap_correction
         dH = state.potential.dH

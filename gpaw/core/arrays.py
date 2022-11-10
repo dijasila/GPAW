@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Generic, TypeVar
 
-import numpy as np
-
 import gpaw.fftw as fftw
+import numpy as np
+from ase.io.ulm import NDArrayReader
 from gpaw.core.domain import Domain
 from gpaw.core.matrix import Matrix
 from gpaw.mpi import MPIComm
@@ -57,11 +57,17 @@ class DistributedArrays(Generic[DomainType]):
                 raise ValueError(
                     f'Bad dtype for data: {data.dtype} != {dtype}')
             if xp is not None:
-                assert (xp is np) == isinstance(data, np.ndarray), xp
+                assert (xp is np) == isinstance(
+                    data, (np.ndarray, NDArrayReader)), xp
         else:
             data = (xp or np).empty(fullshape, dtype)
 
         self.data = data
+        if isinstance(data, (np.ndarray, NDArrayReader)):
+            self.xp = np
+        else:
+            import gpaw.cpupy as xp
+            self.xp = xp
         self._matrix: Matrix | None = None
 
     def new(self, data=None) -> DistributedArrays:

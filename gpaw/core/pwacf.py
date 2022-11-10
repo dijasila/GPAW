@@ -273,6 +273,8 @@ class PWLFC(BaseLFC):
                 1.0, a_xG[:, G1:G2])
 
     def integrate(self, a_xG, c_axi=None, q=-1):
+        if self.nI == 0:
+            return c_axi
         c_xI = np.zeros(a_xG.shape[:-1] + (self.nI,), self.dtype)
 
         nx = prod(c_xI.shape[:-1])

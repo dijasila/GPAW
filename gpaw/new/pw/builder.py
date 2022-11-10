@@ -104,7 +104,7 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         grid = self.grid.new(kpt=kpt_c, dtype=self.dtype)
         pw = self.wf_desc.new(kpt=kpt_c)
         if self.params.parallel['gpu']:
-            import gpaw.new.cupy0 as xp
+            import gpaw.cpupy as xp
         else:
             xp = np
         psit_nG = pw.empty(self.nbands, self.communicators['b'], xp)
