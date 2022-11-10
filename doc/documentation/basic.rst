@@ -1116,7 +1116,7 @@ Command-line options
 --------------------
 
 I order to run GPAW in debug-mode, e.g. check consistency of arrays passed
-to C-extensions, use Python's :option:`python:-c` option`:
+to C-extensions, use Python's :option:`python:-d` option:
 
     $ python3 -d script.py
 
