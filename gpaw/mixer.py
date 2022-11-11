@@ -992,7 +992,7 @@ class SpinFulMixerDriver:
         # nt_sG[:] = np.tensordot(g_inv, [ntn_sG[0], ntm_sG[1]], axes=(0,0))
         # for D_sp, D_p, dD_p in zip(D_asp, Dn_asp, Dm_asp):
         #     D_sp[:] = np.tensordot(g_inv, [D_p[0], dD_p[1]], axes=(0,0))
-        return dNut+dMdt, dNut - dNdt
+        return dNut+dNdt, dNut - dNdt
 
 
 # Dictionaries to get mixers by name:
