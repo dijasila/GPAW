@@ -105,7 +105,7 @@ def add_kinetic_term(rhoT_MM, dTdR_vMM, F_av, indices):
     for a, M1, M2 in indices:
         F_av[a, :] += 2 * np.einsum('vmM, Mm -> v',
                                     dTdR_vMM[:, M1:M2],
-                                    rhoT_MM[:, M1:M2])
+                                    rhoT_MM[:, M1:M2]).real
 
 
 def add_pot_term(vt_R: UniformGrid,
@@ -142,7 +142,7 @@ def add_den_mat_term(erhoT_MM, dThetadR_vMM, F_av, indices):
     for a, M1, M2 in indices:
         F_av[a, :] -= 2 * np.einsum('vmM, Mm -> v',
                                     dThetadR_vMM[:, M1:M2],
-                                    erhoT_MM[:, M1:M2])
+                                    erhoT_MM[:, M1:M2]).real
 
 
 def add_den_mat_paw_term(b, dO_ii, P_Mi, dPdR_vMi, erhoT_MM, indices, F_av):
@@ -168,9 +168,10 @@ def add_den_mat_paw_term(b, dO_ii, P_Mi, dPdR_vMi, erhoT_MM, indices, F_av):
     #         -----    b mu
     #           ij
     #
-    Z_MM = np.zeros((len(P_Mi), len(P_Mi)), P_Mi.dtype)
-    dOP_iM = np.zeros((len(dO_ii), len(P_Mi)), P_Mi.dtype)
-    mmm(1.0, dO_ii, 'N', P_Mi, 'C', 0.0, dOP_iM)
+    dtype = P_Mi.dtype
+    Z_MM = np.zeros((len(P_Mi), len(P_Mi)), dtype)
+    dOP_iM = np.zeros((len(dO_ii), len(P_Mi)), dtype)
+    mmm(1.0, dO_ii.astype(dtype), 'N', P_Mi, 'C', 0.0, dOP_iM)
     for v in range(3):
         mmm(1.0,
             dPdR_vMi[v], 'N',
@@ -200,9 +201,10 @@ def add_atomic_density_term(b, dH_ii, P_Mi, dPdR_vMi, rhoT_MM, indices, F_av):
     #         -----    b mu
     #           ij
     #
-    A_MM = np.zeros((len(P_Mi), len(P_Mi)), P_Mi.dtype)
-    dHP_iM = np.zeros((len(dH_ii), len(P_Mi)), P_Mi.dtype)
-    mmm(1.0, dH_ii, 'N', P_Mi, 'C', 0.0, dHP_iM)
+    dtype = P_Mi.dtype
+    A_MM = np.zeros((len(P_Mi), len(P_Mi)), dtype)
+    dHP_iM = np.zeros((len(dH_ii), len(P_Mi)), dtype)
+    mmm(1.0, dH_ii.astype(dtype), 'N', P_Mi, 'C', 0.0, dHP_iM)
     for v in range(3):
         mmm(1.0,
             dPdR_vMi[v], 'N',
