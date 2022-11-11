@@ -519,13 +519,10 @@ class LCAOforces:
             Fkin_av = self.get_kinetic_term()
             Fpot_av = self.get_pot_term()
             Ftheta_av = self.get_den_mat_term()
-            print(Fkin_av + Fpot_av + Ftheta_av);asdf
             Frho_av = self.get_den_mat_paw_term()
             Fatom_av = self.get_atomic_density_term()
-
             F_av += Fkin_av + Fpot_av + Ftheta_av + Frho_av + Fatom_av
-
-        if self.isblacs:
+        else:
             F_av = np.zeros_like(self.Fref_av)
             Fpot_av = self.get_pot_term_blacs()
             Fkin_av, Ftheta_av = self.get_kin_and_den_term_blacs()

@@ -1,13 +1,14 @@
 from __future__ import annotations
+
 from typing import Tuple
 
 import numpy as np
-from gpaw.lfc import BasisFunctions
+from gpaw.core.uniform_grid import UniformGrid
 from gpaw.new import zip
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
 from gpaw.new.potential import Potential
 from gpaw.typing import Array2D, Array3D
-from gpaw.core.uniform_grid import UniformGrid
+from gpaw.utilities.blas import mmm
 
 Derivatives = Tuple[Array3D,
                     Array3D,
@@ -63,16 +64,29 @@ def add_force_contributions(wfs: LCAOWaveFunctions,
         indices.append((a, M1, M2))
         M1 = M2
 
-    # Transpose?
+    setups = wfs.setups
+
     rhoT_MM = wfs.calculate_density_matrix().T
     erhoT_MM = wfs.calculate_density_matrix(eigs=True).T
 
     add_kinetic_term(rhoT_MM, dTdR_vMM, F_av, indices)
     add_pot_term(potential.vt_sR[wfs.spin], wfs.basis, wfs.q, rhoT_MM, F_av)
     add_den_mat_term(erhoT_MM, dThetadR_vMM, F_av, indices)
-    add_den_mat_paw_term()
-    print(F_av);asdg
-    add_atomic_density_term()
+    for b in wfs.atomdist.indices:
+        add_den_mat_paw_term(b,
+                             setups[b].dO_ii,
+                             wfs.P_aMi[b],
+                             dPdR_avMi[b],
+                             erhoT_MM,
+                             indices,
+                             F_av)
+        add_atomic_density_term(b,
+                                potential.dH_asii[b][wfs.spin],
+                                wfs.P_aMi[b],
+                                dPdR_avMi[b],
+                                rhoT_MM,
+                                indices,
+                                F_av)
 
 
 def add_kinetic_term(rhoT_MM, dTdR_vMM, F_av, indices):
@@ -114,7 +128,7 @@ def add_pot_term(vt_R: UniformGrid,
                                                q)
 
 
-def add_den_mat_term(erho_MM, dThetadR_vMM, F_av, indices):
+def add_den_mat_term(erhoT_MM, dThetadR_vMM, F_av, indices):
     """Calculate density matrix term in LCAO"""
     # Density matrix contribution due to basis overlap
     #
@@ -128,10 +142,10 @@ def add_den_mat_term(erho_MM, dThetadR_vMM, F_av, indices):
     for a, M1, M2 in indices:
         F_av[a, :] -= 2 * np.einsum('vmM, Mm -> v',
                                     dThetadR_vMM[:, M1:M2],
-                                    erho_MM[:, M1:M2])
+                                    erhoT_MM[:, M1:M2])
 
 
-def add_den_mat_paw_term(setups, ):
+def add_den_mat_paw_term(b, dO_ii, P_Mi, dPdR_vMi, erhoT_MM, indices, F_av):
     """Calcualte PAW correction"""
     # TO DO: split this function into
     # _get_den_mat_paw_term (which calculate Frho_av) and
@@ -154,27 +168,22 @@ def add_den_mat_paw_term(setups, ):
     #         -----    b mu
     #           ij
     #
-    work_MM = np.zeros((self.mynao, self.nao), self.dtype)
-    ZE_MM = None
-    for b in self.my_atom_indices:
-        setup = self.setups[b]
-        dO_ii = np.asarray(setup.dO_ii, self.dtype)
-        dOP_iM = np.zeros((setup.ni, self.nao), self.dtype)
-        mmm(1.0, dO_ii, 'N', self.P_aqMi[b][kpt.q], 'C', 0.0, dOP_iM)
-        for v in range(3):
-            mmm(1.0,
-                self.dPdR_aqvMi[b][kpt.q][v][self.Mstart:self.Mstop],
-                'N',
-                dOP_iM, 'N',
-                0.0, work_MM)
-            ZE_MM = (work_MM * self.ET_uMM[u]).real
-            for a, M1, M2 in self.slices():
-                dE = 2 * ZE_MM[M1:M2].sum()
-                Frho_av[a, v] -= dE  # the "b; mu in a; nu" term
-                Frho_av[b, v] += dE  # the "mu nu" term
+    Z_MM = np.zeros((len(P_Mi), len(P_Mi)), P_Mi.dtype)
+    dOP_iM = np.zeros((len(dO_ii), len(P_Mi)), P_Mi.dtype)
+    mmm(1.0, dO_ii, 'N', P_Mi, 'C', 0.0, dOP_iM)
+    for v in range(3):
+        mmm(1.0,
+            dPdR_vMi[v], 'N',
+            dOP_iM, 'N',
+            0.0, Z_MM)
+        ZE_M = np.einsum('MN, MN -> M', Z_MM, erhoT_MM).real
+        for a, M1, M2 in indices:
+            dE = 2 * ZE_M[M1:M2].sum()
+            F_av[a, v] -= dE  # the "b; mu in a; nu" term
+            F_av[b, v] += dE  # the "mu nu" term
 
 
-def add_atomic_density_term(self):
+def add_atomic_density_term(b, dH_ii, P_Mi, dPdR_vMi, rhoT_MM, indices, F_av):
     # Atomic density contribution
     #            -----                         -----
     #  a          \     a                       \     b
@@ -191,16 +200,16 @@ def add_atomic_density_term(self):
     #         -----    b mu
     #           ij
     #
-    for b in self.my_atom_indices:
-        H_ii = np.asarray(unpack(self.dH_asp[b][kpt.s]), self.dtype)
-        HP_iM = gemmdot(H_ii, np.ascontiguousarray(
-                        self.P_aqMi[b][kpt.q].T.conj()))
-        for v in range(3):
-            dPdR_Mi = \
-                self.dPdR_aqvMi[b][kpt.q][v][self.Mstart:self.Mstop]
-            ArhoT_MM = \
-                (gemmdot(dPdR_Mi, HP_iM) * self.rhoT_uMM[u]).real
-            for a, M1, M2 in self.slices():
-                dE = 2 * ArhoT_MM[M1:M2].sum()
-                Fatom_av[a, v] += dE  # the "b; mu in a; nu" term
-                Fatom_av[b, v] -= dE  # the "mu nu" term
+    A_MM = np.zeros((len(P_Mi), len(P_Mi)), P_Mi.dtype)
+    dHP_iM = np.zeros((len(dH_ii), len(P_Mi)), P_Mi.dtype)
+    mmm(1.0, dH_ii, 'N', P_Mi, 'C', 0.0, dHP_iM)
+    for v in range(3):
+        mmm(1.0,
+            dPdR_vMi[v], 'N',
+            dHP_iM, 'N',
+            0.0, A_MM)
+        AR_M = np.einsum('MN, MN -> M', A_MM, rhoT_MM).real
+        for a, M1, M2 in indices:
+            dE = 2 * AR_M[M1:M2].sum()
+            F_av[a, v] += dE  # the "b; mu in a; nu" term
+            F_av[b, v] -= dE  # the "mu nu" term
