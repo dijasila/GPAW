@@ -373,6 +373,12 @@ class ASECalculator:
     def initialize(self, atoms):
         self.create_new_calculation(atoms)
 
+    def converge_wave_functions(self):
+        self.calculation.state.ibzwfs.make_sure_wfs_are_read_from_gpw_file()
+
+    def get_number_of_spins(self):
+        return self.calculation.state.density.ndensities
+
 
 def write_header(log, world, params):
     from gpaw.io.logger import write_header as header
