@@ -225,7 +225,8 @@ class BaseMixer:
             i2 = iold - 1
 
             if self.metric is None:
-                mR_sG = R_sG
+                mRu_G = R_sG[0]
+                mRd_G = R_sG[1]
             else:
                 mRu_G = self.mRu_G
                 mRd_G = self.mRd_G
