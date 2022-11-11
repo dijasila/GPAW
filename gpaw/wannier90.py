@@ -339,20 +339,20 @@ def write_overlaps(calc, seed=None, spin=0, soc=None, less_memory=False):
     wfs = calc.wfs
 
     def wavefunctions(bz_index):
-        if spinors:
-            # For spinors, G denotes spin and grid: G = (s, gx, gy, gz)
-            return soc[bz_index].wavefunctions(
-                calc, periodic=True)[bands]
-        # For non-spinors, G denotes grid: G = (gx, gy, gz)
-        return np.array([wfs.get_wave_function_array(n, bz_index, spin,
-                                                     periodic=True)
-                         for n in bands])
+        return soc[bz_index].wavefunctions(
+            calc, periodic=True)[bands]
 
     if not less_memory:
         u_knG = []
         for ik in range(Nk):
-            u_nG = wavefunctions(ik)
-            u_knG.append(u_nG)
+            if spinors:
+                # For spinors, G denotes spin and grid: G = (s, gx, gy, gz)
+                u_nG = wavefunctions(ik)
+                u_knG.append(u_nG[bands])
+            else:
+                # For non-spinors, G denotes grid: G = (gx, gy, gz)
+                u_knG.append(np.array([wfs.get_wave_function_array(n, ik, spin)
+                                       for n in bands]))
 
     P_kani = []
     for ik in range(Nk):
@@ -363,7 +363,11 @@ def write_overlaps(calc, seed=None, spin=0, soc=None, less_memory=False):
 
     for ik1 in range(Nk):
         if less_memory:
-            u1_nG = wavefunctions(ik1)
+            if spinors:
+                u1_nG = wavefunctions(ik1)
+            else:
+                u1_nG = np.array([wfs.get_wave_function_array(n, ik1, spin)
+                                  for n in bands])
         else:
             u1_nG = u_knG[ik1]
         for ib in range(Nb):
@@ -371,12 +375,16 @@ def write_overlaps(calc, seed=None, spin=0, soc=None, less_memory=False):
             line = lines[i0 + ik1 * Nb + ib].split()
             ik2 = int(line[1]) - 1
             if less_memory:
-                u2_nG = wavefunctions(ik2)
+                if spinors:
+                    u2_nG = wavefunctions(ik2)
+                else:
+                    u2_nG = np.array([wfs.get_wave_function_array(n, ik2, spin)
+                                      for n in bands])
             else:
                 u2_nG = u_knG[ik2]
 
             G_c = np.array([int(line[i]) for i in range(2, 5)])
-            bG_c = G_c
+            bG_c = kpts_kc[ik2] - kpts_kc[ik1] + G_c
             bG_v = np.dot(bG_c, icell_cv)
             u2_nG = u2_nG * np.exp(-1.0j * gemmdot(bG_v, r_g, beta=0.0))
             M_mm = get_overlap(calc,
