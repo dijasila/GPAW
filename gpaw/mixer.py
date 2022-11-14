@@ -86,6 +86,10 @@ class BaseMixer:
             self.mR_G = gd.empty()
             self.mRu_G = gd.empty()
             self.mRd_G = gd.empty()
+            self.mRn_G = gd.empty()
+            self.mRmx_G = gd.empty()
+            self.mRmy_G = gd.empty()
+            self.mRmz_G = gd.empty()
 
     def reset(self):
         """Reset Density-history.
@@ -224,16 +228,30 @@ class BaseMixer:
             A_ii = np.zeros((iold, iold))
             i2 = iold - 1
 
-            if self.metric is None:
-                mRu_G = R_sG[0]
-                mRd_G = R_sG[1]
-            else:
-                mRu_G = self.mRu_G
-                mRd_G = self.mRd_G
-                self.metric(R_sG[0], mRu_G)
-                self.metric(R_sG[1], mRd_G)
+            if spin == 2:
+                if self.metric is None:
+                    mRu_G, mRd_G = R_sG
+                else:
+                    mRu_G = self.mRu_G
+                    mRd_G = self.mRd_G
+                    self.metric(R_sG[0], mRu_G)
+                    self.metric(R_sG[1], mRd_G)
+                mR_sG = np.tensordot(g_ss, [mRu_G, mRd_G], axes=(1,0))
+            elif spin == 4:
+                if self.metric is None:
+                    mRn_G, mRmx_G, mRmy_G, mRmz_G = R_sG
+                else:
+                    mRn_G = self.mRn_G
+                    mRmx_G = self.mRmx_G
+                    mRmy_G = self.mRmy_G
+                    mRmz_G = self.mRmz_G
+                    self.metric(R_sG[0], mRn_G)
+                    self.metric(R_sG[1], mRmx_G)
+                    self.metric(R_sG[2], mRmy_G)
+                    self.metric(R_sG[3], mRmz_G)
+                mR_sG = np.tensordot(g_ss, [mRn_G, mRmx_G, mRmy_G, mRmz_G], axes=(1,0))
 
-            mR_sG = np.tensordot(g_ss, [mRu_G, mRd_G], axes=(1,0))
+
             for i1, R_1sG in enumerate(R_isG):
                 a = self.gd.comm.sum(self.dotprod(R_1sG, mR_sG, dD_iasp[i1],
                                                   dD_iasp[-1]))
@@ -955,14 +973,11 @@ class SpinFulMixerDriver:
         self.beta = beta
         self.nmaxold = nmaxold
         self.weight = weight
-        if g == None:
-            self.g = np.array([[1, 0], [0, 1]])
-        else:
-            self.g = g
+        self.g = g
 
     def get_basemixers(self, nspins):
-        if nspins != 2:
-            raise ValueError('Spin difference mixer expects 2')
+        if nspins == 1:
+            raise ValueError('Spinful mixer expects 2 or 4 spin channels')
             
         basemixer = self.basemixerclass(self.beta, self.nmaxold, self.weight)
         return [basemixer]
@@ -970,8 +985,21 @@ class SpinFulMixerDriver:
     def mix(self, basemixers, nt_sG, D_asp):
         D_asp = D_asp.values()
         basemixer = basemixers[0]
-        dNut, dNdt = basemixer.mix_density(nt_sG, D_asp, self.g, blas=False)
+        if self.g is None:
+            self.g = np.identity(len(nt_sG))
+            
+        dNt = basemixer.mix_density(nt_sG, D_asp, self.g, blas=False)
 
+        if len(nt_sG) == 2:
+            dNut, dNdt = dNt
+            return dNut+dNdt, dNut-dNdt
+        if len(nt_sG) == 4:
+            dMt = np.inf
+            if len(basemixer.R_iG) > 0:
+                R_vG = basemixer.R_iG[-1][1:]
+                dM_G = np.linalg.norm(R_vG, axis = 0)
+                dMt = basemixer.calculate_charge_sloshing(dM_G)
+            return dNt[0], dMt
         # This is MixerDif using new .mix_density, useful for testing
         # Note wfs errors at large iter nr and dens errors might be different
         # than MixerDif, but A_ii matrix and alpha_i coefficients are identical
@@ -992,7 +1020,7 @@ class SpinFulMixerDriver:
         # nt_sG[:] = np.tensordot(g_inv, [ntn_sG[0], ntm_sG[1]], axes=(0,0))
         # for D_sp, D_p, dD_p in zip(D_asp, Dn_asp, Dm_asp):
         #     D_sp[:] = np.tensordot(g_inv, [D_p[0], dD_p[1]], axes=(0,0))
-        return dNut+dNdt, dNut - dNdt
+        #return dNut+dNdt, dNut - dNdt
 
 
 # Dictionaries to get mixers by name:
