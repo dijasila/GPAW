@@ -14,7 +14,7 @@ def test_pw_augment_grids(in_tmp_dir):
                   positions=[[3, 3, 0], [3, 3, 1.6]])
 
     def calculate(aug):
-        if os.environ['GPAW_NEW']:
+        if os.environ.get('GPAW_NEW'):
             dft = DFTCalculation.from_parameters(
                 atoms,
                 dict(mode=PW(ecut),
@@ -23,7 +23,7 @@ def test_pw_augment_grids(in_tmp_dir):
                      kpts={'size': kpoints},
                      occupations=FermiDirac(width=0.1)))
             dft.converge(steps=4)
-            e = dft.energyies()
+            e = dft.energies()
             f = dft.forces()
             s = dft.stress()
         else:

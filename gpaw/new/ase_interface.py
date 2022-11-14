@@ -379,6 +379,11 @@ class ASECalculator:
     def get_number_of_spins(self):
         return self.calculation.state.density.ndensities
 
+    @property
+    def parameters(self):
+        print(self.params)
+        return self.params
+
 
 def write_header(log, world, params):
     from gpaw.io.logger import write_header as header
