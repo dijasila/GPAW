@@ -379,7 +379,7 @@ def write_overlaps(calc, seed=None, spin=0, soc=None, less_memory=False):
             bG_v = np.dot(G_c, icell_cv)
             u2_nG = u2_nG * np.exp(-1.0j * gemmdot(bG_v, r_g, beta=0.0))
             bG_c = kpts_kc[ik2] - kpts_kc[ik1] + G_c
-            bG_v = np.dot(bG_c, icell_cv)  # Overwrite bG_v for get_overlap input
+            bG_v = np.dot(bG_c, icell_cv)  # Overwrite bG_v
             M_mm = get_overlap(calc,
                                bands,
                                np.reshape(u1_nG, (len(u1_nG), Ng)),
