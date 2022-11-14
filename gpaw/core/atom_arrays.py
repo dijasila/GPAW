@@ -14,7 +14,8 @@ class AtomArraysLayout:
     def __init__(self,
                  shapes: list[int | tuple[int, ...]],
                  atomdist: AtomDistribution | MPIComm = serial_comm,
-                 dtype=float):
+                 dtype=float,
+                 xp=None):
         """Description of layout of atom arrays.
 
         Parameters
@@ -32,6 +33,7 @@ class AtomArraysLayout:
             atomdist = AtomDistribution(np.zeros(len(shapes), int), atomdist)
         self.atomdist = atomdist
         self.dtype = np.dtype(dtype)
+        self.xp = xp or np
 
         self.size = sum(prod(shape) for shape in self.shape_a)
 

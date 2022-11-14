@@ -66,7 +66,8 @@ class PWFDWaveFunctions(WaveFunctions):
             self._pt_aiX = self.psit_nX.desc.atom_centered_functions(
                 [setup.pt_j for setup in self.setups],
                 self.fracpos_ac,
-                atomdist=self.atomdist)
+                atomdist=self.atomdist,
+                xp=self.psit_nX.xp)
         return self._pt_aiX
 
     @property
@@ -165,7 +166,7 @@ class PWFDWaveFunctions(WaveFunctions):
         # S now contains L^*
 
         S.multiply(psit_nX, out=psit2_nX)
-        S.multiply(P_ani, out=P2_ani)
+        S.to_cpu().multiply(P_ani, out=P2_ani)
         psit_nX.data[:] = psit2_nX.data
         P_ani.data[:] = P2_ani.data
 

@@ -197,11 +197,13 @@ class PlaneWaves(Domain):
                                 *,
                                 atomdist=None,
                                 integral=None,
-                                cut=False):
+                                cut=False,
+                                xp=None):
         """Create PlaneWaveAtomCenteredFunctions object."""
         if self.qspiral_v is None:
             return PlaneWaveAtomCenteredFunctions(functions, positions, self,
-                                                  atomdist=atomdist)
+                                                  atomdist=atomdist,
+                                                  xp=xp)
 
         from gpaw.new.spinspiral import SpiralPWACF
         return SpiralPWACF(functions, positions, self,
@@ -431,13 +433,13 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         if self.desc.dtype == float:
             out.data *= 2.0
             if self.desc.comm.rank == 0:
-                correction = np.outer(M1.data[:, 0],
-                                      M2.data[:, 0]) * self.dv
+                correction = M1.data[:, :1] @ M2.data[:, :1].T
                 if symmetric:
-                    correction *= 0.5
+                    correction *= 0.5 * self.dv
                     out.data -= correction
                     out.data -= correction.T
                 else:
+                    correction *= self.dv
                     out.data -= correction
 
     def norm2(self, kind: str = 'normal') -> np.ndarray:
