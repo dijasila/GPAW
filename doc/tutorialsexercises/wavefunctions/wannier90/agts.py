@@ -9,15 +9,14 @@ def check():
     x, y, z = dct['centers'].sum(axis=0)
     w = dct['spreads'].sum()
     a = 5.68
-    assert abs(np.array([x, y, z, w]) - [a, a, a, 4.14]).max() < 0.01
+    assert abs(np.array([x, y, z, w]) - [a, a, a, 4.499]).max() < 0.005
 
     with open('Fe.wout') as fd:
         dct = read_wout_all(fd)
     xyz = dct['centers'].sum(axis=0)
     w = dct['spreads'].sum()
-    print(xyz, w)
     assert abs(xyz).max() < 0.005
-    assert abs(w - 14.49) < 0.15
+    assert abs(w - 14.7) < 0.15
 
 
 def workflow():
