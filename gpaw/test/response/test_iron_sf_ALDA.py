@@ -122,9 +122,9 @@ def test_response_iron_sf_ALDA(in_tmp_dir, gpw_files, scalapack):
 
     # Different kernel strategies should remain the same
     # Magnon peak:
-    assert mw1 == pytest.approx(test_mw1, abs=20.)
-    assert mw2 == pytest.approx(test_mw2, abs=20.)
-    assert mw4 == pytest.approx(test_mw4, abs=20.)
+    assert mw1 == pytest.approx(test_mw1, abs=22.)
+    assert mw2 == pytest.approx(test_mw2, abs=22.)
+    assert mw4 == pytest.approx(test_mw4, abs=22.)
 
     # Scattering function intensity:
     assert Ipeak1 == pytest.approx(test_Ipeak1, abs=0.5)

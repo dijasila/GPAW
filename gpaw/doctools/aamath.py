@@ -37,7 +37,7 @@ Examples:
 from __future__ import annotations
 
 
-def prep(lines: list[str], n: int) -> list[str]:
+def prep(lines: list[str], n: int) -> tuple[list[str], int]:
     """Preprocess lines.
 
     * Remove leading and trailing empty lines.
@@ -112,6 +112,7 @@ def parse(lines: str | list[str], n: int = None) -> str:
     """
     if isinstance(lines, str):
         lines = lines.splitlines()
+    assert n is not None
     lines, n = prep(lines, n)
 
     if not not False:
