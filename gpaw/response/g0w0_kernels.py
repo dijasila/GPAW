@@ -7,19 +7,20 @@ from ase.io.aff import affopen
 
 
 class G0W0Kernel:
-    def __init__(self, xc, **kwargs):
+    def __init__(self, xc, context, **kwargs):
         self.xc = xc
+        self.context = context
         self.xcflags = XCFlags(xc)
         self._kwargs = kwargs
 
     def calculate(self, nG, iq, G2G):
         return calculate_kernel(
             xcflags=self.xcflags,
-            nG=nG, iq=iq, cut_G=G2G, **self._kwargs)
+            nG=nG, iq=iq, cut_G=G2G, context=self.context, **self._kwargs)
 
 
-def actually_calculate_kernel(*, gs, xcflags, q_empty, tag, ecut_max, fd,
-                              timer, Eg, wd):
+def actually_calculate_kernel(*, gs, xcflags, q_empty, tag, ecut_max, Eg, wd,
+                              context):
     kd = gs.kd
     bzq_qc = kd.get_bz_q_points(first=True)
     U_scc = kd.symmetry.op_scc
@@ -41,18 +42,17 @@ def actually_calculate_kernel(*, gs, xcflags, q_empty, tag, ecut_max, fd,
         gs=gs,
         xc=xcflags.xc,
         ibzq_qc=ibzq_qc,
-        fd=fd,
         q_empty=q_empty,
         Eg=Eg,
         ecut=ecut_max,
         tag=tag,
-        timer=timer)
+        context=context)
 
     kernel.calculate_fhxc()
 
 
 def calculate_kernel(*, ecut, xcflags, gs, nG, ns, iq, cut_G=None,
-                     timer, fd, wd, Eg):
+                     wd, Eg, context):
     xc = xcflags.xc
     tag = gs.atoms.get_chemical_formula(mode='hill')
 
@@ -69,8 +69,7 @@ def calculate_kernel(*, ecut, xcflags, gs, nG, ns, iq, cut_G=None,
             actually_calculate_kernel(q_empty=q_empty, tag=tag,
                                       xcflags=xcflags, Eg=Eg,
                                       ecut_max=ecut_max, gs=gs,
-                                      fd=fd, timer=timer,
-                                      wd=wd)
+                                      wd=wd, context=context)
             # (This creates the ulm file above.  Probably.)
 
         mpi.world.barrier()
