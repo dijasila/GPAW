@@ -72,9 +72,9 @@ class IBZWaveFunctions:
         self.dtype = wfs.dtype
         self.nbands = wfs.nbands
 
-        self.fermi_levels: Array1D | None = None
+        self.fermi_levels: Array1D | None = None  # hartree
 
-        self.energies: dict[str, float] = {}
+        self.energies: dict[str, float] = {}  # hartree
 
     def get_max_shape(self, global_shape: bool = False) -> tuple[int, ...]:
         """Find the largest wave function array shape.

@@ -1,8 +1,11 @@
 from __future__ import annotations
+
 from pathlib import Path
-from typing import Any, IO, Union
+from typing import IO, Any, Union
+
 import ase.io.ulm as ulm
 import gpaw
+import gpaw.mpi as mpi
 import numpy as np
 from ase.io.trajectory import read_atoms, write_atoms
 from ase.units import Bohr, Ha
@@ -11,10 +14,9 @@ from gpaw.new.builder import builder as create_builder
 from gpaw.new.calculation import DFTCalculation, DFTState, units
 from gpaw.new.density import Density
 from gpaw.new.input_parameters import InputParameters
+from gpaw.new.logger import Logger
 from gpaw.new.potential import Potential
 from gpaw.utilities import unpack, unpack2
-from gpaw.new.logger import Logger
-import gpaw.mpi as mpi
 
 ENERGY_NAMES = ['kinetic', 'coulomb', 'zero', 'external', 'xc', 'entropy',
                 'total_free', 'total_extrapolated',
@@ -172,7 +174,7 @@ def read_gpw(filename: Union[str, Path, IO[str]],
     density = Density.from_data_and_setups(nt_sR, D_asp.to_full(),
                                            builder.params.charge,
                                            builder.setups)
-    energies = {name: reader.hamiltonian.get(f'e_{name}', np.nan)
+    energies = {name: reader.hamiltonian.get(f'e_{name}', np.nan) / ha
                 for name in ENERGY_NAMES}
     penergies = {key: e for key, e in energies.items()
                  if not key.startswith('total')}
