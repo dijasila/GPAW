@@ -739,3 +739,9 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
                            kpt=(grid.kpt_c if grid.kpt_c.any() else None),
                            dtype=grid.dtype)
         return UniformGridFunctions(grid, self.dims, self.comm, self.data * v)
+
+    def to_gpu(self):
+        if not isinstance(self.data, np.ndarray):
+            return self
+        import gpaw.cpupy as cp
+        return self.new(data=cp.asarray(self.data))

@@ -69,3 +69,7 @@ def asnumpy(a, out=None):
 
 def asarray(a):
     return CuPyArray(a.copy())
+
+
+def multiply(a, b, c):
+    np.multiply(a.data, b.data, c.data)

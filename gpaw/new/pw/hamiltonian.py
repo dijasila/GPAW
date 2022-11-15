@@ -13,7 +13,8 @@ class PWHamiltonian(Hamiltonian):
               spin: int):
         out_nG = out
         vt_R = vt_sR.data[spin]
-        np.multiply(psit_nG.desc.ekin_G, psit_nG.data, out_nG.data)
+        xp = psit_nG.xp
+        xp.multiply(psit_nG.desc.ekin_G, psit_nG.data, out_nG.data)
         grid = vt_sR.desc
         if psit_nG.desc.dtype == complex:
             grid = grid.new(dtype=complex)

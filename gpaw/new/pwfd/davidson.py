@@ -76,7 +76,7 @@ class Davidson(Eigensolver):
 
         dS = state.ibzwfs.wfs_qs[0][0].setups.overlap_correction
         dH = state.potential.dH
-        Ht = partial(hamiltonian.apply, state.potential.vt_sR)
+        Ht = partial(hamiltonian.apply, state.potential.vt_sR.to_gpu())
         ibzwfs = state.ibzwfs
         error = 0.0
         for wfs in ibzwfs:
