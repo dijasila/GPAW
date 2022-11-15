@@ -245,10 +245,14 @@ class ASECalculator:
             grid_refinement=gridrefinement)
         return nt_sr.to_pbc_grid().data.sum(0)
 
-    def get_all_electron_density(self, spin=None, gridrefinement=1):
+    def get_all_electron_density(self,
+                                 spin=None,
+                                 gridrefinement=1,
+                                 skip_core=False):
         assert spin is None
         n_sr = self.calculation.densities().all_electron_densities(
-            grid_refinement=gridrefinement)
+            grid_refinement=gridrefinement,
+            skip_core=skip_core)
         return n_sr.to_pbc_grid().data.sum(0)
 
     def get_eigenvalues(self, kpt=0, spin=0):
