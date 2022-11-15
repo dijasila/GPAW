@@ -222,11 +222,7 @@ class BaseMixer:
             R_isG.append(R_sG)
             dD_iasp.append([])
             for D_sp, D_isp in zip(D_asp, D_iasp[-1]):
-                dD_iasp[-1].append(D_sp - D_isp)
-
-            # Update matrix:
-            A_ii = np.zeros((iold, iold))
-            i2 = iold - 1
+                dD_iasp[-1].append(D_sp - D_isp)            
 
             if spin == 2:
                 if self.metric is None:
@@ -251,7 +247,10 @@ class BaseMixer:
                     self.metric(R_sG[3], mRmz_G)
                 mR_sG = np.tensordot(g_ss, [mRn_G, mRmx_G, mRmy_G, mRmz_G], axes=(1,0))
 
-
+            # Update matrix:
+            A_ii = np.zeros((iold, iold))
+            i2 = iold - 1
+            
             for i1, R_1sG in enumerate(R_isG):
                 a = self.gd.comm.sum(self.dotprod(R_1sG, mR_sG, dD_iasp[i1],
                                                   dD_iasp[-1]))
@@ -259,19 +258,31 @@ class BaseMixer:
                 A_ii[i2, i1] = a
             A_ii[:i2, :i2] = self.A_ii[-i2:, -i2:]
             self.A_ii = A_ii
-            try:
-                B_ii = np.linalg.inv(A_ii)
-            except np.linalg.LinAlgError:
-                alpha_i = np.zeros(iold)
-                alpha_i[-1] = 1.0
+            if dNt.sum() < 1e-1:
+                A_ii = np.pad(A_ii, (0, 1))
+                A_ii[-1, :] = -1
+                A_ii[:, -1] = -1
+                A_ii[-1, -1] = 0
+                b_i = np.zeros(len(A_ii))
+                b_i[-1] = -1
+                alpha_i, res, rank, s = np.linalg.lstsq(A_ii, b_i)
+                alpha_i = alpha_i[:-1] 
+                alpha_i /= alpha_i.sum()
             else:
-                alpha_i = B_ii.sum(1)
                 try:
-                    # Normalize:
-                    alpha_i /= alpha_i.sum()
-                except ZeroDivisionError:
-                    alpha_i[:] = 0.0
+                    B_ii = np.linalg.inv(A_ii)
+                except np.linalg.LinAlgError:
+                    alpha_i = np.zeros(iold)
                     alpha_i[-1] = 1.0
+                else:
+                    alpha_i = B_ii.sum(1)
+                    try:
+                        # Normalize:
+                        alpha_i /= alpha_i.sum()
+                    except ZeroDivisionError:
+                        alpha_i[:] = 0.0
+                        alpha_i[-1] = 1.0
+
             # Calculate new input density:
             nt_sG[:] = 0.0
             # for D_p, D_ip, dD_ip in self.D_a:
