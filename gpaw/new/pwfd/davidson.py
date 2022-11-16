@@ -65,13 +65,13 @@ class Davidson(Eigensolver):
               R = (H - ε S)ψ
                n        n   n
         """
+        wfs = state.ibzwfs.wfs_qs[0][0]
         xp = wfs.psit_nX.xp
 
         if self.work_arrays is None:
             # First time: allocate work-arrays
             shape = state.ibzwfs.get_max_shape()
             shape = (2, state.ibzwfs.nbands) + shape
-            wfs = state.ibzwfs.wfs_qs[0][0]
             assert isinstance(wfs, PWFDWaveFunctions)
             dtype = wfs.psit_nX.data.dtype
             self.work_arrays = xp.empty(shape, dtype)
@@ -221,14 +221,21 @@ class Davidson(Eigensolver):
         return error
 
 
-def calculate_residuals(residuals_nX: DA,
+def calculate_residuals(residual_nX: DA,
                         dH: AAFunc,
                         dS: AAFunc,
                         wfs: PWFDWaveFunctions,
                         P1_ani: AA,
                         P2_ani: AA) -> None:
-    for r, e, p in zip(residuals_nX.data, wfs.myeig_n, wfs.psit_nX.data):
-        axpy(-e, p, r)
+    xp = residual_nX.xp
+    if xp is np:
+        for r, e, p in zip(residual_nX.data, wfs.myeig_n, wfs.psit_nX.data):
+            axpy(-e, p, r)
+    else:
+        # eig_n = xp.asarray(wfs.myeig_n)
+        eig_n = wfs.myeig_n
+        for r, e, p in zip(residual_nX.data, eig_n, wfs.psit_nX.data):
+            r -= e * p
 
     dH(wfs.P_ani, P1_ani)
     if wfs.ncomponents < 4:
@@ -238,7 +245,7 @@ def calculate_residuals(residuals_nX: DA,
     np.einsum(subscripts, wfs.P_ani.data, wfs.myeig_n, out=P2_ani.data)
     dS(P2_ani, P2_ani)
     P1_ani.data -= P2_ani.data
-    wfs.pt_aiX.add_to(residuals_nX, P1_ani)
+    wfs.pt_aiX.add_to(residual_nX, P1_ani)
 
 
 def calculate_weights(converge_bands: int | str,

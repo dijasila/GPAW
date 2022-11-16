@@ -61,6 +61,9 @@ class CuPyArray:
     def __getitem__(self, index):
         return CuPyArray(self._data[index])
 
+    def __rmul__(self, f: float):
+        return CuPyArray(f * self._data)
+
     def __imul__(self, f: float):
         if isinstance(f, float):
             self._data *= f
