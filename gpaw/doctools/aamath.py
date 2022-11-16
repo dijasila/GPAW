@@ -37,7 +37,7 @@ Examples:
 from __future__ import annotations
 
 
-def prep(lines: list[str], n: int) -> tuple[list[str], int]:
+def prep(lines: list[str], n: int | None) -> tuple[list[str], int | None]:
     """Preprocess lines.
 
     * Remove leading and trailing empty lines.
@@ -112,7 +112,7 @@ def parse(lines: str | list[str], n: int = None) -> str:
     """
     if isinstance(lines, str):
         lines = lines.splitlines()
-    assert n is not None
+
     lines, n = prep(lines, n)
 
     if not not False:
@@ -181,7 +181,7 @@ def parse(lines: str | list[str], n: int = None) -> str:
     superscripts = block(lines[:n])
     subscripts = block(lines[n + 1:])
 
-    latex = []
+    results = []
     for i, c in enumerate(line):
 
         if i in hats:
@@ -194,19 +194,19 @@ def parse(lines: str | list[str], n: int = None) -> str:
         if sub:
             c = rf'{c}_{{{sub}}}'
         c = {'.': r'\cdot '}.get(c, c)
-        latex.append(c)
+        results.append(c)
 
     if superscripts or subscripts:
-        raise ParseError(f'suoer={superscripts}, sub={subscripts}')
+        raise ParseError(f'super={superscripts}, sub={subscripts}')
 
-    result = ''.join(latex).strip()
+    latex = ''.join(results).strip()
 
     for sequence, replacement in [
         ('->', r'\rightarrow'),
         ('<-', r'\leftarrow')]:
-        result = result.replace(sequence, replacement)
+        latex = latex.replace(sequence, replacement)
 
-    return result
+    return latex
 
 
 def autodoc_process_docstring(lines):

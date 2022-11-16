@@ -14,6 +14,7 @@ from gpaw.fftw import get_efficient_fft_size
 from gpaw.new.wave_functions import WaveFunctions
 from gpaw.setup import Setups
 from gpaw.typing import Array2D, Array3D, ArrayND, Vector
+from gpaw.new.potential import Potential
 
 
 class PWFDWaveFunctions(WaveFunctions):
@@ -229,7 +230,8 @@ class PWFDWaveFunctions(WaveFunctions):
         H.multiply(P_ani, out=P2_ani)
         P_ani.data[:] = P2_ani.data
 
-    def force_contribution(self, dH_asii: AtomArrays, F_av: Array2D):
+    def force_contribution(self, potential: Potential, F_av: Array2D):
+        dH_asii = potential.dH_asii
         F_avni = self.pt_aiX.derivative(self.psit_nX)
         myocc_n = self.weight * self.spin_degeneracy * self.myocc_n
         for a, F_vni in F_avni.items():
