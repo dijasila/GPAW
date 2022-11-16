@@ -416,17 +416,15 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         assert self.dims == ()
         if out is None:
             assert pw is not None
-            out = pw.empty()
+            out = pw.empty(xp=self.xp)
         if pw is None:
             pw = out.desc
         input = self
         if self.desc.comm.size > 1:
             input = input.gather()
         if self.desc.comm.rank == 0:
-            plan = plan or self.desc.fft_plans()
-            plan.tmp_R[:] = input.data
-            plan.fft()
-            coefs = pw.cut(plan.tmp_Q) * (1 / plan.tmp_R.size)
+            plan = plan or self.desc.fft_plans(xp=self.xp)
+            coefs = plan.fft_sphere(input.data, pw)
         else:
             coefs = None
 

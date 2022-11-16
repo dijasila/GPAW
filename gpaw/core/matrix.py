@@ -97,21 +97,20 @@ class Matrix:
         assert dtype == float or dtype == complex, dtype
 
         if isinstance(dist, CuPyDistribution):
-            xp = cp
+            self.xp = cp
         elif data is not None and not isinstance(data, np.ndarray):
-            xp = cp
+            self.xp = cp
         else:
-            xp = np
+            self.xp = np
         dist = dist or ()
         if isinstance(dist, tuple):
-            dist = create_distribution(M, N, *dist, xp=xp)
+            dist = create_distribution(M, N, *dist, xp=self.xp)
         else:
             assert self.shape == dist.shape
         self.dist = dist
 
         if data is None:
-            print(dist.shape,'fff')
-            self.data = xp.empty(dist.shape, self.dtype)
+            self.data = self.xp.empty(dist.shape, self.dtype)
         else:
             self.data = data.reshape(dist.shape)
 
@@ -333,6 +332,9 @@ class Matrix:
         slcomm = slcomm or self.dist.comm
         dist = (slcomm, rows, columns, blocksize)
 
+        print(rows, self.dist.rows,
+              columns, self.dist.columns,
+              blocksize, self.dist.blocksize)
         redist = (rows != self.dist.rows or
                   columns != self.dist.columns or
                   blocksize != self.dist.blocksize)
@@ -357,6 +359,11 @@ class Matrix:
                 if debug:
                     H.data[np.triu_indices(H.shape[0], 1)] = 42.0
                 if S is None:
+                    if self.xp is not np:
+                        eps, H.data.T[:] = self.xp.linalg.eigh(
+                            H.data,
+                            UPLO='L')
+                        return eps
                     eps[:], H.data.T[:] = linalg.eigh(
                         H.data,
                         lower=True,
@@ -458,7 +465,7 @@ class Matrix:
     def complex_conjugate(self) -> None:
         """Inplace complex conjugation."""
         if self.dtype == complex:
-            np.negative(self.data.imag, self.data.imag)
+            self.xp.negative(self.data.imag, self.data.imag)
 
     def add_hermitian_conjugate(self, scale: float = 1.0) -> None:
         """Add hermitian conjugate to myself."""
@@ -711,6 +718,9 @@ def create_distribution(M: int,
 
 class CuPyDistribution(MatrixDistribution):
     comm = serial_comm
+    rows = 1
+    columns = 1
+    blocksize = None
 
     def __init__(self, M, N):
         self.shape = (M, N)
@@ -729,12 +739,19 @@ class CuPyDistribution(MatrixDistribution):
             if opa == 'N':
                 assert opb == 'C' or opb == 'T' and a.dtype == float
                 if a is b:
-                    cp.cublas.syrk(alpha, a.data, beta, c.data)
+                    cp.cublas.syrk('N', a.data, c.data, alpha, beta, True)
                 else:
                     if beta == 1.0 and a.shape[1] == 0:
                         return
-                    sadglkjh
-                    blas.r2k(0.5 * alpha, a.data, b.data, beta, c.data)
+                    if beta == 0.0:
+                        cp.cublas.gemm('N', 'H',
+                                       a.data, b.data, c.data,
+                                       0.5 * alpha, 0.0)
+                        cp.cublas.gemm('N', 'H',
+                                       b.data, a.data, c.data,
+                                       0.5 * alpha, 1.0)
+                    else:
+                        asdfgsdf
             else:
                 assert opa == 'C' and opb == 'N'
                 assert a is not b

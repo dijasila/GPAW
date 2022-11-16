@@ -2,7 +2,9 @@ from gpaw.utilities.blas import rk
 from gpaw.utilities.blas import mmm
 
 
-def syrk(alpha, a, beta, c):
+def syrk(trans, a, c, alpha, beta, lower):
+    assert trans == 'N'
+    assert lower
     rk(alpha, a._data, beta, c._data)
 
 

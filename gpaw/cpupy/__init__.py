@@ -24,6 +24,10 @@ def multiply(a, b, c):
     np.multiply(a._data, b._data, c._data)
 
 
+def negative(a, b):
+    np.negative(a._data, b._data)
+
+
 class CuPyArray:
     def __init__(self, data):
         assert isinstance(data, np.ndarray)
@@ -36,6 +40,10 @@ class CuPyArray:
     @property
     def T(self):
         return CuPyArray(self._data.T)
+
+    @property
+    def imag(self):
+        return CuPyArray(self._data.imag)
 
     def __iter__(self):
         for data in self._data:
@@ -58,6 +66,10 @@ class CuPyArray:
             self._data *= f
         else:
             self._data *= f._data
+        return self
+
+    def __iadd__(self, other):
+        self._data += other._data
         return self
 
     def __isub__(self, other):
