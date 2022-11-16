@@ -21,11 +21,13 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
         eigsolv_params = self.params.eigensolver.copy()
         name = eigsolv_params.pop('name', 'dav')
         assert name == 'dav'
-        return Davidson(self.nbands,
-                        self.wf_desc,
-                        self.communicators['b'],
-                        hamiltonian.create_preconditioner,
-                        **eigsolv_params)
+        return Davidson(
+            self.nbands,
+            self.wf_desc,
+            self.communicators['b'],
+            hamiltonian.create_preconditioner,
+            converge_bands=self.params.convergence.get('bands', 'occupied'),
+            **eigsolv_params)
 
     def read_ibz_wave_functions(self, reader):
         kpt_comm, band_comm, domain_comm = (self.communicators[x]

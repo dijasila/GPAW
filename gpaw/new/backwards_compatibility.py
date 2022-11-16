@@ -1,5 +1,6 @@
 import numpy as np
 from ase import Atoms
+from ase.units import Bohr
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.new import cached_property, prod
@@ -148,7 +149,7 @@ class FakeDensity:
 
     def get_all_electron_density(self, *, atoms, gridrefinement):
         n_sr = self._densities.all_electron_densities(
-            grid_refinement=gridrefinement)
+            grid_refinement=gridrefinement).scaled(1 / Bohr, Bohr**3)
         return n_sr.data, n_sr.desc._gd
 
 
@@ -159,7 +160,7 @@ class FakeHamiltonian:
         self.grid = calculation.state.potential.vt_sR.desc
         self.e_total_free = calculation.results['free_energy']
         self.e_xc = calculation.state.potential.energies['xc']
-        self.poisson = calculation.pot_calc.poisson_solver.solver
+        # self.poisson = calculation.pot_calc.poisson_solver.solver
 
     def restrict_and_collect(self, vxct_sg):
         fine_grid = self.pot_calc.fine_grid

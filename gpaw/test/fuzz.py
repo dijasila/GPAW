@@ -196,7 +196,7 @@ def run2(atoms: Atoms,
     params = params.copy()
 
     code = params.pop('code')
-    if code == 'new':
+    if code[0] == 'n':
         calc = NewGPAW(**params)
     else:
         params['mode'] = {
