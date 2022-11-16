@@ -31,7 +31,6 @@ def test_response_chi0(in_tmp_dir):
                     if 1:
                         calc = a.calc = GPAW(
                             kpts=kpts,
-                            #eigensolver='rmm-diis',
                             symmetry={'point_group': sym},
                             mode='pw',
                             occupations=FermiDirac(width=0.001),

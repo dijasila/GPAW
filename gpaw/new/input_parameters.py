@@ -99,15 +99,6 @@ class InputParameters:
                 self.magmoms = self.experimental.pop('magmoms')
             assert not self.experimental
 
-        """
-        bands = self.convergence.pop('bands', None)
-        if bands is not None:
-            self.eigensolver['converge_bands'] = bands
-            if warn:
-                warnings.warn(f'Please use eigensolver={self.eigensolver!r}',
-                              stacklevel=4)
-        """
-
         force_complex_dtype = self.mode.pop('force_complex_dtype', None)
         if force_complex_dtype is not None:
             if warn:

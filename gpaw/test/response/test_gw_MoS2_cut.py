@@ -14,7 +14,6 @@ def test_response_gw_MoS2_cut(in_tmp_dir, scalapack):
                     nbands=16,
                     convergence={'bands': 15},
                     setups={'Mo': '6'},
-                    #eigensolver='rmm-diis',
                     occupations=FermiDirac(0.001),
                     kpts={'size': (6, 6, 1), 'gamma': True})
 
