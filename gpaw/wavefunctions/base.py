@@ -1,12 +1,9 @@
-from typing import Optional
-
 import numpy as np
 from ase.units import Ha
 
-from gpaw.occupations import OccupationNumberCalculator
 from gpaw.projections import Projections
 from gpaw.utilities import pack, unpack2
-from gpaw.utilities.blas import mmm, axpy
+from gpaw.utilities.blas import axpy, mmm
 from gpaw.utilities.partition import AtomPartition
 
 
