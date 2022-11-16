@@ -56,8 +56,8 @@ class WaveFunctions:
         self.kpt_qs = kd.create_k_points(self.gd.sdisp_cd, collinear)
         self.kpt_u = [kpt for kpt_s in self.kpt_qs for kpt in kpt_s]
 
-        self.occupations: Optional[OccupationNumberCalculator] = None
-        self.fermi_levels: Optional[np.ndarray] = None
+        self.occupations = None
+        self.fermi_levels = None
 
         self.eigensolver = None
         self.positions_set = False
