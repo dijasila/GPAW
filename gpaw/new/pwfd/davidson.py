@@ -65,6 +65,8 @@ class Davidson(Eigensolver):
               R = (H - ε S)ψ
                n        n   n
         """
+        xp = wfs.psit_nX.xp
+
         if self.work_arrays is None:
             # First time: allocate work-arrays
             shape = state.ibzwfs.get_max_shape()
@@ -72,11 +74,11 @@ class Davidson(Eigensolver):
             wfs = state.ibzwfs.wfs_qs[0][0]
             assert isinstance(wfs, PWFDWaveFunctions)
             dtype = wfs.psit_nX.data.dtype
-            self.work_arrays = wfs.psit_nX.xp.empty(shape, dtype)
+            self.work_arrays = xp.empty(shape, dtype)
 
         dS = state.ibzwfs.wfs_qs[0][0].setups.overlap_correction
         dH = state.potential.dH
-        Ht = partial(hamiltonian.apply, state.potential.vt_sR.to_gpu())
+        Ht = partial(hamiltonian.apply, state.potential.vt_sR.to_xp(xp))
         ibzwfs = state.ibzwfs
         error = 0.0
         for wfs in ibzwfs:

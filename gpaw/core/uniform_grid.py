@@ -157,7 +157,8 @@ class UniformGrid(Domain):
                                 *,
                                 atomdist=None,
                                 integral=None,
-                                cut=False):
+                                cut=False,
+                                xp=None):
         """Create UniformGridAtomCenteredFunctions object."""
         return UniformGridAtomCenteredFunctions(functions, positions, self,
                                                 atomdist=atomdist,
@@ -742,8 +743,10 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
                            dtype=grid.dtype)
         return UniformGridFunctions(grid, self.dims, self.comm, self.data * v)
 
-    def to_gpu(self):
-        if not isinstance(self.data, np.ndarray):
+    def to_xp(self, xp):
+        if xp is self.xp:
             return self
-        import gpaw.cpupy as cp
-        return self.new(data=cp.asarray(self.data))
+        if xp is np:
+            return self.new(data=xp.asnumpy(self.data))
+        else:
+            return self.new(data=xp.asarray(self.data))
