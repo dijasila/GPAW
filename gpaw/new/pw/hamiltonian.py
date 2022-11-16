@@ -14,11 +14,12 @@ class PWHamiltonian(Hamiltonian):
         out_nG = out
         vt_R = vt_sR.data[spin]
         xp = psit_nG.xp
-        xp.multiply(psit_nG.desc.ekin_G, psit_nG.data, out_nG.data)
+        e_kin_G = xp.asarray(psit_nG.desc.ekin_G)
+        xp.multiply(e_kin_G, psit_nG.data, out_nG.data)
         grid = vt_sR.desc
         if psit_nG.desc.dtype == complex:
             grid = grid.new(dtype=complex)
-        f_R = grid.empty()
+        f_R = grid.empty(xp=xp)
         for p_G, o_G in zip(psit_nG, out_nG):
             f_R = p_G.ifft(out=f_R)
             f_R.data *= vt_R

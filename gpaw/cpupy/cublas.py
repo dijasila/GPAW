@@ -3,15 +3,14 @@ from gpaw.utilities.blas import mmm
 
 
 def syrk(alpha, a, beta, c):
-    print(a.shape, c.shape, 21354)
-    rk(alpha, a.data, beta, c.data)
+    rk(alpha, a._data, beta, c._data)
 
 
 def gemm(transa, transb, a, b, c, alpha, beta):
     mmm(alpha,
-        a.data,
+        a._data,
         transa.replace('H', 'C'),
-        b.data,
+        b._data,
         transb.replace('H', 'C'),
         beta,
-        c.data)
+        c._data)

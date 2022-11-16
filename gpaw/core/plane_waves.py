@@ -308,26 +308,18 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
             Target UniformGridFunctions object.
         """
         comm = self.desc.comm
+        xp = self.xp
         if out is None:
-            out = grid.empty(self.dims)
+            out = grid.empty(self.dims, xp=xp)
         assert self.desc.dtype == out.desc.dtype
         assert out.desc.pbc_c.all()
         assert comm.size == out.desc.comm.size
 
         this = self.gather()
         if this is not None:
-            plan = plan or out.desc.fft_plans()
+            plan = plan or out.desc.fft_plans(xp=xp)
             for coef_G, out1 in zip(this._arrays(), out.flat()):
-                self.desc.paste(coef_G, plan.tmp_Q)
-                if self.desc.dtype == float:
-                    t = plan.tmp_Q[:, :, 0]
-                    n, m = (s // 2 - 1 for s in out.desc.size_c[:2])
-                    t[0, -m:] = t[0, m:0:-1].conj()
-                    t[n:0:-1, -m:] = t[-n:, m:0:-1].conj()
-                    t[-n:, -m:] = t[n:0:-1, m:0:-1].conj()
-                    t[-n:, 0] = t[n:0:-1, 0].conj()
-                plan.ifft()
-                out1.scatter_from(plan.tmp_R)
+                plan.ifft_sphere(coef_G, self.desc, out1)
         else:
             for out1 in out.flat():
                 out1.scatter_from(None)

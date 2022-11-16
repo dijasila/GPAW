@@ -120,7 +120,8 @@ class UniformGrid(Domain):
 
     def empty(self,
               dims: int | tuple[int, ...] = (),
-              comm: MPIComm = serial_comm) -> UniformGridFunctions:
+              comm: MPIComm = serial_comm,
+              xp=np) -> UniformGridFunctions:
         """Create new UniformGridFunctions object.
 
         parameters
@@ -130,7 +131,7 @@ class UniformGrid(Domain):
         comm:
             Distribute dimensions along this communicator.
         """
-        return UniformGridFunctions(self, dims, comm)
+        return UniformGridFunctions(self, dims, comm, xp=xp)
 
     def blocks(self, data: np.ndarray):
         """Yield views of blocks of data."""
@@ -233,10 +234,12 @@ class UniformGrid(Domain):
         domain = Domain(cell, pbc, kpt, comm, dtype)
         return domain.uniform_grid_with_grid_spacing(grid_spacing)
 
-    def fft_plans(self, flags: int = fftw.MEASURE) -> fftw.FFTPlans:
+    def fft_plans(self,
+                  flags: int = fftw.MEASURE,
+                  xp=np) -> fftw.FFTPlans:
         """Create FFTW-plans."""
         if self.comm.rank == 0:
-            return fftw.create_plans(self.size_c, self.dtype, flags)
+            return fftw.create_plans(self.size_c, self.dtype, flags, xp)
         else:
             return fftw.FFTPlans([0, 0, 0], self.dtype)
 
@@ -253,7 +256,8 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
                  grid: UniformGrid,
                  dims: int | tuple[int, ...] = (),
                  comm: MPIComm = serial_comm,
-                 data: np.ndarray = None):
+                 data: np.ndarray = None,
+                 xp=None):
         """Object for storing function(s) on a uniform grid.
 
         parameters
@@ -269,7 +273,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         """
         DistributedArrays. __init__(self, dims, grid.myshape,
                                     comm, grid.comm, data, grid.dv,
-                                    grid.dtype)
+                                    grid.dtype, xp)
         self.desc = grid
 
     def __repr__(self):

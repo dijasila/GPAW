@@ -8,7 +8,7 @@ def test_gpu_pw():
     atoms.center(vacuum=1.0)
     dft = DFTCalculation.from_parameters(
         atoms,
-        dict(mode='pw',
+        dict(mode={'name': 'pw', 'force_complex_dtype': True},
              parallel={'gpu': True},
              setups='ae'))
     dft.converge()

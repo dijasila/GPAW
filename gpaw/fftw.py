@@ -70,11 +70,36 @@ def empty(shape, dtype=float):
 
 def create_plans(size_c: IntVector,
                  dtype: DTypeLike,
-                 flags: int = MEASURE) -> FFTPlans:
+                 flags: int = MEASURE,
+                 xp=np) -> FFTPlans:
     """Create plan-objects for FFT and inverse FFT."""
+    if xp is not np:
+        return CuPyFFTPlans(size_c, dtype)
     if have_fftw():
         return FFTWPlans(size_c, dtype, flags)
     return NumpyFFTPlans(size_c, dtype)
+
+
+class CuPyFFTPlans:
+    def __init__(self,
+                 size_c: IntVector,
+                 dtype: DTypeLike):
+        assert dtype == complex
+        self.pw = None
+
+    def ifft_sphere(self, coef_G, pw, out_R):
+        array_Q = out_R.data
+        if self.pw is None:
+            self.pw = pw
+            cp = out_R.xp
+            self.Q_G = cp.asarray(pw.indices(array_Q.shape))
+        else:
+            assert pw is self.pw
+
+        array_Q[:] = 0.0
+        array_Q.ravel()[self.Q_G] = coef_G
+        array_Q._data[:] = ifftn(array_Q._data, array_Q.shape,
+                           norm='forward', overwrite_x=True)
 
 
 class FFTPlans:
@@ -110,6 +135,18 @@ class FFTPlans:
         array([ 0.+1.j, -1.+0.j,  0.-1.j,  1.+0.j])
         """
         raise NotImplementedError
+
+    def ifft_sphere(self, coef_G, pw, out_R):
+        pw.paste(coef_G, self.tmp_Q)
+        if pw.dtype == float:
+            t = self.tmp_Q[:, :, 0]
+            n, m = (s // 2 - 1 for s in out_R.desc.size_c[:2])
+            t[0, -m:] = t[0, m:0:-1].conj()
+            t[n:0:-1, -m:] = t[-n:, m:0:-1].conj()
+            t[-n:, -m:] = t[n:0:-1, m:0:-1].conj()
+            t[-n:, 0] = t[n:0:-1, 0].conj()
+        self.ifft()
+        out_R.scatter_from(self.tmp_R)
 
 
 class FFTWPlans(FFTPlans):
