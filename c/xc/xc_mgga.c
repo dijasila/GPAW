@@ -57,7 +57,13 @@ void calc_mgga(void** params, int nspin, int ng,
       double n[2];
       n[0] = n_g[g];
       n[1] = 0.0;
-      if (n[0] < NMIN) n[0] = NMIN;
+      if (n[0] < NMIN) {
+          e_g[g] = 0.0;
+          v_g[g] = 0.0;
+          dedsigma_g[g] = 0.0;
+          dedtau_g[g] = 0.0;
+          continue;
+      }
       // m06l is assuming that there is space for spinpolarized calculation output
       // even for non-spin-polarized.
       double etmp, vtmp[2], dedsigmatmp[3], dedtautmp[2];
@@ -80,9 +86,18 @@ void calc_mgga(void** params, int nspin, int ng,
       tautmp[2], dedtautmp[2];
     for (int g = 0; g < ng; g++) {
       ntmp[0] = n_g[g];
-      if (ntmp[0] < NMIN) ntmp[0] = NMIN;
       ntmp[1] = n_g[g+ng];
-      if (ntmp[1] < NMIN) ntmp[1] = NMIN;
+      if (ntmp[0] < NMIN && ntmp[1] < NMIN) {
+          e_g[g] = 0.0;
+          v_g[g] = 0.0;
+          v_g[g + ng] = 0.0;
+          dedsigma_g[g] = 0.0;
+          dedsigma_g[g + ng] = 0.0;
+          dedsigma_g[g + ng + ng] = 0.0;
+          dedtau_g[g] = 0.0;
+          dedtau_g[g + ng] = 0.0;
+          continue;
+      }
 
       sigmatmp[0] = sigma_g[g];
       sigmatmp[1] = sigma_g[g+ng];
