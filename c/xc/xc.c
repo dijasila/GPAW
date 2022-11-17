@@ -123,7 +123,8 @@ XCFunctional_calculate(XCFunctionalObject *self, PyObject *args)
         if (n < NMIN) {
             e_g[g] = 0.0;
             v_g[g] = 0.0;
-            dedsigma_g[g] = 0.0;
+            if (par->gga)
+                dedsigma_g[g] = 0.0;
             continue;
         }
         double rs = pow(C0I / n, THIRD);
@@ -181,9 +182,11 @@ XCFunctional_calculate(XCFunctionalObject *self, PyObject *args)
               e_g[g] = 0.0;
               va_g[g] = 0.0;
               vb_g[g] = 0.0;
-              dedsigma0_g[g] = 0.0;
-              dedsigma1_g[g] = 0.0;
-              dedsigma2_g[g] = 0.0;
+              if (par->gga) {
+                  dedsigma0_g[g] = 0.0;
+                  dedsigma1_g[g] = 0.0;
+                  dedsigma2_g[g] = 0.0;
+              }
               continue;
           }
 
