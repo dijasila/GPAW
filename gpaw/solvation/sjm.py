@@ -347,7 +347,7 @@ class SJM(SolvationGPAW):
 
         p = self.parameters['sj']
 
-        if not p.target_potential:
+        if p.target_potential is None:
             self.log('Constant-charge calculation with {:.5f} excess '
                      'electrons'.format(p.excess_electrons))
             # Background charge is set here, not earlier, because atoms needed.
