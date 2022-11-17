@@ -81,7 +81,9 @@ class Matrix:
             """
         self.shape = (M, N)
 
-        if not isinstance(data, (np.ndarray, cp.CuPyArray)):
+        if data is None or isinstance(data, (np.ndarray, cp.CuPyArray)):
+            pass
+        else:
             data = np.asarray(data)
 
         if dtype is None:

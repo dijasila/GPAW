@@ -66,13 +66,13 @@ class Davidson(Eigensolver):
                n        n   n
         """
         wfs = state.ibzwfs.wfs_qs[0][0]
+        assert isinstance(wfs, PWFDWaveFunctions)
         xp = wfs.psit_nX.xp
 
         if self.work_arrays is None:
             # First time: allocate work-arrays
             shape = state.ibzwfs.get_max_shape()
             shape = (2, state.ibzwfs.nbands) + shape
-            assert isinstance(wfs, PWFDWaveFunctions)
             dtype = wfs.psit_nX.data.dtype
             self.work_arrays = xp.empty(shape, dtype)
 

@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import numpy as np
 from ase.units import Ha
-from gpaw.core.arrays import DistributedArrays
+from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.core.atom_arrays import AtomArrays
 from gpaw.new import zip
 
 
 class Potential:
     def __init__(self,
-                 vt_sR: DistributedArrays,
+                 vt_sR: UniformGridFunctions,
                  dH_asii: AtomArrays,
                  energies: dict[str, float]):
         self.vt_sR = vt_sR

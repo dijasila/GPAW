@@ -149,6 +149,9 @@ class DFTComponentsBuilder:
     def wf_desc(self) -> Domain:
         return self.create_wf_description()
 
+    def create_wf_description(self) -> Domain:
+        raise NotImplementedError
+
     def __repr__(self):
         return f'{self.__class__.__name__}({self.atoms}, {self.params})'
 
