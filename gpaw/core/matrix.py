@@ -330,9 +330,6 @@ class Matrix:
         slcomm = slcomm or self.dist.comm
         dist = (slcomm, rows, columns, blocksize)
 
-        print(rows, self.dist.rows,
-              columns, self.dist.columns,
-              blocksize, self.dist.blocksize)
         redist = (rows != self.dist.rows or
                   columns != self.dist.columns or
                   blocksize != self.dist.blocksize)
@@ -704,7 +701,7 @@ def create_distribution(M: int,
                         c: int = 1,
                         b: int = None,
                         xp=None) -> MatrixDistribution:
-    if not (xp is None or xp is np):
+    if xp is cp:
         return CuPyDistribution(M, N)
 
     if comm is None or comm.size == 1:

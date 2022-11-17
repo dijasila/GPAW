@@ -16,7 +16,6 @@ from gpaw.new import prod, zip
 from gpaw.pw.descriptor import pad
 from gpaw.typing import (Array1D, Array2D, Array3D, ArrayLike1D, ArrayLike2D,
                          Vector)
-from gpaw.gpu import as_xp
 
 
 class PlaneWaves(Domain):
@@ -462,8 +461,9 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
 
             a_xG.shape = (len(a_xG), -1, 2)
             result_x = self.xp.einsum('xGi, xGi, G -> x',
-                                      a_xG, a_xG,
-                                      as_xp(self.desc.ekin_G, self.xp))
+                                      a_xG,
+                                      a_xG,
+                                      self.xp.asarray(self.desc.ekin_G))
         else:
             1 / 0
         if self.desc.dtype == float:
