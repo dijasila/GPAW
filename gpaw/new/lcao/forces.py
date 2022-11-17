@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Tuple
+from typing import Tuple, Dict
 
 import numpy as np
 from gpaw.core.uniform_grid import UniformGridFunctions
@@ -12,7 +12,7 @@ from gpaw.utilities.blas import mmm
 
 Derivatives = Tuple[Array3D,
                     Array3D,
-                    dict[int, Array3D]]
+                    Dict[int, Array3D]]
 
 
 class TCIDerivatives:
