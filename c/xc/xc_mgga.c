@@ -87,7 +87,7 @@ void calc_mgga(void** params, int nspin, int ng,
     for (int g = 0; g < ng; g++) {
       ntmp[0] = n_g[g];
       ntmp[1] = n_g[g+ng];
-      if (ntmp[0] < NMIN && ntmp[1] < NMIN) {
+      if (ntmp[0] + ntmp[1] < NMIN) {
           e_g[g] = 0.0;
           v_g[g] = 0.0;
           v_g[g + ng] = 0.0;
