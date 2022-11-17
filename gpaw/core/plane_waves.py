@@ -16,6 +16,7 @@ from gpaw.new import prod, zip
 from gpaw.pw.descriptor import pad
 from gpaw.typing import (Array1D, Array2D, Array3D, ArrayLike1D, ArrayLike2D,
                          Vector)
+from gpaw.gpu import as_xp
 
 
 class PlaneWaves(Domain):

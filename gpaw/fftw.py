@@ -80,38 +80,6 @@ def create_plans(size_c: IntVector,
     return NumpyFFTPlans(size_c, dtype)
 
 
-class CuPyFFTPlans:
-    def __init__(self,
-                 size_c: IntVector,
-                 dtype: DTypeLike):
-        assert dtype == complex
-        self.size_c = size_c
-        self.pw = None
-
-    def indices(self, pw):
-        import gpaw.cpupy as cp
-        if self.pw is None:
-            self.pw = pw
-            self.Q_G = cp.asarray(pw.indices(tuple(self.size_c)))
-        else:
-            assert pw is self.pw
-        return self.Q_G
-
-    def ifft_sphere(self, coef_G, pw, out_R):
-        array_Q = out_R.data
-        array_Q[:] = 0.0
-        Q_G = self.indices(pw)
-        array_Q.ravel()[Q_G] = coef_G
-        array_Q._data[:] = ifftn(array_Q._data, array_Q.shape,
-                                 norm='forward', overwrite_x=True)
-
-    def fft_sphere(self, in_R, pw):
-        out_Q = fftn(in_R._data, overwrite_x=True)
-        Q_G = self.indices(pw)
-        coef_G = out_Q.ravel()[Q_G._data] * (1 / in_R.size)
-        return coef_G
-
-
 class FFTPlans:
     def __init__(self,
                  size_c: IntVector,
@@ -200,6 +168,38 @@ class NumpyFFTPlans(FFTPlans):
         else:
             self.tmp_R[:] = ifftn(self.tmp_Q, self.tmp_R.shape,
                                   norm='forward', overwrite_x=True)
+
+
+class CuPyFFTPlans(FFTPlans):
+    def __init__(self,
+                 size_c: IntVector,
+                 dtype: DTypeLike):
+        assert dtype == complex
+        self.size_c = size_c
+        self.pw = None
+
+    def indices(self, pw):
+        import gpaw.cpupy as cp
+        if self.pw is None:
+            self.pw = pw
+            self.Q_G = cp.asarray(pw.indices(tuple(self.size_c)))
+        else:
+            assert pw is self.pw
+        return self.Q_G
+
+    def ifft_sphere(self, coef_G, pw, out_R):
+        array_Q = out_R.data
+        array_Q[:] = 0.0
+        Q_G = self.indices(pw)
+        array_Q.ravel()[Q_G] = coef_G
+        array_Q._data[:] = ifftn(array_Q._data, array_Q.shape,
+                                 norm='forward', overwrite_x=True)
+
+    def fft_sphere(self, in_R, pw):
+        out_Q = fftn(in_R._data, overwrite_x=True)
+        Q_G = self.indices(pw)
+        coef_G = out_Q.ravel()[Q_G._data] * (1 / in_R.size)
+        return coef_G
 
 
 # The rest of this file will be removed in the future ...

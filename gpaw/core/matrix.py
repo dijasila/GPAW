@@ -11,11 +11,7 @@ import scipy.linalg as linalg
 from gpaw import debug
 from gpaw.mpi import MPIComm, _Communicator, serial_comm
 from gpaw.typing import Array1D, ArrayLike1D, ArrayLike2D
-
-try:
-    import cupy as cp
-except ImportError:
-    import gpaw.cpupy as cp
+from gpaw.gpu import cupy as cp
 
 _global_blacs_context_store: Dict[Tuple[_Communicator, int, int], int] = {}
 
@@ -64,7 +60,7 @@ class Matrix:
                  N: int,
                  dtype=None,
                  data: ArrayLike2D = None,
-                 dist: Union[MatrixDistribution, tuple[int, ...]] = None):
+                 dist: Union[MatrixDistribution, tuple] = None):
         """Matrix object.
 
         Parameters
@@ -85,7 +81,7 @@ class Matrix:
             """
         self.shape = (M, N)
 
-        if data is not None and not hasattr(data, 'dtype'):
+        if not isinstance(data, (np.ndarray, cp.CuPyArray)):
             data = np.asarray(data)
 
         if dtype is None:
@@ -104,7 +100,9 @@ class Matrix:
             self.xp = np
         dist = dist or ()
         if isinstance(dist, tuple):
-            dist = create_distribution(M, N, *dist, xp=self.xp)
+            kwargs = {key: val for key, val in zip(['comm', 'r', 'c', 'b'],
+                                                   dist)}
+            dist = create_distribution(M, N, xp=self.xp, **kwargs)
         else:
             assert self.shape == dist.shape
         self.dist = dist
@@ -541,6 +539,9 @@ class MatrixDistribution:
         return Matrix(*self.full_shape, dtype=dtype, data=data, dist=self)
 
     def multiply(self, alpha, a, opa, b, opb, beta, c, symmetric):
+        raise NotImplementedError
+
+    def new(self, M, N):
         raise NotImplementedError
 
     def my_row_range(self) -> tuple[int, int]:

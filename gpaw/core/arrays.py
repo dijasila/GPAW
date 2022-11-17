@@ -66,8 +66,8 @@ class DistributedArrays(Generic[DomainType]):
         if isinstance(data, (np.ndarray, NDArrayReader)):
             self.xp = np
         else:
-            import gpaw.cpupy as xp
-            self.xp = xp
+            from gpaw.gpu import cupy as cp
+            self.xp = cp
         self._matrix: Matrix | None = None
 
     def new(self, data=None) -> DistributedArrays:
