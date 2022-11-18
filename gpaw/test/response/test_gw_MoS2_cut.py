@@ -49,6 +49,6 @@ def test_response_gw_MoS2_cut(in_tmp_dir, scalapack):
     e_qp = gw.calculate()['qp'][0, 0]
 
     ev = 2.669
-    ec = 6.831
+    ec = 6.804
     assert e_qp[0] == pytest.approx(ev, abs=0.01)
     assert e_qp[1] == pytest.approx(ec, abs=0.01)
