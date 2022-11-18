@@ -2,8 +2,12 @@ import numpy as np
 
 try:
     import cupy
+    import cupyx
 except ImportError:
-    import gpaw.cpupy as cupy  # type: ignore
+    import gpaw.gpu.cupy as cupy  # type: ignore
+    import gpaw.gpu.cupyx as cupyx  # type: ignore
+
+__all__ = ['cupy', 'cupyx', 'as_xp']
 
 
 def as_xp(array, xp):

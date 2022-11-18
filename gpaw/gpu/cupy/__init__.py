@@ -1,12 +1,12 @@
 import numpy as np
-import gpaw.cpupy.linalg as linalg
-import gpaw.cpupy.cublas as cublas
+import gpaw.gpu.cupy.linalg as linalg
+import gpaw.gpu.cupy.cublas as cublas
 
-__all__ = ['cublas', 'linalg']
+__all__ = ['linalg', 'cublas']
 
 
 def empty(*args, **kwargs):
-    return CuPyArray(np.empty(*args, **kwargs))
+    return ndarray(np.empty(*args, **kwargs))
 
 
 def asnumpy(a, out=None):
@@ -17,7 +17,7 @@ def asnumpy(a, out=None):
 
 
 def asarray(a):
-    return CuPyArray(a.copy())
+    return ndarray(a.copy())
 
 
 def multiply(a, b, c):
@@ -28,7 +28,7 @@ def negative(a, b):
     np.negative(a._data, b._data)
 
 
-class CuPyArray:
+class ndarray:
     def __init__(self, data):
         assert isinstance(data, np.ndarray)
         self._data = data
@@ -39,30 +39,35 @@ class CuPyArray:
 
     @property
     def T(self):
-        return CuPyArray(self._data.T)
+        return ndarray(self._data.T)
 
     @property
     def imag(self):
-        return CuPyArray(self._data.imag)
+        return ndarray(self._data.imag)
+
+    def __len__(self):
+        return len(self._data)
 
     def __iter__(self):
         for data in self._data:
-            yield CuPyArray(data)
+            print(data.shape, data.dtype, type(data))
+            yield ndarray(data)
 
     def __setitem__(self, index, value):
-        if isinstance(index, CuPyArray):
+        if isinstance(index, ndarray):
             index = index._data
-        if isinstance(value, CuPyArray):
+        if isinstance(value, ndarray):
             self._data[index] = value._data
         else:
             assert isinstance(value, float)
             self._data[index] = value
 
     def __getitem__(self, index):
-        return CuPyArray(self._data[index])
+        return ndarray(self._data[index])
 
     def __rmul__(self, f: float):
-        return CuPyArray(f * self._data)
+        print(f)
+        return ndarray(f * self._data)
 
     def __imul__(self, f: float):
         if isinstance(f, float):
@@ -80,16 +85,16 @@ class CuPyArray:
         return self
 
     def __matmul__(self, other):
-        return CuPyArray(self._data @ other._data)
+        return ndarray(self._data @ other._data)
 
     def ravel(self):
-        return CuPyArray(self._data.ravel())
+        return ndarray(self._data.ravel())
 
     def conj(self):
-        return CuPyArray(self._data.conj())
+        return ndarray(self._data.conj())
 
     def reshape(self, shape):
-        return CuPyArray(self._data.reshape(shape))
+        return ndarray(self._data.reshape(shape))
 
     def view(self, dtype):
-        return CuPyArray(self._data.view(dtype))
+        return ndarray(self._data.view(dtype))

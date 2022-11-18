@@ -7,7 +7,7 @@ import _gpaw
 import gpaw.utilities.blas as blas
 import numpy as np
 import scipy
-import scipy.linalg as linalg
+import scipy.linalg as sla
 from gpaw import debug
 from gpaw.mpi import MPIComm, _Communicator, serial_comm
 from gpaw.typing import Array1D, ArrayLike1D, ArrayLike2D
@@ -81,7 +81,7 @@ class Matrix:
             """
         self.shape = (M, N)
 
-        if data is None or isinstance(data, (np.ndarray, cp.CuPyArray)):
+        if data is None or isinstance(data, (np.ndarray, cp.ndarray)):
             pass
         else:
             data = np.asarray(data)
@@ -264,9 +264,9 @@ class Matrix:
         dist = self.dist
         if dist.comm.size == 1:
             self.tril2full()
-            self.data[:] = linalg.inv(self.data,
-                                      overwrite_a=True,
-                                      check_finite=debug)
+            self.data[:] = sla.inv(self.data,
+                                   overwrite_a=True,
+                                   check_finite=debug)
             return
         bc, br = dist.desc[4:6]
         assert bc == br
@@ -295,14 +295,18 @@ class Matrix:
         if self.dist.comm.rank == 0:
             if debug:
                 S.data[np.triu_indices(S.shape[0], 1)] = 42.0
-            xp = cp if isinstance(S.data, cp.CuPyArray) else scipy
-            L_nn = xp.linalg.cholesky(S.data,
-                                      lower=True,
-                                      overwrite_a=True,
-                                      check_finite=debug)
-            S.data[:] = xp.linalg.inv(L_nn,
-                                      overwrite_a=True,
-                                      check_finite=debug)
+            if isinstance(S.data, np.ndarray):
+                L_nn = sla.cholesky(S.data,
+                                    lower=True,
+                                    overwrite_a=True,
+                                    check_finite=debug)
+                S.data[:] = sla.inv(L_nn,
+                                    overwrite_a=True,
+                                    check_finite=debug)
+            else:
+                L_nn = cp.linalg.cholesky(S.data)
+                S.data[:] = cp.linalg.inv(L_nn)
+
         if S is not self:
             S.redist(self)
 
@@ -361,14 +365,14 @@ class Matrix:
                             H.data,
                             UPLO='L')
                         return eps
-                    eps[:], H.data.T[:] = linalg.eigh(
+                    eps[:], H.data.T[:] = sla.eigh(
                         H.data,
                         lower=True,
                         overwrite_a=True,
                         check_finite=debug,
                         driver='evx' if H.data.size == 1 else 'evd')
                 else:
-                    eps, evecs = linalg.eigh(
+                    eps, evecs = sla.eigh(
                         H.data,
                         S.data,
                         lower=True,
@@ -437,7 +441,7 @@ class Matrix:
                     driver = 'evx' if M == 1 else 'evd'
                 else:
                     driver = None
-                eig_n, Ct_Mn = linalg.eigh(
+                eig_n, Ct_Mn = sla.eigh(
                     H.data,
                     overwrite_a=True,
                     check_finite=debug,

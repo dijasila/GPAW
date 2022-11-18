@@ -234,7 +234,9 @@ def calculate_residuals(residual_nX: DA,
     else:
         # eig_n = xp.asarray(wfs.myeig_n)
         eig_n = wfs.myeig_n
+        print(residual_nX.data.shape, eig_n, wfs.psit_nX.data.shape)
         for r, e, p in zip(residual_nX.data, eig_n, wfs.psit_nX.data):
+            print('Her', e, p.shape)
             r -= e * p
 
     dH(wfs.P_ani, P1_ani)

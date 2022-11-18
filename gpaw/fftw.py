@@ -179,7 +179,7 @@ class CuPyFFTPlans(FFTPlans):
         self.pw = None
 
     def indices(self, pw):
-        import gpaw.cpupy as cp
+        from gpaw.gpu import cupy as cp
         if self.pw is None:
             self.pw = pw
             self.Q_G = cp.asarray(pw.indices(tuple(self.size_c)))
