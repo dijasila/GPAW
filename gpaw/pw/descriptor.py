@@ -159,7 +159,7 @@ class PWDescriptor:
         a_xG.fill(0.0)
         return a_xG
 
-    def empty(self, x=(), dtype=None, q=None, global_array=False):
+    def empty(self, x=(), dtype=None, q=None, global_array=False, xp=np):
         """Return empty array."""
         if dtype is not None:
             assert dtype == self.dtype
@@ -172,9 +172,19 @@ class PWDescriptor:
             shape = x + (self.ng_q[q],)
         else:
             shape = x + (self.myng_q[q],)
-        return np.empty(shape, complex)
+        return xp.empty(shape, complex)
 
-    def fft(self, f_R, q=None, Q_G=None, local=False):
+    def cupyfft(self, f_R, q=None, Q_G=None, local=False, xp=np):
+        assert self.gd.comm.size == 1
+
+        if Q_G is None:
+            q = q or 0
+            Q_G = self.Q_qG[q]
+
+        return xp.fft.fftn(f_R).ravel()[Q_G]
+
+
+    def fft(self, f_R, q=None, Q_G=None, local=False, xp=np):
         """Fast Fourier transform.
 
         Returns c(G) for G<Gc::
@@ -187,6 +197,12 @@ class PWDescriptor:
         If local=True, all cores will do an FFT without any
         collect/scatter.
         """
+        if not isinstance(f_R, np.ndarray):
+            out = self.cupyfft(f_R, q, Q_G, local, xp)
+            out2 = self.fft(xp.asnumpy(f_R), q, xp.asnumpy(Q_G), local, np)
+            print(np.max(np.abs(xp.asnumpy(out)-out2)))
+            assert np.allclose(xp.asnumpy(out), out2)
+            return out
 
         if local:
             self.tmp_R[:] = f_R

@@ -54,7 +54,8 @@ class Chi0Calculator:
                  disable_non_symmorphic=True,
                  integrationmode=None,
                  ftol=1e-6,
-                 rate=0.0, eshift=0.0):
+                 rate=0.0, eshift=0.0,
+                 *, xp):
 
         if context is None:
             context = pair.context
@@ -62,6 +63,7 @@ class Chi0Calculator:
         # TODO: More refactoring to avoid non-orthogonal inputs.
         assert pair.context.world is context.world
         self.context = context
+        self.xp = xp
 
         self.pair = pair
         self.gs = pair.gs
@@ -137,7 +139,7 @@ class Chi0Calculator:
         # the frequency descriptor XXX
         chi0 = Chi0Data.from_descriptor_arguments(self.wd,
                                                   plane_waves,
-                                                  parallelization)
+                                                  parallelization, xp=self.xp)
 
         return chi0
 
@@ -221,7 +223,7 @@ class Chi0Calculator:
 
         # Reset PAW correction in case momentum has change
         pairden_paw_corr = self.gs.pair_density_paw_corrections
-        self.pawcorr = pairden_paw_corr(pd, alter_optical_limit=True)
+        self.pawcorr = pairden_paw_corr(pd, alter_optical_limit=True, xp=self.xp)
 
         # Integrate chi0 body
         self.context.print('Integrating response function.')
@@ -625,7 +627,7 @@ class Chi0Calculator:
                          symmetry.how_many_symmetries())
         if self.pawcorr is None:
             pairden_paw_corr = self.gs.pair_density_paw_corrections
-            self.pawcorr = pairden_paw_corr(pd, alter_optical_limit=True)
+            self.pawcorr = pairden_paw_corr(pd, alter_optical_limit=True, xp=self.xp)
 
         kptpair = self.pair.get_kpoint_pair(pd, s, k_c, n1, n2,
                                             m1, m2, block=True)
@@ -661,7 +663,7 @@ class Chi0Calculator:
                          symmetry.how_many_symmetries())
         if self.pawcorr is None:
             pairden_paw_corr = self.gs.pair_density_paw_corrections
-            self.pawcorr = pairden_paw_corr(pd, alter_optical_limit=True)
+            self.pawcorr = pairden_paw_corr(pd, alter_optical_limit=True, xp=self.xp)
 
         kptpair = self.pair.get_kpoint_pair(pd, s, k_c, n1, n2,
                                             m1, m2, block=False)

@@ -42,6 +42,10 @@ def mmm(alpha: T,
     matrices.
     """
 
+    assert isinstance(a, np.ndarray)
+    assert isinstance(b, np.ndarray)
+    assert isinstance(c, np.ndarray)
+
     assert opa in 'NTC'
     assert opb in 'NTC'
 

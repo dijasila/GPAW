@@ -944,6 +944,7 @@ class G0W0(G0W0Calculator):
                  integrate_gamma=0,
                  q0_correction=False,
                  do_GW_too=False,
+                 xp=np,
                  **kwargs):
         """G0W0 calculator wrapper.
 
@@ -1033,6 +1034,7 @@ class G0W0(G0W0Calculator):
         self._gpwfile = calc
         context = ResponseContext(txt=filename + '.txt',
                                   world=world, timer=timer)
+        self.xp = xp
         gs = ResponseGroundStateAdapter.from_gpw_file(self._gpwfile,
                                                       context=context)
 
@@ -1041,7 +1043,7 @@ class G0W0(G0W0Calculator):
             nblocks = get_max_nblocks(context.world, self._gpwfile, ecut)
 
         pair = NoCalculatorPairDensity(gs, context,
-                                       nblocks=nblocks)
+                                       nblocks=nblocks, xp=xp)
 
         kpts = list(select_kpts(kpts, gs.kd))
 
@@ -1077,6 +1079,7 @@ class G0W0(G0W0Calculator):
             ecut=ecut,
             intraband=False,
             context=w_context,
+            xp=xp,
             **parameters)
 
         bands = choose_bands(bands, relbands, gs.nvalence, chi0calc.nocc2)
