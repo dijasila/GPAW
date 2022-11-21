@@ -98,6 +98,10 @@ void calc_mgga(void** params, int nspin, int ng,
           dedtau_g[g + ng] = 0.0;
           continue;
       }
+      if (ntmp[0] < NMIN)
+          ntmp[0] = NMIN;
+      if (ntmp[1] < NMIN)
+          ntmp[1] = NMIN;
 
       sigmatmp[0] = sigma_g[g];
       sigmatmp[1] = sigma_g[g+ng];

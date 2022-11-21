@@ -191,6 +191,12 @@ XCFunctional_calculate(XCFunctionalObject *self, PyObject *args)
               continue;
           }
 
+          if (na < NMIN)
+              na = NMIN;
+          if (nb < NMIN)
+              nb = NMIN;
+          n = 0.5 * (na + nb);
+
           double rsa = pow(C0I / na, THIRD);
           double rsb = pow(C0I / nb, THIRD);
           double rs = pow(C0I / n, THIRD);
