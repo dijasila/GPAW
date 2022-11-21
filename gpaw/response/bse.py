@@ -14,13 +14,16 @@ from gpaw.pw.descriptor import PWDescriptor
 from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.mpi import world, serial_comm, broadcast
 from gpaw.response import ResponseContext, ResponseGroundStateAdapter, timer
-from gpaw.response.chi0 import Chi0
 from gpaw.response.df import write_response_function
 from gpaw.response.coulomb_kernels import get_coulomb_kernel
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.response.pair import PairDensity
 from gpaw.response.screened_interaction import initialize_w_calculator
 from gpaw.response.paw import PWPAWCorrectionData
+from gpaw.response.frequencies import FrequencyDescriptor
+from gpaw.response.pair import NoCalculatorPairDensity, get_gs_and_context
+from gpaw.response.chi0 import Chi0Calculator
+from gpaw.response.context import ResponseContext
 
 
 class BSE:
@@ -82,17 +85,13 @@ class BSE:
             If True, write eigenvalues and eigenstates to v_TS.ulm
         """
 
-        # Calculator
-        if isinstance(calc, str):
-            calc = GPAW(calc, communicator=serial_comm)
-        self.calc = calc
-        self.gs = ResponseGroundStateAdapter(calc)
+        self.gs, self.context = get_gs_and_context(
+            calc, txt, world=world, timer=None)
+
         self.spinors = spinors
         self.scale = scale
 
         assert mode in ['RPA', 'TDHF', 'BSE']
-
-        self.context = ResponseContext(txt, world=world, timer=timer)
 
         self.ecut = ecut / Hartree
         self.nbands = nbands
@@ -106,7 +105,7 @@ class BSE:
         self.wfile = wfile
         self.write_h = write_h
         self.write_v = write_v
-        
+
         # Find q-vectors and weights in the IBZ:
         self.kd = self.gs.kd
         if -1 in self.kd.bz2bz_ks:
@@ -218,8 +217,10 @@ class BSE:
         if optical:
             v_G[0] = 0.0
 
-        self.pair = PairDensity(self.calc, world=serial_comm,
-                                txt='pair.txt')
+        self.pair = NoCalculatorPairDensity(
+            gs=self.gs,
+            context=ResponseContext(txt='pair.txt', timer=None,
+                                    world=serial_comm))
 
         # Calculate direct (screened) interaction and PAW corrections
         if self.mode == 'RPA':
@@ -498,16 +499,21 @@ class BSE:
     def initialize_chi0_calculator(self):
         """Initialize the Chi0 object to compute the static
         susceptibility."""
-        self._chi0calc = Chi0(self.calc,
-                              frequencies=[0.0],
-                              eta=0.001,
-                              ecut=self.ecut * Hartree,
-                              intraband=False,
-                              hilbert=False,
-                              nbands=self.nbands,
-                              txt='chi0.txt',
-                              world=world,
-                              )
+
+        wd = FrequencyDescriptor([0.0])
+        pair = NoCalculatorPairDensity(
+            gs=self.gs,
+            context=self.context.with_txt('chi0.txt'))
+
+        self._chi0calc = Chi0Calculator(
+            wd=wd,
+            pair=pair,
+            eta=0.001,
+            ecut=self.ecut * Hartree,
+            intraband=False,
+            hilbert=False,
+            nbands=self.nbands)
+
         self.blockcomm = self._chi0calc.blockcomm
 
     def calculate_screened_potential(self):
