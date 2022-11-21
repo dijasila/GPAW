@@ -221,7 +221,7 @@ class Chi0Calculator:
 
         # Reset PAW correction in case momentum has change
         pairden_paw_corr = self.gs.pair_density_paw_corrections
-        self.pawcorr = pairden_paw_corr(pd, alter_optical_limit=True)
+        self.pawcorr = pairden_paw_corr(pd)
 
         # Integrate chi0 body
         self.context.print('Integrating response function.')
@@ -625,7 +625,7 @@ class Chi0Calculator:
                          symmetry.how_many_symmetries())
         if self.pawcorr is None:
             pairden_paw_corr = self.gs.pair_density_paw_corrections
-            self.pawcorr = pairden_paw_corr(pd, alter_optical_limit=True)
+            self.pawcorr = pairden_paw_corr(pd)
 
         kptpair = self.pair.get_kpoint_pair(pd, s, k_c, n1, n2,
                                             m1, m2, block=True)
@@ -661,7 +661,7 @@ class Chi0Calculator:
                          symmetry.how_many_symmetries())
         if self.pawcorr is None:
             pairden_paw_corr = self.gs.pair_density_paw_corrections
-            self.pawcorr = pairden_paw_corr(pd, alter_optical_limit=True)
+            self.pawcorr = pairden_paw_corr(pd)
 
         kptpair = self.pair.get_kpoint_pair(pd, s, k_c, n1, n2,
                                             m1, m2, block=False)
