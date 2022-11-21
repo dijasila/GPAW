@@ -59,6 +59,20 @@ class DielectricFunctionCalculator:
         # explicit API design.
 
         if key not in self._chi0cache:
+            # We assume that the caller will trigger this multiple
+            # times with the same qpoint, then several times with
+            # another qpoint, etc.  If that's true, then we
+            # need to cache no more than one qpoint at a time.
+            # Thus to save memory, we clear the cache here.
+            #
+            # This should be replaced with something more reliable,
+            # such as having the caller manage things more explicitly.
+            #
+            # See https://gitlab.com/gpaw/gpaw/-/issues/662
+            #
+            # In conclusion, delete the cache now:
+            self._chi0cache.clear()
+
             chi0 = self.chi0calc.calculate(q_c, spin)
             chi0_wGG = chi0.distribute_frequencies()
             self.context.write_timer()
