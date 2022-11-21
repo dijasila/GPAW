@@ -2,8 +2,6 @@ import numbers
 
 import numpy as np
 
-import gpaw.mpi as mpi
-
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
 from gpaw.response.pw_parallelization import block_partition
 from gpaw.response.symmetry import KPointFinder
