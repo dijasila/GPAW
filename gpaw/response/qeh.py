@@ -3,7 +3,6 @@ import numpy as np
 from math import pi
 import ase.units
 from ase.parallel import world
-import sys
 import os
 
 Hartree = ase.units.Hartree
@@ -23,7 +22,7 @@ class BuildingBlock:
     building block of 2D material with GPAW"""
 
     def __init__(self, filename, df, isotropic_q=True, nq_inf=10,
-                 direction='x', qmax=None, txt=sys.stdout):
+                 direction='x', qmax=None, txt='-'):
         """Creates a BuildingBlock object.
 
         filename: str
@@ -65,15 +64,9 @@ class BuildingBlock:
         self.df = df  # dielectric function object
         self.df.truncation = '2D'  # in case you forgot!
         self.wd = self.df.wd
-        self.world = self.context.world
-
-        if self.world.rank != 0:
-            from gpaw.utilities import devnull
-            txt = devnull
-        elif isinstance(txt, str):
-            txt = open(txt, 'w', 1)
-        self.fd = txt
-
+        
+        self.context = self.df.context.with_txt(txt)
+        
         gs = self.df.gs
         kd = gs.kd
         self.kd = kd
@@ -149,7 +142,7 @@ class BuildingBlock:
         self.nq = 0
         if self.load_chi_file():
             if self.complete:
-                print('Building block loaded from file', file=self.fd)
+                self.context.print('Building block loaded from file')
         world.barrier()
 
     def calculate_building_block(self, add_intraband=False):
@@ -165,11 +158,12 @@ class BuildingBlock:
                 q_inf = None
 
             qcstr = '(' + ', '.join(['%.3f' % x for x in q_c]) + ')'
-            print('Calculating contribution from q-point #%d/%d, q_c=%s'
-                  % (nq + 1, Nq, qcstr), file=self.fd)
+            self.context.print(
+                'Calculating contribution from q-point #%d/%d, q_c=%s' % (
+                    nq + 1, Nq, qcstr), flush=False)
             if q_inf is not None:
                 qstr = '(' + ', '.join(['%.3f' % x for x in q_inf]) + ')'
-                print('    and q_inf=%s' % qstr, file=self.fd)
+                self.context.print('    and q_inf=%s' % qstr, flush=False)
             pd, chi0_wGG, \
                 chi_wGG = self.df.get_dielectric_matrix(
                     symmetric=False,
@@ -178,7 +172,7 @@ class BuildingBlock:
                     q_v=q_inf,
                     direction=self.direction,
                     add_intraband=add_intraband)
-            print('calculated chi!', file=self.fd)
+            self.context.print('calculated chi!')
 
             nw = len(self.wd)
             world = self.context.world
@@ -192,7 +186,7 @@ class BuildingBlock:
             chiM_w = self.collect(chiM_w)
             chiD_w = self.collect(chiD_w)
 
-            if self.world.rank == 0:
+            if self.context.world.rank == 0:
                 assert w1 == 0  # drhoM and drhoD in static limit
                 self.update_building_block(chiM_w[np.newaxis, :],
                                            chiD_w[np.newaxis, :],
@@ -200,7 +194,7 @@ class BuildingBlock:
 
         # Induced densities are not probably described in q-> 0 limit-
         # replace with finite q result:
-        if self.world.rank == 0:
+        if self.context.world.rank == 0:
             for n in range(Nq):
                 if np.allclose(self.q_cs[n], 0):
                     self.drhoM_qz[n] = self.drhoM_qz[self.nq_cut]
@@ -235,7 +229,7 @@ class BuildingBlock:
                 'drhoM_qz': self.drhoM_qz,
                 'drhoD_qz': self.drhoD_qz}
 
-        if self.world.rank == 0:
+        if self.context.world.rank == 0:
             np.savez_compressed(filename + '-chi.npz',
                                 **data)
         world.barrier()
@@ -340,10 +334,6 @@ class BuildingBlock:
         self.q_abs = q_grid
         self.wd = FrequencyGridDescriptor(w_grid)
         self.save_chi_file(filename=self.filename + '_int')
-
-    @property
-    def context(self):
-        return self.df.context
 
     def collect(self, a_w):
         world = self.context.world
