@@ -10,7 +10,7 @@ from gpaw.response.coulomb_kernels import get_coulomb_kernel
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.response.density_kernels import get_density_xc_kernel
 from gpaw.response.chi0 import Chi0Calculator, new_frequency_descriptor
-from gpaw.response.pair import get_gs_and_context, NoCalculatorPairDensity
+from gpaw.response.pair import get_gs_and_context, PairDensityCalculator
 
 
 class DielectricFunctionCalculator:
@@ -59,6 +59,20 @@ class DielectricFunctionCalculator:
         # explicit API design.
 
         if key not in self._chi0cache:
+            # We assume that the caller will trigger this multiple
+            # times with the same qpoint, then several times with
+            # another qpoint, etc.  If that's true, then we
+            # need to cache no more than one qpoint at a time.
+            # Thus to save memory, we clear the cache here.
+            #
+            # This should be replaced with something more reliable,
+            # such as having the caller manage things more explicitly.
+            #
+            # See https://gitlab.com/gpaw/gpaw/-/issues/662
+            #
+            # In conclusion, delete the cache now:
+            self._chi0cache.clear()
+
             chi0 = self.chi0calc.calculate(q_c, spin)
             chi0_wGG = chi0.distribute_frequencies()
             self.context.write_timer()
@@ -555,7 +569,7 @@ class DielectricFunction(DielectricFunctionCalculator):
                                       domega0=domega0,
                                       omega2=omega2, omegamax=omegamax)
 
-        pair = NoCalculatorPairDensity(
+        pair = PairDensityCalculator(
             gs=gs, context=context, threshold=threshold, nblocks=nblocks)
 
         chi0calc = Chi0Calculator(

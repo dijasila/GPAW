@@ -2,8 +2,6 @@ import numbers
 
 import numpy as np
 
-import gpaw.mpi as mpi
-
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
 from gpaw.response.pw_parallelization import block_partition
 from gpaw.response.symmetry import KPointFinder
@@ -77,9 +75,17 @@ class KPointPair:
         return df_nm
 
 
-class NoCalculatorPairDensity:
+class PairDensityCalculator:
     def __init__(self, gs, context, *,
                  threshold=1, nblocks=1):
+        """Density matrix elements
+
+        Parameters
+        ----------
+        threshold : float
+            Numerical threshold for the optical limit k dot p perturbation
+            theory expansion.
+        """
         self.gs = gs
         self.context = context
 
@@ -332,6 +338,14 @@ class NoCalculatorPairDensity:
 
     @timer('Optical limit')
     def calculate_optical_pair_velocity(self, n, kpt1, kpt2, block=False):
+        # This has the effect of caching at most one kpoint.
+        # This caching will be efficient only if we are looping over kpoints
+        # in a particular way.
+        #
+        # It would be better to refactor so this caching is handled explicitly
+        # by the caller providing the right thing.
+        #
+        # See https://gitlab.com/gpaw/gpaw/-/issues/625
         if self.ut_sKnvR is None or kpt1.K not in self.ut_sKnvR[kpt1.s]:
             self.ut_sKnvR = self.calculate_derivatives(kpt1)
 
@@ -489,26 +503,6 @@ class NoCalculatorPairDensity:
 
     def __del__(self):
         self.context.close()
-
-
-class PairDensity(NoCalculatorPairDensity):
-    def __init__(self, gs, *,
-                 world=mpi.world, txt='-', timer=None,
-                 **kwargs):
-        """Density matrix elements
-
-        Parameters
-        ----------
-        threshold : float
-            Numerical threshold for the optical limit k dot p perturbation
-            theory expansion.
-        """
-
-        # Note: The input gs is just called gs for historical reasons.
-        # It's actually calc-or-filename union.
-        gs, context = get_gs_and_context(gs, txt, world, timer)
-
-        super().__init__(gs, context, **kwargs)
 
 
 def fft_indices(kd, K1, K2, q_c, pd, shift0_c):
