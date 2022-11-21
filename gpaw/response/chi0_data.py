@@ -69,9 +69,9 @@ class ResponseDescriptors:
 
 
 class BodyData:
-    """Data object containing the response body data arrays for a single q-point,
-    while holding also the corresponding basis descriptors and block
-    distributor."""
+    """Data object containing the response body data arrays
+    for a single q-point, while holding also the corresponding
+    basis descriptors and block distributor."""
 
     def __init__(self, descriptors, blockdist):
         """Construct the Chi0Data object from ResponseDescriptors object.
@@ -148,7 +148,7 @@ class BodyData:
 
 class HeadWingsData:
     def __init__(self, descriptors):
-        assert(descriptors.optical_limit)
+        assert descriptors.optical_limit
         self.wd = descriptors.wd
         self.pd = descriptors.pd
         self.chi0_wxvG = None  # Wings
