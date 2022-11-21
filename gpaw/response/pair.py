@@ -80,6 +80,14 @@ class KPointPair:
 class NoCalculatorPairDensity:
     def __init__(self, gs, context, *,
                  threshold=1, nblocks=1):
+        """Density matrix elements
+
+        Parameters
+        ----------
+        threshold : float
+            Numerical threshold for the optical limit k dot p perturbation
+            theory expansion.
+        """
         self.gs = gs
         self.context = context
 
@@ -497,26 +505,6 @@ class NoCalculatorPairDensity:
 
     def __del__(self):
         self.context.close()
-
-
-class PairDensity(NoCalculatorPairDensity):
-    def __init__(self, gs, *,
-                 world=mpi.world, txt='-', timer=None,
-                 **kwargs):
-        """Density matrix elements
-
-        Parameters
-        ----------
-        threshold : float
-            Numerical threshold for the optical limit k dot p perturbation
-            theory expansion.
-        """
-
-        # Note: The input gs is just called gs for historical reasons.
-        # It's actually calc-or-filename union.
-        gs, context = get_gs_and_context(gs, txt, world, timer)
-
-        super().__init__(gs, context, **kwargs)
 
 
 def fft_indices(kd, K1, K2, q_c, pd, shift0_c):
