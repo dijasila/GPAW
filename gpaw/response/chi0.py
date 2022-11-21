@@ -473,7 +473,6 @@ class Chi0Calculator:
             n1 = max(min(m1, self.nocc2), self.nocc1)
             n2 = min(max(m2, self.nocc1), self.nocc2)
             bandsum = {'n1': n1, 'n2': n2}
-            mat_kwargs.pop('integrationmode')  # Can we clean up here? XXX
         mat_kwargs.update(bandsum)
         eig_kwargs.update(bandsum)
 
@@ -730,7 +729,7 @@ class Chi0Calculator:
 
         vel_nv = self.pair.intraband_pair_density(kpt1, n_n)
 
-        if self.integrationmode is None:
+        if integrationmode is None:
             f_n = kpt1.f_n
             width = self.gs.get_occupations_width()
             if width > 1e-15:
