@@ -467,7 +467,12 @@ class Chi0Calculator:
         else:
             # When doing a calculation of the intraband response, we need only
             # the partially filled bands
-            bandsum = {'n1': self.nocc1, 'n2': self.nocc2}
+            # All partially unoccupied bands looks like this:
+            # bandsum = {'n1': self.nocc1, 'n2': self.nocc2}
+            # Do the requested fraction of the partially unoccupied bands
+            n1 = max(min(m1, self.nocc2), self.nocc1)
+            n2 = min(max(m2, self.nocc1), self.nocc2)
+            bandsum = {'n1': n1, 'n2': n2}
             mat_kwargs.pop('integrationmode')  # Can we clean up here? XXX
         mat_kwargs.update(bandsum)
         eig_kwargs.update(bandsum)
