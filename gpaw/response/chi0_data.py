@@ -66,19 +66,19 @@ class ResponseDescriptors:
             assert len(parallelization) == 3
             blockdist = PlaneWaveBlockDistributor(*parallelization)
         return blockdist
-        
+
+
 class BodyData:
     """Data object containing the response body data arrays for a single q-point,
     while holding also the corresponding basis descriptors and block
     distributor."""
 
-    
     def __init__(self, descriptors, blockdist):
         """Construct the Chi0Data object from ResponseDescriptors object.
 
         Parameters
         ----------
-        descriptors: ResponseDescriptors 
+        descriptors: ResponseDescriptors
         blockdist : PlaneWaveBlockDistributor
             Distributor for the block parallelization
         """
@@ -100,7 +100,8 @@ class BodyData:
     def from_descriptor_arguments(frequencies, plane_waves, parallelization):
         """Contruct the necesarry descriptors and initialize the BodyData
         object."""
-        descriptors = ResponseDescriptors.from_descriptor_arguments(frequencies, plane_waves)
+        descriptors = ResponseDescriptors.from_descriptor_arguments(
+            frequencies, plane_waves)
         blockdist = ResponseDescriptors.make_blockdist(parallelization)
         return BodyData(descriptors, blockdist)
 
@@ -115,7 +116,6 @@ class BodyData:
     @property
     def nG(self):
         return self.pd.ngmax
-        #return self.blocks1d.N
 
     @property
     def mynG(self):
@@ -144,10 +144,11 @@ class BodyData:
 
     def make_HeadWings(self):
         return HeadWingsData(self.descriptors)
-    
+
+
 class HeadWingsData:
     def __init__(self, descriptors):
-        assert(descriptors.optical_limit)  # only head and wings in optical limit
+        assert(descriptors.optical_limit)
         self.wd = descriptors.wd
         self.pd = descriptors.pd
         self.chi0_wxvG = None  # Wings
@@ -162,9 +163,10 @@ class HeadWingsData:
     def from_descriptor_arguments(frequencies, plane_waves, parallelization):
         """Contruct the necesarry descriptors and initialize the BodyData
         object."""
-        descriptors = ResponseDescriptors.from_descriptor_arguments(frequencies, plane_waves)
+        descriptors = ResponseDescriptors.from_descriptor_arguments(
+            frequencies, plane_waves)
 
-        return HeadWingsData(descriptors, blockdist)
+        return HeadWingsData(descriptors)
         
     @property
     def nw(self):
@@ -195,7 +197,7 @@ class Chi0Data(BodyData):
             self.head_and_wings = self.make_HeadWings()
             self.chi0_wxvG = self.head_and_wings.chi0_wxvG
             self.chi0_wvv = self.head_and_wings.chi0_wvv
-            self.wxvG_shape = self.head_and_wings.wxvG_shape 
+            self.wxvG_shape = self.head_and_wings.wxvG_shape
             self.wvv_shape = self.head_and_wings.wvv_shape
         else:
             self.chi0_wxvG = None
@@ -207,6 +209,7 @@ class Chi0Data(BodyData):
     def from_descriptor_arguments(frequencies, plane_waves, parallelization):
         """Contruct the necesarry descriptors and initialize the BodyData
         object."""
-        descriptors = ResponseDescriptors.from_descriptor_arguments(frequencies, plane_waves)
+        descriptors = ResponseDescriptors.from_descriptor_arguments(
+            frequencies, plane_waves)
         blockdist = ResponseDescriptors.make_blockdist(parallelization)
         return Chi0Data(descriptors.wd, descriptors.pd, blockdist)
