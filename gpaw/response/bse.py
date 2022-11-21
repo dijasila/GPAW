@@ -26,9 +26,8 @@ from gpaw.response.chi0 import Chi0Calculator
 from gpaw.response.context import ResponseContext
 
 
-class BSE:
-    def __init__(self,
-                 calc=None,
+class BSEBackend:
+    def __init__(self, *, gs, context,
                  spinors=False,
                  ecut=10.,
                  scale=1.0,
@@ -39,54 +38,12 @@ class BSE:
                  gw_skn=None,
                  truncation=None,
                  integrate_gamma=1,
-                 txt='-',
                  mode='BSE',
                  wfile=None,
                  write_h=False,
                  write_v=False):
-
-        """Creates the BSE object
-
-        calc: str or calculator object
-            The string should refer to the .gpw file contaning KS orbitals
-        ecut: float
-            Plane wave cutoff energy (eV)
-        nbands: int
-            Number of bands used for the screened interaction
-        valence_bands: list
-            Valence bands used in the BSE Hamiltonian
-        conduction_bands: list
-            Conduction bands used in the BSE Hamiltonian
-        eshift: float
-            Scissors operator opening the gap (eV)
-        gw_skn: list / array
-            List or array defining the gw quasiparticle energies used in
-            the BSE Hamiltonian. Should match spin, k-points and
-            valence/conduction bands
-        truncation: str
-            Coulomb truncation scheme. Can be either wigner-seitz,
-            2D, 1D, or 0D
-        integrate_gamma: int
-            Method to integrate the Coulomb interaction. 1 is a numerical
-            integration at all q-points with G=[0,0,0] - this breaks the
-            symmetry slightly. 0 is analytical integration at q=[0,0,0] only -
-            this conserves the symmetry. integrate_gamma=2 is the same as 1,
-            but the average is only carried out in the non-periodic directions.
-        txt: str
-            txt output
-        mode: str
-            Theory level used. can be RPA TDHF or BSE. Only BSE is screened.
-        wfile: str
-            File for saving screened interaction and some other stuff
-            needed later
-        write_h: bool
-            If True, write the BSE Hamiltonian to H_SS.ulm.
-        write_v: bool
-            If True, write eigenvalues and eigenstates to v_TS.ulm
-        """
-
-        self.gs, self.context = get_gs_and_context(
-            calc, txt, world=world, timer=None)
+        self.gs = gs
+        self.context = context
 
         self.spinors = spinors
         self.scale = scale
@@ -1016,3 +973,50 @@ class BSE:
         p('  Hamiltonian')
         p('    Pair orbital decomposition           : % s' % world.size)
         self.context.print('')
+
+
+class BSE(BSEBackend):
+    def __init__(self, calc=None, txt='-', **kwargs):
+        """Creates the BSE object
+
+        calc: str or calculator object
+            The string should refer to the .gpw file contaning KS orbitals
+        ecut: float
+            Plane wave cutoff energy (eV)
+        nbands: int
+            Number of bands used for the screened interaction
+        valence_bands: list
+            Valence bands used in the BSE Hamiltonian
+        conduction_bands: list
+            Conduction bands used in the BSE Hamiltonian
+        eshift: float
+            Scissors operator opening the gap (eV)
+        gw_skn: list / array
+            List or array defining the gw quasiparticle energies used in
+            the BSE Hamiltonian. Should match spin, k-points and
+            valence/conduction bands
+        truncation: str
+            Coulomb truncation scheme. Can be either wigner-seitz,
+            2D, 1D, or 0D
+        integrate_gamma: int
+            Method to integrate the Coulomb interaction. 1 is a numerical
+            integration at all q-points with G=[0,0,0] - this breaks the
+            symmetry slightly. 0 is analytical integration at q=[0,0,0] only -
+            this conserves the symmetry. integrate_gamma=2 is the same as 1,
+            but the average is only carried out in the non-periodic directions.
+        txt: str
+            txt output
+        mode: str
+            Theory level used. can be RPA TDHF or BSE. Only BSE is screened.
+        wfile: str
+            File for saving screened interaction and some other stuff
+            needed later
+        write_h: bool
+            If True, write the BSE Hamiltonian to H_SS.ulm.
+        write_v: bool
+            If True, write eigenvalues and eigenstates to v_TS.ulm
+        """
+        gs, context = get_gs_and_context(
+            calc, txt, world=world, timer=None)
+
+        super().__init__(gs=gs, context=context, **kwargs)
