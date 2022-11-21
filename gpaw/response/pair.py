@@ -77,7 +77,7 @@ class KPointPair:
         return df_nm
 
 
-class NoCalculatorPairDensity:
+class PairDensityCalculator:
     def __init__(self, gs, context, *,
                  threshold=1, nblocks=1):
         """Density matrix elements

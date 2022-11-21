@@ -19,7 +19,7 @@ from gpaw.response.hilbert import HilbertTransform
 from gpaw.response.integrators import (Integrator, PointIntegrator,
                                        TetrahedronIntegrator)
 from gpaw.response import timer
-from gpaw.response.pair import NoCalculatorPairDensity
+from gpaw.response.pair import PairDensityCalculator
 from gpaw.response.pw_parallelization import block_partition
 from gpaw.response.symmetry import PWSymmetryAnalyzer
 from gpaw.typing import Array1D
@@ -909,13 +909,15 @@ class Chi0(Chi0Calculator):
         gs, context = get_gs_and_context(calc, txt, world, timer)
         nbands = nbands or gs.bd.nbands
 
-        wd = new_frequency_descriptor(gs, context, nbands, frequencies,
-                                      domega0=domega0,
-                                      omega2=omega2, omegamax=omegamax)
+        wd = new_frequency_descriptor(
+            gs, context, nbands, frequencies,
+            domega0=domega0,
+            omega2=omega2, omegamax=omegamax)
 
-        pair = NoCalculatorPairDensity(gs, context,
-                                       threshold=threshold,
-                                       nblocks=nblocks)
+        pair = PairDensityCalculator(
+            gs, context,
+            threshold=threshold,
+            nblocks=nblocks)
 
         super().__init__(wd=wd, pair=pair, nbands=nbands, ecut=ecut, **kwargs)
 

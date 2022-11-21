@@ -10,7 +10,7 @@ from gpaw.response.coulomb_kernels import get_coulomb_kernel
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.response.density_kernels import get_density_xc_kernel
 from gpaw.response.chi0 import Chi0Calculator, new_frequency_descriptor
-from gpaw.response.pair import get_gs_and_context, NoCalculatorPairDensity
+from gpaw.response.pair import get_gs_and_context, PairDensityCalculator
 
 
 class DielectricFunctionCalculator:
@@ -569,7 +569,7 @@ class DielectricFunction(DielectricFunctionCalculator):
                                       domega0=domega0,
                                       omega2=omega2, omegamax=omegamax)
 
-        pair = NoCalculatorPairDensity(
+        pair = PairDensityCalculator(
             gs=gs, context=context, threshold=threshold, nblocks=nblocks)
 
         chi0calc = Chi0Calculator(

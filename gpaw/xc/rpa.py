@@ -13,7 +13,7 @@ from gpaw.response.chi0 import Chi0Calculator
 from gpaw.response.coulomb_kernels import get_coulomb_kernel
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.response.frequencies import FrequencyDescriptor
-from gpaw.response.pair import get_gs_and_context, NoCalculatorPairDensity
+from gpaw.response.pair import get_gs_and_context, PairDensityCalculator
 
 
 def rpa(filename, ecut=200.0, blocks=1, extrapolate=4):
@@ -212,7 +212,7 @@ class RPACorrelation:
 
         wd = FrequencyDescriptor(1j * self.omega_w)
 
-        pair = NoCalculatorPairDensity(
+        pair = PairDensityCalculator(
             self.gs,
             context=self.context.with_txt('chi0.txt'),
             nblocks=self.nblocks)
