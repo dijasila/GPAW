@@ -4,9 +4,10 @@ import numpy as np
 from scipy.optimize import leastsq
 
 from ase.units import Ha
+import gpaw.mpi as mpi
 from gpaw.pw.descriptor import PWDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.response.pair import PairDensity
+from gpaw.response.pair import NoCalculatorPairDensity, get_gs_and_context
 
 
 def check_degenerate_bands(filename, etol):
@@ -63,7 +64,10 @@ def get_bz_transitions(filename, q_c, bzk_kc,
 
     ecut /= Ha
 
-    pair = PairDensity(filename, txt=txt)
+    gs, context = get_gs_and_context(filename, txt=txt, world=mpi.world,
+                                     timer=None)
+
+    pair = NoCalculatorPairDensity(gs=gs, context=context)
     pd = get_pw_descriptor(q_c, pair.gs, ecut)
 
     bzk_kv = np.dot(bzk_kc, pd.gd.icell_cv) * 2 * np.pi
@@ -100,7 +104,7 @@ def get_chi0_integrand(pair, pd, n_n, m_m, k_v, s):
                                    m_m[0], m_m[-1] + 1)
 
     pairden_paw_corr = pair.gs.pair_density_paw_corrections
-    pawcorr = pairden_paw_corr(pd, alter_optical_limit=True)
+    pawcorr = pairden_paw_corr(pd)
     n_nmG = pair.get_full_pair_density(pd, kptpair, n_n, m_m, pawcorr=pawcorr)
 
     df_nm = kptpair.get_occupation_differences(n_n, m_m)

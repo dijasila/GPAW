@@ -332,6 +332,14 @@ class NoCalculatorPairDensity:
 
     @timer('Optical limit')
     def calculate_optical_pair_velocity(self, n, kpt1, kpt2, block=False):
+        # This has the effect of caching at most one kpoint.
+        # This caching will be efficient only if we are looping over kpoints
+        # in a particular way.
+        #
+        # It would be better to refactor so this caching is handled explicitly
+        # by the caller providing the right thing.
+        #
+        # See https://gitlab.com/gpaw/gpaw/-/issues/625
         if self.ut_sKnvR is None or kpt1.K not in self.ut_sKnvR[kpt1.s]:
             self.ut_sKnvR = self.calculate_derivatives(kpt1)
 

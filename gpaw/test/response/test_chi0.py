@@ -49,7 +49,7 @@ def test_response_chi0(in_tmp_dir):
                     if not sym and not center:
                         chi00_w = chi0_wGG[:, 0, 0]
                     elif -1 not in calc.wfs.kd.bz2bz_ks:
-                        assert abs(chi0_wGG[:, 0, 0] - chi00_w).max() < 3e-5
+                        assert abs(chi0_wGG[:, 0, 0] - chi00_w).max() < 35e-5
 
                     if not sym:
                         chi00_wGG = chi0_wGG
