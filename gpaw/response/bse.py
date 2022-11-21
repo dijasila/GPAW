@@ -1,29 +1,25 @@
 import functools
 from time import time, ctime
 from datetime import timedelta
-import sys
 
 import numpy as np
 from ase.units import Hartree, Bohr
 from ase.dft import monkhorst_pack
 from scipy.linalg import eigh
 
-from gpaw import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.pw.descriptor import PWDescriptor
 from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.mpi import world, serial_comm, broadcast
-from gpaw.response import ResponseContext, ResponseGroundStateAdapter, timer
+from gpaw.response import ResponseContext
 from gpaw.response.df import write_response_function
 from gpaw.response.coulomb_kernels import get_coulomb_kernel
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
-from gpaw.response.pair import PairDensity
 from gpaw.response.screened_interaction import initialize_w_calculator
 from gpaw.response.paw import PWPAWCorrectionData
 from gpaw.response.frequencies import FrequencyDescriptor
 from gpaw.response.pair import NoCalculatorPairDensity, get_gs_and_context
 from gpaw.response.chi0 import Chi0Calculator
-from gpaw.response.context import ResponseContext
 
 
 class BSEBackend:
