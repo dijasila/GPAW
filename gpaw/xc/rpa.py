@@ -84,7 +84,7 @@ class RPACorrelation:
             txt file for saving and loading contributions to the correlation
             energy from different q-points
         """
-        gs, context = get_gs_and_context(calc=calc, txt=txt, world=world, 
+        gs, context = get_gs_and_context(calc=calc, txt=txt, world=world,
                                          timer=None)
 
         self.gs = gs
