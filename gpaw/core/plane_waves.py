@@ -307,11 +307,12 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         out:
             Target UniformGridFunctions object.
         """
+        print('O', out)
         comm = self.desc.comm
         xp = self.xp
         if out is None:
             out = grid.empty(self.dims, xp=xp)
-        assert self.desc.dtype == out.desc.dtype
+        assert self.desc.dtype == out.desc.dtype, (self.desc, out.desc)
         assert out.desc.pbc_c.all()
         assert comm.size == out.desc.comm.size
 
@@ -459,7 +460,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
             result_x = np.einsum('xG, xG -> x', a_xG, a_xG)
         elif kind == 'kinetic':
 
-            a_xG.shape = (len(a_xG), -1, 2)
+            a_xG = a_xG.reshape((len(a_xG), -1, 2))
             result_x = self.xp.einsum('xGi, xGi, G -> x',
                                       a_xG,
                                       a_xG,
@@ -479,12 +480,24 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
                    out: UniformGridFunctions = None) -> None:
         """Add weighted absolute square of data to output array."""
         assert out is not None
-        tmp_R = out.desc.new(dtype=self.desc.dtype).empty()
+        xp = self.xp
+        if xp is np:
+            tmp_R = out.desc.new(dtype=self.desc.dtype).empty()
+            for f, psit_G in zip(weights, self):
+                # Same as (but much faster):
+                # out.data += f * abs(psit_G.ifft().data)**2
+                psit_G.ifft(out=tmp_R)
+                _gpaw.add_to_density(f, tmp_R.data, out.data)
+            return
+        out_R = out.to_xp(xp)
+        tmp_R = out_R.new()
+        print(out_R, out_R.xp)
+        print(tmp_R, tmp_R.xp)
         for f, psit_G in zip(weights, self):
-            # Same as (but much faster):
-            # out.data += f * abs(psit.ifft().data)**2
+            print(psit_G, psit_G.xp, f)
             psit_G.ifft(out=tmp_R)
-            _gpaw.add_to_density(f, tmp_R.data, out.data)
+            out_R.data += f * xp.abs(tmp_R)**2
+        out.data[:] = xp.asnumpy(out_R.data)
 
     def to_pbc_grid(self):
         return self

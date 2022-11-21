@@ -167,7 +167,7 @@ class PWFDWaveFunctions(WaveFunctions):
         # S now contains L^*
 
         S.multiply(psit_nX, out=psit2_nX)
-        S.to_cpu().multiply(P_ani, out=P2_ani)
+        S.multiply(P_ani, out=P2_ani)
         psit_nX.data[:] = psit2_nX.data
         P_ani.data[:] = P2_ani.data
 
@@ -229,7 +229,7 @@ class PWFDWaveFunctions(WaveFunctions):
 
         H.multiply(psit_nX, out=psit2_nX)
         psit_nX.data[:] = psit2_nX.data
-        H.to_cpu().multiply(P_ani, out=P2_ani)
+        H.multiply(P_ani, out=P2_ani)
         P_ani.data[:] = P2_ani.data
 
     def force_contribution(self, potential: Potential, F_av: Array2D):

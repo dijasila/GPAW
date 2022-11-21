@@ -30,10 +30,20 @@ class PWHamiltonian(Hamiltonian):
         return precondition
 
 
-def precondition(psit, residuals, out):
-    G2 = psit.desc.ekin_G * 2
-    for r, o, ekin in zip(residuals.data, out.data, psit.norm2('kinetic')):
-        _gpaw.pw_precond(G2, r, ekin, o)
+def precondition(psit_nG, residual_nG, out):
+    xp = psit_nG.xp
+    G2_G = xp.asarray(psit_nG.desc.ekin_G * 2)
+    ekin_n = psit_nG.norm2('kinetic')
+    for r_G, o_G, ekin in zip(residual_nG.data,
+                              out.data,
+                              ekin_n):
+        if xp is np:
+            _gpaw.pw_precond(G2_G, r_G, ekin, o_G)
+        else:
+            x = 1 / ekin / 3 * G2_G
+            a = 27.0 + x * (18.0 + x * (12.0 + x * 8.0))
+            xx = x * x
+            o_G[:] = -4.0 / 3 / ekin * a / (a + 16.0 * xx * xx) * r_G
 
 
 def spinor_precondition(psit_nsG, residual_nsG, out):

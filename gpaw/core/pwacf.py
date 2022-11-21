@@ -39,7 +39,8 @@ class PlaneWaveAtomCenteredFunctions(AtomCenteredFunctions):
         self._layout = AtomArraysLayout([sum(2 * f.l + 1 for f in funcs)
                                          for funcs in self.functions],
                                         self._atomdist,
-                                        self.pw.dtype)
+                                        self.pw.dtype,
+                                        xp=self.xp)
 
     def to_uniform_grid(self,
                         out: UniformGridFunctions,

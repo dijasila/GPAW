@@ -60,7 +60,8 @@ class Matrix:
                  N: int,
                  dtype=None,
                  data: ArrayLike2D = None,
-                 dist: Union[MatrixDistribution, tuple] = None):
+                 dist: Union[MatrixDistribution, tuple] = None,
+                 xp=None):
         """Matrix object.
 
         Parameters
@@ -94,12 +95,16 @@ class Matrix:
         self.dtype = np.dtype(dtype)
         assert dtype == float or dtype == complex, dtype
 
-        if isinstance(dist, CuPyDistribution):
-            self.xp = cp
-        elif data is not None and not isinstance(data, np.ndarray):
-            self.xp = cp
+        if xp is None:
+            if isinstance(dist, CuPyDistribution):
+                self.xp = cp
+            elif data is not None and not isinstance(data, np.ndarray):
+                self.xp = cp
+            else:
+                self.xp = np
         else:
-            self.xp = np
+            self.xp = xp
+
         dist = dist or ()
         if isinstance(dist, tuple):
             kwargs = {key: val for key, val in zip(['comm', 'r', 'c', 'b'],
