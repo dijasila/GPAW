@@ -478,7 +478,7 @@ class RadialGridDescriptor(ABC):
    
     @abstractmethod
     def r2g(self, r):
-        """Inverse continious map from a real space distance (r)
+        """Inverse continuous map from a real space distance (r)
            to a floating point grid index (g).
         
            Used by methods floor, round, and ceil, which manipulate this
