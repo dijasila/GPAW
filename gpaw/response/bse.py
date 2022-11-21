@@ -137,12 +137,8 @@ class BSE:
             if self.spins == 2:
                 conduction_bands *= 2
 
-        self.val_sn = np.array(valence_bands)
-        if len(np.shape(self.val_sn)) == 1:
-            self.val_sn = np.array([self.val_sn])
-        self.con_sn = np.array(conduction_bands)
-        if len(np.shape(self.con_sn)) == 1:
-            self.con_sn = np.array([self.con_sn])
+        self.val_sn = np.atleast_2d(valence_bands)
+        self.con_sn = np.atleast_2d(conduction_bands)
 
         self.td = True
         for n in self.val_sn[0]:
