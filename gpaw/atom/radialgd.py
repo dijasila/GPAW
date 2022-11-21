@@ -485,6 +485,7 @@ class RadialGridDescriptor(ABC):
            floating point to an integer accordingly.
         """
 
+
 class EquidistantRadialGridDescriptor(RadialGridDescriptor):
     def __init__(self, h, N=1000, h0=0.0):
         """Equidistant radial grid descriptor.
