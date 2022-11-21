@@ -58,7 +58,6 @@ def two_phi_planewave_integrals(k_Gv, setup=None,
         for j2, l2 in enumerate(l_j):
             # Calculate the radial part of the product density
             rhot_g = phi_jg[j1] * phi_jg[j2] - phit_jg[j1] * phit_jg[j2]
-            rhot_g[-1] = 0.0
             for l in range((l1 + l2) % 2, l1 + l2 + 1, 2):
                 spline = rgd.spline(rhot_g, l=l, points=2**10)
                 splineG = ft(spline, N=2**12)
