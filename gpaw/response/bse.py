@@ -18,7 +18,7 @@ from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.response.screened_interaction import initialize_w_calculator
 from gpaw.response.paw import PWPAWCorrectionData
 from gpaw.response.frequencies import FrequencyDescriptor
-from gpaw.response.pair import NoCalculatorPairDensity, get_gs_and_context
+from gpaw.response.pair import PairDensityCalculator, get_gs_and_context
 from gpaw.response.chi0 import Chi0Calculator
 
 
@@ -166,7 +166,7 @@ class BSEBackend:
         if optical:
             v_G[0] = 0.0
 
-        self.pair = NoCalculatorPairDensity(
+        self.pair = PairDensityCalculator(
             gs=self.gs,
             context=ResponseContext(txt='pair.txt', timer=None,
                                     world=serial_comm))
@@ -450,7 +450,7 @@ class BSEBackend:
         susceptibility."""
 
         wd = FrequencyDescriptor([0.0])
-        pair = NoCalculatorPairDensity(
+        pair = PairDensityCalculator(
             gs=self.gs,
             context=self.context.with_txt('chi0.txt'))
 

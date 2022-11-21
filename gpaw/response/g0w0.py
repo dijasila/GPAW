@@ -22,7 +22,7 @@ from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chi0 import Chi0Calculator
 from gpaw.response.g0w0_kernels import G0W0Kernel
 from gpaw.response.hilbert import GWHilbertTransforms
-from gpaw.response.pair import NoCalculatorPairDensity
+from gpaw.response.pair import PairDensityCalculator
 from gpaw.response.screened_interaction import WCalculator
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.response import timer
@@ -1040,8 +1040,8 @@ class G0W0(G0W0Calculator):
         if nblocksmax:
             nblocks = get_max_nblocks(context.world, self._gpwfile, ecut)
 
-        pair = NoCalculatorPairDensity(gs, context,
-                                       nblocks=nblocks)
+        pair = PairDensityCalculator(gs, context,
+                                     nblocks=nblocks)
 
         kpts = list(select_kpts(kpts, gs.kd))
 
