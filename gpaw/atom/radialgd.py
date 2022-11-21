@@ -478,8 +478,12 @@ class RadialGridDescriptor(ABC):
    
     @abstractmethod
     def r2g(self, r):
-        raise NotImplementedError
-
+        """Inverse continious map from a real space distance (r)
+           to a floating point grid index (g).
+        
+           Used by methods floor, round, and ceil, which manipulate this
+           floating point to an integer accordingly.
+        """
 
 class EquidistantRadialGridDescriptor(RadialGridDescriptor):
     def __init__(self, h, N=1000, h0=0.0):
