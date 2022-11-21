@@ -634,7 +634,7 @@ class G0W0Calculator:
         assert len(I0_G) == len(I1_G)
         assert (G_G >= 0).all()
         pairden_paw_corr = self.wcalc.gs.pair_density_paw_corrections
-        pawcorr_wcalc1 = pairden_paw_corr(pd1, alter_optical_limit=True)
+        pawcorr_wcalc1 = pairden_paw_corr(pd1)
         assert pawcorr.almost_equal(pawcorr_wcalc1, G_G)
 
     @timer('Sigma')
