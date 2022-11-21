@@ -1,7 +1,6 @@
 import numpy as np
 
 from gpaw.pw.lfc import ft
-import numpy as np
 from gpaw.gaunt import gaunt
 from gpaw.spherical_harmonics import Y
 
@@ -71,7 +70,8 @@ def two_phi_planewave_integrals(k_Gv, setup=None,
                         i2 = i2_start + m2
                         G_m = G_LLL[l1**2 + m1, l2**2 + m2, l**2:(l + 1)**2]
                         for m, G in enumerate(G_m):
-                            if G == 0: #  If Gaunt coefficient is zero, no need to add
+                            # If Gaunt coefficient is zero, no need to add
+                            if G == 0:
                                 continue
                             x_G = Y(l**2 + m, *k_Gv.T) * f_G
                             phi_Gii[:, i1, i2] += G * x_G

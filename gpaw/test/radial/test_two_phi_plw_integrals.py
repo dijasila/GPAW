@@ -1,5 +1,6 @@
 import pytest
 
+
 def test_two_phi_plw_integrals():
     import numpy as np
     from gpaw.lfc import LocalizedFunctionsCollection as LFC
