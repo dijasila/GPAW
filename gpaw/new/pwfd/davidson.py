@@ -22,7 +22,7 @@ AAFunc = Callable[[AA, AA], AA]
 
 class Davidson(Eigensolver):
     def __init__(self,
-                 nbands,
+                 nbands: int,
                  wf_grid,
                  band_comm,
                  preconditioner_factory,
@@ -39,7 +39,7 @@ class Davidson(Eigensolver):
             self.H_NN = Matrix(2 * B, 2 * B, wf_grid.dtype)
             self.S_NN = Matrix(2 * B, 2 * B, wf_grid.dtype)
         else:
-            self.H_NN = self.S_NN = EmptyMatrix()
+            self.H_NN = self.S_NN = Matrix(0, 0)
 
         self.M_nn = Matrix(B, B, wf_grid.dtype,
                            dist=(band_comm, band_comm.size))
@@ -309,7 +309,3 @@ def calculate_weights(converge_bands: int | str,
                 weight_un[:] = np.inf
         """
     return None
-
-
-class EmptyMatrix:
-    data = np.empty((0, 0))

@@ -68,8 +68,7 @@ def initialize_w_calculator(chi0calc, txt='w.txt', ppa=False, xc='RPA',
                           ns=gs.nspins,
                           wd=chi0calc.wd,
                           Eg=Eg,
-                          timer=context.timer,
-                          fd=context.fd)
+                          context=context)
     wd = chi0calc.wd
     pair = chi0calc.pair
 
@@ -129,19 +128,16 @@ class WCalculator:
         self.gs = gs
         self.truncation = truncation
         self.context = context
-        self.timer = self.context.timer
         self.integrate_gamma = integrate_gamma
         self.qd = get_qdescriptor(self.gs.kd, self.gs.atoms)
         self.xckernel = xckernel
-        self.fd = self.context.fd
 
         if q0_correction:
             assert self.truncation == '2D'
             self.q0_corrector = Q0Correction(
                 cell_cv=self.gs.gd.cell_cv,
                 bzk_kc=self.gs.kd.bzk_kc,
-                N_c=self.qd.N_c,
-                pbc=self.gs.pbc)
+                N_c=self.qd.N_c)
 
             npts_c = self.q0_corrector.npts_c
             self.context.print('Applying analytical 2D correction to W:',
@@ -159,8 +155,8 @@ class WCalculator:
             wstc = WignerSeitzTruncatedCoulomb(
                 self.wcalc.gs.gd.cell_cv,
                 self.wcalc.gs.kd.N_c)
-            # self.context.print(wstc.get_description()) # uncomment & add to
-            # stdout in a separate merge request related to issue #604
+            self.context.print(wstc.get_description())
+
         else:
             wstc = None
 

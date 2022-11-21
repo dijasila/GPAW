@@ -378,7 +378,7 @@ class Chi0Calculator:
         self.plasmafreq_vv += 4 * np.pi * plasmafreq_vv
         self.context.print('Plasma frequency:', flush=False)
         self.context.print((self.plasmafreq_vv**0.5 * Ha).round(2), flush=True)
-    
+
         # Calculate the Drude dielectric response function from the
         # free-space plasma frequency
         try:
@@ -393,7 +393,7 @@ class Chi0Calculator:
         # Fill the Drude dielectric function into the chi0 head
         chi0.chi0_wvv[:] += drude_chi_wvv
 
-    def initialize_integrator(self, block_distributed=True):
+    def initialize_integrator(self, block_distributed=True) -> Integrator:
         """The integrator class is a general class for brillouin zone
         integration that can integrate user defined functions over user
         defined domains and sum over bands."""

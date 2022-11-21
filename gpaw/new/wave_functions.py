@@ -6,6 +6,7 @@ from gpaw.setup import Setups
 from gpaw.typing import Array1D, Array2D, ArrayND
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.new.potential import Potential
 
 
 class WaveFunctions:
@@ -125,7 +126,7 @@ class WaveFunctions:
     def receive(self, kpt_comm, rank):
         raise NotImplementedError
 
-    def force_contribution(self, dH_asii: AtomArrays, F_av: Array2D):
+    def force_contribution(self, potential: Potential, F_av: Array2D):
         raise NotImplementedError
 
     def gather_wave_function_coefficients(self) -> np.ndarray | None:
