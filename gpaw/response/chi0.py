@@ -19,7 +19,7 @@ from gpaw.response.hilbert import HilbertTransform
 from gpaw.response.integrators import (Integrator, PointIntegrator,
                                        TetrahedronIntegrator)
 from gpaw.response import timer
-from gpaw.response.pair import NoCalculatorPairDensity
+from gpaw.response.pair import PairDensityCalculator
 from gpaw.response.pw_parallelization import block_partition
 from gpaw.response.symmetry import PWSymmetryAnalyzer
 from gpaw.typing import Array1D
@@ -221,7 +221,7 @@ class Chi0Calculator:
 
         # Reset PAW correction in case momentum has change
         pairden_paw_corr = self.gs.pair_density_paw_corrections
-        self.pawcorr = pairden_paw_corr(pd, alter_optical_limit=True)
+        self.pawcorr = pairden_paw_corr(pd)
 
         # Integrate chi0 body
         self.context.print('Integrating response function.')
@@ -467,8 +467,12 @@ class Chi0Calculator:
         else:
             # When doing a calculation of the intraband response, we need only
             # the partially filled bands
-            bandsum = {'n1': self.nocc1, 'n2': self.nocc2}
-            mat_kwargs.pop('integrationmode')  # Can we clean up here? XXX
+            # All partially unoccupied bands looks like this:
+            # bandsum = {'n1': self.nocc1, 'n2': self.nocc2}
+            # Do the requested fraction of the partially unoccupied bands
+            n1 = max(min(m1, self.nocc2), self.nocc1)
+            n2 = min(max(m2, self.nocc1), self.nocc2)
+            bandsum = {'n1': n1, 'n2': n2}
         mat_kwargs.update(bandsum)
         eig_kwargs.update(bandsum)
 
@@ -625,7 +629,7 @@ class Chi0Calculator:
                          symmetry.how_many_symmetries())
         if self.pawcorr is None:
             pairden_paw_corr = self.gs.pair_density_paw_corrections
-            self.pawcorr = pairden_paw_corr(pd, alter_optical_limit=True)
+            self.pawcorr = pairden_paw_corr(pd)
 
         kptpair = self.pair.get_kpoint_pair(pd, s, k_c, n1, n2,
                                             m1, m2, block=True)
@@ -661,7 +665,7 @@ class Chi0Calculator:
                          symmetry.how_many_symmetries())
         if self.pawcorr is None:
             pairden_paw_corr = self.gs.pair_density_paw_corrections
-            self.pawcorr = pairden_paw_corr(pd, alter_optical_limit=True)
+            self.pawcorr = pairden_paw_corr(pd)
 
         kptpair = self.pair.get_kpoint_pair(pd, s, k_c, n1, n2,
                                             m1, m2, block=False)
@@ -725,7 +729,7 @@ class Chi0Calculator:
 
         vel_nv = self.pair.intraband_pair_density(kpt1, n_n)
 
-        if self.integrationmode is None:
+        if integrationmode is None:
             f_n = kpt1.f_n
             width = self.gs.get_occupations_width()
             if width > 1e-15:
@@ -909,13 +913,15 @@ class Chi0(Chi0Calculator):
         gs, context = get_gs_and_context(calc, txt, world, timer)
         nbands = nbands or gs.bd.nbands
 
-        wd = new_frequency_descriptor(gs, context, nbands, frequencies,
-                                      domega0=domega0,
-                                      omega2=omega2, omegamax=omegamax)
+        wd = new_frequency_descriptor(
+            gs, context, nbands, frequencies,
+            domega0=domega0,
+            omega2=omega2, omegamax=omegamax)
 
-        pair = NoCalculatorPairDensity(gs, context,
-                                       threshold=threshold,
-                                       nblocks=nblocks)
+        pair = PairDensityCalculator(
+            gs, context,
+            threshold=threshold,
+            nblocks=nblocks)
 
         super().__init__(wd=wd, pair=pair, nbands=nbands, ecut=ecut, **kwargs)
 

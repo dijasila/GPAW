@@ -89,7 +89,6 @@ class PointIntegrator(Integrator):
             return self.response_function_integration(hermitian=True,
                                                       hilbert=False,
                                                       wings=False,
-                                                      intraband=False,
                                                       *args, **kwargs)
         elif kind == 'hermitian response function wings':
             return self.response_function_integration(hermitian=True,

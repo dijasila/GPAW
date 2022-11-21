@@ -155,11 +155,10 @@ class ResponseGroundStateAdapter:
         return self._wfs._get_wave_function_array(
             u, n, realspace=True)
 
-    def pair_density_paw_corrections(self, pd, alter_optical_limit=False):
+    def pair_density_paw_corrections(self, pd):
         from gpaw.response.paw import get_pair_density_paw_corrections
         return get_pair_density_paw_corrections(
-            setups=self.setups, pd=pd, spos_ac=self.spos_ac,
-            alter_optical_limit=alter_optical_limit)
+            setups=self.setups, pd=pd, spos_ac=self.spos_ac)
 
     def get_pos_av(self):
         # gd.cell_cv must always be the same as pd.gd.cell_cv, right??
