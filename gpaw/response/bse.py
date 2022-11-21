@@ -39,7 +39,7 @@ class BSE:
                  gw_skn=None,
                  truncation=None,
                  integrate_gamma=1,
-                 txt=sys.stdout,
+                 txt='-',
                  mode='BSE',
                  wfile=None,
                  write_h=False,
