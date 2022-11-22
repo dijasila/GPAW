@@ -374,7 +374,7 @@ class BSEBackend:
             self.par_save('H_SS.ulm', 'H_SS', self.H_sS)
 
     def get_density_matrix(self, kpt1, kpt2):
-
+        # xxx This one should use QSymmetryOp at g0w0.py
         Q_c = self.kd.bzk_kc[kpt2.K] - self.kd.bzk_kc[kpt1.K]
         iQ = self.qd.where_is_q(Q_c, self.qd.bzk_kc)
         iq = self.qd.bz2ibz_k[iQ]
@@ -403,7 +403,7 @@ class BSEBackend:
         M_vv = np.dot(pd.gd.cell_cv.T, np.dot(U_cc.T,
                                               np.linalg.inv(pd.gd.cell_cv).T))
 
-        pawcorr = self.pawcorr_q[iq].remap_somehow(M_vv, G_Gv, sym, sign)
+        pawcorr = self.pawcorr_q[iq].remap(M_vv, G_Gv, sym, sign)
 
         rho_mnG = np.zeros((len(kpt1.eps_n), len(kpt2.eps_n), len(G_Gv)),
                            complex)

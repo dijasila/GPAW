@@ -97,7 +97,7 @@ class PWPAWCorrectionData:
         return PWPAWCorrectionData(Q_aGii, pd=self.pd, setups=self.setups,
                                    pos_av=self.pos_av)
 
-    def remap_somehow(self, M_vv, G_Gv, sym, sign):
+    def remap(self, M_vv, G_Gv, sym, sign):
         Q_aGii = []
         for a, Q_Gii in enumerate(self.Q_aGii):
             x_G = self._get_x_G(G_Gv, M_vv, self.pos_av[a])
@@ -119,17 +119,8 @@ class PWPAWCorrectionData:
         # is only used with PAW corrections.
         return np.exp(1j * (G_Gv @ (pos_v - M_vv @ pos_v)))
 
-    def remap_somehow_else(self, symop, G_Gv, M_vv):
-        myQ_aGii = []
-        for a, Q_Gii in enumerate(self.Q_aGii):
-            x_G = self._get_x_G(G_Gv, M_vv, self.pos_av[a])
-            U_ii = self.setups[a].R_sii[symop.symno]
-            Q_Gii = np.dot(np.dot(U_ii, Q_Gii * x_G[:, None, None]),
-                           U_ii.T).transpose(1, 0, 2)
-            if symop.sign == -1:
-                Q_Gii = Q_Gii.conj()
-            myQ_aGii.append(Q_Gii)
-        return self._new(myQ_aGii)
+    def remap_by_symop(self, symop, G_Gv, M_vv):
+        return self.remap(M_vv, G_Gv, symop.symno, symop.sign)
 
     def multiply(self, P_ani, band):
         assert isinstance(P_ani, list)
