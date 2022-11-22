@@ -386,7 +386,7 @@ class G0W0Calculator:
             # We pass a serial communicator because the parallel handling
             # is somewhat wonky, we'd rather do that ourselves:
             try:
-                self.qcache = FileCache('qcache_{self.filename}'
+                self.qcache = FileCache(f'qcache_{self.filename}',
                                         comm=mpi.SerialCommunicator())
             except TypeError as err:
                 raise RuntimeError(
