@@ -100,6 +100,8 @@ class Chi0Calculator:
 
         self.hilbert = hilbert
         self.timeordered = bool(timeordered)
+        if self.timeordered:
+            assert self.hilbert  # Timeordered is only needed for G0W0
 
         if self.eta == 0.0:
             assert not hilbert
@@ -399,8 +401,7 @@ class Chi0Calculator:
         defined domains and sum over bands."""
         integrator: Integrator
 
-        if self.integrationmode is None or \
-           self.integrationmode == 'point integration':
+        if self.integrationmode is None:
             cls = PointIntegrator
         elif self.integrationmode == 'tetrahedron integration':
             cls = TetrahedronIntegrator  # type: ignore
@@ -473,7 +474,6 @@ class Chi0Calculator:
             n1 = max(min(m1, self.nocc2), self.nocc1)
             n2 = min(max(m2, self.nocc1), self.nocc2)
             bandsum = {'n1': n1, 'n2': n2}
-            mat_kwargs.pop('integrationmode')  # Can we clean up here? XXX
         mat_kwargs.update(bandsum)
         eig_kwargs.update(bandsum)
 
@@ -512,7 +512,6 @@ class Chi0Calculator:
             # force calculation of the response function.
             kind = 'response function'
             extraargs['eta'] = self.eta
-            extraargs['timeordered'] = self.timeordered
 
         return kind, extraargs
 
@@ -730,7 +729,7 @@ class Chi0Calculator:
 
         vel_nv = self.pair.intraband_pair_density(kpt1, n_n)
 
-        if self.integrationmode is None:
+        if integrationmode is None:
             f_n = kpt1.f_n
             width = self.gs.get_occupations_width()
             if width > 1e-15:

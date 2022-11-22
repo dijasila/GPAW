@@ -501,9 +501,6 @@ class PairDensityCalculator:
 
         return ut_nvR
 
-    def __del__(self):
-        self.context.close()
-
 
 def fft_indices(kd, K1, K2, q_c, pd, shift0_c):
     """Get indices for G-vectors inside cutoff sphere."""

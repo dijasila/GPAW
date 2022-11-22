@@ -1,5 +1,4 @@
 import functools
-import os
 import pickle
 import warnings
 from math import pi
@@ -9,7 +8,6 @@ import numpy as np
 
 from ase.parallel import paropen
 from ase.units import Ha
-from ase.utils import opencew
 
 from gpaw import GPAW, debug
 import gpaw.mpi as mpi
@@ -591,7 +589,7 @@ class G0W0Calculator:
 
         M_vv = symop.get_M_vv(pd0.gd.cell_cv)
 
-        mypawcorr = pawcorr.remap_somehow_else(symop, G_Gv, M_vv)
+        mypawcorr = pawcorr.remap_by_symop(symop, G_Gv, M_vv)
 
         if debug:
             self.check(ie, i_cG, shift0_c, N_c, q_c, mypawcorr)
@@ -826,29 +824,6 @@ class G0W0Calculator:
             kpt_indices=self.kpts,
             snapshot=self.filename + '-vxc-exx.json')
         return vxc_skn / Ha, exx_skn / Ha
-
-    def read_contribution(self, filename):
-        fd = opencew(filename)  # create, exclusive, write
-        if fd is not None:
-            # File was not there: nothing to read
-            return fd, None
-
-        try:
-            with open(filename, 'rb') as fd:
-                x_skn = np.load(fd)
-        except IOError:
-            self.context.print('Removing broken file:', filename)
-        else:
-            self.context.print('Read:', filename)
-            if x_skn.shape == self.shape:
-                return None, x_skn
-            self.context.print('Removing bad file (wrong shape of array):',
-                               filename)
-
-        if self.context.world.rank == 0:
-            os.remove(filename)
-
-        return opencew(filename), None
 
     def print_results(self, results):
         description = ['f:      Occupation numbers',
