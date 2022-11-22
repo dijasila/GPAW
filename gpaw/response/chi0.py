@@ -401,8 +401,7 @@ class Chi0Calculator:
         defined domains and sum over bands."""
         integrator: Integrator
 
-        if self.integrationmode is None or \
-           self.integrationmode == 'point integration':
+        if self.integrationmode is None:
             cls = PointIntegrator
         elif self.integrationmode == 'tetrahedron integration':
             cls = TetrahedronIntegrator  # type: ignore
