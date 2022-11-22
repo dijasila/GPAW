@@ -17,7 +17,9 @@ def asnumpy(a, out=None):
 
 
 def asarray(a):
-    return ndarray(a.copy())
+    if isinstance(a, np.ndarray):
+        return ndarray(a.copy())
+    return a
 
 
 def multiply(a, b, c):

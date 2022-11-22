@@ -3,10 +3,12 @@ import scipy.linalg as sla
 
 try:
     import cupy
+    import cupyx
 except ImportError:
     import gpaw.gpu.cupy as cupy  # type: ignore
+    import gpaw.gpu.cupyx as cupyx  # type: ignore
 
-__all__ = ['cupy', 'as_xp']
+__all__ = ['cupy', 'cupyx', 'as_xp']
 
 
 def as_xp(array, xp):
