@@ -1,6 +1,7 @@
 import numbers
 from math import pi, factorial as fac
 
+from abc import ABC, abstractmethod
 import numpy as np
 from scipy.interpolate import make_interp_spline, splder
 
@@ -58,7 +59,7 @@ def fsbt(l, f_g, r_g, G_k):
     return f_k
 
 
-class RadialGridDescriptor:
+class RadialGridDescriptor(ABC):
     ndim = 1  # dimension of ndarrays
 
     def __init__(self, r_g: np.ndarray, dr_g, default_spline_points=25):
@@ -474,6 +475,15 @@ class RadialGridDescriptor:
             g -= 1
         gcut = g + 1
         return gcut
+   
+    @abstractmethod
+    def r2g(self, r):
+        """Inverse continuous map from a real space distance (r)
+           to a floating point grid index (g).
+        
+           Used by methods floor, round, and ceil, which manipulate this
+           floating point to an integer accordingly.
+        """
 
 
 class EquidistantRadialGridDescriptor(RadialGridDescriptor):
