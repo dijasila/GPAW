@@ -5,6 +5,8 @@ from gpaw import GPAW, PW
 from gpaw.response.df import DielectricFunction
 from gpaw.test import equal, findpeak
 
+from matplotlib import pyplot as plt
+
 # Comparing the EELS spectrum of sodium for different block
 # parallelizations. Intended to be run with 8 cores.
 
@@ -53,13 +55,26 @@ def test_response_na_plasmons_tetrahedron(in_tmp_dir, scalapack):
     # df2NLFCy, df2LFCy = df2.get_dielectric_function(direction='y')
     # df2NLFCz, df2LFCz = df2.get_dielectric_function(direction='z')
 
+    kwargs.update({'integrationmode': None})
+    df3 = DielectricFunction('gs_Na.gpw',
+                             rate=0.001,
+                             nblocks=4,
+                             txt='4block.txt',
+                             **kwargs)
+
+    df3NLFCx, df3LFCx = df3.get_dielectric_function(direction='x')
+
     # Compare plasmon frequencies and intensities
     w_w = df1.wd.omega_w
 
     w1, I1 = findpeak(w_w, -(1. / df1LFCx).imag)
     w2, I2 = findpeak(w_w, -(1. / df2LFCx).imag)
+    w3, I3 = findpeak(w_w, -(1. / df3LFCx).imag)
     equal(w1, w2, 1e-2)
     equal(I1, I2, 1e-3)
-    
+
+    df2.
+    plt.plot(w_w, df2NLFCx)
+    plt.savefig('test.png')
     # find a peak, get the value for the peak, test that this peak value 
     # does not change from now 
