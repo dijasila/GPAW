@@ -513,7 +513,6 @@ class Chi0Calculator:
             # force calculation of the response function.
             kind = 'response function'
             extraargs['eta'] = self.eta
-            extraargs['timeordered'] = self.timeordered
 
         return kind, extraargs
 
