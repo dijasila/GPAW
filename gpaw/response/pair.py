@@ -238,26 +238,22 @@ class PairDensityCalculator:
 
         return KPointPair(kpt1, kpt2, Q_G)
 
-    def get_full_pair_density(self, pd, kptpair, n_n, m_m, *,
-                              pawcorr, block=False):
-        """Get the full pair density, including the optical limit head for q=0.
-        """
-        q_c = pd.kd.bzk_kc[0]
-        optical_limit = np.allclose(q_c, 0.0)
-
+    def get_optical_pair_density(self, pd, kptpair, n_n, m_m, *,
+                                 pawcorr, block=False):
+        """Get the full optical pair density, including the optical limit head
+        for q=0."""
         tmp_nmG = self.get_pair_density(pd, kptpair, n_n, m_m,
                                         pawcorr=pawcorr, block=block)
-        if optical_limit:
-            nG = pd.ngmax
-            n_nmG = np.empty((len(n_n), len(m_m), nG + 2), dtype=tmp_nmG.dtype)
-            n_nmG[:, :, 2:] = tmp_nmG
-            n_nmv = self.get_optical_pair_density(pd, kptpair, n_n, m_m,
-                                                  block=block)
-            n_nmG[:, :, :3] = n_nmv
-        else:
-            n_nmG = tmp_nmG
 
-        return n_nmG
+        nG = pd.ngmax
+        # P = (x, y, z, G1, G2, ...)
+        n_nmP = np.empty((len(n_n), len(m_m), nG + 2), dtype=tmp_nmG.dtype)
+        n_nmP[:, :, 3:] = tmp_nmG[:, :, 1:]
+        n_nmv = self.get_optical_pair_density_head(pd, kptpair, n_n, m_m,
+                                                   block=block)
+        n_nmP[:, :, :3] = n_nmv
+
+        return n_nmP
 
     @timer('get_pair_density')
     def get_pair_density(self, pd, kptpair, n_n, m_m, *,
@@ -282,18 +278,25 @@ class PairDensityCalculator:
 
         return n_nmG
 
-    @timer('get_optical_pair_density')
-    def get_optical_pair_density(self, pd, kptpair, n_n, m_m, block=False):
-        """Get the optical limit (G=0) of the pair density for a k-pair."""
-        copd = self.calculate_optical_pair_density
+    @timer('get_optical_pair_density_head')
+    def get_optical_pair_density_head(self, pd, kptpair, n_n, m_m,
+                                      block=False):
+        """Get the optical limit of the pair density head (G=0) for a k-pair.
+        """
+        q_c = pd.kd.bzk_kc[0]
+        optical_limit = np.allclose(q_c, 0.0)
+        assert optical_limit
 
         kpt1 = kptpair.kpt1
         kpt2 = kptpair.kpt2
 
+        # v = (x, y, z)
         n_nmv = np.zeros((len(n_n), len(m_m), 3), pd.dtype)
 
         for j, n in enumerate(n_n):
-            n_nmv[j] = copd(n, m_m, kpt1, kpt2, block=block)
+            n_nmv[j] = self.calculate_optical_pair_density_head(n, m_m,
+                                                                kpt1, kpt2,
+                                                                block=block)
 
         return n_nmv
 
@@ -382,7 +385,8 @@ class PairDensityCalculator:
 
         return -1j * n0_mv
 
-    def calculate_optical_pair_density(self, n, m_m, kpt1, kpt2, block=False):
+    def calculate_optical_pair_density_head(self, n, m_m, kpt1, kpt2,
+                                            block=False):
         # Relative threshold for perturbation theory
         threshold = self.threshold
 

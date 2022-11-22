@@ -98,6 +98,8 @@ def get_chi0_integrand(pair, pd, n_n, m_m, k_v, s):
     and energy differences of transitions from certain kpoint
     and spin.
     """
+    q_c = pd.kd.bzk_kc[0]
+    optical_limit = np.allclose(q_c, 0.0)
     k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
 
     kptpair = pair.get_kpoint_pair(pd, s, k_c, n_n[0], n_n[-1] + 1,
@@ -105,13 +107,21 @@ def get_chi0_integrand(pair, pd, n_n, m_m, k_v, s):
 
     pairden_paw_corr = pair.gs.pair_density_paw_corrections
     pawcorr = pairden_paw_corr(pd)
-    n_nmG = pair.get_full_pair_density(pd, kptpair, n_n, m_m, pawcorr=pawcorr)
 
     df_nm = kptpair.get_occupation_differences(n_n, m_m)
     eps_n = kptpair.kpt1.eps_n
     eps_m = kptpair.kpt2.eps_n
 
-    return n_nmG, df_nm, eps_n, eps_m
+    if optical_limit:
+        n_nmP = pair.get_optical_pair_density(pd, kptpair, n_n, m_m,
+                                              pawcorr=pawcorr)
+
+        return n_nmP, df_nm, eps_n, eps_m
+    else:
+        n_nmG = pair.get_pair_density(pd, kptpair, n_n, m_m,
+                                      pawcorr=pawcorr)
+
+        return n_nmG, df_nm, eps_n, eps_m
 
 
 def get_degeneracy_matrix(eps_n, tol=1.e-3):

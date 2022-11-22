@@ -198,7 +198,6 @@ class BSEBackend:
 
         get_pair = self.pair.get_kpoint_pair
         get_pair_density = self.pair.get_pair_density
-        get_optical_pair_density = self.pair.get_optical_pair_density
         if self.spinors:
             # Get all pair densities to allow for SOC mixing
             # Use twice as many no-SOC states as BSE bands to allow mixing
@@ -239,7 +238,8 @@ class BSEBackend:
                 rho_mnG = get_pair_density(pd0, pair, m_m, n_n,
                                            pawcorr=pawcorr)
                 if optical_limit:
-                    n_mnv = get_optical_pair_density(pd0, pair, m_m, n_n)
+                    n_mnv = self.pair.get_optical_pair_density_head(pd0, pair,
+                                                                    m_m, n_n)
                     rho_mnG[:, :, 0] = n_mnv[:, :, self.direction]
                 if self.spinors:
                     if optical_limit:

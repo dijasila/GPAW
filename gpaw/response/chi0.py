@@ -321,27 +321,31 @@ class Chi0Calculator:
         get_eigenvalues = partial(
             self.get_eigenvalues, **eig_kwargs)
 
-        tmp_chi0_wxvx = np.zeros(np.array(chi0.chi0_wxvG.shape) +
-                                 [0, 0, 0, 2],  # Do both head and wings
-                                 complex)
+        # We integrate the head and wings together, using the combined index P
+        # index v = (x, y, z)
+        # index G = (G0, G1, G2, ...)
+        # index P = (x, y, z, G1, G2, ...)
+        wxvP_shape = list(chi0.wxvG_shape)
+        wxvP_shape[-1] += 2
+        tmp_chi0_wxvP = np.zeros(wxvP_shape, complex)
         integrator.integrate(kind=kind + ' wings',  # Kind of integral
                              domain=domain,  # Integration domain
                              integrand=(get_optical_matrix_element,
                                         get_eigenvalues),
                              x=self.wd,  # Frequency Descriptor
-                             out_wxx=tmp_chi0_wxvx,  # Output array
+                             out_wxx=tmp_chi0_wxvP,  # Output array
                              **extraargs)
         if self.hilbert:
             with self.context.timer('Hilbert transform'):
                 ht = HilbertTransform(np.array(self.wd.omega_w), self.eta,
                                       timeordered=self.timeordered)
-                ht(tmp_chi0_wxvx)
-        tmp_chi0_wxvx *= prefactor
+                ht(tmp_chi0_wxvP)
+        tmp_chi0_wxvP *= prefactor
 
-        # Fill in wings part of the data, but leave out the head
-        chi0.chi0_wxvG[..., 1:] += tmp_chi0_wxvx[..., 3:]
+        # Fill in wings part of the data, but leave out the head part (G0)
+        chi0.chi0_wxvG[..., 1:] += tmp_chi0_wxvP[..., 3:]
         # Fill in the head
-        chi0.chi0_wvv += tmp_chi0_wxvx[:, 0, :3, :3]
+        chi0.chi0_wvv += tmp_chi0_wxvP[:, 0, :3, :3]
         analyzer.symmetrize_wxvG(chi0.chi0_wxvG)
         analyzer.symmetrize_wvv(chi0.chi0_wvv)
 
@@ -654,8 +658,9 @@ class Chi0Calculator:
                                    m1, m2, *,
                                    pd, symmetry,
                                    integrationmode=None):
-        """A function that returns optical pair densities.
-        NB: In dire need of further documentation! XXX"""
+        """A function that returns optical pair densities, that is the
+        head and wings matrix elements, indexed by:
+        # P = (x, y, v, G1, G2, ...)."""
         assert m1 <= m2
 
         k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
@@ -671,18 +676,18 @@ class Chi0Calculator:
                                             m1, m2, block=False)
         m_m = np.arange(m1, m2)
         n_n = np.arange(n1, n2)
-        n_nmG = self.pair.get_full_pair_density(pd, kptpair, n_n, m_m,
-                                                pawcorr=self.pawcorr,
-                                                block=False)
+        n_nmP = self.pair.get_optical_pair_density(pd, kptpair, n_n, m_m,
+                                                   pawcorr=self.pawcorr,
+                                                   block=False)
 
         if integrationmode is None:
-            n_nmG *= weight
+            n_nmP *= weight
 
         df_nm = kptpair.get_occupation_differences(n_n, m_m)
         df_nm[df_nm <= 1e-20] = 0.0
-        n_nmG *= df_nm[..., np.newaxis]**0.5
+        n_nmP *= df_nm[..., np.newaxis]**0.5
 
-        return n_nmG.reshape(-1, nG + 2)
+        return n_nmP.reshape(-1, nG + 2)
 
     @timer('Get eigenvalues')
     def get_eigenvalues(self, k_v, s, n1, n2,
