@@ -50,12 +50,12 @@ def test_chi0_intraband(in_tmp_dir):
     wp1 = wp1_vv[0, 0]
 
     df2 = DielectricFunction('intraband_spinpaired.gpw',
-                              frequencies={'type': 'nonlinear',
-                                           'domega0': 0.03},
-                              ecut=10,
-                              rate=0.1,
-                              integrationmode=None,
-                              txt='intraband_spinpaired_df_im.txt')
+                             frequencies={'type': 'nonlinear',
+                                          'domega0': 0.03},
+                             ecut=10,
+                             rate=0.1,
+                             integrationmode=None,
+                             txt='intraband_spinpaired_df_im.txt')
     df2NLFCx, df2LFCx = df2.get_dielectric_function(direction='x')
     df2NLFCy, df2LFCy = df2.get_dielectric_function(direction='y')
     df2NLFCz, df2LFCz = df2.get_dielectric_function(direction='z')
@@ -108,12 +108,12 @@ def test_chi0_intraband(in_tmp_dir):
     # From https://doi.org/10.1021/jp810808h
     wpref = 5.71 / Hartree
 
-    equal(wp1, wp3, 1e-2) # spin paired matches spin polar - tetra
-    equal(wp2, wp4, 1e-2) # spin paired matches spin polar - none
+    equal(wp1, wp3, 1e-2)  # spin paired matches spin polar - tetra
+    equal(wp2, wp4, 1e-2)  # spin paired matches spin polar - none
     equal(wp1, wp, 0.5)  # Use larger margin when comparing to Drude
     equal(wp2, wp, 0.5)  # Use larger margin when comparing to Drude
-    equal(wp1, wpref, 0.1) # paired tetra match paper
-    equal(wp2, wpref, 0.1) # paired none match paper
+    equal(wp1, wpref, 0.1)  # paired tetra match paper
+    equal(wp2, wpref, 0.1)  # paired none match paper
 
     # w_x equal for paired & polarized tetra
     w1, I1 = findpeak(w_w, -(1. / df1LFCx).imag)
@@ -133,19 +133,19 @@ def test_chi0_intraband(in_tmp_dir):
     equal(w1, w3, 1e-2)
     equal(I1, I3, 1e-1)
     
-    # w_y equal for paired & polarized none 
+    # w_y equal for paired & polarized none
     w2, I2 = findpeak(w_w, -(1. / df2LFCy).imag)
     w4, I4 = findpeak(w_w, -(1. / df4LFCy).imag)
     equal(w2, w4, 1e-2)
     equal(I2, I4, 1e-1)
 
-    # w_z equal for paired & polarized tetra 
+    # w_z equal for paired & polarized tetra
     w1, I1 = findpeak(w_w, -(1. / df1LFCz).imag)
     w3, I3 = findpeak(w_w, -(1. / df3LFCz).imag)
     equal(w1, w3, 1e-2)
     equal(I1, I3, 1e-1)
     
-    # w_z equal for paired & polarized none 
+    # w_z equal for paired & polarized none
     w2, I2 = findpeak(w_w, -(1. / df2LFCz).imag)
     w4, I4 = findpeak(w_w, -(1. / df4LFCz).imag)
     equal(w2, w4, 1e-2)
