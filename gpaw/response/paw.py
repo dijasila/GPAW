@@ -3,47 +3,26 @@ import numpy as np
 from gpaw.pw.lfc import ft
 from gpaw.gaunt import gaunt
 from gpaw.spherical_harmonics import Y
+from types import SimpleNamespace
 
 
-def two_phi_planewave_integrals(k_Gv, setup=None,
-                                rgd=None, phi_jg=None,
-                                phit_jg=None, l_j=None):
+class Setuplet:
+    def __init__(self, *, phit_jg, phi_jg, rgd, l_j, rcut_j):
+        self.rgd = rgd
+        self.data = SimpleNamespace(phit_jg=phit_jg, phi_jg=phi_jg)
+        self.l_j = l_j
+        self.ni = np.sum([2 * l + 1 for l in l_j])
+        self.rcut_j = rcut_j
 
-    if setup is not None:
-        rgd = setup.rgd
-        l_j = setup.l_j
-        # Obtain the phi_j and phit_j
-        phi_jg = []
-        phit_jg = []
-        rcut2 = 2 * max(setup.rcut_j)
-        gcut2 = rgd.ceil(rcut2)
-        for phi_g, phit_g in zip(setup.data.phi_jg, setup.data.phit_jg):
-            phi_g = phi_g.copy()
-            phit_g = phit_g.copy()
-            phi_g[gcut2:] = phit_g[gcut2:] = 0.
-            phi_jg.append(phi_g)
-            phit_jg.append(phit_g)
-    else:
-        assert rgd is not None
-        assert phi_jg is not None
-        assert l_j is not None
 
-    # Construct L (l**2 + m) and j (nl) index
-    L_i = []
-    j_i = []
-    for j, l in enumerate(l_j):
-        for m in range(2 * l + 1):
-            L_i.append(l**2 + m)
-            j_i.append(j)
-    ni = len(L_i)
-    nj = len(l_j)
-
-    if setup is not None:
-        assert ni == setup.ni and nj == setup.nj
-
-    if setup is not None:
-        assert ni == setup.ni and nj == setup.nj
-
+def two_phi_planewave_integrals(k_Gv, *, setup):
+    rgd = setup.rgd
+    l_j = setup.l_j
+    phi_jg = setup.data.phi_jg
+    phit_jg = setup.data.phit_jg
+    ni = setup.ni
+    gcut2 = rgd.ceil(2 * max(setup.rcut_j))
+    
     # Initialize
     npw = k_Gv.shape[0]
     phi_Gii = np.zeros((npw, ni, ni), dtype=complex)
@@ -59,7 +38,7 @@ def two_phi_planewave_integrals(k_Gv, setup=None,
             # Calculate the radial part of the product density
             rhot_g = phi_jg[j1] * phi_jg[j2] - phit_jg[j1] * phit_jg[j2]
             for l in range((l1 + l2) % 2, l1 + l2 + 1, 2):
-                spline = rgd.spline(rhot_g, l=l, points=2**10)
+                spline = rgd.spline(rhot_g[:gcut2], l=l, points=2**10)
                 splineG = ft(spline, N=2**12)
                 f_G = splineG.map(k_G) * (-1j)**l
 
@@ -150,9 +129,9 @@ def get_pair_density_paw_corrections(setups, pd, spos_ac):
 
     # Collect integrals for all species:
     Q_xGii = {}
-    for id, atomdata in setups.setups.items():
-        ni = atomdata.ni
-        Q_Gii = two_phi_planewave_integrals(G_Gv, atomdata)
+    for id, setup in setups.setups.items():
+        ni = setup.ni
+        Q_Gii = two_phi_planewave_integrals(G_Gv, setup=setup)
         Q_xGii[id] = Q_Gii.reshape(-1, ni, ni)
 
     Q_aGii = []
