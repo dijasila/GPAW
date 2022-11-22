@@ -827,29 +827,6 @@ class G0W0Calculator:
             snapshot=self.filename + '-vxc-exx.json')
         return vxc_skn / Ha, exx_skn / Ha
 
-    def read_contribution(self, filename):
-        fd = opencew(filename)  # create, exclusive, write
-        if fd is not None:
-            # File was not there: nothing to read
-            return fd, None
-
-        try:
-            with open(filename, 'rb') as fd:
-                x_skn = np.load(fd)
-        except IOError:
-            self.context.print('Removing broken file:', filename)
-        else:
-            self.context.print('Read:', filename)
-            if x_skn.shape == self.shape:
-                return None, x_skn
-            self.context.print('Removing bad file (wrong shape of array):',
-                               filename)
-
-        if self.context.world.rank == 0:
-            os.remove(filename)
-
-        return opencew(filename), None
-
     def print_results(self, results):
         description = ['f:      Occupation numbers',
                        'eps:     KS-eigenvalues [eV]',
