@@ -795,23 +795,21 @@ class G0W0Calculator:
         Wdict = {}
 
         for fxc_mode in self.fxc_modes:
-            pdi, blocks1d, G2G, chi0_wGG, chi0_wxvG, chi0_wvv = \
-                chi0calc.reduce_ecut(ecut, chi0)
-            pdi, W_wGG = self.wcalc.dyson_and_W_old(wstc, iq,
-                                                    q_c, chi0,
-                                                    fxc_mode,
-                                                    pdi, G2G,
-                                                    chi0_wGG,
-                                                    chi0_wxvG,
-                                                    chi0_wvv,
-                                                    only_correlation=True)
+            pdi, W_wGG, blocks1d, G2G = self.wcalc.dyson_and_W_old(wstc, iq,
+                                                                   q_c, chi0,
+                                                                   fxc_mode,
+                                                                   ecut,
+                                                                   only_correlation=True)
+            if chi0calc.pawcorr is not None and G2G is not None:
+                chi0calc.pawcorr = chi0calc.pawcorr.reduce_ecut(G2G)
+
 
             if self.wcalc.ppa:
                 W_xwGG = W_wGG  # (ppa API is nonsense)
-            else:
+            else:  # HT used to calculate convulution between time-ordered G and W
                 with self.context.timer('Hilbert'):
                     W_xwGG = self.hilbert_transform(W_wGG)
-
+                    
             Wdict[fxc_mode] = W_xwGG
 
         return pdi, Wdict, blocks1d, chi0calc.pawcorr

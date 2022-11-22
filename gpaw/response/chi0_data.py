@@ -200,6 +200,7 @@ class Chi0Data(BodyData):
             self.wxvG_shape = self.head_and_wings.wxvG_shape
             self.wvv_shape = self.head_and_wings.wvv_shape
         else:
+            self.head_and_wings = None
             self.chi0_wxvG = None
             self.chi0_wvv = None
             self.wxvG_shape = None
