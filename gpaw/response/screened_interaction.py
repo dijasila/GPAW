@@ -234,10 +234,10 @@ class WCalculator:
             pdi = chi0.pd
             G2G = None
         if not chi0.optical_limit:
-            pdi, W_wGG = self.dyson_old(wstc, iq, q_c, fxc_mode, pdi, chi0_wGG,
+            pdi, W_wGG = self.dyson_body(wstc, iq, q_c, fxc_mode, pdi, chi0_wGG,
                                         G2G, only_correlation)
         else:
-            pdi, W_wGG = self.dyson_old(wstc, iq, q_c, fxc_mode, pdi, chi0_wGG,
+            pdi, W_wGG = self.dyson_gamma(wstc, iq, q_c, fxc_mode, pdi, chi0_wGG,
                                         chi0_wxvG, G2G, chi0_wvv, only_correlation)
         if out_dist == 'WgG' and not self.ppa:
             # XXX This creates a new, large buffer.  We could perhaps
