@@ -298,9 +298,9 @@ class Matrix:
         """
         S = self.gather()
         if self.dist.comm.rank == 0:
-            if debug:
-                S.data[np.triu_indices(S.shape[0], 1)] = 42.0
             if isinstance(S.data, np.ndarray):
+                if debug:
+                    S.data[np.triu_indices(S.shape[0], 1)] = 42.0
                 L_nn = sla.cholesky(S.data,
                                     lower=True,
                                     overwrite_a=True,
@@ -309,6 +309,7 @@ class Matrix:
                                     overwrite_a=True,
                                     check_finite=debug)
             else:
+                self.tril2full()
                 L_nn = cp.linalg.cholesky(S.data)
                 S.data[:] = cp.linalg.inv(L_nn)
 
@@ -503,7 +504,7 @@ class Matrix:
 
         if dist.comm.size == 1 or dist.rows == 1 and dist.columns == 1:
             if dist.comm.rank == 0:
-                u = np.triu_indices(M, 1)
+                u = self.xp.triu_indices(M, 1)
                 self.data[u] = self.data.T[u].conj()
             return
 
