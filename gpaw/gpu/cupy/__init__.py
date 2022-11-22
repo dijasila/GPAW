@@ -30,12 +30,11 @@ def negative(a, b):
     np.negative(a._data, b._data)
 
 
-def einsum(indices, *args, out=None):
+def einsum(indices, *args):
     return ndarray(
         np.einsum(
             indices,
-            *(arg._data for arg in args),
-            out=None if out is None else out._data))
+            *(arg._data for arg in args)))
 
 
 def diag(a):

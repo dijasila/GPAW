@@ -27,8 +27,8 @@ def eigh(xp,
          check_finite,
          overwrite_b):
     if xp is cupy:
-        a = a._data
-        b = b._data
+        a = cupy.asnumpy(a)
+        b = cupy.asnumpy(b)
     e, v = sla.eigh(a, b,
                     lower=lower,
                     check_finite=check_finite,
