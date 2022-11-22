@@ -13,10 +13,10 @@ __all__ = ['cupy', 'cupyx', 'as_xp']
 
 def as_xp(array, xp):
     if xp is np:
-        if isinstance(array, np):
+        if isinstance(array, np.ndarray):
             return array
         return cupy.asnumpy(array)
-    if isinstance(array, np):
+    if isinstance(array, np.ndarray):
         return cupy.asarray(array)
     return array
 
@@ -35,4 +35,4 @@ def eigh(xp,
                     overwrite_b=overwrite_b)
     if xp is np:
         return e, v
-    return cupy.ndarray(e), cupy.ndarray(v)
+    return cupy.asarray(e), cupy.asarray(v)

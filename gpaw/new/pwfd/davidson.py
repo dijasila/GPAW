@@ -15,7 +15,7 @@ from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.typing import Array1D, Array2D
 from gpaw.utilities.blas import axpy
 from gpaw.yml import obj2yaml as o2y
-from gpaw.gpu import eigh
+from gpaw.gpu import eigh, as_xp
 
 AAFunc = Callable[[AA, AA], AA]
 
@@ -158,7 +158,7 @@ class Davidson(Eigensolver):
                 if weight_n is None:
                     error = np.inf
                 else:
-                    error = weight_n @ residual_nX.norm2()
+                    error = weight_n @ as_xp(residual_nX.norm2(), np)
                     if wfs.ncomponents == 4:
                         error = error.sum()
 
@@ -205,7 +205,8 @@ class Davidson(Eigensolver):
                     lower=True,
                     check_finite=debug,
                     overwrite_b=True)
-                wfs._eig_n = np.asarray(eig_N[:B])
+                wfs._eig_n = as_xp(eig_N[:B], np)
+
             if domain_comm.rank == 0:
                 band_comm.broadcast(wfs.eig_n, 0)
             domain_comm.broadcast(wfs.eig_n, 0)
