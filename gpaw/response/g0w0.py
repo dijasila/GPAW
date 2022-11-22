@@ -1,5 +1,4 @@
 import functools
-import os
 import pickle
 import warnings
 from math import pi
@@ -9,7 +8,6 @@ import numpy as np
 
 from ase.parallel import paropen
 from ase.units import Ha
-from ase.utils import opencew
 
 from gpaw import GPAW, debug
 import gpaw.mpi as mpi
