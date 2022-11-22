@@ -325,8 +325,9 @@ class Chi0Calculator:
         # index v = (x, y, z)
         # index G = (G0, G1, G2, ...)
         # index P = (x, y, z, G1, G2, ...)
-        tmp_chi0_wxvP = np.zeros(np.array(chi0.chi0_wxvG.shape) +
-                                 [0, 0, 0, 2], complex)
+        wxvP_shape = list(chi0.wxvG_shape)
+        wxvP_shape[-1] += 2
+        tmp_chi0_wxvP = np.zeros(wxvP_shape, complex)
         integrator.integrate(kind=kind + ' wings',  # Kind of integral
                              domain=domain,  # Integration domain
                              integrand=(get_optical_matrix_element,
