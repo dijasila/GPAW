@@ -9,6 +9,9 @@ def get_coulomb_kernel(pd, N_c, truncation=None, q_v=None, wstc=None):
     """Factory function that calls the specified flavour
     of the Coulomb interaction"""
 
+    if np.sum(pd.gd.pbc_c) == 1:
+        raise ValueError("1-D periodic systems not currently supported.") 
+
     qG_Gv = pd.get_reciprocal_vectors(add_q=True)
     if q_v is not None:
         assert pd.kd.gamma

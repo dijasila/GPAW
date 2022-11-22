@@ -108,9 +108,6 @@ class Chi0Calculator:
 
         self.pawcorr = None
 
-        if sum(self.pbc) == 1:
-            raise ValueError('1-D not supported atm.')
-
         self.context.print('Nonperiodic BCs: ', (~self.pbc), flush=False)
 
         if integrationmode is not None:
