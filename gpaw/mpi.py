@@ -1,6 +1,6 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
-
+from __future__ import annotations
 import sys
 import time
 import traceback

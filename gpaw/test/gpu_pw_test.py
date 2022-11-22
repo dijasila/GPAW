@@ -7,7 +7,7 @@ from gpaw.new.calculation import DFTCalculation
 
 def test_gpu_pw():
     a = cp.empty(2)
-    b = np.asarray(a)
+    b = a.get()
     assert isinstance(b, np.ndarray)
     assert b.dtype == float
 
