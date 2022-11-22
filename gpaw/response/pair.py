@@ -287,8 +287,6 @@ class PairDensityCalculator:
         optical_limit = np.allclose(q_c, 0.0)
         assert optical_limit
 
-        copdh = self.calculate_optical_pair_density_head
-
         kpt1 = kptpair.kpt1
         kpt2 = kptpair.kpt2
 
@@ -296,7 +294,9 @@ class PairDensityCalculator:
         n_nmv = np.zeros((len(n_n), len(m_m), 3), pd.dtype)
 
         for j, n in enumerate(n_n):
-            n_nmv[j] = copdh(n, m_m, kpt1, kpt2, block=block)
+            n_nmv[j] = self.calculate_optical_pair_density_head(n, m_m,
+                                                                kpt1, kpt2,
+                                                                block=block)
 
         return n_nmv
 
