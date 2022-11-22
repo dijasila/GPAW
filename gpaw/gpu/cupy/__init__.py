@@ -40,6 +40,10 @@ def diag(a):
     return ndarray(np.diag(a._data))
 
 
+def abs(a):
+    return ndarray(np.abs(a._data))
+
+
 def eye(n):
     return ndarray(np.eye(n))
 
@@ -100,6 +104,9 @@ class ndarray:
 
     def __truediv__(self, other):
         return ndarray(self._data / other._data)
+
+    def __pow__(self, i: int):
+        return ndarray(self._data**i)
 
     def __add__(self, f):
         return ndarray(f._data + self._data)

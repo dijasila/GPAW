@@ -307,7 +307,6 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         out:
             Target UniformGridFunctions object.
         """
-        print('O', out)
         comm = self.desc.comm
         xp = self.xp
         if out is None:
@@ -490,13 +489,10 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
                 _gpaw.add_to_density(f, tmp_R.data, out.data)
             return
         out_R = out.to_xp(xp)
-        tmp_R = out_R.new()
-        print(out_R, out_R.xp)
-        print(tmp_R, tmp_R.xp)
+        tmp_R = out_R.desc.new(dtype=self.desc.dtype).empty(xp=xp)
         for f, psit_G in zip(weights, self):
-            print(psit_G, psit_G.xp, f)
             psit_G.ifft(out=tmp_R)
-            out_R.data += f * xp.abs(tmp_R)**2
+            out_R.data += float(f) * xp.abs(tmp_R.data)**2
         out.data[:] = xp.asnumpy(out_R.data)
 
     def to_pbc_grid(self):

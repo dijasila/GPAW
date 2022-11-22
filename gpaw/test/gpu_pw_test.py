@@ -18,6 +18,7 @@ def test_gpu_pw():
         atoms,
         dict(mode={'name': 'pw', 'force_complex_dtype': True},
              parallel={'gpu': True},
-             setups='ae'))
+             setups='ae'),
+        log='-')
     dft.converge()
     
