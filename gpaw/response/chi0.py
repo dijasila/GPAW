@@ -321,27 +321,30 @@ class Chi0Calculator:
         get_eigenvalues = partial(
             self.get_eigenvalues, **eig_kwargs)
 
-        tmp_chi0_wxvx = np.zeros(np.array(chi0.chi0_wxvG.shape) +
-                                 [0, 0, 0, 2],  # Do both head and wings
-                                 complex)
+        # We integrate the head and wings together, using the combined
+        # index v = (x, y, z)
+        # index G = (G0, G1, G2, ...)
+        # index P = (x, y, z, G1, G2, ...)
+        tmp_chi0_wxvP = np.zeros(np.array(chi0.chi0_wxvG.shape) +
+                                 [0, 0, 0, 2], complex)
         integrator.integrate(kind=kind + ' wings',  # Kind of integral
                              domain=domain,  # Integration domain
                              integrand=(get_optical_matrix_element,
                                         get_eigenvalues),
                              x=self.wd,  # Frequency Descriptor
-                             out_wxx=tmp_chi0_wxvx,  # Output array
+                             out_wxx=tmp_chi0_wxvP,  # Output array
                              **extraargs)
         if self.hilbert:
             with self.context.timer('Hilbert transform'):
                 ht = HilbertTransform(np.array(self.wd.omega_w), self.eta,
                                       timeordered=self.timeordered)
-                ht(tmp_chi0_wxvx)
-        tmp_chi0_wxvx *= prefactor
+                ht(tmp_chi0_wxvP)
+        tmp_chi0_wxvP *= prefactor
 
-        # Fill in wings part of the data, but leave out the head
-        chi0.chi0_wxvG[..., 1:] += tmp_chi0_wxvx[..., 3:]
+        # Fill in wings part of the data, but leave out the head part (G0)
+        chi0.chi0_wxvG[..., 1:] += tmp_chi0_wxvP[..., 3:]
         # Fill in the head
-        chi0.chi0_wvv += tmp_chi0_wxvx[:, 0, :3, :3]
+        chi0.chi0_wvv += tmp_chi0_wxvP[:, 0, :3, :3]
         analyzer.symmetrize_wxvG(chi0.chi0_wxvG)
         analyzer.symmetrize_wvv(chi0.chi0_wvv)
 
