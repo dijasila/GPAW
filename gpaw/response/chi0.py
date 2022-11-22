@@ -658,8 +658,9 @@ class Chi0Calculator:
                                    m1, m2, *,
                                    pd, symmetry,
                                    integrationmode=None):
-        """A function that returns optical pair densities.
-        NB: In dire need of further documentation! XXX"""
+        """A function that returns optical pair densities, that is the
+        head and wings matrix elements, indexed by:
+        # P = (x, y, v, G1, G2, ...)."""
         assert m1 <= m2
 
         k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
@@ -675,18 +676,18 @@ class Chi0Calculator:
                                             m1, m2, block=False)
         m_m = np.arange(m1, m2)
         n_n = np.arange(n1, n2)
-        n_nmG = self.pair.get_full_pair_density(pd, kptpair, n_n, m_m,
+        n_nmP = self.pair.get_full_pair_density(pd, kptpair, n_n, m_m,
                                                 pawcorr=self.pawcorr,
                                                 block=False)
 
         if integrationmode is None:
-            n_nmG *= weight
+            n_nmP *= weight
 
         df_nm = kptpair.get_occupation_differences(n_n, m_m)
         df_nm[df_nm <= 1e-20] = 0.0
-        n_nmG *= df_nm[..., np.newaxis]**0.5
+        n_nmP *= df_nm[..., np.newaxis]**0.5
 
-        return n_nmG.reshape(-1, nG + 2)
+        return n_nmP.reshape(-1, nG + 2)
 
     @timer('Get eigenvalues')
     def get_eigenvalues(self, k_v, s, n1, n2,

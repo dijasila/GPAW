@@ -249,15 +249,18 @@ class PairDensityCalculator:
                                         pawcorr=pawcorr, block=block)
         if optical_limit:
             nG = pd.ngmax
-            n_nmG = np.empty((len(n_n), len(m_m), nG + 2), dtype=tmp_nmG.dtype)
-            n_nmG[:, :, 2:] = tmp_nmG
+            # P = (x, y, z, G1, G2, ...)
+            n_nmP = np.empty((len(n_n), len(m_m), nG + 2), dtype=tmp_nmG.dtype)
+            n_nmP[:, :, 2:] = tmp_nmG
             n_nmv = self.get_optical_pair_density(pd, kptpair, n_n, m_m,
                                                   block=block)
-            n_nmG[:, :, :3] = n_nmv
+            n_nmP[:, :, :3] = n_nmv
+
+            return n_nmP
         else:
             n_nmG = tmp_nmG
 
-        return n_nmG
+            return n_nmG
 
     @timer('get_pair_density')
     def get_pair_density(self, pd, kptpair, n_n, m_m, *,
