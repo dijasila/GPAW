@@ -100,6 +100,8 @@ class Chi0Calculator:
 
         self.hilbert = hilbert
         self.timeordered = bool(timeordered)
+        if self.timeordered:
+            assert self.hilbert  # Timeordered is only needed for G0W0
 
         if self.eta == 0.0:
             assert not hilbert
@@ -511,7 +513,6 @@ class Chi0Calculator:
             # force calculation of the response function.
             kind = 'response function'
             extraargs['eta'] = self.eta
-            extraargs['timeordered'] = self.timeordered
 
         return kind, extraargs
 
