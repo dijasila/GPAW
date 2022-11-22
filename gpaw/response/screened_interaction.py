@@ -265,49 +265,6 @@ class WCalculator:
 
         return nG, wblocks1d, delta_GG, fv, kd
     
-    def dyson_body(self, wstc, iq, q_c, fxc_mode,
-                  pdi=None, chi0_wGG=None, G2G=None,
-                  only_correlation=False):
-
-        if self.ppa:
-            einv_wGG = []
-            
-        nG, wblocks1d, delta_GG, fv, kd = self.basic_dyson_setups(pdi, iq, fxc_mode)
-        
-        def get_sqrtV_G(N_c, q_v=None):
-            return get_coulomb_kernel(
-                pdi,
-                N_c,
-                truncation=self.truncation,
-                wstc=wstc,
-                q_v=q_v)**0.5
-
-        self.context.timer.start('Dyson eq.')
-
-        for iw, chi0_GG in enumerate(chi0_wGG):
-            sqrtV_G = get_sqrtV_G(kd.N_c)
-            dfc = DielectricFunctionCalculator(
-                sqrtV_G, chi0_GG, mode=fxc_mode, fv_GG=fv)
-            einv_GG = dfc.get_einv_GG()
-            if self.ppa:
-                einv_wGG.append(einv_GG - delta_GG)
-                omegat_GG = self.E0 * np.sqrt(einv_wGG[1] /
-                                              (einv_wGG[0] - einv_wGG[1]))
-                R_GG = -0.5 * omegat_GG * einv_wGG[0]
-                W_GG = pi * R_GG * sqrtV_G * sqrtV_G[:, np.newaxis]
- 
-                self.context.timer.stop('Dyson eq.')
-                return pdi, [W_GG, omegat_GG]
-
-            else:
-                einv_GG_full = einv_GG.copy()
-                if only_correlation:
-                    einv_GG -= delta_GG
-                W_GG = chi0_GG
-                W_GG[:] = (einv_GG) * (sqrtV_G *
-                                       sqrtV_G[:, np.newaxis])
-        self.context.timer.stop('Dyson eq.')
-        return pdi, chi0_wGG
 
     
     def dyson_gamma(self, wstc, iq, q_c, fxc_mode,
@@ -390,6 +347,69 @@ class WCalculator:
             W_GG[0, 0] = pi * R_GG[0, 0] * V0
             W_GG[0, 1:] = pi * R_GG[0, 1:] * sqrtV_G[1:] * sqrtV0
             W_GG[1:, 0] = pi * R_GG[1:, 0] * sqrtV0 * sqrtV_G[1:]
+
+            self.context.timer.stop('Dyson eq.')
+            return pdi, [W_GG, omegat_GG]
+
+        self.context.timer.stop('Dyson eq.')
+        return pdi, chi0_wGG
+
+    
+
+    def dyson_body(self, wstc, iq, q_c, fxc_mode,
+                  pdi=None, chi0_wGG=None, chi0_wxvG=None, G2G=None,
+                  chi0_wvv=None, only_correlation=False):
+        nG, wblocks1d, delta_GG, fv, kd = self.basic_dyson_setups(pdi, iq, fxc_mode)
+
+        #XXX SEEMS LIKE A BUG THAT THIS IS NEEDED FOR THE BODY at k neq 0???
+        if self.integrate_gamma != 0:
+            reduced = (self.integrate_gamma == 2)
+            V0, sqrtV0 = get_integrated_kernel(pdi,
+                                               self.gs.kd.N_c,
+                                               truncation=self.truncation,
+                                               reduced=reduced,
+                                               N=100)
+
+        if self.ppa:
+            einv_wGG = []
+
+
+        self.context.timer.start('Dyson eq.')
+
+        def get_sqrtV_G(N_c, q_v=None):
+            return get_coulomb_kernel(
+                pdi,
+                N_c,
+                truncation=self.truncation,
+                wstc=wstc,
+                q_v=q_v)**0.5
+
+        for iw, chi0_GG in enumerate(chi0_wGG):
+            sqrtV_G = get_sqrtV_G(kd.N_c)
+            dfc = DielectricFunctionCalculator(
+                sqrtV_G, chi0_GG, mode=fxc_mode, fv_GG=fv)
+            einv_GG = dfc.get_einv_GG()
+            if self.ppa:
+                einv_wGG.append(einv_GG - delta_GG)
+            else:
+                einv_GG_full = einv_GG.copy()
+                if only_correlation:
+                    einv_GG -= delta_GG
+                W_GG = chi0_GG
+                W_GG[:] = (einv_GG) * (sqrtV_G *
+                                       sqrtV_G[:, np.newaxis])
+                
+        #XXX SEEMS LIKE A BUG THAT THIS IS NEEDED FOR THE BODY at k neq 0?                
+                if self.integrate_gamma != 0:
+                    W_GG[0, 0] = einv_GG[0, 0] * V0
+                    W_GG[0, 1:] = einv_GG[0, 1:] * sqrtV_G[1:] * sqrtV0
+                    W_GG[1:, 0] = einv_GG[1:, 0] * sqrtV0 * sqrtV_G[1:]
+
+        if self.ppa:
+            omegat_GG = self.E0 * np.sqrt(einv_wGG[1] /
+                                          (einv_wGG[0] - einv_wGG[1]))
+            R_GG = -0.5 * omegat_GG * einv_wGG[0]
+            W_GG = pi * R_GG * sqrtV_G * sqrtV_G[:, np.newaxis]
 
             self.context.timer.stop('Dyson eq.')
             return pdi, [W_GG, omegat_GG]
