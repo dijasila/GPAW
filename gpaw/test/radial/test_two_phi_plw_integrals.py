@@ -1,13 +1,14 @@
 import pytest
 
 
-@pytest.mark.skip(reason='TODO')
+@pytest.mark.response
 def test_two_phi_plw_integrals():
     import numpy as np
     from gpaw.lfc import LocalizedFunctionsCollection as LFC
-    from gpaw.grid_descriptor import GridDescriptor, RadialGridDescriptor
+    from gpaw.grid_descriptor import GridDescriptor
+    from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
     from gpaw.spline import Spline
-    from gpaw.response.math_func import two_phi_planewave_integrals
+    from gpaw.response.paw import two_phi_planewave_integrals
     # Initialize s, p, d (9 in total) wave and put them on grid
     rc = 2.0
     a = 2.5 * rc
@@ -33,7 +34,7 @@ def test_two_phi_plw_integrals():
     for dim in range(3):
         rr[dim] -= R_a[dim]
 
-    k_G = np.array([[11., 0.2, 0.1], [10., 0., 10.]])
+    k_G = np.array([[0.0, 0.0, 0.0], [1., 0.2, 0.1], [10., 0., 10.]])
     nkpt = k_G.shape[0]
 
     d0 = np.zeros((nkpt, m, m), dtype=complex)
@@ -47,7 +48,7 @@ def test_two_phi_plw_integrals():
                 d0[ik, i, j] = gd.integrate(psi[i] * psi[j] * expkr)
 
     # Calculate on 1d-grid < phi_i | e**(-ik.r) | phi_j >
-    rgd = RadialGridDescriptor(r, np.ones_like(r) * r[1])
+    rgd = EquidistantRadialGridDescriptor(r[1], len(r))
     g = [np.exp(-(r / rc * b)**2) * r**l for l in range(lmax + 1)]
     l_j = range(lmax + 1)
     d1 = two_phi_planewave_integrals(k_G, rgd=rgd, phi_jg=g,
@@ -55,8 +56,4 @@ def test_two_phi_plw_integrals():
 
     d1 = d1.reshape(nkpt, m, m)
 
-    for i in range(m):
-        for j in range(m):
-            for ik in range(nkpt):
-                if np.abs(d0[ik, i, j] - d1[ik, i, j]) > 1e-10:
-                    print(i, j, d0[ik, i, j] - d1[ik, i, j])
+    assert d0 == pytest.approx(d1, abs=1e-8)
