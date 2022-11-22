@@ -85,6 +85,7 @@ class Davidson(Eigensolver):
         if self.work_arrays is None:
             self._initialize(state.ibzwfs)
 
+        assert self.M_nn is not None
         xp = self.M_nn.xp
 
         dS = state.ibzwfs.wfs_qs[0][0].setups.overlap_correction
