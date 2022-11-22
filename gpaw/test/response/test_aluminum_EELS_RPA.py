@@ -40,8 +40,8 @@ def test_response_aluminum_EELS_RPA(in_tmp_dir):
     df = DielectricFunction(calc='Al', frequencies=w, eta=0.2, ecut=50,
                             hilbert=False)
     df.get_eels_spectrum(xc='RPA', filename='EELS_Al', q_c=q)
-# add point integration
-# 
+    # add point integration tests, make sure the results agree
+     
     t3 = time.time()
 
     parprint('')
