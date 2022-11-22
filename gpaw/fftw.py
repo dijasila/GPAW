@@ -193,13 +193,13 @@ class CuPyFFTPlans(FFTPlans):
         array_Q[:] = 0.0
         Q_G = self.indices(pw)
         array_Q.ravel()[Q_G] = coef_G
-        array_Q[:] = cupyx.fft.ifftn(
+        array_Q[:] = cupyx.scipy.fft.ifftn(
             array_Q, array_Q.shape,
             norm='forward', overwrite_x=True)
 
     def fft_sphere(self, in_R, pw):
         from gpaw.gpu import cupyx
-        out_Q = cupyx.fft.fftn(in_R, overwrite_x=True)
+        out_Q = cupyx.scipy.fft.fftn(in_R, overwrite_x=True)
         Q_G = self.indices(pw)
         coef_G = out_Q.ravel()[Q_G] * (1 / in_R.size)
         return coef_G

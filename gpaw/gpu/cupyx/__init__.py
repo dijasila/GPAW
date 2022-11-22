@@ -1,1 +1,1 @@
-import gpaw.gpu.cupyx.fft as fft
+import gpaw.gpu.cupyx.scipy as scipy
