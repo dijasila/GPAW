@@ -306,7 +306,6 @@ class G0W0Calculator:
     def __init__(self, filename='gw', *,
                  chi0calc,
                  wcalc,
-                 restartfile=None,
                  kpts, bands, nbands=None,
                  fxc_modes,
                  eta,
@@ -325,8 +324,6 @@ class G0W0Calculator:
             Base filename of output files.
         wcalc: WCalculator object
             Defines the calculator for computing the screened interaction
-        restartfile: str
-            File that stores data necessary to restart a calculation.
         kpts: list
             List of indices of the IBZ k-points to calculate the quasi particle
             energies for.
@@ -380,15 +377,8 @@ class G0W0Calculator:
             assert 'GW' in self.fxc_modes
             assert self.wcalc.xckernel.xc != 'RPA'
             assert self.wcalc.fxc_mode != 'GW'
-            if restartfile is not None:
-                raise RuntimeError('Restart function does not currently work '
-                                   'with do_GW_too=True.')  # Or does it?
 
         self.filename = filename
-        if restartfile is None:
-            restartfile = 'qcache_' + self.filename
-
-        self.restartfile = restartfile
         self.savepckl = savepckl
         self.eta = eta / Ha
 
@@ -396,7 +386,7 @@ class G0W0Calculator:
             # We pass a serial communicator because the parallel handling
             # is somewhat wonky, we'd rather do that ourselves:
             try:
-                self.qcache = FileCache(self.restartfile,
+                self.qcache = FileCache('qcache_{self.filename}'
                                         comm=mpi.SerialCommunicator())
             except TypeError as err:
                 raise RuntimeError(
@@ -932,8 +922,6 @@ class G0W0(G0W0Calculator):
             Filename of saved calculator object.
         filename: str
             Base filename of output files.
-        restartfile: str
-            File that stores data necessary to restart a calculation.
         kpts: list
             List of indices of the IBZ k-points to calculate the quasi particle
             energies for.
