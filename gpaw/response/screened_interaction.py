@@ -3,7 +3,7 @@ from math import pi
 from gpaw.response.q0_correction import Q0Correction
 from ase.units import Ha
 from ase.dft.kpoints import monkhorst_pack
-from gpaw.response.chi0_data import BodyData, HeadWingsData
+from gpaw.response.chi0_data import BodyData, HeadAndWingsData
 
 import gpaw.mpi as mpi
 from gpaw.kpt_descriptor import KPointDescriptor
@@ -204,7 +204,7 @@ class WCalculator:
         return pdi, blocks1d, G2G, chi0_wGG
 
     
-    def reduce_headwings_ecut(self, G2G, head_and_wings: HeadWingsData):
+    def reduce_headwings_ecut(self, G2G, head_and_wings: HeadAndWingsData):
         chi0_wxvG = head_and_wings.chi0_wxvG
         chi0_wvv = head_and_wings.chi0_wvv
         if chi0_wxvG is not None and G2G is not None:
