@@ -676,9 +676,9 @@ class Chi0Calculator:
                                             m1, m2, block=False)
         m_m = np.arange(m1, m2)
         n_n = np.arange(n1, n2)
-        n_nmP = self.pair.get_full_pair_density(pd, kptpair, n_n, m_m,
-                                                pawcorr=self.pawcorr,
-                                                block=False)
+        n_nmP = self.pair.get_optical_pair_density(pd, kptpair, n_n, m_m,
+                                                   pawcorr=self.pawcorr,
+                                                   block=False)
 
         if integrationmode is None:
             n_nmP *= weight
