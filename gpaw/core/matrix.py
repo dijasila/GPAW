@@ -749,7 +749,10 @@ class CuPyDistribution(MatrixDistribution):
             if opa == 'N':
                 assert opb == 'C' or opb == 'T' and a.dtype == float
                 if a is b:
-                    cp.cublas.syrk('N', a.data, c.data, alpha, beta, True)
+                    cp.cublas.gemm('N', 'H',
+                                   a.data, a.data, c.data,
+                                   alpha, beta)
+                    # cp.cublas.syrk('N', a.data, c.data, alpha, beta, True)
                 else:
                     if beta == 1.0 and a.shape[1] == 0:
                         return
