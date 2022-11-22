@@ -321,7 +321,7 @@ class Chi0Calculator:
         get_eigenvalues = partial(
             self.get_eigenvalues, **eig_kwargs)
 
-        # We integrate the head and wings together, using the combined
+        # We integrate the head and wings together, using the combined index P
         # index v = (x, y, z)
         # index G = (G0, G1, G2, ...)
         # index P = (x, y, z, G1, G2, ...)
