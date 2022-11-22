@@ -60,3 +60,6 @@ def test_response_na_plasmons_tetrahedron(in_tmp_dir, scalapack):
     w2, I2 = findpeak(w_w, -(1. / df2LFCx).imag)
     equal(w1, w2, 1e-2)
     equal(I1, I2, 1e-3)
+    
+    # find a peak, get the value for the peak, test that this peak value 
+    # does not change from now 
