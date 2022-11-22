@@ -70,11 +70,18 @@ def test_response_na_plasmons_tetrahedron(in_tmp_dir, scalapack):
     w1, I1 = findpeak(w_w, -(1. / df1LFCx).imag)
     w2, I2 = findpeak(w_w, -(1. / df2LFCx).imag)
     w3, I3 = findpeak(w_w, -(1. / df3LFCx).imag)
-    equal(w1, w2, 1e-2)
-    equal(I1, I2, 1e-3)
+    # make sure the plasmon peak values agree
+    equal(w1, w2, 1e-2)  # omega: serial vs parallel
+    equal(w2, w3, 1e-1)  # omega: tetra vs point
+    equal(I1, I2, 1e-3)  # intensity: serial vs parallel
+    #equal(I2, I3, 1e-3)  # intensity: tetra vs point
+    
+    idx=5    
+    plt.plot(w_w[idx:], df2LFCx[idx:].imag)
+    plt.plot(w_w[idx:], df3LFCx[idx:].imag)
+    plt.savefig('test_df.png')
+    plt.show()
+    
 
-    df2.
-    plt.plot(w_w, df2NLFCx)
-    plt.savefig('test.png')
     # find a peak, get the value for the peak, test that this peak value 
     # does not change from now 
