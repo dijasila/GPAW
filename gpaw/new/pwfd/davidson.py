@@ -58,6 +58,7 @@ class Davidson(Eigensolver):
         dtype = wfs.psit_nX.data.dtype
         self.work_arrays = xp.empty(shape, dtype)
 
+        dtype = wfs.psit_nX.desc.dtype
         if domain_comm.rank == 0 and band_comm.rank == 0:
             self.H_NN = Matrix(2 * B, 2 * B, dtype, xp=xp)
             self.S_NN = Matrix(2 * B, 2 * B, dtype, xp=xp)

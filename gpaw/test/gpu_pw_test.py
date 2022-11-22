@@ -21,4 +21,3 @@ def test_gpu_pw():
              setups='ae'),
         log='-')
     dft.converge()
-    

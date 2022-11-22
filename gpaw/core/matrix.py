@@ -760,11 +760,11 @@ class CuPyDistribution(MatrixDistribution):
                                        b.data, a.data, c.data,
                                        0.5 * alpha, 1.0)
                     else:
-                        asdfgsdf
+                        raise NotImplementedError
             else:
                 assert opa == 'C' and opb == 'N'
                 assert a is not b
-                sadglfkjh
+                raise NotImplementedError
                 blas.r2k(0.5 * alpha, a.data, b.data, beta, c.data, 'n')
 
         else:
