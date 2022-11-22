@@ -244,6 +244,7 @@ def calculate_residuals(residual_nX: DA,
                         wfs: PWFDWaveFunctions,
                         P1_ani: AA,
                         P2_ani: AA) -> None:
+
     eig_n = wfs.myeig_n
     xp = residual_nX.xp
     if xp is np:
@@ -259,7 +260,10 @@ def calculate_residuals(residual_nX: DA,
         subscripts = 'nI, n -> nI'
     else:
         subscripts = 'nsI, n -> nsI'
-    xp.einsum(subscripts, wfs.P_ani.data, eig_n, out=P2_ani.data)
+    if xp is np:
+        np.einsum(subscripts, wfs.P_ani.data, eig_n, out=P2_ani.data)
+    else:
+        P2_ani.data[:] = np.einsum(subscripts, wfs.P_ani.data, eig_n)
     dS(P2_ani, P2_ani)
     P1_ani.data -= P2_ani.data
     wfs.pt_aiX.add_to(residual_nX, P1_ani)
