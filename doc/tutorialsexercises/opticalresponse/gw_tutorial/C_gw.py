@@ -6,4 +6,3 @@ gw = G0W0(calc='C_groundstate.gpw',
           ecut=20.0,      # plane-wave cutoff for self-energy
           filename='C-g0w0')
 gw.calculate()
-gw.savepckl()

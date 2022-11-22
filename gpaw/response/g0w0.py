@@ -515,6 +515,8 @@ class G0W0Calculator:
         self.all_results = self.postprocess(sigmas)
         # Note: self.results is a pointer pointing to one of the results,
         # for historical reasons.
+
+        self.savepckl()
         return self.results
 
     def postprocess(self, sigmas):
@@ -561,6 +563,9 @@ class G0W0Calculator:
 
     def savepckl(self):
         """Save outputs to pckl files and return paths to those files."""
+        # Note: this is always called, but the paths aren't returned
+        # to the caller.  Calling it again then overwrites the files.
+        #
         # TODO:
         #  * Replace with JSON
         #  * Save to different files or same file?

@@ -12,4 +12,3 @@ gw = G0W0(calc='MoS2_fulldiag.gpw',
           filename=f'MoS2_g0w0g_{ecut}')
 
 gw.calculate()
-gw.savepckl()

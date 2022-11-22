@@ -33,4 +33,3 @@ for ecut in [80]:
               filename=f'MoS2_g0w0_{ecut}')
 
     gw.calculate()
-    gw.savepckl()
