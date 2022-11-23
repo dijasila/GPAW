@@ -13,7 +13,7 @@ def test_xc_nonselfconsistentLDA(in_tmp_dir):
     e1 = atoms.get_potential_energy()
     e1ref = calc.get_reference_energy()
     de12 = calc.get_xc_difference({'name': 'PBE', 'stencil': 1})
-    calc.set(xc={'name': 'PBE', 'stencil': 1})
+    calc = GPAW(gpts=(n, n, n), nbands=1, xc={'name': 'PBE', 'stencil': 1})
     e2 = atoms.get_potential_energy()
     e2ref = calc.get_reference_energy()
     de21 = calc.get_xc_difference('LDA')

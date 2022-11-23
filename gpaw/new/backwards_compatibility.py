@@ -145,7 +145,7 @@ class FakeDensity:
         return D_asp
 
     def interpolate_pseudo_density(self):
-        self.nt_sg = self.interpolate(self.nt_sR)[0].data
+        self.nt_sg = self.interpolate(self.nt_sR).data
 
     def get_all_electron_density(self, *, atoms, gridrefinement):
         n_sr = self._densities.all_electron_densities(

@@ -432,7 +432,8 @@ def pytest_configure(config):
                  'response: tests of the response code',
                  'kspair: tests of kspair in the response code',
                  'serial: run in serial only',
-                 'later: know failure for new refactored GPAW']:
+                 'later: know failure for new refactored GPAW',
+                 'wannier: Wannier functions']:
         config.addinivalue_line('markers', line)
 
 
