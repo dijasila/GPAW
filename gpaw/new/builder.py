@@ -202,10 +202,11 @@ class DFTComponentsBuilder:
             self.ncomponents, self.grid._gd)
 
         occ_calc = self.create_occupation_number_calculator()
-
         return SCFLoop(hamiltonian, occ_calc,
                        eigensolver, mixer, self.communicators['w'],
-                       self.params.convergence,
+                       {key: value
+                        for key, value in self.params.convergence.items()
+                        if key != 'bands'},
                        self.params.maxiter)
 
     def read_ibz_wave_functions(self, reader):

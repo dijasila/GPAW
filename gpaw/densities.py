@@ -64,6 +64,7 @@ class Densities:
                                *,
                                grid_spacing: float = None,  # Ang
                                grid_refinement: int = None,
+                               skip_core: bool = False,
                                ) -> UniformGridFunctions:
         n_sR = self._pseudo_densities(grid_spacing, grid_refinement)
         ncomponents = n_sR.dims[0]
@@ -76,13 +77,18 @@ class Densities:
                                            self.D_asii.values()):
             if setup not in splines:
                 phi_j, phit_j, nc, nct = setup.get_partial_waves()[:4]
+                if skip_core:
+                    nc = Spline(0, 10.0, [0.0, 0.0])
                 rcut = max(setup.rcut_j)
                 splines[setup] = (rcut, phi_j, phit_j, nc, nct)
             rcut, phi_j, phit_j, nc, nct = splines[setup]
 
             # Expected integral of PAW correction:
             electrons_s = np.zeros(ncomponents)
-            electrons_s[:nspins] = (setup.Nc - setup.Nct) / nspins
+            if skip_core:
+                electrons_s[:nspins] = -setup.Nct / nspins
+            else:
+                electrons_s[:nspins] = (setup.Nc - setup.Nct) / nspins
             electrons_s += (4 * pi)**0.5 * np.einsum('sij, ij -> s',
                                                      D_sii,
                                                      setup.Delta_iiL[:, :, 0])
@@ -91,11 +97,12 @@ class Densities:
             R_v = fracpos_c @ grid.cell_cv
             electrons_s -= add(R_v, n_sR, phi_j, phit_j, nc, nct, rcut, D_sii)
 
-            # Add missing charge to grid point closest to atom:
-            R_c = tuple(
-                np.around(grid.size * fracpos_c).astype(int) % grid.size)
-            for n_R, e in zip(n_sR.data, electrons_s):
-                n_R[R_c] += e / grid.dv
+            if not skip_core:
+                # Add missing charge to grid point closest to atom:
+                R_c = tuple(
+                    np.around(grid.size * fracpos_c).astype(int) % grid.size)
+                for n_R, e in zip(n_sR.data, electrons_s):
+                    n_R[R_c] += e / grid.dv
 
         return n_sR.scaled(Bohr, Bohr**-3)
 

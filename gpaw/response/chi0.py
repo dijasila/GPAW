@@ -19,7 +19,7 @@ from gpaw.response.hilbert import HilbertTransform
 from gpaw.response.integrators import (Integrator, PointIntegrator,
                                        TetrahedronIntegrator)
 from gpaw.response import timer
-from gpaw.response.pair import NoCalculatorPairDensity
+from gpaw.response.pair import PairDensityCalculator
 from gpaw.response.pw_parallelization import block_partition
 from gpaw.response.symmetry import PWSymmetryAnalyzer
 from gpaw.typing import Array1D
@@ -73,7 +73,6 @@ class Chi0Calculator:
         self.eshift = eshift / Ha
 
         self.nblocks = pair.nblocks
-        self.calc = self.gs._calc  # XXX remove me
 
         # XXX this is redundant as pair also does it.
         self.blockcomm, self.kncomm = block_partition(self.context.world,
@@ -101,6 +100,8 @@ class Chi0Calculator:
 
         self.hilbert = hilbert
         self.timeordered = bool(timeordered)
+        if self.timeordered:
+            assert self.hilbert  # Timeordered is only needed for G0W0
 
         if self.eta == 0.0:
             assert not hilbert
@@ -222,7 +223,7 @@ class Chi0Calculator:
 
         # Reset PAW correction in case momentum has change
         pairden_paw_corr = self.gs.pair_density_paw_corrections
-        self.pawcorr = pairden_paw_corr(pd, alter_optical_limit=True)
+        self.pawcorr = pairden_paw_corr(pd)
 
         # Integrate chi0 body
         self.context.print('Integrating response function.')
@@ -256,7 +257,6 @@ class Chi0Calculator:
                           chi0: Chi0Data,
                           m1, m2, spins):
         """In-place calculation of the body."""
-        chi0_wGG = chi0.chi0_wGG  # Change notation
         pd = chi0.pd
 
         integrator = self.initialize_integrator()
@@ -270,13 +270,20 @@ class Chi0Calculator:
         get_eigenvalues = partial(
             self.get_eigenvalues, **eig_kwargs)
 
+        chi0_wGG = chi0.chi0_wGG  # Change notation
         chi0_wGG /= prefactor
+        if self.hilbert:
+            # Allocate a temporary array for the spectral function
+            out_wGG = np.zeros_like(chi0_wGG)
+        else:
+            # Use the preallocated array for direct updates
+            out_wGG = chi0_wGG
         integrator.integrate(kind=kind,  # Kind of integral
                              domain=domain,  # Integration domain
                              integrand=(get_matrix_element,
                                         get_eigenvalues),
                              x=self.wd,  # Frequency Descriptor
-                             out_wxx=chi0_wGG,  # Output array
+                             out_wxx=out_wGG,  # Output array
                              **extraargs)
         if self.hilbert:
             # The integrator only returns the spectral function and a Hilbert
@@ -286,12 +293,16 @@ class Chi0Calculator:
                 # Make Hilbert transform
                 ht = HilbertTransform(np.array(self.wd.omega_w), self.eta,
                                       timeordered=self.timeordered)
-                ht(chi0_wGG)
+                ht(out_wGG)
+            # Update the actual chi0 array
+            chi0_wGG += out_wGG
         chi0_wGG *= prefactor
 
-        tmp_chi0_wGG = chi0.blockdist.redistribute(chi0_wGG, chi0.nw)
+        tmp_chi0_wGG = chi0.blockdist.distribute_as(chi0_wGG,
+                                                    chi0.nw, 'wGG')
         analyzer.symmetrize_wGG(tmp_chi0_wGG)
-        chi0_wGG[:] = chi0.blockdist.redistribute(tmp_chi0_wGG, chi0.nw)
+        chi0_wGG[:] = chi0.blockdist.distribute_as(tmp_chi0_wGG,
+                                                   chi0.nw, 'WgG')
 
     def _update_chi0_wings(self,
                            chi0: Chi0Data,
@@ -310,27 +321,31 @@ class Chi0Calculator:
         get_eigenvalues = partial(
             self.get_eigenvalues, **eig_kwargs)
 
-        tmp_chi0_wxvx = np.zeros(np.array(chi0.chi0_wxvG.shape) +
-                                 [0, 0, 0, 2],  # Do both head and wings
-                                 complex)
+        # We integrate the head and wings together, using the combined index P
+        # index v = (x, y, z)
+        # index G = (G0, G1, G2, ...)
+        # index P = (x, y, z, G1, G2, ...)
+        wxvP_shape = list(chi0.wxvG_shape)
+        wxvP_shape[-1] += 2
+        tmp_chi0_wxvP = np.zeros(wxvP_shape, complex)
         integrator.integrate(kind=kind + ' wings',  # Kind of integral
                              domain=domain,  # Integration domain
                              integrand=(get_optical_matrix_element,
                                         get_eigenvalues),
                              x=self.wd,  # Frequency Descriptor
-                             out_wxx=tmp_chi0_wxvx,  # Output array
+                             out_wxx=tmp_chi0_wxvP,  # Output array
                              **extraargs)
         if self.hilbert:
             with self.context.timer('Hilbert transform'):
                 ht = HilbertTransform(np.array(self.wd.omega_w), self.eta,
                                       timeordered=self.timeordered)
-                ht(tmp_chi0_wxvx)
-        tmp_chi0_wxvx *= prefactor
+                ht(tmp_chi0_wxvP)
+        tmp_chi0_wxvP *= prefactor
 
-        # Fill in wings part of the data, but leave out the head
-        chi0.chi0_wxvG[..., 1:] += tmp_chi0_wxvx[..., 3:]
+        # Fill in wings part of the data, but leave out the head part (G0)
+        chi0.chi0_wxvG[..., 1:] += tmp_chi0_wxvP[..., 3:]
         # Fill in the head
-        chi0.chi0_wvv += tmp_chi0_wxvx[:, 0, :3, :3]
+        chi0.chi0_wvv += tmp_chi0_wxvP[:, 0, :3, :3]
         analyzer.symmetrize_wxvG(chi0.chi0_wxvG)
         analyzer.symmetrize_wvv(chi0.chi0_wvv)
 
@@ -369,7 +384,7 @@ class Chi0Calculator:
         self.plasmafreq_vv += 4 * np.pi * plasmafreq_vv
         self.context.print('Plasma frequency:', flush=False)
         self.context.print((self.plasmafreq_vv**0.5 * Ha).round(2), flush=True)
-    
+
         # Calculate the Drude dielectric response function from the
         # free-space plasma frequency
         try:
@@ -384,14 +399,13 @@ class Chi0Calculator:
         # Fill the Drude dielectric function into the chi0 head
         chi0.chi0_wvv[:] += drude_chi_wvv
 
-    def initialize_integrator(self, block_distributed=True):
+    def initialize_integrator(self, block_distributed=True) -> Integrator:
         """The integrator class is a general class for brillouin zone
         integration that can integrate user defined functions over user
         defined domains and sum over bands."""
         integrator: Integrator
 
-        if self.integrationmode is None or \
-           self.integrationmode == 'point integration':
+        if self.integrationmode is None:
             cls = PointIntegrator
         elif self.integrationmode == 'tetrahedron integration':
             cls = TetrahedronIntegrator  # type: ignore
@@ -458,8 +472,12 @@ class Chi0Calculator:
         else:
             # When doing a calculation of the intraband response, we need only
             # the partially filled bands
-            bandsum = {'n1': self.nocc1, 'n2': self.nocc2}
-            mat_kwargs.pop('integrationmode')  # Can we clean up here? XXX
+            # All partially unoccupied bands looks like this:
+            # bandsum = {'n1': self.nocc1, 'n2': self.nocc2}
+            # Do the requested fraction of the partially unoccupied bands
+            n1 = max(min(m1, self.nocc2), self.nocc1)
+            n2 = min(max(m2, self.nocc1), self.nocc2)
+            bandsum = {'n1': n1, 'n2': n2}
         mat_kwargs.update(bandsum)
         eig_kwargs.update(bandsum)
 
@@ -498,7 +516,6 @@ class Chi0Calculator:
             # force calculation of the response function.
             kind = 'response function'
             extraargs['eta'] = self.eta
-            extraargs['timeordered'] = self.timeordered
 
         return kind, extraargs
 
@@ -506,6 +523,7 @@ class Chi0Calculator:
         """
         Function to provide chi0 quantities with reduced ecut
         needed for ecut extrapolation. See g0w0.py for usage.
+        Note: Returns chi0_wGG array in wGG distribution.
         """
         from gpaw.pw.descriptor import (PWDescriptor,
                                         PWMapping)
@@ -515,7 +533,8 @@ class Chi0Calculator:
 
         # The copy() is only required when doing GW_too, since we need
         # to run this whole thin twice.
-        chi0_wGG = chi0.blockdist.redistribute(chi0.chi0_wGG.copy(), chi0.nw)
+        chi0_wGG = chi0.blockdist.distribute_as(chi0.chi0_wGG.copy(),
+                                                chi0.nw, 'wGG')
 
         pd = chi0.pd
         chi0_wxvG = chi0.chi0_wxvG
@@ -614,7 +633,7 @@ class Chi0Calculator:
                          symmetry.how_many_symmetries())
         if self.pawcorr is None:
             pairden_paw_corr = self.gs.pair_density_paw_corrections
-            self.pawcorr = pairden_paw_corr(pd, alter_optical_limit=True)
+            self.pawcorr = pairden_paw_corr(pd)
 
         kptpair = self.pair.get_kpoint_pair(pd, s, k_c, n1, n2,
                                             m1, m2, block=True)
@@ -639,8 +658,9 @@ class Chi0Calculator:
                                    m1, m2, *,
                                    pd, symmetry,
                                    integrationmode=None):
-        """A function that returns optical pair densities.
-        NB: In dire need of further documentation! XXX"""
+        """A function that returns optical pair densities, that is the
+        head and wings matrix elements, indexed by:
+        # P = (x, y, v, G1, G2, ...)."""
         assert m1 <= m2
 
         k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
@@ -650,24 +670,24 @@ class Chi0Calculator:
                          symmetry.how_many_symmetries())
         if self.pawcorr is None:
             pairden_paw_corr = self.gs.pair_density_paw_corrections
-            self.pawcorr = pairden_paw_corr(pd, alter_optical_limit=True)
+            self.pawcorr = pairden_paw_corr(pd)
 
         kptpair = self.pair.get_kpoint_pair(pd, s, k_c, n1, n2,
                                             m1, m2, block=False)
         m_m = np.arange(m1, m2)
         n_n = np.arange(n1, n2)
-        n_nmG = self.pair.get_full_pair_density(pd, kptpair, n_n, m_m,
-                                                pawcorr=self.pawcorr,
-                                                block=False)
+        n_nmP = self.pair.get_optical_pair_density(pd, kptpair, n_n, m_m,
+                                                   pawcorr=self.pawcorr,
+                                                   block=False)
 
         if integrationmode is None:
-            n_nmG *= weight
+            n_nmP *= weight
 
         df_nm = kptpair.get_occupation_differences(n_n, m_m)
         df_nm[df_nm <= 1e-20] = 0.0
-        n_nmG *= df_nm[..., np.newaxis]**0.5
+        n_nmP *= df_nm[..., np.newaxis]**0.5
 
-        return n_nmG.reshape(-1, nG + 2)
+        return n_nmP.reshape(-1, nG + 2)
 
     @timer('Get eigenvalues')
     def get_eigenvalues(self, k_v, s, n1, n2,
@@ -714,7 +734,7 @@ class Chi0Calculator:
 
         vel_nv = self.pair.intraband_pair_density(kpt1, n_n)
 
-        if self.integrationmode is None:
+        if integrationmode is None:
             f_n = kpt1.f_n
             width = self.gs.get_occupations_width()
             if width > 1e-15:
@@ -898,13 +918,15 @@ class Chi0(Chi0Calculator):
         gs, context = get_gs_and_context(calc, txt, world, timer)
         nbands = nbands or gs.bd.nbands
 
-        wd = new_frequency_descriptor(gs, context, nbands, frequencies,
-                                      domega0=domega0,
-                                      omega2=omega2, omegamax=omegamax)
+        wd = new_frequency_descriptor(
+            gs, context, nbands, frequencies,
+            domega0=domega0,
+            omega2=omega2, omegamax=omegamax)
 
-        pair = NoCalculatorPairDensity(gs, context,
-                                       threshold=threshold,
-                                       nblocks=nblocks)
+        pair = PairDensityCalculator(
+            gs, context,
+            threshold=threshold,
+            nblocks=nblocks)
 
         super().__init__(wd=wd, pair=pair, nbands=nbands, ecut=ecut, **kwargs)
 

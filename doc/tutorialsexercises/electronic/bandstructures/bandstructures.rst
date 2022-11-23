@@ -37,3 +37,15 @@ Finally, the bandstructure can be plotted (using ASE's band-structure tool
 .. figure:: bandstructure.png
 
 The full script: :download:`bandstructure.py`.
+
+
+Effect of spin-orbit coupling
+=============================
+
+Here is a zoom in on the VBM to see the effect of including
+:ref:`spinorbit`:
+
+.. figure:: si-soc-bs.png
+
+.. literalinclude:: soc.py
+    :start-after: web-page

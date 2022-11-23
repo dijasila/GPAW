@@ -79,9 +79,7 @@ kwargs = {
     'intraband': False,    # Here we do not include intraband transitions for calculating the absorption spectrum
     'nblocks': 8,          # Number of blocks used for parallelization
     'ecut': 50,            # Plane wave cutoff in eV
-    'nbands': 3 * nval,    # Number of bands included in rpa calculation
-    'name': 'chi_CdTe'}    # Name of density response function .pckl file # student: 'name' : '???'}
-
+    'nbands': 3 * nval}    # Number of bands included in rpa calculation
 
 #Calculate dielectric function. Takes ground state calculation and defined parameters in "kwargs" as input:
 df = DielectricFunction('CdTe_12x12x4.gpw', **kwargs) # student: df = DielectricFunction('.gpw', **kwargs)

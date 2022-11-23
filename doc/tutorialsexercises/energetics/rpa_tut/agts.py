@@ -21,7 +21,8 @@ def workflow():
 
     deps = []
     for d in ds:
-        r = run(script='c2cu.py', args=['RPA', d], cores=40, tmax='5h')
+        r = run(script='c2cu.py', args=['RPA', d], cores=40, tmax='5h',
+                weight=1)
         deps.append(r)
 
     for xc in ['LDA', 'vdW-DF']:

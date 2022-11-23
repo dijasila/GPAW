@@ -7,6 +7,12 @@ class Q0Correction:
         self.bzk_kc = bzk_kc
         self.N_c = N_c
 
+        # Check that basic assumptions of cell and k-grid
+        # for Q0Correction are fulfilled
+        assert N_c[2] == 1  # z-axis is non periodic direction
+        assert (all(cell_cv[:2, 2] == 0) and all(cell_cv[2, :2] == 0)
+                and cell_cv[2, 2] > 0)
+        
         # Hardcoded crap?
         x0density = 0.1  # ? 0.01
 

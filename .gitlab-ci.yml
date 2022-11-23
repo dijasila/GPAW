@@ -22,7 +22,7 @@ master:
     - gpaw test
     - OMP_NUM_THREADS=2 pytest -v -m ci -We -Wi::ImportWarning --color=yes
     - pip install types-PyYAML
-    - mypy -p gpaw
+    - mypy
     - flake8 --doctests gpaw
     - >
       flake8
