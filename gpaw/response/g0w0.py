@@ -1,5 +1,4 @@
 import functools
-import os
 import pickle
 import warnings
 from math import pi
@@ -9,7 +8,6 @@ import numpy as np
 
 from ase.parallel import paropen
 from ase.units import Ha
-from ase.utils import opencew
 
 from gpaw import GPAW, debug
 import gpaw.mpi as mpi
@@ -22,7 +20,7 @@ from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chi0 import Chi0Calculator
 from gpaw.response.g0w0_kernels import G0W0Kernel
 from gpaw.response.hilbert import GWHilbertTransforms
-from gpaw.response.pair import NoCalculatorPairDensity
+from gpaw.response.pair import PairDensityCalculator
 from gpaw.response.screened_interaction import WCalculator
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.response import timer
@@ -308,13 +306,11 @@ class G0W0Calculator:
     def __init__(self, filename='gw', *,
                  chi0calc,
                  wcalc,
-                 restartfile=None,
                  kpts, bands, nbands=None,
                  fxc_modes,
                  eta,
                  ecut_e,
-                 frequencies=None,
-                 savepckl=True):
+                 frequencies=None):
         """G0W0 calculator, initialized through G0W0 object.
 
         The G0W0 calculator is used to calculate the quasi
@@ -327,8 +323,6 @@ class G0W0Calculator:
             Base filename of output files.
         wcalc: WCalculator object
             Defines the calculator for computing the screened interaction
-        restartfile: str
-            File that stores data necessary to restart a calculation.
         kpts: list
             List of indices of the IBZ k-points to calculate the quasi particle
             energies for.
@@ -351,8 +345,6 @@ class G0W0Calculator:
             When carrying out a calculation including vertex corrections, it
             is possible to get the standard GW results at the same time
             (almost for free).
-        savepckl: bool
-            Save output to a pckl file.
         """
         self.chi0calc = chi0calc
         self.wcalc = wcalc
@@ -382,23 +374,15 @@ class G0W0Calculator:
             assert 'GW' in self.fxc_modes
             assert self.wcalc.xckernel.xc != 'RPA'
             assert self.wcalc.fxc_mode != 'GW'
-            if restartfile is not None:
-                raise RuntimeError('Restart function does not currently work '
-                                   'with do_GW_too=True.')  # Or does it?
 
         self.filename = filename
-        if restartfile is None:
-            restartfile = 'qcache_' + self.filename
-
-        self.restartfile = restartfile
-        self.savepckl = savepckl
         self.eta = eta / Ha
 
         if self.context.world.rank == 0:
             # We pass a serial communicator because the parallel handling
             # is somewhat wonky, we'd rather do that ourselves:
             try:
-                self.qcache = FileCache(self.restartfile,
+                self.qcache = FileCache(f'qcache_{self.filename}',
                                         comm=mpi.SerialCommunicator())
             except TypeError as err:
                 raise RuntimeError(
@@ -521,6 +505,8 @@ class G0W0Calculator:
         self.all_results = self.postprocess(sigmas)
         # Note: self.results is a pointer pointing to one of the results,
         # for historical reasons.
+
+        self.savepckl()
         return self.results
 
     def postprocess(self, sigmas):
@@ -563,14 +549,24 @@ class G0W0Calculator:
 
     def postprocess_single(self, fxc_name, sigma):
         output = self.calculate_g0w0_outputs(sigma)
-        result = output.get_results_eV()
+        return output.get_results_eV()
 
-        if self.savepckl:
-            with paropen(f'{self.filename}_results_{fxc_name}.pckl',
-                         'wb') as fd:
-                pickle.dump(result, fd, 2)
-
-        return result
+    def savepckl(self):
+        """Save outputs to pckl files and return paths to those files."""
+        # Note: this is always called, but the paths aren't returned
+        # to the caller.  Calling it again then overwrites the files.
+        #
+        # TODO:
+        #  * Replace with JSON
+        #  * Save to different files or same file?
+        #  * Move this functionality to g0w0 result object
+        paths = {}
+        for fxc_mode in self.fxc_modes:
+            path = Path(f'{self.filename}_results_{fxc_mode}.pckl')
+            with paropen(path, 'wb') as fd:
+                pickle.dump(self.all_results[fxc_mode], fd, 2)
+            paths[fxc_mode] = path
+        return paths
 
     def calculate_q(self, ie, k, kpt1, kpt2, pd0, Wdict,
                     *, symop, sigmas, blocks1d, pawcorr):
@@ -591,7 +587,7 @@ class G0W0Calculator:
 
         M_vv = symop.get_M_vv(pd0.gd.cell_cv)
 
-        mypawcorr = pawcorr.remap_somehow_else(symop, G_Gv, M_vv)
+        mypawcorr = pawcorr.remap_by_symop(symop, G_Gv, M_vv)
 
         if debug:
             self.check(ie, i_cG, shift0_c, N_c, q_c, mypawcorr)
@@ -634,7 +630,7 @@ class G0W0Calculator:
         assert len(I0_G) == len(I1_G)
         assert (G_G >= 0).all()
         pairden_paw_corr = self.wcalc.gs.pair_density_paw_corrections
-        pawcorr_wcalc1 = pairden_paw_corr(pd1, alter_optical_limit=True)
+        pawcorr_wcalc1 = pairden_paw_corr(pd1)
         assert pawcorr.almost_equal(pawcorr_wcalc1, G_G)
 
     @timer('Sigma')
@@ -827,29 +823,6 @@ class G0W0Calculator:
             snapshot=self.filename + '-vxc-exx.json')
         return vxc_skn / Ha, exx_skn / Ha
 
-    def read_contribution(self, filename):
-        fd = opencew(filename)  # create, exclusive, write
-        if fd is not None:
-            # File was not there: nothing to read
-            return fd, None
-
-        try:
-            with open(filename, 'rb') as fd:
-                x_skn = np.load(fd)
-        except IOError:
-            self.context.print('Removing broken file:', filename)
-        else:
-            self.context.print('Read:', filename)
-            if x_skn.shape == self.shape:
-                return None, x_skn
-            self.context.print('Removing bad file (wrong shape of array):',
-                               filename)
-
-        if self.context.world.rank == 0:
-            os.remove(filename)
-
-        return opencew(filename), None
-
     def print_results(self, results):
         description = ['f:      Occupation numbers',
                        'eps:     KS-eigenvalues [eV]',
@@ -957,8 +930,6 @@ class G0W0(G0W0Calculator):
             Filename of saved calculator object.
         filename: str
             Base filename of output files.
-        restartfile: str
-            File that stores data necessary to restart a calculation.
         kpts: list
             List of indices of the IBZ k-points to calculate the quasi particle
             energies for.
@@ -1025,8 +996,6 @@ class G0W0(G0W0Calculator):
         nblocksmax: bool
             Cuts chi0 into as many blocks as possible to reduce memory
             requirements as much as possible.
-        savepckl: bool
-            Save output to a pckl file.
         """
         frequencies = get_frequencies(frequencies, domega0, omega2)
 
@@ -1040,8 +1009,8 @@ class G0W0(G0W0Calculator):
         if nblocksmax:
             nblocks = get_max_nblocks(context.world, self._gpwfile, ecut)
 
-        pair = NoCalculatorPairDensity(gs, context,
-                                       nblocks=nblocks)
+        pair = PairDensityCalculator(gs, context,
+                                     nblocks=nblocks)
 
         kpts = list(select_kpts(kpts, gs.kd))
 

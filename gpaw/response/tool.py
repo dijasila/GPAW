@@ -4,9 +4,10 @@ import numpy as np
 from scipy.optimize import leastsq
 
 from ase.units import Ha
+import gpaw.mpi as mpi
 from gpaw.pw.descriptor import PWDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.response.pair import PairDensity
+from gpaw.response.pair import PairDensityCalculator, get_gs_and_context
 
 
 def check_degenerate_bands(filename, etol):
@@ -63,7 +64,10 @@ def get_bz_transitions(filename, q_c, bzk_kc,
 
     ecut /= Ha
 
-    pair = PairDensity(filename, txt=txt)
+    gs, context = get_gs_and_context(filename, txt=txt, world=mpi.world,
+                                     timer=None)
+
+    pair = PairDensityCalculator(gs=gs, context=context)
     pd = get_pw_descriptor(q_c, pair.gs, ecut)
 
     bzk_kv = np.dot(bzk_kc, pd.gd.icell_cv) * 2 * np.pi
@@ -94,20 +98,30 @@ def get_chi0_integrand(pair, pd, n_n, m_m, k_v, s):
     and energy differences of transitions from certain kpoint
     and spin.
     """
+    q_c = pd.kd.bzk_kc[0]
+    optical_limit = np.allclose(q_c, 0.0)
     k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
 
     kptpair = pair.get_kpoint_pair(pd, s, k_c, n_n[0], n_n[-1] + 1,
                                    m_m[0], m_m[-1] + 1)
 
     pairden_paw_corr = pair.gs.pair_density_paw_corrections
-    pawcorr = pairden_paw_corr(pd, alter_optical_limit=True)
-    n_nmG = pair.get_full_pair_density(pd, kptpair, n_n, m_m, pawcorr=pawcorr)
+    pawcorr = pairden_paw_corr(pd)
 
     df_nm = kptpair.get_occupation_differences(n_n, m_m)
     eps_n = kptpair.kpt1.eps_n
     eps_m = kptpair.kpt2.eps_n
 
-    return n_nmG, df_nm, eps_n, eps_m
+    if optical_limit:
+        n_nmP = pair.get_optical_pair_density(pd, kptpair, n_n, m_m,
+                                              pawcorr=pawcorr)
+
+        return n_nmP, df_nm, eps_n, eps_m
+    else:
+        n_nmG = pair.get_pair_density(pd, kptpair, n_n, m_m,
+                                      pawcorr=pawcorr)
+
+        return n_nmG, df_nm, eps_n, eps_m
 
 
 def get_degeneracy_matrix(eps_n, tol=1.e-3):
