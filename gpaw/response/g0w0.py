@@ -310,8 +310,7 @@ class G0W0Calculator:
                  fxc_modes,
                  eta,
                  ecut_e,
-                 frequencies=None,
-                 savepckl=True):
+                 frequencies=None):
         """G0W0 calculator, initialized through G0W0 object.
 
         The G0W0 calculator is used to calculate the quasi
@@ -346,8 +345,6 @@ class G0W0Calculator:
             When carrying out a calculation including vertex corrections, it
             is possible to get the standard GW results at the same time
             (almost for free).
-        savepckl: bool
-            Save output to a pckl file.
         """
         self.chi0calc = chi0calc
         self.wcalc = wcalc
@@ -379,7 +376,6 @@ class G0W0Calculator:
             assert self.wcalc.fxc_mode != 'GW'
 
         self.filename = filename
-        self.savepckl = savepckl
         self.eta = eta / Ha
 
         if self.context.world.rank == 0:
@@ -509,6 +505,8 @@ class G0W0Calculator:
         self.all_results = self.postprocess(sigmas)
         # Note: self.results is a pointer pointing to one of the results,
         # for historical reasons.
+
+        self.savepckl()
         return self.results
 
     def postprocess(self, sigmas):
@@ -551,14 +549,24 @@ class G0W0Calculator:
 
     def postprocess_single(self, fxc_name, sigma):
         output = self.calculate_g0w0_outputs(sigma)
-        result = output.get_results_eV()
+        return output.get_results_eV()
 
-        if self.savepckl:
-            with paropen(f'{self.filename}_results_{fxc_name}.pckl',
-                         'wb') as fd:
-                pickle.dump(result, fd, 2)
-
-        return result
+    def savepckl(self):
+        """Save outputs to pckl files and return paths to those files."""
+        # Note: this is always called, but the paths aren't returned
+        # to the caller.  Calling it again then overwrites the files.
+        #
+        # TODO:
+        #  * Replace with JSON
+        #  * Save to different files or same file?
+        #  * Move this functionality to g0w0 result object
+        paths = {}
+        for fxc_mode in self.fxc_modes:
+            path = Path(f'{self.filename}_results_{fxc_mode}.pckl')
+            with paropen(path, 'wb') as fd:
+                pickle.dump(self.all_results[fxc_mode], fd, 2)
+            paths[fxc_mode] = path
+        return paths
 
     def calculate_q(self, ie, k, kpt1, kpt2, pd0, Wdict,
                     *, symop, sigmas, blocks1d, pawcorr):
@@ -988,8 +996,6 @@ class G0W0(G0W0Calculator):
         nblocksmax: bool
             Cuts chi0 into as many blocks as possible to reduce memory
             requirements as much as possible.
-        savepckl: bool
-            Save output to a pckl file.
         """
         frequencies = get_frequencies(frequencies, domega0, omega2)
 

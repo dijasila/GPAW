@@ -8,7 +8,7 @@ def test_two_phi_plw_integrals():
     from gpaw.grid_descriptor import GridDescriptor
     from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
     from gpaw.spline import Spline
-    from gpaw.response.paw import two_phi_planewave_integrals
+    from gpaw.response.paw import two_phi_planewave_integrals, Setuplet
     # Initialize s, p, d (9 in total) wave and put them on grid
     rc = 2.0
     a = 2.5 * rc
@@ -51,8 +51,10 @@ def test_two_phi_plw_integrals():
     rgd = EquidistantRadialGridDescriptor(r[1], len(r))
     g = [np.exp(-(r / rc * b)**2) * r**l for l in range(lmax + 1)]
     l_j = range(lmax + 1)
-    d1 = two_phi_planewave_integrals(k_G, rgd=rgd, phi_jg=g,
-                                     phit_jg=np.zeros_like(g), l_j=l_j)
+    rcut_j = [rc] * (lmax + 1)
+    d1 = two_phi_planewave_integrals(k_G, setup=Setuplet(rgd=rgd, phi_jg=g,
+                                     phit_jg=np.zeros_like(g), l_j=l_j,
+                                     rcut_j=rcut_j))
 
     d1 = d1.reshape(nkpt, m, m)
 

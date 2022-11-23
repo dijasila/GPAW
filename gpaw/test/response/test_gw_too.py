@@ -43,6 +43,8 @@ def test_do_GW_too(in_tmp_dir, gpw_files, scalapack):
 
     world.barrier()
 
-    with open('gw0_results_GW.pckl', 'rb') as handle:
+    files = gw.savepckl()
+
+    with open(files['GW'], 'rb') as handle:
         results_GW = pickle.load(handle)
     np.testing.assert_allclose(results0['qp'], results_GW['qp'], rtol=1e-03)
