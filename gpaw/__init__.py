@@ -10,7 +10,8 @@ from typing import List, Dict, Union, Any, TYPE_CHECKING
 __version__ = '22.8.1b1'
 __ase_version_required__ = '3.22.1'
 __all__ = ['GPAW',
-           'Mixer', 'MixerSum', 'MixerDif', 'MixerSum2', 'MixerDiag', 'MixerFul', 'MixerCyl', 'MixerDiagFul',
+           'Mixer', 'MixerSum', 'MixerDif', 'MixerSum2',
+           'MixerDiag', 'MixerFul', 'MixerCyl', 'MixerDiagFul',
            'CG', 'Davidson', 'RMMDIIS', 'DirectLCAO',
            'PoissonSolver',
            'FermiDirac', 'MethfesselPaxton', 'MarzariVanderbilt',
@@ -188,7 +189,8 @@ if debug:
 
 with broadcast_imports:
     from gpaw.calculator import GPAW as OldGPAW
-    from gpaw.mixer import Mixer, MixerSum, MixerDif, MixerSum2, MixerDiag, MixerFul, MixerCyl, MixerDiagFul
+    from gpaw.mixer import Mixer, MixerSum, MixerDif, MixerSum2, \
+        MixerDiag, MixerFul, MixerCyl, MixerDiagFul
     from gpaw.eigensolvers import Davidson, RMMDIIS, CG, DirectLCAO
     from gpaw.poisson import PoissonSolver
     from gpaw.occupations import (FermiDirac, MethfesselPaxton,
