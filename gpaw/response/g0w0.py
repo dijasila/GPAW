@@ -1,5 +1,4 @@
 import functools
-import os
 import pickle
 import warnings
 from math import pi
@@ -9,7 +8,6 @@ import numpy as np
 
 from ase.parallel import paropen
 from ase.units import Ha
-from ase.utils import opencew
 
 from gpaw import GPAW, debug
 import gpaw.mpi as mpi
@@ -22,7 +20,7 @@ from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chi0 import Chi0Calculator
 from gpaw.response.g0w0_kernels import G0W0Kernel
 from gpaw.response.hilbert import GWHilbertTransforms
-from gpaw.response.pair import NoCalculatorPairDensity
+from gpaw.response.pair import PairDensityCalculator
 from gpaw.response.screened_interaction import WCalculator
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.response import timer
@@ -591,7 +589,7 @@ class G0W0Calculator:
 
         M_vv = symop.get_M_vv(pd0.gd.cell_cv)
 
-        mypawcorr = pawcorr.remap_somehow_else(symop, G_Gv, M_vv)
+        mypawcorr = pawcorr.remap_by_symop(symop, G_Gv, M_vv)
 
         if debug:
             self.check(ie, i_cG, shift0_c, N_c, q_c, mypawcorr)
@@ -634,7 +632,7 @@ class G0W0Calculator:
         assert len(I0_G) == len(I1_G)
         assert (G_G >= 0).all()
         pairden_paw_corr = self.wcalc.gs.pair_density_paw_corrections
-        pawcorr_wcalc1 = pairden_paw_corr(pd1, alter_optical_limit=True)
+        pawcorr_wcalc1 = pairden_paw_corr(pd1)
         assert pawcorr.almost_equal(pawcorr_wcalc1, G_G)
 
     @timer('Sigma')
@@ -827,29 +825,6 @@ class G0W0Calculator:
             snapshot=self.filename + '-vxc-exx.json')
         return vxc_skn / Ha, exx_skn / Ha
 
-    def read_contribution(self, filename):
-        fd = opencew(filename)  # create, exclusive, write
-        if fd is not None:
-            # File was not there: nothing to read
-            return fd, None
-
-        try:
-            with open(filename, 'rb') as fd:
-                x_skn = np.load(fd)
-        except IOError:
-            self.context.print('Removing broken file:', filename)
-        else:
-            self.context.print('Read:', filename)
-            if x_skn.shape == self.shape:
-                return None, x_skn
-            self.context.print('Removing bad file (wrong shape of array):',
-                               filename)
-
-        if self.context.world.rank == 0:
-            os.remove(filename)
-
-        return opencew(filename), None
-
     def print_results(self, results):
         description = ['f:      Occupation numbers',
                        'eps:     KS-eigenvalues [eV]',
@@ -1040,8 +1015,8 @@ class G0W0(G0W0Calculator):
         if nblocksmax:
             nblocks = get_max_nblocks(context.world, self._gpwfile, ecut)
 
-        pair = NoCalculatorPairDensity(gs, context,
-                                       nblocks=nblocks)
+        pair = PairDensityCalculator(gs, context,
+                                     nblocks=nblocks)
 
         kpts = list(select_kpts(kpts, gs.kd))
 

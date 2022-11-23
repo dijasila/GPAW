@@ -89,7 +89,6 @@ class PointIntegrator(Integrator):
             return self.response_function_integration(hermitian=True,
                                                       hilbert=False,
                                                       wings=False,
-                                                      intraband=False,
                                                       *args, **kwargs)
         elif kind == 'hermitian response function wings':
             return self.response_function_integration(hermitian=True,
@@ -115,7 +114,7 @@ class PointIntegrator(Integrator):
 
     def response_function_integration(self, *, domain, integrand,
                                       x=None, out_wxx,
-                                      timeordered=False, hermitian=False,
+                                      hermitian=False,
                                       intraband=False, hilbert=False,
                                       wings=False, eta=None):
         """Integrate a response function over bands and kpoints.
@@ -123,7 +122,6 @@ class PointIntegrator(Integrator):
         func: method
         omega_w: ndarray
         out: np.ndarray
-        timeordered: Bool
         """
         mydomain_t = self.distribute_domain(domain)
         nbz = len(domain[0])
@@ -158,11 +156,9 @@ class PointIntegrator(Integrator):
                 assert eta is None
                 self.update_hilbert_optical_limit(n_MG, deps_M, x, out_wxx)
             elif wings:
-                # XXX what about timeordered?  See #632
                 self.update_optical_limit(n_MG, deps_M, x, out_wxx,
                                           eta=eta)
             else:
-                # XXX what about timeordered?  See #632
                 self.update(n_MG, deps_M, x, out_wxx, eta=eta)
 
         # Sum over
@@ -186,16 +182,12 @@ class PointIntegrator(Integrator):
         out_wxx *= prefactor
 
     @timer('CHI_0 update')
-    def update(self, n_mG, deps_m, wd, chi0_wGG, timeordered=False, eta=None):
+    def update(self, n_mG, deps_m, wd, chi0_wGG, eta=None):
         """Update chi."""
 
         deps_m += self.eshift * np.sign(deps_m)
-        if timeordered:
-            deps1_m = deps_m + 1j * eta * np.sign(deps_m)
-            deps2_m = deps1_m
-        else:
-            deps1_m = deps_m + 1j * eta
-            deps2_m = deps_m - 1j * eta
+        deps1_m = deps_m + 1j * eta
+        deps2_m = deps_m - 1j * eta
 
         blocks1d = self._blocks1d(chi0_wGG.shape[2])
 
@@ -299,17 +291,10 @@ class PointIntegrator(Integrator):
             chi0_wvv[0] += x_vv
 
     @timer('CHI_0 optical limit update')
-    def update_optical_limit(self, n_mG, deps_m, wd, chi0_wxvG,
-                             timeordered=False, eta=None):
+    def update_optical_limit(self, n_mG, deps_m, wd, chi0_wxvG, eta=None):
         """Optical limit update of chi."""
-
-        if timeordered:
-            # avoid getting a zero from np.sign():
-            deps1_m = deps_m + 1j * eta * np.sign(deps_m + 1e-20)
-            deps2_m = deps1_m
-        else:
-            deps1_m = deps_m + 1j * eta
-            deps2_m = deps_m - 1j * eta
+        deps1_m = deps_m + 1j * eta
+        deps2_m = deps_m - 1j * eta
 
         for w, omega in enumerate(wd.omega_w):
             x_m = (1 / (omega + deps1_m) - 1 / (omega - deps2_m))

@@ -1,6 +1,6 @@
 import numpy as np
 
-from gpaw.atom.radialgd import fsbt, RadialGridDescriptor as RGD
+from gpaw.atom.radialgd import fsbt, EquidistantRadialGridDescriptor as RGD
 
 
 def test_maths_fsbt():
@@ -20,12 +20,12 @@ def test_maths_fsbt():
         print(l, abs(f - f0).max(), 'tol=', tol)
         assert abs(f - f0).max() < tol
 
-    rgd = RGD(r, r * 0 + r[1])
+    rgd = RGD(r[1], len(r))
     g, f = rgd.fft(n * r)
     f0 = 4 * np.pi**1.5 / alpha**1.5 / 4 * np.exp(-g**2 / 4 / alpha)
     assert abs(f - f0).max() < 1e-6
 
     # This is how to do the inverse FFT:
-    ggd = RGD(g, g * 0 + g[1])
+    ggd = RGD(g[1], len(g))
     r, f = ggd.fft(f * g)
     assert abs(np.exp(-alpha * r**2) - f / 8 / np.pi**3).max() < 2e-3
