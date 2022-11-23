@@ -49,6 +49,10 @@ def eye(n):
     return ndarray(np.eye(n))
 
 
+def triu_indices(n, k=0, m=None):
+    return ndarray(np.triu_indices(n, k, m))
+
+
 class ndarray:
     def __init__(self, data):
         assert isinstance(data, np.ndarray), type(data)

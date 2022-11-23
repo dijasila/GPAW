@@ -1,17 +1,19 @@
 """BLACS distributed matrix object."""
 from __future__ import annotations
 
+from types import ModuleType
 from typing import Dict, Tuple, Union
 
 import _gpaw
-import gpaw.utilities.blas as blas
 import numpy as np
 import scipy
 import scipy.linalg as sla
+
+import gpaw.utilities.blas as blas
 from gpaw import debug
+from gpaw.gpu import cupy as cp
 from gpaw.mpi import MPIComm, _Communicator, serial_comm
 from gpaw.typing import Array1D, ArrayLike1D, ArrayLike2D
-from gpaw.gpu import cupy as cp
 
 _global_blacs_context_store: Dict[Tuple[_Communicator, int, int], int] = {}
 
@@ -95,6 +97,7 @@ class Matrix:
         self.dtype = np.dtype(dtype)
         assert dtype == float or dtype == complex, dtype
 
+        self.xp: ModuleType
         if xp is None:
             if isinstance(dist, CuPyDistribution):
                 self.xp = cp
