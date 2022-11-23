@@ -685,7 +685,7 @@ class SpinDifferenceMixerDriver:
             # Mix magnetization
             dnt_G = nt_sG[0] - nt_sG[1]
             dD_ap = [D_sp[0] - D_sp[1] for D_sp in D_asp]
-            dMt = basemixer_m.mix_single_density(dnt_G, dD_ap)
+            basemixer_m.mix_single_density(dnt_G, dD_ap)
             # (The latter is not counted in dNt)
 
             # Construct new spin up/down densities
@@ -705,17 +705,9 @@ class SpinDifferenceMixerDriver:
             Dy_ap = [D_sp[2] for D_sp in D_asp]
             Dz_ap = [D_sp[3] for D_sp in D_asp]
 
-            basemixer_x.mix_single_density(nt_sG[1], Dx_ap, blas=True)
-            basemixer_y.mix_single_density(nt_sG[2], Dy_ap, blas=True)
-            basemixer_z.mix_single_density(nt_sG[3], Dz_ap, blas=True)
-
-            dMt = np.inf
-            if len(basemixer_x.R_iG) > 0:
-                R_vG = np.array([basemixer_x.R_iG[-1],
-                                 basemixer_y.R_iG[-1],
-                                 basemixer_z.R_iG[-1]])
-                dM_G = np.linalg.norm(R_vG, axis = 0)
-                dMt = basemixer_x.calculate_charge_sloshing(dM_G)
+            basemixer_x.mix_single_density(nt_sG[1], Dx_ap)
+            basemixer_y.mix_single_density(nt_sG[2], Dy_ap)
+            basemixer_z.mix_single_density(nt_sG[3], Dz_ap)
         return dNt
 
 
@@ -768,8 +760,8 @@ class SpinDiagonalMixerDriver:
         Dd_ap = [D_vps[1][:, 1] for D_vps in D_avps]
         
         # Mix, inplace update of sx_G and Dx_ap
-        dMt0 = basemixer_u.mix_single_density(su_G, Du_ap, blas=False)
-        dMt1 = basemixer_d.mix_single_density(sd_G, Dd_ap, blas=False)
+        basemixer_u.mix_single_density(su_G, Du_ap, blas=False)
+        basemixer_d.mix_single_density(sd_G, Dd_ap, blas=False)
         
         # Reconstruct the array structure of the spin-index and calculate new complex magnetization density
         sn_Gs = np.append(su_G[..., np.newaxis], sd_G[..., np.newaxis], axis=-1)
