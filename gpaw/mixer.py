@@ -181,7 +181,7 @@ class BaseMixer:
                         axpy(alpha * beta, dD_ip, D_p)
                     else:
                         D_p[:] = alpha * D_ip + D_p
-                        D_p[:] = alpha *beta * dD_ip + D_p
+                        D_p[:] = alpha * beta * dD_ip + D_p
 
         # Store new input density (and new atomic density matrices):
         self.nt_iG.append(nt_G.copy())
@@ -197,7 +197,7 @@ class BaseMixer:
         dD_iasp = self.dD_iap
         spin = len(nt_sG)
         iold = len(self.nt_iG)
-        dNt = [np.inf]*spin
+        dNt = [np.inf] * spin
         if iold > 0:
             if iold > self.nmaxold:
                 # Throw away too old stuff:
@@ -217,7 +217,7 @@ class BaseMixer:
             R_isG.append(R_sG)
             dD_iasp.append([])
             for D_sp, D_isp in zip(D_asp, D_iasp[-1]):
-                dD_iasp[-1].append(D_sp - D_isp)            
+                dD_iasp[-1].append(D_sp - D_isp)
 
             if self.metric is None:
                 mR_sG = R_sG
@@ -225,7 +225,7 @@ class BaseMixer:
                 mR_sG = self.mR_sG[:spin]
                 for s in range(spin):
                     self.metric(R_sG[s], mR_sG[s])
-            mR_sG = np.tensordot(g_ss, mR_sG, axes=(1,0))
+            mR_sG = np.tensordot(g_ss, mR_sG, axes=(1, 0))
 
             # Update matrix:
             A_ii = np.zeros((iold, iold))
@@ -274,7 +274,7 @@ class BaseMixer:
                         axpy(alpha * beta, dD_isp, D_sp)
                     else:
                         D_sp[:] += alpha * D_isp
-                        D_sp[:] += alpha *beta * dD_isp
+                        D_sp[:] += alpha * beta * dD_isp
  
         # Store new input density (and new atomic density matrices):
         nt_isG.append(nt_sG.copy())
@@ -282,7 +282,6 @@ class BaseMixer:
         for D_sp in D_asp:
             D_iasp[-1].append(D_sp.copy())
         return dNt
-
 
     # may presently be overridden by passing argument in constructor
     def dotprod(self, R1_G, R2_G, dD1_ap, dD2_ap):
@@ -729,9 +728,9 @@ class SpinDiagonalMixerDriver:
             raise ValueError('Spin diagonal mixer expects 4 components')
         basemixer = self.basemixerclass(self.beta, self.nmaxold, self.weight)
         basemixer_u = self.basemixerclass(self.beta_m, self.nmaxold_m,
-                                              self.weight_m)
+                                          self.weight_m)
         basemixer_d = self.basemixerclass(self.beta_m, self.nmaxold_m,
-                                              self.weight_m)
+                                          self.weight_m)
         return basemixer, basemixer_u, basemixer_d
 
     def mix(self, basemixers, nt_sG, D_asp):
@@ -745,10 +744,12 @@ class SpinDiagonalMixerDriver:
         dNt = basemixer.mix_single_density(nt_G, D_ap, blas=False)
 
         # Construct complex magnetization density
-        rho_Gss = np.array([[nt_sG[3],  nt_sG[1] - 1j*nt_sG[2]],
-                            [nt_sG[1] + 1j*nt_sG[2], -nt_sG[3]]]).transpose((2,3,4,0,1))
-        D_apss =[np.array([[D_sp[3],  D_sp[1] - 1j*D_sp[2]],
-                           [D_sp[1] + 1j*D_sp[2], -D_sp[3]]]).transpose((2, 0, 1)) for D_sp in D_asp]
+        rho_Gss = np.array([[nt_sG[3], nt_sG[1] - 1j * nt_sG[2]],
+                            [nt_sG[1] + 1j * nt_sG[2], -nt_sG[3]]])\
+                    .transpose((2, 3, 4, 0, 1))
+        D_apss = [np.array([[D_sp[3], D_sp[1] - 1j * D_sp[2]],
+                            [D_sp[1] + 1j * D_sp[2], -D_sp[3]]])
+                  .transpose((2, 0, 1)) for D_sp in D_asp]
 
         # Diagonalize magnetization density using singular value decomposition
         u_Gss, s_Gs, vh_Gss = np.linalg.svd(rho_Gss)
@@ -763,22 +764,28 @@ class SpinDiagonalMixerDriver:
         basemixer_u.mix_single_density(su_G, Du_ap, blas=False)
         basemixer_d.mix_single_density(sd_G, Dd_ap, blas=False)
         
-        # Reconstruct the array structure of the spin-index and calculate new complex magnetization density
-        sn_Gs = np.append(su_G[..., np.newaxis], sd_G[..., np.newaxis], axis=-1)
-        Dsn_aps = [np.append(Du_p[..., np.newaxis], Dd_p[..., np.newaxis], axis=-1) for (Du_p, Dd_p) in zip(Du_ap, Dd_ap)]
+        # Reconstruct the array structure of the spin-index and
+        # calculate new complex magnetization density
+        sn_Gs = np.append(su_G[..., np.newaxis],
+                          sd_G[..., np.newaxis], axis=-1)
+        Dsn_aps = [np.append(Du_p[..., np.newaxis],
+                             Dd_p[..., np.newaxis], axis=-1)
+                   for (Du_p, Dd_p) in zip(Du_ap, Dd_ap)]
         rhon_Gss = np.matmul((u_Gss * sn_Gs[..., None, :]), vh_Gss)
-        Dn_apss =  [np.matmul((D_vpss[0] * Dsn_ps[..., None, :]), D_vpss[2]) for (D_vpss, Dsn_ps) in zip(D_avps, Dsn_aps)]
+        Dn_apss = [np.matmul((D_vpss[0] * Dsn_ps[..., None, :]), D_vpss[2])
+                   for (D_vpss, Dsn_ps) in zip(D_avps, Dsn_aps)]
         
-        # Construct new real magnetization density components from complex magnetization density
+        # Construct new real magnetization density components
         nt_sG[1] = 0.5 * (rhon_Gss[:, :, :, 0, 1] + rhon_Gss[:, :, :, 1, 0])
-        nt_sG[2] = 1j*0.5 * (rhon_Gss[:, :, :, 0, 1] - rhon_Gss[:, :, :, 1, 0])
+        nt_sG[2] = 0.5j * (rhon_Gss[:, :, :, 0, 1] - rhon_Gss[:, :, :, 1, 0])
         nt_sG[3] = 0.5 * (rhon_Gss[:, :, :, 1, 1] - rhon_Gss[:, :, :, 0, 0])
         for D_sp, Dn_pss in zip(D_asp, Dn_apss):
             D_sp[1] = 0.5 * (Dn_pss[:, 0, 1] + Dn_pss[:, 1, 0])
-            D_sp[2] = 1j*0.5 * (Dn_pss[:, 0, 1] - Dn_pss[:, 1, 0])
+            D_sp[2] = 0.5j * (Dn_pss[:, 0, 1] - Dn_pss[:, 1, 0])
             D_sp[3] = 0.5 * (Dn_pss[:, 0, 0] - Dn_pss[:, 1, 1])
         
         return dNt
+
 
 class SpinDiagfulMixerDriver:
     name = 'diagonalspinful'
@@ -788,7 +795,7 @@ class SpinDiagfulMixerDriver:
         self.beta = beta
         self.nmaxold = nmaxold
         self.weight = weight
-        if g == None:
+        if g is None:
             self.g = np.identity(2)
         else:
             self.g = g
@@ -805,11 +812,12 @@ class SpinDiagfulMixerDriver:
         basemixer = basemixers[0]
 
         # Construct complex 4-density, transpose for SVD
-        rho_Gss = np.array([[nt_sG[0] + nt_sG[3], nt_sG[1] - 1j*nt_sG[2]],
-                            [nt_sG[1] + 1j*nt_sG[2], nt_sG[0] - nt_sG[3]]]).transpose((2,3,4,0,1))
-        D_apss =[np.array([[D_sp[0] + D_sp[3],  D_sp[1] - 1j*D_sp[2]],
-                           [D_sp[1] + 1j*D_sp[2], D_sp[0] - D_sp[3]]]).transpose((2, 0, 1))
-                 for D_sp in D_asp]
+        rho_Gss = np.array([[nt_sG[0] + nt_sG[3], nt_sG[1] - 1j * nt_sG[2]],
+                            [nt_sG[1] + 1j * nt_sG[2], nt_sG[0] - nt_sG[3]]])\
+                    .transpose((2, 3, 4, 0, 1))
+        D_apss = [np.array([[D_sp[0] + D_sp[3], D_sp[1] - 1j * D_sp[2]],
+                            [D_sp[1] + 1j * D_sp[2], D_sp[0] - D_sp[3]]])
+                  .transpose((2, 0, 1)) for D_sp in D_asp]
 
         # Diagonalize magnetization density using singular value decomposition
         u_Gss, s_Gs, vh_Gss = np.linalg.svd(rho_Gss)
@@ -824,24 +832,25 @@ class SpinDiagfulMixerDriver:
 
         # Transpose back to compatability with SVD eigenvectors
         s_Gs = s_sG.transpose((1, 2, 3, 0))
-        Ds_aps =  [Ds_sp.transpose(1, 0) for Ds_sp in Ds_asp]
+        Ds_aps = [Ds_sp.transpose(1, 0) for Ds_sp in Ds_asp]
 
         # Reconstruct the complex 4-density
         rhon_Gss = np.matmul((u_Gss * s_Gs[..., None, :]), vh_Gss)
-        Dn_apss = [np.matmul((D_vpss[0] * Ds_ps[..., None, :]), D_vpss[2]) for (D_vpss, Ds_ps) in zip(D_avps, Ds_aps)]
+        Dn_apss = [np.matmul((D_vpss[0] * Ds_ps[..., None, :]), D_vpss[2])
+                   for (D_vpss, Ds_ps) in zip(D_avps, Ds_aps)]
         
-        # Construct new real magnetization density components from complex magnetization density
+        # Construct new real magnetization density components
         nt_sG[0] = 0.5 * (rhon_Gss[:, :, :, 1, 1] + rhon_Gss[:, :, :, 0, 0])
         nt_sG[1] = 0.5 * (rhon_Gss[:, :, :, 0, 1] + rhon_Gss[:, :, :, 1, 0])
-        nt_sG[2] = 1j*0.5 * (rhon_Gss[:, :, :, 0, 1] - rhon_Gss[:, :, :, 1, 0])
+        nt_sG[2] = 0.5j * (rhon_Gss[:, :, :, 0, 1] - rhon_Gss[:, :, :, 1, 0])
         nt_sG[3] = 0.5 * (rhon_Gss[:, :, :, 1, 1] - rhon_Gss[:, :, :, 0, 0])
-        for D_sp,Dn_pss in zip(D_asp, Dn_apss):
+        for D_sp, Dn_pss in zip(D_asp, Dn_apss):
             D_sp[0] = 0.5 * (Dn_pss[:, 0, 0] + Dn_pss[:, 1, 1])
             D_sp[1] = 0.5 * (Dn_pss[:, 0, 1] + Dn_pss[:, 1, 0])
-            D_sp[2] = 1j*0.5 * (Dn_pss[:, 0, 1] - Dn_pss[:, 1, 0])
+            D_sp[2] = 0.5j * (Dn_pss[:, 0, 1] - Dn_pss[:, 1, 0])
             D_sp[3] = 0.5 * (Dn_pss[:, 0, 0] - Dn_pss[:, 1, 1])
         
-        return dNut+dNdt 
+        return dNut + dNdt
 
 
 class SpinCylinderMixerDriver:
@@ -896,7 +905,7 @@ class SpinCylinderMixerDriver:
             # Mix magnetization
             dnt_G = nt_sG[0] - nt_sG[1]
             dD_ap = [D_sp[0] - D_sp[1] for D_sp in D_asp]
-            dMt = basemixer_m.mix_single_density(dnt_G, dD_ap)
+            basemixer_m.mix_single_density(dnt_G, dD_ap)
             # (The latter is not counted in dNt)
 
             # Construct new spin up/down densities
@@ -965,9 +974,11 @@ _backends = {}
 _methods = {}
 for cls in [FFTBaseMixer, BroydenBaseMixer, BaseMixer, NotMixingMixer]:
     _backends[cls.name] = cls  # type:ignore
-for dcls in [SeparateSpinMixerDriver, SpinSumMixerDriver, SpinFulMixerDriver,
-             SpinSumMixerDriver2, SpinDiagonalMixerDriver, SpinCylinderMixerDriver,
-             SpinDiagfulMixerDriver, SpinDifferenceMixerDriver, DummyMixer]:
+for dcls in [SeparateSpinMixerDriver, SpinSumMixerDriver,
+             SpinFulMixerDriver, SpinSumMixerDriver2,
+             SpinDiagonalMixerDriver, SpinCylinderMixerDriver,
+             SpinDiagfulMixerDriver, SpinDifferenceMixerDriver,
+             DummyMixer]:
     _methods[dcls.name] = dcls  # type:ignore
 
 
