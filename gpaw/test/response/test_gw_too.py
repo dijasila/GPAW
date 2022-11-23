@@ -26,8 +26,7 @@ def test_do_GW_too(in_tmp_dir, gpw_files, scalapack):
                bands=(3, 5),
                nblocks=1,
                ecut_extrapolation=ecut_extrapolation,
-               ecut=40,
-               restartfile=None)
+               ecut=40)
 
     results0 = gw0.calculate()
 
@@ -38,8 +37,7 @@ def test_do_GW_too(in_tmp_dir, gpw_files, scalapack):
               ecut_extrapolation=ecut_extrapolation,
               ecut=40,
               fxc_mode='GWP',
-              do_GW_too=True,
-              restartfile=None)
+              do_GW_too=True)
 
     gw.calculate()
 
