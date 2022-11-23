@@ -11,10 +11,11 @@ from gpaw.core.atom_centered_functions import AtomCenteredFunctions
 from gpaw.core.plane_waves import PlaneWaveExpansions
 from gpaw.core.uniform_grid import UniformGrid, UniformGridFunctions
 from gpaw.fftw import get_efficient_fft_size
+from gpaw.gpu import as_xp
+from gpaw.new.potential import Potential
 from gpaw.new.wave_functions import WaveFunctions
 from gpaw.setup import Setups
 from gpaw.typing import Array2D, Array3D, ArrayND, Vector
-from gpaw.new.potential import Potential
 
 
 class PWFDWaveFunctions(WaveFunctions):
@@ -213,9 +214,7 @@ class PWFDWaveFunctions(WaveFunctions):
             slcomm, r, c, b = scalapack_parameters
             if r == c == 1:
                 slcomm = None
-            self._eig_n = H.eigh(scalapack=(slcomm, r, c, b))
-            if not isinstance(self._eig_n, np.ndarray):
-                self._eig_n = H.xp.asnumpy(self._eig_n)
+            self._eig_n = as_xp(H.eigh(scalapack=(slcomm, r, c, b)), np)
             H.complex_conjugate()
             # H.data[n, :] now contains the n'th eigenvector and eps_n[n]
             # the n'th eigenvalue

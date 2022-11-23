@@ -27,4 +27,3 @@ def test_zyrk():
     c = cp.cublas.syrk('N', a, lower=True)
     print(c)
     print(a @ a.T.conj())
-    
