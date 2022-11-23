@@ -629,7 +629,7 @@ class SpinSumMixerDriver:
             nt_sG[0] = 0.5 * (nt_G + dnt_G)
             nt_sG[1] = 0.5 * (nt_G - dnt_G)
 
-        return dNt, 1
+        return dNt
 
 
 class SpinSumMixerDriver2(SpinSumMixerDriver):
@@ -716,7 +716,7 @@ class SpinDifferenceMixerDriver:
                                  basemixer_z.R_iG[-1]])
                 dM_G = np.linalg.norm(R_vG, axis = 0)
                 dMt = basemixer_x.calculate_charge_sloshing(dM_G)
-        return dNt, dMt
+        return dNt
 
 
 class SpinDiagonalMixerDriver:
@@ -786,7 +786,7 @@ class SpinDiagonalMixerDriver:
             D_sp[2] = 1j*0.5 * (Dn_pss[:, 0, 1] - Dn_pss[:, 1, 0])
             D_sp[3] = 0.5 * (Dn_pss[:, 0, 0] - Dn_pss[:, 1, 1])
         
-        return dNt, dMt0+dMt1
+        return dNt
 
 class SpinDiagfulMixerDriver:
     name = 'diagonalspinful'
@@ -849,7 +849,7 @@ class SpinDiagfulMixerDriver:
             D_sp[2] = 1j*0.5 * (Dn_pss[:, 0, 1] - Dn_pss[:, 1, 0])
             D_sp[3] = 0.5 * (Dn_pss[:, 0, 0] - Dn_pss[:, 1, 1])
         
-        return dNut+dNdt, dNut-dNdt 
+        return dNut+dNdt 
 
 
 class SpinCylinderMixerDriver:
@@ -937,13 +937,7 @@ class SpinCylinderMixerDriver:
                 D_sp[1] = Dr_p * np.cos(Dt_p)
                 D_sp[2] = Dr_p * np.sin(Dt_p)
 
-            dMt = np.inf
-            if len(basemixer_r.R_iG) > 0:
-                R_vG = np.array([basemixer_r.R_iG[-1],
-                                 basemixer_z.R_iG[-1]])
-                dM_G = np.linalg.norm(R_vG, axis = 0)
-                dMt = basemixer_r.calculate_charge_sloshing(dM_G)
-        return dNt, dMt
+        return dNt
 
 
 class SpinFulMixerDriver:

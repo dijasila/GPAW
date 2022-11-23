@@ -128,7 +128,6 @@ class Density:
 
         self.timer = nulltimer
         self.error = None
-        self.merror = None
         self.nct = None
         self.ghat = None
         self.log = None
@@ -266,9 +265,8 @@ class Density:
 
     def mix(self, comp_charge):
         assert isinstance(self.mixer, MixerWrapper), self.mixer
-        self.error, self.merror = self.mixer.mix(self.nt_xG, self.D_asp)
+        self.error = self.mixer.mix(self.nt_xG, self.D_asp)
         assert self.error is not None, self.mixer
-        assert self.merror is not None, self.mixer
 
         comp_charge = None
         self.interpolate_pseudo_density(comp_charge)

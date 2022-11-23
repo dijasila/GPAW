@@ -67,9 +67,9 @@ class SCFLoop:
         self.mixer.reset()
 
         if self.update_density_and_potential:
-            dens_error, magn_error = self.mixer.mix(state.density)
+            dens_error = self.mixer.mix(state.density)
         else:
-            dens_error, magn_error = 0.0
+            dens_error = 0.0
 
         for self.niter in itertools.count(start=1):
             wfs_error = self.eigensolver.iterate(state, self.hamiltonian)
@@ -79,7 +79,7 @@ class SCFLoop:
 
             ctx = SCFContext(
                 state, self.niter,
-                wfs_error, dens_error, magn_error,
+                wfs_error, dens_error,
                 self.world, calculate_forces)
 
             yield ctx
@@ -95,7 +95,7 @@ class SCFLoop:
 
             if self.update_density_and_potential:
                 state.density.update(pot_calc.nct_R, state.ibzwfs)
-                dens_error, magn_error = self.mixer.mix(state.density)
+                dens_error = self.mixer.mix(state.density)
                 state.potential, state.vHt_x, _ = pot_calc.calculate(
                     state.density, state.vHt_x)
 
@@ -106,7 +106,6 @@ class SCFContext:
                  niter: int,
                  wfs_error: float,
                  dens_error: float,
-                 magn_error: float,
                  world,
                  calculate_forces: Callable[[], Array2D]):
         self.state = state
@@ -124,7 +123,7 @@ class SCFContext:
             calculate_magnetic_moments=state.density
             .calculate_magnetic_moments,
             fixed=False,
-            error=dens_error, merror=magn_error)
+            error=dens_error)
         self.calculate_forces = calculate_forces
 
 
