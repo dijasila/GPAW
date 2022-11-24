@@ -22,6 +22,8 @@ Git master branch
 
 * New tutorial: :ref:`abinitiomd`.
 
+* Experimental support for PW-mode calculations using a GPU.
+
 
 Version 22.8.0
 ==============
