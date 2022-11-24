@@ -48,8 +48,8 @@ def test_response_na_plasmons_tetrahedron(in_tmp_dir, scalapack):
                              **kwargs)
     df2NLFCx, df2LFCx = df2.get_dielectric_function(direction='x')
 
-    # point integration 4 blocks
-    kwargs.update({'integrationmode': None})
+    # tetrahedron integration 4 blocks with large eta
+    kwargs.update({'eta': 4.25})
     df3 = DielectricFunction('gs_Na.gpw',
                              rate=0.001,
                              nblocks=4,
@@ -77,6 +77,6 @@ def test_response_na_plasmons_tetrahedron(in_tmp_dir, scalapack):
     # make sure the plasmon peak values agree
     assert w1 == pytest.approx(w2, 1e-2)  # omega: serial vs parallel
     assert w2 == pytest.approx(w3, 3e-2, abs=True)  # omega: tetra vs point
-    # omega: PI w/o & w/ eta
-    assert [w3, w4] == pytest.approx([0.341695, 0.300520], 1e-2)
+    # omega: PI & TI w/ large eta are aprx equal
+    assert w4 == pytest.approx(w3, 2e-2, abs=True)
     assert I1 == pytest.approx(I2, 1e-3)  # intensity: serial vs parallel
