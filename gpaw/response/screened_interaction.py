@@ -44,9 +44,8 @@ def initialize_w_calculator(chi0calc, txt='w.txt', ppa=False, xc='RPA',
     Eg: float
         Gap to apply in the 'JGMs' (simplified jellium-with-gap) kernel.
         If None the DFT gap is used.
-    truncation: str
-         Coulomb truncation scheme. Can be either wigner-seitz,
-         2D, 1D, or 0D
+    truncation: str or None
+         Coulomb truncation scheme. Can be None, 'wigner-seitz', or '2D'.
     integrate_gamma: int
          Method to integrate the Coulomb interaction. 1 is a numerical
          integration at all q-points with G=[0,0,0] - this breaks the
