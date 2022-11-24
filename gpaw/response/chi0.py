@@ -519,47 +519,6 @@ class Chi0Calculator:
 
         return kind, extraargs
 
-    def reduce_ecut(self, ecut, chi0: Chi0Data):
-        """
-        Function to provide chi0 quantities with reduced ecut
-        needed for ecut extrapolation. See g0w0.py for usage.
-        Note: Returns chi0_wGG array in wGG distribution.
-        """
-        from gpaw.pw.descriptor import (PWDescriptor,
-                                        PWMapping)
-        from gpaw.response.pw_parallelization import Blocks1D
-        nG = chi0.pd.ngmax
-        blocks1d = chi0.blocks1d
-
-        # The copy() is only required when doing GW_too, since we need
-        # to run this whole thin twice.
-        chi0_wGG = chi0.blockdist.distribute_as(chi0.chi0_wGG.copy(),
-                                                chi0.nw, 'wGG')
-
-        pd = chi0.pd
-        chi0_wxvG = chi0.chi0_wxvG
-        chi0_wvv = chi0.chi0_wvv
-
-        if ecut == pd.ecut:
-            pdi = pd
-            G2G = None
-
-        elif ecut < pd.ecut:  # construct subset chi0 matrix with lower ecut
-            pdi = PWDescriptor(ecut, pd.gd, dtype=pd.dtype,
-                               kd=pd.kd)
-            nG = pdi.ngmax
-            blocks1d = Blocks1D(self.pair.blockcomm, nG)
-            G2G = PWMapping(pdi, pd).G2_G1
-            chi0_wGG = chi0_wGG.take(G2G, axis=1).take(G2G, axis=2)
-
-            if chi0_wxvG is not None:
-                chi0_wxvG = chi0_wxvG.take(G2G, axis=3)
-
-            if self.pawcorr is not None:
-                self.pawcorr = self.pawcorr.reduce_ecut(G2G)
-
-        return pdi, blocks1d, G2G, chi0_wGG, chi0_wxvG, chi0_wvv
-
     @timer('Get kpoints')
     def get_kpoints(self, pd, integrationmode=None):
         """Get the integration domain."""
