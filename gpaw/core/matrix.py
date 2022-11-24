@@ -124,7 +124,9 @@ class Matrix:
 
     def __repr__(self):
         dist = str(self.dist).split('(')[1]
-        return 'Matrix({}: {}'.format(self.dtype.name, dist)
+        if self.xp is cp:
+            dist = 'xp=cp, ' + dist
+        return f'Matrix({self.dtype.name}: {dist}'
 
     def new(self, dist='inherit', data=None) -> Matrix:
         """Create new matrix of same shape and dtype.

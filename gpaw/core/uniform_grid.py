@@ -281,6 +281,8 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         txt = f'UniformGridFunctions(grid={self.desc}, dims={self.dims}'
         if self.comm.size > 1:
             txt += f', comm={self.comm.rank}/{self.comm.size}'
+        if self.xp is not np:
+            txt += ', xp=cp'
         return txt + ')'
 
     def new(self, data=None):

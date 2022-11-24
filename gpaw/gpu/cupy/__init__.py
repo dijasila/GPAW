@@ -50,7 +50,8 @@ def eye(n):
 
 
 def triu_indices(n, k=0, m=None):
-    return ndarray(np.triu_indices(n, k, m))
+    i, j = np.triu_indices(n, k, m)
+    return ndarray(i), ndarray(j)
 
 
 class ndarray:

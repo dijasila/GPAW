@@ -241,6 +241,8 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         txt = f'PlaneWaveExpansions(pw={self.desc}, dims={self.dims}'
         if self.comm.size > 1:
             txt += f', comm={self.comm.rank}/{self.comm.size}'
+        if self.xp is not np:
+            txt += ', xp=cp'
         return txt + ')'
 
     def __getitem__(self, index: int) -> PlaneWaveExpansions:
