@@ -42,8 +42,9 @@ def test_polarizability(in_tmp_dir):
     assert H2.calc.parameters.external is None
 
     assert alpha_cc.shape == (3, 3)
+    print(alpha_cc)
     assert alpha_cc == pytest.approx(
-        np.diag([6.48529231e-02, 4.61303856e-2, 4.61303856e-2]))
+        np.diag([0.064853, 0.046130, 0.046130]), abs=1e-6)
 
     # displace positions and make sure that you can still
     # get the energy
