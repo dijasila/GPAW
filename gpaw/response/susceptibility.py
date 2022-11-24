@@ -366,7 +366,7 @@ class SusceptibilityFactory:
         self._chiks_wGG = None
 
     def __call__(self, spincomponent, q_c, frequencies,
-                 fxc='ALDA', fxckwargs={}):
+                 fxc='ALDA', fxckwargs={}):  # txt?                            XXX
         """Calculate a given element (spincomponent) of the four-component
         Kohn-Sham susceptibility tensor and construct a corresponding many-body
         susceptibility object within a given approximation to the
@@ -412,7 +412,7 @@ class SusceptibilityFactory:
             Kxc_GG = self.get_xc_kernel(fxc, spincomponent, pd,
                                         chiks_wGG=chiks_wGG)
 
-        return Chi(pd, wd, chiks_wGG, Vbare_G, Kxc_GG)
+        return Chi(self.chiks.blocks1d, pd, wd, chiks_wGG, Vbare_G, Kxc_GG)
 
     def get_chiks(self, spincomponent, q_c, frequencies):
         """Get chiks_wGG from buffer."""
@@ -425,11 +425,19 @@ class SusceptibilityFactory:
                  np.allclose(wd.omega_w, self.current_wd.omega_w)):
             # Calculate new chiks_wGG, if buffer is empty or if we are
             # considering a new set of spincomponent, q-vector and frequencies
+            pd, chiks_wGG = self.chiks.calculate(q_c, wd,
+                                                 spincomponent=spincomponent)
+
+            # Redistribute memory, so each block has its own frequencies, but all
+            # plane waves (for easy invertion of the Dyson-like equation)
+            chiks_wGG = self.chiks.distribute_frequencies(chiks_wGG)
+
+            # Fill buffer
             self.current_spincomponent = spincomponent
             self.current_q_c = q_c
             self.current_wd = wd
-            self._pd, self._chiks_wGG = self.chiks.calculate(
-                q_c, wd, spincomponent=spincomponent)
+            self._pd = pd
+            self._chiks_wGG = chiks_wGG
 
         return self._pd, self.current_wd, self._chiks_wGG
 
@@ -441,13 +449,14 @@ class SusceptibilityFactory:
 class Chi:
     """Many-body susceptibility in a plane-wave basis."""
 
-    def __init__(self, pd, wd, chiks_wGG, Vbare_G, Kxc_GG):
+    def __init__(self, blocks1d, pd, wd, chiks_wGG, Vbare_G, Kxc_GG):
         """Construct the many-body susceptibility based on its ingredients."""
+        self.blocks1d = blocks1d
         self.pd = pd
         self.wd = wd
         self.chiks_wGG = chiks_wGG
         self.Vbare_G = Vbare_G
-        self.Kxc_GG = Kxc_GG
+        self.Kxc_GG = Kxc_GG  # Use Kxc_G in the future XXX
 
     def write_macroscopic_component(self, filename):
         pass
@@ -455,11 +464,50 @@ class Chi:
     def write_component_array(self, filename):
         pass
 
+    def _calculate(self):
+        """Calculate chi_wGG."""
+        return invert_dyson(self.chiks_wGG, self.Khxc_GG)
+
+    @property
+    def Khxc_GG(self):
+        """Hartree-exchange-correlation kernel."""
+        if self.Vbare_G is not None:
+            # Construct the Hartree kernel
+            # Can we construct it directly from np.eye?                        XXX
+            vsqrt_G = self.Vbare_G ** 0.5
+            Kh_GG = np.eye(len(vsqrt_G)) * vsqrt_G * vsqrt_G[:, np.newaxis]
+        else:
+            Kh_GG = None
+        if self.Kxc_GG is not None:
+            # In the future, construct the xc kernel here! XXX
+            Khxc_GG = self.Kxc_GG.copy()
+            if Kh_GG is not None:
+                Khxc_GG += Kh_GG
+        else:
+            assert Kh_GG is not None
+            Khxc_GG = Kh_GG
+
+        return Khxc_GG
+
+
+def invert_dyson(self, chiks_wGG, Khxc_GG):
+    """Invert the frequency dependent Dyson equation in plane wave basis:
+
+    chi_wGG' = chiks_wGG' + chiks_wGG1 Khxc_G1G2 chi_wG2G'
+    """
+    chi_wGG = np.empty_like(chiks_wGG)
+    for w, chiks_GG in enumerate(chiks_wGG):
+        chi_GG = invert_dyson_single_frequency(chiks_GG, Khxc_GG)
+
+        chi_wGG[w] = chi_GG
+
+    return chi_wGG
+
 
 def invert_dyson_single_frequency(chiks_GG, Khxc_GG):
-    """Invert single frequency Dyson equation in plane wave basis:
+    """Invert the single frequency Dyson equation in plane wave basis:
 
-    chi_GG' = chiks_GG + chiks_GG1 Khxc_G1G2 chi_G2G'
+    chi_GG' = chiks_GG' + chiks_GG1 Khxc_G1G2 chi_G2G'
     """
     enhancement_GG = np.linalg.inv(np.eye(len(chiks_GG)) -
                                    np.dot(chiks_GG, Khxc_GG))
