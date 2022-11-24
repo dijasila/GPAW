@@ -341,6 +341,84 @@ class FourComponentSusceptibilityTensor:
         return allA_wGG
 
 
+class SusceptibilityFactory:
+    """User interface to calculate individual elements of the four-component
+    susceptibility tensor, see [PRB 103, 245110 (2021)]."""
+
+    def __init__(self, chiks):
+        """Contruct the many-bode susceptibility factory based on a given
+        Kohn-Sham susceptibility calculator.
+
+        Parameters
+        ----------
+        chiks: ChiKS
+            ChiKS calculator object
+        """
+        self.chiks = chiks
+        self.context = chiks.context
+        self.gs = chiks.gs
+
+        # Prepare a buffer for chiks_wGG
+        self.current_spincomponent = None
+        self.currentq_c = None
+        self.current_frequencies = None
+        self._pd = None
+        self._chiks_wGG = None
+
+    def __call__(self, spincomponent, q_c, frequencies,
+                 fxc='ALDA', fxckwargs={}):
+        """Calculate a given element (spincomponent) of the four-component
+        Kohn-Sham susceptibility tensor and construct a corresponding many-body
+        susceptibility object within a given approximation to the
+        exchange-correlation kernel.
+
+        Parameters
+        ----------
+        spincomponent : str or int
+            What susceptibility should be calculated?
+            Currently, '00', 'uu', 'dd', '+-' and '-+' are implemented.
+            'all' is an alias for '00', kept for backwards compability
+            Likewise 0 or 1, can be used for 'uu' or 'dd'
+        q_c : list or ndarray
+            Wave vector
+        frequencies : ndarray, dict or FrequencyDescriptor
+            Array of frequencies to evaluate the response function at,
+            dictionary of parameters for build-in frequency grids or a
+            descriptor of those frequencies.
+        fxc : str
+            Approximation to the xc kernel
+        fxckwargs : dict
+            Kwargs to the FXCCalculator
+        """
+        assert isinstance(fxc, str)
+
+        pd, chiks_wGG = self.get_chiks(spincomponent, q_c, frequencies)
+
+        # Calculate the Coulomb kernel
+        if spincomponent in ['+-', '-+']:
+            assert fxc != 'RPA'
+            # No Hartree term in Dyson equation
+            Vbare_G = None
+        else:
+            Vbare_G = get_coulomb_kernel(pd, self.gs.kd.N_c)
+
+        # Calculate the exchange-correlation kernel
+        if fxc == 'RPA':
+            # No xc kernel by definition
+            Kxc_GG = None
+        else:
+            fxc = get_fxc(self.gs, self.context, fxc,
+                          response='susceptibility', mode='pw', **fxckwargs)
+            Kxc_GG = self.get_xc_kernel(fxc, spincomponent, pd,
+                                        chiks_wGG=chiks_wGG)
+
+        return Chi(pd, chiks_wGG, Vbare_G, Kxc_GG)
+
+    @staticmethod
+    def get_xc_kernel(fxc, spincomponent, pd, chiks_wGG=None):
+        return fxc(spincomponent, pd)
+
+
 def invert_dyson_single_frequency(chiks_GG, Khxc_GG):
     """Invert single frequency Dyson equation in plane wave basis:
 
