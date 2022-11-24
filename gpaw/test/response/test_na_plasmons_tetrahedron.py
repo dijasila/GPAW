@@ -74,9 +74,9 @@ def test_response_na_plasmons_tetrahedron(in_tmp_dir, scalapack):
     w3, I3 = findpeak(w_w, -(1. / df3LFCx).imag)
     w4, I4 = findpeak(w_w, -(1. / df4LFCx).imag)
 
-    # make sure the plasmon peak values agree
+    # omegas don't change
+    assert [w3, w4] == pytest.approx([0.283057, 0.300520], 1e-2)
     assert w1 == pytest.approx(w2, 1e-2)  # omega: serial vs parallel
-    assert w2 == pytest.approx(w3, 3e-2, abs=True)  # omega: tetra vs point
     # omega: PI & TI w/ large eta are aprx equal
     assert w4 == pytest.approx(w3, 2e-2, abs=True)
     assert I1 == pytest.approx(I2, 1e-3)  # intensity: serial vs parallel
