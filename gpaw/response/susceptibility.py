@@ -392,7 +392,7 @@ class SusceptibilityFactory:
         """
         assert isinstance(fxc, str)
 
-        pd, chiks_wGG = self.get_chiks(spincomponent, q_c, frequencies)
+        pd, wd, chiks_wGG = self.get_chiks(spincomponent, q_c, frequencies)
 
         # Calculate the Coulomb kernel
         if spincomponent in ['+-', '-+']:
@@ -412,7 +412,7 @@ class SusceptibilityFactory:
             Kxc_GG = self.get_xc_kernel(fxc, spincomponent, pd,
                                         chiks_wGG=chiks_wGG)
 
-        return Chi(pd, chiks_wGG, Vbare_G, Kxc_GG)
+        return Chi(pd, wd, chiks_wGG, Vbare_G, Kxc_GG)
 
     def get_chiks(self, spincomponent, q_c, frequencies):
         """Get chiks_wGG from buffer."""
@@ -431,12 +431,29 @@ class SusceptibilityFactory:
             self._pd, self._chiks_wGG = self.chiks.calculate(
                 q_c, wd, spincomponent=spincomponent)
 
-        return self._pd, self._chiks_wGG
-        
+        return self._pd, self.current_wd, self._chiks_wGG
 
     @staticmethod
     def get_xc_kernel(fxc, spincomponent, pd, chiks_wGG=None):
         return fxc(spincomponent, pd)
+
+
+class Chi:
+    """Many-body susceptibility in a plane-wave basis."""
+
+    def __init__(self, pd, wd, chiks_wGG, Vbare_G, Kxc_GG):
+        """Construct the many-body susceptibility based on its ingredients."""
+        self.pd = pd
+        self.wd = wd
+        self.chiks_wGG = chiks_wGG
+        self.Vbare_G = Vbare_G
+        self.Kxc_GG = Kxc_GG
+
+    def write_macroscopic_component(self, filename):
+        pass
+
+    def write_component_array(self, filename):
+        pass
 
 
 def invert_dyson_single_frequency(chiks_GG, Khxc_GG):
