@@ -360,8 +360,8 @@ class SusceptibilityFactory:
 
         # Prepare a buffer for chiks_wGG
         self.current_spincomponent = None
-        self.currentq_c = None
-        self.current_frequencies = None
+        self.current_q_c = None
+        self.current_wd = None
         self._pd = None
         self._chiks_wGG = None
 
@@ -413,6 +413,26 @@ class SusceptibilityFactory:
                                         chiks_wGG=chiks_wGG)
 
         return Chi(pd, chiks_wGG, Vbare_G, Kxc_GG)
+
+    def get_chiks(self, spincomponent, q_c, frequencies):
+        """Get chiks_wGG from buffer."""
+        q_c = np.asarray(q_c)
+        wd = FrequencyDescriptor.from_array_or_dict(frequencies)
+
+        if self._chiks_wGG is None or\
+            not (spincomponent == self.current_spincomponent and
+                 np.allclose(q_c, self.current_q_c) and
+                 np.allclose(wd.omega_w, self.current_wd.omega_w)):
+            # Calculate new chiks_wGG, if buffer is empty or if we are
+            # considering a new set of spincomponent, q-vector and frequencies
+            self.current_spincomponent = spincomponent
+            self.current_q_c = q_c
+            self.current_wd = wd
+            self._pd, self._chiks_wGG = self.chiks.calculate(
+                q_c, wd, spincomponent=spincomponent)
+
+        return self._pd, self._chiks_wGG
+        
 
     @staticmethod
     def get_xc_kernel(fxc, spincomponent, pd, chiks_wGG=None):
