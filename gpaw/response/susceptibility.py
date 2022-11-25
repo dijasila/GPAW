@@ -341,9 +341,9 @@ class FourComponentSusceptibilityTensor:
         return allA_wGG
 
 
-class SusceptibilityFactory:
-    """User interface to calculate individual elements of the four-component
-    susceptibility tensor, see [PRB 103, 245110 (2021)]."""
+class ChiFactory:
+    r"""User interface to calculate individual elements of the four-component
+    susceptibility tensor χ^μν, see [PRB 103, 245110 (2021)]."""
 
     def __init__(self, chiks):
         """Contruct the many-bode susceptibility factory based on a given
