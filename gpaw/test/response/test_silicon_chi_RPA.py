@@ -11,7 +11,9 @@ from gpaw.mpi import size, world
 
 from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.df import DielectricFunction, read_response_function
-from gpaw.response.susceptibility import FourComponentSusceptibilityTensor
+# from gpaw.response.susceptibility import FourComponentSusceptibilityTensor
+from gpaw.response.chiks import ChiKS
+from gpaw.response.susceptibility import ChiFactory
 
 
 @pytest.mark.kspair
@@ -52,11 +54,12 @@ def test_response_silicon_chi_RPA(in_tmp_dir):
 
     world.barrier()
 
-    # Using FCST
+    # Using the ChiFactory
     gs = ResponseGroundStateAdapter(calc)
-    fcst = FourComponentSusceptibilityTensor(gs, fxc='RPA',
-                                             eta=0.2, ecut=50)
-    fcst.get_macroscopic_component('00', q, w, filename='Si_chi2.csv')
+    chiks = ChiKS(gs, eta=0.2, ecut=50)
+    chi_factory = ChiFactory(chiks)
+    chi = chi_factory('00', q, w, fxc='RPA')
+    chi.write_macroscopic_component('Si_chi2.csv')
 
     t4 = time.time()
 
