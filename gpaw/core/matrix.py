@@ -383,6 +383,11 @@ class Matrix:
                         check_finite=debug,
                         driver='evx' if H.data.size == 1 else 'evd')
                 else:
+                    if self.xp is not np:
+                        S.invcholesky()
+                        return self.eighg(S)
+                    if debug:
+                        S.data[self.xp.triu_indices(H.shape[0], 1)] = 42.0
                     eps, evecs = sla.eigh(
                         H.data,
                         S.data,
@@ -443,6 +448,8 @@ class Matrix:
                 H = self.new(dist=(comm,))
                 self.redist(H)
             if comm.rank == 0:
+                if self.xp is not np:
+                    return self.dist.eighg(self, L)
                 tmp_MM = np.empty_like(H.data)
                 L_MM = L.data
                 blas.mmm(1.0, L_MM, 'N', H.data, 'N', 0.0, tmp_MM)
