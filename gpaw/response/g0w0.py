@@ -561,9 +561,12 @@ class G0W0Calculator:
         paths = {}
         for fxc_mode in self.fxc_modes:
             path = Path(f'{self.filename}_results_{fxc_mode}.pckl')
-            with paropen(path, 'wb') as fd:
+            with paropen(path, 'wb', comm=self.context.world) as fd:
                 pickle.dump(self.all_results[fxc_mode], fd, 2)
             paths[fxc_mode] = path
+
+        # Do not return paths to caller before we know they all exist:
+        self.context.world.barrier()
         return paths
 
     def calculate_q(self, ie, k, kpt1, kpt2, pd0, Wdict,
