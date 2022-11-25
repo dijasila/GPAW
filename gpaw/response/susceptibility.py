@@ -534,9 +534,7 @@ class Chi:
         """Hartree-exchange-correlation kernel."""
         if self.Vbare_G is not None:
             # Construct the Hartree kernel
-            # Can we construct it directly from np.eye?                        XXX
-            vsqrt_G = self.Vbare_G ** 0.5
-            Kh_GG = np.eye(len(vsqrt_G)) * vsqrt_G * vsqrt_G[:, np.newaxis]
+            Kh_GG = np.diag(self.Vbare_G)
         else:
             Kh_GG = None
         if self.Kxc_GG is not None:
