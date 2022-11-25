@@ -5,7 +5,18 @@ from gpaw.response.dyson import invert_dyson_single_frequency
 
 def get_scaled_xc_kernel(pd, wd, blocks1d, chiks_wGG,
                          Kxc_GG, fxc_scaling):
-    """Get the goldstone scaled exchange correlation kernel."""
+    """Get the goldstone scaled exchange correlation kernel.
+
+    Parameters
+    ----------
+    fxc_scaling : list (length 3)
+        List of information for the goldstone scaling.
+        Entry 0: bool (apply the scaling or not)
+        Entry 1: float (actual scaling parameter, if None is given the entry
+            will be updated with the appropriate scaling, given that we are at
+            the gamma point)
+        Entry 2: str (mode, choose between 'fm' and 'afm')
+    """
     assert isinstance(fxc_scaling[0], bool)
     if fxc_scaling[0]:
         if fxc_scaling[1] is None:
