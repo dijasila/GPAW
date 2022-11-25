@@ -65,6 +65,9 @@ class FakeWFS:
     def collect_projections(self, k, s):
         return self.kpt_qs[k][s].projections.collect()
 
+    def collect_eigenvalues(self, k, s):
+        return self.state.ibzwfs.wfs_qs[k][s].eig_n.copy()
+
     @cached_property
     def kpt_u(self):
         return [kpt
@@ -145,7 +148,7 @@ class FakeDensity:
         return D_asp
 
     def interpolate_pseudo_density(self):
-        self.nt_sg = self.interpolate(self.nt_sR).data
+        self.nt_sg = self.interpolate(self.nt_sR)[0].data
 
     def get_all_electron_density(self, *, atoms, gridrefinement):
         n_sr = self._densities.all_electron_densities(

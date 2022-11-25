@@ -79,6 +79,7 @@ class ASECalculator:
         * dipole
         """
         if self.calculation is not None:
+
             changes = compare_atoms(self.atoms, atoms)
             if changes & {'numbers', 'pbc', 'cell'}:
                 # Start from scratch:
@@ -194,7 +195,9 @@ class ASECalculator:
 
     # Old API:
 
-    def get_pseudo_wave_function(self, band, kpt=0, spin=0) -> Array3D:
+    def get_pseudo_wave_function(self, band, kpt=0, spin=0,
+                                 periodic=False) -> Array3D:
+        assert periodic
         state = self.calculation.state
         wfs = state.ibzwfs.get_wfs(spin=spin, kpt=kpt, n1=band, n2=band + 1)
         basis = getattr(self.calculation.scf_loop.hamiltonian, 'basis', None)
