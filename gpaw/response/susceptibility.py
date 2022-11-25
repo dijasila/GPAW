@@ -467,7 +467,7 @@ class ChiFactory:
     def get_xc_kernel(self, fxc, spincomponent, pd, *,
                       fxckwargs, wd, blocks1d, chiks_wGG):
         """Calculate the xc kernel."""
-        assert isinstance(fxckwargs, str)
+        assert isinstance(fxckwargs, dict)
         if 'fxc_scaling' in fxckwargs:
             assert spincomponent in ['+-', '-+']
             fxc_scaling = fxckwargs.pop('fxc_scaling')
