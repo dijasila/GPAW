@@ -474,6 +474,7 @@ class Chi:
         if self.Vbare_G is not None:
             # Construct the Hartree kernel
             # Can we construct it directly from np.eye?                        XXX
+            # Is this even true???                                             XXX
             vsqrt_G = self.Vbare_G ** 0.5
             Kh_GG = np.eye(len(vsqrt_G)) * vsqrt_G * vsqrt_G[:, np.newaxis]
         else:
