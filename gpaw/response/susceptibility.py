@@ -367,7 +367,7 @@ class SusceptibilityFactory:
         self._blocks1d = None
 
     def __call__(self, spincomponent, q_c, frequencies,
-                 fxc='ALDA', fxckwargs={}):  # txt?                            XXX
+                 fxc='ALDA', fxckwargs={}, txt=None):
         """Calculate a given element (spincomponent) of the four-component
         Kohn-Sham susceptibility tensor and construct a corresponding many-body
         susceptibility object within a given approximation to the
@@ -390,8 +390,20 @@ class SusceptibilityFactory:
             Approximation to the xc kernel
         fxckwargs : dict
             Kwargs to the FXCCalculator
+        txt : str
+            Save output of the calculation of this specific component into
+            a file with the filename of the given input.
         """
         assert isinstance(fxc, str)
+        # Initiate new output file, if supplied
+        if txt is not None:
+            self.context.new_txt_and_timer(txt)
+
+        # Print to output file
+        self.context.print('---------------', flush=False)
+        self.context.print('Calculating susceptibility spincomponent='
+                           f'{spincomponent} with q_c={q_c}', flush=False)
+        self.context.print('---------------')
 
         pd, wd, blocks1d, chiks_wGG = self.get_chiks(spincomponent, q_c,
                                                      frequencies)
