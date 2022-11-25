@@ -9,6 +9,7 @@ from gpaw.response.frequencies import FrequencyDescriptor
 from gpaw.response.chiks import ChiKS
 from gpaw.response.fxc_kernels import get_fxc
 from gpaw.response.coulomb_kernels import get_coulomb_kernel
+from gpaw.response.tms import get_scaled_xc_kernel
 from gpaw.response.pw_parallelization import Blocks1D
 
 
@@ -422,9 +423,10 @@ class ChiFactory:
             # No xc kernel by definition
             Kxc_GG = None
         else:
-            fxc = get_fxc(self.gs, self.context, fxc,
-                          response='susceptibility', mode='pw', **fxckwargs)
             Kxc_GG = self.get_xc_kernel(fxc, spincomponent, pd,
+                                        fxckwargs=fxckwargs,
+                                        wd=wd,
+                                        blocks1d=blocks1d,
                                         chiks_wGG=chiks_wGG)
 
         return Chi(self.context,
@@ -459,9 +461,27 @@ class ChiFactory:
 
         return self._pd, self.current_wd, self._blocks1d, self._chiks_wGG
 
-    @staticmethod
-    def get_xc_kernel(fxc, spincomponent, pd, chiks_wGG=None):
-        return fxc(spincomponent, pd)
+    def get_xc_kernel(self, fxc, spincomponent, pd, *,
+                      fxckwargs, wd, blocks1d, chiks_wGG):
+        """Calculate the xc kernel."""
+        assert isinstance(fxckwargs, str)
+        if 'fxc_scaling' in fxckwargs:
+            assert spincomponent in ['+-', '-+']
+            fxc_scaling = fxckwargs.pop('fxc_scaling')
+        else:
+            fxc_scaling = None
+
+        fxc_calculator = get_fxc(self.gs, self.context, fxc,
+                                 response='susceptibility', mode='pw',
+                                 **fxckwargs)
+
+        Kxc_GG = fxc_calculator(spincomponent, pd)
+
+        if fxc_scaling is not None:
+            Kxc_GG = get_scaled_xc_kernel(pd, wd, blocks1d, chiks_wGG,
+                                          Kxc_GG, fxc_scaling)
+
+        return Kxc_GG
 
 
 class Chi:
