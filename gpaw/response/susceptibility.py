@@ -8,7 +8,7 @@ from gpaw.response.frequencies import FrequencyDescriptor
 from gpaw.response.fxc_kernels import get_fxc
 from gpaw.response.coulomb_kernels import get_coulomb_kernel
 from gpaw.response.dyson import DysonSolver
-from gpaw.response.tms import get_scaled_xc_kernel
+from gpaw.response.goldstone import get_scaled_xc_kernel
 from gpaw.response.pw_parallelization import Blocks1D
 
 
