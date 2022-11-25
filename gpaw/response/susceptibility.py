@@ -412,7 +412,11 @@ class SusceptibilityFactory:
             Kxc_GG = self.get_xc_kernel(fxc, spincomponent, pd,
                                         chiks_wGG=chiks_wGG)
 
-        return Chi(self.chiks.blocks1d, pd, wd, chiks_wGG, Vbare_G, Kxc_GG)
+        # Create a Dyson solver for Chi
+        dysonsolver = DysonSolver(self.context)
+
+        return Chi(self.chiks.blocks1d, pd, wd, chiks_wGG,
+                   Vbare_G, Kxc_GG, dysonsolver)
 
     def get_chiks(self, spincomponent, q_c, frequencies):
         """Get chiks_wGG from buffer."""
@@ -449,7 +453,8 @@ class SusceptibilityFactory:
 class Chi:
     """Many-body susceptibility in a plane-wave basis."""
 
-    def __init__(self, blocks1d, pd, wd, chiks_wGG, Vbare_G, Kxc_GG):
+    def __init__(self, blocks1d, pd, wd, chiks_wGG,
+                 Vbare_G, Kxc_GG, dysonsolver):
         """Construct the many-body susceptibility based on its ingredients."""
         self.blocks1d = blocks1d
         self.pd = pd
@@ -457,6 +462,7 @@ class Chi:
         self.chiks_wGG = chiks_wGG
         self.Vbare_G = Vbare_G
         self.Kxc_GG = Kxc_GG  # Use Kxc_G in the future XXX
+        self.dysonsolver = dysonsolver
 
     def write_macroscopic_component(self, filename):
         pass
@@ -466,7 +472,7 @@ class Chi:
 
     def _calculate(self):
         """Calculate chi_wGG."""
-        return invert_dyson(self.chiks_wGG, self.Khxc_GG)
+        return self.dysonsolver.invert_dyson(self.chiks_wGG, self.Khxc_GG)
 
     @property
     def Khxc_GG(self):
@@ -490,18 +496,26 @@ class Chi:
         return Khxc_GG
 
 
-def invert_dyson(self, chiks_wGG, Khxc_GG):
-    """Invert the frequency dependent Dyson equation in plane wave basis:
+class DysonSolver:
+    """Class for invertion of Dyson-like equations."""
 
-    chi_wGG' = chiks_wGG' + chiks_wGG1 Khxc_G1G2 chi_wG2G'
-    """
-    chi_wGG = np.empty_like(chiks_wGG)
-    for w, chiks_GG in enumerate(chiks_wGG):
-        chi_GG = invert_dyson_single_frequency(chiks_GG, Khxc_GG)
+    def __init__(self, context):
+        self.context = context
 
-        chi_wGG[w] = chi_GG
+    @timer('Invert Dyson-like equation')
+    def invert_dyson(self, chiks_wGG, Khxc_GG):
+        """Invert the frequency dependent Dyson equation in plane wave basis:
 
-    return chi_wGG
+        chi_wGG' = chiks_wGG' + chiks_wGG1 Khxc_G1G2 chi_wG2G'
+        """
+        self.context.print('Inverting Dyson-like equation')
+        chi_wGG = np.empty_like(chiks_wGG)
+        for w, chiks_GG in enumerate(chiks_wGG):
+            chi_GG = invert_dyson_single_frequency(chiks_GG, Khxc_GG)
+
+            chi_wGG[w] = chi_GG
+
+        return chi_wGG
 
 
 def invert_dyson_single_frequency(chiks_GG, Khxc_GG):
