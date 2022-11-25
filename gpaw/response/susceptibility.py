@@ -214,9 +214,8 @@ class Chi:
         chiks_wGG = self.gather(chiks_wGG)
         chi_wGG = self.gather(chi_wGG)
 
-        # Move world check here                                                XXX
-        write_component(omega_w, G_Gc, chiks_wGG, chi_wGG, filename,
-                        self.context.world)
+        if self.context.world.rank == 0:
+            write_component(omega_w, G_Gc, chiks_wGG, chi_wGG, filename)
 
     def _calculate(self):
         """Calculate chi_wGG."""
@@ -361,12 +360,11 @@ def symmetrize_reciprocity(pd, A_wGG):
             A_GG[:] = tmp_GG / 2.
 
 
-def write_component(omega_w, G_Gc, chiks_wGG, chi_wGG, filename, world):
+def write_component(omega_w, G_Gc, chiks_wGG, chi_wGG, filename):
     """Write the dynamic susceptibility as a pickle file."""
     assert isinstance(filename, str)
-    if world.rank == 0:
-        with open(filename, 'wb') as fd:
-            pickle.dump((omega_w, G_Gc, chiks_wGG, chi_wGG), fd)
+    with open(filename, 'wb') as fd:
+        pickle.dump((omega_w, G_Gc, chiks_wGG, chi_wGG), fd)
 
 
 def read_component(filename):
