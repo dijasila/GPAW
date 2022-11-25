@@ -71,6 +71,9 @@ class ndarray:
     def imag(self):
         return ndarray(self._data.imag)
 
+    def get(self):
+        return self._data.copy()
+
     def __len__(self):
         return len(self._data)
 
