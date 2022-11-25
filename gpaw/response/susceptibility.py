@@ -470,7 +470,7 @@ class ChiFactory:
         assert isinstance(fxckwargs, dict)
         if 'fxc_scaling' in fxckwargs:
             assert spincomponent in ['+-', '-+']
-            fxc_scaling = fxckwargs.pop('fxc_scaling')
+            fxc_scaling = fxckwargs['fxc_scaling']
         else:
             fxc_scaling = None
 
@@ -481,6 +481,8 @@ class ChiFactory:
         Kxc_GG = fxc_calculator(spincomponent, pd)
 
         if fxc_scaling is not None:
+            self.context.print('Rescaling kernel to fulfill the Goldstone '
+                               'theorem')
             Kxc_GG = get_scaled_xc_kernel(pd, wd, blocks1d, chiks_wGG,
                                           Kxc_GG, fxc_scaling)
 
