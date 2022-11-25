@@ -98,15 +98,13 @@ class TransverseMagneticSusceptibility(FCST):
 '''
 
 
-def get_scaled_xc_kernel(self, pd, wd, blocks1d, chiks_wGG,
+def get_scaled_xc_kernel(pd, wd, blocks1d, chiks_wGG,
                          Kxc_GG, fxc_scaling):
     """Get the goldstone scaled exchange correlation kernel."""
     assert isinstance(fxc_scaling[0], bool)
     if fxc_scaling[0]:
         if fxc_scaling[1] is None:
             assert pd.kd.gamma
-            self.context.print('Finding rescaling of kernel to fulfill'
-                               ' the Goldstone theorem')
             mode = fxc_scaling[2]
             assert mode in ['fm', 'afm']
             omega_w = wd.omega_w
