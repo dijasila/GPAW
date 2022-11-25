@@ -10,8 +10,8 @@ from gpaw.test import findpeak, equal
 from gpaw.mpi import size, world
 
 from gpaw.response import ResponseGroundStateAdapter
-from gpaw.response.susceptibility import FourComponentSusceptibilityTensor
-from gpaw.response.susceptibility import read_component
+from gpaw.response.chiks import ChiKS
+from gpaw.response.susceptibility import ChiFactory, read_component
 
 
 @pytest.mark.kspair
@@ -56,22 +56,24 @@ def test_response_two_aluminum_chi_RPA(in_tmp_dir):
 
     # Calculate susceptibility using Al
     gs1 = ResponseGroundStateAdapter(calc1)
-    fcst = FourComponentSusceptibilityTensor(gs1, fxc='RPA',
-                                             eta=0.2, ecut=50)
+    chiks = ChiKS(gs1, eta=0.2, ecut=50)
+    chi_factory = ChiFactory(chiks)
     for q, q_c in enumerate(q1_qc):
-        fcst.get_component_array('00', q_c, w, array_ecut=25,
-                                 filename='Al1_chiGG_q%d.pckl' % (q + 1))
+        chi = chi_factory('00', q_c, w, fxc='RPA')
+        chi.write_component_array('Al1_chiGG_q%d.pckl' % (q + 1),
+                                  reduced_ecut=25)
         world.barrier()
 
     t4 = time.time()
 
     # Calculate susceptibility using Al2
     gs2 = ResponseGroundStateAdapter(calc2)
-    fcst = FourComponentSusceptibilityTensor(gs2, fxc='RPA',
-                                             eta=0.2, ecut=50)
+    chiks = ChiKS(gs2, eta=0.2, ecut=50)
+    chi_factory = ChiFactory(chiks)
     for q, q_c in enumerate(q2_qc):
-        fcst.get_component_array('00', q_c, w, array_ecut=25,
-                                 filename='Al2_chiGG_q%d.pckl' % (q + 1))
+        chi = chi_factory('00', q_c, w, fxc='RPA')
+        chi.write_component_array('Al2_chiGG_q%d.pckl' % (q + 1),
+                                  reduced_ecut=25)
         world.barrier()
 
     t5 = time.time()
