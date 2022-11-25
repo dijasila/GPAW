@@ -477,6 +477,7 @@ class Chi:
         self.chiks_wGG = chiks_wGG
         self.Vbare_G = Vbare_G
         self.Kxc_GG = Kxc_GG  # Use Kxc_G in the future XXX
+
         self.dysonsolver = DysonSolver(self.context)
 
     def write_macroscopic_component(self, filename):
@@ -485,10 +486,11 @@ class Chi:
         susceptibility and the frequency grid."""
         from gpaw.response.df import write_response_function
 
+        chiks_wGG = self.chiks_wGG
         chi_wGG = self._calculate()
 
         # Macroscopic component
-        chiks_w = self.chiks_wGG[:, 0, 0]
+        chiks_w = chiks_wGG[:, 0, 0]
         chi_w = chi_wGG[:, 0, 0]
 
         # Collect all frequencies from world
@@ -499,8 +501,29 @@ class Chi:
         if self.context.world.rank == 0:
             write_response_function(filename, omega_w, chiks_w, chi_w)
 
-    def write_component_array(self, filename):
-        pass
+    def write_component_array(self, filename, reduced_ecut):
+        """Calculate the many-body susceptibility and write it to a file along
+        with the Kohn-Sham susceptibility and frequency grid within a reduced
+        plane-wave basis."""
+
+        chiks_wGG = self.chiks_wGG
+        chi_wGG = self._calculate()
+
+        # Get susceptibility in a reduced plane-wave representation
+        mask_G = get_pw_reduction_map(self.pd, reduced_ecut)
+        chiks_wGG = np.ascontiguousarray(chiks_wGG[:, mask_G, :][:, :, mask_G])
+        chi_wGG = np.ascontiguousarray(chi_wGG[:, mask_G, :][:, :, mask_G])
+
+        # Get reduced plane wave repr. as coordinates on the reciprocal lattice
+        G_Gc = get_pw_coordinates(self.pd)[mask_G]
+
+        # Gather all frequencies from world to root
+        omega_w = self.wd.omega_w * Hartree
+        chiks_wGG = self.gather(chiks_wGG)
+        chi_wGG = self.gather(chi_wGG)
+
+        write_component(omega_w, G_Gc, chiks_wGG, chi_wGG, filename,
+                        self.context.world)
 
     def _calculate(self):
         """Calculate chi_wGG."""
@@ -530,6 +553,31 @@ class Chi:
     def collect(self, a_w):
         """Collect all frequencies."""
         return self.blocks1d.collect(a_w)
+
+    def gather(self, A_wGG):
+        """Gather a full susceptibility array to root."""
+        # Allocate arrays to gather (all need to be the same shape)
+        blocks1d = self.blocks1d
+        shape = (blocks1d.blocksize,) + A_wGG.shape[1:]
+        tmp_wGG = np.empty(shape, dtype=A_wGG.dtype)
+        tmp_wGG[:blocks1d.nlocal] = A_wGG
+
+        # Allocate array for the gathered data
+        if self.context.world.rank == 0:
+            # Make room for all frequencies
+            Npadded = blocks1d.blocksize * blocks1d.blockcomm.size
+            shape = (Npadded,) + A_wGG.shape[1:]
+            allA_wGG = np.empty(shape, dtype=A_wGG.dtype)
+        else:
+            allA_wGG = None
+
+        self.context.world.gather(tmp_wGG, 0, allA_wGG)
+
+        # Return array for w indeces on frequency grid
+        if allA_wGG is not None:
+            allA_wGG = allA_wGG[:len(self.wd), :, :]
+
+        return allA_wGG
 
 
 class DysonSolver:
