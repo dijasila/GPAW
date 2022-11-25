@@ -1,8 +1,11 @@
 import numpy as np
 
 import gpaw.mpi as mpi
-from gpaw.response.susceptibility import (FourComponentSusceptibilityTensor,
-                                          invert_dyson_single_frequency)
+
+from gpaw.response.dyson import invert_dyson_single_frequency
+
+'''
+from gpaw.response.susceptibility import FourComponentSusceptibilityTensor
 
 FCST = FourComponentSusceptibilityTensor
 
@@ -92,6 +95,30 @@ class TransverseMagneticSusceptibility(FCST):
         self.fxc_scaling = fxc_scaling
 
         return Kxc_GG
+'''
+
+
+def get_scaled_xc_kernel(self, pd, wd, blocks1d, chiks_wGG,
+                         Kxc_GG, fxc_scaling):
+    """Get the goldstone scaled exchange correlation kernel."""
+    assert isinstance(fxc_scaling[0], bool)
+    if fxc_scaling[0]:
+        if fxc_scaling[1] is None:
+            assert pd.kd.gamma
+            self.context.print('Finding rescaling of kernel to fulfill'
+                               ' the Goldstone theorem')
+            mode = fxc_scaling[2]
+            assert mode in ['fm', 'afm']
+            omega_w = wd.omega_w
+            world = blocks1d.blockcomm  # Use blocks1d directly in the future XXX
+            fxc_scaling[1] = get_goldstone_scaling(mode, omega_w,
+                                                   chiks_wGG, Kxc_GG,
+                                                   world=world)
+
+        assert isinstance(fxc_scaling[1], float)
+        Kxc_GG *= fxc_scaling[1]
+
+    return Kxc_GG
 
 
 def get_goldstone_scaling(mode, omega_w, chiks_wGG, Kxc_GG, world=mpi.world):
