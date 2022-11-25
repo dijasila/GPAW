@@ -364,6 +364,7 @@ class SusceptibilityFactory:
         self.current_wd = None
         self._pd = None
         self._chiks_wGG = None
+        self._blocks1d = None
 
     def __call__(self, spincomponent, q_c, frequencies,
                  fxc='ALDA', fxckwargs={}):  # txt?                            XXX
@@ -392,7 +393,8 @@ class SusceptibilityFactory:
         """
         assert isinstance(fxc, str)
 
-        pd, wd, chiks_wGG = self.get_chiks(spincomponent, q_c, frequencies)
+        pd, wd, blocks1d, chiks_wGG = self.get_chiks(spincomponent, q_c,
+                                                     frequencies)
 
         # Calculate the Coulomb kernel
         if spincomponent in ['+-', '-+']:
@@ -415,7 +417,7 @@ class SusceptibilityFactory:
         # Create a Dyson solver for Chi
         dysonsolver = DysonSolver(self.context)
 
-        return Chi(self.chiks.blocks1d, pd, wd, chiks_wGG,
+        return Chi(pd, wd, blocks1d, chiks_wGG,
                    Vbare_G, Kxc_GG, dysonsolver)
 
     def get_chiks(self, spincomponent, q_c, frequencies):
@@ -432,18 +434,20 @@ class SusceptibilityFactory:
             pd, chiks_wGG = self.chiks.calculate(q_c, wd,
                                                  spincomponent=spincomponent)
 
-            # Redistribute memory, so each block has its own frequencies, but all
-            # plane waves (for easy invertion of the Dyson-like equation)
+            # Redistribute memory, so that the frequencies are distributed over
+            # the entire world
             chiks_wGG = self.chiks.distribute_frequencies(chiks_wGG)
+            blocks1d = Blocks1D(self.context.world, len(wd))
 
             # Fill buffer
             self.current_spincomponent = spincomponent
             self.current_q_c = q_c
             self.current_wd = wd
             self._pd = pd
+            self._blocks1d = blocks1d
             self._chiks_wGG = chiks_wGG
 
-        return self._pd, self.current_wd, self._chiks_wGG
+        return self._pd, self.current_wd, self._blocks1d, self._chiks_wGG
 
     @staticmethod
     def get_xc_kernel(fxc, spincomponent, pd, chiks_wGG=None):
@@ -453,12 +457,12 @@ class SusceptibilityFactory:
 class Chi:
     """Many-body susceptibility in a plane-wave basis."""
 
-    def __init__(self, blocks1d, pd, wd, chiks_wGG,
+    def __init__(self, pd, wd, blocks1d, chiks_wGG,
                  Vbare_G, Kxc_GG, dysonsolver):
         """Construct the many-body susceptibility based on its ingredients."""
-        self.blocks1d = blocks1d
         self.pd = pd
         self.wd = wd
+        self.blocks1d = blocks1d
         self.chiks_wGG = chiks_wGG
         self.Vbare_G = Vbare_G
         self.Kxc_GG = Kxc_GG  # Use Kxc_G in the future XXX
