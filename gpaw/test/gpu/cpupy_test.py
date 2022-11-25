@@ -1,8 +1,10 @@
-from gpaw.gpu import cupy as cp
-import pytest
 import numpy as np
+import pytest
+from gpaw.gpu import cupy as cp
 
 
+@pytest.mark.gpu
+@pytest.mark.serial
 def test_basics():
     a = cp.empty(2)
     b = a.get()
@@ -10,6 +12,8 @@ def test_basics():
     assert b.dtype == float
 
 
+@pytest.mark.gpu
+@pytest.mark.serial
 @pytest.mark.xfail
 def test_grr():
     a = cp.empty((2, 2))

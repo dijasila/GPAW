@@ -1,8 +1,11 @@
-from gpaw.gpu import cupy as cp
-from gpaw.core.matrix import Matrix
 import numpy as np
+import pytest
+from gpaw.core.matrix import Matrix
+from gpaw.gpu import cupy as cp
 
 
+@pytest.mark.gpu
+@pytest.mark.serial
 def test_zyrk():
     a = np.array([[1, 1 + 2j, 2], [1, 0.5j, -1 - 0.5j]])
     m = Matrix(2, 3, data=a)

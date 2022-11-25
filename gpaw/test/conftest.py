@@ -432,6 +432,7 @@ def pytest_configure(config):
                  'response: tests of the response code',
                  'kspair: tests of kspair in the response code',
                  'serial: run in serial only',
+                 'gpu: GPU test',
                  'later: know failure for new refactored GPAW']:
         config.addinivalue_line('markers', line)
 
