@@ -695,25 +695,22 @@ class SerialCommunicator:
     def get_c_object(self):
         if gpaw.dry_run:
             return None  # won't actually be passed to C
-        raise NotImplementedError('Should not get C-object for serial comm')
+        return _world
 
 
 world: SerialCommunicator | _Communicator | _gpaw.Communicator
 serial_comm: SerialCommunicator | _Communicator = SerialCommunicator()
 
-if gpaw.debug:
-    serial_comm = _Communicator(serial_comm)
-    if _world is not None:
-        world = _Communicator(_world)
-    else:
-        world = None
-
 have_mpi = _world is not None
 
-if _world is None or _world.size == 1:
+if not have_mpi or _world.size == 1:
     world = serial_comm
 else:
     world = _world
+
+if gpaw.debug:
+    serial_comm = _Communicator(serial_comm)
+    world = _Communicator(world)
 
 rank = world.rank
 size = world.size
