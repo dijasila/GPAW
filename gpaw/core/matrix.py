@@ -114,7 +114,7 @@ class Matrix:
                                                    dist)}
             dist = create_distribution(M, N, xp=self.xp, **kwargs)
         else:
-            assert self.shape == dist.shape
+            assert self.shape == dist.full_shape
         self.dist = dist
 
         if data is None:
@@ -673,7 +673,10 @@ class BLACSDistribution(MatrixDistribution):
         return self.comm.rank * int(self.desc[5]) + myi
 
     def new(self, M, N):
-        return BLACSDistribution(M, N, self.comm, self.rows, self.columns)
+        return BLACSDistribution(M, N,
+                                 self.comm,
+                                 self.rows, self.columns,
+                                 self.blocksize)
 
     def multiply(self, alpha, a, opa, b, opb, beta, c, symmetric):
         if symmetric:
