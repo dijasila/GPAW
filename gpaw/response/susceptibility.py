@@ -405,6 +405,7 @@ class SusceptibilityFactory:
                            f'{spincomponent} with q_c={q_c}', flush=False)
         self.context.print('---------------')
 
+        # Calculate chiks (or get it from the buffer)
         pd, wd, blocks1d, chiks_wGG = self.get_chiks(spincomponent, q_c,
                                                      frequencies)
 
@@ -426,11 +427,8 @@ class SusceptibilityFactory:
             Kxc_GG = self.get_xc_kernel(fxc, spincomponent, pd,
                                         chiks_wGG=chiks_wGG)
 
-        # Create a Dyson solver for Chi
-        dysonsolver = DysonSolver(self.context)
-
-        return Chi(pd, wd, blocks1d, chiks_wGG,
-                   Vbare_G, Kxc_GG, dysonsolver)
+        return Chi(self.context,
+                   pd, wd, blocks1d, chiks_wGG, Vbare_G, Kxc_GG)
 
     def get_chiks(self, spincomponent, q_c, frequencies):
         """Get chiks_wGG from buffer."""
@@ -469,19 +467,37 @@ class SusceptibilityFactory:
 class Chi:
     """Many-body susceptibility in a plane-wave basis."""
 
-    def __init__(self, pd, wd, blocks1d, chiks_wGG,
-                 Vbare_G, Kxc_GG, dysonsolver):
+    def __init__(self, context,
+                 pd, wd, blocks1d, chiks_wGG, Vbare_G, Kxc_GG):
         """Construct the many-body susceptibility based on its ingredients."""
+        self.context = context
         self.pd = pd
         self.wd = wd
         self.blocks1d = blocks1d
         self.chiks_wGG = chiks_wGG
         self.Vbare_G = Vbare_G
         self.Kxc_GG = Kxc_GG  # Use Kxc_G in the future XXX
-        self.dysonsolver = dysonsolver
+        self.dysonsolver = DysonSolver(self.context)
 
     def write_macroscopic_component(self, filename):
-        pass
+        """Calculate the spatially averaged (macroscopic) component of the
+        susceptibility and write it to a file together with the Kohn-Sham
+        susceptibility and the frequency grid."""
+        from gpaw.response.df import write_response_function
+
+        chi_wGG = self._calculate()
+
+        # Macroscopic component
+        chiks_w = self.chiks_wGG[:, 0, 0]
+        chi_w = chi_wGG[:, 0, 0]
+
+        # Collect all frequencies from world
+        omega_w = self.wd.omega_w * Hartree
+        chiks_w = self.collect(chiks_w)
+        chi_w = self.collect(chi_w)
+
+        if self.context.world.rank == 0:
+            write_response_function(filename, omega_w, chiks_w, chi_w)
 
     def write_component_array(self, filename):
         pass
@@ -510,6 +526,10 @@ class Chi:
             Khxc_GG = Kh_GG
 
         return Khxc_GG
+
+    def collect(self, a_w):
+        """Collect all frequencies."""
+        return self.blocks1d.collect(a_w)
 
 
 class DysonSolver:
