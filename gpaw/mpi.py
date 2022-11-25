@@ -704,9 +704,9 @@ serial_comm: SerialCommunicator | _Communicator = SerialCommunicator()
 if gpaw.debug:
     serial_comm = _Communicator(serial_comm)
     if _world is not None:
-        world = _Communicator(_world)
-    else:
-        world = None
+        _world = _Communicator(_world)
+    #else:
+    #    world = None
 
 have_mpi = _world is not None
 
