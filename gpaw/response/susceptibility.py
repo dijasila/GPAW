@@ -501,7 +501,7 @@ class Chi:
         if self.context.world.rank == 0:
             write_response_function(filename, omega_w, chiks_w, chi_w)
 
-    def write_component_array(self, filename, reduced_ecut):
+    def write_component_array(self, filename, *, reduced_ecut):
         """Calculate the many-body susceptibility and write it to a file along
         with the Kohn-Sham susceptibility and frequency grid within a reduced
         plane-wave basis."""
