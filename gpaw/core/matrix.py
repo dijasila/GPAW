@@ -547,6 +547,7 @@ class MatrixDistribution:
     columns: int
     blocksize: int | None  # None means everything on rank=0
     shape: tuple[int, int]
+    full_shape: tuple[int, int]
     desc: Array1D
 
     def matrix(self, dtype=None, data=None):
@@ -742,6 +743,7 @@ class CuPyDistribution(MatrixDistribution):
 
     def __init__(self, M, N):
         self.shape = (M, N)
+        self.full_shape = (M, N)
 
     def __str__(self):
         return 'CuPyDistribution({}x{})'.format(*self.shape)
