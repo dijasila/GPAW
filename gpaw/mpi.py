@@ -710,7 +710,7 @@ if gpaw.debug:
 
 have_mpi = _world is not None
 
-if _world is None or _world.size == 1:
+if _world is None:
     world = serial_comm
 else:
     world = _world
