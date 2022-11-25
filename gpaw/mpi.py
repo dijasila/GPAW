@@ -696,7 +696,6 @@ class SerialCommunicator:
         if gpaw.dry_run:
             return None  # won't actually be passed to C
         return _world
-        raise NotImplementedError('Should not get C-object for serial comm')
 
 
 world: SerialCommunicator | _Communicator | _gpaw.Communicator
@@ -704,7 +703,7 @@ serial_comm: SerialCommunicator | _Communicator = SerialCommunicator()
 
 have_mpi = _world is not None
 
-if _world is None or _world.size == 1:
+if not have_mpi or _world.size == 1:
     world = serial_comm
 else:
     world = _world
