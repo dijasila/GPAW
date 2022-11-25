@@ -4,9 +4,10 @@ import numpy as np
 
 from ase.build import bulk
 from ase.parallel import parprint
+from ase.utils.timing import Timer
 
 from gpaw import GPAW, PW, FermiDirac
-from gpaw.test import findpeak, equal
+from gpaw.test import findpeak
 from gpaw.mpi import size, world
 
 from gpaw.response import ResponseGroundStateAdapter
@@ -59,8 +60,17 @@ def test_response_silicon_chi_RPA(in_tmp_dir):
     chi_factory = ChiFactory(chiks)
     chi = chi_factory('00', q, w, fxc='RPA')
     chi.write_macroscopic_component('Si_chi2.csv')
+    chi_factory.context.write_timer()
+    chi_factory.context.set_timer(Timer())
 
     t4 = time.time()
+    
+    # Calculate also the ALDA susceptibility, using the cached chiks
+    chi = chi_factory('00', q, w, fxc='ALDA')
+    chi.write_macroscopic_component('Si_chi3.csv')
+    chi_factory.context.write_timer()
+
+    t5 = time.time()
 
     world.barrier()
 
@@ -68,12 +78,19 @@ def test_response_silicon_chi_RPA(in_tmp_dir):
     parprint('For ground  state calc, it took', (t2 - t1) / 60, 'minutes')
     parprint('For excited state calc 1, it took', (t3 - t2) / 60, 'minutes')
     parprint('For excited state calc 2, it took', (t4 - t3) / 60, 'minutes')
+    parprint('For excited state calc 3, it took', (t5 - t4) / 60, 'minutes')
 
-    # The two response codes should hold identical results
     w1_w, chiks1_w, chi1_w = read_response_function('Si_chi1.csv')
     wpeak1, Ipeak1 = findpeak(w1_w, -chi1_w.imag)
     w2_w, chiks2_w, chi2_w = read_response_function('Si_chi2.csv')
     wpeak2, Ipeak2 = findpeak(w2_w, -chi2_w.imag)
+    w3_w, chiks3_w, chi3_w = read_response_function('Si_chi3.csv')
+    wpeak3, Ipeak3 = findpeak(w3_w, -chi3_w.imag)
 
-    equal(wpeak1, wpeak2, 0.02)
-    equal(Ipeak1, Ipeak2, 1.0)
+    # The two response codes should hold identical results
+    assert wpeak1 == pytest.approx(wpeak2, abs=0.02)
+    assert Ipeak1 == pytest.approx(Ipeak2, abs=1.0)
+
+    # Compare to test values
+    assert wpeak2 == pytest.approx(16.69145, abs=0.02)  # RPA
+    assert wpeak3 == pytest.approx(16.30622, abs=0.02)  # ALDA
