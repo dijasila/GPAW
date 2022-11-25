@@ -11,7 +11,6 @@ from gpaw.mpi import size, world
 
 from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.df import DielectricFunction, read_response_function
-# from gpaw.response.susceptibility import FourComponentSusceptibilityTensor
 from gpaw.response.chiks import ChiKS
 from gpaw.response.susceptibility import ChiFactory
 
