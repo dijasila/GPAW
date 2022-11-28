@@ -129,6 +129,8 @@ class FDWaveFunctions(FDPWWaveFunctions):
                     axpy(0.5 * f, abs(dpsit_G)**2, taut_sG[kpt.s])
 
         self.kptband_comm.sum(taut_sG)
+        for taut_G in taut_sG:
+            self.kd.symmetry.symmetrize(taut_G, self.gd)
         return taut_sG
 
     def apply_mgga_orbital_dependent_hamiltonian(self, kpt, psit_xG,
