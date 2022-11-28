@@ -505,9 +505,8 @@ class PairFunctionIntegrator(ABC):
             disable_time_reversal=self.disable_time_reversal,
             disable_non_symmorphic=self.disable_non_symmorphic)
 
-    def get_band_and_spin_transitions_domain(self, spinrot,
-                                             bandsummation='double',
-                                             nbands=None):
+    def get_band_and_spin_transitions_domain(self, spinrot, nbands=None,
+                                             bandsummation='pairwise'):
         """Generate all allowed band and spin transitions (transitions from
         occupied to occupied and from unoccupied to unoccupied are not
         allowed).
@@ -518,12 +517,12 @@ class PairFunctionIntegrator(ABC):
             Spin rotation from k to k + q.
             Choices: 'u', 'd', '0' (= 'u' + 'd'), '-' and '+'.
             All rotations are included for spinrot=None ('0' + '+' + '-').
+        nbands : int
+            Maximum band index to include.
         bandsummation : str
             Band (and spin) summation for pairs of Kohn-Sham orbitals
             'pairwise': sum over pairs of bands (and spins)
             'double': double sum over band (and spin) indices.
-        nbands : int
-            Maximum band index to include.
         """
         # Include all bands, if nbands is None
         nspins = self.gs.nspins
