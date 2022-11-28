@@ -828,13 +828,40 @@ def get_PWDescriptor(ecut, gd, q_c, gammacentered=False):
 
 
 class KPointPairIntegral(ABC):
-    r"""Some documentation here!                                               XXX
+    r"""Baseclass for reciprocal space integrals of the first Brillouin Zone,
+    where the integrand is a sum over transitions between any number of states
+    at the wave vectors k and k + q (referred to as a k-point pair).
 
-    ATM, we assume the PairFunction is analyzed with plane waves
+    Definition (V is the total crystal hypervolume and D is the dimension of
+    the crystal):
+       __
+    1  \                 1    /
+    ‾  /  (...)_k  =  ‾‾‾‾‾‾  |dk (...)_k
+    V  ‾‾             (2π)^D  /
+       k
+
+    NB: In the current implementation, the dimension is fixed to 3. This is
+    sensible for pair functions which are functions of position (such as the
+    four-component Kohn-Sham susceptibility tensor), and in most circumstances
+    a change in dimensionality can be acomplished simply by adding an extra
+    prefactor to the integral elsewhere.
+    NB: The current implementation is running on backbone functionality to
+    analyze symmetries within a plane wave representation of real-space
+    coordinates. This could be generalized further in the future. See the
+    PWSymmetryAnalyzer in gpaw.response.symmetry.
     """
 
     def __init__(self, kspair, analyzer):
-        """Some documentation here!                                            XXX
+        """Construct a KPointPairIntegral corresponding to a given q-point.
+
+        Parameters
+        ----------
+        kspair : KohnShamPair
+            Object responsible for extracting all relevant information about
+            the k-point pairs from the underlying ground state calculation.
+        analyzer : PWSymmetryAnalyzer
+            Object responsible for analyzing the symmetries of the q-point in
+            question, for which the k-point pair integral is constructed.
         """
         self.gs = kspair.gs
         self.kspair = kspair
@@ -844,13 +871,44 @@ class KPointPairIntegral(ABC):
         bzk_kc, weight_k = self.get_kpoint_domain(analyzer)
         bzk_ipc, weight_i = self.slice_kpoint_domain(bzk_kc, weight_k)
         self._domain = (bzk_ipc, weight_i)
-        self.ni = len(weight_i)        
+        self.ni = len(weight_i)
 
     def weighted_kpoint_pairs(self, n1_t, n2_t, s1_t, s2_t):
-        """Generate k-point pairs to integrate along with their integral
+        r"""Generate all k-point pairs in the integral along with their integral
         weights.
 
-        Some more documentation here!                                          XXX
+        The reciprocal space integral is estimated as the sum over a discrete
+        k-point domain. The domain will genererally depend on the integration
+        method as well as the symmetry of the crystal.
+
+        Definition:
+                                        __
+           1    /            ~     1    \   (2π)^D
+        ‾‾‾‾‾‾  |dk (...)_k  =  ‾‾‾‾‾‾  /   ‾‾‾‾‾‾ w_kr (...)_kr
+        (2π)^D  /               (2π)^D  ‾‾  Nk V0
+                                        kr
+                                __
+                             ~  \
+                             =  /  iw_kr (...)_kr
+                                ‾‾
+                                kr
+
+        The sum over kr denotes the reduced k-point domain specified by the
+        integration method (a reduced selection of Nkr points from the ground
+        state k-point grid of Nk total points in the entire 1BZ). Each point
+        is weighted by its k-point volume in the ground state k-point grid
+
+                      (2π)^D
+        kpointvol  =  ‾‾‾‾‾‾,
+                      Nk V0
+
+        and an additional individual k-point weight w_kr specific to the
+        integration method (V0 denotes the cell volume). Together with the
+        integral prefactor, these make up the integral weight
+
+                   1
+        iw_kr = ‾‾‾‾‾‾ kpointvol w_kr
+                (2π)^D
         """
         # Calculate prefactors
         outer_prefactor = 1 / (2 * np.pi)**3
@@ -860,16 +918,22 @@ class KPointPairIntegral(ABC):
 
         # Generate k-point pairs
         for k_pc, weight in self._domain:
+            integral_weight = prefactor * weight
             kptpair = self.kspair.get_kpoint_pairs(n1_t, n2_t,
                                                    k_pc, k_pc + self.q_c,
                                                    s1_t, s2_t)
-            yield kptpair, prefactor * weight
+            yield kptpair, integral_weight
 
     @abstractmethod
     def get_kpoint_domain(self, analyzer):
-        """
-        Some documentation here!                                               XXX
-        Returns bzk_kc!
+        """Use the PWSymmetryAnalyzer to define and weight the k-point domain.
+
+        Returns
+        -------
+        bzk_kc : np.array
+            k-points to integrate in relative coordinates.
+        weight_k : np.array
+            Integral weight of each k-point in the integral.
         """
 
     def crystal_volume(self):
@@ -879,23 +943,30 @@ class KPointPairIntegral(ABC):
 
 
 class KPointPairPointIntegral(KPointPairIntegral):
+    r"""Reciprocal space integral of k-point pairs in the first Brillouin Zone,
+    estimated as a point integral over all k-points of the ground state k-point
+    grid.
+
+    Definition:
+                                   __
+       1    /           ~     1    \   (2π)^D
+    ‾‾‾‾‾‾  |dk (...)_k =  ‾‾‾‾‾‾  /   ‾‾‾‾‾‾ (...)_k
+    (2π)^D  /              (2π)^D  ‾‾  Nk V0
+                                   k
+
+    """
 
     def get_kpoint_domain(self, analyzer):
-        """Use the PWSymmetryAnalyzer to define and weight the k-point domain
-        based on the ground state k-point grid.
-
-        NB: We could use some more documentation, see XXX below.
-        """
         # Generate k-point domain in relative coordinates
         K_gK = analyzer.group_kpoints()  # What is g? XXX
         bzk_kc = np.array([self.gs.kd.bzk_kc[K_K[0]] for
                            K_K in K_gK])  # Why only K=0? XXX
 
         # Get the k-point weights from the symmetry analyzer
-        weight_k = [analyzer.get_kpoint_weight(k_c) for k_c in bzk_kc]
+        weight_k = np.array([analyzer.get_kpoint_weight(k_c)
+                             for k_c in bzk_kc])
 
         return bzk_kc, weight_k
-        
 
 
 class Integrator:  # --> KPointPairIntegrator in the future? XXX
