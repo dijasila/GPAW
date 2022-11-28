@@ -38,7 +38,8 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
                 comm=domain_comm,
                 dims=(self.nbands,),
                 desc=self.wf_desc.new(kpt=kpt_c),
-                data=None)
+                data=None,
+                xp=np)
             wfs = PWFDWaveFunctions(
                 spin=spin,
                 q=q,

@@ -198,7 +198,6 @@ class BSEBackend:
 
         get_pair = self.pair.get_kpoint_pair
         get_pair_density = self.pair.get_pair_density
-        get_optical_pair_density = self.pair.get_optical_pair_density
         if self.spinors:
             # Get all pair densities to allow for SOC mixing
             # Use twice as many no-SOC states as BSE bands to allow mixing
@@ -239,7 +238,8 @@ class BSEBackend:
                 rho_mnG = get_pair_density(pd0, pair, m_m, n_n,
                                            pawcorr=pawcorr)
                 if optical_limit:
-                    n_mnv = get_optical_pair_density(pd0, pair, m_m, n_n)
+                    n_mnv = self.pair.get_optical_pair_density_head(pd0, pair,
+                                                                    m_m, n_n)
                     rho_mnG[:, :, 0] = n_mnv[:, :, self.direction]
                 if self.spinors:
                     if optical_limit:
@@ -991,9 +991,8 @@ class BSE(BSEBackend):
             List or array defining the gw quasiparticle energies used in
             the BSE Hamiltonian. Should match spin, k-points and
             valence/conduction bands
-        truncation: str
-            Coulomb truncation scheme. Can be either wigner-seitz,
-            2D, 1D, or 0D
+        truncation: str or None
+            Coulomb truncation scheme. Can be None, wigner-seitz, or 2D.
         integrate_gamma: int
             Method to integrate the Coulomb interaction. 1 is a numerical
             integration at all q-points with G=[0,0,0] - this breaks the

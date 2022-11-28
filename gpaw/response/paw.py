@@ -5,13 +5,15 @@ from gpaw.gaunt import gaunt
 from gpaw.spherical_harmonics import Y
 from types import SimpleNamespace
 
+
 class Setuplet:
     def __init__(self, *, phit_jg, phi_jg, rgd, l_j, rcut_j):
         self.rgd = rgd
         self.data = SimpleNamespace(phit_jg=phit_jg, phi_jg=phi_jg)
         self.l_j = l_j
-        self.ni = np.sum([2*l+1 for l in l_j])
+        self.ni = np.sum([2 * l + 1 for l in l_j])
         self.rcut_j = rcut_j
+
 
 def two_phi_planewave_integrals(k_Gv, *, setup):
     rgd = setup.rgd

@@ -8,13 +8,15 @@ from gpaw.mpi import MPIComm, serial_comm
 from gpaw.typing import Array1D, ArrayLike1D
 from gpaw.core.matrix import Matrix
 from gpaw.new import prod
+from gpaw.gpu import cupy as cp
 
 
 class AtomArraysLayout:
     def __init__(self,
                  shapes: list[int | tuple[int, ...]],
                  atomdist: AtomDistribution | MPIComm = serial_comm,
-                 dtype=float):
+                 dtype=float,
+                 xp=None):
         """Description of layout of atom arrays.
 
         Parameters
@@ -32,6 +34,7 @@ class AtomArraysLayout:
             atomdist = AtomDistribution(np.zeros(len(shapes), int), atomdist)
         self.atomdist = atomdist
         self.dtype = np.dtype(dtype)
+        self.xp = xp or np
 
         self.size = sum(prod(shape) for shape in self.shape_a)
 
@@ -48,10 +51,12 @@ class AtomArraysLayout:
         return (f'AtomArraysLayout({self.shape_a}, {self.atomdist}, '
                 f'{self.dtype})')
 
-    def new(self, atomdist=None, dtype=None):
+    def new(self, atomdist=None, dtype=None, xp=None):
         """Create new AtomsArrayLayout object with new atomdist."""
-        return AtomArraysLayout(self.shape_a, atomdist or self.atomdist,
-                                dtype or self.dtype)
+        return AtomArraysLayout(self.shape_a,
+                                atomdist or self.atomdist,
+                                dtype or self.dtype,
+                                xp or self.xp)
 
     def empty(self,
               dims: int | tuple[int, ...] = (),
@@ -194,7 +199,7 @@ class AtomArrays:
                 raise ValueError(
                     f'Bad dtype for data: {data.dtype} != {dtype}')
         else:
-            data = np.empty(fullshape, dtype)
+            data = layout.xp.empty(fullshape, dtype)
 
         self.data = data
         self._matrix: Matrix | None = None
@@ -226,7 +231,7 @@ class AtomArrays:
 
         return self._matrix
 
-    def new(self, layout=None, data=None):
+    def new(self, *, layout=None, data=None, xp=None):
         """Create new AtomArrays object of same kind.
 
         Parameters
@@ -236,10 +241,30 @@ class AtomArrays:
         data:
             Array to use for storage.
         """
+        if xp is np:
+            assert layout is None
+            assert data is None
+            assert self.layout.xp is cp
+            layout = self.layout.new(xp=np)
         return AtomArrays(layout or self.layout,
                           self.dims,
                           self.comm,
                           data=data)
+
+    def to_cpu(self):
+        if self.layout.xp is np:
+            return self
+        return self.new(layout=self.layout.new(xp=np),
+                        data=cp.asnumpy(self.data))
+
+    def to_xp(self, xp):
+        if self.layout.xp is xp:
+            return self
+        if xp is np:
+            return self.new(layout=self.layout.new(xp=np),
+                            data=cp.asnumpy(self.data))
+        return self.new(layout=self.layout.new(xp=cp),
+                        data=cp.asarray(self.data))
 
     def __getitem__(self, a):
         if isinstance(a, numbers.Integral):

@@ -306,13 +306,11 @@ class G0W0Calculator:
     def __init__(self, filename='gw', *,
                  chi0calc,
                  wcalc,
-                 restartfile=None,
                  kpts, bands, nbands=None,
                  fxc_modes,
                  eta,
                  ecut_e,
-                 frequencies=None,
-                 savepckl=True):
+                 frequencies=None):
         """G0W0 calculator, initialized through G0W0 object.
 
         The G0W0 calculator is used to calculate the quasi
@@ -325,8 +323,6 @@ class G0W0Calculator:
             Base filename of output files.
         wcalc: WCalculator object
             Defines the calculator for computing the screened interaction
-        restartfile: str
-            File that stores data necessary to restart a calculation.
         kpts: list
             List of indices of the IBZ k-points to calculate the quasi particle
             energies for.
@@ -349,8 +345,6 @@ class G0W0Calculator:
             When carrying out a calculation including vertex corrections, it
             is possible to get the standard GW results at the same time
             (almost for free).
-        savepckl: bool
-            Save output to a pckl file.
         """
         self.chi0calc = chi0calc
         self.wcalc = wcalc
@@ -380,23 +374,15 @@ class G0W0Calculator:
             assert 'GW' in self.fxc_modes
             assert self.wcalc.xckernel.xc != 'RPA'
             assert self.wcalc.fxc_mode != 'GW'
-            if restartfile is not None:
-                raise RuntimeError('Restart function does not currently work '
-                                   'with do_GW_too=True.')  # Or does it?
 
         self.filename = filename
-        if restartfile is None:
-            restartfile = 'qcache_' + self.filename
-
-        self.restartfile = restartfile
-        self.savepckl = savepckl
         self.eta = eta / Ha
 
         if self.context.world.rank == 0:
             # We pass a serial communicator because the parallel handling
             # is somewhat wonky, we'd rather do that ourselves:
             try:
-                self.qcache = FileCache(self.restartfile,
+                self.qcache = FileCache(f'qcache_{self.filename}',
                                         comm=mpi.SerialCommunicator())
             except TypeError as err:
                 raise RuntimeError(
@@ -512,13 +498,13 @@ class G0W0Calculator:
 
         # Loop over q in the IBZ:
         self.context.print('Summing all q:')
-
         self.calculate_all_q_points()
-
         sigmas = self.read_sigmas()
         self.all_results = self.postprocess(sigmas)
         # Note: self.results is a pointer pointing to one of the results,
         # for historical reasons.
+
+        self.savepckl()
         return self.results
 
     def postprocess(self, sigmas):
@@ -561,14 +547,27 @@ class G0W0Calculator:
 
     def postprocess_single(self, fxc_name, sigma):
         output = self.calculate_g0w0_outputs(sigma)
-        result = output.get_results_eV()
+        return output.get_results_eV()
 
-        if self.savepckl:
-            with paropen(f'{self.filename}_results_{fxc_name}.pckl',
-                         'wb') as fd:
-                pickle.dump(result, fd, 2)
+    def savepckl(self):
+        """Save outputs to pckl files and return paths to those files."""
+        # Note: this is always called, but the paths aren't returned
+        # to the caller.  Calling it again then overwrites the files.
+        #
+        # TODO:
+        #  * Replace with JSON
+        #  * Save to different files or same file?
+        #  * Move this functionality to g0w0 result object
+        paths = {}
+        for fxc_mode in self.fxc_modes:
+            path = Path(f'{self.filename}_results_{fxc_mode}.pckl')
+            with paropen(path, 'wb', comm=self.context.world) as fd:
+                pickle.dump(self.all_results[fxc_mode], fd, 2)
+            paths[fxc_mode] = path
 
-        return result
+        # Do not return paths to caller before we know they all exist:
+        self.context.world.barrier()
+        return paths
 
     def calculate_q(self, ie, k, kpt1, kpt2, pd0, Wdict,
                     *, symop, sigmas, blocks1d, pawcorr):
@@ -793,23 +792,23 @@ class G0W0Calculator:
         Wdict = {}
 
         for fxc_mode in self.fxc_modes:
-            pdi, blocks1d, G2G, chi0_wGG, chi0_wxvG, chi0_wvv = \
-                chi0calc.reduce_ecut(ecut, chi0)
-            pdi, W_wGG = self.wcalc.dyson_and_W_old(wstc, iq,
-                                                    q_c, chi0,
-                                                    fxc_mode,
-                                                    pdi, G2G,
-                                                    chi0_wGG,
-                                                    chi0_wxvG,
-                                                    chi0_wvv,
-                                                    only_correlation=True)
+            pdi, W_wGG, blocks1d, G2G = self.wcalc.dyson_and_W_old(
+                wstc, iq,
+                q_c, chi0,
+                fxc_mode,
+                ecut,
+                only_correlation=True)
+
+            if chi0calc.pawcorr is not None and G2G is not None:
+                chi0calc.pawcorr = chi0calc.pawcorr.reduce_ecut(G2G)
 
             if self.wcalc.ppa:
                 W_xwGG = W_wGG  # (ppa API is nonsense)
+            # HT used to calculate convulution between time-ordered G and W
             else:
                 with self.context.timer('Hilbert'):
                     W_xwGG = self.hilbert_transform(W_wGG)
-
+                    
             Wdict[fxc_mode] = W_xwGG
 
         return pdi, Wdict, blocks1d, chi0calc.pawcorr
@@ -932,8 +931,6 @@ class G0W0(G0W0Calculator):
             Filename of saved calculator object.
         filename: str
             Base filename of output files.
-        restartfile: str
-            File that stores data necessary to restart a calculation.
         kpts: list
             List of indices of the IBZ k-points to calculate the quasi particle
             energies for.
@@ -1000,8 +997,6 @@ class G0W0(G0W0Calculator):
         nblocksmax: bool
             Cuts chi0 into as many blocks as possible to reduce memory
             requirements as much as possible.
-        savepckl: bool
-            Save output to a pckl file.
         """
         frequencies = get_frequencies(frequencies, domega0, omega2)
 
