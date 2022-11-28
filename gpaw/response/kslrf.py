@@ -1,6 +1,7 @@
 import numpy as np
 from functools import partial
 from time import ctime
+from abc import ABC, abstractmethod
 
 from ase.units import Hartree
 
@@ -824,6 +825,77 @@ def get_PWDescriptor(ecut, gd, q_c, gammacentered=False):
                       gammacentered=gammacentered)
 
     return pd
+
+
+class KPointPairIntegral(ABC):
+    r"""Some documentation here!                                               XXX
+
+    ATM, we assume the PairFunction is analyzed with plane waves
+    """
+
+    def __init__(self, kspair, analyzer):
+        """Some documentation here!                                            XXX
+        """
+        self.gs = kspair.gs
+        self.kspair = kspair
+        self.q_c = analyzer.pd.kd.bzk_kc[0]
+
+        # Prepare the k-point pair integral
+        bzk_kc, weight_k = self.get_kpoint_domain(analyzer)
+        bzk_ipc, weight_i = self.slice_kpoint_domain(bzk_kc, weight_k)
+        self._domain = (bzk_ipc, weight_i)
+        self.ni = len(weight_i)        
+
+    def weighted_kpoint_pairs(self, n1_t, n2_t, s1_t, s2_t):
+        """Generate k-point pairs to integrate along with their integral
+        weights.
+
+        Some more documentation here!                                          XXX
+        """
+        # Calculate prefactors
+        outer_prefactor = 1 / (2 * np.pi)**3
+        V = self.crystal_volume()  # V = Nk * V0
+        kpointvol = (2 * np.pi)**3 / V
+        prefactor = outer_prefactor * kpointvol
+
+        # Generate k-point pairs
+        for k_pc, weight in self._domain:
+            kptpair = self.kspair.get_kpoint_pairs(n1_t, n2_t,
+                                                   k_pc, k_pc + self.q_c,
+                                                   s1_t, s2_t)
+            yield kptpair, prefactor * weight
+
+    @abstractmethod
+    def get_kpoint_domain(self, analyzer):
+        """
+        Some documentation here!                                               XXX
+        Returns bzk_kc!
+        """
+
+    def crystal_volume(self):
+        """Calculate the total crystal volume, V = Nk * V0, corresponding to
+        the ground state k-point grid."""
+        return self.gs.kd.nbzkpts * self.gs.volume
+
+
+class KPointPairPointIntegral(KPointPairIntegral):
+
+    def get_kpoint_domain(self, analyzer):
+        """Use the PWSymmetryAnalyzer to define and weight the k-point domain
+        based on the ground state k-point grid.
+
+        NB: We could use some more documentation, see XXX below.
+        """
+        # Generate k-point domain in relative coordinates
+        K_gK = analyzer.group_kpoints()  # What is g? XXX
+        bzk_kc = np.array([self.gs.kd.bzk_kc[K_K[0]] for
+                           K_K in K_gK])  # Why only K=0? XXX
+
+        # Get the k-point weights from the symmetry analyzer
+        weight_k = [analyzer.get_kpoint_weight(k_c) for k_c in bzk_kc]
+
+        return bzk_kc, weight_k
+        
 
 
 class Integrator:  # --> KPointPairIntegrator in the future? XXX
