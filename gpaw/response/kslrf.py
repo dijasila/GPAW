@@ -329,6 +329,250 @@ class KohnShamLinearResponseFunction:  # Future PairFunctionIntegrator? XXX
         self.context.print('')
 
 
+class PairFunctionIntegrator(ABC):
+    """Baseclass bla bla bla...
+    Some documentation here!                                                   XXX
+    NB: Based on a plane-wave representation!                                  XXX
+    NB: Assumes absence of spin-orbit coupling!                                XXX
+    """
+
+    def __init__(self, gs, context, nblocks=1,
+                 disable_point_group=False,
+                 disable_time_reversal=False,
+                 disable_non_symmorphic=True):
+        """
+        Some documentation here!                                               XXX
+        """
+        self.gs = gs
+        self.context = context
+
+        # Communicators for distribution of memory and work
+        self.blockcomm = None
+        self.intrablockcomm = None
+        self.initialize_communicators(nblocks)
+        self.nblocks = self.blockcomm.size
+
+        # The KohnShamPair class handles extraction of k-point pairs from the
+        # ground state
+        self.kspair = KohnShamPair(self.gs, self.context,
+                                   # Distribution of work.
+                                   # t-transitions are distributed through
+                                   # blockcomm, k-points through
+                                   # intrablockcomm.
+                                   transitionblockscomm=self.blockcomm,
+                                   kptblockcomm=self.intrablockcomm)
+
+        # Symmetry flags
+        self.disable_point_group = disable_point_group
+        self.disable_time_reversal = disable_time_reversal
+        self.disable_non_symmorphic = disable_non_symmorphic
+        if (disable_time_reversal and disable_point_group
+            and disable_non_symmorphic):
+            self.disable_symmetries = True
+        else:
+            self.disable_symmetries = False
+
+    @timer('Integrate pair function')
+    def _integrate(self, q_c, out_x, n1_t, n2_t, s1_t, s2_t,
+                   ecut=50, gammacentered=False):
+        """
+        Some documentation here!                                               XXX
+        """
+        # Initialize plane-wave descriptor and symmetry analyzer
+        pd = self._get_PWDescriptor(q_c, ecut=ecut,
+                                    gammacentered=gammacentered)
+        analyzer = self.get_PWSymmetryAnalyzer(pd)
+
+        # Perform the actual integral as a point integral over k-point pairs
+        integral = KPointPairPointIntegral(self.kspair, analyzer)
+        weighted_kptpairs = integral.weighted_kpoint_pairs(n1_t, n2_t,
+                                                           s1_t, s2_t)
+        pb = ProgressBar(self.context.fd)  # pb with a generator is awkward
+        for _, _ in pb.enumerate([None] * integral.ni):
+            kptpair, weight = next(weighted_kptpairs)
+            if weight is not None:
+                assert kptpair is not None
+                self.add_integrand(kptpair, weight, out_x)
+
+        # Sum over the k-points, which have been distributed between processes
+        with self.context.timer('Sum over distributed k-points'):
+            self.intrablockcomm.sum(out_x)
+
+    @abstractmethod
+    def add_integrand(self, kptpair, weight, out_x):
+        """
+        Some documentation here!                                               XXX
+        """
+
+    def initialize_communicators(self, nblocks):
+        """Set up MPI communicators to distribute the memory needed to store
+        large arrays and parallelize calculations when possible.
+
+        Parameters
+        ----------
+        nblocks : int
+            Separate large arrays into n different blocks. Each process
+            allocates memory for the large arrays. By allocating only a
+            fraction/block of the total arrays, the memory requirements are
+            eased.
+
+        Sets
+        ----
+        blockcomm : gpaw.mpi.Communicator
+            Communicate between processes belonging to different memory blocks.
+            In every communicator, there is one process for each block of
+            memory, so that all blocks are represented.
+            If nblocks < world.size, there will be size // nblocks different
+            processes that allocate memory for the same block of the large
+            arrays. Thus, there will be also size // nblocks different block
+            communicators, grouping the processes into sets that allocate the
+            entire arrays between them.
+        intrablockcomm : gpaw.mpi.Communicator
+            Communicate between processes belonging to the same memory block.
+            There will be size // nblocks processes per memory block.
+        """
+        world = self.context.world
+        self.blockcomm, self.intrablockcomm = block_partition(world, nblocks)
+
+    def get_PWDescriptor(self, q_c, ecut=50, gammacentered=False):
+        """Get the resulting plane-wave description for a calculation
+        with wave vector q_c.
+
+        Parameters
+        ----------
+        q_c : list or np.array
+            Wave vector in relative coordinates
+        ecut : float (or None)
+            Plane-wave cutoff in eV
+        gammacentered : bool
+            Center the grid of plane waves around the Γ-point (or the q-vector)
+        """
+        ecut = None if ecut is None else ecut / Hartree  # eV to Hartree
+        return self._get_PWDescriptor(q_c, ecut=ecut, gammacentered=gammacentered, internal=False)
+
+    def _get_PWDescriptor(self, q_c, ecut=50, gammacentered=False,
+                          internal=True):
+        """Get plane-wave descriptor for the wave vector q_c.
+
+        Parameters
+        ----------
+        q_c : list or ndarray
+            Wave vector in relative coordinates
+        ecut : float (or None)
+            Plane-wave cutoff in Hartree
+        gammacentered : bool
+            Center the grid of plane waves around the Γ-point (or the q-vector)
+        internal : bool
+            When using symmetries, the actual calculation of the pair function
+            pf_wGG must happen using a q-centered plane wave basis. If
+            internal==True, as it is by default, the internal plane wave basis
+            used in the evaluation of pf_wGG is returned, otherwise the
+            external descriptor is returned, corresponding to the requested
+            pf_wGG.
+        """
+        gd = self.gs.gd
+
+        # Update to internal basis, if needed
+        if internal and gammacentered and not self.disable_symmetries:
+            # In order to make use of the symmetries of the system to reduce
+            # the k-point integration, the internal code assumes a plane wave
+            # basis which is centered at q in reciprocal space.
+            gammacentered = False
+            # If we want to compute the linear response function on a plane
+            # wave grid which is effectively centered in the gamma point
+            # instead of q, we need to extend the internal ecut such that the
+            # q-centered grid encompasses all reciprocal lattice points inside
+            # the gamma-centered sphere.
+            # The reduction to the global gamma-centered basis will then be
+            # carried out as a post processing step.
+
+            # Compute the extended internal ecut
+            q_c = np.asarray(q_c, dtype=float)
+            B_cv = 2.0 * np.pi * gd.icell_cv  # Reciprocal lattice vectors
+            q_v = q_c @ B_cv
+            ecut = get_ecut_to_encompass_centered_sphere(q_v, ecut)
+
+        pd = get_PWDescriptor(ecut, gd, q_c, gammacentered=gammacentered)
+
+        return pd
+
+    def get_PWSymmetryAnalyzer(self, pd):
+        from gpaw.response.symmetry import PWSymmetryAnalyzer
+
+        return PWSymmetryAnalyzer(
+            self.gs.kd, pd, self.context,
+            disable_point_group=self.disable_point_group,
+            disable_time_reversal=self.disable_time_reversal,
+            disable_non_symmorphic=self.disable_non_symmorphic)
+
+    def get_band_and_spin_transitions_domain(self, spinrot,
+                                             bandsummation='double',
+                                             nbands=None):
+        """Generate all allowed band and spin transitions (transitions from
+        occupied to occupied and from unoccupied to unoccupied are not
+        allowed).
+
+        Parameters
+        ----------
+        spinrot : str
+            Spin rotation from k to k + q.
+            Choices: 'u', 'd', '0' (= 'u' + 'd'), '-' and '+'.
+            All rotations are included for spinrot=None ('0' + '+' + '-').
+        bandsummation : str
+            Band (and spin) summation for pairs of Kohn-Sham orbitals
+            'pairwise': sum over pairs of bands (and spins)
+            'double': double sum over band (and spin) indices.
+        nbands : int
+            Maximum band index to include.
+        """
+        # Include all bands, if nbands is None
+        nspins = self.gs.nspins
+        nbands = nbands or self.gs.bd.nbands
+        assert nbands <= self.gs.bd.nbands
+        nocc1 = self.kspair.nocc1
+        nocc2 = self.kspair.nocc2
+
+        n1_M, n2_M = get_band_transitions_domain(bandsummation, nbands,
+                                                 nocc1=nocc1,
+                                                 nocc2=nocc2)
+        s1_S, s2_S = get_spin_transitions_domain(bandsummation,
+                                                 spinrot, nspins)
+
+        n1_t, n2_t, s1_t, s2_t = transitions_in_composite_index(n1_M, n2_M,
+                                                                s1_S, s2_S)
+
+        return n1_t, n2_t, s1_t, s2_t
+
+    def print_basic_information(self):
+        """Print basic information about the input ground state and
+        parallelization."""
+        nspins = self.gs.nspins
+        nbands = self.gs.bd.nbands
+        nocc1 = self.kspair.nocc1
+        nocc2 = self.kspair.nocc2
+        nk = self.gs.kd.nbzkpts
+        nik = self.gs.kd.nibzkpts
+
+        wsize = self.context.world.size
+        knsize = self.intrablockcomm.size
+        bsize = self.blockcomm.size
+
+        p = partial(self.context.print, flush=False)
+        p('The pair function integration is based on a ground state with:')
+        p('    Number of spins: %d' % nspins)
+        p('    Number of bands: %d' % nbands)
+        p('    Number of completely occupied bands: %d' % nocc1)
+        p('    Number of partially occupied bands: %d' % nocc2)
+        p('    Number of kpoints: %d' % nk)
+        p('    Number of irredicible kpoints: %d' % nik)
+        p('')
+        p('The pair function integration is performed in parallel with:')
+        p('    world.size: %d' % wsize)
+        p('    intrablockcomm.size: %d' % knsize)
+        p('    blockcomm.size: %d' % bsize)
+        self.context.print('')
+
+
 def get_band_transitions_domain(bandsummation, nbands, nocc1=None, nocc2=None):
     """Get all pairs of bands to sum over
 
