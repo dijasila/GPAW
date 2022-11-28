@@ -148,8 +148,7 @@ class IBZWaveFunctions:
             'extrapolation': e_entropy * occ_calc.extrapolate_factor}
 
     def add_to_density(self, nt_sR, D_asii) -> None:
-        """Compute density from wave functions and add to ``nt_sR``
-        and ``D_asii``."""
+        """Compute density and add to ``nt_sR`` and ``D_asii``."""
         for wfs in self:
             wfs.add_to_density(nt_sR, D_asii)
         self.kpt_comm.sum(nt_sR.data)

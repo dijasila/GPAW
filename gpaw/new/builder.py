@@ -8,7 +8,6 @@ import numpy as np
 from ase import Atoms
 from ase.calculators.calculator import kpts2sizeandoffsets
 from ase.units import Bohr
-
 from gpaw.core import UniformGrid
 from gpaw.core.atom_arrays import (AtomArrays, AtomArraysLayout,
                                    AtomDistribution)
@@ -22,10 +21,11 @@ from gpaw.new.input_parameters import InputParameters
 from gpaw.new.scf import SCFLoop
 from gpaw.new.smearing import OccupationNumberCalculator
 from gpaw.new.symmetry import create_symmetries_object
-from gpaw.new.xc import XCFunctional
+from gpaw.new.xc import create_functional
 from gpaw.setup import Setups
-from gpaw.typing import DTypeLike, Array2D, ArrayLike1D, ArrayLike2D
+from gpaw.typing import Array2D, ArrayLike1D, ArrayLike2D, DTypeLike
 from gpaw.utilities.gpts import get_number_of_grid_points
+from gpaw.xc import XC
 
 
 def builder(atoms: Atoms,
@@ -70,12 +70,12 @@ class DFTComponentsBuilder:
         self.nspins = self.ncomponents % 3
         self.spin_degeneracy = self.ncomponents % 2 + 1
 
-        self.xc = self.create_xc_functional()
+        self._xc = XC(params.xc, collinear=(self.ncomponents < 4))
 
         self.setups = Setups(atoms.numbers,
                              params.setups,
                              params.basis,
-                             self.xc.setup_name,
+                             self._xc.get_setup_name(),
                              world)
 
         if params.hund:
@@ -129,7 +129,9 @@ class DFTComponentsBuilder:
         raise NotImplementedError
 
     def create_xc_functional(self):
-        return XCFunctional(self.params.xc, self.ncomponents)
+        return create_functional(self._xc,
+                                 self.grid, self.fine_grid,
+                                 self.setups, self.fracpos_ac)
 
     def check_cell(self, cell):
         number_of_lattice_vectors = cell.rank

@@ -48,10 +48,10 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
             return SpinorWaveFunctionDescriptor(pw, qspiral_v=self.qspiral_v)
         return pw
 
-    def create_xc_functional(self):
+    def create_xc_functional(self, kernel):
         if self.params.xc['name'] in ['HSE06', 'PBE0', 'EXX']:
             return ...
-        return super().create_xc_functional()
+        return super().create_xc_functional(kernel)
 
     def get_pseudo_core_densities(self):
         if self._nct_ag is None:
