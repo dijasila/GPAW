@@ -843,7 +843,7 @@ class KPointPairIntegral(ABC):
     NB: In the current implementation, the dimension is fixed to 3. This is
     sensible for pair functions which are functions of position (such as the
     four-component Kohn-Sham susceptibility tensor), and in most circumstances
-    a change in dimensionality can be acomplished simply by adding an extra
+    a change in dimensionality can be accomplished simply by adding an extra
     prefactor to the integral elsewhere.
     NB: The current implementation is running on backbone functionality to
     analyze symmetries within a plane wave representation of real-space
@@ -909,6 +909,17 @@ class KPointPairIntegral(ABC):
                    1
         iw_kr = ‾‾‾‾‾‾ kpointvol w_kr
                 (2π)^D
+
+        Parameters
+        ----------
+        n1_t : np.array
+            Band index of k-point k for each transition t.
+        n2_t : np.array
+            Band index of k-point k + q for each transition t.
+        s1_t : np.array
+            Spin index of k-point k for each transition t.
+        s2_t : np.array
+            Spin index of k-point k + q for each transition t.
         """
         # Calculate prefactors
         outer_prefactor = 1 / (2 * np.pi)**3
