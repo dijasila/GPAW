@@ -1172,7 +1172,10 @@ class KPointPairIntegral(ABC):
 
         # Generate k-point pairs
         for k_pc, weight in zip(*self._domain):
-            integral_weight = prefactor * weight
+            if weight is None:
+                integral_weight = None
+            else:
+                integral_weight = prefactor * weight
             kptpair = self.kspair.get_kpoint_pairs(n1_t, n2_t,
                                                    k_pc, k_pc + self.q_c,
                                                    s1_t, s2_t)
