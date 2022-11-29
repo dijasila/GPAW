@@ -131,10 +131,13 @@ class DFTComponentsBuilder:
     def create_uniform_grids(self):
         raise NotImplementedError
 
-    def create_xc_functional(self):
+    def create_xc_functional(self, interpolation_domain):
         return create_functional(self._xc,
-                                 self.grid, self.fine_grid,
-                                 self.setups, self.fracpos_ac)
+                                 self.fine_grid,
+                                 interpolation_domain,
+                                 self.setups,
+                                 self.fracpos_ac,
+                                 self.atomdist)
 
     def check_cell(self, cell):
         number_of_lattice_vectors = cell.rank

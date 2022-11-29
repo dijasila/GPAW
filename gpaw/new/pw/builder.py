@@ -6,6 +6,7 @@ from gpaw.core import PlaneWaves, UniformGrid
 from gpaw.core.domain import Domain
 from gpaw.core.matrix import Matrix
 from gpaw.core.plane_waves import PlaneWaveExpansions
+from gpaw.new import cached_property
 from gpaw.new.builder import create_uniform_grid
 from gpaw.new.pw.hamiltonian import PWHamiltonian, SpinorPWHamiltonian
 from gpaw.new.pw.poisson import make_poisson_solver
@@ -53,15 +54,18 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
     def create_xc_functional(self):
         if self.params.xc['name'] in ['HSE06', 'PBE0', 'EXX']:
             return ...
-        return super().create_xc_functional()
+        return super().create_xc_functional(interpolation_grid=self.interpolation_pw)
+
+    @cached_property
+    def interpolation_pw(self):
+        return PlaneWaves(ecut=2 * self.ecut,
+                            cell=self.grid.cell,
+                            comm=self.grid.comm)
 
     def get_pseudo_core_densities(self):
         if self._nct_ag is None:
-            pw = PlaneWaves(ecut=2 * self.ecut,
-                            cell=self.grid.cell,
-                            comm=self.grid.comm)
             self._nct_ag = self.setups.create_pseudo_core_densities(
-                pw, self.fracpos_ac, self.atomdist)
+                self.interpolation_pw, self.fracpos_ac, self.atomdist)
         return self._nct_ag
 
     def create_poisson_solver(self, fine_pw, params):

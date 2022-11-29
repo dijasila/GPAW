@@ -42,6 +42,12 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         self._nt_g = None
         self._vt_g = None
 
+    def interpolate(self, a_R, a_r):
+        a_R.interpolate(self.fftplan, self.fftplan2, out=a_r)
+
+    def restrict(self, a_r, a_R):
+        a_r.fft_restrict(self.fftplan2, self.fftplan, out=a_R)
+
     def calculate_charges(self, vHt_h):
         return self.ghat_aLh.integrate(vHt_h)
 
@@ -63,7 +69,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
 
         ndensities = nt_sR.dims[0] % 3
         for spin, (nt_R, nt_r) in enumerate(zip(nt_sR, nt_sr)):
-            nt_R.interpolate(self.fftplan, self.fftplan2, out=nt_r)
+            self.interpolate(nt_R, nt_r)
             if spin < ndensities and pw.comm.rank == 0:
                 nt0_g.data += self.fftplan.tmp_Q.ravel()[indices]
 
@@ -73,7 +79,10 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         nt_sr, pw, nt0_g = self._interpolate_density(density.nt_sR)
 
         vxct_sr = nt_sr.desc.zeros(density.nt_sR.dims)
-        e_xc = self.xc.calculate(nt_sr, ibzwfs, vxct_sr)
+        e_xc = self.xc.calculate(
+            nt_sr, vxct_sr, ibzwfs,
+            interpolate=self.interpolate,
+            restrict=self.restrict)
 
         if pw.comm.rank == 0:
             nt0_g.data *= 1 / np.prod(density.nt_sR.desc.size_c)
@@ -141,7 +150,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         vtmp_R = vt_sR.desc.empty()
         e_kinetic = 0.0
         for spin, (vt_R, vxct_r) in enumerate(zip(vt_sR, vxct_sr)):
-            vxct_r.fft_restrict(self.fftplan2, self.fftplan, out=vtmp_R)
+            self.restrict(vxct_r, vtmp_R)
             vt_R.data += vtmp_R.data
             if density:
                 e_kinetic -= vt_R.integrate(density.nt_sR[spin])
