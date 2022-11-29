@@ -153,36 +153,9 @@ class ChiKS(PlaneWaveKSLRF):
                                         df_t, deps_t, self.wd.omega_w, self.eta)
 
     def get_pairwise_temporal_part(self, s1_t, s2_t, df_t, deps_t, n1_t, n2_t):
-        """Get:
-               /
-               | smu_ss' snu_s's (f_nks - f_n'k's')
-        x_wt = | ----------------------------------
-               | hw - (eps_n'k's'-eps_nks) + ih eta
-               \
-                                                           \
-                        smu_s's snu_ss' (f_nks - f_n'k's') |
-            -delta_n'>n ---------------------------------- |
-                        hw + (eps_n'k's'-eps_nks) + ih eta |
-                                                           /
-        """
-        # Dirac delta
-        delta_t = np.ones(len(n1_t))
-        delta_t[n2_t <= n1_t] = 0
-        # Get the right spin components
-        scomps1_t = get_smat_components(self.spincomponent, s1_t, s2_t)
-        scomps2_t = get_smat_components(self.spincomponent, s2_t, s1_t)
-        # Calculate nominators
-        nom1_t = - scomps1_t * df_t  # df = f2 - f1
-        nom2_t = - delta_t * scomps2_t * df_t
-        # Calculate denominators
-        denom1_wt = self.wd.omega_w[:, np.newaxis] + 1j * self.eta\
-            - deps_t[np.newaxis, :]  # de = e2 - e1
-        denom2_wt = self.wd.omega_w[:, np.newaxis] + 1j * self.eta\
-            + deps_t[np.newaxis, :]
-
-        return nom1_t[np.newaxis, :] / denom1_wt\
-            - nom2_t[np.newaxis, :] / denom2_wt
-
+        return get_pairwise_temporal_part(self.spincomponent, s1_t, s2_t,
+                                          df_t, deps_t, self.wd.omega_w, self.eta,
+                                          n1_t, n2_t)
 
 def get_double_temporal_part(spincomponent, s1_t, s2_t,
                              df_t, deps_t, omega_w, eta):
@@ -201,6 +174,41 @@ def get_double_temporal_part(spincomponent, s1_t, s2_t,
         - deps_t[np.newaxis, :]  # de = e2 - e1
 
     return nom_t[np.newaxis, :] / denom_wt
+
+
+def get_pairwise_temporal_part(spincomponent, s1_t, s2_t,
+                               df_t, deps_t, omega_w, eta,
+                               n1_t, n2_t):
+    r"""Get:
+
+             /
+             | σ^μ_ss' σ^ν_s's (f_nks - f_n'k's')
+    Χ_t(ω) = | ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+             |   ħω - (ε_n'k's' - ε_nks) + iħη
+             \
+                                                           \
+                        σ^μ_s's σ^ν_ss' (f_nks - f_n'k's') |
+               - δ_n'>n ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾ |
+                          ħω + (ε_n'k's' - ε_nks) + iħη    |
+                                                           /
+    """
+    # Dirac delta
+    delta_t = np.ones(len(n1_t))
+    delta_t[n2_t <= n1_t] = 0
+    # Get the right spin components
+    scomps1_t = get_smat_components(spincomponent, s1_t, s2_t)
+    scomps2_t = get_smat_components(spincomponent, s2_t, s1_t)
+    # Calculate nominators
+    nom1_t = - scomps1_t * df_t  # df = f2 - f1
+    nom2_t = - delta_t * scomps2_t * df_t
+    # Calculate denominators
+    denom1_wt = omega_w[:, np.newaxis] + 1j * eta\
+        - deps_t[np.newaxis, :]  # de = e2 - e1
+    denom2_wt = omega_w[:, np.newaxis] + 1j * eta\
+        + deps_t[np.newaxis, :]
+
+    return nom1_t[np.newaxis, :] / denom1_wt\
+        - nom2_t[np.newaxis, :] / denom2_wt
     
 
 def get_spin_rotation(spincomponent):
