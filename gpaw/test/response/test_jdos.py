@@ -17,6 +17,8 @@ from gpaw.response.jdos import JDOSCalculator
 from gpaw.response.symmetry import KPointFinder
 
 
+@pytest.mark.response
+@pytest.mark.kspair
 def test_iron_jdos(in_tmp_dir, gpw_files):
     # ---------- Inputs ---------- #
 
@@ -48,11 +50,13 @@ def test_iron_jdos(in_tmp_dir, gpw_files):
                                            eta=eta,
                                            spincomponent=spincomponent,
                                            nbands=nbands)
-        plt.subplot()
-        plt.plot(wd.omega_w * Hartree, jdos_w)
-        plt.plot(wd.omega_w * Hartree, jdosref_w)
-        plt.title(f'{q_c} {spincomponent}')
-        plt.show()
+        # plt.subplot()
+        # plt.plot(wd.omega_w * Hartree, jdos_w)
+        # plt.plot(wd.omega_w * Hartree, jdosref_w)
+        # plt.title(f'{q_c} {spincomponent}')
+        # plt.show()
+
+        assert jdos_w == pytest.approx(jdosref_w)
 
 
 class MyManualJDOS:
