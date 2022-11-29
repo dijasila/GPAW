@@ -1,8 +1,6 @@
-#include <cuda.h>
-#include <driver_types.h>
-#include <cuda_runtime_api.h>
 #include <string.h>
 
+#include "../gpu.h"
 #include "../gpu-complex.h"
 #include "../debug.h"
 
@@ -73,11 +71,10 @@ static void debug_memcpy_post(const double *in, double *out)
 /*
  * Copy a slice of an array on the CPU and compare to results from the GPU.
  */
-extern "C"
 static void Zcuda(debug_bmgs_cut)(
         const int sizea[3], const int starta[3], const int sizeb[3],
 #ifdef GPU_USE_COMPLEX
-        cuDoubleComplex phase,
+        gpuDoubleComplex phase,
 #endif
         int blocks, int ng, int ng2)
 {
@@ -113,7 +110,7 @@ static void Zcuda(debug_bmgs_cut)(
 __global__ void Zcuda(bmgs_cut_cuda_kernel)(
         const Tcuda* a, const int3 c_sizea, Tcuda* b, const int3 c_sizeb,
 #ifdef GPU_USE_COMPLEX
-        cuDoubleComplex phase,
+        gpuDoubleComplex phase,
 #endif
         int blocks, int xdiv)
 {
@@ -146,14 +143,13 @@ __global__ void Zcuda(bmgs_cut_cuda_kernel)(
 /*
  * Launch CUDA kernel to copy a slice of an array on the GPU.
  */
-extern "C"
 static void Zcuda(_bmgs_cut_cuda_gpu)(
         const Tcuda* a, const int sizea[3], const int starta[3],
         Tcuda* b, const int sizeb[3],
 #ifdef GPU_USE_COMPLEX
-        cuDoubleComplex phase,
+        gpuDoubleComplex phase,
 #endif
-        int blocks, cudaStream_t stream)
+        int blocks, gpuStream_t stream)
 {
     int3 hc_sizea, hc_sizeb;
     hc_sizea.x = sizea[0];
@@ -211,9 +207,9 @@ void Zcuda(bmgs_cut_cuda_gpu)(
         const Tcuda* a, const int sizea[3], const int starta[3],
         Tcuda* b, const int sizeb[3],
 #ifdef GPU_USE_COMPLEX
-        cuDoubleComplex phase,
+        gpuDoubleComplex phase,
 #endif
-        int blocks, cudaStream_t stream)
+        int blocks, gpuStream_t stream)
 {
     if (!(sizea[0] && sizea[1] && sizea[2]))
         return;
@@ -249,5 +245,5 @@ void Zcuda(bmgs_cut_cuda_gpu)(
 
 #ifndef GPU_USE_COMPLEX
 #define GPU_USE_COMPLEX
-#include "cut.cu"
+#include "cut.cpp"
 #endif

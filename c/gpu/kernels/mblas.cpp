@@ -10,7 +10,6 @@
 #include <complex.h>
 #include <sys/types.h>
 #include <sys/time.h>
-#include <cuComplex.h>
 
 #include "../gpu-complex.h"
 
@@ -22,13 +21,13 @@
 
 #define MAPNAME(f) Zcuda(f ## _dotu)
 #define MAPFUNC(a,b) MULTT((a), (b))
-#include "reduce.cu"
+#include "reduce.cpp"
 #undef MAPNAME
 #undef MAPFUNC
 
 #define MAPNAME(f) Zcuda(f ## _dotc)
 #define MAPFUNC(a,b) MULTT(CONJ(a), (b))
-#include "reduce.cu"
+#include "reduce.cpp"
 #undef MAPNAME
 #undef MAPFUNC
 
@@ -64,12 +63,12 @@ __global__ void Zcuda(multi_axpy_cuda_kernel)(int n, const Tcuda *alpha,
 
 #ifndef GPU_USE_COMPLEX
 #define GPU_USE_COMPLEX
-#include "mblas.cu"
+#include "mblas.cpp"
 
 extern "C"
 PyObject* multi_scal_cuda_gpu(PyObject *self, PyObject *args)
 {
-    CUdeviceptr alpha_gpu, x_gpu;
+    gpuDeviceptr_t alpha_gpu, x_gpu;
     PyObject *x_shape;
     PyArray_Descr *type, *a_type;
 
@@ -107,7 +106,7 @@ PyObject* multi_scal_cuda_gpu(PyObject *self, PyObject *args)
                 multi_scal_cuda_kernel, dimGrid, dimBlock, 0, 0,
                 2 * n, alpha, (double *) x_gpu);
     } else {
-        cuDoubleComplex *alpha = (cuDoubleComplex*) (alpha_gpu);
+        gpuDoubleComplex *alpha = (gpuDoubleComplex*) (alpha_gpu);
         int gridx = MIN(MAX((n + MBLAS_BLOCK_X - 1) / MBLAS_BLOCK_X, 1),
                         MAX_BLOCKS);
         int gridy = nvec;
@@ -116,7 +115,7 @@ PyObject* multi_scal_cuda_gpu(PyObject *self, PyObject *args)
 
         gpuLaunchKernel(
                 multi_scal_cuda_kernelz, dimGrid, dimBlock, 0, 0,
-                n, alpha, (cuDoubleComplex*) x_gpu);
+                n, alpha, (gpuDoubleComplex*) x_gpu);
     }
     gpuCheckLastError();
     if (PyErr_Occurred())
@@ -128,9 +127,9 @@ PyObject* multi_scal_cuda_gpu(PyObject *self, PyObject *args)
 extern "C"
 PyObject* multi_axpy_cuda_gpu(PyObject *self, PyObject *args)
 {
-    CUdeviceptr alpha_gpu;
-    CUdeviceptr x_gpu;
-    CUdeviceptr y_gpu;
+    gpuDeviceptr_t alpha_gpu;
+    gpuDeviceptr_t x_gpu;
+    gpuDeviceptr_t y_gpu;
     PyObject *x_shape, *y_shape;
     PyArray_Descr *type, *a_type;
 
@@ -168,7 +167,7 @@ PyObject* multi_axpy_cuda_gpu(PyObject *self, PyObject *args)
                 multi_axpy_cuda_kernel, dimGrid, dimBlock, 0, 0,
                 2 * n, alpha, (double*) x_gpu, (double*) y_gpu);
     } else {
-        cuDoubleComplex *alpha = (cuDoubleComplex*) alpha_gpu;
+        gpuDoubleComplex *alpha = (gpuDoubleComplex*) alpha_gpu;
         int gridx = MIN(MAX((n + MBLAS_BLOCK_X - 1) / MBLAS_BLOCK_X, 1),
                         MAX_BLOCKS);
         int gridy = nvec;
@@ -177,8 +176,8 @@ PyObject* multi_axpy_cuda_gpu(PyObject *self, PyObject *args)
 
         gpuLaunchKernel(
                 multi_axpy_cuda_kernelz, dimGrid, dimBlock, 0, 0,
-                n, alpha, (cuDoubleComplex*) x_gpu,
-                (cuDoubleComplex*) y_gpu);
+                n, alpha, (gpuDoubleComplex*) x_gpu,
+                (gpuDoubleComplex*) y_gpu);
     }
     gpuCheckLastError();
     if (PyErr_Occurred())
@@ -197,9 +196,9 @@ void mdotu_cuda_gpu(const double *a_gpu, const double *b_gpu,
 extern "C"
 PyObject* multi_dotu_cuda_gpu(PyObject *self, PyObject *args)
 {
-    CUdeviceptr a_gpu;
-    CUdeviceptr b_gpu;
-    CUdeviceptr res_gpu;
+    gpuDeviceptr_t a_gpu;
+    gpuDeviceptr_t b_gpu;
+    gpuDeviceptr_t res_gpu;
 
     PyObject *a_shape;
     PyArray_Descr *type;
@@ -218,9 +217,9 @@ PyObject* multi_dotu_cuda_gpu(PyObject *self, PyObject *args)
         reducemap_dotu((double*) a_gpu, (double*) b_gpu, result, n,
                        nvec);
     } else {
-        cuDoubleComplex *result = (cuDoubleComplex *) res_gpu;
-        reducemap_dotuz((cuDoubleComplex *) a_gpu,
-                        (cuDoubleComplex *) b_gpu,
+        gpuDoubleComplex *result = (gpuDoubleComplex *) res_gpu;
+        reducemap_dotuz((gpuDoubleComplex *) a_gpu,
+                        (gpuDoubleComplex *) b_gpu,
                         result, n, nvec);
     }
     gpuCheckLastError();
@@ -233,9 +232,9 @@ PyObject* multi_dotu_cuda_gpu(PyObject *self, PyObject *args)
 extern "C"
 PyObject* multi_dotc_cuda_gpu(PyObject *self, PyObject *args)
 {
-    CUdeviceptr a_gpu;
-    CUdeviceptr b_gpu;
-    CUdeviceptr res_gpu;
+    gpuDeviceptr_t a_gpu;
+    gpuDeviceptr_t b_gpu;
+    gpuDeviceptr_t res_gpu;
 
     PyObject *a_shape;
     PyArray_Descr *type;
@@ -255,9 +254,9 @@ PyObject* multi_dotc_cuda_gpu(PyObject *self, PyObject *args)
         reducemap_dotc((double*) a_gpu, (double*) b_gpu, result, n,
                        nvec);
     } else {
-        cuDoubleComplex *result = (cuDoubleComplex *) res_gpu;
-        reducemap_dotcz((cuDoubleComplex*) a_gpu,
-                        (cuDoubleComplex*) b_gpu,
+        gpuDoubleComplex *result = (gpuDoubleComplex *) res_gpu;
+        reducemap_dotcz((gpuDoubleComplex*) a_gpu,
+                        (gpuDoubleComplex*) b_gpu,
                         result, n, nvec);
     }
     gpuCheckLastError();

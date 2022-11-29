@@ -1,11 +1,9 @@
-#include <cuda.h>
-#include <driver_types.h>
-#include <cuda_runtime_api.h>
 #include <stdio.h>
 #include <time.h>
 #include <sys/types.h>
 #include <sys/time.h>
 
+#include "../gpu.h"
 #include "../gpu-complex.h"
 #include "../debug.h"
 
@@ -20,10 +18,10 @@
 
 typedef void (*launch_func)(const double *, const int *,
                             double *, const int *, const int *, int,
-                            cudaStream_t);
-typedef void (*launch_funcz)(const cuDoubleComplex *, const int *,
-                             cuDoubleComplex *, const int *, const int *, int,
-                             cudaStream_t);
+                            gpuStream_t);
+typedef void (*launch_funcz)(const gpuDoubleComplex *, const int *,
+                             gpuDoubleComplex *, const int *, const int *, int,
+                             gpuStream_t);
 
 extern int gpaw_cuda_debug;
 
@@ -264,11 +262,10 @@ __global__ void Zcuda(bmgs_paste_zero_cuda_kernel)(
  * Launch CUDA kernel to copy a smaller array into a given position in a
  * larger one on the GPU.
  */
-extern "C"
 static void Zcuda(_bmgs_paste_cuda_gpu)(
         const Tcuda* a, const int sizea[3],
         Tcuda* b, const int sizeb[3], const int startb[3],
-        int blocks, cudaStream_t stream)
+        int blocks, gpuStream_t stream)
 {
     int3 hc_sizea, hc_sizeb;
     hc_sizea.x = sizea[0];
@@ -299,11 +296,10 @@ static void Zcuda(_bmgs_paste_cuda_gpu)(
  * Launch CUDA kernel to copy a smaller array into a given position in a
  * larger one and set all other elements to 0.
  */
-extern "C"
 static void Zcuda(_bmgs_paste_zero_cuda_gpu)(
         const Tcuda* a, const int sizea[3],
         Tcuda* b, const int sizeb[3], const int startb[3],
-        int blocks, cudaStream_t stream)
+        int blocks, gpuStream_t stream)
 {
     int3 bc_blocks;
     int3 hc_sizea, hc_sizeb, hc_startb;
@@ -350,12 +346,11 @@ static void Zcuda(_bmgs_paste_zero_cuda_gpu)(
  *   (int)   zero     -- set all elements to 0 on the CPU when debugging
  *   ...
  */
-extern "C"
 void Zcuda(_bmgs_paste_launcher)(Tfunc function, int zero,
                                  const Tcuda* a, const int sizea[3],
                                  Tcuda* b, const int sizeb[3],
                                  const int startb[3], int blocks,
-                                 cudaStream_t stream)
+                                 gpuStream_t stream)
 {
     const double *in = (double *) a;
     double *out = (double *) b;
@@ -393,7 +388,7 @@ extern "C"
 void Zcuda(bmgs_paste_cuda_gpu)(const Tcuda* a, const int sizea[3],
                                 Tcuda* b, const int sizeb[3],
                                 const int startb[3], int blocks,
-                                cudaStream_t stream)
+                                gpuStream_t stream)
 {
     if (!(sizea[0] && sizea[1] && sizea[2]))
         return;
@@ -410,7 +405,7 @@ extern "C"
 void Zcuda(bmgs_paste_zero_cuda_gpu)(const Tcuda* a, const int sizea[3],
                                      Tcuda* b, const int sizeb[3],
                                      const int startb[3], int blocks,
-                                     cudaStream_t stream)
+                                     gpuStream_t stream)
 {
     if (!(sizea[0] && sizea[1] && sizea[2]))
         return;
@@ -421,7 +416,7 @@ void Zcuda(bmgs_paste_zero_cuda_gpu)(const Tcuda* a, const int sizea[3],
 
 #ifndef GPU_USE_COMPLEX
 #define GPU_USE_COMPLEX
-#include "paste.cu"
+#include "paste.cpp"
 
 extern "C"
 double bmgs_paste_cuda_cpu(const double* a, const int sizea[3],

@@ -224,7 +224,6 @@ def build_cuda(gpu_compiler, gpu_compile_args, gpu_include_dirs,
     includes.append(cfgDict['INCLUDEPY'])
     includes.extend(include_dirs)
     includes.extend(gpu_include_dirs)
-    includes.append('c/gpu')
     includes = ' '.join(['-I' + incdir for incdir in includes])
 
     ccflags = ' '.join(extra_compile_args + ['-fPIC'])
@@ -234,8 +233,8 @@ def build_cuda(gpu_compiler, gpu_compile_args, gpu_include_dirs,
 
     build_path = Path('build/temp.%s' % plat)
     build_path_gpu = Path(build_path, 'c/gpu')
-    build_path_cuda = Path(build_path, 'c/gpu/cuda')
-    for _build_path in [build_path_gpu, build_path_cuda]:
+    build_path_kernels = Path(build_path, 'c/gpu/kernels')
+    for _build_path in [build_path_gpu, build_path_kernels]:
         if not _build_path.exists():
             try:
                 _build_path.mkdir(parents=True)
@@ -261,23 +260,23 @@ def build_cuda(gpu_compiler, gpu_compile_args, gpu_include_dirs,
         if error != 0:
             return error
 
-    # compile CUDA files
-    cudafiles = ['c/gpu/cuda/fd.cu',
-                 'c/gpu/cuda/interpolate.cu',
-                 'c/gpu/cuda/paste.cu',
-                 'c/gpu/cuda/relax.cu',
-                 'c/gpu/cuda/restrict.cu',
-                 'c/gpu/cuda/cut.cu',
-                 'c/gpu/cuda/translate.cu',
-                 'c/gpu/cuda/lfc.cu',
-                 'c/gpu/cuda/ext-potential.cu',
-                 'c/gpu/cuda/mblas.cu',
-                 'c/gpu/cuda/linalg.cu',
-                 'c/gpu/cuda/elementwise.cu']
-    for src in cudafiles:
-        obj = os.path.join(build_path, src[:-2] + 'o')
+    # compile GPU kernels
+    kernels = ['c/gpu/kernels/fd.cpp',
+               'c/gpu/kernels/interpolate.cpp',
+               'c/gpu/kernels/paste.cpp',
+               'c/gpu/kernels/relax.cpp',
+               'c/gpu/kernels/restrict.cpp',
+               'c/gpu/kernels/cut.cpp',
+               'c/gpu/kernels/translate.cpp',
+               'c/gpu/kernels/lfc.cpp',
+               'c/gpu/kernels/ext-potential.cpp',
+               'c/gpu/kernels/mblas.cpp',
+               'c/gpu/kernels/linalg.cpp',
+               'c/gpu/kernels/elementwise.cpp']
+    for src in kernels:
+        obj = os.path.join(build_path, src + '.o')
         objects.append(obj)
-        cmd = ("%s %s %s --compiler-options='%s' %s -o %s -c %s ") % \
+        cmd = ("%s %s %s -x cu --compiler-options='%s' %s -o %s -c %s ") % \
               (gpu_compiler,
                macros,
                nvccflags,

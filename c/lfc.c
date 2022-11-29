@@ -42,7 +42,7 @@ void myzgemm(char *transa, char *transb, int *m, int * n,
 }
 #endif
 
-#ifdef GPAW_CUDA
+#ifdef GPAW_GPU
 void lfc_dealloc_cuda(LFCObject *self);
 PyObject* NewLFCObject_cuda(LFCObject *self, PyObject *args);
 PyObject* add_cuda_gpu(LFCObject *self, PyObject *args);
@@ -58,7 +58,7 @@ static void lfc_dealloc(LFCObject *self)
     free(self->ngm_W);
     free(self->i_W);
     free(self->volume_W);
-#ifdef GPAW_CUDA
+#ifdef GPAW_GPU
     if (self->cuda) {
         lfc_dealloc_cuda(self);
     }
@@ -120,7 +120,7 @@ static PyMethodDef lfc_methods[] = {
      (PyCFunction)second_derivative, METH_VARARGS, 0},
     {"add_derivative",
      (PyCFunction)add_derivative, METH_VARARGS, 0},
-#ifdef GPAW_CUDA
+#ifdef GPAW_GPU
     {"integrate_cuda_gpu",
      (PyCFunction)integrate_cuda_gpu, METH_VARARGS, 0},
     {"add_cuda_gpu",
@@ -162,7 +162,7 @@ PyObject * NewLFCObject(PyObject *obj, PyObject *args)
   if (self == NULL)
     return NULL;
 
-#ifdef GPAW_CUDA
+#ifdef GPAW_GPU
   self->cuda = cuda;
 #endif
   self->dv = dv;
@@ -248,7 +248,7 @@ PyObject * NewLFCObject(PyObject *obj, PyObject *args)
   /* Zero volume_i just in case since it will contain pointers to volume_W. */
   memset(self->volume_i, 0, sizeof(LFVolume *) * nthreads * nimax);
 
-#ifdef GPAW_CUDA
+#ifdef GPAW_GPU
   if (cuda) {
     NewLFCObject_cuda(self, args);
   }

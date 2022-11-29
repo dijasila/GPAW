@@ -3,6 +3,7 @@
 
 #include <cuda.h>
 #include <cuda_runtime_api.h>
+#include <driver_types.h>
 #include <cublas_v2.h>
 
 #define gpuMemcpyKind             cudaMemcpyKind
@@ -17,24 +18,17 @@
 #define gpuStream_t               cudaStream_t
 #define gpuEvent_t                cudaEvent_t
 #define gpuError_t                cudaError_t
-#define gpublasStatus_t           cublasStatus_t
+#define gpuDeviceptr_t            CUdeviceptr
+#define gpuDeviceProp             cudaDeviceProp
 
 #define gpuDoubleComplex          cuDoubleComplex
+#define gpublasDoubleComplex      cuDoubleComplex
 #define make_gpuDoubleComplex     make_cuDoubleComplex
 #define gpuCreal                  cuCreal
 #define gpuCimag                  cuCimag
 #define gpuCadd                   cuCadd
 #define gpuCmul                   cuCmul
 #define gpuConj                   cuConj
-
-#define GPUBLAS_STATUS_SUCCESS           CUBLAS_STATUS_SUCCESS
-#define GPUBLAS_STATUS_NOT_INITIALIZED   CUBLAS_STATUS_NOT_INITIALIZED
-#define GPUBLAS_STATUS_ALLOC_FAILED      CUBLAS_STATUS_ALLOC_FAILED
-#define GPUBLAS_STATUS_INVALID_VALUE     CUBLAS_STATUS_INVALID_VALUE
-#define GPUBLAS_STATUS_ARCH_MISMATCH     CUBLAS_STATUS_ARCH_MISMATCH
-#define GPUBLAS_STATUS_MAPPING_ERROR     CUBLAS_STATUS_MAPPING_ERROR
-#define GPUBLAS_STATUS_EXECUTION_FAILED  CUBLAS_STATUS_EXECUTION_FAILED
-#define GPUBLAS_STATUS_INTERNAL_ERROR    CUBLAS_STATUS_INTERNAL_ERROR
 
 #define gpuCheckLastError()       gpuSafeCall(cudaGetLastError())
 #define gpuGetErrorString(err)    cudaGetErrorString(err)
@@ -76,5 +70,43 @@
 
 #define gpuLaunchKernel(kernel, dimGrid, dimBlock, shared, stream, ...) \
         kernel<<<dimGrid, dimBlock, shared, stream>>>(__VA_ARGS__)
+
+#define gpublasStatus_t           cublasStatus_t
+#define gpublasHandle_t           cublasHandle_t
+#define gpublasOperation_t        cublasOperation_t
+
+#define gpublasCreate             cublasCreate
+#define gpublasSetStream          cublasSetStream
+#define gpublasDgemm              cublasDgemm
+#define gpublasGetMatrixAsync     cublasGetMatrixAsync
+#define gpublasSetMatrixAsync     cublasSetMatrixAsync
+#define gpublasDsyrk              cublasDsyrk
+#define gpublasDsyr2k             cublasDsyr2k
+#define gpublasDscal              cublasDscal
+#define gpublasZscal              cublasZscal
+#define gpublasDgemm              cublasDgemm
+#define gpublasZgemm              cublasZgemm
+#define gpublasDgemv              cublasDgemv
+#define gpublasZgemv              cublasZgemv
+#define gpublasDaxpy              cublasDaxpy
+#define gpublasZaxpy              cublasZaxpy
+#define gpublasZherk              cublasZherk
+#define gpublasZher2k             cublasZher2k
+#define gpublasDdot               cublasDdot
+#define gpublasZdotc              cublasZdotc
+#define gpublasZdotu              cublasZdotu
+
+#define GPUBLAS_OP_N                     CUBLAS_OP_N
+#define GPUBLAS_OP_T                     CUBLAS_OP_T
+#define GPUBLAS_OP_C                     CUBLAS_OP_C
+#define GPUBLAS_FILL_MODE_UPPER          CUBLAS_FILL_MODE_UPPER
+#define GPUBLAS_STATUS_SUCCESS           CUBLAS_STATUS_SUCCESS
+#define GPUBLAS_STATUS_NOT_INITIALIZED   CUBLAS_STATUS_NOT_INITIALIZED
+#define GPUBLAS_STATUS_ALLOC_FAILED      CUBLAS_STATUS_ALLOC_FAILED
+#define GPUBLAS_STATUS_INVALID_VALUE     CUBLAS_STATUS_INVALID_VALUE
+#define GPUBLAS_STATUS_ARCH_MISMATCH     CUBLAS_STATUS_ARCH_MISMATCH
+#define GPUBLAS_STATUS_MAPPING_ERROR     CUBLAS_STATUS_MAPPING_ERROR
+#define GPUBLAS_STATUS_EXECUTION_FAILED  CUBLAS_STATUS_EXECUTION_FAILED
+#define GPUBLAS_STATUS_INTERNAL_ERROR    CUBLAS_STATUS_INTERNAL_ERROR
 
 #endif

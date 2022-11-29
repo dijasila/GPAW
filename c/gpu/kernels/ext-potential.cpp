@@ -1,6 +1,3 @@
-#include <cuda.h>
-#include <driver_types.h>
-#include <cuda_runtime_api.h>
 #include <stdio.h>
 #include <time.h>
 #include <sys/types.h>
@@ -11,6 +8,7 @@
 #define NO_IMPORT_ARRAY
 #include <numpy/arrayobject.h>
 
+#include "../gpu.h"
 #include "../gpu-complex.h"
 
 #ifndef GPU_USE_COMPLEX
@@ -58,13 +56,13 @@ __global__ void Zcuda(add_linear_field_cuda_kernel)(
 
 #ifndef GPU_USE_COMPLEX
 #define GPU_USE_COMPLEX
-#include "ext-potential.cu"
+#include "ext-potential.cpp"
 
 extern "C"
 PyObject* add_linear_field_cuda_gpu(PyObject *self, PyObject *args)
 {
-    CUdeviceptr a_gpu;
-    CUdeviceptr b_gpu;
+    gpuDeviceptr_t a_gpu;
+    gpuDeviceptr_t b_gpu;
     PyObject *shape;
     PyArrayObject *c_ni, *c_begi, *c_vi, *strengthi;
     PyArray_Descr *type;
@@ -115,8 +113,8 @@ PyObject* add_linear_field_cuda_gpu(PyObject *self, PyObject *args)
     } else {
         gpuLaunchKernel(add_linear_field_cuda_kernelz,
                         dimGrid, dimBlock, 0, 0,
-                        (cuDoubleComplex*) a_gpu, hc_sizea,
-                        (cuDoubleComplex*) b_gpu, hc_n, hc_beg,
+                        (gpuDoubleComplex*) a_gpu, hc_sizea,
+                        (gpuDoubleComplex*) b_gpu, hc_n, hc_beg,
                         h_strength, blocks);
     }
     gpuCheckLastError();

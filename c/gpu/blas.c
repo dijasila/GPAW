@@ -38,7 +38,7 @@
 #define HYBRID_FUNC_MAX_TIMES      (6)
 
 
-cublasHandle_t _gpaw_cublas_handle;
+gpublasHandle_t _gpaw_gpublas_handle;
 
 typedef struct _hybrid_pace_t {
     unsigned int times;
@@ -141,7 +141,7 @@ void zher2k_(const char *uplo, const char *trans, int *n, int *k,
 
 void blas_init_cuda()
 {
-    gpublasSafeCall(cublasCreate(&_gpaw_cublas_handle));
+    gpublasSafeCall(gpublasCreate(&_gpaw_gpublas_handle));
 }
 
 
@@ -296,11 +296,11 @@ static void hybrid_gemm_benchmark(hybrid_func_params_t *pg,
 
     for (int i=0; i < times+1; i++) {
         gpublasSafeCall(
-                cublasSetStream(_gpaw_cublas_handle, ph->stream[0]));
+                gpublasSetStream(_gpaw_gpublas_handle, ph->stream[0]));
         /* DGEMM on GPU device */
         gpuEventRecord(pg->event_gpu[0], ph->stream[0]);
         gpublasSafeCall(
-                cublasDgemm(_gpaw_cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N,
+                gpublasDgemm(_gpaw_gpublas_handle, GPUBLAS_OP_N, GPUBLAS_OP_N,
                             m1, n1, k1, &alpha, (double*) a_gpu, lda1,
                             (double*) b_gpu, ldb1,
                             &beta, (double*) ph->c_gpu, ldc1));
@@ -308,7 +308,7 @@ static void hybrid_gemm_benchmark(hybrid_func_params_t *pg,
         /* data transfer device -> host */
         gpuEventRecord(pg->event_dtoh[0], ph->stream[1]);
         gpublasSafeCall(
-                cublasGetMatrixAsync(m2, k2, sizeof(double),
+                gpublasGetMatrixAsync(m2, k2, sizeof(double),
                                      (void*) a_gpu, m2, (void*) ph->a, m2,
                                      ph->stream[1]));
         gpuEventRecord(pg->event_dtoh[1], ph->stream[1]);
@@ -322,7 +322,7 @@ static void hybrid_gemm_benchmark(hybrid_func_params_t *pg,
         /* data transfer host -> device */
         gpuEventRecord(pg->event_htod[0], ph->stream[1]);
         gpublasSafeCall(
-                cublasSetMatrixAsync(m2, n2, sizeof(double),
+                gpublasSetMatrixAsync(m2, n2, sizeof(double),
                                      (void*) ph->c, m2, (void*) ph->c_gpu, m2,
                                      ph->stream[1]));
         gpuEventRecord(pg->event_htod[1], ph->stream[1]);
@@ -349,7 +349,7 @@ static void hybrid_gemm_benchmark(hybrid_func_params_t *pg,
     pg->bench.htod /= times;
     pg->bench.times=1;
 
-    gpublasSafeCall(cublasSetStream(_gpaw_cublas_handle, 0));
+    gpublasSafeCall(gpublasSetStream(_gpaw_gpublas_handle, 0));
     gpuFree(a_gpu);
     gpuFree(b_gpu);
 }
@@ -383,18 +383,18 @@ static void hybrid_syrk_benchmark(hybrid_func_params_t *ps,
 
     for (int i=0; i < times+1; i++) {
         gpublasSafeCall(
-                cublasSetStream(_gpaw_cublas_handle, ph->stream[0]));
+                gpublasSetStream(_gpaw_gpublas_handle, ph->stream[0]));
         /* DSYRK on GPU device */
         gpuEventRecord(ps->event_gpu[0], ph->stream[0]);
         gpublasSafeCall(
-                cublasDsyrk(_gpaw_cublas_handle, CUBLAS_FILL_MODE_UPPER,
-                            CUBLAS_OP_T, n1, k1, &alpha, (double*) a_gpu, lda1,
+                gpublasDsyrk(_gpaw_gpublas_handle, GPUBLAS_FILL_MODE_UPPER,
+                            GPUBLAS_OP_T, n1, k1, &alpha, (double*) a_gpu, lda1,
                             &beta, (double*) ph->c_gpu, ldc1));
         gpuEventRecord(ps->event_gpu[1], ph->stream[0]);
         /* data transfer device -> host */
         gpuEventRecord(ps->event_dtoh[0], ph->stream[1]);
         gpublasSafeCall(
-                cublasGetMatrixAsync(n2, k2, sizeof(double),
+                gpublasGetMatrixAsync(n2, k2, sizeof(double),
                                      (void*) a_gpu, n2, (void*) ph->a, n2,
                                      ph->stream[1]));
         gpuEventRecord(ps->event_dtoh[1], ph->stream[1]);
@@ -407,7 +407,7 @@ static void hybrid_syrk_benchmark(hybrid_func_params_t *ps,
         /* data transfer host -> device */
         gpuEventRecord(ps->event_htod[0], ph->stream[1]);
         gpublasSafeCall(
-                cublasSetMatrixAsync(n2, n2, sizeof(double),
+                gpublasSetMatrixAsync(n2, n2, sizeof(double),
                                      (void*) ph->c, n2, (void*) ph->c_gpu, n2,
                                      ph->stream[1]));
         gpuEventRecord(ps->event_htod[1], ph->stream[1]);
@@ -434,7 +434,7 @@ static void hybrid_syrk_benchmark(hybrid_func_params_t *ps,
     ps->bench.htod /= times;
     ps->bench.times = 1;
 
-    gpublasSafeCall(cublasSetStream(_gpaw_cublas_handle, 0));
+    gpublasSafeCall(gpublasSetStream(_gpaw_gpublas_handle, 0));
     gpuFree(a_gpu);
     gpuFree(b_gpu);
 }
@@ -470,19 +470,19 @@ static void hybrid_syr2k_benchmark(hybrid_func_params_t *ps,
 
     for (int i=0; i < times+1; i++) {
         gpublasSafeCall(
-                cublasSetStream(_gpaw_cublas_handle, ph->stream[0]));
+                gpublasSetStream(_gpaw_gpublas_handle, ph->stream[0]));
         /* DSYR2K on GPU device */
         gpuEventRecord(ps->event_gpu[0], ph->stream[0]);
         gpublasSafeCall(
-                cublasDsyr2k(_gpaw_cublas_handle, CUBLAS_FILL_MODE_UPPER,
-                             CUBLAS_OP_T, n1, k1, &alpha,
+                gpublasDsyr2k(_gpaw_gpublas_handle, GPUBLAS_FILL_MODE_UPPER,
+                             GPUBLAS_OP_T, n1, k1, &alpha,
                              (double*) a_gpu, lda1, (double*) b_gpu, ldb1,
                              &beta, (double*) ph->c_gpu, ldc1));
         gpuEventRecord(ps->event_gpu[1], ph->stream[0]);
         /* data transfer device -> host */
         gpuEventRecord(ps->event_dtoh[0], ph->stream[1]);
         gpublasSafeCall(
-                cublasGetMatrixAsync(n2, k2, sizeof(double),
+                gpublasGetMatrixAsync(n2, k2, sizeof(double),
                                      (void*) a_gpu, n2, (void*) ph->a, n2,
                                      ph->stream[1]));
         gpuEventRecord(ps->event_dtoh[1], ph->stream[1]);
@@ -497,7 +497,7 @@ static void hybrid_syr2k_benchmark(hybrid_func_params_t *ps,
         /* data transfer host -> device */
         gpuEventRecord(ps->event_htod[0], ph->stream[1]);
         gpublasSafeCall(
-                cublasSetMatrixAsync(n2, n2, sizeof(double),
+                gpublasSetMatrixAsync(n2, n2, sizeof(double),
                                      (void*) ph->c, n2, (void*) ph->c_gpu, n2,
                                      ph->stream[1]));
         gpuEventRecord(ps->event_htod[1], ph->stream[1]);
@@ -524,7 +524,7 @@ static void hybrid_syr2k_benchmark(hybrid_func_params_t *ps,
     ps->bench.htod /= times;
     ps->bench.times = 1;
 
-    gpublasSafeCall(cublasSetStream(_gpaw_cublas_handle, 0));
+    gpublasSafeCall(gpublasSetStream(_gpaw_gpublas_handle, 0));
     gpuFree(a_gpu);
     gpuFree(b_gpu);
 }
@@ -618,19 +618,19 @@ static void hybrid_syr2k_update_paces(hybrid_func_params_t *ps)
 }
 
 
-static cublasOperation_t cublas_operation(int op)
+static gpublasOperation_t gpublas_operation(int op)
 {
-    cublasOperation_t cu_op;
+    gpublasOperation_t gpu_op;
 
     if (op == 'N' || op == 'n')
-        cu_op = CUBLAS_OP_N;
+        gpu_op = GPUBLAS_OP_N;
     else if (op == 'T' || op == 't')
-        cu_op = CUBLAS_OP_T;
+        gpu_op = GPUBLAS_OP_T;
     else if (op == 'C' || op == 'c')
-        cu_op = CUBLAS_OP_C;
+        gpu_op = GPUBLAS_OP_C;
     else
         assert(0);
-    return cu_op;
+    return gpu_op;
 }
 
 
@@ -638,7 +638,7 @@ PyObject* scal_cuda_gpu(PyObject *self, PyObject *args)
 {
     Py_complex alpha;
 
-    CUdeviceptr x_gpu;
+    gpuDeviceptr_t x_gpu;
     PyObject *x_shape;
     PyArray_Descr *type;
 
@@ -652,13 +652,13 @@ PyObject* scal_cuda_gpu(PyObject *self, PyObject *args)
     int incx = 1;
     if (type->type_num == NPY_DOUBLE) {
         gpublasSafeCall(
-                cublasDscal(_gpaw_cublas_handle, n, &alpha.real,
+                gpublasDscal(_gpaw_gpublas_handle, n, &alpha.real,
                             (double*) x_gpu, incx));
     } else {
-        gpuDoubleComplex alpha_gpu = {alpha.real, alpha.imag};
+        gpublasDoubleComplex alpha_gpu = {alpha.real, alpha.imag};
         gpublasSafeCall(
-                cublasZscal(_gpaw_cublas_handle, n, &alpha_gpu,
-                    (gpuDoubleComplex*) x_gpu, incx));
+                gpublasZscal(_gpaw_gpublas_handle, n, &alpha_gpu,
+                    (gpublasDoubleComplex*) x_gpu, incx));
     }
     if (PyErr_Occurred())
         return NULL;
@@ -666,39 +666,39 @@ PyObject* scal_cuda_gpu(PyObject *self, PyObject *args)
         Py_RETURN_NONE;
 }
 
-static void _mmm_cuda(cublasOperation_t cu_opa, cublasOperation_t cu_opb,
+static void _mmm_cuda(gpublasOperation_t gpu_opa, gpublasOperation_t gpu_opb,
                       int m, int n, int k,
-                      Py_complex alpha, CUdeviceptr a, int lda,
-                      CUdeviceptr b, int ldb, Py_complex beta,
-                      CUdeviceptr c, int ldc, int real)
+                      Py_complex alpha, gpuDeviceptr_t a, int lda,
+                      gpuDeviceptr_t b, int ldb, Py_complex beta,
+                      gpuDeviceptr_t c, int ldc, int real)
 {
     if (real) {
         gpublasSafeCall(
-                cublasDgemm(_gpaw_cublas_handle, cu_opa, cu_opb, m, n, k,
+                gpublasDgemm(_gpaw_gpublas_handle, gpu_opa, gpu_opb, m, n, k,
                             &(alpha.real), (double*) a, lda, (double*) b, ldb,
                             &(beta.real), (double*) c, ldc));
     } else {
-        gpuDoubleComplex cu_alpha = {alpha.real, alpha.imag};
-        gpuDoubleComplex cu_beta = {beta.real, beta.imag};
+        gpublasDoubleComplex alpha_gpu = {alpha.real, alpha.imag};
+        gpublasDoubleComplex beta_gpu = {beta.real, beta.imag};
         gpublasSafeCall(
-                cublasZgemm(_gpaw_cublas_handle, cu_opa, cu_opb, m, n, k,
-                            &cu_alpha, (gpuDoubleComplex*) a, lda,
-                            (gpuDoubleComplex*) b, ldb,
-                            &cu_beta, (gpuDoubleComplex*) c, ldc));
+                gpublasZgemm(_gpaw_gpublas_handle, gpu_opa, gpu_opb, m, n, k,
+                            &alpha_gpu, (gpublasDoubleComplex*) a, lda,
+                            (gpublasDoubleComplex*) b, ldb,
+                            &beta_gpu, (gpublasDoubleComplex*) c, ldc));
     }
 }
 
 PyObject* mmm_gpu(PyObject *self, PyObject *args)
 {
     Py_complex alpha;
-    CUdeviceptr b;
+    gpuDeviceptr_t b;
     int ldb;
     int opb;
-    CUdeviceptr a;
+    gpuDeviceptr_t a;
     int lda;
     int opa;
     Py_complex beta;
-    CUdeviceptr c;
+    gpuDeviceptr_t c;
     int ldc;
     int bytes;
     int m, n, k;
@@ -708,32 +708,32 @@ PyObject* mmm_gpu(PyObject *self, PyObject *args)
                           &beta, &c, &ldc, &bytes, &m, &n, &k))
         return NULL;
 
-    cublasOperation_t cu_opa = cublas_operation(opa);
-    cublasOperation_t cu_opb = cublas_operation(opb);
+    gpublasOperation_t gpu_opa = gpublas_operation(opa);
+    gpublasOperation_t gpu_opb = gpublas_operation(opb);
     int real = (bytes == NPY_SIZEOF_DOUBLE);
 
-    _mmm_cuda(cu_opa, cu_opb, m, n, k, alpha, a, lda, b, ldb, beta,
+    _mmm_cuda(gpu_opa, gpu_opb, m, n, k, alpha, a, lda, b, ldb, beta,
               c, ldc, real);
 
     Py_RETURN_NONE;
 }
 
-static void _gemm_cuda(cublasOperation_t transa_c,
+static void _gemm_cuda(gpublasOperation_t transa_c,
                        int m, int n, int k,
-                       Py_complex alpha, CUdeviceptr a_gpu, int lda,
-                       CUdeviceptr b_gpu, int ldb, Py_complex beta,
-                       CUdeviceptr c_gpu, int ldc,
+                       Py_complex alpha, gpuDeviceptr_t a_gpu, int lda,
+                       gpuDeviceptr_t b_gpu, int ldb, Py_complex beta,
+                       gpuDeviceptr_t c_gpu, int ldc,
                        int real)
 {
-    _mmm_cuda(transa_c, CUBLAS_OP_N, m, n, k, alpha, a_gpu, lda,
+    _mmm_cuda(transa_c, GPUBLAS_OP_N, m, n, k, alpha, a_gpu, lda,
               b_gpu, ldb, beta, c_gpu, ldc, real);
 }
 
-static void _gemm_cuda_hybrid(char transa, cublasOperation_t transa_c,
+static void _gemm_cuda_hybrid(char transa, gpublasOperation_t transa_c,
                               int m, int n, int k,
-                              Py_complex alpha, CUdeviceptr a_gpu, int lda,
-                              CUdeviceptr b_gpu, int ldb, Py_complex beta,
-                              CUdeviceptr c_gpu, int ldc,
+                              Py_complex alpha, gpuDeviceptr_t a_gpu, int lda,
+                              gpuDeviceptr_t b_gpu, int ldb, Py_complex beta,
+                              gpuDeviceptr_t c_gpu, int ldc,
                               int real)
 {
     int n_off = 0, m_off = 0;
@@ -823,17 +823,17 @@ static void _gemm_cuda_hybrid(char transa, cublasOperation_t transa_c,
     }
 
     gpublasSafeCall(
-            cublasSetStream(_gpaw_cublas_handle, ph->stream[0]));
+            gpublasSetStream(_gpaw_gpublas_handle, ph->stream[0]));
     gpuEventRecord(pg->event_gpu[0], ph->stream[0]);
     _gemm_cuda(transa_c, pg->m1, pg->n1, k, alpha, a_gpu, lda,
                b_gpu, ldb, beta, c_gpu, ldc, real);
     gpuEventRecord(pg->event_gpu[1], ph->stream[0]);
     gpublasSafeCall(
-            cublasSetStream(_gpaw_cublas_handle, 0));
+            gpublasSetStream(_gpaw_gpublas_handle, 0));
     gpuEventRecord(pg->event_dtoh[0], ph->stream[1]);
     if (transa == 'n') {
         gpublasSafeCall(
-                cublasGetMatrixAsync(pg->m2, k,
+                gpublasGetMatrixAsync(pg->m2, k,
                                      sizeof(double) * pg->ndouble,
                                      (void*) ((double*) a_gpu
                                          + m_off * pg->ndouble),
@@ -841,7 +841,7 @@ static void _gemm_cuda_hybrid(char transa, cublasOperation_t transa_c,
                                      ph->stream[1]));
     } else {
         gpublasSafeCall(
-                cublasGetMatrixAsync(k, pg->m2,
+                gpublasGetMatrixAsync(k, pg->m2,
                                      sizeof(double) * pg->ndouble,
                                      (void*) ((double*) a_gpu
                                          + lda * m_off * pg->ndouble),
@@ -849,7 +849,7 @@ static void _gemm_cuda_hybrid(char transa, cublasOperation_t transa_c,
                                      ph->stream[1]));
     }
     gpublasSafeCall(
-            cublasGetMatrixAsync(k, pg->n2,
+            gpublasGetMatrixAsync(k, pg->n2,
                                  sizeof(double) * pg->ndouble,
                                  (void*) ((double*) b_gpu
                                      + ldb * n_off * pg->ndouble),
@@ -857,7 +857,7 @@ static void _gemm_cuda_hybrid(char transa, cublasOperation_t transa_c,
                                  ph->stream[1]));
     if (!beta_null) {
         gpublasSafeCall(
-                cublasGetMatrixAsync(pg->m2, pg->n2,
+                gpublasGetMatrixAsync(pg->m2, pg->n2,
                                      sizeof(double) * pg->ndouble,
                                      (void*) ((double*) c_gpu
                                          + n_off * ldc * pg->ndouble
@@ -880,7 +880,7 @@ static void _gemm_cuda_hybrid(char transa, cublasOperation_t transa_c,
     Py_END_ALLOW_THREADS;
     gpuEventRecord(pg->event_htod[0], ph->stream[1]);
     gpublasSafeCall(
-            cublasSetMatrixAsync(pg->m2, pg->n2,
+            gpublasSetMatrixAsync(pg->m2, pg->n2,
                                  sizeof(double) * pg->ndouble,
                                  (void*) ph->c, ldc2,
                                  (void*) ((double*) c_gpu
@@ -897,9 +897,9 @@ PyObject* gemm_cuda_gpu(PyObject *self, PyObject *args)
     Py_complex alpha;
     Py_complex beta;
 
-    CUdeviceptr a_gpu;
-    CUdeviceptr b_gpu;
-    CUdeviceptr c_gpu;
+    gpuDeviceptr_t a_gpu;
+    gpuDeviceptr_t b_gpu;
+    gpuDeviceptr_t c_gpu;
     PyObject *a_shape, *b_shape, *c_shape;
     PyArray_Descr *type;
 
@@ -916,7 +916,7 @@ PyObject* gemm_cuda_gpu(PyObject *self, PyObject *args)
         real = 1;
     }
 
-    cublasOperation_t transa_c = cublas_operation(transa);
+    gpublasOperation_t transa_c = gpublas_operation(transa);
 
     int m, k, lda, ldb, ldc;
     int n = (int) PyLong_AsLong(PyTuple_GetItem(b_shape, 0));
@@ -959,9 +959,9 @@ PyObject* gemv_cuda_gpu(PyObject *self, PyObject *args)
 {
     Py_complex alpha;
 
-    CUdeviceptr a_gpu;
-    CUdeviceptr x_gpu;
-    CUdeviceptr y_gpu;
+    gpuDeviceptr_t a_gpu;
+    gpuDeviceptr_t x_gpu;
+    gpuDeviceptr_t y_gpu;
 
     Py_complex beta;
     PyObject *a_shape, *x_shape;
@@ -972,7 +972,7 @@ PyObject* gemv_cuda_gpu(PyObject *self, PyObject *args)
                           &x_gpu, &x_shape, &beta, &y_gpu, &type, &trans))
         return NULL;
 
-    cublasOperation_t trans_c = cublas_operation(trans);
+    gpublasOperation_t trans_c = gpublas_operation(trans);
 
     int m, n, lda, incx, incy;
     if (trans == 'n') {
@@ -994,18 +994,18 @@ PyObject* gemv_cuda_gpu(PyObject *self, PyObject *args)
     incy = 1;
     if (type->type_num == NPY_DOUBLE) {
         gpublasSafeCall(
-                cublasDgemv(_gpaw_cublas_handle, trans_c, m, n,
+                gpublasDgemv(_gpaw_gpublas_handle, trans_c, m, n,
                             &alpha.real, (double*) a_gpu, lda,
                             (double*) x_gpu, incx,
                             &beta.real, (double*) y_gpu, incy));
     } else {
-        gpuDoubleComplex alpha_gpu = {alpha.real, alpha.imag};
-        gpuDoubleComplex beta_gpu = {beta.real, beta.imag};
+        gpublasDoubleComplex alpha_gpu = {alpha.real, alpha.imag};
+        gpublasDoubleComplex beta_gpu = {beta.real, beta.imag};
         gpublasSafeCall(
-                cublasZgemv(_gpaw_cublas_handle, trans_c, m, n,
-                            &alpha_gpu, (gpuDoubleComplex*) a_gpu, lda,
-                            (gpuDoubleComplex*) x_gpu, incx,
-                            &beta_gpu, (gpuDoubleComplex*) y_gpu, incy));
+                gpublasZgemv(_gpaw_gpublas_handle, trans_c, m, n,
+                            &alpha_gpu, (gpublasDoubleComplex*) a_gpu, lda,
+                            (gpublasDoubleComplex*) x_gpu, incx,
+                            &beta_gpu, (gpublasDoubleComplex*) y_gpu, incy));
     }
     if (PyErr_Occurred())
         return NULL;
@@ -1018,8 +1018,8 @@ PyObject* axpy_cuda_gpu(PyObject *self, PyObject *args)
 {
     Py_complex alpha;
 
-    CUdeviceptr x_gpu;
-    CUdeviceptr y_gpu;
+    gpuDeviceptr_t x_gpu;
+    gpuDeviceptr_t y_gpu;
     PyObject *x_shape,*y_shape;
     PyArray_Descr *type;
 
@@ -1035,15 +1035,15 @@ PyObject* axpy_cuda_gpu(PyObject *self, PyObject *args)
     int incy = 1;
     if (type->type_num == NPY_DOUBLE) {
         gpublasSafeCall(
-                cublasDaxpy(_gpaw_cublas_handle, n, &alpha.real,
+                gpublasDaxpy(_gpaw_gpublas_handle, n, &alpha.real,
                             (double*) x_gpu, incx,
                             (double*) y_gpu, incy));
     } else {
-        gpuDoubleComplex alpha_gpu = {alpha.real, alpha.imag};
+        gpublasDoubleComplex alpha_gpu = {alpha.real, alpha.imag};
         gpublasSafeCall(
-                cublasZaxpy(_gpaw_cublas_handle, n, &alpha_gpu,
-                            (gpuDoubleComplex*) x_gpu, incx,
-                            (gpuDoubleComplex*) y_gpu, incy));
+                gpublasZaxpy(_gpaw_gpublas_handle, n, &alpha_gpu,
+                            (gpublasDoubleComplex*) x_gpu, incx,
+                            (gpublasDoubleComplex*) y_gpu, incy));
     }
     if (PyErr_Occurred())
         return NULL;
@@ -1052,30 +1052,30 @@ PyObject* axpy_cuda_gpu(PyObject *self, PyObject *args)
 }
 
 static void _rk_cuda_gpu(int n, int k,
-                         double alpha, CUdeviceptr a_gpu, int lda,
-                         double beta, CUdeviceptr c_gpu, int ldc,
+                         double alpha, gpuDeviceptr_t a_gpu, int lda,
+                         double beta, gpuDeviceptr_t c_gpu, int ldc,
                          int real)
 {
     if (real) {
         gpublasSafeCall(
-                cublasDsyrk(_gpaw_cublas_handle,
-                    CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_T,
+                gpublasDsyrk(_gpaw_gpublas_handle,
+                    GPUBLAS_FILL_MODE_UPPER, GPUBLAS_OP_T,
                     n, k,
                     &alpha, (double*) a_gpu, lda,
                     &beta, (double*) c_gpu, ldc));
     } else {
         gpublasSafeCall(
-                cublasZherk(_gpaw_cublas_handle,
-                    CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_T,
+                gpublasZherk(_gpaw_gpublas_handle,
+                    GPUBLAS_FILL_MODE_UPPER, GPUBLAS_OP_T,
                     n, k,
-                    &alpha, (gpuDoubleComplex*) a_gpu, lda,
-                    &beta, (gpuDoubleComplex*) c_gpu, ldc));
+                    &alpha, (gpublasDoubleComplex*) a_gpu, lda,
+                    &beta, (gpublasDoubleComplex*) c_gpu, ldc));
     }
 }
 
 static void _rk_cuda_gpu_hybrid(int n, int k,
-                                double alpha, CUdeviceptr a_gpu, int lda,
-                                double beta, CUdeviceptr c_gpu, int ldc,
+                                double alpha, gpuDeviceptr_t a_gpu, int lda,
+                                double beta, gpuDeviceptr_t c_gpu, int ldc,
                                 int real)
 {
     double beta2=0;
@@ -1120,30 +1120,30 @@ static void _rk_cuda_gpu_hybrid(int n, int k,
         return;
     }
 
-    gpublasSafeCall(cublasSetStream(_gpaw_cublas_handle, ph->stream[0]));
+    gpublasSafeCall(gpublasSetStream(_gpaw_gpublas_handle, ph->stream[0]));
     gpuEventRecord(ps->event_gpu[0], ph->stream[0]);
     if (real) {
         gpublasSafeCall(
-                cublasDsyrk(_gpaw_cublas_handle,
-                    CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_T,
+                gpublasDsyrk(_gpaw_gpublas_handle,
+                    GPUBLAS_FILL_MODE_UPPER, GPUBLAS_OP_T,
                     n, ps->k1,
                     &alpha, (double*) a_gpu, lda,
                     &beta, (double*) c_gpu, ldc));
     } else {
         gpublasSafeCall(
-                cublasZherk(_gpaw_cublas_handle,
-                    CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_T,
+                gpublasZherk(_gpaw_gpublas_handle,
+                    GPUBLAS_FILL_MODE_UPPER, GPUBLAS_OP_T,
                     n, ps->k1,
-                    &alpha, (gpuDoubleComplex*) a_gpu, lda,
-                    &beta, (gpuDoubleComplex*) c_gpu, ldc));
+                    &alpha, (gpublasDoubleComplex*) a_gpu, lda,
+                    &beta, (gpublasDoubleComplex*) c_gpu, ldc));
     }
     gpuEventRecord(ps->event_gpu[1], ph->stream[0]);
     gpuEventRecord(ps->event_gpu[3], ph->stream[2]);
-    gpublasSafeCall(cublasSetStream(_gpaw_cublas_handle, 0));
+    gpublasSafeCall(gpublasSetStream(_gpaw_gpublas_handle, 0));
 
     gpuEventRecord(ps->event_dtoh[0], ph->stream[1]);
     gpublasSafeCall(
-            cublasGetMatrixAsync(ps->k2, n,
+            gpublasGetMatrixAsync(ps->k2, n,
                                  sizeof(double) * ps->ndouble,
                                  (void*) ((double*) a_gpu
                                      + ps->k1 * ps->ndouble),
@@ -1167,7 +1167,7 @@ static void _rk_cuda_gpu_hybrid(int n, int k,
 
     gpuEventRecord(ps->event_htod[0], ph->stream[1]);
     gpublasSafeCall(
-            cublasSetMatrixAsync(ps->n, ps->n,
+            gpublasSetMatrixAsync(ps->n, ps->n,
                                  sizeof(double) * ps->ndouble,
                                  (void*) ph->c, ldc,
                                  (void*) ((double*) ph->c_gpu),
@@ -1179,7 +1179,7 @@ static void _rk_cuda_gpu_hybrid(int n, int k,
     gpuStreamWaitEvent(0, ps->event_htod[1], 0);
     gpuEventRecord(ps->event_gpu[2], 0);
     gpublasSafeCall(
-            cublasDaxpy(_gpaw_cublas_handle, ps->n * ps->n * ps->ndouble,
+            gpublasDaxpy(_gpaw_gpublas_handle, ps->n * ps->n * ps->ndouble,
                 &alpha_, (double*) ph->c_gpu, 1, (double*) c_gpu, 1));
     gpuEventRecord(ps->event_gpu[3], 0);
 }
@@ -1189,8 +1189,8 @@ PyObject* rk_cuda_gpu(PyObject *self, PyObject *args)
     double alpha;
     double beta;
 
-    CUdeviceptr a_gpu;
-    CUdeviceptr c_gpu;
+    gpuDeviceptr_t a_gpu;
+    gpuDeviceptr_t c_gpu;
     PyObject *a_shape, *c_shape;
     PyArray_Descr *type;
     int hybrid = 0;
@@ -1224,32 +1224,32 @@ PyObject* rk_cuda_gpu(PyObject *self, PyObject *args)
 }
 
 static void _r2k_cuda_gpu(int n, int k,
-                          Py_complex alpha, CUdeviceptr a_gpu, int lda,
-                          CUdeviceptr b_gpu, double beta,
-                          CUdeviceptr c_gpu, int ldc, int real)
+                          Py_complex alpha, gpuDeviceptr_t a_gpu, int lda,
+                          gpuDeviceptr_t b_gpu, double beta,
+                          gpuDeviceptr_t c_gpu, int ldc, int real)
 {
     if (real) {
         gpublasSafeCall(
-                cublasDsyr2k(_gpaw_cublas_handle,
-                    CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_T, n, k,
+                gpublasDsyr2k(_gpaw_gpublas_handle,
+                    GPUBLAS_FILL_MODE_UPPER, GPUBLAS_OP_T, n, k,
                     &alpha.real, (double*) a_gpu, lda,
                     (double*) b_gpu, lda,
                     &beta, (double*) c_gpu, ldc));
     } else {
-        gpuDoubleComplex alpha_gpu = {alpha.real, alpha.imag};
+        gpublasDoubleComplex alpha_gpu = {alpha.real, alpha.imag};
         gpublasSafeCall(
-                cublasZher2k(_gpaw_cublas_handle,
-                    CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_T, n, k,
-                    &alpha_gpu, (gpuDoubleComplex*) a_gpu, lda,
-                    (gpuDoubleComplex*) b_gpu, lda,
-                    &beta, (gpuDoubleComplex*) c_gpu, ldc));
+                gpublasZher2k(_gpaw_gpublas_handle,
+                    GPUBLAS_FILL_MODE_UPPER, GPUBLAS_OP_T, n, k,
+                    &alpha_gpu, (gpublasDoubleComplex*) a_gpu, lda,
+                    (gpublasDoubleComplex*) b_gpu, lda,
+                    &beta, (gpublasDoubleComplex*) c_gpu, ldc));
     }
 }
 
 static void _r2k_cuda_gpu_hybrid(int n, int k,
-                                 Py_complex alpha, CUdeviceptr a_gpu, int lda,
-                                 CUdeviceptr b_gpu, double beta,
-                                 CUdeviceptr c_gpu, int ldc, int real)
+                                 Py_complex alpha, gpuDeviceptr_t a_gpu, int lda,
+                                 gpuDeviceptr_t b_gpu, double beta,
+                                 gpuDeviceptr_t c_gpu, int ldc, int real)
 {
     double beta2 = 0;
     int lda2;
@@ -1297,39 +1297,39 @@ static void _r2k_cuda_gpu_hybrid(int n, int k,
     }
 
     gpublasSafeCall(
-            cublasSetStream(_gpaw_cublas_handle, ph->stream[0]));
+            gpublasSetStream(_gpaw_gpublas_handle, ph->stream[0]));
     gpuEventRecord(ps2->event_gpu[0], ph->stream[0]);
 
     if (real) {
         gpublasSafeCall(
-                cublasDsyr2k(_gpaw_cublas_handle,
-                    CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_T, n, ps2->k1,
+                gpublasDsyr2k(_gpaw_gpublas_handle,
+                    GPUBLAS_FILL_MODE_UPPER, GPUBLAS_OP_T, n, ps2->k1,
                     &alpha.real, (double*) a_gpu, lda,
                     (double*) b_gpu, lda,
                     &beta, (double*) c_gpu, ldc));
     } else {
-        gpuDoubleComplex alpha_gpu = {alpha.real, alpha.imag};
+        gpublasDoubleComplex alpha_gpu = {alpha.real, alpha.imag};
         gpublasSafeCall(
-                cublasZher2k(_gpaw_cublas_handle,
-                    CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_T, n, ps2->k1,
-                    &alpha_gpu, (gpuDoubleComplex*) a_gpu, lda,
-                    (gpuDoubleComplex*) b_gpu, lda,
-                    &beta, (gpuDoubleComplex*) c_gpu, ldc));
+                gpublasZher2k(_gpaw_gpublas_handle,
+                    GPUBLAS_FILL_MODE_UPPER, GPUBLAS_OP_T, n, ps2->k1,
+                    &alpha_gpu, (gpublasDoubleComplex*) a_gpu, lda,
+                    (gpublasDoubleComplex*) b_gpu, lda,
+                    &beta, (gpublasDoubleComplex*) c_gpu, ldc));
     }
     gpuEventRecord(ps2->event_gpu[1], ph->stream[0]);
     gpuEventRecord(ps2->event_gpu[3], ph->stream[2]);
-    gpublasSafeCall(cublasSetStream(_gpaw_cublas_handle, 0));
+    gpublasSafeCall(gpublasSetStream(_gpaw_gpublas_handle, 0));
 
     gpuEventRecord(ps2->event_dtoh[0], ph->stream[1]);
     gpublasSafeCall(
-            cublasGetMatrixAsync(ps2->k2, n,
+            gpublasGetMatrixAsync(ps2->k2, n,
                                  sizeof(double) * ps2->ndouble,
                                  (void*) ((double*) a_gpu
                                      + ps2->k1 * ps2->ndouble),
                                  lda, (void*) ph->a, lda2,
                                  ph->stream[1]));
     gpublasSafeCall(
-            cublasGetMatrixAsync(ps2->k2, n,
+            gpublasGetMatrixAsync(ps2->k2, n,
                                  sizeof(double) * ps2->ndouble,
                                  (void*) ((double*) b_gpu
                                      + ps2->k1 * ps2->ndouble),
@@ -1353,7 +1353,7 @@ static void _r2k_cuda_gpu_hybrid(int n, int k,
 
     gpuEventRecord(ps2->event_htod[0],ph->stream[1]);
     gpublasSafeCall(
-            cublasSetMatrixAsync(ps2->n, ps2->n,
+            gpublasSetMatrixAsync(ps2->n, ps2->n,
                                  sizeof(double) * ps2->ndouble,
                                  (void*) ph->c, ldc,
                                  (void*) ((double*) ph->c_gpu),
@@ -1365,7 +1365,7 @@ static void _r2k_cuda_gpu_hybrid(int n, int k,
     gpuStreamWaitEvent(0, ps2->event_htod[1], 0);
     gpuEventRecord(ps2->event_gpu[2], 0);
     gpublasSafeCall(
-            cublasDaxpy(_gpaw_cublas_handle,
+            gpublasDaxpy(_gpaw_gpublas_handle,
                         ps2->n * ps2->n * ps2->ndouble,
                         &alpha_, (double*) ph->c_gpu, 1,
                         (double*) c_gpu, 1));
@@ -1377,9 +1377,9 @@ PyObject* r2k_cuda_gpu(PyObject *self, PyObject *args)
     Py_complex alpha;
     double beta;
 
-    CUdeviceptr a_gpu;
-    CUdeviceptr b_gpu;
-    CUdeviceptr c_gpu;
+    gpuDeviceptr_t a_gpu;
+    gpuDeviceptr_t b_gpu;
+    gpuDeviceptr_t c_gpu;
     PyObject *a_shape, *b_shape, *c_shape;
     PyArray_Descr *type;
 
@@ -1419,8 +1419,8 @@ PyObject* r2k_cuda_gpu(PyObject *self, PyObject *args)
 
 PyObject* dotc_cuda_gpu(PyObject *self, PyObject *args)
 {
-    CUdeviceptr a_gpu;
-    CUdeviceptr b_gpu;
+    gpuDeviceptr_t a_gpu;
+    gpuDeviceptr_t b_gpu;
 
     PyObject *a_shape;
     PyArray_Descr *type;
@@ -1437,7 +1437,7 @@ PyObject* dotc_cuda_gpu(PyObject *self, PyObject *args)
     if (type->type_num == NPY_DOUBLE) {
         double result;
         gpublasSafeCall(
-                cublasDdot(_gpaw_cublas_handle, n,
+                gpublasDdot(_gpaw_gpublas_handle, n,
                            (double*) a_gpu, incx,
                            (double*) b_gpu, incy, &result));
         if (PyErr_Occurred())
@@ -1445,11 +1445,11 @@ PyObject* dotc_cuda_gpu(PyObject *self, PyObject *args)
         else
             return PyFloat_FromDouble(result);
     } else {
-        gpuDoubleComplex result;
+        gpublasDoubleComplex result;
         gpublasSafeCall(
-                cublasZdotc(_gpaw_cublas_handle, n,
-                            (gpuDoubleComplex*) a_gpu, incx,
-                            (gpuDoubleComplex*) b_gpu, incy, &result));
+                gpublasZdotc(_gpaw_gpublas_handle, n,
+                            (gpublasDoubleComplex*) a_gpu, incx,
+                            (gpublasDoubleComplex*) b_gpu, incy, &result));
         if (PyErr_Occurred())
             return NULL;
         else
@@ -1460,8 +1460,8 @@ PyObject* dotc_cuda_gpu(PyObject *self, PyObject *args)
 
 PyObject* dotu_cuda_gpu(PyObject *self, PyObject *args)
 {
-    CUdeviceptr a_gpu;
-    CUdeviceptr b_gpu;
+    gpuDeviceptr_t a_gpu;
+    gpuDeviceptr_t b_gpu;
 
     PyObject *a_shape;
     PyArray_Descr *type;
@@ -1478,7 +1478,7 @@ PyObject* dotu_cuda_gpu(PyObject *self, PyObject *args)
     if (type->type_num == NPY_DOUBLE) {
         double result;
         gpublasSafeCall(
-                cublasDdot(_gpaw_cublas_handle, n,
+                gpublasDdot(_gpaw_gpublas_handle, n,
                     (double*) a_gpu, incx,
                     (double*) b_gpu, incy, &result));
         if (PyErr_Occurred())
@@ -1486,11 +1486,11 @@ PyObject* dotu_cuda_gpu(PyObject *self, PyObject *args)
         else
             return PyFloat_FromDouble(result);
     } else {
-        gpuDoubleComplex result;
+        gpublasDoubleComplex result;
         gpublasSafeCall(
-                cublasZdotu(_gpaw_cublas_handle, n,
-                    (gpuDoubleComplex*) a_gpu, incx,
-                    (gpuDoubleComplex*) b_gpu, incy, &result));
+                gpublasZdotu(_gpaw_gpublas_handle, n,
+                    (gpublasDoubleComplex*) a_gpu, incx,
+                    (gpublasDoubleComplex*) b_gpu, incy, &result));
         if (PyErr_Occurred())
             return NULL;
         else

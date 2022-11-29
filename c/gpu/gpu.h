@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <float.h>
 #include <Python.h>
-#include "gpaw_cuda.h"
+#include "gpu-runtime.h"
 
 #define GPU_BLOCKS_MIN            (16)
 #define GPU_BLOCKS_MAX            (96)
@@ -80,7 +80,7 @@ static inline gpuError_t __gpuSafeCall(gpuError_t err,
         snprintf(str, 100, "%s(%i): GPU error: %s.\n",
                  file, line, gpuGetErrorString(err));
         PyErr_SetString(PyExc_RuntimeError, str);
-        fprintf(stderr, str);
+        fprintf(stderr, "%s", str);
     }
     return err;
 }
@@ -132,7 +132,7 @@ static inline gpublasStatus_t __gpublasSafeCall(gpublasStatus_t err,
                          file, line, err);
         }
         PyErr_SetString(PyExc_RuntimeError, str);
-        fprintf(stderr, str);
+        fprintf(stderr, "%s", str);
     }
     return err;
 }

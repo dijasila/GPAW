@@ -47,61 +47,61 @@ static void lfc_reduceNumBlocksAndThreads2(int n,int *blocks, int *threads)
 
 #define INNAME(f) Zcuda(f ## _map512)
 #define REDUCE_LFC_THREADS  512
-#include "lfc-reduce-kernel.cu"
+#include "lfc-reduce-kernel.cpp"
 #undef  REDUCE_LFC_THREADS
 #undef  INNAME
 
 #define INNAME(f) Zcuda(f ## _map256)
 #define REDUCE_LFC_THREADS  256
-#include "lfc-reduce-kernel.cu"
+#include "lfc-reduce-kernel.cpp"
 #undef  REDUCE_LFC_THREADS
 #undef  INNAME
 
 #define INNAME(f) Zcuda(f ## _map128)
 #define REDUCE_LFC_THREADS  128
-#include "lfc-reduce-kernel.cu"
+#include "lfc-reduce-kernel.cpp"
 #undef  REDUCE_LFC_THREADS
 #undef  INNAME
 
 #define INNAME(f) Zcuda(f ## _map64)
 #define REDUCE_LFC_THREADS  64
-#include "lfc-reduce-kernel.cu"
+#include "lfc-reduce-kernel.cpp"
 #undef  REDUCE_LFC_THREADS
 #undef  INNAME
 
 #define INNAME(f) Zcuda(f ## _map32)
 #define REDUCE_LFC_THREADS  32
-#include "lfc-reduce-kernel.cu"
+#include "lfc-reduce-kernel.cpp"
 #undef  REDUCE_LFC_THREADS
 #undef  INNAME
 
 #define INNAME(f) Zcuda(f ## _map16)
 #define REDUCE_LFC_THREADS  16
-#include "lfc-reduce-kernel.cu"
+#include "lfc-reduce-kernel.cpp"
 #undef  REDUCE_LFC_THREADS
 #undef  INNAME
 
 #define INNAME(f) Zcuda(f ## _map8)
 #define REDUCE_LFC_THREADS  8
-#include "lfc-reduce-kernel.cu"
+#include "lfc-reduce-kernel.cpp"
 #undef  REDUCE_LFC_THREADS
 #undef  INNAME
 
 #define INNAME(f) Zcuda(f ## _map4)
 #define REDUCE_LFC_THREADS  4
-#include "lfc-reduce-kernel.cu"
+#include "lfc-reduce-kernel.cpp"
 #undef  REDUCE_LFC_THREADS
 #undef  INNAME
 
 #define INNAME(f) Zcuda(f ## _map2)
 #define REDUCE_LFC_THREADS  2
-#include "lfc-reduce-kernel.cu"
+#include "lfc-reduce-kernel.cpp"
 #undef  REDUCE_LFC_THREADS
 #undef  INNAME
 
 #define INNAME(f) Zcuda(f ## _map1)
 #define REDUCE_LFC_THREADS  1
-#include "lfc-reduce-kernel.cu"
+#include "lfc-reduce-kernel.cpp"
 #undef  REDUCE_LFC_THREADS
 #undef  INNAME
 
@@ -111,61 +111,61 @@ static void lfc_reduceNumBlocksAndThreads2(int n,int *blocks, int *threads)
 #define INFUNC(a,b) (a)
 #define INNAME(f) Zcuda(f ## 512)
 #define REDUCE_THREADS  512
-#include "reduce-kernel.cu"
+#include "reduce-kernel.cpp"
 #undef  REDUCE_THREADS
 #undef  INNAME
 
 #define INNAME(f) Zcuda(f ## 256)
 #define REDUCE_THREADS  256
-#include "reduce-kernel.cu"
+#include "reduce-kernel.cpp"
 #undef  REDUCE_THREADS
 #undef  INNAME
 
 #define INNAME(f) Zcuda(f ## 128)
 #define REDUCE_THREADS  128
-#include "reduce-kernel.cu"
+#include "reduce-kernel.cpp"
 #undef  REDUCE_THREADS
 #undef  INNAME
 
 #define INNAME(f) Zcuda(f ## 64)
 #define REDUCE_THREADS  64
-#include "reduce-kernel.cu"
+#include "reduce-kernel.cpp"
 #undef  REDUCE_THREADS
 #undef  INNAME
 
 #define INNAME(f) Zcuda(f ## 32)
 #define REDUCE_THREADS  32
-#include "reduce-kernel.cu"
+#include "reduce-kernel.cpp"
 #undef  REDUCE_THREADS
 #undef  INNAME
 
 #define INNAME(f) Zcuda(f ## 16)
 #define REDUCE_THREADS  16
-#include "reduce-kernel.cu"
+#include "reduce-kernel.cpp"
 #undef  REDUCE_THREADS
 #undef  INNAME
 
 #define INNAME(f) Zcuda(f ## 8)
 #define REDUCE_THREADS  8
-#include "reduce-kernel.cu"
+#include "reduce-kernel.cpp"
 #undef  REDUCE_THREADS
 #undef  INNAME
 
 #define INNAME(f) Zcuda(f ## 4)
 #define REDUCE_THREADS  4
-#include "reduce-kernel.cu"
+#include "reduce-kernel.cpp"
 #undef  REDUCE_THREADS
 #undef  INNAME
 
 #define INNAME(f) Zcuda(f ## 2)
 #define REDUCE_THREADS  2
-#include "reduce-kernel.cu"
+#include "reduce-kernel.cpp"
 #undef  REDUCE_THREADS
 #undef  INNAME
 
 #define INNAME(f) Zcuda(f ## 1)
 #define REDUCE_THREADS  1
-#include "reduce-kernel.cu"
+#include "reduce-kernel.cpp"
 #undef  REDUCE_THREADS
 #undef  INNAME
 #undef  INFUNC

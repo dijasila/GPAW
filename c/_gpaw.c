@@ -166,7 +166,7 @@ PyObject* adjust_momenta(PyObject *self, PyObject *args);
 PyObject* calculate_forces_H2O(PyObject *self, PyObject *args);
 
 
-#ifdef GPAW_CUDA
+#ifdef GPAW_GPU
 PyObject* gpaw_cuda_init(PyObject *self, PyObject *args);
 PyObject* gpaw_cuda_delete(PyObject *self, PyObject *args);
 PyObject* set_gpaw_cuda_debug(PyObject *self, PyObject *args);
@@ -323,7 +323,7 @@ static PyMethodDef functions[] = {
 #ifdef GPAW_GITHASH
     {"githash", githash, METH_VARARGS, 0},
 #endif // GPAW_GITHASH
-#ifdef GPAW_CUDA
+#ifdef GPAW_GPU
     {"gpaw_cuda_init", gpaw_cuda_init, METH_VARARGS, 0},
     {"gpaw_cuda_delete", gpaw_cuda_delete, METH_VARARGS, 0},
     {"set_gpaw_cuda_debug", set_gpaw_cuda_debug, METH_VARARGS, 0},
@@ -351,7 +351,7 @@ static PyMethodDef functions[] = {
     {"axpbyz_gpu", axpbyz_gpu, METH_VARARGS, 0},
     {"axpbz_gpu", axpbz_gpu, METH_VARARGS, 0},
     {"fill_gpu", fill_gpu, METH_VARARGS, 0},
-#endif // GPAW_CUDA
+#endif // GPAW_GPU
     {0, 0, 0, 0}
 };
 
@@ -531,7 +531,7 @@ gpaw_main()
 int
 main(int argc, char **argv)
 {
-#ifdef GPAW_CUDA
+#ifdef GPAW_GPU
     int granted;
     MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &granted);
     if (granted < MPI_THREAD_MULTIPLE)

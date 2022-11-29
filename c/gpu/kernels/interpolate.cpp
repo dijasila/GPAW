@@ -3,6 +3,7 @@
 #include <sys/types.h>
 #include <sys/time.h>
 
+#include "../gpu.h"
 #include "../gpu-complex.h"
 
 #ifndef GPU_USE_COMPLEX
@@ -176,7 +177,7 @@ void Zcuda(bmgs_interpolate_cuda_gpu)(int k, int skip[3][2],
 
 #ifndef GPU_USE_COMPLEX
 #define GPU_USE_COMPLEX
-#include "interpolate.cu"
+#include "interpolate.cpp"
 
 extern "C"
 double bmgs_interpolate_cuda_cpu(int k, int skip[3][2], const double* a,

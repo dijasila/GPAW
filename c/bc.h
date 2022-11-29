@@ -36,7 +36,7 @@ typedef struct
   int ndouble;
   bool cfd;
   MPI_Comm comm;
-#ifdef GPAW_CUDA
+#ifdef GPAW_GPU
   bool cuda_sjoin[3];
   bool cuda_rjoin[3];
   bool cuda_async[3];
@@ -63,8 +63,8 @@ void bc_unpack2(const boundary_conditions* bc,
     MPI_Request sendreq[2],
     double* rbuf, int nin);
 
-#ifdef GPAW_CUDA
-#include <cuda_runtime_api.h>
+#ifdef GPAW_GPU
+#include "gpu/gpu-runtime.h"
 
 void bc_init_cuda(boundary_conditions* bc);
 void bc_dealloc_cuda(int force);
@@ -73,19 +73,19 @@ void bc_unpack_cuda_gpu(const boundary_conditions* bc,
                         MPI_Request recvreq[3][2],
                         MPI_Request sendreq[2],
                         const double_complex phases[2],
-                        cudaStream_t kernel_stream,
+                        gpuStream_t kernel_stream,
                         int nin);
 void bc_unpack_cuda_gpu_async(const boundary_conditions* bc,
                               const double* aa1, double* aa2, int i,
                               MPI_Request recvreq[3][2],
                               MPI_Request sendreq[2],
                               const double_complex phases[2],
-                              cudaStream_t kernel_stream,
+                              gpuStream_t kernel_stream,
                               int nin);
 void bc_unpack_paste_cuda_gpu(boundary_conditions* bc,
                               const double* aa1, double* aa2,
                               MPI_Request recvreq[3][2],
-                              cudaStream_t thd, int nin);
+                              gpuStream_t thd, int nin);
 #endif
 
 #endif

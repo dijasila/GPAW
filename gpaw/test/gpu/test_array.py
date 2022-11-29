@@ -1,6 +1,7 @@
 import pytest
 import numpy as np
 
+
 def test_array(gpu):
 
     rng = np.random.RandomState(42)
@@ -18,4 +19,4 @@ def test_array(gpu):
     c_gpu[:] = a_gpu + b_gpu
     sum_gpu = gpu.copy_to_host(c_gpu.sum())
 
-    assert sum_cpu == pytest.approx(sum_gpu, abs=1e-14) 
+    assert sum_cpu == pytest.approx(sum_gpu, abs=1e-14)
