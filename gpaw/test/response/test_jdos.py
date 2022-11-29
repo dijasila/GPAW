@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 from ase.units import Hartree
 
 from gpaw import GPAW
+import gpaw.mpi as mpi
 from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.frequencies import FrequencyDescriptor
 from gpaw.response.jdos import JDOSCalculator
@@ -40,7 +41,8 @@ def test_iron_jdos(in_tmp_dir, gpw_files):
     jdos_calc = JDOSCalculator(gs)
 
     # Set up reference MyManualJDOS
-    jdos_refcalc = MyManualJDOS(calc)
+    serial_calc = GPAW(gpw_files['fe_pw_wfs'], communicator=mpi.serial_comm)
+    jdos_refcalc = MyManualJDOS(serial_calc)
 
     for q_c, spincomponent in product(q_qc, spincomponent_s):
         jdosref_w = jdos_refcalc.calculate(q_c, wd.omega_w * Hartree,
