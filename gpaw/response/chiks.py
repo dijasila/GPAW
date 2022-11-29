@@ -136,29 +136,30 @@ class ChiKS(PlaneWaveKSLRF):
 
     @timer('Get temporal part')
     def get_temporal_part(self, n1_t, n2_t, s1_t, s2_t, df_t, deps_t):
-        """Get the temporal part of the susceptibility integrand."""
-        _get_temporal_part = self.create_get_temporal_part()
-        return _get_temporal_part(s1_t, s2_t, df_t, deps_t, n1_t, n2_t)
+        return get_temporal_part(self.spincomponent, self.wd.omega_w, self.eta,
+                                 n1_t, n2_t, s1_t, s2_t, df_t, deps_t,
+                                 self.bandsummation)
 
-    def create_get_temporal_part(self):
-        """Creator component, deciding how to calculate the temporal part"""
-        if self.bandsummation == 'double':
-            return self.get_double_temporal_part
-        elif self.bandsummation == 'pairwise':
-            return self.get_pairwise_temporal_part
-        raise ValueError(self.bandsummation)
 
-    def get_double_temporal_part(self, s1_t, s2_t, df_t, deps_t, *unused):
-        return get_double_temporal_part(self.spincomponent, s1_t, s2_t,
-                                        df_t, deps_t, self.wd.omega_w, self.eta)
+def get_temporal_part(spincomponent, omega_w, eta,
+                      n1_t, n2_t, s1_t, s2_t, df_t, deps_t, bandsummation):
+    """Get the temporal part of a (causal linear) susceptibility integrand."""
+    _get_temporal_part = create_get_temporal_part(bandsummation)
+    return _get_temporal_part(spincomponent, s1_t, s2_t,
+                              df_t, deps_t, omega_w, eta,
+                              n1_t, n2_t)
 
-    def get_pairwise_temporal_part(self, s1_t, s2_t, df_t, deps_t, n1_t, n2_t):
-        return get_pairwise_temporal_part(self.spincomponent, s1_t, s2_t,
-                                          df_t, deps_t, self.wd.omega_w, self.eta,
-                                          n1_t, n2_t)
-
+def create_get_temporal_part(bandsummation):
+    """Creator component, deciding how to calculate the temporal part"""
+    if bandsummation == 'double':
+        return get_double_temporal_part
+    elif bandsummation == 'pairwise':
+        return get_pairwise_temporal_part
+    raise ValueError(bandsummation)
+    
 def get_double_temporal_part(spincomponent, s1_t, s2_t,
-                             df_t, deps_t, omega_w, eta):
+                             df_t, deps_t, omega_w, eta,
+                             *unused):
     r"""Get:
 
              σ^μ_ss' σ^ν_s's (f_nks - f_n'k's')
