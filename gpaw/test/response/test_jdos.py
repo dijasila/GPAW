@@ -20,11 +20,11 @@ from gpaw.response.symmetry import KPointFinder
 def test_iron_jdos(in_tmp_dir, gpw_files):
     # ---------- Inputs ---------- #
 
-    q_qc = [[0.0, 0.0, 0.0]]  # [[0.0, 0.0, 0.0], [0.0, 0.0, 1. / 4.]]  # Two q-points along G-N
+    q_qc = [[0.0, 0.0, 0.0], [0.0, 0.0, 1. / 4.]]  # Two q-points along G-N
     wd = FrequencyDescriptor.from_array_or_dict(np.linspace(-10.0, 10.0, 321))
     eta = 0.2
 
-    spincomponent_s = ['00']  # ['00', '+-']
+    spincomponent_s = ['00', '+-']
 
     # ---------- Script ---------- #
 
