@@ -6,7 +6,7 @@ from ase.units import Hartree
 
 from gpaw.response import ResponseContext
 from gpaw.response.kslrf import PairFunctionIntegrator
-from gpaw.response.chiks import get_spin_rotation, get_double_temporal_part
+from gpaw.response.chiks import get_spin_rotation, get_temporal_part
 from gpaw.response.frequencies import FrequencyDescriptor
 
 
@@ -25,11 +25,15 @@ class JDOSCalculator(PairFunctionIntegrator):
 
         super().__init__(gs, context, **kwargs)
 
-    def calculate(self, q_c, wd, eta=0.2, spincomponent=None, nbands=None):
+    def calculate(self, q_c, wd,
+                  eta=0.2,
+                  spincomponent=None,
+                  nbands=None,
+                  bandsummation='pairwise'):
         """
         Some documentation here!                                               XXX
         To do:
-          - bandsummation
+          - bandsummation, nbands documentation!
 
         Parameters
         ----------
@@ -42,16 +46,17 @@ class JDOSCalculator(PairFunctionIntegrator):
         assert isinstance(wd, FrequencyDescriptor)
 
         # Set inputs on self, so that they can be accessed later
-        self.spincomponent = spincomponent
         self.wd = wd
         self.eta = eta / Hartree  # eV -> Hartree
+        self.spincomponent = spincomponent
+        self.bandsummation = bandsummation
 
         # Analyze the requested spin component
         spinrot = get_spin_rotation(spincomponent)
 
         # Prepare to sum over bands and spins
         n1_t, n2_t, s1_t, s2_t = self.get_band_and_spin_transitions_domain(
-            spinrot, nbands=nbands, bandsummation='double')
+            spinrot, nbands=nbands, bandsummation=bandsummation)
         self.print_information(q_c, len(wd), eta,
                                spincomponent, nbands, len(n1_t))
 
@@ -69,8 +74,6 @@ class JDOSCalculator(PairFunctionIntegrator):
         r"""
         Some documentation here!                                              XXX
 
-        bandsummation: double
-
                         __
                   -1    \  σ^μ_ss' σ^ν_s's (f_nks - f_n'k's')
         (...)_k = ‾‾ Im /  ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
@@ -78,7 +81,7 @@ class JDOSCalculator(PairFunctionIntegrator):
                         t
         """
         # Get bands and spins of the transitions
-        _, _, s1_t, s2_t = kptpair.get_transitions()
+        n1_t, n2_t, s1_t, s2_t = kptpair.get_transitions()
         # Get (f_n'k's' - f_nks) and (ε_n'k's' - ε_nks)
         df_t, deps_t = kptpair.df_t, kptpair.deps_t
 
@@ -86,9 +89,9 @@ class JDOSCalculator(PairFunctionIntegrator):
         # dependence of a causal linear response function
         # NB: Since the implemented spin matrices are real, the dissipative
         # part is equal to the imaginary part
-        x_wt = get_double_temporal_part(self.spincomponent, s1_t, s2_t,
-                                        df_t, deps_t,
-                                        self.wd.omega_w, self.eta)
+        x_wt = get_temporal_part(self.spincomponent, self.wd.omega_w, self.eta,
+                                 n1_t, n2_t, s1_t, s2_t, df_t, deps_t,
+                                 self.bandsummation)
         integrand_wt = - x_wt.imag / np.pi
 
         with self.context.timer('Perform sum over t-transitions'):
