@@ -554,9 +554,10 @@ class DielectricFunction(DielectricFunctionCalculator):
             frequencies over processes.
         txt: str
             Output file.
-        truncation: str
+        truncation: str or None
+            None for no truncation.
             'wigner-seitz' for Wigner Seitz truncated Coulomb.
-            '2D, 1D or 0d for standard analytical truncation schemes.
+            '2D' for standard analytical truncation scheme.
             Non-periodic directions are determined from k-point grid
         eshift: float
             Shift unoccupied bands
