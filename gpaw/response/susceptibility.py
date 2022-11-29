@@ -226,19 +226,15 @@ class Chi:
     @property
     def Khxc_GG(self):
         """Hartree-exchange-correlation kernel."""
-        if self.Vbare_G is not None:
-            # Construct the Hartree kernel
-            Kh_GG = np.diag(self.Vbare_G)
-        else:
-            Kh_GG = None
-        if self.Kxc_GG is not None:
+        # Allocate array
+        nG = self.chiks_wGG.shape[2]
+        Khxc_GG = np.zeros((nG, nG), dtype=complex)
+
+        if self.Vbare_G is not None:  # Add the Hartree kernel
+            Khxc_GG.flat[::nG + 1] += self.Vbare_G
+        if self.Kxc_GG is not None:  # Add the xc kernel
             # In the future, construct the xc kernel here! XXX
-            Khxc_GG = self.Kxc_GG.copy()
-            if Kh_GG is not None:
-                Khxc_GG += Kh_GG
-        else:
-            assert Kh_GG is not None
-            Khxc_GG = Kh_GG
+            Khxc_GG += self.Kxc_GG
 
         return Khxc_GG
 
