@@ -99,6 +99,13 @@ def h2gpts(h, cell_cv, idiv=4):
         Desired grid spacing in.
     cell_cv: 3x3 ndarray
         Unit cell.
+
+    The number of grid points along each axis will be proportional
+    to the inverse length of the corresponding reciprocal lattice
+    vector.  This means skewed cells have fewer grid points compared
+    to orthorhombic cells of the same volume.  This is to some extent
+    remedied by improved packing.  For example, grid points in an
+    FCC cell will also be close-packed.
     """
 
     L_c = (np.linalg.inv(cell_cv)**2).sum(0)**-0.5
