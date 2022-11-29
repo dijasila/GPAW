@@ -1190,6 +1190,31 @@ class KPointPairIntegral(ABC):
             Integral weight of each k-point in the integral.
         """
 
+    def slice_kpoint_domain(self, bzk_kc, weight_k):
+        """When integrating over k-points, slice the domain in pieces with one
+        k-point per process each.
+
+        Returns
+        -------
+        bzk_ipc : nd.array
+            k-points (relative) coordinates for each process for each iteration
+        """
+        comm = self.kspair.kptblockcomm
+        rank, size = comm.rank, comm.size
+
+        nk = bzk_kc.shape[0]
+        ni = (nk + size - 1) // size
+        bzk_ipc = [bzk_kc[i * size:(i + 1) * size] for i in range(ni)]
+
+        # Extract the weight corresponding to the process' own k-point pair
+        weight_ip = [weight_k[i * size:(i + 1) * size] for i in range(ni)]
+        weight_i = [None] * len(weight_ip)
+        for i, w_p in enumerate(weight_ip):
+            if rank in range(len(w_p)):
+                weight_i[i] = w_p[rank]
+
+        return bzk_ipc, weight_i
+
     def crystal_volume(self):
         """Calculate the total crystal volume, V = Nk * V0, corresponding to
         the ground state k-point grid."""
