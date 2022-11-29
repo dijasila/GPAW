@@ -20,11 +20,11 @@ from gpaw.response.symmetry import KPointFinder
 def test_iron_jdos(in_tmp_dir, gpw_files):
     # ---------- Inputs ---------- #
 
-    q_qc = [[0.0, 0.0, 0.0], [0.0, 0.0, 1. / 4.]]  # Two q-points along G-N
+    q_qc = [[0.0, 0.0, 0.0]]  # [[0.0, 0.0, 0.0], [0.0, 0.0, 1. / 4.]]  # Two q-points along G-N
     wd = FrequencyDescriptor.from_array_or_dict(np.linspace(-10.0, 10.0, 321))
     eta = 0.2
 
-    spincomponent_s = ['00', '+-']
+    spincomponent_s = ['00']  # ['00', '+-']
 
     # ---------- Script ---------- #
 
@@ -66,6 +66,16 @@ class MyManualJDOS:
         self.kweight = 1 / (gd.volume * len(kd.bzk_kc))
 
     def calculate(self, q_c, omega_w, eta=0.05, spincomponent='00', nbands=None):
+        r"""Calculate the joint density of states:
+                       __  __
+                    1  \   \
+        g_j(q, ω) = ‾  /   /  (f_nks - f_mk+qs') δ(ω-[ε_mk+qs' - ε_nks])
+                    V  ‾‾  ‾‾
+                       k   n,m
+
+        for a given spin component specifying the spin transitions s -> s'.
+        """
+        
         # Internal frequencies in Hartree
         omega_w = omega_w / Hartree
         eta = eta / Hartree
@@ -73,12 +83,12 @@ class MyManualJDOS:
         jdos_w = np.zeros_like(omega_w)
         
         for K1, k1_c in enumerate(self.kd.bzk_kc):
-            # Get de = e2 - e1 and df = f2 - f1 of relevant transitions
+            # de = e2 - e1, df = f2 - f1
             de_t, df_t = self.get_transitions(K1, k1_c, q_c, spincomponent, nbands)
 
             # Set up jdos
             delta_wt = self.delta(omega_w, eta, de_t)
-            jdos_wt = - df_t[np.newaxis] * delta_wt  # weight δ-function by (f1 - f2)
+            jdos_wt = - df_t[np.newaxis] * delta_wt
 
             # Sum over transitions
             jdos_w += self.kweight * np.sum(jdos_wt, axis=1)
@@ -87,7 +97,7 @@ class MyManualJDOS:
 
     @staticmethod
     def delta(omega_w, eta, de_t):
-        """Create lorentzian delta-functions
+        r"""Create lorentzian delta-functions
 
                 ~ 1       η
         δ(ω-Δε) = ‾ ‾‾‾‾‾‾‾‾‾‾‾‾‾‾
