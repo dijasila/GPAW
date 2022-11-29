@@ -149,6 +149,7 @@ def get_temporal_part(spincomponent, omega_w, eta,
                               df_t, deps_t, omega_w, eta,
                               n1_t, n2_t)
 
+
 def create_get_temporal_part(bandsummation):
     """Creator component, deciding how to calculate the temporal part"""
     if bandsummation == 'double':
@@ -156,7 +157,8 @@ def create_get_temporal_part(bandsummation):
     elif bandsummation == 'pairwise':
         return get_pairwise_temporal_part
     raise ValueError(bandsummation)
-    
+
+
 def get_double_temporal_part(spincomponent, s1_t, s2_t,
                              df_t, deps_t, omega_w, eta,
                              *unused):
