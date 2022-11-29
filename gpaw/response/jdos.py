@@ -2,15 +2,26 @@ from functools import partial
 
 import numpy as np
 
+from gpaw.response import ResponseContext
 from gpaw.response.kslrf import PairFunctionIntegrator
 from gpaw.response.chiks import get_spin_rotation, get_smat_components
 from gpaw.response.frequencies import FrequencyDescriptor
 
 
-class JDOS(PairFunctionIntegrator):
+class JDOSCalculator(PairFunctionIntegrator):
     """
     Some documentation here!                                                   XXX
     """
+
+    def __init__(self, gs, context=None, **kwargs):
+        """
+        Some documentation here!                                               XXX
+        """
+        if context is None:
+            context = ResponseContext()
+        assert isinstance(context, ResponseContext)
+
+        super().__init__(gs, context, **kwargs)
 
     def calculate(self, q_c, wd, eta=0.2, spincomponent=None, nbands=None):
         """
