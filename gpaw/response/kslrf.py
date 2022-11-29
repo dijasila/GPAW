@@ -448,7 +448,9 @@ class PairFunctionIntegrator(ABC):
             Center the grid of plane waves around the Γ-point (or the q-vector)
         """
         ecut = None if ecut is None else ecut / Hartree  # eV to Hartree
-        return self._get_PWDescriptor(q_c, ecut=ecut, gammacentered=gammacentered, internal=False)
+        return self._get_PWDescriptor(q_c, ecut=ecut,
+                                      gammacentered=gammacentered,
+                                      internal=False)
 
     def _get_PWDescriptor(self, q_c, ecut=50, gammacentered=False,
                           internal=True):
