@@ -5,7 +5,7 @@ from itertools import product
 
 import numpy as np
 
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 # Script modules
 from ase.units import Hartree
@@ -73,7 +73,8 @@ class MyManualJDOS:
         self.kptfinder = KPointFinder(kd.bzk_kc)
         self.kweight = 1 / (gd.volume * len(kd.bzk_kc))
 
-    def calculate(self, q_c, omega_w, eta=0.05, spincomponent='00', nbands=None):
+    def calculate(self, q_c, omega_w, eta=0.05,
+                  spincomponent='00', nbands=None):
         r"""Calculate the joint density of states:
                        __  __
                     1  \   \
@@ -92,7 +93,8 @@ class MyManualJDOS:
         
         for K1, k1_c in enumerate(self.kd.bzk_kc):
             # de = e2 - e1, df = f2 - f1
-            de_t, df_t = self.get_transitions(K1, k1_c, q_c, spincomponent, nbands)
+            de_t, df_t = self.get_transitions(K1, k1_c, q_c,
+                                              spincomponent, nbands)
 
             # Set up jdos
             delta_wt = self.delta(omega_w, eta, de_t)
@@ -139,8 +141,10 @@ class MyManualJDOS:
             kpt1, kpt2 = calc.wfs.kpt_u[u1], calc.wfs.kpt_u[u2]
 
             # Extract eigenenergies and occupation numbers
-            eps1_n, eps2_n = kpt1.eps_n[:nbands], kpt2.eps_n[:nbands]
-            f1_n, f2_n = kpt1.f_n[:nbands] / kpt1.weight, kpt2.f_n[:nbands] / kpt2.weight
+            eps1_n = kpt1.eps_n[:nbands]
+            eps2_n = kpt2.eps_n[:nbands]
+            f1_n = kpt1.f_n[:nbands] / kpt1.weight
+            f2_n = kpt2.f_n[:nbands] / kpt2.weight
 
             # Append data
             de_nm = eps2_n[:, np.newaxis] - eps1_n[np.newaxis]
