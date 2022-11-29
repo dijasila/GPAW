@@ -39,8 +39,12 @@ class JDOSCalculator(PairFunctionIntegrator):
         """
         assert isinstance(wd, FrequencyDescriptor)
 
-        # Analyze the requested spin component
+        # Set inputs on self, so that they can be accessed later
         self.spincomponent = spincomponent
+        self.wd = wd
+        self.eta = eta
+
+        # Analyze the requested spin component
         spinrot = get_spin_rotation(spincomponent)
 
         # Prepare to sum over bands and spins
