@@ -44,7 +44,7 @@ def test_iron_jdos(in_tmp_dir, gpw_files):
                                      eta=eta,
                                      spincomponent=spincomponent,
                                      nbands=nbands)
-        jdosref_w = jdos_refcalc.calculate(q_c, wd.omega_w,
+        jdosref_w = jdos_refcalc.calculate(q_c, wd.omega_w * Hartree,
                                            eta=eta,
                                            spincomponent=spincomponent,
                                            nbands=nbands)
@@ -66,6 +66,9 @@ class MyManualJDOS:
         self.kweight = 1 / (gd.volume * len(kd.bzk_kc))
 
     def calculate(self, q_c, omega_w, eta=0.05, spincomponent='00', nbands=None):
+        # Internal frequencies in Hartree
+        omega_w = omega_w / Hartree
+        eta = eta / Hartree
         # Allocate array
         jdos_w = np.zeros_like(omega_w)
         
@@ -86,7 +89,7 @@ class MyManualJDOS:
     def delta(omega_w, eta, de_t):
         """Create lorentzian delta-functions
 
-                ~ 1        η
+                ~ 1       η
         δ(ω-Δε) = ‾ ‾‾‾‾‾‾‾‾‾‾‾‾‾‾
                   π (ω-Δε)^2 + η^2
         """
@@ -96,8 +99,8 @@ class MyManualJDOS:
     def get_transitions(self, K1, k1_c, q_c, spincomponent, nbands):
         assert isinstance(nbands, int)
         if spincomponent == '00':
-            s1_s = [0, 0]
-            s2_s = [1, 1]
+            s1_s = [0, 1]
+            s2_s = [0, 1]
         elif spincomponent == '+-':
             s1_s = [0]
             s2_s = [1]
@@ -119,7 +122,7 @@ class MyManualJDOS:
 
             # Extract eigenenergies and occupation numbers
             eps1_n, eps2_n = kpt1.eps_n[:nbands], kpt2.eps_n[:nbands]
-            f1_n, f2_n = kpt1.f_n[:nbands], kpt2.f_n[:nbands]
+            f1_n, f2_n = kpt1.f_n[:nbands] / kpt1.weight, kpt2.f_n[:nbands] / kpt2.weight
 
             # Append data
             de_nm = eps2_n[:, np.newaxis] - eps1_n[np.newaxis]
