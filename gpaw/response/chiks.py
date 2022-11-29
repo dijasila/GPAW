@@ -138,7 +138,7 @@ class ChiKS(PlaneWaveKSLRF):
     def get_temporal_part(self, n1_t, n2_t, s1_t, s2_t, df_t, deps_t):
         """Get the temporal part of the susceptibility integrand."""
         _get_temporal_part = self.create_get_temporal_part()
-        return _get_temporal_part(n1_t, n2_t, s1_t, s2_t, df_t, deps_t)
+        return _get_temporal_part(s1_t, s2_t, df_t, deps_t, n1_t, n2_t)
 
     def create_get_temporal_part(self):
         """Creator component, deciding how to calculate the temporal part"""
@@ -148,24 +148,11 @@ class ChiKS(PlaneWaveKSLRF):
             return self.get_pairwise_temporal_part
         raise ValueError(self.bandsummation)
 
-    def get_double_temporal_part(self, n1_t, n2_t, s1_t, s2_t, df_t, deps_t):
-        """Get:
+    def get_double_temporal_part(self, s1_t, s2_t, df_t, deps_t, *unused):
+        return get_double_temporal_part(self.spincomponent, s1_t, s2_t,
+                                        df_t, deps_t, self.wd.omega_w, self.eta)
 
-               smu_ss' snu_s's (f_nks - f_n'k's')
-        x_wt = ----------------------------------
-               hw - (eps_n'k's'-eps_nks) + ih eta
-        """
-        # Get the right spin components
-        scomps_t = get_smat_components(self.spincomponent, s1_t, s2_t)
-        # Calculate nominator
-        nom_t = - scomps_t * df_t  # df = f2 - f1
-        # Calculate denominator
-        denom_wt = self.wd.omega_w[:, np.newaxis] + 1j * self.eta\
-            - deps_t[np.newaxis, :]  # de = e2 - e1
-
-        return nom_t[np.newaxis, :] / denom_wt
-
-    def get_pairwise_temporal_part(self, n1_t, n2_t, s1_t, s2_t, df_t, deps_t):
+    def get_pairwise_temporal_part(self, s1_t, s2_t, df_t, deps_t, n1_t, n2_t):
         """Get:
                /
                | smu_ss' snu_s's (f_nks - f_n'k's')
@@ -196,6 +183,25 @@ class ChiKS(PlaneWaveKSLRF):
         return nom1_t[np.newaxis, :] / denom1_wt\
             - nom2_t[np.newaxis, :] / denom2_wt
 
+
+def get_double_temporal_part(spincomponent, s1_t, s2_t,
+                             df_t, deps_t, omega_w, eta):
+    r"""Get:
+
+             σ^μ_ss' σ^ν_s's (f_nks - f_n'k's')
+    Χ_t(ω) = ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+               ħω - (ε_n'k's' - ε_nks) + iħη
+    """
+    # Get the right spin components
+    scomps_t = get_smat_components(spincomponent, s1_t, s2_t)
+    # Calculate nominator
+    nom_t = - scomps_t * df_t  # df = f2 - f1
+    # Calculate denominator
+    denom_wt = omega_w[:, np.newaxis] + 1j * eta\
+        - deps_t[np.newaxis, :]  # de = e2 - e1
+
+    return nom_t[np.newaxis, :] / denom_wt
+    
 
 def get_spin_rotation(spincomponent):
     """Get the spin rotation corresponding to the given spin component."""

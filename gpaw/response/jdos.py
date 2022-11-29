@@ -6,7 +6,7 @@ from ase.units import Hartree
 
 from gpaw.response import ResponseContext
 from gpaw.response.kslrf import PairFunctionIntegrator
-from gpaw.response.chiks import get_spin_rotation, get_smat_components
+from gpaw.response.chiks import get_spin_rotation, get_double_temporal_part
 from gpaw.response.frequencies import FrequencyDescriptor
 
 
@@ -78,22 +78,18 @@ class JDOSCalculator(PairFunctionIntegrator):
                         t
         """
         # Get bands and spins of the transitions
-        n1_t, n2_t, s1_t, s2_t = kptpair.get_transitions()
+        _, _, s1_t, s2_t = kptpair.get_transitions()
         # Get (f_n'k's' - f_nks) and (ε_n'k's' - ε_nks)
         df_t, deps_t = kptpair.df_t, kptpair.deps_t
 
-        # Get the right spin matrix components
-        # NB: The implemented spin matrices are real
-        scomps_t = get_smat_components(self.spincomponent, s1_t, s2_t)
-        # Calculate nominator
-        nom_t = - scomps_t * df_t  # df = f2 - f1
-        # Calculate denominator
-        denom_wt = self.wd.omega_w[:, np.newaxis] + 1j * self.eta\
-            - deps_t[np.newaxis, :]  # de = e2 - e1
-
-        # Construct integrand as the spectral part
-        integrand_wt = nom_t[np.newaxis, :] / denom_wt
-        integrand_wt = - integrand_wt.imag / np.pi
+        # Construct jdos integrand via the dissipative part of the frequency
+        # dependence of a causal linear response function
+        # NB: Since the implemented spin matrices are real, the dissipative
+        # part is equal to the imaginary part
+        x_wt = get_double_temporal_part(self.spincomponent, s1_t, s2_t,
+                                        df_t, deps_t,
+                                        self.wd.omega_w, self.eta)
+        integrand_wt = - x_wt.imag / np.pi
 
         with self.context.timer('Perform sum over t-transitions'):
             jdos_w += weight * np.sum(integrand_wt, axis=1)
