@@ -65,6 +65,9 @@ class FakeWFS:
     def collect_projections(self, k, s):
         return self.kpt_qs[k][s].projections.collect()
 
+    def collect_eigenvalues(self, k, s):
+        return self.state.ibzwfs.wfs_qs[k][s].eig_n.copy()
+
     @cached_property
     def kpt_u(self):
         return [kpt
