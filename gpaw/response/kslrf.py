@@ -1171,7 +1171,7 @@ class KPointPairIntegral(ABC):
         prefactor = outer_prefactor * kpointvol
 
         # Generate k-point pairs
-        for k_pc, weight in self._domain:
+        for k_pc, weight in zip(*self._domain):
             integral_weight = prefactor * weight
             kptpair = self.kspair.get_kpoint_pairs(n1_t, n2_t,
                                                    k_pc, k_pc + self.q_c,
