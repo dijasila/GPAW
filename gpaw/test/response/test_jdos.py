@@ -4,6 +4,8 @@ import numpy as np
 from itertools import product
 
 # Script modules
+from ase.units import Hartree
+
 from gpaw import GPAW
 from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.frequencies import FrequencyDescriptor
@@ -16,7 +18,7 @@ def test_iron_jdos(in_tmp_dir, gpw_files):
     # ---------- Inputs ---------- #
 
     q_qc = [[0.0, 0.0, 0.0], [0.0, 0.0, 1. / 4.]]  # Two q-points along G-N
-    wd = FrequencyDescriptor.from_array_or_dict(np.linspace(0.0, 4.0, 161))
+    wd = FrequencyDescriptor.from_array_or_dict(np.linspace(-10.0, 10.0, 321))
     eta = 0.2
 
     spincomponent_s = ['00', '+-']
@@ -34,7 +36,9 @@ def test_iron_jdos(in_tmp_dir, gpw_files):
     for q_c, spincomponent in product(q_qc, spincomponent_s):
         jdos_w = jdos_calc.calculate(q_c, wd,
                                      eta=eta,
-                                     spincomponent=spincomponent)
+                                     spincomponent=spincomponent,
+                                     nbands=nbands)
         plt.subplot()
-        plt.plot(wd.omega_w, jdos_w)
+        plt.plot(wd.omega_w * Hartree, jdos_w)
+        plt.title(f'{q_c} {spincomponent}')
         plt.show()
