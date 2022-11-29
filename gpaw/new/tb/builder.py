@@ -119,7 +119,7 @@ class TBPotentialCalculator(PotentialCalculator):
     def calculate_charges(self, vHt_r):
         return {a: np.zeros(9) for a, setup in enumerate(self.setups)}
 
-    def _calculate(self, density, vHt_r):
+    def _calculate(self, density, ibzwfs, vHt_r):
         vt_sR = density.nt_sR
 
         atoms = self.atoms

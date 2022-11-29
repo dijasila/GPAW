@@ -1,23 +1,23 @@
 import numpy as np
 from gpaw.xc.functional import XCFunctional
-from gpaw.new.calculation import DFTState
 from gpaw.xc.gga import add_gradient_correction, gga_vars
 
 
 def create_functional(xc: XCFunctional,
-                      grid, fine_grid, setups, fracpos_ac):
-    if xc.type == 'mgga':
-        return MGGAFunctional(xc, grid, fine_grid, setups, fracpos_ac):
-    return LDAOrGGAFunctional(xc, fine_grid)
+                      grid, coarse_grid, setups, fracpos_ac):
+    if xc.type == 'MGGA':
+        return MGGAFunctional(xc, grid, coarse_grid, setups, fracpos_ac)
+    return LDAOrGGAFunctional(xc, grid)
 
 
 class Functional:
-    def __init__(self, x):
+    def __init__(self, xc, grid):
         self.xc = xc
         self.setup_name = self.xc.get_setup_name()
         self.name = self.xc.name
         self.no_forces = self.name.startswith('GLLB')
         self.type = self.xc.type
+        self.xc.set_grid_descriptor(grid._gd)
 
     def __str__(self):
         return f'name: {self.xc.get_description()}'
@@ -31,29 +31,25 @@ class Functional:
 
 class LDAOrGGAFunctional(Functional):
     def calculate(self, nt_sr, ibzwfs, vxct_sr) -> float:
-        if self.xc.gd is None
-            self.xc.set_grid_descriptor(nt_sr.desc._gd)
-
         return self.xc.calculate(self.xc.gd, nt_sr.data, vxct_sr.data)
 
 
 class MGGAFunctional(Functional):
-    def __init__(self, xc):
+    def __init__(self, xc, grid, coarse_grid, setups, fracpos_ac)
         super()(xc)
-        self._ked = None
-
-    def ked(self, ibzwfs):
-        if self._ked is None:
-            self._ked = KED(ibzwfs)
-        return self._ked
 
     def get_setup_name(self):
         return 'PBE'
 
     def calculate(self, nt_sr, ibzwfs, vxct_sr) -> float:
-        if self.xc.gd is None
-            self.xc.set_grid_descriptor(nt_sr.desc._gd)
+        taut_sG = self.wfs.calculate_kinetic_energy_density()
+        if taut_sG is None:
+            taut_sG = self.wfs.gd.zeros(len(nt_sg))
 
+
+        for taut_G, taut_g in zip(taut_sG, taut_sg):
+            taut_G += 1.0 / self.wfs.nspins * self.tauct_G
+            self.distribute_and_interpolate(taut_G, taut_g)
         ked = self.ked(ibzwfs)
         taut_sr = ked.calculate(ibzwfs)
         gd = self.xc.gd
@@ -87,32 +83,4 @@ class MGGAFunctional(Functional):
             self.dedtaut_sG[kpt.s])
 
 
-class KED:
-    def __init__(self, ibzwfs):
-        ...
 
-    def calculate(self, ibzwfs):
-        taut_sG = self.wfs.calculate_kinetic_energy_density()
-        if taut_sG is None:
-            taut_sG = self.wfs.gd.zeros(len(nt_sg))
-
-        if 0:  # taut_sG is None:
-            # Below code disabled because it produces garbage in at least
-            # some cases.
-            #
-            # See https://gitlab.com/gpaw/gpaw/issues/124
-            #
-            # Initialize with von Weizsaecker kinetic energy density:
-            nt0_sg = nt_sg.copy()
-            nt0_sg[nt0_sg < 1e-10] = np.inf
-            taut_sg = sigma_xg[::2] / 8 / nt0_sg
-            nspins = self.wfs.nspins
-            taut_sG = self.wfs.gd.empty(nspins)
-            for taut_G, taut_g in zip(taut_sG, taut_sg):
-                self.restrict_and_collect(taut_g, taut_G)
-        else:
-            taut_sg = np.empty_like(nt_sg)
-
-        for taut_G, taut_g in zip(taut_sG, taut_sg):
-            taut_G += 1.0 / self.wfs.nspins * self.tauct_G
-            self.distribute_and_interpolate(taut_G, taut_g)

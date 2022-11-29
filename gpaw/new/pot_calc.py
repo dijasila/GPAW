@@ -45,8 +45,8 @@ class PotentialCalculator:
         return (f'{self.poisson_solver}\n'
                 f'xc functional:\n{indent(self.xc)}\n')
 
-    def calculate(self, density, vHt_x=None):
-        energies, vt_sR, vHt_x = self._calculate(density, vHt_x)
+    def calculate(self, density, ibzwfs=None, vHt_x=None):
+        energies, vt_sR, vHt_x = self._calculate(density, ibzwfs, vHt_x)
 
         Q_aL = self.calculate_charges(vHt_x)
         dH_asii, corrections = calculate_non_local_potential(

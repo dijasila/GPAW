@@ -69,12 +69,11 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
 
         return nt_sr, pw, nt0_g
 
-    def _calculate(self, state, vHt_h):
-        density = state.density
+    def _calculate(self, density, ibzwfs, vHt_h):
         nt_sr, pw, nt0_g = self._interpolate_density(density.nt_sR)
 
         vxct_sr = nt_sr.desc.zeros(density.nt_sR.dims)
-        e_xc = self.xc.calculate(nt_sr, state.ibzwfs, vxct_sr)
+        e_xc = self.xc.calculate(nt_sr, ibzwfs, vxct_sr)
 
         if pw.comm.rank == 0:
             nt0_g.data *= 1 / np.prod(density.nt_sR.desc.size_c)

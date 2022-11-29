@@ -11,6 +11,7 @@ def new(x):
     params = {'mode': {'name': 'fd', 'force_complex_dtype': 0},
               'random': not True,
               'kpts': (4, 1, 1),
+              'xc': 'M06-L',
               'spinpol': not True,
               'convergence': {'maximum iterations': 200}}
 

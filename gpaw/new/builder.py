@@ -126,6 +126,8 @@ class DFTComponentsBuilder:
         self.fracpos_ac %= 1
         self.fracpos_ac %= 1
 
+        self.xc = self.create_xc_functional()
+
     def create_uniform_grids(self):
         raise NotImplementedError
 
