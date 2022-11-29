@@ -2,6 +2,8 @@ from functools import partial
 
 import numpy as np
 
+from ase.units import Hartree
+
 from gpaw.response import ResponseContext
 from gpaw.response.kslrf import PairFunctionIntegrator
 from gpaw.response.chiks import get_spin_rotation, get_smat_components
@@ -42,7 +44,7 @@ class JDOSCalculator(PairFunctionIntegrator):
         # Set inputs on self, so that they can be accessed later
         self.spincomponent = spincomponent
         self.wd = wd
-        self.eta = eta
+        self.eta = eta / Hartree  # eV -> Hartree
 
         # Analyze the requested spin component
         spinrot = get_spin_rotation(spincomponent)
