@@ -4,7 +4,6 @@ import pytest
 from itertools import product
 
 import numpy as np
-from scipy.spatial import cKDTree
 
 import matplotlib.pyplot as plt
 
@@ -15,6 +14,7 @@ from gpaw import GPAW
 from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.frequencies import FrequencyDescriptor
 from gpaw.response.jdos import JDOSCalculator
+from gpaw.response.symmetry import KPointFinder
 
 
 def test_iron_jdos(in_tmp_dir, gpw_files):
@@ -62,7 +62,7 @@ class MyManualJDOS:
         kd = calc.wfs.kd
         gd = calc.wfs.gd
         self.kd = kd
-        self.kdtree = cKDTree(np.mod(np.mod(kd.bzk_kc, 1).round(6), 1))
+        self.kptfinder = KPointFinder(kd.bzk_kc)
         self.kweight = 1 / (gd.volume * len(kd.bzk_kc))
 
     def calculate(self, q_c, omega_w, eta=0.05, spincomponent='00', nbands=None):
@@ -108,7 +108,7 @@ class MyManualJDOS:
             raise ValueError(spincomponent)
 
         # Find k_c + q_c
-        K2 = self.kdtree.query(np.mod(np.mod(k1_c + q_c, 1).round(6), 1))[1]
+        K2 = self.kptfinder.find(k1_c + q_c)
 
         de_t = []
         df_t = []
