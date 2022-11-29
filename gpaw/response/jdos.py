@@ -70,9 +70,9 @@ class JDOSCalculator(PairFunctionIntegrator):
         bandsummation: double
 
                         __
-                        \  σ^μ_ss' σ^ν_s's (f_nks - f_n'k's')
-        (...)_k = -π Im /  ----------------------------------
-                        ‾‾   ħω - (ε_n'k's' - ε_nks) + iħη
+                  -1    \  σ^μ_ss' σ^ν_s's (f_nks - f_n'k's')
+        (...)_k = ‾‾ Im /  ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+                  π     ‾‾   ħω - (ε_n'k's' - ε_nks) + iħη
                         t
         """
         # Get bands and spins of the transitions
@@ -91,7 +91,7 @@ class JDOSCalculator(PairFunctionIntegrator):
 
         # Construct integrand as the spectral part
         integrand_wt = nom_t[np.newaxis, :] / denom_wt
-        integrand_wt = - np.pi * integrand_wt.imag
+        integrand_wt = - integrand_wt.imag / np.pi
 
         with self.context.timer('Perform sum over t-transitions'):
             jdos_w += weight * np.sum(integrand_wt, axis=1)
