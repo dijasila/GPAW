@@ -38,7 +38,7 @@ class ChiFactory:
         self._blocks1d = None
 
     def __call__(self, spincomponent, q_c, frequencies,
-                 fxc='ALDA', fxckwargs={}, txt=None):
+                 fxc='ALDA', fxckwargs=None, txt=None):
         """Calculate a given element (spincomponent) of the four-component
         Kohn-Sham susceptibility tensor and construct a corresponding many-body
         susceptibility object within a given approximation to the
@@ -134,6 +134,8 @@ class ChiFactory:
     def get_xc_kernel(self, fxc, spincomponent, pd, *,
                       fxckwargs, wd, blocks1d, chiks_wGG):
         """Calculate the xc kernel."""
+        if fxckwargs is None:
+            fxckwargs = {}
         assert isinstance(fxckwargs, dict)
         if 'fxc_scaling' in fxckwargs:
             assert spincomponent in ['+-', '-+']
