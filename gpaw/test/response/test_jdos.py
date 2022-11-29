@@ -126,8 +126,8 @@ class MyManualJDOS:
         calc = self.calc
         for s1, s2 in zip(s1_s, s2_s):
             # Get composite u=(s,k) indices and KPoint objects
-            u1 = kd.bz2ibz_k[K1] + s1 * kd.nibzkpts
-            u2 = kd.bz2ibz_k[K2] + s2 * kd.nibzkpts
+            u1 = kd.bz2ibz_k[K1] * 2 + s1  # nspins = 2
+            u2 = kd.bz2ibz_k[K2] * 2 + s2
             kpt1, kpt2 = calc.wfs.kpt_u[u1], calc.wfs.kpt_u[u2]
 
             # Extract eigenenergies and occupation numbers
