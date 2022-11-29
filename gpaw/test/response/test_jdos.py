@@ -75,7 +75,7 @@ class MyManualJDOS:
 
         for a given spin component specifying the spin transitions s -> s'.
         """
-        
+        q_c = np.asarray(q_c)
         # Internal frequencies in Hartree
         omega_w = omega_w / Hartree
         eta = eta / Hartree
