@@ -442,16 +442,15 @@ class PairFunctionIntegrator(ABC):
             self.disable_symmetries = False
 
     @timer('Integrate pair function')
-    def _integrate(self, q_c, out_x, n1_t, n2_t, s1_t, s2_t,
-                   ecut=50 / Hartree, gammacentered=False):
+    def _integrate(self, pd, out_x, n1_t, n2_t, s1_t, s2_t):
         """In-place pair function integration
 
         Parameters
         ----------
-        q_c : list or np.array
-            Wave vector in relative coordinates
-        out_x : arbitrary
-            Output data structure (e.g. a np.array)
+        pd : PWDescriptor
+            Plane-wave descriptor of the q-vector in question
+        out_x : np.array
+            Output array
         n1_t : np.array
             Band index of k-point k for each transition t.
         n2_t : np.array
@@ -460,14 +459,8 @@ class PairFunctionIntegrator(ABC):
             Spin index of k-point k for each transition t.
         s2_t : np.array
             Spin index of k-point k + q for each transition t.
-        ecut : float
-            Plane wave cutoff in Hartree (internal units)
-        gammacentered : bool
-            Center the grid of plane waves around the Γ-point (or the q-vector)
         """
-        # Initialize plane-wave descriptor and symmetry analyzer
-        pd = self._get_PWDescriptor(q_c, ecut=ecut,
-                                    gammacentered=gammacentered)
+        # Initialize the plane-wave symmetry analyzer
         analyzer = self.get_PWSymmetryAnalyzer(pd)
 
         # Perform the actual integral as a point integral over k-point pairs
