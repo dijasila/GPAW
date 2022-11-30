@@ -65,7 +65,7 @@ with broadcast_imports:
     import _gpaw
 
 
-if getattr(_gpaw, 'version', 0) != 3:
+if getattr(_gpaw, 'version', 0) != 4:
     raise ImportError('Please recompile GPAW''s C-extensions!')
 
 
