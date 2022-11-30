@@ -100,6 +100,8 @@ void fastlda(int N,
             v[r] += (-ex / rs +
                      -2.0 * A * alpha1 * G1 / Q0 - Q0 * dQ1drs / (Q1 * (Q1 + 1.0)));
             e[r] = ex + G1;
+            e_g[g] = n * (ex + ec);
+            v_g[g] += ex + ec - rs * (dexdrs + decdrs) / 3.0;
         }
     }
 }
