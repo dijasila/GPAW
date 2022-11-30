@@ -8,6 +8,7 @@ from gpaw.utilities.blas import mmmx
 
 from gpaw.response import ResponseContext, timer
 from gpaw.response.frequencies import FrequencyDescriptor
+from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.response.kslrf import PlaneWaveKSLRF, PairFunctionIntegrator
 from gpaw.response.kspair import PlaneWavePairDensity
 
@@ -169,6 +170,8 @@ class ChiKSCalculator(PairFunctionIntegrator):
 
         super().__init__(gs, context, nblocks=nblocks, **kwargs)
 
+        self.pair_density = PlaneWavePairDensity(self.kspair)
+
     def calculate(self, spincomponent, q_c, wd,
                   eta=0.2,
                   ecut=50,
@@ -204,8 +207,8 @@ class ChiKSCalculator(PairFunctionIntegrator):
             'double': double sum over band indices.
         bundle_integrals : bool
             Do the k-point integrals (large matrix multiplications)
-            simultaneously for all frequencies.
-            Can be switched of, if this step forces calculations out of memory.
+            simultaneously for all frequencies (does not change the result,
+            but can affect the overall performance).
         """
         assert isinstance(wd, FrequencyDescriptor)
 
@@ -229,12 +232,46 @@ class ChiKSCalculator(PairFunctionIntegrator):
 
         self.print_information(pdi, len(wd), eta,
                                spincomponent, nbands, len(n1_t))
+
+        self.context.print('Initializing pair densities')
+        self.pair_density.initialize(pdi)
+
+        # Allocate array
+        blocks1d = Blocks1D(self.blockcomm, pdi.ngmax)
+        chiks_x = self.set_up_array(blocks1d)
         
         # To-do XXX
         # - Allocate array
         # - Integrate
         # - Post-process
         # - add_integrand
+
+    def set_up_array(self, nw, blocks1d, chiks_x=None):
+        """Initialize the chiks_x array."""
+        nG = blocks1d.N
+        nGlocal = blocks1d.nlocal
+        localsize = nw * nGlocal * nG
+
+        if self.bundle_integrals:
+            # Set up A_GwG
+            shape = (nG, nw, nGlocal)
+            if chiks_x is not None:
+                A_GwG = chiks_x[:localsize].reshape(shape)
+                A_GwG[:] = 0.0
+            else:
+                A_GwG = np.zeros(shape, complex)
+
+            return A_GwG
+        else:
+            # Setup A_wGG
+            shape = (nw, nGlocal, nG)
+            if chiks_x is not None:
+                A_wGG = chiks_x[:localsize].reshape(shape)
+                A_wGG[:] = 0.0
+            else:
+                A_wGG = np.zeros(shape, complex)
+
+            return A_wGG
 
     def print_information(self, pd, nw, eta, spincomponent, nbands, nt):
         """Print information about the joint density of states calculation"""
@@ -268,6 +305,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
         p('        A_wGG: %f M / cpu' % Asize)
         p('        Memory usage before allocation: %f M / cpu' % (maxrss() /
                                                                   1024**2))
+        self.context.print()
 
 
 def get_temporal_part(spincomponent, omega_w, eta,
