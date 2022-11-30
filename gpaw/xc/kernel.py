@@ -11,6 +11,7 @@ codes = {
     'PW91': 14,
     'TPSS': 20,
     'M06-L': 21,
+    'FASTLDA': 117,
     'revTPSS': 22}
 # NOTE: when adding MGGA functionals to the above
 # list, self.type must be set to MGGA in XCKernel:__init__
@@ -27,7 +28,7 @@ class XCNull:
 class XCKernel:
     def __init__(self, name):
         self.name = name
-        if name == 'LDA':
+        if name == 'LDA' or name == 'FASTLDA':
             self.type = 'LDA'
         elif name == 'TPSS' or name == 'M06-L' or name == 'revTPSS':
             self.type = 'MGGA'

@@ -7,7 +7,7 @@ from gpaw.xc.kernel import XCKernel
 @pytest.mark.libxc
 def test_xc_xc():
     name = 'LDA'
-    for xc in [LibXC(name), XCKernel(name)]:
+    for xc in [LibXC(name), XCKernel(name), XCKernel('FASTLDA')]:
         n0 = 1e-10
         n_sr = np.array([[-2, -0.5, 0.0, 0.45, 0.55, 1.5]]) * n0
         n_sr = np.linspace(-15, -9, 101)[np.newaxis]
