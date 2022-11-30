@@ -45,14 +45,13 @@ def test_iron_jdos(in_tmp_dir, gpw_files):
     jdos_refcalc = MyManualJDOS(serial_calc)
 
     for q_c, spincomponent in product(q_qc, spincomponent_s):
-        jdosref_w = jdos_refcalc.calculate(q_c, wd.omega_w * Hartree,
+        jdosref_w = jdos_refcalc.calculate(spincomponent, q_c,
+                                           wd.omega_w * Hartree,
                                            eta=eta,
-                                           spincomponent=spincomponent,
                                            nbands=nbands)
         for bandsummation in bandsummation_b:
-            jdos_w = jdos_calc.calculate(q_c, wd,
+            jdos_w = jdos_calc.calculate(spincomponent, q_c, wd,
                                          eta=eta,
-                                         spincomponent=spincomponent,
                                          nbands=nbands)
             assert jdos_w == pytest.approx(jdosref_w)
 
@@ -73,8 +72,9 @@ class MyManualJDOS:
         self.kptfinder = KPointFinder(kd.bzk_kc)
         self.kweight = 1 / (gd.volume * len(kd.bzk_kc))
 
-    def calculate(self, q_c, omega_w, eta=0.05,
-                  spincomponent='00', nbands=None):
+    def calculate(self, spincomponent, q_c, omega_w,
+                  eta=0.2,
+                  nbands=None):
         r"""Calculate the joint density of states:
                        __  __
                     1  \   \

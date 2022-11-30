@@ -41,24 +41,23 @@ class JDOSCalculator(PairFunctionIntegrator):
 
         super().__init__(gs, context, **kwargs)
 
-    def calculate(self, q_c, wd,
+    def calculate(self, spincomponent, q_c, wd,
                   eta=0.2,
-                  spincomponent=None,
                   nbands=None,
                   bandsummation='pairwise'):
         """Calculate g^μν(q,ω) using a lorentzian broadening of the δ-function
 
         Parameters
         ----------
+        spincomponent : str
+            Spin component (μν) of the joint density of states.
+            Currently, '00', 'uu', 'dd', '+-' and '-+' are implemented.
         q_c : list or np.array
             Wave vector in relative coordinates
         wd : FrequencyDescriptor
             Frequencies to evaluate g^μν(q,ω) at
         eta : float
             HWHM broadening of the δ-function
-        spincomponent : str or int
-            Spin component (μν) of the joint density of states.
-            Currently, '00', 'uu', 'dd', '+-' and '-+' are implemented.
         nbands : int
             Number of bands to include in the sum over states
         bandsummation : str
@@ -70,9 +69,9 @@ class JDOSCalculator(PairFunctionIntegrator):
         assert isinstance(wd, FrequencyDescriptor)
 
         # Set inputs on self, so that they can be accessed later
+        self.spincomponent = spincomponent
         self.wd = wd
         self.eta = eta / Hartree  # eV -> Hartree
-        self.spincomponent = spincomponent
         self.bandsummation = bandsummation
 
         # Analyze the requested spin component
