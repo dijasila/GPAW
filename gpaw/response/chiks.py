@@ -177,6 +177,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
                   ecut=50,
                   gammacentered=False,
                   nbands=None,
+                  chiks_x=None,
                   bundle_integrals=True,
                   bandsummation='pairwise'):
         r"""Calculate χ_KS,GG'^μν(q,ω+iη)
@@ -200,6 +201,8 @@ class ChiKSCalculator(PairFunctionIntegrator):
             Center the grid of plane waves around the Γ-point (or the q-vector)
         nbands : int
             Number of bands to include in the sum over states
+        chiks_x : np.array
+            Pre-existing integration buffer
         bandsummation : str
             Band summation strategy (does not change the result, but can affect
             the run-time).
@@ -209,6 +212,11 @@ class ChiKSCalculator(PairFunctionIntegrator):
             Do the k-point integrals (large matrix multiplications)
             simultaneously for all frequencies (does not change the result,
             but can affect the overall performance).
+
+        Returns
+        -------
+        pd : PWDescriptor
+        chiks_wGG : np.array
         """
         assert isinstance(wd, FrequencyDescriptor)
 
@@ -236,15 +244,17 @@ class ChiKSCalculator(PairFunctionIntegrator):
         self.context.print('Initializing pair densities')
         self.pair_density.initialize(pdi)
 
-        # Allocate array
+        # Allocate array (or clean up existing buffer)
         blocks1d = Blocks1D(self.blockcomm, pdi.ngmax)
-        chiks_x = self.set_up_array(blocks1d)
-        
-        # To-do XXX
-        # - Allocate array
-        # - Integrate
-        # - Post-process
-        # - add_integrand
+        chiks_x = self.set_up_array(blocks1d, chiks_x=chiks_x)
+
+        # Perform the actual integration
+        self._integrate(pdi, chiks_x, n1_t, n2_t, s1_t, s2_t)
+
+        # Map to output format
+        pd, chiks_wGG = self.post_process(pdi, chiks_x)
+
+        return pd, chiks_wGG
 
     def set_up_array(self, nw, blocks1d, chiks_x=None):
         """Initialize the chiks_x array."""
