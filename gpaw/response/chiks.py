@@ -1,3 +1,5 @@
+from functools import partial
+
 import numpy as np
 
 from ase.units import Hartree
@@ -213,6 +215,59 @@ class ChiKSCalculator(PairFunctionIntegrator):
         self.eta = eta / Hartree  # eV -> Hartree
         self.bundle_integrals = bundle_integrals
         self.bandsummation = bandsummation
+
+        # Set up the internal plane-wave descriptor
+        pdi = self._get_PWDescriptor(q_c, ecut=ecut / Hartree,  # eV -> Hartree
+                                     gammacentered=gammacentered)
+
+        # Analyze the requested spin component
+        spinrot = get_spin_rotation(spincomponent)
+
+        # Prepare to sum over bands and spins
+        n1_t, n2_t, s1_t, s2_t = self.get_band_and_spin_transitions_domain(
+            spinrot, nbands=nbands, bandsummation=bandsummation)
+
+        self.print_information(pdi, len(wd), eta,
+                               spincomponent, nbands, len(n1_t))
+        
+        # To-do XXX
+        # - Allocate array
+        # - Integrate
+        # - Post-process
+        # - add_integrand
+
+    def print_information(self, pd, nw, eta, spincomponent, nbands, nt):
+        """Print information about the joint density of states calculation"""
+        from gpaw.utilities.memory import maxrss
+
+        q_c = pd.kd.bzk_kc[0]
+        ecut = pd.ecut * Hartree
+        Asize = nw * pd.ngmax**2 * 16. / 1024**2 / self.blockcomm.size
+        
+        p = partial(self.context.print, flush=False)
+
+        p('Calculating the Kohn-Sham susceptibility with:')
+        p('    Spin component: %s' % spincomponent)
+        p('    q_c: [%f, %f, %f]' % (q_c[0], q_c[1], q_c[2]))
+        p('    Number of frequency points: %d' % nw)
+        p('    Broadening (eta): %f' % eta)
+        if nbands is None:
+            p('    Bands included: All')
+        else:
+            p('    Number of bands included: %d' % nbands)
+        p('Resulting in:')
+        p('    A total number of band and spin transitions of: %d' % nt)
+        p('')
+
+        self.print_basic_information()
+
+        p('The Kohn-Sham susceptibility is calculated in a plane-wave basis:')
+        p('    Planewave cutoff: %f' % ecut)
+        p('    Number of planewaves: %d' % pd.ngmax)
+        p('    Memory estimates:')
+        p('        A_wGG: %f M / cpu' % Asize)
+        p('        Memory usage before allocation: %f M / cpu' % (maxrss() /
+                                                                  1024**2))
 
 
 def get_temporal_part(spincomponent, omega_w, eta,
