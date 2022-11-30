@@ -542,7 +542,7 @@ class PairFunctionIntegrator(ABC):
                                       gammacentered=gammacentered,
                                       internal=False)
 
-    def _get_PWDescriptor(self, q_c, ecut=50, gammacentered=False,
+    def _get_PWDescriptor(self, q_c, ecut=50 / Hartree, gammacentered=False,
                           internal=True):
         """Get plane-wave descriptor for the wave vector q_c.
 
