@@ -8,7 +8,8 @@ from gpaw.utilities.blas import mmmx
 
 from gpaw.response import ResponseContext, timer
 from gpaw.response.frequencies import FrequencyDescriptor
-from gpaw.response.pw_parallelization import Blocks1D
+from gpaw.response.pw_parallelization import (Blocks1D,
+                                              PlaneWaveBlockDistributor)
 from gpaw.response.kslrf import PlaneWaveKSLRF, PairFunctionIntegrator
 from gpaw.response.kspair import PlaneWavePairDensity
 
@@ -252,9 +253,9 @@ class ChiKSCalculator(PairFunctionIntegrator):
         self._integrate(pdi, chiks_x, n1_t, n2_t, s1_t, s2_t)
 
         # Map to output format
-        pd, chiks_wGG = self.post_process(pdi, chiks_x)
+        pd, chiks_WgG = self.post_process(pdi, chiks_x)
 
-        return pd, chiks_wGG
+        return pd, chiks_WgG
 
     def set_up_array(self, nw, blocks1d, chiks_x=None):
         """Initialize the chiks_x array."""
@@ -263,25 +264,56 @@ class ChiKSCalculator(PairFunctionIntegrator):
         localsize = nw * nGlocal * nG
 
         if self.bundle_integrals:
-            # Set up A_GwG
+            # Set up chiks_GWg
             shape = (nG, nw, nGlocal)
             if chiks_x is not None:
-                A_GwG = chiks_x[:localsize].reshape(shape)
-                A_GwG[:] = 0.0
+                chiks_GWg = chiks_x[:localsize].reshape(shape)
+                chiks_GWg[:] = 0.0
             else:
-                A_GwG = np.zeros(shape, complex)
+                chiks_GWg = np.zeros(shape, complex)
 
-            return A_GwG
+            return chiks_GWg
         else:
-            # Setup A_wGG
+            # Set up chiks_WgG
             shape = (nw, nGlocal, nG)
             if chiks_x is not None:
-                A_wGG = chiks_x[:localsize].reshape(shape)
-                A_wGG[:] = 0.0
+                chiks_WgG = chiks_x[:localsize].reshape(shape)
+                chiks_WgG[:] = 0.0
             else:
-                A_wGG = np.zeros(shape, complex)
+                chiks_WgG = np.zeros(shape, complex)
 
-            return A_wGG
+            return chiks_WgG
+
+    @timer('Post processing')
+    def post_process(self, pdi, chiks_x):
+        if self.bundle_integrals:
+            # chiks_x = chiks_GWg
+            chiks_WgG = chiks_x.transpose((1, 2, 0))
+        else:
+            chiks_WgG = chiks_x
+        nw = chiks_WgG.shape[0]
+
+        # Distribute over frequencies
+        blockdist = PlaneWaveBlockDistributor(self.context.world,
+                                              self.blockcomm,
+                                              self.intrablockcomm)
+        tmp_wGG = blockdist.distribute_as(chiks_WgG, nw, 'wGG')
+        with self.context.timer('Symmetrizing chiks_wGG'):
+            # To-do: Make the analyzer accessible!                             XXX
+            self.pwsa.symmetrize_wGG(tmp_wGG)
+        # Distribute over plane waves
+        chiks_WgG[:] = blockdist.distribute_as(tmp_wGG, nw, 'WgG')
+
+        # To-do: Make pass gammacentered with pdi?                             XXX
+        if self.gammacentered and not self.disable_symmetries:
+            # Reduce the q-specific basis to the global basis
+            q_c = pdi.kd.bzk_kc[0]
+            pd = self.get_PWDescriptor(q_c)
+            chiks_WgG = self.map_to(pd, chiks_WgG)  # Add functionality!       XXX
+        else:
+            pd = pdi
+
+        return pd, chiks_WgG
 
     def print_information(self, pd, nw, eta, spincomponent, nbands, nt):
         """Print information about the joint density of states calculation"""
