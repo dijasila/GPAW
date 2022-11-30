@@ -11,13 +11,29 @@ from gpaw.response.frequencies import FrequencyDescriptor
 
 
 class JDOSCalculator(PairFunctionIntegrator):
-    """
-    Some documentation here!                                                   XXX
+    r"""Calculator class for the joint density of states of collinear systems
+    - here defined as the spectral part of the four-component Kohn-Sham
+    susceptibility, see [PRB 103, 245110 (2021)]:
+
+                   __  __
+                1  \   \   /
+    g^μν(q,ω) = ‾  /   /   | σ^μ_ss' σ^ν_s's (f_nks - f_n'k+qs')
+                V  ‾‾  ‾‾  \
+                   k   t                                \
+                             x δ(ħω - [ε_n'k's'-ε_nks]) |
+                                                        /
+
+    where t is a composit band and spin transition index: (n, s) -> (n', s').
     """
 
     def __init__(self, gs, context=None, **kwargs):
-        """
-        Some documentation here!                                               XXX
+        """Contruct the JDOSCalculator
+
+        Parameters
+        ----------
+        gs : ResponseGroundStateAdapter
+        context : ResponseContext
+        kwargs : see gpaw.kslrf.PairFunctionIntegrator
         """
         if context is None:
             context = ResponseContext()
@@ -30,18 +46,26 @@ class JDOSCalculator(PairFunctionIntegrator):
                   spincomponent=None,
                   nbands=None,
                   bandsummation='pairwise'):
-        """
-        Some documentation here!                                               XXX
-        To do:
-          - bandsummation, nbands documentation!
+        """Calculate g^μν(q,ω) using a lorentzian broadening of the δ-function
 
         Parameters
         ----------
+        q_c : list or np.array
+            Wave vector in relative coordinates
+        wd : FrequencyDescriptor
+            Frequencies to evaluate g^μν(q,ω) at
+        eta : float
+            HWHM broadening of the δ-function
         spincomponent : str or int
-            What susceptibility should be calculated?
+            Spin component (μν) of the joint density of states.
             Currently, '00', 'uu', 'dd', '+-' and '-+' are implemented.
-            'all' is an alias for '00', kept for backwards compability
-            Likewise 0 or 1, can be used for 'uu' or 'dd'
+        nbands : int
+            Number of bands to include in the sum over states
+        bandsummation : str
+            Band summation strategy (does not change the result, but can affect
+            the run-time).
+            'pairwise': sum over pairs of bands
+            'double': double sum over band indices.
         """
         assert isinstance(wd, FrequencyDescriptor)
 
@@ -71,24 +95,24 @@ class JDOSCalculator(PairFunctionIntegrator):
         return jdos_w
 
     def add_integrand(self, kptpair, weight, jdos_w):
-        r"""
-        Some documentation here!                                              XXX
-
+        r"""Add the g^μν(q,ω) integrand of the outer k-point integral:
                         __
                   -1    \  σ^μ_ss' σ^ν_s's (f_nks - f_n'k's')
         (...)_k = ‾‾ Im /  ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
                   π     ‾‾   ħω - (ε_n'k's' - ε_nks) + iħη
                         t
+
+        NB: Since the implemented spin matrices are real, the dissipative part
+        is equal to the imaginary part (up to a factor of π) of the full
+        integrand.
         """
         # Get bands and spins of the transitions
         n1_t, n2_t, s1_t, s2_t = kptpair.get_transitions()
         # Get (f_n'k's' - f_nks) and (ε_n'k's' - ε_nks)
         df_t, deps_t = kptpair.df_t, kptpair.deps_t
 
-        # Construct jdos integrand via the dissipative part of the frequency
-        # dependence of a causal linear response function
-        # NB: Since the implemented spin matrices are real, the dissipative
-        # part is equal to the imaginary part
+        # Construct jdos integrand via the imaginary part of the frequency
+        # dependence in χ_KS^μν(q,ω)
         x_wt = get_temporal_part(self.spincomponent, self.wd.omega_w, self.eta,
                                  n1_t, n2_t, s1_t, s2_t, df_t, deps_t,
                                  self.bandsummation)
