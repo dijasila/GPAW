@@ -330,18 +330,87 @@ class KohnShamLinearResponseFunction:  # Future PairFunctionIntegrator? XXX
 
 
 class PairFunctionIntegrator(ABC):
-    """Baseclass bla bla bla...
-    Some documentation here!                                                   XXX
-    NB: Based on a plane-wave representation!                                  XXX
-    NB: Assumes absence of spin-orbit coupling!                                XXX
+    r"""Baseclass for computing pair functions in the Kohn-Sham system of
+    collinear periodic crystals in absence of spin-orbit coupling.
+
+    A pair function is understood as any function, which can be constructed as
+    a sum over transitions between Kohn-Sham eigenstates at k and k + q,
+                  __  __  __                            __
+               1  \   \   \                          1  \
+    pf(q,z) =  ‾  /   /   /   pf_nks,n'k+qs'(q,z) =  ‾  /  pf_T(q,z)
+               V  ‾‾  ‾‾  ‾‾                         V  ‾‾
+                  k  n,n' s,s'                          T
+
+    where z is decodes any additional variables (usually this will be some sort
+    of complex frequency). In the notation used here, V is the crystal volume
+    and T is a composit index encoding all relevant transitions:
+
+    T: (n, k, s) -> (n', k + q, s')
+
+    The sum over transitions can be split into two steps: (1) an integral over
+    k-points k inside the 1st Brillouin Zone and (2) a sum over band and spin
+    transitions t:
+
+    t (composit transition index): (n, s) -> (n', s')
+                  __                 __  __                  __
+               1  \               1  \   \                1  \
+    pf(q,z) =  ‾  /  pf_T(q,z) =  ‾  /   /  pf_kt(q,z) =  ‾  /  (...)_k
+               V  ‾‾              V  ‾‾  ‾‾               V  ‾‾
+                  T                  k   t                   k
+
+    In the code, the k-point integral is handled by a KPointPairIntegral
+    object, while the sum over band and spin transitions t is carried out in
+    the self.add_integrand() method, which also defines the specific pair
+    function in question.
+
+    KPointPairIntegral:
+       __
+    1  \
+    ‾  /  (...)_k
+    V  ‾‾
+       k
+
+    self.add_integrand():
+                __                __   __
+                \                 \    \
+    (...)_k  =  /  pf_kt(q,z)  =  /    /   pf_nks,n'k+qs'(q,z)
+                ‾‾                ‾‾   ‾‾
+                t                 n,n' s,s'
+
+    In practise, the integration is carried out by letting the
+    KPointPairIntegral extract individual KohnShamKPointPair objects, which
+    contain all relevant information about the Kohn-Sham eigenstates at k and
+    k + q for a number of specified spin and band transitions t.
+    KPointPairIntegral.weighted_kpoint_pairs() generates these kptpairs along
+    with their integral weights such that self._integrate() can construct the
+    pair functions in a flexible, yet general manner.
+    
+    NB: Although it is not a fundamental limitation to pair functions as
+    described above, the current implementation is based on a plane-wave
+    represenation of spatial coordinates. This means that symmetries are
+    analyzed with a plane-wave basis in mind, leaving room for further
+    generalization in the future.
     """
 
     def __init__(self, gs, context, nblocks=1,
                  disable_point_group=False,
                  disable_time_reversal=False,
                  disable_non_symmorphic=True):
-        """
-        Some documentation here!                                               XXX
+        """Construct the PairFunctionIntegrator
+
+        Parameters
+        ----------
+        gs : ResponseGroundStateAdapter
+        context : ResponseContext
+        nblocks : int
+            Distribute the pair function into nblocks. Useful when the pair
+            function itself becomes a large array (read: memory limiting).
+        disable_point_group : bool
+            Do not use the point group symmetry operators.
+        disable_time_reversal : bool
+            Do not use time reversal symmetry.
+        disable_non_symmorphic : bool
+            Do no use non symmorphic symmetry operators.
         """
         self.gs = gs
         self.context = context
@@ -374,9 +443,27 @@ class PairFunctionIntegrator(ABC):
 
     @timer('Integrate pair function')
     def _integrate(self, q_c, out_x, n1_t, n2_t, s1_t, s2_t,
-                   ecut=50, gammacentered=False):
-        """
-        Some documentation here!                                               XXX
+                   ecut=50 / Hartree, gammacentered=False):
+        """In-place pair function integration
+
+        Parameters
+        ----------
+        q_c : list or np.array
+            Wave vector in relative coordinates
+        out_x : arbitrary
+            Output data structure (e.g. a np.array)
+        n1_t : np.array
+            Band index of k-point k for each transition t.
+        n2_t : np.array
+            Band index of k-point k + q for each transition t.
+        s1_t : np.array
+            Spin index of k-point k for each transition t.
+        s2_t : np.array
+            Spin index of k-point k + q for each transition t.
+        ecut : float
+            Plane wave cutoff in Hartree (internal units)
+        gammacentered : bool
+            Center the grid of plane waves around the Γ-point (or the q-vector)
         """
         # Initialize plane-wave descriptor and symmetry analyzer
         pd = self._get_PWDescriptor(q_c, ecut=ecut,
@@ -400,8 +487,11 @@ class PairFunctionIntegrator(ABC):
 
     @abstractmethod
     def add_integrand(self, kptpair, weight, out_x):
-        """
-        Some documentation here!                                               XXX
+        """Add the relevant integrand of the outer k-point integral to the
+        output data structure 'out_x', weighted by 'weight' and constructed
+        from the provided KohnShamKPointPair.
+
+        This method effectively defines the pair function in question.
         """
 
     def initialize_communicators(self, nblocks):
