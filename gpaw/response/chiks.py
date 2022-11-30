@@ -195,7 +195,7 @@ def get_pairwise_temporal_part(spincomponent, s1_t, s2_t,
                           ħω + (ε_n'k's' - ε_nks) + iħη    |
                                                            /
     """
-    # Dirac delta
+    # Kroenecker delta
     delta_t = np.ones(len(n1_t))
     delta_t[n2_t <= n1_t] = 0
     # Get the right spin components
