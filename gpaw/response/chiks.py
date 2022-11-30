@@ -1,9 +1,12 @@
 import numpy as np
 
+from ase.units import Hartree
+
 from gpaw.utilities.blas import mmmx
 
-from gpaw.response import timer
-from gpaw.response.kslrf import PlaneWaveKSLRF
+from gpaw.response import ResponseContext, timer
+from gpaw.response.frequencies import FrequencyDescriptor
+from gpaw.response.kslrf import PlaneWaveKSLRF, PairFunctionIntegrator
 from gpaw.response.kspair import PlaneWavePairDensity
 
 
@@ -139,6 +142,77 @@ class ChiKS(PlaneWaveKSLRF):
         return get_temporal_part(self.spincomponent, self.wd.omega_w, self.eta,
                                  n1_t, n2_t, s1_t, s2_t, df_t, deps_t,
                                  self.bandsummation)
+
+
+class ChiKSCalculator(PairFunctionIntegrator):
+    """
+    Some documentation here!                                                   XXX
+    """
+
+    def __init__(self, gs, context=None, nblocks=1, **kwargs):
+        """Contruct the ChiKSCalculator
+
+        Parameters
+        ----------
+        gs : ResponseGroundStateAdapter
+        context : ResponseContext
+        nblocks : int
+            Distribute the chiks_wGG array into nblocks (where nblocks is a
+            divisor of context.world.size)
+        kwargs : see gpaw.kslrf.PairFunctionIntegrator
+        """
+        if context is None:
+            context = ResponseContext()
+        assert isinstance(context, ResponseContext)
+
+        super().__init__(gs, context, nblocks=nblocks, **kwargs)
+
+    def calculate(self, spincomponent, q_c, wd,
+                  eta=0.2,
+                  ecut=50,
+                  gammacentered=False,
+                  nbands=None,
+                  bundle_integrals=True,
+                  bandsummation='pairwise'):
+        r"""Calculate χ_KS,GG'^μν(q,ω+iη)
+
+        Parameters
+        ----------
+        spincomponent : str
+            Spin component (μν) of the Kohn-Sham susceptibility.
+            Currently, '00', 'uu', 'dd', '+-' and '-+' are implemented.
+        q_c : list or np.array
+            Wave vector in relative coordinates
+        wd : FrequencyDescriptor
+            (Real part ω) of the frequencies where χ_KS,GG'^μν(q,ω+iη) is
+            evaluated
+        eta : float
+            Imaginary part η of the frequencies where χ_KS,GG'^μν(q,ω+iη) is
+            evaluated
+        ecut : float (or None)
+            Plane-wave cutoff in eV
+        gammacentered : bool
+            Center the grid of plane waves around the Γ-point (or the q-vector)
+        nbands : int
+            Number of bands to include in the sum over states
+        bandsummation : str
+            Band summation strategy (does not change the result, but can affect
+            the run-time).
+            'pairwise': sum over pairs of bands
+            'double': double sum over band indices.
+        bundle_integrals : bool
+            Do the k-point integrals (large matrix multiplications)
+            simultaneously for all frequencies.
+            Can be switched of, if this step forces calculations out of memory.
+        """
+        assert isinstance(wd, FrequencyDescriptor)
+
+        # Set inputs on self, so that they can be accessed later
+        self.spincomponent = spincomponent
+        self.wd = wd
+        self.eta = eta / Hartree  # eV -> Hartree
+        self.bundle_integrals = bundle_integrals
+        self.bandsummation = bandsummation
 
 
 def get_temporal_part(spincomponent, omega_w, eta,
