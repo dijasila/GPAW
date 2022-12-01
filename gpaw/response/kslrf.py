@@ -528,24 +528,6 @@ class PairFunctionIntegrator(ABC):
         world = self.context.world
         self.blockcomm, self.intrablockcomm = block_partition(world, nblocks)
 
-    def get_PWDescriptor(self, q_c, ecut=50, gammacentered=False):
-        """Get the resulting plane-wave description for a calculation
-        with wave vector q_c.
-
-        Parameters
-        ----------
-        q_c : list or np.array
-            Wave vector in relative coordinates
-        ecut : float (or None)
-            Plane-wave cutoff in eV
-        gammacentered : bool
-            Center the grid of plane waves around the Γ-point (or the q-vector)
-        """
-        ecut = None if ecut is None else ecut / Hartree  # eV to Hartree
-        return self._get_PWDescriptor(q_c, ecut=ecut,
-                                      gammacentered=gammacentered,
-                                      internal=False)
-
     def _get_PWDescriptor(self, q_c, ecut=50 / Hartree, gammacentered=False,
                           internal=True):
         """Get plane-wave descriptor for the wave vector q_c.
