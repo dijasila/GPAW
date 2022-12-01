@@ -285,6 +285,92 @@ class ChiKSCalculator(PairFunctionIntegrator):
 
             return chiks_WgG
 
+    @timer('Add integrand to chiks_x')
+    def add_integrand(self, kptpair, weight, pd, chiks_x):
+        r"""Use the PlaneWavePairDensity object to calculate the integrand for
+        all relevant transitions of the given k-point pair, k -> k + q.
+
+        Depending on the bandsummation parameter, the integrand of the
+        collinear four-component Kohn-Sham susceptibility tensor (in the
+        absence of spin-orbit coupling) is calculated as:
+
+        bandsummation: double
+
+                   __
+                   \  σ^μ_ss' σ^ν_s's (f_nks - f_n'k's')
+        (...)_k =  /  ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾ n_kt(G+q) n_kt^*(G'+q)
+                   ‾‾   ħω - (ε_n'k's' - ε_nks) + iħη
+                   t
+
+        where n_kt(G+q) = n_nks,n'k+qs'(G+q) and
+
+        bandsummation: pairwise
+
+                    __ /
+                    \  | σ^μ_ss' σ^ν_s's (f_nks - f_n'k's')
+        (...)_k =   /  | ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+                    ‾‾ |   ħω - (ε_n'k's' - ε_nks) + iħη
+                    t  \
+                                                       \
+                    σ^μ_s's σ^ν_ss' (f_nks - f_n'k's') |
+           - δ_n'>n ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾ | n_kt(G+q) n_kt^*(G'+q)
+                      ħω + (ε_n'k's' - ε_nks) + iħη    |
+                                                       /
+
+        The integrand is added to the output array chiks_x multiplied with the
+        supplied kptpair integral weight.
+        """
+        # Calculate the pair densities
+        self.pair_density(kptpair, pd)
+
+        # Extract the ingredients from the KohnShamKPointPair
+        # Get bands and spins of the transitions
+        n1_t, n2_t, s1_t, s2_t = kptpair.get_transitions()
+        # Get (f_n'k's' - f_nks), (ε_n'k's' - ε_nks) as well as n_kt(G+q)
+        df_t, deps_t, n_tG = kptpair.df_t, kptpair.deps_t, kptpair.n_tG
+
+        # Calculate the frequency dependence of the integrand
+        x_Wt = weight * get_temporal_part(self.spincomponent,
+                                          self.wd.omega_w, self.eta,
+                                          n1_t, n2_t, s1_t, s2_t,
+                                          df_t, deps_t,
+                                          self.bandsummation)
+
+        # Let each process handle its own slice of integration
+        blocks1d = Blocks1D(self.blockcomm, pd.ngmax)
+        myslice = blocks1d.myslice
+
+        if self.bundle_integrals:
+            # Specify notation
+            chiks_GWg = chiks_x
+
+            x_tW = np.ascontiguousarray(x_Wt.T)
+            n_Gt = np.ascontiguousarray(n_tG.T)
+
+            with self.context.timer('Set up ncc and nx'):
+                ncc_Gt = n_Gt.conj()
+                n_tg = n_tG[:, myslice]
+                nx_tWg = x_tW[:, :, np.newaxis] * n_tg[:, np.newaxis, :]
+
+            with self.context.timer('Perform sum over t-transitions '
+                                    'of ncc * nx'):
+                mmmx(1.0, ncc_Gt, 'N', nx_tWg, 'N',
+                     1.0, chiks_GWg)  # slow step
+        else:
+            # Specify notation
+            chiks_WgG = chiks_x
+
+            with self.context.timer('Set up ncc and nx'):
+                ncc_tG = n_tG.conj()
+                n_gt = np.ascontiguousarray(n_tG[:, myslice].T)
+                nx_Wgt = x_Wt[:, np.newaxis, :] * n_gt[np.newaxis, :, :]
+
+            with self.context.timer('Perform sum over t-transitions of '
+                                    'ncc * nx'):
+                for nx_gt, chiks_gG in zip(nx_Wgt, chiks_WgG):
+                    mmmx(1.0, nx_gt, 'N', ncc_tG, 'N',
+                         1.0, chiks_gG)  # slow step
+
     @timer('Post processing')
     def post_process(self, pdi, chiks_x, analyzer):
         if self.bundle_integrals:
