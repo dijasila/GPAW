@@ -250,10 +250,10 @@ class ChiKSCalculator(PairFunctionIntegrator):
         chiks_x = self.set_up_array(blocks1d, chiks_x=chiks_x)
 
         # Perform the actual integration
-        self._integrate(pdi, chiks_x, n1_t, n2_t, s1_t, s2_t)
+        analyzer = self._integrate(pdi, chiks_x, n1_t, n2_t, s1_t, s2_t)
 
         # Map to output format
-        pd, chiks_WgG = self.post_process(pdi, chiks_x)
+        pd, chiks_WgG = self.post_process(pdi, chiks_x, analyzer)
 
         return pd, chiks_WgG
 
@@ -285,7 +285,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
             return chiks_WgG
 
     @timer('Post processing')
-    def post_process(self, pdi, chiks_x):
+    def post_process(self, pdi, chiks_x, analyzer):
         if self.bundle_integrals:
             # chiks_x = chiks_GWg
             chiks_WgG = chiks_x.transpose((1, 2, 0))
@@ -299,8 +299,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
                                               self.intrablockcomm)
         tmp_wGG = blockdist.distribute_as(chiks_WgG, nw, 'wGG')
         with self.context.timer('Symmetrizing chiks_wGG'):
-            # To-do: Make the analyzer accessible!                             XXX
-            self.pwsa.symmetrize_wGG(tmp_wGG)
+            analyzer.symmetrize_wGG(tmp_wGG)
         # Distribute over plane waves
         chiks_WgG[:] = blockdist.distribute_as(tmp_wGG, nw, 'WgG')
 

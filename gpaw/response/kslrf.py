@@ -459,6 +459,10 @@ class PairFunctionIntegrator(ABC):
             Spin index of k-point k for each transition t.
         s2_t : np.array
             Spin index of k-point k + q for each transition t.
+
+        Returns
+        -------
+        analyzer : PWSymmetryAnalyzer
         """
         # Initialize the plane-wave symmetry analyzer
         analyzer = self.get_PWSymmetryAnalyzer(pd)
@@ -477,6 +481,13 @@ class PairFunctionIntegrator(ABC):
         # Sum over the k-points, which have been distributed between processes
         with self.context.timer('Sum over distributed k-points'):
             self.intrablockcomm.sum(out_x)
+
+        # Because the symmetry analyzer is used both to generate the k-point
+        # integral domain *and* to symmetry pair functions after the
+        # integration, we have to return it. It would be good to split up these
+        # two tasks, so that we don't need to pass the analyzer object around
+        # in the code like this...
+        return analyzer
 
     @abstractmethod
     def add_integrand(self, kptpair, weight, out_x):
