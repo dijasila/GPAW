@@ -253,7 +253,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
         # Perform the actual integration
         analyzer = self._integrate(pdi, chiks_x, n1_t, n2_t, s1_t, s2_t)
 
-        # Map to output format
+        # Apply symmetries and map to output format
         pd, chiks_WgG = self.post_process(pdi, chiks_x, analyzer)
 
         return pd, chiks_WgG
