@@ -26,19 +26,18 @@ class ChiKS:
 
         self.calc = ChiKSCalculator(
             gs, context=context, nblocks=nblocks,
+            ecut=ecut, gammacentered=gammacentered,
+            nbands=nbands,
+            bundle_integrals=bundle_integrals, bandsummation=bandsummation,
             disable_point_group=disable_point_group,
             disable_time_reversal=disable_time_reversal,
             disable_non_symmorphic=disable_non_symmorphic)
         self.context = self.calc.context
         self.gs = self.calc.gs
         self.nblocks = self.calc.nblocks
+        self.gammacentered = self.calc.gammacentered
 
         self.eta = eta
-        self.ecut = ecut
-        self.gammacentered = gammacentered
-        self.nbands = nbands
-        self.bundle_integrals = bundle_integrals
-        self.bandsummation = bandsummation
 
         # Hard-coded, but expected properties
         self.kpointintegration = 'point integration'
@@ -54,16 +53,10 @@ class ChiKS:
                                                    self.calc.intrablockcomm)
 
         return self.calc.calculate(spincomponent, q_c, wd,
-                                   eta=self.eta,
-                                   ecut=self.ecut,
-                                   gammacentered=self.gammacentered,
-                                   nbands=self.nbands,
-                                   bundle_integrals=self.bundle_integrals,
-                                   bandsummation=self.bandsummation)
+                                   eta=self.eta, chiks_x=A_x)
 
     def get_PWDescriptor(self, q_c):
-        return self.calc.get_PWDescriptor(q_c, ecut=self.ecut,
-                                          gammacentered=self.gammacentered)
+        return self.calc.get_PWDescriptor(q_c)
 
     @timer('Distribute frequencies')
     def distribute_frequencies(self, chiks_wGG):
@@ -211,7 +204,11 @@ class ChiKSCalculator(PairFunctionIntegrator):
     Some documentation here!                                                   XXX
     """
 
-    def __init__(self, gs, context=None, nblocks=1, **kwargs):
+    def __init__(self, gs, context=None, nblocks=1,
+                 ecut=50, gammacentered=False,
+                 nbands=None,
+                 bundle_integrals=True, bandsummation='pairwise',
+                 **kwargs):
         """Contruct the ChiKSCalculator
 
         Parameters
@@ -221,6 +218,21 @@ class ChiKSCalculator(PairFunctionIntegrator):
         nblocks : int
             Distribute the chiks_wGG array into nblocks (where nblocks is a
             divisor of context.world.size)
+        ecut : float (or None)
+            Plane-wave cutoff in eV
+        gammacentered : bool
+            Center the grid of plane waves around the Γ-point (or the q-vector)
+        nbands : int
+            Number of bands to include in the sum over states
+        bandsummation : str
+            Band summation strategy (does not change the result, but can affect
+            the run-time).
+            'pairwise': sum over pairs of bands
+            'double': double sum over band indices.
+        bundle_integrals : bool
+            Do the k-point integrals (large matrix multiplications)
+            simultaneously for all frequencies (does not change the result,
+            but can affect the overall performance).
         kwargs : see gpaw.kslrf.PairFunctionIntegrator
         """
         if context is None:
@@ -229,16 +241,15 @@ class ChiKSCalculator(PairFunctionIntegrator):
 
         super().__init__(gs, context, nblocks=nblocks, **kwargs)
 
+        self.ecut = None if ecut is None else ecut / Hartree  # eV to Hartree
+        self.gammacentered = gammacentered
+        self.nbands = nbands
+        self.bundle_integrals = bundle_integrals
+        self.bandsummation = bandsummation
+
         self.pair_density = PlaneWavePairDensity(self.kspair)
 
-    def calculate(self, spincomponent, q_c, wd,
-                  eta=0.2,
-                  ecut=50,
-                  gammacentered=False,
-                  nbands=None,
-                  chiks_x=None,
-                  bundle_integrals=True,
-                  bandsummation='pairwise'):
+    def calculate(self, spincomponent, q_c, wd, eta=0.2, chiks_x=None):
         r"""Calculate χ_KS,GG'^μν(q,ω+iη)
 
         Parameters
@@ -254,23 +265,8 @@ class ChiKSCalculator(PairFunctionIntegrator):
         eta : float
             Imaginary part η of the frequencies where χ_KS,GG'^μν(q,ω+iη) is
             evaluated
-        ecut : float (or None)
-            Plane-wave cutoff in eV
-        gammacentered : bool
-            Center the grid of plane waves around the Γ-point (or the q-vector)
-        nbands : int
-            Number of bands to include in the sum over states
         chiks_x : np.array
             Pre-existing integration buffer
-        bandsummation : str
-            Band summation strategy (does not change the result, but can affect
-            the run-time).
-            'pairwise': sum over pairs of bands
-            'double': double sum over band indices.
-        bundle_integrals : bool
-            Do the k-point integrals (large matrix multiplications)
-            simultaneously for all frequencies (does not change the result,
-            but can affect the overall performance).
 
         Returns
         -------
@@ -283,23 +279,19 @@ class ChiKSCalculator(PairFunctionIntegrator):
         self.spincomponent = spincomponent
         self.wd = wd
         self.eta = eta / Hartree  # eV -> Hartree
-        self.bundle_integrals = bundle_integrals
-        self.bandsummation = bandsummation
 
         # Set up the internal plane-wave descriptor
-        ecut = None if ecut is None else ecut / Hartree  # eV to Hartree
-        pdi = self._get_PWDescriptor(q_c, ecut=ecut,
-                                     gammacentered=gammacentered)
+        pdi = self.get_PWDescriptor(q_c, internal=True)
 
         # Analyze the requested spin component
         spinrot = get_spin_rotation(spincomponent)
 
         # Prepare to sum over bands and spins
         n1_t, n2_t, s1_t, s2_t = self.get_band_and_spin_transitions_domain(
-            spinrot, nbands=nbands, bandsummation=bandsummation)
+            spinrot, nbands=self.nbands, bandsummation=self.bandsummation)
 
         self.print_information(pdi, len(wd), eta,
-                               spincomponent, nbands, len(n1_t))
+                               spincomponent, self.nbands, len(n1_t))
 
         self.context.print('Initializing pair densities')
         self.pair_density.initialize(pdi)
@@ -312,11 +304,15 @@ class ChiKSCalculator(PairFunctionIntegrator):
         analyzer = self._integrate(pdi, chiks_x, n1_t, n2_t, s1_t, s2_t)
 
         # Apply symmetries and map to output format
-        pd, chiks_WgG = self.post_process(pdi, chiks_x, analyzer,
-                                          ecut=ecut,
-                                          gammacentered=gammacentered)
+        pd, chiks_WgG = self.post_process(pdi, chiks_x, analyzer)
 
         return pd, chiks_WgG
+
+    def get_PWDescriptor(self, q_c, internal=False):
+        """Get plane-wave descriptor for a calculation with wave vector q_c."""
+        return self._get_PWDescriptor(q_c, ecut=self.ecut,
+                                      gammacentered=self.gammacentered,
+                                      internal=internal)
 
     def set_up_array(self, nw, blocks1d, chiks_x=None):
         """Initialize the chiks_x array."""
@@ -434,8 +430,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
                          1.0, chiks_gG)  # slow step
 
     @timer('Post processing')
-    def post_process(self, pdi, chiks_x, analyzer,
-                     ecut=50 / Hartree, gammacentered=False):
+    def post_process(self, pdi, chiks_x, analyzer):
         if self.bundle_integrals:
             # chiks_x = chiks_GWg
             chiks_WgG = chiks_x.transpose((1, 2, 0))
@@ -453,13 +448,12 @@ class ChiKSCalculator(PairFunctionIntegrator):
         # Distribute over plane waves
         chiks_WgG[:] = blockdist.distribute_as(tmp_wGG, nw, 'WgG')
 
-        if gammacentered and not self.disable_symmetries:
+        if self.gammacentered and not self.disable_symmetries:
             assert not pdi.gammacentered
             # Reduce the q-centered plane-wave basis used internally to the
             # gammacentered basis
             q_c = pdi.kd.bzk_kc[0]
-            pd = self._get_PWDescriptor(q_c, ecut=ecut, gammacentered=True,
-                                        internal=False)
+            pd = self.get_PWDescriptor(q_c)
             chiks_WgG = map_WgG_array_to_reduced_pd(pdi, pd,
                                                     blockdist, chiks_WgG)
         else:
