@@ -10,10 +10,59 @@ from gpaw.response import ResponseContext, timer
 from gpaw.response.frequencies import FrequencyDescriptor
 from gpaw.response.pw_parallelization import (Blocks1D,
                                               PlaneWaveBlockDistributor)
-from gpaw.response.kslrf import PlaneWaveKSLRF, PairFunctionIntegrator
+# from gpaw.response.kslrf import PlaneWaveKSLRF, PairFunctionIntegrator
+from gpaw.response.kslrf import PairFunctionIntegrator
 from gpaw.response.kspair import PlaneWavePairDensity
 
 
+class ChiKS:
+    """Tmp. backwards compatibility."""
+
+    def __init__(self, gs, context=None, nblocks=1,
+                 disable_point_group=False, disable_time_reversal=False,
+                 disable_non_symmorphic=True,
+                 eta=0.2, ecut=50, gammacentered=False, nbands=None,
+                 bundle_integrals=True, bandsummation='pairwise'):
+
+        self.calc = ChiKSCalculator(
+            gs, context=context, nblocks=nblocks,
+            disable_point_group=disable_point_group,
+            disable_time_reversal=disable_time_reversal,
+            disable_non_symmorphic=disable_non_symmorphic)
+        self.context = self.calc.context
+        self.gs = self.calc.gs
+
+        self.eta = eta
+        self.ecut = ecut
+        self.gammacentered = gammacentered
+        self.nbands = nbands
+        self.bundle_integrals = bundle_integrals
+        self.bandsummation = bandsummation
+
+    def calculate(self, q_c, frequencies, spincomponent='all', A_x=None):
+        if isinstance(frequencies, FrequencyDescriptor):
+            wd = frequencies
+        else:
+            wd = FrequencyDescriptor.from_array_or_dict(frequencies)
+        self.wd = wd
+        self.blockdist = PlaneWaveBlockDistributor(self.context.world,
+                                                   self.calc.blockcomm,
+                                                   self.calc.intrablockcomm)
+
+        return self.calc.calculate(spincomponent, q_c, wd,
+                                   eta=self.eta,
+                                   ecut=self.ecut,
+                                   gammacentered=self.gammacentered,
+                                   nbands=self.nbands,
+                                   bundle_integrals=self.bundle_integrals,
+                                   bandsummation=self.bandsummation)
+
+    @timer('Distribute frequencies')
+    def distribute_frequencies(self, chiks_wGG):
+        return self.blockdist.distribute_frequencies(chiks_wGG, len(self.wd))
+
+
+r'''
 class ChiKS(PlaneWaveKSLRF):
     r"""Class calculating the four-component Kohn-Sham susceptibility tensor,
     see [PRB 103, 245110 (2021)]. For collinear systems, the susceptibility
@@ -146,6 +195,7 @@ class ChiKS(PlaneWaveKSLRF):
         return get_temporal_part(self.spincomponent, self.wd.omega_w, self.eta,
                                  n1_t, n2_t, s1_t, s2_t, df_t, deps_t,
                                  self.bandsummation)
+'''
 
 
 class ChiKSCalculator(PairFunctionIntegrator):
@@ -248,7 +298,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
 
         # Allocate array (or clean up existing buffer)
         blocks1d = Blocks1D(self.blockcomm, pdi.ngmax)
-        chiks_x = self.set_up_array(blocks1d, chiks_x=chiks_x)
+        chiks_x = self.set_up_array(len(wd), blocks1d, chiks_x=chiks_x)
 
         # Perform the actual integration
         analyzer = self._integrate(pdi, chiks_x, n1_t, n2_t, s1_t, s2_t)
