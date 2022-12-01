@@ -240,6 +240,89 @@ class WCalculator:
                                             W_wGG,
                                             rho_mnG[iK3],
                                             optimize='optimal')
+                        Wwan_wijkl += np.einsum('ia,jb,kc,ld,wabcd->wijkl',
+                                                Uwan[:,:,iK1],
+                                                Uwan[:,:,iK3].conj(),
+                                                Uwan[:,:,iKpQ[iK1]].conj(),
+                                                Uwan[:,:,iKpQ[iK3]],
+                                                W_wijkl)
+                        
+        factor = Ha * self.gs.kd.nbzkpts**3 # factor from BZ summation and taking from Hartree to eV
+        Wwan_wijkl /= factor
+
+        return Wwan_wijkl
+
+        
+    def calc_in_Wannierold(self,chi0calc,Uwan,bandrange):
+        """Calculates the screened interaction matrix in Wannier basis.
+        XXX NOTE: At the moment it is assumed a single spin channel and no SOC!
+
+        W_n1,n2;n3,n4(R=0) = <w^*_{n1,R=0} w_{n2, R=0} | W |w^*_{n3,R=0} w_{n4, R=0} >
+
+        w_{n R} = V/(2pi)^3 \int_{BZ} dk e^{-kR} psi^w_{nk}
+        psi^w_{nk} = \sum_n' U_nn'(k) \psi^{KS}_{n'k}
+
+        w^*_{n1,R=0} w_{n2, R=0} = C * \int_{k,k' in BZ} \psi^w*_{n1k} \psi^w_{n2k'}
+
+        \psi^w*_{n1k} \psi^w_{n2k'} = \sum_{mm'} (U_{n1,m}(k) \psi^{KS}_{m k} )^* U_{n2,m'}(k') \psi^{KS}_{m' k'}
+        First calculates W in KS-basis where we need the pair densities, then multiply with transformation 
+        matrices and sum over k and k'. Do in loop over IBZ with additional loop over equivalent k-points.
+        """
+        ibz2bz = ibz2bz_map(self.gs.kd)
+        s1 = 0 #XXX assume only single spin for the moment
+        s2 = 0
+
+        if type(Uwan) == str:  # read w90 transformation matrix from file
+            Uwan, nk, nwan = self.read_uwan(Uwan)
+            assert nk == self.gs.kd.nbzkpts
+            assert bandrange[1] - bandrange[0] == nwan
+
+        def get_k1_k2(s1,iK1,iQ,bandrange):
+            # get kpt1, kpt1+q kpoint pairs used in density matrix
+            kpt1 = self.pair.get_k_point(s1, iK1, bandrange[0], bandrange[-1])
+            K2_c = self.gs.kd.bzk_kc[kpt1.K] + self.gs.kd.bzk_kc[iQ]  # Find k2 = K1 + Q                                                                                                            
+            iK2 = self.gs.kd.where_is_q(K2_c, self.gs.kd.bzk_kc)
+            kpt2 = self.pair.get_k_point(s1, iK2, bandrange[0], bandrange[-1])
+            return kpt1, kpt2, iK2
+        
+        nfreq = len(chi0calc.wd)
+        Wwan_wijkl = np.zeros([nfreq,nwan,nwan,nwan,nwan],dtype=complex)
+        total_k=0
+        #Wmat = [] # TEST 
+        # First calculate W in IBZ in PW basis
+        # and transform to DFT eigen basis
+        for iq, q_c in enumerate(self.gs.kd.ibzk_kc):
+            #optical_limit = np.allclose(q_c,0.0)
+            # Calculate chi0 and W for IBZ k-point q
+            chi0 = chi0calc.calculate(q_c)
+            pd, W_wGG = self.calculate_q(iq, q_c, chi0, out_dist='wGG')
+            pawcorr = chi0calc.pawcorr
+            # Loop over all equivalent k-points
+            for iQ in ibz2bz[iq]:
+                print('iq,iQ,q_c,Q_c',iq,iQ,q_c,self.gs.kd.bzk_kc[iQ])
+                # Loop over BZ k-points to get density matrices
+                rho_mnG = []
+                iKpQ = []
+                for iK1 in range(self.gs.kd.nbzkpts):
+                    kpt1, kpt2, iK2loc = get_k1_k2(s1,iK1,iQ,bandrange)
+                    rholoc, iqloc = self.get_density_matrix(kpt1,
+                                                              kpt2,
+                                                              pd_q=[pd],
+                                                              pawcorr_q=[pawcorr],
+                                                              known_iQ=iQ)
+                    assert iqloc == iq
+                    rho_mnG.append(rholoc)
+                    iKpQ.append(iK2loc)
+                total_k+=1
+                # Double loop over BZ k-points
+                for iK1 in range(self.gs.kd.nbzkpts):
+                    for iK3 in range(self.gs.kd.nbzkpts):
+                        # W in products of KS eigenstates
+                        W_wijkl = np.einsum('ijk,lkm,pqm->lipjq',
+                                            rho_mnG[iK1].conj(),
+                                            W_wGG,
+                                            rho_mnG[iK3],
+                                            optimize='optimal')
                         
                         Wwan_wijkl += W_wijkl
                         """
