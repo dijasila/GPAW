@@ -10,8 +10,8 @@ from gpaw.response import ResponseContext, timer
 from gpaw.response.frequencies import FrequencyDescriptor
 from gpaw.response.pw_parallelization import (Blocks1D,
                                               PlaneWaveBlockDistributor)
-from gpaw.response.kslrf import PairFunctionIntegrator
 from gpaw.response.kspair import PlaneWavePairDensity
+from gpaw.response.pair_integrator import PairFunctionIntegrator
 
 
 class ChiKS:
@@ -111,7 +111,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
             Do the k-point integrals (large matrix multiplications)
             simultaneously for all frequencies (does not change the result,
             but can affect the overall performance).
-        kwargs : see gpaw.kslrf.PairFunctionIntegrator
+        kwargs : see gpaw.response.pair_integrator.PairFunctionIntegrator
         """
         if context is None:
             context = ResponseContext()

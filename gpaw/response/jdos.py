@@ -5,7 +5,7 @@ import numpy as np
 from ase.units import Hartree
 
 from gpaw.response import ResponseContext
-from gpaw.response.kslrf import PairFunctionIntegrator
+from gpaw.response.pair_integrator import PairFunctionIntegrator
 from gpaw.response.chiks import get_spin_rotation, get_temporal_part
 from gpaw.response.frequencies import FrequencyDescriptor
 
@@ -33,7 +33,7 @@ class JDOSCalculator(PairFunctionIntegrator):
         ----------
         gs : ResponseGroundStateAdapter
         context : ResponseContext
-        kwargs : see gpaw.kslrf.PairFunctionIntegrator
+        kwargs : see gpaw.response.pair_integrator.PairFunctionIntegrator
         """
         if context is None:
             context = ResponseContext()
