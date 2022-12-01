@@ -564,8 +564,8 @@ class KPointPairIntegral(ABC):
         self.ni = len(weight_i)
 
     def weighted_kpoint_pairs(self, n1_t, n2_t, s1_t, s2_t):
-        r"""Generate all k-point pairs in the integral along with their integral
-        weights.
+        r"""Generate all k-point pairs in the integral along with their
+        integral weights.
 
         The reciprocal space integral is estimated as the sum over a discrete
         k-point domain. The domain will genererally depend on the integration
