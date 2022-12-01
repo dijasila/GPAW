@@ -16,7 +16,7 @@ from gpaw.response.kspair import PlaneWavePairDensity
 
 
 class ChiKS:
-    """Tmp. backwards compatibility."""
+    """Temporary backwards compatibility layer."""
 
     def __init__(self, gs, context=None, nblocks=1,
                  disable_point_group=False, disable_time_reversal=False,
@@ -200,8 +200,23 @@ class ChiKS(PlaneWaveKSLRF):
 
 
 class ChiKSCalculator(PairFunctionIntegrator):
-    """
-    Some documentation here!                                                   XXX
+    r"""Calculator class for the four-component Kohn-Sham susceptibility tensor
+    of collinear systems in absence of spin-orbit coupling,
+    see [PRB 103, 245110 (2021)]:
+                              __  __   __
+                           1  \   \    \
+    χ_KS,GG'^μν(q,ω+iη) =  ‾  /   /    /   σ^μ_ss' σ^ν_s's (f_nks - f_n'k+qs')
+                           V  ‾‾  ‾‾   ‾‾
+                              k   n,n' s,s'
+                                        n_nks,n'k+qs'(G+q) n_n'k+qs',nks(-G'-q)
+                                      x ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+                                            ħω - (ε_n'k+qs' - ε_nks) + iħη
+
+    where the matrix elements
+
+    n_nks,n'k+qs'(G+q) = <nks| e^-i(G+q)r |n'k+qs'>_V0
+
+    are the unit cell normalized plane-wave pair densities of each transition.
     """
 
     def __init__(self, gs, context=None, nblocks=1,
