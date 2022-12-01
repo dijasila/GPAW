@@ -304,7 +304,9 @@ class ChiKSCalculator(PairFunctionIntegrator):
         analyzer = self._integrate(pdi, chiks_x, n1_t, n2_t, s1_t, s2_t)
 
         # Apply symmetries and map to output format
-        pd, chiks_WgG = self.post_process(pdi, chiks_x, analyzer)
+        pd, chiks_WgG = self.post_process(pdi, chiks_x, analyzer,
+                                          ecut=ecut,
+                                          gammacentered=gammacentered)
 
         return pd, chiks_WgG
 
@@ -422,7 +424,8 @@ class ChiKSCalculator(PairFunctionIntegrator):
                          1.0, chiks_gG)  # slow step
 
     @timer('Post processing')
-    def post_process(self, pdi, chiks_x, analyzer):
+    def post_process(self, pdi, chiks_x, analyzer,
+                     ecut=50 / Hartree, gammacentered=False):
         if self.bundle_integrals:
             # chiks_x = chiks_GWg
             chiks_WgG = chiks_x.transpose((1, 2, 0))
@@ -440,10 +443,12 @@ class ChiKSCalculator(PairFunctionIntegrator):
         # Distribute over plane waves
         chiks_WgG[:] = blockdist.distribute_as(tmp_wGG, nw, 'WgG')
 
-        if pdi.gammacentered and not self.disable_symmetries:
-            # Reduce the q-specific basis to the gammacentered basis
+        if gammacentered and not self.disable_symmetries:
+            assert not pdi.gammacentered
+            # Reduce the q-centered plane-wave basis used internally to the
+            # gammacentered basis
             q_c = pdi.kd.bzk_kc[0]
-            pd = self._get_PWDescriptor(q_c, ecut=pdi.ecut, gammacentered=True,
+            pd = self._get_PWDescriptor(q_c, ecut=ecut, gammacentered=True,
                                         internal=False)
             chiks_WgG = map_WgG_array_to_reduced_pd(pdi, pd,
                                                     blockdist, chiks_WgG)
@@ -514,7 +519,7 @@ def map_WgG_array_to_reduced_pd(pdi, pd, blockdist, in_WgG):
         new_tmp_wGG[w][G2_GG] = tmp_GG[G1_GG]
 
     # Distribute over plane waves
-    out_WgG = blockdist.distribute_as(new_tmp_wGG, 'WgG')
+    out_WgG = blockdist.distribute_as(new_tmp_wGG, nw, 'WgG')
 
     return out_WgG
 
