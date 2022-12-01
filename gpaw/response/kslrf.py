@@ -476,7 +476,7 @@ class PairFunctionIntegrator(ABC):
             kptpair, weight = next(weighted_kptpairs)
             if weight is not None:
                 assert kptpair is not None
-                self.add_integrand(kptpair, weight, out_x)
+                self.add_integrand(kptpair, weight, pd, out_x)
 
         # Sum over the k-points, which have been distributed between processes
         with self.context.timer('Sum over distributed k-points'):
@@ -490,9 +490,9 @@ class PairFunctionIntegrator(ABC):
         return analyzer
 
     @abstractmethod
-    def add_integrand(self, kptpair, weight, out_x):
+    def add_integrand(self, kptpair, weight, pd, out_x):
         """Add the relevant integrand of the outer k-point integral to the
-        output data structure 'out_x', weighted by 'weight' and constructed
+        output data structure 'pd, out_x', weighted by 'weight' and constructed
         from the provided KohnShamKPointPair.
 
         This method effectively defines the pair function in question.

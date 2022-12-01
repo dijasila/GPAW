@@ -93,7 +93,7 @@ class JDOSCalculator(PairFunctionIntegrator):
 
         return jdos_w
 
-    def add_integrand(self, kptpair, weight, jdos_w):
+    def add_integrand(self, kptpair, weight, _, jdos_w):
         r"""Add the g^μν(q,ω) integrand of the outer k-point integral:
                         __
                   -1    \  σ^μ_ss' σ^ν_s's (f_nks - f_n'k's')
