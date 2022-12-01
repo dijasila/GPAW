@@ -83,7 +83,7 @@ void fastlda(int N,
     double beta4 = 0.49294;
     for (int r = 0; r < N; r++) {
         double d = n[r];
-        if (d < 1e-15)
+        if (d < 1e-14)
             e[r] = 0.0;
         else {
             double rs = pow(C0I / d, THIRD);
@@ -93,15 +93,14 @@ void fastlda(int N,
                                           rtrs * (beta2 +
                                                   rtrs * (beta3 +
                                                           rtrs * beta4)));
-            double G1 = Q0 * log(1.0 + 1.0 / Q1);
+            double ec = Q0 * log(1.0 + 1.0 / Q1);
             double dQ1drs = A * (beta1 / rtrs + 2.0 * beta2 +
                                  rtrs * (3.0 * beta3 + 4.0 * beta4 * rtrs));
+            double decdrs = -2.0 * A * alpha1 * ec / Q0 - Q0 * dQ1drs / (Q1 * (Q1 + 1.0));
             double ex = C1 / rs;
-            v[r] += (-ex / rs +
-                     -2.0 * A * alpha1 * G1 / Q0 - Q0 * dQ1drs / (Q1 * (Q1 + 1.0)));
-            e[r] = ex + G1;
-            e_g[g] = n * (ex + ec);
-            v_g[g] += ex + ec - rs * (dexdrs + decdrs) / 3.0;
+            double dexdrs = -ex / rs;
+            e[r] = d * (ex + ec);
+            v[r] += ex + ec - rs * (dexdrs + decdrs) / 3.0;
         }
     }
 }
