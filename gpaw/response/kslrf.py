@@ -1335,6 +1335,7 @@ class KPointPairPointIntegral(KPointPairIntegral):
         return bzk_kc, weight_k
 
 
+r'''
 class Integrator:  # --> KPointPairIntegrator in the future? XXX
     r"""Baseclass for reciprocal space integrals of the first Brillouin Zone,
     where the integrand is a sum over transitions in bands and spin.
@@ -1535,3 +1536,4 @@ def create_integrator(kslrf):
             return PWPointIntegrator(kslrf)
 
     raise ValueError(kslrf.mode, kslrf.kpointintegration)
+'''
