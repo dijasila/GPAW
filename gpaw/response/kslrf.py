@@ -1,21 +1,24 @@
 import numpy as np
 from functools import partial
-from time import ctime
+# from time import ctime
 from abc import ABC, abstractmethod
 
 from ase.units import Hartree
 
-import gpaw
-from gpaw.utilities.memory import maxrss
+# import gpaw
+# from gpaw.utilities.memory import maxrss
 from gpaw.utilities.progressbar import ProgressBar
 
-from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
+# from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
+from gpaw.response import timer
 from gpaw.response.kspair import KohnShamPair
-from gpaw.response.frequencies import FrequencyDescriptor
-from gpaw.response.pw_parallelization import (block_partition, Blocks1D,
-                                              PlaneWaveBlockDistributor)
+# from gpaw.response.frequencies import FrequencyDescriptor
+# from gpaw.response.pw_parallelization import (block_partition, Blocks1D,
+#                                               PlaneWaveBlockDistributor)
+from gpaw.response.pw_parallelization import block_partition
 
 
+r'''
 class KohnShamLinearResponseFunction:  # Future PairFunctionIntegrator? XXX
     r"""Class calculating linear response functions in the Kohn-Sham system of
     a periodic crystal.
@@ -327,6 +330,7 @@ class KohnShamLinearResponseFunction:  # Future PairFunctionIntegrator? XXX
         p('    Spin rotation: %s' % spinrot)
         p('    Total number of composite band and spin transitions: %d' % nt)
         self.context.print('')
+'''
 
 
 class PairFunctionIntegrator(ABC):
@@ -808,6 +812,7 @@ def transitions_in_composite_index(n1_M, n2_M, s1_S, s2_S):
     return n1_MS.flatten(), n2_MS.flatten(), s1_MS.flatten(), s2_MS.flatten()
 
 
+r'''
 class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
     """Class for doing KS-LRF calculations in plane wave mode"""
 
@@ -1119,6 +1124,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
     @timer('Distribute frequencies')
     def distribute_frequencies(self, chiks_wGG):
         return self.blockdist.distribute_frequencies(chiks_wGG, len(self.wd))
+'''
 
 
 def get_ecut_to_encompass_centered_sphere(q_v, ecut):

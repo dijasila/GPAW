@@ -1,6 +1,6 @@
 from functools import partial
-
 import numpy as np
+from time import ctime
 
 from ase.units import Hartree
 
@@ -508,7 +508,8 @@ class ChiKSCalculator(PairFunctionIntegrator):
         p('        A_wGG: %f M / cpu' % Asize)
         p('        Memory usage before allocation: %f M / cpu' % (maxrss() /
                                                                   1024**2))
-        self.context.print()
+        p('')
+        self.context.print('%s' % ctime())
 
 
 def map_WgG_array_to_reduced_pd(pdi, pd, blockdist, in_WgG):
