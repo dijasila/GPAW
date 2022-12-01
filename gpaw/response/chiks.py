@@ -31,6 +31,7 @@ class ChiKS:
             disable_non_symmorphic=disable_non_symmorphic)
         self.context = self.calc.context
         self.gs = self.calc.gs
+        self.nblocks = self.calc.nblocks
 
         self.eta = eta
         self.ecut = ecut
@@ -38,6 +39,9 @@ class ChiKS:
         self.nbands = nbands
         self.bundle_integrals = bundle_integrals
         self.bandsummation = bandsummation
+
+        # Hard-coded, but expected properties
+        self.kpointintegration = 'point integration'
 
     def calculate(self, q_c, frequencies, spincomponent='all', A_x=None):
         if isinstance(frequencies, FrequencyDescriptor):
@@ -56,6 +60,10 @@ class ChiKS:
                                    nbands=self.nbands,
                                    bundle_integrals=self.bundle_integrals,
                                    bandsummation=self.bandsummation)
+
+    def get_PWDescriptor(self, q_c):
+        return self.calc.get_PWDescriptor(q_c, ecut=self.ecut,
+                                          gammacentered=self.gammacentered)
 
     @timer('Distribute frequencies')
     def distribute_frequencies(self, chiks_wGG):
