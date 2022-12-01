@@ -390,6 +390,8 @@ class ChiKSCalculator(PairFunctionIntegrator):
         df_t, deps_t, n_tG = kptpair.df_t, kptpair.deps_t, kptpair.n_tG
 
         # Calculate the frequency dependence of the integrand
+        if self.spincomponent in ['00', 'all'] and self.gs.nspins == 1:
+            weight = 2 * weight
         x_Wt = weight * get_temporal_part(self.spincomponent,
                                           self.wd.omega_w, self.eta,
                                           n1_t, n2_t, s1_t, s2_t,
