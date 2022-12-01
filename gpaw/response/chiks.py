@@ -229,7 +229,8 @@ class ChiKSCalculator(PairFunctionIntegrator):
         self.bandsummation = bandsummation
 
         # Set up the internal plane-wave descriptor
-        pdi = self._get_PWDescriptor(q_c, ecut=ecut / Hartree,  # eV -> Hartree
+        ecut = None if ecut is None else ecut / Hartree  # eV to Hartree
+        pdi = self._get_PWDescriptor(q_c, ecut=ecut,
                                      gammacentered=gammacentered)
 
         # Analyze the requested spin component
@@ -303,12 +304,13 @@ class ChiKSCalculator(PairFunctionIntegrator):
         # Distribute over plane waves
         chiks_WgG[:] = blockdist.distribute_as(tmp_wGG, nw, 'WgG')
 
-        # To-do: Make pass gammacentered with pdi?                             XXX
-        if self.gammacentered and not self.disable_symmetries:
-            # Reduce the q-specific basis to the global basis
+        if pdi.gammacentered and not self.disable_symmetries:
+            # Reduce the q-specific basis to the gammacentered basis
             q_c = pdi.kd.bzk_kc[0]
-            pd = self.get_PWDescriptor(q_c)
-            chiks_WgG = self.map_to(pd, chiks_WgG)  # Add functionality!       XXX
+            pd = self._get_PWDescriptor(q_c, ecut=pdi.ecut, gammacentered=True,
+                                        internal=False)
+            chiks_WgG = map_WgG_array_to_reduced_pd(pdi, pd,
+                                                    blockdist, chiks_WgG)
         else:
             pd = pdi
 
@@ -347,6 +349,38 @@ class ChiKSCalculator(PairFunctionIntegrator):
         p('        Memory usage before allocation: %f M / cpu' % (maxrss() /
                                                                   1024**2))
         self.context.print()
+
+
+def map_WgG_array_to_reduced_pd(pdi, pd, blockdist, in_WgG):
+    """Map an output array to a reduced plane wave basis which is
+    completely contained within the original basis, that is, from pdi to
+    pd."""
+    from gpaw.pw.descriptor import PWMapping
+
+    # Initialize the basis mapping
+    pwmapping = PWMapping(pdi, pd)
+    G2_GG = tuple(np.meshgrid(pwmapping.G2_G1, pwmapping.G2_G1,
+                              indexing='ij'))
+    G1_GG = tuple(np.meshgrid(pwmapping.G1, pwmapping.G1,
+                              indexing='ij'))
+
+    # Distribute over frequencies
+    nw = in_WgG.shape[0]
+    tmp_wGG = blockdist.distribute_as(in_WgG, nw, 'wGG')
+
+    # Allocate array in the new basis
+    nG = pd.ngmax
+    new_tmp_shape = (tmp_wGG.shape[0], nG, nG)
+    new_tmp_wGG = np.zeros(new_tmp_shape, complex)
+
+    # Extract values in the global basis
+    for w, tmp_GG in enumerate(tmp_wGG):
+        new_tmp_wGG[w][G2_GG] = tmp_GG[G1_GG]
+
+    # Distribute over plane waves
+    out_WgG = blockdist.distribute_as(new_tmp_wGG, 'WgG')
+
+    return out_WgG
 
 
 def get_temporal_part(spincomponent, omega_w, eta,
