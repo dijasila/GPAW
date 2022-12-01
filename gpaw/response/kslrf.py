@@ -574,11 +574,11 @@ class PairFunctionIntegrator(ABC):
             # the k-point integration, the internal code assumes a plane wave
             # basis which is centered at q in reciprocal space.
             gammacentered = False
-            # If we want to compute the linear response function on a plane
-            # wave grid which is effectively centered in the gamma point
-            # instead of q, we need to extend the internal ecut such that the
-            # q-centered grid encompasses all reciprocal lattice points inside
-            # the gamma-centered sphere.
+            # If we want to compute the pair function on a plane wave grid
+            # which is effectively centered in the gamma point instead of q, we
+            # need to extend the internal ecut such that the q-centered grid
+            # encompasses all reciprocal lattice points inside the gamma-
+            # centered sphere.
             # The reduction to the global gamma-centered basis will then be
             # carried out as a post processing step.
 
