@@ -1,9 +1,10 @@
 from typing import Any, Union, Sequence
 import numpy as np
 
-if [int(x) for x in np.__version__.split('.')] >= [1, 20]:
+try:
+    # Needs numpy-1.20:
     from numpy.typing import ArrayLike, DTypeLike
-else:
+except ImportError:
     ArrayLike = Any  # type: ignore
     DTypeLike = Any  # type: ignore
 

@@ -11,6 +11,8 @@ from gpaw.core.atom_centered_functions import AtomCenteredFunctions
 from gpaw.core.plane_waves import PlaneWaveExpansions
 from gpaw.core.uniform_grid import UniformGrid, UniformGridFunctions
 from gpaw.fftw import get_efficient_fft_size
+from gpaw.gpu import as_xp
+from gpaw.new.potential import Potential
 from gpaw.new.wave_functions import WaveFunctions
 from gpaw.setup import Setups
 from gpaw.typing import Array2D, Array3D, ArrayND, Vector
@@ -66,7 +68,8 @@ class PWFDWaveFunctions(WaveFunctions):
             self._pt_aiX = self.psit_nX.desc.atom_centered_functions(
                 [setup.pt_j for setup in self.setups],
                 self.fracpos_ac,
-                atomdist=self.atomdist)
+                atomdist=self.atomdist,
+                xp=self.psit_nX.xp)
         return self._pt_aiX
 
     @property
@@ -176,7 +179,7 @@ class PWFDWaveFunctions(WaveFunctions):
                              dH,
                              work_array: ArrayND = None,
                              Htpsit_nX=None,
-                             scalapack_parameters=(None, 1, 1, -1)):
+                             scalapack_parameters=(None, 1, 1, None)):
         """
 
         Ht(in, out):::
@@ -211,7 +214,7 @@ class PWFDWaveFunctions(WaveFunctions):
             slcomm, r, c, b = scalapack_parameters
             if r == c == 1:
                 slcomm = None
-            self._eig_n = H.eigh(scalapack=(slcomm, r, c, b))
+            self._eig_n = as_xp(H.eigh(scalapack=(slcomm, r, c, b)), np)
             H.complex_conjugate()
             # H.data[n, :] now contains the n'th eigenvector and eps_n[n]
             # the n'th eigenvalue
@@ -228,7 +231,8 @@ class PWFDWaveFunctions(WaveFunctions):
         H.multiply(P_ani, out=P2_ani)
         P_ani.data[:] = P2_ani.data
 
-    def force_contribution(self, dH_asii: AtomArrays, F_av: Array2D):
+    def force_contribution(self, potential: Potential, F_av: Array2D):
+        dH_asii = potential.dH_asii
         F_avni = self.pt_aiX.derivative(self.psit_nX)
         myocc_n = self.weight * self.spin_degeneracy * self.myocc_n
         for a, F_vni in F_avni.items():

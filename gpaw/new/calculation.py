@@ -210,7 +210,7 @@ class DFTCalculation:
         assert not hasattr(xc.xc, 'setup_force_corrections')
 
         # Force from projector functions (and basis set):
-        F_av = self.state.ibzwfs.forces(self.state.potential.dH_asii)
+        F_av = self.state.ibzwfs.forces(self.state.potential)
 
         pot_calc = self.pot_calc
         Fcc_avL, Fnct_av, Fvbar_av = pot_calc.force_contributions(

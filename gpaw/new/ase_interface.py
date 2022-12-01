@@ -79,6 +79,7 @@ class ASECalculator:
         * dipole
         """
         if self.calculation is not None:
+
             changes = compare_atoms(self.atoms, atoms)
             if changes & {'numbers', 'pbc', 'cell'}:
                 # Start from scratch:
@@ -194,7 +195,9 @@ class ASECalculator:
 
     # Old API:
 
-    def get_pseudo_wave_function(self, band, kpt=0, spin=0) -> Array3D:
+    def get_pseudo_wave_function(self, band, kpt=0, spin=0,
+                                 periodic=False) -> Array3D:
+        assert periodic
         state = self.calculation.state
         wfs = state.ibzwfs.get_wfs(spin=spin, kpt=kpt, n1=band, n2=band + 1)
         basis = getattr(self.calculation.scf_loop.hamiltonian, 'basis', None)
@@ -245,15 +248,24 @@ class ASECalculator:
             grid_refinement=gridrefinement)
         return nt_sr.to_pbc_grid().data.sum(0)
 
-    def get_all_electron_density(self, spin=None, gridrefinement=1):
+    def get_all_electron_density(self,
+                                 spin=None,
+                                 gridrefinement=1,
+                                 skip_core=False):
         assert spin is None
         n_sr = self.calculation.densities().all_electron_densities(
-            grid_refinement=gridrefinement)
+            grid_refinement=gridrefinement,
+            skip_core=skip_core)
         return n_sr.to_pbc_grid().data.sum(0)
 
     def get_eigenvalues(self, kpt=0, spin=0):
         state = self.calculation.state
         return state.ibzwfs.get_eigs_and_occs(k=kpt, s=spin)[0] * Ha
+
+    def get_occupation_numbers(self, kpt=0, spin=0):
+        state = self.calculation.state
+        weight = state.ibzwfs.ibz.weight_k[kpt] * state.ibzwfs.spin_degeneracy
+        return state.ibzwfs.get_eigs_and_occs(k=kpt, s=spin)[1] * weight
 
     def get_reference_energy(self):
         return self.calculation.setups.Eref * Ha
@@ -367,6 +379,17 @@ class ASECalculator:
 
     def initialize(self, atoms):
         self.create_new_calculation(atoms)
+
+    def converge_wave_functions(self):
+        self.calculation.state.ibzwfs.make_sure_wfs_are_read_from_gpw_file()
+
+    def get_number_of_spins(self):
+        return self.calculation.state.density.ndensities
+
+    @property
+    def parameters(self):
+        print(self.params)
+        return self.params
 
 
 def write_header(log, world, params):

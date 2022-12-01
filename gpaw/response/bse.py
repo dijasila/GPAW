@@ -1,32 +1,29 @@
 import functools
 from time import time, ctime
 from datetime import timedelta
-import sys
 
 import numpy as np
 from ase.units import Hartree, Bohr
-from ase.utils import IOContext
 from ase.dft import monkhorst_pack
 from scipy.linalg import eigh
 
-from gpaw import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.pw.descriptor import PWDescriptor
 from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.mpi import world, serial_comm, broadcast
-from gpaw.response import ResponseGroundStateAdapter
-from gpaw.response.chi0 import Chi0
+from gpaw.response import ResponseContext
 from gpaw.response.df import write_response_function
 from gpaw.response.coulomb_kernels import get_coulomb_kernel
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
-from gpaw.response.pair import PairDensity
 from gpaw.response.screened_interaction import initialize_w_calculator
 from gpaw.response.paw import PWPAWCorrectionData
+from gpaw.response.frequencies import FrequencyDescriptor
+from gpaw.response.pair import PairDensityCalculator, get_gs_and_context
+from gpaw.response.chi0 import Chi0Calculator
 
 
-class BSE:
-    def __init__(self,
-                 calc=None,
+class BSEBackend:
+    def __init__(self, *, gs, context,
                  spinors=False,
                  ecut=10.,
                  scale=1.0,
@@ -37,97 +34,50 @@ class BSE:
                  gw_skn=None,
                  truncation=None,
                  integrate_gamma=1,
-                 txt=sys.stdout,
                  mode='BSE',
                  wfile=None,
                  write_h=False,
                  write_v=False):
+        self.gs = gs
+        self.context = context
 
-        """Creates the BSE object
-
-        calc: str or calculator object
-            The string should refer to the .gpw file contaning KS orbitals
-        ecut: float
-            Plane wave cutoff energy (eV)
-        nbands: int
-            Number of bands used for the screened interaction
-        valence_bands: list
-            Valence bands used in the BSE Hamiltonian
-        conduction_bands: list
-            Conduction bands used in the BSE Hamiltonian
-        eshift: float
-            Scissors operator opening the gap (eV)
-        gw_skn: list / array
-            List or array defining the gw quasiparticle energies used in
-            the BSE Hamiltonian. Should match spin, k-points and
-            valence/conduction bands
-        truncation: str
-            Coulomb truncation scheme. Can be either wigner-seitz,
-            2D, 1D, or 0D
-        integrate_gamma: int
-            Method to integrate the Coulomb interaction. 1 is a numerical
-            integration at all q-points with G=[0,0,0] - this breaks the
-            symmetry slightly. 0 is analytical integration at q=[0,0,0] only -
-            this conserves the symmetry. integrate_gamma=2 is the same as 1,
-            but the average is only carried out in the non-periodic directions.
-        txt: str
-            txt output
-        mode: str
-            Theory level used. can be RPA TDHF or BSE. Only BSE is screened.
-        wfile: str
-            File for saving screened interaction and some other stuff
-            needed later
-        write_h: bool
-            If True, write the BSE Hamiltonian to H_SS.ulm.
-        write_v: bool
-            If True, write eigenvalues and eigenstates to v_TS.ulm
-        """
-
-        # Calculator
-        if isinstance(calc, str):
-            calc = GPAW(calc, communicator=serial_comm)
-        self.calc = calc
-        self.gs = ResponseGroundStateAdapter(calc)
         self.spinors = spinors
         self.scale = scale
 
         assert mode in ['RPA', 'TDHF', 'BSE']
-
-        self.iocontext = IOContext()
-        self.fd = self.iocontext.openfile(txt)
 
         self.ecut = ecut / Hartree
         self.nbands = nbands
         self.mode = mode
         self.truncation = truncation
         if integrate_gamma == 0 and truncation is not None:
-            print('***WARNING*** Analytical Coulomb integration is ' +
-                  'not expected to work with Coulomb truncation. ' +
-                  'Use integrate_gamma=1', file=self.fd)
+            self.context.print('***WARNING*** Analytical Coulomb integration' +
+                               ' is not expected to work with Coulomb ' +
+                               'truncation. Use integrate_gamma=1')
         self.integrate_gamma = integrate_gamma
         self.wfile = wfile
         self.write_h = write_h
         self.write_v = write_v
-        
+
         # Find q-vectors and weights in the IBZ:
         self.kd = self.gs.kd
         if -1 in self.kd.bz2bz_ks:
-            print('***WARNING*** Symmetries may not be right ' +
-                  'Use gamma-centered grid to be sure', file=self.fd)
-        """
+            self.context.print('***WARNING*** Symmetries may not be right. '
+                               'Use gamma-centered grid to be sure')
         offset_c = 0.5 * ((self.kd.N_c + 1) % 2) / self.kd.N_c
         bzq_qc = monkhorst_pack(self.kd.N_c) + offset_c
         self.qd = KPointDescriptor(bzq_qc)
         self.qd.set_symmetry(self.gs.atoms, self.kd.symmetry)
-        """
+        
         # bands
         self.spins = self.gs.nspins
         if self.spins == 2:
             if self.spinors:
                 self.spinors = False
-                print('***WARNING*** Presently the spinor version' +
-                      'does not work for spin-polarized calculations.' +
-                      'Performing scalar calculation', file=self.fd)
+                self.context.print('***WARNING*** Presently the spinor ' +
+                                   'version does not work for spin-polarized' +
+                                   ' calculations. Performing scalar ' +
+                                   'calculation')
             assert len(valence_bands[0]) == len(valence_bands[1])
             assert len(conduction_bands[0]) == len(conduction_bands[1])
         if valence_bands is None:
@@ -140,12 +90,8 @@ class BSE:
             if self.spins == 2:
                 conduction_bands *= 2
 
-        self.val_sn = np.array(valence_bands)
-        if len(np.shape(self.val_sn)) == 1:
-            self.val_sn = np.array([self.val_sn])
-        self.con_sn = np.array(conduction_bands)
-        if len(np.shape(self.con_sn)) == 1:
-            self.con_sn = np.array([self.con_sn])
+        self.val_sn = np.atleast_2d(valence_bands)
+        self.con_sn = np.atleast_2d(conduction_bands)
 
         self.td = True
         for n in self.val_sn[0]:
@@ -176,7 +122,8 @@ class BSE:
         # Wigner-Seitz stuff
         if self.truncation == 'wigner-seitz':
             self.wstc = WignerSeitzTruncatedCoulomb(self.gs.gd.cell_cv,
-                                                    self.kd.N_c, self.fd)
+                                                    self.kd.N_c)
+            self.context.print(self.wstc.get_description())
         else:
             self.wstc = None
 
@@ -186,16 +133,9 @@ class BSE:
             chi0calc=self._chi0calc,
             truncation=self.truncation,
             world=world,
-            txt=self.fd,
             integrate_gamma=self.integrate_gamma)
 
         self.qd = self._wcalc.qd
-
-        self.print_initialization(self.td, self.eshift, self.gw_skn)
-
-        
-    def __del__(self):
-        self.iocontext.close()
 
     def calculate(self, optical=True):
 
@@ -205,7 +145,7 @@ class BSE:
             # for unoccupied states and n is used for occupied states so be
             # careful!
 
-            print('Diagonalizing spin-orbit Hamiltonian', file=self.fd)
+            self.context.print('Diagonalizing spin-orbit Hamiltonian')
             if world.rank == 0:
                 # XXX Probably not a good idea for this to be serial!
                 soc = self.gs.soc_eigenstates(scale=self.scale)
@@ -230,13 +170,15 @@ class BSE:
         if optical:
             v_G[0] = 0.0
 
-        self.pair = PairDensity(self.calc, world=serial_comm,
-                                txt='pair.txt')
+        self.pair = PairDensityCalculator(
+            gs=self.gs,
+            context=ResponseContext(txt='pair.txt', timer=None,
+                                    world=serial_comm))
 
         # Calculate direct (screened) interaction and PAW corrections
         if self.mode == 'RPA':
             pairden_paw_corr = self.gs.pair_density_paw_corrections
-            pawcorr = pairden_paw_corr(pd0, alter_optical_limit=True)
+            pawcorr = pairden_paw_corr(pd0)
         else:
             self.get_screened_potential()
             if (self.qd.ibzk_kc - self.q_c < 1.0e-6).all():
@@ -245,7 +187,7 @@ class BSE:
                 pawcorr = self.pawcorr_q[iq0]  # Q_qaGii[iq0]
             else:
                 pairden_paw_corr = self.gs.pair_density_paw_corrections
-                pawcorr = pairden_paw_corr(pd0, alter_optical_limit=True)
+                pawcorr = pairden_paw_corr(pd0)
 
         # Calculate pair densities, eigenvalues and occupations
         so = self.spinors + 1
@@ -260,7 +202,6 @@ class BSE:
 
         get_pair = self.pair.get_kpoint_pair
         get_pair_density = self.pair.get_pair_density
-        get_optical_pair_density = self.pair.get_optical_pair_density
         if self.spinors:
             # Get all pair densities to allow for SOC mixing
             # Use twice as many no-SOC states as BSE bands to allow mixing
@@ -301,7 +242,8 @@ class BSE:
                 rho_mnG = get_pair_density(pd0, pair, m_m, n_n,
                                            pawcorr=pawcorr)
                 if optical_limit:
-                    n_mnv = get_optical_pair_density(pd0, pair, m_m, n_n)
+                    n_mnv = self.pair.get_optical_pair_density_head(pd0, pair,
+                                                                    m_m, n_n)
                     rho_mnG[:, :, 0] = n_mnv[:, :, self.direction]
                 if self.spinors:
                     if optical_limit:
@@ -340,8 +282,8 @@ class BSE:
 
         # Calculate Hamiltonian
         t0 = time()
-        print('Calculating %s matrix elements at q_c = %s'
-              % (self.mode, self.q_c), file=self.fd)
+        self.context.print('Calculating %s matrix elements at q_c = %s' % (
+            self.mode, self.q_c))
         H_ksmnKsmn = np.zeros((myKsize, Ns, Nv, Nc, nK, Ns, Nv, Nc), complex)
         for ik1, iK1 in enumerate(myKrange):
             for s1 in range(Ns):
@@ -405,10 +347,10 @@ class BSE:
             if iK1 % (myKsize // 5 + 1) == 0:
                 dt = time() - t0
                 tleft = dt * myKsize / (iK1 + 1) - dt
-                print('  Finished %s pair orbitals in %s - Estimated %s left' %
-                      ((iK1 + 1) * Nv * Nc * Ns * world.size,
-                       timedelta(seconds=round(dt)),
-                       timedelta(seconds=round(tleft))), file=self.fd)
+                self.context.print(
+                    '  Finished %s pair orbitals in %s - Estimated %s left'
+                    % ((iK1 + 1) * Nv * Nc * Ns * world.size, timedelta(
+                        seconds=round(dt)), timedelta(seconds=round(tleft))))
 
         # if self.mode == 'BSE':
         #     del self.Q_qaGii, self.W_qGG, self.pd_q
@@ -457,12 +399,12 @@ class BSE:
                         pos_av=self.gs.get_pos_av())
                     for Q_aGii, pd in zip(data['Q'], self.pd_q)]
                 self.W_qGG = data['W']
-                print('Reading screened potential from % s' % self.wfile,
-                      file=self.fd)
+                self.context.print('Reading screened potential from % s' %
+                                   self.wfile)
             except FileNotFoundError:
                 self.calculate_screened_potential()
-                print('Saving screened potential to % s' % self.wfile,
-                      file=self.fd)
+                self.context.print('Saving screened potential to % s' %
+                                   self.wfile)
                 if world.rank == 0:
                     np.savez(self.wfile,
                              Q=[pawcorr.Q_aGii for pawcorr in self.pawcorr_q],
@@ -473,16 +415,21 @@ class BSE:
     def initialize_chi0_calculator(self):
         """Initialize the Chi0 object to compute the static
         susceptibility."""
-        self._chi0calc = Chi0(self.calc,
-                              frequencies=[0.0],
-                              eta=0.001,
-                              ecut=self.ecut * Hartree,
-                              intraband=False,
-                              hilbert=False,
-                              nbands=self.nbands,
-                              txt='chi0.txt',
-                              world=world
-                              )
+
+        wd = FrequencyDescriptor([0.0])
+        pair = PairDensityCalculator(
+            gs=self.gs,
+            context=self.context.with_txt('chi0.txt'))
+
+        self._chi0calc = Chi0Calculator(
+            wd=wd,
+            pair=pair,
+            eta=0.001,
+            ecut=self.ecut * Hartree,
+            intraband=False,
+            hilbert=False,
+            nbands=self.nbands)
+
         self.blockcomm = self._chi0calc.blockcomm
 
     def calculate_screened_potential(self):
@@ -492,8 +439,17 @@ class BSE:
         self.W_qGG = []
         self.pd_q = []
 
+        # F.N: Moved this here. chi0 will be calculated by WCalculator
+        if self._chi0calc is None:
+            self.initialize_chi0_calculator()
+        if self._wcalc is None:
+            self._wcalc = initialize_w_calculator(
+                chi0calc=self._chi0calc,
+                truncation=self.truncation,
+                world=world,
+                integrate_gamma=self.integrate_gamma)
         t0 = time()
-        print('Calculating screened potential', file=self.fd)
+        self.context.print('Calculating screened potential')
         for iq, q_c in enumerate(self.qd.ibzk_kc):
             chi0 = self._chi0calc.calculate(q_c)
             pd, W_wGG = self._wcalc.calculate_q(iq, q_c, chi0, out_dist='WgG')
@@ -505,22 +461,23 @@ class BSE:
             if iq % (self.qd.nibzkpts // 5 + 1) == 2:
                 dt = time() - t0
                 tleft = dt * self.qd.nibzkpts / (iq + 1) - dt
-                print('  Finished %s q-points in %s - Estimated %s left' %
-                      (iq + 1, timedelta(seconds=round(dt)),
-                       timedelta(seconds=round(tleft))), file=self.fd)
+                self.context.print(
+                    '  Finished %s q-points in %s - Estimated %s left' % (
+                        iq + 1, timedelta(seconds=round(dt)), timedelta(
+                            seconds=round(tleft))))
 
     def diagonalize(self):
 
-        print('Diagonalizing Hamiltonian', file=self.fd)
+        self.context.print('Diagonalizing Hamiltonian')
         """The t and T represent local and global
            eigenstates indices respectively
         """
 
         # Non-Hermitian matrix can only use linalg.eig
         if not self.td:
-            print('  Using numpy.linalg.eig...', file=self.fd)
-            print('  Eliminated %s pair orbitals' % len(self.excludef_S),
-                  file=self.fd)
+            self.context.print('  Using numpy.linalg.eig...')
+            self.context.print('  Eliminated %s pair orbitals' % len(
+                self.excludef_S))
 
             self.H_SS = self.collect_A_SS(self.H_sS)
             self.w_T = np.zeros(self.nS - len(self.excludef_S), complex)
@@ -534,10 +491,10 @@ class BSE:
         # Here the eigenvectors are returned as complex conjugated rows
         else:
             if world.size == 1:
-                print('  Using lapack...', file=self.fd)
+                self.context.print('  Using lapack...')
                 self.w_T, self.v_St = eigh(self.H_sS)
             else:
-                print('  Using scalapack...', file=self.fd)
+                self.context.print('  Using scalapack...')
                 nS = self.nS
                 ns = -(-self.kd.nbzkpts // world.size) * (
                     self.nv * self.nc *
@@ -579,11 +536,11 @@ class BSE:
                 return
             self.diagonalize()
         elif readfile == 'H_SS':
-            print('Reading Hamiltonian from file', file=self.fd)
+            self.context.print('Reading Hamiltonian from file')
             self.par_load('H_SS.ulm', 'H_SS')
             self.diagonalize()
         elif readfile == 'v_TS':
-            print('Reading eigenstates from file', file=self.fd)
+            self.context.print('Reading eigenstates from file')
             self.par_load('v_TS.ulm', 'v_TS')
         else:
             raise ValueError('%s array not recognized' % readfile)
@@ -605,8 +562,8 @@ class BSE:
         rhoG0_S = self.rhoG0_S
         df_S = self.df_S
 
-        print('Calculating response function at %s frequency points' %
-              len(w_w), file=self.fd)
+        self.context.print('Calculating response function at %s frequency '
+                           'points' % len(w_w))
         vchi_w = np.zeros(len(w_w), dtype=complex)
 
         if not self.td:
@@ -655,10 +612,10 @@ class BSE:
         dw_w = (w_w[1:] - w_w[:-1]) / Hartree
         wchi_w = (w_w[1:] * vchi_w[1:] + w_w[:-1] * vchi_w[:-1]) / Hartree / 2
         N = -np.dot(dw_w, wchi_w.imag) * self.gs.volume / (2 * np.pi**2)
-        print(file=self.fd)
-        print('Checking f-sum rule:', file=self.fd)
-        print('  Valence = %s, N = %f' % (nv, N), file=self.fd)
-        print(file=self.fd)
+        self.context.print('', flush=False)
+        self.context.print('Checking f-sum rule:', flush=False)
+        self.context.print('  Valence = %s, N = %f' % (nv, N), flush=False)
+        self.context.print('')
 
         if write_eig is not None:
             if world.rank == 0:
@@ -709,8 +666,8 @@ class BSE:
                                     epsilon_w.real, epsilon_w.imag)
         world.barrier()
 
-        print('Calculation completed at:', ctime(), file=self.fd)
-        print(file=self.fd)
+        self.context.print('Calculation completed at:', ctime(), flush=False)
+        self.context.print('')
 
         return w_w, epsilon_w
 
@@ -752,8 +709,8 @@ class BSE:
             f.close()
         world.barrier()
 
-        print('Calculation completed at:', ctime(), file=self.fd)
-        print(file=self.fd)
+        self.context.print('Calculation completed at:', ctime(), flush=False)
+        self.context.print('')
 
         return w_w, eels_w
 
@@ -790,8 +747,8 @@ class BSE:
         if world.rank == 0 and filename is not None:
             write_response_function(filename, w_w, alpha_w.real, alpha_w.imag)
 
-        print('Calculation completed at:', ctime(), file=self.fd)
-        print(file=self.fd)
+        self.context.print('Calculation completed at:', ctime(), flush=False)
+        self.context.print('')
 
         return w_w, alpha_w
 
@@ -823,8 +780,8 @@ class BSE:
                 print('%.9f, %.9f' % (w, abs_w[iw]), file=fd)
             fd.close()
 
-        print('Calculation completed at:', ctime(), file=self.fd)
-        print(file=self.fd)
+        self.context.print('Calculation completed at:', ctime(), flush=False)
+        self.context.print('')
 
         return w_w, abs_w
 
@@ -924,7 +881,7 @@ class BSE:
         return myKrange, myKsize, mySsize
 
     def print_initialization(self, td, eshift, gw_skn):
-        p = functools.partial(print, file=self.fd)
+        p = functools.partial(self.context.print, flush=False)
         p('----------------------------------------------------------')
         p('%s Hamiltonian' % self.mode)
         p('----------------------------------------------------------')
@@ -978,4 +935,50 @@ class BSE:
         p('    K-point/band decomposition           : % s' % world.size)
         p('  Hamiltonian')
         p('    Pair orbital decomposition           : % s' % world.size)
-        p()
+        self.context.print('')
+
+
+class BSE(BSEBackend):
+    def __init__(self, calc=None, txt='-', **kwargs):
+        """Creates the BSE object
+
+        calc: str or calculator object
+            The string should refer to the .gpw file contaning KS orbitals
+        ecut: float
+            Plane wave cutoff energy (eV)
+        nbands: int
+            Number of bands used for the screened interaction
+        valence_bands: list
+            Valence bands used in the BSE Hamiltonian
+        conduction_bands: list
+            Conduction bands used in the BSE Hamiltonian
+        eshift: float
+            Scissors operator opening the gap (eV)
+        gw_skn: list / array
+            List or array defining the gw quasiparticle energies used in
+            the BSE Hamiltonian. Should match spin, k-points and
+            valence/conduction bands
+        truncation: str or None
+            Coulomb truncation scheme. Can be None, wigner-seitz, or 2D.
+        integrate_gamma: int
+            Method to integrate the Coulomb interaction. 1 is a numerical
+            integration at all q-points with G=[0,0,0] - this breaks the
+            symmetry slightly. 0 is analytical integration at q=[0,0,0] only -
+            this conserves the symmetry. integrate_gamma=2 is the same as 1,
+            but the average is only carried out in the non-periodic directions.
+        txt: str
+            txt output
+        mode: str
+            Theory level used. can be RPA TDHF or BSE. Only BSE is screened.
+        wfile: str
+            File for saving screened interaction and some other stuff
+            needed later
+        write_h: bool
+            If True, write the BSE Hamiltonian to H_SS.ulm.
+        write_v: bool
+            If True, write eigenvalues and eigenstates to v_TS.ulm
+        """
+        gs, context = get_gs_and_context(
+            calc, txt, world=world, timer=None)
+
+        super().__init__(gs=gs, context=context, **kwargs)

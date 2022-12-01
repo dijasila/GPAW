@@ -17,9 +17,11 @@ class PlaneWaveAtomCenteredFunctions(AtomCenteredFunctions):
                  functions,
                  fracpos,
                  pw,
-                 atomdist=None):
+                 atomdist=None,
+                 xp=None):
         AtomCenteredFunctions.__init__(self, functions, fracpos, atomdist)
         self.pw = pw
+        self.xp = xp or np
 
     def _lazy_init(self):
         if self._lfc is not None:
@@ -37,7 +39,8 @@ class PlaneWaveAtomCenteredFunctions(AtomCenteredFunctions):
         self._layout = AtomArraysLayout([sum(2 * f.l + 1 for f in funcs)
                                          for funcs in self.functions],
                                         self._atomdist,
-                                        self.pw.dtype)
+                                        self.pw.dtype,
+                                        xp=self.xp)
 
     def to_uniform_grid(self,
                         out: UniformGridFunctions,
@@ -244,6 +247,8 @@ class PWLFC(BaseLFC):
             yield 0, nG
 
     def add(self, a_xG, c_axi=1.0, q=None):
+        if self.nI == 0:
+            return
         c_xI = np.empty(a_xG.shape[:-1] + (self.nI,), self.dtype)
 
         if isinstance(c_axi, float):
@@ -273,6 +278,8 @@ class PWLFC(BaseLFC):
                 1.0, a_xG[:, G1:G2])
 
     def integrate(self, a_xG, c_axi=None, q=-1):
+        if self.nI == 0:
+            return c_axi
         c_xI = np.zeros(a_xG.shape[:-1] + (self.nI,), self.dtype)
 
         nx = prod(c_xI.shape[:-1])

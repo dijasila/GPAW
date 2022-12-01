@@ -220,7 +220,10 @@ class TBDFTComponentsBuilder(LCAODFTComponentsBuilder):
         eigensolver = self.create_eigensolver(hamiltonian)
         return TBSCFLoop(hamiltonian, occ_calc, eigensolver)
 
-    def create_ibz_wave_functions(self, basis, potential):
+    def create_ibz_wave_functions(self,
+                                  basis: BasisFunctions,
+                                  potential,
+                                  coefficients=None):
         assert self.communicators['w'].size == 1
 
         ibzwfs, tciexpansions = create_lcao_ibzwfs(

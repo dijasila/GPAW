@@ -4,16 +4,15 @@ from time import ctime
 
 import numpy as np
 from ase.units import Hartree
-from ase.utils import IOContext
-from ase.utils.timing import Timer, timer
 from scipy.special import p_roots
 
 import gpaw.mpi as mpi
+from gpaw.response import timer
 from gpaw.response.chi0 import Chi0Calculator
 from gpaw.response.coulomb_kernels import get_coulomb_kernel
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.response.frequencies import FrequencyDescriptor
-from gpaw.response.pair import get_gs_and_context, NoCalculatorPairDensity
+from gpaw.response.pair import get_gs_and_context, PairDensityCalculator
 
 
 def rpa(filename, ecut=200.0, blocks=1, extrapolate=4):
@@ -73,9 +72,8 @@ class RPACorrelation:
             list of weights (integration measure) for a user specified
             frequency grid. Must be specified and have the same length as
             frequencies if frequencies is not None
-        truncation: str
-            Coulomb truncation scheme. Can be either wigner-seitz,
-            2D, 1D, or 0D
+        truncation: str or None
+            Coulomb truncation scheme. Can be None, 'wigner-seitz', or '2D'
         world: communicator
         nblocks: int
             Number of parallelization blocks. Frequency parallelization
@@ -85,13 +83,8 @@ class RPACorrelation:
             txt file for saving and loading contributions to the correlation
             energy from different q-points
         """
-
-        self.iocontext = IOContext()
-
-        self.timer = Timer()
-        self.fd = self.iocontext.openfile(txt, world)
-
-        gs, context = get_gs_and_context(calc, self.fd, world, self.timer)
+        gs, context = get_gs_and_context(calc=calc, txt=txt, world=world,
+                                         timer=None)
 
         self.gs = gs
         self.context = context
@@ -108,11 +101,10 @@ class RPACorrelation:
         self.omega_w = frequencies / Hartree
         self.weight_w = weights / Hartree
 
-        if nblocks > 1:
-            assert len(self.omega_w) % nblocks == 0
+        # TODO: We should avoid this requirement.
+        assert len(self.omega_w) % nblocks == 0
 
         self.nblocks = nblocks
-        self.world = world
 
         self.truncation = truncation
         self.skip_gamma = skip_gamma
@@ -126,9 +118,6 @@ class RPACorrelation:
         self.filename = filename
 
         self.print_initialization(xc, frequency_scale, nlambda, user_spec)
-
-    def __del__(self):
-        self.iocontext.close()
 
     def initialize_q_points(self, qsym):
         kd = self.gs.kd
@@ -160,12 +149,11 @@ class RPACorrelation:
                     self.energy_qi = []
                     return
 
-        print('Read %d q-points from file: %s' % (nq, self.filename),
-              file=self.fd)
-        print(file=self.fd)
+        self.context.print(
+            'Read %d q-points from file: %s\n' % (nq, self.filename))
 
     def write(self):
-        if self.world.rank == 0 and self.filename:
+        if self.context.world.rank == 0 and self.filename:
             fd = open(self.filename, 'w')
             print('#%9s %10s %10s %8s %12s' %
                   ('q1', 'q2', 'q3', 'E_cut', 'E_c(q)'), file=fd)
@@ -187,7 +175,7 @@ class RPACorrelation:
             (Only needed for beyond RPA methods that inherit this function).
         """
 
-        p = functools.partial(print, file=self.fd)
+        p = functools.partial(self.context.print, flush=False)
 
         if isinstance(ecut, (float, int)):
             ecut = ecut * (1 + 0.5 * np.arange(6))**(-2 / 3)
@@ -204,15 +192,15 @@ class RPACorrelation:
         p()
         if self.truncation is not None:
             p('Using %s Coulomb truncation' % self.truncation)
-        p()
+        self.context.print('')
 
         if self.filename and os.path.isfile(self.filename):
             self.read()
-            self.world.barrier()
+            self.context.world.barrier()
 
         wd = FrequencyDescriptor(1j * self.omega_w)
 
-        pair = NoCalculatorPairDensity(
+        pair = PairDensityCalculator(
             self.gs,
             context=self.context.with_txt('chi0.txt'),
             nblocks=self.nblocks)
@@ -228,13 +216,14 @@ class RPACorrelation:
 
         if self.truncation == 'wigner-seitz':
             self.wstc = WignerSeitzTruncatedCoulomb(self.gs.gd.cell_cv,
-                                                    self.gs.kd.N_c, self.fd)
+                                                    self.gs.kd.N_c)
+            self.context.print(self.wstc.get_description())
         else:
             self.wstc = None
 
         nq = len(self.energy_qi)
 
-        self.timer.start('RPA')
+        self.context.timer.start('RPA')
 
         for q_c in self.ibzq_qc[nq:]:
             if np.allclose(q_c, 0.0) and self.skip_gamma:
@@ -266,8 +255,8 @@ class RPACorrelation:
                     cut_G = np.arange(nG)[pd.G2_qG[0] <= 2 * ecut]
                     m2 = len(cut_G)
 
-                p('E_cut = %d eV / Bands = %d:' % (ecut * Hartree, m2))
-                self.fd.flush()
+                p('E_cut = %d eV / Bands = %d:' % (ecut * Hartree, m2),
+                  end='\n', flush=True)
 
                 energy = self.calculate_q(chi0calc,
                                           chi0_s,
@@ -306,9 +295,8 @@ class RPACorrelation:
         p('Calculation completed at: ', ctime())
         p()
 
-        self.timer.stop('RPA')
-        self.timer.write(self.fd)
-        self.fd.flush()
+        self.context.timer.stop('RPA')
+        self.context.write_timer()
 
         return e_i * Hartree
 
@@ -319,39 +307,34 @@ class RPACorrelation:
         chi0calc.update_chi0(chi0,
                              m1, m2, spins='all')
 
-        print('E_c(q) = ', end='', file=self.fd)
+        self.context.print('E_c(q) = ', end='', flush=False)
 
         chi0_wGG = chi0.distribute_as('wGG')
 
         kd = self.gs.kd
         if not chi0.pd.kd.gamma:
             e = self.calculate_energy(chi0.pd, chi0_wGG, cut_G)
-            print('%.3f eV' % (e * Hartree), file=self.fd)
-            self.fd.flush()
+            self.context.print('%.3f eV' % (e * Hartree))
         else:
             from gpaw.response.gamma_int import GammaIntegrator
+            from gpaw.response.pw_parallelization import Blocks1D
 
-            nw = len(self.omega_w)
-            mynw = nw // self.nblocks
-            w1 = self.blockcomm.rank * mynw
-            w2 = w1 + mynw
-
+            wblocks = Blocks1D(self.blockcomm, len(self.omega_w))
             gamma_int = GammaIntegrator(
                 truncation=self.truncation,
                 kd=kd,
                 pd=chi0.pd,
-                chi0_wvv=chi0.chi0_wvv[w1:w2],
-                chi0_wxvG=chi0.chi0_wxvG[w1:w2])
+                chi0_wvv=chi0.chi0_wvv[wblocks.myslice],
+                chi0_wxvG=chi0.chi0_wxvG[wblocks.myslice])
 
             e = 0
             for iqf in range(len(gamma_int.qf_qv)):
-                for iw in range(w1, w2):
+                for iw in range(wblocks.nlocal):
                     gamma_int.set_appendages(chi0_wGG[iw], iw, iqf)
                 ev = self.calculate_energy(chi0.pd, chi0_wGG, cut_G,
                                            q_v=gamma_int.qf_qv[iqf])
                 e += ev * gamma_int.weight_q[iqf]
-            print('%.3f eV' % (e * Hartree), file=self.fd)
-            self.fd.flush()
+            self.context.print('%.3f eV' % (e * Hartree))
 
         return e
 
@@ -382,7 +365,7 @@ class RPACorrelation:
         return energy
 
     def extrapolate(self, e_i):
-        print('Extrapolated energies:', file=self.fd)
+        self.context.print('Extrapolated energies:', flush=False)
         ex_i = []
         for i in range(len(e_i) - 1):
             e1, e2 = e_i[i:i + 2]
@@ -390,17 +373,15 @@ class RPACorrelation:
             ex = (e1 * x2 - e2 * x1) / (x2 - x1)
             ex_i.append(ex)
 
-            print('  %4.0f -%4.0f:  %5.3f eV' % (self.ecut_i[i] * Hartree,
-                                                 self.ecut_i[i + 1] * Hartree,
-                                                 ex * Hartree),
-                  file=self.fd)
-        print(file=self.fd)
-        self.fd.flush()
+            self.context.print('  %4.0f -%4.0f:  %5.3f eV' %
+                               (self.ecut_i[i] * Hartree, self.ecut_i[i + 1]
+                                * Hartree, ex * Hartree), flush=False)
+        self.context.print('')
 
         return e_i * Hartree
 
     def print_initialization(self, xc, frequency_scale, nlambda, user_spec):
-        p = functools.partial(print, file=self.fd)
+        p = functools.partial(self.context.print, flush=False)
         p('----------------------------------------------------------')
         p('Non-self-consistent %s correlation energy' % xc)
         p('----------------------------------------------------------')
@@ -442,11 +423,11 @@ class RPACorrelation:
               len(self.omega_w), 'frequency points')
         p()
         p('Parallelization')
-        p('    Total number of CPUs          : % s' % self.world.size)
+        p('    Total number of CPUs          : % s' % self.context.world.size)
         p('    G-vector decomposition        : % s' % self.nblocks)
         p('    K-point/band decomposition    : % s' %
-          (self.world.size // self.nblocks))
-        p()
+          (self.context.world.size // self.nblocks))
+        self.context.print('')
 
 
 def get_gauss_legendre_points(nw=16, frequency_max=800.0, frequency_scale=2.0):

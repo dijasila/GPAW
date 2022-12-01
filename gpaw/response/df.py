@@ -1,6 +1,4 @@
-import os
 import sys
-import pickle
 from math import pi
 
 import numpy as np
@@ -12,19 +10,20 @@ from gpaw.response.coulomb_kernels import get_coulomb_kernel
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.response.density_kernels import get_density_xc_kernel
 from gpaw.response.chi0 import Chi0Calculator, new_frequency_descriptor
-from gpaw.response.pair import get_gs_and_context, NoCalculatorPairDensity
+from gpaw.response.pair import get_gs_and_context, PairDensityCalculator
 
 
 class DielectricFunctionCalculator:
-    def __init__(self, chi0calc, name, truncation):
+    def __init__(self, chi0calc, truncation):
         from gpaw.response.pw_parallelization import Blocks1D
         self.chi0calc = chi0calc
-        self.name = name
 
         self.truncation = truncation
         self.context = chi0calc.context
         self.wd = chi0calc.wd
         self.blocks1d = Blocks1D(self.context.world, len(self.wd))
+
+        self._chi0cache = {}
 
     @property
     def gs(self):
@@ -43,91 +42,46 @@ class DielectricFunctionCalculator:
             (not used in transverse reponse functions)
         """
 
-        if self.name:
-            kd = self.gs.kd
-            name = self.name + '%+d%+d%+d.pckl' % tuple((q_c * kd.N_c).round())
-            if os.path.isfile(name):
-                return self.read(name)
+        # We cache the computed data since chi0 may otherwise be redundantly
+        # calculated e.g. if the user calculates multiple directions.
+        #
+        # May be called multiple times with same q_c, and we want to
+        # be able to recognize previous seen values of q_c.
+        # We do this by rounding and converting to string with fixed
+        # precision (so not very elegant).
+        q_key = [f'{q:.10f}' for q in q_c]
+        key = (spin, *q_key)
 
-        chi0 = self.chi0calc.calculate(q_c, spin)
-        chi0_wGG = chi0.distribute_frequencies()
+        # Spin='all' is a terrible cache key since it's inconsistent
+        # with specifying spins one integer at the time.
+        # We might as well change it to do the caching by spin index,
+        # or maybe we can work around the caching entirely with a more
+        # explicit API design.
 
-        self.context.write_timer()
-        if self.name:
-            self.write(name, chi0.pd, chi0_wGG, chi0.chi0_wxvG, chi0.chi0_wvv)
+        if key not in self._chi0cache:
+            # We assume that the caller will trigger this multiple
+            # times with the same qpoint, then several times with
+            # another qpoint, etc.  If that's true, then we
+            # need to cache no more than one qpoint at a time.
+            # Thus to save memory, we clear the cache here.
+            #
+            # This should be replaced with something more reliable,
+            # such as having the caller manage things more explicitly.
+            #
+            # See https://gitlab.com/gpaw/gpaw/-/issues/662
+            #
+            # In conclusion, delete the cache now:
+            self._chi0cache.clear()
 
-        return chi0.pd, chi0_wGG, chi0.chi0_wxvG, chi0.chi0_wvv
+            chi0 = self.chi0calc.calculate(q_c, spin)
+            chi0_wGG = chi0.distribute_frequencies()
+            self.context.write_timer()
+            things = chi0.pd, chi0_wGG, chi0.chi0_wxvG, chi0.chi0_wvv
+            self._chi0cache[key] = things
 
-    def write(self, name, pd, chi0_wGG, chi0_wxvG, chi0_wvv):
-        nw = len(self.wd)
-        nG = pd.ngmax
-        world = self.context.world
-        mynw = self.blocks1d.blocksize
-
-        if world.rank == 0:
-            fd = open(name, 'wb')
-            pickle.dump((self.wd.omega_w, pd, None, chi0_wxvG, chi0_wvv),
-                        fd, pickle.HIGHEST_PROTOCOL)
-            for chi0_GG in chi0_wGG:
-                pickle.dump(chi0_GG, fd, pickle.HIGHEST_PROTOCOL)
-
-            tmp_wGG = np.empty((mynw, nG, nG), complex)
-            w1 = mynw
-            for rank in range(1, world.size):
-                w2 = min(w1 + mynw, nw)
-                world.receive(tmp_wGG[:w2 - w1], rank)
-                for w in range(w2 - w1):
-                    pickle.dump(tmp_wGG[w], fd, pickle.HIGHEST_PROTOCOL)
-                w1 = w2
-            fd.close()
-        else:
-            world.send(chi0_wGG, 0)
-
-    def read(self, name):
-        self.context.print('Reading from', name)
-        with open(name, 'rb') as fd:
-            omega_w, pd, chi0_wGG, chi0_wxvG, chi0_wvv = pickle.load(fd)
-            for omega in self.wd.omega_w:
-                assert np.any(np.abs(omega - omega_w) < 1e-8)
-
-            wmin = np.argmin(np.abs(np.min(self.wd.omega_w) - omega_w))
-            world = self.context.world
-
-            nw = len(omega_w)
-            nG = pd.ngmax
-
-            blocks1d = self.blocks1d
-
-            mynw = blocks1d.blocksize
-
-            if chi0_wGG is not None:
-                # Old file format:
-                chi0_wGG = chi0_wGG[wmin + blocks1d.a:blocks1d.b].copy()
-            else:
-                if world.rank == 0:
-                    chi0_wGG = np.empty((mynw, nG, nG), complex)
-                    for _ in range(wmin):
-                        pickle.load(fd)
-                    for chi0_GG in chi0_wGG:
-                        chi0_GG[:] = pickle.load(fd)
-                    tmp_wGG = np.empty((mynw, nG, nG), complex)
-                    w1 = mynw
-                    for rank in range(1, world.size):
-                        w2 = min(w1 + mynw, nw)
-                        for w in range(w2 - w1):
-                            tmp_wGG[w] = pickle.load(fd)
-                        world.send(tmp_wGG[:w2 - w1], rank)
-                        w1 = w2
-                else:
-                    chi0_wGG = np.empty((self.blocks1d.nlocal, nG, nG),
-                                        complex)
-                    world.receive(chi0_wGG, 0)
-
-            if chi0_wvv is not None:
-                chi0_wxvG = chi0_wxvG[wmin:wmin + nw]
-                chi0_wvv = chi0_wvv[wmin:wmin + nw]
-
-        return pd, chi0_wGG, chi0_wxvG, chi0_wvv
+        pd, *more_things = self._chi0cache[key]
+        return (pd, *[thing.copy() if thing is not None else thing
+                      for thing in more_things])
 
     def collect(self, a_w):
         return self.blocks1d.collect(a_w)
@@ -555,7 +509,6 @@ class DielectricFunction(DielectricFunctionCalculator):
     """This class defines dielectric function related physical quantities."""
 
     def __init__(self, calc, *,
-                 name=None,
                  frequencies=None,
                  domega0=None,  # deprecated
                  omega2=None,  # deprecated
@@ -573,13 +526,6 @@ class DielectricFunction(DielectricFunctionCalculator):
         calc: str
             The groundstate calculation file that the linear response
             calculation is based on.
-        name: str
-            If defined, save the response function to::
-
-                name + '%+d%+d%+d.pckl' % tuple((q_c * kd.N_c).round())
-
-            where q_c is the reduced momentum and N_c is the number of
-            kpoints along each direction.
         frequencies:
             Input parameters for frequency_grid.
             Can be array of frequencies to evaluate the response function at
@@ -608,9 +554,10 @@ class DielectricFunction(DielectricFunctionCalculator):
             frequencies over processes.
         txt: str
             Output file.
-        truncation: str
+        truncation: str or None
+            None for no truncation.
             'wigner-seitz' for Wigner Seitz truncated Coulomb.
-            '2D, 1D or 0d for standard analytical truncation schemes.
+            '2D' for standard analytical truncation scheme.
             Non-periodic directions are determined from k-point grid
         eshift: float
             Shift unoccupied bands
@@ -623,7 +570,7 @@ class DielectricFunction(DielectricFunctionCalculator):
                                       domega0=domega0,
                                       omega2=omega2, omegamax=omegamax)
 
-        pair = NoCalculatorPairDensity(
+        pair = PairDensityCalculator(
             gs=gs, context=context, threshold=threshold, nblocks=nblocks)
 
         chi0calc = Chi0Calculator(
@@ -639,8 +586,7 @@ class DielectricFunction(DielectricFunctionCalculator):
             rate=rate, eshift=eshift
         )
 
-        super().__init__(chi0calc=chi0calc,
-                         name=name, truncation=truncation)
+        super().__init__(chi0calc=chi0calc, truncation=truncation)
 
 
 def write_response_function(filename, omega_w, rf0_w, rf_w):

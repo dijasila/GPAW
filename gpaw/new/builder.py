@@ -10,6 +10,7 @@ from ase.calculators.calculator import kpts2sizeandoffsets
 from ase.units import Bohr
 
 from gpaw.core import UniformGrid
+from gpaw.core.domain import Domain
 from gpaw.core.atom_arrays import (AtomArrays, AtomArraysLayout,
                                    AtomDistribution)
 from gpaw.mixer import MixerWrapper, get_mixer_from_keywords
@@ -145,8 +146,11 @@ class DFTComponentsBuilder:
             self.grid.comm)
 
     @cached_property
-    def wf_desc(self):
+    def wf_desc(self) -> Domain:
         return self.create_wf_description()
+
+    def create_wf_description(self) -> Domain:
+        raise NotImplementedError
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.atoms}, {self.params})'
@@ -202,10 +206,11 @@ class DFTComponentsBuilder:
             self.ncomponents, self.grid._gd)
 
         occ_calc = self.create_occupation_number_calculator()
-
         return SCFLoop(hamiltonian, occ_calc,
                        eigensolver, mixer, self.communicators['w'],
-                       self.params.convergence,
+                       {key: value
+                        for key, value in self.params.convergence.items()
+                        if key != 'bands'},
                        self.params.maxiter)
 
     def read_ibz_wave_functions(self, reader):
