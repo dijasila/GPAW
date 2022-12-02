@@ -27,15 +27,8 @@ def get_coulomb_kernel(pd, N_c, truncation=None, q_v=None, wstc=None):
         if pd.kd.gamma and q_v is None:
             v_G[0] = 0.0
 
-    elif truncation == '1D':
-        v_G = calculate_1D_truncated_coulomb(pd, q_v=q_v, N_c=N_c)
-        if pd.kd.gamma and q_v is None:
-            v_G[0] = 0.0
-
-    elif truncation == '0D':
-        v_G = calculate_0D_truncated_coulomb(pd, q_v=q_v)
-        if pd.kd.gamma and q_v is None:
-            v_G[0] = 0.0
+    elif truncation in {'1D', '0D'}:
+        raise feature_removed()
 
     elif truncation == 'wigner-seitz':
         v_G = wstc.get_potential(pd, q_v=q_v)
@@ -82,64 +75,6 @@ def calculate_2D_truncated_coulomb(pd, q_v=None, N_c=None):
         v_G *= 1. + np.exp(-qGp_G * R) * a_G
 
     return v_G.astype(complex)
-
-
-def calculate_1D_truncated_coulomb(pd, q_v=None, N_c=None):
-    """ Simple 1D truncation of Coulomb kernel PRB 73, 205119.
-    The periodic direction is determined from k-point grid.
-    """
-
-    from scipy.special import j1, k0, j0, k1
-
-    qG_Gv = pd.get_reciprocal_vectors(add_q=True)
-    if pd.kd.gamma:
-        if q_v is not None:
-            qG_Gv += q_v
-        else:
-            raise ValueError(
-                'Presently, calculations only work with a small q in the '
-                'normal direction')
-
-    # The periodic direction is determined from k-point grid
-    Nn_c = np.where(N_c == 1)[0]
-    Np_c = np.where(N_c != 1)[0]
-    if len(Nn_c) != 2:
-        # The k-point grid does not fit with boundary conditions
-        Nn_c = [0, 1]    # Choose reduced cell vectors 0, 1
-        Np_c = [2]       # Choose reduced cell vector 2
-    # The radius is determined from area of non-periodic part of cell
-    Acell_cv = pd.gd.cell_cv[Nn_c, :][:, Nn_c]
-    R = abs(np.linalg.det(Acell_cv) / np.pi)**0.5
-
-    qGnR_G = (qG_Gv[:, Nn_c[0]]**2 + qG_Gv[:, Nn_c[1]]**2)**0.5 * R
-    qGpR_G = abs(qG_Gv[:, Np_c[0]]) * R
-    v_G = 4 * np.pi / (qG_Gv**2).sum(axis=1)
-    v_G *= (1.0 + qGnR_G * j1(qGnR_G) * k0(qGpR_G)
-            - qGpR_G * j0(qGnR_G) * k1(qGpR_G))
-
-    return v_G.astype(complex)
-
-
-def calculate_0D_truncated_coulomb(pd, q_v=None):
-    """ Simple spherical truncation of the Coulomb interaction
-    PRB 73, 205119
-    """
-
-    qG_Gv = pd.get_reciprocal_vectors(add_q=True)
-    if pd.kd.gamma:
-        if q_v is not None:
-            qG_Gv += q_v
-        else:  # Only to avoid warning. Later set to zero in factory function
-            qG_Gv[0] = [1., 1., 1.]
-    # The radius is determined from volume of cell
-    R = (3 * pd.gd.volume / (4 * np.pi))**(1. / 3.)
-
-    qG2_G = (qG_Gv**2).sum(axis=1)
-
-    v_G = 4 * np.pi / qG2_G
-    v_G *= 1.0 - np.cos(qG2_G**0.5 * R)
-
-    return v_G
 
 
 def get_integrated_kernel(pd, N_c, truncation=None, N=100, reduced=False):
@@ -198,3 +133,11 @@ def get_integrated_kernel(pd, N_c, truncation=None, N=100, reduced=False):
         V_q *= 1.0 - np.cos(q2_q**0.5 * R)
 
     return np.sum(V_q) / len(V_q), np.sum(V_q**0.5) / len(V_q)
+
+
+def feature_removed():
+    return RuntimeError(
+        '0D and 1D truncation have been removed due to not being tested.  '
+        'If you need them, please find them in '
+        'ec9e49e25613bb99cd69eec9d2613e38b9f6e6e1 '
+        'and make sure to add tests in order to have them re-added.')

@@ -991,9 +991,8 @@ class BSE(BSEBackend):
             List or array defining the gw quasiparticle energies used in
             the BSE Hamiltonian. Should match spin, k-points and
             valence/conduction bands
-        truncation: str
-            Coulomb truncation scheme. Can be either wigner-seitz,
-            2D, 1D, or 0D
+        truncation: str or None
+            Coulomb truncation scheme. Can be None, wigner-seitz, or 2D.
         integrate_gamma: int
             Method to integrate the Coulomb interaction. 1 is a numerical
             integration at all q-points with G=[0,0,0] - this breaks the

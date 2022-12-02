@@ -60,10 +60,10 @@ class UniformGridPotentialCalculator(PotentialCalculator):
             for Nt1, Nt2, nt_r in zip(Nt1_s, Nt2_s, nt_sr):
                 if Nt2 > 1e-14:
                     nt_r.data *= Nt1 / Nt2
-        return nt_sr
+        return nt_sr, None, None
 
     def _calculate(self, density, vHt_r):
-        nt_sr = self._interpolate_density(density.nt_sR)
+        nt_sr, _, _ = self._interpolate_density(density.nt_sR)
 
         grid2 = nt_sr.desc
 

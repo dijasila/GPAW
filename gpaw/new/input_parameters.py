@@ -249,7 +249,8 @@ def parallel(value: dict[str, Any] = None) -> dict[str, Any]:
                        'use_elpa': False,
                        'elpasolver': '2stage',
                        'buffer_size': None,
-                       'world': None},
+                       'world': None,
+                       'gpu': False},
                       value)
     dct['world'] = dct['world'] or world
     return dct
@@ -269,7 +270,7 @@ def random(value=False):
 @input_parameter
 def setups(value='paw'):
     """PAW datasets or pseudopotentials."""
-    return value if isinstance(value, dict) else {None: value}
+    return value if isinstance(value, dict) else {'default': value}
 
 
 @input_parameter

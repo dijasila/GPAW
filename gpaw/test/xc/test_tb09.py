@@ -5,6 +5,7 @@ from ase.build import bulk
 from gpaw import GPAW, PW, Mixer
 
 
+@pytest.mark.later
 @pytest.mark.libxc
 def test_xc_tb09(in_tmp_dir):
     def xc(name):

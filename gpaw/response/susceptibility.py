@@ -38,7 +38,7 @@ class ChiFactory:
         self._blocks1d = None
 
     def __call__(self, spincomponent, q_c, frequencies,
-                 fxc='ALDA', fxckwargs={}, txt=None):
+                 fxc='ALDA', fxckwargs=None, txt=None):
         """Calculate a given element (spincomponent) of the four-component
         Kohn-Sham susceptibility tensor and construct a corresponding many-body
         susceptibility object within a given approximation to the
@@ -134,6 +134,8 @@ class ChiFactory:
     def get_xc_kernel(self, fxc, spincomponent, pd, *,
                       fxckwargs, wd, blocks1d, chiks_wGG):
         """Calculate the xc kernel."""
+        if fxckwargs is None:
+            fxckwargs = {}
         assert isinstance(fxckwargs, dict)
         if 'fxc_scaling' in fxckwargs:
             assert spincomponent in ['+-', '-+']
@@ -224,19 +226,15 @@ class Chi:
     @property
     def Khxc_GG(self):
         """Hartree-exchange-correlation kernel."""
-        if self.Vbare_G is not None:
-            # Construct the Hartree kernel
-            Kh_GG = np.diag(self.Vbare_G)
-        else:
-            Kh_GG = None
-        if self.Kxc_GG is not None:
+        # Allocate array
+        nG = self.chiks_wGG.shape[2]
+        Khxc_GG = np.zeros((nG, nG), dtype=complex)
+
+        if self.Vbare_G is not None:  # Add the Hartree kernel
+            Khxc_GG.flat[::nG + 1] += self.Vbare_G
+        if self.Kxc_GG is not None:  # Add the xc kernel
             # In the future, construct the xc kernel here! XXX
-            Khxc_GG = self.Kxc_GG.copy()
-            if Kh_GG is not None:
-                Khxc_GG += Kh_GG
-        else:
-            assert Kh_GG is not None
-            Khxc_GG = Kh_GG
+            Khxc_GG += self.Kxc_GG
 
         return Khxc_GG
 

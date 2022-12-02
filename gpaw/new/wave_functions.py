@@ -108,7 +108,8 @@ class WaveFunctions:
                                        occ_n,
                                        D_asii: AtomArrays) -> None:
         if self.ncomponents < 4:
-            for D_sii, P_ni in zip(D_asii.values(), self.P_ani.values()):
+            P_ani = self.P_ani.to_cpu()
+            for D_sii, P_ni in zip(D_asii.values(), P_ani.values()):
                 D_sii[self.spin] += np.einsum('ni, n, nj -> ij',
                                               P_ni.conj(), occ_n, P_ni).real
         else:
