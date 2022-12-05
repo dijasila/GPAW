@@ -338,6 +338,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
                         self.pd.ifft(1j * G_Gv[:, v] * psit_G, kpt.q))**2
 
         self.kptband_comm.sum(taut_sR)
+        for taut_R in taut_sR:
+            self.kd.symmetry.symmetrize(taut_R, self.gd)
         return taut_sR
 
     def apply_mgga_orbital_dependent_hamiltonian(self, kpt, psit_xG,
