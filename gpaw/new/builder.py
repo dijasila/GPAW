@@ -113,8 +113,8 @@ class DFTComponentsBuilder:
             self.nbands *= 2
 
         self.dtype: DTypeLike
-        if params.force_complex_dtype:
-            self.dtype = complex
+        if params.dtype is not None:
+            self.dtype = params.dtype
         elif self.ibz.bz.gamma_only:
             self.dtype = float
         else:

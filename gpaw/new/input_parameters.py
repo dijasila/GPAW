@@ -48,9 +48,9 @@ class InputParameters:
     charge: float
     communicator: Any
     convergence: dict[str, Any]
+    dtype: Any
     eigensolver: dict[str, Any]
     experimental: dict[str, Any]
-    force_complex_dtype: bool
     gpts: None | Sequence[int]
     h: float | None
     hund: bool
@@ -103,12 +103,10 @@ class InputParameters:
         if force_complex_dtype is not None:
             if warn:
                 warnings.warn(
-                    'Please use '
-                    f'GPAW(force_complex_dtype={bool(force_complex_dtype)}, '
-                    '...)',
+                    'Please use GPAW(dtype=complex, ...)',
                     stacklevel=3)
-            self.force_complex_dtype = force_complex_dtype
-            self.keys.append('force_complex_dtype')
+            self.dtype = complex
+            self.keys.append('dtype')
             self.keys.sort()
 
         if self.communicator is not None:
@@ -165,7 +163,7 @@ def experimental(value=None):
 
 
 @input_parameter
-def force_complex_dtype(value: bool = False):
+def dtype(value=None):
     return value
 
 
