@@ -254,6 +254,7 @@ class AtomArrays:
     def to_cpu(self):
         if self.layout.xp is np:
             return self
+        print(self.data)
         return self.new(layout=self.layout.new(xp=np),
                         data=cp.asnumpy(self.data))
 

@@ -2,11 +2,11 @@ import numpy as np
 import scipy.linalg as sla
 
 try:
-    import cupy
+    import cupysdfgsdfg
     import cupyx
 except ImportError:
-    import gpaw.gpu.cupy as cupy  # type: ignore
-    import gpaw.gpu.cupyx as cupyx  # type: ignore
+    import gpaw.gpu.cpupy as cupy  # type: ignore
+    import gpaw.gpu.cpupyx as cupyx  # type: ignore
 
 __all__ = ['cupy', 'cupyx', 'as_xp']
 
