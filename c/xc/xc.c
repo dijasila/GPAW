@@ -70,41 +70,6 @@ static void XCFunctional_dealloc(XCFunctionalObject *self)
 }
 
 
-void fastlda(int N,
-             double *e,
-             const double *n,
-             double *v)
-{
-    double A = GAMMA;
-    double alpha1 = 0.21370;
-    double beta1 = 7.5957;
-    double beta2 = 3.5876;
-    double beta3 = 1.6382;
-    double beta4 = 0.49294;
-    for (int r = 0; r < N; r++) {
-        double d = n[r];
-        if (d < 1e-14)
-            e[r] = 0.0;
-        else {
-            double rs = pow(C0I / d, THIRD);
-            double rtrs = sqrt(rs);
-            double Q0 = -2.0 * A * (1.0 + alpha1 * rtrs * rtrs);
-            double Q1 = 2.0 * A * rtrs * (beta1 +
-                                          rtrs * (beta2 +
-                                                  rtrs * (beta3 +
-                                                          rtrs * beta4)));
-            double ec = Q0 * log(1.0 + 1.0 / Q1);
-            double dQ1drs = A * (beta1 / rtrs + 2.0 * beta2 +
-                                 rtrs * (3.0 * beta3 + 4.0 * beta4 * rtrs));
-            double decdrs = -2.0 * A * alpha1 * ec / Q0 - Q0 * dQ1drs / (Q1 * (Q1 + 1.0));
-            double ex = C1 / rs;
-            double dexdrs = -ex / rs;
-            e[r] = d * (ex + ec);
-            v[r] += ex + ec - rs * (dexdrs + decdrs) / 3.0;
-        }
-    }
-}
-
 static PyObject*
 XCFunctional_calculate(XCFunctionalObject *self, PyObject *args)
 {
@@ -129,11 +94,6 @@ XCFunctional_calculate(XCFunctionalObject *self, PyObject *args)
   double* e_g = DOUBLEP(e_array);
   const double* n_g = DOUBLEP(n_array);
   double* v_g = DOUBLEP(v_array);
-
-  if (par->kappa < 0.0) {
-      fastlda(ng, e_g, n_g, v_g);
-      Py_RETURN_NONE;
-  }
 
   const double* sigma_g = 0;
   double* dedsigma_g = 0;
@@ -339,10 +299,6 @@ PyObject * NewXCFunctionalObject(PyObject *obj, PyObject *args)
   else if (code == 14) {
     // PW91
     self->exchange = pw91_exchange;
-  }
-  else if (code == 117) {
-    // PW91
-    self->par.kappa = -1.245;
   }
 #ifndef GPAW_WITHOUT_LIBXC
   else if (code == 20 || code == 21 || code == 22) {

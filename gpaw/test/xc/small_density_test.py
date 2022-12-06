@@ -9,7 +9,7 @@ from time import time
 def test_xc_xc():
     name = 'LDA'
     N = 10000
-    for xc in [LibXC(name), XCKernel(name), XCKernel('FASTLDA')]:
+    for xc in [LibXC(name), XCKernel(name)]:
         n0 = 1e-10
         n_sr = np.array([[-2, -0.5, 0.0, 0.45, 0.55, 1.5]]) * n0
         n_sr = np.linspace(-17, -9, N)[np.newaxis]

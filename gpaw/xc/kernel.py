@@ -28,7 +28,7 @@ class XCNull:
 class XCKernel:
     def __init__(self, name):
         self.name = name
-        if name == 'LDA' or name == 'FASTLDA':
+        if name == 'LDA':
             self.type = 'LDA'
         elif name == 'TPSS' or name == 'M06-L' or name == 'revTPSS':
             self.type = 'MGGA'
