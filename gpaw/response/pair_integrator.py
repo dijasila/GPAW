@@ -124,15 +124,13 @@ class PairFunctionIntegrator(ABC):
             self.disable_symmetries = False
 
     @timer('Integrate pair function')
-    def _integrate(self, pd, out_x, n1_t, n2_t, s1_t, s2_t):
+    def _integrate(self, out, n1_t, n2_t, s1_t, s2_t):
         """In-place pair function integration
 
         Parameters
         ----------
-        pd : PWDescriptor
-            Plane-wave descriptor of the q-vector in question
-        out_x : np.array
-            Output array
+        out : PairFunction
+            Output data structure
         n1_t : np.array
             Band index of k-point k for each transition t.
         n2_t : np.array
@@ -147,7 +145,7 @@ class PairFunctionIntegrator(ABC):
         analyzer : PWSymmetryAnalyzer
         """
         # Initialize the plane-wave symmetry analyzer
-        analyzer = self.get_PWSymmetryAnalyzer(pd)
+        analyzer = self.get_PWSymmetryAnalyzer(out.descriptors.pd)
 
         # Perform the actual integral as a point integral over k-point pairs
         integral = KPointPairPointIntegral(self.kspair, analyzer)
@@ -158,11 +156,11 @@ class PairFunctionIntegrator(ABC):
             kptpair, weight = next(weighted_kptpairs)
             if weight is not None:
                 assert kptpair is not None
-                self.add_integrand(kptpair, weight, pd, out_x)
+                self.add_integrand(kptpair, weight, out)
 
         # Sum over the k-points, which have been distributed between processes
         with self.context.timer('Sum over distributed k-points'):
-            self.intrablockcomm.sum(out_x)
+            self.intrablockcomm.sum(out.array)
 
         # Because the symmetry analyzer is used both to generate the k-point
         # integral domain *and* to symmetry pair functions after the
@@ -172,10 +170,10 @@ class PairFunctionIntegrator(ABC):
         return analyzer
 
     @abstractmethod
-    def add_integrand(self, kptpair, weight, pd, out_x):
+    def add_integrand(self, kptpair, weight, out):
         """Add the relevant integrand of the outer k-point integral to the
-        output data structure 'pd, out_x', weighted by 'weight' and constructed
-        from the provided KohnShamKPointPair.
+        output data structure 'out', weighted by 'weight' and constructed
+        from the provided KohnShamKPointPair 'kptpair'.
 
         This method effectively defines the pair function in question.
         """
