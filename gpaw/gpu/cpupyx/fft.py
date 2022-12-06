@@ -1,5 +1,5 @@
 import scipy.fft as fft
-import gpaw.gpu.cupy as cp
+import gpaw.gpu.cpupy as cp
 
 
 def ifftn(array_Q,
