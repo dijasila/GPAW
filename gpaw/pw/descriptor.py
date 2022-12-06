@@ -12,7 +12,7 @@ from gpaw.typing import Array1D
 class PWDescriptor:
     ndim = 1  # all 3d G-vectors are stored in a 1d ndarray
 
-    def __init__(self, ecut, gd, dtype=None, kd=None,
+    def __init__(self, ecut, gd, dtype=None, kd=None, qspiral=None,
                  fftwflags=fftw.MEASURE, gammacentered=False):
 
         assert gd.pbc_c.all()
@@ -72,6 +72,20 @@ class PWDescriptor:
             self.K_qv = np.dot(kd.ibzk_qc, B_cv)
             self.only_one_k_point = (kd.nbzkpts == 1)
 
+        spiral = qspiral is not None
+        if spiral:
+            if kd is None:
+                self.qs_c = np.array([0, 0, 0])
+                self.qs_v = np.array([0, 0, 0])
+            else:
+                self.qs_c = np.asarray(qspiral)
+                self.qs_v = np.dot(self.qs_c, B_cv)
+                
+            R_Rc = np.indices(N_c).T / N_c
+            self.phase_R = np.exp(2j * pi * np.dot(R_Rc, self.qs_c).T)
+            G2p_qG = []
+            G2m_qG = []
+
         # Map from vectors inside sphere to fft grid:
         self.Q_qG = []
         G2_qG = []
@@ -80,6 +94,10 @@ class PWDescriptor:
         self.ng_q = []
         for q, K_v in enumerate(self.K_qv):
             G2_Q = ((self.G_Qv + K_v)**2).sum(axis=1)
+            if spiral:
+                G2m_Q = ((self.G_Qv + K_v - self.qs_v / 2)**2).sum(axis=1)
+                G2p_Q = ((self.G_Qv + K_v + self.qs_v / 2)**2).sum(axis=1)
+
             if gammacentered:
                 mask_Q = ((self.G_Qv**2).sum(axis=1) <= 2 * ecut)
             else:
@@ -92,6 +110,9 @@ class PWDescriptor:
             Q_G = Q_Q[mask_Q]
             self.Q_qG.append(Q_G)
             G2_qG.append(G2_Q[Q_G])
+            if spiral:
+                G2p_qG.append(G2p_Q[Q_G])
+                G2m_qG.append(G2m_Q[Q_G])
             ng = len(Q_G)
             self.ng_q.append(ng)
 
@@ -118,18 +139,28 @@ class PWDescriptor:
             myQ_G = self.Q_qG[q][ng1:ng2]
             self.myQ_qG.append(myQ_G)
             self.myng_q.append(len(myQ_G))
+        
+        if spiral:
+            self.G2p_qG = []
+            self.G2m_qG = []
+            for q, G2p_G in enumerate(G2p_qG):
+                self.G2p_qG.append(G2p_G[ng1:ng2].copy())
+            for q, G2m_G in enumerate(G2m_qG):
+                self.G2m_qG.append(G2m_G[ng1:ng2].copy())
 
         if S > 1:
             self.tmp_G = np.empty(self.maxmyng * S, complex)
         else:
             self.tmp_G = None
 
-    def get_reciprocal_vectors(self, q=0, add_q=True):
+    def get_reciprocal_vectors(self, q=0, add_q=True, sign=0):
         """Returns reciprocal lattice vectors plus q, G + q,
         in xyz coordinates."""
 
         if add_q:
             q_v = self.K_qv[q]
+            if sign != 0:
+                q_v = q_v + sign * self.qs_v / 2
             return self.G_Qv[self.myQ_qG[q]] + q_v
         return self.G_Qv[self.myQ_qG[q]]
 

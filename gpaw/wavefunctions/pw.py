@@ -13,7 +13,7 @@ from gpaw.blacs import BlacsDescriptor, BlacsGrid, Redistributor
 from gpaw.lfc import BasisFunctions
 from gpaw.matrix_descriptor import MatrixDescriptor
 from gpaw.pw.descriptor import PWDescriptor
-from gpaw.pw.lfc import PWLFC
+from gpaw.pw.lfc import PWLFC, SPWLFC
 from gpaw.utilities import unpack
 from gpaw.utilities.blas import axpy
 from gpaw.utilities.progressbar import ProgressBar
@@ -28,7 +28,7 @@ class PW(Mode):
     def __init__(self, ecut=340, fftwflags=fftw.MEASURE, cell=None,
                  gammacentered=False,
                  pulay_stress=None, dedecut=None,
-                 force_complex_dtype=False):
+                 force_complex_dtype=False, qspiral=None):
         """Plane-wave basis mode.
 
         ecut: float
@@ -61,7 +61,7 @@ class PW(Mode):
         self.pulay_stress = (None
                              if pulay_stress is None
                              else pulay_stress * Bohr**3 / Ha)
-
+        self.qspiral = qspiral
         assert pulay_stress is None or dedecut is None
 
         if cell is None:
@@ -92,7 +92,7 @@ class PW(Mode):
         wfs = PWWaveFunctions(ecut, self.gammacentered,
                               self.fftwflags, dedepsilon,
                               parallel, initksl, gd=gd,
-                              **kwargs)
+                              qspiral=self.qspiral, **kwargs)
 
         return wfs
 
@@ -161,14 +161,14 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
     def __init__(self, ecut, gammacentered, fftwflags, dedepsilon,
                  parallel, initksl,
-                 reuse_wfs_method, collinear,
+                 reuse_wfs_method, collinear, qspiral,
                  gd, nvalence, setups, bd, dtype,
                  world, kd, kptband_comm, timer):
         self.ecut = ecut
         self.gammacentered = gammacentered
         self.fftwflags = fftwflags
         self.dedepsilon = dedepsilon  # Pulay correction for stress tensor
-
+        self.qspiral = qspiral
         self.ng_k = None  # number of G-vectors for all IBZ k-points
 
         FDPWWaveFunctions.__init__(self, parallel, initksl,
@@ -199,7 +199,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
     def set_setups(self, setups):
         self.timer.start('PWDescriptor')
         self.pd = PWDescriptor(self.ecut, self.gd, self.dtype, self.kd,
-                               self.fftwflags, self.gammacentered)
+                               self.qspiral, self.fftwflags,
+                               self.gammacentered)
         self.timer.stop('PWDescriptor')
 
         # Build array of number of plane wave coefficiants for all k-points
@@ -210,8 +211,10 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 self.ng_k[kpt.k] = len(self.pd.Q_qG[kpt.q])
         self.kd.comm.sum(self.ng_k)
 
-        self.pt = PWLFC([setup.pt_j for setup in setups], self.pd)
-
+        if self.qspiral is None:
+            self.pt = PWLFC([setup.pt_j for setup in setups], self.pd)
+        else:
+            self.pt = SPWLFC([setup.pt_j for setup in setups], self.pd)
         FDPWWaveFunctions.set_setups(self, setups)
 
         if self.dedepsilon == 'estimate':
@@ -281,6 +284,9 @@ class PWWaveFunctions(FDPWWaveFunctions):
             kpt, psit_xG, Htpsit_xG, ham.dH_asp)
 
     def apply_pseudo_hamiltonian_nc(self, kpt, ham, psit_xG, Htpsit_xG):
+        if self.qspiral is not None:
+            self.apply_pseudo_hamiltonian_ss(kpt, ham, psit_xG, Htpsit_xG)
+            return
         Htpsit_xG[:] = 0.5 * self.pd.G2_qG[kpt.q] * psit_xG
         v, x, y, z = ham.vt_xG
         iy = y * 1j
@@ -289,6 +295,19 @@ class PWWaveFunctions(FDPWWaveFunctions):
             b = self.pd.ifft(psit_sG[1], kpt.q)
             Htpsit_sG[0] += self.pd.fft(a * (v + z) + b * (x - iy), kpt.q)
             Htpsit_sG[1] += self.pd.fft(a * (x + iy) + b * (v - z), kpt.q)
+
+    def apply_pseudo_hamiltonian_ss(self, kpt, ham, psit_xG, Htpsit_xG):
+        Htpsit_xG[:, 0, :] = 0.5 * self.pd.G2m_qG[kpt.q] * psit_xG[:, 0, :]
+        Htpsit_xG[:, 1, :] = 0.5 * self.pd.G2p_qG[kpt.q] * psit_xG[:, 1, :]
+        v, x, y, z = ham.vt_xG
+        iy = y * 1j
+        for psit_sG, Htpsit_sG in zip(psit_xG, Htpsit_xG):
+            a = self.pd.ifft(psit_sG[0], kpt.q)
+            b = self.pd.ifft(psit_sG[1], kpt.q)
+            axy = a * (x + iy) * np.conj(self.pd.phase_R)
+            bxy = b * (x - iy) * self.pd.phase_R
+            Htpsit_sG[0] += self.pd.fft(a * (v + z) + bxy, kpt.q)
+            Htpsit_sG[1] += self.pd.fft(axy + b * (v - z), kpt.q)
 
     def add_orbital_density(self, nt_G, kpt, n):
         axpy(1.0, abs(self.pd.ifft(kpt.psit_nG[n], kpt.q))**2, nt_G)
@@ -323,6 +342,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
             p11 = p1.real**2 + p1.imag**2
             p22 = p2.real**2 + p2.imag**2
             p12 = p1.conj() * p2
+            if self.qspiral is not None:
+                p12 = p12 * self.pd.phase_R
             nt_xR[0] += f * (p11 + p22)
             nt_xR[1] += 2 * f * p12.real
             nt_xR[2] += 2 * f * p12.imag
