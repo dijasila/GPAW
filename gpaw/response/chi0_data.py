@@ -16,7 +16,7 @@ class SingleQPWDescriptor(PWDescriptor):
         return PWDescriptor(ecut, gd, complex, qd)
 
 
-class LatticePeriodicPairFunctionDescriptorCollection:
+class LatticePeriodicPairFunctionDescriptors:
     """Descriptor collection for lattice periodic pair functions."""
 
     def __init__(self, wd, pd):
@@ -33,8 +33,6 @@ class LatticePeriodicPairFunctionDescriptorCollection:
         # Extract q_c
         q_c = pd.kd.bzk_kc[0]
         self.q_c = q_c
-        optical_limit = np.allclose(q_c, 0.0)
-        self.optical_limit = optical_limit
 
         # Basis set size
         self.nw = len(wd)
@@ -98,8 +96,39 @@ class LatticePeriodicPairFunction:
         # Allocate array
         self.array = np.zeros(shape, complex)
 
+
+class ChiKSDescriptors(LatticePeriodicPairFunctionDescriptors):
+    """Descriptor collection for ChiKS."""
+
+    def __init__(self, spincomponent, wd, pd, eta):
+        """Construct the ChiKS descriptor collection
+
+        Parameters
+        ----------
+        spincomponent : str
+        wd : FrequencyDescriptor
+        pd : PWDescriptor
+        eta : float
+        """
+        super.__init__(wd, pd)
+        self.spincomponent = spincomponent
+        self.eta = eta
+
+
+class ChiKSData(LatticePeriodicPairFunction):  # rename to ChiKS               XXX
+    """Some documentation here!                                                XXX
+    """
+
+    def __init__(self, spincomponent, wd, pd, blockdist,
+                 eta=0.2, distribution='WgG'):
+        """Document me!                                                        XXX
+        """
+        # Some documentation here!                                             XXX
+        descriptors = ChiKSDescriptors(spincomponent, wd, pd, eta)
+        super().__init__(descriptors, blockdist, distribution=distribution)
+
     
-class Chi0Descriptors(LatticePeriodicPairFunctionDescriptorCollection):
+class Chi0Descriptors(LatticePeriodicPairFunctionDescriptors):
     """Descriptor collection for Chi0Data
 
     Attributes
@@ -109,6 +138,10 @@ class Chi0Descriptors(LatticePeriodicPairFunctionDescriptorCollection):
     self.pd : PWDescriptor
         Descriptor for the spatial (plane wave) degrees of freedom
     """
+
+    def __init__(self, wd, pd):
+        super().__init__(wd, pd)
+        self.optical_limit = np.allclose(self.q_c, 0.0)
 
     @staticmethod
     def from_descriptor_arguments(frequencies, plane_waves):
