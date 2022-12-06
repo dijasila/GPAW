@@ -1,3 +1,5 @@
+from abc import ABC, abstractmethod
+
 import numpy as np
 
 from gpaw.kpt_descriptor import KPointDescriptor
@@ -16,7 +18,37 @@ class SingleQPWDescriptor(PWDescriptor):
         return PWDescriptor(ecut, gd, complex, qd)
 
 
-class LatticePeriodicPairFunctionDescriptors:
+class PairFunctionDescriptors:
+    """
+    Some documentation here!                                                   XXX
+    """
+    def __init__(self, pd):
+        # Document me!                                                         XXX
+        self.pd = pd
+
+        # Extract q_c
+        # Should be retrievable directly from pd in the future                 XXX
+        q_c = pd.kd.bzk_kc[0]
+        self.q_c = q_c
+
+
+class PairFunction(ABC):
+    """
+    Some documentation here!                                                   XXX
+    """
+    def __init__(self, descriptors):
+        # Document me!                                                         XXX
+        self.descriptors = descriptors
+        self.array = self.zeros()
+
+    @abstractmethod
+    def zeros(self):
+        """
+        Document me!                                                           XXX
+        """
+
+
+class LatticePeriodicPairFunctionDescriptors(PairFunctionDescriptors):
     """Descriptor collection for lattice periodic pair functions."""
 
     def __init__(self, wd, pd):
@@ -27,19 +59,15 @@ class LatticePeriodicPairFunctionDescriptors:
         wd : FrequencyDescriptor
         pd : PWDescriptor
         """
+        super().__init__(pd)
         self.wd = wd
-        self.pd = pd
-
-        # Extract q_c
-        q_c = pd.kd.bzk_kc[0]
-        self.q_c = q_c
 
         # Basis set size
         self.nw = len(wd)
         self.nG = pd.ngmax
 
 
-class LatticePeriodicPairFunction:
+class LatticePeriodicPairFunction(PairFunction):
     r"""Data object for lattice periodic pair functions.
 
     A pair function is considered to be lattice periodic, if it is invariant
@@ -73,9 +101,6 @@ class LatticePeriodicPairFunction:
         """
         Some documentation here!                                               XXX
         """
-        self.descriptors = descriptors
-        self.q_c = descriptors.q_c
-
         self.blockdist = blockdist
         self.distribution = distribution
 
@@ -93,8 +118,10 @@ class LatticePeriodicPairFunction:
         self.blocks1d = blocks1d
         self.shape = shape
 
-        # Allocate array
-        self.array = np.zeros(shape, complex)
+        super().__init__(descriptors)
+
+    def zeros(self):
+        return np.zeros(self.shape, complex)
 
 
 class ChiKSDescriptors(LatticePeriodicPairFunctionDescriptors):
@@ -103,6 +130,8 @@ class ChiKSDescriptors(LatticePeriodicPairFunctionDescriptors):
     def __init__(self, spincomponent, wd, pd, eta):
         """Construct the ChiKS descriptor collection
 
+        Clean up documentation                                                XXX
+
         Parameters
         ----------
         spincomponent : str
@@ -110,7 +139,7 @@ class ChiKSDescriptors(LatticePeriodicPairFunctionDescriptors):
         pd : PWDescriptor
         eta : float
         """
-        super.__init__(wd, pd)
+        super().__init__(wd, pd)
         self.spincomponent = spincomponent
         self.eta = eta
 
@@ -119,11 +148,12 @@ class ChiKSData(LatticePeriodicPairFunction):  # rename to ChiKS               X
     """Some documentation here!                                                XXX
     """
 
-    def __init__(self, spincomponent, wd, pd, blockdist,
-                 eta=0.2, distribution='WgG'):
+    def __init__(self, spincomponent, wd, pd, eta,
+                 blockdist, distribution='WgG'):
         """Document me!                                                        XXX
         """
         # Some documentation here!                                             XXX
+        # Change to static function?                                           XXX
         descriptors = ChiKSDescriptors(spincomponent, wd, pd, eta)
         super().__init__(descriptors, blockdist, distribution=distribution)
 
