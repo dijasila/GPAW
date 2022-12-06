@@ -29,6 +29,7 @@ extlinks = {
     'doi': ('https://doi.org/%s', 'doi: %s'),
     'arxiv': ('https://arxiv.org/abs/%s', 'arXiv: %s'),
     'mr': ('https://gitlab.com/gpaw/gpaw/-/merge_requests/%s', 'MR: !%s'),
+    'issue': ('https://gitlab.com/gpaw/gpaw/-/issues/%s', 'issue: #%s'),
     'xkcd': ('https://xkcd.com/%s', 'XKCD: %s')}
 spelling_word_list_filename = 'words.txt'
 spelling_show_suggestions = True

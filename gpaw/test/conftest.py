@@ -432,7 +432,10 @@ def pytest_configure(config):
                  'response: tests of the response code',
                  'kspair: tests of kspair in the response code',
                  'serial: run in serial only',
-                 'later: know failure for new refactored GPAW']:
+                 'gpu: GPU test',
+                 'later: know failure for new refactored GPAW',
+                 'legacy: Old stuff that will be removed later',
+                 'wannier: Wannier functions']:
         config.addinivalue_line('markers', line)
 
 

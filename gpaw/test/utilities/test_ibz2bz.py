@@ -3,6 +3,7 @@ from gpaw import GPAW
 from gpaw.utilities.ibz2bz import ibz2bz
 
 
+@pytest.mark.legacy
 @pytest.mark.serial
 def test_ibz2bz(gpw_files, in_tmp_dir):
     """Test ibz.gpw -> bz.gpw utility."""

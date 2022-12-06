@@ -72,9 +72,8 @@ class RPACorrelation:
             list of weights (integration measure) for a user specified
             frequency grid. Must be specified and have the same length as
             frequencies if frequencies is not None
-        truncation: str
-            Coulomb truncation scheme. Can be either wigner-seitz,
-            2D, 1D, or 0D
+        truncation: str or None
+            Coulomb truncation scheme. Can be None, 'wigner-seitz', or '2D'
         world: communicator
         nblocks: int
             Number of parallelization blocks. Frequency parallelization
