@@ -17,37 +17,16 @@ class SingleQPWDescriptor(PWDescriptor):
 
 
 class LatticePeriodicPairFunctionDescriptorCollection:
-    r"""Basis descriptor collection for lattice periodic pair functions,
-    that is, pair functions which are invariant under translation of any
-    Bravais lattice vector R:
-
-    pf(r, r', ω) = pf(r + R, r' + R, ω).
-
-    The Bloch lattice Fourier transform of a lattice periodic pair function,
-                        __
-                        \
-    pf(r, r', q, ω)  =  /  e^(-iq.[r-r'-R']) pf(r, r' + R', ω)
-                        ‾‾
-                        R'
-
-    is then periodic in both r and r' independently and can be expressed in an
-    arbitrary lattice periodic basis. See
-    https://orbit.dtu.dk/en/publications/magnetic-excitations-from-first-principles
-    for more details.
-
-    In the GPAW response code, lattice periodic pair functions are expanded in
-    plane waves:
-
-                   1   //
-    pf_GG'(q, ω) = ‾‾ || drdr' e^(-iG.r) pf(r, r', q, ω) e^(iG'.r')
-                   V0 //
-                        V0
-
-    Hence, the collection consists of a frequency descriptor and a plane-wave
-    descriptor, where the latter is specific to the q-point in question.
-    """
+    """Descriptor collection for lattice periodic pair functions."""
 
     def __init__(self, wd, pd):
+        """Construct the descriptor collection
+
+        Parameters
+        ----------
+        wd : FrequencyDescriptor
+        pd : PWDescriptor
+        """
         self.wd = wd
         self.pd = pd
 
@@ -61,18 +40,76 @@ class LatticePeriodicPairFunctionDescriptorCollection:
         self.nw = len(wd)
         self.nG = pd.ngmax
 
+
+class LatticePeriodicPairFunction:
+    r"""Data object for lattice periodic pair functions.
+
+    A pair function is considered to be lattice periodic, if it is invariant
+    under translations of Bravais lattice vectors R:
+
+    pf(r, r', ω) = pf(r + R, r' + R, ω).
+
+    The Bloch lattice Fourier transform of a lattice periodic pair function,
+                        __
+                        \
+    pf(r, r', q, ω)  =  /  e^(-iq.[r-r'-R']) pf(r, r' + R', ω)
+                        ‾‾
+                        R'
+
+    is then periodic in both r and r' independently and can be expressed in an
+    arbitrary lattice periodic basis.
+
+    In the GPAW response code, lattice periodic pair functions are expanded in
+    plane waves:
+
+                   1   //
+    pf_GG'(q, ω) = ‾‾ || drdr' e^(-iG.r) pf(r, r', q, ω) e^(iG'.r')
+                   V0 //
+                        V0
+
+    Hence, the collection consists of a frequency descriptor and a plane-wave
+    descriptor, where the latter is specific to the q-point in question.
+    """
+
+    def __init__(self, descriptors, blockdist, distribution='WgG'):
+        """
+        Some documentation here!                                               XXX
+        """
+        self.descriptors = descriptors
+        self.q_c = descriptors.q_c
+
+        self.blockdist = blockdist
+        self.distribution = distribution
+
+        if distribution == 'WgG':
+            blocks1d = Blocks1D(blockdist.blockcomm, descriptors.nG)
+            shape = (descriptors.nw, blocks1d.nlocal, descriptors.nG)
+        elif distribution == 'GWg':
+            blocks1d = Blocks1D(blockdist.blockcomm, descriptors.nG)
+            shape = (descriptors.nG, descriptors.nw, blocks1d.nlocal)
+        elif distribution == 'wGG':
+            blocks1d = Blocks1D(blockdist.blockcomm, descriptors.nw)
+            shape = (blocks1d.nlocal, descriptors.nG, descriptors.nG)
+        else:
+            raise NotImplementedError(f'Distribution: {distribution}')
+        self.blocks1d = blocks1d
+        self.shape = shape
+
+        # Allocate array
+        self.array = np.zeros(shape, complex)
+
     
 class Chi0Descriptors(LatticePeriodicPairFunctionDescriptorCollection):
-    """ Data object holding all combined response descriptors needed for
-    chi0Data
-        Parameters
-        ----------
-        wd: FrequencyDescriptor
-            Descriptor for the temporal (frequency) degrees of freedom
-        pd: PWDescriptor
-            Descriptor for the spatial (plane wave) degrees of freedom
+    """Descriptor collection for Chi0Data
+
+    Attributes
+    ----------
+    self.wd : FrequencyDescriptor
+        Descriptor for the temporal (frequency) degrees of freedom
+    self.pd : PWDescriptor
+        Descriptor for the spatial (plane wave) degrees of freedom
     """
-        
+
     @staticmethod
     def from_descriptor_arguments(frequencies, plane_waves):
         """Contruct the necesarry descriptors and initialize the
