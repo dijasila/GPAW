@@ -2,7 +2,7 @@ import numpy as np
 import scipy.linalg as sla
 
 try:
-    import cupysdfgsdfg
+    import cupy
     import cupyx
 except ImportError:
     import gpaw.gpu.cpupy as cupy  # type: ignore
