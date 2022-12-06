@@ -304,8 +304,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
         for psit_sG, Htpsit_sG in zip(psit_xG, Htpsit_xG):
             a = self.pd.ifft(psit_sG[0], kpt.q)
             b = self.pd.ifft(psit_sG[1], kpt.q)
-            axy = a * (x + iy) * np.conj(self.pd.phase_R)
-            bxy = b * (x - iy) * self.pd.phase_R
+            axy = a * (x + iy) #* np.conj(self.pd.phase_R)
+            bxy = b * (x - iy) #* self.pd.phase_R
             Htpsit_sG[0] += self.pd.fft(a * (v + z) + bxy, kpt.q)
             Htpsit_sG[1] += self.pd.fft(axy + b * (v - z), kpt.q)
 
@@ -342,8 +342,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
             p11 = p1.real**2 + p1.imag**2
             p22 = p2.real**2 + p2.imag**2
             p12 = p1.conj() * p2
-            if self.qspiral is not None:
-                p12 = p12 * self.pd.phase_R
+            #if self.qspiral is not None:
+            #    p12 = p12 * self.pd.phase_R
             nt_xR[0] += f * (p11 + p22)
             nt_xR[1] += 2 * f * p12.real
             nt_xR[2] += 2 * f * p12.imag
