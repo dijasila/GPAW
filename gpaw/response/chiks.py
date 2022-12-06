@@ -41,7 +41,7 @@ class ChiKS:
         # Hard-coded, but expected properties
         self.kpointintegration = 'point integration'
 
-    def calculate(self, q_c, frequencies, spincomponent='all', A_x=None):
+    def calculate(self, q_c, frequencies, spincomponent='all'):
         if isinstance(frequencies, FrequencyDescriptor):
             wd = frequencies
         else:
@@ -51,8 +51,7 @@ class ChiKS:
                                                    self.calc.blockcomm,
                                                    self.calc.intrablockcomm)
 
-        return self.calc.calculate(spincomponent, q_c, wd,
-                                   eta=self.eta, chiks_x=A_x)
+        return self.calc.calculate(spincomponent, q_c, wd, eta=self.eta)
 
     def get_PWDescriptor(self, q_c):
         return self.calc.get_PWDescriptor(q_c)
@@ -127,7 +126,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
 
         self.pair_density = PlaneWavePairDensity(self.kspair)
 
-    def calculate(self, spincomponent, q_c, wd, eta=0.2, chiks_x=None):
+    def calculate(self, spincomponent, q_c, wd, eta=0.2):
         r"""Calculate χ_KS,GG'^μν(q,ω+iη)
 
         Parameters
@@ -143,8 +142,6 @@ class ChiKSCalculator(PairFunctionIntegrator):
         eta : float
             Imaginary part η of the frequencies where χ_KS,GG'^μν(q,ω+iη) is
             evaluated
-        chiks_x : np.array
-            Pre-existing integration buffer
 
         Returns
         -------
@@ -176,7 +173,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
 
         # Allocate array (or clean up existing buffer)
         blocks1d = Blocks1D(self.blockcomm, pdi.ngmax)
-        chiks_x = self.set_up_array(len(wd), blocks1d, chiks_x=chiks_x)
+        chiks_x = self.set_up_array(len(wd), blocks1d)
 
         # Perform the actual integration
         analyzer = self._integrate(pdi, chiks_x, n1_t, n2_t, s1_t, s2_t)
@@ -192,30 +189,21 @@ class ChiKSCalculator(PairFunctionIntegrator):
                                       gammacentered=self.gammacentered,
                                       internal=internal)
 
-    def set_up_array(self, nw, blocks1d, chiks_x=None):
+    def set_up_array(self, nw, blocks1d):
         """Initialize the chiks_x array."""
         nG = blocks1d.N
         nGlocal = blocks1d.nlocal
-        localsize = nw * nGlocal * nG
 
         if self.bundle_integrals:
             # Set up chiks_GWg
             shape = (nG, nw, nGlocal)
-            if chiks_x is not None:
-                chiks_GWg = chiks_x[:localsize].reshape(shape)
-                chiks_GWg[:] = 0.0
-            else:
-                chiks_GWg = np.zeros(shape, complex)
+            chiks_GWg = np.zeros(shape, complex)
 
             return chiks_GWg
         else:
             # Set up chiks_WgG
             shape = (nw, nGlocal, nG)
-            if chiks_x is not None:
-                chiks_WgG = chiks_x[:localsize].reshape(shape)
-                chiks_WgG[:] = 0.0
-            else:
-                chiks_WgG = np.zeros(shape, complex)
+            chiks_WgG = np.zeros(shape, complex)
 
             return chiks_WgG
 
