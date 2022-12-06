@@ -88,7 +88,7 @@ def test_basics(in_tmp_dir, gpw_files):
                          wmax=0,
                          d0=5)
     chi = HS.get_chi_matrix()
-    correct_val = 0.018928388759896875 - 0.00018260820184429004j
+    correct_val = 0.018928489384352286-0.00018260648957063363j
     assert np.amax(chi) == pytest.approx(correct_val)
 
     # test equal building blocks
@@ -104,7 +104,7 @@ def test_basics(in_tmp_dir, gpw_files):
                          d0=5)
     chi_new = HS.get_chi_matrix()
     assert np.allclose(chi, chi_new)
-    correct_val = 0.018238059045975367 + 8.08142659593134e-05j
+    correct_val = 0.01823798070624018+8.081803524348743e-05j
     assert np.amax(chi) == pytest.approx(correct_val)
 
     # test to interpolate to grid and actual numbers
