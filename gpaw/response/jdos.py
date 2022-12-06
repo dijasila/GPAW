@@ -6,8 +6,21 @@ from ase.units import Hartree
 
 from gpaw.response import ResponseContext
 from gpaw.response.pair_integrator import PairFunctionIntegrator
+from gpaw.response.chi0_data import PairFunction, ChiKSDescriptors
 from gpaw.response.chiks import get_spin_rotation, get_temporal_part
 from gpaw.response.frequencies import FrequencyDescriptor
+
+
+class JDOS(PairFunction):
+
+    @staticmethod
+    def from_descriptors(spincomponent, wd, pd, eta):
+        descriptors = ChiKSDescriptors(spincomponent, wd, pd, eta)
+        return JDOS(descriptors)
+    
+    def zeros(self):
+        nw = self.descriptors.nw
+        return np.zeros(nw, float)
 
 
 class JDOSCalculator(PairFunctionIntegrator):
@@ -67,12 +80,10 @@ class JDOSCalculator(PairFunctionIntegrator):
             'double': double sum over band indices.
         """
         assert isinstance(wd, FrequencyDescriptor)
+        eta = eta / Hartree  # eV -> Hartree
 
         # Set inputs on self, so that they can be accessed later
-        self.spincomponent = spincomponent
-        self.wd = wd
-        self.eta = eta / Hartree  # eV -> Hartree
-        self.bandsummation = bandsummation
+        self.bandsummation = bandsummation  # Move me later?                   XXX
 
         # Analyze the requested spin component
         spinrot = get_spin_rotation(spincomponent)
@@ -83,17 +94,17 @@ class JDOSCalculator(PairFunctionIntegrator):
         self.print_information(q_c, len(wd), eta,
                                spincomponent, nbands, len(n1_t))
 
-        # Allocate array
-        jdos_w = np.zeros(len(wd), dtype=float)
+        # Set up output data structure
+        pd = self._get_PWDescriptor(q_c, ecut=1e-3)  # No plane-wave repr.
+        jdos = JDOS.from_descriptors(spincomponent, wd, pd, eta)
 
         # Perform actual in-place integration
         self.context.print('Integrating the joint density of states:')
-        pd = self._get_PWDescriptor(q_c, ecut=1e-3)  # No plane-wave repr.
-        self._integrate(pd, jdos_w, n1_t, n2_t, s1_t, s2_t)
+        self._integrate(jdos, n1_t, n2_t, s1_t, s2_t)
 
-        return jdos_w
+        return jdos
 
-    def add_integrand(self, kptpair, weight, _, jdos_w):
+    def add_integrand(self, kptpair, weight, jdos):
         r"""Add the g^μν(q,ω) integrand of the outer k-point integral:
                         __
                   -1    \  σ^μ_ss' σ^ν_s's (f_nks - f_n'k's')
@@ -105,6 +116,14 @@ class JDOSCalculator(PairFunctionIntegrator):
         is equal to the imaginary part (up to a factor of π) of the full
         integrand.
         """
+        # Unpack descriptors
+        spincomponent = jdos.descriptors.spincomponent
+        wd = jdos.descriptors.wd
+        eta = jdos.descriptors.eta
+
+        # Specify notation
+        jdos_w = jdos.array
+
         # Get bands and spins of the transitions
         n1_t, n2_t, s1_t, s2_t = kptpair.get_transitions()
         # Get (f_n'k's' - f_nks) and (ε_n'k's' - ε_nks)
@@ -112,7 +131,7 @@ class JDOSCalculator(PairFunctionIntegrator):
 
         # Construct jdos integrand via the imaginary part of the frequency
         # dependence in χ_KS^μν(q,ω)
-        x_wt = get_temporal_part(self.spincomponent, self.wd.omega_w, self.eta,
+        x_wt = get_temporal_part(spincomponent, wd.omega_w, eta,
                                  n1_t, n2_t, s1_t, s2_t, df_t, deps_t,
                                  self.bandsummation)
         integrand_wt = - x_wt.imag / np.pi
@@ -127,7 +146,7 @@ class JDOSCalculator(PairFunctionIntegrator):
         p('Calculating the joint density of states with:')
         p('    q_c: [%f, %f, %f]' % (q_c[0], q_c[1], q_c[2]))
         p('    Number of frequency points: %d' % nw)
-        p('    Broadening (eta): %f' % eta)
+        p('    Broadening (eta): %f' % (eta * Hartree))
         p('    Spin component: %s' % spincomponent)
         if nbands is None:
             p('    Bands included: All')
