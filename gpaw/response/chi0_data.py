@@ -15,8 +15,54 @@ class SingleQPWDescriptor(PWDescriptor):
         qd = KPointDescriptor([q_c])
         return PWDescriptor(ecut, gd, complex, qd)
 
+
+class LatticePeriodicPairFunctionDescriptorCollection:
+    r"""Basis descriptor collection for lattice periodic pair functions,
+    that is, pair functions which are invariant under translation of any
+    Bravais lattice vector R:
+
+    pf(r, r', ω) = pf(r + R, r' + R, ω).
+
+    The Bloch lattice Fourier transform of a lattice periodic pair function,
+                        __
+                        \
+    pf(r, r', q, ω)  =  /  e^(-iq.[r-r'-R']) pf(r, r' + R', ω)
+                        ‾‾
+                        R'
+
+    is then periodic in both r and r' independently and can be expressed in an
+    arbitrary lattice periodic basis. See
+    https://orbit.dtu.dk/en/publications/magnetic-excitations-from-first-principles
+    for more details.
+
+    In the GPAW response code, lattice periodic pair functions are expanded in
+    plane waves:
+
+                   1   //
+    pf_GG'(q, ω) = ‾‾ || drdr' e^(-iG.r) pf(r, r', q, ω) e^(iG'.r')
+                   V0 //
+                        V0
+
+    Hence, the collection consists of a frequency descriptor and a plane-wave
+    descriptor, where the latter is specific to the q-point in question.
+    """
+
+    def __init__(self, wd, pd):
+        self.wd = wd
+        self.pd = pd
+
+        # Extract q_c
+        q_c = pd.kd.bzk_kc[0]
+        self.q_c = q_c
+        optical_limit = np.allclose(q_c, 0.0)
+        self.optical_limit = optical_limit
+
+        # Basis set size
+        self.nw = len(wd)
+        self.nG = pd.ngmax
+
     
-class ResponseDescriptors:
+class Chi0Descriptors(LatticePeriodicPairFunctionDescriptorCollection):
     """ Data object holding all combined response descriptors needed for
     chi0Data
         Parameters
@@ -25,21 +71,12 @@ class ResponseDescriptors:
             Descriptor for the temporal (frequency) degrees of freedom
         pd: PWDescriptor
             Descriptor for the spatial (plane wave) degrees of freedom
-"""
-    
-    def __init__(self, wd, pd):
-        self.wd = wd
-        self.pd = pd
-        # Check if in optical limit
-        q_c, = pd.kd.ibzk_kc
-        optical_limit = np.allclose(q_c, 0.0)
-        self.optical_limit = optical_limit
-        self.nG = pd.ngmax
+    """
         
     @staticmethod
     def from_descriptor_arguments(frequencies, plane_waves):
         """Contruct the necesarry descriptors and initialize the
-        ResponseDescriptors object."""
+        Chi0Descriptors object."""
         # Construct wd
         if isinstance(frequencies, FrequencyDescriptor):
             wd = frequencies
@@ -54,7 +91,7 @@ class ResponseDescriptors:
             assert len(plane_waves) == 3
             pd = SingleQPWDescriptor.from_q(*plane_waves)
 
-        return ResponseDescriptors(wd, pd)
+        return Chi0Descriptors(wd, pd)
 
 
 def make_blockdist(parallelization):
@@ -74,11 +111,11 @@ class BodyData:
     basis descriptors and block distributor."""
 
     def __init__(self, descriptors, blockdist):
-        """Construct the BodyData object from ResponseDescriptors object.
+        """Construct the BodyData object from Chi0Descriptors object.
 
         Parameters
         ----------
-        descriptors: ResponseDescriptors
+        descriptors: Chi0Descriptors
         blockdist : PlaneWaveBlockDistributor
             Distributor for the block parallelization
         """
@@ -100,7 +137,7 @@ class BodyData:
                                   parallelization):
         """Contruct the necesarry descriptors and initialize the BodyData
         object."""
-        descriptors = ResponseDescriptors.from_descriptor_arguments(
+        descriptors = Chi0Descriptors.from_descriptor_arguments(
             frequencies, plane_waves)
         blockdist = make_blockdist(parallelization)
         return cls(descriptors, blockdist)
@@ -161,7 +198,7 @@ class HeadAndWingsData:
         """Contruct the necesarry descriptors and initialize the
         HeadAndWingsData object"""
 
-        descriptors = ResponseDescriptors.from_descriptor_arguments(
+        descriptors = Chi0Descriptors.from_descriptor_arguments(
             frequencies, plane_waves)
 
         return HeadAndWingsData(descriptors)
