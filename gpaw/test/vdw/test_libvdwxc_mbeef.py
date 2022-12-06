@@ -26,7 +26,7 @@ def test_vdw_libvdwxc_mbeef():
                 setups={'Si': setup})
     system.calc = calc
     e = system.get_potential_energy()
-    ref = -60.544411820017906
+    ref = -60.53662105617721
     err = abs(e - ref)
     print('e=%r ref=%r err=%r' % (e, ref, err))
     # It would be reasonable to put 1e-6 as tolerance,
