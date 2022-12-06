@@ -50,9 +50,10 @@ def test_iron_jdos(in_tmp_dir, gpw_files):
                                            eta=eta,
                                            nbands=nbands)
         for bandsummation in bandsummation_b:
-            jdos_w = jdos_calc.calculate(spincomponent, q_c, wd,
-                                         eta=eta,
-                                         nbands=nbands)
+            jdos = jdos_calc.calculate(spincomponent, q_c, wd,
+                                       eta=eta,
+                                       nbands=nbands)
+            jdos_w = jdos.array
             assert jdos_w == pytest.approx(jdosref_w)
 
         # plt.subplot()
