@@ -10,6 +10,7 @@ from gpaw.response import ResponseContext, timer
 from gpaw.response.frequencies import FrequencyDescriptor
 from gpaw.response.pw_parallelization import (Blocks1D,
                                               PlaneWaveBlockDistributor)
+from gpaw.response.chi0_data import ChiKSData
 from gpaw.response.kspair import PlaneWavePairDensity
 from gpaw.response.pair_integrator import PairFunctionIntegrator
 
@@ -149,11 +150,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
         chiks_wGG : np.array
         """
         assert isinstance(wd, FrequencyDescriptor)
-
-        # Set inputs on self, so that they can be accessed later
-        self.spincomponent = spincomponent
-        self.wd = wd
-        self.eta = eta / Hartree  # eV -> Hartree
+        eta = eta / Hartree  # eV -> Hartree
 
         # Set up the internal plane-wave descriptor
         pdi = self.get_PWDescriptor(q_c, internal=True)
@@ -171,15 +168,15 @@ class ChiKSCalculator(PairFunctionIntegrator):
         self.context.print('Initializing pair densities')
         self.pair_density.initialize(pdi)
 
-        # Allocate array (or clean up existing buffer)
-        blocks1d = Blocks1D(self.blockcomm, pdi.ngmax)
-        chiks_x = self.set_up_array(len(wd), blocks1d)
+        # Create ChiKS data structure
+        chiks = self.create_chiks(spincomponent, wd, pdi, eta)
 
         # Perform the actual integration
-        analyzer = self._integrate(pdi, chiks_x, n1_t, n2_t, s1_t, s2_t)
+        analyzer = self._integrate(chiks, n1_t, n2_t, s1_t, s2_t)
 
         # Apply symmetries and map to output format
-        pd, chiks_WgG = self.post_process(pdi, chiks_x, analyzer)
+        # Return chiks data structure instead                                  XXX
+        pd, chiks_WgG = self.post_process(chiks, analyzer)
 
         return pd, chiks_WgG
 
@@ -189,26 +186,23 @@ class ChiKSCalculator(PairFunctionIntegrator):
                                       gammacentered=self.gammacentered,
                                       internal=internal)
 
-    def set_up_array(self, nw, blocks1d):
-        """Initialize the chiks_x array."""
-        nG = blocks1d.N
-        nGlocal = blocks1d.nlocal
-
+    def create_chiks(self, spincomponent, wd, pd, eta):
+        """
+        Some documentation here!                                               XXX
+        """
         if self.bundle_integrals:
-            # Set up chiks_GWg
-            shape = (nG, nw, nGlocal)
-            chiks_GWg = np.zeros(shape, complex)
-
-            return chiks_GWg
+            distribution = 'GWg'
         else:
-            # Set up chiks_WgG
-            shape = (nw, nGlocal, nG)
-            chiks_WgG = np.zeros(shape, complex)
+            distribution = 'WgG'
+        blockdist = PlaneWaveBlockDistributor(self.context.world,
+                                              self.blockcomm,
+                                              self.intrablockcomm)
 
-            return chiks_WgG
+        return ChiKSData(spincomponent, wd, pd, eta,
+                         blockdist, distribution=distribution)
 
     @timer('Add integrand to chiks_x')
-    def add_integrand(self, kptpair, weight, pd, chiks_x):
+    def add_integrand(self, kptpair, weight, chiks):
         r"""Use the PlaneWavePairDensity object to calculate the integrand for
         all relevant transitions of the given k-point pair, k -> k + q.
 
@@ -242,6 +236,12 @@ class ChiKSCalculator(PairFunctionIntegrator):
         The integrand is added to the output array chiks_x multiplied with the
         supplied kptpair integral weight.
         """
+        # Unpack descriptors
+        spincomponent = chiks.descriptors.spincomponent
+        wd = chiks.descriptors.wd
+        pd = chiks.descriptors.pd
+        eta = chiks.descriptors.eta
+
         # Calculate the pair densities
         self.pair_density(kptpair, pd)
 
@@ -252,10 +252,10 @@ class ChiKSCalculator(PairFunctionIntegrator):
         df_t, deps_t, n_tG = kptpair.df_t, kptpair.deps_t, kptpair.n_tG
 
         # Calculate the frequency dependence of the integrand
-        if self.spincomponent in ['00', 'all'] and self.gs.nspins == 1:
+        if spincomponent in ['00', 'all']\
+           and self.gs.nspins == 1:
             weight = 2 * weight
-        x_Wt = weight * get_temporal_part(self.spincomponent,
-                                          self.wd.omega_w, self.eta,
+        x_Wt = weight * get_temporal_part(spincomponent, wd.omega_w, eta,
                                           n1_t, n2_t, s1_t, s2_t,
                                           df_t, deps_t,
                                           self.bandsummation)
@@ -264,9 +264,9 @@ class ChiKSCalculator(PairFunctionIntegrator):
         blocks1d = Blocks1D(self.blockcomm, pd.ngmax)
         myslice = blocks1d.myslice
 
-        if self.bundle_integrals:
+        if chiks.distribution == 'GWg':
             # Specify notation
-            chiks_GWg = chiks_x
+            chiks_GWg = chiks.array
 
             x_tW = np.ascontiguousarray(x_Wt.T)
             n_Gt = np.ascontiguousarray(n_tG.T)
@@ -280,9 +280,9 @@ class ChiKSCalculator(PairFunctionIntegrator):
                                     'of ncc * nx'):
                 mmmx(1.0, ncc_Gt, 'N', nx_tWg, 'N',
                      1.0, chiks_GWg)  # slow step
-        else:
+        elif chiks.distribution == 'WgG':
             # Specify notation
-            chiks_WgG = chiks_x
+            chiks_WgG = chiks.array
 
             with self.context.timer('Set up ncc and nx'):
                 ncc_tG = n_tG.conj()
@@ -294,36 +294,36 @@ class ChiKSCalculator(PairFunctionIntegrator):
                 for nx_gt, chiks_gG in zip(nx_Wgt, chiks_WgG):
                     mmmx(1.0, nx_gt, 'N', ncc_tG, 'N',
                          1.0, chiks_gG)  # slow step
+        else:
+            raise ValueError(f'Invalid distribution {chiks.distribution}')
 
     @timer('Post processing')
-    def post_process(self, pdi, chiks_x, analyzer):
-        if self.bundle_integrals:
-            # chiks_x = chiks_GWg
-            chiks_WgG = chiks_x.transpose((1, 2, 0))
+    def post_process(self, chiks, analyzer):
+        if chiks.distribution == 'GWg':
+            # chiks_GWg = chiks.array
+            chiks_WgG = chiks.array.transpose((1, 2, 0))
         else:
-            chiks_WgG = chiks_x
-        nw = chiks_WgG.shape[0]
+            chiks_WgG = chiks.array
+        nw = chiks.descriptors.nw
 
         # Distribute over frequencies
-        blockdist = PlaneWaveBlockDistributor(self.context.world,
-                                              self.blockcomm,
-                                              self.intrablockcomm)
-        tmp_wGG = blockdist.distribute_as(chiks_WgG, nw, 'wGG')
+        tmp_wGG = chiks.blockdist.distribute_as(chiks_WgG, nw, 'wGG')
         with self.context.timer('Symmetrizing chiks_wGG'):
             analyzer.symmetrize_wGG(tmp_wGG)
         # Distribute over plane waves
-        chiks_WgG[:] = blockdist.distribute_as(tmp_wGG, nw, 'WgG')
+        chiks_WgG[:] = chiks.blockdist.distribute_as(tmp_wGG, nw, 'WgG')
 
         if self.gammacentered and not self.disable_symmetries:
+            pdi = chiks.descriptors.pd  # internal pd
             assert not pdi.gammacentered
             # Reduce the q-centered plane-wave basis used internally to the
             # gammacentered basis
             q_c = pdi.kd.bzk_kc[0]
             pd = self.get_PWDescriptor(q_c)
             chiks_WgG = map_WgG_array_to_reduced_pd(pdi, pd,
-                                                    blockdist, chiks_WgG)
+                                                    chiks.blockdist, chiks_WgG)
         else:
-            pd = pdi
+            pd = chiks.descriptors.pd
 
         return pd, chiks_WgG
 
