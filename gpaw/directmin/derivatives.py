@@ -448,19 +448,19 @@ class Davidson(object):
                     if self.etdm.dtype == complex:
                         v[self.dimtot + imin] = 1.0
                         do_conj = True
-                    for l in range(self.dimtot):
-                        for m in range(dimz):
-                            if l == imin:
-                                continue
-                            rand = np.zeros(shape=2)
-                            if world.rank == 0:
-                                rand[0] = rng.random()
-                                rand[1] = 1 if rng.random() > 0.5 else -1
-                            else:
-                                rand[0] = 0.0
-                                rand[1] = 0.0
-                            world.broadcast(rand, 0)
-                            v[m * self.dimtot + l] = rand[1] * reps * rand[0]
+                for l in range(self.dimtot):
+                    for m in range(dimz):
+                        if l == imin:
+                            continue
+                        rand = np.zeros(shape=2)
+                        if world.rank == 0:
+                            rand[0] = rng.random()
+                            rand[1] = 1 if rng.random() > 0.5 else -1
+                        else:
+                            rand[0] = 0.0
+                            rand[1] = 0.0
+                        world.broadcast(rand, 0)
+                        v[m * self.dimtot + l] = rand[1] * reps * rand[0]
                 self.V.append(v / np.linalg.norm(v))
             self.V = np.asarray(self.V)
         wfs.timer.start('Modified Gram-Schmidt')
