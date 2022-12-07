@@ -41,13 +41,22 @@ class JDOSCalculator(PairFunctionIntegrator):
     where t is a composite band and spin transition index: (n, s) -> (n', s').
     """
 
-    def __init__(self, gs, context=None, **kwargs):
+    def __init__(self, gs, context=None,
+                 nbands=None, bandsummation='pairwise',
+                 **kwargs):
         """Contruct the JDOSCalculator
 
         Parameters
         ----------
         gs : ResponseGroundStateAdapter
         context : ResponseContext
+        nbands : int
+            Number of bands to include in the sum over states
+        bandsummation : str
+            Band summation strategy (does not change the result, but can affect
+            the run-time).
+            'pairwise': sum over pairs of bands
+            'double': double sum over band indices.
         kwargs : see gpaw.response.pair_integrator.PairFunctionIntegrator
         """
         if context is None:
@@ -56,10 +65,10 @@ class JDOSCalculator(PairFunctionIntegrator):
 
         super().__init__(gs, context, **kwargs)
 
-    def calculate(self, spincomponent, q_c, wd,
-                  eta=0.2,
-                  nbands=None,
-                  bandsummation='pairwise'):
+        self.nbands = nbands
+        self.bandsummation = bandsummation
+
+    def calculate(self, spincomponent, q_c, wd, eta=0.2):
         """Calculate g^μν(q,ω) using a lorentzian broadening of the δ-function
 
         Parameters
@@ -73,28 +82,18 @@ class JDOSCalculator(PairFunctionIntegrator):
             Frequencies to evaluate g^μν(q,ω) at
         eta : float
             HWHM broadening of the δ-function
-        nbands : int
-            Number of bands to include in the sum over states
-        bandsummation : str
-            Band summation strategy (does not change the result, but can affect
-            the run-time).
-            'pairwise': sum over pairs of bands
-            'double': double sum over band indices.
         """
         assert isinstance(wd, FrequencyDescriptor)
         eta = eta / Hartree  # eV -> Hartree
-
-        # Set inputs on self, so that they can be accessed later
-        self.bandsummation = bandsummation  # Move me later?                   XXX
 
         # Analyze the requested spin component
         spinrot = get_spin_rotation(spincomponent)
 
         # Prepare to sum over bands and spins
         n1_t, n2_t, s1_t, s2_t = self.get_band_and_spin_transitions_domain(
-            spinrot, nbands=nbands, bandsummation=bandsummation)
+            spinrot, nbands=self.nbands, bandsummation=self.bandsummation)
         self.context.print(self.get_information(
-            q_c, len(wd), eta, spincomponent, nbands, len(n1_t)))
+            q_c, len(wd), eta, spincomponent, self.nbands, len(n1_t)))
 
         # Set up output data structure
         pd = self.get_pw_descriptor(q_c, ecut=1e-3)  # No plane-wave repr.
