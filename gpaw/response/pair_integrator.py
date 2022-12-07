@@ -492,7 +492,7 @@ class KPointPairIntegral(ABC):
         """
         self.gs = kspair.gs
         self.kspair = kspair
-        self.q_c = analyzer.pd.kd.bzk_kc[0]
+        self.q_c = analyzer.pd.q_c
 
         # Prepare the k-point pair integral
         bzk_kc, weight_k = self.get_kpoint_domain(analyzer)

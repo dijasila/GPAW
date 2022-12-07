@@ -378,7 +378,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
             assert not pdi.gammacentered
             # Reduce the q-centered plane-wave basis used internally to the
             # gammacentered basis
-            q_c = pdi.kd.bzk_kc[0]
+            q_c = pdi.q_c
             pd = self.get_pw_descriptor(q_c)
             chiks_WgG = map_WgG_array_to_reduced_pd(pdi, pd,
                                                     chiks.blockdist, chiks_WgG)
@@ -391,7 +391,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
         r"""Get information about the χ_KS,GG'^μν(q,ω+iη) calculation"""
         from gpaw.utilities.memory import maxrss
 
-        q_c = pd.kd.bzk_kc[0]
+        q_c = pd.q_c
         ecut = pd.ecut * Hartree
         Asize = nw * pd.ngmax**2 * 16. / 1024**2 / self.blockcomm.size
         cmem = maxrss() / 1024**2
