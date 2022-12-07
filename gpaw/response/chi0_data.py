@@ -3,24 +3,32 @@ import numpy as np
 from gpaw.response.pw_parallelization import (Blocks1D,
                                               PlaneWaveBlockDistributor)
 from gpaw.response.frequencies import FrequencyDescriptor
-from gpaw.response.pair_functions import (SingleQPWDescriptor,
-                                          LatticePeriodicPairFunctionDescriptors)
+from gpaw.response.pair_functions import SingleQPWDescriptor
 
     
-class Chi0Descriptors(LatticePeriodicPairFunctionDescriptors):
-    """Descriptor collection for Chi0Data
-
-    Attributes
-    ----------
-    self.wd : FrequencyDescriptor
-        Descriptor for the temporal (frequency) degrees of freedom
-    self.pd : PWDescriptor
-        Descriptor for the spatial (plane wave) degrees of freedom
-    """
+class Chi0Descriptors:
+    """Descriptor collection for Chi0Data."""
 
     def __init__(self, wd, pd):
-        super().__init__(wd, pd)
-        self.optical_limit = np.allclose(self.q_c, 0.0)
+        """Construct the descriptor collection
+
+        Parameters
+        ----------
+        wd : FrequencyDescriptor
+        pd : PWDescriptor
+        """
+        self.wd = wd
+        self.pd = pd
+
+        # Extract q_c
+        # Should be retrievable directly from pd in the future                 XXX
+        q_c = pd.kd.bzk_kc[0]
+        self.q_c = q_c
+        self.optical_limit = np.allclose(q_c, 0.0)
+
+        # Basis set size
+        self.nw = len(wd)
+        self.nG = pd.ngmax
 
     @staticmethod
     def from_descriptor_arguments(frequencies, plane_waves):
