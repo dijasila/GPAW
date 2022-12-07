@@ -538,8 +538,9 @@ def test_Co_hcp_site_kernels():
 
 
 def get_pw_descriptor(atoms, calc, q_c, ecut=50., gammacentered=False):
-    """Mock-up of ChiKSCalculator.get_pw_descriptor working on a bare calculator
-    instance without any actual data in it."""
+    """Mock-up of ChiKSCalculator.get_pw_descriptor.
+
+    Works on a bare calculator instance without any actual data in it."""
     from ase.units import Ha
     from gpaw.pw.descriptor import PWDescriptor
     from gpaw.kpt_descriptor import KPointDescriptor
