@@ -5,19 +5,21 @@ from ase.units import Hartree
 from gpaw.response import ResponseContext
 from gpaw.response.pair_integrator import PairFunctionIntegrator
 from gpaw.response.pair_functions import PairFunction
-from gpaw.response.chiks import get_spin_rotation, get_temporal_part, ChiKSDescriptors
+from gpaw.response.chiks import get_spin_rotation, get_temporal_part
 from gpaw.response.frequencies import FrequencyDescriptor
 
 
 class JDOS(PairFunction):
 
-    @staticmethod
-    def from_descriptors(spincomponent, wd, pd, eta):
-        descriptors = ChiKSDescriptors(spincomponent, wd, pd, eta)
-        return JDOS(descriptors)
+    def __init__(self, spincomponent, pd, wd, eta):
+        self.spincomponent = spincomponent
+        self.wd = wd
+        self.eta = eta
+
+        super().__init__(pd)
     
     def zeros(self):
-        nw = self.descriptors.nw
+        nw = len(self.wd)
         return np.zeros(nw, float)
 
 
@@ -96,7 +98,7 @@ class JDOSCalculator(PairFunctionIntegrator):
 
         # Set up output data structure
         pd = self._get_pw_descriptor(q_c, ecut=1e-3)  # No plane-wave repr.
-        jdos = JDOS.from_descriptors(spincomponent, wd, pd, eta)
+        jdos = JDOS(spincomponent, pd, wd, eta)
 
         # Perform actual in-place integration
         self.context.print('Integrating the joint density of states:')
@@ -116,11 +118,6 @@ class JDOSCalculator(PairFunctionIntegrator):
         is equal to the imaginary part (up to a factor of π) of the full
         integrand.
         """
-        # Unpack descriptors
-        spincomponent = jdos.descriptors.spincomponent
-        wd = jdos.descriptors.wd
-        eta = jdos.descriptors.eta
-
         # Specify notation
         jdos_w = jdos.array
 
@@ -131,7 +128,7 @@ class JDOSCalculator(PairFunctionIntegrator):
 
         # Construct jdos integrand via the imaginary part of the frequency
         # dependence in χ_KS^μν(q,ω)
-        x_wt = get_temporal_part(spincomponent, wd.omega_w, eta,
+        x_wt = get_temporal_part(jdos.spincomponent, jdos.wd.omega_w, jdos.eta,
                                  n1_t, n2_t, s1_t, s2_t, df_t, deps_t,
                                  self.bandsummation)
         integrand_wt = -x_wt.imag / np.pi

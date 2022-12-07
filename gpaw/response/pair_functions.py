@@ -22,27 +22,20 @@ class SingleQPWDescriptor(PWDescriptor):
         return self.kd.bzk_kc[0]
 
 
-class PairFunctionDescriptors:
-    """
-    Some documentation here!                                                   XXX
-    """
-    def __init__(self, pd):
-        # Document me!                                                         XXX
-        self.pd = pd
-
-        # Extract q_c
-        # Should be retrievable directly from pd in the future                 XXX
-        q_c = pd.kd.bzk_kc[0]
-        self.q_c = q_c
-
-
 class PairFunction(ABC):
     """
     Some documentation here!                                                   XXX
     """
-    def __init__(self, descriptors):
-        # Document me!                                                         XXX
-        self.descriptors = descriptors
+    def __init__(self, pd):
+        """Some documentation here!                                            XXX
+
+        Parameters
+        ----------
+        pd : SingleQPWDescriptor
+        """
+        self.pd = pd
+        self.q_c = pd.q_c
+
         self.array = self.zeros()
 
     @abstractmethod
@@ -50,25 +43,6 @@ class PairFunction(ABC):
         """
         Document me!                                                           XXX
         """
-
-
-class LatticePeriodicPairFunctionDescriptors(PairFunctionDescriptors):
-    """Descriptor collection for lattice periodic pair functions."""
-
-    def __init__(self, wd, pd):
-        """Construct the descriptor collection
-
-        Parameters
-        ----------
-        wd : FrequencyDescriptor
-        pd : PWDescriptor
-        """
-        super().__init__(pd)
-        self.wd = wd
-
-        # Basis set size
-        self.nw = len(wd)
-        self.nG = pd.ngmax
 
 
 class LatticePeriodicPairFunction(PairFunction):
@@ -101,28 +75,40 @@ class LatticePeriodicPairFunction(PairFunction):
     descriptor, where the latter is specific to the q-point in question.
     """
 
-    def __init__(self, descriptors, blockdist, distribution='WgG'):
+    def __init__(self, pd, wd, blockdist, distribution='WgG'):
         """
         Some documentation here!                                               XXX
         """
+        self.wd = wd
         self.blockdist = blockdist
         self.distribution = distribution
 
+        nG = pd.ngmax
+        self.blocks1d, self.shape = self._get_blocks_and_shape(nG)
+
+        super().__init__(pd)
+
+    def _get_blocks_and_shape(self, nG):
+        """
+        Some documentation here!                                               XXX
+        """
+        nw = len(self.wd)
+        blockdist = self.blockdist
+        distribution = self.distribution
+
         if distribution == 'WgG':
-            blocks1d = Blocks1D(blockdist.blockcomm, descriptors.nG)
-            shape = (descriptors.nw, blocks1d.nlocal, descriptors.nG)
+            blocks1d = Blocks1D(blockdist.blockcomm, nG)
+            shape = (nw, blocks1d.nlocal, nG)
         elif distribution == 'GWg':
-            blocks1d = Blocks1D(blockdist.blockcomm, descriptors.nG)
-            shape = (descriptors.nG, descriptors.nw, blocks1d.nlocal)
+            blocks1d = Blocks1D(blockdist.blockcomm, nG)
+            shape = (nG, nw, blocks1d.nlocal)
         elif distribution == 'wGG':
-            blocks1d = Blocks1D(blockdist.blockcomm, descriptors.nw)
-            shape = (blocks1d.nlocal, descriptors.nG, descriptors.nG)
+            blocks1d = Blocks1D(blockdist.blockcomm, nw)
+            shape = (blocks1d.nlocal, nG, nG)
         else:
             raise NotImplementedError(f'Distribution: {distribution}')
-        self.blocks1d = blocks1d
-        self.shape = shape
 
-        super().__init__(descriptors)
+        return blocks1d, shape
 
     def zeros(self):
         return np.zeros(self.shape, complex)

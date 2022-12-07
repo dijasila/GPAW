@@ -7,12 +7,10 @@ from gpaw.utilities.blas import mmmx
 
 from gpaw.response import ResponseContext, timer
 from gpaw.response.frequencies import FrequencyDescriptor
-from gpaw.response.pw_parallelization import (Blocks1D,
-                                              PlaneWaveBlockDistributor)
+from gpaw.response.pw_parallelization import PlaneWaveBlockDistributor
 from gpaw.response.kspair import PlaneWavePairDensity
 from gpaw.response.pair_integrator import PairFunctionIntegrator
-from gpaw.response.pair_functions import (LatticePeriodicPairFunctionDescriptors,
-                                          LatticePeriodicPairFunction)
+from gpaw.response.pair_functions import LatticePeriodicPairFunction
 
 
 class ChiKS:
@@ -62,38 +60,19 @@ class ChiKS:
         return self.blockdist.distribute_frequencies(chiks_wGG, len(self.wd))
 
 
-class ChiKSDescriptors(LatticePeriodicPairFunctionDescriptors):
-    """Descriptor collection for ChiKS."""
-
-    def __init__(self, spincomponent, wd, pd, eta):
-        """Construct the ChiKS descriptor collection
-
-        Clean up documentation                                                XXX
-
-        Parameters
-        ----------
-        spincomponent : str
-        wd : FrequencyDescriptor
-        pd : PWDescriptor
-        eta : float
-        """
-        super().__init__(wd, pd)
-        self.spincomponent = spincomponent
-        self.eta = eta
-
-
 class ChiKSData(LatticePeriodicPairFunction):  # rename to ChiKS               XXX
-    """Some documentation here!                                                XXX
+    """
+    Some documentation here!                                                   XXX
     """
 
-    def __init__(self, spincomponent, wd, pd, eta,
+    def __init__(self, spincomponent, pd, wd, eta,
                  blockdist, distribution='WgG'):
-        """Document me!                                                        XXX
         """
-        # Some documentation here!                                             XXX
-        # Change to static function?                                           XXX
-        descriptors = ChiKSDescriptors(spincomponent, wd, pd, eta)
-        super().__init__(descriptors, blockdist, distribution=distribution)
+        Document me!                                                           XXX
+        """
+        self.spincomponent = spincomponent
+        self.eta = eta
+        super().__init__(pd, wd, blockdist, distribution=distribution)
 
 
 class ChiKSCalculator(PairFunctionIntegrator):
@@ -232,10 +211,10 @@ class ChiKSCalculator(PairFunctionIntegrator):
                                               self.blockcomm,
                                               self.intrablockcomm)
 
-        return ChiKSData(spincomponent, wd, pd, eta,
+        return ChiKSData(spincomponent, pd, wd, eta,
                          blockdist, distribution=distribution)
 
-    @timer('Add integrand to chiks_x')
+    @timer('Add integrand to chiks')
     def add_integrand(self, kptpair, weight, chiks):
         r"""Use the PlaneWavePairDensity object to calculate the integrand for
         all relevant transitions of the given k-point pair, k -> k + q.
@@ -270,14 +249,8 @@ class ChiKSCalculator(PairFunctionIntegrator):
         The integrand is added to the output array chiks_x multiplied with the
         supplied kptpair integral weight.
         """
-        # Unpack descriptors
-        spincomponent = chiks.descriptors.spincomponent
-        wd = chiks.descriptors.wd
-        pd = chiks.descriptors.pd
-        eta = chiks.descriptors.eta
-
         # Calculate the pair densities
-        self.pair_density(kptpair, pd)
+        self.pair_density(kptpair, chiks.pd)
 
         # Extract the ingredients from the KohnShamKPointPair
         # Get bands and spins of the transitions
@@ -286,17 +259,16 @@ class ChiKSCalculator(PairFunctionIntegrator):
         df_t, deps_t, n_tG = kptpair.df_t, kptpair.deps_t, kptpair.n_tG
 
         # Calculate the frequency dependence of the integrand
-        if spincomponent in ['00', 'all']\
-           and self.gs.nspins == 1:
+        if chiks.spincomponent in ['00', 'all'] and self.gs.nspins == 1:
             weight = 2 * weight
-        x_Wt = weight * get_temporal_part(spincomponent, wd.omega_w, eta,
+        x_Wt = weight * get_temporal_part(chiks.spincomponent,
+                                          chiks.wd.omega_w, chiks.eta,
                                           n1_t, n2_t, s1_t, s2_t,
                                           df_t, deps_t,
                                           self.bandsummation)
 
         # Let each process handle its own slice of integration
-        blocks1d = Blocks1D(self.blockcomm, pd.ngmax)
-        myslice = blocks1d.myslice
+        myslice = chiks.blocks1d.myslice
 
         if chiks.distribution == 'GWg':
             # Specify notation
@@ -338,7 +310,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
             chiks_WgG = chiks.array.transpose((1, 2, 0))
         else:
             chiks_WgG = chiks.array
-        nw = chiks.descriptors.nw
+        nw = len(chiks.wd)
 
         # Distribute over frequencies
         tmp_wGG = chiks.blockdist.distribute_as(chiks_WgG, nw, 'wGG')
@@ -348,7 +320,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
         chiks_WgG[:] = chiks.blockdist.distribute_as(tmp_wGG, nw, 'WgG')
 
         if self.gammacentered and not self.disable_symmetries:
-            pdi = chiks.descriptors.pd  # internal pd
+            pdi = chiks.pd  # internal pd
             assert not pdi.gammacentered
             # Reduce the q-centered plane-wave basis used internally to the
             # gammacentered basis
@@ -357,7 +329,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
             chiks_WgG = map_WgG_array_to_reduced_pd(pdi, pd,
                                                     chiks.blockdist, chiks_WgG)
         else:
-            pd = chiks.descriptors.pd
+            pd = chiks.pd
 
         return pd, chiks_WgG
 
