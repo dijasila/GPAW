@@ -9,9 +9,10 @@ from gpaw.response import ResponseContext, timer
 from gpaw.response.frequencies import FrequencyDescriptor
 from gpaw.response.pw_parallelization import (Blocks1D,
                                               PlaneWaveBlockDistributor)
-from gpaw.response.chi0_data import ChiKSData
 from gpaw.response.kspair import PlaneWavePairDensity
 from gpaw.response.pair_integrator import PairFunctionIntegrator
+from gpaw.response.pair_functions import (LatticePeriodicPairFunctionDescriptors,
+                                          LatticePeriodicPairFunction)
 
 
 class ChiKS:
@@ -59,6 +60,40 @@ class ChiKS:
     @timer('Distribute frequencies')
     def distribute_frequencies(self, chiks_wGG):
         return self.blockdist.distribute_frequencies(chiks_wGG, len(self.wd))
+
+
+class ChiKSDescriptors(LatticePeriodicPairFunctionDescriptors):
+    """Descriptor collection for ChiKS."""
+
+    def __init__(self, spincomponent, wd, pd, eta):
+        """Construct the ChiKS descriptor collection
+
+        Clean up documentation                                                XXX
+
+        Parameters
+        ----------
+        spincomponent : str
+        wd : FrequencyDescriptor
+        pd : PWDescriptor
+        eta : float
+        """
+        super().__init__(wd, pd)
+        self.spincomponent = spincomponent
+        self.eta = eta
+
+
+class ChiKSData(LatticePeriodicPairFunction):  # rename to ChiKS               XXX
+    """Some documentation here!                                                XXX
+    """
+
+    def __init__(self, spincomponent, wd, pd, eta,
+                 blockdist, distribution='WgG'):
+        """Document me!                                                        XXX
+        """
+        # Some documentation here!                                             XXX
+        # Change to static function?                                           XXX
+        descriptors = ChiKSDescriptors(spincomponent, wd, pd, eta)
+        super().__init__(descriptors, blockdist, distribution=distribution)
 
 
 class ChiKSCalculator(PairFunctionIntegrator):

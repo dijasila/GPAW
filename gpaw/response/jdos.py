@@ -4,8 +4,8 @@ from ase.units import Hartree
 
 from gpaw.response import ResponseContext
 from gpaw.response.pair_integrator import PairFunctionIntegrator
-from gpaw.response.chi0_data import PairFunction, ChiKSDescriptors
-from gpaw.response.chiks import get_spin_rotation, get_temporal_part
+from gpaw.response.pair_functions import PairFunction
+from gpaw.response.chiks import get_spin_rotation, get_temporal_part, ChiKSDescriptors
 from gpaw.response.frequencies import FrequencyDescriptor
 
 
