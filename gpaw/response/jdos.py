@@ -11,9 +11,11 @@ from gpaw.response.frequencies import FrequencyDescriptor
 
 
 class JDOSCalculator(PairFunctionIntegrator):
-    r"""Calculator class for the joint density of states of collinear systems
-    - here defined as the spectral part of the four-component Kohn-Sham
-    susceptibility, see [PRB 103, 245110 (2021)]:
+    r"""Joint density of states calculator.
+
+    Here, the joint density of states of collinear systems is defined as the
+    spectral part of the four-component Kohn-Sham susceptibility,
+    see [PRB 103, 245110 (2021)]:
 
                    __  __
                 1  \   \   /
@@ -23,7 +25,7 @@ class JDOSCalculator(PairFunctionIntegrator):
                              x δ(ħω - [ε_n'k's'-ε_nks]) |
                                                         /
 
-    where t is a composit band and spin transition index: (n, s) -> (n', s').
+    where t is a composite band and spin transition index: (n, s) -> (n', s').
     """
 
     def __init__(self, gs, context=None, **kwargs):
