@@ -19,7 +19,7 @@ from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.localft import (LocalFTCalculator, MicroSetup,
                                    add_total_density, add_LSDA_Bxc)
 from gpaw.response.susceptibility import get_pw_coordinates
-from gpaw.test.response.test_site_kernels import get_PWDescriptor
+from gpaw.test.response.test_site_kernels import get_pw_descriptor
 
 
 # ---------- Test parametrization ---------- #
@@ -237,9 +237,9 @@ def test_Fe_bxc(gpw_files):
     gs = ResponseGroundStateAdapter(calc)
     context = ResponseContext()
     localft_calc = LocalFTCalculator.from_rshe_parameters(gs, context)
-    pd0 = get_PWDescriptor(atoms, calc, [0., 0., 0.],
-                           ecut=ecut,
-                           gammacentered=True)
+    pd0 = get_pw_descriptor(atoms, calc, [0., 0., 0.],
+                            ecut=ecut,
+                            gammacentered=True)
 
     Bxc_G = localft_calc(pd0, add_LSDA_Bxc)
 

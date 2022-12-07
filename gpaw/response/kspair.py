@@ -846,7 +846,7 @@ class PairMatrixElement:
         """
         Parameters
         ----------
-        kslrf : KohnShamLinearResponseFunction instance
+        kspair : KohnShamPair
         """
         self.gs = kspair.gs
         self.context = kspair.context
