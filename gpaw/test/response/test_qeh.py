@@ -88,8 +88,8 @@ def test_basics(in_tmp_dir, gpw_files):
                          wmax=0,
                          d0=5)
     chi = HS.get_chi_matrix()
-    correct_val = 0.018928489384352286-0.00018260648957063363j
-    assert np.amax(chi) == pytest.approx(correct_val)
+    correct_val = 0.018928489384352286 - 0.00018260648957063363j
+    assert np.amax(chi) == pytest.approx(correct_val, abs=1e-6)
 
     # test equal building blocks
     HS = Heterostructure(structure=['2mos2_int'],
@@ -104,8 +104,8 @@ def test_basics(in_tmp_dir, gpw_files):
                          d0=5)
     chi_new = HS.get_chi_matrix()
     assert np.allclose(chi, chi_new)
-    correct_val = 0.01823798070624018+8.081803524348743e-05j
-    assert np.amax(chi) == pytest.approx(correct_val)
+    correct_val = 0.01823798070624018 + 8.081803524348743e-05j
+    assert np.amax(chi) == pytest.approx(correct_val, abs=1e-6)
 
     # test to interpolate to grid and actual numbers
     q_grid = np.array([0, 0.1])
