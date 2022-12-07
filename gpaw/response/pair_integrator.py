@@ -98,9 +98,8 @@ class PairFunctionIntegrator(ABC):
         self.context = context
 
         # Communicators for distribution of memory and work
-        self.blockcomm = None
-        self.intrablockcomm = None
-        self.initialize_communicators(nblocks)
+        (self.blockcomm,
+         self.intrablockcomm) = self.create_communicators(nblocks)
         self.nblocks = self.blockcomm.size
 
         # The KohnShamPair class handles extraction of k-point pairs from the
@@ -180,8 +179,8 @@ class PairFunctionIntegrator(ABC):
         This method effectively defines the pair function in question.
         """
 
-    def initialize_communicators(self, nblocks):
-        """Set up MPI communicators to distribute the memory needed to store
+    def create_communicators(self, nblocks):
+        """Create MPI communicators to distribute the memory needed to store
         large arrays and parallelize calculations when possible.
 
         Parameters
@@ -192,8 +191,8 @@ class PairFunctionIntegrator(ABC):
             fraction/block of the total arrays, the memory requirements are
             eased.
 
-        Sets
-        ----
+        Returns
+        -------
         blockcomm : gpaw.mpi.Communicator
             Communicate between processes belonging to different memory blocks.
             In every communicator, there is one process for each block of
@@ -208,7 +207,9 @@ class PairFunctionIntegrator(ABC):
             There will be size // nblocks processes per memory block.
         """
         world = self.context.world
-        self.blockcomm, self.intrablockcomm = block_partition(world, nblocks)
+        blockcomm, intrablockcomm = block_partition(world, nblocks)
+
+        return blockcomm, intrablockcomm
 
     def _get_PWDescriptor(self, q_c, ecut=50 / Hartree, gammacentered=False,
                           internal=True):
