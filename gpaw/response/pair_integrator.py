@@ -164,7 +164,7 @@ class PairFunctionIntegrator(ABC):
             self.intrablockcomm.sum(out_x)
 
         # Because the symmetry analyzer is used both to generate the k-point
-        # integral domain *and* to symmetry pair functions after the
+        # integral domain *and* to symmetrize pair functions after the
         # integration, we have to return it. It would be good to split up these
         # two tasks, so that we don't need to pass the analyzer object around
         # in the code like this...
@@ -232,6 +232,7 @@ class PairFunctionIntegrator(ABC):
             pf_wGG.
         """
         gd = self.gs.gd
+        q_c = np.asarray(q_c, dtype=float)
 
         # Update to internal basis, if needed
         if internal and gammacentered and not self.disable_symmetries:
@@ -248,7 +249,6 @@ class PairFunctionIntegrator(ABC):
             # carried out as a post processing step.
 
             # Compute the extended internal ecut
-            q_c = np.asarray(q_c, dtype=float)
             B_cv = 2.0 * np.pi * gd.icell_cv  # Reciprocal lattice vectors
             q_v = q_c @ B_cv
             ecut = get_ecut_to_encompass_centered_sphere(q_v, ecut)
