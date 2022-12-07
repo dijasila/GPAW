@@ -112,3 +112,18 @@ class LatticePeriodicPairFunction(PairFunction):
 
     def zeros(self):
         return np.zeros(self.shape, complex)
+
+    def array_with_view(self, view):
+        if view == 'WgG' and self.distribution in ['WgG', 'GWg']:
+            if self.distribution == 'GWg':
+                pf_GWg = self.array
+                pf_WgG = pf_GWg.transpose((1, 2, 0))
+            else:
+                pf_WgG = self.array
+
+            pf_x = pf_WgG
+        else:
+            raise ValueError(f'{view} is not a valid view, when array is of '
+                             f'distribution {self.distribution}')
+
+        return pf_x
