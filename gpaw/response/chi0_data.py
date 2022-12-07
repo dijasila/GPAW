@@ -5,7 +5,7 @@ from gpaw.response.pw_parallelization import (Blocks1D,
 from gpaw.response.frequencies import FrequencyDescriptor
 from gpaw.response.pair_functions import SingleQPWDescriptor
 
-    
+
 class Chi0Descriptors:
     """Descriptor collection for Chi0Data."""
 
@@ -15,16 +15,14 @@ class Chi0Descriptors:
         Parameters
         ----------
         wd : FrequencyDescriptor
-        pd : PWDescriptor
+        pd : SingleQPWDescriptor
         """
         self.wd = wd
         self.pd = pd
 
-        # Extract q_c
-        # Should be retrievable directly from pd in the future                 XXX
-        q_c = pd.kd.bzk_kc[0]
-        self.q_c = q_c
-        self.optical_limit = np.allclose(q_c, 0.0)
+        # Extract optical limit
+        self.q_c = pd.q_c
+        self.optical_limit = np.allclose(pd.q_c, 0.0)
 
         # Basis set size
         self.nG = pd.ngmax

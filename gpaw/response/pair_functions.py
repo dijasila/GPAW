@@ -14,7 +14,11 @@ class SingleQPWDescriptor(PWDescriptor):
     def from_q(q_c, ecut, gd):
         """Construct a plane wave descriptor for q_c with a given cutoff."""
         qd = KPointDescriptor([q_c])
-        return PWDescriptor(ecut, gd, complex, qd)
+        return SingleQPWDescriptor(ecut, gd, complex, qd)
+
+    @property
+    def q_c(self):
+        return self.kd.bzk_kc[0]
 
 
 class PairFunctionDescriptors:
