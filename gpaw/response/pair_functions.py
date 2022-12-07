@@ -11,10 +11,11 @@ from gpaw.response.pw_parallelization import Blocks1D
 class SingleQPWDescriptor(PWDescriptor):
 
     @staticmethod
-    def from_q(q_c, ecut, gd):
+    def from_q(q_c, ecut, gd, gammacentered=False):
         """Construct a plane wave descriptor for q_c with a given cutoff."""
         qd = KPointDescriptor([q_c])
-        return SingleQPWDescriptor(ecut, gd, complex, qd)
+        return SingleQPWDescriptor(ecut, gd, complex, qd,
+                                   gammacentered=gammacentered)
 
     @property
     def q_c(self):

@@ -8,6 +8,7 @@ from gpaw.utilities.progressbar import ProgressBar
 from gpaw.response import timer
 from gpaw.response.kspair import KohnShamPair
 from gpaw.response.pw_parallelization import block_partition
+from gpaw.response.pair_functions import SingleQPWDescriptor
 
 
 class PairFunctionIntegrator(ABC):
@@ -250,7 +251,8 @@ class PairFunctionIntegrator(ABC):
             q_v = q_c @ B_cv
             ecut = get_ecut_to_encompass_centered_sphere(q_v, ecut)
 
-        pd = get_pw_descriptor(ecut, gd, q_c, gammacentered=gammacentered)
+        pd = SingleQPWDescriptor.from_q(q_c, ecut, gd,
+                                        gammacentered=gammacentered)
 
         return pd
 
@@ -500,20 +502,6 @@ def get_ecut_to_encompass_centered_sphere(q_v, ecut):
     ecut = ecut + q * (np.sqrt(2 * ecut) + q / 2)
 
     return ecut
-
-
-def get_pw_descriptor(ecut, gd, q_c, gammacentered=False):
-    """Get the plane wave descriptor for a specific wave vector q_c."""
-    from gpaw.kpt_descriptor import KPointDescriptor
-    from gpaw.pw.descriptor import PWDescriptor
-
-    q_c = np.asarray(q_c, dtype=float)
-    qd = KPointDescriptor([q_c])
-
-    pd = PWDescriptor(ecut, gd, complex, qd,
-                      gammacentered=gammacentered)
-
-    return pd
 
 
 class KPointPairIntegral(ABC):
