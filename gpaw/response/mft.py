@@ -131,7 +131,7 @@ class IsotropicExchangeCalculator:
         coefficients B^xc_G"""
         # Create a plane wave descriptor encoding the plane wave basis. Input
         # q_c is arbitrary, since we are assuming that chiks.gammacentered == 1
-        pd0 = self.chiks.get_PWDescriptor([0., 0., 0.])
+        pd0 = self.chiks.get_pw_descriptor([0., 0., 0.])
 
         return self.localft_calc(pd0, add_LSDA_Bxc)
 

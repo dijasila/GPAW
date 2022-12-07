@@ -102,9 +102,9 @@ class MyManualJDOS:
             jdos_wt = - df_t[np.newaxis] * delta_wt
 
             # Sum over transitions
-            jdos_w += self.kweight * np.sum(jdos_wt, axis=1)
+            jdos_w += np.sum(jdos_wt, axis=1)
 
-        return jdos_w
+        return self.kweight * jdos_w
 
     @staticmethod
     def delta(omega_w, eta, de_t):

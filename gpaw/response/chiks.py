@@ -1,4 +1,3 @@
-from functools import partial
 import numpy as np
 from time import ctime
 
@@ -54,8 +53,8 @@ class ChiKS:
 
         return self.calc.calculate(spincomponent, q_c, wd, eta=self.eta)
 
-    def get_PWDescriptor(self, q_c):
-        return self.calc.get_PWDescriptor(q_c)
+    def get_pw_descriptor(self, q_c):
+        return self.calc.get_pw_descriptor(q_c)
 
     @timer('Distribute frequencies')
     def distribute_frequencies(self, chiks_wGG):
@@ -153,7 +152,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
         eta = eta / Hartree  # eV -> Hartree
 
         # Set up the internal plane-wave descriptor
-        pdi = self.get_PWDescriptor(q_c, internal=True)
+        pdi = self.get_pw_descriptor(q_c, internal=True)
 
         # Analyze the requested spin component
         spinrot = get_spin_rotation(spincomponent)
@@ -162,8 +161,8 @@ class ChiKSCalculator(PairFunctionIntegrator):
         n1_t, n2_t, s1_t, s2_t = self.get_band_and_spin_transitions_domain(
             spinrot, nbands=self.nbands, bandsummation=self.bandsummation)
 
-        self.print_information(pdi, len(wd), eta,
-                               spincomponent, self.nbands, len(n1_t))
+        self.context.print(self.get_information(
+            pdi, len(wd), eta, spincomponent, self.nbands, len(n1_t)))
 
         self.context.print('Initializing pair densities')
         self.pair_density.initialize(pdi)
@@ -180,11 +179,11 @@ class ChiKSCalculator(PairFunctionIntegrator):
 
         return pd, chiks_WgG
 
-    def get_PWDescriptor(self, q_c, internal=False):
+    def get_pw_descriptor(self, q_c, internal=False):
         """Get plane-wave descriptor for a calculation with wave vector q_c."""
-        return self._get_PWDescriptor(q_c, ecut=self.ecut,
-                                      gammacentered=self.gammacentered,
-                                      internal=internal)
+        return self._get_pw_descriptor(q_c, ecut=self.ecut,
+                                       gammacentered=self.gammacentered,
+                                       internal=internal)
 
     def create_chiks(self, spincomponent, wd, pd, eta):
         """
@@ -319,7 +318,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
             # Reduce the q-centered plane-wave basis used internally to the
             # gammacentered basis
             q_c = pdi.kd.bzk_kc[0]
-            pd = self.get_PWDescriptor(q_c)
+            pd = self.get_pw_descriptor(q_c)
             chiks_WgG = map_WgG_array_to_reduced_pd(pdi, pd,
                                                     chiks.blockdist, chiks_WgG)
         else:
@@ -327,40 +326,43 @@ class ChiKSCalculator(PairFunctionIntegrator):
 
         return pd, chiks_WgG
 
-    def print_information(self, pd, nw, eta, spincomponent, nbands, nt):
-        """Print information about the joint density of states calculation"""
+    def get_information(self, pd, nw, eta, spincomponent, nbands, nt):
+        r"""Get information about the χ_KS,GG'^μν(q,ω+iη) calculation"""
         from gpaw.utilities.memory import maxrss
 
         q_c = pd.kd.bzk_kc[0]
         ecut = pd.ecut * Hartree
         Asize = nw * pd.ngmax**2 * 16. / 1024**2 / self.blockcomm.size
-        
-        p = partial(self.context.print, flush=False)
+        cmem = maxrss() / 1024**2
 
-        p('Calculating the Kohn-Sham susceptibility with:')
-        p('    Spin component: %s' % spincomponent)
-        p('    q_c: [%f, %f, %f]' % (q_c[0], q_c[1], q_c[2]))
-        p('    Number of frequency points: %d' % nw)
-        p('    Broadening (eta): %f' % eta)
+        s = '\n'
+
+        s += 'Calculating the Kohn-Sham susceptibility with:\n'
+        s += '    Spin component: %s\n' % spincomponent
+        s += '    q_c: [%f, %f, %f]\n' % (q_c[0], q_c[1], q_c[2])
+        s += '    Number of frequency points: %d\n' % nw
+        s += '    Broadening (eta): %f\n' % eta
         if nbands is None:
-            p('    Bands included: All')
+            s += '    Bands included: All\n'
         else:
-            p('    Number of bands included: %d' % nbands)
-        p('Resulting in:')
-        p('    A total number of band and spin transitions of: %d' % nt)
-        p('')
+            s += '    Number of bands included: %d\n' % nbands
+        s += 'Resulting in:\n'
+        s += '    A total number of band and spin transitions of: %d\n' % nt
+        s += '\n'
 
-        self.print_basic_information()
+        s += self.get_basic_information()
+        s += '\n'
 
-        p('The Kohn-Sham susceptibility is calculated in a plane-wave basis:')
-        p('    Planewave cutoff: %f' % ecut)
-        p('    Number of planewaves: %d' % pd.ngmax)
-        p('    Memory estimates:')
-        p('        A_wGG: %f M / cpu' % Asize)
-        p('        Memory usage before allocation: %f M / cpu' % (maxrss() /
-                                                                  1024**2))
-        p('')
-        self.context.print('%s' % ctime())
+        s += 'Plane-wave basis of the Kohn-Sham susceptibility:\n'
+        s += '    Planewave cutoff: %f\n' % ecut
+        s += '    Number of planewaves: %d\n' % pd.ngmax
+        s += '    Memory estimates:\n'
+        s += '        A_wGG: %f M / cpu\n' % Asize
+        s += '        Memory usage before allocation: %f M / cpu\n' % cmem
+        s += '\n'
+        s += '%s\n' % ctime()
+
+        return s
 
 
 def map_WgG_array_to_reduced_pd(pdi, pd, blockdist, in_WgG):

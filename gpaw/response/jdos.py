@@ -1,5 +1,3 @@
-from functools import partial
-
 import numpy as np
 
 from ase.units import Hartree
@@ -24,9 +22,11 @@ class JDOS(PairFunction):
 
 
 class JDOSCalculator(PairFunctionIntegrator):
-    r"""Calculator class for the joint density of states of collinear systems
-    - here defined as the spectral part of the four-component Kohn-Sham
-    susceptibility, see [PRB 103, 245110 (2021)]:
+    r"""Joint density of states calculator.
+
+    Here, the joint density of states of collinear systems is defined as the
+    spectral part of the four-component Kohn-Sham susceptibility,
+    see [PRB 103, 245110 (2021)]:
 
                    __  __
                 1  \   \   /
@@ -36,7 +36,7 @@ class JDOSCalculator(PairFunctionIntegrator):
                              x δ(ħω - [ε_n'k's'-ε_nks]) |
                                                         /
 
-    where t is a composit band and spin transition index: (n, s) -> (n', s').
+    where t is a composite band and spin transition index: (n, s) -> (n', s').
     """
 
     def __init__(self, gs, context=None, **kwargs):
@@ -91,11 +91,11 @@ class JDOSCalculator(PairFunctionIntegrator):
         # Prepare to sum over bands and spins
         n1_t, n2_t, s1_t, s2_t = self.get_band_and_spin_transitions_domain(
             spinrot, nbands=nbands, bandsummation=bandsummation)
-        self.print_information(q_c, len(wd), eta,
-                               spincomponent, nbands, len(n1_t))
+        self.context.print(self.get_information(
+            q_c, len(wd), eta, spincomponent, nbands, len(n1_t)))
 
         # Set up output data structure
-        pd = self._get_PWDescriptor(q_c, ecut=1e-3)  # No plane-wave repr.
+        pd = self._get_pw_descriptor(q_c, ecut=1e-3)  # No plane-wave repr.
         jdos = JDOS.from_descriptors(spincomponent, wd, pd, eta)
 
         # Perform actual in-place integration
@@ -134,27 +134,29 @@ class JDOSCalculator(PairFunctionIntegrator):
         x_wt = get_temporal_part(spincomponent, wd.omega_w, eta,
                                  n1_t, n2_t, s1_t, s2_t, df_t, deps_t,
                                  self.bandsummation)
-        integrand_wt = - x_wt.imag / np.pi
+        integrand_wt = -x_wt.imag / np.pi
 
         with self.context.timer('Perform sum over t-transitions'):
             jdos_w += weight * np.sum(integrand_wt, axis=1)
 
-    def print_information(self, q_c, nw, eta, spincomponent, nbands, nt):
-        """Print information about the joint density of states calculation"""
-        p = partial(self.context.print, flush=False)
+    def get_information(self, q_c, nw, eta, spincomponent, nbands, nt):
+        """Get information about the joint density of states calculation"""
+        s = '\n'
 
-        p('Calculating the joint density of states with:')
-        p('    q_c: [%f, %f, %f]' % (q_c[0], q_c[1], q_c[2]))
-        p('    Number of frequency points: %d' % nw)
-        p('    Broadening (eta): %f' % (eta * Hartree))
-        p('    Spin component: %s' % spincomponent)
+        s += 'Calculating the joint density of states with:\n'
+        s += '    q_c: [%f, %f, %f]\n' % (q_c[0], q_c[1], q_c[2])
+        s += '    Number of frequency points: %d\n' % nw
+        s += '    Broadening (eta): %f\n' % (eta * Hartree)
+        s += '    Spin component: %s\n' % spincomponent
         if nbands is None:
-            p('    Bands included: All')
+            s += '    Bands included: All\n'
         else:
-            p('    Number of bands included: %d' % nbands)
-        p('Resulting in:')
-        p('    A total number of band and spin transitions of: %d' % nt)
-        p('')
+            s += '    Number of bands included: %d\n' % nbands
+        s += 'Resulting in:\n'
+        s += '    A total number of band and spin transitions of: %d\n' % nt
+        s += '\n'
 
-        self.print_basic_information()
+        s += self.get_basic_information()
+
+        return s
         

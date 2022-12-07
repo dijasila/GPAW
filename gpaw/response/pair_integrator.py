@@ -1,5 +1,4 @@
 import numpy as np
-from functools import partial
 from abc import ABC, abstractmethod
 
 from ase.units import Hartree
@@ -98,9 +97,8 @@ class PairFunctionIntegrator(ABC):
         self.context = context
 
         # Communicators for distribution of memory and work
-        self.blockcomm = None
-        self.intrablockcomm = None
-        self.initialize_communicators(nblocks)
+        (self.blockcomm,
+         self.intrablockcomm) = self.create_communicators(nblocks)
         self.nblocks = self.blockcomm.size
 
         # The KohnShamPair class handles extraction of k-point pairs from the
@@ -145,7 +143,7 @@ class PairFunctionIntegrator(ABC):
         analyzer : PWSymmetryAnalyzer
         """
         # Initialize the plane-wave symmetry analyzer
-        analyzer = self.get_PWSymmetryAnalyzer(out.descriptors.pd)
+        analyzer = self.get_pw_symmetry_analyzer(out.descriptors.pd)
 
         # Perform the actual integral as a point integral over k-point pairs
         integral = KPointPairPointIntegral(self.kspair, analyzer)
@@ -163,7 +161,7 @@ class PairFunctionIntegrator(ABC):
             self.intrablockcomm.sum(out.array)
 
         # Because the symmetry analyzer is used both to generate the k-point
-        # integral domain *and* to symmetry pair functions after the
+        # integral domain *and* to symmetrize pair functions after the
         # integration, we have to return it. It would be good to split up these
         # two tasks, so that we don't need to pass the analyzer object around
         # in the code like this...
@@ -178,8 +176,8 @@ class PairFunctionIntegrator(ABC):
         This method effectively defines the pair function in question.
         """
 
-    def initialize_communicators(self, nblocks):
-        """Set up MPI communicators to distribute the memory needed to store
+    def create_communicators(self, nblocks):
+        """Create MPI communicators to distribute the memory needed to store
         large arrays and parallelize calculations when possible.
 
         Parameters
@@ -190,8 +188,8 @@ class PairFunctionIntegrator(ABC):
             fraction/block of the total arrays, the memory requirements are
             eased.
 
-        Sets
-        ----
+        Returns
+        -------
         blockcomm : gpaw.mpi.Communicator
             Communicate between processes belonging to different memory blocks.
             In every communicator, there is one process for each block of
@@ -206,10 +204,12 @@ class PairFunctionIntegrator(ABC):
             There will be size // nblocks processes per memory block.
         """
         world = self.context.world
-        self.blockcomm, self.intrablockcomm = block_partition(world, nblocks)
+        blockcomm, intrablockcomm = block_partition(world, nblocks)
 
-    def _get_PWDescriptor(self, q_c, ecut=50 / Hartree, gammacentered=False,
-                          internal=True):
+        return blockcomm, intrablockcomm
+
+    def _get_pw_descriptor(self, q_c, ecut=50 / Hartree, gammacentered=False,
+                           internal=True):
         """Get plane-wave descriptor for the wave vector q_c.
 
         Parameters
@@ -229,6 +229,7 @@ class PairFunctionIntegrator(ABC):
             pf_wGG.
         """
         gd = self.gs.gd
+        q_c = np.asarray(q_c, dtype=float)
 
         # Update to internal basis, if needed
         if internal and gammacentered and not self.disable_symmetries:
@@ -245,16 +246,15 @@ class PairFunctionIntegrator(ABC):
             # carried out as a post processing step.
 
             # Compute the extended internal ecut
-            q_c = np.asarray(q_c, dtype=float)
             B_cv = 2.0 * np.pi * gd.icell_cv  # Reciprocal lattice vectors
             q_v = q_c @ B_cv
             ecut = get_ecut_to_encompass_centered_sphere(q_v, ecut)
 
-        pd = get_PWDescriptor(ecut, gd, q_c, gammacentered=gammacentered)
+        pd = get_pw_descriptor(ecut, gd, q_c, gammacentered=gammacentered)
 
         return pd
 
-    def get_PWSymmetryAnalyzer(self, pd):
+    def get_pw_symmetry_analyzer(self, pd):
         from gpaw.response.symmetry import PWSymmetryAnalyzer
 
         return PWSymmetryAnalyzer(
@@ -300,9 +300,8 @@ class PairFunctionIntegrator(ABC):
 
         return n1_t, n2_t, s1_t, s2_t
 
-    def print_basic_information(self):
-        """Print basic information about the input ground state and
-        parallelization."""
+    def get_basic_information(self):
+        """Get basic information about the ground state and parallelization."""
         nspins = self.gs.nspins
         nbands = self.gs.bd.nbands
         nocc1 = self.kspair.nocc1
@@ -314,20 +313,22 @@ class PairFunctionIntegrator(ABC):
         knsize = self.intrablockcomm.size
         bsize = self.blockcomm.size
 
-        p = partial(self.context.print, flush=False)
-        p('The pair function integration is based on a ground state with:')
-        p('    Number of spins: %d' % nspins)
-        p('    Number of bands: %d' % nbands)
-        p('    Number of completely occupied bands: %d' % nocc1)
-        p('    Number of partially occupied bands: %d' % nocc2)
-        p('    Number of kpoints: %d' % nk)
-        p('    Number of irredicible kpoints: %d' % nik)
-        p('')
-        p('The pair function integration is performed in parallel with:')
-        p('    world.size: %d' % wsize)
-        p('    intrablockcomm.size: %d' % knsize)
-        p('    blockcomm.size: %d' % bsize)
-        self.context.print('')
+        s = ''
+
+        s += 'The pair function integration is based on a ground state with:\n'
+        s += '    Number of spins: %d\n' % nspins
+        s += '    Number of bands: %d\n' % nbands
+        s += '    Number of completely occupied bands: %d\n' % nocc1
+        s += '    Number of partially occupied bands: %d\n' % nocc2
+        s += '    Number of kpoints: %d\n' % nk
+        s += '    Number of irredicible kpoints: %d\n' % nik
+        s += '\n'
+        s += 'The pair function integration is performed in parallel with:\n'
+        s += '    world.size: %d\n' % wsize
+        s += '    intrablockcomm.size: %d\n' % knsize
+        s += '    blockcomm.size: %d\n' % bsize
+
+        return s
 
 
 def get_band_transitions_domain(bandsummation, nbands, nocc1=None, nocc2=None):
@@ -501,7 +502,7 @@ def get_ecut_to_encompass_centered_sphere(q_v, ecut):
     return ecut
 
 
-def get_PWDescriptor(ecut, gd, q_c, gammacentered=False):
+def get_pw_descriptor(ecut, gd, q_c, gammacentered=False):
     """Get the plane wave descriptor for a specific wave vector q_c."""
     from gpaw.kpt_descriptor import KPointDescriptor
     from gpaw.pw.descriptor import PWDescriptor
