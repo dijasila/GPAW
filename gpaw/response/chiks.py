@@ -54,8 +54,8 @@ class ChiKS:
         return self.calc.calculate(spincomponent, q_c, wd,
                                    eta=self.eta, chiks_x=A_x)
 
-    def get_PWDescriptor(self, q_c):
-        return self.calc.get_PWDescriptor(q_c)
+    def get_pw_descriptor(self, q_c):
+        return self.calc.get_pw_descriptor(q_c)
 
     @timer('Distribute frequencies')
     def distribute_frequencies(self, chiks_wGG):
@@ -159,7 +159,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
         self.eta = eta / Hartree  # eV -> Hartree
 
         # Set up the internal plane-wave descriptor
-        pdi = self.get_PWDescriptor(q_c, internal=True)
+        pdi = self.get_pw_descriptor(q_c, internal=True)
 
         # Analyze the requested spin component
         spinrot = get_spin_rotation(spincomponent)
@@ -186,11 +186,11 @@ class ChiKSCalculator(PairFunctionIntegrator):
 
         return pd, chiks_WgG
 
-    def get_PWDescriptor(self, q_c, internal=False):
+    def get_pw_descriptor(self, q_c, internal=False):
         """Get plane-wave descriptor for a calculation with wave vector q_c."""
-        return self._get_PWDescriptor(q_c, ecut=self.ecut,
-                                      gammacentered=self.gammacentered,
-                                      internal=internal)
+        return self._get_pw_descriptor(q_c, ecut=self.ecut,
+                                       gammacentered=self.gammacentered,
+                                       internal=internal)
 
     def set_up_array(self, nw, blocks1d, chiks_x=None):
         """Initialize the chiks_x array."""
@@ -331,7 +331,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
             # Reduce the q-centered plane-wave basis used internally to the
             # gammacentered basis
             q_c = pdi.kd.bzk_kc[0]
-            pd = self.get_PWDescriptor(q_c)
+            pd = self.get_pw_descriptor(q_c)
             chiks_WgG = map_WgG_array_to_reduced_pd(pdi, pd,
                                                     blockdist, chiks_WgG)
         else:

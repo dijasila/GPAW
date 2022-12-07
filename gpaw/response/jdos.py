@@ -88,7 +88,7 @@ class JDOSCalculator(PairFunctionIntegrator):
 
         # Perform actual in-place integration
         self.context.print('Integrating the joint density of states:')
-        pd = self._get_PWDescriptor(q_c, ecut=1e-3)  # No plane-wave repr.
+        pd = self._get_pw_descriptor(q_c, ecut=1e-3)  # No plane-wave repr.
         self._integrate(pd, jdos_w, n1_t, n2_t, s1_t, s2_t)
 
         return jdos_w

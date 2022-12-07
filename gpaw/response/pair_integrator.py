@@ -146,7 +146,7 @@ class PairFunctionIntegrator(ABC):
         analyzer : PWSymmetryAnalyzer
         """
         # Initialize the plane-wave symmetry analyzer
-        analyzer = self.get_PWSymmetryAnalyzer(pd)
+        analyzer = self.get_pw_symmetry_analyzer(pd)
 
         # Perform the actual integral as a point integral over k-point pairs
         integral = KPointPairPointIntegral(self.kspair, analyzer)
@@ -211,8 +211,8 @@ class PairFunctionIntegrator(ABC):
 
         return blockcomm, intrablockcomm
 
-    def _get_PWDescriptor(self, q_c, ecut=50 / Hartree, gammacentered=False,
-                          internal=True):
+    def _get_pw_descriptor(self, q_c, ecut=50 / Hartree, gammacentered=False,
+                           internal=True):
         """Get plane-wave descriptor for the wave vector q_c.
 
         Parameters
@@ -253,11 +253,11 @@ class PairFunctionIntegrator(ABC):
             q_v = q_c @ B_cv
             ecut = get_ecut_to_encompass_centered_sphere(q_v, ecut)
 
-        pd = get_PWDescriptor(ecut, gd, q_c, gammacentered=gammacentered)
+        pd = get_pw_descriptor(ecut, gd, q_c, gammacentered=gammacentered)
 
         return pd
 
-    def get_PWSymmetryAnalyzer(self, pd):
+    def get_pw_symmetry_analyzer(self, pd):
         from gpaw.response.symmetry import PWSymmetryAnalyzer
 
         return PWSymmetryAnalyzer(
@@ -504,7 +504,7 @@ def get_ecut_to_encompass_centered_sphere(q_v, ecut):
     return ecut
 
 
-def get_PWDescriptor(ecut, gd, q_c, gammacentered=False):
+def get_pw_descriptor(ecut, gd, q_c, gammacentered=False):
     """Get the plane wave descriptor for a specific wave vector q_c."""
     from gpaw.kpt_descriptor import KPointDescriptor
     from gpaw.pw.descriptor import PWDescriptor
