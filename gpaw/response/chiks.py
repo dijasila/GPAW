@@ -61,7 +61,7 @@ class ChiKS:
         return self.blockdist.distribute_frequencies(chiks_wGG, len(self.wd))
 
 
-class ChiKSData(LatticePeriodicPairFunction):  # rename to ChiKS               XXX
+class ChiKSData(LatticePeriodicPairFunction):  # future ChiKS XXX
     """
     Some documentation here!                                                   XXX
     """
@@ -188,9 +188,11 @@ class ChiKSCalculator(PairFunctionIntegrator):
         # Perform the actual integration
         analyzer = self._integrate(chiks, n1_t, n2_t, s1_t, s2_t)
 
-        # Apply symmetries and map to output format
+        # Symmetrize chiks according to the symmetries of the ground state
+        self.symmetrize(chiks, analyzer)
+        
         # Return chiks data structure instead                                  XXX
-        pd, chiks_WgG = self.post_process(chiks, analyzer)
+        pd, chiks_WgG = self.post_process(chiks)
 
         return pd, chiks_WgG
 
@@ -350,8 +352,8 @@ class ChiKSCalculator(PairFunctionIntegrator):
         else:
             raise ValueError(f'Invalid distribution {chiks.distribution}')
 
-    @timer('Post processing')
-    def post_process(self, chiks, analyzer):
+    @timer('Symmetrizing chiks')
+    def symmetrize(self, chiks, analyzer):
         if chiks.distribution == 'GWg':
             # chiks_GWg = chiks.array
             chiks_WgG = chiks.array.transpose((1, 2, 0))
@@ -361,10 +363,17 @@ class ChiKSCalculator(PairFunctionIntegrator):
 
         # Distribute over frequencies
         tmp_wGG = chiks.blockdist.distribute_as(chiks_WgG, nw, 'wGG')
-        with self.context.timer('Symmetrizing chiks_wGG'):
-            analyzer.symmetrize_wGG(tmp_wGG)
+        analyzer.symmetrize_wGG(tmp_wGG)
         # Distribute over plane waves
         chiks_WgG[:] = chiks.blockdist.distribute_as(tmp_wGG, nw, 'WgG')
+
+    @timer('Post processing')
+    def post_process(self, chiks):
+        if chiks.distribution == 'GWg':
+            # chiks_GWg = chiks.array
+            chiks_WgG = chiks.array.transpose((1, 2, 0))
+        else:
+            chiks_WgG = chiks.array
 
         if self.gammacentered and not self.disable_symmetries:
             pdi = chiks.pd  # internal pd
