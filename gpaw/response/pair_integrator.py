@@ -209,47 +209,10 @@ class PairFunctionIntegrator(ABC):
 
         return blockcomm, intrablockcomm
 
-    def _get_pw_descriptor(self, q_c, ecut=50 / Hartree, gammacentered=False,
-                           internal=True):
-        """Get plane-wave descriptor for the wave vector q_c.
-
-        Parameters
-        ----------
-        q_c : list or ndarray
-            Wave vector in relative coordinates
-        ecut : float (or None)
-            Plane-wave cutoff in Hartree
-        gammacentered : bool
-            Center the grid of plane waves around the Γ-point (or the q-vector)
-        internal : bool
-            When using symmetries, the actual calculation of the pair function
-            pf_wGG must happen using a q-centered plane wave basis. If
-            internal==True, as it is by default, the internal plane wave basis
-            used in the evaluation of pf_wGG is returned, otherwise the
-            external descriptor is returned, corresponding to the requested
-            pf_wGG.
-        """
-        gd = self.gs.gd
+    def get_pw_descriptor(self, q_c, ecut=50, gammacentered=False):
         q_c = np.asarray(q_c, dtype=float)
-
-        # Update to internal basis, if needed
-        if internal and gammacentered and not self.disable_symmetries:
-            # In order to make use of the symmetries of the system to reduce
-            # the k-point integration, the internal code assumes a plane wave
-            # basis which is centered at q in reciprocal space.
-            gammacentered = False
-            # If we want to compute the pair function on a plane wave grid
-            # which is effectively centered in the gamma point instead of q, we
-            # need to extend the internal ecut such that the q-centered grid
-            # encompasses all reciprocal lattice points inside the gamma-
-            # centered sphere.
-            # The reduction to the global gamma-centered basis will then be
-            # carried out as a post processing step.
-
-            # Compute the extended internal ecut
-            B_cv = 2.0 * np.pi * gd.icell_cv  # Reciprocal lattice vectors
-            q_v = q_c @ B_cv
-            ecut = get_ecut_to_encompass_centered_sphere(q_v, ecut)
+        ecut = None if ecut is None else ecut / Hartree  # eV to Hartree
+        gd = self.gs.gd
 
         pd = SingleQPWDescriptor.from_q(q_c, ecut, gd,
                                         gammacentered=gammacentered)
@@ -489,19 +452,6 @@ def transitions_in_composite_index(n1_M, n2_M, s1_S, s2_S):
     n1_MS, s1_MS = np.meshgrid(n1_M, s1_S)
     n2_MS, s2_MS = np.meshgrid(n2_M, s2_S)
     return n1_MS.flatten(), n2_MS.flatten(), s1_MS.flatten(), s2_MS.flatten()
-
-
-def get_ecut_to_encompass_centered_sphere(q_v, ecut):
-    """Calculate the minimal ecut which results in a q-centered plane wave
-    basis containing all the reciprocal lattice vectors G, which lie inside a
-    specific gamma-centered sphere:
-
-    |G|^2 < 2 * ecut
-    """
-    q = np.linalg.norm(q_v)
-    ecut = ecut + q * (np.sqrt(2 * ecut) + q / 2)
-
-    return ecut
 
 
 class KPointPairIntegral(ABC):
