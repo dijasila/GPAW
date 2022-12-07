@@ -354,14 +354,13 @@ class ChiKSCalculator(PairFunctionIntegrator):
 
     @timer('Symmetrizing chiks')
     def symmetrize(self, chiks, analyzer):
-        if chiks.distribution == 'GWg':
-            # chiks_GWg = chiks.array
-            chiks_WgG = chiks.array.transpose((1, 2, 0))
-        else:
-            chiks_WgG = chiks.array
-        nw = len(chiks.wd)
+        """
+        Some documentation here!                                              XXX
+        """
+        chiks_WgG = chiks.array_with_view('WgG')
 
         # Distribute over frequencies
+        nw = len(chiks.wd)
         tmp_wGG = chiks.blockdist.distribute_as(chiks_WgG, nw, 'wGG')
         analyzer.symmetrize_wGG(tmp_wGG)
         # Distribute over plane waves
@@ -369,11 +368,10 @@ class ChiKSCalculator(PairFunctionIntegrator):
 
     @timer('Post processing')
     def post_process(self, chiks):
-        if chiks.distribution == 'GWg':
-            # chiks_GWg = chiks.array
-            chiks_WgG = chiks.array.transpose((1, 2, 0))
-        else:
-            chiks_WgG = chiks.array
+        """
+        Some documentation here!                                              XXX
+        """
+        chiks_WgG = chiks.array_with_view('WgG')
 
         if self.gammacentered and not self.disable_symmetries:
             pdi = chiks.pd  # internal pd
