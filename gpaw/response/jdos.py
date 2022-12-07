@@ -117,7 +117,7 @@ class JDOSCalculator(PairFunctionIntegrator):
         x_wt = get_temporal_part(self.spincomponent, self.wd.omega_w, self.eta,
                                  n1_t, n2_t, s1_t, s2_t, df_t, deps_t,
                                  self.bandsummation)
-        integrand_wt = - x_wt.imag / np.pi
+        integrand_wt = -x_wt.imag / np.pi
 
         with self.context.timer('Perform sum over t-transitions'):
             jdos_w += weight * np.sum(integrand_wt, axis=1)
