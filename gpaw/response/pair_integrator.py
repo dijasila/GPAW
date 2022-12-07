@@ -1,5 +1,4 @@
 import numpy as np
-from functools import partial
 from abc import ABC, abstractmethod
 
 from ase.units import Hartree
@@ -303,9 +302,8 @@ class PairFunctionIntegrator(ABC):
 
         return n1_t, n2_t, s1_t, s2_t
 
-    def print_basic_information(self):
-        """Print basic information about the input ground state and
-        parallelization."""
+    def get_basic_information(self):
+        """Get basic information about the ground state and parallelization."""
         nspins = self.gs.nspins
         nbands = self.gs.bd.nbands
         nocc1 = self.kspair.nocc1
@@ -317,20 +315,22 @@ class PairFunctionIntegrator(ABC):
         knsize = self.intrablockcomm.size
         bsize = self.blockcomm.size
 
-        p = partial(self.context.print, flush=False)
-        p('The pair function integration is based on a ground state with:')
-        p('    Number of spins: %d' % nspins)
-        p('    Number of bands: %d' % nbands)
-        p('    Number of completely occupied bands: %d' % nocc1)
-        p('    Number of partially occupied bands: %d' % nocc2)
-        p('    Number of kpoints: %d' % nk)
-        p('    Number of irredicible kpoints: %d' % nik)
-        p('')
-        p('The pair function integration is performed in parallel with:')
-        p('    world.size: %d' % wsize)
-        p('    intrablockcomm.size: %d' % knsize)
-        p('    blockcomm.size: %d' % bsize)
-        self.context.print('')
+        s = ''
+
+        s += 'The pair function integration is based on a ground state with:\n'
+        s += '    Number of spins: %d\n' % nspins
+        s += '    Number of bands: %d\n' % nbands
+        s += '    Number of completely occupied bands: %d\n' % nocc1
+        s += '    Number of partially occupied bands: %d\n' % nocc2
+        s += '    Number of kpoints: %d\n' % nk
+        s += '    Number of irredicible kpoints: %d\n' % nik
+        s += '\n'
+        s += 'The pair function integration is performed in parallel with:\n'
+        s += '    world.size: %d\n' % wsize
+        s += '    intrablockcomm.size: %d\n' % knsize
+        s += '    blockcomm.size: %d\n' % bsize
+
+        return s
 
 
 def get_band_transitions_domain(bandsummation, nbands, nocc1=None, nocc2=None):
