@@ -27,13 +27,12 @@ class Chi0Descriptors:
         self.optical_limit = np.allclose(q_c, 0.0)
 
         # Basis set size
-        self.nw = len(wd)
         self.nG = pd.ngmax
 
     @staticmethod
     def from_descriptor_arguments(frequencies, plane_waves):
-        """Contruct the necesarry descriptors and initialize the
-        Chi0Descriptors object."""
+        """Contruct a Chi0Descriptors, with wd and pd constructed on the fly.
+        """
         # Construct wd
         if isinstance(frequencies, FrequencyDescriptor):
             wd = frequencies
