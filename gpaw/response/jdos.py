@@ -97,7 +97,7 @@ class JDOSCalculator(PairFunctionIntegrator):
             q_c, len(wd), eta, spincomponent, nbands, len(n1_t)))
 
         # Set up output data structure
-        pd = self._get_pw_descriptor(q_c, ecut=1e-3)  # No plane-wave repr.
+        pd = self.get_pw_descriptor(q_c, ecut=1e-3)  # No plane-wave repr.
         jdos = JDOS(spincomponent, pd, wd, eta)
 
         # Perform actual in-place integration
