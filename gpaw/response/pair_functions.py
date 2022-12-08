@@ -23,11 +23,13 @@ class SingleQPWDescriptor(PWDescriptor):
 
 
 class PairFunction(ABC):
-    """
-    Some documentation here!                                                   XXX
-    """
+    """Pair function data object.
+
+    See gpaw.response.pair_integrator.PairFunctionIntegrator for the definition
+    of a pair function and how it is calculated."""
+
     def __init__(self, pd):
-        """Some documentation here!                                            XXX
+        """Construct a pair function.
 
         Parameters
         ----------
@@ -40,9 +42,7 @@ class PairFunction(ABC):
 
     @abstractmethod
     def zeros(self):
-        """
-        Document me!                                                           XXX
-        """
+        """Generate an array of zeros, representing the pair function."""
 
 
 class LatticePeriodicPairFunction(PairFunction):
