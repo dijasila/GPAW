@@ -76,8 +76,16 @@ class LatticePeriodicPairFunction(PairFunction):
     """
 
     def __init__(self, pd, wd, blockdist, distribution='WgG'):
-        """
-        Some documentation here!                                               XXX
+        """Contruct the LatticePeriodicPairFunction.
+
+        Parameters
+        ----------
+        pd : SingleQPWDescriptor
+        wd : FrequencyDescriptor
+        blockdist : PlaneWaveBlockDistributor
+        distribution : str
+            Memory distribution of the pair function array.
+            Choices: 'WgG', 'GWg' and 'wGG'.
         """
         self.wd = wd
         self.blockdist = blockdist
@@ -89,8 +97,12 @@ class LatticePeriodicPairFunction(PairFunction):
         super().__init__(pd)
 
     def _get_blocks_and_shape(self, nG):
-        """
-        Some documentation here!                                               XXX
+        """Get 1D block distribution and array shape
+
+        Parameters
+        ----------
+        nG : int
+            Number of plane-wave coefficients in the basis set
         """
         nw = len(self.wd)
         blockdist = self.blockdist
@@ -114,6 +126,7 @@ class LatticePeriodicPairFunction(PairFunction):
         return np.zeros(self.shape, complex)
 
     def array_with_view(self, view):
+        """Access a given view into the pair function array."""
         if view == 'WgG' and self.distribution in ['WgG', 'GWg']:
             if self.distribution == 'GWg':
                 pf_GWg = self.array
@@ -129,9 +142,7 @@ class LatticePeriodicPairFunction(PairFunction):
         return pf_x
 
     def copy_with_distribution(self, distribution='WgG'):
-        """
-        Some documentation here!                                               XXX
-        """
+        """Copy the pair function to a specified memory distribution."""
         new_pf = self._new(*self.my_args(), distribution=distribution)
         new_pf.array[:] = self.array_with_view(distribution)
 
@@ -142,9 +153,7 @@ class LatticePeriodicPairFunction(PairFunction):
         return cls(*args, **kwargs)
     
     def my_args(self, pd=None, wd=None, blockdist=None):
-        """
-        Some documentation here!                                               XXX
-        """
+        """Return construction arguments of the LatticePeriodicPairFunction."""
         if pd is None:
             pd = self.pd
         if wd is None:
@@ -155,9 +164,7 @@ class LatticePeriodicPairFunction(PairFunction):
         return pd, wd, blockdist
 
     def copy_with_reduced_pd(self, pd):
-        """
-        Some documentation here!                                               XXX
-        """
+        """Copy the pair function, but within a reduced plane-wave basis."""
         if not self.distribution == 'WgG':
             raise NotImplementedError('Not implemented for distribution '
                                       f'{self.distribution}')
