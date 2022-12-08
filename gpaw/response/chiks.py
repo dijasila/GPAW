@@ -51,7 +51,9 @@ class ChiKS:
                                                    self.calc.blockcomm,
                                                    self.calc.intrablockcomm)
 
-        return self.calc.calculate(spincomponent, q_c, wd, eta=self.eta)
+        chiks = self.calc.calculate(spincomponent, q_c, wd, eta=self.eta)
+
+        return chiks.pd, chiks.array
 
     def get_pw_descriptor(self, q_c):
         return self.calc.get_pw_descriptor(q_c)
@@ -160,8 +162,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
 
         Returns
         -------
-        pd : PWDescriptor
-        chiks_wGG : np.array
+        chiks : ChiKSData
         """
         assert isinstance(wd, FrequencyDescriptor)
         eta = eta / Hartree  # eV -> Hartree
@@ -190,11 +191,11 @@ class ChiKSCalculator(PairFunctionIntegrator):
 
         # Symmetrize chiks according to the symmetries of the ground state
         self.symmetrize(chiks, analyzer)
-        
-        # Return chiks data structure instead                                  XXX
-        pd, chiks_WgG = self.post_process(chiks)
 
-        return pd, chiks_WgG
+        # Map to standard output format
+        chiks = self.post_process(chiks)
+
+        return chiks
 
     def get_pw_descriptor(self, q_c, internal=False):
         """Get plane-wave descriptor for a calculation with wave vector q_c."""
@@ -385,7 +386,11 @@ class ChiKSCalculator(PairFunctionIntegrator):
         else:
             pd = chiks.pd
 
-        return pd, chiks_WgG
+        chiksnew = ChiKSData(chiks.spincomponent, pd, chiks.wd, chiks.eta,
+                             chiks.blockdist, distribution='WgG')
+        chiksnew.array[:] = chiks_WgG
+
+        return chiksnew
 
     def get_information(self, pd, nw, eta, spincomponent, nbands, nt):
         r"""Get information about the χ_KS,GG'^μν(q,ω+iη) calculation"""
