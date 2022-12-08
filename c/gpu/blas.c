@@ -1066,7 +1066,7 @@ static void _rk_cuda_gpu(int n, int k,
     } else {
         gpublasSafeCall(
                 gpublasZherk(_gpaw_gpublas_handle,
-                    GPUBLAS_FILL_MODE_UPPER, GPUBLAS_OP_T,
+                    GPUBLAS_FILL_MODE_UPPER, GPUBLAS_OP_C,
                     n, k,
                     &alpha, (gpublasDoubleComplex*) a_gpu, lda,
                     &beta, (gpublasDoubleComplex*) c_gpu, ldc));
@@ -1132,7 +1132,7 @@ static void _rk_cuda_gpu_hybrid(int n, int k,
     } else {
         gpublasSafeCall(
                 gpublasZherk(_gpaw_gpublas_handle,
-                    GPUBLAS_FILL_MODE_UPPER, GPUBLAS_OP_T,
+                    GPUBLAS_FILL_MODE_UPPER, GPUBLAS_OP_C,
                     n, ps->k1,
                     &alpha, (gpublasDoubleComplex*) a_gpu, lda,
                     &beta, (gpublasDoubleComplex*) c_gpu, ldc));
@@ -1239,7 +1239,7 @@ static void _r2k_cuda_gpu(int n, int k,
         gpublasDoubleComplex alpha_gpu = {alpha.real, alpha.imag};
         gpublasSafeCall(
                 gpublasZher2k(_gpaw_gpublas_handle,
-                    GPUBLAS_FILL_MODE_UPPER, GPUBLAS_OP_T, n, k,
+                    GPUBLAS_FILL_MODE_UPPER, GPUBLAS_OP_C, n, k,
                     &alpha_gpu, (gpublasDoubleComplex*) a_gpu, lda,
                     (gpublasDoubleComplex*) b_gpu, lda,
                     &beta, (gpublasDoubleComplex*) c_gpu, ldc));
@@ -1311,7 +1311,7 @@ static void _r2k_cuda_gpu_hybrid(int n, int k,
         gpublasDoubleComplex alpha_gpu = {alpha.real, alpha.imag};
         gpublasSafeCall(
                 gpublasZher2k(_gpaw_gpublas_handle,
-                    GPUBLAS_FILL_MODE_UPPER, GPUBLAS_OP_T, n, ps2->k1,
+                    GPUBLAS_FILL_MODE_UPPER, GPUBLAS_OP_C, n, ps2->k1,
                     &alpha_gpu, (gpublasDoubleComplex*) a_gpu, lda,
                     (gpublasDoubleComplex*) b_gpu, lda,
                     &beta, (gpublasDoubleComplex*) c_gpu, ldc));
