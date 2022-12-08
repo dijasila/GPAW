@@ -5,109 +5,88 @@ Fast test, where the kernel is scaled to fulfill the Goldstone theorem.
 """
 
 # Workflow modules
+import pytest
 import numpy as np
 
 # Script modules
-import time
-
-from ase.build import bulk
-from ase.dft.kpoints import monkhorst_pack
-from ase.parallel import parprint
-
-from gpaw import GPAW, PW
-from gpaw.response.tms import TransverseMagneticSusceptibility
-from gpaw.response.susceptibility import read_macroscopic_component
-from gpaw.test import findpeak, equal
+from gpaw.test import findpeak
 from gpaw.mpi import world
 
+from gpaw.response import ResponseGroundStateAdapter, ResponseContext
+from gpaw.response.chiks import ChiKS
+from gpaw.response.susceptibility import ChiFactory
+from gpaw.response.df import read_response_function
 
-def test_response_iron_sf_gssALDA(in_tmp_dir):
-    # ------------------- Inputs ------------------- #
 
-    # Part 1: ground state calculation
-    xc = 'LDA'
-    kpts = 4
-    nb = 6
-    pw = 300
-    a = 2.867
-    mm = 2.21
+@pytest.mark.kspair
+@pytest.mark.response
+def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
+    # ---------- Inputs ---------- #
 
-    # Part 2: magnetic response calculation
+    nbands = 6
     q_qc = [[0.0, 0.0, 0.0], [0.0, 0.0, 1. / 4.]]  # Two q-points along G-N
-    frq_qw = [np.linspace(-0.080, 0.120, 26), np.linspace(0.100, 0.300, 26)]
+    frq_qw = [np.linspace(-0.080, 0.120, 26), np.linspace(0.250, 0.450, 26)]
     fxc = 'ALDA'
-    fxc_scaling = [True, None]
+    fxc_scaling = [True, None, 'fm']
     ecut = 300
-    eta = 0.01
+    eta = 0.1
+    if world.size > 1:
+        nblocks = 2
+    else:
+        nblocks = 1
 
-    # ------------------- Script ------------------- #
+    # ---------- Script ---------- #
 
-    # Part 1: ground state calculation
-
-    t1 = time.time()
-
-    Febcc = bulk('Fe', 'bcc', a=a)
-    Febcc.set_initial_magnetic_moments([mm])
-
-    calc = GPAW(xc=xc,
-                mode=PW(pw),
-                kpts=monkhorst_pack((kpts, kpts, kpts)),
-                nbands=nb,
-                symmetry={'point_group': False},
-                idiotproof=False,
-                parallel={'domain': 1})
-
-    Febcc.calc = calc
-    Febcc.get_potential_energy()
-    calc.write('Fe', 'all')
-    t2 = time.time()
-
-    # Part 2: magnetic response calculation
+    context = ResponseContext()
+    gs = ResponseGroundStateAdapter.from_gpw_file(gpw_files['fe_pw_wfs'],
+                                                  context=context)
     fxckwargs = {'rshelmax': None, 'fxc_scaling': fxc_scaling}
-    tms = TransverseMagneticSusceptibility('Fe',
-                                           fxc=fxc,
-                                           eta=eta,
-                                           ecut=ecut,
-                                           fxckwargs=fxckwargs,
-                                           nblocks=1)
+    chiks = ChiKS(gs,
+                  context=context,
+                  nbands=nbands,
+                  eta=eta,
+                  ecut=ecut,
+                  gammacentered=True,
+                  nblocks=nblocks)
+    chi_factory = ChiFactory(chiks)
 
     for q in range(2):
-        tms.get_macroscopic_component(
-            '+-', q_qc[q], frq_qw[q],
-            filename='iron_dsus' + '_%d.csv' % (q + 1))
-        tms.write_timer()
-
-    t3 = time.time()
-
-    parprint('Ground state calculation took', (t2 - t1) / 60, 'minutes')
-    parprint('Excited state calculation took', (t3 - t2) / 60, 'minutes')
+        chi = chi_factory('+-', q_qc[q], frq_qw[q],
+                          fxc=fxc,
+                          fxckwargs=fxckwargs)
+        chi.write_macroscopic_component('iron_dsus' + '_%d.csv' % (q + 1))
+        chi_factory.context.write_timer()
 
     world.barrier()
 
-    # Part 3: identify magnon peaks in scattering function
-    w1_w, chiks1_w, chi1_w = read_macroscopic_component('iron_dsus_1.csv')
-    w2_w, chiks2_w, chi2_w = read_macroscopic_component('iron_dsus_2.csv')
+    # Identify magnon peaks in scattering function
+    w1_w, chiks1_w, chi1_w = read_response_function('iron_dsus_1.csv')
+    w2_w, chiks2_w, chi2_w = read_response_function('iron_dsus_2.csv')
 
-    wpeak1, Ipeak1 = findpeak(w1_w, chi1_w.imag)
-    wpeak2, Ipeak2 = findpeak(w2_w, chi2_w.imag)
+    print(w1_w, -chi1_w.imag)
+    print(w2_w, -chi2_w.imag)
+
+    wpeak1, Ipeak1 = findpeak(w1_w, -chi1_w.imag)
+    wpeak2, Ipeak2 = findpeak(w2_w, -chi2_w.imag)
 
     mw1 = wpeak1 * 1000
     mw2 = wpeak2 * 1000
 
-    # Part 4: compare new results to test values
-    test_fxcs = 1.033
-    test_mw1 = -0.03  # meV
-    test_mw2 = 176.91  # meV
-    test_Ipeak1 = 71.20  # a.u.
-    test_Ipeak2 = 44.46  # a.u.
+    # Compare new results to test values
+    test_fxcs = 1.034
+    test_mw1 = 0.  # meV
+    test_mw2 = 363.  # meV
+    test_Ipeak1 = 7.48  # a.u.
+    test_Ipeak2 = 3.47  # a.u.
 
     # fxc_scaling:
-    equal(fxc_scaling[1], test_fxcs, 0.005)
+    print(fxc_scaling[1], mw1, mw2, Ipeak1, Ipeak2)
+    assert fxc_scaling[1] == pytest.approx(test_fxcs, abs=0.005)
 
     # Magnon peak:
-    equal(mw1, test_mw1, 0.1)
-    equal(mw2, test_mw2, eta * 650)
+    assert mw1 == pytest.approx(test_mw1, abs=20.)
+    assert mw2 == pytest.approx(test_mw2, abs=50.)
 
     # Scattering function intensity:
-    equal(Ipeak1, test_Ipeak1, 5)
-    equal(Ipeak2, test_Ipeak2, 5)
+    assert Ipeak1 == pytest.approx(test_Ipeak1, abs=0.5)
+    assert Ipeak2 == pytest.approx(test_Ipeak2, abs=0.5)

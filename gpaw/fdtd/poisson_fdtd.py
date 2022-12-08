@@ -13,6 +13,7 @@ from gpaw.fdtd.potential_couplers import (RefinerPotentialCoupler,
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.mpi import world, serial_comm
 from gpaw.poisson import PoissonSolver, FDPoissonSolver
+from gpaw.poisson_moment import MomentCorrectionPoissonSolver
 from gpaw.tddft import TDDFT, DipoleMomentWriter, RestartFileWriter
 from gpaw.transformers import Transformer
 from gpaw.utilities.gpts import get_number_of_grid_points
@@ -279,12 +280,11 @@ class FDTDPoissonSolver:
         self.qm.gd = qmgd
 
         # Create quantum Poisson solver
-        self.qm.poisson_solver = PoissonSolver(
-            name='fd',
-            nn=self.nn,
-            eps=self.eps,
-            relax=self.relax,
-            remove_moment=self.remove_moment_qm)
+        poisson_qm_kwargs = dict(name='fd', nn=self.nn,
+                                 eps=self.eps, relax=self.relax)
+        self.qm.poisson_solver = MomentCorrectionPoissonSolver(
+            poissonsolver=PoissonSolver(**poisson_qm_kwargs),
+            moment_corrections=self.remove_moment_qm)
         self.qm.poisson_solver.set_grid_descriptor(self.qm.gd)
         # self.qm.poisson_solver.initialize()
         self.qm.phi = self.qm.gd.zeros()
@@ -294,12 +294,11 @@ class FDTDPoissonSolver:
         self.qm.poisson_solver.set_grid_descriptor(qmgd)
 
         # Create classical PoissonSolver
-        self.cl.poisson_solver = PoissonSolver(
-            name='fd',
-            nn=self.nn,
-            eps=self.eps,
-            relax=self.relax,
-            remove_moment=self.remove_moment_cl)
+        poisson_cl_kwargs = dict(name='fd', nn=self.nn,
+                                 eps=self.eps, relax=self.relax)
+        self.cl.poisson_solver = MomentCorrectionPoissonSolver(
+            poissonsolver=PoissonSolver(**poisson_cl_kwargs),
+            moment_corrections=self.remove_moment_cl)
         self.cl.poisson_solver.set_grid_descriptor(self.cl.gd)
         # self.cl.poisson_solver.initialize()
 
@@ -427,11 +426,11 @@ class FDTDPoissonSolver:
         self.shift_indices_2 = self.shift_indices_1 + self.num_indices
 
         # Sanity checks
-        assert(all([self.shift_indices_1[w] >= 0 and
-                    self.shift_indices_2[w] <= self.cl.gd.N_c[w]
-                    for w in range(3)])), \
-            "Could not find appropriate quantum grid. " + \
-            "Move it further away from the boundary."
+        assert (all([self.shift_indices_1[w] >= 0 and
+                     self.shift_indices_2[w] <= self.cl.gd.N_c[w]
+                     for w in range(3)])), (
+            'Could not find appropriate quantum grid. '
+            'Move it further away from the boundary.')
 
         # Corner coordinates
         self.qm.corner1 = self.shift_indices_1 * self.cl.spacing
@@ -588,11 +587,11 @@ class FDTDPoissonSolver:
         #     % (self.cl.gd.N_c[0], self.cl.gd.N_c[1], self.cl.gd.N_c[2]))
 
         # Sanity checks
-        assert(all([self.extended_shift_indices_1[w] >= 0 and
-                    self.extended_shift_indices_2[w] <= self.cl.gd.N_c[w]
-                    for w in range(3)])), \
-            "Could not find appropriate quantum grid. " + \
-            "Move it further away from the boundary."
+        assert (all([self.extended_shift_indices_1[w] >= 0 and
+                     self.extended_shift_indices_2[w] <= self.cl.gd.N_c[w]
+                     for w in range(3)])), (
+            'Could not find appropriate quantum grid. '
+            'Move it further away from the boundary.')
 
         # Corner coordinates
         self.qm.extended_corner1 = \

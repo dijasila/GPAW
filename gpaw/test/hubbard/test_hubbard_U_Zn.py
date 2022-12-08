@@ -17,7 +17,6 @@ def test_Hubbard_U_Zn():
     E_U = {}
     for spin in [0, 1]:
         c = GPAW(h=h, spinpol=spin,
-                 xc='oldLDA',
                  mode='lcao', basis='sz(dzp)',
                  parallel=dict(kpt=1),
                  charge=1, occupations=FermiDirac(width=0.1, fixmagmom=spin)

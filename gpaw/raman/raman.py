@@ -7,7 +7,7 @@ see https://doi.org/10.1038/s41467-020-16529-6
 """
 
 import numpy as np
-from ase.units import invcm
+from ase.units import invcm, Hartree
 
 
 def lorentzian(w, gamma):
@@ -31,7 +31,7 @@ def calculate_raman(calc, w_ph, w_in, d_i, d_o, resonant_only=False,
     ----------
     calc: GPAW
         Converged ground state calculation
-    w_ph: ndarray, str
+    w_ph: np.ndarray, str
         Array of phonon frequencies in eV, or name of file with them
     w_in: float
         Laser energy in eV
@@ -206,7 +206,7 @@ def calculate_raman(calc, w_ph, w_in, d_i, d_o, resonant_only=False,
         # Precalculate E-E term
         E_vc = np.empty((len(vs), len(cs)), dtype=complex)
         for n in vs:
-            E_vc[n] = kpt.eps_n[cs] - kpt.eps_n[n] + 1j * gamma_l
+            E_vc[n] = (kpt.eps_n[cs] - kpt.eps_n[n]) * Hartree + 1j * gamma_l
             # set weights for negative energy transitions zero
             neg = np.where(E_vc[n].real <= 0.)[0]
             f_vc[n, neg] = 0.
@@ -285,7 +285,7 @@ def calculate_raman_intensity(w_ph, d_i, d_o, suffix, T=300):
 
     Parameters
     ----------
-    w_ph: ndarray, str
+    w_ph: np.ndarray, str
         Array of phonon frequencies in eV, or name of file with them
     d_i: int
         Incoming polarization

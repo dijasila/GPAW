@@ -1,15 +1,14 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
-
 """Main gpaw module."""
 import os
 import sys
 import contextlib
 from pathlib import Path
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Any, TYPE_CHECKING
 
-__version__ = '21.6.1b1'
-__ase_version_required__ = '3.22.0'
+__version__ = '22.8.1b1'
+__ase_version_required__ = '3.22.1'
 __all__ = ['GPAW',
            'Mixer', 'MixerSum', 'MixerDif', 'MixerSum2',
            'CG', 'Davidson', 'RMMDIIS', 'DirectLCAO',
@@ -22,7 +21,11 @@ __all__ = ['GPAW',
 setup_paths: List[Union[str, Path]] = []
 is_gpaw_python = '_gpaw' in sys.builtin_module_names
 dry_run = 0
-debug: bool = bool(sys.flags.debug)
+
+# When type-checking or running pytest, we want the debug-wrappers enabled:
+debug: bool = (TYPE_CHECKING or
+               'pytest' in sys.modules or
+               bool(sys.flags.debug))
 
 
 @contextlib.contextmanager
@@ -41,15 +44,6 @@ def disable_dry_run():
 if 'OMP_NUM_THREADS' not in os.environ:
     os.environ['OMP_NUM_THREADS'] = '1'
 
-# Symbol look may fail if library linked agains _gpaw.so tries internally
-# dlopen another .so. (MKL is one particular example)
-# Thus, expose symbols from libraries used by _gpaw
-old_dlflags = sys.getdlopenflags()
-sys.setdlopenflags(old_dlflags | os.RTLD_GLOBAL)
-try:
-    import _gpaw
-finally:
-    sys.setdlopenflags(old_dlflags)
 
 from gpaw.broadcast_imports import broadcast_imports  # noqa
 
@@ -59,7 +53,20 @@ with broadcast_imports:
     import warnings
     from argparse import ArgumentParser, REMAINDER, RawDescriptionHelpFormatter
 
+    # With gpaw-python BLAS symbols are in global scope and we need to
+    # ensure that NumPy and SciPy use symbols from their own dependencies
+    if is_gpaw_python:
+        old_dlopen_flags = sys.getdlopenflags()
+        sys.setdlopenflags(old_dlopen_flags | os.RTLD_DEEPBIND)
     import numpy as np
+    import scipy.linalg  # noqa: F401
+    if is_gpaw_python:
+        sys.setdlopenflags(old_dlopen_flags)
+    import _gpaw
+
+
+if getattr(_gpaw, 'version', 0) != 3:
+    raise ImportError('Please recompile GPAW''s C-extensions!')
 
 
 class ConvergenceError(Exception):
@@ -157,6 +164,7 @@ def main():
 if debug:
     np.seterr(over='raise', divide='raise', invalid='raise', under='ignore')
     oldempty = np.empty
+    oldempty_like = np.empty_like
 
     def empty(*args, **kwargs):
         a = oldempty(*args, **kwargs)
@@ -166,11 +174,20 @@ if debug:
             a.fill(-1000000)
         return a
 
+    def empty_like(*args, **kwargs):
+        a = oldempty_like(*args, **kwargs)
+        try:
+            a.fill(np.nan)
+        except ValueError:
+            a.fill(-2000000)
+        return a
+
     np.empty = empty
+    np.empty_like = empty_like
 
 
 with broadcast_imports:
-    from gpaw.calculator import GPAW
+    from gpaw.calculator import GPAW as OldGPAW
     from gpaw.mixer import Mixer, MixerSum, MixerDif, MixerSum2
     from gpaw.eigensolvers import Davidson, RMMDIIS, CG, DirectLCAO
     from gpaw.poisson import PoissonSolver
@@ -179,6 +196,13 @@ with broadcast_imports:
     from gpaw.wavefunctions.lcao import LCAO
     from gpaw.wavefunctions.pw import PW
     from gpaw.wavefunctions.fd import FD
+
+
+def GPAW(*args, **kwargs) -> Any:
+    if os.environ.get('GPAW_NEW'):
+        from gpaw.new.ase_interface import GPAW as NewGPAW
+        return NewGPAW(*args, **kwargs)
+    return OldGPAW(*args, **kwargs)
 
 
 def restart(filename, Class=GPAW, **kwargs):

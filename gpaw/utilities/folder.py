@@ -29,7 +29,8 @@ class Lorentz:
 class Voigt:
     """Voigt profile.
 
-    See http://reference.wolfram.com/language/ref/VoigtDistribution.html"""
+    See http://reference.wolfram.com/language/ref/VoigtDistribution.html
+    """
     def __init__(self, width=0.08):
         self.dtype = float
         self.set_width(width)

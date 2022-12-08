@@ -61,6 +61,7 @@ def lr_spin(H2spin):
     return lr
 
 
+@pytest.mark.later
 def test_finegrid(H2, lr):
     for finegrid in [1, 0]:
         lr2 = LrTDDFT(H2.calc, xc='LDA', finegrid=finegrid)
@@ -69,12 +70,14 @@ def test_finegrid(H2, lr):
         equal(lr[0].get_energy(), lr2[0].get_energy(), 5.e-4)
 
 
+@pytest.mark.later
 def test_velocity_form(lr):
     for ozr, ozv in zip(lr[0].get_oscillator_strength(),
                         lr[0].get_oscillator_strength('v')):
         equal(ozr, ozv, 0.1)
 
 
+@pytest.mark.later
 def test_singlet_triplet(lr_vspin, lr_spin):
     # singlet/triplet separation
     singlet, triplet = lr_vspin.singlets_triplets()
@@ -91,6 +94,7 @@ def test_singlet_triplet(lr_vspin, lr_spin):
     equal(triplet[0].get_oscillator_strength()[0], 0)
 
 
+@pytest.mark.later
 def test_spin(lr, lr_vspin, lr_spin):
     # without spin
     t1 = lr[0]
@@ -117,7 +121,7 @@ def test_spin(lr, lr_vspin, lr_spin):
              finegd.integrate(ex.get_all_electron_density() * Bohr**3),
              finegd.integrate(ex_vspin.get_all_electron_density() *
                               Bohr**3))
-    assert(ddiff < 1.e-4)
+    assert ddiff < 1.e-4
 
     for i in range(2):
         parprint('i, real, virtual spin: ', i, lr_vspin[i], lr_spin[i])
@@ -135,9 +139,10 @@ def test_spin(lr, lr_vspin, lr_spin):
                                   * Bohr**3),
                  finegd.integrate(ex_spin.get_all_electron_density()
                                   * Bohr**3))
-        assert(ddiff < 3.e-3), ddiff
+        assert ddiff < 3.e-3, ddiff
 
 
+@pytest.mark.later
 def test_io(in_tmp_dir, lr):
     fname = 'lr.dat.gz'
     lr.write(fname)
@@ -145,5 +150,5 @@ def test_io(in_tmp_dir, lr):
 
     lr2 = LrTDDFT.read(fname)
     lr2.diagonalize()
-    
+
     equal(lr[0].get_energy(), lr2[0].get_energy(), 1e-6)

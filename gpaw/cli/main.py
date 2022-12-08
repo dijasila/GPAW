@@ -30,10 +30,7 @@ commands = [
 def hook(parser, args):
     parser.add_argument('-P', '--parallel', type=int, metavar='N',
                         help='Run on N CPUs.')
-    args, extra = parser.parse_known_args(args)
-    if extra:
-        assert not args.arguments
-        args.arguments = extra
+    args = parser.parse_args(args)
 
     if args.command == 'python':
         args.traceback = True
@@ -58,12 +55,11 @@ def hook(parser, args):
 
         if py:
             # Start again in parallel:
-            arguments = ['mpiexec',
-                         '-np',
-                         str(args.parallel),
-                         py,
-                         '-m',
-                         'gpaw'] + sys.argv[1:]
+            arguments = ['mpiexec', '-np', str(args.parallel), py]
+            if args.command == 'python' and args.debug:
+                arguments.append('-d')
+            arguments += ['-m', 'gpaw']
+            arguments += sys.argv[1:]
 
             extra = os.environ.get('GPAW_MPI_OPTIONS')
             if extra:

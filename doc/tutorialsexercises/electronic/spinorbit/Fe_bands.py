@@ -12,7 +12,10 @@ N = points['N']
 H_z = [H[0], -H[1], -H[2]]
 G_yz = [2 * H[0], 0.0, 0.0]
 
-kpts, x, X = bandpath([G, H, G_yz], layer.cell, npoints=1000)
+path = bandpath([G, H, G_yz], layer.cell, npoints=1000)
+kpts = path.kpts
+(x, X, labels) = path.get_linear_kpoint_axis()
+
 calc = GPAW('Fe_gs.gpw').fixed_density(
     kpts=kpts,
     symmetry='off',

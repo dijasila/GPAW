@@ -32,6 +32,7 @@ Linux:
    Linux/juropa
    Linux/jureca
    Linux/justus
+   Linux/Juwels/juwels
    Linux/monolith
    Linux/murska
    Linux/nanolab_EL4
@@ -46,6 +47,14 @@ Linux:
    Linux/uranus
    Linux/vsc.univie
    Linux/odyssey
+
+WSL:
+
+.. toctree::
+   :maxdepth: 1
+
+   wsl-ubuntu
+
 
 MacOSX:
 

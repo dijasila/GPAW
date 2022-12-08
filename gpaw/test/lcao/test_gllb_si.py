@@ -7,16 +7,22 @@ from gpaw import GPAW, LCAO
 # calculation, physically speaking, is garbage.
 
 
+@pytest.fixture
+def calc():
+    with GPAW(mode=LCAO(interpolation=2),
+              h=0.3,
+              basis='sz(dzp)',
+              xc='GLLBSC',
+              kpts={'size': (2, 2, 2), 'gamma': True},
+              txt='si.txt') as calc:
+        yield calc
+
+
+@pytest.mark.later
 @pytest.mark.gllb
 @pytest.mark.libxc
-def test_lcao_gllb_si(in_tmp_dir):
+def test_lcao_gllb_si(in_tmp_dir, calc):
     si = bulk('Si', 'diamond', a=5.421)
-    calc = GPAW(mode=LCAO(interpolation=2),
-                h=0.3,
-                basis='sz(dzp)',
-                xc='GLLBSC',
-                kpts={'size': (2, 2, 2), 'gamma': True},
-                txt='si.txt')
 
     def stopcalc():
         calc.scf.converged = True

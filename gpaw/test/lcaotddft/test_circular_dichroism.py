@@ -11,39 +11,13 @@ from gpaw.lcaotddft.magneticmomentwriter import MagneticMomentWriter
 from gpaw.lcaotddft.magneticmomentwriter import parse_header
 from gpaw.tddft.spectrum import rotatory_strength_spectrum
 from gpaw.tddft.units import as_to_au, eV_to_au, au_to_eV, rot_au_to_cgs
-from gpaw.utilities import compiled_with_sl
 
-from .test_molecule import only_on_master, calculate_error
-
+from gpaw.test import only_on_master
+from . import parallel_options, check_txt_data, copy_and_cut_file
 
 pytestmark = pytest.mark.usefixtures('module_tmp_path')
 
-
-def copy_and_cut_file(src, dst, *, cut_lines=0):
-    with open(src, 'r') as fd:
-        lines = fd.readlines()
-        if cut_lines > 0:
-            lines = lines[:-cut_lines]
-
-    with open(dst, 'w') as fd:
-        for line in lines:
-            fd.write(line)
-
-
-parallel_i = [{}]
-if compiled_with_sl():
-    parallel_i.append({'sl_auto': True})
-    if world.size > 1:
-        parallel_i.append({'band': 2})
-        parallel_i.append({'sl_auto': True, 'band': 2})
-
-
-def check_mm(ref_fpath, data_fpath, atol):
-    world.barrier()
-    ref = np.loadtxt(ref_fpath)
-    data = np.loadtxt(data_fpath)
-    err = calculate_error(data, ref)
-    assert err < atol
+parallel_i = parallel_options()
 
 
 @pytest.fixture(scope='module')
@@ -84,6 +58,7 @@ def initialize_system():
     td_calc.propagate(100, 2)
 
 
+@pytest.mark.later
 def test_magnetic_moment_values(initialize_system, module_tmp_path,
                                 in_tmp_dir):
     with open('mm_ref.dat', 'w') as f:
@@ -101,14 +76,16 @@ def test_magnetic_moment_values(initialize_system, module_tmp_path,
          20.67068667     6.247451722277e-07     1.298788405738e-06     1.460017881082e-06
 '''.strip())  # noqa: E501
 
-    check_mm(module_tmp_path / 'mm.dat', 'mm_ref.dat', atol=2e-14)
+    check_txt_data(module_tmp_path / 'mm.dat', 'mm_ref.dat', atol=2e-14)
 
 
+@pytest.mark.later
 def test_magnetic_moment_grid_evaluation(initialize_system, module_tmp_path):
     dpath = module_tmp_path
-    check_mm(dpath / 'mm.dat', dpath / 'mm_grid.dat', atol=2e-8)
+    check_txt_data(dpath / 'mm.dat', dpath / 'mm_grid.dat', atol=2e-8)
 
 
+@pytest.mark.later
 @pytest.mark.parametrize('parallel', parallel_i)
 def test_magnetic_moment_parallel(initialize_system, module_tmp_path, parallel,
                                   in_tmp_dir):
@@ -123,9 +100,10 @@ def test_magnetic_moment_parallel(initialize_system, module_tmp_path, parallel,
     td_calc.propagate(100, 5)
 
     for fname in ['mm.dat', 'mm_grid.dat', 'mm_origin.dat']:
-        check_mm(module_tmp_path / fname, fname, atol=7e-14)
+        check_txt_data(module_tmp_path / fname, fname, atol=7e-14)
 
 
+@pytest.mark.later
 @pytest.mark.parametrize('parallel', parallel_i)
 def test_magnetic_moment_restart(initialize_system, module_tmp_path, parallel,
                                  in_tmp_dir):
@@ -140,7 +118,7 @@ def test_magnetic_moment_restart(initialize_system, module_tmp_path, parallel,
     td_calc.propagate(100, 2)
 
     for fname in ['mm.dat', 'mm_grid.dat', 'mm_origin.dat']:
-        check_mm(module_tmp_path / fname, fname, atol=7e-14)
+        check_txt_data(module_tmp_path / fname, fname, atol=7e-14)
 
 
 @only_on_master(world)

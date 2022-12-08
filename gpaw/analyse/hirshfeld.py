@@ -1,6 +1,8 @@
 import numpy as np
 
 from ase.units import Bohr
+from ase.utils.timing import Timer
+
 from gpaw.density import RealSpaceDensity
 from gpaw.lfc import BasisFunctions
 from gpaw.setup import Setups
@@ -105,18 +107,24 @@ class HirshfeldPartitioning:
         self.calculator = calculator
         self.density_cutoff = density_cutoff
 
-    def initialize(self):
-        self.atoms = self.calculator.get_atoms()
-        self.hdensity = HirshfeldDensity(self.calculator)
-        density_g, gd = self.hdensity.get_density()
-        self.invweight_g = 0. * density_g
-        density_ok = np.where(density_g > self.density_cutoff)
-        self.invweight_g[density_ok] = 1.0 / density_g[density_ok]
+        if hasattr(self.calculator, 'timer'):
+            self.timer = self.calculator.timer
+        else:
+            self.timer = Timer()
 
-        den_sg, gd = self.calculator.density.get_all_electron_density(
-            self.atoms)
-        assert(gd == self.calculator.density.finegd)
-        self.den_g = den_sg.sum(axis=0)
+    def initialize(self):
+        with self.timer('HirshfeldPartitioning initialize'):
+            self.atoms = self.calculator.get_atoms()
+            self.hdensity = HirshfeldDensity(self.calculator)
+            density_g, gd = self.hdensity.get_density()
+            self.invweight_g = 0. * density_g
+            density_ok = np.where(density_g > self.density_cutoff)
+            self.invweight_g[density_ok] = 1.0 / density_g[density_ok]
+
+            den_sg, gd = self.calculator.density.get_all_electron_density(
+                self.atoms)
+            assert gd == self.calculator.density.finegd
+            self.den_g = den_sg.sum(axis=0)
 
     def get_calculator(self):
         return self.calculator
@@ -124,13 +132,14 @@ class HirshfeldPartitioning:
     def get_effective_volume_ratios(self):
         """Return the list of effective volume to free volume ratios."""
         self.initialize()
-        kptband_comm = self.calculator.comms['D']
-        ratios = []
-        for a, atom in enumerate(self.atoms):
-            ratios.append(self.get_effective_volume_ratio(a))
+        with self.timer('HirshfeldPartitioning ratios'):
+            kptband_comm = self.calculator.comms['D']
+            ratios = []
+            for a, atom in enumerate(self.atoms):
+                ratios.append(self.get_effective_volume_ratio(a))
 
-        ratios = np.array(ratios)
-        kptband_comm.broadcast(ratios, 0)
+            ratios = np.array(ratios)
+            kptband_comm.broadcast(ratios, 0)
         return ratios
 
     def get_effective_volume_ratio(self, atom_index):
@@ -140,7 +149,7 @@ class HirshfeldPartitioning:
         """
         finegd = self.calculator.density.finegd
         denfree_g, gd = self.hdensity.get_density([atom_index])
-        assert(gd == finegd)
+        assert gd == finegd
 
         # the atoms r^3 grid
         position = self.atoms[atom_index].position / Bohr
@@ -171,7 +180,7 @@ class HirshfeldPartitioning:
             den_sg, gd = self.calculator.density.get_all_electron_density(
                 self.atoms)
             den_g = den_sg.sum(axis=0)
-        assert(den_g.shape == tuple(finegd.n_c))
+        assert den_g.shape == tuple(finegd.n_c)
 
         charges = []
         for ia, atom in enumerate(self.atoms):

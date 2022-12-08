@@ -1,11 +1,17 @@
-"""Python wrapper for FFTW3 library."""
+"""
+Python wrapper for FFTW3 library
+================================
 
-import os
-from typing import Union, Type
+.. autoclass:: FFTPlans
+
+"""
+from __future__ import annotations
+
 import numpy as np
+from scipy.fft import fftn, ifftn, irfftn, rfftn
 
 import _gpaw
-
+from gpaw.typing import Array3D, DTypeLike, IntVector
 
 ESTIMATE = 64
 MEASURE = 0
@@ -13,40 +19,193 @@ PATIENT = 32
 EXHAUSTIVE = 8
 
 
-if os.environ.get('GPAW_FFTWSO'):
-    import warnings
-    warnings.warn('GPAW_FFTWSO is set to "{}"; ignoring.  '
-                  'Please use siteconf.py to link FFTW instead.'
-                  .format(os.environ['GPAW_FFTWSO']))
-
-
 def have_fftw() -> bool:
+    """Did we compile with FFTW?"""
     return hasattr(_gpaw, 'FFTWPlan')
 
 
-def check_fft_size(n: int) -> bool:
+def check_fft_size(n: int, factors=[2, 3, 5, 7]) -> bool:
     """Check if n is an efficient fft size.
 
-    Efficient means that n can be factored into small primes (2, 3, 5, 7)."""
+    Efficient means that n can be factored into small primes (2, 3, 5, 7).
+
+    >>> check_fft_size(17)
+    False
+    >>> check_fft_size(18)
+    True
+    """
 
     if n == 1:
         return True
-    for x in [2, 3, 5, 7]:
+    for x in factors:
         if n % x == 0:
-            return check_fft_size(n // x)
+            return check_fft_size(n // x, factors)
     return False
 
 
-def get_efficient_fft_size(N: int, n=1) -> int:
+def get_efficient_fft_size(N: int, n=1, factors=[2, 3, 5, 7]) -> int:
     """Return smallest efficient fft size.
 
     Must be greater than or equal to N and divisible by n.
+
+    >>> get_efficient_fft_size(17)
+    18
     """
     N = -(-N // n) * n
-    while not check_fft_size(N):
+    while not check_fft_size(N, factors):
         N += n
     return N
 
+
+def empty(shape, dtype=float):
+    """numpy.empty() equivalent with 16 byte alignment."""
+    assert dtype == complex
+    N = np.prod(shape)
+    a = np.empty(2 * N + 1)
+    offset = (a.ctypes.data % 16) // 8
+    a = a[offset:2 * N + offset].view(complex)
+    a.shape = shape
+    return a
+
+
+def create_plans(size_c: IntVector,
+                 dtype: DTypeLike,
+                 flags: int = MEASURE,
+                 xp=np) -> FFTPlans:
+    """Create plan-objects for FFT and inverse FFT."""
+    if xp is not np:
+        return CuPyFFTPlans(size_c, dtype)
+    if have_fftw():
+        return FFTWPlans(size_c, dtype, flags)
+    return NumpyFFTPlans(size_c, dtype)
+
+
+class FFTPlans:
+    def __init__(self,
+                 size_c: IntVector,
+                 dtype: DTypeLike):
+        if dtype == float:
+            rsize_c = (size_c[0], size_c[1], size_c[2] // 2 + 1)
+            self.tmp_Q = empty(rsize_c, complex)
+            self.tmp_R = self.tmp_Q.view(float)[:, :, :size_c[2]]
+        else:
+            self.tmp_Q = empty(size_c, complex)
+            self.tmp_R = self.tmp_Q
+
+    def fft(self) -> None:
+        """Do FFT from ``tmp_R`` to ``tmp_Q``.
+
+        >>> plans = create_plans([4, 1, 1], float)
+        >>> plans.tmp_R[:, 0, 0] = [1, 0, 1, 0]
+        >>> plans.fft()
+        >>> plans.tmp_Q[:, 0, 0]
+        array([2.+0.j, 0.+0.j, 2.+0.j, 0.+0.j])
+        """
+        raise NotImplementedError
+
+    def ifft(self) -> None:
+        """Do inverse FFT from ``tmp_Q`` to ``tmp_R``.
+
+        >>> plans = create_plans([4, 1, 1], complex)
+        >>> plans.tmp_Q[:, 0, 0] = [0, 1j, 0, 0]
+        >>> plans.ifft()
+        >>> plans.tmp_R[:, 0, 0]
+        array([ 0.+1.j, -1.+0.j,  0.-1.j,  1.+0.j])
+        """
+        raise NotImplementedError
+
+    def ifft_sphere(self, coef_G, pw, out_R):
+        pw.paste(coef_G, self.tmp_Q)
+        if pw.dtype == float:
+            t = self.tmp_Q[:, :, 0]
+            n, m = (s // 2 - 1 for s in out_R.desc.size_c[:2])
+            t[0, -m:] = t[0, m:0:-1].conj()
+            t[n:0:-1, -m:] = t[-n:, m:0:-1].conj()
+            t[-n:, -m:] = t[n:0:-1, m:0:-1].conj()
+            t[-n:, 0] = t[n:0:-1, 0].conj()
+        self.ifft()
+        out_R.scatter_from(self.tmp_R)
+
+    def fft_sphere(self, in_R, pw):
+        self.tmp_R[:] = in_R.data
+        self.fft()
+        coefs = pw.cut(self.tmp_Q) * (1 / self.tmp_R.size)
+        return coefs
+
+
+class FFTWPlans(FFTPlans):
+    """FFTW3 3d transforms."""
+    def __init__(self, size_c, dtype, flags=MEASURE):
+        if not have_fftw():
+            raise ImportError('Not compiled with FFTW.')
+        super().__init__(size_c, dtype)
+        self._fftplan = _gpaw.FFTWPlan(self.tmp_R, self.tmp_Q, -1, flags)
+        self._ifftplan = _gpaw.FFTWPlan(self.tmp_Q, self.tmp_R, 1, flags)
+
+    def fft(self):
+        _gpaw.FFTWExecute(self._fftplan)
+
+    def ifft(self):
+        _gpaw.FFTWExecute(self._ifftplan)
+
+    def __del__(self):
+        _gpaw.FFTWDestroy(self._fftplan)
+        _gpaw.FFTWDestroy(self._ifftplan)
+
+
+class NumpyFFTPlans(FFTPlans):
+    """Numpy fallback."""
+    def fft(self):
+        if self.tmp_R.dtype == float:
+            self.tmp_Q[:] = rfftn(self.tmp_R, overwrite_x=True)
+        else:
+            self.tmp_Q[:] = fftn(self.tmp_R, overwrite_x=True)
+
+    def ifft(self):
+        if self.tmp_R.dtype == float:
+            self.tmp_R[:] = irfftn(self.tmp_Q, self.tmp_R.shape,
+                                   norm='forward', overwrite_x=True)
+        else:
+            self.tmp_R[:] = ifftn(self.tmp_Q, self.tmp_R.shape,
+                                  norm='forward', overwrite_x=True)
+
+
+class CuPyFFTPlans(FFTPlans):
+    def __init__(self,
+                 size_c: IntVector,
+                 dtype: DTypeLike):
+        assert dtype == complex
+        self.size_c = size_c
+        self.pw = None
+
+    def indices(self, pw):
+        from gpaw.gpu import cupy as cp
+        if self.pw is None:
+            self.pw = pw
+            self.Q_G = cp.asarray(pw.indices(tuple(self.size_c)))
+        else:
+            assert pw is self.pw
+        return self.Q_G
+
+    def ifft_sphere(self, coef_G, pw, out_R):
+        from gpaw.gpu import cupyx
+        array_Q = out_R.data
+        array_Q[:] = 0.0
+        Q_G = self.indices(pw)
+        array_Q.ravel()[Q_G] = coef_G
+        array_Q[:] = cupyx.scipy.fft.ifftn(
+            array_Q, array_Q.shape,
+            norm='forward', overwrite_x=True)
+
+    def fft_sphere(self, in_R, pw):
+        from gpaw.gpu import cupyx
+        out_Q = cupyx.scipy.fft.fftn(in_R, overwrite_x=True)
+        Q_G = self.indices(pw)
+        coef_G = out_Q.ravel()[Q_G] * (1 / in_R.size)
+        return coef_G
+
+
+# The rest of this file will be removed in the future ...
 
 def check_fftw_inputs(in_R, out_R):
     for arr in in_R, out_R:
@@ -64,19 +223,30 @@ def check_fftw_inputs(in_R, out_R):
         assert C.shape[2] == 1 + R.shape[2] // 2
 
 
-class FFTWPlan:
-    """FFTW3 3d transform."""
-    def __init__(self, in_R, out_R, sign, flags=MEASURE):
-        if not have_fftw():
-            raise ImportError('Not compiled with FFTW.')
-
+class FFTPlan:
+    """FFT 3d transform."""
+    def __init__(self,
+                 in_R: Array3D,
+                 out_R: Array3D,
+                 sign: int,
+                 flags: int = MEASURE):
         check_fftw_inputs(in_R, out_R)
-
-        self._ptr = _gpaw.FFTWPlan(in_R, out_R, sign, flags)
         self.in_R = in_R
         self.out_R = out_R
         self.sign = sign
         self.flags = flags
+
+    def execute(self) -> None:
+        raise NotImplementedError
+
+
+class FFTWPlan(FFTPlan):
+    """FFTW3 3d transform."""
+    def __init__(self, in_R, out_R, sign, flags=MEASURE):
+        if not have_fftw():
+            raise ImportError('Not compiled with FFTW.')
+        self._ptr = _gpaw.FFTWPlan(in_R, out_R, sign, flags)
+        FFTPlan.__init__(self, in_R, out_R, sign, flags)
 
     def execute(self):
         _gpaw.FFTWExecute(self._ptr)
@@ -87,14 +257,8 @@ class FFTWPlan:
         self._ptr = None
 
 
-class NumpyFFTPlan:
+class NumpyFFTPlan(FFTPlan):
     """Numpy fallback."""
-    def __init__(self, in_R, out_R, sign, flags=None):
-        check_fftw_inputs(in_R, out_R)
-        self.in_R = in_R
-        self.out_R = out_R
-        self.sign = sign
-
     def execute(self):
         if self.in_R.dtype == float:
             self.out_R[:] = np.fft.rfftn(self.in_R)
@@ -108,20 +272,10 @@ class NumpyFFTPlan:
             self.out_R[:] = np.fft.fftn(self.in_R)
 
 
-def empty(shape, dtype=float):
-    """numpy.empty() equivalent with 16 byte alignment."""
-    assert dtype == complex
-    N = np.prod(shape)
-    a = np.empty(2 * N + 1)
-    offset = (a.ctypes.data % 16) // 8
-    a = a[offset:2 * N + offset].view(complex)
-    a.shape = shape
-    return a
-
-
-FFTPlan: Union[Type[FFTWPlan], Type[NumpyFFTPlan]]
-
-if have_fftw():
-    FFTPlan = FFTWPlan
-else:
-    FFTPlan = NumpyFFTPlan
+def create_plan(in_R: Array3D,
+                out_R: Array3D,
+                sign: int,
+                flags: int = MEASURE) -> FFTPlan:
+    if have_fftw():
+        return FFTWPlan(in_R, out_R, sign, flags)
+    return NumpyFFTPlan(in_R, out_R, sign, flags)

@@ -1,9 +1,8 @@
+from functools import wraps
 from typing import Tuple
 
-import numpy as np
-
 import gpaw.mpi as mpi
-from gpaw import setup_paths
+import numpy as np
 from gpaw.atom.configurations import parameters, tf_parameters
 from gpaw.atom.generator import Generator
 from gpaw.typing import Array1D
@@ -59,6 +58,30 @@ def gen(symbol, exx=False, name=None, yukawa_gamma=None,
                           write_xml=write_xml,
                           **parameters[symbol])
     setup = mpi.broadcast(setup, 0)
-    if setup_paths[0] != '.':
-        setup_paths.insert(0, '.')
     return setup
+
+
+def only_on_master(comm, broadcast=None):
+    """Decorator for executing the function only on the rank 0.
+
+    Parameters
+    ----------
+    comm
+        communicator
+    broadcast
+        function for broadcasting the return value or
+        `None` for no broadcasting
+    """
+    def wrap(func):
+        @wraps(func)
+        def wrapped_func(*args, **kwargs):
+            if comm.rank == 0:
+                ret = func(*args, **kwargs)
+            else:
+                ret = None
+            comm.barrier()
+            if broadcast is not None:
+                ret = broadcast(ret, comm=comm)
+            return ret
+        return wrapped_func
+    return wrap

@@ -369,6 +369,9 @@ class FDPWWaveFunctions(WaveFunctions):
         with self.timer('LCAO to grid'):
             self.initialize_from_lcao_coefficients(basis_functions)
 
+        if not self.collinear and self.bd.mynbands > lcaobd.mynbands * 2:
+            raise ValueError('Too many bands for non-collinear calculation!')
+
         if self.collinear and self.bd.mynbands > lcaobd.mynbands:
             # Add extra states.  If the number of atomic orbitals is
             # less than the desired number of bands, then extra random

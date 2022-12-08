@@ -4,8 +4,10 @@ from gpaw import GPAW
 from gpaw.tddft import TDDFT
 from gpaw.tddft.abc import LinearAbsorbingBoundary
 from gpaw.tddft.laser import CWField
+import pytest
 
 
+@pytest.mark.later
 def test_tddft_be_nltd_ip(in_tmp_dir):
     atoms = Atoms('Be', [(0, 0, 0)], pbc=False)
     atoms.center(vacuum=6)

@@ -6,11 +6,13 @@ Exact exchange
 
 Currently we have two implementations of exact exchange:
 
-1) :git:`~gpaw/xc/hybrid.py`: Can handle Gamma-point only
+1) Finite-difference mode implementation: :git:`~gpaw/xc/hybrid.py`.
+   Can handle Gamma-point only
    calculations self-consistently (for molecules and large cells).
+   No forces.
 
-2) :git:`~gpaw/xc/exx.py`: Can handle k-points, but not
-   self-consitently.
+2) Plane-wave mode implementation: :git:`~gpaw/hybrids/`.
+   Handles k-points, exploits symmetries and calculates forces.
 
 
 .. contents::
@@ -55,8 +57,6 @@ Functional Type    Reference
 EXX        Global
 PBE0       Global  [AB98]_
 B3LYP      Global  [Ba94]_
-HSE03      RSF-SR
-HSE06      RSF-SR
 CAMY-B3LYP RSF-LR  [SZ12]_
 CAMY-BLYP  RSF-LR  [AT08]_
 CAMY-B3LYP RSF-LR  [SZ12]_
@@ -121,8 +121,9 @@ Non self-consistent plane-wave implementation
 
 See this tutorial: :ref:`pbe0_tut`.
 
-.. autoclass:: gpaw.xc.exx.EXX
-   :members:
+Here is an example:
+
+.. literalinclude:: hydrogen_atom.py
 
 
 .. [AB98] C. Adamo and V. Barone.

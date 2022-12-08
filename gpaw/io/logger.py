@@ -60,58 +60,7 @@ class GPAWLogger:
         self(' |___|_|             ')
         self()
 
-        # We use os.uname() here bacause platform.uname() starts a subprocess,
-        # which MPI may not like!
-        # This might not work on Windows.  We will see ...
-        nodename, machine = os.uname()[1::3]
-
-        self('User:  ', os.getenv('USER', '???') + '@' + nodename)
-        self('Date:  ', time.asctime())
-        self('Arch:  ', machine)
-        self('Pid:   ', os.getpid())
-        self('Python: {0}.{1}.{2}'.format(*sys.version_info[:3]))
-        # GPAW
-        line = os.path.dirname(gpaw.__file__)
-        githash = search_current_git_hash(gpaw, self.world)
-        if githash is not None:
-            line += ' ({:.10})'.format(githash)
-        self('gpaw:  ', line)
-
-        # Find C-code:
-        c = getattr(_gpaw, '__file__', None)
-        if not c:
-            c = sys.executable
-        line = os.path.normpath(c)
-        if hasattr(_gpaw, 'githash'):
-            line += ' ({:.10})'.format(_gpaw.githash())
-        self('_gpaw: ', cut(line))
-
-        # ASE
-        line = '%s (version %s' % (os.path.dirname(ase.__file__), ase_version)
-        githash = search_current_git_hash(ase, self.world)
-        if githash is not None:
-            line += '-{:.10}'.format(githash)
-        line += ')'
-        self('ase:   ', line)
-
-        self('numpy:  %s (version %s)' %
-             (os.path.dirname(np.__file__), np.version.version))
-        import scipy as sp
-        self('scipy:  %s (version %s)' %
-             (os.path.dirname(sp.__file__), sp.version.version))
-        # Explicitly deleting SciPy seems to remove garbage collection
-        # problem of unknown cause
-        del sp
-        self('libxc: ', getattr(_gpaw, 'libxc_version', '2.x.y'))
-        self('units:  Angstrom and eV')
-        self('cores:', self.world.size)
-        self('OpenMP:', _gpaw.have_openmp)
-        self('OMP_NUM_THREADS:', os.environ['OMP_NUM_THREADS'])
-
-        if gpaw.debug:
-            self('DEBUG MODE')
-
-        self()
+        write_header(self, self.world)
 
     def print_dict(self, dct, sep='  '):
         options = np.get_printoptions()
@@ -137,6 +86,9 @@ class GPAWLogger:
 
     def __del__(self):
         """Destructor:  Write timing output before closing."""
+        self.close()
+
+    def close(self):
         if gpaw.dry_run or self._fd.closed:
             return
 
@@ -155,6 +107,62 @@ class GPAWLogger:
         self('Date: ' + time.asctime())
 
         self.iocontext.close()
+
+
+def write_header(log, world):
+    # We use os.uname() here bacause platform.uname() starts a subprocess,
+    # which MPI may not like!
+    # This might not work on Windows.  We will see ...
+    nodename, machine = os.uname()[1::3]
+
+    log('User:  ', os.getenv('USER', '???') + '@' + nodename)
+    log('Date:  ', time.asctime())
+    log('Arch:  ', machine)
+    log('Pid:   ', os.getpid())
+    log('CWD:   ', os.getcwd())
+    log('Python: {0}.{1}.{2}'.format(*sys.version_info[:3]))
+    # GPAW
+    line = os.path.dirname(gpaw.__file__)
+    githash = search_current_git_hash(gpaw, world)
+    if githash is not None:
+        line += ' ({:.10})'.format(githash)
+    log('gpaw:  ', line)
+
+    # Find C-code:
+    c = getattr(_gpaw, '__file__', None)
+    if not c:
+        c = sys.executable
+    line = os.path.normpath(c)
+    if hasattr(_gpaw, 'githash'):
+        line += ' ({:.10})'.format(_gpaw.githash())
+    log('_gpaw: ', cut(line))
+
+    # ASE
+    line = '%s (version %s' % (os.path.dirname(ase.__file__), ase_version)
+    githash = search_current_git_hash(ase, world)
+    if githash is not None:
+        line += '-{:.10}'.format(githash)
+    line += ')'
+    log('ase:   ', line)
+
+    log('numpy:  %s (version %s)' %
+        (os.path.dirname(np.__file__), np.version.version))
+    import scipy as sp
+    log('scipy:  %s (version %s)' %
+        (os.path.dirname(sp.__file__), sp.version.version))
+    # Explicitly deleting SciPy seems to remove garbage collection
+    # problem of unknown cause
+    del sp
+    log('libxc: ', getattr(_gpaw, 'libxc_version', '2.x.y'))
+    log('units:  Angstrom and eV')
+    log('cores:', world.size)
+    log('OpenMP:', _gpaw.have_openmp)
+    log('OMP_NUM_THREADS:', os.environ['OMP_NUM_THREADS'])
+
+    if gpaw.debug:
+        log('DEBUG-MODE: true')
+
+    log()
 
 
 def cut(s, indent='        '):

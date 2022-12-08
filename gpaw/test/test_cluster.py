@@ -48,7 +48,7 @@ def test_cluster(in_tmp_dir):
         # print "cc[c,c], cc[c,c] / h % 4 =", cc[c, c], cc[c, c] / h % 4
         for a in CO:
             print(a.symbol, b[c], a.position[c], cc[c, c] - a.position[c])
-            assert(a.position[c] > b[c])
+            assert a.position[c] > b[c]
         equal(cc[c, c] / h % 4, 0.0, 1e-10)
 
     # I/O
@@ -61,9 +61,9 @@ def test_cluster(in_tmp_dir):
     CO.write(fxyz)
     world.barrier()
     CO_b = Cluster(filename=fxyz)
-    assert(len(CO) == len(CO_b))
+    assert len(CO) == len(CO_b)
     offdiagonal = CO_b.get_cell().sum() - CO_b.get_cell().diagonal().sum()
-    assert(offdiagonal == 0.0)
+    assert offdiagonal == 0.0
 
     world.barrier()
     CO.write(fpdb)

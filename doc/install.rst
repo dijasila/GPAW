@@ -53,12 +53,12 @@ There are several ways to install GPAW:
 Requirements
 ============
 
-* Python_ 3.6 or later
+* Python_ 3.7 or later
 * NumPy_ 1.9 or later (base N-dimensional array package)
 * SciPy_ 0.14 or later (library for scientific computing)
 * ASE_ 3.18.0 or later (atomic simulation environment)
 * a C-compiler
-* LibXC_ 3.x or 4.x
+* LibXC_ 3.x, 4.x or 5.1+
 * BLAS_ library
 
 Optional, but highly recommended:
@@ -151,13 +151,13 @@ Sou can get the source from a tar-file or from Git:
 :Tar-file:
 
     You can get the source as a tar-file for the
-    latest stable release (gpaw-21.6.0.tar.gz_) or the latest
+    latest stable release (gpaw-22.8.0.tar.gz_) or the latest
     development snapshot (`<snapshot.tar.gz>`_).
 
     Unpack and make a soft link::
 
-        $ tar -xf gpaw-21.6.0.tar.gz
-        $ ln -s gpaw-21.6.0 gpaw
+        $ tar -xf gpaw-22.8.0.tar.gz
+        $ ln -s gpaw-22.8.0 gpaw
 
     Here is a `list of tarballs <https://pypi.org/simple/gpaw/>`__.
 
@@ -166,7 +166,7 @@ Sou can get the source from a tar-file or from Git:
     Alternatively, you can get the source for the latest stable release from
     https://gitlab.com/gpaw/gpaw like this::
 
-        $ git clone -b 21.6.0 https://gitlab.com/gpaw/gpaw.git
+        $ git clone -b 22.8.0 https://gitlab.com/gpaw/gpaw.git
 
     or if you want the development version::
 
@@ -178,8 +178,8 @@ Sou can get the source from a tar-file or from Git:
     See the :ref:`releasenotes` for which tags are available.  Also the
     dates of older releases can be found there.
 
-.. _gpaw-21.6.0.tar.gz:
-    https://pypi.org/packages/source/g/gpaw/gpaw-21.6.0.tar.gz
+.. _gpaw-22.8.0.tar.gz:
+    https://pypi.org/packages/source/g/gpaw/gpaw-22.8.0.tar.gz
 
 
 .. _siteconfig:
@@ -215,7 +215,7 @@ Parallel installation
 
 By default, setup looks if :program:`mpicc` is available, and if setup
 finds one, a parallel version is build. If the setup does not find
-mpicc, a user can specify one in the ``siteconfig.py`` file.
+:program:`mpicc`, a user can specify one in the ``siteconfig.py`` file.
 
 Additionally a user may want to enable ScaLAPACK, setting in
 ``siteconfig.py``::
@@ -259,9 +259,9 @@ If you OS does not have a LibXC package you can use then you can download
 and install LibXC as described `here <http://www.tddft.org/programs/libxc/>`_.
 A few extra tips:
 
-* Libxc installation requires both a C compiler and a fortran compiler.
+* Libxc installation requires both a C compiler and a Fortran compiler.
 
-* We've tried intel and gnu compilers and haven't noticed much of a
+* We've tried Intel and gnu compilers and haven't noticed much of a
   performance difference.  Use whatever is easiest.
 
 * Libxc shared libraries can be built with the "--enable-shared" option
@@ -271,27 +271,27 @@ A few extra tips:
 * Typically when building GPAW one has to modify ``siteconfig.py`` in a manner
   similar to the following::
 
-    library_dirs += ['/my/path/to/libxc/4.2.3/install/lib']
-    include_dirs += ['/my/path/to/libxc/4.2.3/install/include']
+    library_dirs += ['/my/path/to/libxc/5.2.0/install/lib']
+    include_dirs += ['/my/path/to/libxc/5.2.0/install/include']
 
   or if you don't want to modify your ``siteconfig.py``, you can add these
-  lines to your .bashrc::
+  lines to your ``.bashrc``::
 
-    export C_INCLUDE_PATH=/my/path/to/libxc/4.2.3/install/include
-    export LIBRARY_PATH=/my/path/to/libxc/4.2.3/install/lib
-    export LD_LIBRARY_PATH=/my/path/to/libxc/4.2.3/install/lib
+    export C_INCLUDE_PATH=/my/path/to/libxc/5.2.0/install/include
+    export LIBRARY_PATH=/my/path/to/libxc/5.2.0/install/lib
+    export LD_LIBRARY_PATH=/my/path/to/libxc/5.2.0/install/lib
 
 Example::
 
-    wget http://www.tddft.org/programs/octopus/down.php?file=libxc/4.2.3/libxc-4.2.3.tar.gz -O libxc-4.2.3.tar.gz
-    tar -xf libxc-4.2.3.tar.gz
-    cd libxc-4.2.3
-    ./configure --enable-shared --disable-fortran --prefix=$HOME/libxc-4.2.3
+    wget http://www.tddft.org/programs/octopus/down.php?file=libxc/5.2.0/libxc-5.2.0.tar.gz -O libxc-5.2.0.tar.gz
+    tar -xf libxc-5.2.0.tar.gz
+    cd libxc-5.2.0
+    ./configure --enable-shared --disable-fortran --prefix=$HOME/libxc-5.2.0
     make
     make install
 
     # add these to your .bashrc:
-    XC=~/libxc-4.2.3
+    XC=~/libxc-5.2.0
     export C_INCLUDE_PATH=$XC/include
     export LIBRARY_PATH=$XC/lib
     export LD_LIBRARY_PATH=$XC/lib

@@ -1,6 +1,5 @@
 import pytest
 from gpaw.mpi import world
-from gpaw.utilities import compiled_with_sl
 from ase import Atoms
 from gpaw import GPAW, PW
 from gpaw.response.df import DielectricFunction
@@ -11,22 +10,20 @@ from gpaw.test import equal, findpeak
 # Reasons that this can fail:
 # - Bug in block parallelization
 
-pytestmark = pytest.mark.skipif(
-    world.size < 4 or not compiled_with_sl(),
-    reason='world.size < 4 or not compiled_with_sl()')
+pytestmark = pytest.mark.skipif(world.size < 4, reason='world.size < 4')
 
 
+@pytest.mark.response
 @pytest.mark.slow
-def test_response_na_plasmons(in_tmp_dir):
+def test_response_na_plasmons(in_tmp_dir, scalapack):
     a = 4.23 / 2.0
     a1 = Atoms('Na',
                scaled_positions=[[0, 0, 0]],
                cell=(a, a, a),
                pbc=True)
 
-    a1.calc = GPAW(gpts=(10, 10, 10),
-                   mode=PW(300),
-                   kpts={'size': (30, 30, 30), 'gamma': True},
+    a1.calc = GPAW(mode=PW(300),
+                   kpts={'size': (10, 10, 10), 'gamma': True},
                    parallel={'band': 1},
                    txt='small.txt')
 
@@ -37,24 +34,22 @@ def test_response_na_plasmons(in_tmp_dir):
     # Calculate the dielectric functions
     df1 = DielectricFunction('gs_Na.gpw',
                              nblocks=1,
-                             ecut=400,
+                             ecut=40,
+                             rate=0.001,
                              txt='1block.txt')
 
     df1NLFCx, df1LFCx = df1.get_dielectric_function(direction='x')
-    df1NLFCy, df1LFCy = df1.get_dielectric_function(direction='y')
-    df1NLFCz, df1LFCz = df1.get_dielectric_function(direction='z')
 
     df2 = DielectricFunction('gs_Na.gpw',
                              nblocks=4,
-                             ecut=400,
+                             ecut=40,
+                             rate=0.001,
                              txt='4block.txt')
 
     df2NLFCx, df2LFCx = df2.get_dielectric_function(direction='x')
-    df2NLFCy, df2LFCy = df2.get_dielectric_function(direction='y')
-    df2NLFCz, df2LFCz = df2.get_dielectric_function(direction='z')
 
     # Compare plasmon frequencies and intensities
-    w_w = df1.chi0.omega_w
+    w_w = df1.wd.omega_w
     w1, I1 = findpeak(w_w, -(1. / df1LFCx).imag)
     w2, I2 = findpeak(w_w, -(1. / df2LFCx).imag)
     equal(w1, w2, 1e-2)

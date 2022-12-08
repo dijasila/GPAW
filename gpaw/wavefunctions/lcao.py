@@ -1,5 +1,7 @@
 import numpy as np
 from ase.units import Bohr
+from ase.utils.timing import timer
+from gpaw.directmin.tools import loewdin_lcao, gramschmidt_lcao
 
 from gpaw.lfc import BasisFunctions
 from gpaw.utilities import unpack
@@ -7,11 +9,12 @@ from gpaw.utilities.tools import tri2full
 # from gpaw import debug
 # from gpaw.lcao.overlap import NewTwoCenterIntegrals as NewTCI
 from gpaw.lcao.tci import TCIExpansions
-from gpaw.utilities.blas import gemm, gemmdot
+from gpaw.utilities.blas import mmm, gemmdot
 from gpaw.wavefunctions.base import WaveFunctions
 from gpaw.lcao.atomic_correction import (DenseAtomicCorrection,
                                          SparseAtomicCorrection)
 from gpaw.wavefunctions.mode import Mode
+from gpaw.directmin.etdm import ETDM
 
 
 class LCAO(Mode):
@@ -120,8 +123,24 @@ class LCAOWaveFunctions(WaveFunctions):
                                               dtype=dtype,
                                               cut=True)
 
-    def set_orthonormalized(self, o):
-        pass
+        self.coefficients_read_from_file = False
+        self.set_orthonormalized(False)
+
+    def set_orthonormalized(self, flag):
+        self.orthonormalized = flag
+
+    @timer('Orthonormalize')
+    def orthonormalize(self, kpt=None, type='gramschmidt'):
+        assert type == 'gramschmidt' or type == 'loewdin'
+        if kpt is None:
+            for kpt in self.kpt_u:
+                self.orthonormalize(kpt)
+            self.orthonormalized = True
+            return
+        if type == 'loewdin':
+            kpt.C_nM[:] = loewdin_lcao(kpt.C_nM, kpt.S_MM.conj())
+        elif type == 'gramschmidt':
+            kpt.C_nM[:] = gramschmidt_lcao(kpt.C_nM, kpt.S_MM.conj())
 
     def empty(self, n=(), global_array=False, realspace=False):
         if realspace:
@@ -137,14 +156,20 @@ class LCAOWaveFunctions(WaveFunctions):
         s += '  Diagonalizer: %s\n' % self.ksl.get_description()
         s += ('  Atomic Correction: %s\n'
               % self.atomic_correction_cls.description)
-        s += '  Datatype: %s\n' % self.dtype.__name__
+        s += '  Data-type: %s\n' % self.dtype.__name__
         return s
 
     def set_eigensolver(self, eigensolver):
         WaveFunctions.set_eigensolver(self, eigensolver)
         if eigensolver:
-            eigensolver.initialize(self.gd, self.dtype, self.setups.nao,
-                                   self.ksl)
+            if isinstance(eigensolver, ETDM):
+                eigensolver.initialize(self.gd, self.dtype, self.bd.nbands,
+                                       self.kd.nibzkpts, self.setups.nao,
+                                       self.ksl.using_blacs,
+                                       self.bd.comm.size, self.kpt_u)
+            else:
+                eigensolver.initialize(self.gd, self.dtype, self.setups.nao,
+                                       self.ksl)
 
     def set_positions(self, spos_ac, atom_partition=None, move_wfs=False):
         oldspos_ac = self.spos_ac
@@ -158,11 +183,8 @@ class LCAOWaveFunctions(WaveFunctions):
             self.basis_functions.set_matrix_distribution(self.ksl.Mstart,
                                                          self.ksl.Mstop)
 
-        nq = len(self.kd.ibzk_qc)
-        nao = self.setups.nao
         Mstop = self.ksl.Mstop
         Mstart = self.ksl.Mstart
-        mynao = Mstop - Mstart
 
         # if self.ksl.using_blacs:  # XXX
         #     S and T have been distributed to a layout with blacs, so
@@ -183,23 +205,6 @@ class LCAOWaveFunctions(WaveFunctions):
                           self.kd.ibzk_qc, spos_ac, oldspos_ac,
                           self.setups, Mstart)
 
-        if 0:  # self.debug_tci:
-            # if self.ksl.using_blacs:
-            #     self.tci.set_matrix_distribution(Mstart, mynao)
-            oldS_qMM = np.empty((nq, mynao, nao), self.dtype)
-            oldT_qMM = np.empty((nq, mynao, nao), self.dtype)
-
-            oldP_aqMi = {}
-            for a in self.basis_functions.my_atom_indices:
-                ni = self.setups[a].ni
-                oldP_aqMi[a] = np.empty((nq, nao, ni), self.dtype)
-
-            # Calculate lower triangle of S and T matrices:
-            self.timer.start('tci calculate')
-            # self.tci.calculate(spos_ac, oldS_qMM, oldT_qMM,
-            #                   oldP_aqMi)
-            self.timer.stop('tci calculate')
-
         self.timer.start('mktci')
         manytci = self.tciexpansions.get_manytci_calculator(
             self.setups, self.gd, spos_ac, self.kd.ibzk_qc, self.dtype,
@@ -217,7 +222,7 @@ class LCAOWaveFunctions(WaveFunctions):
         self.timer.start('P tci')
         P_qIM = manytci.P_qIM(my_atom_indices)
         self.timer.stop('P tci')
-        self.P_aqMi = newP_aqMi = manytci.P_aqMi(my_atom_indices)
+        self.P_aqMi = manytci.P_aqMi(my_atom_indices)
         self.P_qIM = P_qIM  # XXX atomic correction
 
         self.atomic_correction = self.atomic_correction_cls.new_from_wfs(self)
@@ -230,65 +235,13 @@ class LCAOWaveFunctions(WaveFunctions):
         #   use symmetry/conj tricks to reduce calculations
         #   enable caching of spherical harmonics
 
-        # if self.atomic_correction.name != 'dense':
-        # from gpaw.lcao.newoverlap import newoverlap
-        # self.P_neighbors_a, self.P_aaqim = newoverlap(self, spos_ac)
-
-        # if self.atomic_correction.name == 'scipy':
-        #    Pold_qIM = self.atomic_correction.Psparse_qIM
-        #    for q in range(nq):
-        #        maxerr = abs(Pold_qIM[q] - P_qIM[q]).max()
-        #        print('sparse maxerr', maxerr)
-        #        assert maxerr == 0
-
         self.atomic_correction.add_overlap_correction(newS_qMM)
-        if self.debug_tci:
-            self.atomic_correction.add_overlap_correction(oldS_qMM)
-
         self.allocate_arrays_for_projections(my_atom_indices)
-
-        # S_MM = None  # allow garbage collection of old S_qMM after redist
-        if self.debug_tci:
-            oldS_qMM = self.ksl.distribute_overlap_matrix(oldS_qMM, root=-1)
-            oldT_qMM = self.ksl.distribute_overlap_matrix(oldT_qMM, root=-1)
 
         newS_qMM = self.ksl.distribute_overlap_matrix(newS_qMM, root=-1)
         newT_qMM = self.ksl.distribute_overlap_matrix(newT_qMM, root=-1)
 
-        # if (debug and self.bd.comm.size == 1 and self.gd.comm.rank == 0 and
-        #     nao > 0 and not self.ksl.using_blacs):
-        #     S and T are summed only on comm master, so check only there
-        #     from numpy.linalg import eigvalsh
-        #     self.timer.start('Check positive definiteness')
-        #     for S_MM in S_qMM:
-        #         tri2full(S_MM, UL='L')
-        #         smin = eigvalsh(S_MM).real.min()
-        #         if smin < 0:
-        #             raise RuntimeError('Overlap matrix has negative '
-        #                               'eigenvalue: %e' % smin)
-        #     self.timer.stop('Check positive definiteness')
         self.positions_set = True
-
-        if self.debug_tci:
-            Serr = np.abs(newS_qMM - oldS_qMM).max()
-            Terr = np.abs(newT_qMM - oldT_qMM).max()
-            print('S maxerr', Serr)
-            print('T maxerr', Terr)
-            try:
-                assert Terr < 1e-15, Terr
-            except AssertionError:
-                np.set_printoptions(precision=6)
-                if self.world.rank == 0:
-                    print(newT_qMM)
-                    print(oldT_qMM)
-                    print(newT_qMM - oldT_qMM)
-                raise
-            assert Serr < 1e-15, Serr
-
-            assert len(oldP_aqMi) == len(newP_aqMi)
-            for a in oldP_aqMi:
-                Perr = np.abs(oldP_aqMi[a] - newP_aqMi[a]).max()
-                assert Perr < 1e-15, (a, Perr)
 
         for kpt in self.kpt_u:
             q = kpt.q
@@ -302,6 +255,7 @@ class LCAOWaveFunctions(WaveFunctions):
         # since this is where we change S_qMM.  Hence, expect this to
         # become arrays after the first diagonalization:
         self.decomposed_S_qMM = [None] * len(self.S_qMM)
+        self.set_orthonormalized(False)
 
     def initialize(self, density, hamiltonian, spos_ac):
         # Note: The above line exists also in set_positions.
@@ -377,7 +331,7 @@ class LCAOWaveFunctions(WaveFunctions):
             # that also conforms better to the usual conventions in literature
             Cf_Mn = C_nM.T.conj() * f_n
             self.timer.start('gemm')
-            gemm(1.0, C_nM, Cf_Mn, 0.0, rho_MM, 'n')
+            mmm(1.0, Cf_Mn, 'N', C_nM, 'N', 0.0, rho_MM)
             self.timer.stop('gemm')
             self.timer.start('band comm sum')
             self.bd.comm.sum(rho_MM)
@@ -495,6 +449,8 @@ class LCAOWaveFunctions(WaveFunctions):
                     break
                 C_M[:] = C_nM[n] * Bohr**1.5
 
+        self.coefficients_read_from_file = True
+
     def estimate_memory(self, mem):
         nq = len(self.kd.ibzk_qc)
         nao = self.setups.nao
@@ -550,7 +506,7 @@ class LCAOforces:
                 self.gd.comm, self.Mstart, self.Mstop, False, derivative=True)
             self.dPdR_aqvMi = self.manytci.P_aqMi(self.bfs.my_atom_indices,
                                                   derivative=True)
-    
+
             self.gd.comm.sum(self.dThetadR_qvMM)
             self.gd.comm.sum(self.dTdR_qvMM)
             self.timer.stop('TCI derivative')
@@ -565,15 +521,13 @@ class LCAOforces:
             Ftheta_av = self.get_den_mat_term()
             Frho_av = self.get_den_mat_paw_term()
             Fatom_av = self.get_atomic_density_term()
-
             F_av += Fkin_av + Fpot_av + Ftheta_av + Frho_av + Fatom_av
-
-        if self.isblacs:
+        else:
             F_av = np.zeros_like(self.Fref_av)
             Fpot_av = self.get_pot_term_blacs()
             Fkin_av, Ftheta_av = self.get_kin_and_den_term_blacs()
             Fatom_av, Frho_av = self.get_at_den_and_den_paw_blacs()
-             
+
             F_av += Fkin_av + Fpot_av + Ftheta_av + Frho_av + Fatom_av
 
         self.timer.start('Wait for sum')
@@ -753,11 +707,13 @@ class LCAOforces:
                 setup = self.setups[b]
                 dO_ii = np.asarray(setup.dO_ii, self.dtype)
                 dOP_iM = np.zeros((setup.ni, self.nao), self.dtype)
-                gemm(1.0, self.P_aqMi[b][kpt.q], dO_ii, 0.0, dOP_iM, 'c')
+                mmm(1.0, dO_ii, 'N', self.P_aqMi[b][kpt.q], 'C', 0.0, dOP_iM)
                 for v in range(3):
-                    gemm(1.0, dOP_iM,
-                         self.dPdR_aqvMi[b][kpt.q][v][self.Mstart:self.Mstop],
-                         0.0, work_MM, 'n')
+                    mmm(1.0,
+                        self.dPdR_aqvMi[b][kpt.q][v][self.Mstart:self.Mstop],
+                        'N',
+                        dOP_iM, 'N',
+                        0.0, work_MM)
                     ZE_MM = (work_MM * self.ET_uMM[u]).real
                     for a, M1, M2 in self.slices():
                         dE = 2 * ZE_MM[M1:M2].sum()
@@ -811,11 +767,13 @@ class LCAOforces:
                 setup = self.setups[b]
                 dO_ii = np.asarray(setup.dO_ii, self.dtype)
                 dOP_iM = np.zeros((setup.ni, self.nao), self.dtype)
-                gemm(1.0, self.P_aqMi[b][kpt.q], dO_ii, 0.0, dOP_iM, 'c')
+                mmm(1.0, dO_ii, 'N', self.P_aqMi[b][kpt.q], 'C', 0.0, dOP_iM)
                 for v in range(3):
-                    gemm(1.0, dOP_iM,
-                         self.dPdR_aqvMi[b][kpt.q][v][self.Mstart:self.Mstop],
-                         0.0, work_MM, 'n')
+                    mmm(1.0,
+                        self.dPdR_aqvMi[b][kpt.q][v][self.Mstart:self.Mstop],
+                        'N',
+                        dOP_iM, 'N',
+                        0.0, work_MM)
                     ZE_MM[u, b, v, :, :] = (work_MM * self.ET_uMM[u]).real
         self.timer.stop('get paw correction')
         return ZE_MM

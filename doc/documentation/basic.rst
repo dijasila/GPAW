@@ -29,7 +29,7 @@ Doing a PAW calculation
 -----------------------
 
 To do a PAW calculation with the GPAW code, you need an ASE
-:class:`~ase.Atoms` object and a :class:`~gpaw.GPAW`
+:class:`~ase.Atoms` object and a :class:`~gpaw.calculator.GPAW`
 calculator::
 
    _____________          ____________
@@ -123,11 +123,6 @@ given in the following sections.
       - ``bool``
       - ``False``
       - :ref:`Use Hund's rule <manual_hund>`
-    * - ``idiotproof``
-      - ``bool``
-      - ``True``
-      - Set to ``False`` to ignore setup fingerprint mismatch
-        (allows restart when the original setup files are not available)
     * - ``kpts``
       - *seq*
       - `\Gamma`-point
@@ -194,7 +189,7 @@ given in the following sections.
 .. note::
 
    Parameters can be changed after the calculator has been constructed
-   by using the :meth:`~gpaw.GPAW.set` method:
+   by using the :meth:`~gpaw.calculator.GPAW.set` method:
 
    >>> calc.set(txt='H2.txt', charge=1)
 
@@ -617,16 +612,16 @@ The default value is this dictionary::
 In words:
 
 * The energy change (last 3 iterations) should be less than 0.5 meV
-  per valence electron. (See :class:`~gpaw.scf.Energy`.)
+  per valence electron. (See :class:`~gpaw.convergence_criteria.Energy`.)
 
 * The change in density (integrated absolute value of density change)
   should be less than 0.0001 electrons per valence electron. (See
-  :class:`~gpaw.scf.Density`.)
+  :class:`~gpaw.convergence_criteria.Density`.)
 
 * The integrated value of the square of the residuals of the Kohn-Sham
   equations should be less than 4.0 `\times` 10\ :sup:`-8` eV\ :sup:`2`
   per valence electron. This criterion does not affect LCAO
-  calculations.  (See :class:`~gpaw.scf.Eigenstates`.)
+  calculations.  (See :class:`~gpaw.convergence_criteria.Eigenstates`.)
 
 * Only the bands that are occupied with electrons are converged.
 
@@ -712,7 +707,7 @@ Fixed density calculation
 When calculating band structures or when adding unoccupied states to
 calculation (and wanting to converge them) it is often useful to use existing
 density without updating it. This can be done using the
-:meth:`gpaw.GPAW.fixed_density` method.  This will use the density
+:meth:`gpaw.calculator.GPAW.fixed_density` method.  This will use the density
 (e.g. one read from .gpw or existing from previous calculation)
 throughout the SCF-cycles (so called Harris calculation).
 
@@ -856,8 +851,11 @@ Here, ``niter`` specifies the maximum number of conjugate gradient iterations
 for each band (within a single SCF step), and if the relative change
 in residual is less than ``rtol``, the iteration for the band is not continued.
 
-LCAO mode has its own eigensolver, which directly diagonalizes the
-Hamiltonian matrix instead of using an iterative method.
+LCAO mode has its own eigensolvers. ``DirectLCAO`` eigensolver directly
+diagonalizes the Hamiltonian matrix instead of using an iterative method.
+One can also use Exponential Transformation Direct Minimization (ETDM) method
+(see :ref:`directmin`) but it is not recommended to use it for metals
+because occupation numbers are not found variationally in ETDM.
 
 
 .. _manual_poissonsolver:
@@ -974,14 +972,12 @@ between 1 and 4 (linear, cubic, quintic, heptic).
 Using Hund's rule for guessing initial magnetic moments
 -------------------------------------------------------
 
-The ``hund`` keyword can be used for single atoms only. If set to
-``True``, the calculation will become spinpolarized, and the initial
-ocupations, and magnetic moment of the atom will be set to the value
+With ``hund=True``, the calculation will become spinpolarized, and the initial
+ocupations, and magnetic moments of all atoms will be set to the values
 required by Hund's rule.  You may further wish to specify that the
-total magnetic moment be fixed, by passing e.g.
-``occupations=FermiDirac(0.0, fixmagmom=True)``.
-Any user specified magnetic moment is
-ignored. Default is False.
+total magnetic moment be fixed, by passing e.g. ``occupations={'name': ...,
+'fixmagmom': True}``. Any user specified magnetic moment is ignored. Default
+is False.
 
 
 .. _manual_external:
@@ -1110,7 +1106,7 @@ example saves a differently named restart file every 5 iterations::
 
   calc.attach(OccasionalWriter().write, occasionally)
 
-See also :meth:`~gpaw.GPAW.attach`.
+See also :meth:`~gpaw.calculator.GPAW.attach`.
 
 
 .. _command line options:
@@ -1120,12 +1116,12 @@ Command-line options
 --------------------
 
 I order to run GPAW in debug-mode, e.g. check consistency of arrays passed
-to C-extensions, use Python's :option:`python:-c` option`:
+to C-extensions, use Python's :option:`python:-d` option:
 
     $ python3 -d script.py
 
-If you run Python through the ``gpaw python`` command, then you run your
-script in dry-run mode::
+If you run Python through the ``gpaw python`` command, then you can run your
+script in dry-run mode like this::
 
     $ gpaw python --dry-run=N script.py
 
