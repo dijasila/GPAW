@@ -38,8 +38,24 @@ class MGGA(XCFunctional):
         self.tauct = density.get_pseudo_core_kinetic_energy_density_lfc()
         self.tauct_G = None
         self.dedtaut_sG = None
-        self.restrict_and_collect = hamiltonian.restrict_and_collect
-        self.distribute_and_interpolate = density.distribute_and_interpolate
+        if ((not hasattr(hamiltonian, 'xc_redistributor'))
+                or (hamiltonian.xc_redistributor is None)):
+            self.restrict_and_collect = hamiltonian.restrict_and_collect
+            self.distribute_and_interpolate = density.distribute_and_interpolate
+        else:
+            def _distribute_and_interpolate(in_xR, out_xR=None):
+                tmp_xR = density.interpolate(in_xR)
+                if hamiltonian.xc_redistributor.enabled:
+                    out_xR = hamiltonian.xc_redistributor.distribute(tmp_xR, out_xR)
+                else:
+                    out_xR = tmp_xR
+                return out_xR
+            def _restrict_and_collect(in_xR, out_xR=None):
+                if hamiltonian.xc_redistributor.enabled:
+                    in_xR = hamiltonian.xc_redistributor.collect(in_xR)
+                return hamiltonian.restrict(in_xR, out_xR)
+            self.restrict_and_collect = _restrict_and_collect
+            self.distribute_and_interpolate = _distribute_and_interpolate
 
     def set_positions(self, spos_ac):
         self.tauct.set_positions(spos_ac, self.wfs.atom_partition)
