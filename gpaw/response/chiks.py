@@ -77,9 +77,18 @@ class ChiKSData(LatticePeriodicPairFunction):  # future ChiKS XXX
         self.eta = eta
         super().__init__(pd, wd, blockdist, distribution=distribution)
 
-    @property
-    def copy_args(self):
-        return self.spincomponent, self.pd, self.wd, self.eta, self.blockdist
+    def my_args(self, spincomponent=None, pd=None, wd=None, eta=None,
+                blockdist=None):
+        """
+        Some documentation here!                                               XXX
+        """
+        if spincomponent is None:
+            spincomponent = self.spincomponent
+        if eta is None:
+            eta = self.eta
+        pd, wd, blockdist = super().my_args(pd=pd, wd=wd, blockdist=blockdist)
+
+        return spincomponent, pd, wd, eta, blockdist
 
 
 class ChiKSCalculator(PairFunctionIntegrator):
@@ -373,20 +382,11 @@ class ChiKSCalculator(PairFunctionIntegrator):
             chiks = chiks.copy_with_distribution('WgG')
 
         if self.gammacentered and not self.disable_symmetries:
-            pdi = chiks.pd  # internal pd
-            chiks_WgG = chiks.array
             # Reduce the q-centered plane-wave basis used internally to the
             # gammacentered basis
-            assert not pdi.gammacentered
-            q_c = pdi.q_c
-            pd = self.get_pw_descriptor(q_c)
-            chiks_WgG = map_WgG_array_to_reduced_pd(pdi, pd,
-                                                    chiks.blockdist, chiks_WgG)
-
-            chiksnew = ChiKSData(chiks.spincomponent, pd, chiks.wd, chiks.eta,
-                                 chiks.blockdist, distribution='WgG')
-            chiksnew.array[:] = chiks_WgG
-            chiks = chiksnew
+            assert not chiks.pd.gammacentered  # Internal pd
+            pd = self.get_pw_descriptor(chiks.q_c)  # External pd
+            chiks = chiks.copy_with_reduced_pd(pd)
 
         return chiks
 
@@ -440,38 +440,6 @@ def get_ecut_to_encompass_centered_sphere(q_v, ecut):
     ecut = ecut + q * (np.sqrt(2 * ecut) + q / 2)
 
     return ecut
-
-
-def map_WgG_array_to_reduced_pd(pdi, pd, blockdist, in_WgG):
-    """Map an output array to a reduced plane wave basis which is
-    completely contained within the original basis, that is, from pdi to
-    pd."""
-    from gpaw.pw.descriptor import PWMapping
-
-    # Initialize the basis mapping
-    pwmapping = PWMapping(pdi, pd)
-    G2_GG = tuple(np.meshgrid(pwmapping.G2_G1, pwmapping.G2_G1,
-                              indexing='ij'))
-    G1_GG = tuple(np.meshgrid(pwmapping.G1, pwmapping.G1,
-                              indexing='ij'))
-
-    # Distribute over frequencies
-    nw = in_WgG.shape[0]
-    tmp_wGG = blockdist.distribute_as(in_WgG, nw, 'wGG')
-
-    # Allocate array in the new basis
-    nG = pd.ngmax
-    new_tmp_shape = (tmp_wGG.shape[0], nG, nG)
-    new_tmp_wGG = np.zeros(new_tmp_shape, complex)
-
-    # Extract values in the global basis
-    for w, tmp_GG in enumerate(tmp_wGG):
-        new_tmp_wGG[w][G2_GG] = tmp_GG[G1_GG]
-
-    # Distribute over plane waves
-    out_WgG = blockdist.distribute_as(new_tmp_wGG, nw, 'WgG')
-
-    return out_WgG
 
 
 def get_temporal_part(spincomponent, omega_w, eta,

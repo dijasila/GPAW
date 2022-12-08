@@ -132,15 +132,72 @@ class LatticePeriodicPairFunction(PairFunction):
         """
         Some documentation here!                                               XXX
         """
-        new_pf = self._new_copy(*self.copy_args, distribution=distribution)
+        new_pf = self._new(*self.my_args(), distribution=distribution)
         new_pf.array[:] = self.array_with_view(distribution)
 
         return new_pf
 
     @classmethod
-    def _new_copy(cls, *args, **kwargs):
+    def _new(cls, *args, **kwargs):
         return cls(*args, **kwargs)
     
-    @property
-    def copy_args(self):
-        return self.pd, self.wd, self.blockdist
+    def my_args(self, pd=None, wd=None, blockdist=None):
+        """
+        Some documentation here!                                               XXX
+        """
+        if pd is None:
+            pd = self.pd
+        if wd is None:
+            wd = self.wd
+        if blockdist is None:
+            blockdist = self.blockdist
+
+        return pd, wd, blockdist
+
+    def copy_with_reduced_pd(self, pd):
+        """
+        Some documentation here!                                               XXX
+        """
+        if not self.distribution == 'WgG':
+            raise NotImplementedError('Not implemented for distribution '
+                                      f'{self.distribution}')
+
+        new_pf = self._new(*self.my_args(pd=pd),
+                           distribution=self.distribution)
+        new_pf.array[:] = map_WgG_array_to_reduced_pd(self.pd, pd,
+                                                      self.blockdist,
+                                                      self.array)
+
+        return new_pf
+
+
+def map_WgG_array_to_reduced_pd(pdi, pd, blockdist, in_WgG):
+    """Map an output array to a reduced plane wave basis which is
+    completely contained within the original basis, that is, from pdi to
+    pd."""
+    from gpaw.pw.descriptor import PWMapping
+
+    # Initialize the basis mapping
+    pwmapping = PWMapping(pdi, pd)
+    G2_GG = tuple(np.meshgrid(pwmapping.G2_G1, pwmapping.G2_G1,
+                              indexing='ij'))
+    G1_GG = tuple(np.meshgrid(pwmapping.G1, pwmapping.G1,
+                              indexing='ij'))
+
+    # Distribute over frequencies
+    nw = in_WgG.shape[0]
+    tmp_wGG = blockdist.distribute_as(in_WgG, nw, 'wGG')
+
+    # Allocate array in the new basis
+    nG = pd.ngmax
+    new_tmp_shape = (tmp_wGG.shape[0], nG, nG)
+    new_tmp_wGG = np.zeros(new_tmp_shape, complex)
+
+    # Extract values in the global basis
+    for w, tmp_GG in enumerate(tmp_wGG):
+        new_tmp_wGG[w][G2_GG] = tmp_GG[G1_GG]
+
+    # Distribute over plane waves
+    out_WgG = blockdist.distribute_as(new_tmp_wGG, nw, 'WgG')
+
+    return out_WgG
