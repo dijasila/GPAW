@@ -127,3 +127,20 @@ class LatticePeriodicPairFunction(PairFunction):
                              f'distribution {self.distribution}')
 
         return pf_x
+
+    def copy_with_distribution(self, distribution='WgG'):
+        """
+        Some documentation here!                                               XXX
+        """
+        new_pf = self._new_copy(*self.copy_args, distribution=distribution)
+        new_pf.array[:] = self.array_with_view(distribution)
+
+        return new_pf
+
+    @classmethod
+    def _new_copy(cls, *args, **kwargs):
+        return cls(*args, **kwargs)
+    
+    @property
+    def copy_args(self):
+        return self.pd, self.wd, self.blockdist

@@ -77,6 +77,10 @@ class ChiKSData(LatticePeriodicPairFunction):  # future ChiKS XXX
         self.eta = eta
         super().__init__(pd, wd, blockdist, distribution=distribution)
 
+    @property
+    def copy_args(self):
+        return self.spincomponent, self.pd, self.wd, self.eta, self.blockdist
+
 
 class ChiKSCalculator(PairFunctionIntegrator):
     r"""Calculator class for the four-component Kohn-Sham susceptibility tensor
@@ -364,25 +368,27 @@ class ChiKSCalculator(PairFunctionIntegrator):
         """
         Some documentation here!                                              XXX
         """
-        chiks_WgG = chiks.array_with_view('WgG')
+        if not chiks.distribution == 'WgG':
+            # Always output chiks with distribution 'WgG'
+            chiks = chiks.copy_with_distribution('WgG')
 
         if self.gammacentered and not self.disable_symmetries:
             pdi = chiks.pd  # internal pd
-            assert not pdi.gammacentered
+            chiks_WgG = chiks.array
             # Reduce the q-centered plane-wave basis used internally to the
             # gammacentered basis
+            assert not pdi.gammacentered
             q_c = pdi.q_c
             pd = self.get_pw_descriptor(q_c)
             chiks_WgG = map_WgG_array_to_reduced_pd(pdi, pd,
                                                     chiks.blockdist, chiks_WgG)
-        else:
-            pd = chiks.pd
 
-        chiksnew = ChiKSData(chiks.spincomponent, pd, chiks.wd, chiks.eta,
-                             chiks.blockdist, distribution='WgG')
-        chiksnew.array[:] = chiks_WgG
+            chiksnew = ChiKSData(chiks.spincomponent, pd, chiks.wd, chiks.eta,
+                                 chiks.blockdist, distribution='WgG')
+            chiksnew.array[:] = chiks_WgG
+            chiks = chiksnew
 
-        return chiksnew
+        return chiks
 
     def get_information(self, pd, nw, eta, spincomponent, nbands, nt):
         r"""Get information about the χ_KS,GG'^μν(q,ω+iη) calculation"""
