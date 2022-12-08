@@ -295,7 +295,7 @@ def cuni():
 
 @system
 def gqd_triangle_o():
-    atoms = Atoms(symbols='C22H12O',
+    atoms = Atoms('C22H12O',
                   cell=[27.32059936, 20.76985686, 27.31710493],
                   positions=[[10.73088624, 8.89837485, 12.55791070],
                              [10.05301739, 8.89679181, 13.79134457],
@@ -338,7 +338,7 @@ def gqd_triangle_o():
 
 @system
 def cofe2o4():
-    atoms = Atoms(symbols='CoFe2O4',
+    atoms = Atoms('CoFe2O4',
                   magmoms=[3, 3, 3, 0, 0, 0, 0],
                   cell=[19.25300000, 20.91400000, 21.31300000],
                   positions=[[9.26470177, 10.75627983, 9.27350608],
@@ -354,6 +354,19 @@ def cofe2o4():
 @system
 def isa():
     return read('MoC2-graphene-4N-1Co-clean.xyz'), {}
+
+
+@system
+def te2fe2():
+    atoms = Atoms('Te2Fe2',
+                  pbc=[True, True, False],
+                  cell=[3.94202037, 3.94202037, 18.85580293, 90, 90, 120],
+                  magmoms=[1, 1, 1, 1],
+                  positions=[[0.00063252, 0.00171344, 7.69113746],
+                             [-0.00062763, 2.27543515, 11.31172532],
+                             [-0.00018445, -0.00014811, 10.16305636],
+                             [-0.00016985, 2.27732626, 8.84062204]])
+    return atoms, {}
 
 
 if __name__ == '__main__':
