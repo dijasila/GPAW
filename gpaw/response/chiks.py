@@ -198,23 +198,12 @@ class ChiKSCalculator(PairFunctionIntegrator):
         return chiks
 
     def get_pw_descriptor(self, q_c, internal=False):
-        """Get plane-wave descriptor for a calculation with wave vector q_c."""
-        return self._get_pw_descriptor(q_c, ecut=self.ecut,
-                                       gammacentered=self.gammacentered,
-                                       internal=internal)
-
-    def _get_pw_descriptor(self, q_c, ecut=50 / Hartree, gammacentered=False,
-                           internal=True):
         """Get plane-wave descriptor for the wave vector q_c.
 
         Parameters
         ----------
         q_c : list or ndarray
             Wave vector in relative coordinates
-        ecut : float (or None)
-            Plane-wave cutoff in Hartree
-        gammacentered : bool
-            Center the grid of plane waves around the Γ-point (or the q-vector)
         internal : bool
             When using symmetries, the actual calculation of chiks must happen
             using a q-centered plane wave basis. If internal==True, as it is by
@@ -226,7 +215,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
         gd = self.gs.gd
 
         # Update to internal basis, if needed
-        if internal and gammacentered and not self.disable_symmetries:
+        if internal and self.gammacentered and not self.disable_symmetries:
             # In order to make use of the symmetries of the system to reduce
             # the k-point integration, the internal code assumes a plane wave
             # basis which is centered at q in reciprocal space.
@@ -242,7 +231,10 @@ class ChiKSCalculator(PairFunctionIntegrator):
             # Compute the extended internal ecut
             B_cv = 2.0 * np.pi * gd.icell_cv  # Reciprocal lattice vectors
             q_v = q_c @ B_cv
-            ecut = get_ecut_to_encompass_centered_sphere(q_v, ecut)
+            ecut = get_ecut_to_encompass_centered_sphere(q_v, self.ecut)
+        else:
+            gammacentered = self.gammacentered
+            ecut = self.ecut
 
         pd = SingleQPWDescriptor.from_q(q_c, ecut, gd,
                                         gammacentered=gammacentered)
