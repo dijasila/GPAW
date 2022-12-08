@@ -269,9 +269,9 @@ def test_Co_hcp_site_kernels():
     # Perform inexpensive calculator initialization
     calc.initialize(atoms)
 
-    pd0 = get_PWDescriptor(atoms, calc, q_c,
-                           ecut=ecut,
-                           gammacentered=gammacentered)
+    pd0 = get_pw_descriptor(atoms, calc, q_c,
+                            ecut=ecut,
+                            gammacentered=gammacentered)
 
     # Part 2: Calculate site kernels
     positions = atoms.get_positions()
@@ -379,9 +379,9 @@ def test_Co_hcp_site_kernels():
                               all_sitekernels_app.calculate(pd0)])
 
     # Calculate all site kernels at opposite qs
-    pd_q = [get_PWDescriptor(atoms, calc, qpm_c,
-                             ecut=ecut,
-                             gammacentered=gammacentered)
+    pd_q = [get_pw_descriptor(atoms, calc, qpm_c,
+                              ecut=ecut,
+                              gammacentered=gammacentered)
             for qpm_c in qpm_qc]
     Kall_pm_qpaGG = [np.array([K_aGG for K_aGG in
                                all_sitekernels_app.calculate(pd)])
@@ -537,9 +537,10 @@ def test_Co_hcp_site_kernels():
 # ---------- Test functionality ---------- #
 
 
-def get_PWDescriptor(atoms, calc, q_c, ecut=50., gammacentered=False):
-    """Mock-up of PlaneWaveKSLRF.get_PWDescriptor working on a bare calculator
-    instance without any actual data in it."""
+def get_pw_descriptor(atoms, calc, q_c, ecut=50., gammacentered=False):
+    """Mock-up of ChiKSCalculator.get_pw_descriptor.
+
+    Works on a bare calculator instance without any actual data in it."""
     from ase.units import Ha
     from gpaw.pw.descriptor import PWDescriptor
     from gpaw.kpt_descriptor import KPointDescriptor

@@ -3,8 +3,10 @@ from gpaw import GPAW
 from gpaw.tddft import TDDFT
 from gpaw.tddft.ehrenfest import EhrenfestVelocityVerlet
 from gpaw.test import equal
+import pytest
 
 
+@pytest.mark.later
 def test_tddft_ehrenfest_nacl(in_tmp_dir):
     d = 4.0
     atoms = Atoms('NaCl', [(0, 0, 0), (0, 0, d)])

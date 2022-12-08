@@ -13,7 +13,8 @@ from gpaw.mpi import world
 from gpaw.test import findpeak
 
 from gpaw.response import ResponseGroundStateAdapter
-from gpaw.response.tms import TransverseMagneticSusceptibility
+from gpaw.response.chiks import ChiKS
+from gpaw.response.susceptibility import ChiFactory
 from gpaw.response.df import read_response_function
 
 
@@ -78,21 +79,24 @@ def test_response_afm_hchain_gssALDA(in_tmp_dir):
                  'rshewmin': rshewmin,
                  'fxc_scaling': fxc_scaling}
     gs = ResponseGroundStateAdapter(calc)
-    tms = TransverseMagneticSusceptibility(gs,
-                                           nbands=nbands,
-                                           fxc=fxc,
-                                           eta=eta,
-                                           ecut=ecut,
-                                           fxckwargs=fxckwargs,
-                                           gammacentered=True,
-                                           nblocks=nblocks)
+    chiks = ChiKS(gs,
+                  nbands=nbands,
+                  eta=eta,
+                  ecut=ecut,
+                  gammacentered=True,
+                  nblocks=nblocks)
+    chi_factory = ChiFactory(chiks)
+                  
     for q, q_c in enumerate(q_qc):
         filename = 'h-chain_macro_tms_q%d.csv' % q
         txt = 'h-chain_macro_tms_q%d.txt' % q
-        tms.get_macroscopic_component('+-', q_c, frq_w,
-                                      filename=filename, txt=txt)
+        chi = chi_factory('+-', q_c, frq_w,
+                          fxc=fxc,
+                          fxckwargs=fxckwargs,
+                          txt=txt)
+        chi.write_macroscopic_component(filename)
 
-    tms.context.write_timer()
+    chi_factory.context.write_timer()
     world.barrier()
 
     # Part 3: Identify magnon peak in finite q scattering function

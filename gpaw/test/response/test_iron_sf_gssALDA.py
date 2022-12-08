@@ -13,7 +13,8 @@ from gpaw.test import findpeak
 from gpaw.mpi import world
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
-from gpaw.response.tms import TransverseMagneticSusceptibility
+from gpaw.response.chiks import ChiKS
+from gpaw.response.susceptibility import ChiFactory
 from gpaw.response.df import read_response_function
 
 
@@ -40,21 +41,21 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
     gs = ResponseGroundStateAdapter.from_gpw_file(gpw_files['fe_pw_wfs'],
                                                   context=context)
     fxckwargs = {'rshelmax': None, 'fxc_scaling': fxc_scaling}
-    tms = TransverseMagneticSusceptibility(gs,
-                                           context=context,
-                                           nbands=nbands,
-                                           fxc=fxc,
-                                           eta=eta,
-                                           ecut=ecut,
-                                           fxckwargs=fxckwargs,
-                                           gammacentered=True,
-                                           nblocks=nblocks)
+    chiks = ChiKS(gs,
+                  context=context,
+                  nbands=nbands,
+                  eta=eta,
+                  ecut=ecut,
+                  gammacentered=True,
+                  nblocks=nblocks)
+    chi_factory = ChiFactory(chiks)
 
     for q in range(2):
-        tms.get_macroscopic_component(
-            '+-', q_qc[q], frq_qw[q],
-            filename='iron_dsus' + '_%d.csv' % (q + 1))
-        tms.context.write_timer()
+        chi = chi_factory('+-', q_qc[q], frq_qw[q],
+                          fxc=fxc,
+                          fxckwargs=fxckwargs)
+        chi.write_macroscopic_component('iron_dsus' + '_%d.csv' % (q + 1))
+        chi_factory.context.write_timer()
 
     world.barrier()
 

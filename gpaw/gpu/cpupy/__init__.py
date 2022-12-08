@@ -1,6 +1,6 @@
 import numpy as np
-import gpaw.gpu.cupy.linalg as linalg
-import gpaw.gpu.cupy.cublas as cublas
+import gpaw.gpu.cpupy.linalg as linalg
+import gpaw.gpu.cpupy.cublas as cublas
 
 __all__ = ['linalg', 'cublas']
 
