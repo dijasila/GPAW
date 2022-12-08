@@ -64,24 +64,18 @@ class ChiKS:
 
 
 class ChiKSData(LatticePeriodicPairFunction):  # future ChiKS XXX
-    """
-    Some documentation here!                                                   XXX
-    """
+    """Data object for the four-component Kohn-Sham susceptibility tensor."""
 
     def __init__(self, spincomponent, pd, wd, eta,
                  blockdist, distribution='WgG'):
-        """
-        Document me!                                                           XXX
-        """
+        r"""Construct a χ_KS,GG'^μν(q,ω+iη) data object"""
         self.spincomponent = spincomponent
         self.eta = eta
         super().__init__(pd, wd, blockdist, distribution=distribution)
 
     def my_args(self, spincomponent=None, pd=None, wd=None, eta=None,
                 blockdist=None):
-        """
-        Some documentation here!                                               XXX
-        """
+        """Return construction arguments of the ChiKSData object."""
         if spincomponent is None:
             spincomponent = self.spincomponent
         if eta is None:
@@ -255,9 +249,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
         return pd
 
     def create_chiks(self, spincomponent, wd, pd, eta):
-        """
-        Some documentation here!                                               XXX
-        """
+        """Create a new ChiKSData object to be integrated."""
         if self.bundle_integrals:
             distribution = 'GWg'
         else:
@@ -360,9 +352,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
 
     @timer('Symmetrizing chiks')
     def symmetrize(self, chiks, analyzer):
-        """
-        Some documentation here!                                              XXX
-        """
+        """Symmetrize chiks_wGG."""
         chiks_WgG = chiks.array_with_view('WgG')
 
         # Distribute over frequencies
@@ -374,9 +364,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
 
     @timer('Post processing')
     def post_process(self, chiks):
-        """
-        Some documentation here!                                              XXX
-        """
+        """Cast a calculated chiks into a fixed output format."""
         if not chiks.distribution == 'WgG':
             # Always output chiks with distribution 'WgG'
             chiks = chiks.copy_with_distribution('WgG')
