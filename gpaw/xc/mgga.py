@@ -47,8 +47,10 @@ class MGGA(XCFunctional):
                 tmp_xR = density.interpolate(in_xR)
                 if hamiltonian.xc_redistributor.enabled:
                     out_xR = hamiltonian.xc_redistributor.distribute(tmp_xR, out_xR)
-                else:
+                elif out_xR is None:
                     out_xR = tmp_xR
+                else:
+                    out_xR[:] = tmp_xR
                 return out_xR
             def _restrict_and_collect(in_xR, out_xR=None):
                 if hamiltonian.xc_redistributor.enabled:
