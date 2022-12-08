@@ -10,15 +10,24 @@ from gpaw import PW, FermiDirac
 from gpaw.utilities import h2gpts
 
 
-def _create_test_systems():
+_functions = {}
+
+
+def system(func):
+    _functions[func.__name__] = func
+    return func
+
+
+def create_test_systems():
     systems = {}
-    for name, obj in globals().items():
-        if callable(obj) and not name.startswith('_'):
-            atoms, params = obj()
-            systems[name] = (atoms, params)
+    for name, func in _functions.items():
+        atoms, params = func()
+        systems[name] = (atoms, params)
+        print(len(atoms)**2 / 10, atoms.symbols.formula, name)
     return systems
 
 
+@system
 def a5():
     atoms = ase.io.read('alpra_Mg.CONTCAR')
     atoms.pbc = True
@@ -26,6 +35,7 @@ def a5():
                        occupations={'name': 'fermi-dirac', 'width': 0.1})
 
 
+@system
 def ni100():
     atoms = fcc100(symbol='Ni', size=(1, 1, 9), a=3.52, vacuum=5.5)
     atoms.set_initial_magnetic_moments([0.6] * len(atoms))
@@ -35,6 +45,7 @@ def ni100():
                        xc='PBE')
 
 
+@system
 def biimtf():
     atoms = read('biimtf.xyz')
     atoms.center(vacuum=5)
@@ -44,6 +55,7 @@ def biimtf():
                        xc='RPBE')
 
 
+@system
 def opt111b():
     atoms = fcc111('Pt', (2, 2, 6), a=4.00, vacuum=10.0)
     add_adsorbate(atoms, 'O', 2.0, 'fcc')
@@ -52,6 +64,7 @@ def opt111b():
                        xc='RPBE')
 
 
+@system
 def scsz():
     # the system losing magnetic moment
     atoms = read('ScSZ.xyz')
@@ -75,6 +88,7 @@ def scsz():
                        txt='ScSZ.txt')
 
 
+@system
 def tio2v2o5():
     atoms = Atoms('(O2Ti4O6)3V2O5',
                   [(8.3411, 1.9309, 9.2647),
@@ -128,6 +142,7 @@ def tio2v2o5():
                        xc='RPBE')
 
 
+@system
 def pt_h2o():
     atoms = read('Pt_H2O.xyz')
     atoms.set_cell([[8.527708, 0, 0],
@@ -147,6 +162,7 @@ def pt_h2o():
                        txt='Pt_H2O.txt')
 
 
+@system
 def lih():
     atoms = molecule('LiH')
     atoms.cell = [12, 12.01, 12.02]
@@ -155,6 +171,7 @@ def lih():
                        xc='PBE')
 
 
+@system
 def gs_small():
     NBN = 7
     NGr = 7
@@ -228,6 +245,7 @@ def gs_small():
                        parallel={'band': 1})
 
 
+@system
 def na2():
     atoms = molecule('Na2')
     atoms.cell = [12, 12.01, 12.02]
@@ -236,6 +254,7 @@ def na2():
                        xc='PBE')
 
 
+@system
 def opt111():
     atoms = fcc111('Pt', (2, 2, 6), a=4.00, vacuum=10.0)
     add_adsorbate(atoms, 'O', 2.5, 'fcc')
@@ -244,6 +263,7 @@ def opt111():
                        xc='RPBE')
 
 
+@system
 def pt13():
     element = 'Pt'
     atoms = FaceCenteredCubic(symbol=element,
@@ -263,6 +283,7 @@ def pt13():
                        xc=xc1)
 
 
+@system
 def cuni():
     atoms = Atoms('CuNi', magmoms=[0, 0.055])
     atoms.positions[1, 2] = 9.2920211200 - 7.4999788800
@@ -272,6 +293,7 @@ def cuni():
                        occupations=FermiDirac(width=0.003))
 
 
+@system
 def gqd_triangle_o():
     atoms = Atoms(symbols='C22H12O',
                   cell=[27.32059936, 20.76985686, 27.31710493],
@@ -311,9 +333,10 @@ def gqd_triangle_o():
                              [10.17280943, 8.86784643, 11.61496353],
                              [17.66988350, 10.75156430, 11.03936397]])
     atoms.set_initial_magnetic_moments([0] * 34 + [1])
-    return atoms, {}
+    return atoms, {'xc': 'RPBE'}
 
 
+@system
 def cofe2o4():
     atoms = Atoms(symbols='CoFe2O4',
                   magmoms=[3, 3, 3, 0, 0, 0, 0],
@@ -325,8 +348,14 @@ def cofe2o4():
                              [9.24889533, 8.89915474, 8.99153197],
                              [10.40644251, 9.61524884, 12.32000271],
                              [9.80651995, 12.33897925, 9.84687046]])
-    return atoms, {}
+    return atoms, {'xc': 'RPBE'}
 
 
+@system
 def isa():
     return read('MoC2-graphene-4N-1Co-clean.xyz'), {}
+
+
+if __name__ == '__main__':
+    create_test_systems()
+    
