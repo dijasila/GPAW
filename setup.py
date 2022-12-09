@@ -10,7 +10,7 @@ from subprocess import PIPE, run
 from sysconfig import get_platform
 
 from setuptools import Extension, find_packages, setup
-from setuptools.command.build_ext import build_ext as _build_ext
+from setuptools.command.build_ext import build_ext
 from setuptools.command.develop import develop as _develop
 from setuptools.command.install import install as _install
 
@@ -105,23 +105,22 @@ if platform_id:
     os.environ['_PYTHON_HOST_PLATFORM'] = get_platform() + '-' + platform_id
 
 if compiler is not None:
-    # A hack to change the used compiler and linker:
-    try:
-        # distutils is deprecated and will be removed in 3.12
-        from distutils.sysconfig import get_config_vars
-    except ImportError:
-        from sysconfig import get_config_vars
+    # A hack to change the used compiler and linker, inspired by
+    # https://shwina.github.io/custom-compiler-linker-extensions/
+    
+    # If CC is set, it will be ignored, which is probably unexpected.
+    assert not os.environ.get('CC'), 'Please unset CC as it is ignored'
 
-    # If CC is set then the following hack will not work
-    assert not os.environ.get('CC'), 'Please unset CC'
-
-    vars = get_config_vars()
-    for key in ['CC', 'LDSHARED']:
-        if key in vars:
-            value = vars[key].split()
-            # first argument is the compiler/linker.  Replace with mpicompiler:
-            value[0] = compiler
-            vars[key] = ' '.join(value)
+    # Note: The following class will be extended again below, but that is
+    # OK as long as super() is used to chain the method calls.
+    class build_ext(build_ext):
+        def build_extensions(self):
+            # Override the compiler executables.
+            for attr in ('compiler_so', 'compiler_cxx', 'linker_so'):
+                temp = getattr(self.compiler, attr)
+                temp[0] = compiler
+                self.compiler.set_executable(attr, temp)
+            super().build_extensions()
 
 for flag, name in [(noblas, 'GPAW_WITHOUT_BLAS'),
                    (nolibxc, 'GPAW_WITHOUT_LIBXC'),
@@ -172,12 +171,12 @@ write_configuration(define_macros, include_dirs, libraries, library_dirs,
                     mpi_runtime_library_dirs, mpi_define_macros)
 
 
-class build_ext(_build_ext):
+class build_ext(build_ext):
     def run(self):
         import numpy as np
         self.include_dirs.append(np.get_include())
 
-        _build_ext.run(self)
+        super().run()
         print("Temp and build", self.build_lib, self.build_temp)
 
         if parallel_python_interpreter:
@@ -204,13 +203,13 @@ def copy_gpaw_python(cmd, dir: str) -> None:
 
 class install(_install):
     def run(self):
-        _install.run(self)
+        super().run()
         copy_gpaw_python(self, self.install_scripts)
 
 
 class develop(_develop):
     def run(self):
-        _develop.run(self)
+        super().run()
         copy_gpaw_python(self, self.script_dir)
 
 
