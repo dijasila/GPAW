@@ -13,7 +13,7 @@ def calculate_stress(calc):
     if not isinstance(wfs, PWWaveFunctions):
         raise NotImplementedError('Calculation of stress tensor is only ' +
                                   'implemented for plane-wave mode.')
-    if ham.xc.orbital_dependent:
+    if ham.xc.orbital_dependent and ham.xc.type != 'MGGA':
         raise NotImplementedError('Calculation of stress tensor is not ' +
                                   'implemented for orbital-dependent ' +
                                   'XC functionals such as ' + ham.xc.name)
@@ -42,6 +42,9 @@ def calculate_stress(calc):
     s_vv -= np.eye(3) * ham.estress
     s_vv += ham.vbar.stress_tensor_contribution(dens.nt_Q)
     s_vv += dens.nct.stress_tensor_contribution(ham.vt_Q)
+    if ham.xc.type == 'MGGA':
+        vtau_sQ = dens.pd3.restrict(ham.xc.dedtaut_sg, dens.pd2)[1]
+        s_vv += ham.xc.tauct.stress_tensor_contribution(vtau_sQ)
 
     s0 = 0.0
     s0_vv = 0.0

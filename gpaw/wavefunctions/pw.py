@@ -348,10 +348,37 @@ class PWWaveFunctions(FDPWWaveFunctions):
         taut_R = self.gd.distribute(taut_R)
         taut_xR[kpt.s] += taut_R
 
+    def add_to_ke_crossterms_kpt(self, kpt, psit_xG, taut_xR):
+        N = self.bd.mynbands
+        S = self.gd.comm.size
+        Gpsit_xG = np.empty((S,) + psit_xG.shape[1:], dtype=psit_xG.dtype)
+        taut_vvR = self.gd.zeros((3,3), global_array=True)
+        G_Gv = self.pd.get_reciprocal_vectors(q=kpt.q)
+        comm = self.gd.comm
+
+        for n1 in range(0, N, S):
+            n2 = min(n1 + S, N)
+            dn = n2-n1
+            a_vR = {}
+            for v in range(3):
+                Gpsit_xG[:dn] = G_Gv[:,v] * psit_xG[n1:n2]
+                Gpsit_G = self.pd.alltoall1(Gpsit_xG[:dn], kpt.q)
+                if Gpsit_G is not None:
+                    f = kpt.f_n[n1 + comm.rank]
+                    a_vR[v] = self.pd.ifft(Gpsit_G, kpt.q, local=True, safe=True)
+            if a_vR[0] is not None:
+                f = kpt.f_n[n1 + comm.rank]
+                for v1 in range(3):
+                    for v2 in range(3):
+                        taut_vvR[v1,v2] += f * (a_vR[v1].conj() * a_vR[v2]).real # imaginary should cancel
+
+        comm.sum(taut_vvR)
+        taut_vvR = self.gd.distribute(taut_vvR)
+        taut_xR[:,:,kpt.s] += taut_vvR
+
     def calculate_kinetic_energy_density(self):
         if self.kpt_u[0].f_n is None:
             return None
-
 
         taut_sR = self.gd.zeros(self.nspins)
         for kpt in self.kpt_u:
@@ -361,6 +388,19 @@ class PWWaveFunctions(FDPWWaveFunctions):
         for taut_R in taut_sR:
             self.kd.symmetry.symmetrize(taut_R, self.gd)
         return taut_sR
+
+    def calculate_kinetic_energy_density_crossterms(self):
+        if self.kpt_u[0].f_n is None:
+            return None
+
+        taut_vvsR = self.gd.zeros((3,3,self.nspins))
+        for kpt in self.kpt_u:
+            self.add_to_ke_crossterms_kpt(kpt, kpt.psit_nG, taut_vvsR)
+
+        self.kptband_comm.sum(taut_vvsR)
+        for taut_R in taut_vvsR.reshape(-1,*taut_vvsR.shape[-3:]):
+            self.kd.symmetry.symmetrize(taut_R, self.gd)
+        return taut_vvsR
 
     def apply_mgga_orbital_dependent_hamiltonian(self, kpt, psit_xG,
                                                  Htpsit_xG, dH_asp,
