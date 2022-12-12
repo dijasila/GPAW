@@ -4,6 +4,7 @@ from gpaw import GPAW
 from gpaw.xc.rpa import RPACorrelation
 
 
+@pytest.mark.rpa
 @pytest.mark.response
 def test_rpa_rpa_energy_Si(in_tmp_dir, gpw_files):
     calc = GPAW(gpw_files['si_pw'], communicator=serial_comm)

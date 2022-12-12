@@ -7,6 +7,7 @@ from gpaw.xc.rpa import RPACorrelation
 from gpaw.xc.fxc import FXCCorrelation
 
 
+@pytest.mark.rpa
 @pytest.mark.response
 def test_rpa_rpa_energy_Ni(in_tmp_dir):
     Ni = bulk('Ni', 'fcc')
