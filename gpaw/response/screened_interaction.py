@@ -15,7 +15,6 @@ from gpaw.response.coulomb_kernels import (get_coulomb_kernel,
                                            get_integrated_kernel,
                                            CoulombKernel)
 from gpaw.response.temp import DielectricFunctionCalculator
-from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 
 
 def get_qdescriptor(kd, atoms):
@@ -150,18 +149,8 @@ class WCalculator:
 
         self.E0 = E0 / Ha
 
-# calculate_q wrapper
     def calculate_q(self, iq, q_c, chi0, out_dist='WgG'):
-        if self.coulomb.truncation == 'wigner-seitz':
-            wstc = WignerSeitzTruncatedCoulomb(
-                self.wcalc.gs.gd.cell_cv,
-                self.wcalc.gs.kd.N_c)
-            self.context.print(wstc.get_description())
-
-        else:
-            wstc = None
-
-        pd, W_wGG = self.dyson_and_W_old(wstc, iq, q_c,
+        pd, W_wGG = self.dyson_and_W_old(iq, q_c,
                                          chi0,
                                          fxc_mode=self.fxc_mode,
                                          out_dist=out_dist)
@@ -207,11 +196,11 @@ class WCalculator:
             chi0_wxvG = chi0_wxvG.take(G2G, axis=3)
         return chi0_wxvG, chi0_wvv
     
-    def dyson_and_W_old(self, wstc, iq, q_c, chi0, fxc_mode,
+    def dyson_and_W_old(self, iq, q_c, chi0, fxc_mode,
                         ecut=None, only_correlation=False,
                         out_dist='WgG'):
         # If ecut is not None new chi0 arrays with reduced ecut are created
-        # and additional output for parallization and PW mapping is given.
+        # and additionfal output for parallization and PW mapping is given.
         # Relevant only for GW calculations. Note! ecut for paw-corrections
         # need to be reduced seperately
         if ecut is not None:
@@ -230,7 +219,7 @@ class WCalculator:
             chi0_wvv = chi0.chi0_wvv
             pdi = chi0.pd
             G2G = None
-        pdi, W_wGG = self.dyson_old(wstc, iq, q_c,
+        pdi, W_wGG = self.dyson_old(iq, q_c,
                                     fxc_mode, pdi, chi0_wGG,
                                     chi0_wxvG, G2G, chi0_wvv,
                                     only_correlation)
@@ -259,7 +248,7 @@ class WCalculator:
         kd = self.gs.kd
         return nG, wblocks1d, delta_GG, fv, kd
 
-    def dyson_old(self, wstc, iq, q_c, fxc_mode,
+    def dyson_old(self, iq, q_c, fxc_mode,
                   pdi=None, chi0_wGG=None, chi0_wxvG=None, G2G=None,
                   chi0_wvv=None, only_correlation=False):
         nG, wblocks1d, delta_GG, fv, kd = self.basic_dyson_setups(pdi, iq,
@@ -291,10 +280,6 @@ class WCalculator:
                 chi0_wxvG=chi0_wxvG[wblocks1d.myslice])
 
         self.context.timer.start('Dyson eq.')
-
-        #coulomb = CoulombKernel(
-        #    truncation=self.truncation,
-        #    gs=self.gs)
 
         for iw, chi0_GG in enumerate(chi0_wGG):
             if np.allclose(q_c, 0):
@@ -351,7 +336,7 @@ class WCalculator:
         self.context.timer.stop('Dyson eq.')
         return pdi, chi0_wGG
     
-    def dyson_and_W_new(self, wstc, iq, q_c, chi0, ecut, coulomb):
+    def dyson_and_W_new(self, iq, q_c, chi0, ecut, coulomb):
         assert not self.ppa
         # assert not self.do_GW_too
         assert ecut == chi0.pd.ecut

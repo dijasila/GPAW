@@ -794,7 +794,7 @@ class G0W0Calculator:
 
         for fxc_mode in self.fxc_modes:
             pdi, W_wGG, blocks1d, G2G = self.wcalc.dyson_and_W_old(
-                wstc, iq,
+                iq,
                 q_c, chi0,
                 fxc_mode,
                 ecut,
@@ -809,7 +809,7 @@ class G0W0Calculator:
             else:
                 with self.context.timer('Hilbert'):
                     W_xwGG = self.hilbert_transform(W_wGG)
-                    
+
             Wdict[fxc_mode] = W_xwGG
 
         return pdi, Wdict, blocks1d, chi0calc.pawcorr
