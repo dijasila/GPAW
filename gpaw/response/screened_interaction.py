@@ -148,14 +148,14 @@ class WCalculator:
 
         self.E0 = E0 / Ha
 
-# calculate_q wrapper
-    def calculate_q(self, iq, q_c, chi0, out_dist='WgG'):
-        if self.truncation == 'wigner-seitz':
-            wstc = WignerSeitzTruncatedCoulomb(
-                self.wcalc.gs.gd.cell_cv,
-                self.wcalc.gs.kd.N_c)
-            self.context.print(wstc.get_description())
+    def calculate(self, chi0, out_dist='WgG'):
+        """Direct W calculation interface (used by BSE)."""
 
+        # Set up Wigner-Seitz truncation, if applicable
+        if self.truncation == 'wigner-seitz':
+            raise NotImplementedError(
+                'Wigner-Seitz truncation is not implemented (read: tested) '
+                'for BSE.')
         else:
             wstc = None
 
