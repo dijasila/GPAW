@@ -165,7 +165,7 @@ class LatticePeriodicPairFunction(PairFunction):
 
     def copy_with_reduced_pd(self, pd):
         """Copy the pair function, but within a reduced plane-wave basis."""
-        if not self.distribution == 'WgG':
+        if self.distribution != 'WgG':
             raise NotImplementedError('Not implemented for distribution '
                                       f'{self.distribution}')
 
