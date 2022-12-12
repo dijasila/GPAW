@@ -169,29 +169,22 @@ class WCalculator:
     def dyson_and_W_old(self, wstc, *, fxc_mode, chi0,
                         ecut=None, only_correlation=False,
                         out_dist='WgG'):
-        # If ecut is not None, new copies of the chi0 arrays with reduced ecut
-        # are created and additional output for parallization and PW mapping is
-        # returned along with W in the reduced plane-wave basis.
-        # Relevant only for GW calculations. Note: ecut for paw-corrections
-        # need to be reduced seperately
+        """Reduce plane-wave basis and solve Dyson equation for W.
+
+        The plane-wave basis will only be reduced, if ecut is given as
+        a positive floating point (in Hartree).
+
+        NB: New array copies are created during the calculation.
+        """
         if ecut is not None:
             (pdr, chi0_wGG,
              chi0_wxvG, chi0_wvv) = chi0.get_reduced_ecut_arrays(ecut)
-            # For some reason, we still need the pw mapping, even though we
-            # already reduced the plane wave description on the relevant
-            # arrays... This should be changed in the future! XXX
-            _, pw_map = chi0.get_pw_reduction_map(ecut)
-            if pw_map is not None:
-                G2G = pw_map.G2_G1
-            else:
-                G2G = None
         else:
             chi0_wGG = chi0.blockdist.distribute_as(chi0.chi0_wGG,
                                                     chi0.nw, 'wGG')
             chi0_wxvG = chi0.chi0_wxvG
             chi0_wvv = chi0.chi0_wvv
             pdr = chi0.pd
-            G2G = None
 
         W_wGG = self.dyson_old(wstc, fxc_mode,
                                pdr, chi0_wGG, chi0_wxvG, chi0_wvv,
@@ -201,19 +194,10 @@ class WCalculator:
             # XXX This creates a new, large buffer.  We could perhaps
             # avoid that.  Buffer used to exist but was removed due to #456.
             W_wGG = chi0.blockdist.distribute_as(W_wGG, chi0.nw, out_dist)
-
-        # Create a blocks1d for the reduced plane-wave description
-        # It is quite weird that we do this, if the out distribution is wGG,
-        # that is, distributed over frequencies. This should be changed in
-        # the future! XXX
-        blocks1d = Blocks1D(chi0.blockdist.blockcomm, pdr.ngmax)
-
-        if out_dist != 'wGG' and out_dist != 'WgG':
+        elif out_dist != 'WgG' and out_dist != 'wGG':
             raise ValueError('Wrong outdist in W_and_dyson_old')
-        if ecut is None:  # Normal mode and output
-            return pdr, W_wGG
-        else:  # GW mode, return additional quantities for reduced ecut
-            return pdr, W_wGG, blocks1d, G2G
+
+        return pdr, W_wGG
 
     def basic_dyson_arrays(self, pd, fxc_mode):
         delta_GG = np.eye(pd.ngmax)
