@@ -17,10 +17,9 @@ from gpaw.pw.descriptor import PWDescriptor
 from gpaw.utilities.blas import axpy, gemmdot
 from gpaw.xc.rpa import RPACorrelation
 from gpaw.heg import HEG
-from gpaw.response.pair import get_gs_and_context
 
 
-class FXCCorrelation(RPACorrelation):
+class FXCCorrelation:
     def __init__(self,
                  calc,
                  xc='RPA',
@@ -43,22 +42,25 @@ class FXCCorrelation(RPACorrelation):
                  av_scheme=None,
                  Eg=None):
 
-        RPACorrelation.__init__(self,
-                                calc,
-                                xc=xc,
-                                filename=filename,
-                                skip_gamma=skip_gamma,
-                                qsym=qsym,
-                                nfrequencies=nfrequencies,
-                                nlambda=nlambda,
-                                frequency_max=frequency_max,
-                                frequency_scale=frequency_scale,
-                                frequencies=frequencies,
-                                weights=weights,
-                                world=world,
-                                nblocks=nblocks,
-                                txt=txt,
-                                calculate_q=self.calculate_q_fxc)
+        self.rpa = RPACorrelation(
+            calc,
+            xc=xc,
+            filename=filename,
+            skip_gamma=skip_gamma,
+            qsym=qsym,
+            nfrequencies=nfrequencies,
+            nlambda=nlambda,
+            frequency_max=frequency_max,
+            frequency_scale=frequency_scale,
+            frequencies=frequencies,
+            weights=weights,
+            world=world,
+            nblocks=nblocks,
+            txt=txt,
+            calculate_q=self.calculate_q_fxc)
+
+        self.gs = self.rpa.gs
+        self.context = self.rpa.context
 
         self.l_l, self.weight_l = p_roots(nlambda)
         self.l_l = (self.l_l + 1.0) * 0.5
@@ -72,11 +74,6 @@ class FXCCorrelation(RPACorrelation):
         self.av_scheme = av_scheme  # Either 'density' or 'wavevector'
         self.Eg = Eg  # Band gap in eV
 
-        # XXX create context reference, remove when super class RPA removed
-        gs, context = get_gs_and_context(calc, txt, world, timer=None)
-        self.gs = gs
-        self.context = context
-
         set_flags(self)
 
         if tag is None:
@@ -88,6 +85,17 @@ class FXCCorrelation(RPACorrelation):
                 tag += '_' + self.av_scheme
 
         self.tag = tag
+
+        self.omega_w = self.rpa.omega_w
+        self.ibzq_qc = self.rpa.ibzq_qc
+        self.nblocks = self.rpa.nblocks
+        self.weight_w = self.rpa.weight_w
+
+    @property
+    def blockcomm(self):
+        # Cannot be aliased as attribute
+        # because rpa gets blockcomm during calculate
+        return self.rpa.blockcomm
 
     @timer('FXC')
     def calculate(self, ecut, nbands=None):
@@ -163,7 +171,7 @@ class FXCCorrelation(RPACorrelation):
         else:
             spin = True
 
-        e = RPACorrelation.calculate(self, ecut, spin=spin, nbands=nbands)
+        e = self.rpa.calculate(ecut, spin=spin, nbands=nbands)
 
         return e
 
