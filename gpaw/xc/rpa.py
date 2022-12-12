@@ -94,7 +94,7 @@ class RPACalculator:
                 numbers_from_file = [float(x) for x in lines[n].split()]
                 previous_inputs = numbers_from_file[:-1]
 
-                if abs(current_inputs - previous_inputs).max() > 1e-13:
+                if not np.allclose(current_inputs, previous_inputs):
                     # Energies are not reusable since input parameters
                     # have changed
                     return []
