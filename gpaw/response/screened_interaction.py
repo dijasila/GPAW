@@ -166,13 +166,6 @@ class WCalculator:
                                          out_dist=out_dist)
 
         return pd, W_wGG
-
-    def reduce_headwings_ecut(self, G2G, chi0: Chi0Data):
-        chi0_wxvG = chi0.chi0_wxvG
-        chi0_wvv = chi0.chi0_wvv
-        if chi0_wxvG is not None and G2G is not None:
-            chi0_wxvG = chi0_wxvG.take(G2G, axis=3)
-        return chi0_wxvG, chi0_wvv
     
     def dyson_and_W_old(self, wstc, iq, q_c, chi0, fxc_mode,
                         ecut=None, only_correlation=False,
@@ -182,17 +175,16 @@ class WCalculator:
         # Relevant only for GW calculations. Note! ecut for paw-corrections
         # need to be reduced seperately
         if ecut is not None:
-            pdi, chi0_wGG = chi0.get_reduced_ecut_array(ecut)
+            (pdi, chi0_wGG,
+             chi0_wxvG, chi0_wvv) = chi0.get_reduced_ecut_arrays(ecut)
+            # For some reason, we still need the pw mapping, even though we
+            # already reduced the plane wave description on the relevant
+            # arrays... This should be changed in the future! XXX
             _, pw_map = chi0.get_pw_reduction_map(ecut)
-            if pw_map is None:
-                G2G = None
-            else:
+            if pw_map is not None:
                 G2G = pw_map.G2_G1
-            if chi0.optical_limit:
-                chi0_wxvG, chi0_wvv = self.reduce_headwings_ecut(G2G, chi0)
             else:
-                chi0_wxvG = None
-                chi0_wvv = None
+                G2G = None
         else:
             chi0_wGG = chi0.blockdist.distribute_as(chi0.chi0_wGG,
                                                     chi0.nw, 'wGG')
