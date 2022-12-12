@@ -317,7 +317,7 @@ class RPACorrelation:
 
         kd = self.gs.kd
         if not chi0.pd.kd.gamma:
-            e = self.calculate_energy(chi0.pd, chi0_wGG, cut_G)
+            e = self.calculate_energy_rpa(chi0.pd, chi0_wGG, cut_G)
             self.context.print('%.3f eV' % (e * Hartree))
         else:
             from gpaw.response.gamma_int import GammaIntegrator
@@ -335,15 +335,15 @@ class RPACorrelation:
             for iqf in range(len(gamma_int.qf_qv)):
                 for iw in range(wblocks.nlocal):
                     gamma_int.set_appendages(chi0_wGG[iw], iw, iqf)
-                ev = self.calculate_energy(chi0.pd, chi0_wGG, cut_G,
-                                           q_v=gamma_int.qf_qv[iqf])
+                ev = self.calculate_energy_rpa(chi0.pd, chi0_wGG, cut_G,
+                                               q_v=gamma_int.qf_qv[iqf])
                 e += ev * gamma_int.weight_q[iqf]
             self.context.print('%.3f eV' % (e * Hartree))
 
         return e
 
     @timer('Energy')
-    def calculate_energy(self, pd, chi0_wGG, cut_G, q_v=None):
+    def calculate_energy_rpa(self, pd, chi0_wGG, cut_G, q_v=None):
         """Evaluate correlation energy from chi0."""
 
         sqrV_G = get_coulomb_kernel(pd, self.gs.kd.N_c, q_v=q_v,

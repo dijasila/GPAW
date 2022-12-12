@@ -76,7 +76,7 @@ class FXCCorrelation(RPACorrelation):
         gs, context = get_gs_and_context(calc, txt, world, timer=None)
         self.gs = gs
         self.context = context
-        
+
         set_flags(self)
 
         if tag is None:
@@ -188,7 +188,7 @@ class FXCCorrelation(RPACorrelation):
             chi0_swGG = np.swapaxes(chi0_swGG, 2, 3)
 
         if not pd.kd.gamma:
-            e = self.calculate_energy(pd, chi0_swGG, cut_G)
+            e = self.calculate_energy_fxc(pd, chi0_swGG, cut_G)
             self.context.print('%.3f eV' % (e * Ha))
         else:
             w1 = self.blockcomm.rank * mynw
@@ -199,7 +199,7 @@ class FXCCorrelation(RPACorrelation):
                     chi0_wGG[:, 0] = chi0.chi0_wxvG[w1:w2, 0, v]
                     chi0_wGG[:, :, 0] = chi0.chi0_wxvG[w1:w2, 1, v]
                     chi0_wGG[:, 0, 0] = chi0.chi0_wvv[w1:w2, v, v]
-                ev = self.calculate_energy(pd, chi0_swGG, cut_G)
+                ev = self.calculate_energy_fxc(pd, chi0_swGG, cut_G)
                 e += ev
                 self.context.print('%.3f' % (ev * Ha), end='', flush=False)
                 if v < 2:
@@ -211,7 +211,7 @@ class FXCCorrelation(RPACorrelation):
         return e
 
     @timer('Energy')
-    def calculate_energy(self, pd, chi0_swGG, cut_G):
+    def calculate_energy_fxc(self, pd, chi0_swGG, cut_G):
         """Evaluate correlation energy from chi0 and the kernel fhxc"""
 
         ibzq2_q = [
