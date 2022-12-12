@@ -23,6 +23,7 @@ from gpaw.response.hilbert import GWHilbertTransforms
 from gpaw.response.pair import PairDensityCalculator
 from gpaw.response.screened_interaction import WCalculator
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
+from gpaw.response.coulomb_kernels import CoulombKernel
 from gpaw.response import timer
 
 
@@ -448,7 +449,7 @@ class G0W0Calculator:
             for ec in self.ecut_e:
                 p('  %.3f eV' % (ec * Ha))
         p('Number of bands: {0:d}'.format(self.nbands))
-        p('Coulomb cutoff:', self.wcalc.truncation)
+        p('Coulomb cutoff:', self.wcalc.coulomb.truncation)
         p('Broadening: {0:g} eV'.format(self.eta * Ha))
         p()
         p('fxc modes:', ', '.join(sorted(self.fxc_modes)))
@@ -651,13 +652,13 @@ class G0W0Calculator:
 
         self.context.timer.start('W')
         self.context.print('\nCalculating screened Coulomb potential')
-        if self.wcalc.truncation is not None:
+        if self.wcalc.coulomb.truncation is not None:
             self.context.print('Using %s truncated Coloumb potential' %
-                               self.wcalc.truncation)
+                               self.wcalc.coulomb.truncation)
 
         chi0calc = self.chi0calc
 
-        if self.wcalc.truncation == 'wigner-seitz':
+        if self.wcalc.coulomb.truncation == 'wigner-seitz':
             wstc = WignerSeitzTruncatedCoulomb(
                 self.wcalc.gs.gd.cell_cv,
                 self.wcalc.gs.kd.N_c)
@@ -1064,14 +1065,16 @@ class G0W0(G0W0Calculator):
                               Eg=Eg,
                               context=context)
 
-        wcalc = WCalculator(chi0calc.wd,
-                            chi0calc.pair,
-                            chi0calc.gs,
-                            ppa, xckernel,
-                            w_context, E0,
-                            fxc_mode, truncation,
-                            integrate_gamma,
-                            q0_correction)
+        coulomb = CoulombKernel(truncation, gs)
+
+        wcalc = WCalculator(wd=chi0calc.wd,
+                            pair=chi0calc.pair,
+                            gs=chi0calc.gs,
+                            ppa=ppa, xckernel=xckernel,
+                            context=w_context, E0=E0,
+                            fxc_mode=fxc_mode, coulomb=coulomb,
+                            integrate_gamma=integrate_gamma,
+                            q0_correction=q0_correction)
 
         fxc_modes = [wcalc.fxc_mode]
         if do_GW_too:

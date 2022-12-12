@@ -73,30 +73,30 @@ def initialize_w_calculator(chi0calc, txt='w.txt', ppa=False, xc='RPA',
     wd = chi0calc.wd
     pair = chi0calc.pair
 
-    wcalc = WCalculator(wd, pair, gs, ppa,
-                        xckernel,
-                        context,
-                        E0,
+    wcalc = WCalculator(wd=wd, pair=pair, gs=gs, ppa=ppa,
+                        xckernel=xckernel,
+                        context=context,
+                        E0=E0,
                         fxc_mode='GW',
-                        truncation=truncation,
+                        coulomb=CoulombKernel(truncation, gs),
                         integrate_gamma=integrate_gamma,
                         q0_correction=q0_correction)
     return wcalc
 
 
 class WCalculator:
-    def __init__(self,
+    def __init__(self, *,
                  wd, pair, gs,
                  ppa,
                  xckernel,
                  context,
                  E0,
                  fxc_mode='GW',
-                 truncation=None, integrate_gamma=0,
+                 coulomb, integrate_gamma=0,
                  q0_correction=False):
         """
         W Calculator.
-        
+
         Parameters
         ----------
         wd: FrequencyDescriptor
@@ -127,14 +127,14 @@ class WCalculator:
         self.pair = pair
         self.blockcomm = self.pair.blockcomm
         self.gs = gs
-        self.truncation = truncation
+        self.coulomb = coulomb
         self.context = context
         self.integrate_gamma = integrate_gamma
         self.qd = get_qdescriptor(self.gs.kd, self.gs.atoms)
         self.xckernel = xckernel
 
         if q0_correction:
-            assert self.truncation == '2D'
+            assert self.coulomb.truncation == '2D'
             self.q0_corrector = Q0Correction(
                 cell_cv=self.gs.gd.cell_cv,
                 bzk_kc=self.gs.kd.bzk_kc,
@@ -152,7 +152,7 @@ class WCalculator:
 
 # calculate_q wrapper
     def calculate_q(self, iq, q_c, chi0, out_dist='WgG'):
-        if self.truncation == 'wigner-seitz':
+        if self.coulomb.truncation == 'wigner-seitz':
             wstc = WignerSeitzTruncatedCoulomb(
                 self.wcalc.gs.gd.cell_cv,
                 self.wcalc.gs.kd.N_c)
@@ -267,11 +267,12 @@ class WCalculator:
                                                                   G2G)
         if self.integrate_gamma != 0:
             reduced = (self.integrate_gamma == 2)
-            V0, sqrtV0 = get_integrated_kernel(pdi,
-                                               self.gs.kd.N_c,
-                                               truncation=self.truncation,
-                                               reduced=reduced,
-                                               N=100)
+            V0, sqrtV0 = get_integrated_kernel(
+                pdi,
+                self.gs.kd.N_c,
+                truncation=self.coulomb.truncation,
+                reduced=reduced,
+                N=100)
         elif self.integrate_gamma == 0 and np.allclose(q_c, 0):
             bzvol = (2 * np.pi)**3 / self.gs.volume / self.qd.nbzkpts
             Rq0 = (3 * bzvol / (4 * np.pi))**(1. / 3.)
@@ -283,16 +284,17 @@ class WCalculator:
 
         # Generate fine grid in vicinity of gamma
         if np.allclose(q_c, 0) and len(chi0_wGG) > 0:
-            gamma_int = GammaIntegrator(truncation=self.truncation,
-                                        kd=kd, pd=pdi,
-                                        chi0_wvv=chi0_wvv[wblocks1d.myslice],
-                                        chi0_wxvG=chi0_wxvG[wblocks1d.myslice])
+            gamma_int = GammaIntegrator(
+                truncation=self.coulomb.truncation,
+                kd=kd, pd=pdi,
+                chi0_wvv=chi0_wvv[wblocks1d.myslice],
+                chi0_wxvG=chi0_wxvG[wblocks1d.myslice])
 
         self.context.timer.start('Dyson eq.')
 
-        coulomb = CoulombKernel(
-            truncation=self.truncation,
-            gs=self.gs)
+        #coulomb = CoulombKernel(
+        #    truncation=self.truncation,
+        #    gs=self.gs)
 
         for iw, chi0_GG in enumerate(chi0_wGG):
             if np.allclose(q_c, 0):
@@ -300,13 +302,14 @@ class WCalculator:
                 for iqf in range(len(gamma_int.qf_qv)):
                     gamma_int.set_appendages(chi0_GG, iw, iqf)
 
-                    sqrtV_G = coulomb.sqrtV(pd=pdi, q_v=gamma_int.qf_qv[iqf])
+                    sqrtV_G = self.coulomb.sqrtV(
+                        pd=pdi, q_v=gamma_int.qf_qv[iqf])
 
                     dfc = DielectricFunctionCalculator(
                         sqrtV_G, chi0_GG, mode=fxc_mode, fv_GG=fv)
                     einv_GG += dfc.get_einv_GG() * gamma_int.weight_q[iqf]
             else:
-                sqrtV_G = coulomb.sqrtV(pd=pdi, q_v=None)
+                sqrtV_G = self.coulomb.sqrtV(pd=pdi, q_v=None)
                 dfc = DielectricFunctionCalculator(
                     sqrtV_G, chi0_GG, mode=fxc_mode, fv_GG=fv)
                 einv_GG = dfc.get_einv_GG()

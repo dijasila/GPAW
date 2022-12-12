@@ -8,17 +8,18 @@ from ase.dft import monkhorst_pack
 class CoulombKernel:
     def __init__(self, truncation, gs):
         from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
-        self._truncation = truncation
+        self.truncation = truncation
+        assert self.truncation in {None, 'wigner-seitz', '2D'}
         self._gs = gs
 
-        if self._truncation == 'wigner-seitz':
+        if self.truncation == 'wigner-seitz':
             self._wstc = WignerSeitzTruncatedCoulomb(self._gs.gd.cell_cv,
                                                      self._gs.kd.N_c)
         else:
             self._wstc = None
 
     def description(self):
-        if self._truncation is None:
+        if self.truncation is None:
             return 'No Coulomb truncation'
         elif self._wstc is not None:
             return '\n'.join(
@@ -30,7 +31,7 @@ class CoulombKernel:
     def sqrtV(self, pd, q_v):
         return get_coulomb_kernel(
             pd, self._gs.kd.N_c, q_v=q_v,
-            truncation=self._truncation,
+            truncation=self.truncation,
             wstc=self._wstc)**0.5
 
 
