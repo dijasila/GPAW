@@ -136,12 +136,15 @@ class Energy(Criterion):
     name = 'energy'
     tablename = 'energy'
 
-    def __init__(self, tol, n_old=3):
+    def __init__(self, tol: float, *, n_old: int = 3, relative: bool = True):
         self.tol = tol
         self.n_old = n_old
-        self.description = ('Maximum [total energy] change in last {:d} cyles:'
-                            ' {:g} eV / electron'
-                            .format(self.n_old, self.tol))
+        self.relative = relative
+        self.description = (
+            f'Maximum [total energy] change in last {self.n_old} cyles: '
+            f'{self.tol:g} eV')
+        if relative:
+            self.description += ' / valence electron'
 
     def reset(self):
         self._old = deque(maxlen=self.n_old)
@@ -156,7 +159,7 @@ class Energy(Criterion):
         # use e_total_extrapolated for both. (Should be a miniscule
         # difference, but more consistent.)
         total_energy = context.ham.e_total_extrapolated * Ha
-        if context.wfs.nvalence == 0:
+        if context.wfs.nvalence == 0 or not self.relative:
             energy = total_energy
         else:
             energy = total_energy / context.wfs.nvalence
