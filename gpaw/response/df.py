@@ -6,8 +6,7 @@ from ase.units import Hartree, Bohr
 
 import gpaw.mpi as mpi
 
-from gpaw.response.coulomb_kernels import get_coulomb_kernel, CoulombKernel
-from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
+from gpaw.response.coulomb_kernels import CoulombKernel
 from gpaw.response.density_kernels import get_density_xc_kernel
 from gpaw.response.chi0 import Chi0Calculator, new_frequency_descriptor
 from gpaw.response.pair import get_gs_and_context, PairDensityCalculator
@@ -19,6 +18,7 @@ class DielectricFunctionCalculator:
         self.chi0calc = chi0calc
 
         self.truncation = truncation
+        self.coulomb = CoulombKernel(truncation=truncation, gs=self.gs)
         self.context = chi0calc.context
         self.wd = chi0calc.wd
         self.blocks1d = Blocks1D(self.context.world, len(self.wd))
@@ -117,20 +117,14 @@ class DielectricFunctionCalculator:
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c, spin)
 
         coulomb_bare = CoulombKernel(truncation=None, gs=self.gs)
-        sqrtV_G = coulomb_bare.sqrtV(pd=pd, q_v=q_v)
+        Kbare_G = coulomb_bare.V(pd=pd, q_v=q_v)
+        sqrtV_G = Kbare_G**0.5
 
-        Kbare_G = get_coulomb_kernel(pd,
-                                     self.gs.kd.N_c,
-                                     truncation=None,
-                                     q_v=q_v)
-        old_vsqr_G = Kbare_G**0.5
-        assert np.allclose(old_vsqr_G, sqrtV_G)
         nG = len(sqrtV_G)
 
-        coulomb = CoulombKernel(self.truncation, self.gs)
-        Ktrunc_G = coulomb.V(pd=pd, q_v=q_v)
+        Ktrunc_G = self.coulomb.V(pd=pd, q_v=q_v)
 
-        if coulomb.truncation is None:
+        if self.coulomb.truncation is None:
             K_GG = np.eye(nG, dtype=complex)
         else:
             K_GG = np.diag(Ktrunc_G / Kbare_G)
@@ -241,16 +235,7 @@ class DielectricFunctionCalculator:
             print('add_intraband=True is not supported at this time')
             raise NotImplementedError
 
-        N_c = self.gs.kd.N_c
-        if self.truncation == 'wigner-seitz':
-            self.wstc = WignerSeitzTruncatedCoulomb(pd.gd.cell_cv, N_c)
-        else:
-            self.wstc = None
-        K_G = get_coulomb_kernel(pd,
-                                 N_c,
-                                 truncation=self.truncation,
-                                 wstc=self.wstc,
-                                 q_v=q_v)**0.5
+        K_G = self.coulomb.sqrtV(pd=pd, q_v=q_v)
         nG = len(K_G)
 
         if pd.kd.gamma:
