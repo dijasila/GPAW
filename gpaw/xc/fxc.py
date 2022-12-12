@@ -1,5 +1,4 @@
 import os
-import sys
 from time import time
 
 import ase.io.ulm as ulm
@@ -23,41 +22,25 @@ class FXCCorrelation:
     def __init__(self,
                  calc,
                  xc='RPA',
-                 filename=None,
-                 skip_gamma=False,
-                 qsym=True,
                  nlambda=8,
-                 nfrequencies=16,
-                 frequency_max=800.0,
-                 frequency_scale=2.0,
                  frequencies=None,
                  weights=None,
                  density_cut=1.e-6,
-                 world=mpi.world,
-                 nblocks=1,
                  unit_cells=None,
                  tag=None,
-                 txt=sys.stdout,
                  range_rc=1.0,
                  av_scheme=None,
-                 Eg=None):
+                 Eg=None,
+                 **kwargs):
 
         self.rpa = RPACorrelation(
             calc,
             xc=xc,
-            filename=filename,
-            skip_gamma=skip_gamma,
-            qsym=qsym,
-            nfrequencies=nfrequencies,
             nlambda=nlambda,
-            frequency_max=frequency_max,
-            frequency_scale=frequency_scale,
             frequencies=frequencies,
             weights=weights,
-            world=world,
-            nblocks=nblocks,
-            txt=txt,
-            calculate_q=self.calculate_q_fxc)
+            calculate_q=self.calculate_q_fxc,
+            **kwargs)
 
         self.gs = self.rpa.gs
         self.context = self.rpa.context
