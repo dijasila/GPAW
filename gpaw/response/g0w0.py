@@ -794,12 +794,17 @@ class G0W0Calculator:
         Wdict = {}
 
         for fxc_mode in self.fxc_modes:
+            if self.wcalc.ppa:
+                out_dist = 'wGG'
+            else:
+                out_dist = 'WgG'
             pdr, W_wGG = self.wcalc.dyson_and_W_old(
                 wstc,
                 fxc_mode=fxc_mode,
                 chi0=chi0,
                 ecut=ecut,
-                only_correlation=True)
+                only_correlation=True,
+                out_dist=out_dist)
 
             if chi0calc.pawcorr is not None and pdr.ecut < chi0.pd.ecut:
                 pw_map = PWMapping(pdr, chi0.pd)
