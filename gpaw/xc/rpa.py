@@ -37,8 +37,8 @@ def rpa(filename, ecut=200.0, blocks=1, extrapolate=4):
 
 
 class RPACalculator:
-    def __init__(self, gs, *, context, xc='RPA', filename=None,
-                 skip_gamma=False, qsym=True, nlambda=None,
+    def __init__(self, gs, *, context, filename=None,
+                 skip_gamma=False, qsym=True,
                  frequencies, weights, truncation=None,
                  nblocks=1, calculate_q=None):
         """Creates the RPACorrelation object
@@ -402,8 +402,8 @@ class RPACorrelation(RPACalculator):
             assert weights is not None
             user_spec = True
 
-        super().__init__(gs=gs, context=context, filename=filename, xc=xc,
-                         skip_gamma=skip_gamma, qsym=qsym, nlambda=nlambda,
+        super().__init__(gs=gs, context=context, filename=filename,
+                         skip_gamma=skip_gamma, qsym=qsym,
                          frequencies=frequencies, weights=weights,
                          truncation=truncation, nblocks=nblocks,
                          calculate_q=calculate_q)
