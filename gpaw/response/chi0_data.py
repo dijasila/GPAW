@@ -139,13 +139,13 @@ class HeadAndWingsData:
         assert descriptors.optical_limit
         self.wd = descriptors.wd
         self.pd = descriptors.pd
-        self.chi0_wxvG = None  # Wings
-        self.chi0_wvv = None  # Head
+        self.data_wxvG = None  # Wings
+        self.data_wvv = None  # Head
         self.allocate_arrays()
         
     def allocate_arrays(self):
-        self.chi0_wxvG = np.zeros(self.wxvG_shape, complex)
-        self.chi0_wvv = np.zeros(self.wvv_shape, complex)
+        self.data_wxvG = np.zeros(self.wxvG_shape, complex)
+        self.data_wvv = np.zeros(self.wvv_shape, complex)
 
     @staticmethod
     def from_descriptor_arguments(frequencies, plane_waves):
@@ -173,11 +173,11 @@ class HeadAndWingsData:
     def wvv_shape(self):
         return (self.nw, 3, 3)
 
-        
-class Chi0Data(BodyData):
-    """Data object containing the chi0 data arrays for a single q-point,
-    while holding also the corresponding basis descriptors and block
-    distributor."""
+
+class AugmentedBodyData(BodyData):
+    """Data object containing the body data along with the head and
+    wings data, if the data concerns the optical limit."""
+
     def __init__(self, descriptors, blockdist):
         super().__init__(descriptors, blockdist)
 
@@ -189,20 +189,6 @@ class Chi0Data(BodyData):
         return self.descriptors.optical_limit
 
     @property
-    def chi0_wGG(self):
-        return self.data_wGG
-
-    @property
-    def chi0_wxvG(self):
-        if self.optical_limit:
-            return self.head_and_wings.chi0_wxvG
-
-    @property
-    def chi0_wvv(self):
-        if self.optical_limit:
-            return self.head_and_wings.chi0_wvv
-
-    @property
     def wxvG_shape(self):
         if self.optical_limit:
             return self.head_and_wings.wxvG_shape
@@ -211,3 +197,23 @@ class Chi0Data(BodyData):
     def wvv_shape(self):
         if self.optical_limit:
             return self.head_and_wings.wvv_shape
+
+
+class Chi0Data(AugmentedBodyData):
+    """Data object containing the chi0 data arrays for a single q-point,
+    while holding also the corresponding basis descriptors and block
+    distributor."""
+
+    @property
+    def chi0_wGG(self):
+        return self.data_wGG
+
+    @property
+    def chi0_wxvG(self):
+        if self.optical_limit:
+            return self.head_and_wings.data_wxvG
+
+    @property
+    def chi0_wvv(self):
+        if self.optical_limit:
+            return self.head_and_wings.data_wvv
