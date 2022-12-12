@@ -13,7 +13,6 @@ from gpaw.response.gamma_int import GammaIntegrator
 from gpaw.response.coulomb_kernels import (get_coulomb_kernel,
                                            get_integrated_kernel)
 from gpaw.response.temp import DielectricFunctionCalculator
-from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 
 
 def get_qdescriptor(kd, atoms):
