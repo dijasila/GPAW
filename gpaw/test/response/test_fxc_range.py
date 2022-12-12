@@ -4,6 +4,7 @@ from gpaw.xc.fxc import FXCCorrelation
 from ase.units import Hartree
 
 
+@pytest.mark.rpa
 @pytest.mark.response
 def test_xc_short_range(in_tmp_dir, gpw_files):
     calc = GPAW(gpw_files['si_pw'], parallel={'domain': 1})

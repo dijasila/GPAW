@@ -7,6 +7,7 @@ from gpaw.xc.fxc import FXCCorrelation
 from gpaw.xc.rpa import RPACorrelation
 
 
+@pytest.mark.rpa
 @pytest.mark.response
 def test_ralda_ralda_energy_He(in_tmp_dir, scalapack):
     a = 3.0
