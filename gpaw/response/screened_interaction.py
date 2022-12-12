@@ -170,9 +170,10 @@ class WCalculator:
     def dyson_and_W_old(self, wstc, iq, q_c, chi0, fxc_mode,
                         ecut=None, only_correlation=False,
                         out_dist='WgG'):
-        # If ecut is not None new chi0 arrays with reduced ecut are created
-        # and additional output for parallization and PW mapping is given.
-        # Relevant only for GW calculations. Note! ecut for paw-corrections
+        # If ecut is not None, new copies of the chi0 arrays with reduced ecut
+        # are created and additional output for parallization and PW mapping is
+        # returned along with W in the reduced plane-wave basis.
+        # Relevant only for GW calculations. Note: ecut for paw-corrections
         # need to be reduced seperately
         if ecut is not None:
             (pdi, chi0_wGG,
