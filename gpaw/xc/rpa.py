@@ -49,7 +49,6 @@ def initialize_q_points(kd, qsym):
     return bzq_qc, ibzq_qc, weight_q
 
 
-
 class RPACalculator:
     def __init__(self, gs, *, context, filename=None,
                  skip_gamma=False, qsym=True,
@@ -72,7 +71,8 @@ class RPACalculator:
         # We should actually have a kpoint descriptor for the qpoints.
         # We are badly failing at making use of the existing tools by reducing
         # the qpoints to dumb arrays.
-        self.bzq_qc, self.ibzq_qc, self.weight_q = initialize_q_points(gs.kd, qsym)
+        self.bzq_qc, self.ibzq_qc, self.weight_q = initialize_q_points(
+            gs.kd, qsym)
 
         # Energies for all q-vetors and cutoff energies:
         self.energy_qi = []
