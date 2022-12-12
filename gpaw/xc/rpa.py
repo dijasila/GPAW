@@ -347,11 +347,11 @@ def get_gauss_legendre_points(nw=16, frequency_max=800.0, frequency_scale=2.0):
 
 
 class RPACorrelation(RPACalculator):
-    def __init__(self, calc, xc='RPA', filename=None,
-                 skip_gamma=False, qsym=True, nlambda=None,
+    def __init__(self, calc, xc='RPA',
+                 nlambda=None,
                  nfrequencies=16, frequency_max=800.0, frequency_scale=2.0,
-                 frequencies=None, weights=None, truncation=None,
-                 world=mpi.world, nblocks=1, txt='-', calculate_q=None):
+                 frequencies=None, weights=None,
+                 world=mpi.world, txt='-', **kwargs):
         """Creates the RPACorrelation object
 
         calc: str or calculator object
@@ -405,11 +405,9 @@ class RPACorrelation(RPACalculator):
             assert weights is not None
             user_spec = True
 
-        super().__init__(gs=gs, context=context, filename=filename,
-                         skip_gamma=skip_gamma, qsym=qsym,
+        super().__init__(gs=gs, context=context,
                          frequencies=frequencies, weights=weights,
-                         truncation=truncation, nblocks=nblocks,
-                         calculate_q=calculate_q)
+                         **kwargs)
 
         self.print_initialization(xc, frequency_scale, nlambda, user_spec)
 
