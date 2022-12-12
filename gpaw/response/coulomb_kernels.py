@@ -27,7 +27,7 @@ class CoulombKernel:
         else:
             return f'Using {self._truncation} Coulomb truncation'
 
-    def coulomb_kernel(self, pd, q_v):
+    def sqrtV(self, pd, q_v):
         return get_coulomb_kernel(
             pd, self._gs.kd.N_c, q_v=q_v,
             truncation=self._truncation,

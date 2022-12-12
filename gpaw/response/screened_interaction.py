@@ -12,7 +12,8 @@ from gpaw.response import ResponseContext
 from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.response.gamma_int import GammaIntegrator
 from gpaw.response.coulomb_kernels import (get_coulomb_kernel,
-                                           get_integrated_kernel)
+                                           get_integrated_kernel,
+                                           CoulombKernel)
 from gpaw.response.temp import DielectricFunctionCalculator
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 
@@ -290,12 +291,10 @@ class WCalculator:
         self.context.timer.start('Dyson eq.')
 
         def get_sqrtV_G(N_c, q_v=None):
-            return get_coulomb_kernel(
-                pdi,
-                N_c,
+            kernel = CoulombKernel(
                 truncation=self.truncation,
-                wstc=wstc,
-                q_v=q_v)**0.5
+                gs=self.gs)
+            return kernel.sqrtV(pd=pdi, q_v=q_v)
 
         for iw, chi0_GG in enumerate(chi0_wGG):
             if np.allclose(q_c, 0):
