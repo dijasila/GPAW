@@ -346,7 +346,7 @@ def symmetrize_reciprocity(pd, A_wGG):
     """
     from gpaw.test.response.test_chiks import get_inverted_pw_mapping
 
-    q_c = pd.kd.bzk_kc[0]
+    q_c = pd.q_c
     if np.allclose(q_c, 0.):
         invmap_GG = get_inverted_pw_mapping(pd, pd)
         for A_GG in A_wGG:
