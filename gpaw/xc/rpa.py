@@ -272,7 +272,7 @@ class RPACalculator:
 
             wblocks = Blocks1D(self.blockcomm, len(self.omega_w))
             gamma_int = GammaIntegrator(
-                truncation=self.truncation._truncation,
+                truncation=self.truncation.truncation,
                 kd=kd,
                 pd=chi0.pd,
                 chi0_wvv=chi0.chi0_wvv[wblocks.myslice],

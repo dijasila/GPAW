@@ -29,10 +29,13 @@ class CoulombKernel:
             return f'Using {self.truncation} Coulomb truncation'
 
     def sqrtV(self, pd, q_v):
+        return self.V(pd, q_v)**0.5
+
+    def V(self, pd, q_v):
         return get_coulomb_kernel(
             pd, self._gs.kd.N_c, q_v=q_v,
             truncation=self.truncation,
-            wstc=self._wstc)**0.5
+            wstc=self._wstc)
 
 
 def get_coulomb_kernel(pd, N_c, truncation=None, q_v=None, wstc=None):
