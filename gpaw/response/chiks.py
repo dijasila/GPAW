@@ -296,7 +296,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
         The integrand is added to the output array chiks_x multiplied with the
         supplied kptpair integral weight.
         """
-        # Calculate the pair densities
+        # Calculate the pair densities and store them on the kptpair
         self.pair_density(kptpair, chiks.pd)
 
         # Extract the ingredients from the KohnShamKPointPair
