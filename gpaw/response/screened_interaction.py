@@ -177,6 +177,7 @@ class WCalculator:
         NB: New array copies are created during the calculation.
         """
         if ecut is not None:
+            # This should return a chi0_data object in the future! XXX
             (pdr, chi0_wGG,
              chi0_wxvG, chi0_wvv) = chi0.get_reduced_ecut_arrays(ecut)
         else:
@@ -190,12 +191,15 @@ class WCalculator:
                                pdr, chi0_wGG, chi0_wxvG, chi0_wvv,
                                only_correlation)
 
-        if out_dist == 'WgG' and not self.ppa:
-            # XXX This creates a new, large buffer.  We could perhaps
-            # avoid that.  Buffer used to exist but was removed due to #456.
+        if out_dist == 'WgG':
+            assert not self.ppa
+            # This should take place using the blockdist of the reduced pw
+            # basis chi0 in the future! XXX
             W_wGG = chi0.blockdist.distribute_as(W_wGG, chi0.nw, out_dist)
-        elif out_dist != 'WgG' and out_dist != 'wGG':
-            raise ValueError('Wrong outdist in W_and_dyson_old')
+        elif out_dist == 'wGG':
+            pass  # We are already parallelized over frequencies
+        else:
+            raise ValueError(f'Invalid out_dist {out_dist}')
 
         return pdr, W_wGG
 
