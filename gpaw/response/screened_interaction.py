@@ -3,7 +3,7 @@ from math import pi
 from gpaw.response.q0_correction import Q0Correction
 from ase.units import Ha
 from ase.dft.kpoints import monkhorst_pack
-from gpaw.response.chi0_data import BodyData, HeadAndWingsData
+from gpaw.response.chi0_data import BodyData, Chi0Data
 
 import gpaw.mpi as mpi
 from gpaw.kpt_descriptor import KPointDescriptor
@@ -199,9 +199,9 @@ class WCalculator:
             chi0_wGG = chi0_wGG.take(G2G, axis=1).take(G2G, axis=2)
         return pdi, blocks1d, G2G, chi0_wGG
 
-    def reduce_headwings_ecut(self, G2G, head_and_wings: HeadAndWingsData):
-        chi0_wxvG = head_and_wings.chi0_wxvG
-        chi0_wvv = head_and_wings.chi0_wvv
+    def reduce_headwings_ecut(self, G2G, chi0: Chi0Data):
+        chi0_wxvG = chi0.chi0_wxvG
+        chi0_wvv = chi0.chi0_wvv
         if chi0_wxvG is not None and G2G is not None:
             chi0_wxvG = chi0_wxvG.take(G2G, axis=3)
         return chi0_wxvG, chi0_wvv
@@ -216,9 +216,7 @@ class WCalculator:
         if ecut is not None:
             pdi, blocks1d, G2G, chi0_wGG = self.reduce_body_ecut(ecut, chi0)
             if chi0.optical_limit:
-                chi0_wxvG, chi0_wvv = self.reduce_headwings_ecut(
-                    G2G,
-                    chi0.head_and_wings)
+                chi0_wxvG, chi0_wvv = self.reduce_headwings_ecut(G2G, chi0)
             else:
                 chi0_wxvG = None
                 chi0_wvv = None
