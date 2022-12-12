@@ -57,7 +57,8 @@ class FXCCorrelation(RPACorrelation):
                                 weights=weights,
                                 world=world,
                                 nblocks=nblocks,
-                                txt=txt)
+                                txt=txt,
+                                calculate_q=self.calculate_q_fxc)
 
         self.l_l, self.weight_l = p_roots(nlambda)
         self.l_l = (self.l_l + 1.0) * 0.5
@@ -167,8 +168,7 @@ class FXCCorrelation(RPACorrelation):
         return e
 
     @timer('Chi0(q)')
-    def calculate_q(self, chi0calc, chi0_s, m1, m2,
-                    cut_G):
+    def calculate_q_fxc(self, chi0calc, chi0_s, m1, m2, cut_G):
         for s, chi0 in enumerate(chi0_s):
             chi0calc.update_chi0(chi0,
                                  m1,
