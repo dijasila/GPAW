@@ -793,10 +793,10 @@ class G0W0Calculator:
 
         for fxc_mode in self.fxc_modes:
             pdi, W_wGG, blocks1d, G2G = self.wcalc.dyson_and_W_old(
-                wstc, iq,
-                q_c, chi0,
-                fxc_mode,
-                ecut,
+                wstc,
+                fxc_mode=fxc_mode,
+                chi0=chi0,
+                ecut=ecut,
                 only_correlation=True)
 
             if chi0calc.pawcorr is not None and G2G is not None:

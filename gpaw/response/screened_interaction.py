@@ -159,14 +159,14 @@ class WCalculator:
         else:
             wstc = None
 
-        pd, W_wGG = self.dyson_and_W_old(wstc, iq, q_c,
-                                         chi0,
+        pd, W_wGG = self.dyson_and_W_old(wstc,
                                          fxc_mode=self.fxc_mode,
+                                         chi0=chi0,
                                          out_dist=out_dist)
 
         return pd, W_wGG
     
-    def dyson_and_W_old(self, wstc, iq, q_c, chi0, fxc_mode,
+    def dyson_and_W_old(self, wstc, *, fxc_mode, chi0,
                         ecut=None, only_correlation=False,
                         out_dist='WgG'):
         # If ecut is not None, new copies of the chi0 arrays with reduced ecut
