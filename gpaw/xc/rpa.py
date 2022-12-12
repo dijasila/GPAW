@@ -222,7 +222,7 @@ class RPACalculator:
                     # Chi0 will be summed again over chicomm, so we divide
                     # by its size:
                     for chi0 in chi0_s:
-                        chi0.chi0_wGG *= a
+                        chi0.chi0_wGG[:] *= a
                     # if chi0_swxvG is not None:
                     #     chi0_swxvG *= a
                     #     chi0_swvv *= a
