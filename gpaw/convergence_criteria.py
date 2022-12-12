@@ -124,14 +124,16 @@ class Energy(Criterion):
 
     Parameters:
 
-    tol : float
+    tol: float
         Tolerance for conversion; that is the maximum variation among the
-        last n_old values of the (extrapolated) total energy, normalized per
-        valence electron. [eV/(valence electron)]
-    n_old : int
+        last n_old values of the (extrapolated) total energy.
+    n_old: int
         Number of energy values to compare. I.e., if n_old is 3, then this
         compares the peak-to-peak difference among the current total energy
         and the two previous.
+    relative: bool
+        Use total energy [eV] or total energy relative to number of
+        valence electrons [eV/(valence electron)].
     """
     name = 'energy'
     tablename = 'energy'

@@ -35,6 +35,11 @@ Git master branch
 
 * Experimental support for PW-mode calculations using a GPU.
 
+* One can now specify the total energy convergence criterium in eV instead
+  of eV / valence electrons:
+  ``convergene={'energy': Energy(tol=..., relative=False)}``.
+  See the :class:`gpaw.convergence_criteria.Energy` class.
+
 
 Version 22.8.0
 ==============
