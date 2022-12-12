@@ -3,7 +3,6 @@ from math import pi
 from gpaw.response.q0_correction import Q0Correction
 from ase.units import Ha
 from ase.dft.kpoints import monkhorst_pack
-from gpaw.response.chi0_data import BodyData, Chi0Data
 
 import gpaw.mpi as mpi
 from gpaw.kpt_descriptor import KPointDescriptor
