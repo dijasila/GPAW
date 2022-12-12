@@ -145,7 +145,7 @@ class MGGA(XCFunctional):
         for taut_g, dedtaut_g in zip(taut_sg, dedtaut_sg):
             P -= integrate(taut_g, dedtaut_g)
 
-        tau_vvsG = self.wfs.calculate_kinetic_energy_density_crossterms()
+        tau_svvG = self.wfs.calculate_kinetic_energy_density_crossterms()
 
         stress_vv = P * np.eye(3)
         for v1 in range(3):
@@ -164,10 +164,12 @@ class MGGA(XCFunctional):
         for s in range(nspins):
             for v1 in range(3):
                 for v2 in range(3):
-                    self.distribute_and_interpolate(tau_vvsG[v1,v2,s], tau_cross_g)
+                    self.distribute_and_interpolate(tau_svvG[s,v1,v2], tau_cross_g)
                     stress_vv[v1,v2] -= integrate(tau_cross_g, dedtaut_sg[s])
 
-        self.dedtaut_sg = dedtaut_sg
+        self.dedtaut_sG = self.wfs.gd.empty(self.wfs.nspins)
+        for s in range(self.wfs.nspins):
+            self.restrict_and_collect(dedtaut_sg[s], self.dedtaut_sG[s])
 
         self.gd.comm.sum(stress_vv)
         return stress_vv

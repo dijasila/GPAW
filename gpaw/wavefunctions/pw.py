@@ -374,7 +374,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         comm.sum(taut_vvR)
         taut_vvR = self.gd.distribute(taut_vvR)
-        taut_xR[:,:,kpt.s] += taut_vvR
+        taut_xR[kpt.s,:,:] += taut_vvR
 
     def calculate_kinetic_energy_density(self):
         if self.kpt_u[0].f_n is None:
@@ -393,14 +393,14 @@ class PWWaveFunctions(FDPWWaveFunctions):
         if self.kpt_u[0].f_n is None:
             return None
 
-        taut_vvsR = self.gd.zeros((3,3,self.nspins))
+        taut_svvR = self.gd.zeros((self.nspins,3,3))
         for kpt in self.kpt_u:
-            self.add_to_ke_crossterms_kpt(kpt, kpt.psit_nG, taut_vvsR)
+            self.add_to_ke_crossterms_kpt(kpt, kpt.psit_nG, taut_svvR)
 
-        self.kptband_comm.sum(taut_vvsR)
-        for taut_R in taut_vvsR.reshape(-1,*taut_vvsR.shape[-3:]):
+        self.kptband_comm.sum(taut_svvR)
+        for taut_R in taut_svvR.reshape(-1,*taut_svvR.shape[-3:]):
             self.kd.symmetry.symmetrize(taut_R, self.gd)
-        return taut_vvsR
+        return taut_svvR
 
     def apply_mgga_orbital_dependent_hamiltonian(self, kpt, psit_xG,
                                                  Htpsit_xG, dH_asp,

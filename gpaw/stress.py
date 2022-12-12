@@ -43,7 +43,7 @@ def calculate_stress(calc):
     s_vv += ham.vbar.stress_tensor_contribution(dens.nt_Q)
     s_vv += dens.nct.stress_tensor_contribution(ham.vt_Q)
     if ham.xc.type == 'MGGA':
-        vtau_sQ = dens.pd3.restrict(ham.xc.dedtaut_sg, dens.pd2)[1]
+        vtau_sQ = dens.pd2.fft(ham.xc.dedtaut_sG)
         s_vv += ham.xc.tauct.stress_tensor_contribution(vtau_sQ)
 
     s0 = 0.0
