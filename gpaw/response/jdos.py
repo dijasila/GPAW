@@ -96,7 +96,10 @@ class JDOSCalculator(PairFunctionIntegrator):
             q_c, len(wd), eta, spincomponent, self.nbands, len(n1_t)))
 
         # Set up output data structure
-        pd = self.get_pw_descriptor(q_c, ecut=1e-3)  # No plane-wave repr.
+        # We need a dummy plane-wave descriptor (without plane-waves, hence the
+        # vanishing ecut) for the PairFunctionIntegrator to be able to analyze
+        # the symmetries of the system and reduce the k-point integration
+        pd = self.get_pw_descriptor(q_c, ecut=1e-3)
         jdos = JDOS(spincomponent, pd, wd, eta)
 
         # Perform actual in-place integration
