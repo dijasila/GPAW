@@ -32,13 +32,10 @@ def test_iron_jdos(in_tmp_dir, gpw_files):
 
     # ---------- Script ---------- #
 
-    # Get the ground state calculator from the fixture
+    # Set up the ground state adapter based on the fixture
     calc = GPAW(gpw_files['fe_pw_wfs'], parallel=dict(domain=1))
     nbands = calc.parameters.convergence['bands']
-
-    # Set up the JDOSCalculator
     gs = ResponseGroundStateAdapter(calc)
-    jdos_calc = JDOSCalculator(gs)
 
     # Set up reference MyManualJDOS
     serial_calc = GPAW(gpw_files['fe_pw_wfs'], communicator=mpi.serial_comm)
@@ -50,9 +47,11 @@ def test_iron_jdos(in_tmp_dir, gpw_files):
                                            eta=eta,
                                            nbands=nbands)
         for bandsummation in bandsummation_b:
-            jdos_w = jdos_calc.calculate(spincomponent, q_c, wd,
-                                         eta=eta,
-                                         nbands=nbands)
+            jdos_calc = JDOSCalculator(gs,
+                                       nbands=nbands,
+                                       bandsummation=bandsummation)
+            jdos = jdos_calc.calculate(spincomponent, q_c, wd, eta=eta)
+            jdos_w = jdos.array
             assert jdos_w == pytest.approx(jdosref_w)
 
         # plt.subplot()

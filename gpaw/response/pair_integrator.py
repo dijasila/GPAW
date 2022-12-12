@@ -8,6 +8,7 @@ from gpaw.utilities.progressbar import ProgressBar
 from gpaw.response import timer
 from gpaw.response.kspair import KohnShamPair
 from gpaw.response.pw_parallelization import block_partition
+from gpaw.response.pair_functions import SingleQPWDescriptor
 
 
 class PairFunctionIntegrator(ABC):
@@ -122,15 +123,13 @@ class PairFunctionIntegrator(ABC):
             self.disable_symmetries = False
 
     @timer('Integrate pair function')
-    def _integrate(self, pd, out_x, n1_t, n2_t, s1_t, s2_t):
+    def _integrate(self, out, n1_t, n2_t, s1_t, s2_t):
         """In-place pair function integration
 
         Parameters
         ----------
-        pd : PWDescriptor
-            Plane-wave descriptor of the q-vector in question
-        out_x : np.array
-            Output array
+        out : PairFunction
+            Output data structure
         n1_t : np.array
             Band index of k-point k for each transition t.
         n2_t : np.array
@@ -145,7 +144,7 @@ class PairFunctionIntegrator(ABC):
         analyzer : PWSymmetryAnalyzer
         """
         # Initialize the plane-wave symmetry analyzer
-        analyzer = self.get_pw_symmetry_analyzer(pd)
+        analyzer = self.get_pw_symmetry_analyzer(out.pd)
 
         # Perform the actual integral as a point integral over k-point pairs
         integral = KPointPairPointIntegral(self.kspair, analyzer)
@@ -156,11 +155,11 @@ class PairFunctionIntegrator(ABC):
             kptpair, weight = next(weighted_kptpairs)
             if weight is not None:
                 assert kptpair is not None
-                self.add_integrand(kptpair, weight, pd, out_x)
+                self.add_integrand(kptpair, weight, out)
 
         # Sum over the k-points, which have been distributed between processes
         with self.context.timer('Sum over distributed k-points'):
-            self.intrablockcomm.sum(out_x)
+            self.intrablockcomm.sum(out.array)
 
         # Because the symmetry analyzer is used both to generate the k-point
         # integral domain *and* to symmetrize pair functions after the
@@ -170,10 +169,10 @@ class PairFunctionIntegrator(ABC):
         return analyzer
 
     @abstractmethod
-    def add_integrand(self, kptpair, weight, pd, out_x):
+    def add_integrand(self, kptpair, weight, out):
         """Add the relevant integrand of the outer k-point integral to the
-        output data structure 'pd, out_x', weighted by 'weight' and constructed
-        from the provided KohnShamKPointPair.
+        output data structure 'out', weighted by 'weight' and constructed
+        from the provided KohnShamKPointPair 'kptpair'.
 
         This method effectively defines the pair function in question.
         """
@@ -210,49 +209,13 @@ class PairFunctionIntegrator(ABC):
 
         return blockcomm, intrablockcomm
 
-    def _get_pw_descriptor(self, q_c, ecut=50 / Hartree, gammacentered=False,
-                           internal=True):
-        """Get plane-wave descriptor for the wave vector q_c.
-
-        Parameters
-        ----------
-        q_c : list or ndarray
-            Wave vector in relative coordinates
-        ecut : float (or None)
-            Plane-wave cutoff in Hartree
-        gammacentered : bool
-            Center the grid of plane waves around the Γ-point (or the q-vector)
-        internal : bool
-            When using symmetries, the actual calculation of the pair function
-            pf_wGG must happen using a q-centered plane wave basis. If
-            internal==True, as it is by default, the internal plane wave basis
-            used in the evaluation of pf_wGG is returned, otherwise the
-            external descriptor is returned, corresponding to the requested
-            pf_wGG.
-        """
-        gd = self.gs.gd
+    def get_pw_descriptor(self, q_c, ecut=50, gammacentered=False):
         q_c = np.asarray(q_c, dtype=float)
+        ecut = None if ecut is None else ecut / Hartree  # eV to Hartree
+        gd = self.gs.gd
 
-        # Update to internal basis, if needed
-        if internal and gammacentered and not self.disable_symmetries:
-            # In order to make use of the symmetries of the system to reduce
-            # the k-point integration, the internal code assumes a plane wave
-            # basis which is centered at q in reciprocal space.
-            gammacentered = False
-            # If we want to compute the pair function on a plane wave grid
-            # which is effectively centered in the gamma point instead of q, we
-            # need to extend the internal ecut such that the q-centered grid
-            # encompasses all reciprocal lattice points inside the gamma-
-            # centered sphere.
-            # The reduction to the global gamma-centered basis will then be
-            # carried out as a post processing step.
-
-            # Compute the extended internal ecut
-            B_cv = 2.0 * np.pi * gd.icell_cv  # Reciprocal lattice vectors
-            q_v = q_c @ B_cv
-            ecut = get_ecut_to_encompass_centered_sphere(q_v, ecut)
-
-        pd = get_pw_descriptor(ecut, gd, q_c, gammacentered=gammacentered)
+        pd = SingleQPWDescriptor.from_q(q_c, ecut, gd,
+                                        gammacentered=gammacentered)
 
         return pd
 
@@ -491,33 +454,6 @@ def transitions_in_composite_index(n1_M, n2_M, s1_S, s2_S):
     return n1_MS.flatten(), n2_MS.flatten(), s1_MS.flatten(), s2_MS.flatten()
 
 
-def get_ecut_to_encompass_centered_sphere(q_v, ecut):
-    """Calculate the minimal ecut which results in a q-centered plane wave
-    basis containing all the reciprocal lattice vectors G, which lie inside a
-    specific gamma-centered sphere:
-
-    |G|^2 < 2 * ecut
-    """
-    q = np.linalg.norm(q_v)
-    ecut = ecut + q * (np.sqrt(2 * ecut) + q / 2)
-
-    return ecut
-
-
-def get_pw_descriptor(ecut, gd, q_c, gammacentered=False):
-    """Get the plane wave descriptor for a specific wave vector q_c."""
-    from gpaw.kpt_descriptor import KPointDescriptor
-    from gpaw.pw.descriptor import PWDescriptor
-
-    q_c = np.asarray(q_c, dtype=float)
-    qd = KPointDescriptor([q_c])
-
-    pd = PWDescriptor(ecut, gd, complex, qd,
-                      gammacentered=gammacentered)
-
-    return pd
-
-
 class KPointPairIntegral(ABC):
     r"""Baseclass for reciprocal space integrals of the first Brillouin Zone,
     where the integrand is a sum over transitions between any number of states
@@ -556,7 +492,7 @@ class KPointPairIntegral(ABC):
         """
         self.gs = kspair.gs
         self.kspair = kspair
-        self.q_c = analyzer.pd.kd.bzk_kc[0]
+        self.q_c = analyzer.pd.q_c
 
         # Prepare the k-point pair integral
         bzk_kc, weight_k = self.get_kpoint_domain(analyzer)

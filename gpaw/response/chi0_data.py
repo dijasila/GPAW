@@ -1,45 +1,36 @@
 import numpy as np
 
-from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.pw.descriptor import PWDescriptor
 from gpaw.response.pw_parallelization import (Blocks1D,
                                               PlaneWaveBlockDistributor)
 from gpaw.response.frequencies import FrequencyDescriptor
+from gpaw.response.pair_functions import SingleQPWDescriptor
 
 
-class SingleQPWDescriptor(PWDescriptor):
+class Chi0Descriptors:
+    """Descriptor collection for Chi0Data."""
 
-    @staticmethod
-    def from_q(q_c, ecut, gd):
-        """Construct a plane wave descriptor for q_c with a given cutoff."""
-        qd = KPointDescriptor([q_c])
-        return PWDescriptor(ecut, gd, complex, qd)
+    def __init__(self, wd, pd):
+        """Construct the descriptor collection
 
-    
-class ResponseDescriptors:
-    """ Data object holding all combined response descriptors needed for
-    chi0Data
         Parameters
         ----------
-        wd: FrequencyDescriptor
-            Descriptor for the temporal (frequency) degrees of freedom
-        pd: PWDescriptor
-            Descriptor for the spatial (plane wave) degrees of freedom
-"""
-    
-    def __init__(self, wd, pd):
+        wd : FrequencyDescriptor
+        pd : SingleQPWDescriptor
+        """
         self.wd = wd
         self.pd = pd
-        # Check if in optical limit
-        q_c, = pd.kd.ibzk_kc
-        optical_limit = np.allclose(q_c, 0.0)
-        self.optical_limit = optical_limit
+
+        # Extract optical limit
+        self.q_c = pd.q_c
+        self.optical_limit = np.allclose(pd.q_c, 0.0)
+
+        # Basis set size
         self.nG = pd.ngmax
-        
+
     @staticmethod
     def from_descriptor_arguments(frequencies, plane_waves):
-        """Contruct the necesarry descriptors and initialize the
-        ResponseDescriptors object."""
+        """Contruct a Chi0Descriptors, with wd and pd constructed on the fly.
+        """
         # Construct wd
         if isinstance(frequencies, FrequencyDescriptor):
             wd = frequencies
@@ -54,7 +45,7 @@ class ResponseDescriptors:
             assert len(plane_waves) == 3
             pd = SingleQPWDescriptor.from_q(*plane_waves)
 
-        return ResponseDescriptors(wd, pd)
+        return Chi0Descriptors(wd, pd)
 
 
 def make_blockdist(parallelization):
@@ -74,11 +65,11 @@ class BodyData:
     basis descriptors and block distributor."""
 
     def __init__(self, descriptors, blockdist):
-        """Construct the BodyData object from ResponseDescriptors object.
+        """Construct the BodyData object from Chi0Descriptors object.
 
         Parameters
         ----------
-        descriptors: ResponseDescriptors
+        descriptors: Chi0Descriptors
         blockdist : PlaneWaveBlockDistributor
             Distributor for the block parallelization
         """
@@ -100,7 +91,7 @@ class BodyData:
                                   parallelization):
         """Contruct the necesarry descriptors and initialize the BodyData
         object."""
-        descriptors = ResponseDescriptors.from_descriptor_arguments(
+        descriptors = Chi0Descriptors.from_descriptor_arguments(
             frequencies, plane_waves)
         blockdist = make_blockdist(parallelization)
         return cls(descriptors, blockdist)
@@ -161,7 +152,7 @@ class HeadAndWingsData:
         """Contruct the necesarry descriptors and initialize the
         HeadAndWingsData object"""
 
-        descriptors = ResponseDescriptors.from_descriptor_arguments(
+        descriptors = Chi0Descriptors.from_descriptor_arguments(
             frequencies, plane_waves)
 
         return HeadAndWingsData(descriptors)
