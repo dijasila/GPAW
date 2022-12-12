@@ -36,7 +36,7 @@ def rpa(filename, ecut=200.0, blocks=1, extrapolate=4):
     rpa.calculate(ecut=ecut * (1 + 0.5 * np.arange(extrapolate))**(-2 / 3))
 
 
-class RPACorrelation:
+class RPACalculator:
     def __init__(self, calc, xc='RPA', filename=None,
                  skip_gamma=False, qsym=True, nlambda=None,
                  nfrequencies=16, frequency_max=800.0, frequency_scale=2.0,
@@ -445,6 +445,11 @@ def get_gauss_legendre_points(nw=16, frequency_max=800.0, frequency_scale=2.0):
     transform = (-np.log(1 - ys))**(frequency_scale - 1) \
         / (1 - ys) * frequency_scale / alpha
     return w, weights_w * transform / 2
+
+
+class RPACorrelation(RPACalculator):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
 
 class CLICommand:
