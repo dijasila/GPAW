@@ -167,38 +167,6 @@ class WCalculator:
 
         return pd, W_wGG
 
-    def reduce_body_ecut(self, ecut, chi0: BodyData):
-        """
-        Function to provide chi0 quantities with reduced ecut
-        needed for ecut extrapolation. See g0w0.py for usage.
-        Note: Returns chi0_wGG array in wGG distribution.
-        """
-        from gpaw.pw.descriptor import (PWDescriptor,
-                                        PWMapping)
-        from gpaw.response.pw_parallelization import Blocks1D
-        nG = chi0.pd.ngmax
-        blocks1d = chi0.blocks1d
-
-        # The copy() is only required when doing GW_too, since we need
-        # to run this whole thing twice.
-        chi0_wGG = chi0.blockdist.distribute_as(chi0.chi0_wGG.copy(),
-                                                chi0.nw, 'wGG')
-
-        pd = chi0.pd
-
-        if ecut == pd.ecut:
-            pdi = pd
-            G2G = None
-
-        elif ecut < pd.ecut:  # construct subset chi0 matrix with lower ecut
-            pdi = PWDescriptor(ecut, pd.gd, dtype=pd.dtype,
-                               kd=pd.kd)
-            nG = pdi.ngmax
-            blocks1d = Blocks1D(self.pair.blockcomm, nG)
-            G2G = PWMapping(pdi, pd).G2_G1
-            chi0_wGG = chi0_wGG.take(G2G, axis=1).take(G2G, axis=2)
-        return pdi, blocks1d, G2G, chi0_wGG
-
     def reduce_headwings_ecut(self, G2G, chi0: Chi0Data):
         chi0_wxvG = chi0.chi0_wxvG
         chi0_wvv = chi0.chi0_wvv
@@ -214,7 +182,12 @@ class WCalculator:
         # Relevant only for GW calculations. Note! ecut for paw-corrections
         # need to be reduced seperately
         if ecut is not None:
-            pdi, blocks1d, G2G, chi0_wGG = self.reduce_body_ecut(ecut, chi0)
+            pdi, chi0_wGG = chi0.get_reduced_ecut_array(ecut)
+            _, pw_map = chi0.get_pw_reduction_map(ecut)
+            if pw_map is None:
+                G2G = None
+            else:
+                G2G = pw_map.G2_G1
             if chi0.optical_limit:
                 chi0_wxvG, chi0_wvv = self.reduce_headwings_ecut(G2G, chi0)
             else:
@@ -227,6 +200,7 @@ class WCalculator:
             chi0_wvv = chi0.chi0_wvv
             pdi = chi0.pd
             G2G = None
+
         pdi, W_wGG = self.dyson_old(wstc, iq, q_c,
                                     fxc_mode, pdi, chi0_wGG,
                                     chi0_wxvG, G2G, chi0_wvv,
@@ -236,7 +210,14 @@ class WCalculator:
             # XXX This creates a new, large buffer.  We could perhaps
             # avoid that.  Buffer used to exist but was removed due to #456.
             W_wGG = chi0.blockdist.distribute_as(W_wGG, chi0.nw, out_dist)
-            
+
+        # Create a blocks1d for the reduced plane-wave description
+        # It is quite weird that we do this, if the out distribution is wGG,
+        # that is, distributed over frequencies. This should be changed in
+        # the future! XXX
+        nG = pdi.ngmax
+        blocks1d = Blocks1D(chi0.blockdist.blockcomm, nG)
+
         if out_dist != 'wGG' and out_dist != 'WgG':
             raise ValueError('Wrong outdist in W_and_dyson_old')
         if ecut is None:  # Normal mode and output

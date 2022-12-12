@@ -133,6 +133,45 @@ class BodyData:
                                                              test_dist)
         return same_dist
 
+    def get_reduced_ecut_array(self, ecut):
+        """Provide a copy of the body data array within a reduced ecut.
+
+        Needed for ecut extrapolation in G0W0.
+        Note: Returns data_wGG array in wGG distribution.
+        """
+        # Get a copy of the full array, distributed over frequencies
+        chi0_wGG = self.blockdist.distribute_as(self.data_wGG,
+                                                self.nw, 'wGG')
+
+        pdr, pw_map = self.get_pw_reduction_map(ecut)
+
+        if pw_map is not None:
+            G2_G1 = pw_map.G2_G1
+            # Construct array subset with lower ecut
+            chi0_wGG = chi0_wGG.take(G2_G1, axis=1).take(G2_G1, axis=2)
+
+        if chi0_wGG is self.data_wGG:
+            chi0_wGG = self.data_wGG.copy()
+
+        return pdr, chi0_wGG
+
+    def get_pw_reduction_map(self, ecut):
+        """Get PWMapping to reduce plane-wave description."""
+        from gpaw.pw.descriptor import PWMapping
+
+        pd = self.pd
+
+        if ecut == self.pd.ecut:
+            pdr = pd  # reduced pd is equal to the original pd
+            pw_map = None
+        elif ecut < self.pd.ecut:
+            # Create reduced pd
+            pdr = SingleQPWDescriptor.from_q(
+                pd.q_c, ecut, pd.gd, gammacentered=pd.gammacentered)
+            pw_map = PWMapping(pdr, pd)
+
+        return pdr, pw_map
+
 
 class HeadAndWingsData:
     def __init__(self, descriptors):
