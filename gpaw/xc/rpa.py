@@ -36,67 +36,26 @@ def rpa(filename, ecut=200.0, blocks=1, extrapolate=4):
     rpa.calculate(ecut=ecut * (1 + 0.5 * np.arange(extrapolate))**(-2 / 3))
 
 
-class RPACorrelation:
-    def __init__(self, calc, xc='RPA', filename=None,
-                 skip_gamma=False, qsym=True, nlambda=None,
-                 nfrequencies=16, frequency_max=800.0, frequency_scale=2.0,
-                 frequencies=None, weights=None, truncation=None,
-                 world=mpi.world, nblocks=1, txt='-', calculate_q=None):
-        """Creates the RPACorrelation object
+def initialize_q_points(kd, qsym):
+    bzq_qc = kd.get_bz_q_points(first=True)
 
-        calc: str or calculator object
-            The string should refer to the .gpw file contaning KS orbitals
-        xc: str
-            Exchange-correlation kernel. This is only different from RPA when
-            this object is constructed from a different module - e.g. fxc.py
-        filename: str
-            txt output
-        skip_gamme: bool
-            If True, skip q = [0,0,0] from the calculation
-        qsym: bool
-            Use symmetry to reduce q-points
-        nlambda: int
-            Number of lambda points. Only used for numerical coupling
-            constant integration involved when called from fxc.py
-        nfrequencies: int
-            Number of frequency points used in the Gauss-Legendre integration
-        frequency_max: float
-            Largest frequency point in Gauss-Legendre integration
-        frequency_scale: float
-            Determines density of frequency points at low frequencies. A slight
-            increase to e.g. 2.5 or 3.0 improves convergence wth respect to
-            frequency points for metals
-        frequencies: list
-            List of frequancies for user-specified frequency integration
-        weights: list
-            list of weights (integration measure) for a user specified
-            frequency grid. Must be specified and have the same length as
-            frequencies if frequencies is not None
-        truncation: str or None
-            Coulomb truncation scheme. Can be None, 'wigner-seitz', or '2D'
-        world: communicator
-        nblocks: int
-            Number of parallelization blocks. Frequency parallelization
-            can be specified by setting nblocks=nfrequencies and is useful
-            for memory consuming calculations
-        txt: str
-            txt file for saving and loading contributions to the correlation
-            energy from different q-points
-        """
-        gs, context = get_gs_and_context(calc=calc, txt=txt, world=world,
-                                         timer=None)
+    if not qsym:
+        ibzq_qc = bzq_qc
+        weight_q = np.ones(len(bzq_qc)) / len(bzq_qc)
+    else:
+        U_scc = kd.symmetry.op_scc
+        ibzq_qc = kd.get_ibz_q_points(bzq_qc, U_scc)[0]
+        weight_q = kd.q_weights
+    return bzq_qc, ibzq_qc, weight_q
 
+
+class RPACalculator:
+    def __init__(self, gs, *, context, filename=None,
+                 skip_gamma=False, qsym=True,
+                 frequencies, weights, truncation=None,
+                 nblocks=1, calculate_q=None):
         self.gs = gs
         self.context = context
-
-        if frequencies is None:
-            frequencies, weights = get_gauss_legendre_points(nfrequencies,
-                                                             frequency_max,
-                                                             frequency_scale)
-            user_spec = False
-        else:
-            assert weights is not None
-            user_spec = True
 
         self.omega_w = frequencies / Hartree
         self.weight_w = weights / Hartree
@@ -108,9 +67,12 @@ class RPACorrelation:
 
         self.truncation = truncation
         self.skip_gamma = skip_gamma
-        self.ibzq_qc = None
-        self.weight_q = None
-        self.initialize_q_points(qsym)
+
+        # We should actually have a kpoint descriptor for the qpoints.
+        # We are badly failing at making use of the existing tools by reducing
+        # the qpoints to dumb arrays.
+        self.bzq_qc, self.ibzq_qc, self.weight_q = initialize_q_points(
+            gs.kd, qsym)
 
         # Energies for all q-vetors and cutoff energies:
         self.energy_qi = []
@@ -120,20 +82,6 @@ class RPACorrelation:
         if calculate_q is None:
             calculate_q = self.calculate_q_rpa
         self.calculate_q = calculate_q
-
-        self.print_initialization(xc, frequency_scale, nlambda, user_spec)
-
-    def initialize_q_points(self, qsym):
-        kd = self.gs.kd
-        self.bzq_qc = kd.get_bz_q_points(first=True)
-
-        if not qsym:
-            self.ibzq_qc = self.bzq_qc
-            self.weight_q = np.ones(len(self.bzq_qc)) / len(self.bzq_qc)
-        else:
-            U_scc = kd.symmetry.op_scc
-            self.ibzq_qc = kd.get_ibz_q_points(self.bzq_qc, U_scc)[0]
-            self.weight_q = kd.q_weights
 
     def read(self):
         lines = open(self.filename).readlines()[1:]
@@ -384,6 +332,85 @@ class RPACorrelation:
 
         return e_i * Hartree
 
+
+def get_gauss_legendre_points(nw=16, frequency_max=800.0, frequency_scale=2.0):
+    y_w, weights_w = p_roots(nw)
+    y_w = y_w.real
+    ys = 0.5 - 0.5 * y_w
+    ys = ys[::-1]
+    w = (-np.log(1 - ys))**frequency_scale
+    w *= frequency_max / w[-1]
+    alpha = (-np.log(1 - ys[-1]))**frequency_scale / frequency_max
+    transform = (-np.log(1 - ys))**(frequency_scale - 1) \
+        / (1 - ys) * frequency_scale / alpha
+    return w, weights_w * transform / 2
+
+
+class RPACorrelation(RPACalculator):
+    def __init__(self, calc, xc='RPA',
+                 nlambda=None,
+                 nfrequencies=16, frequency_max=800.0, frequency_scale=2.0,
+                 frequencies=None, weights=None,
+                 world=mpi.world, txt='-', **kwargs):
+        """Creates the RPACorrelation object
+
+        calc: str or calculator object
+            The string should refer to the .gpw file contaning KS orbitals
+        xc: str
+            Exchange-correlation kernel. This is only different from RPA when
+            this object is constructed from a different module - e.g. fxc.py
+        filename: str
+            txt output
+        skip_gamme: bool
+            If True, skip q = [0,0,0] from the calculation
+        qsym: bool
+            Use symmetry to reduce q-points
+        nlambda: int
+            Number of lambda points. Only used for numerical coupling
+            constant integration involved when called from fxc.py
+        nfrequencies: int
+            Number of frequency points used in the Gauss-Legendre integration
+        frequency_max: float
+            Largest frequency point in Gauss-Legendre integration
+        frequency_scale: float
+            Determines density of frequency points at low frequencies. A slight
+            increase to e.g. 2.5 or 3.0 improves convergence wth respect to
+            frequency points for metals
+        frequencies: list
+            List of frequancies for user-specified frequency integration
+        weights: list
+            list of weights (integration measure) for a user specified
+            frequency grid. Must be specified and have the same length as
+            frequencies if frequencies is not None
+        truncation: str or None
+            Coulomb truncation scheme. Can be None, 'wigner-seitz', or '2D'
+        world: communicator
+        nblocks: int
+            Number of parallelization blocks. Frequency parallelization
+            can be specified by setting nblocks=nfrequencies and is useful
+            for memory consuming calculations
+        txt: str
+            txt file for saving and loading contributions to the correlation
+            energy from different q-points
+        """
+        gs, context = get_gs_and_context(calc=calc, txt=txt, world=world,
+                                         timer=None)
+
+        if frequencies is None:
+            frequencies, weights = get_gauss_legendre_points(nfrequencies,
+                                                             frequency_max,
+                                                             frequency_scale)
+            user_spec = False
+        else:
+            assert weights is not None
+            user_spec = True
+
+        super().__init__(gs=gs, context=context,
+                         frequencies=frequencies, weights=weights,
+                         **kwargs)
+
+        self.print_initialization(xc, frequency_scale, nlambda, user_spec)
+
     def print_initialization(self, xc, frequency_scale, nlambda, user_spec):
         p = functools.partial(self.context.print, flush=False)
         p('----------------------------------------------------------')
@@ -432,19 +459,6 @@ class RPACorrelation:
         p('    K-point/band decomposition    : % s' %
           (self.context.world.size // self.nblocks))
         self.context.print('')
-
-
-def get_gauss_legendre_points(nw=16, frequency_max=800.0, frequency_scale=2.0):
-    y_w, weights_w = p_roots(nw)
-    y_w = y_w.real
-    ys = 0.5 - 0.5 * y_w
-    ys = ys[::-1]
-    w = (-np.log(1 - ys))**frequency_scale
-    w *= frequency_max / w[-1]
-    alpha = (-np.log(1 - ys[-1]))**frequency_scale / frequency_max
-    transform = (-np.log(1 - ys))**(frequency_scale - 1) \
-        / (1 - ys) * frequency_scale / alpha
-    return w, weights_w * transform / 2
 
 
 class CLICommand:
