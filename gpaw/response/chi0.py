@@ -345,7 +345,7 @@ class Chi0Calculator:
         # Fill in wings part of the data, but leave out the head part (G0)
         chi0.chi0_wxvG[..., 1:] += tmp_chi0_wxvP[..., 3:]
         # Fill in the head
-        chi0.chi0_wvv += tmp_chi0_wxvP[:, 0, :3, :3]
+        chi0.chi0_wvv[:] += tmp_chi0_wxvP[:, 0, :3, :3]
         analyzer.symmetrize_wxvG(chi0.chi0_wxvG)
         analyzer.symmetrize_wvv(chi0.chi0_wvv)
 

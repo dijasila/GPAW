@@ -83,7 +83,7 @@ class BodyData:
         self.blocks1d = Blocks1D(blockdist.blockcomm, nG)
 
         # Data arrays
-        self.chi0_wGG = None
+        self.data_wGG = None
         self.allocate_arrays()
 
     @classmethod
@@ -98,7 +98,7 @@ class BodyData:
 
     def allocate_arrays(self):
         """Allocate data arrays."""
-        self.chi0_wGG = np.zeros(self.wGG_shape, complex)
+        self.data_wGG = np.zeros(self.wGG_shape, complex)
         
     @property
     def nw(self):
@@ -117,18 +117,18 @@ class BodyData:
         return (self.nw, self.mynG, self.nG)
 
     def distribute_frequencies(self):
-        """Return chi0_wGG array with frequencies distributed to all cores."""
-        return self.blockdist.distribute_frequencies(self.chi0_wGG, self.nw)
+        """Return data_wGG array with frequencies distributed to all cores."""
+        return self.blockdist.distribute_frequencies(self.data_wGG, self.nw)
 
     def distribute_as(self, out_dist):
-        """Distribute self.chi0_wGG as given in out_dist.
+        """Distribute self.data_wGG as given in out_dist.
         out_dist: str 'wGG' for parallell over w and
         'WgG' for parallel over G"""
-        return self.blockdist.distribute_as(self.chi0_wGG, self.nw, out_dist)
+        return self.blockdist.distribute_as(self.data_wGG, self.nw, out_dist)
 
     def check_distribution(self, test_dist):
-        """Checks if self.chi0_wGG is distributed according to test_dist"""
-        _, __, same_dist = self.blockdist.check_distribution(self.chi0_wGG,
+        """Checks if self.data_wGG is distributed according to test_dist"""
+        _, __, same_dist = self.blockdist.check_distribution(self.data_wGG,
                                                              self.nw,
                                                              test_dist)
         return same_dist
@@ -180,16 +180,34 @@ class Chi0Data(BodyData):
     distributor."""
     def __init__(self, descriptors, blockdist):
         super().__init__(descriptors, blockdist)
-        self.optical_limit = descriptors.optical_limit
 
         if self.optical_limit:
             self.head_and_wings = HeadAndWingsData(self.descriptors)
-            self.chi0_wxvG = self.head_and_wings.chi0_wxvG
-            self.chi0_wvv = self.head_and_wings.chi0_wvv
-            self.wxvG_shape = self.head_and_wings.wxvG_shape
-            self.wvv_shape = self.head_and_wings.wvv_shape
-        else:
-            self.chi0_wxvG = None
-            self.chi0_wvv = None
-            self.wxvG_shape = None
-            self.wvv_shape = None
+
+    @property
+    def optical_limit(self):
+        return self.descriptors.optical_limit
+
+    @property
+    def chi0_wGG(self):
+        return self.data_wGG
+
+    @property
+    def chi0_wxvG(self):
+        if self.optical_limit:
+            return self.head_and_wings.chi0_wxvG
+
+    @property
+    def chi0_wvv(self):
+        if self.optical_limit:
+            return self.head_and_wings.chi0_wvv
+
+    @property
+    def wxvG_shape(self):
+        if self.optical_limit:
+            return self.head_and_wings.wxvG_shape
+
+    @property
+    def wvv_shape(self):
+        if self.optical_limit:
+            return self.head_and_wings.wvv_shape
