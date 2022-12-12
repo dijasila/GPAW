@@ -22,7 +22,6 @@ from gpaw.response.g0w0_kernels import G0W0Kernel
 from gpaw.response.hilbert import GWHilbertTransforms
 from gpaw.response.pair import PairDensityCalculator
 from gpaw.response.screened_interaction import WCalculator
-from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.response.coulomb_kernels import CoulombKernel
 from gpaw.response import timer
 
@@ -652,20 +651,9 @@ class G0W0Calculator:
 
         self.context.timer.start('W')
         self.context.print('\nCalculating screened Coulomb potential')
-        if self.wcalc.coulomb.truncation is not None:
-            self.context.print('Using %s truncated Coloumb potential' %
-                               self.wcalc.coulomb.truncation)
+        self.context.print(self.wcalc.coulomb.description())
 
         chi0calc = self.chi0calc
-
-        if self.wcalc.coulomb.truncation == 'wigner-seitz':
-            wstc = WignerSeitzTruncatedCoulomb(
-                self.wcalc.gs.gd.cell_cv,
-                self.wcalc.gs.kd.N_c)
-            self.context.print(wstc.get_description())
-        else:
-            wstc = None
-
         self.hilbert_transform = GWHilbertTransforms(
             self.wcalc.wd.omega_w, self.eta)
         self.context.print(self.wcalc.wd)
@@ -713,13 +701,13 @@ class G0W0Calculator:
                 if skip:
                     continue
 
-                result = self.calculate_q_point(iq, q_c, pb, wstc, chi0calc)
+                result = self.calculate_q_point(iq, q_c, pb, chi0calc)
 
                 if self.context.world.rank == 0:
                     qhandle.save(result)
         pb.finish()
 
-    def calculate_q_point(self, iq, q_c, pb, wstc, chi0calc):
+    def calculate_q_point(self, iq, q_c, pb, chi0calc):
         # Reset calculation
         sigmashape = (len(self.ecut_e), *self.shape)
         sigmas = {fxc_mode: Sigma(iq, q_c, fxc_mode, sigmashape,
@@ -746,7 +734,7 @@ class G0W0Calculator:
                                      f'({self.nbands}).')
             pdi, Wdict, blocks1d, pawcorr = self.calculate_w(
                 chi0calc, q_c, chi0,
-                m1, m2, ecut, wstc, iq)
+                m1, m2, ecut, iq)
             m1 = m2
 
             self.context.timer.stop('W')
@@ -783,7 +771,7 @@ class G0W0Calculator:
 
     @timer('WW')
     def calculate_w(self, chi0calc, q_c, chi0,
-                    m1, m2, ecut, wstc,
+                    m1, m2, ecut,
                     iq):
         """Calculates the screened potential for a specified q-point."""
 

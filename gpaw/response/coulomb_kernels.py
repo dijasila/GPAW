@@ -26,7 +26,7 @@ class CoulombKernel:
                 ['Wigner–Seitz truncated Coulomb truncation',
                  self._wstc.get_description()])
         else:
-            return f'Using {self._truncation} Coulomb truncation'
+            return f'Using {self.truncation} Coulomb truncation'
 
     def sqrtV(self, pd, q_v):
         return get_coulomb_kernel(

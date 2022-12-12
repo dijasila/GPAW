@@ -11,8 +11,7 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response import ResponseContext
 from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.response.gamma_int import GammaIntegrator
-from gpaw.response.coulomb_kernels import (get_coulomb_kernel,
-                                           get_integrated_kernel,
+from gpaw.response.coulomb_kernels import (get_integrated_kernel,
                                            CoulombKernel)
 from gpaw.response.temp import DielectricFunctionCalculator
 
@@ -360,7 +359,7 @@ class WCalculator:
 
         dielectric_WgG = chi0.chi0_wGG  # XXX
         for iw, chi0_GG in enumerate(chi0.chi0_wGG):
-            sqrtV_G = coulomb.sqrtV(chi0.pd, # XXX was: pdi
+            sqrtV_G = coulomb.sqrtV(chi0.pd,  # XXX was: pdi
                                     q_v=None)
             e_GG = np.eye(nG) - chi0_GG * sqrtV_G * sqrtV_G[:, np.newaxis]
             e_gG = e_GG[my_gslice]
