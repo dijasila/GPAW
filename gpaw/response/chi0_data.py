@@ -139,21 +139,28 @@ class BodyData:
         Needed for ecut extrapolation in G0W0.
         Note: Returns data_wGG array in wGG distribution.
         """
-        # Get a copy of the full array, distributed over frequencies
-        chi0_wGG = self.blockdist.distribute_as(self.data_wGG,
-                                                self.nw, 'wGG')
-
         pdr, pw_map = self.get_pw_reduction_map(ecut)
+        data_wGG = self._copy_and_map_array(pw_map)
+
+        return pdr, data_wGG
+
+    def _copy_and_map_array(self, pw_map):
+        # Get a copy of the full array, distributed over frequencies
+        data_wGG = self.blockdist.distribute_as(self.data_wGG,
+                                                self.nw, 'wGG')
 
         if pw_map is not None:
             G2_G1 = pw_map.G2_G1
             # Construct array subset with lower ecut
-            chi0_wGG = chi0_wGG.take(G2_G1, axis=1).take(G2_G1, axis=2)
+            data_wGG = data_wGG.take(G2_G1, axis=1).take(G2_G1, axis=2)
 
-        if chi0_wGG is self.data_wGG:
-            chi0_wGG = self.data_wGG.copy()
+        if data_wGG is self.data_wGG:
+            # If we were already frequency distributed and no real
+            # reduction is happening, we may point to the original array,
+            # but we want strictly to return a copy
+            data_wGG = self.data_wGG.copy()
 
-        return pdr, chi0_wGG
+        return data_wGG
 
     def get_pw_reduction_map(self, ecut):
         """Get PWMapping to reduce plane-wave description."""
@@ -212,6 +219,14 @@ class HeadAndWingsData:
     def wvv_shape(self):
         return (self.nw, 3, 3)
 
+    def _copy_and_map_arrays(self, pw_map):
+        data_wxvG = self.data_wxvG.copy()
+        if pw_map is not None:
+            data_wxvG = data_wxvG.take(pw_map.G2_G1, axis=3)
+        data_wvv = self.data_wvv.copy()
+
+        return data_wxvG, data_wvv
+
 
 class AugmentedBodyData(BodyData):
     """Data object containing the body data along with the head and
@@ -236,6 +251,21 @@ class AugmentedBodyData(BodyData):
     def wvv_shape(self):
         if self.optical_limit:
             return self.head_and_wings.wvv_shape
+
+    def get_reduced_ecut_arrays(self, ecut):
+        """Provide a copy of the data array(s) within a reduced ecut.
+        """
+        pdr, pw_map = self.get_pw_reduction_map(ecut)
+        data_wGG = self._copy_and_map_array(pw_map)
+
+        if self.optical_limit:
+            data_wxvG, data_wvv = self.head_and_wings._copy_and_map_arrays(
+                pw_map)
+        else:
+            data_wxvG = None
+            data_wvv = None
+
+        return pdr, data_wGG, data_wxvG, data_wvv
 
 
 class Chi0Data(AugmentedBodyData):
