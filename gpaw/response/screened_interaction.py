@@ -217,28 +217,28 @@ class WCalculator:
         else:  # GW mode, return additional quantities for reduced ecut
             return pdi, W_wGG, blocks1d, G2G
 
-    def basic_dyson_setups(self, pdi, iq, fxc_mode, G2G):
-        nG = pdi.ngmax
-        wblocks1d = Blocks1D(self.blockcomm, len(self.wd))
-        delta_GG = np.eye(nG)
-        
+    def basic_dyson_arrays(self, pd, fxc_mode):
+        delta_GG = np.eye(pd.ngmax)
+
         if fxc_mode == 'GW':
             fv = delta_GG
         else:
-            fv = self.xckernel.calculate(nG, iq, G2G)
-        kd = self.gs.kd
-        return nG, wblocks1d, delta_GG, fv, kd
+            fv = self.xckernel.calculate(pd)
+
+        return delta_GG, fv
 
     def dyson_old(self, wstc, iq, q_c, fxc_mode,
                   pdi=None, chi0_wGG=None, chi0_wxvG=None, G2G=None,
                   chi0_wvv=None, only_correlation=False):
-        nG, wblocks1d, delta_GG, fv, kd = self.basic_dyson_setups(pdi, iq,
-                                                                  fxc_mode,
-                                                                  G2G)
+        kd = self.gs.kd
+        wblocks1d = Blocks1D(self.blockcomm, len(self.wd))
+
+        delta_GG, fv = self.basic_dyson_arrays(pdi, fxc_mode)
+
         if self.integrate_gamma != 0:
             reduced = (self.integrate_gamma == 2)
             V0, sqrtV0 = get_integrated_kernel(pdi,
-                                               self.gs.kd.N_c,
+                                               kd.N_c,
                                                truncation=self.truncation,
                                                reduced=reduced,
                                                N=100)
@@ -270,7 +270,7 @@ class WCalculator:
 
         for iw, chi0_GG in enumerate(chi0_wGG):
             if np.allclose(q_c, 0):
-                einv_GG = np.zeros((nG, nG), complex)
+                einv_GG = np.zeros(delta_GG.shape, complex)
                 for iqf in range(len(gamma_int.qf_qv)):
                     gamma_int.set_appendages(chi0_GG, iw, iqf)
 
@@ -321,7 +321,7 @@ class WCalculator:
 
         self.context.timer.stop('Dyson eq.')
         return pdi, chi0_wGG
-    
+
     def dyson_and_W_new(self, wstc, iq, q_c, chi0, ecut):
         assert not self.ppa
         # assert not self.do_GW_too
