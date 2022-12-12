@@ -5,6 +5,7 @@ from gpaw.xc.rpa import RPACorrelation
 from gpaw.hybrids.energy import non_self_consistent_energy as nsc_energy
 
 
+@pytest.mark.rpa
 @pytest.mark.response
 def test_rpa_rpa_energy_N2(in_tmp_dir, scalapack):
     ecut = 25

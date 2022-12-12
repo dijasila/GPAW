@@ -6,6 +6,7 @@ from gpaw.mpi import world
 from gpaw.xc.fxc import FXCCorrelation
 
 
+@pytest.mark.rpa
 @pytest.mark.response
 def test_ralda_ralda_energy_H2(in_tmp_dir, scalapack):
     if world.size == 1:
