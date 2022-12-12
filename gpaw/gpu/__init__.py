@@ -1,12 +1,17 @@
 import numpy as np
 import scipy.linalg as sla
+from typing import TYPE_CHECKING
 
-try:
-    import cupy
-    import cupyx
-except ImportError:
-    import gpaw.gpu.cpupy as cupy  # type: ignore
-    import gpaw.gpu.cpupyx as cupyx  # type: ignore
+if TYPE_CHECKING:
+    import gpaw.gpu.cpupy as cupy
+    import gpaw.gpu.cpupyx as cupyx
+else:
+    try:
+        import cupy
+        import cupyx
+    except ImportError:
+        import gpaw.gpu.cpupy as cupy
+        import gpaw.gpu.cpupyx as cupyx
 
 __all__ = ['cupy', 'cupyx', 'as_xp']
 
