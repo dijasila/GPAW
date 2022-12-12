@@ -365,7 +365,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
     @timer('Post processing')
     def post_process(self, chiks):
         """Cast a calculated chiks into a fixed output format."""
-        if not chiks.distribution == 'WgG':
+        if chiks.distribution != 'WgG':
             # Always output chiks with distribution 'WgG'
             chiks = chiks.copy_with_distribution('WgG')
 
