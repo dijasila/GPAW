@@ -74,46 +74,52 @@ class RPACalculator:
         self.bzq_qc, self.ibzq_qc, self.weight_q = initialize_q_points(
             gs.kd, qsym)
 
-        # Energies for all q-vetors and cutoff energies:
-        self.energy_qi = []
-
         self.filename = filename
 
         if calculate_q is None:
             calculate_q = self.calculate_q_rpa
         self.calculate_q = calculate_q
 
-    def read(self):
-        lines = open(self.filename).readlines()[1:]
+    def read(self, ecut_i, filename):
+        with open(filename) as fd:
+            lines = fd.readlines()[1:]
+
         n = 0
-        self.energy_qi = []
-        nq = len(lines) // len(self.ecut_i)
+        energy_qi = []
+        nq = len(lines) // len(ecut_i)
         for q_c in self.ibzq_qc[:nq]:
-            self.energy_qi.append([])
-            for ecut in self.ecut_i:
-                q1, q2, q3, ec, energy = [float(x)
-                                          for x in lines[n].split()]
-                self.energy_qi[-1].append(energy / Hartree)
+            energy_qi.append([])
+            for ecut in ecut_i:
+                current_inputs = np.array([*q_c, ecut * Hartree])
+                numbers_from_file = [float(x) for x in lines[n].split()]
+                previous_inputs = numbers_from_file[:-1]
+
+                if not np.allclose(current_inputs, previous_inputs):
+                    # Energies are not reusable since input parameters
+                    # have changed
+                    return []
+
+                energy = numbers_from_file[-1]
+                energy_qi[-1].append(energy / Hartree)
                 n += 1
 
-                if (abs(q_c - (q1, q2, q3)).max() > 1e-4 or
-                    abs(int(ecut * Hartree) - ec) > 0):
-                    self.energy_qi = []
-                    return
+        return energy_qi
 
-        self.context.print(
-            'Read %d q-points from file: %s\n' % (nq, self.filename))
+    def energies_to_string(self, energy_qi, ecut_i):
+        lines = []
+        app = lines.append
+        app('q1 q2 q3 E_cut E_c(q)')
+        for energy_i, q_c in zip(energy_qi, self.ibzq_qc):
+            for energy, ecut in zip(energy_i, ecut_i):
+                tokens = [repr(num) for num in
+                          (*q_c, ecut * Hartree, energy * Hartree)]
+                app(' '.join(tokens))
 
-    def write(self):
+    def write(self, energy_qi, ecut_i):
+        txt = self.energies_to_string(energy_qi, ecut_i)
         if self.context.world.rank == 0 and self.filename:
-            fd = open(self.filename, 'w')
-            print('#%9s %10s %10s %8s %12s' %
-                  ('q1', 'q2', 'q3', 'E_cut', 'E_c(q)'), file=fd)
-            for energy_i, q_c in zip(self.energy_qi, self.ibzq_qc):
-                for energy, ecut in zip(energy_i, self.ecut_i):
-                    print('%10.4f %10.4f %10.4f %8d   %r' %
-                          (tuple(q_c) + (ecut * Hartree, energy * Hartree)),
-                          file=fd)
+            with open(self.filename, 'w') as fd:
+                print(txt, file=fd)
 
     def calculate(self, ecut, nbands=None, spin=False):
         """Calculate RPA correlation energy for one or several cutoffs.
@@ -131,15 +137,15 @@ class RPACalculator:
 
         if isinstance(ecut, (float, int)):
             ecut = ecut * (1 + 0.5 * np.arange(6))**(-2 / 3)
-        self.ecut_i = np.asarray(np.sort(ecut)) / Hartree
-        ecutmax = max(self.ecut_i)
+        ecut_i = np.asarray(np.sort(ecut)) / Hartree
+        ecutmax = max(ecut_i)
 
         if nbands is None:
             p('Response function bands : Equal to number of plane waves')
         else:
             p('Response function bands : %s' % nbands)
         p('Plane wave cutoffs (eV) :', end='')
-        for e in self.ecut_i:
+        for e in ecut_i:
             p(' {0:.3f}'.format(e * Hartree), end='')
         p()
         if self.truncation is not None:
@@ -147,7 +153,10 @@ class RPACalculator:
         self.context.print('')
 
         if self.filename and os.path.isfile(self.filename):
-            self.read()
+            energy_qi = self.read(ecut_i, self.filename)
+            self.context.print(
+                'Read %d q-points from file: %s\n' % (len(energy_qi)))
+
             self.context.world.barrier()
 
         wd = FrequencyDescriptor(1j * self.omega_w)
@@ -173,14 +182,15 @@ class RPACalculator:
         else:
             self.wstc = None
 
-        nq = len(self.energy_qi)
+        energy_qi = []
+        nq = len(energy_qi)
 
         self.context.timer.start('RPA')
 
         for q_c in self.ibzq_qc[nq:]:
             if np.allclose(q_c, 0.0) and self.skip_gamma:
-                self.energy_qi.append(len(self.ecut_i) * [0.0])
-                self.write()
+                energy_qi.append(len(ecut_i) * [0.0])
+                self.write(energy_qi, ecut_i)
                 p('Not calculating E_c(q) at Gamma')
                 p()
                 continue
@@ -194,11 +204,11 @@ class RPACalculator:
 
             # First not completely filled band:
             m1 = chi0calc.nocc1
-            p('# %s  -  %s' % (len(self.energy_qi), ctime().split()[-2]))
+            p('# %s  -  %s' % (len(energy_qi), ctime().split()[-2]))
             p('q = [%1.3f %1.3f %1.3f]' % tuple(q_c))
 
             energy_i = []
-            for ecut in self.ecut_i:
+            for ecut in ecut_i:
                 if ecut == ecutmax:
                     # Nothing to cut away:
                     cut_G = None
@@ -227,22 +237,20 @@ class RPACalculator:
                     #     chi0_swxvG *= a
                     #     chi0_swvv *= a
 
-            self.energy_qi.append(energy_i)
-            self.write()
+            energy_qi.append(energy_i)
+            self.write(energy_qi, ecut_i)
             p()
 
-        e_i = np.dot(self.weight_q, np.array(self.energy_qi))
+        e_i = np.dot(self.weight_q, np.array(energy_qi))
         p('==========================================================')
         p()
         p('Total correlation energy:')
-        for e_cut, e in zip(self.ecut_i, e_i):
+        for e_cut, e in zip(ecut_i, e_i):
             p('%6.0f:   %6.4f eV' % (e_cut * Hartree, e * Hartree))
         p()
 
-        self.energy_qi = []  # important if another calculation is performed
-
         if len(e_i) > 1:
-            self.extrapolate(e_i)
+            self.extrapolate(e_i, ecut_i)
 
         p('Calculation completed at: ', ctime())
         p()
@@ -316,17 +324,17 @@ class RPACalculator:
         self.E_w = E_w
         return energy
 
-    def extrapolate(self, e_i):
+    def extrapolate(self, e_i, ecut_i):
         self.context.print('Extrapolated energies:', flush=False)
         ex_i = []
         for i in range(len(e_i) - 1):
             e1, e2 = e_i[i:i + 2]
-            x1, x2 = self.ecut_i[i:i + 2]**-1.5
+            x1, x2 = ecut_i[i:i + 2]**-1.5
             ex = (e1 * x2 - e2 * x1) / (x2 - x1)
             ex_i.append(ex)
 
             self.context.print('  %4.0f -%4.0f:  %5.3f eV' %
-                               (self.ecut_i[i] * Hartree, self.ecut_i[i + 1]
+                               (ecut_i[i] * Hartree, ecut_i[i + 1]
                                 * Hartree, ex * Hartree), flush=False)
         self.context.print('')
 
