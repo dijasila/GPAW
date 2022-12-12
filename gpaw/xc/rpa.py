@@ -15,6 +15,34 @@ from gpaw.response.frequencies import FrequencyDescriptor
 from gpaw.response.pair import get_gs_and_context, PairDensityCalculator
 
 
+class Truncation:
+    def __init__(self, truncation, gs):
+        self._truncation = truncation
+        self._gs = gs
+
+        if self._truncation == 'wigner-seitz':
+            self._wstc = WignerSeitzTruncatedCoulomb(self._gs.gd.cell_cv,
+                                                     self._gs.kd.N_c)
+        else:
+            self._wstc = None
+
+    def description(self):
+        if self._truncation is None:
+            return 'No Coulomb truncation'
+        elif self._wstc is not None:
+            return '\n'.join(
+                ['Wigner–Seitz truncated Coulomb truncation',
+                 self._wstc.get_description()])
+        else:
+            return f'Using {self._truncation} Coulomb truncation'
+
+    def coulomb_kernel(self, pd, q_v):
+        return get_coulomb_kernel(
+            pd, self._gs.kd.N_c, q_v=q_v,
+            truncation=self._truncation,
+            wstc=self._wstc)**0.5
+
+
 def rpa(filename, ecut=200.0, blocks=1, extrapolate=4):
     """Calculate RPA energy.
 
@@ -65,7 +93,7 @@ class RPACalculator:
 
         self.nblocks = nblocks
 
-        self.truncation = truncation
+        self.truncation = Truncation(truncation, gs)
         self.skip_gamma = skip_gamma
 
         # We should actually have a kpoint descriptor for the qpoints.
@@ -142,8 +170,7 @@ class RPACalculator:
         for e in self.ecut_i:
             p(' {0:.3f}'.format(e * Hartree), end='')
         p()
-        if self.truncation is not None:
-            p('Using %s Coulomb truncation' % self.truncation)
+        p(self.truncation.description())
         self.context.print('')
 
         if self.filename and os.path.isfile(self.filename):
@@ -165,13 +192,6 @@ class RPACalculator:
                                   ecut=ecutmax * Hartree)
 
         self.blockcomm = chi0calc.blockcomm
-
-        if self.truncation == 'wigner-seitz':
-            self.wstc = WignerSeitzTruncatedCoulomb(self.gs.gd.cell_cv,
-                                                    self.gs.kd.N_c)
-            self.context.print(self.wstc.get_description())
-        else:
-            self.wstc = None
 
         nq = len(self.energy_qi)
 
@@ -273,7 +293,7 @@ class RPACalculator:
 
             wblocks = Blocks1D(self.blockcomm, len(self.omega_w))
             gamma_int = GammaIntegrator(
-                truncation=self.truncation,
+                truncation=self.truncation._truncation,
                 kd=kd,
                 pd=chi0.pd,
                 chi0_wvv=chi0.chi0_wvv[wblocks.myslice],
@@ -294,9 +314,8 @@ class RPACalculator:
     def calculate_energy_rpa(self, pd, chi0_wGG, cut_G, q_v=None):
         """Evaluate correlation energy from chi0."""
 
-        sqrV_G = get_coulomb_kernel(pd, self.gs.kd.N_c, q_v=q_v,
-                                    truncation=self.truncation,
-                                    wstc=self.wstc)**0.5
+        sqrV_G = self.truncation.coulomb_kernel(pd, q_v)
+
         if cut_G is not None:
             sqrV_G = sqrV_G[cut_G]
         nG = len(sqrV_G)
