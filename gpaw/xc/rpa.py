@@ -39,8 +39,7 @@ def rpa(filename, ecut=200.0, blocks=1, extrapolate=4):
 class RPACalculator:
     def __init__(self, gs, *, context, xc='RPA', filename=None,
                  skip_gamma=False, qsym=True, nlambda=None,
-                 nfrequencies=16, frequency_max=800.0, frequency_scale=2.0,
-                 frequencies=None, weights=None, truncation=None,
+                 frequencies, weights, truncation=None,
                  nblocks=1, calculate_q=None):
         """Creates the RPACorrelation object
 
@@ -87,15 +86,6 @@ class RPACalculator:
         self.gs = gs
         self.context = context
 
-        if frequencies is None:
-            frequencies, weights = get_gauss_legendre_points(nfrequencies,
-                                                             frequency_max,
-                                                             frequency_scale)
-            user_spec = False
-        else:
-            assert weights is not None
-            user_spec = True
-
         self.omega_w = frequencies / Hartree
         self.weight_w = weights / Hartree
 
@@ -118,8 +108,6 @@ class RPACalculator:
         if calculate_q is None:
             calculate_q = self.calculate_q_rpa
         self.calculate_q = calculate_q
-
-        self.print_initialization(xc, frequency_scale, nlambda, user_spec)
 
     def initialize_q_points(self, qsym):
         kd = self.gs.kd
@@ -382,6 +370,46 @@ class RPACalculator:
 
         return e_i * Hartree
 
+
+def get_gauss_legendre_points(nw=16, frequency_max=800.0, frequency_scale=2.0):
+    y_w, weights_w = p_roots(nw)
+    y_w = y_w.real
+    ys = 0.5 - 0.5 * y_w
+    ys = ys[::-1]
+    w = (-np.log(1 - ys))**frequency_scale
+    w *= frequency_max / w[-1]
+    alpha = (-np.log(1 - ys[-1]))**frequency_scale / frequency_max
+    transform = (-np.log(1 - ys))**(frequency_scale - 1) \
+        / (1 - ys) * frequency_scale / alpha
+    return w, weights_w * transform / 2
+
+
+class RPACorrelation(RPACalculator):
+    def __init__(self, calc, xc='RPA', filename=None,
+                 skip_gamma=False, qsym=True, nlambda=None,
+                 nfrequencies=16, frequency_max=800.0, frequency_scale=2.0,
+                 frequencies=None, weights=None, truncation=None,
+                 world=mpi.world, nblocks=1, txt='-', calculate_q=None):
+        gs, context = get_gs_and_context(calc=calc, txt=txt, world=world,
+                                         timer=None)
+
+        if frequencies is None:
+            frequencies, weights = get_gauss_legendre_points(nfrequencies,
+                                                             frequency_max,
+                                                             frequency_scale)
+            user_spec = False
+        else:
+            assert weights is not None
+            user_spec = True
+
+        super().__init__(gs=gs, context=context, filename=filename, xc=xc,
+                         skip_gamma=skip_gamma, qsym=qsym, nlambda=nlambda,
+                         frequencies=frequencies, weights=weights,
+                         truncation=truncation, nblocks=nblocks,
+                         calculate_q=calculate_q)
+
+        self.print_initialization(xc, frequency_scale, nlambda, user_spec)
+
     def print_initialization(self, xc, frequency_scale, nlambda, user_spec):
         p = functools.partial(self.context.print, flush=False)
         p('----------------------------------------------------------')
@@ -430,35 +458,6 @@ class RPACalculator:
         p('    K-point/band decomposition    : % s' %
           (self.context.world.size // self.nblocks))
         self.context.print('')
-
-
-def get_gauss_legendre_points(nw=16, frequency_max=800.0, frequency_scale=2.0):
-    y_w, weights_w = p_roots(nw)
-    y_w = y_w.real
-    ys = 0.5 - 0.5 * y_w
-    ys = ys[::-1]
-    w = (-np.log(1 - ys))**frequency_scale
-    w *= frequency_max / w[-1]
-    alpha = (-np.log(1 - ys[-1]))**frequency_scale / frequency_max
-    transform = (-np.log(1 - ys))**(frequency_scale - 1) \
-        / (1 - ys) * frequency_scale / alpha
-    return w, weights_w * transform / 2
-
-
-class RPACorrelation(RPACalculator):
-    def __init__(self, calc, xc='RPA', filename=None,
-                 skip_gamma=False, qsym=True, nlambda=None,
-                 nfrequencies=16, frequency_max=800.0, frequency_scale=2.0,
-                 frequencies=None, weights=None, truncation=None,
-                 world=mpi.world, nblocks=1, txt='-', calculate_q=None):
-        gs, context = get_gs_and_context(calc=calc, txt=txt, world=world, timer=None)
-        super().__init__(gs=gs, context=context, filename=filename, xc=xc,
-                         skip_gamma=skip_gamma, qsym=qsym, nlambda=nlambda,
-                         nfrequencies=nfrequencies,
-                         frequency_max=frequency_max,
-                         frequency_scale=frequency_scale,
-                         frequencies=frequencies, weights=weights,
-                         truncation=truncation, nblocks=nblocks, calculate_q=calculate_q)
 
 
 class CLICommand:
