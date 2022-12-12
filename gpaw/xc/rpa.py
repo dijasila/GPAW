@@ -302,19 +302,19 @@ class RPACalculator:
     def calculate_energy_rpa(self, pd, chi0_wGG, cut_G, q_v=None):
         """Evaluate correlation energy from chi0."""
 
-        sqrV_G = get_coulomb_kernel(pd, self.gs.kd.N_c, q_v=q_v,
-                                    truncation=self.truncation,
-                                    wstc=self.wstc)**0.5
+        sqrtV_G = get_coulomb_kernel(pd, self.gs.kd.N_c, q_v=q_v,
+                                     truncation=self.truncation,
+                                     wstc=self.wstc)**0.5
         if cut_G is not None:
-            sqrV_G = sqrV_G[cut_G]
-        nG = len(sqrV_G)
+            sqrtV_G = sqrtV_G[cut_G]
+        nG = len(sqrtV_G)
 
         e_w = []
         for chi0_GG in chi0_wGG:
             if cut_G is not None:
                 chi0_GG = chi0_GG.take(cut_G, 0).take(cut_G, 1)
 
-            e_GG = np.eye(nG) - chi0_GG * sqrV_G * sqrV_G[:, np.newaxis]
+            e_GG = np.eye(nG) - chi0_GG * sqrtV_G * sqrtV_G[:, np.newaxis]
             e = np.log(np.linalg.det(e_GG)) + nG - np.trace(e_GG)
             e_w.append(e.real)
 
