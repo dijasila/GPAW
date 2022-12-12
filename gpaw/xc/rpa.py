@@ -90,25 +90,30 @@ class RPACalculator:
         for q_c in self.ibzq_qc[:nq]:
             energy_qi.append([])
             for ecut in ecut_i:
-                q1, q2, q3, ec, energy = [float(x)
-                                          for x in lines[n].split()]
+                current_inputs = np.array([*q_c, ecut * Hartree])
+                numbers_from_file = [float(x) for x in lines[n].split()]
+                previous_inputs = numbers_from_file[:-1]
+
+                if abs(current_inputs - previous_inputs).max() > 1e-13:
+                    # Energies are not reusable since input parameters
+                    # have changed
+                    return []
+
+                energy = numbers_from_file[-1]
                 energy_qi[-1].append(energy / Hartree)
                 n += 1
-
-                if (abs(q_c - (q1, q2, q3)).max() > 1e-4 or
-                    abs(int(ecut * Hartree) - ec) > 0):
-                    return []
 
         return energy_qi
 
     def energies_to_string(self, energy_qi, ecut_i):
         lines = []
         app = lines.append
-        app('#%9s %10s %10s %8s %12s' % ('q1', 'q2', 'q3', 'E_cut', 'E_c(q)'))
+        app('q1 q2 q3 E_cut E_c(q)')
         for energy_i, q_c in zip(energy_qi, self.ibzq_qc):
             for energy, ecut in zip(energy_i, ecut_i):
-                app('%10.4f %10.4f %10.4f %8d   %r' %
-                    (tuple(q_c) + (ecut * Hartree, energy * Hartree)))
+                tokens = [repr(num) for num in
+                          (*q_c, ecut * Hartree, energy * Hartree)]
+                app(' '.join(tokens))
 
     def write(self, energy_qi, ecut_i):
         txt = self.energies_to_string(energy_qi, ecut_i)
