@@ -36,6 +36,20 @@ def rpa(filename, ecut=200.0, blocks=1, extrapolate=4):
     rpa.calculate(ecut=ecut * (1 + 0.5 * np.arange(extrapolate))**(-2 / 3))
 
 
+def initialize_q_points(kd, qsym):
+    bzq_qc = kd.get_bz_q_points(first=True)
+
+    if not qsym:
+        ibzq_qc = bzq_qc
+        weight_q = np.ones(len(bzq_qc)) / len(bzq_qc)
+    else:
+        U_scc = kd.symmetry.op_scc
+        ibzq_qc = kd.get_ibz_q_points(bzq_qc, U_scc)[0]
+        weight_q = kd.q_weights
+    return bzq_qc, ibzq_qc, weight_q
+
+
+
 class RPACalculator:
     def __init__(self, gs, *, context, filename=None,
                  skip_gamma=False, qsym=True,
@@ -96,9 +110,11 @@ class RPACalculator:
 
         self.truncation = truncation
         self.skip_gamma = skip_gamma
-        self.ibzq_qc = None
-        self.weight_q = None
-        self.initialize_q_points(qsym)
+
+        # We should actually have a kpoint descriptor for the qpoints.
+        # We are badly failing at making use of the existing tools by reducing
+        # the qpoints to dumb arrays.
+        self.bzq_qc, self.ibzq_qc, self.weight_q = initialize_q_points(gs.kd, qsym)
 
         # Energies for all q-vetors and cutoff energies:
         self.energy_qi = []
@@ -108,18 +124,6 @@ class RPACalculator:
         if calculate_q is None:
             calculate_q = self.calculate_q_rpa
         self.calculate_q = calculate_q
-
-    def initialize_q_points(self, qsym):
-        kd = self.gs.kd
-        self.bzq_qc = kd.get_bz_q_points(first=True)
-
-        if not qsym:
-            self.ibzq_qc = self.bzq_qc
-            self.weight_q = np.ones(len(self.bzq_qc)) / len(self.bzq_qc)
-        else:
-            U_scc = kd.symmetry.op_scc
-            self.ibzq_qc = kd.get_ibz_q_points(self.bzq_qc, U_scc)[0]
-            self.weight_q = kd.q_weights
 
     def read(self):
         lines = open(self.filename).readlines()[1:]
