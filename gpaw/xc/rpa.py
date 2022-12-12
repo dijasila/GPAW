@@ -467,24 +467,3 @@ class RPACorrelation(RPACalculator):
         p('    K-point/band decomposition    : % s' %
           (self.context.world.size // self.nblocks))
         self.context.print('')
-
-
-class CLICommand:
-    """Run RPA-correlation calculation."""
-
-    @staticmethod
-    def add_arguments(parser):
-        add = parser.add_argument
-        add('gpw', metavar='gpw-file')
-        add('-e', '--cut-off', type=float, default=100, metavar='ECUT',
-            help='Plane-wave cut off energy (eV) for polarization function.')
-        add('-b', '--blocks', type=int, default=1, metavar='N',
-            help='Split polarization matrix in N blocks.')
-
-    @staticmethod
-    def run(args):
-        assert args.gpw.endswith('.gpw')
-        rpa = RPACorrelation(args.gpw,
-                             txt=args.gpw[:-3] + 'rpa.txt',
-                             nblocks=args.blocks)
-        rpa.calculate([args.cut_off])
