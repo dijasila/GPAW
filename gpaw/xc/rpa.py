@@ -9,38 +9,9 @@ from scipy.special import p_roots
 import gpaw.mpi as mpi
 from gpaw.response import timer
 from gpaw.response.chi0 import Chi0Calculator
-from gpaw.response.coulomb_kernels import get_coulomb_kernel
-from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
+from gpaw.response.coulomb_kernels import CoulombKernel
 from gpaw.response.frequencies import FrequencyDescriptor
 from gpaw.response.pair import get_gs_and_context, PairDensityCalculator
-
-
-class Truncation:
-    def __init__(self, truncation, gs):
-        self._truncation = truncation
-        self._gs = gs
-
-        if self._truncation == 'wigner-seitz':
-            self._wstc = WignerSeitzTruncatedCoulomb(self._gs.gd.cell_cv,
-                                                     self._gs.kd.N_c)
-        else:
-            self._wstc = None
-
-    def description(self):
-        if self._truncation is None:
-            return 'No Coulomb truncation'
-        elif self._wstc is not None:
-            return '\n'.join(
-                ['Wigner–Seitz truncated Coulomb truncation',
-                 self._wstc.get_description()])
-        else:
-            return f'Using {self._truncation} Coulomb truncation'
-
-    def coulomb_kernel(self, pd, q_v):
-        return get_coulomb_kernel(
-            pd, self._gs.kd.N_c, q_v=q_v,
-            truncation=self._truncation,
-            wstc=self._wstc)**0.5
 
 
 def rpa(filename, ecut=200.0, blocks=1, extrapolate=4):
@@ -93,7 +64,7 @@ class RPACalculator:
 
         self.nblocks = nblocks
 
-        self.truncation = Truncation(truncation, gs)
+        self.truncation = CoulombKernel(truncation, gs)
         self.skip_gamma = skip_gamma
 
         # We should actually have a kpoint descriptor for the qpoints.
