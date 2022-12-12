@@ -37,11 +37,11 @@ def rpa(filename, ecut=200.0, blocks=1, extrapolate=4):
 
 
 class RPACalculator:
-    def __init__(self, calc, xc='RPA', filename=None,
+    def __init__(self, gs, *, context, xc='RPA', filename=None,
                  skip_gamma=False, qsym=True, nlambda=None,
                  nfrequencies=16, frequency_max=800.0, frequency_scale=2.0,
                  frequencies=None, weights=None, truncation=None,
-                 world=mpi.world, nblocks=1, txt='-', calculate_q=None):
+                 nblocks=1, calculate_q=None):
         """Creates the RPACorrelation object
 
         calc: str or calculator object
@@ -83,8 +83,6 @@ class RPACalculator:
             txt file for saving and loading contributions to the correlation
             energy from different q-points
         """
-        gs, context = get_gs_and_context(calc=calc, txt=txt, world=world,
-                                         timer=None)
 
         self.gs = gs
         self.context = context
@@ -448,8 +446,19 @@ def get_gauss_legendre_points(nw=16, frequency_max=800.0, frequency_scale=2.0):
 
 
 class RPACorrelation(RPACalculator):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, calc, xc='RPA', filename=None,
+                 skip_gamma=False, qsym=True, nlambda=None,
+                 nfrequencies=16, frequency_max=800.0, frequency_scale=2.0,
+                 frequencies=None, weights=None, truncation=None,
+                 world=mpi.world, nblocks=1, txt='-', calculate_q=None):
+        gs, context = get_gs_and_context(calc=calc, txt=txt, world=world, timer=None)
+        super().__init__(gs=gs, context=context, filename=filename, xc=xc,
+                         skip_gamma=skip_gamma, qsym=qsym, nlambda=nlambda,
+                         nfrequencies=nfrequencies,
+                         frequency_max=frequency_max,
+                         frequency_scale=frequency_scale,
+                         frequencies=frequencies, weights=weights,
+                         truncation=truncation, nblocks=nblocks, calculate_q=calculate_q)
 
 
 class CLICommand:
