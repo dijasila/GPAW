@@ -425,7 +425,7 @@ def get_ecut_to_encompass_centered_sphere(q_v, ecut):
     |G|^2 < 2 * ecut
     """
     q = np.linalg.norm(q_v)
-    ecut = ecut + q * (np.sqrt(2 * ecut) + q / 2)
+    ecut += q * (np.sqrt(2 * ecut) + q / 2)
 
     return ecut
 
