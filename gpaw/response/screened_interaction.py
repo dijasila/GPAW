@@ -290,11 +290,9 @@ class WCalculator:
 
         self.context.timer.start('Dyson eq.')
 
-        def get_sqrtV_G(N_c, q_v=None):
-            kernel = CoulombKernel(
-                truncation=self.truncation,
-                gs=self.gs)
-            return kernel.sqrtV(pd=pdi, q_v=q_v)
+        coulomb = CoulombKernel(
+            truncation=self.truncation,
+            gs=self.gs)
 
         for iw, chi0_GG in enumerate(chi0_wGG):
             if np.allclose(q_c, 0):
@@ -302,13 +300,13 @@ class WCalculator:
                 for iqf in range(len(gamma_int.qf_qv)):
                     gamma_int.set_appendages(chi0_GG, iw, iqf)
 
-                    sqrtV_G = get_sqrtV_G(kd.N_c, q_v=gamma_int.qf_qv[iqf])
+                    sqrtV_G = coulomb.sqrtV(pd=pdi, q_v=gamma_int.qf_qv[iqf])
 
                     dfc = DielectricFunctionCalculator(
                         sqrtV_G, chi0_GG, mode=fxc_mode, fv_GG=fv)
                     einv_GG += dfc.get_einv_GG() * gamma_int.weight_q[iqf]
             else:
-                sqrtV_G = get_sqrtV_G(kd.N_c)
+                sqrtV_G = coulomb.sqrtV(pd=pdi, q_v=None)
                 dfc = DielectricFunctionCalculator(
                     sqrtV_G, chi0_GG, mode=fxc_mode, fv_GG=fv)
                 einv_GG = dfc.get_einv_GG()
@@ -350,7 +348,7 @@ class WCalculator:
         self.context.timer.stop('Dyson eq.')
         return pdi, chi0_wGG
     
-    def dyson_and_W_new(self, wstc, iq, q_c, chi0, ecut):
+    def dyson_and_W_new(self, wstc, iq, q_c, chi0, ecut, coulomb):
         assert not self.ppa
         # assert not self.do_GW_too
         assert ecut == chi0.pd.ecut
@@ -374,10 +372,8 @@ class WCalculator:
 
         dielectric_WgG = chi0.chi0_wGG  # XXX
         for iw, chi0_GG in enumerate(chi0.chi0_wGG):
-            sqrtV_G = get_coulomb_kernel(chi0.pd,  # XXX was: pdi
-                                         self.gs.kd.N_c,
-                                         truncation=self.truncation,
-                                         wstc=wstc)**0.5
+            sqrtV_G = coulomb.sqrtV(chi0.pd, # XXX was: pdi
+                                    q_v=None)
             e_GG = np.eye(nG) - chi0_GG * sqrtV_G * sqrtV_G[:, np.newaxis]
             e_gG = e_GG[my_gslice]
 
