@@ -55,48 +55,6 @@ class RPACalculator:
                  skip_gamma=False, qsym=True,
                  frequencies, weights, truncation=None,
                  nblocks=1, calculate_q=None):
-        """Creates the RPACorrelation object
-
-        calc: str or calculator object
-            The string should refer to the .gpw file contaning KS orbitals
-        xc: str
-            Exchange-correlation kernel. This is only different from RPA when
-            this object is constructed from a different module - e.g. fxc.py
-        filename: str
-            txt output
-        skip_gamme: bool
-            If True, skip q = [0,0,0] from the calculation
-        qsym: bool
-            Use symmetry to reduce q-points
-        nlambda: int
-            Number of lambda points. Only used for numerical coupling
-            constant integration involved when called from fxc.py
-        nfrequencies: int
-            Number of frequency points used in the Gauss-Legendre integration
-        frequency_max: float
-            Largest frequency point in Gauss-Legendre integration
-        frequency_scale: float
-            Determines density of frequency points at low frequencies. A slight
-            increase to e.g. 2.5 or 3.0 improves convergence wth respect to
-            frequency points for metals
-        frequencies: list
-            List of frequancies for user-specified frequency integration
-        weights: list
-            list of weights (integration measure) for a user specified
-            frequency grid. Must be specified and have the same length as
-            frequencies if frequencies is not None
-        truncation: str or None
-            Coulomb truncation scheme. Can be None, 'wigner-seitz', or '2D'
-        world: communicator
-        nblocks: int
-            Number of parallelization blocks. Frequency parallelization
-            can be specified by setting nblocks=nfrequencies and is useful
-            for memory consuming calculations
-        txt: str
-            txt file for saving and loading contributions to the correlation
-            energy from different q-points
-        """
-
         self.gs = gs
         self.context = context
 
@@ -394,6 +352,47 @@ class RPACorrelation(RPACalculator):
                  nfrequencies=16, frequency_max=800.0, frequency_scale=2.0,
                  frequencies=None, weights=None, truncation=None,
                  world=mpi.world, nblocks=1, txt='-', calculate_q=None):
+        """Creates the RPACorrelation object
+
+        calc: str or calculator object
+            The string should refer to the .gpw file contaning KS orbitals
+        xc: str
+            Exchange-correlation kernel. This is only different from RPA when
+            this object is constructed from a different module - e.g. fxc.py
+        filename: str
+            txt output
+        skip_gamme: bool
+            If True, skip q = [0,0,0] from the calculation
+        qsym: bool
+            Use symmetry to reduce q-points
+        nlambda: int
+            Number of lambda points. Only used for numerical coupling
+            constant integration involved when called from fxc.py
+        nfrequencies: int
+            Number of frequency points used in the Gauss-Legendre integration
+        frequency_max: float
+            Largest frequency point in Gauss-Legendre integration
+        frequency_scale: float
+            Determines density of frequency points at low frequencies. A slight
+            increase to e.g. 2.5 or 3.0 improves convergence wth respect to
+            frequency points for metals
+        frequencies: list
+            List of frequancies for user-specified frequency integration
+        weights: list
+            list of weights (integration measure) for a user specified
+            frequency grid. Must be specified and have the same length as
+            frequencies if frequencies is not None
+        truncation: str or None
+            Coulomb truncation scheme. Can be None, 'wigner-seitz', or '2D'
+        world: communicator
+        nblocks: int
+            Number of parallelization blocks. Frequency parallelization
+            can be specified by setting nblocks=nfrequencies and is useful
+            for memory consuming calculations
+        txt: str
+            txt file for saving and loading contributions to the correlation
+            energy from different q-points
+        """
         gs, context = get_gs_and_context(calc=calc, txt=txt, world=world,
                                          timer=None)
 
