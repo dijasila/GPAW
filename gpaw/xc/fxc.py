@@ -586,10 +586,20 @@ class KernelWave:
                 calc_spincorr = False
 
             if self.omega_w is None:
-                fv_nospin = np.zeros((len(self.l_l), nG, nG), dtype=complex)
+                # Confusing, but None has a special meaning when passed to
+                # wherever it is that we pass it.
+                omega_w = [None]
             else:
-                fv_nospin = np.zeros(
-                    (len(self.l_l), len(self.omega_w), nG, nG), dtype=complex)
+                omega_w = list(self.omega_w)
+
+            nw = len(omega_w)
+
+            fv_nospin_lwGG = np.zeros((len(self.l_l), nw, nG, nG), dtype=complex)
+
+            if self.omega_w is None:
+                fv_nospin = fv_nospin_lwGG[:, 0, :, :]
+            else:
+                fv_nospin = fv_nospin_lwGG
 
             for il, l in enumerate(self.l_l):  # loop over coupling constant
 
