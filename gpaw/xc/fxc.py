@@ -54,7 +54,6 @@ class FXCCorrelation:
             unit_cells = self.gs.kd.N_c
         self.unit_cells = unit_cells
         self.range_rc = range_rc  # Range separation parameter in Bohr
-        self.av_scheme = av_scheme  # Either 'density' or 'wavevector'
 
 
         if Eg is not None:
@@ -63,8 +62,7 @@ class FXCCorrelation:
 
         self.xcflags = XCFlags(self.xc)
         assert self.xcflags.bandgap_dependent == (self.Eg is not None)
-
-        set_flags(self)
+        self.av_scheme = self.xcflags.choose_avg_scheme(av_scheme)
 
         if tag is None:
 
@@ -1610,23 +1608,22 @@ class XCFlags:
     def bandgap_dependent(self):
         return self.xc in {'JGMs', 'JGMsx'}
 
+    def choose_avg_scheme(self, avg_scheme=None):
+        xc = self.xc
 
-def set_flags(self):
-    """ Based on chosen fxc and av. scheme set up true-false flags """
+        if (xc == 'rALDA' or xc == 'rAPBE' or xc == 'ALDA'):
+            if avg_scheme is None:
+                avg_scheme = 'density'
+                # Two-point scheme default for rALDA and rAPBE
 
-    flags = XCFlags(self.xc)
+        if avg_scheme == 'density':
+            assert (xc == 'rALDA' or xc == 'rAPBE'
+                    or xc == 'ALDA'), ('Two-point density average '
+                                       'only implemented for rALDA and rAPBE')
 
-    if (self.xc == 'rALDA' or self.xc == 'rAPBE' or self.xc == 'ALDA'):
-        if self.av_scheme is None:
-            self.av_scheme = 'density'
-            # Two-point scheme default for rALDA and rAPBE
+        elif xc not in ('RPA', 'range_RPA'):
+            avg_scheme = 'wavevector'
+        else:
+            avg_scheme = None
 
-    if self.av_scheme == 'density':
-        assert (self.xc == 'rALDA' or self.xc == 'rAPBE'
-                or self.xc == 'ALDA'), ('Two-point density average ' +
-                                        'only implemented for rALDA and rAPBE')
-
-    elif self.xc not in ('RPA', 'range_RPA'):
-        self.av_scheme = 'wavevector'
-    else:
-        self.av_scheme = None
+        return avg_scheme
