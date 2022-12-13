@@ -1066,14 +1066,13 @@ class G0W0(G0W0Calculator):
                               Eg=Eg,
                               context=context)
 
-        coulomb = CoulombKernel(truncation, gs)
-
         wcalc = WCalculator(wd=chi0calc.wd,
                             pair=chi0calc.pair,
                             gs=chi0calc.gs,
                             ppa=ppa, xckernel=xckernel,
                             context=w_context, E0=E0,
-                            fxc_mode=fxc_mode, coulomb=coulomb,
+                            fxc_mode=fxc_mode,
+                            coulomb=CoulombKernel(truncation, gs),
                             integrate_gamma=integrate_gamma,
                             q0_correction=q0_correction)
 
