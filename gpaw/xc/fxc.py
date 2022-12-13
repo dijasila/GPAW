@@ -129,9 +129,9 @@ class FXCCorrelation:
                                         omega_w=self.omega_w,
                                         Eg=self.Eg)
 
-                    if self.linear_kernel:
+                    if self.xcflags.linear_kernel:
                         kernelkwargs.update(l_l=None, omega_w=None)
-                    elif not self.dyn_kernel:
+                    elif not self.xcflags.dyn_kernel:
                         kernelkwargs.update(omega_w=None)
 
                     kernel = KernelWave(**kernelkwargs)
@@ -336,7 +336,7 @@ class FXCCorrelation:
 
                 fv = np.exp(-0.25 * (G_G * self.range_rc)**2.0)
 
-            elif self.linear_kernel:
+            elif self.xcflags.linear_kernel:
                 with ulm.open('fhxc_%s_%s_%s_%s.ulm' %
                               (self.tag, self.xc, self.ecut_max, qi)) as r:
                     fv = r.fhxc_sGsG
@@ -344,7 +344,7 @@ class FXCCorrelation:
                 if cut_G is not None:
                     fv = fv.take(cut_G, 0).take(cut_G, 1)
 
-            elif not self.dyn_kernel:
+            elif not self.xcflags.dyn_kernel:
                 # static kernel which does not scale with lambda
 
                 with ulm.open('fhxc_%s_%s_%s_%s.ulm' %
@@ -381,12 +381,12 @@ class FXCCorrelation:
 
                 e = 0.0
 
-                if not self.linear_kernel:
+                if not self.xcflags.linear_kernel:
 
                     il = 0
                     for l, weight in zip(self.l_l, self.weight_l):
 
-                        if not self.dyn_kernel:
+                        if not self.xcflags.dyn_kernel:
                             chiv = np.linalg.solve(
                                 np.eye(nG) - np.dot(chi0v, fv[il]), chi0v).real
                         else:
@@ -1632,6 +1632,3 @@ def set_flags(self):
         self.av_scheme = 'wavevector'
     else:
         self.av_scheme = None
-
-    self.linear_kernel = flags.linear_kernel
-    self.dyn_kernel = flags.dyn_kernel
