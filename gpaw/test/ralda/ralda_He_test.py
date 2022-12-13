@@ -15,6 +15,7 @@ def test_ralda_ralda_energy_He(in_tmp_dir, scalapack):
     calc = GPAW(mode=dict(name='pw', ecut=200),
                 kpts=dict(size=(2, 2, 2), gamma=True),
                 nbands=2,
+                txt='gpaw.txt',
                 occupations=FermiDirac(0.001),
                 # FXCCorrelation needs a serial-comm GPAW object:
                 communicator=serial_comm)
