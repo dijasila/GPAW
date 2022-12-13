@@ -348,7 +348,7 @@ class FXCCorrelation:
                 fv_diag_G = np.exp(-0.25 * (G_G * self.range_rc)**2.0)
                 # Unfortunately here we have a radically different shape,
                 # so we'll struggle to handle the arrays similarly.
-                # All other cases define fv_lwGG (with some dimensions being 1).
+                # All other cases have fv_lwGG (with some dimensions being 1).
 
             elif self.linear_kernel:
                 fv_lwGG = read('fhxc_sGsG')[np.newaxis, np.newaxis, :, :]
@@ -399,8 +399,6 @@ class FXCCorrelation:
                     # implemented in rpa.py
                     if self.xc == 'range_RPA':
                         # way faster than np.dot for diagonal kernels
-                        # Note: fv_lwGG is actually (1, 1, 1, nG) and represents
-                        # a diagonal!  This should be simplified.
                         chi0v_fv = chi0v * fv_diag_G
                         e_GG = np.eye(nG) - chi0v_fv
                     elif self.xc != 'RPA':
@@ -415,7 +413,8 @@ class FXCCorrelation:
                             assert fv_lwGG.shape[:2] == (1, 1)
 
                             chiv = np.linalg.solve(
-                                np.eye(nG) - l * np.dot(chi0v, fv_lwGG[0, 0]), chi0v).real
+                                np.eye(nG) - l * np.dot(
+                                    chi0v, fv_lwGG[0, 0]), chi0v).real
 
                             elong -= np.trace(chiv) * weight
 
