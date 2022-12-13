@@ -14,7 +14,6 @@ from gpaw.mpi import world, serial_comm, broadcast
 from gpaw.response import ResponseContext
 from gpaw.response.df import write_response_function
 from gpaw.response.coulomb_kernels import CoulombKernel
-from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 from gpaw.response.screened_interaction import initialize_w_calculator
 from gpaw.response.paw import PWPAWCorrectionData
 from gpaw.response.frequencies import FrequencyDescriptor
@@ -119,7 +118,6 @@ class BSEBackend:
         self.nS = self.kd.nbzkpts * self.nv * self.nc * self.spins
         self.nS *= (self.spinors + 1)**2
 
-        # Wigner-Seitz stuff
         self.coulomb = CoulombKernel(truncation=truncation, gs=self.gs)
         self.context.print(self.coulomb.description())
 
