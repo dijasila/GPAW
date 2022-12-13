@@ -8,7 +8,7 @@ def test_full_hamiltonian(in_tmp_dir):
     si.calc = GPAW(mode=PW(250),
                    xc='TPSS',
                    kpts={'size': (3, 3, 3), 'gamma': True},
-                   parallel={'domain': min(2, world.size)},
+                   parallel={'domain': 1},
                    convergence={'energy': 1e-8},
                    txt='si.txt')
     si.get_potential_energy()
