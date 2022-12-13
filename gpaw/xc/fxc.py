@@ -463,6 +463,7 @@ class KernelWave:
         self.gs = gs
         self.gd = gs.density.gd
         self.xc = xc
+        self.xcflags = XCFlags(xc)
         self.ibzq_qc = ibzq_qc
         self.l_l = l_l
         self.ns = self.gs.nspins
@@ -506,7 +507,7 @@ class KernelWave:
                                % (self.Eg * Ha))
 
         # Enhancement factor for GGA
-        if self.xc == 'rAPBE' or self.xc == 'rAPBEns':
+        if self.xcflags.is_apbe:
             nf_g = self.gs.hacky_all_electron_density(gridrefinement=4)
             gdf = self.gd.refine().refine()
             grad_v = [Gradient(gdf, v, n=1).apply for v in range(3)]
@@ -622,7 +623,7 @@ class KernelWave:
                             rho_min = min_Gpq**3.0 / (24.0 * np.pi**2.0)
                             small_ind = np.where(self.n_g >= rho_min)
 
-                        elif (self.xc == 'rAPBE' or self.xc == 'rAPBEns'):
+                        elif self.xcflags.is_apbe:
 
                             # rAPBE trick: the Hartree-XC kernel
                             # is exactly zero at grid points where
@@ -761,7 +762,7 @@ class KernelWave:
 
         # GGA enhancement factor s is lambda independent,
         # but we might want to truncate it
-        if self.xc == 'rAPBE' or self.xc == 'rAPBEns':
+        if self.xcflags.is_apbe:
             s2_g = self.s2_g[sel_points]
         else:
             s2_g = None
@@ -821,7 +822,7 @@ class KernelWave:
                 (1.0 + np.sign(rxcalda_qcut - q[:, np.newaxis])) *
                 (1.0 + (-1.0) * rxcalda_A * (q[:, np.newaxis] / qF)**2.0))
 
-        elif self.xc == 'rAPBE' or self.xc == 'rAPBEns':
+        elif self.xcflags.is_apbe:
 
             # Olsen and Thygesen, Phys. Rev. Lett. 112, 203001 (2014)
             # Exchange only part of the PBE XC kernel, neglecting the terms
@@ -1611,6 +1612,11 @@ class XCFlags:
     @property
     def is_ranged(self):
         return self.xc in {'range_RPA', 'range_rALDA'}
+
+    @property
+    def is_apbe(self):
+        # If new GGA kernels are added, maybe there should be an is_gga property.
+        return self.xc in {'rAPBE', 'rAPBEns'}
 
     def choose_avg_scheme(self, avg_scheme=None):
         xc = self.xc
