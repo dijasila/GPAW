@@ -1611,15 +1611,14 @@ class XCFlags:
     def choose_avg_scheme(self, avg_scheme=None):
         xc = self.xc
 
-        if (xc == 'rALDA' or xc == 'rAPBE' or xc == 'ALDA'):
+        if self.spin_kernel:
             if avg_scheme is None:
                 avg_scheme = 'density'
                 # Two-point scheme default for rALDA and rAPBE
 
         if avg_scheme == 'density':
-            assert (xc == 'rALDA' or xc == 'rAPBE'
-                    or xc == 'ALDA'), ('Two-point density average '
-                                       'only implemented for rALDA and rAPBE')
+            assert self.spin_kernel, ('Two-point density average '
+                                      'only implemented for rALDA and rAPBE')
 
         elif xc not in ('RPA', 'range_RPA'):
             avg_scheme = 'wavevector'
