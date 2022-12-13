@@ -366,11 +366,15 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 if Gpsit_G is not None:
                     f = kpt.f_n[n1 + comm.rank]
                     a_vR[v] = self.pd.ifft(Gpsit_G, kpt.q, local=True, safe=True)
-            if a_vR[0] is not None:
+            if len(a_vR) == 3:
                 f = kpt.f_n[n1 + comm.rank]
                 for v1 in range(3):
                     for v2 in range(3):
                         taut_vvR[v1,v2] += f * (a_vR[v1].conj() * a_vR[v2]).real # imaginary should cancel
+            elif len(a_vR) == 0:
+                pass
+            else:
+                raise RuntimeError('Parallelization issue')
 
         comm.sum(taut_vvR)
         taut_vvR = self.gd.distribute(taut_vvR)
