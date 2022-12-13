@@ -23,10 +23,10 @@ class CoulombKernel:
             return 'No Coulomb truncation'
         elif self._wstc is not None:
             return '\n'.join(
-                ['Wigner–Seitz truncated Coulomb truncation',
+                ['Wigner–Seitz Coulomb truncation',
                  self._wstc.get_description()])
         else:
-            return f'Using {self.truncation} Coulomb truncation'
+            return f'{self.truncation} Coulomb truncation'
 
     def sqrtV(self, pd, q_v):
         return self.V(pd, q_v)**0.5
