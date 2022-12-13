@@ -19,7 +19,7 @@ def test_response_bse_MoS2_cut(in_tmp_dir, scalapack):
                     parallel={'band': 1, 'domain': 1},
                     occupations=FermiDirac(0.001),
                     convergence={'bands': -5},
-                    kpts=(9, 9, 1))
+                    kpts=(5, 5, 1))
 
         a = 3.1604
         c = 10.0
@@ -68,7 +68,7 @@ def test_response_bse_MoS2_cut(in_tmp_dir, scalapack):
     w1, I1 = findpeak(w_w[1100:1300], alphaimag_w[1100:1300])
     w1 += 1.1
 
-    equal(w0, 1.02, 0.01)
-    equal(I0, 13.1, 0.35)
-    equal(w1, 2.26, 0.01)
-    equal(I1, 12.8, 0.35)
+    equal(w0, 0.58, 0.01)
+    equal(I0, 38.8, 0.35)
+    equal(w1, 2.22, 0.01)
+    equal(I1, 6.3, 0.35)
