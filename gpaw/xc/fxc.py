@@ -939,7 +939,7 @@ class KernelWave:
         heg_A = 0.25
 
         # Correlation contribution
-        A_ec, A_dec, A_d2ec = self.get_pw_lda(rs)
+        A_ec, A_dec, A_d2ec = get_pw_lda(rs)
         heg_A += (1.0 / 27.0 * rs**2.0 * (9.0 * np.pi / 4.0)**(2.0 / 3.0) *
                   (2 * A_dec - rs * A_d2ec))
 
@@ -977,7 +977,7 @@ class KernelWave:
         # Again see Moroni, Ceperley and Senatore,
         # Phys. Rev. Lett. 75, 689 (1995)
 
-        C_ec, C_dec, Cd2ec = self.get_pw_lda(rs)
+        C_ec, C_dec, Cd2ec = get_pw_lda(rs)
 
         heg_C = ((-1.0) * np.pi**(2.0 / 3.0) * (1.0 / 18.0)**(1.0 / 3.0) *
                  (rs * C_ec + rs**2.0 * C_dec))
@@ -990,7 +990,7 @@ class KernelWave:
         # of the frequency dependent fxc is -\frac{4\pi D}{q_F^2}
         # see Constantin & Pitarke Phys. Rev. B 75, 245127 (2007) equation 7
 
-        D_ec, D_dec, D_d2ec = self.get_pw_lda(rs)
+        D_ec, D_dec, D_d2ec = get_pw_lda(rs)
 
         # Exchange contribution
         heg_D = 0.15
@@ -999,50 +999,51 @@ class KernelWave:
                   (22.0 / 15.0 * D_ec + 26.0 / 15.0 * rs * D_dec))
         return heg_D
 
-    def get_pw_lda(self, rs):
-        # Returns LDA correlation energy and its first and second
-        # derivatives with respect to rs according to the parametrisation
-        # of Perdew and Wang, Phys. Rev. B 45, 13244 (1992)
 
-        pw_A = 0.031091
-        pw_alp = 0.21370
-        pw_beta = (7.5957, 3.5876, 1.6382, 0.49294)
+def get_pw_lda(rs):
+    # Returns LDA correlation energy and its first and second
+    # derivatives with respect to rs according to the parametrisation
+    # of Perdew and Wang, Phys. Rev. B 45, 13244 (1992)
 
-        pw_logdenom = 2.0 * pw_A * (
-            pw_beta[0] * rs**0.5 + pw_beta[1] * rs**1.0 +
-            pw_beta[2] * rs**1.5 + pw_beta[3] * rs**2.0)
+    pw_A = 0.031091
+    pw_alp = 0.21370
+    pw_beta = (7.5957, 3.5876, 1.6382, 0.49294)
 
-        pw_dlogdenom = 2.0 * pw_A * (0.5 * pw_beta[0] * rs**(-0.5) +
-                                     1.0 * pw_beta[1] +
-                                     1.5 * pw_beta[2] * rs**0.5 +
-                                     2.0 * pw_beta[3] * rs)
+    pw_logdenom = 2.0 * pw_A * (
+        pw_beta[0] * rs**0.5 + pw_beta[1] * rs**1.0 +
+        pw_beta[2] * rs**1.5 + pw_beta[3] * rs**2.0)
 
-        pw_d2logdenom = 2.0 * pw_A * (-0.25 * pw_beta[0] * rs**(-1.5) +
-                                      0.75 * pw_beta[2] * rs**(-0.5) +
-                                      2.0 * pw_beta[3])
+    pw_dlogdenom = 2.0 * pw_A * (0.5 * pw_beta[0] * rs**(-0.5) +
+                                 1.0 * pw_beta[1] +
+                                 1.5 * pw_beta[2] * rs**0.5 +
+                                 2.0 * pw_beta[3] * rs)
 
-        pw_logarg = 1.0 + 1.0 / pw_logdenom
-        pw_dlogarg = (-1.0) / (pw_logdenom**2.0) * pw_dlogdenom
-        pw_d2logarg = 2.0 / (pw_logdenom**3.0) * (pw_dlogdenom**2.0)
-        pw_d2logarg += (-1.0) / (pw_logdenom**2.0) * pw_d2logdenom
+    pw_d2logdenom = 2.0 * pw_A * (-0.25 * pw_beta[0] * rs**(-1.5) +
+                                  0.75 * pw_beta[2] * rs**(-0.5) +
+                                  2.0 * pw_beta[3])
 
-        # pw_ec = the correlation energy (per electron)
-        pw_ec = -2.0 * pw_A * (1 + pw_alp * rs) * np.log(pw_logarg)
+    pw_logarg = 1.0 + 1.0 / pw_logdenom
+    pw_dlogarg = (-1.0) / (pw_logdenom**2.0) * pw_dlogdenom
+    pw_d2logarg = 2.0 / (pw_logdenom**3.0) * (pw_dlogdenom**2.0)
+    pw_d2logarg += (-1.0) / (pw_logdenom**2.0) * pw_d2logdenom
 
-        # pw_dec = first derivative
+    # pw_ec = the correlation energy (per electron)
+    pw_ec = -2.0 * pw_A * (1 + pw_alp * rs) * np.log(pw_logarg)
 
-        pw_dec = -2.0 * pw_A * (1 + pw_alp * rs) * pw_dlogarg / pw_logarg
-        pw_dec += (-2.0 * pw_A * pw_alp) * np.log(pw_logarg)
+    # pw_dec = first derivative
 
-        # pw_d2ec = second derivative
+    pw_dec = -2.0 * pw_A * (1 + pw_alp * rs) * pw_dlogarg / pw_logarg
+    pw_dec += (-2.0 * pw_A * pw_alp) * np.log(pw_logarg)
 
-        pw_d2ec = (-2.0) * pw_A * pw_alp * pw_dlogarg / pw_logarg
-        pw_d2ec += (-2.0) * pw_A * ((1 + pw_alp * rs) *
-                                    (pw_d2logarg / pw_logarg -
-                                     (pw_dlogarg**2.0) / (pw_logarg**2.0)))
-        pw_d2ec += (-2.0 * pw_A * pw_alp) * pw_dlogarg / pw_logarg
+    # pw_d2ec = second derivative
 
-        return pw_ec, pw_dec, pw_d2ec
+    pw_d2ec = (-2.0) * pw_A * pw_alp * pw_dlogarg / pw_logarg
+    pw_d2ec += (-2.0) * pw_A * ((1 + pw_alp * rs) *
+                                (pw_d2logarg / pw_logarg -
+                                 (pw_dlogarg**2.0) / (pw_logarg**2.0)))
+    pw_d2ec += (-2.0 * pw_A * pw_alp) * pw_dlogarg / pw_logarg
+
+    return pw_ec, pw_dec, pw_d2ec
 
 
 def get_pbe_fxc(pbe_rho, pbe_s2_g):
