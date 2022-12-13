@@ -322,12 +322,12 @@ class FXCCorrelation:
             # Construct/read kernels
 
             if self.xc == 'RPA':
-
                 fv = np.eye(nG)
+                fv_lwGG = fv[np.newaxis, np.newaxis, :, :]
 
             elif self.xc == 'range_RPA':
-
                 fv = np.exp(-0.25 * (G_G * self.range_rc)**2.0)
+                fv_lwGG = fv[np.newaxis, np.newaxis, np.newaxis, :]
 
             elif self.linear_kernel:
                 with ulm.open('fhxc_%s_%s_%s_%s.ulm' %
@@ -336,6 +336,8 @@ class FXCCorrelation:
 
                 if cut_G is not None:
                     fv = fv.take(cut_G, 0).take(cut_G, 1)
+
+                fv_lwGG = fv[np.newaxis, np.newaxis, :, :]
 
             elif not self.dyn_kernel:
                 # static kernel which does not scale with lambda
@@ -347,6 +349,8 @@ class FXCCorrelation:
                 if cut_G is not None:
                     fv = fv.take(cut_G, 1).take(cut_G, 2)
 
+                fv_lwGG = fv[:, np.newaxis, :, :]
+
             else:  # dynamical kernel
                 with ulm.open('fhxc_%s_%s_%s_%s.ulm' %
                               (self.tag, self.xc, self.ecut_max, qi)) as r:
@@ -354,6 +358,8 @@ class FXCCorrelation:
 
                 if cut_G is not None:
                     fv = fv.take(cut_G, 2).take(cut_G, 3)
+
+                fv_lwGG = fv
 
             if pd.kd.gamma:
                 G_G[0] = 1.0
@@ -381,10 +387,10 @@ class FXCCorrelation:
 
                         if not self.dyn_kernel:
                             chiv = np.linalg.solve(
-                                np.eye(nG) - np.dot(chi0v, fv[il]), chi0v).real
+                                np.eye(nG) - np.dot(chi0v, fv_lwGG[il, 0]), chi0v).real
                         else:
                             chiv = np.linalg.solve(
-                                np.eye(nG) - np.dot(chi0v, fv[il][iw]),
+                                np.eye(nG) - np.dot(chi0v, fv_lwGG[il, iw]),
                                 chi0v).real
                         e -= np.trace(chiv) * weight
                         il += 1
@@ -404,7 +410,7 @@ class FXCCorrelation:
                     # implemented in rpa.py
                     if self.xc == 'range_RPA':
                         # way faster than np.dot for diagonal kernels
-                        e_GG = np.eye(nG) - chi0v * fv
+                        e_GG = np.eye(nG) - chi0v * fv_lwGG[0, 0, 0]
                     elif self.xc != 'RPA':
                         e_GG = np.eye(nG) - np.dot(chi0v, fv)
 
