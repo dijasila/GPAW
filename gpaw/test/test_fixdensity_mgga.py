@@ -10,7 +10,8 @@ from gpaw.xc import LibXC
 def test_fixdensity(in_tmp_dir):
     a = 2.5
     slab = Atoms('Li', cell=(a, a, 2 * a), pbc=1)
-    slab.calc = GPAW(xc='MGGA_X_R2SCAN+MGGA_C_R2SCAN',h=0.13,kpts=(3, 3, 1), txt='li-1.txt',
+    slab.calc = GPAW(xc='revTPSS',
+                     h=0.13,kpts=(3, 3, 1), txt='li-1.txt',
                      parallel=dict(kpt=1))
     slab.get_potential_energy()
     slab.calc.write('li.gpw', mode='all')
