@@ -384,20 +384,19 @@ class FXCCorrelation:
                     il = 0
                     for l, weight in zip(self.l_l, self.weight_l):
 
-                        if not self.dyn_kernel:
-                            chiv = np.linalg.solve(
-                                np.eye(nG) - np.dot(chi0v, fv_lwGG[il, 0]), chi0v).real
+                        if self.dyn_kernel:
+                            fv_w_index = iw
                         else:
-                            chiv = np.linalg.solve(
-                                np.eye(nG) - np.dot(chi0v, fv_lwGG[il, iw]),
-                                chi0v).real
+                            fv_w_index = 0
+
+                        chiv = np.linalg.solve(
+                            np.eye(nG) - chi0v @ fv_lwGG[il, fv_w_index],
+                            chi0v).real
                         e -= np.trace(chiv) * weight
                         il += 1
 
                     e += np.trace(chi0v.real)
-
                     e_w.append(e)
-
                     iw += 1
 
                 else:
@@ -409,10 +408,14 @@ class FXCCorrelation:
                     # implemented in rpa.py
                     if self.xc == 'range_RPA':
                         # way faster than np.dot for diagonal kernels
-                        e_GG = np.eye(nG) - chi0v * fv_lwGG[0, 0, 0]
+                        # Note: fv_lwGG is actually (1, 1, 1, nG) and represents
+                        # a diagonal!  This should be simplified.
+                        chi0v_fv = chi0v * fv_lwGG[0, 0, 0]
+                        e_GG = np.eye(nG) - chi0v_fv
                     elif self.xc != 'RPA':
                         assert fv_lwGG.shape[:2] == (1, 1)
-                        e_GG = np.eye(nG) - np.dot(chi0v, fv_lwGG[0, 0])
+                        chi0v_fv = np.dot(chi0v, fv_lwGG[0, 0])
+                        e_GG = np.eye(nG) - chi0v_fv
 
                     if self.xc == 'RPA':
                         # numerical RPA
