@@ -67,10 +67,6 @@ def test_response_bse_MoS2_cut(in_tmp_dir, scalapack):
     w0, I0 = findpeak(w_w[:1100], alphaimag_w[:1100])
     w1, I1 = findpeak(w_w[1100:1300], alphaimag_w[1100:1300])
     w1 += 1.1
-    print(w0)
-    print(I0)
-    print(w1)
-    print(I1)
 
     equal(w0, 0.58, 0.01)
     equal(I0, 38.8, 0.35)
