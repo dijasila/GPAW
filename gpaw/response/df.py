@@ -17,7 +17,6 @@ class DielectricFunctionCalculator:
         from gpaw.response.pw_parallelization import Blocks1D
         self.chi0calc = chi0calc
 
-        self.truncation = truncation
         self.coulomb = CoulombKernel(truncation=truncation, gs=self.gs)
         self.context = chi0calc.context
         self.wd = chi0calc.wd
@@ -412,7 +411,7 @@ class DielectricFunctionCalculator:
         else:
             V = np.abs(np.linalg.det(cell_cv[~pbc_c][:, ~pbc_c]))
 
-        if not self.truncation:
+        if not self.coulomb.truncation:
             """Standard expression for the polarizability"""
             df0_w, df_w = self.get_dielectric_function(xc=xc,
                                                        q_c=q_c,
