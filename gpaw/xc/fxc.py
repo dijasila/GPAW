@@ -680,18 +680,13 @@ class KernelWave:
 
                 mpi.world.sum(fv_nospin[il])
 
-                if self.omega_w is None:
+                for iw in range(len(omega_w)):
                     # We've only got half the matrix here,
                     # so add the hermitian conjugate:
-                    fv_nospin[il] += np.conj(fv_nospin[il].T)
+                    fv_nospin_lwGG[il, iw] += np.conj(fv_nospin_lwGG[il, iw].T)
                     # but now the diagonal's been doubled,
                     # so we multiply these elements by 0.5
-                    fv_nospin[il][np.diag_indices(nG)] *= 0.5
-
-                else:  # same procedure for dynamical kernels
-                    for iw in range(len(self.omega_w)):
-                        fv_nospin[il][iw] += np.conj(fv_nospin[il][iw].T)
-                        fv_nospin[il][iw][np.diag_indices(nG)] *= 0.5
+                    fv_nospin_lwGG[il, iw][np.diag_indices(nG)] *= 0.5
 
                 # End of loop over coupling constant
 
