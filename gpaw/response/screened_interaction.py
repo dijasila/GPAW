@@ -10,7 +10,6 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response import ResponseContext
 from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.response.gamma_int import GammaIntegrator
-from gpaw.response.coulomb_kernels import get_integrated_kernel
 from gpaw.response.temp import DielectricFunctionCalculator
 
 
@@ -221,12 +220,7 @@ class WCalculator:
 
         if self.integrate_gamma != 0:
             reduced = (self.integrate_gamma == 2)
-            V0, sqrtV0 = get_integrated_kernel(
-                pd,
-                kd.N_c,
-                truncation=self.coulomb.truncation,
-                reduced=reduced,
-                N=100)
+            V0, sqrtV0 = self.coulomb.integrated_kernel(pd=pd, reduced=reduced)
         elif self.integrate_gamma == 0 and np.allclose(q_c, 0):
             bzvol = (2 * np.pi)**3 / self.gs.volume / self.qd.nbzkpts
             Rq0 = (3 * bzvol / (4 * np.pi))**(1. / 3.)

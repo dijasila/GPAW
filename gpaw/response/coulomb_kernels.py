@@ -37,6 +37,11 @@ class CoulombKernel:
             truncation=self.truncation,
             wstc=self._wstc)
 
+    def integrated_kernel(self, pd, reduced):
+        return get_integrated_kernel(
+            pd=pd, N_c=self.gs.kd.N_c,
+            truncation=self.truncation, reduced=reduced)
+
 
 def get_coulomb_kernel(pd, N_c, truncation=None, q_v=None, wstc=None):
     """Factory function that calls the specified flavour
