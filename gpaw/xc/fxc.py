@@ -670,12 +670,8 @@ class KernelWave:
 
                         assert iG == 0
 
-                        if self.omega_w is None:
-                            fv_nospin[il, 0, 0] = l
-                            fv_nospin[il, 0, 1:] = 0.0
-                        else:
-                            fv_nospin[il, :, 0, 0] = l
-                            fv_nospin[il, :, 0, 1:] = 0.0
+                        fv_nospin_lwGG[il, :, 0, 0] = l
+                        fv_nospin_lwGG[il, :, 0, 1:] = 0.0
 
                         if calc_spincorr:
                             fv_spincorr[0, :] = 0.0
