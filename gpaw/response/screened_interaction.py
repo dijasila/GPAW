@@ -10,8 +10,6 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response import ResponseContext
 from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.response.gamma_int import GammaIntegrator
-from gpaw.response.coulomb_kernels import (get_coulomb_kernel,
-                                           get_integrated_kernel)
 from gpaw.response.temp import DielectricFunctionCalculator
 
 
@@ -27,8 +25,8 @@ def get_qdescriptor(kd, atoms):
 
 def initialize_w_calculator(chi0calc, txt='w.txt', ppa=False, xc='RPA',
                             world=mpi.world, timer=None,
-                            E0=Ha, Eg=None, fxc_mode='GW',
-                            truncation=None, integrate_gamma=0,
+                            E0=Ha, Eg=None, fxc_mode='GW', *,
+                            coulomb, integrate_gamma=0,
                             q0_correction=False):
     """A function to initialize a WCalculator with more readable inputs
     than the actual calculator.
@@ -70,30 +68,30 @@ def initialize_w_calculator(chi0calc, txt='w.txt', ppa=False, xc='RPA',
     wd = chi0calc.wd
     pair = chi0calc.pair
 
-    wcalc = WCalculator(wd, pair, gs, ppa,
-                        xckernel,
-                        context,
-                        E0,
+    wcalc = WCalculator(wd=wd, pair=pair, gs=gs, ppa=ppa,
+                        xckernel=xckernel,
+                        context=context,
+                        E0=E0,
                         fxc_mode='GW',
-                        truncation=truncation,
+                        coulomb=coulomb,
                         integrate_gamma=integrate_gamma,
                         q0_correction=q0_correction)
     return wcalc
 
 
 class WCalculator:
-    def __init__(self,
+    def __init__(self, *,
                  wd, pair, gs,
                  ppa,
                  xckernel,
                  context,
                  E0,
                  fxc_mode='GW',
-                 truncation=None, integrate_gamma=0,
+                 coulomb, integrate_gamma=0,
                  q0_correction=False):
         """
         W Calculator.
-        
+
         Parameters
         ----------
         wd: FrequencyDescriptor
@@ -124,14 +122,14 @@ class WCalculator:
         self.pair = pair
         self.blockcomm = self.pair.blockcomm
         self.gs = gs
-        self.truncation = truncation
+        self.coulomb = coulomb
         self.context = context
         self.integrate_gamma = integrate_gamma
         self.qd = get_qdescriptor(self.gs.kd, self.gs.atoms)
         self.xckernel = xckernel
 
         if q0_correction:
-            assert self.truncation == '2D'
+            assert self.coulomb.truncation == '2D'
             self.q0_corrector = Q0Correction(
                 cell_cv=self.gs.gd.cell_cv,
                 bzk_kc=self.gs.kd.bzk_kc,
@@ -151,21 +149,19 @@ class WCalculator:
         """Direct W calculation interface (used by BSE)."""
 
         # Set up Wigner-Seitz truncation, if applicable
-        if self.truncation == 'wigner-seitz':
+        if self.coulomb.truncation == 'wigner-seitz':
             raise NotImplementedError(
                 'Wigner-Seitz truncation is not implemented (read: tested) '
                 'for BSE.')
-        else:
-            wstc = None
 
-        pd, W_wGG = self.dyson_and_W_old(wstc,
-                                         fxc_mode=self.fxc_mode,
-                                         chi0=chi0,
-                                         out_dist=out_dist)
+        pd, W_wGG = self.dyson_and_W_old(
+            fxc_mode=self.fxc_mode,
+            chi0=chi0,
+            out_dist=out_dist)
 
         return pd, W_wGG
-    
-    def dyson_and_W_old(self, wstc, *, fxc_mode, chi0,
+
+    def dyson_and_W_old(self, *, fxc_mode, chi0,
                         ecut=None, only_correlation=False,
                         out_dist='WgG'):
         """Reduce plane-wave basis and solve Dyson equation for W.
@@ -186,7 +182,7 @@ class WCalculator:
             chi0_wvv = chi0.chi0_wvv
             pdr = chi0.pd
 
-        W_wGG = self.dyson_old(wstc, fxc_mode,
+        W_wGG = self.dyson_old(fxc_mode,
                                pdr, chi0_wGG, chi0_wxvG, chi0_wvv,
                                only_correlation)
 
@@ -212,7 +208,7 @@ class WCalculator:
 
         return delta_GG, fv
 
-    def dyson_old(self, wstc, fxc_mode,
+    def dyson_old(self, fxc_mode,
                   # This function should take a Chi0Data as input! XXX
                   pd, chi0_wGG, chi0_wxvG, chi0_wvv,
                   only_correlation=False):
@@ -224,11 +220,7 @@ class WCalculator:
 
         if self.integrate_gamma != 0:
             reduced = (self.integrate_gamma == 2)
-            V0, sqrtV0 = get_integrated_kernel(pd,
-                                               kd.N_c,
-                                               truncation=self.truncation,
-                                               reduced=reduced,
-                                               N=100)
+            V0, sqrtV0 = self.coulomb.integrated_kernel(pd=pd, reduced=reduced)
         elif self.integrate_gamma == 0 and np.allclose(q_c, 0):
             bzvol = (2 * np.pi)**3 / self.gs.volume / self.qd.nbzkpts
             Rq0 = (3 * bzvol / (4 * np.pi))**(1. / 3.)
@@ -241,34 +233,27 @@ class WCalculator:
         # Generate fine grid in vicinity of gamma
         # Use optical_limit check on chi0_data in the future XXX
         if np.allclose(q_c, 0) and len(chi0_wGG) > 0:
-            gamma_int = GammaIntegrator(truncation=self.truncation,
-                                        kd=kd, pd=pd,
-                                        chi0_wvv=chi0_wvv[wblocks1d.myslice],
-                                        chi0_wxvG=chi0_wxvG[wblocks1d.myslice])
+            gamma_int = GammaIntegrator(
+                truncation=self.coulomb.truncation,
+                kd=kd, pd=pd,
+                chi0_wvv=chi0_wvv[wblocks1d.myslice],
+                chi0_wxvG=chi0_wxvG[wblocks1d.myslice])
 
         self.context.timer.start('Dyson eq.')
-
-        def get_sqrtV_G(N_c, q_v=None):
-            return get_coulomb_kernel(
-                pd,
-                N_c,
-                truncation=self.truncation,
-                wstc=wstc,
-                q_v=q_v)**0.5
-
         for iw, chi0_GG in enumerate(chi0_wGG):
             if np.allclose(q_c, 0):
                 einv_GG = np.zeros(delta_GG.shape, complex)
                 for iqf in range(len(gamma_int.qf_qv)):
                     gamma_int.set_appendages(chi0_GG, iw, iqf)
 
-                    sqrtV_G = get_sqrtV_G(kd.N_c, q_v=gamma_int.qf_qv[iqf])
+                    sqrtV_G = self.coulomb.sqrtV(
+                        pd=pd, q_v=gamma_int.qf_qv[iqf])
 
                     dfc = DielectricFunctionCalculator(
                         sqrtV_G, chi0_GG, mode=fxc_mode, fv_GG=fv)
                     einv_GG += dfc.get_einv_GG() * gamma_int.weight_q[iqf]
             else:
-                sqrtV_G = get_sqrtV_G(kd.N_c)
+                sqrtV_G = self.coulomb.sqrtV(pd=pd, q_v=None)
                 dfc = DielectricFunctionCalculator(
                     sqrtV_G, chi0_GG, mode=fxc_mode, fv_GG=fv)
                 einv_GG = dfc.get_einv_GG()
@@ -312,7 +297,7 @@ class WCalculator:
         self.context.timer.stop('Dyson eq.')
         return chi0_wGG
 
-    def dyson_and_W_new(self, wstc, iq, q_c, chi0, ecut):
+    def dyson_and_W_new(self, iq, q_c, chi0, ecut, coulomb):
         assert not self.ppa
         # assert not self.do_GW_too
         assert ecut == chi0.pd.ecut
@@ -336,10 +321,7 @@ class WCalculator:
 
         dielectric_WgG = chi0.chi0_wGG  # XXX
         for iw, chi0_GG in enumerate(chi0.chi0_wGG):
-            sqrtV_G = get_coulomb_kernel(chi0.pd,  # XXX was: pdi
-                                         self.gs.kd.N_c,
-                                         truncation=self.truncation,
-                                         wstc=wstc)**0.5
+            sqrtV_G = coulomb.sqrtV(chi0.pd, q_v=None)
             e_GG = np.eye(nG) - chi0_GG * sqrtV_G * sqrtV_G[:, np.newaxis]
             e_gG = e_GG[my_gslice]
 

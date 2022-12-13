@@ -13,8 +13,7 @@ from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.mpi import world, serial_comm, broadcast
 from gpaw.response import ResponseContext
 from gpaw.response.df import write_response_function
-from gpaw.response.coulomb_kernels import get_coulomb_kernel
-from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
+from gpaw.response.coulomb_kernels import CoulombKernel
 from gpaw.response.screened_interaction import initialize_w_calculator
 from gpaw.response.paw import PWPAWCorrectionData
 from gpaw.response.frequencies import FrequencyDescriptor
@@ -49,7 +48,7 @@ class BSEBackend:
         self.ecut = ecut / Hartree
         self.nbands = nbands
         self.mode = mode
-        self.truncation = truncation
+
         if integrate_gamma == 0 and truncation is not None:
             self.context.print('***WARNING*** Analytical Coulomb integration' +
                                ' is not expected to work with Coulomb ' +
@@ -119,13 +118,8 @@ class BSEBackend:
         self.nS = self.kd.nbzkpts * self.nv * self.nc * self.spins
         self.nS *= (self.spinors + 1)**2
 
-        # Wigner-Seitz stuff
-        if self.truncation == 'wigner-seitz':
-            self.wstc = WignerSeitzTruncatedCoulomb(self.gs.gd.cell_cv,
-                                                    self.kd.N_c)
-            self.context.print(self.wstc.get_description())
-        else:
-            self.wstc = None
+        self.coulomb = CoulombKernel(truncation=truncation, gs=self.gs)
+        self.context.print(self.coulomb.description())
 
         self.print_initialization(self.td, self.eshift, self.gw_skn)
 
@@ -161,8 +155,8 @@ class BSEBackend:
         qd0 = KPointDescriptor([self.q_c])
         pd0 = PWDescriptor(self.ecut, self.gs.gd, complex, qd0)
         ikq_k = self.kd.find_k_plus_q(self.q_c)
-        v_G = get_coulomb_kernel(pd0, self.kd.N_c, truncation=self.truncation,
-                                 wstc=self.wstc)
+        v_G = self.coulomb.V(pd=pd0, q_v=None)
+
         if optical:
             v_G[0] = 0.0
 
@@ -478,7 +472,7 @@ class BSEBackend:
         if self._wcalc is None:
             self._wcalc = initialize_w_calculator(
                 chi0calc=self._chi0calc,
-                truncation=self.truncation,
+                coulomb=self.coulomb,
                 world=world,
                 integrate_gamma=self.integrate_gamma)
         t0 = time()
@@ -769,7 +763,7 @@ class BSEBackend:
 
         V = self.gs.nonpbc_cell_product()
 
-        optical = (self.truncation is None)
+        optical = (self.coulomb.truncation is None)
 
         vchi_w = self.get_vchi(w_w=w_w, eta=eta, q_c=q_c, direction=direction,
                                readfile=readfile, optical=optical,
@@ -952,7 +946,7 @@ class BSEBackend:
         p('Tamm-Dancoff approximation     :', td)
         p('Number of pair orbitals        :', self.nS)
         p()
-        p('Truncation of Coulomb kernel   :', self.truncation)
+        p('Truncation of Coulomb kernel   :', self.coulomb.truncation)
         if self.integrate_gamma == 0:
             p('Coulomb integration scheme     :', 'Analytical - gamma only')
         elif self.integrate_gamma == 1:
