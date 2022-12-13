@@ -238,7 +238,7 @@ class FXCCorrelation:
         #              (note this does not necessarily mean that
         #              the calculation is spin-polarized!)
 
-        if self.spin_kernel:
+        if self.xcflags.spin_kernel:
             with ulm.open('fhxc_%s_%s_%s_%s.ulm' %
                           (self.tag, self.xc, self.ecut_max, qi)) as r:
                 fv = r.fhxc_sGsG
@@ -1620,8 +1620,6 @@ def set_flags(self):
         if self.av_scheme is None:
             self.av_scheme = 'density'
             # Two-point scheme default for rALDA and rAPBE
-
-    self.spin_kernel = flags.spin_kernel
 
     if self.av_scheme == 'density':
         assert (self.xc == 'rALDA' or self.xc == 'rAPBE'
