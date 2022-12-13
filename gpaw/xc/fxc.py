@@ -647,34 +647,23 @@ class KernelWave:
                             (deltaGv[:, 0, np.newaxis] * self.x_g[small_ind] +
                              deltaGv[:, 1, np.newaxis] * self.y_g[small_ind] +
                              deltaGv[:, 2, np.newaxis] * self.z_g[small_ind]))
-                        if self.omega_w is None:
-                            fv_nospin[il, iG, iG:] = self.get_scaled_fHxc_q(
+
+                        def scaled_fHxc(w, spincorr, l):
+                            return self.get_scaled_fHxc_q(
                                 q=mod_Gpq,
                                 sel_points=small_ind,
                                 Gphase=phase_Gpq,
                                 l=l,
-                                spincorr=False,
-                                w=None)
-                        else:
-                            for iw, omega in enumerate(self.omega_w):
-                                fv_nospin[il, iw, iG, iG:] = \
-                                    self.get_scaled_fHxc_q(
-                                        q=mod_Gpq,
-                                        sel_points=small_ind,
-                                        Gphase=phase_Gpq,
-                                        l=l,
-                                        spincorr=False,
-                                        w=omega)
+                                spincorr=spincorr,
+                                w=w)
+
+                        for iw, w in enumerate(omega_w):
+                            fv_nospin_lwGG[il, iw, iG, iG:] = scaled_fHxc(
+                                w, spincorr=False, l=l)
 
                         if calc_spincorr:
-                            fv_spincorr[iG, iG:] = self.get_scaled_fHxc_q(
-                                q=mod_Gpq,
-                                sel_points=small_ind,
-                                Gphase=phase_Gpq,
-                                l=1.0,
-                                spincorr=True,
-                                w=None)
-
+                            fv_spincorr[iG, iG:] = scaled_fHxc(
+                                w=None, spincorr=True, l=1.0)
                     else:
                         # head and wings of q=0 are dominated by
                         # 1/q^2 divergence of scaled Coulomb interaction
