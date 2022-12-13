@@ -808,7 +808,7 @@ class KernelWave:
             # Olsen and Thygesen, Phys. Rev. B 88, 115131 (2013)
             # Cutoff wavevector ensures kernel is continuous
 
-            rxcalda_A = self.get_heg_A(rs)
+            rxcalda_A = get_heg_A(rs)
             rxcalda_qcut = qF * np.sqrt(1.0 / rxcalda_A)
 
             # construct fHxc(k,r)
@@ -839,14 +839,14 @@ class KernelWave:
             # The simplest, static error-function kernel.
             # Produces correct q = 0 limit, but not q->oo
 
-            cp_kappa = self.get_heg_A(rs) / (qF**2.0)
+            cp_kappa = get_heg_A(rs) / (qF**2.0)
             fHxc_Gr = (1.0 + 0.0j) * np.exp(-cp_kappa * q[:, np.newaxis]**2.0)
 
         elif self.xc == 'CP_dyn':
             # CP kernel with frequency dependence
 
-            cp_A = self.get_heg_A(rs)
-            cp_D = self.get_heg_D(rs)
+            cp_A = get_heg_A(rs)
+            cp_D = get_heg_D(rs)
             cp_c = cp_D / cp_A
             cp_a = 6.0 * np.sqrt(cp_c)
 
@@ -862,12 +862,12 @@ class KernelWave:
             # Reproduces exact q=0 and q -> oo limits
 
             cdop_Q = q[:, np.newaxis] / qF
-            cdop_A = self.get_heg_A(rs)
-            cdop_B = self.get_heg_B(rs)
+            cdop_A = get_heg_A(rs)
+            cdop_B = get_heg_B(rs)
             if self.xc == 'CDOPs':
                 cdop_C = np.zeros(np.shape(cdop_B))
             else:
-                cdop_C = self.get_heg_C(rs)
+                cdop_C = get_heg_C(rs)
             cdop_g = cdop_B / (cdop_A - cdop_C)
             cdop_alpha = 1.5 / (rs**0.25) * cdop_A / (cdop_B * cdop_g)
             cdop_beta = 1.2 / (cdop_B * cdop_g)
@@ -887,7 +887,7 @@ class KernelWave:
             # so-called "jellium with gap" model, but simplified
             # so that it is similar to CP.
 
-            jgm_kappa = self.get_heg_A(rs) / (qF**2.0)
+            jgm_kappa = get_heg_A(rs) / (qF**2.0)
             jgm_n = 3.0 / (4.0 * np.pi * rs**3.0)
             fHxc_Gr = (1.0 +
                        0.0j) * (np.exp(-jgm_kappa * q[:, np.newaxis]**2.0) *
@@ -925,79 +925,83 @@ class KernelWave:
         fspinHxc_GG = np.sum(fspinHxc_Gr, 1) / self.gridsize
         return fspinHxc_GG
 
-    def get_heg_A(self, rs):
-        # Returns the A coefficient, where the
-        # q ->0 limiting value of static fxc
-        # of the HEG = -\frac{4\pi A }{q_F^2} = f_{xc}^{ALDA}.
-        # We need correlation energy per electron and first and second derivs
-        # w.r.t. rs
-        # See for instance Moroni, Ceperley and Senatore,
-        # Phys. Rev. Lett. 75, 689 (1995)
-        # (and also Kohn and Sham, Phys. Rev. 140, A1133 (1965) equation 2.7)
 
-        # Exchange contribution
-        heg_A = 0.25
+def get_heg_A(rs):
+    # Returns the A coefficient, where the
+    # q ->0 limiting value of static fxc
+    # of the HEG = -\frac{4\pi A }{q_F^2} = f_{xc}^{ALDA}.
+    # We need correlation energy per electron and first and second derivs
+    # w.r.t. rs
+    # See for instance Moroni, Ceperley and Senatore,
+    # Phys. Rev. Lett. 75, 689 (1995)
+    # (and also Kohn and Sham, Phys. Rev. 140, A1133 (1965) equation 2.7)
 
-        # Correlation contribution
-        A_ec, A_dec, A_d2ec = get_pw_lda(rs)
-        heg_A += (1.0 / 27.0 * rs**2.0 * (9.0 * np.pi / 4.0)**(2.0 / 3.0) *
-                  (2 * A_dec - rs * A_d2ec))
+    # Exchange contribution
+    heg_A = 0.25
 
-        return heg_A
+    # Correlation contribution
+    A_ec, A_dec, A_d2ec = get_pw_lda(rs)
+    heg_A += (1.0 / 27.0 * rs**2.0 * (9.0 * np.pi / 4.0)**(2.0 / 3.0) *
+              (2 * A_dec - rs * A_d2ec))
 
-    def get_heg_B(self, rs):
-        # Returns the B coefficient, where the
-        # q -> oo limiting behaviour of static fxc
-        # of the HEG is -\frac{4\pi B}{q^2} - \frac{4\pi C}{q_F^2}.
-        # Use the parametrisation of Moroni, Ceperley and Senatore,
-        # Phys. Rev. Lett. 75, 689 (1995)
+    return heg_A
 
-        mcs_xs = np.sqrt(rs)
 
-        mcs_a = (1.0, 2.15, 0.0, 0.435)
-        mcs_b = (3.0, 1.57, 0.0, 0.409)
+def get_heg_B(rs):
+    # Returns the B coefficient, where the
+    # q -> oo limiting behaviour of static fxc
+    # of the HEG is -\frac{4\pi B}{q^2} - \frac{4\pi C}{q_F^2}.
+    # Use the parametrisation of Moroni, Ceperley and Senatore,
+    # Phys. Rev. Lett. 75, 689 (1995)
 
-        mcs_num = 0
+    mcs_xs = np.sqrt(rs)
 
-        for mcs_j, mcs_coeff in enumerate(mcs_a):
-            mcs_num += mcs_coeff * mcs_xs**mcs_j
+    mcs_a = (1.0, 2.15, 0.0, 0.435)
+    mcs_b = (3.0, 1.57, 0.0, 0.409)
 
-        mcs_denom = 0
+    mcs_num = 0
 
-        for mcs_j, mcs_coeff in enumerate(mcs_b):
-            mcs_denom += mcs_coeff * mcs_xs**mcs_j
+    for mcs_j, mcs_coeff in enumerate(mcs_a):
+        mcs_num += mcs_coeff * mcs_xs**mcs_j
 
-        heg_B = mcs_num / mcs_denom
-        return heg_B
+    mcs_denom = 0
 
-    def get_heg_C(self, rs):
-        # Returns the C coefficient, where the
-        # q -> oo limiting behaviour of static fxc
-        # of the HEG is -\frac{4\pi B}{q^2} - \frac{4\pi C}{q_F^2}.
-        # Again see Moroni, Ceperley and Senatore,
-        # Phys. Rev. Lett. 75, 689 (1995)
+    for mcs_j, mcs_coeff in enumerate(mcs_b):
+        mcs_denom += mcs_coeff * mcs_xs**mcs_j
 
-        C_ec, C_dec, Cd2ec = get_pw_lda(rs)
+    heg_B = mcs_num / mcs_denom
+    return heg_B
 
-        heg_C = ((-1.0) * np.pi**(2.0 / 3.0) * (1.0 / 18.0)**(1.0 / 3.0) *
-                 (rs * C_ec + rs**2.0 * C_dec))
 
-        return heg_C
+def get_heg_C(rs):
+    # Returns the C coefficient, where the
+    # q -> oo limiting behaviour of static fxc
+    # of the HEG is -\frac{4\pi B}{q^2} - \frac{4\pi C}{q_F^2}.
+    # Again see Moroni, Ceperley and Senatore,
+    # Phys. Rev. Lett. 75, 689 (1995)
 
-    def get_heg_D(self, rs):
-        # Returns a 'D' coefficient, where the
-        # q->0 omega -> oo limiting behaviour
-        # of the frequency dependent fxc is -\frac{4\pi D}{q_F^2}
-        # see Constantin & Pitarke Phys. Rev. B 75, 245127 (2007) equation 7
+    C_ec, C_dec, Cd2ec = get_pw_lda(rs)
 
-        D_ec, D_dec, D_d2ec = get_pw_lda(rs)
+    heg_C = ((-1.0) * np.pi**(2.0 / 3.0) * (1.0 / 18.0)**(1.0 / 3.0) *
+             (rs * C_ec + rs**2.0 * C_dec))
 
-        # Exchange contribution
-        heg_D = 0.15
-        # Correlation contribution
-        heg_D += ((9.0 * np.pi / 4.0)**(2.0 / 3.0) * rs / 3.0 *
-                  (22.0 / 15.0 * D_ec + 26.0 / 15.0 * rs * D_dec))
-        return heg_D
+    return heg_C
+
+
+def get_heg_D(rs):
+    # Returns a 'D' coefficient, where the
+    # q->0 omega -> oo limiting behaviour
+    # of the frequency dependent fxc is -\frac{4\pi D}{q_F^2}
+    # see Constantin & Pitarke Phys. Rev. B 75, 245127 (2007) equation 7
+
+    D_ec, D_dec, D_d2ec = get_pw_lda(rs)
+
+    # Exchange contribution
+    heg_D = 0.15
+    # Correlation contribution
+    heg_D += ((9.0 * np.pi / 4.0)**(2.0 / 3.0) * rs / 3.0 *
+              (22.0 / 15.0 * D_ec + 26.0 / 15.0 * rs * D_dec))
+    return heg_D
 
 
 def get_pw_lda(rs):
