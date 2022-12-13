@@ -579,7 +579,7 @@ class KernelWave:
                 # fHxc^{up down}   = fHxc^{down up}   = fv_nospin - fv_spincorr
 
                 calc_spincorr = True
-                fv_spincorr = np.zeros((nG, nG), dtype=complex)
+                fv_spincorr_GG = np.zeros((nG, nG), dtype=complex)
 
             else:
 
@@ -594,15 +594,10 @@ class KernelWave:
 
             nw = len(omega_w)
 
-            fv_nospin_lwGG = np.zeros((len(self.l_l), nw, nG, nG), dtype=complex)
-
-            if self.omega_w is None:
-                fv_nospin = fv_nospin_lwGG[:, 0, :, :]
-            else:
-                fv_nospin = fv_nospin_lwGG
+            fv_nospin_lwGG = np.zeros((len(self.l_l), nw, nG, nG),
+                                      dtype=complex)
 
             for il, l in enumerate(self.l_l):  # loop over coupling constant
-
                 for iG, Gv in zip(my_Gints, my_Gv_G):  # loop over G vecs
 
                     # For all kernels except JGM we
@@ -662,7 +657,7 @@ class KernelWave:
                                 w, spincorr=False, l=l)
 
                         if calc_spincorr:
-                            fv_spincorr[iG, iG:] = scaled_fHxc(
+                            fv_spincorr_GG[iG, iG:] = scaled_fHxc(
                                 w=None, spincorr=True, l=1.0)
                     else:
                         # head and wings of q=0 are dominated by
@@ -674,11 +669,11 @@ class KernelWave:
                         fv_nospin_lwGG[il, :, 0, 1:] = 0.0
 
                         if calc_spincorr:
-                            fv_spincorr[0, :] = 0.0
+                            fv_spincorr_GG[0, :] = 0.0
 
                     # End loop over G vectors
 
-                mpi.world.sum(fv_nospin[il])
+                mpi.world.sum(fv_nospin_lwGG[il])
 
                 for iw in range(len(omega_w)):
                     # We've only got half the matrix here,
@@ -691,9 +686,9 @@ class KernelWave:
                 # End of loop over coupling constant
 
             if calc_spincorr:
-                mpi.world.sum(fv_spincorr)
-                fv_spincorr += np.conj(fv_spincorr.T)
-                fv_spincorr[np.diag_indices(nG)] *= 0.5
+                mpi.world.sum(fv_spincorr_GG)
+                fv_spincorr_GG += np.conj(fv_spincorr_GG.T)
+                fv_spincorr_GG[np.diag_indices(nG)] *= 0.5
 
             # Write to disk
             if mpi.rank == 0:
@@ -704,21 +699,25 @@ class KernelWave:
 
                 if calc_spincorr:
                     # Form the block matrix kernel
-                    fv_full = np.empty((2 * nG, 2 * nG), dtype=complex)
-                    fv_full[:nG, :nG] = fv_nospin[0] + fv_spincorr
-                    fv_full[:nG, nG:] = fv_nospin[0] - fv_spincorr
-                    fv_full[nG:, :nG] = fv_nospin[0] - fv_spincorr
-                    fv_full[nG:, nG:] = fv_nospin[0] + fv_spincorr
-                    w.write(fhxc_sGsG=fv_full)
+                    fv_full_2G2G = np.empty((2 * nG, 2 * nG), dtype=complex)
+                    assert nw == 1
+                    fv_nospin_GG = fv_nospin_lwGG[0, 0]
+                    fv_full_2G2G[:nG, :nG] = fv_nospin_GG + fv_spincorr_GG
+                    fv_full_2G2G[:nG, nG:] = fv_nospin_GG - fv_spincorr_GG
+                    fv_full_2G2G[nG:, :nG] = fv_nospin_GG - fv_spincorr_GG
+                    fv_full_2G2G[nG:, nG:] = fv_nospin_GG + fv_spincorr_GG
+                    w.write(fhxc_sGsG=fv_full_2G2G)
 
                 elif len(self.l_l) == 1:
-                    w.write(fhxc_sGsG=fv_nospin[0])
+                    assert nw == 1
+                    w.write(fhxc_sGsG=fv_nospin_lwGG[0, 0])
 
                 elif self.omega_w is None:
-                    w.write(fhxc_lGG=fv_nospin)
+                    assert nw == 1
+                    w.write(fhxc_lGG=fv_nospin_lwGG[:, 0, :, :])
 
                 else:
-                    w.write(fhxc_lwGG=fv_nospin)
+                    w.write(fhxc_lwGG=fv_nospin_lwGG)
                 w.close()
 
             self.context.print('q point %s complete' % iq)
