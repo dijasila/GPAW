@@ -485,7 +485,7 @@ class BSEBackend:
         self.context.print('Calculating screened potential')
         for iq, q_c in enumerate(self.qd.ibzk_kc):
             chi0 = self._chi0calc.calculate(q_c)
-            pd, W_wGG = self._wcalc.calculate_q(iq, q_c, chi0, out_dist='WgG')
+            pd, W_wGG = self._wcalc.calculate(chi0, out_dist='WgG')
             W_GG = W_wGG[0]
             self.pawcorr_q.append(self._chi0calc.pawcorr)
             self.pd_q.append(pd)
