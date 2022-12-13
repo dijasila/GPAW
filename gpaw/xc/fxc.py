@@ -257,10 +257,6 @@ class FXCCorrelation:
                            m2:n2] *= (G_G * G_G[:, np.newaxis] / (4 * np.pi))
 
                         if np.prod(self.unit_cells) > 1 and pd.kd.gamma:
-                            m1 = s1 * nG
-                            n1 = (s1 + 1) * nG
-                            m2 = s2 * nG
-                            n2 = (s2 + 1) * nG
                             fv[m1, m2:n2] = 0.0
                             fv[m1:n1, m2] = 0.0
                             fv[m1, m2] = 1.0
