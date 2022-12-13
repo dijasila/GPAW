@@ -13,7 +13,8 @@ from gpaw import GPAW, debug
 import gpaw.mpi as mpi
 from gpaw.hybrids.eigenvalues import non_self_consistent_eigenvalues
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.pw.descriptor import PWDescriptor, count_reciprocal_vectors
+from gpaw.pw.descriptor import (PWDescriptor, count_reciprocal_vectors,
+                                PWMapping)
 from gpaw.utilities.progressbar import ProgressBar
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
@@ -21,6 +22,7 @@ from gpaw.response.chi0 import Chi0Calculator
 from gpaw.response.g0w0_kernels import G0W0Kernel
 from gpaw.response.hilbert import GWHilbertTransforms
 from gpaw.response.pair import PairDensityCalculator
+from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.response.screened_interaction import WCalculator
 from gpaw.response.coulomb_kernels import CoulombKernel
 from gpaw.response import timer
@@ -781,15 +783,23 @@ class G0W0Calculator:
         Wdict = {}
 
         for fxc_mode in self.fxc_modes:
-            pdi, W_wGG, blocks1d, G2G = self.wcalc.dyson_and_W_old(
-                iq,
-                q_c, chi0,
-                fxc_mode,
-                ecut,
-                only_correlation=True)
+            if self.wcalc.ppa:
+                out_dist = 'wGG'
+            else:
+                out_dist = 'WgG'
+            pdr, W_wGG = self.wcalc.dyson_and_W_old(
+                fxc_mode=fxc_mode,
+                chi0=chi0,
+                ecut=ecut,
+                only_correlation=True,
+                out_dist=out_dist)
 
-            if chi0calc.pawcorr is not None and G2G is not None:
-                chi0calc.pawcorr = chi0calc.pawcorr.reduce_ecut(G2G)
+            if chi0calc.pawcorr is not None and pdr.ecut < chi0.pd.ecut:
+                pw_map = PWMapping(pdr, chi0.pd)
+                # This is extremely bad behaviour! G0W0Calculator should not
+                # change properties on the Chi0Calculator! Change in the
+                # future! XXX
+                chi0calc.pawcorr = chi0calc.pawcorr.reduce_ecut(pw_map.G2_G1)
 
             if self.wcalc.ppa:
                 W_xwGG = W_wGG  # (ppa API is nonsense)
@@ -800,7 +810,10 @@ class G0W0Calculator:
 
             Wdict[fxc_mode] = W_xwGG
 
-        return pdi, Wdict, blocks1d, chi0calc.pawcorr
+        # Create a blocks1d for the reduced plane-wave description
+        blocks1d = Blocks1D(chi0.blockdist.blockcomm, pdr.ngmax)
+
+        return pdr, Wdict, blocks1d, chi0calc.pawcorr
 
     def calculate_vxc_and_exx(self):
         """EXX and Kohn-Sham XC contribution."""

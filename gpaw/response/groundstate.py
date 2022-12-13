@@ -172,3 +172,13 @@ class ResponseGroundStateAdapter:
             nocc1 = min((f_n > 1 - ftol).sum(), nocc1)
             nocc2 = max((f_n > ftol).sum(), nocc2)
         return nocc1, nocc2
+
+    @property
+    def ibzq_qc(self):
+        # For G0W0Kernel
+        kd = self.kd
+        bzq_qc = kd.get_bz_q_points(first=True)
+        U_scc = kd.symmetry.op_scc
+        ibzq_qc = kd.get_ibz_q_points(bzq_qc, U_scc)[0]
+
+        return ibzq_qc
