@@ -39,7 +39,7 @@ class CoulombKernel:
 
     def integrated_kernel(self, pd, reduced):
         return get_integrated_kernel(
-            pd=pd, N_c=self.gs.kd.N_c,
+            pd=pd, N_c=self._gs.kd.N_c,
             truncation=self.truncation, reduced=reduced)
 
 
