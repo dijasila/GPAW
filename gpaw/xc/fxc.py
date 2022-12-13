@@ -903,27 +903,34 @@ class KernelWave:
         qF = HEG(rs).qF
 
         if self.xc == 'rALDA':
-
-            rxalda_A = 0.25
-            rxalda_qcut = qF * np.sqrt(1.0 / rxalda_A)
-
-            fspinHxc_Gr = ((0.5 + 0.0j) *
-                           (1.0 + np.sign(rxalda_qcut - q[:, np.newaxis])) *
-                           (-1.0) * rxalda_A * (q[:, np.newaxis] / qF)**2.0)
+            fspinHxc_Gr = get_fspinHxc_Gr_rALDA(qF, q)
 
         elif self.xc == 'rAPBE':
-
-            fxc_PBE = get_pbe_fxc(pbe_rho=(3.0 / (4.0 * np.pi * rs**3.0)),
-                                  pbe_s2_g=s2_g)
-            rxapbe_qcut = np.sqrt(-4.0 * np.pi / fxc_PBE)
-
-            fspinHxc_Gr = ((0.5 + 0.0j) *
-                           (1.0 + np.sign(rxapbe_qcut - q[:, np.newaxis])) *
-                           fxc_PBE / (4.0 * np.pi) * q[:, np.newaxis]**2.0)
+            fspinHxc_Gr = get_fspinHxc_Gr_rAPBE(rs, q, s2_g)
 
         fspinHxc_Gr *= Gphase
         fspinHxc_GG = np.sum(fspinHxc_Gr, 1) / self.gridsize
         return fspinHxc_GG
+
+
+def get_fspinHxc_Gr_rALDA(qF, q):
+    rxalda_A = 0.25
+    rxalda_qcut = qF * np.sqrt(1.0 / rxalda_A)
+
+    fspinHxc_Gr = ((0.5 + 0.0j) *
+                   (1.0 + np.sign(rxalda_qcut - q[:, np.newaxis])) *
+                   (-1.0) * rxalda_A * (q[:, np.newaxis] / qF)**2.0)
+    return fspinHxc_Gr
+
+
+def get_fspinHxc_Gr_rAPBE(rs, q, s2_g):
+    fxc_PBE = get_pbe_fxc(pbe_rho=(3.0 / (4.0 * np.pi * rs**3.0)),
+                          pbe_s2_g=s2_g)
+    rxapbe_qcut = np.sqrt(-4.0 * np.pi / fxc_PBE)
+    fspinHxc_Gr = ((0.5 + 0.0j) *
+                   (1.0 + np.sign(rxapbe_qcut - q[:, np.newaxis])) *
+                   fxc_PBE / (4.0 * np.pi) * q[:, np.newaxis]**2.0)
+    return fspinHxc_Gr
 
 
 def get_heg_A(rs):
