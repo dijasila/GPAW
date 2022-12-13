@@ -562,8 +562,11 @@ class KernelWave:
 
             my_Gv_G = Gv_G[my_Gints]
 
-            if (self.ns == 2) and (self.xc == 'rALDA' or self.xc == 'rAPBE'):
+            # XXX Should this be if self.ns == 2 and self.xcflags.spin_kernel?
+            calc_spincorr = (self.ns == 2) and (self.xc == 'rALDA'
+                                                or self.xc == 'rAPBE')
 
+            if calc_spincorr:
                 assert len(self.l_l) == 1
 
                 # Form spin-dependent kernel according to
@@ -573,13 +576,7 @@ class KernelWave:
                 # with a step function (\equiv \tilde{f^rALDA})
                 # fHxc^{up up}     = fHxc^{down down} = fv_nospin + fv_spincorr
                 # fHxc^{up down}   = fHxc^{down up}   = fv_nospin - fv_spincorr
-
-                calc_spincorr = True
                 fv_spincorr_GG = np.zeros((nG, nG), dtype=complex)
-
-            else:
-
-                calc_spincorr = False
 
             if self.omega_w is None:
                 # Confusing, but None has a special meaning when passed to
