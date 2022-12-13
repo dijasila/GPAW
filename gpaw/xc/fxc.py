@@ -522,7 +522,7 @@ class KernelWave:
             # APBE kernel wants to be positive, and hack s to = 0,
             # so that we are really using the ALDA kernel
             # at these points
-            apbe_g = self.get_PBE_fxc(self.n_g, self.s2_g)
+            apbe_g = get_pbe_fxc(self.n_g, self.s2_g)
             poskern_ind = np.where(apbe_g >= 0.0)
             if len(poskern_ind[0]) > 0:
                 self.context.print(
@@ -626,7 +626,7 @@ class KernelWave:
                             min_Gpq = np.amin(mod_Gpq)
                             small_ind = np.where(min_Gpq <= np.sqrt(
                                 -4.0 * np.pi /
-                                self.get_PBE_fxc(self.n_g, self.s2_g)))
+                                get_pbe_fxc(self.n_g, self.s2_g)))
 
                         else:
 
@@ -824,8 +824,8 @@ class KernelWave:
             # i.e. second functional derivative
             # d2/drho^2 -> \partial^2/\partial rho^2 at fixed \nabla \rho
 
-            fxc_PBE = self.get_PBE_fxc(pbe_rho=3.0 / (4.0 * np.pi * rs**3.0),
-                                       pbe_s2_g=s2_g)
+            fxc_PBE = get_pbe_fxc(pbe_rho=3.0 / (4.0 * np.pi * rs**3.0),
+                                  pbe_s2_g=s2_g)
             rxapbe_qcut = np.sqrt(-4.0 * np.pi / fxc_PBE)
 
             fHxc_Gr = (0.5 + 0.0j) * (
@@ -913,8 +913,8 @@ class KernelWave:
 
         elif self.xc == 'rAPBE':
 
-            fxc_PBE = self.get_PBE_fxc(pbe_rho=(3.0 / (4.0 * np.pi * rs**3.0)),
-                                       pbe_s2_g=s2_g)
+            fxc_PBE = get_pbe_fxc(pbe_rho=(3.0 / (4.0 * np.pi * rs**3.0)),
+                                  pbe_s2_g=s2_g)
             rxapbe_qcut = np.sqrt(-4.0 * np.pi / fxc_PBE)
 
             fspinHxc_Gr = ((0.5 + 0.0j) *
@@ -924,24 +924,6 @@ class KernelWave:
         fspinHxc_Gr *= Gphase
         fspinHxc_GG = np.sum(fspinHxc_Gr, 1) / self.gridsize
         return fspinHxc_GG
-
-    def get_PBE_fxc(self, pbe_rho, pbe_s2_g):
-        pbe_kappa = 0.804
-        pbe_mu = 0.2195149727645171
-
-        pbe_denom_g = 1.0 + pbe_mu * pbe_s2_g / pbe_kappa
-
-        F_g = 1.0 + pbe_kappa - pbe_kappa / pbe_denom_g
-        Fn_g = -8.0 / 3.0 * pbe_mu * pbe_s2_g / pbe_rho / pbe_denom_g**2.0
-        Fnn_g = (-11.0 / 3.0 / pbe_rho * Fn_g -
-                 2.0 / pbe_kappa * Fn_g**2.0 * pbe_denom_g)
-
-        e_g = -3.0 / 4.0 * (3.0 / np.pi)**(1.0 / 3.0) * pbe_rho**(4.0 / 3.0)
-        v_g = 4.0 / 3.0 * e_g / pbe_rho
-        f_g = 1.0 / 3.0 * v_g / pbe_rho
-
-        pbe_f_g = f_g * F_g + 2.0 * v_g * Fn_g + e_g * Fnn_g
-        return pbe_f_g
 
     def get_heg_A(self, rs):
         # Returns the A coefficient, where the
@@ -1061,6 +1043,25 @@ class KernelWave:
         pw_d2ec += (-2.0 * pw_A * pw_alp) * pw_dlogarg / pw_logarg
 
         return pw_ec, pw_dec, pw_d2ec
+
+
+def get_pbe_fxc(pbe_rho, pbe_s2_g):
+    pbe_kappa = 0.804
+    pbe_mu = 0.2195149727645171
+
+    pbe_denom_g = 1.0 + pbe_mu * pbe_s2_g / pbe_kappa
+
+    F_g = 1.0 + pbe_kappa - pbe_kappa / pbe_denom_g
+    Fn_g = -8.0 / 3.0 * pbe_mu * pbe_s2_g / pbe_rho / pbe_denom_g**2.0
+    Fnn_g = (-11.0 / 3.0 / pbe_rho * Fn_g -
+             2.0 / pbe_kappa * Fn_g**2.0 * pbe_denom_g)
+
+    e_g = -3.0 / 4.0 * (3.0 / np.pi)**(1.0 / 3.0) * pbe_rho**(4.0 / 3.0)
+    v_g = 4.0 / 3.0 * e_g / pbe_rho
+    f_g = 1.0 / 3.0 * v_g / pbe_rho
+
+    pbe_f_g = f_g * F_g + 2.0 * v_g * Fn_g + e_g * Fnn_g
+    return pbe_f_g
 
 
 class range_separated:
