@@ -10,8 +10,7 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response import ResponseContext
 from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.response.gamma_int import GammaIntegrator
-from gpaw.response.coulomb_kernels import (get_integrated_kernel,
-                                           CoulombKernel)
+from gpaw.response.coulomb_kernels import get_integrated_kernel
 from gpaw.response.temp import DielectricFunctionCalculator
 
 
