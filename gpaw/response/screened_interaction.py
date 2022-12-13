@@ -155,8 +155,6 @@ class WCalculator:
             raise NotImplementedError(
                 'Wigner-Seitz truncation is not implemented (read: tested) '
                 'for BSE.')
-        else:
-            wstc = None
 
         pd, W_wGG = self.dyson_and_W_old(
             fxc_mode=self.fxc_mode,
@@ -256,13 +254,13 @@ class WCalculator:
                     gamma_int.set_appendages(chi0_GG, iw, iqf)
 
                     sqrtV_G = self.coulomb.sqrtV(
-                        pd=pdi, q_v=gamma_int.qf_qv[iqf])
+                        pd=pd, q_v=gamma_int.qf_qv[iqf])
 
                     dfc = DielectricFunctionCalculator(
                         sqrtV_G, chi0_GG, mode=fxc_mode, fv_GG=fv)
                     einv_GG += dfc.get_einv_GG() * gamma_int.weight_q[iqf]
             else:
-                sqrtV_G = self.coulomb.sqrtV(pd=pdi, q_v=None)
+                sqrtV_G = self.coulomb.sqrtV(pd=pd, q_v=None)
                 dfc = DielectricFunctionCalculator(
                     sqrtV_G, chi0_GG, mode=fxc_mode, fv_GG=fv)
                 einv_GG = dfc.get_einv_GG()
