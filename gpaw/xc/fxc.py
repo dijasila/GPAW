@@ -18,6 +18,17 @@ from gpaw.xc.rpa import RPACorrelation
 from gpaw.heg import HEG
 
 
+def get_chi0v(chi0_sGG, cut_G, G_G):
+    if cut_G is not None:
+        chi0_sGG = chi0_sGG.take(cut_G, 1).take(cut_G, 2)
+    nG = chi0_sGG.shape[-1]
+    chi0v = np.zeros((nG, nG), dtype=complex)
+    for chi0_GG in chi0_sGG:
+        chi0v += chi0_GG / G_G / G_G[:, np.newaxis]
+    chi0v *= 4 * np.pi
+    return chi0v
+
+
 class FXCCorrelation:
     def __init__(self,
                  calc,
@@ -326,35 +337,30 @@ class FXCCorrelation:
             apply_cut_G = self.xc not in {'RPA', 'range_RPA'}
 
             if self.xc == 'RPA':
-                fv = np.eye(nG)
-                fv_lwGG = fv[np.newaxis, np.newaxis, :, :]
+                fv_lwGG = np.eye(nG)[np.newaxis, np.newaxis, :, :]
 
             elif self.xc == 'range_RPA':
-                fv = np.exp(-0.25 * (G_G * self.range_rc)**2.0)
-                fv_lwGG = fv[np.newaxis, np.newaxis, np.newaxis, :]
+                fv_diag_G = np.exp(-0.25 * (G_G * self.range_rc)**2.0)
+                # Unfortunately here we have a radically different shape,
+                # so we'll struggle to handle the arrays similarly.
+                # All other cases define fv_lwGG (with some dimensions being 1).
 
             elif self.linear_kernel:
                 with ulm.open('fhxc_%s_%s_%s_%s.ulm' %
                               (self.tag, self.xc, self.ecut_max, qi)) as r:
-                    fv = r.fhxc_sGsG
-
-                fv_lwGG = fv[np.newaxis, np.newaxis, :, :]
+                    fv_lwGG = r.fhxc_sGsG[np.newaxis, np.newaxis, :, :]
 
             elif not self.dyn_kernel:
                 # static kernel which does not scale with lambda
 
                 with ulm.open('fhxc_%s_%s_%s_%s.ulm' %
                               (self.tag, self.xc, self.ecut_max, qi)) as r:
-                    fv = r.fhxc_lGG
-
-                fv_lwGG = fv[:, np.newaxis, :, :]
+                    fv_lwGG = r.fhxc_lGG[:, np.newaxis, :, :]
 
             else:  # dynamical kernel
                 with ulm.open('fhxc_%s_%s_%s_%s.ulm' %
                               (self.tag, self.xc, self.ecut_max, qi)) as r:
-                    fv = r.fhxc_lwGG
-
-                fv_lwGG = fv
+                    fv_lwGG = r.fhxc_lwGG
 
             if apply_cut_G and cut_G is not None:
                 fv_lwGG = fv_lwGG.take(cut_G, 2).take(cut_G, 3)
@@ -366,22 +372,13 @@ class FXCCorrelation:
             # Loop over frequencies; since the kernel has no spin,
             # we work with spin-summed response function
             e_w = []
-            iw = 0
 
-            for chi0_sGG in np.swapaxes(chi0_swGG, 0, 1):
-                if cut_G is not None:
-                    chi0_sGG = chi0_sGG.take(cut_G, 1).take(cut_G, 2)
-                chi0v = np.zeros((nG, nG), dtype=complex)
-                for s in range(ns):
-                    chi0v += chi0_sGG[s] / G_G / G_G[:, np.newaxis]
-                chi0v *= 4 * np.pi
-                del chi0_sGG
-
-                e = 0.0
+            for iw, chi0_sGG in enumerate(np.swapaxes(chi0_swGG, 0, 1)):
+                chi0v = get_chi0v(chi0_sGG, cut_G, G_G)
 
                 if not self.linear_kernel:
-
                     il = 0
+                    energy = 0.0
                     for l, weight in zip(self.l_l, self.weight_l):
 
                         if self.dyn_kernel:
@@ -392,12 +389,11 @@ class FXCCorrelation:
                         chiv = np.linalg.solve(
                             np.eye(nG) - chi0v @ fv_lwGG[il, fv_w_index],
                             chi0v).real
-                        e -= np.trace(chiv) * weight
+                        energy -= np.trace(chiv) * weight
                         il += 1
 
-                    e += np.trace(chi0v.real)
-                    e_w.append(e)
-                    iw += 1
+                    energy += np.trace(chi0v.real)
+                    e_w.append(energy)
 
                 else:
 
@@ -410,7 +406,7 @@ class FXCCorrelation:
                         # way faster than np.dot for diagonal kernels
                         # Note: fv_lwGG is actually (1, 1, 1, nG) and represents
                         # a diagonal!  This should be simplified.
-                        chi0v_fv = chi0v * fv_lwGG[0, 0, 0]
+                        chi0v_fv = chi0v * fv_diag_G
                         e_GG = np.eye(nG) - chi0v_fv
                     elif self.xc != 'RPA':
                         assert fv_lwGG.shape[:2] == (1, 1)
