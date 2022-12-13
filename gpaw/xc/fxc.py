@@ -55,7 +55,14 @@ class FXCCorrelation:
         self.unit_cells = unit_cells
         self.range_rc = range_rc  # Range separation parameter in Bohr
         self.av_scheme = av_scheme  # Either 'density' or 'wavevector'
+
+
+        if Eg is not None:
+            Eg /= Ha
         self.Eg = Eg  # Band gap in eV
+
+        self.xcflags = XCFlags(self.xc)
+        assert self.xcflags.bandgap_dependent == (self.Eg is not None)
 
         set_flags(self)
 
@@ -1599,6 +1606,10 @@ class XCFlags:
     def dyn_kernel(self):
         return self.xc == 'CP_dyn'
 
+    @property
+    def bandgap_dependent(self):
+        return self.xc in {'JGMs', 'JGMsx'}
+
 
 def set_flags(self):
     """ Based on chosen fxc and av. scheme set up true-false flags """
@@ -1624,9 +1635,3 @@ def set_flags(self):
 
     self.linear_kernel = flags.linear_kernel
     self.dyn_kernel = flags.dyn_kernel
-
-    if self.xc == 'JGMs' or self.xc == 'JGMsx':
-        assert (self.Eg is not None), 'JGMs kernel requires a band gap!'
-        self.Eg /= Ha  # Convert from eV
-    else:
-        self.Eg = None
