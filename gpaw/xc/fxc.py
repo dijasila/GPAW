@@ -55,7 +55,6 @@ class FXCCorrelation:
         self.unit_cells = unit_cells
         self.range_rc = range_rc  # Range separation parameter in Bohr
 
-
         if Eg is not None:
             Eg /= Ha
         self.Eg = Eg  # Band gap in eV
@@ -1615,7 +1614,8 @@ class XCFlags:
 
     @property
     def is_apbe(self):
-        # If new GGA kernels are added, maybe there should be an is_gga property.
+        # If new GGA kernels are added, maybe there should be an
+        # is_gga property.
         return self.xc in {'rAPBE', 'rAPBEns'}
 
     def choose_avg_scheme(self, avg_scheme=None):
