@@ -27,8 +27,8 @@ def get_qdescriptor(kd, atoms):
 
 def initialize_w_calculator(chi0calc, txt='w.txt', ppa=False, xc='RPA',
                             world=mpi.world, timer=None,
-                            E0=Ha, Eg=None, fxc_mode='GW',
-                            truncation=None, integrate_gamma=0,
+                            E0=Ha, Eg=None, fxc_mode='GW', *,
+                            coulomb, integrate_gamma=0,
                             q0_correction=False):
     """A function to initialize a WCalculator with more readable inputs
     than the actual calculator.
@@ -75,7 +75,7 @@ def initialize_w_calculator(chi0calc, txt='w.txt', ppa=False, xc='RPA',
                         context=context,
                         E0=E0,
                         fxc_mode='GW',
-                        coulomb=CoulombKernel(truncation, gs),
+                        coulomb=coulomb,
                         integrate_gamma=integrate_gamma,
                         q0_correction=q0_correction)
     return wcalc
@@ -328,8 +328,7 @@ class WCalculator:
 
         dielectric_WgG = chi0.chi0_wGG  # XXX
         for iw, chi0_GG in enumerate(chi0.chi0_wGG):
-            sqrtV_G = coulomb.sqrtV(chi0.pd,  # XXX was: pdi
-                                    q_v=None)
+            sqrtV_G = coulomb.sqrtV(chi0.pd, q_v=None)
             e_GG = np.eye(nG) - chi0_GG * sqrtV_G * sqrtV_G[:, np.newaxis]
             e_gG = e_GG[my_gslice]
 
