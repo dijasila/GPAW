@@ -443,7 +443,7 @@ class FXCCorrelation:
 
                         eshort -= np.trace(np.dot(chi0v, fxcv)).real
 
-                    elif self.xc in ('range_RPA', 'range_rALDA'):
+                    elif self.xcflags.is_ranged:
                         eshort = (2 * np.pi * self.shortrange /
                                   np.sum(self.weight_w))
 
@@ -1607,6 +1607,10 @@ class XCFlags:
     @property
     def bandgap_dependent(self):
         return self.xc in {'JGMs', 'JGMsx'}
+
+    @property
+    def is_ranged(self):
+        return self.xc in {'range_RPA', 'range_rALDA'}
 
     def choose_avg_scheme(self, avg_scheme=None):
         xc = self.xc
