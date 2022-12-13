@@ -336,6 +336,11 @@ class FXCCorrelation:
             # cut_G slicing?
             apply_cut_G = self.xc not in {'RPA', 'range_RPA'}
 
+            def read(arrayname):
+                key = (self.tag, self.xc, self.ecut_max, qi)
+                with ulm.open('fhxc_%s_%s_%s_%s.ulm' % key) as reader:
+                    return getattr(reader, arrayname)
+
             if self.xc == 'RPA':
                 fv_lwGG = np.eye(nG)[np.newaxis, np.newaxis, :, :]
 
@@ -346,25 +351,15 @@ class FXCCorrelation:
                 # All other cases define fv_lwGG (with some dimensions being 1).
 
             elif self.linear_kernel:
-                with ulm.open('fhxc_%s_%s_%s_%s.ulm' %
-                              (self.tag, self.xc, self.ecut_max, qi)) as r:
-                    fv_lwGG = r.fhxc_sGsG[np.newaxis, np.newaxis, :, :]
-
+                fv_lwGG = read('fhxc_sGsG')[np.newaxis, np.newaxis, :, :]
             elif not self.dyn_kernel:
                 # static kernel which does not scale with lambda
-
-                with ulm.open('fhxc_%s_%s_%s_%s.ulm' %
-                              (self.tag, self.xc, self.ecut_max, qi)) as r:
-                    fv_lwGG = r.fhxc_lGG[:, np.newaxis, :, :]
-
+                fv_lwGG = read('fhxc_lGG')[:, np.newaxis, :, :]
             else:  # dynamical kernel
-                with ulm.open('fhxc_%s_%s_%s_%s.ulm' %
-                              (self.tag, self.xc, self.ecut_max, qi)) as r:
-                    fv_lwGG = r.fhxc_lwGG
+                fv_lwGG = read('fhxc_lwGG')
 
             if apply_cut_G and cut_G is not None:
                 fv_lwGG = fv_lwGG.take(cut_G, 2).take(cut_G, 3)
-
 
             if pd.kd.gamma:
                 G_G[0] = 1.0
