@@ -214,6 +214,15 @@ class GPAW(Calculator):
             old_response = self.hamiltonian.xc.response
             new_response.initialize_from_other_response(old_response)
             new_response.fix_potential = True
+        elif calc.hamiltonian.xc.type == 'MGGA':
+            for kpt in self.wfs.kpt_u:
+                if kpt.psit is None:
+                    raise ValueError("Needs wave functions for "
+                                     "MGGA fixed density.\n"
+                                     "To run from a restart file, it must "
+                                     "be written with mode='all'")
+            self.wfs.initialize_wave_functions_from_restart_file()
+            calc.hamiltonian.xc.fix_kinetic_energy_density(self.wfs)
         calc.calculate(system_changes=[])
         return calc
 
@@ -646,6 +655,9 @@ class GPAW(Calculator):
                 'The fixdensity keyword has been deprecated. '
                 'Please use the GPAW.fixed_density() method instead.',
                 DeprecationWarning)
+            if self.hamiltonian.xc.type == 'MGGA':
+                raise ValueError('MGGA does not support deprecated '
+                                 'fixdensity option.')
 
         mode = par.mode
         if isinstance(mode, str):

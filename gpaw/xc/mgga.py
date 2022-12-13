@@ -19,6 +19,7 @@ class MGGA(XCFunctional):
         XCFunctional.__init__(self, kernel.name, kernel.type)
         self.kernel = kernel
         self.stencil = stencil
+        self.fixed_ke = False
 
     def set_grid_descriptor(self, gd):
         self.grad_v = get_gradient_ops(gd, self.stencil)
@@ -72,8 +73,21 @@ class MGGA(XCFunctional):
         add_gradient_correction(self.grad_v, gradn_svg, sigma_xg,
                                 dedsigma_xg, v_sg)
 
+    def fix_kinetic_energy_density(self, wfs):
+        self.fixed_ke = True
+        self._taut_gradv_init = False
+        self._fixed_taut_sG = wfs.calculate_kinetic_energy_density()
+
     def process_mgga(self, e_g, nt_sg, v_sg, sigma_xg, dedsigma_xg):
-        taut_sG = self.wfs.calculate_kinetic_energy_density()
+        if self.fixed_ke:
+            taut_sG = self._fixed_taut_sG
+            if not self._taut_gradv_init:
+                self._taut_gradv_init = True
+                # ensure initialization for calculation potential
+                self.wfs.calculate_kinetic_energy_density()
+        else:
+            taut_sG = self.wfs.calculate_kinetic_energy_density()
+        
         if taut_sG is None:
             taut_sG = self.wfs.gd.zeros(len(nt_sg))
 
