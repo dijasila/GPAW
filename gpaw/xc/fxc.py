@@ -412,15 +412,17 @@ class FXCCorrelation:
                         # way faster than np.dot for diagonal kernels
                         e_GG = np.eye(nG) - chi0v * fv_lwGG[0, 0, 0]
                     elif self.xc != 'RPA':
-                        e_GG = np.eye(nG) - np.dot(chi0v, fv)
+                        assert fv_lwGG.shape[:2] == (1, 1)
+                        e_GG = np.eye(nG) - np.dot(chi0v, fv_lwGG[0, 0])
 
                     if self.xc == 'RPA':
                         # numerical RPA
                         elong = 0.0
                         for l, weight in zip(self.l_l, self.weight_l):
+                            assert fv_lwGG.shape[:2] == (1, 1)
 
                             chiv = np.linalg.solve(
-                                np.eye(nG) - l * np.dot(chi0v, fv), chi0v).real
+                                np.eye(nG) - l * np.dot(chi0v, fv_lwGG[0, 0]), chi0v).real
 
                             elong -= np.trace(chiv) * weight
 
@@ -433,12 +435,15 @@ class FXCCorrelation:
                     # Numerical integration for short-range part
                     eshort = 0.0
                     if self.xc not in ('RPA', 'range_RPA', 'range_rALDA'):
-                        fxcv = fv - np.eye(nG)  # Subtract Hartree contribution
+                        assert fv_lwGG.shape[:2] == (1, 1)
+                        fv_GG = fv_lwGG[0, 0]
+                        # Subtract Hartree contribution:
+                        fxcv = fv_GG - np.eye(nG)
 
                         for l, weight in zip(self.l_l, self.weight_l):
 
                             chiv = np.linalg.solve(
-                                np.eye(nG) - l * np.dot(chi0v, fv), chi0v)
+                                np.eye(nG) - l * np.dot(chi0v, fv_GG), chi0v)
                             eshort += (np.trace(np.dot(chiv, fxcv)).real *
                                        weight)
 
