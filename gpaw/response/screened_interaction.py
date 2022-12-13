@@ -13,7 +13,6 @@ from gpaw.response.gamma_int import GammaIntegrator
 from gpaw.response.coulomb_kernels import (get_coulomb_kernel,
                                            get_integrated_kernel)
 from gpaw.response.temp import DielectricFunctionCalculator
-from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
 
 
 def get_qdescriptor(kd, atoms):
@@ -148,97 +147,85 @@ class WCalculator:
 
         self.E0 = E0 / Ha
 
-# calculate_q wrapper
-    def calculate_q(self, iq, q_c, chi0, out_dist='WgG'):
-        if self.truncation == 'wigner-seitz':
-            wstc = WignerSeitzTruncatedCoulomb(
-                self.wcalc.gs.gd.cell_cv,
-                self.wcalc.gs.kd.N_c)
-            self.context.print(wstc.get_description())
+    def calculate(self, chi0, out_dist='WgG'):
+        """Direct W calculation interface (used by BSE)."""
 
+        # Set up Wigner-Seitz truncation, if applicable
+        if self.truncation == 'wigner-seitz':
+            raise NotImplementedError(
+                'Wigner-Seitz truncation is not implemented (read: tested) '
+                'for BSE.')
         else:
             wstc = None
 
-        pd, W_wGG = self.dyson_and_W_old(wstc, iq, q_c,
-                                         chi0,
+        pd, W_wGG = self.dyson_and_W_old(wstc,
                                          fxc_mode=self.fxc_mode,
+                                         chi0=chi0,
                                          out_dist=out_dist)
 
         return pd, W_wGG
     
-    def dyson_and_W_old(self, wstc, iq, q_c, chi0, fxc_mode,
+    def dyson_and_W_old(self, wstc, *, fxc_mode, chi0,
                         ecut=None, only_correlation=False,
                         out_dist='WgG'):
-        # If ecut is not None, new copies of the chi0 arrays with reduced ecut
-        # are created and additional output for parallization and PW mapping is
-        # returned along with W in the reduced plane-wave basis.
-        # Relevant only for GW calculations. Note: ecut for paw-corrections
-        # need to be reduced seperately
+        """Reduce plane-wave basis and solve Dyson equation for W.
+
+        The plane-wave basis will only be reduced, if ecut is given as
+        a positive floating point (in Hartree).
+
+        NB: New array copies are created during the calculation.
+        """
         if ecut is not None:
-            (pdi, chi0_wGG,
+            # This should return a chi0_data object in the future! XXX
+            (pdr, chi0_wGG,
              chi0_wxvG, chi0_wvv) = chi0.get_reduced_ecut_arrays(ecut)
-            # For some reason, we still need the pw mapping, even though we
-            # already reduced the plane wave description on the relevant
-            # arrays... This should be changed in the future! XXX
-            _, pw_map = chi0.get_pw_reduction_map(ecut)
-            if pw_map is not None:
-                G2G = pw_map.G2_G1
-            else:
-                G2G = None
         else:
             chi0_wGG = chi0.blockdist.distribute_as(chi0.chi0_wGG,
                                                     chi0.nw, 'wGG')
             chi0_wxvG = chi0.chi0_wxvG
             chi0_wvv = chi0.chi0_wvv
-            pdi = chi0.pd
-            G2G = None
+            pdr = chi0.pd
 
-        pdi, W_wGG = self.dyson_old(wstc, iq, q_c,
-                                    fxc_mode, pdi, chi0_wGG,
-                                    chi0_wxvG, G2G, chi0_wvv,
-                                    only_correlation)
+        W_wGG = self.dyson_old(wstc, fxc_mode,
+                               pdr, chi0_wGG, chi0_wxvG, chi0_wvv,
+                               only_correlation)
 
-        if out_dist == 'WgG' and not self.ppa:
-            # XXX This creates a new, large buffer.  We could perhaps
-            # avoid that.  Buffer used to exist but was removed due to #456.
+        if out_dist == 'WgG':
+            assert not self.ppa
+            # This should take place using the blockdist of the reduced pw
+            # basis chi0 in the future! XXX
             W_wGG = chi0.blockdist.distribute_as(W_wGG, chi0.nw, out_dist)
+        elif out_dist == 'wGG':
+            pass  # We are already parallelized over frequencies
+        else:
+            raise ValueError(f'Invalid out_dist {out_dist}')
 
-        # Create a blocks1d for the reduced plane-wave description
-        # It is quite weird that we do this, if the out distribution is wGG,
-        # that is, distributed over frequencies. This should be changed in
-        # the future! XXX
-        nG = pdi.ngmax
-        blocks1d = Blocks1D(chi0.blockdist.blockcomm, nG)
+        return pdr, W_wGG
 
-        if out_dist != 'wGG' and out_dist != 'WgG':
-            raise ValueError('Wrong outdist in W_and_dyson_old')
-        if ecut is None:  # Normal mode and output
-            return pdi, W_wGG
-        else:  # GW mode, return additional quantities for reduced ecut
-            return pdi, W_wGG, blocks1d, G2G
+    def basic_dyson_arrays(self, pd, fxc_mode):
+        delta_GG = np.eye(pd.ngmax)
 
-    def basic_dyson_setups(self, pdi, iq, fxc_mode, G2G):
-        nG = pdi.ngmax
-        wblocks1d = Blocks1D(self.blockcomm, len(self.wd))
-        delta_GG = np.eye(nG)
-        
         if fxc_mode == 'GW':
             fv = delta_GG
         else:
-            fv = self.xckernel.calculate(nG, iq, G2G)
-        kd = self.gs.kd
-        return nG, wblocks1d, delta_GG, fv, kd
+            fv = self.xckernel.calculate(pd)
 
-    def dyson_old(self, wstc, iq, q_c, fxc_mode,
-                  pdi=None, chi0_wGG=None, chi0_wxvG=None, G2G=None,
-                  chi0_wvv=None, only_correlation=False):
-        nG, wblocks1d, delta_GG, fv, kd = self.basic_dyson_setups(pdi, iq,
-                                                                  fxc_mode,
-                                                                  G2G)
+        return delta_GG, fv
+
+    def dyson_old(self, wstc, fxc_mode,
+                  # This function should take a Chi0Data as input! XXX
+                  pd, chi0_wGG, chi0_wxvG, chi0_wvv,
+                  only_correlation=False):
+        q_c = pd.q_c
+        kd = self.gs.kd
+        wblocks1d = Blocks1D(self.blockcomm, len(self.wd))
+
+        delta_GG, fv = self.basic_dyson_arrays(pd, fxc_mode)
+
         if self.integrate_gamma != 0:
             reduced = (self.integrate_gamma == 2)
-            V0, sqrtV0 = get_integrated_kernel(pdi,
-                                               self.gs.kd.N_c,
+            V0, sqrtV0 = get_integrated_kernel(pd,
+                                               kd.N_c,
                                                truncation=self.truncation,
                                                reduced=reduced,
                                                N=100)
@@ -252,9 +239,10 @@ class WCalculator:
             einv_wGG = []
 
         # Generate fine grid in vicinity of gamma
+        # Use optical_limit check on chi0_data in the future XXX
         if np.allclose(q_c, 0) and len(chi0_wGG) > 0:
             gamma_int = GammaIntegrator(truncation=self.truncation,
-                                        kd=kd, pd=pdi,
+                                        kd=kd, pd=pd,
                                         chi0_wvv=chi0_wvv[wblocks1d.myslice],
                                         chi0_wxvG=chi0_wxvG[wblocks1d.myslice])
 
@@ -262,7 +250,7 @@ class WCalculator:
 
         def get_sqrtV_G(N_c, q_v=None):
             return get_coulomb_kernel(
-                pdi,
+                pd,
                 N_c,
                 truncation=self.truncation,
                 wstc=wstc,
@@ -270,7 +258,7 @@ class WCalculator:
 
         for iw, chi0_GG in enumerate(chi0_wGG):
             if np.allclose(q_c, 0):
-                einv_GG = np.zeros((nG, nG), complex)
+                einv_GG = np.zeros(delta_GG.shape, complex)
                 for iqf in range(len(gamma_int.qf_qv)):
                     gamma_int.set_appendages(chi0_GG, iw, iqf)
 
@@ -295,7 +283,7 @@ class WCalculator:
                                        sqrtV_G[:, np.newaxis])
                 if self.q0_corrector is not None and np.allclose(q_c, 0):
                     this_w = wblocks1d.a + iw
-                    self.q0_corrector.add_q0_correction(pdi, W_GG,
+                    self.q0_corrector.add_q0_correction(pd, W_GG,
                                                         einv_GG_full,
                                                         chi0_wxvG[this_w],
                                                         chi0_wvv[this_w],
@@ -317,11 +305,13 @@ class WCalculator:
                 W_GG[1:, 0] = pi * R_GG[1:, 0] * sqrtV0 * sqrtV_G[1:]
 
             self.context.timer.stop('Dyson eq.')
-            return pdi, [W_GG, omegat_GG]
+            # This is very bad! The output data structure should not depend
+            # on self.ppa! XXX
+            return [W_GG, omegat_GG]
 
         self.context.timer.stop('Dyson eq.')
-        return pdi, chi0_wGG
-    
+        return chi0_wGG
+
     def dyson_and_W_new(self, wstc, iq, q_c, chi0, ecut):
         assert not self.ppa
         # assert not self.do_GW_too
