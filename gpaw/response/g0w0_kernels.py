@@ -5,6 +5,9 @@ import numpy as np
 from gpaw.xc.fxc import KernelWave, XCFlags
 from ase.io.aff import affopen
 
+from gpaw.response.pair_functions import SingleQPWDescriptor
+from gpaw.pw.descriptor import PWMapping
+
 
 class G0W0Kernel:
     def __init__(self, xc, context, **kwargs):
@@ -13,18 +16,17 @@ class G0W0Kernel:
         self.xcflags = XCFlags(xc)
         self._kwargs = kwargs
 
-    def calculate(self, nG, iq, G2G):
+    def calculate(self, pd):
         return calculate_kernel(
+            pd=pd,
             xcflags=self.xcflags,
-            nG=nG, iq=iq, cut_G=G2G, context=self.context, **self._kwargs)
+            context=self.context,
+            **self._kwargs)
 
 
 def actually_calculate_kernel(*, gs, xcflags, q_empty, tag, ecut_max, Eg, wd,
                               context):
-    kd = gs.kd
-    bzq_qc = kd.get_bz_q_points(first=True)
-    U_scc = kd.symmetry.op_scc
-    ibzq_qc = kd.get_ibz_q_points(bzq_qc, U_scc)[0]
+    ibzq_qc = gs.ibzq_qc
 
     l_l = np.array([1.0])
 
@@ -51,13 +53,26 @@ def actually_calculate_kernel(*, gs, xcflags, q_empty, tag, ecut_max, Eg, wd,
     kernel.calculate_fhxc()
 
 
-def calculate_kernel(*, ecut, xcflags, gs, nG, ns, iq, cut_G=None,
-                     wd, Eg, context):
+def calculate_kernel(*, ecut, xcflags, gs, ns, pd, wd, Eg, context):
     xc = xcflags.xc
     tag = gs.atoms.get_chemical_formula(mode='hill')
 
+    # Get iq
+    ibzq_qc = gs.ibzq_qc
+    iq = np.argmin(np.linalg.norm(ibzq_qc - pd.q_c[np.newaxis], axis=1))
+
     ecut_max = ecut * Ha  # XXX very ugly this
     q_empty = None
+
+    # If we want a reduced plane-wave description, create pd mapping
+    if pd.ecut < ecut:
+        # Recreate nonreduced plane-wave description corresponding to ecut_max
+        pdnr = SingleQPWDescriptor.from_q(pd.q_c, ecut, pd.gd,
+                                          gammacentered=pd.gammacentered)
+        pw_map = PWMapping(pd, pdnr)
+        G2_G1 = pw_map.G2_G1
+    else:
+        G2_G1 = None
 
     filename = 'fhxc_%s_%s_%s_%s.ulm' % (tag, xc, ecut_max, iq)
 
@@ -78,14 +93,14 @@ def calculate_kernel(*, ecut, xcflags, gs, nG, ns, iq, cut_G=None,
             with affopen(filename) as r:
                 fv = r.fhxc_sGsG
 
-            if cut_G is not None:
-                cut_sG = np.tile(cut_G, ns)
-                cut_sG[len(cut_G):] += len(fv) // ns
+            if G2_G1 is not None:
+                cut_sG = np.tile(G2_G1, ns)
+                cut_sG[len(G2_G1):] += len(fv) // ns
                 fv = fv.take(cut_sG, 0).take(cut_sG, 1)
 
         else:
             if xc == 'RPA':
-                fv = np.eye(nG)
+                fv = np.eye(pd.ngmax)
             elif xc == 'range_RPA':
                 raise NotImplementedError
 #                    fv = np.exp(-0.25 * (G_G * self.range_rc) ** 2.0)
@@ -94,24 +109,24 @@ def calculate_kernel(*, ecut, xcflags, gs, nG, ns, iq, cut_G=None,
                 with affopen(filename) as r:
                     fv = r.fhxc_sGsG
 
-                if cut_G is not None:
-                    fv = fv.take(cut_G, 0).take(cut_G, 1)
+                if G2_G1 is not None:
+                    fv = fv.take(G2_G1, 0).take(G2_G1, 1)
 
             elif not xcflags.dyn_kernel:
                 # static kernel which does not scale with lambda
                 with affopen(filename) as r:
                     fv = r.fhxc_lGG
 
-                if cut_G is not None:
-                    fv = fv.take(cut_G, 1).take(cut_G, 2)
+                if G2_G1 is not None:
+                    fv = fv.take(G2_G1, 1).take(G2_G1, 2)
 
             else:  # dynamical kernel
                 with affopen(filename) as r:
                     fv = r.fhxc_lwGG
 
-                if cut_G is not None:
-                    fv = fv.take(cut_G, 2).take(cut_G, 3)
+                if G2_G1 is not None:
+                    fv = fv.take(G2_G1, 2).take(G2_G1, 3)
     else:
-        fv = np.eye(nG)
+        fv = np.eye(pd.ngmax)
 
     return fv

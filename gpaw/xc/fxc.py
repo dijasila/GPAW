@@ -1,5 +1,4 @@
 import os
-import sys
 from time import time
 
 import ase.io.ulm as ulm
@@ -17,47 +16,34 @@ from gpaw.pw.descriptor import PWDescriptor
 from gpaw.utilities.blas import axpy, gemmdot
 from gpaw.xc.rpa import RPACorrelation
 from gpaw.heg import HEG
-from gpaw.response.pair import get_gs_and_context
 
 
-class FXCCorrelation(RPACorrelation):
+class FXCCorrelation:
     def __init__(self,
                  calc,
                  xc='RPA',
-                 filename=None,
-                 skip_gamma=False,
-                 qsym=True,
                  nlambda=8,
-                 nfrequencies=16,
-                 frequency_max=800.0,
-                 frequency_scale=2.0,
                  frequencies=None,
                  weights=None,
                  density_cut=1.e-6,
-                 world=mpi.world,
-                 nblocks=1,
                  unit_cells=None,
                  tag=None,
-                 txt=sys.stdout,
                  range_rc=1.0,
                  av_scheme=None,
-                 Eg=None):
+                 Eg=None,
+                 **kwargs):
 
-        RPACorrelation.__init__(self,
-                                calc,
-                                xc=xc,
-                                filename=filename,
-                                skip_gamma=skip_gamma,
-                                qsym=qsym,
-                                nfrequencies=nfrequencies,
-                                nlambda=nlambda,
-                                frequency_max=frequency_max,
-                                frequency_scale=frequency_scale,
-                                frequencies=frequencies,
-                                weights=weights,
-                                world=world,
-                                nblocks=nblocks,
-                                txt=txt)
+        self.rpa = RPACorrelation(
+            calc,
+            xc=xc,
+            nlambda=nlambda,
+            frequencies=frequencies,
+            weights=weights,
+            calculate_q=self.calculate_q_fxc,
+            **kwargs)
+
+        self.gs = self.rpa.gs
+        self.context = self.rpa.context
 
         self.l_l, self.weight_l = p_roots(nlambda)
         self.l_l = (self.l_l + 1.0) * 0.5
@@ -71,11 +57,6 @@ class FXCCorrelation(RPACorrelation):
         self.av_scheme = av_scheme  # Either 'density' or 'wavevector'
         self.Eg = Eg  # Band gap in eV
 
-        # XXX create context reference, remove when super class RPA removed
-        gs, context = get_gs_and_context(calc, txt, world, timer=None)
-        self.gs = gs
-        self.context = context
-        
         set_flags(self)
 
         if tag is None:
@@ -87,6 +68,17 @@ class FXCCorrelation(RPACorrelation):
                 tag += '_' + self.av_scheme
 
         self.tag = tag
+
+        self.omega_w = self.rpa.omega_w
+        self.ibzq_qc = self.rpa.ibzq_qc
+        self.nblocks = self.rpa.nblocks
+        self.weight_w = self.rpa.weight_w
+
+    @property
+    def blockcomm(self):
+        # Cannot be aliased as attribute
+        # because rpa gets blockcomm during calculate
+        return self.rpa.blockcomm
 
     @timer('FXC')
     def calculate(self, ecut, nbands=None):
@@ -162,13 +154,12 @@ class FXCCorrelation(RPACorrelation):
         else:
             spin = True
 
-        e = RPACorrelation.calculate(self, ecut, spin=spin, nbands=nbands)
+        e = self.rpa.calculate(ecut, spin=spin, nbands=nbands)
 
         return e
 
     @timer('Chi0(q)')
-    def calculate_q(self, chi0calc, chi0_s, m1, m2,
-                    cut_G):
+    def calculate_q_fxc(self, chi0calc, chi0_s, m1, m2, cut_G):
         for s, chi0 in enumerate(chi0_s):
             chi0calc.update_chi0(chi0,
                                  m1,
@@ -188,7 +179,7 @@ class FXCCorrelation(RPACorrelation):
             chi0_swGG = np.swapaxes(chi0_swGG, 2, 3)
 
         if not pd.kd.gamma:
-            e = self.calculate_energy(pd, chi0_swGG, cut_G)
+            e = self.calculate_energy_fxc(pd, chi0_swGG, cut_G)
             self.context.print('%.3f eV' % (e * Ha))
         else:
             w1 = self.blockcomm.rank * mynw
@@ -199,7 +190,7 @@ class FXCCorrelation(RPACorrelation):
                     chi0_wGG[:, 0] = chi0.chi0_wxvG[w1:w2, 0, v]
                     chi0_wGG[:, :, 0] = chi0.chi0_wxvG[w1:w2, 1, v]
                     chi0_wGG[:, 0, 0] = chi0.chi0_wvv[w1:w2, v, v]
-                ev = self.calculate_energy(pd, chi0_swGG, cut_G)
+                ev = self.calculate_energy_fxc(pd, chi0_swGG, cut_G)
                 e += ev
                 self.context.print('%.3f' % (ev * Ha), end='', flush=False)
                 if v < 2:
@@ -211,7 +202,7 @@ class FXCCorrelation(RPACorrelation):
         return e
 
     @timer('Energy')
-    def calculate_energy(self, pd, chi0_swGG, cut_G):
+    def calculate_energy_fxc(self, pd, chi0_swGG, cut_G):
         """Evaluate correlation energy from chi0 and the kernel fhxc"""
 
         ibzq2_q = [
