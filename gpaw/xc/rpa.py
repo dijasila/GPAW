@@ -64,7 +64,7 @@ class RPACalculator:
 
         self.nblocks = nblocks
 
-        self.truncation = CoulombKernel(truncation, gs)
+        self.coulomb = CoulombKernel(truncation, gs)
         self.skip_gamma = skip_gamma
 
         # We should actually have a kpoint descriptor for the qpoints.
@@ -147,7 +147,7 @@ class RPACalculator:
         for e in ecut_i:
             p(' {0:.3f}'.format(e * Hartree), end='')
         p()
-        p(self.truncation.description())
+        p(self.coulomb.description())
         self.context.print('')
 
         if self.filename and os.path.isfile(self.filename):
@@ -272,7 +272,7 @@ class RPACalculator:
 
             wblocks = Blocks1D(self.blockcomm, len(self.omega_w))
             gamma_int = GammaIntegrator(
-                truncation=self.truncation.truncation,
+                truncation=self.coulomb.truncation,
                 kd=kd,
                 pd=chi0.pd,
                 chi0_wvv=chi0.chi0_wvv[wblocks.myslice],
@@ -293,7 +293,7 @@ class RPACalculator:
     def calculate_energy_rpa(self, pd, chi0_wGG, cut_G, q_v=None):
         """Evaluate correlation energy from chi0."""
 
-        sqrtV_G = self.truncation.sqrtV(pd, q_v)
+        sqrtV_G = self.coulomb.sqrtV(pd, q_v)
 
         if cut_G is not None:
             sqrtV_G = sqrtV_G[cut_G]
