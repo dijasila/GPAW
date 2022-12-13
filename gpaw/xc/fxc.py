@@ -321,6 +321,10 @@ class FXCCorrelation:
             #
             # Construct/read kernels
 
+            # What are the rules for whether we should do the
+            # cut_G slicing?
+            apply_cut_G = self.xc not in {'RPA', 'range_RPA'}
+
             if self.xc == 'RPA':
                 fv = np.eye(nG)
                 fv_lwGG = fv[np.newaxis, np.newaxis, :, :]
@@ -334,9 +338,6 @@ class FXCCorrelation:
                               (self.tag, self.xc, self.ecut_max, qi)) as r:
                     fv = r.fhxc_sGsG
 
-                if cut_G is not None:
-                    fv = fv.take(cut_G, 0).take(cut_G, 1)
-
                 fv_lwGG = fv[np.newaxis, np.newaxis, :, :]
 
             elif not self.dyn_kernel:
@@ -346,9 +347,6 @@ class FXCCorrelation:
                               (self.tag, self.xc, self.ecut_max, qi)) as r:
                     fv = r.fhxc_lGG
 
-                if cut_G is not None:
-                    fv = fv.take(cut_G, 1).take(cut_G, 2)
-
                 fv_lwGG = fv[:, np.newaxis, :, :]
 
             else:  # dynamical kernel
@@ -356,10 +354,11 @@ class FXCCorrelation:
                               (self.tag, self.xc, self.ecut_max, qi)) as r:
                     fv = r.fhxc_lwGG
 
-                if cut_G is not None:
-                    fv = fv.take(cut_G, 2).take(cut_G, 3)
-
                 fv_lwGG = fv
+
+            if apply_cut_G and cut_G is not None:
+                fv_lwGG = fv_lwGG.take(cut_G, 2).take(cut_G, 3)
+
 
             if pd.kd.gamma:
                 G_G[0] = 1.0
