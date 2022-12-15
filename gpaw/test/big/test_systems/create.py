@@ -51,6 +51,7 @@ def biimtf():
     atoms.center(vacuum=5)
     return atoms, dict(h=0.16,
                        charge=+1,
+                       spinpol=True,
                        occupations=FermiDirac(0.05),
                        xc='RPBE')
 
@@ -83,9 +84,7 @@ def scsz():
 
     return atoms, dict(h=0.2,
                        kpts=(2, 1, 1),
-                       xc='PBE',
-                       maxiter=100,
-                       txt='ScSZ.txt')
+                       xc='PBE')
 
 
 @system
@@ -241,8 +240,7 @@ def gs_small():
                        mode=PW(600),
                        kpts=(29, 29, 1),
                        xc='PBE',
-                       occupations=FermiDirac(0.01),
-                       parallel={'band': 1})
+                       occupations=FermiDirac(0.01))
 
 
 @system
