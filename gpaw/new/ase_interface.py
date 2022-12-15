@@ -197,7 +197,6 @@ class ASECalculator:
 
     def get_pseudo_wave_function(self, band, kpt=0, spin=0,
                                  periodic=False) -> Array3D:
-        assert periodic
         state = self.calculation.state
         wfs = state.ibzwfs.get_wfs(spin=spin, kpt=kpt, n1=band, n2=band + 1)
         basis = getattr(self.calculation.scf_loop.hamiltonian, 'basis', None)
@@ -206,6 +205,8 @@ class ASECalculator:
         psit_R = wfs.psit_nX[0]
         if not psit_R.desc.pbc.all():
             psit_R = psit_R.to_pbc_grid()
+        if periodic:
+            psit_R.multiply_by_eikr(-psit_R.desc.kpt_c)
         return psit_R.data * Bohr**-1.5
 
     def get_atoms(self):

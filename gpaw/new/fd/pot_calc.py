@@ -47,7 +47,7 @@ class UniformGridPotentialCalculator(PotentialCalculator):
         return self.ghat_aLr.integrate(vHt_r)
 
     def calculate_non_selfconsistent_exc(self, nt_sR, xc):
-        nt_sr = self._interpolate_density(nt_sR)
+        nt_sr, _, _ = self._interpolate_density(nt_sR)
         vxct_sr = nt_sr.desc.zeros(nt_sr.dims)
         e_xc = xc.calculate(nt_sr, vxct_sr)
         return e_xc

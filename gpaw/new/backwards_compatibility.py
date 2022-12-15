@@ -32,7 +32,9 @@ class FakeWFS:
         assert self.nvalence == ibzwfs.nelectrons
         self.world = calculation.scf_loop.world
         if ibzwfs.fermi_levels is not None:
-            self.fermi_level, = ibzwfs.fermi_levels
+            self.fermi_levels = ibzwfs.fermi_levels
+            if len(self.fermi_levels) == 1:
+                self.fermi_level = self.fermi_levels[0]
         self.nspins = ibzwfs.nspins
         self.dtype = ibzwfs.dtype
         wfs = ibzwfs.wfs_qs[0][0]
@@ -169,8 +171,7 @@ class FakeHamiltonian:
         fine_grid = self.pot_calc.fine_grid
         vxct_sr = fine_grid.empty(len(vxct_sg))
         vxct_sr.data[:] = vxct_sg
-        vxct_sR = self.grid.zeros(vxct_sr.dims)
-        self.pot_calc._restrict(vxct_sr, vxct_sR)
+        vxct_sR = self.pot_calc.restrict(vxct_sr)
         return vxct_sR.data
 
     @property

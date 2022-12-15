@@ -87,8 +87,9 @@ class WaveFunctions:
                                         comm=serial_comm)
         psit_nR = gd.empty(n2 - n1)
         for band, psit_R in enumerate(psit_nR):
-            psit_R[:] = calc.get_pseudo_wave_function(band + n1,
-                                                      spin=spin) * Bohr**1.5
+            psit_R[:] = calc.get_pseudo_wave_function(
+                band + n1,
+                spin=spin) * Bohr**1.5
 
         return WaveFunctions(psit_nR,
                              kpt.projections.as_dict_on_master(n1, n2),
