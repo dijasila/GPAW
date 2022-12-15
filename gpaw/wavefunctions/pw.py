@@ -337,7 +337,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             for n1 in range(0, N, S):
                 n2 = min(n1 + S, N)
                 dn = n2-n1
-                Gpsit_xG[:dn] = G_Gv[:,v] * psit_xG[n1:n2]
+                Gpsit_xG[:dn] = 1j * G_Gv[:,v] * psit_xG[n1:n2]
                 Gpsit_G = self.pd.alltoall1(Gpsit_xG[:dn], kpt.q)
                 if Gpsit_G is not None:
                     f = kpt.f_n[n1 + comm.rank]
@@ -361,7 +361,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             dn = n2-n1
             a_vR = {}
             for v in range(3):
-                Gpsit_xG[:dn] = G_Gv[:,v] * psit_xG[n1:n2]
+                Gpsit_xG[:dn] = 1j * G_Gv[:,v] * psit_xG[n1:n2]
                 Gpsit_G = self.pd.alltoall1(Gpsit_xG[:dn], kpt.q)
                 if Gpsit_G is not None:
                     f = kpt.f_n[n1 + comm.rank]
@@ -422,7 +422,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             for n1 in range(0, N, S):
                 n2 = min(n1 + S, N)
                 dn = n2-n1
-                Gpsit_xG[:dn] = G_Gv[:,v] * psit_xG[n1:n2]
+                Gpsit_xG[:dn] = 1j * G_Gv[:,v] * psit_xG[n1:n2]
                 tmp_xG[:] = 0
                 Gpsit_G = self.pd.alltoall1(Gpsit_xG[:dn], kpt.q)
                 if Gpsit_G is not None:
@@ -433,7 +433,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 else:
                     a_R = self.pd.tmp_G
                 self.pd.alltoall2(a_R, kpt.q, tmp_xG[:dn])
-                axpy(0.5, (G_Gv[:,v] * tmp_xG[:dn]).ravel(), Htpsit_xG[n1:n2].ravel())
+                axpy(-0.5, (1j * G_Gv[:,v] * tmp_xG[:dn]).ravel(), Htpsit_xG[n1:n2].ravel())
 
     def _get_wave_function_array(self, u, n, realspace=True, periodic=False):
         kpt = self.kpt_u[u]
