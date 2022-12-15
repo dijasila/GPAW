@@ -1,6 +1,7 @@
 from myqueue.workflow import run
 from gpaw.test.big.test_systems.create import create_test_systems
-from gpaw import GPAW
+from gpaw import GPAW, PW
+from ase.optimize import BFGS
 
 
 CORES = [1, 4, 8, 16, 14, 40, 48, 56, 72, 96, 120]
@@ -15,8 +16,27 @@ def workflow():
             name=name,
             cores=cores,
             tmax='1d')
+        run(function=relax, args=[name, atoms],
+            name=name + '-R',
+            cores=cores,
+            tmax='1d')
 
 
 def calculate(name, atoms, params):
+    """Do one-shot energy calculation."""
     atoms.calc = GPAW(**params, txt=name + '.txt')
     atoms.get_potential_energy()
+
+
+def relax(name, atoms, params):
+    """Relax with PW-mode."""
+    kwargs = {k: v for k, v in params.items() if k in ['charge', 'spinpol']}
+    atoms.calc = GPAW(
+        xc='PBE',
+        mode=PW(600),
+        kpts=dict(density=4.0),
+        txt=name + '-R.txt',
+        **kwargs)
+    BFGS(atoms,
+         logfile=name + '-R.log',
+         trajectory=name + '-R.traj').run(fmax=0.02)
