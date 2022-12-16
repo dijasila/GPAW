@@ -1,6 +1,7 @@
 import numpy as np
 from ase import Atoms
 from ase.units import Bohr
+
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.new import cached_property, prod
@@ -51,7 +52,10 @@ class FakeWFS:
             self.mode = 'lcao'
 
     def _get_wave_function_array(self, u, n, realspace):
-        return self.kpt_u[u].wfs.psit_nX[n].ifft(grid=self.pwgrid).data
+        psit_X = self.kpt_u[u].wfs.psit_nX[n]
+        if hasattr(psit_X, 'ifft'):
+            return psit_X.ifft(grid=self.pwgrid).data
+        return psit_X.data
 
     def get_wave_function_array(self, n, k, s, realspace=True, periodic=False):
         assert realspace
