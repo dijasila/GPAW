@@ -103,7 +103,7 @@ def calculate_raman(calc, w_ph, w_in, d_i, d_o, resonant_only=False,
     def _term2(f_vc, E_vc, mom_dnn, elph_lnn, nc, nv):
         term2_lw = np.zeros((nmodes, ngrid), dtype=complex)
         t2_ij = f_vc * mom_dnn[0, nc:, :nv].T / (w_in - E_vc)
-        t2_xx = mom_dnn[1]  # XXX might need to T or conj
+        t2_xx = mom_dnn[1].T
         for l in range(nmodes):
             for wi in range(ngrid):
                 t2_mn = f_vc.T * elph_lnn[l][nc:, :nv] / (w[wi] - E_vc.T)
@@ -133,7 +133,7 @@ def calculate_raman(calc, w_ph, w_in, d_i, d_o, resonant_only=False,
 
     def _term4(f_vc, E_vc, mom_dnn, elph_lnn, nc, nv):
         term4_lw = np.zeros((nmodes, ngrid), dtype=complex)
-        t4_xx = mom_dnn[0]  # XXX might need to T or conj
+        t4_xx = mom_dnn[0].T
         for l in range(nmodes):
             for wi in range(ngrid):
                 t4_ij = f_vc * mom_dnn[1, nc:, :nv].T / (-w_in + w[wi] - E_vc)
@@ -148,7 +148,7 @@ def calculate_raman(calc, w_ph, w_in, d_i, d_o, resonant_only=False,
 
     def _term5(f_vc, E_vc, mom_dnn, elph_lnn, nc, nv):
         term5_l = np.zeros((nmodes), dtype=complex)
-        t5_xx = mom_dnn[0]  # XXX might need to T or conj
+        t5_xx = mom_dnn[0].T
         for l in range(nmodes):
             t5_ij = f_vc * elph_lnn[l, :nv, nc:] / (-w_ph[l] - E_vc)
             t5_mn = (f_vc * mom_dnn[1, :nv, nc:] / (w_in - w_ph[l] - E_vc)).T
@@ -160,7 +160,7 @@ def calculate_raman(calc, w_ph, w_in, d_i, d_o, resonant_only=False,
 
     def _term6(f_vc, E_vc, mom_dnn, elph_lnn, nc, nv):
         term6_lw = np.zeros((nmodes, ngrid), dtype=complex)
-        t6_xx = mom_dnn[1]  # XXX might need to T or conj
+        t6_xx = mom_dnn[1].T
         for l in range(nmodes):
             t6_ij = f_vc * elph_lnn[l, :nv, nc:] / (-w_ph[l] - E_vc)
             for wi in range(ngrid):
