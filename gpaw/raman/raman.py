@@ -67,7 +67,7 @@ def calculate_raman(calc, w_ph, w_in, d_i, d_o, resonant_only=False,
 
     # Set grid
     w_max = np.round(np.max(w_ph) / invcm + 50, -1)  # max of grid in rcm
-    ngrid = int(w_max / gridspacing)
+    ngrid = int(w_max / gridspacing) + 1
     w = np.linspace(0., w_max, num=ngrid) * invcm  # in eV
 
     # Load files
