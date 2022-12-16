@@ -460,8 +460,8 @@ PyObject* integrate_cuda_gpu(LFCObject *lfc, PyObject *args)
 
     int nd = PyTuple_Size(shape);
 
-    int nx = (int) PyLong_AsLong(PyTuple_GetItem(shape, 0));
-    for (int i=1; i < nd - 3; i++) {
+    int nx = 1;
+    for (int i=0; i < nd - 3; i++) {
         nx *= (int) PyLong_AsLong(PyTuple_GetItem(shape, i));
     }
     int nG = (int) PyLong_AsLong(PyTuple_GetItem(shape, nd - 3));
@@ -505,8 +505,8 @@ PyObject* add_cuda_gpu(LFCObject *lfc, PyObject *args)
 
     int nd = PyTuple_Size(shape);
 
-    int nx = (int) PyLong_AsLong(PyTuple_GetItem(shape, 0));
-    for (int i=1; i < nd - 3; i++) {
+    int nx = 1;
+    for (int i=0; i < nd - 3; i++) {
         nx *= (int) PyLong_AsLong(PyTuple_GetItem(shape, i));
     }
     int nG = (int) PyLong_AsLong(PyTuple_GetItem(shape, nd - 3));
