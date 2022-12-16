@@ -445,6 +445,22 @@ PyObject * NewLFCObject_cuda(LFCObject *self, PyObject *args)
         return (PyObject*) self;
 }
 
+
+extern "C"
+void parse_shape_xG(PyObject* shape, int* nx, int* nG)
+{
+    int nd = PyTuple_Size(shape);
+
+    *nx = 1;
+    for (int i = 0; i < nd-3; i++) {
+        *nx *= (int) PyLong_AsLong(PyTuple_GetItem(shape, i));
+    }
+    *nG = 1;
+    for (int i = nd-3; i < nd; i++)
+        *nG *= (int) PyLong_AsLong(PyTuple_GetItem(shape, i));
+}
+
+
 extern "C"
 PyObject* integrate_cuda_gpu(LFCObject *lfc, PyObject *args)
 {
@@ -458,15 +474,8 @@ PyObject* integrate_cuda_gpu(LFCObject *lfc, PyObject *args)
                           &c_shape, &q))
         return NULL;
 
-    int nd = PyTuple_Size(shape);
-
-    int nx = 1;
-    for (int i=0; i < nd - 3; i++) {
-        nx *= (int) PyLong_AsLong(PyTuple_GetItem(shape, i));
-    }
-    int nG = (int) PyLong_AsLong(PyTuple_GetItem(shape, nd - 3));
-    for (int i = nd-2; i < nd; i++)
-        nG *= (int) PyLong_AsLong(PyTuple_GetItem(shape, i));
+    int nx, nG;
+    parse_shape_xG(shape, &nx, &nG);
 
     int c_nd = PyTuple_Size(c_shape);
     int nM = (int) PyLong_AsLong(PyTuple_GetItem(c_shape, c_nd - 1));
@@ -503,16 +512,8 @@ PyObject* add_cuda_gpu(LFCObject *lfc, PyObject *args)
                 &shape, &q))
         return NULL;
 
-    int nd = PyTuple_Size(shape);
-
-    int nx = 1;
-    for (int i=0; i < nd - 3; i++) {
-        nx *= (int) PyLong_AsLong(PyTuple_GetItem(shape, i));
-    }
-    int nG = (int) PyLong_AsLong(PyTuple_GetItem(shape, nd - 3));
-    for (int i = nd - 2; i < nd; i++) {
-        nG *= (int) PyLong_AsLong(PyTuple_GetItem(shape, i));
-    }
+    int nx, nG;
+    parse_shape_xG(shape, &nx, &nG);
 
     int c_nd = PyTuple_Size(c_shape);
     int nM = (int) PyLong_AsLong(PyTuple_GetItem(c_shape, c_nd - 1));
