@@ -29,7 +29,11 @@ def test_pw_si_stress(in_tmp_dir):
     si.calc.wfs.pt.blocksize = si.calc.wfs.pd.maxmyng - 1
 
     s_analytical = si.get_stress()
-    s_numerical = si.calc.calculate_numerical_stress(si, 1e-5)
+    # Calculated numerical stress once, store here to speed up test
+    # [-0.00853353 -0.04100137 -0.03821226 -0.02084923  0.1331957   0.00945546]
+    s_numerical = np.array([-0.00853353, -0.04100137, -0.03821226,
+                            -0.02084923,  0.1331957,   0.00945546])
+    #s_numerical = si.calc.calculate_numerical_stress(si, 1e-5)
     s_err = s_numerical - s_analytical
 
     parprint('Analytical stress:\n', s_analytical)
