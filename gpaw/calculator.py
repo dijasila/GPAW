@@ -222,7 +222,15 @@ class GPAW(Calculator):
                                      "To run from a restart file, it must "
                                      "be written with mode='all'")
             self.wfs.initialize_wave_functions_from_restart_file()
-            calc.hamiltonian.xc.fix_kinetic_energy_density(self.wfs)
+            taut_sG = self.wfs.calculate_kinetic_energy_density()
+            wgd = self.wfs.gd.new_descriptor(comm=self.world, allow_empty_domains=True)
+            redist = GridRedistributor(self.world, self.wfs.kptband_comm,
+                                       self.wfs.gd, wgd)
+            taut_sG = redist.distribute(taut_sG)
+            redist = GridRedistributor(self.world, calc.wfs.kptband_comm,
+                                       calc.wfs.gd, wgd)
+            taut_sG = redist.collect(taut_sG)
+            calc.hamiltonian.xc.fix_kinetic_energy_density(taut_sG)
         calc.calculate(system_changes=[])
         return calc
 

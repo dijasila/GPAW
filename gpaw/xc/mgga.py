@@ -73,10 +73,10 @@ class MGGA(XCFunctional):
         add_gradient_correction(self.grad_v, gradn_svg, sigma_xg,
                                 dedsigma_xg, v_sg)
 
-    def fix_kinetic_energy_density(self, wfs):
+    def fix_kinetic_energy_density(self, taut_sG):
         self.fixed_ke = True
         self._taut_gradv_init = False
-        self._fixed_taut_sG = wfs.calculate_kinetic_energy_density()
+        self._fixed_taut_sG = taut_sG.copy()
 
     def process_mgga(self, e_g, nt_sg, v_sg, sigma_xg, dedsigma_xg):
         if self.fixed_ke:
