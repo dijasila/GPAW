@@ -23,6 +23,18 @@ Git master branch
      in order to reduce number of **k**-points then you should redo those
      calculations.  Sorry!
 
+* Two other bugs affecting MGGA calculations were found (in the fix_density
+  and diagonalize_full_hamiltonian routines), which are fixed by
+  `!1417 <https://gitlab.com/gpaw/gpaw/-/merge_requests/1417>`_.
+
+  .. warning::
+  
+     MGGA calculations using fix_density and/or diagonalize_full_hamiltonian
+     should be rerun with these fixes.
+
+* The stress tensor was implemented for MGGA functionals, and
+  parallelization of MGGAs for large systems was improved.
+
 * Local orbitals added in LCAO mode to construct effective
   tight-binding Hamiltonians: :ref:`los in lcao`, :ref:`los tutorial`.
 
