@@ -119,7 +119,7 @@ class WCalculator:
         self.ppa = ppa
         self.fxc_mode = fxc_mode
         self.wd = wd
-        self.pair = pair
+        self.pair = pair  # We can avoid pair and blockcomm, by using chi0 XXX
         self.blockcomm = self.pair.blockcomm
         self.gs = gs
         self.coulomb = coulomb
@@ -174,16 +174,15 @@ class WCalculator:
         if ecut is not None:
             # This should return a chi0_data object in the future! XXX
             (pdr, chi0_wGG,
-             chi0_wxvG, chi0_wvv) = chi0.get_reduced_ecut_arrays(ecut)
+             chi0_Wvv, chi0_WxvG) = chi0.get_reduced_ecut_arrays(ecut)
         else:
-            chi0_wGG = chi0.blockdist.distribute_as(chi0.chi0_wGG,
-                                                    chi0.nw, 'wGG')
-            chi0_wxvG = chi0.chi0_wxvG
-            chi0_wvv = chi0.chi0_wvv
+            chi0_wGG = chi0.get_array_distributed_as('wGG')
+            chi0_WxvG = chi0.chi0_WxvG
+            chi0_Wvv = chi0.chi0_Wvv
             pdr = chi0.pd
 
         W_wGG = self.dyson_old(fxc_mode,
-                               pdr, chi0_wGG, chi0_wxvG, chi0_wvv,
+                               pdr, chi0_wGG, chi0_WxvG, chi0_Wvv,
                                only_correlation)
 
         if out_dist == 'WgG':
@@ -210,7 +209,7 @@ class WCalculator:
 
     def dyson_old(self, fxc_mode,
                   # This function should take a Chi0Data as input! XXX
-                  pd, chi0_wGG, chi0_wxvG, chi0_wvv,
+                  pd, chi0_wGG, chi0_WxvG, chi0_Wvv,
                   only_correlation=False):
         q_c = pd.q_c
         kd = self.gs.kd
@@ -236,8 +235,8 @@ class WCalculator:
             gamma_int = GammaIntegrator(
                 truncation=self.coulomb.truncation,
                 kd=kd, pd=pd,
-                chi0_wvv=chi0_wvv[wblocks1d.myslice],
-                chi0_wxvG=chi0_wxvG[wblocks1d.myslice])
+                chi0_wvv=chi0_Wvv[wblocks1d.myslice],
+                chi0_wxvG=chi0_WxvG[wblocks1d.myslice])
 
         self.context.timer.start('Dyson eq.')
         for iw, chi0_GG in enumerate(chi0_wGG):
@@ -267,11 +266,11 @@ class WCalculator:
                 W_GG[:] = (einv_GG) * (sqrtV_G *
                                        sqrtV_G[:, np.newaxis])
                 if self.q0_corrector is not None and np.allclose(q_c, 0):
-                    this_w = wblocks1d.a + iw
+                    W = wblocks1d.a + iw
                     self.q0_corrector.add_q0_correction(pd, W_GG,
                                                         einv_GG_full,
-                                                        chi0_wxvG[this_w],
-                                                        chi0_wvv[this_w],
+                                                        chi0_WxvG[W],
+                                                        chi0_Wvv[W],
                                                         sqrtV_G)
                 # XXX Is it to correct to have "or" here?
                 elif np.allclose(q_c, 0) or self.integrate_gamma != 0:

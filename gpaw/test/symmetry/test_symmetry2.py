@@ -18,7 +18,7 @@ def test_response_symmetry(gpw_files):
     for name in ['ti2o4_pw_nosym_wfs', 'ti2o4_pw_wfs']:
         X = Chi0(gpw_files[name])
         chi_t = X.calculate([1. / 4, 0, 0])
-        data_s.append((chi_t.chi0_wGG, chi_t.chi0_wxvG, chi_t.chi0_wvv))
+        data_s.append((chi_t.chi0_WgG, chi_t.chi0_WxvG, chi_t.chi0_Wvv))
 
     msg = 'Difference in Chi when turning off symmetries!'
 
