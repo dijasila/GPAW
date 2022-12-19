@@ -1,9 +1,12 @@
 import numpy as np
 
+from gpaw.pw.descriptor import PWMapping
+
 from gpaw.response.pw_parallelization import (Blocks1D,
                                               PlaneWaveBlockDistributor)
 from gpaw.response.frequencies import FrequencyDescriptor
-from gpaw.response.pair_functions import SingleQPWDescriptor
+from gpaw.response.pair_functions import (SingleQPWDescriptor,
+                                          map_WgG_array_to_reduced_pd)
 
 
 class Chi0Descriptors:
@@ -143,45 +146,6 @@ class BodyData:
 
         return data_x
 
-    def get_reduced_ecut_array(self, ecut):
-        """Provide a copy of the body data array within a reduced ecut.
-
-        Needed for ecut extrapolation in G0W0.
-        Note: Returns data_wGG array in wGG distribution.
-        """
-        pdr, pw_map = self.get_pw_reduction_map(ecut)
-        data_wGG = self._copy_and_map_array(pw_map)
-
-        return pdr, data_wGG
-
-    def _copy_and_map_array(self, pw_map):
-        # Get a copy of the full array, distributed over frequencies
-        data_wGG = self.copy_array_with_distribution('wGG')
-
-        if pw_map is not None:
-            G2_G1 = pw_map.G2_G1
-            # Construct array subset with lower ecut
-            data_wGG = data_wGG.take(G2_G1, axis=1).take(G2_G1, axis=2)
-
-        return data_wGG
-
-    def get_pw_reduction_map(self, ecut):
-        """Get PWMapping to reduce plane-wave description."""
-        from gpaw.pw.descriptor import PWMapping
-
-        pd = self.pd
-
-        if ecut == self.pd.ecut:
-            pdr = pd  # reduced pd is equal to the original pd
-            pw_map = None
-        elif ecut < self.pd.ecut:
-            # Create reduced pd
-            pdr = SingleQPWDescriptor.from_q(
-                pd.q_c, ecut, pd.gd, gammacentered=pd.gammacentered)
-            pw_map = PWMapping(pdr, pd)
-
-        return pdr, pw_map
-
 
 class HeadAndWingsData:
     def __init__(self, descriptors):
@@ -222,14 +186,6 @@ class HeadAndWingsData:
     def WxvG_shape(self):
         return (self.nw, 2, 3, self.nG)
 
-    def _copy_and_map_arrays(self, pw_map):
-        data_Wvv = self.data_Wvv.copy()
-        data_WxvG = self.data_WxvG.copy()
-        if pw_map is not None:
-            data_WxvG = data_WxvG.take(pw_map.G2_G1, axis=3)
-
-        return data_Wvv, data_WxvG  # head and wings
-
 
 class AugmentedBodyData(BodyData):
     """Data object containing the body data along with the head and
@@ -255,20 +211,29 @@ class AugmentedBodyData(BodyData):
         if self.optical_limit:
             return self.head_and_wings.WxvG_shape
 
-    def get_reduced_ecut_arrays(self, ecut):
-        """Provide a copy of the data array(s) within a reduced ecut.
+    def copy_with_reduced_pd(self, pd):
+        """Provide a copy of the object within a reduced plane-wave basis.
         """
-        pdr, pw_map = self.get_pw_reduction_map(ecut)
-        data_wGG = self._copy_and_map_array(pw_map)
+        descriptors = Chi0Descriptors(self.wd, pd)
+        # Create a new AugmentedBodyData object
+        new_abd = self._new(descriptors, self.blockdist)
 
+        new_abd.data_WgG[:] = map_WgG_array_to_reduced_pd(self.pd, pd,
+                                                          self.blockdist,
+                                                          self.data_WgG)
         if self.optical_limit:
-            data_Wvv, data_WxvG = self.head_and_wings._copy_and_map_arrays(
-                pw_map)
-        else:
-            data_Wvv = None
-            data_WxvG = None
+            new_abd.head_and_wings.data_Wvv[:] = self.head_and_wings.data_Wvv
 
-        return pdr, data_wGG, data_Wvv, data_WxvG
+            # Map the wings to the reduced plane-wave description
+            G2_G1 = PWMapping(pd, self.pd).G2_G1
+            new_abd.head_and_wings.data_WxvG[:] \
+                = self.head_and_wings.data_WxvG[..., G2_G1]
+
+        return new_abd
+
+    @classmethod
+    def _new(cls, *args, **kwargs):
+        return cls(*args, **kwargs)
 
 
 class Chi0Data(AugmentedBodyData):
