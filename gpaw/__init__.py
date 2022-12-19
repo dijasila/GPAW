@@ -171,7 +171,7 @@ if debug:
         try:
             a.fill(np.nan)
         except ValueError:
-            a.fill(-1000000)
+            a.fill(42)
         return a
 
     def empty_like(*args, **kwargs):
