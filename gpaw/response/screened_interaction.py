@@ -172,17 +172,16 @@ class WCalculator:
         NB: New array copies are created during the calculation.
         """
         if ecut is not None:
-            # This should return a chi0_data object in the future! XXX
-            (pdr, chi0_wGG,
-             chi0_Wvv, chi0_WxvG) = chi0.get_reduced_ecut_arrays(ecut)
+            pd = chi0.pd.copy_with(ecut=ecut)
+            chi0 = chi0.copy_with_reduced_pd(pd)
         else:
-            chi0_wGG = chi0.copy_array_with_distribution('wGG')
-            chi0_WxvG = chi0.chi0_WxvG
-            chi0_Wvv = chi0.chi0_Wvv
-            pdr = chi0.pd
+            pd = chi0.pd
+        chi0_wGG = chi0.copy_array_with_distribution('wGG')
+        chi0_WxvG = chi0.chi0_WxvG
+        chi0_Wvv = chi0.chi0_Wvv
 
         W_wGG = self.dyson_old(fxc_mode,
-                               pdr, chi0_wGG, chi0_WxvG, chi0_Wvv,
+                               pd, chi0_wGG, chi0_WxvG, chi0_Wvv,
                                only_correlation)
 
         if out_dist == 'WgG':
@@ -195,7 +194,7 @@ class WCalculator:
         else:
             raise ValueError(f'Invalid out_dist {out_dist}')
 
-        return pdr, W_wGG
+        return pd, W_wGG
 
     def basic_dyson_arrays(self, pd, fxc_mode):
         delta_GG = np.eye(pd.ngmax)
