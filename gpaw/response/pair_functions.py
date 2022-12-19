@@ -21,6 +21,18 @@ class SingleQPWDescriptor(PWDescriptor):
     def q_c(self):
         return self.kd.bzk_kc[0]
 
+    def copy(self):
+        return self.copy_with()
+
+    def copy_with(self, ecut=None, gammacentered=None):
+        if ecut is None:
+            ecut = self.ecut
+        if gammacentered is None:
+            gammacentered = self.gammacentered
+
+        return SingleQPWDescriptor.from_q(
+            self.q_c, ecut, self.gd, gammacentered=self.gammacentered)
+
 
 class PairFunction(ABC):
     """Pair function data object.
