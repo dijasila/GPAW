@@ -31,7 +31,7 @@ class SingleQPWDescriptor(PWDescriptor):
             gammacentered = self.gammacentered
 
         return SingleQPWDescriptor.from_q(
-            self.q_c, ecut, self.gd, gammacentered=self.gammacentered)
+            self.q_c, ecut, self.gd, gammacentered=gammacentered)
 
 
 class PairFunction(ABC):
