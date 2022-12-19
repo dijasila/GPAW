@@ -53,7 +53,7 @@ class PotentialCalculator:
             self.setups, density, self.xc, Q_aL, self.soc)
 
         for key, e in corrections.items():
-            # print(f'{key:10} {e:15.9f} {energies[key]:15.9f}')
+            print(f'{key:10} {e:15.9f} {energies[key]:15.9f}')
             energies[key] += e
 
         return Potential(vt_sR, dH_asii, energies), vHt_x, Q_aL

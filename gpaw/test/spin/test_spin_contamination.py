@@ -7,6 +7,7 @@ h = 0.25
 box = 3.0
 
 
+@pytest.mark.later
 def test_spin_spin_contamination_B():
     # B should not have spin contamination
     s = Cluster([Atom('B')])
@@ -29,6 +30,7 @@ def test_spin_spin_contamination_B():
     assert contamination == pytest.approx(0.0, abs=0.01)
 
 
+@pytest.mark.later
 def test_spin_spin_contamination_H2():
     # setup H2 at large distance with different spins for the atoms
     s = Cluster([Atom('H'), Atom('H', [0, 0, 3.0])])

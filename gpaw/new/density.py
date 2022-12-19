@@ -53,16 +53,18 @@ class Density:
         return ccc_aL
 
     def normalize(self):
-        comp_charge = self.charge
+        comp_charge = 0.0
         for a, D_sii in self.D_asii.items():
             comp_charge += np.einsum('sij, ij ->',
                                      D_sii[:self.ndensities],
                                      self.delta_aiiL[a][:, :, 0])
             comp_charge += self.delta0_a[a]
         comp_charge = self.nt_sR.desc.comm.sum(comp_charge * sqrt(4 * pi))
+        print(self.charge, comp_charge)
         charge = comp_charge + self.charge
         pseudo_charge = self.nt_sR[:self.ndensities].integrate().sum()
         x = -charge / pseudo_charge
+        print(charge, pseudo_charge, x)
         self.nt_sR.data *= x
 
     def update(self, nct_R, ibzwfs):
@@ -107,9 +109,12 @@ class Density:
                  for a, (setup, magmom_v) in enumerate(zip(setups, magmom_av))}
 
         nt_sR = nct_R.desc.zeros(ncomponents)
+        print(f_asi)
         basis_set.add_to_density(nt_sR.data, f_asi)
         ndensities = ncomponents % 3
+        print('I', nt_sR.integrate())
         nt_sR.data[:ndensities] += nct_R.data
+        print('I', nt_sR.integrate())
 
         atom_array_layout = AtomArraysLayout([(setup.ni, setup.ni)
                                               for setup in setups],

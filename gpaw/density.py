@@ -43,6 +43,7 @@ class CompensationChargeExpansionCoefficients:
 
     def get_charge(self, Q_aL):
         local_charge = sqrt(4 * pi) * sum(Q_L[0] for Q_L in Q_aL.values())
+        print('local', local_charge)
         return Q_aL.partition.comm.sum(local_charge)
 
 
@@ -333,6 +334,7 @@ class Density:
             self.D_asp[a][:] = self.setups[a].initialize_density_matrix(f_si)
 
         self.nt_xG = self.gd.zeros(self.ncomponents)
+        print(f_asi)
         basis_functions.add_to_density(self.nt_xG, f_asi)
         self.nt_sG[:] += self.nct_G
         self.calculate_normalized_charges_and_mix()
