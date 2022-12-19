@@ -42,6 +42,36 @@ def GPAW(filename: Union[str, Path, IO[str]] = None,
     return ASECalculator(params, log)
 
 
+def write_header(log, world, params):
+    from gpaw.io.logger import write_header as header
+    log(f'#  __  _  _\n# | _ |_)|_||  |\n# |__||  | ||/\\| - {__version__}\n')
+    header(log, world)
+    log('---')
+    with log.indent('input parameters:'):
+        log(**{k: v for k, v in params.items()})
+
+
+def compare_atoms(a1: Atoms, a2: Atoms) -> set[str]:
+    if len(a1.numbers) != len(a2.numbers) or (a1.numbers != a2.numbers).any():
+        return {'numbers'}
+
+    if (a1.pbc != a2.pbc).any():
+        return {'pbc'}
+
+    if abs(a1.cell - a2.cell).max() > 0.0:
+        return {'cell'}
+
+    magnetic1 = a1.get_initial_magnetic_moments().any()
+    magnetic2 = a2.get_initial_magnetic_moments().any()
+    if magnetic1 != magnetic2:
+        return {'magmoms'}
+
+    if abs(a1.positions - a2.positions).max() > 0.0:
+        return {'positions'}
+
+    return set()
+
+
 class ASECalculator:
     """This is the ASE-calculator frontend for doing a GPAW calculation."""
     def __init__(self,
@@ -79,14 +109,13 @@ class ASECalculator:
         * dipole
         """
         if self.calculation is not None:
-
             changes = compare_atoms(self.atoms, atoms)
-            if changes & {'numbers', 'pbc', 'cell'}:
+            if changes & {'numbers', 'pbc', 'cell', 'magmoms'}:
                 # Start from scratch:
                 if 'numbers' not in changes:
                     # Remember magmoms if there are any:
                     magmom_a = self.calculation.results.get('magmoms')
-                    if magmom_a is not None:
+                    if magmom_a is not None and magmom_a.any():
                         atoms = atoms.copy()
                         atoms.set_initial_magnetic_moments(magmom_a)
                 self.calculation = None
@@ -391,24 +420,3 @@ class ASECalculator:
     def parameters(self):
         print(self.params)
         return self.params
-
-
-def write_header(log, world, params):
-    from gpaw.io.logger import write_header as header
-    log(f'#  __  _  _\n# | _ |_)|_||  |\n# |__||  | ||/\\| - {__version__}\n')
-    header(log, world)
-    log('---')
-    with log.indent('input parameters:'):
-        log(**{k: v for k, v in params.items()})
-
-
-def compare_atoms(a1: Atoms, a2: Atoms) -> set[str]:
-    if len(a1.numbers) != len(a2.numbers) or (a1.numbers != a2.numbers).any():
-        return {'numbers'}
-    if (a1.pbc != a2.pbc).any():
-        return {'pbc'}
-    if abs(a1.cell - a2.cell).max() > 0.0:
-        return {'cell'}
-    if abs(a1.positions - a2.positions).max() > 0.0:
-        return {'positions'}
-    return set()
