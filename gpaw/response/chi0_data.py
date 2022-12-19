@@ -83,8 +83,7 @@ class BodyData:
         self.blocks1d = Blocks1D(blockdist.blockcomm, nG)
 
         # Data arrays
-        self.data_wGG = None
-        self.allocate_arrays()
+        self.data_WgG = self.zeros()
 
     @classmethod
     def from_descriptor_arguments(cls, frequencies, plane_waves,
@@ -96,9 +95,8 @@ class BodyData:
         blockdist = make_blockdist(parallelization)
         return cls(descriptors, blockdist)
 
-    def allocate_arrays(self):
-        """Allocate data arrays."""
-        self.data_wGG = np.zeros(self.wGG_shape, complex)
+    def zeros(self):
+        return np.zeros(self.WgG_shape, complex)
         
     @property
     def nw(self):
@@ -113,22 +111,34 @@ class BodyData:
         return self.blocks1d.nlocal
     
     @property
-    def wGG_shape(self):
+    def WgG_shape(self):
         return (self.nw, self.mynG, self.nG)
 
-    def distribute_frequencies(self):
-        """Return data_wGG array with frequencies distributed to all cores."""
-        return self.blockdist.distribute_frequencies(self.data_wGG, self.nw)
+    def get_distributed_frequencies_array(self):
+        """Return 'wGG'-like array, with frequencies distributed over world.
 
-    def distribute_as(self, out_dist):
-        """Distribute self.data_wGG as given in out_dist.
-        out_dist: str 'wGG' for parallell over w and
-        'WgG' for parallel over G"""
-        return self.blockdist.distribute_as(self.data_wGG, self.nw, out_dist)
+        This is differs from get_array_distributed_as('wGG'), in that the
+        frequencies are distributed over world, instead of among the block
+        communicator."""
+        return self.blockdist.distribute_frequencies(self.data_WgG, self.nw)
 
-    def check_distribution(self, test_dist):
-        """Checks if self.data_wGG is distributed according to test_dist"""
-        _, __, same_dist = self.blockdist.check_distribution(self.data_wGG,
+    def get_array_distributed_as(self, distribution):
+        """Distribute self.data_WgG as given in out_dist.
+
+        Parameters
+        ----------
+        distribution: str
+            Array distribution. Choices: 'wGG' and 'WgG'
+        """
+        # This function is quite dangerous, since it sometimes returns a copy,
+        # sometimes self.data_WgG... Should be changed to a true copy in the
+        # future? XXX
+        return self.blockdist.distribute_as(self.data_WgG, self.nw,
+                                            distribution)
+
+    def check_distribution(self, test_dist):  # This seems unnecessary        XXX
+        """Checks if self.data_WgG is distributed according to test_dist"""
+        _, __, same_dist = self.blockdist.check_distribution(self.data_WgG,
                                                              self.nw,
                                                              test_dist)
         return same_dist
@@ -146,19 +156,19 @@ class BodyData:
 
     def _copy_and_map_array(self, pw_map):
         # Get a copy of the full array, distributed over frequencies
-        data_wGG = self.blockdist.distribute_as(self.data_wGG,
-                                                self.nw, 'wGG')
+        data_wGG = self.get_array_distributed_as('wGG')
+
+        if data_wGG is self.data_WgG:
+            # If we were already frequency distributed (because there is no
+            # block distribution at all), we may still be pointing to the
+            # original array, but we want strictly to return a copy
+            assert self.blockdist.blockcomm.size == 1
+            data_wGG = self.data_WgG.copy()
 
         if pw_map is not None:
             G2_G1 = pw_map.G2_G1
             # Construct array subset with lower ecut
             data_wGG = data_wGG.take(G2_G1, axis=1).take(G2_G1, axis=2)
-
-        if data_wGG is self.data_wGG:
-            # If we were already frequency distributed and no real
-            # reduction is happening, we may point to the original array,
-            # but we want strictly to return a copy
-            data_wGG = self.data_wGG.copy()
 
         return data_wGG
 
@@ -185,13 +195,13 @@ class HeadAndWingsData:
         assert descriptors.optical_limit
         self.wd = descriptors.wd
         self.pd = descriptors.pd
-        self.data_wxvG = None  # Wings
-        self.data_wvv = None  # Head
-        self.allocate_arrays()
+
+        # Allocate head and wings
+        self.data_Wvv, self.data_WxvG = self.zeros()
         
-    def allocate_arrays(self):
-        self.data_wxvG = np.zeros(self.wxvG_shape, complex)
-        self.data_wvv = np.zeros(self.wvv_shape, complex)
+    def zeros(self):
+        return (np.zeros(self.Wvv_shape, complex),  # head
+                np.zeros(self.WxvG_shape, complex))  # wings
 
     @staticmethod
     def from_descriptor_arguments(frequencies, plane_waves):
@@ -212,20 +222,20 @@ class HeadAndWingsData:
         return self.pd.ngmax
 
     @property
-    def wxvG_shape(self):
-        return (self.nw, 2, 3, self.nG)
-
-    @property
-    def wvv_shape(self):
+    def Wvv_shape(self):
         return (self.nw, 3, 3)
 
-    def _copy_and_map_arrays(self, pw_map):
-        data_wxvG = self.data_wxvG.copy()
-        if pw_map is not None:
-            data_wxvG = data_wxvG.take(pw_map.G2_G1, axis=3)
-        data_wvv = self.data_wvv.copy()
+    @property
+    def WxvG_shape(self):
+        return (self.nw, 2, 3, self.nG)
 
-        return data_wxvG, data_wvv
+    def _copy_and_map_arrays(self, pw_map):
+        data_Wvv = self.data_Wvv.copy()
+        data_WxvG = self.data_WxvG.copy()
+        if pw_map is not None:
+            data_WxvG = data_WxvG.take(pw_map.G2_G1, axis=3)
+
+        return data_Wvv, data_WxvG  # head and wings
 
 
 class AugmentedBodyData(BodyData):
@@ -243,14 +253,14 @@ class AugmentedBodyData(BodyData):
         return self.descriptors.optical_limit
 
     @property
-    def wxvG_shape(self):
+    def Wvv_shape(self):
         if self.optical_limit:
-            return self.head_and_wings.wxvG_shape
+            return self.head_and_wings.Wvv_shape
 
     @property
-    def wvv_shape(self):
+    def WxvG_shape(self):
         if self.optical_limit:
-            return self.head_and_wings.wvv_shape
+            return self.head_and_wings.WxvG_shape
 
     def get_reduced_ecut_arrays(self, ecut):
         """Provide a copy of the data array(s) within a reduced ecut.
@@ -259,13 +269,13 @@ class AugmentedBodyData(BodyData):
         data_wGG = self._copy_and_map_array(pw_map)
 
         if self.optical_limit:
-            data_wxvG, data_wvv = self.head_and_wings._copy_and_map_arrays(
+            data_Wvv, data_WxvG = self.head_and_wings._copy_and_map_arrays(
                 pw_map)
         else:
-            data_wxvG = None
-            data_wvv = None
+            data_Wvv = None
+            data_WxvG = None
 
-        return pdr, data_wGG, data_wxvG, data_wvv
+        return pdr, data_wGG, data_Wvv, data_WxvG
 
 
 class Chi0Data(AugmentedBodyData):
@@ -274,15 +284,15 @@ class Chi0Data(AugmentedBodyData):
     distributor."""
 
     @property
-    def chi0_wGG(self):
-        return self.data_wGG
+    def chi0_WgG(self):
+        return self.data_WgG
 
     @property
-    def chi0_wxvG(self):
+    def chi0_Wvv(self):
         if self.optical_limit:
-            return self.head_and_wings.data_wxvG
+            return self.head_and_wings.data_Wvv
 
     @property
-    def chi0_wvv(self):
+    def chi0_WxvG(self):
         if self.optical_limit:
-            return self.head_and_wings.data_wvv
+            return self.head_and_wings.data_WxvG
