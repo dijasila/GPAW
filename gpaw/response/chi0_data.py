@@ -115,26 +115,33 @@ class BodyData:
         return (self.nw, self.mynG, self.nG)
 
     def get_distributed_frequencies_array(self):
-        """Return 'wGG'-like array, with frequencies distributed over world.
+        """Copy data to a 'wGG'-like array, distributed over the entire world.
 
-        This is differs from get_array_distributed_as('wGG'), in that the
+        This differs from copy_array_with_distribution('wGG'), in that the
         frequencies are distributed over world, instead of among the block
         communicator."""
         return self.blockdist.distribute_frequencies(self.data_WgG, self.nw)
 
-    def get_array_distributed_as(self, distribution):
-        """Distribute self.data_WgG as given in out_dist.
+    def copy_array_with_distribution(self, distribution):
+        """Copy data to a new array of a desired distribution.
 
         Parameters
         ----------
         distribution: str
             Array distribution. Choices: 'wGG' and 'WgG'
         """
-        # This function is quite dangerous, since it sometimes returns a copy,
-        # sometimes self.data_WgG... Should be changed to a true copy in the
-        # future? XXX
-        return self.blockdist.distribute_as(self.data_WgG, self.nw,
-                                            distribution)
+        data_x = self.blockdist.distribute_as(self.data_WgG, self.nw,
+                                              distribution)
+
+        if data_x is self.data_WgG:
+            # When asking for 'WgG' distribution or when there is no block
+            # distribution at all, we may still be pointing to the original
+            # array, but we want strictly to return a copy
+            assert distribution == 'WgG' or \
+                self.blockdist.blockcomm.size == 1
+            data_x = self.data_WgG.copy()
+
+        return data_x
 
     def get_reduced_ecut_array(self, ecut):
         """Provide a copy of the body data array within a reduced ecut.
@@ -149,14 +156,7 @@ class BodyData:
 
     def _copy_and_map_array(self, pw_map):
         # Get a copy of the full array, distributed over frequencies
-        data_wGG = self.get_array_distributed_as('wGG')
-
-        if data_wGG is self.data_WgG:
-            # If we were already frequency distributed (because there is no
-            # block distribution at all), we may still be pointing to the
-            # original array, but we want strictly to return a copy
-            assert self.blockdist.blockcomm.size == 1
-            data_wGG = self.data_WgG.copy()
+        data_wGG = self.copy_array_with_distribution('wGG')
 
         if pw_map is not None:
             G2_G1 = pw_map.G2_G1
