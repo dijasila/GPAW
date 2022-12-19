@@ -136,13 +136,6 @@ class BodyData:
         return self.blockdist.distribute_as(self.data_WgG, self.nw,
                                             distribution)
 
-    def check_distribution(self, test_dist):  # This seems unnecessary        XXX
-        """Checks if self.data_WgG is distributed according to test_dist"""
-        _, __, same_dist = self.blockdist.check_distribution(self.data_WgG,
-                                                             self.nw,
-                                                             test_dist)
-        return same_dist
-
     def get_reduced_ecut_array(self, ecut):
         """Provide a copy of the body data array within a reduced ecut.
 
