@@ -260,7 +260,7 @@ class RPACalculator:
 
         self.context.print('E_c(q) = ', end='', flush=False)
 
-        chi0_wGG = chi0.get_array_distributed_as('wGG')
+        chi0_wGG = chi0.copy_array_with_distribution('wGG')
 
         kd = self.gs.kd
         if not chi0.pd.kd.gamma:

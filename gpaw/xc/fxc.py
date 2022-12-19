@@ -174,7 +174,7 @@ class FXCCorrelation:
         nG = pd.ngmax
         chi0_swGG = np.empty((nspins, mynw, nG, nG), complex)
         for chi0_wGG, chi0 in zip(chi0_swGG, chi0_s):
-            chi0_wGG[:] = chi0.get_array_distributed_as('wGG')
+            chi0_wGG[:] = chi0.copy_array_with_distribution('wGG')
         if self.nblocks > 1:
             chi0_swGG = np.swapaxes(chi0_swGG, 2, 3)
 

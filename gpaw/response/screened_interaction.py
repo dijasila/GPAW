@@ -176,7 +176,7 @@ class WCalculator:
             (pdr, chi0_wGG,
              chi0_Wvv, chi0_WxvG) = chi0.get_reduced_ecut_arrays(ecut)
         else:
-            chi0_wGG = chi0.get_array_distributed_as('wGG')
+            chi0_wGG = chi0.copy_array_with_distribution('wGG')
             chi0_WxvG = chi0.chi0_WxvG
             chi0_Wvv = chi0.chi0_Wvv
             pdr = chi0.pd
