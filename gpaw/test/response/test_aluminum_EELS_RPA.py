@@ -109,7 +109,6 @@ def test_response_aluminum_EELS_RPA(in_tmp_dir):
     assert wpeak2P0 == pytest.approx(15.7096, abs=0.02)
     assert wpeak1P1 == pytest.approx(15.8402, abs=0.02)
     assert wpeak2P1 == pytest.approx(15.8645, abs=0.02)
-    print(wpeak1T0);sadf
     assert wpeak1T0 == pytest.approx(20.2119, abs=0.02)
     assert wpeak2T0 == pytest.approx(20.2179, abs=0.02)
 

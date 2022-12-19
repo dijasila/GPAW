@@ -64,8 +64,6 @@ class UniformGridPotentialCalculator(PotentialCalculator):
 
     def _calculate(self, density, vHt_r):
         nt_sr, _, _ = self._interpolate_density(density.nt_sR)
-        print(density.nt_sR.integrate())
-        print(nt_sr.integrate())
         grid2 = nt_sr.desc
 
         vxct_sr = grid2.zeros(nt_sr.dims)
@@ -83,9 +81,8 @@ class UniformGridPotentialCalculator(PotentialCalculator):
         comp_charge = ccc_aL.layout.atomdist.comm.sum(comp_charge)
         pseudo_charge = charge_r.integrate()
         charge_r.data *= -(comp_charge + density.charge) / pseudo_charge
-        print('H', comp_charge, pseudo_charge)
+
         self.ghat_aLr.add_to(charge_r, ccc_aL)
-        print(charge_r.integrate())
 
         if vHt_r is None:
             vHt_r = grid2.zeros()
