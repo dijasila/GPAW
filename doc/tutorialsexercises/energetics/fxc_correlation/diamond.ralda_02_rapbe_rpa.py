@@ -14,8 +14,9 @@ for ecut, E in zip(fxc.ecut_i, E_i):
 f.close()
 
 rpa = RPACorrelation('diamond.ralda.pbe_wfcs.gpw',
+                     ecut=400,
                      txt='diamond.ralda_02_rpa.txt')
-E_i = rpa.calculate(ecut=400)
+E_i = rpa.calculate()
 
 f = paropen('diamond.ralda.rpa.dat', 'w')
 for ecut, E in zip(rpa.ecut_i, E_i):
