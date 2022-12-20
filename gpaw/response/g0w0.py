@@ -23,7 +23,7 @@ from gpaw.response.g0w0_kernels import G0W0Kernel
 from gpaw.response.hilbert import GWHilbertTransforms
 from gpaw.response.pair import PairDensityCalculator
 from gpaw.response.pw_parallelization import Blocks1D
-from gpaw.response.screened_interaction import WCalculator
+from gpaw.response.screened_interaction import WCalculator, QPointDescriptor
 from gpaw.response.coulomb_kernels import CoulombKernel
 from gpaw.response import timer
 
@@ -1059,8 +1059,10 @@ class G0W0(G0W0Calculator):
         if Eg is not None:
             Eg /= Ha
 
+        qd = QPointDescriptor.from_gs(gs)
+
         xckernel = G0W0Kernel(xc=xc, ecut=ecut / Ha,
-                              gs=gs,
+                              gs=gs, qd=qd,
                               ns=gs.nspins,
                               wd=wd,
                               Eg=Eg,
@@ -1068,7 +1070,7 @@ class G0W0(G0W0Calculator):
 
         wcalc = WCalculator(wd=chi0calc.wd,
                             pair=chi0calc.pair,
-                            gs=chi0calc.gs,
+                            gs=chi0calc.gs, qd=qd,
                             ppa=ppa, xckernel=xckernel,
                             context=w_context, E0=E0,
                             fxc_mode=fxc_mode,
