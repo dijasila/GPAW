@@ -4,10 +4,8 @@ from gpaw.response.q0_correction import Q0Correction
 from ase.units import Ha
 from ase.dft.kpoints import monkhorst_pack
 
-import gpaw.mpi as mpi
 from gpaw.kpt_descriptor import KPointDescriptor
 
-from gpaw.response import ResponseContext
 from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.response.gamma_int import GammaIntegrator
 from gpaw.response.temp import DielectricFunctionCalculator
@@ -23,8 +21,7 @@ def get_qdescriptor(kd, atoms):
     return qd
 
 
-def initialize_w_calculator(chi0calc, *,
-                            txt='w.txt', world=mpi.world, timer=None,  # context! XXX
+def initialize_w_calculator(chi0calc, context, *,
                             ppa=False,
                             xc='RPA', Eg=None,  # G0W0Kernel arguments
                             E0=Ha, coulomb, integrate_gamma=0,
@@ -34,10 +31,6 @@ def initialize_w_calculator(chi0calc, *,
     Parameters
     ----------
     chi0calc : Chi0Calculator
-    txt : str
-        Text output file
-    world : MPI communicator
-    timer : timer
     xc : str
         Kernel to use when including vertex corrections.
     Eg: float
@@ -47,8 +40,9 @@ def initialize_w_calculator(chi0calc, *,
     Remaining arguments: See WCalculator
     """
     from gpaw.response.g0w0_kernels import G0W0Kernel
+
     gs = chi0calc.gs
-    context = ResponseContext(txt=txt, timer=timer, world=world)
+
     if Eg is None and xc == 'JGMsx':
         Eg = gs.get_band_gap()
     elif Eg is not None:
@@ -68,6 +62,7 @@ def initialize_w_calculator(chi0calc, *,
                         coulomb=coulomb,
                         integrate_gamma=integrate_gamma,
                         q0_correction=q0_correction)
+
     return wcalc
 
 
