@@ -14,6 +14,10 @@ from gpaw.response.frequencies import FrequencyDescriptor
 from gpaw.response.pair import get_gs_and_context, PairDensityCalculator
 
 
+def default_ecut_extrapolation(ecut, extrapolate):
+    return ecut * (1 + 0.5 * np.arange(extrapolate))**(-2 / 3)
+
+
 def rpa(filename, ecut=200.0, blocks=1, extrapolate=4):
     """Calculate RPA energy.
 
@@ -32,7 +36,7 @@ def rpa(filename, ecut=200.0, blocks=1, extrapolate=4):
     rpa = RPACorrelation(name, name + '-rpa.dat',
                          nblocks=blocks,
                          txt=name + '-rpa.txt')
-    rpa.calculate(ecut=ecut * (1 + 0.5 * np.arange(extrapolate))**(-2 / 3))
+    rpa.calculate(ecut=default_ecut_extrapolation(ecut, extrapolate))
 
 
 def initialize_q_points(kd, qsym):
@@ -135,7 +139,7 @@ class RPACalculator:
         p = functools.partial(self.context.print, flush=False)
 
         if isinstance(ecut, (float, int)):
-            ecut = ecut * (1 + 0.5 * np.arange(6))**(-2 / 3)
+            ecut = default_ecut_extrapolation(ecut, extrapolate=6)
         ecut_i = np.asarray(np.sort(ecut)) / Hartree
         ecutmax = max(ecut_i)
 
