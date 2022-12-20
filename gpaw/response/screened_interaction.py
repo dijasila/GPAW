@@ -23,32 +23,27 @@ def get_qdescriptor(kd, atoms):
     return qd
 
 
-def initialize_w_calculator(chi0calc, txt='w.txt', ppa=False, xc='RPA',
-                            world=mpi.world, timer=None,
-                            E0=Ha, Eg=None, fxc_mode='GW', *,
-                            coulomb, integrate_gamma=0,
+def initialize_w_calculator(chi0calc, *,
+                            txt='w.txt', world=mpi.world, timer=None,  # context! XXX
+                            ppa=False,
+                            xc='RPA', Eg=None,  # G0W0Kernel arguments
+                            E0=Ha, coulomb, integrate_gamma=0,
                             q0_correction=False):
-    """A function to initialize a WCalculator with more readable inputs
-    than the actual calculator.
-    chi0calc: Chi0Calculator
+    """Initialize a WCalculator from a Chi0Calculator.
 
-    txt: str
-         Text output file
-    xc: str
-         Kernel to use when including vertex corrections.
-    world: MPI communicator
-    timer: timer
+    Parameters
+    ----------
+    chi0calc : Chi0Calculator
+    txt : str
+        Text output file
+    world : MPI communicator
+    timer : timer
+    xc : str
+        Kernel to use when including vertex corrections.
     Eg: float
         Gap to apply in the 'JGMs' (simplified jellium-with-gap) kernel.
         If None the DFT gap is used.
-    truncation: str or None
-         Coulomb truncation scheme. Can be None, 'wigner-seitz', or '2D'.
-    integrate_gamma: int
-         Method to integrate the Coulomb interaction. 1 is a numerical
-         integration at all q-points with G=[0,0,0] - this breaks the
-         symmetry slightly. 0 is analytical integration at q=[0,0,0] only
-         this conserves the symmetry. integrate_gamma=2 is the same as 1,
-         but the average is only carried out in the non-periodic directions.
+
     Remaining arguments: See WCalculator
     """
     from gpaw.response.g0w0_kernels import G0W0Kernel
@@ -77,11 +72,9 @@ def initialize_w_calculator(chi0calc, txt='w.txt', ppa=False, xc='RPA',
 
 
 class WCalculator:
-    def __init__(self, *,
-                 gs,
+    def __init__(self, gs, context, *,
                  ppa,
                  xckernel,
-                 context,
                  E0,
                  coulomb,
                  integrate_gamma=0,
@@ -91,29 +84,24 @@ class WCalculator:
 
         Parameters
         ----------
-        wd: FrequencyDescriptor
-        pair: gpaw.response.pair.PairDensity instance
-              Class for calculating matrix elements of pairs of wavefunctions.
-        gs: calc.gs_adapter()
-        ppa: bool
+        gs : ResponseGroundStateAdapter
+        context : ResponseContext
+        ppa : bool
             Sets whether the Godby-Needs plasmon-pole approximation for the
             dielectric function should be used.
-        xckernel: G0W0Kernel object
-        context: ResponseContext object
-        E0: float
+        xckernel : G0W0Kernel object
+        E0 : float
             Energy (in eV) used for fitting the plasmon-pole approximation
-        fxc_mode: str
-            Where to include the vertex corrections; polarizability and/or
-            self-energy. 'GWP': Polarizability only, 'GWS': Self-energy only,
-            'GWG': Both.
-        truncation: str
-            Coulomb truncation scheme. Can be either wigner-seitz,
-            2D, 1D, or 0D
-        q0_correction: bool
+        coulomb : Document me!                                                 XXX
+        integrate_gamma: int
+             Method to integrate the Coulomb interaction. 1 is a numerical
+             integration at all q-points with G=[0,0,0] - this breaks the
+             symmetry slightly. 0 is analytical integration at q=[0,0,0] only
+             this conserves the symmetry. integrate_gamma=2 is the same as 1,
+             but the average is only carried out in the non-periodic directions
+        q0_correction : bool
             Analytic correction to the q=0 contribution applicable to 2D
             systems.
-
-        Update documentation!                                                  XXX
         """
         self.ppa = ppa
         self.gs = gs
@@ -144,7 +132,15 @@ class WCalculator:
                   fxc_mode='GW',
                   only_correlation=False,
                   out_dist='WgG'):
-        """Calculate the screened interaction."""
+        """Calculate the screened interaction.
+
+        Parameters
+        ----------
+        fxc_mode: str
+            Where to include the vertex corrections; polarizability and/or
+            self-energy. 'GWP': Polarizability only, 'GWS': Self-energy only,
+            'GWG': Both.
+        """
 
         W_wGG = self._calculate(chi0, fxc_mode,
                                 only_correlation=only_correlation)
