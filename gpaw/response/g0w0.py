@@ -19,11 +19,10 @@ from gpaw.utilities.progressbar import ProgressBar
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chi0 import Chi0Calculator
-from gpaw.response.g0w0_kernels import G0W0Kernel
 from gpaw.response.hilbert import GWHilbertTransforms
 from gpaw.response.pair import PairDensityCalculator
 from gpaw.response.pw_parallelization import Blocks1D
-from gpaw.response.screened_interaction import WCalculator
+from gpaw.response.screened_interaction import initialize_w_calculator
 from gpaw.response.coulomb_kernels import CoulombKernel
 from gpaw.response import timer
 
@@ -1042,38 +1041,26 @@ class G0W0(G0W0Calculator):
                           'timeordered': True}
 
         from gpaw.response.chi0 import new_frequency_descriptor
-        w_context = context.with_txt(filename + '.w.txt')
-        wd = new_frequency_descriptor(gs, w_context, nbands, frequencies)
+        wcontext = context.with_txt(filename + '.w.txt')
+        wd = new_frequency_descriptor(gs, wcontext, nbands, frequencies)
 
         chi0calc = Chi0Calculator(
             wd=wd, pair=pair,
             nbands=nbands,
             ecut=ecut,
             intraband=False,
-            context=w_context,
+            context=wcontext,
             **parameters)
 
         bands = choose_bands(bands, relbands, gs.nvalence, chi0calc.nocc2)
 
-        if Eg is None and xc == 'JGMsx':
-            Eg = gs.get_band_gap()
-
-        if Eg is not None:
-            Eg /= Ha
-
-        xckernel = G0W0Kernel(xc=xc, ecut=ecut / Ha,
-                              gs=gs,
-                              ns=gs.nspins,
-                              wd=wd,
-                              Eg=Eg,
-                              context=context)
-
-        wcalc = WCalculator(gs=chi0calc.gs,
-                            ppa=ppa, xckernel=xckernel,
-                            context=w_context, E0=E0,
-                            coulomb=CoulombKernel(truncation, gs),
-                            integrate_gamma=integrate_gamma,
-                            q0_correction=q0_correction)
+        coulomb = CoulombKernel(truncation, gs)
+        wcalc = initialize_w_calculator(chi0calc, wcontext,
+                                        ppa=ppa,
+                                        xc=xc, Eg=Eg,
+                                        E0=E0, coulomb=coulomb,
+                                        integrate_gamma=integrate_gamma,
+                                        q0_correction=q0_correction)
 
         fxc_modes = [fxc_mode]
         if do_GW_too:
