@@ -25,8 +25,9 @@ def test_rpa_rpa_energy_Ni(in_tmp_dir):
     rpa = RPACorrelation(calc, nfrequencies=8, skip_gamma=True)
     E_rpa = rpa.calculate(ecut=[50])
 
-    fxc = FXCCorrelation(calc, nlambda=16, nfrequencies=8, skip_gamma=True)
-    E_fxc = fxc.calculate(ecut=[50])
+    fxc = FXCCorrelation(calc, nlambda=16, nfrequencies=8, skip_gamma=True,
+                         ecut=[50])
+    E_fxc = fxc.calculate()
 
     equal(E_rpa, -7.826, 0.01)
     equal(E_fxc, -7.826, 0.01)

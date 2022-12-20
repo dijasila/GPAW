@@ -27,7 +27,8 @@ def test_ralda_ralda_energy_He(in_tmp_dir, scalapack):
     E_rpa1 = rpa.calculate(ecut=ecuts)[-1]
 
     def fxc(xc, nfrequencies=8, **kwargs):
-        return FXCCorrelation(calc, xc=xc, **kwargs).calculate(ecut=ecuts)[-1]
+        return FXCCorrelation(
+            calc, xc=xc, ecut=ecuts, **kwargs).calculate()[-1]
 
     energies = [
         fxc('RPA', nlambda=16),

@@ -31,6 +31,8 @@ class FXCCorrelation:
                  range_rc=1.0,
                  av_scheme=None,
                  Eg=None,
+                 *,
+                 ecut,
                  **kwargs):
 
         self.rpa = RPACorrelation(
@@ -81,6 +83,13 @@ class FXCCorrelation:
         self.nblocks = self.rpa.nblocks
         self.weight_w = self.rpa.weight_w
 
+        self.ecut = ecut
+        if isinstance(ecut, (float, int)):
+            self.ecut_max = ecut
+        else:
+            self.ecut_max = max(ecut)
+
+
     @property
     def blockcomm(self):
         # Cannot be aliased as attribute
@@ -88,15 +97,11 @@ class FXCCorrelation:
         return self.rpa.blockcomm
 
     @timer('FXC')
-    def calculate(self, ecut, nbands=None):
+    def calculate(self, *, nbands=None):
+        ecut = self.ecut
 
         if self.xc not in ('RPA', 'range_RPA'):
             # kernel not required for RPA/range_sep RPA
-
-            if isinstance(ecut, (float, int)):
-                self.ecut_max = ecut
-            else:
-                self.ecut_max = max(ecut)
 
             # Find the first q vector to calculate kernel for
             # (density averaging scheme always calculates all q points anyway)
