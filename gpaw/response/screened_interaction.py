@@ -13,14 +13,18 @@ from gpaw.response.gamma_int import GammaIntegrator
 from gpaw.response.temp import DielectricFunctionCalculator
 
 
-def get_qdescriptor(kd, atoms):
-    # Find q-vectors and weights in the IBZ:
-    assert -1 not in kd.bz2bz_ks
-    offset_c = 0.5 * ((kd.N_c + 1) % 2) / kd.N_c
-    bzq_qc = monkhorst_pack(kd.N_c) + offset_c
-    qd = KPointDescriptor(bzq_qc)
-    qd.set_symmetry(atoms, kd.symmetry)
-    return qd
+class QPointDescriptor(KPointDescriptor):
+
+    @staticmethod
+    def from_gs(gs):
+        kd, atoms = gs.kd, gs.atoms
+        # Find q-vectors and weights in the IBZ:
+        assert -1 not in kd.bz2bz_ks
+        offset_c = 0.5 * ((kd.N_c + 1) % 2) / kd.N_c
+        bzq_qc = monkhorst_pack(kd.N_c) + offset_c
+        qd = KPointDescriptor(bzq_qc)
+        qd.set_symmetry(atoms, kd.symmetry)
+        return qd
 
 
 def initialize_w_calculator(chi0calc, txt='w.txt', ppa=False, xc='RPA',
@@ -59,8 +63,10 @@ def initialize_w_calculator(chi0calc, txt='w.txt', ppa=False, xc='RPA',
     elif Eg is not None:
         Eg /= Ha
 
+    qd = QPointDescriptor.from_gs(gs)
+
     xckernel = G0W0Kernel(xc=xc, ecut=chi0calc.ecut,
-                          gs=gs,
+                          gs=gs, qd=qd,
                           ns=gs.nspins,
                           wd=chi0calc.wd,
                           Eg=Eg,
@@ -68,7 +74,7 @@ def initialize_w_calculator(chi0calc, txt='w.txt', ppa=False, xc='RPA',
     wd = chi0calc.wd
     pair = chi0calc.pair
 
-    wcalc = WCalculator(wd=wd, pair=pair, gs=gs, ppa=ppa,
+    wcalc = WCalculator(wd=wd, pair=pair, gs=gs, qd=qd, ppa=ppa,
                         xckernel=xckernel,
                         context=context,
                         E0=E0,
@@ -81,7 +87,7 @@ def initialize_w_calculator(chi0calc, txt='w.txt', ppa=False, xc='RPA',
 
 class WCalculator:
     def __init__(self, *,
-                 wd, pair, gs,
+                 wd, pair, gs, qd,
                  ppa,
                  xckernel,
                  context,
@@ -98,6 +104,7 @@ class WCalculator:
         pair: gpaw.response.pair.PairDensity instance
               Class for calculating matrix elements of pairs of wavefunctions.
         gs: calc.gs_adapter()
+        qd : QPointDescriptor
         ppa: bool
             Sets whether the Godby-Needs plasmon-pole approximation for the
             dielectric function should be used.
@@ -125,7 +132,7 @@ class WCalculator:
         self.coulomb = coulomb
         self.context = context
         self.integrate_gamma = integrate_gamma
-        self.qd = get_qdescriptor(self.gs.kd, self.gs.atoms)
+        self.qd = qd
         self.xckernel = xckernel
 
         if q0_correction:
