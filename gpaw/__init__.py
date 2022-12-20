@@ -190,7 +190,7 @@ if debug:
 with broadcast_imports:
     from gpaw.calculator import GPAW as OldGPAW
     from gpaw.mixer import Mixer, MixerSum, MixerDif, MixerSum2, \
-        MixerDiag, MixerFul, MixerCyl, MixerDiagFul
+        MixerFul
     from gpaw.eigensolvers import Davidson, RMMDIIS, CG, DirectLCAO
     from gpaw.poisson import PoissonSolver
     from gpaw.occupations import (FermiDirac, MethfesselPaxton,
