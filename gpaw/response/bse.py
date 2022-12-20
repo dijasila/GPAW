@@ -470,10 +470,10 @@ class BSEBackend:
         if self._chi0calc is None:
             self.initialize_chi0_calculator()
         if self._wcalc is None:
+            wcontext = ResponseContext(txt='w.txt', world=world)
             self._wcalc = initialize_w_calculator(
-                chi0calc=self._chi0calc,
+                self._chi0calc, wcontext,
                 coulomb=self.coulomb,
-                world=world,
                 integrate_gamma=self.integrate_gamma)
         t0 = time()
         self.context.print('Calculating screened potential')
