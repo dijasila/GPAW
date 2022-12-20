@@ -299,7 +299,7 @@ class Chi0Calculator:
 
         tmp_chi0_wGG = chi0.copy_array_with_distribution('wGG')
         analyzer.symmetrize_wGG(tmp_chi0_wGG)
-        # The line below is borderline illegal and should be changed!          XXX
+        # The line below is borderline illegal and should be changed! XXX
         chi0.chi0_WgG[:] = chi0.blockdist.distribute_as(tmp_chi0_wGG,
                                                         chi0.nw, 'WgG')
 
