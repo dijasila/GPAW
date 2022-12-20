@@ -60,7 +60,10 @@ class FXCCorrelation:
         self.Eg = Eg  # Band gap in eV
 
         self.xcflags = XCFlags(self.xc)
-        assert self.xcflags.bandgap_dependent == (self.Eg is not None)
+        if self.xcflags.bandgap_dependent != (self.Eg is not None):
+            raise RuntimeError(
+                'Gap must be provided with and only with '
+                f'the gap dependent functionals {self.xcflags._gapped}.')
         self.av_scheme = self.xcflags.choose_avg_scheme(av_scheme)
 
         if tag is None:
@@ -1584,6 +1587,8 @@ class XCFlags:
     _linear_kernels = {'rALDAns', 'rAPBEns', 'range_RPA', 'JGMsx', 'RPA',
                        'rALDA', 'rAPBE', 'range_rALDA', 'ALDA'}
 
+    _gapped = {'JGMs', 'JGMsx'}
+
     def __init__(self, xc):
         if xc not in self._accepted_flags:
             raise RuntimeError('%s kernel not recognized' % self.xc)
@@ -1606,7 +1611,7 @@ class XCFlags:
 
     @property
     def bandgap_dependent(self):
-        return self.xc in {'JGMs', 'JGMsx'}
+        return self.xc in self._gapped
 
     @property
     def is_ranged(self):
