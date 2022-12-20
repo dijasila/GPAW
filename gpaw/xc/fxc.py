@@ -90,7 +90,6 @@ class FXCCorrelation:
         self.nblocks = self.rpa.nblocks
         self.weight_w = self.rpa.weight_w
 
-
     @property
     def blockcomm(self):
         # Cannot be aliased as attribute
