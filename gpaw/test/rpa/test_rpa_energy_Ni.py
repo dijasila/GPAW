@@ -22,8 +22,8 @@ def test_rpa_rpa_energy_Ni(in_tmp_dir):
     Ni.get_potential_energy()
     calc.diagonalize_full_hamiltonian(nbands=50)
 
-    rpa = RPACorrelation(calc, nfrequencies=8, skip_gamma=True)
-    E_rpa = rpa.calculate(ecut=[50])
+    rpa = RPACorrelation(calc, nfrequencies=8, skip_gamma=True, ecut=[50])
+    E_rpa = rpa.calculate()
 
     fxc = FXCCorrelation(calc, nlambda=16, nfrequencies=8, skip_gamma=True,
                          ecut=[50])

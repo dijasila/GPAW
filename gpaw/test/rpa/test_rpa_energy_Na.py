@@ -30,6 +30,6 @@ def test_rpa_rpa_energy_Na(in_tmp_dir):
 
     ecut = 120
     calc = GPAW('gs_pw.gpw', communicator=serial_comm, txt=None)
-    rpa = RPACorrelation(calc, txt='rpa_%s.txt' % ecut)
-    E = rpa.calculate(ecut=[ecut])
+    rpa = RPACorrelation(calc, txt='rpa_%s.txt' % ecut, ecut=[ecut])
+    E = rpa.calculate()
     equal(E, -1.106, 0.005)

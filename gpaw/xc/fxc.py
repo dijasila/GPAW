@@ -35,6 +35,12 @@ class FXCCorrelation:
                  ecut,
                  **kwargs):
 
+        self.ecut = ecut
+        if isinstance(ecut, (float, int)):
+            self.ecut_max = ecut
+        else:
+            self.ecut_max = max(ecut)
+
         self.rpa = RPACorrelation(
             calc,
             xc=xc,
@@ -42,6 +48,7 @@ class FXCCorrelation:
             frequencies=frequencies,
             weights=weights,
             calculate_q=self.calculate_q_fxc,
+            ecut=self.ecut,
             **kwargs)
 
         self.gs = self.rpa.gs
@@ -83,12 +90,6 @@ class FXCCorrelation:
         self.nblocks = self.rpa.nblocks
         self.weight_w = self.rpa.weight_w
 
-        self.ecut = ecut
-        if isinstance(ecut, (float, int)):
-            self.ecut_max = ecut
-        else:
-            self.ecut_max = max(ecut)
-
 
     @property
     def blockcomm(self):
@@ -98,8 +99,6 @@ class FXCCorrelation:
 
     @timer('FXC')
     def calculate(self, *, nbands=None):
-        ecut = self.ecut
-
         if self.xc not in ('RPA', 'range_RPA'):
             # kernel not required for RPA/range_sep RPA
 
@@ -166,7 +165,7 @@ class FXCCorrelation:
         else:
             spin = True
 
-        e = self.rpa.calculate(ecut, spin=spin, nbands=nbands)
+        e = self.rpa.calculate(spin=spin, nbands=nbands)
 
         return e
 

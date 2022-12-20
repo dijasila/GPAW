@@ -35,8 +35,9 @@ def rpa(filename, ecut=200.0, blocks=1, extrapolate=4):
     from gpaw.xc.rpa import RPACorrelation
     rpa = RPACorrelation(name, name + '-rpa.dat',
                          nblocks=blocks,
+                         ecut=default_ecut_extrapolation(ecut, extrapolate),
                          txt=name + '-rpa.txt')
-    rpa.calculate(ecut=default_ecut_extrapolation(ecut, extrapolate))
+    rpa.calculate()
 
 
 def initialize_q_points(kd, qsym):
@@ -54,6 +55,7 @@ def initialize_q_points(kd, qsym):
 
 class RPACalculator:
     def __init__(self, gs, *, context, filename=None,
+                 ecut,
                  skip_gamma=False, qsym=True,
                  frequencies, weights, truncation=None,
                  nblocks=1, calculate_q=None):
@@ -82,6 +84,10 @@ class RPACalculator:
         if calculate_q is None:
             calculate_q = self.calculate_q_rpa
         self.calculate_q = calculate_q
+
+        if isinstance(ecut, (float, int)):
+            ecut = default_ecut_extrapolation(ecut, extrapolate=6)
+        self.ecut_i = np.asarray(np.sort(ecut)) / Hartree
 
     def read(self, ecut_i, filename):
         with open(filename) as fd:
@@ -124,7 +130,7 @@ class RPACalculator:
             with open(self.filename, 'w') as fd:
                 print(txt, file=fd)
 
-    def calculate(self, ecut, nbands=None, spin=False):
+    def calculate(self, *, nbands=None, spin=False):
         """Calculate RPA correlation energy for one or several cutoffs.
 
         ecut: float or list of floats
@@ -138,9 +144,7 @@ class RPACalculator:
 
         p = functools.partial(self.context.print, flush=False)
 
-        if isinstance(ecut, (float, int)):
-            ecut = default_ecut_extrapolation(ecut, extrapolate=6)
-        ecut_i = np.asarray(np.sort(ecut)) / Hartree
+        ecut_i = self.ecut_i
         ecutmax = max(ecut_i)
 
         if nbands is None:

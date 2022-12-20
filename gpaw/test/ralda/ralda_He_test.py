@@ -23,8 +23,8 @@ def test_ralda_ralda_energy_He(in_tmp_dir, scalapack):
     calc.diagonalize_full_hamiltonian(nbands=20)
 
     ecuts = [20, 30]
-    rpa = RPACorrelation(calc, nfrequencies=8)
-    E_rpa1 = rpa.calculate(ecut=ecuts)[-1]
+    rpa = RPACorrelation(calc, nfrequencies=8, ecut=ecuts)
+    E_rpa1 = rpa.calculate()[-1]
 
     def fxc(xc, nfrequencies=8, **kwargs):
         return FXCCorrelation(
