@@ -5,8 +5,10 @@ from gpaw.fdtd.polarizable_material import PermittivityPlus, PolarizableMaterial
     PolarizableEllipsoid, PolarizableRod, \
     PolarizableTetrahedron
 from gpaw.test import equal
+import pytest
 
 
+@pytest.mark.later
 def test_fdtd_ed_shapes(in_tmp_dir):
     # Whole simulation cell (Angstroms)
     cell = [40, 40, 20]

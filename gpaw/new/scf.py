@@ -80,7 +80,8 @@ class SCFLoop:
             ctx = SCFContext(
                 state, self.niter,
                 wfs_error, dens_error,
-                self.world, calculate_forces)
+                self.world, calculate_forces,
+                pot_calc)
 
             yield ctx
 
@@ -107,12 +108,14 @@ class SCFContext:
                  wfs_error: float,
                  dens_error: float,
                  world,
-                 calculate_forces: Callable[[], Array2D]):
+                 calculate_forces: Callable[[], Array2D],
+                 pot_calc):
         self.state = state
         self.niter = niter
         energy = (sum(state.potential.energies.values()) +
                   sum(state.ibzwfs.energies.values()))
-        self.ham = SimpleNamespace(e_total_extrapolated=energy)
+        self.ham = SimpleNamespace(e_total_extrapolated=energy,
+                                   get_workfunctions=self._get_workfunctions)
         self.wfs = SimpleNamespace(nvalence=state.ibzwfs.nelectrons,
                                    world=world,
                                    eigensolver=SimpleNamespace(
@@ -125,7 +128,18 @@ class SCFContext:
             fixed=False,
             error=dens_error)
         self.calculate_forces = calculate_forces
+        self.poisson_solver = pot_calc.poisson_solver
 
+    def _get_workfunctions(self, _):
+        vHt_g = self.state.vHt_x
+        axes = (c, (c + 1) % 3, (c + 2) % 3)
+        potential.vt_sRself.pd3.ifft(v_q, local=True).transpose(axes)
+        vacuum = v_g[0].mean()
+        vacuum_level =
+        (fermi_level,) = self.state.ibzwfs.fermi_levels
+        wf = vacuum_level - fermi_level
+        delta = self.poisson_solver.correction
+        return np.array([wf + 0.5 * delta, wf - 0.5 * delta])
 
 def create_convergence_criteria(criteria: dict[str, Any]
                                 ) -> dict[str, Criterion]:

@@ -1332,7 +1332,7 @@ class Setups(list):
     ``core_charge`` Core hole charge.
     """
 
-    def __init__(self, Z_a, setup_types, basis_sets, xc,
+    def __init__(self, Z_a, setup_types, basis_sets, xc, *,
                  filter=None, world=None):
         list.__init__(self)
         symbols = [chemical_symbols[Z] for Z in Z_a]

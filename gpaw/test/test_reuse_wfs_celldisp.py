@@ -1,7 +1,9 @@
 import numpy as np
+import pytest
+from ase.build import molecule
+
 from gpaw import GPAW, Mixer
 from gpaw.mpi import world
-from ase.build import molecule
 
 # Place one atom next to cell boundary, then check that reuse_wfs
 # works correctly when atom is subsequently displaced across the
@@ -9,6 +11,7 @@ from ase.build import molecule
 # are handled correctly when unprojecting/reprojecting the wavefunctions.
 
 
+@pytest.mark.later
 def test_reuse_wfs_celldisp(in_tmp_dir):
     def check(reuse):
         atoms = molecule('H2')
