@@ -202,7 +202,7 @@ def calculate_raman(calc, w_ph, w_in, d_i, d_o, resonant_only=False,
         nc = min(cs)  # CBM index
 
         # Precalculate f * (1-f) term
-        f_vc = np.outer(kpt.f_n[vs], 1. - kpt.f_n[cs])
+        f_vc = np.outer(f_n[vs], 1. - f_n[cs])
         # Precalculate E-E term
         E_vc = np.empty((len(vs), len(cs)), dtype=complex)
         for n in vs:
