@@ -22,10 +22,10 @@ def get_qdescriptor(kd, atoms):
 
 
 def initialize_w_calculator(chi0calc, context, *,
-                            ppa=False,
+                            coulomb,
                             xc='RPA', Eg=None,  # G0W0Kernel arguments
-                            E0=Ha, coulomb, integrate_gamma=0,
-                            q0_correction=False):
+                            ppa=False, E0=Ha,
+                            integrate_gamma=0, q0_correction=False):
     """Initialize a WCalculator from a Chi0Calculator.
 
     Parameters
@@ -55,11 +55,9 @@ def initialize_w_calculator(chi0calc, context, *,
                           Eg=Eg,
                           context=context)
 
-    wcalc = WCalculator(gs=gs, ppa=ppa,
-                        xckernel=xckernel,
-                        context=context,
-                        E0=E0,
-                        coulomb=coulomb,
+    wcalc = WCalculator(gs, context,
+                        coulomb=coulomb, xckernel=xckernel,
+                        ppa=ppa, E0=E0,
                         integrate_gamma=integrate_gamma,
                         q0_correction=q0_correction)
 
@@ -68,12 +66,9 @@ def initialize_w_calculator(chi0calc, context, *,
 
 class WCalculator:
     def __init__(self, gs, context, *,
-                 ppa,
-                 xckernel,
-                 E0,
-                 coulomb,
-                 integrate_gamma=0,
-                 q0_correction=False):
+                 coulomb, xckernel,
+                 ppa, E0,
+                 integrate_gamma=0, q0_correction=False):
         """
         W Calculator.
 
@@ -81,13 +76,13 @@ class WCalculator:
         ----------
         gs : ResponseGroundStateAdapter
         context : ResponseContext
+        coulomb : CoulombKernel
+        xckernel : G0W0Kernel
         ppa : bool
             Sets whether the Godby-Needs plasmon-pole approximation for the
             dielectric function should be used.
-        xckernel : G0W0Kernel object
         E0 : float
             Energy (in eV) used for fitting the plasmon-pole approximation
-        coulomb : Document me!                                                 XXX
         integrate_gamma: int
              Method to integrate the Coulomb interaction. 1 is a numerical
              integration at all q-points with G=[0,0,0] - this breaks the
@@ -98,13 +93,16 @@ class WCalculator:
             Analytic correction to the q=0 contribution applicable to 2D
             systems.
         """
-        self.ppa = ppa
         self.gs = gs
-        self.coulomb = coulomb
         self.context = context
-        self.integrate_gamma = integrate_gamma
-        self.qd = get_qdescriptor(self.gs.kd, self.gs.atoms)
+        self.coulomb = coulomb
         self.xckernel = xckernel
+        self.ppa = ppa
+        self.E0 = E0 / Ha  # eV -> Hartree
+
+        self.integrate_gamma = integrate_gamma
+
+        self.qd = get_qdescriptor(self.gs.kd, self.gs.atoms)
 
         if q0_correction:
             assert self.coulomb.truncation == '2D'
@@ -120,8 +118,6 @@ class WCalculator:
                                + 'on a %dx%dx%d grid' % tuple(npts_c))
         else:
             self.q0_corrector = None
-
-        self.E0 = E0 / Ha
 
     def calculate(self, chi0,
                   fxc_mode='GW',
