@@ -65,14 +65,11 @@ def initialize_w_calculator(chi0calc, txt='w.txt', ppa=False, xc='RPA',
                           wd=chi0calc.wd,
                           Eg=Eg,
                           context=context)
-    wd = chi0calc.wd
-    pair = chi0calc.pair
 
-    wcalc = WCalculator(wd=wd, pair=pair, gs=gs, ppa=ppa,
+    wcalc = WCalculator(gs=gs, ppa=ppa,
                         xckernel=xckernel,
                         context=context,
                         E0=E0,
-                        fxc_mode='GW',
                         coulomb=coulomb,
                         integrate_gamma=integrate_gamma,
                         q0_correction=q0_correction)
@@ -81,13 +78,13 @@ def initialize_w_calculator(chi0calc, txt='w.txt', ppa=False, xc='RPA',
 
 class WCalculator:
     def __init__(self, *,
-                 wd, pair, gs,
+                 gs,
                  ppa,
                  xckernel,
                  context,
                  E0,
-                 fxc_mode='GW',
-                 coulomb, integrate_gamma=0,
+                 coulomb,
+                 integrate_gamma=0,
                  q0_correction=False):
         """
         W Calculator.
@@ -115,12 +112,10 @@ class WCalculator:
         q0_correction: bool
             Analytic correction to the q=0 contribution applicable to 2D
             systems.
+
+        Update documentation!                                                  XXX
         """
         self.ppa = ppa
-        self.fxc_mode = fxc_mode
-        self.wd = wd
-        self.pair = pair  # We can avoid pair and blockcomm, by using chi0 XXX
-        self.blockcomm = self.pair.blockcomm
         self.gs = gs
         self.coulomb = coulomb
         self.context = context
@@ -145,56 +140,25 @@ class WCalculator:
 
         self.E0 = E0 / Ha
 
-    def calculate(self, chi0, out_dist='WgG'):
-        """Direct W calculation interface (used by BSE)."""
+    def calculate(self, chi0,
+                  fxc_mode='GW',
+                  only_correlation=False,
+                  out_dist='WgG'):
+        """Calculate the screened interaction."""
 
-        # Set up Wigner-Seitz truncation, if applicable
-        if self.coulomb.truncation == 'wigner-seitz':
-            raise NotImplementedError(
-                'Wigner-Seitz truncation is not implemented (read: tested) '
-                'for BSE.')
-
-        pd, W_wGG = self.dyson_and_W_old(
-            fxc_mode=self.fxc_mode,
-            chi0=chi0,
-            out_dist=out_dist)
-
-        return pd, W_wGG
-
-    def dyson_and_W_old(self, *, fxc_mode, chi0,
-                        ecut=None, only_correlation=False,
-                        out_dist='WgG'):
-        """Reduce plane-wave basis and solve Dyson equation for W.
-
-        The plane-wave basis will only be reduced, if ecut is given as
-        a positive floating point (in Hartree).
-
-        NB: New array copies are created during the calculation.
-        """
-        if ecut is not None:
-            pd = chi0.pd.copy_with(ecut=ecut)
-            chi0 = chi0.copy_with_reduced_pd(pd)
-        else:
-            pd = chi0.pd
-        chi0_wGG = chi0.copy_array_with_distribution('wGG')
-        chi0_WxvG = chi0.chi0_WxvG
-        chi0_Wvv = chi0.chi0_Wvv
-
-        W_wGG = self.dyson_old(fxc_mode,
-                               pd, chi0_wGG, chi0_WxvG, chi0_Wvv,
-                               only_correlation)
+        W_wGG = self._calculate(chi0, fxc_mode,
+                                only_correlation=only_correlation)
 
         if out_dist == 'WgG':
             assert not self.ppa
-            # This should take place using the blockdist of the reduced pw
-            # basis chi0 in the future! XXX
-            W_wGG = chi0.blockdist.distribute_as(W_wGG, chi0.nw, out_dist)
+            W_WgG = chi0.blockdist.distribute_as(W_wGG, chi0.nw, 'WgG')
+            W_x = W_WgG
         elif out_dist == 'wGG':
-            pass  # We are already parallelized over frequencies
+            W_x = W_wGG
         else:
             raise ValueError(f'Invalid out_dist {out_dist}')
 
-        return pd, W_wGG
+        return W_x
 
     def basic_dyson_arrays(self, pd, fxc_mode):
         delta_GG = np.eye(pd.ngmax)
@@ -206,13 +170,18 @@ class WCalculator:
 
         return delta_GG, fv
 
-    def dyson_old(self, fxc_mode,
-                  # This function should take a Chi0Data as input! XXX
-                  pd, chi0_wGG, chi0_WxvG, chi0_Wvv,
-                  only_correlation=False):
+    def _calculate(self, chi0, fxc_mode,
+                   only_correlation=False):
+        """In-place calculation of the screened interaction."""
+        # Unpack data
+        pd = chi0.pd
+        chi0_wGG = chi0.copy_array_with_distribution('wGG')
+        chi0_Wvv = chi0.chi0_Wvv
+        chi0_WxvG = chi0.chi0_WxvG
+
         q_c = pd.q_c
         kd = self.gs.kd
-        wblocks1d = Blocks1D(self.blockcomm, len(self.wd))
+        wblocks1d = Blocks1D(chi0.blockdist.blockcomm, len(chi0.wd))
 
         delta_GG, fv = self.basic_dyson_arrays(pd, fxc_mode)
 
