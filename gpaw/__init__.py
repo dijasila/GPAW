@@ -179,7 +179,7 @@ if debug:
         try:
             a.fill(np.nan)
         except ValueError:
-            a.fill(-2000000)
+            a.fill(-42)
         return a
 
     np.empty = empty
