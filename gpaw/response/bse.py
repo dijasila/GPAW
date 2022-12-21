@@ -470,19 +470,19 @@ class BSEBackend:
         if self._chi0calc is None:
             self.initialize_chi0_calculator()
         if self._wcalc is None:
+            wcontext = ResponseContext(txt='w.txt', world=world)
             self._wcalc = initialize_w_calculator(
-                chi0calc=self._chi0calc,
+                self._chi0calc, wcontext,
                 coulomb=self.coulomb,
-                world=world,
                 integrate_gamma=self.integrate_gamma)
         t0 = time()
         self.context.print('Calculating screened potential')
         for iq, q_c in enumerate(self.qd.ibzk_kc):
             chi0 = self._chi0calc.calculate(q_c)
-            pd, W_wGG = self._wcalc.calculate(chi0, out_dist='WgG')
+            W_wGG = self._wcalc.calculate(chi0, out_dist='WgG')
             W_GG = W_wGG[0]
             self.pawcorr_q.append(self._chi0calc.pawcorr)
-            self.pd_q.append(pd)
+            self.pd_q.append(chi0.pd)
             self.W_qGG.append(W_GG)
 
             if iq % (self.qd.nibzkpts // 5 + 1) == 2:

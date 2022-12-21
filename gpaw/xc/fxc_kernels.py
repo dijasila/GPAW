@@ -1,7 +1,8 @@
 import numpy as np
 
 
-def get_fHxc_Gr(xc, rs, q, qF, s2_g, w, scaled_Eg):
+def get_fHxc_Gr(xcflags, rs, q, qF, s2_g, w, scaled_Eg):
+    xc = xcflags.xc
     if xc in ('rALDA', 'rALDAns', 'range_rALDA'):
         # rALDA (exchange only) kernel
         # Olsen and Thygesen, Phys. Rev. B 88, 115131 (2013)
@@ -28,8 +29,7 @@ def get_fHxc_Gr(xc, rs, q, qF, s2_g, w, scaled_Eg):
             (1.0 + np.sign(rxcalda_qcut - q[:, np.newaxis])) *
             (1.0 + (-1.0) * rxcalda_A * (q[:, np.newaxis] / qF)**2.0))
 
-    elif xc == 'rAPBE' or xc == 'rAPBEns':
-
+    elif xcflags.is_apbe:
         # Olsen and Thygesen, Phys. Rev. Lett. 112, 203001 (2014)
         # Exchange only part of the PBE XC kernel, neglecting the terms
         # arising from the variation of the density gradient

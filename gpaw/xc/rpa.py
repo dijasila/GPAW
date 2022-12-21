@@ -14,6 +14,10 @@ from gpaw.response.frequencies import FrequencyDescriptor
 from gpaw.response.pair import get_gs_and_context, PairDensityCalculator
 
 
+def default_ecut_extrapolation(ecut, extrapolate):
+    return ecut * (1 + 0.5 * np.arange(extrapolate))**(-2 / 3)
+
+
 def rpa(filename, ecut=200.0, blocks=1, extrapolate=4):
     """Calculate RPA energy.
 
@@ -31,8 +35,9 @@ def rpa(filename, ecut=200.0, blocks=1, extrapolate=4):
     from gpaw.xc.rpa import RPACorrelation
     rpa = RPACorrelation(name, name + '-rpa.dat',
                          nblocks=blocks,
+                         ecut=default_ecut_extrapolation(ecut, extrapolate),
                          txt=name + '-rpa.txt')
-    rpa.calculate(ecut=ecut * (1 + 0.5 * np.arange(extrapolate))**(-2 / 3))
+    rpa.calculate()
 
 
 def initialize_q_points(kd, qsym):
@@ -50,6 +55,7 @@ def initialize_q_points(kd, qsym):
 
 class RPACalculator:
     def __init__(self, gs, *, context, filename=None,
+                 ecut,
                  skip_gamma=False, qsym=True,
                  frequencies, weights, truncation=None,
                  nblocks=1, calculate_q=None):
@@ -78,6 +84,10 @@ class RPACalculator:
         if calculate_q is None:
             calculate_q = self.calculate_q_rpa
         self.calculate_q = calculate_q
+
+        if isinstance(ecut, (float, int)):
+            ecut = default_ecut_extrapolation(ecut, extrapolate=6)
+        self.ecut_i = np.asarray(np.sort(ecut)) / Hartree
 
     def read(self, ecut_i, filename):
         with open(filename) as fd:
@@ -120,7 +130,7 @@ class RPACalculator:
             with open(self.filename, 'w') as fd:
                 print(txt, file=fd)
 
-    def calculate(self, ecut, nbands=None, spin=False):
+    def calculate(self, *, nbands=None, spin=False):
         """Calculate RPA correlation energy for one or several cutoffs.
 
         ecut: float or list of floats
@@ -134,9 +144,7 @@ class RPACalculator:
 
         p = functools.partial(self.context.print, flush=False)
 
-        if isinstance(ecut, (float, int)):
-            ecut = ecut * (1 + 0.5 * np.arange(6))**(-2 / 3)
-        ecut_i = np.asarray(np.sort(ecut)) / Hartree
+        ecut_i = self.ecut_i
         ecutmax = max(ecut_i)
 
         if nbands is None:
@@ -223,7 +231,7 @@ class RPACalculator:
                     # Chi0 will be summed again over chicomm, so we divide
                     # by its size:
                     for chi0 in chi0_s:
-                        chi0.chi0_wGG[:] *= a
+                        chi0.chi0_WgG[:] *= a
                     # if chi0_swxvG is not None:
                     #     chi0_swxvG *= a
                     #     chi0_swvv *= a
@@ -260,7 +268,7 @@ class RPACalculator:
 
         self.context.print('E_c(q) = ', end='', flush=False)
 
-        chi0_wGG = chi0.distribute_as('wGG')
+        chi0_wGG = chi0.copy_array_with_distribution('wGG')
 
         kd = self.gs.kd
         if not chi0.pd.kd.gamma:
@@ -275,8 +283,8 @@ class RPACalculator:
                 truncation=self.coulomb.truncation,
                 kd=kd,
                 pd=chi0.pd,
-                chi0_wvv=chi0.chi0_wvv[wblocks.myslice],
-                chi0_wxvG=chi0.chi0_wxvG[wblocks.myslice])
+                chi0_wvv=chi0.chi0_Wvv[wblocks.myslice],
+                chi0_wxvG=chi0.chi0_WxvG[wblocks.myslice])
 
             e = 0
             for iqf in range(len(gamma_int.qf_qv)):
