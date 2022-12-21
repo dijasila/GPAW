@@ -400,7 +400,8 @@ class ASECalculator:
             state,
             builder.setups,
             scf_loop,
-            SimpleNamespace(fracpos_ac=self.calculation.fracpos_ac),
+            SimpleNamespace(fracpos_ac=self.calculation.fracpos_ac,
+                            poisson_solver=None),
             log)
 
         calculation.converge()
