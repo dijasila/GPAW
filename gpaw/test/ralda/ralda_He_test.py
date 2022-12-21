@@ -24,20 +24,21 @@ def test_ralda_ralda_energy_He(in_tmp_dir, scalapack):
     calc.diagonalize_full_hamiltonian(nbands=20)
 
     ecuts = [20, 30]
-    rpa = RPACorrelation(calc, nfrequencies=8)
-    E_rpa1 = rpa.calculate(ecut=ecuts)[-1]
+    rpa = RPACorrelation(calc, nfrequencies=8, ecut=ecuts)
+    E_rpa1 = rpa.calculate()[-1]
 
     def fxc(xc, nfrequencies=8, **kwargs):
-        return FXCCorrelation(calc, xc=xc, **kwargs).calculate(ecut=ecuts)[-1]
+        return FXCCorrelation(
+            calc, xc=xc, ecut=ecuts, **kwargs).calculate()[-1]
 
     energies = [
         fxc('RPA', nlambda=16),
         fxc('rALDA', unit_cells=[1, 1, 2]),
         fxc('rAPBE', unit_cells=[1, 1, 2]),
-        fxc('rALDA', av_scheme='wavevector'),
-        fxc('rAPBE', av_scheme='wavevector'),
-        fxc('JGMs', av_scheme='wavevector', Eg=3.1, nlambda=2),
-        fxc('CP_dyn', av_scheme='wavevector', nfrequencies=2, nlambda=2)]
+        fxc('rALDA', avg_scheme='wavevector'),
+        fxc('rAPBE', avg_scheme='wavevector'),
+        fxc('JGMs', avg_scheme='wavevector', Eg=3.1, nlambda=2),
+        fxc('CP_dyn', avg_scheme='wavevector', nfrequencies=2, nlambda=2)]
 
     assert E_rpa1 == pytest.approx(energies[0], abs=0.01)
 
