@@ -293,10 +293,6 @@ class FXCCorrelation:
                            m2:n2] *= (G_G * G_G[:, np.newaxis] / (4 * np.pi))
 
                         if np.prod(self.unit_cells) > 1 and pd.kd.gamma:
-                            m1 = s1 * nG
-                            n1 = (s1 + 1) * nG
-                            m2 = s2 * nG
-                            n2 = (s2 + 1) * nG
                             fv[m1, m2:n2] = 0.0
                             fv[m1:n1, m2] = 0.0
                             fv[m1, m2] = 1.0
@@ -588,8 +584,11 @@ class KernelWave:
 
             my_Gv_G = Gv_G[my_Gints]
 
-            if (self.ns == 2) and (self.xc == 'rALDA' or self.xc == 'rAPBE'):
+            # XXX Should this be if self.ns == 2 and self.xcflags.spin_kernel?
+            calc_spincorr = (self.ns == 2) and (self.xc == 'rALDA'
+                                                or self.xc == 'rAPBE')
 
+            if calc_spincorr:
                 assert len(self.l_l) == 1
 
                 # Form spin-dependent kernel according to
@@ -599,22 +598,21 @@ class KernelWave:
                 # with a step function (\equiv \tilde{f^rALDA})
                 # fHxc^{up up}     = fHxc^{down down} = fv_nospin + fv_spincorr
                 # fHxc^{up down}   = fHxc^{down up}   = fv_nospin - fv_spincorr
-
-                calc_spincorr = True
-                fv_spincorr = np.zeros((nG, nG), dtype=complex)
-
-            else:
-
-                calc_spincorr = False
+                fv_spincorr_GG = np.zeros((nG, nG), dtype=complex)
 
             if self.omega_w is None:
-                fv_nospin = np.zeros((len(self.l_l), nG, nG), dtype=complex)
+                # Confusing, but None has a special meaning when passed to
+                # wherever it is that we pass it.
+                omega_w = [None]
             else:
-                fv_nospin = np.zeros(
-                    (len(self.l_l), len(self.omega_w), nG, nG), dtype=complex)
+                omega_w = list(self.omega_w)
+
+            nw = len(omega_w)
+
+            fv_nospin_lwGG = np.zeros((len(self.l_l), nw, nG, nG),
+                                      dtype=complex)
 
             for il, l in enumerate(self.l_l):  # loop over coupling constant
-
                 for iG, Gv in zip(my_Gints, my_Gv_G):  # loop over G vecs
 
                     # For all kernels except JGM we
@@ -659,73 +657,53 @@ class KernelWave:
                             (deltaGv[:, 0, np.newaxis] * self.x_g[small_ind] +
                              deltaGv[:, 1, np.newaxis] * self.y_g[small_ind] +
                              deltaGv[:, 2, np.newaxis] * self.z_g[small_ind]))
-                        if self.omega_w is None:
-                            fv_nospin[il, iG, iG:] = self.get_scaled_fHxc_q(
+
+                        def scaled_fHxc(w, spincorr, l):
+                            return self.get_scaled_fHxc_q(
                                 q=mod_Gpq,
                                 sel_points=small_ind,
                                 Gphase=phase_Gpq,
                                 l=l,
-                                spincorr=False,
-                                w=None)
-                        else:
-                            for iw, omega in enumerate(self.omega_w):
-                                fv_nospin[il, iw, iG, iG:] = \
-                                    self.get_scaled_fHxc_q(
-                                        q=mod_Gpq,
-                                        sel_points=small_ind,
-                                        Gphase=phase_Gpq,
-                                        l=l,
-                                        spincorr=False,
-                                        w=omega)
+                                spincorr=spincorr,
+                                w=w)
+
+                        for iw, w in enumerate(omega_w):
+                            fv_nospin_lwGG[il, iw, iG, iG:] = scaled_fHxc(
+                                w, spincorr=False, l=l)
 
                         if calc_spincorr:
-                            fv_spincorr[iG, iG:] = self.get_scaled_fHxc_q(
-                                q=mod_Gpq,
-                                sel_points=small_ind,
-                                Gphase=phase_Gpq,
-                                l=1.0,
-                                spincorr=True,
-                                w=None)
-
+                            fv_spincorr_GG[iG, iG:] = scaled_fHxc(
+                                w=None, spincorr=True, l=1.0)
                     else:
                         # head and wings of q=0 are dominated by
                         # 1/q^2 divergence of scaled Coulomb interaction
 
                         assert iG == 0
 
-                        if self.omega_w is None:
-                            fv_nospin[il, 0, 0] = l
-                            fv_nospin[il, 0, 1:] = 0.0
-                        else:
-                            fv_nospin[il, :, 0, 0] = l
-                            fv_nospin[il, :, 0, 1:] = 0.0
+                        fv_nospin_lwGG[il, :, 0, 0] = l
+                        fv_nospin_lwGG[il, :, 0, 1:] = 0.0
 
                         if calc_spincorr:
-                            fv_spincorr[0, :] = 0.0
+                            fv_spincorr_GG[0, :] = 0.0
 
                     # End loop over G vectors
 
-                mpi.world.sum(fv_nospin[il])
+                mpi.world.sum(fv_nospin_lwGG[il])
 
-                if self.omega_w is None:
+                for iw in range(len(omega_w)):
                     # We've only got half the matrix here,
                     # so add the hermitian conjugate:
-                    fv_nospin[il] += np.conj(fv_nospin[il].T)
+                    fv_nospin_lwGG[il, iw] += np.conj(fv_nospin_lwGG[il, iw].T)
                     # but now the diagonal's been doubled,
                     # so we multiply these elements by 0.5
-                    fv_nospin[il][np.diag_indices(nG)] *= 0.5
-
-                else:  # same procedure for dynamical kernels
-                    for iw in range(len(self.omega_w)):
-                        fv_nospin[il][iw] += np.conj(fv_nospin[il][iw].T)
-                        fv_nospin[il][iw][np.diag_indices(nG)] *= 0.5
+                    fv_nospin_lwGG[il, iw][np.diag_indices(nG)] *= 0.5
 
                 # End of loop over coupling constant
 
             if calc_spincorr:
-                mpi.world.sum(fv_spincorr)
-                fv_spincorr += np.conj(fv_spincorr.T)
-                fv_spincorr[np.diag_indices(nG)] *= 0.5
+                mpi.world.sum(fv_spincorr_GG)
+                fv_spincorr_GG += np.conj(fv_spincorr_GG.T)
+                fv_spincorr_GG[np.diag_indices(nG)] *= 0.5
 
             # Write to disk
             if mpi.rank == 0:
@@ -736,21 +714,25 @@ class KernelWave:
 
                 if calc_spincorr:
                     # Form the block matrix kernel
-                    fv_full = np.empty((2 * nG, 2 * nG), dtype=complex)
-                    fv_full[:nG, :nG] = fv_nospin[0] + fv_spincorr
-                    fv_full[:nG, nG:] = fv_nospin[0] - fv_spincorr
-                    fv_full[nG:, :nG] = fv_nospin[0] - fv_spincorr
-                    fv_full[nG:, nG:] = fv_nospin[0] + fv_spincorr
-                    w.write(fhxc_sGsG=fv_full)
+                    fv_full_2G2G = np.empty((2 * nG, 2 * nG), dtype=complex)
+                    assert nw == 1
+                    fv_nospin_GG = fv_nospin_lwGG[0, 0]
+                    fv_full_2G2G[:nG, :nG] = fv_nospin_GG + fv_spincorr_GG
+                    fv_full_2G2G[:nG, nG:] = fv_nospin_GG - fv_spincorr_GG
+                    fv_full_2G2G[nG:, :nG] = fv_nospin_GG - fv_spincorr_GG
+                    fv_full_2G2G[nG:, nG:] = fv_nospin_GG + fv_spincorr_GG
+                    w.write(fhxc_sGsG=fv_full_2G2G)
 
                 elif len(self.l_l) == 1:
-                    w.write(fhxc_sGsG=fv_nospin[0])
+                    assert nw == 1
+                    w.write(fhxc_sGsG=fv_nospin_lwGG[0, 0])
 
                 elif self.omega_w is None:
-                    w.write(fhxc_lGG=fv_nospin)
+                    assert nw == 1
+                    w.write(fhxc_lGG=fv_nospin_lwGG[:, 0, :, :])
 
                 else:
-                    w.write(fhxc_lwGG=fv_nospin)
+                    w.write(fhxc_lwGG=fv_nospin_lwGG)
                 w.close()
 
             self.context.print('q point %s complete' % iq)
