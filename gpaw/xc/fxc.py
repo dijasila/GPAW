@@ -211,6 +211,32 @@ class FXCCorrelation:
 
         return e
 
+    def calculate_energy_contribution(self, chi0v_sGsG, fv, nG):
+        """Calculate contribution to energy from a single frequency point.
+
+        The RPA correlation energy is the integral over all frequencies
+        from 0 to infinity of this expression."""
+
+        e = 0.0
+        assert len(chi0v_sGsG) % nG == 0
+        ns = len(chi0v_sGsG) // nG
+
+        for l, weight in zip(self.l_l, self.weight_l):
+            chiv = np.linalg.solve(
+                np.eye(nG * ns) - l * np.dot(chi0v_sGsG, fv),
+                chi0v_sGsG).real  # this is SO slow
+            for s1 in range(ns):
+                for s2 in range(ns):
+                    m1 = s1 * nG
+                    n1 = (s1 + 1) * nG
+                    m2 = s2 * nG
+                    n2 = (s2 + 1) * nG
+                    chiv_s1s2 = chiv[m1:n1, m2:n2]
+                    e -= np.trace(chiv_s1s2) * weight
+
+        e += np.trace(chi0v_sGsG.real)
+        return e
+
     @timer('Energy')
     def calculate_energy_fxc(self, pd, chi0_swGG, cut_G):
         """Evaluate correlation energy from chi0 and the kernel fhxc"""
@@ -284,32 +310,17 @@ class FXCCorrelation:
             for chi0_sGG in np.swapaxes(chi0_swGG, 0, 1):
                 if cut_G is not None:
                     chi0_sGG = chi0_sGG.take(cut_G, 1).take(cut_G, 2)
-                chi0v = np.zeros((ns * nG, ns * nG), dtype=complex)
+                chi0v_sGsG = np.zeros((ns * nG, ns * nG), dtype=complex)
                 for s in range(ns):
                     m = s * nG
                     n = (s + 1) * nG
-                    chi0v[m:n, m:n] = chi0_sGG[s] / G_G / G_G[:, np.newaxis]
-                chi0v *= 4 * np.pi
+                    chi0v_sGsG[m:n, m:n] = \
+                        chi0_sGG[s] / G_G / G_G[:, np.newaxis]
+                chi0v_sGsG *= 4 * np.pi
 
                 del chi0_sGG
 
-                e = 0.0
-
-                for l, weight in zip(self.l_l, self.weight_l):
-                    chiv = np.linalg.solve(
-                        np.eye(nG * ns) - l * np.dot(chi0v, fv),
-                        chi0v).real  # this is SO slow
-                    for s1 in range(ns):
-                        for s2 in range(ns):
-                            m1 = s1 * nG
-                            n1 = (s1 + 1) * nG
-                            m2 = s2 * nG
-                            n2 = (s2 + 1) * nG
-                            chiv_s1s2 = chiv[m1:n1, m2:n2]
-                            e -= np.trace(chiv_s1s2) * weight
-
-                e += np.trace(chi0v.real)
-
+                e = self.calculate_energy_contribution(chi0v_sGsG, fv, nG)
                 e_w.append(e)
 
         else:
