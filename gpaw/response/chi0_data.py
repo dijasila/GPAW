@@ -147,14 +147,13 @@ class BodyData:
         return data_x
 
 
-class HeadAndWingsData:
+class OpticalExtensionData:
     def __init__(self, descriptors):
         assert descriptors.optical_limit
         self.wd = descriptors.wd
         self.pd = descriptors.pd
 
-        # Allocate head and wings
-        self.data_Wvv, self.data_WxvG = self.zeros()
+        self.head_Wvv, self.wings_WxvG = self.zeros()
         
     def zeros(self):
         return (np.zeros(self.Wvv_shape, complex),  # head
@@ -163,12 +162,12 @@ class HeadAndWingsData:
     @staticmethod
     def from_descriptor_arguments(frequencies, plane_waves):
         """Contruct the necesarry descriptors and initialize the
-        HeadAndWingsData object"""
+        OpticalExtensionData object"""
 
         descriptors = Chi0Descriptors.from_descriptor_arguments(
             frequencies, plane_waves)
 
-        return HeadAndWingsData(descriptors)
+        return OpticalExtensionData(descriptors)
         
     @property
     def nw(self):
@@ -188,14 +187,14 @@ class HeadAndWingsData:
 
 
 class AugmentedBodyData(BodyData):
-    """Data object containing the body data along with the head and
-    wings data, if the data concerns the optical limit."""
+    """Data object containing the body data along with the optical extension
+    data, if the data concerns the optical limit."""
 
     def __init__(self, descriptors, blockdist):
         super().__init__(descriptors, blockdist)
 
         if self.optical_limit:
-            self.head_and_wings = HeadAndWingsData(self.descriptors)
+            self.optical_extension = OpticalExtensionData(self.descriptors)
 
     @property
     def optical_limit(self):
@@ -204,12 +203,12 @@ class AugmentedBodyData(BodyData):
     @property
     def Wvv_shape(self):
         if self.optical_limit:
-            return self.head_and_wings.Wvv_shape
+            return self.optical_extension.Wvv_shape
 
     @property
     def WxvG_shape(self):
         if self.optical_limit:
-            return self.head_and_wings.WxvG_shape
+            return self.optical_extension.WxvG_shape
 
     def copy_with_reduced_pd(self, pd):
         """Provide a copy of the object within a reduced plane-wave basis.
@@ -222,12 +221,13 @@ class AugmentedBodyData(BodyData):
                                                           self.blockdist,
                                                           self.data_WgG)
         if self.optical_limit:
-            new_abd.head_and_wings.data_Wvv[:] = self.head_and_wings.data_Wvv
+            new_abd.optical_extension.head_Wvv[:] \
+                = self.optical_extension.head_Wvv
 
             # Map the wings to the reduced plane-wave description
             G2_G1 = PWMapping(pd, self.pd).G2_G1
-            new_abd.head_and_wings.data_WxvG[:] \
-                = self.head_and_wings.data_WxvG[..., G2_G1]
+            new_abd.optical_extension.wings_WxvG[:] \
+                = self.optical_extension.wings_WxvG[..., G2_G1]
 
         return new_abd
 
@@ -248,9 +248,9 @@ class Chi0Data(AugmentedBodyData):
     @property
     def chi0_Wvv(self):
         if self.optical_limit:
-            return self.head_and_wings.data_Wvv
+            return self.optical_extension.head_Wvv
 
     @property
     def chi0_WxvG(self):
         if self.optical_limit:
-            return self.head_and_wings.data_WxvG
+            return self.optical_extension.wings_WxvG
