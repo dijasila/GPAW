@@ -29,7 +29,7 @@ class FXCCorrelation:
                  unit_cells=None,
                  tag=None,
                  range_rc=1.0,
-                 av_scheme=None,
+                 avg_scheme=None,
                  Eg=None,
                  *,
                  ecut,
@@ -73,15 +73,15 @@ class FXCCorrelation:
             raise RuntimeError(
                 'Gap must be provided with and only with '
                 f'the gap dependent functionals {self.xcflags._gapped}.')
-        self.av_scheme = self.xcflags.choose_avg_scheme(av_scheme)
+        self.avg_scheme = self.xcflags.choose_avg_scheme(avg_scheme)
 
         if tag is None:
 
             tag = self.gs.atoms.get_chemical_formula(mode='hill')
 
-            if self.av_scheme is not None:
+            if self.avg_scheme is not None:
 
-                tag += '_' + self.av_scheme
+                tag += '_' + self.avg_scheme
 
         self.tag = tag
 
@@ -122,7 +122,7 @@ class FXCCorrelation:
 
             if q_empty is not None:
 
-                if self.av_scheme == 'wavevector':
+                if self.avg_scheme == 'wavevector':
 
                     self.context.print('Calculating %s kernel starting from '
                                        'q point %s \n' % (self.xc, q_empty))
@@ -184,7 +184,7 @@ class FXCCorrelation:
         nG = pd.ngmax
         chi0_swGG = np.empty((nspins, mynw, nG, nG), complex)
         for chi0_wGG, chi0 in zip(chi0_swGG, chi0_s):
-            chi0_wGG[:] = chi0.distribute_as('wGG')
+            chi0_wGG[:] = chi0.copy_array_with_distribution('wGG')
         if self.nblocks > 1:
             chi0_swGG = np.swapaxes(chi0_swGG, 2, 3)
 
@@ -192,14 +192,14 @@ class FXCCorrelation:
             e = self.calculate_energy_fxc(pd, chi0_swGG, cut_G)
             self.context.print('%.3f eV' % (e * Ha))
         else:
-            w1 = self.blockcomm.rank * mynw
-            w2 = w1 + mynw
+            W1 = self.blockcomm.rank * mynw
+            W2 = W1 + mynw
             e = 0.0
             for v in range(3):
                 for chi0_wGG, chi0 in zip(chi0_swGG, chi0_s):
-                    chi0_wGG[:, 0] = chi0.chi0_wxvG[w1:w2, 0, v]
-                    chi0_wGG[:, :, 0] = chi0.chi0_wxvG[w1:w2, 1, v]
-                    chi0_wGG[:, 0, 0] = chi0.chi0_wvv[w1:w2, v, v]
+                    chi0_wGG[:, 0] = chi0.chi0_WxvG[W1:W2, 0, v]
+                    chi0_wGG[:, :, 0] = chi0.chi0_WxvG[W1:W2, 1, v]
+                    chi0_wGG[:, 0, 0] = chi0.chi0_Wvv[W1:W2, v, v]
                 ev = self.calculate_energy_fxc(pd, chi0_swGG, cut_G)
                 e += ev
                 self.context.print('%.3f' % (ev * Ha), end='', flush=False)
@@ -256,7 +256,7 @@ class FXCCorrelation:
             # special treatment of the head and wings.  However not true for
             # density average:
 
-            if self.av_scheme == 'density':
+            if self.avg_scheme == 'density':
                 for s1 in range(ns):
                     for s2 in range(ns):
                         m1 = s1 * nG

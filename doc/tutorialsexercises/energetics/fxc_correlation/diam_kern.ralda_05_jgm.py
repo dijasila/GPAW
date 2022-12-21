@@ -4,7 +4,7 @@ from ase.parallel import paropen
 fxc = FXCCorrelation('diam_kern.ralda.lda_wfcs.gpw', xc='JGMs',
                      ecut=[131.072],
                      txt='diam_kern.ralda_04_jgm.txt',
-                     av_scheme='wavevector',
+                     avg_scheme='wavevector',
                      Eg=7.3)
 E_i = fxc.calculate()
 
