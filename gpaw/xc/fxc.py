@@ -31,7 +31,15 @@ class FXCCorrelation:
                  range_rc=1.0,
                  avg_scheme=None,
                  Eg=None,
+                 *,
+                 ecut,
                  **kwargs):
+
+        self.ecut = ecut
+        if isinstance(ecut, (float, int)):
+            self.ecut_max = ecut
+        else:
+            self.ecut_max = max(ecut)
 
         self.rpa = RPACorrelation(
             calc,
@@ -40,6 +48,7 @@ class FXCCorrelation:
             frequencies=frequencies,
             weights=weights,
             calculate_q=self.calculate_q_fxc,
+            ecut=self.ecut,
             **kwargs)
 
         self.gs = self.rpa.gs
@@ -88,15 +97,9 @@ class FXCCorrelation:
         return self.rpa.blockcomm
 
     @timer('FXC')
-    def calculate(self, ecut, nbands=None):
-
+    def calculate(self, *, nbands=None):
         if self.xc not in ('RPA', 'range_RPA'):
             # kernel not required for RPA/range_sep RPA
-
-            if isinstance(ecut, (float, int)):
-                self.ecut_max = ecut
-            else:
-                self.ecut_max = max(ecut)
 
             # Find the first q vector to calculate kernel for
             # (density averaging scheme always calculates all q points anyway)
@@ -161,7 +164,7 @@ class FXCCorrelation:
         else:
             spin = True
 
-        e = self.rpa.calculate(ecut, spin=spin, nbands=nbands)
+        e = self.rpa.calculate(spin=spin, nbands=nbands)
 
         return e
 
