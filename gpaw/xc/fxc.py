@@ -65,10 +65,17 @@ class FXCCorrelation:
             unit_cells = self.gs.kd.N_c
         self.unit_cells = unit_cells
         self.range_rc = range_rc  # Range separation parameter in Bohr
-        self.av_scheme = av_scheme  # Either 'density' or 'wavevector'
+
+        if Eg is not None:
+            Eg /= Ha
         self.Eg = Eg  # Band gap in eV
 
-        set_flags(self)
+        self.xcflags = XCFlags(self.xc)
+        if self.xcflags.bandgap_dependent != (self.Eg is not None):
+            raise RuntimeError(
+                'Gap must be provided with and only with '
+                f'the gap dependent functionals {self.xcflags._gapped}.')
+        self.av_scheme = self.xcflags.choose_avg_scheme(av_scheme)
 
         if tag is None:
 
@@ -133,9 +140,9 @@ class FXCCorrelation:
                                         omega_w=self.omega_w,
                                         Eg=self.Eg)
 
-                    if self.linear_kernel:
+                    if self.xcflags.linear_kernel:
                         kernelkwargs.update(l_l=None, omega_w=None)
-                    elif not self.dyn_kernel:
+                    elif not self.xcflags.dyn_kernel:
                         kernelkwargs.update(omega_w=None)
 
                     kernel = KernelWave(**kernelkwargs)
@@ -185,7 +192,7 @@ class FXCCorrelation:
         nG = pd.ngmax
         chi0_swGG = np.empty((nspins, mynw, nG, nG), complex)
         for chi0_wGG, chi0 in zip(chi0_swGG, chi0_s):
-            chi0_wGG[:] = chi0.distribute_as('wGG')
+            chi0_wGG[:] = chi0.copy_array_with_distribution('wGG')
         if self.nblocks > 1:
             chi0_swGG = np.swapaxes(chi0_swGG, 2, 3)
 
@@ -193,14 +200,14 @@ class FXCCorrelation:
             e = self.calculate_energy_fxc(pd, chi0_swGG, cut_G)
             self.context.print('%.3f eV' % (e * Ha))
         else:
-            w1 = self.blockcomm.rank * mynw
-            w2 = w1 + mynw
+            W1 = self.blockcomm.rank * mynw
+            W2 = W1 + mynw
             e = 0.0
             for v in range(3):
                 for chi0_wGG, chi0 in zip(chi0_swGG, chi0_s):
-                    chi0_wGG[:, 0] = chi0.chi0_wxvG[w1:w2, 0, v]
-                    chi0_wGG[:, :, 0] = chi0.chi0_wxvG[w1:w2, 1, v]
-                    chi0_wGG[:, 0, 0] = chi0.chi0_wvv[w1:w2, v, v]
+                    chi0_wGG[:, 0] = chi0.chi0_WxvG[W1:W2, 0, v]
+                    chi0_wGG[:, :, 0] = chi0.chi0_WxvG[W1:W2, 1, v]
+                    chi0_wGG[:, 0, 0] = chi0.chi0_Wvv[W1:W2, v, v]
                 ev = self.calculate_energy_fxc(pd, chi0_swGG, cut_G)
                 e += ev
                 self.context.print('%.3f' % (ev * Ha), end='', flush=False)
@@ -242,7 +249,7 @@ class FXCCorrelation:
         #              (note this does not necessarily mean that
         #              the calculation is spin-polarized!)
 
-        if self.spin_kernel:
+        if self.xcflags.spin_kernel:
             with ulm.open('fhxc_%s_%s_%s_%s.ulm' %
                           (self.tag, self.xc, self.ecut_max, qi)) as r:
                 fv = r.fhxc_sGsG
@@ -350,9 +357,9 @@ class FXCCorrelation:
                 # so we'll struggle to handle the arrays similarly.
                 # All other cases have fv_lwGG (with some dimensions being 1).
 
-            elif self.linear_kernel:
+            elif self.xcflags.linear_kernel:
                 fv_lwGG = read('fhxc_sGsG')[np.newaxis, np.newaxis, :, :]
-            elif not self.dyn_kernel:
+            elif not self.xcflags.dyn_kernel:
                 # static kernel which does not scale with lambda
                 fv_lwGG = read('fhxc_lGG')[:, np.newaxis, :, :]
             else:  # dynamical kernel
@@ -371,12 +378,12 @@ class FXCCorrelation:
             for iw, chi0_sGG in enumerate(np.swapaxes(chi0_swGG, 0, 1)):
                 chi0v = get_chi0v(chi0_sGG, cut_G, G_G)
 
-                if not self.linear_kernel:
+                if not self.xcflags.linear_kernel:
                     il = 0
                     energy = 0.0
                     for l, weight in zip(self.l_l, self.weight_l):
 
-                        if self.dyn_kernel:
+                        if self.xcflags.dyn_kernel:
                             fv_w_index = iw
                         else:
                             fv_w_index = 0
@@ -441,7 +448,7 @@ class FXCCorrelation:
 
                         eshort -= np.trace(np.dot(chi0v, fxcv)).real
 
-                    elif self.xc in ('range_RPA', 'range_rALDA'):
+                    elif self.xcflags.is_ranged:
                         eshort = (2 * np.pi * self.shortrange /
                                   np.sum(self.weight_w))
 
@@ -461,6 +468,7 @@ class KernelWave:
         self.gs = gs
         self.gd = gs.density.gd
         self.xc = xc
+        self.xcflags = XCFlags(xc)
         self.ibzq_qc = ibzq_qc
         self.l_l = l_l
         self.ns = self.gs.nspins
@@ -504,7 +512,7 @@ class KernelWave:
                                % (self.Eg * Ha))
 
         # Enhancement factor for GGA
-        if self.xc == 'rAPBE' or self.xc == 'rAPBEns':
+        if self.xcflags.is_apbe:
             nf_g = self.gs.hacky_all_electron_density(gridrefinement=4)
             gdf = self.gd.refine().refine()
             grad_v = [Gradient(gdf, v, n=1).apply for v in range(3)]
@@ -620,7 +628,7 @@ class KernelWave:
                             rho_min = min_Gpq**3.0 / (24.0 * np.pi**2.0)
                             small_ind = np.where(self.n_g >= rho_min)
 
-                        elif (self.xc == 'rAPBE' or self.xc == 'rAPBEns'):
+                        elif self.xcflags.is_apbe:
 
                             # rAPBE trick: the Hartree-XC kernel
                             # is exactly zero at grid points where
@@ -759,7 +767,7 @@ class KernelWave:
 
         # GGA enhancement factor s is lambda independent,
         # but we might want to truncate it
-        if self.xc == 'rAPBE' or self.xc == 'rAPBEns':
+        if self.xcflags.is_apbe:
             s2_g = self.s2_g[sel_points]
         else:
             s2_g = None
@@ -819,7 +827,7 @@ class KernelWave:
                 (1.0 + np.sign(rxcalda_qcut - q[:, np.newaxis])) *
                 (1.0 + (-1.0) * rxcalda_A * (q[:, np.newaxis] / qF)**2.0))
 
-        elif self.xc == 'rAPBE' or self.xc == 'rAPBEns':
+        elif self.xcflags.is_apbe:
 
             # Olsen and Thygesen, Phys. Rev. Lett. 112, 203001 (2014)
             # Exchange only part of the PBE XC kernel, neglecting the terms
@@ -1582,6 +1590,8 @@ class XCFlags:
     _linear_kernels = {'rALDAns', 'rAPBEns', 'range_RPA', 'JGMsx', 'RPA',
                        'rALDA', 'rAPBE', 'range_rALDA', 'ALDA'}
 
+    _gapped = {'JGMs', 'JGMsx'}
+
     def __init__(self, xc):
         if xc not in self._accepted_flags:
             raise RuntimeError('%s kernel not recognized' % self.xc)
@@ -1602,34 +1612,35 @@ class XCFlags:
     def dyn_kernel(self):
         return self.xc == 'CP_dyn'
 
+    @property
+    def bandgap_dependent(self):
+        return self.xc in self._gapped
 
-def set_flags(self):
-    """ Based on chosen fxc and av. scheme set up true-false flags """
+    @property
+    def is_ranged(self):
+        return self.xc in {'range_RPA', 'range_rALDA'}
 
-    flags = XCFlags(self.xc)
+    @property
+    def is_apbe(self):
+        # If new GGA kernels are added, maybe there should be an
+        # is_gga property.
+        return self.xc in {'rAPBE', 'rAPBEns'}
 
-    if (self.xc == 'rALDA' or self.xc == 'rAPBE' or self.xc == 'ALDA'):
-        if self.av_scheme is None:
-            self.av_scheme = 'density'
-            # Two-point scheme default for rALDA and rAPBE
+    def choose_avg_scheme(self, avg_scheme=None):
+        xc = self.xc
 
-    self.spin_kernel = flags.spin_kernel
+        if self.spin_kernel:
+            if avg_scheme is None:
+                avg_scheme = 'density'
+                # Two-point scheme default for rALDA and rAPBE
 
-    if self.av_scheme == 'density':
-        assert (self.xc == 'rALDA' or self.xc == 'rAPBE'
-                or self.xc == 'ALDA'), ('Two-point density average ' +
-                                        'only implemented for rALDA and rAPBE')
+        if avg_scheme == 'density':
+            assert self.spin_kernel, ('Two-point density average '
+                                      'only implemented for rALDA and rAPBE')
 
-    elif self.xc not in ('RPA', 'range_RPA'):
-        self.av_scheme = 'wavevector'
-    else:
-        self.av_scheme = None
+        elif xc not in ('RPA', 'range_RPA'):
+            avg_scheme = 'wavevector'
+        else:
+            avg_scheme = None
 
-    self.linear_kernel = flags.linear_kernel
-    self.dyn_kernel = flags.dyn_kernel
-
-    if self.xc == 'JGMs' or self.xc == 'JGMsx':
-        assert (self.Eg is not None), 'JGMs kernel requires a band gap!'
-        self.Eg /= Ha  # Convert from eV
-    else:
-        self.Eg = None
+        return avg_scheme

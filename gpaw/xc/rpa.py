@@ -223,7 +223,7 @@ class RPACalculator:
                     # Chi0 will be summed again over chicomm, so we divide
                     # by its size:
                     for chi0 in chi0_s:
-                        chi0.chi0_wGG[:] *= a
+                        chi0.chi0_WgG[:] *= a
                     # if chi0_swxvG is not None:
                     #     chi0_swxvG *= a
                     #     chi0_swvv *= a
@@ -260,7 +260,7 @@ class RPACalculator:
 
         self.context.print('E_c(q) = ', end='', flush=False)
 
-        chi0_wGG = chi0.distribute_as('wGG')
+        chi0_wGG = chi0.copy_array_with_distribution('wGG')
 
         kd = self.gs.kd
         if not chi0.pd.kd.gamma:
@@ -275,8 +275,8 @@ class RPACalculator:
                 truncation=self.coulomb.truncation,
                 kd=kd,
                 pd=chi0.pd,
-                chi0_wvv=chi0.chi0_wvv[wblocks.myslice],
-                chi0_wxvG=chi0.chi0_wxvG[wblocks.myslice])
+                chi0_wvv=chi0.chi0_Wvv[wblocks.myslice],
+                chi0_wxvG=chi0.chi0_WxvG[wblocks.myslice])
 
             e = 0
             for iqf in range(len(gamma_int.qf_qv)):
