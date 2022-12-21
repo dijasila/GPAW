@@ -181,7 +181,7 @@ class FXCCorrelation:
         nG = pd.ngmax
         chi0_swGG = np.empty((nspins, mynw, nG, nG), complex)
         for chi0_wGG, chi0 in zip(chi0_swGG, chi0_s):
-            chi0_wGG[:] = chi0.distribute_as('wGG')
+            chi0_wGG[:] = chi0.copy_array_with_distribution('wGG')
         if self.nblocks > 1:
             chi0_swGG = np.swapaxes(chi0_swGG, 2, 3)
 
@@ -189,14 +189,14 @@ class FXCCorrelation:
             e = self.calculate_energy_fxc(pd, chi0_swGG, cut_G)
             self.context.print('%.3f eV' % (e * Ha))
         else:
-            w1 = self.blockcomm.rank * mynw
-            w2 = w1 + mynw
+            W1 = self.blockcomm.rank * mynw
+            W2 = W1 + mynw
             e = 0.0
             for v in range(3):
                 for chi0_wGG, chi0 in zip(chi0_swGG, chi0_s):
-                    chi0_wGG[:, 0] = chi0.chi0_wxvG[w1:w2, 0, v]
-                    chi0_wGG[:, :, 0] = chi0.chi0_wxvG[w1:w2, 1, v]
-                    chi0_wGG[:, 0, 0] = chi0.chi0_wvv[w1:w2, v, v]
+                    chi0_wGG[:, 0] = chi0.chi0_WxvG[W1:W2, 0, v]
+                    chi0_wGG[:, :, 0] = chi0.chi0_WxvG[W1:W2, 1, v]
+                    chi0_wGG[:, 0, 0] = chi0.chi0_Wvv[W1:W2, v, v]
                 ev = self.calculate_energy_fxc(pd, chi0_swGG, cut_G)
                 e += ev
                 self.context.print('%.3f' % (ev * Ha), end='', flush=False)
