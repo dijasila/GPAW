@@ -4,10 +4,8 @@ from gpaw.response.q0_correction import Q0Correction
 from ase.units import Ha
 from ase.dft.kpoints import monkhorst_pack
 
-import gpaw.mpi as mpi
 from gpaw.kpt_descriptor import KPointDescriptor
 
-from gpaw.response import ResponseContext
 from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.response.gamma_int import GammaIntegrator
 from gpaw.response.temp import DielectricFunctionCalculator
@@ -27,37 +25,28 @@ class QPointDescriptor(KPointDescriptor):
         return qd
 
 
-def initialize_w_calculator(chi0calc, txt='w.txt', ppa=False, xc='RPA',
-                            world=mpi.world, timer=None,
-                            E0=Ha, Eg=None, fxc_mode='GW', *,
-                            coulomb, integrate_gamma=0,
-                            q0_correction=False):
-    """A function to initialize a WCalculator with more readable inputs
-    than the actual calculator.
-    chi0calc: Chi0Calculator
+def initialize_w_calculator(chi0calc, context, *,
+                            coulomb,
+                            xc='RPA', Eg=None,  # G0W0Kernel arguments
+                            ppa=False, E0=Ha,
+                            integrate_gamma=0, q0_correction=False):
+    """Initialize a WCalculator from a Chi0Calculator.
 
-    txt: str
-         Text output file
-    xc: str
-         Kernel to use when including vertex corrections.
-    world: MPI communicator
-    timer: timer
+    Parameters
+    ----------
+    chi0calc : Chi0Calculator
+    xc : str
+        Kernel to use when including vertex corrections.
     Eg: float
         Gap to apply in the 'JGMs' (simplified jellium-with-gap) kernel.
         If None the DFT gap is used.
-    truncation: str or None
-         Coulomb truncation scheme. Can be None, 'wigner-seitz', or '2D'.
-    integrate_gamma: int
-         Method to integrate the Coulomb interaction. 1 is a numerical
-         integration at all q-points with G=[0,0,0] - this breaks the
-         symmetry slightly. 0 is analytical integration at q=[0,0,0] only
-         this conserves the symmetry. integrate_gamma=2 is the same as 1,
-         but the average is only carried out in the non-periodic directions.
+
     Remaining arguments: See WCalculator
     """
     from gpaw.response.g0w0_kernels import G0W0Kernel
+
     gs = chi0calc.gs
-    context = ResponseContext(txt=txt, timer=timer, world=world)
+
     if Eg is None and xc == 'JGMsx':
         Eg = gs.get_band_gap()
     elif Eg is not None:
@@ -71,69 +60,56 @@ def initialize_w_calculator(chi0calc, txt='w.txt', ppa=False, xc='RPA',
                           wd=chi0calc.wd,
                           Eg=Eg,
                           context=context)
-    wd = chi0calc.wd
-    pair = chi0calc.pair
 
-    wcalc = WCalculator(wd=wd, pair=pair, gs=gs, qd=qd, ppa=ppa,
-                        xckernel=xckernel,
-                        context=context,
-                        E0=E0,
-                        fxc_mode='GW',
-                        coulomb=coulomb,
+    wcalc = WCalculator(gs, context, qd=qd,
+                        coulomb=coulomb, xckernel=xckernel,
+                        ppa=ppa, E0=E0,
                         integrate_gamma=integrate_gamma,
                         q0_correction=q0_correction)
+
     return wcalc
 
 
 class WCalculator:
-    def __init__(self, *,
-                 wd, pair, gs, qd,
-                 ppa,
-                 xckernel,
-                 context,
-                 E0,
-                 fxc_mode='GW',
-                 coulomb, integrate_gamma=0,
-                 q0_correction=False):
+
+    def __init__(self, gs, context, *, qd,
+                 coulomb, xckernel,
+                 ppa, E0,
+                 integrate_gamma=0, q0_correction=False):
         """
         W Calculator.
 
         Parameters
         ----------
-        wd: FrequencyDescriptor
-        pair: gpaw.response.pair.PairDensity instance
-              Class for calculating matrix elements of pairs of wavefunctions.
-        gs: calc.gs_adapter()
+        gs : ResponseGroundStateAdapter
+        context : ResponseContext
         qd : QPointDescriptor
-        ppa: bool
+        coulomb : CoulombKernel
+        xckernel : G0W0Kernel
+        ppa : bool
             Sets whether the Godby-Needs plasmon-pole approximation for the
             dielectric function should be used.
-        xckernel: G0W0Kernel object
-        context: ResponseContext object
-        E0: float
+        E0 : float
             Energy (in eV) used for fitting the plasmon-pole approximation
-        fxc_mode: str
-            Where to include the vertex corrections; polarizability and/or
-            self-energy. 'GWP': Polarizability only, 'GWS': Self-energy only,
-            'GWG': Both.
-        truncation: str
-            Coulomb truncation scheme. Can be either wigner-seitz,
-            2D, 1D, or 0D
-        q0_correction: bool
+        integrate_gamma: int
+             Method to integrate the Coulomb interaction. 1 is a numerical
+             integration at all q-points with G=[0,0,0] - this breaks the
+             symmetry slightly. 0 is analytical integration at q=[0,0,0] only
+             this conserves the symmetry. integrate_gamma=2 is the same as 1,
+             but the average is only carried out in the non-periodic directions
+        q0_correction : bool
             Analytic correction to the q=0 contribution applicable to 2D
             systems.
         """
-        self.ppa = ppa
-        self.fxc_mode = fxc_mode
-        self.wd = wd
-        self.pair = pair
-        self.blockcomm = self.pair.blockcomm
         self.gs = gs
-        self.coulomb = coulomb
         self.context = context
-        self.integrate_gamma = integrate_gamma
         self.qd = qd
+        self.coulomb = coulomb
         self.xckernel = xckernel
+        self.ppa = ppa
+        self.E0 = E0 / Ha  # eV -> Hartree
+
+        self.integrate_gamma = integrate_gamma
 
         if q0_correction:
             assert self.coulomb.truncation == '2D'
@@ -150,60 +126,33 @@ class WCalculator:
         else:
             self.q0_corrector = None
 
-        self.E0 = E0 / Ha
+    def calculate(self, chi0,
+                  fxc_mode='GW',
+                  only_correlation=False,
+                  out_dist='WgG'):
+        """Calculate the screened interaction.
 
-    def calculate(self, chi0, out_dist='WgG'):
-        """Direct W calculation interface (used by BSE)."""
-
-        # Set up Wigner-Seitz truncation, if applicable
-        if self.coulomb.truncation == 'wigner-seitz':
-            raise NotImplementedError(
-                'Wigner-Seitz truncation is not implemented (read: tested) '
-                'for BSE.')
-
-        pd, W_wGG = self.dyson_and_W_old(
-            fxc_mode=self.fxc_mode,
-            chi0=chi0,
-            out_dist=out_dist)
-
-        return pd, W_wGG
-
-    def dyson_and_W_old(self, *, fxc_mode, chi0,
-                        ecut=None, only_correlation=False,
-                        out_dist='WgG'):
-        """Reduce plane-wave basis and solve Dyson equation for W.
-
-        The plane-wave basis will only be reduced, if ecut is given as
-        a positive floating point (in Hartree).
-
-        NB: New array copies are created during the calculation.
+        Parameters
+        ----------
+        fxc_mode: str
+            Where to include the vertex corrections; polarizability and/or
+            self-energy. 'GWP': Polarizability only, 'GWS': Self-energy only,
+            'GWG': Both.
         """
-        if ecut is not None:
-            # This should return a chi0_data object in the future! XXX
-            (pdr, chi0_wGG,
-             chi0_wxvG, chi0_wvv) = chi0.get_reduced_ecut_arrays(ecut)
-        else:
-            chi0_wGG = chi0.blockdist.distribute_as(chi0.chi0_wGG,
-                                                    chi0.nw, 'wGG')
-            chi0_wxvG = chi0.chi0_wxvG
-            chi0_wvv = chi0.chi0_wvv
-            pdr = chi0.pd
 
-        W_wGG = self.dyson_old(fxc_mode,
-                               pdr, chi0_wGG, chi0_wxvG, chi0_wvv,
-                               only_correlation)
+        W_wGG = self._calculate(chi0, fxc_mode,
+                                only_correlation=only_correlation)
 
         if out_dist == 'WgG':
             assert not self.ppa
-            # This should take place using the blockdist of the reduced pw
-            # basis chi0 in the future! XXX
-            W_wGG = chi0.blockdist.distribute_as(W_wGG, chi0.nw, out_dist)
+            W_WgG = chi0.blockdist.distribute_as(W_wGG, chi0.nw, 'WgG')
+            W_x = W_WgG
         elif out_dist == 'wGG':
-            pass  # We are already parallelized over frequencies
+            W_x = W_wGG
         else:
             raise ValueError(f'Invalid out_dist {out_dist}')
 
-        return pdr, W_wGG
+        return W_x
 
     def basic_dyson_arrays(self, pd, fxc_mode):
         delta_GG = np.eye(pd.ngmax)
@@ -215,13 +164,18 @@ class WCalculator:
 
         return delta_GG, fv
 
-    def dyson_old(self, fxc_mode,
-                  # This function should take a Chi0Data as input! XXX
-                  pd, chi0_wGG, chi0_wxvG, chi0_wvv,
-                  only_correlation=False):
+    def _calculate(self, chi0, fxc_mode,
+                   only_correlation=False):
+        """In-place calculation of the screened interaction."""
+        # Unpack data
+        pd = chi0.pd
+        chi0_wGG = chi0.copy_array_with_distribution('wGG')
+        chi0_Wvv = chi0.chi0_Wvv
+        chi0_WxvG = chi0.chi0_WxvG
+
         q_c = pd.q_c
         kd = self.gs.kd
-        wblocks1d = Blocks1D(self.blockcomm, len(self.wd))
+        wblocks1d = Blocks1D(chi0.blockdist.blockcomm, len(chi0.wd))
 
         delta_GG, fv = self.basic_dyson_arrays(pd, fxc_mode)
 
@@ -243,8 +197,8 @@ class WCalculator:
             gamma_int = GammaIntegrator(
                 truncation=self.coulomb.truncation,
                 kd=kd, pd=pd,
-                chi0_wvv=chi0_wvv[wblocks1d.myslice],
-                chi0_wxvG=chi0_wxvG[wblocks1d.myslice])
+                chi0_wvv=chi0_Wvv[wblocks1d.myslice],
+                chi0_wxvG=chi0_WxvG[wblocks1d.myslice])
 
         self.context.timer.start('Dyson eq.')
         for iw, chi0_GG in enumerate(chi0_wGG):
@@ -274,11 +228,11 @@ class WCalculator:
                 W_GG[:] = (einv_GG) * (sqrtV_G *
                                        sqrtV_G[:, np.newaxis])
                 if self.q0_corrector is not None and np.allclose(q_c, 0):
-                    this_w = wblocks1d.a + iw
+                    W = wblocks1d.a + iw
                     self.q0_corrector.add_q0_correction(pd, W_GG,
                                                         einv_GG_full,
-                                                        chi0_wxvG[this_w],
-                                                        chi0_wvv[this_w],
+                                                        chi0_WxvG[W],
+                                                        chi0_Wvv[W],
                                                         sqrtV_G)
                 # XXX Is it to correct to have "or" here?
                 elif np.allclose(q_c, 0) or self.integrate_gamma != 0:
