@@ -11,14 +11,18 @@ from gpaw.response.gamma_int import GammaIntegrator
 from gpaw.response.temp import DielectricFunctionCalculator
 
 
-def get_qdescriptor(kd, atoms):
-    # Find q-vectors and weights in the IBZ:
-    assert -1 not in kd.bz2bz_ks
-    offset_c = 0.5 * ((kd.N_c + 1) % 2) / kd.N_c
-    bzq_qc = monkhorst_pack(kd.N_c) + offset_c
-    qd = KPointDescriptor(bzq_qc)
-    qd.set_symmetry(atoms, kd.symmetry)
-    return qd
+class QPointDescriptor(KPointDescriptor):
+
+    @staticmethod
+    def from_gs(gs):
+        kd, atoms = gs.kd, gs.atoms
+        # Find q-vectors and weights in the IBZ:
+        assert -1 not in kd.bz2bz_ks
+        offset_c = 0.5 * ((kd.N_c + 1) % 2) / kd.N_c
+        bzq_qc = monkhorst_pack(kd.N_c) + offset_c
+        qd = KPointDescriptor(bzq_qc)
+        qd.set_symmetry(atoms, kd.symmetry)
+        return qd
 
 
 def initialize_w_calculator(chi0calc, context, *,
@@ -48,14 +52,16 @@ def initialize_w_calculator(chi0calc, context, *,
     elif Eg is not None:
         Eg /= Ha
 
+    qd = QPointDescriptor.from_gs(gs)
+
     xckernel = G0W0Kernel(xc=xc, ecut=chi0calc.ecut,
-                          gs=gs,
+                          gs=gs, qd=qd,
                           ns=gs.nspins,
                           wd=chi0calc.wd,
                           Eg=Eg,
                           context=context)
 
-    wcalc = WCalculator(gs, context,
+    wcalc = WCalculator(gs, context, qd=qd,
                         coulomb=coulomb, xckernel=xckernel,
                         ppa=ppa, E0=E0,
                         integrate_gamma=integrate_gamma,
@@ -65,7 +71,8 @@ def initialize_w_calculator(chi0calc, context, *,
 
 
 class WCalculator:
-    def __init__(self, gs, context, *,
+
+    def __init__(self, gs, context, *, qd,
                  coulomb, xckernel,
                  ppa, E0,
                  integrate_gamma=0, q0_correction=False):
@@ -76,6 +83,7 @@ class WCalculator:
         ----------
         gs : ResponseGroundStateAdapter
         context : ResponseContext
+        qd : QPointDescriptor
         coulomb : CoulombKernel
         xckernel : G0W0Kernel
         ppa : bool
@@ -95,14 +103,13 @@ class WCalculator:
         """
         self.gs = gs
         self.context = context
+        self.qd = qd
         self.coulomb = coulomb
         self.xckernel = xckernel
         self.ppa = ppa
         self.E0 = E0 / Ha  # eV -> Hartree
 
         self.integrate_gamma = integrate_gamma
-
-        self.qd = get_qdescriptor(self.gs.kd, self.gs.atoms)
 
         if q0_correction:
             assert self.coulomb.truncation == '2D'

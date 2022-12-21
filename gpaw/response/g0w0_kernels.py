@@ -24,9 +24,9 @@ class G0W0Kernel:
             **self._kwargs)
 
 
-def actually_calculate_kernel(*, gs, xcflags, q_empty, tag, ecut_max, Eg, wd,
-                              context):
-    ibzq_qc = gs.ibzq_qc
+def actually_calculate_kernel(*, gs, qd, xcflags, q_empty, tag, ecut_max, Eg,
+                              wd, context):
+    ibzq_qc = qd.ibzk_kc
 
     l_l = np.array([1.0])
 
@@ -53,13 +53,14 @@ def actually_calculate_kernel(*, gs, xcflags, q_empty, tag, ecut_max, Eg, wd,
     kernel.calculate_fhxc()
 
 
-def calculate_kernel(*, ecut, xcflags, gs, ns, pd, wd, Eg, context):
+def calculate_kernel(*, ecut, xcflags, gs, qd, ns, pd, wd, Eg, context):
     xc = xcflags.xc
     tag = gs.atoms.get_chemical_formula(mode='hill')
 
     # Get iq
-    ibzq_qc = gs.ibzq_qc
+    ibzq_qc = qd.ibzk_kc
     iq = np.argmin(np.linalg.norm(ibzq_qc - pd.q_c[np.newaxis], axis=1))
+    assert np.allclose(ibzq_qc[iq], pd.q_c)
 
     ecut_max = ecut * Ha  # XXX very ugly this
     q_empty = None
@@ -81,7 +82,7 @@ def calculate_kernel(*, ecut, xcflags, gs, ns, pd, wd, Eg, context):
 
     if xc != 'RPA':
         if q_empty is not None:
-            actually_calculate_kernel(q_empty=q_empty, tag=tag,
+            actually_calculate_kernel(q_empty=q_empty, qd=qd, tag=tag,
                                       xcflags=xcflags, Eg=Eg,
                                       ecut_max=ecut_max, gs=gs,
                                       wd=wd, context=context)
