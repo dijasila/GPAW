@@ -18,6 +18,17 @@ from gpaw.xc.rpa import RPACorrelation
 from gpaw.heg import HEG
 
 
+def get_chi0v(chi0_sGG, cut_G, G_G):
+    if cut_G is not None:
+        chi0_sGG = chi0_sGG.take(cut_G, 1).take(cut_G, 2)
+    nG = chi0_sGG.shape[-1]
+    chi0v = np.zeros((nG, nG), dtype=complex)
+    for chi0_GG in chi0_sGG:
+        chi0v += chi0_GG / G_G / G_G[:, np.newaxis]
+    chi0v *= 4 * np.pi
+    return chi0v
+
+
 class FXCCorrelation:
     def __init__(self,
                  calc,
@@ -338,39 +349,34 @@ class FXCCorrelation:
             #
             # Construct/read kernels
 
-            if self.xc == 'RPA':
+            # What are the rules for whether we should do the
+            # cut_G slicing?
+            apply_cut_G = self.xc not in {'RPA', 'range_RPA'}
 
-                fv = np.eye(nG)
+            def read(arrayname):
+                key = (self.tag, self.xc, self.ecut_max, qi)
+                with ulm.open('fhxc_%s_%s_%s_%s.ulm' % key) as reader:
+                    return getattr(reader, arrayname)
+
+            if self.xc == 'RPA':
+                fv_lwGG = np.eye(nG)[np.newaxis, np.newaxis, :, :]
 
             elif self.xc == 'range_RPA':
-
-                fv = np.exp(-0.25 * (G_G * self.range_rc)**2.0)
+                fv_diag_G = np.exp(-0.25 * (G_G * self.range_rc)**2.0)
+                # Unfortunately here we have a radically different shape,
+                # so we'll struggle to handle the arrays similarly.
+                # All other cases have fv_lwGG (with some dimensions being 1).
 
             elif self.xcflags.linear_kernel:
-                with ulm.open('fhxc_%s_%s_%s_%s.ulm' %
-                              (self.tag, self.xc, self.ecut_max, qi)) as r:
-                    fv = r.fhxc_sGsG
-
-                if cut_G is not None:
-                    fv = fv.take(cut_G, 0).take(cut_G, 1)
-
+                fv_lwGG = read('fhxc_sGsG')[np.newaxis, np.newaxis, :, :]
             elif not self.xcflags.dyn_kernel:
                 # static kernel which does not scale with lambda
-
-                with ulm.open('fhxc_%s_%s_%s_%s.ulm' %
-                              (self.tag, self.xc, self.ecut_max, qi)) as r:
-                    fv = r.fhxc_lGG
-
-                if cut_G is not None:
-                    fv = fv.take(cut_G, 1).take(cut_G, 2)
-
+                fv_lwGG = read('fhxc_lGG')[:, np.newaxis, :, :]
             else:  # dynamical kernel
-                with ulm.open('fhxc_%s_%s_%s_%s.ulm' %
-                              (self.tag, self.xc, self.ecut_max, qi)) as r:
-                    fv = r.fhxc_lwGG
+                fv_lwGG = read('fhxc_lwGG')
 
-                if cut_G is not None:
-                    fv = fv.take(cut_G, 2).take(cut_G, 3)
+            if apply_cut_G and cut_G is not None:
+                fv_lwGG = fv_lwGG.take(cut_G, 2).take(cut_G, 3)
 
             if pd.kd.gamma:
                 G_G[0] = 1.0
@@ -378,39 +384,28 @@ class FXCCorrelation:
             # Loop over frequencies; since the kernel has no spin,
             # we work with spin-summed response function
             e_w = []
-            iw = 0
 
-            for chi0_sGG in np.swapaxes(chi0_swGG, 0, 1):
-                if cut_G is not None:
-                    chi0_sGG = chi0_sGG.take(cut_G, 1).take(cut_G, 2)
-                chi0v = np.zeros((nG, nG), dtype=complex)
-                for s in range(ns):
-                    chi0v += chi0_sGG[s] / G_G / G_G[:, np.newaxis]
-                chi0v *= 4 * np.pi
-                del chi0_sGG
-
-                e = 0.0
+            for iw, chi0_sGG in enumerate(np.swapaxes(chi0_swGG, 0, 1)):
+                chi0v = get_chi0v(chi0_sGG, cut_G, G_G)
 
                 if not self.xcflags.linear_kernel:
-
                     il = 0
+                    energy = 0.0
                     for l, weight in zip(self.l_l, self.weight_l):
 
-                        if not self.xcflags.dyn_kernel:
-                            chiv = np.linalg.solve(
-                                np.eye(nG) - np.dot(chi0v, fv[il]), chi0v).real
+                        if self.xcflags.dyn_kernel:
+                            fv_w_index = iw
                         else:
-                            chiv = np.linalg.solve(
-                                np.eye(nG) - np.dot(chi0v, fv[il][iw]),
-                                chi0v).real
-                        e -= np.trace(chiv) * weight
+                            fv_w_index = 0
+
+                        chiv = np.linalg.solve(
+                            np.eye(nG) - chi0v @ fv_lwGG[il, fv_w_index],
+                            chi0v).real
+                        energy -= np.trace(chiv) * weight
                         il += 1
 
-                    e += np.trace(chi0v.real)
-
-                    e_w.append(e)
-
-                    iw += 1
+                    energy += np.trace(chi0v.real)
+                    e_w.append(energy)
 
                 else:
 
@@ -421,17 +416,22 @@ class FXCCorrelation:
                     # implemented in rpa.py
                     if self.xc == 'range_RPA':
                         # way faster than np.dot for diagonal kernels
-                        e_GG = np.eye(nG) - chi0v * fv
+                        chi0v_fv = chi0v * fv_diag_G
+                        e_GG = np.eye(nG) - chi0v_fv
                     elif self.xc != 'RPA':
-                        e_GG = np.eye(nG) - np.dot(chi0v, fv)
+                        assert fv_lwGG.shape[:2] == (1, 1)
+                        chi0v_fv = np.dot(chi0v, fv_lwGG[0, 0])
+                        e_GG = np.eye(nG) - chi0v_fv
 
                     if self.xc == 'RPA':
                         # numerical RPA
                         elong = 0.0
                         for l, weight in zip(self.l_l, self.weight_l):
+                            assert fv_lwGG.shape[:2] == (1, 1)
 
                             chiv = np.linalg.solve(
-                                np.eye(nG) - l * np.dot(chi0v, fv), chi0v).real
+                                np.eye(nG) - l * np.dot(
+                                    chi0v, fv_lwGG[0, 0]), chi0v).real
 
                             elong -= np.trace(chiv) * weight
 
@@ -444,12 +444,15 @@ class FXCCorrelation:
                     # Numerical integration for short-range part
                     eshort = 0.0
                     if self.xc not in ('RPA', 'range_RPA', 'range_rALDA'):
-                        fxcv = fv - np.eye(nG)  # Subtract Hartree contribution
+                        assert fv_lwGG.shape[:2] == (1, 1)
+                        fv_GG = fv_lwGG[0, 0]
+                        # Subtract Hartree contribution:
+                        fxcv = fv_GG - np.eye(nG)
 
                         for l, weight in zip(self.l_l, self.weight_l):
 
                             chiv = np.linalg.solve(
-                                np.eye(nG) - l * np.dot(chi0v, fv), chi0v)
+                                np.eye(nG) - l * np.dot(chi0v, fv_GG), chi0v)
                             eshort += (np.trace(np.dot(chiv, fxcv)).real *
                                        weight)
 
