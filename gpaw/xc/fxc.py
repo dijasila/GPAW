@@ -202,8 +202,11 @@ class FXCCorrelation:
         return e
 
     def calculate_energy_contribution(self, chi0v_sGsG, fv, nG):
-        # Can someone rename this method?
-        # I don't know what the name of this energy contribution is.
+        """Calculate contribution to energy from a single frequency point.
+
+        The RPA correlation energy is the integral over all frequencies
+        from 0 to infinity of this expression."""
+
         e = 0.0
         assert len(chi0v_sGsG) % nG == 0
         ns = len(chi0v_sGsG) // nG
