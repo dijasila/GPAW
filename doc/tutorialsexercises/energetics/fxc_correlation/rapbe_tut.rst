@@ -178,7 +178,7 @@ Therefore the following simple script gets the rALDA correlation energy within t
 
 However, an alternative method of constructing the kernel is to work in reciprocal space,
 and average over wavevectors rather than density.
-To use this averaging scheme, we add the flag ``av_scheme='wavevector'``:
+To use this averaging scheme, we add the flag ``avg_scheme='wavevector'``:
 
 .. literalinclude:: diam_kern.ralda_03_ralda_wave.py
 

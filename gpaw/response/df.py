@@ -73,9 +73,9 @@ class DielectricFunctionCalculator:
             self._chi0cache.clear()
 
             chi0 = self.chi0calc.calculate(q_c, spin)
-            chi0_wGG = chi0.distribute_frequencies()
+            chi0_wGG = chi0.get_distributed_frequencies_array()
             self.context.write_timer()
-            things = chi0.pd, chi0_wGG, chi0.chi0_wxvG, chi0.chi0_wvv
+            things = chi0.pd, chi0_wGG, chi0.chi0_WxvG, chi0.chi0_Wvv
             self._chi0cache[key] = things
 
         pd, *more_things = self._chi0cache[key]
@@ -113,7 +113,7 @@ class DielectricFunctionCalculator:
             contributes with less than a fraction of rshewmin on average,
             it will not be included.
         """
-        pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c, spin)
+        pd, chi0_wGG, chi0_WxvG, chi0_Wvv = self.calculate_chi0(q_c, spin)
 
         coulomb_bare = CoulombKernel(truncation=None, gs=self.gs)
         Kbare_G = coulomb_bare.V(pd=pd, q_v=q_v)
@@ -137,9 +137,9 @@ class DielectricFunctionCalculator:
                 d_v = direction
             d_v = np.asarray(d_v) / np.linalg.norm(d_v)
             W = self.blocks1d.myslice
-            chi0_wGG[:, 0] = np.dot(d_v, chi0_wxvG[W, 0])
-            chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[W, 1])
-            chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv[W], d_v).T)
+            chi0_wGG[:, 0] = np.dot(d_v, chi0_WxvG[W, 0])
+            chi0_wGG[:, :, 0] = np.dot(d_v, chi0_WxvG[W, 1])
+            chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_Wvv[W], d_v).T)
 
         if xc != 'RPA':
             Kxc_GG = get_density_xc_kernel(pd,
@@ -228,7 +228,7 @@ class DielectricFunctionCalculator:
         to the head of the inverse dielectric matrix (inverse dielectric
         function)"""
 
-        pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
+        pd, chi0_wGG, chi0_WxvG, chi0_Wvv = self.calculate_chi0(q_c)
 
         if add_intraband:
             print('add_intraband=True is not supported at this time')
@@ -247,9 +247,9 @@ class DielectricFunctionCalculator:
 
             d_v = np.asarray(d_v) / np.linalg.norm(d_v)
             W = self.blocks1d.myslice
-            chi0_wGG[:, 0] = np.dot(d_v, chi0_wxvG[W, 0])
-            chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[W, 1])
-            chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv[W], d_v).T)
+            chi0_wGG[:, 0] = np.dot(d_v, chi0_WxvG[W, 0])
+            chi0_wGG[:, :, 0] = np.dot(d_v, chi0_WxvG[W, 1])
+            chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_Wvv[W], d_v).T)
             if q_v is not None:
                 print('Restoring q dependence of head and wings of chi0')
                 chi0_wGG[:, 1:, 0] *= np.dot(q_v, d_v)
