@@ -16,7 +16,7 @@ def workflow():
             name=name,
             cores=cores,
             tmax='1d')
-        run(function=relax, args=[name, atoms],
+        run(function=relax, args=[name, atoms, params],
             name=name + '-R',
             cores=cores,
             tmax='1d')
