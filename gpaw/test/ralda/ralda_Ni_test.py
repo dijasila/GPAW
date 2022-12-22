@@ -29,16 +29,19 @@ def test_ralda_ralda_energy_Ni(in_tmp_dir, scalapack):
     world.barrier()
 
     rpa = FXCCorrelation('Ni.gpw', xc='RPA',
-                         nfrequencies=8, skip_gamma=True)
-    E_rpa = rpa.calculate(ecut=[50])
+                         nfrequencies=8, skip_gamma=True,
+                         ecut=[50])
+    E_rpa = rpa.calculate()
 
     ralda = FXCCorrelation('Ni.gpw', xc='rALDA', unit_cells=[2, 1, 1],
-                           nfrequencies=8, skip_gamma=True)
-    E_ralda = ralda.calculate(ecut=[50])
+                           nfrequencies=8, skip_gamma=True,
+                           ecut=[50])
+    E_ralda = ralda.calculate()
 
     rapbe = FXCCorrelation('Ni.gpw', xc='rAPBE', unit_cells=[2, 1, 1],
-                           nfrequencies=8, skip_gamma=True)
-    E_rapbe = rapbe.calculate(ecut=[50])
+                           nfrequencies=8, skip_gamma=True,
+                           ecut=[50])
+    E_rapbe = rapbe.calculate()
 
     assert E_rpa == pytest.approx(-7.827, abs=0.01)
     assert E_ralda == pytest.approx(-7.501, abs=0.01)

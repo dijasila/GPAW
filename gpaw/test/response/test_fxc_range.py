@@ -15,7 +15,8 @@ def test_xc_short_range(in_tmp_dir, gpw_files):
 
     fxc = FXCCorrelation('si.lda_wfcs.gpw',
                          xc='range_RPA',
-                         range_rc=2.0)
-    E_i = fxc.calculate(ecut=[2.25 * Hartree], nbands=100)
+                         range_rc=2.0,
+                         ecut=[2.25 * Hartree])
+    E_i = fxc.calculate(nbands=100)
 
     assert E_i[0] == pytest.approx(-16.0465, abs=0.01)
