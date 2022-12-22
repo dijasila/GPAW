@@ -18,6 +18,7 @@ def test_pw_par_strategies(in_tmp_dir):
                               txt=label + '.txt',
                               parallel={'domain': d, 'kpt': k},
                               kpts={'size': kpoints},
+                              convergence={'maximum iterations': 4},
                               occupations=FermiDirac(width=0.1))
 
             def stopcalc():

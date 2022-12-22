@@ -67,11 +67,8 @@ def test_lcao_kpts_many_combinations(in_tmp_dir):
                 symmetry={'point_group': False},  # No symmetry here anyway
                 txt='gpaw.{:02d}.spin{}.txt'.format(int(spinpol), i),
                 kpts=(4, 1, 1),
+                convergence={'maximum iterations': 2},
                 **kwargs)
-
-            def stopcalc():
-                calc.scf.converged = True
-            calc.attach(stopcalc, 2)
             atoms = atoms0.copy()
             t1 = time()
             atoms.calc = calc

@@ -16,6 +16,7 @@ bz sampling:
 """
 
 
+@pytest.mark.later  # ASE does not like non_collinear_magmoms
 @pytest.mark.serial
 def test_symmetry(gpw_files, capsys):
     args = ['symmetry',

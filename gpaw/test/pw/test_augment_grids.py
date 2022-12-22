@@ -31,12 +31,8 @@ def test_pw_augment_grids(in_tmp_dir):
                               txt=f'gpaw.aug{aug}.txt',
                               parallel={'augment_grids': aug},
                               kpts={'size': kpoints},
-                              occupations=FermiDirac(width=0.1))
-
-            def stopcalc():
-                atoms.calc.scf.converged = True
-            atoms.calc.attach(stopcalc, 4)
-
+                              occupations=FermiDirac(width=0.1),
+                              convergence={'maximum iterations': 4})
             e = atoms.get_potential_energy()
             f = atoms.get_forces()
             s = atoms.get_stress()
