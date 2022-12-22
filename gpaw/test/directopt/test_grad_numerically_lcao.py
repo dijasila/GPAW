@@ -5,7 +5,7 @@ from gpaw.directmin.derivatives import Derivatives
 from ase import Atoms
 
 
-@pytest.mark.later
+@pytest.mark.do
 def test_gradient_numerically_lcao(in_tmp_dir):
     """
     test exponential transformation

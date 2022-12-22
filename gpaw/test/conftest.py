@@ -434,8 +434,10 @@ def pytest_configure(config):
                  'kspair: tests of kspair in the response code',
                  'serial: run in serial only',
                  'gpu: GPU test',
+                 'do: Direct optimization',
                  'later: know failure for new refactored GPAW',
                  'legacy: Old stuff that will be removed later',
+                 'ofdft: Orbital-free DFT',
                  'wannier: Wannier functions']:
         config.addinivalue_line('markers', line)
 
