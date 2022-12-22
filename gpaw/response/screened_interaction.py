@@ -62,7 +62,7 @@ def initialize_w_calculator(chi0calc, txt='w.txt', ppa=False, xc='RPA',
     xc: str
          Kernel to use when including vertex corrections.
     world: MPI communicator
-    timer: timer
+   timer: timer
     Eg: float
         Gap to apply in the 'JGMs' (simplified jellium-with-gap) kernel.
         If None the DFT gap is used.
@@ -205,7 +205,8 @@ class WCalculator:
         nfreq = len(chi0calc.wd)
         Wwan_wijkl = np.zeros([nfreq,nwan,nwan,nwan,nwan],dtype=complex)
         total_k=0
-        #Wmat = [] # TEST 
+        testlist=[]
+        testlist2=[]
         # First calculate W in IBZ in PW basis
         # and transform to DFT eigen basis
         for iq, q_c in enumerate(self.gs.kd.ibzk_kc):
@@ -216,220 +217,51 @@ class WCalculator:
             pawcorr = chi0calc.pawcorr
             # Loop over all equivalent k-points
             for iQ in ibz2bz[iq]:
-                print('iq,iQ,q_c,Q_c',iq,iQ,q_c,self.gs.kd.bzk_kc[iQ])
+                #print('iq,iQ,q_c,Q_c',iq,iQ,q_c,self.gs.kd.bzk_kc[iQ])
                 # Loop over BZ k-points to get density matrices
                 rho_mnG = []
                 iKpQ = []
                 for iK1 in range(self.gs.kd.nbzkpts):
                     kpt1, kpt2, iK2loc = get_k1_k2(s1,iK1,iQ,bandrange)
-                    rholoc, iqloc = self.get_density_matrix(kpt1,
-                                                              kpt2,
-                                                              pd_q=[pd],
-                                                              pawcorr_q=[pawcorr],
-                                                              known_iQ=iQ)
+                    rholoc, iqloc = self.get_density_matrix2(kpt1,
+                                                             kpt2,
+                                                             pd_q=[pd],
+                                                             pawcorr_q=[pawcorr],
+                                                             known_iQ=iQ)
                     assert iqloc == iq
+                    #if True:
+                    #    #np.save('rho'+str(iQ)+str(iK1)+'.npy',rholoc)
+                    #    rholoc=np.load('rho'+str(iQ)+str(iK1)+'.npy')
                     rho_mnG.append(rholoc)
                     iKpQ.append(iK2loc)
                 total_k+=1
                 # Double loop over BZ k-points
                 for iK1 in range(self.gs.kd.nbzkpts):
+                    testlist2.append([iQ,iK1,rho_mnG[iK1][0,0,0]])
                     for iK3 in range(self.gs.kd.nbzkpts):
                         # W in products of KS eigenstates
-                        W_wijkl = np.einsum('ijk,lkm,pqm->lipjq',
-                                            rho_mnG[iK1].conj(),
-                                            W_wGG,
-                                            rho_mnG[iK3],
-                                            optimize='optimal')
-                        Wwan_wijkl += np.einsum('ia,jb,kc,ld,wabcd->wijkl',
-                                                Uwan[:,:,iK1],
-                                                Uwan[:,:,iK3].conj(),
-                                                Uwan[:,:,iKpQ[iK1]].conj(),
-                                                Uwan[:,:,iKpQ[iK3]],
-                                                W_wijkl)
-                        
-        factor = Ha * self.gs.kd.nbzkpts**3 # factor from BZ summation and taking from Hartree to eV
-        Wwan_wijkl /= factor
-
-        return Wwan_wijkl
-
-        
-    def calc_in_Wannierold(self,chi0calc,Uwan,bandrange):
-        """Calculates the screened interaction matrix in Wannier basis.
-        XXX NOTE: At the moment it is assumed a single spin channel and no SOC!
-
-        W_n1,n2;n3,n4(R=0) = <w^*_{n1,R=0} w_{n2, R=0} | W |w^*_{n3,R=0} w_{n4, R=0} >
-
-        w_{n R} = V/(2pi)^3 \int_{BZ} dk e^{-kR} psi^w_{nk}
-        psi^w_{nk} = \sum_n' U_nn'(k) \psi^{KS}_{n'k}
-
-        w^*_{n1,R=0} w_{n2, R=0} = C * \int_{k,k' in BZ} \psi^w*_{n1k} \psi^w_{n2k'}
-
-        \psi^w*_{n1k} \psi^w_{n2k'} = \sum_{mm'} (U_{n1,m}(k) \psi^{KS}_{m k} )^* U_{n2,m'}(k') \psi^{KS}_{m' k'}
-        First calculates W in KS-basis where we need the pair densities, then multiply with transformation 
-        matrices and sum over k and k'. Do in loop over IBZ with additional loop over equivalent k-points.
-        """
-        ibz2bz = ibz2bz_map(self.gs.kd)
-        s1 = 0 #XXX assume only single spin for the moment
-        s2 = 0
-
-        if type(Uwan) == str:  # read w90 transformation matrix from file
-            Uwan, nk, nwan = self.read_uwan(Uwan)
-            assert nk == self.gs.kd.nbzkpts
-            assert bandrange[1] - bandrange[0] == nwan
-
-        def get_k1_k2(s1,iK1,iQ,bandrange):
-            # get kpt1, kpt1+q kpoint pairs used in density matrix
-            kpt1 = self.pair.get_k_point(s1, iK1, bandrange[0], bandrange[-1])
-            K2_c = self.gs.kd.bzk_kc[kpt1.K] + self.gs.kd.bzk_kc[iQ]  # Find k2 = K1 + Q                                                                                                            
-            iK2 = self.gs.kd.where_is_q(K2_c, self.gs.kd.bzk_kc)
-            kpt2 = self.pair.get_k_point(s1, iK2, bandrange[0], bandrange[-1])
-            return kpt1, kpt2, iK2
-        
-        nfreq = len(chi0calc.wd)
-        Wwan_wijkl = np.zeros([nfreq,nwan,nwan,nwan,nwan],dtype=complex)
-        total_k=0
-        #Wmat = [] # TEST 
-        # First calculate W in IBZ in PW basis
-        # and transform to DFT eigen basis
-        for iq, q_c in enumerate(self.gs.kd.ibzk_kc):
-            #optical_limit = np.allclose(q_c,0.0)
-            # Calculate chi0 and W for IBZ k-point q
-            chi0 = chi0calc.calculate(q_c)
-            pd, W_wGG = self.calculate_q(iq, q_c, chi0, out_dist='wGG')
-            pawcorr = chi0calc.pawcorr
-            # Loop over all equivalent k-points
-            for iQ in ibz2bz[iq]:
-                print('iq,iQ,q_c,Q_c',iq,iQ,q_c,self.gs.kd.bzk_kc[iQ])
-                # Loop over BZ k-points to get density matrices
-                rho_mnG = []
-                iKpQ = []
-                for iK1 in range(self.gs.kd.nbzkpts):
-                    kpt1, kpt2, iK2loc = get_k1_k2(s1,iK1,iQ,bandrange)
-                    rholoc, iqloc = self.get_density_matrix(kpt1,
-                                                              kpt2,
-                                                              pd_q=[pd],
-                                                              pawcorr_q=[pawcorr],
-                                                              known_iQ=iQ)
-                    assert iqloc == iq
-                    rho_mnG.append(rholoc)
-                    iKpQ.append(iK2loc)
-                total_k+=1
-                # Double loop over BZ k-points
-                for iK1 in range(self.gs.kd.nbzkpts):
-                    for iK3 in range(self.gs.kd.nbzkpts):
-                        # W in products of KS eigenstates
+                        # Magnitude correct with symmetry but sign wrong
+                        # for some combos of iQ, iK1, iK3
                         W_wijkl = np.einsum('ijk,lkm,pqm->lipjq',
                                             rho_mnG[iK1].conj(),
                                             W_wGG,
                                             rho_mnG[iK3],
                                             optimize='optimal')
                         
-                        Wwan_wijkl += W_wijkl
-                        """
+                        testlist.append([iq,iQ,iK1,iK3,W_wijkl[0,0,0,0,0].real])
                         Wwan_wijkl += np.einsum('ia,jb,kc,ld,wabcd->wijkl',
                                                 Uwan[:,:,iK1],
                                                 Uwan[:,:,iK3].conj(),
                                                 Uwan[:,:,iKpQ[iK1]].conj(),
                                                 Uwan[:,:,iKpQ[iK3]],
                                                 W_wijkl)
-                        """
-        factor = Ha * self.gs.kd.nbzkpts**3 # factor from BZ summation and taking from Hartree to eV
-        Wwan_wijkl /= factor
-
-        return Wwan_wijkl
-    
-    def calc_in_Wannier2(self,chi0calc,Uwan,bandrange):
-        """Calculates the screened interaction matrix in Wannier basis.
-        XXX NOTE: At the moment it is assumed a single spin channel and no SOC!
-
-        W_n1,n2;n3,n4(R=0) = <w^*_{n1,R=0} w_{n2, R=0} | W |w^*_{n3,R=0} w_{n4, R=0} >
-
-        w_{n R} = V/(2pi)^3 \int_{BZ} dk e^{-kR} psi^w_{nk}
-        psi^w_{nk} = \sum_n' U_nn'(k) \psi^{KS}_{n'k}
-
-        w^*_{n1,R=0} w_{n2, R=0} = C * \int_{k,k' in BZ} \psi^w*_{n1k} \psi^w_{n2k'}
-
-        \psi^w*_{n1k} \psi^w_{n2k'} = \sum_{mm'} (U_{n1,m}(k) \psi^{KS}_{m k} )^* U_{n2,m'}(k') \psi^{KS}_{m' k'}
-        First calculates W in KS-basis where we need the pair densities, then multiply with transformation 
-        matrices and sum over k and k'. Do in loop over IBZ with additional loop over equivalent k-points.
-        """
-        ibz2bz = ibz2bz_map(self.gs.kd)
-        s1 = 0 #XXX assume only single spin for the moment
-        s2 = 0
-
-        if type(Uwan) == str:  # read w90 transformation matrix from file
-            Uwan, nk, nwan = self.read_uwan(Uwan)
-            assert nk == self.gs.kd.nbzkpts
-            assert bandrange[1] - bandrange[0] == nwan
-
-        def get_k1_k2(s1,iK1,iQ,bandrange):
-            # get kpt1, kpt1+q kpoint pairs used in density matrix
-            kpt1 = self.pair.get_k_point(s1, iK1, bandrange[0], bandrange[-1])
-            K2_c = self.gs.kd.bzk_kc[kpt1.K] + self.gs.kd.bzk_kc[iQ]  # Find k2 = K1 + Q                                                                                                            
-            iK2 = self.gs.kd.where_is_q(K2_c, self.gs.kd.bzk_kc)
-            kpt2 = self.pair.get_k_point(s1, iK2, bandrange[0], bandrange[-1])
-            return kpt1, kpt2, iK2
-        
-        def get_k1_k2b(s1,iK1,iK3,bandrange):
-            # get kpt1, kpt1+q kpoint pairs used in density matrix
-            kpt1 = self.pair.get_k_point(s1, iK1, bandrange[0], bandrange[-1])
-            kpt2 = self.pair.get_k_point(s1, iK3, bandrange[0], bandrange[-1])
-            return kpt1, kpt2
-        
-        nfreq = len(chi0calc.wd)
-        Wwan_wijkl = np.zeros([nfreq,nwan,nwan,nwan,nwan],dtype=complex)
-        total_k=0
-        #Wmat = [] # TEST 
-        # First calculate W in IBZ in PW basis
-        # and transform to DFT eigen basis
-        Warr=[]
-        pawcorrarr=[]
-        pdarr=[]
-        for iq, q_c in enumerate(self.gs.kd.ibzk_kc):
-            #optical_limit = np.allclose(q_c,0.0)
-            # Calculate chi0 and W for IBZ k-point q
-            chi0 = chi0calc.calculate(q_c)
-            pd, W_wGG = self.calculate_q(iq, q_c, chi0, out_dist='wGG')
-            pawcorr = chi0calc.pawcorr
-            pdarr.append(pd)
-            Warr.append(W_wGG)
-            pawcorrarr.append(pawcorr)
-            
-        for iK2, K2_c in enumerate(self.gs.kd.bzk_kc):
-                # Double loop over BZ k-points
-                ikq_k = self.gs.kd.find_k_plus_q(K2_c)
-                for iK1 in range(self.gs.kd.nbzkpts):
-                    iK1pK2 = ikq_k[iK1]
-                    for iK3 in range(self.gs.kd.nbzkpts):
-                        iK3pK2 = ikq_k[iK3]
-                        # W in products of KS eigenstates
-                        kpt1, kpt2 = get_k1_k2b(s1,iK1,iK3,bandrange) 
-                        rho1, iq = self.get_density_matrix(kpt1,
-                                                           kpt2,
-                                                           pd_q=pdarr,
-                                                           pawcorr_q=pawcorrarr)
-                        # W in products of KS eigenstates
-                        kpt1, kpt2 = get_k1_k2b(s1,iK1pK2,iK3pK2,bandrange) 
-                        rho2, iq = self.get_density_matrix(kpt1,
-                                                           kpt2,
-                                                           pd_q=pdarr,
-                                                           pawcorr_q=pawcorrarr)
-
-                        W_wijkl = np.einsum('ijk,lkm,pqm->lipjq',
-                                            rho1.conj(),
-                                            Warr[iq],
-                                            rho2,
-                                            optimize='optimal')
-                        
-                        # Wwan_wijkl += W_wijkl
-                        
-                        Wwan_wijkl += np.einsum('ia,jb,kc,ld,wabcd->wijkl',
-                                                Uwan[:,:,iK1],
-                                                Uwan[:,:,iK1pK2].conj(),
-                                                Uwan[:,:,iK3].conj(),
-                                                Uwan[:,:,iK3pK2],
-                                                W_wijkl)
-                        
+        print('iq,iQ,iK1,iK3,W')
+        for i in range(len(testlist)):
+            print(testlist[i])
+        print('*****TESTLIST2******')
+        print('iq,iK1,rho[0,0,0]')
+        for i in range(len(testlist2)):
+            print(testlist2[i])  
         factor = Ha * self.gs.kd.nbzkpts**3 # factor from BZ summation and taking from Hartree to eV
         Wwan_wijkl /= factor
 
@@ -465,8 +297,8 @@ class WCalculator:
     def calculate_q(self, iq, q_c, chi0, out_dist='WgG'):
         if self.truncation == 'wigner-seitz':
             wstc = WignerSeitzTruncatedCoulomb(
-                self.wcalc.gs.gd.cell_cv,
-                self.wcalc.gs.kd.N_c)
+                self.gs.gd.cell_cv,
+                self.gs.kd.N_c)
             self.context.print(wstc.get_description())
 
         else:
@@ -715,6 +547,82 @@ class WCalculator:
             rho_mnG[m] = self.pair.calculate_pair_density(ut1cc_R, C1_aGi,
                                                           kpt2, pd, I_G)
         return rho_mnG, iq
+    
+    def get_density_matrix2(self,kpt1, kpt2, pd_q, pawcorr_q, known_iQ=None):
+        """
+        If iq is known () pd_q and pawcorr_q are lists with len of IBZ, otherwise they are lists 
+        with one element with value for correct iq
+        """
+        from gpaw.response.g0w0 import QSymmetryOp
+        kd=self.gs.kd
+        qd=self.qd
+        Q_c = kd.bzk_kc[kpt2.K] - kd.bzk_kc[kpt1.K]
+        iQ = qd.where_is_q(Q_c, qd.bzk_kc)
+        iq = qd.bz2ibz_k[iQ]
+        q_c = qd.ibzk_kc[iq]
+            
+        # if iq is known check so that it is correct
+        if known_iQ is not None:
+            iq_in_list=0 # pd_q and pawcorr_q lists with one element with correct value
+            assert (known_iQ == iQ)
+        else:
+            iq_in_list=iq # pd_q and pawcorr_q are lists for all q
+    
+        # Find symmetry that transforms Q_c into q_c
+        sym = qd.sym_k[iQ]
+        U_cc = qd.symmetry.op_scc[sym]
+        time_reversal = qd.time_reversal_k[iQ]
+        sign = 1 - 2 * time_reversal
+        symop= QSymmetryOp(sym, U_cc, sign)
+        symop.check_q_Q_symmetry(Q_c, q_c)
+        d_c = symop.apply(q_c) - Q_c
+        assert np.allclose(d_c.round(), d_c)
+
+        pd = pd_q[iq_in_list]
+        N_c = pd.gd.N_c
+        i_cG = symop.apply(np.unravel_index(pd.Q_qG[0], N_c))#symop.sign * np.dot(U_cc, np.unravel_index(pd.Q_qG[0], N_c))
+
+        shift0_c = symop.get_shift0(Q_c, q_c)
+
+        shift_c = kpt1.shift_c - kpt2.shift_c - shift0_c
+        I_G = np.ravel_multi_index(i_cG + shift_c[:, None], N_c, 'wrap')
+        G_Gv = pd.get_reciprocal_vectors()
+
+        M_vv = symop.get_M_vv(pd.gd.cell_cv)
+
+        pawcorr = pawcorr_q[iq_in_list].remap_by_symop(symop, G_Gv, M_vv)
+
+        self.check(pd.ecut, i_cG, shift0_c, N_c, Q_c, pawcorr) 
+        rho_mnG = np.zeros((len(kpt1.eps_n), len(kpt2.eps_n), len(G_Gv)),
+                           complex)
+        for m in range(len(rho_mnG)):
+            C1_aGi = pawcorr.multiply(kpt1.P_ani, band=m)
+            ut1cc_R = kpt1.ut_nR[m].conj()
+            rho_mnG[m] = self.pair.calculate_pair_density(ut1cc_R, C1_aGi,
+                                                          kpt2, pd, I_G)
+        return rho_mnG, iq
+
+    def check(self, ecut, i_cG, shift0_c, N_c, q_c, pawcorr):
+        from gpaw.pw.descriptor import (PWDescriptor,
+                                        PWMapping)
+
+        I0_G = np.ravel_multi_index(i_cG - shift0_c[:, None], N_c, 'wrap')
+        qd1 = KPointDescriptor([q_c])
+        pd1 = PWDescriptor(ecut, self.gs.gd, complex, qd1)
+        G_I = np.empty(N_c.prod(), int)
+        G_I[:] = -1
+        I1_G = pd1.Q_qG[0]
+        G_I[I1_G] = np.arange(len(I0_G))
+        G_G = G_I[I0_G]
+        # This indexing magic should definitely be moved to a method.
+        # What on earth is it really?
+
+        assert len(I0_G) == len(I1_G)
+        assert (G_G >= 0).all()
+        pairden_paw_corr = self.gs.pair_density_paw_corrections
+        pawcorr_wcalc1 = pairden_paw_corr(pd1)
+        assert pawcorr.almost_equal(pawcorr_wcalc1, G_G)
+
     
     def dyson_and_W_new(self, wstc, iq, q_c, chi0, ecut):
         assert not self.ppa
