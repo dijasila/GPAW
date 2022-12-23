@@ -140,8 +140,6 @@ class MGGA(XCFunctional):
             taut_G += 1.0 / self.wfs.nspins * self.tauct_G
             self.distribute_and_interpolate(taut_G, taut_g)
 
-        tauct_g = self.distribute_and_interpolate(self.tauct_G)
-
         nspins = len(n_sg)
         dedtaut_sg = np.empty_like(n_sg)
         v_sg = self.gd.zeros(nspins)
