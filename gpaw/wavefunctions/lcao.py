@@ -103,7 +103,7 @@ class LCAOWaveFunctions(WaveFunctions):
         self.P_aqMi = None
         self.debug_tci = False
         self.Ehrenfest_force_flag = False
-        self.S_flag = False
+        self.S_flag = True
 
         if atomic_correction is None:
             atomic_correction = 'sparse' if ksl.using_blacs else 'dense'
@@ -477,9 +477,9 @@ class LCAOWaveFunctions(WaveFunctions):
 
         F_av[:, :] = self.forcecalc.get_forces_sum_GS()
         # Calculate LCAO PAW Ehrenfest force contribution (eq. 4.81)
-        if self.Ehrenfest_force_flag is True:
-            FEhrenfest_av = self.forcecalc.get_Ehrenfest_force_contribution()
-            F_av[:, :] += FEhrenfest_av[:, :]
+        # if self.Ehrenfest_force_flag is True:
+        #    FEhrenfest_av = self.forcecalc.get_Ehrenfest_force_contribution()
+        #    F_av[:, :] += FEhrenfest_av[:, :]
         
         self.timer.stop('LCAO forces')
 
@@ -614,6 +614,10 @@ class LCAOForces:
             else:
                 self.rhoT_uMM, self.ET_uMM = \
                     self.get_ET_rhoT_from_density_matrix()
+                # TEMPORARY SOLUTION
+                self.rhoT_uMM, self.ET_uMM = \
+                    self.get_ET_rhoT_from_coefficients()
+
             self.timer.stop('Initial')
 
     def get_Ehrenfest_force_contribution(self):
@@ -885,9 +889,9 @@ class LCAOForces:
 
     def get_paw_correction(self):
         # THIS doesn't work in parallel
-        #  <Phi_nu|pt_i>O_ii<dPt_i/dR|Phi_mu>
+        # <Phi_nu|pt_i>O_ii<dPt_i/dR|Phi_mu>
         self.timer.start('get paw correction')
-        ZE_MM = np.zeros((len(self.kpt_u), len(self.my_atom_indices), 3,
+        ZE_MM = np.zeros((len(self.my_atom_indices), len(self.kpt_u), 3,
                           self.mynao, self.nao), self.dtype)
         for u, kpt in enumerate(self.kpt_u):
             work_MM = np.zeros((self.mynao, self.nao), self.dtype)
@@ -900,7 +904,7 @@ class LCAOForces:
                     gemm(1.0, dOP_iM,
                          self.dPdR_aqvMi[b][kpt.q][v][self.Mstart:self.Mstop],
                          0.0, work_MM, 'n')
-                    ZE_MM[u, b, v, :, :] = (work_MM * self.ET_uMM[u]).real
+                    ZE_MM[b, u, v, :, :] = (work_MM * self.ET_uMM[u]).real
         self.timer.stop('get paw correction')
         return ZE_MM
 

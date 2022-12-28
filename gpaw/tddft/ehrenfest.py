@@ -109,16 +109,27 @@ class EhrenfestVelocityVerlet:
         # save S
         if self.calc.wfs.mode == 'lcao':
             ksl = self.calc.wfs.ksl
+            self.using_blacs = ksl.using_blacs
             using_blacs = ksl.using_blacs
-            if using_blacs:
+            if self.using_blacs:
                 self.get_full_overlap()
             self.calc.save_old_S_MM()
 
         # m a(t+dt)   = F[psi(t),x(t)]
         self.calc.atoms.positions = self.positions * Bohr
         self.calc.set_positions(self.calc.atoms)
+
+        if self.calc.wfs.mode == 'lcao':
+            self.move_basis(dt)
+
         self.calc.get_td_energy()
-        self.Forces = self.get_forces()
+
+        if self.calc.wfs.mode == 'lcao' and \
+                self.calc.wfs.Ehrenfest_force_flag is True:
+            self.calc.get_F_EC()
+            self.Forces = self.get_forces() + self.calc.F_EC
+        else:
+            self.Forces = self.get_forces()
 
         for i in range(len(self.Forces)):
             self.accelerations[i] = self.Forces[i] / self.M[i]
@@ -133,8 +144,18 @@ class EhrenfestVelocityVerlet:
         # m a(t+dt/2) = F[psi(t),x(t+dt/2)a]
         self.calc.atoms.positions = self.positions_half * Bohr
         self.calc.set_positions(self.calc.atoms)
+
+        if self.calc.wfs.mode == 'lcao':
+            self.move_basis(dt)
+
         self.calc.get_td_energy()
-        self.Forces = self.get_forces()
+
+        if self.calc.wfs.mode == 'lcao' and \
+                self.calc.wfs.Ehrenfest_force_flag is True:
+            self.calc.get_F_EC()
+            self.Forces = self.get_forces() + self.calc.F_EC
+        else:
+            self.Forces = self.get_forces()
 
         for i in range(len(self.Forces)):
             self.accelerations_half[i] = self.Forces[i] / self.M[i]
@@ -150,8 +171,17 @@ class EhrenfestVelocityVerlet:
         # m a(t+dt/2) = F[psi(t+dt),x(t+dt/2)]
         self.calc.atoms.positions = self.positions_half * Bohr
         self.calc.set_positions(self.calc.atoms)
+
+        if self.calc.wfs.mode == 'lcao':
+            self.move_basis(dt)
+
         self.calc.get_td_energy()
-        self.Forces = self.get_forces()
+        if self.calc.wfs.mode == 'lcao' and \
+                self.calc.wfs.Ehrenfest_force_flag is True:
+            self.calc.get_F_EC()
+            self.Forces = self.get_forces() + self.calc.F_EC
+        else:
+            self.Forces = self.get_forces()
 
         for i in range(len(self.Forces)):
             self.accelerations_half[i] = self.Forces[i] / self.M[i]
@@ -166,9 +196,19 @@ class EhrenfestVelocityVerlet:
         # m a(t+dt)   = F[psi(t+dt),x(t+dt)]
         self.calc.atoms.positions = self.positions_new * Bohr
         self.calc.set_positions(self.calc.atoms)
+
+        if self.calc.wfs.mode == 'lcao':
+            self.move_basis(dt)
+
         self.calc.get_td_energy()
         self.calc.update_eigenvalues()
-        self.Forces = self.get_forces()
+
+        if self.calc.wfs.mode == 'lcao' and \
+                self.calc.wfs.Ehrenfest_force_flag is True:
+            self.calc.get_F_EC()
+            self.Forces = self.get_forces() + self.calc.F_EC
+        else:
+            self.Forces = self.get_forces()
 
         for i in range(len(self.Forces)):
             self.accelerations_new[i] = self.Forces[i] / self.M[i]
@@ -222,3 +262,17 @@ class EhrenfestVelocityVerlet:
     def set_velocities_in_au(self, v):
         self.velocities[:] = v
         self.calc.atoms.set_velocities(v * Bohr / AUT)
+
+    def move_basis(self, dt):
+        self.calc.timer.start('BASIS CHANGE')
+        if self.calc.S_flag is True:
+            if self.using_blacs:
+                self.get_full_overlap()
+            # Change basis when atoms move
+            self.calc.basis_change(self.time, dt)
+        self.calc.timer.stop('BASIS CHANGE')
+        ksl = self.calc.wfs.ksl
+        self.using_blacs = ksl.using_blacs
+        if self.using_blacs:
+            self.get_full_overlap()
+        self.calc.save_old_S_MM()

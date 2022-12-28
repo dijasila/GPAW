@@ -6,7 +6,6 @@ from gpaw.lcaotddft.utilities import read_uMM
 from gpaw.lcaotddft.utilities import read_wuMM
 from gpaw.lcaotddft.utilities import write_uMM
 from gpaw.lcaotddft.utilities import write_wuMM
-from gpaw.utilities.blas import gemm, gemmdot
 import numpy as np
 
 
@@ -301,25 +300,26 @@ class PawCorrectionLCAO:
         in square bracket in eq. 4.66 pp.49
         D1_1_aqvMM = <Phi_nu|pt^a_i>O^a_ii<grad pt^a_i|Phi_mu>
         """
-        dPdR_aqvMi = self.manytci.P_aqMi(self.my_atom_indices, True)
+        # dPdR_aqvMi = self.manytci.P_aqMi(self.my_atom_indices, True)
         self.D1_1_aqvMM = np.zeros((len(self.my_atom_indices),
                                    len(self.wfs.kpt_u), 3,
                                    self.mynao, self.nao), self.dtype)
-        for u, kpt in enumerate(self.wfs.kpt_u):
-            # print ('k===\n',u,kpt)
-            for a in self.my_atom_indices:
-                setup = self.wfs.setups[a]
-                dO_ii = np.asarray(setup.dO_ii, self.dtype)
-                P_aqMi_dO_iM = np.zeros((setup.ni, self.nao), self.dtype)
-            # Calculate first product: P_aqMi_dO_iM=<Phi_nu|pt^a_i>O^a_ii
-                gemm(1.0, self.P_aqMi[a][kpt.q], dO_ii, 0.0,
-                     P_aqMi_dO_iM, 'c')
-            # Calculate final term:
-            # D1_1_aqvMM=<Phi_nu|p^a_i>O^a_ii<grad p^a_i|Phi_mu>
-                for c in range(3):
-                    gemm(1.0, P_aqMi_dO_iM, dPdR_aqvMi[a][kpt.q][c],
-                         0.0, self.D1_1_aqvMM[a, kpt.q, c], 'n')
-        return self.D1_1_aqvMM
+        # for u, kpt in enumerate(self.wfs.kpt_u):
+        #    # print ('k===\n',u,kpt)
+        #    for a in self.my_atom_indices:
+        #        setup = self.wfs.setups[a]
+        #        dO_ii = np.asarray(setup.dO_ii, self.dtype)
+        #        P_aqMi_dO_iM = np.zeros((setup.ni, self.nao), self.dtype)
+        #    # Calculate first product: P_aqMi_dO_iM=<Phi_nu|pt^a_i>O^a_ii
+        #        gemm(1.0, self.P_aqMi[a][kpt.q], dO_ii, 0.0,
+        #             P_aqMi_dO_iM, 'c')
+        #    # Calculate final term:
+        #    # D1_1_aqvMM=<Phi_nu|p^a_i>O^a_ii<grad p^a_i|Phi_mu>
+        #        for c in range(3):
+        #            gemm(1.0, P_aqMi_dO_iM, dPdR_aqvMi[a][kpt.q][c],
+        #                 0.0, self.D1_1_aqvMM[a, kpt.q, c], 'n')
+        # return self.D1_1_aqvMM
+        return self.wfs.forcecalc.get_paw_correction()
 
     def D1_2(self):
         """
@@ -332,18 +332,12 @@ class PawCorrectionLCAO:
                                     self.mynao, self.nao), self.dtype)
         for u, kpt in enumerate(self.wfs.kpt_u):
             for a in self.my_atom_indices:
-                setup = self.wfs.setups[a]
                 nabla_ii = self.wfs.setups[a].nabla_iiv
-                Pnabla_ii_iM_aux = np.zeros((3, setup.ni, self.nao),
-                                            self.dtype)
                 # <Phi_nu|p^a_i>nabla^a_ii
                 for c in range(3):
-                    gemm(1.0, self.P_aqMi[a][kpt.q],
-                         nabla_ii[:, :, c], 0.0,
-                         Pnabla_ii_iM_aux[c, :, :], 'c')
                     self.D1_2_aqvMM[a, kpt.q, c, :, :] = \
-                        gemmdot(self.P_aqMi[a][kpt.q].conj(),
-                                Pnabla_ii_iM_aux[c, :, :])
+                        self.P_aqMi[a][kpt.q] @ nabla_ii[:, :, c] @ \
+                        self.P_aqMi[a][kpt.q].conj().T
         return self.D1_2_aqvMM
 
     def D2_1(self):
@@ -365,16 +359,19 @@ class PawCorrectionLCAO:
         self.D1_1()
         self.D1_2()
         self.D2_1()
-        D_sum_aqvMM = self.D1_2_aqvMM + self.D1_1_aqvMM + self.D2_1_qvMM
+        # D_sum_aqvMM = self.D1_2_aqvMM + self.D1_1_aqvMM + self.D2_1_qvMM
+        D_sum_aqvMM = self.D1_1()  # + self.D1_2_aqvMM
+        # D_sum_aqvMM = self.D1_2_aqvMM
         for u, kpt in enumerate(self.wfs.kpt_u):
             for a in self.my_atom_indices:
                 for c in range(3):
+                    # P1_MM[:, :] += self.v[a][c] * \
+                    #    (self.D1_1_aqvMM[a, kpt.q, c, :, :] +
+                    #     self.D1_2_aqvMM[a, kpt.q, c, :, :])
                     P1_MM[:, :] += self.v[a][c] * \
-                        (self.D1_1_aqvMM[a, kpt.q, c, :, :] +
-                         self.D1_2_aqvMM[a, kpt.q, c, :, :])
+                        (D_sum_aqvMM[a, kpt.q, c, :, :])
 
         # Calculate P2_MM= -i [ V_a . D2_1 + V_a . sum( D1_2 ) ]   4.67 p 49
-
         for u, kpt in enumerate(self.wfs.kpt_u):
             for a in self.my_atom_indices:
                 for c in range(3):
@@ -382,8 +379,8 @@ class PawCorrectionLCAO:
                         (self.D2_1_qvMM[kpt.q, c, :, :] +
                          self.D1_1_aqvMM[a, kpt.q, c, :, :])
 
-        P_MM = (P1_MM - P2_MM) * complex(0, 1)
-
+        # P_MM = (P1_MM - P2_MM) * complex(0, 1)
+        P_MM = P1_MM * complex(0, 1)
         return P_MM, D_sum_aqvMM
 
     def _get_overlap_derivatives(self, ignore_upper=False):

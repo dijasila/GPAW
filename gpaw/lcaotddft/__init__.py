@@ -13,8 +13,7 @@ from gpaw.tddft.units import attosec_to_autime
 from gpaw.lcaotddft.densitymatrix import DensityMatrix
 from gpaw.tddft.tdopers import TimeDependentDensity
 from gpaw.utilities.scalapack import scalapack_zero
-from scipy.linalg import schur, eigvals
-
+from scipy.linalg import schur, eigvals, inv
 from gpaw.blacs import Redistributor
 
 
@@ -55,7 +54,7 @@ class LCAOTDDFT(GPAW):
                  txt: str = '-',
                  PLCAO_flag: bool = False,
                  Ehrenfest_force_flag: bool = False,
-                 S_flag: bool = False,
+                 S_flag: bool = True,
                  calculate_energy: bool = True):
         """"""
         assert filename is not None
@@ -82,6 +81,7 @@ class LCAOTDDFT(GPAW):
         self.PLCAO_flag = PLCAO_flag
         self.Ehrenfest_force_flag = Ehrenfest_force_flag
         self.S_flag = S_flag
+        self.F_EC = np.empty_like(self.atoms.get_positions())
         # Save old overlap S_MM_old which is necessary for propagating C_MM
         for kpt in self.wfs.kpt_u:
             kpt.S_MM_old = kpt.S_MM.copy()
@@ -307,7 +307,7 @@ class LCAOTDDFT(GPAW):
         H = self.td_hamiltonian.hamiltonian
 
         # PAW
-        self.e_band = self.wfs.calculate_band_energy()
+        self.e_band = self.e_band_rhoH
         self.Ekin = H.e_kinetic0 + self.e_band
         self.e_coulomb = H.e_coulomb
         self.Eext = H.e_external
@@ -388,3 +388,90 @@ class LCAOTDDFT(GPAW):
                 kpt.C_nM = t_Sm12xSp12xC_nM.copy()
                 self.td_hamiltonian.update()
         return time + time_step
+
+    def get_F_EC(self):
+        """
+        Calculate energy conserving forces which are necessary to
+        introduce when Ehrenfest dynamics is used.
+        This part will be moved to wavfuncion/lcao.py line 480 and 630
+        """
+        using_blacs = self.wfs.ksl.using_blacs
+        if using_blacs is True:
+            nao = self.wfs.ksl.nao
+            MM_descriptor = self.wfs.ksl.blockgrid.new_descriptor(nao, nao,
+                                                                  nao, nao)
+            mm_block_descriptor = self.wfs.ksl.mmdescriptor
+            mm2MM = Redistributor(self.wfs.ksl.block_comm,
+                                  mm_block_descriptor,
+                                  MM_descriptor)
+            my_atom_indices = self.wfs.basis_functions.my_atom_indices
+            self.F_EC[:, :] = 0.0
+            D1_1_aqvMM = self.td_hamiltonian.PLCAO.D1_1()
+            for u, kpt in enumerate(self.wfs.kpt_u):
+                H_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(
+                    self.hamiltonian, self.wfs, kpt)
+                H_MM_full = MM_descriptor.empty(dtype=H_MM.dtype)
+                mm2MM.redistribute(H_MM, H_MM_full)
+                S_MM = kpt.S_MM.copy()
+                S_MM_full = MM_descriptor.empty(dtype=S_MM.dtype)
+                mm2MM.redistribute(S_MM, S_MM_full)
+
+                # F = C * S(-1)*D*H * C.conj
+                if self.density.gd.comm.rank != 0:
+                    S_MM_full = np.empty((nao, nao), dtype=S_MM.dtype)
+                    H_MM_full = np.empty((nao, nao), dtype=H_MM.dtype)
+                self.density.gd.comm.broadcast(S_MM_full, 0)
+                self.density.gd.comm.broadcast(H_MM_full, 0)
+                S_inv_MM = inv(S_MM_full)
+                SinvHCnM_MM = (S_inv_MM @ H_MM_full @ kpt.C_nM.T.conj())
+                for b in my_atom_indices:
+                    for v in range(3):
+                        aux1_MM = kpt.C_nM @ D1_1_aqvMM[b][kpt.q][v][:, :]
+                        aux2_MM = aux1_MM.T @ SinvHCnM_MM.T
+                        for a, M1, M2 in self.my_slices(self.wfs):
+                            F = 2 * aux2_MM[M1:M2].sum().real
+                            self.F_EC[a, v] += F
+                self.density.gd.comm.sum(self.F_EC)
+        else:
+            # THIS WORKS ONLY IN SERIAL !!!!!!
+            my_atom_indices = self.wfs.basis_functions.my_atom_indices
+            self.F_EC[:, :] = 0.0
+            D1_1_aqvMM = self.td_hamiltonian.PLCAO.D1_1()
+            for u, kpt in enumerate(self.wfs.kpt_u):
+                occupied = abs(kpt.f_n) > 1.0e-10
+                H_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(
+                    self.hamiltonian, self.wfs, kpt)
+                S_MM = kpt.S_MM
+                S_inv_MM = inv(S_MM)
+                # SinvHCnM_MM= (S_inv_MM @ H_MM @ kpt.C_nM.T.conj())
+                SinvHCnM_MM = (S_inv_MM @ H_MM @ np.ascontiguousarray(
+                    kpt.C_nM[occupied].T.conj() * kpt.f_n[occupied]))
+                # SinvHCnM_MM= (S_inv_MM @ H_MM @ np.ascontiguousarray(
+                #   kpt.C_nM[occupied].T.conj() * 0.5 * kpt.f_n[occupied]))
+                for b in my_atom_indices:
+                    for v in range(3):
+                        # aux1_MM = kpt.C_nM @ D1_1_aqvMM[b][kpt.q][v][:, :]
+                        # aux1_MM = (np.ascontiguousarray(
+                        # kpt.C_nM[occupied].T * 0.5 * kpt.f_n[occupied])).T @
+                        # D1_1_aqvMM[b][kpt.q][v][:, :]
+                        aux1_MM = (np.ascontiguousarray(kpt.C_nM[occupied].T *
+                                   kpt.f_n[occupied])).T @ \
+                            D1_1_aqvMM[b][kpt.q][v][:, :]
+                        aux2_MM = aux1_MM.T @ SinvHCnM_MM.T
+                        for a, M1, M2 in self.my_slices(self.wfs):
+                            F = 2 * aux2_MM[M1: M2].sum().real
+                            self.F_EC[a, v] += F
+        return self.F_EC
+
+    def _slices(self, indices, WF):
+        for a in indices:
+            M1 = WF.basis_functions.M_a[a] - WF.ksl.Mstart
+            M2 = M1 + WF.setups[a].nao
+            if M2 > 0:
+                yield a, max(0, M1), M2
+
+    def slices(self):
+        return self._slices(self.atom_indices)
+
+    def my_slices(self, WF):
+        return self._slices(WF.basis_functions.my_atom_indices, WF)
