@@ -26,8 +26,9 @@ class CSCG:
     Now x and b are multivectors, i.e., list of vectors.
     """
 
-    def __init__(self, gd, timer=None,
-                 tolerance=1e-15, max_iterations=1000, eps=1e-15, cuda=False):
+    def __init__(self, gd, bd, timer=None,
+                 tolerance=1e-15, max_iterations=1000, eps=1e-15,
+                 blocksize=16, cuda=False):
         """Create the CSCG-object.
 
         Tolerance should not be smaller than attainable accuracy, which is
@@ -39,8 +40,10 @@ class CSCG:
 
         Parameters
         ----------
-        wfs: Wavefunctions
-            Coarse pseudowavefunctions
+        gd: GridDescriptor
+            grid descriptor for coarse (pseudowavefunction) grid
+        bd: BandDescriptor
+            band descriptor
         timer: Timer
             timer
         tolerance: float
@@ -66,19 +69,18 @@ class CSCG:
 
         self.cuda = cuda
 
-        self.gd = wfs.gd
+        self.gd = gd
         self.timer = timer
         self.mblas = MultiBlas(self.gd, timer)
-        self.blocksize = min(blocksize, wfs.bd.mynbands)
+        self.blocksize = min(blocksize, bd.mynbands)
 
         if self.cuda:
             cuda_blocks_min = 16
             cuda_blocks_max = 64
-            self.blocksize = min(cuda_blocks_max, wfs.bd.mynbands,
-                                 wfs.gd.comm.size * cuda_blocks_min,
-                                 max(1, (224 * 224 * 224) * wfs.gd.comm.size
-                                     / (wfs.gd.N_c[0] * wfs.gd.N_c[1]
-                                        * wfs.gd.N_c[2])))
+            self.blocksize = min(cuda_blocks_max, bd.mynbands,
+                                 gd.comm.size * cuda_blocks_min,
+                                 max(1, (224 * 224 * 224) * gd.comm.size
+                                     / np.prod(gd.N_c)))
 
     def solve(self, A, x, b):
         """Solve a set of linear equations A.x = b.
