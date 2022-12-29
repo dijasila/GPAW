@@ -120,7 +120,7 @@ class EhrenfestVelocityVerlet:
         self.calc.set_positions(self.calc.atoms)
 
         if self.calc.wfs.mode == 'lcao':
-            self.move_basis(dt)
+            self.translate_basis(dt)
 
         self.calc.get_td_energy()
 
@@ -146,7 +146,7 @@ class EhrenfestVelocityVerlet:
         self.calc.set_positions(self.calc.atoms)
 
         if self.calc.wfs.mode == 'lcao':
-            self.move_basis(dt)
+            self.translate_basis(dt)
 
         self.calc.get_td_energy()
 
@@ -173,7 +173,7 @@ class EhrenfestVelocityVerlet:
         self.calc.set_positions(self.calc.atoms)
 
         if self.calc.wfs.mode == 'lcao':
-            self.move_basis(dt)
+            self.translate_basis(dt)
 
         self.calc.get_td_energy()
         if self.calc.wfs.mode == 'lcao' and \
@@ -198,7 +198,7 @@ class EhrenfestVelocityVerlet:
         self.calc.set_positions(self.calc.atoms)
 
         if self.calc.wfs.mode == 'lcao':
-            self.move_basis(dt)
+            self.translate_basis(dt)
 
         self.calc.get_td_energy()
         self.calc.update_eigenvalues()
@@ -223,13 +223,7 @@ class EhrenfestVelocityVerlet:
         self.accelerations[:] = self.accelerations_new
 
         if self.calc.wfs.mode == 'lcao':
-            self.calc.timer.start('BASIS CHANGE')
-            if self.calc.S_flag is True:
-                if using_blacs:
-                    self.get_full_overlap()
-                # Change basis when atoms move
-                self.calc.basis_change(self.time, dt)
-            self.calc.timer.stop('BASIS CHANGE')
+            self.translate_basis(dt)
 
         # update atoms
         self.calc.atoms.set_positions(self.positions * Bohr)
@@ -263,7 +257,7 @@ class EhrenfestVelocityVerlet:
         self.velocities[:] = v
         self.calc.atoms.set_velocities(v * Bohr / AUT)
 
-    def move_basis(self, dt):
+    def translate_basis(self, dt):
         self.calc.timer.start('BASIS CHANGE')
         if self.calc.S_flag is True:
             if self.using_blacs:
