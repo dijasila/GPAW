@@ -511,11 +511,11 @@ def dotc(a, b):
             a_debug = gpu.copy_to_host(a_gpu)
             b_debug = gpu.copy_to_host(b_gpu)
             cpu = _gpaw.dotc(a_debug, b_debug)
-        gpu = _gpaw.dotc_cuda_gpu(gpu.array.get_pointer(a_gpu), a.shape,
+        res = _gpaw.dotc_cuda_gpu(gpu.array.get_pointer(a_gpu), a.shape,
                                   gpu.array.get_pointer(b_gpu), a.dtype)
         if gpu.debug:
-            gpu.debug_test(cpu, gpu, "dotc")
-        return gpu
+            gpu.debug_test(cpu, res, "dotc")
+        return res
     else:
         if a_cpu is None:
             a_cpu = gpu.copy_to_host(a_gpu)
@@ -556,10 +556,10 @@ def dotu(a, b):
             a_debug = gpu.copy_to_host(a_gpu)
             b_debug = gpu.copy_to_host(b_gpu)
             cpu = _gpaw.dotu(a_debug, b_debug)
-        gpu = _gpaw.dotu_cuda_gpu(gpu.array.get_pointer(a_gpu), a.shape,
+        res = _gpaw.dotu_cuda_gpu(gpu.array.get_pointer(a_gpu), a.shape,
                                   gpu.array.get_pointer(b_gpu), a.dtype)
         if gpu.debug:
-            gpu.debug_test(cpu, gpu, "dotu")
+            gpu.debug_test(cpu, res, "dotu")
         return gpu
     else:
         if a_cpu is None:
