@@ -735,7 +735,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                  parallel, initksl,
                  reuse_wfs_method, collinear,
                  gd, nvalence, setups, bd, dtype,
-                 world, kd, kptband_comm, timer):
+                 world, kd, kptband_comm, timer, cuda=False):
         self.ecut = ecut
         self.gammacentered = gammacentered
         self.fftwflags = fftwflags
@@ -748,7 +748,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
                                    collinear=collinear,
                                    gd=gd, nvalence=nvalence, setups=setups,
                                    bd=bd, dtype=dtype, world=world, kd=kd,
-                                   kptband_comm=kptband_comm, timer=timer)
+                                   kptband_comm=kptband_comm, timer=timer,
+                                   cuda=cuda)
 
     def empty(self, n=(), global_array=False, realspace=False, q=None,
               cuda=False):
