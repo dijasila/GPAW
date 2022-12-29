@@ -71,10 +71,8 @@ void zgemv_(char *trans, int *m, int * n,
             void *x, int *incx, void *beta,
             void *y, int *incy);
 double ddot_(int *n, void *dx, int *incx, void *dy, int *incy);
-void zdotu_(void *ret_val, int *n,
-            void *zx, int *incx, void *zy, int *incy);
-void zdotc_(void *ret_val, int *n,
-            void *zx, int *incx, void *zy, int *incy);
+double_complex zdotu_(int *n, void *zx, int *incx, void *zy, int *incy);
+double_complex zdotc_(int *n, void *zx, int *incx, void *zy, int *incy);
 
 PyObject* scal(PyObject *self, PyObject *args)
 {
@@ -372,11 +370,11 @@ PyObject* dotc(PyObject *self, PyObject *args)
     {
       double_complex* ap = COMPLEXP(a);
       double_complex* bp = COMPLEXP(b);
-      double_complex z = 0.0;
+      double_complex result;
       Py_BEGIN_ALLOW_THREADS;
-      zdotc_(&z, &n, ap, &incx, bp, &incy);
+      result = zdotc_(&n, ap, &incx, bp, &incy);
       Py_END_ALLOW_THREADS;
-      return PyComplex_FromDoubles(creal(z), cimag(z));
+      return PyComplex_FromDoubles(creal(result), cimag(result));
     }
 }
 
@@ -405,11 +403,11 @@ PyObject* dotu(PyObject *self, PyObject *args)
     {
       double_complex* ap = COMPLEXP(a);
       double_complex* bp = COMPLEXP(b);
-      double_complex z = 0.0;
+      double_complex result;
       Py_BEGIN_ALLOW_THREADS;
-      zdotu_(&z, &n, ap, &incx, bp, &incy);
+      result = zdotu_(&n, ap, &incx, bp, &incy);
       Py_END_ALLOW_THREADS;
-      return PyComplex_FromDoubles(creal(z), cimag(z));
+      return PyComplex_FromDoubles(creal(result), cimag(result));
     }
 }
 #endif
