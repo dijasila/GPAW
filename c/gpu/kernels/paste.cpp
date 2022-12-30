@@ -275,16 +275,8 @@ static void Zcuda(_bmgs_paste_cuda_gpu)(
     hc_sizeb.y = sizeb[1];
     hc_sizeb.z = sizeb[2] * sizeof(Tcuda) / sizeof(double);
 
-    int blockx = MIN(nextPow2(hc_sizea.z), BLOCK_MAX);
-    int blocky = MIN(MIN(nextPow2(hc_sizea.y), BLOCK_TOTALMAX / blockx),
-                     BLOCK_MAX);
-    dim3 dimBlock(blockx, blocky);
-    int gridx = ((hc_sizea.z + dimBlock.x - 1) / dimBlock.x);
-    int xdiv = MAX(1, MIN(hc_sizea.x, GRID_MAX / gridx));
-    int gridy = blocks * ((hc_sizea.y + dimBlock.y - 1) / dimBlock.y);
+    BLOCK_GRID(hc_sizea);
 
-    gridx = xdiv * gridx;
-    dim3 dimGrid(gridx, gridy);
     b += startb[2] + (startb[1] + startb[0] * sizeb[1]) * sizeb[2];
     gpuLaunchKernel(
             Zcuda(bmgs_paste_cuda_kernel), dimGrid, dimBlock, 0, stream,
