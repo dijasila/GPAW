@@ -389,7 +389,6 @@ void bc_unpack_cuda_gpu_async(const boundary_conditions* bc,
         int nin)
 {
     bool real = (bc->ndouble == 1);
-    int rank;
     bc_alloc_buffers(bc, nin);
 
 #ifdef PARALLEL

@@ -237,10 +237,6 @@ static void _operator_relax_cuda_gpu(OperatorObject* self, int relax_method,
                                      int nrelax, double w)
 {
     boundary_conditions* bc = self->bc;
-    const int *size2 = bc->size2;
-    const int *size1 = bc->size1;
-    int ng = bc->ndouble * size1[0] * size1[1] * size1[2];
-    int ng2 = bc->ndouble * size2[0] * size2[1] * size2[2];
 
     MPI_Request recvreq[3][2];
     MPI_Request sendreq[3][2];
@@ -446,9 +442,7 @@ static void _operator_apply_cuda_gpu(OperatorObject *self,
 {
     boundary_conditions* bc = self->bc;
     const int *size1 = bc->size1;
-    const int *size2 = bc->size2;
     int ng = bc->ndouble * size1[0] * size1[1] * size1[2];
-    int ng2 = bc->ndouble * size2[0] * size2[1] * size2[2];
 
     MPI_Request recvreq[3][2];
     MPI_Request sendreq[3][2];
