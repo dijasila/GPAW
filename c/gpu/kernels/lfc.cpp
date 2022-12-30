@@ -234,8 +234,8 @@ PyObject * NewLFCObject_cuda(LFCObject *self, PyObject *args)
     int *G_B1_gpu = GPAW_MALLOC(int, self->nB);
     int *G_B2_gpu = GPAW_MALLOC(int, self->nB);
 
-    gpuDoubleComplex *phase_i_gpu;
-    gpuDoubleComplex *phase_i;
+    gpuDoubleComplex *phase_i_gpu = NULL;
+    gpuDoubleComplex *phase_i = NULL;
 
     if (self->bloch_boundary_conditions) {
         phase_i_gpu = GPAW_MALLOC(gpuDoubleComplex,
