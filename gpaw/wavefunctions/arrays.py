@@ -202,7 +202,12 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
                  spin=0, collinear=True, cuda=False):
         ng = ng0 = pd.myng_q[kpt]
         if data is not None:
-            assert data.dtype == complex
+            # XXX why ???
+            # assert data.dtype == complex
+            from warnings import warn
+            if data.dtype != complex:
+                warn('data.dtype != complex: '
+                     f'data.dtype={data.dtype}, dtype={dtype}')
         if dtype == float:
             ng *= 2
             if isinstance(data, np.ndarray):
@@ -226,6 +231,7 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
         if not self.in_memory:
             return self.matrix.array
         elif self.dtype == float:
+            # XXX why float -> complex ???
             return self.matrix.array.view(complex)
         else:
             return self.matrix.array.reshape(self.myshape)
@@ -298,9 +304,14 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
     def view(self, n1, n2):
         key = (n1, n2)
         if key not in self._cached_view:
+            # XXX forcing complex due to assert in __init__(); why ???
+            # print('XXX')
+            # print(self.array[n1:n2].dtype)
+            # print(self.matrix.view(n1, n2).dtype)
             self._cached_view[key] = \
                     PlaneWaveExpansionWaveFunctions(
                             n2 - n1, self.pd, self.dtype,
+                            # self.array[n1:n2],
                             self.matrix.view(n1, n2),
                             self.kpt, None,
                             self.spin, self.collinear,
