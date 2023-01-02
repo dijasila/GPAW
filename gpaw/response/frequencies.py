@@ -78,6 +78,11 @@ class ComplexFrequencyDescriptor:
     def __len__(self):
         return len(self.hz_z)
 
+    @staticmethod
+    def from_array(frequencies: ArrayLike1D):
+        """Create a ComplexFrequencyDescriptor from frequencies in eV."""
+        return ComplexFrequencyDescriptor(np.asarray(frequencies) / Ha)
+
 
 class FrequencyGridDescriptor(FrequencyDescriptor):
 
