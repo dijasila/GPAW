@@ -260,7 +260,7 @@ static void _transformer_apply_cuda_gpu(TransformerObject* self,
 
         bc_unpack_paste_cuda_gpu(bc, in2, buf, recvreq, 0, myblocks);
         for (int i=0; i < 3; i++) {
-            bc_unpack_cuda_gpu(bc, in2, buf, i, recvreq, sendreq[i],
+            bc_unpack_cuda_gpu(bc, buf, i, recvreq, sendreq[i],
                                ph + 2 * i, 0, myblocks);
         }
         if (self->interpolate) {
