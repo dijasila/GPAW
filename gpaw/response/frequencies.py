@@ -83,6 +83,11 @@ class ComplexFrequencyDescriptor:
         """Create a ComplexFrequencyDescriptor from frequencies in eV."""
         return ComplexFrequencyDescriptor(np.asarray(frequencies) / Ha)
 
+    @property
+    def upper_half_plane(self):
+        """All frequencies reside in the upper half complex frequency plane?"""
+        return np.all(self.hz_z.imag > 0.)
+
 
 class FrequencyGridDescriptor(FrequencyDescriptor):
 
