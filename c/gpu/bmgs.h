@@ -16,11 +16,6 @@ void bmgs_fd_cuda_gpu(const bmgsstencil_gpu* s, const double* adev,
                       double* bdev, int boundary, int blocks,
                       gpuStream_t stream);
 
-double bmgs_fd_cuda_cpu_bc(const bmgsstencil* s, const double* a, double* b);
-
-void bmgs_fd_cuda_gpu_bc(const bmgsstencil_gpu* s, const double* adev,
-                         double* bdev, int blocks);
-
 double bmgs_relax_cuda_cpu(const int relax_method, const bmgsstencil* s,
                            double* a, double* b, const double* src,
                            const double w);
@@ -28,14 +23,6 @@ double bmgs_relax_cuda_cpu(const int relax_method, const bmgsstencil* s,
 void bmgs_relax_cuda_gpu(const int relax_method, const bmgsstencil_gpu* s,
                          double* adev, double* bdev, const double* src,
                          const double w, int boundary, gpuStream_t stream);
-
-double bmgs_relax_cuda_cpu_bc(const int relax_method, const bmgsstencil* s,
-                              double* a, double* b, const double* src,
-                              const double w);
-
-void bmgs_relax_cuda_gpu_bc(const int relax_method, const bmgsstencil_gpu* s,
-                            double* adev, double* bdev, const double* src,
-                            const double w);
 
 void bmgs_cut_cuda_gpu(const double* a, const int n[3], const int c[3],
                double* b, const int m[3],int blocks, gpuStream_t stream);
@@ -84,10 +71,6 @@ double bmgs_fd_cuda_cpuz(const bmgsstencil* s, const gpuDoubleComplex* a,
 void bmgs_fd_cuda_gpuz(const bmgsstencil_gpu* s, const gpuDoubleComplex* adev,
                        gpuDoubleComplex* bdev, int boundary, int blocks,
                        gpuStream_t stream);
-
-void bmgs_fd_cuda_gpu_bcz(const bmgsstencil_gpu* s,
-                          const gpuDoubleComplex* adev,
-                          gpuDoubleComplex* bdev, int blocks);
 
 void bmgs_cut_cuda_gpuz(const gpuDoubleComplex* a, const int n[3],
                         const int c[3], gpuDoubleComplex* b, const int m[3],
