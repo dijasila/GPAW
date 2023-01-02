@@ -130,7 +130,7 @@ class JDOSCalculator(PairFunctionIntegrator):
 
         # Construct jdos integrand via the imaginary part of the frequency
         # dependence in χ_KS^μν(q,ω)
-        x_wt = get_temporal_part(jdos.spincomponent, jdos.wd.omega_w, jdos.eta,
+        x_wt = get_temporal_part(jdos.spincomponent, jdos.wd.omega_w + 1.j * jdos.eta,
                                  n1_t, n2_t, s1_t, s2_t, df_t, deps_t,
                                  self.bandsummation)
         integrand_wt = -x_wt.imag / np.pi

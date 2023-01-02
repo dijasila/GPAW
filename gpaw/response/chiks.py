@@ -309,7 +309,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
         if chiks.spincomponent in ['00', 'all'] and self.gs.nspins == 1:
             weight = 2 * weight
         x_Wt = weight * get_temporal_part(chiks.spincomponent,
-                                          chiks.wd.omega_w, chiks.eta,
+                                          chiks.wd.omega_w + 1.j * chiks.eta,
                                           n1_t, n2_t, s1_t, s2_t,
                                           df_t, deps_t,
                                           self.bandsummation)
@@ -430,12 +430,12 @@ def get_ecut_to_encompass_centered_sphere(q_v, ecut):
     return ecut
 
 
-def get_temporal_part(spincomponent, omega_w, eta,
+def get_temporal_part(spincomponent, hz_z,
                       n1_t, n2_t, s1_t, s2_t, df_t, deps_t, bandsummation):
     """Get the temporal part of a (causal linear) susceptibility integrand."""
     _get_temporal_part = create_get_temporal_part(bandsummation)
     return _get_temporal_part(spincomponent, s1_t, s2_t,
-                              df_t, deps_t, omega_w, eta,
+                              df_t, deps_t, hz_z,
                               n1_t, n2_t)
 
 
@@ -449,39 +449,38 @@ def create_get_temporal_part(bandsummation):
 
 
 def get_double_temporal_part(spincomponent, s1_t, s2_t,
-                             df_t, deps_t, omega_w, eta,
+                             df_t, deps_t, hz_z,
                              *unused):
     r"""Get:
 
              σ^μ_ss' σ^ν_s's (f_nks - f_n'k's')
-    Χ_t(ω) = ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
-               ħω - (ε_n'k's' - ε_nks) + iħη
+    Χ_t(z) = ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+                  ħz - (ε_n'k's' - ε_nks)
     """
     # Get the right spin components
     scomps_t = get_smat_components(spincomponent, s1_t, s2_t)
     # Calculate nominator
     nom_t = - scomps_t * df_t  # df = f2 - f1
     # Calculate denominator
-    denom_wt = omega_w[:, np.newaxis] + 1j * eta\
-        - deps_t[np.newaxis, :]  # de = e2 - e1
+    denom_wt = hz_z[:, np.newaxis] - deps_t[np.newaxis, :]  # de = e2 - e1
 
     return nom_t[np.newaxis, :] / denom_wt
 
 
 def get_pairwise_temporal_part(spincomponent, s1_t, s2_t,
-                               df_t, deps_t, omega_w, eta,
+                               df_t, deps_t, hz_z,
                                n1_t, n2_t):
     r"""Get:
 
              /
              | σ^μ_ss' σ^ν_s's (f_nks - f_n'k's')
-    Χ_t(ω) = | ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
-             |   ħω - (ε_n'k's' - ε_nks) + iħη
+    Χ_t(z) = | ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+             |      ħz - (ε_n'k's' - ε_nks)
              \
                                                            \
                         σ^μ_s's σ^ν_ss' (f_nks - f_n'k's') |
                - δ_n'>n ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾ |
-                          ħω + (ε_n'k's' - ε_nks) + iħη    |
+                             ħz + (ε_n'k's' - ε_nks)       |
                                                            /
     """
     # Kroenecker delta
@@ -494,10 +493,8 @@ def get_pairwise_temporal_part(spincomponent, s1_t, s2_t,
     nom1_t = - scomps1_t * df_t  # df = f2 - f1
     nom2_t = - delta_t * scomps2_t * df_t
     # Calculate denominators
-    denom1_wt = omega_w[:, np.newaxis] + 1j * eta\
-        - deps_t[np.newaxis, :]  # de = e2 - e1
-    denom2_wt = omega_w[:, np.newaxis] + 1j * eta\
-        + deps_t[np.newaxis, :]
+    denom1_wt = hz_z[:, np.newaxis] - deps_t[np.newaxis, :]  # de = e2 - e1
+    denom2_wt = hz_z[:, np.newaxis] + deps_t[np.newaxis, :]
 
     return nom1_t[np.newaxis, :] / denom1_wt\
         - nom2_t[np.newaxis, :] / denom2_wt
