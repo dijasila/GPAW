@@ -1,7 +1,7 @@
 """Test the calculation of the excitation energy of Na2 by RSF and IVOs."""
 from ase import Atoms
 from ase.units import Hartree
-from gpaw import GPAW, setup_paths
+from gpaw import GPAW
 from gpaw.mpi import world
 from gpaw.occupations import FermiDirac
 from gpaw.test import equal, gen
@@ -11,7 +11,7 @@ from gpaw.lrtddft import LrTDDFT
 import _gpaw
 
 
-def test_rsf_yukawa_rsf_ivo_sing_mg(in_tmp_dir):
+def test_rsf_yukawa_rsf_ivo_sing_mg(in_tmp_dir, add_cwd_to_setup_paths):
     libxc_version = getattr(_gpaw, 'libxc_version', '2.x.y')
     if int(libxc_version.split('.')[0]) < 3:
         from unittest import SkipTest
@@ -20,9 +20,6 @@ def test_rsf_yukawa_rsf_ivo_sing_mg(in_tmp_dir):
     h = 0.35  # Gridspacing
     e_singlet = 4.61
     e_singlet_lr = 5.54
-
-    if setup_paths[0] != '.':
-        setup_paths.insert(0, '.')
 
     gen('Mg', xcname='PBE', scalarrel=True, exx=True, yukawa_gamma=0.38)
 

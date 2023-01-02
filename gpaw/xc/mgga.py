@@ -331,12 +331,12 @@ def LegendreFx2(n, rs, sigma, tau,
     C2 = 0.26053088059892404
     s2 = sigma * (C2 * np.divide(rs, n))**2.
     x_i = transformation(s2, trans_i)
-    assert(x_i.all() >= -1.0 and x_i.all() <= 1.0)
+    assert x_i.all() >= -1.0 and x_i.all() <= 1.0
 
     # kinetic energy density parameter alpha in transformation t2(s)
     alpha = get_alpha(n, sigma, tau)
     x_j = transformation(alpha, trans_j)
-    assert(x_j.all() >= -1.0 and x_j.all() <= 1.0)
+    assert x_j.all() >= -1.0 and x_j.all() <= 1.0
 
     # product exchange enhancement factor
     Fx_i = legendre_polynomial(x_i, orders_i, coefs_i)
@@ -373,7 +373,7 @@ def get_alpha(n, sigma, tau):
     # z and alpha
     tau_ = np.maximum(tau_w, tau)
     alpha = np.divide(tau_ - tau_w, tau_lsda)
-    assert(alpha.all() >= 0.0)
+    assert alpha.all() >= 0.0
     return alpha
 
 

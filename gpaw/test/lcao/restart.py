@@ -6,10 +6,6 @@ import numpy as np
 from ase.build import molecule
 from gpaw import GPAW
 
-# setting number of decimals globally makes numpy.test() tests
-# which use docstrings fail
-# np.set_printoptions(precision=3, suppress=1)
-
 
 @pytest.mark.skip(reason='TODO')
 def test_restart():

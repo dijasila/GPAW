@@ -1,9 +1,10 @@
-from typing import Any, TYPE_CHECKING, Union, Tuple
+from typing import Any, Union, Sequence
 import numpy as np
 
-if TYPE_CHECKING:
+try:
+    # Needs numpy-1.20:
     from numpy.typing import ArrayLike, DTypeLike
-else:
+except ImportError:
     ArrayLike = Any  # type: ignore
     DTypeLike = Any  # type: ignore
 
@@ -16,4 +17,6 @@ Array2D = ArrayND
 Array3D = ArrayND
 Array4D = ArrayND
 
-Vector = Union[Tuple[float, float, float], Array1D]
+# Used for sequences of three numbers:
+Vector = Union[Sequence[float], Array1D]
+IntVector = Union[Sequence[int], Array1D]

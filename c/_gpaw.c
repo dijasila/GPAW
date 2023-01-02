@@ -32,10 +32,10 @@ PyObject* symmetrize_wavefunction(PyObject *self, PyObject *args);
 PyObject* symmetrize_return_index(PyObject *self, PyObject *args);
 PyObject* symmetrize_with_index(PyObject *self, PyObject *args);
 PyObject* map_k_points(PyObject *self, PyObject *args);
+PyObject* GG_shuffle(PyObject *self, PyObject *args);
 PyObject* tetrahedron_weight(PyObject *self, PyObject *args);
 #ifndef GPAW_WITHOUT_BLAS
 PyObject* mmm(PyObject *self, PyObject *args);
-PyObject* gemm(PyObject *self, PyObject *args);
 PyObject* rk(PyObject *self, PyObject *args);
 PyObject* r2k(PyObject *self, PyObject *args);
 #endif
@@ -163,10 +163,10 @@ static PyMethodDef functions[] = {
     {"symmetrize_return_index", symmetrize_return_index, METH_VARARGS, 0},
     {"symmetrize_with_index", symmetrize_with_index, METH_VARARGS, 0},
     {"map_k_points", map_k_points, METH_VARARGS, 0},
+    {"GG_shuffle", GG_shuffle, METH_VARARGS, 0},
     {"tetrahedron_weight", tetrahedron_weight, METH_VARARGS, 0},
 #ifndef GPAW_WITHOUT_BLAS
     {"mmm", mmm, METH_VARARGS, 0},
-    {"gemm", gemm, METH_VARARGS, 0},
     {"rk",  rk,  METH_VARARGS, 0},
     {"r2k", r2k, METH_VARARGS, 0},
 #endif
@@ -393,6 +393,7 @@ static PyObject* moduleinit(void)
 #else
     PyObject_SetAttrString(m, "have_openmp", Py_False);
 #endif
+    PyObject_SetAttrString(m, "version", PyLong_FromLong(3));
 
     Py_INCREF(&LFCType);
     Py_INCREF(&OperatorType);
@@ -466,7 +467,7 @@ main(int argc, char **argv)
     MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &granted);
     if (granted != MPI_THREAD_MULTIPLE)
         exit(1);
-#endif 
+#endif
 
 #define PyChar wchar_t
     wchar_t* wargv[argc];

@@ -12,10 +12,80 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.23.0b1
 
+* A bug in the implementation of MGGA functionals was found: :issue:`674`.
+  The kinetic-energy density was calculated from the irreducible part of
+  the Brillouin zone, but it was not symmetrized as it should be.  This
+  has now been fixed.
+
+  .. warning::
+
+     If you have done any MGGA calculations taking advantage of symmetries
+     in order to reduce number of **k**-points then you should redo those
+     calculations.  Sorry!
+
+* Local orbitals added in LCAO mode to construct effective
+  tight-binding Hamiltonians: :ref:`los in lcao`, :ref:`los tutorial`.
+
+* Missing factor of `2\pi` now included in RPA shift current:
+  :func:`gpaw.nlopt.shift.get_shift`.
+
+* Updated RPA-energy tutorial: :ref:`c2cu rpa`.
+
+* New tutorial: :ref:`abinitiomd`.
+
+* Experimental support for PW-mode calculations using a GPU.
+
+* One can now specify the total energy convergence criterium in eV instead
+  of eV / valence electron:
+  ``convergene={'energy': Energy(tol=..., relative=False)}``.
+  See the :class:`gpaw.convergence_criteria.Energy` class.
+
+
+Version 22.8.0
+==============
+
+Aug 18, 2022: :git:`22.8.0 <../22.8.0>`
+
+* Corresponding ASE release: ASE-3.22.1.
+
 * Updated :ref:`WSL installation instructions <wsl>`.
 
 * New feature for the :ref:`gpaw symmetry <cli>` command:  Will show number of
   **k**-points in the IBZ.
+
+* New :class:`~gpaw.convergence_criteria.MaxIter` convergence criterium:
+  ``convergence={'maximum iterations': 200}``.  This will let a calculation
+  converge after 200 steps unless it already converged before that.  This is
+  useful for structure optimizations that start far from the minimum.
+
+* New common interface to the implementation of both linear and nonlinear
+  frequency grids in the response code, now passed as a single input to e.g.
+  Chi0, DielectricFunction and G0W0. Explained in the :ref:`frequency grid`
+  tutorial.
+
+* :ref:`spinspiral calculations`.  See also
+  :git:`~gpaw/test/spinspiral/h_chain_test.py`.
+
+* :ref:`soc`.
+
+* The GW0 feature has been removed.
+
+* :ref:`LrTDDFT <lrtddft>` works now also with LCAO-mode wave functions.
+
+* GLLBSC functional uses now automatically Fermi level as the reference
+  energy (GLLBSCM behavior) when the system has no band gap.
+  This resolves "GLLBSC error: HOMO is higher than LUMO" observed in some
+  systems during SCF iterations.
+  See `!854 <https://gitlab.com/gpaw/gpaw/-/merge_requests/854>`_ for details.
+
+* Functionality to compute magnon dispersions for ferromagnets in the classical
+  isotropic Heisenberg model has been added, see ``gpaw.response.heisenberg``
+
+* A new module ``gpaw.response.mft``, see :ref:`mft`, has been added for the
+  calculation of isotropic Heisenberg exchange parameters within a linear
+  response formulation of the magnetic force theorem. The module depends on a
+  novel ``SiteKernels`` interface, see ``gpaw.response.site_kernels``, to
+  discretize the DFT description into magnetic sublattices.
 
 
 Version 22.1.0
@@ -105,9 +175,6 @@ Jan 12, 2022: :git:`22.1.0 <../22.1.0>`
 * Radiative emission (lifetimes, ...) are obtainable from
   real-time LCAO-TDDFT via the radiation-reaction potential.
   See the tutorial: :ref:`radiation_reaction_rttddft`.
-
-* Input parameters are now written to the log file in such a way that it
-  can be copy-pasted directly into a Python script.
 
 
 Version 21.6.0
@@ -451,7 +518,7 @@ Aug 1, 2019: :git:`19.8.0 <../19.8.0>`
 * How to do :ref:`ehrenfest` has now been documented.
 
 * Non self-consistent hybrid functional calculations can now be continued if
-  they run out of time.  See :meth:`gpaw.xc.exx.EXX.calculate`.
+  they run out of time.
 
 * When using a convergence criteria on the accuracy of the forces
   (see :ref:`manual_convergence`), the forces will only be calculated when the
@@ -764,7 +831,7 @@ Feb 7, 2017: :git:`1.2.0 <../1.2.0>`.
   :ref:`gw-2D`.
 
 * It is now possible to carry out GW calculations with eigenvalue self-
-  consistency in G. See this tutorial :ref:`gw-GW0`.
+  consistency in G. NOTE: This feature was removed after version 22.1.0.
 
 * XC objects can now be specified as dictionaries, allowing GGAs and MGGAs
   with custom stencils: ``GPAW(xc={'name': 'PBE', 'stencil': 2})``

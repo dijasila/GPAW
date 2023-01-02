@@ -73,16 +73,15 @@ class PW(Mode):
 
     def __call__(self, parallel, initksl, gd, **kwargs):
         dedepsilon = 0.0
-        volume = abs(np.linalg.det(gd.cell_cv))
 
         if self.cell_cv is None:
             ecut = self.ecut
         else:
             volume0 = abs(np.linalg.det(self.cell_cv))
-            ecut = self.ecut * (volume0 / volume)**(2 / 3.0)
+            ecut = self.ecut * (volume0 / gd.volume)**(2 / 3.0)
 
         if self.pulay_stress is not None:
-            dedepsilon = self.pulay_stress * volume
+            dedepsilon = self.pulay_stress * gd.volume
         elif self.dedecut is not None:
             if self.dedecut == 'estimate':
                 dedepsilon = 'estimate'
@@ -192,7 +191,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         return self.pd.integrate(a_xg, b_yg, global_integral)
 
     def bytes_per_wave_function(self):
-        return 16 * self.pd.ngmax
+        return 16 * self.pd.maxmyng
 
     def set_setups(self, setups):
         self.timer.start('PWDescriptor')
@@ -339,6 +338,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
                         self.pd.ifft(1j * G_Gv[:, v] * psit_G, kpt.q))**2
 
         self.kptband_comm.sum(taut_sR)
+        for taut_R in taut_sR:
+            self.kd.symmetry.symmetrize(taut_R, self.gd)
         return taut_sR
 
     def apply_mgga_orbital_dependent_hamiltonian(self, kpt, psit_xG,
@@ -562,8 +563,9 @@ class PWWaveFunctions(FDPWWaveFunctions):
             nbands = self.pd.ngmin // S * S
         elif nbands is None:
             ecut /= Ha
-            vol = abs(np.linalg.det(self.gd.cell_cv))
-            nbands = int(vol * ecut**1.5 * 2**0.5 / 3 / pi**2)
+            # XXX I have seen this nbands expression elsewhere,
+            # extract to function!
+            nbands = int(self.gd.volume * ecut**1.5 * 2**0.5 / 3 / pi**2)
 
         if nbands % S != 0:
             nbands += S - nbands % S
@@ -644,6 +646,12 @@ class PWWaveFunctions(FDPWWaveFunctions):
                                                iu=iu)
                 else:
                     md2.general_diagonalize_dc(H_GG, S_GG, psit_nG, eps_n)
+                    if eps_n[0] < -1000:
+                        msg = f"""Lowest eigenvalue is {eps_n[0]} Hartree.
+You might be suffering from MKL library bug MKLD-11440.
+See issue #241 in GPAW. Creashing to prevent corrupted results."""
+                        raise RuntimeError(msg)
+
             del H_GG, S_GG
 
             kpt.eps_n = eps_n[myslice].copy()

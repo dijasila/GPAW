@@ -123,11 +123,6 @@ given in the following sections.
       - ``bool``
       - ``False``
       - :ref:`Use Hund's rule <manual_hund>`
-    * - ``idiotproof``
-      - ``bool``
-      - ``True``
-      - Set to ``False`` to ignore setup fingerprint mismatch
-        (allows restart when the original setup files are not available)
     * - ``kpts``
       - *seq*
       - `\Gamma`-point
@@ -617,16 +612,16 @@ The default value is this dictionary::
 In words:
 
 * The energy change (last 3 iterations) should be less than 0.5 meV
-  per valence electron. (See :class:`~gpaw.scf.Energy`.)
+  per valence electron. (See :class:`~gpaw.convergence_criteria.Energy`.)
 
 * The change in density (integrated absolute value of density change)
   should be less than 0.0001 electrons per valence electron. (See
-  :class:`~gpaw.scf.Density`.)
+  :class:`~gpaw.convergence_criteria.Density`.)
 
 * The integrated value of the square of the residuals of the Kohn-Sham
   equations should be less than 4.0 `\times` 10\ :sup:`-8` eV\ :sup:`2`
   per valence electron. This criterion does not affect LCAO
-  calculations.  (See :class:`~gpaw.scf.Eigenstates`.)
+  calculations.  (See :class:`~gpaw.convergence_criteria.Eigenstates`.)
 
 * Only the bands that are occupied with electrons are converged.
 
@@ -1121,12 +1116,12 @@ Command-line options
 --------------------
 
 I order to run GPAW in debug-mode, e.g. check consistency of arrays passed
-to C-extensions, use Python's :option:`python:-c` option`:
+to C-extensions, use Python's :option:`python:-d` option:
 
     $ python3 -d script.py
 
-If you run Python through the ``gpaw python`` command, then you run your
-script in dry-run mode::
+If you run Python through the ``gpaw python`` command, then you can run your
+script in dry-run mode like this::
 
     $ gpaw python --dry-run=N script.py
 

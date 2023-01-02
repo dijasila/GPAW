@@ -1,8 +1,8 @@
+from __future__ import annotations
 import functools
 from io import StringIO
 from math import pi, sqrt
 from typing import List, Tuple
-
 import ase.units as units
 import numpy as np
 from ase.data import chemical_symbols
@@ -13,8 +13,11 @@ from gpaw.gaunt import gaunt, nabla
 from gpaw.overlap import OverlapCorrections
 from gpaw.rotation import rotation
 from gpaw.setup_data import SetupData, search_for_file
+from gpaw.spline import Spline
 from gpaw.utilities import pack, unpack
 from gpaw.xc import XC
+from gpaw.new import zip
+from gpaw.xc.ri.spherical_hse_kernel import RadialHSE
 
 
 def parse_hubbard_string(type: str) -> Tuple[str,
@@ -173,7 +176,8 @@ class BaseSetup:
         # projectors.  This should be the correct behaviour for all the
         # currently supported PAW/pseudopotentials.
         phit_j = []
-        for n, phit in zip(self.n_j, self.pseudo_partial_waves_j):
+        for n, phit in zip(self.n_j, self.pseudo_partial_waves_j,
+                           strict=False):
             if n > 0:
                 phit_j.append(phit)
         return phit_j
@@ -211,7 +215,7 @@ class BaseSetup:
         # 3) eigenvalues (e)
 
         states = []
-        for j, (f, d, e) in enumerate(zip(f_j, deg_j, eps_j)):
+        for j, (f, d, e) in enumerate(zip(f_j, deg_j, eps_j, strict=False)):
             if e < 0.0:
                 states.append((f == 0, d - f, e, j))
         states.sort()
@@ -564,8 +568,23 @@ class BaseSetup:
                 self.local_corr.rgd2.r_g * self.local_corr.rgd2.dr_g
 
         self._gamma = gamma
+        self._Mg_pp = self.calculate_vvx_interactions(Yuk)
+        return self._Mg_pp
+
+    def calculate_erfc_interaction(self, omega):
+        """Calculate and return erfc based valence valence
+           exchange interactions."""
+        hse = RadialHSE(self.local_corr.rgd2, omega).screened_coulomb_dv
+
+        def erfc_interaction(_, n_g, l):
+            return hse(n_g, l)
+        return self.calculate_vvx_interactions(erfc_interaction)
+
+    def calculate_vvx_interactions(self, interaction):
+        """Calculate valence valence interactions for generic
+           interaction."""
         (wg_lg, wn_lqg, wnt_lqg, wnc_g, wnct_g, wmct_g) = \
-            self.calculate_integral_potentials(Yuk)
+            self.calculate_integral_potentials(interaction)
         self._Mg_pp = self.calculate_coulomb_corrections(
             wn_lqg, wnt_lqg, wg_lg, wnc_g, wmct_g)[1]
         return self._Mg_pp
@@ -613,6 +632,7 @@ class LeanSetup(BaseSetup):
         self.M = s.M
         self.M_p = s.M_p
         self.M_pp = s.M_pp
+        self.M_wpp = s.M_wpp
         self.K_p = s.K_p
         self.MB = s.MB
         self.MB_p = s.MB_p
@@ -668,7 +688,9 @@ class LeanSetup(BaseSetup):
 
         # Required by exx
         self.X_p = s.X_p
+        self.X_wp = s.X_wp
         self.ExxC = s.ExxC
+        self.ExxC_w = s.ExxC_w
 
         # Required by yukawa rsf
         self.X_pg = s.X_pg
@@ -729,6 +751,8 @@ class Setup(BaseSetup):
     ``M``         Constant correction to Coulomb energy
     ``M_p``       Linear correction to Coulomb energy
     ``M_pp``      2nd order correction to Coulomb energy and Exx energy
+    ``M_wpp``     2nd order correction to erfc screened Coulomb energy and Exx
+                  energy for given w.
     ``Kc``        Core kinetic energy
     ``K_p``       Linear correction to kinetic energy
     ``ExxC``      Core Exx energy
@@ -782,7 +806,9 @@ class Setup(BaseSetup):
         rcut_j = self.rcut_j = data.rcut_j
 
         self.ExxC = data.ExxC
+        self.ExxC_w = data.ExxC_w
         self.X_p = data.X_p
+        self.X_wp = data.X_wp
 
         self.X_gamma = data.X_gamma
         self.X_pg = data.X_pg
@@ -972,6 +998,10 @@ class Setup(BaseSetup):
                                                        wg_lg, wnc_g, wmct_g)
         self.M_p = M_p
         self.M_pp = M_pp
+
+        self.M_wpp = {}
+        for omega in self.ExxC_w:
+            self.M_wpp[omega] = self.calculate_erfc_interaction(omega)
 
         if xc.type == 'GLLB':
             if 'core_f' in self.extra_xc_data:
@@ -1270,7 +1300,7 @@ class Setup(BaseSetup):
 
     def calculate_oscillator_strengths(self, phi_jg):
         # XXX implement oscillator strengths for lcorehole != 0
-        assert(self.lcorehole == 0)
+        assert self.lcorehole == 0
         self.A_ci = np.zeros((3, self.ni))
         nj = len(phi_jg)
         i = 0
@@ -1394,7 +1424,7 @@ class Setups(list):
     def __str__(self):
         # Write PAW setup information in order of appearance:
         ids = set()
-        s = ''
+        s = 'species:\n'
         for id in self.id_a:
             if id in ids:
                 continue
@@ -1403,11 +1433,12 @@ class Setups(list):
             output = StringIO()
             setup.print_info(functools.partial(print, file=output))
             txt = output.getvalue()
-            basis_descr = setup.get_basis_description()
-            basis_descr = basis_descr.replace('\n  ', '\n    ')
-            s += txt + '  ' + basis_descr + '\n\n'
+            txt += '  # ' + setup.get_basis_description().replace('\n',
+                                                                  '\n  # ')
+            txt = txt.replace('\n', '\n  ')
+            s += '  ' + txt + '\n\n'
 
-        s += f'Reference energy: {self.Eref * units.Hartree:.6f}\n'
+        s += f'Reference energy: {self.Eref * units.Hartree:.6f}  # eV\n'
         return s
 
     def set_symmetry(self, symmetry):
@@ -1443,7 +1474,7 @@ class Setups(list):
     def projector_indices(self):
         return FunctionIndices([setup.pt_j for setup in self])
 
-    def create_pseudo_core_densities(self, layout, positions):
+    def create_pseudo_core_densities(self, layout, positions, atomdist):
         spline_aj = []
         for setup in self:
             if setup.nct is None:
@@ -1452,28 +1483,54 @@ class Setups(list):
                 spline_aj.append([setup.nct])
         return layout.atom_centered_functions(
             spline_aj, positions,
+            atomdist=atomdist,
             integral=[setup.Nct for setup in self],
             cut=True)
 
-    def create_local_potentials(self, layout, positions):
+    def create_local_potentials(self, layout, positions, atomdist):
         return layout.atom_centered_functions(
-            [[setup.vbar] for setup in self], positions)
+            [[setup.vbar] for setup in self], positions, atomdist=atomdist)
 
-    def create_compensation_charges(self, layout, positions):
+    def create_compensation_charges(self, layout, positions, atomdist):
         return layout.atom_centered_functions(
             [setup.ghat_l for setup in self], positions,
+            atomdist=atomdist,
             integral=sqrt(4 * pi))
 
-    def create_projectors(self, desc, positions):
-        return desc.atom_centered_functions(
-            [setup.pt_j for setup in self], positions)
+    def overlap_correction(self, P_ani, out_ani):
+        xp = P_ani.layout.xp
+        if xp is not np:
+            P_ani = P_ani.to_cpu()
+            out_ani = out_ani.new(xp=np)
 
-    def overlap_correction(self, projections, out):
-        for a, I1, I2 in projections.layout.myindices:
-            ds = self[a].dO_ii
-            # use mmm ?????
-            out.data[I1:I2] = ds @ projections.data[I1:I2]
-        return out
+        if len(P_ani.dims) == 2:  # (band, spinor)
+            subscripts = 'nsi, ij -> nsj'
+        else:
+            subscripts = 'ni, ij -> nj'
+        for (a, P_ni), out_ni in zip(P_ani.items(), out_ani.values()):
+            dS_ii = self[a].dO_ii
+            np.einsum(subscripts, P_ni, dS_ii, out=out_ni)
+        return out_ani.to_xp(xp)
+
+    def partial_wave_corrections(self) -> list[list[Spline]]:
+        splines: dict[Setup, list[Spline]] = {}
+        dphi_aj = []
+        for setup in self:
+            dphi_j = splines.get(setup)
+            if dphi_j is None:
+                rcut = max(setup.rcut_j) * 1.1
+                gcut = setup.rgd.ceil(rcut)
+                dphi_j = []
+                for l, phi_g, phit_g in zip(setup.l_j,
+                                            setup.data.phi_jg,
+                                            setup.data.phit_jg):
+                    dphi_g = (phi_g - phit_g)[:gcut]
+                    dphi_j.append(setup.rgd.spline(dphi_g, rcut, l,
+                                                   points=200))
+                splines[setup] = dphi_j
+            dphi_aj.append(dphi_j)
+
+        return dphi_aj
 
 
 class FunctionIndices:
@@ -1532,7 +1589,7 @@ if __name__ == '__main__':
     print("""\
 This is not the setup.py you are looking for!  This setup.py defines a
 Setup class used to hold the atomic data needed for a specific atom.
-For building the GPAW code you must use the setup.py distutils script
+For building the GPAW code you must use the setup.py setuptools script
 at the root of the code tree.  Just do "cd .." and you will be at the
 right place.""")
     raise SystemExit

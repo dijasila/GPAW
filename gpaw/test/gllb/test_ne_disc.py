@@ -4,7 +4,6 @@ from ase import Atom, Atoms
 from gpaw import GPAW, restart, Davidson, Mixer
 from gpaw.atom.generator import Generator
 from gpaw.atom.configurations import parameters
-from gpaw import setup_paths
 from gpaw.mpi import world
 from gpaw.test import equal
 
@@ -14,9 +13,8 @@ from gpaw.test import equal
 
 @pytest.mark.gllb
 @pytest.mark.libxc
-def test_gllb_ne_disc(in_tmp_dir):
+def test_gllb_ne_disc(in_tmp_dir, add_cwd_to_setup_paths):
     atom = 'Ne'
-    setup_paths.insert(0, '.')
 
     for xcname in ['GLLB', 'GLLBSC']:
         if world.rank == 0:

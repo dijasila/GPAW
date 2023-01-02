@@ -6,14 +6,16 @@ from gpaw.new.poisson import PoissonSolverWrapper, PoissonSolver
 from gpaw.poisson import PoissonSolver as make_poisson_solver
 from gpaw.fd_operators import Laplace
 from gpaw.new.fd.pot_calc import UniformGridPotentialCalculator
+from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.new.hamiltonian import Hamiltonian
 
 
 class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
-    stencil = 3
-    interpolation = 'not fft'
-
-    def __init__(self, atoms, params):
+    def __init__(self, atoms, params, nn=3, interpolation=3):
         super().__init__(atoms, params)
+        assert not self.soc
+        self.kin_stencil_range = nn
+        self.interpolation_stencil_range = interpolation
 
         self._nct_aR = None
 
@@ -37,7 +39,7 @@ class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
     def get_pseudo_core_densities(self):
         if self._nct_aR is None:
             self._nct_aR = self.setups.create_pseudo_core_densities(
-                self.grid, self.fracpos_ac)
+                self.grid, self.fracpos_ac, atomdist=self.atomdist)
         return self._nct_aR
 
     def create_poisson_solver(self) -> PoissonSolver:
@@ -52,21 +54,68 @@ class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
                                               self.fine_grid,
                                               self.setups,
                                               self.xc, poisson_solver,
-                                              nct_aR, self.nct_R)
+                                              nct_aR, self.nct_R,
+                                              self.interpolation_stencil_range)
 
     def create_hamiltonian_operator(self, blocksize=10):
-        return FDHamiltonian(self.wf_desc, self.stencil, blocksize)
+        return FDHamiltonian(self.wf_desc, self.kin_stencil_range, blocksize)
 
-    def convert_wave_functions_from_uniform_grid(self, psit_nR):
+    def convert_wave_functions_from_uniform_grid(self,
+                                                 C_nM,
+                                                 basis_set,
+                                                 kpt_c,
+                                                 q):
+        grid = self.grid.new(kpt=kpt_c, dtype=self.dtype)
+        psit_nR = grid.zeros(self.nbands, self.communicators['b'])
+        mynbands = len(C_nM.data)
+        basis_set.lcao_to_grid(C_nM.data, psit_nR.data[:mynbands], q)
         return psit_nR
 
+    def read_ibz_wave_functions(self, reader):
+        ibzwfs = super().read_ibz_wave_functions(reader)
 
-class FDHamiltonian:
-    def __init__(self, grid, stencil=3, blocksize=10):
+        if 'coefficients' in reader.wave_functions:
+            name = 'coefficients'
+        elif 'values' in reader.wave_functions:
+            name = 'values'
+        else:
+            return ibzwfs
+
+        c = reader.bohr**1.5
+        if reader.version < 0:
+            c = 1  # old gpw file
+
+        for wfs in ibzwfs:
+            grid = self.wf_desc.new(kpt=wfs.kpt_c)
+            index = (wfs.spin, wfs.k)
+            data = reader.wave_functions.proxy(name, *index)
+            data.scale = c
+            if self.communicators['w'].size == 1:
+                wfs.psit_nX = UniformGridFunctions(grid, self.nbands,
+                                                   data=data)
+            else:
+                band_comm = self.communicators['b']
+                wfs.psit_nX = UniformGridFunctions(
+                    grid, self.nbands,
+                    comm=band_comm)
+                if grid.comm.rank == 0:
+                    mynbands = (self.nbands +
+                                band_comm.size - 1) // band_comm.size
+                    n1 = min(band_comm.rank * mynbands, self.nbands)
+                    n2 = min((band_comm.rank + 1) * mynbands, self.nbands)
+                    assert wfs.psit_nX.mydims[0] == n2 - n1
+                    data = data[n1:n2]  # read from file
+                wfs.psit_nX.scatter_from(data)
+
+        return ibzwfs
+
+
+class FDHamiltonian(Hamiltonian):
+    def __init__(self, grid, kin_stencil=3, blocksize=10):
         self.grid = grid
         self.blocksize = blocksize
-        self.gd = grid._gd
-        self.kin = Laplace(self.gd, -0.5, stencil, grid.dtype)
+        self._gd = grid._gd
+        self.kin = Laplace(self._gd, -0.5, kin_stencil, grid.dtype)
 
     def apply(self, vt_sR, psit_nR, out, spin):
         self.kin.apply(psit_nR.data, out.data, psit_nR.desc.phase_factors_cd)
@@ -78,7 +127,7 @@ class FDHamiltonian:
         from types import SimpleNamespace
 
         from gpaw.preconditioner import Preconditioner as PC
-        pc = PC(self.gd, self.kin, self.grid.dtype, self.blocksize)
+        pc = PC(self._gd, self.kin, self.grid.dtype, self.blocksize)
 
         def apply(psit, residuals, out):
             kpt = SimpleNamespace(phase_cd=psit.desc.phase_factors_cd)

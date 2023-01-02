@@ -1,15 +1,22 @@
-from gpaw.mpi import MPIComm, world
-import sys
+from __future__ import annotations
+
+import contextlib
 import os
+import sys
 from pathlib import Path
-from gpaw.utilities.memory import maxrss
+from typing import IO
+
+from gpaw.mpi import MPIComm, world
+from gpaw.yml import obj2yaml as o2y
 
 
 class Logger:
     def __init__(self,
-                 filename='-',
+                 filename: str | Path | IO[str] | None = '-',
                  comm: MPIComm = None):
         comm = comm or world
+
+        self.fd: IO[str]
 
         if comm.rank > 0 or filename is None:
             self.fd = open(os.devnull, 'w')
@@ -24,15 +31,35 @@ class Logger:
             self.fd = filename
             self.close_fd = False
 
+        self.indentation = ''
+
     def __del__(self) -> None:
-        try:
-            mib = maxrss() / 1024**2
-        except (NameError, LookupError):
-            pass
-        else:
-            self.fd.write(f'\nMax RSS: {mib:.3f} MiB\n')
         if self.close_fd:
             self.fd.close()
 
+    @contextlib.contextmanager
+    def indent(self, text):
+        self(text)
+        self.indentation += '  '
+        yield
+        self.indentation = self.indentation[2:]
+
+    @contextlib.contextmanager
+    def comment(self):
+        self.indentation += '# '
+        yield
+        self.indentation = self.indentation[2:]
+
     def __call__(self, *args, **kwargs) -> None:
-        print(*args, **kwargs, file=self.fd)
+        if not self.fd.closed:
+            i = self.indentation
+            if kwargs:
+                for kw, arg in kwargs.items():
+                    assert kw not in ['end', 'sep', 'flush', 'file'], kw
+                    print(f'{i}{kw}: {o2y(arg, i)}',
+                          file=self.fd)
+            else:
+                text = ' '.join(str(arg) for arg in args)
+                if i:
+                    text = i + text.replace('\n', '\n' + i)
+                print(text, file=self.fd)

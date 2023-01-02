@@ -138,7 +138,7 @@ class OccupationsDSCF:
 
 
 class MolecularOrbital:
-    r"""Class defining the orbitals that should be filled in a dSCF calculation.
+    r"""Class defining orbitals that should be filled in a dSCF calculation.
 
     An orbital is defined through a linear combination of the atomic
     partial waves. In each self-consistent cycle the method expand

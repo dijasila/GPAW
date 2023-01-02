@@ -1,6 +1,6 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
-
+from __future__ import annotations
 import sys
 import time
 import traceback
@@ -9,11 +9,11 @@ import pickle
 from contextlib import contextmanager
 from typing import Any
 
-from ase.parallel import world as aseworld
+from ase.parallel import world as aseworld, MPI as ASE_MPI
 import numpy as np
 
 import gpaw
-from .broadcast_imports import world
+from .broadcast_imports import world as _world
 import _gpaw
 
 MASTER = 0
@@ -628,7 +628,7 @@ class SerialCommunicator:
     def broadcast(self, buf, root):
         pass
 
-    def send(self, buff, root, tag=123, block=True):
+    def send(self, buff, dest, tag=123, block=True):
         pass
 
     def barrier(self):
@@ -679,7 +679,7 @@ class SerialCommunicator:
     def compare(self, other):
         if self == other:
             return 'ident'
-        elif isinstance(other, SerialCommunicator):
+        elif other.size == 1:
             return 'congruent'
         else:
             raise NotImplementedError('Compare serial comm to other')
@@ -695,26 +695,50 @@ class SerialCommunicator:
     def get_c_object(self):
         if gpaw.dry_run:
             return None  # won't actually be passed to C
-        raise NotImplementedError('Should not get C-object for serial comm')
+        return _world
 
 
-serial_comm = SerialCommunicator()
+world: SerialCommunicator | _Communicator | _gpaw.Communicator
+serial_comm: SerialCommunicator | _Communicator = SerialCommunicator()
 
-have_mpi = world is not None
+have_mpi = _world is not None
 
-if world is None:
+if not have_mpi or _world.size == 1:
     world = serial_comm
+else:
+    world = _world
 
 if gpaw.debug:
-    serial_comm = _Communicator(serial_comm)  # type: ignore
-    world = _Communicator(world)  # type: ignore
+    serial_comm = _Communicator(serial_comm)
+    world = _Communicator(world)
 
 rank = world.rank
 size = world.size
 parallel = (size > 1)
 
-if world.size != aseworld.size:
-    raise RuntimeError('Please use "gpaw python" to run in parallel')
+
+def verify_ase_world():
+    # ASE does not like that GPAW uses world.size at import time.
+    # .... because of GPAW's own import time communicator mish-mash.
+    # Now, GPAW wants to verify world.size and cannot do so,
+    # because of what ASE does for GPAW's sake.
+    # This really needs improvement!
+    assert aseworld is not None
+
+    if isinstance(aseworld, ASE_MPI):
+        # We only want to check if the communicator was already initialized.
+        # Otherwise the communicator will be initialized as a side effect
+        # of accessing the .size attribute,
+        # which ASE's tests will complain about.
+        check_size = aseworld.comm is not None
+    else:
+        check_size = True  # A real communicator, so we want to check that
+
+    if check_size and world.size != aseworld.size:
+        raise RuntimeError('Please use "gpaw python" to run in parallel')
+
+
+verify_ase_world()
 
 
 def broadcast(obj, root=0, comm=world):

@@ -12,10 +12,36 @@ def test_pw_redist():
     pw = PlaneWaves(ecut=10, cell=[a, a, a], comm=world)
     f1 = pw.empty()
     f1.data[:] = 1.0
-    f2 = f1.collect()
+    f2 = f1.gather()
     if f2 is not None:
         assert (f2.data == 1.0).all()
         assert f2.desc.comm.size == 1
+
+
+@pytest.mark.ci
+def test_pw_map():
+    """Test mapping from 5 to 9 G-vectors."""
+    pw5 = PlaneWaves(ecut=0.51 * (2 * pi)**2,
+                     cell=[1, 1, 0.1],
+                     dtype=complex)
+    pw9 = PlaneWaves(ecut=1.01 * (2 * pi)**2,
+                     cell=[1, 1, 0.1],
+                     dtype=complex,
+                     comm=world)
+    my_G_g, g_r = pw9.map_indices(pw5)
+    print(world.rank, my_G_g, g_r)
+    expected = {
+        1: ([[0, 1, 2, 3, 6]],
+            [[0, 1, 2, 3, 4]]),
+        2: ([[0, 1, 2, 3], [1]],
+            [[0, 1, 2, 3], [4]]),
+        4: ([[0, 1, 2], [0], [0], []],
+            [[0, 1, 2], [3], [4], []]),
+        8: ([[0, 1], [0, 1], [], [0], [], [], [], []],
+            [[0, 1], [2, 3], [], [4], [], [], [], []])}
+    assert not (my_G_g - expected[world.size][0][world.rank]).any()
+    for g, g0 in zip(g_r, expected[world.size][1]):
+        assert not (np.array(g) - g0).any()
 
 
 def test_pw_integrate():
@@ -54,7 +80,7 @@ def test_pw_integrate():
         print(f.data)
 
         gg = g.new()
-        gg.scatter_from(f.collect(broadcast=True)
+        gg.scatter_from(f.gather(broadcast=True)
                         .ifft(grid=g.desc.new(comm=None)))
         assert (g.data == gg.data).all()
 

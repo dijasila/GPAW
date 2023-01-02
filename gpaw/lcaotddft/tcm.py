@@ -1,8 +1,4 @@
-# -*- coding: utf-8 -*-
 import numpy as np
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-from matplotlib.colors import Normalize, LogNorm
 
 
 def generate_gridspec(**kwargs):
@@ -60,6 +56,7 @@ class TCM(object):
         self.base_u = np.zeros_like(energy_u)
 
     def __getattr__(self, attr):
+        import matplotlib.pyplot as plt
         # Generate axis only when needed
         if attr in ['ax_occ_dos', 'ax_unocc_dos', 'ax_tcm']:
             gs = generate_gridspec(hspace=0.05, wspace=0.05)
@@ -79,6 +76,9 @@ class TCM(object):
 
     def plot_TCM(self, tcm_ou, vmax='80%', vmin='symmetrize', cmap='seismic',
                  log=False, colorbar=True, lw=None):
+        import matplotlib as mpl
+        import matplotlib.pyplot as plt
+        from matplotlib.colors import Normalize, LogNorm
         if lw is None:
             lw = mpl.rcParams['lines.linewidth']
         energy_o = self.energy_o
@@ -128,7 +128,7 @@ class TCM(object):
                 norm = Normalize(vmin=vmin, vmax=vmax)
             plt.pcolormesh(energy_o, energy_u, tcm_ou.T,
                            cmap=cmap, rasterized=True, norm=norm,
-                           )
+                           shading='auto')
         if colorbar:
             ax = self.ax_cbar
             ax.clear()

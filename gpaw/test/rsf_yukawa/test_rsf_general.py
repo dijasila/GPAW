@@ -1,7 +1,7 @@
 """Check for tunability of gamma for yukawa potential."""
 import pytest
 from ase import Atoms
-from gpaw import GPAW, setup_paths
+from gpaw import GPAW
 from gpaw.cluster import Cluster
 from gpaw.eigensolvers import RMMDIIS
 from gpaw.xc.hybrid import HybridXC
@@ -10,14 +10,11 @@ from gpaw.test import gen
 import _gpaw
 
 
-def test_rsf_yukawa_rsf_general(in_tmp_dir):
+def test_rsf_yukawa_rsf_general(in_tmp_dir, add_cwd_to_setup_paths):
     libxc_version = getattr(_gpaw, 'libxc_version', '2.x.y')
     if int(libxc_version.split('.')[0]) < 3:
         from unittest import SkipTest
         raise SkipTest
-
-    if setup_paths[0] != '.':
-        setup_paths.insert(0, '.')
 
     for atom in ['Be']:
         gen(atom, xcname='PBE', scalarrel=True, exx=True,

@@ -1,3 +1,4 @@
+import pytest
 import numpy as np
 import time
 
@@ -6,11 +7,15 @@ from ase.parallel import parprint
 
 from gpaw import GPAW, PW
 from gpaw.test import findpeak, equal
-from gpaw.response.susceptibility import FourComponentSusceptibilityTensor
-from gpaw.response.susceptibility import read_component
 from gpaw.mpi import size, world
 
+from gpaw.response import ResponseGroundStateAdapter
+from gpaw.response.chiks import ChiKS
+from gpaw.response.susceptibility import ChiFactory, read_component
 
+
+@pytest.mark.kspair
+@pytest.mark.response
 def test_response_two_aluminum_chi_RPA(in_tmp_dir):
     assert size <= 4**3
 
@@ -26,7 +31,6 @@ def test_response_two_aluminum_chi_RPA(in_tmp_dir):
                  nbands=4,
                  kpts=(8, 8, 8),
                  parallel={'domain': 1},
-                 idiotproof=False,  # allow uneven distribution of k-points
                  xc='LDA')
 
     atoms1.calc = calc1
@@ -38,7 +42,6 @@ def test_response_two_aluminum_chi_RPA(in_tmp_dir):
                  nbands=8,
                  kpts=(4, 8, 8),
                  parallel={'domain': 1},
-                 idiotproof=False,  # allow uneven distribution of k-points
                  xc='LDA')
 
     atoms2.calc = calc2
@@ -51,27 +54,13 @@ def test_response_two_aluminum_chi_RPA(in_tmp_dir):
     q2_qc = [np.array([1 / 4., 0., 0.]), np.array([- 1 / 4., 0., 0.])]
     w = np.linspace(0, 24, 241)
 
-    # Calculate susceptibility using Al
-    fcst = FourComponentSusceptibilityTensor(calc1, fxc='RPA',
-                                             eta=0.2, ecut=50,
-                                             disable_point_group=False,
-                                             disable_time_reversal=False)
-    for q, q_c in enumerate(q1_qc):
-        fcst.get_component_array('00', q_c, w, array_ecut=25,
-                                 filename='Al1_chiGG_q%d.pckl' % (q + 1))
-        world.barrier()
+    # Calculate susceptibility using Al1
+    calculate_chi(calc1, q1_qc, w, filename_prefix='Al1')
 
     t4 = time.time()
 
     # Calculate susceptibility using Al2
-    fcst = FourComponentSusceptibilityTensor(calc2, fxc='RPA',
-                                             eta=0.2, ecut=50,
-                                             disable_point_group=False,
-                                             disable_time_reversal=False)
-    for q, q_c in enumerate(q2_qc):
-        fcst.get_component_array('00', q_c, w, array_ecut=25,
-                                 filename='Al2_chiGG_q%d.pckl' % (q + 1))
-        world.barrier()
+    calculate_chi(calc2, q2_qc, w, filename_prefix='Al2')
 
     t5 = time.time()
 
@@ -96,11 +85,31 @@ def test_response_two_aluminum_chi_RPA(in_tmp_dir):
     equal(np.linalg.norm(G22_Gc[1] - np.array([1, 0, 0])), 0., 1e-6)
 
     # Check plasmon peaks remain the same
-    wpeak11, Ipeak11 = findpeak(w11_w, chi11_wGG[:, 0, 0].imag)
-    wpeak21, Ipeak21 = findpeak(w21_w, chi21_wGG[:, 0, 0].imag)
+    wpeak11, Ipeak11 = findpeak(w11_w, -chi11_wGG[:, 0, 0].imag)
+    wpeak21, Ipeak21 = findpeak(w21_w, -chi21_wGG[:, 0, 0].imag)
     equal(wpeak11, wpeak21, 0.02)
     equal(Ipeak11, Ipeak21, 1.0)
-    wpeak12, Ipeak12 = findpeak(w12_w, chi12_wGG[:, 0, 0].imag)
-    wpeak22, Ipeak22 = findpeak(w22_w, chi22_wGG[:, 1, 1].imag)
+    wpeak12, Ipeak12 = findpeak(w12_w, -chi12_wGG[:, 0, 0].imag)
+    wpeak22, Ipeak22 = findpeak(w22_w, -chi22_wGG[:, 1, 1].imag)
     equal(wpeak12, wpeak22, 0.05)
     equal(Ipeak12, Ipeak22, 1.0)
+
+
+def calculate_chi(calc, q_qc, w,
+                  eta=0.2, ecut=50,
+                  spincomponent='00', fxc='RPA',
+                  filename_prefix=None, reduced_ecut=25):
+    gs = ResponseGroundStateAdapter(calc)
+    chiks = ChiKS(gs, eta=eta, ecut=ecut)
+    chi_factory = ChiFactory(chiks)
+
+    if filename_prefix is None:
+        filename = 'chiGG_qXXX.pckl'
+    else:
+        filename = filename_prefix + '_chiGG_qXXX.pckl'
+
+    for q, q_c in enumerate(q_qc):
+        fname = filename.replace('XXX', str(q + 1))
+        chi = chi_factory(spincomponent, q_c, w, fxc=fxc)
+        chi.write_component_array(fname, reduced_ecut=reduced_ecut)
+        world.barrier()

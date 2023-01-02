@@ -1,5 +1,4 @@
 # web-page: cl_field.ind_Ffe.png, qm_field.ind_Ffe.png, tot_field.ind_Ffe.png
-# -*- coding: utf-8 -*-
 from gpaw.mpi import world
 
 import numpy as np

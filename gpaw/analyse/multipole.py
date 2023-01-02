@@ -53,7 +53,7 @@ class Multipole:
         """Expand a function f_g in multipole moments
         units [e * Angstrom**l]"""
 
-        assert(f_g.shape == self.gd.empty().shape)
+        assert f_g.shape == self.gd.empty().shape
 
         q_L = []
         for L, y_g in enumerate(self.y_Lg):
@@ -77,8 +77,8 @@ class Multipole:
         print('# Multipole expansion of the charge density', file=f)
         print('# center =', self.center * Bohr, 'Angstrom', file=f)
         print('# lmax =', self.lmax, file=f)
-        print(('# see https://trac.fysik.dtu.dk/projects/gpaw/browser/' +
-              'trunk/c/bmgs/sharmonic.py'), file=f)
+        print('# see https://gitlab.com/gpaw/gpaw/-/blob/master/c/bmgs/'
+              'sharmonic.py', file=f)
         print('# for the definition of spherical harmonics', file=f)
         print('# l  m    q_lm[|e| Angstrom**l]', file=f)
 

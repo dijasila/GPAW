@@ -1,13 +1,15 @@
 """Test Hirshfeld for spin/no spin consistency."""
+import pytest
 from ase import Atom
-from gpaw import GPAW
 from ase.parallel import parprint
+
+from gpaw import GPAW, FermiDirac
 from gpaw.analyse.hirshfeld import HirshfeldPartitioning
-from gpaw import FermiDirac
 from gpaw.cluster import Cluster
 from gpaw.test import equal
 
 
+@pytest.mark.later
 def test_vdw_H_Hirshfeld():
     h = 0.25
     box = 3

@@ -9,26 +9,38 @@ from gpaw.pw.lfc import ft
 from gpaw.spherical_harmonics import Y, nablarlYL
 from gpaw.utilities.blas import mmm
 from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.new import prod
 
 
 class PlaneWaveAtomCenteredFunctions(AtomCenteredFunctions):
-    def __init__(self, functions, fracpos, pw):
-        AtomCenteredFunctions.__init__(self, functions, fracpos)
+    def __init__(self,
+                 functions,
+                 fracpos,
+                 pw,
+                 atomdist=None,
+                 xp=None):
+        AtomCenteredFunctions.__init__(self, functions, fracpos, atomdist)
         self.pw = pw
+        self.xp = xp or np
 
-    def _lacy_init(self):
+    def _lazy_init(self):
         if self._lfc is not None:
             return
 
         self._lfc = PWLFC(self.functions, self.pw)
-        atomdist = AtomDistribution(
-            ranks=np.zeros(len(self.fracpos_ac), int),
-            comm=self.pw.comm)
-        self._lfc.set_positions(self.fracpos_ac, atomdist)
+
+        if self._atomdist is None:
+            self._atomdist = AtomDistribution.from_number_of_atoms(
+                len(self.fracpos_ac), self.pw.comm)
+        else:
+            assert self.pw.comm is self._atomdist.comm
+
+        self._lfc.set_positions(self.fracpos_ac, self._atomdist)
         self._layout = AtomArraysLayout([sum(2 * f.l + 1 for f in funcs)
                                          for funcs in self.functions],
-                                        atomdist,
-                                        self.pw.dtype)
+                                        self._atomdist,
+                                        self.pw.dtype,
+                                        xp=self.xp)
 
     def to_uniform_grid(self,
                         out: UniformGridFunctions,
@@ -137,7 +149,7 @@ class PWLFC(BaseLFC):
         if self.pw.dtype == float:
             self.eikR_a = np.ones(len(spos_ac))
         else:
-            self.eikR_a = np.exp(2j * pi * (spos_ac @ self.pw.kpt))
+            self.eikR_a = np.exp(2j * pi * (spos_ac @ self.pw.kpt_c))
 
         self.pos_av = np.dot(spos_ac, self.pw.cell)
 
@@ -234,7 +246,9 @@ class PWLFC(BaseLFC):
         else:
             yield 0, nG
 
-    def add(self, a_xG, c_axi=1.0, f0_IG=None, q='asdf'):
+    def add(self, a_xG, c_axi=1.0, q=None):
+        if self.nI == 0:
+            return
         c_xI = np.empty(a_xG.shape[:-1] + (self.nI,), self.dtype)
 
         if isinstance(c_axi, float):
@@ -248,16 +262,12 @@ class PWLFC(BaseLFC):
             if self.comm.size != 1:
                 self.comm.sum(c_xI)
 
-        nx = np.prod(c_xI.shape[:-1], dtype=int)
+        nx = prod(c_xI.shape[:-1])
         c_xI = c_xI.reshape((nx, self.nI))
         a_xG = a_xG.reshape((nx, a_xG.shape[-1])).view(self.dtype)
 
         for G1, G2 in self.block():
-            if f0_IG is None:
-                f_GI = self.expand(G1, G2, cc=False)
-            else:
-                1 / 0
-                # f_IG = f0_IG
+            f_GI = self.expand(G1, G2, cc=False)
 
             if self.dtype == float:
                 # f_IG = f_IG.view(float)
@@ -268,9 +278,11 @@ class PWLFC(BaseLFC):
                 1.0, a_xG[:, G1:G2])
 
     def integrate(self, a_xG, c_axi=None, q=-1):
+        if self.nI == 0:
+            return c_axi
         c_xI = np.zeros(a_xG.shape[:-1] + (self.nI,), self.dtype)
 
-        nx = np.prod(c_xI.shape[:-1], dtype=int)
+        nx = prod(c_xI.shape[:-1])
         b_xI = c_xI.reshape((nx, self.nI))
         a_xG = a_xG.reshape((nx, a_xG.shape[-1]))
 
@@ -283,7 +295,7 @@ class PWLFC(BaseLFC):
             c_axi = self.dict(a_xG.shape[:-1])
 
         x = 0.0
-        for G1, G2 in self.block(q):
+        for G1, G2 in self.block():
             f_GI = self.expand(G1, G2, cc=self.dtype == complex)
             if self.dtype == float:
                 if G1 == 0 and self.comm.rank == 0:
@@ -301,7 +313,7 @@ class PWLFC(BaseLFC):
 
     def derivative(self, a_xG, c_axiv=None, q=-1):
         c_vxI = np.zeros((3,) + a_xG.shape[:-1] + (self.nI,), self.dtype)
-        nx = np.prod(c_vxI.shape[1:-1], dtype=int)
+        nx = prod(c_vxI.shape[1:-1])
         b_vxI = c_vxI.reshape((3, nx, self.nI))
         a_xG = a_xG.reshape((nx, a_xG.shape[-1])).view(self.dtype)
 
@@ -311,9 +323,9 @@ class PWLFC(BaseLFC):
             c_axiv = self.dict(a_xG.shape[:-1], derivative=True)
 
         x = 0.0
-        for G1, G2 in self.block(q):
+        for G1, G2 in self.block():
             f_GI = self.expand(G1, G2, cc=True)
-            G_Gv = self.pw.G_plus_k_Gv
+            G_Gv = self.pw.G_plus_k_Gv[G1:G2]
             if self.dtype == float:
                 d_GI = np.empty_like(f_GI)
                 for v in range(3):
@@ -339,7 +351,7 @@ class PWLFC(BaseLFC):
                     c_axiv[a][..., v] = c_vxI[v, ..., I1:I2]
             else:
                 for a, I1, I2 in self.my_indices:
-                    c_axiv[a][..., v] = (1.0j * self.eikR_qa[q][a] *
+                    c_axiv[a][..., v] = (1.0j * self.eikR_a[a] *
                                          c_vxI[v, ..., I1:I2])
 
         return c_axiv
@@ -379,7 +391,7 @@ class PWLFC(BaseLFC):
         G0_Gv = self.pd.get_reciprocal_vectors(q=q)
 
         stress_vv = np.zeros((3, 3))
-        for G1, G2 in self.block(q, ensure_same_number_of_blocks=True):
+        for G1, G2 in self.block(ensure_same_number_of_blocks=True):
             G_Gv = G0_Gv[G1:G2]
             Z_LvG = np.array([nablarlYL(L, G_Gv.T)
                               for L in range((lmax + 1)**2)])
@@ -408,7 +420,7 @@ class PWLFC(BaseLFC):
 
         c_xI = np.zeros(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
 
-        x = np.prod(c_xI.shape[:-1], dtype=int)
+        x = prod(c_xI.shape[:-1])
         b_xI = c_xI.reshape((x, self.nI))
         a_xG = a_xG.reshape((x, a_xG.shape[-1]))
 

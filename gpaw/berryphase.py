@@ -2,6 +2,7 @@ import json
 from os.path import exists, splitext
 
 from ase.dft.kpoints import get_monkhorst_pack_size_and_offset
+from ase.dft.bandgap import bandgap
 import numpy as np
 
 from gpaw import GPAW
@@ -28,6 +29,9 @@ def get_overlap(calc, bands, u1_nR, u2_nR, P1_ani, P2_ani, dO_aii, bG_v):
 def get_berry_phases(calc, spin=0, dir=0, check2d=False):
     if isinstance(calc, str):
         calc = GPAW(calc, communicator=serial_comm, txt=None)
+    
+    gap = bandgap(calc)[0]
+    assert gap != 0.0
 
     M = np.round(calc.get_magnetic_moment())
     assert np.allclose(M, calc.get_magnetic_moment(), atol=0.05), \
@@ -206,6 +210,7 @@ def get_polarization_phase(calc):
     if not exists(berryname) and world.rank == 0:
         # Calculate and save berry phases
         calc = GPAW(calc, communicator=serial_comm, txt=None)
+        assert len(calc.symmetry.op_scc) == 1
         nspins = calc.wfs.nspins
         data = {}
         for c in [0, 1, 2]:

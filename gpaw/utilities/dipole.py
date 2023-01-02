@@ -1,116 +1,67 @@
 """Calculate dipole matrix elements."""
-
-from math import pi
-from typing import List, Iterable
-
-from ase.units import Bohr
+from __future__ import annotations
 import numpy as np
-
-from gpaw.calculator import GPAW
-from gpaw.grid_descriptor import GridDescriptor
-from gpaw.setup import Setup
-from gpaw.mpi import serial_comm
-from gpaw.typing import Array2D, Array3D, Array4D, Vector
+from ase.units import Bohr
+from gpaw.new.ase_interface import ASECalculator, GPAW
+from gpaw.typing import Array3D, Vector
 
 
-def dipole_matrix_elements(gd: GridDescriptor,
-                           psit_nR: List[Array3D],
-                           P_nI: Array2D,
-                           position_av: Array2D,
-                           setups: List[Setup],
-                           center: Vector) -> Array3D:
-    """Calculate dipole matrix-elements.
+def dipole_matrix_elements(*args, **kwargs):
+    """Deprecated.
 
-    gd:
-        Grid-descriptor.
-    psit_nG:
-        Wave functions in atomic units.
-    P_nI:
-        PAW projections.
-    setups:
-        PAW setups.
-
-    Returns matrix elements in atomic units.
+    Use
+    ``gpaw.new.pwfd.wave_functions.PWFDWaveFunctions.dipole_matrix_elements``
+    instead.
     """
-    assert gd.comm.size == 1
-    dipole_nnv = np.empty((len(psit_nR), len(psit_nR), 3))
-
-    for na, psita_R in enumerate(psit_nR):
-        for nb, psitb_R in enumerate(psit_nR[:na + 1]):
-            d_v = -gd.dipole_moment(psita_R * psitb_R, center)
-            dipole_nnv[na, nb] = d_v
-            dipole_nnv[nb, na] = d_v
-
-    scenter_c = np.linalg.solve(gd.cell_cv.T, center)
-    spos_ac = np.linalg.solve(gd.cell_cv.T, position_av.T).T % 1.0
-    spos_ac -= scenter_c - 0.5
-    spos_ac %= 1.0
-    spos_ac += scenter_c - 0.5
-    position_av = spos_ac.dot(gd.cell_cv)
-
-    R_aiiv = []
-    for setup, position_v in zip(setups, position_av):
-        Delta_iiL = setup.Delta_iiL
-        R_iiv = Delta_iiL[:, :, [3, 1, 2]] * (4 * pi / 3)**0.5
-        R_iiv += position_v * setup.Delta_iiL[:, :, :1] * (4 * pi)**0.5
-        R_aiiv.append(R_iiv)
-
-    I1 = 0
-    for R_iiv in R_aiiv:
-        I2 = I1 + len(R_iiv)
-        P_ni = P_nI[:, I1:I2]
-        dipole_nnv += np.einsum('mi, ijv, nj -> mnv', P_ni, R_iiv, P_ni)
-        I1 = I2
-
-    return dipole_nnv
+    raise DeprecationWarning
 
 
-def dipole_matrix_elements_from_calc(calc: GPAW,
+def dipole_matrix_elements_from_calc(calc: ASECalculator,
                                      n1: int,
                                      n2: int,
-                                     center: Iterable[float] = None
-                                     ) -> List[Array4D]:
-    """Calculate dipole matrix-elements (units: Å)."""
-    wfs = calc.wfs
-    assert wfs.kd.gamma
+                                     center: Vector = None
+                                     ) -> list[Array3D]:
+    """Calculate dipole matrix-elements (units: eÅ).
 
-    gd = wfs.gd.new_descriptor(comm=serial_comm)
-    position_av = calc.atoms.positions / Bohr
+    Parameters
+    ----------
+    n1, n2:
+        Band range.
+    center:
+        Center of molecule in Å.  Defaults to center of cell.
+    """
+    ibzwfs = calc.calculation.state.ibzwfs
 
-    if center is None:
-        center_v = gd.cell_cv.sum(axis=0) / 2
-    else:
-        center_v = np.asarray(center) / Bohr
+    assert ibzwfs.ibz.bz.gamma_only
+
+    if center is not None:
+        center = np.asarray(center) / Bohr
+
+    wfs_s = ibzwfs.wfs_qs[0]
 
     d_snnv = []
-    for spin in range(calc.get_number_of_spins()):
-        psit_nR = [calc.get_pseudo_wave_function(band=n, spin=spin,
-                                                 pad=False) * Bohr**1.5
-                   for n in range(n1, n2)]
-        projections = wfs.kpt_qs[0][spin].projections.view(n1, n2)
-        P_nI = projections.collect()
-
-        if wfs.world.rank == 0:
-            d_nnv = dipole_matrix_elements(gd,
-                                           psit_nR,
-                                           P_nI,
-                                           position_av,
-                                           wfs.setups,
-                                           center_v) * Bohr
+    for wfs in wfs_s:
+        if calc.params.mode['name'] == 'lcao':
+            basis = calc.calculation.scf_loop.hamiltonian.basis
+            grid = calc.calculation.state.density.nt_sR.desc
+            wfs = wfs.to_uniform_grid_wave_functions(grid, basis)
+        wfs = wfs.collect(n1, n2)
+        if wfs is not None:
+            d_nnv = wfs.dipole_matrix_elements(center) * Bohr
         else:
             d_nnv = np.empty((n2 - n1, n2 - n1, 3))
-        wfs.world.broadcast(d_nnv, 0)
+        calc.params.parallel['world'].broadcast(d_nnv, 0)
         d_snnv.append(d_nnv)
 
     return d_snnv
 
 
-def main(argv: List[str] = None) -> None:
+def main(argv: list[str] = None) -> None:
     import argparse
 
     parser = argparse.ArgumentParser(
         prog='python3 -m gpaw.utilities.dipole',
-        description='Calculate dipole matrix elements.  Units: Å.')
+        description='Calculate dipole matrix elements.  Units: eÅ.')
 
     add = parser.add_argument
 
@@ -133,15 +84,16 @@ def main(argv: List[str] = None) -> None:
     if args.center:
         center = [float(x) for x in args.center.split(',')]
     else:
-        center = calc.atoms.cell.sum(axis=0) / 2  # center of cell
+        center = None  # center of cell
 
-    d_snnv = dipole_matrix_elements_from_calc(calc, n1, n2, center)
+        d_snnv = dipole_matrix_elements_from_calc(calc, n1, n2, center)
 
-    if calc.wfs.world.rank > 0:
+    if calc.params.parallel['world'].rank > 0:
         return
 
     print('Number of bands:', nbands)
     print('Number of valence electrons:', calc.get_number_of_electrons())
+    print('Units: eÅ')
     print()
 
     for spin, d_nnv in enumerate(d_snnv):

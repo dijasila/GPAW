@@ -1,10 +1,16 @@
 from __future__ import annotations
+
 import itertools
 import warnings
 from types import SimpleNamespace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable
 
-from gpaw.scf import dict2criterion, write_iteration
+from gpaw.convergence_criteria import (Criterion, check_convergence,
+                                       dict2criterion)
+from gpaw.scf import write_iteration
+from gpaw.typing import Array2D
+from gpaw.yml import indent
+
 if TYPE_CHECKING:
     from gpaw.new.calculation import DFTState
 
@@ -29,54 +35,69 @@ class SCFLoop:
         self.world = world
         self.convergence = convergence
         self.maxiter = maxiter
+        self.niter = 0
+        self.update_density_and_potential = True
 
     def __repr__(self):
         return 'SCFLoop(...)'
 
     def __str__(self):
-        return (f'{self.hamiltonian}\n'
-                f'{self.eigensolver}\n'
+        return (f'eigensolver:\n{indent(self.eigensolver)}\n'
                 f'{self.mixer}\n'
-                f'{self.occ_calc}\n'
-                f'{self.convergence}\n'
-                f'Maximum number of iterations: {self.maxiter}')
+                f'occupation numbers:\n{indent(self.occ_calc)}\n')
 
     def iterate(self,
                 state: DFTState,
                 pot_calc,
                 convergence=None,
                 maxiter=None,
+                calculate_forces=None,
                 log=None):
+
         cc = create_convergence_criteria(convergence or self.convergence)
         maxiter = maxiter or self.maxiter
 
+        if log:
+            log('convergence criteria:')
+            for criterion in cc.values():
+                if criterion.description is not None:
+                    log('- ' + criterion.description)
+            log(f'maximum number of iterations: {self.maxiter}\n')
+
         self.mixer.reset()
 
-        dens_error = self.mixer.mix(state.density)
+        if self.update_density_and_potential:
+            dens_error = self.mixer.mix(state.density)
+        else:
+            dens_error = 0.0
 
-        for niter in itertools.count(start=1):
+        for self.niter in itertools.count(start=1):
             wfs_error = self.eigensolver.iterate(state, self.hamiltonian)
-            state.ibzwfs.calculate_occs(self.occ_calc)
+            state.ibzwfs.calculate_occs(
+                self.occ_calc,
+                fixed_fermi_level=not self.update_density_and_potential)
 
             ctx = SCFContext(
-                state, niter,
+                state, self.niter,
                 wfs_error, dens_error,
-                self.world)
+                self.world, calculate_forces)
 
             yield ctx
 
-            entries, converged = check_convergence(ctx, cc)
+            converged, converged_items, entries = check_convergence(cc, ctx)
             if log:
-                write_iteration(cc, converged, entries, ctx, log)
-            if all(converged.values()):
+                with log.comment():
+                    write_iteration(cc, converged_items, entries, ctx, log)
+            if converged:
                 break
-            if niter == maxiter:
+            if self.niter == maxiter:
                 raise SCFConvergenceError
 
-            state.density.update(pot_calc.nct_R, state.ibzwfs)
-            dens_error = self.mixer.mix(state.density)
-            state.potential, state.vHt_x, _ = pot_calc.calculate(
-                state.density, state.vHt_x)
+            if self.update_density_and_potential:
+                state.density.update(pot_calc.nct_R, state.ibzwfs)
+                dens_error = self.mixer.mix(state.density)
+                state.potential, state.vHt_x, _ = pot_calc.calculate(
+                    state.density, state.vHt_x)
 
 
 class SCFContext:
@@ -85,7 +106,8 @@ class SCFContext:
                  niter: int,
                  wfs_error: float,
                  dens_error: float,
-                 world):
+                 world,
+                 calculate_forces: Callable[[], Array2D]):
         self.state = state
         self.niter = niter
         energy = (sum(state.potential.energies.values()) +
@@ -102,30 +124,16 @@ class SCFContext:
             .calculate_magnetic_moments,
             fixed=False,
             error=dens_error)
+        self.calculate_forces = calculate_forces
 
 
-def check_convergence(ctx, criteria):
-    entries = {}  # for log file, per criteria
-    converged_items = {}  # True/False, per criteria
-
-    for name, criterion in criteria.items():
-        if not criterion.calc_last:
-            converged_items[name], entries[name] = criterion(ctx)
-
-    converged = all(converged_items.values())
-
-    for name, criterion in criteria.items():
-        if criterion.calc_last:
-            if converged:
-                converged_items[name], entries[name] = criterion(ctx)
-            else:
-                converged_items[name], entries[name] = False, ''
-
-    # Converged?
-    return entries, converged_items
-
-
-def create_convergence_criteria(criteria):
+def create_convergence_criteria(criteria: dict[str, Any]
+                                ) -> dict[str, Criterion]:
+    for k, v in [('energy', 0.0005),        # eV / electron
+                 ('density', 1.0e-4),       # electrons / electron
+                 ('eigenstates', 4.0e-8)]:  # eV^2 / electron
+        if k not in criteria:
+            criteria[k] = v
     # Gather convergence criteria for SCF loop.
     custom = criteria.pop('custom', [])
     for name, criterion in criteria.items():

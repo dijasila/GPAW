@@ -283,7 +283,7 @@ class BlacsDescriptor(MatrixDescriptor):
         +--+--+--+--+..+--+
 
     Also refer to:
-    http://acts.nersc.gov/scalapack/hands-on/datadist.html
+    https://netlib.org/scalapack/slug/index.html
 
     Parameters:
      * blacsgrid: the BLACS grid of processors to distribute matrices.

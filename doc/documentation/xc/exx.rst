@@ -126,10 +126,6 @@ Here is an example:
 .. literalinclude:: hydrogen_atom.py
 
 
-.. autoclass:: gpaw.xc.exx.EXX
-   :members:
-
-
 .. [AB98] C. Adamo and V. Barone.
    *Toward Chemical Accuracy in the Computation of NMR Shieldings: The PBE0
    Model.*.

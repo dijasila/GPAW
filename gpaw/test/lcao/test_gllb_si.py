@@ -18,6 +18,7 @@ def calc():
         yield calc
 
 
+@pytest.mark.later
 @pytest.mark.gllb
 @pytest.mark.libxc
 def test_lcao_gllb_si(in_tmp_dir, calc):

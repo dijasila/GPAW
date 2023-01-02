@@ -30,7 +30,7 @@ def calculate_paw_stuff(wfs, dens) -> List[PAWThings]:
         data = wfs.setups[a]
         for VV_aii, D_p in zip(VV_saii, D_sp):
             D_ii = unpack2(D_p) * (dens.nspins / 2)
-            VV_ii = pawexxvv(data, D_ii)
+            VV_ii = pawexxvv(data.M_pp, D_ii)
             VV_aii[a] = VV_ii
 
     Delta_aiiL = []
@@ -43,7 +43,7 @@ def calculate_paw_stuff(wfs, dens) -> List[PAWThings]:
             for VV_aii in VV_saii]
 
 
-def pawexxvv(atomdata, D_ii):
+def pawexxvv(M_pp, D_ii):
     """PAW correction for valence-valence EXX energy."""
     ni = len(D_ii)
     V_ii = np.empty((ni, ni))
@@ -54,6 +54,6 @@ def pawexxvv(atomdata, D_ii):
                 p13 = packed_index(i1, i3, ni)
                 for i4 in range(ni):
                     p24 = packed_index(i2, i4, ni)
-                    V += atomdata.M_pp[p13, p24] * D_ii[i3, i4]
+                    V += M_pp[p13, p24] * D_ii[i3, i4]
             V_ii[i1, i2] = V
     return V_ii

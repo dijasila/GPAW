@@ -5,10 +5,10 @@ import os
 import sys
 import contextlib
 from pathlib import Path
-from typing import List, Dict, Union, Any
+from typing import List, Dict, Union, Any, TYPE_CHECKING
 
-__version__ = '22.1.1b1'
-__ase_version_required__ = '3.23.0b1'
+__version__ = '22.8.1b1'
+__ase_version_required__ = '3.22.1'
 __all__ = ['GPAW',
            'Mixer', 'MixerSum', 'MixerDif', 'MixerSum2',
            'CG', 'Davidson', 'RMMDIIS', 'DirectLCAO',
@@ -21,7 +21,11 @@ __all__ = ['GPAW',
 setup_paths: List[Union[str, Path]] = []
 is_gpaw_python = '_gpaw' in sys.builtin_module_names
 dry_run = 0
-debug: bool = bool(sys.flags.debug)
+
+# When type-checking or running pytest, we want the debug-wrappers enabled:
+debug: bool = (TYPE_CHECKING or
+               'pytest' in sys.modules or
+               bool(sys.flags.debug))
 
 
 @contextlib.contextmanager
@@ -49,8 +53,20 @@ with broadcast_imports:
     import warnings
     from argparse import ArgumentParser, REMAINDER, RawDescriptionHelpFormatter
 
+    # With gpaw-python BLAS symbols are in global scope and we need to
+    # ensure that NumPy and SciPy use symbols from their own dependencies
+    if is_gpaw_python:
+        old_dlopen_flags = sys.getdlopenflags()
+        sys.setdlopenflags(old_dlopen_flags | os.RTLD_DEEPBIND)
     import numpy as np
+    import scipy.linalg  # noqa: F401
+    if is_gpaw_python:
+        sys.setdlopenflags(old_dlopen_flags)
     import _gpaw
+
+
+if getattr(_gpaw, 'version', 0) != 3:
+    raise ImportError('Please recompile GPAW''s C-extensions!')
 
 
 class ConvergenceError(Exception):
@@ -148,16 +164,26 @@ def main():
 if debug:
     np.seterr(over='raise', divide='raise', invalid='raise', under='ignore')
     oldempty = np.empty
+    oldempty_like = np.empty_like
 
     def empty(*args, **kwargs):
         a = oldempty(*args, **kwargs)
         try:
             a.fill(np.nan)
         except ValueError:
-            a.fill(-1000000)
+            a.fill(42)
+        return a
+
+    def empty_like(*args, **kwargs):
+        a = oldempty_like(*args, **kwargs)
+        try:
+            a.fill(np.nan)
+        except ValueError:
+            a.fill(-42)
         return a
 
     np.empty = empty
+    np.empty_like = empty_like
 
 
 with broadcast_imports:

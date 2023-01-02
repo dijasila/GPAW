@@ -16,7 +16,7 @@ def test_fileio_file_reference(in_tmp_dir):
                   cell=(3.5, 3.5, 4 + 2 / 3),
                   pbc=True)
 
-    # Only a short, non-converged calcuation
+    # Only a short, non-converged calculation
     conv = {'eigenstates': 1.24, 'energy': 2e-1, 'density': 1e-1}
     calc = GPAW(h=0.30, kpts=(1, 1, 3),
                 setups={'Na': '1'},
@@ -32,4 +32,4 @@ def test_fileio_file_reference(in_tmp_dir):
     calc = GPAW('tmp', communicator=comm)
     wf1 = calc.get_pseudo_wave_function(2, 1, 1)
     diff = np.abs(wf0 - wf1)
-    assert(np.all(diff < 1e-12))
+    assert np.all(diff < 1e-12)
