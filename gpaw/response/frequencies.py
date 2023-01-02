@@ -59,6 +59,26 @@ class FrequencyDescriptor:
         return FrequencyGridDescriptor(np.asarray(input) / Ha)
 
 
+class ComplexFrequencyDescriptor:
+
+    def __init__(self, hz_z: ArrayLike1D):
+        """Construct the complex frequency descriptor.
+
+        Parameters
+        ----------
+        hz_z:
+            Array of complex frequencies (in units of Hartree)
+        """
+        # Use a copy of the input array
+        hz_z = np.asarray(hz_z).copy()
+        assert hz_z.dtype == complex
+
+        self.hz_z = hz_z
+
+    def __len__(self):
+        return len(self.hz_z)
+
+
 class FrequencyGridDescriptor(FrequencyDescriptor):
 
     def get_index_range(self, lim1_m, lim2_m):
