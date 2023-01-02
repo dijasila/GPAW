@@ -10,7 +10,7 @@ int bmgs_fd_boundary_test(const bmgsstencil_gpu* s, int boundary,
 bmgsstencil_gpu bmgs_stencil_to_gpu(bmgsstencil *s);
 
 double bmgs_fd_cuda_cpu(const bmgsstencil* s, const double* a, double* b,
-                        int boundary, int blocks);
+                        int blocks);
 
 void bmgs_fd_cuda_gpu(const bmgsstencil_gpu* s, const double* adev,
                       double* bdev, int boundary, int blocks,
@@ -79,7 +79,7 @@ double bmgs_interpolate_cuda_cpu(int k, int skip[3][2],
 
 // complex routines:
 double bmgs_fd_cuda_cpuz(const bmgsstencil* s, const gpuDoubleComplex* a,
-                         gpuDoubleComplex* b, int boundary, int blocks);
+                         gpuDoubleComplex* b, int blocks);
 
 void bmgs_fd_cuda_gpuz(const bmgsstencil_gpu* s, const gpuDoubleComplex* adev,
                        gpuDoubleComplex* bdev, int boundary, int blocks,

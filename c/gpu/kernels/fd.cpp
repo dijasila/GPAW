@@ -768,7 +768,7 @@ void Zcuda(bmgs_fd_cuda_gpu)(
 
 extern "C"
 double Zcuda(bmgs_fd_cuda_cpu)(const bmgsstencil* s, const Tcuda* a,
-                               Tcuda* b, int boundary, int blocks)
+                               Tcuda* b, int blocks)
 {
     Tcuda *adev, *bdev;
     size_t asize,bsize;

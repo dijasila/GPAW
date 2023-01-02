@@ -117,7 +117,7 @@ int calc_test_fd(int n1, int n2, int n3, int blocks)
         a[i] = rand() / (double) RAND_MAX;
     }
 
-    bmgs_fd_cuda_cpu(&s, a, b_cuda, GPAW_BOUNDARY_NORMAL, 1);
+    bmgs_fd_cuda_cpu(&s, a, b_cuda, 1);
 
     memset(b, 0, blocks * bsize * sizeof(double));
     memset(b_cuda, 0,blocks * bsize * sizeof(double));
@@ -130,7 +130,7 @@ int calc_test_fd(int n1, int n2, int n3, int blocks)
     }
     gettimeofday(&t1, NULL);
     for (int i=0; i < ntimes; i++)
-        flops3 += bmgs_fd_cuda_cpu(&s, a, b_cuda, GPAW_BOUNDARY_NORMAL,
+        flops3 += bmgs_fd_cuda_cpu(&s, a, b_cuda,
                                    blocks);
     gettimeofday(&t2, NULL);
 
@@ -569,7 +569,7 @@ int calc_test_fdz(int n1, int n2, int n3, int blocks)
         a[i].y = rand() / (double) RAND_MAX;
     }
 
-    bmgs_fd_cuda_cpuz(&s, a, b_cuda, GPAW_BOUNDARY_NORMAL, 1);
+    bmgs_fd_cuda_cpuz(&s, a, b_cuda, 1);
 
     memset(b, 0, blocks * bsize * sizeof(cuDoubleComplex));
     memset(b_cuda, 0, blocks * bsize * sizeof(cuDoubleComplex));
@@ -583,7 +583,7 @@ int calc_test_fdz(int n1, int n2, int n3, int blocks)
     }
     gettimeofday(&t1, NULL);
     for (int i=0; i < ntimes;i++)
-        flops3 += bmgs_fd_cuda_cpuz(&s, a, b_cuda, GPAW_BOUNDARY_NORMAL,
+        flops3 += bmgs_fd_cuda_cpuz(&s, a, b_cuda,
                                     blocks);
     gettimeofday(&t2, NULL);
 
