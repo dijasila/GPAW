@@ -70,7 +70,7 @@ class ComplexFrequencyDescriptor:
             Array of complex frequencies (in units of Hartree)
         """
         # Use a copy of the input array
-        hz_z = np.asarray(hz_z).copy()
+        hz_z = np.array(hz_z)
         assert hz_z.dtype == complex
 
         self.hz_z = hz_z
