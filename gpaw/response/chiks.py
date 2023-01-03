@@ -55,7 +55,7 @@ class ChiKS:
         zd = ComplexFrequencyDescriptor(wd.omega_w + 1.j * self.eta)
         chiks = self.calc.calculate(spincomponent, q_c, zd)
 
-        return chiks.pd, chiks.array
+        return chiks
 
     def get_pw_descriptor(self, q_c):
         return self.calc.get_pw_descriptor(q_c)
