@@ -123,10 +123,9 @@ def test_chiks_symmetry(in_tmp_dir, gpw_files, q_c, eta, gammacentered):
             for q_c in q_qc:
                 chiksdata = chiks.calculate(q_c, frequencies,
                                             spincomponent='+-')
-                chiks_wGG = chiksdata.blockdist.distribute_frequencies(
-                    chiksdata.array, len(chiksdata.zd))
+                chiksdata = chiksdata.copy_with_global_frequency_distribution()
                 pd_q.append(chiksdata.pd)
-                chiks_qwGG.append(chiks_wGG)
+                chiks_qwGG.append(chiksdata.array)
 
             chiks_bqwGG.append(chiks_qwGG)
             pd_bq.append(pd_q)
