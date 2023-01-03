@@ -15,7 +15,7 @@ from gpaw.test import findpeak
 from gpaw.mpi import world
 
 from gpaw.response import ResponseGroundStateAdapter
-from gpaw.response.chiks import ChiKS
+from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.susceptibility import ChiFactory
 from gpaw.response.df import read_response_function
 
@@ -62,17 +62,17 @@ def test_response_iron_sf_ALDA(in_tmp_dir, gpw_files, scalapack):
 
     for s, ((rshelmax, rshewmin, bandsummation, bundle_integrals,
              disable_syms), frq_w) in enumerate(zip(strat_sd, frq_sw)):
-        chiks = ChiKS(gs,
-                      nbands=nbands,
-                      eta=eta,
-                      ecut=ecut,
-                      bandsummation=bandsummation,
-                      bundle_integrals=bundle_integrals,
-                      disable_point_group=disable_syms,
-                      disable_time_reversal=disable_syms,
-                      nblocks=2)
-        chi_factory = ChiFactory(chiks)
-        chi = chi_factory('+-', q_c, frq_w,
+        complex_frequencies = frq_w + 1.j * eta
+        chiks_calc = ChiKSCalculator(gs,
+                                     nbands=nbands,
+                                     ecut=ecut,
+                                     bandsummation=bandsummation,
+                                     bundle_integrals=bundle_integrals,
+                                     disable_point_group=disable_syms,
+                                     disable_time_reversal=disable_syms,
+                                     nblocks=2)
+        chi_factory = ChiFactory(chiks_calc)
+        chi = chi_factory('+-', q_c, complex_frequencies,
                           fxc=fxc,
                           fxckwargs={'rshelmax': rshelmax,
                                      'rshewmin': rshewmin})

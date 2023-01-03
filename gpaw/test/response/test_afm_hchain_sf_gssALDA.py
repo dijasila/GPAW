@@ -13,7 +13,8 @@ from gpaw.mpi import world
 from gpaw.test import findpeak
 
 from gpaw.response import ResponseGroundStateAdapter
-from gpaw.response.chiks import ChiKS
+from gpaw.response.frequencies import ComplexFrequencyDescriptor
+from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.susceptibility import ChiFactory
 from gpaw.response.df import read_response_function
 
@@ -47,6 +48,7 @@ def test_response_afm_hchain_gssALDA(in_tmp_dir):
     ecut = 120
     frq_w = np.linspace(-0.6, 0.6, 41)
     eta = 0.24
+    zd = ComplexFrequencyDescriptor.from_array(frq_w + 1.j * eta)
     if world.size > 1:
         nblocks = 2
     else:
@@ -79,18 +81,17 @@ def test_response_afm_hchain_gssALDA(in_tmp_dir):
                  'rshewmin': rshewmin,
                  'fxc_scaling': fxc_scaling}
     gs = ResponseGroundStateAdapter(calc)
-    chiks = ChiKS(gs,
-                  nbands=nbands,
-                  eta=eta,
-                  ecut=ecut,
-                  gammacentered=True,
-                  nblocks=nblocks)
-    chi_factory = ChiFactory(chiks)
+    chiks_calc = ChiKSCalculator(gs,
+                                 nbands=nbands,
+                                 ecut=ecut,
+                                 gammacentered=True,
+                                 nblocks=nblocks)
+    chi_factory = ChiFactory(chiks_calc)
                   
     for q, q_c in enumerate(q_qc):
         filename = 'h-chain_macro_tms_q%d.csv' % q
         txt = 'h-chain_macro_tms_q%d.txt' % q
-        chi = chi_factory('+-', q_c, frq_w,
+        chi = chi_factory('+-', q_c, zd,
                           fxc=fxc,
                           fxckwargs=fxckwargs,
                           txt=txt)
