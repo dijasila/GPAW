@@ -160,9 +160,7 @@ class Chi:
         from gpaw.response.df import write_response_function
 
         # For now, we assume that eta is fixed, so we don't need to write it
-        hz_z = self.chiksdata.zd.hz_z
-        assert np.allclose(hz_z.imag, hz_z.imag[0])
-        omega_w = hz_z.real * Hartree
+        omega_w = self.chiksdata.zd.omega_w * Hartree
 
         chiks_wGG = self.chiksdata.array
         chi_wGG = self._calculate()
@@ -184,9 +182,7 @@ class Chi:
         plane-wave basis."""
 
         # For now, we assume that eta is fixed, so we don't need to write it
-        hz_z = self.chiksdata.zd.hz_z
-        assert np.allclose(hz_z.imag, hz_z.imag[0])
-        omega_w = hz_z.real * Hartree
+        omega_w = self.chiksdata.zd.omega_w * Hartree
 
         chiks_wGG = self.chiksdata.array
         chi_wGG = self._calculate()

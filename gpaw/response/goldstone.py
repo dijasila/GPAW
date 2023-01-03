@@ -33,11 +33,8 @@ def get_scaled_xc_kernel(chiksdata, Kxc_GG, fxc_scaling):
 def get_goldstone_scaling(mode, chiksdata, Kxc_GG):
     """Get kernel scaling parameter fulfilling the Goldstone theorem."""
     # Find the frequency to determine the scaling from
-    hz_z = chiksdata.zd.hz_z
-    omega_z, eta_z = hz_z.real, hz_z.imag
-    assert np.allclose(eta_z, eta_z[0]),\
-        'Use a unique value for eta, when scaling the kernel!'
-    wgs = find_goldstone_frequency(mode, omega_z)
+    omega_w = chiksdata.zd.omega_w
+    wgs = find_goldstone_frequency(mode, omega_w)
 
     # Only one rank, rgs, has the given frequency and finds the rescaling
     assert chiksdata.distribution == 'zGG'
