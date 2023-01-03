@@ -32,18 +32,16 @@ class ChiFactory:
 
     def __call__(self, spincomponent, q_c, complex_frequencies,
                  fxc='ALDA', fxckwargs=None, txt=None):
-        """Calculate a given element (spincomponent) of the four-component
+        r"""Calculate a given element (spincomponent) of the four-component
         Kohn-Sham susceptibility tensor and construct a corresponding many-body
         susceptibility object within a given approximation to the
         exchange-correlation kernel.
 
         Parameters
         ----------
-        spincomponent : str or int
-            What susceptibility should be calculated?
+        spincomponent : str
+            Spin component (μν) of the susceptibility.
             Currently, '00', 'uu', 'dd', '+-' and '-+' are implemented.
-            'all' is an alias for '00', kept for backwards compability
-            Likewise 0 or 1, can be used for 'uu' or 'dd'
         q_c : list or ndarray
             Wave vector
         complex_frequencies : np.array or ComplexFrequencyDescriptor
