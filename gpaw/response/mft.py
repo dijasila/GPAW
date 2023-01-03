@@ -146,7 +146,7 @@ class IsotropicExchangeCalculator:
         return self._pd, self._chiksr_GG
 
     def _calculate_chiksr(self, q_c, txt=None):
-        r"""Use the ChiKS calculator to calculate the reactive part of the
+        r"""Use the ChiKSCalculator to calculate the reactive part of the
         static Kohn-Sham susceptibility χ_KS^('+-)(q).
 
         First, the dynamic Kohn-Sham susceptibility
