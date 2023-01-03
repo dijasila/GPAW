@@ -53,9 +53,9 @@ class ChiKS:
                                                    self.calc.intrablockcomm)
 
         zd = ComplexFrequencyDescriptor(wd.omega_w + 1.j * self.eta)
-        chiks = self.calc.calculate(spincomponent, q_c, zd)
+        chiksdata = self.calc.calculate(spincomponent, q_c, zd)
 
-        return chiks
+        return chiksdata
 
     def get_pw_descriptor(self, q_c):
         return self.calc.get_pw_descriptor(q_c)
