@@ -325,7 +325,7 @@ def get_inverted_pw_mapping(pd1, pd2):
     return invmap_GG
 
 
-def symmetrize_reciprocity(pd, A_wGG):
+def symmetrize_reciprocity(pd, X_wGG):
     """In collinear systems without spin-orbit coupling, the plane wave
     susceptibility is reciprocal in the sense that e.g.
 
@@ -338,9 +338,9 @@ def symmetrize_reciprocity(pd, A_wGG):
     q_c = pd.q_c
     if np.allclose(q_c, 0.):
         invmap_GG = get_inverted_pw_mapping(pd, pd)
-        for A_GG in A_wGG:
+        for X_GG in X_wGG:
             # Symmetrize [χ_(GG')(q, ω) + χ_(-G'-G)(-q, ω)] / 2
-            A_GG[:] = (A_GG + A_GG[invmap_GG].T) / 2.
+            X_GG[:] = (X_GG + X_GG[invmap_GG].T) / 2.
 
 
 def write_component(omega_w, G_Gc, chiks_wGG, chi_wGG, filename):
