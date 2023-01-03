@@ -4,7 +4,7 @@ import numpy as np
 
 from ase.units import Hartree
 
-from gpaw.response.frequencies import FrequencyDescriptor
+from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.fxc_kernels import get_fxc
 from gpaw.response.coulomb_kernels import get_coulomb_kernel
 from gpaw.response.dyson import DysonSolver
@@ -15,23 +15,22 @@ class ChiFactory:
     r"""User interface to calculate individual elements of the four-component
     susceptibility tensor χ^μν, see [PRB 103, 245110 (2021)]."""
 
-    def __init__(self, chiks):
+    def __init__(self, chiks_calc):
         """Contruct the many-bode susceptibility factory based on a given
         Kohn-Sham susceptibility calculator.
 
         Parameters
         ----------
-        chiks: ChiKS
-            ChiKS calculator object
+        chiks_calc: ChiKSCalculator
         """
-        self.chiks = chiks
-        self.context = chiks.context
-        self.gs = chiks.gs
+        self.chiks_calc = chiks_calc
+        self.context = chiks_calc.context
+        self.gs = chiks_calc.gs
 
         # Prepare a buffer for chiksdata
         self._chiksdata = None
 
-    def __call__(self, spincomponent, q_c, frequencies,
+    def __call__(self, spincomponent, q_c, complex_frequencies,
                  fxc='ALDA', fxckwargs=None, txt=None):
         """Calculate a given element (spincomponent) of the four-component
         Kohn-Sham susceptibility tensor and construct a corresponding many-body
@@ -47,10 +46,9 @@ class ChiFactory:
             Likewise 0 or 1, can be used for 'uu' or 'dd'
         q_c : list or ndarray
             Wave vector
-        frequencies : ndarray, dict or FrequencyDescriptor
-            Array of frequencies to evaluate the response function at,
-            dictionary of parameters for build-in frequency grids or a
-            descriptor of those frequencies.
+        complex_frequencies : np.array or ComplexFrequencyDescriptor
+            Array of complex frequencies to evaluate the response function at
+            or a descriptor of those frequencies.
         fxc : str
             Approximation to the xc kernel
         fxckwargs : dict
@@ -71,7 +69,7 @@ class ChiFactory:
         self.context.print('---------------')
 
         # Calculate chiks (or get it from the buffer)
-        chiksdata = self.get_chiks(spincomponent, q_c, frequencies)
+        chiksdata = self.get_chiks(spincomponent, q_c, complex_frequencies)
 
         # Calculate the Coulomb kernel
         if spincomponent in ['+-', '-+']:
@@ -91,20 +89,21 @@ class ChiFactory:
 
         return Chi(self.context, chiksdata, Vbare_G, Kxc_GG)
 
-    def get_chiks(self, spincomponent, q_c, frequencies):
+    def get_chiks(self, spincomponent, q_c, complex_frequencies):
         """Get chiksdata from buffer."""
         q_c = np.asarray(q_c)
-        wd = FrequencyDescriptor.from_array_or_dict(frequencies)
+        if isinstance(complex_frequencies, ComplexFrequencyDescriptor):
+            zd = complex_frequencies
+        else:
+            zd = ComplexFrequencyDescriptor.from_array(complex_frequencies)
 
         if self._chiksdata is None or\
             not (spincomponent == self._chiksdata.spincomponent and
                  np.allclose(q_c, self._chiksdata.q_c) and
-                 # eta is hard-coded at the moment, which should be changed XXX
-                 np.allclose(wd.omega_w, self._chiksdata.zd.hz_z.real)):
+                 zd == self._chiksdata.zd):
             # Calculate new chiksdata, if buffer is empty or if we are
             # considering a new set of spincomponent, q-vector and frequencies
-            chiksdata = self.chiks.calculate(q_c, wd,
-                                             spincomponent=spincomponent)
+            chiksdata = self.chiks_calc.calculate(spincomponent, q_c, zd)
             # Distribute frequencies over world
             chiksdata = chiksdata.copy_with_global_frequency_distribution()
 
