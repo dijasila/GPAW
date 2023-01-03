@@ -60,10 +60,6 @@ class ChiKS:
     def get_pw_descriptor(self, q_c):
         return self.calc.get_pw_descriptor(q_c)
 
-    @timer('Distribute frequencies')
-    def distribute_frequencies(self, chiks_wGG):
-        return self.blockdist.distribute_frequencies(chiks_wGG, len(self.wd))
-
 
 class ChiKSData(LatticePeriodicPairFunction):  # future ChiKS XXX
     """Data object for the four-component Kohn-Sham susceptibility tensor."""
