@@ -79,6 +79,8 @@ class ComplexFrequencyDescriptor:
         return len(self.hz_z)
 
     def __eq__(self, zd):
+        if len(zd) != len(self):
+            return False
         return np.allclose(self.hz_z, zd.hz_z)
 
     @staticmethod
