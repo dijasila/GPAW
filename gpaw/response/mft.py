@@ -177,8 +177,9 @@ class IsotropicExchangeCalculator:
             self.context.new_txt_and_timer(txt)
 
         frequencies = [0.]
-        pd, chiks_wGG = self.chiks.calculate(q_c, frequencies,
-                                             spincomponent='+-')
+        chiksdata = self.chiks.calculate(q_c, frequencies,
+                                         spincomponent='+-')
+        pd, chiks_wGG = chiksdata.pd, chiksdata.array
         symmetrize_reciprocity(pd, chiks_wGG)
 
         # Take the reactive part
