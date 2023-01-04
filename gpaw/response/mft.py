@@ -153,18 +153,11 @@ class IsotropicExchangeCalculator:
                                         x n_nk↑,mk+q↓(G+q) n_mk+q↓,nk↑(-G'-q)
 
         is calculated in the static limit ω=0. Then, the reactive part (see
-        [PRB 103, 245110 (2021)]) is extracted,
+        [PRB 103, 245110 (2021)]) is extracted:
 
                               1
         χ_KS,GG'^(+-')(q,ω) = ‾ [χ_KS,GG'^+-(q,ω+iη) + χ_KS,-G'-G^-+(-q,-ω+iη)]
                               2
-
-                              1
-                            = ‾ [χ_KS,GG'^+-(q,ω+iη) + χ_KS,G'G^(+-*)(q,ω+iη)]
-                              2
-
-        where it was used that n^+(r) and n^-(r) are each others Hermitian
-        conjugates to reach the last equality.
         """
         # Initiate new output file, if supplied
         if txt is not None:
@@ -173,10 +166,9 @@ class IsotropicExchangeCalculator:
         frequencies = [0.]
         chiksdata = self.chiks.calculate(q_c, frequencies,
                                          spincomponent='+-')
-        pd, chiks_wGG = chiksdata.pd, chiksdata.array
-        symmetrize_reciprocity(pd, chiks_wGG)
+        symmetrize_reciprocity(chiksdata.pd, chiksdata.array)
 
         # Take the reactive part
-        chiksr_GG = 1 / 2. * (chiks_wGG[0] + np.conj(chiks_wGG[0]).T)
+        chiksr = chiksdata.copy_reactive_part()
 
-        return pd, chiksr_GG
+        return chiksr.pd, chiksr.array[0]
