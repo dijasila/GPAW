@@ -5,7 +5,7 @@ from gpaw.mpi import world
 from ase.parallel import parprint
 
 
-def test_pw_si_stress(in_tmp_dir):
+def test_pw_si_stress_mgga(in_tmp_dir):
     xc = 'TPSS'
     si = bulk('Si')
     k = 3
