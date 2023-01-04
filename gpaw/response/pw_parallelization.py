@@ -53,6 +53,15 @@ class PlaneWaveBlockDistributor:
         self.blockcomm = blockcomm
         self.intrablockcomm = intrablockcomm
 
+    def new_distributor_spanning_world(self):
+        """Set up a new PlaneWaveBlockDistributor to span the entire world."""
+        world = self.world
+        blockcomm, intrablockcomm = block_partition(comm=world,
+                                                    nblocks=world.size)
+        blockdist = PlaneWaveBlockDistributor(world, blockcomm, intrablockcomm)
+
+        return blockdist
+
     def _redistribute(self, in_wGG, nw):
         """Redistribute array.
 
