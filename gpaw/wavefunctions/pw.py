@@ -619,8 +619,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
                     a_R = self.pd.ifft(1j * G_Gv[:, v] * x_G, q)
                     H_GG[G - G1] += (self.pd.gd.dv / N *
                                      (-0.5) * 1j * G_Gv[:, v] *
-                                     self.pd.fft(ham.xc.dedtaut_sG[s] * a_R, q)
-                                    )
+                                     self.pd.fft(ham.xc.dedtaut_sG[s] *
+                                                 a_R, q))
                              
         S_GG.ravel()[G1::npw + 1] = self.pd.gd.dv / N
 
