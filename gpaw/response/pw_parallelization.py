@@ -21,6 +21,13 @@ class Blocks1D:
         self.blockcomm.all_gather(b_w, A_w)
         return A_w[:self.N]
 
+    def find_global_index(self, i):
+        """Find rank and local index of the global index i"""
+        rank = i // self.blocksize
+        li = i % self.blocksize
+
+        return rank, li
+
 
 def block_partition(comm, nblocks):
     assert comm.size % nblocks == 0, comm.size
