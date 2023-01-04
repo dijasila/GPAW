@@ -42,17 +42,20 @@ class MGGA(XCFunctional):
         if ((not hasattr(hamiltonian, 'xc_redistributor'))
                 or (hamiltonian.xc_redistributor is None)):
             self.restrict_and_collect = hamiltonian.restrict_and_collect
-            self.distribute_and_interpolate = density.distribute_and_interpolate
+            self.distribute_and_interpolate = \
+                density.distribute_and_interpolate
         else:
             def _distribute_and_interpolate(in_xR, out_xR=None):
                 tmp_xR = density.interpolate(in_xR)
                 if hamiltonian.xc_redistributor.enabled:
-                    out_xR = hamiltonian.xc_redistributor.distribute(tmp_xR, out_xR)
+                    out_xR = hamiltonian.xc_redistributor.distribute(tmp_xR,
+                                                                     out_xR)
                 elif out_xR is None:
                     out_xR = tmp_xR
                 else:
                     out_xR[:] = tmp_xR
                 return out_xR
+
             def _restrict_and_collect(in_xR, out_xR=None):
                 if hamiltonian.xc_redistributor.enabled:
                     in_xR = hamiltonian.xc_redistributor.collect(in_xR)
@@ -144,7 +147,8 @@ class MGGA(XCFunctional):
         dedtaut_sg = np.empty_like(n_sg)
         v_sg = self.gd.zeros(nspins)
         e_g = self.gd.empty()
-        self.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg, taut_sg, dedtaut_sg)
+        self.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg,
+                              taut_sg, dedtaut_sg)
 
         def integrate(a1_g, a2_g=None):
             return self.gd.integrate(a1_g, a2_g, global_integral=False)
@@ -176,8 +180,9 @@ class MGGA(XCFunctional):
         for s in range(nspins):
             for v1 in range(3):
                 for v2 in range(3):
-                    self.distribute_and_interpolate(tau_svvG[s,v1,v2], tau_cross_g)
-                    stress_vv[v1,v2] -= integrate(tau_cross_g, dedtaut_sg[s])
+                    self.distribute_and_interpolate(
+                        tau_svvG[s, v1, v2], tau_cross_g)
+                    stress_vv[v1, v2] -= integrate(tau_cross_g, dedtaut_sg[s])
 
         self.dedtaut_sG = self.wfs.gd.empty(self.wfs.nspins)
         for s in range(self.wfs.nspins):

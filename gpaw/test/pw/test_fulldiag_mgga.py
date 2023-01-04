@@ -1,7 +1,7 @@
 from gpaw import GPAW, PW
-from gpaw.mpi import world
 from ase.build import bulk
 from numpy.testing import assert_almost_equal
+
 
 def test_full_hamiltonian(in_tmp_dir):
     si = bulk('Si')
@@ -16,4 +16,3 @@ def test_full_hamiltonian(in_tmp_dir):
     si.calc.diagonalize_full_hamiltonian()
     evals2 = si.calc.get_eigenvalues()
     assert_almost_equal(evals1, evals2[:evals1.size])
-

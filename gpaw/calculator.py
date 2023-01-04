@@ -223,7 +223,8 @@ class GPAW(Calculator):
                                      "be written with mode='all'")
             self.wfs.initialize_wave_functions_from_restart_file()
             taut_sG = self.wfs.calculate_kinetic_energy_density()
-            wgd = self.wfs.gd.new_descriptor(comm=self.world, allow_empty_domains=True)
+            wgd = self.wfs.gd.new_descriptor(comm=self.world,
+                                             allow_empty_domains=True)
             redist = GridRedistributor(self.world, self.wfs.kptband_comm,
                                        self.wfs.gd, wgd)
             taut_sG = redist.distribute(taut_sG)
