@@ -4,8 +4,7 @@ import numpy as np
 # GPAW modules
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKSCalculator
-from gpaw.response.localft import (LocalFTCalculator, add_LSDA_Bxc,
-                                   add_magnetization)
+from gpaw.response.localft import LocalFTCalculator, add_LSDA_Bxc
 from gpaw.response.site_kernels import SiteKernels
 from gpaw.response.susceptibility import symmetrize_reciprocity
 
@@ -66,12 +65,9 @@ class IsotropicExchangeCalculator:
         self._Bxc_G = None
 
         # chiksr buffer
-        self.currentq_c = None
-        self._pd = None
-        self._chiksr_GG = None
-        self._chiksr_corr_GG = None
+        self._chiksr = None
 
-    def __call__(self, q_c, site_kernels, goldstone_corr=False, txt=None):
+    def __call__(self, q_c, site_kernels, txt=None):
         """Calculate the isotropic exchange constants for a given wavevector.
 
         Parameters
@@ -80,8 +76,6 @@ class IsotropicExchangeCalculator:
             Wave vector q in relative coordinates
         site_kernels : SiteKernels
             Site kernels instance defining the magnetic sites of the crystal
-        goldstone_corr : bool
-            Include a minimal Goldstone correction to χ_KS^('+-)(q).
         txt : str
             Separate file to store the chiks calculation output in (optional).
             If not supplied, the output will be written to the standard text
@@ -97,9 +91,8 @@ class IsotropicExchangeCalculator:
 
         # Get ingredients
         Bxc_G = self.get_Bxc()
-        pd, chiksr_GG = self.get_chiksr(q_c, txt=txt)
-        if goldstone_corr:
-            chiksr_GG = chiksr_GG + self.get_goldstone_correction()
+        chiksr = self.get_chiksr(q_c, txt=txt)
+        pd, chiksr_GG = chiksr.pd, chiksr.array[0]  # array = chiksr_zGG
         V0 = pd.gd.volume
 
         # Allocate an array for the exchange constants
@@ -121,7 +114,7 @@ class IsotropicExchangeCalculator:
 
     def get_Bxc(self):
         """Get B^(xc)_G from buffer."""
-        if self._Bxc_G is None:  # Calculate, if buffer is empty
+        if self._Bxc_G is None:  # Calculate if buffer is empty
             self._Bxc_G = self._calculate_Bxc()
 
         return self._Bxc_G
@@ -138,12 +131,12 @@ class IsotropicExchangeCalculator:
     def get_chiksr(self, q_c, txt=None):
         """Get χ_KS^('+-)(q) from buffer."""
         q_c = np.asarray(q_c)
-        if self.currentq_c is None or not np.allclose(q_c, self.currentq_c):
-            # Calculate chiks for any new q-point or if buffer is empty
-            self.currentq_c = q_c
-            self._pd, self._chiksr_GG = self._calculate_chiksr(q_c, txt=txt)
 
-        return self._pd, self._chiksr_GG
+        # Calculate if buffer is empty or a new q-point is given
+        if self._chiksr is None or not np.allclose(q_c, self._chiksr.q_c):
+            self._chiksr = self._calculate_chiksr(q_c, txt=txt)
+
+        return self._chiksr
 
     def _calculate_chiksr(self, q_c, txt=None):
         r"""Use the ChiKSCalculator to calculate the reactive part of the
@@ -159,18 +152,11 @@ class IsotropicExchangeCalculator:
                                         x n_nk↑,mk+q↓(G+q) n_mk+q↓,nk↑(-G'-q)
 
         is calculated in the static limit ω=0. Then, the reactive part (see
-        [PRB 103, 245110 (2021)]) is extracted,
+        [PRB 103, 245110 (2021)]) is extracted:
 
                               1
         χ_KS,GG'^(+-')(q,ω) = ‾ [χ_KS,GG'^+-(q,ω+iη) + χ_KS,-G'-G^-+(-q,-ω+iη)]
                               2
-
-                              1
-                            = ‾ [χ_KS,GG'^+-(q,ω+iη) + χ_KS,G'G^(+-*)(q,ω+iη)]
-                              2
-
-        where it was used that n^+(r) and n^-(r) are each others Hermitian
-        conjugates to reach the last equality.
         """
         # Initiate new output file, if supplied
         if txt is not None:
@@ -178,59 +164,9 @@ class IsotropicExchangeCalculator:
 
         zd = ComplexFrequencyDescriptor.from_array([0. + 0.j])
         chiksdata = self.chiks_calc.calculate('+-', q_c, zd)
-        pd, chiks_wGG = chiksdata.pd, chiksdata.array
-        symmetrize_reciprocity(pd, chiks_wGG)
+        symmetrize_reciprocity(chiksdata.pd, chiksdata.array)
 
         # Take the reactive part
-        chiksr_GG = 1 / 2. * (chiks_wGG[0] + np.conj(chiks_wGG[0]).T)
+        chiksr = chiksdata.copy_reactive_part()
 
-        return pd, chiksr_GG
-
-    def get_goldstone_correction(self):
-        """Get δχ_KS^('+-)_GG' from buffer."""
-        if self._chiksr_corr_GG is None:  # Calculate, if buffer is empty
-            self._chiksr_corr_GG = self._calculate_goldstone_correction()
-
-        return self._chiksr_corr_GG
-
-    def _calculate_goldstone_correction(self):
-        r"""In a complete representation of the Kohn-Sham susceptibility, the
-        rotational invariance of the spin axis in absence of spin-orbit
-        coupling implies that
-
-        |m> = 2 χ_KS^('+-)(q=0) |B^(xc)>,
-
-        written in the plane-wave basis. However, using a finite basis, this
-        identity will be slightly broken leading to a Goldstone inconsistency.
-
-        To correct for this inconsistency, we may choose to add a minimal
-        correction [paper in preparation],
-
-        2 <B^(xc)|B^(xc)> δχ_KS^('+-) = |δm><B^(xc)| + |B^(xc)><δm|
-
-                                                     <δm|B^(xc)>
-                                        - |B^(xc)> ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾ <B^(xc)|
-                                                   <B^(xc)|B^(xc)>
-
-        where
-
-        |δm> = |m> - |m^χ>
-
-        with:
-
-        |m^χ> = 2 χ_KS^('+-)(q=0) |B^(xc)>.
-        """
-        pd0, chiksr0_GG = self.get_chiksr(np.array([0., 0., 0.]))
-        m_G = self.localft_calc(pd0, add_magnetization)
-        Bxc_G = self.get_Bxc()
-
-        mchi_G = 2. * chiksr0_GG @ Bxc_G
-        dm_G = m_G - mchi_G
-
-        chiksr_corr_GG = np.outer(dm_G, np.conj(Bxc_G))\
-            + np.outer(Bxc_G, np.conj(dm_G))\
-            - np.outer(Bxc_G, np.conj(Bxc_G))\
-            * np.dot(np.conj(dm_G), Bxc_G) / np.dot(np.conj(Bxc_G), Bxc_G)
-        chiksr_corr_GG /= 2. * np.dot(np.conj(Bxc_G), Bxc_G)
-
-        return chiksr_corr_GG
+        return chiksr
