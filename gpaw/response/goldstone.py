@@ -36,18 +36,20 @@ def get_goldstone_scaling(mode, chiksdata, Kxc_GG):
     omega_w = chiksdata.zd.omega_w
     wgs = find_goldstone_frequency(mode, omega_w)
 
-    # Only one rank, rgs, has the given frequency and finds the rescaling
-    assert chiksdata.distribution == 'zGG'
-    blocks1d = chiksdata.blocks1d
-    mynw = blocks1d.blocksize
-    rgs, mywgs = wgs // mynw, wgs % mynw
+    # Only one rank, rgs, has the given frequency
+    assert chiksdata.distribution == 'zGG',\
+        'Only block distribution over frequencies is allowed at this point'
+    wblocks = chiksdata.blocks1d
+    rgs, mywgs = wblocks.find_global_index(wgs)
+
+    # Let rgs find the rescaling
     fxcsbuf = np.empty(1, dtype=float)
-    if blocks1d.blockcomm.rank == rgs:
+    if wblocks.blockcomm.rank == rgs:
         chiks_GG = chiksdata.array[mywgs]
         fxcsbuf[:] = find_goldstone_scaling(mode, chiks_GG, Kxc_GG)
 
     # Broadcast found rescaling
-    blocks1d.blockcomm.broadcast(fxcsbuf, rgs)
+    wblocks.blockcomm.broadcast(fxcsbuf, rgs)
     fxcs = fxcsbuf[0]
 
     return fxcs

@@ -5,8 +5,7 @@ import numpy as np
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.pw.descriptor import PWDescriptor
 
-from gpaw.response.pw_parallelization import (Blocks1D, block_partition,
-                                              PlaneWaveBlockDistributor)
+from gpaw.response.pw_parallelization import Blocks1D
 
 
 class SingleQPWDescriptor(PWDescriptor):
@@ -193,13 +192,8 @@ class LatticePeriodicPairFunction(PairFunction):
 
     def copy_with_global_frequency_distribution(self):
         """Copy the pair function, but with distribution zGG over world."""
-        # Set up block distribution to span the entire world
-        world = self.blockdist.world
-        blockcomm, intrablockcomm = block_partition(comm=world,
-                                                    nblocks=world.size)
-        blockdist = PlaneWaveBlockDistributor(world, blockcomm, intrablockcomm)
-
-        # Make a copy with the new distribution
+        # Make a copy, which is globally block distributed
+        blockdist = self.blockdist.new_distributor_spanning_world()
         new_pf = self._new(*self.my_args(blockdist=blockdist),
                            distribution='zGG')
 

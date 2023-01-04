@@ -58,9 +58,9 @@ class ChiKSData(LatticePeriodicPairFunction):  # future ChiKS XXX
 
         chiksr = self._new(*self.my_args(), distribution='zGG')
         chiks_zGG = self.array
-        chiksr.array[:] += chiks_zGG
-        chiksr.array[:] += np.conj(np.transpose(chiks_zGG, (0, 2, 1)))
-        chiksr.array[:] /= 2.
+        chiksr.array += chiks_zGG
+        chiksr.array += np.conj(np.transpose(chiks_zGG, (0, 2, 1)))
+        chiksr.array /= 2.
 
         return chiksr
 
