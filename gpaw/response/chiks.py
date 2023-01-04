@@ -78,6 +78,39 @@ class ChiKSData(LatticePeriodicPairFunction):  # future ChiKS XXX
 
         return spincomponent, pd, zd, blockdist
 
+    def copy_reactive_part(self):
+        r"""Return a copy of the reactive part of the susceptibility.
+
+        The reactive part of the susceptibility is defined as (see
+        [PRB 103, 245110 (2021)]):
+
+                              1
+        χ_KS,GG'^(μν')(q,z) = ‾ [χ_KS,GG'^μν(q,z) + χ_KS,-G'-G^νμ(-q,-z*)].
+                              2
+
+        However if the density operators n^μ(r) and n^ν(r) are each others
+        Hermitian conjugates, the reactive part simply becomes the Hermitian
+        part in terms of the plane-wave basis:
+
+                              1
+        χ_KS,GG'^(μν')(q,z) = ‾ [χ_KS,GG'^μν(q,z) + χ_KS,G'G^(μν*)(q,z)],
+                              2
+
+        which is trivial to evaluate.
+        """
+        assert self.distribution == 'zGG' or \
+            (self.distribution == 'ZgG' and self.blockdist.blockcomm.size == 1)
+        assert self.spincomponent in ['00', 'uu', 'dd', '+-', '-+'],\
+            'Spin-density operators has to be each others hermitian conjugates'
+
+        chiksr = self._new(*self.my_args(), distribution='zGG')
+        chiks_zGG = self.array
+        chiksr.array[:] += chiks_zGG
+        chiksr.array[:] += np.conj(np.transpose(chiks_zGG, (0, 2, 1)))
+        chiksr.array[:] /= 2.
+
+        return chiksr
+
 
 class ChiKSCalculator(PairFunctionIntegrator):
     r"""Calculator class for the four-component Kohn-Sham susceptibility tensor
