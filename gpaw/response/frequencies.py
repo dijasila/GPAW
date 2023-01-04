@@ -59,6 +59,49 @@ class FrequencyDescriptor:
         return FrequencyGridDescriptor(np.asarray(input) / Ha)
 
 
+class ComplexFrequencyDescriptor:
+
+    def __init__(self, hz_z: ArrayLike1D):
+        """Construct the complex frequency descriptor.
+
+        Parameters
+        ----------
+        hz_z:
+            Array of complex frequencies (in units of Hartree)
+        """
+        # Use a copy of the input array
+        hz_z = np.array(hz_z)
+        assert hz_z.dtype == complex
+
+        self.hz_z = hz_z
+
+    def __len__(self):
+        return len(self.hz_z)
+
+    @staticmethod
+    def from_array(frequencies: ArrayLike1D):
+        """Create a ComplexFrequencyDescriptor from frequencies in eV."""
+        return ComplexFrequencyDescriptor(np.asarray(frequencies) / Ha)
+
+    @property
+    def upper_half_plane(self):
+        """All frequencies reside in the upper half complex frequency plane?"""
+        return np.all(self.hz_z.imag > 0.)
+
+    @property
+    def horizontal_contour(self):
+        """Do all frequency point lie on a horizontal contour?"""
+        return np.ptp(self.hz_z.imag) < 1.e-6
+
+    @property
+    def omega_w(self):
+        """Real part of the frequencies."""
+        assert self.horizontal_contour,\
+            'It only makes sense to index the frequencies by their real part '\
+            'if they reside on a horizontal contour.'
+        return self.hz_z.real
+
+
 class FrequencyGridDescriptor(FrequencyDescriptor):
 
     def get_index_range(self, lim1_m, lim2_m):

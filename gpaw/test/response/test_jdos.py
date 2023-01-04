@@ -13,7 +13,7 @@ from ase.units import Hartree
 from gpaw import GPAW
 import gpaw.mpi as mpi
 from gpaw.response import ResponseGroundStateAdapter
-from gpaw.response.frequencies import FrequencyDescriptor
+from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.jdos import JDOSCalculator
 from gpaw.response.symmetry import KPointFinder
 
@@ -24,21 +24,19 @@ def test_iron_jdos(in_tmp_dir, gpw_files):
     # ---------- Inputs ---------- #
 
     q_qc = [[0.0, 0.0, 0.0], [0.0, 0.0, 1. / 4.]]  # Two q-points along G-N
-    wd = FrequencyDescriptor.from_array_or_dict(np.linspace(-10.0, 10.0, 321))
+    omega_w = np.linspace(-10.0, 10.0, 321)
     eta = 0.2
+    zd = ComplexFrequencyDescriptor.from_array(omega_w + 1.j * eta)
 
     spincomponent_s = ['00', '+-']
     bandsummation_b = ['double', 'pairwise']
 
     # ---------- Script ---------- #
 
-    # Get the ground state calculator from the fixture
+    # Set up the ground state adapter based on the fixture
     calc = GPAW(gpw_files['fe_pw_wfs'], parallel=dict(domain=1))
     nbands = calc.parameters.convergence['bands']
-
-    # Set up the JDOSCalculator
     gs = ResponseGroundStateAdapter(calc)
-    jdos_calc = JDOSCalculator(gs)
 
     # Set up reference MyManualJDOS
     serial_calc = GPAW(gpw_files['fe_pw_wfs'], communicator=mpi.serial_comm)
@@ -46,13 +44,15 @@ def test_iron_jdos(in_tmp_dir, gpw_files):
 
     for q_c, spincomponent in product(q_qc, spincomponent_s):
         jdosref_w = jdos_refcalc.calculate(spincomponent, q_c,
-                                           wd.omega_w * Hartree,
+                                           omega_w,
                                            eta=eta,
                                            nbands=nbands)
         for bandsummation in bandsummation_b:
-            jdos_w = jdos_calc.calculate(spincomponent, q_c, wd,
-                                         eta=eta,
-                                         nbands=nbands)
+            jdos_calc = JDOSCalculator(gs,
+                                       nbands=nbands,
+                                       bandsummation=bandsummation)
+            jdos = jdos_calc.calculate(spincomponent, q_c, zd)
+            jdos_w = jdos.array
             assert jdos_w == pytest.approx(jdosref_w)
 
         # plt.subplot()

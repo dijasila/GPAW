@@ -429,6 +429,7 @@ def pytest_configure(config):
                  'gllb: GLLBSC tests',
                  'elph: Electron-phonon',
                  'intel: fails on INTEL toolchain',
+                 'rpa: tests of RPA',
                  'response: tests of the response code',
                  'kspair: tests of kspair in the response code',
                  'serial: run in serial only',
