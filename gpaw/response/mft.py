@@ -65,9 +65,7 @@ class IsotropicExchangeCalculator:
         self._Bxc_G = None
 
         # chiksr buffer
-        self.currentq_c = None
-        self._pd = None
-        self._chiksr_GG = None
+        self._chiksr = None
 
     def __call__(self, q_c, site_kernels, txt=None):
         """Calculate the isotropic exchange constants for a given wavevector.
@@ -93,7 +91,8 @@ class IsotropicExchangeCalculator:
 
         # Get ingredients
         Bxc_G = self.get_Bxc()
-        pd, chiksr_GG = self.get_chiksr(q_c, txt=txt)
+        chiksr = self.get_chiksr(q_c, txt=txt)
+        pd, chiksr_GG = chiksr.pd, chiksr.array[0]  # array = chiksr_zGG
         V0 = pd.gd.volume
 
         # Allocate an array for the exchange constants
@@ -115,7 +114,7 @@ class IsotropicExchangeCalculator:
 
     def get_Bxc(self):
         """Get B^(xc)_G from buffer."""
-        if self._Bxc_G is None:  # Calculate, if buffer is empty
+        if self._Bxc_G is None:  # Calculate if buffer is empty
             self._Bxc_G = self._calculate_Bxc()
 
         return self._Bxc_G
@@ -132,12 +131,12 @@ class IsotropicExchangeCalculator:
     def get_chiksr(self, q_c, txt=None):
         """Get χ_KS^('+-)(q) from buffer."""
         q_c = np.asarray(q_c)
-        if self.currentq_c is None or not np.allclose(q_c, self.currentq_c):
-            # Calculate chiks for any new q-point or if buffer is empty
-            self.currentq_c = q_c
-            self._pd, self._chiksr_GG = self._calculate_chiksr(q_c, txt=txt)
 
-        return self._pd, self._chiksr_GG
+        # Calculate if buffer is empty or a new q-point is given
+        if self._chiksr is None or not np.allclose(q_c, self._chiksr.q_c):
+            self._chiksr = self._calculate_chiksr(q_c, txt=txt)
+
+        return self._chiksr
 
     def _calculate_chiksr(self, q_c, txt=None):
         r"""Use the ChiKS calculator to calculate the reactive part of the
@@ -171,4 +170,4 @@ class IsotropicExchangeCalculator:
         # Take the reactive part
         chiksr = chiksdata.copy_reactive_part()
 
-        return chiksr.pd, chiksr.array[0]
+        return chiksr
