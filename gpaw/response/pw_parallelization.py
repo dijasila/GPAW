@@ -30,17 +30,25 @@ class Blocks1D:
 
 
 def block_partition(comm, nblocks):
+    if nblocks == 'max':
+        # Maximize the number of blocks
+        nblocks = comm.size
+    assert isinstance(nblocks, int)
+    assert nblocks > 0 and nblocks <= comm.size, comm.size
     assert comm.size % nblocks == 0, comm.size
+
     rank1 = comm.rank // nblocks * nblocks
     rank2 = rank1 + nblocks
     blockcomm = comm.new_communicator(range(rank1, rank2))
     ranks = range(comm.rank % nblocks, comm.size, nblocks)
+
     if nblocks == 1:
         assert len(ranks) == comm.size
         intrablockcomm = comm
     else:
         intrablockcomm = comm.new_communicator(ranks)
     assert blockcomm.size * intrablockcomm.size == comm.size
+
     return blockcomm, intrablockcomm
 
 
@@ -53,11 +61,11 @@ class PlaneWaveBlockDistributor:
         self.blockcomm = blockcomm
         self.intrablockcomm = intrablockcomm
 
-    def new_distributor_spanning_world(self):
-        """Set up a new PlaneWaveBlockDistributor to span the entire world."""
+    def new_distributor(self, *, nblocks):
+        """Set up a new PlaneWaveBlockDistributor."""
         world = self.world
         blockcomm, intrablockcomm = block_partition(comm=world,
-                                                    nblocks=world.size)
+                                                    nblocks=nblocks)
         blockdist = PlaneWaveBlockDistributor(world, blockcomm, intrablockcomm)
 
         return blockdist
