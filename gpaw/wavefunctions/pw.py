@@ -336,8 +336,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
         for v in range(3):
             for n1 in range(0, N, S):
                 n2 = min(n1 + S, N)
-                dn = n2-n1
-                Gpsit_xG[:dn] = 1j * G_Gv[:,v] * psit_xG[n1:n2]
+                dn = n2 - n1
+                Gpsit_xG[:dn] = 1j * G_Gv[:, v] * psit_xG[n1:n2]
                 Gpsit_G = self.pd.alltoall1(Gpsit_xG[:dn], kpt.q)
                 if Gpsit_G is not None:
                     f = kpt.f_n[n1 + comm.rank]
@@ -352,25 +352,28 @@ class PWWaveFunctions(FDPWWaveFunctions):
         N = self.bd.mynbands
         S = self.gd.comm.size
         Gpsit_xG = np.empty((S,) + psit_xG.shape[1:], dtype=psit_xG.dtype)
-        taut_vvR = self.gd.zeros((3,3), global_array=True)
+        taut_vvR = self.gd.zeros((3, 3), global_array=True)
         G_Gv = self.pd.get_reciprocal_vectors(q=kpt.q)
         comm = self.gd.comm
 
         for n1 in range(0, N, S):
             n2 = min(n1 + S, N)
-            dn = n2-n1
+            dn = n2 - n1
             a_vR = {}
             for v in range(3):
-                Gpsit_xG[:dn] = 1j * G_Gv[:,v] * psit_xG[n1:n2]
+                Gpsit_xG[:dn] = 1j * G_Gv[:, v] * psit_xG[n1:n2]
                 Gpsit_G = self.pd.alltoall1(Gpsit_xG[:dn], kpt.q)
                 if Gpsit_G is not None:
                     f = kpt.f_n[n1 + comm.rank]
-                    a_vR[v] = self.pd.ifft(Gpsit_G, kpt.q, local=True, safe=True)
+                    a_vR[v] = self.pd.ifft(Gpsit_G, kpt.q,
+                                           local=True, safe=True)
             if len(a_vR) == 3:
                 f = kpt.f_n[n1 + comm.rank]
                 for v1 in range(3):
                     for v2 in range(3):
-                        taut_vvR[v1,v2] += f * (a_vR[v1].conj() * a_vR[v2]).real # imaginary should cancel
+                        # imaginary parts should cancel
+                        taut_vvR[v1, v2] += f * (a_vR[v1].conj()
+                                                 * a_vR[v2]).real
             elif len(a_vR) == 0:
                 pass
             else:
@@ -378,7 +381,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         comm.sum(taut_vvR)
         taut_vvR = self.gd.distribute(taut_vvR)
-        taut_xR[kpt.s,:,:] += taut_vvR
+        taut_xR[kpt.s, :, :] += taut_vvR
 
     def calculate_kinetic_energy_density(self):
         if self.kpt_u[0].f_n is None:
@@ -397,12 +400,12 @@ class PWWaveFunctions(FDPWWaveFunctions):
         if self.kpt_u[0].f_n is None:
             return None
 
-        taut_svvR = self.gd.zeros((self.nspins,3,3))
+        taut_svvR = self.gd.zeros((self.nspins, 3, 3))
         for kpt in self.kpt_u:
             self.add_to_ke_crossterms_kpt(kpt, kpt.psit_nG, taut_svvR)
 
         self.kptband_comm.sum(taut_svvR)
-        for taut_R in taut_svvR.reshape(-1,*taut_svvR.shape[-3:]):
+        for taut_R in taut_svvR.reshape(-1, *taut_svvR.shape[-3:]):
             self.kd.symmetry.symmetrize(taut_R, self.gd)
         return taut_svvR
 
@@ -421,8 +424,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
         for v in range(3):
             for n1 in range(0, N, S):
                 n2 = min(n1 + S, N)
-                dn = n2-n1
-                Gpsit_xG[:dn] = 1j * G_Gv[:,v] * psit_xG[n1:n2]
+                dn = n2 - n1
+                Gpsit_xG[:dn] = 1j * G_Gv[:, v] * psit_xG[n1:n2]
                 tmp_xG[:] = 0
                 Gpsit_G = self.pd.alltoall1(Gpsit_xG[:dn], kpt.q)
                 if Gpsit_G is not None:
@@ -433,7 +436,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 else:
                     a_R = self.pd.tmp_G
                 self.pd.alltoall2(a_R, kpt.q, tmp_xG[:dn])
-                axpy(-0.5, (1j * G_Gv[:,v] * tmp_xG[:dn]).ravel(), Htpsit_xG[n1:n2].ravel())
+                axpy(-0.5, (1j * G_Gv[:, v] * tmp_xG[:dn]).ravel(),
+                     Htpsit_xG[n1:n2].ravel())
 
     def _get_wave_function_array(self, u, n, realspace=True, periodic=False):
         kpt = self.kpt_u[u]
@@ -615,7 +619,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
                     a_R = self.pd.ifft(1j * G_Gv[:, v] * x_G, q)
                     H_GG[G - G1] += (self.pd.gd.dv / N *
                                      (-0.5) * 1j * G_Gv[:, v] *
-                                     self.pd.fft(ham.xc.dedtaut_sG[s] * a_R, q))
+                                     self.pd.fft(ham.xc.dedtaut_sG[s] * a_R, q)
+                                    )
                              
         S_GG.ravel()[G1::npw + 1] = self.pd.gd.dv / N
 

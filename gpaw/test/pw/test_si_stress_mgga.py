@@ -30,14 +30,13 @@ def test_pw_si_stress_mgga(in_tmp_dir):
 
     s_analytical = si.get_stress()
     # Calculated numerical stress once, store here to speed up test
-    # [-0.00853353 -0.04100137 -0.03821226 -0.02084923  0.1331957   0.00945546]
+    # [-0.00853353 -0.04100137 -0.03821226 -0.02084923 0.1331957 0.00945546]
     s_numerical = np.array([-0.00853353, -0.04100137, -0.03821226,
-                            -0.02084923,  0.1331957,   0.00945546])
-    #s_numerical = si.calc.calculate_numerical_stress(si, 1e-5)
+                            -0.02084923, 0.1331957, 0.00945546])
+    # s_numerical = si.calc.calculate_numerical_stress(si, 1e-5)
     s_err = s_numerical - s_analytical
 
     parprint('Analytical stress:\n', s_analytical)
     parprint('Numerical stress:\n', s_numerical)
     parprint('Error in stress:\n', s_err)
     assert np.all(abs(s_err) < 1e-4)
-

@@ -4,7 +4,7 @@ import pytest
 from ase import Atoms
 
 from gpaw import GPAW
-from gpaw.xc import LibXC
+
 
 @pytest.mark.ci
 def test_fixdensity(in_tmp_dir):
@@ -75,4 +75,3 @@ def test_fixdensity(in_tmp_dir):
         pass
     else:
         raise RuntimeError
-
