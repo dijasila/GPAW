@@ -53,16 +53,12 @@ class ChiKS:
                                                    self.calc.intrablockcomm)
 
         zd = ComplexFrequencyDescriptor(wd.omega_w + 1.j * self.eta)
-        chiks = self.calc.calculate(spincomponent, q_c, zd)
+        chiksdata = self.calc.calculate(spincomponent, q_c, zd)
 
-        return chiks.pd, chiks.array
+        return chiksdata
 
     def get_pw_descriptor(self, q_c):
         return self.calc.get_pw_descriptor(q_c)
-
-    @timer('Distribute frequencies')
-    def distribute_frequencies(self, chiks_wGG):
-        return self.blockdist.distribute_frequencies(chiks_wGG, len(self.wd))
 
 
 class ChiKSData(LatticePeriodicPairFunction):  # future ChiKS XXX
@@ -81,6 +77,39 @@ class ChiKSData(LatticePeriodicPairFunction):  # future ChiKS XXX
         pd, zd, blockdist = super().my_args(pd=pd, zd=zd, blockdist=blockdist)
 
         return spincomponent, pd, zd, blockdist
+
+    def copy_reactive_part(self):
+        r"""Return a copy of the reactive part of the susceptibility.
+
+        The reactive part of the susceptibility is defined as (see
+        [PRB 103, 245110 (2021)]):
+
+                              1
+        χ_KS,GG'^(μν')(q,z) = ‾ [χ_KS,GG'^μν(q,z) + χ_KS,-G'-G^νμ(-q,-z*)].
+                              2
+
+        However if the density operators n^μ(r) and n^ν(r) are each others
+        Hermitian conjugates, the reactive part simply becomes the Hermitian
+        part in terms of the plane-wave basis:
+
+                              1
+        χ_KS,GG'^(μν')(q,z) = ‾ [χ_KS,GG'^μν(q,z) + χ_KS,G'G^(μν*)(q,z)],
+                              2
+
+        which is trivial to evaluate.
+        """
+        assert self.distribution == 'zGG' or \
+            (self.distribution == 'ZgG' and self.blockdist.blockcomm.size == 1)
+        assert self.spincomponent in ['00', 'uu', 'dd', '+-', '-+'],\
+            'Spin-density operators has to be each others hermitian conjugates'
+
+        chiksr = self._new(*self.my_args(), distribution='zGG')
+        chiks_zGG = self.array
+        chiksr.array += chiks_zGG
+        chiksr.array += np.conj(np.transpose(chiks_zGG, (0, 2, 1)))
+        chiksr.array /= 2.
+
+        return chiksr
 
 
 class ChiKSCalculator(PairFunctionIntegrator):

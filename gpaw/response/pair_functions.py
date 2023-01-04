@@ -190,6 +190,20 @@ class LatticePeriodicPairFunction(PairFunction):
 
         return new_pf
 
+    def copy_with_global_frequency_distribution(self):
+        """Copy the pair function, but with distribution zGG over world."""
+        # Make a copy, which is globally block distributed
+        blockdist = self.blockdist.new_distributor(nblocks='max')
+        new_pf = self._new(*self.my_args(blockdist=blockdist),
+                           distribution='zGG')
+
+        # Redistribute the data, distributing the frequencies over world
+        assert self.distribution == 'ZgG'
+        new_pf.array[:] = self.blockdist.distribute_frequencies(self.array,
+                                                                len(self.zd))
+
+        return new_pf
+
 
 def map_WgG_array_to_reduced_pd(pdi, pd, blockdist, in_WgG):
     """Map an output array to a reduced plane wave basis which is

@@ -88,6 +88,19 @@ class ComplexFrequencyDescriptor:
         """All frequencies reside in the upper half complex frequency plane?"""
         return np.all(self.hz_z.imag > 0.)
 
+    @property
+    def horizontal_contour(self):
+        """Do all frequency point lie on a horizontal contour?"""
+        return np.ptp(self.hz_z.imag) < 1.e-6
+
+    @property
+    def omega_w(self):
+        """Real part of the frequencies."""
+        assert self.horizontal_contour,\
+            'It only makes sense to index the frequencies by their real part '\
+            'if they reside on a horizontal contour.'
+        return self.hz_z.real
+
 
 class FrequencyGridDescriptor(FrequencyDescriptor):
 
