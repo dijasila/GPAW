@@ -91,7 +91,7 @@ class ComplexFrequencyDescriptor:
     @property
     def horizontal_contour(self):
         """Do all frequency point lie on a horizontal contour?"""
-        return np.allclose(self.hz_z.imag, self.hz_z.imag[0])
+        return np.ptp(self.hz_z.imag) < 1.e-6
 
     @property
     def omega_w(self):
