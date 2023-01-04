@@ -151,11 +151,11 @@ class IsotropicExchangeCalculator:
                                  k  n,m
                                         x n_nk↑,mk+q↓(G+q) n_mk+q↓,nk↑(-G'-q)
 
-        is calculated in the static limit ω=0. Then, the reactive part (see
-        [PRB 103, 245110 (2021)]) is extracted:
+        is calculated in the static limit ω=0 and without broadening η=0. Then,
+        the reactive part (see [PRB 103, 245110 (2021)]) is extracted:
 
                               1
-        χ_KS,GG'^(+-')(q,ω) = ‾ [χ_KS,GG'^+-(q,ω+iη) + χ_KS,-G'-G^-+(-q,-ω+iη)]
+        χ_KS,GG'^(+-')(q,z) = ‾ [χ_KS,GG'^+-(q,z) + χ_KS,-G'-G^-+(-q,-z*)].
                               2
         """
         # Initiate new output file, if supplied
