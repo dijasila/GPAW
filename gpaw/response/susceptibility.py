@@ -5,140 +5,17 @@ import numpy as np
 from ase.units import Hartree
 
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
+from gpaw.response.chiks import ChiKS, ChiKSCalculator
 from gpaw.response.fxc_kernels import get_fxc
 from gpaw.response.coulomb_kernels import get_coulomb_kernel
 from gpaw.response.dyson import DysonSolver
 from gpaw.response.goldstone import get_scaled_xc_kernel
 
 
-class ChiFactory:
-    r"""User interface to calculate individual elements of the four-component
-    susceptibility tensor χ^μν, see [PRB 103, 245110 (2021)]."""
-
-    def __init__(self, chiks_calc):
-        """Contruct the many-bode susceptibility factory based on a given
-        Kohn-Sham susceptibility calculator.
-
-        Parameters
-        ----------
-        chiks_calc: ChiKSCalculator
-        """
-        self.chiks_calc = chiks_calc
-        self.context = chiks_calc.context
-        self.gs = chiks_calc.gs
-
-        # Prepare a buffer for chiks
-        self._chiks = None
-
-    def __call__(self, spincomponent, q_c, complex_frequencies,
-                 fxc='ALDA', fxckwargs=None, txt=None):
-        r"""Calculate a given element (spincomponent) of the four-component
-        Kohn-Sham susceptibility tensor and construct a corresponding many-body
-        susceptibility object within a given approximation to the
-        exchange-correlation kernel.
-
-        Parameters
-        ----------
-        spincomponent : str
-            Spin component (μν) of the susceptibility.
-            Currently, '00', 'uu', 'dd', '+-' and '-+' are implemented.
-        q_c : list or ndarray
-            Wave vector
-        complex_frequencies : np.array or ComplexFrequencyDescriptor
-            Array of complex frequencies to evaluate the response function at
-            or a descriptor of those frequencies.
-        fxc : str
-            Approximation to the xc kernel
-        fxckwargs : dict
-            Kwargs to the FXCCalculator
-        txt : str
-            Save output of the calculation of this specific component into
-            a file with the filename of the given input.
-        """
-        assert isinstance(fxc, str)
-        # Initiate new output file, if supplied
-        if txt is not None:
-            self.context.new_txt_and_timer(txt)
-
-        # Print to output file
-        self.context.print('---------------', flush=False)
-        self.context.print('Calculating susceptibility spincomponent='
-                           f'{spincomponent} with q_c={q_c}', flush=False)
-        self.context.print('---------------')
-
-        # Calculate chiks (or get it from the buffer)
-        chiks = self.get_chiks(spincomponent, q_c, complex_frequencies)
-
-        # Calculate the Coulomb kernel
-        if spincomponent in ['+-', '-+']:
-            assert fxc != 'RPA'
-            # No Hartree term in Dyson equation
-            Vbare_G = None
-        else:
-            Vbare_G = get_coulomb_kernel(chiks.pd, self.gs.kd.N_c)
-
-        # Calculate the exchange-correlation kernel
-        if fxc == 'RPA':
-            # No xc kernel by definition
-            Kxc_GG = None
-        else:
-            Kxc_GG = self.get_xc_kernel(fxc, chiks=chiks,
-                                        fxckwargs=fxckwargs)
-
-        return Chi(self.context, chiks, Vbare_G, Kxc_GG)
-
-    def get_chiks(self, spincomponent, q_c, complex_frequencies):
-        """Get chiks from buffer."""
-        q_c = np.asarray(q_c)
-        if isinstance(complex_frequencies, ComplexFrequencyDescriptor):
-            zd = complex_frequencies
-        else:
-            zd = ComplexFrequencyDescriptor.from_array(complex_frequencies)
-
-        if self._chiks is None or\
-            not (spincomponent == self._chiks.spincomponent and
-                 np.allclose(q_c, self._chiks.q_c) and
-                 zd == self._chiks.zd):
-            # Calculate new chiks, if buffer is empty or if we are
-            # considering a new set of spincomponent, q-vector and frequencies
-            chiks = self.chiks_calc.calculate(spincomponent, q_c, zd)
-            # Distribute frequencies over world
-            chiks = chiks.copy_with_global_frequency_distribution()
-
-            # Fill buffer
-            self._chiks = chiks
-
-        return self._chiks
-
-    def get_xc_kernel(self, fxc, *, chiks, fxckwargs):
-        """Calculate the xc kernel."""
-        if fxckwargs is None:
-            fxckwargs = {}
-        assert isinstance(fxckwargs, dict)
-        if 'fxc_scaling' in fxckwargs:
-            assert chiks.spincomponent in ['+-', '-+']
-            fxc_scaling = fxckwargs['fxc_scaling']
-        else:
-            fxc_scaling = None
-
-        fxc_calculator = get_fxc(self.gs, self.context, fxc,
-                                 response='susceptibility', mode='pw',
-                                 **fxckwargs)
-
-        Kxc_GG = fxc_calculator(chiks.spincomponent, chiks.pd)
-
-        if fxc_scaling is not None:
-            self.context.print('Rescaling kernel to fulfill the Goldstone '
-                               'theorem')
-            Kxc_GG = get_scaled_xc_kernel(chiks, Kxc_GG, fxc_scaling)
-
-        return Kxc_GG
-
-
 class Chi:
     """Many-body susceptibility in a plane-wave basis."""
 
-    def __init__(self, context, chiks, Vbare_G, Kxc_GG):
+    def __init__(self, context, chiks: ChiKS, Vbare_G, Kxc_GG):
         """Construct the many-body susceptibility based on its ingredients."""
         self.context = context
 
@@ -248,6 +125,124 @@ class Chi:
             allX_zGG = allX_zGG[:len(self.chiks.zd), :, :]
 
         return allX_zGG
+
+
+class ChiFactory:
+    r"""User interface to calculate individual elements of the four-component
+    susceptibility tensor χ^μν, see [PRB 103, 245110 (2021)]."""
+
+    def __init__(self, chiks_calc: ChiKSCalculator):
+        """Contruct a many-body susceptibility factory."""
+        self.chiks_calc = chiks_calc
+        self.context = chiks_calc.context
+        self.gs = chiks_calc.gs
+
+        # Prepare a buffer for chiks
+        self._chiks = None
+
+    def __call__(self, spincomponent, q_c, complex_frequencies,
+                 fxc='ALDA', fxckwargs=None, txt=None) -> Chi:
+        r"""Calculate a given element (spincomponent) of the four-component
+        Kohn-Sham susceptibility tensor and construct a corresponding many-body
+        susceptibility object within a given approximation to the
+        exchange-correlation kernel.
+
+        Parameters
+        ----------
+        spincomponent : str
+            Spin component (μν) of the susceptibility.
+            Currently, '00', 'uu', 'dd', '+-' and '-+' are implemented.
+        q_c : list or ndarray
+            Wave vector
+        complex_frequencies : np.array or ComplexFrequencyDescriptor
+            Array of complex frequencies to evaluate the response function at
+            or a descriptor of those frequencies.
+        fxc : str
+            Approximation to the xc kernel
+        fxckwargs : dict
+            Kwargs to the FXCCalculator
+        txt : str
+            Save output of the calculation of this specific component into
+            a file with the filename of the given input.
+        """
+        assert isinstance(fxc, str)
+        # Initiate new output file, if supplied
+        if txt is not None:
+            self.context.new_txt_and_timer(txt)
+
+        # Print to output file
+        self.context.print('---------------', flush=False)
+        self.context.print('Calculating susceptibility spincomponent='
+                           f'{spincomponent} with q_c={q_c}', flush=False)
+        self.context.print('---------------')
+
+        # Calculate chiks (or get it from the buffer)
+        chiks = self.get_chiks(spincomponent, q_c, complex_frequencies)
+
+        # Calculate the Coulomb kernel
+        if spincomponent in ['+-', '-+']:
+            assert fxc != 'RPA'
+            # No Hartree term in Dyson equation
+            Vbare_G = None
+        else:
+            Vbare_G = get_coulomb_kernel(chiks.pd, self.gs.kd.N_c)
+
+        # Calculate the exchange-correlation kernel
+        if fxc == 'RPA':
+            # No xc kernel by definition
+            Kxc_GG = None
+        else:
+            Kxc_GG = self.get_xc_kernel(fxc, chiks=chiks,
+                                        fxckwargs=fxckwargs)
+
+        return Chi(self.context, chiks, Vbare_G, Kxc_GG)
+
+    def get_chiks(self, spincomponent, q_c, complex_frequencies):
+        """Get chiks from buffer."""
+        q_c = np.asarray(q_c)
+        if isinstance(complex_frequencies, ComplexFrequencyDescriptor):
+            zd = complex_frequencies
+        else:
+            zd = ComplexFrequencyDescriptor.from_array(complex_frequencies)
+
+        if self._chiks is None or\
+            not (spincomponent == self._chiks.spincomponent and
+                 np.allclose(q_c, self._chiks.q_c) and
+                 zd == self._chiks.zd):
+            # Calculate new chiks, if buffer is empty or if we are
+            # considering a new set of spincomponent, q-vector and frequencies
+            chiks = self.chiks_calc.calculate(spincomponent, q_c, zd)
+            # Distribute frequencies over world
+            chiks = chiks.copy_with_global_frequency_distribution()
+
+            # Fill buffer
+            self._chiks = chiks
+
+        return self._chiks
+
+    def get_xc_kernel(self, fxc, *, chiks, fxckwargs):
+        """Calculate the xc kernel."""
+        if fxckwargs is None:
+            fxckwargs = {}
+        assert isinstance(fxckwargs, dict)
+        if 'fxc_scaling' in fxckwargs:
+            assert chiks.spincomponent in ['+-', '-+']
+            fxc_scaling = fxckwargs['fxc_scaling']
+        else:
+            fxc_scaling = None
+
+        fxc_calculator = get_fxc(self.gs, self.context, fxc,
+                                 response='susceptibility', mode='pw',
+                                 **fxckwargs)
+
+        Kxc_GG = fxc_calculator(chiks.spincomponent, chiks.pd)
+
+        if fxc_scaling is not None:
+            self.context.print('Rescaling kernel to fulfill the Goldstone '
+                               'theorem')
+            Kxc_GG = get_scaled_xc_kernel(chiks, Kxc_GG, fxc_scaling)
+
+        return Kxc_GG
 
 
 def get_pw_reduction_map(pd, ecut):
