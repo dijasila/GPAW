@@ -163,10 +163,10 @@ class IsotropicExchangeCalculator:
             self.context.new_txt_and_timer(txt)
 
         zd = ComplexFrequencyDescriptor.from_array([0. + 0.j])
-        chiksdata = self.chiks_calc.calculate('+-', q_c, zd)
-        symmetrize_reciprocity(chiksdata.pd, chiksdata.array)
+        chiks = self.chiks_calc.calculate('+-', q_c, zd)
+        symmetrize_reciprocity(chiks.pd, chiks.array)
 
         # Take the reactive part
-        chiksr = chiksdata.copy_reactive_part()
+        chiksr = chiks.copy_reactive_part()
 
         return chiksr
