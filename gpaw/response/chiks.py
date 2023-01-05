@@ -14,7 +14,7 @@ from gpaw.response.pair_functions import (SingleQPWDescriptor,
                                           LatticePeriodicPairFunction)
 
 
-class ChiKSData(LatticePeriodicPairFunction):  # future ChiKS XXX
+class ChiKS(LatticePeriodicPairFunction):
     """Data object for the four-component Kohn-Sham susceptibility tensor."""
 
     def __init__(self, spincomponent, pd, zd,
@@ -24,7 +24,7 @@ class ChiKSData(LatticePeriodicPairFunction):  # future ChiKS XXX
         super().__init__(pd, zd, blockdist, distribution=distribution)
 
     def my_args(self, spincomponent=None, pd=None, zd=None, blockdist=None):
-        """Return construction arguments of the ChiKSData object."""
+        """Return construction arguments of the ChiKS object."""
         if spincomponent is None:
             spincomponent = self.spincomponent
         pd, zd, blockdist = super().my_args(pd=pd, zd=zd, blockdist=blockdist)
@@ -130,7 +130,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
 
         self.pair_density = PlaneWavePairDensity(self.kspair)
 
-    def calculate(self, spincomponent, q_c, zd):
+    def calculate(self, spincomponent, q_c, zd) -> ChiKS:
         r"""Calculate χ_KS,GG'^μν(q,z), where z = ω + iη
 
         Parameters
@@ -142,10 +142,6 @@ class ChiKSCalculator(PairFunctionIntegrator):
             Wave vector in relative coordinates
         zd : ComplexFrequencyDescriptor
             Complex frequencies z to evaluate χ_KS,GG'^μν(q,z) at.
-
-        Returns
-        -------
-        chiks : ChiKSData
         """
         assert isinstance(zd, ComplexFrequencyDescriptor)
 
@@ -224,7 +220,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
         return pd
 
     def create_chiks(self, spincomponent, pd, zd):
-        """Create a new ChiKSData object to be integrated."""
+        """Create a new ChiKS object to be integrated."""
         if self.bundle_integrals:
             distribution = 'GZg'
         else:
@@ -233,8 +229,8 @@ class ChiKSCalculator(PairFunctionIntegrator):
                                               self.blockcomm,
                                               self.intrablockcomm)
 
-        return ChiKSData(spincomponent, pd, zd,
-                         blockdist, distribution=distribution)
+        return ChiKS(spincomponent, pd, zd,
+                     blockdist, distribution=distribution)
 
     @timer('Add integrand to chiks')
     def add_integrand(self, kptpair, weight, chiks):
