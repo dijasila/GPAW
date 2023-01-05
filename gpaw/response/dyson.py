@@ -32,6 +32,6 @@ def invert_dyson_single_frequency(chiks_GG, Khxc_GG):
     """
     enhancement_GG = np.linalg.inv(np.eye(len(chiks_GG)) -
                                    np.dot(chiks_GG, Khxc_GG))
-    chi_GG = np.dot(enhancement_GG, chiks_GG)
+    chi_GG = enhancement_GG @ chiks_GG
 
     return chi_GG

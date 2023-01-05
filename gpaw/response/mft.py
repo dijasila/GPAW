@@ -2,7 +2,8 @@
 import numpy as np
 
 # GPAW modules
-from gpaw.response.chiks import ChiKS
+from gpaw.response.frequencies import ComplexFrequencyDescriptor
+from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.localft import LocalFTCalculator, add_LSDA_Bxc
 from gpaw.response.site_kernels import SiteKernels
 from gpaw.response.susceptibility import symmetrize_reciprocity
@@ -33,32 +34,31 @@ class IsotropicExchangeCalculator:
     Heisenberg model. This is not a uniquely defined procedure, why the user
     has to define them externally through the SiteKernels interface."""
 
-    def __init__(self, chiks, localft_calc):
+    def __init__(self, chiks_calc, localft_calc):
         """Construct the IsotropicExchangeCalculator object
 
         Parameters
         ----------
-        chiks : ChiKS
-            ChiKS calculator object
+        chiks_calc : ChiKSCalculator
         """
-        assert isinstance(chiks, ChiKS)
+        assert isinstance(chiks_calc, ChiKSCalculator)
         # Check that chiks has the assumed properties
         assumed_props = dict(
             gammacentered=True,
-            kpointintegration='point integration',
             nblocks=1
         )
         for key, item in assumed_props.items():
-            assert getattr(chiks, key) == item,\
-                f'Expected chiks.{key} == {item}. Got: {getattr(chiks, key)}'
+            assert getattr(chiks_calc, key) == item,\
+                f'Expected chiks.{key} == {item}. '\
+                f'Got: {getattr(chiks_calc, key)}'
 
-        self.chiks = chiks
-        self.context = chiks.context
+        self.chiks_calc = chiks_calc
+        self.context = chiks_calc.context
 
         # Check assumed properties of the LocalFTCalculator
         assert isinstance(localft_calc, LocalFTCalculator)
         assert localft_calc.context is self.context
-        assert localft_calc.gs is chiks.gs
+        assert localft_calc.gs is chiks_calc.gs
         self.localft_calc = localft_calc
 
         # Bxc field buffer
@@ -124,7 +124,7 @@ class IsotropicExchangeCalculator:
         coefficients B^xc_G"""
         # Create a plane wave descriptor encoding the plane wave basis. Input
         # q_c is arbitrary, since we are assuming that chiks.gammacentered == 1
-        pd0 = self.chiks.get_pw_descriptor([0., 0., 0.])
+        pd0 = self.chiks_calc.get_pw_descriptor([0., 0., 0.])
 
         return self.localft_calc(pd0, add_LSDA_Bxc)
 
@@ -139,7 +139,7 @@ class IsotropicExchangeCalculator:
         return self._chiksr
 
     def _calculate_chiksr(self, q_c, txt=None):
-        r"""Use the ChiKS calculator to calculate the reactive part of the
+        r"""Use the ChiKSCalculator to calculate the reactive part of the
         static Kohn-Sham susceptibility χ_KS^('+-)(q).
 
         First, the dynamic Kohn-Sham susceptibility
@@ -151,20 +151,19 @@ class IsotropicExchangeCalculator:
                                  k  n,m
                                         x n_nk↑,mk+q↓(G+q) n_mk+q↓,nk↑(-G'-q)
 
-        is calculated in the static limit ω=0. Then, the reactive part (see
-        [PRB 103, 245110 (2021)]) is extracted:
+        is calculated in the static limit ω=0 and without broadening η=0. Then,
+        the reactive part (see [PRB 103, 245110 (2021)]) is extracted:
 
                               1
-        χ_KS,GG'^(+-')(q,ω) = ‾ [χ_KS,GG'^+-(q,ω+iη) + χ_KS,-G'-G^-+(-q,-ω+iη)]
+        χ_KS,GG'^(+-')(q,z) = ‾ [χ_KS,GG'^+-(q,z) + χ_KS,-G'-G^-+(-q,-z*)].
                               2
         """
         # Initiate new output file, if supplied
         if txt is not None:
             self.context.new_txt_and_timer(txt)
 
-        frequencies = [0.]
-        chiksdata = self.chiks.calculate(q_c, frequencies,
-                                         spincomponent='+-')
+        zd = ComplexFrequencyDescriptor.from_array([0. + 0.j])
+        chiksdata = self.chiks_calc.calculate('+-', q_c, zd)
         symmetrize_reciprocity(chiksdata.pd, chiksdata.array)
 
         # Take the reactive part

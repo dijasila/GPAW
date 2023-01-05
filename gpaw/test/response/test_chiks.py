@@ -8,7 +8,8 @@ import pytest
 from gpaw import GPAW
 from gpaw.mpi import rank, world
 from gpaw.response import ResponseGroundStateAdapter
-from gpaw.response.chiks import ChiKS
+from gpaw.response.frequencies import ComplexFrequencyDescriptor
+from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.susceptibility import (get_inverted_pw_mapping,
                                           get_pw_coordinates)
 
@@ -105,21 +106,24 @@ def test_chiks_symmetry(in_tmp_dir, gpw_files, q_c, eta, gammacentered):
     else:
         q_qc = [-q_c, q_c]
 
+    # Set up complex frequency descriptor
+    complex_frequencies = np.array(frequencies) + 1.j * eta
+    zd = ComplexFrequencyDescriptor.from_array(complex_frequencies)
+
     chiksdata_sbq = []
     for disable_syms in disable_syms_s:
         chiksdata_bq = []
         for bandsummation in bandsummation_b:
-            chiks = ChiKS(gs,
-                          ecut=ecut, nbands=nbands, eta=eta,
-                          gammacentered=gammacentered,
-                          disable_time_reversal=disable_syms,
-                          disable_point_group=disable_syms,
-                          nblocks=nblocks)
+            chiks_calc = ChiKSCalculator(gs,
+                                         ecut=ecut, nbands=nbands,
+                                         gammacentered=gammacentered,
+                                         disable_time_reversal=disable_syms,
+                                         disable_point_group=disable_syms,
+                                         nblocks=nblocks)
 
             chiksdata_q = []
             for q_c in q_qc:
-                chiksdata = chiks.calculate(q_c, frequencies,
-                                            spincomponent='+-')
+                chiksdata = chiks_calc.calculate('+-', q_c, zd)
                 chiksdata = chiksdata.copy_with_global_frequency_distribution()
                 chiksdata_q.append(chiksdata)
 

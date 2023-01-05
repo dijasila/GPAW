@@ -13,7 +13,7 @@ from gpaw import GPAW, PW, FermiDirac
 from gpaw import mpi
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
-from gpaw.response.chiks import ChiKS
+from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.localft import LocalFTCalculator, LocalPAWFTCalculator
 from gpaw.response.mft import IsotropicExchangeCalculator
 from gpaw.response.site_kernels import (SphericalSiteKernels,
@@ -29,7 +29,6 @@ def test_Fe_bcc(in_tmp_dir, gpw_files):
 
     # MFT calculation
     ecut = 50
-    eta = 0.
     # Do the high symmetry points of the bcc lattice
     q_qc = np.array([[0, 0, 0],           # Gamma
                      [0.5, -0.5, 0.5],    # H
@@ -61,11 +60,10 @@ def test_Fe_bcc(in_tmp_dir, gpw_files):
     # Initialize the exchange calculator
     gs = ResponseGroundStateAdapter(calc)
     context = ResponseContext()
-    chiks = ChiKS(gs, context,
-                  ecut=ecut, nbands=nbands, eta=eta,
-                  gammacentered=True)
+    chiks_calc = ChiKSCalculator(gs, context,
+                                 ecut=ecut, nbands=nbands, gammacentered=True)
     localft_calc = LocalFTCalculator.from_rshe_parameters(gs, context)
-    isoexch_calc = IsotropicExchangeCalculator(chiks, localft_calc)
+    isoexch_calc = IsotropicExchangeCalculator(chiks_calc, localft_calc)
 
     # Allocate array for the exchange constants
     nq = len(q_qc)
@@ -132,8 +130,6 @@ def test_Co_hcp(in_tmp_dir):
 
     # Part 2: MFT calculation
     ecut = 100
-    eta0 = 0.
-    eta1 = 0.1
     # Do high symmetry points of the hcp lattice
     q_qc = np.array([[0, 0, 0],              # Gamma
                      [0.5, 0., 0.],          # M
@@ -187,21 +183,18 @@ def test_Co_hcp(in_tmp_dir):
     cc_v = np.sum(cell_cv, axis=0) / 2.  # Unit cell center
     ucsitekernels = ParallelepipedicSiteKernels([cc_v], [[cell_cv]])
 
-    # Initialize the exchange calculator with and without eta,
-    # as well as with and without symmetry
+    # Initialize the exchange calculator with and without symmetry
     gs = ResponseGroundStateAdapter(calc)
     context = ResponseContext()
-    chiks0 = ChiKS(gs, context,
-                   disable_point_group=True,
-                   disable_time_reversal=True,
-                   ecut=ecut, nbands=nbands, eta=eta0,
-                   gammacentered=True)
+    chiks_calc0 = ChiKSCalculator(gs, context,
+                                  disable_point_group=True,
+                                  disable_time_reversal=True,
+                                  ecut=ecut, nbands=nbands, gammacentered=True)
     localft_calc = LocalPAWFTCalculator(gs, context)
-    isoexch_calc0 = IsotropicExchangeCalculator(chiks0, localft_calc)
-    chiks1 = ChiKS(gs, context,
-                   ecut=ecut, nbands=nbands, eta=eta1,
-                   gammacentered=True)
-    isoexch_calc1 = IsotropicExchangeCalculator(chiks1, localft_calc)
+    isoexch_calc0 = IsotropicExchangeCalculator(chiks_calc0, localft_calc)
+    chiks_calc1 = ChiKSCalculator(gs, context,
+                                  ecut=ecut, nbands=nbands, gammacentered=True)
+    isoexch_calc1 = IsotropicExchangeCalculator(chiks_calc1, localft_calc)
 
     # Allocate array for the spherical site exchange constants
     nq = len(q_qc)
@@ -210,20 +203,20 @@ def test_Co_hcp(in_tmp_dir):
     J_qabp = np.empty((nq, nsites, nsites, npartitions), dtype=complex)
 
     # Allocate array for the unit cell site exchange constants
-    Juc_qe = np.empty((nq, 2), dtype=complex)
+    Juc_qs = np.empty((nq, 2), dtype=complex)
 
     # Calcualate the exchange constants for each q-point
     for q, q_c in enumerate(q_qc):
         J_qabp[q] = isoexch_calc0(q_c, sitekernels)
-        Juc_qe[q, 0] = isoexch_calc0(q_c, ucsitekernels)[0, 0, 0]
-        Juc_qe[q, 1] = isoexch_calc1(q_c, ucsitekernels)[0, 0, 0]
+        Juc_qs[q, 0] = isoexch_calc0(q_c, ucsitekernels)[0, 0, 0]
+        Juc_qs[q, 1] = isoexch_calc1(q_c, ucsitekernels)[0, 0, 0]
 
     # Calculate the magnon energy
     mm_ap = calc.get_magnetic_moment() / 2.\
         * np.ones((nsites, npartitions))
     mw_qnp = calculate_fm_magnon_energies(J_qabp, q_qc, mm_ap)
     mw_qnp = np.sort(mw_qnp, axis=1)  # Make sure the eigenvalues are sorted
-    mwuc_qe = calculate_single_site_magnon_energies(Juc_qe, q_qc,
+    mwuc_qs = calculate_single_site_magnon_energies(Juc_qs, q_qc,
                                                     calc.get_magnetic_moment())
 
     # Part 3: Compare results to test values
@@ -251,10 +244,10 @@ def test_Co_hcp(in_tmp_dir):
 
     # Magnon energies
     assert np.all(np.abs(mw_qnp[0, 0, :]) < 1.e-8)  # Goldstone theorem
-    assert np.allclose(mwuc_qe[0, :], 0.)  # Goldstone
+    assert np.allclose(mwuc_qs[0, :], 0.)  # Goldstone
     assert np.allclose(mw_qnp[1:, 0, 1], test_mw_qn[1:, 0], rtol=mw_rtol)
     assert np.allclose(mw_qnp[:, 1, 1], test_mw_qn[:, 1], rtol=mw_rtol)
-    assert np.allclose(mwuc_qe[1:, 0], test_mwuc_q[1:], rtol=mw_rtol)
+    assert np.allclose(mwuc_qs[1:, 0], test_mwuc_q[1:], rtol=mw_rtol)
 
     # Part 4: Check self-consistency of results
     # We should be in a radius range, where the magnon energies don't change
@@ -262,5 +255,5 @@ def test_Co_hcp(in_tmp_dir):
                        test_mw_qn[1:, 0, np.newaxis], rtol=mw_ctol)
     assert np.allclose(mw_qnp[:, 1, ::2],
                        test_mw_qn[:, 1, np.newaxis], rtol=mw_ctol)
-    # Check that a finite eta does not change the magnon energies too much
-    assert np.allclose(mwuc_qe[1:, 0], mwuc_qe[1:, 1], rtol=mw_ctol)
+    # Check that symmetry toggle do not change the magnon energies
+    assert np.allclose(mwuc_qs[1:, 0], mwuc_qs[1:, 1], rtol=mw_ctol)

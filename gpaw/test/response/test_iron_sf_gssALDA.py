@@ -13,7 +13,7 @@ from gpaw.test import findpeak
 from gpaw.mpi import world
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
-from gpaw.response.chiks import ChiKS
+from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.susceptibility import ChiFactory
 from gpaw.response.df import read_response_function
 
@@ -41,17 +41,17 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
     gs = ResponseGroundStateAdapter.from_gpw_file(gpw_files['fe_pw_wfs'],
                                                   context=context)
     fxckwargs = {'rshelmax': None, 'fxc_scaling': fxc_scaling}
-    chiks = ChiKS(gs,
-                  context=context,
-                  nbands=nbands,
-                  eta=eta,
-                  ecut=ecut,
-                  gammacentered=True,
-                  nblocks=nblocks)
-    chi_factory = ChiFactory(chiks)
+    chiks_calc = ChiKSCalculator(gs,
+                                 context=context,
+                                 nbands=nbands,
+                                 ecut=ecut,
+                                 gammacentered=True,
+                                 nblocks=nblocks)
+    chi_factory = ChiFactory(chiks_calc)
 
     for q in range(2):
-        chi = chi_factory('+-', q_qc[q], frq_qw[q],
+        complex_frequencies = frq_qw[q] + 1.j * eta
+        chi = chi_factory('+-', q_qc[q], complex_frequencies,
                           fxc=fxc,
                           fxckwargs=fxckwargs)
         chi.write_macroscopic_component('iron_dsus' + '_%d.csv' % (q + 1))

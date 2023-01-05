@@ -6,59 +6,12 @@ from ase.units import Hartree
 from gpaw.utilities.blas import mmmx
 
 from gpaw.response import ResponseContext, timer
-from gpaw.response.frequencies import (FrequencyDescriptor,
-                                       ComplexFrequencyDescriptor)
+from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.pw_parallelization import PlaneWaveBlockDistributor
 from gpaw.response.kspair import PlaneWavePairDensity
 from gpaw.response.pair_integrator import PairFunctionIntegrator
 from gpaw.response.pair_functions import (SingleQPWDescriptor,
                                           LatticePeriodicPairFunction)
-
-
-class ChiKS:
-    """Temporary backwards compatibility layer."""
-
-    def __init__(self, gs, context=None, nblocks=1,
-                 disable_point_group=False, disable_time_reversal=False,
-                 disable_non_symmorphic=True,
-                 eta=0.2, ecut=50, gammacentered=False, nbands=None,
-                 bundle_integrals=True, bandsummation='pairwise'):
-
-        self.calc = ChiKSCalculator(
-            gs, context=context, nblocks=nblocks,
-            ecut=ecut, gammacentered=gammacentered,
-            nbands=nbands,
-            bundle_integrals=bundle_integrals, bandsummation=bandsummation,
-            disable_point_group=disable_point_group,
-            disable_time_reversal=disable_time_reversal,
-            disable_non_symmorphic=disable_non_symmorphic)
-        self.context = self.calc.context
-        self.gs = self.calc.gs
-        self.nblocks = self.calc.nblocks
-        self.gammacentered = self.calc.gammacentered
-
-        self.eta = eta / Hartree
-
-        # Hard-coded, but expected properties
-        self.kpointintegration = 'point integration'
-
-    def calculate(self, q_c, frequencies, spincomponent='all'):
-        if isinstance(frequencies, FrequencyDescriptor):
-            wd = frequencies
-        else:
-            wd = FrequencyDescriptor.from_array_or_dict(frequencies)
-        self.wd = wd
-        self.blockdist = PlaneWaveBlockDistributor(self.context.world,
-                                                   self.calc.blockcomm,
-                                                   self.calc.intrablockcomm)
-
-        zd = ComplexFrequencyDescriptor(wd.omega_w + 1.j * self.eta)
-        chiksdata = self.calc.calculate(spincomponent, q_c, zd)
-
-        return chiksdata
-
-    def get_pw_descriptor(self, q_c):
-        return self.calc.get_pw_descriptor(q_c)
 
 
 class ChiKSData(LatticePeriodicPairFunction):  # future ChiKS XXX
@@ -328,7 +281,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
         df_t, deps_t, n_tG = kptpair.df_t, kptpair.deps_t, kptpair.n_tG
 
         # Calculate the frequency dependence of the integrand
-        if chiks.spincomponent in ['00', 'all'] and self.gs.nspins == 1:
+        if chiks.spincomponent == '00' and self.gs.nspins == 1:
             weight = 2 * weight
         x_Zt = weight * get_temporal_part(chiks.spincomponent,
                                           chiks.zd.hz_z,
@@ -523,7 +476,7 @@ def get_pairwise_temporal_part(spincomponent, s1_t, s2_t,
 
 def get_spin_rotation(spincomponent):
     """Get the spin rotation corresponding to the given spin component."""
-    if spincomponent is None or spincomponent == '00':
+    if spincomponent == '00':
         return '0'
     elif spincomponent in ['uu', 'dd', '+-', '-+']:
         return spincomponent[-1]
@@ -535,9 +488,6 @@ def get_smat_components(spincomponent, s1_t, s2_t):
     """For s1=s and s2=s', get:
     smu_ss' snu_s's
     """
-    if spincomponent is None:
-        spincomponent = '00'
-
     smatmu = smat(spincomponent[0])
     smatnu = smat(spincomponent[1])
 

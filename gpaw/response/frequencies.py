@@ -78,6 +78,11 @@ class ComplexFrequencyDescriptor:
     def __len__(self):
         return len(self.hz_z)
 
+    def almost_eq(self, zd):
+        if len(zd) != len(self):
+            return False
+        return np.allclose(self.hz_z, zd.hz_z)
+
     @staticmethod
     def from_array(frequencies: ArrayLike1D):
         """Create a ComplexFrequencyDescriptor from frequencies in eV."""
