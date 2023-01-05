@@ -34,14 +34,10 @@ class IsotropicExchangeCalculator:
     Heisenberg model. This is not a uniquely defined procedure, why the user
     has to define them externally through the SiteKernels interface."""
 
-    def __init__(self, chiks_calc, localft_calc):
-        """Construct the IsotropicExchangeCalculator object
-
-        Parameters
-        ----------
-        chiks_calc : ChiKSCalculator
-        """
-        assert isinstance(chiks_calc, ChiKSCalculator)
+    def __init__(self,
+                 chiks_calc: ChiKSCalculator,
+                 localft_calc: LocalFTCalculator):
+        """Construct the IsotropicExchangeCalculator object."""
         # Check that chiks has the assumed properties
         assumed_props = dict(
             gammacentered=True,
@@ -56,7 +52,6 @@ class IsotropicExchangeCalculator:
         self.context = chiks_calc.context
 
         # Check assumed properties of the LocalFTCalculator
-        assert isinstance(localft_calc, LocalFTCalculator)
         assert localft_calc.context is self.context
         assert localft_calc.gs is chiks_calc.gs
         self.localft_calc = localft_calc
@@ -67,7 +62,7 @@ class IsotropicExchangeCalculator:
         # chiksr buffer
         self._chiksr = None
 
-    def __call__(self, q_c, site_kernels, txt=None):
+    def __call__(self, q_c, site_kernels: SiteKernels, txt=None):
         """Calculate the isotropic exchange constants for a given wavevector.
 
         Parameters
@@ -87,8 +82,6 @@ class IsotropicExchangeCalculator:
             Isotropic Heisenberg exchange constants between magnetic sites a
             and b for all the site partitions p given by the site_kernels.
         """
-        assert isinstance(site_kernels, SiteKernels)
-
         # Get ingredients
         Bxc_G = self.get_Bxc()
         chiksr = self.get_chiksr(q_c, txt=txt)
