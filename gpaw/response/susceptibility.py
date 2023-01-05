@@ -98,7 +98,7 @@ class ChiFactory:
         if self._chiksdata is None or\
             not (spincomponent == self._chiksdata.spincomponent and
                  np.allclose(q_c, self._chiksdata.q_c) and
-                 zd == self._chiksdata.zd):
+                 zd.almost_eq(self._chiksdata.zd)):
             # Calculate new chiksdata, if buffer is empty or if we are
             # considering a new set of spincomponent, q-vector and frequencies
             chiksdata = self.chiks_calc.calculate(spincomponent, q_c, zd)
