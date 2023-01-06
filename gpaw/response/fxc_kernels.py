@@ -13,6 +13,7 @@ from gpaw.spherical_harmonics import Yarr
 from gpaw.sphere.lebedev import weight_n, R_nv
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
+from gpaw.response.chiks import ChiKS
 from gpaw.response.goldstone import get_scaled_xc_kernel
 
 
@@ -25,32 +26,51 @@ class FXCFactory:
         self.gs = gs
         self.context = context
 
-    def __call__(self, fxc, chiks, *, fxckwargs):
-        """Get the xc kernel Kxc_GG."""
-        if fxckwargs is None:
-            fxckwargs = {}
-        assert isinstance(fxckwargs, dict)
-        if 'fxc_scaling' in fxckwargs:
-            assert chiks.spincomponent in ['+-', '-+']
-            fxc_scaling = fxckwargs['fxc_scaling']
-        else:
-            fxc_scaling = None
+    def __call__(self, fxc, chiks: ChiKS,
+                 calculator={'method': 'old',
+                             'rshelmax': -1,
+                             'rshewmin': None},
+                 fxc_scaling=None):
+        """Get the xc kernel Kxc_GG.
 
-        fxc_calculator = get_fxc(self.gs, self.context, fxc,
-                                 response='susceptibility', mode='pw',
-                                 **fxckwargs)
+        Parameters
+        ----------
+        fxc : str
+            Approximation to the (local) xc kernel.
+            Choices: ALDA, ALDA_X, ALDA_x
+        calculator : dict
+            Parameters to set up the FXCCalculator. The 'method' key
+            determines what calculator is initilized and remaining parameters
+            are passed to the calculator as key-word arguments.
+        fxc_scaling : list
+            Apply a post-hoc scaling of the calculated kernel
+        """
+        assert isinstance(calculator, dict) and 'method' in calculator
+
+        # Generate the desired calculator
+        calc_kwargs = calculator.copy()
+        method = calc_kwargs.pop('method')
+        fxc_calculator = get_fxc_calculator(self.gs, self.context, fxc,
+                                            method=method, **calc_kwargs)
 
         Kxc_GG = fxc_calculator(chiks.spincomponent, chiks.pd)
 
         if fxc_scaling is not None:
-            self.context.print('Rescaling kernel to fulfill the Goldstone '
-                               'theorem')
-            Kxc_GG = get_scaled_xc_kernel(chiks, Kxc_GG, fxc_scaling)
+            self.apply_post_hoc_scaling(Kxc_GG, fxc_scaling, chiks=chiks)
 
         return Kxc_GG
 
+    def apply_post_hoc_scaling(self, inKxc_GG, fxc_scaling, *, chiks):
+        """Some documentation here!"""
+        assert chiks.spincomponent in ['+-', '-+']
 
-def get_fxc(gs, context, fxc, response='susceptibility', mode='pw', **kwargs):
+        self.context.print('Rescaling kernel to fulfill the Goldstone '
+                           'theorem')
+        outKxc_GG = get_scaled_xc_kernel(chiks, inKxc_GG, fxc_scaling)
+        inKxc_GG[:] = outKxc_GG
+
+
+def get_fxc_calculator(gs, context, fxc, method='old', **kwargs):
     """Factory function getting an initiated version of the fxc class."""
     functional = fxc
 
@@ -60,17 +80,17 @@ def get_fxc(gs, context, fxc, response='susceptibility', mode='pw', **kwargs):
             return None
         return dummy_fxc
 
-    fxc = create_fxc(functional, response, mode)
+    fxc = create_fxc(functional, method)
     return fxc(gs, context, functional, **kwargs)
 
 
-def create_fxc(functional, response, mode):
+def create_fxc(functional, method):
     """Creator component for the FXC classes."""
     # Only one kind of response and mode is supported for now
     if functional in ['ALDA_x', 'ALDA_X', 'ALDA']:
-        if response == 'susceptibility' and mode == 'pw':
+        if method == 'old':
             return AdiabaticSusceptibilityFXC
-    raise ValueError(functional, response, mode)
+    raise ValueError(functional, method)
 
 
 class FXC:
