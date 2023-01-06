@@ -50,8 +50,8 @@ class FXCFactory:
         # Generate the desired calculator
         calc_kwargs = calculator.copy()
         method = calc_kwargs.pop('method')
-        fxc_calculator = get_fxc_calculator(self.gs, self.context, fxc,
-                                            method=method, **calc_kwargs)
+        fxc_calculator = self.get_fxc_calculator(fxc,
+                                                 method=method, **calc_kwargs)
 
         Kxc_GG = fxc_calculator(chiks.spincomponent, chiks.pd)
 
@@ -69,22 +69,21 @@ class FXCFactory:
         outKxc_GG = get_scaled_xc_kernel(chiks, inKxc_GG, fxc_scaling)
         inKxc_GG[:] = outKxc_GG
 
+    def get_fxc_calculator(self, fxc, method='old', **kwargs):
+        """Factory function getting an initiated fxc calculator."""
+        functional = fxc
 
-def get_fxc_calculator(gs, context, fxc, method='old', **kwargs):
-    """Factory function getting an initiated version of the fxc class."""
-    functional = fxc
+        fxc_calculator = self.create_fxc_calculator(functional, method)
+        return fxc_calculator(self.gs, self.context, functional, **kwargs)
 
-    fxc = create_fxc(functional, method)
-    return fxc(gs, context, functional, **kwargs)
-
-
-def create_fxc(functional, method):
-    """Creator component for the FXC classes."""
-    # Only one kind of response and mode is supported for now
-    if functional in ['ALDA_x', 'ALDA_X', 'ALDA']:
-        if method == 'old':
-            return AdiabaticSusceptibilityFXC
-    raise ValueError(functional, method)
+    @staticmethod
+    def create_fxc_calculator(functional, method):
+        """Creator component for the fxc calculators."""
+        # Only one kind of response and mode is supported for now
+        if functional in ['ALDA_x', 'ALDA_X', 'ALDA']:
+            if method == 'old':
+                return AdiabaticSusceptibilityFXC
+        raise ValueError(functional, method)
 
 
 class FXC:
