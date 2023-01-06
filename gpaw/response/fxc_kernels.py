@@ -11,7 +11,43 @@ from ase.units import Bohr
 from gpaw.xc import XC
 from gpaw.spherical_harmonics import Yarr
 from gpaw.sphere.lebedev import weight_n, R_nv
+
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
+from gpaw.response.goldstone import get_scaled_xc_kernel
+
+
+class FXCFactory:
+    """Exchange-correlation kernel factory."""
+
+    def __init__(self,
+                 gs: ResponseGroundStateAdapter,
+                 context: ResponseContext):
+        self.gs = gs
+        self.context = context
+
+    def __call__(self, fxc, *, chiks, fxckwargs):
+        """Get the xc kernel Kxc_GG."""
+        if fxckwargs is None:
+            fxckwargs = {}
+        assert isinstance(fxckwargs, dict)
+        if 'fxc_scaling' in fxckwargs:
+            assert chiks.spincomponent in ['+-', '-+']
+            fxc_scaling = fxckwargs['fxc_scaling']
+        else:
+            fxc_scaling = None
+
+        fxc_calculator = get_fxc(self.gs, self.context, fxc,
+                                 response='susceptibility', mode='pw',
+                                 **fxckwargs)
+
+        Kxc_GG = fxc_calculator(chiks.spincomponent, chiks.pd)
+
+        if fxc_scaling is not None:
+            self.context.print('Rescaling kernel to fulfill the Goldstone '
+                               'theorem')
+            Kxc_GG = get_scaled_xc_kernel(chiks, Kxc_GG, fxc_scaling)
+
+        return Kxc_GG
 
 
 def get_fxc(gs, context, fxc, response='susceptibility', mode='pw', **kwargs):
