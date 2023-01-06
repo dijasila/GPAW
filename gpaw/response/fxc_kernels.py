@@ -25,7 +25,7 @@ class FXCFactory:
         self.gs = gs
         self.context = context
 
-    def __call__(self, fxc, *, chiks, fxckwargs):
+    def __call__(self, fxc, chiks, *, fxckwargs):
         """Get the xc kernel Kxc_GG."""
         if fxckwargs is None:
             fxckwargs = {}

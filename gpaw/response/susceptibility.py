@@ -195,7 +195,7 @@ class ChiFactory:
             # No xc kernel by definition
             Kxc_GG = None
         else:
-            Kxc_GG = self.fxc_factory(fxc, chiks=chiks, fxckwargs=fxckwargs)
+            Kxc_GG = self.fxc_factory(fxc, chiks, fxckwargs=fxckwargs)
 
         # Initiate the dyson solver
         dyson_solver = DysonSolver(self.context)
