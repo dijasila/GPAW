@@ -17,7 +17,7 @@ class Chi:
 
     def __init__(self, chiks: ChiKS,
                  Vbare_G, Kxc_GG,
-                 dysonsolver: DysonSolver):
+                 dyson_solver: DysonSolver):
         """Construct the many-body susceptibility based on its ingredients."""
         assert chiks.distribution == 'zGG' and\
             chiks.blockdist.blockcomm.size == chiks.blockdist.world.size,\
@@ -28,7 +28,7 @@ class Chi:
         self.Vbare_G = Vbare_G
         self.Kxc_GG = Kxc_GG  # Use Kxc_G in the future XXX
 
-        self.dysonsolver = dysonsolver
+        self.dyson_solver = dyson_solver
 
     def write_macroscopic_component(self, filename):
         """Calculate the spatially averaged (macroscopic) component of the
@@ -82,8 +82,7 @@ class Chi:
 
     def _calculate(self):
         """Calculate chi_zGG."""
-        return self.dysonsolver.invert_dyson(self.chiks.array,
-                                             self.Khxc_GG)
+        return self.dyson_solver.invert_dyson(self.chiks.array, self.Khxc_GG)
 
     @property
     def Khxc_GG(self):
@@ -199,9 +198,9 @@ class ChiFactory:
                                         fxckwargs=fxckwargs)
 
         # Initiate the dyson solver
-        dysonsolver = DysonSolver(self.context)
+        dyson_solver = DysonSolver(self.context)
 
-        return Chi(chiks, Vbare_G, Kxc_GG, dysonsolver)
+        return Chi(chiks, Vbare_G, Kxc_GG, dyson_solver)
 
     def get_chiks(self, spincomponent, q_c, complex_frequencies):
         """Get chiks from buffer."""
