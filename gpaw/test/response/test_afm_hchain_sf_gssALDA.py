@@ -77,8 +77,9 @@ def test_response_afm_hchain_gssALDA(in_tmp_dir):
     Hchain.get_potential_energy()
 
     # Part 2: Magnetic response calculation
-    fxckwargs = {'rshelmax': rshelmax,
-                 'rshewmin': rshewmin,
+    fxckwargs = {'calculator': {'method': 'old',
+                                'rshelmax': rshelmax,
+                                'rshewmin': rshewmin},
                  'fxc_scaling': fxc_scaling}
     gs = ResponseGroundStateAdapter(calc)
     chiks_calc = ChiKSCalculator(gs,

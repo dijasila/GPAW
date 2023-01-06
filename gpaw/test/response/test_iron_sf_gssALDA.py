@@ -40,7 +40,9 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
     context = ResponseContext()
     gs = ResponseGroundStateAdapter.from_gpw_file(gpw_files['fe_pw_wfs'],
                                                   context=context)
-    fxckwargs = {'rshelmax': None, 'fxc_scaling': fxc_scaling}
+    fxckwargs = {'calculator': {'method': 'old',
+                                'rshelmax': None},
+                 'fxc_scaling': fxc_scaling}
     chiks_calc = ChiKSCalculator(gs,
                                  context=context,
                                  nbands=nbands,
