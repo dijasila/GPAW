@@ -75,9 +75,9 @@ class FXCFactory:
         Kxc_GG = fxc_calculator(fxc, chiks.spincomponent, chiks.pd)
 
         if fxc_scaling is not None:
-            self.context.print('Rescaling kernel to fulfill the Goldstone '
-                               'theorem')
             lambd = fxc_scaling.get_scaling(chiks, Kxc_GG)
+            self.context.print(r'Rescaling the xc-kernel by a factor of λ='
+                               f'{lambd}')
             Kxc_GG *= lambd
 
         return Kxc_GG
