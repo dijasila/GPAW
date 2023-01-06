@@ -74,12 +74,6 @@ def get_fxc_calculator(gs, context, fxc, method='old', **kwargs):
     """Factory function getting an initiated version of the fxc class."""
     functional = fxc
 
-    if functional == 'RPA':
-        # No exchange and correlation
-        def dummy_fxc(*args, **kwargs):
-            return None
-        return dummy_fxc
-
     fxc = create_fxc(functional, method)
     return fxc(gs, context, functional, **kwargs)
 
