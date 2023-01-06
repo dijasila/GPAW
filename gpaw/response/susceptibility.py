@@ -213,7 +213,7 @@ class ChiFactory:
         if self._chiks is None or\
             not (spincomponent == self._chiks.spincomponent and
                  np.allclose(q_c, self._chiks.q_c) and
-                 zd == self._chiks.zd):
+                 zd.almost_eq(self._chiks.zd)):
             # Calculate new chiks, if buffer is empty or if we are
             # considering a new set of spincomponent, q-vector and frequencies
             chiks = self.chiks_calc.calculate(spincomponent, q_c, zd)

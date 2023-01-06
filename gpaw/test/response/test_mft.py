@@ -208,7 +208,12 @@ def test_Co_hcp(in_tmp_dir):
     # Calcualate the exchange constants for each q-point
     for q, q_c in enumerate(q_qc):
         J_qabp[q] = isoexch_calc0(q_c, sitekernels)
+        chiksr_buffer = isoexch_calc0._chiksr
         Juc_qs[q, 0] = isoexch_calc0(q_c, ucsitekernels)[0, 0, 0]
+        assert isoexch_calc0._chiksr is chiksr_buffer,\
+            'Two subsequent IsotropicExchangeCalculator calls with the same '\
+            'q_c, should reuse, not update, the chiks buffer'
+
         Juc_qs[q, 1] = isoexch_calc1(q_c, ucsitekernels)[0, 0, 0]
 
     # Calculate the magnon energy
