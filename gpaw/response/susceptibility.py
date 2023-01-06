@@ -135,8 +135,9 @@ class ChiFactory:
     def __init__(self, chiks_calc: ChiKSCalculator):
         """Contruct a many-body susceptibility factory."""
         self.chiks_calc = chiks_calc
-        self.context = chiks_calc.context
+
         self.gs = chiks_calc.gs
+        self.context = chiks_calc.context
 
         self.fxc_factory = FXCFactory(self.gs, self.context)
 
@@ -144,7 +145,7 @@ class ChiFactory:
         self._chiks = None
 
     def __call__(self, spincomponent, q_c, complex_frequencies,
-                 fxc='ALDA', fxckwargs=None, txt=None) -> Chi:
+                 fxc='ALDA', fxckwargs={}, txt=None) -> Chi:
         r"""Calculate a given element (spincomponent) of the four-component
         Kohn-Sham susceptibility tensor and construct a corresponding many-body
         susceptibility object within a given approximation to the
@@ -161,9 +162,10 @@ class ChiFactory:
             Array of complex frequencies to evaluate the response function at
             or a descriptor of those frequencies.
         fxc : str
-            Approximation to the xc kernel
+            Approximation to the (local) xc kernel.
+            Choices: ALDA, ALDA_X, ALDA_x
         fxckwargs : dict
-            Kwargs to the FXCCalculator
+            Keyword arguments when calling the FXCFactory
         txt : str
             Save output of the calculation of this specific component into
             a file with the filename of the given input.
@@ -195,7 +197,7 @@ class ChiFactory:
             # No xc kernel by definition
             Kxc_GG = None
         else:
-            Kxc_GG = self.fxc_factory(fxc, chiks, fxckwargs=fxckwargs)
+            Kxc_GG = self.fxc_factory(fxc, chiks, **fxckwargs)
 
         # Initiate the dyson solver
         dyson_solver = DysonSolver(self.context)
