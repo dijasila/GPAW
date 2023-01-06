@@ -3,35 +3,11 @@ import numpy as np
 from gpaw.response.dyson import invert_dyson_single_frequency
 
 
-def get_scaled_xc_kernel(chiks, Kxc_GG, fxc_scaling):
-    """Get the goldstone scaled exchange correlation kernel.
-
-    Parameters
-    ----------
-    fxc_scaling : list (length 3)
-        List of information for the goldstone scaling.
-        Entry 0: bool (apply the scaling or not)
-        Entry 1: float (actual scaling parameter, if None is given the entry
-            will be updated with the appropriate scaling, given that we are at
-            the gamma point)
-        Entry 2: str (mode, choose between 'fm' and 'afm')
-    """
-    assert isinstance(fxc_scaling[0], bool)
-    if fxc_scaling[0]:
-        if fxc_scaling[1] is None:
-            assert chiks.pd.kd.gamma
-            mode = fxc_scaling[2]
-            assert mode in ['fm', 'afm']
-            fxc_scaling[1] = get_goldstone_scaling(mode, chiks, Kxc_GG)
-
-        assert isinstance(fxc_scaling[1], float)
-        Kxc_GG *= fxc_scaling[1]
-
-    return Kxc_GG
-
-
 def get_goldstone_scaling(mode, chiks, Kxc_GG):
-    """Get kernel scaling parameter fulfilling the Goldstone theorem."""
+    """Get kernel scaling parameter to fulfill a Goldstone condition."""
+    assert chiks.pd.kd.gamma,\
+        r'The Goldstone condition is strictly bound to the Γ-point'
+
     # Find the frequency to determine the scaling from
     omega_w = chiks.zd.omega_w
     wgs = find_goldstone_frequency(mode, omega_w)
