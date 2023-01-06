@@ -67,7 +67,12 @@ def test_response_silicon_chi_RPA(in_tmp_dir):
     t4 = time.time()
     
     # Calculate also the ALDA susceptibility, using the cached chiks
+    chiks_buffer = chi_factory._chiks
     chi = chi_factory('00', q, w + 1.j * eta, fxc='ALDA')
+    assert chi_factory._chiks is chiks_buffer,\
+        'Two subsequent calls to the ChiFactory with the same spincomponent,'\
+        'q_c and complex frequencies, should reuse the chiks buffer, not '\
+        'update it'
     chi.write_macroscopic_component('Si_chi3.csv')
     chi_factory.context.write_timer()
 
