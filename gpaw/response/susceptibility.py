@@ -19,7 +19,9 @@ class Chi:
                  Vbare_G, Kxc_GG,
                  dysonsolver: DysonSolver):
         """Construct the many-body susceptibility based on its ingredients."""
-        assert chiks.distribution == 'zGG'
+        assert chiks.distribution == 'zGG' and\
+            chiks.blockdist.blockcomm.size == chiks.blockdist.world.size,\
+            "Chi assumes that chiks's frequencies are distributed over world"
         self.chiks = chiks
         self.world = chiks.blockdist.world
 
