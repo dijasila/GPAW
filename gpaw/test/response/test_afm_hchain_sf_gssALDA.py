@@ -16,6 +16,7 @@ from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.susceptibility import ChiFactory
+from gpaw.response.fxc_kernels import FXCScaling
 from gpaw.response.df import read_response_function
 
 
@@ -42,7 +43,7 @@ def test_response_afm_hchain_gssALDA(in_tmp_dir):
             [1. / 6., 0., 0.],
             [1. / 3., 0., 0.]]
     fxc = 'ALDA'
-    fxc_scaling = [True, None, 'afm']
+    fxc_scaling = FXCScaling('afm')
     rshelmax = -1
     rshewmin = 1e-8
     ecut = 120
@@ -119,7 +120,8 @@ def test_response_afm_hchain_gssALDA(in_tmp_dir):
     test_Ipeak2 = 0.0290
 
     # Test fxc_scaling:
-    assert abs(fxc_scaling[1] - test_fxcs) < 0.005
+    fxcs = fxc_scaling.get_scaling()
+    assert abs(fxcs - test_fxcs) < 0.005
 
     # Magnon peak at q=1/3 q_X:
     assert abs(mw1 - test_mw1) < 10.
