@@ -14,7 +14,28 @@ from gpaw.sphere.lebedev import weight_n, R_nv
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
 from gpaw.response.chiks import ChiKS
-from gpaw.response.goldstone import get_scaled_xc_kernel
+from gpaw.response.goldstone import get_goldstone_scaling
+
+
+class FXCScaling:
+    """Helper for scaling fxc kernels."""
+
+    def __init__(self, mode, lambd=None):
+        self.mode = mode
+        self.lambd = lambd
+
+    def get_scaling(self, *args):
+        if self.lambd is None:
+            self.lambd = self.calculate_scaling(*args)
+
+        return self.lambd
+
+    def calculate_scaling(self, chiks, Kxc_GG):
+        if chiks.spincomponent in ['+-', '-+']:
+            return get_goldstone_scaling(self.mode, chiks, Kxc_GG)
+        else:
+            raise ValueError('No scaling method implemented for '
+                             f'spincomponent={chiks.spincomponent}')
 
 
 class FXCFactory:
@@ -42,8 +63,7 @@ class FXCFactory:
             Parameters to set up the FXCCalculator. The 'method' key
             determines what calculator is initilized and remaining parameters
             are passed to the calculator as key-word arguments.
-        fxc_scaling : list
-            Apply a post-hoc scaling of the calculated kernel
+        fxc_scaling : None or FXCScaling
         """
         assert isinstance(calculator, dict) and 'method' in calculator
 
@@ -56,25 +76,19 @@ class FXCFactory:
         Kxc_GG = fxc_calculator(chiks.spincomponent, chiks.pd)
 
         if fxc_scaling is not None:
-            self.apply_post_hoc_scaling(Kxc_GG, fxc_scaling, chiks=chiks)
+            self.context.print('Rescaling kernel to fulfill the Goldstone '
+                               'theorem')
+            lambd = fxc_scaling.get_scaling(chiks, Kxc_GG)
+            Kxc_GG *= lambd
 
         return Kxc_GG
 
-    def apply_post_hoc_scaling(self, inKxc_GG, fxc_scaling, *, chiks):
-        """Some documentation here!"""
-        assert chiks.spincomponent in ['+-', '-+']
-
-        self.context.print('Rescaling kernel to fulfill the Goldstone '
-                           'theorem')
-        outKxc_GG = get_scaled_xc_kernel(chiks, inKxc_GG, fxc_scaling)
-        inKxc_GG[:] = outKxc_GG
-
-    def get_fxc_calculator(self, fxc, method='old', **kwargs):
+    def get_fxc_calculator(self, fxc, method='old', **calc_kwargs):
         """Factory function getting an initiated fxc calculator."""
         functional = fxc
 
         fxc_calculator = self.create_fxc_calculator(functional, method)
-        return fxc_calculator(self.gs, self.context, functional, **kwargs)
+        return fxc_calculator(self.gs, self.context, functional, **calc_kwargs)
 
     @staticmethod
     def create_fxc_calculator(functional, method):
