@@ -15,17 +15,20 @@ from gpaw.response.goldstone import get_scaled_xc_kernel
 class Chi:
     """Many-body susceptibility in a plane-wave basis."""
 
-    def __init__(self, context, chiks: ChiKS, Vbare_G, Kxc_GG):
+    def __init__(self, chiks: ChiKS,
+                 Vbare_G, Kxc_GG,
+                 dyson_solver: DysonSolver):
         """Construct the many-body susceptibility based on its ingredients."""
-        self.context = context
-
-        assert chiks.distribution == 'zGG'
+        assert chiks.distribution == 'zGG' and\
+            chiks.blockdist.blockcomm.size == chiks.blockdist.world.size,\
+            "Chi assumes that chiks's frequencies are distributed over world"
         self.chiks = chiks
+        self.world = chiks.blockdist.world
 
         self.Vbare_G = Vbare_G
         self.Kxc_GG = Kxc_GG  # Use Kxc_G in the future XXX
 
-        self.dysonsolver = DysonSolver(self.context)
+        self.dyson_solver = dyson_solver
 
     def write_macroscopic_component(self, filename):
         """Calculate the spatially averaged (macroscopic) component of the
@@ -47,7 +50,7 @@ class Chi:
         chiks_w = self.collect(chiks_w)
         chi_w = self.collect(chi_w)
 
-        if self.context.world.rank == 0:
+        if self.world.rank == 0:
             write_response_function(filename, omega_w, chiks_w, chi_w)
 
     def write_component_array(self, filename, *, reduced_ecut):
@@ -74,13 +77,12 @@ class Chi:
         chiks_wGG = self.gather(chiks_wGG)
         chi_wGG = self.gather(chi_wGG)
 
-        if self.context.world.rank == 0:
+        if self.world.rank == 0:
             write_component(omega_w, G_Gc, chiks_wGG, chi_wGG, filename)
 
     def _calculate(self):
         """Calculate chi_zGG."""
-        return self.dysonsolver.invert_dyson(self.chiks.array,
-                                             self.Khxc_GG)
+        return self.dyson_solver.invert_dyson(self.chiks.array, self.Khxc_GG)
 
     @property
     def Khxc_GG(self):
@@ -110,7 +112,7 @@ class Chi:
         tmp_zGG[:blocks1d.nlocal] = X_zGG
 
         # Allocate array for the gathered data
-        if self.context.world.rank == 0:
+        if self.world.rank == 0:
             # Make room for all frequencies
             Npadded = blocks1d.blocksize * blocks1d.blockcomm.size
             shape = (Npadded,) + X_zGG.shape[1:]
@@ -118,7 +120,7 @@ class Chi:
         else:
             allX_zGG = None
 
-        self.context.world.gather(tmp_zGG, 0, allX_zGG)
+        self.world.gather(tmp_zGG, 0, allX_zGG)
 
         # Return array for w indeces on frequency grid
         if allX_zGG is not None:
@@ -195,7 +197,10 @@ class ChiFactory:
             Kxc_GG = self.get_xc_kernel(fxc, chiks=chiks,
                                         fxckwargs=fxckwargs)
 
-        return Chi(self.context, chiks, Vbare_G, Kxc_GG)
+        # Initiate the dyson solver
+        dyson_solver = DysonSolver(self.context)
+
+        return Chi(chiks, Vbare_G, Kxc_GG, dyson_solver)
 
     def get_chiks(self, spincomponent, q_c, complex_frequencies):
         """Get chiks from buffer."""
