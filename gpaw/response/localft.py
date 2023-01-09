@@ -11,9 +11,11 @@ from scipy.special import spherical_jn
 from ase.units import Bohr
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
+
 from gpaw.spherical_harmonics import Yarr
 from gpaw.sphere.lebedev import weight_n, R_nv
 from gpaw.xc import XC
+from gpaw.xc.libxc import LibXC
 
 
 class LocalFTCalculator(ABC):
@@ -678,3 +680,39 @@ def add_LSDA_Bxc(gd, n_sR, Bxc_R):
 
     # Add B^(xc) in real space to the output array
     Bxc_R += (v_sR[0] - v_sR[1]) / 2
+
+
+def add_LDA_dens_fxc(gd, n_sR, fxc_R, *, fxc):
+    """
+    Some documentation here!                                                   XXX
+    """
+    assert len(n_sR) == 1,\
+        'The density kernel is untested for spin-polarized systems'
+    
+    if fxc == 'ALDA_x':
+        fxc_R += -1. / 3. * (3. / np.pi)**(1. / 3.) * n_sR[0]**(-2. / 3.)
+    else:
+        assert fxc in ['ALDA_X', 'ALDA']
+        kernel = LibXC(fxc[1:])
+        fxc_sR = np.zeros_like(n_sR)
+        kernel.xc.calculate_fxc_spinpaired(n_sR.ravel(), fxc_sR)
+
+        fxc_R += fxc_sR[0]
+
+
+def add_LSDA_trans_fxc(gd, n_sR, fxc_R, *, fxc):
+    """
+    Some documentation here!                                                   XXX
+    """
+    m_R = n_sR[0] - n_sR[1]
+
+    if fxc == 'ALDA_x':
+        fxc_R += - (6. / np.pi)**(1. / 3.) \
+            * (n_sR[0]**(1. / 3.) - n_sR[1]**(1. / 3.)) / m_R
+    else:
+        assert fxc in ['ALDA_X', 'ALDA']
+        v_sR = np.zeros(np.shape(n_sR))
+        xc = XC(fxc[1:])
+        xc.calculate(gd, n_sR, v_sg=v_sR)
+
+        fxc_R += (v_sR[0] - v_sR[1]) / m_R
