@@ -150,8 +150,8 @@ class NewAdiabaticFXCCalculator:
         add_fxc = self.create_add_fxc(fxc, spincomponent)
         fxc_G = self.localft_calc(pd, add_fxc)
 
-        # Unfold the kernel to Kxc_GG' = fxc(G-G')
-        Kxc_GG = self.unfold_kernel(pd, fxc_G)
+        # Unfold the kernel according to Kxc_GG' = 1 / V0 * fxc(G-G')
+        Kxc_GG = 1 / pd.gd.volume * self.unfold_kernel(pd, fxc_G)
 
         return Kxc_GG
 
@@ -191,10 +191,10 @@ class NewAdiabaticFXCCalculator:
         fxc_dG = np.zeros(ndG, dtype=complex)
         fxc_dG[dG_G] = fxc_G
 
-        # Unfold fxc(G-G') to Kxc_GG'
-        Kxc_GG = fxc_dG[dG_K].reshape(dG_GGv.shape[:2])
+        # Unfold fxc(G-G') to fxc_GG'
+        fxc_GG = fxc_dG[dG_K].reshape(dG_GGv.shape[:2])
 
-        return Kxc_GG
+        return fxc_GG
 
     @staticmethod
     def calculate_dG(pd):
