@@ -149,7 +149,9 @@ class NewAdiabaticFXCCalculator:
         fxc_G = self.localft_calc(pd, add_fxc)
 
         # Unfold the kernel to Kxc_GG' = fxc(G-G')
-        # Finish me!                                                           XXX
+        Kxc_GG = self.unfold_kernel(pd, fxc_G)
+
+        return Kxc_GG
 
     @staticmethod
     def create_add_fxc(fxc, spincomponent):
@@ -164,6 +166,24 @@ class NewAdiabaticFXCCalculator:
             raise ValueError(spincomponent)
 
         return add_fxc
+
+    def unfold_kernel(pd, fxc_G):
+        """
+        Some documentation here!                                               XXX
+        """
+        nG = pd.ngmax
+        # The unfolding procedure could use vectorization and parallelization.
+        # This remains a slow step for now.
+        Kxc_GG = np.zeros((nG, nG), dtype=complex)
+        for iG, iQ in enumerate(pd.Q_qG[0]):
+            iQ_c = (np.unravel_index(iQ, nG) + nG // 2) % nG - nG // 2
+            for jG, jQ in enumerate(pd.Q_qG[0]):
+                jQ_c = (np.unravel_index(jQ, nG) + nG // 2) % nG - nG // 2
+                ijQ_c = (iQ_c - jQ_c)
+                if (abs(ijQ_c) < nG // 2).all():
+                    Kxc_GG[iG, jG] = fxc_G[tuple(ijQ_c)]
+
+        return Kxc_GG
 
 
 class OldAdiabaticFXCCalculator:
