@@ -567,16 +567,6 @@ class AdiabaticSusceptibilityFXC(PlaneWaveAdiabaticFXC):
     """Adiabatic exchange-correlation kernel for susceptibility calculations in
     the plane wave mode"""
 
-    def __init__(self, gs, context,
-                 rshelmax=-1, rshewmin=None, filename=None, **ignored):
-        """
-        gs, context : see PlaneWaveAdiabaticFXC, FXC
-        rshelmax, rshewmin, filename : see PlaneWaveAdiabaticFXC
-        """
-        PlaneWaveAdiabaticFXC.__init__(self, gs, context,
-                                       rshelmax=rshelmax, rshewmin=rshewmin,
-                                       filename=filename)
-
     def calculate(self, fxc, spincomponent, pd):
         """Creator component to set up the right calculation."""
         assert fxc in ['ALDA_x', 'ALDA_X', 'ALDA']
