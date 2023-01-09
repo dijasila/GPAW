@@ -45,7 +45,7 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
     fxckwargs = {'calculator': {'method': 'old',
                                 'rshelmax': None},
                  'filename': fxc_filename,
-                 'fxc_scaling': fxc_scaling,}
+                 'fxc_scaling': fxc_scaling}
     chiks_calc = ChiKSCalculator(gs,
                                  context=context,
                                  nbands=nbands,
