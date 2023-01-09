@@ -704,6 +704,7 @@ def add_LSDA_trans_fxc(gd, n_sR, fxc_R, *, fxc):
     """
     Some documentation here!                                                   XXX
     """
+    assert len(n_sR) == 2  # nspins
     m_R = n_sR[0] - n_sR[1]
 
     if fxc == 'ALDA_x':
