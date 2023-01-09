@@ -137,9 +137,11 @@ class FXCFactory:
 class NewAdiabaticFXCCalculator:
     """Calculator for adiabatic local exchange-correlation kernels."""
 
-    def __init__(self, localft_calc: LocalFTCalculator):
+    def __init__(self, gs, context, localft_calc: LocalFTCalculator):
         """Contruct the fxc calculator based on a local FT calculator."""
         self.localft_calc = localft_calc
+
+        self.context = localft_calc.context
 
     @timer('Calculate XC kernel')
     def __call__(self, fxc, spincomponent, pd):
@@ -167,7 +169,8 @@ class NewAdiabaticFXCCalculator:
 
         return add_fxc
 
-    def unfold_kernel(pd, fxc_G):
+    @timer('Unfold kernel')
+    def unfold_kernel(self, pd, fxc_G):
         """
         Some documentation here!                                               XXX
         """
