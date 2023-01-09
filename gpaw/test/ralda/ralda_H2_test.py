@@ -36,11 +36,12 @@ def test_ralda_ralda_energy_H2(in_tmp_dir, scalapack):
     calc.diagonalize_full_hamiltonian(nbands=80, scalapack=scalapack1)
     calc.write('H2.gpw', mode='all')
 
-    ralda = FXCCorrelation('H2.gpw', xc='rALDA', nblocks=min(4, world.size))
-    E_ralda_H2 = ralda.calculate(ecut=[200])
+    ralda = FXCCorrelation('H2.gpw', xc='rALDA', nblocks=min(4, world.size),
+                           ecut=[200])
+    E_ralda_H2 = ralda.calculate()
 
-    rapbe = FXCCorrelation('H2.gpw', xc='rAPBE')
-    E_rapbe_H2 = rapbe.calculate(ecut=[200])
+    rapbe = FXCCorrelation('H2.gpw', xc='rAPBE', ecut=[200])
+    E_rapbe_H2 = rapbe.calculate()
 
     # H
     H = Atoms('H')
@@ -60,11 +61,12 @@ def test_ralda_ralda_energy_H2(in_tmp_dir, scalapack):
     calc.diagonalize_full_hamiltonian(nbands=80, scalapack=scalapack2)
     calc.write('H.gpw', mode='all')
 
-    ralda = FXCCorrelation('H.gpw', xc='rALDA')
-    E_ralda_H = ralda.calculate(ecut=[200])
+    ralda = FXCCorrelation('H.gpw', xc='rALDA', ecut=[200])
+    E_ralda_H = ralda.calculate()
 
-    rapbe = FXCCorrelation('H.gpw', xc='rAPBE', nblocks=min(4, world.size))
-    E_rapbe_H = rapbe.calculate(ecut=[200])
+    rapbe = FXCCorrelation('H.gpw', xc='rAPBE', nblocks=min(4, world.size),
+                           ecut=[200])
+    E_rapbe_H = rapbe.calculate()
 
     assert E_ralda_H2 == pytest.approx(-0.8411, abs=0.001)
     assert E_ralda_H == pytest.approx(0.0029, abs=0.0001)

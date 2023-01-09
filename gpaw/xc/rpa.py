@@ -9,10 +9,13 @@ from scipy.special import p_roots
 import gpaw.mpi as mpi
 from gpaw.response import timer
 from gpaw.response.chi0 import Chi0Calculator
-from gpaw.response.coulomb_kernels import get_coulomb_kernel
-from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
+from gpaw.response.coulomb_kernels import CoulombKernel
 from gpaw.response.frequencies import FrequencyDescriptor
 from gpaw.response.pair import get_gs_and_context, PairDensityCalculator
+
+
+def default_ecut_extrapolation(ecut, extrapolate):
+    return ecut * (1 + 0.5 * np.arange(extrapolate))**(-2 / 3)
 
 
 def rpa(filename, ecut=200.0, blocks=1, extrapolate=4):
@@ -32,8 +35,9 @@ def rpa(filename, ecut=200.0, blocks=1, extrapolate=4):
     from gpaw.xc.rpa import RPACorrelation
     rpa = RPACorrelation(name, name + '-rpa.dat',
                          nblocks=blocks,
+                         ecut=default_ecut_extrapolation(ecut, extrapolate),
                          txt=name + '-rpa.txt')
-    rpa.calculate(ecut=ecut * (1 + 0.5 * np.arange(extrapolate))**(-2 / 3))
+    rpa.calculate()
 
 
 def initialize_q_points(kd, qsym):
@@ -51,6 +55,7 @@ def initialize_q_points(kd, qsym):
 
 class RPACalculator:
     def __init__(self, gs, *, context, filename=None,
+                 ecut,
                  skip_gamma=False, qsym=True,
                  frequencies, weights, truncation=None,
                  nblocks=1, calculate_q=None):
@@ -65,7 +70,7 @@ class RPACalculator:
 
         self.nblocks = nblocks
 
-        self.truncation = truncation
+        self.coulomb = CoulombKernel(truncation, gs)
         self.skip_gamma = skip_gamma
 
         # We should actually have a kpoint descriptor for the qpoints.
@@ -79,6 +84,10 @@ class RPACalculator:
         if calculate_q is None:
             calculate_q = self.calculate_q_rpa
         self.calculate_q = calculate_q
+
+        if isinstance(ecut, (float, int)):
+            ecut = default_ecut_extrapolation(ecut, extrapolate=6)
+        self.ecut_i = np.asarray(np.sort(ecut)) / Hartree
 
     def read(self, ecut_i, filename):
         with open(filename) as fd:
@@ -121,7 +130,7 @@ class RPACalculator:
             with open(self.filename, 'w') as fd:
                 print(txt, file=fd)
 
-    def calculate(self, ecut, nbands=None, spin=False):
+    def calculate(self, *, nbands=None, spin=False):
         """Calculate RPA correlation energy for one or several cutoffs.
 
         ecut: float or list of floats
@@ -135,9 +144,7 @@ class RPACalculator:
 
         p = functools.partial(self.context.print, flush=False)
 
-        if isinstance(ecut, (float, int)):
-            ecut = ecut * (1 + 0.5 * np.arange(6))**(-2 / 3)
-        ecut_i = np.asarray(np.sort(ecut)) / Hartree
+        ecut_i = self.ecut_i
         ecutmax = max(ecut_i)
 
         if nbands is None:
@@ -148,8 +155,7 @@ class RPACalculator:
         for e in ecut_i:
             p(' {0:.3f}'.format(e * Hartree), end='')
         p()
-        if self.truncation is not None:
-            p('Using %s Coulomb truncation' % self.truncation)
+        p(self.coulomb.description())
         self.context.print('')
 
         if self.filename and os.path.isfile(self.filename):
@@ -174,13 +180,6 @@ class RPACalculator:
                                   ecut=ecutmax * Hartree)
 
         self.blockcomm = chi0calc.blockcomm
-
-        if self.truncation == 'wigner-seitz':
-            self.wstc = WignerSeitzTruncatedCoulomb(self.gs.gd.cell_cv,
-                                                    self.gs.kd.N_c)
-            self.context.print(self.wstc.get_description())
-        else:
-            self.wstc = None
 
         energy_qi = []
         nq = len(energy_qi)
@@ -232,7 +231,7 @@ class RPACalculator:
                     # Chi0 will be summed again over chicomm, so we divide
                     # by its size:
                     for chi0 in chi0_s:
-                        chi0.chi0_wGG[:] *= a
+                        chi0.chi0_WgG[:] *= a
                     # if chi0_swxvG is not None:
                     #     chi0_swxvG *= a
                     #     chi0_swvv *= a
@@ -269,7 +268,7 @@ class RPACalculator:
 
         self.context.print('E_c(q) = ', end='', flush=False)
 
-        chi0_wGG = chi0.distribute_as('wGG')
+        chi0_wGG = chi0.copy_array_with_distribution('wGG')
 
         kd = self.gs.kd
         if not chi0.pd.kd.gamma:
@@ -281,11 +280,11 @@ class RPACalculator:
 
             wblocks = Blocks1D(self.blockcomm, len(self.omega_w))
             gamma_int = GammaIntegrator(
-                truncation=self.truncation,
+                truncation=self.coulomb.truncation,
                 kd=kd,
                 pd=chi0.pd,
-                chi0_wvv=chi0.chi0_wvv[wblocks.myslice],
-                chi0_wxvG=chi0.chi0_wxvG[wblocks.myslice])
+                chi0_wvv=chi0.chi0_Wvv[wblocks.myslice],
+                chi0_wxvG=chi0.chi0_WxvG[wblocks.myslice])
 
             e = 0
             for iqf in range(len(gamma_int.qf_qv)):
@@ -302,9 +301,8 @@ class RPACalculator:
     def calculate_energy_rpa(self, pd, chi0_wGG, cut_G, q_v=None):
         """Evaluate correlation energy from chi0."""
 
-        sqrtV_G = get_coulomb_kernel(pd, self.gs.kd.N_c, q_v=q_v,
-                                     truncation=self.truncation,
-                                     wstc=self.wstc)**0.5
+        sqrtV_G = self.coulomb.sqrtV(pd, q_v)
+
         if cut_G is not None:
             sqrtV_G = sqrtV_G[cut_G]
         nG = len(sqrtV_G)

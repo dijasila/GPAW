@@ -10,7 +10,7 @@ from gpaw.test import findpeak, equal
 from gpaw.mpi import size, world
 
 from gpaw.response import ResponseGroundStateAdapter
-from gpaw.response.chiks import ChiKS
+from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.susceptibility import ChiFactory, read_component
 
 
@@ -100,8 +100,8 @@ def calculate_chi(calc, q_qc, w,
                   spincomponent='00', fxc='RPA',
                   filename_prefix=None, reduced_ecut=25):
     gs = ResponseGroundStateAdapter(calc)
-    chiks = ChiKS(gs, eta=eta, ecut=ecut)
-    chi_factory = ChiFactory(chiks)
+    chiks_calc = ChiKSCalculator(gs, ecut=ecut)
+    chi_factory = ChiFactory(chiks_calc)
 
     if filename_prefix is None:
         filename = 'chiGG_qXXX.pckl'
@@ -110,6 +110,6 @@ def calculate_chi(calc, q_qc, w,
 
     for q, q_c in enumerate(q_qc):
         fname = filename.replace('XXX', str(q + 1))
-        chi = chi_factory(spincomponent, q_c, w, fxc=fxc)
+        chi = chi_factory(spincomponent, q_c, w + 1.j * eta, fxc=fxc)
         chi.write_component_array(fname, reduced_ecut=reduced_ecut)
         world.barrier()

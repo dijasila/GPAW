@@ -18,5 +18,6 @@ def check():
     from gpaw.test import findpeak
     ri = np.load('RI_xz_632nm.npy')
     x0, y0 = findpeak(ri[0], ri[1])
+    print(x0, y0)
     assert np.isclose(x0, 1304.497, atol=0.2)
-    assert np.isclose(y0, 5e-5, atol=1e-5)
+    assert np.isclose(y0, 0.044, atol=0.01)

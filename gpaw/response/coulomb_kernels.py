@@ -5,6 +5,44 @@ import numpy as np
 from ase.dft import monkhorst_pack
 
 
+class CoulombKernel:
+    def __init__(self, truncation, gs):
+        from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
+        self.truncation = truncation
+        assert self.truncation in {None, 'wigner-seitz', '2D'}
+        self._gs = gs
+
+        if self.truncation == 'wigner-seitz':
+            self._wstc = WignerSeitzTruncatedCoulomb(self._gs.gd.cell_cv,
+                                                     self._gs.kd.N_c)
+        else:
+            self._wstc = None
+
+    def description(self):
+        if self.truncation is None:
+            return 'No Coulomb truncation'
+        elif self._wstc is not None:
+            return '\n'.join(
+                ['Wigner–Seitz Coulomb truncation',
+                 self._wstc.get_description()])
+        else:
+            return f'{self.truncation} Coulomb truncation'
+
+    def sqrtV(self, pd, q_v):
+        return self.V(pd, q_v)**0.5
+
+    def V(self, pd, q_v):
+        return get_coulomb_kernel(
+            pd, self._gs.kd.N_c, q_v=q_v,
+            truncation=self.truncation,
+            wstc=self._wstc)
+
+    def integrated_kernel(self, pd, reduced):
+        return get_integrated_kernel(
+            pd=pd, N_c=self._gs.kd.N_c,
+            truncation=self.truncation, reduced=reduced)
+
+
 def get_coulomb_kernel(pd, N_c, truncation=None, q_v=None, wstc=None):
     """Factory function that calls the specified flavour
     of the Coulomb interaction"""
