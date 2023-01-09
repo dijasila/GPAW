@@ -97,47 +97,7 @@ class FXCFactory:
         raise ValueError(f'Invalid fxc calculator method {method}')
 
 
-class FXC:
-    """Base class to calculate exchange-correlation kernels."""
-
-    def __init__(self, gs, context):
-        """
-        Parameters
-        ----------
-        gs : ResponseGroundStateAdapter
-        context : ResponseContext
-        """
-        assert isinstance(gs, ResponseGroundStateAdapter)
-        self.gs = gs
-        assert isinstance(context, ResponseContext)
-        self.context = context
-
-    def __call__(self, *args, **kwargs):
-
-        if self.is_calculated():
-            Kxc_GG = self.read(*args, **kwargs)
-        else:
-            Kxc_GG = self.calculate(*args, **kwargs)
-            self.write(Kxc_GG)
-
-        return Kxc_GG
-
-    def calculate(self, *args, **kwargs):
-        raise NotImplementedError
-
-    def is_calculated(self, *args, **kwargs):
-        # Read/write has not been implemented
-        return False
-
-    def read(self, *args, **kwargs):
-        raise NotImplementedError
-
-    def write(self, Kxc_GG):
-        # Not implemented
-        pass
-
-
-class PlaneWaveAdiabaticFXC(FXC):
+class PlaneWaveAdiabaticFXC:
     """Adiabatic exchange-correlation kernels in plane wave mode using PAW."""
 
     def __init__(self, gs, context,
@@ -145,7 +105,6 @@ class PlaneWaveAdiabaticFXC(FXC):
         """
         Parameters
         ----------
-        gs, context : see FXC
         rshelmax : int or None
             Expand kernel in real spherical harmonics inside augmentation
             spheres. If None, the kernel will be calculated without
@@ -158,7 +117,8 @@ class PlaneWaveAdiabaticFXC(FXC):
             contributes with less than a fraction of rshewmin on average,
             it will not be included.
         """
-        FXC.__init__(self, gs, context)
+        self.gs = gs
+        self.context = context
 
         # Do not carry out the expansion in real spherical harmonics, if lmax
         # is chosen as None
@@ -178,6 +138,16 @@ class PlaneWaveAdiabaticFXC(FXC):
 
         self.filename = filename
 
+    def __call__(self, *args):
+
+        if self.is_calculated():
+            Kxc_GG = self.read()
+        else:
+            Kxc_GG = self.calculate(*args)
+            self.write(Kxc_GG)
+
+        return Kxc_GG
+
     def is_calculated(self):
         if self.filename is None:
             return False
@@ -187,7 +157,7 @@ class PlaneWaveAdiabaticFXC(FXC):
         if self.filename is not None:
             np.save(self.filename, Kxc_GG)
 
-    def read(self, *unused, **ignored):
+    def read(self):
         return np.load(self.filename)
 
     @timer('Calculate XC kernel')
