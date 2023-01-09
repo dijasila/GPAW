@@ -97,7 +97,7 @@ class FXCFactory:
         raise ValueError(f'Invalid fxc calculator method {method}')
 
 
-class PlaneWaveAdiabaticFXC:
+class AdiabaticSusceptibilityFXC:
     """Adiabatic exchange-correlation kernels in plane wave mode using PAW."""
 
     def __init__(self, gs, context,
@@ -161,7 +161,9 @@ class PlaneWaveAdiabaticFXC:
         return np.load(self.filename)
 
     @timer('Calculate XC kernel')
-    def calculate(self, pd):
+    def calculate(self, fxc, spincomponent, pd):
+        self.set_up_calculation(fxc, spincomponent)
+
         self.context.print('Calculating fxc')
         # Get the spin density we need and allocate fxc
         n_sG = self.get_density_on_grid(pd.gd)
@@ -559,15 +561,7 @@ class PlaneWaveAdiabaticFXC:
 
         return ii_MmydG, j_gMmydG, Y_MmydG
 
-    def _add_fxc(self, gd, n_sg, fxc_g):
-        raise NotImplementedError
-
-
-class AdiabaticSusceptibilityFXC(PlaneWaveAdiabaticFXC):
-    """Adiabatic exchange-correlation kernel for susceptibility calculations in
-    the plane wave mode"""
-
-    def calculate(self, fxc, spincomponent, pd):
+    def set_up_calculation(self, fxc, spincomponent):
         """Creator component to set up the right calculation."""
         assert fxc in ['ALDA_x', 'ALDA_X', 'ALDA']
 
@@ -581,8 +575,6 @@ class AdiabaticSusceptibilityFXC(PlaneWaveAdiabaticFXC):
             self._calculate_fxc = partial(self.calculate_trans_fxc, fxc=fxc)
         else:
             raise ValueError(spincomponent)
-
-        return PlaneWaveAdiabaticFXC.calculate(self, pd)
 
     def _add_fxc(self, gd, n_sG, fxc_G):
         """Calculate fxc and add it to the output array."""
