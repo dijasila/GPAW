@@ -325,7 +325,7 @@ class LocalPAWFTEngine:
 
         # Extract reciprocal lattice vectors
         nG = pd.ngmax
-        G_Gv = pd.get_reciprocal_vectors()
+        G_Gv = pd.get_reciprocal_vectors(add_q=False)
         assert G_Gv.shape[0] == nG
 
         # Allocate output array
