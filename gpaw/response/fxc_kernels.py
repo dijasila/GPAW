@@ -51,8 +51,9 @@ class FXCFactory:
                  calculator={'method': 'old',
                              'rshelmax': -1,
                              'rshewmin': None},
+                 filename=None,
                  fxc_scaling=None):
-        """Get the xc kernel Kxc_GG.
+        """Get the fxc kernel Kxc_GG.
 
         Parameters
         ----------
@@ -63,8 +64,41 @@ class FXCFactory:
             Parameters to set up the FXCCalculator. The 'method' key
             determines what calculator is initilized and remaining parameters
             are passed to the calculator as key-word arguments.
+        filename : str
+            Some documentation here! XXX
         fxc_scaling : None or FXCScaling
         """
+        if self.file_buffer_exists(filename):
+            Kxc_GG = self.read(filename)
+        else:
+            Kxc_GG = self.calculate(fxc, chiks, calculator=calculator)
+            self.write(Kxc_GG, filename)
+
+        if fxc_scaling is not None:
+            lambd = fxc_scaling.get_scaling(chiks, Kxc_GG)
+            self.context.print(r'Rescaling the xc-kernel by a factor of λ='
+                               f'{lambd}')
+            Kxc_GG *= lambd
+
+        return Kxc_GG
+
+    @staticmethod
+    def file_buffer_exists(filename):
+        if filename is None:
+            return False
+        return Path(filename).is_file()
+
+    @staticmethod
+    def write(Kxc_GG, filename):
+        if filename is not None:
+            np.save(filename, Kxc_GG)
+
+    @staticmethod
+    def read(filename):
+        return np.load(filename)
+
+    def calculate(self, fxc, chiks, *, calculator):
+        """In-place calculation of the bare (unscaled) fxc kernel Kxc_GG."""
         assert isinstance(calculator, dict) and 'method' in calculator
 
         # Generate the desired calculator
@@ -73,12 +107,6 @@ class FXCFactory:
         fxc_calculator = self.get_fxc_calculator(method=method, **calc_kwargs)
 
         Kxc_GG = fxc_calculator(fxc, chiks.spincomponent, chiks.pd)
-
-        if fxc_scaling is not None:
-            lambd = fxc_scaling.get_scaling(chiks, Kxc_GG)
-            self.context.print(r'Rescaling the xc-kernel by a factor of λ='
-                               f'{lambd}')
-            Kxc_GG *= lambd
 
         return Kxc_GG
 
@@ -101,9 +129,9 @@ class AdiabaticFXCCalculator:
     """Calculator for adiabatic local exchange-correlation kernels in pw mode.
     """
 
-    def __init__(self, gs, context,
-                 rshelmax=-1, rshewmin=None, filename=None, **ignored):
-        """
+    def __init__(self, gs, context, rshelmax=-1, rshewmin=None):
+        """Construct the AdiabaticFXCCalculator.
+
         Parameters
         ----------
         rshelmax : int or None
@@ -137,32 +165,9 @@ class AdiabaticFXCCalculator:
             self.rshewmin = rshewmin if rshewmin is not None else 0.
             self.dfmask_g = None
 
-        self.filename = filename
-
-    def __call__(self, *args):
-
-        if self.is_calculated():
-            Kxc_GG = self.read()
-        else:
-            Kxc_GG = self.calculate(*args)
-            self.write(Kxc_GG)
-
-        return Kxc_GG
-
-    def is_calculated(self):
-        if self.filename is None:
-            return False
-        return Path(self.filename).is_file()
-
-    def write(self, Kxc_GG):
-        if self.filename is not None:
-            np.save(self.filename, Kxc_GG)
-
-    def read(self):
-        return np.load(self.filename)
-
     @timer('Calculate XC kernel')
-    def calculate(self, fxc, spincomponent, pd):
+    def __call__(self, fxc, spincomponent, pd):
+        """Some documentation here! XXX."""
         self.set_up_calculation(fxc, spincomponent)
 
         self.context.print('Calculating fxc')
