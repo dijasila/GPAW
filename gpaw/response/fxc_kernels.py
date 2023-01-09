@@ -65,7 +65,12 @@ class FXCFactory:
             determines what calculator is initilized and remaining parameters
             are passed to the calculator as key-word arguments.
         filename : str
-            Some documentation here! XXX
+            Store a calculated kernel as a .npy file buffer with the given file
+            name. For subsequent calls to the kernel factory with the same file
+            name, the factory will read the kernel from the file, instead of
+            recalculating it.
+            NB: If you want to calculate a NEW kernel (according to some change
+            in input parameters), you will have to use a NEW filename.
         fxc_scaling : None or FXCScaling
         """
         if self.file_buffer_exists(filename):
@@ -167,7 +172,7 @@ class AdiabaticFXCCalculator:
 
     @timer('Calculate XC kernel')
     def __call__(self, fxc, spincomponent, pd):
-        """Some documentation here! XXX."""
+        """Calculate the fxc kernel."""
         self.set_up_calculation(fxc, spincomponent)
 
         self.context.print('Calculating fxc')
