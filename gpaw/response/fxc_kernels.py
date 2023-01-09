@@ -146,7 +146,7 @@ class NewAdiabaticFXCCalculator:
     @timer('Calculate XC kernel')
     def __call__(self, fxc, spincomponent, pd):
         """Calculate the fxc kernel."""
-        # Calculate fxc(G-G')
+        # Calculate fxc(G)
         add_fxc = self.create_add_fxc(fxc, spincomponent)
         fxc_G = self.localft_calc(pd, add_fxc)
 
@@ -174,19 +174,57 @@ class NewAdiabaticFXCCalculator:
         """
         Some documentation here!                                               XXX
         """
-        nG = pd.ngmax
-        # The unfolding procedure could use vectorization and parallelization.
-        # This remains a slow step for now.
-        Kxc_GG = np.zeros((nG, nG), dtype=complex)
-        for iG, iQ in enumerate(pd.Q_qG[0]):
-            iQ_c = (np.unravel_index(iQ, nG) + nG // 2) % nG - nG // 2
-            for jG, jQ in enumerate(pd.Q_qG[0]):
-                jQ_c = (np.unravel_index(jQ, nG) + nG // 2) % nG - nG // 2
-                ijQ_c = (iQ_c - jQ_c)
-                if (abs(ijQ_c) < nG // 2).all():
-                    Kxc_GG[iG, jG] = fxc_G[tuple(ijQ_c)]
+        # Calculate (G-G') reciprocal space vectors
+        dG_GGv = self.calculate_dG(pd)
+
+        # Reshape to composite K = (G, G') index
+        dG_Kv = dG_GGv.reshape(-1, dG_GGv.shape[-1])
+
+        # Find unique dG-vectors
+        dG_dGv, dG_K = np.unique(dG_Kv, return_inverse=True, axis=0)
+        ndG = len(dG_dGv)
+
+        # Create mapping from (G-G') index dG to fxc(G) index G
+        dG_G = self.map_to_dG(pd, dG_dGv)
+
+        # Unfold fxc(G) to fxc(G-G')
+        fxc_dG = np.zeros(ndG, dtype=complex)
+        fxc_dG[dG_G] = fxc_G
+
+        # Unfold fxc(G-G') to Kxc_GG'
+        Kxc_GG = fxc_dG[dG_K].reshape(dG_GGv.shape[:2])
 
         return Kxc_GG
+
+    @staticmethod
+    def calculate_dG(pd):
+        """
+        Some documentation here!                                               XXX
+        """
+        nG = pd.ngmax
+        G_Gv = pd.get_reciprocal_vectors(add_q=False)
+
+        dG_GGv = np.zeros((nG, nG, 3))
+        for v in range(3):
+            dG_GGv[:, :, v] = np.subtract.outer(G_Gv[:, v], G_Gv[:, v])
+
+        return dG_GGv
+        
+    @staticmethod
+    def map_to_dG(pd, dG_dGv):
+        """
+        Some documentation here!                                               XXX
+        """
+        G_Gv = pd.get_reciprocal_vectors(add_q=False)
+
+        dG_G = []
+        for G_v in G_Gv:
+            diff_dG = np.linalg.norm(dG_dGv - G_v, axis=1)
+            dG = np.argmin(diff_dG)
+            assert diff_dG[dG] < 1e-6, f'{diff_dG[dG]}, {G_v}'
+            dG_G.append(dG)
+
+        return np.array(dG_G)
 
 
 class OldAdiabaticFXCCalculator:
@@ -360,7 +398,7 @@ class OldAdiabaticFXCCalculator:
         """Calculate (G-G') reciprocal space vectors"""
         world = self.context.world
         npw = pd.ngmax
-        G_Gv = pd.get_reciprocal_vectors()
+        G_Gv = pd.get_reciprocal_vectors(add_q=False)
 
         # Distribute dG to calculate
         nGpr = (npw + world.size - 1) // world.size
