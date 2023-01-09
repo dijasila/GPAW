@@ -43,8 +43,8 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
     gs = ResponseGroundStateAdapter.from_gpw_file(gpw_files['fe_pw_wfs'],
                                                   context=context)
     fxckwargs = {'calculator': {'method': 'old',
-                                'rshelmax': None,
-                                'filename': fxc_filename},
+                                'rshelmax': None},
+                 'filename': fxc_filename,
                  'fxc_scaling': fxc_scaling,}
     chiks_calc = ChiKSCalculator(gs,
                                  context=context,
@@ -61,9 +61,7 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
                           fxckwargs=fxckwargs)
 
         # Check that the fxc kernel exists as a file buffer
-        fxc_calculator = chi_factory.fxc_factory.get_fxc_calculator(
-            method='old', filename=fxc_filename)
-        assert fxc_calculator.is_calculated()
+        assert chi_factory.fxc_factory.file_buffer_exists(fxc_filename)
 
         chi.write_macroscopic_component('iron_dsus' + '_%d.csv' % (q + 1))
         chi_factory.context.write_timer()
