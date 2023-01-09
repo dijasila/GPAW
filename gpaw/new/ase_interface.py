@@ -8,7 +8,9 @@ from typing import IO, Any, Union
 import numpy as np
 from ase import Atoms
 from ase.units import Bohr, Ha
+
 from gpaw import __version__
+from gpaw.dos import DOSCalculator
 from gpaw.new import Timer, cached_property
 from gpaw.new.builder import builder as create_builder
 from gpaw.new.calculation import DFTCalculation, DFTState, units
@@ -421,3 +423,18 @@ class ASECalculator:
     def parameters(self):
         print(self.params)
         return self.params
+
+    def dos(self,
+            soc: bool = False,
+            theta: float = 0.0,
+            phi: float = 0.0,
+            shift_fermi_level: bool = True) -> DOSCalculator:
+        """Create DOS-calculator.
+
+        Default is to shift_fermi_level to 0.0 eV.  For soc=True, angles
+        can be given in degrees.
+        """
+        return DOSCalculator.from_calculator(
+            self, soc=soc,
+            theta=theta, phi=phi,
+            shift_fermi_level=shift_fermi_level)

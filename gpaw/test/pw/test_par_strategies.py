@@ -21,10 +21,6 @@ def test_pw_par_strategies(in_tmp_dir):
                               convergence={'maximum iterations': 4},
                               occupations=FermiDirac(width=0.1))
 
-            def stopcalc():
-                atoms.calc.scf.converged = True
-            atoms.calc.attach(stopcalc, 4)
-
             e = atoms.get_potential_energy()
             f = atoms.get_forces()
             s = atoms.get_stress()
