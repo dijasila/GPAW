@@ -92,13 +92,14 @@ class FXCFactory:
     def get_fxc_calculator_cls(method):
         """Factory function for selecting fxc calculators."""
         if method == 'old':
-            return AdiabaticSusceptibilityFXC
+            return AdiabaticFXCCalculator
 
         raise ValueError(f'Invalid fxc calculator method {method}')
 
 
-class AdiabaticSusceptibilityFXC:
-    """Adiabatic exchange-correlation kernels in plane wave mode using PAW."""
+class AdiabaticFXCCalculator:
+    """Calculator for adiabatic local exchange-correlation kernels in pw mode.
+    """
 
     def __init__(self, gs, context,
                  rshelmax=-1, rshewmin=None, filename=None, **ignored):
