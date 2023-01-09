@@ -439,7 +439,8 @@ def pytest_configure(config):
                  'legacy: Old stuff that will be removed later',
                  'ofdft: Orbital-free DFT',
                  'lrtddft: Linear-response TDDFT',
-                 'wannier: Wannier functions']:
+                 'wannier: Wannier functions',
+                 'stress: Calculation of stress tensor']:
         config.addinivalue_line('markers', line)
 
 
