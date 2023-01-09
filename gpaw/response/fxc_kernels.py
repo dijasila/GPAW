@@ -15,7 +15,8 @@ from gpaw.sphere.lebedev import weight_n, R_nv
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
 from gpaw.response.chiks import ChiKS
 from gpaw.response.goldstone import get_goldstone_scaling
-from gpaw.response.localft import LocalFTCalculator
+from gpaw.response.localft import (LocalFTCalculator,
+                                   add_LDA_dens_fxc, add_LSDA_trans_fxc)
 
 
 class FXCScaling:
@@ -143,7 +144,26 @@ class NewAdiabaticFXCCalculator:
     @timer('Calculate XC kernel')
     def __call__(self, fxc, spincomponent, pd):
         """Calculate the fxc kernel."""
-        # Do me!                                                               XXX
+        # Calculate fxc(G-G')
+        add_fxc = self.create_add_fxc(fxc, spincomponent)
+        fxc_G = self.localft_calc(pd, add_fxc)
+
+        # Unfold the kernel to Kxc_GG' = fxc(G-G')
+        # Finish me!                                                           XXX
+
+    @staticmethod
+    def create_add_fxc(fxc, spincomponent):
+        """Creator component to set up the right calculation."""
+        assert fxc in ['ALDA_x', 'ALDA_X', 'ALDA']
+
+        if spincomponent in ['00', 'uu', 'dd']:
+            add_fxc = partial(add_LDA_dens_fxc, fxc=fxc)
+        elif spincomponent in ['+-', '-+']:
+            add_fxc = partial(add_LSDA_trans_fxc, fxc=fxc)
+        else:
+            raise ValueError(spincomponent)
+
+        return add_fxc
 
 
 class OldAdiabaticFXCCalculator:
