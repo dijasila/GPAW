@@ -15,6 +15,7 @@ from gpaw.sphere.lebedev import weight_n, R_nv
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
 from gpaw.response.chiks import ChiKS
 from gpaw.response.goldstone import get_goldstone_scaling
+from gpaw.response.localft import LocalFTCalculator
 
 
 class FXCScaling:
@@ -125,12 +126,27 @@ class FXCFactory:
     def get_fxc_calculator_cls(method):
         """Factory function for selecting fxc calculators."""
         if method == 'old':
-            return AdiabaticFXCCalculator
+            return OldAdiabaticFXCCalculator
+        elif method == 'new':
+            return NewAdiabaticFXCCalculator
 
         raise ValueError(f'Invalid fxc calculator method {method}')
 
 
-class AdiabaticFXCCalculator:
+class NewAdiabaticFXCCalculator:
+    """Calculator for adiabatic local exchange-correlation kernels."""
+
+    def __init__(self, localft_calc: LocalFTCalculator):
+        """Contruct the fxc calculator based on a local FT calculator."""
+        self.localft_calc = localft_calc
+
+    @timer('Calculate XC kernel')
+    def __call__(self, fxc, spincomponent, pd):
+        """Calculate the fxc kernel."""
+        # Do me!                                                               XXX
+
+
+class OldAdiabaticFXCCalculator:
     """Calculator for adiabatic local exchange-correlation kernels in pw mode.
     """
 
