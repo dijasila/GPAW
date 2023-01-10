@@ -86,65 +86,61 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
     world.barrier()
 
     # Identify magnon peaks in scattering function
-    w1_w, chiks1_w, chi1_w = read_response_function('old_iron_dsus_1.csv')
-    w2_w, chiks2_w, chi2_w = read_response_function('old_iron_dsus_2.csv')
-    w3_w, chiks3_w, chi3_w = read_response_function('new_iron_dsus_1.csv')
-    w4_w, chiks4_w, chi4_w = read_response_function('new_iron_dsus_2.csv')
+    old_w1_w, old_chiks1_w, old_chi1_w = read_response_function('old_iron_dsus_1.csv')
+    old_w2_w, old_chiks2_w, old_chi2_w = read_response_function('old_iron_dsus_2.csv')
+    new_w1_w, new_chiks1_w, new_chi1_w = read_response_function('new_iron_dsus_1.csv')
+    new_w2_w, new_chiks2_w, new_chi2_w = read_response_function('new_iron_dsus_2.csv')
 
-    print(w1_w, -chi1_w.imag)
-    print(w2_w, -chi2_w.imag)
-    print(w3_w, -chi3_w.imag)
-    print(w4_w, -chi4_w.imag)
+    print(old_w1_w, -old_chi1_w.imag)
+    print(old_w2_w, -old_chi2_w.imag)
+    print(new_w1_w, -new_chi1_w.imag)
+    print(new_w2_w, -new_chi2_w.imag)
 
-    wpeak1, Ipeak1 = findpeak(w1_w, -chi1_w.imag)
-    wpeak2, Ipeak2 = findpeak(w2_w, -chi2_w.imag)
-    wpeak3, Ipeak3 = findpeak(w3_w, -chi3_w.imag)
-    wpeak4, Ipeak4 = findpeak(w4_w, -chi4_w.imag)
+    old_wpeak1, old_Ipeak1 = findpeak(old_w1_w, -old_chi1_w.imag)
+    old_wpeak2, old_Ipeak2 = findpeak(old_w2_w, -old_chi2_w.imag)
+    new_wpeak1, new_Ipeak1 = findpeak(new_w1_w, -new_chi1_w.imag)
+    new_wpeak2, new_Ipeak2 = findpeak(new_w2_w, -new_chi2_w.imag)
 
-    mw1 = wpeak1 * 1000
-    mw2 = wpeak2 * 1000
-    mw3 = wpeak3 * 1000
-    mw4 = wpeak4 * 1000
+    old_mw1 = old_wpeak1 * 1000
+    old_mw2 = old_wpeak2 * 1000
+    new_mw1 = new_wpeak1 * 1000
+    new_mw2 = new_wpeak2 * 1000
 
-    fxcs_old = fxc_scaling_old.get_scaling()
-    fxcs_new = fxc_scaling_new.get_scaling()
+    old_fxcs = fxc_scaling_old.get_scaling()
+    new_fxcs = fxc_scaling_new.get_scaling()
 
     # import matplotlib.pyplot as plt
     # plt.subplot(1, 2, 1)
-    # plt.plot(w1_w, -chi1_w.imag)
-    # plt.plot(w3_w, -chi3_w.imag)
+    # plt.plot(old_w1_w, -old_chi1_w.imag)
+    # plt.plot(new_w1_w, -new_chi1_w.imag)
     # plt.subplot(1, 2, 2)
-    # plt.plot(w2_w, -chi2_w.imag)
-    # plt.plot(w4_w, -chi4_w.imag)
+    # plt.plot(old_w2_w, -old_chi2_w.imag)
+    # plt.plot(new_w2_w, -new_chi2_w.imag)
     # plt.show()
 
     # Compare results to test values
-    test_fxcs_old = 1.034
+    test_old_fxcs = 1.034
+    test_new_fxcs = 1.059
     test_mw1 = 0.  # meV
     test_mw2 = 363.  # meV
     test_Ipeak1 = 7.48  # a.u.
     test_Ipeak2 = 3.47  # a.u.
-    test_fxcs_new = 0.347
-    test_mw3 = -4.5  # meV
-    test_mw4 = 364.  # meV
-    test_Ipeak3 = 7.47  # a.u.
-    test_Ipeak4 = 3.35  # a.u.
 
-    print(fxcs_old, mw1, mw2, Ipeak1, Ipeak2)
-    print(fxcs_new, mw3, mw4, Ipeak3, Ipeak4)
+    print(old_fxcs, old_mw1, old_mw2, old_Ipeak1, old_Ipeak2)
+    print(new_fxcs, new_mw1, new_mw2, new_Ipeak1, new_Ipeak2)
 
     # fxc_scaling:
-    assert fxcs_old == pytest.approx(test_fxcs_old, abs=0.005)
-    assert fxcs_new == pytest.approx(test_fxcs_new, abs=0.005)
+    assert old_fxcs == pytest.approx(test_old_fxcs, abs=0.005)
+    assert new_fxcs == pytest.approx(test_new_fxcs, abs=0.005)
 
     # Magnon peak:
-    assert mw1 == pytest.approx(test_mw1, abs=20.)
-    assert mw2 == pytest.approx(test_mw2, abs=50.)
-    assert mw3 == pytest.approx(test_mw3, abs=20.)
-    assert mw4 == pytest.approx(test_mw4, abs=50.)
+    assert old_mw1 == pytest.approx(test_mw1, abs=20.)
+    assert old_mw2 == pytest.approx(test_mw2, abs=50.)
+    assert new_mw1 == pytest.approx(test_mw1, abs=20.)
+    assert new_mw2 == pytest.approx(test_mw2, abs=50.)
 
     # Scattering function intensity:
-    assert Ipeak1 == pytest.approx(test_Ipeak1, abs=0.5)
-    assert Ipeak2 == pytest.approx(test_Ipeak2, abs=0.5)
-    assert Ipeak3 == pytest.approx(test_Ipeak3, abs=0.5)
-    assert Ipeak4 == pytest.approx(test_Ipeak4, abs=0.5)
+    assert old_Ipeak1 == pytest.approx(test_Ipeak1, abs=0.5)
+    assert old_Ipeak2 == pytest.approx(test_Ipeak2, abs=0.5)
+    assert new_Ipeak1 == pytest.approx(test_Ipeak1, abs=0.5)
+    assert new_Ipeak2 == pytest.approx(test_Ipeak2, abs=0.5)
