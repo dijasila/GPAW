@@ -683,8 +683,13 @@ def add_LSDA_Bxc(gd, n_sR, Bxc_R):
 
 
 def add_LDA_dens_fxc(gd, n_sR, fxc_R, *, fxc):
-    """
-    Some documentation here!                                                   XXX
+    """Calculate the LDA density kernel and add it to the output array fxc_R.
+
+    The LDA density kernel is given by:
+
+                    ∂^2[ϵ_xc(n,m)n] |
+    f_LDA^(00)(r) = ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾ |
+                         ∂n^2       |n=n(r),m=m(r)
     """
     assert len(n_sR) == 1,\
         'The density kernel is untested for spin-polarized systems'
@@ -701,8 +706,13 @@ def add_LDA_dens_fxc(gd, n_sR, fxc_R, *, fxc):
 
 
 def add_LSDA_trans_fxc(gd, n_sR, fxc_R, *, fxc):
-    """
-    Some documentation here!                                                   XXX
+    """Calculate the transverse LDA kernel and add it to the output array fxc_R.
+
+    The transverse LDA kernel is given by:
+
+                    2 ∂[ϵ_xc(n,m)n] |                V_LSDA^↑(r) - V_LSDA^↓(r)
+    f_LDA^(+-)(r) = ‾ ‾‾‾‾‾‾‾‾‾‾‾‾‾ |              = ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+                    m      ∂m       |n=n(r),m=m(r)              m(r)
     """
     assert len(n_sR) == 2  # nspins
     m_R = n_sR[0] - n_sR[1]
