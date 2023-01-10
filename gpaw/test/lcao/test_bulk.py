@@ -38,6 +38,6 @@ def test_lcao_bulk(in_tmp_dir):
     wf1 = calc.get_pseudo_wave_function(kpt=3, band=0)
     calc.write('Li', mode='all')
     calc2 = GPAW('Li')
-    calc2.initialize_positions()
+    # calc2.initialize_positions()
     wf2 = calc2.get_pseudo_wave_function(kpt=3, band=0)
     equal(abs(wf1 - wf2).max(), 0, 1e-9)

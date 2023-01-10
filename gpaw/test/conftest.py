@@ -441,6 +441,7 @@ def pytest_configure(config):
                  'lrtddft: Linear-response TDDFT',
                  'rttddft: Real-time TDDFT',
                  'wannier: Wannier functions',
+                 'hybrids: Hybrid functionals',
                  'stress: Calculation of stress tensor']:
         config.addinivalue_line('markers', line)
 
