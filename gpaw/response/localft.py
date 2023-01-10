@@ -122,9 +122,9 @@ class LocalFTCalculator(ABC):
         gridrefinement = self.get_gridrefinement(gd)
 
         if pseudo:
-            _get_electron_density = self.gs.pseudo_density
+            _get_electron_density = self.gs.get_pseudo_density
         else:
-            _get_electron_density = self.gs.all_electron_density
+            _get_electron_density = self.gs.get_all_electron_density
 
         n_sR, gdref = _get_electron_density(gridrefinement=gridrefinement)
 

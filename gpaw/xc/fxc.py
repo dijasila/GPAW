@@ -495,7 +495,7 @@ class KernelWave:
             self.l_l = [1.0]
 
         # Density grid
-        n_sg, finegd = self.gs.all_electron_density(gridrefinement=2)
+        n_sg, finegd = self.gs.get_all_electron_density(gridrefinement=2)
         self.n_g = n_sg.sum(axis=0).flatten()
 
         #  For atoms with large vacuum regions

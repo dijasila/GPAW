@@ -96,7 +96,7 @@ class ResponseGroundStateAdapter:
         # Used by fxc_kernels
         return self._density.D_asp
 
-    def pseudo_density(self, gridrefinement=2):
+    def get_pseudo_density(self, gridrefinement=2):
         # Used by localft
         if gridrefinement == 1:
             return self.nt_sR, self.gd
@@ -106,8 +106,8 @@ class ResponseGroundStateAdapter:
         else:
             raise ValueError(f'Invalid gridrefinement {gridrefinement}')
 
-    def all_electron_density(self, gridrefinement=2):
-        # Used by fxc_kernels and localft
+    def get_all_electron_density(self, gridrefinement=2):
+        # Used by fxc, fxc_kernels and localft
         return self._density.get_all_electron_density(
             atoms=self.atoms, gridrefinement=gridrefinement)
 
