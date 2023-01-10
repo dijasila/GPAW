@@ -112,10 +112,37 @@ class LocalFTCalculator(ABC):
         pass
 
     @staticmethod
-    def check_grid_equivalence(gd1, gd2):
+    def equivalent_real_space_grids(gd1, gd2):
         assert gd1.comm.size == 1
         assert gd2.comm.size == 1
-        assert (gd1.N_c == gd2.N_c).all()
+        return (gd1.N_c == gd2.N_c).all()
+
+    def get_electron_density(self, gd, pseudo=False):
+        """Get the electron density on a given grid descriptor."""
+        gridrefinement = self.get_gridrefinement(gd)
+
+        if pseudo:
+            _get_electron_density = self.gs.pseudo_density
+        else:
+            _get_electron_density = self.gs.all_electron_density
+
+        n_sR, gdref = _get_electron_density(gridrefinement=gridrefinement)
+
+        assert self.equivalent_real_space_grids(gd, gdref)
+
+        return n_sR
+
+    def get_gridrefinement(self, gd):
+        if self.equivalent_real_space_grids(gd, self.gs.gd):
+            gridrefinement = 1
+        elif self.equivalent_real_space_grids(gd, self.gs.finegd):
+            gridrefinement = 2
+        else:
+            raise ValueError('The supplied gd is neither compatible with the '
+                             'coarse nor the fine real-space grid of the '
+                             'underlying ground state')
+
+        return gridrefinement
 
 
 class LocalGridFTCalculator(LocalFTCalculator):
@@ -142,13 +169,9 @@ class LocalGridFTCalculator(LocalFTCalculator):
 
     @timer('Calculate the all-electron density')
     def get_all_electron_density(self, gd):
-        """Calculate the all-electron (spin-)density on the coarse real-space
-        grid of the ground state."""
+        """Calculate the all-electron (spin-)density."""
         self.context.print('    Calculating the all-electron density')
-        n_sR, gd1 = self.gs.all_electron_density(gridrefinement=1)
-        self.check_grid_equivalence(gd, gd1)
-
-        return n_sR
+        return self.get_electron_density(gd)
 
 
 class LocalPAWFTCalculator(LocalFTCalculator):
@@ -162,7 +185,7 @@ class LocalPAWFTCalculator(LocalFTCalculator):
         """Calculate f(G) with an expansion of f(r) in real spherical harmonics
         inside the augmentation spheres."""
         # Retrieve the pseudo (spin-)density on the coarse real-space grid
-        nt_sR = self.get_pseudo_density(pd.gd)  # R = Coarse 3D real-space grid
+        nt_sR = self.get_pseudo_density(pd.gd)  # R = 3D real-space grid
 
         # Retrieve the pseudo and all-electron atomic centered densities inside
         # the augmentation spheres
@@ -174,10 +197,8 @@ class LocalPAWFTCalculator(LocalFTCalculator):
         return f_G
 
     def get_pseudo_density(self, gd):
-        """Return the pseudo (spin-)density on the coarse real-space grid of
-        the ground state."""
-        self.check_grid_equivalence(gd, self.gs.gd)
-        return self.gs.nt_sR  # nt=pseudo density, R=coarse grid
+        """Get the pseudo (spin-)density of the ground state."""
+        return self.get_electron_density(gd, pseudo=True)
 
     def extract_atom_centered_quantities(self):
         """Extract all relevant atom centered quantities that the engine needs
