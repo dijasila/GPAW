@@ -683,7 +683,7 @@ def add_LSDA_Bxc(gd, n_sR, Bxc_R):
 
 
 def add_LDA_dens_fxc(gd, n_sR, fxc_R, *, fxc):
-    """Calculate the LDA density kernel and add it to the output array fxc_R.
+    r"""Calculate the LDA density kernel and add it to the output array fxc_R.
 
     The LDA density kernel is given by:
 
@@ -706,7 +706,7 @@ def add_LDA_dens_fxc(gd, n_sR, fxc_R, *, fxc):
 
 
 def add_LSDA_trans_fxc(gd, n_sR, fxc_R, *, fxc):
-    """Calculate the transverse LDA kernel and add it to the output array fxc_R.
+    r"""Calculate the transverse LDA kernel and add it to the output array fxc_R.
 
     The transverse LDA kernel is given by:
 
