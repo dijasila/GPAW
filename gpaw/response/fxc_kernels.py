@@ -151,7 +151,7 @@ class NewAdiabaticFXCCalculator:
         fxc_G = self.localft_calc(pd, add_fxc)
 
         # Unfold the kernel according to Kxc_GG' = 1 / V0 * fxc(G-G')
-        Kxc_GG = 1 / pd.gd.volume * self.unfold_kernel(pd, fxc_G)
+        Kxc_GG = 1 / pd.gd.volume * self.unfold_kernel_matrix(pd, fxc_G)
 
         return Kxc_GG
 
@@ -169,11 +169,9 @@ class NewAdiabaticFXCCalculator:
 
         return add_fxc
 
-    @timer('Unfold kernel')
-    def unfold_kernel(self, pd, fxc_G):
-        """
-        Some documentation here!                                               XXX
-        """
+    @timer('Unfold kernel matrix')
+    def unfold_kernel_matrix(self, pd, fxc_G):
+        """Unfold the kernel fxc(G) to the kernel matrix fxc_GG'=fxc(G-G')"""
         # Calculate (G-G') reciprocal space vectors
         dG_GGv = self.calculate_dG(pd)
 
@@ -184,10 +182,10 @@ class NewAdiabaticFXCCalculator:
         dG_dGv, dG_K = np.unique(dG_Kv, return_inverse=True, axis=0)
         ndG = len(dG_dGv)
 
-        # Create mapping from (G-G') index dG to fxc(G) index G
-        dG_G = self.map_to_dG(pd, dG_dGv)
+        # Create mapping between fxc(G-G') index dG and fxc(G) index G
+        dG_G = self.get_dG_G_map(dG_dGv, pd)
 
-        # Unfold fxc(G) to fxc(G-G')
+        # Map fxc(G) onto fxc(G-G') array
         fxc_dG = np.zeros(ndG, dtype=complex)
         fxc_dG[dG_G] = fxc_G
 
@@ -198,9 +196,7 @@ class NewAdiabaticFXCCalculator:
 
     @staticmethod
     def calculate_dG(pd):
-        """
-        Some documentation here!                                               XXX
-        """
+        """Calculate dG_GG' = (G-G') for the plane wave basis in pd."""
         nG = pd.ngmax
         G_Gv = pd.get_reciprocal_vectors(add_q=False)
 
@@ -211,10 +207,8 @@ class NewAdiabaticFXCCalculator:
         return dG_GGv
         
     @staticmethod
-    def map_to_dG(pd, dG_dGv):
-        """
-        Some documentation here!                                               XXX
-        """
+    def get_dG_G_map(dG_dGv, pd):
+        """Create mapping between (G-G') index dG and pd index G"""
         G_Gv = pd.get_reciprocal_vectors(add_q=False)
 
         dG_G = []
