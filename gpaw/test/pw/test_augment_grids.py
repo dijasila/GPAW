@@ -1,12 +1,15 @@
 import os
 
 import numpy as np
+import pytest
 from ase import Atoms
+
 from gpaw import PW, FermiDirac
 from gpaw.calculator import GPAW
 from gpaw.new.calculation import DFTCalculation
 
 
+@pytest.mark.stress
 def test_pw_augment_grids(in_tmp_dir):
     ecut = 200
     kpoints = [1, 1, 4]

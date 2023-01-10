@@ -274,6 +274,9 @@ class ASECalculator:
     def get_atomic_electrostatic_potentials(self):
         return self.calculation.electrostatic_potential().atomic_potentials()
 
+    def get_electrostatic_corrections(self):
+        return self.calculation.electrostatic_potential().atomic_corrections()
+
     def get_pseudo_density(self, spin=None, gridrefinement=1):
         assert spin is None
         nt_sr = self.calculation.densities().pseudo_densities(
