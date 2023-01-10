@@ -106,6 +106,9 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
     mw3 = wpeak3 * 1000
     mw4 = wpeak4 * 1000
 
+    fxcs_old = fxc_scaling_old.get_scaling()
+    fxcs_new = fxc_scaling_new.get_scaling()
+
     # import matplotlib.pyplot as plt
     # plt.subplot(1, 2, 1)
     # plt.plot(w1_w, -chi1_w.imag)
@@ -127,14 +130,12 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
     test_Ipeak3 = 7.47  # a.u.
     test_Ipeak4 = 3.35  # a.u.
 
-    # fxc_scaling:
-    fxcs_old = fxc_scaling_old.get_scaling()
-    fxcs_new = fxc_scaling_new.get_scaling()
-    assert fxcs_old == pytest.approx(test_fxcs_old, abs=0.005)
-    assert fxcs_new == pytest.approx(test_fxcs_new, abs=0.005)
-
     print(fxcs_old, mw1, mw2, Ipeak1, Ipeak2)
     print(fxcs_new, mw3, mw4, Ipeak3, Ipeak4)
+
+    # fxc_scaling:
+    assert fxcs_old == pytest.approx(test_fxcs_old, abs=0.005)
+    assert fxcs_new == pytest.approx(test_fxcs_new, abs=0.005)
 
     # Magnon peak:
     assert mw1 == pytest.approx(test_mw1, abs=20.)
