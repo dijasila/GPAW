@@ -706,7 +706,7 @@ def add_LDA_dens_fxc(gd, n_sR, fxc_R, *, fxc):
 
 
 def add_LSDA_trans_fxc(gd, n_sR, fxc_R, *, fxc):
-    r"""Calculate the transverse LDA kernel and add it to the output array fxc_R.
+    r"""Calculate the transverse LDA kernel and add it to the output arr. fxc_R.
 
     The transverse LDA kernel is given by:
 
