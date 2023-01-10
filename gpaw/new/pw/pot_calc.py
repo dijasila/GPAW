@@ -70,10 +70,15 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         return nt_sr, pw, nt0_g
 
     def _calculate(self, density, vHt_h):
+        #print(np.shape(density.nt_sR.data))
         nt_sr, pw, nt0_g = self._interpolate_density(density.nt_sR)
-
+        #with open('1.txt', 'w') as fd:
+        #    fd.write(density.nt_sR.data)
+        #input('')
         vxct_sr = nt_sr.desc.zeros(density.nt_sR.dims)
         e_xc = self.xc.calculate(nt_sr, vxct_sr)
+        
+
 
         if pw.comm.rank == 0:
             nt0_g.data *= 1 / np.prod(density.nt_sR.desc.size_c)

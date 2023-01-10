@@ -63,7 +63,7 @@ class SpinorPWHamiltonian(Hamiltonian):
               spin: int):
         out_nsG = out
         pw = psit_nsG.desc
-
+        
         if pw.qspiral_v is None:
             np.multiply(pw.ekin_G, psit_nsG.data, out_nsG.data)
         else:

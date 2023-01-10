@@ -108,6 +108,10 @@ class ASECalculator:
                     self.calculation.stress()
             elif prop == 'dipole':
                 self.calculation.dipole()
+            elif prop == 'energy':
+                self.calculation.energies()
+            elif prop == 'magmoms':
+                self.calculation.magmoms()
             else:
                 raise ValueError('Unknown property:', prop)
 
@@ -357,7 +361,10 @@ class ASECalculator:
         txt = params.txt
         world = params.parallel['world']
         log = Logger(txt, world)
+        log(params)
+
         builder = create_builder(self.atoms, params)
+        log(builder)
         basis_set = builder.create_basis_set()
         state = self.calculation.state
         ibzwfs = builder.create_ibz_wave_functions(basis_set, state.potential)
@@ -365,6 +372,7 @@ class ASECalculator:
         state = DFTState(ibzwfs, state.density, state.potential)
         scf_loop = builder.create_scf_loop()
         scf_loop.update_density_and_potential = False
+        log(state)
 
         calculation = DFTCalculation(
             state,
@@ -376,6 +384,136 @@ class ASECalculator:
         calculation.converge()
 
         return ASECalculator(params, log, calculation, self.atoms)
+
+    def nscf_spiral(self, **kwargs):
+        theta = 0#np.pi/20
+        Ry_m = np.array([[np.cos(theta), 0, np.sin(theta)],
+                       [0, 1, 0],
+                       [-np.sin(theta), 0, np.cos(theta)]])
+
+        kwargs = {**dict(self.params.items()), **kwargs}
+        params = InputParameters(kwargs)
+        txt = params.txt
+        world = params.parallel['world']
+        log = Logger(txt, world)
+        params.magmoms = np.tensordot(Ry_m, params.magmoms, (1, 1)).T
+        builder = create_builder(self.atoms, params)
+        log(builder)
+        basis_set = builder.create_basis_set()
+        state = self.calculation.state
+        vt_sR = state.potential.vt_sR.data
+        vt_sR[1:] = np.tensordot(Ry_m, vt_sR[1:], (1, 0))
+        for a, dH_sii in state.potential.dH_asii.items():
+            dH_sii[1:] = np.tensordot(Ry_m, dH_sii[1:], (1, 0))
+
+        ibzwfs = builder.create_ibz_wave_functions(basis_set, state.potential)
+        ibzwfs.fermi_levels = state.ibzwfs.fermi_levels
+        state = DFTState(ibzwfs, state.density, state.potential)
+        scf_loop = builder.create_scf_loop()
+        scf_loop.update_density_and_potential = False
+        log(state)
+
+        calculation = DFTCalculation(
+            state,
+            builder.setups,
+            scf_loop,
+            SimpleNamespace(fracpos_ac=self.calculation.fracpos_ac),
+            log)
+
+        calculation.converge()
+        calculation.energies()
+
+        Riy_m = np.linalg.inv(Ry_m)
+        vt_sR[1:] = np.tensordot(Riy_m, vt_sR[1:], (1, 0))
+        for a, dH_sii in state.potential.dH_asii.items():
+            dH_sii[1:] = np.tensordot(Riy_m, dH_sii[1:], (1, 0))
+
+        return ASECalculator(params, log, calculation, self.atoms)
+
+
+    def converged_state(self, **kwargs):
+        kwargs = {**dict(self.params.items()), **kwargs}
+        params = InputParameters(kwargs)
+        txt = params.txt
+        world = params.parallel['world']
+        log = Logger(txt, world)
+        log(params)
+
+        builder = create_builder(self.atoms, params)
+        log(builder)
+        basis_set = builder.create_basis_set()
+        state = self.calculation.state
+        ibzwfs = builder.create_ibz_wave_functions(basis_set, state.potential)
+        ibzwfs.fermi_levels = state.ibzwfs.fermi_levels
+        state = DFTState(ibzwfs, state.density, state.potential)
+        scf_loop = builder.create_scf_loop()
+        scf_loop.update_density_and_potential = False
+        log(state)
+
+        calculation = DFTCalculation(
+            state,
+            builder.setups,
+            scf_loop,
+            SimpleNamespace(fracpos_ac=self.calculation.fracpos_ac),
+            log)
+
+        calculation.converge()
+
+        return calculation.state, calculation.log, calculation.scf_loop
+
+
+    def nscf_spiral2(self, qspiral, **kwargs):
+        # kwargs = {**dict(self.params.items()), **kwargs}
+        # params = InputParameters(kwargs)
+        # txt = params.txt
+        # world = params.parallel['world']
+        # log = Logger(txt, world)
+        # builder = create_builder(self.atoms, params)
+        # log(builder)
+        # basis_set = builder.create_basis_set()
+        # state = self.calculation.state
+        # ibzwfs = builder.create_ibz_wave_functions(basis_set, state.potential)
+        # ibzwfs.fermi_levels = state.ibzwfs.fermi_levels
+        # state = DFTState(ibzwfs, state.density, state.potential)
+        # scf_loop = builder.create_scf_loop()
+        # scf_loop.update_density_and_potential = False
+        # log(state)
+
+        # calculation = DFTCalculation(
+        #     state,
+        #     builder.setups,
+        #     scf_loop,
+        #     SimpleNamespace(fracpos_ac=self.calculation.fracpos_ac),
+        #     log)
+
+        # calculation.converge()
+
+        state, log, scf_loop = self.converged_state(**kwargs)
+
+        kwargs = {**dict(self.params.items()), **kwargs}
+        params = InputParameters(kwargs)
+
+        params.mode['qspiral'] = qspiral
+        #for i in np.shape(state.ibzwfs.wfs_qs):
+        #    for i in np.shape(state.ibzwfs.wfs_qs)
+        spiral_builder = create_builder(self.atoms, params)
+        
+        #spiral_scf_loop = spiral_builder.create_scf_loop()
+        #spiral_scf_loop.update_density_and_potential = False
+        
+        log(spiral_builder)
+        spiral_calculation = DFTCalculation(
+            state,
+            spiral_builder.setups,
+            spiral_scf_loop,
+            SimpleNamespace(fracpos_ac=self.calculation.fracpos_ac),
+            log)
+        
+        spiral_calculation.converge(steps=3)
+        spiral_calculation.energies()
+
+        return ASECalculator(params, log, spiral_calculation, self.atoms)
+
 
     def initialize(self, atoms):
         self.create_new_calculation(atoms)

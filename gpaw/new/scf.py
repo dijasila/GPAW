@@ -73,6 +73,7 @@ class SCFLoop:
 
         for self.niter in itertools.count(start=1):
             wfs_error = self.eigensolver.iterate(state, self.hamiltonian)
+            
             state.ibzwfs.calculate_occs(
                 self.occ_calc,
                 fixed_fermi_level=not self.update_density_and_potential)
