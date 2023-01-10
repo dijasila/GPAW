@@ -141,17 +141,23 @@ class NewAdiabaticFXCCalculator:
         """Contruct the fxc calculator based on a local FT calculator."""
         self.localft_calc = localft_calc
 
+        self.gs = localft_calc.gs
         self.context = localft_calc.context
 
     @timer('Calculate XC kernel')
     def __call__(self, fxc, spincomponent, pd):
-        """Calculate the fxc kernel."""
-        # Calculate fxc(G)
+        """Calculate the Kxc kernel Kxc_GG' = 1 / V0 * fxc(G-G')."""
+        # Generate a large_pd to encompass all G-G' in pd
+        large_ecut = 4 * pd.ecut  # G = 1D grid of |G|^2/2 < ecut
+        large_pd = pd.copy_with(ecut=large_ecut, gd=self.gs.finegd)
+        
+        # Calculate fxc(K) on the large plane-wave grid
         add_fxc = self.create_add_fxc(fxc, spincomponent)
-        fxc_G = self.localft_calc(pd, add_fxc)
+        fxc_Q = self.localft_calc(large_pd, add_fxc)  # Q = large_pd index
 
         # Unfold the kernel according to Kxc_GG' = 1 / V0 * fxc(G-G')
-        Kxc_GG = 1 / pd.gd.volume * self.unfold_kernel_matrix(pd, fxc_G)
+        Kxc_GG = 1 / pd.gd.volume * self.unfold_kernel_matrix(
+            pd, large_pd, fxc_Q)
 
         return Kxc_GG
 
@@ -170,8 +176,8 @@ class NewAdiabaticFXCCalculator:
         return add_fxc
 
     @timer('Unfold kernel matrix')
-    def unfold_kernel_matrix(self, pd, fxc_G):
-        """Unfold the kernel fxc(G) to the kernel matrix fxc_GG'=fxc(G-G')"""
+    def unfold_kernel_matrix(self, pd, large_pd, fxc_Q):
+        """Unfold the kernel fxc(Q) to the kernel matrix fxc_GG'=fxc(G-G')"""
         # Calculate (G-G') reciprocal space vectors
         dG_GGv = self.calculate_dG(pd)
 
@@ -180,14 +186,10 @@ class NewAdiabaticFXCCalculator:
 
         # Find unique dG-vectors
         dG_dGv, dG_K = np.unique(dG_Kv, return_inverse=True, axis=0)
-        ndG = len(dG_dGv)
 
-        # Create mapping between fxc(G-G') index dG and fxc(G) index G
-        dG_G = self.get_dG_G_map(dG_dGv, pd)
-
-        # Map fxc(G) onto fxc(G-G') array
-        fxc_dG = np.zeros(ndG, dtype=complex)
-        fxc_dG[dG_G] = fxc_G
+        # Map fxc(Q) onto fxc(G-G') index dG
+        Q_dG = self.get_Q_dG_map(large_pd, dG_dGv)
+        fxc_dG = fxc_Q[Q_dG]
 
         # Unfold fxc(G-G') to fxc_GG'
         fxc_GG = fxc_dG[dG_K].reshape(dG_GGv.shape[:2])
@@ -207,18 +209,18 @@ class NewAdiabaticFXCCalculator:
         return dG_GGv
         
     @staticmethod
-    def get_dG_G_map(dG_dGv, pd):
-        """Create mapping between (G-G') index dG and pd index G"""
-        G_Gv = pd.get_reciprocal_vectors(add_q=False)
+    def get_Q_dG_map(large_pd, dG_dGv):
+        """Create mapping between (G-G') index dG and large_pd index Q."""
+        G_Qv = large_pd.get_reciprocal_vectors(add_q=False)
 
-        dG_G = []
-        for G_v in G_Gv:
-            diff_dG = np.linalg.norm(dG_dGv - G_v, axis=1)
-            dG = np.argmin(diff_dG)
-            assert diff_dG[dG] < 1e-6, f'{diff_dG[dG]}, {G_v}'
-            dG_G.append(dG)
+        Q_dG = []
+        for dG_v in dG_dGv:
+            diff_Q = np.linalg.norm(G_Qv - dG_v, axis=1)
+            Q = np.argmin(diff_Q)
+            assert diff_Q[Q] < 1e-6, f'{diff_Q[Q]}, {dG_v}'
+            Q_dG.append(Q)
 
-        return np.array(dG_G)
+        return np.array(Q_dG)
 
 
 class OldAdiabaticFXCCalculator:
