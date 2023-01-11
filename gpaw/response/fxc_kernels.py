@@ -24,15 +24,16 @@ class FXCScaling:
         self.mode = mode
         self.lambd = lambd
 
-    def get_scaling(self, *args):
-        if self.lambd is None:
-            self.lambd = self.calculate_scaling(*args)
+    @property
+    def has_scaling(self):
+        return self.lambd is not None
 
+    def get_scaling(self):
         return self.lambd
 
     def calculate_scaling(self, chiks, Kxc_GG):
         if chiks.spincomponent in ['+-', '-+']:
-            return get_goldstone_scaling(self.mode, chiks, Kxc_GG)
+            self.lambd = get_goldstone_scaling(self.mode, chiks, Kxc_GG)
         else:
             raise ValueError('No scaling method implemented for '
                              f'spincomponent={chiks.spincomponent}')
@@ -75,7 +76,9 @@ class FXCFactory:
         Kxc_GG = fxc_calculator(fxc, chiks.spincomponent, chiks.pd)
 
         if fxc_scaling is not None:
-            lambd = fxc_scaling.get_scaling(chiks, Kxc_GG)
+            if not fxc_scaling.has_scaling:
+                fxc_scaling.calculate_scaling(chiks, Kxc_GG)
+            lambd = fxc_scaling.get_scaling()
             self.context.print(r'Rescaling the xc-kernel by a factor of λ='
                                f'{lambd}')
             Kxc_GG *= lambd
