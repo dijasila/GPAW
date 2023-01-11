@@ -118,7 +118,8 @@ class LocalFTCalculator(ABC):
         return (gd1.N_c == gd2.N_c).all()
 
     def get_electron_density(self, gd, pseudo=False):
-        """Get the electron density on a given grid descriptor."""
+        """Get the electron density corresponding to a given grid descriptor.
+        """
         gridrefinement = self.get_gridrefinement(gd)
 
         if pseudo:
@@ -184,7 +185,7 @@ class LocalPAWFTCalculator(LocalFTCalculator):
     def calculate(self, pd, add_f):
         """Calculate f(G) with an expansion of f(r) in real spherical harmonics
         inside the augmentation spheres."""
-        # Retrieve the pseudo (spin-)density on the coarse real-space grid
+        # Retrieve the pseudo (spin-)density on the real-space grid
         nt_sR = self.get_pseudo_density(pd.gd)  # R = 3D real-space grid
 
         # Retrieve the pseudo and all-electron atomic centered densities inside
