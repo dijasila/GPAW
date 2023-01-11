@@ -227,7 +227,12 @@ class NewAdiabaticFXCCalculator:
         diff_QdG = np.linalg.norm(G_Qv[:, np.newaxis] - dG_dGv[np.newaxis],
                                   axis=2)
         Q_dG = np.argmin(diff_QdG, axis=0)
-        assert np.allclose(np.diagonal(diff_QdG[Q_dG]), 0.)
+
+        # Check that all the identified Q indeces produce identical reciprocal
+        # lattice vectors
+        assert np.allclose(np.diagonal(diff_QdG[Q_dG]), 0.),\
+            'Could not find a perfect matching reciprocal wave vector in '\
+            'large_pd for all dG_dGv'
 
         return Q_dG
 
