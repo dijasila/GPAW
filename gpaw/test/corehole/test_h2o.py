@@ -39,8 +39,8 @@ def test_corehole_h2o(in_tmp_dir, add_cwd_to_setup_paths):
     calc.write('h2o-xas.gpw')
 
     if mpi.size == 1:
-        calc = GPAW('h2o-xas.gpw', txt=None,
-                    poissonsolver=FDPoissonSolver(use_charge_center=True))
+        calc = GPAW('h2o-xas.gpw')
+        # poissonsolver=FDPoissonSolver(use_charge_center=True))
         calc.initialize()
         xas = XAS(calc)
         x, y = xas.get_spectra()

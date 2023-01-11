@@ -13,6 +13,6 @@ def test_pseudopotential_ah(in_tmp_dir):
     assert f == pytest.approx(0.0)
     s = si.get_stress()
     assert s[3:] == pytest.approx(0.0)
-    assert s[3:] == pytest.approx(0.299, abs=0.001)
+    assert s[:3] == pytest.approx(0.299, abs=0.001)
     si.calc.write('Si.gpw', 'all')
     GPAW('Si.gpw')
