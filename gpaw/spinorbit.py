@@ -13,7 +13,6 @@ from gpaw.grid_descriptor import GridDescriptor
 from gpaw.kpoint import KPoint
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.mpi import broadcast_array, serial_comm
-from gpaw.new.ase_interface import ASECalculator
 from gpaw.occupations import OccupationNumberCalculator, ParallelLayout
 from gpaw.projections import Projections
 from gpaw.setup import Setup
@@ -23,6 +22,7 @@ from gpaw.utilities.partition import AtomPartition
 
 if TYPE_CHECKING:
     from gpaw.calculator import GPAW  # noqa
+    from gpaw.new.ase_interface import ASECalculator
 
 _L_vlmm: List[List[np.ndarray]] = []  # see get_L_vlmm() below
 

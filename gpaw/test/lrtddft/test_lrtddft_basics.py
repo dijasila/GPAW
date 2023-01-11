@@ -45,6 +45,7 @@ def test_io(in_tmp_dir):
     assert len(lr4) == 1
 
 
+@pytest.mark.lrtddft
 def test_invocation():
     calc = GPAW(xc='PBE', h=0.25, nbands=5, txt=None)
     H2 = get_H2(calc)

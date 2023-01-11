@@ -10,6 +10,7 @@ from ase import Atoms
 from ase.units import Bohr, Ha
 
 from gpaw import __version__
+from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.dos import DOSCalculator
 from gpaw.new import Timer, cached_property
 from gpaw.new.builder import builder as create_builder
@@ -251,6 +252,12 @@ class ASECalculator:
         assert len(fl) == 1
         return fl[0]
 
+    def get_fermi_levels(self) -> float:
+        state = self.calculation.state
+        fl = state.ibzwfs.fermi_levels * Ha
+        assert len(fl) == 2
+        return fl
+
     def get_homo_lumo(self, spin: int = None) -> Array1D:
         state = self.calculation.state
         return state.ibzwfs.get_homo_lumo(spin) * Ha
@@ -270,6 +277,14 @@ class ASECalculator:
         assert spin == 0
         vt_R = self.calculation.state.potential.vt_sR[spin]
         return vt_R.to_pbc_grid().data * Ha
+
+    def get_electrostatic_potential(self):
+        density = self.calculation.state.density
+        potential, vHt_x, W_aL = self.calculation.pot_calc.calculate(density)
+        if isinstance(vHt_x, UniformGridFunctions):
+            return self.vHt_x.to_pbc_grid().data
+
+        return vHt_x.interpolate(grid=self.calculation.pot_calc.fine_grid)
 
     def get_atomic_electrostatic_potentials(self):
         return self.calculation.electrostatic_potential().atomic_potentials()

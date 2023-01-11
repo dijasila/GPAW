@@ -1,9 +1,12 @@
+import pytest
 from ase import Atoms
+
 from gpaw import GPAW, FermiDirac
-from gpaw.xas import XAS, RecursionMethod
 from gpaw.test import gen
+from gpaw.xas import XAS, RecursionMethod
 
 
+@pytest.mark.later
 def test_corehole_si(in_tmp_dir, add_cwd_to_setup_paths):
     # Generate setup for oxygen with half a core-hole:
     gen('Si', name='hch1s', corehole=(1, 0, 0.5), gpernode=30, write_xml=True)

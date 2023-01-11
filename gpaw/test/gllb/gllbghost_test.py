@@ -4,6 +4,7 @@ from gpaw import GPAW
 
 
 @pytest.mark.libxc
+@pytest.mark.gllb
 def test_gllbghost():
     atoms = molecule('H2')
     atoms.center(vacuum=2)

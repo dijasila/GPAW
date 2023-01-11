@@ -1,3 +1,4 @@
+import pytest
 from itertools import count
 from ase.build import bulk
 from gpaw import GPAW
@@ -29,6 +30,7 @@ def ikwargs():
                 yield dict(parallel=parallel)
 
 
+@pytest.mark.later
 def test_lcao_kpts_many_combinations(in_tmp_dir):
     counter = count()
 
