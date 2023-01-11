@@ -97,60 +97,20 @@ class FXCFactory:
     def get_fxc_calculator_cls(method):
         """Factory function for selecting fxc calculators."""
         if method == 'old':
-            return AdiabaticSusceptibilityFXC
+            return AdiabaticFXCCalculator
 
         raise ValueError(f'Invalid fxc calculator method {method}')
 
 
-class FXC:
-    """Base class to calculate exchange-correlation kernels."""
-
-    def __init__(self, gs, context):
-        """
-        Parameters
-        ----------
-        gs : ResponseGroundStateAdapter
-        context : ResponseContext
-        """
-        assert isinstance(gs, ResponseGroundStateAdapter)
-        self.gs = gs
-        assert isinstance(context, ResponseContext)
-        self.context = context
-
-    def __call__(self, *args, **kwargs):
-
-        if self.is_calculated():
-            Kxc_GG = self.read(*args, **kwargs)
-        else:
-            Kxc_GG = self.calculate(*args, **kwargs)
-            self.write(Kxc_GG)
-
-        return Kxc_GG
-
-    def calculate(self, *args, **kwargs):
-        raise NotImplementedError
-
-    def is_calculated(self, *args, **kwargs):
-        # Read/write has not been implemented
-        return False
-
-    def read(self, *args, **kwargs):
-        raise NotImplementedError
-
-    def write(self, Kxc_GG):
-        # Not implemented
-        pass
-
-
-class PlaneWaveAdiabaticFXC(FXC):
-    """Adiabatic exchange-correlation kernels in plane wave mode using PAW."""
+class AdiabaticFXCCalculator:
+    """Calculator for adiabatic local exchange-correlation kernels in pw mode.
+    """
 
     def __init__(self, gs, context,
                  rshelmax=-1, rshewmin=None, filename=None, **ignored):
         """
         Parameters
         ----------
-        gs, context : see FXC
         rshelmax : int or None
             Expand kernel in real spherical harmonics inside augmentation
             spheres. If None, the kernel will be calculated without
@@ -163,7 +123,8 @@ class PlaneWaveAdiabaticFXC(FXC):
             contributes with less than a fraction of rshewmin on average,
             it will not be included.
         """
-        FXC.__init__(self, gs, context)
+        self.gs = gs
+        self.context = context
 
         # Do not carry out the expansion in real spherical harmonics, if lmax
         # is chosen as None
@@ -183,6 +144,16 @@ class PlaneWaveAdiabaticFXC(FXC):
 
         self.filename = filename
 
+    def __call__(self, *args):
+
+        if self.is_calculated():
+            Kxc_GG = self.read()
+        else:
+            Kxc_GG = self.calculate(*args)
+            self.write(Kxc_GG)
+
+        return Kxc_GG
+
     def is_calculated(self):
         if self.filename is None:
             return False
@@ -192,11 +163,13 @@ class PlaneWaveAdiabaticFXC(FXC):
         if self.filename is not None:
             np.save(self.filename, Kxc_GG)
 
-    def read(self, *unused, **ignored):
+    def read(self):
         return np.load(self.filename)
 
     @timer('Calculate XC kernel')
-    def calculate(self, pd):
+    def calculate(self, fxc, spincomponent, pd):
+        self.set_up_calculation(fxc, spincomponent)
+
         self.context.print('Calculating fxc')
         # Get the spin density we need and allocate fxc
         n_sG = self.get_density_on_grid(pd.gd)
@@ -594,25 +567,7 @@ class PlaneWaveAdiabaticFXC(FXC):
 
         return ii_MmydG, j_gMmydG, Y_MmydG
 
-    def _add_fxc(self, gd, n_sg, fxc_g):
-        raise NotImplementedError
-
-
-class AdiabaticSusceptibilityFXC(PlaneWaveAdiabaticFXC):
-    """Adiabatic exchange-correlation kernel for susceptibility calculations in
-    the plane wave mode"""
-
-    def __init__(self, gs, context,
-                 rshelmax=-1, rshewmin=None, filename=None, **ignored):
-        """
-        gs, context : see PlaneWaveAdiabaticFXC, FXC
-        rshelmax, rshewmin, filename : see PlaneWaveAdiabaticFXC
-        """
-        PlaneWaveAdiabaticFXC.__init__(self, gs, context,
-                                       rshelmax=rshelmax, rshewmin=rshewmin,
-                                       filename=filename)
-
-    def calculate(self, fxc, spincomponent, pd):
+    def set_up_calculation(self, fxc, spincomponent):
         """Creator component to set up the right calculation."""
         assert fxc in ['ALDA_x', 'ALDA_X', 'ALDA']
 
@@ -626,8 +581,6 @@ class AdiabaticSusceptibilityFXC(PlaneWaveAdiabaticFXC):
             self._calculate_fxc = partial(self.calculate_trans_fxc, fxc=fxc)
         else:
             raise ValueError(spincomponent)
-
-        return PlaneWaveAdiabaticFXC.calculate(self, pd)
 
     def _add_fxc(self, gd, n_sG, fxc_G):
         """Calculate fxc and add it to the output array."""
