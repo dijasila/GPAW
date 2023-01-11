@@ -209,7 +209,7 @@ class NewAdiabaticFXCCalculator:
             dG_GGv[:, :, v] = np.subtract.outer(G_Gv[:, v], G_Gv[:, v])
 
         return dG_GGv
-        
+
     @staticmethod
     def get_Q_dG_map(large_pd, dG_dGv):
         """Create mapping between (G-G') index dG and large_pd index Q."""
@@ -217,14 +217,12 @@ class NewAdiabaticFXCCalculator:
         # Make sure to match the precision of dG_dGv
         G_Qv = G_Qv.round(decimals=6)
 
-        Q_dG = []
-        for dG_v in dG_dGv:
-            diff_Q = np.linalg.norm(G_Qv - dG_v, axis=1)
-            Q = np.argmin(diff_Q)
-            assert diff_Q[Q] < 1e-6, f'{diff_Q[Q]}, {dG_v}'
-            Q_dG.append(Q)
+        diff_QdG = np.linalg.norm(G_Qv[:, np.newaxis] - dG_dGv[np.newaxis],
+                                  axis=2)
+        Q_dG = np.argmin(diff_QdG, axis=0)
+        assert np.allclose(np.diagonal(diff_QdG[Q_dG]), 0.)
 
-        return np.array(Q_dG)
+        return Q_dG
 
 
 class OldAdiabaticFXCCalculator:
