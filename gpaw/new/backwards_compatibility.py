@@ -135,7 +135,6 @@ class FakeDensity:
         self.state = calculation.state
         self.D_asii = self.state.density.D_asii
         self.atom_partition = calculation._atom_partition
-        self.nt_sg = None
         self.interpolate = calculation.pot_calc._interpolate_density
         self.nt_sR = self.state.density.nt_sR
         self.nt_sG = self.nt_sR.data
@@ -153,8 +152,12 @@ class FakeDensity:
                       for a, D_sii in self.D_asii.items()})
         return D_asp
 
+    @cached_property
+    def nt_sg(self):
+        return self.interpolate(self.nt_sR)[0].data
+
     def interpolate_pseudo_density(self):
-        self.nt_sg = self.interpolate(self.nt_sR)[0].data
+        pass
 
     def get_all_electron_density(self, *, atoms, gridrefinement):
         n_sr = self._densities.all_electron_densities(

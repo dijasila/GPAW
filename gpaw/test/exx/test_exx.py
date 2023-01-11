@@ -15,13 +15,6 @@ def xc1(name):
 def test_exx_exx(in_tmp_dir):
     be2 = Atoms('Be2', [(0, 0, 0), (2.45, 0, 0)])
     be2.center(vacuum=2.0)
-    calc = GPAW(h=0.21,
-                eigensolver='rmm-diis',
-                nbands=3,
-                convergence={'eigenstates': 1e-6},
-                txt='exx.txt')
-
-    be2.calc = calc
 
     ref_1871 = {  # Values from revision 1871. Not true reference values
         # xc         Energy          eigenvalue 0    eigenvalue 1
@@ -39,7 +32,13 @@ def test_exx_exx(in_tmp_dir):
         # g.run(exx=True, **parameters['Be'])
 
         # switch to new xc functional
-        calc.set(xc=xc)
+        calc = GPAW(xc=xc,
+                    h=0.21,
+                    eigensolver='rmm-diis',
+                    nbands=3,
+                    convergence={'eigenstates': 1e-6},
+                    txt='exx.txt')
+        be2.calc = calc
         E = be2.get_potential_energy()
         if xc.name != 'PBE':
             E += calc.get_reference_energy()
