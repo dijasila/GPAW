@@ -185,7 +185,9 @@ class NewAdiabaticFXCCalculator:
         dG_Kv = dG_GGv.reshape(-1, dG_GGv.shape[-1])
 
         # Find unique dG-vectors
-        dG_dGv, dG_K = np.unique(dG_Kv, return_inverse=True, axis=0)
+        # We need tight control of the decimals to avoid precision artifacts
+        dG_dGv, dG_K = np.unique(dG_Kv.round(decimals=6),
+                                 return_inverse=True, axis=0)
 
         # Map fxc(Q) onto fxc(G-G') index dG
         Q_dG = self.get_Q_dG_map(large_pd, dG_dGv)
@@ -212,6 +214,8 @@ class NewAdiabaticFXCCalculator:
     def get_Q_dG_map(large_pd, dG_dGv):
         """Create mapping between (G-G') index dG and large_pd index Q."""
         G_Qv = large_pd.get_reciprocal_vectors(add_q=False)
+        # Make sure to match the precision of dG_dGv
+        G_Qv = G_Qv.round(decimals=6)
 
         Q_dG = []
         for dG_v in dG_dGv:
