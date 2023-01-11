@@ -157,9 +157,9 @@ class NewAdiabaticFXCCalculator:
         large_ecut = 4 * pd.ecut  # G = 1D grid of |G|^2/2 < ecut
         large_pd = pd.copy_with(ecut=large_ecut, gd=self.gs.finegd)
         
-        # Calculate fxc(K) on the large plane-wave grid
+        # Calculate fxc(Q) on the large plane-wave grid (Q = large grid index)
         add_fxc = self.create_add_fxc(fxc, spincomponent)
-        fxc_Q = self.localft_calc(large_pd, add_fxc)  # Q = large_pd index
+        fxc_Q = self.localft_calc(large_pd, add_fxc)
 
         # Unfold the kernel according to Kxc_GG' = 1 / V0 * fxc(G-G')
         Kxc_GG = 1 / pd.gd.volume * self.unfold_kernel_matrix(
