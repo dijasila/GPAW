@@ -26,15 +26,16 @@ class FXCScaling:
         self.mode = mode
         self.lambd = lambd
 
-    def get_scaling(self, *args):
-        if self.lambd is None:
-            self.lambd = self.calculate_scaling(*args)
+    @property
+    def has_scaling(self):
+        return self.lambd is not None
 
+    def get_scaling(self):
         return self.lambd
 
     def calculate_scaling(self, chiks, Kxc_GG):
         if chiks.spincomponent in ['+-', '-+']:
-            return get_goldstone_scaling(self.mode, chiks, Kxc_GG)
+            self.lambd = get_goldstone_scaling(self.mode, chiks, Kxc_GG)
         else:
             raise ValueError('No scaling method implemented for '
                              f'spincomponent={chiks.spincomponent}')
@@ -50,9 +51,7 @@ class FXCFactory:
         self.context = context
 
     def __call__(self, fxc, chiks: ChiKS,
-                 calculator={'method': 'old',
-                             'rshelmax': -1,
-                             'rshewmin': None},
+                 calculator=None,
                  filename=None,
                  fxc_scaling=None):
         """Get the fxc kernel Kxc_GG.
@@ -62,7 +61,7 @@ class FXCFactory:
         fxc : str
             Approximation to the (local) xc kernel.
             Choices: ALDA, ALDA_X, ALDA_x
-        calculator : dict
+        calculator : dict (or None for default calculator)
             Parameters to set up the FXCCalculator. The 'method' key
             determines what calculator is initilized and remaining parameters
             are passed to the calculator as key-word arguments.
@@ -75,6 +74,11 @@ class FXCFactory:
             in input parameters), you will have to use a NEW filename.
         fxc_scaling : None or FXCScaling
         """
+        if calculator is None:
+            calculator = {'method': 'old',
+                          'rshelmax': -1,
+                          'rshewmin': None}
+
         if self.file_buffer_exists(filename):
             Kxc_GG = self.read(filename)
         else:
@@ -82,7 +86,9 @@ class FXCFactory:
             self.write(Kxc_GG, filename)
 
         if fxc_scaling is not None:
-            lambd = fxc_scaling.get_scaling(chiks, Kxc_GG)
+            if not fxc_scaling.has_scaling:
+                fxc_scaling.calculate_scaling(chiks, Kxc_GG)
+            lambd = fxc_scaling.get_scaling()
             self.context.print(r'Rescaling the xc-kernel by a factor of λ='
                                f'{lambd}')
             Kxc_GG *= lambd
