@@ -6,10 +6,9 @@ from ase.units import Hartree
 
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKS, ChiKSCalculator
-from gpaw.response.fxc_kernels import get_fxc
 from gpaw.response.coulomb_kernels import get_coulomb_kernel
+from gpaw.response.fxc_kernels import FXCFactory
 from gpaw.response.dyson import DysonSolver
-from gpaw.response.goldstone import get_scaled_xc_kernel
 
 
 class Chi:
@@ -136,8 +135,11 @@ class ChiFactory:
     def __init__(self, chiks_calc: ChiKSCalculator):
         """Contruct a many-body susceptibility factory."""
         self.chiks_calc = chiks_calc
-        self.context = chiks_calc.context
+
         self.gs = chiks_calc.gs
+        self.context = chiks_calc.context
+
+        self.fxc_factory = FXCFactory(self.gs, self.context)
 
         # Prepare a buffer for chiks
         self._chiks = None
@@ -160,14 +162,17 @@ class ChiFactory:
             Array of complex frequencies to evaluate the response function at
             or a descriptor of those frequencies.
         fxc : str
-            Approximation to the xc kernel
-        fxckwargs : dict
-            Kwargs to the FXCCalculator
+            Approximation to the (local) xc kernel.
+            Choices: ALDA, ALDA_X, ALDA_x
+        fxckwargs : dict (or None for default kwargs)
+            Keyword arguments when calling the FXCFactory
         txt : str
             Save output of the calculation of this specific component into
             a file with the filename of the given input.
         """
         assert isinstance(fxc, str)
+        if fxckwargs is None:
+            fxckwargs = {}
         # Initiate new output file, if supplied
         if txt is not None:
             self.context.new_txt_and_timer(txt)
@@ -194,8 +199,7 @@ class ChiFactory:
             # No xc kernel by definition
             Kxc_GG = None
         else:
-            Kxc_GG = self.get_xc_kernel(fxc, chiks=chiks,
-                                        fxckwargs=fxckwargs)
+            Kxc_GG = self.fxc_factory(fxc, chiks, **fxckwargs)
 
         # Initiate the dyson solver
         dyson_solver = DysonSolver(self.context)
@@ -224,30 +228,6 @@ class ChiFactory:
             self._chiks = chiks
 
         return self._chiks
-
-    def get_xc_kernel(self, fxc, *, chiks, fxckwargs):
-        """Calculate the xc kernel."""
-        if fxckwargs is None:
-            fxckwargs = {}
-        assert isinstance(fxckwargs, dict)
-        if 'fxc_scaling' in fxckwargs:
-            assert chiks.spincomponent in ['+-', '-+']
-            fxc_scaling = fxckwargs['fxc_scaling']
-        else:
-            fxc_scaling = None
-
-        fxc_calculator = get_fxc(self.gs, self.context, fxc,
-                                 response='susceptibility', mode='pw',
-                                 **fxckwargs)
-
-        Kxc_GG = fxc_calculator(chiks.spincomponent, chiks.pd)
-
-        if fxc_scaling is not None:
-            self.context.print('Rescaling kernel to fulfill the Goldstone '
-                               'theorem')
-            Kxc_GG = get_scaled_xc_kernel(chiks, Kxc_GG, fxc_scaling)
-
-        return Kxc_GG
 
 
 def get_pw_reduction_map(pd, ecut):

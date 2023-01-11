@@ -11,30 +11,95 @@ from ase.units import Bohr
 from gpaw.xc import XC
 from gpaw.spherical_harmonics import Yarr
 from gpaw.sphere.lebedev import weight_n, R_nv
+
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
+from gpaw.response.chiks import ChiKS
+from gpaw.response.goldstone import get_goldstone_scaling
 
 
-def get_fxc(gs, context, fxc, response='susceptibility', mode='pw', **kwargs):
-    """Factory function getting an initiated version of the fxc class."""
-    functional = fxc
+class FXCScaling:
+    """Helper for scaling fxc kernels."""
 
-    if functional == 'RPA':
-        # No exchange and correlation
-        def dummy_fxc(*args, **kwargs):
-            return None
-        return dummy_fxc
+    def __init__(self, mode, lambd=None):
+        self.mode = mode
+        self.lambd = lambd
 
-    fxc = create_fxc(functional, response, mode)
-    return fxc(gs, context, functional, **kwargs)
+    @property
+    def has_scaling(self):
+        return self.lambd is not None
+
+    def get_scaling(self):
+        return self.lambd
+
+    def calculate_scaling(self, chiks, Kxc_GG):
+        if chiks.spincomponent in ['+-', '-+']:
+            self.lambd = get_goldstone_scaling(self.mode, chiks, Kxc_GG)
+        else:
+            raise ValueError('No scaling method implemented for '
+                             f'spincomponent={chiks.spincomponent}')
 
 
-def create_fxc(functional, response, mode):
-    """Creator component for the FXC classes."""
-    # Only one kind of response and mode is supported for now
-    if functional in ['ALDA_x', 'ALDA_X', 'ALDA']:
-        if response == 'susceptibility' and mode == 'pw':
+class FXCFactory:
+    """Exchange-correlation kernel factory."""
+
+    def __init__(self,
+                 gs: ResponseGroundStateAdapter,
+                 context: ResponseContext):
+        self.gs = gs
+        self.context = context
+
+    def __call__(self, fxc, chiks: ChiKS,
+                 calculator=None,
+                 fxc_scaling=None):
+        """Get the xc kernel Kxc_GG.
+
+        Parameters
+        ----------
+        fxc : str
+            Approximation to the (local) xc kernel.
+            Choices: ALDA, ALDA_X, ALDA_x
+        calculator : dict (or None for default calculator)
+            Parameters to set up the FXCCalculator. The 'method' key
+            determines what calculator is initilized and remaining parameters
+            are passed to the calculator as key-word arguments.
+        fxc_scaling : None or FXCScaling
+        """
+        if calculator is None:
+            calculator = {'method': 'old',
+                          'rshelmax': -1,
+                          'rshewmin': None}
+        assert isinstance(calculator, dict) and 'method' in calculator
+
+        # Generate the desired calculator
+        calc_kwargs = calculator.copy()
+        method = calc_kwargs.pop('method')
+        fxc_calculator = self.get_fxc_calculator(method=method, **calc_kwargs)
+
+        Kxc_GG = fxc_calculator(fxc, chiks.spincomponent, chiks.pd)
+
+        if fxc_scaling is not None:
+            if not fxc_scaling.has_scaling:
+                fxc_scaling.calculate_scaling(chiks, Kxc_GG)
+            lambd = fxc_scaling.get_scaling()
+            self.context.print(r'Rescaling the xc-kernel by a factor of λ='
+                               f'{lambd}')
+            Kxc_GG *= lambd
+
+        return Kxc_GG
+
+    def get_fxc_calculator(self, *, method, **calc_kwargs):
+        """Factory function for initializing fxc calculators."""
+        fxc_calculator_cls = self.get_fxc_calculator_cls(method)
+
+        return fxc_calculator_cls(self.gs, self.context, **calc_kwargs)
+
+    @staticmethod
+    def get_fxc_calculator_cls(method):
+        """Factory function for selecting fxc calculators."""
+        if method == 'old':
             return AdiabaticSusceptibilityFXC
-    raise ValueError(functional, response, mode)
+
+        raise ValueError(f'Invalid fxc calculator method {method}')
 
 
 class FXC:
@@ -80,14 +145,12 @@ class FXC:
 class PlaneWaveAdiabaticFXC(FXC):
     """Adiabatic exchange-correlation kernels in plane wave mode using PAW."""
 
-    def __init__(self, gs, context, functional,
+    def __init__(self, gs, context,
                  rshelmax=-1, rshewmin=None, filename=None, **ignored):
         """
         Parameters
         ----------
         gs, context : see FXC
-        functional : str
-            xc-functional
         rshelmax : int or None
             Expand kernel in real spherical harmonics inside augmentation
             spheres. If None, the kernel will be calculated without
@@ -101,8 +164,6 @@ class PlaneWaveAdiabaticFXC(FXC):
             it will not be included.
         """
         FXC.__init__(self, gs, context)
-
-        self.functional = functional
 
         # Do not carry out the expansion in real spherical harmonics, if lmax
         # is chosen as None
@@ -541,28 +602,28 @@ class AdiabaticSusceptibilityFXC(PlaneWaveAdiabaticFXC):
     """Adiabatic exchange-correlation kernel for susceptibility calculations in
     the plane wave mode"""
 
-    def __init__(self, gs, context, functional,
+    def __init__(self, gs, context,
                  rshelmax=-1, rshewmin=None, filename=None, **ignored):
         """
         gs, context : see PlaneWaveAdiabaticFXC, FXC
-        functional, rshelmax, rshewmin, filename : see PlaneWaveAdiabaticFXC
+        rshelmax, rshewmin, filename : see PlaneWaveAdiabaticFXC
         """
-        assert functional in ['ALDA_x', 'ALDA_X', 'ALDA']
-
-        PlaneWaveAdiabaticFXC.__init__(self, gs, context, functional,
+        PlaneWaveAdiabaticFXC.__init__(self, gs, context,
                                        rshelmax=rshelmax, rshewmin=rshewmin,
                                        filename=filename)
 
-    def calculate(self, spincomponent, pd):
+    def calculate(self, fxc, spincomponent, pd):
         """Creator component to set up the right calculation."""
+        assert fxc in ['ALDA_x', 'ALDA_X', 'ALDA']
+
         if spincomponent in ['00', 'uu', 'dd']:
             assert len(self.gs.nt_sR) == 1  # nspins, see XXX below
 
-            self._calculate_fxc = self.calculate_dens_fxc
+            self._calculate_fxc = partial(self.calculate_dens_fxc, fxc=fxc)
         elif spincomponent in ['+-', '-+']:
             assert len(self.gs.nt_sR) == 2  # nspins
 
-            self._calculate_fxc = self.calculate_trans_fxc
+            self._calculate_fxc = partial(self.calculate_trans_fxc, fxc=fxc)
         else:
             raise ValueError(spincomponent)
 
@@ -572,31 +633,31 @@ class AdiabaticSusceptibilityFXC(PlaneWaveAdiabaticFXC):
         """Calculate fxc and add it to the output array."""
         fxc_G += self._calculate_fxc(gd, n_sG)
 
-    def calculate_dens_fxc(self, gd, n_sG):
-        if self.functional == 'ALDA_x':
+    def calculate_dens_fxc(self, gd, n_sG, *, fxc):
+        if fxc == 'ALDA_x':
             n_G = np.sum(n_sG, axis=0)
             fx_G = -1. / 3. * (3. / np.pi)**(1. / 3.) * n_G**(-2. / 3.)
             return fx_G
 
         assert len(n_sG) == 1
         from gpaw.xc.libxc import LibXC
-        kernel = LibXC(self.functional[1:])
+        kernel = LibXC(fxc[1:])
         fxc_sG = np.zeros_like(n_sG)
         kernel.xc.calculate_fxc_spinpaired(n_sG.ravel(), fxc_sG)
 
         return fxc_sG[0]  # not tested for spin-polarized calculations XXX
 
-    def calculate_trans_fxc(self, gd, n_sG):
+    def calculate_trans_fxc(self, gd, n_sG, *, fxc):
         """Calculate polarized fxc of spincomponents '+-', '-+'."""
         m_G = n_sG[0] - n_sG[1]
 
-        if self.functional == 'ALDA_x':
+        if fxc == 'ALDA_x':
             fx_G = - (6. / np.pi)**(1. / 3.) \
                 * (n_sG[0]**(1. / 3.) - n_sG[1]**(1. / 3.)) / m_G
             return fx_G
         else:
             v_sG = np.zeros(np.shape(n_sG))
-            xc = XC(self.functional[1:])
+            xc = XC(fxc[1:])
             xc.calculate(gd, n_sG, v_sg=v_sG)
 
             return (v_sG[0] - v_sG[1]) / m_G
