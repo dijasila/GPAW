@@ -15,9 +15,64 @@ from gpaw.mpi import world
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.susceptibility import ChiFactory
-from gpaw.response.localft import LocalGridFTCalculator
+from gpaw.response.localft import LocalGridFTCalculator, LocalPAWFTCalculator
 from gpaw.response.fxc_kernels import FXCScaling
 from gpaw.response.df import read_response_function
+
+
+def set_up_fxc_calculators(gs, context):
+    fxckwargs_and_identifiers = []
+
+    # Set up old grid calculator (with file buffer)
+    fxckwargs_old_grid = {'calculator': {'method': 'old',
+                                         'rshelmax': None},
+                          'filename': 'grid_ALDA_fxc.npy',
+                          'fxc_scaling': FXCScaling('fm')}
+    fxckwargs_and_identifiers.append((fxckwargs_old_grid, 'old_grid'))
+
+    # Set up old paw calculator (without file buffer)
+    fxckwargs_old_paw = {'calculator': {'method': 'old',
+                                        'rshelmax': 0},
+                         'fxc_scaling': FXCScaling('fm')}
+    fxckwargs_and_identifiers.append((fxckwargs_old_paw, 'old_paw'))
+
+    # Set up new grid calculator (without file buffer)
+    localft_calc = LocalGridFTCalculator(gs, context)
+    fxckwargs_new_grid = {'calculator': {'method': 'new',
+                                         'localft_calc': localft_calc},
+                          'fxc_scaling': FXCScaling('fm')}
+    fxckwargs_and_identifiers.append((fxckwargs_new_grid, 'new_grid'))
+
+    # Set up new paw calculator (with file buffer)
+    localft_calc = LocalPAWFTCalculator(gs, context, rshelmax=0)
+    fxckwargs_new_paw = {'calculator': {'method': 'new',
+                                        'localft_calc': localft_calc},
+                         'filename': 'paw_ALDA_fxc.npy',
+                         'fxc_scaling': FXCScaling('fm')}
+    fxckwargs_and_identifiers.append((fxckwargs_new_paw, 'new_paw'))
+
+    return fxckwargs_and_identifiers
+
+
+def get_test_values(identifier):
+    test_mw1 = 0.  # meV
+    test_Ipeak1 = 7.48  # a.u.
+    if 'grid' in identifier:
+        if 'old' in identifier:
+            test_fxcs = 1.034
+        else:  # new
+            test_fxcs = 1.059
+        test_mw2 = 363.  # meV
+        test_Ipeak2 = 3.47  # a.u.
+    else:  # paw
+        if 'old' in identifier:
+            test_fxcs = 1.129
+        else:  # new
+            test_fxcs = 1.131
+        test_mw2 = 352.  # meV
+        test_Ipeak2 = 3.35  # a.u.
+
+    return test_fxcs, test_mw1, test_mw2, test_Ipeak1, test_Ipeak2
 
 
 @pytest.mark.kspair
@@ -29,9 +84,6 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
     q_qc = [[0.0, 0.0, 0.0], [0.0, 0.0, 1. / 4.]]  # Two q-points along G-N
     frq_qw = [np.linspace(-0.080, 0.120, 26), np.linspace(0.250, 0.450, 26)]
     fxc = 'ALDA'
-    fxc_filename = 'ALDA_fxc.npy'
-    fxc_scaling_old = FXCScaling('fm')
-    fxc_scaling_new = FXCScaling('fm')
     ecut = 300
     eta = 0.1
     if world.size > 1:
@@ -52,95 +104,83 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
                                  nblocks=nblocks)
     chi_factory = ChiFactory(chiks_calc)
 
-    # Set up old and new fxc calculators
-    fxckwargs_old = {'calculator': {'method': 'old',
-                                    'rshelmax': None},
-                     'filename': fxc_filename,
-                     'fxc_scaling': fxc_scaling_old}
-    localft_calc = LocalGridFTCalculator(gs, context)
-    fxckwargs_new = {'calculator': {'method': 'new',
-                                    'localft_calc': localft_calc},
-                     'fxc_scaling': fxc_scaling_new}
+    fxckwargs_and_identifiers = set_up_fxc_calculators(gs, context)
 
     for q in range(2):
         complex_frequencies = frq_qw[q] + 1.j * eta
-        # Calculate chi using the old fxc calculator
-        chi = chi_factory('+-', q_qc[q], complex_frequencies,
-                          fxc=fxc,
-                          fxckwargs=fxckwargs_old)
+        # Calculate chi using the various fxc calculators
+        for fxckwargs, identifier in fxckwargs_and_identifiers:
+            chi = chi_factory('+-', q_qc[q], complex_frequencies,
+                              fxc=fxc,
+                              fxckwargs=fxckwargs)
+            chi.write_macroscopic_component(identifier + '_iron_dsus'
+                                            + '_%d.csv' % (q + 1))
 
-        # Check that the fxc kernel exists as a file buffer
-        assert chi_factory.fxc_factory.file_buffer_exists(fxc_filename)
-
-        chi.write_macroscopic_component('old_iron_dsus' + '_%d.csv' % (q + 1))
-
-        # Calculate chi using the new fxc calculator
-        chi = chi_factory('+-', q_qc[q], complex_frequencies,
-                          fxc=fxc,
-                          fxckwargs=fxckwargs_new)
-
-        chi.write_macroscopic_component('new_iron_dsus' + '_%d.csv' % (q + 1))
+            # Check that the fxc kernel exists as a file buffer, if applicable
+            if 'filename' in fxckwargs:
+                assert chi_factory.fxc_factory.file_buffer_exists(
+                    fxckwargs['filename'])
 
         chi_factory.context.write_timer()
 
     world.barrier()
 
-    # Identify magnon peaks in scattering function
-    old_w1_w, old_chiks1_w, old_chi1_w = read_response_function('old_iron_dsus_1.csv')
-    old_w2_w, old_chiks2_w, old_chi2_w = read_response_function('old_iron_dsus_2.csv')
-    new_w1_w, new_chiks1_w, new_chi1_w = read_response_function('new_iron_dsus_1.csv')
-    new_w2_w, new_chiks2_w, new_chi2_w = read_response_function('new_iron_dsus_2.csv')
-
-    print(old_w1_w, -old_chi1_w.imag)
-    print(old_w2_w, -old_chi2_w.imag)
-    print(new_w1_w, -new_chi1_w.imag)
-    print(new_w2_w, -new_chi2_w.imag)
-
-    old_wpeak1, old_Ipeak1 = findpeak(old_w1_w, -old_chi1_w.imag)
-    old_wpeak2, old_Ipeak2 = findpeak(old_w2_w, -old_chi2_w.imag)
-    new_wpeak1, new_Ipeak1 = findpeak(new_w1_w, -new_chi1_w.imag)
-    new_wpeak2, new_Ipeak2 = findpeak(new_w2_w, -new_chi2_w.imag)
-
-    old_mw1 = old_wpeak1 * 1000
-    old_mw2 = old_wpeak2 * 1000
-    new_mw1 = new_wpeak1 * 1000
-    new_mw2 = new_wpeak2 * 1000
-
-    old_fxcs = fxc_scaling_old.get_scaling()
-    new_fxcs = fxc_scaling_new.get_scaling()
-
-    # import matplotlib.pyplot as plt
-    # plt.subplot(1, 2, 1)
-    # plt.plot(old_w1_w, -old_chi1_w.imag)
-    # plt.plot(new_w1_w, -new_chi1_w.imag)
-    # plt.subplot(1, 2, 2)
-    # plt.plot(old_w2_w, -old_chi2_w.imag)
-    # plt.plot(new_w2_w, -new_chi2_w.imag)
-    # plt.show()
+    # plot_comparison('old_grid', 'new_grid')
+    # plot_comparison('old_paw', 'new_paw')
 
     # Compare results to test values
-    test_old_fxcs = 1.034
-    test_new_fxcs = 1.059
-    test_mw1 = 0.  # meV
-    test_mw2 = 363.  # meV
-    test_Ipeak1 = 7.48  # a.u.
-    test_Ipeak2 = 3.47  # a.u.
+    for fxckwargs, identifier in fxckwargs_and_identifiers:
+        fxcs = fxckwargs['fxc_scaling'].get_scaling()
+        _, _, mw1, Ipeak1, _, _, mw2, Ipeak2 = extract_data(identifier)
 
-    print(old_fxcs, old_mw1, old_mw2, old_Ipeak1, old_Ipeak2)
-    print(new_fxcs, new_mw1, new_mw2, new_Ipeak1, new_Ipeak2)
+        print(fxcs, mw1, mw2, Ipeak1, Ipeak2)
 
-    # fxc_scaling:
-    assert old_fxcs == pytest.approx(test_old_fxcs, abs=0.005)
-    assert new_fxcs == pytest.approx(test_new_fxcs, abs=0.005)
+        (test_fxcs, test_mw1, test_mw2,
+         test_Ipeak1, test_Ipeak2) = get_test_values(identifier)
 
-    # Magnon peak:
-    assert old_mw1 == pytest.approx(test_mw1, abs=20.)
-    assert old_mw2 == pytest.approx(test_mw2, abs=50.)
-    assert new_mw1 == pytest.approx(test_mw1, abs=20.)
-    assert new_mw2 == pytest.approx(test_mw2, abs=50.)
+        # fxc_scaling:
+        assert fxcs == pytest.approx(test_fxcs, abs=0.005)
 
-    # Scattering function intensity:
-    assert old_Ipeak1 == pytest.approx(test_Ipeak1, abs=0.5)
-    assert old_Ipeak2 == pytest.approx(test_Ipeak2, abs=0.5)
-    assert new_Ipeak1 == pytest.approx(test_Ipeak1, abs=0.5)
-    assert new_Ipeak2 == pytest.approx(test_Ipeak2, abs=0.5)
+        # Magnon peak:
+        assert mw1 == pytest.approx(test_mw1, abs=20.)
+        assert mw2 == pytest.approx(test_mw2, abs=50.)
+
+        # Scattering function intensity:
+        assert Ipeak1 == pytest.approx(test_Ipeak1, abs=0.5)
+        assert Ipeak2 == pytest.approx(test_Ipeak2, abs=0.5)
+
+
+def extract_data(identifier):
+    # Read data
+    w1_w, chiks1_w, chi1_w = read_response_function(identifier
+                                                    + '_iron_dsus_1.csv')
+    w2_w, chiks2_w, chi2_w = read_response_function(identifier
+                                                    + '_iron_dsus_2.csv')
+
+    # Spectral function
+    S1_w = -chi1_w.imag
+    S2_w = -chi2_w.imag
+
+    # Identify peaks
+    wpeak1, Ipeak1 = findpeak(w1_w, S1_w)
+    wpeak2, Ipeak2 = findpeak(w2_w, S2_w)
+
+    # Peak positions in meV
+    mw1 = wpeak1 * 1000
+    mw2 = wpeak2 * 1000
+
+    return w1_w, S1_w, mw1, Ipeak1, w2_w, S2_w, mw2, Ipeak2
+
+
+def plot_comparison(identifier1, identifier2):
+    w11_w, S11_w, _, _, w12_w, S12_w, _, _ = extract_data(identifier1)
+    w21_w, S21_w, _, _, w22_w, S22_w, _, _ = extract_data(identifier2)
+
+    import matplotlib.pyplot as plt
+    plt.subplot(1, 2, 1)
+    plt.plot(w11_w, S11_w)
+    plt.plot(w21_w, S21_w)
+    plt.subplot(1, 2, 2)
+    plt.plot(w12_w, S12_w)
+    plt.plot(w22_w, S22_w)
+    plt.show()
