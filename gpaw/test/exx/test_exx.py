@@ -12,6 +12,7 @@ def xc1(name):
 
 
 @pytest.mark.libxc
+@pytest.mark.hybrids
 def test_exx_exx(in_tmp_dir):
     be2 = Atoms('Be2', [(0, 0, 0), (2.45, 0, 0)])
     be2.center(vacuum=2.0)

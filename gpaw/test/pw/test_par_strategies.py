@@ -1,9 +1,12 @@
 import numpy as np
+import pytest
 from ase import Atoms
+
 from gpaw import GPAW, PW, FermiDirac
 from gpaw.mpi import world
 
 
+@pytest.mark.stress
 def test_pw_par_strategies(in_tmp_dir):
     ecut = 200
     kpoints = [1, 1, 4]

@@ -77,6 +77,9 @@ def compare_atoms(a1: Atoms, a2: Atoms) -> set[str]:
 
 class ASECalculator:
     """This is the ASE-calculator frontend for doing a GPAW calculation."""
+
+    name = 'gpaw'
+
     def __init__(self,
                  params: InputParameters,
                  log: Logger,
@@ -282,9 +285,10 @@ class ASECalculator:
         density = self.calculation.state.density
         potential, vHt_x, W_aL = self.calculation.pot_calc.calculate(density)
         if isinstance(vHt_x, UniformGridFunctions):
-            return self.vHt_x.to_pbc_grid().data
+            return vHt_x.to_pbc_grid().data * Ha
 
-        return vHt_x.interpolate(grid=self.calculation.pot_calc.fine_grid)
+        return vHt_x.interpolate(
+            grid=self.calculation.pot_calc.fine_grid).data * Ha
 
     def get_atomic_electrostatic_potentials(self):
         return self.calculation.electrostatic_potential().atomic_potentials()

@@ -1,9 +1,11 @@
+import pytest
 import numpy as np
 from gpaw import GPAW
 from ase.build import molecule
 from gpaw.mpi import world
 
 
+@pytest.mark.later
 def test_parallel_augment_grid(in_tmp_dir):
     system = molecule('H2O')
     system.cell = (4, 4, 4)
