@@ -88,8 +88,15 @@ class ResponseGroundStateAdapter:
 
     @property
     def nt_sR(self):
-        # Used by fxc_kernels
+        # Used by localft and fxc_kernels
         return self._density.nt_sG
+
+    @property
+    def nt_sr(self):
+        # Used by localft
+        if self._density.nt_sg is None:
+            self._density.interpolate_pseudo_density()
+        return self._density.nt_sg
 
     @property
     def D_asp(self):
@@ -101,8 +108,7 @@ class ResponseGroundStateAdapter:
         if gridrefinement == 1:
             return self.nt_sR, self.gd
         elif gridrefinement == 2:
-            nt_sr = self._density.interpolate_pseudo_density()
-            return nt_sr, self.finegd
+            return self.nt_sr, self.finegd
         else:
             raise ValueError(f'Invalid gridrefinement {gridrefinement}')
 
