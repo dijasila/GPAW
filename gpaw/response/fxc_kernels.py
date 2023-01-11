@@ -49,9 +49,7 @@ class FXCFactory:
         self.context = context
 
     def __call__(self, fxc, chiks: ChiKS,
-                 calculator={'method': 'old',
-                             'rshelmax': -1,
-                             'rshewmin': None},
+                 calculator=None,
                  fxc_scaling=None):
         """Get the xc kernel Kxc_GG.
 
@@ -60,12 +58,16 @@ class FXCFactory:
         fxc : str
             Approximation to the (local) xc kernel.
             Choices: ALDA, ALDA_X, ALDA_x
-        calculator : dict
+        calculator : dict (or None for default calculator)
             Parameters to set up the FXCCalculator. The 'method' key
             determines what calculator is initilized and remaining parameters
             are passed to the calculator as key-word arguments.
         fxc_scaling : None or FXCScaling
         """
+        if calculator is None:
+            calculator = {'method': 'old',
+                          'rshelmax': -1,
+                          'rshewmin': None}
         assert isinstance(calculator, dict) and 'method' in calculator
 
         # Generate the desired calculator
