@@ -180,6 +180,7 @@ class NewAdiabaticFXCCalculator:
         """Unfold the kernel fxc(Q) to the kernel matrix fxc_GG'=fxc(G-G')"""
         # Calculate (G-G') reciprocal space vectors
         dG_GGv = self.calculate_dG(pd)
+        GG_shape = dG_GGv.shape[:2]
 
         # Reshape to composite K = (G, G') index
         dG_Kv = dG_GGv.reshape(-1, dG_GGv.shape[-1])
@@ -194,7 +195,7 @@ class NewAdiabaticFXCCalculator:
         fxc_dG = fxc_Q[Q_dG]
 
         # Unfold fxc(G-G') to fxc_GG'
-        fxc_GG = fxc_dG[dG_K].reshape(dG_GGv.shape[:2])
+        fxc_GG = fxc_dG[dG_K].reshape(GG_shape)
 
         return fxc_GG
 
