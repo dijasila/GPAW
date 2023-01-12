@@ -5,6 +5,7 @@ Fast test, where the kernel is scaled to fulfill the Goldstone theorem.
 """
 
 # Workflow modules
+from pathlib import Path
 import pytest
 import numpy as np
 
@@ -29,6 +30,7 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
     frq_qw = [np.linspace(-0.080, 0.120, 26), np.linspace(0.250, 0.450, 26)]
     fxc = 'ALDA'
     fxc_scaling = FXCScaling('fm')
+    fxc_filename = 'ALDA_fxc.npy'
     ecut = 300
     eta = 0.1
     if world.size > 1:
@@ -54,9 +56,19 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
 
     for q in range(2):
         complex_frequencies = frq_qw[q] + 1.j * eta
-        chi = chi_factory('+-', q_qc[q], complex_frequencies,
-                          fxc=fxc,
-                          fxckwargs=fxckwargs)
+        if q == 0:
+            assert not Path(fxc_filename).is_file()
+            kxc = {'fxc': fxc, 'fxckwargs': fxckwargs}
+        else:
+            assert Path(fxc_filename).is_file()
+            Kxc_GG = np.load(fxc_filename)
+            kxc = {'Kxc_GG': Kxc_GG}
+
+        chi = chi_factory('+-', q_qc[q], complex_frequencies, **kxc)
+
+        if q == 0:
+            np.save(fxc_filename, chi.Kxc_GG)
+
         chi.write_macroscopic_component('iron_dsus' + '_%d.csv' % (q + 1))
         chi_factory.context.write_timer()
 

@@ -1,6 +1,5 @@
 """Contains methods for calculating local LR-TDDFT kernels."""
 
-from pathlib import Path
 from functools import partial
 
 import numpy as np
@@ -106,9 +105,9 @@ class AdiabaticFXCCalculator:
     """Calculator for adiabatic local exchange-correlation kernels in pw mode.
     """
 
-    def __init__(self, gs, context,
-                 rshelmax=-1, rshewmin=None, filename=None, **ignored):
-        """
+    def __init__(self, gs, context, rshelmax=-1, rshewmin=None):
+        """Construct the AdiabaticFXCCalculator.
+
         Parameters
         ----------
         rshelmax : int or None
@@ -142,32 +141,9 @@ class AdiabaticFXCCalculator:
             self.rshewmin = rshewmin if rshewmin is not None else 0.
             self.dfmask_g = None
 
-        self.filename = filename
-
-    def __call__(self, *args):
-
-        if self.is_calculated():
-            Kxc_GG = self.read()
-        else:
-            Kxc_GG = self.calculate(*args)
-            self.write(Kxc_GG)
-
-        return Kxc_GG
-
-    def is_calculated(self):
-        if self.filename is None:
-            return False
-        return Path(self.filename).is_file()
-
-    def write(self, Kxc_GG):
-        if self.filename is not None:
-            np.save(self.filename, Kxc_GG)
-
-    def read(self):
-        return np.load(self.filename)
-
     @timer('Calculate XC kernel')
-    def calculate(self, fxc, spincomponent, pd):
+    def __call__(self, fxc, spincomponent, pd):
+        """Calculate the fxc kernel."""
         self.set_up_calculation(fxc, spincomponent)
 
         self.context.print('Calculating fxc')
