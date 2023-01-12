@@ -114,13 +114,13 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
         # Calculate chi using the various fxc calculators
         for fxckwargs, identifier in fxckwargs_and_identifiers:
 
-            if 'filename' in fxckwargs:
+            if 'filename' in fxckwargs:  # Save the kernel to reuse it
                 actual_fxckwargs = fxckwargs.copy()
                 fxc_filename = actual_fxckwargs.pop('filename')
-                if q == 0:
+                if q == 0:  # Calculate kernel for q == 0
                     assert not Path(fxc_filename).is_file()
                     kxc = {'fxc': fxc, 'fxckwargs': actual_fxckwargs}
-                else:
+                else:  # Reuse kernel from q == 0 calculation
                     assert Path(fxc_filename).is_file()
                     Kxc_GG = np.load(fxc_filename)
                     kxc = {'Kxc_GG': Kxc_GG}
@@ -131,7 +131,6 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
             chi.write_macroscopic_component(identifier + '_iron_dsus'
                                             + '_%d.csv' % (q + 1))
 
-            # Check that the fxc kernel exists as a file buffer, if applicable
             if 'filename' in fxckwargs and q == 0:
                 np.save(fxckwargs['filename'], chi.Kxc_GG)
 
