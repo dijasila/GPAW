@@ -418,31 +418,32 @@ def pytest_configure(config):
         else:
             tw._file = devnull
     config.pluginmanager.register(GPAWPlugin(), 'pytest_gpaw')
-    for line in ['soc: Spin-orbit coupling',
-                 'slow: slow test',
-                 'fast: fast test',
-                 'ci: test included in CI',
-                 'libxc: LibXC requirered',
-                 'mgga: MGGA test',
-                 'dscf: Delta-SCF',
-                 'mom: MOM',
-                 'gllb: GLLBSC tests',
-                 'elph: Electron-phonon',
-                 'intel: fails on INTEL toolchain',
-                 'rpa: tests of RPA',
-                 'response: tests of the response code',
-                 'kspair: tests of kspair in the response code',
-                 'serial: run in serial only',
-                 'gpu: GPU test',
-                 'do: Direct optimization',
-                 'later: know failure for new refactored GPAW',
-                 'legacy: Old stuff that will be removed later',
-                 'ofdft: Orbital-free DFT',
-                 'lrtddft: Linear-response TDDFT',
-                 'rttddft: Real-time TDDFT',
-                 'wannier: Wannier functions',
-                 'hybrids: Hybrid functionals',
-                 'stress: Calculation of stress tensor']:
+    for line in [
+        'ci: test included in CI',
+        'do: Direct optimization',
+        'dscf: Delta-SCF',
+        'elph: Electron-phonon',
+        'fast: fast test',
+        'gllb: GLLBSC tests',
+        'gpu: GPU test',
+        'hybrids: Hybrid functionals',
+        'intel: fails on INTEL toolchain',
+        'kspair: tests of kspair in the response code',
+        'later: know failure for new refactored GPAW',
+        'legacy: Old stuff that will be removed later',
+        'libxc: LibXC requirered',
+        'lrtddft: Linear-response TDDFT',
+        'mgga: MGGA test',
+        'mom: MOM',
+        'ofdft: Orbital-free DFT',
+        'response: tests of the response code',
+        'rpa: tests of RPA',
+        'rttddft: Real-time TDDFT',
+        'serial: run in serial only',
+        'slow: slow test',
+        'soc: Spin-orbit coupling',
+        'stress: Calculation of stress tensor'
+        'wannier: Wannier functions']:
         config.addinivalue_line('markers', line)
 
 
