@@ -442,7 +442,7 @@ def pytest_configure(config):
         'serial: run in serial only',
         'slow: slow test',
         'soc: Spin-orbit coupling',
-        'stress: Calculation of stress tensor'
+        'stress: Calculation of stress tensor',
         'wannier: Wannier functions']:
         config.addinivalue_line('markers', line)
 
