@@ -50,7 +50,7 @@ class FXCFactory:
     def __call__(self, fxc, chiks: ChiKS,
                  calculator=None,
                  fxc_scaling=None):
-        """Get the fxc kernel Kxc_GG.
+        """Get the xc kernel Kxc_GG.
 
         Parameters
         ----------
