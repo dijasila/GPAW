@@ -171,9 +171,11 @@ class FDTDPoissonSolver:
                  cl_spacing=1.20,
                  remove_moments=(1, 1),
                  potential_coupler='Refiner',
-                 communicator=serial_comm):
+                 communicator=serial_comm,
+                 cuda=False):
 
         self.rank = mpi.rank
+        self.cuda = cuda
 
         self.messages = []
 
@@ -280,7 +282,8 @@ class FDTDPoissonSolver:
             nn=self.nn,
             eps=self.eps,
             relax=self.relax,
-            remove_moment=self.remove_moment_qm)
+            remove_moment=self.remove_moment_qm,
+            cuda=self.cuda)
         self.qm.poisson_solver.set_grid_descriptor(self.qm.gd)
         # self.qm.poisson_solver.initialize()
         self.qm.phi = self.qm.gd.zeros()
@@ -295,7 +298,8 @@ class FDTDPoissonSolver:
             nn=self.nn,
             eps=self.eps,
             relax=self.relax,
-            remove_moment=self.remove_moment_cl)
+            remove_moment=self.remove_moment_cl,
+            cuda=self.cuda)
         self.cl.poisson_solver.set_grid_descriptor(self.cl.gd)
         # self.cl.poisson_solver.initialize()
 
