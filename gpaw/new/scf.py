@@ -86,6 +86,9 @@ class SCFLoop:
             yield ctx
 
             converged, converged_items, entries = check_convergence(cc, ctx)
+            nconverged = self.world.sum(int(converged))
+            assert nconverged in [0, self.world.size], converged_items
+
             if log:
                 with log.comment():
                     write_iteration(cc, converged_items, entries, ctx, log)
