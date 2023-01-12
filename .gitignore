@@ -63,6 +63,9 @@ doc/setups/[A-Z]*.rst
 # Emacs lock files:
 .\#*
 
+# pycharm files:
+.idea
+
 # Files produced by AGTS (myqueue)
 *.py.state
 *.py.*.err
