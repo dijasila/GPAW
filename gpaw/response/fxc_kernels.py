@@ -1,6 +1,5 @@
 """Contains methods for calculating local LR-TDDFT kernels."""
 
-from pathlib import Path
 from functools import partial
 
 import numpy as np
@@ -50,7 +49,6 @@ class FXCFactory:
 
     def __call__(self, fxc, chiks: ChiKS,
                  calculator=None,
-                 filename=None,
                  fxc_scaling=None):
         """Get the fxc kernel Kxc_GG.
 
@@ -63,53 +61,12 @@ class FXCFactory:
             Parameters to set up the FXCCalculator. The 'method' key
             determines what calculator is initilized and remaining parameters
             are passed to the calculator as key-word arguments.
-        filename : str
-            Store a calculated kernel as a .npy file buffer with the given file
-            name. For subsequent calls to the kernel factory with the same file
-            name, the factory will read the kernel from the file, instead of
-            recalculating it.
-            NB: If you want to calculate a NEW kernel (according to some change
-            in input parameters), you will have to use a NEW filename.
         fxc_scaling : None or FXCScaling
         """
         if calculator is None:
             calculator = {'method': 'old',
                           'rshelmax': -1,
                           'rshewmin': None}
-
-        if self.file_buffer_exists(filename):
-            Kxc_GG = self.read(filename)
-        else:
-            Kxc_GG = self.calculate(fxc, chiks, calculator=calculator)
-            self.write(Kxc_GG, filename)
-
-        if fxc_scaling is not None:
-            if not fxc_scaling.has_scaling:
-                fxc_scaling.calculate_scaling(chiks, Kxc_GG)
-            lambd = fxc_scaling.get_scaling()
-            self.context.print(r'Rescaling the xc-kernel by a factor of λ='
-                               f'{lambd}')
-            Kxc_GG *= lambd
-
-        return Kxc_GG
-
-    @staticmethod
-    def file_buffer_exists(filename):
-        if filename is None:
-            return False
-        return Path(filename).is_file()
-
-    @staticmethod
-    def write(Kxc_GG, filename):
-        if filename is not None:
-            np.save(filename, Kxc_GG)
-
-    @staticmethod
-    def read(filename):
-        return np.load(filename)
-
-    def calculate(self, fxc, chiks, *, calculator):
-        """In-place calculation of the bare (unscaled) fxc kernel Kxc_GG."""
         assert isinstance(calculator, dict) and 'method' in calculator
 
         # Generate the desired calculator
@@ -118,6 +75,14 @@ class FXCFactory:
         fxc_calculator = self.get_fxc_calculator(method=method, **calc_kwargs)
 
         Kxc_GG = fxc_calculator(fxc, chiks.spincomponent, chiks.pd)
+
+        if fxc_scaling is not None:
+            if not fxc_scaling.has_scaling:
+                fxc_scaling.calculate_scaling(chiks, Kxc_GG)
+            lambd = fxc_scaling.get_scaling()
+            self.context.print(r'Rescaling the xc-kernel by a factor of λ='
+                               f'{lambd}')
+            Kxc_GG *= lambd
 
         return Kxc_GG
 
