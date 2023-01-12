@@ -5,6 +5,7 @@ Fast test, where the kernel is scaled to fulfill the Goldstone theorem.
 """
 
 # Workflow modules
+from pathlib import Path
 import pytest
 import numpy as np
 
@@ -96,6 +97,7 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
     context = ResponseContext()
     gs = ResponseGroundStateAdapter.from_gpw_file(gpw_files['fe_pw_wfs'],
                                                   context=context)
+
     chiks_calc = ChiKSCalculator(gs,
                                  context=context,
                                  nbands=nbands,
@@ -108,18 +110,30 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
 
     for q in range(2):
         complex_frequencies = frq_qw[q] + 1.j * eta
+
         # Calculate chi using the various fxc calculators
         for fxckwargs, identifier in fxckwargs_and_identifiers:
-            chi = chi_factory('+-', q_qc[q], complex_frequencies,
-                              fxc=fxc,
-                              fxckwargs=fxckwargs)
+
+            if 'filename' in fxckwargs:
+                actual_fxckwargs = fxckwargs.copy()
+                fxc_filename = actual_fxckwargs.pop('filename')
+                if q == 0:
+                    assert not Path(fxc_filename).is_file()
+                    kxc = {'fxc': fxc, 'fxckwargs': actual_fxckwargs}
+                else:
+                    assert Path(fxc_filename).is_file()
+                    Kxc_GG = np.load(fxc_filename)
+                    kxc = {'Kxc_GG': Kxc_GG}
+            else:
+                kxc = {'fxc': fxc, 'fxckwargs': fxckwargs}
+            
+            chi = chi_factory('+-', q_qc[q], complex_frequencies, **kxc)
             chi.write_macroscopic_component(identifier + '_iron_dsus'
                                             + '_%d.csv' % (q + 1))
 
             # Check that the fxc kernel exists as a file buffer, if applicable
-            if 'filename' in fxckwargs:
-                assert chi_factory.fxc_factory.file_buffer_exists(
-                    fxckwargs['filename'])
+            if 'filename' in fxckwargs and q == 0:
+                np.save(fxckwargs['filename'], chi.Kxc_GG)
 
         chi_factory.context.write_timer()
 
