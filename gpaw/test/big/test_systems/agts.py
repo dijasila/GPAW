@@ -4,7 +4,7 @@ from gpaw import GPAW, PW
 from ase.optimize import BFGS
 
 
-CORES = [1, 4, 8, 16, 14, 40, 48, 56, 72, 96, 120]
+CORES = [1, 4, 8, 16, 14, 40, 48, 56, 72, 96, 120, 168]
 
 
 def workflow():
