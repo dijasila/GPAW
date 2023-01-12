@@ -138,8 +138,8 @@ class QSFDTD:
 
 # This helps in telling the classical quantities from the quantum ones
 class PoissonOrganizer:
-    def __init__(self, poisson_solver=None):
-        self.poisson_solver = poisson_solver
+    def __init__(self):
+        self.poisson_solver = None
         self.gd = None
         self.density = None
         self.cell = None
@@ -206,7 +206,7 @@ class FDTDPoissonSolver:
         self.cl.extrapolated_qm_phi = None
         self.cl.dcomm = communicator
         self.cl.dparsize = None
-        self.qm = PoissonOrganizer(FDPoissonSolver)  # Default solver
+        self.qm = PoissonOrganizer()
         self.qm.spacing_def = qm_spacing * np.ones(3) / Bohr
         self.qm.cell = np.array(cell) / Bohr
 
