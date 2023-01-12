@@ -54,7 +54,6 @@ class Overlap:
             When False, existing P_ani are used
 
         """
-        self.timer.start('Apply overlap')
         if isinstance(a_xG, gpu.array.Array):
             gpu.memcpy_dtod(b_xG, a_xG, a_xG.nbytes)
         else:
