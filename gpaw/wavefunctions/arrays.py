@@ -11,6 +11,9 @@ class MatrixInFile:
         self.array = data  # pointer to data in a file
         self.dist = create_distribution(M, N, *dist)
 
+    def view(self, i, j):
+        return self.array[i:j]
+
 
 class ArrayWaveFunctions:
     def __init__(self, M, N, dtype, data, dist, collinear, cuda=False):
