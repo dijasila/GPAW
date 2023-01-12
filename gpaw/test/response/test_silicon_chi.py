@@ -12,7 +12,7 @@ from gpaw.mpi import size, world
 
 from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.df import DielectricFunction, read_response_function
-from gpaw.response.chiks import ChiKS
+from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.susceptibility import ChiFactory
 
 
@@ -43,10 +43,11 @@ def test_response_silicon_chi_RPA(in_tmp_dir):
     # Excited state calculation
     q = np.array([1 / 4.0, 0, 0])
     w = np.linspace(0, 24, 241)
+    eta = 0.2
 
     # Using DF
     df = DielectricFunction(calc='Si',
-                            frequencies=w, eta=0.2, ecut=50,
+                            frequencies=w, eta=eta, ecut=50,
                             hilbert=False)
     df.get_dynamic_susceptibility(xc='RPA', q_c=q, filename='Si_chi1.csv')
 
@@ -56,9 +57,9 @@ def test_response_silicon_chi_RPA(in_tmp_dir):
 
     # Using the ChiFactory
     gs = ResponseGroundStateAdapter(calc)
-    chiks = ChiKS(gs, eta=0.2, ecut=50)
-    chi_factory = ChiFactory(chiks)
-    chi = chi_factory('00', q, w, fxc='RPA')
+    chiks_calc = ChiKSCalculator(gs, ecut=50)
+    chi_factory = ChiFactory(chiks_calc)
+    chi = chi_factory('00', q, w + 1.j * eta, fxc='RPA')
     chi.write_macroscopic_component('Si_chi2.csv')
     chi_factory.context.write_timer()
     chi_factory.context.set_timer(Timer())
@@ -66,7 +67,12 @@ def test_response_silicon_chi_RPA(in_tmp_dir):
     t4 = time.time()
     
     # Calculate also the ALDA susceptibility, using the cached chiks
-    chi = chi_factory('00', q, w, fxc='ALDA')
+    chiks_buffer = chi_factory._chiks
+    chi = chi_factory('00', q, w + 1.j * eta, fxc='ALDA')
+    assert chi_factory._chiks is chiks_buffer,\
+        'Two subsequent calls to the ChiFactory with the same spincomponent,'\
+        'q_c and complex frequencies, should reuse the chiks buffer, not '\
+        'update it'
     chi.write_macroscopic_component('Si_chi3.csv')
     chi_factory.context.write_timer()
 

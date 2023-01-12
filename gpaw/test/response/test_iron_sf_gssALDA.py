@@ -13,8 +13,9 @@ from gpaw.test import findpeak
 from gpaw.mpi import world
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
-from gpaw.response.chiks import ChiKS
+from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.susceptibility import ChiFactory
+from gpaw.response.fxc_kernels import FXCScaling
 from gpaw.response.df import read_response_function
 
 
@@ -27,7 +28,7 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
     q_qc = [[0.0, 0.0, 0.0], [0.0, 0.0, 1. / 4.]]  # Two q-points along G-N
     frq_qw = [np.linspace(-0.080, 0.120, 26), np.linspace(0.250, 0.450, 26)]
     fxc = 'ALDA'
-    fxc_scaling = [True, None, 'fm']
+    fxc_scaling = FXCScaling('fm')
     ecut = 300
     eta = 0.1
     if world.size > 1:
@@ -40,18 +41,20 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
     context = ResponseContext()
     gs = ResponseGroundStateAdapter.from_gpw_file(gpw_files['fe_pw_wfs'],
                                                   context=context)
-    fxckwargs = {'rshelmax': None, 'fxc_scaling': fxc_scaling}
-    chiks = ChiKS(gs,
-                  context=context,
-                  nbands=nbands,
-                  eta=eta,
-                  ecut=ecut,
-                  gammacentered=True,
-                  nblocks=nblocks)
-    chi_factory = ChiFactory(chiks)
+    fxckwargs = {'calculator': {'method': 'old',
+                                'rshelmax': None},
+                 'fxc_scaling': fxc_scaling}
+    chiks_calc = ChiKSCalculator(gs,
+                                 context=context,
+                                 nbands=nbands,
+                                 ecut=ecut,
+                                 gammacentered=True,
+                                 nblocks=nblocks)
+    chi_factory = ChiFactory(chiks_calc)
 
     for q in range(2):
-        chi = chi_factory('+-', q_qc[q], frq_qw[q],
+        complex_frequencies = frq_qw[q] + 1.j * eta
+        chi = chi_factory('+-', q_qc[q], complex_frequencies,
                           fxc=fxc,
                           fxckwargs=fxckwargs)
         chi.write_macroscopic_component('iron_dsus' + '_%d.csv' % (q + 1))
@@ -80,8 +83,9 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
     test_Ipeak2 = 3.47  # a.u.
 
     # fxc_scaling:
-    print(fxc_scaling[1], mw1, mw2, Ipeak1, Ipeak2)
-    assert fxc_scaling[1] == pytest.approx(test_fxcs, abs=0.005)
+    fxcs = fxc_scaling.get_scaling()
+    print(fxcs, mw1, mw2, Ipeak1, Ipeak2)
+    assert fxcs == pytest.approx(test_fxcs, abs=0.005)
 
     # Magnon peak:
     assert mw1 == pytest.approx(test_mw1, abs=20.)

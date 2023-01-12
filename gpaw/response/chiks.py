@@ -6,7 +6,7 @@ from ase.units import Hartree
 from gpaw.utilities.blas import mmmx
 
 from gpaw.response import ResponseContext, timer
-from gpaw.response.frequencies import FrequencyDescriptor
+from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.pw_parallelization import PlaneWaveBlockDistributor
 from gpaw.response.kspair import PlaneWavePairDensity
 from gpaw.response.pair_integrator import PairFunctionIntegrator
@@ -14,75 +14,55 @@ from gpaw.response.pair_functions import (SingleQPWDescriptor,
                                           LatticePeriodicPairFunction)
 
 
-class ChiKS:
-    """Temporary backwards compatibility layer."""
-
-    def __init__(self, gs, context=None, nblocks=1,
-                 disable_point_group=False, disable_time_reversal=False,
-                 disable_non_symmorphic=True,
-                 eta=0.2, ecut=50, gammacentered=False, nbands=None,
-                 bundle_integrals=True, bandsummation='pairwise'):
-
-        self.calc = ChiKSCalculator(
-            gs, context=context, nblocks=nblocks,
-            ecut=ecut, gammacentered=gammacentered,
-            nbands=nbands,
-            bundle_integrals=bundle_integrals, bandsummation=bandsummation,
-            disable_point_group=disable_point_group,
-            disable_time_reversal=disable_time_reversal,
-            disable_non_symmorphic=disable_non_symmorphic)
-        self.context = self.calc.context
-        self.gs = self.calc.gs
-        self.nblocks = self.calc.nblocks
-        self.gammacentered = self.calc.gammacentered
-
-        self.eta = eta
-
-        # Hard-coded, but expected properties
-        self.kpointintegration = 'point integration'
-
-    def calculate(self, q_c, frequencies, spincomponent='all'):
-        if isinstance(frequencies, FrequencyDescriptor):
-            wd = frequencies
-        else:
-            wd = FrequencyDescriptor.from_array_or_dict(frequencies)
-        self.wd = wd
-        self.blockdist = PlaneWaveBlockDistributor(self.context.world,
-                                                   self.calc.blockcomm,
-                                                   self.calc.intrablockcomm)
-
-        chiks = self.calc.calculate(spincomponent, q_c, wd, eta=self.eta)
-
-        return chiks.pd, chiks.array
-
-    def get_pw_descriptor(self, q_c):
-        return self.calc.get_pw_descriptor(q_c)
-
-    @timer('Distribute frequencies')
-    def distribute_frequencies(self, chiks_wGG):
-        return self.blockdist.distribute_frequencies(chiks_wGG, len(self.wd))
-
-
-class ChiKSData(LatticePeriodicPairFunction):  # future ChiKS XXX
+class ChiKS(LatticePeriodicPairFunction):
     """Data object for the four-component Kohn-Sham susceptibility tensor."""
 
-    def __init__(self, spincomponent, pd, wd, eta,
-                 blockdist, distribution='WgG'):
-        r"""Construct a χ_KS,GG'^μν(q,ω+iη) data object"""
+    def __init__(self, spincomponent, pd, zd,
+                 blockdist, distribution='ZgG'):
+        r"""Construct a χ_KS,GG'^μν(q,z) data object"""
         self.spincomponent = spincomponent
-        self.eta = eta
-        super().__init__(pd, wd, blockdist, distribution=distribution)
+        super().__init__(pd, zd, blockdist, distribution=distribution)
 
-    def my_args(self, spincomponent=None, pd=None, wd=None, eta=None,
-                blockdist=None):
-        """Return construction arguments of the ChiKSData object."""
+    def my_args(self, spincomponent=None, pd=None, zd=None, blockdist=None):
+        """Return construction arguments of the ChiKS object."""
         if spincomponent is None:
             spincomponent = self.spincomponent
-        if eta is None:
-            eta = self.eta
-        pd, wd, blockdist = super().my_args(pd=pd, wd=wd, blockdist=blockdist)
+        pd, zd, blockdist = super().my_args(pd=pd, zd=zd, blockdist=blockdist)
 
-        return spincomponent, pd, wd, eta, blockdist
+        return spincomponent, pd, zd, blockdist
+
+    def copy_reactive_part(self):
+        r"""Return a copy of the reactive part of the susceptibility.
+
+        The reactive part of the susceptibility is defined as (see
+        [PRB 103, 245110 (2021)]):
+
+                              1
+        χ_KS,GG'^(μν')(q,z) = ‾ [χ_KS,GG'^μν(q,z) + χ_KS,-G'-G^νμ(-q,-z*)].
+                              2
+
+        However if the density operators n^μ(r) and n^ν(r) are each others
+        Hermitian conjugates, the reactive part simply becomes the Hermitian
+        part in terms of the plane-wave basis:
+
+                              1
+        χ_KS,GG'^(μν')(q,z) = ‾ [χ_KS,GG'^μν(q,z) + χ_KS,G'G^(μν*)(q,z)],
+                              2
+
+        which is trivial to evaluate.
+        """
+        assert self.distribution == 'zGG' or \
+            (self.distribution == 'ZgG' and self.blockdist.blockcomm.size == 1)
+        assert self.spincomponent in ['00', 'uu', 'dd', '+-', '-+'],\
+            'Spin-density operators has to be each others hermitian conjugates'
+
+        chiksr = self._new(*self.my_args(), distribution='zGG')
+        chiks_zGG = self.array
+        chiksr.array += chiks_zGG
+        chiksr.array += np.conj(np.transpose(chiks_zGG, (0, 2, 1)))
+        chiksr.array /= 2.
+
+        return chiksr
 
 
 class ChiKSCalculator(PairFunctionIntegrator):
@@ -117,7 +97,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
         gs : ResponseGroundStateAdapter
         context : ResponseContext
         nblocks : int
-            Distribute the chiks_wGG array into nblocks (where nblocks is a
+            Distribute the chiks_zGG array into nblocks (where nblocks is a
             divisor of context.world.size)
         ecut : float (or None)
             Plane-wave cutoff in eV
@@ -150,8 +130,8 @@ class ChiKSCalculator(PairFunctionIntegrator):
 
         self.pair_density = PlaneWavePairDensity(self.kspair)
 
-    def calculate(self, spincomponent, q_c, wd, eta=0.2):
-        r"""Calculate χ_KS,GG'^μν(q,ω+iη)
+    def calculate(self, spincomponent, q_c, zd) -> ChiKS:
+        r"""Calculate χ_KS,GG'^μν(q,z), where z = ω + iη
 
         Parameters
         ----------
@@ -160,19 +140,10 @@ class ChiKSCalculator(PairFunctionIntegrator):
             Currently, '00', 'uu', 'dd', '+-' and '-+' are implemented.
         q_c : list or np.array
             Wave vector in relative coordinates
-        wd : FrequencyDescriptor
-            (Real part ω) of the frequencies where χ_KS,GG'^μν(q,ω+iη) is
-            evaluated
-        eta : float
-            Imaginary part η of the frequencies where χ_KS,GG'^μν(q,ω+iη) is
-            evaluated
-
-        Returns
-        -------
-        chiks : ChiKSData
+        zd : ComplexFrequencyDescriptor
+            Complex frequencies z to evaluate χ_KS,GG'^μν(q,z) at.
         """
-        assert isinstance(wd, FrequencyDescriptor)
-        eta = eta / Hartree  # eV -> Hartree
+        assert isinstance(zd, ComplexFrequencyDescriptor)
 
         # Set up the internal plane-wave descriptor
         pdi = self.get_pw_descriptor(q_c, internal=True)
@@ -185,13 +156,13 @@ class ChiKSCalculator(PairFunctionIntegrator):
             spinrot, nbands=self.nbands, bandsummation=self.bandsummation)
 
         self.context.print(self.get_information(
-            pdi, len(wd), eta, spincomponent, self.nbands, len(n1_t)))
+            pdi, len(zd), spincomponent, self.nbands, len(n1_t)))
 
         self.context.print('Initializing pair densities')
         self.pair_density.initialize(pdi)
 
         # Create ChiKS data structure
-        chiks = self.create_chiks(spincomponent, wd, pdi, eta)
+        chiks = self.create_chiks(spincomponent, pdi, zd)
 
         # Perform the actual integration
         analyzer = self._integrate(chiks, n1_t, n2_t, s1_t, s2_t)
@@ -248,18 +219,18 @@ class ChiKSCalculator(PairFunctionIntegrator):
 
         return pd
 
-    def create_chiks(self, spincomponent, wd, pd, eta):
-        """Create a new ChiKSData object to be integrated."""
+    def create_chiks(self, spincomponent, pd, zd):
+        """Create a new ChiKS object to be integrated."""
         if self.bundle_integrals:
-            distribution = 'GWg'
+            distribution = 'GZg'
         else:
-            distribution = 'WgG'
+            distribution = 'ZgG'
         blockdist = PlaneWaveBlockDistributor(self.context.world,
                                               self.blockcomm,
                                               self.intrablockcomm)
 
-        return ChiKSData(spincomponent, pd, wd, eta,
-                         blockdist, distribution=distribution)
+        return ChiKS(spincomponent, pd, zd,
+                     blockdist, distribution=distribution)
 
     @timer('Add integrand to chiks')
     def add_integrand(self, kptpair, weight, chiks):
@@ -275,7 +246,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
                    __
                    \  σ^μ_ss' σ^ν_s's (f_nks - f_n'k's')
         (...)_k =  /  ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾ n_kt(G+q) n_kt^*(G'+q)
-                   ‾‾   ħω - (ε_n'k's' - ε_nks) + iħη
+                   ‾‾      ħz - (ε_n'k's' - ε_nks)
                    t
 
         where n_kt(G+q) = n_nks,n'k+qs'(G+q) and
@@ -285,12 +256,12 @@ class ChiKSCalculator(PairFunctionIntegrator):
                     __ /
                     \  | σ^μ_ss' σ^ν_s's (f_nks - f_n'k's')
         (...)_k =   /  | ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
-                    ‾‾ |   ħω - (ε_n'k's' - ε_nks) + iħη
+                    ‾‾ |      ħz - (ε_n'k's' - ε_nks)
                     t  \
                                                        \
                     σ^μ_s's σ^ν_ss' (f_nks - f_n'k's') |
            - δ_n'>n ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾ | n_kt(G+q) n_kt^*(G'+q)
-                      ħω + (ε_n'k's' - ε_nks) + iħη    |
+                         ħz + (ε_n'k's' - ε_nks)       |
                                                        /
 
         The integrand is added to the output array chiks_x multiplied with the
@@ -306,10 +277,10 @@ class ChiKSCalculator(PairFunctionIntegrator):
         df_t, deps_t, n_tG = kptpair.df_t, kptpair.deps_t, kptpair.n_tG
 
         # Calculate the frequency dependence of the integrand
-        if chiks.spincomponent in ['00', 'all'] and self.gs.nspins == 1:
+        if chiks.spincomponent == '00' and self.gs.nspins == 1:
             weight = 2 * weight
-        x_Wt = weight * get_temporal_part(chiks.spincomponent,
-                                          chiks.wd.omega_w, chiks.eta,
+        x_Zt = weight * get_temporal_part(chiks.spincomponent,
+                                          chiks.zd.hz_z,
                                           n1_t, n2_t, s1_t, s2_t,
                                           df_t, deps_t,
                                           self.bandsummation)
@@ -317,34 +288,34 @@ class ChiKSCalculator(PairFunctionIntegrator):
         # Let each process handle its own slice of integration
         myslice = chiks.blocks1d.myslice
 
-        if chiks.distribution == 'GWg':
+        if chiks.distribution == 'GZg':
             # Specify notation
-            chiks_GWg = chiks.array
+            chiks_GZg = chiks.array
 
-            x_tW = np.ascontiguousarray(x_Wt.T)
+            x_tZ = np.ascontiguousarray(x_Zt.T)
             n_Gt = np.ascontiguousarray(n_tG.T)
 
             with self.context.timer('Set up ncc and nx'):
                 ncc_Gt = n_Gt.conj()
                 n_tg = n_tG[:, myslice]
-                nx_tWg = x_tW[:, :, np.newaxis] * n_tg[:, np.newaxis, :]
+                nx_tZg = x_tZ[:, :, np.newaxis] * n_tg[:, np.newaxis, :]
 
             with self.context.timer('Perform sum over t-transitions '
                                     'of ncc * nx'):
-                mmmx(1.0, ncc_Gt, 'N', nx_tWg, 'N',
-                     1.0, chiks_GWg)  # slow step
-        elif chiks.distribution == 'WgG':
+                mmmx(1.0, ncc_Gt, 'N', nx_tZg, 'N',
+                     1.0, chiks_GZg)  # slow step
+        elif chiks.distribution == 'ZgG':
             # Specify notation
-            chiks_WgG = chiks.array
+            chiks_ZgG = chiks.array
 
             with self.context.timer('Set up ncc and nx'):
                 ncc_tG = n_tG.conj()
                 n_gt = np.ascontiguousarray(n_tG[:, myslice].T)
-                nx_Wgt = x_Wt[:, np.newaxis, :] * n_gt[np.newaxis, :, :]
+                nx_Zgt = x_Zt[:, np.newaxis, :] * n_gt[np.newaxis, :, :]
 
             with self.context.timer('Perform sum over t-transitions of '
                                     'ncc * nx'):
-                for nx_gt, chiks_gG in zip(nx_Wgt, chiks_WgG):
+                for nx_gt, chiks_gG in zip(nx_Zgt, chiks_ZgG):
                     mmmx(1.0, nx_gt, 'N', ncc_tG, 'N',
                          1.0, chiks_gG)  # slow step
         else:
@@ -352,22 +323,22 @@ class ChiKSCalculator(PairFunctionIntegrator):
 
     @timer('Symmetrizing chiks')
     def symmetrize(self, chiks, analyzer):
-        """Symmetrize chiks_wGG."""
-        chiks_WgG = chiks.array_with_view('WgG')
+        """Symmetrize chiks_zGG."""
+        chiks_ZgG = chiks.array_with_view('ZgG')
 
         # Distribute over frequencies
-        nw = len(chiks.wd)
-        tmp_wGG = chiks.blockdist.distribute_as(chiks_WgG, nw, 'wGG')
-        analyzer.symmetrize_wGG(tmp_wGG)
+        nz = len(chiks.zd)
+        tmp_zGG = chiks.blockdist.distribute_as(chiks_ZgG, nz, 'wGG')
+        analyzer.symmetrize_wGG(tmp_zGG)
         # Distribute over plane waves
-        chiks_WgG[:] = chiks.blockdist.distribute_as(tmp_wGG, nw, 'WgG')
+        chiks_ZgG[:] = chiks.blockdist.distribute_as(tmp_zGG, nz, 'WgG')
 
     @timer('Post processing')
     def post_process(self, chiks):
         """Cast a calculated chiks into a fixed output format."""
-        if chiks.distribution != 'WgG':
-            # Always output chiks with distribution 'WgG'
-            chiks = chiks.copy_with_distribution('WgG')
+        if chiks.distribution != 'ZgG':
+            # Always output chiks with distribution 'ZgG'
+            chiks = chiks.copy_with_distribution('ZgG')
 
         if self.gammacentered and not self.disable_symmetries:
             # Reduce the q-centered plane-wave basis used internally to the
@@ -378,13 +349,13 @@ class ChiKSCalculator(PairFunctionIntegrator):
 
         return chiks
 
-    def get_information(self, pd, nw, eta, spincomponent, nbands, nt):
-        r"""Get information about the χ_KS,GG'^μν(q,ω+iη) calculation"""
+    def get_information(self, pd, nz, spincomponent, nbands, nt):
+        r"""Get information about the χ_KS,GG'^μν(q,z) calculation"""
         from gpaw.utilities.memory import maxrss
 
         q_c = pd.q_c
         ecut = pd.ecut * Hartree
-        Asize = nw * pd.ngmax**2 * 16. / 1024**2 / self.blockcomm.size
+        Asize = nz * pd.ngmax**2 * 16. / 1024**2 / self.blockcomm.size
         cmem = maxrss() / 1024**2
 
         s = '\n'
@@ -392,8 +363,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
         s += 'Calculating the Kohn-Sham susceptibility with:\n'
         s += '    Spin component: %s\n' % spincomponent
         s += '    q_c: [%f, %f, %f]\n' % (q_c[0], q_c[1], q_c[2])
-        s += '    Number of frequency points: %d\n' % nw
-        s += '    Broadening (eta): %f\n' % eta
+        s += '    Number of frequency points: %d\n' % nz
         if nbands is None:
             s += '    Bands included: All\n'
         else:
@@ -409,7 +379,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
         s += '    Planewave cutoff: %f\n' % ecut
         s += '    Number of planewaves: %d\n' % pd.ngmax
         s += '    Memory estimates:\n'
-        s += '        A_wGG: %f M / cpu\n' % Asize
+        s += '        A_zGG: %f M / cpu\n' % Asize
         s += '        Memory usage before allocation: %f M / cpu\n' % cmem
         s += '\n'
         s += '%s\n' % ctime()
@@ -430,12 +400,12 @@ def get_ecut_to_encompass_centered_sphere(q_v, ecut):
     return ecut
 
 
-def get_temporal_part(spincomponent, omega_w, eta,
+def get_temporal_part(spincomponent, hz_z,
                       n1_t, n2_t, s1_t, s2_t, df_t, deps_t, bandsummation):
     """Get the temporal part of a (causal linear) susceptibility integrand."""
     _get_temporal_part = create_get_temporal_part(bandsummation)
     return _get_temporal_part(spincomponent, s1_t, s2_t,
-                              df_t, deps_t, omega_w, eta,
+                              df_t, deps_t, hz_z,
                               n1_t, n2_t)
 
 
@@ -449,39 +419,38 @@ def create_get_temporal_part(bandsummation):
 
 
 def get_double_temporal_part(spincomponent, s1_t, s2_t,
-                             df_t, deps_t, omega_w, eta,
+                             df_t, deps_t, hz_z,
                              *unused):
     r"""Get:
 
              σ^μ_ss' σ^ν_s's (f_nks - f_n'k's')
-    Χ_t(ω) = ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
-               ħω - (ε_n'k's' - ε_nks) + iħη
+    Χ_t(z) = ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+                  ħz - (ε_n'k's' - ε_nks)
     """
     # Get the right spin components
     scomps_t = get_smat_components(spincomponent, s1_t, s2_t)
     # Calculate nominator
     nom_t = - scomps_t * df_t  # df = f2 - f1
     # Calculate denominator
-    denom_wt = omega_w[:, np.newaxis] + 1j * eta\
-        - deps_t[np.newaxis, :]  # de = e2 - e1
+    denom_wt = hz_z[:, np.newaxis] - deps_t[np.newaxis, :]  # de = e2 - e1
 
     return nom_t[np.newaxis, :] / denom_wt
 
 
 def get_pairwise_temporal_part(spincomponent, s1_t, s2_t,
-                               df_t, deps_t, omega_w, eta,
+                               df_t, deps_t, hz_z,
                                n1_t, n2_t):
     r"""Get:
 
              /
              | σ^μ_ss' σ^ν_s's (f_nks - f_n'k's')
-    Χ_t(ω) = | ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
-             |   ħω - (ε_n'k's' - ε_nks) + iħη
+    Χ_t(z) = | ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+             |      ħz - (ε_n'k's' - ε_nks)
              \
                                                            \
                         σ^μ_s's σ^ν_ss' (f_nks - f_n'k's') |
                - δ_n'>n ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾ |
-                          ħω + (ε_n'k's' - ε_nks) + iħη    |
+                             ħz + (ε_n'k's' - ε_nks)       |
                                                            /
     """
     # Kroenecker delta
@@ -494,10 +463,8 @@ def get_pairwise_temporal_part(spincomponent, s1_t, s2_t,
     nom1_t = - scomps1_t * df_t  # df = f2 - f1
     nom2_t = - delta_t * scomps2_t * df_t
     # Calculate denominators
-    denom1_wt = omega_w[:, np.newaxis] + 1j * eta\
-        - deps_t[np.newaxis, :]  # de = e2 - e1
-    denom2_wt = omega_w[:, np.newaxis] + 1j * eta\
-        + deps_t[np.newaxis, :]
+    denom1_wt = hz_z[:, np.newaxis] - deps_t[np.newaxis, :]  # de = e2 - e1
+    denom2_wt = hz_z[:, np.newaxis] + deps_t[np.newaxis, :]
 
     return nom1_t[np.newaxis, :] / denom1_wt\
         - nom2_t[np.newaxis, :] / denom2_wt
@@ -505,7 +472,7 @@ def get_pairwise_temporal_part(spincomponent, s1_t, s2_t,
 
 def get_spin_rotation(spincomponent):
     """Get the spin rotation corresponding to the given spin component."""
-    if spincomponent is None or spincomponent == '00':
+    if spincomponent == '00':
         return '0'
     elif spincomponent in ['uu', 'dd', '+-', '-+']:
         return spincomponent[-1]
@@ -517,9 +484,6 @@ def get_smat_components(spincomponent, s1_t, s2_t):
     """For s1=s and s2=s', get:
     smu_ss' snu_s's
     """
-    if spincomponent is None:
-        spincomponent = '00'
-
     smatmu = smat(spincomponent[0])
     smatnu = smat(spincomponent[1])
 

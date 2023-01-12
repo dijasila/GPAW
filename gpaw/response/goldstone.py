@@ -3,51 +3,29 @@ import numpy as np
 from gpaw.response.dyson import invert_dyson_single_frequency
 
 
-def get_scaled_xc_kernel(pd, wd, blocks1d, chiks_wGG,
-                         Kxc_GG, fxc_scaling):
-    """Get the goldstone scaled exchange correlation kernel.
+def get_goldstone_scaling(mode, chiks, Kxc_GG):
+    """Get kernel scaling parameter to fulfill a Goldstone condition."""
+    assert chiks.pd.kd.gamma,\
+        r'The Goldstone condition is strictly bound to the Γ-point'
 
-    Parameters
-    ----------
-    fxc_scaling : list (length 3)
-        List of information for the goldstone scaling.
-        Entry 0: bool (apply the scaling or not)
-        Entry 1: float (actual scaling parameter, if None is given the entry
-            will be updated with the appropriate scaling, given that we are at
-            the gamma point)
-        Entry 2: str (mode, choose between 'fm' and 'afm')
-    """
-    assert isinstance(fxc_scaling[0], bool)
-    if fxc_scaling[0]:
-        if fxc_scaling[1] is None:
-            assert pd.kd.gamma
-            mode = fxc_scaling[2]
-            assert mode in ['fm', 'afm']
-            omega_w = wd.omega_w
-            fxc_scaling[1] = get_goldstone_scaling(mode, omega_w,
-                                                   blocks1d, chiks_wGG, Kxc_GG)
-
-        assert isinstance(fxc_scaling[1], float)
-        Kxc_GG *= fxc_scaling[1]
-
-    return Kxc_GG
-
-
-def get_goldstone_scaling(mode, omega_w, blocks1d, chiks_wGG, Kxc_GG):
-    """Get kernel scaling parameter fulfilling the Goldstone theorem."""
     # Find the frequency to determine the scaling from
+    omega_w = chiks.zd.omega_w
     wgs = find_goldstone_frequency(mode, omega_w)
 
-    # Only one rank, rgs, has the given frequency and finds the rescaling
-    mynw = blocks1d.blocksize
-    rgs, mywgs = wgs // mynw, wgs % mynw
+    # Only one rank, rgs, has the given frequency
+    assert chiks.distribution == 'zGG',\
+        'Only block distribution over frequencies is allowed at this point'
+    wblocks = chiks.blocks1d
+    rgs, mywgs = wblocks.find_global_index(wgs)
+
+    # Let rgs find the rescaling
     fxcsbuf = np.empty(1, dtype=float)
-    if blocks1d.blockcomm.rank == rgs:
-        chiks_GG = chiks_wGG[mywgs]
+    if wblocks.blockcomm.rank == rgs:
+        chiks_GG = chiks.array[mywgs]
         fxcsbuf[:] = find_goldstone_scaling(mode, chiks_GG, Kxc_GG)
 
     # Broadcast found rescaling
-    blocks1d.blockcomm.broadcast(fxcsbuf, rgs)
+    wblocks.blockcomm.broadcast(fxcsbuf, rgs)
     fxcs = fxcsbuf[0]
 
     return fxcs

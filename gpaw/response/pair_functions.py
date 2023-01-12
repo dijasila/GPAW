@@ -63,12 +63,12 @@ class LatticePeriodicPairFunction(PairFunction):
     A pair function is considered to be lattice periodic, if it is invariant
     under translations of Bravais lattice vectors R:
 
-    pf(r, r', ω) = pf(r + R, r' + R, ω).
+    pf(r, r', z) = pf(r + R, r' + R, z).
 
     The Bloch lattice Fourier transform of a lattice periodic pair function,
                         __
                         \
-    pf(r, r', q, ω)  =  /  e^(-iq.[r-r'-R']) pf(r, r' + R', ω)
+    pf(r, r', q, z)  =  /  e^(-iq.[r-r'-R']) pf(r, r' + R', z)
                         ‾‾
                         R'
 
@@ -79,27 +79,28 @@ class LatticePeriodicPairFunction(PairFunction):
     plane waves:
 
                    1   //
-    pf_GG'(q, ω) = ‾‾ || drdr' e^(-iG.r) pf(r, r', q, ω) e^(iG'.r')
+    pf_GG'(q, z) = ‾‾ || drdr' e^(-iG.r) pf(r, r', q, z) e^(iG'.r')
                    V0 //
                         V0
 
-    Hence, the collection consists of a frequency descriptor and a plane-wave
-    descriptor, where the latter is specific to the q-point in question.
+    Hence, the collection consists of a complex frequency descriptor and a
+    plane-wave descriptor, where the latter is specific to the q-point in
+    question.
     """
 
-    def __init__(self, pd, wd, blockdist, distribution='WgG'):
+    def __init__(self, pd, zd, blockdist, distribution='ZgG'):
         """Contruct the LatticePeriodicPairFunction.
 
         Parameters
         ----------
         pd : SingleQPWDescriptor
-        wd : FrequencyDescriptor
+        zd : ComplexFrequencyDescriptor
         blockdist : PlaneWaveBlockDistributor
         distribution : str
             Memory distribution of the pair function array.
-            Choices: 'WgG', 'GWg' and 'wGG'.
+            Choices: 'ZgG', 'GZg' and 'zGG'.
         """
-        self.wd = wd
+        self.zd = zd
         self.blockdist = blockdist
         self.distribution = distribution
 
@@ -116,18 +117,18 @@ class LatticePeriodicPairFunction(PairFunction):
         nG : int
             Number of plane-wave coefficients in the basis set
         """
-        nw = len(self.wd)
+        nz = len(self.zd)
         blockdist = self.blockdist
         distribution = self.distribution
 
-        if distribution == 'WgG':
+        if distribution == 'ZgG':
             blocks1d = Blocks1D(blockdist.blockcomm, nG)
-            shape = (nw, blocks1d.nlocal, nG)
-        elif distribution == 'GWg':
+            shape = (nz, blocks1d.nlocal, nG)
+        elif distribution == 'GZg':
             blocks1d = Blocks1D(blockdist.blockcomm, nG)
-            shape = (nG, nw, blocks1d.nlocal)
-        elif distribution == 'wGG':
-            blocks1d = Blocks1D(blockdist.blockcomm, nw)
+            shape = (nG, nz, blocks1d.nlocal)
+        elif distribution == 'zGG':
+            blocks1d = Blocks1D(blockdist.blockcomm, nz)
             shape = (blocks1d.nlocal, nG, nG)
         else:
             raise NotImplementedError(f'Distribution: {distribution}')
@@ -139,21 +140,21 @@ class LatticePeriodicPairFunction(PairFunction):
 
     def array_with_view(self, view):
         """Access a given view into the pair function array."""
-        if view == 'WgG' and self.distribution in ['WgG', 'GWg']:
-            if self.distribution == 'GWg':
-                pf_GWg = self.array
-                pf_WgG = pf_GWg.transpose((1, 2, 0))
+        if view == 'ZgG' and self.distribution in ['ZgG', 'GZg']:
+            if self.distribution == 'GZg':
+                pf_GZg = self.array
+                pf_ZgG = pf_GZg.transpose((1, 2, 0))
             else:
-                pf_WgG = self.array
+                pf_ZgG = self.array
 
-            pf_x = pf_WgG
+            pf_x = pf_ZgG
         else:
             raise ValueError(f'{view} is not a valid view, when array is of '
                              f'distribution {self.distribution}')
 
         return pf_x
 
-    def copy_with_distribution(self, distribution='WgG'):
+    def copy_with_distribution(self, distribution='ZgG'):
         """Copy the pair function to a specified memory distribution."""
         new_pf = self._new(*self.my_args(), distribution=distribution)
         new_pf.array[:] = self.array_with_view(distribution)
@@ -164,20 +165,20 @@ class LatticePeriodicPairFunction(PairFunction):
     def _new(cls, *args, **kwargs):
         return cls(*args, **kwargs)
     
-    def my_args(self, pd=None, wd=None, blockdist=None):
+    def my_args(self, pd=None, zd=None, blockdist=None):
         """Return construction arguments of the LatticePeriodicPairFunction."""
         if pd is None:
             pd = self.pd
-        if wd is None:
-            wd = self.wd
+        if zd is None:
+            zd = self.zd
         if blockdist is None:
             blockdist = self.blockdist
 
-        return pd, wd, blockdist
+        return pd, zd, blockdist
 
     def copy_with_reduced_pd(self, pd):
         """Copy the pair function, but within a reduced plane-wave basis."""
-        if self.distribution != 'WgG':
+        if self.distribution != 'ZgG':
             raise NotImplementedError('Not implemented for distribution '
                                       f'{self.distribution}')
 
@@ -186,6 +187,20 @@ class LatticePeriodicPairFunction(PairFunction):
         new_pf.array[:] = map_WgG_array_to_reduced_pd(self.pd, pd,
                                                       self.blockdist,
                                                       self.array)
+
+        return new_pf
+
+    def copy_with_global_frequency_distribution(self):
+        """Copy the pair function, but with distribution zGG over world."""
+        # Make a copy, which is globally block distributed
+        blockdist = self.blockdist.new_distributor(nblocks='max')
+        new_pf = self._new(*self.my_args(blockdist=blockdist),
+                           distribution='zGG')
+
+        # Redistribute the data, distributing the frequencies over world
+        assert self.distribution == 'ZgG'
+        new_pf.array[:] = self.blockdist.distribute_frequencies(self.array,
+                                                                len(self.zd))
 
         return new_pf
 
