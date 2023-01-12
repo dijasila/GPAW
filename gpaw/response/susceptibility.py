@@ -145,7 +145,7 @@ class ChiFactory:
         self._chiks = None
 
     def __call__(self, spincomponent, q_c, complex_frequencies,
-                 fxc='ALDA', fxckwargs=None, txt=None) -> Chi:
+                 Kxc_GG=None, fxc=None, fxckwargs=None, txt=None) -> Chi:
         r"""Calculate a given element (spincomponent) of the four-component
         Kohn-Sham susceptibility tensor and construct a corresponding many-body
         susceptibility object within a given approximation to the
@@ -161,7 +161,13 @@ class ChiFactory:
         complex_frequencies : np.array or ComplexFrequencyDescriptor
             Array of complex frequencies to evaluate the response function at
             or a descriptor of those frequencies.
-        fxc : str
+        Kxc_GG : np.array
+            Exchange-correlation kernel (calculated elsewhere). Use this input
+            carefully! The plane-wave representation in the supplied kernel has
+            to match the representation of chiks.
+            If no kernel is supplied, the ChiFactory will calculate one itself
+            according to keywords fxc and fxckwargs.
+        fxc : str (None defaults to ALDA)
             Approximation to the (local) xc kernel.
             Choices: ALDA, ALDA_X, ALDA_x
         fxckwargs : dict (or None for default kwargs)
@@ -170,9 +176,6 @@ class ChiFactory:
             Save output of the calculation of this specific component into
             a file with the filename of the given input.
         """
-        assert isinstance(fxc, str)
-        if fxckwargs is None:
-            fxckwargs = {}
         # Initiate new output file, if supplied
         if txt is not None:
             self.context.new_txt_and_timer(txt)
@@ -194,12 +197,21 @@ class ChiFactory:
         else:
             Vbare_G = get_coulomb_kernel(chiks.pd, self.gs.kd.N_c)
 
-        # Calculate the exchange-correlation kernel
-        if fxc == 'RPA':
-            # No xc kernel by definition
-            Kxc_GG = None
+        # Calculate the xc kernel, if it has not been supplied by the user
+        if Kxc_GG is None:
+            # Fall back to defaults, if fxc and/or fxckwargs are not specified
+            if fxc is None:
+                fxc = 'ALDA'
+            if fxckwargs is None:
+                fxckwargs = {}
+
+            # Perform actual kernel calculation
+            if fxc != 'RPA':  # In RPA, we neglect the xc-kernel
+                Kxc_GG = self.fxc_factory(fxc, chiks, **fxckwargs)
         else:
-            Kxc_GG = self.fxc_factory(fxc, chiks, **fxckwargs)
+            assert fxc is None and fxckwargs is None,\
+                'Supplying an xc kernel Kxc_GG overwrites the fxc and '\
+                'fxckwargs inputs'
 
         # Initiate the dyson solver
         dyson_solver = DysonSolver(self.context)

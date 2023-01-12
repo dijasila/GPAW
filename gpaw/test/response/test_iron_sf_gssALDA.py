@@ -5,6 +5,7 @@ Fast test, where the kernel is scaled to fulfill the Goldstone theorem.
 """
 
 # Workflow modules
+from pathlib import Path
 import pytest
 import numpy as np
 
@@ -44,7 +45,6 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
                                                   context=context)
     fxckwargs = {'calculator': {'method': 'old',
                                 'rshelmax': None},
-                 'filename': fxc_filename,
                  'fxc_scaling': fxc_scaling}
     chiks_calc = ChiKSCalculator(gs,
                                  context=context,
@@ -56,12 +56,18 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
 
     for q in range(2):
         complex_frequencies = frq_qw[q] + 1.j * eta
-        chi = chi_factory('+-', q_qc[q], complex_frequencies,
-                          fxc=fxc,
-                          fxckwargs=fxckwargs)
+        if q == 0:
+            assert not Path(fxc_filename).is_file()
+            kxc = {'fxc': fxc, 'fxckwargs': fxckwargs}
+        else:
+            assert Path(fxc_filename).is_file()
+            Kxc_GG = np.load(fxc_filename)
+            kxc = {'Kxc_GG': Kxc_GG}
 
-        # Check that the fxc kernel exists as a file buffer
-        assert chi_factory.fxc_factory.file_buffer_exists(fxc_filename)
+        chi = chi_factory('+-', q_qc[q], complex_frequencies, **kxc)
+
+        if q == 0:
+            np.save(fxc_filename, chi.Kxc_GG)
 
         chi.write_macroscopic_component('iron_dsus' + '_%d.csv' % (q + 1))
         chi_factory.context.write_timer()
