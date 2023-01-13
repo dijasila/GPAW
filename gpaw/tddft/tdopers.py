@@ -601,7 +601,7 @@ class TimeDependentOverlap(Overlap):
             return
 
         self.timer.start('Apply exact inverse overlap')
-        from gpaw.utilities.mblas import multi_dotu, multi_axpy
+        from gpaw.utilities.mblas import multi_dotu, multi_axpy, multi_scal
 
         nvec = len(a_nG)
         r = wfs.gd.zeros(nvec, dtype=wfs.dtype)
@@ -616,7 +616,7 @@ class TimeDependentOverlap(Overlap):
         rho_prev = np.zeros((nvec, ), dtype=wfs.dtype)
         rho_prev[:] = 1.0
         tol_cg = 1e-14
-        multi_zdotu(a_nG, a_nG, scale)
+        multi_dotu(a_nG, a_nG, scale)
         wfs.gd.comm.sum(scale)
         scale = np.abs(scale)
 
@@ -637,22 +637,22 @@ class TimeDependentOverlap(Overlap):
 
             self.apply_inverse(r, z, wfs, kpt, calculate_P_ani, use_cg=False)
 
-            multi_zdotu(r, z, rho)
+            multi_dotu(r, z, rho)
             wfs.gd.comm.sum(rho)
             beta = rho / rho_prev
-            multi_scale(beta, p)
+            multi_scal(beta, p)
             p += z
 
             self.apply(p, q, wfs, kpt, calculate_P_ani)
 
-            multi_zdotu(p, q, alpha)
+            multi_dotu(p, q, alpha)
             wfs.gd.comm.sum(alpha)
             alpha = rho / alpha
 
-            multi_zaxpy(alpha, p, x)
-            multi_zaxpy(-alpha, q, r)
+            multi_axpy(alpha, p, x)
+            multi_axpy(-alpha, q, r)
 
-            multi_zdotu(r, r, normr2)
+            multi_dotu(r, r, normr2)
             wfs.gd.comm.sum(normr2)
             #rhoc = rho.copy()
             rho_prev[:] = rho.copy()
