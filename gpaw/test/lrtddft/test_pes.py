@@ -1,3 +1,4 @@
+import pytest
 from ase import Atom, Atoms
 from ase.parallel import parprint
 
@@ -9,6 +10,7 @@ from gpaw.pes.dos import DOSPES
 from gpaw.pes.tddft import TDDFTPES
 
 
+@pytest.mark.lrtddft
 def test_lrtddft_pes(in_tmp_dir):
     txt = None
     R = 0.7  # approx. experimental bond length

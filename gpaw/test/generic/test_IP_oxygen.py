@@ -1,16 +1,19 @@
-from ase import Atom, Atoms
+from ase import Atoms
 from gpaw import GPAW
 from gpaw.test import equal
 
 
 def test_generic_IP_oxygen():
     a = 6.0
-    calc = GPAW(gpts=(32, 36, 32), nbands=4)
-    O = Atoms([Atom('O', (a / 2, a / 2 + 0.5, a / 2), magmom=2)],
-              pbc=False, cell=(a, a + 1, a), calculator=calc)
+    O = Atoms('O',
+              [(a / 2, a / 2 + 0.5, a / 2)],
+              magmoms=[2],
+              pbc=False,
+              cell=(a, a + 1, a))
+    O.calc = GPAW(gpts=(32, 36, 32), nbands=4)
     e0 = O.get_potential_energy()
 
-    calc.set(charge=1)
+    O.calc = GPAW(gpts=(32, 36, 32), nbands=4, charge=1)
 
     e1 = O.get_potential_energy()
 

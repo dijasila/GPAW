@@ -1332,7 +1332,7 @@ class Setups(list):
     ``core_charge`` Core hole charge.
     """
 
-    def __init__(self, Z_a, setup_types, basis_sets, xc,
+    def __init__(self, Z_a, setup_types, basis_sets, xc, *,
                  filter=None, world=None):
         list.__init__(self)
         symbols = [chemical_symbols[Z] for Z in Z_a]
@@ -1498,6 +1498,11 @@ class Setups(list):
             integral=sqrt(4 * pi))
 
     def overlap_correction(self, P_ani, out_ani):
+        xp = P_ani.layout.xp
+        if xp is not np:
+            P_ani = P_ani.to_cpu()
+            out_ani = out_ani.new(xp=np)
+
         if len(P_ani.dims) == 2:  # (band, spinor)
             subscripts = 'nsi, ij -> nsj'
         else:
@@ -1505,7 +1510,7 @@ class Setups(list):
         for (a, P_ni), out_ni in zip(P_ani.items(), out_ani.values()):
             dS_ii = self[a].dO_ii
             np.einsum(subscripts, P_ni, dS_ii, out=out_ni)
-        return out_ani
+        return out_ani.to_xp(xp)
 
     def partial_wave_corrections(self) -> list[list[Spline]]:
         splines: dict[Setup, list[Spline]] = {}
@@ -1584,7 +1589,7 @@ if __name__ == '__main__':
     print("""\
 This is not the setup.py you are looking for!  This setup.py defines a
 Setup class used to hold the atomic data needed for a specific atom.
-For building the GPAW code you must use the setup.py distutils script
+For building the GPAW code you must use the setup.py setuptools script
 at the root of the code tree.  Just do "cd .." and you will be at the
 right place.""")
     raise SystemExit

@@ -23,7 +23,7 @@ def test_fileio_file_reference(in_tmp_dir):
                 nbands=3, convergence=conv)
     atoms.calc = calc
     atoms.get_potential_energy()
-    wf0 = calc.get_pseudo_wave_function(2, 1, 1, broadcast=True)
+    wf0 = calc.get_pseudo_wave_function(2, 1, 1)
 
     calc.write('tmp', 'all')
 

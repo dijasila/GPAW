@@ -1,5 +1,4 @@
 import os
-import sys
 from time import time
 
 import ase.io.ulm as ulm
@@ -17,47 +16,56 @@ from gpaw.pw.descriptor import PWDescriptor
 from gpaw.utilities.blas import axpy, gemmdot
 from gpaw.xc.rpa import RPACorrelation
 from gpaw.heg import HEG
-from gpaw.response.pair import get_gs_and_context
+from gpaw.xc.fxc_kernels import (
+    get_fHxc_Gr, get_pbe_fxc, get_fspinHxc_Gr_rALDA, get_fspinHxc_Gr_rAPBE)
 
 
-class FXCCorrelation(RPACorrelation):
+def get_chi0v(chi0_sGG, cut_G, G_G):
+    if cut_G is not None:
+        chi0_sGG = chi0_sGG.take(cut_G, 1).take(cut_G, 2)
+    nG = chi0_sGG.shape[-1]
+    chi0v = np.zeros((nG, nG), dtype=complex)
+    for chi0_GG in chi0_sGG:
+        chi0v += chi0_GG / G_G / G_G[:, np.newaxis]
+    chi0v *= 4 * np.pi
+    return chi0v
+
+
+class FXCCorrelation:
     def __init__(self,
                  calc,
                  xc='RPA',
-                 filename=None,
-                 skip_gamma=False,
-                 qsym=True,
                  nlambda=8,
-                 nfrequencies=16,
-                 frequency_max=800.0,
-                 frequency_scale=2.0,
                  frequencies=None,
                  weights=None,
                  density_cut=1.e-6,
-                 world=mpi.world,
-                 nblocks=1,
                  unit_cells=None,
                  tag=None,
-                 txt=sys.stdout,
                  range_rc=1.0,
-                 av_scheme=None,
-                 Eg=None):
+                 avg_scheme=None,
+                 Eg=None,
+                 *,
+                 ecut,
+                 **kwargs):
 
-        RPACorrelation.__init__(self,
-                                calc,
-                                xc=xc,
-                                filename=filename,
-                                skip_gamma=skip_gamma,
-                                qsym=qsym,
-                                nfrequencies=nfrequencies,
-                                nlambda=nlambda,
-                                frequency_max=frequency_max,
-                                frequency_scale=frequency_scale,
-                                frequencies=frequencies,
-                                weights=weights,
-                                world=world,
-                                nblocks=nblocks,
-                                txt=txt)
+        self.ecut = ecut
+        if isinstance(ecut, (float, int)):
+            self.ecut_max = ecut
+        else:
+            self.ecut_max = max(ecut)
+
+        self.rpa = RPACorrelation(
+            calc,
+            xc=xc,
+            nlambda=nlambda,
+            frequencies=frequencies,
+            weights=weights,
+            calculate_q=self.calculate_q_fxc,
+            ecut=self.ecut,
+            **kwargs)
+
+        self.gs = self.rpa.gs
+        self.context = self.rpa.context
 
         self.l_l, self.weight_l = p_roots(nlambda)
         self.l_l = (self.l_l + 1.0) * 0.5
@@ -68,36 +76,43 @@ class FXCCorrelation(RPACorrelation):
             unit_cells = self.gs.kd.N_c
         self.unit_cells = unit_cells
         self.range_rc = range_rc  # Range separation parameter in Bohr
-        self.av_scheme = av_scheme  # Either 'density' or 'wavevector'
+
+        if Eg is not None:
+            Eg /= Ha
         self.Eg = Eg  # Band gap in eV
 
-        # XXX create context reference, remove when super class RPA removed
-        gs, context = get_gs_and_context(calc, txt, world, timer=None)
-        self.gs = gs
-        self.context = context
-        
-        set_flags(self)
+        self.xcflags = XCFlags(self.xc)
+        if self.xcflags.bandgap_dependent != (self.Eg is not None):
+            raise RuntimeError(
+                'Gap must be provided with and only with '
+                f'the gap dependent functionals {self.xcflags._gapped}.')
+        self.avg_scheme = self.xcflags.choose_avg_scheme(avg_scheme)
 
         if tag is None:
 
             tag = self.gs.atoms.get_chemical_formula(mode='hill')
 
-            if self.av_scheme is not None:
+            if self.avg_scheme is not None:
 
-                tag += '_' + self.av_scheme
+                tag += '_' + self.avg_scheme
 
         self.tag = tag
 
-    @timer('FXC')
-    def calculate(self, ecut, nbands=None):
+        self.omega_w = self.rpa.omega_w
+        self.ibzq_qc = self.rpa.ibzq_qc
+        self.nblocks = self.rpa.nblocks
+        self.weight_w = self.rpa.weight_w
 
+    @property
+    def blockcomm(self):
+        # Cannot be aliased as attribute
+        # because rpa gets blockcomm during calculate
+        return self.rpa.blockcomm
+
+    @timer('FXC')
+    def calculate(self, *, nbands=None):
         if self.xc not in ('RPA', 'range_RPA'):
             # kernel not required for RPA/range_sep RPA
-
-            if isinstance(ecut, (float, int)):
-                self.ecut_max = ecut
-            else:
-                self.ecut_max = max(ecut)
 
             # Find the first q vector to calculate kernel for
             # (density averaging scheme always calculates all q points anyway)
@@ -120,7 +135,7 @@ class FXCCorrelation(RPACorrelation):
 
             if q_empty is not None:
 
-                if self.av_scheme == 'wavevector':
+                if self.avg_scheme == 'wavevector':
 
                     self.context.print('Calculating %s kernel starting from '
                                        'q point %s \n' % (self.xc, q_empty))
@@ -130,9 +145,9 @@ class FXCCorrelation(RPACorrelation):
                                         omega_w=self.omega_w,
                                         Eg=self.Eg)
 
-                    if self.linear_kernel:
+                    if self.xcflags.linear_kernel:
                         kernelkwargs.update(l_l=None, omega_w=None)
-                    elif not self.dyn_kernel:
+                    elif not self.xcflags.dyn_kernel:
                         kernelkwargs.update(omega_w=None)
 
                     kernel = KernelWave(**kernelkwargs)
@@ -162,13 +177,12 @@ class FXCCorrelation(RPACorrelation):
         else:
             spin = True
 
-        e = RPACorrelation.calculate(self, ecut, spin=spin, nbands=nbands)
+        e = self.rpa.calculate(spin=spin, nbands=nbands)
 
         return e
 
     @timer('Chi0(q)')
-    def calculate_q(self, chi0calc, chi0_s, m1, m2,
-                    cut_G):
+    def calculate_q_fxc(self, chi0calc, chi0_s, m1, m2, cut_G):
         for s, chi0 in enumerate(chi0_s):
             chi0calc.update_chi0(chi0,
                                  m1,
@@ -183,23 +197,23 @@ class FXCCorrelation(RPACorrelation):
         nG = pd.ngmax
         chi0_swGG = np.empty((nspins, mynw, nG, nG), complex)
         for chi0_wGG, chi0 in zip(chi0_swGG, chi0_s):
-            chi0_wGG[:] = chi0.distribute_as('wGG')
+            chi0_wGG[:] = chi0.copy_array_with_distribution('wGG')
         if self.nblocks > 1:
             chi0_swGG = np.swapaxes(chi0_swGG, 2, 3)
 
         if not pd.kd.gamma:
-            e = self.calculate_energy(pd, chi0_swGG, cut_G)
+            e = self.calculate_energy_fxc(pd, chi0_swGG, cut_G)
             self.context.print('%.3f eV' % (e * Ha))
         else:
-            w1 = self.blockcomm.rank * mynw
-            w2 = w1 + mynw
+            W1 = self.blockcomm.rank * mynw
+            W2 = W1 + mynw
             e = 0.0
             for v in range(3):
                 for chi0_wGG, chi0 in zip(chi0_swGG, chi0_s):
-                    chi0_wGG[:, 0] = chi0.chi0_wxvG[w1:w2, 0, v]
-                    chi0_wGG[:, :, 0] = chi0.chi0_wxvG[w1:w2, 1, v]
-                    chi0_wGG[:, 0, 0] = chi0.chi0_wvv[w1:w2, v, v]
-                ev = self.calculate_energy(pd, chi0_swGG, cut_G)
+                    chi0_wGG[:, 0] = chi0.chi0_WxvG[W1:W2, 0, v]
+                    chi0_wGG[:, :, 0] = chi0.chi0_WxvG[W1:W2, 1, v]
+                    chi0_wGG[:, 0, 0] = chi0.chi0_Wvv[W1:W2, v, v]
+                ev = self.calculate_energy_fxc(pd, chi0_swGG, cut_G)
                 e += ev
                 self.context.print('%.3f' % (ev * Ha), end='', flush=False)
                 if v < 2:
@@ -210,8 +224,34 @@ class FXCCorrelation(RPACorrelation):
 
         return e
 
+    def calculate_energy_contribution(self, chi0v_sGsG, fv, nG):
+        """Calculate contribution to energy from a single frequency point.
+
+        The RPA correlation energy is the integral over all frequencies
+        from 0 to infinity of this expression."""
+
+        e = 0.0
+        assert len(chi0v_sGsG) % nG == 0
+        ns = len(chi0v_sGsG) // nG
+
+        for l, weight in zip(self.l_l, self.weight_l):
+            chiv = np.linalg.solve(
+                np.eye(nG * ns) - l * np.dot(chi0v_sGsG, fv),
+                chi0v_sGsG).real  # this is SO slow
+            for s1 in range(ns):
+                for s2 in range(ns):
+                    m1 = s1 * nG
+                    n1 = (s1 + 1) * nG
+                    m2 = s2 * nG
+                    n2 = (s2 + 1) * nG
+                    chiv_s1s2 = chiv[m1:n1, m2:n2]
+                    e -= np.trace(chiv_s1s2) * weight
+
+        e += np.trace(chi0v_sGsG.real)
+        return e
+
     @timer('Energy')
-    def calculate_energy(self, pd, chi0_swGG, cut_G):
+    def calculate_energy_fxc(self, pd, chi0_swGG, cut_G):
         """Evaluate correlation energy from chi0 and the kernel fhxc"""
 
         ibzq2_q = [
@@ -240,7 +280,7 @@ class FXCCorrelation(RPACorrelation):
         #              (note this does not necessarily mean that
         #              the calculation is spin-polarized!)
 
-        if self.spin_kernel:
+        if self.xcflags.spin_kernel:
             with ulm.open('fhxc_%s_%s_%s_%s.ulm' %
                           (self.tag, self.xc, self.ecut_max, qi)) as r:
                 fv = r.fhxc_sGsG
@@ -255,7 +295,7 @@ class FXCCorrelation(RPACorrelation):
             # special treatment of the head and wings.  However not true for
             # density average:
 
-            if self.av_scheme == 'density':
+            if self.avg_scheme == 'density':
                 for s1 in range(ns):
                     for s2 in range(ns):
                         m1 = s1 * nG
@@ -266,10 +306,6 @@ class FXCCorrelation(RPACorrelation):
                            m2:n2] *= (G_G * G_G[:, np.newaxis] / (4 * np.pi))
 
                         if np.prod(self.unit_cells) > 1 and pd.kd.gamma:
-                            m1 = s1 * nG
-                            n1 = (s1 + 1) * nG
-                            m2 = s2 * nG
-                            n2 = (s2 + 1) * nG
                             fv[m1, m2:n2] = 0.0
                             fv[m1:n1, m2] = 0.0
                             fv[m1, m2] = 1.0
@@ -283,32 +319,17 @@ class FXCCorrelation(RPACorrelation):
             for chi0_sGG in np.swapaxes(chi0_swGG, 0, 1):
                 if cut_G is not None:
                     chi0_sGG = chi0_sGG.take(cut_G, 1).take(cut_G, 2)
-                chi0v = np.zeros((ns * nG, ns * nG), dtype=complex)
+                chi0v_sGsG = np.zeros((ns * nG, ns * nG), dtype=complex)
                 for s in range(ns):
                     m = s * nG
                     n = (s + 1) * nG
-                    chi0v[m:n, m:n] = chi0_sGG[s] / G_G / G_G[:, np.newaxis]
-                chi0v *= 4 * np.pi
+                    chi0v_sGsG[m:n, m:n] = \
+                        chi0_sGG[s] / G_G / G_G[:, np.newaxis]
+                chi0v_sGsG *= 4 * np.pi
 
                 del chi0_sGG
 
-                e = 0.0
-
-                for l, weight in zip(self.l_l, self.weight_l):
-                    chiv = np.linalg.solve(
-                        np.eye(nG * ns) - l * np.dot(chi0v, fv),
-                        chi0v).real  # this is SO slow
-                    for s1 in range(ns):
-                        for s2 in range(ns):
-                            m1 = s1 * nG
-                            n1 = (s1 + 1) * nG
-                            m2 = s2 * nG
-                            n2 = (s2 + 1) * nG
-                            chiv_s1s2 = chiv[m1:n1, m2:n2]
-                            e -= np.trace(chiv_s1s2) * weight
-
-                e += np.trace(chi0v.real)
-
+                e = self.calculate_energy_contribution(chi0v_sGsG, fv, nG)
                 e_w.append(e)
 
         else:
@@ -330,39 +351,34 @@ class FXCCorrelation(RPACorrelation):
             #
             # Construct/read kernels
 
-            if self.xc == 'RPA':
+            # What are the rules for whether we should do the
+            # cut_G slicing?
+            apply_cut_G = self.xc not in {'RPA', 'range_RPA'}
 
-                fv = np.eye(nG)
+            def read(arrayname):
+                key = (self.tag, self.xc, self.ecut_max, qi)
+                with ulm.open('fhxc_%s_%s_%s_%s.ulm' % key) as reader:
+                    return getattr(reader, arrayname)
+
+            if self.xc == 'RPA':
+                fv_lwGG = np.eye(nG)[np.newaxis, np.newaxis, :, :]
 
             elif self.xc == 'range_RPA':
+                fv_diag_G = np.exp(-0.25 * (G_G * self.range_rc)**2.0)
+                # Unfortunately here we have a radically different shape,
+                # so we'll struggle to handle the arrays similarly.
+                # All other cases have fv_lwGG (with some dimensions being 1).
 
-                fv = np.exp(-0.25 * (G_G * self.range_rc)**2.0)
-
-            elif self.linear_kernel:
-                with ulm.open('fhxc_%s_%s_%s_%s.ulm' %
-                              (self.tag, self.xc, self.ecut_max, qi)) as r:
-                    fv = r.fhxc_sGsG
-
-                if cut_G is not None:
-                    fv = fv.take(cut_G, 0).take(cut_G, 1)
-
-            elif not self.dyn_kernel:
+            elif self.xcflags.linear_kernel:
+                fv_lwGG = read('fhxc_sGsG')[np.newaxis, np.newaxis, :, :]
+            elif not self.xcflags.dyn_kernel:
                 # static kernel which does not scale with lambda
-
-                with ulm.open('fhxc_%s_%s_%s_%s.ulm' %
-                              (self.tag, self.xc, self.ecut_max, qi)) as r:
-                    fv = r.fhxc_lGG
-
-                if cut_G is not None:
-                    fv = fv.take(cut_G, 1).take(cut_G, 2)
-
+                fv_lwGG = read('fhxc_lGG')[:, np.newaxis, :, :]
             else:  # dynamical kernel
-                with ulm.open('fhxc_%s_%s_%s_%s.ulm' %
-                              (self.tag, self.xc, self.ecut_max, qi)) as r:
-                    fv = r.fhxc_lwGG
+                fv_lwGG = read('fhxc_lwGG')
 
-                if cut_G is not None:
-                    fv = fv.take(cut_G, 2).take(cut_G, 3)
+            if apply_cut_G and cut_G is not None:
+                fv_lwGG = fv_lwGG.take(cut_G, 2).take(cut_G, 3)
 
             if pd.kd.gamma:
                 G_G[0] = 1.0
@@ -370,39 +386,28 @@ class FXCCorrelation(RPACorrelation):
             # Loop over frequencies; since the kernel has no spin,
             # we work with spin-summed response function
             e_w = []
-            iw = 0
 
-            for chi0_sGG in np.swapaxes(chi0_swGG, 0, 1):
-                if cut_G is not None:
-                    chi0_sGG = chi0_sGG.take(cut_G, 1).take(cut_G, 2)
-                chi0v = np.zeros((nG, nG), dtype=complex)
-                for s in range(ns):
-                    chi0v += chi0_sGG[s] / G_G / G_G[:, np.newaxis]
-                chi0v *= 4 * np.pi
-                del chi0_sGG
+            for iw, chi0_sGG in enumerate(np.swapaxes(chi0_swGG, 0, 1)):
+                chi0v = get_chi0v(chi0_sGG, cut_G, G_G)
 
-                e = 0.0
-
-                if not self.linear_kernel:
-
+                if not self.xcflags.linear_kernel:
                     il = 0
+                    energy = 0.0
                     for l, weight in zip(self.l_l, self.weight_l):
 
-                        if not self.dyn_kernel:
-                            chiv = np.linalg.solve(
-                                np.eye(nG) - np.dot(chi0v, fv[il]), chi0v).real
+                        if self.xcflags.dyn_kernel:
+                            fv_w_index = iw
                         else:
-                            chiv = np.linalg.solve(
-                                np.eye(nG) - np.dot(chi0v, fv[il][iw]),
-                                chi0v).real
-                        e -= np.trace(chiv) * weight
+                            fv_w_index = 0
+
+                        chiv = np.linalg.solve(
+                            np.eye(nG) - chi0v @ fv_lwGG[il, fv_w_index],
+                            chi0v).real
+                        energy -= np.trace(chiv) * weight
                         il += 1
 
-                    e += np.trace(chi0v.real)
-
-                    e_w.append(e)
-
-                    iw += 1
+                    energy += np.trace(chi0v.real)
+                    e_w.append(energy)
 
                 else:
 
@@ -413,17 +418,22 @@ class FXCCorrelation(RPACorrelation):
                     # implemented in rpa.py
                     if self.xc == 'range_RPA':
                         # way faster than np.dot for diagonal kernels
-                        e_GG = np.eye(nG) - chi0v * fv
+                        chi0v_fv = chi0v * fv_diag_G
+                        e_GG = np.eye(nG) - chi0v_fv
                     elif self.xc != 'RPA':
-                        e_GG = np.eye(nG) - np.dot(chi0v, fv)
+                        assert fv_lwGG.shape[:2] == (1, 1)
+                        chi0v_fv = np.dot(chi0v, fv_lwGG[0, 0])
+                        e_GG = np.eye(nG) - chi0v_fv
 
                     if self.xc == 'RPA':
                         # numerical RPA
                         elong = 0.0
                         for l, weight in zip(self.l_l, self.weight_l):
+                            assert fv_lwGG.shape[:2] == (1, 1)
 
                             chiv = np.linalg.solve(
-                                np.eye(nG) - l * np.dot(chi0v, fv), chi0v).real
+                                np.eye(nG) - l * np.dot(
+                                    chi0v, fv_lwGG[0, 0]), chi0v).real
 
                             elong -= np.trace(chiv) * weight
 
@@ -436,18 +446,21 @@ class FXCCorrelation(RPACorrelation):
                     # Numerical integration for short-range part
                     eshort = 0.0
                     if self.xc not in ('RPA', 'range_RPA', 'range_rALDA'):
-                        fxcv = fv - np.eye(nG)  # Subtract Hartree contribution
+                        assert fv_lwGG.shape[:2] == (1, 1)
+                        fv_GG = fv_lwGG[0, 0]
+                        # Subtract Hartree contribution:
+                        fxcv = fv_GG - np.eye(nG)
 
                         for l, weight in zip(self.l_l, self.weight_l):
 
                             chiv = np.linalg.solve(
-                                np.eye(nG) - l * np.dot(chi0v, fv), chi0v)
+                                np.eye(nG) - l * np.dot(chi0v, fv_GG), chi0v)
                             eshort += (np.trace(np.dot(chiv, fxcv)).real *
                                        weight)
 
                         eshort -= np.trace(np.dot(chi0v, fxcv)).real
 
-                    elif self.xc in ('range_RPA', 'range_rALDA'):
+                    elif self.xcflags.is_ranged:
                         eshort = (2 * np.pi * self.shortrange /
                                   np.sum(self.weight_w))
 
@@ -467,6 +480,7 @@ class KernelWave:
         self.gs = gs
         self.gd = gs.density.gd
         self.xc = xc
+        self.xcflags = XCFlags(xc)
         self.ibzq_qc = ibzq_qc
         self.l_l = l_l
         self.ns = self.gs.nspins
@@ -481,7 +495,7 @@ class KernelWave:
             self.l_l = [1.0]
 
         # Density grid
-        n_sg, finegd = self.gs.all_electron_density(gridrefinement=2)
+        n_sg, finegd = self.gs.get_all_electron_density(gridrefinement=2)
         self.n_g = n_sg.sum(axis=0).flatten()
 
         #  For atoms with large vacuum regions
@@ -510,7 +524,7 @@ class KernelWave:
                                % (self.Eg * Ha))
 
         # Enhancement factor for GGA
-        if self.xc == 'rAPBE' or self.xc == 'rAPBEns':
+        if self.xcflags.is_apbe:
             nf_g = self.gs.hacky_all_electron_density(gridrefinement=4)
             gdf = self.gd.refine().refine()
             grad_v = [Gradient(gdf, v, n=1).apply for v in range(3)]
@@ -531,7 +545,7 @@ class KernelWave:
             # APBE kernel wants to be positive, and hack s to = 0,
             # so that we are really using the ALDA kernel
             # at these points
-            apbe_g = self.get_PBE_fxc(self.n_g, self.s2_g)
+            apbe_g = get_pbe_fxc(self.n_g, self.s2_g)
             poskern_ind = np.where(apbe_g >= 0.0)
             if len(poskern_ind[0]) > 0:
                 self.context.print(
@@ -575,8 +589,11 @@ class KernelWave:
 
             my_Gv_G = Gv_G[my_Gints]
 
-            if (self.ns == 2) and (self.xc == 'rALDA' or self.xc == 'rAPBE'):
+            # XXX Should this be if self.ns == 2 and self.xcflags.spin_kernel?
+            calc_spincorr = (self.ns == 2) and (self.xc == 'rALDA'
+                                                or self.xc == 'rAPBE')
 
+            if calc_spincorr:
                 assert len(self.l_l) == 1
 
                 # Form spin-dependent kernel according to
@@ -586,22 +603,21 @@ class KernelWave:
                 # with a step function (\equiv \tilde{f^rALDA})
                 # fHxc^{up up}     = fHxc^{down down} = fv_nospin + fv_spincorr
                 # fHxc^{up down}   = fHxc^{down up}   = fv_nospin - fv_spincorr
-
-                calc_spincorr = True
-                fv_spincorr = np.zeros((nG, nG), dtype=complex)
-
-            else:
-
-                calc_spincorr = False
+                fv_spincorr_GG = np.zeros((nG, nG), dtype=complex)
 
             if self.omega_w is None:
-                fv_nospin = np.zeros((len(self.l_l), nG, nG), dtype=complex)
+                # Confusing, but None has a special meaning when passed to
+                # wherever it is that we pass it.
+                omega_w = [None]
             else:
-                fv_nospin = np.zeros(
-                    (len(self.l_l), len(self.omega_w), nG, nG), dtype=complex)
+                omega_w = list(self.omega_w)
+
+            nw = len(omega_w)
+
+            fv_nospin_lwGG = np.zeros((len(self.l_l), nw, nG, nG),
+                                      dtype=complex)
 
             for il, l in enumerate(self.l_l):  # loop over coupling constant
-
                 for iG, Gv in zip(my_Gints, my_Gv_G):  # loop over G vecs
 
                     # For all kernels except JGM we
@@ -626,7 +642,7 @@ class KernelWave:
                             rho_min = min_Gpq**3.0 / (24.0 * np.pi**2.0)
                             small_ind = np.where(self.n_g >= rho_min)
 
-                        elif (self.xc == 'rAPBE' or self.xc == 'rAPBEns'):
+                        elif self.xcflags.is_apbe:
 
                             # rAPBE trick: the Hartree-XC kernel
                             # is exactly zero at grid points where
@@ -635,7 +651,7 @@ class KernelWave:
                             min_Gpq = np.amin(mod_Gpq)
                             small_ind = np.where(min_Gpq <= np.sqrt(
                                 -4.0 * np.pi /
-                                self.get_PBE_fxc(self.n_g, self.s2_g)))
+                                get_pbe_fxc(self.n_g, self.s2_g)))
 
                         else:
 
@@ -646,73 +662,53 @@ class KernelWave:
                             (deltaGv[:, 0, np.newaxis] * self.x_g[small_ind] +
                              deltaGv[:, 1, np.newaxis] * self.y_g[small_ind] +
                              deltaGv[:, 2, np.newaxis] * self.z_g[small_ind]))
-                        if self.omega_w is None:
-                            fv_nospin[il, iG, iG:] = self.get_scaled_fHxc_q(
+
+                        def scaled_fHxc(w, spincorr, l):
+                            return self.get_scaled_fHxc_q(
                                 q=mod_Gpq,
                                 sel_points=small_ind,
                                 Gphase=phase_Gpq,
                                 l=l,
-                                spincorr=False,
-                                w=None)
-                        else:
-                            for iw, omega in enumerate(self.omega_w):
-                                fv_nospin[il, iw, iG, iG:] = \
-                                    self.get_scaled_fHxc_q(
-                                        q=mod_Gpq,
-                                        sel_points=small_ind,
-                                        Gphase=phase_Gpq,
-                                        l=l,
-                                        spincorr=False,
-                                        w=omega)
+                                spincorr=spincorr,
+                                w=w)
+
+                        for iw, w in enumerate(omega_w):
+                            fv_nospin_lwGG[il, iw, iG, iG:] = scaled_fHxc(
+                                w, spincorr=False, l=l)
 
                         if calc_spincorr:
-                            fv_spincorr[iG, iG:] = self.get_scaled_fHxc_q(
-                                q=mod_Gpq,
-                                sel_points=small_ind,
-                                Gphase=phase_Gpq,
-                                l=1.0,
-                                spincorr=True,
-                                w=None)
-
+                            fv_spincorr_GG[iG, iG:] = scaled_fHxc(
+                                w=None, spincorr=True, l=1.0)
                     else:
                         # head and wings of q=0 are dominated by
                         # 1/q^2 divergence of scaled Coulomb interaction
 
                         assert iG == 0
 
-                        if self.omega_w is None:
-                            fv_nospin[il, 0, 0] = l
-                            fv_nospin[il, 0, 1:] = 0.0
-                        else:
-                            fv_nospin[il, :, 0, 0] = l
-                            fv_nospin[il, :, 0, 1:] = 0.0
+                        fv_nospin_lwGG[il, :, 0, 0] = l
+                        fv_nospin_lwGG[il, :, 0, 1:] = 0.0
 
                         if calc_spincorr:
-                            fv_spincorr[0, :] = 0.0
+                            fv_spincorr_GG[0, :] = 0.0
 
                     # End loop over G vectors
 
-                mpi.world.sum(fv_nospin[il])
+                mpi.world.sum(fv_nospin_lwGG[il])
 
-                if self.omega_w is None:
+                for iw in range(len(omega_w)):
                     # We've only got half the matrix here,
                     # so add the hermitian conjugate:
-                    fv_nospin[il] += np.conj(fv_nospin[il].T)
+                    fv_nospin_lwGG[il, iw] += np.conj(fv_nospin_lwGG[il, iw].T)
                     # but now the diagonal's been doubled,
                     # so we multiply these elements by 0.5
-                    fv_nospin[il][np.diag_indices(nG)] *= 0.5
-
-                else:  # same procedure for dynamical kernels
-                    for iw in range(len(self.omega_w)):
-                        fv_nospin[il][iw] += np.conj(fv_nospin[il][iw].T)
-                        fv_nospin[il][iw][np.diag_indices(nG)] *= 0.5
+                    fv_nospin_lwGG[il, iw][np.diag_indices(nG)] *= 0.5
 
                 # End of loop over coupling constant
 
             if calc_spincorr:
-                mpi.world.sum(fv_spincorr)
-                fv_spincorr += np.conj(fv_spincorr.T)
-                fv_spincorr[np.diag_indices(nG)] *= 0.5
+                mpi.world.sum(fv_spincorr_GG)
+                fv_spincorr_GG += np.conj(fv_spincorr_GG.T)
+                fv_spincorr_GG[np.diag_indices(nG)] *= 0.5
 
             # Write to disk
             if mpi.rank == 0:
@@ -723,21 +719,25 @@ class KernelWave:
 
                 if calc_spincorr:
                     # Form the block matrix kernel
-                    fv_full = np.empty((2 * nG, 2 * nG), dtype=complex)
-                    fv_full[:nG, :nG] = fv_nospin[0] + fv_spincorr
-                    fv_full[:nG, nG:] = fv_nospin[0] - fv_spincorr
-                    fv_full[nG:, :nG] = fv_nospin[0] - fv_spincorr
-                    fv_full[nG:, nG:] = fv_nospin[0] + fv_spincorr
-                    w.write(fhxc_sGsG=fv_full)
+                    fv_full_2G2G = np.empty((2 * nG, 2 * nG), dtype=complex)
+                    assert nw == 1
+                    fv_nospin_GG = fv_nospin_lwGG[0, 0]
+                    fv_full_2G2G[:nG, :nG] = fv_nospin_GG + fv_spincorr_GG
+                    fv_full_2G2G[:nG, nG:] = fv_nospin_GG - fv_spincorr_GG
+                    fv_full_2G2G[nG:, :nG] = fv_nospin_GG - fv_spincorr_GG
+                    fv_full_2G2G[nG:, nG:] = fv_nospin_GG + fv_spincorr_GG
+                    w.write(fhxc_sGsG=fv_full_2G2G)
 
                 elif len(self.l_l) == 1:
-                    w.write(fhxc_sGsG=fv_nospin[0])
+                    assert nw == 1
+                    w.write(fhxc_sGsG=fv_nospin_lwGG[0, 0])
 
                 elif self.omega_w is None:
-                    w.write(fhxc_lGG=fv_nospin)
+                    assert nw == 1
+                    w.write(fhxc_lGG=fv_nospin_lwGG[:, 0, :, :])
 
                 else:
-                    w.write(fhxc_lwGG=fv_nospin)
+                    w.write(fhxc_lwGG=fv_nospin_lwGG)
                 w.close()
 
             self.context.print('q point %s complete' % iq)
@@ -765,7 +765,7 @@ class KernelWave:
 
         # GGA enhancement factor s is lambda independent,
         # but we might want to truncate it
-        if self.xc == 'rAPBE' or self.xc == 'rAPBEns':
+        if self.xcflags.is_apbe:
             s2_g = self.s2_g[sel_points]
         else:
             s2_g = None
@@ -799,109 +799,7 @@ class KernelWave:
         heg = HEG(rs)
         qF = heg.qF
 
-        if self.xc in ('rALDA', 'rALDAns', 'range_rALDA'):
-            # rALDA (exchange only) kernel
-            # Olsen and Thygesen, Phys. Rev. B 88, 115131 (2013)
-            # ALDA up to 2*qF, -vc for q >2qF (such that fHxc vanishes)
-
-            rxalda_A = 0.25
-            rxalda_qcut = qF * np.sqrt(1.0 / rxalda_A)
-
-            # construct fHxc(k,r)
-            fHxc_Gr = (0.5 + 0.0j) * (
-                (1.0 + np.sign(rxalda_qcut - q[:, np.newaxis])) *
-                (1.0 + (-1.0) * rxalda_A * (q[:, np.newaxis] / qF)**2.0))
-
-        elif self.xc == 'rALDAc':
-            # rALDA exchange+correlation kernel
-            # Olsen and Thygesen, Phys. Rev. B 88, 115131 (2013)
-            # Cutoff wavevector ensures kernel is continuous
-
-            rxcalda_A = self.get_heg_A(rs)
-            rxcalda_qcut = qF * np.sqrt(1.0 / rxcalda_A)
-
-            # construct fHxc(k,r)
-            fHxc_Gr = (0.5 + 0.0j) * (
-                (1.0 + np.sign(rxcalda_qcut - q[:, np.newaxis])) *
-                (1.0 + (-1.0) * rxcalda_A * (q[:, np.newaxis] / qF)**2.0))
-
-        elif self.xc == 'rAPBE' or self.xc == 'rAPBEns':
-
-            # Olsen and Thygesen, Phys. Rev. Lett. 112, 203001 (2014)
-            # Exchange only part of the PBE XC kernel, neglecting the terms
-            # arising from the variation of the density gradient
-            # i.e. second functional derivative
-            # d2/drho^2 -> \partial^2/\partial rho^2 at fixed \nabla \rho
-
-            fxc_PBE = self.get_PBE_fxc(pbe_rho=3.0 / (4.0 * np.pi * rs**3.0),
-                                       pbe_s2_g=s2_g)
-            rxapbe_qcut = np.sqrt(-4.0 * np.pi / fxc_PBE)
-
-            fHxc_Gr = (0.5 + 0.0j) * (
-                (1.0 + np.sign(rxapbe_qcut - q[:, np.newaxis])) *
-                (1.0 + fxc_PBE / (4.0 * np.pi) * (q[:, np.newaxis])**2.0))
-
-        elif self.xc == 'CP':
-            # Constantin & Pitarke, Phys. Rev. B 75, 245127 (2007)
-            # equation 4, omega = 0
-            # and equation 9 [note that fxc(q=0) = fxc^ALDA = -4piA/qf^2]
-            # The simplest, static error-function kernel.
-            # Produces correct q = 0 limit, but not q->oo
-
-            cp_kappa = self.get_heg_A(rs) / (qF**2.0)
-            fHxc_Gr = (1.0 + 0.0j) * np.exp(-cp_kappa * q[:, np.newaxis]**2.0)
-
-        elif self.xc == 'CP_dyn':
-            # CP kernel with frequency dependence
-
-            cp_A = self.get_heg_A(rs)
-            cp_D = self.get_heg_D(rs)
-            cp_c = cp_D / cp_A
-            cp_a = 6.0 * np.sqrt(cp_c)
-
-            cp_kappa_w = cp_A / (qF**2.0)
-            cp_kappa_w *= (1.0 + cp_a * w + cp_c * w**2.0) / (1.0 + w**2.0)
-
-            fHxc_Gr = (1.0 + 0.0j) * np.exp(
-                -cp_kappa_w * q[:, np.newaxis]**2.0)
-
-        elif self.xc == 'CDOP' or self.xc == 'CDOPs':
-            # Corradini, Del Sole, Onida and Palummo (CDOP),
-            # Phys. Rev. B 57, 14569 (1998)
-            # Reproduces exact q=0 and q -> oo limits
-
-            cdop_Q = q[:, np.newaxis] / qF
-            cdop_A = self.get_heg_A(rs)
-            cdop_B = self.get_heg_B(rs)
-            if self.xc == 'CDOPs':
-                cdop_C = np.zeros(np.shape(cdop_B))
-            else:
-                cdop_C = self.get_heg_C(rs)
-            cdop_g = cdop_B / (cdop_A - cdop_C)
-            cdop_alpha = 1.5 / (rs**0.25) * cdop_A / (cdop_B * cdop_g)
-            cdop_beta = 1.2 / (cdop_B * cdop_g)
-
-            fHxc_Gr = -cdop_C * cdop_Q**2.0 * (1.0 + 0.0j)
-            fHxc_Gr += -cdop_B * cdop_Q**2.0 * 1.0 / (cdop_g + cdop_Q**2.0)
-            fHxc_Gr += -(cdop_alpha * cdop_Q**4.0 *
-                         np.exp(-1.0 * cdop_beta * cdop_Q**2.0))
-
-            # Hartree
-            fHxc_Gr += 1.0
-
-        elif self.xc == 'JGMs':
-            # Trevisanutto et al.,
-            # Phys. Rev. B 87, 205143 (2013)
-            # equation 4,
-            # so-called "jellium with gap" model, but simplified
-            # so that it is similar to CP.
-
-            jgm_kappa = self.get_heg_A(rs) / (qF**2.0)
-            jgm_n = 3.0 / (4.0 * np.pi * rs**3.0)
-            fHxc_Gr = (1.0 +
-                       0.0j) * (np.exp(-jgm_kappa * q[:, np.newaxis]**2.0) *
-                                np.exp(-scaled_Eg**2.0 /
-                                       (4.0 * np.pi * jgm_n)))
+        fHxc_Gr = get_fHxc_Gr(self.xcflags, rs, q, qF, s2_g, w, scaled_Eg)
 
         # Integrate over r with phase
         fHxc_Gr *= Gphase
@@ -912,164 +810,14 @@ class KernelWave:
         qF = HEG(rs).qF
 
         if self.xc == 'rALDA':
-
-            rxalda_A = 0.25
-            rxalda_qcut = qF * np.sqrt(1.0 / rxalda_A)
-
-            fspinHxc_Gr = ((0.5 + 0.0j) *
-                           (1.0 + np.sign(rxalda_qcut - q[:, np.newaxis])) *
-                           (-1.0) * rxalda_A * (q[:, np.newaxis] / qF)**2.0)
+            fspinHxc_Gr = get_fspinHxc_Gr_rALDA(qF, q)
 
         elif self.xc == 'rAPBE':
-
-            fxc_PBE = self.get_PBE_fxc(pbe_rho=(3.0 / (4.0 * np.pi * rs**3.0)),
-                                       pbe_s2_g=s2_g)
-            rxapbe_qcut = np.sqrt(-4.0 * np.pi / fxc_PBE)
-
-            fspinHxc_Gr = ((0.5 + 0.0j) *
-                           (1.0 + np.sign(rxapbe_qcut - q[:, np.newaxis])) *
-                           fxc_PBE / (4.0 * np.pi) * q[:, np.newaxis]**2.0)
+            fspinHxc_Gr = get_fspinHxc_Gr_rAPBE(rs, q, s2_g)
 
         fspinHxc_Gr *= Gphase
         fspinHxc_GG = np.sum(fspinHxc_Gr, 1) / self.gridsize
         return fspinHxc_GG
-
-    def get_PBE_fxc(self, pbe_rho, pbe_s2_g):
-        pbe_kappa = 0.804
-        pbe_mu = 0.2195149727645171
-
-        pbe_denom_g = 1.0 + pbe_mu * pbe_s2_g / pbe_kappa
-
-        F_g = 1.0 + pbe_kappa - pbe_kappa / pbe_denom_g
-        Fn_g = -8.0 / 3.0 * pbe_mu * pbe_s2_g / pbe_rho / pbe_denom_g**2.0
-        Fnn_g = (-11.0 / 3.0 / pbe_rho * Fn_g -
-                 2.0 / pbe_kappa * Fn_g**2.0 * pbe_denom_g)
-
-        e_g = -3.0 / 4.0 * (3.0 / np.pi)**(1.0 / 3.0) * pbe_rho**(4.0 / 3.0)
-        v_g = 4.0 / 3.0 * e_g / pbe_rho
-        f_g = 1.0 / 3.0 * v_g / pbe_rho
-
-        pbe_f_g = f_g * F_g + 2.0 * v_g * Fn_g + e_g * Fnn_g
-        return pbe_f_g
-
-    def get_heg_A(self, rs):
-        # Returns the A coefficient, where the
-        # q ->0 limiting value of static fxc
-        # of the HEG = -\frac{4\pi A }{q_F^2} = f_{xc}^{ALDA}.
-        # We need correlation energy per electron and first and second derivs
-        # w.r.t. rs
-        # See for instance Moroni, Ceperley and Senatore,
-        # Phys. Rev. Lett. 75, 689 (1995)
-        # (and also Kohn and Sham, Phys. Rev. 140, A1133 (1965) equation 2.7)
-
-        # Exchange contribution
-        heg_A = 0.25
-
-        # Correlation contribution
-        A_ec, A_dec, A_d2ec = self.get_pw_lda(rs)
-        heg_A += (1.0 / 27.0 * rs**2.0 * (9.0 * np.pi / 4.0)**(2.0 / 3.0) *
-                  (2 * A_dec - rs * A_d2ec))
-
-        return heg_A
-
-    def get_heg_B(self, rs):
-        # Returns the B coefficient, where the
-        # q -> oo limiting behaviour of static fxc
-        # of the HEG is -\frac{4\pi B}{q^2} - \frac{4\pi C}{q_F^2}.
-        # Use the parametrisation of Moroni, Ceperley and Senatore,
-        # Phys. Rev. Lett. 75, 689 (1995)
-
-        mcs_xs = np.sqrt(rs)
-
-        mcs_a = (1.0, 2.15, 0.0, 0.435)
-        mcs_b = (3.0, 1.57, 0.0, 0.409)
-
-        mcs_num = 0
-
-        for mcs_j, mcs_coeff in enumerate(mcs_a):
-            mcs_num += mcs_coeff * mcs_xs**mcs_j
-
-        mcs_denom = 0
-
-        for mcs_j, mcs_coeff in enumerate(mcs_b):
-            mcs_denom += mcs_coeff * mcs_xs**mcs_j
-
-        heg_B = mcs_num / mcs_denom
-        return heg_B
-
-    def get_heg_C(self, rs):
-        # Returns the C coefficient, where the
-        # q -> oo limiting behaviour of static fxc
-        # of the HEG is -\frac{4\pi B}{q^2} - \frac{4\pi C}{q_F^2}.
-        # Again see Moroni, Ceperley and Senatore,
-        # Phys. Rev. Lett. 75, 689 (1995)
-
-        C_ec, C_dec, Cd2ec = self.get_pw_lda(rs)
-
-        heg_C = ((-1.0) * np.pi**(2.0 / 3.0) * (1.0 / 18.0)**(1.0 / 3.0) *
-                 (rs * C_ec + rs**2.0 * C_dec))
-
-        return heg_C
-
-    def get_heg_D(self, rs):
-        # Returns a 'D' coefficient, where the
-        # q->0 omega -> oo limiting behaviour
-        # of the frequency dependent fxc is -\frac{4\pi D}{q_F^2}
-        # see Constantin & Pitarke Phys. Rev. B 75, 245127 (2007) equation 7
-
-        D_ec, D_dec, D_d2ec = self.get_pw_lda(rs)
-
-        # Exchange contribution
-        heg_D = 0.15
-        # Correlation contribution
-        heg_D += ((9.0 * np.pi / 4.0)**(2.0 / 3.0) * rs / 3.0 *
-                  (22.0 / 15.0 * D_ec + 26.0 / 15.0 * rs * D_dec))
-        return heg_D
-
-    def get_pw_lda(self, rs):
-        # Returns LDA correlation energy and its first and second
-        # derivatives with respect to rs according to the parametrisation
-        # of Perdew and Wang, Phys. Rev. B 45, 13244 (1992)
-
-        pw_A = 0.031091
-        pw_alp = 0.21370
-        pw_beta = (7.5957, 3.5876, 1.6382, 0.49294)
-
-        pw_logdenom = 2.0 * pw_A * (
-            pw_beta[0] * rs**0.5 + pw_beta[1] * rs**1.0 +
-            pw_beta[2] * rs**1.5 + pw_beta[3] * rs**2.0)
-
-        pw_dlogdenom = 2.0 * pw_A * (0.5 * pw_beta[0] * rs**(-0.5) +
-                                     1.0 * pw_beta[1] +
-                                     1.5 * pw_beta[2] * rs**0.5 +
-                                     2.0 * pw_beta[3] * rs)
-
-        pw_d2logdenom = 2.0 * pw_A * (-0.25 * pw_beta[0] * rs**(-1.5) +
-                                      0.75 * pw_beta[2] * rs**(-0.5) +
-                                      2.0 * pw_beta[3])
-
-        pw_logarg = 1.0 + 1.0 / pw_logdenom
-        pw_dlogarg = (-1.0) / (pw_logdenom**2.0) * pw_dlogdenom
-        pw_d2logarg = 2.0 / (pw_logdenom**3.0) * (pw_dlogdenom**2.0)
-        pw_d2logarg += (-1.0) / (pw_logdenom**2.0) * pw_d2logdenom
-
-        # pw_ec = the correlation energy (per electron)
-        pw_ec = -2.0 * pw_A * (1 + pw_alp * rs) * np.log(pw_logarg)
-
-        # pw_dec = first derivative
-
-        pw_dec = -2.0 * pw_A * (1 + pw_alp * rs) * pw_dlogarg / pw_logarg
-        pw_dec += (-2.0 * pw_A * pw_alp) * np.log(pw_logarg)
-
-        # pw_d2ec = second derivative
-
-        pw_d2ec = (-2.0) * pw_A * pw_alp * pw_dlogarg / pw_logarg
-        pw_d2ec += (-2.0) * pw_A * ((1 + pw_alp * rs) *
-                                    (pw_d2logarg / pw_logarg -
-                                     (pw_dlogarg**2.0) / (pw_logarg**2.0)))
-        pw_d2ec += (-2.0 * pw_A * pw_alp) * pw_dlogarg / pw_logarg
-
-        return pw_ec, pw_dec, pw_d2ec
 
 
 class range_separated:
@@ -1588,6 +1336,8 @@ class XCFlags:
     _linear_kernels = {'rALDAns', 'rAPBEns', 'range_RPA', 'JGMsx', 'RPA',
                        'rALDA', 'rAPBE', 'range_rALDA', 'ALDA'}
 
+    _gapped = {'JGMs', 'JGMsx'}
+
     def __init__(self, xc):
         if xc not in self._accepted_flags:
             raise RuntimeError('%s kernel not recognized' % self.xc)
@@ -1608,34 +1358,35 @@ class XCFlags:
     def dyn_kernel(self):
         return self.xc == 'CP_dyn'
 
+    @property
+    def bandgap_dependent(self):
+        return self.xc in self._gapped
 
-def set_flags(self):
-    """ Based on chosen fxc and av. scheme set up true-false flags """
+    @property
+    def is_ranged(self):
+        return self.xc in {'range_RPA', 'range_rALDA'}
 
-    flags = XCFlags(self.xc)
+    @property
+    def is_apbe(self):
+        # If new GGA kernels are added, maybe there should be an
+        # is_gga property.
+        return self.xc in {'rAPBE', 'rAPBEns'}
 
-    if (self.xc == 'rALDA' or self.xc == 'rAPBE' or self.xc == 'ALDA'):
-        if self.av_scheme is None:
-            self.av_scheme = 'density'
-            # Two-point scheme default for rALDA and rAPBE
+    def choose_avg_scheme(self, avg_scheme=None):
+        xc = self.xc
 
-    self.spin_kernel = flags.spin_kernel
+        if self.spin_kernel:
+            if avg_scheme is None:
+                avg_scheme = 'density'
+                # Two-point scheme default for rALDA and rAPBE
 
-    if self.av_scheme == 'density':
-        assert (self.xc == 'rALDA' or self.xc == 'rAPBE'
-                or self.xc == 'ALDA'), ('Two-point density average ' +
-                                        'only implemented for rALDA and rAPBE')
+        if avg_scheme == 'density':
+            assert self.spin_kernel, ('Two-point density average '
+                                      'only implemented for rALDA and rAPBE')
 
-    elif self.xc not in ('RPA', 'range_RPA'):
-        self.av_scheme = 'wavevector'
-    else:
-        self.av_scheme = None
+        elif xc not in ('RPA', 'range_RPA'):
+            avg_scheme = 'wavevector'
+        else:
+            avg_scheme = None
 
-    self.linear_kernel = flags.linear_kernel
-    self.dyn_kernel = flags.dyn_kernel
-
-    if self.xc == 'JGMs' or self.xc == 'JGMsx':
-        assert (self.Eg is not None), 'JGMs kernel requires a band gap!'
-        self.Eg /= Ha  # Convert from eV
-    else:
-        self.Eg = None
+        return avg_scheme

@@ -33,6 +33,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         self.fftplan = grid.fft_plans()
         self.fftplan2 = fine_grid.fft_plans()
 
+        self.grid = grid
         self.fine_grid = fine_grid
 
         self.vbar_g = pw.zeros()
@@ -148,6 +149,12 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                 if spin < density.ndensities:
                     e_kinetic += vt_R.integrate(self.nct_R)
         return e_kinetic
+
+    def restrict(self, vt_sr):
+        vt_sR = self.grid.empty(vt_sr.dims)
+        for vt_R, vt_r in zip(vt_sR, vt_sr):
+            vt_r.fft_restrict(self.fftplan2, self.fftplan, out=vt_R)
+        return vt_sR
 
     def _move_nct(self, fracpos_ac, ndensities):
         self.ghat_aLh.move(fracpos_ac)

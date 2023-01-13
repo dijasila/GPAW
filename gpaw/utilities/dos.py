@@ -463,8 +463,7 @@ class RawLDOS:
             emax = -1.e32
             for k in range(wfs.kd.nibzkpts):
                 for s in range(wfs.nspins):
-                    e_n = self.paw.get_eigenvalues(kpt=k, spin=s,
-                                                   broadcast=True)
+                    e_n = self.paw.get_eigenvalues(kpt=k, spin=s)
                     emin = min(e_n.min(), emin)
                     emax = max(e_n.max(), emax)
             emin -= 4 * width

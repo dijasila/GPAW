@@ -15,6 +15,7 @@ from gpaw.test import equal
 
 @pytest.mark.gllb
 @pytest.mark.libxc
+@pytest.mark.rttddft
 def test_lcaotddft_restart(in_tmp_dir):
     atoms = molecule('SiH4')
     atoms.center(vacuum=4.0)

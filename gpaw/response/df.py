@@ -6,8 +6,7 @@ from ase.units import Hartree, Bohr
 
 import gpaw.mpi as mpi
 
-from gpaw.response.coulomb_kernels import get_coulomb_kernel
-from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
+from gpaw.response.coulomb_kernels import CoulombKernel
 from gpaw.response.density_kernels import get_density_xc_kernel
 from gpaw.response.chi0 import Chi0Calculator, new_frequency_descriptor
 from gpaw.response.pair import get_gs_and_context, PairDensityCalculator
@@ -18,7 +17,7 @@ class DielectricFunctionCalculator:
         from gpaw.response.pw_parallelization import Blocks1D
         self.chi0calc = chi0calc
 
-        self.truncation = truncation
+        self.coulomb = CoulombKernel(truncation=truncation, gs=self.gs)
         self.context = chi0calc.context
         self.wd = chi0calc.wd
         self.blocks1d = Blocks1D(self.context.world, len(self.wd))
@@ -74,9 +73,9 @@ class DielectricFunctionCalculator:
             self._chi0cache.clear()
 
             chi0 = self.chi0calc.calculate(q_c, spin)
-            chi0_wGG = chi0.distribute_frequencies()
+            chi0_wGG = chi0.get_distributed_frequencies_array()
             self.context.write_timer()
-            things = chi0.pd, chi0_wGG, chi0.chi0_wxvG, chi0.chi0_wvv
+            things = chi0.pd, chi0_wGG, chi0.chi0_WxvG, chi0.chi0_Wvv
             self._chi0cache[key] = things
 
         pd, *more_things = self._chi0cache[key]
@@ -114,30 +113,20 @@ class DielectricFunctionCalculator:
             contributes with less than a fraction of rshewmin on average,
             it will not be included.
         """
-        pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c, spin)
+        pd, chi0_wGG, chi0_WxvG, chi0_Wvv = self.calculate_chi0(q_c, spin)
 
-        N_c = self.gs.kd.N_c
+        coulomb_bare = CoulombKernel(truncation=None, gs=self.gs)
+        Kbare_G = coulomb_bare.V(pd=pd, q_v=q_v)
+        sqrtV_G = Kbare_G**0.5
 
-        Kbare_G = get_coulomb_kernel(pd,
-                                     N_c,
-                                     truncation=None,
-                                     q_v=q_v)
-        vsqr_G = Kbare_G**0.5
-        nG = len(vsqr_G)
+        nG = len(sqrtV_G)
 
-        if self.truncation is not None:
-            if self.truncation == 'wigner-seitz':
-                self.wstc = WignerSeitzTruncatedCoulomb(pd.gd.cell_cv, N_c)
-            else:
-                self.wstc = None
-            Ktrunc_G = get_coulomb_kernel(pd,
-                                          N_c,
-                                          truncation=self.truncation,
-                                          wstc=self.wstc,
-                                          q_v=q_v)
-            K_GG = np.diag(Ktrunc_G / Kbare_G)
-        else:
+        Ktrunc_G = self.coulomb.V(pd=pd, q_v=q_v)
+
+        if self.coulomb.truncation is None:
             K_GG = np.eye(nG, dtype=complex)
+        else:
+            K_GG = np.diag(Ktrunc_G / Kbare_G)
 
         if pd.kd.gamma:
             if isinstance(direction, str):
@@ -148,28 +137,28 @@ class DielectricFunctionCalculator:
                 d_v = direction
             d_v = np.asarray(d_v) / np.linalg.norm(d_v)
             W = self.blocks1d.myslice
-            chi0_wGG[:, 0] = np.dot(d_v, chi0_wxvG[W, 0])
-            chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[W, 1])
-            chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv[W], d_v).T)
+            chi0_wGG[:, 0] = np.dot(d_v, chi0_WxvG[W, 0])
+            chi0_wGG[:, :, 0] = np.dot(d_v, chi0_WxvG[W, 1])
+            chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_Wvv[W], d_v).T)
 
         if xc != 'RPA':
             Kxc_GG = get_density_xc_kernel(pd,
                                            self.gs, self.context,
                                            functional=xc,
                                            chi0_wGG=chi0_wGG)
-            K_GG += Kxc_GG / vsqr_G / vsqr_G[:, np.newaxis]
+            K_GG += Kxc_GG / sqrtV_G / sqrtV_G[:, np.newaxis]
 
         # Invert Dyson eq.
         chi_wGG = []
         for chi0_GG in chi0_wGG:
             """v^1/2 chi0 V^1/2"""
-            chi0_GG[:] = chi0_GG * vsqr_G * vsqr_G[:, np.newaxis]
+            chi0_GG[:] = chi0_GG * sqrtV_G * sqrtV_G[:, np.newaxis]
             chi_GG = np.dot(np.linalg.inv(np.eye(nG) -
                                           np.dot(chi0_GG, K_GG)),
                             chi0_GG)
             if not return_VchiV:
-                chi0_GG /= vsqr_G * vsqr_G[:, np.newaxis]
-                chi_GG /= vsqr_G * vsqr_G[:, np.newaxis]
+                chi0_GG /= sqrtV_G * sqrtV_G[:, np.newaxis]
+                chi_GG /= sqrtV_G * sqrtV_G[:, np.newaxis]
             chi_wGG.append(chi_GG)
 
         if len(chi_wGG):
@@ -239,22 +228,13 @@ class DielectricFunctionCalculator:
         to the head of the inverse dielectric matrix (inverse dielectric
         function)"""
 
-        pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
+        pd, chi0_wGG, chi0_WxvG, chi0_Wvv = self.calculate_chi0(q_c)
 
         if add_intraband:
             print('add_intraband=True is not supported at this time')
             raise NotImplementedError
 
-        N_c = self.gs.kd.N_c
-        if self.truncation == 'wigner-seitz':
-            self.wstc = WignerSeitzTruncatedCoulomb(pd.gd.cell_cv, N_c)
-        else:
-            self.wstc = None
-        K_G = get_coulomb_kernel(pd,
-                                 N_c,
-                                 truncation=self.truncation,
-                                 wstc=self.wstc,
-                                 q_v=q_v)**0.5
+        K_G = self.coulomb.sqrtV(pd=pd, q_v=q_v)
         nG = len(K_G)
 
         if pd.kd.gamma:
@@ -267,9 +247,9 @@ class DielectricFunctionCalculator:
 
             d_v = np.asarray(d_v) / np.linalg.norm(d_v)
             W = self.blocks1d.myslice
-            chi0_wGG[:, 0] = np.dot(d_v, chi0_wxvG[W, 0])
-            chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[W, 1])
-            chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv[W], d_v).T)
+            chi0_wGG[:, 0] = np.dot(d_v, chi0_WxvG[W, 0])
+            chi0_wGG[:, :, 0] = np.dot(d_v, chi0_WxvG[W, 1])
+            chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_Wvv[W], d_v).T)
             if q_v is not None:
                 print('Restoring q dependence of head and wings of chi0')
                 chi0_wGG[:, 1:, 0] *= np.dot(q_v, d_v)
@@ -431,7 +411,7 @@ class DielectricFunctionCalculator:
         else:
             V = np.abs(np.linalg.det(cell_cv[~pbc_c][:, ~pbc_c]))
 
-        if not self.truncation:
+        if not self.coulomb.truncation:
             """Standard expression for the polarizability"""
             df0_w, df_w = self.get_dielectric_function(xc=xc,
                                                        q_c=q_c,
@@ -554,9 +534,10 @@ class DielectricFunction(DielectricFunctionCalculator):
             frequencies over processes.
         txt: str
             Output file.
-        truncation: str
+        truncation: str or None
+            None for no truncation.
             'wigner-seitz' for Wigner Seitz truncated Coulomb.
-            '2D, 1D or 0d for standard analytical truncation schemes.
+            '2D' for standard analytical truncation scheme.
             Non-periodic directions are determined from k-point grid
         eshift: float
             Shift unoccupied bands

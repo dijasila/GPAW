@@ -96,7 +96,7 @@ class Criterion:
     # criteria have been met.
     calc_last = False
     override_others = False
-    description = None
+    description: str
 
     def __repr__(self):
         parameters = signature(self.__class__).parameters
@@ -124,24 +124,29 @@ class Energy(Criterion):
 
     Parameters:
 
-    tol : float
+    tol: float
         Tolerance for conversion; that is the maximum variation among the
-        last n_old values of the (extrapolated) total energy, normalized per
-        valence electron. [eV/(valence electron)]
-    n_old : int
+        last n_old values of the (extrapolated) total energy.
+    n_old: int
         Number of energy values to compare. I.e., if n_old is 3, then this
         compares the peak-to-peak difference among the current total energy
         and the two previous.
+    relative: bool
+        Use total energy [eV] or total energy relative to number of
+        valence electrons [eV/(valence electron)].
     """
     name = 'energy'
     tablename = 'energy'
 
-    def __init__(self, tol, n_old=3):
+    def __init__(self, tol: float, *, n_old: int = 3, relative: bool = True):
         self.tol = tol
         self.n_old = n_old
-        self.description = ('Maximum [total energy] change in last {:d} cyles:'
-                            ' {:g} eV / electron'
-                            .format(self.n_old, self.tol))
+        self.relative = relative
+        self.description = (
+            f'Maximum [total energy] change in last {self.n_old} cyles: '
+            f'{self.tol:g} eV')
+        if relative:
+            self.description += ' / valence electron'
 
     def reset(self):
         self._old = deque(maxlen=self.n_old)
@@ -156,7 +161,7 @@ class Energy(Criterion):
         # use e_total_extrapolated for both. (Should be a miniscule
         # difference, but more consistent.)
         total_energy = context.ham.e_total_extrapolated * Ha
-        if context.wfs.nvalence == 0:
+        if context.wfs.nvalence == 0 or not self.relative:
             energy = total_energy
         else:
             energy = total_energy / context.wfs.nvalence
