@@ -92,7 +92,10 @@ class FXCFactory:
         """Factory function for initializing fxc calculators."""
         fxc_calculator_cls = self.get_fxc_calculator_cls(method)
 
-        return fxc_calculator_cls(self.gs, self.context, **calc_kwargs)
+        if method == 'old':  # Pass also gs and context to old calculator
+            calc_kwargs.update(dict(gs=self.gs, context=self.context))
+
+        return fxc_calculator_cls(**calc_kwargs)
 
     @staticmethod
     def get_fxc_calculator_cls(method):
@@ -108,7 +111,7 @@ class FXCFactory:
 class NewAdiabaticFXCCalculator:
     """Calculator for adiabatic local exchange-correlation kernels."""
 
-    def __init__(self, gs, context, localft_calc: LocalFTCalculator):
+    def __init__(self, localft_calc: LocalFTCalculator):
         """Contruct the fxc calculator based on a local FT calculator."""
         self.localft_calc = localft_calc
 
