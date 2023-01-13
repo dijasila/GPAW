@@ -7,6 +7,7 @@ from gpaw.external import ConstantElectricField, ConstantPotential
 from gpaw.test import equal
 
 
+@pytest.mark.later
 def test_stark_pw():
     h = Atoms('H', pbc=(1, 1, 0), magmoms=[1])
     h.center(vacuum=3.0)

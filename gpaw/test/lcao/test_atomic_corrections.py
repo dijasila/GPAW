@@ -27,6 +27,7 @@ def system2():
     return bulk('Cu', orthorhombic=True) * (2, 1, 2)
 
 
+@pytest.mark.later
 @pytest.mark.parametrize('atoms, kpts', [
     (system1(), [1, 1, 1]),
     (system2(), [2, 3, 4]),

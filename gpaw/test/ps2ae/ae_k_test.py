@@ -1,10 +1,12 @@
+import os
+
 import pytest
 from ase.units import Bohr
 
 from gpaw.calculator import GPAW as GPAW1
+from gpaw.mpi import size
 from gpaw.new.ase_interface import GPAW as GPAW2
 from gpaw.utilities.ps2ae import PS2AE
-from gpaw.mpi import size
 
 
 @pytest.mark.parametrize('name, tol',
@@ -13,6 +15,16 @@ from gpaw.mpi import size
 def test_ae_k(gpw_files, name, tol):
     """Test normalization of non gamma-point wave functions."""
 
+    if os.environ.get('GPAW_NEW'):
+        # New API:
+        if size > 1:
+            return
+        calc = GPAW2(gpw_files[name])
+        ae = calc.calculation.state.ibzwfs.get_all_electron_wave_function(
+            0, kpt=1, grid_spacing=0.1)
+        assert ae.norm2() == pytest.approx(1.0, abs=tol)
+        return
+
     # Old API:
     calc = GPAW1(gpw_files[name])
     converter = PS2AE(calc)
@@ -20,10 +32,3 @@ def test_ae_k(gpw_files, name, tol):
     norm = converter.gd.integrate((ae * ae.conj()).real)
     assert norm == pytest.approx(1.0, abs=tol)
 
-    # New API:
-    if size > 1:
-        return
-    calc = GPAW2(gpw_files[name])
-    ae = calc.calculation.state.ibzwfs.get_all_electron_wave_function(
-        0, kpt=1, grid_spacing=0.1)
-    assert ae.norm2() == pytest.approx(1.0, abs=tol)

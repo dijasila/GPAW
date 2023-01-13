@@ -16,7 +16,7 @@ def test_gamma_point_calculation():
                 basis='szp(dzp)',
                 txt=None)
     calc.atoms = atoms
-    calc.get_potential_energy()
+    atoms.get_potential_energy()
 
     los = LocalOrbitals(calc)
 
@@ -33,8 +33,7 @@ def test_gamma_point_calculation():
     assert los.indices == (
         los.groups[group_energies[3]]
         + los.groups[group_energies[-3]]
-        + los.groups[group_energies[-1]]
-    )
+        + los.groups[group_energies[-1]])
     assert len(los.indices) == (6 * 3)
 
 
@@ -51,7 +50,7 @@ def test_k_point_calculation():
                 symmetry={'point_group': False,
                           'time_reversal': True})
     calc.atoms = atoms
-    calc.get_potential_energy()
+    atoms.get_potential_energy()
 
     los = LocalOrbitals(calc)
 
@@ -68,6 +67,5 @@ def test_k_point_calculation():
     assert los.indices == (
         los.groups[group_energies[3]]
         + los.groups[group_energies[-3]]
-        + los.groups[group_energies[-1]]
-    )
+        + los.groups[group_energies[-1]])
     assert len(los.indices) == (4 * 3)
