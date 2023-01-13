@@ -40,6 +40,7 @@ def test_stark_pw():
         assert a == pytest.approx(aref, abs=0.1)
 
 
+@pytest.mark.later
 def test_ext_potential_external_pw():
     ConstantPotential()
 

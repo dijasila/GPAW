@@ -14,7 +14,7 @@ from ase.build import molecule
 
 from gpaw import GPAW, ConvergenceError
 from gpaw.utilities.blas import axpy
-
+from gpaw.new.scf import SCFConvergenceError
 
 def test_lcao_density():
     system = molecule('H2O')
@@ -26,7 +26,7 @@ def test_lcao_density():
     system.calc = calc
     try:
         system.get_potential_energy()
-    except ConvergenceError:
+    except (ConvergenceError, SCFConvergenceError):
         pass
 
     wfs = calc.wfs

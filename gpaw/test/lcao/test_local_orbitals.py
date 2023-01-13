@@ -15,7 +15,7 @@ def test_gamma_point_calculation():
                 xc='LDA',
                 basis='szp(dzp)',
                 txt=None)
-    calc.atoms = atoms
+    atoms.calc = calc
     atoms.get_potential_energy()
 
     los = LocalOrbitals(calc)
@@ -49,7 +49,7 @@ def test_k_point_calculation():
                       'gamma': True},
                 symmetry={'point_group': False,
                           'time_reversal': True})
-    calc.atoms = atoms
+    atoms.calc = calc
     atoms.get_potential_energy()
 
     los = LocalOrbitals(calc)
