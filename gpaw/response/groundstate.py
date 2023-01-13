@@ -14,6 +14,7 @@ class ResponseGroundStateAdapter:
         self.kd = wfs.kd
         self.world = calc.world
         self.gd = wfs.gd
+        self.finegd = calc.density.finegd
         self.bd = wfs.bd
         self.nspins = wfs.nspins
         self.dtype = wfs.dtype
@@ -87,16 +88,32 @@ class ResponseGroundStateAdapter:
 
     @property
     def nt_sR(self):
-        # Used by fxc_kernels
+        # Used by localft and fxc_kernels
         return self._density.nt_sG
+
+    @property
+    def nt_sr(self):
+        # Used by localft
+        if self._density.nt_sg is None:
+            self._density.interpolate_pseudo_density()
+        return self._density.nt_sg
 
     @property
     def D_asp(self):
         # Used by fxc_kernels
         return self._density.D_asp
 
-    def all_electron_density(self, gridrefinement=2):
-        # Used by fxc_kernels
+    def get_pseudo_density(self, gridrefinement=2):
+        # Used by localft
+        if gridrefinement == 1:
+            return self.nt_sR, self.gd
+        elif gridrefinement == 2:
+            return self.nt_sr, self.finegd
+        else:
+            raise ValueError(f'Invalid gridrefinement {gridrefinement}')
+
+    def get_all_electron_density(self, gridrefinement=2):
+        # Used by fxc, fxc_kernels and localft
         return self._density.get_all_electron_density(
             atoms=self.atoms, gridrefinement=gridrefinement)
 

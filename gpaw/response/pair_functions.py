@@ -24,14 +24,16 @@ class SingleQPWDescriptor(PWDescriptor):
     def copy(self):
         return self.copy_with()
 
-    def copy_with(self, ecut=None, gammacentered=None):
+    def copy_with(self, ecut=None, gd=None, gammacentered=None):
         if ecut is None:
             ecut = self.ecut
+        if gd is None:
+            gd = self.gd
         if gammacentered is None:
             gammacentered = self.gammacentered
 
         return SingleQPWDescriptor.from_q(
-            self.q_c, ecut, self.gd, gammacentered=gammacentered)
+            self.q_c, ecut, gd, gammacentered=gammacentered)
 
 
 class PairFunction(ABC):
