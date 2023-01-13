@@ -27,6 +27,8 @@ class Chi:
         self.Vbare_G = Vbare_G
         self.Kxc_GG = Kxc_GG  # Use Kxc_G in the future XXX
 
+        self._chi_zGG = None  # prepare buffer
+
         self.dyson_solver = dyson_solver
 
     def write_macroscopic_component(self, filename):
@@ -35,11 +37,12 @@ class Chi:
         susceptibility and the frequency grid."""
         from gpaw.response.df import write_response_function
 
-        # For now, we assume that eta is fixed, so we don't need to write it
-        omega_w = self.chiks.zd.omega_w * Hartree
+        omega_w, chiks_w, chi_w = self.get_macroscopic_component()
+        if self.world.rank == 0:
+            write_response_function(filename, omega_w, chiks_w, chi_w)
 
-        chiks_wGG = self.chiks.array
-        chi_wGG = self._calculate()
+    def get_macroscopic_component(self):
+        omega_w, chiks_wGG, chi_wGG = self.get_arrays()
 
         # Macroscopic component
         chiks_w = chiks_wGG[:, 0, 0]
@@ -49,8 +52,7 @@ class Chi:
         chiks_w = self.collect(chiks_w)
         chi_w = self.collect(chi_w)
 
-        if self.world.rank == 0:
-            write_response_function(filename, omega_w, chiks_w, chi_w)
+        return omega_w, chiks_w, chi_w
 
     def write_component_array(self, filename, *, reduced_ecut):
         """Calculate the many-body susceptibility and write it to a file along
@@ -78,6 +80,20 @@ class Chi:
 
         if self.world.rank == 0:
             write_component(omega_w, G_Gc, chiks_wGG, chi_wGG, filename)
+
+    def get_arrays(self):
+        # For now, we assume that eta is fixed -> z index == w index
+        omega_w = self.chiks.zd.omega_w * Hartree
+        chiks_wGG = self.chiks.array
+        chi_wGG = self.chi_zGG
+
+        return omega_w, chiks_wGG, chi_wGG
+
+    @property
+    def chi_zGG(self):
+        if self._chi_zGG is None:
+            self._chi_zGG = self._calculate()
+        return self._chi_zGG
 
     def _calculate(self):
         """Calculate chi_zGG."""
