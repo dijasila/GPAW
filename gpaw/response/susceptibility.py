@@ -101,10 +101,10 @@ class Chi:
 
     def _calculate(self):
         """Calculate chi_zGG."""
-        return self.dyson_solver.invert_dyson(self.chiks.array, self.Khxc_GG)
+        return self.dyson_solver.invert_dyson(self.chiks.array,
+                                              self.get_Khxc_GG())
 
-    @property
-    def Khxc_GG(self):
+    def get_Khxc_GG(self):
         """Hartree-exchange-correlation kernel."""
         # Allocate array
         nG = self.chiks.array.shape[2]
