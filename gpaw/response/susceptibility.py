@@ -3,6 +3,7 @@ import pickle
 import numpy as np
 
 from ase.units import Hartree
+from ase.utils import lazyproperty
 
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKS, ChiKSCalculator
@@ -26,8 +27,6 @@ class Chi:
 
         self.Vbare_G = Vbare_G
         self.Kxc_GG = Kxc_GG  # Use Kxc_G in the future XXX
-
-        self._chi_zGG = None  # prepare buffer
 
         self.dyson_solver = dyson_solver
 
@@ -93,14 +92,8 @@ class Chi:
 
         return omega_w, chiks_wGG, chi_wGG
 
-    @property
+    @lazyproperty
     def chi_zGG(self):
-        if self._chi_zGG is None:
-            self._chi_zGG = self._calculate()
-        return self._chi_zGG
-
-    def _calculate(self):
-        """Calculate chi_zGG."""
         return self.dyson_solver.invert_dyson(self.chiks.array,
                                               self.get_Khxc_GG())
 
