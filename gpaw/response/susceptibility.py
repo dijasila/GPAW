@@ -42,7 +42,8 @@ class Chi:
             write_response_function(filename, omega_w, chiks_w, chi_w)
 
     def get_macroscopic_component(self):
-        omega_w, chiks_wGG, chi_wGG = self.get_arrays()
+        """Get the macroscopic (G=0) component data, collected on all ranks"""
+        omega_w, chiks_wGG, chi_wGG = self.get_distributed_arrays()
 
         # Macroscopic component
         chiks_w = chiks_wGG[:, 0, 0]
@@ -54,20 +55,21 @@ class Chi:
 
         return omega_w, chiks_w, chi_w
 
-    def write_component_array(self, filename, *, reduced_ecut):
+    def write_reduced_arrays(self, filename, *, reduced_ecut):
         """Calculate the many-body susceptibility and write it to a file along
         with the Kohn-Sham susceptibility and frequency grid within a reduced
         plane-wave basis."""
-        omega_w, G_Gc, chiks_wGG, chi_wGG = self.get_component_array(
+        omega_w, G_Gc, chiks_wGG, chi_wGG = self.get_reduced_arrays(
             reduced_ecut=reduced_ecut)
 
         if self.world.rank == 0:
             write_component(omega_w, G_Gc, chiks_wGG, chi_wGG, filename)
 
-    def get_component_array(self, *, reduced_ecut):
-        omega_w, chiks_wGG, chi_wGG = self.get_arrays()
+    def get_reduced_arrays(self, *, reduced_ecut):
+        """Get data arrays with a reduced ecut, gathered on root."""
+        omega_w, chiks_wGG, chi_wGG = self.get_distributed_arrays()
 
-        # Get susceptibility in a reduced plane-wave representation
+        # Map the susceptibilities to a reduced plane-wave representation
         pd = self.chiks.pd
         mask_G = get_pw_reduction_map(pd, reduced_ecut)
         chiks_wGG = np.ascontiguousarray(chiks_wGG[:, mask_G, :][:, :, mask_G])
@@ -82,7 +84,8 @@ class Chi:
 
         return omega_w, G_Gc, chiks_wGG, chi_wGG
 
-    def get_arrays(self):
+    def get_distributed_arrays(self):
+        """Get data arrays, frequency distributed over world."""
         # For now, we assume that eta is fixed -> z index == w index
         omega_w = self.chiks.zd.omega_w * Hartree
         chiks_wGG = self.chiks.array
