@@ -54,7 +54,7 @@ class Overlap:
             When False, existing P_ani are used
 
         """
-        if isinstance(a_xG, gpu.array.Array):
+        if gpu.is_device_array(a_xG):
             gpu.memcpy_dtod(b_xG, a_xG, a_xG.nbytes)
         else:
             b_xG[:] = a_xG
@@ -75,7 +75,7 @@ class Overlap:
     def apply_inverse(self, a_xG, b_xG, wfs, kpt, calculate_P_ani=True):
         """Apply approximative inverse overlap operator to wave functions."""
 
-        if isinstance(a_xG, gpu.array.Array):
+        if gpu.is_device_array(a_xG):
             gpu.memcpy_dtod(b_xG, a_xG, a_xG.nbytes)
         else:
             b_xG[:] = a_xG
