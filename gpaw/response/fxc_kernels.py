@@ -150,7 +150,7 @@ class NewAdiabaticFXCCalculator:
     def unfold_kernel_matrix(self, pd, large_pd, fxc_Q):
         """Unfold the kernel fxc(Q) to the kernel matrix fxc_GG'=fxc(G-G')"""
         # Calculate (G-G') reciprocal space vectors
-        dG_GGv = self.calculate_dG(pd)
+        dG_GGv = calculate_dG(pd)
         GG_shape = dG_GGv.shape[:2]
 
         # Reshape to composite K = (G, G') index
@@ -171,18 +171,6 @@ class NewAdiabaticFXCCalculator:
         return fxc_GG
 
     @staticmethod
-    def calculate_dG(pd):
-        """Calculate dG_GG' = (G-G') for the plane wave basis in pd."""
-        nG = pd.ngmax
-        G_Gv = pd.get_reciprocal_vectors(add_q=False)
-
-        dG_GGv = np.zeros((nG, nG, 3))
-        for v in range(3):
-            dG_GGv[:, :, v] = np.subtract.outer(G_Gv[:, v], G_Gv[:, v])
-
-        return dG_GGv
-
-    @staticmethod
     def get_Q_dG_map(large_pd, dG_dGv):
         """Create mapping between (G-G') index dG and large_pd index Q."""
         G_Qv = large_pd.get_reciprocal_vectors(add_q=False)
@@ -200,6 +188,18 @@ class NewAdiabaticFXCCalculator:
             'large_pd for all dG_dGv'
 
         return Q_dG
+
+
+def calculate_dG(pd):
+    """Calculate dG_GG' = (G-G') for the plane wave basis in pd."""
+    nG = pd.ngmax
+    G_Gv = pd.get_reciprocal_vectors(add_q=False)
+
+    dG_GGv = np.zeros((nG, nG, 3))
+    for v in range(3):
+        dG_GGv[:, :, v] = np.subtract.outer(G_Gv[:, v], G_Gv[:, v])
+
+    return dG_GGv
 
 
 class OldAdiabaticFXCCalculator:
