@@ -142,6 +142,7 @@ class IBZWaveFunctions:
         for wfs in self:
             e_band += wfs.occ_n @ wfs.eig_n * wfs.weight * degeneracy
         e_band = self.kpt_comm.sum(e_band)
+
         self.energies = {
             'band': e_band,
             'entropy': e_entropy,
