@@ -123,7 +123,7 @@ class NewAdiabaticFXCCalculator:
         large_pd = pd.copy_with(ecut=large_ecut, gd=self.gs.finegd)
         
         # Calculate fxc(Q) on the large plane-wave grid (Q = large grid index)
-        add_fxc = self.create_add_fxc(fxc, spincomponent)
+        add_fxc = create_add_fxc(fxc, spincomponent)
         fxc_Q = self.localft_calc(large_pd, add_fxc)
 
         # Unfold the kernel according to Kxc_GG' = 1 / V0 * fxc(G-G')
@@ -131,20 +131,6 @@ class NewAdiabaticFXCCalculator:
             pd, large_pd, fxc_Q)
 
         return Kxc_GG
-
-    @staticmethod
-    def create_add_fxc(fxc, spincomponent):
-        """Creator component to set up the right calculation."""
-        assert fxc in ['ALDA_x', 'ALDA_X', 'ALDA']
-
-        if spincomponent in ['00', 'uu', 'dd']:
-            add_fxc = partial(add_LDA_dens_fxc, fxc=fxc)
-        elif spincomponent in ['+-', '-+']:
-            add_fxc = partial(add_LSDA_trans_fxc, fxc=fxc)
-        else:
-            raise ValueError(spincomponent)
-
-        return add_fxc
 
     @timer('Unfold kernel matrix')
     def unfold_kernel_matrix(self, pd, large_pd, fxc_Q):
@@ -188,6 +174,21 @@ class NewAdiabaticFXCCalculator:
             'large_pd for all dG_dGv'
 
         return Q_dG
+
+
+def create_add_fxc(fxc, spincomponent):
+    """Create an add_fxc function according to the requested functional and
+    spin component."""
+    assert fxc in ['ALDA_x', 'ALDA_X', 'ALDA']
+
+    if spincomponent in ['00', 'uu', 'dd']:
+        add_fxc = partial(add_LDA_dens_fxc, fxc=fxc)
+    elif spincomponent in ['+-', '-+']:
+        add_fxc = partial(add_LSDA_trans_fxc, fxc=fxc)
+    else:
+        raise ValueError(spincomponent)
+
+    return add_fxc
 
 
 def calculate_dG(pd):
