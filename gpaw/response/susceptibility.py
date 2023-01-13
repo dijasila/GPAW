@@ -58,12 +58,14 @@ class Chi:
         """Calculate the many-body susceptibility and write it to a file along
         with the Kohn-Sham susceptibility and frequency grid within a reduced
         plane-wave basis."""
+        omega_w, G_Gc, chiks_wGG, chi_wGG = self.get_component_array(
+            reduced_ecut=reduced_ecut)
 
-        # For now, we assume that eta is fixed, so we don't need to write it
-        omega_w = self.chiks.zd.omega_w * Hartree
+        if self.world.rank == 0:
+            write_component(omega_w, G_Gc, chiks_wGG, chi_wGG, filename)
 
-        chiks_wGG = self.chiks.array
-        chi_wGG = self._calculate()
+    def get_component_array(self, *, reduced_ecut):
+        omega_w, chiks_wGG, chi_wGG = self.get_arrays()
 
         # Get susceptibility in a reduced plane-wave representation
         pd = self.chiks.pd
@@ -78,8 +80,7 @@ class Chi:
         chiks_wGG = self.gather(chiks_wGG)
         chi_wGG = self.gather(chi_wGG)
 
-        if self.world.rank == 0:
-            write_component(omega_w, G_Gc, chiks_wGG, chi_wGG, filename)
+        return omega_w, G_Gc, chiks_wGG, chi_wGG
 
     def get_arrays(self):
         # For now, we assume that eta is fixed -> z index == w index
