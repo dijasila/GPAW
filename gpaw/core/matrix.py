@@ -6,18 +6,15 @@ from typing import Dict, Tuple, Union
 
 import _gpaw
 import numpy as np
-import scipy
 import scipy.linalg as sla
 
 import gpaw.utilities.blas as blas
-from gpaw import debug
+from gpaw import debug, SCIPY_VERSION
 from gpaw.gpu import cupy as cp
 from gpaw.mpi import MPIComm, _Communicator, serial_comm
 from gpaw.typing import Array1D, ArrayLike1D, ArrayLike2D
 
 _global_blacs_context_store: Dict[Tuple[_Communicator, int, int], int] = {}
-
-SCIPY_VERSION = [int(x) for x in scipy.__version__.split('.')[:2]]
 
 
 def suggest_blocking(N: int, ncpus: int) -> tuple[int, int, int]:
