@@ -6,7 +6,7 @@ from gpaw import SCIPY_VERSION
 
 @pytest.mark.gpu
 @pytest.mark.serial
-@pytest.mark.skipif(SCIPY_VERSION < [1, 6], 'Too old scipy')
+@pytest.mark.skipif(SCIPY_VERSION < [1, 6], reason='Too old scipy')
 def test_gpu_pw():
     atoms = Atoms('H2')
     atoms.positions[1, 0] = 0.75
