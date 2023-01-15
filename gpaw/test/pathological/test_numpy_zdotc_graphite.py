@@ -2,6 +2,7 @@
 when gpaw-python and numpy are linked to different blas"""
 from math import sqrt
 
+import pytest
 from ase import Atoms
 
 from gpaw import GPAW, ConvergenceError
@@ -9,8 +10,6 @@ from gpaw import GPAW, ConvergenceError
 kpts = (2, 1, 1)
 a = 1.42
 c = 3.355
-
-import pytest
 
 
 @pytest.mark.legacy

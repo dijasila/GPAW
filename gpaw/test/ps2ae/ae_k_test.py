@@ -31,4 +31,3 @@ def test_ae_k(gpw_files, name, tol):
     ae = converter.get_wave_function(n=0, k=1, ae=True) * Bohr**1.5
     norm = converter.gd.integrate((ae * ae.conj()).real)
     assert norm == pytest.approx(1.0, abs=tol)
-
