@@ -184,6 +184,11 @@ class LCAOWaveFunctions(WaveFunctions):
             weight=self.weight,
             ncomponents=self.ncomponents)
 
+    def move(self,
+             fracpos_ac: Array2D,
+             atomdist: AtomDistribution) -> None:
+        ...
+
     def force_contribution(self, potential: Potential, F_av: Array2D):
         from gpaw.new.lcao.forces import add_force_contributions
         add_force_contributions(self, potential, F_av)
