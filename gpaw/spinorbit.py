@@ -1,3 +1,4 @@
+from __future__ import annotations
 from math import nan
 from typing import (Union, List, TYPE_CHECKING, Dict, Optional, Callable,
                     Tuple, Iterable, Iterator)
@@ -250,6 +251,12 @@ class BZWaveFunctions:
                     ) -> Array2D:
         """Eigenvalues in eV for the whole BZ."""
         return self._collect(attrgetter('eig_m'), broadcast=broadcast)
+
+    def occupation_numbers(self,
+                           broadcast: bool = True
+                           ) -> Array2D:
+        """Occupation numbers for the whole BZ."""
+        return self._collect(attrgetter('f_m'), broadcast=broadcast)
 
     def eigenvectors(self,
                      broadcast: bool = True
@@ -517,7 +524,7 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
                                          kd.comm,
                                          serial_comm)
         occcalc = occcalc or calc.wfs.occupations
-        occcalc = occcalc.copy(bz2ibzmap=np.arange(kd.nbzkpts),
+        occcalc = occcalc.copy(bz2ibzmap=list(range(kd.nbzkpts)),
                                parallel_layout=parallel_layout)
     else:
         occcalc = None
@@ -574,7 +581,7 @@ def get_radial_potential(a: Setup, xc, D_sp: Array2D) -> Array1D:
     fc_g = a.Z / r_g**2
 
     # Hartree force
-    rho_g = 4 * np.pi * r_g**2 * dr_g * np.sum(n_sg, axis=0)
+    rho_g = 4 * np.pi * r_g**2 * dr_g * np.sum(n_sg[:Ns], axis=0)
     fh_g = -np.array([np.sum(rho_g[:ig]) for ig in range(len(r_g))]) / r_g**2
 
     f_g = fc_g + fh_g
@@ -582,8 +589,8 @@ def get_radial_potential(a: Setup, xc, D_sp: Array2D) -> Array1D:
     # xc force
     if xc.type != 'GLLB':
         v_sg = np.zeros_like(n_sg)
-        xc.calculate_spherical(a.xc_correction.rgd, n_sg, v_sg)
-        fxc_g = np.mean([a.xc_correction.rgd.derivative(v_g) for v_g in v_sg],
+        xc.calculate_spherical(rgd, n_sg, v_sg)
+        fxc_g = np.mean([rgd.derivative(v_g) for v_g in v_sg],
                         axis=0)
         f_g += fxc_g
 
