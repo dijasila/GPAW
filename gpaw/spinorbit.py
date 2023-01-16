@@ -455,7 +455,8 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
                     theta: float = 0.0,  # degrees
                     phi: float = 0.0,  # degrees
                     eigenvalues: Array3D = None,  # eV
-                    occcalc: OccupationNumberCalculator = None
+                    occcalc: OccupationNumberCalculator = None,
+                    projected: bool = False
                     ) -> BZWaveFunctions:
     """Calculate SOC eigenstates.
 
@@ -498,7 +499,7 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
     # <phi_i|dV_adr / r * L_v|phi_j>
     dVL_avii = {a: soc(calc.wfs.setups[a],
                        calc.hamiltonian.xc,
-                       D_sp) * scale
+                       D_sp, projected, theta, phi) * scale
                 for a, D_sp in calc.density.D_asp.items()}
 
     kd = calc.wfs.kd
@@ -532,7 +533,8 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
     return BZWaveFunctions(kd, bzwfs, occcalc, calc.wfs.nvalence)
 
 
-def soc(a: Setup, xc, D_sp: Array2D) -> Array3D:
+def soc(a: Setup, xc, D_sp: Array2D, projected: bool = False,
+        theta: float = 0, phi: float = 0) -> Array3D:
     """<phi_i|dV_adr / r * L_v|phi_j>"""
     v_g = get_radial_potential(a, xc, D_sp)
     Ng = len(v_g)
@@ -556,6 +558,12 @@ def soc(a: Setup, xc, D_sp: Array2D) -> Array3D:
                 pass
             N2 += 2 * l2 + 1
         N1 += Nm
+
+    if projected:
+        theta *= np.pi/180
+        phi *= np.pi/180
+        n_v = np.array([np.sin(theta)*np.cos(phi), np.sin(theta)*np.sin(phi), np.cos(theta)])
+        dVL_vii = np.multiply(np.dot(dVL_vii.T, n_v)[:, :, np.newaxis], n_v).T
     return dVL_vii * alpha**2 / 4.0
 
 
