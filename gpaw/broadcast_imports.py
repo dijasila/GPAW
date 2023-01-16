@@ -112,13 +112,9 @@ class BroadcastImporter:
             if spec.loader is None:
                 return None
 
-            try:
-                code = spec.loader.get_code(fullname)
-                if code is None:  # C extensions
-                    return None
-            except SyntaxError:
-                code = compile(
-                    'def compiled_placeholder(): pass', 'qwerty', 'exec')
+            code = spec.loader.get_code(fullname)
+            if code is None:  # C extensions
+                return None
 
             loader = BroadcastLoader(spec, self.module_cache)
             assert fullname == spec.name
