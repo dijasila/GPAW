@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import scipy.linalg as sla
 
-fake_cupy = True
+cupy_is_fake = True
 if TYPE_CHECKING:
     import gpaw.gpu.cpupy as cupy
     import gpaw.gpu.cpupyx as cupyx
@@ -11,7 +11,7 @@ else:
     try:
         import cupy
         import cupyx
-        fake_cupy = False
+        cupy_is_fake = False
     except ImportError:
         import gpaw.gpu.cpupy as cupy
         import gpaw.gpu.cpupyx as cupyx

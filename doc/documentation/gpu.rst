@@ -18,4 +18,7 @@ having a physical GPU.  To enable the fake ``cupy`` module, do::
 
   GPAW_CPUPY=1 python ...
 
+This allows users without a GPU to find out if their code interferes with the
+GPU implementation, simply by running the tests.
+
 .. _cupy:: https://cupy.dev/
