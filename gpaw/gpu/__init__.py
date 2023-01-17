@@ -1,4 +1,3 @@
-import os
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -12,7 +11,6 @@ else:
         import cupy
         import cupyx
     except ImportError:
-        assert os.environ.get('GPAW_CPUPY')
         import gpaw.gpu.cpupy as cupy
         import gpaw.gpu.cpupyx as cupyx
 
