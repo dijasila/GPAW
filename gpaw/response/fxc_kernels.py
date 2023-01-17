@@ -126,7 +126,9 @@ class NewAdiabaticFXCCalculator:
         """Calculate the xc kernel matrix Kxc_GG' = 1 / V0 * fxc(G-G')."""
         # Generate a large_pd to encompass all G-G' in pd
         large_ecut = 4 * pd.ecut  # G = 1D grid of |G|^2/2 < ecut
-        large_pd = pd.copy_with(ecut=large_ecut, gd=self.gs.finegd)
+        large_pd = pd.copy_with(ecut=large_ecut,
+                                gammacentered=True,
+                                gd=self.gs.finegd)
         
         # Calculate fxc(Q) on the large plane-wave grid (Q = large grid index)
         add_fxc = create_add_fxc(fxc, spincomponent)
