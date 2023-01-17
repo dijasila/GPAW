@@ -282,14 +282,14 @@ class Matrix:
             raise ValueError(f'scalapack_inverse error: {info}')
 
     def invcholesky(self) -> None:
-        """Inverse of Cholesky decomposition.
+        """In-place inverse of Cholesky decomposition.
 
-        Returns a lower triangle matrix `L` where:::
+        Calculate a lower triangle matrix `L` where:::
 
              †
-          LSL = 1
+          LSL = 1,
 
-        Only the lower part of `S` is used.
+        and `S` is self.  Only the lower part of `S` is used.
 
         >>> S = Matrix(2, 2, data=[[1.0, np.nan],
         ...                        [0.1, 1.0]])
@@ -307,13 +307,17 @@ class Matrix:
                                     lower=True,
                                     overwrite_a=True,
                                     check_finite=debug)
+                print('L', L_nn)
                 S.data[:] = sla.inv(L_nn,
                                     overwrite_a=True,
                                     check_finite=debug)
+                print('iL', S.data)
             else:
                 self.tril2full()
                 L_nn = cp.linalg.cholesky(S.data)
+                print('LG', L_nn._data)
                 S.data[:] = cp.linalg.inv(L_nn)
+                print('iLG', S.data._data)
 
         if S is not self:
             S.redist(self)
@@ -369,7 +373,7 @@ class Matrix:
                     H.data[np.triu_indices(H.shape[0], 1)] = 42.0
                 if S is None:
                     if self.xp is not np:
-                        eps, H.data.T[:] = self.xp.linalg.eigh(
+                        eps, H.data.T[:] = cp.linalg.eigh(
                             H.data,
                             UPLO='L')
                         return eps
@@ -381,7 +385,9 @@ class Matrix:
                         driver='evx' if H.data.size == 1 else 'evd')
                 else:
                     if self.xp is not np:
+                        s = S.data._data.copy()
                         S.invcholesky()
+                        self.tril2full()
                         return self.eighg(S)
                     if debug:
                         S.data[self.xp.triu_indices(H.shape[0], 1)] = 42.0
@@ -798,12 +804,20 @@ class CuPyDistribution(MatrixDistribution):
            ~      †   ~~   ~         †~
            H = LHL ,  HC = CΛ,  C = L C.
         """
+        print(L.data._data)
+        print(H.data._data)
+        print('eig0', np.linalg.eigh(L.data._data @ H.data._data @ L.data._data.T.conj()))
         tmp = H.new()
         self.multiply(1.0, L, 'N', H, 'N', 0.0, tmp)
         self.multiply(1.0, tmp, 'N', L, 'C', 0.0, H, symmetric=True)
         eig_M, Ct_MM = cp.linalg.eigh(H.data, UPLO='L')
+        assert Ct_MM._data.flags.c_contiguous
+        print(H.data._data @ Ct_MM._data - Ct_MM._data @ np.diag(eig_M))
         Ct = H.new(data=Ct_MM)
-        self.multiply(1.0, L, 'C', Ct, 'N', 0.0, H)
+        print(L.data._data.T.conj() @ Ct_MM._data)
+        # self.multiply(1.0, L, 'C', Ct, 'N', 0.0, H)
+        self.multiply(1.0, Ct, 'C', L, 'N', 0.0, H)
+        H.complex_conjugate()
         return eig_M
 
 

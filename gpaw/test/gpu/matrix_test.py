@@ -26,6 +26,8 @@ def test_eigh():
     S = Matrix(2, 2, data=np.array([[1, 0.1 + 0.2j], [0.1 - 0.2j, 0.9]]))
     h = Matrix(2, 2, data=cp.asarray(H.data))
     s = Matrix(2, 2, data=cp.asarray(S.data))
+    from scipy.linalg import eigh
+    print(1000, eigh(h.data._data, s.data._data))
     eigs = H.eigh(S)
     print(eigs, H.data)
     eigs = h.eigh(s)
