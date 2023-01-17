@@ -1,3 +1,4 @@
+import os
 from math import pi
 from types import ModuleType
 
@@ -106,7 +107,8 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         pw = self.wf_desc.new(kpt=kpt_c)
         xp: ModuleType
         if self.params.parallel['gpu']:
-            from gpaw.gpu import cupy
+            from gpaw.gpu import cupy, fake_cupy
+            assert not fake_cupy or os.environ.get('GPAW_CPUPY')
             xp = cupy
         else:
             xp = np

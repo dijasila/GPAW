@@ -1,4 +1,3 @@
-import os
 import numpy as np
 import gpaw.gpu.cpupy.linalg as linalg
 import gpaw.gpu.cpupy.cublas as cublas
@@ -57,7 +56,6 @@ def triu_indices(n, k=0, m=None):
 
 class ndarray:
     def __init__(self, data):
-        assert os.environ.get('GPAW_CPUPY')
         assert isinstance(data, np.ndarray), type(data)
         self._data = data
         self.shape = data.shape
