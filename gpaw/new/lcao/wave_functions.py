@@ -72,6 +72,9 @@ class LCAOWaveFunctions(WaveFunctions):
         L_sMsM.data[M:, M:] = S_MM.data
         return L_sMsM
 
+    def _short_string(self, global_shape):
+        return f'basis functions: {global_shape[0]}'
+
     def array_shape(self, global_shape=False):
         if global_shape:
             return self.C_nM.shape[1:]

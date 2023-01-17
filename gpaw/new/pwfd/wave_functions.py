@@ -53,6 +53,9 @@ class PWFDWaveFunctions(WaveFunctions):
         if hasattr(data, 'fd'):
             data.fd.close()
 
+    def _short_string(self, global_shape: tuple[int]) -> str:
+        return self.psit_nX.desc._short_string(global_shape)
+
     def array_shape(self, global_shape=False):
         if global_shape:
             shape = self.psit_nX.desc.global_shape()
