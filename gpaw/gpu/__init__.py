@@ -1,6 +1,8 @@
+import os
+from typing import TYPE_CHECKING
+
 import numpy as np
 import scipy.linalg as sla
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     import gpaw.gpu.cpupy as cupy
@@ -10,6 +12,7 @@ else:
         import cupy
         import cupyx
     except ImportError:
+        assert os.environ.get('GPAW_CPUPY')
         import gpaw.gpu.cpupy as cupy
         import gpaw.gpu.cpupyx as cupyx
 
