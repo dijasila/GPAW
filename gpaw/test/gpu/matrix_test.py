@@ -17,3 +17,17 @@ def test_zyrk():
     b2.tril2full()
     c = b2.to_cpu()
     assert (c.data == b.data).all()
+
+
+@pytest.mark.gpu
+@pytest.mark.serial
+def test_eigh():
+    H = Matrix(2, 2, data=np.array([[2, 0.1 + 0.1j], [0.1 - 0.1j, 3]]))
+    S = Matrix(2, 2, data=np.array([[1, 0.1 + 0.2j], [0.1 - 0.2j, 0.9]]))
+    h = Matrix(2, 2, data=cp.asarray(H.data))
+    s = Matrix(2, 2, data=cp.asarray(S.data))
+    eigs = H.eigh(S)
+    print(eigs, H.data)
+    eigs = h.eigh(s)
+    print(eigs._data, h.data._data)
+    

@@ -186,7 +186,7 @@ class Matrix:
                 else:
                     return fastmmm2notsym(A, B, out)
 
-        dist.multiply(alpha, A, opa, B, opb, beta, out, symmetric)
+        dist.multiply(alpha, A, opa, B, opb, beta, out, symmetric=symmetric)
         return out
 
     def redist(self, other: Matrix) -> None:
@@ -758,7 +758,7 @@ class CuPyDistribution(MatrixDistribution):
     def new(self, M, N):
         return CuPyDistribution(M, N)
 
-    def multiply(self, alpha, a, opa, b, opb, beta, c, symmetric):
+    def multiply(self, alpha, a, opa, b, opb, beta, c, *, symmetric=False):
         if symmetric:
             if opa == 'N':
                 assert opb == 'C' or opb == 'T' and a.dtype == float
@@ -790,6 +790,21 @@ class CuPyDistribution(MatrixDistribution):
                            opb.replace('C', 'H'),
                            a.data, b.data, c.data,
                            alpha, beta)
+
+    def eighg(self, H, L):
+        """
+        :::
+
+           ~      †   ~~   ~         †~
+           H = LHL ,  HC = CΛ,  C = L C.
+        """
+        tmp = H.new()
+        self.multiply(1.0, L, 'N', H, 'N', 0.0, tmp)
+        self.multiply(1.0, tmp, 'N', L, 'C', 0.0, H, symmetric=True)
+        eig_M, Ct_MM = cp.linalg.eigh(H.data, UPLO='L')
+        Ct = H.new(data=Ct_MM)
+        self.multiply(1.0, L, 'C', Ct, 'N', 0.0, H)
+        return eig_M
 
 
 def fastmmm(m1, m2, m3, beta):
