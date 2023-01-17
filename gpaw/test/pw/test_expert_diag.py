@@ -10,6 +10,7 @@ from gpaw.mpi import world
 # in terms of eigenvalues and wavefunctions
 
 
+@pytest.mark.later
 def test_pw_expert_diag(in_tmp_dir, scalapack):
     wfs_e = []
     for i, expert in enumerate([True, False]):

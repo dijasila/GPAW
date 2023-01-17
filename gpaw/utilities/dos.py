@@ -510,8 +510,7 @@ class RawLDOS:
                         val[key] = np.zeros((3))
                     for k in range(wfs.kd.nibzkpts):
                         w = wfs.kpt_u[k].weight
-                        e_n = self.paw.get_eigenvalues(kpt=k, spin=s,
-                                                       broadcast=True)
+                        e_n = self.paw.get_eigenvalues(kpt=k, spin=s)
                         for n in range(wfs.bd.nbands):
                             w_i = w * gauss.get(e_n[n] - e)
                             for key in ldbe:

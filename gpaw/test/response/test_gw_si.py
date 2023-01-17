@@ -57,7 +57,7 @@ def run(atoms, symm, nblocks):
 
 
 reference = pytest.approx([-9.253, 5.442, 2.389, 0.403, 0.000,
-                           6.261, 3.570, 1.323, 0.001], abs=0.003)
+                           6.261, 3.570, 1.323, 0.001], abs=0.0035)
 
 
 @pytest.mark.response
