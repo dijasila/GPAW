@@ -8,6 +8,7 @@ from ase.utils import lazyproperty
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKS, ChiKSCalculator
 from gpaw.response.coulomb_kernels import get_coulomb_kernel
+from gpaw.response.localft import LocalPAWFTCalculator
 from gpaw.response.fxc_kernels import FXCFactory
 from gpaw.response.dyson import DysonSolver
 
@@ -158,7 +159,8 @@ class ChiFactory:
         self._chiks = None
 
     def __call__(self, spincomponent, q_c, complex_frequencies,
-                 Kxc_GG=None, fxc=None, fxckwargs=None, txt=None) -> Chi:
+                 Kxc_GG=None, fxc=None, localft_calc=None, fxc_scaling=None,
+                 txt=None) -> Chi:
         r"""Calculate a given element (spincomponent) of the four-component
         Kohn-Sham susceptibility tensor and construct a corresponding many-body
         susceptibility object within a given approximation to the
@@ -179,12 +181,15 @@ class ChiFactory:
             carefully! The plane-wave representation in the supplied kernel has
             to match the representation of chiks.
             If no kernel is supplied, the ChiFactory will calculate one itself
-            according to keywords fxc and fxckwargs.
+            according to keywords fxc, localft_calc and fxc_scaling.
         fxc : str (None defaults to ALDA)
             Approximation to the (local) xc kernel.
             Choices: ALDA, ALDA_X, ALDA_x
-        fxckwargs : dict (or None for default kwargs)
-            Keyword arguments when calling the FXCFactory
+        localft_calc : LocalFTCalculator or None
+            Calculator used to Fourier transform the fxc kernel into plane-wave
+            components. If None, the default LocalPAWFTCalculator is used.
+        fxc_scaling : None or FXCScaling
+            Supply an FXCScaling object to scale the xc kernel.
         txt : str
             Save output of the calculation of this specific component into
             a file with the filename of the given input.
@@ -212,19 +217,22 @@ class ChiFactory:
 
         # Calculate the xc kernel, if it has not been supplied by the user
         if Kxc_GG is None:
-            # Fall back to defaults, if fxc and/or fxckwargs are not specified
+            # Fall back to defaults, if fxc and/or localft_calc aren't supplied
             if fxc is None:
                 fxc = 'ALDA'
-            if fxckwargs is None:
-                fxckwargs = {}
+            if localft_calc is None:
+                localft_calc = LocalPAWFTCalculator(self.gs, self.context)
 
             # Perform actual kernel calculation
             if fxc != 'RPA':  # In RPA, we neglect the xc-kernel
-                Kxc_GG = self.fxc_factory(fxc, chiks, **fxckwargs)
+                Kxc_GG = self.fxc_factory(fxc, chiks, localft_calc,
+                                          fxc_scaling=fxc_scaling)
         else:
-            assert fxc is None and fxckwargs is None,\
-                'Supplying an xc kernel Kxc_GG overwrites the fxc and '\
-                'fxckwargs inputs'
+            assert fxc is None\
+                and localft_calc is None\
+                and fxc_scaling is None,\
+                'Supplying an xc kernel Kxc_GG overwrites any specification '\
+                'of how to calculate the kernel'
 
         # Initiate the dyson solver
         dyson_solver = DysonSolver(self.context)
