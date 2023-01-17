@@ -66,9 +66,12 @@ class FXCFactory:
         fxc_scaling : None or FXCScaling
         """
         if calculator is None:
-            calculator = {'method': 'old',
-                          'rshelmax': -1,
-                          'rshewmin': None}
+            localft_calc = LocalFTCalculator.from_rshe_parameters(
+                self.gs, self.context,
+                rshelmax=-1,
+                rshewmin=None)
+            calculator = {'method': 'new',
+                          'localft_calc': localft_calc}
         assert isinstance(calculator, dict) and 'method' in calculator
 
         # Generate the desired calculator
