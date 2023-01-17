@@ -94,12 +94,12 @@ class FXCFactory:
     def get_fxc_calculator_cls(method):
         """Factory function for selecting fxc calculators."""
         if method == 'new':
-            return NewAdiabaticFXCCalculator
+            return AdiabaticFXCCalculator
 
         raise ValueError(f'Invalid fxc calculator method {method}')
 
 
-class NewAdiabaticFXCCalculator:
+class AdiabaticFXCCalculator:
     """Calculator for adiabatic local exchange-correlation kernels."""
 
     def __init__(self, localft_calc: LocalFTCalculator):
