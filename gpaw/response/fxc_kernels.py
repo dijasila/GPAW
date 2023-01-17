@@ -70,7 +70,8 @@ class FXCFactory:
         # Generate the desired calculator
         calc_kwargs = calculator.copy()
         method = calc_kwargs.pop('method')
-        fxc_calculator = self.get_fxc_calculator(method=method, **calc_kwargs)
+        assert method == 'new'
+        fxc_calculator = AdiabaticFXCCalculator(**calc_kwargs)
 
         Kxc_GG = fxc_calculator(fxc, chiks.spincomponent, chiks.pd)
 
@@ -83,20 +84,6 @@ class FXCFactory:
             Kxc_GG *= lambd
 
         return Kxc_GG
-
-    def get_fxc_calculator(self, *, method, **calc_kwargs):
-        """Factory function for initializing fxc calculators."""
-        fxc_calculator_cls = self.get_fxc_calculator_cls(method)
-
-        return fxc_calculator_cls(**calc_kwargs)
-
-    @staticmethod
-    def get_fxc_calculator_cls(method):
-        """Factory function for selecting fxc calculators."""
-        if method == 'new':
-            return AdiabaticFXCCalculator
-
-        raise ValueError(f'Invalid fxc calculator method {method}')
 
 
 class AdiabaticFXCCalculator:
