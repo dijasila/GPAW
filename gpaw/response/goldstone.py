@@ -1,115 +1,31 @@
 import numpy as np
 
-import gpaw.mpi as mpi
-from gpaw.response.susceptibility import (FourComponentSusceptibilityTensor,
-                                          invert_dyson_single_frequency)
-
-FCST = FourComponentSusceptibilityTensor
+from gpaw.response.dyson import invert_dyson_single_frequency
 
 
-class TransverseMagneticSusceptibility(FCST):
-    """Class calculating the transverse magnetic susceptibility
-    and related physical quantities."""
+def get_goldstone_scaling(mode, chiks, Kxc_GG):
+    """Get kernel scaling parameter to fulfill a Goldstone condition."""
+    assert chiks.pd.kd.gamma,\
+        r'The Goldstone condition is strictly bound to the Γ-point'
 
-    def __init__(self, *args, **kwargs):
-        assert kwargs['fxc'] == 'ALDA'
-
-        # Enable scaling to fit to Goldstone theorem
-        if 'fxckwargs' in kwargs and 'fxc_scaling' in kwargs['fxckwargs']:
-            self.fxc_scaling = kwargs['fxckwargs']['fxc_scaling']
-        else:
-            self.fxc_scaling = None
-
-        FCST.__init__(self, *args, **kwargs)
-
-    def get_macroscopic_component(self, spincomponent, q_c, frequencies,
-                                  filename=None, txt=None):
-        """Calculates the spatially averaged (macroscopic) component of the
-        transverse magnetic susceptibility and writes it to a file.
-
-        Parameters
-        ----------
-        spincomponent : str
-            '+-': calculate chi+-, '-+: calculate chi-+
-        q_c, frequencies, filename, txt : see gpaw.response.susceptibility
-
-        Returns
-        -------
-        see gpaw.response.susceptibility
-        """
-        assert spincomponent in ['+-', '-+']
-
-        return FCST.get_macroscopic_component(self, spincomponent, q_c,
-                                              frequencies, filename=filename,
-                                              txt=txt)
-
-    def get_component_array(self, spincomponent, q_c, frequencies,
-                            array_ecut=50, filename=None, txt=None):
-        """Calculates a specific spin component of the
-        transverse magnetic susceptibility and writes it to a file.
-
-        Parameters
-        ----------
-        spincomponent : str
-            '+-': calculate chi+-, '-+: calculate chi-+
-        q_c, frequencies,
-        array_ecut, filename, txt : see gpaw.response.susceptibility
-
-        Returns
-        -------
-        see gpaw.response.susceptibility
-        """
-        assert spincomponent in ['+-', '-+']
-
-        return FCST.get_component_array(self, spincomponent, q_c,
-                                        frequencies, array_ecut=array_ecut,
-                                        filename=filename, txt=txt)
-
-    def get_xc_kernel(self, spincomponent, pd, chiks_wGG=None):
-        """Get the exchange correlation kernel."""
-        Kxc_GG = self.fxc(spincomponent, pd)
-
-        fxc_scaling = self.fxc_scaling
-
-        if fxc_scaling is not None:
-            assert isinstance(fxc_scaling[0], bool)
-            if fxc_scaling[0]:
-                if fxc_scaling[1] is None:
-                    assert pd.kd.gamma
-                    self.context.print('Finding rescaling of kernel to fulfill'
-                                       ' the Goldstone theorem')
-                    mode = fxc_scaling[2]
-                    assert mode in ['fm', 'afm']
-                    omega_w = self.chiks.wd.omega_w
-                    world = self.context.world
-                    fxc_scaling[1] = get_goldstone_scaling(mode, omega_w,
-                                                           chiks_wGG, Kxc_GG,
-                                                           world=world)
-
-                assert isinstance(fxc_scaling[1], float)
-                Kxc_GG *= fxc_scaling[1]
-
-        self.fxc_scaling = fxc_scaling
-
-        return Kxc_GG
-
-
-def get_goldstone_scaling(mode, omega_w, chiks_wGG, Kxc_GG, world=mpi.world):
-    """Get kernel scaling parameter fulfilling the Goldstone theorem."""
     # Find the frequency to determine the scaling from
+    omega_w = chiks.zd.omega_w
     wgs = find_goldstone_frequency(mode, omega_w)
 
-    # Only one rank, rgs, has the given frequency and finds the rescaling
-    nw = len(omega_w)
-    mynw = (nw + world.size - 1) // world.size
-    rgs, mywgs = wgs // mynw, wgs % mynw
+    # Only one rank, rgs, has the given frequency
+    assert chiks.distribution == 'zGG',\
+        'Only block distribution over frequencies is allowed at this point'
+    wblocks = chiks.blocks1d
+    rgs, mywgs = wblocks.find_global_index(wgs)
+
+    # Let rgs find the rescaling
     fxcsbuf = np.empty(1, dtype=float)
-    if world.rank == rgs:
-        chiks_GG = chiks_wGG[mywgs]
+    if wblocks.blockcomm.rank == rgs:
+        chiks_GG = chiks.array[mywgs]
         fxcsbuf[:] = find_goldstone_scaling(mode, chiks_GG, Kxc_GG)
 
     # Broadcast found rescaling
-    world.broadcast(fxcsbuf, rgs)
+    wblocks.blockcomm.broadcast(fxcsbuf, rgs)
     fxcs = fxcsbuf[0]
 
     return fxcs

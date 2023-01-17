@@ -23,7 +23,6 @@ commands = [
     ('sbatch', 'gpaw.cli.sbatch'),
     ('dataset', 'gpaw.atom.generator2'),
     ('symmetry', 'gpaw.symmetry'),
-    ('rpa', 'gpaw.xc.rpa'),
     ('install-data', 'gpaw.cli.install_data')]
 
 

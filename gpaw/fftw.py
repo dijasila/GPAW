@@ -12,6 +12,7 @@ from scipy.fft import fftn, ifftn, irfftn, rfftn
 
 import _gpaw
 from gpaw.typing import Array3D, DTypeLike, IntVector
+from gpaw import SCIPY_VERSION
 
 ESTIMATE = 64
 MEASURE = 0
@@ -193,6 +194,7 @@ class CuPyFFTPlans(FFTPlans):
         array_Q[:] = 0.0
         Q_G = self.indices(pw)
         array_Q.ravel()[Q_G] = coef_G
+        assert SCIPY_VERSION >= [1, 6]
         array_Q[:] = cupyx.scipy.fft.ifftn(
             array_Q, array_Q.shape,
             norm='forward', overwrite_x=True)

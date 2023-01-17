@@ -44,8 +44,11 @@ def write_gpw(filename: str,
                      bohr=Bohr)
 
         write_atoms(writer.child('atoms'), atoms)
+
+        # Note that 'non_collinear_magmoms' is not an ASE standard name!
         results = {key: value * units[key]
-                   for key, value in calculation.results.items()}
+                   for key, value in calculation.results.items()
+                   if key != 'non_collinear_magmoms'}
         writer.child('results').write(**results)
         writer.child('parameters').write(
             **{k: v for k, v in params.items()

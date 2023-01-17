@@ -17,7 +17,6 @@ __all__ = ['GPAW',
            'PW', 'LCAO', 'FD',
            'restart']
 
-
 setup_paths: List[Union[str, Path]] = []
 is_gpaw_python = '_gpaw' in sys.builtin_module_names
 dry_run = 0
@@ -64,6 +63,7 @@ with broadcast_imports:
         sys.setdlopenflags(old_dlopen_flags)
     import _gpaw
 
+SCIPY_VERSION = [int(x) for x in scipy.__version__.split('.')[:2]]
 
 if getattr(_gpaw, 'version', 0) != 3:
     raise ImportError('Please recompile GPAW''s C-extensions!')
@@ -171,7 +171,7 @@ if debug:
         try:
             a.fill(np.nan)
         except ValueError:
-            a.fill(-1000000)
+            a.fill(42)
         return a
 
     def empty_like(*args, **kwargs):
@@ -179,7 +179,7 @@ if debug:
         try:
             a.fill(np.nan)
         except ValueError:
-            a.fill(-2000000)
+            a.fill(-42)
         return a
 
     np.empty = empty

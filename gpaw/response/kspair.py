@@ -846,7 +846,7 @@ class PairMatrixElement:
         """
         Parameters
         ----------
-        kslrf : KohnShamLinearResponseFunction instance
+        kspair : KohnShamPair
         """
         self.gs = kspair.gs
         self.context = kspair.context
@@ -882,7 +882,7 @@ class PlaneWavePairDensity(PairMatrixElement):
     @timer('Initialize PAW corrections')
     def initialize_paw_corrections(self, pd):
         """Initialize PAW corrections, if not done already, for the given q"""
-        q_c = pd.kd.bzk_kc[0]
+        q_c = pd.q_c
         if self.pawcorr is None or not np.allclose(q_c - self.currentq_c, 0.):
             self.pawcorr = self._initialize_paw_corrections(pd)
             self.currentq_c = q_c
@@ -946,7 +946,7 @@ class PlaneWavePairDensity(PairMatrixElement):
         kpt1 = kskptpair.kpt1
         kpt2 = kskptpair.kpt2
         kd = self.gs.kd
-        q_c = pd.kd.bzk_kc[0]
+        q_c = pd.q_c
 
         return fft_indices(kd=kd, K1=kpt1.K, K2=kpt2.K, q_c=q_c, pd=pd,
                            shift0_c=kpt1.shift_c - kpt2.shift_c)

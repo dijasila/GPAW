@@ -240,16 +240,16 @@ class Chi0Calculator:
             if self.nocc1 != self.nocc2 and self.include_intraband:
                 self._update_chi0_drude(chi0, m1, m2, spins)
 
-            # In the optical limit, we fill in the G=0 entries of chi0_wGG with
+            # In the optical limit, we fill in the G=0 entries of chi0 with
             # the wings evaluated along the z-direction by default.
             # The x = 1 wing represents the left vertical block, which is
-            # distributed in chi0_wGG
-            chi0.chi0_wGG[:, :, 0] = chi0.chi0_wxvG[:, 1, 2,
+            # distributed in chi0.chi0_WgG
+            chi0.chi0_WgG[:, :, 0] = chi0.chi0_WxvG[:, 1, 2,
                                                     chi0.blocks1d.myslice]
             if self.blockcomm.rank == 0:  # rank with G=0 row
                 # The x = 0 wing represents the upper horizontal block
-                chi0.chi0_wGG[:, 0, :] = chi0.chi0_wxvG[:, 0, 2, :]
-                chi0.chi0_wGG[:, 0, 0] = chi0.chi0_wvv[:, 2, 2]
+                chi0.chi0_WgG[:, 0, :] = chi0.chi0_WxvG[:, 0, 2, :]
+                chi0.chi0_WgG[:, 0, 0] = chi0.chi0_Wvv[:, 2, 2]
 
         return chi0
 
@@ -270,20 +270,19 @@ class Chi0Calculator:
         get_eigenvalues = partial(
             self.get_eigenvalues, **eig_kwargs)
 
-        chi0_wGG = chi0.chi0_wGG  # Change notation
-        chi0_wGG /= prefactor
+        chi0.chi0_WgG[:] /= prefactor
         if self.hilbert:
             # Allocate a temporary array for the spectral function
-            out_wGG = np.zeros_like(chi0_wGG)
+            out_WgG = chi0.zeros()
         else:
             # Use the preallocated array for direct updates
-            out_wGG = chi0_wGG
+            out_WgG = chi0.chi0_WgG
         integrator.integrate(kind=kind,  # Kind of integral
                              domain=domain,  # Integration domain
                              integrand=(get_matrix_element,
                                         get_eigenvalues),
                              x=self.wd,  # Frequency Descriptor
-                             out_wxx=out_wGG,  # Output array
+                             out_wxx=out_WgG,  # Output array
                              **extraargs)
         if self.hilbert:
             # The integrator only returns the spectral function and a Hilbert
@@ -293,16 +292,16 @@ class Chi0Calculator:
                 # Make Hilbert transform
                 ht = HilbertTransform(np.array(self.wd.omega_w), self.eta,
                                       timeordered=self.timeordered)
-                ht(out_wGG)
+                ht(out_WgG)
             # Update the actual chi0 array
-            chi0_wGG += out_wGG
-        chi0_wGG *= prefactor
+            chi0.chi0_WgG[:] += out_WgG
+        chi0.chi0_WgG[:] *= prefactor
 
-        tmp_chi0_wGG = chi0.blockdist.distribute_as(chi0_wGG,
-                                                    chi0.nw, 'wGG')
+        tmp_chi0_wGG = chi0.copy_array_with_distribution('wGG')
         analyzer.symmetrize_wGG(tmp_chi0_wGG)
-        chi0_wGG[:] = chi0.blockdist.distribute_as(tmp_chi0_wGG,
-                                                   chi0.nw, 'WgG')
+        # The line below is borderline illegal and should be changed! XXX
+        chi0.chi0_WgG[:] = chi0.blockdist.distribute_as(tmp_chi0_wGG,
+                                                        chi0.nw, 'WgG')
 
     def _update_chi0_wings(self,
                            chi0: Chi0Data,
@@ -325,29 +324,29 @@ class Chi0Calculator:
         # index v = (x, y, z)
         # index G = (G0, G1, G2, ...)
         # index P = (x, y, z, G1, G2, ...)
-        wxvP_shape = list(chi0.wxvG_shape)
-        wxvP_shape[-1] += 2
-        tmp_chi0_wxvP = np.zeros(wxvP_shape, complex)
+        WxvP_shape = list(chi0.WxvG_shape)
+        WxvP_shape[-1] += 2
+        tmp_chi0_WxvP = np.zeros(WxvP_shape, complex)
         integrator.integrate(kind=kind + ' wings',  # Kind of integral
                              domain=domain,  # Integration domain
                              integrand=(get_optical_matrix_element,
                                         get_eigenvalues),
                              x=self.wd,  # Frequency Descriptor
-                             out_wxx=tmp_chi0_wxvP,  # Output array
+                             out_wxx=tmp_chi0_WxvP,  # Output array
                              **extraargs)
         if self.hilbert:
             with self.context.timer('Hilbert transform'):
                 ht = HilbertTransform(np.array(self.wd.omega_w), self.eta,
                                       timeordered=self.timeordered)
-                ht(tmp_chi0_wxvP)
-        tmp_chi0_wxvP *= prefactor
+                ht(tmp_chi0_WxvP)
+        tmp_chi0_WxvP *= prefactor
 
         # Fill in wings part of the data, but leave out the head part (G0)
-        chi0.chi0_wxvG[..., 1:] += tmp_chi0_wxvP[..., 3:]
+        chi0.chi0_WxvG[..., 1:] += tmp_chi0_WxvP[..., 3:]
         # Fill in the head
-        chi0.chi0_wvv += tmp_chi0_wxvP[:, 0, :3, :3]
-        analyzer.symmetrize_wxvG(chi0.chi0_wxvG)
-        analyzer.symmetrize_wvv(chi0.chi0_wvv)
+        chi0.chi0_Wvv[:] += tmp_chi0_WxvP[:, 0, :3, :3]
+        analyzer.symmetrize_wxvG(chi0.chi0_WxvG)
+        analyzer.symmetrize_wvv(chi0.chi0_Wvv)
 
     def _update_chi0_drude(self,
                            chi0: Chi0Data,
@@ -389,7 +388,7 @@ class Chi0Calculator:
         # free-space plasma frequency
         try:
             with np.errstate(divide='raise'):
-                drude_chi_wvv = (
+                drude_chi_Wvv = (
                     plasmafreq_vv[np.newaxis] /
                     (self.wd.omega_w[:, np.newaxis, np.newaxis]
                      + 1.j * self.rate)**2)
@@ -397,7 +396,7 @@ class Chi0Calculator:
             raise ValueError('Please set rate to a positive value.')
 
         # Fill the Drude dielectric function into the chi0 head
-        chi0.chi0_wvv[:] += drude_chi_wvv
+        chi0.chi0_Wvv[:] += drude_chi_Wvv
 
     def initialize_integrator(self, block_distributed=True) -> Integrator:
         """The integrator class is a general class for brillouin zone

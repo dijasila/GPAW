@@ -14,7 +14,6 @@ def test_dipole_transition(gpw_files, tmp_path_factory):
     calc = GPAW(gpw_files['h2o_lcao_wfs'])
     # Initialize calculator if necessary
     if not hasattr(calc.wfs, 'C_nM'):
-        calc.wfs.set_positions
         calc.initialize_positions(calc.atoms)
     dip_skvnm = get_dipole_transitions(calc.wfs).real
     parprint("Dipole moments calculated")

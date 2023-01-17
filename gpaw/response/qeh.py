@@ -62,11 +62,11 @@ class BuildingBlock:
         self.direction = direction
 
         self.df = df  # dielectric function object
-        self.df.truncation = '2D'  # in case you forgot!
+        assert self.df.coulomb.truncation == '2D'
         self.wd = self.df.wd
-        
+
         self.context = self.df.context.with_txt(txt)
-        
+
         gs = self.df.gs
         kd = gs.kd
         self.kd = kd

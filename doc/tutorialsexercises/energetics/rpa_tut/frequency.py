@@ -12,9 +12,9 @@ weights = np.array(weights)
 rpa = RPACorrelation('N2.gpw',
                      txt='frequency_equidistant.txt',
                      frequencies=frequencies,
-                     weights=weights)
-
-Es = rpa.calculate(ecut=[50])
+                     weights=weights,
+                     ecut=[50])
+Es = rpa.calculate()
 Es_w = rpa.E_w
 
 with paropen('frequency_equidistant.dat', 'w') as fd:

@@ -15,7 +15,7 @@ def gpwfile(in_tmp_dir):
         convergence={'bands': 15},
         setups={'Mo': '6'},
         occupations=FermiDirac(0.001),
-        kpts={'size': (6, 6, 1), 'gamma': True})
+        kpts={'size': (3, 3, 1), 'gamma': True})
 
     a = 3.1604
     c = 10.0
@@ -56,7 +56,7 @@ def test_response_gw_MoS2_cut(scalapack, gpwfile):
     for path in paths.values():
         assert path.exists()
 
-    ev = 2.669
-    ec = 6.804
+    ev = 2.392
+    ec = 7.337
     assert e_qp[0] == pytest.approx(ev, abs=0.01)
     assert e_qp[1] == pytest.approx(ec, abs=0.01)

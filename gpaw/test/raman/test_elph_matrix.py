@@ -44,7 +44,6 @@ def test_elph_matrix(gpw_files, tmp_path_factory):
     atoms = calc.atoms
     # Initialize calculator if necessary
     if not hasattr(calc.wfs, 'C_nM'):
-        calc.wfs.set_positions
         calc.initialize_positions(atoms)
 
     for kpt in calc.wfs.kpt_u:
