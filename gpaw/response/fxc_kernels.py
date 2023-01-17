@@ -4,7 +4,7 @@ from functools import partial
 
 import numpy as np
 
-from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
+from gpaw.response import timer
 from gpaw.response.chiks import ChiKS
 from gpaw.response.goldstone import get_goldstone_scaling
 from gpaw.response.localft import (LocalFTCalculator,
@@ -33,41 +33,30 @@ class FXCScaling:
                              f'spincomponent={chiks.spincomponent}')
 
 
-class FXCFactory:
-    """Exchange-correlation kernel factory."""
+def fxc_factory(fxc, chiks: ChiKS, localft_calc: LocalFTCalculator,
+                fxc_scaling=None):
+    """Local exchange-correlation kernel factory.
 
-    def __init__(self,
-                 gs: ResponseGroundStateAdapter,
-                 context: ResponseContext):
-        self.gs = gs
-        self.context = context
+    Parameters
+    ----------
+    fxc : str
+        Approximation to the (local) xc kernel.
+        Choices: ALDA, ALDA_X, ALDA_x
+    fxc_scaling : None or FXCScaling
+    """
+    # Calculate the xc kernel Kxc_GG
+    fxc_calculator = AdiabaticFXCCalculator(localft_calc)
+    Kxc_GG = fxc_calculator(fxc, chiks.spincomponent, chiks.pd)
 
-    def __call__(self, fxc,
-                 chiks: ChiKS,
-                 localft_calc: LocalFTCalculator,
-                 fxc_scaling=None):
-        """Get the xc kernel Kxc_GG.
+    if fxc_scaling is not None:
+        if not fxc_scaling.has_scaling:
+            fxc_scaling.calculate_scaling(chiks, Kxc_GG)
+        lambd = fxc_scaling.get_scaling()
+        fxc_calculator.context.print(r'Rescaling the xc-kernel by a factor'
+                                     f' of λ={lambd}')
+        Kxc_GG *= lambd
 
-        Parameters
-        ----------
-        fxc : str
-            Approximation to the (local) xc kernel.
-            Choices: ALDA, ALDA_X, ALDA_x
-        fxc_scaling : None or FXCScaling
-        """
-        # Calculate the xc kernel Kxc_GG
-        fxc_calculator = AdiabaticFXCCalculator(localft_calc)
-        Kxc_GG = fxc_calculator(fxc, chiks.spincomponent, chiks.pd)
-
-        if fxc_scaling is not None:
-            if not fxc_scaling.has_scaling:
-                fxc_scaling.calculate_scaling(chiks, Kxc_GG)
-            lambd = fxc_scaling.get_scaling()
-            self.context.print(r'Rescaling the xc-kernel by a factor of λ='
-                               f'{lambd}')
-            Kxc_GG *= lambd
-
-        return Kxc_GG
+    return Kxc_GG
 
 
 class AdiabaticFXCCalculator:

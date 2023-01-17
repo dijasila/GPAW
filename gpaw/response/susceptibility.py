@@ -9,7 +9,7 @@ from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKS, ChiKSCalculator
 from gpaw.response.coulomb_kernels import get_coulomb_kernel
 from gpaw.response.localft import LocalPAWFTCalculator
-from gpaw.response.fxc_kernels import FXCFactory
+from gpaw.response.fxc_kernels import fxc_factory
 from gpaw.response.dyson import DysonSolver
 
 
@@ -153,8 +153,6 @@ class ChiFactory:
         self.gs = chiks_calc.gs
         self.context = chiks_calc.context
 
-        self.fxc_factory = FXCFactory(self.gs, self.context)
-
         # Prepare a buffer for chiks
         self._chiks = None
 
@@ -225,8 +223,8 @@ class ChiFactory:
 
             # Perform actual kernel calculation
             if fxc != 'RPA':  # In RPA, we neglect the xc-kernel
-                Kxc_GG = self.fxc_factory(fxc, chiks, localft_calc,
-                                          fxc_scaling=fxc_scaling)
+                Kxc_GG = fxc_factory(fxc, chiks, localft_calc,
+                                     fxc_scaling=fxc_scaling)
         else:
             assert fxc is None\
                 and localft_calc is None\
