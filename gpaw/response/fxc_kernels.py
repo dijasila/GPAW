@@ -42,8 +42,9 @@ class FXCFactory:
         self.gs = gs
         self.context = context
 
-    def __call__(self, fxc, chiks: ChiKS,
-                 calculator=None,
+    def __call__(self, fxc,
+                 chiks: ChiKS,
+                 localft_calc: LocalFTCalculator,
                  fxc_scaling=None):
         """Get the xc kernel Kxc_GG.
 
@@ -52,27 +53,10 @@ class FXCFactory:
         fxc : str
             Approximation to the (local) xc kernel.
             Choices: ALDA, ALDA_X, ALDA_x
-        calculator : dict (or None for default calculator)
-            Parameters to set up the FXCCalculator. The 'method' key
-            determines what calculator is initilized and remaining parameters
-            are passed to the calculator as key-word arguments.
         fxc_scaling : None or FXCScaling
         """
-        if calculator is None:
-            localft_calc = LocalFTCalculator.from_rshe_parameters(
-                self.gs, self.context,
-                rshelmax=-1,
-                rshewmin=None)
-            calculator = {'method': 'new',
-                          'localft_calc': localft_calc}
-        assert isinstance(calculator, dict) and 'method' in calculator
-
-        # Generate the desired calculator
-        calc_kwargs = calculator.copy()
-        method = calc_kwargs.pop('method')
-        assert method == 'new'
-        fxc_calculator = AdiabaticFXCCalculator(**calc_kwargs)
-
+        # Calculate the xc kernel Kxc_GG
+        fxc_calculator = AdiabaticFXCCalculator(localft_calc)
         Kxc_GG = fxc_calculator(fxc, chiks.spincomponent, chiks.pd)
 
         if fxc_scaling is not None:
