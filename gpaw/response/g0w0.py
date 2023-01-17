@@ -212,6 +212,50 @@ class QSymmetryOp:
                 yield Q_c, symop
                 done.add(Q2)
 
+    @classmethod
+    def get_symop_from_kpair(cls, kd, qd, kpt1, kpt2):
+        # from k-point pair kpt1, kpt2 get Q_c = kpt2-kpt1, corrsponding IBZ
+        # k-point q_c, indexes iQ, iq and symmetry transformation relating
+        # Q_c to q_c
+        Q_c = kd.bzk_kc[kpt2.K] - kd.bzk_kc[kpt1.K]
+        iQ = qd.where_is_q(Q_c, qd.bzk_kc)
+        iq = qd.bz2ibz_k[iQ]
+        q_c = qd.ibzk_kc[iq]
+
+        # Find symmetry that transforms Q_c into q_c
+        sym = qd.sym_k[iQ]
+        U_cc = qd.symmetry.op_scc[sym]
+        time_reversal = qd.time_reversal_k[iQ]
+        sign = 1 - 2 * time_reversal
+        symop = QSymmetryOp(sym, U_cc, sign)
+        return symop, iQ, Q_c, iq, q_c
+
+    def apply_symop_q(self, pd0, q_c, pawcorr, kpt1, kpt2, debug=False):
+        # returns necessary quantities to get symmetry transformed
+        # density matrix
+        N_c = pd0.gd.N_c
+        i_cG = self.apply(np.unravel_index(pd0.Q_qG[0], N_c))
+        shift0_c = self.get_shift0(q_c, pd0.kd.bzk_kc[0])
+        shift_c = kpt1.shift_c - kpt2.shift_c - shift0_c
+        I_G = np.ravel_multi_index(i_cG + shift_c[:, None], N_c, 'wrap')
+        G_Gv = pd0.get_reciprocal_vectors()
+        M_vv = self.get_M_vv(pd0.gd.cell_cv)
+        mypawcorr = pawcorr.remap_by_symop(self, G_Gv, M_vv)
+        # XXX Can be removed together with G0W0 debug routine in future
+        if debug:
+            self.debug_i_cG = i_cG
+            self.debug_shift0_c = shift0_c
+            self.debug_N_c = N_c
+        return mypawcorr, I_G
+
+
+def get_nmG(kpt1, kpt2, mypawcorr, n, pd0, I_G, pair):
+    ut1cc_R = kpt1.ut_nR[n].conj()
+    C1_aGi = mypawcorr.multiply(kpt1.P_ani, band=n)
+    n_mG = pair.calculate_pair_density(
+        ut1cc_R, C1_aGi, kpt2, pd0, I_G)
+    return n_mG
+
 
 gw_logo = """\
   ___  _ _ _
@@ -575,32 +619,26 @@ class G0W0Calculator:
                     *, symop, sigmas, blocks1d, pawcorr):
         """Calculates the contribution to the self-energy and its derivative
         for a given set of k-points, kpt1 and kpt2."""
-
-        N_c = pd0.gd.N_c
-        i_cG = symop.apply(np.unravel_index(pd0.Q_qG[0], N_c))
-
         q_c = self.wcalc.gs.kd.bzk_kc[kpt2.K] - self.wcalc.gs.kd.bzk_kc[kpt1.K]
-
-        shift0_c = symop.get_shift0(q_c, pd0.kd.bzk_kc[0])
-        shift_c = kpt1.shift_c - kpt2.shift_c - shift0_c
-
-        I_G = np.ravel_multi_index(i_cG + shift_c[:, None], N_c, 'wrap')
-
-        G_Gv = pd0.get_reciprocal_vectors()
-
-        M_vv = symop.get_M_vv(pd0.gd.cell_cv)
-
-        mypawcorr = pawcorr.remap_by_symop(symop, G_Gv, M_vv)
-
+        mypawcorr, I_G = symop.apply_symop_q(pd0,
+                                             q_c,
+                                             pawcorr,
+                                             kpt1,
+                                             kpt2,
+                                             debug=debug)
         if debug:
-            self.check(ie, i_cG, shift0_c, N_c, q_c, mypawcorr)
+            self.check(ie, symop.debug_i_cG,
+                       symop.debug_shift0_c,
+                       symop.debug_N_c, q_c,
+                       mypawcorr)
 
         for n in range(kpt1.n2 - kpt1.n1):
-            ut1cc_R = kpt1.ut_nR[n].conj()
             eps1 = kpt1.eps_n[n]
-            C1_aGi = mypawcorr.multiply(kpt1.P_ani, band=n)
-            n_mG = self.chi0calc.pair.calculate_pair_density(
-                ut1cc_R, C1_aGi, kpt2, pd0, I_G)
+            n_mG = get_nmG(kpt1, kpt2,
+                           mypawcorr,
+                           n, pd0, I_G,
+                           self.chi0calc.pair)
+
             if symop.sign == 1:
                 n_mG = n_mG.conj()
 
