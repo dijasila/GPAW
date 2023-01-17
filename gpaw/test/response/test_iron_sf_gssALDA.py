@@ -26,15 +26,13 @@ def set_up_fxc_calculators(gs, context):
 
     # Set up grid calculator (without file buffer)
     localft_calc = LocalGridFTCalculator(gs, context)
-    fxckwargs_grid = {'calculator': {'method': 'new',
-                                     'localft_calc': localft_calc},
+    fxckwargs_grid = {'localft_calc': localft_calc,
                       'fxc_scaling': FXCScaling('fm')}
     fxckwargs_and_identifiers.append((fxckwargs_grid, 'grid'))
 
     # Set up paw calculator (with file buffer)
     localft_calc = LocalPAWFTCalculator(gs, context, rshelmax=0)
-    fxckwargs_paw = {'calculator': {'method': 'new',
-                                    'localft_calc': localft_calc},
+    fxckwargs_paw = {'localft_calc': localft_calc,
                      'filename': 'paw_ALDA_fxc.npy',
                      'fxc_scaling': FXCScaling('fm')}
     fxckwargs_and_identifiers.append((fxckwargs_paw, 'paw'))
@@ -102,13 +100,15 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
                 fxc_filename = actual_fxckwargs.pop('filename')
                 if q == 0:  # Calculate kernel for q == 0
                     assert not Path(fxc_filename).is_file()
-                    kxc = {'fxc': fxc, 'fxckwargs': actual_fxckwargs}
+                    kxc = {'fxc': fxc}
+                    kxc.update(actual_fxckwargs)
                 else:  # Reuse kernel from q == 0 calculation
                     assert Path(fxc_filename).is_file()
                     Kxc_GG = np.load(fxc_filename)
                     kxc = {'Kxc_GG': Kxc_GG}
             else:
-                kxc = {'fxc': fxc, 'fxckwargs': fxckwargs}
+                kxc = {'fxc': fxc}
+                kxc.update(fxckwargs)
             
             chi = chi_factory('+-', q_qc[q], complex_frequencies, **kxc)
             chi.write_macroscopic_component(identifier + '_iron_dsus'

@@ -89,9 +89,6 @@ def test_response_afm_hchain_gssALDA(in_tmp_dir):
         gs, chiks_calc.context,
         rshelmax=rshelmax,
         rshewmin=rshewmin)
-    fxckwargs = {'calculator': {'method': 'new',
-                                'localft_calc': localft_calc},
-                 'fxc_scaling': fxc_scaling}
     chi_factory = ChiFactory(chiks_calc)
                   
     for q, q_c in enumerate(q_qc):
@@ -99,7 +96,8 @@ def test_response_afm_hchain_gssALDA(in_tmp_dir):
         txt = 'h-chain_macro_tms_q%d.txt' % q
         chi = chi_factory('+-', q_c, zd,
                           fxc=fxc,
-                          fxckwargs=fxckwargs,
+                          localft_calc=localft_calc,
+                          fxc_scaling=fxc_scaling,
                           txt=txt)
         chi.write_macroscopic_component(filename)
 
