@@ -24,33 +24,20 @@ from gpaw.response.df import read_response_function
 def set_up_fxc_calculators(gs, context):
     fxckwargs_and_identifiers = []
 
-    # Set up old grid calculator (with file buffer)
-    fxckwargs_old_grid = {'calculator': {'method': 'old',
-                                         'rshelmax': None},
-                          'filename': 'grid_ALDA_fxc.npy',
-                          'fxc_scaling': FXCScaling('fm')}
-    fxckwargs_and_identifiers.append((fxckwargs_old_grid, 'old_grid'))
-
-    # Set up old paw calculator (without file buffer)
-    fxckwargs_old_paw = {'calculator': {'method': 'old',
-                                        'rshelmax': 0},
-                         'fxc_scaling': FXCScaling('fm')}
-    fxckwargs_and_identifiers.append((fxckwargs_old_paw, 'old_paw'))
-
-    # Set up new grid calculator (without file buffer)
+    # Set up grid calculator (without file buffer)
     localft_calc = LocalGridFTCalculator(gs, context)
-    fxckwargs_new_grid = {'calculator': {'method': 'new',
-                                         'localft_calc': localft_calc},
-                          'fxc_scaling': FXCScaling('fm')}
-    fxckwargs_and_identifiers.append((fxckwargs_new_grid, 'new_grid'))
+    fxckwargs_grid = {'calculator': {'method': 'new',
+                                     'localft_calc': localft_calc},
+                      'fxc_scaling': FXCScaling('fm')}
+    fxckwargs_and_identifiers.append((fxckwargs_grid, 'grid'))
 
-    # Set up new paw calculator (with file buffer)
+    # Set up paw calculator (with file buffer)
     localft_calc = LocalPAWFTCalculator(gs, context, rshelmax=0)
-    fxckwargs_new_paw = {'calculator': {'method': 'new',
-                                        'localft_calc': localft_calc},
-                         'filename': 'paw_ALDA_fxc.npy',
-                         'fxc_scaling': FXCScaling('fm')}
-    fxckwargs_and_identifiers.append((fxckwargs_new_paw, 'new_paw'))
+    fxckwargs_paw = {'calculator': {'method': 'new',
+                                    'localft_calc': localft_calc},
+                     'filename': 'paw_ALDA_fxc.npy',
+                     'fxc_scaling': FXCScaling('fm')}
+    fxckwargs_and_identifiers.append((fxckwargs_paw, 'paw'))
 
     return fxckwargs_and_identifiers
 
@@ -58,20 +45,16 @@ def set_up_fxc_calculators(gs, context):
 def get_test_values(identifier):
     test_mw1 = 0.  # meV
     test_Ipeak1 = 7.48  # a.u.
-    if 'grid' in identifier:
-        if 'old' in identifier:
-            test_fxcs = 1.034
-        else:  # new
-            test_fxcs = 1.059
+    if identifier == 'grid':
+        test_fxcs = 1.059
         test_mw2 = 363.  # meV
         test_Ipeak2 = 3.47  # a.u.
-    else:  # paw
-        if 'old' in identifier:
-            test_fxcs = 1.129
-        else:  # new
-            test_fxcs = 1.131
+    elif identifier == 'paw':
+        test_fxcs = 1.131
         test_mw2 = 352.  # meV
         test_Ipeak2 = 3.35  # a.u.
+    else:
+        raise ValueError(f'Invalid identifier {identifier}')
 
     return test_fxcs, test_mw1, test_mw2, test_Ipeak1, test_Ipeak2
 
@@ -138,8 +121,7 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
 
     world.barrier()
 
-    # plot_comparison('old_grid', 'new_grid')
-    # plot_comparison('old_paw', 'new_paw')
+    # plot_comparison('grid', 'paw')
 
     # Compare results to test values
     for fxckwargs, identifier in fxckwargs_and_identifiers:
