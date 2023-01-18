@@ -381,7 +381,6 @@ class Matrix:
                         driver='evx' if H.data.size == 1 else 'evd')
                 else:
                     if self.xp is not np:
-                        s = S.data._data.copy()
                         S.invcholesky()
                         self.tril2full()
                         return self.eighg(S)

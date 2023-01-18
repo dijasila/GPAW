@@ -22,14 +22,13 @@ def test_zyrk():
 @pytest.mark.gpu
 @pytest.mark.serial
 def test_eigh():
-    H = Matrix(2, 2, data=np.array([[2, 0.1 + 0.1j], [0.1 - 0.1j, 3]]))
-    S = Matrix(2, 2, data=np.array([[1, 0.1 + 0.2j], [0.1 - 0.2j, 0.9]]))
+    H = Matrix(2, 2, data=np.array([[2, 42.1 + 42.1j], [0.1 - 0.1j, 3]]))
+    S = Matrix(2, 2, data=np.array([[1, 42.1 + 42.2j], [0.1 - 0.2j, 0.9]]))
     h = Matrix(2, 2, data=cp.asarray(H.data))
     s = Matrix(2, 2, data=cp.asarray(S.data))
-    from scipy.linalg import eigh
-    print(1000, eigh(h.data._data, s.data._data))
-    eigs = H.eigh(S)
-    print(eigs, H.data)
-    eigs = h.eigh(s)
-    print(eigs._data, h.data._data)
-    
+    E = H.eigh(S)
+    print(E, H.data)
+    e = h.eigh(s)
+    print(e._data, h.data._data)
+    assert e == pytest.approx(E)
+    assert h.data._data == pytest.approx(H.data)
