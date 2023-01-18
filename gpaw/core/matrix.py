@@ -398,8 +398,7 @@ class Matrix:
                         overwrite_a=True,
                         overwrite_b=True,
                         check_finite=debug,
-                        subset_by_index=(0, limit - 1) if limit else None,
-                        driver='evx' if H.data.size == 1 else 'evd')
+                        subset_by_index=(0, limit - 1) if limit else None)
                     limit = limit or len(eps)
                     H.data.T[:, :limit] = evecs
             self.dist.comm.broadcast(eps, 0)
