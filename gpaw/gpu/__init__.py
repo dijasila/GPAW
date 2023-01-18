@@ -18,6 +18,15 @@ else:
 __all__ = ['cupy', 'cupyx', 'as_xp']
 
 
+def setup():
+    # select GPU device (round-robin based on MPI rank)
+    # if not set, all MPI ranks will use the same default device
+    if not cupy_is_fake:
+        from gpaw.mpi import rank
+        device_id = rank % cupy.cuda.runtime.getDeviceCount()
+        cupy.cuda.runtime.setDevice(device_id)
+
+
 def as_xp(array, xp):
     if xp is np:
         if isinstance(array, np.ndarray):
