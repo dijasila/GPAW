@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 from gpaw.core.matrix import Matrix
-from gpaw.gpu import cupy as cp
+from gpaw.gpu import cupy as cp, as_xp
 
 
 @pytest.mark.gpu
@@ -28,5 +28,5 @@ def test_eigh():
     s = Matrix(2, 2, data=cp.asarray(S.data))
     E = H.eigh(S)
     e = h.eigh(s)
-    assert e == pytest.approx(E)
+    assert as_xp(e, np) == pytest.approx(E)
     assert h.to_cpu().data == pytest.approx(H.data)
