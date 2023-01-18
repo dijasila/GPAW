@@ -366,46 +366,21 @@ class BSEBackend:
 
         if self.write_h:
             self.par_save('H_SS.ulm', 'H_SS', self.H_sS)
-
+    
     def get_density_matrix(self, kpt1, kpt2):
-        # xxx This one should use QSymmetryOp at g0w0.py
-        Q_c = self.kd.bzk_kc[kpt2.K] - self.kd.bzk_kc[kpt1.K]
-        iQ = self.qd.where_is_q(Q_c, self.qd.bzk_kc)
-        iq = self.qd.bz2ibz_k[iQ]
-        q_c = self.qd.ibzk_kc[iq]
-
-        # Find symmetry that transforms Q_c into q_c
-        sym = self.qd.sym_k[iQ]
-        U_cc = self.qd.symmetry.op_scc[sym]
-        time_reversal = self.qd.time_reversal_k[iQ]
-        sign = 1 - 2 * time_reversal
-        d_c = sign * np.dot(U_cc, q_c) - Q_c
-        assert np.allclose(d_c.round(), d_c)
-
+        from gpaw.response.g0w0 import QSymmetryOp, get_nmG
+        symop, iQ, Q_c, iq, q_c = QSymmetryOp.get_symop_from_kpair(
+            self.kd, self.qd, kpt1, kpt2)
+        symop.check_q_Q_symmetry(Q_c, q_c)
         pd = self.pd_q[iq]
-        N_c = pd.gd.N_c
-        i_cG = sign * np.dot(U_cc, np.unravel_index(pd.Q_qG[0], N_c))
-
-        shift0_c = Q_c - sign * np.dot(U_cc, q_c)
-        assert np.allclose(shift0_c.round(), shift0_c)
-        shift0_c = shift0_c.round().astype(int)
-
-        shift_c = kpt1.shift_c - kpt2.shift_c - shift0_c
-        I_G = np.ravel_multi_index(i_cG + shift_c[:, None], N_c, 'wrap')
         G_Gv = pd.get_reciprocal_vectors()
-
-        M_vv = np.dot(pd.gd.cell_cv.T, np.dot(U_cc.T,
-                                              np.linalg.inv(pd.gd.cell_cv).T))
-
-        pawcorr = self.pawcorr_q[iq].remap(M_vv, G_Gv, sym, sign)
+        pawcorr, I_G = symop.apply_symop_q(
+            pd, Q_c, self.pawcorr_q[iq], kpt1, kpt2)
 
         rho_mnG = np.zeros((len(kpt1.eps_n), len(kpt2.eps_n), len(G_Gv)),
                            complex)
         for m in range(len(rho_mnG)):
-            C1_aGi = pawcorr.multiply(kpt1.P_ani, band=m)
-            ut1cc_R = kpt1.ut_nR[m].conj()
-            rho_mnG[m] = self.pair.calculate_pair_density(ut1cc_R, C1_aGi,
-                                                          kpt2, pd, I_G)
+            rho_mnG[m] = get_nmG(kpt1, kpt2, pawcorr, m, pd, I_G, self.pair)
         return rho_mnG, iq
 
     def get_screened_potential(self):

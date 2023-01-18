@@ -7,6 +7,7 @@ from gpaw import GPAW, mpi
 from gpaw.lrtddft import LrTDDFT
 
 
+@pytest.mark.lrtddft
 @pytest.mark.libxc
 def test_lrtddft_apmb():
     txt = '-'

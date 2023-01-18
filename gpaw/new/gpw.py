@@ -44,8 +44,11 @@ def write_gpw(filename: str,
                      bohr=Bohr)
 
         write_atoms(writer.child('atoms'), atoms)
+
+        # Note that 'non_collinear_magmoms' is not an ASE standard name!
         results = {key: value * units[key]
-                   for key, value in calculation.results.items()}
+                   for key, value in calculation.results.items()
+                   if key != 'non_collinear_magmoms'}
         writer.child('results').write(**results)
         writer.child('parameters').write(
             **{k: v for k, v in params.items()
@@ -74,7 +77,7 @@ def write_wave_function_indices(writer, ibzwfs, grid):
 
     kpt_comm = ibzwfs.kpt_comm
     ibz = ibzwfs.ibz
-    (nG,) = ibzwfs.get_max_shape(global_shape=True)
+    nG = ibzwfs.get_max_shape(global_shape=True)[-1]
 
     writer.add_array('indices', (len(ibz), nG), np.int32)
 

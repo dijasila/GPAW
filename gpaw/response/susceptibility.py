@@ -3,13 +3,13 @@ import pickle
 import numpy as np
 
 from ase.units import Hartree
+from ase.utils import lazyproperty
 
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKS, ChiKSCalculator
-from gpaw.response.fxc_kernels import get_fxc
 from gpaw.response.coulomb_kernels import get_coulomb_kernel
+from gpaw.response.fxc_kernels import FXCFactory
 from gpaw.response.dyson import DysonSolver
-from gpaw.response.goldstone import get_scaled_xc_kernel
 
 
 class Chi:
@@ -36,11 +36,13 @@ class Chi:
         susceptibility and the frequency grid."""
         from gpaw.response.df import write_response_function
 
-        # For now, we assume that eta is fixed, so we don't need to write it
-        omega_w = self.chiks.zd.omega_w * Hartree
+        omega_w, chiks_w, chi_w = self.get_macroscopic_component()
+        if self.world.rank == 0:
+            write_response_function(filename, omega_w, chiks_w, chi_w)
 
-        chiks_wGG = self.chiks.array
-        chi_wGG = self._calculate()
+    def get_macroscopic_component(self):
+        """Get the macroscopic (G=0) component data, collected on all ranks"""
+        omega_w, chiks_wGG, chi_wGG = self.get_distributed_arrays()
 
         # Macroscopic component
         chiks_w = chiks_wGG[:, 0, 0]
@@ -50,21 +52,23 @@ class Chi:
         chiks_w = self.collect(chiks_w)
         chi_w = self.collect(chi_w)
 
-        if self.world.rank == 0:
-            write_response_function(filename, omega_w, chiks_w, chi_w)
+        return omega_w, chiks_w, chi_w
 
-    def write_component_array(self, filename, *, reduced_ecut):
+    def write_reduced_arrays(self, filename, *, reduced_ecut):
         """Calculate the many-body susceptibility and write it to a file along
         with the Kohn-Sham susceptibility and frequency grid within a reduced
         plane-wave basis."""
+        omega_w, G_Gc, chiks_wGG, chi_wGG = self.get_reduced_arrays(
+            reduced_ecut=reduced_ecut)
 
-        # For now, we assume that eta is fixed, so we don't need to write it
-        omega_w = self.chiks.zd.omega_w * Hartree
+        if self.world.rank == 0:
+            write_component(omega_w, G_Gc, chiks_wGG, chi_wGG, filename)
 
-        chiks_wGG = self.chiks.array
-        chi_wGG = self._calculate()
+    def get_reduced_arrays(self, *, reduced_ecut):
+        """Get data arrays with a reduced ecut, gathered on root."""
+        omega_w, chiks_wGG, chi_wGG = self.get_distributed_arrays()
 
-        # Get susceptibility in a reduced plane-wave representation
+        # Map the susceptibilities to a reduced plane-wave representation
         pd = self.chiks.pd
         mask_G = get_pw_reduction_map(pd, reduced_ecut)
         chiks_wGG = np.ascontiguousarray(chiks_wGG[:, mask_G, :][:, :, mask_G])
@@ -77,15 +81,23 @@ class Chi:
         chiks_wGG = self.gather(chiks_wGG)
         chi_wGG = self.gather(chi_wGG)
 
-        if self.world.rank == 0:
-            write_component(omega_w, G_Gc, chiks_wGG, chi_wGG, filename)
+        return omega_w, G_Gc, chiks_wGG, chi_wGG
 
-    def _calculate(self):
-        """Calculate chi_zGG."""
-        return self.dyson_solver.invert_dyson(self.chiks.array, self.Khxc_GG)
+    def get_distributed_arrays(self):
+        """Get data arrays, frequency distributed over world."""
+        # For now, we assume that eta is fixed -> z index == w index
+        omega_w = self.chiks.zd.omega_w * Hartree
+        chiks_wGG = self.chiks.array
+        chi_wGG = self.chi_zGG
 
-    @property
-    def Khxc_GG(self):
+        return omega_w, chiks_wGG, chi_wGG
+
+    @lazyproperty
+    def chi_zGG(self):
+        return self.dyson_solver.invert_dyson(self.chiks.array,
+                                              self.get_Khxc_GG())
+
+    def get_Khxc_GG(self):
         """Hartree-exchange-correlation kernel."""
         # Allocate array
         nG = self.chiks.array.shape[2]
@@ -136,14 +148,17 @@ class ChiFactory:
     def __init__(self, chiks_calc: ChiKSCalculator):
         """Contruct a many-body susceptibility factory."""
         self.chiks_calc = chiks_calc
-        self.context = chiks_calc.context
+
         self.gs = chiks_calc.gs
+        self.context = chiks_calc.context
+
+        self.fxc_factory = FXCFactory(self.gs, self.context)
 
         # Prepare a buffer for chiks
         self._chiks = None
 
     def __call__(self, spincomponent, q_c, complex_frequencies,
-                 fxc='ALDA', fxckwargs=None, txt=None) -> Chi:
+                 Kxc_GG=None, fxc=None, fxckwargs=None, txt=None) -> Chi:
         r"""Calculate a given element (spincomponent) of the four-component
         Kohn-Sham susceptibility tensor and construct a corresponding many-body
         susceptibility object within a given approximation to the
@@ -159,15 +174,21 @@ class ChiFactory:
         complex_frequencies : np.array or ComplexFrequencyDescriptor
             Array of complex frequencies to evaluate the response function at
             or a descriptor of those frequencies.
-        fxc : str
-            Approximation to the xc kernel
-        fxckwargs : dict
-            Kwargs to the FXCCalculator
+        Kxc_GG : np.array
+            Exchange-correlation kernel (calculated elsewhere). Use this input
+            carefully! The plane-wave representation in the supplied kernel has
+            to match the representation of chiks.
+            If no kernel is supplied, the ChiFactory will calculate one itself
+            according to keywords fxc and fxckwargs.
+        fxc : str (None defaults to ALDA)
+            Approximation to the (local) xc kernel.
+            Choices: ALDA, ALDA_X, ALDA_x
+        fxckwargs : dict (or None for default kwargs)
+            Keyword arguments when calling the FXCFactory
         txt : str
             Save output of the calculation of this specific component into
             a file with the filename of the given input.
         """
-        assert isinstance(fxc, str)
         # Initiate new output file, if supplied
         if txt is not None:
             self.context.new_txt_and_timer(txt)
@@ -189,13 +210,21 @@ class ChiFactory:
         else:
             Vbare_G = get_coulomb_kernel(chiks.pd, self.gs.kd.N_c)
 
-        # Calculate the exchange-correlation kernel
-        if fxc == 'RPA':
-            # No xc kernel by definition
-            Kxc_GG = None
+        # Calculate the xc kernel, if it has not been supplied by the user
+        if Kxc_GG is None:
+            # Fall back to defaults, if fxc and/or fxckwargs are not specified
+            if fxc is None:
+                fxc = 'ALDA'
+            if fxckwargs is None:
+                fxckwargs = {}
+
+            # Perform actual kernel calculation
+            if fxc != 'RPA':  # In RPA, we neglect the xc-kernel
+                Kxc_GG = self.fxc_factory(fxc, chiks, **fxckwargs)
         else:
-            Kxc_GG = self.get_xc_kernel(fxc, chiks=chiks,
-                                        fxckwargs=fxckwargs)
+            assert fxc is None and fxckwargs is None,\
+                'Supplying an xc kernel Kxc_GG overwrites the fxc and '\
+                'fxckwargs inputs'
 
         # Initiate the dyson solver
         dyson_solver = DysonSolver(self.context)
@@ -224,30 +253,6 @@ class ChiFactory:
             self._chiks = chiks
 
         return self._chiks
-
-    def get_xc_kernel(self, fxc, *, chiks, fxckwargs):
-        """Calculate the xc kernel."""
-        if fxckwargs is None:
-            fxckwargs = {}
-        assert isinstance(fxckwargs, dict)
-        if 'fxc_scaling' in fxckwargs:
-            assert chiks.spincomponent in ['+-', '-+']
-            fxc_scaling = fxckwargs['fxc_scaling']
-        else:
-            fxc_scaling = None
-
-        fxc_calculator = get_fxc(self.gs, self.context, fxc,
-                                 response='susceptibility', mode='pw',
-                                 **fxckwargs)
-
-        Kxc_GG = fxc_calculator(chiks.spincomponent, chiks.pd)
-
-        if fxc_scaling is not None:
-            self.context.print('Rescaling kernel to fulfill the Goldstone '
-                               'theorem')
-            Kxc_GG = get_scaled_xc_kernel(chiks, Kxc_GG, fxc_scaling)
-
-        return Kxc_GG
 
 
 def get_pw_reduction_map(pd, ecut):

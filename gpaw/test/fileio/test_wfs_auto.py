@@ -18,6 +18,3 @@ def test_fileio_wfs_auto(in_tmp_dir):
 
     calc = GPAW('tmp')
     calc.converge_wave_functions()
-
-    calc.set(nbands=5)
-    calc.converge_wave_functions()

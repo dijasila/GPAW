@@ -931,7 +931,7 @@ class GPAW(Calculator):
         Z_a = self.atoms.get_atomic_numbers()
         self.setups = Setups(Z_a,
                              self.parameters.setups, self.parameters.basis,
-                             xc, filter, self.world)
+                             xc, filter=filter, world=self.world)
         self.log(self.setups)
 
     def create_grid_descriptor(self, N_c, cell_cv, pbc_c,

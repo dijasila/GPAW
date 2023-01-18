@@ -3,9 +3,9 @@ from __future__ import annotations
 from math import pi
 
 import _gpaw
-import numpy as np
-
 import gpaw.fftw as fftw
+import numpy as np
+from ase.units import Ha
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.domain import Domain
 from gpaw.core.matrix import Matrix
@@ -83,6 +83,10 @@ class PlaneWaves(Domain):
             return r
         q = self.cell_cv @ self.qspiral_v / (2 * pi)
         return f'{r[:-1]}, qsiral={q}'
+
+    def _short_string(self, global_shape):
+        return (f'plane wave coefficients: {global_shape[-1]}\n'
+                f'cutoff: {self.ecut * Ha} eV\n')
 
     def global_shape(self) -> tuple[int, ...]:
         """Tuple with one element: number of plane waves."""

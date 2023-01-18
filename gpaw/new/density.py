@@ -53,7 +53,7 @@ class Density:
         return ccc_aL
 
     def normalize(self):
-        comp_charge = self.charge
+        comp_charge = 0.0
         for a, D_sii in self.D_asii.items():
             comp_charge += np.einsum('sij, ij ->',
                                      D_sii[:self.ndensities],
@@ -142,9 +142,11 @@ class Density:
         ccc_aL = self.calculate_compensation_charge_coefficients()
         pos_av = fracpos_ac @ self.nt_sR.desc.cell_cv
         for a, ccc_L in ccc_aL.items():
-            c, y, z, x = ccc_L[:4]
+            c = ccc_L[0]
             dip_v -= c * (4 * pi)**0.5 * pos_av[a]
-            dip_v -= np.array([x, y, z]) * (4 * pi / 3)**0.5
+            if len(ccc_L) > 1:
+                y, z, x = ccc_L[1:4]
+                dip_v -= np.array([x, y, z]) * (4 * pi / 3)**0.5
         self.nt_sR.desc.comm.sum(dip_v)
         for nt_R in self.nt_sR:
             dip_v -= nt_R.moment()

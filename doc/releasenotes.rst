@@ -33,7 +33,7 @@ Git master branch
 
 * New tutorial: :ref:`abinitiomd`.
 
-* Experimental support for PW-mode calculations using a GPU.
+* Experimental support for PW-mode calculations using a GPU: :ref:`gpu`.
 
 * One can now specify the total energy convergence criterium in eV instead
   of eV / valence electron:

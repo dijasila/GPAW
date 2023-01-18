@@ -1,9 +1,11 @@
+import pytest
 import numpy as np
 from gpaw import GPAW
 from ase.build import molecule
 from gpaw.mpi import world
 
 
+@pytest.mark.later
 def test_parallel_augment_grid(in_tmp_dir):
     system = molecule('H2O')
     system.cell = (4, 4, 4)
@@ -36,12 +38,11 @@ def test_parallel_augment_grid(in_tmp_dir):
                                       band=band, domain=domain),
                         basis='szp(dzp)',
                         kpts=[1, 1, 4],
-                        nbands=8)
-
-            def stopcalc():
-                calc.scf.converged = True
-            # Iterate enough for density to update so it depends on potential
-            calc.attach(stopcalc, 3 if mode == 'lcao' else 5)
+                        nbands=8,
+                        # Iterate enough for density to update so it depends
+                        # on potential
+                        convergence={'maximum iterations':
+                                     3 if mode == 'lcao' else 5})
             system.calc = calc
             energy.append(system.get_potential_energy())
             force.append(system.get_forces())

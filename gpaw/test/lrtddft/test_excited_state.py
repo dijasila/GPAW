@@ -43,6 +43,7 @@ def get_H3(calculator=None):
     return H3
 
 
+@pytest.mark.lrtddft
 def test_split(in_tmp_dir):
     fname = 'exlst.out'
     calc = GPAW(xc='PBE', h=0.25, nbands=3, txt=fname)
@@ -62,6 +63,7 @@ def test_split(in_tmp_dir):
             assert 'Total number of cores used: 1' in string
 
 
+@pytest.mark.lrtddft
 def test_lrtddft_excited_state():
     txt = None
 
@@ -113,6 +115,7 @@ def test_lrtddft_excited_state():
     parprint("time used:", time.time() - t0)
 
 
+@pytest.mark.lrtddft
 def test_io(in_tmp_dir):
     """Test output and input from files"""
     calc = GPAW(xc='PBE', h=0.25, nbands=3, txt=None)
@@ -150,6 +153,7 @@ def test_io(in_tmp_dir):
     assert atoms.get_forces() == pytest.approx(F, 1.e-5)
 
 
+@pytest.mark.lrtddft
 def test_log(in_tmp_dir):
     fname = 'ex0_silent.out'
     calc = GPAW(xc='PBE', h=0.25, nbands=5, txt=None)
@@ -194,6 +198,7 @@ def test_log(in_tmp_dir):
             assert string.count('Linear response TDDFT calculation') == n
 
 
+@pytest.mark.lrtddft
 def test_forces():
     """Test whether force calculation works"""
     calc = GPAW(xc='PBE', h=0.25, nbands=3, txt=None)
@@ -224,6 +229,7 @@ def test_forces():
         assert forcesp == pytest.approx(forces, abs=0.001)
 
 
+@pytest.mark.lrtddft
 def test_unequal_parralel_work():
     """Test whether parallel force calculation works for three atoms"""
     if world.size == 1:
