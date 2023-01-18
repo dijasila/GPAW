@@ -74,6 +74,9 @@ class ndarray:
     def get(self):
         return self._data.copy()
 
+    def copy(self):
+        return ndarray(self._data.copy())
+
     def __len__(self):
         return len(self._data)
 

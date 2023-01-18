@@ -383,7 +383,9 @@ class Matrix:
                     if self.xp is cp:
                         S.invcholesky()
                         self.tril2full()
-                        return self.eighg(S)
+                        eigs = self.eighg(S)
+                        self.data[:] = self.data.T.copy()
+                        return eigs
                     if debug:
                         S.data[self.xp.triu_indices(H.shape[0], 1)] = 42.0
                     eps, evecs = sla.eigh(
@@ -808,10 +810,10 @@ class CuPyDistribution(MatrixDistribution):
         self.multiply(1.0, L, 'N', H, 'N', 0.0, tmp)
         self.multiply(1.0, tmp, 'N', L, 'C', 0.0, H, symmetric=True)
         eig_M, Ct_MM = cp.linalg.eigh(H.data, UPLO='L')
-        assert Ct_MM.flags.c_contiguous
-        Ct = H.new(data=Ct_MM)
-        self.multiply(1.0, Ct, 'C', L, 'N', 0.0, H)
-        H.complex_conjugate()
+        assert Ct_MM.flags.f_contiguous
+        Ct = H.new(data=Ct_MM.T)
+        self.multiply(1.0, L, 'C', Ct, 'T', 0.0, H)
+        # H.complex_conjugate()
         return eig_M
 
 
