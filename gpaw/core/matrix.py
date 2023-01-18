@@ -380,7 +380,7 @@ class Matrix:
                         check_finite=debug,
                         driver='evx' if H.data.size == 1 else 'evd')
                 else:
-                    if self.xp is not np:
+                    if self.xp is cp:
                         S.invcholesky()
                         self.tril2full()
                         return self.eighg(S)
@@ -420,7 +420,7 @@ class Matrix:
     def eighg(self, L: Matrix, comm2: MPIComm = serial_comm) -> Array1D:
         """Solve generalized eigenvalue problem.
 
-        :::
+        With `H` being self, we solve:::
 
           HC = SCΛ,
 
@@ -433,6 +433,9 @@ class Matrix:
 
            ~      †   ~~   ~         †~
            H = LHL ,  HC = CΛ,  C = L C.
+
+        Note that `H` must be the full matrix not just half of it!
+
         """
         M, N = self.shape
         assert M == N
