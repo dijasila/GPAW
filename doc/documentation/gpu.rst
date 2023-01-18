@@ -3,7 +3,7 @@
 GPU
 ===
 
-It is possible to do PW-mode groundstate calculations with the wave functions
+It is possible to do PW-mode ground-state calculations with the wave functions
 on the GPU.  It has only been implemented in the new GPAW.  See
 :git:`gpaw/test/gpu/pw_test.py` for an example.
 
@@ -21,4 +21,4 @@ having a physical GPU.  To enable the fake ``cupy`` module, do::
 This allows users without a GPU to find out if their code interferes with the
 GPU implementation, simply by running the tests.
 
-.. _cupy:: https://cupy.dev/
+.. _cupy: https://cupy.dev/
