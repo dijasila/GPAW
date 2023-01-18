@@ -9,7 +9,6 @@
 #define gpuMemcpyKind             cudaMemcpyKind
 #define gpuMemcpyDeviceToHost     cudaMemcpyDeviceToHost
 #define gpuMemcpyHostToDevice     cudaMemcpyHostToDevice
-#define gpuDeviceProp             cudaDeviceProp
 #define gpuSuccess                cudaSuccess
 #define gpuEventDefault           cudaEventDefault
 #define gpuEventBlockingSync      cudaEventBlockingSync
