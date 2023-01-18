@@ -164,7 +164,7 @@ class TDDFT(GPAW):
             self.solver = BiCGStab(gd=wfs.gd, timer=self.timer,
                                    tolerance=tolerance)
         elif solver == 'CSCG':
-            self.solver = CSCG(wfs, timer=self.timer,
+            self.solver = CSCG(gd=wfs.gd, bd=wfs.bd, timer=self.timer,
                                tolerance=tolerance, cuda=self.cuda)
         else:
             raise RuntimeError('Solver %s not supported.' % solver)

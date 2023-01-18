@@ -145,7 +145,7 @@ void blas_init_cuda()
 }
 
 
-inline unsigned int mylog2(unsigned int v)
+static inline unsigned int mylog2(unsigned int v)
 {
     int r = 0;
     while (v >>= 1)
@@ -154,9 +154,9 @@ inline unsigned int mylog2(unsigned int v)
 }
 
 
-inline hybrid_pace_t *hybrid_pace_get(hybrid_pace_t *paces, int count,
-                                      unsigned int m, unsigned int k,
-                                      unsigned int n, unsigned int p)
+static inline hybrid_pace_t *hybrid_pace_get(hybrid_pace_t *paces, int count,
+                                             unsigned int m, unsigned int k,
+                                             unsigned int n, unsigned int p)
 {
     unsigned int key;
     key = mylog2(m) + (mylog2(k) << 5) + (mylog2(n) << 10)

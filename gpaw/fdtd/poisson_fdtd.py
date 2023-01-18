@@ -138,8 +138,8 @@ class QSFDTD:
 
 # This helps in telling the classical quantities from the quantum ones
 class PoissonOrganizer:
-    def __init__(self, poisson_solver=None):
-        self.poisson_solver = poisson_solver
+    def __init__(self):
+        self.poisson_solver = None
         self.gd = None
         self.density = None
         self.cell = None
@@ -171,9 +171,11 @@ class FDTDPoissonSolver:
                  cl_spacing=1.20,
                  remove_moments=(1, 1),
                  potential_coupler='Refiner',
-                 communicator=serial_comm):
+                 communicator=serial_comm,
+                 cuda=False):
 
         self.rank = mpi.rank
+        self.cuda = cuda
 
         self.messages = []
 
@@ -204,7 +206,7 @@ class FDTDPoissonSolver:
         self.cl.extrapolated_qm_phi = None
         self.cl.dcomm = communicator
         self.cl.dparsize = None
-        self.qm = PoissonOrganizer(FDPoissonSolver)  # Default solver
+        self.qm = PoissonOrganizer()
         self.qm.spacing_def = qm_spacing * np.ones(3) / Bohr
         self.qm.cell = np.array(cell) / Bohr
 
@@ -280,7 +282,8 @@ class FDTDPoissonSolver:
             nn=self.nn,
             eps=self.eps,
             relax=self.relax,
-            remove_moment=self.remove_moment_qm)
+            remove_moment=self.remove_moment_qm,
+            cuda=self.cuda)
         self.qm.poisson_solver.set_grid_descriptor(self.qm.gd)
         # self.qm.poisson_solver.initialize()
         self.qm.phi = self.qm.gd.zeros()
@@ -295,7 +298,8 @@ class FDTDPoissonSolver:
             nn=self.nn,
             eps=self.eps,
             relax=self.relax,
-            remove_moment=self.remove_moment_cl)
+            remove_moment=self.remove_moment_cl,
+            cuda=self.cuda)
         self.cl.poisson_solver.set_grid_descriptor(self.cl.gd)
         # self.cl.poisson_solver.initialize()
 

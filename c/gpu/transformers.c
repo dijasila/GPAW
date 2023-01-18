@@ -163,7 +163,6 @@ void debug_transformer_apply(TransformerObject* self,
     MPI_Request recvreq[2];
     MPI_Request sendreq[2];
     int i;
-    double err;
 
     boundary_conditions* bc = self->bc;
     const int *size1 = bc->size1;
@@ -176,12 +175,9 @@ void debug_transformer_apply(TransformerObject* self,
     if (bc->comm != MPI_COMM_NULL)
         MPI_Comm_rank(bc->comm, &rank);
 
-    int last;
     for (int n=0; n < nin; n += blocks) {
         const double *in = debug_in_cpu + n * ng;
-        double *out = debug_out_cpu + n * out_ng;
         int myblocks = MIN(blocks, nin - n);
-        last = myblocks;
         for (int i=0; i < 3; i++) {
             bc_unpack1(bc, in, debug_buf_cpu, i, recvreq, sendreq,
                        debug_recvbuf, debug_sendbuf, ph + 2 * i, 0, myblocks);
@@ -242,9 +238,7 @@ static void _transformer_apply_cuda_gpu(TransformerObject* self,
 {
     boundary_conditions* bc = self->bc;
     const int* size1 = bc->size1;
-    const int* size2 = self->bc->size2;
     int ng = bc->ndouble * size1[0] * size1[1] * size1[2];
-    int ng2 = bc->ndouble * size2[0] * size2[1] * size2[2];
     int out_ng = bc->ndouble * self->size_out[0] * self->size_out[1]
                * self->size_out[2];
 
@@ -266,7 +260,7 @@ static void _transformer_apply_cuda_gpu(TransformerObject* self,
 
         bc_unpack_paste_cuda_gpu(bc, in2, buf, recvreq, 0, myblocks);
         for (int i=0; i < 3; i++) {
-            bc_unpack_cuda_gpu(bc, in2, buf, i, recvreq, sendreq[i],
+            bc_unpack_cuda_gpu(bc, buf, i, recvreq, sendreq[i],
                                ph + 2 * i, 0, myblocks);
         }
         if (self->interpolate) {

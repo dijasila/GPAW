@@ -24,8 +24,6 @@
 #  define dgemv_  dgemv
 #  define zgemv_  zgemv
 #  define ddot_   ddot
-#  define zdotu_  zdotu
-#  define zdotc_  zdotc
 #endif
 
 
@@ -71,10 +69,18 @@ void zgemv_(char *trans, int *m, int * n,
             void *x, int *incx, void *beta,
             void *y, int *incy);
 double ddot_(int *n, void *dx, int *incx, void *dy, int *incy);
-void zdotu_(void *ret_val, int *n,
-            void *zx, int *incx, void *zy, int *incy);
-void zdotc_(void *ret_val, int *n,
-            void *zx, int *incx, void *zy, int *incy);
+
+// The definitions of zdotc and zdotu might be
+//     void zdotc_(void *ret_val, int *n, void *zx, int *incx, void *zy, int *incy);
+//     void zdotu_(void *ret_val, int *n, void *zx, int *incx, void *zy, int *incy);
+// or
+//     double_complex zdotc_(int *n, void *zx, int *incx, void *zy, int *incy);
+//     double_complex zdotu_(int *n, void *zx, int *incx, void *zy, int *incy);
+// depending on the library (MKL, OpenBLAS) or its compilation options.
+// To have a common definition, we take the functions through the cblas interface:
+void cblas_zdotc_sub(int n, void *x, int incx, void *y, int incy, void *ret);
+void cblas_zdotu_sub(int n, void *x, int incx, void *y, int incy, void *ret);
+
 
 PyObject* scal(PyObject *self, PyObject *args)
 {
@@ -372,11 +378,11 @@ PyObject* dotc(PyObject *self, PyObject *args)
     {
       double_complex* ap = COMPLEXP(a);
       double_complex* bp = COMPLEXP(b);
-      double_complex z = 0.0;
+      double_complex result;
       Py_BEGIN_ALLOW_THREADS;
-      zdotc_(&z, &n, ap, &incx, bp, &incy);
+      cblas_zdotc_sub(n, ap, incx, bp, incy, &result);
       Py_END_ALLOW_THREADS;
-      return PyComplex_FromDoubles(creal(z), cimag(z));
+      return PyComplex_FromDoubles(creal(result), cimag(result));
     }
 }
 
@@ -405,11 +411,11 @@ PyObject* dotu(PyObject *self, PyObject *args)
     {
       double_complex* ap = COMPLEXP(a);
       double_complex* bp = COMPLEXP(b);
-      double_complex z = 0.0;
+      double_complex result;
       Py_BEGIN_ALLOW_THREADS;
-      zdotu_(&z, &n, ap, &incx, bp, &incy);
+      cblas_zdotu_sub(n, ap, incx, bp, incy, &result);
       Py_END_ALLOW_THREADS;
-      return PyComplex_FromDoubles(creal(z), cimag(z));
+      return PyComplex_FromDoubles(creal(result), cimag(result));
     }
 }
 #endif

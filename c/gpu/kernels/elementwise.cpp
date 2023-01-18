@@ -213,7 +213,7 @@ PyObject* fill_gpu(PyObject *self, PyObject *args)
 
     double real;
     double imag;
-    if PyComplex_Check(value) {
+    if (PyComplex_Check(value)) {
         Py_complex c;
         c = PyComplex_AsCComplex(value);
         real = c.real;

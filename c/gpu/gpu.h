@@ -147,4 +147,18 @@ static inline unsigned int nextPow2(unsigned int x) {
     return ++x;
 }
 
+#define BLOCK_GRID(hc_size)                                           \
+    int blockx = MIN((int)nextPow2(hc_size.z),                        \
+                     BLOCK_MAX);                                      \
+    int blocky = MIN(MIN((int)nextPow2(hc_size.y),                    \
+                         BLOCK_TOTALMAX / blockx),                    \
+                     BLOCK_MAX);                                      \
+    dim3 dimBlock(blockx, blocky);                                    \
+    int gridx = ((hc_size.z + dimBlock.x - 1) / dimBlock.x);          \
+    int xdiv = MAX(1, MIN(hc_size.x, GRID_MAX / gridx));              \
+    gridx = xdiv * gridx;                                             \
+    int gridy = blocks * ((hc_size.y + dimBlock.y - 1) / dimBlock.y); \
+    dim3 dimGrid(gridx, gridy);                                       \
+
+
 #endif

@@ -54,8 +54,8 @@ __global__ void FD_kernel(
     int i1tid = threadIdx.y;
     int i1, i2;
     int xlen;
-    double acache0[MYJ];
-    double acache0t[MYJ + 1];
+    double acache0[MYJ] = {0.0};
+    double acache0t[MYJ + 1] = {0.0};
     double *acache12p;
 
     __shared__ double s_coefs0[MYJ * 2 + 1];
@@ -768,7 +768,7 @@ void Zcuda(bmgs_fd_cuda_gpu)(
 
 extern "C"
 double Zcuda(bmgs_fd_cuda_cpu)(const bmgsstencil* s, const Tcuda* a,
-                               Tcuda* b, int boundary, int blocks)
+                               Tcuda* b, int blocks)
 {
     Tcuda *adev, *bdev;
     size_t asize,bsize;

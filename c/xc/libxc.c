@@ -10,7 +10,9 @@
 #include <xc.h>
 #include "xc_gpaw.h"
 #include "../extensions.h"
+#ifdef GPAW_GPU
 #include "../gpu/gpu.h"
+#endif
 
 typedef struct
 {
@@ -140,7 +142,9 @@ lxcXCFunctional_set_omega(lxcXCFunctionalObject *self, PyObject *args)
 #define LIBXCSCRATCHSIZE (BLOCKSIZE*MAXARRAYS)
 
 static double *scratch=NULL;
+#ifdef GPAW_GPU
 static double *scratch_d=NULL;
+#endif
 
 // we don't use lapl, but libxc needs space for them.
 static double *scratch_lapl=NULL;
@@ -398,6 +402,7 @@ lxcXCFunctional_Calculate(lxcXCFunctionalObject *self, PyObject *args)
   setupblockptrs(scratch, &info, &inlist, &outlist, &inblock[0], &outblock[0],
                  blocksize, &insize, &outsize);
 
+#ifdef GPAW_GPU
   double *inblock_d[MAXPTR];
   double *outblock_d[MAXPTR];
 
@@ -412,6 +417,7 @@ lxcXCFunctional_Calculate(lxcXCFunctionalObject *self, PyObject *args)
     setupblockptrs(scratch_d, &info, &inlist, &outlist, &inblock_d[0],
                    &outblock_d[0], blocksize, &insize, &outsize);
   }
+#endif
 
   do {
     blocksize = blocksize<remaining ? blocksize : remaining;
@@ -419,9 +425,12 @@ lxcXCFunctional_Calculate(lxcXCFunctionalObject *self, PyObject *args)
 
     double **in;
     double **out;
+
+#ifdef GPAW_GPU
     if (gpu[0] || gpu[1]) {
       gpuMemcpy(inblock_d[0], inblock[0], insize, gpuMemcpyHostToDevice);
     }
+#endif
 
     double *n_sg_cpu = inblock[0];
     for (int i=0; i<2; i++) {
@@ -429,6 +438,7 @@ lxcXCFunctional_Calculate(lxcXCFunctionalObject *self, PyObject *args)
       XC(func_type) *func = self->functional[i];
       int noutcopy=0;
 
+#ifdef GPAW_GPU
       if (gpu[i]) {
         in = inblock_d;
         out = outblock_d;
@@ -436,6 +446,10 @@ lxcXCFunctional_Calculate(lxcXCFunctionalObject *self, PyObject *args)
         in = inblock;
         out = outblock;
       }
+#else
+      in = inblock;
+      out = outblock;
+#endif
 
       double *n_sg = in[0];
       double *sigma_xg, *tau_sg;
@@ -467,10 +481,12 @@ lxcXCFunctional_Calculate(lxcXCFunctionalObject *self, PyObject *args)
           break;
         }
 
+#ifdef GPAW_GPU
       if (gpu[i]) {
         gpuMemcpy(outblock[0], outblock_d[0], outsize,
                    gpuMemcpyDeviceToHost);
       }
+#endif
 
       // if we have more than 1 functional, add results
       // canonical example: adding "x" results to "c"
@@ -557,6 +573,7 @@ lxcXCFunctional_CalculateFXC(lxcXCFunctionalObject *self, PyObject *args)
   setupblockptrs(scratch, &info, &inlist, &outlist, &inblock[0], &outblock[0],
                  blocksize, &insize, &outsize);
 
+#ifdef GPAW_GPU
   double *inblock_d[MAXPTR];
   double *outblock_d[MAXPTR];
 
@@ -571,6 +588,7 @@ lxcXCFunctional_CalculateFXC(lxcXCFunctionalObject *self, PyObject *args)
     setupblockptrs(scratch_d, &info, &inlist, &outlist, &inblock_d[0],
                    &outblock_d[0], blocksize, &insize, &outsize);
   }
+#endif
 
   do {
     blocksize = blocksize<remaining ? blocksize : remaining;
@@ -578,9 +596,11 @@ lxcXCFunctional_CalculateFXC(lxcXCFunctionalObject *self, PyObject *args)
 
     double **in;
     double **out;
+#ifdef GPAW_GPU
     if (gpu[0] || gpu[1]) {
       gpuMemcpy(inblock_d[0], inblock[0], insize, gpuMemcpyHostToDevice);
     }
+#endif
     double *n_sg_cpu = inblock[0];
 
     for (int i=0; i<2; i++) {
@@ -588,6 +608,7 @@ lxcXCFunctional_CalculateFXC(lxcXCFunctionalObject *self, PyObject *args)
       XC(func_type) *func = self->functional[i];
       int noutcopy=0;
 
+#ifdef GPAW_GPU
       if (gpu[i]) {
         in = inblock_d;
         out = outblock_d;
@@ -595,6 +616,10 @@ lxcXCFunctional_CalculateFXC(lxcXCFunctionalObject *self, PyObject *args)
         in = inblock;
         out = outblock;
       }
+#else
+      in = inblock;
+      out = outblock;
+#endif
 
       double *n_sg = in[0];
       double *sigma_xg = in[1];
@@ -620,10 +645,12 @@ lxcXCFunctional_CalculateFXC(lxcXCFunctionalObject *self, PyObject *args)
           break;
         }
 
+#ifdef GPAW_GPU
       if(gpu[i]){
         gpuMemcpy(outblock[0], outblock_d[0], outsize,
                    gpuMemcpyDeviceToHost);
       }
+#endif
 
       // if we have more than 1 functional, add results
       // canonical example: adding "x" results to "c"
@@ -716,7 +743,9 @@ PyObject * NewlxcXCFunctionalObject(PyObject *obj, PyObject *args)
     scratch_lapl = (double*)malloc(laplsize);
     memset(scratch_lapl,0,laplsize);
     scratch_vlapl = (double*)malloc(laplsize);
+#ifdef GPAW_GPU
     gpuMalloc(&scratch_d, LIBXCSCRATCHSIZE * sizeof(double));
+#endif
   }
 
   if (!PyArg_ParseTuple(args, "iiii", &xc, &x, &c, &nspin)) {

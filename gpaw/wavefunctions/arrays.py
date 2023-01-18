@@ -11,6 +11,9 @@ class MatrixInFile:
         self.array = data  # pointer to data in a file
         self.dist = create_distribution(M, N, *dist)
 
+    def view(self, i, j):
+        return self.array[i:j]
+
 
 class ArrayWaveFunctions:
     def __init__(self, M, N, dtype, data, dist, collinear, cuda=False):
@@ -202,7 +205,12 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
                  spin=0, collinear=True, cuda=False):
         ng = ng0 = pd.myng_q[kpt]
         if data is not None:
-            assert data.dtype == complex
+            # XXX why ???
+            # assert data.dtype == complex
+            from warnings import warn
+            if data.dtype != complex:
+                warn('data.dtype != complex: '
+                     f'data.dtype={data.dtype}, dtype={dtype}')
         if dtype == float:
             ng *= 2
             if isinstance(data, np.ndarray):
@@ -226,6 +234,7 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
         if not self.in_memory:
             return self.matrix.array
         elif self.dtype == float:
+            # XXX why float -> complex ???
             return self.matrix.array.view(complex)
         else:
             return self.matrix.array.reshape(self.myshape)
@@ -298,9 +307,14 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
     def view(self, n1, n2):
         key = (n1, n2)
         if key not in self._cached_view:
+            # XXX forcing complex due to assert in __init__(); why ???
+            # print('XXX')
+            # print(self.array[n1:n2].dtype)
+            # print(self.matrix.view(n1, n2).dtype)
             self._cached_view[key] = \
                     PlaneWaveExpansionWaveFunctions(
                             n2 - n1, self.pd, self.dtype,
+                            # self.array[n1:n2],
                             self.matrix.view(n1, n2),
                             self.kpt, None,
                             self.spin, self.collinear,
@@ -331,11 +345,6 @@ def operate_and_multiply(psit1, dv, out, operator, psit2):
         psit1.matrix.sync()
     send_array = psit1.matrix._array_cpu
 
-    m12 = Matrix(len(psit), len(psit), dtype=psit.dtype,
-                 dist=(psit.matrix.dist.comm, psit.matrix.dist.rows,
-                       psit.matrix.dist.columns),
-                 cuda=True)
-
     for r in range(half + 1):
         rrequest = None
         srequest = None
@@ -358,13 +367,12 @@ def operate_and_multiply(psit1, dv, out, operator, psit2):
                 psit2 = psit
 
         if not (comm.size % 2 == 0 and r == half and comm.rank < half):
-            psit2.matrix_elements(psit, symmetric=(r == 0), cc=True,
-                                  serial=True, out=m12)
+            m12 = psit2.matrix_elements(psit, symmetric=(r == 0), cc=True,
+                                        serial=True)
+            m12.use_cpu()
             n1 = min(((comm.rank - r) % comm.size) * n, N)
             n2 = min(n1 + n, N)
-            m12.use_cpu()
             out.array[:, n1:n2] = m12.array[:, :n2 - n1]
-            m12.use_gpu()
 
         if rrequest:
             comm.wait(rrequest)
