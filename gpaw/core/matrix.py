@@ -307,17 +307,13 @@ class Matrix:
                                     lower=True,
                                     overwrite_a=True,
                                     check_finite=debug)
-                print('L', L_nn)
                 S.data[:] = sla.inv(L_nn,
                                     overwrite_a=True,
                                     check_finite=debug)
-                print('iL', S.data)
             else:
                 self.tril2full()
                 L_nn = cp.linalg.cholesky(S.data)
-                print('LG', L_nn._data)
                 S.data[:] = cp.linalg.inv(L_nn)
-                print('iLG', S.data._data)
 
         if S is not self:
             S.redist(self)
@@ -803,18 +799,12 @@ class CuPyDistribution(MatrixDistribution):
            ~      †   ~~   ~         †~
            H = LHL ,  HC = CΛ,  C = L C.
         """
-        print(L.data._data)
-        print(H.data._data)
-        print('eig0', np.linalg.eigh(L.data._data @ H.data._data @ L.data._data.T.conj()))
         tmp = H.new()
         self.multiply(1.0, L, 'N', H, 'N', 0.0, tmp)
         self.multiply(1.0, tmp, 'N', L, 'C', 0.0, H, symmetric=True)
         eig_M, Ct_MM = cp.linalg.eigh(H.data, UPLO='L')
         assert Ct_MM._data.flags.c_contiguous
-        print(H.data._data @ Ct_MM._data - Ct_MM._data @ np.diag(eig_M))
         Ct = H.new(data=Ct_MM)
-        print(L.data._data.T.conj() @ Ct_MM._data)
-        # self.multiply(1.0, L, 'C', Ct, 'N', 0.0, H)
         self.multiply(1.0, Ct, 'C', L, 'N', 0.0, H)
         H.complex_conjugate()
         return eig_M

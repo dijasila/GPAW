@@ -201,7 +201,8 @@ class Davidson(Eigensolver):
 
             if domain_comm.rank == 0:
                 if band_comm.rank == 0:
-                    M0_nn.data[:] = H_NN.data[:B, :B]
+                    # M0_nn.data[:] = H_NN.data[:B, :B]
+                    M0_nn.data[:] = H_NN.data[:B, :B].T
                 M0_nn.redist(M_nn)
             domain_comm.broadcast(M_nn.data, 0)
 
@@ -210,7 +211,8 @@ class Davidson(Eigensolver):
 
             if domain_comm.rank == 0:
                 if band_comm.rank == 0:
-                    M0_nn.data[:] = H_NN.data[B:, :B]
+                    # M0_nn.data[:] = H_NN.data[B:, :B]
+                    M0_nn.data[:] = H_NN.data[:B, B:].T
                 M0_nn.redist(M_nn)
             domain_comm.broadcast(M_nn.data, 0)
 
