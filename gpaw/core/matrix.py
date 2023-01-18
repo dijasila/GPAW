@@ -808,7 +808,7 @@ class CuPyDistribution(MatrixDistribution):
         self.multiply(1.0, L, 'N', H, 'N', 0.0, tmp)
         self.multiply(1.0, tmp, 'N', L, 'C', 0.0, H, symmetric=True)
         eig_M, Ct_MM = cp.linalg.eigh(H.data, UPLO='L')
-        assert Ct_MM._data.flags.c_contiguous
+        assert Ct_MM.flags.c_contiguous
         Ct = H.new(data=Ct_MM)
         self.multiply(1.0, Ct, 'C', L, 'N', 0.0, H)
         H.complex_conjugate()
