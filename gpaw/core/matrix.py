@@ -561,6 +561,9 @@ class MatrixDistribution:
     def multiply(self, alpha, a, opa, b, opb, beta, c, symmetric):
         raise NotImplementedError
 
+    def eighg(self, H, L):
+        raise NotImplementedError
+
     def new(self, M, N):
         raise NotImplementedError
 
