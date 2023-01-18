@@ -68,7 +68,8 @@ __global__ void Zcuda(multi_axpy_cuda_kernel)(int n, const Tcuda *alpha,
 extern "C"
 PyObject* multi_scal_cuda_gpu(PyObject *self, PyObject *args)
 {
-    gpuDeviceptr_t alpha_gpu, x_gpu;
+    void *alpha_gpu;
+    void *x_gpu;
     PyObject *x_shape;
     PyArray_Descr *type, *a_type;
 
@@ -127,9 +128,9 @@ PyObject* multi_scal_cuda_gpu(PyObject *self, PyObject *args)
 extern "C"
 PyObject* multi_axpy_cuda_gpu(PyObject *self, PyObject *args)
 {
-    gpuDeviceptr_t alpha_gpu;
-    gpuDeviceptr_t x_gpu;
-    gpuDeviceptr_t y_gpu;
+    void *alpha_gpu;
+    void *x_gpu;
+    void *y_gpu;
     PyObject *x_shape, *y_shape;
     PyArray_Descr *type, *a_type;
 
@@ -196,9 +197,9 @@ void mdotu_cuda_gpu(const double *a_gpu, const double *b_gpu,
 extern "C"
 PyObject* multi_dotu_cuda_gpu(PyObject *self, PyObject *args)
 {
-    gpuDeviceptr_t a_gpu;
-    gpuDeviceptr_t b_gpu;
-    gpuDeviceptr_t res_gpu;
+    void *a_gpu;
+    void *b_gpu;
+    void *res_gpu;
 
     PyObject *a_shape;
     PyArray_Descr *type;
@@ -232,9 +233,9 @@ PyObject* multi_dotu_cuda_gpu(PyObject *self, PyObject *args)
 extern "C"
 PyObject* multi_dotc_cuda_gpu(PyObject *self, PyObject *args)
 {
-    gpuDeviceptr_t a_gpu;
-    gpuDeviceptr_t b_gpu;
-    gpuDeviceptr_t res_gpu;
+    void *a_gpu;
+    void *b_gpu;
+    void *res_gpu;
 
     PyObject *a_shape;
     PyArray_Descr *type;

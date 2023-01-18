@@ -448,7 +448,8 @@ PyObject * NewLFCObject_cuda(LFCObject *self, PyObject *args)
 extern "C"
 PyObject* integrate_cuda_gpu(LFCObject *lfc, PyObject *args)
 {
-    gpuDeviceptr_t a_xG_gpu, c_xM_gpu;
+    void *a_xG_gpu;
+    void *c_xM_gpu;
     PyObject *shape, *c_shape;
     int q;
 
@@ -493,7 +494,8 @@ PyObject* integrate_cuda_gpu(LFCObject *lfc, PyObject *args)
 extern "C"
 PyObject* add_cuda_gpu(LFCObject *lfc, PyObject *args)
 {
-    gpuDeviceptr_t a_xG_gpu, c_xM_gpu;
+    void *a_xG_gpu;
+    void *c_xM_gpu;
     PyObject *shape, *c_shape;
     int q;
 

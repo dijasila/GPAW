@@ -333,8 +333,8 @@ static void _operator_relax_cuda_gpu(OperatorObject* self, int relax_method,
 PyObject* Operator_relax_cuda_gpu(OperatorObject* self, PyObject* args)
 {
     int relax_method;
-    gpuDeviceptr_t func_gpu;
-    gpuDeviceptr_t source_gpu;
+    void *func_gpu;
+    void *source_gpu;
     double w = 1.0;
     int nrelax;
 
@@ -561,8 +561,8 @@ static void _operator_apply_cuda_gpu(OperatorObject *self,
 PyObject * Operator_apply_cuda_gpu(OperatorObject* self, PyObject* args)
 {
     PyArrayObject* phases = 0;
-    gpuDeviceptr_t input_gpu;
-    gpuDeviceptr_t output_gpu;
+    void *input_gpu;
+    void *output_gpu;
     PyObject *shape;
     PyArray_Descr *type;
 

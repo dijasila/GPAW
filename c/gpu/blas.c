@@ -638,7 +638,7 @@ PyObject* scal_cuda_gpu(PyObject *self, PyObject *args)
 {
     Py_complex alpha;
 
-    gpuDeviceptr_t x_gpu;
+    void *x_gpu;
     PyObject *x_shape;
     PyArray_Descr *type;
 
@@ -668,9 +668,9 @@ PyObject* scal_cuda_gpu(PyObject *self, PyObject *args)
 
 static void _mmm_cuda(gpublasOperation_t gpu_opa, gpublasOperation_t gpu_opb,
                       int m, int n, int k,
-                      Py_complex alpha, gpuDeviceptr_t a, int lda,
-                      gpuDeviceptr_t b, int ldb, Py_complex beta,
-                      gpuDeviceptr_t c, int ldc, int real)
+                      Py_complex alpha, void *a, int lda,
+                      void *b, int ldb, Py_complex beta,
+                      void *c, int ldc, int real)
 {
     if (real) {
         gpublasSafeCall(
@@ -691,14 +691,14 @@ static void _mmm_cuda(gpublasOperation_t gpu_opa, gpublasOperation_t gpu_opb,
 PyObject* mmm_gpu(PyObject *self, PyObject *args)
 {
     Py_complex alpha;
-    gpuDeviceptr_t b;
+    void *b;
     int ldb;
     int opb;
-    gpuDeviceptr_t a;
+    void *a;
     int lda;
     int opa;
     Py_complex beta;
-    gpuDeviceptr_t c;
+    void *c;
     int ldc;
     int bytes;
     int m, n, k;
@@ -720,9 +720,9 @@ PyObject* mmm_gpu(PyObject *self, PyObject *args)
 
 static void _gemm_cuda(gpublasOperation_t transa_c,
                        int m, int n, int k,
-                       Py_complex alpha, gpuDeviceptr_t a_gpu, int lda,
-                       gpuDeviceptr_t b_gpu, int ldb, Py_complex beta,
-                       gpuDeviceptr_t c_gpu, int ldc,
+                       Py_complex alpha, void *a_gpu, int lda,
+                       void *b_gpu, int ldb, Py_complex beta,
+                       void *c_gpu, int ldc,
                        int real)
 {
     _mmm_cuda(transa_c, GPUBLAS_OP_N, m, n, k, alpha, a_gpu, lda,
@@ -731,9 +731,9 @@ static void _gemm_cuda(gpublasOperation_t transa_c,
 
 static void _gemm_cuda_hybrid(char transa, gpublasOperation_t transa_c,
                               int m, int n, int k,
-                              Py_complex alpha, gpuDeviceptr_t a_gpu, int lda,
-                              gpuDeviceptr_t b_gpu, int ldb, Py_complex beta,
-                              gpuDeviceptr_t c_gpu, int ldc,
+                              Py_complex alpha, void *a_gpu, int lda,
+                              void *b_gpu, int ldb, Py_complex beta,
+                              void *c_gpu, int ldc,
                               int real)
 {
     int n_off = 0, m_off = 0;
@@ -897,9 +897,9 @@ PyObject* gemm_cuda_gpu(PyObject *self, PyObject *args)
     Py_complex alpha;
     Py_complex beta;
 
-    gpuDeviceptr_t a_gpu;
-    gpuDeviceptr_t b_gpu;
-    gpuDeviceptr_t c_gpu;
+    void *a_gpu;
+    void *b_gpu;
+    void *c_gpu;
     PyObject *a_shape, *b_shape, *c_shape;
     PyArray_Descr *type;
 
@@ -959,9 +959,9 @@ PyObject* gemv_cuda_gpu(PyObject *self, PyObject *args)
 {
     Py_complex alpha;
 
-    gpuDeviceptr_t a_gpu;
-    gpuDeviceptr_t x_gpu;
-    gpuDeviceptr_t y_gpu;
+    void *a_gpu;
+    void *x_gpu;
+    void *y_gpu;
 
     Py_complex beta;
     PyObject *a_shape, *x_shape;
@@ -1018,8 +1018,8 @@ PyObject* axpy_cuda_gpu(PyObject *self, PyObject *args)
 {
     Py_complex alpha;
 
-    gpuDeviceptr_t x_gpu;
-    gpuDeviceptr_t y_gpu;
+    void *x_gpu;
+    void *y_gpu;
     PyObject *x_shape,*y_shape;
     PyArray_Descr *type;
 
@@ -1052,8 +1052,8 @@ PyObject* axpy_cuda_gpu(PyObject *self, PyObject *args)
 }
 
 static void _rk_cuda_gpu(int n, int k,
-                         double alpha, gpuDeviceptr_t a_gpu, int lda,
-                         double beta, gpuDeviceptr_t c_gpu, int ldc,
+                         double alpha, void *a_gpu, int lda,
+                         double beta, void *c_gpu, int ldc,
                          int real)
 {
     if (real) {
@@ -1074,8 +1074,8 @@ static void _rk_cuda_gpu(int n, int k,
 }
 
 static void _rk_cuda_gpu_hybrid(int n, int k,
-                                double alpha, gpuDeviceptr_t a_gpu, int lda,
-                                double beta, gpuDeviceptr_t c_gpu, int ldc,
+                                double alpha, void *a_gpu, int lda,
+                                double beta, void *c_gpu, int ldc,
                                 int real)
 {
     double beta2=0;
@@ -1189,8 +1189,8 @@ PyObject* rk_cuda_gpu(PyObject *self, PyObject *args)
     double alpha;
     double beta;
 
-    gpuDeviceptr_t a_gpu;
-    gpuDeviceptr_t c_gpu;
+    void *a_gpu;
+    void *c_gpu;
     PyObject *a_shape, *c_shape;
     PyArray_Descr *type;
     int hybrid = 0;
@@ -1224,9 +1224,9 @@ PyObject* rk_cuda_gpu(PyObject *self, PyObject *args)
 }
 
 static void _r2k_cuda_gpu(int n, int k,
-                          Py_complex alpha, gpuDeviceptr_t a_gpu, int lda,
-                          gpuDeviceptr_t b_gpu, double beta,
-                          gpuDeviceptr_t c_gpu, int ldc, int real)
+                          Py_complex alpha, void *a_gpu, int lda,
+                          void *b_gpu, double beta,
+                          void *c_gpu, int ldc, int real)
 {
     if (real) {
         gpublasSafeCall(
@@ -1247,9 +1247,9 @@ static void _r2k_cuda_gpu(int n, int k,
 }
 
 static void _r2k_cuda_gpu_hybrid(int n, int k,
-                                 Py_complex alpha, gpuDeviceptr_t a_gpu, int lda,
-                                 gpuDeviceptr_t b_gpu, double beta,
-                                 gpuDeviceptr_t c_gpu, int ldc, int real)
+                                 Py_complex alpha, void *a_gpu, int lda,
+                                 void *b_gpu, double beta,
+                                 void *c_gpu, int ldc, int real)
 {
     double beta2 = 0;
     int lda2;
@@ -1377,9 +1377,9 @@ PyObject* r2k_cuda_gpu(PyObject *self, PyObject *args)
     Py_complex alpha;
     double beta;
 
-    gpuDeviceptr_t a_gpu;
-    gpuDeviceptr_t b_gpu;
-    gpuDeviceptr_t c_gpu;
+    void *a_gpu;
+    void *b_gpu;
+    void *c_gpu;
     PyObject *a_shape, *b_shape, *c_shape;
     PyArray_Descr *type;
 
@@ -1419,8 +1419,8 @@ PyObject* r2k_cuda_gpu(PyObject *self, PyObject *args)
 
 PyObject* dotc_cuda_gpu(PyObject *self, PyObject *args)
 {
-    gpuDeviceptr_t a_gpu;
-    gpuDeviceptr_t b_gpu;
+    void *a_gpu;
+    void *b_gpu;
 
     PyObject *a_shape;
     PyArray_Descr *type;
@@ -1460,8 +1460,8 @@ PyObject* dotc_cuda_gpu(PyObject *self, PyObject *args)
 
 PyObject* dotu_cuda_gpu(PyObject *self, PyObject *args)
 {
-    gpuDeviceptr_t a_gpu;
-    gpuDeviceptr_t b_gpu;
+    void *a_gpu;
+    void *b_gpu;
 
     PyObject *a_shape;
     PyArray_Descr *type;

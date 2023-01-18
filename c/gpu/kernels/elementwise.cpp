@@ -112,7 +112,9 @@ extern "C"
 PyObject* axpbyz_gpu(PyObject *self, PyObject *args)
 {
     double a, b;
-    gpuDeviceptr_t x, y, z;
+    void *x;
+    void *y;
+    void *z;
     PyObject *shape;
     PyArray_Descr *type;
 
@@ -157,7 +159,8 @@ extern "C"
 PyObject* axpbz_gpu(PyObject *self, PyObject *args)
 {
     double a, b;
-    gpuDeviceptr_t x, z;
+    void *x;
+    void *z;
     PyObject *shape;
     PyArray_Descr *type;
 
@@ -201,7 +204,7 @@ extern "C"
 PyObject* fill_gpu(PyObject *self, PyObject *args)
 {
     PyObject *value;
-    gpuDeviceptr_t x;
+    void *x;
     PyObject *shape;
     PyArray_Descr *type;
 
