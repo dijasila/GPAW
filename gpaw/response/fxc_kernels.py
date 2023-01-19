@@ -12,8 +12,11 @@ from gpaw.spherical_harmonics import Yarr
 from gpaw.sphere.lebedev import weight_n, R_nv
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
+from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.response.chiks import ChiKS
 from gpaw.response.goldstone import get_goldstone_scaling
+from gpaw.response.localft import (LocalFTCalculator,
+                                   add_LDA_dens_fxc, add_LSDA_trans_fxc)
 
 
 class FXCScaling:
@@ -90,18 +93,132 @@ class FXCFactory:
         """Factory function for initializing fxc calculators."""
         fxc_calculator_cls = self.get_fxc_calculator_cls(method)
 
-        return fxc_calculator_cls(self.gs, self.context, **calc_kwargs)
+        if method == 'old':  # Pass also gs and context to old calculator
+            calc_kwargs.update(dict(gs=self.gs, context=self.context))
+
+        return fxc_calculator_cls(**calc_kwargs)
 
     @staticmethod
     def get_fxc_calculator_cls(method):
         """Factory function for selecting fxc calculators."""
         if method == 'old':
-            return AdiabaticFXCCalculator
+            return OldAdiabaticFXCCalculator
+        elif method == 'new':
+            return NewAdiabaticFXCCalculator
 
         raise ValueError(f'Invalid fxc calculator method {method}')
 
 
-class AdiabaticFXCCalculator:
+class NewAdiabaticFXCCalculator:
+    """Calculator for adiabatic local exchange-correlation kernels."""
+
+    def __init__(self, localft_calc: LocalFTCalculator):
+        """Contruct the fxc calculator based on a local FT calculator."""
+        self.localft_calc = localft_calc
+
+        self.gs = localft_calc.gs
+        self.context = localft_calc.context
+
+    @timer('Calculate XC kernel')
+    def __call__(self, fxc, spincomponent, pd):
+        """Calculate the xc kernel matrix Kxc_GG' = 1 / V0 * fxc(G-G')."""
+        # Generate a large_pd to encompass all G-G' in pd
+        large_ecut = 4 * pd.ecut  # G = 1D grid of |G|^2/2 < ecut
+        large_pd = pd.copy_with(ecut=large_ecut, gd=self.gs.finegd)
+        
+        # Calculate fxc(Q) on the large plane-wave grid (Q = large grid index)
+        add_fxc = create_add_fxc(fxc, spincomponent)
+        fxc_Q = self.localft_calc(large_pd, add_fxc)
+
+        # Unfold the kernel according to Kxc_GG' = 1 / V0 * fxc(G-G')
+        Kxc_GG = 1 / pd.gd.volume * self.unfold_kernel_matrix(
+            pd, large_pd, fxc_Q)
+
+        return Kxc_GG
+
+    @timer('Unfold kernel matrix')
+    def unfold_kernel_matrix(self, pd, large_pd, fxc_Q):
+        """Unfold the kernel fxc(Q) to the kernel matrix fxc_GG'=fxc(G-G')"""
+        # Calculate (G-G') reciprocal space vectors
+        dG_GGv = calculate_dG(pd)
+        GG_shape = dG_GGv.shape[:2]
+
+        # Reshape to composite K = (G, G') index
+        dG_Kv = dG_GGv.reshape(-1, dG_GGv.shape[-1])
+
+        # Find unique dG-vectors
+        # We need tight control of the decimals to avoid precision artifacts
+        dG_dGv, dG_K = np.unique(dG_Kv.round(decimals=6),
+                                 return_inverse=True, axis=0)
+
+        # Map fxc(Q) onto fxc(G-G') index dG
+        Q_dG = self.get_Q_dG_map(large_pd, dG_dGv)
+        fxc_dG = fxc_Q[Q_dG]
+
+        # Unfold fxc(G-G') to fxc_GG'
+        fxc_GG = fxc_dG[dG_K].reshape(GG_shape)
+
+        return fxc_GG
+
+    def get_Q_dG_map(self, large_pd, dG_dGv):
+        """Create mapping between (G-G') index dG and large_pd index Q."""
+        G_Qv = large_pd.get_reciprocal_vectors(add_q=False)
+        # Make sure to match the precision of dG_dGv
+        G_Qv = G_Qv.round(decimals=6)
+
+        # Distribute dG over world
+        # This is necessary because the next step is to create a K_QdGv buffer
+        # of which the norm is taken. When the number of plane-wave
+        # coefficients is large, this step becomes a memory bottleneck, hence
+        # the distribution.
+        dGblocks = Blocks1D(self.context.world, dG_dGv.shape[0])
+        dG_mydGv = dG_dGv[dGblocks.myslice]
+
+        # Determine Q index for each dG index
+        diff_QmydG = np.linalg.norm(G_Qv[:, np.newaxis] - dG_mydGv[np.newaxis],
+                                    axis=2)
+        Q_mydG = np.argmin(diff_QmydG, axis=0)
+
+        # Check that all the identified Q indices produce identical reciprocal
+        # lattice vectors
+        assert np.allclose(np.diagonal(diff_QmydG[Q_mydG]), 0.),\
+            'Could not find a perfect matching reciprocal wave vector in '\
+            'large_pd for all dG_dGv'
+
+        # Collect the global Q_dG map
+        Q_dG = dGblocks.collect(Q_mydG)
+
+        return Q_dG
+
+
+def create_add_fxc(fxc, spincomponent):
+    """Create an add_fxc function according to the requested functional and
+    spin component."""
+    assert fxc in ['ALDA_x', 'ALDA_X', 'ALDA']
+
+    if spincomponent in ['00', 'uu', 'dd']:
+        add_fxc = partial(add_LDA_dens_fxc, fxc=fxc)
+    elif spincomponent in ['+-', '-+']:
+        add_fxc = partial(add_LSDA_trans_fxc, fxc=fxc)
+    else:
+        raise ValueError(spincomponent)
+
+    return add_fxc
+
+
+def calculate_dG(pd):
+    """Calculate dG_GG' = (G-G') for the plane wave basis in pd."""
+    nG = pd.ngmax
+    G_Gv = pd.get_reciprocal_vectors(add_q=False)
+
+    dG_GGv = np.zeros((nG, nG, 3))
+    for v in range(3):
+        dG_GGv[:, :, v] = np.subtract.outer(G_Gv[:, v], G_Gv[:, v])
+
+    return dG_GGv
+
+
+class OldAdiabaticFXCCalculator:
     """Calculator for adiabatic local exchange-correlation kernels in pw mode.
     """
 
@@ -179,7 +296,7 @@ class AdiabaticFXCCalculator:
 
         self.context.print('    Calculating all-electron density')
         with self.context.timer('Calculating all-electron density'):
-            n_sG, gd1 = self.gs.all_electron_density(gridrefinement=1)
+            n_sG, gd1 = self.gs.get_all_electron_density(gridrefinement=1)
             assert (gd1.n_c == gd.n_c).all()
             assert gd1.comm.size == 1
             return n_sG
@@ -272,7 +389,7 @@ class AdiabaticFXCCalculator:
         """Calculate (G-G') reciprocal space vectors"""
         world = self.context.world
         npw = pd.ngmax
-        G_Gv = pd.get_reciprocal_vectors()
+        G_Gv = pd.get_reciprocal_vectors(add_q=False)
 
         # Distribute dG to calculate
         nGpr = (npw + world.size - 1) // world.size

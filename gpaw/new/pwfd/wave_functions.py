@@ -53,6 +53,9 @@ class PWFDWaveFunctions(WaveFunctions):
         if hasattr(data, 'fd'):
             data.fd.close()
 
+    def _short_string(self, global_shape: tuple[int]) -> str:
+        return self.psit_nX.desc._short_string(global_shape)
+
     def array_shape(self, global_shape=False):
         if global_shape:
             shape = self.psit_nX.desc.global_shape()
@@ -231,10 +234,17 @@ class PWFDWaveFunctions(WaveFunctions):
         H.multiply(P_ani, out=P2_ani)
         P_ani.data[:] = P2_ani.data
 
-    def force_contribution(self, potential: Potential, F_av: Array2D):
+    def force_contribution(self,
+                           potential: Potential,
+                           F_av: Array2D) -> None:
         dH_asii = potential.dH_asii
-        F_avni = self.pt_aiX.derivative(self.psit_nX)
         myocc_n = self.weight * self.spin_degeneracy * self.myocc_n
+
+        if self.ncomponents == 4:
+            self._non_collinear_force_contribution(dH_asii, myocc_n, F_av)
+            return
+
+        F_avni = self.pt_aiX.derivative(self.psit_nX)
         for a, F_vni in F_avni.items():
             F_vni = F_vni.conj()
             F_vni *= myocc_n[:, np.newaxis]
@@ -245,6 +255,27 @@ class PWFDWaveFunctions(WaveFunctions):
             dO_ii = self.setups[a].dO_ii
             F_vii -= np.einsum('vni, nj, jk -> vik', F_vni, P_ni, dO_ii)
             F_av[a] += 2 * F_vii.real.trace(0, 1, 2)
+
+    def _non_collinear_force_contribution(self,
+                                          dH_asii,
+                                          myocc_n,
+                                          F_av):
+        F_avnsi = self.pt_aiX.derivative(self.psit_nX)
+        for a, F_vnsi in F_avnsi.items():
+            F_vnsi = F_vnsi.conj()
+            F_vnsi *= myocc_n[:, np.newaxis, np.newaxis]
+            dH_sii = dH_asii[a]
+            dH_ii = dH_sii[0]
+            dH_vii = dH_sii[1:]
+            dH_ssii = np.array(
+                [[dH_ii + dH_vii[2], dH_vii[0] - 1j * dH_vii[1]],
+                 [dH_vii[0] + 1j * dH_vii[1], dH_ii - dH_vii[2]]])
+            P_nsi = self.P_ani[a]
+            F_v = np.einsum('vnsi, stij, ntj -> v', F_vnsi, dH_ssii, P_nsi)
+            F_vnsi *= self.myeig_n[:, np.newaxis, np.newaxis]
+            dO_ii = self.setups[a].dO_ii
+            F_v -= np.einsum('vnsi, ij, nsj -> v', F_vnsi, dO_ii, P_nsi)
+            F_av[a] += 2 * F_v.real
 
     def collect(self,
                 n1: int = 0,

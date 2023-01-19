@@ -410,6 +410,9 @@ class GPAWPlugin:
 
 
 def pytest_configure(config):
+    # Allow for fake cupy:
+    os.environ['GPAW_CPUPY'] = '1'
+
     if world.rank != 0:
         try:
             tw = config.get_terminal_writer()

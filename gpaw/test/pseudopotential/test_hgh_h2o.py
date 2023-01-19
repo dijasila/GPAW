@@ -75,7 +75,12 @@ def test_pseudopotential_hgh_h2o():
     wfs = calc.wfs
     gd = wfs.gd
     psit_nG = wfs.kpt_u[0].psit_nG
-    dH_asp = calc.hamiltonian.dH_asp
+    try:
+        dH_asp = calc.hamiltonian.dH_asp
+    except AttributeError:
+        from gpaw.utilities import pack2
+        dH_asii = calc.calculation.state.potential.dH_asii
+        dH_asp = {a: pack2(dH_sii) for a, dH_sii in dH_asii.items()}
 
     assert eerr < 1e-3, 'energy changed from reference'
     assert ferr < 0.015, 'forces do not match FD check'

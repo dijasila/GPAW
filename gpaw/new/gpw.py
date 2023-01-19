@@ -77,7 +77,7 @@ def write_wave_function_indices(writer, ibzwfs, grid):
 
     kpt_comm = ibzwfs.kpt_comm
     ibz = ibzwfs.ibz
-    (nG,) = ibzwfs.get_max_shape(global_shape=True)
+    nG = ibzwfs.get_max_shape(global_shape=True)[-1]
 
     writer.add_array('indices', (len(ibz), nG), np.int32)
 

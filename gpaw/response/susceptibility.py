@@ -3,6 +3,7 @@ import pickle
 import numpy as np
 
 from ase.units import Hartree
+from ase.utils import lazyproperty
 
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKS, ChiKSCalculator
@@ -35,11 +36,13 @@ class Chi:
         susceptibility and the frequency grid."""
         from gpaw.response.df import write_response_function
 
-        # For now, we assume that eta is fixed, so we don't need to write it
-        omega_w = self.chiks.zd.omega_w * Hartree
+        omega_w, chiks_w, chi_w = self.get_macroscopic_component()
+        if self.world.rank == 0:
+            write_response_function(filename, omega_w, chiks_w, chi_w)
 
-        chiks_wGG = self.chiks.array
-        chi_wGG = self._calculate()
+    def get_macroscopic_component(self):
+        """Get the macroscopic (G=0) component data, collected on all ranks"""
+        omega_w, chiks_wGG, chi_wGG = self.get_distributed_arrays()
 
         # Macroscopic component
         chiks_w = chiks_wGG[:, 0, 0]
@@ -49,21 +52,23 @@ class Chi:
         chiks_w = self.collect(chiks_w)
         chi_w = self.collect(chi_w)
 
-        if self.world.rank == 0:
-            write_response_function(filename, omega_w, chiks_w, chi_w)
+        return omega_w, chiks_w, chi_w
 
-    def write_component_array(self, filename, *, reduced_ecut):
+    def write_reduced_arrays(self, filename, *, reduced_ecut):
         """Calculate the many-body susceptibility and write it to a file along
         with the Kohn-Sham susceptibility and frequency grid within a reduced
         plane-wave basis."""
+        omega_w, G_Gc, chiks_wGG, chi_wGG = self.get_reduced_arrays(
+            reduced_ecut=reduced_ecut)
 
-        # For now, we assume that eta is fixed, so we don't need to write it
-        omega_w = self.chiks.zd.omega_w * Hartree
+        if self.world.rank == 0:
+            write_component(omega_w, G_Gc, chiks_wGG, chi_wGG, filename)
 
-        chiks_wGG = self.chiks.array
-        chi_wGG = self._calculate()
+    def get_reduced_arrays(self, *, reduced_ecut):
+        """Get data arrays with a reduced ecut, gathered on root."""
+        omega_w, chiks_wGG, chi_wGG = self.get_distributed_arrays()
 
-        # Get susceptibility in a reduced plane-wave representation
+        # Map the susceptibilities to a reduced plane-wave representation
         pd = self.chiks.pd
         mask_G = get_pw_reduction_map(pd, reduced_ecut)
         chiks_wGG = np.ascontiguousarray(chiks_wGG[:, mask_G, :][:, :, mask_G])
@@ -76,15 +81,23 @@ class Chi:
         chiks_wGG = self.gather(chiks_wGG)
         chi_wGG = self.gather(chi_wGG)
 
-        if self.world.rank == 0:
-            write_component(omega_w, G_Gc, chiks_wGG, chi_wGG, filename)
+        return omega_w, G_Gc, chiks_wGG, chi_wGG
 
-    def _calculate(self):
-        """Calculate chi_zGG."""
-        return self.dyson_solver.invert_dyson(self.chiks.array, self.Khxc_GG)
+    def get_distributed_arrays(self):
+        """Get data arrays, frequency distributed over world."""
+        # For now, we assume that eta is fixed -> z index == w index
+        omega_w = self.chiks.zd.omega_w * Hartree
+        chiks_wGG = self.chiks.array
+        chi_wGG = self.chi_zGG
 
-    @property
-    def Khxc_GG(self):
+        return omega_w, chiks_wGG, chi_wGG
+
+    @lazyproperty
+    def chi_zGG(self):
+        return self.dyson_solver.invert_dyson(self.chiks.array,
+                                              self.get_Khxc_GG())
+
+    def get_Khxc_GG(self):
         """Hartree-exchange-correlation kernel."""
         # Allocate array
         nG = self.chiks.array.shape[2]
