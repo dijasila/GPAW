@@ -6,8 +6,8 @@
 #endif
 #include "gpu-runtime.h"
 
-#undef Tcuda
-#undef Zcuda
+#undef Tgpu
+#undef Zgpu
 #undef MULTD
 #undef MULDT
 #undef ADD
@@ -22,8 +22,8 @@
 #undef NEG
 
 #ifndef GPU_USE_COMPLEX
-#  define Tcuda          double
-#  define Zcuda(f)       f
+#  define Tgpu           double
+#  define Zgpu(f)        f
 #  define MULTT(a,b)     ((a) * (b))
 #  define MULTD(a,b)     ((a) * (b))
 #  define MULDT(a,b)     ((a) * (b))
@@ -37,8 +37,8 @@
 #  define IMAG(a)        (0)
 #  define NEG(a)         (-(a))
 #else
-#  define Tcuda          gpuDoubleComplex
-#  define Zcuda(f)       f ## z
+#  define Tgpu           gpuDoubleComplex
+#  define Zgpu(f)        f ## z
 #  define MULTT(a,b)     gpuCmul((a), (b))
 #  define MULTD(a,b)     gpuCmulD((a), (b))
 #  define MULDT(b,a)     MULTD((a), (b))

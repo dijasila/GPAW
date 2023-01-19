@@ -13,9 +13,9 @@
 #endif
 
 
-__global__ void Zcuda(bmgs_translate_cuda_kernel)(
-        const Tcuda* a, const int3 c_sizea,
-        Tcuda* b, const int3 c_sizeb,
+__global__ void Zgpu(bmgs_translate_cuda_kernel)(
+        const Tgpu* a, const int3 c_sizea,
+        Tgpu* b, const int3 c_sizeb,
 #ifdef GPU_USE_COMPLEX
         gpuDoubleComplex phase,
 #endif
@@ -48,8 +48,8 @@ __global__ void Zcuda(bmgs_translate_cuda_kernel)(
 }
 
 extern "C"
-void Zcuda(bmgs_translate_cuda_gpu)(
-        Tcuda* a, const int sizea[3], const int size[3],
+void Zgpu(bmgs_translate_cuda_gpu)(
+        Tgpu* a, const int sizea[3], const int size[3],
         const int start1[3], const int start2[3],
 #ifdef GPU_USE_COMPLEX
         gpuDoubleComplex phase,
@@ -69,13 +69,13 @@ void Zcuda(bmgs_translate_cuda_gpu)(
 
     BLOCK_GRID(hc_size);
 
-    Tcuda *b = a + start2[2]
+    Tgpu *b = a + start2[2]
              + (start2[1] + start2[0] * hc_sizea.y) * hc_sizea.z;
     a += start1[2] + (start1[1] + start1[0] * hc_sizea.y) * hc_sizea.z;
 
     gpuLaunchKernel(
-            Zcuda(bmgs_translate_cuda_kernel), dimGrid, dimBlock, 0, stream,
-            (Tcuda*) a, hc_sizea, (Tcuda*) b, hc_size,
+            Zgpu(bmgs_translate_cuda_kernel), dimGrid, dimBlock, 0, stream,
+            (Tgpu*) a, hc_sizea, (Tgpu*) b, hc_size,
 #ifdef GPU_USE_COMPLEX
             phase,
 #endif

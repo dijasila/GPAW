@@ -71,7 +71,7 @@ static void debug_memcpy_post(const double *in, double *out)
 /*
  * Copy a slice of an array on the CPU and compare to results from the GPU.
  */
-static void Zcuda(debug_bmgs_cut)(
+static void Zgpu(debug_bmgs_cut)(
         const int sizea[3], const int starta[3], const int sizeb[3],
 #ifdef GPU_USE_COMPLEX
         gpuDoubleComplex phase,
@@ -107,8 +107,8 @@ static void Zcuda(debug_bmgs_cut)(
 /*
  * CUDA kernel to copy a slice of an array.
  */
-__global__ void Zcuda(bmgs_cut_cuda_kernel)(
-        const Tcuda* a, const int3 c_sizea, Tcuda* b, const int3 c_sizeb,
+__global__ void Zgpu(bmgs_cut_cuda_kernel)(
+        const Tgpu* a, const int3 c_sizea, Tgpu* b, const int3 c_sizeb,
 #ifdef GPU_USE_COMPLEX
         gpuDoubleComplex phase,
 #endif
@@ -143,9 +143,9 @@ __global__ void Zcuda(bmgs_cut_cuda_kernel)(
 /*
  * Launch CUDA kernel to copy a slice of an array on the GPU.
  */
-static void Zcuda(_bmgs_cut_cuda_gpu)(
-        const Tcuda* a, const int sizea[3], const int starta[3],
-        Tcuda* b, const int sizeb[3],
+static void Zgpu(_bmgs_cut_cuda_gpu)(
+        const Tgpu* a, const int sizea[3], const int starta[3],
+        Tgpu* b, const int sizeb[3],
 #ifdef GPU_USE_COMPLEX
         gpuDoubleComplex phase,
 #endif
@@ -163,8 +163,8 @@ static void Zcuda(_bmgs_cut_cuda_gpu)(
 
     a += starta[2] + (starta[1] + starta[0] * hc_sizea.y) * hc_sizea.z;
 
-    gpuLaunchKernel(Zcuda(bmgs_cut_cuda_kernel), dimGrid, dimBlock, 0, stream,
-                    (Tcuda*) a, hc_sizea, (Tcuda*) b, hc_sizeb,
+    gpuLaunchKernel(Zgpu(bmgs_cut_cuda_kernel), dimGrid, dimBlock, 0, stream,
+                    (Tgpu*) a, hc_sizea, (Tgpu*) b, hc_sizeb,
 #ifdef GPU_USE_COMPLEX
                     phase,
 #endif
@@ -193,9 +193,9 @@ static void Zcuda(_bmgs_cut_cuda_gpu)(
  *   stream -- CUDA stream to use
  */
 extern "C"
-void Zcuda(bmgs_cut_cuda_gpu)(
-        const Tcuda* a, const int sizea[3], const int starta[3],
-        Tcuda* b, const int sizeb[3],
+void Zgpu(bmgs_cut_cuda_gpu)(
+        const Tgpu* a, const int sizea[3], const int starta[3],
+        Tgpu* b, const int sizeb[3],
 #ifdef GPU_USE_COMPLEX
         gpuDoubleComplex phase,
 #endif

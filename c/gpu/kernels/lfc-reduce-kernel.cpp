@@ -1,14 +1,14 @@
 __device__ unsigned int INNAME(lfc_retirementCount) = {0};
 
 __global__ void INNAME(integrate_mul_kernel)(
-        const Tcuda *a_G, int nG,
+        const Tgpu *a_G, int nG,
         const LFVolume_gpu *volume_W,
         const int *volume_WMi_gpu,
         const int *WMi_gpu,
         int WMimax,
         int q,
-        Tcuda *out, int block_out,
-        Tcuda *results, int Mcount, int nM, int nvec)
+        Tgpu *out, int block_out,
+        Tgpu *results, int Mcount, int nM, int nvec)
 {
     int yy = gridDim.y / Mcount;
 
@@ -19,7 +19,7 @@ __global__ void INNAME(integrate_mul_kernel)(
     unsigned int gridSize = REDUCE_LFC_THREADS * gridDim.x;
     unsigned int i_b = blockIdx.x * (REDUCE_LFC_THREADS) + tid;
 
-    extern __shared__ Tcuda Zcuda(sdata)[];
+    extern __shared__ Tgpu Zgpu(sdata)[];
 
     // perform first level of reduction,
     // reading from global memory, writing to shared memory
@@ -29,10 +29,10 @@ __global__ void INNAME(integrate_mul_kernel)(
                                                          + vv]];
         int *nGBcum = v->nGBcum;
 #ifdef GPU_USE_COMPLEX
-        Tcuda phase = v->phase_k[q];
+        Tgpu phase = v->phase_k[q];
 #endif
         int len_A_gm = v->len_A_gm;
-        Tcuda *out_t = out + v->M * block_out + block * nM * block_out;
+        Tgpu *out_t = out + v->M * block_out + block * nM * block_out;
         int a_ind, ai=0, acum=0;
 
         if (i_b < len_A_gm) {
@@ -54,9 +54,9 @@ __global__ void INNAME(integrate_mul_kernel)(
             a_ind = v->GB1[ai] + i_b - acum;
         }
         for (int i=0; i < nvec; i++) {
-            Tcuda a_Gv;
+            Tgpu a_Gv;
             double *A_gm2 = v->A_gm;
-            Tcuda *out_t2 = out_t;
+            Tgpu *out_t2 = out_t;
             if (i_b < len_A_gm) {
 #ifdef GPU_USE_COMPLEX
                 a_Gv = MULTT(a_G[i * nG + a_ind], phase);
@@ -65,7 +65,7 @@ __global__ void INNAME(integrate_mul_kernel)(
 #endif
             }
             for (int m=0; m < v->nm; m++) {
-                Tcuda mySum = MAKED(0);
+                Tgpu mySum = MAKED(0);
                 if (i_b < len_A_gm) {
                     mySum = MULTD(a_Gv, A_gm2[i_b]);
                 }
@@ -102,36 +102,36 @@ __global__ void INNAME(integrate_mul_kernel)(
                         i_bb += gridSize;
                     }
                 }
-                Zcuda(sdata)[tid] = mySum;
+                Zgpu(sdata)[tid] = mySum;
                 __syncthreads();
 
                 if (REDUCE_LFC_THREADS >= 512) {
                     if (tid < 256) {
-                        Zcuda(sdata)[tid] = mySum
-                                          = ADD(mySum,
-                                                Zcuda(sdata)[tid + 256]);
+                        Zgpu(sdata)[tid] = mySum
+                                         = ADD(mySum,
+                                               Zgpu(sdata)[tid + 256]);
                     }
                     __syncthreads();
                 }
                 if (REDUCE_LFC_THREADS >= 256) {
                     if (tid < 128) {
-                        Zcuda(sdata)[tid] = mySum
-                                          = ADD(mySum,
-                                                Zcuda(sdata)[tid + 128]);
+                        Zgpu(sdata)[tid] = mySum
+                                         = ADD(mySum,
+                                               Zgpu(sdata)[tid + 128]);
                     }
                     __syncthreads();
                 }
                 if (REDUCE_LFC_THREADS >= 128) {
                     if (tid <  64) {
-                        Zcuda(sdata)[tid] = mySum
-                                          = ADD(mySum,
-                                                Zcuda(sdata)[tid + 64]);
+                        Zgpu(sdata)[tid] = mySum
+                                         = ADD(mySum,
+                                               Zgpu(sdata)[tid + 64]);
                     }
                     __syncthreads();
                 }
 
                 if (tid < 32) {
-                    volatile Tcuda *smem = Zcuda(sdata);
+                    volatile Tgpu *smem = Zgpu(sdata);
 #ifdef GPU_USE_COMPLEX
                     if (REDUCE_LFC_THREADS >= 64) {
                         smem[tid].x = mySum.x = mySum.x + smem[tid + 32].x;
@@ -176,9 +176,9 @@ __global__ void INNAME(integrate_mul_kernel)(
                 // write result for this block to global mem
                 if (tid==0) {
                     if (vv==0)
-                        out_t2[blockIdx.x] = Zcuda(sdata)[0];
+                        out_t2[blockIdx.x] = Zgpu(sdata)[0];
                     else
-                        IADD(out_t2[blockIdx.x], Zcuda(sdata)[0]);
+                        IADD(out_t2[blockIdx.x], Zgpu(sdata)[0]);
                 }
                 A_gm2 += len_A_gm;
                 out_t2 += block_out;

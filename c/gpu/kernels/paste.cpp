@@ -90,9 +90,9 @@ static void debug_memcpy_post(const double *in, double *out)
  * and compare to results from the GPU.
  */
 extern "C"
-void Zcuda(debug_bmgs_paste)(const int sizea[3], const int sizeb[3],
-                             const int startb[3], int blocks,
-                             int ng, int ng2, int zero)
+void Zgpu(debug_bmgs_paste)(const int sizea[3], const int sizeb[3],
+                            const int startb[3], int blocks,
+                            int ng, int ng2, int zero)
 {
     for (int m=0; m < blocks; m++) {
         if (zero)
@@ -135,7 +135,7 @@ void Zcuda(debug_bmgs_paste)(const int sizea[3], const int sizeb[3],
  * CUDA kernel to copy a smaller array into a given position in a
  * larger one.
  */
-__global__ void Zcuda(bmgs_paste_cuda_kernel)(
+__global__ void Zgpu(bmgs_paste_cuda_kernel)(
         const double* a, const int3 c_sizea, double* b, const int3 c_sizeb,
         int blocks, int xdiv)
 {
@@ -165,8 +165,8 @@ __global__ void Zcuda(bmgs_paste_cuda_kernel)(
  * CUDA kernel to copy a smaller array into a given position in a
  * larger one and set all other elements to 0.
  */
-__global__ void Zcuda(bmgs_paste_zero_cuda_kernel)(
-        const Tcuda* a, const int3 c_sizea, Tcuda* b, const int3 c_sizeb,
+__global__ void Zgpu(bmgs_paste_zero_cuda_kernel)(
+        const Tgpu* a, const int3 c_sizea, Tgpu* b, const int3 c_sizeb,
         const int3 c_startb, const int3 c_blocks_bc, int blocks)
 {
     int xx = gridDim.x / XDIV;
@@ -191,7 +191,7 @@ __global__ void Zcuda(bmgs_paste_zero_cuda_kernel)(
 
     // zero x = 0 .. startb.x
     if (xind==0) {
-        Tcuda *bb = b + i2 + i1 * c_sizeb.z;
+        Tgpu *bb = b + i2 + i1 * c_sizeb.z;
 #pragma unroll 3
         for (int i0=0; i0 < c_startb.x; i0++) {
             if ((i2 < c_sizeb.z) && (i1 < c_sizeb.y)) {
@@ -202,7 +202,7 @@ __global__ void Zcuda(bmgs_paste_zero_cuda_kernel)(
     }
     // zero x = startb.x+sizea.x .. <end>
     if (xind == XDIV - 1) {
-        Tcuda *bb = b + (c_startb.x + c_sizea.x) * c_sizeb.y * c_sizeb.z
+        Tgpu *bb = b + (c_startb.x + c_sizea.x) * c_sizeb.y * c_sizeb.z
                   + i2 + i1 * c_sizeb.z;
 #pragma unroll 3
         for (int i0 = c_startb.x + c_sizea.x; i0 < c_sizeb.x; i0++) {
@@ -262,24 +262,24 @@ __global__ void Zcuda(bmgs_paste_zero_cuda_kernel)(
  * Launch CUDA kernel to copy a smaller array into a given position in a
  * larger one on the GPU.
  */
-static void Zcuda(_bmgs_paste_cuda_gpu)(
-        const Tcuda* a, const int sizea[3],
-        Tcuda* b, const int sizeb[3], const int startb[3],
+static void Zgpu(_bmgs_paste_cuda_gpu)(
+        const Tgpu* a, const int sizea[3],
+        Tgpu* b, const int sizeb[3], const int startb[3],
         int blocks, gpuStream_t stream)
 {
     int3 hc_sizea, hc_sizeb;
     hc_sizea.x = sizea[0];
     hc_sizea.y = sizea[1];
-    hc_sizea.z = sizea[2] * sizeof(Tcuda) / sizeof(double);
+    hc_sizea.z = sizea[2] * sizeof(Tgpu) / sizeof(double);
     hc_sizeb.x = sizeb[0];
     hc_sizeb.y = sizeb[1];
-    hc_sizeb.z = sizeb[2] * sizeof(Tcuda) / sizeof(double);
+    hc_sizeb.z = sizeb[2] * sizeof(Tgpu) / sizeof(double);
 
     BLOCK_GRID(hc_sizea);
 
     b += startb[2] + (startb[1] + startb[0] * sizeb[1]) * sizeb[2];
     gpuLaunchKernel(
-            Zcuda(bmgs_paste_cuda_kernel), dimGrid, dimBlock, 0, stream,
+            Zgpu(bmgs_paste_cuda_kernel), dimGrid, dimBlock, 0, stream,
             (double*) a, hc_sizea, (double*) b, hc_sizeb, blocks, xdiv);
     gpuCheckLastError();
 }
@@ -288,9 +288,9 @@ static void Zcuda(_bmgs_paste_cuda_gpu)(
  * Launch CUDA kernel to copy a smaller array into a given position in a
  * larger one and set all other elements to 0.
  */
-static void Zcuda(_bmgs_paste_zero_cuda_gpu)(
-        const Tcuda* a, const int sizea[3],
-        Tcuda* b, const int sizeb[3], const int startb[3],
+static void Zgpu(_bmgs_paste_zero_cuda_gpu)(
+        const Tgpu* a, const int sizea[3],
+        Tgpu* b, const int sizeb[3], const int startb[3],
         int blocks, gpuStream_t stream)
 {
     int3 bc_blocks;
@@ -323,8 +323,8 @@ static void Zcuda(_bmgs_paste_zero_cuda_gpu)(
     dim3 dimGrid(gridx, gridy);
 
     gpuLaunchKernel(
-            Zcuda(bmgs_paste_zero_cuda_kernel), dimGrid, dimBlock, 0, stream,
-            (Tcuda*) a, hc_sizea, (Tcuda*) b, hc_sizeb, hc_startb,
+            Zgpu(bmgs_paste_zero_cuda_kernel), dimGrid, dimBlock, 0, stream,
+            (Tgpu*) a, hc_sizea, (Tgpu*) b, hc_sizeb, hc_startb,
             bc_blocks, blocks);
     gpuCheckLastError();
 }
@@ -338,11 +338,11 @@ static void Zcuda(_bmgs_paste_zero_cuda_gpu)(
  *   (int)   zero     -- set all elements to 0 on the CPU when debugging
  *   ...
  */
-void Zcuda(_bmgs_paste_launcher)(Tfunc function, int zero,
-                                 const Tcuda* a, const int sizea[3],
-                                 Tcuda* b, const int sizeb[3],
-                                 const int startb[3], int blocks,
-                                 gpuStream_t stream)
+void Zgpu(_bmgs_paste_launcher)(Tfunc function, int zero,
+                                const Tgpu* a, const int sizea[3],
+                                Tgpu* b, const int sizeb[3],
+                                const int startb[3], int blocks,
+                                gpuStream_t stream)
 {
     const double *in = (double *) a;
     double *out = (double *) b;
@@ -361,7 +361,7 @@ void Zcuda(_bmgs_paste_launcher)(Tfunc function, int zero,
     (*function)(a, sizea, b, sizeb, startb, blocks, stream);
     if (gpaw_cuda_debug) {
         debug_memcpy_post(in, out);
-        Zcuda(debug_bmgs_paste)(sizea, sizeb, startb, blocks, ng, ng2,
+        Zgpu(debug_bmgs_paste)(sizea, sizeb, startb, blocks, ng, ng2,
                                 zero);
         debug_deallocate();
     }
@@ -377,15 +377,15 @@ void Zcuda(_bmgs_paste_launcher)(Tfunc function, int zero,
  *                  . . . .
  */
 extern "C"
-void Zcuda(bmgs_paste_cuda_gpu)(const Tcuda* a, const int sizea[3],
-                                Tcuda* b, const int sizeb[3],
-                                const int startb[3], int blocks,
-                                gpuStream_t stream)
+void Zgpu(bmgs_paste_cuda_gpu)(const Tgpu* a, const int sizea[3],
+                               Tgpu* b, const int sizeb[3],
+                               const int startb[3], int blocks,
+                               gpuStream_t stream)
 {
     if (!(sizea[0] && sizea[1] && sizea[2]))
         return;
-    Zcuda(_bmgs_paste_launcher)(
-            &(Zcuda(_bmgs_paste_cuda_gpu)), 0,
+    Zgpu(_bmgs_paste_launcher)(
+            &(Zgpu(_bmgs_paste_cuda_gpu)), 0,
             a, sizea, b, sizeb, startb, blocks, stream);
 }
 
@@ -394,15 +394,15 @@ void Zcuda(bmgs_paste_cuda_gpu)(const Tcuda* a, const int sizea[3],
  * set all other elements to 0.
  */
 extern "C"
-void Zcuda(bmgs_paste_zero_cuda_gpu)(const Tcuda* a, const int sizea[3],
-                                     Tcuda* b, const int sizeb[3],
-                                     const int startb[3], int blocks,
-                                     gpuStream_t stream)
+void Zgpu(bmgs_paste_zero_cuda_gpu)(const Tgpu* a, const int sizea[3],
+                                    Tgpu* b, const int sizeb[3],
+                                    const int startb[3], int blocks,
+                                    gpuStream_t stream)
 {
     if (!(sizea[0] && sizea[1] && sizea[2]))
         return;
-    Zcuda(_bmgs_paste_launcher)(
-            &(Zcuda(_bmgs_paste_zero_cuda_gpu)), 1,
+    Zgpu(_bmgs_paste_launcher)(
+            &(Zgpu(_bmgs_paste_zero_cuda_gpu)), 1,
             a, sizea, b, sizeb, startb, blocks, stream);
 }
 

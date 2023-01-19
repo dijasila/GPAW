@@ -45,61 +45,61 @@ static void lfc_reduceNumBlocksAndThreads2(int n,int *blocks, int *threads)
 #endif
 #define REDUCE_LFC
 
-#define INNAME(f) Zcuda(f ## _map512)
+#define INNAME(f) Zgpu(f ## _map512)
 #define REDUCE_LFC_THREADS  512
 #include "lfc-reduce-kernel.cpp"
 #undef  REDUCE_LFC_THREADS
 #undef  INNAME
 
-#define INNAME(f) Zcuda(f ## _map256)
+#define INNAME(f) Zgpu(f ## _map256)
 #define REDUCE_LFC_THREADS  256
 #include "lfc-reduce-kernel.cpp"
 #undef  REDUCE_LFC_THREADS
 #undef  INNAME
 
-#define INNAME(f) Zcuda(f ## _map128)
+#define INNAME(f) Zgpu(f ## _map128)
 #define REDUCE_LFC_THREADS  128
 #include "lfc-reduce-kernel.cpp"
 #undef  REDUCE_LFC_THREADS
 #undef  INNAME
 
-#define INNAME(f) Zcuda(f ## _map64)
+#define INNAME(f) Zgpu(f ## _map64)
 #define REDUCE_LFC_THREADS  64
 #include "lfc-reduce-kernel.cpp"
 #undef  REDUCE_LFC_THREADS
 #undef  INNAME
 
-#define INNAME(f) Zcuda(f ## _map32)
+#define INNAME(f) Zgpu(f ## _map32)
 #define REDUCE_LFC_THREADS  32
 #include "lfc-reduce-kernel.cpp"
 #undef  REDUCE_LFC_THREADS
 #undef  INNAME
 
-#define INNAME(f) Zcuda(f ## _map16)
+#define INNAME(f) Zgpu(f ## _map16)
 #define REDUCE_LFC_THREADS  16
 #include "lfc-reduce-kernel.cpp"
 #undef  REDUCE_LFC_THREADS
 #undef  INNAME
 
-#define INNAME(f) Zcuda(f ## _map8)
+#define INNAME(f) Zgpu(f ## _map8)
 #define REDUCE_LFC_THREADS  8
 #include "lfc-reduce-kernel.cpp"
 #undef  REDUCE_LFC_THREADS
 #undef  INNAME
 
-#define INNAME(f) Zcuda(f ## _map4)
+#define INNAME(f) Zgpu(f ## _map4)
 #define REDUCE_LFC_THREADS  4
 #include "lfc-reduce-kernel.cpp"
 #undef  REDUCE_LFC_THREADS
 #undef  INNAME
 
-#define INNAME(f) Zcuda(f ## _map2)
+#define INNAME(f) Zgpu(f ## _map2)
 #define REDUCE_LFC_THREADS  2
 #include "lfc-reduce-kernel.cpp"
 #undef  REDUCE_LFC_THREADS
 #undef  INNAME
 
-#define INNAME(f) Zcuda(f ## _map1)
+#define INNAME(f) Zgpu(f ## _map1)
 #define REDUCE_LFC_THREADS  1
 #include "lfc-reduce-kernel.cpp"
 #undef  REDUCE_LFC_THREADS
@@ -109,61 +109,61 @@ static void lfc_reduceNumBlocksAndThreads2(int n,int *blocks, int *threads)
 #undef  REDUCE_THREADS
 
 #define INFUNC(a,b) (a)
-#define INNAME(f) Zcuda(f ## 512)
+#define INNAME(f) Zgpu(f ## 512)
 #define REDUCE_THREADS  512
 #include "reduce-kernel.cpp"
 #undef  REDUCE_THREADS
 #undef  INNAME
 
-#define INNAME(f) Zcuda(f ## 256)
+#define INNAME(f) Zgpu(f ## 256)
 #define REDUCE_THREADS  256
 #include "reduce-kernel.cpp"
 #undef  REDUCE_THREADS
 #undef  INNAME
 
-#define INNAME(f) Zcuda(f ## 128)
+#define INNAME(f) Zgpu(f ## 128)
 #define REDUCE_THREADS  128
 #include "reduce-kernel.cpp"
 #undef  REDUCE_THREADS
 #undef  INNAME
 
-#define INNAME(f) Zcuda(f ## 64)
+#define INNAME(f) Zgpu(f ## 64)
 #define REDUCE_THREADS  64
 #include "reduce-kernel.cpp"
 #undef  REDUCE_THREADS
 #undef  INNAME
 
-#define INNAME(f) Zcuda(f ## 32)
+#define INNAME(f) Zgpu(f ## 32)
 #define REDUCE_THREADS  32
 #include "reduce-kernel.cpp"
 #undef  REDUCE_THREADS
 #undef  INNAME
 
-#define INNAME(f) Zcuda(f ## 16)
+#define INNAME(f) Zgpu(f ## 16)
 #define REDUCE_THREADS  16
 #include "reduce-kernel.cpp"
 #undef  REDUCE_THREADS
 #undef  INNAME
 
-#define INNAME(f) Zcuda(f ## 8)
+#define INNAME(f) Zgpu(f ## 8)
 #define REDUCE_THREADS  8
 #include "reduce-kernel.cpp"
 #undef  REDUCE_THREADS
 #undef  INNAME
 
-#define INNAME(f) Zcuda(f ## 4)
+#define INNAME(f) Zgpu(f ## 4)
 #define REDUCE_THREADS  4
 #include "reduce-kernel.cpp"
 #undef  REDUCE_THREADS
 #undef  INNAME
 
-#define INNAME(f) Zcuda(f ## 2)
+#define INNAME(f) Zgpu(f ## 2)
 #define REDUCE_THREADS  2
 #include "reduce-kernel.cpp"
 #undef  REDUCE_THREADS
 #undef  INNAME
 
-#define INNAME(f) Zcuda(f ## 1)
+#define INNAME(f) Zgpu(f ## 1)
 #define REDUCE_THREADS  1
 #include "reduce-kernel.cpp"
 #undef  REDUCE_THREADS
@@ -171,8 +171,8 @@ static void lfc_reduceNumBlocksAndThreads2(int n,int *blocks, int *threads)
 #undef  INFUNC
 
 
-void Zcuda(lfc_reducemap)(LFCObject *lfc, const Tcuda *a_G, int nG,
-        Tcuda *c_xM, int nM, int nvec, int q)
+void Zgpu(lfc_reducemap)(LFCObject *lfc, const Tgpu *a_G, int nG,
+        Tgpu *c_xM, int nM, int nvec, int q)
 {
     int blocks, threads;
 
@@ -184,7 +184,7 @@ void Zcuda(lfc_reducemap)(LFCObject *lfc, const Tcuda *a_G, int nG,
     lfc_reduceNumBlocksAndThreads(lfc->max_len_A_gm, &blocks, &threads);
 
     int min_wsize = blocks * nM;
-    int work_buffer_size = (lfc_reduce_buffer_size / sizeof(Tcuda)) / 2;
+    int work_buffer_size = (lfc_reduce_buffer_size / sizeof(Tgpu)) / 2;
 
     assert(min_wsize < work_buffer_size);
 
@@ -192,12 +192,12 @@ void Zcuda(lfc_reducemap)(LFCObject *lfc, const Tcuda *a_G, int nG,
 
     mynvec = MIN(mynvec, (REDUCE_LFC_MAX_YBLOCKS) / nM);
 
-    Tcuda *work_buffer1 = (Tcuda*) lfc_reduce_buffer;
-    Tcuda *work_buffer2 = work_buffer1 + work_buffer_size;
-    Tcuda *result_gpu = c_xM;
+    Tgpu *work_buffer1 = (Tgpu*) lfc_reduce_buffer;
+    Tgpu *work_buffer2 = work_buffer1 + work_buffer_size;
+    Tgpu *result_gpu = c_xM;
 
-    int smemSize = (threads <= 32) ? 2 * threads * sizeof(Tcuda)
-                                   : threads * sizeof(Tcuda);
+    int smemSize = (threads <= 32) ? 2 * threads * sizeof(Tgpu)
+                                   : threads * sizeof(Tgpu);
 
     for (int i=0; i < nvec; i += mynvec) {
         int cunvec = MIN(mynvec, nvec - i);
@@ -212,92 +212,92 @@ void Zcuda(lfc_reducemap)(LFCObject *lfc, const Tcuda *a_G, int nG,
         switch (threads) {
             case 512:
                 gpuLaunchKernel(
-                        Zcuda(integrate_mul_kernel_map512),
+                        Zgpu(integrate_mul_kernel_map512),
                         dimGrid, dimBlock, smemSize, 0,
                         a_G + i * nG, nG, lfc->volume_W_gpu,
                         lfc->volume_WMi_gpu, lfc->WMi_gpu, lfc->WMimax, q,
-                        (Tcuda*) work_buffer1, block_out, result_gpu + i * nM,
+                        (Tgpu*) work_buffer1, block_out, result_gpu + i * nM,
                         lfc->Mcount, nM, innvec);
                 break;
             case 256:
                 gpuLaunchKernel(
-                        Zcuda(integrate_mul_kernel_map256),
+                        Zgpu(integrate_mul_kernel_map256),
                         dimGrid, dimBlock, smemSize, 0,
                         a_G + i * nG, nG, lfc->volume_W_gpu,
                         lfc->volume_WMi_gpu, lfc->WMi_gpu, lfc->WMimax, q,
-                        (Tcuda*) work_buffer1, block_out, result_gpu + i * nM,
+                        (Tgpu*) work_buffer1, block_out, result_gpu + i * nM,
                         lfc->Mcount, nM, innvec);
                 break;
             case 128:
                 gpuLaunchKernel(
-                        Zcuda(integrate_mul_kernel_map128),
+                        Zgpu(integrate_mul_kernel_map128),
                         dimGrid, dimBlock, smemSize, 0,
                         a_G + i * nG, nG, lfc->volume_W_gpu,
                         lfc->volume_WMi_gpu, lfc->WMi_gpu, lfc->WMimax, q,
-                        (Tcuda*) work_buffer1, block_out, result_gpu + i * nM,
+                        (Tgpu*) work_buffer1, block_out, result_gpu + i * nM,
                         lfc->Mcount, nM, innvec);
                 break;
             case 64:
                 gpuLaunchKernel(
-                        Zcuda(integrate_mul_kernel_map64),
+                        Zgpu(integrate_mul_kernel_map64),
                         dimGrid, dimBlock, smemSize, 0,
                         a_G + i * nG, nG, lfc->volume_W_gpu,
                         lfc->volume_WMi_gpu, lfc->WMi_gpu, lfc->WMimax, q,
-                        (Tcuda*) work_buffer1, block_out, result_gpu + i * nM,
+                        (Tgpu*) work_buffer1, block_out, result_gpu + i * nM,
                         lfc->Mcount, nM, innvec);
                 break;
             case 32:
                 gpuLaunchKernel(
-                        Zcuda(integrate_mul_kernel_map32),
+                        Zgpu(integrate_mul_kernel_map32),
                         dimGrid, dimBlock, smemSize, 0,
                         a_G + i * nG, nG, lfc->volume_W_gpu,
                         lfc->volume_WMi_gpu, lfc->WMi_gpu, lfc->WMimax, q,
-                        (Tcuda*) work_buffer1, block_out, result_gpu + i * nM,
+                        (Tgpu*) work_buffer1, block_out, result_gpu + i * nM,
                         lfc->Mcount, nM, innvec);
                 break;
             case 16:
                 gpuLaunchKernel(
-                        Zcuda(integrate_mul_kernel_map16),
+                        Zgpu(integrate_mul_kernel_map16),
                         dimGrid, dimBlock, smemSize, 0,
                         a_G + i * nG, nG, lfc->volume_W_gpu,
                         lfc->volume_WMi_gpu, lfc->WMi_gpu, lfc->WMimax, q,
-                        (Tcuda*) work_buffer1, block_out, result_gpu + i * nM,
+                        (Tgpu*) work_buffer1, block_out, result_gpu + i * nM,
                         lfc->Mcount, nM, innvec);
                 break;
             case  8:
                 gpuLaunchKernel(
-                        Zcuda(integrate_mul_kernel_map8),
+                        Zgpu(integrate_mul_kernel_map8),
                         dimGrid, dimBlock, smemSize, 0,
                         a_G + i * nG, nG, lfc->volume_W_gpu,
                         lfc->volume_WMi_gpu, lfc->WMi_gpu, lfc->WMimax, q,
-                        (Tcuda*) work_buffer1, block_out, result_gpu + i * nM,
+                        (Tgpu*) work_buffer1, block_out, result_gpu + i * nM,
                         lfc->Mcount, nM, innvec);
                 break;
             case  4:
                 gpuLaunchKernel(
-                        Zcuda(integrate_mul_kernel_map4),
+                        Zgpu(integrate_mul_kernel_map4),
                         dimGrid, dimBlock, smemSize, 0,
                         a_G + i * nG, nG, lfc->volume_W_gpu,
                         lfc->volume_WMi_gpu, lfc->WMi_gpu, lfc->WMimax, q,
-                        (Tcuda*) work_buffer1, block_out, result_gpu + i * nM,
+                        (Tgpu*) work_buffer1, block_out, result_gpu + i * nM,
                         lfc->Mcount, nM, innvec);
                 break;
             case  2:
                 gpuLaunchKernel(
-                        Zcuda(integrate_mul_kernel_map2),
+                        Zgpu(integrate_mul_kernel_map2),
                         dimGrid, dimBlock, smemSize, 0,
                         a_G + i * nG, nG,lfc->volume_W_gpu,
                         lfc->volume_WMi_gpu, lfc->WMi_gpu, lfc->WMimax, q,
-                        (Tcuda*) work_buffer1, block_out, result_gpu + i * nM,
+                        (Tgpu*) work_buffer1, block_out, result_gpu + i * nM,
                         lfc->Mcount, nM, innvec);
                 break;
             case  1:
                 gpuLaunchKernel(
-                        Zcuda(integrate_mul_kernel_map1),
+                        Zgpu(integrate_mul_kernel_map1),
                         dimGrid, dimBlock, smemSize, 0,
                         a_G + i * nG, nG, lfc->volume_W_gpu,
                         lfc->volume_WMi_gpu, lfc->WMi_gpu, lfc->WMimax, q,
-                        (Tcuda*) work_buffer1, block_out, result_gpu + i * nM,
+                        (Tgpu*) work_buffer1, block_out, result_gpu + i * nM,
                         lfc->Mcount, nM, innvec);
                 break;
             default:
@@ -314,91 +314,91 @@ void Zcuda(lfc_reducemap)(LFCObject *lfc, const Tcuda *a_G, int nG,
             block_out = blocks2;
             dim3 dimBlock(threads2, 1, 1);
             dim3 dimGrid(blocks2, cunvec * nM, 1);
-            int smemSize = (threads2 <= 32) ? 2 * threads2 * sizeof(Tcuda)
-                                            : threads2 * sizeof(Tcuda);
+            int smemSize = (threads2 <= 32) ? 2 * threads2 * sizeof(Tgpu)
+                                            : threads2 * sizeof(Tgpu);
 
-            Tcuda *work1 = (count % 2) ? work_buffer2 : work_buffer1;
-            Tcuda *work2 = (count % 2) ? work_buffer1 : work_buffer2;
+            Tgpu *work1 = (count % 2) ? work_buffer2 : work_buffer1;
+            Tgpu *work2 = (count % 2) ? work_buffer1 : work_buffer2;
             count++;
 
             switch (threads2) {
                 case 512:
                     gpuLaunchKernel(
-                            Zcuda(reduce_kernel512),
+                            Zgpu(reduce_kernel512),
                             dimGrid, dimBlock, smemSize, 0,
-                            (Tcuda*) work1, NULL, (Tcuda*) work2,
+                            (Tgpu*) work1, NULL, (Tgpu*) work2,
                             result_gpu + i * nM, s, block_in, block_out,
                             cunvec * nM);
                     break;
                 case 256:
                     gpuLaunchKernel(
-                            Zcuda(reduce_kernel256),
+                            Zgpu(reduce_kernel256),
                             dimGrid, dimBlock, smemSize, 0,
-                            (Tcuda*) work1, NULL, (Tcuda*) work2,
+                            (Tgpu*) work1, NULL, (Tgpu*) work2,
                             result_gpu + i * nM, s, block_in, block_out,
                             cunvec * nM);
                     break;
                 case 128:
                     gpuLaunchKernel(
-                            Zcuda(reduce_kernel128),
+                            Zgpu(reduce_kernel128),
                             dimGrid, dimBlock, smemSize, 0,
-                            (Tcuda*) work1, NULL, (Tcuda*) work2,
+                            (Tgpu*) work1, NULL, (Tgpu*) work2,
                             result_gpu + i * nM, s, block_in, block_out,
                             cunvec * nM);
                     break;
                 case 64:
                     gpuLaunchKernel(
-                            Zcuda(reduce_kernel64),
+                            Zgpu(reduce_kernel64),
                             dimGrid, dimBlock, smemSize, 0,
-                            (Tcuda*) work1, NULL, (Tcuda*) work2,
+                            (Tgpu*) work1, NULL, (Tgpu*) work2,
                             result_gpu + i * nM, s, block_in, block_out,
                             cunvec * nM);
                     break;
                 case 32:
                     gpuLaunchKernel(
-                            Zcuda(reduce_kernel32),
+                            Zgpu(reduce_kernel32),
                             dimGrid, dimBlock, smemSize, 0,
-                            (Tcuda*) work1, NULL, (Tcuda*) work2,
+                            (Tgpu*) work1, NULL, (Tgpu*) work2,
                             result_gpu + i * nM, s, block_in, block_out,
                             cunvec * nM);
                     break;
                 case 16:
                     gpuLaunchKernel(
-                            Zcuda(reduce_kernel16),
+                            Zgpu(reduce_kernel16),
                             dimGrid, dimBlock, smemSize, 0,
-                            (Tcuda*) work1, NULL, (Tcuda*) work2,
+                            (Tgpu*) work1, NULL, (Tgpu*) work2,
                             result_gpu + i * nM, s, block_in, block_out,
                             cunvec * nM);
                     break;
                 case  8:
                     gpuLaunchKernel(
-                            Zcuda(reduce_kernel8),
+                            Zgpu(reduce_kernel8),
                             dimGrid, dimBlock, smemSize, 0,
-                            (Tcuda*) work1, NULL, (Tcuda*) work2,
+                            (Tgpu*) work1, NULL, (Tgpu*) work2,
                             result_gpu + i * nM, s, block_in, block_out,
                             cunvec * nM);
                     break;
                 case  4:
                     gpuLaunchKernel(
-                            Zcuda(reduce_kernel4),
+                            Zgpu(reduce_kernel4),
                             dimGrid, dimBlock, smemSize, 0,
-                            (Tcuda*) work1, NULL, (Tcuda*) work2,
+                            (Tgpu*) work1, NULL, (Tgpu*) work2,
                             result_gpu + i * nM, s, block_in, block_out,
                             cunvec * nM);
                     break;
                 case  2:
                     gpuLaunchKernel(
-                            Zcuda(reduce_kernel2),
+                            Zgpu(reduce_kernel2),
                             dimGrid, dimBlock, smemSize, 0,
-                            (Tcuda*) work1, NULL, (Tcuda*) work2,
+                            (Tgpu*) work1, NULL, (Tgpu*) work2,
                             result_gpu + i * nM, s, block_in, block_out,
                             cunvec * nM);
                     break;
                 case  1:
                     gpuLaunchKernel(
-                            Zcuda(reduce_kernel1),
+                            Zgpu(reduce_kernel1),
                             dimGrid, dimBlock, smemSize, 0,
-                            (Tcuda*) work1, NULL, (Tcuda*) work2,
+                            (Tgpu*) work1, NULL, (Tgpu*) work2,
                             result_gpu + i * nM, s, block_in, block_out,
                             cunvec * nM);
                     break;

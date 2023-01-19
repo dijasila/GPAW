@@ -1,11 +1,11 @@
 __device__ unsigned int INNAME(retirementCount) = {0};
 
 __global__ void INNAME(reduce_kernel)(
-        const Tcuda *g_idata1, const Tcuda *g_idata2, Tcuda *g_odata,
-        Tcuda *results, unsigned int n, unsigned int block_in,
+        const Tgpu *g_idata1, const Tgpu *g_idata2, Tgpu *g_odata,
+        Tgpu *results, unsigned int n, unsigned int block_in,
         int block_out, int nvec)
 {
-    extern __shared__ Tcuda Zcuda(sdata)[];
+    extern __shared__ Tgpu Zgpu(sdata)[];
 
     // perform first level of reduction,
     // reading from global memory, writing to shared memory
@@ -14,7 +14,7 @@ __global__ void INNAME(reduce_kernel)(
 
     unsigned int i_vec = blockIdx.y;
     unsigned int i = blockIdx.x * (REDUCE_THREADS * 2) + threadIdx.x;
-    Tcuda mySum = MAKED(0);
+    Tgpu mySum = MAKED(0);
 
     // we reduce multiple elements per thread.  The number is determined by the
     // number of active thread blocks (via gridDim).  More blocks will result
@@ -30,30 +30,30 @@ __global__ void INNAME(reduce_kernel)(
         }
         i += gridSize;
     }
-    Zcuda(sdata)[tid] = mySum;
+    Zgpu(sdata)[tid] = mySum;
     __syncthreads();
 
     if (REDUCE_THREADS >= 512) {
         if (tid < 256) {
-            Zcuda(sdata)[tid] = mySum = ADD(mySum, Zcuda(sdata)[tid + 256]);
+            Zgpu(sdata)[tid] = mySum = ADD(mySum, Zgpu(sdata)[tid + 256]);
         }
         __syncthreads();
     }
     if (REDUCE_THREADS >= 256) {
         if (tid < 128) {
-            Zcuda(sdata)[tid] = mySum = ADD(mySum, Zcuda(sdata)[tid + 128]);
+            Zgpu(sdata)[tid] = mySum = ADD(mySum, Zgpu(sdata)[tid + 128]);
         }
         __syncthreads();
     }
     if (REDUCE_THREADS >= 128) {
         if (tid <  64) {
-            Zcuda(sdata)[tid] = mySum = ADD(mySum, Zcuda(sdata)[tid + 64]);
+            Zgpu(sdata)[tid] = mySum = ADD(mySum, Zgpu(sdata)[tid + 64]);
         }
         __syncthreads();
     }
 
     if (tid < 32) {
-        volatile Tcuda *smem = Zcuda(sdata);
+        volatile Tgpu *smem = Zgpu(sdata);
 #ifdef GPU_USE_COMPLEX
         if (REDUCE_THREADS >= 64) {
             smem[tid].x = mySum.x = mySum.x + smem[tid + 32].x;
@@ -97,7 +97,7 @@ __global__ void INNAME(reduce_kernel)(
 
     // write result for this block to global mem
     if (tid == 0)
-        g_odata[blockIdx.x + block_out * i_vec] = Zcuda(sdata)[0];
+        g_odata[blockIdx.x + block_out * i_vec] = Zgpu(sdata)[0];
 
     if (gridDim.x == 1) {
         __shared__ bool amLast;

@@ -428,36 +428,36 @@ __global__ void FD_kernel_onlyb(
 #define BLOCK_Y_DEFZ  (BLOCK_Y_FERMIZ)
 
 #define MYJ  (2/2)
-#  define FD_kernel Zcuda(fd_kernel2_fermi)
-#  define FD_kernel_onlyb Zcuda(fd_kernel2_onlyb_fermi)
+#  define FD_kernel Zgpu(fd_kernel2_fermi)
+#  define FD_kernel_onlyb Zgpu(fd_kernel2_onlyb_fermi)
 #  include "fd.cpp"
 #  undef FD_kernel
 #  undef FD_kernel_onlyb
 #  undef MYJ
 #define MYJ  (4/2)
-#  define FD_kernel Zcuda(fd_kernel4_fermi)
-#  define FD_kernel_onlyb Zcuda(fd_kernel4_onlyb_fermi)
+#  define FD_kernel Zgpu(fd_kernel4_fermi)
+#  define FD_kernel_onlyb Zgpu(fd_kernel4_onlyb_fermi)
 #  include "fd.cpp"
 #  undef FD_kernel
 #  undef FD_kernel_onlyb
 #  undef MYJ
 #define MYJ  (6/2)
-#  define FD_kernel Zcuda(fd_kernel6_fermi)
-#  define FD_kernel_onlyb Zcuda(fd_kernel6_onlyb_fermi)
+#  define FD_kernel Zgpu(fd_kernel6_fermi)
+#  define FD_kernel_onlyb Zgpu(fd_kernel6_onlyb_fermi)
 #  include "fd.cpp"
 #  undef FD_kernel
 #  undef FD_kernel_onlyb
 #  undef MYJ
 #define MYJ  (8/2)
-#  define FD_kernel Zcuda(fd_kernel8_fermi)
-#  define FD_kernel_onlyb Zcuda(fd_kernel8_onlyb_fermi)
+#  define FD_kernel Zgpu(fd_kernel8_fermi)
+#  define FD_kernel_onlyb Zgpu(fd_kernel8_onlyb_fermi)
 #  include "fd.cpp"
 #  undef FD_kernel
 #  undef FD_kernel_onlyb
 #  undef MYJ
 #define MYJ  (10/2)
-#  define FD_kernel Zcuda(fd_kernel10_fermi)
-#  define FD_kernel_onlyb Zcuda(fd_kernel10_onlyb_fermi)
+#  define FD_kernel Zgpu(fd_kernel10_fermi)
+#  define FD_kernel_onlyb Zgpu(fd_kernel10_onlyb_fermi)
 #  include "fd.cpp"
 #  undef FD_kernel
 #  undef FD_kernel_onlyb
@@ -473,36 +473,36 @@ __global__ void FD_kernel_onlyb(
 #define BLOCK_Y_DEFZ  (BLOCK_Y_KEPLERZ)
 
 #define MYJ  (2/2)
-#  define FD_kernel Zcuda(fd_kernel2_kepler)
-#  define FD_kernel_onlyb Zcuda(fd_kernel2_onlyb_kepler)
+#  define FD_kernel Zgpu(fd_kernel2_kepler)
+#  define FD_kernel_onlyb Zgpu(fd_kernel2_onlyb_kepler)
 #  include "fd.cpp"
 #  undef FD_kernel
 #  undef FD_kernel_onlyb
 #  undef MYJ
 #define MYJ  (4/2)
-#  define FD_kernel Zcuda(fd_kernel4_kepler)
-#  define FD_kernel_onlyb Zcuda(fd_kernel4_onlyb_kepler)
+#  define FD_kernel Zgpu(fd_kernel4_kepler)
+#  define FD_kernel_onlyb Zgpu(fd_kernel4_onlyb_kepler)
 #  include "fd.cpp"
 #  undef FD_kernel
 #  undef FD_kernel_onlyb
 #  undef MYJ
 #define MYJ  (6/2)
-#  define FD_kernel Zcuda(fd_kernel6_kepler)
-#  define FD_kernel_onlyb Zcuda(fd_kernel6_onlyb_kepler)
+#  define FD_kernel Zgpu(fd_kernel6_kepler)
+#  define FD_kernel_onlyb Zgpu(fd_kernel6_onlyb_kepler)
 #  include "fd.cpp"
 #  undef FD_kernel
 #  undef FD_kernel_onlyb
 #  undef MYJ
 #define MYJ  (8/2)
-#  define FD_kernel Zcuda(fd_kernel8_kepler)
-#  define FD_kernel_onlyb Zcuda(fd_kernel8_onlyb_kepler)
+#  define FD_kernel Zgpu(fd_kernel8_kepler)
+#  define FD_kernel_onlyb Zgpu(fd_kernel8_onlyb_kepler)
 #  include "fd.cpp"
 #  undef FD_kernel
 #  undef FD_kernel_onlyb
 #  undef MYJ
 #define MYJ  (10/2)
-#  define FD_kernel Zcuda(fd_kernel10_kepler)
-#  define FD_kernel_onlyb Zcuda(fd_kernel10_onlyb_kepler)
+#  define FD_kernel Zgpu(fd_kernel10_kepler)
+#  define FD_kernel_onlyb Zgpu(fd_kernel10_onlyb_kepler)
 #  include "fd.cpp"
 #  undef FD_kernel
 #  undef FD_kernel_onlyb
@@ -519,8 +519,8 @@ int bmgs_fd_boundary_test(
 dim3 bmgs_fd_cuda_get_blockDim(int ndouble);
 
 extern "C"
-void Zcuda(bmgs_fd_cuda_gpu)(
-        const bmgsstencil_gpu* s_gpu, const Tcuda* adev, Tcuda* bdev,
+void Zgpu(bmgs_fd_cuda_gpu)(
+        const bmgsstencil_gpu* s_gpu, const Tgpu* adev, Tgpu* bdev,
         int boundary, int blocks, gpuStream_t stream)
 {
     int3 bjb;
@@ -620,11 +620,11 @@ void Zcuda(bmgs_fd_cuda_gpu)(
 
         bdev += bjb1.z + bjb1.y * (hc_bj.z + hc_n.z)
               + bjb1.x * ((hc_bj.z + hc_n.z) * hc_n.y + hc_bj.y);
-        adev = (Tcuda*) ((double*) adev + jb1.z
-                         + jb1.y * (hc_j.z + hc_n.z)
-                         + jb1.x * ((hc_j.z + hc_n.z) * hc_n.y + hc_j.y));
+        adev = (Tgpu*) ((double*) adev + jb1.z
+             + jb1.y * (hc_j.z + hc_n.z)
+             + jb1.x * ((hc_j.z + hc_n.z) * hc_n.y + hc_j.y));
     } else {
-        adev = (Tcuda*) ((double*) adev + (hc_j.x + hc_j.y + hc_j.z) / 2);
+        adev = (Tgpu*) ((double*) adev + (hc_j.x + hc_j.y + hc_j.z) / 2);
     }
 
     if ((hc_n.x <= 0) || (hc_n.y <= 0) || (hc_n.z <= 0))
@@ -685,19 +685,19 @@ void Zcuda(bmgs_fd_cuda_gpu)(
         if (_gpaw_gpu_dev_prop.major < 3) {
             switch (s_gpu->ncoefs0) {
                 case 3:
-                    fd_kernel = Zcuda(fd_kernel2_fermi);
+                    fd_kernel = Zgpu(fd_kernel2_fermi);
                     break;
                 case 5:
-                    fd_kernel = Zcuda(fd_kernel4_fermi);
+                    fd_kernel = Zgpu(fd_kernel4_fermi);
                     break;
                 case 7:
-                    fd_kernel = Zcuda(fd_kernel6_fermi);
+                    fd_kernel = Zgpu(fd_kernel6_fermi);
                     break;
                 case 9:
-                    fd_kernel = Zcuda(fd_kernel8_fermi);
+                    fd_kernel = Zgpu(fd_kernel8_fermi);
                     break;
                 case 11:
-                    fd_kernel = Zcuda(fd_kernel10_fermi);
+                    fd_kernel = Zgpu(fd_kernel10_fermi);
                     break;
                 default:
                     assert(0);
@@ -705,19 +705,19 @@ void Zcuda(bmgs_fd_cuda_gpu)(
         } else {
             switch (s_gpu->ncoefs0) {
                 case 3:
-                    fd_kernel = Zcuda(fd_kernel2_kepler);
+                    fd_kernel = Zgpu(fd_kernel2_kepler);
                     break;
                 case 5:
-                    fd_kernel = Zcuda(fd_kernel4_kepler);
+                    fd_kernel = Zgpu(fd_kernel4_kepler);
                     break;
                 case 7:
-                    fd_kernel = Zcuda(fd_kernel6_kepler);
+                    fd_kernel = Zgpu(fd_kernel6_kepler);
                     break;
                 case 9:
-                    fd_kernel = Zcuda(fd_kernel8_kepler);
+                    fd_kernel = Zgpu(fd_kernel8_kepler);
                     break;
                 case 11:
-                    fd_kernel = Zcuda(fd_kernel10_kepler);
+                    fd_kernel = Zgpu(fd_kernel10_kepler);
                     break;
                 default:
                     assert(0);
@@ -738,19 +738,19 @@ void Zcuda(bmgs_fd_cuda_gpu)(
                           const int xdiv, const int blocks);
         switch (s_gpu->ncoefs0) {
             case 3:
-                fd_kernel = Zcuda(fd_kernel2_onlyb_fermi);
+                fd_kernel = Zgpu(fd_kernel2_onlyb_fermi);
                 break;
             case 5:
-                fd_kernel = Zcuda(fd_kernel4_onlyb_fermi);
+                fd_kernel = Zgpu(fd_kernel4_onlyb_fermi);
                 break;
             case 7:
-                fd_kernel = Zcuda(fd_kernel6_onlyb_fermi);
+                fd_kernel = Zgpu(fd_kernel6_onlyb_fermi);
                 break;
             case 9:
-                fd_kernel = Zcuda(fd_kernel8_onlyb_fermi);
+                fd_kernel = Zgpu(fd_kernel8_onlyb_fermi);
                 break;
             case 11:
-                fd_kernel = Zcuda(fd_kernel10_onlyb_fermi);
+                fd_kernel = Zgpu(fd_kernel10_onlyb_fermi);
                 break;
             default:
                 assert(0);
@@ -767,10 +767,10 @@ void Zcuda(bmgs_fd_cuda_gpu)(
 
 
 extern "C"
-double Zcuda(bmgs_fd_cuda_cpu)(const bmgsstencil* s, const Tcuda* a,
-                               Tcuda* b, int blocks)
+double Zgpu(bmgs_fd_cuda_cpu)(const bmgsstencil* s, const Tgpu* a,
+                              Tgpu* b, int blocks)
 {
-    Tcuda *adev, *bdev;
+    Tgpu *adev, *bdev;
     size_t asize,bsize;
     struct timeval t0, t1;
     double flops;
@@ -780,20 +780,20 @@ double Zcuda(bmgs_fd_cuda_cpu)(const bmgsstencil* s, const Tcuda* a,
     bsize = s->n[0] * s->n[1] * s->n[2];
 
     gpuCheckLastError();
-    gpuMalloc(&adev, sizeof(Tcuda) * asize * blocks);
-    gpuMalloc(&bdev, sizeof(Tcuda) * bsize * blocks);
+    gpuMalloc(&adev, sizeof(Tgpu) * asize * blocks);
+    gpuMalloc(&bdev, sizeof(Tgpu) * bsize * blocks);
 
-    gpuMemcpy(adev, a, sizeof(Tcuda) * asize * blocks, gpuMemcpyHostToDevice);
+    gpuMemcpy(adev, a, sizeof(Tgpu) * asize * blocks, gpuMemcpyHostToDevice);
     gpuCheckLastError();
 
     gettimeofday(&t0, NULL);
-    Zcuda(bmgs_fd_cuda_gpu)(&s_gpu, adev, bdev, GPAW_BOUNDARY_NORMAL,
+    Zgpu(bmgs_fd_cuda_gpu)(&s_gpu, adev, bdev, GPAW_BOUNDARY_NORMAL,
                             blocks, 0);
     gpuDeviceSynchronize();
     gpuCheckLastError();
     gettimeofday(&t1,NULL);
 
-    gpuMemcpy(b, bdev, sizeof(Tcuda) * bsize * blocks, gpuMemcpyDeviceToHost);
+    gpuMemcpy(b, bdev, sizeof(Tgpu) * bsize * blocks, gpuMemcpyDeviceToHost);
 
     gpuFree(adev);
     gpuFree(bdev);

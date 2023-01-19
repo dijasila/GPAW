@@ -16,8 +16,8 @@
 #endif
 
 
-__global__ void Zcuda(interpolate_kernel)(
-        const Tcuda* a, const int3 n, Tcuda* b, const int3 b_n,
+__global__ void Zgpu(interpolate_kernel)(
+        const Tgpu* a, const int3 n, Tgpu* b, const int3 b_n,
         const int3 skip0, const int3 skip1, int xdiv, int blocks)
 {
     int xx = gridDim.x / xdiv;
@@ -33,9 +33,9 @@ __global__ void Zcuda(interpolate_kernel)(
     int i1base = (blockIdx.y - blocksi * yy) * BLOCK_Y;
     int i1 = i1base + i1tid;
 
-    __shared__ Tcuda bcache12[BCACHE_Y * BCACHE_X];
+    __shared__ Tgpu bcache12[BCACHE_Y * BCACHE_X];
 
-    Tcuda *bcache12p_2x;
+    Tgpu *bcache12p_2x;
 
     int xlen = (n.x + xdiv - 1) / xdiv;
     int xstart = xind * xlen;
@@ -67,7 +67,7 @@ __global__ void Zcuda(interpolate_kernel)(
 
     __syncthreads();
     for (int i0=xstart+1; i0 < xend; i0++) {
-        Tcuda a_c;
+        Tgpu a_c;
         a += n.y*n.z;
         if (i1tid < ACACHE_Y && i2tid < BLOCK_X / 2) {
             bcache12p_2x[1] = MULTD(ADD(bcache12p_2x[0], bcache12p_2x[2]),
@@ -147,10 +147,10 @@ __global__ void Zcuda(interpolate_kernel)(
 }
 
 extern "C"
-void Zcuda(bmgs_interpolate_cuda_gpu)(int k, int skip[3][2],
-                                      const Tcuda* a, const int size[3],
-                                      Tcuda* b, const int sizeb[3],
-                                      int blocks)
+void Zgpu(bmgs_interpolate_cuda_gpu)(int k, int skip[3][2],
+                                     const Tgpu* a, const int size[3],
+                                     Tgpu* b, const int sizeb[3],
+                                     int blocks)
 {
     if (k != 2)
         assert(0);
@@ -170,7 +170,7 @@ void Zcuda(bmgs_interpolate_cuda_gpu)(int k, int skip[3][2],
                 2 * n.y - 2 - skip0.y + skip1.y,
                 2 * n.z - 2 - skip0.z + skip1.z};
 
-    gpuLaunchKernel(Zcuda(interpolate_kernel), dimGrid, dimBlock, 0, 0,
+    gpuLaunchKernel(Zgpu(interpolate_kernel), dimGrid, dimBlock, 0, 0,
                     a, n, b, b_n, skip0, skip1, xdiv, blocks);
     gpuCheckLastError();
 }

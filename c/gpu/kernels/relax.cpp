@@ -607,11 +607,11 @@ void bmgs_relax_cuda_gpu(const int relax_method,
         src += bjb1.z + bjb1.y * (hc_bj.z + hc_n.z)
              + bjb1.x * ((hc_bj.z + hc_n.z) * hc_n.y + hc_bj.y);
 
-        adev = (Tcuda*) ((double*) adev + jb1.z
-                         + jb1.y * (hc_j.z + hc_n.z)
-                         + jb1.x * ((hc_j.z + hc_n.z) * hc_n.y + hc_j.y));
+        adev = (Tgpu*) ((double*) adev + jb1.z
+             + jb1.y * (hc_j.z + hc_n.z)
+             + jb1.x * ((hc_j.z + hc_n.z) * hc_n.y + hc_j.y));
     } else {
-        adev = (Tcuda*) ((double*) adev + (hc_j.x + hc_j.y + hc_j.z) / 2);
+        adev = (Tgpu*) ((double*) adev + (hc_j.x + hc_j.y + hc_j.z) / 2);
     }
     if ((hc_n.x <= 0) || (hc_n.y <= 0) || (hc_n.z <= 0))
         return;

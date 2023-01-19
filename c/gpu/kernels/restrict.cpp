@@ -19,17 +19,17 @@
 #define ACACHE_Y  (2 * BLOCK_Y + 1)
 
 
-__global__ void RESTRICT_kernel(const Tcuda* a, const int3 n,
-                                Tcuda* b, const int3 b_n,
+__global__ void RESTRICT_kernel(const Tgpu* a, const int3 n,
+                                Tgpu* b, const int3 b_n,
                                 int xdiv, int blocks)
 {
     int i2, i1;
     int i2_x2, i1_x2;
     int xlen;
-    Tcuda *acache12p;
-    Tcuda *acache12p_2x;
-    Tcuda b_old;
-    __shared__ Tcuda Zcuda(acache12)[ACACHE_X * ACACHE_Y];
+    Tgpu *acache12p;
+    Tgpu *acache12p_2x;
+    Tgpu b_old;
+    __shared__ Tgpu Zgpu(acache12)[ACACHE_X * ACACHE_Y];
     {
         int xx = gridDim.x / xdiv;
         int xind = blockIdx.x / xx;
@@ -53,8 +53,8 @@ __global__ void RESTRICT_kernel(const Tcuda* a, const int3 n,
         b += b_n.x * b_n.y * b_n.z * blocksi + xstart * b_n.y * b_n.z
            + i1 * b_n.z + i2;
     }
-    acache12p = Zcuda(acache12) + ACACHE_X * threadIdx.y + threadIdx.x;
-    acache12p_2x = Zcuda(acache12) + ACACHE_X * (2 * threadIdx.y)
+    acache12p = Zgpu(acache12) + ACACHE_X * threadIdx.y + threadIdx.x;
+    acache12p_2x = Zgpu(acache12) + ACACHE_X * (2 * threadIdx.y)
                  + 2 * threadIdx.x;
 
     acache12p[0] = a[0];
@@ -191,17 +191,17 @@ __global__ void RESTRICT_kernel(const Tcuda* a, const int3 n,
         }
         __syncthreads();
 
-        Tcuda b_new=ADD3(MULTD(acache12p_2x[ACACHE_X * 1 + 1], 0.0625),
-                         MULTD(ADD4(acache12p_2x[ACACHE_X * 1 + 0],
-                                    acache12p_2x[ACACHE_X * 1 + 2],
-                                    acache12p_2x[ACACHE_X * 0 + 1],
-                                    acache12p_2x[ACACHE_X * 2 + 1]),
-                               0.03125),
-                         MULTD(ADD4(acache12p_2x[ACACHE_X * 0 + 0],
-                                    acache12p_2x[ACACHE_X * 0 + 2],
-                                    acache12p_2x[ACACHE_X * 2 + 0],
-                                    acache12p_2x[ACACHE_X * 2 + 2]),
-                               0.015625));
+        Tgpu b_new=ADD3(MULTD(acache12p_2x[ACACHE_X * 1 + 1], 0.0625),
+                        MULTD(ADD4(acache12p_2x[ACACHE_X * 1 + 0],
+                                   acache12p_2x[ACACHE_X * 1 + 2],
+                                   acache12p_2x[ACACHE_X * 0 + 1],
+                                   acache12p_2x[ACACHE_X * 2 + 1]),
+                              0.03125),
+                        MULTD(ADD4(acache12p_2x[ACACHE_X * 0 + 0],
+                                   acache12p_2x[ACACHE_X * 0 + 2],
+                                   acache12p_2x[ACACHE_X * 2 + 0],
+                                   acache12p_2x[ACACHE_X * 2 + 2]),
+                              0.015625));
         if (i1 < b_n.y && i2 < b_n.z)
             b[0] = ADD(b_old, b_new);
         b_old = b_new;
@@ -214,7 +214,7 @@ __global__ void RESTRICT_kernel(const Tcuda* a, const int3 n,
 
 #define BLOCK_X   (BLOCK_X_FERMI)
 #define BLOCK_Y   (BLOCK_Y_FERMI)
-#  define RESTRICT_kernel Zcuda(restrict_kernel_fermi)
+#  define RESTRICT_kernel Zgpu(restrict_kernel_fermi)
 #  include "restrict.cpp"
 #  undef RESTRICT_kernel
 #undef BLOCK_X
@@ -222,7 +222,7 @@ __global__ void RESTRICT_kernel(const Tcuda* a, const int3 n,
 
 #define BLOCK_X   (BLOCK_X_KEPLER)
 #define BLOCK_Y   (BLOCK_Y_KEPLER)
-#  define RESTRICT_kernel Zcuda(restrict_kernel_kepler)
+#  define RESTRICT_kernel Zgpu(restrict_kernel_kepler)
 #  include "restrict.cpp"
 #  undef RESTRICT_kernel
 #undef BLOCK_X
@@ -230,8 +230,8 @@ __global__ void RESTRICT_kernel(const Tcuda* a, const int3 n,
 
 
 extern "C"
-void Zcuda(bmgs_restrict_cuda_gpu)(int k, const Tcuda* a, const int size[3],
-                                   Tcuda* b, const int sizeb[3], int blocks)
+void Zgpu(bmgs_restrict_cuda_gpu)(int k, const Tgpu* a, const int size[3],
+                                  Tgpu* b, const int sizeb[3], int blocks)
 {
     if (k != 2)
         assert(0);
@@ -265,12 +265,12 @@ void Zcuda(bmgs_restrict_cuda_gpu)(int k, const Tcuda* a, const int size[3],
         case 1:
         case 2:
             gpuLaunchKernel(
-                    Zcuda(restrict_kernel_fermi), dimGrid, dimBlock, 0, 0,
+                    Zgpu(restrict_kernel_fermi), dimGrid, dimBlock, 0, 0,
                     a, n ,b, b_n, xdiv, blocks);
             break;
         default:
             gpuLaunchKernel(
-                    Zcuda(restrict_kernel_kepler), dimGrid, dimBlock, 0, 0,
+                    Zgpu(restrict_kernel_kepler), dimGrid, dimBlock, 0, 0,
                     a, n, b, b_n, xdiv, blocks);
     }
     gpuCheckLastError();

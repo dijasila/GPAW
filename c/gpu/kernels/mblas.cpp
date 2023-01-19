@@ -21,21 +21,21 @@
 #  define MIN_BLOCKS     (MAX_BLOCKS)
 #endif
 
-#define MAPNAME(f) Zcuda(f ## _dotu)
+#define MAPNAME(f) Zgpu(f ## _dotu)
 #define MAPFUNC(a,b) MULTT((a), (b))
 #include "reduce.cpp"
 #undef MAPNAME
 #undef MAPFUNC
 
-#define MAPNAME(f) Zcuda(f ## _dotc)
+#define MAPNAME(f) Zgpu(f ## _dotc)
 #define MAPFUNC(a,b) MULTT(CONJ(a), (b))
 #include "reduce.cpp"
 #undef MAPNAME
 #undef MAPFUNC
 
 
-__global__ void Zcuda(multi_scal_cuda_kernel)(int n, const Tcuda *alpha,
-                                              Tcuda *a)
+__global__ void Zgpu(multi_scal_cuda_kernel)(int n, const Tgpu *alpha,
+                                             Tgpu *a)
 {
     int i = blockIdx.x * MBLAS_BLOCK_X + threadIdx.x;
     int k = blockIdx.y;
@@ -48,8 +48,8 @@ __global__ void Zcuda(multi_scal_cuda_kernel)(int n, const Tcuda *alpha,
     }
 }
 
-__global__ void Zcuda(multi_axpy_cuda_kernel)(int n, const Tcuda *alpha,
-                                              const Tcuda *a, Tcuda *b)
+__global__ void Zgpu(multi_axpy_cuda_kernel)(int n, const Tgpu *alpha,
+                                             const Tgpu *a, Tgpu *b)
 {
     int k = blockIdx.y;
     int i = blockIdx.x * MBLAS_BLOCK_X + threadIdx.x;

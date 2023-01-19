@@ -34,11 +34,11 @@ static INLINE void* gpaw_malloc(int n)
 #include "lfc-reduce.cpp"
 
 
-__global__ void Zcuda(add_kernel)(Tcuda *a_G, const Tcuda *c_M, int *G_B1,
-                                  int *G_B2, LFVolume_gpu **volume_i,
-                                  int *A_gm_i, int *ni, int nimax, int na_G,
-                                  int nM, gpuDoubleComplex *phase_i,
-                                  int max_k, int q, int nB_gpu)
+__global__ void Zgpu(add_kernel)(Tgpu *a_G, const Tgpu *c_M, int *G_B1,
+                                 int *G_B2, LFVolume_gpu **volume_i,
+                                 int *A_gm_i, int *ni, int nimax, int na_G,
+                                 int nM, gpuDoubleComplex *phase_i,
+                                 int max_k, int q, int nB_gpu)
 {
     int G = threadIdx.x;
     int B = blockIdx.x * blockDim.y + threadIdx.y;
@@ -49,7 +49,7 @@ __global__ void Zcuda(add_kernel)(Tcuda *a_G, const Tcuda *c_M, int *G_B1,
     int nii, Gb, Ga, nG;
     LFVolume_gpu* v;
     double* A_gm;
-    const Tcuda* c_Mt;
+    const Tgpu* c_Mt;
     int nm;
     int len;
 
@@ -59,10 +59,10 @@ __global__ void Zcuda(add_kernel)(Tcuda *a_G, const Tcuda *c_M, int *G_B1,
     nG = Gb - Ga;
     a_G += Ga + na_G * x;
     c_M += nM * x;
-    Tcuda av = MAKED(0);
+    Tgpu av = MAKED(0);
     if (G < nG) {
         for (int i=0; i < nii; i++) {
-            Tcuda avv;
+            Tgpu avv;
             v = volume_i[B + i * nB_gpu];
             A_gm = v->A_gm + A_gm_i[B + i * nB_gpu] + G;
             nm = v->nm;

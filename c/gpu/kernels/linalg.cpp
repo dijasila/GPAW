@@ -11,8 +11,8 @@
 #  define MAX_BLOCKS  (65535)
 #endif
 
-__global__ void Zcuda(elmenwise_mul_add_kernelx)(
-        int n, const double* a, const Tcuda* b, Tcuda *c)
+__global__ void Zgpu(elmenwise_mul_add_kernelx)(
+        int n, const double* a, const Tgpu* b, Tgpu *c)
 {
     int i = blockIdx.x * BLOCK_X + threadIdx.x;
     while (i < n) {
@@ -21,8 +21,8 @@ __global__ void Zcuda(elmenwise_mul_add_kernelx)(
     }
 }
 
-__global__ void Zcuda(multi_elmenwise_mul_add_kernel1x)(
-        int n, const double* a, const Tcuda* b, Tcuda *c)
+__global__ void Zgpu(multi_elmenwise_mul_add_kernel1x)(
+        int n, const double* a, const Tgpu* b, Tgpu *c)
 {
     int i = blockIdx.x * BLOCK_X + threadIdx.x;
     int k = blockIdx.y;
@@ -34,8 +34,8 @@ __global__ void Zcuda(multi_elmenwise_mul_add_kernel1x)(
     }
 }
 
-__global__ void Zcuda(multi_elmenwise_mul_add_kernel2x)(
-        int n, const double* a, const Tcuda* b, Tcuda *c)
+__global__ void Zgpu(multi_elmenwise_mul_add_kernel2x)(
+        int n, const double* a, const Tgpu* b, Tgpu *c)
 {
     int i = blockIdx.x * BLOCK_X + threadIdx.x;
     int k = blockIdx.y;
@@ -47,8 +47,8 @@ __global__ void Zcuda(multi_elmenwise_mul_add_kernel2x)(
     }
 }
 
-__global__ void Zcuda(ax2py_kernel)(int n, double a, const Tcuda* x,
-                                    double* y)
+__global__ void Zgpu(ax2py_kernel)(int n, double a, const Tgpu* x,
+                                   double* y)
 {
     int i = blockIdx.x * BLOCK_X + threadIdx.x;
     while (i < n) {
@@ -57,7 +57,7 @@ __global__ void Zcuda(ax2py_kernel)(int n, double a, const Tcuda* x,
     }
 }
 
-__global__ void Zcuda(csign_kernel)(int n, Tcuda* x)
+__global__ void Zgpu(csign_kernel)(int n, Tgpu* x)
 {
     int i = blockIdx.x * BLOCK_X + threadIdx.x;
     while (i < n) {
@@ -66,8 +66,8 @@ __global__ void Zcuda(csign_kernel)(int n, Tcuda* x)
     }
 }
 
-__global__ void Zcuda(multi_ax2py_kernel)(int n, int nvec, double *a,
-                                          const Tcuda* x, double* y)
+__global__ void Zgpu(multi_ax2py_kernel)(int n, int nvec, double *a,
+                                         const Tgpu* x, double* y)
 {
     int i = blockIdx.x * BLOCK_X + threadIdx.x;
     for (int k=0; k < nvec; k++) {
@@ -303,7 +303,7 @@ PyObject* ax2py_gpu(PyObject *self, PyObject *args)
     } else {
         gpuLaunchKernel(
                 ax2py_kernelz, dimGrid, dimBlock, 0, 0,
-                n, alpha, (Tcuda*) x_gpu, (double*) y_gpu);
+                n, alpha, (Tgpu*) x_gpu, (double*) y_gpu);
     }
     gpuCheckLastError();
     if (PyErr_Occurred())
@@ -338,7 +338,7 @@ PyObject* csign_gpu(PyObject *self, PyObject *args)
     } else {
         gpuLaunchKernel(
                 csign_kernelz, dimGrid, dimBlock, 0, 0,
-                n, (Tcuda*) x_gpu);
+                n, (Tgpu*) x_gpu);
     }
     gpuCheckLastError();
     if (PyErr_Occurred())

@@ -18,8 +18,8 @@
 #endif
 
 
-__global__ void Zcuda(add_linear_field_cuda_kernel)(
-        const Tcuda *a, const int3 c_sizea, Tcuda *b, const int3 c_n,
+__global__ void Zgpu(add_linear_field_cuda_kernel)(
+        const Tgpu *a, const int3 c_sizea, Tgpu *b, const int3 c_n,
         const int3 c_beg, const double3 strength, int blocks)
 {
     int xx = gridDim.x / XDIV;
