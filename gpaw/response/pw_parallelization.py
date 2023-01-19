@@ -115,12 +115,12 @@ class PlaneWaveBlockDistributor:
         out_wGG = np.empty(outshape, complex)
 
         inbuf = in_wGG.reshape(mdin.shape)
-        if not inbuf.flags.contiguous:
-            # numpy.reshape does not *guarantee* that the reshaped view will
-            # be contiguous (although it will try to make it so). In rare cases
-            # we will therefore have to make a contiguous copy of the input
-            # data in order to carry out the redistribution
-            inbuf = np.ascontiguousarray(inbuf)
+        # numpy.reshape does not *guarantee* that the reshaped view will
+        # be contiguous. To support redistribution of arrays with an arbitrary
+        # allocation layout, we thus need to make sure that the BLACS buffer is
+        # contiguous
+        inbuf = np.ascontiguousarray(inbuf)
+
         outbuf = out_wGG.reshape(mdout.shape)
 
         r.redistribute(inbuf, outbuf)
