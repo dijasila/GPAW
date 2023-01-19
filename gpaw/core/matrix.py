@@ -776,15 +776,12 @@ class CuPyDistribution(MatrixDistribution):
                 else:
                     if beta == 1.0 and a.shape[1] == 0:
                         return
-                    if beta == 0.0:
-                        cp.cublas.gemm('N', 'H',
-                                       a.data, b.data, c.data,
-                                       0.5 * alpha, 0.0)
-                        cp.cublas.gemm('N', 'H',
-                                       b.data, a.data, c.data,
-                                       0.5 * alpha, 1.0)
-                    else:
-                        raise NotImplementedError
+                    cp.cublas.gemm('N', 'H',
+                                   a.data, b.data, c.data,
+                                   0.5 * alpha, beta)
+                    cp.cublas.gemm('N', 'H',
+                                   b.data, a.data, c.data,
+                                   0.5 * alpha, 1.0)
             else:
                 assert opa == 'C' and opb == 'N'
                 assert a is not b

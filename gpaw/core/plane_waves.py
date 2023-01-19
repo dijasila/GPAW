@@ -462,7 +462,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         """
         a_xG = self._arrays().view(float)
         if kind == 'normal':
-            result_x = np.einsum('xG, xG -> x', a_xG, a_xG)
+            result_x = self.xp.einsum('xG, xG -> x', a_xG, a_xG)
         elif kind == 'kinetic':
 
             a_xG = a_xG.reshape((len(a_xG), -1, 2))
