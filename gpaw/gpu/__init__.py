@@ -36,6 +36,6 @@ def cupy_eigh(a, UPLO):
     """HIP version of eigh() is too slow for now."""
     from scipy.linalg import eigh
     if not is_hip:
-        return cupy.linalg.eigh(a, UPLO)
-    eigs, evals = eigh(cupy.asnumpy(a), UPLO)
+        return cupy.linalg.eigh(a, UPLO=UPLO)
+    eigs, evals = eigh(cupy.asnumpy(a), UPLO=UPLO)
     return cupy.asarray(eigs), cupy.asarray(evals)
