@@ -10,7 +10,7 @@ import scipy.linalg as sla
 
 import gpaw.utilities.blas as blas
 from gpaw import debug, SCIPY_VERSION
-from gpaw.gpu import cupy as cp
+from gpaw.gpu import cupy as cp, cupy_eigh
 from gpaw.mpi import MPIComm, _Communicator, serial_comm
 from gpaw.typing import Array1D, ArrayLike1D, ArrayLike2D
 
@@ -369,9 +369,7 @@ class Matrix:
                     H.data[np.triu_indices(H.shape[0], 1)] = 42.0
                 if S is None:
                     if self.xp is not np:
-                        eps, H.data.T[:] = cp.linalg.eigh(
-                            H.data,
-                            UPLO='L')
+                        eps, H.data.T[:] = cupy_eigh(H.data, UPLO='L')
                         return eps
                     eps[:], H.data.T[:] = sla.eigh(
                         H.data,
@@ -809,7 +807,7 @@ class CuPyDistribution(MatrixDistribution):
         tmp = H.new()
         self.multiply(1.0, L, 'N', H, 'N', 0.0, tmp)
         self.multiply(1.0, tmp, 'N', L, 'C', 0.0, H, symmetric=True)
-        eig_M, Ct_MM = cp.linalg.eigh(H.data, UPLO='L')
+        eig_M, Ct_MM = cupy_eigh(H.data, UPLO='L')
         assert Ct_MM.flags.f_contiguous
         Ct = H.new(data=Ct_MM.T)
         self.multiply(1.0, L, 'C', Ct, 'T', 0.0, H)
