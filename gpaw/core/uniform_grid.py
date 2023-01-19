@@ -85,6 +85,9 @@ class UniformGrid(Domain):
             'Domain(',
             f'UniformGrid(size={self.size_c.tolist()}, ')
 
+    def _short_string(self, global_shape):
+        return f'uniform wave function grid shape: {global_shape}'
+
     @cached_property
     def phase_factors_cd(self):
         """Phase factor for block-boundary conditions."""

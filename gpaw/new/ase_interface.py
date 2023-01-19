@@ -409,6 +409,8 @@ class ASECalculator:
         kwargs = {**dict(self.params.items()), **kwargs}
         params = InputParameters(kwargs)
         txt = params.txt
+        if txt == '?':
+            txt = '-'
         world = params.parallel['world']
         log = Logger(txt, world)
         builder = create_builder(self.atoms, params)

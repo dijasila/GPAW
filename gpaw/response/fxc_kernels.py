@@ -5,6 +5,7 @@ from functools import partial
 import numpy as np
 
 from gpaw.response import timer
+from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.response.chiks import ChiKS
 from gpaw.response.goldstone import get_goldstone_scaling
 from gpaw.response.localft import (LocalFTCalculator,
@@ -112,22 +113,33 @@ class AdiabaticFXCCalculator:
 
         return fxc_GG
 
-    @staticmethod
-    def get_Q_dG_map(large_pd, dG_dGv):
+    def get_Q_dG_map(self, large_pd, dG_dGv):
         """Create mapping between (G-G') index dG and large_pd index Q."""
         G_Qv = large_pd.get_reciprocal_vectors(add_q=False)
         # Make sure to match the precision of dG_dGv
         G_Qv = G_Qv.round(decimals=6)
 
-        diff_QdG = np.linalg.norm(G_Qv[:, np.newaxis] - dG_dGv[np.newaxis],
-                                  axis=2)
-        Q_dG = np.argmin(diff_QdG, axis=0)
+        # Distribute dG over world
+        # This is necessary because the next step is to create a K_QdGv buffer
+        # of which the norm is taken. When the number of plane-wave
+        # coefficients is large, this step becomes a memory bottleneck, hence
+        # the distribution.
+        dGblocks = Blocks1D(self.context.world, dG_dGv.shape[0])
+        dG_mydGv = dG_dGv[dGblocks.myslice]
 
-        # Check that all the identified Q indeces produce identical reciprocal
+        # Determine Q index for each dG index
+        diff_QmydG = np.linalg.norm(G_Qv[:, np.newaxis] - dG_mydGv[np.newaxis],
+                                    axis=2)
+        Q_mydG = np.argmin(diff_QmydG, axis=0)
+
+        # Check that all the identified Q indices produce identical reciprocal
         # lattice vectors
-        assert np.allclose(np.diagonal(diff_QdG[Q_dG]), 0.),\
+        assert np.allclose(np.diagonal(diff_QmydG[Q_mydG]), 0.),\
             'Could not find a perfect matching reciprocal wave vector in '\
             'large_pd for all dG_dGv'
+
+        # Collect the global Q_dG map
+        Q_dG = dGblocks.collect(Q_mydG)
 
         return Q_dG
 

@@ -1,10 +1,9 @@
 import argparse
 from typing import List, Union
 
-from ase import Atoms
 import numpy as np
-
-from gpaw.calculator import GPAW
+from ase import Atoms
+from gpaw.new.ase_interface import ASECalculator, GPAW
 from gpaw.point_groups import SymmetryChecker, point_group_names
 from gpaw.typing import Array1D, Array3D
 
@@ -47,7 +46,7 @@ def main(argv: List[str] = None) -> None:
         help='Example: "-a z=x,x=-y".')
     args = parser.parse_intermixed_args(argv)
 
-    calc: Union[None, GPAW, CubeCalc]
+    calc: Union[None, ASECalculator, CubeCalc]
 
     if args.file.endswith('.gpw'):
         calc = GPAW(args.file)

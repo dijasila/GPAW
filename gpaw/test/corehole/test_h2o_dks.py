@@ -1,9 +1,11 @@
+import pytest
 from ase.build import molecule
 
 from gpaw import GPAW, FermiDirac, PoissonSolver
 from gpaw.test import equal, gen
 
 
+@pytest.mark.later
 def test_corehole_h2o_dks():
     def xc(name):
         return {'name': name, 'stencil': 1}

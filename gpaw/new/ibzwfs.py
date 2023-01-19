@@ -7,6 +7,7 @@ from ase.dft.bandgap import bandgap
 from ase.io.ulm import Writer
 from ase.units import Bohr, Ha
 from gpaw.mpi import MPIComm, serial_comm
+from gpaw.new import prod
 from gpaw.new.brillouin import IBZ
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
 from gpaw.new.potential import Potential
@@ -94,10 +95,27 @@ class IBZWaveFunctions:
                 self.kpt_comm.rank == 0)
 
     def __str__(self):
+        shape = self.get_max_shape(global_shape=True)
+        nbytes = (prod(shape) * self.nbands *
+                  len(self.wfs_qs) * len(self.wfs_qs[0]) *
+                  self.dtype.itemsize)
+        ncores = (self.kpt_comm.size *
+                  self.domain_comm.size *
+                  self.band_comm.size)
+        wfs = self.wfs_qs[0][0]
         return (f'{self.ibz.symmetries}\n'
                 f'{self.ibz}\n'
+                f'{wfs._short_string(shape)}\n'
+                f'spin-components: {self.ncomponents}'
+                '  # (' +
+                ('' if self.collinear else 'non-') + 'collinear spins)\n'
+                f'bands: {self.nbands}\n'
                 f'valence electrons: {self.nelectrons}\n'
                 f'spin-degeneracy: {self.spin_degeneracy}\n'
+                f'dtype: {self.dtype}\n\n'
+                'memory:\n'
+                f'    wave functions: {nbytes:_}  # bytes '
+                f' ({nbytes // ncores:_} per core)\n\n'
                 'parallelization:\n'
                 f'    kpt:    {self.kpt_comm.size}\n'
                 f'    domain: {self.domain_comm.size}\n'

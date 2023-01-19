@@ -186,7 +186,7 @@ class Matrix:
                 else:
                     return fastmmm2notsym(A, B, out)
 
-        dist.multiply(alpha, A, opa, B, opb, beta, out, symmetric)
+        dist.multiply(alpha, A, opa, B, opb, beta, out, symmetric=symmetric)
         return out
 
     def redist(self, other: Matrix) -> None:
@@ -282,14 +282,14 @@ class Matrix:
             raise ValueError(f'scalapack_inverse error: {info}')
 
     def invcholesky(self) -> None:
-        """Inverse of Cholesky decomposition.
+        """In-place inverse of Cholesky decomposition.
 
-        Returns a lower triangle matrix `L` where:::
+        Calculate a lower triangle matrix `L` where:::
 
              †
-          LSL = 1
+          LSL = 1,
 
-        Only the lower part of `S` is used.
+        and `S` is self.  Only the lower part of `S` is used.
 
         >>> S = Matrix(2, 2, data=[[1.0, np.nan],
         ...                        [0.1, 1.0]])
@@ -369,7 +369,7 @@ class Matrix:
                     H.data[np.triu_indices(H.shape[0], 1)] = 42.0
                 if S is None:
                     if self.xp is not np:
-                        eps, H.data.T[:] = self.xp.linalg.eigh(
+                        eps, H.data.T[:] = cp.linalg.eigh(
                             H.data,
                             UPLO='L')
                         return eps
@@ -380,6 +380,14 @@ class Matrix:
                         check_finite=debug,
                         driver='evx' if H.data.size == 1 else 'evd')
                 else:
+                    if self.xp is cp:
+                        S.invcholesky()
+                        self.tril2full()
+                        eigs = self.eighg(S)
+                        self.data[:] = self.data.T.copy()
+                        return eigs
+                    if debug:
+                        S.data[self.xp.triu_indices(H.shape[0], 1)] = 42.0
                     eps, evecs = sla.eigh(
                         H.data,
                         S.data,
@@ -387,8 +395,7 @@ class Matrix:
                         overwrite_a=True,
                         overwrite_b=True,
                         check_finite=debug,
-                        subset_by_index=(0, limit - 1) if limit else None,
-                        driver='evx' if H.data.size == 1 else 'evd')
+                        subset_by_index=(0, limit - 1) if limit else None)
                     limit = limit or len(eps)
                     H.data.T[:, :limit] = evecs
             self.dist.comm.broadcast(eps, 0)
@@ -415,7 +422,7 @@ class Matrix:
     def eighg(self, L: Matrix, comm2: MPIComm = serial_comm) -> Array1D:
         """Solve generalized eigenvalue problem.
 
-        :::
+        With `H` being self, we solve:::
 
           HC = SCΛ,
 
@@ -428,6 +435,9 @@ class Matrix:
 
            ~      †   ~~   ~         †~
            H = LHL ,  HC = CΛ,  C = L C.
+
+        Note that `H` must be the full matrix not just half of it!
+
         """
         M, N = self.shape
         assert M == N
@@ -440,6 +450,8 @@ class Matrix:
                 H = self.new(dist=(comm,))
                 self.redist(H)
             if comm.rank == 0:
+                if self.xp is not np:
+                    return self.dist.eighg(self, L)
                 tmp_MM = np.empty_like(H.data)
                 L_MM = L.data
                 blas.mmm(1.0, L_MM, 'N', H.data, 'N', 0.0, tmp_MM)
@@ -551,6 +563,9 @@ class MatrixDistribution:
         return Matrix(*self.full_shape, dtype=dtype, data=data, dist=self)
 
     def multiply(self, alpha, a, opa, b, opb, beta, c, symmetric):
+        raise NotImplementedError
+
+    def eighg(self, H, L):
         raise NotImplementedError
 
     def new(self, M, N):
@@ -751,7 +766,7 @@ class CuPyDistribution(MatrixDistribution):
     def new(self, M, N):
         return CuPyDistribution(M, N)
 
-    def multiply(self, alpha, a, opa, b, opb, beta, c, symmetric):
+    def multiply(self, alpha, a, opa, b, opb, beta, c, *, symmetric=False):
         if symmetric:
             if opa == 'N':
                 assert opb == 'C' or opb == 'T' and a.dtype == float
@@ -783,6 +798,23 @@ class CuPyDistribution(MatrixDistribution):
                            opb.replace('C', 'H'),
                            a.data, b.data, c.data,
                            alpha, beta)
+
+    def eighg(self, H, L):
+        """
+        :::
+
+           ~      †   ~~   ~         †~
+           H = LHL ,  HC = CΛ,  C = L C.
+        """
+        tmp = H.new()
+        self.multiply(1.0, L, 'N', H, 'N', 0.0, tmp)
+        self.multiply(1.0, tmp, 'N', L, 'C', 0.0, H, symmetric=True)
+        eig_M, Ct_MM = cp.linalg.eigh(H.data, UPLO='L')
+        assert Ct_MM.flags.f_contiguous
+        Ct = H.new(data=Ct_MM.T)
+        self.multiply(1.0, L, 'C', Ct, 'T', 0.0, H)
+        # H.complex_conjugate()
+        return eig_M
 
 
 def fastmmm(m1, m2, m3, beta):

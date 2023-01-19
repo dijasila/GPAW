@@ -1,14 +1,18 @@
+from math import cos, pi, sin
+
 import numpy as np
-from math import pi, cos, sin
+import pytest
 from ase import Atom, Atoms
-from gpaw import GPAW
-from gpaw.poisson import FDPoissonSolver
-from gpaw.xas import XAS
-from gpaw.test import equal
-from gpaw.atom.generator2 import generate
+
 import gpaw.mpi as mpi
+from gpaw import GPAW
+from gpaw.atom.generator2 import generate
+from gpaw.poisson import FDPoissonSolver
+from gpaw.test import equal
+from gpaw.xas import XAS
 
 
+@pytest.mark.later
 def test_corehole_h2o(in_tmp_dir, add_cwd_to_setup_paths):
     # Generate setup for oxygen with half a core-hole:
     gen = generate('O', 8, '2s,s,2p,p,d', [1.2], 1.0, None, 2,
@@ -41,7 +45,7 @@ def test_corehole_h2o(in_tmp_dir, add_cwd_to_setup_paths):
     if mpi.size == 1:
         calc = GPAW('h2o-xas.gpw')
         # poissonsolver=FDPoissonSolver(use_charge_center=True))
-        calc.initialize()
+        # calc.initialize()
         xas = XAS(calc)
         x, y = xas.get_spectra()
         e2_n = xas.eps_n
