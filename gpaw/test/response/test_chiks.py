@@ -79,7 +79,9 @@ def test_chiks_symmetry(in_tmp_dir, gpw_files, q_c, eta, gammacentered):
     disable_syms_s = [True, False]
     bandsummation_b = ['double', 'pairwise']
 
-    if world.size > 1:
+    if world.size % 4 == 0:
+        nblocks = 4
+    elif world.size % 2 == 0:
         nblocks = 2
     else:
         nblocks = 1
