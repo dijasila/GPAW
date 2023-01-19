@@ -37,5 +37,5 @@ def cupy_eigh(a, UPLO):
     from scipy.linalg import eigh
     if not is_hip:
         return cupy.linalg.eigh(a, UPLO=UPLO)
-    eigs, evals = eigh(cupy.asnumpy(a), UPLO=UPLO)
+    eigs, evals = eigh(cupy.asnumpy(a), lower=(UPLO == 'L'))
     return cupy.asarray(eigs), cupy.asarray(evals)
