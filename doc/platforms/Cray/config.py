@@ -4,10 +4,10 @@ config = {
     'mpiexec': 'srun',
     'parallel_python': 'gpaw python',
     'nodes': [
-        ('standard', {'cores': 256}),
-        ('small', {'cores': 256}),
-        ('debug', {'cores': 256}),
-        ('largemem', {'cores': 256}),
-        ('standard-g', {'cores': 128}),
-        ('small-g', {'cores': 128}),
-        ('dev-g', {'cores': 128})]}
+        ('standard', {'cores': 128}),
+        ('small', {'cores': 128}),
+        ('debug', {'cores': 128}),
+        ('largemem', {'cores': 128}),
+        ('standard-g', {'cores': 63}),
+        ('small-g', {'cores': 63}),
+        ('dev-g', {'cores': 63})]}
