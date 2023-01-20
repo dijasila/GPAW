@@ -100,6 +100,9 @@ build-cuda:
       EOF
     - cat siteconfig.py
     - pip install --user --editable .
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"
+    - if: $CI_COMMIT_BRANCH =~ "/^gpu-*/"
 
 
 test-cuda:
@@ -114,7 +117,8 @@ test-cuda:
     - gpaw info
     - pytest -v -m gpu
   rules:
-    - if: $CI_COMMIT_REF_PROTECTED == "true"
+    - if: $CI_COMMIT_BRANCH == "master"
+    - if: $CI_COMMIT_BRANCH =~ "/^gpu-*/"
 
 
 test:
