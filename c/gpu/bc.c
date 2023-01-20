@@ -146,7 +146,7 @@ void bc_dealloc_gpu(int force)
         bc_init_count--;
 }
 
-void bc_cuda_check_msg_size(boundary_conditions* bc, int nin)
+static void _check_msg_size(boundary_conditions* bc, int nin)
 {
     int maxrecv, maxsend;
 
@@ -178,7 +178,7 @@ void bc_cuda_check_msg_size(boundary_conditions* bc, int nin)
     }
 }
 
-void bc_cuda_prepare_buffers(boundary_conditions* bc, int nin)
+static void _prepare_buffers(boundary_conditions* bc, int nin)
 {
     int recvp=0;
     int sendp=0;
@@ -246,9 +246,9 @@ void bc_unpack_paste_gpu(boundary_conditions* bc,
                 kernel_stream);
 
 #ifndef CUDA_MPI
-    bc_cuda_check_msg_size(bc, nin);
+    _check_msg_size(bc, nin);
 #endif
-    bc_cuda_prepare_buffers(bc, nin);
+    _prepare_buffers(bc, nin);
 
     for (int i=0; i<3; i++) {
         for (int d=0; d<2; d++) {
