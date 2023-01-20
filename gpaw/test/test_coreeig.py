@@ -9,6 +9,7 @@ pytestmark = pytest.mark.skipif(world.size > 1,
                                 reason='world.size > 1')
 
 
+@pytest.mark.later
 def test_coreeig(in_tmp_dir):
     a = 7.0
     calc = GPAW(h=0.1)

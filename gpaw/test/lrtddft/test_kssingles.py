@@ -7,6 +7,7 @@ from gpaw import GPAW
 from gpaw.lrtddft.kssingle import KSSingles
 
 
+@pytest.mark.lrtddft
 def test_old_io(in_tmp_dir):
     """Test reading of old style output files"""
     fname = 'veryold.dat'
@@ -47,6 +48,7 @@ def ch4():
     return ch4
 
 
+@pytest.mark.lrtddft
 def test_io(in_tmp_dir, ch4):
     # full KSSingles
     kssfull = KSSingles(restrict={'eps': 0.9})
@@ -58,7 +60,7 @@ def test_io(in_tmp_dir, ch4):
     # read full
     kss1 = KSSingles.read(fullname)
     assert len(kss1) == 16
-    
+
     # restricted KSSingles
     istart, jend = 1, 4
     kss = KSSingles(restrict={'eps': 0.9, 'istart': istart, 'jend': jend})
@@ -80,6 +82,7 @@ def test_io(in_tmp_dir, ch4):
     assert kss3.restrict['jend'] == jend
 
 
+@pytest.mark.lrtddft
 def test_mul(ch4):
     """Test multiplication with a number"""
     istart, jend = 1, 4

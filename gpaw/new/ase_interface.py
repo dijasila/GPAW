@@ -8,7 +8,10 @@ from typing import IO, Any, Union
 import numpy as np
 from ase import Atoms
 from ase.units import Bohr, Ha
+
 from gpaw import __version__
+from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.dos import DOSCalculator
 from gpaw.new import Timer, cached_property
 from gpaw.new.builder import builder as create_builder
 from gpaw.new.calculation import DFTCalculation, DFTState, units
@@ -42,8 +45,41 @@ def GPAW(filename: Union[str, Path, IO[str]] = None,
     return ASECalculator(params, log)
 
 
+def write_header(log, world, params):
+    from gpaw.io.logger import write_header as header
+    log(f'#  __  _  _\n# | _ |_)|_||  |\n# |__||  | ||/\\| - {__version__}\n')
+    header(log, world)
+    log('---')
+    with log.indent('input parameters:'):
+        log(**{k: v for k, v in params.items()})
+
+
+def compare_atoms(a1: Atoms, a2: Atoms) -> set[str]:
+    if len(a1.numbers) != len(a2.numbers) or (a1.numbers != a2.numbers).any():
+        return {'numbers'}
+
+    if (a1.pbc != a2.pbc).any():
+        return {'pbc'}
+
+    if abs(a1.cell - a2.cell).max() > 0.0:
+        return {'cell'}
+
+    magnetic1 = a1.get_initial_magnetic_moments().any()
+    magnetic2 = a2.get_initial_magnetic_moments().any()
+    if magnetic1 != magnetic2:
+        return {'magmoms'}
+
+    if abs(a1.positions - a2.positions).max() > 0.0:
+        return {'positions'}
+
+    return set()
+
+
 class ASECalculator:
     """This is the ASE-calculator frontend for doing a GPAW calculation."""
+
+    name = 'gpaw'
+
     def __init__(self,
                  params: InputParameters,
                  log: Logger,
@@ -80,12 +116,12 @@ class ASECalculator:
         """
         if self.calculation is not None:
             changes = compare_atoms(self.atoms, atoms)
-            if changes & {'numbers', 'pbc', 'cell'}:
+            if changes & {'numbers', 'pbc', 'cell', 'magmoms'}:
                 # Start from scratch:
                 if 'numbers' not in changes:
                     # Remember magmoms if there are any:
                     magmom_a = self.calculation.results.get('magmoms')
-                    if magmom_a is not None:
+                    if magmom_a is not None and magmom_a.any():
                         atoms = atoms.copy()
                         atoms.set_initial_magnetic_moments(magmom_a)
                 self.calculation = None
@@ -194,7 +230,8 @@ class ASECalculator:
 
     # Old API:
 
-    def get_pseudo_wave_function(self, band, kpt=0, spin=0) -> Array3D:
+    def get_pseudo_wave_function(self, band, kpt=0, spin=0,
+                                 periodic=False) -> Array3D:
         state = self.calculation.state
         wfs = state.ibzwfs.get_wfs(spin=spin, kpt=kpt, n1=band, n2=band + 1)
         basis = getattr(self.calculation.scf_loop.hamiltonian, 'basis', None)
@@ -203,6 +240,8 @@ class ASECalculator:
         psit_R = wfs.psit_nX[0]
         if not psit_R.desc.pbc.all():
             psit_R = psit_R.to_pbc_grid()
+        if periodic:
+            psit_R.multiply_by_eikr(-psit_R.desc.kpt_c)
         return psit_R.data * Bohr**-1.5
 
     def get_atoms(self):
@@ -215,6 +254,12 @@ class ASECalculator:
         fl = state.ibzwfs.fermi_levels * Ha
         assert len(fl) == 1
         return fl[0]
+
+    def get_fermi_levels(self) -> float:
+        state = self.calculation.state
+        fl = state.ibzwfs.fermi_levels * Ha
+        assert len(fl) == 2
+        return fl
 
     def get_homo_lumo(self, spin: int = None) -> Array1D:
         state = self.calculation.state
@@ -236,8 +281,20 @@ class ASECalculator:
         vt_R = self.calculation.state.potential.vt_sR[spin]
         return vt_R.to_pbc_grid().data * Ha
 
+    def get_electrostatic_potential(self):
+        density = self.calculation.state.density
+        potential, vHt_x, W_aL = self.calculation.pot_calc.calculate(density)
+        if isinstance(vHt_x, UniformGridFunctions):
+            return vHt_x.to_pbc_grid().data * Ha
+
+        return vHt_x.interpolate(
+            grid=self.calculation.pot_calc.fine_grid).data * Ha
+
     def get_atomic_electrostatic_potentials(self):
         return self.calculation.electrostatic_potential().atomic_potentials()
+
+    def get_electrostatic_corrections(self):
+        return self.calculation.electrostatic_potential().atomic_corrections()
 
     def get_pseudo_density(self, spin=None, gridrefinement=1):
         assert spin is None
@@ -245,15 +302,24 @@ class ASECalculator:
             grid_refinement=gridrefinement)
         return nt_sr.to_pbc_grid().data.sum(0)
 
-    def get_all_electron_density(self, spin=None, gridrefinement=1):
+    def get_all_electron_density(self,
+                                 spin=None,
+                                 gridrefinement=1,
+                                 skip_core=False):
         assert spin is None
         n_sr = self.calculation.densities().all_electron_densities(
-            grid_refinement=gridrefinement)
+            grid_refinement=gridrefinement,
+            skip_core=skip_core)
         return n_sr.to_pbc_grid().data.sum(0)
 
     def get_eigenvalues(self, kpt=0, spin=0):
         state = self.calculation.state
         return state.ibzwfs.get_eigs_and_occs(k=kpt, s=spin)[0] * Ha
+
+    def get_occupation_numbers(self, kpt=0, spin=0):
+        state = self.calculation.state
+        weight = state.ibzwfs.ibz.weight_k[kpt] * state.ibzwfs.spin_degeneracy
+        return state.ibzwfs.get_eigs_and_occs(k=kpt, s=spin)[1] * weight
 
     def get_reference_energy(self):
         return self.calculation.setups.Eref * Ha
@@ -343,6 +409,8 @@ class ASECalculator:
         kwargs = {**dict(self.params.items()), **kwargs}
         params = InputParameters(kwargs)
         txt = params.txt
+        if txt == '?':
+            txt = '-'
         world = params.parallel['world']
         log = Logger(txt, world)
         builder = create_builder(self.atoms, params)
@@ -358,7 +426,8 @@ class ASECalculator:
             state,
             builder.setups,
             scf_loop,
-            SimpleNamespace(fracpos_ac=self.calculation.fracpos_ac),
+            SimpleNamespace(fracpos_ac=self.calculation.fracpos_ac,
+                            poisson_solver=None),
             log)
 
         calculation.converge()
@@ -368,23 +437,28 @@ class ASECalculator:
     def initialize(self, atoms):
         self.create_new_calculation(atoms)
 
+    def converge_wave_functions(self):
+        self.calculation.state.ibzwfs.make_sure_wfs_are_read_from_gpw_file()
 
-def write_header(log, world, params):
-    from gpaw.io.logger import write_header as header
-    log(f'#  __  _  _\n# | _ |_)|_||  |\n# |__||  | ||/\\| - {__version__}\n')
-    header(log, world)
-    log('---')
-    with log.indent('input parameters:'):
-        log(**{k: v for k, v in params.items()})
+    def get_number_of_spins(self):
+        return self.calculation.state.density.ndensities
 
+    @property
+    def parameters(self):
+        print(self.params)
+        return self.params
 
-def compare_atoms(a1: Atoms, a2: Atoms) -> set[str]:
-    if len(a1.numbers) != len(a2.numbers) or (a1.numbers != a2.numbers).any():
-        return {'numbers'}
-    if (a1.pbc != a2.pbc).any():
-        return {'pbc'}
-    if abs(a1.cell - a2.cell).max() > 0.0:
-        return {'cell'}
-    if abs(a1.positions - a2.positions).max() > 0.0:
-        return {'positions'}
-    return set()
+    def dos(self,
+            soc: bool = False,
+            theta: float = 0.0,  # degrees
+            phi: float = 0.0,  # degrees
+            shift_fermi_level: bool = True) -> DOSCalculator:
+        """Create DOS-calculator.
+
+        Default is to ``shift_fermi_level`` to 0.0 eV.  For ``soc=True``,
+        angles can be given in degrees.
+        """
+        return DOSCalculator.from_calculator(
+            self, soc=soc,
+            theta=theta, phi=phi,
+            shift_fermi_level=shift_fermi_level)

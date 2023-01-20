@@ -11,9 +11,11 @@ from scipy.special import spherical_jn
 from ase.units import Bohr
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
+
 from gpaw.spherical_harmonics import Yarr
 from gpaw.sphere.lebedev import weight_n, R_nv
 from gpaw.xc import XC
+from gpaw.xc.libxc import LibXC
 
 
 class LocalFTCalculator(ABC):
@@ -110,10 +112,38 @@ class LocalFTCalculator(ABC):
         pass
 
     @staticmethod
-    def check_grid_equivalence(gd1, gd2):
+    def equivalent_real_space_grids(gd1, gd2):
         assert gd1.comm.size == 1
         assert gd2.comm.size == 1
-        assert (gd1.N_c == gd2.N_c).all()
+        return (gd1.N_c == gd2.N_c).all()
+
+    def get_electron_density(self, gd, pseudo=False):
+        """Get the electron density corresponding to a given grid descriptor.
+        """
+        gridrefinement = self.get_gridrefinement(gd)
+
+        if pseudo:
+            _get_electron_density = self.gs.get_pseudo_density
+        else:
+            _get_electron_density = self.gs.get_all_electron_density
+
+        n_sR, gdref = _get_electron_density(gridrefinement=gridrefinement)
+
+        assert self.equivalent_real_space_grids(gd, gdref)
+
+        return n_sR
+
+    def get_gridrefinement(self, gd):
+        if self.equivalent_real_space_grids(gd, self.gs.gd):
+            gridrefinement = 1
+        elif self.equivalent_real_space_grids(gd, self.gs.finegd):
+            gridrefinement = 2
+        else:
+            raise ValueError('The supplied gd is neither compatible with the '
+                             'coarse nor the fine real-space grid of the '
+                             'underlying ground state')
+
+        return gridrefinement
 
 
 class LocalGridFTCalculator(LocalFTCalculator):
@@ -140,13 +170,9 @@ class LocalGridFTCalculator(LocalFTCalculator):
 
     @timer('Calculate the all-electron density')
     def get_all_electron_density(self, gd):
-        """Calculate the all-electron (spin-)density on the coarse real-space
-        grid of the ground state."""
+        """Calculate the all-electron (spin-)density."""
         self.context.print('    Calculating the all-electron density')
-        n_sR, gd1 = self.gs.all_electron_density(gridrefinement=1)
-        self.check_grid_equivalence(gd, gd1)
-
-        return n_sR
+        return self.get_electron_density(gd)
 
 
 class LocalPAWFTCalculator(LocalFTCalculator):
@@ -159,8 +185,8 @@ class LocalPAWFTCalculator(LocalFTCalculator):
     def calculate(self, pd, add_f):
         """Calculate f(G) with an expansion of f(r) in real spherical harmonics
         inside the augmentation spheres."""
-        # Retrieve the pseudo (spin-)density on the coarse real-space grid
-        nt_sR = self.get_pseudo_density(pd.gd)  # R = Coarse 3D real-space grid
+        # Retrieve the pseudo (spin-)density on the real-space grid
+        nt_sR = self.get_pseudo_density(pd.gd)  # R = 3D real-space grid
 
         # Retrieve the pseudo and all-electron atomic centered densities inside
         # the augmentation spheres
@@ -172,10 +198,8 @@ class LocalPAWFTCalculator(LocalFTCalculator):
         return f_G
 
     def get_pseudo_density(self, gd):
-        """Return the pseudo (spin-)density on the coarse real-space grid of
-        the ground state."""
-        self.check_grid_equivalence(gd, self.gs.gd)
-        return self.gs.nt_sR  # nt=pseudo density, R=coarse grid
+        """Get the pseudo (spin-)density of the ground state."""
+        return self.get_electron_density(gd, pseudo=True)
 
     def extract_atom_centered_quantities(self):
         """Extract all relevant atom centered quantities that the engine needs
@@ -323,7 +347,7 @@ class LocalPAWFTEngine:
 
         # Extract reciprocal lattice vectors
         nG = pd.ngmax
-        G_Gv = pd.get_reciprocal_vectors()
+        G_Gv = pd.get_reciprocal_vectors(add_q=False)
         assert G_Gv.shape[0] == nG
 
         # Allocate output array
@@ -656,6 +680,10 @@ def add_total_density(gd, n_sR, n_R):
     n_R += np.sum(n_sR, axis=0)
 
 
+def add_magnetization(gd, n_sR, m_R):
+    m_R += n_sR[0] - n_sR[1]
+
+
 def add_LSDA_Bxc(gd, n_sR, Bxc_R):
     """Calculate B^(xc) in the local spin-density approximation for a collinear
     system and add it to the output array Bxc_R:
@@ -674,3 +702,50 @@ def add_LSDA_Bxc(gd, n_sR, Bxc_R):
 
     # Add B^(xc) in real space to the output array
     Bxc_R += (v_sR[0] - v_sR[1]) / 2
+
+
+def add_LDA_dens_fxc(gd, n_sR, fxc_R, *, fxc):
+    r"""Calculate the LDA density kernel and add it to the output array fxc_R.
+
+    The LDA density kernel is given by:
+
+                    ∂^2[ϵ_xc(n,m)n] |
+    f_LDA^(00)(r) = ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾ |
+                         ∂n^2       |n=n(r),m=m(r)
+    """
+    assert len(n_sR) == 1,\
+        'The density kernel is untested for spin-polarized systems'
+    
+    if fxc == 'ALDA_x':
+        fxc_R += -1. / 3. * (3. / np.pi)**(1. / 3.) * n_sR[0]**(-2. / 3.)
+    else:
+        assert fxc in ['ALDA_X', 'ALDA']
+        kernel = LibXC(fxc[1:])
+        fxc_sR = np.zeros_like(n_sR)
+        kernel.xc.calculate_fxc_spinpaired(n_sR.ravel(), fxc_sR)
+
+        fxc_R += fxc_sR[0]
+
+
+def add_LSDA_trans_fxc(gd, n_sR, fxc_R, *, fxc):
+    r"""Calculate the transverse LDA kernel and add it to the output arr. fxc_R
+
+    The transverse LDA kernel is given by:
+
+                    2 ∂[ϵ_xc(n,m)n] |                V_LSDA^↑(r) - V_LSDA^↓(r)
+    f_LDA^(+-)(r) = ‾ ‾‾‾‾‾‾‾‾‾‾‾‾‾ |              = ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+                    m      ∂m       |n=n(r),m=m(r)              m(r)
+    """
+    assert len(n_sR) == 2  # nspins
+    m_R = n_sR[0] - n_sR[1]
+
+    if fxc == 'ALDA_x':
+        fxc_R += - (6. / np.pi)**(1. / 3.) \
+            * (n_sR[0]**(1. / 3.) - n_sR[1]**(1. / 3.)) / m_R
+    else:
+        assert fxc in ['ALDA_X', 'ALDA']
+        v_sR = np.zeros(np.shape(n_sR))
+        xc = XC(fxc[1:])
+        xc.calculate(gd, n_sR, v_sg=v_sR)
+
+        fxc_R += (v_sR[0] - v_sR[1]) / m_R

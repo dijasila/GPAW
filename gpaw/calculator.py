@@ -284,7 +284,7 @@ class GPAW(Calculator):
         self.log('Reading from {}'.format(filename))
 
         self.reader = reader = Reader(filename)
-        assert reader.version <= 3, 'Can''t read new GPW-files'
+        assert reader.version <= 3, 'Can\'t read new GPW-files'
 
         atoms = read_atoms(reader.atoms)
         self._set_atoms(atoms)
@@ -362,7 +362,7 @@ class GPAW(Calculator):
 
         if system_changes:
             self.log('System changes:', ', '.join(system_changes), '\n')
-            if system_changes == ['positions']:
+            if self.density is not None and system_changes == ['positions']:
                 # Only positions have changed:
                 self.density.reset()
             else:
@@ -931,7 +931,7 @@ class GPAW(Calculator):
         Z_a = self.atoms.get_atomic_numbers()
         self.setups = Setups(Z_a,
                              self.parameters.setups, self.parameters.basis,
-                             xc, filter, self.world)
+                             xc, filter=filter, world=self.world)
         self.log(self.setups)
 
     def create_grid_descriptor(self, N_c, cell_cv, pbc_c,

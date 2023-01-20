@@ -7,8 +7,7 @@ from gpaw.response.g0w0 import G0W0
 @pytest.mark.parametrize('fxc_mode, ref_gap', [
     ('GWP', 4.667170),
     ('GWS', 4.988230),
-    ('GWG', 4.894904)
-])
+    ('GWG', 4.894904)])
 def test_fxc_mode(in_tmp_dir, gpw_files, fxc_mode, ref_gap, scalapack):
     gw = G0W0(gpw_files['bn_pw_wfs'],
               bands=(3, 5),

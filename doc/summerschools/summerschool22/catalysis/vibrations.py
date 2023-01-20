@@ -245,6 +245,7 @@ qn = BFGS(neb, logfile='neb.log')
 traj = Trajectory('ts.traj', 'w', ts)
 qn.attach(traj)
 qn.run(fmax=0.01)
+del ts.info['adsorbate_info']  # xyz-format doesn't support that
 write('TS.xyz', ts)
 
 

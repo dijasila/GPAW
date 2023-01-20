@@ -12,6 +12,7 @@ from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.new.wave_functions import WaveFunctions
 from gpaw.setup import Setups
 from gpaw.typing import Array2D, Array3D
+from gpaw.new.potential import Potential
 
 
 class LCAOWaveFunctions(WaveFunctions):
@@ -19,6 +20,8 @@ class LCAOWaveFunctions(WaveFunctions):
                  *,
                  setups: Setups,
                  density_adder: Callable[[Array2D, Array3D], None],
+                 tci_derivatives,
+                 basis,
                  C_nM: Matrix,
                  S_MM: Matrix,
                  T_MM: Array2D,
@@ -46,6 +49,8 @@ class LCAOWaveFunctions(WaveFunctions):
                          domain_comm=domain_comm,
                          band_comm=C_nM.dist.comm)
         self.density_adder = density_adder
+        self.tci_derivatives = tci_derivatives
+        self.basis = basis
         self.C_nM = C_nM
         self.T_MM = T_MM
         self.S_MM = S_MM
@@ -66,6 +71,9 @@ class LCAOWaveFunctions(WaveFunctions):
         L_sMsM.data[:M, :M] = S_MM.data
         L_sMsM.data[M:, M:] = S_MM.data
         return L_sMsM
+
+    def _short_string(self, global_shape):
+        return f'basis functions: {global_shape[0]}'
 
     def array_shape(self, global_shape=False):
         if global_shape:
@@ -106,7 +114,7 @@ class LCAOWaveFunctions(WaveFunctions):
             return C_nM.data
         return None
 
-    def calculate_density_matrix(self) -> np.ndarray:
+    def calculate_density_matrix(self, eigs=False) -> np.ndarray:
         """Calculate the density matrix.
 
         The density matrix is:::
@@ -122,6 +130,8 @@ class LCAOWaveFunctions(WaveFunctions):
         """
         if self.domain_comm.rank == 0:
             f_n = self.weight * self.spin_degeneracy * self.myocc_n
+            if eigs:
+                f_n *= self.myeig_n
             C_nM = self.C_nM.data
             rho_MM = (C_nM.T.conj() * f_n) @ C_nM
             self.band_comm.sum(rho_MM)
@@ -160,6 +170,8 @@ class LCAOWaveFunctions(WaveFunctions):
         return LCAOWaveFunctions(
             setups=self.setups,
             density_adder=self.density_adder,
+            tci_derivatives=self.tci_derivatives,
+            basis=self.basis,
             C_nM=Matrix(n2 - n1,
                         self.C_nM.shape[1],
                         data=self.C_nM.data[n1:n2].copy()),
@@ -174,3 +186,13 @@ class LCAOWaveFunctions(WaveFunctions):
             k=self.k,
             weight=self.weight,
             ncomponents=self.ncomponents)
+
+    def move(self,
+             fracpos_ac: Array2D,
+             atomdist: AtomDistribution) -> None:
+        ...
+
+    def force_contribution(self, potential: Potential, F_av: Array2D):
+        from gpaw.new.lcao.forces import add_force_contributions
+        add_force_contributions(self, potential, F_av)
+        return F_av

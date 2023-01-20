@@ -1,5 +1,4 @@
 import functools
-import os
 import pickle
 import warnings
 from math import pi
@@ -9,22 +8,24 @@ import numpy as np
 
 from ase.parallel import paropen
 from ase.units import Ha
-from ase.utils import opencew
-from ase.utils.timing import timer
 
 from gpaw import GPAW, debug
 import gpaw.mpi as mpi
 from gpaw.hybrids.eigenvalues import non_self_consistent_eigenvalues
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.pw.descriptor import PWDescriptor, count_reciprocal_vectors
+from gpaw.pw.descriptor import (PWDescriptor, count_reciprocal_vectors,
+                                PWMapping)
 from gpaw.utilities.progressbar import ProgressBar
 
+from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chi0 import Chi0Calculator
-from gpaw.response.g0w0_kernels import G0W0Kernel
 from gpaw.response.hilbert import GWHilbertTransforms
-from gpaw.response.pair import NoCalculatorPairDensity, calc_and_context
-from gpaw.response.screened_interaction import WCalculator
-from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
+from gpaw.response.pair import PairDensityCalculator
+from gpaw.response.pw_parallelization import Blocks1D
+from gpaw.response.screened_interaction import initialize_w_calculator
+from gpaw.response.coulomb_kernels import CoulombKernel
+from gpaw.response import timer
+
 
 from ase.utils.filecache import MultiFileJSONCache as FileCache
 from contextlib import ExitStack
@@ -77,9 +78,9 @@ class Sigma:
 
 
 class G0W0Outputs:
-    def __init__(self, fd, shape, ecut_e, sigma_eskn, dsigma_eskn,
+    def __init__(self, context, shape, ecut_e, sigma_eskn, dsigma_eskn,
                  eps_skn, vxc_skn, exx_skn, f_skn):
-        self.extrapolate(fd, shape, ecut_e, sigma_eskn, dsigma_eskn)
+        self.extrapolate(context, shape, ecut_e, sigma_eskn, dsigma_eskn)
         self.Z_skn = 1 / (1 - self.dsigma_skn)
 
         # G0W0 single-step.
@@ -97,7 +98,7 @@ class G0W0Outputs:
         self.exx_skn = exx_skn
         self.f_skn = f_skn
 
-    def extrapolate(self, fd, shape, ecut_e, sigma_eskn, dsigma_eskn):
+    def extrapolate(self, context, shape, ecut_e, sigma_eskn, dsigma_eskn):
         if len(ecut_e) == 1:
             self.sigma_skn = sigma_eskn[0]
             self.dsigma_skn = dsigma_eskn[0]
@@ -110,11 +111,10 @@ class G0W0Outputs:
         # Do linear fit of selfenergy vs. inverse of number of plane waves
         # to extrapolate to infinite number of plane waves
 
-        print('', file=fd)
-        print('Extrapolating selfenergy to infinite energy cutoff:',
-              file=fd)
-        print('  Performing linear fit to %d points' % len(ecut_e),
-              file=fd)
+        context.print('', flush=False)
+        context.print('Extrapolating selfenergy to infinite energy cutoff:',
+                      flush=False)
+        context.print('  Performing linear fit to %d points' % len(ecut_e))
         self.sigr2_skn = np.zeros(shape)
         self.dsigr2_skn = np.zeros(shape)
         self.sigma_skn = np.zeros(shape)
@@ -136,13 +136,13 @@ class G0W0Outputs:
             self.dsigma_skn[s, k, n] = intercept
 
         if np.any(self.sigr2_skn < 0.9) or np.any(self.dsigr2_skn < 0.9):
-            print('  Warning: Bad quality of linear fit for some (n,k). ',
-                  file=fd)
-            print('           Higher cutoff might be necesarry.', file=fd)
+            context.print('  Warning: Bad quality of linear fit for some ('
+                          'n,k). ', flush=False)
+            context.print('           Higher cutoff might be necessary.',
+                          flush=False)
 
-        print('  Minimum R^2 = %1.4f. (R^2 Should be close to 1)' %
-              min(np.min(self.sigr2_skn), np.min(self.dsigr2_skn)),
-              file=fd)
+        context.print('  Minimum R^2 = %1.4f. (R^2 Should be close to 1)' %
+                      min(np.min(self.sigr2_skn), np.min(self.dsigr2_skn)))
 
     def get_results_eV(self):
         results = {
@@ -211,6 +211,50 @@ class QSymmetryOp:
                 # Q_c, symop = QSymmetryOp.from_qd(qd, Q2, q_c)
                 yield Q_c, symop
                 done.add(Q2)
+
+    @classmethod
+    def get_symop_from_kpair(cls, kd, qd, kpt1, kpt2):
+        # from k-point pair kpt1, kpt2 get Q_c = kpt2-kpt1, corrsponding IBZ
+        # k-point q_c, indexes iQ, iq and symmetry transformation relating
+        # Q_c to q_c
+        Q_c = kd.bzk_kc[kpt2.K] - kd.bzk_kc[kpt1.K]
+        iQ = qd.where_is_q(Q_c, qd.bzk_kc)
+        iq = qd.bz2ibz_k[iQ]
+        q_c = qd.ibzk_kc[iq]
+
+        # Find symmetry that transforms Q_c into q_c
+        sym = qd.sym_k[iQ]
+        U_cc = qd.symmetry.op_scc[sym]
+        time_reversal = qd.time_reversal_k[iQ]
+        sign = 1 - 2 * time_reversal
+        symop = QSymmetryOp(sym, U_cc, sign)
+        return symop, iQ, Q_c, iq, q_c
+
+    def apply_symop_q(self, pd0, q_c, pawcorr, kpt1, kpt2, debug=False):
+        # returns necessary quantities to get symmetry transformed
+        # density matrix
+        N_c = pd0.gd.N_c
+        i_cG = self.apply(np.unravel_index(pd0.Q_qG[0], N_c))
+        shift0_c = self.get_shift0(q_c, pd0.kd.bzk_kc[0])
+        shift_c = kpt1.shift_c - kpt2.shift_c - shift0_c
+        I_G = np.ravel_multi_index(i_cG + shift_c[:, None], N_c, 'wrap')
+        G_Gv = pd0.get_reciprocal_vectors()
+        M_vv = self.get_M_vv(pd0.gd.cell_cv)
+        mypawcorr = pawcorr.remap_by_symop(self, G_Gv, M_vv)
+        # XXX Can be removed together with G0W0 debug routine in future
+        if debug:
+            self.debug_i_cG = i_cG
+            self.debug_shift0_c = shift0_c
+            self.debug_N_c = N_c
+        return mypawcorr, I_G
+
+
+def get_nmG(kpt1, kpt2, mypawcorr, n, pd0, I_G, pair):
+    ut1cc_R = kpt1.ut_nR[n].conj()
+    C1_aGi = mypawcorr.multiply(kpt1.P_ani, band=n)
+    n_mG = pair.calculate_pair_density(
+        ut1cc_R, C1_aGi, kpt2, pd0, I_G)
+    return n_mG
 
 
 gw_logo = """\
@@ -307,16 +351,14 @@ class G0W0Calculator:
     def __init__(self, filename='gw', *,
                  chi0calc,
                  wcalc,
-                 restartfile=None,
                  kpts, bands, nbands=None,
-                 do_GW_too=False,
+                 fxc_modes,
                  eta,
                  ecut_e,
-                 frequencies=None,
-                 savepckl=True):
+                 frequencies=None):
         """G0W0 calculator, initialized through G0W0 object.
 
-        The G0W0 calculator is used is used to calculate the quasi
+        The G0W0 calculator is used to calculate the quasi
         particle energies through the G0W0 approximation for a number
         of states.
 
@@ -326,8 +368,6 @@ class G0W0Calculator:
             Base filename of output files.
         wcalc: WCalculator object
             Defines the calculator for computing the screened interaction
-        restartfile: str
-            File that stores data necessary to restart a calculation.
         kpts: list
             List of indices of the IBZ k-points to calculate the quasi particle
             energies for.
@@ -350,15 +390,12 @@ class G0W0Calculator:
             When carrying out a calculation including vertex corrections, it
             is possible to get the standard GW results at the same time
             (almost for free).
-        savepckl: bool
-            Save output to a pckl file.
         """
         self.chi0calc = chi0calc
         self.wcalc = wcalc
-        self.fd = self.wcalc.fd
-        self.timer = self.wcalc.timer
+        self.context = self.wcalc.context
 
-        # Note: self.wcalc.wd should be our only representation
+        # Note: self.chi0calc.wd should be our only representation
         # of the frequencies.
         # We should therefore get rid of self.frequencies.
         # It is currently only used by the restart code,
@@ -367,43 +404,29 @@ class G0W0Calculator:
 
         self.ecut_e = ecut_e / Ha
 
-        if self.wcalc.ppa and self.wcalc.pair.nblocks > 1:
-            raise ValueError(
-                'PPA is currently not compatible with block parallelisation.')
+        self.context.print(gw_logo)
 
-        self.world = self.wcalc.context.world
+        self.fxc_modes = fxc_modes
 
-        # TODO: # implement q-point parallelism over this.
-        self.qcomm = self.world
-        self.fd = self.fd
-
-        print(gw_logo, file=self.fd)
-
-        self.do_GW_too = do_GW_too
-
-        if not self.wcalc.fxc_mode == 'GW':
+        if self.fxc_modes[0] != 'GW':
             assert self.wcalc.xckernel.xc != 'RPA'
 
-        if self.do_GW_too:
+        if len(self.fxc_modes) == 2:
+            # With multiple fxc_modes, we previously could do only
+            # GW plus one other fxc_mode.  Now we can have any set
+            # of modes, but whether things are consistent or not may
+            # depend on how wcalc is configured.
+            assert 'GW' in self.fxc_modes
             assert self.wcalc.xckernel.xc != 'RPA'
-            assert self.wcalc.fxc_mode != 'GW'
-            if restartfile is not None:
-                raise RuntimeError('Restart function does not currently work '
-                                   'with do_GW_too=True.')  # Or does it?
 
         self.filename = filename
-        if restartfile is None:
-            restartfile = 'qcache_' + self.filename
-
-        self.restartfile = restartfile
-        self.savepckl = savepckl
         self.eta = eta / Ha
 
-        if self.qcomm.rank == 0:
+        if self.context.world.rank == 0:
             # We pass a serial communicator because the parallel handling
             # is somewhat wonky, we'd rather do that ourselves:
             try:
-                self.qcache = FileCache(self.restartfile,
+                self.qcache = FileCache(f'qcache_{self.filename}',
                                         comm=mpi.SerialCommunicator())
             except TypeError as err:
                 raise RuntimeError(
@@ -421,27 +444,38 @@ class G0W0Calculator:
 
         self.nbands = nbands
 
-        if self.wcalc.gs.nspins != 1 and self.wcalc.fxc_mode != 'GW':
-            raise RuntimeError('Including a xc kernel does currently not '
-                               'work for spinpolarized systems.')
+        if self.wcalc.gs.nspins != 1:
+            for fxc_mode in self.fxc_modes:
+                raise RuntimeError('Including a xc kernel does currently not '
+                                   'work for spinpolarized systems.')
 
-        self.pair_distribution = self.wcalc.pair.distribute_k_points_and_bands(
-            b1, b2, self.wcalc.gs.kd.ibz2bz_k[self.kpts])
+        self.pair_distribution = \
+            self.chi0calc.pair.distribute_k_points_and_bands(
+                b1, b2, self.chi0calc.gs.kd.ibz2bz_k[self.kpts])
 
         self.print_parameters(kpts, b1, b2)
-        self.fd.flush()
         self.hilbert_transform = None  # initialized when we create Chi0
 
+        self.sigma_calculator = self._build_sigma_calculator()
+
         if self.wcalc.ppa:
-            print('Using Godby-Needs plasmon-pole approximation:',
-                  file=self.fd)
-            print('  Fitting energy: i*E0, E0 = %.3f Hartee' % self.wcalc.E0,
-                  file=self.fd)
+            self.context.print('Using Godby-Needs plasmon-pole approximation:')
+            self.context.print('  Fitting energy: i*E0, E0 = %.3f Hartee'
+                               % self.wcalc.E0)
         else:
-            print('Using full frequency integration', file=self.fd)
+            self.context.print('Using full frequency integration')
+
+    def _build_sigma_calculator(self):
+        import gpaw.response.sigma as sigma
+        factor = 1.0 / (self.wcalc.qd.nbzkpts * 2 * pi * self.wcalc.gs.volume)
+
+        if self.wcalc.ppa:
+            return sigma.PPASigmaCalculator(eta=self.eta, factor=factor)
+
+        return sigma.SigmaCalculator(wd=self.chi0calc.wd, factor=factor)
 
     def print_parameters(self, kpts, b1, b2):
-        p = functools.partial(print, file=self.fd)
+        p = functools.partial(self.context.print, flush=False)
         p()
         p('Quasi particle states:')
         if kpts is None:
@@ -453,21 +487,19 @@ class G0W0Calculator:
         p()
         p('Computational parameters:')
         if len(self.ecut_e) == 1:
-            p('Plane wave cut-off: {0:g} eV'.format(self.chi0calc.ecut
-                                                    * Ha))
+            p('Plane wave cut-off: {0:g} eV'.format(self.chi0calc.ecut * Ha))
         else:
             assert len(self.ecut_e) > 1
             p('Extrapolating to infinite plane wave cut-off using points at:')
             for ec in self.ecut_e:
                 p('  %.3f eV' % (ec * Ha))
         p('Number of bands: {0:d}'.format(self.nbands))
-        p('Coulomb cutoff:', self.wcalc.truncation)
+        p('Coulomb cutoff:', self.wcalc.coulomb.truncation)
         p('Broadening: {0:g} eV'.format(self.eta * Ha))
         p()
-        p('fxc mode:', self.wcalc.fxc_mode)
+        p('fxc modes:', ', '.join(sorted(self.fxc_modes)))
         p('Kernel:', self.wcalc.xckernel.xc)
-        p('Do GW too:', self.do_GW_too)
-        p()
+        self.context.print('')
 
     def get_eps_and_occs(self):
         eps_skn = np.empty(self.shape)  # KS-eigenvalues
@@ -511,14 +543,14 @@ class G0W0Calculator:
         (spins, IBZ k-points, bands)."""
 
         # Loop over q in the IBZ:
-        print('Summing all q:', file=self.fd)
-
+        self.context.print('Summing all q:')
         self.calculate_all_q_points()
-
         sigmas = self.read_sigmas()
         self.all_results = self.postprocess(sigmas)
         # Note: self.results is a pointer pointing to one of the results,
         # for historical reasons.
+
+        self.savepckl()
         return self.results
 
     def postprocess(self, sigmas):
@@ -530,15 +562,15 @@ class G0W0Calculator:
         return all_results
 
     def read_sigmas(self):
-        if self.world.rank == 0:
+        if self.context.world.rank == 0:
             sigmas = self._read_sigmas()
         else:
             sigmas = None
 
-        return broadcast(sigmas, comm=self.world)
+        return broadcast(sigmas, comm=self.context.world)
 
     def _read_sigmas(self):
-        assert self.world.rank == 0
+        assert self.context.world.rank == 0
 
         # Integrate over all q-points, and accumulate the quasiparticle shifts
         for iq, q_c in enumerate(self.wcalc.qd.ibzk_kc):
@@ -555,76 +587,58 @@ class G0W0Calculator:
         return sigmas
 
     def get_sigmas_dict(self, key):
-        assert self.world.rank == 0
+        assert self.context.world.rank == 0
         return {fxc_mode: Sigma.fromdict(sigma)
                 for fxc_mode, sigma in self.qcache[key].items()}
 
     def postprocess_single(self, fxc_name, sigma):
         output = self.calculate_g0w0_outputs(sigma)
-        result = output.get_results_eV()
+        return output.get_results_eV()
 
-        if self.savepckl:
-            with paropen(f'{self.filename}_results_{fxc_name}.pckl',
-                         'wb') as fd:
-                pickle.dump(result, fd, 2)
+    def savepckl(self):
+        """Save outputs to pckl files and return paths to those files."""
+        # Note: this is always called, but the paths aren't returned
+        # to the caller.  Calling it again then overwrites the files.
+        #
+        # TODO:
+        #  * Replace with JSON
+        #  * Save to different files or same file?
+        #  * Move this functionality to g0w0 result object
+        paths = {}
+        for fxc_mode in self.fxc_modes:
+            path = Path(f'{self.filename}_results_{fxc_mode}.pckl')
+            with paropen(path, 'wb', comm=self.context.world) as fd:
+                pickle.dump(self.all_results[fxc_mode], fd, 2)
+            paths[fxc_mode] = path
 
-        return result
-
-    @property
-    def results_GW(self):
-        if self.do_GW_too:
-            return self.all_results['GW']
-
-    @property
-    def results(self):
-        return self.all_results[self.wcalc.fxc_mode]
+        # Do not return paths to caller before we know they all exist:
+        self.context.world.barrier()
+        return paths
 
     def calculate_q(self, ie, k, kpt1, kpt2, pd0, Wdict,
-                    *, symop, sigmas, blocks1d, Q_aGii):
+                    *, symop, sigmas, blocks1d, pawcorr):
         """Calculates the contribution to the self-energy and its derivative
         for a given set of k-points, kpt1 and kpt2."""
-
-        N_c = pd0.gd.N_c
-        i_cG = symop.apply(np.unravel_index(pd0.Q_qG[0], N_c))
-
         q_c = self.wcalc.gs.kd.bzk_kc[kpt2.K] - self.wcalc.gs.kd.bzk_kc[kpt1.K]
-
-        shift0_c = symop.get_shift0(q_c, pd0.kd.bzk_kc[0])
-        shift_c = kpt1.shift_c - kpt2.shift_c - shift0_c
-
-        I_G = np.ravel_multi_index(i_cG + shift_c[:, None], N_c, 'wrap')
-
-        G_Gv = pd0.get_reciprocal_vectors()
-
-        pos_av = np.dot(self.wcalc.pair.spos_ac, pd0.gd.cell_cv)
-        M_vv = symop.get_M_vv(pd0.gd.cell_cv)
-
-        myQ_aGii = []
-        for a, Q_Gii in enumerate(Q_aGii):
-            x_G = np.exp(1j * np.dot(G_Gv, (pos_av[a] -
-                                            np.dot(M_vv, pos_av[a]))))
-            U_ii = self.wcalc.gs.setups[a].R_sii[symop.symno]
-            Q_Gii = np.dot(np.dot(U_ii, Q_Gii * x_G[:, None, None]),
-                           U_ii.T).transpose(1, 0, 2)
-            if symop.sign == -1:
-                Q_Gii = Q_Gii.conj()
-            myQ_aGii.append(Q_Gii)
-
+        mypawcorr, I_G = symop.apply_symop_q(pd0,
+                                             q_c,
+                                             pawcorr,
+                                             kpt1,
+                                             kpt2,
+                                             debug=debug)
         if debug:
-            self.check(ie, i_cG, shift0_c, N_c, q_c, myQ_aGii)
-
-        if self.wcalc.ppa:
-            calculate_sigma = self.calculate_sigma_ppa
-        else:
-            calculate_sigma = self.calculate_sigma
+            self.check(ie, symop.debug_i_cG,
+                       symop.debug_shift0_c,
+                       symop.debug_N_c, q_c,
+                       mypawcorr)
 
         for n in range(kpt1.n2 - kpt1.n1):
-            ut1cc_R = kpt1.ut_nR[n].conj()
             eps1 = kpt1.eps_n[n]
-            C1_aGi = [np.dot(Qa_Gii, P1_ni[n].conj())
-                      for Qa_Gii, P1_ni in zip(myQ_aGii, kpt1.P_ani)]
-            n_mG = self.wcalc.pair.calculate_pair_density(
-                ut1cc_R, C1_aGi, kpt2, pd0, I_G)
+            n_mG = get_nmG(kpt1, kpt2,
+                           mypawcorr,
+                           n, pd0, I_G,
+                           self.chi0calc.pair)
+
             if symop.sign == 1:
                 n_mG = n_mG.conj()
 
@@ -637,12 +651,12 @@ class G0W0Calculator:
             for fxc_mode in self.fxc_modes:
                 sigma = sigmas[fxc_mode]
                 W = Wdict[fxc_mode]
-                sigma_contrib, dsigma_contrib = calculate_sigma(
+                sigma_contrib, dsigma_contrib = self.calculate_sigma(
                     n_mG, deps_m, f_m, W, blocks1d)
                 sigma.sigma_eskn[ie, kpt1.s, k, nn] += sigma_contrib
                 sigma.dsigma_eskn[ie, kpt1.s, k, nn] += dsigma_contrib
 
-    def check(self, ie, i_cG, shift0_c, N_c, q_c, Q_aGii):
+    def check(self, ie, i_cG, shift0_c, N_c, q_c, pawcorr):
         I0_G = np.ravel_multi_index(i_cG - shift0_c[:, None], N_c, 'wrap')
         qd1 = KPointDescriptor([q_c])
         pd1 = PWDescriptor(self.ecut_e[ie], self.wcalc.gs.gd, complex, qd1)
@@ -651,145 +665,100 @@ class G0W0Calculator:
         I1_G = pd1.Q_qG[0]
         G_I[I1_G] = np.arange(len(I0_G))
         G_G = G_I[I0_G]
+        # This indexing magic should definitely be moved to a method.
+        # What on earth is it really?
+
         assert len(I0_G) == len(I1_G)
         assert (G_G >= 0).all()
-        for a, Q_Gii in enumerate(
-                self.wcalc.pair.initialize_paw_corrections(pd1)):
-            e = abs(Q_aGii[a] - Q_Gii[G_G]).max()
-            assert e < 1e-12
+        pairden_paw_corr = self.wcalc.gs.pair_density_paw_corrections
+        pawcorr_wcalc1 = pairden_paw_corr(pd1)
+        assert pawcorr.almost_equal(pawcorr_wcalc1, G_G)
 
     @timer('Sigma')
     def calculate_sigma(self, n_mG, deps_m, f_m, C_swGG, blocks1d):
         """Calculates a contribution to the self-energy and its derivative for
         a given (k, k-q)-pair from its corresponding pair-density and
         energy."""
-        o_m = abs(deps_m)
-        # Add small number to avoid zeros for degenerate states:
-        sgn_m = np.sign(deps_m + 1e-15)
-
-        # Pick +i*eta or -i*eta:
-        s_m = (1 + sgn_m * np.sign(0.5 - f_m)).astype(int) // 2
-
-        w_m = self.wcalc.wd.get_floor_index(o_m, safe=False)
-        m_inb = np.where(w_m < len(self.wcalc.wd) - 1)[0]
-        o1_m = np.empty(len(o_m))
-        o2_m = np.empty(len(o_m))
-        o1_m[m_inb] = self.wcalc.wd.omega_w[w_m[m_inb]]
-        o2_m[m_inb] = self.wcalc.wd.omega_w[w_m[m_inb] + 1]
-
-        x = 1.0 / (self.wcalc.qd.nbzkpts * 2 * pi * self.wcalc.gs.volume)
-        sigma = 0.0
-        dsigma = 0.0
-        # Performing frequency integration
-        for o, o1, o2, sgn, s, w, n_G in zip(o_m, o1_m, o2_m,
-                                             sgn_m, s_m, w_m, n_mG):
-
-            if w >= len(self.wcalc.wd.omega_w) - 1:
-                continue
-
-            C1_GG = C_swGG[s][w]
-            C2_GG = C_swGG[s][w + 1]
-            p = x * sgn
-            myn_G = n_G[blocks1d.myslice]
-
-            sigma1 = p * np.dot(np.dot(myn_G, C1_GG), n_G.conj()).imag
-            sigma2 = p * np.dot(np.dot(myn_G, C2_GG), n_G.conj()).imag
-            sigma += ((o - o1) * sigma2 + (o2 - o) * sigma1) / (o2 - o1)
-            dsigma += sgn * (sigma2 - sigma1) / (o2 - o1)
-
-        return sigma, dsigma
+        return self.sigma_calculator.calculate_sigma(
+            n_mG, deps_m, f_m, C_swGG, blocks1d=blocks1d)
 
     def calculate_all_q_points(self):
         """Main loop over irreducible Brillouin zone points.
         Handles restarts of individual qpoints using FileCache from ASE,
         and subsequently calls calculate_q."""
-       
-        pb = ProgressBar(self.fd)
 
-        self.timer.start('W')
-        print('\nCalculating screened Coulomb potential', file=self.fd)
-        if self.wcalc.truncation is not None:
-            print('Using %s truncated Coloumb potential'
-                  % self.wcalc.truncation, file=self.fd)
+        pb = ProgressBar(self.context.fd)
+
+        self.context.timer.start('W')
+        self.context.print('\nCalculating screened Coulomb potential')
+        self.context.print(self.wcalc.coulomb.description())
 
         chi0calc = self.chi0calc
-
-        if self.wcalc.truncation == 'wigner-seitz':
-            wstc = WignerSeitzTruncatedCoulomb(
-                self.wcalc.gs.gd.cell_cv,
-                self.wcalc.gs.kd.N_c,
-                chi0calc.fd)
-        else:
-            wstc = None
-
         self.hilbert_transform = GWHilbertTransforms(
-            self.wcalc.wd.omega_w, self.eta)
-        print(self.wcalc.wd, file=self.fd)
+            self.chi0calc.wd.omega_w, self.eta)
+        self.context.print(self.chi0calc.wd)
 
         # Find maximum size of chi-0 matrices:
         nGmax = max(count_reciprocal_vectors(chi0calc.ecut,
                                              self.wcalc.gs.gd, q_c)
                     for q_c in self.wcalc.qd.ibzk_kc)
-        nw = len(self.wcalc.wd)
+        nw = len(self.chi0calc.wd)
 
-        size = self.wcalc.blockcomm.size
+        size = self.chi0calc.blockcomm.size
 
         mynGmax = (nGmax + size - 1) // size
         mynw = (nw + size - 1) // size
 
         # some memory sizes...
-        if self.world.rank == 0:
+        if self.context.world.rank == 0:
             siz = (nw * mynGmax * nGmax +
                    max(mynw * nGmax, nw * mynGmax) * nGmax) * 16
             sizA = (nw * nGmax * nGmax + nw * nGmax * nGmax) * 16
-            print('  memory estimate for chi0: local=%.2f MB, global=%.2f MB'
-                  % (siz / 1024**2, sizA / 1024**2), file=self.fd)
-            self.fd.flush()
+            self.context.print(
+                '  memory estimate for chi0: local=%.2f MB, global=%.2f MB'
+                % (siz / 1024**2, sizA / 1024**2))
 
         # Need to pause the timer in between iterations
-        self.timer.stop('W')
-        if self.qcomm.rank == 0:
+        self.context.timer.stop('W')
+        if self.context.world.rank == 0:
             for key, sigmas in self.qcache.items():
                 sigmas = {fxc_mode: Sigma.fromdict(sigma)
                           for fxc_mode, sigma in sigmas.items()}
                 for fxc_mode, sigma in sigmas.items():
                     sigma.validate_inputs(self.get_validation_inputs())
 
-        self.world.barrier()
+        self.context.world.barrier()
         for iq, q_c in enumerate(self.wcalc.qd.ibzk_kc):
             with ExitStack() as stack:
-                if self.qcomm.rank == 0:
+                if self.context.world.rank == 0:
                     qhandle = stack.enter_context(self.qcache.lock(str(iq)))
                     skip = qhandle is None
                 else:
                     skip = False
 
-                skip = broadcast(skip, comm=self.qcomm)
+                skip = broadcast(skip, comm=self.context.world)
 
                 if skip:
                     continue
 
-                result = self.calculate_q_point(iq, q_c, pb, wstc, chi0calc)
+                result = self.calculate_q_point(iq, q_c, pb, chi0calc)
 
-                if self.qcomm.rank == 0:
+                if self.context.world.rank == 0:
                     qhandle.save(result)
         pb.finish()
 
-    def calculate_q_point(self, iq, q_c, pb, wstc, chi0calc):
+    def calculate_q_point(self, iq, q_c, pb, chi0calc):
         # Reset calculation
         sigmashape = (len(self.ecut_e), *self.shape)
         sigmas = {fxc_mode: Sigma(iq, q_c, fxc_mode, sigmashape,
                   **self.get_validation_inputs())
                   for fxc_mode in self.fxc_modes}
 
-        if len(self.ecut_e) > 1:
-            chi0bands = chi0calc.create_chi0(q_c, extend_head=False)
-        else:
-            chi0bands = None
+        chi0 = chi0calc.create_chi0(q_c)
 
         m1 = chi0calc.nocc1
         for ie, ecut in enumerate(self.ecut_e):
-            self.timer.start('W')
+            self.context.timer.start('W')
 
             # First time calculation
             if ecut == chi0calc.ecut:
@@ -803,12 +772,12 @@ class G0W0Calculator:
                                      f'larger number of bands ({m2})'
                                      f' than there are bands '
                                      f'({self.nbands}).')
-            pdi, Wdict, blocks1d, Q_aGii = self.calculate_w(
-                chi0calc, q_c, chi0bands,
-                m1, m2, ecut, wstc, iq)
+            pdi, Wdict, blocks1d, pawcorr = self.calculate_w(
+                chi0calc, q_c, chi0,
+                m1, m2, ecut, iq)
             m1 = m2
 
-            self.timer.stop('W')
+            self.context.timer.stop('W')
 
             for nQ, (bzq_c, symop) in enumerate(QSymmetryOp.get_symops(
                     self.wcalc.qd, iq, q_c)):
@@ -824,10 +793,10 @@ class G0W0Calculator:
                                      symop=symop,
                                      sigmas=sigmas,
                                      blocks1d=blocks1d,
-                                     Q_aGii=Q_aGii)
+                                     pawcorr=pawcorr)
 
         for sigma in sigmas.values():
-            sigma.sum(self.world)
+            sigma.sum(self.context.world)
 
         return sigmas
 
@@ -840,57 +809,50 @@ class G0W0Calculator:
                 'fxc_modes': self.fxc_modes,
                 'integrate_gamma': self.wcalc.integrate_gamma}
 
-    @property
-    def fxc_modes(self):
-        modes = [self.wcalc.fxc_mode]
-        if self.do_GW_too:
-            modes.append('GW')
-        return modes
-
     @timer('WW')
-    def calculate_w(self, chi0calc, q_c, chi0bands,
-                    m1, m2, ecut, wstc,
+    def calculate_w(self, chi0calc, q_c, chi0,
+                    m1, m2, ecut,
                     iq):
         """Calculates the screened potential for a specified q-point."""
 
-        chi0 = chi0calc.create_chi0(q_c, extend_head=False)
-        chi0calc.fd = self.fd
         chi0calc.print_chi(chi0.pd)
         chi0calc.update_chi0(chi0, m1, m2, range(self.wcalc.gs.nspins))
 
-        if len(self.ecut_e) > 1:
-            # Add chi from previous cutoff with remaining bands
-            chi0.chi0_wGG += chi0bands.chi0_wGG
-            chi0bands.chi0_wGG[:] = chi0.chi0_wGG.copy()
-            if chi0.optical_limit:
-                chi0.chi0_wxvG += chi0bands.chi0_wxvG
-                chi0bands.chi0_wxvG[:] = chi0.chi0_wxvG.copy()
-                chi0.chi0_wvv += chi0bands.chi0_wvv
-                chi0bands.chi0_wvv[:] = chi0.chi0_wvv.copy()
-
         Wdict = {}
-        
+
         for fxc_mode in self.fxc_modes:
-            pdi, blocks1d, G2G, chi0_wGG, chi0_wxvG, chi0_wvv = \
-                chi0calc.reduce_ecut(ecut, chi0)
-            pdi, W_wGG = self.wcalc.dyson_and_W_old(wstc, iq,
-                                                    q_c, chi0,
-                                                    fxc_mode,
-                                                    pdi, G2G,
-                                                    chi0_wGG,
-                                                    chi0_wxvG,
-                                                    chi0_wvv,
-                                                    only_correlation=True)
+            if self.wcalc.ppa:
+                out_dist = 'wGG'
+            else:
+                out_dist = 'WgG'
+
+            rpd = chi0.pd.copy_with(ecut=ecut)  # reduced pd
+            rchi0 = chi0.copy_with_reduced_pd(rpd)
+            W_wGG = self.wcalc.calculate(rchi0,
+                                         fxc_mode=fxc_mode,
+                                         only_correlation=True,
+                                         out_dist=out_dist)
+
+            if chi0calc.pawcorr is not None and rpd.ecut < chi0.pd.ecut:
+                pw_map = PWMapping(rpd, chi0.pd)
+                # This is extremely bad behaviour! G0W0Calculator should not
+                # change properties on the Chi0Calculator! Change in the
+                # future! XXX
+                chi0calc.pawcorr = chi0calc.pawcorr.reduce_ecut(pw_map.G2_G1)
 
             if self.wcalc.ppa:
                 W_xwGG = W_wGG  # (ppa API is nonsense)
+            # HT used to calculate convulution between time-ordered G and W
             else:
-                with self.timer('Hilbert'):
+                with self.context.timer('Hilbert'):
                     W_xwGG = self.hilbert_transform(W_wGG)
 
             Wdict[fxc_mode] = W_xwGG
 
-        return pdi, Wdict, blocks1d, chi0calc.Q_aGii
+        # Create a blocks1d for the reduced plane-wave description
+        blocks1d = Blocks1D(chi0.blockdist.blockcomm, rpd.ngmax)
+
+        return rpd, Wdict, blocks1d, chi0calc.pawcorr
 
     def calculate_vxc_and_exx(self):
         """EXX and Kohn-Sham XC contribution."""
@@ -903,29 +865,6 @@ class G0W0Calculator:
             snapshot=self.filename + '-vxc-exx.json')
         return vxc_skn / Ha, exx_skn / Ha
 
-    def read_contribution(self, filename):
-        fd = opencew(filename)  # create, exclusive, write
-        if fd is not None:
-            # File was not there: nothing to read
-            return fd, None
-
-        try:
-            with open(filename, 'rb') as fd:
-                x_skn = np.load(fd)
-        except IOError:
-            print('Removing broken file:', filename, file=self.fd)
-        else:
-            print('Read:', filename, file=self.fd)
-            if x_skn.shape == self.shape:
-                return None, x_skn
-            print('Removing bad file (wrong shape of array):', filename,
-                  file=self.fd)
-
-        if self.world.rank == 0:
-            os.remove(filename)
-
-        return opencew(filename), None
-
     def print_results(self, results):
         description = ['f:      Occupation numbers',
                        'eps:     KS-eigenvalues [eV]',
@@ -936,67 +875,40 @@ class G0W0Calculator:
                        'Z:       Renormalization factors',
                        'qp:      QP-energies [eV]']
 
-        print('\nResults:', file=self.fd)
+        self.context.print('\nResults:')
         for line in description:
-            print(line, file=self.fd)
+            self.context.print(line)
 
         b1, b2 = self.bands
         names = [line.split(':', 1)[0] for line in description]
         ibzk_kc = self.wcalc.gs.kd.ibzk_kc
         for s in range(self.wcalc.gs.nspins):
             for i, ik in enumerate(self.kpts):
-                print('\nk-point ' +
-                      '{0} ({1}): ({2:.3f}, {3:.3f}, {4:.3f})'.format(
-                          i, ik, *ibzk_kc[ik]) + '                ' +
-                      self.wcalc.fxc_mode, file=self.fd)
-                print('band' +
-                      ''.join('{0:>8}'.format(name) for name in names),
-                      file=self.fd)
+                self.context.print(
+                    '\nk-point ' + '{0} ({1}): ({2:.3f}, {3:.3f}, '
+                    '{4:.3f})'.format(i, ik, *ibzk_kc[ik]) +
+                    '                ' + self.fxc_modes[0])
+                self.context.print('band' + ''.join('{0:>8}'.format(name)
+                                                    for name in names))
 
                 def actually_print_results(resultset):
                     for n in range(b2 - b1):
-                        print('{0:4}'.format(n + b1) +
-                              ''.join('{0:8.3f}'
-                                      .format(resultset[name][s, i, n])
-                                      for name in names),
-                              file=self.fd)
+                        self.context.print(
+                            '{0:4}'.format(n + b1) +
+                            ''.join('{0:8.3f}'.format(
+                                resultset[name][s, i, n]) for name in names))
 
                 for fxc_mode in results:
-                    print(fxc_mode.rjust(69), file=self.fd)
+                    self.context.print(fxc_mode.rjust(69))
                     actually_print_results(results[fxc_mode])
 
-        self.timer.write(self.fd)
-
-    @timer('PPA-Sigma')
-    def calculate_sigma_ppa(self, n_mG, deps_m, f_m, W, *unused):
-        W_GG, omegat_GG = W
-
-        sigma = 0.0
-        dsigma = 0.0
-
-        for m in range(len(n_mG)):
-            deps_GG = deps_m[m]
-            sign_GG = 2 * f_m[m] - 1
-            x1_GG = 1 / (deps_GG + omegat_GG - 1j * self.eta)
-            x2_GG = 1 / (deps_GG - omegat_GG + 1j * self.eta)
-            x3_GG = 1 / (deps_GG + omegat_GG - 1j * self.eta * sign_GG)
-            x4_GG = 1 / (deps_GG - omegat_GG - 1j * self.eta * sign_GG)
-            x_GG = W_GG * (sign_GG * (x1_GG - x2_GG) + x3_GG + x4_GG)
-            dx_GG = W_GG * (sign_GG * (x1_GG**2 - x2_GG**2) +
-                            x3_GG**2 + x4_GG**2)
-            nW_G = np.dot(n_mG[m], x_GG)
-            sigma += np.vdot(n_mG[m], nW_G).real
-            nW_G = np.dot(n_mG[m], dx_GG)
-            dsigma -= np.vdot(n_mG[m], nW_G).real
-
-        x = 1 / (self.wcalc.qd.nbzkpts * 2 * pi * self.wcalc.gs.volume)
-        return x * sigma, x * dsigma
+        self.context.write_timer()
 
     def calculate_g0w0_outputs(self, sigma):
         eps_skn, f_skn = self.get_eps_and_occs()
         vxc_skn, exx_skn = self.calculate_vxc_and_exx()
         kwargs = dict(
-            fd=self.fd,
+            context=self.context,
             shape=self.shape,
             ecut_e=self.ecut_e,
             eps_skn=eps_skn,
@@ -1046,6 +958,7 @@ class G0W0(G0W0Calculator):
                  truncation=None,
                  integrate_gamma=0,
                  q0_correction=False,
+                 do_GW_too=False,
                  **kwargs):
         """G0W0 calculator wrapper.
 
@@ -1056,11 +969,9 @@ class G0W0(G0W0Calculator):
         Parameters
         ----------
         calc:
-            GPAW calculator object or filename of saved calculator object.
+            Filename of saved calculator object.
         filename: str
             Base filename of output files.
-        restartfile: str
-            File that stores data necessary to restart a calculation.
         kpts: list
             List of indices of the IBZ k-points to calculate the quasi particle
             energies for.
@@ -1127,22 +1038,21 @@ class G0W0(G0W0Calculator):
         nblocksmax: bool
             Cuts chi0 into as many blocks as possible to reduce memory
             requirements as much as possible.
-        savepckl: bool
-            Save output to a pckl file.
         """
-
         frequencies = get_frequencies(frequencies, domega0, omega2)
 
         self._gpwfile = calc
-        calc, context = calc_and_context(self._gpwfile, filename + '.txt',
-                                         world, timer)
-        gs = calc.gs_adapter()
+        context = ResponseContext(txt=filename + '.txt',
+                                  world=world, timer=timer)
+        gs = ResponseGroundStateAdapter.from_gpw_file(self._gpwfile,
+                                                      context=context)
 
         # Check if nblocks is compatible, adjust if not
         if nblocksmax:
             nblocks = get_max_nblocks(context.world, self._gpwfile, ecut)
 
-        pair = NoCalculatorPairDensity(gs, nblocks=nblocks, context=context)
+        pair = PairDensityCalculator(gs, context,
+                                     nblocks=nblocks)
 
         kpts = list(select_kpts(kpts, gs.kd))
 
@@ -1169,50 +1079,49 @@ class G0W0(G0W0Calculator):
                           'timeordered': True}
 
         from gpaw.response.chi0 import new_frequency_descriptor
-        chi_context = context.with_txt(filename + '.w.txt')
-        wd = new_frequency_descriptor(
-            gs, nbands, frequencies, fd=chi_context.fd)
+        wcontext = context.with_txt(filename + '.w.txt')
+        wd = new_frequency_descriptor(gs, wcontext, nbands, frequencies)
 
         chi0calc = Chi0Calculator(
             wd=wd, pair=pair,
             nbands=nbands,
             ecut=ecut,
             intraband=False,
-            context=chi_context,
+            context=wcontext,
             **parameters)
 
         bands = choose_bands(bands, relbands, gs.nvalence, chi0calc.nocc2)
 
-        if Eg is None and xc == 'JGMsx':
-            Eg = gs.get_band_gap()
+        coulomb = CoulombKernel(truncation, gs)
+        wcalc = initialize_w_calculator(chi0calc, wcontext,
+                                        ppa=ppa,
+                                        xc=xc, Eg=Eg,
+                                        E0=E0, coulomb=coulomb,
+                                        integrate_gamma=integrate_gamma,
+                                        q0_correction=q0_correction)
 
-        if Eg is not None:
-            Eg /= Ha
-
-        xckernel = G0W0Kernel(xc=xc, ecut=ecut / Ha,
-                              gs=gs,
-                              ns=gs.nspins,
-                              wd=wd,
-                              Eg=Eg,
-                              timer=context.timer,
-                              fd=context.fd)
-
-        wcalc = WCalculator(chi0calc.wd,
-                            chi0calc.pair,
-                            chi0calc.gs,
-                            ppa, xckernel,
-                            context, E0,
-                            fxc_mode, truncation,
-                            integrate_gamma,
-                            q0_correction)
+        fxc_modes = [fxc_mode]
+        if do_GW_too:
+            fxc_modes.append('GW')
 
         super().__init__(filename=filename,
                          chi0calc=chi0calc,
                          wcalc=wcalc,
                          ecut_e=ecut_e,
                          eta=eta,
+                         fxc_modes=fxc_modes,
                          nbands=nbands,
                          bands=bands,
                          frequencies=frequencies,
                          kpts=kpts,
                          **kwargs)
+
+    @property
+    def results_GW(self):
+        # Compatibility with old "do_GW_too" behaviour
+        if 'GW' in self.fxc_modes and self.fxc_modes[0] != 'GW':
+            return self.all_results['GW']
+
+    @property
+    def results(self):
+        return self.all_results[self.fxc_modes[0]]

@@ -701,7 +701,7 @@ class MixerWrapper:
                                 D_asp)
         for a, D_sii in density.D_asii.items():
             ni = D_sii.shape[1]
-            D_sii[:] = D_asp[a].reshape((-1, ni, ni))
+            D_sii[:] = D_asp[a].reshape((nspins, ni, ni))
         return error
 
     def estimate_memory(self, mem, gd):

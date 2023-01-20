@@ -47,7 +47,7 @@ class UniformGridPotentialCalculator(PotentialCalculator):
         return self.ghat_aLr.integrate(vHt_r)
 
     def calculate_non_selfconsistent_exc(self, nt_sR, xc):
-        nt_sr = self._interpolate_density(nt_sR)
+        nt_sr, _, _ = self._interpolate_density(nt_sR)
         vxct_sr = nt_sr.desc.zeros(nt_sr.dims)
         e_xc = xc.calculate(nt_sr, vxct_sr)
         return e_xc
@@ -60,15 +60,15 @@ class UniformGridPotentialCalculator(PotentialCalculator):
             for Nt1, Nt2, nt_r in zip(Nt1_s, Nt2_s, nt_sr):
                 if Nt2 > 1e-14:
                     nt_r.data *= Nt1 / Nt2
-        return nt_sr
+        return nt_sr, None, None
 
     def _calculate(self, density, vHt_r):
-        nt_sr = self._interpolate_density(density.nt_sR)
-
+        nt_sr, _, _ = self._interpolate_density(density.nt_sR)
         grid2 = nt_sr.desc
 
         vxct_sr = grid2.zeros(nt_sr.dims)
         e_xc = self.xc.calculate(nt_sr, vxct_sr)
+
         charge_r = grid2.empty()
         charge_r.data[:] = nt_sr.data[:density.ndensities].sum(axis=0)
         e_zero = self.vbar_r.integrate(charge_r)
@@ -80,7 +80,7 @@ class UniformGridPotentialCalculator(PotentialCalculator):
                                           for ccc_L in ccc_aL.values())
         comp_charge = ccc_aL.layout.atomdist.comm.sum(comp_charge)
         pseudo_charge = charge_r.integrate()
-        charge_r.data *= -comp_charge / pseudo_charge
+        charge_r.data *= -(comp_charge + density.charge) / pseudo_charge
 
         self.ghat_aLr.add_to(charge_r, ccc_aL)
 

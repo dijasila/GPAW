@@ -6,7 +6,7 @@ from ase.io import read
 # Plot and save both spectra
 atoms = read('gs.txt')
 cell = atoms.get_cell()
-cellsize = atoms.get_cell_lengths_and_angles()
+cellsize = atoms.cell.cellpar()
 mult = cellsize[2] * 1e-10  # make the sheet sus.
 legls = []
 res_name = ['shg_yyy_lg.npy', 'shg_yyy_vg.npy']

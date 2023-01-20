@@ -2,11 +2,11 @@ import numpy as np
 
 
 class DielectricFunctionCalculator:
-    def __init__(self, sqrV_G, chi0_GG, mode, fv_GG=None):
-        self.sqrV_G = sqrV_G
-        self.chiVV_GG = chi0_GG * sqrV_G * sqrV_G[:, np.newaxis]
+    def __init__(self, sqrtV_G, chi0_GG, mode, fv_GG=None):
+        self.sqrtV_G = sqrtV_G
+        self.chiVV_GG = chi0_GG * sqrtV_G * sqrtV_G[:, np.newaxis]
 
-        self.I_GG = np.eye(len(sqrV_G))
+        self.I_GG = np.eye(len(sqrtV_G))
 
         self.fv_GG = fv_GG
         self.chi0_GG = chi0_GG

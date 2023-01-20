@@ -1,4 +1,5 @@
 """Calculate non self-consistent eigenvalues for hybrid functionals."""
+from __future__ import annotations
 import functools
 import json
 from pathlib import Path
@@ -6,7 +7,9 @@ from typing import Generator, List, Optional, Tuple, Union
 
 import numpy as np
 from ase.units import Ha
-from gpaw.calculator import GPAW
+from gpaw.calculator import GPAW as GPAWOld
+from gpaw import GPAW
+from gpaw.new.ase_interface import ASECalculator
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.mpi import serial_comm
 from gpaw.pw.descriptor import PWDescriptor
@@ -23,15 +26,16 @@ from .paw import calculate_paw_stuff
 from .symmetry import Symmetry
 
 
-def non_self_consistent_eigenvalues(calc: Union[GPAW, str, Path],
-                                    xcname: str,
-                                    n1: int = 0,
-                                    n2: int = 0,
-                                    kpt_indices: List[int] = None,
-                                    snapshot: Union[str, Path] = None,
-                                    ftol: float = 1e-9) -> Tuple[Array3D,
-                                                                 Array3D,
-                                                                 Array3D]:
+def non_self_consistent_eigenvalues(
+        calc: Union[GPAWOld, ASECalculator, str, Path],
+        xcname: str,
+        n1: int = 0,
+        n2: int = 0,
+        kpt_indices: List[int] = None,
+        snapshot: Union[str, Path] = None,
+        ftol: float = 1e-9) -> tuple[Array3D,
+                                     Array3D,
+                                     Array3D]:
     """Calculate non self-consistent eigenvalues for a hybrid functional.
 
     Based on a self-consistent DFT calculation (calc).  Only eigenvalues n1 to
@@ -48,13 +52,14 @@ def non_self_consistent_eigenvalues(calc: Union[GPAW, str, Path],
     >>> eig_hyb = eig_dft - vxc_dft + vxc_hyb
     """
 
-    if not isinstance(calc, GPAW):
+    if not isinstance(calc, (GPAWOld, ASECalculator)):
         if calc == '<gpw-file>':  # for doctest
             return (np.zeros((1, 1, 1)),
                     np.zeros((1, 1, 1)),
                     np.zeros((1, 1, 1)))
         calc = GPAW(Path(calc), txt=None, parallel={'band': 1, 'kpt': 1})
 
+    assert isinstance(calc, (GPAWOld, ASECalculator))
     wfs = calc.wfs
 
     if n2 <= 0:
@@ -103,7 +108,7 @@ def non_self_consistent_eigenvalues(calc: Union[GPAW, str, Path],
             (v_hyb_sl_sin + v_hyb_nl_sin) * Ha)
 
 
-def _semi_local(calc: GPAW,
+def _semi_local(calc: GPAWOld | ASECalculator,
                 xc,
                 n1: int,
                 n2: int,
@@ -122,7 +127,7 @@ def _semi_local(calc: GPAW,
     return e_dft_sin / Ha, v_dft_sin / Ha, v_hyb_sl_sin / Ha
 
 
-def _non_local(calc: GPAW,
+def _non_local(calc: GPAWOld | ASECalculator,
                n1: int,
                n2: int,
                kpt_indices_s: List[List[int]],

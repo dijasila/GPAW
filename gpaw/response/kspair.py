@@ -1,7 +1,7 @@
 import numpy as np
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
-from gpaw.response.math_func import two_phi_planewave_integrals
+from gpaw.response.paw import get_pair_density_paw_corrections
 from gpaw.response.symmetry import KPointFinder
 
 
@@ -168,13 +168,8 @@ class KohnShamPair:
         """Count number of occupied and unoccupied bands in ground state
         calculation. Can be used to omit null-transitions between two occupied
         bands or between two unoccupied bands."""
-        ftol = 1.e-9  # Could be given as input
-        nocc1 = 9999999
-        nocc2 = 0
-        for kpt in self.gs.kpt_u:
-            f_n = kpt.f_n / kpt.weight
-            nocc1 = min((f_n > 1 - ftol).sum(), nocc1)
-            nocc2 = max((f_n > ftol).sum(), nocc2)
+
+        nocc1, nocc2 = self.gs.count_occupied_bands(ftol=1e-9)
         nocc1 = int(nocc1)
         nocc2 = int(nocc2)
 
@@ -851,7 +846,7 @@ class PairMatrixElement:
         """
         Parameters
         ----------
-        kslrf : KohnShamLinearResponseFunction instance
+        kspair : KohnShamPair
         """
         self.gs = kspair.gs
         self.context = kspair.context
@@ -877,7 +872,7 @@ class PlaneWavePairDensity(PairMatrixElement):
         PairMatrixElement.__init__(self, kspair)
 
         # Save PAW correction for all calls with same q_c
-        self.Q_aGii = None
+        self.pawcorr = None
         self.currentq_c = None
 
     def initialize(self, pd):
@@ -887,35 +882,15 @@ class PlaneWavePairDensity(PairMatrixElement):
     @timer('Initialize PAW corrections')
     def initialize_paw_corrections(self, pd):
         """Initialize PAW corrections, if not done already, for the given q"""
-        q_c = pd.kd.bzk_kc[0]
-        if self.Q_aGii is None or not np.allclose(q_c - self.currentq_c, 0.):
-            self.Q_aGii = self._initialize_paw_corrections(pd)
+        q_c = pd.q_c
+        if self.pawcorr is None or not np.allclose(q_c - self.currentq_c, 0.):
+            self.pawcorr = self._initialize_paw_corrections(pd)
             self.currentq_c = q_c
 
     def _initialize_paw_corrections(self, pd):
-        spos_ac = self.gs.spos_ac
         setups = self.gs.setups
-        G_Gv = pd.get_reciprocal_vectors()
-
-        pos_av = np.dot(spos_ac, pd.gd.cell_cv)
-
-        # Collect integrals for all species:
-        Q_xGii = {}
-        for id, atomdata in setups.setups.items():
-            Q_Gii = two_phi_planewave_integrals(G_Gv, atomdata)
-            ni = atomdata.ni
-            Q_Gii.shape = (-1, ni, ni)
-
-            Q_xGii[id] = Q_Gii
-
-        Q_aGii = []
-        for a, atomdata in enumerate(setups):
-            id = setups.id_a[a]
-            Q_Gii = Q_xGii[id]
-            x_G = np.exp(-1j * np.dot(G_Gv, pos_av[a]))
-            Q_aGii.append(x_G[:, np.newaxis, np.newaxis] * Q_Gii)
-
-        return Q_aGii
+        spos_ac = self.gs.spos_ac
+        return get_pair_density_paw_corrections(setups, pd, spos_ac)
 
     @timer('Calculate pair density')
     def __call__(self, kskptpair, pd):
@@ -961,23 +936,17 @@ class PlaneWavePairDensity(PairMatrixElement):
         """Make sure PAW correction has been initialized properly
         and return projectors"""
         self.initialize_paw_corrections(pd)
-        return self.Q_aGii
+        return self.pawcorr.Q_aGii
 
     @timer('Get G-vector indices')
     def get_fft_indices(self, kskptpair, pd):
         """Get indices for G-vectors inside cutoff sphere."""
+        from gpaw.response.pair import fft_indices
+
         kpt1 = kskptpair.kpt1
         kpt2 = kskptpair.kpt2
         kd = self.gs.kd
-        q_c = pd.kd.bzk_kc[0]
+        q_c = pd.q_c
 
-        N_G = pd.Q_qG[0]
-
-        shift_c = kpt1.shift_c - kpt2.shift_c
-        shift_c += (q_c - kd.bzk_kc[kpt2.K]
-                    + kd.bzk_kc[kpt1.K]).round().astype(int)
-        if shift_c.any():
-            n_cG = np.unravel_index(N_G, pd.gd.N_c)
-            n_cG = [n_G + shift for n_G, shift in zip(n_cG, shift_c)]
-            N_G = np.ravel_multi_index(n_cG, pd.gd.N_c, 'wrap')
-        return N_G
+        return fft_indices(kd=kd, K1=kpt1.K, K2=kpt2.K, q_c=q_c, pd=pd,
+                           shift0_c=kpt1.shift_c - kpt2.shift_c)

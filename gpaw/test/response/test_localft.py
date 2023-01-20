@@ -6,9 +6,8 @@ import pytest
 
 # Script modules
 from ase.units import Ha
-from ase.build import bulk
 
-from gpaw import GPAW, PW, FermiDirac
+from gpaw import GPAW
 import gpaw.mpi as mpi
 from gpaw.pw.descriptor import PWDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
@@ -20,7 +19,7 @@ from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.localft import (LocalFTCalculator, MicroSetup,
                                    add_total_density, add_LSDA_Bxc)
 from gpaw.response.susceptibility import get_pw_coordinates
-from gpaw.test.response.test_site_kernels import get_PWDescriptor
+from gpaw.test.response.test_site_kernels import get_pw_descriptor
 
 
 # ---------- Test parametrization ---------- #
@@ -169,7 +168,7 @@ def test_localft_paw_engine(a):
 
     # Calculate the plane-wave components analytically
     ntest_G = ae_1s_density_plane_waves(pd, R_v, a=a)
-    
+
     # Calculate the pseudo and ae densities on the radial grid
     n_g = ae_1s_density(rgd.r_g, a=a)
     gcut = rgd.floor(rcut)
@@ -214,10 +213,10 @@ def test_localft_paw_engine(a):
 
         # Check validity of numerical results
         assert np.allclose(n_G, ntest_G, rtol=rtol)
-        
+
 
 @pytest.mark.response
-def test_Fe_bxc():
+def test_Fe_bxc(gpw_files):
     """Test the symmetry relation
 
     (B^xc_G)^* = B^xc_-G
@@ -225,53 +224,22 @@ def test_Fe_bxc():
     for a real life system with d-electrons (bcc-Fe)."""
     # ---------- Inputs ---------- #
 
-    # Part 1: Ground state calculation
-    xc = 'LDA'
-    kpts = 4
-    nbands = 6
-    pw = 200
-    occw = 0.01
-    conv = {'density': 1e-8,
-            'forces': 1e-8,
-            'bands': nbands}
-    a = 2.867
-    mm = 2.21
-
-    # Part 2: Bxc calculation
+    # Bxc calculation
     ecut = 100
-
-    # Part 3: Check symmetry relation
 
     # ---------- Script ---------- #
 
-    # Part 1: Ground state calculation
-
-    atoms = bulk('Fe', 'bcc', a=a)
-    atoms.set_initial_magnetic_moments([mm])
-    atoms.center()
-
-    calc = GPAW(xc=xc,
-                mode=PW(pw),
-                kpts={'size': (kpts, kpts, kpts), 'gamma': True},
-                nbands=nbands + 4,
-                occupations=FermiDirac(occw),
-                parallel={'domain': 1},
-                spinpol=True,
-                convergence=conv
-                )
-
-    atoms.calc = calc
-    atoms.get_potential_energy()
-
-    # Part 2: Bxc calculation
+    # Bxc calculation
 
     # Set up calculator and plane-wave descriptor
+    calc = GPAW(gpw_files['fe_pw_wfs'], parallel=dict(domain=1))
+    atoms = calc.atoms
     gs = ResponseGroundStateAdapter(calc)
     context = ResponseContext()
     localft_calc = LocalFTCalculator.from_rshe_parameters(gs, context)
-    pd0 = get_PWDescriptor(atoms, calc, [0., 0., 0.],
-                           ecut=ecut,
-                           gammacentered=True)
+    pd0 = get_pw_descriptor(atoms, calc, [0., 0., 0.],
+                            ecut=ecut,
+                            gammacentered=True)
 
     Bxc_G = localft_calc(pd0, add_LSDA_Bxc)
 

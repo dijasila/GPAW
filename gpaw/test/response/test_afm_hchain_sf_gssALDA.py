@@ -13,8 +13,11 @@ from gpaw.mpi import world
 from gpaw.test import findpeak
 
 from gpaw.response import ResponseGroundStateAdapter
-from gpaw.response.tms import TransverseMagneticSusceptibility
-from gpaw.response.susceptibility import read_macroscopic_component
+from gpaw.response.frequencies import ComplexFrequencyDescriptor
+from gpaw.response.chiks import ChiKSCalculator
+from gpaw.response.susceptibility import ChiFactory
+from gpaw.response.fxc_kernels import FXCScaling
+from gpaw.response.df import read_response_function
 
 
 @pytest.mark.kspair
@@ -40,12 +43,13 @@ def test_response_afm_hchain_gssALDA(in_tmp_dir):
             [1. / 6., 0., 0.],
             [1. / 3., 0., 0.]]
     fxc = 'ALDA'
-    fxc_scaling = [True, None, 'afm']
+    fxc_scaling = FXCScaling('afm')
     rshelmax = -1
     rshewmin = 1e-8
     ecut = 120
     frq_w = np.linspace(-0.6, 0.6, 41)
     eta = 0.24
+    zd = ComplexFrequencyDescriptor.from_array(frq_w + 1.j * eta)
     if world.size > 1:
         nblocks = 2
     else:
@@ -74,31 +78,34 @@ def test_response_afm_hchain_gssALDA(in_tmp_dir):
     Hchain.get_potential_energy()
 
     # Part 2: Magnetic response calculation
-    fxckwargs = {'rshelmax': rshelmax,
-                 'rshewmin': rshewmin,
+    fxckwargs = {'calculator': {'method': 'old',
+                                'rshelmax': rshelmax,
+                                'rshewmin': rshewmin},
                  'fxc_scaling': fxc_scaling}
     gs = ResponseGroundStateAdapter(calc)
-    tms = TransverseMagneticSusceptibility(gs,
-                                           nbands=nbands,
-                                           fxc=fxc,
-                                           eta=eta,
-                                           ecut=ecut,
-                                           fxckwargs=fxckwargs,
-                                           gammacentered=True,
-                                           nblocks=nblocks)
+    chiks_calc = ChiKSCalculator(gs,
+                                 nbands=nbands,
+                                 ecut=ecut,
+                                 gammacentered=True,
+                                 nblocks=nblocks)
+    chi_factory = ChiFactory(chiks_calc)
+                  
     for q, q_c in enumerate(q_qc):
         filename = 'h-chain_macro_tms_q%d.csv' % q
         txt = 'h-chain_macro_tms_q%d.txt' % q
-        tms.get_macroscopic_component('+-', q_c, frq_w,
-                                      filename=filename, txt=txt)
+        chi = chi_factory('+-', q_c, zd,
+                          fxc=fxc,
+                          fxckwargs=fxckwargs,
+                          txt=txt)
+        chi.write_macroscopic_component(filename)
 
-    tms.context.write_timer()
+    chi_factory.context.write_timer()
     world.barrier()
 
     # Part 3: Identify magnon peak in finite q scattering function
-    w0_w, _, chi0_w = read_macroscopic_component('h-chain_macro_tms_q0.csv')
-    w1_w, _, chi1_w = read_macroscopic_component('h-chain_macro_tms_q1.csv')
-    w2_w, _, chi2_w = read_macroscopic_component('h-chain_macro_tms_q2.csv')
+    w0_w, _, chi0_w = read_response_function('h-chain_macro_tms_q0.csv')
+    w1_w, _, chi1_w = read_response_function('h-chain_macro_tms_q1.csv')
+    w2_w, _, chi2_w = read_response_function('h-chain_macro_tms_q2.csv')
 
     wpeak1, Ipeak1 = findpeak(w1_w, -chi1_w.imag / np.pi)
     wpeak2, Ipeak2 = findpeak(w2_w, -chi2_w.imag / np.pi)
@@ -113,7 +120,8 @@ def test_response_afm_hchain_gssALDA(in_tmp_dir):
     test_Ipeak2 = 0.0290
 
     # Test fxc_scaling:
-    assert abs(fxc_scaling[1] - test_fxcs) < 0.005
+    fxcs = fxc_scaling.get_scaling()
+    assert abs(fxcs - test_fxcs) < 0.005
 
     # Magnon peak at q=1/3 q_X:
     assert abs(mw1 - test_mw1) < 10.

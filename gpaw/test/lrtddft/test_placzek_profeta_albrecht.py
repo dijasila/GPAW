@@ -1,3 +1,4 @@
+import pytest
 from ase import Atom, Atoms
 
 from gpaw import GPAW
@@ -18,6 +19,7 @@ a = 4.0
 c = 5.0
 
 
+@pytest.mark.lrtddft
 def test_lrtddft_placzek_profeta_albrecht(in_tmp_dir):
     from ase.vibrations.albrecht import Albrecht
     from ase.vibrations.placzek import Placzek, Profeta

@@ -1,11 +1,12 @@
+from __future__ import annotations
 from math import nan
-from typing import (Union, List, TYPE_CHECKING, Dict, Optional, Callable,
-                    Tuple, Iterable, Iterator)
 from operator import attrgetter
 from pathlib import Path
+from typing import (TYPE_CHECKING, Callable, Dict, Iterable, Iterator, List,
+                    Optional, Tuple)
 
 import numpy as np
-from ase.units import Ha, alpha, Bohr
+from ase.units import Bohr, Ha, alpha
 
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.grid_descriptor import GridDescriptor
@@ -15,11 +16,13 @@ from gpaw.mpi import broadcast_array, serial_comm
 from gpaw.occupations import OccupationNumberCalculator, ParallelLayout
 from gpaw.projections import Projections
 from gpaw.setup import Setup
-from gpaw.utilities.partition import AtomPartition
-from gpaw.utilities.ibz2bz import construct_symmetry_operators
 from gpaw.typing import Array1D, Array2D, Array3D, Array4D, ArrayND
+from gpaw.utilities.ibz2bz import construct_symmetry_operators
+from gpaw.utilities.partition import AtomPartition
+
 if TYPE_CHECKING:
     from gpaw.calculator import GPAW  # noqa
+    from gpaw.new.ase_interface import ASECalculator
 
 _L_vlmm: List[List[np.ndarray]] = []  # see get_L_vlmm() below
 
@@ -251,6 +254,12 @@ class BZWaveFunctions:
         """Eigenvalues in eV for the whole BZ."""
         return self._collect(attrgetter('eig_m'), broadcast=broadcast)
 
+    def occupation_numbers(self,
+                           broadcast: bool = True
+                           ) -> Array2D:
+        """Occupation numbers for the whole BZ."""
+        return self._collect(attrgetter('f_m'), broadcast=broadcast)
+
     def eigenvectors(self,
                      broadcast: bool = True
                      ) -> Array4D:
@@ -441,7 +450,7 @@ def extract_ibz_wave_functions(kpt_qs: List[List[KPoint]],
         yield ibz_index, WaveFunction(eig_m, projections)
 
 
-def soc_eigenstates(calc: Union['GPAW', str, Path],
+def soc_eigenstates(calc: ASECalculator | GPAW | str | Path,
                     n1: int = None,
                     n2: int = None,
                     scale: float = 1.0,

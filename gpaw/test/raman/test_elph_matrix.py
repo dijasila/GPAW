@@ -38,13 +38,13 @@ class FakePh(Phonons):
 
 
 @pytest.mark.serial
+@pytest.mark.later
 def test_elph_matrix(gpw_files, tmp_path_factory):
     """Test of elph_matrix function as well as load_gx_as_needed feature."""
     calc = GPAW(gpw_files['bcc_li_lcao_wfs'])
     atoms = calc.atoms
     # Initialize calculator if necessary
     if not hasattr(calc.wfs, 'C_nM'):
-        calc.wfs.set_positions
         calc.initialize_positions(atoms)
 
     for kpt in calc.wfs.kpt_u:

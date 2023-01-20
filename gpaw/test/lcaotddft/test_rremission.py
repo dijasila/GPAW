@@ -1,3 +1,4 @@
+import pytest
 from ase.build import molecule
 from ase.parallel import paropen
 from gpaw import GPAW
@@ -8,6 +9,7 @@ from gpaw.lcaotddft.qed import RRemission
 from . import check_txt_data
 
 
+@pytest.mark.rttddft
 def test_rremission(in_tmp_dir):
     atoms = molecule('Na2')
     atoms.center(vacuum=4.0)
