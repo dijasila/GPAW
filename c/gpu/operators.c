@@ -261,8 +261,8 @@ static void _operator_relax_gpu(OperatorObject* self, int relax_method,
     if (bc->sendproc[2][1] != DO_NOTHING)
         boundary |= GPAW_BOUNDARY_Z1;
 
-    int cuda_overlap = bmgs_fd_boundary_test(&self->stencil_gpu, boundary,
-                                             bc->ndouble);
+    int gpu_overlap = bmgs_fd_boundary_test(&self->stencil_gpu, boundary,
+                                            bc->ndouble);
     int nsendrecvs = 0;
     for (int i=0; i < 3; i++) {
         for (int j=0; j < 2; j++) {
@@ -270,12 +270,12 @@ static void _operator_relax_gpu(OperatorObject* self, int relax_method,
                         * blocks * sizeof(double);
         }
     }
-    cuda_overlap &= (nsendrecvs > GPU_OVERLAP_SIZE);
-    if (cuda_overlap)
+    gpu_overlap &= (nsendrecvs > GPU_OVERLAP_SIZE);
+    if (gpu_overlap)
         gpuEventRecord(operator_event[1], 0);
 
     for (int n=0; n < nrelax; n++ ) {
-        if (cuda_overlap) {
+        if (gpu_overlap) {
             gpuStreamWaitEvent(operator_stream[0], operator_event[1], 0);
             bc_unpack_paste_gpu(bc, fun, operator_buf_gpu, recvreq,
                                 operator_stream[0], 1);
@@ -309,7 +309,7 @@ static void _operator_relax_gpu(OperatorObject* self, int relax_method,
         }
     }
 
-    if (cuda_overlap) {
+    if (gpu_overlap) {
         gpuStreamWaitEvent(0, operator_event[1], 0);
         gpuStreamSynchronize(operator_stream[0]);
     }
@@ -463,8 +463,8 @@ static void _operator_apply_gpu(OperatorObject *self,
     if (bc->sendproc[2][1] != DO_NOTHING)
         boundary |= GPAW_BOUNDARY_Z1;
 
-    int cuda_overlap = bmgs_fd_boundary_test(&self->stencil_gpu, boundary,
-                                             bc->ndouble);
+    int gpu_overlap = bmgs_fd_boundary_test(&self->stencil_gpu, boundary,
+                                            bc->ndouble);
     int nsendrecvs = 0;
     for (int i=0; i < 3; i++) {
         for (int j=0; j < 2; j++) {
@@ -472,15 +472,15 @@ static void _operator_apply_gpu(OperatorObject *self,
                         * blocks * sizeof(double);
         }
     }
-    cuda_overlap &= (nsendrecvs > GPU_OVERLAP_SIZE);
-    if  (cuda_overlap)
+    gpu_overlap &= (nsendrecvs > GPU_OVERLAP_SIZE);
+    if  (gpu_overlap)
         gpuEventRecord(operator_event[1], 0);
 
     for (int n=0; n < nin; n += blocks) {
         const double *in2 = in + n * ng;
         double *out2 = out + n * ng;
         int myblocks = MIN(blocks, nin - n);
-        if (cuda_overlap) {
+        if (gpu_overlap) {
             gpuStreamWaitEvent(operator_stream[0], operator_event[1], 0);
             bc_unpack_paste_gpu(bc, in2, operator_buf_gpu, recvreq,
                                 operator_stream[0], myblocks);
@@ -535,7 +535,7 @@ static void _operator_apply_gpu(OperatorObject *self,
         }
     }
 
-    if (cuda_overlap) {
+    if (gpu_overlap) {
         gpuStreamWaitEvent(0, operator_event[1], 0);
         gpuStreamSynchronize(operator_stream[0]);
     }
