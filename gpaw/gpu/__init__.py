@@ -1,3 +1,5 @@
+import contextlib
+from time import time
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -48,3 +50,14 @@ def cupy_eigh(a, UPLO):
         return cupy.linalg.eigh(a, UPLO=UPLO)
     eigs, evals = eigh(cupy.asnumpy(a), lower=(UPLO == 'L'))
     return cupy.asarray(eigs), cupy.asarray(evals)
+
+
+@contextlib.contextmanager
+def T():
+    t1 = time()
+    yield
+    if not cupy_is_fake:
+        from cupy.cuda.runtime import deviceSyncronize
+        deviceSyncronize()
+    t2 = time()
+    print(t2 - t1, 'sec')
