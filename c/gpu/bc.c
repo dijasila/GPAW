@@ -154,27 +154,27 @@ static void _check_msg_size(boundary_conditions* bc, int nin)
         maxrecv = MAX(bc->nrecv[i][0], bc->nrecv[i][1]) * nin * sizeof(double);
         maxsend = MAX(bc->nsend[i][0], bc->nsend[i][1]) * nin * sizeof(double);
 
-        bc->cuda_rjoin[i] = 0;
+        bc->gpu_rjoin[i] = 0;
         if (bc->recvproc[i][0] >= 0 && bc->recvproc[i][1] >= 0) {
             if (maxrecv < GPU_RJOIN_SIZE)
-                bc->cuda_rjoin[i] = 1;
+                bc->gpu_rjoin[i] = 1;
             else if ((maxrecv < GPU_RJOIN_SAME_SIZE) &&
                     (bc->recvproc[i][0] == bc->recvproc[i][1]))
-                bc->cuda_rjoin[i] = 1;
+                bc->gpu_rjoin[i] = 1;
         }
-        bc->cuda_sjoin[i] = 0;
+        bc->gpu_sjoin[i] = 0;
         if (bc->sendproc[i][0] >= 0 && bc->sendproc[i][1] >= 0) {
             if (maxsend < GPU_SJOIN_SIZE)
-                bc->cuda_sjoin[i] = 1;
+                bc->gpu_sjoin[i] = 1;
             else if ((maxsend < GPU_SJOIN_SAME_SIZE) &&
                     (bc->sendproc[i][0] == bc->sendproc[i][1]))
-                bc->cuda_sjoin[i] = 1;
+                bc->gpu_sjoin[i] = 1;
         }
 
         if (MAX(maxsend, maxrecv) < GPU_ASYNC_SIZE)
-            bc->cuda_async[i] = 0;
+            bc->gpu_async[i] = 0;
         else
-            bc->cuda_async[i] = 1;
+            bc->gpu_async[i] = 1;
     }
 }
 
@@ -187,7 +187,7 @@ static void _prepare_buffers(boundary_conditions* bc, int nin)
         bc_sbuff[i][0] = bc_sbuffs + sendp;
 #endif
         bc_sbuff_gpu[i][0] = bc_sbuffs_gpu + sendp;
-        if (!bc->cuda_async[i] || bc->cuda_sjoin[i]) {
+        if (!bc->gpu_async[i] || bc->gpu_sjoin[i]) {
 #ifndef CUDA_MPI
             bc_sbuff[i][1] = bc_sbuffs + sendp + bc->nsend[i][0] * nin;
 #endif
@@ -206,7 +206,7 @@ static void _prepare_buffers(boundary_conditions* bc, int nin)
         bc_rbuff[i][0] = bc_rbuffs + recvp;
 #endif
         bc_rbuff_gpu[i][0] = bc_rbuffs_gpu + recvp;
-        if (!bc->cuda_async[i] || bc->cuda_rjoin[i]) {
+        if (!bc->gpu_async[i] || bc->gpu_rjoin[i]) {
 #ifndef CUDA_MPI
             bc_rbuff[i][1] = bc_rbuffs + recvp + bc->nrecv[i][0] * nin;
 #endif
@@ -411,7 +411,7 @@ void bc_unpack_gpu_async(const boundary_conditions* bc,
                                   (gpuDoubleComplex*)(bc_sbuff_gpu[i][d]),
                                   size, phase, nin, kernel_stream);
                 }
-                if (!bc->cuda_sjoin[i]) {
+                if (!bc->gpu_sjoin[i]) {
                     gpuMemcpyAsync(bc_sbuff[i][d],
                                    bc_sbuff_gpu[i][d],
                                    sizeof(double) * bc->nsend[i][d] * nin,
@@ -421,7 +421,7 @@ void bc_unpack_gpu_async(const boundary_conditions* bc,
                 }
             }
         }
-        if (bc->cuda_sjoin[i]) {
+        if (bc->gpu_sjoin[i]) {
             gpuMemcpyAsync(bc_sbuff[i][0],
                            bc_sbuff_gpu[i][0],
                            sizeof(double)
@@ -458,7 +458,7 @@ void bc_unpack_gpu_async(const boundary_conditions* bc,
                     &sendreq[dd]);
             send_done[dd] = 1;
             dd = 1;
-            if (bc->cuda_sjoin[i]) {
+            if (bc->gpu_sjoin[i]) {
                 MPI_Isend(bc_sbuff[i][dd],
                         bc->nsend[i][dd] * nin, MPI_DOUBLE,
                         bc->sendproc[i][dd],
@@ -474,10 +474,10 @@ void bc_unpack_gpu_async(const boundary_conditions* bc,
                     bc_recv_done[i3][0] && bc_recv_done[i3][1]) {
                 i3 = 2;
             }
-            if (!bc->cuda_async[i3])
+            if (!bc->gpu_async[i3])
                 continue;
 
-            if (i2==0 && bc->cuda_rjoin[i3] &&
+            if (i2==0 && bc->gpu_rjoin[i3] &&
                     !bc_recv_done[i3][0] && !bc_recv_done[i3][1]) {
                 int status;
                 MPI_Testall(2, recvreq[i3], &status, MPI_STATUSES_IGNORE);
@@ -594,7 +594,7 @@ void bc_unpack_gpu(const boundary_conditions* bc,
         int nin)
 {
 #ifndef CUDA_MPI
-    if (!bc->cuda_async[i]) {
+    if (!bc->gpu_async[i]) {
         bc_unpack_gpu_sync(bc, aa2, i, recvreq, sendreq,
                 phases, kernel_stream, nin);
     }  else {

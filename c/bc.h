@@ -37,9 +37,9 @@ typedef struct
   bool cfd;
   MPI_Comm comm;
 #ifdef GPAW_GPU
-  bool cuda_sjoin[3];
-  bool cuda_rjoin[3];
-  bool cuda_async[3];
+  bool gpu_sjoin[3];
+  bool gpu_rjoin[3];
+  bool gpu_async[3];
 #endif
 } boundary_conditions;
 
