@@ -28,8 +28,11 @@ PyObject* set_gpaw_gpu_debug(PyObject *self, PyObject *args)
     Py_RETURN_NONE;
 }
 
-void gpaw_gpu_init_c()
+PyObject* gpaw_gpu_init(PyObject *self, PyObject *args)
 {
+    if (!PyArg_ParseTuple(args, ""))
+        return NULL;
+
     int device;
     gpuGetDevice(&device);
     gpuGetDeviceProperties(&_gpaw_gpu_dev_prop, device);
@@ -40,14 +43,6 @@ void gpaw_gpu_init_c()
     reduce_init_buffers_gpu();
     lfc_reduce_init_buffers_gpu();
     blas_init_gpu();
-}
-
-PyObject* gpaw_gpu_init(PyObject *self, PyObject *args)
-{
-    if (!PyArg_ParseTuple(args, ""))
-        return NULL;
-
-    gpaw_gpu_init_c();
 
     if (PyErr_Occurred())
         return NULL;
