@@ -12,7 +12,7 @@
 #include "bmgs.h"
 #include "gpu.h"
 
-extern int gpaw_cuda_debug;
+extern int gpaw_gpu_debug;
 
 static double *transformer_buf_gpu = NULL;
 static int transformer_buf_size = 0;
@@ -331,14 +331,14 @@ PyObject* Transformer_apply_gpu(TransformerObject *self, PyObject *args)
     int blocks = MAX(1, MIN(nin, MIN((GPU_BLOCKS_MIN) * mpi_size,
                                      (GPU_BLOCKS_MAX) / bc->ndouble)));
 
-    if (gpaw_cuda_debug) {
+    if (gpaw_gpu_debug) {
         debug_transformer_allocate(self, nin, blocks);
         debug_transformer_memcpy_pre(in, out);
     }
 
     _transformer_apply_gpu(self, in, out, nin, blocks, real, ph);
 
-    if (gpaw_cuda_debug) {
+    if (gpaw_gpu_debug) {
         gpuDeviceSynchronize();
         debug_transformer_memcpy_post(out);
         debug_transformer_apply(self, nin, blocks, real, ph);

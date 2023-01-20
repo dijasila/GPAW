@@ -9,7 +9,7 @@
 #define GRID_MAX 65535
 #define BLOCK_TOTALMAX 256
 
-extern int gpaw_cuda_debug;
+extern int gpaw_gpu_debug;
 
 static int debug_size_in = 0;
 static int debug_size_out = 0;
@@ -213,7 +213,7 @@ void Zgpu(bmgs_cut_gpu)(
     int ng = sizea[0] * sizea[1] * sizea[2] * 2;
     int ng2 = sizeb[0] * sizeb[1] * sizeb[2] * 2;
 #endif
-    if (gpaw_cuda_debug) {
+    if (gpaw_gpu_debug) {
         debug_allocate(ng, ng2, blocks);
         debug_memcpy_pre(in, out);
     }
@@ -222,7 +222,7 @@ void Zgpu(bmgs_cut_gpu)(
 #else
     _bmgs_cut_gpuz(a, sizea, starta, b, sizeb, phase, blocks, stream);
 #endif
-    if (gpaw_cuda_debug) {
+    if (gpaw_gpu_debug) {
         debug_memcpy_post(in, out);
 #ifndef GPU_USE_COMPLEX
         debug_bmgs_cut(sizea, starta, sizeb, blocks, ng, ng2);

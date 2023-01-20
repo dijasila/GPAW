@@ -19,11 +19,11 @@ void reduce_dealloc_gpu();
 void lfc_reduce_dealloc_gpu();
 
 struct gpuDeviceProp _gpaw_gpu_dev_prop;
-int gpaw_cuda_debug=0;  // if true, debug CUDA kernels
+int gpaw_gpu_debug=0;  // if true, debug GPU kernels
 
 PyObject* set_gpaw_gpu_debug(PyObject *self, PyObject *args)
 {
-    if (!PyArg_ParseTuple(args, "p", &gpaw_cuda_debug))
+    if (!PyArg_ParseTuple(args, "p", &gpaw_gpu_debug))
         return NULL;
     Py_RETURN_NONE;
 }

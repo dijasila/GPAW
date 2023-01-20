@@ -23,7 +23,7 @@ typedef void (*launch_funcz)(const gpuDoubleComplex *, const int *,
                              gpuDoubleComplex *, const int *, const int *, int,
                              gpuStream_t);
 
-extern int gpaw_cuda_debug;
+extern int gpaw_gpu_debug;
 
 static int debug_size_in = 0;
 static int debug_size_out = 0;
@@ -354,12 +354,12 @@ void Zgpu(_bmgs_paste_launcher)(Tfunc function, int zero,
     int ng = sizea[0] * sizea[1] * sizea[2] * 2;
     int ng2 = sizeb[0] * sizeb[1] * sizeb[2] * 2;
 #endif
-    if (gpaw_cuda_debug) {
+    if (gpaw_gpu_debug) {
         debug_allocate(ng, ng2, blocks);
         debug_memcpy_pre(in, out);
     }
     (*function)(a, sizea, b, sizeb, startb, blocks, stream);
-    if (gpaw_cuda_debug) {
+    if (gpaw_gpu_debug) {
         debug_memcpy_post(in, out);
         Zgpu(debug_bmgs_paste)(sizea, sizeb, startb, blocks, ng, ng2,
                                 zero);

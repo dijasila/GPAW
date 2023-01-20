@@ -12,7 +12,7 @@
 #include "bmgs.h"
 #include "gpu.h"
 
-extern int gpaw_cuda_debug;
+extern int gpaw_gpu_debug;
 
 #define OPERATOR_NSTREAMS (2)
 
@@ -341,14 +341,14 @@ PyObject* Operator_relax_gpu(OperatorObject* self, PyObject* args)
     double *fun = (double*) func_gpu;
     const double *src = (double*) source_gpu;
 
-    if (gpaw_cuda_debug) {
+    if (gpaw_gpu_debug) {
         debug_operator_allocate(self, 1, 1);
         debug_operator_memcpy_pre(src, fun);
     }
 
     _operator_relax_gpu(self, relax_method, fun, src, nrelax, w);
 
-    if (gpaw_cuda_debug) {
+    if (gpaw_gpu_debug) {
         gpuDeviceSynchronize();
         debug_operator_memcpy_post(fun, operator_buf_gpu);
         debug_operator_relax(self, relax_method, nrelax, w);
@@ -587,14 +587,14 @@ PyObject * Operator_apply_gpu(OperatorObject* self, PyObject* args)
     int blocks = MAX(1, MIN(nin, MIN((GPU_BLOCKS_MIN) * mpi_size,
                                      (GPU_BLOCKS_MAX) / bc->ndouble)));
 
-    if (gpaw_cuda_debug) {
+    if (gpaw_gpu_debug) {
         debug_operator_allocate(self, nin, blocks);
         debug_operator_memcpy_pre(in, out);
     }
 
     _operator_apply_gpu(self, in, out, nin, blocks, real, ph);
 
-    if (gpaw_cuda_debug) {
+    if (gpaw_gpu_debug) {
         gpuDeviceSynchronize();
         debug_operator_memcpy_post(out, operator_buf_gpu);
         debug_operator_apply(self, nin, blocks, real, ph);
