@@ -28,10 +28,6 @@ void bmgs_paste_zero_gpu(const double* a, const int n[3],
                          double* b, const int m[3], const int c[3],
                          int blocks, gpuStream_t stream);
 
-void bmgs_translate_cuda(double* a, const int sizea[3], const int size[3],
-                         const int start1[3], const int start2[3],
-                         enum gpuMemcpyKind kind);
-
 void bmgs_translate_gpu(double* a, const int sizea[3], const int size[3],
                         const int start1[3], const int start2[3],
                         int blocks, gpuStream_t stream);
@@ -61,11 +57,6 @@ void bmgs_paste_zero_gpuz(const gpuDoubleComplex* a, const int n[3],
                           gpuDoubleComplex* b, const int m[3],
                           const int c[3], int blocks,
                           gpuStream_t stream);
-
-void bmgs_translate_cudaz(gpuDoubleComplex* a, const int sizea[3],
-                          const int size[3],  const int start1[3],
-                          const int start2[3], gpuDoubleComplex,
-                          enum gpuMemcpyKind kind);
 
 void bmgs_translate_gpuz(gpuDoubleComplex* a, const int sizea[3],
                          const int size[3], const int start1[3],
