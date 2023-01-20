@@ -190,13 +190,6 @@ PyObject* multi_axpy_cuda_gpu(PyObject *self, PyObject *args)
 }
 
 extern "C"
-void mdotu_cuda_gpu(const double *a_gpu, const double *b_gpu,
-                    double *result, int n, int nvec)
-{
-    reducemap_dotu((double*) a_gpu, (double*) b_gpu, result, n, nvec);
-}
-
-extern "C"
 PyObject* multi_dotu_cuda_gpu(PyObject *self, PyObject *args)
 {
     void *a_gpu;
