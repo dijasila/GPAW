@@ -765,44 +765,6 @@ void Zgpu(bmgs_fd_cuda_gpu)(
     gpuCheckLastError();
 }
 
-
-extern "C"
-double Zgpu(bmgs_fd_cuda_cpu)(const bmgsstencil* s, const Tgpu* a,
-                              Tgpu* b, int blocks)
-{
-    Tgpu *adev, *bdev;
-    size_t asize,bsize;
-    struct timeval t0, t1;
-    double flops;
-    bmgsstencil_gpu s_gpu = bmgs_stencil_to_gpu(s);
-
-    asize = s->j[0] + s->n[0] * (s->j[1] + s->n[1] * (s->n[2] + s->j[2]));
-    bsize = s->n[0] * s->n[1] * s->n[2];
-
-    gpuCheckLastError();
-    gpuMalloc(&adev, sizeof(Tgpu) * asize * blocks);
-    gpuMalloc(&bdev, sizeof(Tgpu) * bsize * blocks);
-
-    gpuMemcpy(adev, a, sizeof(Tgpu) * asize * blocks, gpuMemcpyHostToDevice);
-    gpuCheckLastError();
-
-    gettimeofday(&t0, NULL);
-    Zgpu(bmgs_fd_cuda_gpu)(&s_gpu, adev, bdev, GPAW_BOUNDARY_NORMAL,
-                            blocks, 0);
-    gpuDeviceSynchronize();
-    gpuCheckLastError();
-    gettimeofday(&t1,NULL);
-
-    gpuMemcpy(b, bdev, sizeof(Tgpu) * bsize * blocks, gpuMemcpyDeviceToHost);
-
-    gpuFree(adev);
-    gpuFree(bdev);
-
-    flops = t1.tv_sec * 1.0 + t1.tv_usec / 1000000.0 - t0.tv_sec * 1.0
-          - t0.tv_usec / 1000000.0;
-    return flops;
-}
-
 #ifndef GPU_USE_COMPLEX
 #define GPU_USE_COMPLEX
 #include "fd.cpp"

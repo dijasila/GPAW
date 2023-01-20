@@ -781,43 +781,4 @@ void bmgs_relax_cuda_gpu(const int relax_method,
     gpuCheckLastError();
 }
 
-extern "C"
-double bmgs_relax_cuda_cpu(const int relax_method, const bmgsstencil* s,
-                           double* a, double* b, const double* src,
-                           const double w)
-{
-    double *adev, *bdev, *srcdev;
-    size_t asize, bsize;
-    struct timeval t0, t1;
-    double flops;
-    bmgsstencil_gpu s_gpu = bmgs_stencil_to_gpu(s);
-
-    asize = s->j[0]
-          + s->n[0] * (s->j[1] + s->n[1] * (s->n[2] + s->j[2]));
-    bsize = s->n[0] * s->n[1] * s->n[2];
-
-    gpuMalloc(&adev, sizeof(double) * asize);
-    gpuMalloc(&bdev, sizeof(double) * bsize);
-    gpuMalloc(&srcdev, sizeof(double) * bsize);
-
-    gpuMemcpy(adev, a, sizeof(double) * asize, gpuMemcpyHostToDevice);
-    gpuMemcpy(bdev, b, sizeof(double) * bsize, gpuMemcpyHostToDevice);
-    gpuMemcpy(srcdev, src, sizeof(double) * bsize, gpuMemcpyHostToDevice);
-
-    gettimeofday(&t0, NULL);
-    bmgs_relax_cuda_gpu(relax_method, &s_gpu, adev, bdev,srcdev, w,
-                        GPAW_BOUNDARY_NORMAL,0);
-    gpuDeviceSynchronize();
-    gpuCheckLastError();
-    gettimeofday(&t1, NULL);
-
-    gpuMemcpy(b, bdev, sizeof(double) * bsize, gpuMemcpyDeviceToHost);
-    gpuFree(adev);
-    gpuFree(bdev);
-    gpuFree(srcdev);
-
-    flops = t1.tv_sec * 1.0 + t1.tv_usec / 1000000.0 - t0.tv_sec * 1.0
-          - t0.tv_usec / 1000000.0;
-    return flops;
-}
 #endif

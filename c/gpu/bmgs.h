@@ -9,16 +9,9 @@ int bmgs_fd_boundary_test(const bmgsstencil_gpu* s, int boundary,
 
 bmgsstencil_gpu bmgs_stencil_to_gpu(bmgsstencil *s);
 
-double bmgs_fd_cuda_cpu(const bmgsstencil* s, const double* a, double* b,
-                        int blocks);
-
 void bmgs_fd_cuda_gpu(const bmgsstencil_gpu* s, const double* adev,
                       double* bdev, int boundary, int blocks,
                       gpuStream_t stream);
-
-double bmgs_relax_cuda_cpu(const int relax_method, const bmgsstencil* s,
-                           double* a, double* b, const double* src,
-                           const double w);
 
 void bmgs_relax_cuda_gpu(const int relax_method, const bmgsstencil_gpu* s,
                          double* adev, double* bdev, const double* src,
@@ -34,12 +27,6 @@ void bmgs_paste_cuda_gpu(const double* a, const int n[3],
 void bmgs_paste_zero_cuda_gpu(const double* a, const int n[3],
                               double* b, const int m[3], const int c[3],
                               int blocks, gpuStream_t stream);
-
-double bmgs_paste_cuda_cpu(const double* a, const int n[3],
-                           double* b, const int m[3], const int c[3]);
-
-double bmgs_paste_zero_cuda_cpu(const double* a, const int n[3],
-                                double* b, const int m[3], const int c[3]);
 
 void bmgs_translate_cuda(double* a, const int sizea[3], const int size[3],
                          const int start1[3], const int start2[3],
@@ -60,14 +47,7 @@ void bmgs_interpolate_cuda_gpu(int k, int skip[3][2],
                                double* b, const int sizeb[3],
                                int blocks);
 
-double bmgs_interpolate_cuda_cpu(int k, int skip[3][2],
-                                 const double* a, const int n[3],
-                                 double* b, int blocks);
-
 // complex routines:
-double bmgs_fd_cuda_cpuz(const bmgsstencil* s, const gpuDoubleComplex* a,
-                         gpuDoubleComplex* b, int blocks);
-
 void bmgs_fd_cuda_gpuz(const bmgsstencil_gpu* s, const gpuDoubleComplex* adev,
                        gpuDoubleComplex* bdev, int boundary, int blocks,
                        gpuStream_t stream);

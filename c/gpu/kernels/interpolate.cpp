@@ -178,42 +178,4 @@ void Zgpu(bmgs_interpolate_cuda_gpu)(int k, int skip[3][2],
 #ifndef GPU_USE_COMPLEX
 #define GPU_USE_COMPLEX
 #include "interpolate.cpp"
-
-extern "C"
-double bmgs_interpolate_cuda_cpu(int k, int skip[3][2], const double* a,
-                                 const int n[3], double* b, int blocks)
-{
-    double *adev, *bdev;
-    size_t bsize, asize;
-    struct timeval t0, t1;
-    double flops;
-    int b_n[3] = {2 * n[0] - 2 - skip[0][0] + skip[0][1],
-                  2 * n[1] - 2 - skip[1][0] + skip[1][1],
-                  2 * n[2] - 2 - skip[2][0] + skip[2][1]};
-
-    asize = blocks * n[0] * n[1] * n[2];
-    bsize = blocks * b_n[0] * b_n[1] * b_n[2];
-
-    gpuMalloc(&adev, sizeof(double) * asize);
-    gpuMalloc(&bdev, sizeof(double) * bsize);
-
-    gpuMemcpy(adev, a, sizeof(double) * asize, gpuMemcpyHostToDevice);
-
-    gettimeofday(&t0, NULL);
-
-    bmgs_interpolate_cuda_gpu(k, skip, adev, n, bdev, b_n, blocks);
-    gpuDeviceSynchronize();
-    gpuCheckLastError();
-
-    gettimeofday(&t1,NULL);
-
-    gpuMemcpy(b, bdev, sizeof(double) * bsize, gpuMemcpyDeviceToHost);
-
-    gpuFree(adev);
-    gpuFree(bdev);
-
-    flops = t1.tv_sec * 1.0 + t1.tv_usec / 1000000.0 - t0.tv_sec * 1.0
-          - t0.tv_usec / 1000000.0;
-    return flops;
-}
 #endif
