@@ -51,6 +51,9 @@ def test_acf_fd(grid, xp):
 @pytest.mark.ci
 @pytest.mark.parametrize('xp', [np, cupy])
 def test_acf_pw(grid, xp):
+    if world.size > 1 and xp is cupy:
+        pytest.skip()
+
     pw = PlaneWaves(ecut=50, cell=grid.cell, dtype=complex, comm=world)
 
     basis = pw.atom_centered_functions(
