@@ -8,7 +8,8 @@
 
 #define GPU_BLOCKS_MIN            (16)
 #define GPU_BLOCKS_MAX            (96)
-#define GPU_PITCH                 (16)  /* in doubles */
+#define GPU_DEFAULT_BLOCK_X       (32)
+#define GPU_DEFAULT_BLOCK_Y       (16)
 
 #define GPU_ASYNC_SIZE            (8*1024)
 #define GPU_RJOIN_SIZE            (16*1024)
@@ -33,6 +34,7 @@
 #define gpuSafeCall(err)          __gpuSafeCall(err, __FILE__, __LINE__)
 #define gpublasSafeCall(err)      __gpublasSafeCall(err, __FILE__, __LINE__)
 
+#define GPU_PITCH                 (16)  /* in doubles */
 #define NEXTPITCHDIV(n) \
         (((n) > 0) ? ((n) + GPU_PITCH - 1 - ((n) - 1) % GPU_PITCH) : 0)
 

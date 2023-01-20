@@ -7,21 +7,16 @@
 #include "../gpu-complex.h"
 
 #ifndef GPU_USE_COMPLEX
-#  define BLOCK_X_FERMI 16
-#  define BLOCK_Y_FERMI 4
-#  define BLOCK_X_KEPLER 32
-#  define BLOCK_Y_KEPLER 8
+#  define BLOCK_X   (32)
+#  define BLOCK_Y   (8)
+#  define ACACHE_X  (2 * BLOCK_X + 1)
+#  define ACACHE_Y  (2 * BLOCK_Y + 1)
 #endif
 
-#ifdef BLOCK_X
 
-#define ACACHE_X  (2 * BLOCK_X + 1)
-#define ACACHE_Y  (2 * BLOCK_Y + 1)
-
-
-__global__ void RESTRICT_kernel(const Tgpu* a, const int3 n,
-                                Tgpu* b, const int3 b_n,
-                                int xdiv, int blocks)
+__global__ void Zgpu(restrict_kernel)(const Tgpu* a, const int3 n,
+                                      Tgpu* b, const int3 b_n,
+                                      int xdiv, int blocks)
 {
     int i2, i1;
     int i2_x2, i1_x2;
@@ -210,25 +205,6 @@ __global__ void RESTRICT_kernel(const Tgpu* a, const int3 n,
     }
 }
 
-#else
-
-#define BLOCK_X   (BLOCK_X_FERMI)
-#define BLOCK_Y   (BLOCK_Y_FERMI)
-#  define RESTRICT_kernel Zgpu(restrict_kernel_fermi)
-#  include "restrict.cpp"
-#  undef RESTRICT_kernel
-#undef BLOCK_X
-#undef BLOCK_Y
-
-#define BLOCK_X   (BLOCK_X_KEPLER)
-#define BLOCK_Y   (BLOCK_Y_KEPLER)
-#  define RESTRICT_kernel Zgpu(restrict_kernel_kepler)
-#  include "restrict.cpp"
-#  undef RESTRICT_kernel
-#undef BLOCK_X
-#undef BLOCK_Y
-
-
 extern "C"
 void Zgpu(bmgs_restrict_gpu)(int k, const Tgpu* a, const int size[3],
                              Tgpu* b, const int sizeb[3], int blocks)
@@ -236,19 +212,7 @@ void Zgpu(bmgs_restrict_gpu)(int k, const Tgpu* a, const int size[3],
     if (k != 2)
         assert(0);
 
-    dim3 dimBlock(1,1);
-
-    switch (_gpaw_gpu_dev_prop.major) {
-        case 0:
-        case 1:
-        case 2:
-            dimBlock.x = BLOCK_X_FERMI;
-            dimBlock.y = BLOCK_Y_FERMI;
-            break;
-        default:
-            dimBlock.x = BLOCK_X_KEPLER;
-            dimBlock.y = BLOCK_Y_KEPLER;
-    }
+    dim3 dimBlock(BLOCK_X, BLOCK_Y);
 
     int xdiv = MIN(MAX(sizeb[0] / 2, 1),
                    MAX((4 + blocks - 1) / blocks, 1));
@@ -260,24 +224,13 @@ void Zgpu(bmgs_restrict_gpu)(int k, const Tgpu* a, const int size[3],
     int3 n = {size[0], size[1], size[2]};
     int3 b_n = {sizeb[0], sizeb[1], sizeb[2]};
 
-    switch (_gpaw_gpu_dev_prop.major) {
-        case 0:
-        case 1:
-        case 2:
-            gpuLaunchKernel(
-                    Zgpu(restrict_kernel_fermi), dimGrid, dimBlock, 0, 0,
-                    a, n ,b, b_n, xdiv, blocks);
-            break;
-        default:
-            gpuLaunchKernel(
-                    Zgpu(restrict_kernel_kepler), dimGrid, dimBlock, 0, 0,
-                    a, n, b, b_n, xdiv, blocks);
-    }
+    gpuLaunchKernel(
+            Zgpu(restrict_kernel), dimGrid, dimBlock, 0, 0,
+            a, n ,b, b_n, xdiv, blocks);
     gpuCheckLastError();
 }
 
 #ifndef GPU_USE_COMPLEX
 #define GPU_USE_COMPLEX
 #include "restrict.cpp"
-#endif
 #endif

@@ -7,12 +7,12 @@
 #include "../gpu-complex.h"
 
 #ifndef GPU_USE_COMPLEX
-#  define BLOCK_X 32
-#  define BLOCK_Y 16
-#  define BCACHE_X ((BLOCK_X)+1)
-#  define BCACHE_Y ((BLOCK_Y)+1)
-#  define ACACHE_X ((BLOCK_X)/2+1)
-#  define ACACHE_Y ((BLOCK_Y)/2+1)
+#  define BLOCK_X   (32)
+#  define BLOCK_Y   (16)
+#  define BCACHE_X  (BLOCK_X + 1)
+#  define BCACHE_Y  (BLOCK_Y + 1)
+#  define ACACHE_X  (BLOCK_X / 2 + 1)
+#  define ACACHE_Y  (BLOCK_Y / 2 + 1)
 #endif
 
 

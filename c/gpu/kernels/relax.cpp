@@ -7,11 +7,10 @@
 #include "../gpu.h"
 #include "../gpu-complex.h"
 
-#define BLOCK_X_FERMI   (16)
-#define BLOCK_Y_FERMI   (8)
-
-#define BLOCK_X_KEPLER   (32)
-#define BLOCK_Y_KEPLER   (16)
+#undef BLOCK_X
+#undef BLOCK_Y
+#define BLOCK_X   GPU_DEFAULT_BLOCK_X
+#define BLOCK_Y   GPU_DEFAULT_BLOCK_Y
 
 #ifdef MYJ
 #define ACACHE_X  (BLOCK_X + 2 * MYJ)
@@ -414,83 +413,38 @@ __global__ void RELAX_kernel_onlyb(
 }
 
 #else
-#undef BLOCK_X
-#undef BLOCK_Y
-#define BLOCK_X   (BLOCK_X_FERMI)
-#define BLOCK_Y   (BLOCK_Y_FERMI)
 
 #define MYJ  (2/2)
-#  define RELAX_kernel relax_kernel2_fermi
-#  define RELAX_kernel_onlyb relax_kernel2_onlyb_fermi
+#  define RELAX_kernel relax_kernel2
+#  define RELAX_kernel_onlyb relax_kernel2_onlyb
 #  include "relax.cpp"
 #  undef RELAX_kernel
 #  undef RELAX_kernel_onlyb
 #  undef MYJ
 #define MYJ  (4/2)
-#  define RELAX_kernel relax_kernel4_fermi
-#  define RELAX_kernel_onlyb relax_kernel4_onlyb_fermi
+#  define RELAX_kernel relax_kernel4
+#  define RELAX_kernel_onlyb relax_kernel4_onlyb
 #  include "relax.cpp"
 #  undef RELAX_kernel
 #  undef RELAX_kernel_onlyb
 #  undef MYJ
 #define MYJ  (6/2)
-#  define RELAX_kernel relax_kernel6_fermi
-#  define RELAX_kernel_onlyb relax_kernel6_onlyb_fermi
+#  define RELAX_kernel relax_kernel6
+#  define RELAX_kernel_onlyb relax_kernel6_onlyb
 #  include "relax.cpp"
 #  undef RELAX_kernel
 #  undef RELAX_kernel_onlyb
 #  undef MYJ
 #define MYJ  (8/2)
-#  define RELAX_kernel relax_kernel8_fermi
-#  define RELAX_kernel_onlyb relax_kernel8_onlyb_fermi
+#  define RELAX_kernel relax_kernel8
+#  define RELAX_kernel_onlyb relax_kernel8_onlyb
 #  include "relax.cpp"
 #  undef RELAX_kernel
 #  undef RELAX_kernel_onlyb
 #  undef MYJ
 #define MYJ  (10/2)
-#  define RELAX_kernel relax_kernel10_fermi
-#  define RELAX_kernel_onlyb relax_kernel10_onlyb_fermi
-#  include "relax.cpp"
-#  undef RELAX_kernel
-#  undef RELAX_kernel_onlyb
-#  undef MYJ
-
-#undef BLOCK_X
-#undef BLOCK_Y
-#define BLOCK_X   (BLOCK_X_KEPLER)
-#define BLOCK_Y   (BLOCK_Y_KEPLER)
-
-#define MYJ  (2/2)
-#  define RELAX_kernel relax_kernel2_kepler
-#  define RELAX_kernel_onlyb relax_kernel2_onlyb_kepler
-#  include "relax.cpp"
-#  undef RELAX_kernel
-#  undef RELAX_kernel_onlyb
-#  undef MYJ
-#define MYJ  (4/2)
-#  define RELAX_kernel relax_kernel4_kepler
-#  define RELAX_kernel_onlyb relax_kernel4_onlyb_kepler
-#  include "relax.cpp"
-#  undef RELAX_kernel
-#  undef RELAX_kernel_onlyb
-#  undef MYJ
-#define MYJ  (6/2)
-#  define RELAX_kernel relax_kernel6_kepler
-#  define RELAX_kernel_onlyb relax_kernel6_onlyb_kepler
-#  include "relax.cpp"
-#  undef RELAX_kernel
-#  undef RELAX_kernel_onlyb
-#  undef MYJ
-#define MYJ  (8/2)
-#  define RELAX_kernel relax_kernel8_kepler
-#  define RELAX_kernel_onlyb relax_kernel8_onlyb_kepler
-#  include "relax.cpp"
-#  undef RELAX_kernel
-#  undef RELAX_kernel_onlyb
-#  undef MYJ
-#define MYJ  (10/2)
-#  define RELAX_kernel relax_kernel10_kepler
-#  define RELAX_kernel_onlyb relax_kernel10_onlyb_kepler
+#  define RELAX_kernel relax_kernel10
+#  define RELAX_kernel_onlyb relax_kernel10_onlyb
 #  include "relax.cpp"
 #  undef RELAX_kernel
 #  undef RELAX_kernel_onlyb
@@ -503,8 +457,6 @@ bmgsstencil_gpu bmgs_stencil_to_gpu(const bmgsstencil* s);
 extern "C"
 int bmgs_fd_boundary_test(const bmgsstencil_gpu* s, int boundary,
                           int ndouble);
-
-dim3 bmgs_fd_cuda_get_blockDim(int ndouble);
 
 extern "C"
 void bmgs_relax_gpu(const int relax_method,
@@ -519,7 +471,7 @@ void bmgs_relax_gpu(const int relax_method,
     long3 hc_n;
     long3 hc_j;
 
-    dim3 dimBlock = bmgs_fd_cuda_get_blockDim(1);
+    dim3 dimBlock(BLOCK_X, BLOCK_Y);
 
     if ((boundary & GPAW_BOUNDARY_SKIP) != 0) {
         if (!bmgs_fd_boundary_test(s_gpu, boundary, 1))
@@ -671,46 +623,24 @@ void bmgs_relax_gpu(const int relax_method,
                 const double* src, const long3 c_n,
                 const int3 a_size, const int3 b_size,
                 const double w, const int xdiv);
-        if (_gpaw_gpu_dev_prop.major < 3) {
-            switch (s_gpu->ncoefs0) {
-                case 3:
-                    relax_kernel = relax_kernel2_fermi;
-                    break;
-                case 5:
-                    relax_kernel = relax_kernel4_fermi;
-                    break;
-                case 7:
-                    relax_kernel = relax_kernel6_fermi;
-                    break;
-                case 9:
-                    relax_kernel = relax_kernel8_fermi;
-                    break;
-                case 11:
-                    relax_kernel = relax_kernel10_fermi;
-                    break;
-                default:
-                    assert(0);
-            }
-        } else {
-            switch (s_gpu->ncoefs0) {
-                case 3:
-                    relax_kernel = relax_kernel2_kepler;
-                    break;
-                case 5:
-                    relax_kernel = relax_kernel4_kepler;
-                    break;
-                case 7:
-                    relax_kernel = relax_kernel6_kepler;
-                    break;
-                case 9:
-                    relax_kernel = relax_kernel8_kepler;
-                    break;
-                case 11:
-                    relax_kernel = relax_kernel10_kepler;
-                    break;
-                default:
-                    assert(0);
-            }
+        switch (s_gpu->ncoefs0) {
+            case 3:
+                relax_kernel = relax_kernel2;
+                break;
+            case 5:
+                relax_kernel = relax_kernel4;
+                break;
+            case 7:
+                relax_kernel = relax_kernel6;
+                break;
+            case 9:
+                relax_kernel = relax_kernel8;
+                break;
+            case 11:
+                relax_kernel = relax_kernel10;
+                break;
+            default:
+                assert(0);
         }
         gpuLaunchKernel(
                 (*relax_kernel), dimGrid, dimBlock, 0, stream,
@@ -730,46 +660,24 @@ void bmgs_relax_gpu(const int relax_method,
                 const double* src, const long3 c_n,
                 const int3 c_jb, const int boundary,
                 const double w, const int xdiv);
-        if (_gpaw_gpu_dev_prop.major < 3) {
-            switch (s_gpu->ncoefs0) {
-                case 3:
-                    relax_kernel = relax_kernel2_onlyb_fermi;
-                    break;
-                case 5:
-                    relax_kernel = relax_kernel4_onlyb_fermi;
-                    break;
-                case 7:
-                    relax_kernel = relax_kernel6_onlyb_fermi;
-                    break;
-                case 9:
-                    relax_kernel = relax_kernel8_onlyb_fermi;
-                    break;
-                case 11:
-                    relax_kernel = relax_kernel10_onlyb_fermi;
-                    break;
-                default:
-                    assert(0);
-            }
-        } else {
-            switch (s_gpu->ncoefs0) {
-                case 3:
-                    relax_kernel = relax_kernel2_onlyb_kepler;
-                    break;
-                case 5:
-                    relax_kernel = relax_kernel4_onlyb_kepler;
-                    break;
-                case 7:
-                    relax_kernel = relax_kernel6_onlyb_kepler;
-                    break;
-                case 9:
-                    relax_kernel = relax_kernel8_onlyb_kepler;
-                    break;
-                case 11:
-                    relax_kernel = relax_kernel10_onlyb_kepler;
-                    break;
-                default:
-                    assert(0);
-            }
+        switch (s_gpu->ncoefs0) {
+            case 3:
+                relax_kernel = relax_kernel2_onlyb;
+                break;
+            case 5:
+                relax_kernel = relax_kernel4_onlyb;
+                break;
+            case 7:
+                relax_kernel = relax_kernel6_onlyb;
+                break;
+            case 9:
+                relax_kernel = relax_kernel8_onlyb;
+                break;
+            case 11:
+                relax_kernel = relax_kernel10_onlyb;
+                break;
+            default:
+                assert(0);
         }
         gpuLaunchKernel(
                 (*relax_kernel), dimGrid, dimBlock, 0, stream,

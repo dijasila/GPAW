@@ -15,24 +15,13 @@
 #undef BLOCK_X
 #undef BLOCK_Y
 
-#define BLOCK_X_FERMI   (16)
-#define BLOCK_Y_FERMI   (8)
-#define BLOCK_X_FERMIZ  (2*16)
-#define BLOCK_Y_FERMIZ  (8)
-
-#define BLOCK_X_KEPLER   (32)
-#define BLOCK_Y_KEPLER   (16)
-#define BLOCK_X_KEPLERZ  (32)
-#define BLOCK_Y_KEPLERZ  (16)
+#define BLOCK_X   GPU_DEFAULT_BLOCK_X
+#define BLOCK_Y   GPU_DEFAULT_BLOCK_Y
 
 #ifndef GPU_USE_COMPLEX
-#define BLOCK_X   (BLOCK_X_DEF)
-#define BLOCK_Y   (BLOCK_Y_DEF)
 #define MYJ_X     (MYJ)
 #define NDOUBLE   1
 #else
-#define BLOCK_X   (BLOCK_X_DEFZ)
-#define BLOCK_Y   (BLOCK_Y_DEFZ)
 #define MYJ_X     (MYJ * NDOUBLE)
 #define NDOUBLE   2
 #endif
@@ -418,91 +407,38 @@ __global__ void FD_kernel_onlyb(
 
 
 #else
-#undef BLOCK_X_DEF
-#undef BLOCK_Y_DEF
-#undef BLOCK_X_DEFZ
-#undef BLOCK_Y_DEFZ
-#define BLOCK_X_DEF   (BLOCK_X_FERMI)
-#define BLOCK_Y_DEF   (BLOCK_Y_FERMI)
-#define BLOCK_X_DEFZ  (BLOCK_X_FERMIZ)
-#define BLOCK_Y_DEFZ  (BLOCK_Y_FERMIZ)
 
 #define MYJ  (2/2)
-#  define FD_kernel Zgpu(fd_kernel2_fermi)
-#  define FD_kernel_onlyb Zgpu(fd_kernel2_onlyb_fermi)
+#  define FD_kernel Zgpu(fd_kernel2)
+#  define FD_kernel_onlyb Zgpu(fd_kernel2_onlyb)
 #  include "fd.cpp"
 #  undef FD_kernel
 #  undef FD_kernel_onlyb
 #  undef MYJ
 #define MYJ  (4/2)
-#  define FD_kernel Zgpu(fd_kernel4_fermi)
-#  define FD_kernel_onlyb Zgpu(fd_kernel4_onlyb_fermi)
+#  define FD_kernel Zgpu(fd_kernel4)
+#  define FD_kernel_onlyb Zgpu(fd_kernel4_onlyb)
 #  include "fd.cpp"
 #  undef FD_kernel
 #  undef FD_kernel_onlyb
 #  undef MYJ
 #define MYJ  (6/2)
-#  define FD_kernel Zgpu(fd_kernel6_fermi)
-#  define FD_kernel_onlyb Zgpu(fd_kernel6_onlyb_fermi)
+#  define FD_kernel Zgpu(fd_kernel6)
+#  define FD_kernel_onlyb Zgpu(fd_kernel6_onlyb)
 #  include "fd.cpp"
 #  undef FD_kernel
 #  undef FD_kernel_onlyb
 #  undef MYJ
 #define MYJ  (8/2)
-#  define FD_kernel Zgpu(fd_kernel8_fermi)
-#  define FD_kernel_onlyb Zgpu(fd_kernel8_onlyb_fermi)
+#  define FD_kernel Zgpu(fd_kernel8)
+#  define FD_kernel_onlyb Zgpu(fd_kernel8_onlyb)
 #  include "fd.cpp"
 #  undef FD_kernel
 #  undef FD_kernel_onlyb
 #  undef MYJ
 #define MYJ  (10/2)
-#  define FD_kernel Zgpu(fd_kernel10_fermi)
-#  define FD_kernel_onlyb Zgpu(fd_kernel10_onlyb_fermi)
-#  include "fd.cpp"
-#  undef FD_kernel
-#  undef FD_kernel_onlyb
-#  undef MYJ
-
-#undef BLOCK_X_DEF
-#undef BLOCK_Y_DEF
-#undef BLOCK_X_DEFZ
-#undef BLOCK_Y_DEFZ
-#define BLOCK_X_DEF   (BLOCK_X_KEPLER)
-#define BLOCK_Y_DEF   (BLOCK_Y_KEPLER)
-#define BLOCK_X_DEFZ  (BLOCK_X_KEPLERZ)
-#define BLOCK_Y_DEFZ  (BLOCK_Y_KEPLERZ)
-
-#define MYJ  (2/2)
-#  define FD_kernel Zgpu(fd_kernel2_kepler)
-#  define FD_kernel_onlyb Zgpu(fd_kernel2_onlyb_kepler)
-#  include "fd.cpp"
-#  undef FD_kernel
-#  undef FD_kernel_onlyb
-#  undef MYJ
-#define MYJ  (4/2)
-#  define FD_kernel Zgpu(fd_kernel4_kepler)
-#  define FD_kernel_onlyb Zgpu(fd_kernel4_onlyb_kepler)
-#  include "fd.cpp"
-#  undef FD_kernel
-#  undef FD_kernel_onlyb
-#  undef MYJ
-#define MYJ  (6/2)
-#  define FD_kernel Zgpu(fd_kernel6_kepler)
-#  define FD_kernel_onlyb Zgpu(fd_kernel6_onlyb_kepler)
-#  include "fd.cpp"
-#  undef FD_kernel
-#  undef FD_kernel_onlyb
-#  undef MYJ
-#define MYJ  (8/2)
-#  define FD_kernel Zgpu(fd_kernel8_kepler)
-#  define FD_kernel_onlyb Zgpu(fd_kernel8_onlyb_kepler)
-#  include "fd.cpp"
-#  undef FD_kernel
-#  undef FD_kernel_onlyb
-#  undef MYJ
-#define MYJ  (10/2)
-#  define FD_kernel Zgpu(fd_kernel10_kepler)
-#  define FD_kernel_onlyb Zgpu(fd_kernel10_onlyb_kepler)
+#  define FD_kernel Zgpu(fd_kernel10)
+#  define FD_kernel_onlyb Zgpu(fd_kernel10_onlyb)
 #  include "fd.cpp"
 #  undef FD_kernel
 #  undef FD_kernel_onlyb
@@ -516,8 +452,6 @@ extern "C"
 int bmgs_fd_boundary_test(
         const bmgsstencil_gpu* s, int boundary, int ndouble);
 
-dim3 bmgs_fd_cuda_get_blockDim(int ndouble);
-
 extern "C"
 void Zgpu(bmgs_fd_gpu)(
         const bmgsstencil_gpu* s_gpu, const Tgpu* adev, Tgpu* bdev,
@@ -530,7 +464,7 @@ void Zgpu(bmgs_fd_gpu)(
     int3 hc_j;
     long *offsets_gpu;
 
-    dim3 dimBlock = bmgs_fd_cuda_get_blockDim(NDOUBLE);
+    dim3 dimBlock(BLOCK_X, BLOCK_Y);
 
     if ((boundary & GPAW_BOUNDARY_SKIP) != 0) {
         if (!bmgs_fd_boundary_test(s_gpu, boundary, NDOUBLE))
@@ -682,46 +616,24 @@ void Zgpu(bmgs_fd_gpu)(
                           const double* a, double* b, const int3 c_n,
                           const int3 a_size, const int3 b_size,
                           const int xdiv, const int blocks);
-        if (_gpaw_gpu_dev_prop.major < 3) {
-            switch (s_gpu->ncoefs0) {
-                case 3:
-                    fd_kernel = Zgpu(fd_kernel2_fermi);
-                    break;
-                case 5:
-                    fd_kernel = Zgpu(fd_kernel4_fermi);
-                    break;
-                case 7:
-                    fd_kernel = Zgpu(fd_kernel6_fermi);
-                    break;
-                case 9:
-                    fd_kernel = Zgpu(fd_kernel8_fermi);
-                    break;
-                case 11:
-                    fd_kernel = Zgpu(fd_kernel10_fermi);
-                    break;
-                default:
-                    assert(0);
-            }
-        } else {
-            switch (s_gpu->ncoefs0) {
-                case 3:
-                    fd_kernel = Zgpu(fd_kernel2_kepler);
-                    break;
-                case 5:
-                    fd_kernel = Zgpu(fd_kernel4_kepler);
-                    break;
-                case 7:
-                    fd_kernel = Zgpu(fd_kernel6_kepler);
-                    break;
-                case 9:
-                    fd_kernel = Zgpu(fd_kernel8_kepler);
-                    break;
-                case 11:
-                    fd_kernel = Zgpu(fd_kernel10_kepler);
-                    break;
-                default:
-                    assert(0);
-            }
+        switch (s_gpu->ncoefs0) {
+            case 3:
+                fd_kernel = Zgpu(fd_kernel2);
+                break;
+            case 5:
+                fd_kernel = Zgpu(fd_kernel4);
+                break;
+            case 7:
+                fd_kernel = Zgpu(fd_kernel6);
+                break;
+            case 9:
+                fd_kernel = Zgpu(fd_kernel8);
+                break;
+            case 11:
+                fd_kernel = Zgpu(fd_kernel10);
+                break;
+            default:
+                assert(0);
         }
         gpuLaunchKernel(
                 (*fd_kernel), dimGrid, dimBlock, 0, stream,
@@ -738,19 +650,19 @@ void Zgpu(bmgs_fd_gpu)(
                           const int xdiv, const int blocks);
         switch (s_gpu->ncoefs0) {
             case 3:
-                fd_kernel = Zgpu(fd_kernel2_onlyb_fermi);
+                fd_kernel = Zgpu(fd_kernel2_onlyb);
                 break;
             case 5:
-                fd_kernel = Zgpu(fd_kernel4_onlyb_fermi);
+                fd_kernel = Zgpu(fd_kernel4_onlyb);
                 break;
             case 7:
-                fd_kernel = Zgpu(fd_kernel6_onlyb_fermi);
+                fd_kernel = Zgpu(fd_kernel6_onlyb);
                 break;
             case 9:
-                fd_kernel = Zgpu(fd_kernel8_onlyb_fermi);
+                fd_kernel = Zgpu(fd_kernel8_onlyb);
                 break;
             case 11:
-                fd_kernel = Zgpu(fd_kernel10_onlyb_fermi);
+                fd_kernel = Zgpu(fd_kernel10_onlyb);
                 break;
             default:
                 assert(0);
@@ -769,34 +681,6 @@ void Zgpu(bmgs_fd_gpu)(
 #define GPU_USE_COMPLEX
 #include "fd.cpp"
 
-dim3 bmgs_fd_cuda_get_blockDim(int ndouble)
-{
-    dim3 dimBlock(1,1,1);
-
-    switch (_gpaw_gpu_dev_prop.major) {
-        case 0:
-        case 1:
-        case 2:
-            if (ndouble == 1) {
-                dimBlock.x = BLOCK_X_FERMI;
-                dimBlock.y = BLOCK_Y_FERMI;
-            } else {
-                dimBlock.x = BLOCK_X_FERMIZ;
-                dimBlock.y = BLOCK_Y_FERMIZ;
-            }
-            break;
-        default:
-            if (ndouble == 1) {
-                dimBlock.x = BLOCK_X_KEPLER;
-                dimBlock.y = BLOCK_Y_KEPLER;
-            } else {
-                dimBlock.x = BLOCK_X_KEPLERZ;
-                dimBlock.y = BLOCK_Y_KEPLERZ;
-            }
-    }
-    return dimBlock;
-}
-
 extern "C"
 int bmgs_fd_boundary_test(const bmgsstencil_gpu* s, int boundary,
                           int ndouble)
@@ -806,7 +690,7 @@ int bmgs_fd_boundary_test(const bmgsstencil_gpu* s, int boundary,
     long3 hc_n;
     long3 hc_j;
 
-    dim3 dimBlock = bmgs_fd_cuda_get_blockDim(ndouble);
+    dim3 dimBlock(BLOCK_X, BLOCK_Y);
 
     hc_n.x = s->n[0];
     hc_n.y = s->n[1];
