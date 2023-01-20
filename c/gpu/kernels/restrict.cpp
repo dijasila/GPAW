@@ -279,38 +279,5 @@ void Zgpu(bmgs_restrict_cuda_gpu)(int k, const Tgpu* a, const int size[3],
 #ifndef GPU_USE_COMPLEX
 #define GPU_USE_COMPLEX
 #include "restrict.cpp"
-
-extern "C"
-double bmgs_restrict_cuda_cpu(int k, double* a, const int n[3],
-                              double* b, int blocks)
-{
-    double *adev, *bdev;
-    size_t bsize, asize;
-    struct timeval t0, t1;
-    double flops;
-    int b_n[3] = {(n[0] - 1) / 2, (n[1] - 1) / 2, (n[2] - 1) / 2};
-
-    asize = n[0] * n[1] * n[2];
-    bsize = b_n[0] * b_n[1] * b_n[2];
-
-    gpuMalloc(&adev, sizeof(double) * asize * blocks);
-    gpuMalloc(&bdev, sizeof(double) * bsize * blocks);
-    gpuMemcpy(adev, a, sizeof(double) * asize * blocks, gpuMemcpyHostToDevice);
-
-    gettimeofday(&t0, NULL);
-    bmgs_restrict_cuda_gpu(k, adev, n, bdev, b_n, blocks);
-    gpuDeviceSynchronize();
-    gpuCheckLastError();
-    gettimeofday(&t1, NULL);
-
-    gpuMemcpy(b, bdev, sizeof(double) * bsize * blocks,
-              gpuMemcpyDeviceToHost);
-    gpuFree(adev);
-    gpuFree(bdev);
-
-    flops = t1.tv_sec * 1.0 + t1.tv_usec / 1000000.0 - t0.tv_sec * 1.0
-          - t0.tv_usec / 1000000.0;
-    return flops;
-}
 #endif
 #endif

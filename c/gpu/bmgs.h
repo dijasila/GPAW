@@ -39,9 +39,6 @@ void bmgs_translate_cuda_gpu(double* a, const int sizea[3], const int size[3],
 void bmgs_restrict_cuda_gpu(int k, double* a, const int n[3], double* b,
                             const int nb[3], int blocks);
 
-double bmgs_restrict_cuda_cpu(int k, double* a, const int n[3], double* b,
-                              int blocks);
-
 void bmgs_interpolate_cuda_gpu(int k, int skip[3][2],
                                const double* a, const int n[3],
                                double* b, const int sizeb[3],
