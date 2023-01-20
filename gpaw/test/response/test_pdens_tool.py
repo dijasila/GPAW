@@ -55,10 +55,13 @@ def test_response_pdens_tool(in_tmp_dir):
                                                 spins=spins,
                                                 ecut=10)
 
+    nocc1, nocc2 = pair.gs.count_occupied_bands(1e-6)
+    # XXX should we know 1e-6?
+
     # non-empty bands
-    n_n = np.arange(0, pair.nocc2)
+    n_n = np.arange(0, nocc2)
     # not completely filled bands
-    m_m = np.arange(pair.nocc1, pair.calc.wfs.bd.nbands)
+    m_m = np.arange(nocc1, pair.gs.bd.nbands)
 
     nt = len(domainarg_td)
     nn = len(n_n)

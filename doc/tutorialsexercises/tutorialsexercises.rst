@@ -28,6 +28,7 @@ in materials physics, chemistry and biology
    opticalresponse/opticalresponse
    vibrational/vibrational
    wavefunctions/wavefunctions
+   localorbitals/localorbitals
    faeq
 
 

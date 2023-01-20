@@ -1,3 +1,4 @@
+import pytest
 from ase.build import molecule
 
 from gpaw import GPAW, FermiDirac
@@ -5,6 +6,7 @@ from gpaw.cluster import Cluster
 from gpaw.lrtddft import LrTDDFT
 
 
+@pytest.mark.lrtddft
 def test_lrtddft(in_tmp_dir):
     from ase.vibrations.resonant_raman import ResonantRamanCalculator
     h = 0.25

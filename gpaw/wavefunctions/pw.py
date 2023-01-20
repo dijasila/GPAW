@@ -191,7 +191,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         return self.pd.integrate(a_xg, b_yg, global_integral)
 
     def bytes_per_wave_function(self):
-        return 16 * self.pd.ngmax
+        return 16 * self.pd.maxmyng
 
     def set_setups(self, setups):
         self.timer.start('PWDescriptor')
@@ -338,6 +338,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
                         self.pd.ifft(1j * G_Gv[:, v] * psit_G, kpt.q))**2
 
         self.kptband_comm.sum(taut_sR)
+        for taut_R in taut_sR:
+            self.kd.symmetry.symmetrize(taut_R, self.gd)
         return taut_sR
 
     def apply_mgga_orbital_dependent_hamiltonian(self, kpt, psit_xG,

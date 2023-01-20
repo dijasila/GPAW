@@ -3,7 +3,9 @@ from __future__ import annotations
 from math import pi, sqrt
 from typing import TYPE_CHECKING
 
+import numpy as np
 from ase.units import Bohr, Ha
+
 from gpaw.atom.shapefunc import shape_functions
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.atom_arrays import AtomArrays
@@ -51,6 +53,16 @@ class ElectrostaticPotential:
         W_aL = self.W_aL.gather()
         assert W_aL is not None
         return W_aL.data[::9] * (Ha / (4 * pi)**0.5)
+
+    def atomic_corrections(self):
+        """Calculate PAW correction to average electrostatic potential."""
+        dEH_a = np.zeros(len(self.setups))
+        for a, D_sii in self.D_asii.items():
+            setup = self.setups[a]
+            D_p = pack(D_sii.sum(0))
+            dEH_a[a] = setup.dEH0 + setup.dEH_p @ D_p
+        self.D_asii.comm.sum(dEH_a)
+        return dEH_a * Ha * Bohr**3
 
     def pseudo_potential(self,
                          grid_spacing: float = 0.05,  # Ang

@@ -270,8 +270,7 @@ class GridDescriptor(Domain):
         return peer_comm
 
     def integrate(self, a_xg, b_yg=None,
-                  global_integral=True, hermitian=False,
-                  _transposed_result=None):
+                  global_integral=True, hermitian=False):
         """Integrate function(s) over domain.
 
         a_xg: ndarray
@@ -284,9 +283,7 @@ class GridDescriptor(Domain):
             only, use global_integral=False.
         hermitian: bool
             Result is hermitian.
-        _transposed_result: ndarray
-            Long story.  Don't use this unless you are a method of the
-            MatrixOperator class ..."""
+        """
 
         xshape = a_xg.shape[:-3]
 
@@ -304,11 +301,7 @@ class GridDescriptor(Domain):
         A_xg = np.ascontiguousarray(a_xg.reshape((-1, gsize)))
         B_yg = np.ascontiguousarray(b_yg.reshape((-1, gsize)))
 
-        if _transposed_result is None:
-            result_yx = np.zeros((len(B_yg), len(A_xg)), A_xg.dtype)
-        else:
-            result_yx = _transposed_result
-            global_integral = False
+        result_yx = np.zeros((len(B_yg), len(A_xg)), A_xg.dtype)
 
         if a_xg is b_yg:
             rk(self.dv, A_xg, 0.0, result_yx)

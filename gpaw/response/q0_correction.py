@@ -7,15 +7,34 @@ class Q0Correction:
         self.bzk_kc = bzk_kc
         self.N_c = N_c
 
-        self.x0density = 0.1  # ? 0.01
+        # Check that basic assumptions of cell and k-grid
+        # for Q0Correction are fulfilled
+        assert N_c[2] == 1  # z-axis is non periodic direction
+        assert (all(cell_cv[:2, 2] == 0) and all(cell_cv[2, :2] == 0)
+                and cell_cv[2, 2] > 0)
+        
+        # Hardcoded crap?
+        x0density = 0.1  # ? 0.01
 
-    def add_q0_correction(self, pd, W_GG, einv_GG, chi0_xvG, chi0_vv,
-                          sqrtV_G, fd=None):
-        from ase.dft import monkhorst_pack
-        pi = np.pi
-        cell_cv = self.cell_cv
-        qpts_qc = self.bzk_kc
+        # Generate numerical q-point grid
+        self.rcell_cv = 2 * np.pi * np.linalg.inv(cell_cv).T
+
+        # Prepare stuff
+        self.q0cell_cv = np.array([1, 1, 1])**0.5 * self.rcell_cv / self.N_c
         L = cell_cv[2, 2]
+        q0density = 2. / L * x0density
+        npts_c = np.ceil(np.sum(self.q0cell_cv**2, axis=1)**0.5 /
+                         q0density).astype(int)
+        npts_c[2] = 1
+        npts_c += (npts_c + 1) % 2
+        self.npts_c = npts_c
+
+    def add_q0_correction(self, pd, W_GG, einv_GG, chi0_xvG, chi0_vv, sqrtV_G):
+        from ase.dft import monkhorst_pack
+        qpts_qc = self.bzk_kc
+        pi = np.pi
+        L = self.cell_cv[2, 2]
+        
         vc_G0 = sqrtV_G[1:]**2
 
         B_GG = einv_GG[1:, 1:]
@@ -35,36 +54,22 @@ class Q0Correction:
         G2_G = np.sum(G_Gv**2, axis=1)
         Gpar_G = np.sum(G_Gv[:, 0:2]**2, axis=1)**0.5
 
-        # Generate numerical q-point grid
-        rcell_cv = 2 * pi * np.linalg.inv(cell_cv).T
-
+        # There is still a lot of stuff here,
+        # which could go to the constructor! XXX
         iq = np.argmin(np.sum(qpts_qc**2, axis=1))
         assert np.allclose(qpts_qc[iq], 0)
-        q0cell_cv = np.array([1, 1, 1])**0.5 * rcell_cv / self.N_c
-        q0vol = abs(np.linalg.det(q0cell_cv))
+        q0vol = abs(np.linalg.det(self.q0cell_cv))
 
-        x0density = self.x0density
-        q0density = 2. / L * x0density
-        npts_c = np.ceil(np.sum(q0cell_cv**2, axis=1)**0.5 /
-                         q0density).astype(int)
-        npts_c[2] = 1
-        npts_c += (npts_c + 1) % 2
-        if fd is not None:
-            print('Applying analytical 2D correction to W:',
-                  file=fd)
-            print('    Evaluating Gamma point contribution to W on a ' +
-                  '%dx%dx%d grid' % tuple(npts_c), file=fd)
-
-        qpts_qc = monkhorst_pack(npts_c)
+        qpts_qc = monkhorst_pack(self.npts_c)
         qgamma = np.argmin(np.sum(qpts_qc**2, axis=1))
 
-        qpts_qv = np.dot(qpts_qc, q0cell_cv)
+        qpts_qv = np.dot(qpts_qc, self.q0cell_cv)
         qpts_q = np.sum(qpts_qv**2, axis=1)**0.5
         qpts_q[qgamma] = 1e-14
         qdir_qv = qpts_qv / qpts_q[:, np.newaxis]
         qdir_qvv = qdir_qv[:, :, np.newaxis] * qdir_qv[:, np.newaxis, :]
         nq = len(qpts_qc)
-        q0area = q0vol / q0cell_cv[2, 2]
+        q0area = q0vol / self.q0cell_cv[2, 2]
         dq0 = q0area / nq
         dq0rad = (dq0 / pi)**0.5
         R = L / 2.

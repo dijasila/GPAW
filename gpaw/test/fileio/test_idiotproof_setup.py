@@ -1,10 +1,14 @@
+import warnings
+
+import pytest
 from ase.build import molecule
+
 from gpaw import GPAW
 
-import warnings
 # Silence those warnings.
 
 
+@pytest.mark.legacy
 def test_fileio_idiotproof_setup(in_tmp_dir):
     warnings.filterwarnings('ignore', 'Setup for',)
 

@@ -1,9 +1,11 @@
+import pytest
 from ase import Atoms
 from gpaw import GPAW
 from gpaw.lrtddft import LrTDDFT
 from gpaw.lrtddft.spectrum import spectrum
 
 
+@pytest.mark.lrtddft
 def test_lrtddft_2(in_tmp_dir):
     txt = '-'
     txt = None

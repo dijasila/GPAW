@@ -32,6 +32,7 @@ PyObject* symmetrize_wavefunction(PyObject *self, PyObject *args);
 PyObject* symmetrize_return_index(PyObject *self, PyObject *args);
 PyObject* symmetrize_with_index(PyObject *self, PyObject *args);
 PyObject* map_k_points(PyObject *self, PyObject *args);
+PyObject* GG_shuffle(PyObject *self, PyObject *args);
 PyObject* tetrahedron_weight(PyObject *self, PyObject *args);
 #ifndef GPAW_WITHOUT_BLAS
 PyObject* mmm(PyObject *self, PyObject *args);
@@ -105,7 +106,6 @@ PyObject* pyelpa_set_comm(PyObject *self, PyObject *args);
 PyObject* pyelpa_setup(PyObject *self, PyObject *args);
 PyObject* pyelpa_diagonalize(PyObject *self, PyObject *args);
 PyObject* pyelpa_general_diagonalize(PyObject *self, PyObject *args);
-PyObject* pyelpa_hermitian_multiply(PyObject *self, PyObject *args);
 PyObject* pyelpa_constants(PyObject *self, PyObject *args);
 PyObject* pyelpa_deallocate(PyObject *self, PyObject *args);
 #endif // GPAW_WITH_ELPA
@@ -162,6 +162,7 @@ static PyMethodDef functions[] = {
     {"symmetrize_return_index", symmetrize_return_index, METH_VARARGS, 0},
     {"symmetrize_with_index", symmetrize_with_index, METH_VARARGS, 0},
     {"map_k_points", map_k_points, METH_VARARGS, 0},
+    {"GG_shuffle", GG_shuffle, METH_VARARGS, 0},
     {"tetrahedron_weight", tetrahedron_weight, METH_VARARGS, 0},
 #ifndef GPAW_WITHOUT_BLAS
     {"mmm", mmm, METH_VARARGS, 0},
@@ -239,7 +240,6 @@ static PyMethodDef functions[] = {
     {"pyelpa_set_comm", pyelpa_set_comm, METH_VARARGS, 0},
     {"pyelpa_diagonalize", pyelpa_diagonalize, METH_VARARGS, 0},
     {"pyelpa_general_diagonalize", pyelpa_general_diagonalize, METH_VARARGS, 0},
-    {"pyelpa_hermitian_multiply", pyelpa_hermitian_multiply, METH_VARARGS, 0},
     {"pyelpa_constants", pyelpa_constants, METH_VARARGS, 0},
     {"pyelpa_deallocate", pyelpa_deallocate, METH_VARARGS, 0},
 #endif // GPAW_WITH_ELPA
@@ -391,7 +391,7 @@ static PyObject* moduleinit(void)
 #else
     PyObject_SetAttrString(m, "have_openmp", Py_False);
 #endif
-    PyObject_SetAttrString(m, "version", PyLong_FromLong(2));
+    PyObject_SetAttrString(m, "version", PyLong_FromLong(3));
 
     Py_INCREF(&LFCType);
     Py_INCREF(&OperatorType);

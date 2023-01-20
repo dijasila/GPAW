@@ -9,6 +9,7 @@ from ase import Atoms
 import numpy as np
 
 
+@pytest.mark.mom
 def test_mom_directopt_lcao(in_tmp_dir):
     # Water molecule:
     d = 0.9575

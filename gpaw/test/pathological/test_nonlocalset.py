@@ -17,6 +17,7 @@ from gpaw.test import equal
 
 
 @pytest.mark.libxc
+@pytest.mark.legacy
 def test_pathological_nonlocalset():
     atoms = Atoms('HF', positions=[(0.0, 0.0, 0.0), (1.0, 0.0, 0.0)])
     atoms.set_pbc((True, True, True))

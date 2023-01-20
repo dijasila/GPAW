@@ -3,6 +3,7 @@ from gpaw import GPAW
 from gpaw.wannier import calculate_overlaps
 
 
+@pytest.mark.wannier
 @pytest.mark.serial
 @pytest.mark.parametrize('mode', ['pw', 'fd', 'lcao'])
 def test_wan_h2(gpw_files, mode, in_tmp_dir):

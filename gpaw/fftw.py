@@ -12,6 +12,7 @@ from scipy.fft import fftn, ifftn, irfftn, rfftn
 
 import _gpaw
 from gpaw.typing import Array3D, DTypeLike, IntVector
+from gpaw import SCIPY_VERSION
 
 ESTIMATE = 64
 MEASURE = 0
@@ -70,8 +71,11 @@ def empty(shape, dtype=float):
 
 def create_plans(size_c: IntVector,
                  dtype: DTypeLike,
-                 flags: int = MEASURE) -> FFTPlans:
+                 flags: int = MEASURE,
+                 xp=np) -> FFTPlans:
     """Create plan-objects for FFT and inverse FFT."""
+    if xp is not np:
+        return CuPyFFTPlans(size_c, dtype)
     if have_fftw():
         return FFTWPlans(size_c, dtype, flags)
     return NumpyFFTPlans(size_c, dtype)
@@ -111,6 +115,24 @@ class FFTPlans:
         """
         raise NotImplementedError
 
+    def ifft_sphere(self, coef_G, pw, out_R):
+        pw.paste(coef_G, self.tmp_Q)
+        if pw.dtype == float:
+            t = self.tmp_Q[:, :, 0]
+            n, m = (s // 2 - 1 for s in out_R.desc.size_c[:2])
+            t[0, -m:] = t[0, m:0:-1].conj()
+            t[n:0:-1, -m:] = t[-n:, m:0:-1].conj()
+            t[-n:, -m:] = t[n:0:-1, m:0:-1].conj()
+            t[-n:, 0] = t[n:0:-1, 0].conj()
+        self.ifft()
+        out_R.scatter_from(self.tmp_R)
+
+    def fft_sphere(self, in_R, pw):
+        self.tmp_R[:] = in_R.data
+        self.fft()
+        coefs = pw.cut(self.tmp_Q) * (1 / self.tmp_R.size)
+        return coefs
+
 
 class FFTWPlans(FFTPlans):
     """FFTW3 3d transforms."""
@@ -147,6 +169,42 @@ class NumpyFFTPlans(FFTPlans):
         else:
             self.tmp_R[:] = ifftn(self.tmp_Q, self.tmp_R.shape,
                                   norm='forward', overwrite_x=True)
+
+
+class CuPyFFTPlans(FFTPlans):
+    def __init__(self,
+                 size_c: IntVector,
+                 dtype: DTypeLike):
+        assert dtype == complex
+        self.size_c = size_c
+        self.pw = None
+
+    def indices(self, pw):
+        from gpaw.gpu import cupy as cp
+        if self.pw is None:
+            self.pw = pw
+            self.Q_G = cp.asarray(pw.indices(tuple(self.size_c)))
+        else:
+            assert pw is self.pw
+        return self.Q_G
+
+    def ifft_sphere(self, coef_G, pw, out_R):
+        from gpaw.gpu import cupyx
+        array_Q = out_R.data
+        array_Q[:] = 0.0
+        Q_G = self.indices(pw)
+        array_Q.ravel()[Q_G] = coef_G
+        assert SCIPY_VERSION >= [1, 6]
+        array_Q[:] = cupyx.scipy.fft.ifftn(
+            array_Q, array_Q.shape,
+            norm='forward', overwrite_x=True)
+
+    def fft_sphere(self, in_R, pw):
+        from gpaw.gpu import cupyx
+        out_Q = cupyx.scipy.fft.fftn(in_R, overwrite_x=True)
+        Q_G = self.indices(pw)
+        coef_G = out_Q.ravel()[Q_G] * (1 / in_R.size)
+        return coef_G
 
 
 # The rest of this file will be removed in the future ...

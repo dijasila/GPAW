@@ -7,6 +7,7 @@ from gpaw import GPAW, Mixer
 from gpaw.test import equal
 
 
+@pytest.mark.later
 @pytest.mark.libxc
 def test_jellium(in_tmp_dir):
     rs = 5.0 * Bohr  # Wigner-Seitz radius

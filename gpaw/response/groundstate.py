@@ -14,6 +14,7 @@ class ResponseGroundStateAdapter:
         self.kd = wfs.kd
         self.world = calc.world
         self.gd = wfs.gd
+        self.finegd = calc.density.finegd
         self.bd = wfs.bd
         self.nspins = wfs.nspins
         self.dtype = wfs.dtype
@@ -87,16 +88,32 @@ class ResponseGroundStateAdapter:
 
     @property
     def nt_sR(self):
-        # Used by fxc_kernels
+        # Used by localft and fxc_kernels
         return self._density.nt_sG
+
+    @property
+    def nt_sr(self):
+        # Used by localft
+        if self._density.nt_sg is None:
+            self._density.interpolate_pseudo_density()
+        return self._density.nt_sg
 
     @property
     def D_asp(self):
         # Used by fxc_kernels
         return self._density.D_asp
 
-    def all_electron_density(self, gridrefinement=2):
-        # Used by fxc_kernels
+    def get_pseudo_density(self, gridrefinement=2):
+        # Used by localft
+        if gridrefinement == 1:
+            return self.nt_sR, self.gd
+        elif gridrefinement == 2:
+            return self.nt_sr, self.finegd
+        else:
+            raise ValueError(f'Invalid gridrefinement {gridrefinement}')
+
+    def get_all_electron_density(self, gridrefinement=2):
+        # Used by fxc, fxc_kernels and localft
         return self._density.get_all_electron_density(
             atoms=self.atoms, gridrefinement=gridrefinement)
 
@@ -154,3 +171,31 @@ class ResponseGroundStateAdapter:
         # XXX used by gpaw/xc/tools.py in a hacky way
         return self._wfs._get_wave_function_array(
             u, n, realspace=True)
+
+    def pair_density_paw_corrections(self, pd):
+        from gpaw.response.paw import get_pair_density_paw_corrections
+        return get_pair_density_paw_corrections(
+            setups=self.setups, pd=pd, spos_ac=self.spos_ac)
+
+    def get_pos_av(self):
+        # gd.cell_cv must always be the same as pd.gd.cell_cv, right??
+        return np.dot(self.spos_ac, self.gd.cell_cv)
+
+    def count_occupied_bands(self, ftol):
+        nocc1 = 9999999
+        nocc2 = 0
+        for kpt in self.kpt_u:
+            f_n = kpt.f_n / kpt.weight
+            nocc1 = min((f_n > 1 - ftol).sum(), nocc1)
+            nocc2 = max((f_n > ftol).sum(), nocc2)
+        return nocc1, nocc2
+
+    @property
+    def ibzq_qc(self):
+        # For G0W0Kernel
+        kd = self.kd
+        bzq_qc = kd.get_bz_q_points(first=True)
+        U_scc = kd.symmetry.op_scc
+        ibzq_qc = kd.get_ibz_q_points(bzq_qc, U_scc)[0]
+
+        return ibzq_qc

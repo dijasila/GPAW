@@ -14,8 +14,9 @@ nbnd_list = [500, 200, 100, 50, 40]
 
 for rc, ec, nbnd in zip(rc_list, cutoff_list, nbnd_list):
     fxc = FXCCorrelation('si.lda_wfcs.gpw',
+                         ecut=[ec * Hartree],
                          xc='range_RPA',
                          txt='si_range.' + str(rc) + '.txt',
                          range_rc=rc)
-    E_i = fxc.calculate(ecut=[ec * Hartree], nbands=nbnd)
+    E_i = fxc.calculate(nbands=nbnd)
     resultfile.write(str(rc) + ' ' + str(E_i[0]) + '\n')
