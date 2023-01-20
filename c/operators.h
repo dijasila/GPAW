@@ -31,8 +31,8 @@ typedef struct _OperatorObject OperatorObject;
 #endif
 
 #ifdef GPAW_GPU
-void operator_init_cuda(OperatorObject *self);
-void operator_dealloc_cuda(int force);
+void operator_init_gpu(OperatorObject *self);
+void operator_dealloc_gpu(int force);
 #endif
 
 void apply_worker(OperatorObject *self, int chunksize, int start,

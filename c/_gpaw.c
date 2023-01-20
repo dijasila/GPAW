@@ -167,24 +167,24 @@ PyObject* calculate_forces_H2O(PyObject *self, PyObject *args);
 
 
 #ifdef GPAW_GPU
-PyObject* gpaw_cuda_init(PyObject *self, PyObject *args);
-PyObject* gpaw_cuda_delete(PyObject *self, PyObject *args);
-PyObject* set_gpaw_cuda_debug(PyObject *self, PyObject *args);
+PyObject* gpaw_gpu_init(PyObject *self, PyObject *args);
+PyObject* gpaw_gpu_delete(PyObject *self, PyObject *args);
+PyObject* set_gpaw_gpu_debug(PyObject *self, PyObject *args);
 PyObject* csign_gpu(PyObject *self, PyObject *args);
-PyObject* scal_cuda_gpu(PyObject *self, PyObject *args);
-PyObject* multi_scal_cuda_gpu(PyObject *self, PyObject *args);
+PyObject* scal_gpu(PyObject *self, PyObject *args);
+PyObject* multi_scal_gpu(PyObject *self, PyObject *args);
 PyObject* mmm_gpu(PyObject *self, PyObject *args);
-PyObject* gemm_cuda_gpu(PyObject *self, PyObject *args);
-PyObject* gemv_cuda_gpu(PyObject *self, PyObject *args);
-PyObject* rk_cuda_gpu(PyObject *self, PyObject *args);
-PyObject* axpy_cuda_gpu(PyObject *self, PyObject *args);
-PyObject* multi_axpy_cuda_gpu(PyObject *self, PyObject *args);
-PyObject* r2k_cuda_gpu(PyObject *self, PyObject *args);
-PyObject* dotc_cuda_gpu(PyObject *self, PyObject *args);
-PyObject* dotu_cuda_gpu(PyObject *self, PyObject *args);
-PyObject* multi_dotu_cuda_gpu(PyObject *self, PyObject *args);
-PyObject* multi_dotc_cuda_gpu(PyObject *self, PyObject *args);
-PyObject* add_linear_field_cuda_gpu(PyObject *self, PyObject *args);
+PyObject* gemm_gpu(PyObject *self, PyObject *args);
+PyObject* gemv_gpu(PyObject *self, PyObject *args);
+PyObject* rk_gpu(PyObject *self, PyObject *args);
+PyObject* axpy_gpu(PyObject *self, PyObject *args);
+PyObject* multi_axpy_gpu(PyObject *self, PyObject *args);
+PyObject* r2k_gpu(PyObject *self, PyObject *args);
+PyObject* dotc_gpu(PyObject *self, PyObject *args);
+PyObject* dotu_gpu(PyObject *self, PyObject *args);
+PyObject* multi_dotu_gpu(PyObject *self, PyObject *args);
+PyObject* multi_dotc_gpu(PyObject *self, PyObject *args);
+PyObject* add_linear_field_gpu(PyObject *self, PyObject *args);
 PyObject* elementwise_multiply_add_gpu(PyObject *self, PyObject *args);
 PyObject* multi_elementwise_multiply_add_gpu(PyObject *self, PyObject *args);
 PyObject* ax2py_gpu(PyObject *self, PyObject *args);
@@ -324,24 +324,24 @@ static PyMethodDef functions[] = {
     {"githash", githash, METH_VARARGS, 0},
 #endif // GPAW_GITHASH
 #ifdef GPAW_GPU
-    {"gpaw_cuda_init", gpaw_cuda_init, METH_VARARGS, 0},
-    {"gpaw_cuda_delete", gpaw_cuda_delete, METH_VARARGS, 0},
-    {"set_gpaw_cuda_debug", set_gpaw_cuda_debug, METH_VARARGS, 0},
+    {"gpaw_gpu_init", gpaw_gpu_init, METH_VARARGS, 0},
+    {"gpaw_gpu_delete", gpaw_gpu_delete, METH_VARARGS, 0},
+    {"set_gpaw_gpu_debug", set_gpaw_gpu_debug, METH_VARARGS, 0},
     {"csign_gpu", csign_gpu, METH_VARARGS, 0},
-    {"scal_cuda_gpu", scal_cuda_gpu, METH_VARARGS, 0},
-    {"multi_scal_cuda_gpu", multi_scal_cuda_gpu, METH_VARARGS, 0},
+    {"scal_gpu", scal_gpu, METH_VARARGS, 0},
+    {"multi_scal_gpu", multi_scal_gpu, METH_VARARGS, 0},
     {"mmm_gpu", mmm_gpu, METH_VARARGS, 0},
-    {"gemm_cuda_gpu", gemm_cuda_gpu, METH_VARARGS, 0},
-    {"gemv_cuda_gpu", gemv_cuda_gpu, METH_VARARGS, 0},
-    {"axpy_cuda_gpu", axpy_cuda_gpu, METH_VARARGS, 0},
-    {"multi_axpy_cuda_gpu", multi_axpy_cuda_gpu, METH_VARARGS, 0},
-    {"rk_cuda_gpu",  rk_cuda_gpu,  METH_VARARGS, 0},
-    {"r2k_cuda_gpu", r2k_cuda_gpu, METH_VARARGS, 0},
-    {"dotc_cuda_gpu", dotc_cuda_gpu, METH_VARARGS, 0},
-    {"dotu_cuda_gpu", dotu_cuda_gpu, METH_VARARGS, 0},
-    {"multi_dotu_cuda_gpu", multi_dotu_cuda_gpu, METH_VARARGS, 0},
-    {"multi_dotc_cuda_gpu", multi_dotc_cuda_gpu, METH_VARARGS, 0},
-    {"add_linear_field_cuda_gpu", add_linear_field_cuda_gpu, METH_VARARGS, 0},
+    {"gemm_gpu", gemm_gpu, METH_VARARGS, 0},
+    {"gemv_gpu", gemv_gpu, METH_VARARGS, 0},
+    {"axpy_gpu", axpy_gpu, METH_VARARGS, 0},
+    {"multi_axpy_gpu", multi_axpy_gpu, METH_VARARGS, 0},
+    {"rk_gpu",  rk_gpu,  METH_VARARGS, 0},
+    {"r2k_gpu", r2k_gpu, METH_VARARGS, 0},
+    {"dotc_gpu", dotc_gpu, METH_VARARGS, 0},
+    {"dotu_gpu", dotu_gpu, METH_VARARGS, 0},
+    {"multi_dotu_gpu", multi_dotu_gpu, METH_VARARGS, 0},
+    {"multi_dotc_gpu", multi_dotc_gpu, METH_VARARGS, 0},
+    {"add_linear_field_gpu", add_linear_field_gpu, METH_VARARGS, 0},
     {"elementwise_multiply_add_gpu", elementwise_multiply_add_gpu,
         METH_VARARGS, 0},
     {"multi_elementwise_multiply_add_gpu", multi_elementwise_multiply_add_gpu,

@@ -38,7 +38,7 @@ static double *debug_in_cpu;
  * Increment reference count to register a new operator object
  * and copy the stencil to the GPU.
  */
-void operator_init_cuda(OperatorObject *self)
+void operator_init_gpu(OperatorObject *self)
 {
     self->stencil_gpu = bmgs_stencil_to_gpu(&(self->stencil));
     operator_init_count++;
@@ -78,7 +78,7 @@ void operator_alloc_buffers(OperatorObject *self, int blocks)
 /*
  * Reset reference count and unset buffer.
  */
-void operator_init_buffers_cuda()
+void operator_init_buffers_gpu()
 {
     operator_buf_gpu = NULL;
     operator_buf_size = 0;
@@ -93,7 +93,7 @@ void operator_init_buffers_cuda()
  * arguments:
  *   (int) force -- if true, force deallocation etc.
  */
-void operator_dealloc_cuda(int force)
+void operator_dealloc_gpu(int force)
 {
     if (force) {
         operator_init_count = 1;
@@ -109,7 +109,7 @@ void operator_dealloc_cuda(int force)
                 gpuEventDestroy(operator_event[i]);
             }
         }
-        operator_init_buffers_cuda();
+        operator_init_buffers_gpu();
         return;
     }
     if (operator_init_count > 0) {
@@ -232,9 +232,9 @@ void debug_operator_relax(OperatorObject* self, int relax_method, int nrelax,
  * Run the relax algorithm (see Operator_relax() in ../operators.c)
  * on the GPU.
  */
-static void _operator_relax_cuda_gpu(OperatorObject* self, int relax_method,
-                                     double *fun, const double *src,
-                                     int nrelax, double w)
+static void _operator_relax_gpu(OperatorObject* self, int relax_method,
+                                double *fun, const double *src,
+                                int nrelax, double w)
 {
     boundary_conditions* bc = self->bc;
 
@@ -277,35 +277,35 @@ static void _operator_relax_cuda_gpu(OperatorObject* self, int relax_method,
     for (int n=0; n < nrelax; n++ ) {
         if (cuda_overlap) {
             gpuStreamWaitEvent(operator_stream[0], operator_event[1], 0);
-            bc_unpack_paste_cuda_gpu(bc, fun, operator_buf_gpu, recvreq,
-                                     operator_stream[0], 1);
+            bc_unpack_paste_gpu(bc, fun, operator_buf_gpu, recvreq,
+                                operator_stream[0], 1);
             gpuEventRecord(operator_event[0], operator_stream[0]);
 
-            bmgs_relax_cuda_gpu(relax_method, &self->stencil_gpu,
-                                operator_buf_gpu, fun, src, w,
-                                boundary|GPAW_BOUNDARY_SKIP,
-                                operator_stream[0]);
+            bmgs_relax_gpu(relax_method, &self->stencil_gpu,
+                           operator_buf_gpu, fun, src, w,
+                           boundary|GPAW_BOUNDARY_SKIP,
+                           operator_stream[0]);
             gpuStreamWaitEvent(operator_stream[1], operator_event[0], 0);
             for (int i=0; i < 3; i++) {
-                bc_unpack_cuda_gpu_async(bc, operator_buf_gpu, i,
-                                         recvreq, sendreq[i], ph + 2 * i,
-                                         operator_stream[1], 1);
+                bc_unpack_gpu_async(bc, operator_buf_gpu, i,
+                                    recvreq, sendreq[i], ph + 2 * i,
+                                    operator_stream[1], 1);
             }
-            bmgs_relax_cuda_gpu(relax_method, &self->stencil_gpu,
-                                operator_buf_gpu, fun, src, w,
-                                boundary|GPAW_BOUNDARY_ONLY,
-                                operator_stream[1]);
+            bmgs_relax_gpu(relax_method, &self->stencil_gpu,
+                           operator_buf_gpu, fun, src, w,
+                           boundary|GPAW_BOUNDARY_ONLY,
+                           operator_stream[1]);
             gpuEventRecord(operator_event[1], operator_stream[1]);
         } else {
-            bc_unpack_paste_cuda_gpu(bc, fun, operator_buf_gpu, recvreq,
-                                     0, 1);
+            bc_unpack_paste_gpu(bc, fun, operator_buf_gpu, recvreq,
+                                0, 1);
             for (int i=0; i < 3; i++) {
-                bc_unpack_cuda_gpu(bc, operator_buf_gpu, i,
-                                   recvreq, sendreq[i], ph + 2 * i, 0, 1);
+                bc_unpack_gpu(bc, operator_buf_gpu, i,
+                              recvreq, sendreq[i], ph + 2 * i, 0, 1);
             }
-            bmgs_relax_cuda_gpu(relax_method, &self->stencil_gpu,
-                                operator_buf_gpu, fun, src, w,
-                                GPAW_BOUNDARY_NORMAL, 0);
+            bmgs_relax_gpu(relax_method, &self->stencil_gpu,
+                           operator_buf_gpu, fun, src, w,
+                           GPAW_BOUNDARY_NORMAL, 0);
         }
     }
 
@@ -326,7 +326,7 @@ static void _operator_relax_cuda_gpu(OperatorObject* self, int relax_method,
  *   nrelax       -- number of iterations (int)
  *   w            -- weight (float)
  */
-PyObject* Operator_relax_cuda_gpu(OperatorObject* self, PyObject* args)
+PyObject* Operator_relax_gpu(OperatorObject* self, PyObject* args)
 {
     int relax_method;
     void *func_gpu;
@@ -346,7 +346,7 @@ PyObject* Operator_relax_cuda_gpu(OperatorObject* self, PyObject* args)
         debug_operator_memcpy_pre(src, fun);
     }
 
-    _operator_relax_cuda_gpu(self, relax_method, fun, src, nrelax, w);
+    _operator_relax_gpu(self, relax_method, fun, src, nrelax, w);
 
     if (gpaw_cuda_debug) {
         gpuDeviceSynchronize();
@@ -435,10 +435,10 @@ void debug_operator_apply(OperatorObject* self, int nin, int blocks,
  * Run the FD algorithm (see apply_worker() in ../operators.c)
  * on the GPU.
  */
-static void _operator_apply_cuda_gpu(OperatorObject *self,
-                                     const double *in, double *out,
-                                     int nin, int blocks, bool real,
-                                     const double_complex *ph)
+static void _operator_apply_gpu(OperatorObject *self,
+                                const double *in, double *out,
+                                int nin, int blocks, bool real,
+                                const double_complex *ph)
 {
     boundary_conditions* bc = self->bc;
     const int *size1 = bc->size1;
@@ -482,55 +482,55 @@ static void _operator_apply_cuda_gpu(OperatorObject *self,
         int myblocks = MIN(blocks, nin - n);
         if (cuda_overlap) {
             gpuStreamWaitEvent(operator_stream[0], operator_event[1], 0);
-            bc_unpack_paste_cuda_gpu(bc, in2, operator_buf_gpu, recvreq,
-                                     operator_stream[0], myblocks);
+            bc_unpack_paste_gpu(bc, in2, operator_buf_gpu, recvreq,
+                                operator_stream[0], myblocks);
             gpuEventRecord(operator_event[0], operator_stream[0]);
 
             if (real) {
-                bmgs_fd_cuda_gpu(&self->stencil_gpu, operator_buf_gpu, out2,
-                                 boundary|GPAW_BOUNDARY_SKIP, myblocks,
-                                 operator_stream[0]);
+                bmgs_fd_gpu(&self->stencil_gpu, operator_buf_gpu, out2,
+                            boundary|GPAW_BOUNDARY_SKIP, myblocks,
+                            operator_stream[0]);
             } else {
-                bmgs_fd_cuda_gpuz(&self->stencil_gpu,
-                                  (const gpuDoubleComplex*) operator_buf_gpu,
-                                  (gpuDoubleComplex*) out2,
-                                  boundary|GPAW_BOUNDARY_SKIP, myblocks,
-                                  operator_stream[0]);
+                bmgs_fd_gpuz(&self->stencil_gpu,
+                             (const gpuDoubleComplex*) operator_buf_gpu,
+                             (gpuDoubleComplex*) out2,
+                             boundary|GPAW_BOUNDARY_SKIP, myblocks,
+                             operator_stream[0]);
             }
             gpuStreamWaitEvent(operator_stream[1], operator_event[0], 0);
             for (int i=0; i < 3; i++) {
-                bc_unpack_cuda_gpu_async(bc, operator_buf_gpu, i,
-                                         recvreq, sendreq[i], ph + 2 * i,
-                                         operator_stream[1], myblocks);
+                bc_unpack_gpu_async(bc, operator_buf_gpu, i,
+                                    recvreq, sendreq[i], ph + 2 * i,
+                                    operator_stream[1], myblocks);
             }
             if (real) {
-                bmgs_fd_cuda_gpu(&self->stencil_gpu, operator_buf_gpu, out2,
-                                 boundary|GPAW_BOUNDARY_ONLY, myblocks,
-                                 operator_stream[1]);
+                bmgs_fd_gpu(&self->stencil_gpu, operator_buf_gpu, out2,
+                            boundary|GPAW_BOUNDARY_ONLY, myblocks,
+                            operator_stream[1]);
             } else {
-                bmgs_fd_cuda_gpuz(&self->stencil_gpu,
-                                  (const gpuDoubleComplex*) operator_buf_gpu,
-                                  (gpuDoubleComplex*) out2,
-                                  boundary|GPAW_BOUNDARY_ONLY, myblocks,
-                                  operator_stream[1]);
+                bmgs_fd_gpuz(&self->stencil_gpu,
+                             (const gpuDoubleComplex*) operator_buf_gpu,
+                             (gpuDoubleComplex*) out2,
+                             boundary|GPAW_BOUNDARY_ONLY, myblocks,
+                             operator_stream[1]);
             }
             gpuEventRecord(operator_event[1], operator_stream[1]);
         } else {
-            bc_unpack_paste_cuda_gpu(bc, in2, operator_buf_gpu, recvreq,
-                                     0, myblocks);
+            bc_unpack_paste_gpu(bc, in2, operator_buf_gpu, recvreq,
+                                0, myblocks);
             for (int i=0; i < 3; i++) {
-                bc_unpack_cuda_gpu(bc, operator_buf_gpu, i,
-                                   recvreq, sendreq[i], ph + 2 * i,
-                                   0, myblocks);
+                bc_unpack_gpu(bc, operator_buf_gpu, i,
+                              recvreq, sendreq[i], ph + 2 * i,
+                              0, myblocks);
             }
             if (real) {
-                bmgs_fd_cuda_gpu(&self->stencil_gpu, operator_buf_gpu, out2,
-                                 GPAW_BOUNDARY_NORMAL, myblocks, 0);
+                bmgs_fd_gpu(&self->stencil_gpu, operator_buf_gpu, out2,
+                            GPAW_BOUNDARY_NORMAL, myblocks, 0);
             } else {
-                bmgs_fd_cuda_gpuz(&self->stencil_gpu,
-                                  (const gpuDoubleComplex*) (operator_buf_gpu),
-                                  (gpuDoubleComplex*) out2,
-                                  GPAW_BOUNDARY_NORMAL, myblocks, 0);
+                bmgs_fd_gpuz(&self->stencil_gpu,
+                             (const gpuDoubleComplex*) (operator_buf_gpu),
+                             (gpuDoubleComplex*) out2,
+                             GPAW_BOUNDARY_NORMAL, myblocks, 0);
             }
         }
     }
@@ -552,7 +552,7 @@ static void _operator_apply_cuda_gpu(OperatorObject *self,
  *   type       -- datatype of array elements
  *   phases     -- phase (complex) (ignored if type is NPY_DOUBLE)
  */
-PyObject * Operator_apply_cuda_gpu(OperatorObject* self, PyObject* args)
+PyObject * Operator_apply_gpu(OperatorObject* self, PyObject* args)
 {
     PyArrayObject* phases = 0;
     void *input_gpu;
@@ -592,7 +592,7 @@ PyObject * Operator_apply_cuda_gpu(OperatorObject* self, PyObject* args)
         debug_operator_memcpy_pre(in, out);
     }
 
-    _operator_apply_cuda_gpu(self, in, out, nin, blocks, real, ph);
+    _operator_apply_gpu(self, in, out, nin, blocks, real, ph);
 
     if (gpaw_cuda_debug) {
         gpuDeviceSynchronize();

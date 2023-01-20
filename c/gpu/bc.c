@@ -33,7 +33,7 @@ static int bc_sbuffs_size=0;
 static int bc_rbuffs_max=0;
 static int bc_sbuffs_max=0;
 
-void bc_init_cuda(boundary_conditions* bc)
+void bc_init_gpu(boundary_conditions* bc)
 {
     int nsends=0;
     int nrecvs=0;
@@ -50,7 +50,7 @@ void bc_init_cuda(boundary_conditions* bc)
     bc_init_count++;
 }
 
-void bc_init_buffers_cuda()
+void bc_init_buffers_gpu()
 {
 #ifndef CUDA_MPI
     bc_rbuffs = NULL;
@@ -118,7 +118,7 @@ void bc_alloc_buffers(const boundary_conditions* bc, int blocks)
 #endif
 }
 
-void bc_dealloc_cuda(int force)
+void bc_dealloc_gpu(int force)
 {
     if (force)
         bc_init_count = 1;
@@ -139,7 +139,7 @@ void bc_dealloc_cuda(int force)
 #endif
         gpuFree(bc_sbuffs_gpu);
         gpuFree(bc_rbuffs_gpu);
-        bc_init_buffers_cuda();
+        bc_init_buffers_gpu();
         return;
     }
     if (bc_init_count > 0)
@@ -223,7 +223,7 @@ void bc_cuda_prepare_buffers(boundary_conditions* bc, int nin)
     }
 }
 
-void bc_unpack_paste_cuda_gpu(boundary_conditions* bc,
+void bc_unpack_paste_gpu(boundary_conditions* bc,
         const double* aa1, double* aa2,
         MPI_Request recvreq[3][2],
         gpuStream_t kernel_stream, int nin)
@@ -237,10 +237,10 @@ void bc_unpack_paste_cuda_gpu(boundary_conditions* bc,
 
     // Copy data from a1 to central part of a2 and zero boundaries:
     if (real)
-        bmgs_paste_zero_cuda_gpu(aa1, bc->size1, aa2,
+        bmgs_paste_zero_gpu(aa1, bc->size1, aa2,
                 bc->size2, bc->sendstart[0][0], nin, kernel_stream);
     else
-        bmgs_paste_zero_cuda_gpuz((const gpuDoubleComplex*)(aa1),
+        bmgs_paste_zero_gpuz((const gpuDoubleComplex*)(aa1),
                 bc->size1, (gpuDoubleComplex*) aa2,
                 bc->size2, bc->sendstart[0][0], nin,
                 kernel_stream);
@@ -269,7 +269,7 @@ void bc_unpack_paste_cuda_gpu(boundary_conditions* bc,
     }
 }
 
-void bc_unpack_cuda_gpu_sync(const boundary_conditions* bc,
+void bc_unpack_gpu_sync(const boundary_conditions* bc,
         double* aa2, int i,
         MPI_Request recvreq[3][2],
         MPI_Request sendreq[2],
@@ -285,15 +285,14 @@ void bc_unpack_cuda_gpu_sync(const boundary_conditions* bc,
             const int* start = bc->sendstart[i][d];
             const int* size = bc->sendsize[i][d];
             if (real)
-                bmgs_cut_cuda_gpu(aa2, bc->size2, start,
-                        bc_sbuff_gpu[i][d],
-                        size, nin, kernel_stream);
+                bmgs_cut_gpu(aa2, bc->size2, start,
+                             bc_sbuff_gpu[i][d],
+                             size, nin, kernel_stream);
             else {
                 gpuDoubleComplex phase = {creal(phases[d]), cimag(phases[d])};
-                bmgs_cut_cuda_gpuz((gpuDoubleComplex*)(aa2), bc->size2,
-                        start,
-                        (gpuDoubleComplex*)(bc_sbuff_gpu[i][d]),
-                        size, phase, nin, kernel_stream);
+                bmgs_cut_gpuz((gpuDoubleComplex*)(aa2), bc->size2, start,
+                              (gpuDoubleComplex*)(bc_sbuff_gpu[i][d]),
+                              size, phase, nin, kernel_stream);
             }
         }
     }
@@ -328,12 +327,12 @@ void bc_unpack_cuda_gpu_sync(const boundary_conditions* bc,
     for (int d=0; d<2; d++) {
         if (bc->sendproc[i][d] == COPY_DATA) {
             if (real) {
-                bmgs_translate_cuda_gpu(aa2, bc->size2, bc->sendsize[i][d],
+                bmgs_translate_gpu(aa2, bc->size2, bc->sendsize[i][d],
                         bc->sendstart[i][d], bc->recvstart[i][1 - d],
                         nin, kernel_stream);
             } else {
                 gpuDoubleComplex phase = {creal(phases[d]), cimag(phases[d])};
-                bmgs_translate_cuda_gpuz((gpuDoubleComplex*)(aa2),
+                bmgs_translate_gpuz((gpuDoubleComplex*)(aa2),
                         bc->size2, bc->sendsize[i][d],
                         bc->sendstart[i][d], bc->recvstart[i][1 - d],
                         phase, nin, kernel_stream);
@@ -359,12 +358,12 @@ void bc_unpack_cuda_gpu_sync(const boundary_conditions* bc,
     for (int d=0; d<2; d++) {
         if (bc->recvproc[i][d] >= 0)  {
             if (real)
-                bmgs_paste_cuda_gpu(bc_rbuff_gpu[i][d], bc->recvsize[i][d],
+                bmgs_paste_gpu(bc_rbuff_gpu[i][d], bc->recvsize[i][d],
                         aa2, bc->size2, bc->recvstart[i][d], nin,
                         kernel_stream);
 
             else
-                bmgs_paste_cuda_gpuz(
+                bmgs_paste_gpuz(
                         (const gpuDoubleComplex*)(bc_rbuff_gpu[i][d]),
                         bc->recvsize[i][d],
                         (gpuDoubleComplex*)(aa2),
@@ -380,7 +379,7 @@ void bc_unpack_cuda_gpu_sync(const boundary_conditions* bc,
 }
 
 #ifndef CUDA_MPI
-void bc_unpack_cuda_gpu_async(const boundary_conditions* bc,
+void bc_unpack_gpu_async(const boundary_conditions* bc,
         double* aa2, int i,
         MPI_Request recvreq[3][2],
         MPI_Request sendreq[2],
@@ -402,16 +401,15 @@ void bc_unpack_cuda_gpu_async(const boundary_conditions* bc,
                 const int* start = bc->sendstart[i][d];
                 const int* size = bc->sendsize[i][d];
                 if (real)
-                    bmgs_cut_cuda_gpu(aa2, bc->size2, start,
-                            bc_sbuff_gpu[i][d],
-                            size, nin, kernel_stream);
+                    bmgs_cut_gpu(aa2, bc->size2, start,
+                                 bc_sbuff_gpu[i][d],
+                                 size, nin, kernel_stream);
                 else {
                     gpuDoubleComplex phase = {creal(phases[d]),
                                              cimag(phases[d])};
-                    bmgs_cut_cuda_gpuz((gpuDoubleComplex*)(aa2), bc->size2,
-                            start,
-                            (gpuDoubleComplex*)(bc_sbuff_gpu[i][d]),
-                            size, phase, nin, kernel_stream);
+                    bmgs_cut_gpuz((gpuDoubleComplex*)(aa2), bc->size2, start,
+                                  (gpuDoubleComplex*)(bc_sbuff_gpu[i][d]),
+                                  size, phase, nin, kernel_stream);
                 }
                 if (!bc->cuda_sjoin[i]) {
                     gpuMemcpyAsync(bc_sbuff[i][d],
@@ -493,12 +491,12 @@ void bc_unpack_cuda_gpu_async(const boundary_conditions* bc,
                     for (int d=0; d<2; d++) {
                         if (!bc_recv_done[i3][d]) {
                             if (real)
-                                bmgs_paste_cuda_gpu(bc_rbuff_gpu[i3][d],
+                                bmgs_paste_gpu(bc_rbuff_gpu[i3][d],
                                         bc->recvsize[i3][d], aa2, bc->size2,
                                         bc->recvstart[i3][d], nin,
                                         bc_recv_stream);
                             else
-                                bmgs_paste_cuda_gpuz(
+                                bmgs_paste_gpuz(
                                         (const gpuDoubleComplex*)(bc_rbuff_gpu[i3][d]),
                                         bc->recvsize[i3][d],
                                         (gpuDoubleComplex*)(aa2),
@@ -521,12 +519,12 @@ void bc_unpack_cuda_gpu_async(const boundary_conditions* bc,
                                    gpuMemcpyHostToDevice,
                                    bc_recv_stream);
                     if (real)
-                        bmgs_paste_cuda_gpu(bc_rbuff_gpu[i3][ddd[i2]],
+                        bmgs_paste_gpu(bc_rbuff_gpu[i3][ddd[i2]],
                                 bc->recvsize[i3][ddd[i2]],
                                 aa2, bc->size2, bc->recvstart[i3][ddd[i2]], nin,
                                 bc_recv_stream);
                     else
-                        bmgs_paste_cuda_gpuz(
+                        bmgs_paste_gpuz(
                                 (const gpuDoubleComplex*)(bc_rbuff_gpu[i3][ddd[i2]]),
                                 bc->recvsize[i3][ddd[i2]],
                                 (gpuDoubleComplex*)(aa2),
@@ -547,12 +545,12 @@ void bc_unpack_cuda_gpu_async(const boundary_conditions* bc,
     for (int d=0; d<2; d++) {
         if (bc->sendproc[i][d] == COPY_DATA)  {
             if (real) {
-                bmgs_translate_cuda_gpu(aa2, bc->size2, bc->sendsize[i][d],
+                bmgs_translate_gpu(aa2, bc->size2, bc->sendsize[i][d],
                         bc->sendstart[i][d], bc->recvstart[i][1 - d],
                         nin, kernel_stream);
             } else {
                 gpuDoubleComplex phase = {creal(phases[d]), cimag(phases[d])};
-                bmgs_translate_cuda_gpuz((gpuDoubleComplex*)(aa2),
+                bmgs_translate_gpuz((gpuDoubleComplex*)(aa2),
                         bc->size2, bc->sendsize[i][d],
                         bc->sendstart[i][d], bc->recvstart[i][1 - d],
                         phase, nin, kernel_stream);
@@ -573,7 +571,7 @@ void bc_unpack_cuda_gpu_async(const boundary_conditions* bc,
 }
 
 #else
-void bc_unpack_cuda_gpu_async(const boundary_conditions* bc,
+void bc_unpack_gpu_async(const boundary_conditions* bc,
         double* aa2, int i,
         MPI_Request recvreq[3][2],
         MPI_Request sendreq[2],
@@ -582,12 +580,12 @@ void bc_unpack_cuda_gpu_async(const boundary_conditions* bc,
         int nin)
 
 {
-    bc_unpack_cuda_gpu_sync(bc, aa2, i, recvreq, sendreq,
+    bc_unpack_gpu_sync(bc, aa2, i, recvreq, sendreq,
             phases, kernel_stream, nin);
 }
 #endif
 
-void bc_unpack_cuda_gpu(const boundary_conditions* bc,
+void bc_unpack_gpu(const boundary_conditions* bc,
         double* aa2, int i,
         MPI_Request recvreq[3][2],
         MPI_Request sendreq[2],
@@ -597,14 +595,14 @@ void bc_unpack_cuda_gpu(const boundary_conditions* bc,
 {
 #ifndef CUDA_MPI
     if (!bc->cuda_async[i]) {
-        bc_unpack_cuda_gpu_sync(bc, aa2, i, recvreq, sendreq,
+        bc_unpack_gpu_sync(bc, aa2, i, recvreq, sendreq,
                 phases, kernel_stream, nin);
     }  else {
-        bc_unpack_cuda_gpu_async(bc, aa2, i, recvreq, sendreq,
+        bc_unpack_gpu_async(bc, aa2, i, recvreq, sendreq,
                 phases, kernel_stream, nin);
     }
 #else
-    bc_unpack_cuda_gpu_sync(bc, aa2, i, recvreq, sendreq,
+    bc_unpack_gpu_sync(bc, aa2, i, recvreq, sendreq,
             phases, kernel_stream, nin);
 #endif
 }

@@ -13,18 +13,18 @@ static void *lfc_reduce_buffer = NULL;
 static int lfc_reduce_buffer_size = 0;
 
 extern "C"
-void lfc_reduce_init_buffers_cuda()
+void lfc_reduce_init_buffers_gpu()
 {
     lfc_reduce_buffer = NULL;
     lfc_reduce_buffer_size = 0;
 }
 
 extern "C"
-void lfc_reduce_dealloc_cuda()
+void lfc_reduce_dealloc_gpu()
 {
     gpuFree(lfc_reduce_buffer);
     gpuCheckLastError();
-    lfc_reduce_init_buffers_cuda();
+    lfc_reduce_init_buffers_gpu();
 }
 
 static void lfc_reduceNumBlocksAndThreads(int n, int *blocks, int *threads)
@@ -177,7 +177,7 @@ void Zgpu(lfc_reducemap)(LFCObject *lfc, const Tgpu *a_G, int nG,
     int blocks, threads;
 
     if (lfc_reduce_buffer_size < nM * REDUCE_LFC_BUFFER_SIZE) {
-        lfc_reduce_dealloc_cuda();
+        lfc_reduce_dealloc_gpu();
         gpuMalloc(&lfc_reduce_buffer, nM * REDUCE_LFC_BUFFER_SIZE);
         lfc_reduce_buffer_size = nM * REDUCE_LFC_BUFFER_SIZE;
     }

@@ -10,17 +10,17 @@
 static void *reduce_buffer = NULL;
 
 extern "C"
-void reduce_init_buffers_cuda()
+void reduce_init_buffers_gpu()
 {
     reduce_buffer = NULL;
 }
 
 extern "C"
-void reduce_dealloc_cuda()
+void reduce_dealloc_gpu()
 {
     gpuFree(reduce_buffer);
     gpuCheckLastError();
-    reduce_init_buffers_cuda();
+    reduce_init_buffers_gpu();
 }
 
 static void reduceNumBlocksAndThreads(int n, int *blocks, int *threads)

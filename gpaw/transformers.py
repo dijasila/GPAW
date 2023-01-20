@@ -89,9 +89,9 @@ class _Transformer:
                 input_cpu = gpu.copy_to_host(input)
                 output_cpu = gpu.copy_to_host(output)
                 self.transformer.apply(input_cpu, output_cpu, phases)
-            self.transformer.apply_cuda_gpu(gpu.array.get_pointer(input),
-                                            gpu.array.get_pointer(output),
-                                            input.shape, input.dtype, phases)
+            self.transformer.apply_gpu(gpu.array.get_pointer(input),
+                                       gpu.array.get_pointer(output),
+                                       input.shape, input.dtype, phases)
             if gpu.debug:
                 gpu.debug_test(output_cpu, output, "transformer")
             if _output:

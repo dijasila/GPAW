@@ -107,7 +107,7 @@ static void Zgpu(debug_bmgs_cut)(
 /*
  * CUDA kernel to copy a slice of an array.
  */
-__global__ void Zgpu(bmgs_cut_cuda_kernel)(
+__global__ void Zgpu(bmgs_cut_kernel)(
         const Tgpu* a, const int3 c_sizea, Tgpu* b, const int3 c_sizeb,
 #ifdef GPU_USE_COMPLEX
         gpuDoubleComplex phase,
@@ -143,7 +143,7 @@ __global__ void Zgpu(bmgs_cut_cuda_kernel)(
 /*
  * Launch CUDA kernel to copy a slice of an array on the GPU.
  */
-static void Zgpu(_bmgs_cut_cuda_gpu)(
+static void Zgpu(_bmgs_cut_gpu)(
         const Tgpu* a, const int sizea[3], const int starta[3],
         Tgpu* b, const int sizeb[3],
 #ifdef GPU_USE_COMPLEX
@@ -163,7 +163,7 @@ static void Zgpu(_bmgs_cut_cuda_gpu)(
 
     a += starta[2] + (starta[1] + starta[0] * hc_sizea.y) * hc_sizea.z;
 
-    gpuLaunchKernel(Zgpu(bmgs_cut_cuda_kernel), dimGrid, dimBlock, 0, stream,
+    gpuLaunchKernel(Zgpu(bmgs_cut_kernel), dimGrid, dimBlock, 0, stream,
                     (Tgpu*) a, hc_sizea, (Tgpu*) b, hc_sizeb,
 #ifdef GPU_USE_COMPLEX
                     phase,
@@ -193,7 +193,7 @@ static void Zgpu(_bmgs_cut_cuda_gpu)(
  *   stream -- CUDA stream to use
  */
 extern "C"
-void Zgpu(bmgs_cut_cuda_gpu)(
+void Zgpu(bmgs_cut_gpu)(
         const Tgpu* a, const int sizea[3], const int starta[3],
         Tgpu* b, const int sizeb[3],
 #ifdef GPU_USE_COMPLEX
@@ -218,9 +218,9 @@ void Zgpu(bmgs_cut_cuda_gpu)(
         debug_memcpy_pre(in, out);
     }
 #ifndef GPU_USE_COMPLEX
-    _bmgs_cut_cuda_gpu(a, sizea, starta, b, sizeb, blocks, stream);
+    _bmgs_cut_gpu(a, sizea, starta, b, sizeb, blocks, stream);
 #else
-    _bmgs_cut_cuda_gpuz(a, sizea, starta, b, sizeb, phase, blocks, stream);
+    _bmgs_cut_gpuz(a, sizea, starta, b, sizeb, phase, blocks, stream);
 #endif
     if (gpaw_cuda_debug) {
         debug_memcpy_post(in, out);

@@ -507,11 +507,11 @@ int bmgs_fd_boundary_test(const bmgsstencil_gpu* s, int boundary,
 dim3 bmgs_fd_cuda_get_blockDim(int ndouble);
 
 extern "C"
-void bmgs_relax_cuda_gpu(const int relax_method,
-                         const bmgsstencil_gpu* s_gpu,
-                         double* adev, double* bdev, const double* src,
-                         const double w, int boundary,
-                         gpuStream_t stream)
+void bmgs_relax_gpu(const int relax_method,
+                    const bmgsstencil_gpu* s_gpu,
+                    double* adev, double* bdev, const double* src,
+                    const double w, int boundary,
+                    gpuStream_t stream)
 {
     int3 jb;
     int3 bjb;

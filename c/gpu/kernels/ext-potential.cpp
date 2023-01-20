@@ -18,7 +18,7 @@
 #endif
 
 
-__global__ void Zgpu(add_linear_field_cuda_kernel)(
+__global__ void Zgpu(add_linear_field_kernel)(
         const Tgpu *a, const int3 c_sizea, Tgpu *b, const int3 c_n,
         const int3 c_beg, const double3 strength, int blocks)
 {
@@ -59,7 +59,7 @@ __global__ void Zgpu(add_linear_field_cuda_kernel)(
 #include "ext-potential.cpp"
 
 extern "C"
-PyObject* add_linear_field_cuda_gpu(PyObject *self, PyObject *args)
+PyObject* add_linear_field_gpu(PyObject *self, PyObject *args)
 {
     void *a_gpu;
     void *b_gpu;
@@ -105,13 +105,13 @@ PyObject* add_linear_field_cuda_gpu(PyObject *self, PyObject *args)
     dim3 dimGrid(gridx, gridy);
 
     if (type->type_num == NPY_DOUBLE) {
-        gpuLaunchKernel(add_linear_field_cuda_kernel,
+        gpuLaunchKernel(add_linear_field_kernel,
                         dimGrid, dimBlock, 0, 0,
                         (double*) a_gpu, hc_sizea,
                         (double*) b_gpu, hc_n, hc_beg,
                         h_strength, blocks);
     } else {
-        gpuLaunchKernel(add_linear_field_cuda_kernelz,
+        gpuLaunchKernel(add_linear_field_kernelz,
                         dimGrid, dimBlock, 0, 0,
                         (gpuDoubleComplex*) a_gpu, hc_sizea,
                         (gpuDoubleComplex*) b_gpu, hc_n, hc_beg,

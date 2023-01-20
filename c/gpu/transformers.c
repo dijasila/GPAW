@@ -33,7 +33,7 @@ static double *debug_in_cpu;
 /*
  * Increment reference count to register a new tranformer object.
  */
-void transformer_init_cuda(TransformerObject *self)
+void transformer_init_gpu(TransformerObject *self)
 {
     transformer_init_count++;
 }
@@ -59,7 +59,7 @@ void transformer_init_buffers(TransformerObject *self, int blocks)
 /*
  * Reset reference count and unset buffer.
  */
-void transformer_init_buffers_cuda()
+void transformer_init_buffers_gpu()
 {
     transformer_buf_gpu = NULL;
     transformer_buf_size = 0;
@@ -72,7 +72,7 @@ void transformer_init_buffers_cuda()
  * arguments:
  *   (int) force -- if true, force deallocation
  */
-void transformer_dealloc_cuda(int force)
+void transformer_dealloc_gpu(int force)
 {
     if (force)
         transformer_init_count = 1;
@@ -80,7 +80,7 @@ void transformer_dealloc_cuda(int force)
     if (transformer_init_count == 1) {
         gpuFree(transformer_buf_gpu);
         gpuCheckLastError();
-        transformer_init_buffers_cuda();
+        transformer_init_buffers_gpu();
         return;
     }
     if (transformer_init_count > 0)
@@ -231,10 +231,10 @@ void debug_transformer_apply(TransformerObject* self,
  * Run the interpolate and restrict algorithm (see transapply_worker()
  * in ../transformers.c) on the GPU.
  */
-static void _transformer_apply_cuda_gpu(TransformerObject* self,
-                                        const double *in, double *out,
-                                        int nin, int blocks, bool real,
-                                        const double_complex *ph)
+static void _transformer_apply_gpu(TransformerObject* self,
+                                   const double *in, double *out,
+                                   int nin, int blocks, bool real,
+                                   const double_complex *ph)
 {
     boundary_conditions* bc = self->bc;
     const int* size1 = bc->size1;
@@ -258,33 +258,33 @@ static void _transformer_apply_cuda_gpu(TransformerObject* self,
         double* out2 = out + n * out_ng;
         int myblocks = MIN(blocks, nin - n);
 
-        bc_unpack_paste_cuda_gpu(bc, in2, buf, recvreq, 0, myblocks);
+        bc_unpack_paste_gpu(bc, in2, buf, recvreq, 0, myblocks);
         for (int i=0; i < 3; i++) {
-            bc_unpack_cuda_gpu(bc, buf, i, recvreq, sendreq[i],
-                               ph + 2 * i, 0, myblocks);
+            bc_unpack_gpu(bc, buf, i, recvreq, sendreq[i],
+                          ph + 2 * i, 0, myblocks);
         }
         if (self->interpolate) {
             if (real) {
-                bmgs_interpolate_cuda_gpu(self->k, self->skip, buf,
-                                          bc->size2, out2, self->size_out,
-                                          myblocks);
+                bmgs_interpolate_gpu(self->k, self->skip, buf,
+                                     bc->size2, out2, self->size_out,
+                                     myblocks);
             } else {
-                bmgs_interpolate_cuda_gpuz(self->k, self->skip,
-                                           (gpuDoubleComplex*) (buf),
-                                           bc->size2,
-                                           (gpuDoubleComplex*) (out2),
-                                           self->size_out, myblocks);
+                bmgs_interpolate_gpuz(self->k, self->skip,
+                                      (gpuDoubleComplex*) (buf),
+                                      bc->size2,
+                                      (gpuDoubleComplex*) (out2),
+                                      self->size_out, myblocks);
             }
         } else {
             if (real) {
-                bmgs_restrict_cuda_gpu(self->k, buf, bc->size2,
+                bmgs_restrict_gpu(self->k, buf, bc->size2,
                                        out2, self->size_out, myblocks);
             } else {
-                bmgs_restrict_cuda_gpuz(self->k,
-                                        (gpuDoubleComplex*) (buf),
-                                        bc->size2,
-                                        (gpuDoubleComplex*) (out2),
-                                        self->size_out, myblocks);
+                bmgs_restrict_gpuz(self->k,
+                                   (gpuDoubleComplex*) (buf),
+                                   bc->size2,
+                                   (gpuDoubleComplex*) (out2),
+                                   self->size_out, myblocks);
             }
         }
     }
@@ -301,7 +301,7 @@ static void _transformer_apply_cuda_gpu(TransformerObject* self,
  *   type       -- datatype of array elements
  *   phases     -- phase (complex) (ignored if type is NPY_DOUBLE)
  */
-PyObject* Transformer_apply_cuda_gpu(TransformerObject *self, PyObject *args)
+PyObject* Transformer_apply_gpu(TransformerObject *self, PyObject *args)
 {
     PyArrayObject* phases = 0;
     void *input_gpu;
@@ -336,7 +336,7 @@ PyObject* Transformer_apply_cuda_gpu(TransformerObject *self, PyObject *args)
         debug_transformer_memcpy_pre(in, out);
     }
 
-    _transformer_apply_cuda_gpu(self, in, out, nin, blocks, real, ph);
+    _transformer_apply_gpu(self, in, out, nin, blocks, real, ph);
 
     if (gpaw_cuda_debug) {
         gpuDeviceSynchronize();

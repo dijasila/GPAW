@@ -43,10 +43,10 @@ void myzgemm(char *transa, char *transb, int *m, int * n,
 #endif
 
 #ifdef GPAW_GPU
-void lfc_dealloc_cuda(LFCObject *self);
-PyObject* NewLFCObject_cuda(LFCObject *self, PyObject *args);
-PyObject* add_cuda_gpu(LFCObject *self, PyObject *args);
-PyObject* integrate_cuda_gpu(LFCObject *self, PyObject *args);
+void lfc_dealloc_gpu(LFCObject *self);
+PyObject* NewLFCObject_gpu(LFCObject *self, PyObject *args);
+PyObject* add_gpu(LFCObject *self, PyObject *args);
+PyObject* integrate_gpu(LFCObject *self, PyObject *args);
 #endif
 
 static void lfc_dealloc(LFCObject *self)
@@ -60,7 +60,7 @@ static void lfc_dealloc(LFCObject *self)
     free(self->volume_W);
 #ifdef GPAW_GPU
     if (self->cuda) {
-        lfc_dealloc_cuda(self);
+        lfc_dealloc_gpu(self);
     }
 #endif
     PyObject_DEL(self);
@@ -121,10 +121,10 @@ static PyMethodDef lfc_methods[] = {
     {"add_derivative",
      (PyCFunction)add_derivative, METH_VARARGS, 0},
 #ifdef GPAW_GPU
-    {"integrate_cuda_gpu",
-     (PyCFunction)integrate_cuda_gpu, METH_VARARGS, 0},
-    {"add_cuda_gpu",
-     (PyCFunction)add_cuda_gpu, METH_VARARGS, 0},
+    {"integrate_gpu",
+     (PyCFunction)integrate_gpu, METH_VARARGS, 0},
+    {"add_gpu",
+     (PyCFunction)add_gpu, METH_VARARGS, 0},
 #endif
     {NULL, NULL, 0, NULL}
 };
@@ -250,7 +250,7 @@ PyObject * NewLFCObject(PyObject *obj, PyObject *args)
 
 #ifdef GPAW_GPU
   if (cuda) {
-    NewLFCObject_cuda(self, args);
+    NewLFCObject_gpu(self, args);
   }
 #endif
   return (PyObject*)self;

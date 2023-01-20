@@ -139,7 +139,7 @@ void zher2k_(const char *uplo, const char *trans, int *n, int *k,
              double *beta, void *c, int *ldc);
 
 
-void blas_init_cuda()
+void blas_init_gpu()
 {
     gpublasSafeCall(gpublasCreate(&_gpaw_gpublas_handle));
 }
@@ -634,7 +634,7 @@ static gpublasOperation_t gpublas_operation(int op)
 }
 
 
-PyObject* scal_cuda_gpu(PyObject *self, PyObject *args)
+PyObject* scal_gpu(PyObject *self, PyObject *args)
 {
     Py_complex alpha;
 
@@ -666,11 +666,11 @@ PyObject* scal_cuda_gpu(PyObject *self, PyObject *args)
         Py_RETURN_NONE;
 }
 
-static void _mmm_cuda(gpublasOperation_t gpu_opa, gpublasOperation_t gpu_opb,
-                      int m, int n, int k,
-                      Py_complex alpha, void *a, int lda,
-                      void *b, int ldb, Py_complex beta,
-                      void *c, int ldc, int real)
+static void _mmm_gpu(gpublasOperation_t gpu_opa, gpublasOperation_t gpu_opb,
+                     int m, int n, int k,
+                     Py_complex alpha, void *a, int lda,
+                     void *b, int ldb, Py_complex beta,
+                     void *c, int ldc, int real)
 {
     if (real) {
         gpublasSafeCall(
@@ -712,29 +712,29 @@ PyObject* mmm_gpu(PyObject *self, PyObject *args)
     gpublasOperation_t gpu_opb = gpublas_operation(opb);
     int real = (bytes == NPY_SIZEOF_DOUBLE);
 
-    _mmm_cuda(gpu_opa, gpu_opb, m, n, k, alpha, a, lda, b, ldb, beta,
-              c, ldc, real);
+    _mmm_gpu(gpu_opa, gpu_opb, m, n, k, alpha, a, lda, b, ldb, beta,
+             c, ldc, real);
 
     Py_RETURN_NONE;
 }
 
-static void _gemm_cuda(gpublasOperation_t transa_c,
-                       int m, int n, int k,
-                       Py_complex alpha, void *a_gpu, int lda,
-                       void *b_gpu, int ldb, Py_complex beta,
-                       void *c_gpu, int ldc,
-                       int real)
+static void _gemm_gpu(gpublasOperation_t transa_c,
+                      int m, int n, int k,
+                      Py_complex alpha, void *a_gpu, int lda,
+                      void *b_gpu, int ldb, Py_complex beta,
+                      void *c_gpu, int ldc,
+                      int real)
 {
-    _mmm_cuda(transa_c, GPUBLAS_OP_N, m, n, k, alpha, a_gpu, lda,
-              b_gpu, ldb, beta, c_gpu, ldc, real);
+    _mmm_gpu(transa_c, GPUBLAS_OP_N, m, n, k, alpha, a_gpu, lda,
+             b_gpu, ldb, beta, c_gpu, ldc, real);
 }
 
-static void _gemm_cuda_hybrid(char transa, gpublasOperation_t transa_c,
-                              int m, int n, int k,
-                              Py_complex alpha, void *a_gpu, int lda,
-                              void *b_gpu, int ldb, Py_complex beta,
-                              void *c_gpu, int ldc,
-                              int real)
+static void _gemm_gpu_hybrid(char transa, gpublasOperation_t transa_c,
+                             int m, int n, int k,
+                             Py_complex alpha, void *a_gpu, int lda,
+                             void *b_gpu, int ldb, Py_complex beta,
+                             void *c_gpu, int ldc,
+                             int real)
 {
     int n_off = 0, m_off = 0;
     int lda2, ldc2;
@@ -817,16 +817,16 @@ static void _gemm_cuda_hybrid(char transa, gpublasOperation_t transa_c,
         pg->hybrid = 1;
     } else {
         pg->hybrid = 0;
-        _gemm_cuda(transa_c, m, n, k, alpha, a_gpu, lda, b_gpu, ldb, beta,
-                   c_gpu, ldc, real);
+        _gemm_gpu(transa_c, m, n, k, alpha, a_gpu, lda, b_gpu, ldb, beta,
+                  c_gpu, ldc, real);
         return;
     }
 
     gpublasSafeCall(
             gpublasSetStream(_gpaw_gpublas_handle, ph->stream[0]));
     gpuEventRecord(pg->event_gpu[0], ph->stream[0]);
-    _gemm_cuda(transa_c, pg->m1, pg->n1, k, alpha, a_gpu, lda,
-               b_gpu, ldb, beta, c_gpu, ldc, real);
+    _gemm_gpu(transa_c, pg->m1, pg->n1, k, alpha, a_gpu, lda,
+              b_gpu, ldb, beta, c_gpu, ldc, real);
     gpuEventRecord(pg->event_gpu[1], ph->stream[0]);
     gpublasSafeCall(
             gpublasSetStream(_gpaw_gpublas_handle, 0));
@@ -892,7 +892,7 @@ static void _gemm_cuda_hybrid(char transa, gpublasOperation_t transa_c,
     gpuStreamWaitEvent(0, pg->event_gpu[1], 0);
 }
 
-PyObject* gemm_cuda_gpu(PyObject *self, PyObject *args)
+PyObject* gemm_gpu(PyObject *self, PyObject *args)
 {
     Py_complex alpha;
     Py_complex beta;
@@ -939,13 +939,13 @@ PyObject* gemm_cuda_gpu(PyObject *self, PyObject *args)
     }
 
     if (hybrid) {
-        _gemm_cuda_hybrid(transa, transa_c, m, n, k,
-                          alpha, a_gpu, lda, b_gpu, ldb, beta,
-                          c_gpu, ldc, real);
+        _gemm_gpu_hybrid(transa, transa_c, m, n, k,
+                         alpha, a_gpu, lda, b_gpu, ldb, beta,
+                         c_gpu, ldc, real);
     } else {
-        _gemm_cuda(transa_c, m, n, k,
-                   alpha, a_gpu, lda, b_gpu, ldb, beta,
-                   c_gpu, ldc, real);
+        _gemm_gpu(transa_c, m, n, k,
+                  alpha, a_gpu, lda, b_gpu, ldb, beta,
+                  c_gpu, ldc, real);
     }
 
     if (PyErr_Occurred())
@@ -955,7 +955,7 @@ PyObject* gemm_cuda_gpu(PyObject *self, PyObject *args)
 }
 
 
-PyObject* gemv_cuda_gpu(PyObject *self, PyObject *args)
+PyObject* gemv_gpu(PyObject *self, PyObject *args)
 {
     Py_complex alpha;
 
@@ -1014,7 +1014,7 @@ PyObject* gemv_cuda_gpu(PyObject *self, PyObject *args)
 }
 
 
-PyObject* axpy_cuda_gpu(PyObject *self, PyObject *args)
+PyObject* axpy_gpu(PyObject *self, PyObject *args)
 {
     Py_complex alpha;
 
@@ -1051,10 +1051,10 @@ PyObject* axpy_cuda_gpu(PyObject *self, PyObject *args)
         Py_RETURN_NONE;
 }
 
-static void _rk_cuda_gpu(int n, int k,
-                         double alpha, void *a_gpu, int lda,
-                         double beta, void *c_gpu, int ldc,
-                         int real)
+static void _rk_gpu(int n, int k,
+                    double alpha, void *a_gpu, int lda,
+                    double beta, void *c_gpu, int ldc,
+                    int real)
 {
     if (real) {
         gpublasSafeCall(
@@ -1073,10 +1073,10 @@ static void _rk_cuda_gpu(int n, int k,
     }
 }
 
-static void _rk_cuda_gpu_hybrid(int n, int k,
-                                double alpha, void *a_gpu, int lda,
-                                double beta, void *c_gpu, int ldc,
-                                int real)
+static void _rk_gpu_hybrid(int n, int k,
+                           double alpha, void *a_gpu, int lda,
+                           double beta, void *c_gpu, int ldc,
+                           int real)
 {
     double beta2=0;
     int lda2;
@@ -1116,7 +1116,7 @@ static void _rk_cuda_gpu_hybrid(int n, int k,
         ps->hybrid = 1;
     } else {
         ps->hybrid = 0;
-        _rk_cuda_gpu(n, k, alpha, a_gpu, lda, beta, c_gpu, ldc, real);
+        _rk_gpu(n, k, alpha, a_gpu, lda, beta, c_gpu, ldc, real);
         return;
     }
 
@@ -1184,7 +1184,7 @@ static void _rk_cuda_gpu_hybrid(int n, int k,
     gpuEventRecord(ps->event_gpu[3], 0);
 }
 
-PyObject* rk_cuda_gpu(PyObject *self, PyObject *args)
+PyObject* rk_gpu(PyObject *self, PyObject *args)
 {
     double alpha;
     double beta;
@@ -1212,9 +1212,9 @@ PyObject* rk_cuda_gpu(PyObject *self, PyObject *args)
     int lda = k;
 
     if (hybrid) {
-        _rk_cuda_gpu_hybrid(n, k, alpha, a_gpu, lda, beta, c_gpu, ldc, real);
+        _rk_gpu_hybrid(n, k, alpha, a_gpu, lda, beta, c_gpu, ldc, real);
     } else {
-        _rk_cuda_gpu(n, k, alpha, a_gpu, lda, beta, c_gpu, ldc, real);
+        _rk_gpu(n, k, alpha, a_gpu, lda, beta, c_gpu, ldc, real);
     }
 
     if (PyErr_Occurred())
@@ -1223,10 +1223,10 @@ PyObject* rk_cuda_gpu(PyObject *self, PyObject *args)
         Py_RETURN_NONE;
 }
 
-static void _r2k_cuda_gpu(int n, int k,
-                          Py_complex alpha, void *a_gpu, int lda,
-                          void *b_gpu, double beta,
-                          void *c_gpu, int ldc, int real)
+static void _r2k_gpu(int n, int k,
+                     Py_complex alpha, void *a_gpu, int lda,
+                     void *b_gpu, double beta,
+                     void *c_gpu, int ldc, int real)
 {
     if (real) {
         gpublasSafeCall(
@@ -1246,10 +1246,10 @@ static void _r2k_cuda_gpu(int n, int k,
     }
 }
 
-static void _r2k_cuda_gpu_hybrid(int n, int k,
-                                 Py_complex alpha, void *a_gpu, int lda,
-                                 void *b_gpu, double beta,
-                                 void *c_gpu, int ldc, int real)
+static void _r2k_gpu_hybrid(int n, int k,
+                            Py_complex alpha, void *a_gpu, int lda,
+                            void *b_gpu, double beta,
+                            void *c_gpu, int ldc, int real)
 {
     double beta2 = 0;
     int lda2;
@@ -1291,8 +1291,8 @@ static void _r2k_cuda_gpu_hybrid(int n, int k,
         ps2->hybrid = 1;
     } else {
         ps2->hybrid = 0;
-        _r2k_cuda_gpu(n, k, alpha, a_gpu, lda, b_gpu, beta,
-                      c_gpu, ldc, real);
+        _r2k_gpu(n, k, alpha, a_gpu, lda, b_gpu, beta,
+                 c_gpu, ldc, real);
         return;
     }
 
@@ -1372,7 +1372,7 @@ static void _r2k_cuda_gpu_hybrid(int n, int k,
     gpuEventRecord(ps2->event_gpu[3], 0);
 }
 
-PyObject* r2k_cuda_gpu(PyObject *self, PyObject *args)
+PyObject* r2k_gpu(PyObject *self, PyObject *args)
 {
     Py_complex alpha;
     double beta;
@@ -1403,11 +1403,11 @@ PyObject* r2k_cuda_gpu(PyObject *self, PyObject *args)
     int lda = k;
 
     if (hybrid) {
-        _r2k_cuda_gpu_hybrid(n, k, alpha, a_gpu, lda, b_gpu, beta,
-                             c_gpu, ldc, real);
+        _r2k_gpu_hybrid(n, k, alpha, a_gpu, lda, b_gpu, beta,
+                        c_gpu, ldc, real);
     } else {
-        _r2k_cuda_gpu(n, k, alpha, a_gpu, lda, b_gpu, beta,
-                      c_gpu, ldc, real);
+        _r2k_gpu(n, k, alpha, a_gpu, lda, b_gpu, beta,
+                 c_gpu, ldc, real);
     }
 
     if (PyErr_Occurred())
@@ -1417,7 +1417,7 @@ PyObject* r2k_cuda_gpu(PyObject *self, PyObject *args)
 }
 
 
-PyObject* dotc_cuda_gpu(PyObject *self, PyObject *args)
+PyObject* dotc_gpu(PyObject *self, PyObject *args)
 {
     void *a_gpu;
     void *b_gpu;
@@ -1458,7 +1458,7 @@ PyObject* dotc_cuda_gpu(PyObject *self, PyObject *args)
 }
 
 
-PyObject* dotu_cuda_gpu(PyObject *self, PyObject *args)
+PyObject* dotu_gpu(PyObject *self, PyObject *args)
 {
     void *a_gpu;
     void *b_gpu;

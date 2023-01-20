@@ -34,8 +34,7 @@
 #undef MAPFUNC
 
 
-__global__ void Zgpu(multi_scal_cuda_kernel)(int n, const Tgpu *alpha,
-                                             Tgpu *a)
+__global__ void Zgpu(multi_scal_kernel)(int n, const Tgpu *alpha, Tgpu *a)
 {
     int i = blockIdx.x * MBLAS_BLOCK_X + threadIdx.x;
     int k = blockIdx.y;
@@ -48,7 +47,7 @@ __global__ void Zgpu(multi_scal_cuda_kernel)(int n, const Tgpu *alpha,
     }
 }
 
-__global__ void Zgpu(multi_axpy_cuda_kernel)(int n, const Tgpu *alpha,
+__global__ void Zgpu(multi_axpy_kernel)(int n, const Tgpu *alpha,
                                              const Tgpu *a, Tgpu *b)
 {
     int k = blockIdx.y;
@@ -68,7 +67,7 @@ __global__ void Zgpu(multi_axpy_cuda_kernel)(int n, const Tgpu *alpha,
 #include "mblas.cpp"
 
 extern "C"
-PyObject* multi_scal_cuda_gpu(PyObject *self, PyObject *args)
+PyObject* multi_scal_gpu(PyObject *self, PyObject *args)
 {
     void *alpha_gpu;
     void *x_gpu;
@@ -94,7 +93,7 @@ PyObject* multi_scal_cuda_gpu(PyObject *self, PyObject *args)
         dim3 dimGrid(gridx, gridy);
 
         gpuLaunchKernel(
-                multi_scal_cuda_kernel, dimGrid, dimBlock, 0, 0,
+                multi_scal_kernel, dimGrid, dimBlock, 0, 0,
                 n, (double *) alpha_gpu, (double*) x_gpu);
     } else if (a_type->type_num == NPY_DOUBLE) {
         double *alpha = (double*) (alpha_gpu);
@@ -106,7 +105,7 @@ PyObject* multi_scal_cuda_gpu(PyObject *self, PyObject *args)
         dim3 dimGrid(gridx, gridy);
 
         gpuLaunchKernel(
-                multi_scal_cuda_kernel, dimGrid, dimBlock, 0, 0,
+                multi_scal_kernel, dimGrid, dimBlock, 0, 0,
                 2 * n, alpha, (double *) x_gpu);
     } else {
         gpuDoubleComplex *alpha = (gpuDoubleComplex*) (alpha_gpu);
@@ -117,7 +116,7 @@ PyObject* multi_scal_cuda_gpu(PyObject *self, PyObject *args)
         dim3 dimGrid(gridx, gridy);
 
         gpuLaunchKernel(
-                multi_scal_cuda_kernelz, dimGrid, dimBlock, 0, 0,
+                multi_scal_kernelz, dimGrid, dimBlock, 0, 0,
                 n, alpha, (gpuDoubleComplex*) x_gpu);
     }
     gpuCheckLastError();
@@ -128,7 +127,7 @@ PyObject* multi_scal_cuda_gpu(PyObject *self, PyObject *args)
 }
 
 extern "C"
-PyObject* multi_axpy_cuda_gpu(PyObject *self, PyObject *args)
+PyObject* multi_axpy_gpu(PyObject *self, PyObject *args)
 {
     void *alpha_gpu;
     void *x_gpu;
@@ -155,7 +154,7 @@ PyObject* multi_axpy_cuda_gpu(PyObject *self, PyObject *args)
         dim3 dimGrid(gridx, gridy);
 
         gpuLaunchKernel(
-                multi_axpy_cuda_kernel, dimGrid, dimBlock, 0, 0,
+                multi_axpy_kernel, dimGrid, dimBlock, 0, 0,
                 n, alpha, (double*) x_gpu, (double*) y_gpu);
     } else  if (a_type->type_num == NPY_DOUBLE) {
         double *alpha = (double*) alpha_gpu;
@@ -167,7 +166,7 @@ PyObject* multi_axpy_cuda_gpu(PyObject *self, PyObject *args)
         dim3 dimGrid(gridx, gridy);
 
         gpuLaunchKernel(
-                multi_axpy_cuda_kernel, dimGrid, dimBlock, 0, 0,
+                multi_axpy_kernel, dimGrid, dimBlock, 0, 0,
                 2 * n, alpha, (double*) x_gpu, (double*) y_gpu);
     } else {
         gpuDoubleComplex *alpha = (gpuDoubleComplex*) alpha_gpu;
@@ -178,7 +177,7 @@ PyObject* multi_axpy_cuda_gpu(PyObject *self, PyObject *args)
         dim3 dimGrid(gridx, gridy);
 
         gpuLaunchKernel(
-                multi_axpy_cuda_kernelz, dimGrid, dimBlock, 0, 0,
+                multi_axpy_kernelz, dimGrid, dimBlock, 0, 0,
                 n, alpha, (gpuDoubleComplex*) x_gpu,
                 (gpuDoubleComplex*) y_gpu);
     }
@@ -190,7 +189,7 @@ PyObject* multi_axpy_cuda_gpu(PyObject *self, PyObject *args)
 }
 
 extern "C"
-PyObject* multi_dotu_cuda_gpu(PyObject *self, PyObject *args)
+PyObject* multi_dotu_gpu(PyObject *self, PyObject *args)
 {
     void *a_gpu;
     void *b_gpu;
@@ -226,7 +225,7 @@ PyObject* multi_dotu_cuda_gpu(PyObject *self, PyObject *args)
 }
 
 extern "C"
-PyObject* multi_dotc_cuda_gpu(PyObject *self, PyObject *args)
+PyObject* multi_dotc_gpu(PyObject *self, PyObject *args)
 {
     void *a_gpu;
     void *b_gpu;

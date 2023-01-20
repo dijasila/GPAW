@@ -137,7 +137,7 @@ boundary_conditions* bc_init(const long size1[3],
     }
 
 #ifdef GPAW_GPU
-  bc_init_cuda(bc);
+  bc_init_gpu(bc);
 #endif
   return bc;
 }

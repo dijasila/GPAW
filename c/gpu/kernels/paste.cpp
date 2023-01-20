@@ -135,7 +135,7 @@ void Zgpu(debug_bmgs_paste)(const int sizea[3], const int sizeb[3],
  * CUDA kernel to copy a smaller array into a given position in a
  * larger one.
  */
-__global__ void Zgpu(bmgs_paste_cuda_kernel)(
+__global__ void Zgpu(bmgs_paste_kernel)(
         const double* a, const int3 c_sizea, double* b, const int3 c_sizeb,
         int blocks, int xdiv)
 {
@@ -165,7 +165,7 @@ __global__ void Zgpu(bmgs_paste_cuda_kernel)(
  * CUDA kernel to copy a smaller array into a given position in a
  * larger one and set all other elements to 0.
  */
-__global__ void Zgpu(bmgs_paste_zero_cuda_kernel)(
+__global__ void Zgpu(bmgs_paste_zero_kernel)(
         const Tgpu* a, const int3 c_sizea, Tgpu* b, const int3 c_sizeb,
         const int3 c_startb, const int3 c_blocks_bc, int blocks)
 {
@@ -262,7 +262,7 @@ __global__ void Zgpu(bmgs_paste_zero_cuda_kernel)(
  * Launch CUDA kernel to copy a smaller array into a given position in a
  * larger one on the GPU.
  */
-static void Zgpu(_bmgs_paste_cuda_gpu)(
+static void Zgpu(_bmgs_paste_gpu)(
         const Tgpu* a, const int sizea[3],
         Tgpu* b, const int sizeb[3], const int startb[3],
         int blocks, gpuStream_t stream)
@@ -279,7 +279,7 @@ static void Zgpu(_bmgs_paste_cuda_gpu)(
 
     b += startb[2] + (startb[1] + startb[0] * sizeb[1]) * sizeb[2];
     gpuLaunchKernel(
-            Zgpu(bmgs_paste_cuda_kernel), dimGrid, dimBlock, 0, stream,
+            Zgpu(bmgs_paste_kernel), dimGrid, dimBlock, 0, stream,
             (double*) a, hc_sizea, (double*) b, hc_sizeb, blocks, xdiv);
     gpuCheckLastError();
 }
@@ -288,7 +288,7 @@ static void Zgpu(_bmgs_paste_cuda_gpu)(
  * Launch CUDA kernel to copy a smaller array into a given position in a
  * larger one and set all other elements to 0.
  */
-static void Zgpu(_bmgs_paste_zero_cuda_gpu)(
+static void Zgpu(_bmgs_paste_zero_gpu)(
         const Tgpu* a, const int sizea[3],
         Tgpu* b, const int sizeb[3], const int startb[3],
         int blocks, gpuStream_t stream)
@@ -323,7 +323,7 @@ static void Zgpu(_bmgs_paste_zero_cuda_gpu)(
     dim3 dimGrid(gridx, gridy);
 
     gpuLaunchKernel(
-            Zgpu(bmgs_paste_zero_cuda_kernel), dimGrid, dimBlock, 0, stream,
+            Zgpu(bmgs_paste_zero_kernel), dimGrid, dimBlock, 0, stream,
             (Tgpu*) a, hc_sizea, (Tgpu*) b, hc_sizeb, hc_startb,
             bc_blocks, blocks);
     gpuCheckLastError();
@@ -377,15 +377,15 @@ void Zgpu(_bmgs_paste_launcher)(Tfunc function, int zero,
  *                  . . . .
  */
 extern "C"
-void Zgpu(bmgs_paste_cuda_gpu)(const Tgpu* a, const int sizea[3],
-                               Tgpu* b, const int sizeb[3],
-                               const int startb[3], int blocks,
-                               gpuStream_t stream)
+void Zgpu(bmgs_paste_gpu)(const Tgpu* a, const int sizea[3],
+                          Tgpu* b, const int sizeb[3],
+                          const int startb[3], int blocks,
+                          gpuStream_t stream)
 {
     if (!(sizea[0] && sizea[1] && sizea[2]))
         return;
     Zgpu(_bmgs_paste_launcher)(
-            &(Zgpu(_bmgs_paste_cuda_gpu)), 0,
+            &(Zgpu(_bmgs_paste_gpu)), 0,
             a, sizea, b, sizeb, startb, blocks, stream);
 }
 
@@ -394,7 +394,7 @@ void Zgpu(bmgs_paste_cuda_gpu)(const Tgpu* a, const int sizea[3],
  * set all other elements to 0.
  */
 extern "C"
-void Zgpu(bmgs_paste_zero_cuda_gpu)(const Tgpu* a, const int sizea[3],
+void Zgpu(bmgs_paste_zero_gpu)(const Tgpu* a, const int sizea[3],
                                     Tgpu* b, const int sizeb[3],
                                     const int startb[3], int blocks,
                                     gpuStream_t stream)
@@ -402,7 +402,7 @@ void Zgpu(bmgs_paste_zero_cuda_gpu)(const Tgpu* a, const int sizea[3],
     if (!(sizea[0] && sizea[1] && sizea[2]))
         return;
     Zgpu(_bmgs_paste_launcher)(
-            &(Zgpu(_bmgs_paste_zero_cuda_gpu)), 1,
+            &(Zgpu(_bmgs_paste_zero_gpu)), 1,
             a, sizea, b, sizeb, startb, blocks, stream);
 }
 

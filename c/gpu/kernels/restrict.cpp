@@ -230,8 +230,8 @@ __global__ void RESTRICT_kernel(const Tgpu* a, const int3 n,
 
 
 extern "C"
-void Zgpu(bmgs_restrict_cuda_gpu)(int k, const Tgpu* a, const int size[3],
-                                  Tgpu* b, const int sizeb[3], int blocks)
+void Zgpu(bmgs_restrict_gpu)(int k, const Tgpu* a, const int size[3],
+                             Tgpu* b, const int sizeb[3], int blocks)
 {
     if (k != 2)
         assert(0);

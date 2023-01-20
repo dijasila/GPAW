@@ -36,8 +36,8 @@ typedef struct _TransformerObject TransformerObject;
 #endif
 
 #ifdef GPAW_GPU
-void transformer_init_cuda(TransformerObject *self);
-void transformer_dealloc_cuda(int force);
+void transformer_init_gpu(TransformerObject *self);
+void transformer_dealloc_gpu(int force);
 #endif
 
 void transapply_worker(TransformerObject *self, int chunksize, int start,

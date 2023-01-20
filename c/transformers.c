@@ -24,15 +24,15 @@
 #include "gpu/gpu.h"
 #include "gpu/bmgs.h"
 
-PyObject* Transformer_apply_cuda_gpu(TransformerObject *self, PyObject *args);
+PyObject* Transformer_apply_gpu(TransformerObject *self, PyObject *args);
 #endif
 
 static void Transformer_dealloc(TransformerObject *self)
 {
 #ifdef GPAW_GPU
   if (self->cuda) {
-    transformer_dealloc_cuda(0);
-    bc_dealloc_cuda(0);
+    transformer_dealloc_gpu(0);
+    bc_dealloc_gpu(0);
   }
 #endif
   free(self->bc);
@@ -178,7 +178,7 @@ static PyObject * Transformer_get_async_sizes(TransformerObject *self, PyObject 
 static PyMethodDef Transformer_Methods[] = {
     {"apply", (PyCFunction)Transformer_apply, METH_VARARGS, NULL},
 #ifdef GPAW_GPU
-    {"apply_cuda_gpu", (PyCFunction)Transformer_apply_cuda_gpu,
+    {"apply_gpu", (PyCFunction)Transformer_apply_gpu,
         METH_VARARGS, NULL},
 #endif
     {"get_async_sizes",
@@ -245,7 +245,7 @@ PyObject * NewTransformerObject(PyObject *obj, PyObject *args)
 #ifdef GPAW_GPU
   self->cuda = cuda;
   if (self->cuda) {
-    transformer_init_cuda(self);
+    transformer_init_gpu(self);
   }
 #endif
   return (PyObject*)self;

@@ -34,8 +34,8 @@
 
 #ifdef GPAW_GPU
 #include "gpu/gpu.h"
-PyObject* Operator_relax_cuda_gpu(OperatorObject *self, PyObject *args);
-PyObject* Operator_apply_cuda_gpu(OperatorObject *self, PyObject *args);
+PyObject* Operator_relax_gpu(OperatorObject *self, PyObject *args);
+PyObject* Operator_apply_gpu(OperatorObject *self, PyObject *args);
 #endif
 
 static void Operator_dealloc(OperatorObject *self)
@@ -43,8 +43,8 @@ static void Operator_dealloc(OperatorObject *self)
 
 #ifdef GPAW_GPU
   if (self->cuda) {
-    operator_dealloc_cuda(0);
-    bc_dealloc_cuda(0);
+    operator_dealloc_gpu(0);
+    bc_dealloc_gpu(0);
   }
 #endif
   free(self->bc);
@@ -358,10 +358,10 @@ static PyMethodDef Operator_Methods[] = {
     {"relax",
      (PyCFunction)Operator_relax, METH_VARARGS, NULL},
 #ifdef GPAW_GPU
-    {"apply_cuda_gpu",
-     (PyCFunction)Operator_apply_cuda_gpu, METH_VARARGS, NULL},
-    {"relax_cuda_gpu",
-     (PyCFunction)Operator_relax_cuda_gpu, METH_VARARGS, NULL},
+    {"apply_gpu",
+     (PyCFunction)Operator_apply_gpu, METH_VARARGS, NULL},
+    {"relax_gpu",
+     (PyCFunction)Operator_relax_gpu, METH_VARARGS, NULL},
 #endif
     {"get_diagonal_element",
      (PyCFunction)Operator_get_diagonal_element, METH_VARARGS, NULL},
@@ -422,7 +422,7 @@ PyObject * NewOperatorObject(PyObject *obj, PyObject *args)
 #ifdef GPAW_GPU
   self->cuda = cuda;
   if (self->cuda) {
-    operator_init_cuda(self);
+    operator_init_gpu(self);
   }
 #endif
   return (PyObject*)self;

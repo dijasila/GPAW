@@ -519,7 +519,7 @@ int bmgs_fd_boundary_test(
 dim3 bmgs_fd_cuda_get_blockDim(int ndouble);
 
 extern "C"
-void Zgpu(bmgs_fd_cuda_gpu)(
+void Zgpu(bmgs_fd_gpu)(
         const bmgsstencil_gpu* s_gpu, const Tgpu* adev, Tgpu* bdev,
         int boundary, int blocks, gpuStream_t stream)
 {

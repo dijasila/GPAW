@@ -14,7 +14,7 @@ class CUDA(BaseBackend):
         from gpaw.gpu.arrays import CuPyArrayInterface
         self._cuda = cuda
         self.array = CuPyArrayInterface()
-        _gpaw.set_gpaw_cuda_debug(self.debug)
+        _gpaw.set_gpaw_gpu_debug(self.debug)
 
     def init(self, rank=0):
         if self.device_ctx is not None:
@@ -29,12 +29,12 @@ class CUDA(BaseBackend):
         self.device_ctx = True
 
         # initialise C parameters and memory buffers
-        _gpaw.gpaw_cuda_init()
+        _gpaw.gpaw_gpu_init()
 
     def delete(self):
         if self.device_ctx is not None:
             # deallocate memory buffers
-            _gpaw.gpaw_cuda_delete()
+            _gpaw.gpaw_gpu_delete()
             self.device_ctx = None
 
     def copy_to_host(self, src, tgt=None, stream=None):

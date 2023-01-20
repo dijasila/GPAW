@@ -91,7 +91,7 @@ __global__ void Zgpu(add_kernel)(Tgpu *a_G, const Tgpu *c_M, int *G_B1,
 #include "lfc.cpp"
 
 extern "C"
-void lfc_dealloc_cuda(LFCObject *self)
+void lfc_dealloc_gpu(LFCObject *self)
 {
     if (self->cuda) {
         for (int W=0; W < self->nW; W++) {
@@ -162,7 +162,7 @@ void *transp(void *matrix, int rows, int cols, size_t item_size)
 }
 
 extern "C"
-PyObject * NewLFCObject_cuda(LFCObject *self, PyObject *args)
+PyObject * NewLFCObject_gpu(LFCObject *self, PyObject *args)
 {
     PyObject* A_Wgm_obj;
     const PyArrayObject* M_W_obj;
@@ -462,7 +462,7 @@ void parse_shape_xG(PyObject* shape, int* nx, int* nG)
 
 
 extern "C"
-PyObject* integrate_cuda_gpu(LFCObject *lfc, PyObject *args)
+PyObject* integrate_gpu(LFCObject *lfc, PyObject *args)
 {
     void *a_xG_gpu;
     void *c_xM_gpu;
@@ -501,7 +501,7 @@ PyObject* integrate_cuda_gpu(LFCObject *lfc, PyObject *args)
 }
 
 extern "C"
-PyObject* add_cuda_gpu(LFCObject *lfc, PyObject *args)
+PyObject* add_gpu(LFCObject *lfc, PyObject *args)
 {
     void *a_xG_gpu;
     void *c_xM_gpu;

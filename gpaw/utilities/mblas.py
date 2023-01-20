@@ -36,22 +36,22 @@ def multi_axpy(a, x, y):
                     multi_axpy_cpu(a, gpu.copy_to_host(x), y_cpu)
 
             if gpu.is_device_array(a):
-                _gpaw.multi_axpy_cuda_gpu(gpu.array.get_pointer(a),
-                                          a.dtype,
-                                          gpu.array.get_pointer(x),
-                                          x.shape,
-                                          gpu.array.get_pointer(y),
-                                          y.shape,
-                                          x.dtype)
+                _gpaw.multi_axpy_gpu(gpu.array.get_pointer(a),
+                                     a.dtype,
+                                     gpu.array.get_pointer(x),
+                                     x.shape,
+                                     gpu.array.get_pointer(y),
+                                     y.shape,
+                                     x.dtype)
             else:
                 a_gpu = gpu.copy_to_device(a)
-                _gpaw.multi_axpy_cuda_gpu(gpu.array.get_pointer(a_gpu),
-                                          a.dtype,
-                                          gpu.array.get_pointer(x),
-                                          x.shape,
-                                          gpu.array.get_pointer(y),
-                                          y.shape,
-                                          x.dtype)
+                _gpaw.multi_axpy_gpu(gpu.array.get_pointer(a_gpu),
+                                     a.dtype,
+                                     gpu.array.get_pointer(x),
+                                     x.shape,
+                                     gpu.array.get_pointer(y),
+                                     y.shape,
+                                     x.dtype)
                 if gpu.debug:
                     gpu.debug_test(y, y_cpu, "multi_axpy", raise_error=True)
         else:
@@ -77,11 +77,11 @@ def multi_dotc(x, y, s=None):
             s_gpu = s
         else:
             s_gpu = gpu.array.empty(x.shape[0], dtype=x.dtype)
-        _gpaw.multi_dotc_cuda_gpu(gpu.array.get_pointer(x),
-                                  x.shape,
-                                  gpu.array.get_pointer(y),
-                                  x.dtype,
-                                  gpu.array.get_pointer(s_gpu))
+        _gpaw.multi_dotc_gpu(gpu.array.get_pointer(x),
+                             x.shape,
+                             gpu.array.get_pointer(y),
+                             x.dtype,
+                             gpu.array.get_pointer(s_gpu))
         if gpu.debug:
             s_cpu = np.empty(x.shape[0], dtype=x.dtype)
             multi_dotc_cpu(gpu.copy_to_host(x), gpu.copy_to_host(y), s_cpu)
@@ -113,11 +113,11 @@ def multi_dotu(x, y, s=None):
             s_gpu = s
         else:
             s_gpu = gpu.array.empty(x.shape[0], dtype=x.dtype)
-        _gpaw.multi_dotu_cuda_gpu(gpu.array.get_pointer(x),
-                                  x.shape,
-                                  gpu.array.get_pointer(y),
-                                  x.dtype,
-                                  gpu.array.get_pointer(s_gpu))
+        _gpaw.multi_dotu_gpu(gpu.array.get_pointer(x),
+                             x.shape,
+                             gpu.array.get_pointer(y),
+                             x.dtype,
+                             gpu.array.get_pointer(s_gpu))
         if gpu.debug:
             s_cpu = np.empty(x.shape[0], dtype=x.dtype)
             multi_dotu_cpu(gpu.copy_to_host(x), gpu.copy_to_host(y), s_cpu)
@@ -150,18 +150,18 @@ def multi_scal(a, x):
                 else:
                     multi_scal_cpu(a, x_cpu)
             if gpu.is_device_array(a):
-                _gpaw.multi_scal_cuda_gpu(gpu.array.get_pointer(a),
-                                          a.dtype,
-                                          gpu.array.get_pointer(x),
-                                          x.shape,
-                                          x.dtype)
+                _gpaw.multi_scal_gpu(gpu.array.get_pointer(a),
+                                     a.dtype,
+                                     gpu.array.get_pointer(x),
+                                     x.shape,
+                                     x.dtype)
             else:
                 a_gpu = gpu.copy_to_device(a)
-                _gpaw.multi_scal_cuda_gpu(gpu.array.get_pointer(a_gpu),
-                                          a.dtype,
-                                          gpu.array.get_pointer(x),
-                                          x.shape,
-                                          x.dtype)
+                _gpaw.multi_scal_gpu(gpu.array.get_pointer(a_gpu),
+                                     a.dtype,
+                                     gpu.array.get_pointer(x),
+                                     x.shape,
+                                     x.dtype)
             if gpu.debug:
                 gpu.debug_test(x, x_cpu, "multi_scal")
         else:

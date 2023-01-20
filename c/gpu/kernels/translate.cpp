@@ -13,7 +13,7 @@
 #endif
 
 
-__global__ void Zgpu(bmgs_translate_cuda_kernel)(
+__global__ void Zgpu(bmgs_translate_kernel)(
         const Tgpu* a, const int3 c_sizea,
         Tgpu* b, const int3 c_sizeb,
 #ifdef GPU_USE_COMPLEX
@@ -48,7 +48,7 @@ __global__ void Zgpu(bmgs_translate_cuda_kernel)(
 }
 
 extern "C"
-void Zgpu(bmgs_translate_cuda_gpu)(
+void Zgpu(bmgs_translate_gpu)(
         Tgpu* a, const int sizea[3], const int size[3],
         const int start1[3], const int start2[3],
 #ifdef GPU_USE_COMPLEX
@@ -74,7 +74,7 @@ void Zgpu(bmgs_translate_cuda_gpu)(
     a += start1[2] + (start1[1] + start1[0] * hc_sizea.y) * hc_sizea.z;
 
     gpuLaunchKernel(
-            Zgpu(bmgs_translate_cuda_kernel), dimGrid, dimBlock, 0, stream,
+            Zgpu(bmgs_translate_kernel), dimGrid, dimBlock, 0, stream,
             (Tgpu*) a, hc_sizea, (Tgpu*) b, hc_size,
 #ifdef GPU_USE_COMPLEX
             phase,
