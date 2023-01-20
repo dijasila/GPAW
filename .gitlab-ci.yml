@@ -113,6 +113,8 @@ test-cuda:
     - nvidia-smi
     - gpaw info
     - pytest -v -m gpu
+  rules:
+    - if: $CI_COMMIT_REF_PROTECTED == "true"
 
 
 test:
