@@ -230,17 +230,16 @@ class QSymmetryOp:
         symop = QSymmetryOp(sym, U_cc, sign)
         return symop, iQ, Q_c, iq, q_c
 
-    def apply_symop_q(self, qpd, q_c, pawcorr, kpt1, kpt2, debug=False):
+    def apply_symop_q(self, pd, q_c, pawcorr, kpt1, kpt2, debug=False):
         # returns necessary quantities to get symmetry transformed
         # density matrix
-        N_c = qpd.gd.N_c
-        i_cG = self.apply(np.unravel_index(qpd.Q_qG[0], N_c))
-        assert np.allclose(qpd.q_c, qpd.kd.bzk_kc[0])
-        shift0_c = self.get_shift0(q_c, qpd.q_c)
+        N_c = pd.gd.N_c
+        i_cG = self.apply(np.unravel_index(pd.Q_qG[0], N_c))
+        shift0_c = self.get_shift0(q_c, pd.q_c)
         shift_c = kpt1.shift_c - kpt2.shift_c - shift0_c
         I_G = np.ravel_multi_index(i_cG + shift_c[:, None], N_c, 'wrap')
-        qG_Gv = qpd.get_reciprocal_vectors(add_q=True)
-        M_vv = self.get_M_vv(qpd.gd.cell_cv)
+        qG_Gv = pd.get_reciprocal_vectors(add_q=True)
+        M_vv = self.get_M_vv(pd.gd.cell_cv)
         mypawcorr = pawcorr.remap_by_symop(self, qG_Gv, M_vv)
         # XXX Can be removed together with G0W0 debug routine in future
         if debug:
