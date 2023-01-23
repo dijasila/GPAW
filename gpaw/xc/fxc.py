@@ -364,7 +364,7 @@ class FXCCorrelation:
                 fv_diag_G = np.exp(-0.25 * (G_G * self.range_rc)**2.0)
                 # Unfortunately here we have a radically different shape,
                 # so we'll struggle to handle the arrays similarly.
-                # All other cases have fv_lwGG (with some dimensions being 1).
+                # All other cases have fv_lGG
 
             elif self.xcflags.linear_kernel:
                 fv_lGG = read('fhxc_sGsG')[np.newaxis, :, :]
@@ -593,9 +593,7 @@ class KernelWave:
             # wherever it is that we pass it.
             omega_w = [None]
 
-            nw = len(omega_w)
-
-            fv_nospin_lwGG = np.zeros((len(self.l_l), nw, nG, nG),
+            fv_nospin_lGG = np.zeros((len(self.l_l), nG, nG),
                                       dtype=complex)
 
             for il, l in enumerate(self.l_l):  # loop over coupling constant
@@ -654,8 +652,8 @@ class KernelWave:
                                 w=w)
 
                         for iw, w in enumerate(omega_w):
-                            fv_nospin_lwGG[il, iw, iG, iG:] = scaled_fHxc(
-                                w, spincorr=False, l=l)
+                            fv_nospin_lGG[il, iG, iG:] = scaled_fHxc(
+                                w=None, spincorr=False, l=l)
 
                         if calc_spincorr:
                             fv_spincorr_GG[iG, iG:] = scaled_fHxc(
@@ -666,23 +664,23 @@ class KernelWave:
 
                         assert iG == 0
 
-                        fv_nospin_lwGG[il, :, 0, 0] = l
-                        fv_nospin_lwGG[il, :, 0, 1:] = 0.0
+                        fv_nospin_lGG[il, 0, 0] = l
+                        fv_nospin_lGG[il, 0, 1:] = 0.0
 
                         if calc_spincorr:
                             fv_spincorr_GG[0, :] = 0.0
 
                     # End loop over G vectors
 
-                mpi.world.sum(fv_nospin_lwGG[il])
+                mpi.world.sum(fv_nospin_lGG[il])
 
-                for iw in range(len(omega_w)):
-                    # We've only got half the matrix here,
-                    # so add the hermitian conjugate:
-                    fv_nospin_lwGG[il, iw] += np.conj(fv_nospin_lwGG[il, iw].T)
-                    # but now the diagonal's been doubled,
-                    # so we multiply these elements by 0.5
-                    fv_nospin_lwGG[il, iw][np.diag_indices(nG)] *= 0.5
+                iw = 0
+                # We've only got half the matrix here,
+                # so add the hermitian conjugate:
+                fv_nospin_lGG[il] += np.conj(fv_nospin_lGG[il].T)
+                # but now the diagonal's been doubled,
+                # so we multiply these elements by 0.5
+                fv_nospin_lGG[il][np.diag_indices(nG)] *= 0.5
 
                 # End of loop over coupling constant
 
@@ -701,8 +699,7 @@ class KernelWave:
                 if calc_spincorr:
                     # Form the block matrix kernel
                     fv_full_2G2G = np.empty((2 * nG, 2 * nG), dtype=complex)
-                    assert nw == 1
-                    fv_nospin_GG = fv_nospin_lwGG[0, 0]
+                    fv_nospin_GG = fv_nospin_lGG[0]
                     fv_full_2G2G[:nG, :nG] = fv_nospin_GG + fv_spincorr_GG
                     fv_full_2G2G[:nG, nG:] = fv_nospin_GG - fv_spincorr_GG
                     fv_full_2G2G[nG:, :nG] = fv_nospin_GG - fv_spincorr_GG
@@ -710,11 +707,9 @@ class KernelWave:
                     w.write(fhxc_sGsG=fv_full_2G2G)
 
                 elif len(self.l_l) == 1:
-                    assert nw == 1
-                    w.write(fhxc_sGsG=fv_nospin_lwGG[0, 0])
+                    w.write(fhxc_sGsG=fv_nospin_lGG[0])
                 else:
-                    assert nw == 1
-                    w.write(fhxc_lGG=fv_nospin_lwGG[:, 0, :, :])
+                    w.write(fhxc_lGG=fv_nospin_lGG)
 
                 w.close()
 
