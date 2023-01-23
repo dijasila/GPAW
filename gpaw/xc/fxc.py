@@ -131,12 +131,7 @@ class FXCCorrelation:
                     self.context.print('Calculating %s kernel starting from '
                                        'q point %s \n' % (self.xc, q_empty))
 
-                    kernelkwargs.update(l_l=self.l_l,
-                                        q_empty=q_empty)
-
-                    if self.fxckernel.linear_kernel:
-                        kernelkwargs.update(l_l=None)
-
+                    kernelkwargs.update(q_empty=q_empty)
                     kernel = KernelWave(**kernelkwargs)
 
                 else:
@@ -348,22 +343,18 @@ class FXCCorrelation:
                     return getattr(reader, arrayname)
 
             if self.xc == 'RPA':
-                fv_lGG = np.eye(nG)[np.newaxis, :, :]
+                fv_GG = np.eye(nG)
 
             elif self.xc == 'range_RPA':
                 fv_diag_G = np.exp(-0.25 * (G_G * self.range_rc)**2.0)
                 # Unfortunately here we have a radically different shape,
                 # so we'll struggle to handle the arrays similarly.
-                # All other cases have fv_lGG
-
-            elif self.fxckernel.linear_kernel:
-                fv_lGG = read('fhxc_sGsG')[np.newaxis, :, :]
+                # All other cases have fv_GG
             else:
-                # static kernel which does not scale with lambda
-                fv_lGG = read('fhxc_lGG')
+                fv_GG = read('fhxc_sGsG')
 
             if apply_cut_G and cut_G is not None:
-                fv_lGG = fv_lGG.take(cut_G, 1).take(cut_G, 2)
+                fv_GG = fv_GG.take(cut_G, 0).take(cut_G, 1)
 
             if pd.kd.gamma:
                 G_G[0] = 1.0
@@ -375,20 +366,9 @@ class FXCCorrelation:
             for iw, chi0_sGG in enumerate(np.swapaxes(chi0_swGG, 0, 1)):
                 chi0v = get_chi0v(chi0_sGG, cut_G, G_G)
 
-                if not self.fxckernel.linear_kernel:
-                    il = 0
-                    energy = 0.0
-                    for l, weight in zip(self.l_l, self.weight_l):
-                        chiv = np.linalg.solve(
-                            np.eye(nG) - chi0v @ fv_lGG[il],
-                            chi0v).real
-                        energy -= np.trace(chiv) * weight
-                        il += 1
-
-                    energy += np.trace(chi0v.real)
-                    e_w.append(energy)
-
-                else:
+                if True:
+                    # linear kernel case.
+                    # TODO: Un-indent when review is over.
 
                     # Coupling constant integration
                     # for long-range part
@@ -400,19 +380,17 @@ class FXCCorrelation:
                         chi0v_fv = chi0v * fv_diag_G
                         e_GG = np.eye(nG) - chi0v_fv
                     elif self.xc != 'RPA':
-                        assert len(fv_lGG) == 1
-                        chi0v_fv = np.dot(chi0v, fv_lGG[0])
+                        chi0v_fv = np.dot(chi0v, fv_GG)
                         e_GG = np.eye(nG) - chi0v_fv
 
                     if self.xc == 'RPA':
                         # numerical RPA
                         elong = 0.0
-                        for l, weight in zip(self.l_l, self.weight_l):
-                            assert len(fv_lGG) == 1
 
+                        for l, weight in zip(self.l_l, self.weight_l):
                             chiv = np.linalg.solve(
                                 np.eye(nG) - l * np.dot(
-                                    chi0v, fv_lGG[0]), chi0v).real
+                                    chi0v, fv_GG), chi0v).real
 
                             elong -= np.trace(chiv) * weight
 
@@ -422,11 +400,10 @@ class FXCCorrelation:
                         # analytic everything else
                         elong = (np.log(np.linalg.det(e_GG)) + nG -
                                  np.trace(e_GG)).real
+
                     # Numerical integration for short-range part
                     eshort = 0.0
                     if self.xc not in ('RPA', 'range_RPA', 'range_rALDA'):
-                        assert len(fv_lGG) == 1
-                        fv_GG = fv_lGG[0]
                         # Subtract Hartree contribution:
                         fxcv = fv_GG - np.eye(nG)
 
@@ -453,7 +430,7 @@ class FXCCorrelation:
 
 
 class KernelWave:
-    def __init__(self, gs, xc, ibzq_qc, l_l, q_empty, ecut,
+    def __init__(self, gs, xc, ibzq_qc, q_empty, ecut,
                  tag, context):
 
         self.gs = gs
@@ -461,15 +438,11 @@ class KernelWave:
         self.xc = xc
         self.fxckernel = FXCKernel(xc)
         self.ibzq_qc = ibzq_qc
-        self.l_l = l_l
         self.ns = self.gs.nspins
         self.q_empty = q_empty
         self.ecut = ecut
         self.tag = tag
         self.context = context
-
-        if l_l is None:  # -> Kernel is linear in coupling strength
-            self.l_l = [1.0]
 
         # Density grid
         n_sg, finegd = self.gs.get_all_electron_density(gridrefinement=2)
@@ -564,8 +537,6 @@ class KernelWave:
                                                 or self.xc == 'rAPBE')
 
             if calc_spincorr:
-                assert len(self.l_l) == 1
-
                 # Form spin-dependent kernel according to
                 # PRB 88, 115131 (2013) equation 20
                 # (note typo, should be \tilde{f^rALDA})
@@ -575,9 +546,12 @@ class KernelWave:
                 # fHxc^{up down}   = fHxc^{down up}   = fv_nospin - fv_spincorr
                 fv_spincorr_GG = np.zeros((nG, nG), dtype=complex)
 
-            fv_nospin_lGG = np.zeros((len(self.l_l), nG, nG), dtype=complex)
+            fv_nospin_GG = np.zeros((nG, nG), dtype=complex)
 
-            for il, l in enumerate(self.l_l):  # loop over coupling constant
+            if True:
+                # TODO: Remove indentation after review.
+                # We replaced a loop with "if True" to keep the diff small.
+                # Once things are settled, unindent entire block.
                 for iG, Gv in zip(my_Gints, my_Gv_G):  # loop over G vecs
 
                     # For all kernels we
@@ -622,42 +596,44 @@ class KernelWave:
                              deltaGv[:, 1, np.newaxis] * self.y_g[small_ind] +
                              deltaGv[:, 2, np.newaxis] * self.z_g[small_ind]))
 
-                        def scaled_fHxc(spincorr, l):
+                        def scaled_fHxc(spincorr):
                             return self.get_scaled_fHxc_q(
                                 q=mod_Gpq,
                                 sel_points=small_ind,
                                 Gphase=phase_Gpq,
-                                l=l,
                                 spincorr=spincorr)
 
-                        fv_nospin_lGG[il, iG, iG:] = scaled_fHxc(
-                            spincorr=False, l=l)
+                        fv_nospin_GG[iG, iG:] = scaled_fHxc(
+                            spincorr=False)
 
                         if calc_spincorr:
                             fv_spincorr_GG[iG, iG:] = scaled_fHxc(
-                                spincorr=True, l=1.0)
+                                spincorr=True)
                     else:
                         # head and wings of q=0 are dominated by
                         # 1/q^2 divergence of scaled Coulomb interaction
 
                         assert iG == 0
 
-                        fv_nospin_lGG[il, 0, 0] = l
-                        fv_nospin_lGG[il, 0, 1:] = 0.0
+                        # The [0, 0] element would ordinarily be set to
+                        # 'l' if we have nonlinear kernel (which we are
+                        # removing).  Now l=1.0 always:
+                        fv_nospin_GG[0, 0] = 1.0
+                        fv_nospin_GG[0, 1:] = 0.0
 
                         if calc_spincorr:
                             fv_spincorr_GG[0, :] = 0.0
 
                     # End loop over G vectors
 
-                mpi.world.sum(fv_nospin_lGG[il])
+                mpi.world.sum(fv_nospin_GG)
 
                 # We've only got half the matrix here,
                 # so add the hermitian conjugate:
-                fv_nospin_lGG[il] += np.conj(fv_nospin_lGG[il].T)
+                fv_nospin_GG += np.conj(fv_nospin_GG.T)
                 # but now the diagonal's been doubled,
                 # so we multiply these elements by 0.5
-                fv_nospin_lGG[il][np.diag_indices(nG)] *= 0.5
+                fv_nospin_GG[np.diag_indices(nG)] *= 0.5
 
                 # End of loop over coupling constant
 
@@ -676,17 +652,14 @@ class KernelWave:
                 if calc_spincorr:
                     # Form the block matrix kernel
                     fv_full_2G2G = np.empty((2 * nG, 2 * nG), dtype=complex)
-                    fv_nospin_GG = fv_nospin_lGG[0]
                     fv_full_2G2G[:nG, :nG] = fv_nospin_GG + fv_spincorr_GG
                     fv_full_2G2G[:nG, nG:] = fv_nospin_GG - fv_spincorr_GG
                     fv_full_2G2G[nG:, :nG] = fv_nospin_GG - fv_spincorr_GG
                     fv_full_2G2G[nG:, nG:] = fv_nospin_GG + fv_spincorr_GG
                     w.write(fhxc_sGsG=fv_full_2G2G)
 
-                elif len(self.l_l) == 1:
-                    w.write(fhxc_sGsG=fv_nospin_lGG[0])
                 else:
-                    w.write(fhxc_lGG=fv_nospin_lGG)
+                    w.write(fhxc_sGsG=fv_nospin_GG)
 
                 w.close()
 
@@ -694,7 +667,7 @@ class KernelWave:
 
             mpi.world.barrier()
 
-    def get_scaled_fHxc_q(self, q, sel_points, Gphase, l, spincorr):
+    def get_scaled_fHxc_q(self, q, sel_points, Gphase, spincorr):
         # Given a coupling constant l, construct the Hartree-XC
         # kernel in q space a la Lein, Gross and Perdew,
         # Phys. Rev. B 61, 13431 (2000):
@@ -720,6 +693,8 @@ class KernelWave:
         else:
             s2_g = None
 
+        l = 1.0  # Leftover from the age of non-linear kernels.
+        # This would be an integration weight or something.
         scaled_q = q / l
         scaled_rho = rho / l**3.0
         scaled_rs = (3.0 / (4.0 * np.pi * scaled_rho))**(1.0 / 3.0
@@ -1265,9 +1240,6 @@ class FXCKernel:
 
     _spin_kernels = {'rALDA', 'rAPBE', 'ALDA'}
 
-    _linear_kernels = {'rALDAns', 'rAPBEns', 'range_RPA', 'RPA',
-                       'rALDA', 'rAPBE', 'range_rALDA', 'ALDA'}
-
     def __init__(self, xc):
         if xc not in self._accepted_flags:
             raise RuntimeError('%s kernel not recognized' % self.xc)
@@ -1278,11 +1250,6 @@ class FXCKernel:
     def spin_kernel(self):
         # rALDA/rAPBE are the only kernels which have spin-dependent forms
         return self.xc in self._spin_kernels
-
-    @property
-    def linear_kernel(self):
-        # Scales linearly with coupling constant
-        return self.xc in self._linear_kernels
 
     @property
     def is_ranged(self):

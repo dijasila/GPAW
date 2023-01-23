@@ -373,11 +373,11 @@ class BSEBackend:
             self.kd, self.qd, kpt1, kpt2)
         symop.check_q_Q_symmetry(Q_c, q_c)
         pd = self.pd_q[iq]
-        G_Gv = pd.get_reciprocal_vectors()
+        nG = pd.ngmax
         pawcorr, I_G = symop.apply_symop_q(
             pd, Q_c, self.pawcorr_q[iq], kpt1, kpt2)
 
-        rho_mnG = np.zeros((len(kpt1.eps_n), len(kpt2.eps_n), len(G_Gv)),
+        rho_mnG = np.zeros((len(kpt1.eps_n), len(kpt2.eps_n), nG),
                            complex)
         for m in range(len(rho_mnG)):
             rho_mnG[m] = get_nmG(kpt1, kpt2, pawcorr, m, pd, I_G, self.pair)
