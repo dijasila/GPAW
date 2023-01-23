@@ -48,7 +48,7 @@ class MGGAFunctional(Functional):
                  setups,
                  fracpos_ac,
                  atomdist):
-        super()(xc, grid)
+        super().__init__(xc, grid)
 
         self.tauct_aX = setups.create_pseudo_core_kinetic_energy_densities(
             interpolation_domain,
