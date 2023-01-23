@@ -643,10 +643,7 @@ class KernelWave:
                                 sel_points=small_ind,
                                 Gphase=phase_Gpq,
                                 l=l,
-                                spincorr=spincorr,
-                                w=None)
-                        # XXX todo: can the fHxc_q be cleaned so it no longer
-                        # takes w?
+                                spincorr=spincorr)
 
                         fv_nospin_lGG[il, iG, iG:] = scaled_fHxc(
                             spincorr=False, l=l)
@@ -713,7 +710,7 @@ class KernelWave:
 
             mpi.world.barrier()
 
-    def get_scaled_fHxc_q(self, q, sel_points, Gphase, l, spincorr, w):
+    def get_scaled_fHxc_q(self, q, sel_points, Gphase, l, spincorr):
         # Given a coupling constant l, construct the Hartree-XC
         # kernel in q space a la Lein, Gross and Perdew,
         # Phys. Rev. B 61, 13431 (2000):
@@ -743,10 +740,6 @@ class KernelWave:
         scaled_rho = rho / l**3.0
         scaled_rs = (3.0 / (4.0 * np.pi * scaled_rho))**(1.0 / 3.0
                                                          )  # Wigner radius
-        if w is not None:
-            scaled_w = w / (l**2.0)
-        else:
-            scaled_w = None
 
         if self.Eg is not None:
             scaled_Eg = self.Eg / (l**1.5)
@@ -755,20 +748,20 @@ class KernelWave:
 
         if not spincorr:
             scaled_kernel = l * self.get_fHxc_q(scaled_rs, scaled_q, Gphase,
-                                                s2_g, scaled_w, scaled_Eg)
+                                                s2_g, scaled_Eg)
         else:
             scaled_kernel = l * self.get_spinfHxc_q(scaled_rs, scaled_q,
                                                     Gphase, s2_g)
 
         return scaled_kernel
 
-    def get_fHxc_q(self, rs, q, Gphase, s2_g, w, scaled_Eg):
+    def get_fHxc_q(self, rs, q, Gphase, s2_g, scaled_Eg):
         # Construct fHxc(q,G,:), divided by scaled Coulomb interaction
 
         heg = HEG(rs)
         qF = heg.qF
 
-        fHxc_Gr = get_fHxc_Gr(self.xcflags, rs, q, qF, s2_g, w, scaled_Eg)
+        fHxc_Gr = get_fHxc_Gr(self.xcflags, rs, q, qF, s2_g, scaled_Eg)
 
         # Integrate over r with phase
         fHxc_Gr *= Gphase
@@ -1291,7 +1284,6 @@ class XCFlags:
         'rAPBEns',
         'rALDAc',  # rALDA + correlation
         'CP',  # Constantin Pitarke
-        'CP_dyn',  # Dynamical form of CP
         'CDOP',  # Corradini et al
         'CDOPs',  # CDOP without local term
         'JGMs',  # simplified jellium-with-gap kernel
