@@ -367,62 +367,58 @@ class FXCCorrelation:
             for iw, chi0_sGG in enumerate(np.swapaxes(chi0_swGG, 0, 1)):
                 chi0v = get_chi0v(chi0_sGG, cut_G, G_G)
 
-                if True:
-                    # linear kernel case.
-                    # TODO: Un-indent when review is over.
+                # Coupling constant integration
+                # for long-range part
+                # Do this analytically, except for the RPA
+                # simply since the analytical method is already
+                # implemented in rpa.py
+                if self.xc == 'range_RPA':
+                    # way faster than np.dot for diagonal kernels
+                    chi0v_fv = chi0v * fv_diag_G
+                    e_GG = np.eye(nG) - chi0v_fv
+                elif self.xc != 'RPA':
+                    chi0v_fv = np.dot(chi0v, fv_GG)
+                    e_GG = np.eye(nG) - chi0v_fv
 
-                    # Coupling constant integration
-                    # for long-range part
-                    # Do this analytically, except for the RPA
-                    # simply since the analytical method is already
-                    # implemented in rpa.py
-                    if self.xc == 'range_RPA':
-                        # way faster than np.dot for diagonal kernels
-                        chi0v_fv = chi0v * fv_diag_G
-                        e_GG = np.eye(nG) - chi0v_fv
-                    elif self.xc != 'RPA':
-                        chi0v_fv = np.dot(chi0v, fv_GG)
-                        e_GG = np.eye(nG) - chi0v_fv
+                if self.xc == 'RPA':
+                    # numerical RPA
+                    elong = 0.0
 
-                    if self.xc == 'RPA':
-                        # numerical RPA
-                        elong = 0.0
+                    for l, weight in zip(self.l_l, self.weight_l):
+                        chiv = np.linalg.solve(
+                            np.eye(nG) - l * np.dot(
+                                chi0v, fv_GG), chi0v).real
 
-                        for l, weight in zip(self.l_l, self.weight_l):
-                            chiv = np.linalg.solve(
-                                np.eye(nG) - l * np.dot(
-                                    chi0v, fv_GG), chi0v).real
+                        elong -= np.trace(chiv) * weight
 
-                            elong -= np.trace(chiv) * weight
+                    elong += np.trace(chi0v.real)
 
-                        elong += np.trace(chi0v.real)
+                else:
+                    # analytic everything else
+                    elong = (np.log(np.linalg.det(e_GG)) + nG -
+                             np.trace(e_GG)).real
 
-                    else:
-                        # analytic everything else
-                        elong = (np.log(np.linalg.det(e_GG)) + nG -
-                                 np.trace(e_GG)).real
+                # Numerical integration for short-range part
+                eshort = 0.0
+                if self.xc not in ('RPA', 'range_RPA', 'range_rALDA'):
+                    # Subtract Hartree contribution:
+                    fxcv = fv_GG - np.eye(nG)
 
-                    # Numerical integration for short-range part
-                    eshort = 0.0
-                    if self.xc not in ('RPA', 'range_RPA', 'range_rALDA'):
-                        # Subtract Hartree contribution:
-                        fxcv = fv_GG - np.eye(nG)
+                    for l, weight in zip(self.l_l, self.weight_l):
 
-                        for l, weight in zip(self.l_l, self.weight_l):
+                        chiv = np.linalg.solve(
+                            np.eye(nG) - l * np.dot(chi0v, fv_GG), chi0v)
+                        eshort += (np.trace(np.dot(chiv, fxcv)).real *
+                                   weight)
 
-                            chiv = np.linalg.solve(
-                                np.eye(nG) - l * np.dot(chi0v, fv_GG), chi0v)
-                            eshort += (np.trace(np.dot(chiv, fxcv)).real *
-                                       weight)
+                    eshort -= np.trace(np.dot(chi0v, fxcv)).real
 
-                        eshort -= np.trace(np.dot(chi0v, fxcv)).real
+                elif self.xcflags.is_ranged:
+                    eshort = (2 * np.pi * self.shortrange /
+                              np.sum(self.weight_w))
 
-                    elif self.xcflags.is_ranged:
-                        eshort = (2 * np.pi * self.shortrange /
-                                  np.sum(self.weight_w))
-
-                    e = eshort + elong
-                    e_w.append(e)
+                e = eshort + elong
+                e_w.append(e)
 
         E_w = np.zeros_like(self.omega_w)
         self.blockcomm.all_gather(np.array(e_w), E_w)
