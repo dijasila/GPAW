@@ -8,7 +8,7 @@ from gpaw.kpt_descriptor import KPointDescriptor
 
 from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.response.gamma_int import GammaIntegrator
-from gpaw.response.temp import DielectricFunctionCalculator
+from gpaw.response.temp import DielectricFunctionCalculator, EpsilonInverse
 
 
 class QPointDescriptor(KPointDescriptor):
@@ -140,8 +140,12 @@ class WCalculator:
             'GWG': Both.
         """
 
-        W_wGG = self._calculate(chi0, fxc_mode,
-                                only_correlation=only_correlation)
+        if self.ppa:
+            W_wGG = self._calculate_ppa(chi0, fxc_mode,
+                                        only_correlation=only_correlation)
+        else:
+            W_wGG = self._calculate(chi0, fxc_mode,
+                                    only_correlation=only_correlation)
 
         if out_dist == 'WgG':
             assert not self.ppa
@@ -154,17 +158,8 @@ class WCalculator:
 
         return W_x
 
-    def basic_dyson_arrays(self, pd, fxc_mode):
-        delta_GG = np.eye(pd.ngmax)
 
-        if fxc_mode == 'GW':
-            fv = delta_GG
-        else:
-            fv = self.xckernel.calculate(pd)
-
-        return delta_GG, fv
-
-    def _calculate(self, chi0, fxc_mode,
+    def _calculate_ppa(self, chi0, fxc_mode,
                    only_correlation=False):
         """In-place calculation of the screened interaction."""
         # Unpack data
@@ -188,8 +183,7 @@ class WCalculator:
             V0 = 16 * np.pi**2 * Rq0 / bzvol
             sqrtV0 = (4 * np.pi)**(1.5) * Rq0**2 / bzvol / 2
 
-        if self.ppa:
-            einv_wGG = []
+        einv_wGG = []
 
         # Generate fine grid in vicinity of gamma
         # Use optical_limit check on chi0_data in the future XXX
@@ -201,6 +195,8 @@ class WCalculator:
                 chi0_wxvG=chi0_WxvG[wblocks1d.myslice])
 
         self.context.timer.start('Dyson eq.')
+        #einv = EpsilonInverse(chi0, self.gs.kd, self.gs.volume, fxc_mode)
+
         for iw, chi0_GG in enumerate(chi0_wGG):
             if np.allclose(q_c, 0):
                 einv_GG = np.zeros(delta_GG.shape, complex)
@@ -218,45 +214,56 @@ class WCalculator:
                 dfc = DielectricFunctionCalculator(
                     sqrtV_G, chi0_GG, mode=fxc_mode, fv_GG=fv)
                 einv_GG = dfc.get_einv_GG()
-            if self.ppa:
-                einv_wGG.append(einv_GG - delta_GG)
-            else:
-                einv_GG_full = einv_GG.copy()
-                if only_correlation:
-                    einv_GG -= delta_GG
-                W_GG = chi0_GG
-                W_GG[:] = (einv_GG) * (sqrtV_G *
-                                       sqrtV_G[:, np.newaxis])
-                if self.q0_corrector is not None and np.allclose(q_c, 0):
-                    W = wblocks1d.a + iw
-                    self.q0_corrector.add_q0_correction(pd, W_GG,
-                                                        einv_GG_full,
-                                                        chi0_WxvG[W],
-                                                        chi0_Wvv[W],
-                                                        sqrtV_G)
-                # XXX Is it to correct to have "or" here?
-                elif np.allclose(q_c, 0) or self.integrate_gamma != 0:
-                    W_GG[0, 0] = einv_GG[0, 0] * V0
-                    W_GG[0, 1:] = einv_GG[0, 1:] * sqrtV_G[1:] * sqrtV0
-                    W_GG[1:, 0] = einv_GG[1:, 0] * sqrtV0 * sqrtV_G[1:]
+            einv_wGG.append(einv_GG - delta_GG)
 
-        if self.ppa:
-            omegat_GG = self.E0 * np.sqrt(einv_wGG[1] /
-                                          (einv_wGG[0] - einv_wGG[1]))
-            R_GG = -0.5 * omegat_GG * einv_wGG[0]
-            W_GG = pi * R_GG * sqrtV_G * sqrtV_G[:, np.newaxis]
-            if np.allclose(q_c, 0) or self.integrate_gamma != 0:
-                W_GG[0, 0] = pi * R_GG[0, 0] * V0
-                W_GG[0, 1:] = pi * R_GG[0, 1:] * sqrtV_G[1:] * sqrtV0
-                W_GG[1:, 0] = pi * R_GG[1:, 0] * sqrtV0 * sqrtV_G[1:]
-
-            self.context.timer.stop('Dyson eq.')
-            # This is very bad! The output data structure should not depend
-            # on self.ppa! XXX
-            return [W_GG, omegat_GG]
+        omegat_GG = self.E0 * np.sqrt(einv_wGG[1] /
+                                      (einv_wGG[0] - einv_wGG[1]))
+        R_GG = -0.5 * omegat_GG * einv_wGG[0]
+        W_GG = pi * R_GG * sqrtV_G * sqrtV_G[:, np.newaxis]
+        if np.allclose(q_c, 0) or self.integrate_gamma != 0:
+            W_GG[0, 0] = pi * R_GG[0, 0] * V0
+            W_GG[0, 1:] = pi * R_GG[0, 1:] * sqrtV_G[1:] * sqrtV0
+            W_GG[1:, 0] = pi * R_GG[1:, 0] * sqrtV0 * sqrtV_G[1:]
 
         self.context.timer.stop('Dyson eq.')
-        return chi0_wGG
+        # This is very bad! The output data structure should not depend
+        # on self.ppa! XXX
+        return [W_GG, omegat_GG]
+
+
+    def _calculate(self, chi0, fxc_mode,
+                   only_correlation=False):
+        """In-place calculation of the screened interaction."""
+        
+        self.context.timer.start('Epsilon inverse.')
+        einv = EpsilonInverse(chi0, self.qd, self.coulomb, self.gs.kd, self.gs.volume, fxc_mode,
+                integrate_gamma=self.integrate_gamma)
+        self.context.timer.stop('Epsilon inverse.')
+        self.context.timer.start('W')
+        # inplace replacement of einv data with W_GG data
+        W_wGG = einv.einv_wGG
+        einv.einv_wGG = None  # Invalidate einv, because we stole its data
+        for iw, W_GG in enumerate(W_wGG):
+            einv_GG_full = W_GG.copy()
+            if only_correlation:
+                W_GG.ravel()[::len(W_GG)+1] -= 1 
+            W_GG[:] = W_GG * (einv.sqrtV_G *
+                              einv.sqrtV_G[:, np.newaxis])
+            if self.q0_corrector is not None and np.allclose(einv.q_c, 0):
+                W = einv.wblocks1d.a + iw
+                self.q0_corrector.add_q0_correction(einv.pd, W_GG,
+                                                    einv_GG_full,
+                                                    chi0_WxvG[W],
+                                                    chi0_Wvv[W],
+                                                    einv.sqrtV_G)
+            # XXX Is it to correct to have "or" here?
+            elif np.allclose(einv.q_c, 0) or self.integrate_gamma != 0:
+                W_GG[0, 0] = W_GG[0, 0] * einv.V0
+                W_GG[0, 1:] = W_GG[0, 1:] * einv.sqrtV_G[1:] * einv.sqrtV0
+                W_GG[1:, 0] = W_GG[1:, 0] * einv.sqrtV0 * einv.sqrtV_G[1:]
+
+        self.context.timer.start('W')
+        return W_wGG
 
     def dyson_and_W_new(self, iq, q_c, chi0, ecut, coulomb):
         assert not self.ppa
