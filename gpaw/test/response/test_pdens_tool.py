@@ -51,7 +51,7 @@ def test_response_pdens_tool(in_tmp_dir):
 
     # Part 2: optical transition calculation
 
-    pair, pd, domainarg_td = get_bz_transitions('si.gpw', q_c, bzk_kc,
+    pair, qpd, domainarg_td = get_bz_transitions('si.gpw', q_c, bzk_kc,
                                                 spins=spins,
                                                 ecut=10)
 
@@ -66,7 +66,7 @@ def test_response_pdens_tool(in_tmp_dir):
     nt = len(domainarg_td)
     nn = len(n_n)
     nm = len(m_m)
-    nG = pd.ngmax
+    nG = qpd.ngmax
     optical_limit = np.allclose(q_c, 0.)
 
     n_tnmG = np.zeros((nt, nn, nm, nG + 2 * optical_limit), dtype=complex)
@@ -75,7 +75,7 @@ def test_response_pdens_tool(in_tmp_dir):
     eps_tm = np.zeros((nt, nm), dtype=float)
     for t, domainarg_d in enumerate(domainarg_td):
         (n_tnmG[t], df_tnm[t],
-         eps_tn[t], eps_tm[t]) = get_chi0_integrand(pair, pd,
+         eps_tn[t], eps_tm[t]) = get_chi0_integrand(pair, qpd,
                                                     n_n, m_m,
                                                     *domainarg_d)
 
