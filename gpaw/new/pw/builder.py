@@ -59,6 +59,7 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
             return ...
         return create_functional(self._xc,
                                  self.fine_grid,
+                                 self.grid,
                                  self.interpolation_pw,
                                  self.setups,
                                  self.fracpos_ac,

@@ -4,10 +4,11 @@ from gpaw.xc.gga import add_gradient_correction, gga_vars
 
 
 def create_functional(xc: OldXCFunctional,
-                      grid, coarse_grid, setups, fracpos_ac, atomdist):
+                      grid, coarse_grid, interpolate_domain,
+                      setups, fracpos_ac, atomdist):
     if xc.type == 'MGGA':
-        return MGGAFunctional(xc, grid,
-                              coarse_grid, setups, fracpos_ac, atomdist)
+        return MGGAFunctional(xc, grid, coarse_grid,
+                              interpolate_domain, setups, fracpos_ac, atomdist)
     return LDAOrGGAFunctional(xc, grid)
 
 
@@ -44,18 +45,20 @@ class MGGAFunctional(Functional):
     def __init__(self,
                  xc,
                  grid,
+                 coarse_grid,
                  interpolation_domain,
                  setups,
                  fracpos_ac,
                  atomdist):
         super().__init__(xc, grid)
-
+        self.coarse_grid = coarse_grid
         self.tauct_aX = setups.create_pseudo_core_kinetic_energy_densities(
             interpolation_domain,
             fracpos_ac,
             atomdist)
-
-        self.tauct_R = None  # grid.empty()
+        self.tauct_R = coarse_grid.empty()
+        self.tauct_aX.to_uniform_grid(out=self.tauct_R,
+                                      scale=1.0 / (self.ncomponents % 3))
         self.ekin = np.nan
         self.dedtaut_sR = None
 
@@ -68,12 +71,12 @@ class MGGAFunctional(Functional):
                   ibzwfs,
                   interpolate,
                   restrict) -> float:
-        taut_sR = ibzwfs.calculate_kinetic_energy_density()
+        nspins = len(nt_sr)
 
-        if self.tauct_R is None:
-            self.tauct_R = taut_sR.desc.empty()
-        self.tauct_aX.to_uniform_grid(out=self.tauct_R,
-                                      scale=1.0 / (self.ncomponents % 3))
+        if ibzwfs is None:
+            taut_sR = self.coarse_grid.zeros(nspins)
+        else:
+            taut_sR = ibzwfs.calculate_kinetic_energy_density()
 
         taut_sr = self.grid.empty(len(taut_sR))
         for taut_R, taut_r in zip(taut_sR, taut_sr):

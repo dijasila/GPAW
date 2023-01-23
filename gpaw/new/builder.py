@@ -138,6 +138,7 @@ class DFTComponentsBuilder:
         return create_functional(self._xc,
                                  self.fine_grid,
                                  self.grid,
+                                 self.grid,
                                  self.setups,
                                  self.fracpos_ac,
                                  self.atomdist)
