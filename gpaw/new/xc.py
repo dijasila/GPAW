@@ -55,8 +55,9 @@ class MGGAFunctional(Functional):
             fracpos_ac,
             atomdist)
 
-        self.tauct_aX.to_uniform_grid(out=out,
-                                      scale=1.0 / (self.ncomponents % 3))
+        self.tauct_R = None  # grid.empty()
+        self.ekin = np.nan
+        self.dedtaut_sR = None
 
     def get_setup_name(self):
         return 'PBE'
@@ -69,8 +70,14 @@ class MGGAFunctional(Functional):
                   restrict) -> float:
         taut_sR = ibzwfs.calculate_kinetic_energy_density()
 
+        if self.tauct_R is None:
+            self.tauct_R = taut_sR.desc.empty()
+        self.tauct_aX.to_uniform_grid(out=self.tauct_R,
+                                      scale=1.0 / (self.ncomponents % 3))
+
+        taut_sr = self.grid.empty(len(taut_sR))
         for taut_R, taut_r in zip(taut_sR, taut_sr):
-            taut_R += 1.0 / self.wfs.nspins * self.tauct_G
+            taut_R += self.tauct_R
             interpolate(taut_R, taut_r)
 
         gd = self.xc.gd
@@ -78,23 +85,25 @@ class MGGAFunctional(Functional):
         sigma_xr, dedsigma_xr, gradn_svr = gga_vars(gd, self.xc.grad_v,
                                                     nt_sr.data)
 
-        dedtaut_sr = np.empty_like(nt_sr.data)
-        self.xc.kernel.calculate(e_r, nt_sr.data, vxct_sg.data,
+        e_r = self.grid.empty()
+        dedtaut_sr = taut_sr.new()
+        vxct_sr = np.empty_like(nt_sr.data)
+        self.xc.kernel.calculate(e_r.data, nt_sr.data, vxct_sr,
                                  sigma_xr, dedsigma_xr,
-                                 taut_sr.data, dedtaut_sr)
+                                 taut_sr.data, dedtaut_sr.data)
 
-        self.dedtaut_sG = self.wfs.gd.empty(self.wfs.nspins)
+        self.dedtaut_sR = taut_sR.new()
         self.ekin = 0.0
-        for s in range(self.wfs.nspins):
-            restrict(dedtaut_sg[s], self.dedtaut_sG[s])
-            self.ekin -= self.wfs.gd.integrate(
-                self.dedtaut_sG[s] * (taut_sG[s] -
-                                      self.tauct_G / self.wfs.nspins))
+        for dedtaut_R, dedtaut_r, taut_R in zip(self.dedtaut_sR,
+                                                dedtaut_sr,
+                                                taut_sR):
+            restrict(dedtaut_r, dedtaut_R)
+            self.ekin -= dedtaut_R.integrate(taut_R - self.tauct_R)
 
-        add_gradient_correction(self.grad_v, gradn_svg, sigma_xg,
-                                dedsigma_xg, v_sg)
+        add_gradient_correction(self.grad_v, gradn_svr, sigma_xr,
+                                dedsigma_xr, vxct_sr)
 
-        return gd.integrate(e_g)
+        return e_r.integrate()
 
     def apply_orbital_dependent_hamiltonian(self, kpt, psit_xG,
                                             Htpsit_xG, dH_asp=None):
