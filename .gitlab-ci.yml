@@ -53,6 +53,10 @@ stages:
       - _gpaw.*.so
     expire_in: 30 mins
 
+.gpu-job:
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"
+    - if: $CI_COMMIT_BRANCH =~ "/^gpu-.*/"
 
 build:
   image: $IMAGE_PATH/build:0.1
@@ -87,7 +91,9 @@ build-gpaw-python:
 
 build-cuda:
   image: $IMAGE_PATH/build-cuda:0.1
-  extends: .build
+  extends:
+    - .build
+    - .gpu-job
   tags:
     - linux
   script:
@@ -100,13 +106,12 @@ build-cuda:
       EOF
     - cat siteconfig.py
     - pip install --user --editable .
-  rules:
-    - if: $CI_COMMIT_BRANCH == "master"
-    - if: $CI_COMMIT_BRANCH =~ "/^gpu-*/"
 
 
 test-cuda:
   image: $IMAGE_PATH/run-cuda:0.1
+  extends:
+    - .gpu-job
   stage: test
   needs:
     - build-cuda
@@ -115,10 +120,7 @@ test-cuda:
   script:
     - nvidia-smi
     - gpaw info
-    - pytest -v -m gpu
-  rules:
-    - if: $CI_COMMIT_BRANCH == "master"
-    - if: $CI_COMMIT_BRANCH =~ "/^gpu-*/"
+    - pytest -v -m gpu --color=yes
 
 
 test:
