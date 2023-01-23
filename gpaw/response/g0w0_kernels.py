@@ -13,30 +13,30 @@ class G0W0Kernel:
     def __init__(self, xc, context, **kwargs):
         self.xc = xc
         self.context = context
-        self.xcflags = FXCKernel(xc)
+        self.fxckernel = FXCKernel(xc)
         self._kwargs = kwargs
 
     def calculate(self, pd):
         return calculate_kernel(
             pd=pd,
-            xcflags=self.xcflags,
+            fxckernel=self.fxckernel,
             context=self.context,
             **self._kwargs)
 
 
-def actually_calculate_kernel(*, gs, qd, xcflags, q_empty, tag, ecut_max,
+def actually_calculate_kernel(*, gs, qd, fxckernel, q_empty, tag, ecut_max,
                               context):
     ibzq_qc = qd.ibzk_kc
 
     l_l = np.array([1.0])
 
-    if xcflags.linear_kernel:
+    if fxckernel.linear_kernel:
         l_l = None
 
     kernel = KernelWave(
         l_l=l_l,
         gs=gs,
-        xc=xcflags.xc,
+        xc=fxckernel.xc,
         ibzq_qc=ibzq_qc,
         q_empty=q_empty,
         ecut=ecut_max,
@@ -46,8 +46,8 @@ def actually_calculate_kernel(*, gs, qd, xcflags, q_empty, tag, ecut_max,
     kernel.calculate_fhxc()
 
 
-def calculate_kernel(*, ecut, xcflags, gs, qd, ns, pd, context):
-    xc = xcflags.xc
+def calculate_kernel(*, ecut, fxckernel, gs, qd, ns, pd, context):
+    xc = fxckernel.xc
     tag = gs.atoms.get_chemical_formula(mode='hill')
 
     # Get iq
@@ -76,14 +76,14 @@ def calculate_kernel(*, ecut, xcflags, gs, qd, ns, pd, context):
     if xc != 'RPA':
         if q_empty is not None:
             actually_calculate_kernel(q_empty=q_empty, qd=qd, tag=tag,
-                                      xcflags=xcflags,
+                                      fxckernel=fxckernel,
                                       ecut_max=ecut_max, gs=gs,
                                       context=context)
             # (This creates the ulm file above.  Probably.)
 
         mpi.world.barrier()
 
-        if xcflags.spin_kernel:
+        if fxckernel.spin_kernel:
             with affopen(filename) as r:
                 fv = r.fhxc_sGsG
 
@@ -99,7 +99,7 @@ def calculate_kernel(*, ecut, xcflags, gs, qd, ns, pd, context):
                 raise NotImplementedError
 #                    fv = np.exp(-0.25 * (G_G * self.range_rc) ** 2.0)
 
-            elif xcflags.linear_kernel:
+            elif fxckernel.linear_kernel:
                 with affopen(filename) as r:
                     fv = r.fhxc_sGsG
 

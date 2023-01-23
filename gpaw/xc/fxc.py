@@ -76,8 +76,8 @@ class FXCCorrelation:
         self.unit_cells = unit_cells
         self.range_rc = range_rc  # Range separation parameter in Bohr
 
-        self.xcflags = FXCKernel(self.xc)
-        self.avg_scheme = self.xcflags.choose_avg_scheme(avg_scheme)
+        self.fxckernel = FXCKernel(self.xc)
+        self.avg_scheme = self.fxckernel.choose_avg_scheme(avg_scheme)
 
         if tag is None:
 
@@ -134,7 +134,7 @@ class FXCCorrelation:
                     kernelkwargs.update(l_l=self.l_l,
                                         q_empty=q_empty)
 
-                    if self.xcflags.linear_kernel:
+                    if self.fxckernel.linear_kernel:
                         kernelkwargs.update(l_l=None)
 
                     kernel = KernelWave(**kernelkwargs)
@@ -267,7 +267,7 @@ class FXCCorrelation:
         #              (note this does not necessarily mean that
         #              the calculation is spin-polarized!)
 
-        if self.xcflags.spin_kernel:
+        if self.fxckernel.spin_kernel:
             with ulm.open('fhxc_%s_%s_%s_%s.ulm' %
                           (self.tag, self.xc, self.ecut_max, qi)) as r:
                 fv = r.fhxc_sGsG
@@ -356,7 +356,7 @@ class FXCCorrelation:
                 # so we'll struggle to handle the arrays similarly.
                 # All other cases have fv_lGG
 
-            elif self.xcflags.linear_kernel:
+            elif self.fxckernel.linear_kernel:
                 fv_lGG = read('fhxc_sGsG')[np.newaxis, :, :]
             else:
                 # static kernel which does not scale with lambda
@@ -375,7 +375,7 @@ class FXCCorrelation:
             for iw, chi0_sGG in enumerate(np.swapaxes(chi0_swGG, 0, 1)):
                 chi0v = get_chi0v(chi0_sGG, cut_G, G_G)
 
-                if not self.xcflags.linear_kernel:
+                if not self.fxckernel.linear_kernel:
                     il = 0
                     energy = 0.0
                     for l, weight in zip(self.l_l, self.weight_l):
@@ -439,7 +439,7 @@ class FXCCorrelation:
 
                         eshort -= np.trace(np.dot(chi0v, fxcv)).real
 
-                    elif self.xcflags.is_ranged:
+                    elif self.fxckernel.is_ranged:
                         eshort = (2 * np.pi * self.shortrange /
                                   np.sum(self.weight_w))
 
@@ -459,7 +459,7 @@ class KernelWave:
         self.gs = gs
         self.gd = gs.density.gd
         self.xc = xc
-        self.xcflags = FXCKernel(xc)
+        self.fxckernel = FXCKernel(xc)
         self.ibzq_qc = ibzq_qc
         self.l_l = l_l
         self.ns = self.gs.nspins
@@ -493,7 +493,7 @@ class KernelWave:
         assert len(self.n_g) == self.gridsize
 
         # Enhancement factor for GGA
-        if self.xcflags.is_apbe:
+        if self.fxckernel.is_apbe:
             nf_g = self.gs.hacky_all_electron_density(gridrefinement=4)
             gdf = self.gd.refine().refine()
             grad_v = [Gradient(gdf, v, n=1).apply for v in range(3)]
@@ -558,7 +558,7 @@ class KernelWave:
 
             my_Gv_G = Gv_G[my_Gints]
 
-            # XXX Should this be if self.ns == 2 and self.xcflags.spin_kernel?
+            # XXX Should this be if self.ns == 2 and self.fxckernel.spin_kernel?
             calc_spincorr = (self.ns == 2) and (self.xc == 'rALDA'
                                                 or self.xc == 'rAPBE')
 
@@ -600,7 +600,7 @@ class KernelWave:
                             rho_min = min_Gpq**3.0 / (24.0 * np.pi**2.0)
                             small_ind = np.where(self.n_g >= rho_min)
 
-                        elif self.xcflags.is_apbe:
+                        elif self.fxckernel.is_apbe:
 
                             # rAPBE trick: the Hartree-XC kernel
                             # is exactly zero at grid points where
@@ -714,7 +714,7 @@ class KernelWave:
 
         # GGA enhancement factor s is lambda independent,
         # but we might want to truncate it
-        if self.xcflags.is_apbe:
+        if self.fxckernel.is_apbe:
             s2_g = self.s2_g[sel_points]
         else:
             s2_g = None
@@ -739,7 +739,7 @@ class KernelWave:
         heg = HEG(rs)
         qF = heg.qF
 
-        fHxc_Gr = get_fHxc_Gr(self.xcflags, rs, q, qF, s2_g)
+        fHxc_Gr = get_fHxc_Gr(self.fxckernel, rs, q, qF, s2_g)
 
         # Integrate over r with phase
         fHxc_Gr *= Gphase
