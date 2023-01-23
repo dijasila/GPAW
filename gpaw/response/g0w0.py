@@ -941,7 +941,6 @@ class G0W0(G0W0Calculator):
                  xc='RPA',
                  ppa=False,
                  E0=Ha,
-                 Eg=None,
                  eta=0.1,
                  nbands=None,
                  bands=None,
@@ -1013,9 +1012,6 @@ class G0W0(G0W0Calculator):
             When carrying out a calculation including vertex corrections, it
             is possible to get the standard GW results at the same time
             (almost for free).
-        Eg: float
-            Gap to apply in the 'JGMs' (simplified jellium-with-gap) kernel.
-            If None the DFT gap is used.
         truncation: str
             Coulomb truncation scheme. Can be either wigner-seitz,
             2D, 1D, or 0D
@@ -1095,7 +1091,7 @@ class G0W0(G0W0Calculator):
         coulomb = CoulombKernel(truncation, gs)
         wcalc = initialize_w_calculator(chi0calc, wcontext,
                                         ppa=ppa,
-                                        xc=xc, Eg=Eg,
+                                        xc=xc,
                                         E0=E0, coulomb=coulomb,
                                         integrate_gamma=integrate_gamma,
                                         q0_correction=q0_correction)

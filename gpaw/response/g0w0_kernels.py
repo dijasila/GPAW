@@ -24,7 +24,7 @@ class G0W0Kernel:
             **self._kwargs)
 
 
-def actually_calculate_kernel(*, gs, qd, xcflags, q_empty, tag, ecut_max, Eg,
+def actually_calculate_kernel(*, gs, qd, xcflags, q_empty, tag, ecut_max,
                               context):
     ibzq_qc = qd.ibzk_kc
 
@@ -39,7 +39,6 @@ def actually_calculate_kernel(*, gs, qd, xcflags, q_empty, tag, ecut_max, Eg,
         xc=xcflags.xc,
         ibzq_qc=ibzq_qc,
         q_empty=q_empty,
-        Eg=Eg,
         ecut=ecut_max,
         tag=tag,
         context=context)
@@ -47,7 +46,7 @@ def actually_calculate_kernel(*, gs, qd, xcflags, q_empty, tag, ecut_max, Eg,
     kernel.calculate_fhxc()
 
 
-def calculate_kernel(*, ecut, xcflags, gs, qd, ns, pd, Eg, context):
+def calculate_kernel(*, ecut, xcflags, gs, qd, ns, pd, context):
     xc = xcflags.xc
     tag = gs.atoms.get_chemical_formula(mode='hill')
 
@@ -77,7 +76,7 @@ def calculate_kernel(*, ecut, xcflags, gs, qd, ns, pd, Eg, context):
     if xc != 'RPA':
         if q_empty is not None:
             actually_calculate_kernel(q_empty=q_empty, qd=qd, tag=tag,
-                                      xcflags=xcflags, Eg=Eg,
+                                      xcflags=xcflags,
                                       ecut_max=ecut_max, gs=gs,
                                       context=context)
             # (This creates the ulm file above.  Probably.)
