@@ -558,7 +558,8 @@ class KernelWave:
 
             my_Gv_G = Gv_G[my_Gints]
 
-            # XXX Should this be if self.ns == 2 and self.fxckernel.spin_kernel?
+            # XXX Should this be:
+            #   if self.ns == 2 and self.fxckernel.spin_kernel?
             calc_spincorr = (self.ns == 2) and (self.xc == 'rALDA'
                                                 or self.xc == 'rAPBE')
 
