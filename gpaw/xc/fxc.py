@@ -445,9 +445,6 @@ class KernelWave:
         self.tag = tag
         self.context = context
 
-        # TODO: delete me
-        self.l_l = [1.0]
-
         # Density grid
         n_sg, finegd = self.gs.get_all_electron_density(gridrefinement=2)
         self.n_g = n_sg.sum(axis=0).flatten()
