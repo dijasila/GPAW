@@ -54,9 +54,9 @@ Requirements
 ============
 
 * Python_ 3.7 or later
-* NumPy_ 1.9 or later (base N-dimensional array package)
-* SciPy_ 0.14 or later (library for scientific computing)
-* ASE_ 3.18.0 or later (atomic simulation environment)
+* NumPy_ 1.16.5 or later (base N-dimensional array package)
+* SciPy_ 1.6.0 or later (library for scientific computing)
+* ASE_ (atomic simulation environment) -- see version requirement in :ref:`releasenotes`
 * a C-compiler
 * LibXC_ 3.x, 4.x or 5.1+
 * BLAS_ library
