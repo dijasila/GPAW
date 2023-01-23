@@ -1,9 +1,12 @@
 import numpy as np
+import pytest
 from ase.build import bulk
-from gpaw import GPAW, PW, FermiDirac
 from ase.parallel import parprint
 
+from gpaw import GPAW, PW, FermiDirac
 
+
+@pytest.mark.mgga
 def test_pw_fe_stress_mgga(in_tmp_dir):
     xc = 'revTPSS'
     m = [2.9]

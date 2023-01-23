@@ -1,10 +1,13 @@
 import numpy as np
+import pytest
 from ase.build import bulk
-from gpaw import GPAW, PW, Mixer
-from gpaw.mpi import world
 from ase.parallel import parprint
 
+from gpaw import GPAW, PW, Mixer
+from gpaw.mpi import world
 
+
+@pytest.mark.mgga
 def test_pw_si_stress_mgga(in_tmp_dir):
     xc = 'TPSS'
     si = bulk('Si')

@@ -1,8 +1,11 @@
-from gpaw import GPAW, PW
+import pytest
 from ase.build import bulk
 from numpy.testing import assert_almost_equal
 
+from gpaw import GPAW, PW
 
+
+@pytest.mark.mgga
 def test_full_hamiltonian(in_tmp_dir):
     si = bulk('Si')
     si.calc = GPAW(mode=PW(250),
