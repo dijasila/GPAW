@@ -212,7 +212,7 @@ class WCalculator:
 
                     dfc = DielectricFunctionCalculator(
                         sqrtV_G, chi0_GG, mode=fxc_mode, fv_GG=fv)
-                    einv_GG += dfc.get_einv_GG() * gamma_int.weight_q[iqf]
+                    einv_GG += dfc.get_einv_GG() * gamma_int.weight_q
             else:
                 sqrtV_G = self.coulomb.sqrtV(pd=pd, q_v=None)
                 dfc = DielectricFunctionCalculator(
