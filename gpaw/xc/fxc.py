@@ -358,7 +358,7 @@ class FXCCorrelation:
                     return getattr(reader, arrayname)
 
             if self.xc == 'RPA':
-                fv_lwGG = np.eye(nG)[np.newaxis, np.newaxis, :, :]
+                fv_lGG = np.eye(nG)[np.newaxis, :, :]
 
             elif self.xc == 'range_RPA':
                 fv_diag_G = np.exp(-0.25 * (G_G * self.range_rc)**2.0)
@@ -367,19 +367,13 @@ class FXCCorrelation:
                 # All other cases have fv_lwGG (with some dimensions being 1).
 
             elif self.xcflags.linear_kernel:
-                fv_lwGG = read('fhxc_sGsG')[np.newaxis, np.newaxis, :, :]
+                fv_lGG = read('fhxc_sGsG')[np.newaxis, :, :]
             else:
                 # static kernel which does not scale with lambda
-                fv_lwGG = read('fhxc_lGG')[:, np.newaxis, :, :]
+                fv_lGG = read('fhxc_lGG')
 
             if apply_cut_G and cut_G is not None:
-                fv_lwGG = fv_lwGG.take(cut_G, 2).take(cut_G, 3)
-
-            try:
-                # XXX temporary hack while renaming
-                fv_lGG = fv_lwGG[:, 0]
-            except NameError:
-                pass
+                fv_lGG = fv_lGG.take(cut_G, 1).take(cut_G, 2)
 
             if pd.kd.gamma:
                 G_G[0] = 1.0
