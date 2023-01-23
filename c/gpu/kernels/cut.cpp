@@ -97,15 +97,15 @@ static void Zgpu(debug_bmgs_cut)(
         out_err = MAX(out_err, fabs(debug_out_cpu[i] - debug_out_gpu[i]));
     }
     if (in_err > GPU_ERROR_ABS_TOL_EXCT) {
-        fprintf(stderr, "Debug CUDA cut (in): error %g\n", in_err);
+        fprintf(stderr, "Debug GPU cut (in): error %g\n", in_err);
     }
     if (out_err > GPU_ERROR_ABS_TOL_EXCT) {
-        fprintf(stderr, "Debug CUDA cut (out): error %g\n", out_err);
+        fprintf(stderr, "Debug GPU cut (out): error %g\n", out_err);
     }
 }
 
 /*
- * CUDA kernel to copy a slice of an array.
+ * GPU kernel to copy a slice of an array.
  */
 __global__ void Zgpu(bmgs_cut_kernel)(
         const Tgpu* a, const int3 c_sizea, Tgpu* b, const int3 c_sizeb,
@@ -141,7 +141,7 @@ __global__ void Zgpu(bmgs_cut_kernel)(
 }
 
 /*
- * Launch CUDA kernel to copy a slice of an array on the GPU.
+ * Launch GPU kernel to copy a slice of an array on the GPU.
  */
 static void Zgpu(_bmgs_cut_gpu)(
         const Tgpu* a, const int sizea[3], const int starta[3],
@@ -190,7 +190,7 @@ static void Zgpu(_bmgs_cut_gpu)(
  *   sizeb  -- dimensions of the array b
  *   phase  -- phase (only for complex)
  *   blocks -- number of blocks
- *   stream -- CUDA stream to use
+ *   stream -- GPU stream to use
  */
 extern "C"
 void Zgpu(bmgs_cut_gpu)(

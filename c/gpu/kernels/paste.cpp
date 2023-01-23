@@ -117,22 +117,22 @@ void Zgpu(debug_bmgs_paste)(const int sizea[3], const int sizeb[3],
     }
     if (in_err > GPU_ERROR_ABS_TOL_EXCT) {
         if (zero)
-            fprintf(stderr, "Debug CUDA paste zero (in): error %g\n",
+            fprintf(stderr, "Debug GPU paste zero (in): error %g\n",
                     in_err);
         else
-            fprintf(stderr, "Debug CUDA paste (in): error %g\n", in_err);
+            fprintf(stderr, "Debug GPU paste (in): error %g\n", in_err);
     }
     if (out_err > GPU_ERROR_ABS_TOL_EXCT) {
         if (zero)
-            fprintf(stderr, "Debug CUDA paste zero (out): error %g\n",
+            fprintf(stderr, "Debug GPU paste zero (out): error %g\n",
                     out_err);
         else
-            fprintf(stderr, "Debug CUDA paste (out): error %g\n", out_err);
+            fprintf(stderr, "Debug GPU paste (out): error %g\n", out_err);
     }
 }
 
 /*
- * CUDA kernel to copy a smaller array into a given position in a
+ * GPU kernel to copy a smaller array into a given position in a
  * larger one.
  */
 __global__ void Zgpu(bmgs_paste_kernel)(
@@ -162,7 +162,7 @@ __global__ void Zgpu(bmgs_paste_kernel)(
 }
 
 /*
- * CUDA kernel to copy a smaller array into a given position in a
+ * GPU kernel to copy a smaller array into a given position in a
  * larger one and set all other elements to 0.
  */
 __global__ void Zgpu(bmgs_paste_zero_kernel)(
@@ -259,7 +259,7 @@ __global__ void Zgpu(bmgs_paste_zero_kernel)(
 }
 
 /*
- * Launch CUDA kernel to copy a smaller array into a given position in a
+ * Launch GPU kernel to copy a smaller array into a given position in a
  * larger one on the GPU.
  */
 static void Zgpu(_bmgs_paste_gpu)(
@@ -285,7 +285,7 @@ static void Zgpu(_bmgs_paste_gpu)(
 }
 
 /*
- * Launch CUDA kernel to copy a smaller array into a given position in a
+ * Launch GPU kernel to copy a smaller array into a given position in a
  * larger one and set all other elements to 0.
  */
 static void Zgpu(_bmgs_paste_zero_gpu)(

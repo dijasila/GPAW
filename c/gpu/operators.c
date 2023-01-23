@@ -48,7 +48,7 @@ void operator_init_gpu(OperatorObject *self)
  * Ensure buffer is allocated and is big enough. Reallocate only if
  * size has increased.
  *
- * Create also CUDA streams and events if not already created.
+ * Create also GPU streams and events if not already created.
  */
 void operator_alloc_buffers(OperatorObject *self, int blocks)
 {
@@ -87,7 +87,7 @@ void operator_init_buffers_gpu()
 }
 
 /*
- * Deallocate buffer and destroy CUDA streams and events,
+ * Deallocate buffer and destroy GPU streams and events,
  * or decrease reference count
  *
  * arguments:
@@ -218,12 +218,12 @@ void debug_operator_relax(OperatorObject* self, int relax_method, int nrelax,
         MPI_Comm_rank(bc->comm, &rank);
     if (buf_err > GPU_ERROR_ABS_TOL) {
         fprintf(stderr,
-                "[%d] Debug CUDA operator relax (buf): error %g\n",
+                "[%d] Debug GPU operator relax (buf): error %g\n",
                 rank, buf_err);
     }
     if (fun_err > GPU_ERROR_ABS_TOL) {
         fprintf(stderr,
-                "[%d] Debug CUDA operator relax (fun): error %g\n",
+                "[%d] Debug GPU operator relax (fun): error %g\n",
                 rank, fun_err);
     }
 }
@@ -421,12 +421,12 @@ void debug_operator_apply(OperatorObject* self, int nin, int blocks,
         MPI_Comm_rank(bc->comm, &rank);
     if (buf_err > GPU_ERROR_ABS_TOL) {
         fprintf(stderr,
-                "[%d] Debug CUDA operator apply (buf): error %g (count %d/%d)\n",
+                "[%d] Debug GPU operator apply (buf): error %g (count %d/%d)\n",
                 rank, buf_err, buf_err_n, debug_size_buf);
     }
     if (out_err > GPU_ERROR_ABS_TOL) {
         fprintf(stderr,
-                "[%d] Debug CUDA operator apply (out): error %g (count %d/%d)\n",
+                "[%d] Debug GPU operator apply (out): error %g (count %d/%d)\n",
                 rank, out_err, out_err_n, debug_size_arr);
     }
 }

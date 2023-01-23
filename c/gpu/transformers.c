@@ -222,7 +222,7 @@ void debug_transformer_apply(TransformerObject* self,
     }
     if (out_err > GPU_ERROR_ABS_TOL) {
         fprintf(stderr,
-                "[%d] Debug CUDA transformer apply (out): error %g\n",
+                "[%d] Debug GPU transformer apply (out): error %g\n",
                 rank, out_err);
     }
 }

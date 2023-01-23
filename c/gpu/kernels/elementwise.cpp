@@ -12,7 +12,7 @@
 #endif
 
 /*
- * CUDA kernel for axpbyz, i.e. z[i] = a * x[i] + b * y[i]
+ * GPU kernel for axpbyz, i.e. z[i] = a * x[i] + b * y[i]
  */
 __global__ void axpbyz_kernel(double a, double *x, double b, double *y,
                               double *z, int n)
@@ -26,7 +26,7 @@ __global__ void axpbyz_kernel(double a, double *x, double b, double *y,
 }
 
 /*
- * CUDA kernel for axpbz, i.e. z[i] = a * x[i] + b
+ * GPU kernel for axpbz, i.e. z[i] = a * x[i] + b
  */
 __global__ void axpbz_kernel(double a, double *x, double b,
                              double *z, int n)
@@ -40,7 +40,7 @@ __global__ void axpbz_kernel(double a, double *x, double b,
 }
 
 /*
- * CUDA kernel for axpbyz, i.e. z[i] = a * x[i] + b * y[i],
+ * GPU kernel for axpbyz, i.e. z[i] = a * x[i] + b * y[i],
  * on complex numbers.
  */
 __global__ void axpbyz_kernelz(double a, gpuDoubleComplex *x,
@@ -57,7 +57,7 @@ __global__ void axpbyz_kernelz(double a, gpuDoubleComplex *x,
 }
 
 /*
- * CUDA kernel for axpbz, i.e. z[i] = a * x[i] + b, on complex numbers.
+ * GPU kernel for axpbz, i.e. z[i] = a * x[i] + b, on complex numbers.
  */
 __global__ void axpbz_kernelz(double a, gpuDoubleComplex *x, double b,
                               gpuDoubleComplex *z, int n)
@@ -72,7 +72,7 @@ __global__ void axpbz_kernelz(double a, gpuDoubleComplex *x, double b,
 }
 
 /*
- * CUDA kernel to fill an array of doubles with a given value.
+ * GPU kernel to fill an array of doubles with a given value.
  */
 __global__ void fill_kernel(double a, double *z, int n)
 {
@@ -85,7 +85,7 @@ __global__ void fill_kernel(double a, double *z, int n)
 }
 
 /*
- * CUDA kernel to fill an array of complex numbers with a given
+ * GPU kernel to fill an array of complex numbers with a given
  * complex value.
  */
 __global__ void fill_kernelz(double real, double imag, gpuDoubleComplex *z,
