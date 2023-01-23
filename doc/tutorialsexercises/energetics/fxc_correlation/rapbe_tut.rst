@@ -227,10 +227,8 @@ divergence of the Coulomb interaction in real space.  It also provides a natural
 to construct the JGMs kernel, and can be faster to construct for systems with many k points.
 However it is also worth remembering that kernels which scale linearly in the coupling constant
 (e.g rALDA) need only be constructed once per k point.  Those that do not scale linearly (e.g. rALDAc)
-need to be constructed `N_\lambda` times.  Assuming standard values
-of 8 and 16 for `N_\lambda` and `N_\omega` means there is a factor 100 cost
-in constructing and storing a dynamical kernel compared to rALDA.  Finally we point out that
-the rALDA and rAPBE kernels are also special because they have explicit spin-polarized forms.
+need to be constructed `N_\lambda` times. Finally we point out that the rALDA and rAPBE kernels are
+also special because they have explicit spin-polarized forms.
 
 .. [#Olsen1] T. Olsen and K. S. Thygesen
               *Phys. Rev. B* **86**, 081103(R) (2012)
@@ -246,9 +244,6 @@ the rALDA and rAPBE kernels are also special because they have explicit spin-pol
 
 .. [#Trevisanutto] P. E. Trevisanutto et al.
               *Phys. Rev. B* **87**, 205143 (2013)
-
-.. [#Constantin] L. A. Constantin and J. M. Pitarke
-              *Phys. Rev. B* **75**, 245127 (2007)
 
 .. [#Bruneval] F. Bruneval
               *Phys. Rev. Lett* **108**, 256403 (2012)
