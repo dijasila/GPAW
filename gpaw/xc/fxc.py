@@ -375,6 +375,12 @@ class FXCCorrelation:
             if apply_cut_G and cut_G is not None:
                 fv_lwGG = fv_lwGG.take(cut_G, 2).take(cut_G, 3)
 
+            try:
+                # XXX temporary hack while renaming
+                fv_lGG = fv_lwGG[:, 0]
+            except NameError:
+                pass
+
             if pd.kd.gamma:
                 G_G[0] = 1.0
 
@@ -390,7 +396,7 @@ class FXCCorrelation:
                     energy = 0.0
                     for l, weight in zip(self.l_l, self.weight_l):
                         chiv = np.linalg.solve(
-                            np.eye(nG) - chi0v @ fv_lwGG[il, 0],
+                            np.eye(nG) - chi0v @ fv_lGG[il],
                             chi0v).real
                         energy -= np.trace(chiv) * weight
                         il += 1
@@ -410,19 +416,19 @@ class FXCCorrelation:
                         chi0v_fv = chi0v * fv_diag_G
                         e_GG = np.eye(nG) - chi0v_fv
                     elif self.xc != 'RPA':
-                        assert fv_lwGG.shape[:2] == (1, 1)
-                        chi0v_fv = np.dot(chi0v, fv_lwGG[0, 0])
+                        assert len(fv_lGG) == 1
+                        chi0v_fv = np.dot(chi0v, fv_lGG[0])
                         e_GG = np.eye(nG) - chi0v_fv
 
                     if self.xc == 'RPA':
                         # numerical RPA
                         elong = 0.0
                         for l, weight in zip(self.l_l, self.weight_l):
-                            assert fv_lwGG.shape[:2] == (1, 1)
+                            assert len(fv_lGG) == 1
 
                             chiv = np.linalg.solve(
                                 np.eye(nG) - l * np.dot(
-                                    chi0v, fv_lwGG[0, 0]), chi0v).real
+                                    chi0v, fv_lGG[0]), chi0v).real
 
                             elong -= np.trace(chiv) * weight
 
@@ -435,8 +441,8 @@ class FXCCorrelation:
                     # Numerical integration for short-range part
                     eshort = 0.0
                     if self.xc not in ('RPA', 'range_RPA', 'range_rALDA'):
-                        assert fv_lwGG.shape[:2] == (1, 1)
-                        fv_GG = fv_lwGG[0, 0]
+                        assert len(fv_lGG) == 1
+                        fv_GG = fv_lGG[0]
                         # Subtract Hartree contribution:
                         fxcv = fv_GG - np.eye(nG)
 
