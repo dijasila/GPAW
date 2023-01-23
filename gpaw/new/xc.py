@@ -6,7 +6,8 @@ from gpaw.xc.gga import add_gradient_correction, gga_vars
 def create_functional(xc: OldXCFunctional,
                       grid, coarse_grid, setups, fracpos_ac, atomdist):
     if xc.type == 'MGGA':
-        return MGGAFunctional(xc, grid, coarse_grid, setups, fracpos_ac)
+        return MGGAFunctional(xc, grid,
+                              coarse_grid, setups, fracpos_ac, atomdist)
     return LDAOrGGAFunctional(xc, grid)
 
 
