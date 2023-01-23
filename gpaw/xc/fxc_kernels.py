@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def get_fHxc_Gr(xcflags, rs, q, qF, s2_g, w, scaled_Eg):
+def get_fHxc_Gr(xcflags, rs, q, qF, s2_g, scaled_Eg):
     xc = xcflags.xc
     if xc in ('rALDA', 'rALDAns', 'range_rALDA'):
         # rALDA (exchange only) kernel
@@ -54,20 +54,6 @@ def get_fHxc_Gr(xcflags, rs, q, qF, s2_g, w, scaled_Eg):
 
         cp_kappa = get_heg_A(rs) / (qF**2.0)
         fHxc_Gr = (1.0 + 0.0j) * np.exp(-cp_kappa * q[:, np.newaxis]**2.0)
-
-    elif xc == 'CP_dyn':
-        # CP kernel with frequency dependence
-
-        cp_A = get_heg_A(rs)
-        cp_D = get_heg_D(rs)
-        cp_c = cp_D / cp_A
-        cp_a = 6.0 * np.sqrt(cp_c)
-
-        cp_kappa_w = cp_A / (qF**2.0)
-        cp_kappa_w *= (1.0 + cp_a * w + cp_c * w**2.0) / (1.0 + w**2.0)
-
-        fHxc_Gr = (1.0 + 0.0j) * np.exp(
-            -cp_kappa_w * q[:, np.newaxis]**2.0)
 
     elif xc == 'CDOP' or xc == 'CDOPs':
         # Corradini, Del Sole, Onida and Palummo (CDOP),
