@@ -85,15 +85,15 @@ class IsotropicExchangeCalculator:
         # Get ingredients
         Bxc_G = self.get_Bxc()
         chiksr = self.get_chiksr(q_c, txt=txt)
-        pd, chiksr_GG = chiksr.pd, chiksr.array[0]  # array = chiksr_zGG
-        V0 = pd.gd.volume
+        qpd, chiksr_GG = chiksr.qpd, chiksr.array[0]  # array = chiksr_zGG
+        V0 = qpd.gd.volume
 
         # Allocate an array for the exchange constants
         nsites = site_kernels.nsites
         J_pab = np.empty(site_kernels.shape + (nsites,), dtype=complex)
 
         # Compute exchange coupling
-        for J_ab, K_aGG in zip(J_pab, site_kernels.calculate(pd)):
+        for J_ab, K_aGG in zip(J_pab, site_kernels.calculate(qpd)):
             for a in range(nsites):
                 for b in range(nsites):
                     J = np.conj(Bxc_G) @ np.conj(K_aGG[a]).T @ chiksr_GG \
@@ -117,9 +117,9 @@ class IsotropicExchangeCalculator:
         coefficients B^xc_G"""
         # Create a plane wave descriptor encoding the plane wave basis. Input
         # q_c is arbitrary, since we are assuming that chiks.gammacentered == 1
-        pd0 = self.chiks_calc.get_pw_descriptor([0., 0., 0.])
+        qpd0 = self.chiks_calc.get_pw_descriptor([0., 0., 0.])
 
-        return self.localft_calc(pd0, add_LSDA_Bxc)
+        return self.localft_calc(qpd0, add_LSDA_Bxc)
 
     def get_chiksr(self, q_c, txt=None):
         """Get χ_KS^('+-)(q) from buffer."""
@@ -157,7 +157,7 @@ class IsotropicExchangeCalculator:
 
         zd = ComplexFrequencyDescriptor.from_array([0. + 0.j])
         chiks = self.chiks_calc.calculate('+-', q_c, zd)
-        symmetrize_reciprocity(chiks.pd, chiks.array)
+        symmetrize_reciprocity(chiks.qpd, chiks.array)
 
         # Take the reactive part
         chiksr = chiks.copy_reactive_part()

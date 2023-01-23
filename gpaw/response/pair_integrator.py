@@ -144,8 +144,7 @@ class PairFunctionIntegrator(ABC):
         analyzer : PWSymmetryAnalyzer
         """
         # Initialize the plane-wave symmetry analyzer
-        assert isinstance(out.pd, SingleQPWDescriptor)
-        analyzer = self.get_pw_symmetry_analyzer(out.pd)
+        analyzer = self.get_pw_symmetry_analyzer(out.qpd)
         
         # Perform the actual integral as a point integral over k-point pairs
         integral = KPointPairPointIntegral(self.kspair, analyzer)
