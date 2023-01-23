@@ -1242,9 +1242,6 @@ class XCFlags:
 
     _spin_kernels = {'rALDA', 'rAPBE', 'ALDA'}
 
-    _linear_kernels = {'rALDAns', 'rAPBEns', 'range_RPA', 'RPA',
-                       'rALDA', 'rAPBE', 'range_rALDA', 'ALDA'}
-
     def __init__(self, xc):
         if xc not in self._accepted_flags:
             raise RuntimeError('%s kernel not recognized' % self.xc)
@@ -1255,11 +1252,6 @@ class XCFlags:
     def spin_kernel(self):
         # rALDA/rAPBE are the only kernels which have spin-dependent forms
         return self.xc in self._spin_kernels
-
-    @property
-    def linear_kernel(self):
-        # Scales linearly with coupling constant
-        return self.xc in self._linear_kernels
 
     @property
     def is_ranged(self):

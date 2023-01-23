@@ -93,20 +93,12 @@ def calculate_kernel(*, ecut, xcflags, gs, qd, ns, pd, context):
                 raise NotImplementedError
 #                    fv = np.exp(-0.25 * (G_G * self.range_rc) ** 2.0)
 
-            elif xcflags.linear_kernel:
+            else:
                 with affopen(filename) as r:
                     fv = r.fhxc_sGsG
 
                 if G2_G1 is not None:
                     fv = fv.take(G2_G1, 0).take(G2_G1, 1)
-
-            else:
-                # static kernel which does not scale with lambda
-                with affopen(filename) as r:
-                    fv = r.fhxc_lGG
-
-                if G2_G1 is not None:
-                    fv = fv.take(G2_G1, 1).take(G2_G1, 2)
 
     else:
         fv = np.eye(pd.ngmax)
