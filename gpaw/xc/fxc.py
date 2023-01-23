@@ -544,94 +544,90 @@ class KernelWave:
 
             fv_nospin_GG = np.zeros((nG, nG), dtype=complex)
 
-            if True:
-                # TODO: Remove indentation after review.
-                # We replaced a loop with "if True" to keep the diff small.
-                # Once things are settled, unindent entire block.
-                for iG, Gv in zip(my_Gints, my_Gv_G):  # loop over G vecs
+            for iG, Gv in zip(my_Gints, my_Gv_G):  # loop over G vecs
 
-                    # For all kernels we
-                    # treat head and wings analytically
-                    if G_G[iG] > 1.0E-5:
-                        # Symmetrised |q+G||q+G'|, where iG' >= iG
-                        mod_Gpq = np.sqrt(G_G[iG] * G_G[iG:])
+                # For all kernels we
+                # treat head and wings analytically
+                if G_G[iG] > 1.0E-5:
+                    # Symmetrised |q+G||q+G'|, where iG' >= iG
+                    mod_Gpq = np.sqrt(G_G[iG] * G_G[iG:])
 
-                        # Phase factor \vec{G}-\vec{G'}
-                        deltaGv = Gv - Gv_G[iG:]
+                    # Phase factor \vec{G}-\vec{G'}
+                    deltaGv = Gv - Gv_G[iG:]
 
-                        if (self.xc in ('rALDA', 'range_rALDA', 'rALDAns')):
+                    if (self.xc in ('rALDA', 'range_rALDA', 'rALDAns')):
 
-                            # rALDA trick: the Hartree-XC kernel is exactly
-                            # zero for densities below rho_min =
-                            # min_Gpq^3/(24*pi^2),
-                            # so we don't need to include these contributions
-                            # in the Fourier transform
+                        # rALDA trick: the Hartree-XC kernel is exactly
+                        # zero for densities below rho_min =
+                        # min_Gpq^3/(24*pi^2),
+                        # so we don't need to include these contributions
+                        # in the Fourier transform
 
-                            min_Gpq = np.amin(mod_Gpq)
-                            rho_min = min_Gpq**3.0 / (24.0 * np.pi**2.0)
-                            small_ind = np.where(self.n_g >= rho_min)
+                        min_Gpq = np.amin(mod_Gpq)
+                        rho_min = min_Gpq**3.0 / (24.0 * np.pi**2.0)
+                        small_ind = np.where(self.n_g >= rho_min)
 
-                        elif self.xcflags.is_apbe:
+                    elif self.xcflags.is_apbe:
 
-                            # rAPBE trick: the Hartree-XC kernel
-                            # is exactly zero at grid points where
-                            # min_Gpq > cutoff wavevector
+                        # rAPBE trick: the Hartree-XC kernel
+                        # is exactly zero at grid points where
+                        # min_Gpq > cutoff wavevector
 
-                            min_Gpq = np.amin(mod_Gpq)
-                            small_ind = np.where(min_Gpq <= np.sqrt(
-                                -4.0 * np.pi /
-                                get_pbe_fxc(self.n_g, self.s2_g)))
+                        min_Gpq = np.amin(mod_Gpq)
+                        small_ind = np.where(min_Gpq <= np.sqrt(
+                            -4.0 * np.pi /
+                            get_pbe_fxc(self.n_g, self.s2_g)))
 
-                        else:
-
-                            small_ind = np.arange(self.gridsize)
-
-                        phase_Gpq = np.exp(
-                            -1.0j *
-                            (deltaGv[:, 0, np.newaxis] * self.x_g[small_ind] +
-                             deltaGv[:, 1, np.newaxis] * self.y_g[small_ind] +
-                             deltaGv[:, 2, np.newaxis] * self.z_g[small_ind]))
-
-                        def scaled_fHxc(spincorr):
-                            return self.get_scaled_fHxc_q(
-                                q=mod_Gpq,
-                                sel_points=small_ind,
-                                Gphase=phase_Gpq,
-                                spincorr=spincorr)
-
-                        fv_nospin_GG[iG, iG:] = scaled_fHxc(
-                            spincorr=False)
-
-                        if calc_spincorr:
-                            fv_spincorr_GG[iG, iG:] = scaled_fHxc(
-                                spincorr=True)
                     else:
-                        # head and wings of q=0 are dominated by
-                        # 1/q^2 divergence of scaled Coulomb interaction
 
-                        assert iG == 0
+                        small_ind = np.arange(self.gridsize)
 
-                        # The [0, 0] element would ordinarily be set to
-                        # 'l' if we have nonlinear kernel (which we are
-                        # removing).  Now l=1.0 always:
-                        fv_nospin_GG[0, 0] = 1.0
-                        fv_nospin_GG[0, 1:] = 0.0
+                    phase_Gpq = np.exp(
+                        -1.0j *
+                        (deltaGv[:, 0, np.newaxis] * self.x_g[small_ind] +
+                         deltaGv[:, 1, np.newaxis] * self.y_g[small_ind] +
+                         deltaGv[:, 2, np.newaxis] * self.z_g[small_ind]))
 
-                        if calc_spincorr:
-                            fv_spincorr_GG[0, :] = 0.0
+                    def scaled_fHxc(spincorr):
+                        return self.get_scaled_fHxc_q(
+                            q=mod_Gpq,
+                            sel_points=small_ind,
+                            Gphase=phase_Gpq,
+                            spincorr=spincorr)
 
-                    # End loop over G vectors
+                    fv_nospin_GG[iG, iG:] = scaled_fHxc(
+                        spincorr=False)
 
-                mpi.world.sum(fv_nospin_GG)
+                    if calc_spincorr:
+                        fv_spincorr_GG[iG, iG:] = scaled_fHxc(
+                            spincorr=True)
+                else:
+                    # head and wings of q=0 are dominated by
+                    # 1/q^2 divergence of scaled Coulomb interaction
 
-                # We've only got half the matrix here,
-                # so add the hermitian conjugate:
-                fv_nospin_GG += np.conj(fv_nospin_GG.T)
-                # but now the diagonal's been doubled,
-                # so we multiply these elements by 0.5
-                fv_nospin_GG[np.diag_indices(nG)] *= 0.5
+                    assert iG == 0
 
-                # End of loop over coupling constant
+                    # The [0, 0] element would ordinarily be set to
+                    # 'l' if we have nonlinear kernel (which we are
+                    # removing).  Now l=1.0 always:
+                    fv_nospin_GG[0, 0] = 1.0
+                    fv_nospin_GG[0, 1:] = 0.0
+
+                    if calc_spincorr:
+                        fv_spincorr_GG[0, :] = 0.0
+
+                # End loop over G vectors
+
+            mpi.world.sum(fv_nospin_GG)
+
+            # We've only got half the matrix here,
+            # so add the hermitian conjugate:
+            fv_nospin_GG += np.conj(fv_nospin_GG.T)
+            # but now the diagonal's been doubled,
+            # so we multiply these elements by 0.5
+            fv_nospin_GG[np.diag_indices(nG)] *= 0.5
+
+            # End of loop over coupling constant
 
             if calc_spincorr:
                 mpi.world.sum(fv_spincorr_GG)
