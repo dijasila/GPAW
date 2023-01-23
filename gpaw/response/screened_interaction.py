@@ -27,7 +27,7 @@ class QPointDescriptor(KPointDescriptor):
 
 def initialize_w_calculator(chi0calc, context, *,
                             coulomb,
-                            xc='RPA', # G0W0Kernel arguments
+                            xc='RPA',  # G0W0Kernel arguments
                             ppa=False, E0=Ha,
                             integrate_gamma=0, q0_correction=False):
     """Initialize a WCalculator from a Chi0Calculator.
