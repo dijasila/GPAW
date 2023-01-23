@@ -359,10 +359,12 @@ class ElectrostaticCorrections():
 
 
 def find_G_z(pd):
-    G_Gv = pd.get_reciprocal_vectors(q=0)
-    mask = (G_Gv[:, 0] == 0) & (G_Gv[:, 1] == 0)
-    G_z = G_Gv[mask][:, 2]  # G_z vectors in Bohr^{-1}
-    return G_z
+    # NB: There may be a bug here. It seems that q should not have been
+    # added? XXX
+    qG_Gv = pd.get_reciprocal_vectors(q=0)
+    mask = (qG_Gv[:, 0] == 0) & (qG_Gv[:, 1] == 0)
+    qG_z = qG_Gv[mask][:, 2]  # qG_z vectors in Bohr^{-1}
+    return qG_z
 
 
 def find_z(gd):
