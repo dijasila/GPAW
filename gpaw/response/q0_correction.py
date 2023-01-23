@@ -49,7 +49,7 @@ class Q0Correction:
         L_vv = A_vv
 
         # Get necessary G vectors.
-        G_Gv = pd.get_reciprocal_vectors()[1:]
+        G_Gv = pd.get_reciprocal_vectors(add_q=False)[1:]
         G_Gv += np.array([1e-14, 1e-14, 0])
         G2_G = np.sum(G_Gv**2, axis=1)
         Gpar_G = np.sum(G_Gv[:, 0:2]**2, axis=1)**0.5
