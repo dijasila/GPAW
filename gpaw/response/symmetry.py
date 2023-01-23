@@ -5,6 +5,7 @@ from scipy.spatial import Delaunay, cKDTree
 
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.bztools import get_reduced_bz, unique_rows
+from gpaw.response.pair_functions import SingleQPWDescriptor
 from _gpaw import GG_shuffle
 
 from gpaw.response import timer
@@ -30,7 +31,7 @@ class KPointFinder:
 
 class PWSymmetryAnalyzer:
     """Class for handling planewave symmetries."""
-    def __init__(self, kd, pd, context,
+    def __init__(self, kd, qpd, context,
                  disable_point_group=False,
                  disable_non_symmorphic=True,
                  disable_time_reversal=False):
@@ -44,7 +45,7 @@ class PWSymmetryAnalyzer:
         kd: KPointDescriptor
             The kpoint descriptor containing the
             information about symmetries and kpoints.
-        pd: PWDescriptor
+        qpd: PWDescriptor
             Plane wave descriptor that contains the reciprocal
             lattice .
         context: ResponseContext
@@ -55,7 +56,7 @@ class PWSymmetryAnalyzer:
         disable_time_reversal:
             Switch for disabling time reversal.
         """
-        self.pd = pd
+        self.qpd = qpd
         self.kd = kd
         self.context = context
 
@@ -165,10 +166,11 @@ class PWSymmetryAnalyzer:
 
         where :math:`\Delta` is a reciprocal lattice vector.
         """
-        pd = self.pd
+        qpd = self.qpd
 
         # Shortcuts
-        q_c = pd.kd.bzk_kc[0]
+        #q_c = qpd.kd.bzk_kc[0]
+        q_c = qpd.q_c
         kd = self.kd
 
         U_scc = kd.symmetry.op_scc
@@ -267,7 +269,7 @@ class PWSymmetryAnalyzer:
         U_scc = np.array(U_scc)
 
         # Determine the irreducible BZ
-        bzk_kc, ibzk_kc = get_reduced_bz(self.pd.gd.cell_cv,
+        bzk_kc, ibzk_kc = get_reduced_bz(self.qpd.gd.cell_cv,
                                          U_scc,
                                          False)
 
@@ -282,7 +284,7 @@ class PWSymmetryAnalyzer:
         U_scc = np.array(U_scc)
 
         # Determine the irreducible BZ
-        bzk_kc, ibzk_kc = get_reduced_bz(self.pd.gd.cell_cv,
+        bzk_kc, ibzk_kc = get_reduced_bz(self.qpd.gd.cell_cv,
                                          U_scc,
                                          False,
                                          pbc_c=pbc_c)
@@ -304,7 +306,7 @@ class PWSymmetryAnalyzer:
         return KPointDescriptor(ik_kc)
 
     def unfold_kpoints(self, points_pv, tol=1e-8, mod=None):
-        points_pc = np.dot(points_pv, self.pd.gd.cell_cv.T) / (2 * np.pi)
+        points_pc = np.dot(points_pv, self.qpd.gd.cell_cv.T) / (2 * np.pi)
 
         # Get the little group of q
         U_scc = []
@@ -315,7 +317,7 @@ class PWSymmetryAnalyzer:
 
         points = np.concatenate(np.dot(points_pc, U_scc.transpose(0, 2, 1)))
         points = unique_rows(points, tol=tol, mod=mod)
-        points = np.dot(points, self.pd.gd.icell_cv) * (2 * np.pi)
+        points = np.dot(points, self.qpd.gd.icell_cv) * (2 * np.pi)
         return points
 
     def get_kpoint_weight(self, k_c):
@@ -398,8 +400,8 @@ class PWSymmetryAnalyzer:
         """Symmetrize an array in xx'."""
         tmp_wxx = np.zeros_like(A_wxx)
 
-        A_cv = self.pd.gd.cell_cv
-        iA_cv = self.pd.gd.icell_cv
+        A_cv = self.qpd.gd.cell_cv
+        iA_cv = self.qpd.gd.icell_cv
 
         if self.use_time_reversal:
             AT_wxx = np.transpose(A_wxx, (0, 2, 1))
@@ -435,8 +437,8 @@ class PWSymmetryAnalyzer:
     @timer('symmetrize_wxvG')
     def symmetrize_wxvG(self, A_wxvG):
         """Symmetrize chi0_wxvG"""
-        A_cv = self.pd.gd.cell_cv
-        iA_cv = self.pd.gd.icell_cv
+        A_cv = self.qpd.gd.cell_cv
+        iA_cv = self.qpd.gd.icell_cv
 
         if self.use_time_reversal:
             # ::-1 corresponds to transpose in wing indices
@@ -459,8 +461,8 @@ class PWSymmetryAnalyzer:
     @timer('symmetrize_wvv')
     def symmetrize_wvv(self, A_wvv):
         """Symmetrize chi_wvv."""
-        A_cv = self.pd.gd.cell_cv
-        iA_cv = self.pd.gd.icell_cv
+        A_cv = self.qpd.gd.cell_cv
+        iA_cv = self.qpd.gd.icell_cv
         tmp_wvv = np.zeros_like(A_wvv)
         if self.use_time_reversal:
             AT_wvv = np.transpose(A_wvv, (0, 2, 1))
@@ -488,8 +490,8 @@ class PWSymmetryAnalyzer:
         if K1 == K2:
             return a_Mv
 
-        A_cv = self.pd.gd.cell_cv
-        iA_cv = self.pd.gd.icell_cv
+        A_cv = self.qpd.gd.cell_cv
+        iA_cv = self.qpd.gd.icell_cv
 
         # Get symmetry
         s = self.get_kpoint_mapping(K1, K2)
@@ -532,11 +534,11 @@ class PWSymmetryAnalyzer:
     @timer('Initialize_G_maps')
     def initialize_G_maps(self):
         """Calculate the Gvector mappings."""
-        pd = self.pd
-        B_cv = 2.0 * np.pi * pd.gd.icell_cv
-        G_Gv = pd.get_reciprocal_vectors(add_q=False)
+        qpd = self.qpd
+        B_cv = 2.0 * np.pi * qpd.gd.icell_cv
+        G_Gv = qpd.get_reciprocal_vectors(add_q=False)
         G_Gc = np.dot(G_Gv, np.linalg.inv(B_cv))
-        Q_G = pd.Q_qG[0]
+        Q_G = qpd.Q_qG[0]
 
         G_sG = [None] * self.nsym
         UG_sGc = [None] * self.nsym
@@ -548,7 +550,7 @@ class PWSymmetryAnalyzer:
 
             assert np.allclose(UG_Gc.round(), UG_Gc)
             UQ_G = np.ravel_multi_index(UG_Gc.round().astype(int).T,
-                                        pd.gd.N_c, 'wrap')
+                                        qpd.gd.N_c, 'wrap')
 
             G_G = len(Q_G) * [None]
             for G, UQ in enumerate(UQ_G):
