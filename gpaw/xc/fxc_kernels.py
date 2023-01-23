@@ -1,6 +1,17 @@
 import numpy as np
 
 
+def get_fHxc_Gr(xcflags, rs, q, qF, s2_g):
+    xc = xcflags.xc
+    if xc in ('rALDA', 'rALDAns', 'range_rALDA'):
+        return fHxc_ralda(q, qF)
+
+    elif xcflags.is_apbe:
+        return fHxc_apbe(rs, q, s2_g)
+    else:
+        raise ValueError(f'Unknown xc: {xc}')
+
+
 def fHxc_ralda(q, qF):
     # rALDA (exchange only) kernel
     # Olsen and Thygesen, Phys. Rev. B 88, 115131 (2013)
@@ -15,28 +26,21 @@ def fHxc_ralda(q, qF):
         (1.0 + (-1.0) * rxalda_A * (q[:, np.newaxis] / qF)**2.0))
 
 
-def get_fHxc_Gr(xcflags, rs, q, qF, s2_g):
-    xc = xcflags.xc
-    if xc in ('rALDA', 'rALDAns', 'range_rALDA'):
-        return fHxc_ralda(q, qF)
+def fHxc_apbe(rs, q, s2_g):
+    # Olsen and Thygesen, Phys. Rev. Lett. 112, 203001 (2014)
+    # Exchange only part of the PBE XC kernel, neglecting the terms
+    # arising from the variation of the density gradient
+    # i.e. second functional derivative
+    # d2/drho^2 -> \partial^2/\partial rho^2 at fixed \nabla \rho
 
-    elif xcflags.is_apbe:
-        # Olsen and Thygesen, Phys. Rev. Lett. 112, 203001 (2014)
-        # Exchange only part of the PBE XC kernel, neglecting the terms
-        # arising from the variation of the density gradient
-        # i.e. second functional derivative
-        # d2/drho^2 -> \partial^2/\partial rho^2 at fixed \nabla \rho
+    fxc_PBE = get_pbe_fxc(
+        pbe_rho=3.0 / (4.0 * np.pi * rs**3.0),
+        pbe_s2_g=s2_g)
+    rxapbe_qcut = np.sqrt(-4.0 * np.pi / fxc_PBE)
 
-        fxc_PBE = get_pbe_fxc(
-            pbe_rho=3.0 / (4.0 * np.pi * rs**3.0),
-            pbe_s2_g=s2_g)
-        rxapbe_qcut = np.sqrt(-4.0 * np.pi / fxc_PBE)
-
-        fHxc_Gr = (0.5 + 0.0j) * (
-            (1.0 + np.sign(rxapbe_qcut - q[:, np.newaxis])) *
-            (1.0 + fxc_PBE / (4.0 * np.pi) * (q[:, np.newaxis])**2.0))
-
-    return fHxc_Gr
+    return (0.5 + 0.0j) * (
+        (1.0 + np.sign(rxapbe_qcut - q[:, np.newaxis])) *
+        (1.0 + fxc_PBE / (4.0 * np.pi) * (q[:, np.newaxis])**2.0))
 
 
 def get_fspinHxc_Gr_rALDA(qF, q):
