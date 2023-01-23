@@ -343,22 +343,19 @@ class FXCCorrelation:
                     return getattr(reader, arrayname)
 
             if self.xc == 'RPA':
-                fv_lGG = np.eye(nG)[np.newaxis, :, :]
+                fv_GG = np.eye(nG)
 
             elif self.xc == 'range_RPA':
                 fv_diag_G = np.exp(-0.25 * (G_G * self.range_rc)**2.0)
                 # Unfortunately here we have a radically different shape,
                 # so we'll struggle to handle the arrays similarly.
-                # All other cases have fv_lGG
+                # All other cases have fv_GG
 
-            elif self.xcflags.linear_kernel:
-                fv_lGG = read('fhxc_sGsG')[np.newaxis, :, :]
             else:
-                # static kernel which does not scale with lambda
-                fv_lGG = read('fhxc_lGG')
+                fv_GG = read('fhxc_sGsG')
 
             if apply_cut_G and cut_G is not None:
-                fv_lGG = fv_lGG.take(cut_G, 1).take(cut_G, 2)
+                fv_GG = fv_GG.take(cut_G, 0).take(cut_G, 1)
 
             if pd.kd.gamma:
                 G_G[0] = 1.0
@@ -370,20 +367,9 @@ class FXCCorrelation:
             for iw, chi0_sGG in enumerate(np.swapaxes(chi0_swGG, 0, 1)):
                 chi0v = get_chi0v(chi0_sGG, cut_G, G_G)
 
-                if not self.xcflags.linear_kernel:
-                    il = 0
-                    energy = 0.0
-                    for l, weight in zip(self.l_l, self.weight_l):
-                        chiv = np.linalg.solve(
-                            np.eye(nG) - chi0v @ fv_lGG[il],
-                            chi0v).real
-                        energy -= np.trace(chiv) * weight
-                        il += 1
-
-                    energy += np.trace(chi0v.real)
-                    e_w.append(energy)
-
-                else:
+                if True:
+                    # linear kernel case.
+                    # TODO: Un-indent when review is over.
 
                     # Coupling constant integration
                     # for long-range part
@@ -395,19 +381,17 @@ class FXCCorrelation:
                         chi0v_fv = chi0v * fv_diag_G
                         e_GG = np.eye(nG) - chi0v_fv
                     elif self.xc != 'RPA':
-                        assert len(fv_lGG) == 1
-                        chi0v_fv = np.dot(chi0v, fv_lGG[0])
+                        chi0v_fv = np.dot(chi0v, fv_GG)
                         e_GG = np.eye(nG) - chi0v_fv
 
                     if self.xc == 'RPA':
                         # numerical RPA
                         elong = 0.0
-                        for l, weight in zip(self.l_l, self.weight_l):
-                            assert len(fv_lGG) == 1
 
+                        for l, weight in zip(self.l_l, self.weight_l):
                             chiv = np.linalg.solve(
                                 np.eye(nG) - l * np.dot(
-                                    chi0v, fv_lGG[0]), chi0v).real
+                                    chi0v, fv_GG), chi0v).real
 
                             elong -= np.trace(chiv) * weight
 
@@ -417,11 +401,10 @@ class FXCCorrelation:
                         # analytic everything else
                         elong = (np.log(np.linalg.det(e_GG)) + nG -
                                  np.trace(e_GG)).real
+
                     # Numerical integration for short-range part
                     eshort = 0.0
                     if self.xc not in ('RPA', 'range_RPA', 'range_rALDA'):
-                        assert len(fv_lGG) == 1
-                        fv_GG = fv_lGG[0]
                         # Subtract Hartree contribution:
                         fxcv = fv_GG - np.eye(nG)
 
