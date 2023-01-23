@@ -76,7 +76,7 @@ class FXCCorrelation:
         self.unit_cells = unit_cells
         self.range_rc = range_rc  # Range separation parameter in Bohr
 
-        self.xcflags = XCFlags(self.xc)
+        self.xcflags = FXCKernel(self.xc)
         self.avg_scheme = self.xcflags.choose_avg_scheme(avg_scheme)
 
         if tag is None:
@@ -459,7 +459,7 @@ class KernelWave:
         self.gs = gs
         self.gd = gs.density.gd
         self.xc = xc
-        self.xcflags = XCFlags(xc)
+        self.xcflags = FXCKernel(xc)
         self.ibzq_qc = ibzq_qc
         self.l_l = l_l
         self.ns = self.gs.nspins
@@ -1251,7 +1251,7 @@ class KernelDens:
         return fxc_g
 
 
-class XCFlags:
+class FXCKernel:
     _accepted_flags = {
         'RPA',
         'range_RPA',  # range separated RPA a la Bruneval

@@ -2,7 +2,7 @@ from ase.units import Ha
 import os
 import gpaw.mpi as mpi
 import numpy as np
-from gpaw.xc.fxc import KernelWave, XCFlags
+from gpaw.xc.fxc import KernelWave, FXCKernel
 from ase.io.aff import affopen
 
 from gpaw.response.pair_functions import SingleQPWDescriptor
@@ -13,7 +13,7 @@ class G0W0Kernel:
     def __init__(self, xc, context, **kwargs):
         self.xc = xc
         self.context = context
-        self.xcflags = XCFlags(xc)
+        self.xcflags = FXCKernel(xc)
         self._kwargs = kwargs
 
     def calculate(self, pd):
