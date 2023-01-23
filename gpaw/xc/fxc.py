@@ -141,8 +141,7 @@ class FXCCorrelation:
                                        'q point %s \n' % (self.xc, q_empty))
 
                     kernelkwargs.update(l_l=self.l_l,
-                                        q_empty=q_empty,
-                                        Eg=self.Eg)
+                                        q_empty=q_empty)
 
                     if self.xcflags.linear_kernel:
                         kernelkwargs.update(l_l=None)
@@ -463,7 +462,7 @@ class FXCCorrelation:
 
 
 class KernelWave:
-    def __init__(self, gs, xc, ibzq_qc, l_l, q_empty, Eg, ecut,
+    def __init__(self, gs, xc, ibzq_qc, l_l, q_empty, ecut,
                  tag, context):
 
         self.gs = gs
@@ -474,7 +473,6 @@ class KernelWave:
         self.l_l = l_l
         self.ns = self.gs.nspins
         self.q_empty = q_empty
-        self.Eg = Eg
         self.ecut = ecut
         self.tag = tag
         self.context = context
@@ -502,10 +500,6 @@ class KernelWave:
         self.z_g = 1.0 * r_g[2].flatten()
         self.gridsize = len(self.x_g)
         assert len(self.n_g) == self.gridsize
-
-        if self.Eg is not None:
-            self.context.print('Band gap of %s eV used to evaluate kernel'
-                               % (self.Eg * Ha))
 
         # Enhancement factor for GGA
         if self.xcflags.is_apbe:
@@ -740,10 +734,8 @@ class KernelWave:
         scaled_rs = (3.0 / (4.0 * np.pi * scaled_rho))**(1.0 / 3.0
                                                          )  # Wigner radius
 
-        if self.Eg is not None:
-            scaled_Eg = self.Eg / (l**1.5)
-        else:
-            scaled_Eg = None
+        # XXXXXXXXXXXXXXXX remove
+        scaled_Eg = None
 
         if not spincorr:
             scaled_kernel = l * self.get_fHxc_q(scaled_rs, scaled_q, Gphase,
@@ -760,7 +752,7 @@ class KernelWave:
         heg = HEG(rs)
         qF = heg.qF
 
-        fHxc_Gr = get_fHxc_Gr(self.xcflags, rs, q, qF, s2_g, scaled_Eg)
+        fHxc_Gr = get_fHxc_Gr(self.xcflags, rs, q, qF, s2_g)
 
         # Integrate over r with phase
         fHxc_Gr *= Gphase

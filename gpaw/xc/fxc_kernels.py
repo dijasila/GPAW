@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def get_fHxc_Gr(xcflags, rs, q, qF, s2_g, scaled_Eg):
+def get_fHxc_Gr(xcflags, rs, q, qF, s2_g):
     xc = xcflags.xc
     if xc in ('rALDA', 'rALDAns', 'range_rALDA'):
         # rALDA (exchange only) kernel
@@ -78,20 +78,6 @@ def get_fHxc_Gr(xcflags, rs, q, qF, s2_g, scaled_Eg):
 
         # Hartree
         fHxc_Gr += 1.0
-
-    elif xc == 'JGMs':
-        # Trevisanutto et al.,
-        # Phys. Rev. B 87, 205143 (2013)
-        # equation 4,
-        # so-called "jellium with gap" model, but simplified
-        # so that it is similar to CP.
-
-        jgm_kappa = get_heg_A(rs) / (qF**2.0)
-        jgm_n = 3.0 / (4.0 * np.pi * rs**3.0)
-        fHxc_Gr = (1.0 +
-                   0.0j) * (np.exp(-jgm_kappa * q[:, np.newaxis]**2.0) *
-                            np.exp(-scaled_Eg**2.0 /
-                                   (4.0 * np.pi * jgm_n)))
 
     return fHxc_Gr
 
