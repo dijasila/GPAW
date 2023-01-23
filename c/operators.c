@@ -42,7 +42,7 @@ static void Operator_dealloc(OperatorObject *self)
 {
 
 #ifdef GPAW_GPU
-  if (self->cuda) {
+  if (self->use_gpu) {
     operator_dealloc_gpu(0);
     bc_dealloc_gpu(0);
   }
@@ -395,11 +395,11 @@ PyObject * NewOperatorObject(PyObject *obj, PyObject *args)
   int real;
   PyObject* comm_obj;
   int cfd;
-  int cuda = 0;
+  int use_gpu = 0;
 
   if (!PyArg_ParseTuple(args, "OOOiOiOi|i",
                         &coefs, &offsets, &size, &range, &neighbors,
-                        &real, &comm_obj, &cfd, &cuda))
+                        &real, &comm_obj, &cfd, &use_gpu))
     return NULL;
 
   OperatorObject *self = PyObject_NEW(OperatorObject, &OperatorType);
@@ -420,8 +420,8 @@ PyObject * NewOperatorObject(PyObject *obj, PyObject *args)
 
   self->bc = bc_init(LONGP(size), padding, padding, nb, comm, real, cfd);
 #ifdef GPAW_GPU
-  self->cuda = cuda;
-  if (self->cuda) {
+  self->use_gpu = use_gpu;
+  if (self->use_gpu) {
     operator_init_gpu(self);
   }
 #endif

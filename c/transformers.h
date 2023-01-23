@@ -25,7 +25,7 @@ typedef struct
   int skip[3][2];
   int size_out[3];          /* Size of the output grid */
 #ifdef GPAW_GPU
-  int cuda;
+  int gpu;
 #endif
 } TransformerObject;
 #else

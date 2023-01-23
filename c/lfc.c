@@ -59,7 +59,7 @@ static void lfc_dealloc(LFCObject *self)
     free(self->i_W);
     free(self->volume_W);
 #ifdef GPAW_GPU
-    if (self->cuda) {
+    if (self->use_gpu) {
         lfc_dealloc_gpu(self);
     }
 #endif
@@ -151,11 +151,11 @@ PyObject * NewLFCObject(PyObject *obj, PyObject *args)
   PyArrayObject* W_B_obj;
   double dv;
   PyArrayObject* phase_kW_obj;
-  int cuda = 0;
+  int use_gpu = 0;
 
   if (!PyArg_ParseTuple(args, "OOOOdO|i",
                         &A_Wgm_obj, &M_W_obj, &G_B_obj, &W_B_obj, &dv,
-                        &phase_kW_obj, &cuda))
+                        &phase_kW_obj, &use_gpu))
     return NULL;
 
   LFCObject *self = PyObject_NEW(LFCObject, &LFCType);
@@ -163,7 +163,7 @@ PyObject * NewLFCObject(PyObject *obj, PyObject *args)
     return NULL;
 
 #ifdef GPAW_GPU
-  self->cuda = cuda;
+  self->use_gpu = use_gpu;
 #endif
   self->dv = dv;
 
@@ -249,7 +249,7 @@ PyObject * NewLFCObject(PyObject *obj, PyObject *args)
   memset(self->volume_i, 0, sizeof(LFVolume *) * nthreads * nimax);
 
 #ifdef GPAW_GPU
-  if (cuda) {
+  if (use_gpu) {
     NewLFCObject_gpu(self, args);
   }
 #endif

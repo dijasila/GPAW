@@ -63,9 +63,9 @@ typedef struct
   complex double* phase_i;   // phase factors for current volumes
 
 #ifdef GPAW_GPU
-  int cuda;
+  int use_gpu;
   LFVolume_gpu *volume_W_gpu;
-  LFVolume_gpu *volume_W_cuda;
+  LFVolume_gpu *volume_W_gpu_host;
   int nB_gpu;                    // number of boundary points
   int* G_B1_gpu;                  // boundary grid points
   int* G_B2_gpu;                  // boundary grid points

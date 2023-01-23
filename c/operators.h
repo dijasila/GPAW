@@ -20,7 +20,7 @@ typedef struct
   MPI_Request sendreq[2];
   int nthreads;
 #ifdef GPAW_GPU
-  int cuda;
+  int use_gpu;
   bmgsstencil_gpu stencil_gpu;
 #endif
 } OperatorObject;

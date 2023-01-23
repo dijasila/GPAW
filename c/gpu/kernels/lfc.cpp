@@ -93,15 +93,15 @@ __global__ void Zgpu(add_kernel)(Tgpu *a_G, const Tgpu *c_M, int *G_B1,
 extern "C"
 void lfc_dealloc_gpu(LFCObject *self)
 {
-    if (self->cuda) {
+    if (self->use_gpu) {
         for (int W=0; W < self->nW; W++) {
-            LFVolume_gpu* volume_gpu = &self->volume_W_cuda[W];
+            LFVolume_gpu* volume_gpu = &self->volume_W_gpu_host[W];
             gpuFree(volume_gpu->A_gm);
             gpuFree(volume_gpu->GB1);
             gpuFree(volume_gpu->nGBcum);
             gpuFree(volume_gpu->phase_k);
         }
-        free(self->volume_W_cuda);
+        free(self->volume_W_gpu_host);
         gpuFree(self->volume_W_gpu);
         gpuFree(self->G_B1_gpu);
         gpuFree(self->G_B2_gpu);
@@ -170,14 +170,14 @@ PyObject * NewLFCObject_gpu(LFCObject *self, PyObject *args)
     const PyArrayObject* W_B_obj;
     double dv;
     PyArrayObject* phase_kW_obj;
-    int cuda = 1;
+    int use_gpu = 1;
 
     if (!PyArg_ParseTuple(args, "OOOOdO|iO",
                           &A_Wgm_obj, &M_W_obj, &G_B_obj, &W_B_obj, &dv,
-                          &phase_kW_obj, &cuda))
+                          &phase_kW_obj, &use_gpu))
         return NULL;
 
-    if (!cuda)
+    if (!use_gpu)
         return (PyObject*) self;
 
     int nimax = self->nimax;
@@ -423,7 +423,7 @@ PyObject * NewLFCObject_gpu(LFCObject *self, PyObject *args)
                   sizeof(gpuDoubleComplex) * max_k * nB_gpu * nimax,
                   gpuMemcpyHostToDevice);
     }
-    self->volume_W_cuda = volume_W_gpu;
+    self->volume_W_gpu_host = volume_W_gpu;
 
     gpuMemcpy(self->volume_W_gpu, volume_W_gpu,
               sizeof(LFVolume_gpu) * self->nW, gpuMemcpyHostToDevice);
@@ -469,7 +469,7 @@ PyObject* integrate_gpu(LFCObject *lfc, PyObject *args)
     PyObject *shape, *c_shape;
     int q;
 
-    assert(lfc->cuda);
+    assert(lfc->use_gpu);
 
     if (!PyArg_ParseTuple(args, "nOnOi", &a_xG_gpu, &shape, &c_xM_gpu,
                           &c_shape, &q))
@@ -508,7 +508,7 @@ PyObject* add_gpu(LFCObject *lfc, PyObject *args)
     PyObject *shape, *c_shape;
     int q;
 
-    assert(lfc->cuda);
+    assert(lfc->use_gpu);
 
     if (!PyArg_ParseTuple(args, "nOnOi", &c_xM_gpu, &c_shape, &a_xG_gpu,
                 &shape, &q))

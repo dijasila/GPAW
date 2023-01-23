@@ -30,7 +30,7 @@ PyObject* Transformer_apply_gpu(TransformerObject *self, PyObject *args);
 static void Transformer_dealloc(TransformerObject *self)
 {
 #ifdef GPAW_GPU
-  if (self->cuda) {
+  if (self->gpu) {
     transformer_dealloc_gpu(0);
     bc_dealloc_gpu(0);
   }
@@ -211,11 +211,11 @@ PyObject * NewTransformerObject(PyObject *obj, PyObject *args)
   int real;
   PyObject* comm_obj;
   int interpolate;
-  int cuda = 0;
+  int gpu = 0;
   if (!PyArg_ParseTuple(args, "OOiOOOOiOi|i",
                         &size_in, &size_out, &k, &paddings, &npaddings, &skip,
                         &neighbors, &real, &comm_obj,
-                        &interpolate, &cuda))
+                        &interpolate, &gpu))
     return NULL;
 
   TransformerObject* self = PyObject_NEW(TransformerObject, &TransformerType);
@@ -243,8 +243,8 @@ PyObject * NewTransformerObject(PyObject *obj, PyObject *args)
       self->skip[c][d] = (int)skp[c][d];
 
 #ifdef GPAW_GPU
-  self->cuda = cuda;
-  if (self->cuda) {
+  self->gpu = gpu;
+  if (self->gpu) {
     transformer_init_gpu(self);
   }
 #endif
