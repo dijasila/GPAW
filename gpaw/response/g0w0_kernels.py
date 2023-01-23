@@ -28,13 +28,7 @@ def actually_calculate_kernel(*, gs, qd, xcflags, q_empty, tag, ecut_max,
                               context):
     ibzq_qc = qd.ibzk_kc
 
-    l_l = np.array([1.0])
-
-    if xcflags.linear_kernel:
-        l_l = None
-
     kernel = KernelWave(
-        l_l=l_l,
         gs=gs,
         xc=xcflags.xc,
         ibzq_qc=ibzq_qc,

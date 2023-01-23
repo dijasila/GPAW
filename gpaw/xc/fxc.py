@@ -131,12 +131,7 @@ class FXCCorrelation:
                     self.context.print('Calculating %s kernel starting from '
                                        'q point %s \n' % (self.xc, q_empty))
 
-                    kernelkwargs.update(l_l=self.l_l,
-                                        q_empty=q_empty)
-
-                    if self.xcflags.linear_kernel:
-                        kernelkwargs.update(l_l=None)
-
+                    kernelkwargs.update(q_empty=q_empty)
                     kernel = KernelWave(**kernelkwargs)
 
                 else:
@@ -453,7 +448,7 @@ class FXCCorrelation:
 
 
 class KernelWave:
-    def __init__(self, gs, xc, ibzq_qc, l_l, q_empty, ecut,
+    def __init__(self, gs, xc, ibzq_qc, q_empty, ecut,
                  tag, context):
 
         self.gs = gs
@@ -461,15 +456,14 @@ class KernelWave:
         self.xc = xc
         self.xcflags = XCFlags(xc)
         self.ibzq_qc = ibzq_qc
-        self.l_l = l_l
         self.ns = self.gs.nspins
         self.q_empty = q_empty
         self.ecut = ecut
         self.tag = tag
         self.context = context
 
-        if l_l is None:  # -> Kernel is linear in coupling strength
-            self.l_l = [1.0]
+        # TODO: delete me
+        self.l_l = [1.0]
 
         # Density grid
         n_sg, finegd = self.gs.get_all_electron_density(gridrefinement=2)
