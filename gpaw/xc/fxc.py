@@ -358,22 +358,22 @@ class FXCCorrelation:
                     return getattr(reader, arrayname)
 
             if self.xc == 'RPA':
-                fv_lwGG = np.eye(nG)[np.newaxis, np.newaxis, :, :]
+                fv_lGG = np.eye(nG)[np.newaxis, :, :]
 
             elif self.xc == 'range_RPA':
                 fv_diag_G = np.exp(-0.25 * (G_G * self.range_rc)**2.0)
                 # Unfortunately here we have a radically different shape,
                 # so we'll struggle to handle the arrays similarly.
-                # All other cases have fv_lwGG (with some dimensions being 1).
+                # All other cases have fv_lGG
 
             elif self.xcflags.linear_kernel:
-                fv_lwGG = read('fhxc_sGsG')[np.newaxis, np.newaxis, :, :]
+                fv_lGG = read('fhxc_sGsG')[np.newaxis, :, :]
             else:
                 # static kernel which does not scale with lambda
-                fv_lwGG = read('fhxc_lGG')[:, np.newaxis, :, :]
+                fv_lGG = read('fhxc_lGG')
 
             if apply_cut_G and cut_G is not None:
-                fv_lwGG = fv_lwGG.take(cut_G, 2).take(cut_G, 3)
+                fv_lGG = fv_lGG.take(cut_G, 1).take(cut_G, 2)
 
             if pd.kd.gamma:
                 G_G[0] = 1.0
@@ -390,7 +390,7 @@ class FXCCorrelation:
                     energy = 0.0
                     for l, weight in zip(self.l_l, self.weight_l):
                         chiv = np.linalg.solve(
-                            np.eye(nG) - chi0v @ fv_lwGG[il, 0],
+                            np.eye(nG) - chi0v @ fv_lGG[il],
                             chi0v).real
                         energy -= np.trace(chiv) * weight
                         il += 1
@@ -410,19 +410,19 @@ class FXCCorrelation:
                         chi0v_fv = chi0v * fv_diag_G
                         e_GG = np.eye(nG) - chi0v_fv
                     elif self.xc != 'RPA':
-                        assert fv_lwGG.shape[:2] == (1, 1)
-                        chi0v_fv = np.dot(chi0v, fv_lwGG[0, 0])
+                        assert len(fv_lGG) == 1
+                        chi0v_fv = np.dot(chi0v, fv_lGG[0])
                         e_GG = np.eye(nG) - chi0v_fv
 
                     if self.xc == 'RPA':
                         # numerical RPA
                         elong = 0.0
                         for l, weight in zip(self.l_l, self.weight_l):
-                            assert fv_lwGG.shape[:2] == (1, 1)
+                            assert len(fv_lGG) == 1
 
                             chiv = np.linalg.solve(
                                 np.eye(nG) - l * np.dot(
-                                    chi0v, fv_lwGG[0, 0]), chi0v).real
+                                    chi0v, fv_lGG[0]), chi0v).real
 
                             elong -= np.trace(chiv) * weight
 
@@ -435,8 +435,8 @@ class FXCCorrelation:
                     # Numerical integration for short-range part
                     eshort = 0.0
                     if self.xc not in ('RPA', 'range_RPA', 'range_rALDA'):
-                        assert fv_lwGG.shape[:2] == (1, 1)
-                        fv_GG = fv_lwGG[0, 0]
+                        assert len(fv_lGG) == 1
+                        fv_GG = fv_lGG[0]
                         # Subtract Hartree contribution:
                         fxcv = fv_GG - np.eye(nG)
 
@@ -589,14 +589,7 @@ class KernelWave:
                 # fHxc^{up down}   = fHxc^{down up}   = fv_nospin - fv_spincorr
                 fv_spincorr_GG = np.zeros((nG, nG), dtype=complex)
 
-            # Confusing, but None has a special meaning when passed to
-            # wherever it is that we pass it.
-            omega_w = [None]
-
-            nw = len(omega_w)
-
-            fv_nospin_lwGG = np.zeros((len(self.l_l), nw, nG, nG),
-                                      dtype=complex)
+            fv_nospin_lGG = np.zeros((len(self.l_l), nG, nG), dtype=complex)
 
             for il, l in enumerate(self.l_l):  # loop over coupling constant
                 for iG, Gv in zip(my_Gints, my_Gv_G):  # loop over G vecs
@@ -644,45 +637,42 @@ class KernelWave:
                              deltaGv[:, 1, np.newaxis] * self.y_g[small_ind] +
                              deltaGv[:, 2, np.newaxis] * self.z_g[small_ind]))
 
-                        def scaled_fHxc(w, spincorr, l):
+                        def scaled_fHxc(spincorr, l):
                             return self.get_scaled_fHxc_q(
                                 q=mod_Gpq,
                                 sel_points=small_ind,
                                 Gphase=phase_Gpq,
                                 l=l,
-                                spincorr=spincorr,
-                                w=w)
+                                spincorr=spincorr)
 
-                        for iw, w in enumerate(omega_w):
-                            fv_nospin_lwGG[il, iw, iG, iG:] = scaled_fHxc(
-                                w, spincorr=False, l=l)
+                        fv_nospin_lGG[il, iG, iG:] = scaled_fHxc(
+                            spincorr=False, l=l)
 
                         if calc_spincorr:
                             fv_spincorr_GG[iG, iG:] = scaled_fHxc(
-                                w=None, spincorr=True, l=1.0)
+                                spincorr=True, l=1.0)
                     else:
                         # head and wings of q=0 are dominated by
                         # 1/q^2 divergence of scaled Coulomb interaction
 
                         assert iG == 0
 
-                        fv_nospin_lwGG[il, :, 0, 0] = l
-                        fv_nospin_lwGG[il, :, 0, 1:] = 0.0
+                        fv_nospin_lGG[il, 0, 0] = l
+                        fv_nospin_lGG[il, 0, 1:] = 0.0
 
                         if calc_spincorr:
                             fv_spincorr_GG[0, :] = 0.0
 
                     # End loop over G vectors
 
-                mpi.world.sum(fv_nospin_lwGG[il])
+                mpi.world.sum(fv_nospin_lGG[il])
 
-                for iw in range(len(omega_w)):
-                    # We've only got half the matrix here,
-                    # so add the hermitian conjugate:
-                    fv_nospin_lwGG[il, iw] += np.conj(fv_nospin_lwGG[il, iw].T)
-                    # but now the diagonal's been doubled,
-                    # so we multiply these elements by 0.5
-                    fv_nospin_lwGG[il, iw][np.diag_indices(nG)] *= 0.5
+                # We've only got half the matrix here,
+                # so add the hermitian conjugate:
+                fv_nospin_lGG[il] += np.conj(fv_nospin_lGG[il].T)
+                # but now the diagonal's been doubled,
+                # so we multiply these elements by 0.5
+                fv_nospin_lGG[il][np.diag_indices(nG)] *= 0.5
 
                 # End of loop over coupling constant
 
@@ -701,8 +691,7 @@ class KernelWave:
                 if calc_spincorr:
                     # Form the block matrix kernel
                     fv_full_2G2G = np.empty((2 * nG, 2 * nG), dtype=complex)
-                    assert nw == 1
-                    fv_nospin_GG = fv_nospin_lwGG[0, 0]
+                    fv_nospin_GG = fv_nospin_lGG[0]
                     fv_full_2G2G[:nG, :nG] = fv_nospin_GG + fv_spincorr_GG
                     fv_full_2G2G[:nG, nG:] = fv_nospin_GG - fv_spincorr_GG
                     fv_full_2G2G[nG:, :nG] = fv_nospin_GG - fv_spincorr_GG
@@ -710,11 +699,9 @@ class KernelWave:
                     w.write(fhxc_sGsG=fv_full_2G2G)
 
                 elif len(self.l_l) == 1:
-                    assert nw == 1
-                    w.write(fhxc_sGsG=fv_nospin_lwGG[0, 0])
+                    w.write(fhxc_sGsG=fv_nospin_lGG[0])
                 else:
-                    assert nw == 1
-                    w.write(fhxc_lGG=fv_nospin_lwGG[:, 0, :, :])
+                    w.write(fhxc_lGG=fv_nospin_lGG)
 
                 w.close()
 
@@ -722,7 +709,7 @@ class KernelWave:
 
             mpi.world.barrier()
 
-    def get_scaled_fHxc_q(self, q, sel_points, Gphase, l, spincorr, w):
+    def get_scaled_fHxc_q(self, q, sel_points, Gphase, l, spincorr):
         # Given a coupling constant l, construct the Hartree-XC
         # kernel in q space a la Lein, Gross and Perdew,
         # Phys. Rev. B 61, 13431 (2000):
@@ -752,10 +739,6 @@ class KernelWave:
         scaled_rho = rho / l**3.0
         scaled_rs = (3.0 / (4.0 * np.pi * scaled_rho))**(1.0 / 3.0
                                                          )  # Wigner radius
-        if w is not None:
-            scaled_w = w / (l**2.0)
-        else:
-            scaled_w = None
 
         if self.Eg is not None:
             scaled_Eg = self.Eg / (l**1.5)
@@ -764,20 +747,20 @@ class KernelWave:
 
         if not spincorr:
             scaled_kernel = l * self.get_fHxc_q(scaled_rs, scaled_q, Gphase,
-                                                s2_g, scaled_w, scaled_Eg)
+                                                s2_g, scaled_Eg)
         else:
             scaled_kernel = l * self.get_spinfHxc_q(scaled_rs, scaled_q,
                                                     Gphase, s2_g)
 
         return scaled_kernel
 
-    def get_fHxc_q(self, rs, q, Gphase, s2_g, w, scaled_Eg):
+    def get_fHxc_q(self, rs, q, Gphase, s2_g, scaled_Eg):
         # Construct fHxc(q,G,:), divided by scaled Coulomb interaction
 
         heg = HEG(rs)
         qF = heg.qF
 
-        fHxc_Gr = get_fHxc_Gr(self.xcflags, rs, q, qF, s2_g, w, scaled_Eg)
+        fHxc_Gr = get_fHxc_Gr(self.xcflags, rs, q, qF, s2_g, scaled_Eg)
 
         # Integrate over r with phase
         fHxc_Gr *= Gphase
@@ -1300,7 +1283,6 @@ class XCFlags:
         'rAPBEns',
         'rALDAc',  # rALDA + correlation
         'CP',  # Constantin Pitarke
-        'CP_dyn',  # Dynamical form of CP
         'CDOP',  # Corradini et al
         'CDOPs',  # CDOP without local term
         'JGMs',  # simplified jellium-with-gap kernel
