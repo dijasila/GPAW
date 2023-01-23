@@ -196,10 +196,6 @@ To use this kernel, the gap must be specified as ``Eg=X``, where X is in eV:
 
 .. literalinclude:: diam_kern.ralda_05_jgm.py
 
-Another interesting avenue is the simple dynamical kernel of Constantin and Pitarke (CP_dyn) [#Constantin]_:
-
-.. literalinclude:: diam_kern.ralda_06_CP_dyn.py
-
 Finally, for the enthusiast there is a basic implementation of the range-separated
 RPA approach of Ref. [#Bruneval]_.  By separating the Coulomb interaction into long
 and short-range parts and taking the short range part from the electron gas, one can
@@ -216,11 +212,11 @@ For comparison, one can see that the RPA converges much more slowly:
 Here we summarize the above calculations and show the correlation energy/electron (in eV),
 obtained at an (unconverged) cutoff of 131 eV:
 
-=================  ================   ======  ======  ======  ===================  ======
-rALDA (dens. av.)  rALDA (wave. av)   rALDAc  JGMs    CP_dyn  range separated RPA   RPA
-=================  ================   ======  ======  ======  ===================  ======
--1.161              -1.134            -1.127  -1.134  -1.069        -1.730         -1.396
-=================  ================   ======  ======  ======  ===================  ======
+=================  ================   ======  ======  ===================  ======
+rALDA (dens. av.)  rALDA (wave. av)   rALDAc  JGMs    range separated RPA   RPA
+=================  ================   ======  ======  ===================  ======
+-1.161              -1.134            -1.127  -1.134        -1.730         -1.396
+=================  ================   ======  ======  ===================  ======
 
 Incidentally, a fully converged RPA calculation gives a correlation energy
 of -1.781 eV per electron.
@@ -231,8 +227,7 @@ divergence of the Coulomb interaction in real space.  It also provides a natural
 to construct the JGMs kernel, and can be faster to construct for systems with many k points.
 However it is also worth remembering that kernels which scale linearly in the coupling constant
 (e.g rALDA) need only be constructed once per k point.  Those that do not scale linearly (e.g. rALDAc)
-need to be constructed `N_\lambda` times, and the CP_dyn kernel must be constructed
-at each frequency point as well, i.e. `N_\lambda N_\omega` times.  Assuming standard values
+need to be constructed `N_\lambda` times.  Assuming standard values
 of 8 and 16 for `N_\lambda` and `N_\omega` means there is a factor 100 cost
 in constructing and storing a dynamical kernel compared to rALDA.  Finally we point out that
 the rALDA and rAPBE kernels are also special because they have explicit spin-polarized forms.
