@@ -43,7 +43,6 @@ class FXCCorrelation:
                  tag=None,
                  range_rc=1.0,
                  avg_scheme=None,
-                 Eg=None,
                  *,
                  ecut,
                  **kwargs):
@@ -77,15 +76,7 @@ class FXCCorrelation:
         self.unit_cells = unit_cells
         self.range_rc = range_rc  # Range separation parameter in Bohr
 
-        if Eg is not None:
-            Eg /= Ha
-        self.Eg = Eg  # Band gap in eV
-
         self.xcflags = XCFlags(self.xc)
-        if self.xcflags.bandgap_dependent != (self.Eg is not None):
-            raise RuntimeError(
-                'Gap must be provided with and only with '
-                f'the gap dependent functionals {self.xcflags._gapped}.')
         self.avg_scheme = self.xcflags.choose_avg_scheme(avg_scheme)
 
         if tag is None:
@@ -141,8 +132,7 @@ class FXCCorrelation:
                                        'q point %s \n' % (self.xc, q_empty))
 
                     kernelkwargs.update(l_l=self.l_l,
-                                        q_empty=q_empty,
-                                        Eg=self.Eg)
+                                        q_empty=q_empty)
 
                     if self.xcflags.linear_kernel:
                         kernelkwargs.update(l_l=None)
@@ -463,7 +453,7 @@ class FXCCorrelation:
 
 
 class KernelWave:
-    def __init__(self, gs, xc, ibzq_qc, l_l, q_empty, Eg, ecut,
+    def __init__(self, gs, xc, ibzq_qc, l_l, q_empty, ecut,
                  tag, context):
 
         self.gs = gs
@@ -474,7 +464,6 @@ class KernelWave:
         self.l_l = l_l
         self.ns = self.gs.nspins
         self.q_empty = q_empty
-        self.Eg = Eg
         self.ecut = ecut
         self.tag = tag
         self.context = context
@@ -502,10 +491,6 @@ class KernelWave:
         self.z_g = 1.0 * r_g[2].flatten()
         self.gridsize = len(self.x_g)
         assert len(self.n_g) == self.gridsize
-
-        if self.Eg is not None:
-            self.context.print('Band gap of %s eV used to evaluate kernel'
-                               % (self.Eg * Ha))
 
         # Enhancement factor for GGA
         if self.xcflags.is_apbe:
@@ -594,10 +579,9 @@ class KernelWave:
             for il, l in enumerate(self.l_l):  # loop over coupling constant
                 for iG, Gv in zip(my_Gints, my_Gv_G):  # loop over G vecs
 
-                    # For all kernels except JGM we
+                    # For all kernels we
                     # treat head and wings analytically
-                    if G_G[iG] > 1.0E-5 or self.xc == 'JGMs':
-
+                    if G_G[iG] > 1.0E-5:
                         # Symmetrised |q+G||q+G'|, where iG' >= iG
                         mod_Gpq = np.sqrt(G_G[iG] * G_G[iG:])
 
@@ -740,27 +724,22 @@ class KernelWave:
         scaled_rs = (3.0 / (4.0 * np.pi * scaled_rho))**(1.0 / 3.0
                                                          )  # Wigner radius
 
-        if self.Eg is not None:
-            scaled_Eg = self.Eg / (l**1.5)
-        else:
-            scaled_Eg = None
-
         if not spincorr:
             scaled_kernel = l * self.get_fHxc_q(scaled_rs, scaled_q, Gphase,
-                                                s2_g, scaled_Eg)
+                                                s2_g)
         else:
             scaled_kernel = l * self.get_spinfHxc_q(scaled_rs, scaled_q,
                                                     Gphase, s2_g)
 
         return scaled_kernel
 
-    def get_fHxc_q(self, rs, q, Gphase, s2_g, scaled_Eg):
+    def get_fHxc_q(self, rs, q, Gphase, s2_g):
         # Construct fHxc(q,G,:), divided by scaled Coulomb interaction
 
         heg = HEG(rs)
         qF = heg.qF
 
-        fHxc_Gr = get_fHxc_Gr(self.xcflags, rs, q, qF, s2_g, scaled_Eg)
+        fHxc_Gr = get_fHxc_Gr(self.xcflags, rs, q, qF, s2_g)
 
         # Integrate over r with phase
         fHxc_Gr *= Gphase
@@ -1282,21 +1261,12 @@ class XCFlags:
         'rALDAns',  # no spin (ns)
         'rAPBEns',
         'rALDAc',  # rALDA + correlation
-        'CP',  # Constantin Pitarke
-        'CDOP',  # Corradini et al
-        'CDOPs',  # CDOP without local term
-        'JGMs',  # simplified jellium-with-gap kernel
-        'JGMsx',  # simplified jellium-with-gap kernel,
-        # constructed with exchange part only
-        # so that it scales linearly with l
         'ALDA'}  # standard ALDA
 
     _spin_kernels = {'rALDA', 'rAPBE', 'ALDA'}
 
-    _linear_kernels = {'rALDAns', 'rAPBEns', 'range_RPA', 'JGMsx', 'RPA',
+    _linear_kernels = {'rALDAns', 'rAPBEns', 'range_RPA', 'RPA',
                        'rALDA', 'rAPBE', 'range_rALDA', 'ALDA'}
-
-    _gapped = {'JGMs', 'JGMsx'}
 
     def __init__(self, xc):
         if xc not in self._accepted_flags:
@@ -1313,10 +1283,6 @@ class XCFlags:
     def linear_kernel(self):
         # Scales linearly with coupling constant
         return self.xc in self._linear_kernels
-
-    @property
-    def bandgap_dependent(self):
-        return self.xc in self._gapped
 
     @property
     def is_ranged(self):
