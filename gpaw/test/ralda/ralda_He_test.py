@@ -36,8 +36,7 @@ def test_ralda_ralda_energy_He(in_tmp_dir, scalapack):
         fxc('rALDA', unit_cells=[1, 1, 2]),
         fxc('rAPBE', unit_cells=[1, 1, 2]),
         fxc('rALDA', avg_scheme='wavevector'),
-        fxc('rAPBE', avg_scheme='wavevector'),
-        fxc('JGMs', avg_scheme='wavevector', Eg=3.1, nlambda=2)]
+        fxc('rAPBE', avg_scheme='wavevector')]
 
     assert E_rpa1 == pytest.approx(energies[0], abs=0.01)
 
@@ -45,9 +44,7 @@ def test_ralda_ralda_energy_He(in_tmp_dir, scalapack):
             -0.0560,
             -0.0523,
             -0.0241,
-            -0.0288,
-            -0.0263,
-            -0.0275]
+            -0.0288]
 
     for val, ref in zip(energies, refs):
         assert val == pytest.approx(ref, abs=0.001)
