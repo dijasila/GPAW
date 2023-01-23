@@ -48,7 +48,7 @@ By default the kernel is constructed from a two-point average of the density.
 However as shown in Example 4 it is possible to instead use a reciprocal-space averaging procedure.
 Within this averaging scheme it is possible to explore different
 approximations for `f_{xc}`, for instance a simple dynamical kernel, or a jellium-with-gap model, which displays
-a `1/q^2` divergence for small `q`.  More details can be found below and in [#Patrick]_.
+a `1/q^2` divergence for small `q`.  More details can be found in [#Patrick]_.
 
 Example 1: Correlation energy of the Hydrogen atom
 ==================================================
@@ -183,18 +183,6 @@ To use this averaging scheme, we add the flag ``avg_scheme='wavevector'``:
 .. literalinclude:: diam_kern.ralda_03_ralda_wave.py
 
 Using this averaging scheme opens a few more possible choices for the kernel.
-For example, we can include the correlation part of the ALDA which is left out of the rALDA
-by setting ``xc='rALDAc'``:
-
-.. literalinclude:: diam_kern.ralda_04_raldac.py
-
-Alternatively, we can look at more exotic kernels, such as a simplified version of the
-jellium-with-gap kernel of Ref. [#Trevisanutto]_ (JGMs).
-This kernel diverges as `1/q^2` for small `q`, with the strength of the divergence
-depending on the size of the band gap.
-To use this kernel, the gap must be specified as ``Eg=X``, where X is in eV:
-
-.. literalinclude:: diam_kern.ralda_05_jgm.py
 
 Finally, for the enthusiast there is a basic implementation of the range-separated
 RPA approach of Ref. [#Bruneval]_.  By separating the Coulomb interaction into long
@@ -212,23 +200,21 @@ For comparison, one can see that the RPA converges much more slowly:
 Here we summarize the above calculations and show the correlation energy/electron (in eV),
 obtained at an (unconverged) cutoff of 131 eV:
 
-=================  ================   ======  ======  ===================  ======
-rALDA (dens. av.)  rALDA (wave. av)   rALDAc  JGMs    range separated RPA   RPA
-=================  ================   ======  ======  ===================  ======
--1.161              -1.134            -1.127  -1.134        -1.730         -1.396
-=================  ================   ======  ======  ===================  ======
+=================  ================   ===================  ======
+rALDA (dens. av.)  rALDA (wave. av)   range separated RPA   RPA
+=================  ================   ===================  ======
+-1.161              -1.134            -1.730               -1.396
+=================  ================   ===================  ======
 
 Incidentally, a fully converged RPA calculation gives a correlation energy
 of -1.781 eV per electron.
 
 We conclude with some practical points.  The wavevector-averaging scheme is less intuitive
 than the density-average, but avoids some difficulties such as having to describe the `1/r`
-divergence of the Coulomb interaction in real space.  It also provides a natural framework
-to construct the JGMs kernel, and can be faster to construct for systems with many k points.
-However it is also worth remembering that kernels which scale linearly in the coupling constant
-(e.g rALDA) need only be constructed once per k point.  Those that do not scale linearly (e.g. rALDAc)
-need to be constructed `N_\lambda` times. Finally we point out that the rALDA and rAPBE kernels are
-also special because they have explicit spin-polarized forms.
+divergence of the Coulomb interaction in real space.  It also can be faster to construct for
+systems with many k points.
+Finally we point out that the rALDA and rAPBE kernels are also special because they have
+explicit spin-polarized forms.
 
 .. [#Olsen1] T. Olsen and K. S. Thygesen
               *Phys. Rev. B* **86**, 081103(R) (2012)
@@ -241,9 +227,6 @@ also special because they have explicit spin-polarized forms.
 
 .. [#Patrick] C. E. Patrick and K. S. Thygesen
               *J. Chem. Phys.* **143**, 102802 (2015)
-
-.. [#Trevisanutto] P. E. Trevisanutto et al.
-              *Phys. Rev. B* **87**, 205143 (2013)
 
 .. [#Bruneval] F. Bruneval
               *Phys. Rev. Lett* **108**, 256403 (2012)
