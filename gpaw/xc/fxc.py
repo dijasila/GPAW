@@ -1261,7 +1261,6 @@ class FXCKernel:
         'range_rALDA',
         'rALDAns',  # no spin (ns)
         'rAPBEns',
-        'rALDAc',  # rALDA + correlation
         'ALDA'}  # standard ALDA
 
     _spin_kernels = {'rALDA', 'rAPBE', 'ALDA'}
