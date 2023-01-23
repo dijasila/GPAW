@@ -48,7 +48,7 @@ By default the kernel is constructed from a two-point average of the density.
 However as shown in Example 4 it is possible to instead use a reciprocal-space averaging procedure.
 Within this averaging scheme it is possible to explore different
 approximations for `f_{xc}`, for instance a simple dynamical kernel, or a jellium-with-gap model, which displays
-a `1/q^2` divergence for small `q`.  More details can be found below and in [#Patrick]_.
+a `1/q^2` divergence for small `q`.  More details can be found in [#Patrick]_.
 
 Example 1: Correlation energy of the Hydrogen atom
 ==================================================
