@@ -557,8 +557,6 @@ class KernelWave:
                                                 or self.xc == 'rAPBE')
 
             if calc_spincorr:
-                assert len(self.l_l) == 1
-
                 # Form spin-dependent kernel according to
                 # PRB 88, 115131 (2013) equation 20
                 # (note typo, should be \tilde{f^rALDA})
@@ -568,9 +566,15 @@ class KernelWave:
                 # fHxc^{up down}   = fHxc^{down up}   = fv_nospin - fv_spincorr
                 fv_spincorr_GG = np.zeros((nG, nG), dtype=complex)
 
-            fv_nospin_lGG = np.zeros((len(self.l_l), nG, nG), dtype=complex)
+            fv_nospin_GG = np.zeros((nG, nG), dtype=complex)
 
-            for il, l in enumerate(self.l_l):  # loop over coupling constant
+            if True:
+                # TODO: Remove indentation after review.
+                # We replaced a loop with "if True" to keep the diff small.
+                # Once things are settled, unindent entire block.
+                il = 0
+                l = 1.0
+
                 for iG, Gv in zip(my_Gints, my_Gv_G):  # loop over G vecs
 
                     # For all kernels we
@@ -623,7 +627,7 @@ class KernelWave:
                                 l=l,
                                 spincorr=spincorr)
 
-                        fv_nospin_lGG[il, iG, iG:] = scaled_fHxc(
+                        fv_nospin_GG[iG, iG:] = scaled_fHxc(
                             spincorr=False, l=l)
 
                         if calc_spincorr:
@@ -635,22 +639,22 @@ class KernelWave:
 
                         assert iG == 0
 
-                        fv_nospin_lGG[il, 0, 0] = l
-                        fv_nospin_lGG[il, 0, 1:] = 0.0
+                        fv_nospin_GG[0, 0] = l
+                        fv_nospin_GG[0, 1:] = 0.0
 
                         if calc_spincorr:
                             fv_spincorr_GG[0, :] = 0.0
 
                     # End loop over G vectors
 
-                mpi.world.sum(fv_nospin_lGG[il])
+                mpi.world.sum(fv_nospin_GG)
 
                 # We've only got half the matrix here,
                 # so add the hermitian conjugate:
-                fv_nospin_lGG[il] += np.conj(fv_nospin_lGG[il].T)
+                fv_nospin_GG += np.conj(fv_nospin_GG.T)
                 # but now the diagonal's been doubled,
                 # so we multiply these elements by 0.5
-                fv_nospin_lGG[il][np.diag_indices(nG)] *= 0.5
+                fv_nospin_GG[np.diag_indices(nG)] *= 0.5
 
                 # End of loop over coupling constant
 
@@ -669,17 +673,14 @@ class KernelWave:
                 if calc_spincorr:
                     # Form the block matrix kernel
                     fv_full_2G2G = np.empty((2 * nG, 2 * nG), dtype=complex)
-                    fv_nospin_GG = fv_nospin_lGG[0]
                     fv_full_2G2G[:nG, :nG] = fv_nospin_GG + fv_spincorr_GG
                     fv_full_2G2G[:nG, nG:] = fv_nospin_GG - fv_spincorr_GG
                     fv_full_2G2G[nG:, :nG] = fv_nospin_GG - fv_spincorr_GG
                     fv_full_2G2G[nG:, nG:] = fv_nospin_GG + fv_spincorr_GG
                     w.write(fhxc_sGsG=fv_full_2G2G)
 
-                elif len(self.l_l) == 1:
-                    w.write(fhxc_sGsG=fv_nospin_lGG[0])
                 else:
-                    w.write(fhxc_lGG=fv_nospin_lGG)
+                    w.write(fhxc_sGsG=fv_nospin_GG)
 
                 w.close()
 
