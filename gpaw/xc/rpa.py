@@ -292,7 +292,7 @@ class RPACalculator:
                     gamma_int.set_appendages(chi0_wGG[iw], iw, iqf)
                 ev = self.calculate_energy_rpa(chi0.pd, chi0_wGG, cut_G,
                                                q_v=gamma_int.qf_qv[iqf])
-                e += ev * gamma_int.weight_q[iqf]
+                e += ev * gamma_int.weight_q
             self.context.print('%.3f eV' % (e * Hartree))
 
         return e
