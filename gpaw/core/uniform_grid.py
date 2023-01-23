@@ -3,18 +3,19 @@ from __future__ import annotations
 from math import pi
 from typing import Sequence
 
+import numpy as np
+
 import _gpaw
 import gpaw.fftw as fftw
-import numpy as np
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.atom_centered_functions import UniformGridAtomCenteredFunctions
 from gpaw.core.domain import Domain
+from gpaw.gpu import as_xp
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.new import cached_property
+from gpaw.new import cached_property, zip
 from gpaw.typing import (Array1D, Array2D, Array3D, Array4D, ArrayLike1D,
                          ArrayLike2D, Vector)
-from gpaw.new import zip
 
 
 class UniformGrid(Domain):
@@ -163,9 +164,13 @@ class UniformGrid(Domain):
                                 cut=False,
                                 xp=None):
         """Create UniformGridAtomCenteredFunctions object."""
-        return UniformGridAtomCenteredFunctions(functions, positions, self,
+        return UniformGridAtomCenteredFunctions(functions,
+                                                positions,
+                                                self,
                                                 atomdist=atomdist,
-                                                integral=integral, cut=cut)
+                                                integral=integral,
+                                                cut=cut,
+                                                xp=xp)
 
     def transformer(self, other: UniformGrid, stencil_range=3):
         """Create transformer from one grid to another.
@@ -344,7 +349,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         grid = self.desc
         dx = (grid.cell_cv[c]**2).sum()**0.5 / grid.size_c[c]
         x = np.arange(grid.start_c[c], grid.end_c[c]) * dx
-        return x, y
+        return x, as_xp(y, np)
 
     def scatter_from(self, data=None):
         """Scatter data from rank-0 to all ranks."""

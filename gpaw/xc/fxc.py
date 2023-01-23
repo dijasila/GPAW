@@ -142,13 +142,10 @@ class FXCCorrelation:
 
                     kernelkwargs.update(l_l=self.l_l,
                                         q_empty=q_empty,
-                                        omega_w=self.omega_w,
                                         Eg=self.Eg)
 
                     if self.xcflags.linear_kernel:
-                        kernelkwargs.update(l_l=None, omega_w=None)
-                    elif not self.xcflags.dyn_kernel:
-                        kernelkwargs.update(omega_w=None)
+                        kernelkwargs.update(l_l=None)
 
                     kernel = KernelWave(**kernelkwargs)
 
@@ -371,11 +368,9 @@ class FXCCorrelation:
 
             elif self.xcflags.linear_kernel:
                 fv_lwGG = read('fhxc_sGsG')[np.newaxis, np.newaxis, :, :]
-            elif not self.xcflags.dyn_kernel:
+            else:
                 # static kernel which does not scale with lambda
                 fv_lwGG = read('fhxc_lGG')[:, np.newaxis, :, :]
-            else:  # dynamical kernel
-                fv_lwGG = read('fhxc_lwGG')
 
             if apply_cut_G and cut_G is not None:
                 fv_lwGG = fv_lwGG.take(cut_G, 2).take(cut_G, 3)
@@ -394,14 +389,8 @@ class FXCCorrelation:
                     il = 0
                     energy = 0.0
                     for l, weight in zip(self.l_l, self.weight_l):
-
-                        if self.xcflags.dyn_kernel:
-                            fv_w_index = iw
-                        else:
-                            fv_w_index = 0
-
                         chiv = np.linalg.solve(
-                            np.eye(nG) - chi0v @ fv_lwGG[il, fv_w_index],
+                            np.eye(nG) - chi0v @ fv_lwGG[il, 0],
                             chi0v).real
                         energy -= np.trace(chiv) * weight
                         il += 1
@@ -474,7 +463,7 @@ class FXCCorrelation:
 
 
 class KernelWave:
-    def __init__(self, gs, xc, ibzq_qc, l_l, q_empty, omega_w, Eg, ecut,
+    def __init__(self, gs, xc, ibzq_qc, l_l, q_empty, Eg, ecut,
                  tag, context):
 
         self.gs = gs
@@ -485,7 +474,6 @@ class KernelWave:
         self.l_l = l_l
         self.ns = self.gs.nspins
         self.q_empty = q_empty
-        self.omega_w = omega_w
         self.Eg = Eg
         self.ecut = ecut
         self.tag = tag
@@ -514,10 +502,6 @@ class KernelWave:
         self.z_g = 1.0 * r_g[2].flatten()
         self.gridsize = len(self.x_g)
         assert len(self.n_g) == self.gridsize
-
-        if self.omega_w is not None:
-            self.context.print('Calculating dynamical kernel at %s '
-                               'frequencies' % len(self.omega_w))
 
         if self.Eg is not None:
             self.context.print('Band gap of %s eV used to evaluate kernel'
@@ -605,12 +589,9 @@ class KernelWave:
                 # fHxc^{up down}   = fHxc^{down up}   = fv_nospin - fv_spincorr
                 fv_spincorr_GG = np.zeros((nG, nG), dtype=complex)
 
-            if self.omega_w is None:
-                # Confusing, but None has a special meaning when passed to
-                # wherever it is that we pass it.
-                omega_w = [None]
-            else:
-                omega_w = list(self.omega_w)
+            # Confusing, but None has a special meaning when passed to
+            # wherever it is that we pass it.
+            omega_w = [None]
 
             nw = len(omega_w)
 
@@ -731,13 +712,10 @@ class KernelWave:
                 elif len(self.l_l) == 1:
                     assert nw == 1
                     w.write(fhxc_sGsG=fv_nospin_lwGG[0, 0])
-
-                elif self.omega_w is None:
+                else:
                     assert nw == 1
                     w.write(fhxc_lGG=fv_nospin_lwGG[:, 0, :, :])
 
-                else:
-                    w.write(fhxc_lwGG=fv_nospin_lwGG)
                 w.close()
 
             self.context.print('q point %s complete' % iq)
@@ -1353,10 +1331,6 @@ class XCFlags:
     def linear_kernel(self):
         # Scales linearly with coupling constant
         return self.xc in self._linear_kernels
-
-    @property
-    def dyn_kernel(self):
-        return self.xc == 'CP_dyn'
 
     @property
     def bandgap_dependent(self):

@@ -65,7 +65,7 @@ class NoGrid(Domain):
             dv=0.0)
         self.size = (0, 0, 0)
 
-    def empty(self, shape=(), comm=serial_comm):
+    def empty(self, shape=(), comm=serial_comm, xp=None):
         return DummyFunctions(self, shape, comm)
 
     def ranks_from_fractional_positions(self, fracpos_ac):

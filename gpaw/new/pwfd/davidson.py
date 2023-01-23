@@ -4,7 +4,6 @@ from functools import partial
 from typing import Callable
 
 import numpy as np
-from gpaw import debug
 from gpaw.core.arrays import DistributedArrays as DA
 from gpaw.core.atom_centered_functions import AtomArrays as AA
 from gpaw.core.matrix import Matrix
@@ -15,7 +14,7 @@ from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.typing import Array1D, Array2D
 from gpaw.utilities.blas import axpy
 from gpaw.yml import obj2yaml as o2y
-from gpaw.gpu import eigh, as_xp
+from gpaw.gpu import as_xp
 
 AAFunc = Callable[[AA, AA], AA]
 
@@ -194,26 +193,16 @@ class Davidson(Eigensolver):
             if is_domain_band_master:
                 H_NN.data[:B, :B] = xp.diag(eig_N[:B])
                 S_NN.data[:B, :B] = xp.eye(B)
-                if debug:
-                    H_NN.data[np.triu_indices(2 * B, 1)] = 42.0
-                    S_NN.data[np.triu_indices(2 * B, 1)] = 42.0
-
-                eig_N[:], H_NN.data[:] = eigh(
-                    xp,
-                    H_NN.data,
-                    S_NN.data,
-                    lower=True,
-                    check_finite=debug,
-                    overwrite_b=True)
+                eig_N[:] = H_NN.eigh(S_NN)
                 wfs._eig_n = as_xp(eig_N[:B], np)
-
             if domain_comm.rank == 0:
                 band_comm.broadcast(wfs.eig_n, 0)
             domain_comm.broadcast(wfs.eig_n, 0)
 
             if domain_comm.rank == 0:
                 if band_comm.rank == 0:
-                    M0_nn.data[:] = H_NN.data[:B, :B]
+                    # M0_nn.data[:] = H_NN.data[:B, :B]
+                    M0_nn.data[:] = H_NN.data[:B, :B].T
                 M0_nn.redist(M_nn)
             domain_comm.broadcast(M_nn.data, 0)
 
@@ -222,7 +211,8 @@ class Davidson(Eigensolver):
 
             if domain_comm.rank == 0:
                 if band_comm.rank == 0:
-                    M0_nn.data[:] = H_NN.data[B:, :B]
+                    # M0_nn.data[:] = H_NN.data[B:, :B]
+                    M0_nn.data[:] = H_NN.data[:B, B:].T
                 M0_nn.redist(M_nn)
             domain_comm.broadcast(M_nn.data, 0)
 
