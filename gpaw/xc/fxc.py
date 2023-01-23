@@ -1261,9 +1261,6 @@ class FXCKernel:
         'rALDAns',  # no spin (ns)
         'rAPBEns',
         'rALDAc',  # rALDA + correlation
-        'CP',  # Constantin Pitarke
-        'CDOP',  # Corradini et al
-        'CDOPs',  # CDOP without local term
         'ALDA'}  # standard ALDA
 
     _spin_kernels = {'rALDA', 'rAPBE', 'ALDA'}
