@@ -19,10 +19,11 @@ from gpaw.new.gpw import read_gpw, write_gpw
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
 from gpaw.new.pw.fulldiag import diagonalize
-from gpaw.new.xc import XCFunctional
+from gpaw.new.xc import create_functional
 from gpaw.typing import Array1D, Array2D, Array3D
 from gpaw.utilities import pack
 from gpaw.utilities.memory import maxrss
+from gpaw.xc import XC
 
 
 def GPAW(filename: Union[str, Path, IO[str]] = None,
@@ -372,7 +373,9 @@ class ASECalculator:
     def get_xc_difference(self, xcparams):
         """Calculate non-selfconsistent XC-energy difference."""
         state = self.calculation.state
-        xc = XCFunctional(xcparams, state.density.ncomponents)
+        grid = state.density.nt_sR.desc
+        fine_grid = grid.new(size=grid.size_c * 2)
+        xc = create_functional(XC(xcparams), fine_grid, None, None, None)
         exct = self.calculation.pot_calc.calculate_non_selfconsistent_exc(
             state.density.nt_sR, xc)
         dexc = 0.0

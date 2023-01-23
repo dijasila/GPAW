@@ -16,6 +16,7 @@ from gpaw.new.pw.pot_calc import PlaneWavePotentialCalculator
 from gpaw.new.pwfd.builder import PWFDDFTComponentsBuilder
 from gpaw.new.spinors import SpinorWaveFunctionDescriptor
 from gpaw.typing import Array1D
+from gpaw.new.xc import create_functional
 
 
 class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
@@ -56,13 +57,18 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
     def create_xc_functional(self):
         if self.params.xc['name'] in ['HSE06', 'PBE0', 'EXX']:
             return ...
-        return super().create_xc_functional(interpolation_grid=self.interpolation_pw)
+        return create_functional(self._xc,
+                                 self.fine_grid,
+                                 self.interpolation_pw,
+                                 self.setups,
+                                 self.fracpos_ac,
+                                 self.atomdist)
 
     @cached_property
     def interpolation_pw(self):
         return PlaneWaves(ecut=2 * self.ecut,
-                            cell=self.grid.cell,
-                            comm=self.grid.comm)
+                          cell=self.grid.cell,
+                          comm=self.grid.comm)
 
     def get_pseudo_core_densities(self):
         if self._nct_ag is None:

@@ -80,7 +80,7 @@ class DFTComponentsBuilder:
                              params.setups,
                              params.basis,
                              self._xc.get_setup_name(),
-                             world)
+                             world=world)
 
         if params.hund:
             c = params.charge / len(atoms)
@@ -134,10 +134,10 @@ class DFTComponentsBuilder:
     def create_uniform_grids(self):
         raise NotImplementedError
 
-    def create_xc_functional(self, interpolation_domain):
+    def create_xc_functional(self):
         return create_functional(self._xc,
                                  self.fine_grid,
-                                 interpolation_domain,
+                                 self.grid,
                                  self.setups,
                                  self.fracpos_ac,
                                  self.atomdist)

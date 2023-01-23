@@ -18,7 +18,7 @@ from typing import DefaultDict
 import numpy as np
 from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.new.potential import Potential
-from gpaw.new.xc import XCFunctional
+from gpaw.new.xc import Functional
 from gpaw.setup import Setup
 from gpaw.spinorbit import soc as soc_terms
 from gpaw.typing import Array1D, Array2D, Array3D
@@ -28,7 +28,7 @@ from gpaw.yml import indent
 
 class PotentialCalculator:
     def __init__(self,
-                 xc: XCFunctional,
+                 xc: Functional,
                  poisson_solver,
                  setups: list[Setup],
                  nct_R: UniformGridFunctions,

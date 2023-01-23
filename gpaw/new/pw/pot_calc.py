@@ -159,7 +159,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                     e_kinetic += vt_R.integrate(self.nct_R)
         return e_kinetic
 
-    def restrict(self, vt_sr):
+    def xxxrestrict(self, vt_sr):
         vt_sR = self.grid.empty(vt_sr.dims)
         for vt_R, vt_r in zip(vt_sR, vt_sr):
             vt_r.fft_restrict(self.fftplan2, self.fftplan, out=vt_R)
