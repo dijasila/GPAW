@@ -71,7 +71,10 @@ class DFTComponentsBuilder:
         self.nspins = self.ncomponents % 3
         self.spin_degeneracy = self.ncomponents % 2 + 1
 
-        self._xc = XC(params.xc, collinear=(self.ncomponents < 4))
+        if isinstance(params.xc, (dict, str)):
+            self._xc = XC(params.xc, collinear=(self.ncomponents < 4))
+        else:
+            self._xc = params.xc
 
         self.setups = Setups(atoms.numbers,
                              params.setups,

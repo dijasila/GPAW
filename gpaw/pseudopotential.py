@@ -301,7 +301,7 @@ class PseudoPotential(BaseSetup):
         self.rgd = data.rgd
         self.rcut_j = data.rcut_j
         self.tauct = None
-        self.Delta_iiL = None
+        self.Delta_iiL = np.zeros((self.ni, self.ni, 1))
         self.B_ii = None
         self.dC_ii = None
         self.X_p = None

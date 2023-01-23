@@ -1,10 +1,13 @@
 """Test automatically write out of restart files"""
 
+import pytest
 from ase import Atoms
+
 from gpaw import GPAW
 from gpaw.test import equal
 
 
+@pytest.mark.later
 def test_fileio_refine(in_tmp_dir):
     restart_wf = 'gpaw-restart-wf.gpw'
     # H2

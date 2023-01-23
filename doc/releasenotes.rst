@@ -12,6 +12,17 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.23.0b1
 
+* A bug in the implementation of MGGA functionals was found: :issue:`674`.
+  The kinetic-energy density was calculated from the irreducible part of
+  the Brillouin zone, but it was not symmetrized as it should be.  This
+  has now been fixed.
+
+  .. warning::
+
+     If you have done any MGGA calculations taking advantage of symmetries
+     in order to reduce number of **k**-points then you should redo those
+     calculations.  Sorry!
+
 * Local orbitals added in LCAO mode to construct effective
   tight-binding Hamiltonians: :ref:`los in lcao`, :ref:`los tutorial`.
 
@@ -22,7 +33,12 @@ Git master branch
 
 * New tutorial: :ref:`abinitiomd`.
 
-* Experimental support for PW-mode calculations using a GPU.
+* Experimental support for PW-mode calculations using a GPU: :ref:`gpu`.
+
+* One can now specify the total energy convergence criterium in eV instead
+  of eV / valence electron:
+  ``convergene={'energy': Energy(tol=..., relative=False)}``.
+  See the :class:`gpaw.convergence_criteria.Energy` class.
 
 
 Version 22.8.0

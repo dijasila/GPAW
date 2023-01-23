@@ -89,7 +89,7 @@ def lrtddft2_calculation(ground_state_calculation):
     return spec_e
 
 
-@pytest.mark.later
+@pytest.mark.rttddft
 def test_lcaotddft_vs_lrtddft(time_propagation_calculation,
                               lrtddft_calculation):
     # One can decrease the tolerance by decreasing the time step
@@ -98,7 +98,7 @@ def test_lcaotddft_vs_lrtddft(time_propagation_calculation,
             == pytest.approx(lrtddft_calculation, abs=1e-2))
 
 
-@pytest.mark.later
+@pytest.mark.rttddft
 def test_lcaotddft_vs_lrtddft2(time_propagation_calculation,
                                lrtddft2_calculation):
     # One can decrease the tolerance by decreasing the time step
@@ -107,7 +107,7 @@ def test_lcaotddft_vs_lrtddft2(time_propagation_calculation,
             == pytest.approx(lrtddft2_calculation, abs=1e-2))
 
 
-@pytest.mark.later
+@pytest.mark.rttddft
 def test_lrtddft_vs_lrtddft2(lrtddft_calculation,
                              lrtddft2_calculation):
     assert (lrtddft_calculation

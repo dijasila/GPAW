@@ -1,4 +1,6 @@
+import os
 from math import pi
+from types import ModuleType
 
 import numpy as np
 from ase.units import Ha
@@ -107,8 +109,10 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
 
         grid = self.grid.new(kpt=kpt_c, dtype=self.dtype)
         pw = self.wf_desc.new(kpt=kpt_c)
+        xp: ModuleType
         if self.params.parallel['gpu']:
-            from gpaw.gpu import cupy
+            from gpaw.gpu import cupy, cupy_is_fake
+            assert not cupy_is_fake or os.environ.get('GPAW_CPUPY')
             xp = cupy
         else:
             xp = np
