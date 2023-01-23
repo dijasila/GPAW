@@ -1,21 +1,24 @@
 import numpy as np
 
 
+def fHxc_ralda(q, qF):
+    # rALDA (exchange only) kernel
+    # Olsen and Thygesen, Phys. Rev. B 88, 115131 (2013)
+    # ALDA up to 2*qF, -vc for q >2qF (such that fHxc vanishes)
+
+    rxalda_A = 0.25
+    rxalda_qcut = qF * np.sqrt(1.0 / rxalda_A)
+
+    # construct fHxc(k,r)
+    return (0.5 + 0.0j) * (
+        (1.0 + np.sign(rxalda_qcut - q[:, np.newaxis])) *
+        (1.0 + (-1.0) * rxalda_A * (q[:, np.newaxis] / qF)**2.0))
+
+
 def get_fHxc_Gr(xcflags, rs, q, qF, s2_g):
     xc = xcflags.xc
     if xc in ('rALDA', 'rALDAns', 'range_rALDA'):
-        # rALDA (exchange only) kernel
-        # Olsen and Thygesen, Phys. Rev. B 88, 115131 (2013)
-        # ALDA up to 2*qF, -vc for q >2qF (such that fHxc vanishes)
-
-        rxalda_A = 0.25
-        rxalda_qcut = qF * np.sqrt(1.0 / rxalda_A)
-
-        # construct fHxc(k,r)
-        fHxc_Gr = (0.5 + 0.0j) * (
-            (1.0 + np.sign(rxalda_qcut - q[:, np.newaxis])) *
-            (1.0 + (-1.0) * rxalda_A * (q[:, np.newaxis] / qF)**2.0))
-
+        return fHxc_ralda(q, qF)
     elif xc == 'rALDAc':
         # rALDA exchange+correlation kernel
         # Olsen and Thygesen, Phys. Rev. B 88, 115131 (2013)
