@@ -589,12 +589,7 @@ class KernelWave:
                 # fHxc^{up down}   = fHxc^{down up}   = fv_nospin - fv_spincorr
                 fv_spincorr_GG = np.zeros((nG, nG), dtype=complex)
 
-            # Confusing, but None has a special meaning when passed to
-            # wherever it is that we pass it.
-            omega_w = [None]
-
-            fv_nospin_lGG = np.zeros((len(self.l_l), nG, nG),
-                                      dtype=complex)
+            fv_nospin_lGG = np.zeros((len(self.l_l), nG, nG), dtype=complex)
 
             for il, l in enumerate(self.l_l):  # loop over coupling constant
                 for iG, Gv in zip(my_Gints, my_Gv_G):  # loop over G vecs
@@ -642,22 +637,23 @@ class KernelWave:
                              deltaGv[:, 1, np.newaxis] * self.y_g[small_ind] +
                              deltaGv[:, 2, np.newaxis] * self.z_g[small_ind]))
 
-                        def scaled_fHxc(w, spincorr, l):
+                        def scaled_fHxc(spincorr, l):
                             return self.get_scaled_fHxc_q(
                                 q=mod_Gpq,
                                 sel_points=small_ind,
                                 Gphase=phase_Gpq,
                                 l=l,
                                 spincorr=spincorr,
-                                w=w)
+                                w=None)
+                        # XXX todo: can the fHxc_q be cleaned so it no longer
+                        # takes w?
 
-                        for iw, w in enumerate(omega_w):
-                            fv_nospin_lGG[il, iG, iG:] = scaled_fHxc(
-                                w=None, spincorr=False, l=l)
+                        fv_nospin_lGG[il, iG, iG:] = scaled_fHxc(
+                            spincorr=False, l=l)
 
                         if calc_spincorr:
                             fv_spincorr_GG[iG, iG:] = scaled_fHxc(
-                                w=None, spincorr=True, l=1.0)
+                                spincorr=True, l=1.0)
                     else:
                         # head and wings of q=0 are dominated by
                         # 1/q^2 divergence of scaled Coulomb interaction
