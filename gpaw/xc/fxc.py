@@ -667,7 +667,6 @@ class KernelWave:
 
                 mpi.world.sum(fv_nospin_lGG[il])
 
-                iw = 0
                 # We've only got half the matrix here,
                 # so add the hermitian conjugate:
                 fv_nospin_lGG[il] += np.conj(fv_nospin_lGG[il].T)
