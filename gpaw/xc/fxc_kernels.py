@@ -45,40 +45,6 @@ def get_fHxc_Gr(xcflags, rs, q, qF, s2_g):
             (1.0 + np.sign(rxapbe_qcut - q[:, np.newaxis])) *
             (1.0 + fxc_PBE / (4.0 * np.pi) * (q[:, np.newaxis])**2.0))
 
-    elif xc == 'CP':
-        # Constantin & Pitarke, Phys. Rev. B 75, 245127 (2007)
-        # equation 4, omega = 0
-        # and equation 9 [note that fxc(q=0) = fxc^ALDA = -4piA/qf^2]
-        # The simplest, static error-function kernel.
-        # Produces correct q = 0 limit, but not q->oo
-
-        cp_kappa = get_heg_A(rs) / (qF**2.0)
-        fHxc_Gr = (1.0 + 0.0j) * np.exp(-cp_kappa * q[:, np.newaxis]**2.0)
-
-    elif xc == 'CDOP' or xc == 'CDOPs':
-        # Corradini, Del Sole, Onida and Palummo (CDOP),
-        # Phys. Rev. B 57, 14569 (1998)
-        # Reproduces exact q=0 and q -> oo limits
-
-        cdop_Q = q[:, np.newaxis] / qF
-        cdop_A = get_heg_A(rs)
-        cdop_B = get_heg_B(rs)
-        if xc == 'CDOPs':
-            cdop_C = np.zeros(np.shape(cdop_B))
-        else:
-            cdop_C = get_heg_C(rs)
-        cdop_g = cdop_B / (cdop_A - cdop_C)
-        cdop_alpha = 1.5 / (rs**0.25) * cdop_A / (cdop_B * cdop_g)
-        cdop_beta = 1.2 / (cdop_B * cdop_g)
-
-        fHxc_Gr = -cdop_C * cdop_Q**2.0 * (1.0 + 0.0j)
-        fHxc_Gr += -cdop_B * cdop_Q**2.0 * 1.0 / (cdop_g + cdop_Q**2.0)
-        fHxc_Gr += -(cdop_alpha * cdop_Q**4.0 *
-                     np.exp(-1.0 * cdop_beta * cdop_Q**2.0))
-
-        # Hartree
-        fHxc_Gr += 1.0
-
     return fHxc_Gr
 
 
