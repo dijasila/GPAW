@@ -555,9 +555,6 @@ class KernelWave:
                 # TODO: Remove indentation after review.
                 # We replaced a loop with "if True" to keep the diff small.
                 # Once things are settled, unindent entire block.
-                il = 0
-                l = 1.0
-
                 for iG, Gv in zip(my_Gints, my_Gv_G):  # loop over G vecs
 
                     # For all kernels we
@@ -602,27 +599,29 @@ class KernelWave:
                              deltaGv[:, 1, np.newaxis] * self.y_g[small_ind] +
                              deltaGv[:, 2, np.newaxis] * self.z_g[small_ind]))
 
-                        def scaled_fHxc(spincorr, l):
+                        def scaled_fHxc(spincorr):
                             return self.get_scaled_fHxc_q(
                                 q=mod_Gpq,
                                 sel_points=small_ind,
                                 Gphase=phase_Gpq,
-                                l=l,
                                 spincorr=spincorr)
 
                         fv_nospin_GG[iG, iG:] = scaled_fHxc(
-                            spincorr=False, l=l)
+                            spincorr=False)
 
                         if calc_spincorr:
                             fv_spincorr_GG[iG, iG:] = scaled_fHxc(
-                                spincorr=True, l=1.0)
+                                spincorr=True)
                     else:
                         # head and wings of q=0 are dominated by
                         # 1/q^2 divergence of scaled Coulomb interaction
 
                         assert iG == 0
 
-                        fv_nospin_GG[0, 0] = l
+                        # The [0, 0] element would ordinarily be set to
+                        # 'l' if we have nonlinear kernel (which we are
+                        # removing).  Now l=1.0 always:
+                        fv_nospin_GG[0, 0] = 1.0
                         fv_nospin_GG[0, 1:] = 0.0
 
                         if calc_spincorr:
@@ -671,7 +670,7 @@ class KernelWave:
 
             mpi.world.barrier()
 
-    def get_scaled_fHxc_q(self, q, sel_points, Gphase, l, spincorr):
+    def get_scaled_fHxc_q(self, q, sel_points, Gphase, spincorr):
         # Given a coupling constant l, construct the Hartree-XC
         # kernel in q space a la Lein, Gross and Perdew,
         # Phys. Rev. B 61, 13431 (2000):
@@ -697,6 +696,8 @@ class KernelWave:
         else:
             s2_g = None
 
+        l = 1.0  # Leftover from the age of non-linear kernels.
+        # This would be an integration weight or something.
         scaled_q = q / l
         scaled_rho = rho / l**3.0
         scaled_rs = (3.0 / (4.0 * np.pi * scaled_rho))**(1.0 / 3.0
