@@ -19,18 +19,6 @@ def get_fHxc_Gr(xcflags, rs, q, qF, s2_g):
     xc = xcflags.xc
     if xc in ('rALDA', 'rALDAns', 'range_rALDA'):
         return fHxc_ralda(q, qF)
-    elif xc == 'rALDAc':
-        # rALDA exchange+correlation kernel
-        # Olsen and Thygesen, Phys. Rev. B 88, 115131 (2013)
-        # Cutoff wavevector ensures kernel is continuous
-
-        rxcalda_A = get_heg_A(rs)
-        rxcalda_qcut = qF * np.sqrt(1.0 / rxcalda_A)
-
-        # construct fHxc(k,r)
-        fHxc_Gr = (0.5 + 0.0j) * (
-            (1.0 + np.sign(rxcalda_qcut - q[:, np.newaxis])) *
-            (1.0 + (-1.0) * rxcalda_A * (q[:, np.newaxis] / qF)**2.0))
 
     elif xcflags.is_apbe:
         # Olsen and Thygesen, Phys. Rev. Lett. 112, 203001 (2014)
