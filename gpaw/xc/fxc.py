@@ -147,8 +147,8 @@ class FXCCorrelation:
 
                     if self.xcflags.linear_kernel:
                         kernelkwargs.update(l_l=None, omega_w=None)
-                    elif not self.xcflags.dyn_kernel:
-                        kernelkwargs.update(omega_w=None)
+
+                    kernelkwargs.update(omega_w=None)
 
                     kernel = KernelWave(**kernelkwargs)
 
@@ -371,11 +371,9 @@ class FXCCorrelation:
 
             elif self.xcflags.linear_kernel:
                 fv_lwGG = read('fhxc_sGsG')[np.newaxis, np.newaxis, :, :]
-            elif not self.xcflags.dyn_kernel:
+            else:
                 # static kernel which does not scale with lambda
                 fv_lwGG = read('fhxc_lGG')[:, np.newaxis, :, :]
-            else:  # dynamical kernel
-                fv_lwGG = read('fhxc_lwGG')
 
             if apply_cut_G and cut_G is not None:
                 fv_lwGG = fv_lwGG.take(cut_G, 2).take(cut_G, 3)
@@ -394,14 +392,8 @@ class FXCCorrelation:
                     il = 0
                     energy = 0.0
                     for l, weight in zip(self.l_l, self.weight_l):
-
-                        if self.xcflags.dyn_kernel:
-                            fv_w_index = iw
-                        else:
-                            fv_w_index = 0
-
                         chiv = np.linalg.solve(
-                            np.eye(nG) - chi0v @ fv_lwGG[il, fv_w_index],
+                            np.eye(nG) - chi0v @ fv_lwGG[il, 0],
                             chi0v).real
                         energy -= np.trace(chiv) * weight
                         il += 1
@@ -1353,10 +1345,6 @@ class XCFlags:
     def linear_kernel(self):
         # Scales linearly with coupling constant
         return self.xc in self._linear_kernels
-
-    @property
-    def dyn_kernel(self):
-        return self.xc == 'CP_dyn'
 
     @property
     def bandgap_dependent(self):
