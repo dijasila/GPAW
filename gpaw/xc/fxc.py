@@ -1020,10 +1020,6 @@ class KernelDens:
             fhxc_qsGr[iq] = np.zeros(
                 (ns, len(self.pd.G2_qG[iq]), len(l_g_range)), dtype=complex)
 
-        inv_error = np.seterr()
-        np.seterr(invalid='ignore')
-        np.seterr(divide='ignore')
-
         t0 = time()
         # Loop over Lattice points
         for i, R_v in enumerate(R_Rv):
@@ -1048,6 +1044,11 @@ class KernelDens:
                 # |r-r'-R_i|
                 rr = ((r_vg[0] - rx)**2 + (r_vg[1] - ry)**2 +
                       (r_vg[2] - rz)**2)**0.5
+
+                # Here we cheat:
+                rr[rr == 0] = 1e-16
+                # Previously the code would do np.seterr() but that has
+                # side effects.  This is slightly less naughty.
 
                 n_av = (n_g + n_g.flatten()[g]) / 2.
                 fx_g = ns * self.get_fxc_g(n_av, index=g)
@@ -1090,8 +1091,6 @@ class KernelDens:
                         fhxc_qsGr[iq][1, :, g - l_g_range[0]] += f_q
 
         mpi.world.barrier()
-
-        np.seterr(**inv_error)
 
         for iq, q in enumerate(self.ibzq_qc):
             npw = len(self.pd.G2_qG[iq])
