@@ -1,7 +1,7 @@
 import pytest
 from ase.build import bulk
 from gpaw import GPAW
-from gpaw.mixer import MixerFul
+from gpaw.mixer import MixerFull
 
 
 def test_co_new_mixing():
@@ -10,12 +10,12 @@ def test_co_new_mixing():
     kpts = (3, 3, 3)
     atoms.calc = GPAW(mode='pw',
                       kpts=kpts,
-                      mixer=MixerFul())
+                      mixer=MixerFull())
     e1 = atoms.get_potential_energy()
     atoms.calc = GPAW(mode='pw',
                       kpts=kpts,
                       symmetry='off',
                       experimental=dict(magmoms=[[1, -1, 1]]),
-                      mixer=MixerFul())
+                      mixer=MixerFull())
     e2 = atoms.get_potential_energy()
     assert e1 == pytest.approx(e2, abs=0.002)

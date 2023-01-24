@@ -694,19 +694,19 @@ class SpinDifferenceMixerDriver:
         return dNt
 
 
-class SpinFulMixerDriver:
-    name = 'spinful'
+class FullSpinMixerDriver:
+    name = 'fullspin'
 
     def __init__(self, basemixerclass, beta, nmaxold, weight, g=None):
         self.basemixerclass = basemixerclass
         self.beta = beta
         self.nmaxold = nmaxold
         self.weight = weight
-        self.g = g
+        self.g_ss = g
 
     def get_basemixers(self, nspins):
         if nspins == 1:
-            raise ValueError('Spinful mixer expects 2 or 4 spin channels')
+            raise ValueError('Full-spin mixer expects 2 or 4 spin channels')
 
         basemixer = self.basemixerclass(self.beta, self.nmaxold, self.weight)
         return [basemixer]
@@ -714,10 +714,10 @@ class SpinFulMixerDriver:
     def mix(self, basemixers, nt_sG, D_asp):
         D_asp = D_asp.values()
         basemixer = basemixers[0]
-        if self.g is None:
-            self.g = np.identity(len(nt_sG))
+        if self.g_ss is None:
+            self.g_ss = np.identity(len(nt_sG))
 
-        dNt = basemixer.mix_density(nt_sG, D_asp, self.g)
+        dNt = basemixer.mix_density(nt_sG, D_asp, self.g_ss)
 
         return np.sum(dNt)
 
@@ -728,7 +728,7 @@ _methods = {}
 for cls in [FFTBaseMixer, BroydenBaseMixer, BaseMixer, NotMixingMixer]:
     _backends[cls.name] = cls  # type:ignore
 for dcls in [SeparateSpinMixerDriver, SpinSumMixerDriver,
-             SpinFulMixerDriver, SpinSumMixerDriver2,
+             FullSpinMixerDriver, SpinSumMixerDriver2,
              SpinDifferenceMixerDriver, DummyMixer]:
     _methods[dcls.name] = dcls  # type:ignore
 
@@ -852,7 +852,7 @@ Mixer = _definemixerfunc('separate', 'pulay')
 MixerSum = _definemixerfunc('sum', 'pulay')
 MixerSum2 = _definemixerfunc('sum2', 'pulay')
 MixerDif = _definemixerfunc('difference', 'pulay')
-MixerFul = _definemixerfunc('spinful', 'pulay')
+MixerFull = _definemixerfunc('fullspin', 'pulay')
 FFTMixer = _definemixerfunc('separate', 'fft')
 FFTMixerSum = _definemixerfunc('sum', 'fft')
 FFTMixerSum2 = _definemixerfunc('sum2', 'fft')
