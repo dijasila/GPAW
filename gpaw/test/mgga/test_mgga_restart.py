@@ -11,30 +11,26 @@ def test_mgga_mgga_restart(in_tmp_dir):
     fwfname = 'H2_wf_PBE.gpw'
     txt = None
 
-    # write first if needed
-    try:
-        c = GPAW(fname, txt=txt)
-        c = GPAW(fwfname, txt=txt)
-    except FileNotFoundError:
-        s = Cluster([Atom('H'), Atom('H', [0, 0, 1])])
-        s.minimal_box(3.)
-        c = GPAW(xc={'name': 'PBE', 'stencil': 1},
-                 h=.3, convergence={'density': 1e-4, 'eigenstates': 1e-6})
-        c.calculate(s)
-        c.write(fname)
-        c.write(fwfname, 'all')
+    s = Cluster([Atom('H'), Atom('H', [0, 0, 1])])
+    s.minimal_box(3.)
+    s.calc = GPAW(xc={'name': 'PBE', 'stencil': 1},
+                  h=.3,
+                  convergence={'density': 1e-4, 'eigenstates': 1e-6})
+    s.get_potential_energy()
+    s.calc.write(fname)
+    s.calc.write(fwfname, 'all')
 
     # full information
-    c = GPAW(fwfname, txt=txt)
-    E_PBE = c.get_potential_energy()
-    dE = c.get_xc_difference({'name': 'TPSS', 'stencil': 1})
+    calc = GPAW(fwfname, txt=txt)
+    E_PBE = calc.get_potential_energy(s)
+    dE = calc.get_xc_difference({'name': 'TPSS', 'stencil': 1})
     E_1 = E_PBE + dE
     print('E PBE, TPSS=', E_PBE, E_1)
 
     # no wfs
-    c = GPAW(fname, txt=txt)
-    E_PBE_no_wfs = c.get_potential_energy()
-    dE = c.get_xc_difference({'name': 'TPSS', 'stencil': 1})
+    calc = GPAW(fname, txt=txt)
+    E_PBE_no_wfs = calc.get_potential_energy(s)
+    dE = calc.get_xc_difference({'name': 'TPSS', 'stencil': 1})
     E_2 = E_PBE_no_wfs + dE
     print('E PBE, TPSS=', E_PBE_no_wfs, E_2)
 

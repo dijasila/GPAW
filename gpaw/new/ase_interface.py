@@ -375,7 +375,8 @@ class ASECalculator:
         state = self.calculation.state
         grid = state.density.nt_sR.desc
         fine_grid = grid.new(size=grid.size_c * 2)
-        xc = create_functional(XC(xcparams), fine_grid, None, None, None, None)
+        xc = create_functional(XC(xcparams), fine_grid, None, None,
+                               None, None, None)
         exct = self.calculation.pot_calc.calculate_non_selfconsistent_exc(
             state.density.nt_sR, xc)
         dexc = 0.0

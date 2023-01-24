@@ -15,6 +15,7 @@ def create_functional(xc: OldXCFunctional,
 class Functional:
     def __init__(self, xc, grid):
         self.xc = xc
+        self.grid = grid
         self.setup_name = self.xc.get_setup_name()
         self.name = self.xc.name
         self.no_forces = self.name.startswith('GLLB')
@@ -56,9 +57,7 @@ class MGGAFunctional(Functional):
             interpolation_domain,
             fracpos_ac,
             atomdist)
-        self.tauct_R = coarse_grid.empty()
-        self.tauct_aX.to_uniform_grid(out=self.tauct_R,
-                                      scale=1.0 / (self.ncomponents % 3))
+        self.tauct_R = None
         self.ekin = np.nan
         self.dedtaut_sR = None
 
@@ -71,7 +70,11 @@ class MGGAFunctional(Functional):
                   ibzwfs,
                   interpolate,
                   restrict) -> float:
-        nspins = len(nt_sr)
+        nspins = nt_sr.dims[0]
+
+        if self.tauct_R is None:
+            self.tauct_R = self.coarse_grid.empty()
+            self.tauct_aX.to_uniform_grid(out=self.tauct_R, scale=1.0 / nspins)
 
         if ibzwfs is None:
             taut_sR = self.coarse_grid.zeros(nspins)
