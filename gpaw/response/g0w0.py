@@ -446,8 +446,11 @@ class G0W0Calculator:
 
         if self.wcalc.gs.nspins != 1:
             for fxc_mode in self.fxc_modes:
-                raise RuntimeError('Including a xc kernel does currently not '
-                                   'work for spinpolarized systems.')
+                if fxc_mode != 'GW':
+                    raise RuntimeError('Including a xc kernel does not '
+                                       'currently work for spin-polarized '
+                                       f'systems. Invalid fxc_mode {fxc_mode}.'
+                                       )
 
         self.pair_distribution = \
             self.chi0calc.pair.distribute_k_points_and_bands(
