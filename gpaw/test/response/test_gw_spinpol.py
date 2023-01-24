@@ -5,7 +5,6 @@ import pytest
 from gpaw.response.g0w0 import G0W0
 
 
-@pytest.mark.slow
 @pytest.mark.response
 def test_gw_spinpol(in_tmp_dir, gpw_files):
 
