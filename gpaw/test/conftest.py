@@ -106,6 +106,8 @@ def gpw_files(request, tmp_path_factory):
 
     * Bulk Fe, LDA, 4x4x4 k-points, 6 converged bands: ``fe_pw``
 
+    * Bulk Fe (different version), LDA, 2x2x2 k-points, 6 converged bands: ``fe_pw``
+
     Files with wave functions are also available (add ``_wfs`` to the names).
     """
     path = os.environ.get('GPW_TEST_FILES')
@@ -394,6 +396,33 @@ class GPWFiles:
 
         atoms.get_potential_energy()
 
+        return atoms.calc
+
+    def fe2_gs_pw(self):
+        a = 2.867
+        magmom = 3.75
+        atoms = bulk('Fe', 'bcc', a=a)
+        atoms.set_initial_magnetic_moments([magmom])
+
+        xc = 'LDA'
+        kpts = 2
+        occw = 0.01
+        nbands = 6
+        pw = 200
+        conv = {'density': 1e-3,
+                'forces': 1e-2}
+    
+        calc = GPAW(xc=xc,
+                    mode=PW(pw),
+                    kpts={'size': (kpts, kpts, kpts), 'gamma': True},
+                    occupations=FermiDirac(occw),
+                    convergence=conv,
+                    nbands=nbands)
+
+
+        atoms.calc = calc
+        atoms.get_potential_energy()
+        
         return atoms.calc
 
 
