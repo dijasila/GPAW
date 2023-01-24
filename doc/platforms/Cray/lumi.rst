@@ -1,8 +1,8 @@
 .. _lumi:
 
-===========
-lumi.csc.fi
-===========
+=================================
+The ``lumi.csc.fi`` supercomputer
+=================================
 
 .. note::
    These instructions are up-to-date as of January 2023.
@@ -20,7 +20,7 @@ following file to your current directory and call it `siteconfig-lumi.py`.
 
 .. literalinclude:: siteconfig-lumi.py
 
-Following script will install latest GPAW under `gpaw-cpu`` subdirectory
+Following script will install latest GPAW under `gpaw-cpu`` sub-directory
 (within the current directory). It is recommended to perform installation
 under the `project` directory (see `LUMI user documentation
 <https://docs.lumi-supercomputer.eu/runjobs/lumi_env/storing-data/>`_)::
@@ -64,7 +64,7 @@ Use the following MyQueue_ :file:`config.py` file:
 
 .. literalinclude:: config.py
 
-and sumbit jobs like this::
+and submit jobs like this::
 
   mq submit job.py -R 128:standard:2h
 

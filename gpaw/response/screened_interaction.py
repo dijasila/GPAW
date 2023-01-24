@@ -27,7 +27,7 @@ class QPointDescriptor(KPointDescriptor):
 
 def initialize_w_calculator(chi0calc, context, *,
                             coulomb,
-                            xc='RPA', Eg=None,  # G0W0Kernel arguments
+                            xc='RPA',  # G0W0Kernel arguments
                             ppa=False, E0=Ha,
                             integrate_gamma=0, q0_correction=False):
     """Initialize a WCalculator from a Chi0Calculator.
@@ -37,28 +37,17 @@ def initialize_w_calculator(chi0calc, context, *,
     chi0calc : Chi0Calculator
     xc : str
         Kernel to use when including vertex corrections.
-    Eg: float
-        Gap to apply in the 'JGMs' (simplified jellium-with-gap) kernel.
-        If None the DFT gap is used.
 
     Remaining arguments: See WCalculator
     """
     from gpaw.response.g0w0_kernels import G0W0Kernel
 
     gs = chi0calc.gs
-
-    if Eg is None and xc == 'JGMsx':
-        Eg = gs.get_band_gap()
-    elif Eg is not None:
-        Eg /= Ha
-
     qd = QPointDescriptor.from_gs(gs)
 
     xckernel = G0W0Kernel(xc=xc, ecut=chi0calc.ecut,
                           gs=gs, qd=qd,
                           ns=gs.nspins,
-                          wd=chi0calc.wd,
-                          Eg=Eg,
                           context=context)
 
     wcalc = WCalculator(gs, context, qd=qd,
@@ -212,7 +201,7 @@ class WCalculator:
 
                     dfc = DielectricFunctionCalculator(
                         sqrtV_G, chi0_GG, mode=fxc_mode, fv_GG=fv)
-                    einv_GG += dfc.get_einv_GG() * gamma_int.weight_q[iqf]
+                    einv_GG += dfc.get_einv_GG() * gamma_int.weight_q
             else:
                 sqrtV_G = self.coulomb.sqrtV(pd=pd, q_v=None)
                 dfc = DielectricFunctionCalculator(

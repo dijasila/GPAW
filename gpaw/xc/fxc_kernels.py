@@ -1,113 +1,46 @@
 import numpy as np
 
 
-def get_fHxc_Gr(xcflags, rs, q, qF, s2_g, w, scaled_Eg):
+def get_fHxc_Gr(xcflags, rs, q, qF, s2_g):
     xc = xcflags.xc
-    if xc in ('rALDA', 'rALDAns', 'range_rALDA'):
-        # rALDA (exchange only) kernel
-        # Olsen and Thygesen, Phys. Rev. B 88, 115131 (2013)
-        # ALDA up to 2*qF, -vc for q >2qF (such that fHxc vanishes)
-
-        rxalda_A = 0.25
-        rxalda_qcut = qF * np.sqrt(1.0 / rxalda_A)
-
-        # construct fHxc(k,r)
-        fHxc_Gr = (0.5 + 0.0j) * (
-            (1.0 + np.sign(rxalda_qcut - q[:, np.newaxis])) *
-            (1.0 + (-1.0) * rxalda_A * (q[:, np.newaxis] / qF)**2.0))
-
-    elif xc == 'rALDAc':
-        # rALDA exchange+correlation kernel
-        # Olsen and Thygesen, Phys. Rev. B 88, 115131 (2013)
-        # Cutoff wavevector ensures kernel is continuous
-
-        rxcalda_A = get_heg_A(rs)
-        rxcalda_qcut = qF * np.sqrt(1.0 / rxcalda_A)
-
-        # construct fHxc(k,r)
-        fHxc_Gr = (0.5 + 0.0j) * (
-            (1.0 + np.sign(rxcalda_qcut - q[:, np.newaxis])) *
-            (1.0 + (-1.0) * rxcalda_A * (q[:, np.newaxis] / qF)**2.0))
+    if xc in ('rALDA', 'range_rALDA'):
+        return fHxc_ralda(q, qF)
 
     elif xcflags.is_apbe:
-        # Olsen and Thygesen, Phys. Rev. Lett. 112, 203001 (2014)
-        # Exchange only part of the PBE XC kernel, neglecting the terms
-        # arising from the variation of the density gradient
-        # i.e. second functional derivative
-        # d2/drho^2 -> \partial^2/\partial rho^2 at fixed \nabla \rho
+        return fHxc_apbe(rs, q, s2_g)
+    else:
+        raise ValueError(f'Unknown xc: {xc}')
 
-        fxc_PBE = get_pbe_fxc(
-            pbe_rho=3.0 / (4.0 * np.pi * rs**3.0),
-            pbe_s2_g=s2_g)
-        rxapbe_qcut = np.sqrt(-4.0 * np.pi / fxc_PBE)
 
-        fHxc_Gr = (0.5 + 0.0j) * (
-            (1.0 + np.sign(rxapbe_qcut - q[:, np.newaxis])) *
-            (1.0 + fxc_PBE / (4.0 * np.pi) * (q[:, np.newaxis])**2.0))
+def fHxc_ralda(q, qF):
+    # rALDA (exchange only) kernel
+    # Olsen and Thygesen, Phys. Rev. B 88, 115131 (2013)
+    # ALDA up to 2*qF, -vc for q >2qF (such that fHxc vanishes)
 
-    elif xc == 'CP':
-        # Constantin & Pitarke, Phys. Rev. B 75, 245127 (2007)
-        # equation 4, omega = 0
-        # and equation 9 [note that fxc(q=0) = fxc^ALDA = -4piA/qf^2]
-        # The simplest, static error-function kernel.
-        # Produces correct q = 0 limit, but not q->oo
+    rxalda_A = 0.25
+    rxalda_qcut = qF * np.sqrt(1.0 / rxalda_A)
 
-        cp_kappa = get_heg_A(rs) / (qF**2.0)
-        fHxc_Gr = (1.0 + 0.0j) * np.exp(-cp_kappa * q[:, np.newaxis]**2.0)
+    # construct fHxc(k,r)
+    return (0.5 + 0.0j) * (
+        (1.0 + np.sign(rxalda_qcut - q[:, np.newaxis])) *
+        (1.0 + (-1.0) * rxalda_A * (q[:, np.newaxis] / qF)**2.0))
 
-    elif xc == 'CP_dyn':
-        # CP kernel with frequency dependence
 
-        cp_A = get_heg_A(rs)
-        cp_D = get_heg_D(rs)
-        cp_c = cp_D / cp_A
-        cp_a = 6.0 * np.sqrt(cp_c)
+def fHxc_apbe(rs, q, s2_g):
+    # Olsen and Thygesen, Phys. Rev. Lett. 112, 203001 (2014)
+    # Exchange only part of the PBE XC kernel, neglecting the terms
+    # arising from the variation of the density gradient
+    # i.e. second functional derivative
+    # d2/drho^2 -> \partial^2/\partial rho^2 at fixed \nabla \rho
 
-        cp_kappa_w = cp_A / (qF**2.0)
-        cp_kappa_w *= (1.0 + cp_a * w + cp_c * w**2.0) / (1.0 + w**2.0)
+    fxc_PBE = get_pbe_fxc(
+        pbe_rho=3.0 / (4.0 * np.pi * rs**3.0),
+        pbe_s2_g=s2_g)
+    rxapbe_qcut = np.sqrt(-4.0 * np.pi / fxc_PBE)
 
-        fHxc_Gr = (1.0 + 0.0j) * np.exp(
-            -cp_kappa_w * q[:, np.newaxis]**2.0)
-
-    elif xc == 'CDOP' or xc == 'CDOPs':
-        # Corradini, Del Sole, Onida and Palummo (CDOP),
-        # Phys. Rev. B 57, 14569 (1998)
-        # Reproduces exact q=0 and q -> oo limits
-
-        cdop_Q = q[:, np.newaxis] / qF
-        cdop_A = get_heg_A(rs)
-        cdop_B = get_heg_B(rs)
-        if xc == 'CDOPs':
-            cdop_C = np.zeros(np.shape(cdop_B))
-        else:
-            cdop_C = get_heg_C(rs)
-        cdop_g = cdop_B / (cdop_A - cdop_C)
-        cdop_alpha = 1.5 / (rs**0.25) * cdop_A / (cdop_B * cdop_g)
-        cdop_beta = 1.2 / (cdop_B * cdop_g)
-
-        fHxc_Gr = -cdop_C * cdop_Q**2.0 * (1.0 + 0.0j)
-        fHxc_Gr += -cdop_B * cdop_Q**2.0 * 1.0 / (cdop_g + cdop_Q**2.0)
-        fHxc_Gr += -(cdop_alpha * cdop_Q**4.0 *
-                     np.exp(-1.0 * cdop_beta * cdop_Q**2.0))
-
-        # Hartree
-        fHxc_Gr += 1.0
-
-    elif xc == 'JGMs':
-        # Trevisanutto et al.,
-        # Phys. Rev. B 87, 205143 (2013)
-        # equation 4,
-        # so-called "jellium with gap" model, but simplified
-        # so that it is similar to CP.
-
-        jgm_kappa = get_heg_A(rs) / (qF**2.0)
-        jgm_n = 3.0 / (4.0 * np.pi * rs**3.0)
-        fHxc_Gr = (1.0 +
-                   0.0j) * (np.exp(-jgm_kappa * q[:, np.newaxis]**2.0) *
-                            np.exp(-scaled_Eg**2.0 /
-                                   (4.0 * np.pi * jgm_n)))
-
-    return fHxc_Gr
+    return (0.5 + 0.0j) * (
+        (1.0 + np.sign(rxapbe_qcut - q[:, np.newaxis])) *
+        (1.0 + fxc_PBE / (4.0 * np.pi) * (q[:, np.newaxis])**2.0))
 
 
 def get_fspinHxc_Gr_rALDA(qF, q):
