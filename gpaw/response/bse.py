@@ -992,3 +992,9 @@ def write_bse_eigenvalues(filename, mode, w_w, C_w):
 def read_bse_eigenvalues(filename):
     _, w_w, C_w = np.loadtxt(filename, unpack=True)
     return w_w, C_w
+
+
+def read_spectrum(filename):
+    w_w, A_w = np.loadtxt(filename, delimiter=',',
+                          unpack=True)
+    return w_w, A_w
