@@ -41,7 +41,6 @@ class FXCCorrelation:
                  density_cut=1.e-6,
                  unit_cells=None,
                  tag=None,
-                 range_rc=1.0,
                  avg_scheme=None,
                  *,
                  ecut,
@@ -74,7 +73,6 @@ class FXCCorrelation:
         if unit_cells is None:
             unit_cells = self.gs.kd.N_c
         self.unit_cells = unit_cells
-        self.range_rc = range_rc  # Range separation parameter in Bohr
 
         self.xcflags = XCFlags(self.xc)
         self.avg_scheme = self.xcflags.choose_avg_scheme(avg_scheme)
@@ -102,8 +100,8 @@ class FXCCorrelation:
 
     @timer('FXC')
     def calculate(self, *, nbands=None):
-        if self.xc not in ('RPA', 'range_RPA'):
-            # kernel not required for RPA/range_sep RPA
+        if self.xc != 'RPA':
+            # kernel not required for RPA
 
             # Find the first q vector to calculate kernel for
             # (density averaging scheme always calculates all q points anyway)
@@ -145,14 +143,6 @@ class FXCCorrelation:
             else:
                 self.context.print('%s kernel already calculated\n' %
                                    self.xc)
-
-        if self.xc in ('range_RPA', 'range_rALDA'):
-
-            shortrange = range_separated(self.gs, self.context, self.omega_w,
-                                         self.weight_w, self.l_l,
-                                         self.weight_l, self.range_rc, self.xc)
-
-            self.shortrange = shortrange.calculate()
 
         if self.gs.nspins == 1:
             spin = False
@@ -335,7 +325,7 @@ class FXCCorrelation:
 
             # What are the rules for whether we should do the
             # cut_G slicing?
-            apply_cut_G = self.xc not in {'RPA', 'range_RPA'}
+            apply_cut_G = self.xc != 'RPA'
 
             def read(arrayname):
                 key = (self.tag, self.xc, self.ecut_max, qi)
@@ -344,13 +334,6 @@ class FXCCorrelation:
 
             if self.xc == 'RPA':
                 fv_GG = np.eye(nG)
-
-            elif self.xc == 'range_RPA':
-                fv_diag_G = np.exp(-0.25 * (G_G * self.range_rc)**2.0)
-                # Unfortunately here we have a radically different shape,
-                # so we'll struggle to handle the arrays similarly.
-                # All other cases have fv_GG
-
             else:
                 fv_GG = read('fhxc_sGsG')
 
@@ -372,11 +355,7 @@ class FXCCorrelation:
                 # Do this analytically, except for the RPA
                 # simply since the analytical method is already
                 # implemented in rpa.py
-                if self.xc == 'range_RPA':
-                    # way faster than np.dot for diagonal kernels
-                    chi0v_fv = chi0v * fv_diag_G
-                    e_GG = np.eye(nG) - chi0v_fv
-                elif self.xc != 'RPA':
+                if self.xc != 'RPA':
                     chi0v_fv = np.dot(chi0v, fv_GG)
                     e_GG = np.eye(nG) - chi0v_fv
 
@@ -400,7 +379,7 @@ class FXCCorrelation:
 
                 # Numerical integration for short-range part
                 eshort = 0.0
-                if self.xc not in ('RPA', 'range_RPA', 'range_rALDA'):
+                if self.xc != 'RPA':
                     # Subtract Hartree contribution:
                     fxcv = fv_GG - np.eye(nG)
 
@@ -412,10 +391,6 @@ class FXCCorrelation:
                                    weight)
 
                     eshort -= np.trace(np.dot(chi0v, fxcv)).real
-
-                elif self.xcflags.is_ranged:
-                    eshort = (2 * np.pi * self.shortrange /
-                              np.sum(self.weight_w))
 
                 e = eshort + elong
                 e_w.append(e)
@@ -555,8 +530,7 @@ class KernelWave:
                     # Phase factor \vec{G}-\vec{G'}
                     deltaGv = Gv - Gv_G[iG:]
 
-                    if self.xc in ('rALDA', 'range_rALDA'):
-
+                    if self.xc == 'rALDA':
                         # rALDA trick: the Hartree-XC kernel is exactly
                         # zero for densities below rho_min =
                         # min_Gpq^3/(24*pi^2),
@@ -566,9 +540,7 @@ class KernelWave:
                         min_Gpq = np.amin(mod_Gpq)
                         rho_min = min_Gpq**3.0 / (24.0 * np.pi**2.0)
                         small_ind = np.where(self.n_g >= rho_min)
-
                     elif self.xcflags.is_apbe:
-
                         # rAPBE trick: the Hartree-XC kernel
                         # is exactly zero at grid points where
                         # min_Gpq > cutoff wavevector
@@ -577,9 +549,7 @@ class KernelWave:
                         small_ind = np.where(min_Gpq <= np.sqrt(
                             -4.0 * np.pi /
                             get_pbe_fxc(self.n_g, self.s2_g)))
-
                     else:
-
                         small_ind = np.arange(self.gridsize)
 
                     phase_Gpq = np.exp(
@@ -726,167 +696,6 @@ class KernelWave:
         fspinHxc_Gr *= Gphase
         fspinHxc_GG = np.sum(fspinHxc_Gr, 1) / self.gridsize
         return fspinHxc_GG
-
-
-class range_separated:
-    def __init__(self, gs, context, frequencies, freqweights, l_l, lweights,
-                 range_rc, xc):
-
-        self.gs = gs
-
-        self.context = context
-        self.frequencies = frequencies
-        self.freqweights = freqweights
-        self.l_l = l_l
-        self.lweights = lweights
-        self.range_rc = range_rc
-        self.xc = xc
-
-        self.cutoff_rs = 36.278317
-
-        if self.xc == 'range_RPA':
-            self.context.print(
-                'Using range-separated RPA approach, with parameter %s Bohr' %
-                self.range_rc, flush=False)
-
-        nval_g = self.gs.hacky_all_electron_density(
-            gridrefinement=4, skip_core=True).flatten()
-        self.dv = self.gs.density.gd.dv / 64.0  # 64 = gridrefinement^3
-
-        density_cut = 3.0 / (4.0 * np.pi * self.cutoff_rs**3.0)
-        if (nval_g < 0.0).any():
-            self.context.print('Warning, negative densities found! ('
-                               'Magnitude %s)' % np.abs(np.amin(nval_g)),
-                               flush=False)
-            self.context.print('These will be ignored', flush=False)
-        if (nval_g < density_cut).any():
-            nval_g = nval_g[np.where(nval_g > density_cut)]
-            self.context.print(
-                'Not calculating correlation energy ',
-                'contribution for densities < %3.2e elecs/Bohr ^ 3'
-                % density_cut, flush=False)
-
-        densitysum = np.sum(nval_g * self.dv)
-        # XXX probably wrong for charged systems
-        valence = self.gs.setups.nvalence
-
-        self.context.print('Density integrates to %s electrons' % densitysum,
-                           flush=False)
-
-        self.context.print('Renormalized to %s electrons' % valence)
-
-        nval_g *= valence / densitysum
-        self.rs_g = (3.0 / (4.0 * np.pi * nval_g))**(1.0 / 3.0)
-
-        self.rsmin = np.amin(self.rs_g)
-        self.rsmax = np.amax(self.rs_g)
-
-    def calculate(self):
-
-        self.context.print('Generating tables of electron gas energies...',
-                           flush=False)
-
-        table_SR = self.generate_tables()
-
-        self.context.print('...done', flush=False)
-        # Now interpolate the table to calculate local density terms
-        E_SR = np.sum(np.interp(self.rs_g, table_SR[:, 0],
-                                table_SR[:, 1])) * self.dv
-
-        # RPA energy minus long range correlation
-        self.context.print('Short range correlation energy/unit cell = '
-                           '%5.4f eV \n' % (E_SR * Ha))
-        return E_SR
-
-    def generate_tables(self):
-
-        # Finite difference steps for density and k vec
-        rs_step = 0.01
-        k_step = 0.01
-
-        rs_r = np.arange(self.rsmin - rs_step, self.rsmax + rs_step, rs_step)
-
-        table_SR = np.empty((len(rs_r), 2))
-        table_SR[:, 0] = rs_r
-        for iR, Rs in enumerate(rs_r):
-
-            qF = HEG(Rs).qF
-
-            q_k = np.arange(k_step, 10.0 * qF, k_step)
-
-            if self.xc == 'range_RPA':
-                # Correlation energy per electron, in Hartree, per k
-                Eeff_k, Erpa_k = self.RPA_corr_hole(q_k, Rs)
-                ESR_k = Erpa_k - Eeff_k
-            elif self.xc == 'range_rALDA':
-                ESR_k = self.rALDA_corr_hole(q_k, Rs)
-
-            # Integrate over k
-            table_SR[iR, 1] = k_step * np.sum(ESR_k)
-
-        return table_SR
-
-    def RPA_corr_hole(self, q, rs):
-
-        # Integrating this quantity over q, gives
-        # correlation energy per unit volume
-        # calcuated with a Coulomb-like effective
-        # interaction, in Hartree
-        # = 1/(2\pi) * \sum_{\vec{q}} \int_0^infty ds
-        #   * [ ln (1 - v_eff \chi_0) + v_eff \chi_0]
-        # = 1/(2\pi) * \int 4 \pi q^2 dq /((2\pi)^3)
-        #   * \int_0^infty ds [ ln (1 - v_eff \chi_0) + v_eff \chi_0]
-        # = 1/(4\pi^3) * \int q^2 dq  \int_0^infty ds
-        #   * [ ln (1 - v_eff \chi_0) + v_eff \chi_0]
-
-        veff = 4.0 * np.pi / (q * q) * np.exp(
-            -0.25 * q * q * self.range_rc * self.range_rc)
-        vc = 4.0 * np.pi / (q * q)
-
-        # Do the integral over frequency using Gauss-Legendre
-
-        eeff_q = np.zeros(len(q))
-        erpa_q = np.zeros(len(q))
-
-        for u, freqweight in zip(self.frequencies, self.freqweights):
-            chi0 = HEG(rs).lindhard_function(q, u)
-
-            eff_integrand = np.log(np.ones(len(q)) - veff * chi0) + veff * chi0
-            eeff_q += eff_integrand * freqweight
-
-            rpa_integrand = np.log(np.ones(len(q)) - vc * chi0) + vc * chi0
-            erpa_q += rpa_integrand * freqweight
-
-        # Per unit volume
-
-        eeff_q *= 1.0 / (4.0 * np.pi**3.0) * q * q
-        erpa_q *= 1.0 / (4.0 * np.pi**3.0) * q * q
-
-        return (eeff_q, erpa_q)
-
-    def rALDA_corr_hole(self, q, rs):
-        qF = HEG(rs).qF
-
-        veff = 4.0 * np.pi / (q * q) * ((1.0 - 0.25 * q * q /
-                                         (qF * qF)) * 0.5 *
-                                        (1.0 + np.sign(2.0 * qF - q)))
-        fxc = veff - 4.0 * np.pi / (q * q)
-
-        esr_q = np.zeros(len(q))
-
-        for u, freqweight in zip(self.frequencies, self.freqweights):
-            chi0 = HEG(rs).lindhard_function(q, u)
-            esr_u = np.zeros(len(q))
-
-            for l, lweight in zip(self.l_l, self.lweights):
-
-                chil = chi0 / (1.0 - l * fxc * chi0)
-                esr_u += lweight * (-fxc) * (chil - chi0)
-
-            esr_q += freqweight * esr_u
-
-        esr_q *= 1.0 / (4.0 * np.pi**3.0) * q * q
-        return esr_q
 
 
 class KernelDens:
@@ -1222,11 +1031,9 @@ class KernelDens:
 class XCFlags:
     _accepted_flags = {
         'RPA',
-        'range_RPA',  # range separated RPA a la Bruneval
-        'rALDA',  # renormalized kernels
+        'rALDA',
         'rAPBE',
-        'range_rALDA',
-        'ALDA'}  # standard ALDA
+        'ALDA'}
 
     _spin_kernels = {'rALDA', 'rAPBE', 'ALDA'}
 
@@ -1240,10 +1047,6 @@ class XCFlags:
     def spin_kernel(self):
         # rALDA/rAPBE are the only kernels which have spin-dependent forms
         return self.xc in self._spin_kernels
-
-    @property
-    def is_ranged(self):
-        return self.xc in {'range_RPA', 'range_rALDA'}
 
     @property
     def is_apbe(self):
