@@ -548,6 +548,6 @@ def get_pw_descriptor(atoms, calc, q_c, ecut=50., gammacentered=False):
 
     # Create the plane wave descriptor
     q_c = np.asarray(q_c, dtype=float)
-    qpd = SingleQPWDescriptor(q_c, ecut / Ha, calc.wfs.gd,
+    qpd = SingleQPWDescriptor.from_q(q_c, ecut / Ha, calc.wfs.gd,
                               gammacentered=gammacentered)
     return qpd
