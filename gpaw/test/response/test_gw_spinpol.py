@@ -3,16 +3,23 @@
 # General modules
 import pytest
 from gpaw.response.g0w0 import G0W0
+from gpaw.mpi import world
 
 
 @pytest.mark.response
 def test_gw_spinpol(in_tmp_dir, gpw_files):
 
-    gw = G0W0(gpw_files['h2_cry_wfs'],
+    if world.size > 1:
+        nblocks = 2
+    else:
+        nblocks = 1
+
+    gw = G0W0(gpw_files['h2_bcc_afm_wfs'],
               nbands=4,  # keep consistent with gpw nbands
               ecut=100,
               truncation='wigner-seitz',
               kpts=[(0, 0, 0)],
+              nblocks=nblocks,
               relbands=(-1, 1))
     result = gw.calculate()
 
