@@ -754,39 +754,6 @@ class BSEBackend:
 
         return w_w, alpha_w
 
-    def get_2d_absorption(self, w_w=None, eta=0.1,
-                          q_c=[0.0, 0.0, 0.0], direction=0,
-                          filename='abs_bse.csv', readfile=None,
-                          write_eig='eig.dat'):
-        r"""Calculate the dimensionless absorption for 2d materials.
-        It is essentially related to the 2D polarizability \alpha_2d as
-
-              ABS = 4 * np.pi * \omega * \alpha_2d / c
-
-        where c is the velocity of light
-        """
-
-        from ase.units import alpha
-        c = 1.0 / alpha
-
-        assert np.sum(self.gs.pbc) == 2
-        V = self.gs.nonpbc_cell_product()
-        vchi_w = self.get_vchi(w_w=w_w, eta=eta, q_c=q_c, direction=direction,
-                               readfile=readfile, optical=True,
-                               write_eig=write_eig)
-        abs_w = -V * vchi_w.imag * w_w / Hartree / c
-
-        if world.rank == 0 and filename is not None:
-            fd = open(filename, 'w')
-            for iw, w in enumerate(w_w):
-                print('%.9f, %.9f' % (w, abs_w[iw]), file=fd)
-            fd.close()
-
-        self.context.print('Calculation completed at:', ctime(), flush=False)
-        self.context.print('')
-
-        return w_w, abs_w
-
     def par_save(self, filename, name, A_sS):
         import ase.io.ulm as ulm
 
