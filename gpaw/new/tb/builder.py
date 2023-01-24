@@ -65,7 +65,7 @@ class NoGrid(Domain):
             dv=0.0)
         self.size = (0, 0, 0)
 
-    def empty(self, shape=(), comm=serial_comm):
+    def empty(self, shape=(), comm=serial_comm, xp=None):
         return DummyFunctions(self, shape, comm)
 
     def ranks_from_fractional_positions(self, fracpos_ac):
@@ -220,7 +220,10 @@ class TBDFTComponentsBuilder(LCAODFTComponentsBuilder):
         eigensolver = self.create_eigensolver(hamiltonian)
         return TBSCFLoop(hamiltonian, occ_calc, eigensolver)
 
-    def create_ibz_wave_functions(self, basis, potential):
+    def create_ibz_wave_functions(self,
+                                  basis: BasisFunctions,
+                                  potential,
+                                  coefficients=None):
         assert self.communicators['w'].size == 1
 
         ibzwfs, tciexpansions = create_lcao_ibzwfs(

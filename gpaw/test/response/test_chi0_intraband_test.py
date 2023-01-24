@@ -1,10 +1,7 @@
-import os
-
 import numpy as np
 import pytest
 
 from gpaw import GPAW, PW
-from gpaw.mpi import world
 from gpaw.test import equal, findpeak
 from gpaw.response.df import DielectricFunction
 from ase.build import bulk
@@ -38,50 +35,70 @@ def test_chi0_intraband(in_tmp_dir):
     a1.calc.write('intraband_spinpaired.gpw', 'all')
     a2.calc.write('intraband_spinpolarized.gpw', 'all')
 
-    # Calculate the dielectric functions
-    if world.rank == 0:
-        try:
-            os.remove('intraband_spinpaired+0+0+0.pckl')
-        except OSError:
-            pass
-
     df1 = DielectricFunction('intraband_spinpaired.gpw',
                              frequencies={'type': 'nonlinear',
                                           'domega0': 0.03},
                              ecut=10,
                              rate=0.1,
                              integrationmode='tetrahedron integration',
-                             name='intraband_spinpaired',
                              txt='intraband_spinpaired_df.txt')
 
     df1NLFCx, df1LFCx = df1.get_dielectric_function(direction='x')
     df1NLFCy, df1LFCy = df1.get_dielectric_function(direction='y')
     df1NLFCz, df1LFCz = df1.get_dielectric_function(direction='z')
-    wp1_vv = df1.chi0.plasmafreq_vv**0.5
+    wp1_vv = df1.chi0calc.plasmafreq_vv**0.5
     wp1 = wp1_vv[0, 0]
-    if world.rank == 0:
-        try:
-            os.remove('intraband_spinpolarized+0+0+0.pckl')
-        except OSError:
-            pass
 
-    df2 = DielectricFunction('intraband_spinpolarized.gpw',
+    df2 = DielectricFunction('intraband_spinpaired.gpw',
+                             frequencies={'type': 'nonlinear',
+                                          'domega0': 0.03},
+                             ecut=10,
+                             rate=0.1,
+                             integrationmode=None,
+                             txt='intraband_spinpaired_df_im.txt')
+    df2NLFCx, df2LFCx = df2.get_dielectric_function(direction='x')
+    df2NLFCy, df2LFCy = df2.get_dielectric_function(direction='y')
+    df2NLFCz, df2LFCz = df2.get_dielectric_function(direction='z')
+    wp2_vv = df2.chi0calc.plasmafreq_vv**0.5
+    wp2 = wp2_vv[0, 0]
+
+    df3 = DielectricFunction('intraband_spinpolarized.gpw',
                              frequencies={'type': 'nonlinear',
                                           'domega0': 0.03},
                              ecut=10,
                              rate=0.1,
                              integrationmode='tetrahedron integration',
-                             name='intraband_spinpolarized',
                              txt='intraband_spinpolarized_df.txt')
 
-    df2NLFCx, df2LFCx = df2.get_dielectric_function(direction='x')
-    df2NLFCy, df2LFCy = df2.get_dielectric_function(direction='y')
-    df2NLFCz, df2LFCz = df2.get_dielectric_function(direction='z')
-    wp2_vv = df2.chi0.plasmafreq_vv**0.5
-    wp2 = wp2_vv[0, 0]
+    df3NLFCx, df3LFCx = df3.get_dielectric_function(direction='x')
+    df3NLFCy, df3LFCy = df3.get_dielectric_function(direction='y')
+    df3NLFCz, df3LFCz = df3.get_dielectric_function(direction='z')
+    wp3_vv = df3.chi0calc.plasmafreq_vv**0.5
+    wp3 = wp3_vv[0, 0]
 
+    df4 = DielectricFunction('intraband_spinpolarized.gpw',
+                             frequencies={'type': 'nonlinear',
+                                          'domega0': 0.03},
+                             ecut=10,
+                             rate=0.1,
+                             integrationmode=None,
+                             txt='intraband_spinpolarized_df_im.txt')
+    
+    df4NLFCx, df4LFCx = df4.get_dielectric_function(direction='x')
+    df4NLFCy, df4LFCy = df4.get_dielectric_function(direction='y')
+    df4NLFCz, df4LFCz = df4.get_dielectric_function(direction='z')
+    wp4_vv = df4.chi0calc.plasmafreq_vv**0.5
+    wp4 = wp4_vv[0, 0]
+    
     # Compare plasmon frequencies and intensities
-    w_w = df1.chi0.wd.omega_w
+    w_w = df1.chi0calc.wd.omega_w
+    # frequency grids must be the same
+    w_w2 = df2.chi0calc.wd.omega_w
+    w_w3 = df3.chi0calc.wd.omega_w
+    w_w4 = df4.chi0calc.wd.omega_w
+    assert np.allclose(w_w, w_w2, atol=1e-5, rtol=1e-4)
+    assert np.allclose(w_w2, w_w3, atol=1e-5, rtol=1e-4)
+    assert np.allclose(w_w3, w_w4, atol=1e-5, rtol=1e-4)
 
     # Analytical Drude result
     n = 1 / (a1.get_volume() * Bohr**-3)
@@ -91,21 +108,45 @@ def test_chi0_intraband(in_tmp_dir):
     # From https://doi.org/10.1021/jp810808h
     wpref = 5.71 / Hartree
 
-    equal(wp1, wp2, 1e-2)
+    equal(wp1, wp3, 1e-2)  # spin paired matches spin polar - tetra
+    equal(wp2, wp4, 1e-2)  # spin paired matches spin polar - none
     equal(wp1, wp, 0.5)  # Use larger margin when comparing to Drude
-    equal(wp1, wpref, 0.1)
+    equal(wp2, wp, 0.5)  # Use larger margin when comparing to Drude
+    equal(wp1, wpref, 0.1)  # paired tetra match paper
+    equal(wp2, wpref, 0.1)  # paired none match paper
 
+    # w_x equal for paired & polarized tetra
     w1, I1 = findpeak(w_w, -(1. / df1LFCx).imag)
+    w3, I3 = findpeak(w_w, -(1. / df3LFCx).imag)
+    equal(w1, w3, 1e-2)
+    equal(I1, I3, 1e-1)
+    
+    # w_x equal for paired & polarized none
     w2, I2 = findpeak(w_w, -(1. / df2LFCx).imag)
-    equal(w1, w2, 1e-2)
-    equal(I1, I2, 1e-1)
+    w4, I4 = findpeak(w_w, -(1. / df4LFCx).imag)
+    equal(w2, w4, 1e-2)
+    equal(I2, I4, 1e-1)
 
+    # w_y equal for paired & polarized tetra
     w1, I1 = findpeak(w_w, -(1. / df1LFCy).imag)
+    w3, I3 = findpeak(w_w, -(1. / df3LFCy).imag)
+    equal(w1, w3, 1e-2)
+    equal(I1, I3, 1e-1)
+    
+    # w_y equal for paired & polarized none
     w2, I2 = findpeak(w_w, -(1. / df2LFCy).imag)
-    equal(w1, w2, 1e-2)
-    equal(I1, I2, 1e-1)
+    w4, I4 = findpeak(w_w, -(1. / df4LFCy).imag)
+    equal(w2, w4, 1e-2)
+    equal(I2, I4, 1e-1)
 
+    # w_z equal for paired & polarized tetra
     w1, I1 = findpeak(w_w, -(1. / df1LFCz).imag)
+    w3, I3 = findpeak(w_w, -(1. / df3LFCz).imag)
+    equal(w1, w3, 1e-2)
+    equal(I1, I3, 1e-1)
+    
+    # w_z equal for paired & polarized none
     w2, I2 = findpeak(w_w, -(1. / df2LFCz).imag)
-    equal(w1, w2, 1e-2)
-    equal(I1, I2, 1e-1)
+    w4, I4 = findpeak(w_w, -(1. / df4LFCz).imag)
+    equal(w2, w4, 1e-2)
+    equal(I2, I4, 1e-1)

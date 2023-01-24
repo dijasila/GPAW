@@ -1,5 +1,62 @@
 import numpy as np
-from gpaw.response.math_func import two_phi_planewave_integrals
+
+from gpaw.pw.lfc import ft
+from gpaw.gaunt import gaunt
+from gpaw.spherical_harmonics import Y
+from types import SimpleNamespace
+
+
+class Setuplet:
+    def __init__(self, *, phit_jg, phi_jg, rgd, l_j, rcut_j):
+        self.rgd = rgd
+        self.data = SimpleNamespace(phit_jg=phit_jg, phi_jg=phi_jg)
+        self.l_j = l_j
+        self.ni = np.sum([2 * l + 1 for l in l_j])
+        self.rcut_j = rcut_j
+
+
+def two_phi_planewave_integrals(qG_Gv, *, setup):
+    rgd = setup.rgd
+    l_j = setup.l_j
+    phi_jg = setup.data.phi_jg
+    phit_jg = setup.data.phit_jg
+    ni = setup.ni
+    gcut2 = rgd.ceil(2 * max(setup.rcut_j))
+    
+    # Initialize
+    npw = qG_Gv.shape[0]
+    phi_Gii = np.zeros((npw, ni, ni), dtype=complex)
+
+    G_LLL = gaunt(max(l_j))
+    k_G = np.sum(qG_Gv**2, axis=1)**0.5
+
+    i1_start = 0
+
+    for j1, l1 in enumerate(l_j):
+        i2_start = 0
+        for j2, l2 in enumerate(l_j):
+            # Calculate the radial part of the product density
+            rhot_g = phi_jg[j1] * phi_jg[j2] - phit_jg[j1] * phit_jg[j2]
+            for l in range((l1 + l2) % 2, l1 + l2 + 1, 2):
+                spline = rgd.spline(rhot_g[:gcut2], l=l, points=2**10)
+                splineG = ft(spline, N=2**12)
+                f_G = splineG.map(k_G) * (-1j)**l
+
+                for m1 in range(2 * l1 + 1):
+                    i1 = i1_start + m1
+                    for m2 in range(2 * l2 + 1):
+                        i2 = i2_start + m2
+                        G_m = G_LLL[l1**2 + m1, l2**2 + m2, l**2:(l + 1)**2]
+                        for m, G in enumerate(G_m):
+                            # If Gaunt coefficient is zero, no need to add
+                            if G == 0:
+                                continue
+                            x_G = Y(l**2 + m, *qG_Gv.T) * f_G
+                            phi_Gii[:, i1, i2] += G * x_G
+
+            i2_start += 2 * l2 + 1
+        i1_start += 2 * l1 + 1
+    return phi_Gii.reshape(npw, ni * ni)
 
 
 class PWPAWCorrectionData:
@@ -19,7 +76,7 @@ class PWPAWCorrectionData:
         return PWPAWCorrectionData(Q_aGii, pd=self.pd, setups=self.setups,
                                    pos_av=self.pos_av)
 
-    def remap_somehow(self, M_vv, G_Gv, sym, sign):
+    def remap(self, M_vv, G_Gv, sym, sign):
         Q_aGii = []
         for a, Q_Gii in enumerate(self.Q_aGii):
             x_G = self._get_x_G(G_Gv, M_vv, self.pos_av[a])
@@ -41,17 +98,8 @@ class PWPAWCorrectionData:
         # is only used with PAW corrections.
         return np.exp(1j * (G_Gv @ (pos_v - M_vv @ pos_v)))
 
-    def remap_somehow_else(self, symop, G_Gv, M_vv):
-        myQ_aGii = []
-        for a, Q_Gii in enumerate(self.Q_aGii):
-            x_G = self._get_x_G(G_Gv, M_vv, self.pos_av[a])
-            U_ii = self.setups[a].R_sii[symop.symno]
-            Q_Gii = np.dot(np.dot(U_ii, Q_Gii * x_G[:, None, None]),
-                           U_ii.T).transpose(1, 0, 2)
-            if symop.sign == -1:
-                Q_Gii = Q_Gii.conj()
-            myQ_aGii.append(Q_Gii)
-        return self._new(myQ_aGii)
+    def remap_by_symop(self, symop, G_Gv, M_vv):
+        return self.remap(M_vv, G_Gv, symop.symno, symop.sign)
 
     def multiply(self, P_ani, band):
         assert isinstance(P_ani, list)
@@ -73,50 +121,24 @@ class PWPAWCorrectionData:
         return True
 
 
-def get_pair_density_paw_corrections(setups, pd, spos_ac,
-                                     alter_optical_limit=False):
+def get_pair_density_paw_corrections(setups, pd, spos_ac):
     """Calculate and bundle paw corrections to the pair densities as a
-    PWPAWCorrectionData object.
-
-    NB: Due to the convolution of head, wings and body in Chi0, this method
-    can alter the G=0 element in the optical limit. This is a bad behaviour
-    and should be changed in the future when things are properly separated.
-    Ultimately, this function will be redundant and
-    calculate_pair_density_paw_corrections() could be used directly.
-    """
-    pawcorr = calculate_pair_density_paw_corrections(setups, pd, spos_ac)
-
-    if alter_optical_limit:
-        q_v = pd.K_qv[0]
-        optical_limit = np.allclose(q_v, 0)
-        if optical_limit:
-            Q_aGii = pawcorr.Q_aGii.copy()
-
-            for a, atomdata in enumerate(setups):
-                Q_aGii[a][0] = atomdata.dO_ii
-
-            pawcorr = PWPAWCorrectionData(Q_aGii, pd=pd, setups=setups,
-                                          pos_av=pawcorr.pos_av)
-
-    return pawcorr
-
-
-def calculate_pair_density_paw_corrections(setups, pd, spos_ac):
-    G_Gv = pd.get_reciprocal_vectors()
+    PWPAWCorrectionData object."""
+    qG_Gv = pd.get_reciprocal_vectors(add_q=True)
     pos_av = spos_ac @ pd.gd.cell_cv
 
     # Collect integrals for all species:
     Q_xGii = {}
-    for id, atomdata in setups.setups.items():
-        ni = atomdata.ni
-        Q_Gii = two_phi_planewave_integrals(G_Gv, atomdata)
+    for id, setup in setups.setups.items():
+        ni = setup.ni
+        Q_Gii = two_phi_planewave_integrals(qG_Gv, setup=setup)
         Q_xGii[id] = Q_Gii.reshape(-1, ni, ni)
 
     Q_aGii = []
     for a, atomdata in enumerate(setups):
         id = setups.id_a[a]
         Q_Gii = Q_xGii[id]
-        x_G = np.exp(-1j * (G_Gv @ pos_av[a]))
+        x_G = np.exp(-1j * (qG_Gv @ pos_av[a]))
         Q_aGii.append(x_G[:, np.newaxis, np.newaxis] * Q_Gii)
 
     return PWPAWCorrectionData(Q_aGii, pd=pd, setups=setups, pos_av=pos_av)

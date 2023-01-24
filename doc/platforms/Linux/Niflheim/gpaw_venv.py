@@ -20,7 +20,6 @@ module purge
 unset PYTHONPATH
 module load GPAW-setups/0.9.20000
 module load matplotlib/3.3.3-{tchain}-2020b
-module load spglib-python/1.16.0-{tchain}-2020b
 module load scikit-learn/0.23.2-{tchain}-2020b
 module load pytest-xdist/2.1.0-GCCcore-10.2.0
 module load Wannier90/3.1.0-{tchain}-2020b
@@ -41,6 +40,7 @@ export GPAW_SETUP_PATH=$GPAW_SETUP_PATH:{venv}/gpaw-basis-pvalence-0.9.20000
 # Set matplotlib backend:
 if [[ $SLURM_SUBMIT_DIR ]]; then
     export MPLBACKEND=Agg
+    export PYTHONWARNINGS="ignore:Matplotlib is currently using agg"
 else
     export MPLBACKEND=TkAgg
 fi
@@ -132,6 +132,9 @@ def main():
     # Compile ase-ext C-extension on old thul so that it works on
     # newer architectures
     run(f'ssh thul ". {activate} && pip install -q ase-ext"')
+
+    run('git clone -q https://github.com/spglib/spglib.git')
+    run(f'ssh thul ". {activate} && pip install {venv}/spglib"')
 
     # Install GPAW:
     siteconfig = Path(

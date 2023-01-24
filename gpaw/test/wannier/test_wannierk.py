@@ -1,3 +1,7 @@
+import pytest
+
+
+@pytest.mark.wannier
 def test_ase_features_wannierk(in_tmp_dir):
     'Test ase.dft.wannier module with k-points.'
     from ase.build import bulk
@@ -10,14 +14,17 @@ def test_ase_features_wannierk(in_tmp_dir):
 
     k = 4
     if 1:
-        si.calc = GPAW(kpts=(k, k, k),
-                       parallel=dict(augment_grids=True),
-                       mixer=Mixer(0.8, 7, 50.0),
+        params = dict(kpts=(k, k, k),
+                      parallel=dict(augment_grids=True),
+                      mixer=Mixer(0.8, 7, 50.0))
+        si.calc = GPAW(**params,
                        txt='Si-ibz.txt')
         e1 = si.get_potential_energy()
         si.calc.write('Si-ibz.gpw', mode='all')
-        si.calc.set(symmetry={'point_group': False, 'time_reversal': False},
-                    txt='Si-bz.txt')
+        si.calc = GPAW(**params,
+                       symmetry={'point_group': False,
+                                 'time_reversal': False},
+                       txt='Si-bz.txt')
         e2 = si.get_potential_energy()
         si.calc.write('Si-bz.gpw', mode='all')
         print((e1, e2))

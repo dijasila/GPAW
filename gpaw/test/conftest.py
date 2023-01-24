@@ -102,7 +102,9 @@ def gpw_files(request, tmp_path_factory):
 
     * MoS2 with 6x6x1 k-points: ``mos2_pw``
 
-    * Bulk Si, LDA, 2x2x2 k-point (gamma centered): ``si_pw``
+    * Bulk Si, LDA, 2x2x2 k-points (gamma centered): ``si_pw``
+
+    * Bulk Fe, LDA, 4x4x4 k-points, 6 converged bands: ``fe_pw``
 
     Files with wave functions are also available (add ``_wfs`` to the names).
     """
@@ -366,6 +368,34 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
+    def fe_pw(self):
+        xc = 'LDA'
+        kpts = 4
+        nbands = 6
+        pw = 300
+        occw = 0.01
+        conv = {'bands': nbands,
+                'density': 1.e-8,
+                'forces': 1.e-8}
+        a = 2.867
+        mm = 2.21
+        atoms = bulk('Fe', 'bcc', a=a)
+        atoms.set_initial_magnetic_moments([mm])
+        atoms.center()
+
+        atoms.calc = GPAW(
+            xc=xc,
+            mode=PW(pw),
+            kpts={'size': (kpts, kpts, kpts)},
+            nbands=nbands + 4,
+            occupations=FermiDirac(occw),
+            convergence=conv,
+            txt=self.path / 'fe_pw.txt')
+
+        atoms.get_potential_energy()
+
+        return atoms.calc
+
 
 class GPAWPlugin:
     def __init__(self):
@@ -380,6 +410,9 @@ class GPAWPlugin:
 
 
 def pytest_configure(config):
+    # Allow for fake cupy:
+    os.environ['GPAW_CPUPY'] = '1'
+
     if world.rank != 0:
         try:
             tw = config.get_terminal_writer()
@@ -388,21 +421,32 @@ def pytest_configure(config):
         else:
             tw._file = devnull
     config.pluginmanager.register(GPAWPlugin(), 'pytest_gpaw')
-    for line in ['soc: Spin-orbit coupling',
-                 'slow: slow test',
-                 'fast: fast test',
-                 'ci: test included in CI',
-                 'libxc: LibXC requirered',
-                 'mgga: MGGA test',
-                 'dscf: Delta-SCF',
-                 'mom: MOM',
-                 'gllb: GLLBSC tests',
-                 'elph: Electron-phonon',
-                 'intel: fails on INTEL toolchain',
-                 'response: tests of the response code',
-                 'kspair: tests of kspair in the response code',
-                 'serial: run in serial only',
-                 'later: know failure for new refactored GPAW']:
+    for line in [
+        'ci: test included in CI',
+        'do: Direct optimization',
+        'dscf: Delta-SCF',
+        'elph: Electron-phonon',
+        'fast: fast test',
+        'gllb: GLLBSC tests',
+        'gpu: GPU test',
+        'hybrids: Hybrid functionals',
+        'intel: fails on INTEL toolchain',
+        'kspair: tests of kspair in the response code',
+        'later: know failure for new refactored GPAW',
+        'legacy: Old stuff that will be removed later',
+        'libxc: LibXC requirered',
+        'lrtddft: Linear-response TDDFT',
+        'mgga: MGGA test',
+        'mom: MOM',
+        'ofdft: Orbital-free DFT',
+        'response: tests of the response code',
+        'rpa: tests of RPA',
+        'rttddft: Real-time TDDFT',
+        'serial: run in serial only',
+        'slow: slow test',
+        'soc: Spin-orbit coupling',
+        'stress: Calculation of stress tensor',
+        'wannier: Wannier functions']:
         config.addinivalue_line('markers', line)
 
 

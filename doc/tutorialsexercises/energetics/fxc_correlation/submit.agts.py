@@ -23,10 +23,6 @@ def workflow():
                                deps=diamkern_gs, ncpus=8, walltime=5)
     diamkern_raldac = queue.add('diam_kern.ralda_04_raldac.py',
                                 deps=diamkern_ralda, ncpus=8, walltime=5)
-    diamkern_JGMs = queue.add('diam_kern.ralda_05_jgm.py',
-                              deps=diamkern_raldac, ncpus=8, walltime=5)
-    diamkern_CPdyn = queue.add('diam_kern.ralda_06_CP_dyn.py',
-                               deps=diamkern_JGMs, ncpus=8, walltime=10)
     diamkern_rangeRPA = queue.add('diam_kern.ralda_07_range_rpa.py',
                                   deps=diamkern_CPdyn, ncpus=8, walltime=5)
     diamkern_RPA = queue.add('diam_kern.ralda_08_rpa.py',

@@ -17,6 +17,7 @@ def check(atoms, rcut=0.8):
             assert nn == 2
 
 
+@pytest.mark.wannier
 @pytest.mark.serial
 def test_pe_w90(gpw_files, in_tmp_dir):
     calc = GPAW(gpw_files['c2h4_pw_nosym_wfs'])
@@ -29,6 +30,7 @@ def test_pe_w90(gpw_files, in_tmp_dir):
     check(w.centers_as_atoms())
 
 
+@pytest.mark.wannier
 @pytest.mark.serial
 def test_pe_er(gpw_files):
     calc = GPAW(gpw_files['c6h12_pw_wfs'])

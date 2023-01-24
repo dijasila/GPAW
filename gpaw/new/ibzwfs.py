@@ -1,17 +1,19 @@
 from __future__ import annotations
+
 from typing import Generator
 
 import numpy as np
 from ase.dft.bandgap import bandgap
 from ase.io.ulm import Writer
 from ase.units import Bohr, Ha
-from gpaw.core.atom_arrays import AtomArrays
 from gpaw.mpi import MPIComm, serial_comm
+from gpaw.new import prod
 from gpaw.new.brillouin import IBZ
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
+from gpaw.new.potential import Potential
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.new.wave_functions import WaveFunctions
-from gpaw.typing import Array1D
+from gpaw.typing import Array1D, Array2D
 
 
 def create_ibz_wave_functions(ibz: IBZ,
@@ -71,9 +73,9 @@ class IBZWaveFunctions:
         self.dtype = wfs.dtype
         self.nbands = wfs.nbands
 
-        self.fermi_levels: Array1D | None = None
+        self.fermi_levels: Array1D | None = None  # hartree
 
-        self.energies: dict[str, float] = {}
+        self.energies: dict[str, float] = {}  # hartree
 
     def get_max_shape(self, global_shape: bool = False) -> tuple[int, ...]:
         """Find the largest wave function array shape.
@@ -93,10 +95,27 @@ class IBZWaveFunctions:
                 self.kpt_comm.rank == 0)
 
     def __str__(self):
+        shape = self.get_max_shape(global_shape=True)
+        nbytes = (prod(shape) * self.nbands *
+                  len(self.wfs_qs) * len(self.wfs_qs[0]) *
+                  self.dtype.itemsize)
+        ncores = (self.kpt_comm.size *
+                  self.domain_comm.size *
+                  self.band_comm.size)
+        wfs = self.wfs_qs[0][0]
         return (f'{self.ibz.symmetries}\n'
                 f'{self.ibz}\n'
+                f'{wfs._short_string(shape)}\n'
+                f'spin-components: {self.ncomponents}'
+                '  # (' +
+                ('' if self.collinear else 'non-') + 'collinear spins)\n'
+                f'bands: {self.nbands}\n'
                 f'valence electrons: {self.nelectrons}\n'
                 f'spin-degeneracy: {self.spin_degeneracy}\n'
+                f'dtype: {self.dtype}\n\n'
+                'memory:\n'
+                f'    wave functions: {nbytes:_}  # bytes '
+                f' ({nbytes // ncores:_} per core)\n\n'
                 'parallelization:\n'
                 f'    kpt:    {self.kpt_comm.size}\n'
                 f'    domain: {self.domain_comm.size}\n'
@@ -141,6 +160,7 @@ class IBZWaveFunctions:
         for wfs in self:
             e_band += wfs.occ_n @ wfs.eig_n * wfs.weight * degeneracy
         e_band = self.kpt_comm.sum(e_band)
+
         self.energies = {
             'band': e_band,
             'entropy': e_entropy,
@@ -229,10 +249,10 @@ class IBZWaveFunctions:
                     occ_skn[s, k, :] = occ_n
         return eig_skn, occ_skn
 
-    def forces(self, dH_asii: AtomArrays):
-        F_av = np.zeros((dH_asii.natoms, 3))
+    def forces(self, potential: Potential) -> Array2D:
+        F_av = np.zeros((potential.dH_asii.natoms, 3))
         for wfs in self:
-            wfs.force_contribution(dH_asii, F_av)
+            wfs.force_contribution(potential, F_av)
         self.kpt_comm.sum(F_av)
         return F_av
 

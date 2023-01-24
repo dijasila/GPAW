@@ -12,12 +12,45 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.23.0b1
 
+* A bug in the implementation of MGGA functionals was found: :issue:`674`.
+  The kinetic-energy density was calculated from the irreducible part of
+  the Brillouin zone, but it was not symmetrized as it should be.  This
+  has now been fixed.
+
+  .. warning::
+
+     If you have done any MGGA calculations taking advantage of symmetries
+     in order to reduce number of **k**-points then you should redo those
+     calculations.  Sorry!
+
+* Two other bugs affecting MGGA calculations were found (in the fix_density
+  and diagonalize_full_hamiltonian routines), which are fixed by
+  `!1417 <https://gitlab.com/gpaw/gpaw/-/merge_requests/1417>`_.
+
+  .. warning::
+  
+     MGGA calculations using fix_density and/or diagonalize_full_hamiltonian
+     should be rerun with these fixes.
+
+* The stress tensor was implemented for MGGA functionals, and
+  parallelization of MGGAs for large systems was improved.
+
+* Local orbitals added in LCAO mode to construct effective
+  tight-binding Hamiltonians: :ref:`los in lcao`, :ref:`los tutorial`.
+
 * Missing factor of `2\pi` now included in RPA shift current:
   :func:`gpaw.nlopt.shift.get_shift`.
 
 * Updated RPA-energy tutorial: :ref:`c2cu rpa`.
 
 * New tutorial: :ref:`abinitiomd`.
+
+* Experimental support for PW-mode calculations using a GPU: :ref:`gpu`.
+
+* One can now specify the total energy convergence criterium in eV instead
+  of eV / valence electron:
+  ``convergene={'energy': Energy(tol=..., relative=False)}``.
+  See the :class:`gpaw.convergence_criteria.Energy` class.
 
 
 Version 22.8.0
