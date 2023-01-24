@@ -100,85 +100,8 @@ class BaseMixer:
         self.D_iasp = []
         self.dD_iasp = []
 
-    def calculate_charge_sloshing(self, R_G):
-        return self.gd.integrate(np.fabs(R_G))
-
-    def mix_single_densityyyyy(self, nt_G, D_ap):
-        iold = len(self.nt_iG)
-
-        dNt = np.inf
-        if iold > 0:
-            if iold > self.nmaxold:
-                # Throw away too old stuff:
-                del self.nt_iG[0]
-                del self.R_iG[0]
-                del self.D_iap[0]
-                del self.dD_iap[0]
-                # for D_p, D_ip, dD_ip in self.D_a:
-                #     del D_ip[0]
-                #     del dD_ip[0]
-                iold = self.nmaxold
-
-            # Calculate new residual (difference between input and
-            # output density):
-            R_G = nt_G - self.nt_iG[-1]
-            dNt = self.calculate_charge_sloshing(R_G)
-            self.R_iG.append(R_G)
-            self.dD_iap.append([])
-            for D_p, D_ip in zip(D_ap, self.D_iap[-1]):
-                self.dD_iap[-1].append(D_p - D_ip)
-
-            # Update matrix:
-            A_ii = np.zeros((iold, iold))
-            i2 = iold - 1
-
-            if self.metric is None:
-                mR_G = R_G
-            else:
-                mR_G = self.mR_G
-                self.metric(R_G, mR_G)
-
-            for i1, R_1G in enumerate(self.R_iG):
-                a = self.gd.comm.sum(self.dotprod(R_1G, mR_G, self.dD_iap[i1],
-                                                  self.dD_iap[-1]))
-                A_ii[i1, i2] = a
-                A_ii[i2, i1] = a
-            A_ii[:i2, :i2] = self.A_ii[-i2:, -i2:]
-            self.A_ii = A_ii
-            try:
-                B_ii = np.linalg.inv(A_ii)
-            except np.linalg.LinAlgError:
-                alpha_i = np.zeros(iold)
-                alpha_i[-1] = 1.0
-            else:
-                alpha_i = B_ii.sum(1)
-                try:
-                    # Normalize:
-                    alpha_i /= alpha_i.sum()
-                except ZeroDivisionError:
-                    alpha_i[:] = 0.0
-                    alpha_i[-1] = 1.0
-
-            # Calculate new input density:
-            nt_G[:] = 0.0
-            # for D_p, D_ip, dD_ip in self.D_a:
-            for D in D_ap:
-                D[:] = 0.0
-            beta = self.beta
-            for i, alpha in enumerate(alpha_i):
-                axpy(alpha, self.nt_iG[i], nt_G)
-                axpy(alpha * beta, self.R_iG[i], nt_G)
-                for D_p, D_ip, dD_ip in zip(D_ap, self.D_iap[i],
-                                            self.dD_iap[i]):
-                    axpy(alpha, D_ip, D_p)
-                    axpy(alpha * beta, dD_ip, D_p)
-
-        # Store new input density (and new atomic density matrices):
-        self.nt_iG.append(nt_G.copy())
-        self.D_iap.append([])
-        for D_p in D_ap:
-            self.D_iap[-1].append(D_p.copy())
-        return dNt
+    def calculate_charge_sloshing(self, R_sG) -> float:
+        return self.gd.integrate(np.fabs(R_sG)).sum()
 
     def mix_density(self, nt_sG, D_asp, g_ss=None):
         nt_isG = self.nt_isG
@@ -187,7 +110,7 @@ class BaseMixer:
         dD_iasp = self.dD_iasp
         spin = len(nt_sG)
         iold = len(self.nt_isG)
-        dNt_s = [np.inf] * spin
+        dNt = np.inf
         if iold > 0:
             if iold > self.nmaxold:
                 # Throw away too old stuff:
@@ -203,7 +126,7 @@ class BaseMixer:
             # Calculate new residual (difference between input and
             # output density):
             R_sG = nt_sG - nt_isG[-1]
-            dNt_s = self.calculate_charge_sloshing(R_sG)
+            dNt = self.calculate_charge_sloshing(R_sG)
             R_isG.append(R_sG)
             dD_iasp.append([])
             for D_sp, D_isp in zip(D_asp, D_iasp[-1]):
@@ -215,7 +138,9 @@ class BaseMixer:
                 mR_sG = self.mR_sG[:spin]
                 for s in range(spin):
                     self.metric(R_sG[s], mR_sG[s])
-            mR_sG = np.tensordot(g_ss, mR_sG, axes=(1, 0))
+
+            if g_ss is not None:
+                mR_sG = np.tensordot(g_ss, mR_sG, axes=(1, 0))
 
             # Update matrix:
             A_ii = np.zeros((iold, iold))
@@ -253,7 +178,7 @@ class BaseMixer:
         D_iasp.append([])
         for D_sp in D_asp:
             D_iasp[-1].append(D_sp.copy())
-        return dNt_s
+        return dNt
 
     # may presently be overridden by passing argument in constructor
     def dotprod(self, R1_G, R2_G, dD1_ap, dD2_ap):
@@ -325,7 +250,7 @@ class FFTBaseMixer(BaseMixer):
             cs = 0.0
         return self.gd.comm.sum(cs)
 
-    def mix_single_density(self, nt_G, D_ap):
+    def mix_density(self, nt_sG, D_asp):
         # Transform real-space density to Fourier space
         nt1_G = self.gd.collect(nt_G)
         if self.gd.comm.rank == 0:
@@ -543,7 +468,7 @@ class SeparateSpinMixerDriver:
         for s, (nt_G, basemixer) in enumerate(zip(nt_sG, basemixers)):
             D_a1p = [D_sp[s:s + 1] for D_sp in D_asp]
             nt_1G = nt_G[np.newaxis]
-            dNt += basemixer.mix_density(nt_1G, D_a1p)[0]
+            dNt += basemixer.mix_density(nt_1G, D_a1p)
         return dNt
 
 
@@ -650,12 +575,12 @@ class SpinDifferenceMixerDriver:
             # Mix density
             nt_1G = nt_sG.sum(0)[np.newaxis]
             D_a1p = [D_sp[:1] + D_sp[1:] for D_sp in D_asp]
-            dNt = basemixer.mix_single_density(nt_1G, D_a1p)[0]
+            dNt = basemixer.mix_density(nt_1G, D_a1p)
 
             # Mix magnetization
             dnt_1G = nt_sG[:1] - nt_sG[1:]
             dD_a1p = [D_sp[:1] - D_sp[1:] for D_sp in D_asp]
-            basemixer_m.mix_single_density(dnt_1G, dD_a1p)
+            basemixer_m.mix_density(dnt_1G, dD_a1p)
             # (The latter is not counted in dNt)
 
             # Construct new spin up/down densities
@@ -666,18 +591,18 @@ class SpinDifferenceMixerDriver:
                 D_sp[1:] = 0.5 * (D_1p - dD_1p)
         else:
             # Mix density
-            nt_G = nt_sG[0]
-            D_ap = [D_sp[0] for D_sp in D_asp]
-            dNt = basemixer.mix_single_density(nt_G, D_ap)
+            nt_1G = nt_sG[:1]
+            D_a1p = [D_sp[:1] for D_sp in D_asp]
+            dNt = basemixer.mix_density(nt_1G, D_a1p)
 
             # Mix magnetization
-            Dx_ap = [D_sp[1] for D_sp in D_asp]
-            Dy_ap = [D_sp[2] for D_sp in D_asp]
-            Dz_ap = [D_sp[3] for D_sp in D_asp]
+            Dx_a1p = [D_sp[1:2] for D_sp in D_asp]
+            Dy_a1p = [D_sp[2:3] for D_sp in D_asp]
+            Dz_a1p = [D_sp[3:4] for D_sp in D_asp]
 
-            basemixer_x.mix_single_density(nt_sG[1], Dx_ap)
-            basemixer_y.mix_single_density(nt_sG[2], Dy_ap)
-            basemixer_z.mix_single_density(nt_sG[3], Dz_ap)
+            basemixer_x.mix_density(nt_sG[1:2], Dx_a1p)
+            basemixer_y.mix_density(nt_sG[2:3], Dy_a1p)
+            basemixer_z.mix_density(nt_sG[3:4], Dz_a1p)
         return dNt
 
 
@@ -704,9 +629,9 @@ class FullSpinMixerDriver:
         if self.g_ss is None:
             self.g_ss = np.identity(len(nt_sG))
 
-        dNt_s = basemixer.mix_density(nt_sG, D_asp, self.g_ss)
+        dNt = basemixer.mix_density(nt_sG, D_asp, self.g_ss)
 
-        return np.sum(dNt_s)
+        return dNt
 
 
 # Dictionaries to get mixers by name:
