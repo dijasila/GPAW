@@ -3,7 +3,7 @@
 
 import numpy as np
 from ase.dft import monkhorst_pack
-
+from gpaw.response.pair_functions import SingleQPWDescriptor
 
 class CoulombKernel:
     def __init__(self, truncation, gs):
@@ -32,6 +32,7 @@ class CoulombKernel:
         return self.V(qpd, q_v)**0.5
 
     def V(self, qpd, q_v):
+        assert isinstance(qpd, SingleQPWDescriptor)
         return get_coulomb_kernel(
             qpd, self._gs.kd.N_c, q_v=q_v,
             truncation=self.truncation,
