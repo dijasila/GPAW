@@ -237,9 +237,9 @@ class QSymmetryOp:
         shift0_c = self.get_shift0(q_c, qpd.q_c)
         shift_c = kpt1.shift_c - kpt2.shift_c - shift0_c
         I_G = np.ravel_multi_index(i_cG + shift_c[:, None], N_c, 'wrap')
-        G_Gv = qpd.get_reciprocal_vectors()
+        qG_Gv = qpd.get_reciprocal_vectors(add_q=True)
         M_vv = self.get_M_vv(qpd.gd.cell_cv)
-        mypawcorr = pawcorr.remap_by_symop(self, G_Gv, M_vv)
+        mypawcorr = pawcorr.remap_by_symop(self, qG_Gv, M_vv)
         # XXX Can be removed together with G0W0 debug routine in future
         if debug:
             self.debug_i_cG = i_cG

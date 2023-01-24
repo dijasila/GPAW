@@ -372,11 +372,11 @@ class BSEBackend:
             self.kd, self.qd, kpt1, kpt2)
         symop.check_q_Q_symmetry(Q_c, q_c)
         qpd = self.qpd_q[iq]
-        G_Gv = qpd.get_reciprocal_vectors()
+        nG = pd.ngmax
         pawcorr, I_G = symop.apply_symop_q(
             qpd, Q_c, self.pawcorr_q[iq], kpt1, kpt2)
 
-        rho_mnG = np.zeros((len(kpt1.eps_n), len(kpt2.eps_n), len(G_Gv)),
+        rho_mnG = np.zeros((len(kpt1.eps_n), len(kpt2.eps_n), nG),
                            complex)
         for m in range(len(rho_mnG)):
             rho_mnG[m] = get_nmG(kpt1, kpt2, pawcorr, m, qpd, I_G, self.pair)
@@ -525,7 +525,7 @@ class BSEBackend:
         return
 
     def get_bse_matrix(self, q_c=[0.0, 0.0, 0.0], direction=0,
-                       readfile=None, optical=True, write_eig=None):
+                       readfile=None, optical=True):
         """Calculate and diagonalize BSE matrix"""
 
         self.q_c = q_c
@@ -546,8 +546,6 @@ class BSEBackend:
         else:
             raise ValueError('%s array not recognized' % readfile)
 
-        # TODO: Move write_eig here
-
         return
 
     def get_vchi(self, w_w=None, eta=0.1, q_c=[0.0, 0.0, 0.0],
@@ -556,8 +554,7 @@ class BSEBackend:
         """Returns v * chi where v is the bare Coulomb interaction"""
 
         self.get_bse_matrix(q_c=q_c, direction=direction,
-                            readfile=readfile, optical=optical,
-                            write_eig=write_eig)
+                            readfile=readfile, optical=optical)
 
         w_T = self.w_T
         rhoG0_S = self.rhoG0_S
@@ -619,13 +616,11 @@ class BSEBackend:
         self.context.print('')
 
         if write_eig is not None:
+            assert isinstance(write_eig, str)
+            filename = write_eig
             if world.rank == 0:
-                f = open(write_eig, 'w')
-                print('# %s eigenvalues in eV' % self.mode, file=f)
-                for iw, w in enumerate(self.w_T * Hartree):
-                    print('%8d %12.6f %12.16f' % (iw, w.real, C_T[iw].real),
-                          file=f)
-                f.close()
+                write_bse_eigenvalues(filename, self.mode,
+                                      self.w_T * Hartree, C_T)
 
         return vchi_w
 
@@ -704,10 +699,7 @@ class BSEBackend:
                                 write_eig=write_eig).imag
 
         if world.rank == 0 and filename is not None:
-            f = open(filename, 'w')
-            for iw, w in enumerate(w_w):
-                print('%.9f, %.9f' % (w, eels_w[iw]), file=f)
-            f.close()
+            write_spectrum(filename, w_w, eels_w)
         world.barrier()
 
         self.context.print('Calculation completed at:', ctime(), flush=False)
@@ -752,39 +744,6 @@ class BSEBackend:
         self.context.print('')
 
         return w_w, alpha_w
-
-    def get_2d_absorption(self, w_w=None, eta=0.1,
-                          q_c=[0.0, 0.0, 0.0], direction=0,
-                          filename='abs_bse.csv', readfile=None,
-                          write_eig='eig.dat'):
-        r"""Calculate the dimensionless absorption for 2d materials.
-        It is essentially related to the 2D polarizability \alpha_2d as
-
-              ABS = 4 * np.pi * \omega * \alpha_2d / c
-
-        where c is the velocity of light
-        """
-
-        from ase.units import alpha
-        c = 1.0 / alpha
-
-        assert np.sum(self.gs.pbc) == 2
-        V = self.gs.nonpbc_cell_product()
-        vchi_w = self.get_vchi(w_w=w_w, eta=eta, q_c=q_c, direction=direction,
-                               readfile=readfile, optical=True,
-                               write_eig=write_eig)
-        abs_w = -V * vchi_w.imag * w_w / Hartree / c
-
-        if world.rank == 0 and filename is not None:
-            fd = open(filename, 'w')
-            for iw, w in enumerate(w_w):
-                print('%.9f, %.9f' % (w, abs_w[iw]), file=fd)
-            fd.close()
-
-        self.context.print('Calculation completed at:', ctime(), flush=False)
-        self.context.print('')
-
-        return w_w, abs_w
 
     def par_save(self, filename, name, A_sS):
         import ase.io.ulm as ulm
@@ -983,3 +942,28 @@ class BSE(BSEBackend):
             calc, txt, world=world, timer=None)
 
         super().__init__(gs=gs, context=context, **kwargs)
+
+
+def write_bse_eigenvalues(filename, mode, w_w, C_w):
+    with open(filename, 'w') as fd:
+        print('# %s eigenvalues in eV' % mode, file=fd)
+        for iw, (w, C) in enumerate(zip(w_w, C_w)):
+            print('%8d %12.6f %12.16f' % (iw, w.real, C.real),
+                  file=fd)
+
+
+def read_bse_eigenvalues(filename):
+    _, w_w, C_w = np.loadtxt(filename, unpack=True)
+    return w_w, C_w
+
+
+def write_spectrum(filename, w_w, A_w):
+    with open(filename, 'w') as fd:
+        for w, A in zip(w_w, A_w):
+            print('%.9f, %.9f' % (w, A), file=fd)
+
+
+def read_spectrum(filename):
+    w_w, A_w = np.loadtxt(filename, delimiter=',',
+                          unpack=True)
+    return w_w, A_w

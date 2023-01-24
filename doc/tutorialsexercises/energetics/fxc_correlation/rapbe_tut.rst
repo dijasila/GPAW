@@ -184,27 +184,18 @@ To use this averaging scheme, we add the flag ``avg_scheme='wavevector'``:
 
 Using this averaging scheme opens a few more possible choices for the kernel.
 
-Finally, for the enthusiast there is a basic implementation of the range-separated
-RPA approach of Ref. [#Bruneval]_.  By separating the Coulomb interaction into long
-and short-range parts and taking the short range part from the electron gas, one can
-dramatically reduce the number of plane waves needed to converge the RPA energy.
-In this approach it is necessary to specify a range-separation parameter ``range_rc=Y``, where
-Y is in Bohr.  It is important to bear in mind that this feature is relatively untested.
-
-.. literalinclude:: diam_kern.ralda_07_range_rpa.py
-
-For comparison, one can see that the RPA converges much more slowly:
+For further comparison we include an RPA calculation as well.
 
 .. literalinclude:: diam_kern.ralda_08_rpa.py
 
 Here we summarize the above calculations and show the correlation energy/electron (in eV),
 obtained at an (unconverged) cutoff of 131 eV:
 
-=================  ================   ===================  ======
-rALDA (dens. av.)  rALDA (wave. av)   range separated RPA   RPA
-=================  ================   ===================  ======
--1.161              -1.134            -1.730               -1.396
-=================  ================   ===================  ======
+=================  ================   ======
+rALDA (dens. av.)  rALDA (wave. av)   RPA
+=================  ================   ======
+-1.161              -1.134            -1.396
+=================  ================   ======
 
 Incidentally, a fully converged RPA calculation gives a correlation energy
 of -1.781 eV per electron.
@@ -227,6 +218,3 @@ explicit spin-polarized forms.
 
 .. [#Patrick] C. E. Patrick and K. S. Thygesen
               *J. Chem. Phys.* **143**, 102802 (2015)
-
-.. [#Bruneval] F. Bruneval
-              *Phys. Rev. Lett* **108**, 256403 (2012)

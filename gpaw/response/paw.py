@@ -15,7 +15,7 @@ class Setuplet:
         self.rcut_j = rcut_j
 
 
-def two_phi_planewave_integrals(k_Gv, *, setup):
+def two_phi_planewave_integrals(qG_Gv, *, setup):
     rgd = setup.rgd
     l_j = setup.l_j
     phi_jg = setup.data.phi_jg
@@ -24,11 +24,11 @@ def two_phi_planewave_integrals(k_Gv, *, setup):
     gcut2 = rgd.ceil(2 * max(setup.rcut_j))
     
     # Initialize
-    npw = k_Gv.shape[0]
+    npw = qG_Gv.shape[0]
     phi_Gii = np.zeros((npw, ni, ni), dtype=complex)
 
     G_LLL = gaunt(max(l_j))
-    k_G = np.sum(k_Gv**2, axis=1)**0.5
+    k_G = np.sum(qG_Gv**2, axis=1)**0.5
 
     i1_start = 0
 
@@ -51,7 +51,7 @@ def two_phi_planewave_integrals(k_Gv, *, setup):
                             # If Gaunt coefficient is zero, no need to add
                             if G == 0:
                                 continue
-                            x_G = Y(l**2 + m, *k_Gv.T) * f_G
+                            x_G = Y(l**2 + m, *qG_Gv.T) * f_G
                             phi_Gii[:, i1, i2] += G * x_G
 
             i2_start += 2 * l2 + 1
@@ -124,21 +124,21 @@ class PWPAWCorrectionData:
 def get_pair_density_paw_corrections(setups, qpd, spos_ac):
     """Calculate and bundle paw corrections to the pair densities as a
     PWPAWCorrectionData object."""
-    G_Gv = qpd.get_reciprocal_vectors()
-    pos_av = spos_ac @ qpd.gd.cell_cv
+    qG_Gv = qpd.get_reciprocal_vectors(add_q=True)
+    pos_av = spos_ac @ pd.gd.cell_cv
 
     # Collect integrals for all species:
     Q_xGii = {}
     for id, setup in setups.setups.items():
         ni = setup.ni
-        Q_Gii = two_phi_planewave_integrals(G_Gv, setup=setup)
+        Q_Gii = two_phi_planewave_integrals(qG_Gv, setup=setup)
         Q_xGii[id] = Q_Gii.reshape(-1, ni, ni)
 
     Q_aGii = []
     for a, atomdata in enumerate(setups):
         id = setups.id_a[a]
         Q_Gii = Q_xGii[id]
-        x_G = np.exp(-1j * (G_Gv @ pos_av[a]))
+        x_G = np.exp(-1j * (qG_Gv @ pos_av[a]))
         Q_aGii.append(x_G[:, np.newaxis, np.newaxis] * Q_Gii)
 
     return PWPAWCorrectionData(Q_aGii, qpd=qpd, setups=setups, pos_av=pos_av)
