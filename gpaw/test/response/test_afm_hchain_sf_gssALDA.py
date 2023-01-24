@@ -21,6 +21,34 @@ from gpaw.response.df import read_response_function
 @pytest.mark.response
 def test_response_afm_hchain_gssALDA(in_tmp_dir, gpw_files):
     # ---------- Inputs ---------- #
+    from ase.dft.kpoints import monkhorst_pack
+    from ase import Atoms
+    from gpaw import GPAW, PW
+    a = 2.5
+    hatom = Atoms('H',
+                  cell=[a, 0, 0],
+                  pbc=[1, 1, 0])
+    hatom.center(vacuum=0.8 * a, axis=(1, 2))
+    atoms = hatom.repeat((2, 1, 1))
+    atoms.set_initial_magnetic_moments([1., -1.])
+
+    nbands = 2 * (1 + 0)  # 1s + 0 empty shell bands
+    ebands = 2 * 1  # Include also 2s bands for numerical consistency
+    conv = {'bands': nbands}
+
+    # gs must be here. ChiKSCalc requires world to match the GS
+    calc = GPAW(xc='LDA',
+                txt='h2_afm.txt',
+                mode=PW(250),
+                kpts=monkhorst_pack((12, 1, 1)),
+                nbands=nbands + ebands,
+                convergence=conv,
+                symmetry={'point_group': True},
+                parallel={'domain': 1})
+
+    atoms.calc = calc
+    atoms.get_potential_energy()
+    calc = atoms.calc
 
     # Magnetic response calculation
     q_qc = [[0., 0., 0.],
@@ -41,9 +69,6 @@ def test_response_afm_hchain_gssALDA(in_tmp_dir, gpw_files):
 
     # ---------- Script ---------- #
 
-    # geet GS from GPW files
-    calc = GPAW(gpw_files['h2_afm_wfs'])
-
     # Magnetic response calculation
     nbands = 2 * (1 + 0)  # 1s + 0 empty shell bands
     fxckwargs = {'calculator': {'method': 'old',
@@ -57,7 +82,7 @@ def test_response_afm_hchain_gssALDA(in_tmp_dir, gpw_files):
                                  gammacentered=True,
                                  nblocks=nblocks)
     chi_factory = ChiFactory(chiks_calc)
-                  
+
     for q, q_c in enumerate(q_qc):
         filename = 'h-chain_macro_tms_q%d.csv' % q
         txt = 'h-chain_macro_tms_q%d.txt' % q

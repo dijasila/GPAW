@@ -206,34 +206,6 @@ class GPWFiles:
         calc = atoms.calc.fixed_density(nbands=nbands)
         return calc
 
-    def h2_afm(self):
-        from ase.dft.kpoints import monkhorst_pack
-        a = 2.5
-        hatom = Atoms('H',
-                      cell=[a, 0, 0],
-                      pbc=[1, 1, 0])
-        hatom.center(vacuum=0.8 * a, axis=(1, 2))
-        atoms = hatom.repeat((2, 1, 1))
-        atoms.set_initial_magnetic_moments([1., -1.])
-
-        nbands = 2 * (1 + 0)  # 1s + 0 empty shell bands
-        ebands = 2 * 1  # Include also 2s bands for numerical consistency
-        conv = {'bands': nbands}
-
-        calc = GPAW(xc='LDA',
-                    txt=self.path / 'h2_afm.txt',
-                    mode=PW(250),
-                    kpts=monkhorst_pack((12, 1, 1)),
-                    nbands=nbands + ebands,
-                    convergence=conv,
-                    symmetry={'point_group': True},
-                    parallel={'domain': 1})
-
-        atoms.calc = calc
-        atoms.get_potential_energy()
-
-        return atoms.calc
-
     def h_pw(self):
         h = Atoms('H', magmoms=[1])
         h.center(vacuum=4.0)
