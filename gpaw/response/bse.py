@@ -617,13 +617,11 @@ class BSEBackend:
         self.context.print('')
 
         if write_eig is not None:
+            assert isinstance(write_eig, str)
+            filename = write_eig
             if world.rank == 0:
-                f = open(write_eig, 'w')
-                print('# %s eigenvalues in eV' % self.mode, file=f)
-                for iw, w in enumerate(self.w_T * Hartree):
-                    print('%8d %12.6f %12.16f' % (iw, w.real, C_T[iw].real),
-                          file=f)
-                f.close()
+                write_bse_eigenvalues(filename, self.mode,
+                                      self.w_T * Hartree, C_T)
 
         return vchi_w
 
@@ -981,6 +979,14 @@ class BSE(BSEBackend):
             calc, txt, world=world, timer=None)
 
         super().__init__(gs=gs, context=context, **kwargs)
+
+
+def write_bse_eigenvalues(filename, mode, w_w, C_w):
+    with open(filename, 'w') as fd:
+        print('# %s eigenvalues in eV' % mode, file=fd)
+        for iw, (w, C) in enumerate(zip(w_w, C_w)):
+            print('%8d %12.6f %12.16f' % (iw, w.real, C.real),
+                  file=fd)
 
 
 def read_bse_eigenvalues(filename):
