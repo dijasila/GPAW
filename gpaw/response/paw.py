@@ -125,7 +125,7 @@ def get_pair_density_paw_corrections(setups, qpd, spos_ac):
     """Calculate and bundle paw corrections to the pair densities as a
     PWPAWCorrectionData object."""
     qG_Gv = qpd.get_reciprocal_vectors(add_q=True)
-    pos_av = spos_ac @ pd.gd.cell_cv
+    pos_av = spos_ac @ qpd.gd.cell_cv
 
     # Collect integrals for all species:
     Q_xGii = {}

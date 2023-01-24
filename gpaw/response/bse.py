@@ -372,7 +372,7 @@ class BSEBackend:
             self.kd, self.qd, kpt1, kpt2)
         symop.check_q_Q_symmetry(Q_c, q_c)
         qpd = self.qpd_q[iq]
-        nG = pd.ngmax
+        nG = qpd.ngmax
         pawcorr, I_G = symop.apply_symop_q(
             qpd, Q_c, self.pawcorr_q[iq], kpt1, kpt2)
 
