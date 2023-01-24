@@ -10,7 +10,7 @@ Git master branch
 
 :git:`master <>`.
 
-* Corresponding ASE release: ASE-3.23.0b1
+* Minimum version requirements: Python 3.7, ASE 3.23.0b1, NumPy 1.17.0, SciPy 1.6.0
 
 * A bug in the implementation of MGGA functionals was found: :issue:`674`.
   The kinetic-energy density was calculated from the irreducible part of
