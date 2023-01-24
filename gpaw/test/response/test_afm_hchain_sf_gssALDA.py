@@ -5,10 +5,12 @@ import pytest
 import numpy as np
 
 # Script modules
-from gpaw import GPAW
 from gpaw.mpi import world
 from gpaw.test import findpeak
+from ase.dft.kpoints import monkhorst_pack
+from ase import Atoms
 
+from gpaw import GPAW, PW
 from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKSCalculator
@@ -21,9 +23,7 @@ from gpaw.response.df import read_response_function
 @pytest.mark.response
 def test_response_afm_hchain_gssALDA(in_tmp_dir, gpw_files):
     # ---------- Inputs ---------- #
-    from ase.dft.kpoints import monkhorst_pack
-    from ase import Atoms
-    from gpaw import GPAW, PW
+
     a = 2.5
     hatom = Atoms('H',
                   cell=[a, 0, 0],
