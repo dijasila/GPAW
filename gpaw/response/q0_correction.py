@@ -29,7 +29,7 @@ class Q0Correction:
         npts_c += (npts_c + 1) % 2
         self.npts_c = npts_c
 
-    def add_q0_correction(self, pd, W_GG, einv_GG, chi0_xvG, chi0_vv, sqrtV_G):
+    def add_q0_correction(self, qpd, W_GG, einv_GG, chi0_xvG, chi0_vv, sqrtV_G):
         from ase.dft import monkhorst_pack
         qpts_qc = self.bzk_kc
         pi = np.pi
@@ -49,7 +49,7 @@ class Q0Correction:
         L_vv = A_vv
 
         # Get necessary G vectors.
-        G_Gv = pd.get_reciprocal_vectors()[1:]
+        G_Gv = qpd.get_reciprocal_vectors()[1:]
         G_Gv += np.array([1e-14, 1e-14, 0])
         G2_G = np.sum(G_Gv**2, axis=1)
         Gpar_G = np.sum(G_Gv[:, 0:2]**2, axis=1)**0.5

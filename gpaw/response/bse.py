@@ -339,7 +339,7 @@ class BSEBackend:
                         seconds=round(dt)), timedelta(seconds=round(tleft))))
 
         # if self.mode == 'BSE':
-        #     del self.Q_qaGii, self.W_qGG, self.pd_q
+        #     del self.Q_qaGii, self.W_qGG, self.qpd_q
 
         H_ksmnKsmn /= self.gs.volume
 

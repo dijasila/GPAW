@@ -120,27 +120,27 @@ class NewAdiabaticFXCCalculator:
         self.context = localft_calc.context
 
     @timer('Calculate XC kernel')
-    def __call__(self, fxc, spincomponent, pd):
+    def __call__(self, fxc, spincomponent, qpd):
         """Calculate the xc kernel matrix Kxc_GG' = 1 / V0 * fxc(G-G')."""
-        # Generate a large_pd to encompass all G-G' in pd
-        large_ecut = 4 * pd.ecut  # G = 1D grid of |G|^2/2 < ecut
-        large_pd = pd.copy_with(ecut=large_ecut, gd=self.gs.finegd)
+        # Generate a large_qpd to encompass all G-G' in qpd
+        large_ecut = 4 * qpd.ecut  # G = 1D grid of |G|^2/2 < ecut
+        large_qpd = qpd.copy_with(ecut=large_ecut, gd=self.gs.finegd)
         
         # Calculate fxc(Q) on the large plane-wave grid (Q = large grid index)
         add_fxc = create_add_fxc(fxc, spincomponent)
-        fxc_Q = self.localft_calc(large_pd, add_fxc)
+        fxc_Q = self.localft_calc(large_qpd, add_fxc)
 
         # Unfold the kernel according to Kxc_GG' = 1 / V0 * fxc(G-G')
-        Kxc_GG = 1 / pd.gd.volume * self.unfold_kernel_matrix(
-            pd, large_pd, fxc_Q)
+        Kxc_GG = 1 / qpd.gd.volume * self.unfold_kernel_matrix(
+            qpd, large_qpd, fxc_Q)
 
         return Kxc_GG
 
     @timer('Unfold kernel matrix')
-    def unfold_kernel_matrix(self, pd, large_pd, fxc_Q):
+    def unfold_kernel_matrix(self, qpd, large_qpd, fxc_Q):
         """Unfold the kernel fxc(Q) to the kernel matrix fxc_GG'=fxc(G-G')"""
         # Calculate (G-G') reciprocal space vectors
-        dG_GGv = calculate_dG(pd)
+        dG_GGv = calculate_dG(qpd)
         GG_shape = dG_GGv.shape[:2]
 
         # Reshape to composite K = (G, G') index
@@ -152,7 +152,7 @@ class NewAdiabaticFXCCalculator:
                                  return_inverse=True, axis=0)
 
         # Map fxc(Q) onto fxc(G-G') index dG
-        Q_dG = self.get_Q_dG_map(large_pd, dG_dGv)
+        Q_dG = self.get_Q_dG_map(large_qpd, dG_dGv)
         fxc_dG = fxc_Q[Q_dG]
 
         # Unfold fxc(G-G') to fxc_GG'
@@ -160,9 +160,9 @@ class NewAdiabaticFXCCalculator:
 
         return fxc_GG
 
-    def get_Q_dG_map(self, large_pd, dG_dGv):
-        """Create mapping between (G-G') index dG and large_pd index Q."""
-        G_Qv = large_pd.get_reciprocal_vectors(add_q=False)
+    def get_Q_dG_map(self, large_qpd, dG_dGv):
+        """Create mapping between (G-G') index dG and large_qpd index Q."""
+        G_Qv = large_qpd.get_reciprocal_vectors(add_q=False)
         # Make sure to match the precision of dG_dGv
         G_Qv = G_Qv.round(decimals=6)
 
@@ -183,7 +183,7 @@ class NewAdiabaticFXCCalculator:
         # lattice vectors
         assert np.allclose(np.diagonal(diff_QmydG[Q_mydG]), 0.),\
             'Could not find a perfect matching reciprocal wave vector in '\
-            'large_pd for all dG_dGv'
+            'large_qpd for all dG_dGv'
 
         # Collect the global Q_dG map
         Q_dG = dGblocks.collect(Q_mydG)
@@ -206,10 +206,10 @@ def create_add_fxc(fxc, spincomponent):
     return add_fxc
 
 
-def calculate_dG(pd):
-    """Calculate dG_GG' = (G-G') for the plane wave basis in pd."""
-    nG = pd.ngmax
-    G_Gv = pd.get_reciprocal_vectors(add_q=False)
+def calculate_dG(qpd):
+    """Calculate dG_GG' = (G-G') for the plane wave basis in qpd."""
+    nG = qpd.ngmax
+    G_Gv = qpd.get_reciprocal_vectors(add_q=False)
 
     dG_GGv = np.zeros((nG, nG, 3))
     for v in range(3):
@@ -259,28 +259,28 @@ class OldAdiabaticFXCCalculator:
             self.dfmask_g = None
 
     @timer('Calculate XC kernel')
-    def __call__(self, fxc, spincomponent, pd):
+    def __call__(self, fxc, spincomponent, qpd):
         """Calculate the fxc kernel."""
         self.set_up_calculation(fxc, spincomponent)
 
         self.context.print('Calculating fxc')
         # Get the spin density we need and allocate fxc
-        n_sG = self.get_density_on_grid(pd.gd)
+        n_sG = self.get_density_on_grid(qpd.gd)
         fxc_G = np.zeros(np.shape(n_sG[0]))
 
         self.context.print('    Calculating fxc on real space grid')
-        self._add_fxc(pd.gd, n_sG, fxc_G)
+        self._add_fxc(qpd.gd, n_sG, fxc_G)
 
         # Fourier transform to reciprocal space
-        Kxc_GG = self.ft_from_grid(fxc_G, pd)
+        Kxc_GG = self.ft_from_grid(fxc_G, qpd)
 
         if self.rshe:  # Do PAW correction to Fourier transformed kernel
-            KxcPAW_GG = self.calculate_kernel_paw_correction(pd)
+            KxcPAW_GG = self.calculate_kernel_paw_correction(qpd)
             Kxc_GG += KxcPAW_GG
 
         self.context.print('Finished calculating fxc\n')
 
-        return Kxc_GG / pd.gd.volume
+        return Kxc_GG / qpd.gd.volume
 
     def get_density_on_grid(self, gd):
         """Get the spin density on coarse real-space grid.
@@ -302,19 +302,19 @@ class OldAdiabaticFXCCalculator:
             return n_sG
 
     @timer('Fourier transform of kernel from real-space grid')
-    def ft_from_grid(self, fxc_G, pd):
+    def ft_from_grid(self, fxc_G, qpd):
         self.context.print('    Fourier transforming kernel from real-space')
-        nG = pd.gd.N_c
+        nG = qpd.gd.N_c
         nG0 = nG[0] * nG[1] * nG[2]
 
-        tmp_g = np.fft.fftn(fxc_G) * pd.gd.volume / nG0
+        tmp_g = np.fft.fftn(fxc_G) * qpd.gd.volume / nG0
 
         # The unfolding procedure could use vectorization and parallelization.
         # This remains a slow step for now.
-        Kxc_GG = np.zeros((pd.ngmax, pd.ngmax), dtype=complex)
-        for iG, iQ in enumerate(pd.Q_qG[0]):
+        Kxc_GG = np.zeros((qpd.ngmax, qpd.ngmax), dtype=complex)
+        for iG, iQ in enumerate(qpd.Q_qG[0]):
             iQ_c = (np.unravel_index(iQ, nG) + nG // 2) % nG - nG // 2
-            for jG, jQ in enumerate(pd.Q_qG[0]):
+            for jG, jQ in enumerate(qpd.Q_qG[0]):
                 jQ_c = (np.unravel_index(jQ, nG) + nG // 2) % nG - nG // 2
                 ijQ_c = (iQ_c - jQ_c)
                 if (abs(ijQ_c) < nG // 2).all():
@@ -323,11 +323,11 @@ class OldAdiabaticFXCCalculator:
         return Kxc_GG
 
     @timer('Calculate PAW corrections to kernel')
-    def calculate_kernel_paw_correction(self, pd):
+    def calculate_kernel_paw_correction(self, qpd):
         self.context.print("    Calculating PAW corrections to the kernel\n")
 
         # Calculate (G-G') reciprocal space vectors
-        dG_GGv = self._calculate_dG(pd)
+        dG_GGv = self._calculate_dG(qpd)
 
         # Reshape to composite K = (G, G') index
         dG_Kv = dG_GGv.reshape(-1, dG_GGv.shape[-1])
@@ -385,11 +385,11 @@ class OldAdiabaticFXCCalculator:
 
         return KxcPAW_GG
 
-    def _calculate_dG(self, pd):
+    def _calculate_dG(self, qpd):
         """Calculate (G-G') reciprocal space vectors"""
         world = self.context.world
-        npw = pd.ngmax
-        G_Gv = pd.get_reciprocal_vectors(add_q=False)
+        npw = qpd.ngmax
+        G_Gv = qpd.get_reciprocal_vectors(add_q=False)
 
         # Distribute dG to calculate
         nGpr = (npw + world.size - 1) // world.size
