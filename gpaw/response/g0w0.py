@@ -230,17 +230,17 @@ class QSymmetryOp:
         symop = QSymmetryOp(sym, U_cc, sign)
         return symop, iQ, Q_c, iq, q_c
 
-    def apply_symop_q(self, pd0, q_c, pawcorr, kpt1, kpt2, debug=False):
+    def apply_symop_q(self, pd, q_c, pawcorr, kpt1, kpt2, debug=False):
         # returns necessary quantities to get symmetry transformed
         # density matrix
-        N_c = pd0.gd.N_c
-        i_cG = self.apply(np.unravel_index(pd0.Q_qG[0], N_c))
-        shift0_c = self.get_shift0(q_c, pd0.kd.bzk_kc[0])
+        N_c = pd.gd.N_c
+        i_cG = self.apply(np.unravel_index(pd.Q_qG[0], N_c))
+        shift0_c = self.get_shift0(q_c, pd.q_c)
         shift_c = kpt1.shift_c - kpt2.shift_c - shift0_c
         I_G = np.ravel_multi_index(i_cG + shift_c[:, None], N_c, 'wrap')
-        G_Gv = pd0.get_reciprocal_vectors()
-        M_vv = self.get_M_vv(pd0.gd.cell_cv)
-        mypawcorr = pawcorr.remap_by_symop(self, G_Gv, M_vv)
+        qG_Gv = pd.get_reciprocal_vectors(add_q=True)
+        M_vv = self.get_M_vv(pd.gd.cell_cv)
+        mypawcorr = pawcorr.remap_by_symop(self, qG_Gv, M_vv)
         # XXX Can be removed together with G0W0 debug routine in future
         if debug:
             self.debug_i_cG = i_cG
@@ -944,7 +944,6 @@ class G0W0(G0W0Calculator):
                  xc='RPA',
                  ppa=False,
                  E0=Ha,
-                 Eg=None,
                  eta=0.1,
                  nbands=None,
                  bands=None,
@@ -1016,9 +1015,6 @@ class G0W0(G0W0Calculator):
             When carrying out a calculation including vertex corrections, it
             is possible to get the standard GW results at the same time
             (almost for free).
-        Eg: float
-            Gap to apply in the 'JGMs' (simplified jellium-with-gap) kernel.
-            If None the DFT gap is used.
         truncation: str
             Coulomb truncation scheme. Can be either wigner-seitz,
             2D, 1D, or 0D
@@ -1098,7 +1094,7 @@ class G0W0(G0W0Calculator):
         coulomb = CoulombKernel(truncation, gs)
         wcalc = initialize_w_calculator(chi0calc, wcontext,
                                         ppa=ppa,
-                                        xc=xc, Eg=Eg,
+                                        xc=xc,
                                         E0=E0, coulomb=coulomb,
                                         integrate_gamma=integrate_gamma,
                                         q0_correction=q0_correction)
