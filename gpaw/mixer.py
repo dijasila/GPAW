@@ -84,7 +84,7 @@ class BaseMixer:
                                       (-1, 1, -1), (-1, -1, -1)],
                                      gd, float).apply
             self.mR_G = gd.empty()
-            self.mR_sG = [gd.empty(), gd.empty(), gd.empty(), gd.empty()]
+            self.mR_sG = gd.empty(4)
 
     def reset(self):
         """Reset Density-history.
@@ -105,7 +105,7 @@ class BaseMixer:
     def calculate_charge_sloshing(self, R_G):
         return self.gd.integrate(np.fabs(R_G))
 
-    def mix_single_density(self, nt_G, D_ap, blas=True):
+    def mix_single_density(self, nt_G, D_ap):
         iold = len(self.nt_iG)
 
         dNt = np.inf
@@ -168,20 +168,12 @@ class BaseMixer:
                 D[:] = 0.0
             beta = self.beta
             for i, alpha in enumerate(alpha_i):
-                if blas:
-                    axpy(alpha, self.nt_iG[i], nt_G)
-                    axpy(alpha * beta, self.R_iG[i], nt_G)
-                else:
-                    nt_G[:] = alpha * self.nt_iG[i] + nt_G
-                    nt_G[:] = alpha * beta * self.R_iG[i] + nt_G
+                axpy(alpha, self.nt_iG[i], nt_G)
+                axpy(alpha * beta, self.R_iG[i], nt_G)
                 for D_p, D_ip, dD_ip in zip(D_ap, self.D_iap[i],
                                             self.dD_iap[i]):
-                    if blas:
-                        axpy(alpha, D_ip, D_p)
-                        axpy(alpha * beta, dD_ip, D_p)
-                    else:
-                        D_p[:] = alpha * D_ip + D_p
-                        D_p[:] = alpha * beta * dD_ip + D_p
+                    axpy(alpha, D_ip, D_p)
+                    axpy(alpha * beta, dD_ip, D_p)
 
         # Store new input density (and new atomic density matrices):
         self.nt_iG.append(nt_G.copy())
@@ -190,7 +182,7 @@ class BaseMixer:
             self.D_iap[-1].append(D_p.copy())
         return dNt
 
-    def mix_density(self, nt_sG, D_asp, g_ss=None, blas=True):
+    def mix_density(self, nt_sG, D_asp, g_ss=None):
         nt_isG = self.nt_iG
         R_isG = self.R_iG
         D_iasp = self.D_iap
@@ -230,7 +222,7 @@ class BaseMixer:
             # Update matrix:
             A_ii = np.zeros((iold, iold))
             i2 = iold - 1
-            
+
             for i1, R_1sG in enumerate(R_isG):
                 a = self.gd.comm.sum(self.dotprod(R_1sG, mR_sG, dD_iasp[i1],
                                                   dD_iasp[-1]))
@@ -260,22 +252,14 @@ class BaseMixer:
                 D[:] = 0.0
             beta = self.beta
             for i, alpha in enumerate(alpha_i):
-                if blas:
-                    axpy(alpha, nt_isG[i], nt_sG)
-                    axpy(alpha * beta, R_isG[i], nt_sG)
-                else:
-                    nt_sG[:] += alpha * nt_isG[i]
-                    nt_sG[:] += alpha * beta * R_isG[i]
+                axpy(alpha, nt_isG[i], nt_sG)
+                axpy(alpha * beta, R_isG[i], nt_sG)
 
                 for D_sp, D_isp, dD_isp in zip(D_asp, D_iasp[i],
                                                dD_iasp[i]):
-                    if blas:
-                        axpy(alpha, D_isp, D_sp)
-                        axpy(alpha * beta, dD_isp, D_sp)
-                    else:
-                        D_sp[:] += alpha * D_isp
-                        D_sp[:] += alpha * beta * dD_isp
- 
+                    axpy(alpha, D_isp, D_sp)
+                    axpy(alpha * beta, dD_isp, D_sp)
+
         # Store new input density (and new atomic density matrices):
         nt_isG.append(nt_sG.copy())
         D_iasp.append([])
@@ -723,7 +707,7 @@ class SpinFulMixerDriver:
     def get_basemixers(self, nspins):
         if nspins == 1:
             raise ValueError('Spinful mixer expects 2 or 4 spin channels')
-            
+
         basemixer = self.basemixerclass(self.beta, self.nmaxold, self.weight)
         return [basemixer]
 
@@ -733,7 +717,7 @@ class SpinFulMixerDriver:
         if self.g is None:
             self.g = np.identity(len(nt_sG))
 
-        dNt = basemixer.mix_density(nt_sG, D_asp, self.g, blas=False)
+        dNt = basemixer.mix_density(nt_sG, D_asp, self.g)
 
         return np.sum(dNt)
 
