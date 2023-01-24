@@ -41,7 +41,6 @@ class FXCCorrelation:
                  density_cut=1.e-6,
                  unit_cells=None,
                  tag=None,
-                 range_rc=1.0,
                  avg_scheme=None,
                  *,
                  ecut,
@@ -74,7 +73,6 @@ class FXCCorrelation:
         if unit_cells is None:
             unit_cells = self.gs.kd.N_c
         self.unit_cells = unit_cells
-        self.range_rc = range_rc  # Range separation parameter in Bohr
 
         self.xcflags = XCFlags(self.xc)
         self.avg_scheme = self.xcflags.choose_avg_scheme(avg_scheme)
