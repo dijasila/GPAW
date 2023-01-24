@@ -102,8 +102,8 @@ class FXCCorrelation:
 
     @timer('FXC')
     def calculate(self, *, nbands=None):
-        if self.xc not in ('RPA', 'range_RPA'):
-            # kernel not required for RPA/range_sep RPA
+        if self.xc != 'RPA':
+            # kernel not required for RPA
 
             # Find the first q vector to calculate kernel for
             # (density averaging scheme always calculates all q points anyway)
@@ -145,14 +145,6 @@ class FXCCorrelation:
             else:
                 self.context.print('%s kernel already calculated\n' %
                                    self.xc)
-
-        if self.xc in ('range_RPA', 'range_rALDA'):
-
-            shortrange = range_separated(self.gs, self.context, self.omega_w,
-                                         self.weight_w, self.l_l,
-                                         self.weight_l, self.range_rc, self.xc)
-
-            self.shortrange = shortrange.calculate()
 
         if self.gs.nspins == 1:
             spin = False
@@ -335,7 +327,7 @@ class FXCCorrelation:
 
             # What are the rules for whether we should do the
             # cut_G slicing?
-            apply_cut_G = self.xc not in {'RPA', 'range_RPA'}
+            apply_cut_G = self.xc != 'RPA'
 
             def read(arrayname):
                 key = (self.tag, self.xc, self.ecut_max, qi)
@@ -344,13 +336,6 @@ class FXCCorrelation:
 
             if self.xc == 'RPA':
                 fv_GG = np.eye(nG)
-
-            elif self.xc == 'range_RPA':
-                fv_diag_G = np.exp(-0.25 * (G_G * self.range_rc)**2.0)
-                # Unfortunately here we have a radically different shape,
-                # so we'll struggle to handle the arrays similarly.
-                # All other cases have fv_GG
-
             else:
                 fv_GG = read('fhxc_sGsG')
 
@@ -372,11 +357,7 @@ class FXCCorrelation:
                 # Do this analytically, except for the RPA
                 # simply since the analytical method is already
                 # implemented in rpa.py
-                if self.xc == 'range_RPA':
-                    # way faster than np.dot for diagonal kernels
-                    chi0v_fv = chi0v * fv_diag_G
-                    e_GG = np.eye(nG) - chi0v_fv
-                elif self.xc != 'RPA':
+                if self.xc != 'RPA':
                     chi0v_fv = np.dot(chi0v, fv_GG)
                     e_GG = np.eye(nG) - chi0v_fv
 
@@ -400,7 +381,7 @@ class FXCCorrelation:
 
                 # Numerical integration for short-range part
                 eshort = 0.0
-                if self.xc not in ('RPA', 'range_RPA', 'range_rALDA'):
+                if self.xc != 'RPA':
                     # Subtract Hartree contribution:
                     fxcv = fv_GG - np.eye(nG)
 
@@ -412,10 +393,6 @@ class FXCCorrelation:
                                    weight)
 
                     eshort -= np.trace(np.dot(chi0v, fxcv)).real
-
-                elif self.xcflags.is_ranged:
-                    eshort = (2 * np.pi * self.shortrange /
-                              np.sum(self.weight_w))
 
                 e = eshort + elong
                 e_w.append(e)
@@ -555,8 +532,7 @@ class KernelWave:
                     # Phase factor \vec{G}-\vec{G'}
                     deltaGv = Gv - Gv_G[iG:]
 
-                    if self.xc in ('rALDA', 'range_rALDA'):
-
+                    if self.xc == 'rALDA':
                         # rALDA trick: the Hartree-XC kernel is exactly
                         # zero for densities below rho_min =
                         # min_Gpq^3/(24*pi^2),
@@ -566,9 +542,7 @@ class KernelWave:
                         min_Gpq = np.amin(mod_Gpq)
                         rho_min = min_Gpq**3.0 / (24.0 * np.pi**2.0)
                         small_ind = np.where(self.n_g >= rho_min)
-
                     elif self.xcflags.is_apbe:
-
                         # rAPBE trick: the Hartree-XC kernel
                         # is exactly zero at grid points where
                         # min_Gpq > cutoff wavevector
@@ -577,9 +551,7 @@ class KernelWave:
                         small_ind = np.where(min_Gpq <= np.sqrt(
                             -4.0 * np.pi /
                             get_pbe_fxc(self.n_g, self.s2_g)))
-
                     else:
-
                         small_ind = np.arange(self.gridsize)
 
                     phase_Gpq = np.exp(
@@ -1222,11 +1194,9 @@ class KernelDens:
 class XCFlags:
     _accepted_flags = {
         'RPA',
-        'range_RPA',  # range separated RPA a la Bruneval
-        'rALDA',  # renormalized kernels
+        'rALDA',
         'rAPBE',
-        'range_rALDA',
-        'ALDA'}  # standard ALDA
+        'ALDA'}
 
     _spin_kernels = {'rALDA', 'rAPBE', 'ALDA'}
 
@@ -1240,10 +1210,6 @@ class XCFlags:
     def spin_kernel(self):
         # rALDA/rAPBE are the only kernels which have spin-dependent forms
         return self.xc in self._spin_kernels
-
-    @property
-    def is_ranged(self):
-        return self.xc in {'range_RPA', 'range_rALDA'}
 
     @property
     def is_apbe(self):
