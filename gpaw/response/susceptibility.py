@@ -302,7 +302,7 @@ def get_pw_coordinates(qpd):
 
 
 def get_inverted_pw_mapping(qpd1, qpd2):
-    """Get the plane wave coefficients mapping GG' of qpd1 into -G-G' of qpd2"""
+    """Get the planewave coefficients mapping GG' of qpd1 into -G-G' of qpd2"""
     G1_Gc = get_pw_coordinates(qpd1)
     G2_Gc = get_pw_coordinates(qpd2)
 

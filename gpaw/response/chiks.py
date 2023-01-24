@@ -27,7 +27,8 @@ class ChiKS(LatticePeriodicPairFunction):
         """Return construction arguments of the ChiKS object."""
         if spincomponent is None:
             spincomponent = self.spincomponent
-        qpd, zd, blockdist = super().my_args(qpd=qpd, zd=zd, blockdist=blockdist)
+        qpd, zd, blockdist = super().my_args(qpd=qpd, zd=zd,
+                                             blockdist=blockdist)
 
         return spincomponent, qpd, zd, blockdist
 
@@ -215,7 +216,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
             ecut = self.ecut
 
         qpd = SingleQPWDescriptor.from_q(q_c, ecut, gd,
-                                        gammacentered=gammacentered)
+                                         gammacentered=gammacentered)
 
         return qpd
 

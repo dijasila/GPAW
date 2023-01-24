@@ -5,6 +5,7 @@ import numpy as np
 from ase.dft import monkhorst_pack
 from gpaw.response.pair_functions import SingleQPWDescriptor
 
+
 class CoulombKernel:
     def __init__(self, truncation, gs):
         from gpaw.response.wstc import WignerSeitzTruncatedCoulomb

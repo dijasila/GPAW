@@ -170,7 +170,8 @@ class WCalculator:
 
         if self.integrate_gamma != 0:
             reduced = (self.integrate_gamma == 2)
-            V0, sqrtV0 = self.coulomb.integrated_kernel(qpd=qpd, reduced=reduced)
+            V0, sqrtV0 = self.coulomb.integrated_kernel(qpd=qpd,
+                                                        reduced=reduced)
         elif self.integrate_gamma == 0 and np.allclose(q_c, 0):
             bzvol = (2 * np.pi)**3 / self.gs.volume / self.qd.nbzkpts
             Rq0 = (3 * bzvol / (4 * np.pi))**(1. / 3.)

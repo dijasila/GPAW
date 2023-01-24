@@ -6,7 +6,6 @@ from scipy.optimize import leastsq
 from ase.units import Ha
 import gpaw.mpi as mpi
 from gpaw.response.pair_functions import SingleQPWDescriptor
-from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.pair import PairDensityCalculator, get_gs_and_context
 
 

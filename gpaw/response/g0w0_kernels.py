@@ -62,7 +62,7 @@ def calculate_kernel(*, ecut, xcflags, gs, qd, ns, qpd, context):
     if qpd.ecut < ecut:
         # Recreate nonreduced plane-wave description corresponding to ecut_max
         qpdnr = SingleQPWDescriptor.from_q(qpd.q_c, ecut, qpd.gd,
-                                          gammacentered=qpd.gammacentered)
+                                           gammacentered=qpd.gammacentered)
         pw_map = PWMapping(qpd, qpdnr)
         G2_G1 = pw_map.G2_G1
     else:

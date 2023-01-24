@@ -5,7 +5,6 @@ from scipy.spatial import Delaunay, cKDTree
 
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.bztools import get_reduced_bz, unique_rows
-from gpaw.response.pair_functions import SingleQPWDescriptor
 from _gpaw import GG_shuffle
 
 from gpaw.response import timer
@@ -169,7 +168,6 @@ class PWSymmetryAnalyzer:
         qpd = self.qpd
 
         # Shortcuts
-        #q_c = qpd.kd.bzk_kc[0]
         q_c = qpd.q_c
         kd = self.kd
 

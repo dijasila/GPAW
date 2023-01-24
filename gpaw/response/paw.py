@@ -59,7 +59,6 @@ def two_phi_planewave_integrals(k_Gv, *, setup):
     return phi_Gii.reshape(npw, ni * ni)
 
 
-
 class PWPAWCorrectionData:
     def __init__(self, Q_aGii, qpd, setups, pos_av):
         # Sometimes we loop over these in ways that are very dangerous.

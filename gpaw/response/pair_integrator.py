@@ -215,7 +215,7 @@ class PairFunctionIntegrator(ABC):
         gd = self.gs.gd
 
         qpd = SingleQPWDescriptor.from_q(q_c, ecut, gd,
-                                        gammacentered=gammacentered)
+                                         gammacentered=gammacentered)
 
         return qpd
 

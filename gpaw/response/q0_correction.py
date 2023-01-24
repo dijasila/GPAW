@@ -29,7 +29,8 @@ class Q0Correction:
         npts_c += (npts_c + 1) % 2
         self.npts_c = npts_c
 
-    def add_q0_correction(self, qpd, W_GG, einv_GG, chi0_xvG, chi0_vv, sqrtV_G):
+    def add_q0_correction(self, qpd, W_GG, einv_GG,
+                          chi0_xvG, chi0_vv, sqrtV_G):
         from ase.dft import monkhorst_pack
         qpts_qc = self.bzk_kc
         pi = np.pi

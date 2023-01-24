@@ -12,9 +12,7 @@ from ase.units import Ha
 from gpaw import GPAW, debug
 import gpaw.mpi as mpi
 from gpaw.hybrids.eigenvalues import non_self_consistent_eigenvalues
-from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.pw.descriptor import (PWDescriptor, count_reciprocal_vectors,
-                                PWMapping)
+from gpaw.pw.descriptor import (count_reciprocal_vectors, PWMapping)
 from gpaw.utilities.progressbar import ProgressBar
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
@@ -658,7 +656,8 @@ class G0W0Calculator:
 
     def check(self, ie, i_cG, shift0_c, N_c, q_c, pawcorr):
         I0_G = np.ravel_multi_index(i_cG - shift0_c[:, None], N_c, 'wrap')
-        qpd = SingleQPWDescriptor.from_q(q_c, self.ecut_e[ie], self.wcalc.gs.gd)
+        qpd = SingleQPWDescriptor.from_q(q_c, self.ecut_e[ie],
+                                         self.wcalc.gs.gd)
         G_I = np.empty(N_c.prod(), int)
         G_I[:] = -1
         I1_G = qpd.Q_qG[0]

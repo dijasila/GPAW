@@ -8,7 +8,6 @@ from ase.dft import monkhorst_pack
 from scipy.linalg import eigh
 
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.pw.descriptor import PWDescriptor
 from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.mpi import world, serial_comm, broadcast
 from gpaw.response import ResponseContext
