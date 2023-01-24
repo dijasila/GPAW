@@ -555,7 +555,7 @@ class KernelWave:
                     # Phase factor \vec{G}-\vec{G'}
                     deltaGv = Gv - Gv_G[iG:]
 
-                    if (self.xc in ('rALDA', 'range_rALDA', 'rALDAns')):
+                    if (self.xc in ('rALDA', 'range_rALDA')):
 
                         # rALDA trick: the Hartree-XC kernel is exactly
                         # zero for densities below rho_min =
@@ -1226,8 +1226,6 @@ class XCFlags:
         'rALDA',  # renormalized kernels
         'rAPBE',
         'range_rALDA',
-        'rALDAns',  # no spin (ns)
-        'rAPBEns',
         'ALDA'}  # standard ALDA
 
     _spin_kernels = {'rALDA', 'rAPBE', 'ALDA'}
@@ -1251,7 +1249,7 @@ class XCFlags:
     def is_apbe(self):
         # If new GGA kernels are added, maybe there should be an
         # is_gga property.
-        return self.xc in {'rAPBE', 'rAPBEns'}
+        return self.xc in {'rAPBE'}
 
     def choose_avg_scheme(self, avg_scheme=None):
         xc = self.xc
