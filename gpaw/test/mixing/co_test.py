@@ -1,0 +1,21 @@
+import pytest
+from ase.build import bulk
+from gpaw import GPAW
+from gpaw.mixer import MixerFul
+
+
+def test_co_new_mixing():
+    atoms = bulk('Co', crystalstructure='fcc', a=2.51 * 2**0.5)
+    atoms.set_initial_magnetic_moments([2])
+    kpts = (3, 3, 3)
+    atoms.calc = GPAW(mode='pw',
+                      kpts=kpts,
+                      mixer=MixerFul())
+    e1 = atoms.get_potential_energy()
+    atoms.calc = GPAW(mode='pw',
+                      kpts=kpts,
+                      symmetry='off',
+                      experimental=dict(magmoms=[[1, -1, 1]]),
+                      mixer=MixerFul())
+    e2 = atoms.get_potential_energy()
+    assert e1 == pytest.approx(e2, abs=0.002)
