@@ -4,6 +4,7 @@
 import pytest
 from gpaw.response.g0w0 import G0W0
 
+
 @pytest.mark.slow
 @pytest.mark.response
 def test_gw_spinpol(in_tmp_dir, gpw_files):
@@ -23,4 +24,3 @@ def test_gw_spinpol(in_tmp_dir, gpw_files):
     qp_sn = result['qp'][:, 0]
     qp_gap_s = qp_sn[:, 1] - qp_sn[:, 0]
     assert abs(qp_gap_s - 10.3752).max() < 0.01
-

@@ -221,13 +221,13 @@ class GPWFiles:
         conv = {'bands': nbands}
 
         calc = GPAW(xc='LDA',
-                txt=self.path / 'h2_afm.txt',
-                mode=PW(250),
-                kpts=monkhorst_pack((12, 1, 1)),
-                nbands=nbands + ebands,
-                convergence=conv,
-                symmetry={'point_group': True},
-                parallel={'domain': 1})
+                    txt=self.path / 'h2_afm.txt',
+                    mode=PW(250),
+                    kpts=monkhorst_pack((12, 1, 1)),
+                    nbands=nbands + ebands,
+                    convergence=conv,
+                    symmetry={'point_group': True},
+                    parallel={'domain': 1})
 
         atoms.calc = calc
         atoms.get_potential_energy()
