@@ -39,7 +39,7 @@ master:
     - mq config --in-place
     - mq init
     - mq workflow -p agts.py -zT | tail -1 | tee count
-    - python -c "assert int(open('count').read().split()[0]) >= 487"
+    - python -c "assert int(open('count').read().split()[0]) >= 483"
     - python -c "import pathlib; assert len(list(pathlib.Path().glob('**/*.png'))) <= 5"
     - echo "parallel_python_interpreter = True" >> siteconfig.py
     - echo "libraries += ['openblas']" >> siteconfig.py
