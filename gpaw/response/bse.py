@@ -526,7 +526,7 @@ class BSEBackend:
         return
 
     def get_bse_matrix(self, q_c=[0.0, 0.0, 0.0], direction=0,
-                       readfile=None, optical=True, write_eig=None):
+                       readfile=None, optical=True):
         """Calculate and diagonalize BSE matrix"""
 
         self.q_c = q_c
@@ -547,8 +547,6 @@ class BSEBackend:
         else:
             raise ValueError('%s array not recognized' % readfile)
 
-        # TODO: Move write_eig here
-
         return
 
     def get_vchi(self, w_w=None, eta=0.1, q_c=[0.0, 0.0, 0.0],
@@ -557,8 +555,7 @@ class BSEBackend:
         """Returns v * chi where v is the bare Coulomb interaction"""
 
         self.get_bse_matrix(q_c=q_c, direction=direction,
-                            readfile=readfile, optical=optical,
-                            write_eig=write_eig)
+                            readfile=readfile, optical=optical)
 
         w_T = self.w_T
         rhoG0_S = self.rhoG0_S
