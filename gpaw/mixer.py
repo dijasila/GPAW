@@ -156,7 +156,11 @@ class BaseMixer:
 
             B_ii = np.linalg.pinv(A_ii)
             alpha_i = B_ii.sum(1)
-            alpha_i /= alpha_i.sum()
+            try:
+                alpha_i /= alpha_i.sum()
+            except FloatingPointError:
+                alpha_i[:] = 0.0
+                alpha_i[-1] = 1.0
 
             # Calculate new input density:
             nt_sG[:] = 0.0
@@ -252,13 +256,15 @@ class FFTBaseMixer(BaseMixer):
 
     def mix_density(self, nt_sG, D_asp):
         # Transform real-space density to Fourier space
+        nt_G, = nt_sG
         nt1_G = self.gd.collect(nt_G)
         if self.gd.comm.rank == 0:
             nt_Q = np.ascontiguousarray(fftn(nt1_G))
         else:
             nt_Q = np.empty((0, 0, 0), dtype=complex)
 
-        dNt = BaseMixer.mix_single_density(self, nt_Q, D_ap)
+        dNt = BaseMixer.mix_density(self, nt_Q,
+                                    [D_1p[0] for D_1p in D_asp])
 
         # Return density in real space
         if self.gd.comm.rank == 0:
@@ -295,10 +301,10 @@ class BroydenBaseMixer:
         self.u_G = []
         self.u_D = []
 
-    def mix_single_density(self, nt_G, D_ap):
+    def mix_density(self, nt_sG, D_asp):
         dNt = np.inf
         if self.step > 2:
-            del self.R_iG[0]
+            del self.R_isG[0]
             for d_Dp in self.dD_iap:
                 del d_Dp[0]
         if self.step > 0:
@@ -418,19 +424,19 @@ class NotMixingMixer:
         # Previous density:
         self.nt_iG = []  # Pseudo-electron densities
 
-    def calculate_charge_sloshing(self, R_G):
-        return self.gd.integrate(np.fabs(R_G))
+    def calculate_charge_sloshing(self, R_sG):
+        return self.gd.integrate(np.fabs(R_sG)).sum()
 
-    def mix_single_density(self, nt_G, D_ap):
-        iold = len(self.nt_iG)
+    def mix_density(self, nt_sG, D_asp):
+        iold = len(self.nt_isG)
 
         dNt = np.inf
         if iold > 0:
             # Calculate new residual (difference between input and
             # output density):
-            dNt = self.calculate_charge_sloshing(nt_G - self.nt_iG[-1])
+            dNt = self.calculate_charge_sloshing(nt_sG - self.nt_isG[-1])
         # Store new input density:
-        self.nt_iG = [nt_G.copy()]
+        self.nt_isG = [nt_sG.copy()]
 
         return dNt
 
@@ -497,23 +503,23 @@ class SpinSumMixerDriver:
 
         # Mix density
         if collinear:
-            nt_G = nt_sG.sum(0)
+            nt_1G = nt_sG.sum(0)[np.newaxis]
         else:
-            nt_G = nt_sG[0]
+            nt_1G = nt_sG[:1]
 
         if self.mix_atomic_density_matrices:
             if collinear:
-                D_ap = [D_sp[0] + D_sp[1] for D_sp in D_asp]
+                D_a1p = [D_sp[:1] + D_sp[1:] for D_sp in D_asp]
             else:
-                D_ap = [D_sp[0] for D_sp in D_asp]
-            dNt = basemixer.mix_single_density(nt_G, D_ap)
+                D_a1p = [D_sp[:1] for D_sp in D_asp]
+            dNt = basemixer.mix_density(nt_1G, D_a1p)
             if collinear:
                 dD_ap = [D_sp[0] - D_sp[1] for D_sp in D_asp]
-                for D_sp, D_p, dD_p in zip(D_asp, D_ap, dD_ap):
-                    D_sp[0] = 0.5 * (D_p + dD_p)
-                    D_sp[1] = 0.5 * (D_p - dD_p)
+                for D_sp, D_1p, dD_p in zip(D_asp, D_a1p, dD_ap):
+                    D_sp[0] = 0.5 * (D_1p[0] + dD_p)
+                    D_sp[1] = 0.5 * (D_1p[0] - dD_p)
         else:
-            dNt = basemixer.mix_single_density(nt_G, D_asp)
+            dNt = basemixer.mix_density(nt_1G, D_asp)
 
         if collinear:
             dnt_G = nt_sG[0] - nt_sG[1]
@@ -521,8 +527,8 @@ class SpinSumMixerDriver:
             # dD_ap = [D_sp[0] - D_sp[1] for D_sp in D_asp]
 
             # Construct new spin up/down densities
-            nt_sG[0] = 0.5 * (nt_G + dnt_G)
-            nt_sG[1] = 0.5 * (nt_G - dnt_G)
+            nt_sG[0] = 0.5 * (nt_1G[0] + dnt_G)
+            nt_sG[1] = 0.5 * (nt_1G[0] - dnt_G)
 
         return dNt
 
