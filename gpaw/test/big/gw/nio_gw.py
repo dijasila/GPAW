@@ -8,7 +8,7 @@ gw = G0W0('nio.gpw',
           truncation='wigner-seitz',
           kpts=[(0, 0, 0)],
           relbands=(-1, 1),
-          nblocks=4)
+          nblocks=6)
 result = gw.calculate()
 
 # Make sure gaps in both spin-channels are the same:
