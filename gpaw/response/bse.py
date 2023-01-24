@@ -981,3 +981,8 @@ class BSE(BSEBackend):
             calc, txt, world=world, timer=None)
 
         super().__init__(gs=gs, context=context, **kwargs)
+
+
+def read_bse_eigenvalues(filename):
+    _, w_w, C_w = np.loadtxt(filename, unpack=True)
+    return w_w, C_w
