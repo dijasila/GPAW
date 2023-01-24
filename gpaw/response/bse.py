@@ -700,10 +700,7 @@ class BSEBackend:
                                 write_eig=write_eig).imag
 
         if world.rank == 0 and filename is not None:
-            f = open(filename, 'w')
-            for iw, w in enumerate(w_w):
-                print('%.9f, %.9f' % (w, eels_w[iw]), file=f)
-            f.close()
+            write_spectrum(filename, w_w, eels_w)
         world.barrier()
 
         self.context.print('Calculation completed at:', ctime(), flush=False)
@@ -992,6 +989,12 @@ def write_bse_eigenvalues(filename, mode, w_w, C_w):
 def read_bse_eigenvalues(filename):
     _, w_w, C_w = np.loadtxt(filename, unpack=True)
     return w_w, C_w
+
+
+def write_spectrum(filename, w_w, A_w):
+    with open(filename, 'w') as fd:
+        for w, A in zip(w_w, A_w):
+            print('%.9f, %.9f' % (w, A), file=fd)
 
 
 def read_spectrum(filename):
