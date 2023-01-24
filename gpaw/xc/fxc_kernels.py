@@ -3,7 +3,7 @@ import numpy as np
 
 def get_fHxc_Gr(xcflags, rs, q, qF, s2_g):
     xc = xcflags.xc
-    if xc in ('rALDA', 'rALDAns', 'range_rALDA'):
+    if xc in ('rALDA', 'range_rALDA'):
         return fHxc_ralda(q, qF)
 
     elif xcflags.is_apbe:
