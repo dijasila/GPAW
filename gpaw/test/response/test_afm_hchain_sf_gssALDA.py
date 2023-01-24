@@ -5,12 +5,12 @@ import pytest
 import numpy as np
 
 # Script modules
+from ase import Atoms
+from ase.dft.kpoints import monkhorst_pack
+
+from gpaw import PW, GPAW
 from gpaw.mpi import world
 from gpaw.test import findpeak
-from ase.dft.kpoints import monkhorst_pack
-from ase import Atoms
-
-from gpaw import GPAW, PW
 from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKSCalculator
@@ -21,9 +21,11 @@ from gpaw.response.df import read_response_function
 
 @pytest.mark.kspair
 @pytest.mark.response
-def test_response_afm_hchain_gssALDA(in_tmp_dir, gpw_files):
+def test_response_afm_hchain_gssALDA(in_tmp_dir):
     # ---------- Inputs ---------- #
 
+    # Part 1: Ground state calculation
+    # Define atomic structure
     a = 2.5
     hatom = Atoms('H',
                   cell=[a, 0, 0],
@@ -36,6 +38,7 @@ def test_response_afm_hchain_gssALDA(in_tmp_dir, gpw_files):
     ebands = 2 * 1  # Include also 2s bands for numerical consistency
     conv = {'bands': nbands}
 
+    # Part 2: Magnetic response calculation
     # gs must be here. ChiKSCalc requires world to match the GS
     calc = GPAW(xc='LDA',
                 txt='h2_afm.txt',
@@ -50,7 +53,7 @@ def test_response_afm_hchain_gssALDA(in_tmp_dir, gpw_files):
     atoms.get_potential_energy()
     calc = atoms.calc
 
-    # Magnetic response calculation
+    # # Step 2: Magnetic response calculation
     q_qc = [[0., 0., 0.],
             [1. / 6., 0., 0.],
             [1. / 3., 0., 0.]]

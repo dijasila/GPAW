@@ -192,7 +192,6 @@ class GPWFiles:
 
     def h2_cry(self):
         a = 2.75
-        from ase.build.bulk import bulk
         atoms = bulk(name='H', crystalstructure='bcc', a=a, cubic=True)
         atoms.set_initial_magnetic_moments([1., -1.])
 
