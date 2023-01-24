@@ -555,7 +555,7 @@ class KernelWave:
                     # Phase factor \vec{G}-\vec{G'}
                     deltaGv = Gv - Gv_G[iG:]
 
-                    if (self.xc in ('rALDA', 'range_rALDA')):
+                    if self.xc in ('rALDA', 'range_rALDA'):
 
                         # rALDA trick: the Hartree-XC kernel is exactly
                         # zero for densities below rho_min =
