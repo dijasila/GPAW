@@ -5,6 +5,7 @@ variables:
 
 default:
   before_script:
+    - mkdir -p `python -m site --user-site`
     - export PATH=$PYTHONUSERBASE/bin:$PATH
 
 
