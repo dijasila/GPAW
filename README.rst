@@ -18,16 +18,19 @@ Requirements
 ------------
 
 * Python_ 3.7 or later
-* ASE_ (atomic simulation environment)
-* NumPy_ (base N-dimensional array package)
-* SciPy_ (library for scientific computing)
-* LibXC
-* BLAS
+* ASE_
+* NumPy_
+* SciPy_
+* LibXC_
+* BLAS_
 
-Optional (highly recommended):
+Optional (highly recommended for increased performance):
 
-* MPI
-* ScaLAPACK
+* MPI_ (required for parallel calculations)
+* FFTW_
+* BLACS_ and ScaLAPACK_
+
+See `Release notes <releasenotes_>`_ for version requirements.
 
 
 Installation
@@ -100,9 +103,16 @@ look at the GPAW exercises_ and tutorials_.
 .. _ASE: http://wiki.fysik.dtu.dk/ase
 .. _NumPy: http://docs.scipy.org/doc/numpy/reference/
 .. _SciPy: http://docs.scipy.org/doc/scipy/reference/
+.. _LibXC: http://www.tddft.org/programs/libxc/
+.. _MPI: http://www.mpi-forum.org/
+.. _BLAS: http://www.netlib.org/blas/
+.. _FFTW: http://www.fftw.org/
+.. _BLACS: http://www.netlib.org/blacs/
+.. _ScaLAPACK: http://www.netlib.org/scalapack/
 .. _gpaw-users: https://listserv.fysik.dtu.dk/mailman/listinfo/gpaw-users
 .. _Matrix: https://matrix.io/#/#gpaw:matrix.org
 .. _gitlab-issues: https://gitlab.com/gpaw/gpaw/issues
 .. _exercises: https://wiki.fysik.dtu.dk/gpaw/exercises/exercises.html
 .. _tutorials: https://wiki.fysik.dtu.dk/gpaw/tutorials/tutorials.html
 .. _Coverage: https://wiki.fysik.dtu.dk/gpaw/htmlcov/index.html
+.. _releasenotes: https://wiki.fysik.dtu.dk/gpaw/releasenotes.html
