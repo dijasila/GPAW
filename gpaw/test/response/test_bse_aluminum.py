@@ -4,7 +4,7 @@ import numpy as np
 from ase.build import bulk
 from gpaw import GPAW
 from gpaw.response.df import DielectricFunction
-from gpaw.response.bse import BSE
+from gpaw.response.bse import BSE, read_spectrum
 from gpaw.test import findpeak, equal
 
 pytestmark = pytest.mark.skipif(world.size < 4,
@@ -45,10 +45,11 @@ def test_response_bse_aluminum(in_tmp_dir):
                   write_h=False,
                   write_v=False,
                   )
-        bse_w = bse.get_eels_spectrum(filename=None,
-                                      q_c=q_c,
-                                      w_w=w_w,
-                                      eta=eta)[1]
+        bse.get_eels_spectrum(filename='bse_eels.csv',
+                              q_c=q_c,
+                              w_w=w_w,
+                              eta=eta)
+        omega_w, bse_w = read_spectrum('bse_eels.csv')
 
     if df:
         df = DielectricFunction(calc='Al.gpw',
@@ -59,6 +60,7 @@ def test_response_bse_aluminum(in_tmp_dir):
         df_w = df.get_eels_spectrum(q_c=q_c, filename=None)[1]
 
     if check_spectrum:
+        assert w_w == pytest.approx(omega_w)
         w_ = 15.1423
         I_ = 25.4359
         wbse, Ibse = findpeak(w_w, bse_w)
