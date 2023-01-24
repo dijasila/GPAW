@@ -11,7 +11,7 @@ __version__ = '22.8.1b1'
 __ase_version_required__ = '3.22.1'
 __all__ = ['GPAW',
            'Mixer', 'MixerSum', 'MixerDif', 'MixerSum2',
-           'MixerDiag', 'MixerFul', 'MixerCyl', 'MixerDiagFul',
+           'MixerFull',
            'CG', 'Davidson', 'RMMDIIS', 'DirectLCAO',
            'PoissonSolver',
            'FermiDirac', 'MethfesselPaxton', 'MarzariVanderbilt',
@@ -190,7 +190,7 @@ if debug:
 with broadcast_imports:
     from gpaw.calculator import GPAW as OldGPAW
     from gpaw.mixer import Mixer, MixerSum, MixerDif, MixerSum2, \
-        MixerFul
+        MixerFull
     from gpaw.eigensolvers import Davidson, RMMDIIS, CG, DirectLCAO
     from gpaw.poisson import PoissonSolver
     from gpaw.occupations import (FermiDirac, MethfesselPaxton,
