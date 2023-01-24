@@ -11,6 +11,7 @@ from ase.dft.kpoints import monkhorst_pack
 from gpaw import PW, GPAW
 from gpaw.mpi import world
 from gpaw.test import findpeak
+
 from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKSCalculator
@@ -27,33 +28,17 @@ def test_response_afm_hchain_gssALDA(in_tmp_dir):
     # Part 1: Ground state calculation
     # Define atomic structure
     a = 2.5
-    hatom = Atoms('H',
-                  cell=[a, 0, 0],
-                  pbc=[1, 1, 0])
-    hatom.center(vacuum=0.8 * a, axis=(1, 2))
-    atoms = hatom.repeat((2, 1, 1))
-    atoms.set_initial_magnetic_moments([1., -1.])
-
+    vfactor = 0.8
+    mm = 1.
+    # Ground state calculator options
+    xc = 'LDA'
+    kpts = 12
     nbands = 2 * (1 + 0)  # 1s + 0 empty shell bands
     ebands = 2 * 1  # Include also 2s bands for numerical consistency
+    pw = 250
     conv = {'bands': nbands}
 
-    # Part 2: Magnetic response calculation
-    # gs must be here. ChiKSCalc requires world to match the GS
-    calc = GPAW(xc='LDA',
-                txt='h2_afm.txt',
-                mode=PW(250),
-                kpts=monkhorst_pack((12, 1, 1)),
-                nbands=nbands + ebands,
-                convergence=conv,
-                symmetry={'point_group': True},
-                parallel={'domain': 1})
-
-    atoms.calc = calc
-    atoms.get_potential_energy()
-    calc = atoms.calc
-
-    # # Step 2: Magnetic response calculation
+    # # Part 2: Magnetic response calculation
     q_qc = [[0., 0., 0.],
             [1. / 6., 0., 0.],
             [1. / 3., 0., 0.]]
@@ -72,8 +57,27 @@ def test_response_afm_hchain_gssALDA(in_tmp_dir):
 
     # ---------- Script ---------- #
 
-    # Magnetic response calculation
-    nbands = 2 * (1 + 0)  # 1s + 0 empty shell bands
+    # Part 1: Ground state calculation
+
+    Hatom = Atoms('H',
+                  cell=[a, 0, 0],
+                  pbc=[1, 0, 0])
+    Hatom.center(vacuum=vfactor * a, axis=(1, 2))
+    Hchain = Hatom.repeat((2, 1, 1))
+    Hchain.set_initial_magnetic_moments([mm, -mm])
+
+    calc = GPAW(xc=xc,
+                mode=PW(pw),
+                kpts=monkhorst_pack((kpts, 1, 1)),
+                nbands=nbands + ebands,
+                convergence=conv,
+                symmetry={'point_group': True},
+                parallel={'domain': 1})
+
+    Hchain.calc = calc
+    Hchain.get_potential_energy()
+
+    # Part 2: Magnetic response calculation
     fxckwargs = {'calculator': {'method': 'old',
                                 'rshelmax': rshelmax,
                                 'rshewmin': rshewmin},
