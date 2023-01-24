@@ -270,8 +270,8 @@ def test_Co_hcp_site_kernels():
     calc.initialize(atoms)
 
     qpd0 = get_pw_descriptor(atoms, calc, q_c,
-                            ecut=ecut,
-                            gammacentered=gammacentered)
+                             ecut=ecut,
+                             gammacentered=gammacentered)
 
     # Part 2: Calculate site kernels
     positions = atoms.get_positions()
@@ -331,9 +331,12 @@ def test_Co_hcp_site_kernels():
     all_sitekernels_app.append(parlp_sitekernels)
 
     # Calculate spherical site kernels
-    Ksph_paGG = np.array([K_aGG for K_aGG in sph_sitekernels.calculate(qpd0)])
-    Ksph0_paGG = np.array([K_aGG for K_aGG in sph_sitekernels0.calculate(qpd0)])
-    Ksph1_paGG = np.array([K_aGG for K_aGG in sph_sitekernels1.calculate(qpd0)])
+    Ksph_paGG = np.array([K_aGG for K_aGG in
+                          sph_sitekernels.calculate(qpd0)])
+    Ksph0_paGG = np.array([K_aGG for K_aGG in
+                           sph_sitekernels0.calculate(qpd0)])
+    Ksph1_paGG = np.array([K_aGG for K_aGG in
+                           sph_sitekernels1.calculate(qpd0)])
     Ksph_sum_paGG = np.array([K_aGG for K_aGG in
                               sph_sitekernels_sum.calculate(qpd0)])
     Ksphp0_paGG = np.array([K_aGG for K_aGG in
@@ -344,9 +347,12 @@ def test_Co_hcp_site_kernels():
                               sph_sitekernels_app.calculate(qpd0)])
 
     # Calculate cylindrical site kernels
-    Kcyl_paGG = np.array([K_aGG for K_aGG in cyl_sitekernels.calculate(qpd0)])
-    Kcyl0_paGG = np.array([K_aGG for K_aGG in cyl_sitekernels0.calculate(qpd0)])
-    Kcyl1_paGG = np.array([K_aGG for K_aGG in cyl_sitekernels1.calculate(qpd0)])
+    Kcyl_paGG = np.array([K_aGG for K_aGG in
+                          cyl_sitekernels.calculate(qpd0)])
+    Kcyl0_paGG = np.array([K_aGG for K_aGG in
+                           cyl_sitekernels0.calculate(qpd0)])
+    Kcyl1_paGG = np.array([K_aGG for K_aGG in
+                           cyl_sitekernels1.calculate(qpd0)])
     Kcyl_sum_paGG = np.array([K_aGG for K_aGG in
                               cyl_sitekernels_sum.calculate(qpd0)])
     Kcylp0_paGG = np.array([K_aGG for K_aGG in
@@ -380,13 +386,13 @@ def test_Co_hcp_site_kernels():
 
     # Calculate all site kernels at opposite qs
     qpd_q = [get_pw_descriptor(atoms, calc, qpm_c,
-                              ecut=ecut,
-                              gammacentered=gammacentered)
-            for qpm_c in qpm_qc]
+                               ecut=ecut,
+                               gammacentered=gammacentered)
+             for qpm_c in qpm_qc]
     Kall_pm_qpaGG = [np.array([K_aGG for K_aGG in
                                all_sitekernels_app.calculate(qpd)])
                      for qpd in qpd_q]
-
+    
     # Part 4: Check the calculated kernels
 
     # Check geometry shapes of basic arrays
@@ -542,12 +548,10 @@ def get_pw_descriptor(atoms, calc, q_c, ecut=50., gammacentered=False):
 
     Works on a bare calculator instance without any actual data in it."""
     from ase.units import Ha
-    from gpaw.pw.descriptor import PWDescriptor
-    from gpaw.kpt_descriptor import KPointDescriptor
     from gpaw.response.pair_functions import SingleQPWDescriptor
 
     # Create the plane wave descriptor
     q_c = np.asarray(q_c, dtype=float)
     qpd = SingleQPWDescriptor.from_q(q_c, ecut / Ha, calc.wfs.gd,
-                              gammacentered=gammacentered)
+                                     gammacentered=gammacentered)
     return qpd

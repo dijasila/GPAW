@@ -52,8 +52,8 @@ def test_response_pdens_tool(in_tmp_dir):
     # Part 2: optical transition calculation
 
     pair, qpd, domainarg_td = get_bz_transitions('si.gpw', q_c, bzk_kc,
-                                                spins=spins,
-                                                ecut=10)
+                                                 spins=spins,
+                                                 ecut=10)
 
     nocc1, nocc2 = pair.gs.count_occupied_bands(1e-6)
     # XXX should we know 1e-6?
