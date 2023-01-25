@@ -59,4 +59,4 @@ def T():
     if not cupy_is_fake:
         cupy.cuda.runtime.deviceSynchronize()
     t2 = time()
-    print(f'{(t2 - t1) * 1e9:.3f} ns')
+    print(f'{(t2 - t1) * 1e9:_.3f} ns')
