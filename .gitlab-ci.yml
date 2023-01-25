@@ -54,10 +54,19 @@ stages:
       - _gpaw.*.so
     expire_in: 30 mins
 
+
+.test:
+  stage: test
+  before_script:
+    - !reference [default, before_script]
+    - export PYTEST_ADDOPTS="--color=yes"
+
+
 .gpu-job:
   rules:
     - if: $CI_COMMIT_BRANCH == "master"
     - if: $CI_COMMIT_BRANCH =~ "/^gpu-.*/"
+
 
 build:
   image: $IMAGE_PATH/build:0.1
@@ -112,8 +121,8 @@ build-cuda:
 test-cuda:
   image: $IMAGE_PATH/run-cuda:0.1
   extends:
+    - .test
     - .gpu-job
-  stage: test
   needs:
     - build-cuda
   tags:
@@ -121,24 +130,26 @@ test-cuda:
   script:
     - nvidia-smi
     - gpaw info
-    - pytest -v -m gpu --color=yes
+    - pytest -v -m gpu
 
 
 test:
   image: $IMAGE_PATH/run:0.1
-  stage: test
+  extends:
+    - .test
   needs:
     - build
   tags:
     - linux
   script:
     - gpaw info
-    - OMP_NUM_THREADS=2 pytest -v -m ci -We -Wi::ImportWarning --color=yes
+    - OMP_NUM_THREADS=2 pytest -v -m ci -We -Wi::ImportWarning
 
 
 test-gpaw-python:
   image: $IMAGE_PATH/run:0.1
-  stage: test
+  extends:
+    - .test
   needs:
     - build-gpaw-python
   tags:
@@ -148,7 +159,6 @@ test-gpaw-python:
     - >
       OMP_NUM_THREADS=2 gpaw-python -m pytest -v -m ci -We -Wi::ImportWarning
       -Wi:'numpy.ufunc size changed, may indicate binary incompatibility. Expected 192 from C header, got 216 from PyObject':RuntimeWarning
-      --color=yes
 
 
 lint:
