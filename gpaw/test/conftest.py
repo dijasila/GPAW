@@ -398,7 +398,7 @@ class GPWFiles:
 
         return atoms.calc
 
-    def fe2_gs_pw(self):
+    def fe2_pw(self):
         a = 2.867
         magmom = 3.75
         atoms = bulk('Fe', 'bcc', a=a)
