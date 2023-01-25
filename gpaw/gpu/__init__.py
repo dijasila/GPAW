@@ -60,4 +60,4 @@ def T():
         from cupy.cuda.runtime import deviceSyncronize
         deviceSyncronize()
     t2 = time()
-    print(t2 - t1, 'sec')
+    print(f'{(t2 - t1) * 1e9:.3f} ns')
