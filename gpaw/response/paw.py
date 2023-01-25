@@ -60,7 +60,7 @@ def two_phi_planewave_integrals(qG_Gv, *, setup):
 
 
 class PWPAWCorrectionData:
-    def __init__(self, Q_aGii, pd, setups, pos_av):
+    def __init__(self, Q_aGii, qpd, setups, pos_av):
         # Sometimes we loop over these in ways that are very dangerous.
         # It must be list, not dictionary.
         assert isinstance(Q_aGii, list)
@@ -68,12 +68,12 @@ class PWPAWCorrectionData:
 
         self.Q_aGii = Q_aGii
 
-        self.pd = pd
+        self.qpd = qpd
         self.setups = setups
         self.pos_av = pos_av
 
     def _new(self, Q_aGii):
-        return PWPAWCorrectionData(Q_aGii, pd=self.pd, setups=self.setups,
+        return PWPAWCorrectionData(Q_aGii, qpd=self.qpd, setups=self.setups,
                                    pos_av=self.pos_av)
 
     def remap(self, M_vv, G_Gv, sym, sign):
@@ -121,11 +121,11 @@ class PWPAWCorrectionData:
         return True
 
 
-def get_pair_density_paw_corrections(setups, pd, spos_ac):
+def get_pair_density_paw_corrections(setups, qpd, spos_ac):
     """Calculate and bundle paw corrections to the pair densities as a
     PWPAWCorrectionData object."""
-    qG_Gv = pd.get_reciprocal_vectors(add_q=True)
-    pos_av = spos_ac @ pd.gd.cell_cv
+    qG_Gv = qpd.get_reciprocal_vectors(add_q=True)
+    pos_av = spos_ac @ qpd.gd.cell_cv
 
     # Collect integrals for all species:
     Q_xGii = {}
@@ -141,4 +141,4 @@ def get_pair_density_paw_corrections(setups, pd, spos_ac):
         x_G = np.exp(-1j * (qG_Gv @ pos_av[a]))
         Q_aGii.append(x_G[:, np.newaxis, np.newaxis] * Q_Gii)
 
-    return PWPAWCorrectionData(Q_aGii, pd=pd, setups=setups, pos_av=pos_av)
+    return PWPAWCorrectionData(Q_aGii, qpd=qpd, setups=setups, pos_av=pos_av)

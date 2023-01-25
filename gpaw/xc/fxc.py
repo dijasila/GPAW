@@ -13,6 +13,7 @@ from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.fd_operators import Gradient
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.pw.descriptor import PWDescriptor
+from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.utilities.blas import axpy, gemmdot
 from gpaw.xc.rpa import RPACorrelation
 from gpaw.heg import HEG
@@ -161,20 +162,20 @@ class FXCCorrelation:
                                  m2, [s])
         self.context.print('E_c(q) = ', end='', flush=False)
 
-        pd = chi0.pd
+        qpd = chi0.qpd
         nw = chi0.nw
         mynw = nw // self.nblocks
         assert nw % self.nblocks == 0
         nspins = len(chi0_s)
-        nG = pd.ngmax
+        nG = qpd.ngmax
         chi0_swGG = np.empty((nspins, mynw, nG, nG), complex)
         for chi0_wGG, chi0 in zip(chi0_swGG, chi0_s):
             chi0_wGG[:] = chi0.copy_array_with_distribution('wGG')
         if self.nblocks > 1:
             chi0_swGG = np.swapaxes(chi0_swGG, 2, 3)
 
-        if not pd.kd.gamma:
-            e = self.calculate_energy_fxc(pd, chi0_swGG, cut_G)
+        if not qpd.kd.gamma:
+            e = self.calculate_energy_fxc(qpd, chi0_swGG, cut_G)
             self.context.print('%.3f eV' % (e * Ha))
         else:
             W1 = self.blockcomm.rank * mynw
@@ -185,7 +186,7 @@ class FXCCorrelation:
                     chi0_wGG[:, 0] = chi0.chi0_WxvG[W1:W2, 0, v]
                     chi0_wGG[:, :, 0] = chi0.chi0_WxvG[W1:W2, 1, v]
                     chi0_wGG[:, 0, 0] = chi0.chi0_Wvv[W1:W2, v, v]
-                ev = self.calculate_energy_fxc(pd, chi0_swGG, cut_G)
+                ev = self.calculate_energy_fxc(qpd, chi0_swGG, cut_G)
                 e += ev
                 self.context.print('%.3f' % (ev * Ha), end='', flush=False)
                 if v < 2:
@@ -223,18 +224,18 @@ class FXCCorrelation:
         return e
 
     @timer('Energy')
-    def calculate_energy_fxc(self, pd, chi0_swGG, cut_G):
+    def calculate_energy_fxc(self, qpd, chi0_swGG, cut_G):
         """Evaluate correlation energy from chi0 and the kernel fhxc"""
 
         ibzq2_q = [
-            np.dot(self.ibzq_qc[i] - pd.kd.bzk_kc[0],
-                   self.ibzq_qc[i] - pd.kd.bzk_kc[0])
+            np.dot(self.ibzq_qc[i] - qpd.q_c,
+                   self.ibzq_qc[i] - qpd.q_c)
             for i in range(len(self.ibzq_qc))
         ]
 
         qi = np.argsort(ibzq2_q)[0]
 
-        G_G = pd.G2_qG[0]**0.5  # |G+q|
+        G_G = qpd.G2_qG[0]**0.5  # |G+q|
 
         if cut_G is not None:
             G_G = G_G[cut_G]
@@ -277,12 +278,12 @@ class FXCCorrelation:
                         fv[m1:n1,
                            m2:n2] *= (G_G * G_G[:, np.newaxis] / (4 * np.pi))
 
-                        if np.prod(self.unit_cells) > 1 and pd.kd.gamma:
+                        if np.prod(self.unit_cells) > 1 and qpd.kd.gamma:
                             fv[m1, m2:n2] = 0.0
                             fv[m1:n1, m2] = 0.0
                             fv[m1, m2] = 1.0
 
-            if pd.kd.gamma:
+            if qpd.kd.gamma:
                 G_G[0] = 1.0
 
             e_w = []
@@ -340,7 +341,7 @@ class FXCCorrelation:
             if apply_cut_G and cut_G is not None:
                 fv_GG = fv_GG.take(cut_G, 0).take(cut_G, 1)
 
-            if pd.kd.gamma:
+            if qpd.kd.gamma:
                 G_G[0] = 1.0
 
             # Loop over frequencies; since the kernel has no spin,
@@ -481,12 +482,11 @@ class KernelWave:
             if iq < self.q_empty:  # don't recalculate q vectors
                 continue
 
-            thisqd = KPointDescriptor([q_c])
-            pd = PWDescriptor(self.ecut / Ha, self.gd, complex, thisqd)
+            qpd = SingleQPWDescriptor.from_q(q_c, self.ecut / Ha, self.gd)
 
-            nG = pd.ngmax
-            G_G = pd.G2_qG[0]**0.5  # |G+q|
-            Gv_G = pd.get_reciprocal_vectors(q=0, add_q=False)
+            nG = qpd.ngmax
+            G_G = qpd.G2_qG[0]**0.5  # |G+q|
+            Gv_G = qpd.get_reciprocal_vectors(q=0, add_q=False)
             # G as a vector (note we are at a specific q point here so set q=0)
 
             # Distribute G vectors among processors
