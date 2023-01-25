@@ -30,23 +30,16 @@ def run(atoms, symm, nblocks):
     scalapack = atoms.calc.wfs.bd.comm.size
     atoms.calc.diagonalize_full_hamiltonian(nbands=8, scalapack=scalapack)
     atoms.calc.write('si.gpw', mode='all')
-    # The first iteration of the loop has very few frequencies.
-    # The test is, that code should still not crash.
-    # The second iteration is the actual numerical test, which
-    # will be returned and asserted outside this function.
-    for omegamax in [0.2, None]:
-        gw = G0W0('si.gpw',
-                  f'gw_{omegamax}',
-                  nbands=8,
-                  integrate_gamma=0,
-                  kpts=[(0, 0, 0), (0.5, 0.5, 0)],  # Gamma, X
-                  ecut=40,
-                  nblocks=nblocks,
-                  frequencies={'type': 'nonlinear',
-                               'domega0': 0.1, 'omegamax': omegamax},
-                  eta=0.2,
-                  relbands=(-1, 2))
-        results = gw.calculate()
+
+    # This tests checks the actual numerical accuracy which is asserted below
+    gw = G0W0('si.gpw', 'gw_None',
+              nbands=8, integrate_gamma=0,
+              kpts=[(0, 0, 0), (0.5, 0.5, 0)],  # Gamma, X
+              ecut=40, nblocks=nblocks,
+              frequencies={'type': 'nonlinear',
+                           'domega0': 0.1, 'omegamax': None},
+              eta=0.2, relbands=(-1, 2))
+    results = gw.calculate()
 
     G, X = results['eps'][0]
     output = [e, G[0], G[1] - G[0], X[1] - G[0], X[2] - X[1]]
@@ -79,3 +72,34 @@ def test_response_gwsi(in_tmp_dir, si, symm, nblocks, scalapack):
 @pytest.mark.parametrize('symm', [{}])
 def test_small_response_gwsi(in_tmp_dir, si, symm, scalapack):
     assert run(si, symm, 1) == reference
+
+
+@pytest.mark.response
+@pytest.mark.ci
+def test_few_freq_response_gwsi(in_tmp_dir, scalapack):
+    if world.size > 1:
+        nblocks = 2
+    else:
+        nblocks = 1
+
+    # This test has very few frequencies and tests that the code doesn't crash.
+    atoms = bulk('Si', 'diamond', a=5.43)
+    atoms.calc = GPAW(mode=PW(250),
+                      eigensolver='rmm-diis',
+                      occupations=FermiDirac(0.01),
+                      kpts={'size': (2, 2, 2), 'gamma': True},
+                      convergence={'density': 1e-7},
+                      parallel={'domain': 1},
+                      txt='si.txt')
+    atoms.get_potential_energy()
+    scalapack = atoms.calc.wfs.bd.comm.size
+    atoms.calc.diagonalize_full_hamiltonian(nbands=8, scalapack=scalapack)
+    atoms.calc.write('si.gpw', mode='all')
+    gw = G0W0('si.gpw', 'gw_0.2',
+              nbands=8, integrate_gamma=0,
+              kpts=[(0, 0, 0), (0.5, 0.5, 0)],  # Gamma, X
+              ecut=40, nblocks=nblocks,
+              frequencies={'type': 'nonlinear',
+                           'domega0': 0.1, 'omegamax': 0.2},
+              eta=0.2, relbands=(-1, 2))
+    gw.calculate()
