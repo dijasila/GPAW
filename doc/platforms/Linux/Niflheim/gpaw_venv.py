@@ -134,7 +134,7 @@ def main():
     run(f'ssh thul ". {activate} && pip install -q ase-ext"')
 
     run('git clone -q https://github.com/spglib/spglib.git')
-    run(f'ssh thul ". {activate} && pip install {venv}/spglib/python"')
+    run(f'ssh thul ". {activate} && pip install {venv}/spglib"')
 
     # Install GPAW:
     siteconfig = Path(
