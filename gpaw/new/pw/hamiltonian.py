@@ -31,7 +31,46 @@ class PWHamiltonian(Hamiltonian):
         return precondition
 
 
+# Old optimized code:
+"""
+        N = len(psit_xG)
+        S = self.gd.comm.size
+
+        vt_R = self.gd.collect(ham.vt_sG[kpt.s], broadcast=True)
+        Q_G = self.pd.Q_qG[kpt.q]
+        T_G = 0.5 * self.pd.G2_qG[kpt.q]
+
+        for n1 in range(0, N, S):
+            n2 = min(n1 + S, N)
+            psit_G = self.pd.alltoall1(psit_xG[n1:n2], kpt.q)
+            with self.timer('HMM T'):
+                np.multiply(T_G, psit_xG[n1:n2], Htpsit_xG[n1:n2])
+            if psit_G is not None:
+                psit_R = self.pd.ifft(psit_G, kpt.q, local=True, safe=False)
+                psit_R *= vt_R
+                self.pd.fftplan.execute()
+                vtpsit_G = self.pd.tmp_Q.ravel()[Q_G]
+            else:
+                vtpsit_G = self.pd.tmp_G
+            self.pd.alltoall2(vtpsit_G, kpt.q, Htpsit_xG[n1:n2])
+
+        ham.xc.apply_orbital_dependent_hamiltonian(
+            kpt, psit_xG, Htpsit_xG, ham.dH_asp)
+"""
+
+
 def precondition(psit_nG, residual_nG, out):
+    """Preconditioner for KS equation.
+
+    From:
+
+      Teter, Payne and Allen, Phys. Rev. B 40, 12255 (1989)
+
+    as modified by:
+
+      Kresse and Furthmüller, Phys. Rev. B 54, 11169 (1996)
+    """
+
     xp = psit_nG.xp
     G2_G = xp.asarray(psit_nG.desc.ekin_G * 2)
     ekin_n = psit_nG.norm2('kinetic')
@@ -102,30 +141,3 @@ class SpinorPWHamiltonian(Hamiltonian):
 
     def create_preconditioner(self, blocksize):
         return spinor_precondition
-
-
-"""
-        N = len(psit_xG)
-        S = self.gd.comm.size
-
-        vt_R = self.gd.collect(ham.vt_sG[kpt.s], broadcast=True)
-        Q_G = self.pd.Q_qG[kpt.q]
-        T_G = 0.5 * self.pd.G2_qG[kpt.q]
-
-        for n1 in range(0, N, S):
-            n2 = min(n1 + S, N)
-            psit_G = self.pd.alltoall1(psit_xG[n1:n2], kpt.q)
-            with self.timer('HMM T'):
-                np.multiply(T_G, psit_xG[n1:n2], Htpsit_xG[n1:n2])
-            if psit_G is not None:
-                psit_R = self.pd.ifft(psit_G, kpt.q, local=True, safe=False)
-                psit_R *= vt_R
-                self.pd.fftplan.execute()
-                vtpsit_G = self.pd.tmp_Q.ravel()[Q_G]
-            else:
-                vtpsit_G = self.pd.tmp_G
-            self.pd.alltoall2(vtpsit_G, kpt.q, Htpsit_xG[n1:n2])
-
-        ham.xc.apply_orbital_dependent_hamiltonian(
-            kpt, psit_xG, Htpsit_xG, ham.dH_asp)
-"""
