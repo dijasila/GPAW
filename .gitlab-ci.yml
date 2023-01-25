@@ -145,7 +145,10 @@ test-gpaw-python:
     - linux
   script:
     - gpaw-python -m gpaw info
-    - OMP_NUM_THREADS=2 gpaw-python -m pytest -v -m ci -We -Wi::ImportWarning --color=yes
+    - >
+      OMP_NUM_THREADS=2 gpaw-python -m pytest -v -m ci -We -Wi::ImportWarning
+      -Wi:'numpy.ufunc size changed, may indicate binary incompatibility. Expected 192 from C header, got 216 from PyObject':RuntimeWarning
+      --color=yes
 
 
 lint:
