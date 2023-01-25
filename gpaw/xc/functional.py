@@ -108,6 +108,10 @@ class XCFunctional(object):
 
     def add_forces(self, F_av):
         pass
+    
+    def stress_tensor_contribution(self, n_sg):
+        raise NotImplementedError('Calculation of stress tensor is not ' +
+                                  f'implemented for {self.name}')
 
     def calculate_spherical(self, rgd, n_sg, v_sg, e_g=None):
         raise NotImplementedError

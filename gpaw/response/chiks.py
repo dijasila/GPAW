@@ -17,19 +17,20 @@ from gpaw.response.pair_functions import (SingleQPWDescriptor,
 class ChiKS(LatticePeriodicPairFunction):
     """Data object for the four-component Kohn-Sham susceptibility tensor."""
 
-    def __init__(self, spincomponent, pd, zd,
+    def __init__(self, spincomponent, qpd, zd,
                  blockdist, distribution='ZgG'):
         r"""Construct a χ_KS,GG'^μν(q,z) data object"""
         self.spincomponent = spincomponent
-        super().__init__(pd, zd, blockdist, distribution=distribution)
+        super().__init__(qpd, zd, blockdist, distribution=distribution)
 
-    def my_args(self, spincomponent=None, pd=None, zd=None, blockdist=None):
+    def my_args(self, spincomponent=None, qpd=None, zd=None, blockdist=None):
         """Return construction arguments of the ChiKS object."""
         if spincomponent is None:
             spincomponent = self.spincomponent
-        pd, zd, blockdist = super().my_args(pd=pd, zd=zd, blockdist=blockdist)
+        qpd, zd, blockdist = super().my_args(qpd=qpd, zd=zd,
+                                             blockdist=blockdist)
 
-        return spincomponent, pd, zd, blockdist
+        return spincomponent, qpd, zd, blockdist
 
     def copy_reactive_part(self):
         r"""Return a copy of the reactive part of the susceptibility.
@@ -146,7 +147,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
         assert isinstance(zd, ComplexFrequencyDescriptor)
 
         # Set up the internal plane-wave descriptor
-        pdi = self.get_pw_descriptor(q_c, internal=True)
+        qpdi = self.get_pw_descriptor(q_c, internal=True)
 
         # Analyze the requested spin component
         spinrot = get_spin_rotation(spincomponent)
@@ -156,13 +157,13 @@ class ChiKSCalculator(PairFunctionIntegrator):
             spinrot, nbands=self.nbands, bandsummation=self.bandsummation)
 
         self.context.print(self.get_information(
-            pdi, len(zd), spincomponent, self.nbands, len(n1_t)))
+            qpdi, len(zd), spincomponent, self.nbands, len(n1_t)))
 
         self.context.print('Initializing pair densities')
-        self.pair_density.initialize(pdi)
+        self.pair_density.initialize(qpdi)
 
         # Create ChiKS data structure
-        chiks = self.create_chiks(spincomponent, pdi, zd)
+        chiks = self.create_chiks(spincomponent, qpdi, zd)
 
         # Perform the actual integration
         analyzer = self._integrate(chiks, n1_t, n2_t, s1_t, s2_t)
@@ -214,12 +215,12 @@ class ChiKSCalculator(PairFunctionIntegrator):
             gammacentered = self.gammacentered
             ecut = self.ecut
 
-        pd = SingleQPWDescriptor.from_q(q_c, ecut, gd,
-                                        gammacentered=gammacentered)
+        qpd = SingleQPWDescriptor.from_q(q_c, ecut, gd,
+                                         gammacentered=gammacentered)
 
-        return pd
+        return qpd
 
-    def create_chiks(self, spincomponent, pd, zd):
+    def create_chiks(self, spincomponent, qpd, zd):
         """Create a new ChiKS object to be integrated."""
         if self.bundle_integrals:
             distribution = 'GZg'
@@ -229,7 +230,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
                                               self.blockcomm,
                                               self.intrablockcomm)
 
-        return ChiKS(spincomponent, pd, zd,
+        return ChiKS(spincomponent, qpd, zd,
                      blockdist, distribution=distribution)
 
     @timer('Add integrand to chiks')
@@ -268,7 +269,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
         supplied kptpair integral weight.
         """
         # Calculate the pair densities and store them on the kptpair
-        self.pair_density(kptpair, chiks.pd)
+        self.pair_density(kptpair, chiks.qpd)
 
         # Extract the ingredients from the KohnShamKPointPair
         # Get bands and spins of the transitions
@@ -343,19 +344,19 @@ class ChiKSCalculator(PairFunctionIntegrator):
         if self.gammacentered and not self.disable_symmetries:
             # Reduce the q-centered plane-wave basis used internally to the
             # gammacentered basis
-            assert not chiks.pd.gammacentered  # Internal pd
-            pd = self.get_pw_descriptor(chiks.q_c)  # External pd
-            chiks = chiks.copy_with_reduced_pd(pd)
+            assert not chiks.qpd.gammacentered  # Internal qpd
+            qpd = self.get_pw_descriptor(chiks.q_c)  # External qpd
+            chiks = chiks.copy_with_reduced_pd(qpd)
 
         return chiks
 
-    def get_information(self, pd, nz, spincomponent, nbands, nt):
+    def get_information(self, qpd, nz, spincomponent, nbands, nt):
         r"""Get information about the χ_KS,GG'^μν(q,z) calculation"""
         from gpaw.utilities.memory import maxrss
 
-        q_c = pd.q_c
-        ecut = pd.ecut * Hartree
-        Asize = nz * pd.ngmax**2 * 16. / 1024**2 / self.blockcomm.size
+        q_c = qpd.q_c
+        ecut = qpd.ecut * Hartree
+        Asize = nz * qpd.ngmax**2 * 16. / 1024**2 / self.blockcomm.size
         cmem = maxrss() / 1024**2
 
         s = '\n'
@@ -377,7 +378,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
 
         s += 'Plane-wave basis of the Kohn-Sham susceptibility:\n'
         s += '    Planewave cutoff: %f\n' % ecut
-        s += '    Number of planewaves: %d\n' % pd.ngmax
+        s += '    Number of planewaves: %d\n' % qpd.ngmax
         s += '    Memory estimates:\n'
         s += '        A_zGG: %f M / cpu\n' % Asize
         s += '        Memory usage before allocation: %f M / cpu\n' % cmem

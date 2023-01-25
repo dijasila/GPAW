@@ -67,7 +67,7 @@ class SiteKernels:
 
         return geometry_shapes
 
-    def calculate(self, pd):
+    def calculate(self, qpd):
         """Generate the site kernels of each partition.
 
         Returns
@@ -78,7 +78,7 @@ class SiteKernels:
         for geometries in self.partitions:
             # We yield one set of site kernels at a time, because they can be
             # memory intensive
-            yield calculate_site_kernels(pd, self.positions, geometries)
+            yield calculate_site_kernels(qpd, self.positions, geometries)
 
     def __add__(self, sitekernels):
         """Add the sites from two SiteKernels instances to a new joint
@@ -223,7 +223,7 @@ class ParallelepipedicSiteKernels(SiteKernels):
         SiteKernels.__init__(self, positions, partitions)
 
 
-def calculate_site_kernels(pd, positions, geometries):
+def calculate_site_kernels(qpd, positions, geometries):
     """Calculate the sublattice site kernel:
 
                 1  /
@@ -254,7 +254,7 @@ def calculate_site_kernels(pd, positions, geometries):
 
     Parameters
     ----------
-    pd : PWDescriptor
+    qpd : SingleQPWDescriptor
         Plane wave descriptor corresponding to the q wave vector of interest.
     positions : np.ndarray
         Site positions. Array of shape (nsites, 3).
@@ -273,10 +273,10 @@ def calculate_site_kernels(pd, positions, geometries):
     assert positions.shape[1] == 3
 
     # Extract unit cell volume
-    V0 = pd.gd.volume
+    V0 = qpd.gd.volume
 
     # Construct Q=G-G'+q
-    Q_GGv = construct_wave_vectors(pd)
+    Q_GGv = construct_wave_vectors(qpd)
 
     # Allocate site kernel array
     nsites = len(geometries)
@@ -298,10 +298,10 @@ def calculate_site_kernels(pd, positions, geometries):
     return K_aGG
 
 
-def construct_wave_vectors(pd):
+def construct_wave_vectors(qpd):
     """Construct wave vectors Q=G1-G2+q corresponding to the q-vector of
     interest."""
-    G_Gv, q_v = get_plane_waves_and_reduced_wave_vector(pd)
+    G_Gv, q_v = get_plane_waves_and_reduced_wave_vector(qpd)
 
     # Allocate arrays for G, G' and q respectively
     nG = len(G_Gv)
@@ -315,19 +315,17 @@ def construct_wave_vectors(pd):
     return Q_GGv
 
 
-def get_plane_waves_and_reduced_wave_vector(pd):
+def get_plane_waves_and_reduced_wave_vector(qpd):
     """Get the reciprocal lattice vectors and reduced wave vector of the plane
     wave representation corresponding to the q-vector of interest."""
     # Get the reduced wave vector
-    q_qc = pd.kd.bzk_kc
-    assert len(q_qc) == 1
-    q_c = q_qc[0, :]  # Assume single q
+    q_c = qpd.q_c
 
     # Get the reciprocal lattice vectors in relative coordinates
-    G_Gc = get_pw_coordinates(pd)
+    G_Gc = get_pw_coordinates(qpd)
 
     # Convert to cartesian coordinates
-    B_cv = 2.0 * np.pi * pd.gd.icell_cv  # Coordinate transform matrix
+    B_cv = 2.0 * np.pi * qpd.gd.icell_cv  # Coordinate transform matrix
     q_v = np.dot(q_c, B_cv)  # Unit = Bohr^(-1)
     G_Gv = np.dot(G_Gc, B_cv)
 

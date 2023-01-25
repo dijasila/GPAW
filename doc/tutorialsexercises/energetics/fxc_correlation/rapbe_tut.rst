@@ -48,7 +48,7 @@ By default the kernel is constructed from a two-point average of the density.
 However as shown in Example 4 it is possible to instead use a reciprocal-space averaging procedure.
 Within this averaging scheme it is possible to explore different
 approximations for `f_{xc}`, for instance a simple dynamical kernel, or a jellium-with-gap model, which displays
-a `1/q^2` divergence for small `q`.  More details can be found below and in [#Patrick]_.
+a `1/q^2` divergence for small `q`.  More details can be found in [#Patrick]_.
 
 Example 1: Correlation energy of the Hydrogen atom
 ==================================================
@@ -183,42 +183,27 @@ To use this averaging scheme, we add the flag ``avg_scheme='wavevector'``:
 .. literalinclude:: diam_kern.ralda_03_ralda_wave.py
 
 Using this averaging scheme opens a few more possible choices for the kernel.
-For example, we can include the correlation part of the ALDA which is left out of the rALDA
-by setting ``xc='rALDAc'``:
 
-.. literalinclude:: diam_kern.ralda_04_raldac.py
-
-Finally, for the enthusiast there is a basic implementation of the range-separated
-RPA approach of Ref. [#Bruneval]_.  By separating the Coulomb interaction into long
-and short-range parts and taking the short range part from the electron gas, one can
-dramatically reduce the number of plane waves needed to converge the RPA energy.
-In this approach it is necessary to specify a range-separation parameter ``range_rc=Y``, where
-Y is in Bohr.  It is important to bear in mind that this feature is relatively untested.
-
-.. literalinclude:: diam_kern.ralda_07_range_rpa.py
-
-For comparison, one can see that the RPA converges much more slowly:
+For further comparison we include an RPA calculation as well.
 
 .. literalinclude:: diam_kern.ralda_08_rpa.py
 
 Here we summarize the above calculations and show the correlation energy/electron (in eV),
 obtained at an (unconverged) cutoff of 131 eV:
 
-=================  ================   ======  ===================  ======
-rALDA (dens. av.)  rALDA (wave. av)   rALDAc  range separated RPA   RPA
-=================  ================   ======  ===================  ======
--1.161              -1.134            -1.127        -1.730         -1.396
-=================  ================   ======  ===================  ======
+=================  ================   ======
+rALDA (dens. av.)  rALDA (wave. av)   RPA
+=================  ================   ======
+-1.161              -1.134            -1.396
+=================  ================   ======
 
 Incidentally, a fully converged RPA calculation gives a correlation energy
 of -1.781 eV per electron.
 
 We conclude with some practical points.  The wavevector-averaging scheme is less intuitive
 than the density-average, but avoids some difficulties such as having to describe the `1/r`
-divergence of the Coulomb interaction in real space.  It also can be faster to construct for 
-systems with many k points. However it is also worth remembering that kernels which scale
-linearly in the coupling constant (e.g rALDA) need only be constructed once per k point.
-Those that do not scale linearly (e.g. rALDAc) need to be constructed `N_\lambda` times.
+divergence of the Coulomb interaction in real space.  It also can be faster to construct for
+systems with many k points.
 Finally we point out that the rALDA and rAPBE kernels are also special because they have
 explicit spin-polarized forms.
 
@@ -233,6 +218,3 @@ explicit spin-polarized forms.
 
 .. [#Patrick] C. E. Patrick and K. S. Thygesen
               *J. Chem. Phys.* **143**, 102802 (2015)
-
-.. [#Bruneval] F. Bruneval
-              *Phys. Rev. Lett* **108**, 256403 (2012)

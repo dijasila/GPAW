@@ -12,15 +12,14 @@ from ase.units import Ha
 from gpaw import GPAW, debug
 import gpaw.mpi as mpi
 from gpaw.hybrids.eigenvalues import non_self_consistent_eigenvalues
-from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.pw.descriptor import (PWDescriptor, count_reciprocal_vectors,
-                                PWMapping)
+from gpaw.pw.descriptor import (count_reciprocal_vectors, PWMapping)
 from gpaw.utilities.progressbar import ProgressBar
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chi0 import Chi0Calculator
 from gpaw.response.hilbert import GWHilbertTransforms
 from gpaw.response.pair import PairDensityCalculator
+from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.response.screened_interaction import initialize_w_calculator
 from gpaw.response.coulomb_kernels import CoulombKernel
@@ -230,17 +229,17 @@ class QSymmetryOp:
         symop = QSymmetryOp(sym, U_cc, sign)
         return symop, iQ, Q_c, iq, q_c
 
-    def apply_symop_q(self, pd0, q_c, pawcorr, kpt1, kpt2, debug=False):
+    def apply_symop_q(self, qpd, q_c, pawcorr, kpt1, kpt2, debug=False):
         # returns necessary quantities to get symmetry transformed
         # density matrix
-        N_c = pd0.gd.N_c
-        i_cG = self.apply(np.unravel_index(pd0.Q_qG[0], N_c))
-        shift0_c = self.get_shift0(q_c, pd0.kd.bzk_kc[0])
+        N_c = qpd.gd.N_c
+        i_cG = self.apply(np.unravel_index(qpd.Q_qG[0], N_c))
+        shift0_c = self.get_shift0(q_c, qpd.q_c)
         shift_c = kpt1.shift_c - kpt2.shift_c - shift0_c
         I_G = np.ravel_multi_index(i_cG + shift_c[:, None], N_c, 'wrap')
-        G_Gv = pd0.get_reciprocal_vectors()
-        M_vv = self.get_M_vv(pd0.gd.cell_cv)
-        mypawcorr = pawcorr.remap_by_symop(self, G_Gv, M_vv)
+        qG_Gv = qpd.get_reciprocal_vectors(add_q=True)
+        M_vv = self.get_M_vv(qpd.gd.cell_cv)
+        mypawcorr = pawcorr.remap_by_symop(self, qG_Gv, M_vv)
         # XXX Can be removed together with G0W0 debug routine in future
         if debug:
             self.debug_i_cG = i_cG
@@ -249,11 +248,11 @@ class QSymmetryOp:
         return mypawcorr, I_G
 
 
-def get_nmG(kpt1, kpt2, mypawcorr, n, pd0, I_G, pair):
+def get_nmG(kpt1, kpt2, mypawcorr, n, qpd, I_G, pair):
     ut1cc_R = kpt1.ut_nR[n].conj()
     C1_aGi = mypawcorr.multiply(kpt1.P_ani, band=n)
     n_mG = pair.calculate_pair_density(
-        ut1cc_R, C1_aGi, kpt2, pd0, I_G)
+        ut1cc_R, C1_aGi, kpt2, qpd, I_G)
     return n_mG
 
 
@@ -276,10 +275,9 @@ def get_max_nblocks(world, calc, ecut):
         nblocks_calc = GPAW(calc)
     ngmax = []
     for q_c in nblocks_calc.wfs.kd.bzk_kc:
-        qd = KPointDescriptor([q_c])
-        pd = PWDescriptor(np.min(ecut) / Ha,
-                          nblocks_calc.wfs.gd, complex, qd)
-        ngmax.append(pd.ngmax)
+        qpd = SingleQPWDescriptor.from_q(q_c, np.min(ecut) / Ha,
+                                         nblocks_calc.wfs.gd)
+        ngmax.append(qpd.ngmax)
     nG = np.min(ngmax)
 
     while nblocks > nG**0.5 + 1 or world.size % nblocks != 0:
@@ -446,8 +444,11 @@ class G0W0Calculator:
 
         if self.wcalc.gs.nspins != 1:
             for fxc_mode in self.fxc_modes:
-                raise RuntimeError('Including a xc kernel does currently not '
-                                   'work for spinpolarized systems.')
+                if fxc_mode != 'GW':
+                    raise RuntimeError('Including a xc kernel does not '
+                                       'currently work for spin-polarized '
+                                       f'systems. Invalid fxc_mode {fxc_mode}.'
+                                       )
 
         self.pair_distribution = \
             self.chi0calc.pair.distribute_k_points_and_bands(
@@ -615,12 +616,12 @@ class G0W0Calculator:
         self.context.world.barrier()
         return paths
 
-    def calculate_q(self, ie, k, kpt1, kpt2, pd0, Wdict,
+    def calculate_q(self, ie, k, kpt1, kpt2, qpd, Wdict,
                     *, symop, sigmas, blocks1d, pawcorr):
         """Calculates the contribution to the self-energy and its derivative
         for a given set of k-points, kpt1 and kpt2."""
         q_c = self.wcalc.gs.kd.bzk_kc[kpt2.K] - self.wcalc.gs.kd.bzk_kc[kpt1.K]
-        mypawcorr, I_G = symop.apply_symop_q(pd0,
+        mypawcorr, I_G = symop.apply_symop_q(qpd,
                                              q_c,
                                              pawcorr,
                                              kpt1,
@@ -636,7 +637,7 @@ class G0W0Calculator:
             eps1 = kpt1.eps_n[n]
             n_mG = get_nmG(kpt1, kpt2,
                            mypawcorr,
-                           n, pd0, I_G,
+                           n, qpd, I_G,
                            self.chi0calc.pair)
 
             if symop.sign == 1:
@@ -658,11 +659,11 @@ class G0W0Calculator:
 
     def check(self, ie, i_cG, shift0_c, N_c, q_c, pawcorr):
         I0_G = np.ravel_multi_index(i_cG - shift0_c[:, None], N_c, 'wrap')
-        qd1 = KPointDescriptor([q_c])
-        pd1 = PWDescriptor(self.ecut_e[ie], self.wcalc.gs.gd, complex, qd1)
+        qpd = SingleQPWDescriptor.from_q(q_c, self.ecut_e[ie],
+                                         self.wcalc.gs.gd)
         G_I = np.empty(N_c.prod(), int)
         G_I[:] = -1
-        I1_G = pd1.Q_qG[0]
+        I1_G = qpd.Q_qG[0]
         G_I[I1_G] = np.arange(len(I0_G))
         G_G = G_I[I0_G]
         # This indexing magic should definitely be moved to a method.
@@ -671,7 +672,7 @@ class G0W0Calculator:
         assert len(I0_G) == len(I1_G)
         assert (G_G >= 0).all()
         pairden_paw_corr = self.wcalc.gs.pair_density_paw_corrections
-        pawcorr_wcalc1 = pairden_paw_corr(pd1)
+        pawcorr_wcalc1 = pairden_paw_corr(qpd)
         assert pawcorr.almost_equal(pawcorr_wcalc1, G_G)
 
     @timer('Sigma')
@@ -772,7 +773,7 @@ class G0W0Calculator:
                                      f'larger number of bands ({m2})'
                                      f' than there are bands '
                                      f'({self.nbands}).')
-            pdi, Wdict, blocks1d, pawcorr = self.calculate_w(
+            qpdi, Wdict, blocks1d, pawcorr = self.calculate_w(
                 chi0calc, q_c, chi0,
                 m1, m2, ecut, iq)
             m1 = m2
@@ -789,7 +790,7 @@ class G0W0Calculator:
                     k1 = self.wcalc.gs.kd.bz2ibz_k[kpt1.K]
                     i = self.kpts.index(k1)
 
-                    self.calculate_q(ie, i, kpt1, kpt2, pdi, Wdict,
+                    self.calculate_q(ie, i, kpt1, kpt2, qpdi, Wdict,
                                      symop=symop,
                                      sigmas=sigmas,
                                      blocks1d=blocks1d,
@@ -815,7 +816,7 @@ class G0W0Calculator:
                     iq):
         """Calculates the screened potential for a specified q-point."""
 
-        chi0calc.print_chi(chi0.pd)
+        chi0calc.print_chi(chi0.qpd)
         chi0calc.update_chi0(chi0, m1, m2, range(self.wcalc.gs.nspins))
 
         Wdict = {}
@@ -826,15 +827,15 @@ class G0W0Calculator:
             else:
                 out_dist = 'WgG'
 
-            rpd = chi0.pd.copy_with(ecut=ecut)  # reduced pd
-            rchi0 = chi0.copy_with_reduced_pd(rpd)
+            rqpd = chi0.qpd.copy_with(ecut=ecut)  # reduced qpd
+            rchi0 = chi0.copy_with_reduced_pd(rqpd)
             W_wGG = self.wcalc.calculate(rchi0,
                                          fxc_mode=fxc_mode,
                                          only_correlation=True,
                                          out_dist=out_dist)
 
-            if chi0calc.pawcorr is not None and rpd.ecut < chi0.pd.ecut:
-                pw_map = PWMapping(rpd, chi0.pd)
+            if chi0calc.pawcorr is not None and rqpd.ecut < chi0.qpd.ecut:
+                pw_map = PWMapping(rqpd, chi0.qpd)
                 # This is extremely bad behaviour! G0W0Calculator should not
                 # change properties on the Chi0Calculator! Change in the
                 # future! XXX
@@ -850,9 +851,9 @@ class G0W0Calculator:
             Wdict[fxc_mode] = W_xwGG
 
         # Create a blocks1d for the reduced plane-wave description
-        blocks1d = Blocks1D(chi0.blockdist.blockcomm, rpd.ngmax)
+        blocks1d = Blocks1D(chi0.blockdist.blockcomm, rqpd.ngmax)
 
-        return rpd, Wdict, blocks1d, chi0calc.pawcorr
+        return rqpd, Wdict, blocks1d, chi0calc.pawcorr
 
     def calculate_vxc_and_exx(self):
         """EXX and Kohn-Sham XC contribution."""

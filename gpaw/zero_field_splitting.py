@@ -119,7 +119,7 @@ def zfs1(wf1: WaveFunctions,
 
     G_G = pd.G2_qG[0]**0.5
     G_G[0] = 1.0
-    G_Gv = pd.get_reciprocal_vectors() / G_G[:, np.newaxis]
+    G_Gv = pd.get_reciprocal_vectors(add_q=False) / G_G[:, np.newaxis]
 
     n_sG = pd.zeros(2)
     for n_G, wf in zip(n_sG, [wf1, wf2]):
