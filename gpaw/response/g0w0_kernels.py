@@ -16,36 +16,23 @@ class G0W0Kernel:
         self.xcflags = XCFlags(xc)
         self._kwargs = kwargs
 
-    def calculate(self, pd):
+    def calculate(self, qpd):
         return calculate_kernel(
-            pd=pd,
+            qpd=qpd,
             xcflags=self.xcflags,
             context=self.context,
             **self._kwargs)
 
 
-def actually_calculate_kernel(*, gs, qd, xcflags, q_empty, tag, ecut_max, Eg,
-                              wd, context):
+def actually_calculate_kernel(*, gs, qd, xcflags, q_empty, tag, ecut_max,
+                              context):
     ibzq_qc = qd.ibzk_kc
 
-    l_l = np.array([1.0])
-
-    if xcflags.linear_kernel:
-        l_l = None
-        omega_w = None
-    elif not xcflags.dyn_kernel:
-        omega_w = None
-    else:
-        omega_w = wd.omega_w
-
     kernel = KernelWave(
-        l_l=l_l,
-        omega_w=omega_w,
         gs=gs,
         xc=xcflags.xc,
         ibzq_qc=ibzq_qc,
         q_empty=q_empty,
-        Eg=Eg,
         ecut=ecut_max,
         tag=tag,
         context=context)
@@ -53,24 +40,24 @@ def actually_calculate_kernel(*, gs, qd, xcflags, q_empty, tag, ecut_max, Eg,
     kernel.calculate_fhxc()
 
 
-def calculate_kernel(*, ecut, xcflags, gs, qd, ns, pd, wd, Eg, context):
+def calculate_kernel(*, ecut, xcflags, gs, qd, ns, qpd, context):
     xc = xcflags.xc
     tag = gs.atoms.get_chemical_formula(mode='hill')
 
     # Get iq
     ibzq_qc = qd.ibzk_kc
-    iq = np.argmin(np.linalg.norm(ibzq_qc - pd.q_c[np.newaxis], axis=1))
-    assert np.allclose(ibzq_qc[iq], pd.q_c)
+    iq = np.argmin(np.linalg.norm(ibzq_qc - qpd.q_c[np.newaxis], axis=1))
+    assert np.allclose(ibzq_qc[iq], qpd.q_c)
 
     ecut_max = ecut * Ha  # XXX very ugly this
     q_empty = None
 
-    # If we want a reduced plane-wave description, create pd mapping
-    if pd.ecut < ecut:
+    # If we want a reduced plane-wave description, create qpd mapping
+    if qpd.ecut < ecut:
         # Recreate nonreduced plane-wave description corresponding to ecut_max
-        pdnr = SingleQPWDescriptor.from_q(pd.q_c, ecut, pd.gd,
-                                          gammacentered=pd.gammacentered)
-        pw_map = PWMapping(pd, pdnr)
+        qpdnr = SingleQPWDescriptor.from_q(qpd.q_c, ecut, qpd.gd,
+                                           gammacentered=qpd.gammacentered)
+        pw_map = PWMapping(qpd, qpdnr)
         G2_G1 = pw_map.G2_G1
     else:
         G2_G1 = None
@@ -83,9 +70,9 @@ def calculate_kernel(*, ecut, xcflags, gs, qd, ns, pd, wd, Eg, context):
     if xc != 'RPA':
         if q_empty is not None:
             actually_calculate_kernel(q_empty=q_empty, qd=qd, tag=tag,
-                                      xcflags=xcflags, Eg=Eg,
+                                      xcflags=xcflags,
                                       ecut_max=ecut_max, gs=gs,
-                                      wd=wd, context=context)
+                                      context=context)
             # (This creates the ulm file above.  Probably.)
 
         mpi.world.barrier()
@@ -101,33 +88,19 @@ def calculate_kernel(*, ecut, xcflags, gs, qd, ns, pd, wd, Eg, context):
 
         else:
             if xc == 'RPA':
-                fv = np.eye(pd.ngmax)
+                fv = np.eye(qpd.ngmax)
             elif xc == 'range_RPA':
                 raise NotImplementedError
 #                    fv = np.exp(-0.25 * (G_G * self.range_rc) ** 2.0)
 
-            elif xcflags.linear_kernel:
+            else:
                 with affopen(filename) as r:
                     fv = r.fhxc_sGsG
 
                 if G2_G1 is not None:
                     fv = fv.take(G2_G1, 0).take(G2_G1, 1)
 
-            elif not xcflags.dyn_kernel:
-                # static kernel which does not scale with lambda
-                with affopen(filename) as r:
-                    fv = r.fhxc_lGG
-
-                if G2_G1 is not None:
-                    fv = fv.take(G2_G1, 1).take(G2_G1, 2)
-
-            else:  # dynamical kernel
-                with affopen(filename) as r:
-                    fv = r.fhxc_lwGG
-
-                if G2_G1 is not None:
-                    fv = fv.take(G2_G1, 2).take(G2_G1, 3)
     else:
-        fv = np.eye(pd.ngmax)
+        fv = np.eye(qpd.ngmax)
 
     return fv

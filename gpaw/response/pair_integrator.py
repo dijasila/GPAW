@@ -144,8 +144,8 @@ class PairFunctionIntegrator(ABC):
         analyzer : PWSymmetryAnalyzer
         """
         # Initialize the plane-wave symmetry analyzer
-        analyzer = self.get_pw_symmetry_analyzer(out.pd)
-
+        analyzer = self.get_pw_symmetry_analyzer(out.qpd)
+        
         # Perform the actual integral as a point integral over k-point pairs
         integral = KPointPairPointIntegral(self.kspair, analyzer)
         weighted_kptpairs = integral.weighted_kpoint_pairs(n1_t, n2_t,
@@ -214,16 +214,16 @@ class PairFunctionIntegrator(ABC):
         ecut = None if ecut is None else ecut / Hartree  # eV to Hartree
         gd = self.gs.gd
 
-        pd = SingleQPWDescriptor.from_q(q_c, ecut, gd,
-                                        gammacentered=gammacentered)
+        qpd = SingleQPWDescriptor.from_q(q_c, ecut, gd,
+                                         gammacentered=gammacentered)
 
-        return pd
+        return qpd
 
-    def get_pw_symmetry_analyzer(self, pd):
+    def get_pw_symmetry_analyzer(self, qpd):
         from gpaw.response.symmetry import PWSymmetryAnalyzer
 
         return PWSymmetryAnalyzer(
-            self.gs.kd, pd, self.context,
+            self.gs.kd, qpd, self.context,
             disable_point_group=self.disable_point_group,
             disable_time_reversal=self.disable_time_reversal,
             disable_non_symmorphic=self.disable_non_symmorphic)
@@ -492,7 +492,7 @@ class KPointPairIntegral(ABC):
         """
         self.gs = kspair.gs
         self.kspair = kspair
-        self.q_c = analyzer.pd.q_c
+        self.q_c = analyzer.qpd.q_c
 
         # Prepare the k-point pair integral
         bzk_kc, weight_k = self.get_kpoint_domain(analyzer)

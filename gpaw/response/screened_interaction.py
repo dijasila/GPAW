@@ -27,7 +27,7 @@ class QPointDescriptor(KPointDescriptor):
 
 def initialize_w_calculator(chi0calc, context, *,
                             coulomb,
-                            xc='RPA', Eg=None,  # G0W0Kernel arguments
+                            xc='RPA',  # G0W0Kernel arguments
                             ppa=False, E0=Ha,
                             integrate_gamma=0, q0_correction=False):
     """Initialize a WCalculator from a Chi0Calculator.
@@ -37,28 +37,17 @@ def initialize_w_calculator(chi0calc, context, *,
     chi0calc : Chi0Calculator
     xc : str
         Kernel to use when including vertex corrections.
-    Eg: float
-        Gap to apply in the 'JGMs' (simplified jellium-with-gap) kernel.
-        If None the DFT gap is used.
 
     Remaining arguments: See WCalculator
     """
     from gpaw.response.g0w0_kernels import G0W0Kernel
 
     gs = chi0calc.gs
-
-    if Eg is None and xc == 'JGMsx':
-        Eg = gs.get_band_gap()
-    elif Eg is not None:
-        Eg /= Ha
-
     qd = QPointDescriptor.from_gs(gs)
 
     xckernel = G0W0Kernel(xc=xc, ecut=chi0calc.ecut,
                           gs=gs, qd=qd,
                           ns=gs.nspins,
-                          wd=chi0calc.wd,
-                          Eg=Eg,
                           context=context)
 
     wcalc = WCalculator(gs, context, qd=qd,
@@ -154,13 +143,13 @@ class WCalculator:
 
         return W_x
 
-    def basic_dyson_arrays(self, pd, fxc_mode):
-        delta_GG = np.eye(pd.ngmax)
+    def basic_dyson_arrays(self, qpd, fxc_mode):
+        delta_GG = np.eye(qpd.ngmax)
 
         if fxc_mode == 'GW':
             fv = delta_GG
         else:
-            fv = self.xckernel.calculate(pd)
+            fv = self.xckernel.calculate(qpd)
 
         return delta_GG, fv
 
@@ -168,20 +157,21 @@ class WCalculator:
                    only_correlation=False):
         """In-place calculation of the screened interaction."""
         # Unpack data
-        pd = chi0.pd
+        qpd = chi0.qpd
         chi0_wGG = chi0.copy_array_with_distribution('wGG')
         chi0_Wvv = chi0.chi0_Wvv
         chi0_WxvG = chi0.chi0_WxvG
 
-        q_c = pd.q_c
+        q_c = qpd.q_c
         kd = self.gs.kd
         wblocks1d = Blocks1D(chi0.blockdist.blockcomm, len(chi0.wd))
 
-        delta_GG, fv = self.basic_dyson_arrays(pd, fxc_mode)
+        delta_GG, fv = self.basic_dyson_arrays(qpd, fxc_mode)
 
         if self.integrate_gamma != 0:
             reduced = (self.integrate_gamma == 2)
-            V0, sqrtV0 = self.coulomb.integrated_kernel(pd=pd, reduced=reduced)
+            V0, sqrtV0 = self.coulomb.integrated_kernel(qpd=qpd,
+                                                        reduced=reduced)
         elif self.integrate_gamma == 0 and np.allclose(q_c, 0):
             bzvol = (2 * np.pi)**3 / self.gs.volume / self.qd.nbzkpts
             Rq0 = (3 * bzvol / (4 * np.pi))**(1. / 3.)
@@ -196,7 +186,7 @@ class WCalculator:
         if np.allclose(q_c, 0) and len(chi0_wGG) > 0:
             gamma_int = GammaIntegrator(
                 truncation=self.coulomb.truncation,
-                kd=kd, pd=pd,
+                kd=kd, qpd=qpd,
                 chi0_wvv=chi0_Wvv[wblocks1d.myslice],
                 chi0_wxvG=chi0_WxvG[wblocks1d.myslice])
 
@@ -208,13 +198,13 @@ class WCalculator:
                     gamma_int.set_appendages(chi0_GG, iw, iqf)
 
                     sqrtV_G = self.coulomb.sqrtV(
-                        pd=pd, q_v=gamma_int.qf_qv[iqf])
+                        qpd=qpd, q_v=gamma_int.qf_qv[iqf])
 
                     dfc = DielectricFunctionCalculator(
                         sqrtV_G, chi0_GG, mode=fxc_mode, fv_GG=fv)
-                    einv_GG += dfc.get_einv_GG() * gamma_int.weight_q[iqf]
+                    einv_GG += dfc.get_einv_GG() * gamma_int.weight_q
             else:
-                sqrtV_G = self.coulomb.sqrtV(pd=pd, q_v=None)
+                sqrtV_G = self.coulomb.sqrtV(qpd=qpd, q_v=None)
                 dfc = DielectricFunctionCalculator(
                     sqrtV_G, chi0_GG, mode=fxc_mode, fv_GG=fv)
                 einv_GG = dfc.get_einv_GG()
@@ -229,7 +219,7 @@ class WCalculator:
                                        sqrtV_G[:, np.newaxis])
                 if self.q0_corrector is not None and np.allclose(q_c, 0):
                     W = wblocks1d.a + iw
-                    self.q0_corrector.add_q0_correction(pd, W_GG,
+                    self.q0_corrector.add_q0_correction(qpd, W_GG,
                                                         einv_GG_full,
                                                         chi0_WxvG[W],
                                                         chi0_Wvv[W],
@@ -261,13 +251,13 @@ class WCalculator:
     def dyson_and_W_new(self, iq, q_c, chi0, ecut, coulomb):
         assert not self.ppa
         # assert not self.do_GW_too
-        assert ecut == chi0.pd.ecut
+        assert ecut == chi0.qpd.ecut
         assert self.fxc_mode == 'GW'
 
         assert not np.allclose(q_c, 0)
 
         nW = len(self.wd)
-        nG = chi0.pd.ngmax
+        nG = chi0.qpd.ngmax
 
         from gpaw.response.wgg import Grid
 
@@ -282,7 +272,7 @@ class WCalculator:
 
         dielectric_WgG = chi0.chi0_wGG  # XXX
         for iw, chi0_GG in enumerate(chi0.chi0_wGG):
-            sqrtV_G = coulomb.sqrtV(chi0.pd, q_v=None)
+            sqrtV_G = coulomb.sqrtV(chi0.qpd, q_v=None)
             e_GG = np.eye(nG) - chi0_GG * sqrtV_G * sqrtV_G[:, np.newaxis]
             e_gG = e_GG[my_gslice]
 
@@ -310,4 +300,4 @@ class WCalculator:
         W_WgG = inveps_WgG
         Wp_wGG = W_WgG.copy()
         Wm_wGG = W_WgG.copy()
-        return chi0.pd, Wm_wGG, Wp_wGG  # not Hilbert transformed yet
+        return chi0.qpd, Wm_wGG, Wp_wGG  # not Hilbert transformed yet

@@ -157,12 +157,6 @@ class ResponseGroundStateAdapter:
     def xcname(self):
         return self.hamiltonian.xc.name
 
-    # XXX This is used by xc == JGMsx from g0w0
-    def get_band_gap(self):
-        from ase.dft.bandgap import get_band_gap
-        gap, k1, k2 = get_band_gap(self._calc)
-        return gap
-
     def get_xc_difference(self, xc):
         # XXX used by gpaw/xc/tools.py
         return self._calc.get_xc_difference(xc)
@@ -172,10 +166,10 @@ class ResponseGroundStateAdapter:
         return self._wfs._get_wave_function_array(
             u, n, realspace=True)
 
-    def pair_density_paw_corrections(self, pd):
+    def pair_density_paw_corrections(self, qpd):
         from gpaw.response.paw import get_pair_density_paw_corrections
         return get_pair_density_paw_corrections(
-            setups=self.setups, pd=pd, spos_ac=self.spos_ac)
+            setups=self.setups, qpd=qpd, spos_ac=self.spos_ac)
 
     def get_pos_av(self):
         # gd.cell_cv must always be the same as pd.gd.cell_cv, right??

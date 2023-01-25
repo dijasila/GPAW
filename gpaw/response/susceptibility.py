@@ -70,13 +70,13 @@ class Chi:
         omega_w, chiks_wGG, chi_wGG = self.get_distributed_arrays()
 
         # Map the susceptibilities to a reduced plane-wave representation
-        pd = self.chiks.pd
-        mask_G = get_pw_reduction_map(pd, reduced_ecut)
+        qpd = self.chiks.qpd
+        mask_G = get_pw_reduction_map(qpd, reduced_ecut)
         chiks_wGG = np.ascontiguousarray(chiks_wGG[:, mask_G, :][:, :, mask_G])
         chi_wGG = np.ascontiguousarray(chi_wGG[:, mask_G, :][:, :, mask_G])
 
         # Get reduced plane wave repr. as coordinates on the reciprocal lattice
-        G_Gc = get_pw_coordinates(pd)[mask_G]
+        G_Gc = get_pw_coordinates(qpd)[mask_G]
 
         # Gather all frequencies from world to root
         chiks_wGG = self.gather(chiks_wGG)
@@ -211,7 +211,7 @@ class ChiFactory:
             # No Hartree term in Dyson equation
             Vbare_G = None
         else:
-            Vbare_G = get_coulomb_kernel(chiks.pd, self.gs.kd.N_c)
+            Vbare_G = get_coulomb_kernel(chiks.qpd, self.gs.kd.N_c)
 
         # Calculate the xc kernel, if it has not been supplied by the user
         if Kxc_GG is None:
@@ -261,7 +261,7 @@ class ChiFactory:
         return self._chiks
 
 
-def get_pw_reduction_map(pd, ecut):
+def get_pw_reduction_map(qpd, ecut):
     """Get a mask to reduce the plane wave representation.
 
     Please remark, that the response code currently works with one q-vector
@@ -274,20 +274,20 @@ def get_pw_reduction_map(pd, ecut):
     """
     assert ecut is not None
     ecut /= Hartree
-    assert ecut <= pd.ecut
+    assert ecut <= qpd.ecut
 
     # List of all plane waves
-    G_Gv = np.array([pd.G_Qv[Q] for Q in pd.Q_qG[0]])
+    G_Gv = np.array([qpd.G_Qv[Q] for Q in qpd.Q_qG[0]])
 
-    if pd.gammacentered:
+    if qpd.gammacentered:
         mask_G = ((G_Gv ** 2).sum(axis=1) <= 2 * ecut)
     else:
-        mask_G = (((G_Gv + pd.K_qv[0]) ** 2).sum(axis=1) <= 2 * ecut)
+        mask_G = (((G_Gv + qpd.K_qv[0]) ** 2).sum(axis=1) <= 2 * ecut)
 
     return mask_G
 
 
-def get_pw_coordinates(pd):
+def get_pw_coordinates(qpd):
     """Get the reciprocal lattice vector coordinates corresponding to a
     givne plane wave basis.
 
@@ -300,17 +300,17 @@ def get_pw_coordinates(pd):
         Coordinates on the reciprocal lattice
     """
     # List of all plane waves
-    G_Gv = np.array([pd.G_Qv[Q] for Q in pd.Q_qG[0]])
+    G_Gv = np.array([qpd.G_Qv[Q] for Q in qpd.Q_qG[0]])
 
     # Use cell to get coordinates
-    B_cv = 2.0 * np.pi * pd.gd.icell_cv
+    B_cv = 2.0 * np.pi * qpd.gd.icell_cv
     return np.round(np.dot(G_Gv, np.linalg.inv(B_cv))).astype(int)
 
 
-def get_inverted_pw_mapping(pd1, pd2):
-    """Get the plane wave coefficients mapping GG' of pd1 into -G-G' of pd2"""
-    G1_Gc = get_pw_coordinates(pd1)
-    G2_Gc = get_pw_coordinates(pd2)
+def get_inverted_pw_mapping(qpd1, qpd2):
+    """Get the planewave coefficients mapping GG' of qpd1 into -G-G' of qpd2"""
+    G1_Gc = get_pw_coordinates(qpd1)
+    G2_Gc = get_pw_coordinates(qpd2)
 
     mG2_G1 = []
     for G1_c in G1_Gc:
@@ -321,7 +321,7 @@ def get_inverted_pw_mapping(pd1, pd2):
                 found_match = True
                 break
         if not found_match:
-            raise ValueError('Could not match pd1 and pd2')
+            raise ValueError('Could not match qpd1 and qpd2')
 
     # Set up mapping from GG' to -G-G'
     invmap_GG = tuple(np.meshgrid(mG2_G1, mG2_G1, indexing='ij'))
@@ -329,7 +329,7 @@ def get_inverted_pw_mapping(pd1, pd2):
     return invmap_GG
 
 
-def symmetrize_reciprocity(pd, X_wGG):
+def symmetrize_reciprocity(qpd, X_wGG):
     """In collinear systems without spin-orbit coupling, the plane wave
     susceptibility is reciprocal in the sense that e.g.
 
@@ -339,9 +339,9 @@ def symmetrize_reciprocity(pd, X_wGG):
     """
     from gpaw.test.response.test_chiks import get_inverted_pw_mapping
 
-    q_c = pd.q_c
+    q_c = qpd.q_c
     if np.allclose(q_c, 0.):
-        invmap_GG = get_inverted_pw_mapping(pd, pd)
+        invmap_GG = get_inverted_pw_mapping(qpd, qpd)
         for X_GG in X_wGG:
             # Symmetrize [χ_(GG')(q, ω) + χ_(-G'-G)(-q, ω)] / 2
             X_GG[:] = (X_GG + X_GG[invmap_GG].T) / 2.

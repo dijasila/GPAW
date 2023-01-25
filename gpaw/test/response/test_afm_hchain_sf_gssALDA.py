@@ -90,7 +90,7 @@ def test_response_afm_hchain_gssALDA(in_tmp_dir):
         rshelmax=rshelmax,
         rshewmin=rshewmin)
     chi_factory = ChiFactory(chiks_calc)
-                  
+
     for q, q_c in enumerate(q_qc):
         filename = 'h-chain_macro_tms_q%d.csv' % q
         txt = 'h-chain_macro_tms_q%d.txt' % q

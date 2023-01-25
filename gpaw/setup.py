@@ -1499,18 +1499,20 @@ class Setups(list):
 
     def overlap_correction(self, P_ani, out_ani):
         xp = P_ani.layout.xp
-        if xp is not np:
-            P_ani = P_ani.to_cpu()
-            out_ani = out_ani.new(xp=np)
 
         if len(P_ani.dims) == 2:  # (band, spinor)
             subscripts = 'nsi, ij -> nsj'
         else:
             subscripts = 'ni, ij -> nj'
-        for (a, P_ni), out_ni in zip(P_ani.items(), out_ani.values()):
-            dS_ii = self[a].dO_ii
-            np.einsum(subscripts, P_ni, dS_ii, out=out_ni)
-        return out_ani.to_xp(xp)
+        if xp is np:
+            for (a, P_ni), out_ni in zip(P_ani.items(), out_ani.values()):
+                dS_ii = self[a].dO_ii
+                xp.einsum(subscripts, P_ni, dS_ii, out=out_ni)
+        else:
+            # GRR. Cupy einsum doesn't have an out argument.
+            for (a, P_ni), out_ni in zip(P_ani.items(), out_ani.values()):
+                dS_ii = xp.asarray(self[a].dO_ii)
+                out_ni[:] = xp.einsum(subscripts, P_ni, dS_ii)
 
     def partial_wave_corrections(self) -> list[list[Spline]]:
         splines: dict[Setup, list[Spline]] = {}
