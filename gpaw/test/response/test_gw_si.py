@@ -91,7 +91,7 @@ def test_few_freq_response_gwsi(in_tmp_dir, scalapack):
                       convergence={'density': 1e-7},
                       parallel={'domain': 1},
                       txt='si.txt')
-    e = atoms.get_potential_energy()
+    atoms.get_potential_energy()
     scalapack = atoms.calc.wfs.bd.comm.size
     atoms.calc.diagonalize_full_hamiltonian(nbands=8, scalapack=scalapack)
     atoms.calc.write('si.gpw', mode='all')
