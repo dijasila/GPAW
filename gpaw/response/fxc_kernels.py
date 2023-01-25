@@ -47,7 +47,7 @@ def fxc_factory(fxc, chiks: ChiKS, localft_calc: LocalFTCalculator,
     """
     # Calculate the xc kernel Kxc_GG
     fxc_calculator = AdiabaticFXCCalculator(localft_calc)
-    Kxc_GG = fxc_calculator(fxc, chiks.spincomponent, chiks.pd)
+    Kxc_GG = fxc_calculator(fxc, chiks.spincomponent, chiks.qpd)
 
     if fxc_scaling is not None:
         if not fxc_scaling.has_scaling:
