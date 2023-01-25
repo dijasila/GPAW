@@ -44,7 +44,7 @@ class PWSymmetryAnalyzer:
         kd: KPointDescriptor
             The kpoint descriptor containing the
             information about symmetries and kpoints.
-        qpd: PWDescriptor
+        qpd: SingleQPWDescriptor
             Plane wave descriptor that contains the reciprocal
             lattice .
         context: ResponseContext

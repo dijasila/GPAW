@@ -662,7 +662,7 @@ class Chi0Calculator:
 
         kd = gs.kd
         k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
-        q_c = qpd.kd.bzk_kc[0]
+        q_c = qpd.q_c
         K1 = self.pair.find_kpoint(k_c)
         K2 = self.pair.find_kpoint(k_c + q_c)
 

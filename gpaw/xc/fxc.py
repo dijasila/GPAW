@@ -228,8 +228,8 @@ class FXCCorrelation:
         """Evaluate correlation energy from chi0 and the kernel fhxc"""
 
         ibzq2_q = [
-            np.dot(self.ibzq_qc[i] - qpd.kd.bzk_kc[0],
-                   self.ibzq_qc[i] - qpd.kd.bzk_kc[0])
+            np.dot(self.ibzq_qc[i] - qpd.q_c,
+                   self.ibzq_qc[i] - qpd.q_c)
             for i in range(len(self.ibzq_qc))
         ]
 
