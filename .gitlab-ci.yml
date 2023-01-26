@@ -69,7 +69,7 @@ stages:
 
 
 build:
-  image: $IMAGE_PATH/build:0.1
+  image: $IMAGE_PATH/build:oldest
   extends: .build
   tags:
     - linux
@@ -84,7 +84,7 @@ build:
 
 
 build-gpaw-python:
-  image: $IMAGE_PATH/build:0.1
+  image: $IMAGE_PATH/build:oldest
   extends: .build
   tags:
     - linux
@@ -100,7 +100,7 @@ build-gpaw-python:
 
 
 build-cuda:
-  image: $IMAGE_PATH/build-cuda:0.1
+  image: $IMAGE_PATH/build-cuda:ubuntu-20.04-cuda-11.6.0
   extends:
     - .build
     - .gpu-job
@@ -119,7 +119,7 @@ build-cuda:
 
 
 test-cuda:
-  image: $IMAGE_PATH/run-cuda:0.1
+  image: $IMAGE_PATH/run-cuda:ubuntu-20.04-cuda-11.6.0
   extends:
     - .test
     - .gpu-job
@@ -134,7 +134,7 @@ test-cuda:
 
 
 test:
-  image: $IMAGE_PATH/run:0.1
+  image: $IMAGE_PATH/run:oldest
   extends:
     - .test
   needs:
@@ -147,7 +147,7 @@ test:
 
 
 test-gpaw-python:
-  image: $IMAGE_PATH/run:0.1
+  image: $IMAGE_PATH/run:oldest
   extends:
     - .test
   needs:
