@@ -83,6 +83,23 @@ build:
     - gpaw -P 1 info
 
 
+build-latest:
+  image: $IMAGE_PATH/build:latest
+  extends: .build
+  tags:
+    - linux
+  script:
+    - |
+      cat << EOF >> siteconfig.py
+      extra_compile_args += ['-std=c99']
+      EOF
+    - cat siteconfig.py
+    - pip install --user --upgrade numpy scipy
+    - python setup.py build_ext
+    - pip install --user --editable .
+    - gpaw -P 1 info
+
+
 build-gpaw-python:
   image: $IMAGE_PATH/build:oldest
   extends: .build
@@ -131,6 +148,19 @@ test:
     - OMP_NUM_THREADS=2 pytest -v -m ci -We -Wi::ImportWarning
 
 
+test-latest:
+  image: $IMAGE_PATH/run:latest
+  extends:
+    - .test
+  needs:
+    - build-latest
+  tags:
+    - linux
+  script:
+    - gpaw info
+    - OMP_NUM_THREADS=2 pytest -v -m ci -We -Wi::ImportWarning
+
+
 test-gpaw-python:
   image: $IMAGE_PATH/run:oldest
   extends:
@@ -162,11 +192,12 @@ test-cuda:
 
 
 lint:
-  image: $IMAGE_PATH/lint:0.1
+  image: docker.io/python:slim
   stage: build
   tags:
     - linux
   script:
+    - pip install flake8 interrogate
     - python --version
     - flake8 --version
     - flake8 --doctests gpaw
@@ -192,12 +223,12 @@ lint:
 
 
 typecheck:
-  image: $IMAGE_PATH/typecheck:0.1
+  image: docker.io/python:slim
   stage: build
   tags:
     - linux
   script:
-    - pip install types-PyYAML
+    - pip install mypy types-PyYAML
     - python --version
     - mypy --version
     - mypy -p gpaw
