@@ -118,21 +118,6 @@ build-cuda:
     - pip install --user --editable .
 
 
-test-cuda:
-  image: $IMAGE_PATH/run-cuda:ubuntu-20.04-cuda-11.6.0
-  extends:
-    - .test
-    - .gpu-job
-  needs:
-    - build-cuda
-  tags:
-    - cuda
-  script:
-    - nvidia-smi
-    - gpaw info
-    - pytest -v -m gpu
-
-
 test:
   image: $IMAGE_PATH/run:oldest
   extends:
@@ -159,6 +144,21 @@ test-gpaw-python:
     - >
       OMP_NUM_THREADS=2 gpaw-python -m pytest -v -m ci -We -Wi::ImportWarning
       -Wi:'numpy.ufunc size changed, may indicate binary incompatibility. Expected 192 from C header, got 216 from PyObject':RuntimeWarning
+
+
+test-cuda:
+  image: $IMAGE_PATH/run-cuda:ubuntu-20.04-cuda-11.6.0
+  extends:
+    - .test
+    - .gpu-job
+  needs:
+    - build-cuda
+  tags:
+    - cuda
+  script:
+    - nvidia-smi
+    - gpaw info
+    - pytest -v -m gpu
 
 
 lint:
