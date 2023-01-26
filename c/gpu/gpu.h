@@ -45,6 +45,16 @@
 #  define MIN(a,b)  (((a) < (b)) ? (a) : (b))
 #endif
 
+#if defined(__CUDACC__)
+#define ALIGN(x)  __align__(x)
+#else
+#if defined(__GNUC__)
+#define ALIGN(x)  __attribute__ ((aligned (x)))
+#else
+#define ALIGN(x)
+#endif
+#endif
+
 typedef struct
 {
     int ncoefs;

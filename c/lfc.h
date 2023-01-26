@@ -17,17 +17,8 @@ typedef struct
 } LFVolume;
 
 #ifdef GPAW_GPU
+#include "gpu/gpu.h"
 #include "gpu/gpu-complex.h"
-
-#ifdef __CUDACC__
-#define ALIGN(x)  __align__(x)
-#else
-#if defined(__GNUC__)
-#define ALIGN(x)  __attribute__ ((aligned (x)))
-#else
-#define ALIGN(x)
-#endif
-#endif
 
 typedef struct ALIGN(16)
 {
