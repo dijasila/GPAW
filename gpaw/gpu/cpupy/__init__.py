@@ -1,6 +1,6 @@
-import numpy as np
-import gpaw.gpu.cpupy.linalg as linalg
 import gpaw.gpu.cpupy.cublas as cublas
+import gpaw.gpu.cpupy.linalg as linalg
+import numpy as np
 
 __all__ = ['linalg', 'cublas']
 
@@ -60,6 +60,10 @@ def eye(n):
 def triu_indices(n, k=0, m=None):
     i, j = np.triu_indices(n, k, m)
     return ndarray(i), ndarray(j)
+
+
+def fuse():
+    return lambda func: func
 
 
 class ndarray:
