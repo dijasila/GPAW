@@ -49,6 +49,7 @@ def test_acf_fd(grid, xp):
 
 
 @pytest.mark.ci
+@pytest.mark.gpu
 @pytest.mark.parametrize('xp', [np, cupy])
 def test_acf_pw(grid, xp):
     if world.size > 1 and xp is cupy:
