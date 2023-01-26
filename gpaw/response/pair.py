@@ -333,7 +333,8 @@ class PairDensityCalculator:
             return n_mG
         else:
             n_MG = qpd.empty(kpt2.blocksize * self.blockcomm.size)
-            self.blockcomm.all_gather(n_mG, n_MG)
+            with self.context.timer('all_gather'):
+                self.blockcomm.all_gather(n_mG, n_MG)
             return n_MG[:kpt2.n2 - kpt2.n1]
 
     @timer('Optical limit')
@@ -377,7 +378,8 @@ class PairDensityCalculator:
         if block and self.blockcomm.size > 1:
             n0_Mv = np.empty((kpt2.blocksize * self.blockcomm.size, 3),
                              dtype=complex)
-            self.blockcomm.all_gather(n0_mv, n0_Mv)
+            with self.context.timer('all_gather optical'):
+                self.blockcomm.all_gather(n0_mv, n0_Mv)
             n0_mv = n0_Mv[:kpt2.n2 - kpt2.n1]
 
         return -1j * n0_mv
