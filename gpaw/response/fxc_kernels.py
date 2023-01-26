@@ -62,12 +62,34 @@ def fxc_factory(fxc, chiks: ChiKS, localft_calc: LocalFTCalculator,
 
 
 class FXCKernel:
-    """Some documentation here!                                                XXX
+    r"""Adiabatic local exchange-correlation kernel in a plane-wave basis.
+
+    In real-space an adiabatic local xc-kernel matrix is given by:
+
+    K_xc^μν(r, r', t-t') = f_xc^μν(r) δ(r-r') δ(t-t')
+
+    where the local xc kernel is given by:
+
+                 ∂^2[ϵ_xc(n,m)n] |
+    f_xc^μν(r) = ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾ |
+                   ∂n^μ ∂n^ν     |n=n(r),m=m(r)
+
+    In the plane-wave basis (and frequency domain),
+
+                     1
+    K_xc^μν(G, G') = ‾‾ f_xc^μν(G-G'),
+                     V0
+
+    where V0 is the cell volume.
+
+    Because the set of unique reciprocal lattice vector differences
+    dG = G-G' is much more compact than the full kernel matrix structure
+    Kxc_GG', we store data internally in the dG representation and only
+    unfold the data into the full kernel matrix when requested.
     """
 
     def __init__(self, fxc_dG, dG_K, GG_shape, volume):
-        """Some documentation here!                                            XXX
-        """
+        """Construct the fxc kernel."""
         self._fxc_dG = fxc_dG
         self._dG_K = dG_K
         self.GG_shape = GG_shape
@@ -75,8 +97,7 @@ class FXCKernel:
 
     @property
     def Kxc_GG(self):
-        """Some documentation here!                                            XXX
-        """
+        """Unfold the fxc(G-G') kernel into the Kxc_GG' kernel matrix."""
         # Kxc(G-G') = 1 / V0 * fxc(G-G')
         Kxc_dG = 1 / self.volume * self._fxc_dG
 
