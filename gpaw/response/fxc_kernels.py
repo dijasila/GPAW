@@ -83,17 +83,39 @@ class AdiabaticFXCCalculator:
         add_fxc = create_add_fxc(fxc, spincomponent)
         fxc_Q = self.localft_calc(large_qpd, add_fxc)
 
-        # Unfold the kernel according to Kxc_GG' = 1 / V0 * fxc(G-G')
-        Kxc_GG = 1 / qpd.gd.volume * self.unfold_kernel_matrix(
-            qpd, large_qpd, fxc_Q)
+        # Create a mapping from the large plane-wave grid to an unfoldable mesh
+        # of all unique dG = G-G' reciprocal lattice vector differences on the
+        # qpd plane-wave representation
+        GG_shape, dG_K, Q_dG = self.create_unfoldable_Q_dG_mapping(
+            qpd, large_qpd)
+
+        # Map the calculated kernel fxc(Q) onto the unfoldable grid of unique
+        # reciprocal lattice vector differences dG according to
+        # Kxc(G-G') = 1 / V0 * fxc(G-G')
+        Kxc_dG = 1 / qpd.gd.volume * fxc_Q[Q_dG]
+
+        # Unfold Kxc(G-G') to the kernel matrix structure Kxc_GG'
+        Kxc_GG = Kxc_dG[dG_K].reshape(GG_shape)
 
         return Kxc_GG
 
-    @timer('Unfold kernel matrix')
-    def unfold_kernel_matrix(self, qpd, large_qpd, fxc_Q):
-        """Unfold the kernel fxc(Q) to the kernel matrix fxc_GG'=fxc(G-G')"""
-        # Calculate (G-G') reciprocal space vectors
-        dG_GGv = calculate_dG(qpd)
+    @timer('Create unfoldable Q_dG mapping')
+    def create_unfoldable_Q_dG_mapping(self, qpd, large_qpd):
+        """Create mapping from Q index to the kernel matrix indeces GG'.
+
+        The mapping is split into two parts:
+         * Mapping from the large plane-wave representation index Q (of
+           large_pd) to an index dG representing all unique reciprocal lattice
+           vector differences (G-G') of the original plane-wave representation
+           qpd
+         * A mapping from the dG index to a flattened K = (G, G') composit
+           kernel matrix index
+
+        Lastly the kernel matrix shape GG_shape is returned to that an array in
+        index K can easily be reshaped to a kernel matrix Kxc_GG'.
+        """
+        # Calculate all (G-G') reciprocal lattice vectors
+        dG_GGv = calculate_dG_GGv(qpd)
         GG_shape = dG_GGv.shape[:2]
 
         # Reshape to composite K = (G, G') index
@@ -104,16 +126,12 @@ class AdiabaticFXCCalculator:
         dG_dGv, dG_K = np.unique(dG_Kv.round(decimals=6),
                                  return_inverse=True, axis=0)
 
-        # Map fxc(Q) onto fxc(G-G') index dG
-        Q_dG = self.get_Q_dG_map(large_qpd, dG_dGv)
-        fxc_dG = fxc_Q[Q_dG]
+        # Create the mapping from Q-index to dG-index
+        Q_dG = self.create_Q_dG_map(large_qpd, dG_dGv)
 
-        # Unfold fxc(G-G') to fxc_GG'
-        fxc_GG = fxc_dG[dG_K].reshape(GG_shape)
+        return GG_shape, dG_K, Q_dG
 
-        return fxc_GG
-
-    def get_Q_dG_map(self, large_qpd, dG_dGv):
+    def create_Q_dG_map(self, large_qpd, dG_dGv):
         """Create mapping between (G-G') index dG and large_qpd index Q."""
         G_Qv = large_qpd.get_reciprocal_vectors(add_q=False)
         # Make sure to match the precision of dG_dGv
@@ -159,7 +177,7 @@ def create_add_fxc(fxc, spincomponent):
     return add_fxc
 
 
-def calculate_dG(qpd):
+def calculate_dG_GGv(qpd):
     """Calculate dG_GG' = (G-G') for the plane wave basis in qpd."""
     nG = qpd.ngmax
     G_Gv = qpd.get_reciprocal_vectors(add_q=False)
