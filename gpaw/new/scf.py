@@ -5,6 +5,7 @@ import warnings
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, Callable
 
+import numpy as np
 from gpaw.convergence_criteria import (Criterion, check_convergence,
                                        dict2criterion)
 from gpaw.scf import write_iteration
@@ -115,9 +116,10 @@ class SCFContext:
                  pot_calc):
         self.state = state
         self.niter = niter
-        energy = (sum(state.potential.energies.values()) +
-                  sum(state.ibzwfs.energies.values()))
-        self.ham = SimpleNamespace(e_total_extrapolated=energy,
+        energy = np.array([sum(state.potential.energies.values()) +
+                           sum(state.ibzwfs.energies.values())])
+        world.broadcast(energy, 0)
+        self.ham = SimpleNamespace(e_total_extrapolated=energy[0],
                                    get_workfunctions=self._get_workfunctions)
         self.wfs = SimpleNamespace(nvalence=state.ibzwfs.nelectrons,
                                    world=world,

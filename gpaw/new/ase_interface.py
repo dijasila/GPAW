@@ -409,6 +409,8 @@ class ASECalculator:
         kwargs = {**dict(self.params.items()), **kwargs}
         params = InputParameters(kwargs)
         txt = params.txt
+        if txt == '?':
+            txt = '-'
         world = params.parallel['world']
         log = Logger(txt, world)
         builder = create_builder(self.atoms, params)
@@ -448,13 +450,13 @@ class ASECalculator:
 
     def dos(self,
             soc: bool = False,
-            theta: float = 0.0,
-            phi: float = 0.0,
+            theta: float = 0.0,  # degrees
+            phi: float = 0.0,  # degrees
             shift_fermi_level: bool = True) -> DOSCalculator:
         """Create DOS-calculator.
 
-        Default is to shift_fermi_level to 0.0 eV.  For soc=True, angles
-        can be given in degrees.
+        Default is to ``shift_fermi_level`` to 0.0 eV.  For ``soc=True``,
+        angles can be given in degrees.
         """
         return DOSCalculator.from_calculator(
             self, soc=soc,

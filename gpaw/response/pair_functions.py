@@ -24,14 +24,16 @@ class SingleQPWDescriptor(PWDescriptor):
     def copy(self):
         return self.copy_with()
 
-    def copy_with(self, ecut=None, gammacentered=None):
+    def copy_with(self, ecut=None, gd=None, gammacentered=None):
         if ecut is None:
             ecut = self.ecut
+        if gd is None:
+            gd = self.gd
         if gammacentered is None:
             gammacentered = self.gammacentered
 
         return SingleQPWDescriptor.from_q(
-            self.q_c, ecut, self.gd, gammacentered=gammacentered)
+            self.q_c, ecut, gd, gammacentered=gammacentered)
 
 
 class PairFunction(ABC):
@@ -40,15 +42,15 @@ class PairFunction(ABC):
     See gpaw.response.pair_integrator.PairFunctionIntegrator for the definition
     of a pair function and how it is calculated."""
 
-    def __init__(self, pd):
+    def __init__(self, qpd):
         """Construct a pair function.
 
         Parameters
         ----------
-        pd : SingleQPWDescriptor
+        qpd : SingleQPWDescriptor
         """
-        self.pd = pd
-        self.q_c = pd.q_c
+        self.qpd = qpd
+        self.q_c = qpd.q_c
 
         self.array = self.zeros()
 
@@ -88,12 +90,12 @@ class LatticePeriodicPairFunction(PairFunction):
     question.
     """
 
-    def __init__(self, pd, zd, blockdist, distribution='ZgG'):
+    def __init__(self, qpd, zd, blockdist, distribution='ZgG'):
         """Contruct the LatticePeriodicPairFunction.
 
         Parameters
         ----------
-        pd : SingleQPWDescriptor
+        qpd : SingleQPWDescriptor
         zd : ComplexFrequencyDescriptor
         blockdist : PlaneWaveBlockDistributor
         distribution : str
@@ -104,10 +106,10 @@ class LatticePeriodicPairFunction(PairFunction):
         self.blockdist = blockdist
         self.distribution = distribution
 
-        nG = pd.ngmax
+        nG = qpd.ngmax
         self.blocks1d, self.shape = self._get_blocks_and_shape(nG)
 
-        super().__init__(pd)
+        super().__init__(qpd)
 
     def _get_blocks_and_shape(self, nG):
         """Get 1D block distribution and array shape
@@ -165,26 +167,26 @@ class LatticePeriodicPairFunction(PairFunction):
     def _new(cls, *args, **kwargs):
         return cls(*args, **kwargs)
     
-    def my_args(self, pd=None, zd=None, blockdist=None):
+    def my_args(self, qpd=None, zd=None, blockdist=None):
         """Return construction arguments of the LatticePeriodicPairFunction."""
-        if pd is None:
-            pd = self.pd
+        if qpd is None:
+            qpd = self.qpd
         if zd is None:
             zd = self.zd
         if blockdist is None:
             blockdist = self.blockdist
 
-        return pd, zd, blockdist
+        return qpd, zd, blockdist
 
-    def copy_with_reduced_pd(self, pd):
+    def copy_with_reduced_pd(self, qpd):
         """Copy the pair function, but within a reduced plane-wave basis."""
         if self.distribution != 'ZgG':
             raise NotImplementedError('Not implemented for distribution '
                                       f'{self.distribution}')
 
-        new_pf = self._new(*self.my_args(pd=pd),
+        new_pf = self._new(*self.my_args(qpd=qpd),
                            distribution=self.distribution)
-        new_pf.array[:] = map_WgG_array_to_reduced_pd(self.pd, pd,
+        new_pf.array[:] = map_WgG_array_to_reduced_pd(self.qpd, qpd,
                                                       self.blockdist,
                                                       self.array)
 
@@ -205,14 +207,14 @@ class LatticePeriodicPairFunction(PairFunction):
         return new_pf
 
 
-def map_WgG_array_to_reduced_pd(pdi, pd, blockdist, in_WgG):
+def map_WgG_array_to_reduced_pd(qpdi, qpd, blockdist, in_WgG):
     """Map an output array to a reduced plane wave basis which is
-    completely contained within the original basis, that is, from pdi to
-    pd."""
+    completely contained within the original basis, that is, from qpdi to
+    qpd."""
     from gpaw.pw.descriptor import PWMapping
 
     # Initialize the basis mapping
-    pwmapping = PWMapping(pdi, pd)
+    pwmapping = PWMapping(qpdi, qpd)
     G2_GG = tuple(np.meshgrid(pwmapping.G2_G1, pwmapping.G2_G1,
                               indexing='ij'))
     G1_GG = tuple(np.meshgrid(pwmapping.G1, pwmapping.G1,
@@ -223,7 +225,7 @@ def map_WgG_array_to_reduced_pd(pdi, pd, blockdist, in_WgG):
     tmp_wGG = blockdist.distribute_as(in_WgG, nw, 'wGG')
 
     # Allocate array in the new basis
-    nG = pd.ngmax
+    nG = qpd.ngmax
     new_tmp_shape = (tmp_wGG.shape[0], nG, nG)
     new_tmp_wGG = np.zeros(new_tmp_shape, complex)
 

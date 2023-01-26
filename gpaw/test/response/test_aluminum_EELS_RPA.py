@@ -38,7 +38,7 @@ def test_response_aluminum_EELS_RPA(in_tmp_dir):
 
     # Calculate the wave functions on the new kpts grid
     calc = GPAW('Al_gs').fixed_density(kpts=kpts)
-    calc.get_potential_energy()
+    # calc.get_potential_energy()
     calc.write('Al', 'all')
 
     t2 = time.time()

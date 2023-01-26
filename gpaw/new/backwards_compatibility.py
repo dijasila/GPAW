@@ -170,7 +170,7 @@ class FakeHamiltonian:
         self.pot_calc = calculation.pot_calc
         self.finegd = self.pot_calc.fine_grid._gd
         self.grid = calculation.state.potential.vt_sR.desc
-        self.e_total_free = calculation.results['free_energy']
+        self.e_total_free = calculation.results.get('free_energy')
         self.e_xc = calculation.state.potential.energies['xc']
         # self.poisson = calculation.pot_calc.poisson_solver.solver
 

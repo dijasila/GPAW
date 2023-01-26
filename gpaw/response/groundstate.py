@@ -14,6 +14,7 @@ class ResponseGroundStateAdapter:
         self.kd = wfs.kd
         self.world = calc.world
         self.gd = wfs.gd
+        self.finegd = calc.density.finegd
         self.bd = wfs.bd
         self.nspins = wfs.nspins
         self.dtype = wfs.dtype
@@ -87,16 +88,32 @@ class ResponseGroundStateAdapter:
 
     @property
     def nt_sR(self):
-        # Used by fxc_kernels
+        # Used by localft and fxc_kernels
         return self._density.nt_sG
+
+    @property
+    def nt_sr(self):
+        # Used by localft
+        if self._density.nt_sg is None:
+            self._density.interpolate_pseudo_density()
+        return self._density.nt_sg
 
     @property
     def D_asp(self):
         # Used by fxc_kernels
         return self._density.D_asp
 
-    def all_electron_density(self, gridrefinement=2):
-        # Used by fxc_kernels
+    def get_pseudo_density(self, gridrefinement=2):
+        # Used by localft
+        if gridrefinement == 1:
+            return self.nt_sR, self.gd
+        elif gridrefinement == 2:
+            return self.nt_sr, self.finegd
+        else:
+            raise ValueError(f'Invalid gridrefinement {gridrefinement}')
+
+    def get_all_electron_density(self, gridrefinement=2):
+        # Used by fxc, fxc_kernels and localft
         return self._density.get_all_electron_density(
             atoms=self.atoms, gridrefinement=gridrefinement)
 
@@ -140,12 +157,6 @@ class ResponseGroundStateAdapter:
     def xcname(self):
         return self.hamiltonian.xc.name
 
-    # XXX This is used by xc == JGMsx from g0w0
-    def get_band_gap(self):
-        from ase.dft.bandgap import get_band_gap
-        gap, k1, k2 = get_band_gap(self._calc)
-        return gap
-
     def get_xc_difference(self, xc):
         # XXX used by gpaw/xc/tools.py
         return self._calc.get_xc_difference(xc)
@@ -155,10 +166,10 @@ class ResponseGroundStateAdapter:
         return self._wfs._get_wave_function_array(
             u, n, realspace=True)
 
-    def pair_density_paw_corrections(self, pd):
+    def pair_density_paw_corrections(self, qpd):
         from gpaw.response.paw import get_pair_density_paw_corrections
         return get_pair_density_paw_corrections(
-            setups=self.setups, pd=pd, spos_ac=self.spos_ac)
+            setups=self.setups, qpd=qpd, spos_ac=self.spos_ac)
 
     def get_pos_av(self):
         # gd.cell_cv must always be the same as pd.gd.cell_cv, right??

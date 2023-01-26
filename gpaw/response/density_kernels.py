@@ -2,10 +2,11 @@
 
 import numpy as np
 
+from gpaw.response.localft import LocalFTCalculator
 from gpaw.response.fxc_kernels import AdiabaticFXCCalculator
 
 
-def get_density_xc_kernel(pd, gs, context, functional='ALDA',
+def get_density_xc_kernel(qpd, gs, context, functional='ALDA',
                           rshelmax=-1, rshewmin=None,
                           chi0_wGG=None):
     """Density-density xc kernels.
@@ -18,20 +19,21 @@ def get_density_xc_kernel(pd, gs, context, functional='ALDA',
     if functional[0] == 'A':
         # Standard adiabatic kernel
         p('Calculating %s kernel' % functional)
-        Kcalc = AdiabaticFXCCalculator(gs, context,
-                                       rshelmax=rshelmax,
-                                       rshewmin=rshewmin)
-        Kxc_GG = Kcalc(functional, '00', pd)
-        if pd.kd.gamma:
+        localft_calc = LocalFTCalculator.from_rshe_parameters(
+            gs, context, rshelmax=rshelmax, rshewmin=rshewmin)
+        Kcalc = AdiabaticFXCCalculator(localft_calc)
+        Kxc_GG = Kcalc(functional, '00', qpd)
+
+        if qpd.kd.gamma:
             Kxc_GG[0, :] = 0.0
             Kxc_GG[:, 0] = 0.0
         Kxc_sGG = np.array([Kxc_GG])
     elif functional[:2] == 'LR':
         p('Calculating LR kernel with alpha = %s' % functional[2:])
-        Kxc_sGG = calculate_lr_kernel(pd, alpha=float(functional[2:]))
+        Kxc_sGG = calculate_lr_kernel(qpd, alpha=float(functional[2:]))
     elif functional == 'Bootstrap':
         p('Calculating Bootstrap kernel')
-        Kxc_sGG = get_bootstrap_kernel(pd, chi0_wGG, context)
+        Kxc_sGG = get_bootstrap_kernel(qpd, chi0_wGG, context)
     else:
         raise ValueError('Invalid functional for the density-density '
                          'xc kernel:', functional)
@@ -39,19 +41,19 @@ def get_density_xc_kernel(pd, gs, context, functional='ALDA',
     return Kxc_sGG[0]
 
 
-def calculate_lr_kernel(pd, alpha=0.2):
+def calculate_lr_kernel(qpd, alpha=0.2):
     """Long range kernel: fxc = \alpha / |q+G|^2"""
 
-    assert pd.kd.gamma
+    assert qpd.kd.gamma
 
-    f_G = np.zeros(len(pd.G2_qG[0]))
+    f_G = np.zeros(len(qpd.G2_qG[0]))
     f_G[0] = -alpha
-    f_G[1:] = -alpha / pd.G2_qG[0][1:]
+    f_G[1:] = -alpha / qpd.G2_qG[0][1:]
 
     return np.array([np.diag(f_G)])
 
 
-def get_bootstrap_kernel(pd, chi0_wGG, context):
+def get_bootstrap_kernel(qpd, chi0_wGG, context):
     """ Bootstrap kernel (see below) """
 
     if context.world.rank == 0:
@@ -62,23 +64,23 @@ def get_bootstrap_kernel(pd, chi0_wGG, context):
             # takes a closer look.
             context.world.broadcast(chi0_GG, 0)
     else:
-        nG = pd.ngmax
+        nG = qpd.ngmax
         chi0_GG = np.zeros((nG, nG), complex)
         context.world.broadcast(chi0_GG, 0)
 
-    return calculate_bootstrap_kernel(pd, chi0_GG, context)
+    return calculate_bootstrap_kernel(qpd, chi0_GG, context)
 
 
-def calculate_bootstrap_kernel(pd, chi0_GG, context):
+def calculate_bootstrap_kernel(qpd, chi0_GG, context):
     """Bootstrap kernel PRL 107, 186401"""
     p = context.print
 
-    if pd.kd.gamma:
-        v_G = np.zeros(len(pd.G2_qG[0]))
+    if qpd.kd.gamma:
+        v_G = np.zeros(len(qpd.G2_qG[0]))
         v_G[0] = 4 * np.pi
-        v_G[1:] = 4 * np.pi / pd.G2_qG[0][1:]
+        v_G[1:] = 4 * np.pi / qpd.G2_qG[0][1:]
     else:
-        v_G = 4 * np.pi / pd.G2_qG[0]
+        v_G = 4 * np.pi / qpd.G2_qG[0]
 
     nG = len(v_G)
     K_GG = np.diag(v_G)

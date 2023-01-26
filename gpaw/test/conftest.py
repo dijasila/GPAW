@@ -190,6 +190,21 @@ class GPWFiles:
         h2.get_potential_energy()
         return h2.calc
 
+    def h2_bcc_afm(self):
+        a = 2.75
+        atoms = bulk(name='H', crystalstructure='bcc', a=a, cubic=True)
+        atoms.set_initial_magnetic_moments([1., -1.])
+
+        atoms.calc = GPAW(xc='LDA',
+                          txt=self.path / 'h2_bcc_afm.txt',
+                          mode=PW(250),
+                          kpts={'density': 2.0, 'gamma': True})
+        atoms.get_potential_energy()
+
+        nbands = 4
+        calc = atoms.calc.fixed_density(nbands=nbands)
+        return calc
+
     def h_pw(self):
         h = Atoms('H', magmoms=[1])
         h.center(vacuum=4.0)
@@ -410,6 +425,9 @@ class GPAWPlugin:
 
 
 def pytest_configure(config):
+    # Allow for fake cupy:
+    os.environ['GPAW_CPUPY'] = '1'
+
     if world.rank != 0:
         try:
             tw = config.get_terminal_writer()

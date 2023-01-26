@@ -164,7 +164,7 @@ class BuildingBlock:
             if q_inf is not None:
                 qstr = '(' + ', '.join(['%.3f' % x for x in q_inf]) + ')'
                 self.context.print('    and q_inf=%s' % qstr, flush=False)
-            pd, chi0_wGG, \
+            qpd, chi0_wGG, \
                 chi_wGG = self.df.get_dielectric_matrix(
                     symmetric=False,
                     calculate_chi=True,
@@ -179,7 +179,7 @@ class BuildingBlock:
             w1 = min(self.df.blocks1d.blocksize * world.rank, nw)
 
             _, _, chiM_qw, chiD_qw, _, drhoM_qz, drhoD_qz = \
-                get_chi_2D(self.wd.omega_w, pd, chi_wGG)
+                get_chi_2D(self.wd.omega_w, qpd, chi_wGG)
 
             chiM_w = chiM_qw[0]
             chiD_w = chiD_qw[0]
@@ -382,7 +382,7 @@ def check_building_blocks(BBfiles=None):
     return True
 
 
-def get_chi_2D(omega_w=None, pd=None, chi_wGG=None, q0=None,
+def get_chi_2D(omega_w=None, qpd=None, chi_wGG=None, q0=None,
                filenames=None, name=None):
     r"""Calculate the monopole and dipole contribution to the
     2D susceptibillity chi_2D, defined as
@@ -408,14 +408,14 @@ def get_chi_2D(omega_w=None, pd=None, chi_wGG=None, q0=None,
 
     q_list_abs = []
     if chi_wGG is None and filenames is not None:
-        omega_w, pd, chi_wGG, q0 = read_chi_wGG(filenames[0])
+        omega_w, qpd, chi_wGG, q0 = read_chi_wGG(filenames[0])
         nq = len(filenames)
     elif chi_wGG is not None:
         nq = 1
     nw = chi_wGG.shape[0]
-    r = pd.gd.get_grid_point_coordinates()
+    r = qpd.gd.get_grid_point_coordinates()
     z = r[2, 0, 0, :]
-    L = pd.gd.cell_cv[2, 2]  # Length of cell in Bohr
+    L = qpd.gd.cell_cv[2, 2]  # Length of cell in Bohr
     z0 = L / 2.  # position of layer
     chiM_qw = np.zeros([nq, nw], dtype=complex)
     chiD_qw = np.zeros([nq, nw], dtype=complex)
@@ -423,17 +423,17 @@ def get_chi_2D(omega_w=None, pd=None, chi_wGG=None, q0=None,
     drhoD_qz = np.zeros([nq, len(z)], dtype=complex)  # induced dipole density
     for iq in range(nq):
         if iq != 0:
-            omega_w, pd, chi_wGG, q0 = read_chi_wGG(filenames[iq])
+            omega_w, qpd, chi_wGG, q0 = read_chi_wGG(filenames[iq])
         if q0 is not None:
             q = q0
         else:
-            q = pd.K_qv
+            q = qpd.K_qv
         npw = chi_wGG.shape[1]
-        Gvec = pd.get_reciprocal_vectors(add_q=False)
+        G_Gv = qpd.get_reciprocal_vectors(add_q=False)
 
         Glist = []
         for iG in range(npw):  # List of G with Gx,Gy = 0
-            if Gvec[iG, 0] == 0 and Gvec[iG, 1] == 0:
+            if G_Gv[iG, 0] == 0 and G_Gv[iG, 1] == 0:
                 Glist.append(iG)
 
         chiM_qw[iq] = L * chi_wGG[:, 0, 0]
@@ -441,12 +441,12 @@ def get_chi_2D(omega_w=None, pd=None, chi_wGG=None, q0=None,
         q_abs = np.linalg.norm(q)
         q_list_abs.append(q_abs)
         for iG in Glist[1:]:
-            G_z = Gvec[iG, 2]
+            G_z = G_Gv[iG, 2]
             qGr_R = np.inner(G_z, z.T).T
             # Fourier transform to get induced density at \omega=0
             drhoM_qz[iq] += np.exp(1j * qGr_R) * chi_wGG[0, iG, 0]
             for iG1 in Glist[1:]:
-                G_z1 = Gvec[iG1, 2]
+                G_z1 = G_Gv[iG1, 2]
                 # integrate with z along both coordinates
                 factor = z_factor(z0, L, G_z)
                 factor1 = z_factor(z0, L, G_z1, sign=-1)
@@ -512,10 +512,10 @@ def read_chi_wGG(name):
     Returns frequency grid, gpaw.wavefunctions object, chi_wGG
     """
     fd = open(name, 'rb')
-    omega_w, pd, chi_wGG, q0, chi0_wvv = load(fd)
+    omega_w, qpd, chi_wGG, q0, chi0_wvv = load(fd)
     nw = len(omega_w)
-    nG = pd.ngmax
+    nG = qpd.ngmax
     chi_wGG = np.empty((nw, nG, nG), complex)
     for chi_GG in chi_wGG:
         chi_GG[:] = load(fd)
-    return omega_w, pd, chi_wGG, q0
+    return omega_w, qpd, chi_wGG, q0
