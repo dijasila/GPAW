@@ -47,7 +47,8 @@ def fxc_factory(fxc, chiks: ChiKS, localft_calc: LocalFTCalculator,
     """
     # Calculate the xc kernel Kxc_GG
     fxc_calculator = AdiabaticFXCCalculator(localft_calc)
-    Kxc_GG = fxc_calculator(fxc, chiks.spincomponent, chiks.qpd)
+    fxc_kernel = fxc_calculator(fxc, chiks.spincomponent, chiks.qpd)
+    Kxc_GG = fxc_kernel.Kxc_GG
 
     if fxc_scaling is not None:
         if not fxc_scaling.has_scaling:
@@ -58,6 +59,31 @@ def fxc_factory(fxc, chiks: ChiKS, localft_calc: LocalFTCalculator,
         Kxc_GG *= lambd
 
     return Kxc_GG
+
+
+class FXCKernel:
+    """Some documentation here!                                                XXX
+    """
+
+    def __init__(self, fxc_dG, dG_K, GG_shape, volume):
+        """Some documentation here!                                            XXX
+        """
+        self._fxc_dG = fxc_dG
+        self._dG_K = dG_K
+        self.GG_shape = GG_shape
+        self.volume = volume
+
+    @property
+    def Kxc_GG(self):
+        """Some documentation here!                                            XXX
+        """
+        # Kxc(G-G') = 1 / V0 * fxc(G-G')
+        Kxc_dG = 1 / self.volume * self._fxc_dG
+
+        # Unfold Kxc(G-G') to the kernel matrix structure Kxc_GG'
+        Kxc_GG = Kxc_dG[self._dG_K].reshape(self.GG_shape)
+
+        return Kxc_GG
 
 
 class AdiabaticFXCCalculator:
@@ -72,7 +98,12 @@ class AdiabaticFXCCalculator:
 
     @timer('Calculate XC kernel')
     def __call__(self, fxc, spincomponent, qpd):
-        """Calculate the xc kernel matrix Kxc_GG' = 1 / V0 * fxc(G-G')."""
+        """Calculate fxc(G-G'), which defines the kernel matrix Kxc_GG'.
+
+        The fxc kernel is calculated for all unique dG = G-G' reciprocal
+        lattice vectors and returned as an FXCKernel instance which can unfold
+        itself to produce the full kernel matrix Kxc_GG'.
+        """
         # Generate a large_qpd to encompass all G-G' in qpd
         large_ecut = 4 * qpd.ecut  # G = 1D grid of |G|^2/2 < ecut
         large_qpd = qpd.copy_with(ecut=large_ecut,
@@ -90,14 +121,13 @@ class AdiabaticFXCCalculator:
             qpd, large_qpd)
 
         # Map the calculated kernel fxc(Q) onto the unfoldable grid of unique
-        # reciprocal lattice vector differences dG according to
-        # Kxc(G-G') = 1 / V0 * fxc(G-G')
-        Kxc_dG = 1 / qpd.gd.volume * fxc_Q[Q_dG]
+        # reciprocal lattice vector differences fxc(dG)
+        fxc_dG = fxc_Q[Q_dG]
 
-        # Unfold Kxc(G-G') to the kernel matrix structure Kxc_GG'
-        Kxc_GG = Kxc_dG[dG_K].reshape(GG_shape)
+        # Return the calculated kernel as an fxc kernel object
+        fxc_kernel = FXCKernel(fxc_dG, dG_K, GG_shape, qpd.gd.volume)
 
-        return Kxc_GG
+        return fxc_kernel
 
     @timer('Create unfoldable Q_dG mapping')
     def create_unfoldable_Q_dG_mapping(self, qpd, large_qpd):
