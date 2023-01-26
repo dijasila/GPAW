@@ -45,13 +45,12 @@ stages:
       libraries += ['xc']
 
       EOF
-  after_script:
-    - cat configuration.log
   artifacts:
     paths:
       - $PYTHONUSERBASE
       - gpaw.egg-info
       - _gpaw.*.so
+      - "*.log"
     expire_in: 30 mins
 
 
@@ -79,7 +78,7 @@ build:
       extra_compile_args += ['-std=c99']
       EOF
     - cat siteconfig.py
-    - pip install --user --editable .
+    - pip install --user --log build.log --editable .
     - gpaw -P 1 info
 
 
@@ -95,8 +94,7 @@ build-latest:
       EOF
     - cat siteconfig.py
     - pip install --user --upgrade numpy scipy
-    - python setup.py build_ext
-    - pip install --user --editable .
+    - pip install --user --log build.log --editable .
     - gpaw -P 1 info
 
 
@@ -112,7 +110,7 @@ build-gpaw-python:
       parallel_python_interpreter = True
       EOF
     - cat siteconfig.py
-    - pip install --user --editable .
+    - pip install --user --log build.log --editable .
     - gpaw-python -m gpaw info
 
 
@@ -132,7 +130,7 @@ build-cuda:
       libraries += ['cudart', 'cublas']
       EOF
     - cat siteconfig.py
-    - pip install --user --editable .
+    - pip install --user --log build.log --editable .
 
 
 test:
