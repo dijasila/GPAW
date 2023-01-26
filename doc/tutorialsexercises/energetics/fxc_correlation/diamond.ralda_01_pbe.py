@@ -27,7 +27,7 @@ calc = GPAW(mode=PW(600),
 a.calc = calc
 E_pbe = a.get_potential_energy()
 
-E_hf = nsc_energy(calc, 'ECC')
+E_hf = nsc_energy(calc, 'EXX')
 
 E_C = np.loadtxt('CO.ralda.PBE_HF_C.dat')
 
