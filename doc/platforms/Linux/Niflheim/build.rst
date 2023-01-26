@@ -97,13 +97,13 @@ Adding additional packages
 ==========================
 
 In order to add more Python packages to your venv, you need to activate it
-and then you can ``pip install`` packages.  Here are three ways
+and then you can ``pip install`` packages.  Here is how
 to install ASR_::
 
-    $ pip install asr  # from PyPI
     $ git clone https://gitlab.com/asr-dev/asr.git
-    $ pip install ./asr  # from a git clone
-    $ pip install -e asr  # use source code from a git clone directly
+    $ cd asr
+    $ git checkout old-master
+    $ pip install .
 
 .. warning::
 
