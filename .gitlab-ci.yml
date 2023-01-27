@@ -1,16 +1,16 @@
 master:
-  image: python:3.10.6
+  image: registry.gitlab.com/ase/ase:gpaw-test
   script:
-    - apt-get update -qy
-    - >
-      apt-get install -qy
-      libopenblas-dev libscalapack-mpi-dev libxc-dev > apt-get.output
-    - python -m venv ../venv
-    - source ../venv/bin/activate
-    - pip install -U pip
-    - pip install flake8 mypy pytest interrogate graphviz
-    - pip -q install git+https://gitlab.com/ase/ase.git@master
-    - pip -q install git+https://gitlab.com/myqueue/myqueue.git@master
+    #- apt-get update -qy
+    #- >
+    #  apt-get install -qy
+    #  libopenblas-dev libscalapack-mpi-dev libxc-dev > apt-get.output
+    #- python -m venv ../venv
+    #- source ../venv/bin/activate
+    #- pip install -U pip
+    #- pip install flake8 mypy pytest interrogate graphviz
+    # - pip -q install git+https://gitlab.com/ase/ase.git@master
+    #- pip -q install git+https://gitlab.com/myqueue/myqueue.git@master
     - >
       echo "scalapack = True;
       libraries += ['scalapack-openmpi'];
@@ -18,10 +18,10 @@ master:
       extra_link_args += ['-fopenmp']
       " > siteconfig.py
     - pip install -e .
-    - gpaw install-data --register pawdata
+    # - gpaw install-data --register pawdata
     - gpaw test
     - OMP_NUM_THREADS=2 pytest -v -m ci -We -Wi::ImportWarning --color=yes
-    - pip install types-PyYAML
+    #- pip install types-PyYAML
     - mypy
     - flake8 --doctests gpaw
     - >
@@ -43,7 +43,7 @@ master:
     - python -c "import pathlib; assert len(list(pathlib.Path().glob('**/*.png'))) <= 5"
     - echo "parallel_python_interpreter = True" >> siteconfig.py
     - echo "libraries += ['openblas']" >> siteconfig.py
-    - python setup.py install > gpaw-python-install.output
+    # - python setup.py install > gpaw-python-install.output
     - gpaw-python -m gpaw info
     - >
       interrogate -m -i -f 33.1
