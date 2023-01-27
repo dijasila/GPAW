@@ -1,6 +1,7 @@
 """Contains methods for calculating local LR-TDDFT kernels."""
 
 from functools import partial
+from pathlib import Path
 
 import numpy as np
 
@@ -81,20 +82,20 @@ class FXCKernel:
 
         return Kxc_GG
 
-    def save(self, filename):
+    def save(self, path: Path):
         """Save the fxc kernel in a .npz file format."""
-        assert isinstance(filename, str) and filename[-4:] == '.npz'
-        np.savez(filename,
+        assert path.suffix == '.npz'
+        np.savez(path,
                  fxc_dG=self._fxc_dG,
                  dG_K=self._dG_K,
                  GG_shape=self.GG_shape,
                  volume=self.volume)
 
     @staticmethod
-    def from_file(filename):
+    def from_file(path: Path):
         """Construct an fxc kernel from a previous calculation."""
-        assert isinstance(filename, str) and filename[-4:] == '.npz'
-        npzfile = np.load(filename)
+        assert path.suffix == '.npz'
+        npzfile = np.load(path)
 
         args = [npzfile[key]
                 for key in ['fxc_dG', 'dG_K', 'GG_shape', 'volume']]
