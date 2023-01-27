@@ -215,14 +215,20 @@ class ChiFactory:
 
         # Calculate the xc kernel, if it has not been supplied by the user
         if Kxc_GG is None:
-            # Fall back to defaults, if fxc and/or localft_calc aren't supplied
+            # Use ALDA as the default fxc
             if fxc is None:
                 fxc = 'ALDA'
-            if localft_calc is None:
-                localft_calc = LocalPAWFTCalculator(self.gs, self.context)
+            # In RPA, we neglect the xc-kernel
+            if fxc == 'RPA':
+                assert localft_calc is None and fxc_scaling is None,\
+                    "With fxc='RPA', the xc kernel is neglected and kernel "\
+                    "calculation specifications are irrelevant"
+            else:
+                # If no localft_calc is supplied, fall back to the default
+                if localft_calc is None:
+                    localft_calc = LocalPAWFTCalculator(self.gs, self.context)
 
-            # Perform actual kernel calculation
-            if fxc != 'RPA':  # In RPA, we neglect the xc-kernel
+                # Perform an actual kernel calculation
                 fxc_calculator = AdiabaticFXCCalculator(localft_calc)
                 fxc_kernel = fxc_calculator(
                     fxc, chiks.spincomponent, chiks.qpd)
