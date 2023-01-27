@@ -71,8 +71,7 @@ class FXCKernel:
         self.GG_shape = GG_shape
         self.volume = volume
 
-    @property
-    def Kxc_GG(self):
+    def get_Kxc_GG(self):
         """Unfold the fxc(G-G') kernel into the Kxc_GG' kernel matrix."""
         # Kxc(G-G') = 1 / V0 * fxc(G-G')
         Kxc_dG = 1 / self.volume * self._fxc_dG

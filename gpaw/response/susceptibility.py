@@ -112,18 +112,17 @@ class Chi:
             Khxc_GG.flat[::nG + 1] += self.Vbare_G
 
         if self.fxc_kernel is not None:  # Add the xc kernel
-            Khxc_GG += self.Kxc_GG
+            Khxc_GG += self.get_Kxc_GG()
         else:
             assert self.fxc_scaling is None,\
                 'Cannot apply an fxc scaling if no fxc kernel is supplied'
 
         return Khxc_GG
 
-    @property
-    def Kxc_GG(self):
+    def get_Kxc_GG(self):
         """Construct the (scaled) xc kernel matrix Kxc(G,G')."""
         # Unfold the fxc kernel into the Kxc kernel matrix
-        Kxc_GG = self.fxc_kernel.Kxc_GG
+        Kxc_GG = self.fxc_kernel.get_Kxc_GG()
 
         # Apply a flat scaling to the kernel, if specified
         fxc_scaling = self.fxc_scaling
