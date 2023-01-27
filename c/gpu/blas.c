@@ -903,8 +903,8 @@ PyObject* gemm_gpu(PyObject *self, PyObject *args)
     PyObject *a_shape, *b_shape, *c_shape;
     PyArray_Descr *type;
 
-    char transa = 'n';
-    int  hybrid = 0;
+    int transa = 'n';
+    int hybrid = 0;
 
     if (!PyArg_ParseTuple(args, "DnOnODnOO|Ci", &alpha, &a_gpu, &a_shape,
                           &b_gpu, &b_shape, &beta, &c_gpu, &c_shape, &type,
