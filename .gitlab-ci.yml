@@ -230,3 +230,22 @@ typecheck:
     - python --version
     - mypy --version
     - mypy -p gpaw
+
+
+docs:
+  image: $IMAGE_PATH/docs:oldest
+  stage: test
+  needs:
+    - build
+  tags:
+    - linux
+  script:
+    - cd doc
+    - make
+    - make doctest
+    - cd ..
+    - python -c "from gpaw.utilities.urlcheck import test; test()"
+  when: manual
+  artifacts:
+    paths:
+      - doc/build/html
