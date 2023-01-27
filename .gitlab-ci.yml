@@ -57,10 +57,9 @@ docker:
   tags:
     - camd-experimental
   script:
-    - pip install --editable .
-    - gpaw install-data --register gpaw-datasets
+    - pip install --editable . --no-deps
     - cd gpaw/test
-    - mpiexec -n 4 gpaw python -m pytest -- lcao -m 'not slow'
+    - mpiexec -n 4 gpaw python -m pytest lcao/ -m 'not slow'
 
 
 libxc:
