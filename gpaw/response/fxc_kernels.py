@@ -148,13 +148,13 @@ class AdiabaticFXCCalculator:
 
         The mapping is split into two parts:
          * Mapping from the large plane-wave representation index Q (of
-           large_pd) to an index dG representing all unique reciprocal lattice
+           large_qpd) to an index dG representing all unique reciprocal lattice
            vector differences (G-G') of the original plane-wave representation
            qpd
-         * A mapping from the dG index to a flattened K = (G, G') composit
+         * A mapping from the dG index to a flattened K = (G, G') composite
            kernel matrix index
 
-        Lastly the kernel matrix shape GG_shape is returned to that an array in
+        Lastly the kernel matrix shape GG_shape is returned so that an array in
         index K can easily be reshaped to a kernel matrix Kxc_GG'.
         """
         # Calculate all (G-G') reciprocal lattice vectors
