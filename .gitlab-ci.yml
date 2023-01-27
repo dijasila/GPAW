@@ -44,7 +44,7 @@ master:
     - echo "parallel_python_interpreter = True" >> siteconfig.py
     - echo "libraries += ['openblas']" >> siteconfig.py
     # - python setup.py install > gpaw-python-install.output
-    - gpaw-python -m gpaw info
+    # - gpaw-python -m gpaw info
     - >
       interrogate -m -i -f 33.1
       -e gpaw/test
