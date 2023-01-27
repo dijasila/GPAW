@@ -134,6 +134,22 @@ build-cuda:
     - pip install --user --log build.log --editable .
 
 
+build-minimal:
+  image: $IMAGE_PATH/build:oldest
+  extends: .build
+  tags:
+    - linux
+  script:
+    - |
+      cat << EOF > siteconfig.py
+      noblas = True
+      nolibxc = True
+      EOF
+    - cat siteconfig.py
+    - pip install --user --log build.log --editable .
+    - gpaw -P 1 info
+
+
 prepare-libxc:
   image: $IMAGE_PATH/build:oldest
   stage: build
@@ -226,6 +242,19 @@ test-gpaw-python:
     - >
       OMP_NUM_THREADS=2 gpaw-python -m pytest -v -m ci -We -Wi::ImportWarning
       -Wi:'numpy.ufunc size changed, may indicate binary incompatibility. Expected 192 from C header, got 216 from PyObject':RuntimeWarning
+
+
+test-minimal:
+  image: $IMAGE_PATH/run:oldest
+  extends:
+    - .test
+  needs:
+    - build-minimal
+  tags:
+    - linux
+  script:
+    - gpaw info
+    - pytest -v -m ci -We -Wi::ImportWarning
 
 
 test-cuda:
