@@ -285,14 +285,36 @@ test-libxc:
     - pytest -v -m libxc
 
 
+check-agts:
+  image: $IMAGE_PATH/run:oldest
+  stage: test
+  needs:
+    - build
+  tags:
+    - linux
+  script:
+    - pip install git+https://gitlab.com/myqueue/myqueue.git@master
+    - mq config --in-place
+    - mq init
+    - mq workflow -p agts.py -zT | tail -1 | tee task_count
+    - >
+      [[ `cut -d ' ' -f1 < task_count` -ge 479 ]] || (echo "Too few agts tasks"; exit 1)
+
+
 lint:
   image: docker.io/python:slim
   stage: build
   tags:
     - linux
   script:
-    - pip install flake8 interrogate
+    - echo "png check"
+    - >
+      [[ `find . -name '*.png' | wc -l` -le 5 ]] || (echo "Too many png files in git"; exit 1)
+    - echo "compileall"
     - python --version
+    - python -We:invalid -m compileall -f -q gpaw/
+    - echo "flake8"
+    - pip install flake8
     - flake8 --version
     - flake8 --doctests gpaw
     - >
@@ -306,6 +328,8 @@ lint:
       --doctests
       --extend-ignore E402,E501
       doc/summerschools/summerschool22/catalysis
+    - echo "interrogate"
+    - pip install interrogate
     - interrogate --version
     - >
       interrogate -m -i
@@ -313,7 +337,6 @@ lint:
       -e gpaw/test
       -e gpaw/point_groups/groups.py
       gpaw
-    - python -We:invalid -m compileall -f -q gpaw/
 
 
 typecheck:
