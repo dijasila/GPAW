@@ -178,45 +178,54 @@ static void _check_msg_size(boundary_conditions* bc, int nin)
     }
 }
 
-static void _prepare_buffers(boundary_conditions* bc, int nin)
+static void _prepare_buffers_host(boundary_conditions* bc, int nin)
 {
     int recvp=0;
     int sendp=0;
     for (int i=0; i<3; i++) {
-#ifndef CUDA_MPI
         bc_sbuff[i][0] = bc_sbuffs + sendp;
-#endif
+        if (!bc->gpu_async[i] || bc->gpu_sjoin[i]) {
+            bc_sbuff[i][1] = bc_sbuffs + sendp + bc->nsend[i][0] * nin;
+            sendp += NEXTPITCHDIV((bc->nsend[i][0] + bc->nsend[i][1]) * nin);
+        } else {
+            sendp += NEXTPITCHDIV(bc->nsend[i][0] * nin);
+            bc_sbuff[i][1] = bc_sbuffs + sendp;
+            sendp += NEXTPITCHDIV(bc->nsend[i][1] * nin);
+        }
+
+        bc_rbuff[i][0] = bc_rbuffs + recvp;
+        if (!bc->gpu_async[i] || bc->gpu_rjoin[i]) {
+            bc_rbuff[i][1] = bc_rbuffs + recvp + bc->nrecv[i][0] * nin;
+            recvp += NEXTPITCHDIV((bc->nrecv[i][0] + bc->nrecv[i][1]) * nin);
+        } else {
+            recvp += NEXTPITCHDIV(bc->nrecv[i][0] * nin);
+            bc_rbuff[i][1] = bc_rbuffs + recvp;
+            recvp += NEXTPITCHDIV(bc->nrecv[i][1] * nin);
+        }
+    }
+}
+
+static void _prepare_buffers_gpu(boundary_conditions* bc, int nin)
+{
+    int recvp=0;
+    int sendp=0;
+    for (int i=0; i<3; i++) {
         bc_sbuff_gpu[i][0] = bc_sbuffs_gpu + sendp;
         if (!bc->gpu_async[i] || bc->gpu_sjoin[i]) {
-#ifndef CUDA_MPI
-            bc_sbuff[i][1] = bc_sbuffs + sendp + bc->nsend[i][0] * nin;
-#endif
             bc_sbuff_gpu[i][1] = bc_sbuffs_gpu + sendp + bc->nsend[i][0] * nin;
             sendp += NEXTPITCHDIV((bc->nsend[i][0] + bc->nsend[i][1]) * nin);
         } else {
             sendp += NEXTPITCHDIV(bc->nsend[i][0] * nin);
-#ifndef CUDA_MPI
-            bc_sbuff[i][1] = bc_sbuffs + sendp;
-#endif
             bc_sbuff_gpu[i][1] = bc_sbuffs_gpu + sendp;
             sendp += NEXTPITCHDIV(bc->nsend[i][1] * nin);
         }
 
-#ifndef CUDA_MPI
-        bc_rbuff[i][0] = bc_rbuffs + recvp;
-#endif
         bc_rbuff_gpu[i][0] = bc_rbuffs_gpu + recvp;
         if (!bc->gpu_async[i] || bc->gpu_rjoin[i]) {
-#ifndef CUDA_MPI
-            bc_rbuff[i][1] = bc_rbuffs + recvp + bc->nrecv[i][0] * nin;
-#endif
             bc_rbuff_gpu[i][1] = bc_rbuffs_gpu + recvp + bc->nrecv[i][0] * nin;
             recvp += NEXTPITCHDIV((bc->nrecv[i][0] + bc->nrecv[i][1]) * nin);
         } else {
             recvp += NEXTPITCHDIV(bc->nrecv[i][0] * nin);
-#ifndef CUDA_MPI
-            bc_rbuff[i][1] = bc_rbuffs + recvp;
-#endif
             bc_rbuff_gpu[i][1] = bc_rbuffs_gpu + recvp;
             recvp += NEXTPITCHDIV(bc->nrecv[i][1] * nin);
         }
@@ -247,8 +256,9 @@ void bc_unpack_paste_gpu(boundary_conditions* bc,
 
 #ifndef CUDA_MPI
     _check_msg_size(bc, nin);
+    _prepare_buffers_host(bc, nin);
 #endif
-    _prepare_buffers(bc, nin);
+    _prepare_buffers_gpu(bc, nin);
 
     for (int i=0; i<3; i++) {
         for (int d=0; d<2; d++) {
