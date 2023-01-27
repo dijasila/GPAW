@@ -16,23 +16,23 @@ from gpaw.response.dyson import DysonSolver
 class Chi:
     """Many-body susceptibility in a plane-wave basis."""
 
-    def __init__(self, chiks: ChiKS,
+    def __init__(self, context,
+                 chiks: ChiKS,
                  Vbare_G, Kxc_GG,
-                 dyson_solver: DysonSolver,
                  fxc_scaling=None):
         """Construct the many-body susceptibility based on its ingredients."""
         assert chiks.distribution == 'zGG' and\
             chiks.blockdist.blockcomm.size == chiks.blockdist.world.size,\
             "Chi assumes that chiks's frequencies are distributed over world"
+        self.context = context
+        self.dyson_solver = DysonSolver(context)
+        
         self.chiks = chiks
         self.world = chiks.blockdist.world
 
         self.Vbare_G = Vbare_G
         self.fxc_kernel = Kxc_GG  # Temporary fix XXX
         self.fxc_scaling = fxc_scaling
-
-        self.dyson_solver = dyson_solver
-        self.context = dyson_solver.context  # No dyson in the future? XXX
 
     def write_macroscopic_component(self, filename):
         """Calculate the spatially averaged (macroscopic) component of the
@@ -264,10 +264,7 @@ class ChiFactory:
                 'Supplying an xc kernel Kxc_GG overwrites any specification '\
                 'of how to calculate the kernel'
 
-        # Initiate the dyson solver
-        dyson_solver = DysonSolver(self.context)
-
-        return Chi(chiks, Vbare_G, Kxc_GG, dyson_solver,
+        return Chi(self.context, chiks, Vbare_G, Kxc_GG,
                    fxc_scaling=fxc_scaling)
 
     def get_chiks(self, spincomponent, q_c, complex_frequencies):
