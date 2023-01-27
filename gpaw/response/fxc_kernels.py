@@ -64,7 +64,7 @@ def fxc_factory(fxc, chiks: ChiKS, localft_calc: LocalFTCalculator,
 class FXCKernel:
     r"""Adiabatic local exchange-correlation kernel in a plane-wave basis.
 
-    In real-space an adiabatic local xc-kernel matrix is given by:
+    In real-space, the adiabatic local xc-kernel matrix is given by:
 
     K_xc^μν(r, r', t-t') = f_xc^μν(r) δ(r-r') δ(t-t')
 
