@@ -23,7 +23,7 @@ class Chi:
                  fxc_scaling=None):
         """Construct the many-body susceptibility based on its ingredients."""
         assert chiks.distribution == 'zGG' and\
-            chiks.blockdist.blockcomm.size == chiks.blockdist.world.size,\
+            chiks.blockdist.fully_block_distributed,\
             "Chi assumes that chiks's frequencies are distributed over world"
         self.context = context
         self.dyson_solver = DysonSolver(context)
