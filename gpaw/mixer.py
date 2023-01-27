@@ -154,12 +154,12 @@ class BaseMixer:
             A_ii[:i2, :i2] = self.A_ii[-i2:, -i2:]
             self.A_ii = A_ii
 
-            B_ii = np.linalg.pinv(A_ii)
-            alpha_i = B_ii.sum(1)
             try:
+                B_ii = np.linalg.inv(A_ii)
+                alpha_i = B_ii.sum(1)
                 alpha_i /= alpha_i.sum()
-            except FloatingPointError:
-                alpha_i[:] = 0.0
+            except (ZeroDivisionError, np.linalg.LinAlgError):
+                alpha_i = np.zeros(iold)
                 alpha_i[-1] = 1.0
 
             # Calculate new input density:
