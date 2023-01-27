@@ -3,7 +3,6 @@
 
 #include <cuda.h>
 #include <cuda_runtime_api.h>
-#include <driver_types.h>
 #include <cublas_v2.h>
 
 #define gpuMemcpyKind             cudaMemcpyKind
