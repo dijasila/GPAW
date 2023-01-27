@@ -62,6 +62,9 @@ class FXCKernel:
 
     def __init__(self, fxc_dG, dG_K, GG_shape, volume):
         """Construct the fxc kernel."""
+        assert np.prod(GG_shape) == len(dG_K),\
+            "The K index should be a flattened (G,G') composite index'"
+
         self._fxc_dG = fxc_dG
         self._dG_K = dG_K
         self.GG_shape = GG_shape
