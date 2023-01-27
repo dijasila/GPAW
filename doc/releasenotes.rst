@@ -23,6 +23,18 @@ Git master branch
      in order to reduce number of **k**-points then you should redo those
      calculations.  Sorry!
 
+* Two other bugs affecting MGGA calculations were found (in the fix_density
+  and diagonalize_full_hamiltonian routines), which are fixed by
+  `!1417 <https://gitlab.com/gpaw/gpaw/-/merge_requests/1417>`_.
+
+  .. warning::
+  
+     MGGA calculations using fix_density and/or diagonalize_full_hamiltonian
+     should be rerun with these fixes.
+
+* The stress tensor was implemented for MGGA functionals, and
+  parallelization of MGGAs for large systems was improved.
+
 * Local orbitals added in LCAO mode to construct effective
   tight-binding Hamiltonians: :ref:`los in lcao`, :ref:`los tutorial`.
 
@@ -33,7 +45,7 @@ Git master branch
 
 * New tutorial: :ref:`abinitiomd`.
 
-* Experimental support for PW-mode calculations using a GPU.
+* Experimental support for PW-mode calculations using a GPU: :ref:`gpu`.
 
 * One can now specify the total energy convergence criterium in eV instead
   of eV / valence electron:
@@ -904,8 +916,7 @@ Mar 17, 2016: :git:`1.0.0 <../1.0.0>`.
 * New `f_{\text{xc}}` kernels for correlation energy calculations.  See this
   updated :ref:`tutorial <rapbe_tut>`.
 
-* Correlation energies within the range-separated RPA.  See this
-  :ref:`tutorial <rangerpa_tut>`.
+* Correlation energies within the range-separated RPA.
 
 * Experimental interface to the libvdwxc_ library
   for efficient van der Waals density functionals.

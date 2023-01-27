@@ -1,12 +1,16 @@
 from math import log
+
+import pytest
 from ase import Atoms
-from ase.io import read, write, iread
-from ase.units import Bohr
 from ase.db import connect
+from ase.io import iread, read, write
+from ase.units import Bohr
+
 from gpaw import GPAW, FermiDirac
 from gpaw.test import equal
 
 
+@pytest.mark.later
 def test_generic_hydrogen(in_tmp_dir):
     a = 4.0
     h = 0.2

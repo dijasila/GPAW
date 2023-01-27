@@ -50,6 +50,7 @@ class SCFLoop:
         self.eigensolver_used = getattr(wfs.eigensolver, "name", None)
         self.check_eigensolver_state(wfs, ham, dens)
         self.niter = 1
+        converged = False
 
         while self.niter <= self.maxiter:
             self.iterate_eigensolver(wfs, ham, dens)

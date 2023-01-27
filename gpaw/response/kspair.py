@@ -875,25 +875,25 @@ class PlaneWavePairDensity(PairMatrixElement):
         self.pawcorr = None
         self.currentq_c = None
 
-    def initialize(self, pd):
+    def initialize(self, qpd):
         """Initialize PAW corrections ahead in time of integration."""
-        self.initialize_paw_corrections(pd)
+        self.initialize_paw_corrections(qpd)
 
     @timer('Initialize PAW corrections')
-    def initialize_paw_corrections(self, pd):
+    def initialize_paw_corrections(self, qpd):
         """Initialize PAW corrections, if not done already, for the given q"""
-        q_c = pd.q_c
+        q_c = qpd.q_c
         if self.pawcorr is None or not np.allclose(q_c - self.currentq_c, 0.):
-            self.pawcorr = self._initialize_paw_corrections(pd)
+            self.pawcorr = self._initialize_paw_corrections(qpd)
             self.currentq_c = q_c
 
-    def _initialize_paw_corrections(self, pd):
+    def _initialize_paw_corrections(self, qpd):
         setups = self.gs.setups
         spos_ac = self.gs.spos_ac
-        return get_pair_density_paw_corrections(setups, pd, spos_ac)
+        return get_pair_density_paw_corrections(setups, qpd, spos_ac)
 
     @timer('Calculate pair density')
-    def __call__(self, kskptpair, pd):
+    def __call__(self, kskptpair, qpd):
         """Calculate the pair densities for all transitions t of the (k,k+q)
         k-point pair:
 
@@ -903,11 +903,11 @@ class PlaneWavePairDensity(PairMatrixElement):
                   = | dr e^-i(G+q)r psi_nks^*(r) psi_n'k+qs'(r)
                     /V0
         """
-        Q_aGii = self.get_paw_projectors(pd)
-        Q_G = self.get_fft_indices(kskptpair, pd)
+        Q_aGii = self.get_paw_projectors(qpd)
+        Q_G = self.get_fft_indices(kskptpair, qpd)
         mynt, nt, ta, tb = kskptpair.transition_distribution()
 
-        n_mytG = pd.empty(mynt)
+        n_mytG = qpd.empty(mynt)
 
         # Calculate smooth part of the pair densities:
         with self.context.timer('Calculate smooth part'):
@@ -915,7 +915,7 @@ class PlaneWavePairDensity(PairMatrixElement):
             n_mytR = ut1cc_mytR * kskptpair.kpt2.ut_tR
             # Unvectorized
             for myt in range(tb - ta):
-                n_mytG[myt] = pd.fft(n_mytR[myt], 0, Q_G) * pd.gd.dv
+                n_mytG[myt] = qpd.fft(n_mytR[myt], 0, Q_G) * qpd.gd.dv
 
         # Calculate PAW corrections with numpy
         with self.context.timer('PAW corrections'):
@@ -932,21 +932,21 @@ class PlaneWavePairDensity(PairMatrixElement):
         # Attach the calculated pair density to the KohnShamKPointPair object
         kskptpair.attach('n_mytG', 'n_tG', n_mytG)
 
-    def get_paw_projectors(self, pd):
+    def get_paw_projectors(self, qpd):
         """Make sure PAW correction has been initialized properly
         and return projectors"""
-        self.initialize_paw_corrections(pd)
+        self.initialize_paw_corrections(qpd)
         return self.pawcorr.Q_aGii
 
     @timer('Get G-vector indices')
-    def get_fft_indices(self, kskptpair, pd):
+    def get_fft_indices(self, kskptpair, qpd):
         """Get indices for G-vectors inside cutoff sphere."""
         from gpaw.response.pair import fft_indices
 
         kpt1 = kskptpair.kpt1
         kpt2 = kskptpair.kpt2
         kd = self.gs.kd
-        q_c = pd.q_c
+        q_c = qpd.q_c
 
-        return fft_indices(kd=kd, K1=kpt1.K, K2=kpt2.K, q_c=q_c, pd=pd,
+        return fft_indices(kd=kd, K1=kpt1.K, K2=kpt2.K, q_c=q_c, qpd=qpd,
                            shift0_c=kpt1.shift_c - kpt2.shift_c)

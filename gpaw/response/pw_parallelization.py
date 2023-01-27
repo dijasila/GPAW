@@ -111,13 +111,20 @@ class PlaneWaveBlockDistributor:
         # (If it were not divisible, we would "lose" some numbers and the
         #  redistribution would be corrupted.)
 
-        outshape = (mdout.shape[0], mdout.shape[1] // nG, nG)
-        out_wGG = np.empty(outshape, complex)
-
         inbuf = in_wGG.reshape(mdin.shape)
-        outbuf = out_wGG.reshape(mdout.shape)
+        # numpy.reshape does not *guarantee* that the reshaped view will
+        # be contiguous. To support redistribution of input arrays with an
+        # arbitrary allocation layout, we make sure that the corresponding
+        # input BLACS buffer in contiguous
+        inbuf = np.ascontiguousarray(inbuf)
+
+        outbuf = np.empty(mdout.shape, complex)
 
         r.redistribute(inbuf, outbuf)
+
+        outshape = (mdout.shape[0], mdout.shape[1] // nG, nG)
+        out_wGG = outbuf.reshape(outshape)
+        assert out_wGG.flags.contiguous  # Since mdout.shape[1] % nG == 0
 
         return out_wGG
 

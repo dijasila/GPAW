@@ -1,6 +1,9 @@
+import os
+
 import pytest
 from ase import Atoms
 from ase.io import read
+
 from gpaw import GPAW, FermiDirac
 
 
@@ -11,6 +14,7 @@ def test_no_cell():
         H.get_potential_energy()
 
 
+@pytest.mark.skipif(os.environ.get('GPAW_NEW'), reason='WIP')
 def test_read_txt(in_tmp_dir):
     a = 2.0
     calc = GPAW(gpts=(12, 12, 12), txt='H.txt', occupations=FermiDirac(0.0))

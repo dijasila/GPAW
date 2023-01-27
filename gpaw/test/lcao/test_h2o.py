@@ -1,9 +1,12 @@
+import pytest
 from ase import Atoms
+
 from gpaw import GPAW, LCAO
-from gpaw.test import equal
 from gpaw.poisson import FDPoissonSolver
+from gpaw.test import equal
 
 
+@pytest.mark.later  # basis set cutoff??
 def test_lcao_h2o():
     a = 6.0
     b = a / 2

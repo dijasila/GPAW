@@ -1,6 +1,5 @@
-
 import numpy as np
-
+import pytest
 from ase.build import molecule
 from ase.parallel import parprint
 
@@ -10,6 +9,7 @@ from gpaw.cluster import Cluster
 from gpaw.test import equal
 
 
+@pytest.mark.later
 def test_multipoleH2O(in_tmp_dir):
     h = 0.3
 

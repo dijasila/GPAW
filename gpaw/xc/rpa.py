@@ -198,8 +198,8 @@ class RPACalculator:
             if spin:
                 chi0_s.append(chi0calc.create_chi0(q_c))
 
-            pd = chi0_s[0].pd
-            nG = pd.ngmax
+            qpd = chi0_s[0].qpd
+            nG = qpd.ngmax
 
             # First not completely filled band:
             m1 = chi0calc.nocc1
@@ -213,7 +213,7 @@ class RPACalculator:
                     cut_G = None
                     m2 = nbands or nG
                 else:
-                    cut_G = np.arange(nG)[pd.G2_qG[0] <= 2 * ecut]
+                    cut_G = np.arange(nG)[qpd.G2_qG[0] <= 2 * ecut]
                     m2 = len(cut_G)
 
                 p('E_cut = %d eV / Bands = %d:' % (ecut * Hartree, m2),
@@ -271,8 +271,8 @@ class RPACalculator:
         chi0_wGG = chi0.copy_array_with_distribution('wGG')
 
         kd = self.gs.kd
-        if not chi0.pd.kd.gamma:
-            e = self.calculate_energy_rpa(chi0.pd, chi0_wGG, cut_G)
+        if not chi0.qpd.kd.gamma:
+            e = self.calculate_energy_rpa(chi0.qpd, chi0_wGG, cut_G)
             self.context.print('%.3f eV' % (e * Hartree))
         else:
             from gpaw.response.gamma_int import GammaIntegrator
@@ -282,7 +282,7 @@ class RPACalculator:
             gamma_int = GammaIntegrator(
                 truncation=self.coulomb.truncation,
                 kd=kd,
-                pd=chi0.pd,
+                qpd=chi0.qpd,
                 chi0_wvv=chi0.chi0_Wvv[wblocks.myslice],
                 chi0_wxvG=chi0.chi0_WxvG[wblocks.myslice])
 
@@ -290,18 +290,18 @@ class RPACalculator:
             for iqf in range(len(gamma_int.qf_qv)):
                 for iw in range(wblocks.nlocal):
                     gamma_int.set_appendages(chi0_wGG[iw], iw, iqf)
-                ev = self.calculate_energy_rpa(chi0.pd, chi0_wGG, cut_G,
+                ev = self.calculate_energy_rpa(chi0.qpd, chi0_wGG, cut_G,
                                                q_v=gamma_int.qf_qv[iqf])
-                e += ev * gamma_int.weight_q[iqf]
+                e += ev * gamma_int.weight_q
             self.context.print('%.3f eV' % (e * Hartree))
 
         return e
 
     @timer('Energy')
-    def calculate_energy_rpa(self, pd, chi0_wGG, cut_G, q_v=None):
+    def calculate_energy_rpa(self, qpd, chi0_wGG, cut_G, q_v=None):
         """Evaluate correlation energy from chi0."""
 
-        sqrtV_G = self.coulomb.sqrtV(pd, q_v)
+        sqrtV_G = self.coulomb.sqrtV(qpd, q_v)
 
         if cut_G is not None:
             sqrtV_G = sqrtV_G[cut_G]

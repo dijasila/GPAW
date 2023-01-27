@@ -111,5 +111,5 @@ def calculate_chi(calc, q_qc, w,
     for q, q_c in enumerate(q_qc):
         fname = filename.replace('XXX', str(q + 1))
         chi = chi_factory(spincomponent, q_c, w + 1.j * eta, fxc=fxc)
-        chi.write_component_array(fname, reduced_ecut=reduced_ecut)
+        chi.write_reduced_arrays(fname, reduced_ecut=reduced_ecut)
         world.barrier()

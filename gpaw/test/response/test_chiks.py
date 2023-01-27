@@ -79,7 +79,9 @@ def test_chiks_symmetry(in_tmp_dir, gpw_files, q_c, eta, gammacentered):
     disable_syms_s = [True, False]
     bandsummation_b = ['double', 'pairwise']
 
-    if world.size > 1:
+    if world.size % 4 == 0:
+        nblocks = 4
+    elif world.size % 2 == 0:
         nblocks = 2
     else:
         nblocks = 1
@@ -141,8 +143,8 @@ def test_chiks_symmetry(in_tmp_dir, gpw_files, q_c, eta, gammacentered):
                 assert np.allclose(q_c, 0.)
                 q1, q2 = 0, 0
 
-            pd1, pd2 = chiks_q[q1].pd, chiks_q[q2].pd
-            invmap_GG = get_inverted_pw_mapping(pd1, pd2)
+            qpd1, qpd2 = chiks_q[q1].qpd, chiks_q[q2].qpd
+            invmap_GG = get_inverted_pw_mapping(qpd1, qpd2)
 
             # Check reciprocity of the reactive part of the static
             # susceptibility. This specific check makes sure that the
@@ -180,9 +182,9 @@ def test_chiks_symmetry(in_tmp_dir, gpw_files, q_c, eta, gammacentered):
         for sb2 in sb_s[s + 1:]:
             for chiks1, chiks2 in zip(chiks_sbq[sb1[0]][sb1[1]],
                                       chiks_sbq[sb2[0]][sb2[1]]):
-                pd1, pd2 = chiks1.pd, chiks2.pd
-                G1_Gc = get_pw_coordinates(pd1)
-                G2_Gc = get_pw_coordinates(pd2)
+                qpd1, qpd2 = chiks1.qpd, chiks2.qpd
+                G1_Gc = get_pw_coordinates(qpd1)
+                G2_Gc = get_pw_coordinates(qpd2)
                 assert G1_Gc.shape == G2_Gc.shape
                 assert np.allclose(G1_Gc - G2_Gc, 0.)
 
