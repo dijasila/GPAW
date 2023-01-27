@@ -78,6 +78,26 @@ class FXCKernel:
 
         return Kxc_GG
 
+    def save(self, filename):
+        """Save the fxc kernel in a .npz file format."""
+        assert isinstance(filename, str) and filename[-4:] == '.npz'
+        np.savez(filename,
+                 fxc_dG=self._fxc_dG,
+                 dG_K=self._dG_K,
+                 GG_shape=self.GG_shape,
+                 volume=self.volume)
+
+    @staticmethod
+    def from_file(filename):
+        """Construct an fxc kernel from a previous calculation."""
+        assert isinstance(filename, str) and filename[-4:] == '.npz'
+        npzfile = np.load(filename)
+
+        args = [npzfile[key]
+                for key in ['fxc_dG', 'dG_K', 'GG_shape', 'volume']]
+
+        return FXCKernel(*args)
+
 
 class AdiabaticFXCCalculator:
     """Calculator for adiabatic local exchange-correlation kernels."""
