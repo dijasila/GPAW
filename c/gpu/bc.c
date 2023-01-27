@@ -64,7 +64,34 @@ void bc_init_buffers_gpu()
     bc_init_count = 0;
 }
 
-void bc_alloc_buffers(const boundary_conditions* bc, int blocks)
+static void _allocate_buffer_host(void *buffer, const int size) {
+    gpuFreeHost(buffer);
+    gpuCheckLastError();
+    gpuHostAlloc(&buffer, sizeof(double) * size);
+}
+
+static void _allocate_buffer_device(void *buffer, const int size) {
+    gpuFree(buffer);
+    gpuCheckLastError();
+    gpuMalloc(&buffer, sizeof(double) * size);
+}
+
+static void _create_stream_events() {
+    if (!bc_streams) {
+        gpuStreamCreate(&bc_recv_stream);
+        bc_streams = 1;
+        for (int d=0; d<3; d++) {
+            for (int i=0; i<2; i++) {
+                gpuEventCreateWithFlags(&bc_sendcpy_event[d][i],
+                        gpuEventDefault|gpuEventDisableTiming);
+                gpuEventCreateWithFlags(&bc_recv_event[d][i],
+                        gpuEventDefault|gpuEventDisableTiming);
+            }
+        }
+    }
+}
+
+static void _allocate_buffers(const boundary_conditions* bc, int blocks)
 {
     int nsends=0;
     int nrecvs=0;
@@ -79,42 +106,22 @@ void bc_alloc_buffers(const boundary_conditions* bc, int blocks)
     bc_sbuffs_max=MAX(nsends, bc_sbuffs_max);
     if (bc_sbuffs_max > bc_sbuffs_size) {
 #ifndef CUDA_MPI
-        gpuFreeHost(bc_sbuffs);
-        gpuCheckLastError();
-        gpuHostAlloc(&bc_sbuffs, sizeof(double) * bc_sbuffs_max);
+        _allocate_buffer_host(bc_sbuffs, bc_sbuffs_max);
 #endif
-        gpuFree(bc_sbuffs_gpu);
-        gpuCheckLastError();
-        gpuMalloc(&bc_sbuffs_gpu, sizeof(double) * bc_sbuffs_max);
+        _allocate_buffer_device(bc_sbuffs_gpu, bc_sbuffs_max);
         bc_sbuffs_size = bc_sbuffs_max;
     }
 
     bc_rbuffs_max=MAX(nrecvs, bc_rbuffs_max);
     if (bc_rbuffs_max > bc_rbuffs_size) {
 #ifndef CUDA_MPI
-        gpuFreeHost(bc_rbuffs);
-        gpuCheckLastError();
-        gpuHostAlloc(&bc_rbuffs, sizeof(double) * bc_rbuffs_max);
+        _allocate_buffer_host(bc_rbuffs, bc_rbuffs_max);
 #endif
-        gpuFree(bc_rbuffs_gpu);
-        gpuCheckLastError();
-        gpuMalloc(&bc_rbuffs_gpu, sizeof(double) * bc_rbuffs_max);
+        _allocate_buffer_device(bc_rbuffs_gpu, bc_rbuffs_max);
         bc_rbuffs_size = bc_rbuffs_max;
     }
-
 #ifndef CUDA_MPI
-    if (!bc_streams) {
-        gpuStreamCreate(&bc_recv_stream);
-        bc_streams = 1;
-        for (int d=0; d<3; d++) {
-            for (int i=0; i<2; i++) {
-                gpuEventCreateWithFlags(&bc_sendcpy_event[d][i],
-                        gpuEventDefault|gpuEventDisableTiming);
-                gpuEventCreateWithFlags(&bc_recv_event[d][i],
-                        gpuEventDefault|gpuEventDisableTiming);
-            }
-        }
-    }
+    _create_stream_events();
 #endif
 }
 
@@ -239,7 +246,7 @@ void bc_unpack_paste_gpu(boundary_conditions* bc,
 {
     bool real = (bc->ndouble == 1);
 
-    bc_alloc_buffers(bc, nin);
+    _allocate_buffers(bc, nin);
     // Copy data:
     // Zero all of a2 array.  We should only zero the bounaries
     // that are not periodic, but it's simpler to zero everything!
@@ -287,7 +294,7 @@ void bc_unpack_gpu_sync(const boundary_conditions* bc,
         gpuStream_t kernel_stream, int nin)
 {
     bool real = (bc->ndouble == 1);
-    bc_alloc_buffers(bc, nin);
+    _allocate_buffers(bc, nin);
 
 #ifdef PARALLEL
     for (int d=0; d<2; d++) {
@@ -397,7 +404,7 @@ static void _bc_unpack_gpu_async(const boundary_conditions* bc,
         int nin)
 {
     bool real = (bc->ndouble == 1);
-    bc_alloc_buffers(bc, nin);
+    _allocate_buffers(bc, nin);
 
 #ifdef PARALLEL
     // Prepare send-buffers
