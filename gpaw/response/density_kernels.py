@@ -23,7 +23,7 @@ def get_density_xc_kernel(qpd, gs, context, functional='ALDA',
             gs, context, rshelmax=rshelmax, rshewmin=rshewmin)
         fxc_calculator = AdiabaticFXCCalculator(localft_calc)
         fxc_kernel = fxc_calculator(functional, '00', qpd)
-        Kxc_GG = fxc_kernel.Kxc_GG
+        Kxc_GG = fxc_kernel.get_Kxc_GG()
 
         if qpd.kd.gamma:
             Kxc_GG[0, :] = 0.0
