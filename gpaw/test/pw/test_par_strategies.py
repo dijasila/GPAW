@@ -1,9 +1,12 @@
 import numpy as np
+import pytest
 from ase import Atoms
+
 from gpaw import GPAW, PW, FermiDirac
 from gpaw.mpi import world
 
 
+@pytest.mark.stress
 def test_pw_par_strategies(in_tmp_dir):
     ecut = 200
     kpoints = [1, 1, 4]
@@ -18,11 +21,8 @@ def test_pw_par_strategies(in_tmp_dir):
                               txt=label + '.txt',
                               parallel={'domain': d, 'kpt': k},
                               kpts={'size': kpoints},
+                              convergence={'maximum iterations': 4},
                               occupations=FermiDirac(width=0.1))
-
-            def stopcalc():
-                atoms.calc.scf.converged = True
-            atoms.calc.attach(stopcalc, 4)
 
             e = atoms.get_potential_energy()
             f = atoms.get_forces()

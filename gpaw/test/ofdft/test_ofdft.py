@@ -6,6 +6,7 @@ from gpaw.test import equal
 from gpaw.test import gen
 
 
+@pytest.mark.ofdft
 @pytest.mark.libxc
 def test_ofdft_ofdft(in_tmp_dir):
     a = 6.0

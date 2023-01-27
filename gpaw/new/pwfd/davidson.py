@@ -4,7 +4,6 @@ from functools import partial
 from typing import Callable
 
 import numpy as np
-from gpaw import debug
 from gpaw.core.arrays import DistributedArrays as DA
 from gpaw.core.atom_centered_functions import AtomArrays as AA
 from gpaw.core.matrix import Matrix
@@ -15,7 +14,7 @@ from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.typing import Array1D, Array2D
 from gpaw.utilities.blas import axpy
 from gpaw.yml import obj2yaml as o2y
-from scipy.linalg import eigh
+from gpaw.gpu import as_xp
 
 AAFunc = Callable[[AA, AA], AA]
 
@@ -33,17 +32,9 @@ class Davidson(Eigensolver):
         self.niter = niter
         self.converge_bands = converge_bands
 
-        B = nbands
-        domain_comm = wf_grid.comm
-        if domain_comm.rank == 0 and band_comm.rank == 0:
-            self.H_NN = Matrix(2 * B, 2 * B, wf_grid.dtype)
-            self.S_NN = Matrix(2 * B, 2 * B, wf_grid.dtype)
-        else:
-            self.H_NN = self.S_NN = Matrix(0, 0)
-
-        self.M_nn = Matrix(B, B, wf_grid.dtype,
-                           dist=(band_comm, band_comm.size))
-
+        self.H_NN = None
+        self.S_NN = None
+        self.M_nn = None
         self.work_arrays: np.ndarray | None = None
 
         self.preconditioner = preconditioner_factory(blocksize)
@@ -52,6 +43,30 @@ class Davidson(Eigensolver):
         return o2y(dict(name='Davidson',
                         niter=self.niter,
                         converge_bands=self.converge_bands))
+
+    def _initialize(self, ibzwfs):
+        # First time: allocate work-arrays
+        wfs = ibzwfs.wfs_qs[0][0]
+        assert isinstance(wfs, PWFDWaveFunctions)
+        xp = wfs.psit_nX.xp
+        B = ibzwfs.nbands
+        domain_comm = wfs.psit_nX.desc.comm
+        band_comm = wfs.band_comm
+        shape = ibzwfs.get_max_shape()
+        shape = (2, B) + shape
+        dtype = wfs.psit_nX.data.dtype
+        self.work_arrays = xp.empty(shape, dtype)
+
+        dtype = wfs.psit_nX.desc.dtype
+        if domain_comm.rank == 0 and band_comm.rank == 0:
+            self.H_NN = Matrix(2 * B, 2 * B, dtype, xp=xp)
+            self.S_NN = Matrix(2 * B, 2 * B, dtype, xp=xp)
+        else:
+            self.H_NN = self.S_NN = Matrix(0, 0)
+
+        self.M_nn = Matrix(B, B, dtype,
+                           dist=(band_comm, band_comm.size),
+                           xp=xp)
 
     def iterate(self, state: DFTState, hamiltonian: Hamiltonian) -> float:
         """Iterate on state given fixed hamiltonian.
@@ -65,18 +80,16 @@ class Davidson(Eigensolver):
               R = (H - ε S)ψ
                n        n   n
         """
+
         if self.work_arrays is None:
-            # First time: allocate work-arrays
-            shape = state.ibzwfs.get_max_shape()
-            shape = (2, state.ibzwfs.nbands) + shape
-            wfs = state.ibzwfs.wfs_qs[0][0]
-            assert isinstance(wfs, PWFDWaveFunctions)
-            dtype = wfs.psit_nX.data.dtype
-            self.work_arrays = np.empty(shape, dtype)
+            self._initialize(state.ibzwfs)
+
+        assert self.M_nn is not None
+        xp = self.M_nn.xp
 
         dS = state.ibzwfs.wfs_qs[0][0].setups.overlap_correction
         dH = state.potential.dH
-        Ht = partial(hamiltonian.apply, state.potential.vt_sR)
+        Ht = partial(hamiltonian.apply, state.potential.vt_sR.to_xp(xp))
         ibzwfs = state.ibzwfs
         error = 0.0
         for wfs in ibzwfs:
@@ -89,12 +102,14 @@ class Davidson(Eigensolver):
         S_NN = self.S_NN
         M_nn = self.M_nn
 
+        xp = M_nn.xp
+
         psit_nX = wfs.psit_nX
         psit2_nX = psit_nX.new(data=self.work_arrays[0])
         psit3_nX = psit_nX.new(data=self.work_arrays[1])
 
         B = psit_nX.dims[0]  # number of bands
-        eig_N = np.empty(2 * B)
+        eig_N = xp.empty(2 * B)
 
         wfs.subspace_diagonalize(Ht, dH,
                                  work_array=psit2_nX.data,
@@ -113,7 +128,7 @@ class Davidson(Eigensolver):
         assert band_comm.size == 1
 
         if domain_comm.rank == 0:
-            eig_N[:B] = wfs.eig_n
+            eig_N[:B] = xp.asarray(wfs.eig_n)
 
         def me(a, b, function=None):
             """Matrix elements"""
@@ -142,7 +157,7 @@ class Davidson(Eigensolver):
                 if weight_n is None:
                     error = np.inf
                 else:
-                    error = weight_n @ residual_nX.norm2()
+                    error = weight_n @ as_xp(residual_nX.norm2(), np)
                     if wfs.ncomponents == 4:
                         error = error.sum()
 
@@ -176,24 +191,18 @@ class Davidson(Eigensolver):
             copy(S_NN.data[B:, :B])
 
             if is_domain_band_master:
-                H_NN.data[:B, :B] = np.diag(eig_N[:B])
-                S_NN.data[:B, :B] = np.eye(B)
-                if debug:
-                    H_NN.data[np.triu_indices(2 * B, 1)] = 42.0
-                    S_NN.data[np.triu_indices(2 * B, 1)] = 42.0
-
-                eig_N[:], H_NN.data[:] = eigh(H_NN.data, S_NN.data,
-                                              lower=True,
-                                              check_finite=debug,
-                                              overwrite_b=True)
-                wfs._eig_n = eig_N[:B]
+                H_NN.data[:B, :B] = xp.diag(eig_N[:B])
+                S_NN.data[:B, :B] = xp.eye(B)
+                eig_N[:] = H_NN.eigh(S_NN)
+                wfs._eig_n = as_xp(eig_N[:B], np)
             if domain_comm.rank == 0:
                 band_comm.broadcast(wfs.eig_n, 0)
             domain_comm.broadcast(wfs.eig_n, 0)
 
             if domain_comm.rank == 0:
                 if band_comm.rank == 0:
-                    M0_nn.data[:] = H_NN.data[:B, :B]
+                    # M0_nn.data[:] = H_NN.data[:B, :B]
+                    M0_nn.data[:] = H_NN.data[:B, :B].T
                 M0_nn.redist(M_nn)
             domain_comm.broadcast(M_nn.data, 0)
 
@@ -202,7 +211,8 @@ class Davidson(Eigensolver):
 
             if domain_comm.rank == 0:
                 if band_comm.rank == 0:
-                    M0_nn.data[:] = H_NN.data[B:, :B]
+                    # M0_nn.data[:] = H_NN.data[B:, :B]
+                    M0_nn.data[:] = H_NN.data[:B, B:].T
                 M0_nn.redist(M_nn)
             domain_comm.broadcast(M_nn.data, 0)
 
@@ -219,24 +229,35 @@ class Davidson(Eigensolver):
         return error
 
 
-def calculate_residuals(residuals_nX: DA,
+def calculate_residuals(residual_nX: DA,
                         dH: AAFunc,
                         dS: AAFunc,
                         wfs: PWFDWaveFunctions,
                         P1_ani: AA,
                         P2_ani: AA) -> None:
-    for r, e, p in zip(residuals_nX.data, wfs.myeig_n, wfs.psit_nX.data):
-        axpy(-e, p, r)
+
+    eig_n = wfs.myeig_n
+    xp = residual_nX.xp
+    if xp is np:
+        for r, e, p in zip(residual_nX.data, wfs.myeig_n, wfs.psit_nX.data):
+            axpy(-e, p, r)
+    else:
+        eig_n = xp.asarray(eig_n)
+        for r, e, p in zip(residual_nX.data, eig_n, wfs.psit_nX.data):
+            r -= p * e
 
     dH(wfs.P_ani, P1_ani)
     if wfs.ncomponents < 4:
         subscripts = 'nI, n -> nI'
     else:
         subscripts = 'nsI, n -> nsI'
-    np.einsum(subscripts, wfs.P_ani.data, wfs.myeig_n, out=P2_ani.data)
+    if xp is np:
+        np.einsum(subscripts, wfs.P_ani.data, eig_n, out=P2_ani.data)
+    else:
+        P2_ani.data[:] = xp.einsum(subscripts, wfs.P_ani.data, eig_n)
     dS(P2_ani, P2_ani)
     P1_ani.data -= P2_ani.data
-    wfs.pt_aiX.add_to(residuals_nX, P1_ani)
+    wfs.pt_aiX.add_to(residual_nX, P1_ani)
 
 
 def calculate_weights(converge_bands: int | str,

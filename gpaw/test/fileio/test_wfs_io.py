@@ -1,8 +1,11 @@
+import pytest
 from ase import Atoms
 from ase.units import Hartree
+
 from gpaw import GPAW
 
 
+@pytest.mark.later
 def test_fileio_wfs_io(in_tmp_dir):
     h2 = Atoms('H2', [(0, 0, 0), (0, 0, 1)])
     h2.center(vacuum=2.0)

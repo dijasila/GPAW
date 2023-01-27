@@ -1,3 +1,4 @@
+import pytest
 from ase import Atom, Atoms
 from ase.parallel import world
 
@@ -30,6 +31,7 @@ def run_and_delete(txt):
     world.barrier()
 
 
+@pytest.mark.lrtddft
 def test_log(in_tmp_dir):
     defname = 'gpawlog.txt'
     # LrTDDFT outputs to the same log like gpaw

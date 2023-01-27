@@ -8,17 +8,16 @@ from ase.dft import monkhorst_pack
 from scipy.linalg import eigh
 
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.pw.descriptor import PWDescriptor
 from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.mpi import world, serial_comm, broadcast
 from gpaw.response import ResponseContext
 from gpaw.response.df import write_response_function
-from gpaw.response.coulomb_kernels import get_coulomb_kernel
-from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
+from gpaw.response.coulomb_kernels import CoulombKernel
 from gpaw.response.screened_interaction import initialize_w_calculator
 from gpaw.response.paw import PWPAWCorrectionData
 from gpaw.response.frequencies import FrequencyDescriptor
 from gpaw.response.pair import PairDensityCalculator, get_gs_and_context
+from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.chi0 import Chi0Calculator
 
 
@@ -49,7 +48,7 @@ class BSEBackend:
         self.ecut = ecut / Hartree
         self.nbands = nbands
         self.mode = mode
-        self.truncation = truncation
+
         if integrate_gamma == 0 and truncation is not None:
             self.context.print('***WARNING*** Analytical Coulomb integration' +
                                ' is not expected to work with Coulomb ' +
@@ -119,13 +118,8 @@ class BSEBackend:
         self.nS = self.kd.nbzkpts * self.nv * self.nc * self.spins
         self.nS *= (self.spinors + 1)**2
 
-        # Wigner-Seitz stuff
-        if self.truncation == 'wigner-seitz':
-            self.wstc = WignerSeitzTruncatedCoulomb(self.gs.gd.cell_cv,
-                                                    self.kd.N_c)
-            self.context.print(self.wstc.get_description())
-        else:
-            self.wstc = None
+        self.coulomb = CoulombKernel(truncation=truncation, gs=self.gs)
+        self.context.print(self.coulomb.description())
 
         self.print_initialization(self.td, self.eshift, self.gw_skn)
 
@@ -158,11 +152,10 @@ class BSEBackend:
         myKrange, myKsize, mySsize = self.parallelisation_sizes()
 
         # Calculate exchange interaction
-        qd0 = KPointDescriptor([self.q_c])
-        pd0 = PWDescriptor(self.ecut, self.gs.gd, complex, qd0)
+        qpd0 = SingleQPWDescriptor.from_q(self.q_c, self.ecut, self.gs.gd)
         ikq_k = self.kd.find_k_plus_q(self.q_c)
-        v_G = get_coulomb_kernel(pd0, self.kd.N_c, truncation=self.truncation,
-                                 wstc=self.wstc)
+        v_G = self.coulomb.V(qpd=qpd0, q_v=None)
+
         if optical:
             v_G[0] = 0.0
 
@@ -174,7 +167,7 @@ class BSEBackend:
         # Calculate direct (screened) interaction and PAW corrections
         if self.mode == 'RPA':
             pairden_paw_corr = self.gs.pair_density_paw_corrections
-            pawcorr = pairden_paw_corr(pd0)
+            pawcorr = pairden_paw_corr(qpd0)
         else:
             self.get_screened_potential()
             if (self.qd.ibzk_kc - self.q_c < 1.0e-6).all():
@@ -183,7 +176,7 @@ class BSEBackend:
                 pawcorr = self.pawcorr_q[iq0]  # Q_qaGii[iq0]
             else:
                 pairden_paw_corr = self.gs.pair_density_paw_corrections
-                pawcorr = pairden_paw_corr(pd0)
+                pawcorr = pairden_paw_corr(qpd0)
 
         # Calculate pair densities, eigenvalues and occupations
         so = self.spinors + 1
@@ -216,7 +209,7 @@ class BSEBackend:
             ci_s, cf_s = self.con_sn[:, 0], self.con_sn[:, -1] + 1
         for ik, iK in enumerate(myKrange):
             for s in range(Ns):
-                pair = get_pair(pd0, s, iK,
+                pair = get_pair(qpd0, s, iK,
                                 vi_s[s], vf_s[s], ci_s[s], cf_s[s])
                 m_m = np.arange(vi_s[s], vf_s[s])
                 n_n = np.arange(ci_s[s], cf_s[s])
@@ -235,10 +228,10 @@ class BSEBackend:
 
                 df_mn = pair.get_occupation_differences(self.val_sn[s],
                                                         self.con_sn[s])
-                rho_mnG = get_pair_density(pd0, pair, m_m, n_n,
+                rho_mnG = get_pair_density(qpd0, pair, m_m, n_n,
                                            pawcorr=pawcorr)
                 if optical_limit:
-                    n_mnv = self.pair.get_optical_pair_density_head(pd0, pair,
+                    n_mnv = self.pair.get_optical_pair_density_head(qpd0, pair,
                                                                     m_m, n_n)
                     rho_mnG[:, :, 0] = n_mnv[:, :, self.direction]
                 if self.spinors:
@@ -345,7 +338,7 @@ class BSEBackend:
                         seconds=round(dt)), timedelta(seconds=round(tleft))))
 
         # if self.mode == 'BSE':
-        #     del self.Q_qaGii, self.W_qGG, self.pd_q
+        #     del self.Q_qaGii, self.W_qGG, self.qpd_q
 
         H_ksmnKsmn /= self.gs.volume
 
@@ -372,46 +365,21 @@ class BSEBackend:
 
         if self.write_h:
             self.par_save('H_SS.ulm', 'H_SS', self.H_sS)
-
+    
     def get_density_matrix(self, kpt1, kpt2):
-        # xxx This one should use QSymmetryOp at g0w0.py
-        Q_c = self.kd.bzk_kc[kpt2.K] - self.kd.bzk_kc[kpt1.K]
-        iQ = self.qd.where_is_q(Q_c, self.qd.bzk_kc)
-        iq = self.qd.bz2ibz_k[iQ]
-        q_c = self.qd.ibzk_kc[iq]
+        from gpaw.response.g0w0 import QSymmetryOp, get_nmG
+        symop, iQ, Q_c, iq, q_c = QSymmetryOp.get_symop_from_kpair(
+            self.kd, self.qd, kpt1, kpt2)
+        symop.check_q_Q_symmetry(Q_c, q_c)
+        qpd = self.qpd_q[iq]
+        nG = qpd.ngmax
+        pawcorr, I_G = symop.apply_symop_q(
+            qpd, Q_c, self.pawcorr_q[iq], kpt1, kpt2)
 
-        # Find symmetry that transforms Q_c into q_c
-        sym = self.qd.sym_k[iQ]
-        U_cc = self.qd.symmetry.op_scc[sym]
-        time_reversal = self.qd.time_reversal_k[iQ]
-        sign = 1 - 2 * time_reversal
-        d_c = sign * np.dot(U_cc, q_c) - Q_c
-        assert np.allclose(d_c.round(), d_c)
-
-        pd = self.pd_q[iq]
-        N_c = pd.gd.N_c
-        i_cG = sign * np.dot(U_cc, np.unravel_index(pd.Q_qG[0], N_c))
-
-        shift0_c = Q_c - sign * np.dot(U_cc, q_c)
-        assert np.allclose(shift0_c.round(), shift0_c)
-        shift0_c = shift0_c.round().astype(int)
-
-        shift_c = kpt1.shift_c - kpt2.shift_c - shift0_c
-        I_G = np.ravel_multi_index(i_cG + shift_c[:, None], N_c, 'wrap')
-        G_Gv = pd.get_reciprocal_vectors()
-
-        M_vv = np.dot(pd.gd.cell_cv.T, np.dot(U_cc.T,
-                                              np.linalg.inv(pd.gd.cell_cv).T))
-
-        pawcorr = self.pawcorr_q[iq].remap(M_vv, G_Gv, sym, sign)
-
-        rho_mnG = np.zeros((len(kpt1.eps_n), len(kpt2.eps_n), len(G_Gv)),
+        rho_mnG = np.zeros((len(kpt1.eps_n), len(kpt2.eps_n), nG),
                            complex)
         for m in range(len(rho_mnG)):
-            C1_aGi = pawcorr.multiply(kpt1.P_ani, band=m)
-            ut1cc_R = kpt1.ut_nR[m].conj()
-            rho_mnG[m] = self.pair.calculate_pair_density(ut1cc_R, C1_aGi,
-                                                          kpt2, pd, I_G)
+            rho_mnG[m] = get_nmG(kpt1, kpt2, pawcorr, m, qpd, I_G, self.pair)
         return rho_mnG, iq
 
     def get_screened_potential(self):
@@ -423,14 +391,14 @@ class BSEBackend:
             # Read screened potential from file
             try:
                 data = np.load(self.wfile + '.npz')
-                self.pd_q = data['pd']
+                self.qpd_q = data['pd']
                 assert len(data['pd']) == len(data['Q'])
                 self.pawcorr_q = [
                     PWPAWCorrectionData(
-                        Q_aGii, pd=pd,
+                        Q_aGii, qpd=qpd,
                         setups=self.gs.setups,
                         pos_av=self.gs.get_pos_av())
-                    for Q_aGii, pd in zip(data['Q'], self.pd_q)]
+                    for Q_aGii, qpd in zip(data['Q'], self.qpd_q)]
                 self.W_qGG = data['W']
                 self.context.print('Reading screened potential from % s' %
                                    self.wfile)
@@ -441,7 +409,7 @@ class BSEBackend:
                 if world.rank == 0:
                     np.savez(self.wfile,
                              Q=[pawcorr.Q_aGii for pawcorr in self.pawcorr_q],
-                             pd=self.pd_q, W=self.W_qGG)
+                             pd=self.qpd_q, W=self.W_qGG)
         else:
             self.calculate_screened_potential()
 
@@ -470,25 +438,25 @@ class BSEBackend:
 
         self.pawcorr_q = []
         self.W_qGG = []
-        self.pd_q = []
+        self.qpd_q = []
 
         # F.N: Moved this here. chi0 will be calculated by WCalculator
         if self._chi0calc is None:
             self.initialize_chi0_calculator()
         if self._wcalc is None:
+            wcontext = ResponseContext(txt='w.txt', world=world)
             self._wcalc = initialize_w_calculator(
-                chi0calc=self._chi0calc,
-                truncation=self.truncation,
-                world=world,
+                self._chi0calc, wcontext,
+                coulomb=self.coulomb,
                 integrate_gamma=self.integrate_gamma)
         t0 = time()
         self.context.print('Calculating screened potential')
         for iq, q_c in enumerate(self.qd.ibzk_kc):
             chi0 = self._chi0calc.calculate(q_c)
-            pd, W_wGG = self._wcalc.calculate_q(iq, q_c, chi0, out_dist='WgG')
+            W_wGG = self._wcalc.calculate(chi0, out_dist='WgG')
             W_GG = W_wGG[0]
             self.pawcorr_q.append(self._chi0calc.pawcorr)
-            self.pd_q.append(pd)
+            self.qpd_q.append(chi0.qpd)
             self.W_qGG.append(W_GG)
 
             if iq % (self.qd.nibzkpts // 5 + 1) == 2:
@@ -557,7 +525,7 @@ class BSEBackend:
         return
 
     def get_bse_matrix(self, q_c=[0.0, 0.0, 0.0], direction=0,
-                       readfile=None, optical=True, write_eig=None):
+                       readfile=None, optical=True):
         """Calculate and diagonalize BSE matrix"""
 
         self.q_c = q_c
@@ -578,8 +546,6 @@ class BSEBackend:
         else:
             raise ValueError('%s array not recognized' % readfile)
 
-        # TODO: Move write_eig here
-
         return
 
     def get_vchi(self, w_w=None, eta=0.1, q_c=[0.0, 0.0, 0.0],
@@ -588,8 +554,7 @@ class BSEBackend:
         """Returns v * chi where v is the bare Coulomb interaction"""
 
         self.get_bse_matrix(q_c=q_c, direction=direction,
-                            readfile=readfile, optical=optical,
-                            write_eig=write_eig)
+                            readfile=readfile, optical=optical)
 
         w_T = self.w_T
         rhoG0_S = self.rhoG0_S
@@ -651,13 +616,11 @@ class BSEBackend:
         self.context.print('')
 
         if write_eig is not None:
+            assert isinstance(write_eig, str)
+            filename = write_eig
             if world.rank == 0:
-                f = open(write_eig, 'w')
-                print('# %s eigenvalues in eV' % self.mode, file=f)
-                for iw, w in enumerate(self.w_T * Hartree):
-                    print('%8d %12.6f %12.16f' % (iw, w.real, C_T[iw].real),
-                          file=f)
-                f.close()
+                write_bse_eigenvalues(filename, self.mode,
+                                      self.w_T * Hartree, C_T)
 
         return vchi_w
 
@@ -736,10 +699,7 @@ class BSEBackend:
                                 write_eig=write_eig).imag
 
         if world.rank == 0 and filename is not None:
-            f = open(filename, 'w')
-            for iw, w in enumerate(w_w):
-                print('%.9f, %.9f' % (w, eels_w[iw]), file=f)
-            f.close()
+            write_spectrum(filename, w_w, eels_w)
         world.barrier()
 
         self.context.print('Calculation completed at:', ctime(), flush=False)
@@ -769,7 +729,7 @@ class BSEBackend:
 
         V = self.gs.nonpbc_cell_product()
 
-        optical = (self.truncation is None)
+        optical = (self.coulomb.truncation is None)
 
         vchi_w = self.get_vchi(w_w=w_w, eta=eta, q_c=q_c, direction=direction,
                                readfile=readfile, optical=optical,
@@ -784,39 +744,6 @@ class BSEBackend:
         self.context.print('')
 
         return w_w, alpha_w
-
-    def get_2d_absorption(self, w_w=None, eta=0.1,
-                          q_c=[0.0, 0.0, 0.0], direction=0,
-                          filename='abs_bse.csv', readfile=None,
-                          write_eig='eig.dat'):
-        r"""Calculate the dimensionless absorption for 2d materials.
-        It is essentially related to the 2D polarizability \alpha_2d as
-
-              ABS = 4 * np.pi * \omega * \alpha_2d / c
-
-        where c is the velocity of light
-        """
-
-        from ase.units import alpha
-        c = 1.0 / alpha
-
-        assert np.sum(self.gs.pbc) == 2
-        V = self.gs.nonpbc_cell_product()
-        vchi_w = self.get_vchi(w_w=w_w, eta=eta, q_c=q_c, direction=direction,
-                               readfile=readfile, optical=True,
-                               write_eig=write_eig)
-        abs_w = -V * vchi_w.imag * w_w / Hartree / c
-
-        if world.rank == 0 and filename is not None:
-            fd = open(filename, 'w')
-            for iw, w in enumerate(w_w):
-                print('%.9f, %.9f' % (w, abs_w[iw]), file=fd)
-            fd.close()
-
-        self.context.print('Calculation completed at:', ctime(), flush=False)
-        self.context.print('')
-
-        return w_w, abs_w
 
     def par_save(self, filename, name, A_sS):
         import ase.io.ulm as ulm
@@ -952,7 +879,7 @@ class BSEBackend:
         p('Tamm-Dancoff approximation     :', td)
         p('Number of pair orbitals        :', self.nS)
         p()
-        p('Truncation of Coulomb kernel   :', self.truncation)
+        p('Truncation of Coulomb kernel   :', self.coulomb.truncation)
         if self.integrate_gamma == 0:
             p('Coulomb integration scheme     :', 'Analytical - gamma only')
         elif self.integrate_gamma == 1:
@@ -991,9 +918,8 @@ class BSE(BSEBackend):
             List or array defining the gw quasiparticle energies used in
             the BSE Hamiltonian. Should match spin, k-points and
             valence/conduction bands
-        truncation: str
-            Coulomb truncation scheme. Can be either wigner-seitz,
-            2D, 1D, or 0D
+        truncation: str or None
+            Coulomb truncation scheme. Can be None, wigner-seitz, or 2D.
         integrate_gamma: int
             Method to integrate the Coulomb interaction. 1 is a numerical
             integration at all q-points with G=[0,0,0] - this breaks the
@@ -1016,3 +942,28 @@ class BSE(BSEBackend):
             calc, txt, world=world, timer=None)
 
         super().__init__(gs=gs, context=context, **kwargs)
+
+
+def write_bse_eigenvalues(filename, mode, w_w, C_w):
+    with open(filename, 'w') as fd:
+        print('# %s eigenvalues in eV' % mode, file=fd)
+        for iw, (w, C) in enumerate(zip(w_w, C_w)):
+            print('%8d %12.6f %12.16f' % (iw, w.real, C.real),
+                  file=fd)
+
+
+def read_bse_eigenvalues(filename):
+    _, w_w, C_w = np.loadtxt(filename, unpack=True)
+    return w_w, C_w
+
+
+def write_spectrum(filename, w_w, A_w):
+    with open(filename, 'w') as fd:
+        for w, A in zip(w_w, A_w):
+            print('%.9f, %.9f' % (w, A), file=fd)
+
+
+def read_spectrum(filename):
+    w_w, A_w = np.loadtxt(filename, delimiter=',',
+                          unpack=True)
+    return w_w, A_w

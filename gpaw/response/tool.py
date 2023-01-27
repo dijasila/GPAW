@@ -5,8 +5,7 @@ from scipy.optimize import leastsq
 
 from ase.units import Ha
 import gpaw.mpi as mpi
-from gpaw.pw.descriptor import PWDescriptor
-from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.pair import PairDensityCalculator, get_gs_and_context
 
 
@@ -46,14 +45,6 @@ def get_orbitals(calc):
     return orb_MG
 
 
-def get_pw_descriptor(q_c, gs, ecut, gammacentered=False):
-    """Get the planewave descriptor of q_c."""
-    qd = KPointDescriptor([q_c])
-    pd = PWDescriptor(ecut, gs.gd,
-                      complex, qd, gammacentered=gammacentered)
-    return pd
-
-
 def get_bz_transitions(filename, q_c, bzk_kc,
                        spins='all',
                        ecut=50, txt=sys.stdout):
@@ -68,9 +59,8 @@ def get_bz_transitions(filename, q_c, bzk_kc,
                                      timer=None)
 
     pair = PairDensityCalculator(gs=gs, context=context)
-    pd = get_pw_descriptor(q_c, pair.gs, ecut)
-
-    bzk_kv = np.dot(bzk_kc, pd.gd.icell_cv) * 2 * np.pi
+    qpd = SingleQPWDescriptor.from_q(q_c, ecut, gs.gd)
+    bzk_kv = np.dot(bzk_kc, qpd.gd.icell_cv) * 2 * np.pi
 
     if spins == 'all':
         spins = range(pair.gs.nspins)
@@ -89,36 +79,36 @@ def get_bz_transitions(filename, q_c, bzk_kc,
             arg.append(domain_l[index])
         domainarg_td.append(tuple(arg))
 
-    return pair, pd, domainarg_td
+    return pair, qpd, domainarg_td
 
 
-def get_chi0_integrand(pair, pd, n_n, m_m, k_v, s):
+def get_chi0_integrand(pair, qpd, n_n, m_m, k_v, s):
     """
     Calculates the pair densities, occupational differences
     and energy differences of transitions from certain kpoint
     and spin.
     """
-    q_c = pd.kd.bzk_kc[0]
+    q_c = qpd.q_c
     optical_limit = np.allclose(q_c, 0.0)
-    k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
+    k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
 
-    kptpair = pair.get_kpoint_pair(pd, s, k_c, n_n[0], n_n[-1] + 1,
+    kptpair = pair.get_kpoint_pair(qpd, s, k_c, n_n[0], n_n[-1] + 1,
                                    m_m[0], m_m[-1] + 1)
 
     pairden_paw_corr = pair.gs.pair_density_paw_corrections
-    pawcorr = pairden_paw_corr(pd)
+    pawcorr = pairden_paw_corr(qpd)
 
     df_nm = kptpair.get_occupation_differences(n_n, m_m)
     eps_n = kptpair.kpt1.eps_n
     eps_m = kptpair.kpt2.eps_n
 
     if optical_limit:
-        n_nmP = pair.get_optical_pair_density(pd, kptpair, n_n, m_m,
+        n_nmP = pair.get_optical_pair_density(qpd, kptpair, n_n, m_m,
                                               pawcorr=pawcorr)
 
         return n_nmP, df_nm, eps_n, eps_m
     else:
-        n_nmG = pair.get_pair_density(pd, kptpair, n_n, m_m,
+        n_nmG = pair.get_pair_density(qpd, kptpair, n_n, m_m,
                                       pawcorr=pawcorr)
 
         return n_nmG, df_nm, eps_n, eps_m

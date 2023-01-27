@@ -109,10 +109,10 @@ GPAW implementation
 
 In GPAW, the computation of MFT Heisenberg exchange constants is implemented
 through the ``IsotropicExchangeCalculator``. The calculator is constructed
-from a ``ChiKS`` intance and a ``LocalFTCalculator``, where the latter takes
-care of Fourier transforming `B^{\mathrm{xc}}(\mathbf{r})` into plane-wave
-components, whereas the former is a separate calculator for computing the
-Kohn-Sham transverse magnetic plane wave susceptibility:
+from a ``ChiKSCalculator`` and a ``LocalFTCalculator``, where the latter
+takes care of Fourier transforming `B^{\mathrm{xc}}(\mathbf{r})` into
+plane-wave components, whereas the former is a separate calculator for
+computing the Kohn-Sham transverse magnetic plane wave susceptibility:
 
 .. math::
 
@@ -140,16 +140,17 @@ are computed directly from the Kohn-Sham orbitals
 `\psi_{n\mathbf{k}s}(\mathbf{r})`. For more details on the transverse
 magnetic susceptibility, PAW corrections to Fourier transforms and their
 respective GPAW implementations, please refer to [#Skovhus]_. Specifically,
-the ``ChiKS`` calculator evaluates the sum over `\mathbf{k}`-points by point
+the ``ChiKSCalculator`` evaluates the sum over `\mathbf{k}`-points by point
 integration on the Monkhorst-Pack grid specified by an input ground state
 DFT calculation. Because of this, it only accepts wave vectors `\mathbf{q}`
 that are commensurate with the underlying `\mathbf{k}`-point grid.
-Furthermore, it takes input arguments ``ecut``, ``nbands`` and ``eta`` in
-the constructor, specifying the plane wave energy cutoff, number of bands in
-the band summation and frequency broadening respectively.
+Furthermore, it takes input arguments ``ecut`` and ``nbands`` in the
+constructor, specifying the plane wave energy cutoff and number of bands in
+the band summation respectively.
 
-The ``IsotropicExchangeCalculator`` uses the ``ChiKS`` instance from which
-it is initialized to compute the reactive part of the susceptibility,
+The ``IsotropicExchangeCalculator`` uses the ``ChiKSCalculator`` instance
+from which it is initialized to compute the reactive part of the
+susceptibility,
 
 .. math::
 
@@ -160,12 +161,12 @@ it is initialized to compute the reactive part of the susceptibility,
    \chi_{\mathrm{KS},-\mathbf{G}'-\mathbf{G}}^{-+}(-\mathbf{q},
    -\omega + i \eta) \right],
 
-in the static limit `\omega=0` for a given wave vector `\mathbf{q}`.
-With this in hand, it uses a supplied ``SiteKernels`` instance defining
-the sublattice site geometries to compute the exchange constants
-`\bar{J}^{ab}(\mathbf{q})`. At present, spherical, cylindrical and
-parallelepipedic site kernel geometries are supported through the
-``SphericalSiteKernels``, ``CylindricalSiteKernels`` and
+in the static limit `\omega=0` and without broadening `\eta=0` for a given
+wave vector `\mathbf{q}`. With this in hand, it uses a supplied
+``SiteKernels`` instance defining the sublattice site geometries to compute
+the exchange constants `\bar{J}^{ab}(\mathbf{q})`. At present, spherical,
+cylindrical and parallelepipedic site kernel geometries are supported
+through the ``SphericalSiteKernels``, ``CylindricalSiteKernels`` and
 ``ParallelepipedicSiteKernels`` classes.
 
 When using the GPAW code for computing MFT Heisenberg exchange constants,

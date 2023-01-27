@@ -27,7 +27,7 @@ class HydrogenAllElectronSetup(BaseSetup):
         self.n_j = [1]
         self.nct = Spline(0, 0.5, [0.0, 0.0, 0.0])
         self.Nct = 0.0
-        self.N0_p = []
+        self.N0_p = np.zeros(0)
         rc = 2.0
         r_g = np.linspace(0, rc, 100)
         r2_g = r_g**2

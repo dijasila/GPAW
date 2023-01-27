@@ -11,9 +11,11 @@ from scipy.special import spherical_jn
 from ase.units import Bohr
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
+
 from gpaw.spherical_harmonics import Yarr
 from gpaw.sphere.lebedev import weight_n, R_nv
 from gpaw.xc import XC
+from gpaw.xc.libxc import LibXC
 
 
 class LocalFTCalculator(ABC):
@@ -77,12 +79,12 @@ class LocalFTCalculator(ABC):
                                         rshelmax=rshelmax, rshewmin=rshewmin)
 
     @timer('LocalFT')
-    def __call__(self, pd, add_f):
+    def __call__(self, qpd, add_f):
         """Calculate the plane-wave components f(G).
 
         Parameters
         ----------
-        pd : PlaneWaveDescriptor
+        qpd : SingleQPWDescriptor
             Defines the plane-wave basis to calculate the components in.
         add_f : method
             Defines the local function of the electron (spin-)density to
@@ -100,53 +102,77 @@ class LocalFTCalculator(ABC):
             lattice vectors G.
         """
         self.context.print('Calculating f(G)')
-        f_G = self.calculate(pd, add_f)
+        f_G = self.calculate(qpd, add_f)
         self.context.print('Finished calculating f(G)')
 
         return f_G
 
     @abstractmethod
-    def calculate(self, pd, add_f):
+    def calculate(self, qpd, add_f):
         pass
 
     @staticmethod
-    def check_grid_equivalence(gd1, gd2):
+    def equivalent_real_space_grids(gd1, gd2):
         assert gd1.comm.size == 1
         assert gd2.comm.size == 1
-        assert (gd1.N_c == gd2.N_c).all()
+        return (gd1.N_c == gd2.N_c).all()
+
+    def get_electron_density(self, gd, pseudo=False):
+        """Get the electron density corresponding to a given grid descriptor.
+        """
+        gridrefinement = self.get_gridrefinement(gd)
+
+        if pseudo:
+            _get_electron_density = self.gs.get_pseudo_density
+        else:
+            _get_electron_density = self.gs.get_all_electron_density
+
+        n_sR, gdref = _get_electron_density(gridrefinement=gridrefinement)
+
+        assert self.equivalent_real_space_grids(gd, gdref)
+
+        return n_sR
+
+    def get_gridrefinement(self, gd):
+        if self.equivalent_real_space_grids(gd, self.gs.gd):
+            gridrefinement = 1
+        elif self.equivalent_real_space_grids(gd, self.gs.finegd):
+            gridrefinement = 2
+        else:
+            raise ValueError('The supplied gd is neither compatible with the '
+                             'coarse nor the fine real-space grid of the '
+                             'underlying ground state')
+
+        return gridrefinement
 
 
 class LocalGridFTCalculator(LocalFTCalculator):
 
-    def calculate(self, pd, add_f):
+    def calculate(self, qpd, add_f):
         """Calculate f(G) directly from the all-electron density on the cubic
         real-space grid."""
-        n_sR = self.get_all_electron_density(pd.gd)
-        f_G = self._calculate(pd, n_sR, add_f)
+        n_sR = self.get_all_electron_density(qpd.gd)
+        f_G = self._calculate(qpd, n_sR, add_f)
 
         return f_G
 
-    def _calculate(self, pd, n_sR, add_f):
+    def _calculate(self, qpd, n_sR, add_f):
         """In-place calculation of the plane-wave components."""
         # Calculate f(r)
-        gd = pd.gd
+        gd = qpd.gd
         f_R = gd.zeros()
         add_f(gd, n_sR, f_R)
 
         # FFT to reciprocal space
-        f_G = fft_from_grid(f_R, pd)  # G = 1D grid of |G|^2/2 < ecut
+        f_G = fft_from_grid(f_R, qpd)  # G = 1D grid of |G|^2/2 < ecut
 
         return f_G
 
     @timer('Calculate the all-electron density')
     def get_all_electron_density(self, gd):
-        """Calculate the all-electron (spin-)density on the coarse real-space
-        grid of the ground state."""
+        """Calculate the all-electron (spin-)density."""
         self.context.print('    Calculating the all-electron density')
-        n_sR, gd1 = self.gs.all_electron_density(gridrefinement=1)
-        self.check_grid_equivalence(gd, gd1)
-
-        return n_sR
+        return self.get_electron_density(gd)
 
 
 class LocalPAWFTCalculator(LocalFTCalculator):
@@ -156,26 +182,24 @@ class LocalPAWFTCalculator(LocalFTCalculator):
 
         self.engine = LocalPAWFTEngine(self.context, rshelmax, rshewmin)
 
-    def calculate(self, pd, add_f):
+    def calculate(self, qpd, add_f):
         """Calculate f(G) with an expansion of f(r) in real spherical harmonics
         inside the augmentation spheres."""
-        # Retrieve the pseudo (spin-)density on the coarse real-space grid
-        nt_sR = self.get_pseudo_density(pd.gd)  # R = Coarse 3D real-space grid
+        # Retrieve the pseudo (spin-)density on the real-space grid
+        nt_sR = self.get_pseudo_density(qpd.gd)  # R = 3D real-space grid
 
         # Retrieve the pseudo and all-electron atomic centered densities inside
         # the augmentation spheres
         R_av, micro_setups = self.extract_atom_centered_quantities()
 
         # Let the engine perform the in-place calculation
-        f_G = self.engine.calculate(pd, nt_sR, R_av, micro_setups, add_f)
+        f_G = self.engine.calculate(qpd, nt_sR, R_av, micro_setups, add_f)
 
         return f_G
 
     def get_pseudo_density(self, gd):
-        """Return the pseudo (spin-)density on the coarse real-space grid of
-        the ground state."""
-        self.check_grid_equivalence(gd, self.gs.gd)
-        return self.gs.nt_sR  # nt=pseudo density, R=coarse grid
+        """Get the pseudo (spin-)density of the ground state."""
+        return self.get_electron_density(gd, pseudo=True)
 
     def extract_atom_centered_quantities(self):
         """Extract all relevant atom centered quantities that the engine needs
@@ -268,7 +292,7 @@ class LocalPAWFTEngine:
 
         self._add_f = None
 
-    def calculate(self, pd, nt_sR, R_av, micro_setups, add_f):
+    def calculate(self, qpd, nt_sR, R_av, micro_setups, add_f):
         r"""Calculate the Fourier transform f(G) by splitting up the
         calculation into a pseudo density contribution and a PAW correction
         accounting for the difference
@@ -282,12 +306,12 @@ class LocalPAWFTEngine:
         See [PRB 103, 245110 (2021)] for definitions and notation details."""
         self._add_f = add_f
 
-        ft_G = self.calculate_pseudo_contribution(pd, nt_sR)
-        fPAW_G = self.calculate_paw_corrections(pd, R_av, micro_setups)
+        ft_G = self.calculate_pseudo_contribution(qpd, nt_sR)
+        fPAW_G = self.calculate_paw_corrections(qpd, R_av, micro_setups)
 
         return ft_G + fPAW_G
 
-    def calculate_pseudo_contribution(self, pd, nt_sR):
+    def calculate_pseudo_contribution(self, qpd, nt_sR):
         """Calculate the pseudo density contribution by performing a FFT of
         f(ñ(r)) on the cubic real-space grid.
 
@@ -295,17 +319,17 @@ class LocalPAWFTEngine:
         function of the pseudo density ñ(r) everywhere in space, such that
         f(ñ(r)) is accurately described on the cubic real-space grid."""
         # Calculate ft(r) (t=tilde=pseudo)
-        gd = pd.gd
+        gd = qpd.gd
         ft_R = gd.zeros()
         self._add_f(gd, nt_sR, ft_R)
 
         # FFT to reciprocal space
-        ft_G = fft_from_grid(ft_R, pd)  # G = 1D grid of |G|^2/2 < ecut
+        ft_G = fft_from_grid(ft_R, qpd)  # G = 1D grid of |G|^2/2 < ecut
 
         return ft_G
 
     @timer('Calculate PAW corrections')
-    def calculate_paw_corrections(self, pd, R_av, micro_setups):
+    def calculate_paw_corrections(self, qpd, R_av, micro_setups):
         r"""Calculate the PAW corrections to f(G), for each augmentation sphere
         at a time:
                       __
@@ -322,8 +346,8 @@ class LocalPAWFTEngine:
         self.context.print('    Calculating PAW corrections\n')
 
         # Extract reciprocal lattice vectors
-        nG = pd.ngmax
-        G_Gv = pd.get_reciprocal_vectors()
+        nG = qpd.ngmax
+        G_Gv = qpd.get_reciprocal_vectors(add_q=False)
         assert G_Gv.shape[0] == nG
 
         # Allocate output array
@@ -626,7 +650,7 @@ class LocalPAWFTEngine:
         return Gnorm_myG, Gdir_myGv
 
 
-def fft_from_grid(f_R, pd):
+def fft_from_grid(f_R, qpd):
     r"""Perform a FFT to reciprocal space:
                                     __
            /                    V0  \
@@ -635,11 +659,11 @@ def fft_from_grid(f_R, pd):
            V0                       r
 
     where N is the number of grid points."""
-    Q_G = pd.Q_qG[0]
+    Q_G = qpd.Q_qG[0]
 
     # Perform the FFT
-    N = np.prod(pd.gd.N_c)
-    f_Q123 = pd.gd.volume / N * np.fft.fftn(f_R)  # Q123 = 3D grid in Q-rep
+    N = np.prod(qpd.gd.N_c)
+    f_Q123 = qpd.gd.volume / N * np.fft.fftn(f_R)  # Q123 = 3D grid in Q-rep
 
     # Change the view of the plane-wave components from the 3D grid in the
     # Q-representation that numpy spits out to the 1D grid in the
@@ -678,3 +702,50 @@ def add_LSDA_Bxc(gd, n_sR, Bxc_R):
 
     # Add B^(xc) in real space to the output array
     Bxc_R += (v_sR[0] - v_sR[1]) / 2
+
+
+def add_LDA_dens_fxc(gd, n_sR, fxc_R, *, fxc):
+    r"""Calculate the LDA density kernel and add it to the output array fxc_R.
+
+    The LDA density kernel is given by:
+
+                    ∂^2[ϵ_xc(n,m)n] |
+    f_LDA^(00)(r) = ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾ |
+                         ∂n^2       |n=n(r),m=m(r)
+    """
+    assert len(n_sR) == 1,\
+        'The density kernel is untested for spin-polarized systems'
+    
+    if fxc == 'ALDA_x':
+        fxc_R += -1. / 3. * (3. / np.pi)**(1. / 3.) * n_sR[0]**(-2. / 3.)
+    else:
+        assert fxc in ['ALDA_X', 'ALDA']
+        kernel = LibXC(fxc[1:])
+        fxc_sR = np.zeros_like(n_sR)
+        kernel.xc.calculate_fxc_spinpaired(n_sR.ravel(), fxc_sR)
+
+        fxc_R += fxc_sR[0]
+
+
+def add_LSDA_trans_fxc(gd, n_sR, fxc_R, *, fxc):
+    r"""Calculate the transverse LDA kernel and add it to the output arr. fxc_R
+
+    The transverse LDA kernel is given by:
+
+                    2 ∂[ϵ_xc(n,m)n] |                V_LSDA^↑(r) - V_LSDA^↓(r)
+    f_LDA^(+-)(r) = ‾ ‾‾‾‾‾‾‾‾‾‾‾‾‾ |              = ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+                    m      ∂m       |n=n(r),m=m(r)              m(r)
+    """
+    assert len(n_sR) == 2  # nspins
+    m_R = n_sR[0] - n_sR[1]
+
+    if fxc == 'ALDA_x':
+        fxc_R += - (6. / np.pi)**(1. / 3.) \
+            * (n_sR[0]**(1. / 3.) - n_sR[1]**(1. / 3.)) / m_R
+    else:
+        assert fxc in ['ALDA_X', 'ALDA']
+        v_sR = np.zeros(np.shape(n_sR))
+        xc = XC(fxc[1:])
+        xc.calculate(gd, n_sR, v_sg=v_sR)
+
+        fxc_R += (v_sR[0] - v_sR[1]) / m_R

@@ -19,6 +19,7 @@ class HarmonicPotential(ExternalPotential):
         return {'name': 'HarmonicPotential'}
 
 
+@pytest.mark.later
 def test_ext_potential_harmonic(in_tmp_dir):
     """Test againts analytic result (no xc, no Coulomb)."""
     a = 4.0
@@ -62,6 +63,7 @@ class PöschlTellerPotential(ExternalPotential):
         return {'name': 'HarmonicPotential'}
 
 
+@pytest.mark.later
 def test_pt_potential():
     """Test againts analytic result (no xc, no Coulomb)."""
     d = 6.0

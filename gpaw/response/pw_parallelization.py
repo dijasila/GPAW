@@ -21,19 +21,34 @@ class Blocks1D:
         self.blockcomm.all_gather(b_w, A_w)
         return A_w[:self.N]
 
+    def find_global_index(self, i):
+        """Find rank and local index of the global index i"""
+        rank = i // self.blocksize
+        li = i % self.blocksize
+
+        return rank, li
+
 
 def block_partition(comm, nblocks):
+    if nblocks == 'max':
+        # Maximize the number of blocks
+        nblocks = comm.size
+    assert isinstance(nblocks, int)
+    assert nblocks > 0 and nblocks <= comm.size, comm.size
     assert comm.size % nblocks == 0, comm.size
+
     rank1 = comm.rank // nblocks * nblocks
     rank2 = rank1 + nblocks
     blockcomm = comm.new_communicator(range(rank1, rank2))
     ranks = range(comm.rank % nblocks, comm.size, nblocks)
+
     if nblocks == 1:
         assert len(ranks) == comm.size
         intrablockcomm = comm
     else:
         intrablockcomm = comm.new_communicator(ranks)
     assert blockcomm.size * intrablockcomm.size == comm.size
+
     return blockcomm, intrablockcomm
 
 
@@ -45,6 +60,15 @@ class PlaneWaveBlockDistributor:
         self.world = world
         self.blockcomm = blockcomm
         self.intrablockcomm = intrablockcomm
+
+    def new_distributor(self, *, nblocks):
+        """Set up a new PlaneWaveBlockDistributor."""
+        world = self.world
+        blockcomm, intrablockcomm = block_partition(comm=world,
+                                                    nblocks=nblocks)
+        blockdist = PlaneWaveBlockDistributor(world, blockcomm, intrablockcomm)
+
+        return blockdist
 
     def _redistribute(self, in_wGG, nw):
         """Redistribute array.
@@ -87,13 +111,20 @@ class PlaneWaveBlockDistributor:
         # (If it were not divisible, we would "lose" some numbers and the
         #  redistribution would be corrupted.)
 
-        outshape = (mdout.shape[0], mdout.shape[1] // nG, nG)
-        out_wGG = np.empty(outshape, complex)
-
         inbuf = in_wGG.reshape(mdin.shape)
-        outbuf = out_wGG.reshape(mdout.shape)
+        # numpy.reshape does not *guarantee* that the reshaped view will
+        # be contiguous. To support redistribution of input arrays with an
+        # arbitrary allocation layout, we make sure that the corresponding
+        # input BLACS buffer in contiguous
+        inbuf = np.ascontiguousarray(inbuf)
+
+        outbuf = np.empty(mdout.shape, complex)
 
         r.redistribute(inbuf, outbuf)
+
+        outshape = (mdout.shape[0], mdout.shape[1] // nG, nG)
+        out_wGG = outbuf.reshape(outshape)
+        assert out_wGG.flags.contiguous  # Since mdout.shape[1] % nG == 0
 
         return out_wGG
 

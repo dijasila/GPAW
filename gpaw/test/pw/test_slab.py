@@ -1,11 +1,12 @@
+import pytest
 from ase import Atoms
 from ase.optimize import BFGS
 
-from gpaw import GPAW
-from gpaw import PW
+from gpaw import GPAW, PW
 from gpaw.mpi import world
 
 
+@pytest.mark.later
 def test_pw_slab():
     a = 2.65
     slab = Atoms('Li2',

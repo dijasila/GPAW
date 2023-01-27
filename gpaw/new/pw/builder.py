@@ -1,6 +1,11 @@
+import os
 from math import pi
+from types import ModuleType
+
+import numpy as np
 from ase.units import Ha
 from gpaw.core import PlaneWaves, UniformGrid
+from gpaw.core.domain import Domain
 from gpaw.core.matrix import Matrix
 from gpaw.core.plane_waves import PlaneWaveExpansions
 from gpaw.new.builder import create_uniform_grid
@@ -10,7 +15,6 @@ from gpaw.new.pw.pot_calc import PlaneWavePotentialCalculator
 from gpaw.new.pwfd.builder import PWFDDFTComponentsBuilder
 from gpaw.new.spinors import SpinorWaveFunctionDescriptor
 from gpaw.typing import Array1D
-from gpaw.core.domain import Domain
 
 
 class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
@@ -101,7 +105,14 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
 
         grid = self.grid.new(kpt=kpt_c, dtype=self.dtype)
         pw = self.wf_desc.new(kpt=kpt_c)
-        psit_nG = pw.empty(self.nbands, self.communicators['b'])
+        xp: ModuleType
+        if self.params.parallel['gpu']:
+            from gpaw.gpu import cupy, cupy_is_fake
+            assert not cupy_is_fake or os.environ.get('GPAW_CPUPY')
+            xp = cupy
+        else:
+            xp = np
+        psit_nG = pw.empty(self.nbands, self.communicators['b'], xp)
 
         if self.dtype == complex:
             emikr_R = grid.eikr(-kpt_c)

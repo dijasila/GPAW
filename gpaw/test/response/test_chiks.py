@@ -8,7 +8,8 @@ import pytest
 from gpaw import GPAW
 from gpaw.mpi import rank, world
 from gpaw.response import ResponseGroundStateAdapter
-from gpaw.response.chiks import ChiKS
+from gpaw.response.frequencies import ComplexFrequencyDescriptor
+from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.susceptibility import (get_inverted_pw_mapping,
                                           get_pw_coordinates)
 
@@ -78,7 +79,9 @@ def test_chiks_symmetry(in_tmp_dir, gpw_files, q_c, eta, gammacentered):
     disable_syms_s = [True, False]
     bandsummation_b = ['double', 'pairwise']
 
-    if world.size > 1:
+    if world.size % 4 == 0:
+        nblocks = 4
+    elif world.size % 2 == 0:
         nblocks = 2
     else:
         nblocks = 1
@@ -105,46 +108,43 @@ def test_chiks_symmetry(in_tmp_dir, gpw_files, q_c, eta, gammacentered):
     else:
         q_qc = [-q_c, q_c]
 
-    chiks_sbqwGG = []
-    pd_sbq = []
+    # Set up complex frequency descriptor
+    complex_frequencies = np.array(frequencies) + 1.j * eta
+    zd = ComplexFrequencyDescriptor.from_array(complex_frequencies)
+
+    chiks_sbq = []
     for disable_syms in disable_syms_s:
-        chiks_bqwGG = []
-        pd_bq = []
+        chiks_bq = []
         for bandsummation in bandsummation_b:
-            chiks = ChiKS(gs,
-                          ecut=ecut, nbands=nbands, eta=eta,
-                          gammacentered=gammacentered,
-                          disable_time_reversal=disable_syms,
-                          disable_point_group=disable_syms,
-                          nblocks=nblocks)
+            chiks_calc = ChiKSCalculator(gs,
+                                         ecut=ecut, nbands=nbands,
+                                         gammacentered=gammacentered,
+                                         disable_time_reversal=disable_syms,
+                                         disable_point_group=disable_syms,
+                                         nblocks=nblocks)
 
-            pd_q = []
-            chiks_qwGG = []
+            chiks_q = []
             for q_c in q_qc:
-                pd, chiks_wGG = chiks.calculate(q_c, frequencies,
-                                                spincomponent='+-')
-                chiks_wGG = chiks.distribute_frequencies(chiks_wGG)
-                pd_q.append(pd)
-                chiks_qwGG.append(chiks_wGG)
+                chiks = chiks_calc.calculate('+-', q_c, zd)
+                chiks = chiks.copy_with_global_frequency_distribution()
+                chiks_q.append(chiks)
 
-            chiks_bqwGG.append(chiks_qwGG)
-            pd_bq.append(pd_q)
-
-        chiks_sbqwGG.append(chiks_bqwGG)
-        pd_sbq.append(pd_bq)
+            chiks_bq.append(chiks_q)
+        chiks_sbq.append(chiks_bq)
 
     # Part 2: Check reciprocity and inversion symmetry
-    for pd_bq, chiks_bqwGG in zip(pd_sbq, chiks_sbqwGG):
-        for pd_q, chiks_qwGG in zip(pd_bq, chiks_bqwGG):
+    for chiks_bq in chiks_sbq:
+        for chiks_q in chiks_bq:
             # Get the q and -q pair
-            if len(pd_q) == 2:
+            if len(chiks_q) == 2:
                 q1, q2 = 0, 1
             else:
-                assert len(pd_q) == 1
+                assert len(chiks_q) == 1
                 assert np.allclose(q_c, 0.)
                 q1, q2 = 0, 0
 
-            invmap_GG = get_inverted_pw_mapping(pd_q[q1], pd_q[q2])
+            qpd1, qpd2 = chiks_q[q1].qpd, chiks_q[q2].qpd
+            invmap_GG = get_inverted_pw_mapping(qpd1, qpd2)
 
             # Check reciprocity of the reactive part of the static
             # susceptibility. This specific check makes sure that the
@@ -152,23 +152,26 @@ def test_chiks_symmetry(in_tmp_dir, gpw_files, q_c, eta, gammacentered):
             # reciprocal.
             if rank == 0:  # Only the root has the static susc.
                 # Calculate the reactive part
-                chi1_GG, chi2_GG = chiks_qwGG[q1][0], chiks_qwGG[q2][0]
+                chi1_GG = chiks_q[q1].array[0]  # array = chiks_wGG
+                chi2_GG = chiks_q[q2].array[0]
                 chi1r_GG = 1 / 2. * (chi1_GG + np.conj(chi1_GG).T)
                 chi2r_GG = 1 / 2. * (chi2_GG + np.conj(chi2_GG).T)
                 assert np.conj(chi2r_GG[invmap_GG]) == pytest.approx(chi1r_GG,
                                                                      rel=rtol)
 
-            for chi1_GG, chi2_GG in zip(chiks_qwGG[q1], chiks_qwGG[q2]):
+            # Loop over frequencies
+            for chi1_GG, chi2_GG in zip(chiks_q[q1].array,
+                                        chiks_q[q2].array):
                 # Check the reciprocity of the full susceptibility
                 assert chi2_GG[invmap_GG].T == pytest.approx(chi1_GG, rel=rtol)
                 # Check inversion symmetry of the full susceptibility
                 assert chi2_GG[invmap_GG] == pytest.approx(chi1_GG, rel=rtol)
 
     # Part 3: Check matrix symmetry
-    for chiks_bqwGG in chiks_sbqwGG:
-        for chiks_qwGG in chiks_bqwGG:
-            for chiks_wGG in chiks_qwGG:
-                for chiks_GG in chiks_wGG:
+    for chiks_bq in chiks_sbq:
+        for chiks_q in chiks_bq:
+            for chiks in chiks_q:
+                for chiks_GG in chiks.array:  # array = chiks_wGG
                     assert chiks_GG.T == pytest.approx(chiks_GG, rel=rtol)
 
     # Part 4: Check symmetry and bandsummation toggles
@@ -177,16 +180,18 @@ def test_chiks_symmetry(in_tmp_dir, gpw_files, q_c, eta, gammacentered):
     sb_s = [(0, 0), (0, 1), (1, 0), (1, 1)]
     for s, sb1 in enumerate(sb_s):
         for sb2 in sb_s[s + 1:]:
-            for pd1, pd2 in zip(pd_sbq[sb1[0]][sb1[1]],
-                                pd_sbq[sb2[0]][sb2[1]]):
-                G1_Gc = get_pw_coordinates(pd1)
-                G2_Gc = get_pw_coordinates(pd2)
+            for chiks1, chiks2 in zip(chiks_sbq[sb1[0]][sb1[1]],
+                                      chiks_sbq[sb2[0]][sb2[1]]):
+                qpd1, qpd2 = chiks1.qpd, chiks2.qpd
+                G1_Gc = get_pw_coordinates(qpd1)
+                G2_Gc = get_pw_coordinates(qpd2)
                 assert G1_Gc.shape == G2_Gc.shape
                 assert np.allclose(G1_Gc - G2_Gc, 0.)
 
     for s, sb1 in enumerate(sb_s):
         for sb2 in sb_s[s + 1:]:
-            chiks1_qwGG = chiks_sbqwGG[sb1[0]][sb1[1]]
-            chiks2_qwGG = chiks_sbqwGG[sb2[0]][sb2[1]]
-            for chiks1_wGG, chiks2_wGG in zip(chiks1_qwGG, chiks2_qwGG):
-                assert chiks2_wGG == pytest.approx(chiks1_wGG, rel=trtol)
+            chiks1_q = chiks_sbq[sb1[0]][sb1[1]]
+            chiks2_q = chiks_sbq[sb2[0]][sb2[1]]
+            for chiks1, chiks2 in zip(chiks1_q, chiks2_q):
+                assert chiks2.array == pytest.approx(chiks1.array,
+                                                     rel=trtol)
