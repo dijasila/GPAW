@@ -9,7 +9,7 @@ from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKS, ChiKSCalculator
 from gpaw.response.coulomb_kernels import get_coulomb_kernel
 from gpaw.response.localft import LocalPAWFTCalculator
-from gpaw.response.fxc_kernels import AdiabaticFXCCalculator
+from gpaw.response.fxc_kernels import AdiabaticFXCCalculator, FXCKernel
 from gpaw.response.dyson import DysonSolver
 
 
@@ -18,7 +18,8 @@ class Chi:
 
     def __init__(self, context,
                  chiks: ChiKS,
-                 Vbare_G, Kxc_GG,
+                 Vbare_G,
+                 fxc_kernel: FXCKernel,
                  fxc_scaling=None):
         """Construct the many-body susceptibility based on its ingredients."""
         assert chiks.distribution == 'zGG' and\
@@ -31,7 +32,7 @@ class Chi:
         self.world = chiks.blockdist.world
 
         self.Vbare_G = Vbare_G
-        self.fxc_kernel = Kxc_GG  # Temporary fix XXX
+        self.fxc_kernel = fxc_kernel
         self.fxc_scaling = fxc_scaling
 
     def write_macroscopic_component(self, filename):
@@ -109,24 +110,24 @@ class Chi:
 
         if self.Vbare_G is not None:  # Add the Hartree kernel
             Khxc_GG.flat[::nG + 1] += self.Vbare_G
+
         if self.fxc_kernel is not None:  # Add the xc kernel
-            # In the future, construct the xc kernel here! XXX
-            Khxc_GG += self.get_Kxc_GG()
+            Khxc_GG += self.Kxc_GG
+        else:
+            assert self.fxc_scaling is None,\
+                'Cannot apply an fxc scaling if no fxc kernel is supplied'
 
         return Khxc_GG
 
     @property
     def Kxc_GG(self):
-        return self.fxc_kernel
+        """Construct the (scaled) xc kernel matrix Kxc(G,G')."""
+        # Unfold the fxc kernel into the Kxc kernel matrix
+        Kxc_GG = self.fxc_kernel.Kxc_GG
 
-    def get_Kxc_GG(self):
-        """
-        Some documentation here!                                               XXX
-        """
-        Kxc_GG = self.fxc_kernel  # tmp fix XXX
+        # Apply a flat scaling to the kernel, if specified
         fxc_scaling = self.fxc_scaling
-
-        if Kxc_GG is not None and fxc_scaling is not None:
+        if fxc_scaling is not None:
             if not fxc_scaling.has_scaling:
                 fxc_scaling.calculate_scaling(self.chiks, Kxc_GG)
             lambd = fxc_scaling.get_scaling()
@@ -181,8 +182,8 @@ class ChiFactory:
         self._chiks = None
 
     def __call__(self, spincomponent, q_c, complex_frequencies,
-                 Kxc_GG=None, fxc=None, localft_calc=None, fxc_scaling=None,
-                 txt=None) -> Chi:
+                 fxc_kernel=None, fxc=None, localft_calc=None,
+                 fxc_scaling=None, txt=None) -> Chi:
         r"""Calculate a given element (spincomponent) of the four-component
         Kohn-Sham susceptibility tensor and construct a corresponding many-body
         susceptibility object within a given approximation to the
@@ -198,12 +199,12 @@ class ChiFactory:
         complex_frequencies : np.array or ComplexFrequencyDescriptor
             Array of complex frequencies to evaluate the response function at
             or a descriptor of those frequencies.
-        Kxc_GG : np.array
+        fxc_kernel : FXCKernel
             Exchange-correlation kernel (calculated elsewhere). Use this input
             carefully! The plane-wave representation in the supplied kernel has
             to match the representation of chiks.
             If no kernel is supplied, the ChiFactory will calculate one itself
-            according to keywords fxc, localft_calc and fxc_scaling.
+            according to keywords fxc and localft_calc.
         fxc : str (None defaults to ALDA)
             Approximation to the (local) xc kernel.
             Choices: ALDA, ALDA_X, ALDA_x
@@ -238,15 +239,15 @@ class ChiFactory:
             Vbare_G = get_coulomb_kernel(chiks.qpd, self.gs.kd.N_c)
 
         # Calculate the xc kernel, if it has not been supplied by the user
-        if Kxc_GG is None:
+        if fxc_kernel is None:
             # Use ALDA as the default fxc
             if fxc is None:
                 fxc = 'ALDA'
             # In RPA, we neglect the xc-kernel
             if fxc == 'RPA':
-                assert localft_calc is None and fxc_scaling is None,\
-                    "With fxc='RPA', the xc kernel is neglected and kernel "\
-                    "calculation specifications are irrelevant"
+                assert localft_calc is None,\
+                    "With fxc='RPA', there is no xc kernel to be calculated,"\
+                    "rendering the localft_calc input irrelevant"
             else:
                 # If no localft_calc is supplied, fall back to the default
                 if localft_calc is None:
@@ -256,15 +257,12 @@ class ChiFactory:
                 fxc_calculator = AdiabaticFXCCalculator(localft_calc)
                 fxc_kernel = fxc_calculator(
                     fxc, chiks.spincomponent, chiks.qpd)
-                Kxc_GG = fxc_kernel.Kxc_GG
         else:
-            assert fxc is None\
-                and localft_calc is None\
-                and fxc_scaling is None,\
-                'Supplying an xc kernel Kxc_GG overwrites any specification '\
-                'of how to calculate the kernel'
+            assert fxc is None and localft_calc is None,\
+                'Supplying an xc kernel overwrites any specification of how'\
+                'to calculate the kernel'
 
-        return Chi(self.context, chiks, Vbare_G, Kxc_GG,
+        return Chi(self.context, chiks, Vbare_G, fxc_kernel,
                    fxc_scaling=fxc_scaling)
 
     def get_chiks(self, spincomponent, q_c, complex_frequencies):
