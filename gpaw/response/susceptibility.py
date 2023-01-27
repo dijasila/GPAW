@@ -18,7 +18,8 @@ class Chi:
 
     def __init__(self, chiks: ChiKS,
                  Vbare_G, Kxc_GG,
-                 dyson_solver: DysonSolver):
+                 dyson_solver: DysonSolver,
+                 fxc_scaling=None):
         """Construct the many-body susceptibility based on its ingredients."""
         assert chiks.distribution == 'zGG' and\
             chiks.blockdist.blockcomm.size == chiks.blockdist.world.size,\
@@ -27,9 +28,11 @@ class Chi:
         self.world = chiks.blockdist.world
 
         self.Vbare_G = Vbare_G
-        self.Kxc_GG = Kxc_GG  # Use Kxc_G in the future XXX
+        self.fxc_kernel = Kxc_GG  # Temporary fix XXX
+        self.fxc_scaling = fxc_scaling
 
         self.dyson_solver = dyson_solver
+        self.context = dyson_solver.context  # No dyson in the future? XXX
 
     def write_macroscopic_component(self, filename):
         """Calculate the spatially averaged (macroscopic) component of the
@@ -106,11 +109,32 @@ class Chi:
 
         if self.Vbare_G is not None:  # Add the Hartree kernel
             Khxc_GG.flat[::nG + 1] += self.Vbare_G
-        if self.Kxc_GG is not None:  # Add the xc kernel
+        if self.fxc_kernel is not None:  # Add the xc kernel
             # In the future, construct the xc kernel here! XXX
-            Khxc_GG += self.Kxc_GG
+            Khxc_GG += self.get_Kxc_GG()
 
         return Khxc_GG
+
+    @property
+    def Kxc_GG(self):
+        return self.fxc_kernel
+
+    def get_Kxc_GG(self):
+        """
+        Some documentation here!                                               XXX
+        """
+        Kxc_GG = self.fxc_kernel  # tmp fix XXX
+        fxc_scaling = self.fxc_scaling
+
+        if Kxc_GG is not None and fxc_scaling is not None:
+            if not fxc_scaling.has_scaling:
+                fxc_scaling.calculate_scaling(self.chiks, Kxc_GG)
+            lambd = fxc_scaling.get_scaling()
+            self.context.print(r'Rescaling the xc kernel by a factor of '
+                               f'λ={lambd}')
+            Kxc_GG *= lambd
+
+        return Kxc_GG
 
     def collect(self, x_z):
         """Collect all frequencies."""
@@ -240,18 +264,11 @@ class ChiFactory:
                 'Supplying an xc kernel Kxc_GG overwrites any specification '\
                 'of how to calculate the kernel'
 
-        if Kxc_GG is not None and fxc_scaling is not None:
-            if not fxc_scaling.has_scaling:
-                fxc_scaling.calculate_scaling(chiks, Kxc_GG)
-            lambd = fxc_scaling.get_scaling()
-            self.context.print(r'Rescaling the xc-kernel by a factor of '
-                               f'λ={lambd}')
-            Kxc_GG *= lambd
-
         # Initiate the dyson solver
         dyson_solver = DysonSolver(self.context)
 
-        return Chi(chiks, Vbare_G, Kxc_GG, dyson_solver)
+        return Chi(chiks, Vbare_G, Kxc_GG, dyson_solver,
+                   fxc_scaling=fxc_scaling)
 
     def get_chiks(self, spincomponent, q_c, complex_frequencies):
         """Get chiks from buffer."""
