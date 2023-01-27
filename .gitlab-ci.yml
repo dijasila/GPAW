@@ -134,32 +134,52 @@ build-cuda:
     - pip install --user --log build.log --editable .
 
 
-build-libxc:
+prepare-libxc:
   image: $IMAGE_PATH/build:oldest
-  extends: .build
+  stage: build
   tags:
     - linux
+  variables:
+    PREFIX: $PYTHONUSERBASE
+  before_script:
+    - export PREFIX=`realpath $PREFIX`
   script:
     - git clone -b 6.0.0 https://gitlab.com/libxc/libxc.git
     - cd libxc
     - autoreconf -i
-    - ./configure --enable-shared --disable-fortran --prefix=$PWD/../.local
+    - ./configure --enable-shared --disable-fortran --prefix=$PREFIX
     - make > ../libxc-build.log
     - make install
-    - cd ..
+  when: manual
+  artifacts:
+    paths:
+      - $PREFIX
+      - "*.log"
+    expire_in: 30 mins
+
+
+build-libxc:
+  image: $IMAGE_PATH/build:oldest
+  extends:
+    - .build
+  needs:
+    - prepare-libxc
+  tags:
+    - linux
+  script:
     - |
       cat << EOF >> siteconfig.py
       extra_compile_args += ['-std=c99']
+
       local = Path('.local').resolve()
       lib = local / 'lib'
       library_dirs += [lib]
-      include_dirs += [xc / 'include']
-      extra_link_args = [f'-Wl,-rpath={lib}']
+      include_dirs += [local / 'include']
+      extra_link_args += [f'-Wl,-rpath={lib}']
       EOF
     - cat siteconfig.py
     - pip install --user --log build.log --editable .
     - gpaw -P 1 info
-  when: manual
 
 
 test:
