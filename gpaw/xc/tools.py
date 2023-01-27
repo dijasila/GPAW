@@ -1,6 +1,7 @@
 import numpy as np
 from ase.units import Ha
 
+from gpaw.hubbard import hubbard
 from gpaw.xc import XC
 from gpaw.utilities import unpack
 
@@ -38,11 +39,18 @@ def vxc(gs, xc=None, coredensity=True, n1=0, n2=0):
     dvxc_asii = {}
     for a, D_sp in dens.D_asp.items():
         dvxc_sp = np.zeros_like(D_sp)
-        xc.calculate_paw_correction(gs.setups[a], D_sp, dvxc_sp, a=a,
+
+        setup = gs.setups[a]
+        if setup.HubU is not None:
+            for l, U, scale in zip(setup.Hubl, setup.HubU, setup.Hubs):
+                _, dHU_sp = hubbard(setup, D_sp, l, U, scale)
+                dvxc_sp += dHU_sp
+        xc.calculate_paw_correction(setup, D_sp, dvxc_sp, a=a,
                                     addcoredensity=coredensity)
+
         dvxc_asii[a] = [unpack(dvxc_p) for dvxc_p in dvxc_sp]
         if thisisatest:
-            dvxc_asii[a] = [gs.setups[a].dO_ii]
+            dvxc_asii[a] = [setup.dO_ii]
 
     vxc_un = np.empty((gs.kd.mynk * gs.nspins, gs.bd.mynbands))
     for u, vxc_n in enumerate(vxc_un):
