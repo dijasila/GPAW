@@ -17,7 +17,7 @@ from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.susceptibility import ChiFactory
 from gpaw.response.localft import LocalGridFTCalculator, LocalPAWFTCalculator
-from gpaw.response.fxc_kernels import FXCScaling
+from gpaw.response.fxc_kernels import FXCScaling, FXCKernel
 from gpaw.response.df import read_response_function
 
 
@@ -33,7 +33,7 @@ def set_up_fxc_calculators(gs, context):
     # Set up paw calculator (with file buffer)
     localft_calc = LocalPAWFTCalculator(gs, context, rshelmax=0)
     fxckwargs_paw = {'localft_calc': localft_calc,
-                     'filename': 'paw_ALDA_fxc.npy',
+                     'filename': 'paw_ALDA_fxc.npz',
                      'fxc_scaling': FXCScaling('fm')}
     fxckwargs_and_identifiers.append((fxckwargs_paw, 'paw'))
 
@@ -104,8 +104,9 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
                     kxc.update(actual_fxckwargs)
                 else:  # Reuse kernel from q == 0 calculation
                     assert Path(fxc_filename).is_file()
-                    Kxc_GG = np.load(fxc_filename)
-                    kxc = {'Kxc_GG': Kxc_GG}
+                    fxc_kernel = FXCKernel.from_file(fxc_filename)
+                    kxc = {'fxc_kernel': fxc_kernel,
+                           'fxc_scaling': fxckwargs['fxc_scaling']}
             else:
                 kxc = {'fxc': fxc}
                 kxc.update(fxckwargs)
@@ -115,7 +116,7 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
                                             + '_%d.csv' % (q + 1))
 
             if 'filename' in fxckwargs and q == 0:
-                np.save(fxckwargs['filename'], chi.Kxc_GG)
+                chi.fxc_kernel.save(fxckwargs['filename'])
 
         chi_factory.context.write_timer()
 
