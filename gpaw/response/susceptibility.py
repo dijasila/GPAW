@@ -9,7 +9,7 @@ from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKS, ChiKSCalculator
 from gpaw.response.coulomb_kernels import get_coulomb_kernel
 from gpaw.response.localft import LocalPAWFTCalculator
-from gpaw.response.fxc_kernels import fxc_factory
+from gpaw.response.fxc_kernels import AdiabaticFXCCalculator
 from gpaw.response.dyson import DysonSolver
 
 
@@ -223,14 +223,24 @@ class ChiFactory:
 
             # Perform actual kernel calculation
             if fxc != 'RPA':  # In RPA, we neglect the xc-kernel
-                Kxc_GG = fxc_factory(fxc, chiks, localft_calc,
-                                     fxc_scaling=fxc_scaling)
+                fxc_calculator = AdiabaticFXCCalculator(localft_calc)
+                fxc_kernel = fxc_calculator(
+                    fxc, chiks.spincomponent, chiks.qpd)
+                Kxc_GG = fxc_kernel.Kxc_GG
         else:
             assert fxc is None\
                 and localft_calc is None\
                 and fxc_scaling is None,\
                 'Supplying an xc kernel Kxc_GG overwrites any specification '\
                 'of how to calculate the kernel'
+
+        if Kxc_GG is not None and fxc_scaling is not None:
+            if not fxc_scaling.has_scaling:
+                fxc_scaling.calculate_scaling(chiks, Kxc_GG)
+            lambd = fxc_scaling.get_scaling()
+            self.context.print(r'Rescaling the xc-kernel by a factor of '
+                               f'λ={lambd}')
+            Kxc_GG *= lambd
 
         # Initiate the dyson solver
         dyson_solver = DysonSolver(self.context)
