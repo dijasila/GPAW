@@ -33,7 +33,7 @@ def set_up_fxc_calculators(gs, context):
     # Set up paw calculator (with file buffer)
     localft_calc = LocalPAWFTCalculator(gs, context, rshelmax=0)
     fxckwargs_paw = {'localft_calc': localft_calc,
-                     'filename': 'paw_ALDA_fxc.npz',
+                     'fxc_file': Path('paw_ALDA_fxc.npz'),
                      'fxc_scaling': FXCScaling('fm')}
     fxckwargs_and_identifiers.append((fxckwargs_paw, 'paw'))
 
@@ -95,16 +95,16 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
         # Calculate chi using the various fxc calculators
         for fxckwargs, identifier in fxckwargs_and_identifiers:
 
-            if 'filename' in fxckwargs:  # Save the kernel to reuse it
+            if 'fxc_file' in fxckwargs:  # Save the kernel to reuse it
                 actual_fxckwargs = fxckwargs.copy()
-                fxc_filename = actual_fxckwargs.pop('filename')
+                fxc_file = actual_fxckwargs.pop('fxc_file')
                 if q == 0:  # Calculate kernel for q == 0
-                    assert not Path(fxc_filename).is_file()
+                    assert not fxc_file.is_file()
                     kxc = {'fxc': fxc}
                     kxc.update(actual_fxckwargs)
                 else:  # Reuse kernel from q == 0 calculation
-                    assert Path(fxc_filename).is_file()
-                    fxc_kernel = FXCKernel.from_file(fxc_filename)
+                    assert fxc_file.is_file()
+                    fxc_kernel = FXCKernel.from_file(fxc_file)
                     kxc = {'fxc_kernel': fxc_kernel,
                            'fxc_scaling': fxckwargs['fxc_scaling']}
             else:
@@ -115,8 +115,8 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
             chi.write_macroscopic_component(identifier + '_iron_dsus'
                                             + '_%d.csv' % (q + 1))
 
-            if 'filename' in fxckwargs and q == 0:
-                chi.fxc_kernel.save(fxckwargs['filename'])
+            if 'fxc_file' in fxckwargs and q == 0:
+                chi.fxc_kernel.save(fxckwargs['fxc_file'])
 
         chi_factory.context.write_timer()
 
