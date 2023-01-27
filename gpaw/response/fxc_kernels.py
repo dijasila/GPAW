@@ -6,7 +6,6 @@ import numpy as np
 
 from gpaw.response import timer
 from gpaw.response.pw_parallelization import Blocks1D
-from gpaw.response.chiks import ChiKS
 from gpaw.response.goldstone import get_goldstone_scaling
 from gpaw.response.localft import (LocalFTCalculator,
                                    add_LDA_dens_fxc, add_LSDA_trans_fxc)
@@ -32,33 +31,6 @@ class FXCScaling:
         else:
             raise ValueError('No scaling method implemented for '
                              f'spincomponent={chiks.spincomponent}')
-
-
-def fxc_factory(fxc, chiks: ChiKS, localft_calc: LocalFTCalculator,
-                fxc_scaling=None):
-    """Local exchange-correlation kernel factory.
-
-    Parameters
-    ----------
-    fxc : str
-        Approximation to the (local) xc kernel.
-        Choices: ALDA, ALDA_X, ALDA_x
-    fxc_scaling : None or FXCScaling
-    """
-    # Calculate the xc kernel Kxc_GG
-    fxc_calculator = AdiabaticFXCCalculator(localft_calc)
-    fxc_kernel = fxc_calculator(fxc, chiks.spincomponent, chiks.qpd)
-    Kxc_GG = fxc_kernel.Kxc_GG
-
-    if fxc_scaling is not None:
-        if not fxc_scaling.has_scaling:
-            fxc_scaling.calculate_scaling(chiks, Kxc_GG)
-        lambd = fxc_scaling.get_scaling()
-        fxc_calculator.context.print(r'Rescaling the xc-kernel by a factor'
-                                     f' of λ={lambd}')
-        Kxc_GG *= lambd
-
-    return Kxc_GG
 
 
 class FXCKernel:
