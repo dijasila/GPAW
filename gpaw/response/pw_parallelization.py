@@ -30,6 +30,23 @@ class Blocks1D:
 
 
 def block_partition(comm, nblocks):
+    r"""Partition the communicator into a 2D array with horizontal
+    and vertical communication.
+
+         Communication between blocks (blockcomm)
+    <----------------------------------------------->
+     _______________________________________________
+    |     |     |     |     |     |     |     |     | ⋀
+    |  0  |  1  |  2  |  3  |  4  |  5  |  6  |  7  | |
+    |_____|_____|_____|_____|_____|_____|_____|_____| |
+    |     |     |     |     |     |     |     |     | | Communication inside
+    |  8  |  9  | 10  | 11  | 12  | 13  | 14  | 15  | | blocks
+    |_____|_____|_____|_____|_____|_____|_____|_____| | (intrablockcomm)
+    |     |     |     |     |     |     |     |     | |
+    | 16  | 17  | 18  | 19  | 20  | 21  | 22  | 23  | |
+    |_____|_____|_____|_____|_____|_____|_____|_____| ⋁
+    
+    """
     if nblocks == 'max':
         # Maximize the number of blocks
         nblocks = comm.size
@@ -37,16 +54,22 @@ def block_partition(comm, nblocks):
     assert nblocks > 0 and nblocks <= comm.size, comm.size
     assert comm.size % nblocks == 0, comm.size
 
-    rank1 = comm.rank // nblocks * nblocks
-    rank2 = rank1 + nblocks
-    blockcomm = comm.new_communicator(range(rank1, rank2))
-    ranks = range(comm.rank % nblocks, comm.size, nblocks)
+    # Communicator between different blocks
+    if nblocks == comm.size:
+        blockcomm = comm
+    else:
+        rank1 = comm.rank // nblocks * nblocks
+        rank2 = rank1 + nblocks
+        blockcomm = comm.new_communicator(range(rank1, rank2))
 
+    # Communicator inside each block
+    ranks = range(comm.rank % nblocks, comm.size, nblocks)
     if nblocks == 1:
         assert len(ranks) == comm.size
         intrablockcomm = comm
     else:
         intrablockcomm = comm.new_communicator(ranks)
+
     assert blockcomm.size * intrablockcomm.size == comm.size
 
     return blockcomm, intrablockcomm
@@ -60,6 +83,10 @@ class PlaneWaveBlockDistributor:
         self.world = world
         self.blockcomm = blockcomm
         self.intrablockcomm = intrablockcomm
+
+    @property
+    def fully_block_distributed(self):
+        return self.world.compare(self.blockcomm) == 'ident'
 
     def new_distributor(self, *, nblocks):
         """Set up a new PlaneWaveBlockDistributor."""
