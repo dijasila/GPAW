@@ -388,8 +388,7 @@ void bc_unpack_gpu_sync(const boundary_conditions* bc,
 #endif
 }
 
-#ifndef CUDA_MPI
-void bc_unpack_gpu_async(const boundary_conditions* bc,
+static void _bc_unpack_gpu_async(const boundary_conditions* bc,
         double* aa2, int i,
         MPI_Request recvreq[3][2],
         MPI_Request sendreq[2],
@@ -580,7 +579,6 @@ void bc_unpack_gpu_async(const boundary_conditions* bc,
 #endif
 }
 
-#else
 void bc_unpack_gpu_async(const boundary_conditions* bc,
         double* aa2, int i,
         MPI_Request recvreq[3][2],
@@ -588,12 +586,15 @@ void bc_unpack_gpu_async(const boundary_conditions* bc,
         const double_complex phases[2],
         gpuStream_t kernel_stream,
         int nin)
-
 {
-    bc_unpack_gpu_sync(bc, aa2, i, recvreq, sendreq,
-            phases, kernel_stream, nin);
-}
+#ifndef CUDA_MPI
+    _bc_unpack_gpu_async(bc, aa2, i, recvreq, sendreq, phases,
+                         kernel_stream, nin);
+#else
+    bc_unpack_gpu_sync(bc, aa2, i, recvreq, sendreq, phases,
+                       kernel_stream, nin);
 #endif
+}
 
 void bc_unpack_gpu(const boundary_conditions* bc,
         double* aa2, int i,
