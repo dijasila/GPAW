@@ -1,6 +1,6 @@
 variables:
   PYTHONUSERBASE: ".local"
-  IMAGE_PATH: "$CI_REGISTRY/$CI_PROJECT_PATH"
+  IMAGE_PATH: "registry.gitlab.com/gpaw/gpaw-ci-containers"
 
 
 default:
