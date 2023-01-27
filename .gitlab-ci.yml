@@ -8,6 +8,7 @@ default:
     - export PYTHONUSERBASE=`realpath $PYTHONUSERBASE`
     - mkdir -p `python -m site --user-site`
     - export PATH=$PYTHONUSERBASE/bin:$PATH
+  interruptible: true
 
 
 stages:
