@@ -303,9 +303,11 @@ class BroydenBaseMixer:
         self.u_D = []
 
     def mix_density(self, nt_sG, D_asp):
+        nt_G = nt_sG[0]
+        D_ap = [D_sp[0] for D_sp in D_asp]
         dNt = np.inf
         if self.step > 2:
-            del self.R_isG[0]
+            del self.R_iG[0]
             for d_Dp in self.dD_iap:
                 del d_Dp[0]
         if self.step > 0:
