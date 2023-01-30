@@ -2,12 +2,10 @@ from ase.parallel import paropen
 from ase.units import Hartree
 from gpaw.xc.rpa import RPACorrelation
 from gpaw.xc.fxc import FXCCorrelation
-from gpaw.mpi import world
 
 fxc0 = FXCCorrelation('CO.ralda.pbe_wfcs_O.gpw',
                       xc='rAPBE',
                       txt='CO.ralda_04_O_rapbe.txt',
-                      wcomm=world.size,
                       ecut=400)
 
 E0_i = fxc0.calculate()
@@ -19,8 +17,7 @@ f.close()
 
 rpa0 = RPACorrelation('CO.ralda.pbe_wfcs_O.gpw',
                       ecut=400,
-                      txt='CO.ralda_04_O_rpa.txt',
-                      wcomm=world.size)
+                      txt='CO.ralda_04_O_rpa.txt')
 
 E0_i = rpa0.calculate()
 

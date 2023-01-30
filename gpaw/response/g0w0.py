@@ -810,7 +810,7 @@ class G0W0Calculator:
                 'fxc_modes': self.fxc_modes,
                 'integrate_gamma': self.wcalc.integrate_gamma}
 
-    @timer('WW')
+    @timer('calculate_w')
     def calculate_w(self, chi0calc, q_c, chi0,
                     m1, m2, ecut,
                     iq):
@@ -855,6 +855,7 @@ class G0W0Calculator:
 
         return rqpd, Wdict, blocks1d, chi0calc.pawcorr
 
+    @timer('calcualte_vxc_and_exx')
     def calculate_vxc_and_exx(self):
         """EXX and Kohn-Sham XC contribution."""
         n1, n2 = self.bands
