@@ -71,7 +71,7 @@ def suggest_blocking(N, ncpus):
 
 
 class Matrix:
-    def __init__(self, M, N, dtype=None, data=None, dist=None, cuda=False):
+    def __init__(self, M, N, dtype=None, data=None, dist=None, use_gpu=False):
         """Matrix object.
 
         M: int
@@ -96,7 +96,7 @@ class Matrix:
                 dtype = data.dtype
         self.dtype = np.dtype(dtype)
 
-        self.cuda = cuda
+        self.use_gpu = use_gpu
         self.on_gpu = None
 
         dist = dist or ()
@@ -121,12 +121,12 @@ class Matrix:
         if data is None:
             self._array_cpu = np.empty(self.dist.shape, self.dtype)
             self._array_gpu = None
-            if self.cuda:
+            if self.use_gpu:
                 self._array_gpu = gpu.array.empty(self.dist.shape, self.dtype)
         elif gpu.is_device_array(data):
             self._array_gpu = data.reshape(self.dist.shape)
             self._array_cpu = gpu.copy_to_host(self._array_gpu)
-            if not self.cuda:
+            if not self.use_gpu:
                 self._array_gpu = None
         elif isinstance(data, tuple):
             self._array_cpu = data[0].reshape(self.dist.shape)
@@ -134,17 +134,17 @@ class Matrix:
         else:
             self._array_cpu = data.reshape(self.dist.shape)
             self._array_gpu = None
-            if self.cuda:
+            if self.use_gpu:
                 self._array_gpu = gpu.copy_to_device(self._array_cpu)
-        self.on_gpu = bool(self.cuda)
+        self.on_gpu = bool(self.use_gpu)
 
     def view(self, i, j):
-        if self.cuda:
+        if self.use_gpu:
             data = (self._array_cpu[i:j], self._array_gpu[i:j])
         else:
             data = self._array_cpu[i:j]
         return Matrix(j - i, *self.shape[1:],
-                      data=data, dtype=self.dtype, cuda=self.cuda)
+                      data=data, dtype=self.dtype, use_gpu=self.use_gpu)
 
     def sync(self):
         try:
@@ -156,8 +156,8 @@ class Matrix:
             pass
 
     def sync_to_gpu(self):
-        if not self.cuda:
-            self.cuda = True
+        if not self.use_gpu:
+            self.use_gpu = True
             self._array_gpu = gpu.array.empty_like(self._array_cpu)
         if not self.on_gpu:
             self.sync()
@@ -175,7 +175,7 @@ class Matrix:
         dist = str(self.dist).split('(')[1]
         return 'Matrix({}: {}'.format(self.dtype.name, dist)
 
-    def new(self, dist='inherit', cuda=None):
+    def new(self, dist='inherit', use_gpu=None):
         """Create new matrix of same shape and dtype.
 
         Default is to use same BLACS distribution.  Use dist to use another
@@ -183,7 +183,7 @@ class Matrix:
         """
         return Matrix(*self.shape, dtype=self.dtype,
                       dist=self.dist if dist == 'inherit' else dist,
-                      cuda=self.cuda if cuda is None else cuda)
+                      use_gpu=self.use_gpu if use_gpu is None else use_gpu)
 
     def __setitem__(self, i, x):
         # assert i == slice(None)
@@ -299,7 +299,7 @@ class Matrix:
 
         if self.comm.rank == 0:
             if self.dist.comm.size > 1:
-                S = self.new(dist=(self.dist.comm, 1, 1), cuda=False)
+                S = self.new(dist=(self.dist.comm, 1, 1), use_gpu=False)
                 self.redist(S)
             else:
                 S = self
@@ -319,7 +319,7 @@ class Matrix:
         if self.comm.size > 1:
             self.comm.broadcast(self.array, 0)
             self.state == 'everything is fine'
-        if self.cuda:
+        if self.use_gpu:
             self.sync_to_gpu()
 
     def eigh(self, cc=False, scalapack=(None, 1, 1, None)):
@@ -347,7 +347,7 @@ class Matrix:
                   blocksize != self.dist.blocksize)
 
         if redist:
-            H = self.new(dist=dist, cuda=False)
+            H = self.new(dist=dist, use_gpu=False)
             self.redist(H)
         else:
             assert self.dist.comm.size == slcomm.size
@@ -382,7 +382,7 @@ class Matrix:
             self.comm.broadcast(self.array, 0)
             self.comm.broadcast(eps, 0)
             self.state == 'everything is fine'
-        if self.cuda:
+        if self.use_gpu:
             self.sync_to_gpu()
 
         return eps
@@ -392,7 +392,7 @@ class Matrix:
         if self.dtype == complex:
             self.sync_to_cpu()
             np.negative(self.array.imag, self.array.imag)
-            if self.cuda:
+            if self.use_gpu:
                 self.sync_to_gpu()
 
 
@@ -582,11 +582,11 @@ def fastmmm(m1, m2, m3, beta):
         if srequest:
             comm.wait(srequest)
 
-    if m1.cuda:
+    if m1.use_gpu:
         m1.sync_to_gpu()
-    if m2.cuda:
+    if m2.use_gpu:
         m2.sync_to_gpu()
-    if m3.cuda:
+    if m3.use_gpu:
         m3.sync_to_gpu()
 
     return m3
@@ -673,11 +673,11 @@ def fastmmm2(a, b, out):
     for m1, m2, block in blocks:
         out.array[:, m1:m2] += block
 
-    if a.cuda:
+    if a.use_gpu:
         a.sync_to_gpu()
-    if b.cuda:
+    if b.use_gpu:
         b.sync_to_gpu()
-    if out.cuda:
+    if out.use_gpu:
         out.sync_to_gpu()
 
     return out
@@ -731,11 +731,11 @@ def fastmmm2notsym(a, b, out):
         bb = buf1
         buf1, buf2 = buf2, buf1
 
-    if a.cuda:
+    if a.use_gpu:
         a.sync_to_gpu()
-    if b.cuda:
+    if b.use_gpu:
         b.sync_to_gpu()
-    if out.cuda:
+    if out.use_gpu:
         out.sync_to_gpu()
 
     return out

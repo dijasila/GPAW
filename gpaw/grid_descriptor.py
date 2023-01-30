@@ -229,7 +229,7 @@ class GridDescriptor(Domain):
                 zip(self.beg_c, self.end_c, self.pbc_c)]
 
     def zeros(self, n=(), dtype=float, global_array=False, pad=False,
-              cuda=False):
+              use_gpu=False):
         """Return new zeroed 3D array for this domain.
 
         The type can be set with the ``dtype`` keyword (default:
@@ -237,10 +237,10 @@ class GridDescriptor(Domain):
         global array spanning all domains can be allocated with
         ``global_array=True``."""
 
-        return self._new_array(n, dtype, True, global_array, pad, cuda=cuda)
+        return self._new_array(n, dtype, True, global_array, pad, use_gpu=use_gpu)
 
     def empty(self, n=(), dtype=float, global_array=False, pad=False,
-              cuda=False):
+              use_gpu=False):
         """Return new uninitialized 3D array for this domain.
 
         The type can be set with the ``dtype`` keyword (default:
@@ -248,10 +248,10 @@ class GridDescriptor(Domain):
         global array spanning all domains can be allocated with
         ``global_array=True``."""
 
-        return self._new_array(n, dtype, False, global_array, pad, cuda=cuda)
+        return self._new_array(n, dtype, False, global_array, pad, use_gpu=use_gpu)
 
     def _new_array(self, n=(), dtype=float, zero=True,
-                   global_array=False, pad=False, cuda=False):
+                   global_array=False, pad=False, use_gpu=False):
         if global_array:
             shape = self.get_size_of_global_array(pad)
         else:
@@ -262,7 +262,7 @@ class GridDescriptor(Domain):
 
         shape = n + tuple(shape)
 
-        if cuda:
+        if use_gpu:
             if zero:
                 return gpu.array.zeros(tuple(int(x) for x in shape), dtype)
             else:

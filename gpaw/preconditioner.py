@@ -11,22 +11,22 @@ import _gpaw
 
 
 class Preconditioner:
-    def __init__(self, gd0, kin0, dtype=float, block=1, cuda=False):
-        self.cuda = cuda
+    def __init__(self, gd0, kin0, dtype=float, block=1, use_gpu=False):
+        self.use_gpu = use_gpu
         gd1 = gd0.coarsen()
         gd2 = gd1.coarsen()
         self.kin0 = kin0
-        self.kin1 = Laplace(gd1, -0.5, 1, dtype, cuda=self.cuda)
-        self.kin2 = Laplace(gd2, -0.5, 1, dtype, cuda=self.cuda)
-        self.scratch0 = gd0.zeros((2, block), dtype, False, cuda=self.cuda)
-        self.scratch1 = gd1.zeros((3, block), dtype, False, cuda=self.cuda)
-        self.scratch2 = gd2.zeros((3, block), dtype, False, cuda=self.cuda)
+        self.kin1 = Laplace(gd1, -0.5, 1, dtype, use_gpu=self.use_gpu)
+        self.kin2 = Laplace(gd2, -0.5, 1, dtype, use_gpu=self.use_gpu)
+        self.scratch0 = gd0.zeros((2, block), dtype, False, use_gpu=self.use_gpu)
+        self.scratch1 = gd1.zeros((3, block), dtype, False, use_gpu=self.use_gpu)
+        self.scratch2 = gd2.zeros((3, block), dtype, False, use_gpu=self.use_gpu)
         self.step = 0.66666666 / kin0.get_diagonal_element()
 
-        self.restrictor_object0 = Transformer(gd0, gd1, 1, dtype, cuda=self.cuda)
-        self.restrictor_object1 = Transformer(gd1, gd2, 1, dtype, cuda=self.cuda)
-        self.interpolator_object2 = Transformer(gd2, gd1, 1, dtype, cuda=self.cuda)
-        self.interpolator_object1 = Transformer(gd1, gd0, 1, dtype, cuda=self.cuda)
+        self.restrictor_object0 = Transformer(gd0, gd1, 1, dtype, use_gpu=self.use_gpu)
+        self.restrictor_object1 = Transformer(gd1, gd2, 1, dtype, use_gpu=self.use_gpu)
+        self.interpolator_object2 = Transformer(gd2, gd1, 1, dtype, use_gpu=self.use_gpu)
+        self.interpolator_object1 = Transformer(gd1, gd0, 1, dtype, use_gpu=self.use_gpu)
         self.restrictor0 = self.restrictor_object0.apply
         self.restrictor1 = self.restrictor_object1.apply
         self.interpolator2 = self.interpolator_object2.apply
@@ -46,7 +46,7 @@ class Preconditioner:
         phases = kpt.phase_cd
         step = self.step
 
-        if self.cuda:
+        if self.use_gpu:
             # XXX GPUarray does not support properly multi-d slicing
             shape0 = (self.scratch0.shape[0],) + (nb,) + self.scratch0.shape[2:]
             shape1 = (self.scratch1.shape[0],) + (nb,) + self.scratch1.shape[2:]

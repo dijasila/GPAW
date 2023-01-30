@@ -38,7 +38,7 @@ class ExtraVacuumPoissonSolver(_PoissonSolver):
     def __init__(self, gpts, poissonsolver_large,
                  poissonsolver_small=None, coarses=0,
                  nn_coarse=3, nn_refine=3, nn_laplace=3,
-                 use_aux_grid=True, cuda=False):
+                 use_aux_grid=True, use_gpu=False):
         # TODO: Alternative options: vacuum size and h
         self.N_large_fine_c = np.array(gpts, dtype=int)
         self.Ncoar = coarses  # coar == coarse

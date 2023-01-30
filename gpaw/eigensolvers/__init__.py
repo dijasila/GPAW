@@ -7,7 +7,7 @@ from gpaw.eigensolvers.direct import DirectPW
 from gpaw.lcao.eigensolver import DirectLCAO
 
 
-def get_eigensolver(eigensolver, mode, convergence=None, cuda=False):
+def get_eigensolver(eigensolver, mode, convergence=None, use_gpu=False):
     """Create eigensolver object."""
     if eigensolver is None:
         if mode.name == 'lcao':
@@ -21,7 +21,7 @@ def get_eigensolver(eigensolver, mode, convergence=None, cuda=False):
     if isinstance(eigensolver, dict):
         eigensolver = eigensolver.copy()
         name = eigensolver.pop('name')
-        eigensolver['cuda'] = cuda
+        eigensolver['use_gpu'] = use_gpu
         eigensolver = {'rmm-diis': RMMDIIS,
                        'cg': CG,
                        'dav': Davidson,

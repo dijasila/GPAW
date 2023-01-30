@@ -114,7 +114,7 @@ class ExplicitCrankNicolson(DummyPropagator):
 
     """
     def __init__(self, td_density, td_hamiltonian, td_overlap, solver,
-                 preconditioner, gd, timer, cuda=False):
+                 preconditioner, gd, timer, use_gpu=False):
         """Create ExplicitCrankNicolson-object.
 
         Parameters
@@ -138,11 +138,11 @@ class ExplicitCrankNicolson(DummyPropagator):
         DummyPropagator.__init__(self, td_density, td_hamiltonian, td_overlap,
                                  solver, preconditioner, gd, timer)
 
-        self.cuda = cuda
+        self.use_gpu = use_gpu
         self.tmp_kpt_u = None
         self.hpsit = None
         self.sinvhpsit = None
-        if self.cuda:
+        if self.use_gpu:
             self.hpsit_cpu = None
 
     # ( S + i H dt/2 ) psit(t+dt) = ( S - i H dt/2 ) psit(t)
@@ -165,15 +165,15 @@ class ExplicitCrankNicolson(DummyPropagator):
             for kpt in self.wfs.kpt_u:
                 tmp_kpt = DummyKPoint()
                 tmp_kpt.psit_nG = self.gd.empty(n=len(kpt.psit_nG),
-                                                dtype=complex, cuda=self.cuda)
+                                                dtype=complex, use_gpu=self.use_gpu)
                 self.tmp_kpt_u.append(tmp_kpt)
 
         # Allocate memory for Crank-Nicolson stuff
         nvec = len(self.wfs.kpt_u[0].psit_nG)
         if self.hpsit is None:
-            self.hpsit = self.gd.zeros(nvec, dtype=complex, cuda=self.cuda)
-        if self.cuda and (self.hpsit_cpu is None):
-            self.hpsit_cpu = self.gd.zeros(nvec, dtype=complex, cuda=False)
+            self.hpsit = self.gd.zeros(nvec, dtype=complex, use_gpu=self.use_gpu)
+        if self.use_gpu and (self.hpsit_cpu is None):
+            self.hpsit_cpu = self.gd.zeros(nvec, dtype=complex, use_gpu=False)
 
         self.timer.start('Update time-dependent operators')
 
@@ -190,7 +190,7 @@ class ExplicitCrankNicolson(DummyPropagator):
         self.timer.stop('Update time-dependent operators')
 
         # Copy current wavefunctions psit_nG to work wavefunction arrays
-        if self.cuda:
+        if self.use_gpu:
             for u, kpt in enumerate(self.wfs.kpt_u):
                 gpu.memcpy_dtod(self.tmp_kpt_u[u].psit_nG,
                                 kpt.psit_nG,
@@ -246,7 +246,7 @@ class ExplicitCrankNicolson(DummyPropagator):
         if guess:
             if self.sinvhpsit is None:
                 self.sinvhpsit = self.gd.zeros(len(psit_nG), dtype=complex,
-                                               cuda=self.cuda)
+                                               use_gpu=self.use_gpu)
 
             # Update estimate of psit(t+dt) to ( 1 - i S^(-1) H dt ) psit(t)
             self.td_overlap.apply_inverse(self.hpsit,
@@ -280,7 +280,7 @@ class ExplicitCrankNicolson(DummyPropagator):
         nvec = len(psi)
         if  isinstance(psi, gpu.array.Array):
             hpsit = self.hpsit[:nvec]
-        elif self.cuda:
+        elif self.use_gpu:
             hpsit = self.hpsit_cpu[:nvec]
         P_axi = self.wfs.pt.dict(nvec)
         self.timer.start('Projections')
@@ -320,7 +320,7 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
 
     """
     def __init__(self, td_density, td_hamiltonian, td_overlap, solver,
-                 preconditioner, gd, timer, cuda=False):
+                 preconditioner, gd, timer, use_gpu=False):
         """Create SemiImplicitCrankNicolson-object.
 
         Parameters
@@ -343,7 +343,7 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
         """
         ExplicitCrankNicolson.__init__(self, td_density, td_hamiltonian,
                                        td_overlap, solver, preconditioner, gd,
-                                       timer, cuda=cuda)
+                                       timer, use_gpu=use_gpu)
 
         self.old_kpt_u = None
 
@@ -366,7 +366,7 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
             for kpt in self.wfs.kpt_u:
                 old_kpt = DummyKPoint()
                 old_kpt.psit_nG = self.gd.empty(n=len(kpt.psit_nG),
-                                                dtype=complex, cuda=self.cuda)
+                                                dtype=complex, use_gpu=self.use_gpu)
                 self.old_kpt_u.append(old_kpt)
 
         if self.tmp_kpt_u is None:
@@ -374,15 +374,15 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
             for kpt in self.wfs.kpt_u:
                 tmp_kpt = DummyKPoint()
                 tmp_kpt.psit_nG = self.gd.empty(n=len(kpt.psit_nG),
-                                                dtype=complex, cuda=self.cuda)
+                                                dtype=complex, use_gpu=self.use_gpu)
                 self.tmp_kpt_u.append(tmp_kpt)
 
         # Allocate memory for Crank-Nicolson stuff
         nvec = len(self.wfs.kpt_u[0].psit_nG)
         if self.hpsit is None:
-            self.hpsit = self.gd.zeros(nvec, dtype=complex, cuda=self.cuda)
-        if self.cuda and (self.hpsit_cpu is None):
-            self.hpsit_cpu = self.gd.zeros(nvec, dtype=complex, cuda=False)
+            self.hpsit = self.gd.zeros(nvec, dtype=complex, use_gpu=self.use_gpu)
+        if self.use_gpu and (self.hpsit_cpu is None):
+            self.hpsit_cpu = self.gd.zeros(nvec, dtype=complex, use_gpu=False)
 
         self.timer.start('Update time-dependent operators')
 
@@ -399,7 +399,7 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
         self.timer.stop('Update time-dependent operators')
 
         # Copy current wavefunctions psit_nG to work and old wavefunction arrays
-        if self.cuda:
+        if self.use_gpu:
             for u, kpt in enumerate(self.wfs.kpt_u):
                 gpu.memcpy_dtod(self.old_kpt_u[u].psit_nG,
                                 kpt.psit_nG,
@@ -509,7 +509,7 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
 
         if guess:
             self.sinvhpsit = self.gd.zeros(len(psit_nG), dtype=complex,
-                                           cuda=self.cuda)
+                                           use_gpu=self.use_gpu)
             # Update estimate of psit(t+dt) to ( 1 - i S^(-1) H dt ) psit(t)
             self.td_overlap.apply_inverse(self.hpsit,
                                           self.sinvhpsit,
@@ -1266,7 +1266,7 @@ class AbsorptionKick(ExplicitCrankNicolson):
 
     """
     def __init__(self, wfs, abs_kick_hamiltonian, td_overlap, solver,
-                 preconditioner, gd, timer, cuda=False):
+                 preconditioner, gd, timer, use_gpu=False):
         """Create AbsorptionKick-object.
 
         Parameters
@@ -1290,7 +1290,7 @@ class AbsorptionKick(ExplicitCrankNicolson):
         ExplicitCrankNicolson.__init__(self, DummyDensity(wfs),
                                        abs_kick_hamiltonian, td_overlap,
                                        solver, preconditioner, gd, timer,
-                                       cuda=cuda)
+                                       use_gpu=use_gpu)
 
     def kick(self):
         """Excite all possible frequencies.

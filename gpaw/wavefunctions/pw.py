@@ -266,7 +266,7 @@ class PWDescriptor:
     def bytecount(self, dtype=float):
         return self.ngmax * 16
 
-    def zeros(self, x=(), dtype=None, q=None, global_array=False, cuda=False):
+    def zeros(self, x=(), dtype=None, q=None, global_array=False, use_gpu=False):
         """Return zeroed array.
 
         The shape of the array will be x + (ng,) where ng is the number
@@ -278,7 +278,7 @@ class PWDescriptor:
         a_xG.fill(0.0)
         return a_xG
 
-    def empty(self, x=(), dtype=None, q=None, global_array=False, cuda=False):
+    def empty(self, x=(), dtype=None, q=None, global_array=False, use_gpu=False):
         """Return empty array."""
         if dtype is not None:
             assert dtype == self.dtype
@@ -735,7 +735,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                  parallel, initksl,
                  reuse_wfs_method, collinear,
                  gd, nvalence, setups, bd, dtype,
-                 world, kd, kptband_comm, timer, cuda=False):
+                 world, kd, kptband_comm, timer, use_gpu=False):
         self.ecut = ecut
         self.gammacentered = gammacentered
         self.fftwflags = fftwflags
@@ -749,10 +749,10 @@ class PWWaveFunctions(FDPWWaveFunctions):
                                    gd=gd, nvalence=nvalence, setups=setups,
                                    bd=bd, dtype=dtype, world=world, kd=kd,
                                    kptband_comm=kptband_comm, timer=timer,
-                                   cuda=cuda)
+                                   use_gpu=use_gpu)
 
     def empty(self, n=(), global_array=False, realspace=False, q=None,
-              cuda=False):
+              use_gpu=False):
         if isinstance(n, numbers.Integral):
             n = (n,)
         if realspace:

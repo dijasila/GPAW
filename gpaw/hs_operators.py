@@ -29,7 +29,7 @@ class MatrixOperator:
     hermitian = True
 
     def __init__(self, ksl, nblocks=None, asynchronous=None, hermitian=None,
-                 cuda=False):
+                 use_gpu=False):
         """The constructor now calculates the work array sizes, but does not
         allocate them. Here is a summary of the relevant variables and the
         cases handled.
@@ -72,7 +72,7 @@ class MatrixOperator:
           wavefunction unit greater than the simple case, thus X = M + 1.
 
         """
-        self.cuda = cuda
+        self.use_gpu = use_gpu
         self.bd = ksl.bd
         self.gd = ksl.gd
         self.block_comm = ksl.block_comm
@@ -94,7 +94,7 @@ class MatrixOperator:
 
         mynbands = self.bd.mynbands
         ngroups = self.bd.comm.size
-        if self.cuda and (self.nblocks > 1 or ngroups > 1):
+        if self.use_gpu and (self.nblocks > 1 or ngroups > 1):
             print('Warning: CUDA not implemented for ground state DFT blocking/band parallelization')
 
         G = self.gd.n_c.prod()
@@ -138,9 +138,9 @@ class MatrixOperator:
 
         if ngroups == 1 and self.nblocks == 1:
             self.work1_xG = self.gd.empty(mynbands, self.dtype)
-            if self.cuda:
+            if self.use_gpu:
                 self.work1_xG_gpu = self.gd.empty(mynbands, self.dtype,
-                                                  cuda=True)
+                                                  use_gpu=True)
         else:
             self.work1_xG = self.gd.empty(self.X, self.dtype)
             self.work2_xG = self.gd.empty(self.X, self.dtype)

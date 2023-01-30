@@ -19,7 +19,7 @@ class TimeDependentHamiltonian:
     This class contains information required to apply time-dependent
     Hamiltonian to a wavefunction.
     """
-    def __init__(self, wfs, spos_ac, hamiltonian, td_potential, cuda=False):
+    def __init__(self, wfs, spos_ac, hamiltonian, td_potential, use_gpu=False):
         """Create the TimeDependentHamiltonian-object.
 
         The time-dependent potential object must (be None or) have a member
@@ -39,7 +39,7 @@ class TimeDependentHamiltonian:
         self.wfs = wfs
         self.hamiltonian = hamiltonian
         self.td_potential = td_potential
-        self.cuda = cuda
+        self.use_gpu = use_gpu
         self.time = self.old_time = 0
 
         # internal smooth potential
@@ -107,9 +107,9 @@ class TimeDependentHamiltonian:
             0.5*(self.hamiltonian.vt_sG + self.vt_sG), \
             self.hamiltonian.vt_sG - self.vt_sG
 
-        if self.cuda:
+        if self.use_gpu:
             self.vt_sG_gpu = gpu.copy_to_device(self.vt_sG)
-        if self.hamiltonian.cuda:
+        if self.hamiltonian.use_gpu:
             self.hamiltonian.vt_sG_gpu = gpu.copy_to_device(
                     self.hamiltonian.vt_sG)
         for a, dH_sp in self.hamiltonian.dH_asp.items():
@@ -668,7 +668,7 @@ class TimeDependentOverlap(Overlap):
 
 class TimeDependentWaveFunctions(FDWaveFunctions):
     def __init__(self, stencil, parallel, initksl, gd, nvalence, collinear,
-                 setups, bd, dtype, world, kd, kptband_comm, timer, cuda=False):
+                 setups, bd, dtype, world, kd, kptband_comm, timer, use_gpu=False):
         assert dtype == complex
         FDWaveFunctions.__init__(self,
                                  stencil,
@@ -684,7 +684,7 @@ class TimeDependentWaveFunctions(FDWaveFunctions):
                                  kptband_comm,
                                  collinear=collinear,
                                  timer=timer,
-                                 cuda=cuda)
+                                 use_gpu=use_gpu)
         self.overlap = self.make_overlap()
 
     def make_overlap(self):

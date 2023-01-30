@@ -30,7 +30,7 @@ def test_fd_transformers(gpu):
         x, y, z = gd.get_grid_point_coordinates()
         sigma = 1.5
         mu = lat / 2.0
-     
+
         a = gd.zeros(dtype=dtype)
         a[:] = np.exp(-((x-mu)**2 + (y-mu)**2 + (z-mu)**2) / (2.0*sigma))
 
@@ -49,9 +49,9 @@ def test_fd_transformers(gpu):
         Transformer(coarsegd, gd, 1, dtype=dtype).apply(a_coarse, a, phases=phase)
 
         # Restrict
-        Transformer(gd, coarsegd, 1, dtype=dtype, cuda=True).apply(a_gpu, a_coarse_gpu, phases=phase)
+        Transformer(gd, coarsegd, 1, dtype=dtype, use_gpu=True).apply(a_gpu, a_coarse_gpu, phases=phase)
         # Interpolate
-        Transformer(coarsegd, gd, 1, dtype=dtype, cuda=True).apply(a_coarse_gpu, a_gpu, phases=phase)
+        Transformer(coarsegd, gd, 1, dtype=dtype, use_gpu=True).apply(a_coarse_gpu, a_gpu, phases=phase)
         a_ref = gpu.copy_to_host(a_gpu)
-    
+
         assert a == pytest.approx(a_ref, abs=1e-14)

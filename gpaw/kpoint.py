@@ -27,7 +27,7 @@ class KPoint:
                  k: int,
                  q: int,
                  phase_cd=None,
-                 cuda=False):
+                 use_gpu=False):
         """Construct k-point object.
 
         Parameters:
@@ -62,7 +62,7 @@ class KPoint:
         self.psit = None  # UniformGridMatrix/PWExpansionMatrix
         self.C_nM = None  # LCAO coefficients for wave functions
 
-        self.cuda = cuda
+        self.use_gpu = use_gpu
 
         # LCAO stuff:
         self.rho_MM = None
@@ -77,12 +77,12 @@ class KPoint:
         if self.psit is not None:
             self.psit.sync_to_cpu()
 
-    def set_cuda(self, cuda):
-        """Enable/disable cuda"""
-        if cuda == self.cuda:
+    def set_use_gpu(self, use_gpu):
+        """Enable/disable use_gpu"""
+        if use_gpu == self.use_gpu:
             return
-        self.cuda = cuda
-        if self.cuda:
+        self.use_gpu = use_gpu
+        if self.use_gpu:
             self.sync_to_gpu()
         else:
             self.sync_to_cpu()

@@ -6,7 +6,7 @@ from gpaw.mpi import world
 def gpu():
     from gpaw import gpu
     try:
-        gpu.setup(cuda=True)
+        gpu.setup(use_gpu=True)
         gpu.init(world.rank)
     except ImportError as err:
         pytest.skip(reason=f'Cannot import GPU backend ({err})')

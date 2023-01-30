@@ -39,7 +39,7 @@ class WaveFunctions:
     """
 
     def __init__(self, gd, nvalence, setups, bd, dtype, collinear,
-                 world, kd, kptband_comm, timer, cuda=False):
+                 world, kd, kptband_comm, timer, use_gpu=False):
         self.gd = gd
         self.nspins = kd.nspins
         self.collinear = collinear
@@ -51,11 +51,11 @@ class WaveFunctions:
         self.kd = kd
         self.kptband_comm = kptband_comm
         self.timer = timer
-        self.cuda = cuda
+        self.use_gpu = use_gpu
         self.atom_partition = None
 
         self.kpt_qs = kd.create_k_points(self.gd.sdisp_cd, collinear,
-                                         self.cuda)
+                                         self.use_gpu)
         self.kpt_u = [kpt for kpt_s in self.kpt_qs for kpt in kpt_s]
 
         self.occupations: Optional[OccupationNumberCalculator] = None
@@ -413,7 +413,7 @@ class WaveFunctions:
             # allocate full wave function and receive
             shape = () if self.collinear else (2,)
             psit_G = self.empty(shape, global_array=True,
-                                realspace=realspace, cuda=False)
+                                realspace=realspace, use_gpu=False)
             # XXX this will fail when using non-standard nesting
             # of communicators.
             world_rank = (kpt_rank * self.gd.comm.size *
@@ -458,15 +458,15 @@ class WaveFunctions:
 
         return np.array([homo, lumo])
 
-    def set_cuda(self, cuda):
-        """Enable/disable cuda"""
+    def set_use_gpu(self, use_gpu):
+        """Enable/disable use_gpu"""
 
-        if cuda == self.cuda:
+        if use_gpu == self.use_gpu:
             return
 
-        self.cuda = cuda
+        self.use_gpu = use_gpu
         for kpt in self.kpt_u:
-            kpt.set_cuda(self.cuda)
+            kpt.set_use_gpu(self.use_gpu)
         self.eigensolver = None
 
     def sync_to_gpu(self):

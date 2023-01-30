@@ -57,8 +57,8 @@ class SCFLoop:
         self.old_F_av = None
         self.converged = False
 
-    def irun(self, wfs, ham, dens, log, callback, cuda=False):
-        if cuda:
+    def irun(self, wfs, ham, dens, log, callback, use_gpu=False):
+        if use_gpu:
             wfs.sync_to_gpu()
 
         self.niter = 1
@@ -94,7 +94,7 @@ class SCFLoop:
         # Don't fix the density in the next step:
         self.niter_fixdensity = 0
 
-        if cuda:
+        if use_gpu:
             wfs.sync_to_cpu()
 
         if not self.converged:

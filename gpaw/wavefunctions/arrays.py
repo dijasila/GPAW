@@ -16,13 +16,13 @@ class MatrixInFile:
 
 
 class ArrayWaveFunctions:
-    def __init__(self, M, N, dtype, data, dist, collinear, cuda=False):
+    def __init__(self, M, N, dtype, data, dist, collinear, use_gpu=False):
         self.collinear = collinear
         if not collinear:
             N *= 2
         if data is None or isinstance(data, np.ndarray) \
                         or isinstance(data, gpu.array.Array):
-            self.matrix = Matrix(M, N, dtype, data, dist, cuda)
+            self.matrix = Matrix(M, N, dtype, data, dist, use_gpu)
             self.in_memory = True
         elif isinstance(data, Matrix):
             self.matrix = data
@@ -32,7 +32,7 @@ class ArrayWaveFunctions:
             self.in_memory = False
         self.comm = None
         self.dtype = self.matrix.dtype
-        self.cuda = cuda
+        self.use_gpu = use_gpu
         self._buffers = None
         self._cached_view = {}
 
@@ -48,15 +48,15 @@ class ArrayWaveFunctions:
             assert opb in 'TC' and b.comm is self.comm
 
     def matrix_elements(self, other=None, out=None, symmetric=False, cc=False,
-                        operator=None, result=None, serial=False, cuda=None):
-        if cuda is None:
-            cuda = self.cuda
+                        operator=None, result=None, serial=False, use_gpu=None):
+        if use_gpu is None:
+            use_gpu = self.use_gpu
         if out is None:
             out = Matrix(len(self), len(other or self), dtype=self.dtype,
                          dist=(self.matrix.dist.comm,
                                self.matrix.dist.rows,
                                self.matrix.dist.columns),
-                         cuda=cuda)
+                         use_gpu=use_gpu)
         if other is None or isinstance(other, ArrayWaveFunctions):
             assert cc
             if other is None:
@@ -105,7 +105,7 @@ class ArrayWaveFunctions:
         """Read wave functions from file into memory."""
         matrix = Matrix(*self.matrix.shape,
                         dtype=self.dtype, dist=self.matrix.dist,
-                        cuda=self.cuda)
+                        use_gpu=self.use_gpu)
         # Read band by band to save memory
         rows = matrix.dist.rows
         blocksize = (matrix.shape[0] + rows - 1) // rows
@@ -138,10 +138,10 @@ class ArrayWaveFunctions:
 
 class UniformGridWaveFunctions(ArrayWaveFunctions):
     def __init__(self, nbands, gd, dtype=None, data=None, kpt=None, dist=None,
-                 spin=0, collinear=True, cuda=False):
+                 spin=0, collinear=True, use_gpu=False):
         ngpts = gd.n_c.prod()
         ArrayWaveFunctions.__init__(self, nbands, ngpts, dtype, data, dist,
-                                    collinear, cuda)
+                                    collinear, use_gpu)
 
         M = self.matrix
 
@@ -179,7 +179,7 @@ class UniformGridWaveFunctions(ArrayWaveFunctions):
                                         buf,
                                         self.kpt, dist,
                                         self.spin,
-                                        cuda=self.cuda)
+                                        use_gpu=self.use_gpu)
 
     def view(self, n1, n2):
         key = (n1, n2)
@@ -189,7 +189,7 @@ class UniformGridWaveFunctions(ArrayWaveFunctions):
                                              self.matrix.view(n1, n2),
                                              self.kpt, None,
                                              self.spin,
-                                             cuda=self.cuda)
+                                             use_gpu=self.use_gpu)
         return self._cached_view[key]
 
     def plot(self):
@@ -202,7 +202,7 @@ class UniformGridWaveFunctions(ArrayWaveFunctions):
 
 class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
     def __init__(self, nbands, pd, dtype=None, data=None, kpt=0, dist=None,
-                 spin=0, collinear=True, cuda=False):
+                 spin=0, collinear=True, use_gpu=False):
         ng = ng0 = pd.myng_q[kpt]
         if data is not None:
             # XXX why ???
@@ -217,7 +217,7 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
                 data = data.view(float)
 
         ArrayWaveFunctions.__init__(self, nbands, ng, dtype, data, dist,
-                                    collinear, cuda)
+                                    collinear, use_gpu)
         self.pd = pd
         self.gd = pd.gd
         self.comm = pd.gd.comm
@@ -252,16 +252,16 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
             psit_sG[1] = self.pd.scatter(big_psit_G[1], self.kpt)
 
     def matrix_elements(self, other=None, out=None, symmetric=False, cc=False,
-                        operator=None, result=None, serial=False, cuda=None):
-        if cuda is None:
-            cuda = self.cuda
+                        operator=None, result=None, serial=False, use_gpu=None):
+        if use_gpu is None:
+            use_gpu = self.use_gpu
         if other is None or isinstance(other, ArrayWaveFunctions):
             if out is None:
                 out = Matrix(len(self), len(other or self), dtype=self.dtype,
                              dist=(self.matrix.dist.comm,
                                    self.matrix.dist.rows,
                                    self.matrix.dist.columns),
-                             cuda=cuda)
+                             use_gpu=use_gpu)
             assert cc
             if other is None:
                 assert symmetric
@@ -302,7 +302,7 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
                                                buf,
                                                self.kpt, dist,
                                                self.spin, self.collinear,
-                                               self.cuda)
+                                               self.use_gpu)
 
     def view(self, n1, n2):
         key = (n1, n2)
@@ -318,7 +318,7 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
                             self.matrix.view(n1, n2),
                             self.kpt, None,
                             self.spin, self.collinear,
-                            self.cuda)
+                            self.use_gpu)
         return self._cached_view[key]
 
 
@@ -405,7 +405,7 @@ def operate_and_multiply(psit1, dv, out, operator, psit2):
     comm.waitall(requests)
     for n1, n2, block in blocks:
         out.array[:, n1:n2] = block
-    if out.cuda:
+    if out.use_gpu:
         out.sync_to_gpu()
 
 

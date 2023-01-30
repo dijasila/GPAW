@@ -16,13 +16,13 @@ import _gpaw
 
 
 class _Transformer:
-    def __init__(self, gdin, gdout, nn=1, dtype=float, cuda=False):
+    def __init__(self, gdin, gdout, nn=1, dtype=float, use_gpu=False):
         self.gdin = gdin
         self.gdout = gdout
         self.nn = nn
         assert 1 <= nn <= 4
         self.dtype = dtype
-        self.cuda = cuda
+        self.use_gpu = use_gpu
 
         pad_cd = np.empty((3, 2), int)
         neighborpad_cd = np.empty((3, 2), int)
@@ -73,14 +73,14 @@ class _Transformer:
                                              neighborpad_cd, skip_cd,
                                              gdin.neighbor_cd,
                                              dtype == float, comm,
-                                             self.interpolate, self.cuda)
+                                             self.interpolate, self.use_gpu)
         
     def apply(self, input, output=None, phases=None):
-        use_gpu = gpu.is_device_array(input)
+        on_gpu = gpu.is_device_array(input)
         if output is None:
             output = self.gdout.empty(input.shape[:-3], dtype=self.dtype,
-                                      cuda=use_gpu)
-        if use_gpu:
+                                      use_gpu=on_gpu)
+        if on_gpu:
             _output = None
             if gpu.is_host_array(output):
                 _output = output
@@ -136,9 +136,9 @@ class TransformerWrapper:
         return self.transformer.get_async_sizes()
 
 
-def Transformer(gdin, gdout, nn=1, dtype=float, cuda=False):
+def Transformer(gdin, gdout, nn=1, dtype=float, use_gpu=False):
     if nn != 9:
-        t = _Transformer(gdin, gdout, nn, dtype, cuda)
+        t = _Transformer(gdin, gdout, nn, dtype, use_gpu)
         if debug:
             t = TransformerWrapper(t)
         return t

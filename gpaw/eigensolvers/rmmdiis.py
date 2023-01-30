@@ -24,7 +24,7 @@ class RMMDIIS(Eigensolver):
 
     def __init__(self, keep_htpsit=True, blocksize=None, niter=3, rtol=1e-16,
                  limit_lambda=False, use_rayleigh=False, trial_step=0.1,
-                 cuda=False):
+                 use_gpu=False):
         """Initialize RMM-DIIS eigensolver.
 
         Parameters:
@@ -38,7 +38,7 @@ class RMMDIIS(Eigensolver):
 
         """
 
-        Eigensolver.__init__(self, keep_htpsit, blocksize, cuda=cuda)
+        Eigensolver.__init__(self, keep_htpsit, blocksize, use_gpu=use_gpu)
         self.niter = niter
         self.rtol = rtol
         self.limit_lambda = limit_lambda
@@ -83,7 +83,7 @@ class RMMDIIS(Eigensolver):
                                          R, P2)
 
         def integrate(a_xG, b_xG):
-            if self.cuda:
+            if self.use_gpu:
                 return multi_dotc(a_xG, b_xG).real * wfs.gd.dv
             else:
                 return [np.real(wfs.integrate(a_G, b_G, global_integral=False))
@@ -100,8 +100,8 @@ class RMMDIIS(Eigensolver):
 
         # Arrays needed for DIIS step
         if self.niter > 1:
-            psit_diis_nxG = wfs.empty(B * self.niter, q=kpt.q, cuda=False)
-            R_diis_nxG = wfs.empty(B * self.niter, q=kpt.q, cuda=False)
+            psit_diis_nxG = wfs.empty(B * self.niter, q=kpt.q, use_gpu=False)
+            R_diis_nxG = wfs.empty(B * self.niter, q=kpt.q, use_gpu=False)
 
         Ht = partial(wfs.apply_pseudo_hamiltonian, kpt, ham)
 
@@ -136,7 +136,7 @@ class RMMDIIS(Eigensolver):
             if self.niter > 1:
                 # Save the previous vectors contiguously for each band
                 # in the block
-                if self.cuda:
+                if self.use_gpu:
                     psit_diis_nxG[:B * self.niter:self.niter] = \
                             psitb.array.get()
                     R_diis_nxG[:B * self.niter:self.niter] = Rb.array.get()
@@ -251,7 +251,7 @@ class RMMDIIS(Eigensolver):
                         self.timer.stop('Update trial vectors')
 
                 # copy arrays back to GPU and swap references back
-                if self.cuda:
+                if self.use_gpu:
                     psitb.sync_to_gpu()
                     Rb.sync_to_gpu()
 

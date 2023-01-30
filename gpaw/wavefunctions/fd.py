@@ -42,28 +42,28 @@ class FDWaveFunctions(FDPWWaveFunctions):
     def __init__(self, stencil, parallel, initksl,
                  gd, nvalence, setups, bd,
                  dtype, world, kd, kptband_comm, timer, reuse_wfs_method=None,
-                 collinear=True, cuda=False):
+                 collinear=True, use_gpu=False):
         FDPWWaveFunctions.__init__(self, parallel, initksl,
                                    reuse_wfs_method=reuse_wfs_method,
                                    collinear=collinear,
                                    gd=gd, nvalence=nvalence, setups=setups,
                                    bd=bd, dtype=dtype, world=world, kd=kd,
                                    kptband_comm=kptband_comm, timer=timer,
-                                   cuda=cuda)
+                                   use_gpu=use_gpu)
 
         # Kinetic energy operator:
-        self.kin = Laplace(self.gd, -0.5, stencil, self.dtype, cuda=self.cuda)
+        self.kin = Laplace(self.gd, -0.5, stencil, self.dtype, use_gpu=self.use_gpu)
 
-        if self.cuda:
+        if self.use_gpu:
             self.nt_G_gpu = None
 
         self.taugrad_v = None  # initialized by MGGA functional
 
-    def empty(self, n=(), global_array=False, realspace=False, q=-1, cuda=None):
-        if cuda == None:
-            return self.gd.empty(n, self.dtype, global_array, cuda=self.cuda)
+    def empty(self, n=(), global_array=False, realspace=False, q=-1, use_gpu=None):
+        if use_gpu == None:
+            return self.gd.empty(n, self.dtype, global_array, use_gpu=self.use_gpu)
         else:
-            return self.gd.empty(n, self.dtype, global_array, cuda=cuda)
+            return self.gd.empty(n, self.dtype, global_array, use_gpu=use_gpu)
 
     def integrate(self, a_xg, b_yg=None, global_integral=True):
         return self.gd.integrate(a_xg, b_yg, global_integral)
@@ -74,7 +74,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
     def set_setups(self, setups):
         self.pt = LFC(self.gd, [setup.pt_j for setup in setups],
                       self.kd, dtype=self.dtype, forces=True,
-                      cuda=self.cuda)
+                      use_gpu=self.use_gpu)
         FDPWWaveFunctions.set_setups(self, setups)
 
     def set_positions(self, spos_ac, atom_partition=None):
@@ -87,7 +87,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
 
     def make_preconditioner(self, block=1):
         return Preconditioner(self.gd, self.kin, self.dtype, block,
-                              cuda=self.cuda)
+                              use_gpu=self.use_gpu)
 
     def apply_pseudo_hamiltonian(self, kpt, ham, psit_xG, Htpsit_xG):
         self.timer.start('Apply hamiltonian')
@@ -105,7 +105,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
     def add_to_density_from_k_point_with_occupation(self, nt_sG, kpt, f_n):
         # Used in calculation of response part of GLLB-potential
         nt_G = nt_sG[kpt.s]
-        if self.cuda and kpt.psit.matrix.on_gpu:
+        if self.use_gpu and kpt.psit.matrix.on_gpu:
             if self.nt_G_gpu is None:
                 self.nt_G_gpu = gpu.array.empty(nt_G.shape, nt_G.dtype)
             gpu.copy_to_device(nt_G, self.nt_G_gpu)
@@ -127,7 +127,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                     if abs(d) > 1.e-12:
                         nt_G += (psi0_G.conj() * d * psi_G).real
 
-        if self.cuda and kpt.psit.matrix.on_gpu:
+        if self.use_gpu and kpt.psit.matrix.on_gpu:
             gpu.copy_to_host(self.nt_G_gpu, nt_G)
 
     def calculate_kinetic_energy_density(self):
@@ -207,7 +207,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                 kpt2.psit = UniformGridWaveFunctions(
                     self.bd.nbands, self.gd, self.dtype,
                     kpt=k, dist=(self.bd.comm, self.bd.comm.size),
-                    spin=kpt.s, collinear=True, cuda=self.cuda)
+                    spin=kpt.s, collinear=True, use_gpu=self.use_gpu)
                 self.gd.distribute(Psit_nG, kpt2.psit_nG)
                 # Calculate PAW projections:
                 nproj_a = [setup.ni for setup in self.setups]
@@ -273,7 +273,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
             kpt.psit = UniformGridWaveFunctions(
                 self.bd.nbands, self.gd, self.dtype, psit_nG,
                 kpt=kpt.q, dist=(self.bd.comm, self.bd.comm.size),
-                spin=kpt.s, collinear=True, cuda=self.cuda)
+                spin=kpt.s, collinear=True, use_gpu=self.use_gpu)
 
         if self.world.size > 1:
             # Read to memory:
@@ -285,13 +285,13 @@ class FDWaveFunctions(FDPWWaveFunctions):
             kpt.psit = UniformGridWaveFunctions(
                 self.bd.nbands, self.gd, self.dtype, kpt=kpt.q,
                 dist=(self.bd.comm, self.bd.comm.size, 1),
-                spin=kpt.s, collinear=True, cuda=self.cuda)
+                spin=kpt.s, collinear=True, use_gpu=self.use_gpu)
             kpt.psit_nG.fill(0.0)
             mynbands = len(kpt.C_nM)
             kpt.psit.sync_to_cpu()
             basis_functions.lcao_to_grid(kpt.C_nM,
                                          kpt.psit_nG[:mynbands], kpt.q)
-            if kpt.psit.cuda:
+            if kpt.psit.use_gpu:
                 kpt.psit.sync_to_gpu()
             kpt.C_nM = None
 
@@ -304,13 +304,13 @@ class FDWaveFunctions(FDPWWaveFunctions):
             gd1 = self.gd.coarsen()
             gd2 = gd1.coarsen()
 
-            psit_G1 = gd1.empty(dtype=self.dtype, cuda=self.cuda)
-            psit_G2 = gd2.empty(dtype=self.dtype, cuda=self.cuda)
+            psit_G1 = gd1.empty(dtype=self.dtype, use_gpu=self.use_gpu)
+            psit_G2 = gd2.empty(dtype=self.dtype, use_gpu=self.use_gpu)
 
             interpolate2 = Transformer(gd2, gd1, 1, self.dtype,
-                                       cuda=self.cuda).apply
+                                       use_gpu=self.use_gpu).apply
             interpolate1 = Transformer(gd1, self.gd, 1, self.dtype,
-                                       cuda=self.cuda).apply
+                                       use_gpu=self.use_gpu).apply
 
             shape = tuple(gd2.n_c)
             scale = np.sqrt(12 / abs(np.linalg.det(gd2.cell_cv)))
@@ -322,13 +322,13 @@ class FDWaveFunctions(FDPWWaveFunctions):
             for kpt in self.kpt_u:
                 for psit_G in kpt.psit_nG[nao:]:
                     if self.dtype == float:
-                        if self.cuda:
+                        if self.use_gpu:
                             tmp = (np.random.random(shape) - 0.5) * scale
                             gpu.copy_to_device(tmp, psit_G2)
                         else:
                             psit_G2[:] = (np.random.random(shape) - 0.5) * scale
                     else:
-                        if self.cuda:
+                        if self.use_gpu:
                             tmp = np.empty(psit_G2.shape, dtype=complex)
                             tmp.real = (np.random.random(shape) - 0.5) * scale
                             tmp.imag = (np.random.random(shape) - 0.5) * scale
@@ -346,10 +346,10 @@ class FDWaveFunctions(FDPWWaveFunctions):
         elif gpts / 64 <= self.bd.nbands < gpts / 8:
             gd1 = self.gd.coarsen()
 
-            psit_G1 = gd1.empty(dtype=self.dtype, cuda=self.cuda)
+            psit_G1 = gd1.empty(dtype=self.dtype, use_gpu=self.use_gpu)
 
             interpolate1 = Transformer(gd1, self.gd, 1, self.dtype,
-                                       cuda=self.cuda).apply
+                                       use_gpu=self.use_gpu).apply
 
             shape = tuple(gd1.n_c)
             scale = np.sqrt(12 / abs(np.linalg.det(gd1.cell_cv)))
@@ -361,13 +361,13 @@ class FDWaveFunctions(FDPWWaveFunctions):
             for kpt in self.kpt_u:
                 for psit_G in kpt.psit_nG[nao:]:
                     if self.dtype == float:
-                        if self.cuda:
+                        if self.use_gpu:
                             tmp = (np.random.random(shape) - 0.5) * scale
                             gpu.copy_to_device(tmp, psit_G1)
                         else:
                             psit_G1[:] = (np.random.random(shape) - 0.5) * scale
                     else:
-                        if self.cuda:
+                        if self.use_gpu:
                             tmp = np.empty(psit_G1.shape, dtype=complex)
                             tmp.real = (np.random.random(shape) - 0.5) * scale
                             tmp.imag = (np.random.random(shape) - 0.5) * scale
@@ -392,13 +392,13 @@ class FDWaveFunctions(FDPWWaveFunctions):
             for kpt in self.kpt_u:
                 for psit_G in kpt.psit_nG[nao:]:
                     if self.dtype == float:
-                        if self.cuda:
+                        if self.use_gpu:
                             tmp = (np.random.random(shape) - 0.5) * scale
                             gpu.copy_to_device(tmp, psit_G)
                         else:
                             psit_G[:] = (np.random.random(shape) - 0.5) * scale
                     else:
-                        if self.cuda:
+                        if self.use_gpu:
                             tmp = np.empty(psit_G.shape, dtype=complex)
                             tmp.real = (np.random.random(shape) - 0.5) * scale
                             tmp.imag = (np.random.random(shape) - 0.5) * scale

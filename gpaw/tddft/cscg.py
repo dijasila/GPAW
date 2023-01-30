@@ -28,7 +28,7 @@ class CSCG:
 
     def __init__(self, gd, bd, timer=None,
                  tolerance=1e-15, max_iterations=1000, eps=1e-15,
-                 blocksize=16, cuda=False):
+                 blocksize=16, use_gpu=False):
         """Create the CSCG-object.
 
         Tolerance should not be smaller than attainable accuracy, which is
@@ -67,14 +67,14 @@ class CSCG:
 
         self.iterations = -1
 
-        self.cuda = cuda
+        self.use_gpu = use_gpu
 
         self.gd = gd
         self.timer = timer
         self.mblas = MultiBlas(self.gd, timer)
         self.blocksize = min(blocksize, bd.mynbands)
 
-        if self.cuda:
+        if self.use_gpu:
             cuda_blocks_min = 16
             cuda_blocks_max = 64
             self.blocksize = min(cuda_blocks_max, bd.mynbands,
@@ -94,18 +94,18 @@ class CSCG:
         if self.timer is not None:
             self.timer.start('CSCG')
 
-        cuda = gpu.is_device_array(x)
+        on_gpu = gpu.is_device_array(x)
 
         # number of vectors
         nvec = len(x)
 
         B = min(self.blocksize, nvec)
 
-        r = self.gd.empty(B, dtype=complex, cuda=cuda)
-        p = self.gd.empty(B, dtype=complex, cuda=cuda)
-        z = self.gd.empty(B, dtype=complex, cuda=cuda)
+        r = self.gd.empty(B, dtype=complex, use_gpu=on_gpu)
+        p = self.gd.empty(B, dtype=complex, use_gpu=on_gpu)
+        z = self.gd.empty(B, dtype=complex, use_gpu=on_gpu)
 
-        if cuda:
+        if on_gpu:
             alpha = gpu.array.zeros((B,), dtype=complex)
             rho = gpu.array.zeros((B,), dtype=complex)
             rhop = gpu.array.zeros((B,), dtype=complex)

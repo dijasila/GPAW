@@ -4,7 +4,7 @@ import numpy as np
 class DirectLCAO(object):
     """Eigensolver for LCAO-basis calculation"""
 
-    def __init__(self, diagonalizer=None, cuda=False):
+    def __init__(self, diagonalizer=None, use_gpu=False):
         self.diagonalizer = diagonalizer
         # ??? why should we be able to set
         # this diagonalizer in both constructor and initialize?

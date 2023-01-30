@@ -44,7 +44,7 @@ def test_fd_laplace(gpu, pbc):
 
     # Laplace
     Laplace(gd, 1.0, 3, dtype=dtype).apply(a, b, phase_cd=phase)
-    Laplace(gd, 1.0, 3, dtype=dtype, cuda=True).apply(a_gpu, b_gpu, phase_cd=phase)
+    Laplace(gd, 1.0, 3, dtype=dtype, use_gpu=True).apply(a_gpu, b_gpu, phase_cd=phase)
     b_ref = gpu.copy_to_host(b_gpu)
 
     assert b == pytest.approx(b_ref, abs=1e-12)

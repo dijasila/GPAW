@@ -154,7 +154,7 @@ class TDDFT(GPAW):
         self.td_hamiltonian = TimeDependentHamiltonian(self.wfs, self.spos_ac,
                                                        self.hamiltonian,
                                                        td_potential,
-                                                       cuda=self.cuda)
+                                                       use_gpu=self.use_gpu)
         self.td_overlap = self.wfs.overlap  # TODO remove this property
         self.td_density = TimeDependentDensity(self)
 
@@ -165,7 +165,7 @@ class TDDFT(GPAW):
                                    tolerance=tolerance)
         elif solver == 'CSCG':
             self.solver = CSCG(gd=wfs.gd, bd=wfs.bd, timer=self.timer,
-                               tolerance=tolerance, cuda=self.cuda)
+                               tolerance=tolerance, use_gpu=self.use_gpu)
         else:
             raise RuntimeError('Solver %s not supported.' % solver)
 
@@ -185,13 +185,13 @@ class TDDFT(GPAW):
             self.propagator = ExplicitCrankNicolson(
                 self.td_density,
                 self.td_hamiltonian, self.td_overlap, self.solver,
-                self.preconditioner, wfs.gd, self.timer, cuda=self.cuda,
+                self.preconditioner, wfs.gd, self.timer, use_gpu=self.use_gpu,
                 **propagator_kwargs)
         elif propagator == 'SICN':
             self.propagator = SemiImplicitCrankNicolson(
                 self.td_density,
                 self.td_hamiltonian, self.td_overlap, self.solver,
-                self.preconditioner, wfs.gd, self.timer, cuda=self.cuda,
+                self.preconditioner, wfs.gd, self.timer, use_gpu=self.use_gpu,
                 **propagator_kwargs)
         elif propagator == 'EFSICN':
             self.propagator = EhrenfestPAWSICN(
@@ -353,7 +353,7 @@ class TDDFT(GPAW):
             self.hamiltonian.poisson.set_time_step(self.time_step)
 
         self.timer.start('Propagate')
-        if self.cuda:
+        if self.use_gpu:
             self.wfs.sync_to_gpu()
         while self.niter < self.maxiter:
             norm = self.density.finegd.integrate(self.density.rhot_g)
@@ -395,7 +395,7 @@ class TDDFT(GPAW):
                     print(self.niter, ' iterations done. Current time is ',
                           self.time * autime_to_attosec, ' as.')
 
-        if self.cuda:
+        if self.use_gpu:
             self.wfs.sync_to_cpu()
         self.timer.stop('Propagate')
 
@@ -464,7 +464,7 @@ class TDDFT(GPAW):
         kpt_u = self.wfs.kpt_u
         if self.hpsit is None:
             self.hpsit = self.wfs.gd.zeros(len(kpt_u[0].psit_nG),
-                                           dtype=complex, cuda=self.cuda)
+                                           dtype=complex, use_gpu=self.use_gpu)
         if self.eps_tmp is None:
             self.eps_tmp = np.zeros(len(kpt_u[0].eps_n),
                                     dtype=complex)
@@ -531,14 +531,14 @@ class TDDFT(GPAW):
         abs_kick = AbsorptionKick(self.wfs, abs_kick_hamiltonian,
                                   self.td_overlap, self.solver,
                                   self.preconditioner, self.wfs.gd, self.timer,
-                                  cuda=self.cuda)
+                                  use_gpu=self.use_gpu)
 
-        if self.cuda:
+        if self.use_gpu:
             self.wfs.sync_to_gpu()
 
         abs_kick.kick()
 
-        if self.cuda:
+        if self.use_gpu:
             self.wfs.sync_to_cpu()
 
         # Kick the classical part, if it is present

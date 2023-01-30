@@ -224,13 +224,13 @@ class LocalizedFunctionsCollection(BaseLFC):
 
     """
     def __init__(self, gd, spline_aj, kd=None, cut=False, dtype=float,
-                 integral=None, forces=None, cuda=False):
+                 integral=None, forces=None, use_gpu=False):
         self.gd = gd
         self.sphere_a = [Sphere(spline_j) for spline_j in spline_aj]
         self.cut = cut
         self.dtype = dtype
         self.Mmax = None
-        self.cuda = cuda
+        self.use_gpu = use_gpu
 
         if kd is None:
             self.ibzk_qc = np.zeros((1, 3))
@@ -342,7 +342,7 @@ class LocalizedFunctionsCollection(BaseLFC):
         self.W_B = self.W_B[indices]
 
         self.lfc = _gpaw.LFC(self.A_Wgm, self.M_W, self.G_B, self.W_B,
-                             self.gd.dv, self.phase_qW, self.cuda)
+                             self.gd.dv, self.phase_qW, self.use_gpu)
 
         # Find out which ranks have a piece of the
         # localized functions:
@@ -408,7 +408,7 @@ class LocalizedFunctionsCollection(BaseLFC):
             c_xM.fill(c_axi)
             if gpu.is_device_array(a_xG):
                 if self.Mmax > 0 :
-                    assert self.cuda
+                    assert self.use_gpu
                     if gpu.debug:
                         a_xG_cpu = gpu.copy_to_host(a_xG)
                         self.lfc.add(c_xM, a_xG_cpu, q)
@@ -467,7 +467,7 @@ class LocalizedFunctionsCollection(BaseLFC):
 
         if gpu.is_device_array(a_xG):
             if self.Mmax > 0:
-                assert self.cuda
+                assert self.use_gpu
                 if gpu.debug:
                     a_xG_cpu = gpu.copy_to_host(a_xG)
                     self.lfc.add(c_xM, a_xG_cpu, q)
@@ -584,7 +584,7 @@ class LocalizedFunctionsCollection(BaseLFC):
         dtype = a_xG.dtype
 
         if gpu.is_device_array(a_xG):
-            assert self.cuda
+            assert self.use_gpu
             if self.Mmax > 0:
                 c_xM_gpu = gpu.array.zeros(xshape + (self.Mmax,), dtype)
                 self.lfc.integrate_gpu(gpu.array.get_pointer(a_xG),
@@ -964,11 +964,11 @@ class LocalizedFunctionsCollection(BaseLFC):
 
 class BasisFunctions(LocalizedFunctionsCollection):
     def __init__(self, gd, spline_aj, kd=None, cut=False, dtype=float,
-                 integral=None, forces=None, cuda=False):
+                 integral=None, forces=None, use_gpu=False):
         LocalizedFunctionsCollection.__init__(self, gd, spline_aj,
                                               kd, cut,
                                               dtype, integral,
-                                              forces, cuda=cuda)
+                                              forces, use_gpu=use_gpu)
         self.use_global_indices = True
 
         self.Mstart = None

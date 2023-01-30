@@ -14,7 +14,7 @@ def test_lfc(gpu, dtype):
     gd = GridDescriptor((n, n, n), (a, a, a), comm=mpi.world)
 
     c = LFC(gd, [[s], [s], [s]], dtype=dtype)
-    c_gpu = LFC(gd, [[s], [s], [s]], dtype=dtype, cuda=True)
+    c_gpu = LFC(gd, [[s], [s], [s]], dtype=dtype, use_gpu=True)
     c.set_positions([(0.5, 0.5, 0.25 + 0.25 * i) for i in [0, 1, 2]])
     c_gpu.set_positions([(0.5, 0.5, 0.25 + 0.25 * i) for i in [0, 1, 2]])
 

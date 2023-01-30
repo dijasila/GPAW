@@ -91,11 +91,11 @@ class LCAOWaveFunctions(WaveFunctions):
     def __init__(self, ksl, gd, nvalence, setups, bd,
                  dtype, world, kd, kptband_comm, timer,
                  atomic_correction=None, collinear=True,
-                 cuda=False):
+                 use_gpu=False):
         WaveFunctions.__init__(self, gd, nvalence, setups, bd,
                                dtype, collinear, world, kd,
                                kptband_comm, timer,
-                               cuda=cuda)
+                               use_gpu=use_gpu)
         self.ksl = ksl
         self.S_qMM = None
         self.T_qMM = None
@@ -125,7 +125,7 @@ class LCAOWaveFunctions(WaveFunctions):
     def set_orthonormalized(self, o):
         pass
 
-    def empty(self, n=(), global_array=False, realspace=False, cuda=False):
+    def empty(self, n=(), global_array=False, realspace=False, use_gpu=False):
         if realspace:
             return self.gd.empty(n, self.dtype, global_array)
         else:

@@ -20,13 +20,13 @@ def reshape(a_x, shape):
 
 
 class Eigensolver:
-    def __init__(self, keep_htpsit=True, blocksize=1, cuda=False):
+    def __init__(self, keep_htpsit=True, blocksize=1, use_gpu=False):
         self.keep_htpsit = keep_htpsit
         self.initialized = False
         self.Htpsit_nG = None
         self.error = np.inf
         self.blocksize = blocksize
-        self.cuda = cuda
+        self.use_gpu = use_gpu
         self.orthonormalization_required = True
 
     def initialize(self, wfs):
@@ -39,7 +39,7 @@ class Eigensolver:
         self.nbands = wfs.bd.nbands
         self.mynbands = wfs.bd.mynbands
 
-        if self.cuda:
+        if self.use_gpu:
             if self.dtype == float:
                 ndouble = 1
             else:
@@ -56,7 +56,7 @@ class Eigensolver:
             self.keep_htpsit = False
 
         if self.keep_htpsit:
-            if self.cuda:
+            if self.use_gpu:
                 self.Htpsit_nG = gpu.array.empty_like(wfs.work_array)
             else:
                 self.Htpsit_nG = np.empty_like(wfs.work_array)

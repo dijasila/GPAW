@@ -59,7 +59,7 @@ def apply_non_local_hamilton(dH_asp, collinear, P, out=None):
 class Hamiltonian:
 
     def __init__(self, gd, finegd, nspins, collinear, setups, timer, xc, world,
-                 redistributor, vext=None, cuda=False):
+                 redistributor, vext=None, use_gpu=False):
         self.gd = gd
         self.finegd = finegd
         self.nspins = nspins
@@ -67,7 +67,7 @@ class Hamiltonian:
         self.setups = setups
         self.timer = timer
         self.xc = xc
-        self.cuda = cuda
+        self.use_gpu = use_gpu
         self.use_xc_thread = use_xc_thread
         self.world = world
         self.redistributor = redistributor
@@ -78,7 +78,7 @@ class Hamiltonian:
         self.dH_asp = None
         self.vt_xG = None
         self.vt_sG = None
-        if self.cuda:
+        if self.use_gpu:
             self.vt_sG_gpu = None
         self.vt_vG = None
         self.vHt_g = None
@@ -219,7 +219,7 @@ class Hamiltonian:
         self.vt_xG = self.gd.empty(self.ncomponents)
         self.vt_sG = self.vt_xG[:self.nspins]
         self.vt_vG = self.vt_xG[self.nspins:]
-        if self.cuda:
+        if self.use_gpu:
             self.vt_sG_gpu = gpu.copy_to_device(self.vt_sG)
 
     def update(self, density):
@@ -234,13 +234,13 @@ class Hamiltonian:
             with self.timer('Initialize Hamiltonian'):
                 self.initialize()
 
-        if gpu.debug and self.cuda:
+        if gpu.debug and self.use_gpu:
             gpu.debug_test(self.vt_sG, self.vt_sG_gpu, "Hamiltonian vt_sG")
 
         finegrid_energies = self.update_pseudo_potential(density)
         coarsegrid_e_kinetic = self.calculate_kinetic_energy(density)
 
-        if self.cuda:
+        if self.use_gpu:
             if self.vt_sG_gpu is None or \
                     self.vt_sG_gpu.shape != self.vt_sG.shape:
                 self.vt_sG_gpu = gpu.copy_to_device(self.vt_sG)
@@ -427,8 +427,8 @@ class Hamiltonian:
             are not applied and calculate_projections is ignored.
 
         """
-        if self.cuda or gpu.is_device_array(psit_nG):
-            if self.cuda:
+        if self.use_gpu or gpu.is_device_array(psit_nG):
+            if self.use_gpu:
                 vt_G = self.vt_sG_gpu[s]
             else:
                 vt_G = gpu.copy_to_device(self.vt_sG[s])
@@ -465,7 +465,7 @@ class Hamiltonian:
             When False, existing P_ani are used
 
         """
-        if gpu.debug and self.cuda:
+        if gpu.debug and self.use_gpu:
             gpu.debug_test(self.vt_sG, self.vt_sG_gpu, "Hamiltonian vt_sG")
 
         wfs.kin.apply(a_xG, b_xG, kpt.phase_cd)
@@ -563,20 +563,20 @@ class Hamiltonian:
 class RealSpaceHamiltonian(Hamiltonian):
     def __init__(self, gd, finegd, nspins, collinear, setups, timer, xc, world,
                  vext=None,
-                 psolver=None, stencil=3, redistributor=None, cuda=False):
+                 psolver=None, stencil=3, redistributor=None, use_gpu=False):
         Hamiltonian.__init__(self, gd, finegd, nspins, collinear,
                              setups, timer, xc,
                              world, vext=vext,
-                             redistributor=redistributor, cuda=cuda)
+                             redistributor=redistributor, use_gpu=use_gpu)
 
         # Solver for the Poisson equation:
         if psolver is None:
             psolver = {}
         if isinstance(psolver, dict):
-            psolver = PoissonSolver(**psolver, cuda=self.cuda)
+            psolver = PoissonSolver(**psolver, use_gpu=self.use_gpu)
         self.poisson = psolver
         try:
-            self.poisson.set_grid_descriptor(finegd, cuda=self.cuda)
+            self.poisson.set_grid_descriptor(finegd, use_gpu=self.use_gpu)
         except TypeError:
             self.poisson.set_grid_descriptor(finegd)
 

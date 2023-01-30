@@ -371,7 +371,7 @@ class GPAW(Calculator):
                 yield from self.scf.irun(
                     self.wfs, self.hamiltonian,
                     self.density,
-                    self.log, self.call_observers, cuda=self.cuda)
+                    self.log, self.call_observers, use_gpu=self.use_gpu)
 
             self.log('\nConverged after {} iterations.\n'
                      .format(self.scf.niter))
@@ -579,9 +579,9 @@ class GPAW(Calculator):
         self.log('Initialize ...\n')
 
         gpaw.gpu.setup(**self.parameters['gpu'])
-        self.cuda = gpaw.gpu.enabled
+        self.use_gpu = gpaw.gpu.enabled
 
-        if self.cuda:
+        if self.use_gpu:
             print('Note: only RMM-DIIS and FD have been implemented in CUDA')
             self.timer.start('Cuda')
             gpaw.gpu.init(mpi.rank)
@@ -688,13 +688,13 @@ class GPAW(Calculator):
             self.log('Magnetic moment: ({:.6f}, {:.6f}, {:.6f})\n'
                      .format(*magmom_av.sum(0)))
 
-        if self.cuda and (isinstance(xc, HybridXC) or isinstance(xc, MGGA)
+        if self.use_gpu and (isinstance(xc, HybridXC) or isinstance(xc, MGGA)
                           or isinstance(xc, SIC)):
             # Make sure wavefunctions etc. are initialized to non-CUDA
             self.hamiltonian = None
             if self.wfs:
-                self.wfs.set_cuda(False)
-            self.cuda = False
+                self.wfs.set_use_gpu(False)
+            self.use_gpu = False
             print('Cuda disabled: Hybrid, MGGA and SIC functionals not implemented.')
 
         self.create_symmetry(magmom_av, cell_cv, reading)
@@ -845,7 +845,7 @@ class GPAW(Calculator):
 
         print_parallelization_details(self.wfs, self.hamiltonian, self.log)
 
-        if self.cuda:
+        if self.use_gpu:
             self.log('Using GPUs')
 
         self.log('Number of atoms:', natoms)
@@ -992,7 +992,7 @@ class GPAW(Calculator):
                 nbands_converge += nbands
         eigensolver = get_eigensolver(self.parameters.eigensolver, mode,
                                       self.parameters.convergence,
-                                      cuda=self.cuda)
+                                      use_gpu=self.use_gpu)
         eigensolver.nbands_converge = nbands_converge
         # XXX Eigensolver class doesn't define an nbands_converge property
 
@@ -1176,7 +1176,7 @@ class GPAW(Calculator):
         wfs_kwargs = dict(gd=gd, nvalence=nvalence, setups=setups,
                           bd=bd, dtype=dtype, world=self.world, kd=kd,
                           kptband_comm=kptband_comm, timer=self.timer,
-                          cuda=self.cuda)
+                          use_gpu=self.use_gpu)
 
         if self.parallel['sl_auto']:
             # Choose scalapack parallelization automatically

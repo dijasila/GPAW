@@ -32,7 +32,7 @@ def mmm(alpha: T,
         opb: str,
         beta: T,
         c: np.ndarray,
-        cuda: bool = None) -> None:
+        use_gpu: bool = None) -> None:
     """Matrix-matrix multiplication using dgemm or zgemm.
 
     For opa='n' and opb='n', we have::
@@ -72,7 +72,7 @@ def mmm(alpha: T,
     c_cpu, c_gpu = (None, c) if gpu.is_device_array(c) \
                              else (c, None)
 
-    if cuda or (cuda is None and gpu.is_device_array(c)):
+    if use_gpu or (use_gpu is None and gpu.is_device_array(c)):
         if a_gpu is None:
             a_gpu = gpu.copy_to_device(a_cpu)
         if b_gpu is None:
@@ -130,7 +130,7 @@ def scal(alpha, x):
         _gpaw.scal(alpha, x)
 
 
-def gemm(alpha, a, b, beta, c, transa='n', cuda=False, hybrid=False):
+def gemm(alpha, a, b, beta, c, transa='n', use_gpu=False, hybrid=False):
     """General Matrix Multiply.
 
     Performs the operation::
@@ -183,7 +183,7 @@ def gemm(alpha, a, b, beta, c, transa='n', cuda=False, hybrid=False):
     c_cpu, c_gpu = (None, c) if gpu.is_device_array(c) \
                              else (c, None)
 
-    if cuda or (cuda is None and gpu.is_device_array(c)):
+    if use_gpu or (use_gpu is None and gpu.is_device_array(c)):
         if a_gpu is None:
             a_gpu = gpu.copy_to_device(a_cpu)
         if b_gpu is None:
@@ -215,7 +215,7 @@ def gemm(alpha, a, b, beta, c, transa='n', cuda=False, hybrid=False):
             gpu.copy_to_device(c_cpu, c_gpu)
 
 
-def gemv(alpha, a, x, beta, y, trans='t', cuda=False):
+def gemv(alpha, a, x, beta, y, trans='t', use_gpu=False):
     """General Matrix Vector product.
 
     Performs the operation::
@@ -260,7 +260,7 @@ def gemv(alpha, a, x, beta, y, trans='t', cuda=False):
     y_cpu, y_gpu = (None, y) if gpu.is_device_array(y) \
                              else (y, None)
 
-    if cuda or (cuda is None and gpu.is_device_array(y)):
+    if use_gpu or (use_gpu is None and gpu.is_device_array(y)):
         if a_gpu is None:
             a_gpu = gpu.copy_to_device(a_cpu)
         if x_gpu is None:
@@ -292,7 +292,7 @@ def gemv(alpha, a, x, beta, y, trans='t', cuda=False):
             gpu.copy_to_device(y_cpu, y_gpu)
 
 
-def axpy(alpha, x, y, cuda=None):
+def axpy(alpha, x, y, use_gpu=None):
     """alpha x plus y.
 
     Performs the operation::
@@ -315,7 +315,7 @@ def axpy(alpha, x, y, cuda=None):
     y_cpu, y_gpu = (None, y) if gpu.is_device_array(y) \
                              else (y, None)
 
-    if cuda or (cuda is None and gpu.is_device_array(y)):
+    if use_gpu or (use_gpu is None and gpu.is_device_array(y)):
         if x_gpu is None:
             x_gpu = gpu.copy_to_device(x_cpu)
         if y_gpu is None:
@@ -341,7 +341,7 @@ def axpy(alpha, x, y, cuda=None):
             gpu.copy_to_device(y_cpu, y_gpu)
 
 
-def rk(alpha, a, beta, c, trans='c', cuda=None, hybrid=False):
+def rk(alpha, a, beta, c, trans='c', use_gpu=None, hybrid=False):
     """Rank-k update of a matrix.
 
     Performs the operation::
@@ -380,7 +380,7 @@ def rk(alpha, a, beta, c, trans='c', cuda=None, hybrid=False):
     c_cpu, c_gpu = (None, c) if gpu.is_device_array(c) \
                              else (c, None)
 
-    if cuda or (cuda is None and gpu.is_device_array(c)):
+    if use_gpu or (use_gpu is None and gpu.is_device_array(c)):
         if a_gpu is None:
             a_gpu = gpu.copy_to_device(a_cpu)
         if c_gpu is None:
@@ -406,7 +406,7 @@ def rk(alpha, a, beta, c, trans='c', cuda=None, hybrid=False):
             gpu.copy_to_device(c_cpu, c_gpu)
 
 
-def r2k(alpha, a, b, beta, c, cuda=None, hybrid=False):
+def r2k(alpha, a, b, beta, c, use_gpu=None, hybrid=False):
     """Rank-2k update of a matrix.
 
     Performs the operation::
@@ -447,7 +447,7 @@ def r2k(alpha, a, b, beta, c, cuda=None, hybrid=False):
     c_cpu, c_gpu = (None, c) if gpu.is_device_array(c) \
                              else (c, None)
 
-    if cuda or (cuda is None and gpu.is_device_array(c)):
+    if use_gpu or (use_gpu is None and gpu.is_device_array(c)):
         if a_gpu is None:
             a_gpu = gpu.copy_to_device(a_cpu)
         if b_gpu is None:
