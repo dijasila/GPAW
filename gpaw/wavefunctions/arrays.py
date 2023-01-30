@@ -123,11 +123,11 @@ class ArrayWaveFunctions:
         self.matrix = matrix
         self.in_memory = True
 
-    def use_gpu(self):
-        self.matrix.use_gpu()
+    def sync_to_gpu(self):
+        self.matrix.sync_to_gpu()
 
-    def use_cpu(self):
-        self.matrix.use_cpu()
+    def sync_to_cpu(self):
+        self.matrix.sync_to_cpu()
 
     def get_buffers(self, nbands):
         if len(self) != nbands or self._buffers is None:
@@ -323,7 +323,7 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
 
 
 def operate_and_multiply(psit1, dv, out, operator, psit2):
-    out.use_cpu()
+    out.sync_to_cpu()
     if psit1.comm:
         if psit2 is not None:
             assert psit2.comm is psit1.comm
@@ -369,7 +369,7 @@ def operate_and_multiply(psit1, dv, out, operator, psit2):
         if not (comm.size % 2 == 0 and r == half and comm.rank < half):
             m12 = psit2.matrix_elements(psit, symmetric=(r == 0), cc=True,
                                         serial=True)
-            m12.use_cpu()
+            m12.sync_to_cpu()
             n1 = min(((comm.rank - r) % comm.size) * n, N)
             n2 = min(n1 + n, N)
             out.array[:, n1:n2] = m12.array[:, :n2 - n1]
@@ -406,7 +406,7 @@ def operate_and_multiply(psit1, dv, out, operator, psit2):
     for n1, n2, block in blocks:
         out.array[:, n1:n2] = block
     if out.cuda:
-        out.use_gpu()
+        out.sync_to_gpu()
 
 
 def operate_and_multiply_not_symmetric(psit1, dv, out, psit2):

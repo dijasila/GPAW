@@ -69,13 +69,13 @@ class KPoint:
         self.S_MM = None
         self.T_MM = None
 
-    def use_gpu(self):
+    def sync_to_gpu(self):
         if self.psit is not None:
-            self.psit.use_gpu()
+            self.psit.sync_to_gpu()
 
-    def use_cpu(self):
+    def sync_to_cpu(self):
         if self.psit is not None:
-            self.psit.use_cpu()
+            self.psit.sync_to_cpu()
 
     def set_cuda(self, cuda):
         """Enable/disable cuda"""
@@ -83,9 +83,9 @@ class KPoint:
             return
         self.cuda = cuda
         if self.cuda:
-            self.use_gpu()
+            self.sync_to_gpu()
         else:
-            self.use_cpu()
+            self.sync_to_cpu()
 
     def __repr__(self):
         return (f'KPoint(weight={self.weight}, weightk={self.weightk}, '

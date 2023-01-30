@@ -59,7 +59,7 @@ class SCFLoop:
 
     def irun(self, wfs, ham, dens, log, callback, cuda=False):
         if cuda:
-            wfs.use_gpu()
+            wfs.sync_to_gpu()
 
         self.niter = 1
         while self.niter <= self.maxiter:
@@ -95,7 +95,7 @@ class SCFLoop:
         self.niter_fixdensity = 0
 
         if cuda:
-            wfs.use_cpu()
+            wfs.sync_to_cpu()
 
         if not self.converged:
             if not np.isfinite(errors['eigenstates']):

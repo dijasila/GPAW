@@ -288,11 +288,11 @@ class FDWaveFunctions(FDPWWaveFunctions):
                 spin=kpt.s, collinear=True, cuda=self.cuda)
             kpt.psit_nG.fill(0.0)
             mynbands = len(kpt.C_nM)
-            kpt.psit.use_cpu()
+            kpt.psit.sync_to_cpu()
             basis_functions.lcao_to_grid(kpt.C_nM,
                                          kpt.psit_nG[:mynbands], kpt.q)
             if kpt.psit.cuda:
-                kpt.psit.use_gpu()
+                kpt.psit.sync_to_gpu()
             kpt.C_nM = None
 
     def random_wave_functions(self, nao):

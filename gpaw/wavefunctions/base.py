@@ -469,13 +469,13 @@ class WaveFunctions:
             kpt.set_cuda(self.cuda)
         self.eigensolver = None
 
-    def use_gpu(self):
+    def sync_to_gpu(self):
         for kpt in self.kpt_u:
-            kpt.use_gpu()
+            kpt.sync_to_gpu()
 
-    def use_cpu(self):
+    def sync_to_cpu(self):
         for kpt in self.kpt_u:
-            kpt.use_cpu()
+            kpt.sync_to_cpu()
 
     def write(self, writer):
         writer.write(version=2, ha=Ha)

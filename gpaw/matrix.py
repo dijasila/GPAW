@@ -155,7 +155,7 @@ class Matrix:
         except AttributeError:
             pass
 
-    def use_gpu(self):
+    def sync_to_gpu(self):
         if not self.cuda:
             self.cuda = True
             self._array_gpu = gpu.array.empty_like(self._array_cpu)
@@ -163,7 +163,7 @@ class Matrix:
             self.sync()
             self.on_gpu = True
 
-    def use_cpu(self):
+    def sync_to_cpu(self):
         if self.on_gpu:
             self.sync()
             self.on_gpu = False
@@ -293,7 +293,7 @@ class Matrix:
 
         Only the lower part is used.
         """
-        self.use_cpu()
+        self.sync_to_cpu()
         if self.state == 'a sum is needed':
             self.comm.sum(self.array, 0)
 
@@ -320,7 +320,7 @@ class Matrix:
             self.comm.broadcast(self.array, 0)
             self.state == 'everything is fine'
         if self.cuda:
-            self.use_gpu()
+            self.sync_to_gpu()
 
     def eigh(self, cc=False, scalapack=(None, 1, 1, None)):
         """Calculate eigenvectors and eigenvalues.
@@ -335,7 +335,7 @@ class Matrix:
         """
         slcomm, rows, columns, blocksize = scalapack
 
-        self.use_cpu()
+        self.sync_to_cpu()
         if self.state == 'a sum is needed':
             self.comm.sum(self.array, 0)
 
@@ -383,17 +383,17 @@ class Matrix:
             self.comm.broadcast(eps, 0)
             self.state == 'everything is fine'
         if self.cuda:
-            self.use_gpu()
+            self.sync_to_gpu()
 
         return eps
 
     def complex_conjugate(self):
         """Inplace complex conjugation."""
         if self.dtype == complex:
-            self.use_cpu()
+            self.sync_to_cpu()
             np.negative(self.array.imag, self.array.imag)
             if self.cuda:
-                self.use_gpu()
+                self.sync_to_gpu()
 
 
 def _matrix(M):
@@ -537,9 +537,9 @@ def create_distribution(M, N, comm=None, r=1, c=1, b=None):
 
 
 def fastmmm(m1, m2, m3, beta):
-    m1.use_cpu()
-    m2.use_cpu()
-    m3.use_cpu()
+    m1.sync_to_cpu()
+    m2.sync_to_cpu()
+    m3.sync_to_cpu()
 
     comm = m1.dist.comm
 
@@ -583,11 +583,11 @@ def fastmmm(m1, m2, m3, beta):
             comm.wait(srequest)
 
     if m1.cuda:
-        m1.use_gpu()
+        m1.sync_to_gpu()
     if m2.cuda:
-        m2.use_gpu()
+        m2.sync_to_gpu()
     if m3.cuda:
-        m3.use_gpu()
+        m3.sync_to_gpu()
 
     return m3
 
@@ -599,9 +599,9 @@ def fastmmm2(a, b, out):
             assert out.comm == a.comm
             assert out.state == 'a sum is needed'
 
-    a.use_cpu()
-    b.use_cpu()
-    out.use_cpu()
+    a.sync_to_cpu()
+    b.sync_to_cpu()
+    out.sync_to_cpu()
 
     comm = a.dist.comm
     M, N = a.shape
@@ -674,11 +674,11 @@ def fastmmm2(a, b, out):
         out.array[:, m1:m2] += block
 
     if a.cuda:
-        a.use_gpu()
+        a.sync_to_gpu()
     if b.cuda:
-        b.use_gpu()
+        b.sync_to_gpu()
     if out.cuda:
-        out.use_gpu()
+        out.sync_to_gpu()
 
     return out
 
@@ -690,9 +690,9 @@ def fastmmm2notsym(a, b, out):
             assert out.comm == a.comm
             assert out.state == 'a sum is needed'
 
-    a.use_cpu()
-    b.use_cpu()
-    out.use_cpu()
+    a.sync_to_cpu()
+    b.sync_to_cpu()
+    out.sync_to_cpu()
 
     comm = a.dist.comm
     M, N = a.shape
@@ -732,10 +732,10 @@ def fastmmm2notsym(a, b, out):
         buf1, buf2 = buf2, buf1
 
     if a.cuda:
-        a.use_gpu()
+        a.sync_to_gpu()
     if b.cuda:
-        b.use_gpu()
+        b.sync_to_gpu()
     if out.cuda:
-        out.use_gpu()
+        out.sync_to_gpu()
 
     return out
