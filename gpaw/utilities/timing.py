@@ -7,27 +7,9 @@ import time
 import math
 
 import numpy as np
-from ase.utils.timing import Timer as BaseTimer
-from gpaw import gpu
+from ase.utils.timing import Timer
 
 import gpaw.mpi as mpi
-
-
-class Timer(BaseTimer):
-    def synchronize(self):
-        if gpu.debug_sync:
-            try:
-                gpu.synchronize()
-            except AttributeError:
-                pass
-
-    def start(self, name):
-        self.synchronize()
-        BaseTimer.start(self, name)
-
-    def stop(self, name):
-        self.synchronize()
-        BaseTimer.stop(self, name)
 
 
 class NullTimer:
