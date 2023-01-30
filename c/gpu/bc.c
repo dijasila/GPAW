@@ -10,20 +10,17 @@
 
 static int bc_init_count = 0;
 
-#ifdef GPAW_NO_GPU_MPI
 static gpuStream_t bc_recv_stream;
 static int bc_streams = 0;
 static gpuEvent_t bc_sendcpy_event[3][2];
 static gpuEvent_t bc_recv_event[3][2];
-#endif
+
 static int bc_recv_done[3][2];
 
-#ifdef GPAW_NO_GPU_MPI
 static double *bc_rbuff[3][2];
 static double *bc_sbuff[3][2];
 static double *bc_rbuffs=NULL;
 static double *bc_sbuffs=NULL;
-#endif
 static double *bc_rbuff_gpu[3][2];
 static double *bc_sbuff_gpu[3][2];
 static double *bc_rbuffs_gpu=NULL;
