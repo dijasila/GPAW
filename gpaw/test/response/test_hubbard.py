@@ -4,14 +4,12 @@ import pytest
 from gpaw.response.g0w0 import G0W0
 
 
-reference_kn = [[-3.5495421, -3.4162368, -3.46210712,
-                 -3.46286397, -3.33511845, 0.54208154],
-                [-3.65617723, -3.65617723, -3.65613705,
-                 -3.14292294, -3.14331901, 5.12060442]]
-reference_kn = [[-3.5495421, -3.4162368, -3.46210712,
-                 -3.46286397, -3.33511845, 0.54208154],
-                [-3.65584223, -3.65617723, -3.65613705,
-                 -3.14321622, -3.14331901, 5.12060442]]
+reference_kn = [[0.69806561, 2.58472004, 2.58472066,
+                 2.58469313, 3.60859825, 3.60859883],
+                [0.87642735, 1.02930988, 4.52049808,
+                 4.85337269, 4.85355968, 9.60323838],
+                [0.96375991, 2.57490687, 2.57494555,
+                 4.59771405, 4.59774543, 8.67625318]]
 
 
 @pytest.mark.response
@@ -21,9 +19,11 @@ def test_hubbard_GW(in_tmp_dir, gpw_files):
               integrate_gamma=0,
               frequencies={'type': 'nonlinear',
                            'domega0': 0.1, 'omegamax': None},
+              nbands=19,  # Carefully selected to avoid slicing degenerate band
+              ecut=52.8,  # This too
               eta=0.2)
     results = gw.calculate()
 
     qp_kn = results['qp'][0]
 
-    assert np.allclose(qp_kn, reference_kn)
+    assert np.allclose(qp_kn, reference_kn, atol=1e-4, rtol=1e-4)

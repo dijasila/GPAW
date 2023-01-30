@@ -420,17 +420,16 @@ class GPWFiles:
         nbands = 6
         pw = 300
         occw = 0.01
-        conv = {'bands': nbands,
-                'density': 1.e-8,
-                'forces': 1.e-8}
+        conv = {'bands': nbands + 4,
+                'density': 1e-12}
         a = 4.07
-        atoms = bulk('Ag', 'bcc', a=a)
+        atoms = bulk('Ag', 'fcc', a=a)
         atoms.center()
 
         atoms.calc = GPAW(
             xc=xc,
             mode=PW(pw),
-            kpts={'size': (kpts, kpts, kpts)},
+            kpts={'size': (kpts, kpts, kpts), 'gamma': True},
             setups={'Ag': '11:d,2.0,0'},
             nbands=nbands + 4,
             occupations=FermiDirac(occw),
