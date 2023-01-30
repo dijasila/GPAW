@@ -75,10 +75,10 @@ class CSCG:
         self.blocksize = min(blocksize, bd.mynbands)
 
         if self.use_gpu:
-            cuda_blocks_min = 16
-            cuda_blocks_max = 64
-            self.blocksize = min(cuda_blocks_max, bd.mynbands,
-                                 gd.comm.size * cuda_blocks_min,
+            blocks_min = 16
+            blocks_max = 64
+            self.blocksize = min(blocks_max, bd.mynbands,
+                                 gd.comm.size * blocks_min,
                                  max(1, (224 * 224 * 224) * gd.comm.size
                                      / np.prod(gd.N_c)))
 
