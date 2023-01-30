@@ -15,7 +15,6 @@ from gpaw.external import create_external_potential
 from gpaw.hubbard import hubbard
 from gpaw.lfc import LFC
 from gpaw.poisson import PoissonSolver
-from gpaw.xc import XCThread, use_xc_thread
 from gpaw.utilities.linalg import elementwise_multiply_add, \
         multi_elementwise_multiply_add
 from gpaw.spinorbit import soc
@@ -68,7 +67,6 @@ class Hamiltonian:
         self.timer = timer
         self.xc = xc
         self.use_gpu = use_gpu
-        self.use_xc_thread = use_xc_thread
         self.world = world
         self.redistributor = redistributor
 
@@ -642,29 +640,16 @@ class RealSpaceHamiltonian(Hamiltonian):
         if self.nspins == 2:
             self.vt_sg[1] = vt_g
 
-        if self.use_xc_thread:
-            self.timer.start('XC 3D grid + Poisson')
-            e_g = self.finegd.empty()
-            xc_thread = XCThread(self.xc, self.finegd, dens.nt_sg,
-                                 self.vt_sg, e_g)
-            xc_thread.start()
-        else:
-            self.timer.start('XC 3D grid')
-            e_xc = self.xc.calculate(self.finegd, dens.nt_sg, self.vt_sg)
-            e_xc /= self.finegd.comm.size
-            self.timer.stop('XC 3D grid')
-            self.timer.start('Poisson')
+        self.timer.start('XC 3D grid')
+        e_xc = self.xc.calculate(self.finegd, dens.nt_sg, self.vt_sg)
+        e_xc /= self.finegd.comm.size
+        self.timer.stop('XC 3D grid')
+        self.timer.start('Poisson')
         # npoisson is the number of iterations:
         self.npoisson = self.poisson.solve(self.vHt_g, dens.rhot_g,
                                            charge=-dens.charge,
                                            timer=self.timer)
-        if self.use_xc_thread:
-            xc_thread.join()
-            e_xc = self.finegd.integrate(e_g)
-            e_xc /= self.finegd.comm.size
-            self.timer.stop('XC 3D grid + Poisson')
-        else:
-            self.timer.stop('Poisson')
+        self.timer.stop('Poisson')
 
         self.timer.start('Hartree integrate/restrict')
         e_coulomb = 0.5 * self.finegd.integrate(self.vHt_g, dens.rhot_g,

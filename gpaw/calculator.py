@@ -100,7 +100,6 @@ class GPAW(Calculator):
                         'forces': np.inf},  # eV / Ang
         'gpu': {'cuda': False,
                 'debug': False},
-        'xc_thread': True,
         'verbose': 0,
         'fixdensity': False,  # deprecated
         'dtype': None}  # deprecated
@@ -491,7 +490,7 @@ class GPAW(Calculator):
                 self.wfs.set_eigensolver(None)
 
             if key in ['mixer', 'verbose', 'txt', 'hund', 'random',
-                       'eigensolver', 'idiotproof', 'xc_thread']:
+                       'eigensolver', 'idiotproof']:
                 continue
 
             if key in ['convergence', 'fixdensity', 'maxiter']:
@@ -585,8 +584,6 @@ class GPAW(Calculator):
             self.timer.start('Cuda')
             gpaw.gpu.init(mpi.rank)
             self.timer.stop('Cuda')
-
-        gpaw.xc.use_xc_thread = self.parameters['xc_thread']
 
         if atoms is None:
             atoms = self.atoms

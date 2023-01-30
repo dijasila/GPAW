@@ -4,20 +4,6 @@ from gpaw.xc.gga import GGA
 from gpaw.xc.mgga import MGGA
 from gpaw.xc.noncollinear import NonCollinearLDAKernel
 
-from threading import Thread
-
-use_xc_thread = False
-
-class XCThread(Thread):
-    def __init__(self, xc, *args):
-        Thread.__init__(self, args=args)
-        self.xc = xc
-
-    def run(self):
-        self.xc.calculate_impl(*self._args)
-
-    def join(self):
-        Thread.join(self)
 
 def xc_string_to_dict(string):
     """Convert XC specification string to dictionary.
