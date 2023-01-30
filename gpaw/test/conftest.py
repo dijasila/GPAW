@@ -370,40 +370,51 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
+
+    def _fe(self, **kwargs):    
+
+        atoms = bulk('Fe', 'bcc', a=kwargs["a"])
+        atoms.set_initial_magnetic_moments(magmoms=[kwargs["magmom"]])
+
+        calc = GPAW(xc=kwargs["xc"],
+                    mode=PW(kwargs["pw"]),
+                    nbands=kwargs["nbands"],
+                    kpts={'size': (kwargs["kpts"], kwargs["kpts"], kwargs["kpts"]), 'gamma': True},
+                    convergence=kwargs["conv"],
+                    occupations=FermiDirac(kwargs["occw"]),
+                    txt=self.path / f'{kwargs["name"]}.txt')
+        
+        atoms.calc = calc
+        atoms.get_potential_energy()
+    
+        return atoms.calc
+
     def fe_pw(self):
         xc = 'LDA'
         kpts = 4
-        nbands = 6
+        #nbands = 6
+        nbands = 10
         pw = 300
         occw = 0.01
-        conv = {'bands': nbands,
+        #conv = {'bands': nbands,
+        #        'density': 1.e-8,
+        #        'forces': 1.e-8}
+        conv = {'bands': 6,
                 'density': 1.e-8,
                 'forces': 1.e-8}
+
         a = 2.867
-        mm = 2.21
-        atoms = bulk('Fe', 'bcc', a=a)
-        atoms.set_initial_magnetic_moments([mm])
-        atoms.center()
+        magmom = 2.21
+        name = 'fe_pw'
 
-        atoms.calc = GPAW(
-            xc=xc,
-            mode=PW(pw),
-            kpts={'size': (kpts, kpts, kpts)},
-            nbands=nbands + 4,
-            occupations=FermiDirac(occw),
-            convergence=conv,
-            txt=self.path / 'fe_pw.txt')
+        kwargs = {'a':a, 'magmom':magmom, 'xc':xc, 'kpts':kpts, 'conv':conv, 'occw':occw, 'pw':pw, 'nbands':nbands, 'name':name}
+        calc = self._fe(**kwargs)
 
-        atoms.get_potential_energy()
+        return calc
 
-        return atoms.calc
-
-    def fe2_pw(self):
+    def fe_cheap_pw(self):
         a = 2.867
         magmom = 3.75
-        atoms = bulk('Fe', 'bcc', a=a)
-        atoms.set_initial_magnetic_moments([magmom])
-
         xc = 'LDA'
         kpts = 2
         occw = 0.01
@@ -411,19 +422,12 @@ class GPWFiles:
         pw = 200
         conv = {'density': 1e-3,
                 'forces': 1e-2}
-    
-        calc = GPAW(xc=xc,
-                    mode=PW(pw),
-                    kpts={'size': (kpts, kpts, kpts), 'gamma': True},
-                    occupations=FermiDirac(occw),
-                    convergence=conv,
-                    nbands=nbands)
+        name = 'fe_cheap_pw'
+        kwargs = {'a':a, 'magmom':magmom, 'xc':xc, 'kpts':kpts, 'conv':conv, 'occw':occw, 'pw':pw, 'nbands':nbands, 'name':name}
 
-
-        atoms.calc = calc
-        atoms.get_potential_energy()
+        calc = self._fe(**kwargs)
         
-        return atoms.calc
+        return calc
 
 
 class GPAWPlugin:

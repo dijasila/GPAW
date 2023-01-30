@@ -5,7 +5,7 @@ from gpaw.response.berryology import get_hall_conductivity
 @pytest.mark.response
 def test_fe_bcc(in_tmp_dir, gpw_files):
 
-    calc_file = gpw_files['fe2_pw_wfs']
+    calc_file = gpw_files['fe_cheap_pw_wfs']
 
     # ----------- Check results with default parameters. ------- #
     test_sigma_xy_def, test_sigma_yz_def, test_sigma_zx_def \
