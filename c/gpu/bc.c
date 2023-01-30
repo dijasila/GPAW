@@ -64,13 +64,13 @@ void bc_init_buffers_gpu()
     bc_init_count = 0;
 }
 
-static void _allocate_buffer_host(void *buffer, const int size) {
+static void _reallocate_buffer_host(void *buffer, const int size) {
     gpuFreeHost(buffer);
     gpuCheckLastError();
     gpuHostAlloc(&buffer, sizeof(double) * size);
 }
 
-static void _allocate_buffer_device(void *buffer, const int size) {
+static void _reallocate_buffer_device(void *buffer, const int size) {
     gpuFree(buffer);
     gpuCheckLastError();
     gpuMalloc(&buffer, sizeof(double) * size);
@@ -106,18 +106,18 @@ static void _allocate_buffers(const boundary_conditions* bc, int blocks)
     bc_sbuffs_max=MAX(nsends, bc_sbuffs_max);
     if (bc_sbuffs_max > bc_sbuffs_size) {
 #ifdef GPAW_NO_GPU_MPI
-        _allocate_buffer_host(bc_sbuffs, bc_sbuffs_max);
+        _reallocate_buffer_host(bc_sbuffs, bc_sbuffs_max);
 #endif
-        _allocate_buffer_device(bc_sbuffs_gpu, bc_sbuffs_max);
+        _reallocate_buffer_device(bc_sbuffs_gpu, bc_sbuffs_max);
         bc_sbuffs_size = bc_sbuffs_max;
     }
 
     bc_rbuffs_max=MAX(nrecvs, bc_rbuffs_max);
     if (bc_rbuffs_max > bc_rbuffs_size) {
 #ifdef GPAW_NO_GPU_MPI
-        _allocate_buffer_host(bc_rbuffs, bc_rbuffs_max);
+        _reallocate_buffer_host(bc_rbuffs, bc_rbuffs_max);
 #endif
-        _allocate_buffer_device(bc_rbuffs_gpu, bc_rbuffs_max);
+        _reallocate_buffer_device(bc_rbuffs_gpu, bc_rbuffs_max);
         bc_rbuffs_size = bc_rbuffs_max;
     }
 #ifdef GPAW_NO_GPU_MPI
