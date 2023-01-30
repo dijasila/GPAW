@@ -26,22 +26,16 @@ def multi_axpy(a, x, y):
     else:
         if gpu.is_device_array(x):
             if gpu.is_device_array(a):
-                _gpaw.multi_axpy_gpu(gpu.array.get_pointer(a),
-                                     a.dtype,
-                                     gpu.array.get_pointer(x),
-                                     x.shape,
-                                     gpu.array.get_pointer(y),
-                                     y.shape,
-                                     x.dtype)
+                a_gpu = a
             else:
                 a_gpu = gpu.copy_to_device(a)
-                _gpaw.multi_axpy_gpu(gpu.array.get_pointer(a_gpu),
-                                     a.dtype,
-                                     gpu.array.get_pointer(x),
-                                     x.shape,
-                                     gpu.array.get_pointer(y),
-                                     y.shape,
-                                     x.dtype)
+            _gpaw.multi_axpy_gpu(gpu.array.get_pointer(a_gpu),
+                                 a.dtype,
+                                 gpu.array.get_pointer(x),
+                                 x.shape,
+                                 gpu.array.get_pointer(y),
+                                 y.shape,
+                                 x.dtype)
         else:
             multi_axpy_cpu(a, x, y)
 
@@ -124,17 +118,13 @@ def multi_scal(a, x):
     else:
         if gpu.is_device_array(x):
             if gpu.is_device_array(a):
-                _gpaw.multi_scal_gpu(gpu.array.get_pointer(a),
-                                     a.dtype,
-                                     gpu.array.get_pointer(x),
-                                     x.shape,
-                                     x.dtype)
+                a_gpu = a
             else:
                 a_gpu = gpu.copy_to_device(a)
-                _gpaw.multi_scal_gpu(gpu.array.get_pointer(a_gpu),
-                                     a.dtype,
-                                     gpu.array.get_pointer(x),
-                                     x.shape,
-                                     x.dtype)
+            _gpaw.multi_scal_gpu(gpu.array.get_pointer(a_gpu),
+                                 a.dtype,
+                                 gpu.array.get_pointer(x),
+                                 x.shape,
+                                 x.dtype)
         else:
             multi_scal_cpu(a, x)

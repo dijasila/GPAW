@@ -91,19 +91,14 @@ def multi_ax2py(a, x, y):
     else:
         if gpu.is_device_array(x):
             if gpu.is_device_array(a):
-                _gpaw.multi_ax2py_gpu(gpu.array.get_pointer(a),
-                                      gpu.array.get_pointer(x),
-                                      x.shape,
-                                      gpu.array.get_pointer(y),
-                                      y.shape,
-                                      x.dtype)
+                a_gpu = a
             else:
                 a_gpu = gpu.copy_to_device(a)
-                _gpaw.multi_ax2py_gpu(gpu.array.get_pointer(a_gpu),
-                                      gpu.array.get_pointer(x),
-                                      x.shape,
-                                      gpu.array.get_pointer(y),
-                                      y.shape,
-                                      x.dtype)
+            _gpaw.multi_ax2py_gpu(gpu.array.get_pointer(a_gpu),
+                                  gpu.array.get_pointer(x),
+                                  x.shape,
+                                  gpu.array.get_pointer(y),
+                                  y.shape,
+                                  x.dtype)
         else:
             multi_ax2py_cpu(a, x, y)
