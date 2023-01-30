@@ -106,6 +106,9 @@ def gpw_files(request, tmp_path_factory):
 
     * Bulk Fe, LDA, 4x4x4 k-points, 6 converged bands: ``fe_pw``
 
+    * Bulk Ag, LDA, 2x2x2 k-points, 6 converged bands,
+      2eV U on d-band: ``ag_pw``
+
     Files with wave functions are also available (add ``_wfs`` to the names).
     """
     path = os.environ.get('GPW_TEST_FILES')
@@ -408,6 +411,35 @@ class GPWFiles:
             txt=self.path / 'fe_pw.txt')
 
         atoms.get_potential_energy()
+
+        return atoms.calc
+
+    def ag_plusU_pw(self):
+        xc = 'LDA'
+        kpts = 2
+        nbands = 6
+        pw = 300
+        occw = 0.01
+        conv = {'bands': nbands,
+                'density': 1.e-8,
+                'forces': 1.e-8}
+        a = 4.07
+        atoms = bulk('Ag', 'bcc', a=a)
+        atoms.center()
+
+        atoms.calc = GPAW(
+            xc=xc,
+            mode=PW(pw),
+            kpts={'size': (kpts, kpts, kpts)},
+            setups={'Ag': '11:d,2.0,0'},
+            nbands=nbands + 4,
+            occupations=FermiDirac(occw),
+            convergence=conv,
+            txt=self.path / 'ag_pw.txt')
+
+        atoms.get_potential_energy()
+
+        atoms.calc.diagonalize_full_hamiltonian()
 
         return atoms.calc
 
