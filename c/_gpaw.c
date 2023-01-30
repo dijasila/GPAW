@@ -7,7 +7,7 @@
 #define PY_ARRAY_UNIQUE_SYMBOL GPAW_ARRAY_API
 #include <numpy/arrayobject.h>
 
-#ifdef CUDA_MPI
+#ifndef GPAW_NO_GPU_MPI
 #include "gpu/gpu.h"
 #endif
 
