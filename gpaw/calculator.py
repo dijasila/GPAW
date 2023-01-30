@@ -691,7 +691,8 @@ class GPAW(Calculator):
             if self.wfs:
                 self.wfs.set_use_gpu(False)
             self.use_gpu = False
-            print('Cuda disabled: Hybrid, MGGA and SIC functionals not implemented.')
+            warnings.warn('GPU disabled. Hybrid, MGGA and SIC functionals '
+                          'are not implemented yet.')
 
         self.create_symmetry(magmom_av, cell_cv, reading)
 
