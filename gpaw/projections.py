@@ -180,4 +180,5 @@ class Projections:
         for a, ni in enumerate(self.nproj_a):
             I2 = I1 + ni
             P_ani[a] = P_nI[n1:n2, I1:I2]
+            I1 = I2
         return P_ani

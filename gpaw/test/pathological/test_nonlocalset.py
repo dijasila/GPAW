@@ -21,7 +21,7 @@ from gpaw.test import equal
 def test_pathological_nonlocalset():
     atoms = Atoms('HF', positions=[(0.0, 0.0, 0.0), (1.0, 0.0, 0.0)])
     atoms.set_pbc((True, True, True))
-    atoms.set_cell((2.0, 2.0, 2.0))
+    atoms.set_cell((2.01, 2.01, 2.01))  # make sure we get 12 gpts and not 8
 
     def MGGA_fail():
         calc = GPAW(xc='TPSS',
