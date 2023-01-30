@@ -581,9 +581,9 @@ class GPAW(Calculator):
 
         if self.use_gpu:
             print('Note: only RMM-DIIS and FD have been implemented in CUDA')
-            self.timer.start('Cuda')
+            self.timer.start('GPU init')
             gpaw.gpu.init(mpi.rank)
-            self.timer.stop('Cuda')
+            self.timer.stop('GPU init')
 
         if atoms is None:
             atoms = self.atoms
