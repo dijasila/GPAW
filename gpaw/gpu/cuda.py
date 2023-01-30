@@ -14,7 +14,6 @@ class CUDA(BaseBackend):
         from gpaw.gpu.arrays import CuPyArrayInterface
         self._cuda = cuda
         self.array = CuPyArrayInterface()
-        _gpaw.set_gpaw_gpu_debug(self.debug)
 
     def init(self, rank=0):
         if self.device_ctx is not None:

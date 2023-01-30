@@ -12,23 +12,9 @@
 #include "bmgs.h"
 #include "gpu.h"
 
-extern int gpaw_gpu_debug;
-
 static double *transformer_buf_gpu = NULL;
 static int transformer_buf_size = 0;
 static int transformer_init_count = 0;
-
-static int debug_size_in = 0;
-static int debug_size_out = 0;
-static int debug_size_buf = 0;
-static int debug_size_buf_out = 0;
-static double *debug_sendbuf;
-static double *debug_recvbuf;
-static double *debug_buf_cpu;
-static double *debug_buf_out;
-static double *debug_out_cpu;
-static double *debug_out_gpu;
-static double *debug_in_cpu;
 
 /*
  * Increment reference count to register a new tranformer object.
@@ -85,146 +71,6 @@ void transformer_dealloc_gpu(int force)
     }
     if (transformer_init_count > 0)
         transformer_init_count--;
-}
-
-/*
- * Allocate debug buffers and precalculate sizes.
- */
-void debug_transformer_allocate(TransformerObject* self, int nin, int blocks)
-{
-    boundary_conditions* bc = self->bc;
-    const int *size1 = bc->size1;
-    const int *size2 = bc->size2;
-    int ng = bc->ndouble * size1[0] * size1[1] * size1[2];
-    int ng2 = bc->ndouble * size2[0] * size2[1] * size2[2];
-    int out_ng = bc->ndouble * self->size_out[0] * self->size_out[1]
-               * self->size_out[2];
-
-    debug_size_in = ng * nin;
-    debug_size_out = out_ng * nin;
-    debug_size_buf = ng2 * blocks;
-    debug_size_buf_out = MAX(out_ng, ng2) * blocks;
-
-    debug_sendbuf = GPAW_MALLOC(double, bc->maxsend * blocks * bc->ndouble);
-    debug_recvbuf = GPAW_MALLOC(double, bc->maxrecv * blocks * bc->ndouble);
-    debug_buf_cpu = GPAW_MALLOC(double, debug_size_buf);
-    debug_buf_out = GPAW_MALLOC(double, debug_size_buf_out);
-    debug_out_cpu = GPAW_MALLOC(double, debug_size_out);
-    debug_out_gpu = GPAW_MALLOC(double, debug_size_out);
-    debug_in_cpu = GPAW_MALLOC(double, debug_size_in);
-}
-
-/*
- * Deallocate debug buffers and set sizes to zero.
- */
-void debug_transformer_deallocate()
-{
-    free(debug_sendbuf);
-    free(debug_recvbuf);
-    free(debug_buf_cpu);
-    free(debug_buf_out);
-    free(debug_out_cpu);
-    free(debug_out_gpu);
-    free(debug_in_cpu);
-    debug_size_in = 0;
-    debug_size_out = 0;
-    debug_size_buf = 0;
-    debug_size_buf_out = 0;
-}
-
-/*
- * Copy initial GPU arrays to debug buffers on the CPU.
- */
-void debug_transformer_memcpy_pre(const double *in, double *out)
-{
-    gpuMemcpy(debug_in_cpu, in, sizeof(double) * debug_size_in,
-              gpuMemcpyDeviceToHost);
-    gpuMemcpy(debug_out_cpu, out, sizeof(double) * debug_size_out,
-              gpuMemcpyDeviceToHost);
-}
-
-/*
- * Copy final GPU arrays to debug buffers on the CPU.
- */
-void debug_transformer_memcpy_post(double *out)
-{
-    gpuMemcpy(debug_out_gpu, out, sizeof(double) * debug_size_out,
-              gpuMemcpyDeviceToHost);
-}
-
-/*
- * Run the interpolate and restrict algorithm (see transapply_worker()
- * in ../transformers.c) on the CPU and compare to results from the GPU.
- */
-void debug_transformer_apply(TransformerObject* self,
-                             int nin, int blocks, bool real,
-                             const double_complex *ph)
-{
-    MPI_Request recvreq[2];
-    MPI_Request sendreq[2];
-    int i;
-
-    boundary_conditions* bc = self->bc;
-    const int *size1 = bc->size1;
-    const int *size2 = bc->size2;
-    int ng = bc->ndouble * size1[0] * size1[1] * size1[2];
-    int ng2 = bc->ndouble * size2[0] * size2[1] * size2[2];
-    int out_ng = bc->ndouble * self->size_out[0] * self->size_out[1]
-               * self->size_out[2];
-    int rank = 0;
-    if (bc->comm != MPI_COMM_NULL)
-        MPI_Comm_rank(bc->comm, &rank);
-
-    for (int n=0; n < nin; n += blocks) {
-        const double *in = debug_in_cpu + n * ng;
-        int myblocks = MIN(blocks, nin - n);
-        for (int i=0; i < 3; i++) {
-            bc_unpack1(bc, in, debug_buf_cpu, i, recvreq, sendreq,
-                       debug_recvbuf, debug_sendbuf, ph + 2 * i, 0, myblocks);
-            bc_unpack2(bc, debug_buf_cpu, i, recvreq, sendreq,
-                       debug_recvbuf, myblocks);
-        }
-        for (int m=0; m < myblocks; m++) {
-            if (real) {
-                if (self->interpolate)
-                    bmgs_interpolate(self->k, self->skip,
-                                     debug_buf_cpu + m * ng2,
-                                     bc->size2, debug_out_cpu + m * out_ng,
-                                     debug_buf_out + m * MAX(out_ng, ng2));
-                else
-                    bmgs_restrict(self->k, debug_buf_cpu + m * ng2,
-                                  bc->size2, debug_out_cpu + m * out_ng,
-                                  debug_buf_out + m * MAX(out_ng, ng2));
-            } else {
-                if (self->interpolate)
-                    bmgs_interpolatez(
-                            self->k, self->skip,
-                            (double_complex*) (debug_buf_cpu + m * ng2),
-                            bc->size2,
-                            (double_complex*) (debug_out_cpu + m * out_ng),
-                            (double_complex*) (debug_buf_out
-                                               + m * MAX(out_ng, ng2)));
-                else
-                    bmgs_restrictz(
-                            self->k,
-                            (double_complex*) (debug_buf_cpu + m * ng2),
-                            bc->size2,
-                            (double_complex*) (debug_out_cpu + m * out_ng),
-                            (double_complex*) (debug_buf_out
-                                               + m * MAX(out_ng, ng2)));
-            }
-        }
-    }
-
-    double out_err = 0;
-    for (i=0; i < debug_size_out; i++) {
-        out_err = MAX(out_err, fabs(debug_out_cpu[i] - debug_out_gpu[i]));
-    }
-    if (out_err > GPU_ERROR_ABS_TOL) {
-        fprintf(stderr,
-                "[%d] Debug GPU transformer apply (out): error %g\n",
-                rank, out_err);
-    }
 }
 
 /*
@@ -331,19 +177,7 @@ PyObject* Transformer_apply_gpu(TransformerObject *self, PyObject *args)
     int blocks = MAX(1, MIN(nin, MIN((GPU_BLOCKS_MIN) * mpi_size,
                                      (GPU_BLOCKS_MAX) / bc->ndouble)));
 
-    if (gpaw_gpu_debug) {
-        debug_transformer_allocate(self, nin, blocks);
-        debug_transformer_memcpy_pre(in, out);
-    }
-
     _transformer_apply_gpu(self, in, out, nin, blocks, real, ph);
-
-    if (gpaw_gpu_debug) {
-        gpuDeviceSynchronize();
-        debug_transformer_memcpy_post(out);
-        debug_transformer_apply(self, nin, blocks, real, ph);
-        debug_transformer_deallocate();
-    }
 
     if (PyErr_Occurred())
         return NULL;

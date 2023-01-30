@@ -169,7 +169,6 @@ PyObject* calculate_forces_H2O(PyObject *self, PyObject *args);
 #ifdef GPAW_GPU
 PyObject* gpaw_gpu_init(PyObject *self, PyObject *args);
 PyObject* gpaw_gpu_delete(PyObject *self, PyObject *args);
-PyObject* set_gpaw_gpu_debug(PyObject *self, PyObject *args);
 PyObject* csign_gpu(PyObject *self, PyObject *args);
 PyObject* scal_gpu(PyObject *self, PyObject *args);
 PyObject* multi_scal_gpu(PyObject *self, PyObject *args);
@@ -326,7 +325,6 @@ static PyMethodDef functions[] = {
 #ifdef GPAW_GPU
     {"gpaw_gpu_init", gpaw_gpu_init, METH_VARARGS, 0},
     {"gpaw_gpu_delete", gpaw_gpu_delete, METH_VARARGS, 0},
-    {"set_gpaw_gpu_debug", set_gpaw_gpu_debug, METH_VARARGS, 0},
     {"csign_gpu", csign_gpu, METH_VARARGS, 0},
     {"scal_gpu", scal_gpu, METH_VARARGS, 0},
     {"multi_scal_gpu", multi_scal_gpu, METH_VARARGS, 0},
