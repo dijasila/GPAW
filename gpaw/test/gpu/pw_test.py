@@ -15,7 +15,8 @@ def test_gpu_pw():
     for gpu in [False, True]:
         dft = DFTCalculation.from_parameters(
             atoms,
-            dict(mode={'name': 'pw', 'force_complex_dtype': True},
+            dict(mode={'name': 'pw'},
+                 dtype=complex,
                  parallel={'gpu': gpu},
                  setups='paw'),
             log=None)

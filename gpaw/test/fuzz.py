@@ -199,9 +199,6 @@ def run2(atoms: Atoms,
     if code[0] == 'n':
         calc = NewGPAW(**params)
     else:
-        params['mode'] = {
-            'name': params['mode'],
-            'force_complex_dtype': params.pop('force_complex_dtype')}
         calc = OldGPAW(**params)
 
     atoms.calc = calc
@@ -341,11 +338,12 @@ def create_extra_parameters(codes: list[str],
                     sparams = {**params, 'symmetry': 'off'}
                 else:
                     sparams = params
-                for for_complex_dtype in pick(complex_all):
-                    sparams['force_complex_dtype'] = for_complex_dtype
+                for force_complex_dtype in pick(complex_all):
+                    sparams['dtype'] = (complex if force_complex_dtype
+                                        else float)
                     yield (sparams,
                            (f'-c{code} -n{ncores} -s{int(use_symm)} '
-                            f'-x{int(for_complex_dtype)}'))
+                            f'-x{int(force_complex_dtype)}'))
 
 
 systems = {}
