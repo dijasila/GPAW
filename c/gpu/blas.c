@@ -130,14 +130,6 @@ static void _gemm_gpu(gpublasOperation_t transa_c,
 }
 
 
-void _gemm_gpu_hybrid(char transa, gpublasOperation_t transa_c,
-                      int m, int n, int k,
-                      Py_complex alpha, void *a_gpu, int lda,
-                      void *b_gpu, int ldb, Py_complex beta,
-                      void *c_gpu, int ldc,
-                      int real);
-
-
 PyObject* gemm_gpu(PyObject *self, PyObject *args)
 {
     Py_complex alpha;
@@ -150,11 +142,10 @@ PyObject* gemm_gpu(PyObject *self, PyObject *args)
     PyArray_Descr *type;
 
     int transa = 'n';
-    int hybrid = 0;
 
     if (!PyArg_ParseTuple(args, "DnOnODnOO|Ci", &alpha, &a_gpu, &a_shape,
                           &b_gpu, &b_shape, &beta, &c_gpu, &c_shape, &type,
-                          &transa, &hybrid))
+                          &transa))
         return NULL;
 
     int real = 0;
@@ -184,15 +175,8 @@ PyObject* gemm_gpu(PyObject *self, PyObject *args)
         ldc = m;
     }
 
-    if (hybrid) {
-        _gemm_gpu_hybrid(transa, transa_c, m, n, k,
-                         alpha, a_gpu, lda, b_gpu, ldb, beta,
-                         c_gpu, ldc, real);
-    } else {
-        _gemm_gpu(transa_c, m, n, k,
-                  alpha, a_gpu, lda, b_gpu, ldb, beta,
-                  c_gpu, ldc, real);
-    }
+    _gemm_gpu(transa_c, m, n, k, alpha, a_gpu, lda, b_gpu, ldb, beta,
+              c_gpu, ldc, real);
 
     if (PyErr_Occurred())
         return NULL;
@@ -321,12 +305,6 @@ static void _rk_gpu(int n, int k,
 }
 
 
-void _rk_gpu_hybrid(int n, int k,
-                    double alpha, void *a_gpu, int lda,
-                    double beta, void *c_gpu, int ldc,
-                    int real);
-
-
 PyObject* rk_gpu(PyObject *self, PyObject *args)
 {
     double alpha;
@@ -336,10 +314,9 @@ PyObject* rk_gpu(PyObject *self, PyObject *args)
     void *c_gpu;
     PyObject *a_shape, *c_shape;
     PyArray_Descr *type;
-    int hybrid = 0;
 
     if (!PyArg_ParseTuple(args, "dnOdnOO|i", &alpha, &a_gpu, &a_shape,
-                          &beta, &c_gpu, &c_shape, &type, &hybrid))
+                          &beta, &c_gpu, &c_shape, &type))
         return NULL;
 
     int real = 0;
@@ -354,11 +331,7 @@ PyObject* rk_gpu(PyObject *self, PyObject *args)
     int ldc = n;
     int lda = k;
 
-    if (hybrid) {
-        _rk_gpu_hybrid(n, k, alpha, a_gpu, lda, beta, c_gpu, ldc, real);
-    } else {
-        _rk_gpu(n, k, alpha, a_gpu, lda, beta, c_gpu, ldc, real);
-    }
+    _rk_gpu(n, k, alpha, a_gpu, lda, beta, c_gpu, ldc, real);
 
     if (PyErr_Occurred())
         return NULL;
@@ -391,12 +364,6 @@ static void _r2k_gpu(int n, int k,
 }
 
 
-void _r2k_gpu_hybrid(int n, int k,
-                     Py_complex alpha, void *a_gpu, int lda,
-                     void *b_gpu, double beta,
-                     void *c_gpu, int ldc, int real);
-
-
 PyObject* r2k_gpu(PyObject *self, PyObject *args)
 {
     Py_complex alpha;
@@ -408,11 +375,9 @@ PyObject* r2k_gpu(PyObject *self, PyObject *args)
     PyObject *a_shape, *b_shape, *c_shape;
     PyArray_Descr *type;
 
-    int hybrid = 0;
-
     if (!PyArg_ParseTuple(args, "DnOnOdnOO|i", &alpha, &a_gpu, &a_shape,
                           &b_gpu, &b_shape, &beta, &c_gpu, &c_shape,
-                          &type, &hybrid))
+                          &type))
         return NULL;
 
     int real = 0;
@@ -427,13 +392,7 @@ PyObject* r2k_gpu(PyObject *self, PyObject *args)
     int ldc = n;
     int lda = k;
 
-    if (hybrid) {
-        _r2k_gpu_hybrid(n, k, alpha, a_gpu, lda, b_gpu, beta,
-                        c_gpu, ldc, real);
-    } else {
-        _r2k_gpu(n, k, alpha, a_gpu, lda, b_gpu, beta,
-                 c_gpu, ldc, real);
-    }
+    _r2k_gpu(n, k, alpha, a_gpu, lda, b_gpu, beta, c_gpu, ldc, real);
 
     if (PyErr_Occurred())
         return NULL;

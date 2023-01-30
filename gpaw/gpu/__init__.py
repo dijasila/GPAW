@@ -14,12 +14,10 @@ def setup(**kwargs):
         debug_sync = True
     else:
         debug_sync = False
-    use_hybrid_blas = bool(kwargs.pop('hybrid_blas', False))
 
     args = {
         'debug': debug,
         'debug_sync': debug_sync,
-        'use_hybrid_blas': use_hybrid_blas,
     }
 
     if kwargs.pop('cuda', False):

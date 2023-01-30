@@ -99,7 +99,6 @@ class GPAW(Calculator):
                         'bands': 'occupied',
                         'forces': np.inf},  # eV / Ang
         'gpu': {'cuda': False,
-                'hybrid_blas': True,
                 'debug': False},
         'xc_thread': True,
         'verbose': 0,

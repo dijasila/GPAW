@@ -470,7 +470,7 @@ class MatrixOperator:
                     gpu.memcpy_dtod(work_nG, psit_nG, psit_nG.nbytes)
                     psit_nG = work_nG
                 gemm(1.0, psit_nG, gpu.copy_to_device(C_NN), 0.0,
-                     out_nG, hybrid=True)
+                     out_nG)
             else:
                 work_nG = reshape(self.work1_xG, psit_nG.shape)
                 if out_nG is None:
@@ -479,7 +479,7 @@ class MatrixOperator:
                 elif out_nG is psit_nG:
                     work_nG[:] = psit_nG
                     psit_nG = work_nG
-                gemm(1.0, psit_nG, C_NN, 0.0, out_nG, hybrid=True)
+                gemm(1.0, psit_nG, C_NN, 0.0, out_nG)
             if P_ani:
                 for P_ni in P_ani.values():
                     gemm(1.0, P_ni.copy(), C_NN, 0.0, P_ni)
@@ -536,7 +536,7 @@ class MatrixOperator:
                 # Calculate wave-function contributions from the current slice
                 # of grid data by the current mynbands x mynbands matrix block.
                 C_nn = self.bmd.extract_block(C_NN, (rank + q) % B, rank)
-                gemm(1.0, sbuf_ng, C_nn, beta, psit_nG[:, G1:G2], hybrid=True)
+                gemm(1.0, sbuf_ng, C_nn, beta, psit_nG[:, G1:G2])
 
                 # If we're at the last slice, add contributions to P_ani's.
                 if cycle_P_ani:

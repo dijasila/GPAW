@@ -36,14 +36,6 @@ class BaseBackend:
     def debug_sync(self, x):
         parameters.debug_sync = bool(x)
 
-    @property
-    def use_hybrid_blas(self):
-        return parameters.use_hybrid_blas
-
-    @use_hybrid_blas.setter
-    def use_hybrid_blas(self, x):
-        parameters.use_hybrid_blas = bool(x)
-
     def init(self, rank=0):
         pass
 

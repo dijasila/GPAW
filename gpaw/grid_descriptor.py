@@ -333,13 +333,11 @@ class GridDescriptor(Domain):
         if gpu.is_device_array(a_xg):
             result_gpu = gpu.copy_to_device(result_yx)
             if a_xg is b_yg:
-                rk(self.dv, A_xg, 0.0, result_gpu, hybrid=gpu.use_hybrid_blas)
+                rk(self.dv, A_xg, 0.0, result_gpu)
             elif hermitian:
-                r2k(0.5 * self.dv, A_xg, B_yg, 0.0, result_gpu,
-                    hybrid=gpu.use_hybrid_blas)
+                r2k(0.5 * self.dv, A_xg, B_yg, 0.0, result_gpu)
             else:
-                gemm(self.dv, A_xg, B_yg, 0.0, result_gpu, 'c',
-                     hybrid=gpu.use_hybrid_blas)
+                gemm(self.dv, A_xg, B_yg, 0.0, result_gpu, 'c')
             gpu.copy_to_host(result_gpu, result_yx)
         else:
             if a_xg is b_yg:

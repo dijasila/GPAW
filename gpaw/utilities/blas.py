@@ -130,7 +130,7 @@ def scal(alpha, x):
         _gpaw.scal(alpha, x)
 
 
-def gemm(alpha, a, b, beta, c, transa='n', use_gpu=False, hybrid=False):
+def gemm(alpha, a, b, beta, c, transa='n', use_gpu=False):
     """General Matrix Multiply.
 
     Performs the operation::
@@ -198,7 +198,7 @@ def gemm(alpha, a, b, beta, c, transa='n', use_gpu=False, hybrid=False):
         _gpaw.gemm_gpu(alpha, gpu.array.get_pointer(a_gpu), a_gpu.shape,
                        gpu.array.get_pointer(b_gpu), b_gpu.shape, beta,
                        gpu.array.get_pointer(c_gpu), c_gpu.shape,
-                       a_gpu.dtype, transa, hybrid)
+                       a_gpu.dtype, transa)
         if gpu.debug:
             gpu.debug_test(c_debug, c_gpu, "gemm")
         if c_cpu is not None:
@@ -341,7 +341,7 @@ def axpy(alpha, x, y, use_gpu=None):
             gpu.copy_to_device(y_cpu, y_gpu)
 
 
-def rk(alpha, a, beta, c, trans='c', use_gpu=None, hybrid=False):
+def rk(alpha, a, beta, c, trans='c', use_gpu=None):
     """Rank-k update of a matrix.
 
     Performs the operation::
@@ -391,7 +391,7 @@ def rk(alpha, a, beta, c, trans='c', use_gpu=None, hybrid=False):
             _gpaw.rk(alpha, a_debug, beta, c_debug, trans)
         _gpaw.rk_gpu(alpha, gpu.array.get_pointer(a_gpu), a_gpu.shape,
                      beta, gpu.array.get_pointer(c_gpu), c_gpu.shape,
-                     a_gpu.dtype, hybrid)
+                     a_gpu.dtype)
         if gpu.debug:
             gpu.debug_test(c_debug, c_gpu, "rk")
         if c_cpu is not None:
@@ -406,7 +406,7 @@ def rk(alpha, a, beta, c, trans='c', use_gpu=None, hybrid=False):
             gpu.copy_to_device(c_cpu, c_gpu)
 
 
-def r2k(alpha, a, b, beta, c, use_gpu=None, hybrid=False):
+def r2k(alpha, a, b, beta, c, use_gpu=None):
     """Rank-2k update of a matrix.
 
     Performs the operation::
@@ -462,7 +462,7 @@ def r2k(alpha, a, b, beta, c, use_gpu=None, hybrid=False):
         _gpaw.r2k_gpu(alpha, gpu.array.get_pointer(a_gpu), a_gpu.shape,
                       gpu.array.get_pointer(b_gpu), b_gpu.shape, beta,
                       gpu.array.get_pointer(c_gpu), c_gpu.shape,
-                      a_gpu.dtype, hybrid)
+                      a_gpu.dtype)
         if gpu.debug:
             gpu.debug_test(c_debug, c_gpu, "rk2")
         if c_cpu is not None:
