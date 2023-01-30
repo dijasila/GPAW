@@ -7,7 +7,6 @@ from gpaw.utilities.blas import axpy
 from gpaw.utilities.blas import dotc
 from gpaw.utilities.blas import dotu
 from gpaw.utilities.blas import scal
-from gpaw import debug
 from gpaw import gpu
 
 
@@ -26,15 +25,6 @@ def multi_axpy(a, x, y):
         axpy(a, x, y)
     else:
         if gpu.is_device_array(x):
-            if gpu.debug:
-                y_cpu = gpu.copy_to_host(y)
-                if gpu.is_device_array(a):
-                    multi_axpy_cpu(gpu.copy_to_host(a),
-                                   gpu.copy_to_host(x),
-                                   y_cpu)
-                else:
-                    multi_axpy_cpu(a, gpu.copy_to_host(x), y_cpu)
-
             if gpu.is_device_array(a):
                 _gpaw.multi_axpy_gpu(gpu.array.get_pointer(a),
                                      a.dtype,
@@ -52,8 +42,6 @@ def multi_axpy(a, x, y):
                                      gpu.array.get_pointer(y),
                                      y.shape,
                                      x.dtype)
-                if gpu.debug:
-                    gpu.debug_test(y, y_cpu, "multi_axpy", raise_error=True)
         else:
             multi_axpy_cpu(a, x, y)
 
@@ -82,10 +70,6 @@ def multi_dotc(x, y, s=None):
                              gpu.array.get_pointer(y),
                              x.dtype,
                              gpu.array.get_pointer(s_gpu))
-        if gpu.debug:
-            s_cpu = np.empty(x.shape[0], dtype=x.dtype)
-            multi_dotc_cpu(gpu.copy_to_host(x), gpu.copy_to_host(y), s_cpu)
-            gpu.debug_test(s_gpu, s_cpu, "multi_dotc")
         if gpu.is_host_array(s):
             s = gpu.copy_to_host(s_gpu, s)
     else:
@@ -118,10 +102,6 @@ def multi_dotu(x, y, s=None):
                              gpu.array.get_pointer(y),
                              x.dtype,
                              gpu.array.get_pointer(s_gpu))
-        if gpu.debug:
-            s_cpu = np.empty(x.shape[0], dtype=x.dtype)
-            multi_dotu_cpu(gpu.copy_to_host(x), gpu.copy_to_host(y), s_cpu)
-            gpu.debug_test(s_gpu, s_cpu, "multi_dotu")
         if gpu.is_host_array(s):
             s = gpu.copy_to_host(s_gpu, s)
     else:
@@ -143,12 +123,6 @@ def multi_scal(a, x):
         scal(a, x)
     else:
         if gpu.is_device_array(x):
-            if gpu.debug:
-                x_cpu = gpu.copy_to_host(x)
-                if gpu.is_device_array(a):
-                    multi_scal_cpu(gpu.copy_to_host(a), x_cpu)
-                else:
-                    multi_scal_cpu(a, x_cpu)
             if gpu.is_device_array(a):
                 _gpaw.multi_scal_gpu(gpu.array.get_pointer(a),
                                      a.dtype,
@@ -162,7 +136,5 @@ def multi_scal(a, x):
                                      gpu.array.get_pointer(x),
                                      x.shape,
                                      x.dtype)
-            if gpu.debug:
-                gpu.debug_test(x, x_cpu, "multi_scal")
         else:
             multi_scal_cpu(a, x)

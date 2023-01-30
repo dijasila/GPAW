@@ -99,15 +99,9 @@ class FDOperator:
             if gpu.is_host_array(out_xg):
                 _out = out_xg
                 out_xg = gpu.copy_to_device(out_xg)
-            if gpu.debug:
-                in_debug = gpu.copy_to_host(in_xg)
-                out_debug = gpu.copy_to_host(out_xg)
-                self.operator.apply(in_debug, out_debug, phase_cd)
             self.operator.apply_gpu(gpu.array.get_pointer(in_xg),
                                     gpu.array.get_pointer(out_xg),
                                     in_xg.shape, in_xg.dtype, phase_cd)
-            if gpu.debug:
-                gpu.debug_test(out_debug, out_xg, "fd_operator")
             if _out:
                 gpu.copy_to_host(out_xg, _out)
         else:
@@ -125,16 +119,10 @@ class FDOperator:
             if gpu.is_host_array(f_g):
                 _func = f_g
                 f_g = gpu.copy_to_device(_func)
-            if gpu.debug:
-                f_debug = gpu.copy_to_host(f_g)
-                s_debug = gpu.copy_to_host(s_g)
-                self.operator.relax(relax_method, f_debug, s_debug, n, w)
             self.operator.relax_gpu(relax_method,
                                     gpu.array.get_pointer(f_g),
                                     gpu.array.get_pointer(s_g),
                                     n, w)
-            if gpu.debug:
-                gpu.debug_test(f_debug, f_g, "relax")
             if _func:
                 gpu.copy_to_host(f_g, _func)
         else:

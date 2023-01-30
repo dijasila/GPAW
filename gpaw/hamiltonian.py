@@ -232,9 +232,6 @@ class Hamiltonian:
             with self.timer('Initialize Hamiltonian'):
                 self.initialize()
 
-        if gpu.debug and self.use_gpu:
-            gpu.debug_test(self.vt_sG, self.vt_sG_gpu, "Hamiltonian vt_sG")
-
         finegrid_energies = self.update_pseudo_potential(density)
         coarsegrid_e_kinetic = self.calculate_kinetic_energy(density)
 
@@ -463,8 +460,6 @@ class Hamiltonian:
             When False, existing P_ani are used
 
         """
-        if gpu.debug and self.use_gpu:
-            gpu.debug_test(self.vt_sG, self.vt_sG_gpu, "Hamiltonian vt_sG")
 
         wfs.kin.apply(a_xG, b_xG, kpt.phase_cd)
         self.apply_local_potential(a_xG, b_xG, kpt.s)
@@ -644,6 +639,7 @@ class RealSpaceHamiltonian(Hamiltonian):
         e_xc = self.xc.calculate(self.finegd, dens.nt_sg, self.vt_sg)
         e_xc /= self.finegd.comm.size
         self.timer.stop('XC 3D grid')
+
         self.timer.start('Poisson')
         # npoisson is the number of iterations:
         self.npoisson = self.poisson.solve(self.vHt_g, dens.rhot_g,

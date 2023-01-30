@@ -75,68 +75,6 @@ class BaseBackend:
     def synchronize(self):
         pass
 
-    def debug_test(self, x, y, text, reltol=1e-12, abstol=1e-13,
-                   raise_error=False):
-        import warnings
-        import numpy as np
-
-        class DebugGpuError(Exception):
-            pass
-
-        class DebugGpuWarning(UserWarning):
-            pass
-
-        x_type = 'GPU' if self.is_device_array(x) else 'CPU'
-        x_cpu = self.to_host(x)
-
-        y_type = 'GPU' if self.is_device_array(y) else 'CPU'
-        y_cpu = self.to_host(y)
-
-        if not np.allclose(x_cpu, y_cpu, reltol, abstol):
-            diff = abs(y_cpu - x_cpu)
-            error = {
-                'text': text,
-                'y_type': y_type,
-                'x_type': x_type,
-            }
-            if isinstance(diff, (float, complex)):
-                msg = '{text}: {error}: {diff} ({y_type}: {y}  {x_type}: {x})'
-                warnings.warn(msg.format(**error,
-                                         error='error',
-                                         y=y_cpu,
-                                         x=x_cpu,
-                                         diff=diff),
-                              DebugGpuWarning, stacklevel=2)
-            else:
-                msg = ('{text}: {error}: {diff} @ position: {pos}'
-                       ' ({y_type}: {y}  {x_type}: {x})')
-                pos = np.unravel_index(np.argmax(diff - reltol * abs(y_cpu)),
-                                       diff.shape)
-                warnings.warn(msg.format(**error,
-                                         error='max relative error',
-                                         y=y_cpu[pos],
-                                         x=x_cpu[pos],
-                                         diff=abs(y_cpu[pos] - x_cpu[pos]),
-                                         pos=pos),
-                              DebugGpuWarning, stacklevel=2)
-                pos = np.unravel_index(np.argmax(diff), diff.shape)
-                warnings.warn(msg.format(**error,
-                                         error='max absolute error',
-                                         y=y_cpu[pos],
-                                         x=x_cpu[pos],
-                                         diff=abs(y_cpu[pos] - x_cpu[pos]),
-                                         pos=pos),
-                              DebugGpuWarning, stacklevel=2)
-                msg = '{}: error: shape: {}  dtype: {}'
-                warnings.warn(msg.format(text, x_cpu.shape, x_cpu.dtype),
-                              DebugGpuWarning, stacklevel=2)
-
-            if raise_error:
-                raise DebugGpuError
-            return False
-
-        return True
-
 
 class DummyBackend(BaseBackend):
     label = 'dummy'

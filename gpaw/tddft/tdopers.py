@@ -883,10 +883,6 @@ def add_linear_field(wfs, spos_ac, a_nG, b_nG, strength, kpt):
     gd = wfs.gd
 
     if gpu.is_device_array(a_nG):
-        if gpu.debug:
-            a_nG_cpu = gpu.copy_to_host(a_nG)
-            b_nG_cpu = gpu.copy_to_host(b_nG)
-            add_linear_field_sub(a_nG_cpu, b_nG_cpu, gd, strength)
         _gpaw.add_linear_field_gpu(gpu.array.get_pointer(a_nG),
                                    a_nG.shape,
                                    a_nG.dtype,
@@ -895,8 +891,6 @@ def add_linear_field(wfs, spos_ac, a_nG, b_nG, strength, kpt):
                                    gd.beg_c,
                                    gd.h_cv,
                                    strength)
-        if gpu.debug:
-            gpu.debug_test(b_nG, b_nG_cpu, "add_linear_field")
     else:
         add_linear_field_sub(a_nG, b_nG, gd, strength)
 

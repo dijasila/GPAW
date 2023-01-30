@@ -409,16 +409,11 @@ class LocalizedFunctionsCollection(BaseLFC):
             if gpu.is_device_array(a_xG):
                 if self.Mmax > 0 :
                     assert self.use_gpu
-                    if gpu.debug:
-                        a_xG_cpu = gpu.copy_to_host(a_xG)
-                        self.lfc.add(c_xM, a_xG_cpu, q)
                     c_xM_gpu = gpu.copy_to_device(c_xM)
                     self.lfc.add_gpu(gpu.array.get_pointer(c_xM_gpu),
                                      c_xM_gpu.shape,
                                      gpu.array.get_pointer(a_xG),
                                      a_xG.shape, q)
-                    if gpu.debug:
-                        gpu.debug_test(a_xG_cpu, a_xG, "lfc add")
             else:
                 self.lfc.add(c_xM, a_xG, q)
             return
@@ -468,16 +463,11 @@ class LocalizedFunctionsCollection(BaseLFC):
         if gpu.is_device_array(a_xG):
             if self.Mmax > 0:
                 assert self.use_gpu
-                if gpu.debug:
-                    a_xG_cpu = gpu.copy_to_host(a_xG)
-                    self.lfc.add(c_xM, a_xG_cpu, q)
                 c_xM_gpu = gpu.copy_to_device(c_xM)
                 self.lfc.add_gpu(gpu.array.get_pointer(c_xM_gpu),
                                  c_xM_gpu.shape,
                                  gpu.array.get_pointer(a_xG),
                                  a_xG.shape, q)
-                if gpu.debug:
-                    gpu.debug_test(a_xG_cpu, a_xG, "lfc add")
         else:
             self.lfc.add(c_xM, a_xG, q)
 
@@ -592,11 +582,6 @@ class LocalizedFunctionsCollection(BaseLFC):
                                        gpu.array.get_pointer(c_xM_gpu),
                                        c_xM_gpu.shape, q)
                 c_xM = gpu.copy_to_host(c_xM_gpu) * self.gd.dv
-                if gpu.debug:
-                    assert not np.isnan(c_xM).any()
-                    c_xM2 = np.zeros(xshape + (self.Mmax,), dtype)
-                    self.lfc.integrate(gpu.copy_to_host(a_xG), c_xM2, q)
-                    gpu.debug_test(c_xM2, c_xM, "lfc integrate")
             else:
                 c_xM = np.zeros(xshape + (self.Mmax,), dtype)
         else:

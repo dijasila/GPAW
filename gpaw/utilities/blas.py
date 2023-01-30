@@ -120,12 +120,7 @@ def scal(alpha, x):
             assert x.flags.contiguous
 
     if gpu.is_device_array(x):
-        if gpu.debug:
-            x_cpu = gpu.copy_to_host(x)
-            _gpaw.scal(alpha, x_cpu)
         _gpaw.scal_gpu(alpha, gpu.array.get_pointer(x), x.shape, x.dtype)
-        if gpu.debug:
-            gpu.debug_test(x_cpu, x, "scal")
     else:
         _gpaw.scal(alpha, x)
 
@@ -190,17 +185,10 @@ def gemm(alpha, a, b, beta, c, transa='n', use_gpu=False):
             b_gpu = gpu.copy_to_device(b_cpu)
         if c_gpu is None:
             c_gpu = gpu.copy_to_device(c_cpu)
-        if gpu.debug:
-            a_debug = gpu.copy_to_host(a_gpu)
-            b_debug = gpu.copy_to_host(b_gpu)
-            c_debug = gpu.copy_to_host(c_gpu)
-            _gpaw.gemm(alpha, a_debug, b_debug, beta, c_debug, transa)
         _gpaw.gemm_gpu(alpha, gpu.array.get_pointer(a_gpu), a_gpu.shape,
                        gpu.array.get_pointer(b_gpu), b_gpu.shape, beta,
                        gpu.array.get_pointer(c_gpu), c_gpu.shape,
                        a_gpu.dtype, transa)
-        if gpu.debug:
-            gpu.debug_test(c_debug, c_gpu, "gemm")
         if c_cpu is not None:
             gpu.copy_to_host(c_gpu, c_cpu)
     else:
@@ -267,17 +255,10 @@ def gemv(alpha, a, x, beta, y, trans='t', use_gpu=False):
             x_gpu = gpu.copy_to_device(x_cpu)
         if y_gpu is None:
             y_gpu = gpu.copy_to_device(y_cpu)
-        if gpu.debug:
-            a_debug = gpu.copy_to_host(a_gpu)
-            x_debug = gpu.copy_to_host(x_gpu)
-            y_debug = gpu.copy_to_host(y_gpu)
-            _gpaw.gemv(alpha, a_debug, x_debug, beta, y_debug, trans)
         _gpaw.gemv_gpu(alpha, gpu.array.get_pointer(a_gpu), a_gpu.shape,
                        gpu.array.get_pointer(x_gpu), x_gpu.shape, beta,
                        gpu.array.get_pointer(y_gpu), a_gpu.dtype,
                        trans)
-        if gpu.debug:
-            gpu.debug_test(y_debug, y_gpu, "gemv")
         if y_cpu is not None:
             gpu.copy_to_host(y_gpu, y_cpu)
     else:
@@ -320,15 +301,9 @@ def axpy(alpha, x, y, use_gpu=None):
             x_gpu = gpu.copy_to_device(x_cpu)
         if y_gpu is None:
             y_gpu = gpu.copy_to_device(y_cpu)
-        if gpu.debug:
-            x_debug = gpu.copy_to_host(x_gpu)
-            y_debug = gpu.copy_to_host(y_gpu)
-            _gpaw.axpy(alpha, x_debug, y_debug)
         _gpaw.axpy_gpu(alpha, gpu.array.get_pointer(x_gpu), x_gpu.shape,
                        gpu.array.get_pointer(y_gpu), y_gpu.shape,
                        x_gpu.dtype)
-        if gpu.debug:
-            gpu.debug_test(y_debug, y_gpu, "axpy")
         if y_cpu is not None:
             gpu.copy_to_host(y_gpu, y_cpu)
     else:
@@ -385,15 +360,9 @@ def rk(alpha, a, beta, c, trans='c', use_gpu=None):
             a_gpu = gpu.copy_to_device(a_cpu)
         if c_gpu is None:
             c_gpu = gpu.copy_to_device(c_cpu)
-        if gpu.debug:
-            a_debug = gpu.copy_to_host(a_gpu)
-            c_debug = gpu.copy_to_host(c_gpu)
-            _gpaw.rk(alpha, a_debug, beta, c_debug, trans)
         _gpaw.rk_gpu(alpha, gpu.array.get_pointer(a_gpu), a_gpu.shape,
                      beta, gpu.array.get_pointer(c_gpu), c_gpu.shape,
                      a_gpu.dtype)
-        if gpu.debug:
-            gpu.debug_test(c_debug, c_gpu, "rk")
         if c_cpu is not None:
             gpu.copy_to_host(c_gpu, c_cpu)
     else:
@@ -454,17 +423,10 @@ def r2k(alpha, a, b, beta, c, use_gpu=None):
             b_gpu = gpu.copy_to_device(b_cpu)
         if c_gpu is None:
             c_gpu = gpu.copy_to_device(c_cpu)
-        if gpu.debug:
-            a_debug = gpu.copy_to_host(a_gpu)
-            b_debug = gpu.copy_to_host(b_gpu)
-            c_debug = gpu.copy_to_host(c_gpu)
-            _gpaw.r2k(alpha, a_debug, b_debug, beta, c_debug)
         _gpaw.r2k_gpu(alpha, gpu.array.get_pointer(a_gpu), a_gpu.shape,
                       gpu.array.get_pointer(b_gpu), b_gpu.shape, beta,
                       gpu.array.get_pointer(c_gpu), c_gpu.shape,
                       a_gpu.dtype)
-        if gpu.debug:
-            gpu.debug_test(c_debug, c_gpu, "rk2")
         if c_cpu is not None:
             gpu.copy_to_host(c_gpu, c_cpu)
     else:
@@ -507,14 +469,8 @@ def dotc(a, b):
             a_gpu = gpu.copy_to_device(a_cpu)
         if b_gpu is None:
             b_gpu = gpu.copy_to_device(b_cpu)
-        if gpu.debug:
-            a_debug = gpu.copy_to_host(a_gpu)
-            b_debug = gpu.copy_to_host(b_gpu)
-            cpu = _gpaw.dotc(a_debug, b_debug)
         res = _gpaw.dotc_gpu(gpu.array.get_pointer(a_gpu), a.shape,
                              gpu.array.get_pointer(b_gpu), a.dtype)
-        if gpu.debug:
-            gpu.debug_test(cpu, res, "dotc")
         return res
     else:
         if a_cpu is None:
@@ -552,14 +508,8 @@ def dotu(a, b):
             a_gpu = gpu.copy_to_device(a_cpu)
         if b_gpu is None:
             b_gpu = gpu.copy_to_device(b_cpu)
-        if gpu.debug:
-            a_debug = gpu.copy_to_host(a_gpu)
-            b_debug = gpu.copy_to_host(b_gpu)
-            cpu = _gpaw.dotu(a_debug, b_debug)
         res = _gpaw.dotu_gpu(gpu.array.get_pointer(a_gpu), a.shape,
                                   gpu.array.get_pointer(b_gpu), a.dtype)
-        if gpu.debug:
-            gpu.debug_test(cpu, res, "dotu")
         return gpu
     else:
         if a_cpu is None:
