@@ -1,7 +1,6 @@
 from ase.units import Hartree
 import numpy as np
 from gpaw.utilities import pack, unpack
-from gpaw.lfc import LFC
 from gpaw.transformers import Transformer
 from gpaw.poisson import PoissonSolver
 
