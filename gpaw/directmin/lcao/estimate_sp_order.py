@@ -117,7 +117,6 @@ class EstimateSPOrder(object):
         timer.start('ODD XC 3D grid')
         e_xc = self.xc.calculate(self.finegd, nt_sg, vt_sg)
         timer.stop('ODD XC 3D grid')
-        vt_sg[0] *= -self.beta_x
 
         # Hartree
         self.ghat.add(nt_sg[0], Q_aL)
@@ -132,12 +131,11 @@ class EstimateSPOrder(object):
         ec = 0.5 * self.finegd.integrate(nt_sg[0] * vHt_g)
         timer.stop('ODD Hartree integrate')
 
-        vt_sg[0] -= vHt_g * self.beta_c
+        vt_sg[0] -= vHt_g
         vt_G = self.cgd.zeros()
         self.restrictor.apply(vt_sg[0], vt_G)
 
-        return np.array([-ec * self.beta_c,
-                         -e_xc * self.beta_x]), vt_G, vHt_g
+        return np.array([-ec, -e_xc]), vt_G, vHt_g
 
     def get_paw_corrections(self, D_ap, vHt_g, timer):
         # XC-PAW
