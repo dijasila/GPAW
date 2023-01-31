@@ -107,68 +107,34 @@ class EstimateSPOrder(object):
         return nt_G, Q_aL, D_ap
 
     def get_pseudo_pot(self, nt, Q_aL, i, kpoint, timer):
-        if self.sic_coarse_grid is False:
-            # change to fine grid
-            vt_sg = self.finegd.zeros(2)
-            vHt_g = self.finegd.zeros()
-            nt_sg = self.finegd.zeros(2)
-        else:
-            vt_sg = self.cgd.zeros(2)
-            vHt_g = self.cgd.zeros()
-            nt_sg = self.cgd.zeros(2)
+        vt_sg = self.finegd.zeros(2)
+        vHt_g = self.finegd.zeros()
+        nt_sg = self.finegd.zeros(2)
 
-        if self.sic_coarse_grid is False:
-            self.interpolator.apply(nt, nt_sg[0])
-            nt_sg[0] *= self.cgd.integrate(nt) / \
-                        self.finegd.integrate(nt_sg[0])
-        else:
-            nt_sg[0] = nt
+        self.interpolator.apply(nt, nt_sg[0])
+        nt_sg[0] *= self.cgd.integrate(nt) / self.finegd.integrate(nt_sg[0])
 
         timer.start('ODD XC 3D grid')
-        if self.sic_coarse_grid is False:
-            e_xc = self.xc.calculate(self.finegd, nt_sg, vt_sg)
-        else:
-            e_xc = self.xc.calculate(self.cgd, nt_sg, vt_sg)
+        e_xc = self.xc.calculate(self.finegd, nt_sg, vt_sg)
         timer.stop('ODD XC 3D grid')
         vt_sg[0] *= -self.beta_x
 
         # Hartree
-        if self.sic_coarse_grid is False:
-            self.ghat.add(nt_sg[0], Q_aL)
-        else:
-            self.ghat_cg.add(nt_sg[0], Q_aL)
+        self.ghat.add(nt_sg[0], Q_aL)
 
         timer.start('ODD Poisson')
-        if self.store_potentials:
-            if self.sic_coarse_grid:
-                vHt_g = self.old_pot[kpoint][i]
-            else:
-                self.interpolator.apply(self.old_pot[kpoint][i],
-                                        vHt_g)
         self.poiss.solve(vHt_g, nt_sg[0],
-                         zero_initial_phi=self.store_potentials,
+                         zero_initial_phi=False,
                          timer=timer)
-        if self.store_potentials:
-            if self.sic_coarse_grid:
-                self.old_pot[kpoint][i] = vHt_g.copy()
-            else:
-                self.restrictor.apply(vHt_g, self.old_pot[kpoint][i])
-
         timer.stop('ODD Poisson')
 
         timer.start('ODD Hartree integrate')
-        if self.sic_coarse_grid is False:
-            ec = 0.5 * self.finegd.integrate(nt_sg[0] * vHt_g)
-        else:
-            ec = 0.5 * self.cgd.integrate(nt_sg[0] * vHt_g)
-
+        ec = 0.5 * self.finegd.integrate(nt_sg[0] * vHt_g)
         timer.stop('ODD Hartree integrate')
+
         vt_sg[0] -= vHt_g * self.beta_c
-        if self.sic_coarse_grid is False:
-            vt_G = self.cgd.zeros()
-            self.restrictor.apply(vt_sg[0], vt_G)
-        else:
-            vt_G = vt_sg[0]
+        vt_G = self.cgd.zeros()
+        self.restrictor.apply(vt_sg[0], vt_G)
 
         return np.array([-ec * self.beta_c,
                          -e_xc * self.beta_x]), vt_G, vHt_g
