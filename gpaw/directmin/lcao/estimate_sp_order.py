@@ -99,9 +99,6 @@ class EstimateSPOrder(object):
         Q_aL = {}
         for a in wfs.P_aqMi.keys():
             P_Mi = wfs.P_aqMi[a][kpt.q]
-            D_ii = np.zeros((wfs.P_aqMi[a].shape[2],
-                             wfs.P_aqMi[a].shape[2]),
-                            dtype=self.dtype)
             rhoP_Mi = rho_MM @ P_Mi
             D_ii = P_Mi.T.conj() @ rhoP_Mi
             D_ap[a] = D_p = pack(np.real(D_ii))
