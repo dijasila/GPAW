@@ -2,7 +2,6 @@ import pytest
 import numpy as np
 from ase.build import bulk
 from gpaw import GPAW, FermiDirac
-from gpaw.mpi import world
 from gpaw.response.bse import BSE, read_bse_eigenvalues
 from gpaw.response.df import read_response_function
 from gpaw.test import findpeak, equal
