@@ -10,29 +10,13 @@ class EstimateSPOrder(object):
     def __init__(self, wfs, dens, ham, poisson_solver='FPS'):
 
         self.name = 'Estimator'
-        # what we need from wfs
         self.setups = wfs.setups
         self.bfs = wfs.basis_functions
         spos_ac = wfs.spos_ac
         self.cgd = wfs.gd
-
-        # what we need from dens
         self.finegd = dens.finegd
-        self.sic_coarse_grid = sic_coarse_grid
-
-        if self.sic_coarse_grid:
-            self.ghat_cg = LFC(self.cgd,
-                               [setup.ghat_l for setup
-                                in self.setups],
-                               integral=np.sqrt(4 * np.pi),
-                               forces=True)
-            self.ghat_cg.set_positions(spos_ac)
-            self.ghat = None
-        else:
-            self.ghat = dens.ghat  # we usually solve poiss. on finegd
-            self.ghat_cg = None
-
-        # what we need from ham
+        self.ghat = dens.ghat
+        self.ghat_cg = None
         self.xc = ham.xc
 
         if poisson_solver == 'FPS':
@@ -45,34 +29,17 @@ class EstimateSPOrder(object):
                                        use_charge_center=True,
                                        use_charged_periodic_corrections=True)
 
-        if self.sic_coarse_grid is True:
-            self.poiss.set_grid_descriptor(self.cgd)
-        else:
-            self.poiss.set_grid_descriptor(self.finegd)
+        self.poiss.set_grid_descriptor(self.finegd)
 
         self.interpolator = Transformer(self.cgd, self.finegd, 3)
         self.restrictor = Transformer(self.finegd, self.cgd, 3)
-        # self.timer = wfs.timer
         self.dtype = wfs.dtype
         self.eigv_s = {}
         self.lagr_diag_s = {}
         self.e_sic_by_orbitals = {}
         self.counter = 0  # number of calls of this class
-        # Scaling factor:
-        self.beta_c = scaling_factor[0]
-        self.beta_x = scaling_factor[1]
 
         self.n_kps = wfs.kd.nibzkpts
-        self.store_potentials = store_potentials
-        if store_potentials:
-            self.old_pot = {}
-            for kpt in wfs.kpt_u:
-                k = self.n_kps * kpt.s + kpt.q
-                n_occ = 0
-                nbands = len(kpt.f_n)
-                while n_occ < nbands and kpt.f_n[n_occ] > 1e-10:
-                    n_occ += 1
-                self.old_pot[k] = self.cgd.zeros(n_occ, dtype=float)
 
 def get_orbital_potential_matrix(self, f_n, C_nM, kpt,
                                  wfs, setup, m, timer):
