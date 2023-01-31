@@ -68,7 +68,7 @@ def fuse():
 
 class ndarray:
     def __init__(self, data):
-        if isinstance(data, (float, complex, int)):
+        if isinstance(data, (float, complex, int, np.int32, np.int64)):
             data = np.asarray(data)
         assert isinstance(data, np.ndarray), type(data)
         self._data = data
@@ -111,7 +111,7 @@ class ndarray:
         if isinstance(value, ndarray):
             self._data[index] = value._data
         else:
-            assert isinstance(value, float)
+            assert isinstance(value, (float, int, complex))
             self._data[index] = value
 
     def __getitem__(self, index):
@@ -147,6 +147,8 @@ class ndarray:
         return ndarray(self._data**i)
 
     def __add__(self, f):
+        if isinstance(f, (float, int, complex)):
+            return ndarray(f + self._data)
         return ndarray(f._data + self._data)
 
     def __radd__(self, f):
