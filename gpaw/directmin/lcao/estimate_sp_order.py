@@ -32,10 +32,6 @@ class EstimateSPOrder(object):
         self.interpolator = Transformer(self.cgd, self.finegd, 3)
         self.restrictor = Transformer(self.finegd, self.cgd, 3)
         self.dtype = wfs.dtype
-        self.eigv_s = {}
-        self.lagr_diag_s = {}
-        self.e_sic_by_orbitals = {}
-        self.n_kps = wfs.kd.nibzkpts
 
     def get_orbital_potential_matrix(self, f_n, C_nM, kpt,
                                  wfs, setup, m, timer):
