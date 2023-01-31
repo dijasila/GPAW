@@ -102,7 +102,7 @@ performs better than RPA for atomization energies.
 
 First we set up a ground state calculation with lots of unoccupied bands. This is done with the script:
 
-.. literalinclude:: CO.ralda_01_pbe+exx.py
+.. literalinclude:: CO.ralda_01_pbe_exx.py
 
 which takes on the order of 6-7 CPU hours. The script generates three gpw files containing the wavefunctions,
 which are the input to the rAPBE calculation. The PBE and non-selfconsistent Hartree-Fock atomization energies
