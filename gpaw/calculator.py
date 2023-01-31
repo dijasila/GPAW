@@ -576,7 +576,6 @@ class GPAW(Calculator):
         self.use_gpu = gpaw.gpu.enabled
 
         if self.use_gpu:
-            print('Note: only RMM-DIIS and FD have been implemented in CUDA')
             self.timer.start('GPU init')
             gpaw.gpu.init(mpi.rank)
             self.timer.stop('GPU init')
