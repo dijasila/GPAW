@@ -95,7 +95,8 @@ class MatrixOperator:
         mynbands = self.bd.mynbands
         ngroups = self.bd.comm.size
         if self.use_gpu and (self.nblocks > 1 or ngroups > 1):
-            print('Warning: CUDA not implemented for ground state DFT blocking/band parallelization')
+            raise NotImplementedError('GPU support not implemented for ground '
+                                      'state DFT blocking/band parallelization')
 
         G = self.gd.n_c.prod()
 
