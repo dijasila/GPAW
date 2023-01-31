@@ -420,7 +420,7 @@ class GPWFiles:
         nbands = 6
         pw = 300
         occw = 0.01
-        conv = {'bands': nbands + 4,
+        conv = {'bands': nbands,
                 'density': 1e-12}
         a = 4.07
         atoms = bulk('Ag', 'fcc', a=a)
@@ -431,7 +431,7 @@ class GPWFiles:
             mode=PW(pw),
             kpts={'size': (kpts, kpts, kpts), 'gamma': True},
             setups={'Ag': '11:d,2.0,0'},
-            nbands=nbands + 4,
+            nbands=nbands,
             occupations=FermiDirac(occw),
             convergence=conv,
             txt=self.path / 'ag_pw.txt')
