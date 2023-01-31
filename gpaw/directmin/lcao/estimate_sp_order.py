@@ -86,7 +86,6 @@ class EstimateSPOrder(object):
 
     def get_density(self, f_n, C_nM, kpt,
                     wfs, setup, m):
-        # construct orbital density matrix
         if f_n[m] > 1.0 + 1.0e-4:
             occup_factor = f_n[m] / (3.0 - wfs.nspins)
         else:
@@ -96,30 +95,16 @@ class EstimateSPOrder(object):
         nt_G = self.cgd.zeros()
         self.bfs.construct_density(rho_MM, nt_G, kpt.q)
 
-        # calculate  atomic density matrix and
-        # compensation charges
         D_ap = {}
         Q_aL = {}
-
         for a in wfs.P_aqMi.keys():
             P_Mi = wfs.P_aqMi[a][kpt.q]
-            # rhoP_Mi = np.zeros_like(P_Mi)
-            # gemm(1.0, P_Mi, rho_MM, 0.0, rhoP_Mi)
             D_ii = np.zeros((wfs.P_aqMi[a].shape[2],
                              wfs.P_aqMi[a].shape[2]),
                             dtype=self.dtype)
             rhoP_Mi = rho_MM @ P_Mi
-            # if self.dtype is complex:
-            #     gemm(1.0, rhoP_Mi, P_Mi.T.conj().copy(), 0.0, D_ii)
-            # else:
-            #     gemm(1.0, rhoP_Mi, P_Mi.T.copy(), 0.0, D_ii)
             D_ii = P_Mi.T.conj() @ rhoP_Mi
-            # FIXME: What to do with complex part, which are not zero
-            if self.dtype is complex:
-                D_ap[a] = D_p = pack(D_ii.real)
-            else:
-                D_ap[a] = D_p = pack(D_ii)
-
+            D_ap[a] = D_p = pack(np.real(D_ii))
             Q_aL[a] = np.dot(D_p, setup[a].Delta_pL)
 
         return nt_G, Q_aL, D_ap
