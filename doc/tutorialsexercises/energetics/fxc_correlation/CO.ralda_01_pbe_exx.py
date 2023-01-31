@@ -35,7 +35,7 @@ calc = GPAW(mode=PW(600, force_complex_dtype=True),
             xc='PBE',
             mixer=MixerSum(beta=0.1, nmaxold=5, weight=50.0),
             hund=True,
-            occupations=FermiDirac(0.01, fixmagmom=True),
+            occupations=FermiDirac(0.01),  # , fixmagmom=True),
             txt='CO.ralda_01_C_pbe.txt',
             convergence={'density': 1.e-6})
 
