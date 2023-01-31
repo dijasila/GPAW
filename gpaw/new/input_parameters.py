@@ -103,7 +103,7 @@ class InputParameters:
         force_complex_dtype = self.mode.pop('force_complex_dtype', None)
         if force_complex_dtype is not None:
             if warn:
-                self.dtype = complex if force_complex_dtype else float
+                self.dtype = complex if force_complex_dtype else None
                 warnings.warn(
                     'Please use '
                     f'GPAW(dtype={self.dtype}, '
