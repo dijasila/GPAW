@@ -12,6 +12,9 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.23.0b1
 
+* A bug was found (now fixed) in the :ref:`zfs` module.  Please redo
+  calculations done with versions 22.1 and 22.8.
+
 * A bug in the implementation of MGGA functionals was found: :issue:`674`.
   The kinetic-energy density was calculated from the irreducible part of
   the Brillouin zone, but it was not symmetrized as it should be.  This
@@ -28,7 +31,7 @@ Git master branch
   `!1417 <https://gitlab.com/gpaw/gpaw/-/merge_requests/1417>`_.
 
   .. warning::
-  
+
      MGGA calculations using fix_density and/or diagonalize_full_hamiltonian
      should be rerun with these fixes.
 
