@@ -48,8 +48,8 @@ from gpaw.utilities.partition import AtomPartition
 from gpaw.wavefunctions.mode import create_wave_function_mode
 from gpaw.xc import XC
 from gpaw.xc.sic import SIC
-from gpaw.xc.hybrid import HybridXC # needed for disabling CUDA
-from gpaw.xc.mgga import MGGA # needed for disabling CUDA
+from gpaw.xc.hybrid import HybridXC
+from gpaw.xc.mgga import MGGA
 
 import gpaw.gpu
 import gpaw.xc
@@ -686,13 +686,8 @@ class GPAW(Calculator):
 
         if self.use_gpu and (isinstance(xc, HybridXC) or isinstance(xc, MGGA)
                           or isinstance(xc, SIC)):
-            # Make sure wavefunctions etc. are initialized to non-CUDA
-            self.hamiltonian = None
-            if self.wfs:
-                self.wfs.use_gpu = False
-            self.use_gpu = False
-            warnings.warn('GPU disabled. Hybrid, MGGA and SIC functionals '
-                          'are not implemented yet.')
+            raise NotImplementedError('GPU support for HybridXC, MGGA and SIC '
+                                      'functionals is not implemented yet.')
 
         self.create_symmetry(magmom_av, cell_cv, reading)
 
