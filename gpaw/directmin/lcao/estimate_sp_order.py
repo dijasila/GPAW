@@ -12,7 +12,6 @@ class EstimateSPOrder(object):
         self.name = 'Estimator'
         self.setups = wfs.setups
         self.bfs = wfs.basis_functions
-        spos_ac = wfs.spos_ac
         self.cgd = wfs.gd
         self.finegd = dens.finegd
         self.ghat = dens.ghat
@@ -37,8 +36,6 @@ class EstimateSPOrder(object):
         self.eigv_s = {}
         self.lagr_diag_s = {}
         self.e_sic_by_orbitals = {}
-        self.counter = 0  # number of calls of this class
-
         self.n_kps = wfs.kd.nibzkpts
 
 def get_orbital_potential_matrix(self, f_n, C_nM, kpt,
