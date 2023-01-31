@@ -50,6 +50,8 @@ master:
       -e gpaw/test
       -e gpaw/point_groups/groups.py
       gpaw
+  tags:
+    - camd-experimental
 
 
 docker:
