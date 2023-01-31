@@ -303,7 +303,7 @@ class FDPoissonSolver(BasePoissonSolver):
             # Gauss-Seidel
             self.relax_method = 1
             if use_gpu:
-                raise NotImplementedError('Cuda relaxation method %s' % relax)
+                raise NotImplementedError('Relaxation method %s on GPUs' % relax)
         elif relax == 'J':
             # Jacobi
             self.relax_method = 2
