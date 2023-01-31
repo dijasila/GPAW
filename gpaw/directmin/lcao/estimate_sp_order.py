@@ -138,7 +138,6 @@ class EstimateSPOrder(object):
         return np.array([-ec, -e_xc]), vt_G, vHt_g
 
     def get_paw_corrections(self, D_ap, vHt_g, timer):
-        # XC-PAW
         timer.start('xc-PAW')
         dH_ap = {}
         exc = 0.0
@@ -146,40 +145,26 @@ class EstimateSPOrder(object):
             setup = self.setups[a]
             dH_sp = np.zeros((2, len(D_p)))
             D_sp = np.array([D_p, np.zeros_like(D_p)])
-            exc += self.xc.calculate_paw_correction(setup, D_sp,
-                                                    dH_sp,
-                                                    addcoredensity=False,
-                                                    a=a)
-            dH_ap[a] = -dH_sp[0] * self.beta_x
+            exc += self.xc.calculate_paw_correction(
+                setup, D_sp, dH_sp, addcoredensity=False, a=a)
+            dH_ap[a] = -dH_sp[0]
         timer.stop('xc-PAW')
 
-        # Hartree-PAW
         timer.start('Hartree-PAW')
         ec = 0.0
         timer.start('ghat-PAW')
-        if self.sic_coarse_grid is False:
-            W_aL = self.ghat.dict()
-            self.ghat.integrate(vHt_g, W_aL)
-        else:
-            W_aL = self.ghat_cg.dict()
-            self.ghat_cg.integrate(vHt_g, W_aL)
+        W_aL = self.ghat.dict()
+        self.ghat.integrate(vHt_g, W_aL)
         timer.stop('ghat-PAW')
 
         for a, D_p in D_ap.items():
             setup = self.setups[a]
             M_p = np.dot(setup.M_pp, D_p)
             ec += np.dot(D_p, M_p)
-            dH_ap[a] += -(2.0 * M_p + np.dot(setup.Delta_pL,
-                                             W_aL[a])) * self.beta_c
+            dH_ap[a] += -(2.0 * M_p + np.dot(setup.Delta_pL, W_aL[a]))
         timer.stop('Hartree-PAW')
 
-        timer.start('Wait for sum')
-        if self.sic_coarse_grid is False:
-            ec = self.finegd.comm.sum(ec)
-            exc = self.finegd.comm.sum(exc)
-        else:
-            ec = self.cgd.comm.sum(ec)
-            exc = self.cgd.comm.sum(exc)
-        timer.stop('Wait for sum')
+        ec = self.finegd.comm.sum(ec)
+        exc = self.finegd.comm.sum(exc)
 
-        return np.array([-ec * self.beta_c, -exc * self.beta_x]), dH_ap
+        return np.array([-ec, -exc]), dH_ap
