@@ -1,20 +1,15 @@
 from ase.units import Hartree
 import numpy as np
 from gpaw.utilities import pack, unpack
-# from gpaw.utilities.blas import gemm, gemv, gemmdot, mmm
 from gpaw.lfc import LFC
 from gpaw.transformers import Transformer
 from gpaw.poisson import PoissonSolver
-from gpaw.directmin.lcao.tools import D_matrix
-from gpaw.directmin.fdpw.tools import d_matrix
 
 
 class EstimateSPOrder(object):
-    def __init__(self, wfs, dens, ham, scaling_factor=(1.0, 1.0),
-                 sic_coarse_grid=True, store_potentials=False,
-                 poisson_solver='FPS'):
+    def __init__(self, wfs, dens, ham, poisson_solver='FPS'):
 
-        self.name = 'PZ_SIC'
+        self.name = 'Estimator'
         # what we need from wfs
         self.setups = wfs.setups
         self.bfs = wfs.basis_functions
