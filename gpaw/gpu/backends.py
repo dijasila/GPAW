@@ -1,40 +1,17 @@
-from gpaw.gpu import parameters
 from gpaw.gpu.arrays import HostArrayInterface
 
 
 class BaseBackend:
     label = 'base'
+    enabled = False
+    debug = False
+    debug_sync = False
     device_no = None
     device_ctx = None
 
     def __init__(self, **kwargs):
         for key in kwargs:
             setattr(self, key, kwargs[key])
-        self.api = [x for x in dir(self) if not x.startswith('_')]
-
-    @property
-    def enabled(self):
-        return parameters.enabled
-
-    @enabled.setter
-    def enabled(self, x):
-        parameters.enabled = bool(x)
-
-    @property
-    def debug(self):
-        return parameters.debug
-
-    @debug.setter
-    def debug(self, x):
-        parameters.debug = bool(x)
-
-    @property
-    def debug_sync(self):
-        return parameters.debug_sync
-
-    @debug_sync.setter
-    def debug_sync(self, x):
-        parameters.debug_sync = bool(x)
 
     def init(self, rank=0):
         pass
