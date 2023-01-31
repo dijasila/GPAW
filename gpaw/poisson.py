@@ -423,8 +423,6 @@ class FDPoissonSolver(BasePoissonSolver):
             return
         # Should probably be renamed allocate
         gd = self.gd
-        if self.use_gpu and gpu.get_context() == None:
-            self.use_gpu = False
         self.rhos = [gd.empty(use_gpu=self.use_gpu)]
         self.phis = [None]
         self.residuals = [gd.empty(use_gpu=self.use_gpu)]
