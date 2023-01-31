@@ -44,108 +44,42 @@ class EstimateSPOrder(object):
         kpoint = self.n_kps * kpt.s + kpt.q
         n_set = C_nM.shape[1]
         F_MM = np.zeros(shape=(n_set, n_set), dtype=self.dtype)
-        # get orbital-density
         timer.start('Construct Density, Charge, adn DM')
         nt_G, Q_aL, D_ap = self.get_density(f_n, C_nM, kpt, wfs, setup, m)
         timer.stop('Construct Density, Charge, adn DM')
 
-        # calculate sic energy,
-        # sic pseudo-potential and Hartree
         timer.start('Get Pseudo Potential')
         e_sic_m, vt_mG, vHt_g = self.get_pseudo_pot(
             nt_G, Q_aL, m, kpoint, timer)
         timer.stop('Get Pseudo Potential')
 
-        # calculate PAW corrections
         timer.start('PAW')
         e_sic_paw_m, dH_ap = self.get_paw_corrections(D_ap, vHt_g, timer)
         timer.stop('PAW')
 
-        # total sic:
         e_sic_m += e_sic_paw_m
 
-        # now calculate potential matrix F_i
-        # calculate pseudo-part
-        # Vt_MM = \
-        #     self.bfs.calculate_potential_matrices(vt_mG)[0]
-
-        # TODO: sum over cell? see calculate_hamiltonian_matrix in
-        # eigensolver.py
         timer.start('ODD Potential Matrices')
         Vt_MM = np.zeros_like(F_MM)
         self.bfs.calculate_potential_matrix(vt_mG, Vt_MM, kpt.q)
-        # make matrix hermitian
         ind_l = np.tril_indices(Vt_MM.shape[0], -1)
         Vt_MM[(ind_l[1], ind_l[0])] = Vt_MM[ind_l].conj()
         timer.stop('ODD Potential Matrices')
 
-        # np.save('Vt_MM1', Vt_MM)
-        #
-        # wfs.timer.start('Potential matrix')
-        # Vt_xMM = self.bfs.calculate_potential_matrices(vt_mG)
-        # wfs.timer.stop('Potential matrix')
-        #
-        # if self.bfs.gamma and self.dtype is float:
-        #     yy = 1.0
-        #     Vt_MM = Vt_xMM[0]
-        # else:
-        #     wfs.timer.start('Sum over cells')
-        #     yy = 0.5
-        #     k_c = wfs.kd.ibzk_qc[kpt.q]
-        #     Vt_MM = (0.5 + 0.0j) * Vt_xMM[0]
-        #     for sdisp_c, Vt1_MM in zip(self.bfs.sdisp_xc[1:], Vt_xMM[1:]):
-        #         Vt_MM += np.exp(2j * np.pi * np.dot(sdisp_c, k_c)) * Vt1_MM
-        #     wfs.timer.stop('Sum over cells')
-        #
-        # # make matrix hermitian
-        # ind_l = np.tril_indices(Vt_MM.shape[0], -1)
-        # Vt_MM[(ind_l[1], ind_l[0])] = Vt_MM[ind_l].conj()
-        #
-        # np.save('Vt_MM2', Vt_MM)
-
-        # PAW:
         timer.start('Potential matrix - PAW')
         for a, dH_p in dH_ap.items():
             P_Mj = wfs.P_aqMi[a][kpt.q]
             dH_ij = unpack(dH_p)
-            # dH_ij = yy * unpack(dH_p)
-
-            # K_iM = np.zeros((dH_ij.shape[0], n_set),
-            #                 dtype=self.dtype)
-
             if self.dtype is complex:
-                # gemm(1.0, P_Mj,
-                #      dH_ij.astype(complex),
-                #      0.0, K_iM, 'c')
-                # gemm(1.0, K_iM,
-                #      P_Mj,
-                #      1.0, F_MM)
                 F_MM += P_Mj @ dH_ij @ P_Mj.T.conj()
-                # K_iM = np.dot(dH_ij, P_Mj.T.conj())
-                # F_MM += np.dot(P_Mj, K_iM)
-
             else:
-                # gemm(1.0, P_Mj, dH_ij, 0.0, K_iM, 't')
-                # gemm(1.0, K_iM, P_Mj, 1.0, F_MM)
-
-                # K_iM = np.dot(dH_ij, P_Mj.T)
-                # F_MM += np.dot(P_Mj, K_iM)
                 F_MM += P_Mj @ dH_ij @ P_Mj.T
 
         if self.dtype is complex:
             F_MM += Vt_MM.astype(complex)
         else:
             F_MM += Vt_MM
-        #
-        # wfs.timer.start('Distribute overlap matrix')
-        # F_MM = wfs.ksl.distribute_overlap_matrix(
-        #     F_MM, root=-1, add_hermitian_conjugate=(yy == 0.5))
-        # wfs.timer.stop('Distribute overlap matrix')
-        #
-        if self.sic_coarse_grid:
-            self.cgd.comm.sum(F_MM)
-        else:
-            self.finegd.comm.sum(F_MM)
+        self.finegd.comm.sum(F_MM)
         timer.stop('Potential matrix - PAW')
 
         return F_MM, e_sic_m * f_n[m]
