@@ -49,8 +49,7 @@ class EstimateSPOrder(object):
         timer.stop('Construct Density, Charge, adn DM')
 
         timer.start('Get Pseudo Potential')
-        e_sic_m, vt_mG, vHt_g = self.get_pseudo_pot(
-            nt_G, Q_aL, timer)
+        e_sic_m, vt_mG, vHt_g = self.get_pseudo_pot(nt_G, Q_aL, timer)
         timer.stop('Get Pseudo Potential')
 
         timer.start('PAW')
@@ -84,8 +83,8 @@ class EstimateSPOrder(object):
 
         return F_MM, e_sic_m * f_n[m]
 
-    def get_density(self, f_n, C_nM, kpt,
-                    wfs, setup, m):
+    def get_density(self, f_n, C_nM, kpt, wfs, setup, m):
+
         if f_n[m] > 1.0 + 1.0e-4:
             occup_factor = f_n[m] / (3.0 - wfs.nspins)
         else:
