@@ -573,7 +573,7 @@ class GPAW(Calculator):
         self.log('Initialize ...\n')
 
         gpaw.gpu.setup(self.parameters['gpu'])
-        self.use_gpu = gpaw.gpu.enabled
+        self.use_gpu = gpaw.gpu.backend.enabled
 
         if self.use_gpu:
             self.timer.start('GPU init')
