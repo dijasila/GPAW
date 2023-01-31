@@ -462,15 +462,15 @@ class MatrixOperator:
 
         if B == 1 and J == 1:
             # Simple case:
-            if gpu.is_device_array(psit_nG):
+            if gpu.backend.is_device_array(psit_nG):
                 work_nG = reshape(self.work1_xG_gpu, psit_nG.shape)
                 if out_nG is None:
                     out_nG = work_nG
                     out_nG.fill(117)  # gemm may not like nan's
                 elif out_nG is psit_nG:
-                    gpu.memcpy_dtod(work_nG, psit_nG, psit_nG.nbytes)
+                    gpu.backend.memcpy_dtod(work_nG, psit_nG, psit_nG.nbytes)
                     psit_nG = work_nG
-                gemm(1.0, psit_nG, gpu.copy_to_device(C_NN), 0.0,
+                gemm(1.0, psit_nG, gpu.backend.copy_to_device(C_NN), 0.0,
                      out_nG)
             else:
                 work_nG = reshape(self.work1_xG, psit_nG.shape)

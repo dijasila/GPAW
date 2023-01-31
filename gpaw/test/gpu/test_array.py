@@ -12,11 +12,11 @@ def test_array(gpu):
     c[:] = a + b
     sum_cpu = c.sum()
 
-    a_gpu = gpu.copy_to_device(a)
-    b_gpu = gpu.copy_to_device(b)
+    a_gpu = gpu.backend.copy_to_device(a)
+    b_gpu = gpu.backend.copy_to_device(b)
     c_gpu = gpu.array.zeros_like(a_gpu)
 
     c_gpu[:] = a_gpu + b_gpu
-    sum_gpu = gpu.copy_to_host(c_gpu.sum())
+    sum_gpu = gpu.backend.copy_to_host(c_gpu.sum())
 
     assert sum_cpu == pytest.approx(sum_gpu, abs=1e-14)

@@ -76,29 +76,29 @@ class _Transformer:
                                              self.interpolate, self.use_gpu)
         
     def apply(self, input, output=None, phases=None):
-        on_gpu = gpu.is_device_array(input)
+        on_gpu = gpu.backend.is_device_array(input)
         if output is None:
             output = self.gdout.empty(input.shape[:-3], dtype=self.dtype,
                                       use_gpu=on_gpu)
         if on_gpu:
             _output = None
-            if gpu.is_host_array(output):
+            if gpu.backend.is_host_array(output):
                 _output = output
-                output = gpu.copy_to_device(output)
+                output = gpu.backend.copy_to_device(output)
             self.transformer.apply_gpu(gpu.array.get_pointer(input),
                                        gpu.array.get_pointer(output),
                                        input.shape, input.dtype, phases)
             if _output:
-                gpu.copy_to_host(output, _output)
+                gpu.backend.copy_to_host(output, _output)
                 output = _output
         else:
             _output = None
-            if gpu.is_device_array(output):
+            if gpu.backend.is_device_array(output):
                 _output = output
-                output = gpu.copy_to_host(output)
+                output = gpu.backend.copy_to_host(output)
             self.transformer.apply(input, output, phases)
             if _output:
-                gpu.copy_to_device(output, _output)
+                gpu.backend.copy_to_device(output, _output)
                 output = _output
         return output
 

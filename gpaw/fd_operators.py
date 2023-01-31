@@ -94,45 +94,45 @@ class FDOperator:
         return '<' + self.description + '>'
 
     def apply(self, in_xg, out_xg, phase_cd=None):
-        if gpu.is_device_array(in_xg):
+        if gpu.backend.is_device_array(in_xg):
             _out = None
-            if gpu.is_host_array(out_xg):
+            if gpu.backend.is_host_array(out_xg):
                 _out = out_xg
-                out_xg = gpu.copy_to_device(out_xg)
+                out_xg = gpu.backend.copy_to_device(out_xg)
             self.operator.apply_gpu(gpu.array.get_pointer(in_xg),
                                     gpu.array.get_pointer(out_xg),
                                     in_xg.shape, in_xg.dtype, phase_cd)
             if _out:
-                gpu.copy_to_host(out_xg, _out)
+                gpu.backend.copy_to_host(out_xg, _out)
         else:
             _out = None
-            if gpu.is_device_array(out_xg):
+            if gpu.backend.is_device_array(out_xg):
                 _out = out_xg
-                out_xg = gpu.copy_to_host(out_xg)
+                out_xg = gpu.backend.copy_to_host(out_xg)
             self.operator.apply(in_xg, out_xg, phase_cd)
             if _out:
-                gpu.copy_to_device(out_xg, _out)
+                gpu.backend.copy_to_device(out_xg, _out)
 
     def relax(self, relax_method, f_g, s_g, n, w=None):
-        if gpu.is_device_array(s_g):
+        if gpu.backend.is_device_array(s_g):
             _func = None
-            if gpu.is_host_array(f_g):
+            if gpu.backend.is_host_array(f_g):
                 _func = f_g
-                f_g = gpu.copy_to_device(_func)
+                f_g = gpu.backend.copy_to_device(_func)
             self.operator.relax_gpu(relax_method,
                                     gpu.array.get_pointer(f_g),
                                     gpu.array.get_pointer(s_g),
                                     n, w)
             if _func:
-                gpu.copy_to_host(f_g, _func)
+                gpu.backend.copy_to_host(f_g, _func)
         else:
             _func = None
-            if gpu.is_device_array(f_g):
+            if gpu.backend.is_device_array(f_g):
                 _func = f_g
-                f_g = gpu.copy_to_host(f_g)
+                f_g = gpu.backend.copy_to_host(f_g)
             self.operator.relax(relax_method, f_g, s_g, n, w)
             if _func:
-                gpu.copy_to_device(f_g, _func)
+                gpu.backend.copy_to_device(f_g, _func)
 
     def get_diagonal_element(self):
         return self.operator.get_diagonal_element()

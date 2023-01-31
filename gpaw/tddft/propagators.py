@@ -80,8 +80,8 @@ class DummyPropagator:
         if self.preconditioner is not None:
             self.preconditioner.apply(self.kpt, psi, psin)
         else:
-            if gpu.is_device_array(psi):
-                gpu.memcpy_dtod(psin, psi, psi.nbytes)
+            if gpu.backend.is_device_array(psi):
+                gpu.backend.memcpy_dtod(psin, psi, psi.nbytes)
             else:
                 psin[:] = psi
         self.timer.stop('Solve TDDFT preconditioner')
@@ -192,9 +192,9 @@ class ExplicitCrankNicolson(DummyPropagator):
         # Copy current wavefunctions psit_nG to work wavefunction arrays
         if self.use_gpu:
             for u, kpt in enumerate(self.wfs.kpt_u):
-                gpu.memcpy_dtod(self.tmp_kpt_u[u].psit_nG,
-                                kpt.psit_nG,
-                                kpt.psit_nG.nbytes)
+                gpu.backend.memcpy_dtod(self.tmp_kpt_u[u].psit_nG,
+                                        kpt.psit_nG,
+                                        kpt.psit_nG.nbytes)
         else:
             for u, kpt in enumerate(self.wfs.kpt_u):
                 self.tmp_kpt_u[u].psit_nG[:] = kpt.psit_nG
@@ -401,12 +401,12 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
         # Copy current wavefunctions psit_nG to work and old wavefunction arrays
         if self.use_gpu:
             for u, kpt in enumerate(self.wfs.kpt_u):
-                gpu.memcpy_dtod(self.old_kpt_u[u].psit_nG,
-                                kpt.psit_nG,
-                                kpt.psit_nG.nbytes)
-                gpu.memcpy_dtod(self.tmp_kpt_u[u].psit_nG,
-                                kpt.psit_nG,
-                                kpt.psit_nG.nbytes)
+                gpu.backend.memcpy_dtod(self.old_kpt_u[u].psit_nG,
+                                        kpt.psit_nG,
+                                        kpt.psit_nG.nbytes)
+                gpu.backend.memcpy_dtod(self.tmp_kpt_u[u].psit_nG,
+                                        kpt.psit_nG,
+                                        kpt.psit_nG.nbytes)
         else:
             for u, kpt in enumerate(self.wfs.kpt_u):
                 self.old_kpt_u[u].psit_nG[:] = kpt.psit_nG
@@ -446,8 +446,8 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
         for [kpt, rhs_kpt] in zip(self.wfs.kpt_u, self.old_kpt_u):
             # Average of psit(t) and predicted psit(t+dt)
             psit_nG = kpt.psit_nG
-            if gpu.is_device_array(psit_nG):
-                gpu.memcpy_dtod(self.sinvhpsit, psit_nG, psit_nG.nbytes)
+            if gpu.backend.is_device_array(psit_nG):
+                gpu.backend.memcpy_dtod(self.sinvhpsit, psit_nG, psit_nG.nbytes)
             else:
                 self.sinvhpsit[:] = psit_nG
             self.sinvhpsit += rhs_kpt.psit_nG

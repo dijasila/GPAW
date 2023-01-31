@@ -218,7 +218,7 @@ class Hamiltonian:
         self.vt_sG = self.vt_xG[:self.nspins]
         self.vt_vG = self.vt_xG[self.nspins:]
         if self.use_gpu:
-            self.vt_sG_gpu = gpu.copy_to_device(self.vt_sG)
+            self.vt_sG_gpu = gpu.backend.copy_to_device(self.vt_sG)
 
     def update(self, density):
         """Calculate effective potential.
@@ -238,9 +238,9 @@ class Hamiltonian:
         if self.use_gpu:
             if self.vt_sG_gpu is None or \
                     self.vt_sG_gpu.shape != self.vt_sG.shape:
-                self.vt_sG_gpu = gpu.copy_to_device(self.vt_sG)
+                self.vt_sG_gpu = gpu.backend.copy_to_device(self.vt_sG)
             else:
-                gpu.copy_to_device(self.vt_sG, self.vt_sG_gpu)
+                gpu.backend.copy_to_device(self.vt_sG, self.vt_sG_gpu)
 
         with self.timer('Calculate atomic Hamiltonians'):
             W_aL = self.calculate_atomic_hamiltonians(density)
@@ -422,13 +422,13 @@ class Hamiltonian:
             are not applied and calculate_projections is ignored.
 
         """
-        if self.use_gpu or gpu.is_device_array(psit_nG):
+        if self.use_gpu or gpu.backend.is_device_array(psit_nG):
             if self.use_gpu:
                 vt_G = self.vt_sG_gpu[s]
             else:
-                vt_G = gpu.copy_to_device(self.vt_sG[s])
-            if gpu.is_host_array(psit_nG):
-                psit_nG = gpu.copy_to_device(psit_nG)
+                vt_G = gpu.backend.copy_to_device(self.vt_sG[s])
+            if gpu.backend.is_host_array(psit_nG):
+                psit_nG = gpu.backend.copy_to_device(psit_nG)
             if len(psit_nG.shape) == 3:
                 elementwise_multiply_add(psit_nG, vt_G, Htpsit_nG);
             else:

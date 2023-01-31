@@ -24,11 +24,11 @@ def multi_axpy(a, x, y):
     if isinstance(a, (float, complex)):
         axpy(a, x, y)
     else:
-        if gpu.is_device_array(x):
-            if gpu.is_device_array(a):
+        if gpu.backend.is_device_array(x):
+            if gpu.backend.is_device_array(a):
                 a_gpu = a
             else:
-                a_gpu = gpu.copy_to_device(a)
+                a_gpu = gpu.backend.copy_to_device(a)
             _gpaw.multi_axpy_gpu(gpu.array.get_pointer(a_gpu),
                                  a.dtype,
                                  gpu.array.get_pointer(x),
@@ -54,8 +54,8 @@ def multi_dotc(x, y, s=None):
     if len(x.shape) == 1:
         return dotc(x, y)
 
-    if gpu.is_device_array(x):
-        if gpu.is_device_array(s):
+    if gpu.backend.is_device_array(x):
+        if gpu.backend.is_device_array(s):
             s_gpu = s
         else:
             s_gpu = gpu.array.empty(x.shape[0], dtype=x.dtype)
@@ -64,8 +64,8 @@ def multi_dotc(x, y, s=None):
                              gpu.array.get_pointer(y),
                              x.dtype,
                              gpu.array.get_pointer(s_gpu))
-        if gpu.is_host_array(s):
-            s = gpu.copy_to_host(s_gpu, s)
+        if gpu.backend.is_host_array(s):
+            s = gpu.backend.copy_to_host(s_gpu, s)
     else:
         if s is None:
             s = np.empty(x.shape[0], dtype=x.dtype)
@@ -86,8 +86,8 @@ def multi_dotu(x, y, s=None):
     if len(x.shape) == 1:
         return dotu(x, y)
 
-    if gpu.is_device_array(x):
-        if gpu.is_device_array(s):
+    if gpu.backend.is_device_array(x):
+        if gpu.backend.is_device_array(s):
             s_gpu = s
         else:
             s_gpu = gpu.array.empty(x.shape[0], dtype=x.dtype)
@@ -96,8 +96,8 @@ def multi_dotu(x, y, s=None):
                              gpu.array.get_pointer(y),
                              x.dtype,
                              gpu.array.get_pointer(s_gpu))
-        if gpu.is_host_array(s):
-            s = gpu.copy_to_host(s_gpu, s)
+        if gpu.backend.is_host_array(s):
+            s = gpu.backend.copy_to_host(s_gpu, s)
     else:
         if s is None:
             s = np.empty(x.shape[0], dtype=x.dtype)
@@ -116,11 +116,11 @@ def multi_scal(a, x):
     if isinstance(a, (float, complex)):
         scal(a, x)
     else:
-        if gpu.is_device_array(x):
-            if gpu.is_device_array(a):
+        if gpu.backend.is_device_array(x):
+            if gpu.backend.is_device_array(a):
                 a_gpu = a
             else:
-                a_gpu = gpu.copy_to_device(a)
+                a_gpu = gpu.backend.copy_to_device(a)
             _gpaw.multi_scal_gpu(gpu.array.get_pointer(a_gpu),
                                  a.dtype,
                                  gpu.array.get_pointer(x),

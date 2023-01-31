@@ -303,7 +303,7 @@ class GridDescriptor(Domain):
 
         xshape = a_xg.shape[:-3]
 
-        assert(not gpu.is_device_array(_transposed_result))
+        assert(not gpu.backend.is_device_array(_transposed_result))
 
         if b_yg is None:
             # Only one array:
@@ -315,7 +315,7 @@ class GridDescriptor(Domain):
                     self.comm.sum(result)
             return result
 
-        if gpu.is_device_array(a_xg):
+        if gpu.backend.is_device_array(a_xg):
             nd = a_xg.size / np.prod(a_xg.shape[-3:])
             A_xg = a_xg.reshape((nd,) + a_xg.shape[-3:])
             nd = b_yg.size / np.prod(b_yg.shape[-3:])
@@ -330,15 +330,15 @@ class GridDescriptor(Domain):
             result_yx = _transposed_result
             global_integral = False
 
-        if gpu.is_device_array(a_xg):
-            result_gpu = gpu.copy_to_device(result_yx)
+        if gpu.backend.is_device_array(a_xg):
+            result_gpu = gpu.backend.copy_to_device(result_yx)
             if a_xg is b_yg:
                 rk(self.dv, A_xg, 0.0, result_gpu)
             elif hermitian:
                 r2k(0.5 * self.dv, A_xg, B_yg, 0.0, result_gpu)
             else:
                 gemm(self.dv, A_xg, B_yg, 0.0, result_gpu, 'c')
-            gpu.copy_to_host(result_gpu, result_yx)
+            gpu.backend.copy_to_host(result_gpu, result_yx)
         else:
             if a_xg is b_yg:
                 rk(self.dv, A_xg, 0.0, result_yx)
@@ -555,12 +555,12 @@ class GridDescriptor(Domain):
         if self.comm.size == 1:
             if out is None:
                 return B_xg
-            elif gpu.is_device_array(out):
-                if gpu.is_device_array(B_xg):
+            elif gpu.backend.is_device_array(out):
+                if gpu.backend.is_device_array(B_xg):
                     B_xg_gpu = B_xg
                 else:
-                    B_xg_gpu = gpu.copy_to_device(B_xg)
-                gpu.memcpy_dtod(out, B_xg_gpu, B_xg_gpu.nbytes)
+                    B_xg_gpu = gpu.backend.copy_to_device(B_xg)
+                gpu.backend.memcpy_dtod(out, B_xg_gpu, B_xg_gpu.nbytes)
             else:
                 out[:] = B_xg
             return out

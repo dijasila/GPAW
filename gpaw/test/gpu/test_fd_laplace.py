@@ -39,13 +39,13 @@ def test_fd_laplace(gpu, pbc):
     b_analytic[:] = (((x-mu)**2 + (y-mu)**2 + (z-mu)**2)/sigma**2 - 3.0/sigma) * a
 
     b = np.zeros_like(a)
-    a_gpu = gpu.copy_to_device(a)
+    a_gpu = gpu.backend.copy_to_device(a)
     b_gpu = gpu.array.zeros_like(a_gpu)
 
     # Laplace
     Laplace(gd, 1.0, 3, dtype=dtype).apply(a, b, phase_cd=phase)
     Laplace(gd, 1.0, 3, dtype=dtype, use_gpu=True).apply(a_gpu, b_gpu, phase_cd=phase)
-    b_ref = gpu.copy_to_host(b_gpu)
+    b_ref = gpu.backend.copy_to_host(b_gpu)
 
     assert b == pytest.approx(b_ref, abs=1e-12)
     # Neglect boundaries in check to analytic solution

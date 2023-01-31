@@ -27,7 +27,7 @@ def test_lfc(gpu, dtype):
     q = {float: -1, complex: 0}[dtype]
     c.add(b, P_ani, q=q)
     c_gpu.add(b_gpu, P_ani, q=q)
-    b_ref = gpu.copy_to_host(b_gpu)
+    b_ref = gpu.backend.copy_to_host(b_gpu)
 
     assert b == pytest.approx(b_ref, abs=1e-12)
 
