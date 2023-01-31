@@ -98,8 +98,7 @@ class GPAW(Calculator):
                         'eigenstates': 4.0e-8,  # eV^2
                         'bands': 'occupied',
                         'forces': np.inf},  # eV / Ang
-        'gpu': {'cuda': False,
-                'debug': False},
+        'gpu': False,
         'verbose': 0,
         'fixdensity': False,  # deprecated
         'dtype': None}  # deprecated
@@ -449,7 +448,7 @@ class GPAW(Calculator):
             if key != 'txt' and key not in self.default_parameters:
                 raise TypeError('Unknown GPAW parameter: {}'.format(key))
 
-            if key in ['convergence', 'symmetry', 'gpu',
+            if key in ['convergence', 'symmetry',
                        'experimental'] and isinstance(kwargs[key], dict):
                 # For values that are dictionaries, verify subkeys, too.
                 default_dict = self.default_parameters[key]
@@ -497,9 +496,6 @@ class GPAW(Calculator):
                 continue
 
             if key in ['gpu']:
-                values = self.default_parameters[key]
-                values.update(changed_parameters[key])
-                self.parameters[key] = values
                 continue
 
             # Check nested arguments
@@ -576,7 +572,7 @@ class GPAW(Calculator):
 
         self.log('Initialize ...\n')
 
-        gpaw.gpu.setup(**self.parameters['gpu'])
+        gpaw.gpu.setup(self.parameters['gpu'])
         self.use_gpu = gpaw.gpu.enabled
 
         if self.use_gpu:

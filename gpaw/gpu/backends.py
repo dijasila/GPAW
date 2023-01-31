@@ -4,8 +4,6 @@ from gpaw.gpu.arrays import HostArrayInterface
 class BaseBackend:
     label = 'base'
     enabled = False
-    debug = False
-    debug_sync = False
     device_no = None
     device_ctx = None
 
@@ -63,8 +61,6 @@ class DummyBackend(BaseBackend):
 
     # accept undefined attributes, but ignore them
     def __getattr__(self, key):
-        if self.debug:
-            print("DummyBackend: ignoring undefined method '{0}'".format(key))
         return self._pass
 
     def copy_to_host(self, x):
