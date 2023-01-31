@@ -69,10 +69,7 @@ class EstimateSPOrder(object):
         for a, dH_p in dH_ap.items():
             P_Mj = wfs.P_aqMi[a][kpt.q]
             dH_ij = unpack(dH_p)
-            if self.dtype is complex:
-                F_MM += P_Mj @ dH_ij @ P_Mj.T.conj()
-            else:
-                F_MM += P_Mj @ dH_ij @ P_Mj.T
+            F_MM += P_Mj @ dH_ij @ np.conj(P_Mj.T)
 
         if self.dtype is complex:
             F_MM += Vt_MM.astype(complex)
