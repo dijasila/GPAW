@@ -41,16 +41,16 @@ class EstimateSPOrder(object):
     def get_orbital_potential_matrix(self, f_n, C_nM, kpt,
                                  wfs, setup, m, timer):
 
-        kpoint = self.n_kps * kpt.s + kpt.q
         n_set = C_nM.shape[1]
         F_MM = np.zeros(shape=(n_set, n_set), dtype=self.dtype)
+
         timer.start('Construct Density, Charge, adn DM')
         nt_G, Q_aL, D_ap = self.get_density(f_n, C_nM, kpt, wfs, setup, m)
         timer.stop('Construct Density, Charge, adn DM')
 
         timer.start('Get Pseudo Potential')
         e_sic_m, vt_mG, vHt_g = self.get_pseudo_pot(
-            nt_G, Q_aL, m, kpoint, timer)
+            nt_G, Q_aL, timer)
         timer.stop('Get Pseudo Potential')
 
         timer.start('PAW')
@@ -106,7 +106,7 @@ class EstimateSPOrder(object):
 
         return nt_G, Q_aL, D_ap
 
-    def get_pseudo_pot(self, nt, Q_aL, i, kpoint, timer):
+    def get_pseudo_pot(self, nt, Q_aL, timer):
         vt_sg = self.finegd.zeros(2)
         vHt_g = self.finegd.zeros()
         nt_sg = self.finegd.zeros(2)
