@@ -47,38 +47,6 @@ __global__ void Zgpu(bmgs_cut_kernel)(
 }
 
 /*
- * Launch GPU kernel to copy a slice of an array on the GPU.
- */
-static void Zgpu(_bmgs_cut_gpu)(
-        const Tgpu* a, const int sizea[3], const int starta[3],
-        Tgpu* b, const int sizeb[3],
-#ifdef GPU_USE_COMPLEX
-        gpuDoubleComplex phase,
-#endif
-        int blocks, gpuStream_t stream)
-{
-    int3 hc_sizea, hc_sizeb;
-    hc_sizea.x = sizea[0];
-    hc_sizea.y = sizea[1];
-    hc_sizea.z = sizea[2];
-    hc_sizeb.x = sizeb[0];
-    hc_sizeb.y = sizeb[1];
-    hc_sizeb.z = sizeb[2];
-
-    BLOCK_GRID(hc_sizeb);
-
-    a += starta[2] + (starta[1] + starta[0] * hc_sizea.y) * hc_sizea.z;
-
-    gpuLaunchKernel(Zgpu(bmgs_cut_kernel), dimGrid, dimBlock, 0, stream,
-                    (Tgpu*) a, hc_sizea, (Tgpu*) b, hc_sizeb,
-#ifdef GPU_USE_COMPLEX
-                    phase,
-#endif
-                    blocks, xdiv);
-    gpuCheckLastError();
-}
-
-/*
  * Copy a slice of an array on the GPU. If the array contains complex
  * numbers, then multiply each element with the given phase.
  *
@@ -109,12 +77,25 @@ void Zgpu(bmgs_cut_gpu)(
 {
     if (!(sizea[0] && sizea[1] && sizea[2]))
         return;
+    int3 hc_sizea, hc_sizeb;
+    hc_sizea.x = sizea[0];
+    hc_sizea.y = sizea[1];
+    hc_sizea.z = sizea[2];
+    hc_sizeb.x = sizeb[0];
+    hc_sizeb.y = sizeb[1];
+    hc_sizeb.z = sizeb[2];
 
-#ifndef GPU_USE_COMPLEX
-    _bmgs_cut_gpu(a, sizea, starta, b, sizeb, blocks, stream);
-#else
-    _bmgs_cut_gpuz(a, sizea, starta, b, sizeb, phase, blocks, stream);
+    BLOCK_GRID(hc_sizeb);
+
+    a += starta[2] + (starta[1] + starta[0] * hc_sizea.y) * hc_sizea.z;
+
+    gpuLaunchKernel(Zgpu(bmgs_cut_kernel), dimGrid, dimBlock, 0, stream,
+                    (Tgpu*) a, hc_sizea, (Tgpu*) b, hc_sizeb,
+#ifdef GPU_USE_COMPLEX
+                    phase,
 #endif
+                    blocks, xdiv);
+    gpuCheckLastError();
 }
 
 #ifndef GPU_USE_COMPLEX

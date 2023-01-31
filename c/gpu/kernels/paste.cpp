@@ -155,14 +155,23 @@ __global__ void Zgpu(bmgs_paste_zero_kernel)(
 }
 
 /*
- * Launch GPU kernel to copy a smaller array into a given position in a
- * larger one on the GPU.
+ * Copy a smaller array into a given position in a larger one.
+ *
+ * For example:
+ *                  . . . .
+ *   a = 1 2 -> b = . 1 2 .
+ *       3 4        . 3 4 .
+ *                  . . . .
  */
-static void Zgpu(_bmgs_paste_gpu)(
-        const Tgpu* a, const int sizea[3],
-        Tgpu* b, const int sizeb[3], const int startb[3],
-        int blocks, gpuStream_t stream)
+extern "C"
+void Zgpu(bmgs_paste_gpu)(const Tgpu* a, const int sizea[3],
+                          Tgpu* b, const int sizeb[3],
+                          const int startb[3], int blocks,
+                          gpuStream_t stream)
 {
+    if (!(sizea[0] && sizea[1] && sizea[2]))
+        return;
+
     int3 hc_sizea, hc_sizeb;
     hc_sizea.x = sizea[0];
     hc_sizea.y = sizea[1];
@@ -181,14 +190,18 @@ static void Zgpu(_bmgs_paste_gpu)(
 }
 
 /*
- * Launch GPU kernel to copy a smaller array into a given position in a
- * larger one and set all other elements to 0.
+ * Copy a smaller array into a given position in a larger one and
+ * set all other elements to 0.
  */
-static void Zgpu(_bmgs_paste_zero_gpu)(
-        const Tgpu* a, const int sizea[3],
-        Tgpu* b, const int sizeb[3], const int startb[3],
-        int blocks, gpuStream_t stream)
+extern "C"
+void Zgpu(bmgs_paste_zero_gpu)(const Tgpu* a, const int sizea[3],
+                                    Tgpu* b, const int sizeb[3],
+                                    const int startb[3], int blocks,
+                                    gpuStream_t stream)
 {
+    if (!(sizea[0] && sizea[1] && sizea[2]))
+        return;
+
     int3 bc_blocks;
     int3 hc_sizea, hc_sizeb, hc_startb;
     hc_sizea.x = sizea[0];
@@ -223,63 +236,6 @@ static void Zgpu(_bmgs_paste_zero_gpu)(
             (Tgpu*) a, hc_sizea, (Tgpu*) b, hc_sizeb, hc_startb,
             bc_blocks, blocks);
     gpuCheckLastError();
-}
-
-/*
- * Generic launcher that handles debugging logic and the launching of the
- * actual paste functions.
- *
- * Arguments:
- *   (Tfunc) function -- pointer to a function to execute
- *   (int)   zero     -- set all elements to 0 on the CPU when debugging
- *   ...
- */
-void Zgpu(_bmgs_paste_launcher)(Tfunc function, int zero,
-                                const Tgpu* a, const int sizea[3],
-                                Tgpu* b, const int sizeb[3],
-                                const int startb[3], int blocks,
-                                gpuStream_t stream)
-{
-    (*function)(a, sizea, b, sizeb, startb, blocks, stream);
-}
-
-/*
- * Copy a smaller array into a given position in a larger one.
- *
- * For example:
- *                  . . . .
- *   a = 1 2 -> b = . 1 2 .
- *       3 4        . 3 4 .
- *                  . . . .
- */
-extern "C"
-void Zgpu(bmgs_paste_gpu)(const Tgpu* a, const int sizea[3],
-                          Tgpu* b, const int sizeb[3],
-                          const int startb[3], int blocks,
-                          gpuStream_t stream)
-{
-    if (!(sizea[0] && sizea[1] && sizea[2]))
-        return;
-    Zgpu(_bmgs_paste_launcher)(
-            &(Zgpu(_bmgs_paste_gpu)), 0,
-            a, sizea, b, sizeb, startb, blocks, stream);
-}
-
-/*
- * Copy a smaller array into a given position in a larger one and
- * set all other elements to 0.
- */
-extern "C"
-void Zgpu(bmgs_paste_zero_gpu)(const Tgpu* a, const int sizea[3],
-                                    Tgpu* b, const int sizeb[3],
-                                    const int startb[3], int blocks,
-                                    gpuStream_t stream)
-{
-    if (!(sizea[0] && sizea[1] && sizea[2]))
-        return;
-    Zgpu(_bmgs_paste_launcher)(
-            &(Zgpu(_bmgs_paste_zero_gpu)), 1,
-            a, sizea, b, sizeb, startb, blocks, stream);
 }
 
 #ifndef GPU_USE_COMPLEX
