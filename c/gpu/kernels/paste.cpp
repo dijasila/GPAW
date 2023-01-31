@@ -5,7 +5,6 @@
 
 #include "../gpu.h"
 #include "../gpu-complex.h"
-#include "../debug.h"
 
 #ifndef GPU_USE_COMPLEX
 #  define BLOCK_SIZEX 32
@@ -22,114 +21,11 @@ typedef void (*launch_func)(const double *, const int *,
 typedef void (*launch_funcz)(const gpuDoubleComplex *, const int *,
                              gpuDoubleComplex *, const int *, const int *, int,
                              gpuStream_t);
-
-extern int gpaw_gpu_debug;
-
-static int debug_size_in = 0;
-static int debug_size_out = 0;
-static double *debug_in_cpu;
-static double *debug_in_gpu;
-static double *debug_out_cpu;
-static double *debug_out_gpu;
-
-/*
- * Allocate debug buffers and precalculate sizes.
- */
-static void debug_allocate(int ng, int ng2, int blocks)
-{
-    debug_size_in = ng * blocks;
-    debug_size_out = ng2 * blocks;
-
-    debug_in_cpu = GPAW_MALLOC(double, debug_size_in);
-    debug_in_gpu = GPAW_MALLOC(double, debug_size_in);
-    debug_out_cpu = GPAW_MALLOC(double, debug_size_out);
-    debug_out_gpu = GPAW_MALLOC(double, debug_size_out);
-}
-
-/*
- * Deallocate debug buffers and set sizes to zero.
- */
-static void debug_deallocate()
-{
-    free(debug_in_cpu);
-    free(debug_in_gpu);
-    free(debug_out_cpu);
-    free(debug_out_gpu);
-    debug_size_in = 0;
-    debug_size_out = 0;
-}
-
-/*
- * Copy initial GPU arrays to debug buffers on the CPU.
- */
-static void debug_memcpy_pre(const double *in, double *out)
-{
-    gpuMemcpy(debug_in_cpu, in, sizeof(double) * debug_size_in,
-              gpuMemcpyDeviceToHost);
-    gpuMemcpy(debug_out_cpu, out, sizeof(double) * debug_size_out,
-              gpuMemcpyDeviceToHost);
-}
-
-/*
- * Copy final GPU arrays to debug buffers on the CPU.
- */
-static void debug_memcpy_post(const double *in, double *out)
-{
-    gpuMemcpy(debug_in_gpu, in, sizeof(double) * debug_size_in,
-              gpuMemcpyDeviceToHost);
-    gpuMemcpy(debug_out_gpu, out, sizeof(double) * debug_size_out,
-              gpuMemcpyDeviceToHost);
-}
 #else
 #  undef Tfunc
 #  define Tfunc launch_funcz
 #endif
 
-/*
- * Copy a smaller array into a given position in a larger one on the CPU
- * and compare to results from the GPU.
- */
-extern "C"
-void Zgpu(debug_bmgs_paste)(const int sizea[3], const int sizeb[3],
-                            const int startb[3], int blocks,
-                            int ng, int ng2, int zero)
-{
-    for (int m=0; m < blocks; m++) {
-        if (zero)
-            memset(debug_out_cpu + m * ng2, 0, ng2 * sizeof(double));
-#ifndef GPU_USE_COMPLEX
-        bmgs_paste_cpu(debug_in_cpu + m * ng, sizea,
-                       debug_out_cpu + m * ng2, sizeb,
-                       startb);
-#else
-        bmgs_pastez_cpu(debug_in_cpu + m * ng, sizea,
-                        debug_out_cpu + m * ng2, sizeb,
-                        startb);
-#endif
-    }
-    double in_err = 0;
-    for (int i=0; i < debug_size_in; i++) {
-        in_err = MAX(in_err, fabs(debug_in_cpu[i] - debug_in_gpu[i]));
-    }
-    double out_err = 0;
-    for (int i=0; i < debug_size_out; i++) {
-        out_err = MAX(out_err, fabs(debug_out_cpu[i] - debug_out_gpu[i]));
-    }
-    if (in_err > GPU_ERROR_ABS_TOL_EXCT) {
-        if (zero)
-            fprintf(stderr, "Debug GPU paste zero (in): error %g\n",
-                    in_err);
-        else
-            fprintf(stderr, "Debug GPU paste (in): error %g\n", in_err);
-    }
-    if (out_err > GPU_ERROR_ABS_TOL_EXCT) {
-        if (zero)
-            fprintf(stderr, "Debug GPU paste zero (out): error %g\n",
-                    out_err);
-        else
-            fprintf(stderr, "Debug GPU paste (out): error %g\n", out_err);
-    }
-}
 
 /*
  * GPU kernel to copy a smaller array into a given position in a
@@ -344,27 +240,7 @@ void Zgpu(_bmgs_paste_launcher)(Tfunc function, int zero,
                                 const int startb[3], int blocks,
                                 gpuStream_t stream)
 {
-    const double *in = (double *) a;
-    double *out = (double *) b;
-
-#ifndef GPU_USE_COMPLEX
-    int ng = sizea[0] * sizea[1] * sizea[2];
-    int ng2 = sizeb[0] * sizeb[1] * sizeb[2];
-#else
-    int ng = sizea[0] * sizea[1] * sizea[2] * 2;
-    int ng2 = sizeb[0] * sizeb[1] * sizeb[2] * 2;
-#endif
-    if (gpaw_gpu_debug) {
-        debug_allocate(ng, ng2, blocks);
-        debug_memcpy_pre(in, out);
-    }
     (*function)(a, sizea, b, sizeb, startb, blocks, stream);
-    if (gpaw_gpu_debug) {
-        debug_memcpy_post(in, out);
-        Zgpu(debug_bmgs_paste)(sizea, sizeb, startb, blocks, ng, ng2,
-                                zero);
-        debug_deallocate();
-    }
 }
 
 /*
