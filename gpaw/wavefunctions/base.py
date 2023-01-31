@@ -51,12 +51,12 @@ class WaveFunctions:
         self.kd = kd
         self.kptband_comm = kptband_comm
         self.timer = timer
-        self.use_gpu = use_gpu
         self.atom_partition = None
 
         self.kpt_qs = kd.create_k_points(self.gd.sdisp_cd, collinear,
-                                         self.use_gpu)
+                                         use_gpu)
         self.kpt_u = [kpt for kpt_s in self.kpt_qs for kpt in kpt_s]
+        self.use_gpu = bool(use_gpu)
 
         self.occupations: Optional[OccupationNumberCalculator] = None
         self.fermi_levels: Optional[np.ndarray] = None
@@ -71,6 +71,25 @@ class WaveFunctions:
     def fermi_level(self):
         assert len(self.fermi_levels) == 1
         return self.fermi_levels[0]
+
+    @property
+    def use_gpu(self) -> bool:
+        return self._use_gpu
+
+    @use_gpu.setter
+    def use_gpu(self, value: bool):
+        self._use_gpu = value
+        for kpt in self.kpt_u:
+            kpt.use_gpu = value
+        self.eigensolver = None
+
+    def sync_to_gpu(self):
+        for kpt in self.kpt_u:
+            kpt.sync_to_gpu()
+
+    def sync_to_cpu(self):
+        for kpt in self.kpt_u:
+            kpt.sync_to_cpu()
 
     def summary(self, log):
         log(eigenvalue_string(self))
@@ -457,25 +476,6 @@ class WaveFunctions:
             lumo = self.world.min(lumo)
 
         return np.array([homo, lumo])
-
-    def set_use_gpu(self, use_gpu):
-        """Enable/disable use_gpu"""
-
-        if use_gpu == self.use_gpu:
-            return
-
-        self.use_gpu = use_gpu
-        for kpt in self.kpt_u:
-            kpt.set_use_gpu(self.use_gpu)
-        self.eigensolver = None
-
-    def sync_to_gpu(self):
-        for kpt in self.kpt_u:
-            kpt.sync_to_gpu()
-
-    def sync_to_cpu(self):
-        for kpt in self.kpt_u:
-            kpt.sync_to_cpu()
 
     def write(self, writer):
         writer.write(version=2, ha=Ha)

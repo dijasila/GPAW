@@ -689,7 +689,7 @@ class GPAW(Calculator):
             # Make sure wavefunctions etc. are initialized to non-CUDA
             self.hamiltonian = None
             if self.wfs:
-                self.wfs.set_use_gpu(False)
+                self.wfs.use_gpu = False
             self.use_gpu = False
             warnings.warn('GPU disabled. Hybrid, MGGA and SIC functionals '
                           'are not implemented yet.')

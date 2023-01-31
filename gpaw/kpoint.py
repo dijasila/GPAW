@@ -62,7 +62,7 @@ class KPoint:
         self.psit = None  # UniformGridMatrix/PWExpansionMatrix
         self.C_nM = None  # LCAO coefficients for wave functions
 
-        self.use_gpu = use_gpu
+        self.use_gpu = bool(use_gpu)
 
         # LCAO stuff:
         self.rho_MM = None
@@ -77,12 +77,14 @@ class KPoint:
         if self.psit is not None:
             self.psit.sync_to_cpu()
 
-    def set_use_gpu(self, use_gpu):
-        """Enable/disable use_gpu"""
-        if use_gpu == self.use_gpu:
-            return
-        self.use_gpu = use_gpu
-        if self.use_gpu:
+    @property
+    def use_gpu(self) -> bool:
+        return self._use_gpu
+
+    @use_gpu.setter
+    def use_gpu(self, value: bool):
+        self._use_gpu = value
+        if self._use_gpu:
             self.sync_to_gpu()
         else:
             self.sync_to_cpu()
