@@ -38,13 +38,38 @@ class EstimateSPOrder(object):
                                     'of K-points'
         occ_gs = [deepcopy(calc.wfs.kpt_u[x].f_n) for x in range(nkpt)]
         dens = calc.density
+        nt_sg = dens.nt_sg # already finegd
+        Q_aL = dens.Q_aL
 
+    def get_coulomb_and_exchange(self, nt_sg, Q_aL, timer):
+        vt_sg = self.finegd.zeros(2)
+        vHt_g = self.finegd.zeros()
+
+        timer.start('ODD XC 3D grid')
+        e_xc_tot = self.xc.calculate(self.finegd, nt_sg, vt_sg)
+        timer.stop('ODD XC 3D grid')
+
+        # Hartree
+        self.ghat.add(nt_sg[0], Q_aL)
+
+        timer.start('ODD Poisson')
+        self.poiss.solve(vHt_g, nt_sg[0],
+                         zero_initial_phi=False,
+                         timer=timer)
+        timer.stop('ODD Poisson')
+
+        timer.start('ODD Hartree integrate')
+        ec = 0.5 * self.finegd.integrate(nt_sg[0] * vHt_g)
+        timer.stop('ODD Hartree integrate')
+
+        return np.array([-ec, -e_xc]), vHt_g
 
     def get_electron_hole_sic(self, f_n, C_nM, kpt,
                                  wfs, setup, m, timer):
 
         timer.start('Construct Density, Charge, and DM')
-        nt_G, Q_aL, D_ap = self.get_density(f_n, C_nM, kpt, wfs, setup, m)
+        nt_G, Q_aL, D_ap = self.get_orbital_density(
+            f_n, C_nM, kpt, wfs, setup, m)
         timer.stop('Construct Density, Charge, and DM')
 
         timer.start('Get Pseudo Potential')
@@ -59,7 +84,7 @@ class EstimateSPOrder(object):
 
         return e_sic_m * f_n[m]
 
-    def get_density(self, f_n, C_nM, kpt, wfs, setup, m):
+    def get_orbital_density(self, f_n, C_nM, kpt, wfs, setup, m):
 
         occup_factor = f_n[m] / (3.0 - wfs.nspins)
         rho_MM = occup_factor * np.outer(C_nM[m].conj(), C_nM[m])
