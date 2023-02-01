@@ -201,11 +201,6 @@ class RMMDIIS(Eigensolver):
                 # if abs(error_block / B) < self.rtol:
                 #     break
 
-                # copy arrays to CPU and swap references to enable
-                #   element-wise assignments
-                psitb.sync_to_cpu()
-                Rb.sync_to_cpu()
-
                 # Update the subspace
                 psit_diis_nxG[nit:B * self.niter:self.niter] = psitb.array
                 R_diis_nxG[nit:B * self.niter:self.niter] = Rb.array
@@ -249,11 +244,6 @@ class RMMDIIS(Eigensolver):
                             axpy(alpha_i[i], R_diis_nxG[istart + i],
                                  Rb.array[ib])
                         self.timer.stop('Update trial vectors')
-
-                # copy arrays back to GPU and swap references back
-                if self.use_gpu:
-                    psitb.sync_to_gpu()
-                    Rb.sync_to_gpu()
 
                 if nit < self.niter - 1:
                     with self.timer('precondition'):
