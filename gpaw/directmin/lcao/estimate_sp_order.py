@@ -47,7 +47,7 @@ class EstimateSPOrder(object):
                 nt_n, Q_aLn, D_apn = self.get_orbital_density(
                     occ_gs[k][n], kpt.C_nM[n], kpt, calc.wfs, calc.wfs.setups)
                 ec_gs = self.integrate_coulomb_and_exchange_per_orbital(
-                    vHt_g, vt_sg, nt_n, Q_aLn)
+                    vHt_g, vt_sg[kpt.s], nt_n, Q_aLn)
 
     def coulomb_and_exchange_paw_per_orbital(self, D_apn, timer):
 
