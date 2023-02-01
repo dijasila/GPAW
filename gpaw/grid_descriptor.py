@@ -303,8 +303,6 @@ class GridDescriptor(Domain):
 
         xshape = a_xg.shape[:-3]
 
-        assert(not gpu.backend.is_device_array(_transposed_result))
-
         if b_yg is None:
             # Only one array:
             result = a_xg.reshape(xshape + (-1,)).sum(axis=-1) * self.dv
@@ -327,6 +325,7 @@ class GridDescriptor(Domain):
         if _transposed_result is None:
             result_yx = np.zeros((len(B_yg), len(A_xg)), A_xg.dtype)
         else:
+            assert(gpu.backend.is_host_array(_transposed_result))
             result_yx = _transposed_result
             global_integral = False
 
