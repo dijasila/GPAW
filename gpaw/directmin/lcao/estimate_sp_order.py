@@ -111,7 +111,7 @@ class EstimateSPOrder(object):
 
     def get_coulomb_and_exchange_pseudo_pot(self, nt_sg, rhot_g, timer):
         vt_sg = self.finegd.zeros(2)
-        vHt_g = self.finegd.zeros(2)
+        vHt_g = self.finegd.zeros()
 
         timer.start('ODD XC 3D grid')
         e_xc_tot = self.xc.calculate(self.finegd, nt_sg, vt_sg)
