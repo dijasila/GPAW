@@ -20,8 +20,8 @@ class EstimateSPOrder(object):
         self.xc = calc.hamiltonian.xc
 
         if poisson_solver == 'FPS':
-            self.poiss = PoissonSolver(use_charge_center=True,
-                                       use_charged_periodic_corrections=True)
+            self.poiss = PoissonSolver(use_charge_center=True)
+                                       #use_charged_periodic_corrections=True)?
         elif poisson_solver == 'GS':
             self.poiss = PoissonSolver(name='fd',
                                        relax=poisson_solver,
