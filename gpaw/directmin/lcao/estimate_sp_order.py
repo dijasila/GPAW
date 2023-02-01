@@ -46,6 +46,9 @@ class EstimateSPOrder(object):
             for n in range(n_bands):
                 nt_n, Q_aLn, D_apn = self.get_orbital_density(
                     occ_gs[k][n], kpt.C_nM[n], kpt, calc.wfs, calc.wfs.setups)
+                ec_gs = self.integrate_coulomb_and_exchange_per_orbital(
+                    vHt_g, vt_sg, nt_n, Q_aLn)
+
 
     def integrate_coulomb_and_exchange_per_orbital(
         self, vHt_g, vt_sg, nt_n, Q_aLn):
@@ -150,10 +153,10 @@ class EstimateSPOrder(object):
 
         timer.start('Hartree-PAW')
         ec = 0.0
-        timer.start('ghat-PAW')
-        W_aL = self.ghat.dict()
-        self.ghat.integrate(vHt_g, W_aL)
-        timer.stop('ghat-PAW')
+        #timer.start('ghat-PAW')
+        #W_aL = self.ghat.dict()
+        #self.ghat.integrate(vHt_g, W_aL)
+        #timer.stop('ghat-PAW')
 
         for a, D_p in D_ap.items():
             setup = self.setups[a]
