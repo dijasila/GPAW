@@ -45,7 +45,7 @@ class EstimateSPOrder(object):
         timer.stop('Get Pseudo Potential')
 
         timer.start('PAW')
-        e_sic_paw_m, dH_ap = self.get_electron_hole_sic_paw(D_ap, vHt_g, timer)
+        e_sic_paw_m = self.get_electron_hole_sic_paw(D_ap, vHt_g, timer)
         timer.stop('PAW')
 
         e_sic_m += e_sic_paw_m
