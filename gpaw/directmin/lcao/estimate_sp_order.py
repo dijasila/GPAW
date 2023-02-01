@@ -41,7 +41,7 @@ class EstimateSPOrder(object):
         occ_gs = [deepcopy(calc.wfs.kpt_u[x].f_n) for x in range(nkpt)]
         dens = calc.density
         vHt_g, vt_sg = self.get_coulomb_and_exchange_pseudo_pot(
-            dens.nt_sg, dens.Q_aL, timer)
+            dens.rho_tg, timer)
         for k, kpt in enumerate(calc.wfs.kpt_u):
             for n in range(n_bands):
                 nt_n, Q_aLn, D_apn = self.get_orbital_density(
@@ -90,7 +90,7 @@ class EstimateSPOrder(object):
         #exc = 0.5 * self.finegd.integrate(nt_sg[0] * vt_sg) how?
         return ec
 
-    def get_coulomb_and_exchange_pseudo_pot(self, nt_sg, Q_aL, timer):
+    def get_coulomb_and_exchange_pseudo_pot(self, nt_sg, rhot_g, timer):
         vt_sg = self.finegd.zeros(2)
         vHt_g = self.finegd.zeros(2)
 
@@ -98,11 +98,8 @@ class EstimateSPOrder(object):
         e_xc_tot = self.xc.calculate(self.finegd, nt_sg, vt_sg)
         timer.stop('ODD XC 3D grid')
 
-        # Hartree
-        self.ghat.add(nt_sg, Q_aL)
-
         timer.start('ODD Poisson')
-        self.poiss.solve(vHt_g, nt_sg,
+        self.poiss.solve(vHt_g, rhot_g,
                          zero_initial_phi=False,
                          timer=timer)
         timer.stop('ODD Poisson')
