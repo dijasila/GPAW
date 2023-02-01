@@ -105,8 +105,8 @@ class EstimateSPOrder(object):
         self.interpolator.apply(nt_n, nt_ng)
         nt_ng *= self.cgd.integrate(nt_n) / self.finegd.integrate(nt_ng)
         self.ghat.add(nt_ng, Q_aLn)
-        ec = 0.5 * self.finegd.integrate(nt_ng, vHt_g)
-        exc = 0.5 * self.finegd.integrate(nt_ng, vt_g)
+        ec = 0.5 * self.finegd.integrate(nt_ng, vHt_g, global_integral = True)
+        exc = 0.5 * self.finegd.integrate(nt_ng, vt_g, global_integral = True)
         return ec, exc
 
     def get_coulomb_and_exchange_pseudo_pot(self, nt_sg, rhot_g, timer):
