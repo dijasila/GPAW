@@ -15,9 +15,9 @@ class EstimateSPOrder(object):
         self.setups = calc.wfs.setups
         self.bfs = calc.wfs.basis_functions
         self.cgd = calc.wfs.gd
-        self.finegd = calc.dens.finegd
-        self.ghat = calc.dens.ghat
-        self.xc = calc.ham.xc
+        self.finegd = calc.density.finegd
+        self.ghat = calc.density.ghat
+        self.xc = calc.hamiltonian.xc
 
         if poisson_solver == 'FPS':
             self.poiss = PoissonSolver(use_charge_center=True,
