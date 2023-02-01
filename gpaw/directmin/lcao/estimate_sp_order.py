@@ -34,6 +34,7 @@ class EstimateSPOrder(object):
 
     def run(self, calc, occ_ex):
         nkpt = len(calc.wfs.kpt_u)
+        n_bands = calc.wfs.kpt_u[0].C_nM.shape[1]
         timer = calc.wfs.timer
         assert len(occ_ex) == nkpt, 'Occupation numbers do not match number ' \
                                     'of K-points'
@@ -42,8 +43,9 @@ class EstimateSPOrder(object):
         vHt_g, vt_sg = self.get_coulomb_and_exchange_pseudo_pot(
             dens.nt_sg, dens.Q_aL, timer)
         for k, kpt in enumerate(calc.wfs.kpt_u):
-            nt_n, Q_aLn, D_apn = self.get_orbital_density(
-                occ_gs[k], kpt.C_nM)
+            for n in range(n_bands):
+                nt_n, Q_aLn, D_apn = self.get_orbital_density(
+                    occ_gs[k], kpt.C_nM[n])
 
 # ec = 0.5 * self.finegd.integrate(nt_sg[0] * vHt_g)
 
@@ -87,26 +89,26 @@ class EstimateSPOrder(object):
 
         e_sic_m += e_sic_paw_m
 
-        return e_sic_m * f_n[m]
+        return e_sic_m * f_n[n]
 
-    def get_orbital_density(self, f_n, C_nM, kpt, wfs, setup, m):
+    def get_orbital_density(self, f, C, kpt, wfs, setup):
 
-        occup_factor = f_n[m] / (3.0 - wfs.nspins)
-        rho_MM = occup_factor * np.outer(C_nM[m].conj(), C_nM[m])
+        occup_factor = f / (3.0 - wfs.nspins)
+        rho_MMn = occup_factor * np.outer(C.conj(), C)
 
-        nt_G = self.cgd.zeros()
-        self.bfs.construct_density(rho_MM, nt_G, kpt.q)
+        nt_n = self.cgd.zeros()
+        self.bfs.construct_density(rho_MMn, nt_n, kpt.q)
 
-        D_ap = {}
-        Q_aL = {}
+        D_apn = {}
+        Q_aLn = {}
         for a in wfs.P_aqMi.keys():
             P_Mi = wfs.P_aqMi[a][kpt.q]
-            rhoP_Mi = rho_MM @ P_Mi
-            D_ii = P_Mi.T.conj() @ rhoP_Mi
-            D_ap[a] = D_p = pack(np.real(D_ii))
-            Q_aL[a] = np.dot(D_p, setup[a].Delta_pL)
+            rhoP_Mi = rho_MMn @ P_Mi
+            D_iin = P_Mi.T.conj() @ rhoP_Mi
+            D_apn[a] = D_pn = pack(np.real(D_iin))
+            Q_aLn[a] = np.dot(D_pn, setup[a].Delta_pL)
 
-        return nt_G, Q_aL, D_ap
+        return nt_n, Q_aLn, D_apn
 
     def get_pseudo_pot(self, nt, Q_aL, timer):
         vt_sg = self.finegd.zeros(2)
