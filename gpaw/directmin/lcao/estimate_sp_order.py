@@ -3,6 +3,7 @@ import numpy as np
 from gpaw.utilities import pack
 from gpaw.transformers import Transformer
 from gpaw.poisson import PoissonSolver
+from copy import deepcopy
 
 
 class EstimateSPOrder(object):
@@ -14,7 +15,6 @@ class EstimateSPOrder(object):
         self.cgd = wfs.gd
         self.finegd = dens.finegd
         self.ghat = dens.ghat
-        self.ghat_cg = None
         self.xc = ham.xc
 
         if poisson_solver == 'FPS':
@@ -31,6 +31,14 @@ class EstimateSPOrder(object):
 
         self.interpolator = Transformer(self.cgd, self.finegd, 3)
         self.dtype = wfs.dtype
+
+    def run(self, calc, occ_ex):
+        nkpt = len(calc.wfs.kpt_u)
+        assert len(occ_ex) == nkpt, 'Occupation numbers do not match number ' \
+                                    'of K-points'
+        occ_gs = [deepcopy(calc.wfs.kpt_u[x].f_n) for x in range(nkpt)]
+        dens = calc.density
+
 
     def get_electron_hole_sic(self, f_n, C_nM, kpt,
                                  wfs, setup, m, timer):
