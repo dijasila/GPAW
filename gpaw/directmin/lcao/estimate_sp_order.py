@@ -112,9 +112,7 @@ class EstimateSPOrder(object):
         timer.stop('ODD XC 3D grid')
 
         timer.start('ODD Poisson')
-        self.poiss.solve(vHt_g, rhot_g,
-                         zero_initial_phi=False,
-                         timer=timer)
+        self.poiss.solve(vHt_g, rhot_g, zero_initial_phi=False, timer=timer)
         timer.stop('ODD Poisson')
 
         return vHt_g, vt_sg
