@@ -33,15 +33,12 @@ class EstimateSPOrder(object):
         self.restrictor = Transformer(self.finegd, self.cgd, 3)
         self.dtype = wfs.dtype
 
-    def get_orbital_potential_matrix(self, f_n, C_nM, kpt,
+    def get_electron_hole_sie(self, f_n, C_nM, kpt,
                                  wfs, setup, m, timer):
 
-        n_set = C_nM.shape[1]
-        F_MM = np.zeros(shape=(n_set, n_set), dtype=self.dtype)
-
-        timer.start('Construct Density, Charge, adn DM')
+        timer.start('Construct Density, Charge, and DM')
         nt_G, Q_aL, D_ap = self.get_density(f_n, C_nM, kpt, wfs, setup, m)
-        timer.stop('Construct Density, Charge, adn DM')
+        timer.stop('Construct Density, Charge, and DM')
 
         timer.start('Get Pseudo Potential')
         e_sic_m, vt_mG, vHt_g = self.get_pseudo_pot(nt_G, Q_aL, timer)
@@ -53,27 +50,7 @@ class EstimateSPOrder(object):
 
         e_sic_m += e_sic_paw_m
 
-        timer.start('ODD Potential Matrices')
-        Vt_MM = np.zeros_like(F_MM)
-        self.bfs.calculate_potential_matrix(vt_mG, Vt_MM, kpt.q)
-        ind_l = np.tril_indices(Vt_MM.shape[0], -1)
-        Vt_MM[(ind_l[1], ind_l[0])] = Vt_MM[ind_l].conj()
-        timer.stop('ODD Potential Matrices')
-
-        timer.start('Potential matrix - PAW')
-        for a, dH_p in dH_ap.items():
-            P_Mj = wfs.P_aqMi[a][kpt.q]
-            dH_ij = unpack(dH_p)
-            F_MM += P_Mj @ dH_ij @ np.conj(P_Mj.T)
-
-        if self.dtype is complex:
-            F_MM += Vt_MM.astype(complex)
-        else:
-            F_MM += Vt_MM
-        self.finegd.comm.sum(F_MM)
-        timer.stop('Potential matrix - PAW')
-
-        return F_MM, e_sic_m * f_n[m]
+        return e_sic_m * f_n[m]
 
     def get_density(self, f_n, C_nM, kpt, wfs, setup, m):
 
