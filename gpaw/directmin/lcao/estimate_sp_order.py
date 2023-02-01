@@ -54,10 +54,7 @@ class EstimateSPOrder(object):
 
     def get_density(self, f_n, C_nM, kpt, wfs, setup, m):
 
-        if f_n[m] > 1.0 + 1.0e-4:
-            occup_factor = f_n[m] / (3.0 - wfs.nspins)
-        else:
-            occup_factor = f_n[m]
+        occup_factor = f_n[m] / (3.0 - wfs.nspins)
         rho_MM = occup_factor * np.outer(C_nM[m].conj(), C_nM[m])
 
         nt_G = self.cgd.zeros()
