@@ -87,7 +87,7 @@ class EstimateSPOrder(object):
         nt_ng *= self.cgd.integrate(nt_n) / self.finegd.integrate(nt_ng)
         self.ghat.add(nt_ng, Q_aLn)
         ec = 0.5 * self.finegd.integrate(nt_ng, vHt_g)
-        #exc = 0.5 * self.finegd.integrate(nt_ng, vt_g) how?
+        exc = 0.5 * self.finegd.integrate(nt_ng, vt_g)
         return ec
 
     def get_coulomb_and_exchange_pseudo_pot(self, nt_sg, rhot_g, timer):
