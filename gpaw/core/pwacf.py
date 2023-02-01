@@ -13,6 +13,7 @@ from gpaw.new import prod
 from gpaw.gpu import gpu_kernels
 from gpaw.gpu import cupy_is_fake
 
+
 class PlaneWaveAtomCenteredFunctions(AtomCenteredFunctions):
     def __init__(self,
                  functions,
@@ -133,7 +134,7 @@ class PWLFC(BaseLFC):
                 self.a_J[J] = a
                 self.s_J[J] = s
                 self.I_J[J] = I
-                I += 2*spline.get_angular_momentum_number()+1
+                I += 2 * spline.get_angular_momentum_number() + 1
                 J += 1
 
         self.lmax = max(self.l_s, default=-1)
@@ -231,7 +232,7 @@ class PWLFC(BaseLFC):
                                self.l_s._data, self.a_J._data, self.s_J._data,
                                cc, f_GI._data)
             return f_GI
-        else: 
+        else:
             gpu_kernels.pwlfc_expand(f_Gs, emiGR_Ga, Y_GL,
                                      self.l_s, self.a_J, self.s_J,
                                      cc, f_GI, self.I_J)
