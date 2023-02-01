@@ -10,7 +10,7 @@ from gpaw.spherical_harmonics import Y, nablarlYL
 from gpaw.utilities.blas import mmm
 from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.new import prod
-import _exapy
+from gpaw.gpu import gpu_kernels
 from gpaw.gpu import cupy_is_fake
 
 class PlaneWaveAtomCenteredFunctions(AtomCenteredFunctions):
@@ -222,43 +222,18 @@ class PWLFC(BaseLFC):
 
         if xp is np:
             # Fast C-code:
-            _exapy.pwlfc_expand(f_Gs, emiGR_Ga, Y_GL,
+            _gpaw.pwlfc_expand(f_Gs, emiGR_Ga, Y_GL,
                                self.l_s, self.a_J, self.s_J,
                                cc, f_GI)
             return f_GI
         elif cupy_is_fake:
-            #print('f_Gs',f_Gs)
-            #print('emi',emiGR_Ga)
-            #print('YGL',Y_GL)
-            #print('l_s',self.l_s)
-            #print('a_J',self.a_J)
-            #print('f_GI', f_GI)
-            #print('s_J', self.s_J)
-            _exapy.pwlfc_expand(f_Gs._data, emiGR_Ga._data, Y_GL._data,
+            _gpaw.pwlfc_expand(f_Gs._data, emiGR_Ga._data, Y_GL._data,
                                self.l_s._data, self.a_J._data, self.s_J._data,
                                cc, f_GI._data)
-        elif 0: #else: 
-            #print('f_GI first element', f_GI.ravel()[0],'in python')
-            #import time
-            #time.sleep(1)
-
-            #print('EMI GOING IN', emiGR_Ga.ravel()[0])
-            _exapy.pwlfc_expand_gpu(f_Gs, emiGR_Ga, Y_GL,
-                                    self.l_s, self.a_J, self.s_J,
-                                    cc, f_GI, self.I_J)
-
-
-            #time.sleep(1)
-            #
-            if 0:
-                npf_GI = xp.asnumpy(f_GI)
-                _exapy.pwlfc_expand(xp.asnumpy(f_Gs), xp.asnumpy(emiGR_Ga), xp.asnumpy(Y_GL),
-                                   xp.asnumpy(self.l_s), xp.asnumpy(self.a_J), xp.asnumpy(self.s_J),
-                                   cc, npf_GI)
-                xpf_GI = xp.asnumpy(f_GI)
-                for x in range(100):
-                    print('x', x, npf_GI.ravel()[x], xpf_GI.ravel()[x])
-                raise SystemExit
+        else: 
+            gpu_kernels.pwlfc_expand(f_Gs, emiGR_Ga, Y_GL,
+                                     self.l_s, self.a_J, self.s_J,
+                                     cc, f_GI, self.I_J)
             return f_GI
         print('Slow python code')
 

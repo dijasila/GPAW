@@ -164,6 +164,25 @@ extensions = [Extension('_gpaw',
                         runtime_library_dirs=runtime_library_dirs,
                         extra_objects=extra_objects)]
 
+if os.environ.get('GPAW_GPU'):
+    # TODO: Build this also via extension
+    os.system('HCC_AMDGPU_TARGET=gfx90a hipcc -fPIC -fgpu-rdc -c c/gpu/hip_kernels.cpp -o c/gpu/hip_kernels.o')
+    os.system('HCC_AMDGPU_TARGET=gfx90a hipcc -shared -fgpu-rdc --hip-link -o c/gpu/hip_kernels.so c/gpu/hip_kernels.o')
+
+    extensions.append(Extension('_gpaw_gpu',
+                                ['c/gpu/gpaw_gpu.c'],
+                                libraries=[],
+                                library_dirs=['c/gpu'],
+                                setup_requires=['numpy'],
+                                include_dirs=include_dirs,
+                                define_macros=[('NPY_NO_DEPRECATED_API', 7)],
+                                undef_macros=[],
+                                extra_link_args = ['-Wl,-rpath='+str(Path('c/gpu').resolve())],
+                                extra_compile_args=['-std=c99'],#,'-Werror=implicit-function-declaration'],
+                                runtime_library_dirs=['c/gpu'],
+                                extra_objects=[str(Path('c/gpu/hip_kernels.so').resolve())]))
+
+
 write_configuration(define_macros, include_dirs, libraries, library_dirs,
                     extra_link_args, extra_compile_args,
                     runtime_library_dirs, extra_objects, mpicompiler,
