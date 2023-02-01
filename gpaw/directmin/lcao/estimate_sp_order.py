@@ -41,28 +41,26 @@ class EstimateSPOrder(object):
         nt_sg = dens.nt_sg # already finegd
         Q_aL = dens.Q_aL
 
-    def get_coulomb_and_exchange(self, nt_sg, Q_aL, timer):
+# ec = 0.5 * self.finegd.integrate(nt_sg[0] * vHt_g)
+
+    def get_coulomb_and_exchange_pseudo_pot(self, nt_sg, Q_aL, timer):
         vt_sg = self.finegd.zeros(2)
-        vHt_g = self.finegd.zeros()
+        vHt_g = self.finegd.zeros(2)
 
         timer.start('ODD XC 3D grid')
         e_xc_tot = self.xc.calculate(self.finegd, nt_sg, vt_sg)
         timer.stop('ODD XC 3D grid')
 
         # Hartree
-        self.ghat.add(nt_sg[0], Q_aL)
+        self.ghat.add(nt_sg, Q_aL)
 
         timer.start('ODD Poisson')
-        self.poiss.solve(vHt_g, nt_sg[0],
+        self.poiss.solve(vHt_g, nt_sg,
                          zero_initial_phi=False,
                          timer=timer)
         timer.stop('ODD Poisson')
 
-        timer.start('ODD Hartree integrate')
-        ec = 0.5 * self.finegd.integrate(nt_sg[0] * vHt_g)
-        timer.stop('ODD Hartree integrate')
-
-        return np.array([-ec, -e_xc]), vHt_g
+        return vHt_g, vt_sg
 
     def get_electron_hole_sic(self, f_n, C_nM, kpt,
                                  wfs, setup, m, timer):
