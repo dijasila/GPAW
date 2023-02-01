@@ -34,14 +34,21 @@ class EstimateSPOrder(object):
 
     def run(self, calc, occ_ex):
         nkpt = len(calc.wfs.kpt_u)
+        timer = calc.wfs.timer
         assert len(occ_ex) == nkpt, 'Occupation numbers do not match number ' \
                                     'of K-points'
         occ_gs = [deepcopy(calc.wfs.kpt_u[x].f_n) for x in range(nkpt)]
         dens = calc.density
-        nt_sg = dens.nt_sg # already finegd
-        Q_aL = dens.Q_aL
+        vHt_g, vt_sg = self.get_coulomb_and_exchange_pseudo_pot(
+            dens.nt_sg, dens.Q_aL, timer)
+        for k, kpt in enumerate(calc.wfs.kpt_u):
+            nt_n, Q_aLn, D_apn = self.get_orbital_density(
+                occ_gs[k], kpt.C_nM)
 
 # ec = 0.5 * self.finegd.integrate(nt_sg[0] * vHt_g)
+
+    def integrate_coulomb_and_exchange_per_orbital(self, vHt_g, vt_sg, nt):
+        pass
 
     def get_coulomb_and_exchange_pseudo_pot(self, nt_sg, Q_aL, timer):
         vt_sg = self.finegd.zeros(2)
@@ -63,11 +70,11 @@ class EstimateSPOrder(object):
         return vHt_g, vt_sg
 
     def get_electron_hole_sic(self, f_n, C_nM, kpt,
-                                 wfs, setup, m, timer):
+                                 wfs, setup, n, timer):
 
         timer.start('Construct Density, Charge, and DM')
         nt_G, Q_aL, D_ap = self.get_orbital_density(
-            f_n, C_nM, kpt, wfs, setup, m)
+            f_n, C_nM, kpt, wfs, setup, n)
         timer.stop('Construct Density, Charge, and DM')
 
         timer.start('Get Pseudo Potential')
