@@ -10,6 +10,7 @@ class EstimateSPOrder(object):
     def __init__(self, calc, poisson_solver='FPS'):
 
         self.name = 'Estimator'
+        self.calc = calc
         self.setups = calc.wfs.setups
         self.bfs = calc.wfs.basis_functions
         self.cgd = calc.wfs.gd
@@ -31,7 +32,8 @@ class EstimateSPOrder(object):
 
         self.interpolator = Transformer(self.cgd, self.finegd, 3)
 
-    def run(self, calc, occ_ex):
+    def run(self, occ_ex):
+        calc = self.calc
         nkpt = len(calc.wfs.kpt_u)
         n_bands = calc.wfs.kpt_u[0].C_nM.shape[1]
         timer = calc.wfs.timer
