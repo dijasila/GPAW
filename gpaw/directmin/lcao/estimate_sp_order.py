@@ -33,7 +33,7 @@ class EstimateSPOrder(object):
         self.restrictor = Transformer(self.finegd, self.cgd, 3)
         self.dtype = wfs.dtype
 
-    def get_electron_hole_sie(self, f_n, C_nM, kpt,
+    def get_electron_hole_sic(self, f_n, C_nM, kpt,
                                  wfs, setup, m, timer):
 
         timer.start('Construct Density, Charge, and DM')
@@ -102,7 +102,7 @@ class EstimateSPOrder(object):
 
         return np.array([-ec, -e_xc]), vt_G, vHt_g
 
-    def get_paw_corrections(self, D_ap, vHt_g, timer):
+    def get_electron_hole_sic_paw(self, D_ap, vHt_g, timer):
         timer.start('xc-PAW')
         dH_ap = {}
         exc = 0.0
