@@ -43,7 +43,7 @@ class EstimateSPOrder(object):
         occ_gs = [deepcopy(calc.wfs.kpt_u[x].f_n) for x in range(nkpt)]
         dens = calc.density
         vHt_g, vt_sg = self.get_coulomb_and_exchange_pseudo_pot(
-            dens.nt_sg, dens.rho_tg, timer)
+            dens.nt_sg, dens.rhot_g, timer)
         ec_ref = 0.5 * self.finegd.integrate(
             dens.nt_sg[0], vHt_g, global_integral = True)
         ec_ref += 0.5 * self.finegd.integrate(
