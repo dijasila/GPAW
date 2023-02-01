@@ -71,25 +71,19 @@ class EstimateSPOrder(object):
 
         return vHt_g, vt_sg
 
-    def get_electron_hole_sic(self, f_n, C_nM, kpt,
-                                 wfs, setup, n, timer):
-
-        timer.start('Construct Density, Charge, and DM')
-        nt_G, Q_aL, D_ap = self.get_orbital_density(
-            f_n, C_nM, kpt, wfs, setup, n)
-        timer.stop('Construct Density, Charge, and DM')
+    def get_sic(self, nt_n, Q_aLn, D_apn, f, timer):
 
         timer.start('Get Pseudo Potential')
-        e_sic_m, vHt_g = self.get_pseudo_pot(nt_G, Q_aL, timer)
+        e_sic_m, vHt_g = self.get_pseudo_pot(nt_n, Q_aLn, timer)
         timer.stop('Get Pseudo Potential')
 
         timer.start('PAW')
-        e_sic_paw_m = self.get_electron_hole_sic_paw(D_ap, vHt_g, timer)
+        e_sic_paw_m = self.get_electron_hole_sic_paw(D_apn, vHt_g, timer)
         timer.stop('PAW')
 
         e_sic_m += e_sic_paw_m
 
-        return e_sic_m * f_n[n]
+        return e_sic_m * f
 
     def get_orbital_density(self, f, C, kpt, wfs, setup):
 
