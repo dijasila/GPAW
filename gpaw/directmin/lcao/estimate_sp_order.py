@@ -45,7 +45,7 @@ class EstimateSPOrder(object):
         timer.stop('Get Pseudo Potential')
 
         timer.start('PAW')
-        e_sic_paw_m, dH_ap = self.get_paw_corrections(D_ap, vHt_g, timer)
+        e_sic_paw_m, dH_ap = self.get_electron_hole_sic_paw(D_ap, vHt_g, timer)
         timer.stop('PAW')
 
         e_sic_m += e_sic_paw_m
@@ -104,7 +104,6 @@ class EstimateSPOrder(object):
 
     def get_electron_hole_sic_paw(self, D_ap, vHt_g, timer):
         timer.start('xc-PAW')
-        dH_ap = {}
         exc = 0.0
         for a, D_p in D_ap.items():
             setup = self.setups[a]
@@ -112,7 +111,6 @@ class EstimateSPOrder(object):
             D_sp = np.array([D_p, np.zeros_like(D_p)])
             exc += self.xc.calculate_paw_correction(
                 setup, D_sp, dH_sp, addcoredensity=False, a=a)
-            dH_ap[a] = -dH_sp[0]
         timer.stop('xc-PAW')
 
         timer.start('Hartree-PAW')
@@ -126,10 +124,9 @@ class EstimateSPOrder(object):
             setup = self.setups[a]
             M_p = np.dot(setup.M_pp, D_p)
             ec += np.dot(D_p, M_p)
-            dH_ap[a] += -(2.0 * M_p + np.dot(setup.Delta_pL, W_aL[a]))
         timer.stop('Hartree-PAW')
 
         ec = self.finegd.comm.sum(ec)
         exc = self.finegd.comm.sum(exc)
 
-        return np.array([-ec, -exc]), dH_ap
+        return np.array([-ec, -exc])
