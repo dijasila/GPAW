@@ -49,6 +49,35 @@ class EstimateSPOrder(object):
                 ec_gs = self.integrate_coulomb_and_exchange_per_orbital(
                     vHt_g, vt_sg, nt_n, Q_aLn)
 
+    def coulomb_and_exchange_paw_per_orbital(self, D_apn, timer):
+
+        timer.start('xc-PAW')
+        exc = 0.0
+        for a, D_pn in D_apn.items():
+            setup = self.setups[a]
+            dH_spn = np.zeros((2, len(D_pn)))
+            D_spn = np.array([D_pn, np.zeros_like(D_pn)])
+            exc += self.xc.calculate_paw_correction(
+                setup, D_spn, dH_spn, addcoredensity=False, a=a)
+        timer.stop('xc-PAW')
+
+        timer.start('Hartree-PAW')
+        ec = 0.0
+        # timer.start('ghat-PAW')
+        # W_aL = self.ghat.dict()
+        # self.ghat.integrate(vHt_g, W_aL)
+        # timer.stop('ghat-PAW')
+
+        for a, D_p in D_apn.items():
+            setup = self.setups[a]
+            M_p = np.dot(setup.M_pp, D_p)
+            ec += np.dot(D_p, M_p)
+        timer.stop('Hartree-PAW')
+
+        ec = self.finegd.comm.sum(ec)
+        exc = self.finegd.comm.sum(exc)
+
+        return np.array([-ec, -exc])
 
     def integrate_coulomb_and_exchange_per_orbital(
         self, vHt_g, vt_sg, nt_n, Q_aLn):
