@@ -230,13 +230,13 @@ class PWLFC(BaseLFC):
             _gpaw.pwlfc_expand(f_Gs._data, emiGR_Ga._data, Y_GL._data,
                                self.l_s._data, self.a_J._data, self.s_J._data,
                                cc, f_GI._data)
+            return f_GI
         else: 
             gpu_kernels.pwlfc_expand(f_Gs, emiGR_Ga, Y_GL,
                                      self.l_s, self.a_J, self.s_J,
                                      cc, f_GI, self.I_J)
             return f_GI
         print('Slow python code')
-
         # Equivalent slow Python code:
         f_GI = xp.empty((G2 - G1, self.nI), complex)
         I1 = 0
