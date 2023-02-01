@@ -41,7 +41,7 @@ class EstimateSPOrder(object):
         timer.stop('Construct Density, Charge, and DM')
 
         timer.start('Get Pseudo Potential')
-        e_sic_m, vt_mG, vHt_g = self.get_pseudo_pot(nt_G, Q_aL, timer)
+        e_sic_m, vHt_g = self.get_pseudo_pot(nt_G, Q_aL, timer)
         timer.stop('Get Pseudo Potential')
 
         timer.start('PAW')
@@ -96,11 +96,7 @@ class EstimateSPOrder(object):
         ec = 0.5 * self.finegd.integrate(nt_sg[0] * vHt_g)
         timer.stop('ODD Hartree integrate')
 
-        vt_sg[0] -= vHt_g
-        vt_G = self.cgd.zeros()
-        self.restrictor.apply(vt_sg[0], vt_G)
-
-        return np.array([-ec, -e_xc]), vt_G, vHt_g
+        return np.array([-ec, -e_xc]), vHt_g
 
     def get_electron_hole_sic_paw(self, D_ap, vHt_g, timer):
         timer.start('xc-PAW')
