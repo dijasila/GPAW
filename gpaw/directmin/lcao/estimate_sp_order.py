@@ -4,6 +4,7 @@ from gpaw.utilities import pack
 from gpaw.transformers import Transformer
 from gpaw.poisson import PoissonSolver
 from copy import deepcopy
+from ase.parallel import parprint
 
 
 class EstimateSPOrder(object):
@@ -62,6 +63,10 @@ class EstimateSPOrder(object):
                     vHt_g, vt_sg[kpt.s], nt_n, Q_aLn)
                 ec_trial += ec_gs
                 exc_trial += exc_gs
+        parprint(ec_ref)
+        parprint(ec_trial)
+        parprint(exc_ref)
+        parprint(exc_trial)
 
     def coulomb_and_exchange_paw_per_orbital(self, D_apn, timer):
 
