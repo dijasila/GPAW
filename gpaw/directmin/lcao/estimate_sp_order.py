@@ -80,14 +80,14 @@ class EstimateSPOrder(object):
         return np.array([-ec, -exc])
 
     def integrate_coulomb_and_exchange_per_orbital(
-        self, vHt_g, vt_sg, nt_n, Q_aLn):
+        self, vHt_g, vt_g, nt_n, Q_aLn):
 
-        nt_sg = self.finegd.zeros(2)
-        self.interpolator.apply(nt_n, nt_sg[0])
-        nt_sg[0] *= self.cgd.integrate(nt_n) / self.finegd.integrate(nt_sg[0])
-        self.ghat.add(nt_sg[0], Q_aLn)
-        ec = 0.5 * self.finegd.integrate(nt_sg[0] * vHt_g)
-        #exc = 0.5 * self.finegd.integrate(nt_sg[0] * vt_sg) how?
+        nt_ng = self.finegd.zeros()
+        self.interpolator.apply(nt_n, nt_ng)
+        nt_ng *= self.cgd.integrate(nt_n) / self.finegd.integrate(nt_ng)
+        self.ghat.add(nt_ng, Q_aLn)
+        ec = 0.5 * self.finegd.integrate(nt_ng, vHt_g)
+        #exc = 0.5 * self.finegd.integrate(nt_ng, vt_g) how?
         return ec
 
     def get_coulomb_and_exchange_pseudo_pot(self, nt_sg, rhot_g, timer):
