@@ -106,6 +106,8 @@ def gpw_files(request, tmp_path_factory):
 
     * Bulk Fe, LDA, 4x4x4 k-points, 6 converged bands: ``fe_pw``
 
+    * Bulk Fe (different version), LDA, 2x2x2 k-points, 6 converged bands: ``fe_pw``
+
     Files with wave functions are also available (add ``_wfs`` to the names).
     """
     path = os.environ.get('GPW_TEST_FILES')
@@ -383,33 +385,42 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
-    def fe_pw(self):
-        xc = 'LDA'
-        kpts = 4
-        nbands = 6
-        pw = 300
-        occw = 0.01
-        conv = {'bands': nbands,
-                'density': 1.e-8,
-                'forces': 1.e-8}
+    def _fe(self,
+            *,
+            magmom: float,
+            name: str,
+            **params):
         a = 2.867
-        mm = 2.21
         atoms = bulk('Fe', 'bcc', a=a)
-        atoms.set_initial_magnetic_moments([mm])
-        atoms.center()
+        atoms.set_initial_magnetic_moments(magmoms=[magmom])
 
-        atoms.calc = GPAW(
-            xc=xc,
-            mode=PW(pw),
-            kpts={'size': (kpts, kpts, kpts)},
-            nbands=nbands + 4,
-            occupations=FermiDirac(occw),
-            convergence=conv,
-            txt=self.path / 'fe_pw.txt')
+        calc = GPAW(**params,
+                    occupations=FermiDirac(0.01),
+                    txt=self.path / f'{name}.txt')
 
+        atoms.calc = calc
         atoms.get_potential_energy()
 
         return atoms.calc
+
+    def fe_pw(self):
+        return self._fe(magmom=2.21,
+                        name='fe_pw',
+                        nbands=10,
+                        mode=dict(name='pw', ecut=300),
+                        kpts=(4, 4, 4),
+                        convergence={'bands': 6,
+                                     'density': 1e-8,
+                                     'forces': 1e-8})
+
+    def fe_cheap_pw(self):
+        return self._fe(magmom=3.75,
+                        name='fe_cheap_pw',
+                        nbands=6,
+                        mode=dict(name='pw', ecut=200),
+                        kpts=dict(size=(2, 2, 2), gamma=True),
+                        convergence={'density': 1e-3,
+                                     'forces': 1e-2})
 
 
 class GPAWPlugin:
