@@ -47,10 +47,16 @@ class EstimateSPOrder(object):
                 nt_n, Q_aLn, D_apn = self.get_orbital_density(
                     occ_gs[k][n], kpt.C_nM[n], kpt, calc.wfs, calc.wfs.setups)
 
-# ec = 0.5 * self.finegd.integrate(nt_sg[0] * vHt_g)
+    def integrate_coulomb_and_exchange_per_orbital(
+        self, vHt_g, vt_sg, nt_n, Q_aLn):
 
-    def integrate_coulomb_and_exchange_per_orbital(self, vHt_g, vt_sg, nt):
-        pass
+        nt_sg = self.finegd.zeros(2)
+        self.interpolator.apply(nt_n, nt_sg[0])
+        nt_sg[0] *= self.cgd.integrate(nt_n) / self.finegd.integrate(nt_sg[0])
+        self.ghat.add(nt_sg[0], Q_aLn)
+        ec = 0.5 * self.finegd.integrate(nt_sg[0] * vHt_g)
+        #exc = 0.5 * self.finegd.integrate(nt_sg[0] * vt_sg) how?
+        return ec
 
     def get_coulomb_and_exchange_pseudo_pot(self, nt_sg, Q_aL, timer):
         vt_sg = self.finegd.zeros(2)
@@ -71,7 +77,7 @@ class EstimateSPOrder(object):
 
         return vHt_g, vt_sg
 
-    def get_sic(self, nt_n, Q_aLn, D_apn, f, timer):
+    def get_sic(self, nt_n, Q_aLn, D_apn, timer):
 
         timer.start('Get Pseudo Potential')
         e_sic_m, vHt_g = self.get_pseudo_pot(nt_n, Q_aLn, timer)
@@ -83,7 +89,7 @@ class EstimateSPOrder(object):
 
         e_sic_m += e_sic_paw_m
 
-        return e_sic_m * f
+        return e_sic_m
 
     def get_orbital_density(self, f, C, kpt, wfs, setup):
 
