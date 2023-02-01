@@ -302,7 +302,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
             Array to use for storage.
         """
         if data is None:
-            data = np.empty_like(self.data)
+            data = self.xp.empty_like(self.data)
         return UniformGridFunctions(self.desc, self.dims, self.comm, data)
 
     def __getitem__(self, index):

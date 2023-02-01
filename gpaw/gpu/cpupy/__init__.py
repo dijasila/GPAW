@@ -9,6 +9,10 @@ def empty(*args, **kwargs):
     return ndarray(np.empty(*args, **kwargs))
 
 
+def empty_like(a):
+    return ndarray(np.empty_like(a._data))
+
+
 def zeros(*args, **kwargs):
     return ndarray(np.zeros(*args, **kwargs))
 
@@ -91,6 +95,9 @@ class ndarray:
     def copy(self):
         return ndarray(self._data.copy())
 
+    def all(self):
+        return self._data.all()
+
     def __len__(self):
         return len(self._data)
 
@@ -122,6 +129,9 @@ class ndarray:
         if isinstance(index, ndarray):
             index = index._data
         return ndarray(self._data[index])
+
+    def __eq__(self, other):
+        return ndarray(self._data == other._data)
 
     def __mul__(self, f: float):
         if isinstance(f, (float, complex)):

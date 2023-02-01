@@ -201,7 +201,7 @@ class CuPyFFTPlans(FFTPlans):
 
     def fft_sphere(self, in_R, pw):
         from gpaw.gpu import cupyx
-        out_Q = cupyx.scipy.fft.fftn(in_R, overwrite_x=True)
+        out_Q = cupyx.scipy.fft.fftn(in_R)
         Q_G = self.indices(pw)
         coef_G = out_Q.ravel()[Q_G] * (1 / in_R.size)
         return coef_G

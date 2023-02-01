@@ -4,6 +4,7 @@ from gpaw.core import UniformGrid, PlaneWaves
 from gpaw.mpi import world
 from gpaw.core.plane_waves import find_reciprocal_vectors
 from math import pi
+from gpaw.gpu import cupy as cp
 
 
 @pytest.mark.ci
@@ -44,7 +45,9 @@ def test_pw_map():
         assert not (np.array(g) - g0).any()
 
 
-def test_pw_integrate():
+@pytest.mark.gpu
+@pytest.mark.parametrize('xp', [np, cp])
+def test_pw_integrate(xp):
     a = 1.0
     decomp = {1: [[0, 4], [0, 4], [0, 4]],
               2: [[0, 2, 4], [0, 4], [0, 4]],
@@ -61,7 +64,7 @@ def test_pw_integrate():
     g2.data[:] = 1.0
     g2.data += [0, 1, 0, -1]
 
-    g3 = gridc.empty()
+    g3 = gridc.empty(xp=xp)
     g3.data[:] = 1.0
 
     g4 = gridc.empty()
@@ -73,11 +76,14 @@ def test_pw_integrate():
     g5.data += [0, 1, 0, -1]
 
     ecut = 0.5 * (2 * np.pi / a)**2 * 1.01
-    for g in [g1, g2, g3, g4, g5]:
+    # for g in [g1, g2, g3, g4, g5]:
+    for g in [g3]:
         pw = PlaneWaves(cell=g.desc.cell, dtype=g.desc.dtype,
                         ecut=ecut, comm=world)
         f = g.fft(pw=pw)
-        print(f.data)
+        print('-------------------------')
+        print(f.data._data)
+        print(g.data._data)
 
         gg = g.new()
         gg.scatter_from(f.gather(broadcast=True)

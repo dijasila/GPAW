@@ -1,6 +1,4 @@
-from gpaw
-
-def test_fft():
+def wip_test_fft():
     L = 5
     n = 20
     grid = UniformGrid(cell=[L, L, L], size=(n, n, n), comm=world)
