@@ -175,7 +175,7 @@ class CuPyFFTPlans(FFTPlans):
     def __init__(self,
                  size_c: IntVector,
                  dtype: DTypeLike):
-        assert dtype == complex
+        self.dtype = dtype
         self.size_c = size_c
         self.pw = None
 
@@ -189,19 +189,41 @@ class CuPyFFTPlans(FFTPlans):
         return self.Q_G
 
     def ifft_sphere(self, coef_G, pw, out_R):
-        from gpaw.gpu import cupyx
-        array_Q = out_R.data
+        from gpaw.gpu import cupy as cp, cupyx
+        if self.dtype == complex:
+            array_Q = out_R.data
+        else:
+            shape = out_R.data.shape
+            shape = (shape[0], shape[1], shape[2] // 2 + 1)
+            array_Q = cp.empty(shape, complex)
+
         array_Q[:] = 0.0
         Q_G = self.indices(pw)
         array_Q.ravel()[Q_G] = coef_G
+
         assert SCIPY_VERSION >= [1, 6]
-        array_Q[:] = cupyx.scipy.fft.ifftn(
-            array_Q, array_Q.shape,
+        if self.dtype == complex:
+            array_Q[:] = cupyx.scipy.fft.ifftn(
+                array_Q, array_Q.shape,
+                norm='forward', overwrite_x=True)
+            return
+
+        t = array_Q[:, :, 0]
+        n, m = (s // 2 - 1 for s in out_R.desc.size_c[:2])
+        t[0, -m:] = t[0, m:0:-1].conj()
+        t[n:0:-1, -m:] = t[-n:, m:0:-1].conj()
+        t[-n:, -m:] = t[n:0:-1, m:0:-1].conj()
+        t[-n:, 0] = t[n:0:-1, 0].conj()
+        out_R.data[:] = cupyx.scipy.fft.irfftn(
+            array_Q, out_R.data.shape,
             norm='forward', overwrite_x=True)
 
     def fft_sphere(self, in_R, pw):
         from gpaw.gpu import cupyx
-        out_Q = cupyx.scipy.fft.fftn(in_R)
+        if self.dtype == complex:
+            out_Q = cupyx.scipy.fft.fftn(in_R)
+        else:
+            out_Q = cupyx.scipy.fft.rfftn(in_R)
         Q_G = self.indices(pw)
         coef_G = out_Q.ravel()[Q_G] * (1 / in_R.size)
         return coef_G

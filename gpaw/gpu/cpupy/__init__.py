@@ -72,18 +72,23 @@ def fuse():
 
 class ndarray:
     def __init__(self, data):
-        if isinstance(data, (float, complex, int)):
-            data = np.asarray(data)
+        if isinstance(data, (float, complex, int, bool, np.bool_)):
+            data = np.array(data)
         assert isinstance(data, np.ndarray), type(data)
         self._data = data
         self.shape = data.shape
         self.dtype = data.dtype
         self.size = data.size
         self.flags = data.flags
+        self.ndim = data.ndim
 
     @property
     def T(self):
         return ndarray(self._data.T)
+
+    @property
+    def real(self):
+        return ndarray(self._data.real)
 
     @property
     def imag(self):
@@ -96,10 +101,16 @@ class ndarray:
         return ndarray(self._data.copy())
 
     def all(self):
-        return self._data.all()
+        return ndarray(self._data.all())
+
+    def sum(self, **kwargs):
+        return ndarray(self._data.sum(**kwargs))
 
     def __len__(self):
         return len(self._data)
+
+    def __bool__(self):
+        return bool(self._data)
 
     def __iter__(self):
         for data in self._data:

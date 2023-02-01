@@ -461,7 +461,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         return result
 
     def integrate(self, other=None):
-        """Integral of self or self time cc(other)."""
+        """Integral of self or self times cc(other)."""
         if other is not None:
             assert self.desc.dtype == other.desc.dtype
             a_xR = self._arrays()
@@ -473,7 +473,8 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
             result = self.data.sum(axis=(-3, -2, -1))
 
         if result.ndim == 0:
-            result = self.desc.comm.sum(result.item())
+            if self.xp is np:
+                result = np.array(self.desc.comm.sum(result.item()))
         else:
             self.desc.comm.sum(result)
 

@@ -57,7 +57,7 @@ def test_pw_integrate(xp):
                        decomp=decomp)
     gridc = grid.new(dtype=complex)
 
-    g1 = grid.empty()
+    g1 = grid.empty(xp=xp)
     g1.data[:] = 1.0
 
     g2 = grid.empty()
@@ -77,13 +77,11 @@ def test_pw_integrate(xp):
 
     ecut = 0.5 * (2 * np.pi / a)**2 * 1.01
     # for g in [g1, g2, g3, g4, g5]:
-    for g in [g3]:
+    for g in [g1]:
         pw = PlaneWaves(cell=g.desc.cell, dtype=g.desc.dtype,
                         ecut=ecut, comm=world)
         f = g.fft(pw=pw)
         print('-------------------------')
-        print(f.data._data)
-        print(g.data._data)
 
         gg = g.new()
         gg.scatter_from(f.gather(broadcast=True)
@@ -92,20 +90,21 @@ def test_pw_integrate(xp):
 
         i1 = g.integrate()
         i2 = f.integrate()
+        print(i1, i2, type(i1), type(i2))
         assert i1 == i2
-        assert type(i1) == g.desc.dtype
+        assert i1.dtype == g.desc.dtype
 
         i1 = g.integrate(g)
         i2 = f.integrate(f)
         assert i1 == i2
-        assert type(i1) == g.desc.dtype
+        assert i1.dtype == g.desc.dtype
 
-        g1 = g.desc.empty(1)
+        g1 = g.desc.empty(1, xp=xp)
         g1.data[:] = g.data
         m1 = g1.matrix_elements(g1)
         assert (i1 == m1.data).all()
 
-        f1 = f.desc.empty(1)
+        f1 = f.desc.empty(1, xp=xp)
         f1.data[:] = f.data
         m2 = f1.matrix_elements(f1)
         assert (i2 == m2.data).all()
