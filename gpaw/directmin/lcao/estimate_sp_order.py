@@ -1,6 +1,6 @@
 from ase.units import Hartree
 import numpy as np
-from gpaw.utilities import pack, unpack
+from gpaw.utilities import pack
 from gpaw.transformers import Transformer
 from gpaw.poisson import PoissonSolver
 
@@ -30,7 +30,6 @@ class EstimateSPOrder(object):
         self.poiss.set_grid_descriptor(self.finegd)
 
         self.interpolator = Transformer(self.cgd, self.finegd, 3)
-        self.restrictor = Transformer(self.finegd, self.cgd, 3)
         self.dtype = wfs.dtype
 
     def get_electron_hole_sic(self, f_n, C_nM, kpt,
