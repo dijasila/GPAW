@@ -45,7 +45,7 @@ class EstimateSPOrder(object):
         for k, kpt in enumerate(calc.wfs.kpt_u):
             for n in range(n_bands):
                 nt_n, Q_aLn, D_apn = self.get_orbital_density(
-                    occ_gs[k], kpt.C_nM[n])
+                    occ_gs[k][n], kpt.C_nM[n], kpt, calc.wfs, calc.wfs.setups)
 
 # ec = 0.5 * self.finegd.integrate(nt_sg[0] * vHt_g)
 
