@@ -7,15 +7,15 @@ from copy import deepcopy
 
 
 class EstimateSPOrder(object):
-    def __init__(self, wfs, dens, ham, poisson_solver='FPS'):
+    def __init__(self, calc, poisson_solver='FPS'):
 
         self.name = 'Estimator'
-        self.setups = wfs.setups
-        self.bfs = wfs.basis_functions
-        self.cgd = wfs.gd
-        self.finegd = dens.finegd
-        self.ghat = dens.ghat
-        self.xc = ham.xc
+        self.setups = calc.wfs.setups
+        self.bfs = calc.wfs.basis_functions
+        self.cgd = calc.wfs.gd
+        self.finegd = calc.dens.finegd
+        self.ghat = calc.dens.ghat
+        self.xc = calc.ham.xc
 
         if poisson_solver == 'FPS':
             self.poiss = PoissonSolver(use_charge_center=True,
@@ -30,7 +30,6 @@ class EstimateSPOrder(object):
         self.poiss.set_grid_descriptor(self.finegd)
 
         self.interpolator = Transformer(self.cgd, self.finegd, 3)
-        self.dtype = wfs.dtype
 
     def run(self, calc, occ_ex):
         nkpt = len(calc.wfs.kpt_u)
