@@ -41,7 +41,7 @@ class EstimateSPOrder(object):
         occ_gs = [deepcopy(calc.wfs.kpt_u[x].f_n) for x in range(nkpt)]
         dens = calc.density
         vHt_g, vt_sg = self.get_coulomb_and_exchange_pseudo_pot(
-            dens.rho_tg, timer)
+            dens.nt_sg, dens.rho_tg, timer)
         for k, kpt in enumerate(calc.wfs.kpt_u):
             for n in range(n_bands):
                 nt_n, Q_aLn, D_apn = self.get_orbital_density(
