@@ -30,6 +30,10 @@ def asarray(a):
     return ndarray(np.array(a))
 
 
+def array(a):
+    return ndarray(np.array(a))
+
+
 def multiply(a, b, c):
     np.multiply(a._data, b._data, c._data)
 
@@ -129,7 +133,7 @@ class ndarray:
         if isinstance(value, ndarray):
             self._data[index] = value._data
         else:
-            assert isinstance(value, float)
+            assert isinstance(value, (float, complex))
             self._data[index] = value
 
     def __getitem__(self, index):

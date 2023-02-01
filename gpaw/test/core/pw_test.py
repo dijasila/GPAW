@@ -60,28 +60,26 @@ def test_pw_integrate(xp):
     g1 = grid.empty(xp=xp)
     g1.data[:] = 1.0
 
-    g2 = grid.empty()
+    g2 = grid.empty(xp=xp)
     g2.data[:] = 1.0
-    g2.data += [0, 1, 0, -1]
+    g2.data += xp.array([0, 1, 0, -1])
 
     g3 = gridc.empty(xp=xp)
     g3.data[:] = 1.0
 
-    g4 = gridc.empty()
+    g4 = gridc.empty(xp=xp)
     g4.data[:] = 1.0
-    g4.data += [0, 1, 0, -1]
+    g4.data += xp.array([0, 1, 0, -1])
 
-    g5 = gridc.empty()
+    g5 = gridc.empty(xp=xp)
     g5.data[:] = 1.0 + 1.0j
-    g5.data += [0, 1, 0, -1]
+    g5.data += xp.array([0, 1, 0, -1])
 
     ecut = 0.5 * (2 * np.pi / a)**2 * 1.01
-    # for g in [g1, g2, g3, g4, g5]:
-    for g in [g1]:
+    for g in [g1, g2, g3, g4, g5]:
         pw = PlaneWaves(cell=g.desc.cell, dtype=g.desc.dtype,
                         ecut=ecut, comm=world)
         f = g.fft(pw=pw)
-        print('-------------------------')
 
         gg = g.new()
         gg.scatter_from(f.gather(broadcast=True)
@@ -90,7 +88,6 @@ def test_pw_integrate(xp):
 
         i1 = g.integrate()
         i2 = f.integrate()
-        print(i1, i2, type(i1), type(i2))
         assert i1 == i2
         assert i1.dtype == g.desc.dtype
 
