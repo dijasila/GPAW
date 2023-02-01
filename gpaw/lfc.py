@@ -408,7 +408,6 @@ class LocalizedFunctionsCollection(BaseLFC):
             c_xM.fill(c_axi)
             if gpu.backend.is_device_array(a_xG):
                 if self.Mmax > 0 :
-                    assert self.use_gpu
                     c_xM_gpu = gpu.backend.copy_to_device(c_xM)
                     self.lfc.add_gpu(gpu.array.get_pointer(c_xM_gpu),
                                      c_xM_gpu.shape,
@@ -462,7 +461,6 @@ class LocalizedFunctionsCollection(BaseLFC):
 
         if gpu.backend.is_device_array(a_xG):
             if self.Mmax > 0:
-                assert self.use_gpu
                 c_xM_gpu = gpu.backend.copy_to_device(c_xM)
                 self.lfc.add_gpu(gpu.array.get_pointer(c_xM_gpu),
                                  c_xM_gpu.shape,
@@ -574,7 +572,6 @@ class LocalizedFunctionsCollection(BaseLFC):
         dtype = a_xG.dtype
 
         if gpu.backend.is_device_array(a_xG):
-            assert self.use_gpu
             if self.Mmax > 0:
                 c_xM_gpu = gpu.array.zeros(xshape + (self.Mmax,), dtype)
                 self.lfc.integrate_gpu(gpu.array.get_pointer(a_xG),
