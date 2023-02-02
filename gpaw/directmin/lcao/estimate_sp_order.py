@@ -44,14 +44,6 @@ class EstimateSPOrder(object):
         dens = calc.density
         vHt_g, vt_sg = self.get_coulomb_and_exchange_pseudo_pot(
             dens.nt_sg, dens.rhot_g, timer)
-        ec_ref = 0.5 * self.finegd.integrate(
-            dens.nt_sg[0], vHt_g, global_integral = True)
-        ec_ref += 0.5 * self.finegd.integrate(
-            dens.nt_sg[1], vHt_g, global_integral = True)
-        exc_ref = 0.5 * self.finegd.integrate(
-            dens.nt_sg[0], vt_sg[0], global_integral = True)
-        exc_ref += 0.5 * self.finegd.integrate(
-            dens.nt_sg[1], vt_sg[1], global_integral = True)
         ec_trial = 0.0
         exc_trial = 0.0
         for k, kpt in enumerate(calc.wfs.kpt_u):
@@ -63,6 +55,16 @@ class EstimateSPOrder(object):
                     vHt_g, vt_sg[kpt.s], nt_n, Q_aLn)
                 ec_trial += ec_gs
                 exc_trial += exc_gs
+        ec_ref = 0.5 * self.finegd.integrate(
+            dens.nt_sg[0], vHt_g, global_integral=True)
+        ec_ref += 0.5 * self.finegd.integrate(
+            dens.nt_sg[1], vHt_g, global_integral=True)
+        exc_ref = 0.5 * self.finegd.integrate(
+            dens.nt_sg[0], vt_sg[0], global_integral=True)
+        exc_ref += 0.5 * self.finegd.integrate(
+            dens.nt_sg[1], vt_sg[1], global_integral=True)
+        ec_trial = 0.0
+        exc_trial = 0.0
         parprint(ec_ref)
         parprint(ec_trial)
         parprint(exc_ref)
