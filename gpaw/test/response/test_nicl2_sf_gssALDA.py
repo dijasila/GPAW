@@ -32,10 +32,7 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
     frq_qw = [np.linspace(-0.096, 0.084, 16),
               np.linspace(0.18, 0.36, 16)]
     eta = 0.1
-    if world.size > 1:
-        nblocks = 2
-    else:
-        nblocks = 1
+    nblocks = 4
 
     # ---------- Script ---------- #
 
