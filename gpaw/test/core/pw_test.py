@@ -45,9 +45,7 @@ def test_pw_map():
         assert not (np.array(g) - g0).any()
 
 
-@pytest.mark.gpu
-@pytest.mark.parametrize('xp', [np, cp])
-def test_pw_integrate(xp):
+def grids():
     a = 1.0
     decomp = {1: [[0, 4], [0, 4], [0, 4]],
               2: [[0, 2, 4], [0, 4], [0, 4]],
@@ -57,54 +55,64 @@ def test_pw_integrate(xp):
                        decomp=decomp)
     gridc = grid.new(dtype=complex)
 
-    g1 = grid.empty(xp=xp)
+    g1 = grid.empty()
     g1.data[:] = 1.0
 
-    g2 = grid.empty(xp=xp)
+    g2 = grid.empty()
     g2.data[:] = 1.0
-    g2.data += xp.array([0, 1, 0, -1])
+    g2.data += [0, 1, 0, -1]
 
-    g3 = gridc.empty(xp=xp)
+    g3 = gridc.empty()
     g3.data[:] = 1.0
 
-    g4 = gridc.empty(xp=xp)
+    g4 = gridc.empty()
     g4.data[:] = 1.0
-    g4.data += xp.array([0, 1, 0, -1])
+    g4.data += [0, 1, 0, -1]
 
-    g5 = gridc.empty(xp=xp)
+    g5 = gridc.empty()
     g5.data[:] = 1.0 + 1.0j
-    g5.data += xp.array([0, 1, 0, -1])
+    g5.data += [0, 1, 0, -1]
 
+    return [g1, g2, g3, g4, g5]
+
+
+@pytest.mark.gpu
+@pytest.mark.parametrize('xp', [np, cp])
+@pytest.mark.parametrize('grid', grids())
+def test_pw_integrate(xp, grid):
+    a = grid.desc.cell[0, 0]
     ecut = 0.5 * (2 * np.pi / a)**2 * 1.01
-    for g in [g1, g2, g3, g4, g5]:
-        pw = PlaneWaves(cell=g.desc.cell, dtype=g.desc.dtype,
-                        ecut=ecut, comm=world)
-        f = g.fft(pw=pw)
+    g = grid
+    if xp is cp:
+        g = g.to_xp(cp)
+    pw = PlaneWaves(cell=g.desc.cell, dtype=g.desc.dtype,
+                    ecut=ecut, comm=world)
+    f = g.fft(pw=pw)
 
-        gg = g.new()
-        gg.scatter_from(f.gather(broadcast=True)
-                        .ifft(grid=g.desc.new(comm=None)))
-        assert (g.data == gg.data).all()
+    gg = g.new()
+    gg.scatter_from(f.gather(broadcast=True)
+                    .ifft(grid=g.desc.new(comm=None)))
+    assert (g.data == gg.data).all()
 
-        i1 = g.integrate()
-        i2 = f.integrate()
-        assert i1 == i2
-        assert i1.dtype == g.desc.dtype
+    i1 = g.integrate()
+    i2 = f.integrate()
+    assert i1 == i2
+    assert i1.dtype == g.desc.dtype
 
-        i1 = g.integrate(g)
-        i2 = f.integrate(f)
-        assert i1 == i2
-        assert i1.dtype == g.desc.dtype
+    i1 = g.integrate(g)
+    i2 = f.integrate(f)
+    assert i1 == i2
+    assert i1.dtype == g.desc.dtype
 
-        g1 = g.desc.empty(1, xp=xp)
-        g1.data[:] = g.data
-        m1 = g1.matrix_elements(g1)
-        assert (i1 == m1.data).all()
+    g1 = g.desc.empty(1, xp=xp)
+    g1.data[:] = g.data
+    m1 = g1.matrix_elements(g1)
+    assert (i1 == m1.data).all()
 
-        f1 = f.desc.empty(1, xp=xp)
-        f1.data[:] = f.data
-        m2 = f1.matrix_elements(f1)
-        assert (i2 == m2.data).all()
+    f1 = f.desc.empty(1, xp=xp)
+    f1.data[:] = f.data
+    m2 = f1.matrix_elements(f1)
+    assert (i2 == m2.data).all()
 
 
 def test_grr():
