@@ -24,10 +24,11 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
     fxc_scaling = FXCScaling('fm')
     rshelmax = -1
     rshewmin = 1e-8
+    bg_density = 0.004
     ecut = 200
-    frq_w = np.linspace(-0.09, 0.06, 21)
-    eta = 0.05
-    zd = ComplexFrequencyDescriptor.from_array(frq_w + 1.j * eta)
+    frq_qw = [np.linspace(-0.096, 0.084, 16),
+              np.linspace(0.18, 0.36, 16)]
+    eta = 0.1
     if world.size > 1:
         nblocks = 2
     else:
@@ -45,6 +46,7 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
                                  nblocks=nblocks)
     localft_calc = LocalFTCalculator.from_rshe_parameters(
         gs, chiks_calc.context,
+        bg_density=bg_density,
         rshelmax=rshelmax,
         rshewmin=rshewmin)
     chi_factory = ChiFactory(chiks_calc)
@@ -52,6 +54,7 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
     for q, q_c in enumerate(q_qc):
         filename = 'nicl2_macro_tms_q%d.csv' % q
         txt = 'nicl2_macro_tms_q%d.txt' % q
+        zd = ComplexFrequencyDescriptor.from_array(frq_qw[q] + 1.j * eta)
         chi = chi_factory('+-', q_c, zd,
                           fxc=fxc,
                           localft_calc=localft_calc,
@@ -81,22 +84,21 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
         # plt.show()
 
         print(fxcs, mw0, mw1, Ipeak0, Ipeak1)
-    world.barrier()
 
     # Compare new results to test values
-    test_fxcs = 0.68648
-    test_mw0 = -1.8  # meV
-    test_mw1 = -44.0  # meV
-    test_Ipeak0 = 0.5528  # a.u.
-    test_Ipeak1 = 0.2332  # a.u.
+    test_fxcs = 1.08005
+    test_mw0 = -8.1  # meV
+    test_mw1 = 272.7  # meV
+    test_Ipeak0 = 0.2786  # a.u.
+    test_Ipeak1 = 0.1051  # a.u.
 
     # Test fxc scaling
     assert fxcs == pytest.approx(test_fxcs, abs=0.005)
 
     # Test magnon peaks
-    assert test_mw0 == pytest.approx(test_mw0, abs=2.0)
-    assert test_mw1 == pytest.approx(test_mw1, abs=2.0)
+    assert mw0 == pytest.approx(test_mw0, abs=10.0)
+    assert mw1 == pytest.approx(test_mw1, abs=20.0)
 
     # Test peak intensities
-    assert test_Ipeak0 == pytest.approx(test_Ipeak0, abs=0.01)
-    assert test_Ipeak1 == pytest.approx(test_Ipeak1, abs=0.01)
+    assert Ipeak0 == pytest.approx(test_Ipeak0, abs=0.01)
+    assert Ipeak1 == pytest.approx(test_Ipeak1, abs=0.01)
