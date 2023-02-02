@@ -156,8 +156,7 @@ def pt_h2o():
                        xc='RPBE',
                        poissonsolver={'dipolelayer': 'xy'},
                        basis='dzp',
-                       maxiter=200,
-                       txt='Pt_H2O.txt')
+                       maxiter=200)
 
 
 @system
