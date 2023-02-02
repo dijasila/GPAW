@@ -383,6 +383,41 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
+    def nicl2_pw(self):
+        from ase.build import mx2
+
+        # Define input parameters
+        xc = 'LDA'
+        kpts = 6
+        pw = 300
+        occw = 0.01
+        conv = {'density': 1.e-8,
+                'forces': 1.e-8}
+
+        a = 3.502
+        thickness = 2.617
+        vacuum = 3.0
+        mm = 2.0
+
+        # Set up atoms
+        atoms = mx2(formula='NiCl2', kind='1T', a=a,
+                    thickness=thickness, vacuum=vacuum)
+        atoms.set_initial_magnetic_moments([mm, 0.0, 0.0])
+        atoms.pbc = (1, 1, 0)
+
+        # Set up calculator
+        atoms.calc = GPAW(
+            xc=xc,
+            mode=PW(pw),
+            kpts={'size': (kpts, kpts, 1), 'gamma': True},
+            occupations=FermiDirac(occw),
+            convergence=conv,
+            txt=self.path / 'nicl2_pw.txt')
+
+        atoms.get_potential_energy()
+
+        return atoms.calc
+
     def fe_pw(self):
         xc = 'LDA'
         kpts = 4
