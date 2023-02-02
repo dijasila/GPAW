@@ -1,6 +1,6 @@
 import ase.db
 from ase.units import kcal, mol
-from ase.data.g2_1_ref import ex_atomization, atomization
+from gpaw.data.g2_1_ref import ex_atomization, atomization
 
 
 c = ase.db.connect('results.db')

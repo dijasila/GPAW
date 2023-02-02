@@ -22,7 +22,7 @@ def _VmB(VmKey):
         t.close()
         # get VmKey line e.g. 'VmRSS:  9999  kB\n ...'
         i = v.index(VmKey)
-    except (IOError, ValueError):
+    except (IOError, ValueError, LookupError):
         return 0.0  # non-Linux?
 
     v = v[i:].split(None, 3)  # whitespace
@@ -124,7 +124,7 @@ class MemNode:
         self.totalsize = self.basesize
         for node in self.nodes:
             self.totalsize += node.calculate_size()
-        # Datatype must not be fixed-size np integer
+        # Data-type must not be fixed-size np integer
         return self.totalsize
 
     def subnode(self, name, basesize=0):

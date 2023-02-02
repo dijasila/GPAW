@@ -22,8 +22,6 @@ data and will crash or deadlock if master sends anything else.
 import os
 import sys
 import marshal
-import importlib
-import importlib.util
 from importlib.machinery import PathFinder, ModuleSpec
 
 import _gpaw
@@ -64,26 +62,32 @@ class BroadcastLoader:
         self.module_cache = module_cache
         self.spec = spec
 
-    def load_module(self, fullname):
+    def create_module(self, spec):
+        # Returning None means to create the (uninitialized) module
+        # in the same way as normal.
+        #
+        # (But we could return e.g. a subclass of Module if we wanted.)
+        return None
+
+    def exec_module(self, module):
         if world.rank == 0:
             # Load from file and store in cache:
-            code = self.spec.loader.get_code(fullname)
+            code = self.spec.loader.get_code(module.__name__)
             metadata = (self.spec.submodule_search_locations, self.spec.origin)
-            self.module_cache[fullname] = (metadata, code)
+            self.module_cache[module.__name__] = (metadata, code)
             # We could execute the default mechanism to load the module here.
             # Instead we load from cache using our own loader, like on the
             # other cores.
 
-        return self.load_from_cache(fullname)
+        return self.load_from_cache(module)
 
-    def load_from_cache(self, fullname):
-        metadata, code = self.module_cache[fullname]
-        module = importlib.util.module_from_spec(self.spec)
+    def load_from_cache(self, module):
+        metadata, code = self.module_cache[module.__name__]
         origin = metadata[1]
         module.__file__ = origin
         # __package__, __path__, __cached__?
         module.__loader__ = self
-        sys.modules[fullname] = module
+        sys.modules[module.__name__] = module
         exec(code, module.__dict__)
         return module
 

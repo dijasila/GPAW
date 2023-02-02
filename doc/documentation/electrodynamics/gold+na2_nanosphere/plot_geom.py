@@ -1,4 +1,4 @@
-# Creates: geom.png
+# web-page: geom.png
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap

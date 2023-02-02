@@ -1,9 +1,6 @@
 from ase.build import molecule
 from gpaw import GPAW
 from gpaw.odd.sic import SIC
-from gpaw import extra_parameters
-
-extra_parameters['sic'] = True
 
 n = molecule('N')
 n.center(vacuum=3)

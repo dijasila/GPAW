@@ -3,9 +3,9 @@ from ase import Atoms
 from gpaw import GPAW, PW, MixerDif
 
 
-def create_tasks():
-    from myqueue.task import task
-    return [task('cr.agts.py', cores=8)]
+def workflow():
+    from myqueue.workflow import run
+    run(function=test, cores=8)
 
 
 def angle(a, b):
@@ -20,7 +20,7 @@ def check(m_av):
         assert abs(theta - 120) < 0.5, theta
 
 
-if __name__ == '__main__':
+def test():
     d = 2.66
     atoms = Atoms('Cr3', positions=[(0, 0, 0), (d, 0, 0), (2 * d, 0, 0)],
                   cell=[[d * 3 / 2, -d * np.sqrt(3) / 2, 0],

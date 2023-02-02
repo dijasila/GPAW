@@ -6,7 +6,7 @@ from gpaw.utilities import unpack
 from gpaw.utilities.tools import tri2full, lowdin
 from gpaw.lcao.tools import basis_subset2, get_bfi2
 from gpaw.coulomb import get_vxc as get_ks_xc
-from gpaw.utilities.blas import r2k, gemm
+from gpaw.utilities.blas import r2k, mmmx
 from gpaw.lcao.projected_wannier import (dots, condition_number, eigvals,
                                          get_bfs, get_lcao_projections_HSP)
 
@@ -189,7 +189,7 @@ class ProjectedWannierFunctionsIBL:
             U_Mw = self.U_Mw[:, indices]
         w_wG = np.zeros((U_ow.shape[1],) + psit_oG.shape[1:])
         if len(U_ow) > 0:
-            gemm(1., psit_oG, U_ow.T.copy(), 0., w_wG)
+            mmmx(1, U_ow.T.copy(), 'N', psit_oG, 'N', 0, w_wG)
         bfs.lcao_to_grid(U_Mw.T.copy(), w_wG, q)
         return w_wG
 

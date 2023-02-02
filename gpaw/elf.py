@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """This module defines an ELF class."""
 
 from numpy import pi
@@ -62,6 +60,9 @@ class ELF:
 
     def __init__(self, paw=None, ncut=1e-6):
         """Create the ELF object."""
+
+        if paw.wfs.mode != 'fd':
+            raise NotImplementedError('Only FD mode supported for ELF')
 
         self.gd = paw.wfs.gd
         self.paw = paw
@@ -129,7 +130,8 @@ class ELF:
 
         for s in range(self.nspins):
             for v in range(3):
-                self.paw.wfs.taugrad_v[v](self.density.nt_sG[s], d_G)
+                Gradient(self.gd, v, n=3).apply(self.density.nt_sG[s], d_G)
+
                 self.nt_grad2_sG[s] += d_G**2.0
 
         # TODO are nct from setups usable for nt_grad2_sG ?

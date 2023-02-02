@@ -1,23 +1,29 @@
 import os
+import warnings
+from contextlib import contextmanager
 from pathlib import Path
 
+import numpy as np
 import pytest
 from _pytest.tmpdir import _mk_tmp
 from ase import Atoms
-from ase.io import read
-from gpaw.utilities import devnull
 from ase.build import bulk
-
-from gpaw import GPAW
+from ase.lattice.hexagonal import Graphene
+from ase.io import read
+from gpaw import GPAW, PW, Davidson, FermiDirac, setup_paths
 from gpaw.cli.info import info
-from gpaw.mpi import world, broadcast
+from gpaw.mpi import broadcast, world
+from gpaw.utilities import devnull
 
 
-@pytest.fixture
-def in_tmp_dir(request, tmp_path_factory):
-    """Run test in a temporary directory."""
+@contextmanager
+def execute_in_tmp_path(request, tmp_path_factory):
     if world.rank == 0:
-        path = _mk_tmp(request, tmp_path_factory)
+        # Obtain basename as
+        # * request.function.__name__  for function fixture
+        # * request.module.__name__    for module fixture
+        basename = getattr(request, request.scope).__name__
+        path = tmp_path_factory.mktemp(basename)
     else:
         path = None
     path = broadcast(path)
@@ -27,6 +33,30 @@ def in_tmp_dir(request, tmp_path_factory):
         yield path
     finally:
         os.chdir(cwd)
+
+
+@pytest.fixture(scope='function')
+def in_tmp_dir(request, tmp_path_factory):
+    """Run test function in a temporary directory."""
+    with execute_in_tmp_path(request, tmp_path_factory) as path:
+        yield path
+
+
+@pytest.fixture(scope='module')
+def module_tmp_path(request, tmp_path_factory):
+    """Run test module in a temporary directory."""
+    with execute_in_tmp_path(request, tmp_path_factory) as path:
+        yield path
+
+
+@pytest.fixture
+def add_cwd_to_setup_paths():
+    """Temporarily add current working directory to setup_paths."""
+    try:
+        setup_paths[:0] = ['.']
+        yield
+    finally:
+        del setup_paths[:1]
 
 
 @pytest.fixture(scope='session')
@@ -60,10 +90,36 @@ def gpw_files(request, tmp_path_factory):
     * Polyethylene chain.  One unit, 3 k-points, no symmetry:
       ``c2h4_pw_nosym``.  Three units: ``c6h12_pw``.
 
-    Files with wave functions are also availabel (add ``_wfs`` to the names).
+    * Bulk TiO2 with 4x4x4 k-points: ``ti2o4_pw`` and ``ti2o4_pw_nosym``.
+
+    * Bulk BN (zinkblende) with 2x2x2 k-points and 9 converged bands:
+      ``bn_pw``.
+
+    * h-BN layer with 3x3x1 (gamma center) k-points and 26 converged bands:
+      ``hbn_pw``.
+
+    * Graphene with 6x6x1 k-points: ``graphene_pw``
+
+    * MoS2 with 6x6x1 k-points: ``mos2_pw``
+
+    * Bulk Si, LDA, 2x2x2 k-points (gamma centered): ``si_pw``
+
+    * Bulk Fe, LDA, 4x4x4 k-points, 6 converged bands: ``fe_pw``
+
+    * Bulk Ag, LDA, 2x2x2 k-points, 6 converged bands,
+      2eV U on d-band: ``ag_pw``
+
+    Files with wave functions are also available (add ``_wfs`` to the names).
     """
     path = os.environ.get('GPW_TEST_FILES')
-    if path is None:
+    if not path:
+        warnings.warn(
+            'Note that you can speed up the tests by reusing gpw-files '
+            'from an earlier pytest session: '
+            'set the $GPW_TEST_FILES environment variable and the '
+            'files will be written to/read from that folder. '
+            'See: https://wiki.fysik.dtu.dk/gpaw/devel/testing.html'
+            '#gpaw.test.conftest.gpw_files')
         if world.rank == 0:
             path = _mk_tmp(request, tmp_path_factory)
         else:
@@ -76,11 +132,12 @@ class GPWFiles:
     """Create gpw-files."""
     def __init__(self, path: Path):
         self.path = path
+        path.mkdir(exist_ok=True)
         self.gpw_files = {}
         for file in path.glob('*.gpw'):
             self.gpw_files[file.name[:-4]] = file
 
-    def __getitem__(self, name):
+    def __getitem__(self, name: str) -> Path:
         if name not in self.gpw_files:
             rawname, _, _ = name.partition('_wfs')
             calc = getattr(self, rawname)()
@@ -129,11 +186,27 @@ class GPWFiles:
     def h2_pw_0(self):
         h2 = Atoms('H2',
                    positions=[[-0.37, 0, 0], [0.37, 0, 0]],
-                   cell=[5.74, 5, 5])
+                   cell=[5.74, 5, 5],
+                   pbc=True)
         h2.calc = GPAW(mode={'name': 'pw', 'ecut': 200},
                        txt=self.path / 'h2_pw_0.txt')
         h2.get_potential_energy()
         return h2.calc
+
+    def h2_bcc_afm(self):
+        a = 2.75
+        atoms = bulk(name='H', crystalstructure='bcc', a=a, cubic=True)
+        atoms.set_initial_magnetic_moments([1., -1.])
+
+        atoms.calc = GPAW(xc='LDA',
+                          txt=self.path / 'h2_bcc_afm.txt',
+                          mode=PW(250),
+                          kpts={'density': 2.0, 'gamma': True})
+        atoms.get_potential_energy()
+
+        nbands = 4
+        calc = atoms.calc.fixed_density(nbands=nbands)
+        return calc
 
     def h_pw(self):
         h = Atoms('H', magmoms=[1])
@@ -145,12 +218,21 @@ class GPWFiles:
 
     def o2_pw(self):
         d = 1.1
-        h = Atoms('O2', positions=[[0, 0, 0], [d, 0, 0]], magmoms=[1, 1])
-        h.center(vacuum=4.0)
-        h.calc = GPAW(mode={'name': 'pw', 'ecut': 800},
+        a = Atoms('O2', positions=[[0, 0, 0], [d, 0, 0]], magmoms=[1, 1])
+        a.center(vacuum=4.0)
+        a.calc = GPAW(mode={'name': 'pw', 'ecut': 800},
                       txt=self.path / 'o2_pw.txt')
-        h.get_potential_energy()
-        return h.calc
+        a.get_potential_energy()
+        return a.calc
+
+    def co_lcao(self):
+        d = 1.1
+        co = Atoms('CO', positions=[[0, 0, 0], [d, 0, 0]])
+        co.center(vacuum=4.0)
+        co.calc = GPAW(mode='lcao',
+                       txt=self.path / 'co_lcao.txt')
+        co.get_potential_energy()
+        return co.calc
 
     def c2h4_pw_nosym(self):
         d = 1.54
@@ -185,8 +267,179 @@ class GPWFiles:
         from ase.build import molecule
         atoms = molecule('H2O', cell=[8, 8, 8], pbc=1)
         atoms.center()
-        atoms.calc = GPAW(mode='lcao', txt='h2o.txt')
+        atoms.calc = GPAW(mode='lcao', txt=self.path / 'h2o.txt')
         atoms.get_potential_energy()
+        return atoms.calc
+
+    def ti2o4(self, symmetry):
+        pwcutoff = 400.0
+        k = 4
+        a = 4.59
+        c = 2.96
+        u = 0.305
+
+        rutile_cell = [[a, 0, 0],
+                       [0, a, 0],
+                       [0, 0, c]]
+
+        TiO2_basis = np.array([[0.0, 0.0, 0.0],
+                               [0.5, 0.5, 0.5],
+                               [u, u, 0.0],
+                               [-u, -u, 0.0],
+                               [0.5 + u, 0.5 - u, 0.5],
+                               [0.5 - u, 0.5 + u, 0.5]])
+
+        bulk_crystal = Atoms(symbols='Ti2O4',
+                             scaled_positions=TiO2_basis,
+                             cell=rutile_cell,
+                             pbc=(1, 1, 1))
+
+        tag = '_nosym' if symmetry == 'off' else ''
+        bulk_calc = GPAW(mode=PW(pwcutoff),
+                         nbands=42,
+                         eigensolver=Davidson(1),
+                         kpts={'size': (k, k, k), 'gamma': True},
+                         xc='PBE',
+                         occupations=FermiDirac(0.00001),
+                         parallel={'band': 1},
+                         symmetry=symmetry,
+                         txt=self.path / f'ti2o4_pw{tag}.txt')
+
+        bulk_crystal.calc = bulk_calc
+        bulk_crystal.get_potential_energy()
+        return bulk_calc
+
+    def ti2o4_pw(self):
+        return self.ti2o4({})
+
+    def ti2o4_pw_nosym(self):
+        return self.ti2o4('off')
+
+    def si_pw(self):
+        si = bulk('Si')
+        calc = GPAW(mode='pw',
+                    xc='LDA',
+                    occupations=FermiDirac(width=0.001),
+                    kpts={'size': (2, 2, 2), 'gamma': True},
+                    txt='si.gs.txt')
+        si.calc = calc
+        si.get_potential_energy()
+        return si.calc
+
+    def bn_pw(self):
+        atoms = bulk('BN', 'zincblende', a=3.615)
+        atoms.calc = GPAW(mode=PW(400),
+                          kpts={'size': (2, 2, 2), 'gamma': True},
+                          nbands=12,
+                          convergence={'bands': 9},
+                          occupations=FermiDirac(0.001),
+                          txt=self.path / 'bn_pw.txt')
+        atoms.get_potential_energy()
+        return atoms.calc
+
+    def hbn_pw(self):
+        atoms = Graphene(symbol='B',
+                         latticeconstant={'a': 2.5, 'c': 1.0},
+                         size=(1, 1, 1))
+        atoms[0].symbol = 'N'
+        atoms.pbc = (1, 1, 0)
+        atoms.center(axis=2, vacuum=3.0)
+        atoms.calc = GPAW(mode=PW(400),
+                          xc='LDA',
+                          nbands=50,
+                          occupations=FermiDirac(0.001),
+                          parallel={'domain': 1},
+                          convergence={'bands': 26},
+                          kpts={'size': (3, 3, 1), 'gamma': True})
+        atoms.get_potential_energy()
+        return atoms.calc
+
+    def graphene_pw(self):
+        from ase.lattice.hexagonal import Graphene
+        atoms = Graphene(symbol='C',
+                         latticeconstant={'a': 2.45, 'c': 1.0},
+                         size=(1, 1, 1))
+        atoms.pbc = (1, 1, 0)
+        atoms.center(axis=2, vacuum=4.0)
+        ecut = 250
+        nkpts = 6
+        atoms.calc = GPAW(mode=PW(ecut),
+                          kpts={'size': (nkpts, nkpts, 1), 'gamma': True},
+                          nbands=len(atoms) * 6,
+                          txt=self.path / 'graphene_pw.txt')
+        atoms.get_potential_energy()
+        return atoms.calc
+
+    def mos2_pw(self):
+        from ase.build import mx2
+        atoms = mx2(formula='MoS2', kind='2H', a=3.184, thickness=3.127,
+                    size=(1, 1, 1), vacuum=5)
+        atoms.pbc = (1, 1, 1)
+        ecut = 250
+        nkpts = 6
+        atoms.calc = GPAW(mode=PW(ecut),
+                          xc='LDA',
+                          kpts={'size': (nkpts, nkpts, 1), 'gamma': True},
+                          occupations=FermiDirac(0.01),
+                          txt=self.path / 'mos2_pw.txt')
+
+        atoms.get_potential_energy()
+        return atoms.calc
+
+    def fe_pw(self):
+        xc = 'LDA'
+        kpts = 4
+        nbands = 6
+        pw = 300
+        occw = 0.01
+        conv = {'bands': nbands,
+                'density': 1.e-8,
+                'forces': 1.e-8}
+        a = 2.867
+        mm = 2.21
+        atoms = bulk('Fe', 'bcc', a=a)
+        atoms.set_initial_magnetic_moments([mm])
+        atoms.center()
+
+        atoms.calc = GPAW(
+            xc=xc,
+            mode=PW(pw),
+            kpts={'size': (kpts, kpts, kpts)},
+            nbands=nbands + 4,
+            occupations=FermiDirac(occw),
+            convergence=conv,
+            txt=self.path / 'fe_pw.txt')
+
+        atoms.get_potential_energy()
+
+        return atoms.calc
+
+    def ag_plusU_pw(self):
+        xc = 'LDA'
+        kpts = 2
+        nbands = 6
+        pw = 300
+        occw = 0.01
+        conv = {'bands': nbands,
+                'density': 1e-12}
+        a = 4.07
+        atoms = bulk('Ag', 'fcc', a=a)
+        atoms.center()
+
+        atoms.calc = GPAW(
+            xc=xc,
+            mode=PW(pw),
+            kpts={'size': (kpts, kpts, kpts), 'gamma': True},
+            setups={'Ag': '11:d,2.0,0'},
+            nbands=nbands,
+            occupations=FermiDirac(occw),
+            convergence=conv,
+            txt=self.path / 'ag_pw.txt')
+
+        atoms.get_potential_energy()
+
+        atoms.calc.diagonalize_full_hamiltonian()
+
         return atoms.calc
 
 
@@ -203,6 +456,9 @@ class GPAWPlugin:
 
 
 def pytest_configure(config):
+    # Allow for fake cupy:
+    os.environ['GPAW_CPUPY'] = '1'
+
     if world.rank != 0:
         try:
             tw = config.get_terminal_writer()
@@ -211,6 +467,33 @@ def pytest_configure(config):
         else:
             tw._file = devnull
     config.pluginmanager.register(GPAWPlugin(), 'pytest_gpaw')
+    for line in [
+        'ci: test included in CI',
+        'do: Direct optimization',
+        'dscf: Delta-SCF',
+        'elph: Electron-phonon',
+        'fast: fast test',
+        'gllb: GLLBSC tests',
+        'gpu: GPU test',
+        'hybrids: Hybrid functionals',
+        'intel: fails on INTEL toolchain',
+        'kspair: tests of kspair in the response code',
+        'later: know failure for new refactored GPAW',
+        'legacy: Old stuff that will be removed later',
+        'libxc: LibXC requirered',
+        'lrtddft: Linear-response TDDFT',
+        'mgga: MGGA test',
+        'mom: MOM',
+        'ofdft: Orbital-free DFT',
+        'response: tests of the response code',
+        'rpa: tests of RPA',
+        'rttddft: Real-time TDDFT',
+        'serial: run in serial only',
+        'slow: slow test',
+        'soc: Spin-orbit coupling',
+        'stress: Calculation of stress tensor',
+        'wannier: Wannier functions']:
+        config.addinivalue_line('markers', line)
 
 
 def pytest_runtest_setup(item):
@@ -238,3 +521,13 @@ def pytest_runtest_setup(item):
     if any(mark.name in {'libxc', 'mgga'}
            for mark in item.iter_markers()):
         pytest.skip('No LibXC.')
+
+
+@pytest.fixture
+def scalapack():
+    """Skip if not compiled with sl.
+
+    This fixture otherwise does not return or do anything."""
+    from gpaw.utilities import compiled_with_sl
+    if not compiled_with_sl():
+        pytest.skip(reason='no scalapack')

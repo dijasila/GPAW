@@ -1,19 +1,21 @@
+import numpy as np
+import pytest
 from ase import Atoms
 from gpaw import GPAW
 from gpaw.fdtd.poisson_fdtd import FDTDPoissonSolver
 from gpaw.fdtd.polarizable_material import (PermittivityPlus,
                                             PolarizableMaterial,
                                             PolarizableSphere)
-from gpaw.mpi import world
-from gpaw.tddft import TDDFT
-from gpaw.inducedfield.inducedfield_tddft import TDDFTInducedField
+from gpaw.inducedfield.inducedfield_base import BaseInducedField
 from gpaw.inducedfield.inducedfield_fdtd import (
     FDTDInducedField, calculate_hybrid_induced_field)
-from gpaw.inducedfield.inducedfield_base import BaseInducedField
+from gpaw.inducedfield.inducedfield_tddft import TDDFTInducedField
+from gpaw.mpi import world
+from gpaw.tddft import TDDFT, DipoleMomentWriter
 from gpaw.test import equal
-import numpy as np
 
 
+@pytest.mark.later
 def test_fdtd_ed_inducedfield(in_tmp_dir):
     do_print_values = 0  # Use this for printing the reference values
 
@@ -91,8 +93,7 @@ def test_fdtd_ed_inducedfield(in_tmp_dir):
     iterations = 10
 
     td_calc = TDDFT('gs.gpw')
-    td_calc.absorption_kick(kick_strength=kick)
-    td_calc.hamiltonian.poisson.set_kick(kick)
+    DipoleMomentWriter(td_calc, 'dm.dat')
 
     # Attach InducedFields to the calculation
     frequencies = [2.05, 4.0]
@@ -105,7 +106,8 @@ def test_fdtd_ed_inducedfield(in_tmp_dir):
                                width=width)
 
     # Propagate TDDFT and FDTD
-    td_calc.propagate(time_step, iterations // 2, 'dm.dat', 'td.gpw')
+    td_calc.absorption_kick(kick_strength=kick)
+    td_calc.propagate(time_step, iterations // 2)
     td_calc.write('td.gpw', 'all')
     cl_ind.write('cl.ind')
     qm_ind.write('qm.ind')
@@ -117,11 +119,12 @@ def test_fdtd_ed_inducedfield(in_tmp_dir):
 
     # Restart
     td_calc = TDDFT('td.gpw')
+    DipoleMomentWriter(td_calc, 'dm.dat')
     cl_ind = FDTDInducedField(filename='cl.ind',
                               paw=td_calc)
     qm_ind = TDDFTInducedField(filename='qm.ind',
                                paw=td_calc)
-    td_calc.propagate(time_step, iterations // 2, 'dm.dat', 'td.gpw')
+    td_calc.propagate(time_step, iterations // 2)
     td_calc.write('td.gpw', 'all')
     cl_ind.write('cl.ind')
     qm_ind.write('qm.ind')

@@ -2,42 +2,37 @@
 # Copyright (C) 2003-2020  CAMP
 # Please see the accompanying LICENSE file for further information.
 
-import distutils.util
-from distutils.sysconfig import get_config_vars
 import os
 import re
-from setuptools import setup, find_packages, Extension
-from setuptools.command.build_ext import build_ext as _build_ext
-from setuptools.command.install import install as _install
-from setuptools.command.develop import develop as _develop
-from subprocess import run, PIPE
 import sys
 from pathlib import Path
+from subprocess import PIPE, run
+from sysconfig import get_platform
 
-from config import (check_dependencies, write_configuration,
-                    build_interpreter, build_gpu)
+from setuptools import Extension, find_packages, setup
+from setuptools.command.build_ext import build_ext
+from setuptools.command.develop import develop as _develop
+from setuptools.command.install import install as _install
 
+from config import (build_gpu, build_interpreter, check_dependencies,
+                    write_configuration)
 
-assert sys.version_info >= (3, 6)
+assert sys.version_info >= (3, 7)
 
 # Get the current version number:
 txt = Path('gpaw/__init__.py').read_text()
-version = re.search("__version__ = '(.*)'", txt).group(1)
+version = re.search("__version__ = '(.*)'", txt)[1]
+ase_version_required = re.search("__ase_version_required__ = '(.*)'", txt)[1]
 
 description = 'GPAW: DFT and beyond within the projector-augmented wave method'
 long_description = Path('README.rst').read_text()
-
-remove_default_flags = False
-if '--remove-default-flags' in sys.argv:
-    remove_default_flags = True
-    sys.argv.remove('--remove-default-flags')
 
 for i, arg in enumerate(sys.argv):
     if arg.startswith('--customize='):
         custom = arg.split('=')[1]
         raise DeprecationWarning(
-            'Please set GPAW_CONFIG={custom} or place {custom} in '
-            '~/.gpaw/siteconfig.py'.format(custom=custom))
+            f'Please set GPAW_CONFIG={custom} or place {custom} in ' +
+            '~/.gpaw/siteconfig.py')
 
 libraries = ['xc']
 library_dirs = []
@@ -103,7 +98,7 @@ for siteconfig in [gpaw_config,
             print('Reading configuration from', path)
             exec(path.read_text())
             break
-else:
+else:  # no break
     if not noblas:
         libraries.append('blas')
 
@@ -112,15 +107,9 @@ if not parallel_python_interpreter and mpicompiler:
     compiler = mpicompiler
     define_macros += [('PARALLEL', '1')]
 
-plat = distutils.util.get_platform()
 platform_id = os.getenv('CPU_ARCH')
 if platform_id:
-    plat += '-' + platform_id
-
-    def my_get_platform():
-        return plat
-
-    distutils.util.get_platform = my_get_platform
+    os.environ['_PYTHON_HOST_PLATFORM'] = get_platform() + '-' + platform_id
 
 if cuda and hip:
     cuda = False
@@ -137,24 +126,22 @@ if cuda or hip:
         libraries.append('gpaw-gpu')
 
 if compiler is not None:
-    # A hack to change the used compiler and linker:
-    vars = get_config_vars()
-    if remove_default_flags:
-        for key in ['BASECFLAGS', 'CFLAGS', 'OPT', 'PY_CFLAGS',
-                    'CCSHARED', 'CFLAGSFORSHARED', 'LINKFORSHARED',
-                    'LIBS', 'SHLIBS']:
-            if key in vars:
-                value = vars[key].split()
-                # remove all gcc flags (causing problems with other compilers)
-                for v in list(value):
-                    value.remove(v)
-                vars[key] = ' '.join(value)
-    for key in ['CC', 'LDSHARED']:
-        if key in vars:
-            value = vars[key].split()
-            # first argument is the compiler/linker.  Replace with mpicompiler:
-            value[0] = compiler
-            vars[key] = ' '.join(value)
+    # A hack to change the used compiler and linker, inspired by
+    # https://shwina.github.io/custom-compiler-linker-extensions/
+    
+    # If CC is set, it will be ignored, which is probably unexpected.
+    assert not os.environ.get('CC'), 'Please unset CC as it is ignored'
+
+    # Note: The following class will be extended again below, but that is
+    # OK as long as super() is used to chain the method calls.
+    class build_ext(build_ext):
+        def build_extensions(self):
+            # Override the compiler executables.
+            for attr in ('compiler_so', 'compiler_cxx', 'linker_so'):
+                temp = getattr(self.compiler, attr)
+                temp[0] = compiler
+                self.compiler.set_executable(attr, temp)
+            super().build_extensions()
 
 for flag, name in [(noblas, 'GPAW_WITHOUT_BLAS'),
                    (nolibxc, 'GPAW_WITHOUT_LIBXC'),
@@ -177,6 +164,9 @@ if nolibxc:
                  'tpss.c', 'revtpss.c', 'revtpss_c_pbe.c',
                  'xc_mgga.c']:
         sources.remove(Path(f'c/xc/{name}'))
+    if 'xc' in libraries:
+        libraries.remove('xc')
+
 # Make build process deterministic (for "reproducible build")
 sources = [str(source) for source in sources]
 sources.sort()
@@ -206,7 +196,7 @@ write_configuration(define_macros, include_dirs, libraries, library_dirs,
                     mpi_runtime_library_dirs, mpi_define_macros)
 
 
-class build_ext(_build_ext):
+class build_ext(build_ext):
     def run(self):
         import numpy as np
         self.include_dirs.append(np.get_include())
@@ -220,7 +210,8 @@ class build_ext(_build_ext):
                               cuda, hip)
             assert error == 0
 
-        _build_ext.run(self)
+        super().run()
+        print("Temp and build", self.build_lib, self.build_temp)
 
         if parallel_python_interpreter:
             include_dirs.append(np.get_include())
@@ -228,7 +219,7 @@ class build_ext(_build_ext):
             error = build_interpreter(
                 define_macros, include_dirs, libraries,
                 library_dirs, extra_link_args, extra_compile_args,
-                runtime_library_dirs, extra_objects,
+                runtime_library_dirs, extra_objects, self.build_temp,
                 mpicompiler, mpilinker, mpi_libraries,
                 mpi_library_dirs,
                 mpi_include_dirs,
@@ -236,29 +227,30 @@ class build_ext(_build_ext):
             assert error == 0
 
 
+def copy_gpaw_python(cmd, dir: str) -> None:
+    major, minor = sys.version_info[:2]
+    plat = get_platform() + f'-{major}.{minor}'
+    source = f'build/bin.{plat}/gpaw-python'
+    target = os.path.join(dir, 'gpaw-python')
+    cmd.copy_file(source, target)
+
+
 class install(_install):
     def run(self):
-        _install.run(self)
-
-        if parallel_python_interpreter:
-            # Also copy gpaw-python
-            plat = distutils.util.get_platform() + '-' + sys.version[0:3]
-            source = 'build/bin.{}/gpaw-python'.format(plat)
-            target = os.path.join(self.install_scripts, 'gpaw-python')
-            self.copy_file(source, target)
+        super().run()
+        copy_gpaw_python(self, self.install_scripts)
 
 
 class develop(_develop):
     def run(self):
-        _develop.run(self)
+        super().run()
+        copy_gpaw_python(self, self.script_dir)
 
-        if parallel_python_interpreter:
-            # Also copy gpaw-python
-            plat = distutils.util.get_platform() + '-' + sys.version[0:3]
-            source = 'build/bin.{}/gpaw-python'.format(plat)
-            target = os.path.join(self.script_dir, 'gpaw-python')
-            self.copy_file(source, target)
 
+cmdclass = {'build_ext': build_ext}
+if parallel_python_interpreter:
+    cmdclass['install'] = install
+    cmdclass['develop'] = develop
 
 files = ['gpaw-analyse-basis', 'gpaw-basis',
          'gpaw-plot-parallel-timings', 'gpaw-runscript',
@@ -276,22 +268,30 @@ setup(name='gpaw',
       license='GPLv3+',
       platforms=['unix'],
       packages=find_packages(),
-      entry_points={'console_scripts': ['gpaw = gpaw.cli.main:main']},
+      package_data={'gpaw': ['py.typed']},
+      entry_points={
+          'console_scripts': ['gpaw = gpaw.cli.main:main']},
       setup_requires=['numpy'],
-      install_requires=['ase>=3.20.1'],
+      install_requires=[f'ase>={ase_version_required}',
+                        'scipy>=1.2.0',
+                        'pyyaml'],
+      extras_require={'docs': ['sphinx-rtd-theme',
+                               'graphviz'],
+                      'devel': ['flake8',
+                                'mypy',
+                                'pytest-xdist',
+                                'interrogate']},
       ext_modules=extensions,
       scripts=scripts,
-      cmdclass={'build_ext': build_ext,
-                'install': install,
-                'develop': develop},
+      cmdclass=cmdclass,
       classifiers=[
           'Development Status :: 6 - Mature',
           'License :: OSI Approved :: '
           'GNU General Public License v3 or later (GPLv3+)',
           'Operating System :: OS Independent',
           'Programming Language :: Python :: 3',
-          'Programming Language :: Python :: 3.6',
           'Programming Language :: Python :: 3.7',
           'Programming Language :: Python :: 3.8',
           'Programming Language :: Python :: 3.9',
+          'Programming Language :: Python :: 3.10',
           'Topic :: Scientific/Engineering :: Physics'])

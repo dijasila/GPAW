@@ -46,7 +46,7 @@ class AppelbaumHamann(BaseSetup):
         self.Delta0 = -4 / (4 * np.pi)**0.5
         self.ExxC = 0.0
         self.lmax = 0
-        self.K_p = self.M_p = self.MB_p = self.X_p = np.zeros(1)
+        self.K_p = self.M_p = self.MB_p = self.X_p = self.N0_p = np.zeros(1)
         self.M_pp = np.zeros((1, 1))
         self.Kc = 0.0
         self.MB = 0.0

@@ -17,7 +17,6 @@ def calculate_forces(wfs, dens, ham, log=None):
     F_wfs_av = np.zeros((natoms, 3))
     wfs.calculate_forces(ham, F_wfs_av)
     wfs.gd.comm.sum(F_wfs_av, 0)
-
     F_ham_av = np.zeros((natoms, 3))
 
     try:

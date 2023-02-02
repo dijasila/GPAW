@@ -1,4 +1,6 @@
+import pytest
 from ase import Atom, Atoms
+from ase.parallel import world
 
 from gpaw import GPAW
 from gpaw.lrtddft import LrTDDFT
@@ -12,7 +14,7 @@ def get_H2(calculator=None):
     H2 = Atoms([Atom('H', (a / 2, a / 2, (c - R) / 2)),
                 Atom('H', (a / 2, a / 2, (c + R) / 2))],
                cell=(a, a, c))
-    
+
     if calculator is not None:
         H2.calc = calculator
 
@@ -24,10 +26,12 @@ def run_and_delete(txt):
     calc = GPAW(xc='PBE', h=0.25, nbands=5, txt=outfname)
     calc.calculate(get_H2(calc))
     exlst = LrTDDFT(calc, restrict={'eps': 0.4, 'jend': 3}, txt=txt)
-    del(calc)
-    del(exlst)
-    
+    del calc
+    del exlst
+    world.barrier()
 
+
+@pytest.mark.lrtddft
 def test_log(in_tmp_dir):
     defname = 'gpawlog.txt'
     # LrTDDFT outputs to the same log like gpaw
@@ -36,7 +40,7 @@ def test_log(in_tmp_dir):
         string = f.read()
         assert 'Kohn-Sham single transitions' in string
         assert 'Linear response TDDFT calculation' in string
-    
+
     # silent LrTDDFT
     run_and_delete(txt=None)
     with open(defname) as f:

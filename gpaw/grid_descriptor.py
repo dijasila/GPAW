@@ -10,7 +10,7 @@ For radial grid descriptors, look atom/radialgd.py.
 
 import numbers
 from math import pi
-from typing import Iterable
+from typing import Sequence
 
 import numpy as np
 from scipy.ndimage import map_coordinates
@@ -18,14 +18,10 @@ from scipy.ndimage import map_coordinates
 import _gpaw
 import gpaw.mpi as mpi
 from gpaw.domain import Domain
-from gpaw.utilities.blas import rk, r2k, gemm
-from gpaw.hints import Array1D, Array3D
+from gpaw.new import prod
+from gpaw.typing import Array1D, Array3D, Vector
+from gpaw.utilities.blas import mmm, r2k, rk
 from gpaw import gpu
-
-
-# Remove this:  XXX
-assert (-1) % 3 == 2
-assert (np.array([-1]) % 3)[0] == 2
 
 NONBLOCKING = False
 
@@ -283,8 +279,7 @@ class GridDescriptor(Domain):
         return peer_comm
 
     def integrate(self, a_xg, b_yg=None,
-                  global_integral=True, hermitian=False,
-                  _transposed_result=None):
+                  global_integral=True, hermitian=False):
         """Integrate function(s) over domain.
 
         a_xg: ndarray
@@ -297,9 +292,7 @@ class GridDescriptor(Domain):
             only, use global_integral=False.
         hermitian: bool
             Result is hermitian.
-        _transposed_result: ndarray
-            Long story.  Don't use this unless you are a method of the
-            MatrixOperator class ..."""
+        """
 
         xshape = a_xg.shape[:-3]
 
@@ -313,21 +306,17 @@ class GridDescriptor(Domain):
                     self.comm.sum(result)
             return result
 
+        gsize = prod(a_xg.shape[-3:])
         if gpu.backend.is_device_array(a_xg):
-            nd = a_xg.size / np.prod(a_xg.shape[-3:])
+            nd = a_xg.size / gsize
             A_xg = a_xg.reshape((nd,) + a_xg.shape[-3:])
-            nd = b_yg.size / np.prod(b_yg.shape[-3:])
+            nd = b_yg.size / gsize
             B_yg = b_yg.reshape((nd,) + b_yg.shape[-3:])
         else:
-            A_xg = np.ascontiguousarray(a_xg.reshape((-1,) + a_xg.shape[-3:]))
-            B_yg = np.ascontiguousarray(b_yg.reshape((-1,) + b_yg.shape[-3:]))
+            A_xg = np.ascontiguousarray(a_xg.reshape((-1, gsize)))
+            B_yg = np.ascontiguousarray(b_yg.reshape((-1, gsize)))
 
-        if _transposed_result is None:
-            result_yx = np.zeros((len(B_yg), len(A_xg)), A_xg.dtype)
-        else:
-            assert(gpu.backend.is_host_array(_transposed_result))
-            result_yx = _transposed_result
-            global_integral = False
+        result_yx = np.zeros((len(B_yg), len(A_xg)), A_xg.dtype)
 
         if gpu.backend.is_device_array(a_xg):
             result_gpu = gpu.backend.copy_to_device(result_yx)
@@ -336,7 +325,8 @@ class GridDescriptor(Domain):
             elif hermitian:
                 r2k(0.5 * self.dv, A_xg, B_yg, 0.0, result_gpu)
             else:
-                gemm(self.dv, A_xg, B_yg, 0.0, result_gpu, 'c')
+                # gemm(self.dv, A_xg, B_yg, 0.0, result_gpu, 'c')
+                mmm(self.dv, B_yg, 'N', A_xg, 'C', 0.0, result_gpu)
             gpu.backend.copy_to_host(result_gpu, result_yx)
         else:
             if a_xg is b_yg:
@@ -344,7 +334,8 @@ class GridDescriptor(Domain):
             elif hermitian:
                 r2k(0.5 * self.dv, A_xg, B_yg, 0.0, result_yx)
             else:
-                gemm(self.dv, A_xg, B_yg, 0.0, result_yx, 'c')
+                # gemm(self.dv, A_xg, B_yg, 0.0, result_yx, 'c')
+                mmm(self.dv, B_yg, 'N', A_xg, 'C', 0.0, result_yx)
 
         if global_integral:
             self.comm.sum(result_yx)
@@ -627,7 +618,7 @@ class GridDescriptor(Domain):
 
     def dipole_moment(self,
                       rho_R: Array3D,
-                      center_v: Iterable[float] = None) -> Array1D:
+                      center_v: Vector = None) -> Array1D:
         """Calculate dipole moment of density.
 
         Integration region will be centered on center_v.  Default center
@@ -730,8 +721,7 @@ class GridDescriptor(Domain):
         Non-Cubic MD cells' March 29, 1989
         """
         s_Gc = (np.indices(self.n_c, dtype).T + self.beg_c) / self.N_c
-        cell_cv = self.N_c * self.h_cv
-        r_c = np.linalg.solve(cell_cv.T, r_v)
+        r_c = np.linalg.solve(self.cell_cv.T, r_v)
         # do the correction twice works better because of rounding errors
         # e.g.: -1.56250000e-25 % 1.0 = 1.0,
         #      but (-1.56250000e-25 % 1.0) % 1.0 = 0.0
@@ -741,10 +731,10 @@ class GridDescriptor(Domain):
         if mic:
             s_Gc -= self.pbc_c * (2 * s_Gc).astype(int)
             # sanity check
-            assert((s_Gc * self.pbc_c >= -0.5).all())
-            assert((s_Gc * self.pbc_c <= 0.5).all())
+            assert (s_Gc * self.pbc_c >= -0.5).all()
+            assert (s_Gc * self.pbc_c <= 0.5).all()
 
-        return np.dot(s_Gc, cell_cv).T.copy()
+        return np.dot(s_Gc, self.cell_cv).T.copy()
 
     def interpolate_grid_points(self, spos_nc, vt_g):
         """Return interpolated values.
@@ -763,13 +753,6 @@ class GridDescriptor(Domain):
                                order=3,
                                mode='wrap')
 
-    def __eq__(self, other):
-        # XXX Wait, should this not check the global distribution?  This
-        # could return True on some nodes and False on others because the
-        # check does not verify self.n_cp.
-        return (self.dv == other.dv and
-                (self.h_cv == other.h_cv).all() and
-                (self.N_c == other.N_c).all() and
-                (self.n_c == other.n_c).all() and
-                (self.beg_c == other.beg_c).all() and
-                (self.end_c == other.end_c).all())
+    def is_my_grid_point(self, R_c: Sequence[int]) -> bool:
+        """Check if grid point belongs to this domain."""
+        return ((self.beg_c <= R_c) & (R_c < self.end_c)).all()

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """Van der Waals density functional.
 
 This module implements the Dion-Rydberg–Schröder–Langreth–Lundqvist
@@ -26,7 +24,7 @@ from gpaw.xc.gga import GGA, gga_vars, add_gradient_correction
 from gpaw.xc.mgga import MGGA
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.utilities.tools import construct_reciprocal
-from gpaw import setup_paths, extra_parameters
+from gpaw import setup_paths
 import gpaw.mpi as mpi
 import _gpaw
 
@@ -201,6 +199,10 @@ class VDWFunctionalBase:
 
     def get_Ecnl(self):
         return self.Ecnl
+
+    def stress_tensor_contribution(self, n_sg):
+        raise NotImplementedError('Calculation of stress tensor is not ' +
+                                  f'implemented for {self.name}')
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
         sigma_xg, dedsigma_xg, gradn_svg = gga_vars(gd, self.grad_v, n_sg)
@@ -575,8 +577,7 @@ class FFTVDWFunctional(VDWFunctionalBase):
 
         The recipe is from
 
-          http://en.wikipedia.org/wiki/Spline_(mathematics)
-        """
+          http://en.wikipedia.org/wiki/Spline_(mathematics) """
 
         n = self.Nalpha
         lambd = self.lambd
@@ -703,8 +704,6 @@ class FFTVDWFunctional(VDWFunctionalBase):
             del C_pg
             self.timer.start('FFT')
             theta_ak[a] = rfftn(n_g * pa_g, self.shape).copy()
-            if extra_parameters.get('vdw0'):
-                theta_ak[a][0, 0, 0] = 0.0
             self.timer.stop()
 
             if not self.energy_only:

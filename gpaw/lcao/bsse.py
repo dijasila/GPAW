@@ -60,6 +60,7 @@ class GhostSetup(BaseSetup):
         self.M = 0.0
         self.M_p = np.zeros(1)
         self.M_pp = np.zeros((1, 1))
+        self.M_wpp = {}
         self.K_p = np.zeros(1)
         self.MB = 0.0
         self.MB_p = np.zeros(1)
@@ -74,9 +75,8 @@ class GhostSetup(BaseSetup):
         self.rcutfilter = None
         self.rcore = None
         self.N0_p = np.zeros(1)
-        self.nabla_iiv = None
-        self.rnabla_iiv = None
-        self.rxnabla_iiv = None
+        self.nabla_iiv = np.zeros((self.ni, self.ni, 3))
+        self.rxnabla_iiv = np.zeros((self.ni, self.ni, 3))
         self.phicorehole_g = None
         self.rgd = None
         self.rcut_j = [0.5]
@@ -85,8 +85,10 @@ class GhostSetup(BaseSetup):
         self.B_ii = None
         self.dC_ii = None
         self.X_p = None
+        self.X_wp = {}
         self.X_pg = None
         self.ExxC = None
+        self.ExxC_w = {}
         self.X_gamma = None
         self.dEH0 = 0.0
         self.dEH_p = np.zeros(1)

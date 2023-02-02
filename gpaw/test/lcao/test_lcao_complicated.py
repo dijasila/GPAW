@@ -1,10 +1,10 @@
 import numpy as np
+import pytest
 from ase.build import fcc111
 
+from gpaw import GPAW, LCAO, FermiDirac
 from gpaw.mpi import world
-from gpaw import GPAW, PoissonSolver
 from gpaw.utilities import compiled_with_sl
-from gpaw import FermiDirac, LCAO
 
 # This test verifies that energy and forces are (approximately)
 # parallelization independent
@@ -22,6 +22,7 @@ from gpaw import FermiDirac, LCAO
 # Written November 24, 2011, r8567
 
 
+@pytest.mark.later
 def test_lcao_complicated():
     system = fcc111('Au', size=(1, 3, 1))
     system.numbers[0] = 8
@@ -45,7 +46,6 @@ def test_lcao_complicated():
                     kpts=(4, 1, 1),
                     # txt=None,
                     communicator=comm,
-                    poissonsolver=PoissonSolver(eps=1e-8),
                     nbands=16,
                     parallel=parallel,
                     h=0.35)

@@ -1,7 +1,7 @@
 import numpy as np
 from ase import Atoms
 from gpaw import GPAW
-from gpaw.wavefunctions.pw import PW
+from gpaw import PW
 from gpaw.test import equal
 
 

@@ -1,12 +1,16 @@
 from math import log
+
+import pytest
 from ase import Atoms
-from ase.io import read, write, iread
-from ase.units import Bohr
 from ase.db import connect
+from ase.io import iread, read, write
+from ase.units import Bohr
+
 from gpaw import GPAW, FermiDirac
 from gpaw.test import equal
 
 
+@pytest.mark.later
 def test_generic_hydrogen(in_tmp_dir):
     a = 4.0
     h = 0.2
@@ -14,9 +18,10 @@ def test_generic_hydrogen(in_tmp_dir):
                      [(a / 2, a / 2, a / 2)],
                      cell=(a, a, a))
 
-    hydrogen.calc = GPAW(h=h,
-                         nbands=1,
-                         convergence={'energy': 1e-7},
+    params = dict(h=h,
+                  nbands=1,
+                  convergence={'energy': 1e-7})
+    hydrogen.calc = GPAW(**params,
                          txt='h.txt')
     e1 = hydrogen.get_potential_energy()
     equal(e1, 0.526939, 0.001)
@@ -26,7 +31,8 @@ def test_generic_hydrogen(in_tmp_dir):
     equal(abs(c - a / 2).max(), 0, 1e-13)
 
     kT = 0.001
-    hydrogen.calc.set(occupations=FermiDirac(width=kT))
+    hydrogen.calc = GPAW(**params,
+                         occupations=FermiDirac(width=kT))
     e2 = hydrogen.get_potential_energy()
     equal(e1, e2 + log(2) * kT, 3.0e-7)
 

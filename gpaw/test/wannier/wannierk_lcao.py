@@ -8,6 +8,7 @@ from gpaw import GPAW
 from gpaw.mpi import world, serial_comm
 
 
+@pytest.mark.wannier
 @pytest.mark.skip(reason='TODO')
 def test_wannierk_lcao():
     si = bulk('Si', 'diamond', a=5.43)

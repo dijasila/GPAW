@@ -1,4 +1,4 @@
-# Creates: hybrid.png
+# web-page: hybrid.png
 import numpy as np
 import pylab as plt
 

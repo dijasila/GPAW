@@ -1,17 +1,21 @@
+import pytest
 from ase.build import molecule
+
 from gpaw import GPAW
-from gpaw.poisson import FDPoissonSolver as PoissonSolver
 from gpaw.atom.basis import BasisMaker
+from gpaw.poisson import FDPoissonSolver as PoissonSolver
 from gpaw.test import equal
 
-# Tests basis set super position error correction
 
-# Compares a single hydrogen atom to a system of one hydrogen atom
-# and one ghost hydrogen atom.  The systems should have identical properties,
-# i.e. the ghost orbital should have a coefficient of 0.
-
-
+@pytest.mark.later
 def test_lcao_bsse():
+    """Tests basis set super position error correction.
+
+    Compares a single hydrogen atom to a system of one hydrogen atom
+    and one ghost hydrogen atom.  The systems should have identical properties,
+    i.e. the ghost orbital should have a coefficient of 0.
+    """
+
     b = BasisMaker('H').generate(1, 0, energysplit=0.005)
 
     system = molecule('H2')

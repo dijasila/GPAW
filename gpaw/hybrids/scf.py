@@ -2,7 +2,8 @@ import numpy as np
 
 from gpaw.mpi import serial_comm
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
+from gpaw.pw.descriptor import PWDescriptor
+from gpaw.pw.lfc import PWLFC
 from .kpts import PWKPoint, RSKPoint, to_real_space
 
 

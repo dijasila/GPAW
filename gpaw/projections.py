@@ -1,11 +1,11 @@
-from typing import List, Any, Optional
+from typing import Any, Optional, Dict
 
 import numpy as np
 
 from gpaw.matrix import Matrix
 from gpaw.mpi import serial_comm
 from gpaw.utilities.partition import AtomPartition
-from .hints import Array2D
+from gpaw.typing import Array2D, ArrayLike1D
 
 MPIComm = Any
 
@@ -13,7 +13,7 @@ MPIComm = Any
 class Projections:
     def __init__(self,
                  nbands: int,
-                 nproj_a: List[int],
+                 nproj_a: ArrayLike1D,
                  atom_partition: AtomPartition,
                  bcomm: MPIComm = None,
                  collinear=True,
@@ -39,7 +39,7 @@ class Projections:
         I1 = 0
 
         for a in self.atom_partition.my_indices:
-            ni = nproj_a[a]
+            ni = self.nproj_a[a]
             I2 = I1 + ni
             self.indices.append((a, I1, I2))
             self.map[a] = (I1, I2)
@@ -170,3 +170,15 @@ class Projections:
             for a, I1, I2 in self.indices:
                 self.atom_partition.comm.send(P.array[:, I1:I2].T.copy(), 0)
             return None
+
+    def as_dict_on_master(self, n1: int, n2: int) -> Dict[int, Array2D]:
+        P_nI = self.collect()
+        if P_nI is None:
+            return {}
+        I1 = 0
+        P_ani = {}
+        for a, ni in enumerate(self.nproj_a):
+            I2 = I1 + ni
+            P_ani[a] = P_nI[n1:n2, I1:I2]
+            I1 = I2
+        return P_ani

@@ -4,28 +4,28 @@
 Development
 ===========
 
+To get started, take a look a our :ref:`development workflow`.
+
 GPAW development can be done by anyone! Just take a look at the
 `issue tracker`_ and find something that suits your talents.
 
-The primary source of information is still the :ref:`manual` and
+The primary source of information is still the :ref:`basic` and
 :ref:`documentation`, but as a developer you might need additional
 information which can be found here. For example the :ref:`code_overview`.
 
 As a developer, you should subscribe to the GPAW :ref:`mail list`.
-We would also like to encourage you to join our #gpaw channel for :ref:`chat`.
-
-Now you are ready to to perfom a :ref:`developer installation` and
-start development.
-
+We would also like to encourage you to join our ``#gpaw`` channel
+for :ref:`chat`.
 
 .. _issue tracker: https://gitlab.com/gpaw/gpaw/issues/
 
 .. toctree::
    :maxdepth: 2
 
-   developer_installation
+   workflow
 
 .. note --- below toctrees are defined in separate files to make sure that the line spacing doesn't get very large (which is of course a bad hack)
+
 
 Development topics
 ==================
@@ -37,18 +37,17 @@ version to become the next release.
 .. toctree::
    :maxdepth: 1
 
+   testing
    codingstandard
    c_extension
    writing_documentation
    formulas
    debugging
    profiling
-   testing
    ase_optimize/ase_optimize
    bugs
    newrelease
    technology
-   benchmarks
 
 * Details about supported :ref:`platforms and architectures`.
 
@@ -60,11 +59,6 @@ version to become the next release.
 
 Code Overview
 =============
-
-Keep this :download:`picture <bigpicture.svg>` under your pillow:
-
-.. image:: bigpicture.png
-   :target: ../_downloads/bigpicture.svg
 
 The developer guide provides an overview of the PAW quantities and how
 the corresponding objects are defined in the code:
@@ -80,8 +74,6 @@ the corresponding objects are defined in the code:
    wavefunctions
    setups
    density_and_hamiltonian
-   planewaves
-   matrices
    communicators
    others
 
@@ -89,7 +81,7 @@ the corresponding objects are defined in the code:
 The GPAW logo
 =============
 
-The GPAW-logo is available as an svg-file: :download:`gpaw-logo.svg`.
+The GPAW-logo is available as an SVG-file: :download:`gpaw-logo.svg`.
 
 .. image:: gpaw-logo.svg
 

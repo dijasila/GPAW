@@ -1,3 +1,4 @@
+from __future__ import annotations
 from pathlib import Path
 from typing import Union, List, Optional, Sequence, TYPE_CHECKING
 
@@ -6,15 +7,16 @@ from ase.dft.dos import linear_tetrahedron_integration as lti
 
 from gpaw.setup import Setup
 from gpaw.spinorbit import soc_eigenstates, BZWaveFunctions
-from gpaw.hints import Array1D, Array2D, Array3D
+from gpaw.typing import Array1D, Array2D, Array3D, ArrayLike1D
 
 if TYPE_CHECKING:
-    from gpaw import GPAW
+    from gpaw.calculator import GPAW
+    from gpaw.new.ase_interface import ASECalculator
 
 
 class IBZWaveFunctions:
     """Container for eigenvalues and PAW projections (only IBZ)."""
-    def __init__(self, calc: 'GPAW'):
+    def __init__(self, calc: ASECalculator | GPAW):
         self.calc = calc
         self.fermi_level = self.calc.get_fermi_level()
         self.size = calc.wfs.kd.N_c
@@ -153,7 +155,7 @@ class DOSCalculator:
 
     @classmethod
     def from_calculator(cls,
-                        filename: Union['GPAW', Path, str],
+                        filename: ASECalculator | GPAW | Path | str,
                         soc=False, theta=0.0, phi=0.0,
                         shift_fermi_level=True):
         """Create DOSCalculator from a GPAW calculation.
@@ -161,9 +163,7 @@ class DOSCalculator:
         filename: str
             Name of restart-file or GPAW calculator object.
         """
-        from gpaw import GPAW
-
-        if isinstance(filename, GPAW):
+        if not isinstance(filename, (str, Path)):
             calc = filename
         else:
             calc = GPAW(filename, txt=None)
@@ -179,7 +179,7 @@ class DOSCalculator:
                              shift_fermi_level)
 
     def calculate(self,
-                  energies: Sequence[float],
+                  energies: ArrayLike1D,
                   eig_kn: Array2D,
                   weight_kn: Array2D = None,
                   width: float = 0.1):

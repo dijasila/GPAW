@@ -1,10 +1,14 @@
 from math import sqrt
+
 import numpy as np
+import pytest
 from ase import Atoms
+
 from gpaw import GPAW, PW, restart
 from gpaw.test import equal
 
 
+@pytest.mark.later
 def test_fileio_restart(in_tmp_dir):
     d = 3.0
     atoms = Atoms('Na3',
@@ -55,7 +59,7 @@ def test_fileio_restart(in_tmp_dir):
         calc.write('tmp3.gpw')
         calc.write('tmp4.gpw', 'all')
 
-    # Only a short, non-converged calcuation
+    # Only a short, non-converged calculation
     conv = {'eigenstates': 1.24, 'energy': 2e-1, 'density': 1e-1}
 
     for kwargs in [{'mode': PW(200)},

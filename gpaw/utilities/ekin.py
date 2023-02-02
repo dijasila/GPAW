@@ -3,7 +3,7 @@ from typing import Tuple
 import numpy as np
 from ase.units import Ha
 
-from gpaw.hints import Array1D
+from gpaw.typing import Array1D
 from gpaw.setup import Setup
 
 

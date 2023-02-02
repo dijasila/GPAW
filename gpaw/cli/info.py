@@ -72,7 +72,7 @@ def info():
     results.append(('FFTW', have_fftw))
     results.append(('libvdwxc', compiled_with_libvdwxc()))
     for i, path in enumerate(gpaw.setup_paths):
-        results.append((f'PAW-datasets ({i + 1})', path))
+        results.append((f'PAW-datasets ({i + 1})', str(path)))
 
     if rank != 0:
         return

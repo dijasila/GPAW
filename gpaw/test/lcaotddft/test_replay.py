@@ -1,17 +1,16 @@
 import numpy as np
-
+import pytest
 from ase.build import molecule
 from gpaw import GPAW
 from gpaw.lcaotddft import LCAOTDDFT
-from gpaw.poisson import PoissonSolver
 from gpaw.lcaotddft.dipolemomentwriter import DipoleMomentWriter
 from gpaw.lcaotddft.wfwriter import WaveFunctionWriter
-from gpaw.tddft.spectrum import photoabsorption_spectrum
 from gpaw.mpi import world
-
+from gpaw.tddft.spectrum import photoabsorption_spectrum
 from gpaw.test import equal
 
 
+@pytest.mark.rttddft
 def test_lcaotddft_replay(in_tmp_dir):
     atoms = molecule('Na2')
     atoms.center(vacuum=4.0)
@@ -19,7 +18,6 @@ def test_lcaotddft_replay(in_tmp_dir):
     # Ground-state calculation
     calc = GPAW(nbands=2, h=0.4, setups=dict(Na='1'),
                 basis='dzp', mode='lcao',
-                poissonsolver=PoissonSolver(eps=1e-16),
                 convergence={'density': 1e-8},
                 txt='gs.out')
     atoms.calc = calc

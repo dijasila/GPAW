@@ -1,4 +1,3 @@
-import pytest
 from gpaw.solvation.sjm import SJM, SJMPower12Potential
 
 from ase.build import fcc111
@@ -13,7 +12,6 @@ from gpaw.solvation import (
     SurfaceInteraction)
 
 
-@pytest.mark.skip(reason='TODO')
 def test_sjm():
     # Solvent parameters
     u0 = 0.180  # eV
@@ -26,23 +24,28 @@ def test_sjm():
 
     # Structure is created
     atoms = fcc111('Au', size=(1, 1, 3))
-    atoms.center(axis=2, vacuum=8)
-    atoms.translate([0, 0, -2])
+    atoms.cell[2][2] = 15
+    atoms.translate([0, 0, 6 - min(atoms.positions[:, 2])])
 
     # SJM parameters
-    potential = 3.0
-    ne = 1.20
-    dpot = 0.05
+    potential = 4.5
+    tol = 0.02
+    sj = {'target_potential': potential,
+          'excess_electrons': -0.045,
+          'jelliumregion': {'top': 14.5},
+          'tol': tol}
 
-    # The calculator
-    calc = SJM(doublelayer={'upper_limit': 19.5},
-               potential=potential,
-               dpot=dpot,
-               ne=ne,
-               gpts=(8, 8, 64),
-               poissonsolver={'dipolelayer': 'xy'},
-               kpts=(1, 1, 1),
+    convergence = {
+        'energy': 0.05 / 8.,
+        'density': 1e-4,
+        'eigenstates': 1e-4}
+
+    # Calculator
+    calc = SJM(sj=sj,
+               gpts=(8, 8, 48),
+               kpts=(2, 2, 1),
                xc='PBE',
+               convergence=convergence,
                occupations=FermiDirac(0.1),
                cavity=EffectivePotentialCavity(
                    effective_potential=SJMPower12Potential(atomic_radii, u0),
@@ -54,6 +57,4 @@ def test_sjm():
     # Run the calculation
     atoms.calc = calc
     atoms.get_potential_energy()
-    assert abs(calc.get_electrode_potential() - potential) < dpot
-    elpot = calc.get_electrostatic_potential().mean(0).mean(0)
-    assert abs(elpot[2] - elpot[10]) < 1e-3
+    assert abs(calc.get_electrode_potential() - potential) < tol

@@ -15,7 +15,7 @@ pytestmark = pytest.mark.skipif(world.size < 4,
 
 
 @pytest.mark.slow
-def test_exx_AA_enthalpy(in_tmp_dir):
+def test_exx_AA_enthalpy(in_tmp_dir, add_cwd_to_setup_paths):
     data = {}
 
     def _xc(name):
@@ -37,7 +37,7 @@ def test_exx_AA_enthalpy(in_tmp_dir):
         'PBEH': (1.090, 3.1, 'PBE', 'hyb_gga'),
         'magmom': 3.0,
         # tables.pdf:
-        # http://ftp.aip.org/epaps/journ_chem_phys/E-JCPSA6-119-302348/tables.pdf
+        # https://aip.scitation.org/doi/suppl/10.1063/1.1626543/suppl_file/tables.pdf
         'R_AA_B3LYP': 1.092,  # (from tables.pdf of 10.1063/1.1626543) (Ang)
         'ZPE_AA_B3LYP': 0.005457 * Hartree,  # (from benchmarks.txt of
                                              # 10.1063/1.1626543) (eV)
@@ -61,7 +61,7 @@ def test_exx_AA_enthalpy(in_tmp_dir):
         'PBEH': (1.192, -4.3, 'PBE', 'hyb_gga'),
         'magmom': 2.0,
         # tables.pdf:
-        # http://ftp.aip.org/epaps/journ_chem_phys/E-JCPSA6-119-302348/tables.pdf
+        # https://aip.scitation.org/doi/suppl/10.1063/1.1626543/suppl_file/tables.pdf
         'R_AA_B3LYP': 1.204,  # (from tables.pdf of 10.1063/1.1626543) (Ang)
         'ZPE_AA_B3LYP': 0.003736 * Hartree,  # (from benchmarks.txt of
                                              # 10.1063/1.1626543) (eV)
@@ -85,7 +85,7 @@ def test_exx_AA_enthalpy(in_tmp_dir):
         'PBEH': (0.745, 5.3, 'PBE', 'hyb_gga'),
         'magmom': 1.0,
         # tables.pdf:
-        # http://ftp.aip.org/epaps/journ_chem_phys/E-JCPSA6-119-302348/tables.pdf
+        # https://aip.scitation.org/doi/suppl/10.1063/1.1626543/suppl_file/tables.pdf
         'R_AA_B3LYP': 0.742,  # (from tables.pdf of 10.1063/1.1626543) (Ang)
         'ZPE_AA_B3LYP': 0.010025 * Hartree,  # (from benchmarks.txt of
                                              # 10.1063/1.1626543) (eV)

@@ -33,8 +33,9 @@ You can see which modules are available with the ``module avail [package]`` comm
      GPAW/20.10.0-foss-2019b-ASE-3.20.1-Python-3.7.4
      GPAW/20.10.0-foss-2020b
      GPAW/20.10.0-intel-2019b-ASE-3.20.1-Python-3.7.4
-     GPAW/20.10.0-intel-2020b                         (D)
-
+     GPAW/20.10.0-intel-2020b 
+     GPAW/21.1.0-foss-2020b-ASE-3.21.1
+     GPAW/21.1.0-intel-2020b-ASE-3.21.1               (D)
     Where:
      D:  Default Module
 
@@ -56,7 +57,7 @@ I have an ongoing project
   using different versions for different project.
 
 I am a normal user
-  You should load ``GPAW/20.10.0-intel-2020b``.
+  You should load ``GPAW/21.1.0-intel-2020b``.
 
   This will give the newest version of GPAW, as recommended by the
   developers.  It has new features and is significantly faster, in

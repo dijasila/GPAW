@@ -2,19 +2,17 @@ import gpaw.mpi
 
 
 class LrCommunicators:
-    def __init__(self, world=None, dd_size=None, eh_size=None):
+    def __init__(self, world, dd_size: int, eh_size: int = None):
         """Create communicators for LrTDDFT calculation.
 
-        Input parameters:
-
+        Parameters
+        ----------
         world
-          MPI parent communicator (usually gpaw.mpi.world)
-
+          MPI parent communicator (usually ``gpaw.mpi.world``)
         dd_size
-          Over how many processes is domain distributed.
-
+          Number of domains for domain decomposition
         eh_size
-          Over how many processes are electron-hole pairs distributed.
+          Number of groups for parallelization over electron-hole pairs
 
         Note
         ----
@@ -29,18 +27,20 @@ class LrCommunicators:
         over them.
 
 
-        Pass lr_comms.dd_comm to ground state calc when reading for LrTDDFT.
+        Pass ``lr_comms.dd_comm`` to ground state calc when
+        reading for LrTDDFT.
 
 
-        ----------------------------------------------------------------------
+        Examples
+        --------
 
-        Example (for 8 MPI processes)::
+        For 8 MPI processes::
 
           lr_comms = LrCommunicators(gpaw.mpi.world, 4, 2)
           txt = 'lr_%06d_%06d.txt' % (lr_comms.dd_comm.rank,
                                       lr_comms.eh_comm.rank)
-          lr = LrTDDFTindexed(GPAW('unocc.gpw', communicator=lr_comms.dd_comm),
-                              lr_communicators=lr_comms, txt=txt)
+          calc = GPAW('unocc.gpw', communicator=lr_comms.dd_comm)
+          lr = LrTDDFT2(calc, lr_communicators=lr_comms, txt=txt)
 
         """
 

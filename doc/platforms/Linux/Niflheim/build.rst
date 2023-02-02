@@ -23,19 +23,17 @@ read the guide :ref:`Using a pre-installed GPAW on Niflheim <load on niflheim>`.
 Creating the venv
 =================
 
-Download the :download:`gpaw-venv.sh` script and run it like this::
+Download the :download:`gpaw_venv.py` script and run it like this::
 
-    $ ./gpaw-venv.sh <venv-name> [intel]
+    $ ./gpaw_venv.py <venv-name>
     ...
 
-After a few minutes, you will have a ``<venv-name>`` folder with
-a GPAW installation inside.  If you add the word ``intel`` as the
-second argument it will have been built with the Intel compilers,
-otherwise it will be built with the FOSS compilers.
+Type ``./gpaw_venv.py --help`` for help.  After a few minutes, you will have
+a ``<venv-name>`` folder with a GPAW installation inside.
 
 In the following, we will assume that your venv folder is ``~/venv1/``.
 
-The ``gpaw-venv.sh`` script does the following:
+The ``gpaw_venv.py`` script does the following:
 
 * load relevant modules from the foss toolchain
 * create the venv
@@ -60,7 +58,7 @@ and you can deactivate it when you no longer need to use it::
     $ deactivate
 
 You will want the activation to happen automatically for the jobs you
-submit to Niflheim.  Here are three ways to do it:
+submit to Niflheim.  Here are three ways to do it (pick one, and only one):
 
 1) If you always want to use one venv then just put the activation
    command in your ``~/.bashrc``.
@@ -85,19 +83,34 @@ submit to Niflheim.  Here are three ways to do it:
    in one of the parent folders and activate the venv automatically when
    your job starts running.
 
+   If you haven't configured MyQueue then you can do that with this command::
+
+       $ mq config slurm | grep -v sm3090 > ~/.myqueue/config.py
+
+   (skips the *sm3090* GPU-enabled nodes).
+
+* If you have MyQueue version 22.7.0 or later (``mq --version``) then the
+  venv will automatically be activated if it was activated at submit time.
+
 
 Adding additional packages
 ==========================
 
 In order to add more Python packages to your venv, you need to activate it
-and then you can ``pip install`` packages.  Here are three ways
+and then you can ``pip install`` packages.  Here is how
 to install ASR_::
 
-    $ pip install asr  # from PyPI
-    $ git clone https://gitlab.com/mortengjerding/asr.git
-    $ pip install ./asr  # from a git clone
-    $ pip install -e asr  # use source code from a git clone directly
+    $ git clone https://gitlab.com/asr-dev/asr.git
+    $ cd asr
+    $ git checkout old-master
+    $ pip install .
 
+.. warning::
+
+    Pip may need co compile some code.
+    It is therefore safest to use the ``thul`` login node to pip install
+    software as it is the oldest CPU architcture and the other login nodes
+    will understand its code.
 
 .. _ASR: https://asr.readthedocs.io/en/latest/
 
@@ -105,4 +118,4 @@ to install ASR_::
 Full script
 ===========
 
-.. literalinclude:: gpaw-venv.sh
+.. literalinclude:: gpaw_venv.py

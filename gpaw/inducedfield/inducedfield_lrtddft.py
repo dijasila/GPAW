@@ -1,4 +1,5 @@
 import numpy as np
+from copy import copy
 
 from ase.parallel import parprint
 
@@ -130,7 +131,7 @@ class LrTDDFTInducedField(BaseInducedField):
             
             # Take copy so that memory for pair density is released
             # after each loop iteration
-            ks = ks_.copy()
+            ks = copy(ks_)
             
             # Initialize pair density
             kpt = kpt_u[ks.spin]

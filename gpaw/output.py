@@ -1,9 +1,9 @@
-
 import numpy as np
-from ase.units import Bohr
+from _gpaw import get_num_threads
+from ase import Atoms
 from ase.data import chemical_symbols
 from ase.geometry import cell_to_cellpar
-from _gpaw import get_num_threads
+from ase.units import Bohr
 
 
 def print_cell(gd, pbc_c, log):
@@ -70,32 +70,36 @@ def print_parallelization_details(wfs, ham, log):
     log()
 
 
-def plot(atoms):
+def plot(atoms: Atoms) -> str:
     """Ascii-art plot of the atoms."""
 
-#   y
-#   |
-#   .-- x
-#  /
-# z
+    #   y
+    #   |
+    #   .-- x
+    #  /
+    # z
+
+    if atoms.cell.handedness != 1:
+        # See example we can't handle in test_ascii_art()
+        return ''
 
     cell_cv = atoms.get_cell()
-    if (cell_cv - np.diag(cell_cv.diagonal())).any():
+    if atoms.cell.orthorhombic:
+        plot_box = True
+    else:
         atoms = atoms.copy()
         atoms.cell = [1, 1, 1]
         atoms.center(vacuum=2.0)
         cell_cv = atoms.get_cell()
         plot_box = False
-    else:
-        plot_box = True
 
     cell = np.diagonal(cell_cv) / Bohr
     positions = atoms.get_positions() / Bohr
     numbers = atoms.get_atomic_numbers()
 
     s = 1.3
-    nx, ny, nz = n = (s * cell * (1.0, 0.25, 0.5) + 0.5).astype(int)
-    sx, sy, sz = n / cell
+    nx, ny, nz = nxyz = (s * cell * (1.0, 0.25, 0.5) + 0.5).astype(int)
+    sx, sy, sz = nxyz / cell
     grid = Grid(nx + ny + 4, nz + ny + 1)
     positions = (positions % cell + cell) % cell
     ij = np.dot(positions, [(sx, 0), (sy, sy), (0, sz)])

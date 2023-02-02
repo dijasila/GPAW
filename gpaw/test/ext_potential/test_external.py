@@ -1,11 +1,12 @@
-
+import pytest
 from ase import Atoms
+
 from gpaw import GPAW
+from gpaw.external import ConstantPotential
 from gpaw.test import equal
 
-from gpaw.external import ConstantPotential
 
-
+@pytest.mark.later
 def test_ext_potential_external():
     sc = 2.9
     R = 0.7  # approx. experimental bond length

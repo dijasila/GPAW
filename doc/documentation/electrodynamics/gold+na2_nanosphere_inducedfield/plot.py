@@ -1,5 +1,4 @@
-# Creates: cl_field.ind_Ffe.png, qm_field.ind_Ffe.png, tot_field.ind_Ffe.png
-# -*- coding: utf-8 -*-
+# web-page: cl_field.ind_Ffe.png, qm_field.ind_Ffe.png, tot_field.ind_Ffe.png
 from gpaw.mpi import world
 
 import numpy as np

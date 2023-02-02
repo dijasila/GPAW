@@ -1,5 +1,4 @@
 from math import pi
-from typing import Dict, Tuple
 from collections import defaultdict
 
 import numpy as np
@@ -132,7 +131,7 @@ class Symmetry:
                         kd.time_reversal_k[indices] * nsym)
             symmetries_k.append(sindices)
 
-        pairs: Dict[Tuple[int, int, int], int]
+        # pairs: Dict[Tuple[int, int, int], int]
 
         pairs1 = defaultdict(int)
         for i1 in range(kd.nibzkpts):

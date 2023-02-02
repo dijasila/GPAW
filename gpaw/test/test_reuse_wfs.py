@@ -1,7 +1,10 @@
+import pytest
 from ase.build import bulk
-from gpaw import GPAW, Mixer, PW
+
+from gpaw import GPAW, PW, Mixer
 
 
+@pytest.mark.later
 def test_reuse_wfs():
     atoms0 = bulk('Si')
     atoms0.rattle(stdev=0.01, seed=17)  # Break symmetry

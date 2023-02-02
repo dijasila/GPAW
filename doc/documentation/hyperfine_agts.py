@@ -1,5 +1,5 @@
-from myqueue.task import task
+from myqueue.workflow import run
 
 
-def create_tasks():
-    return [task('hyperfine_21.py')]
+def workflow():
+    run(script='hyperfine_21.py')

@@ -50,5 +50,5 @@ def test_occ_obj(e_kn, w_k, ne):
         f_kn, fl, s = occ.calculate(ne, np.array(e_kn), w_k)
         print(occ)
         print(f_kn)
-        print(fl, s, f_kn.sum(1).dot(w_k))
-        assert f_kn.sum(1).dot(w_k) == pytest.approx(ne, abs=1e-14)
+        print(fl, s, (w_k @ f_kn).sum())
+        assert (w_k @ f_kn).sum() == pytest.approx(ne, abs=1e-14)

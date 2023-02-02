@@ -1,4 +1,4 @@
-# Creates: PES_fig.png
+# web-page: PES_fig.png
 
 import numpy as np
 import matplotlib.pyplot as plt

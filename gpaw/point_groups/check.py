@@ -1,22 +1,23 @@
 """Symmetry checking code."""
 import sys
-from typing import Sequence, Any, Dict, List, Union
+from typing import Any, Dict, List, Sequence, Union
 
-from ase import Atoms
 import numpy as np
-from numpy.linalg import inv, det, solve
+from ase import Atoms
+from numpy.linalg import det, inv, solve
 from scipy.ndimage import map_coordinates
 
-from . import PointGroup
-from gpaw.hints import Array2D, Array3D
+from gpaw.typing import Array1D, Array2D, Array3D, ArrayLike
 
-Axis = Union[str, Sequence[float], None]
+from . import PointGroup
+
+Axis = Union[str, Sequence[float], Array1D, None]
 
 
 class SymmetryChecker:
     def __init__(self,
                  group: Union[str, PointGroup],
-                 center: Sequence[float],
+                 center: ArrayLike,
                  radius: float = 2.0,
                  x: Axis = None,
                  y: Axis = None,
@@ -66,8 +67,8 @@ class SymmetryChecker:
         M = inv(grid_vectors).T
         overlaps: List[float] = []
         for op in self.group.operations.values():
-            op = self.rotation.T.dot(op).dot(self.rotation)
-            pts = (self.points.dot(op.T) + self.center).dot(M.T)
+            op = self.rotation.T @ op @ self.rotation
+            pts = (self.points @ op.T + self.center) @ M.T
             pts %= function.shape
             values = map_coordinates(function, pts.T, mode='wrap')
             if not overlaps:
@@ -96,7 +97,7 @@ class SymmetryChecker:
                    band: int,
                    spin: int = 0) -> Dict[str, Any]:
         """Check wave function from GPAW calculation."""
-        wfs = calc.get_pseudo_wave_function(band, spin=spin, pad=True)
+        wfs = calc.get_pseudo_wave_function(band, spin=spin)
         grid_vectors = (calc.atoms.cell.T / wfs.shape).T
         return self.check_function(wfs, grid_vectors)
 
@@ -161,19 +162,21 @@ def rotation_matrix(axes: Sequence[Axis]) -> Array3D:
 
     axes = [normalize(axis) if axis is not None else None
             for axis in axes]
-    axes[j] = np.cross(axes[j - 2], axes[j - 1])
+    axes[j] = np.cross(axes[j - 2], axes[j - 1])  # type: ignore
 
     return np.array(axes)
 
 
-def normalize(vector: Union[str, Sequence[float]]) -> Sequence[float]:
+def normalize(vector: Union[str, Sequence[float], Array1D]) -> Array1D:
     """Normalize a vector.
 
     The *vector* must be a sequence of three numbers or one of the following
-    strings: x, y, z, -z, -y, -z.
+    strings: x, y, z, -x, -y, -z.
     """
     if isinstance(vector, str):
         if vector[0] == '-':
             return -np.array(normalize(vector[1:]))
-        return {'x': [1, 0, 0], 'y': [0, 1, 0], 'z': [0, 0, 1]}[vector]
+        return {'x': np.array([1, 0, 0]),
+                'y': np.array([0, 1, 0]),
+                'z': np.array([0, 0, 1])}[vector]
     return np.array(vector) / np.linalg.norm(vector)

@@ -1,13 +1,13 @@
 import subprocess
 from pathlib import Path
-from typing import Union, IO, Dict, Any
+from typing import Union, IO, Dict, Any, cast
 
 from ase import Atoms
 import numpy as np
 
 from .overlaps import WannierOverlaps
 from .functions import WannierFunctions
-from ..hints import Array3D
+from gpaw.typing import Array3D
 
 
 class Wannier90Error(Exception):
@@ -54,7 +54,7 @@ class Wannier90:
                                 for symbol, spos_c
                                 in zip(overlaps.atoms.symbols,
                                        overlaps.atoms.get_scaled_positions())]
-        kwargs['mp_grid'] = overlaps.monkhorst_pack_size
+        kwargs['mp_grid'] = tuple(overlaps.monkhorst_pack_size)
         kwargs['kpoints'] = overlaps.kpoints
         if overlaps.proj_indices_a:
             kwargs['guiding_centres'] = True
@@ -79,7 +79,7 @@ class Wannier90:
     def write_mmn(self,
                   overlaps: WannierOverlaps) -> None:
         size = overlaps.monkhorst_pack_size
-        nbzkpts = np.prod(size)
+        nbzkpts = cast(int, np.prod(size))
         nbands = overlaps.nbands
 
         directions = list(overlaps.directions)
@@ -94,7 +94,9 @@ class Wannier90:
                 i1_c = np.unravel_index(bz_index1, size)
                 for direction in directions:
                     i2_c = np.array(i1_c) + direction
-                    bz_index2 = np.ravel_multi_index(i2_c, size, 'wrap')
+                    bz_index2 = np.ravel_multi_index(i2_c,
+                                                     size,
+                                                     'wrap')  # type: ignore
                     d_c = (i2_c - i2_c % size) // size
                     print(bz_index1 + 1, bz_index2 + 1, *d_c, file=fd)
                     M_nn = overlaps.overlap(bz_index1, direction)

@@ -1,9 +1,7 @@
-# -*- coding: utf-8 -*-
-
 """Check GW calculations.
 
 Compare to data from:
-    
+
     Predictive GW calculations using plane waves and pseudopotentials
 
     Jiří Klimeš, Merzuk Kaltak, Georg Kresse

@@ -37,6 +37,8 @@ N.LDA
 theme.css
 *.svg
 *.json
+*.out
+*.cube
 doc/setups/[A-Z]*.rst
 *.ipynb
 !*.master.ipynb
@@ -61,7 +63,12 @@ doc/setups/[A-Z]*.rst
 # Emacs lock files:
 .\#*
 
+# Files produced by AGTS (myqueue)
+*.py.state
+*.py.*.err
+
 # These are OK:
 !requirements.txt
 !mypy.ini
 !pytest.ini
+!doc/words.txt

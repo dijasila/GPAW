@@ -37,6 +37,7 @@ PyObject* symmetrize_wavefunction(PyObject *self, PyObject *args);
 PyObject* symmetrize_return_index(PyObject *self, PyObject *args);
 PyObject* symmetrize_with_index(PyObject *self, PyObject *args);
 PyObject* map_k_points(PyObject *self, PyObject *args);
+PyObject* GG_shuffle(PyObject *self, PyObject *args);
 PyObject* tetrahedron_weight(PyObject *self, PyObject *args);
 #ifndef GPAW_WITHOUT_BLAS
 PyObject* scal(PyObject *self, PyObject *args);
@@ -101,7 +102,7 @@ PyObject* scalapack_inverse(PyObject *self, PyObject *args);
 PyObject* scalapack_solve(PyObject *self, PyObject *args);
 PyObject* pblas_tran(PyObject *self, PyObject *args);
 PyObject* pblas_gemm(PyObject *self, PyObject *args);
-PyObject* pblas_hemm(PyObject *self, PyObject *args);
+PyObject* pblas_hemm_symm(PyObject *self, PyObject *args);
 PyObject* pblas_gemv(PyObject *self, PyObject *args);
 PyObject* pblas_r2k(PyObject *self, PyObject *args);
 PyObject* pblas_rk(PyObject *self, PyObject *args);
@@ -116,7 +117,6 @@ PyObject* pyelpa_set_comm(PyObject *self, PyObject *args);
 PyObject* pyelpa_setup(PyObject *self, PyObject *args);
 PyObject* pyelpa_diagonalize(PyObject *self, PyObject *args);
 PyObject* pyelpa_general_diagonalize(PyObject *self, PyObject *args);
-PyObject* pyelpa_hermitian_multiply(PyObject *self, PyObject *args);
 PyObject* pyelpa_constants(PyObject *self, PyObject *args);
 PyObject* pyelpa_deallocate(PyObject *self, PyObject *args);
 #endif // GPAW_WITH_ELPA
@@ -200,6 +200,7 @@ static PyMethodDef functions[] = {
     {"symmetrize_return_index", symmetrize_return_index, METH_VARARGS, 0},
     {"symmetrize_with_index", symmetrize_with_index, METH_VARARGS, 0},
     {"map_k_points", map_k_points, METH_VARARGS, 0},
+    {"GG_shuffle", GG_shuffle, METH_VARARGS, 0},
     {"tetrahedron_weight", tetrahedron_weight, METH_VARARGS, 0},
 #ifndef GPAW_WITHOUT_BLAS
     {"scal", scal, METH_VARARGS, 0},
@@ -269,7 +270,7 @@ static PyMethodDef functions[] = {
     {"scalapack_solve", scalapack_solve, METH_VARARGS, 0},
     {"pblas_tran", pblas_tran, METH_VARARGS, 0},
     {"pblas_gemm", pblas_gemm, METH_VARARGS, 0},
-    {"pblas_hemm", pblas_hemm, METH_VARARGS, 0},
+    {"pblas_hemm_symm", pblas_hemm_symm, METH_VARARGS, 0},
     {"pblas_gemv", pblas_gemv, METH_VARARGS, 0},
     {"pblas_r2k", pblas_r2k, METH_VARARGS, 0},
     {"pblas_rk", pblas_rk, METH_VARARGS, 0},
@@ -283,7 +284,6 @@ static PyMethodDef functions[] = {
     {"pyelpa_set_comm", pyelpa_set_comm, METH_VARARGS, 0},
     {"pyelpa_diagonalize", pyelpa_diagonalize, METH_VARARGS, 0},
     {"pyelpa_general_diagonalize", pyelpa_general_diagonalize, METH_VARARGS, 0},
-    {"pyelpa_hermitian_multiply", pyelpa_hermitian_multiply, METH_VARARGS, 0},
     {"pyelpa_constants", pyelpa_constants, METH_VARARGS, 0},
     {"pyelpa_deallocate", pyelpa_deallocate, METH_VARARGS, 0},
 #endif // GPAW_WITH_ELPA
@@ -463,6 +463,7 @@ static PyObject* moduleinit(void)
 #else
     PyObject_SetAttrString(m, "have_openmp", Py_False);
 #endif
+    PyObject_SetAttrString(m, "version", PyLong_FromLong(3));
 
     Py_INCREF(&LFCType);
     Py_INCREF(&OperatorType);
@@ -542,7 +543,7 @@ main(int argc, char **argv)
     MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &granted);
     if (granted != MPI_THREAD_MULTIPLE)
         exit(1);
-#endif 
+#endif
 #endif
 
 #define PyChar wchar_t

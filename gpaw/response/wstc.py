@@ -9,7 +9,6 @@ See:
     Wigner-Seitz truncated interactions: Towards chemical accuracy
     in nontrivial systems
 """
-import sys
 from math import pi
 
 import numpy as np
@@ -23,24 +22,16 @@ from gpaw.grid_descriptor import GridDescriptor
 
 
 class WignerSeitzTruncatedCoulomb:
-    def __init__(self, cell_cv, nk_c, txt=None):
-        txt = txt or sys.stdout
+    def __init__(self, cell_cv, nk_c):
         self.nk_c = nk_c
         bigcell_cv = cell_cv * nk_c[:, np.newaxis]
         L_c = (np.linalg.inv(bigcell_cv)**2).sum(0)**-0.5
-
-        rc = 0.5 * L_c.min()
-        print('Inner radius for %dx%dx%d Wigner-Seitz cell: %.3f Ang' %
-              (tuple(nk_c) + (rc * Bohr,)), file=txt)
-
-        self.a = 5 / rc
-        print('Range-separation parameter: %.3f Ang^-1' % (self.a / Bohr),
-              file=txt)
+        
+        self.rc = 0.5 * L_c.min()
+        self.a = 5 / self.rc
 
         nr_c = [get_efficient_fft_size(2 * int(L * self.a * 3.0))
                 for L in L_c]
-        print('FFT size for calculating truncated Coulomb: %dx%dx%d' %
-              tuple(nr_c), file=txt)
 
         self.gd = GridDescriptor(nr_c, bigcell_cv, comm=mpi.serial_comm)
         v_ijk = self.gd.empty()
@@ -61,18 +52,40 @@ class WignerSeitzTruncatedCoulomb:
         v_ijk[0, 0, 0] = 2 * self.a / pi**0.5
 
         self.K_Q = np.fft.fftn(v_ijk) * self.gd.dv
-
+    
+    def get_description(self):
+        descriptors = []
+        descriptors.append('Inner radius for %dx%dx%d Wigner-Seitz cell: '
+                           '%.3f Ang' % (tuple(self.nk_c) + (self.rc * Bohr,)))
+        descriptors.append('Range-separation parameter: %.3f Ang^-1' % (
+            self.a / Bohr))
+        descriptors.append('FFT size for calculating truncated Coulomb: '
+                           '%dx%dx%d' % tuple(self.gd.N_c))
+        
+        return '\n'.join(descriptors)
+    
     def get_potential(self, pd, q_v=None):
         q_c = pd.kd.bzk_kc[0]
         shift_c = (q_c * self.nk_c).round().astype(int)
         max_c = self.gd.N_c // 2
         K_G = pd.zeros()
         N_c = pd.gd.N_c
-        for G, Q in enumerate(pd.Q_qG[0]):
-            Q_c = (np.unravel_index(Q, N_c) + N_c // 2) % N_c - N_c // 2
-            Q_c = Q_c * self.nk_c + shift_c
-            if (abs(Q_c) < max_c).all():
-                K_G[G] = self.K_Q[tuple(Q_c)]
+        if pd.dtype == complex:
+            for G, Q in enumerate(pd.Q_qG[0]):
+                Q_c = (np.unravel_index(Q, N_c) + N_c // 2) % N_c - N_c // 2
+                Q_c = Q_c * self.nk_c + shift_c
+                if (abs(Q_c) < max_c).all():
+                    K_G[G] = self.K_Q[tuple(Q_c)]
+        else:
+            Nr_c = N_c.copy()
+            Nr_c[2] = N_c[2] // 2 + 1
+            for G, Q in enumerate(pd.Q_qG[0]):
+                Q_c = np.array(np.unravel_index(Q, Nr_c))
+                Q_c[:2] += N_c[:2] // 2
+                Q_c[:2] %= N_c[:2]
+                Q_c[:2] -= N_c[:2] // 2
+                if (abs(Q_c) < max_c).all():
+                    K_G[G] = self.K_Q[tuple(Q_c)]
 
         qG_Gv = pd.get_reciprocal_vectors(add_q=True)
         if q_v is not None:
@@ -87,5 +100,4 @@ class WignerSeitzTruncatedCoulomb:
             K_G += 4 * pi * (1 - np.exp(-G2_G / (4 * a**2))) / G2_G
         if G2_G[G0] < 1e-11:
             K_G[G0] = K0
-        assert pd.dtype == complex
         return K_G

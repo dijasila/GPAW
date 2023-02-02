@@ -81,7 +81,7 @@ class HybridXC:
         wfs = self.wfs
         if self.coulomb is None:
             self.coulomb = coulomb_interaction(self.omega, wfs.gd, wfs.kd)
-            self.description += f'\n{self.coulomb.description}'
+            self.description += '\n' + self.coulomb.get_description()
             self.sym = Symmetry(wfs.kd)
 
         paw_s = calculate_paw_stuff(wfs, self.dens)  # ???????
@@ -99,7 +99,7 @@ class HybridXC:
             self.vlda_sR = None
             if kpt.psit.array.base is psit_xG.base:
                 if (kpt.s, kpt.k) not in self.v_sknG:
-                    assert len(self.v_sknG) == 0
+                    assert not any(s == kpt.s for s, k in self.v_sknG)
                     evc, evv, ekin, v_knG = apply1(
                         kpt, Htpsit_xG,
                         wfs,

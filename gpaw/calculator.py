@@ -4,7 +4,7 @@ The central object that glues everything together.
 """
 
 import warnings
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 import numpy as np
 from ase import Atoms
@@ -16,9 +16,8 @@ from ase.utils.timing import Timer
 
 import gpaw
 import gpaw.mpi as mpi
-import gpaw.wavefunctions.pw as pw
-from gpaw import memory_estimate_depth
 from gpaw.band_descriptor import BandDescriptor
+from gpaw.convergence_criteria import dict2criterion
 from gpaw.density import RealSpaceDensity
 from gpaw.dos import DOSCalculator
 from gpaw.eigensolvers import get_eigensolver
@@ -26,6 +25,7 @@ from gpaw.external import PointChargePotential
 from gpaw.forces import calculate_forces
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.hamiltonian import RealSpaceHamiltonian
+from gpaw.hybrids import HybridXC
 from gpaw.io import Reader, Writer
 from gpaw.io.logger import GPAWLogger
 from gpaw.jellium import create_background_charge
@@ -36,17 +36,21 @@ from gpaw.matrix import suggest_blocking
 from gpaw.occupations import ParallelLayout, create_occ_calc
 from gpaw.output import (print_cell, print_parallelization_details,
                          print_positions)
+from gpaw.pw.density import ReciprocalSpaceDensity
+from gpaw.pw.hamiltonian import ReciprocalSpaceHamiltonian
 from gpaw.scf import SCFLoop
 from gpaw.setup import Setups
 from gpaw.stress import calculate_stress
 from gpaw.symmetry import Symmetry
-from gpaw.utilities import check_atoms_too_close
+from gpaw.typing import Array1D
+from gpaw.utilities import check_atoms_too_close, compiled_with_sl
 from gpaw.utilities.gpts import get_number_of_grid_points
 from gpaw.utilities.grid import GridRedistributor
 from gpaw.utilities.memory import MemNode, maxrss
 from gpaw.utilities.partition import AtomPartition
 from gpaw.wavefunctions.mode import create_wave_function_mode
 from gpaw.xc import XC
+from gpaw.xc.kernel import XCKernel
 from gpaw.xc.sic import SIC
 from gpaw.xc.hybrid import HybridXC
 from gpaw.xc.mgga import MGGA
@@ -58,8 +62,9 @@ import gpaw.xc
 class GPAW(Calculator):
     """This is the ASE-calculator frontend for doing a GPAW calculation."""
 
-    implemented_properties = ['energy', 'forces', 'stress', 'dipole',
-                              'magmom', 'magmoms']
+    implemented_properties = ['energy', 'free_energy',
+                              'forces', 'stress',
+                              'dipole', 'magmom', 'magmoms']
 
     default_parameters: Dict[str, Any] = {
         'mode': 'fd',
@@ -87,17 +92,15 @@ class GPAW(Calculator):
         'random': False,
         'hund': False,
         'maxiter': 333,
-        'idiotproof': True,
         'symmetry': {'point_group': True,
                      'time_reversal': True,
                      'symmorphic': True,
                      'tolerance': 1e-7,
                      'do_not_symmetrize_the_density': None},  # deprecated
         'convergence': {'energy': 0.0005,  # eV / electron
-                        'density': 1.0e-4,
-                        'eigenstates': 4.0e-8,  # eV^2
-                        'bands': 'occupied',
-                        'forces': np.inf},  # eV / Ang
+                        'density': 1.0e-4,  # electrons / electron
+                        'eigenstates': 4.0e-8,  # eV^2 / electron
+                        'bands': 'occupied'},
         'gpu': False,
         'verbose': 0,
         'fixdensity': False,  # deprecated
@@ -105,11 +108,11 @@ class GPAW(Calculator):
 
     default_parallel: Dict[str, Any] = {
         'kpt': None,
-        'domain': gpaw.parsize_domain,
-        'band': gpaw.parsize_bands,
+        'domain': None,
+        'band': None,
         'order': 'kdb',
         'stridebands': False,
-        'augment_grids': gpaw.augment_grids,
+        'augment_grids': False,
         'sl_auto': False,
         'sl_default': None,
         'sl_diagonalize': None,
@@ -118,7 +121,7 @@ class GPAW(Calculator):
         'sl_lrtddft': None,
         'use_elpa': False,
         'elpasolver': '2stage',
-        'buffer_size': gpaw.buffer_size}
+        'buffer_size': None}
 
     def __init__(self,
                  restart=None,
@@ -193,10 +196,16 @@ class GPAW(Calculator):
             if key not in {'nbands', 'occupations', 'poissonsolver', 'kpts',
                            'eigensolver', 'random', 'maxiter', 'basis',
                            'symmetry', 'convergence', 'verbose'}:
-                raise TypeError(f'{key:!r} is an invalid keyword argument')
+                raise TypeError(f'Cannot change {key!r} in '
+                                'fixed_density calculation!')
 
         params = self.parameters.copy()
         params.update(kwargs)
+
+        if params['h'] is None:
+            # Backwards compatibility
+            params['gpts'] = self.density.gd.N_c
+
         calc = GPAW(communicator=communicator,
                     txt=txt,
                     parallel=parallel,
@@ -211,10 +220,37 @@ class GPAW(Calculator):
             old_response = self.hamiltonian.xc.response
             new_response.initialize_from_other_response(old_response)
             new_response.fix_potential = True
+        elif calc.hamiltonian.xc.type == 'MGGA':
+            for kpt in self.wfs.kpt_u:
+                if kpt.psit is None:
+                    raise ValueError("Needs wave functions for "
+                                     "MGGA fixed density.\n"
+                                     "To run from a restart file, it must "
+                                     "be written with mode='all'")
+            self.wfs.initialize_wave_functions_from_restart_file()
+            taut_sG = self.wfs.calculate_kinetic_energy_density()
+            wgd = self.wfs.gd.new_descriptor(comm=self.world,
+                                             allow_empty_domains=True)
+            redist = GridRedistributor(self.world, self.wfs.kptband_comm,
+                                       self.wfs.gd, wgd)
+            taut_sG = redist.distribute(taut_sG)
+            redist = GridRedistributor(self.world, calc.wfs.kptband_comm,
+                                       calc.wfs.gd, wgd)
+            taut_sG = redist.collect(taut_sG)
+            calc.hamiltonian.xc.fix_kinetic_energy_density(taut_sG)
         calc.calculate(system_changes=[])
         return calc
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
+
     def __del__(self):
+        self.close()
+
+    def close(self):
         # Write timings and close reader if necessary.
         # If we crashed in the constructor (e.g. a bad keyword), we may not
         # have the normally expected attributes:
@@ -225,6 +261,16 @@ class GPAW(Calculator):
             self.reader.close()
 
     def write(self, filename, mode=''):
+        """Write calculator object to a file.
+
+        Parameters
+        ----------
+        filename
+            File to be written
+        mode
+            Write mode. Use ``mode='all'``
+            to include wave functions in the file.
+        """
         self.log(f'Writing to {filename} (mode={mode!r})\n')
         writer = Writer(filename, self.world)
         self._write(writer, mode)
@@ -262,6 +308,7 @@ class GPAW(Calculator):
         self.log('Reading from {}'.format(filename))
 
         self.reader = reader = Reader(filename)
+        assert reader.version <= 3, 'Can\'t read new GPW-files'
 
         atoms = read_atoms(reader.atoms)
         self._set_atoms(atoms)
@@ -276,8 +323,8 @@ class GPAW(Calculator):
         self.parameters = self.get_default_parameters()
         dct = {}
         for key, value in reader.parameters.asdict().items():
-            if key == 'txt':
-                continue  # old gpw-files may have this
+            if key in {'txt', 'fixdensity'}:
+                continue  # old gpw-files may have these
             if (isinstance(value, dict) and
                 isinstance(self.parameters[key], dict)):
                 self.parameters[key].update(value)
@@ -339,7 +386,7 @@ class GPAW(Calculator):
 
         if system_changes:
             self.log('System changes:', ', '.join(system_changes), '\n')
-            if system_changes == ['positions']:
+            if self.density is not None and system_changes == ['positions']:
                 # Only positions have changed:
                 self.density.reset()
             else:
@@ -448,7 +495,7 @@ class GPAW(Calculator):
             if key != 'txt' and key not in self.default_parameters:
                 raise TypeError('Unknown GPAW parameter: {}'.format(key))
 
-            if key in ['convergence', 'symmetry',
+            if key in ['symmetry',
                        'experimental'] and isinstance(kwargs[key], dict):
                 # For values that are dictionaries, verify subkeys, too.
                 default_dict = self.default_parameters[key]
@@ -459,6 +506,14 @@ class GPAW(Calculator):
                                         '"{}".  Must be one of: {}'
                                         .format(subkey, key, allowed))
 
+        # We need to handle txt early in order to get logging up and running:
+        if 'txt' in kwargs:
+            self.log.fd = kwargs.pop('txt')
+
+        if 'idiotproof' in kwargs:
+            del kwargs['idiotproof']
+            warnings.warn('Ignoring deprecated keyword "idiotproof"')
+
         changed_parameters = Calculator.set(self, **kwargs)
 
         for key in ['setups', 'basis']:
@@ -468,10 +523,6 @@ class GPAW(Calculator):
                     dct['default'] = dct.pop(None)
                     warnings.warn('Please use {key}={dct}'
                                   .format(key=key, dct=dct))
-
-        # We need to handle txt early in order to get logging up and running:
-        if 'txt' in changed_parameters:
-            self.log.fd = changed_parameters.pop('txt')
 
         if not changed_parameters:
             return {}
@@ -489,7 +540,7 @@ class GPAW(Calculator):
                 self.wfs.set_eigensolver(None)
 
             if key in ['mixer', 'verbose', 'txt', 'hund', 'random',
-                       'eigensolver', 'idiotproof']:
+                       'eigensolver']:
                 continue
 
             if key in ['convergence', 'fixdensity', 'maxiter']:
@@ -565,6 +616,10 @@ class GPAW(Calculator):
 
         self.wfs.eigensolver.reset()
         self.scf.reset()
+        occ_name = getattr(self.wfs.occupations, "name", None)
+        if occ_name == 'mom':
+            # Initialize MOM reference orbitals
+            self.wfs.occupations.initialize_reference_orbitals()
         print_positions(self.atoms, self.log, self.density.magmom_av)
 
     def initialize(self, atoms=None, reading=False):
@@ -572,12 +627,12 @@ class GPAW(Calculator):
 
         self.log('Initialize ...\n')
 
-        gpaw.gpu.setup(self.parameters['gpu'])
+        gpaw.gpu.old_setup(self.parameters['gpu'])
         self.use_gpu = gpaw.gpu.backend.enabled
 
         if self.use_gpu:
             self.timer.start('GPU init')
-            gpaw.gpu.init(mpi.rank)
+            gpaw.gpu.old_init(mpi.rank)
             self.timer.stop('GPU init')
 
         if atoms is None:
@@ -614,7 +669,7 @@ class GPAW(Calculator):
         # Generate new xc functional only when it is reset by set
         # XXX sounds like this should use the _changed_keywords dictionary.
         if self.hamiltonian is None or self.hamiltonian.xc is None:
-            if isinstance(par.xc, (str, dict)):
+            if isinstance(par.xc, (str, dict, XCKernel)):
                 xc = XC(par.xc, collinear=collinear, atoms=atoms)
             else:
                 xc = par.xc
@@ -626,6 +681,9 @@ class GPAW(Calculator):
                 'The fixdensity keyword has been deprecated. '
                 'Please use the GPAW.fixed_density() method instead.',
                 DeprecationWarning)
+            if self.hamiltonian.xc.type == 'MGGA':
+                raise ValueError('MGGA does not support deprecated '
+                                 'fixdensity option.')
 
         mode = par.mode
         if isinstance(mode, str):
@@ -651,15 +709,16 @@ class GPAW(Calculator):
         if not realspace:
             pbc_c = np.ones(3, bool)
 
+        magnetic = magmom_av.any()
+
         if par.hund:
-            if natoms != 1:
-                raise ValueError('hund=True arg only valid for single atoms!')
             spinpol = True
-            magmom_av[0, 2] = self.setups[0].get_hunds_rule_moment(par.charge)
+            magnetic = True
+            c = par.charge / natoms
+            for a, setup in enumerate(self.setups):
+                magmom_av[a, 2] = setup.get_hunds_rule_moment(c)
 
         if collinear:
-            magnetic = magmom_av.any()
-
             spinpol = par.spinpol
             if spinpol is None:
                 spinpol = magnetic
@@ -702,9 +761,13 @@ class GPAW(Calculator):
                 N_c = self.density.gd.N_c
             else:
                 N_c = get_number_of_grid_points(cell_cv, h, mode, realspace,
-                                                self.symmetry, self.log)
+                                                self.symmetry)
 
         self.setups.set_symmetry(self.symmetry)
+
+        if not collinear and len(self.symmetry.op_scc) > 1:
+            raise ValueError('Can''t use symmetries with non-collinear '
+                             'calculations')
 
         if isinstance(par.background_charge, dict):
             background = create_background_charge(**par.background_charge)
@@ -760,8 +823,40 @@ class GPAW(Calculator):
             raise ValueError('Too few bands!  Electrons: %f, bands: %d'
                              % (nvalence, nbands))
 
+        # Gather convergence criteria for SCF loop.
+        criteria = self.default_parameters['convergence'].copy()  # keep order
+        criteria.update(par.convergence)
+        custom = criteria.pop('custom', [])
+        del criteria['bands']
+        for name, criterion in criteria.items():
+            if hasattr(criterion, 'todict'):
+                # 'Copy' so no two calculators share an instance.
+                criteria[name] = dict2criterion(criterion.todict())
+            else:
+                criteria[name] = dict2criterion({name: criterion})
+
+        if not isinstance(custom, (list, tuple)):
+            custom = [custom]
+        for criterion in custom:
+            if isinstance(criterion, dict):  # from .gpw file
+                msg = ('Custom convergence criterion "{:s}" encountered, '
+                       'which GPAW does not know how to load. This '
+                       'criterion is NOT enabled; you may want to manually'
+                       ' set it.'.format(criterion['name']))
+                warnings.warn(msg)
+                continue
+
+            criteria[criterion.name] = criterion
+            msg = ('Custom convergence criterion {:s} encountered. '
+                   'Please be sure that each calculator is fed a '
+                   'unique instance of this criterion. '
+                   'Note that if you save the calculator instance to '
+                   'a .gpw file you may not be able to re-open it. '
+                   .format(criterion.name))
+            warnings.warn(msg)
+
         if self.scf is None:
-            self.create_scf(nvalence, mode)
+            self.create_scf(criteria, mode)
 
         if not collinear:
             nbands *= 2
@@ -770,12 +865,13 @@ class GPAW(Calculator):
             self.create_wave_functions(mode, realspace,
                                        nspins, collinear, nbands, nao,
                                        nvalence, self.setups,
-                                       cell_cv, pbc_c, N_c)
+                                       cell_cv, pbc_c, N_c,
+                                       xc)
         else:
             self.wfs.set_setups(self.setups)
 
         occ = self.create_occupations(cell_cv, magmom_av[:, 2].sum(),
-                                      orbital_free)
+                                      orbital_free, nvalence)
         self.wfs.occupations = occ
 
         if not self.wfs.eigensolver:
@@ -828,7 +924,7 @@ class GPAW(Calculator):
         if xc.type == 'GLLB' and olddens is not None:
             xc.heeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeelp(olddens)
 
-        self.print_memory_estimate(maxdepth=memory_estimate_depth + 1)
+        self.print_memory_estimate(maxdepth=3)
 
         print_parallelization_details(self.wfs, self.hamiltonian, self.log)
 
@@ -881,7 +977,7 @@ class GPAW(Calculator):
         Z_a = self.atoms.get_atomic_numbers()
         self.setups = Setups(Z_a,
                              self.parameters.setups, self.parameters.basis,
-                             xc, filter, self.world)
+                             xc, filter=filter, world=self.world)
         self.log(self.setups)
 
     def create_grid_descriptor(self, N_c, cell_cv, pbc_c,
@@ -889,7 +985,7 @@ class GPAW(Calculator):
         return GridDescriptor(N_c, cell_cv, pbc_c, domain_comm,
                               parsize_domain)
 
-    def create_occupations(self, cell_cv, magmom, orbital_free):
+    def create_occupations(self, cell_cv, magmom, orbital_free, nvalence):
         dct = self.parameters.occupations
 
         if dct is None:
@@ -907,6 +1003,15 @@ class GPAW(Calculator):
         if self.wfs.nspins == 1:
             dct.pop('fixmagmom', None)
 
+        kwargs = dct.copy()
+        name = kwargs.pop('name', '')
+        if name == 'mom':
+            from gpaw.mom import OccupationsMOM
+            occ = OccupationsMOM(self.wfs, **kwargs)
+
+            self.log(occ)
+            return occ
+
         occ = create_occ_calc(
             dct,
             parallel_layout=ParallelLayout(self.wfs.bd,
@@ -915,31 +1020,30 @@ class GPAW(Calculator):
             fixed_magmom_value=magmom,
             rcell=np.linalg.inv(cell_cv).T,
             monkhorst_pack_size=self.wfs.kd.N_c,
-            bz2ibzmap=self.wfs.kd.bz2ibz_k)
+            bz2ibzmap=self.wfs.kd.bz2ibz_k,
+            nspins=self.wfs.nspins,
+            nelectrons=nvalence,
+            nkpts=self.wfs.kd.nibzkpts,
+            nbands=self.wfs.bd.nbands
+        )
 
-        self.log(occ)
+        self.log('Occupation numbers:', occ, '\n')
         return occ
 
-    def create_scf(self, nvalence, mode):
+    def create_scf(self, criteria, mode):
         # if mode.name == 'lcao':
         #     niter_fixdensity = 0
         # else:
         #     niter_fixdensity = 2
 
-        nv = max(nvalence, 1)
-        cc = self.parameters.convergence
         self.scf = SCFLoop(
-            cc.get('eigenstates', 4.0e-8) / Ha**2 * nv,
-            cc.get('energy', 0.0005) / Ha * nv,
-            cc.get('density', 1.0e-4) * nv,
-            cc.get('forces', np.inf) / (Ha / Bohr),
+            criteria,
             self.parameters.maxiter,
             # XXX make sure niter_fixdensity value is *always* set from default
             # Subdictionary defaults seem to not be set when user provides
             # e.g. {}.  We should change that so it works like the ordinary
             # parameters.
-            self.parameters.experimental.get('niter_fixdensity', 0),
-            nv)
+            self.parameters.experimental.get('niter_fixdensity', 0))
         self.log(self.scf)
 
     def create_symmetry(self, magmom_av, cell_cv, reading):
@@ -1029,8 +1133,7 @@ class GPAW(Calculator):
                 ecut = 2 * self.wfs.pd.ecut
             else:
                 ecut = 0.5 * (np.pi / h)**2
-            self.density = pw.ReciprocalSpaceDensity(ecut=ecut,
-                                                     **kwargs)
+            self.density = ReciprocalSpaceDensity(ecut=ecut, **kwargs)
 
         self.log(self.density, '\n')
 
@@ -1046,7 +1149,8 @@ class GPAW(Calculator):
             world=self.world,
             redistributor=dens.redistributor,
             vext=self.parameters.external,
-            psolver=self.parameters.poissonsolver)
+            psolver=self.parameters.poissonsolver,
+            charge=dens.charge)
         if realspace:
             self.hamiltonian = RealSpaceHamiltonian(stencil=mode.interpolation,
                                                     **kwargs)
@@ -1070,7 +1174,7 @@ class GPAW(Calculator):
                     xc_redist = GridRedistributor(self.world, bcast_comm,
                                                   gd, aux_gd)
 
-            self.hamiltonian = pw.ReciprocalSpaceHamiltonian(
+            self.hamiltonian = ReciprocalSpaceHamiltonian(
                 pd2=dens.pd2, pd3=dens.pd3, realpbc_c=self.atoms.pbc,
                 xc_redistributor=xc_redist,
                 **kwargs)
@@ -1115,7 +1219,7 @@ class GPAW(Calculator):
 
     def create_wave_functions(self, mode, realspace,
                               nspins, collinear, nbands, nao, nvalence,
-                              setups, cell_cv, pbc_c, N_c):
+                              setups, cell_cv, pbc_c, N_c, xc):
         par = self.parameters
 
         kd = self.create_kpoint_descriptor(nspins)
@@ -1126,6 +1230,11 @@ class GPAW(Calculator):
         parsize_kpt = self.parallel['kpt']
         parsize_domain = self.parallel['domain']
         parsize_bands = self.parallel['band']
+
+        if isinstance(xc, HybridXC):
+            parsize_kpt = 1
+            parsize_domain = self.world.size
+            parsize_bands = 1
 
         ndomains = None
         if parsize_domain is not None:
@@ -1145,6 +1254,8 @@ class GPAW(Calculator):
         kd.set_communicator(kpt_comm)
 
         parstride_bands = self.parallel['stridebands']
+        if parstride_bands:
+            raise RuntimeError('stridebands is unreliable')
 
         bd = BandDescriptor(nbands, band_comm, parstride_bands)
 
@@ -1165,7 +1276,7 @@ class GPAW(Calculator):
                           kptband_comm=kptband_comm, timer=self.timer,
                           use_gpu=self.use_gpu)
 
-        if self.parallel['sl_auto']:
+        if self.parallel['sl_auto'] and compiled_with_sl():
             # Choose scalapack parallelization automatically
 
             for key, val in self.parallel.items():
@@ -1236,24 +1347,23 @@ class GPAW(Calculator):
         self.log.fd.flush()
 
         # Write timing info now before the interpreter shuts down:
-        self.__del__()
+        self.close()
 
         # Disable timing output during shut-down:
         del self.timer
 
         raise SystemExit
 
-    def get_atomic_electrostatic_potentials(self) -> List[float]:
+    def get_atomic_electrostatic_potentials(self) -> Array1D:
         r"""Return the electrostatic potential at the atomic sites.
 
         Return list of energies in eV, one for each atom:
 
-        .. math::
+        :::
 
-            Y_{00}
-            \int d\mathbf{r}
-            \tilde{v}_H(\mathbf{r})
-            \hat{g}_{00}^a(\mathbf{r} - \mathbf{R}^a)
+              / _ ~  _  ^a  _ _a
+          Y   |dr v (r) g  (r-R )
+           00 /    H     00
 
         """
         ham = self.hamiltonian
@@ -1263,8 +1373,11 @@ class GPAW(Calculator):
         dens.calculate_pseudo_charge()
         ham.update(dens)
         W_aL = ham.calculate_atomic_hamiltonians(dens)
-        return np.array([W_L[0] / (4 * np.pi)**0.5 * Ha
-                         for W_L in W_aL.values()])
+        W_a = np.zeros(len(self.atoms))
+        for a, W_L in W_aL.items():
+            W_a[a] = W_L[0] / (4 * np.pi)**0.5 * Ha
+        W_aL.partition.comm.sum(W_a)
+        return W_a
 
     def linearize_to_xc(self, newxc):
         """Linearize Hamiltonian to difference XC functional.
@@ -1278,13 +1391,13 @@ class GPAW(Calculator):
         self.hamiltonian.linearize_to_xc(newxc, self.density)
 
     def attach(self, function, n=1, *args, **kwargs):
-        """Register observer function.
+        """Register observer function to run during the SCF cycle.
 
         Call *function* using *args* and
         *kwargs* as arguments.
 
         If *n* is positive, then
-        *function* will be called every *n* iterations + the
+        *function* will be called every *n* SCF iterations + the
         final iteration if it would not be otherwise
 
         If *n* is negative, then *function* will only be
@@ -1361,7 +1474,7 @@ class GPAW(Calculator):
 
         The PAW object must be initialize()'d, but needs not have large
         arrays allocated."""
-        # NOTE.  This should work with "--gpaw dry_run=N"
+        # NOTE.  This should work with "--dry-run=N"
         #
         # However, the initial overhead estimate is wrong if this method
         # is called within a real mpirun/gpaw-python context.
@@ -1944,7 +2057,7 @@ class GPAW(Calculator):
                    (np.sqrt(4 * np.pi) * fac(2 * l + 1)))
             splines_x.append([Spline(l, rmax=r[-1], f_g=f_g)])
 
-        lf = LFC(wfs.gd, splines_x, wfs.kd, dtype=wfs.dtype)
+        lf = LFC(wfs.gd, splines_x, wfs.kd, dtype=wfs.dtype, cut=True)
         lf.set_positions(spos_xc)
 
         assert wfs.gd.comm.size == 1
@@ -2016,3 +2129,11 @@ class GPAW(Calculator):
             self, soc=soc,
             theta=theta, phi=phi,
             shift_fermi_level=shift_fermi_level)
+
+    def gs_adapter(self):
+        # Temporary helper to convert response code and related parts
+        # so it does not depend directly on calc.
+        #
+        # This method can be removed once we finish that process.
+        from gpaw.response.groundstate import ResponseGroundStateAdapter
+        return ResponseGroundStateAdapter(self)

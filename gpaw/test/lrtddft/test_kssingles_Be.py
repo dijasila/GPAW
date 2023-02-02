@@ -1,3 +1,4 @@
+import pytest
 import numpy as np
 
 from ase import Atoms
@@ -10,6 +11,7 @@ from gpaw.test import equal
 from gpaw.lrtddft.kssingle import KSSingles
 
 
+@pytest.mark.lrtddft
 def test_lrtddft_kssingles_Be(in_tmp_dir):
     Be = Atoms('Be')
     Be.center(vacuum=4)
@@ -75,7 +77,7 @@ def test_lrtddft_kssingles_Be(in_tmp_dir):
             mpi.world.barrier()
             kss = KSSingles.read(fname)
             kss1 = KSSingles.read(fname, restrict={'jend': 1})
-            assert(len(kss1) == calc.wfs.kd.nibzkpts * calc.wfs.nspins)
+            assert len(kss1) == calc.wfs.kd.nibzkpts * calc.wfs.nspins
 
         # periodic and non-periodic should be roughly equal
         equal(energy['zero_bc'], energy['periodic'], 5.e-2)

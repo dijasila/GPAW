@@ -1,0 +1,7 @@
+load CO_1.cube
+
+#isosurface name cutoff value cubefile
+isosurface pos cutoff 0.05 CO_1.cube
+color isosurface translucent red
+isosurface neg cutoff -0.05 CO_1.cube
+color isosurface translucent blue

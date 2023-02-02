@@ -5,12 +5,15 @@
 # difference check.
 
 import numpy as np
+import pytest
 from ase import Atoms
+
 from gpaw import GPAW
 from gpaw.atom.basis import BasisMaker
 from gpaw.test import equal
 
 
+@pytest.mark.later
 def test_generic_guc_force():
     sibasis = BasisMaker('Si').generate(
         2, 1, energysplit=0.3, tailnorm=0.03**.5)

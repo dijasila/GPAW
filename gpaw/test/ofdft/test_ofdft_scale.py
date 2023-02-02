@@ -7,6 +7,7 @@ from gpaw.test import gen
 from gpaw.eigensolvers import CG
 
 
+@pytest.mark.ofdft
 @pytest.mark.libxc
 def test_ofdft_ofdft_scale(in_tmp_dir):
     h = 0.18

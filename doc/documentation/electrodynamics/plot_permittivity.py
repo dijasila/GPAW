@@ -1,4 +1,4 @@
-# Creates: Au.yml.png
+# web-page: Au.yml.png
 import numpy as np
 import matplotlib.pyplot as plt
 from ase.units import _hplanck, _c, _e, Hartree
@@ -54,7 +54,7 @@ def plot(fname, fiteps):
 # Source:
 # http://refractiveindex.info/?shelf=main&book=Au&page=Johnson
 # Direct download link:
-# wget http://refractiveindex.info/database/main/Au/Johnson.yml -O Au.yml
+# wget https://refractiveindex.info/database/data/main/Au/Johnson.yml
 
 
 ymlfname = 'Au.yml'

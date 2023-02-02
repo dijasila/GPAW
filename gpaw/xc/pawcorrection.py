@@ -6,11 +6,9 @@ from math import pi, sqrt
 import numpy as np
 
 from gpaw.gaunt import gaunt
-from gpaw.spherical_harmonics import nablarlYL
-
 # load points and weights for the angular integration
-from gpaw.sphere.lebedev import Y_nL, R_nv, weight_n
-
+from gpaw.sphere.lebedev import R_nv, Y_nL, weight_n
+from gpaw.spherical_harmonics import nablarlYL
 
 r"""
                            3
@@ -72,7 +70,8 @@ class PAWXCCorrection:
         self.tau_npg = None
         self.taut_npg = None
 
-        G_LLL = gaunt(max(l for j, l in jl))
+        G_LLL = gaunt(max(l for j, l in jl))[:, :, :self.Lmax]
+        LGcut = G_LLL.shape[2]
         B_Lqp = np.zeros((self.Lmax, njj, nii))
         p = 0
         i1 = 0
@@ -82,7 +81,7 @@ class PAWXCCorrection:
                     q = j2 + j1 * nj - j1 * (j1 + 1) // 2
                 else:
                     q = j1 + j2 * nj - j2 * (j2 + 1) // 2
-                B_Lqp[:, q, p] = G_LLL[L1, L2, :self.Lmax]
+                B_Lqp[:LGcut, q, p] = G_LLL[L1, L2]
                 p += 1
             i1 += 1
         self.B_pqL = B_Lqp.T.copy()

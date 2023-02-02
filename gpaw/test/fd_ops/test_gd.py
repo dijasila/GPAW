@@ -1,3 +1,4 @@
+import pytest
 import numpy as np
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.test import equal
@@ -27,3 +28,15 @@ def test_fd_ops_gd():
     dr_cG = gd.get_grid_point_distance_vectors(r_v)
     equal(dr_cG[:, 0, 0, 0], mic(
         np.dot(gd.h_cv, gd.beg_c) - r_v, pbc_c), 1e-15)
+
+
+@pytest.mark.serial
+def test_nonorthogonal_distances():
+    """test distance vectors in non-orthogonal cells"""
+    cell_cv = np.eye(3)
+    cell_cv[0, 1] = 1
+
+    gd = GridDescriptor([2, 4, 1], cell_cv)
+    r_vG = gd.get_grid_point_distance_vectors((0, 0, 0))
+
+    assert r_vG[1, 1].reshape(4) == pytest.approx([-0.5, -0.25, -1., -0.75])

@@ -1,5 +1,4 @@
-# Creates: field.ind_Ffe.png
-# -*- coding: utf-8 -*-
+# web-page: field.ind_Ffe.png
 from gpaw.mpi import world
 
 import numpy as np

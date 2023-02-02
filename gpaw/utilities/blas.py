@@ -15,9 +15,11 @@ from typing import TypeVar
 import numpy as np
 import scipy.linalg.blas as blas
 
+import _gpaw
 from gpaw import debug
 from gpaw import gpu
-import _gpaw
+from gpaw.new import prod
+from gpaw.typing import Array2D, ArrayND
 
 
 __all__ = ['mmm']
@@ -26,20 +28,20 @@ T = TypeVar('T', float, complex)
 
 
 def mmm(alpha: T,
-        a: np.ndarray,
+        a: Array2D,
         opa: str,
-        b: np.ndarray,
+        b: Array2D,
         opb: str,
         beta: T,
-        c: np.ndarray,
+        c: Array2D,
         use_gpu: bool = None) -> None:
     """Matrix-matrix multiplication using dgemm or zgemm.
 
-    For opa='n' and opb='n', we have::
+    For opa='N' and opb='N', we have:::
 
-        c <- alpha * a * b + beta * c.
+        c <- αab + βc.
 
-    Use 't' to transpose matrices and 'c' to transpose and complex conjugate
+    Use 'T' to transpose matrices and 'C' to transpose and complex conjugate
     matrices.
     """
 
@@ -57,8 +59,10 @@ def mmm(alpha: T,
     assert a2 == b1
     assert c.shape == (a1, b2)
 
-    assert a.strides[1] == b.strides[1] == c.strides[1] == c.itemsize
     assert a.dtype == b.dtype == c.dtype
+    assert a.strides[1] == c.itemsize or a.size == 0
+    assert b.strides[1] == c.itemsize or b.size == 0
+    assert c.strides[1] == c.itemsize or c.size == 0
     if a.dtype == float:
         assert not isinstance(alpha, complex)
         assert not isinstance(beta, complex)
@@ -123,6 +127,30 @@ def scal(alpha, x):
         _gpaw.scal_gpu(alpha, gpu.array.get_pointer(x), x.shape, x.dtype)
     else:
         _gpaw.scal(alpha, x)
+
+
+def to2d(array: ArrayND) -> Array2D:
+    """2D view af ndarray.
+
+    >>> to2d(np.zeros((2, 3, 4))).shape
+    (2, 12)
+    """
+    shape = array.shape
+    return array.reshape((shape[0], prod(shape[1:])))
+
+
+def mmmx(alpha: T,
+         a: ArrayND,
+         opa: str,
+         b: ArrayND,
+         opb: str,
+         beta: T,
+         c: ArrayND) -> None:
+    """Matrix-matrix multiplication using dgemm or zgemm.
+
+    Arrays a, b and c are converted to 2D arrays before calling mmm().
+    """
+    mmm(alpha, to2d(a), opa, to2d(b), opb, beta, to2d(c))
 
 
 def gemm(alpha, a, b, beta, c, transa='n', use_gpu=False):
@@ -319,21 +347,18 @@ def axpy(alpha, x, y, use_gpu=None):
 def rk(alpha, a, beta, c, trans='c', use_gpu=None):
     """Rank-k update of a matrix.
 
-    Performs the operation::
+    For ``trans='c'`` the following operation is performed:::
 
-                        dag
-      c <- alpha * a . a    + beta * c
+              †
+      c <- αaa + βc,
 
-    where ``a.b`` denotes the matrix multiplication defined by::
+    and for ``trans='t'`` we get:::
 
-                 _
-                \
-      (a.b)   =  ) a         * b
-           ij   /_  ipklm...     pjklm...
-               pklm...
+             †
+      c <- αa a + βc
 
-    ``dag`` denotes the hermitian conjugate (complex conjugation plus a
-    swap of axis 0 and 1).
+    If the ``a`` array has more than 2 dimensions then the 2., 3., ...
+    axes are combined.
 
     Only the lower triangle of ``c`` will contain sensible numbers.
     """
@@ -375,13 +400,17 @@ def rk(alpha, a, beta, c, trans='c', use_gpu=None):
             gpu.backend.copy_to_device(c_cpu, c_gpu)
 
 
-def r2k(alpha, a, b, beta, c, use_gpu=None):
+def r2k(alpha, a, b, beta, c, trans='c', use_gpu=None):
     """Rank-2k update of a matrix.
 
     Performs the operation::
 
                         dag        cc       dag
       c <- alpha * a . b    + alpha  * b . a    + beta * c
+
+    or if trans='n'::
+                    dag           cc   dag
+      c <- alpha * a   . b + alpha  * b   . a + beta * c
 
     where ``a.b`` denotes the matrix multiplication defined by::
 
@@ -406,7 +435,10 @@ def r2k(alpha, a, b, beta, c, use_gpu=None):
         assert a.flags.contiguous and b.flags.contiguous
         assert a.ndim > 1
         assert a.shape == b.shape
-        assert c.shape == (a.shape[0], a.shape[0])
+        if trans == 'c':
+            assert c.shape == (a.shape[0], a.shape[0])
+        else:
+            assert c.shape == (a.shape[1], a.shape[1])
         assert c.strides[1] == c.itemsize
 
     a_cpu, a_gpu = (None, a) if gpu.backend.is_device_array(a) \
@@ -436,7 +468,7 @@ def r2k(alpha, a, b, beta, c, use_gpu=None):
             b_cpu = gpu.backend.copy_to_host(b_gpu)
         if c_cpu is None:
             c_cpu = gpu.backend.copy_to_host(c_gpu)
-        _gpaw.r2k(alpha, a_cpu, b_cpu, beta, c_cpu)
+        _gpaw.r2k(alpha, a_cpu, b_cpu, beta, c_cpu, trans)
         if c_gpu is not None:
             gpu.backend.copy_to_device(c_cpu, c_gpu)
 
@@ -562,7 +594,7 @@ def _gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
         out = np.zeros(outshape, a.dtype)
     else:
         out = out.reshape(outshape)
-    gemm(alpha, b, a, beta, out, trans)
+    mmmx(alpha, a, 'N', b, trans.upper(), beta, out)
 
     # Determine actual shape of result array
     if trans == 'n':
@@ -573,22 +605,6 @@ def _gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
 
 
 if not hasattr(_gpaw, 'mmm'):
-    def gemm(alpha, a, b, beta, c, transa='n'):  # noqa
-        if c.size == 0:
-            return
-        if beta == 0:
-            c[:] = 0.0
-        else:
-            c *= beta
-        if transa == 'n':
-            c += alpha * b.dot(a.reshape((len(a), -1))).reshape(c.shape)
-        elif transa == 't':
-            c += alpha * b.reshape((len(b), -1)).dot(
-                a.reshape((len(a), -1)).T)
-        else:
-            c += alpha * b.reshape((len(b), -1)).dot(
-                a.reshape((len(a), -1)).T.conj())
-
     def rk(alpha, a, beta, c, trans='c'):  # noqa
         if c.size == 0:
             return
@@ -602,17 +618,20 @@ if not hasattr(_gpaw, 'mmm'):
             a = a.reshape((len(a), -1))
             c += alpha * a.dot(a.conj().T)
 
-    def r2k(alpha, a, b, beta, c):  # noqa
+    def r2k(alpha, a, b, beta, c, trans='c'):  # noqa
         if c.size == 0:
             return
         if beta == 0.0:
             c[:] = 0.0
         else:
             c *= beta
-        c += (alpha * a.reshape((len(a), -1))
-              .dot(b.reshape((len(b), -1)).conj().T) +
-              alpha * b.reshape((len(b), -1))
-              .dot(a.reshape((len(a), -1)).conj().T))
+        if trans == 'c':
+            c += (alpha * a.reshape((len(a), -1))
+                  .dot(b.reshape((len(b), -1)).conj().T) +
+                  alpha * b.reshape((len(b), -1))
+                  .dot(a.reshape((len(a), -1)).conj().T))
+        else:
+            c += alpha * (a.conj().T @ b + b.conj().T @ a)
 
     def op(o, m):
         if o == 'N':
@@ -633,6 +652,9 @@ if not hasattr(_gpaw, 'mmm'):
     gemmdot = _gemmdot
 
 elif not debug:
+    mmm = _gpaw.mmm  # noqa
+    rk = _gpaw.rk  # noqa
+    r2k = _gpaw.r2k  # noqa
     gemmdot = _gemmdot
 
 else:

@@ -26,6 +26,7 @@ def get_hydrogen_chain_dielectric_function(NH, NK):
     return omega_w, eps_LF
 
 
+@pytest.mark.response
 @pytest.mark.skip(reason='TODO')
 def test_hyd_chain_response():
     NH_i = [2**n for n in [0, 4]]

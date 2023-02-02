@@ -3,15 +3,18 @@
 
 """K-point descriptor."""
 
+from __future__ import annotations
+from typing import Optional, Sequence
+
 import numpy as np
-
-from ase.dft.kpoints import monkhorst_pack, get_monkhorst_pack_size_and_offset
 from ase.calculators.calculator import kptdensity2monkhorstpack
+from ase.dft.kpoints import get_monkhorst_pack_size_and_offset, monkhorst_pack
 
-from gpaw import KPointError
-from gpaw.kpoint import KPoint
-import gpaw.mpi as mpi
 import _gpaw
+import gpaw.mpi as mpi
+from gpaw import KPointError
+from gpaw.typing import Array1D
+from gpaw.kpoint import KPoint
 
 
 def to1bz(bzk_kc, cell_cv):
@@ -118,6 +121,9 @@ class KPointDescriptor:
         ===================  =================================================
         """
 
+        self.N_c: Optional[Array1D] = None
+        self.offset_c: Optional[Array1D] = None
+
         if kpts is None:
             self.bzk_kc = np.zeros((1, 3))
             self.N_c = np.array((1, 1, 1), dtype=int)
@@ -134,9 +140,7 @@ class KPointDescriptor:
                     self.N_c, self.offset_c = \
                         get_monkhorst_pack_size_and_offset(self.bzk_kc)
                 except ValueError:
-                    self.N_c = None
-                    self.offset_c = None
-
+                    pass
         self.nspins = nspins
         self.nbzkpts = len(self.bzk_kc)
 
@@ -383,18 +387,18 @@ class KPointDescriptor:
                                           kbz_c)
         return index_G, phase_G
 
-    def find_k_plus_q(self, q_c, kpts_k=None):
+    def find_k_plus_q(self, q_c, kpts_k: Sequence[int] = None) -> list[int]:
         """Find the indices of k+q for all kpoints in the Brillouin zone.
 
         In case that k+q is outside the BZ, the k-point inside the BZ
         corresponding to k+q is given.
 
-        Parameters:
-
-        q_c: ndarray
+        Parameters
+        ----------
+        q_c: np.ndarray
             Coordinates for the q-vector in units of the reciprocal
             lattice vectors.
-        kpts_k: list of ints
+        kpts_k:
             Restrict search to specified k-points.
 
         """

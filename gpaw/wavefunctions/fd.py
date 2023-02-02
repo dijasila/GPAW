@@ -149,6 +149,8 @@ class FDWaveFunctions(FDPWWaveFunctions):
                     axpy(0.5 * f, abs(dpsit_G)**2, taut_sG[kpt.s])
 
         self.kptband_comm.sum(taut_sG)
+        for taut_G in taut_sG:
+            self.kd.symmetry.symmetrize(taut_G, self.gd)
         return taut_sG
 
     def apply_mgga_orbital_dependent_hamiltonian(self, kpt, psit_xG,
@@ -313,7 +315,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                                        use_gpu=self.use_gpu).apply
 
             shape = tuple(gd2.n_c)
-            scale = np.sqrt(12 / abs(np.linalg.det(gd2.cell_cv)))
+            scale = np.sqrt(12 / gd2.volume)
 
             old_state = np.random.get_state()
 
@@ -352,7 +354,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                                        use_gpu=self.use_gpu).apply
 
             shape = tuple(gd1.n_c)
-            scale = np.sqrt(12 / abs(np.linalg.det(gd1.cell_cv)))
+            scale = np.sqrt(12 / gd1.volume)
 
             old_state = np.random.get_state()
 
@@ -383,7 +385,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
 
         else:
             shape = tuple(self.gd.n_c)
-            scale = np.sqrt(12 / abs(np.linalg.det(self.gd.cell_cv)))
+            scale = np.sqrt(12 / self.gd.volume)
 
             old_state = np.random.get_state()
 

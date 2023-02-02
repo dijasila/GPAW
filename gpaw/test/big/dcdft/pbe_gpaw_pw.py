@@ -72,7 +72,7 @@ for name in names:
             kwargs.update({'mode': PW(e)})
     if mode == 'pw':
         if name in ['Li', 'Na']:
-            # https://listserv.fysik.dtu.dk/pipermail/gpaw-developers/2012-May/002870.html
+            # listserv.fysik.dtu.dk/pipermail/gpaw-developers/2012-May/002870.html
             if constant_basis:
                 kwargs.update({'gpts': h2gpts(0.05, cell)})
             else:
@@ -102,8 +102,7 @@ for name in names:
             kpts=kpts,
             occupations=FermiDirac(width),
             parallel={'band': 1},
-            maxiter=777,
-            idiotproof=False)
+            maxiter=777)
         atoms.calc.set(**kwargs)  # remaining calc keywords
         t = time.time()
         atoms.get_potential_energy()

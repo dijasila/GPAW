@@ -1,24 +1,25 @@
-from typing import Tuple, Dict, Sequence, List, Union
 from pathlib import Path
+from typing import Dict, List, Tuple, Union
 
 import numpy as np
 from ase import Atoms
 
-from gpaw import GPAW
-from gpaw.projections import Projections
-from gpaw.utilities.partition import AtomPartition
-from gpaw.setup import Setup
+from gpaw.calculator import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.projections import Projections
+from gpaw.setup import Setup
+from gpaw.typing import Array2D, Array3D, Array4D, ArrayLike1D
 from gpaw.utilities.ibz2bz import construct_symmetry_operators
+from gpaw.utilities.partition import AtomPartition
+
 from .functions import WannierFunctions
-from gpaw.hints import Array2D, Array3D, Array4D
 
 
 class WannierOverlaps:
     def __init__(self,
                  atoms: Atoms,
                  nwannier: int,
-                 monkhorst_pack_size: Sequence[int],
+                 monkhorst_pack_size: ArrayLike1D,
                  kpoints: Array2D,
                  fermi_level: float,
                  directions: Dict[Tuple[int, ...], int],
@@ -28,14 +29,14 @@ class WannierOverlaps:
 
         self.atoms = atoms
         self.nwannier = nwannier
-        self.monkhorst_pack_size = tuple(monkhorst_pack_size)
+        self.monkhorst_pack_size = np.array(monkhorst_pack_size)
         self.kpoints = kpoints
         self.fermi_level = fermi_level
         self.directions = directions
 
         self.nkpts, ndirs, self.nbands, nbands = overlaps.shape
         assert nbands == self.nbands
-        assert self.nkpts == np.prod(monkhorst_pack_size)
+        assert self.nkpts == np.prod(monkhorst_pack_size)  # type: ignore
         assert ndirs == len(directions)
 
         self._overlaps = overlaps
@@ -52,7 +53,7 @@ class WannierOverlaps:
         size = self.monkhorst_pack_size
         i_c = np.unravel_index(bz_index, size)
         i2_c = np.array(i_c) + direction
-        bz_index2 = np.ravel_multi_index(i2_c, size, 'wrap')
+        bz_index2 = np.ravel_multi_index(i2_c, size, 'wrap')  # type: ignore
         direction2 = tuple([-d for d in direction])
         dindex2 = self.directions[direction2]
         return self._overlaps[bz_index2, dindex2].T.conj()
@@ -132,6 +133,7 @@ def calculate_overlaps(calc: GPAW,
     kd = bzwfs.kd
     gd = bzwfs.gd
     size = kd.N_c
+    assert size is not None
 
     icell = calc.atoms.cell.reciprocal()
     directions = {direction: i
@@ -149,7 +151,9 @@ def calculate_overlaps(calc: GPAW,
         i1_c = np.unravel_index(bz_index1, size)
         for direction, d in directions.items():
             i2_c = np.array(i1_c) + direction
-            bz_index2 = np.ravel_multi_index(i2_c, size, 'wrap')
+            bz_index2 = np.ravel_multi_index(i2_c,
+                                             size,
+                                             'wrap')  # type: ignore
             wf2 = bzwfs[bz_index2]
             phase_c = (i2_c % size - i2_c) // size
             u2_nR = wf2.u_nR
@@ -176,7 +180,7 @@ def calculate_overlaps(calc: GPAW,
 
     overlaps = WannierOverlaps(calc.atoms,
                                nwannier,
-                               kd.N_c,
+                               size,
                                kd.bzk_kc,
                                calc.get_fermi_level(),
                                directions,
@@ -187,7 +191,7 @@ def calculate_overlaps(calc: GPAW,
 
 
 def find_directions(icell: Array2D,
-                    mpsize: Sequence[int]) -> List[Tuple[int, ...]]:
+                    mpsize: ArrayLike1D) -> List[Tuple[int, ...]]:
     """Find nearest neighbors k-points.
 
     icell:

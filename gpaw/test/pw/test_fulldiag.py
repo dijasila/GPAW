@@ -1,15 +1,9 @@
-import pytest
-from gpaw.utilities import compiled_with_sl
 from ase import Atoms
 from gpaw import GPAW, PW
 from gpaw.mpi import world, serial_comm
 
-pytestmark = pytest.mark.skipif(
-    world.size != 1 and not compiled_with_sl(),
-    reason='world.size != 1 and not compiled_with_sl()')
 
-
-def test_pw_fulldiag(in_tmp_dir):
+def test_pw_fulldiag(in_tmp_dir, scalapack):
     a = Atoms('H2',
               [(0, 0, 0), (0, 0, 0.74)],
               cell=(3, 3, 3),
@@ -19,13 +13,15 @@ def test_pw_fulldiag(in_tmp_dir):
                   eigensolver='rmm-diis',
                   nbands=8,
                   parallel={'domain': 1},
-                  basis='dzp', txt=None)
+                  basis='dzp',
+                  txt='H2.txt')
 
     a.get_potential_energy()
     _ = a.calc.get_pseudo_wave_function(0)
     e1 = a.calc.get_eigenvalues()
+    w1 = a.calc.get_pseudo_wave_function(0)
 
-    a.calc.write('H2')
+    a.calc.write('H2.gpw')
 
     if world.size == 1:
         scalapack = None
@@ -36,20 +32,20 @@ def test_pw_fulldiag(in_tmp_dir):
     w2 = a.calc.get_pseudo_wave_function(0)
     e2 = a.calc.get_eigenvalues()
 
-    calc = GPAW('H2', txt=None, parallel={'domain': 1})
+    calc = GPAW('H2.gpw', txt=None, parallel={'domain': 1})
     calc.diagonalize_full_hamiltonian(nbands=120, scalapack=scalapack)
     w3 = calc.get_pseudo_wave_function(0)
     e3 = calc.get_eigenvalues()
 
-    calc.write('H2wf', 'all')
+    calc.write('H2wf.gpw', 'all')
 
-    calc = GPAW('H2wf', txt=None, communicator=serial_comm)
+    calc = GPAW('H2wf.gpw', txt=None, communicator=serial_comm)
     w4 = calc.get_pseudo_wave_function(0)
     e4 = calc.get_eigenvalues()
 
     for w in [w2, w3, w4]:
-        err = abs(abs(w[1, 2, 3]) - abs(w[1, 2, 3]))
-        assert err < 1e-10, err
+        err = abs(abs(w[1, 2, 3]) - abs(w1[1, 2, 3]))
+        assert err < 1e-7, err
 
     for e in [e2, e3, e4]:
         err = abs(e[1] - e1[1])
