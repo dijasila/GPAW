@@ -13,6 +13,9 @@ from gpaw.response.susceptibility import ChiFactory
 from gpaw.response.df import read_response_function
 
 
+pytestmark = pytest.mark.skipif(world.size < 4, reason='world.size < 4')
+
+
 @pytest.mark.kspair
 @pytest.mark.response
 def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
