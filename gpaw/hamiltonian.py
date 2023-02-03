@@ -441,12 +441,12 @@ class Hamiltonian:
         F_av += F_coarsegrid_av
 
     def apply_local_potential(self, psit_nG, Htpsit_nG, s):
-        if self.use_gpu or gpu.backend.is_device_array(psit_nG):
+        if self.use_gpu or not isinstance(psit_nG, np.ndarray):
             if self.use_gpu:
                 vt_G = self.vt_sG_gpu[s]
             else:
                 vt_G = gpu.backend.copy_to_device(self.vt_sG[s])
-            if gpu.backend.is_host_array(psit_nG):
+            if isinstance(psit_nG, np.ndarray):
                 psit_nG = gpu.backend.copy_to_device(psit_nG)
             if len(psit_nG.shape) == 3:
                 elementwise_multiply_add(psit_nG, vt_G, Htpsit_nG);

@@ -456,7 +456,7 @@ class FDPoissonSolver(BasePoissonSolver):
         self._init()
         eps = self.eps
 
-        if gpu.backend.is_device_array(self.phis[1]):
+        if not isinstance(self.phis[1], np.ndarray):
             self.phis[0] = gpu.backend.copy_to_device(phi)
             if self.B is None:
                 gpu.backend.copy_to_device(rho, self.rhos[0])
@@ -477,7 +477,7 @@ class FDPoissonSolver(BasePoissonSolver):
             msg = 'Poisson solver did not converge in %d iterations!' % maxiter
             raise PoissonConvergenceError(msg)
 
-        if gpu.backend.is_device_array(self.phis[0]):
+        if not isinstance(self.phis[0], np.ndarray):
             gpu.backend.copy_to_host(self.phis[0], phi)
 
         # Set the average potential to zero in periodic systems
@@ -519,7 +519,7 @@ class FDPoissonSolver(BasePoissonSolver):
         if level == 0:
             self.operators[level].apply(self.phis[level], residual)
             residual -= self.rhos[level]
-            if gpu.backend.is_device_array(residual):
+            if not isinstance(residual, np.ndarray):
                 error = self.gd.comm.sum(dotu(residual, residual)) * self.gd.dv
             else:
                 error = self.gd.comm.sum(np.dot(residual.ravel(),

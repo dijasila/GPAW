@@ -32,7 +32,7 @@ class CSCG(BaseSolver):
         if self.timer is not None:
             self.timer.start('CSCG')
 
-        on_gpu = gpu.backend.is_device_array(x)
+        on_gpu = not isinstance(x, np.ndarray)
 
         # number of vectors
         nvec = len(x)
@@ -132,7 +132,7 @@ class CSCG(BaseSolver):
                     break
 
                 # finally update rho
-                if gpu.backend.is_device_array(rhop):
+                if not isinstance(rhop, np.ndarray):
                     gpu.backend.memcpy_dtod(rhop, rho, rho.nbytes)
                 else:
                     rhop[:] = rho

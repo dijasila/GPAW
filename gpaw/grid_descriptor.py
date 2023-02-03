@@ -307,7 +307,7 @@ class GridDescriptor(Domain):
             return result
 
         gsize = prod(a_xg.shape[-3:])
-        if gpu.backend.is_device_array(a_xg):
+        if not isinstance(a_xg, np.ndarray):
             nd = a_xg.size / gsize
             A_xg = a_xg.reshape((nd,) + a_xg.shape[-3:])
             nd = b_yg.size / gsize
@@ -318,7 +318,7 @@ class GridDescriptor(Domain):
 
         result_yx = np.zeros((len(B_yg), len(A_xg)), A_xg.dtype)
 
-        if gpu.backend.is_device_array(a_xg):
+        if not isinstance(a_xg, np.ndarray):
             result_gpu = gpu.backend.copy_to_device(result_yx)
             if a_xg is b_yg:
                 rk(self.dv, A_xg, 0.0, result_gpu)
@@ -545,8 +545,8 @@ class GridDescriptor(Domain):
         if self.comm.size == 1:
             if out is None:
                 return B_xg
-            elif gpu.backend.is_device_array(out):
-                if gpu.backend.is_device_array(B_xg):
+            elif not isinstance(out, np.ndarray):
+                if not isinstance(B_xg, np.ndarray):
                     B_xg_gpu = B_xg
                 else:
                     B_xg_gpu = gpu.backend.copy_to_device(B_xg)

@@ -24,8 +24,8 @@ def multi_axpy(a, x, y):
     if isinstance(a, (float, complex)):
         axpy(a, x, y)
     else:
-        if gpu.backend.is_device_array(x):
-            if gpu.backend.is_device_array(a):
+        if not isinstance(x, np.ndarray):
+            if not isinstance(a, np.ndarray):
                 a_gpu = a
             else:
                 a_gpu = gpu.backend.copy_to_device(a)
@@ -54,8 +54,8 @@ def multi_dotc(x, y, s=None):
     if len(x.shape) == 1:
         return dotc(x, y)
 
-    if gpu.backend.is_device_array(x):
-        if gpu.backend.is_device_array(s):
+    if not isinstance(x, np.ndarray):
+        if not isinstance(s, np.ndarray):
             s_gpu = s
         else:
             s_gpu = gpu.array.empty(x.shape[0], dtype=x.dtype)
@@ -64,7 +64,7 @@ def multi_dotc(x, y, s=None):
                              gpu.get_pointer(y),
                              x.dtype,
                              gpu.get_pointer(s_gpu))
-        if gpu.backend.is_host_array(s):
+        if isinstance(s, np.ndarray):
             s = gpu.backend.copy_to_host(s_gpu, s)
     else:
         if s is None:
@@ -86,8 +86,8 @@ def multi_dotu(x, y, s=None):
     if len(x.shape) == 1:
         return dotu(x, y)
 
-    if gpu.backend.is_device_array(x):
-        if gpu.backend.is_device_array(s):
+    if not isinstance(x, np.ndarray):
+        if not isinstance(s, np.ndarray):
             s_gpu = s
         else:
             s_gpu = gpu.array.empty(x.shape[0], dtype=x.dtype)
@@ -96,7 +96,7 @@ def multi_dotu(x, y, s=None):
                              gpu.get_pointer(y),
                              x.dtype,
                              gpu.get_pointer(s_gpu))
-        if gpu.backend.is_host_array(s):
+        if isinstance(s, np.ndarray):
             s = gpu.backend.copy_to_host(s_gpu, s)
     else:
         if s is None:
@@ -116,8 +116,8 @@ def multi_scal(a, x):
     if isinstance(a, (float, complex)):
         scal(a, x)
     else:
-        if gpu.backend.is_device_array(x):
-            if gpu.backend.is_device_array(a):
+        if not isinstance(x, np.ndarray):
+            if not isinstance(a, np.ndarray):
                 a_gpu = a
             else:
                 a_gpu = gpu.backend.copy_to_device(a)

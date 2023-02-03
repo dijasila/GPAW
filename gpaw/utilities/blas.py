@@ -69,14 +69,14 @@ def mmm(alpha: T,
     else:
         assert a.dtype == complex
 
-    a_cpu, a_gpu = (None, a) if gpu.backend.is_device_array(a) \
+    a_cpu, a_gpu = (None, a) if not isinstance(a, np.ndarray) \
                              else (a, None)
-    b_cpu, b_gpu = (None, b) if gpu.backend.is_device_array(b) \
+    b_cpu, b_gpu = (None, b) if not isinstance(b, np.ndarray) \
                              else (b, None)
-    c_cpu, c_gpu = (None, c) if gpu.backend.is_device_array(c) \
+    c_cpu, c_gpu = (None, c) if not isinstance(c, np.ndarray) \
                              else (c, None)
 
-    if use_gpu or (use_gpu is None and gpu.backend.is_device_array(c)):
+    if use_gpu or (use_gpu is None and not isinstance(c), np.ndarray):
         if a_gpu is None:
             a_gpu = gpu.backend.copy_to_device(a_cpu)
         if b_gpu is None:
@@ -123,7 +123,7 @@ def scal(alpha, x):
             assert x.dtype in [float, complex]
             assert x.flags.contiguous
 
-    if gpu.backend.is_device_array(x):
+    if not isinstance(x, np.ndarray):
         _gpaw.scal_gpu(alpha, gpu.get_pointer(x), x.shape, x.dtype)
     else:
         _gpaw.scal(alpha, x)
@@ -199,14 +199,14 @@ def gemm(alpha, a, b, beta, c, transa='n', use_gpu=False):
             assert a.shape[1:] == b.shape[1:]
             assert c.shape == (b.shape[0], a.shape[0])
 
-    a_cpu, a_gpu = (None, a) if gpu.backend.is_device_array(a) \
+    a_cpu, a_gpu = (None, a) if not isinstance(a, np.ndarray) \
                              else (a, None)
-    b_cpu, b_gpu = (None, b) if gpu.backend.is_device_array(b) \
+    b_cpu, b_gpu = (None, b) if not isinstance(b, np.ndarray) \
                              else (b, None)
-    c_cpu, c_gpu = (None, c) if gpu.backend.is_device_array(c) \
+    c_cpu, c_gpu = (None, c) if not isinstance(c, np.ndarray) \
                              else (c, None)
 
-    if use_gpu or (use_gpu is None and gpu.backend.is_device_array(c)):
+    if use_gpu or (use_gpu is None and not isinstance(c), np.ndarray):
         if a_gpu is None:
             a_gpu = gpu.backend.copy_to_device(a_cpu)
         if b_gpu is None:
@@ -269,14 +269,14 @@ def gemv(alpha, a, x, beta, y, trans='t', use_gpu=False):
             assert a.shape[-1] == x.shape[0]
             assert a.shape[:-1] == y.shape
 
-    a_cpu, a_gpu = (None, a) if gpu.backend.is_device_array(a) \
+    a_cpu, a_gpu = (None, a) if not isinstance(a, np.ndarray) \
                              else (a, None)
-    x_cpu, x_gpu = (None, x) if gpu.backend.is_device_array(x) \
+    x_cpu, x_gpu = (None, x) if not isinstance(x, np.ndarray) \
                              else (x, None)
-    y_cpu, y_gpu = (None, y) if gpu.backend.is_device_array(y) \
+    y_cpu, y_gpu = (None, y) if not isinstance(y, np.ndarray) \
                              else (y, None)
 
-    if use_gpu or (use_gpu is None and gpu.backend.is_device_array(y)):
+    if use_gpu or (use_gpu is None and not isinstance(y), np.ndarray):
         if a_gpu is None:
             a_gpu = gpu.backend.copy_to_device(a_cpu)
         if x_gpu is None:
@@ -319,12 +319,12 @@ def axpy(alpha, x, y, use_gpu=None):
             assert x.flags.contiguous and y.flags.contiguous
         assert x.shape == y.shape
 
-    x_cpu, x_gpu = (None, x) if gpu.backend.is_device_array(x) \
+    x_cpu, x_gpu = (None, x) if not isinstance(x, np.ndarray) \
                              else (x, None)
-    y_cpu, y_gpu = (None, y) if gpu.backend.is_device_array(y) \
+    y_cpu, y_gpu = (None, y) if not isinstance(y, np.ndarray) \
                              else (y, None)
 
-    if use_gpu or (use_gpu is None and gpu.backend.is_device_array(y)):
+    if use_gpu or (use_gpu is None and not isinstance(y), np.ndarray):
         if x_gpu is None:
             x_gpu = gpu.backend.copy_to_device(x_cpu)
         if y_gpu is None:
@@ -375,12 +375,12 @@ def rk(alpha, a, beta, c, trans='c', use_gpu=None):
             assert c.shape == (a.shape[0], a.shape[0])
         assert c.strides[1] == c.itemsize
 
-    a_cpu, a_gpu = (None, a) if gpu.backend.is_device_array(a) \
+    a_cpu, a_gpu = (None, a) if not isinstance(a, np.ndarray) \
                              else (a, None)
-    c_cpu, c_gpu = (None, c) if gpu.backend.is_device_array(c) \
+    c_cpu, c_gpu = (None, c) if not isinstance(c, np.ndarray) \
                              else (c, None)
 
-    if use_gpu or (use_gpu is None and gpu.backend.is_device_array(c)):
+    if use_gpu or (use_gpu is None and not isinstance(c), np.ndarray):
         if a_gpu is None:
             a_gpu = gpu.backend.copy_to_device(a_cpu)
         if c_gpu is None:
@@ -441,14 +441,14 @@ def r2k(alpha, a, b, beta, c, trans='c', use_gpu=None):
             assert c.shape == (a.shape[1], a.shape[1])
         assert c.strides[1] == c.itemsize
 
-    a_cpu, a_gpu = (None, a) if gpu.backend.is_device_array(a) \
+    a_cpu, a_gpu = (None, a) if not isinstance(a, np.ndarray) \
                              else (a, None)
-    b_cpu, b_gpu = (None, b) if gpu.backend.is_device_array(b) \
+    b_cpu, b_gpu = (None, b) if not isinstance(b, np.ndarray) \
                              else (b, None)
-    c_cpu, c_gpu = (None, c) if gpu.backend.is_device_array(c) \
+    c_cpu, c_gpu = (None, c) if not isinstance(c, np.ndarray) \
                              else (c, None)
 
-    if use_gpu or (use_gpu is None and gpu.backend.is_device_array(c)):
+    if use_gpu or (use_gpu is None and not isinstance(c), np.ndarray):
         if a_gpu is None:
             a_gpu = gpu.backend.copy_to_device(a_cpu)
         if b_gpu is None:
@@ -491,12 +491,12 @@ def dotc(a, b):
                 (is_contiguous(a, complex) and is_contiguous(b, complex)))
         assert a.shape == b.shape
 
-    a_cpu, a_gpu = (None, a) if gpu.backend.is_device_array(a) \
+    a_cpu, a_gpu = (None, a) if not isinstance(a, np.ndarray) \
                              else (a, None)
-    b_cpu, b_gpu = (None, b) if gpu.backend.is_device_array(b) \
+    b_cpu, b_gpu = (None, b) if not isinstance(b, np.ndarray) \
                              else (b, None)
 
-    if gpu.backend.is_device_array(a) or gpu.backend.is_device_array(b):
+    if not isinstance(a, np.ndarray) or not isinstance(b, np.ndarray):
         if a_gpu is None:
             a_gpu = gpu.backend.copy_to_device(a_cpu)
         if b_gpu is None:
@@ -530,12 +530,12 @@ def dotu(a, b):
                 (is_contiguous(a, complex) and is_contiguous(b, complex)))
         assert a.shape == b.shape
 
-    a_cpu, a_gpu = (None, a) if gpu.backend.is_device_array(a) \
+    a_cpu, a_gpu = (None, a) if not isinstance(a, np.ndarray) \
                              else (a, None)
-    b_cpu, b_gpu = (None, b) if gpu.backend.is_device_array(b) \
+    b_cpu, b_gpu = (None, b) if not isinstance(b, np.ndarray) \
                              else (b, None)
 
-    if gpu.backend.is_device_array(a) or gpu.backend.is_device_array(b):
+    if not isinstance(a, np.ndarray) or not isinstance(b, np.ndarray):
         if a_gpu is None:
             a_gpu = gpu.backend.copy_to_device(a_cpu)
         if b_gpu is None:

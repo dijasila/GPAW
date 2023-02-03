@@ -407,7 +407,7 @@ class LocalizedFunctionsCollection(BaseLFC):
             assert q == -1 and a_xG.ndim == 3
             c_xM = np.empty(self.Mmax)
             c_xM.fill(c_axi)
-            if gpu.backend.is_device_array(a_xG):
+            if not isinstance(a_xG, np.ndarray):
                 if self.Mmax > 0 :
                     c_xM_gpu = gpu.backend.copy_to_device(c_xM)
                     self.lfc.add_gpu(gpu.get_pointer(c_xM_gpu),
@@ -460,7 +460,7 @@ class LocalizedFunctionsCollection(BaseLFC):
             c_xM[..., M1:M2] = c_xi
             M1 = M2
 
-        if gpu.backend.is_device_array(a_xG):
+        if not isinstance(a_xG, np.ndarray):
             if self.Mmax > 0:
                 c_xM_gpu = gpu.backend.copy_to_device(c_xM)
                 self.lfc.add_gpu(gpu.get_pointer(c_xM_gpu),
@@ -572,7 +572,7 @@ class LocalizedFunctionsCollection(BaseLFC):
 
         dtype = a_xG.dtype
 
-        if gpu.backend.is_device_array(a_xG):
+        if not isinstance(a_xG, np.ndarray):
             if self.Mmax > 0:
                 c_xM_gpu = gpu.array.zeros(xshape + (self.Mmax,), dtype)
                 self.lfc.integrate_gpu(gpu.get_pointer(a_xG),

@@ -94,9 +94,9 @@ class FDOperator:
         return '<' + self.description + '>'
 
     def apply(self, in_xg, out_xg, phase_cd=None):
-        if gpu.backend.is_device_array(in_xg):
+        if not isinstance(in_xg, np.ndarray):
             _out = None
-            if gpu.backend.is_host_array(out_xg):
+            if isinstance(out_xg, np.ndarray):
                 _out = out_xg
                 out_xg = gpu.backend.copy_to_device(out_xg)
             self.operator.apply_gpu(gpu.get_pointer(in_xg),
@@ -106,7 +106,7 @@ class FDOperator:
                 gpu.backend.copy_to_host(out_xg, _out)
         else:
             _out = None
-            if gpu.backend.is_device_array(out_xg):
+            if not isinstance(out_xg, np.ndarray):
                 _out = out_xg
                 out_xg = gpu.backend.copy_to_host(out_xg)
             self.operator.apply(in_xg, out_xg, phase_cd)
@@ -114,9 +114,9 @@ class FDOperator:
                 gpu.backend.copy_to_device(out_xg, _out)
 
     def relax(self, relax_method, f_g, s_g, n, w=None):
-        if gpu.backend.is_device_array(s_g):
+        if not isinstance(s_g, np.ndarray):
             _func = None
-            if gpu.backend.is_host_array(f_g):
+            if isinstance(f_g, np.ndarray):
                 _func = f_g
                 f_g = gpu.backend.copy_to_device(_func)
             self.operator.relax_gpu(relax_method,
@@ -127,7 +127,7 @@ class FDOperator:
                 gpu.backend.copy_to_host(f_g, _func)
         else:
             _func = None
-            if gpu.backend.is_device_array(f_g):
+            if not isinstance(f_g, np.ndarray):
                 _func = f_g
                 f_g = gpu.backend.copy_to_host(f_g)
             self.operator.relax(relax_method, f_g, s_g, n, w)

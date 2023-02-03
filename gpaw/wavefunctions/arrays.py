@@ -90,13 +90,13 @@ class ArrayWaveFunctions:
         return self
 
     def eval(self, matrix):
-        if gpu.backend.is_device_array(self.matrix.array):
-            if gpu.backend.is_device_array(matrix.array):
+        if not isinstance(self.matrix.array, np.ndarray):
+            if not isinstance(matrix.array, np.ndarray):
                 gpu.backend.memcpy_dtod(matrix.array, self.matrix.array,
                                         matrix.array.nbytes)
             else:
                 gpu.backend.copy_to_host(self.matrix.array, matrix.array)
-        elif gpu.backend.is_device_array(matrix.array):
+        elif not isinstance(matrix.array, np.ndarray):
             gpu.backend.copy_to_device(self.matrix.array, matrix.array)
         else:
             matrix.array[:] = self.matrix.array

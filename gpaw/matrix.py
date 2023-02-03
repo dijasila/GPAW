@@ -123,7 +123,7 @@ class Matrix:
             self._array_gpu = None
             if self.use_gpu:
                 self._array_gpu = gpu.array.empty(self.dist.shape, self.dtype)
-        elif gpu.backend.is_device_array(data):
+        elif not isinstance(data, np.ndarray):
             self._array_gpu = data.reshape(self.dist.shape)
             self._array_cpu = gpu.backend.copy_to_host(self._array_gpu)
             if not self.use_gpu:

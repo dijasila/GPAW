@@ -30,7 +30,7 @@ class MultiBlas:
             self.timer.start('Multi zdotc')
         ss = multi_dotc(x, y, s)
         if self.gd.comm.size > 1:
-            if gpu.backend.is_device_array(ss):
+            if not isinstance(ss, np.ndarray):
                 s_cpu = gpu.backend.copy_to_host(ss) # pagelocked=True
                 self.gd.comm.sum(s_cpu)
                 gpu.backend.copy_to_device(s_cpu, ss)
@@ -45,7 +45,7 @@ class MultiBlas:
             self.timer.start('Multi zdotu')
         ss = multi_dotu(x, y, s)
         if self.gd.comm.size > 1:
-            if gpu.backend.is_device_array(s):
+            if not isinstance(s, np.ndarray):
                 s_cpu = gpu.backend.copy_to_host(ss) # pagelocked=True
                 self.gd.comm.sum(s_cpu)
                 gpu.backend.copy_to_device(s_cpu, ss)

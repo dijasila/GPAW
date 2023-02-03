@@ -131,7 +131,7 @@ class TimeDependentHamiltonian:
         """
         # Does exactly the same as Hamiltonian.apply_local_potential
         # but uses the difference between vt_sG at time t and t+dt.
-        if gpu.backend.is_device_array(psit_nG):
+        if not isinstance(psit_nG, np.ndarray):
             vt_G = self.vt_sG_gpu[s]
             if len(psit_nG.shape) == 3:
                 _gpaw.elementwise_multiply_add_gpu(
@@ -544,7 +544,7 @@ class TimeDependentOverlap(Overlap):
 
         """
         self.timer.start('Apply overlap')
-        if gpu.backend.is_device_array(psit):
+        if not isinstance(psit, np.ndarray):
             gpu.backend.memcpy_dtod(spsit, psit, psit.nbytes)
         else:
             spsit[:] = psit
@@ -882,7 +882,7 @@ def add_linear_field(wfs, spos_ac, a_nG, b_nG, strength, kpt):
 
     gd = wfs.gd
 
-    if gpu.backend.is_device_array(a_nG):
+    if not isinstance(a_nG, np.ndarray):
         _gpaw.add_linear_field_gpu(gpu.get_pointer(a_nG),
                                    a_nG.shape,
                                    a_nG.dtype,
