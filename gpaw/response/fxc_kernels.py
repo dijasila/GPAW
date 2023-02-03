@@ -177,6 +177,7 @@ class AdiabaticFXCCalculator:
 
         return GG_shape, dG_K, Q_dG
 
+    @timer('Create Q_dG map')
     def create_Q_dG_map(self, large_qpd, dG_dGv):
         """Create mapping between (G-G') index dG and large_qpd index Q."""
         G_Qv = large_qpd.get_reciprocal_vectors(add_q=False)
