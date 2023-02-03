@@ -121,7 +121,9 @@ if cuda or hip:
             gpu_compiler = 'nvcc'
         else:
             gpu_compiler = 'hipcc'
-    library_dirs.append('build/temp.%s' % plat + '-' + sys.version[0:3])
+    plat = get_platform() + '-{maj}.{min}'.format(maj=sys.version_info[0],
+                                                  min=sys.version_info[1])
+    library_dirs.append('build/temp.%s' % plat)
     if 'gpaw-gpu' not in libraries:
         libraries.append('gpaw-gpu')
 

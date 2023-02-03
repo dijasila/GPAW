@@ -213,7 +213,8 @@ def build_gpu(gpu_compiler, gpu_compile_args, gpu_include_dirs,
               parallel_python_interpreter, cuda, hip):
 
     cfgDict = get_config_vars()
-    plat = distutils.util.get_platform() + '-' + sys.version[0:3]
+    plat = get_platform() + '-{maj}.{min}'.format(maj=sys.version_info[0],
+                                                  min=sys.version_info[1])
 
     macros = []
     macros.extend(define_macros)
