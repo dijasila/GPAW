@@ -44,6 +44,7 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
                                  ecut=ecut,
                                  gammacentered=True,
                                  nblocks=nblocks)
+    fxc_kernel = None
     localft_calc = LocalFTCalculator.from_rshe_parameters(
         gs, chiks_calc.context,
         bg_density=bg_density,
@@ -54,11 +55,18 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
     for q, q_c in enumerate(q_qc):
         filename = 'nicl2_macro_tms_q%d.csv' % q
         txt = 'nicl2_macro_tms_q%d.txt' % q
-        chi = chi_factory('+-', q_c, zd,
-                          fxc=fxc,
-                          localft_calc=localft_calc,
-                          fxc_scaling=fxc_scaling,
-                          txt=txt)
+        if q == 0:
+            chi = chi_factory('+-', q_c, zd,
+                              fxc=fxc,
+                              localft_calc=localft_calc,
+                              fxc_scaling=fxc_scaling,
+                              txt=txt)
+            fxc_kernel = chi.fxc_kernel
+        else:  # Reuse fxc kernel from previous calculation
+            chi = chi_factory('+-', q_c, zd,
+                              fxc_kernel=fxc_kernel,
+                              fxc_scaling=fxc_scaling,
+                              txt=txt)
         chi.write_macroscopic_component(filename)
 
     context.write_timer()
