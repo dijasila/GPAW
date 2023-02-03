@@ -195,8 +195,21 @@ class CuPyFFTPlans(FFTPlans):
         Q_G = self.indices(pw)
         array_Q.ravel()[Q_G] = coef_G
         assert SCIPY_VERSION >= [1, 6]
-        array_Q[:] = cupyx.scipy.fft.ifftn(
-            array_Q, array_Q.shape,
+        if self.dtype == complex:
+            array_Q[:] = cupyx.scipy.fft.ifftn(
+                array_Q, array_Q.shape,
+                norm='forward', overwrite_x=True)
+            return
+
+        # We need a GPU kernel for this stuff:
+        t = array_Q[:, :, 0]
+        n, m = (s // 2 - 1 for s in out_R.desc.size_c[:2])
+        t[0, -m:] = t[0, m:0:-1].conj()
+        t[n:0:-1, -m:] = t[-n:, m:0:-1].conj()
+        t[-n:, -m:] = t[n:0:-1, m:0:-1].conj()
+        t[-n:, 0] = t[n:0:-1, 0].conj()
+        out_R.data[:] = cupyx.scipy.fft.irfftn(
+            array_Q, out_R.data.shape,
             norm='forward', overwrite_x=True)
 
     def fft_sphere(self, in_R, pw):
