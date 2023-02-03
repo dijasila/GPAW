@@ -258,11 +258,16 @@ class Forces(Criterion):
 
     Parameters:
 
-    tol : float
-        Tolerance for conversion; that is, the force on each atom is compared
-        with its force from the previous iteration, and the change in each
-        atom's force is calculated as an l2-norm (Euclidean distance). The
-        atom with the largest norm must be less than tol. [eV/Angstrom]
+    atol : float
+        Absolute tolerance for convergence; that is, the force on each atom
+        is compared with its force from the previous iteration, and the change
+        in each atom's force is calculated as an l2-norm
+        (Euclidean distance). The atom with the largest norm must be less
+        than tol. [eV/Angstrom]
+    rtol : float
+        Relative tolerance for convergence. The difference in the l2-norm of
+        force on each atom is calculated, and convergence is achieved when
+        the largest difference between two iterations is rtol * max force.
     calc_last : bool
         If True, calculates forces last; that is, it waits until all other
         convergence criteria are satisfied before checking to see if the
@@ -272,10 +277,13 @@ class Forces(Criterion):
     name = 'forces'
     tablename = 'force'
 
-    def __init__(self, tol, calc_last=True):
-        self.tol = tol
+    def __init__(self, atol, rtol=np.inf, calc_last=True):
+        self.atol = atol
+        self.rtol = rtol
         self.description = ('Maximum change in the atomic [forces] across '
-                            'last 2 cycles: {:g} eV/Ang'.format(self.tol))
+                            f'last 2 cycles: {self.atol} eV/Ang OR\n'
+                            'Maximum error relative to the maximum '
+                            f'force is below {self.rtol}')
         self.calc_last = calc_last
         self.reset()
 
@@ -283,15 +291,21 @@ class Forces(Criterion):
         """Should return (bool, entry), where bool is True if converged and
         False if not, and entry is a <=5 character string to be printed in
         the user log file."""
-        if np.isinf(self.tol):  # criterion is off; backwards compatibility
+
+        # criterion is off; backwards compatibility
+        if np.isinf(self.atol) and np.isinf(self.rtol):
             return True, ''
         F_av = context.calculate_forces()
         F_av *= Ha / Bohr
         error = np.inf
+        max_force = np.max(np.linalg.norm(F_av, axis=1))
         if self.old_F_av is not None:
             error = ((F_av - self.old_F_av)**2).sum(1).max()**0.5
         self.old_F_av = F_av
-        converged = (error < self.tol)
+
+        error_threshold = min(self.atol, self.rtol * max_force)
+        converged = error < error_threshold
+
         entry = ''
         if np.isfinite(error):
             if error:
