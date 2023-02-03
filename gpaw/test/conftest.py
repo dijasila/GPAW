@@ -203,12 +203,10 @@ class GPWFiles:
         atoms.calc = GPAW(xc='LDA',
                           txt=self.path / 'h2_bcc_afm.txt',
                           mode=PW(250),
+                          nbands=4,
                           kpts={'density': 2.0, 'gamma': True})
         atoms.get_potential_energy()
-
-        nbands = 4
-        calc = atoms.calc.fixed_density(nbands=nbands)
-        return calc
+        return atoms.calc
 
     def h_pw(self):
         h = Atoms('H', magmoms=[1])
