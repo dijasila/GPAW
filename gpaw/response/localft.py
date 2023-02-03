@@ -146,6 +146,7 @@ class LocalFTCalculator(ABC):
             # Add spin-neutral background electron density
             self.context.print('    Adding a background a background electron '
                                f'density of {self.bg_density / Bohr**3.} Å^-3')
+            n_sR = n_sR.copy()  # Make a copy in order not to modify gs
             n_sR += self.bg_density / n_sR.shape[0]
 
         return n_sR
