@@ -29,9 +29,9 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
     rshewmin = 1e-8
     bg_density = 0.004
     ecut = 200
-    frq_qw = [np.linspace(-0.096, 0.084, 16),
-              np.linspace(0.18, 0.36, 16)]
-    eta = 0.1
+    frq_w = np.linspace(-0.15, 0.075, 16)
+    eta = 0.12
+    zd = ComplexFrequencyDescriptor.from_array(frq_w + 1.j * eta)
     nblocks = 4
 
     # ---------- Script ---------- #
@@ -40,7 +40,7 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
     context = ResponseContext()
     gs = ResponseGroundStateAdapter.from_gpw_file(gpw_files['nicl2_pw_wfs'],
                                                   context=context)
-    chiks_calc = ChiKSCalculator(gs,
+    chiks_calc = ChiKSCalculator(gs, context=context,
                                  ecut=ecut,
                                  gammacentered=True,
                                  nblocks=nblocks)
@@ -54,7 +54,6 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
     for q, q_c in enumerate(q_qc):
         filename = 'nicl2_macro_tms_q%d.csv' % q
         txt = 'nicl2_macro_tms_q%d.txt' % q
-        zd = ComplexFrequencyDescriptor.from_array(frq_qw[q] + 1.j * eta)
         chi = chi_factory('+-', q_c, zd,
                           fxc=fxc,
                           localft_calc=localft_calc,
@@ -62,7 +61,7 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
                           txt=txt)
         chi.write_macroscopic_component(filename)
 
-    chi_factory.context.write_timer()
+    context.write_timer()
     world.barrier()
 
     # Identify magnon peaks and extract kernel scaling
@@ -86,18 +85,18 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
         print(fxcs, mw0, mw1, Ipeak0, Ipeak1)
 
     # Compare new results to test values
-    test_fxcs = 1.08005
-    test_mw0 = -8.1  # meV
-    test_mw1 = 272.7  # meV
-    test_Ipeak0 = 0.2786  # a.u.
-    test_Ipeak1 = 0.1051  # a.u.
+    test_fxcs = 1.08215
+    test_mw0 = -10.2  # meV
+    test_mw1 = -60.8  # meV
+    test_Ipeak0 = 0.2321  # a.u.
+    test_Ipeak1 = 0.0978  # a.u.
 
     # Test fxc scaling
     assert fxcs == pytest.approx(test_fxcs, abs=0.005)
 
     # Test magnon peaks
-    assert mw0 == pytest.approx(test_mw0, abs=10.0)
-    assert mw1 == pytest.approx(test_mw1, abs=20.0)
+    assert mw0 == pytest.approx(test_mw0, abs=5.0)
+    assert mw1 == pytest.approx(test_mw1, abs=10.0)
 
     # Test peak intensities
     assert Ipeak0 == pytest.approx(test_Ipeak0, abs=0.01)
