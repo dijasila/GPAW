@@ -405,7 +405,6 @@ class GPWFiles:
         atoms = mx2(formula='NiCl2', kind='1T', a=a,
                     thickness=thickness, vacuum=vacuum)
         atoms.set_initial_magnetic_moments([mm, 0.0, 0.0])
-        atoms.pbc = (1, 1, 0)
 
         # Set up calculator
         atoms.calc = GPAW(
