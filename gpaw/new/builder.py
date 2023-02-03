@@ -1,18 +1,18 @@
 from __future__ import annotations
 
 import importlib
-from types import SimpleNamespace
+import os
+from types import ModuleType, SimpleNamespace
 from typing import Any, Union
 
 import numpy as np
 from ase import Atoms
 from ase.calculators.calculator import kpts2sizeandoffsets
 from ase.units import Bohr
-
 from gpaw.core import UniformGrid
-from gpaw.core.domain import Domain
 from gpaw.core.atom_arrays import (AtomArrays, AtomArraysLayout,
                                    AtomDistribution)
+from gpaw.core.domain import Domain
 from gpaw.mixer import MixerWrapper, get_mixer_from_keywords
 from gpaw.mpi import MPIComm, Parallelization, serial_comm, world
 from gpaw.new import cached_property, prod
@@ -151,6 +151,15 @@ class DFTComponentsBuilder:
     @cached_property
     def wf_desc(self) -> Domain:
         return self.create_wf_description()
+
+    @cached_property
+    def xp(self) -> ModuleType:
+        if self.params.parallel['gpu']:
+            from gpaw.gpu import cupy, cupy_is_fake
+            assert not cupy_is_fake or os.environ.get('GPAW_CPUPY')
+            return cupy
+        else:
+            return np
 
     def create_wf_description(self) -> Domain:
         raise NotImplementedError

@@ -302,7 +302,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
             Array to use for storage.
         """
         if data is None:
-            data = np.empty_like(self.data)
+            data = self.xp.empty_like(self.data)
         return UniformGridFunctions(self.desc, self.dims, self.comm, data)
 
     def __getitem__(self, index):
@@ -461,7 +461,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         return result
 
     def integrate(self, other=None):
-        """Integral of self or self time cc(other)."""
+        """Integral of self or self times cc(other)."""
         if other is not None:
             assert self.desc.dtype == other.desc.dtype
             a_xR = self._arrays()
@@ -473,7 +473,8 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
             result = self.data.sum(axis=(-3, -2, -1))
 
         if result.ndim == 0:
-            result = self.desc.comm.sum(result.item())
+            if self.xp is np:
+                result = np.array(self.desc.comm.sum(result.item()))
         else:
             self.desc.comm.sum(result)
 

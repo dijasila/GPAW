@@ -60,6 +60,7 @@ nitpick_ignore = [('py:class', 'gpaw.calculator.GPAW'),
                   ('py:class', 'ase.atoms.Atoms'),
                   ('py:class', 'gpaw.point_groups.group.PointGroup'),
                   ('py:class', 'UniformGridFunctions'),
+                  ('py:class', 'gpaw.core.arrays.DomainType'),
                   ('py:class', 'DomainType'),
                   ('py:class', 'Path'),
                   ('py:class', 'Vector'),
@@ -69,7 +70,8 @@ nitpick_ignore = [('py:class', 'gpaw.calculator.GPAW'),
                   ('py:class', 'Array2D'),
                   ('py:class', 'Array3D'),
                   ('py:class', 'MPIComm'),
-                  ('py:class', 'DomainType'),
+                  ('py:class', 'numpy._typing._dtype_like._SupportsDType'),
+                  ('py:class', 'numpy._typing._dtype_like._DTypeDict'),
                   ('py:class', 'IO')]
 
 html_theme = 'sphinx_rtd_theme'
