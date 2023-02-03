@@ -102,6 +102,8 @@ def gpw_files(request, tmp_path_factory):
 
     * MoS2 with 6x6x1 k-points: ``mos2_pw``
 
+    * NiCl2 with 6x6x1 k-points: ``nicl2_pw``
+
     * Bulk Si, LDA, 2x2x2 k-points (gamma centered): ``si_pw``
 
     * Bulk Fe, LDA, 4x4x4 k-points, 6 converged bands: ``fe_pw``
