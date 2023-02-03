@@ -43,6 +43,14 @@ def as_xp(array, xp):
     return array
 
 
+def get_pointer(array):
+    if isinstance(array, np.ndarray):
+        return array.ctypes.data
+    elif cupy_is_fake:
+        return array._data.ctypes.data
+    return array.data.ptr
+
+
 def cupy_eigh(a, UPLO):
     """HIP version of eigh() is too slow for now."""
     from scipy.linalg import eigh
