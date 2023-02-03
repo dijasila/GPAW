@@ -25,8 +25,8 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
             [1. / 3., 1. / 3., 0.]]
     fxc = 'ALDA'
     fxc_scaling = FXCScaling('fm')
-    rshelmax = -1
-    rshewmin = 1e-8
+    rshelmax = 0
+    rshewmin = None
     bg_density = 0.004
     ecut = 200
     frq_w = np.linspace(-0.15, 0.075, 16)
@@ -85,11 +85,11 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
         print(fxcs, mw0, mw1, Ipeak0, Ipeak1)
 
     # Compare new results to test values
-    test_fxcs = 1.08215
+    test_fxcs = 1.0769
     test_mw0 = -10.2  # meV
-    test_mw1 = -60.8  # meV
-    test_Ipeak0 = 0.2321  # a.u.
-    test_Ipeak1 = 0.0978  # a.u.
+    test_mw1 = -61.1  # meV
+    test_Ipeak0 = 0.2322  # a.u.
+    test_Ipeak1 = 0.0979  # a.u.
 
     # Test fxc scaling
     assert fxcs == pytest.approx(test_fxcs, abs=0.005)
