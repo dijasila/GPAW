@@ -85,8 +85,8 @@ class _Transformer:
             if gpu.backend.is_host_array(output):
                 _output = output
                 output = gpu.backend.copy_to_device(output)
-            self.transformer.apply_gpu(gpu.array.get_pointer(input),
-                                       gpu.array.get_pointer(output),
+            self.transformer.apply_gpu(gpu.get_pointer(input),
+                                       gpu.get_pointer(output),
                                        input.shape, input.dtype, phases)
             if _output:
                 gpu.backend.copy_to_host(output, _output)

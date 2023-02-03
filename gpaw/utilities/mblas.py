@@ -29,11 +29,11 @@ def multi_axpy(a, x, y):
                 a_gpu = a
             else:
                 a_gpu = gpu.backend.copy_to_device(a)
-            _gpaw.multi_axpy_gpu(gpu.array.get_pointer(a_gpu),
+            _gpaw.multi_axpy_gpu(gpu.get_pointer(a_gpu),
                                  a.dtype,
-                                 gpu.array.get_pointer(x),
+                                 gpu.get_pointer(x),
                                  x.shape,
-                                 gpu.array.get_pointer(y),
+                                 gpu.get_pointer(y),
                                  y.shape,
                                  x.dtype)
         else:
@@ -59,11 +59,11 @@ def multi_dotc(x, y, s=None):
             s_gpu = s
         else:
             s_gpu = gpu.array.empty(x.shape[0], dtype=x.dtype)
-        _gpaw.multi_dotc_gpu(gpu.array.get_pointer(x),
+        _gpaw.multi_dotc_gpu(gpu.get_pointer(x),
                              x.shape,
-                             gpu.array.get_pointer(y),
+                             gpu.get_pointer(y),
                              x.dtype,
-                             gpu.array.get_pointer(s_gpu))
+                             gpu.get_pointer(s_gpu))
         if gpu.backend.is_host_array(s):
             s = gpu.backend.copy_to_host(s_gpu, s)
     else:
@@ -91,11 +91,11 @@ def multi_dotu(x, y, s=None):
             s_gpu = s
         else:
             s_gpu = gpu.array.empty(x.shape[0], dtype=x.dtype)
-        _gpaw.multi_dotu_gpu(gpu.array.get_pointer(x),
+        _gpaw.multi_dotu_gpu(gpu.get_pointer(x),
                              x.shape,
-                             gpu.array.get_pointer(y),
+                             gpu.get_pointer(y),
                              x.dtype,
-                             gpu.array.get_pointer(s_gpu))
+                             gpu.get_pointer(s_gpu))
         if gpu.backend.is_host_array(s):
             s = gpu.backend.copy_to_host(s_gpu, s)
     else:
@@ -121,9 +121,9 @@ def multi_scal(a, x):
                 a_gpu = a
             else:
                 a_gpu = gpu.backend.copy_to_device(a)
-            _gpaw.multi_scal_gpu(gpu.array.get_pointer(a_gpu),
+            _gpaw.multi_scal_gpu(gpu.get_pointer(a_gpu),
                                  a.dtype,
-                                 gpu.array.get_pointer(x),
+                                 gpu.get_pointer(x),
                                  x.shape,
                                  x.dtype)
         else:

@@ -135,21 +135,21 @@ class TimeDependentHamiltonian:
             vt_G = self.vt_sG_gpu[s]
             if len(psit_nG.shape) == 3:
                 _gpaw.elementwise_multiply_add_gpu(
-                        gpu.array.get_pointer(psit_nG),
+                        gpu.get_pointer(psit_nG),
                         psit_nG.shape,
                         psit_nG.dtype,
-                        gpu.array.get_pointer(vt_G),
+                        gpu.get_pointer(vt_G),
                         vt_G.dtype,
-                        gpu.array.get_pointer(Htpsit_nG))
+                        gpu.get_pointer(Htpsit_nG))
             else:
                 for psit_G, Htpsit_G in zip(psit_nG, Htpsit_nG):
                     _gpaw.elementwise_multiply_add_gpu(
-                            gpu.array.get_pointer(psit_G),
+                            gpu.get_pointer(psit_G),
                             psit_G.shape,
                             psit_G.dtype,
-                            gpu.array.get_pointer(vt_G),
+                            gpu.get_pointer(vt_G),
                             vt_G.dtype,
-                            gpu.array.get_pointer(Htpsit_G))
+                            gpu.get_pointer(Htpsit_G))
         else:
             vt_G = self.vt_sG[s]
             if psit_nG.ndim == 3:
@@ -883,10 +883,10 @@ def add_linear_field(wfs, spos_ac, a_nG, b_nG, strength, kpt):
     gd = wfs.gd
 
     if gpu.backend.is_device_array(a_nG):
-        _gpaw.add_linear_field_gpu(gpu.array.get_pointer(a_nG),
+        _gpaw.add_linear_field_gpu(gpu.get_pointer(a_nG),
                                    a_nG.shape,
                                    a_nG.dtype,
-                                   gpu.array.get_pointer(b_nG),
+                                   gpu.get_pointer(b_nG),
                                    gd.n_c,
                                    gd.beg_c,
                                    gd.h_cv,

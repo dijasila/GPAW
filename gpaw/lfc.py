@@ -410,9 +410,9 @@ class LocalizedFunctionsCollection(BaseLFC):
             if gpu.backend.is_device_array(a_xG):
                 if self.Mmax > 0 :
                     c_xM_gpu = gpu.backend.copy_to_device(c_xM)
-                    self.lfc.add_gpu(gpu.array.get_pointer(c_xM_gpu),
+                    self.lfc.add_gpu(gpu.get_pointer(c_xM_gpu),
                                      c_xM_gpu.shape,
-                                     gpu.array.get_pointer(a_xG),
+                                     gpu.get_pointer(a_xG),
                                      a_xG.shape, q)
             else:
                 self.lfc.add(c_xM, a_xG, q)
@@ -463,9 +463,9 @@ class LocalizedFunctionsCollection(BaseLFC):
         if gpu.backend.is_device_array(a_xG):
             if self.Mmax > 0:
                 c_xM_gpu = gpu.backend.copy_to_device(c_xM)
-                self.lfc.add_gpu(gpu.array.get_pointer(c_xM_gpu),
+                self.lfc.add_gpu(gpu.get_pointer(c_xM_gpu),
                                  c_xM_gpu.shape,
-                                 gpu.array.get_pointer(a_xG),
+                                 gpu.get_pointer(a_xG),
                                  a_xG.shape, q)
         else:
             self.lfc.add(c_xM, a_xG, q)
@@ -575,9 +575,9 @@ class LocalizedFunctionsCollection(BaseLFC):
         if gpu.backend.is_device_array(a_xG):
             if self.Mmax > 0:
                 c_xM_gpu = gpu.array.zeros(xshape + (self.Mmax,), dtype)
-                self.lfc.integrate_gpu(gpu.array.get_pointer(a_xG),
+                self.lfc.integrate_gpu(gpu.get_pointer(a_xG),
                                        a_xG.shape,
-                                       gpu.array.get_pointer(c_xM_gpu),
+                                       gpu.get_pointer(c_xM_gpu),
                                        c_xM_gpu.shape, q)
                 c_xM = gpu.backend.copy_to_host(c_xM_gpu) * self.gd.dv
             else:

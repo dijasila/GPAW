@@ -99,8 +99,8 @@ class FDOperator:
             if gpu.backend.is_host_array(out_xg):
                 _out = out_xg
                 out_xg = gpu.backend.copy_to_device(out_xg)
-            self.operator.apply_gpu(gpu.array.get_pointer(in_xg),
-                                    gpu.array.get_pointer(out_xg),
+            self.operator.apply_gpu(gpu.get_pointer(in_xg),
+                                    gpu.get_pointer(out_xg),
                                     in_xg.shape, in_xg.dtype, phase_cd)
             if _out:
                 gpu.backend.copy_to_host(out_xg, _out)
@@ -120,8 +120,8 @@ class FDOperator:
                 _func = f_g
                 f_g = gpu.backend.copy_to_device(_func)
             self.operator.relax_gpu(relax_method,
-                                    gpu.array.get_pointer(f_g),
-                                    gpu.array.get_pointer(s_g),
+                                    gpu.get_pointer(f_g),
+                                    gpu.get_pointer(s_g),
                                     n, w)
             if _func:
                 gpu.backend.copy_to_host(f_g, _func)

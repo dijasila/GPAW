@@ -13,12 +13,12 @@ def elementwise_multiply_add(a, b, c):
     assert(type(c) == type(b))
 
     if gpu.backend.is_device_array(a):
-        _gpaw.elementwise_multiply_add_gpu(gpu.array.get_pointer(a),
+        _gpaw.elementwise_multiply_add_gpu(gpu.get_pointer(a),
                                            a.shape,
                                            a.dtype,
-                                           gpu.array.get_pointer(b),
+                                           gpu.get_pointer(b),
                                            b.dtype,
-                                           gpu.array.get_pointer(c))
+                                           gpu.get_pointer(c))
     else:
         c += a * b
 
@@ -40,13 +40,13 @@ def multi_elementwise_multiply_add(a, b, c):
         elementwise_multiply_add(a, b, c)
 
     if gpu.backend.is_device_array(a):
-        _gpaw.multi_elementwise_multiply_add_gpu(gpu.array.get_pointer(a),
+        _gpaw.multi_elementwise_multiply_add_gpu(gpu.get_pointer(a),
                                                  a.shape,
                                                  a.dtype,
-                                                 gpu.array.get_pointer(b),
+                                                 gpu.get_pointer(b),
                                                  b.shape,
                                                  b.dtype,
-                                                 gpu.array.get_pointer(c))
+                                                 gpu.get_pointer(c))
     else:
         multi_elementwise_multiply_add_cpu(a, b, c)
 
@@ -54,7 +54,7 @@ def change_sign(x):
     """
     """
     if gpu.backend.is_device_array(x):
-        _gpaw.csign_gpu(gpu.array.get_pointer(x), x.shape, x.dtype)
+        _gpaw.csign_gpu(gpu.get_pointer(x), x.shape, x.dtype)
     else:
         scal(-1.0, x)
 
@@ -70,8 +70,8 @@ def ax2py(a, x, y):
     """
     assert(type(x) == type(y))
     if gpu.backend.is_device_array(x):
-        _gpaw.ax2py_gpu(a, gpu.array.get_pointer(x), x.shape,
-                        gpu.array.get_pointer(y), y.shape, x.dtype)
+        _gpaw.ax2py_gpu(a, gpu.get_pointer(x), x.shape,
+                        gpu.get_pointer(y), y.shape, x.dtype)
     else:
         ax2py_cpu(a, x, y)
 
@@ -94,10 +94,10 @@ def multi_ax2py(a, x, y):
                 a_gpu = a
             else:
                 a_gpu = gpu.backend.copy_to_device(a)
-            _gpaw.multi_ax2py_gpu(gpu.array.get_pointer(a_gpu),
-                                  gpu.array.get_pointer(x),
+            _gpaw.multi_ax2py_gpu(gpu.get_pointer(a_gpu),
+                                  gpu.get_pointer(x),
                                   x.shape,
-                                  gpu.array.get_pointer(y),
+                                  gpu.get_pointer(y),
                                   y.shape,
                                   x.dtype)
         else:
