@@ -20,6 +20,7 @@ from gpaw import debug
 from gpaw import gpu
 from gpaw.new import prod
 from gpaw.typing import Array2D, ArrayND
+from gpaw.utilities import is_contiguous
 
 
 __all__ = ['mmm']
