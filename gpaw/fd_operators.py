@@ -148,9 +148,9 @@ if debug:
         def apply(self, in_xg, out_xg, phase_cd=None):
             assert in_xg.shape == out_xg.shape
             assert in_xg.shape[-3:] == self.shape
-            assert in_xg.flags.contiguous
+            assert in_xg.flags.c_contiguous
             assert in_xg.dtype == self.dtype
-            assert out_xg.flags.contiguous
+            assert out_xg.flags.c_contiguous
             assert out_xg.dtype == self.dtype
             assert (self.dtype == float or
                     (phase_cd.dtype == complex and
@@ -160,9 +160,9 @@ if debug:
         def relax(self, relax_method, f_g, s_g, n, w=None):
             assert f_g.shape == self.shape
             assert s_g.shape == self.shape
-            assert f_g.flags.contiguous
+            assert f_g.flags.c_contiguous
             assert f_g.dtype == float
-            assert s_g.flags.contiguous
+            assert s_g.flags.c_contiguous
             assert s_g.dtype == float
             assert self.dtype == float
             _FDOperator.relax(self, relax_method, f_g, s_g, n, w)
