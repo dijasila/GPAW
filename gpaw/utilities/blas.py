@@ -23,6 +23,16 @@ from gpaw.typing import Array2D, ArrayND
 from gpaw.utilities import is_contiguous
 
 
+def is_finite(array, tril=False):
+    if isinstance(array, np.ndarray):
+        xp = np
+    else:
+        from gpaw.gpu import cupy as xp
+    if tril:
+        array = xp.tril(array)
+    return xp.isfinite(array).all()
+
+
 __all__ = ['mmm']
 
 T = TypeVar('T', float, complex)
@@ -181,7 +191,7 @@ def gemm(alpha, a, b, beta, c, transa='n', use_gpu=False):
     where in case of "c" also complex conjugate of a is taken.
     """
     if debug:
-        assert beta == 0.0 or np.isfinite(c).all()
+        assert beta == 0.0 or is_finite(c)
 
         assert (a.dtype == float and b.dtype == float and c.dtype == float and
                 isinstance(alpha, float) and isinstance(beta, float) or
@@ -364,7 +374,7 @@ def rk(alpha, a, beta, c, trans='c', use_gpu=None):
     Only the lower triangle of ``c`` will contain sensible numbers.
     """
     if debug:
-        assert beta == 0.0 or np.isfinite(np.tril(c)).all()
+        assert beta == 0.0 or is_finite(c, tril=True)
 
         assert (a.dtype == float and c.dtype == float or
                 a.dtype == complex and c.dtype == complex)
@@ -429,7 +439,7 @@ def r2k(alpha, a, b, beta, c, trans='c', use_gpu=None):
     Only the lower triangle of ``c`` will contain sensible numbers.
     """
     if debug:
-        assert beta == 0.0 or np.isfinite(np.tril(c)).all()
+        assert beta == 0.0 or is_finite(c, tril=True)
         assert (a.dtype == float and b.dtype == float and c.dtype == float or
                 a.dtype == complex and b.dtype == complex and
                 c.dtype == complex)
