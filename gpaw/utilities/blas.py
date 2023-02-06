@@ -76,7 +76,7 @@ def mmm(alpha: T,
     c_cpu, c_gpu = (None, c) if not isinstance(c, np.ndarray) \
                              else (c, None)
 
-    if use_gpu or (use_gpu is None and not isinstance(c), np.ndarray):
+    if use_gpu or (use_gpu is None and not isinstance(c, np.ndarray)):
         if a_gpu is None:
             a_gpu = gpu.backend.copy_to_device(a_cpu)
         if b_gpu is None:
@@ -206,7 +206,7 @@ def gemm(alpha, a, b, beta, c, transa='n', use_gpu=False):
     c_cpu, c_gpu = (None, c) if not isinstance(c, np.ndarray) \
                              else (c, None)
 
-    if use_gpu or (use_gpu is None and not isinstance(c), np.ndarray):
+    if use_gpu or (use_gpu is None and not isinstance(c, np.ndarray)):
         if a_gpu is None:
             a_gpu = gpu.backend.copy_to_device(a_cpu)
         if b_gpu is None:
@@ -276,7 +276,7 @@ def gemv(alpha, a, x, beta, y, trans='t', use_gpu=False):
     y_cpu, y_gpu = (None, y) if not isinstance(y, np.ndarray) \
                              else (y, None)
 
-    if use_gpu or (use_gpu is None and not isinstance(y), np.ndarray):
+    if use_gpu or (use_gpu is None and not isinstance(y, np.ndarray)):
         if a_gpu is None:
             a_gpu = gpu.backend.copy_to_device(a_cpu)
         if x_gpu is None:
@@ -324,7 +324,7 @@ def axpy(alpha, x, y, use_gpu=None):
     y_cpu, y_gpu = (None, y) if not isinstance(y, np.ndarray) \
                              else (y, None)
 
-    if use_gpu or (use_gpu is None and not isinstance(y), np.ndarray):
+    if use_gpu or (use_gpu is None and not isinstance(y, np.ndarray)):
         if x_gpu is None:
             x_gpu = gpu.backend.copy_to_device(x_cpu)
         if y_gpu is None:
@@ -380,7 +380,7 @@ def rk(alpha, a, beta, c, trans='c', use_gpu=None):
     c_cpu, c_gpu = (None, c) if not isinstance(c, np.ndarray) \
                              else (c, None)
 
-    if use_gpu or (use_gpu is None and not isinstance(c), np.ndarray):
+    if use_gpu or (use_gpu is None and not isinstance(c, np.ndarray)):
         if a_gpu is None:
             a_gpu = gpu.backend.copy_to_device(a_cpu)
         if c_gpu is None:
@@ -448,7 +448,7 @@ def r2k(alpha, a, b, beta, c, trans='c', use_gpu=None):
     c_cpu, c_gpu = (None, c) if not isinstance(c, np.ndarray) \
                              else (c, None)
 
-    if use_gpu or (use_gpu is None and not isinstance(c), np.ndarray):
+    if use_gpu or (use_gpu is None and not isinstance(c, np.ndarray)):
         if a_gpu is None:
             a_gpu = gpu.backend.copy_to_device(a_cpu)
         if b_gpu is None:
