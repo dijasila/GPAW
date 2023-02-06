@@ -1,6 +1,7 @@
 import numpy as np
 from gpaw.core import PlaneWaves
 from gpaw.new.pot_calc import PotentialCalculator
+from gpaw.setup import Setups
 
 
 class PlaneWavePotentialCalculator(PotentialCalculator):
@@ -9,7 +10,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                  fine_grid,
                  pw: PlaneWaves,
                  fine_pw: PlaneWaves,
-                 setups,
+                 setups: Setups,
                  xc,
                  poisson_solver,
                  nct_ag,
@@ -23,7 +24,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         self.nct_ag = nct_ag
         self.vbar_ag = setups.create_local_potentials(pw, fracpos_ac, atomdist)
         self.ghat_aLh = setups.create_compensation_charges(
-            fine_pw, fracpos_ac, atomdist)  # , xp)
+            fine_pw, fracpos_ac, atomdist, xp)
 
         self.pw = pw
         self.fine_pw = fine_pw

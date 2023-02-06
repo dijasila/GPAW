@@ -1491,11 +1491,13 @@ class Setups(list):
         return layout.atom_centered_functions(
             [[setup.vbar] for setup in self], positions, atomdist=atomdist)
 
-    def create_compensation_charges(self, layout, positions, atomdist):
+    def create_compensation_charges(self, layout, positions, atomdist,
+                                    xp=np):
         return layout.atom_centered_functions(
             [setup.ghat_l for setup in self], positions,
             atomdist=atomdist,
-            integral=sqrt(4 * pi))
+            integral=sqrt(4 * pi),
+            xp=xp)
 
     def overlap_correction(self, P_ani, out_ani):
         xp = P_ani.layout.xp

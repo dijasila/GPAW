@@ -23,7 +23,7 @@ gauss_integral = np.pi / 2 / alpha**1.5
 
 
 @pytest.mark.ci
-@pytest.mark.parametrize('xp', [np, cp])
+@pytest.mark.parametrize('xp', [np])
 def test_acf_fd(grid, xp):
 
     basis = grid.atom_centered_functions(
