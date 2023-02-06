@@ -181,7 +181,7 @@ def gemm(alpha, a, b, beta, c, transa='n', use_gpu=False):
     where in case of "c" also complex conjugate of a is taken.
     """
     if debug:
-        assert np.isfinite(c).all()
+        assert beta == 0.0 or np.isfinite(c).all()
 
         assert (a.dtype == float and b.dtype == float and c.dtype == float and
                 isinstance(alpha, float) and isinstance(beta, float) or
@@ -364,7 +364,7 @@ def rk(alpha, a, beta, c, trans='c', use_gpu=None):
     Only the lower triangle of ``c`` will contain sensible numbers.
     """
     if debug:
-        assert beta == 0.0 or np.isfinite(c).all()
+        assert beta == 0.0 or np.isfinite(np.tril(c)).all()
 
         assert (a.dtype == float and c.dtype == float or
                 a.dtype == complex and c.dtype == complex)
@@ -429,7 +429,7 @@ def r2k(alpha, a, b, beta, c, trans='c', use_gpu=None):
     Only the lower triangle of ``c`` will contain sensible numbers.
     """
     if debug:
-        assert np.isfinite(c).all()
+        assert beta == 0.0 or np.isfinite(np.tril(c)).all()
         assert (a.dtype == float and b.dtype == float and c.dtype == float or
                 a.dtype == complex and b.dtype == complex and
                 c.dtype == complex)
