@@ -370,64 +370,42 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
+    def _fe(self,
+            *,
+            magmom: float,
+            name: str,
+            **params):
+        a = 2.867
+        atoms = bulk('Fe', 'bcc', a=a)
+        atoms.set_initial_magnetic_moments(magmoms=[magmom])
 
-    def _fe(self, **kwargs):    
+        calc = GPAW(**params,
+                    occupations=FermiDirac(0.01),
+                    txt=self.path / f'{name}.txt')
 
-        atoms = bulk('Fe', 'bcc', a=kwargs["a"])
-        atoms.set_initial_magnetic_moments(magmoms=[kwargs["magmom"]])
-
-        calc = GPAW(xc=kwargs["xc"],
-                    mode=PW(kwargs["pw"]),
-                    nbands=kwargs["nbands"],
-                    kpts={'size': (kwargs["kpts"], kwargs["kpts"], kwargs["kpts"]), 'gamma': True},
-                    convergence=kwargs["conv"],
-                    occupations=FermiDirac(kwargs["occw"]),
-                    txt=self.path / f'{kwargs["name"]}.txt')
-        
         atoms.calc = calc
         atoms.get_potential_energy()
-    
+
         return atoms.calc
 
     def fe_pw(self):
-        xc = 'LDA'
-        kpts = 4
-        #nbands = 6
-        nbands = 10
-        pw = 300
-        occw = 0.01
-        #conv = {'bands': nbands,
-        #        'density': 1.e-8,
-        #        'forces': 1.e-8}
-        conv = {'bands': 6,
-                'density': 1.e-8,
-                'forces': 1.e-8}
-
-        a = 2.867
-        magmom = 2.21
-        name = 'fe_pw'
-
-        kwargs = {'a':a, 'magmom':magmom, 'xc':xc, 'kpts':kpts, 'conv':conv, 'occw':occw, 'pw':pw, 'nbands':nbands, 'name':name}
-        calc = self._fe(**kwargs)
-
-        return calc
+        return self._fe(magmom=2.21,
+                        name='fe_pw',
+                        nbands=10,
+                        mode=dict(name='pw', ecut=300),
+                        kpts=(4, 4, 4),
+                        convergence={'bands': 6,
+                                     'density': 1e-8,
+                                     'forces': 1e-8})
 
     def fe_cheap_pw(self):
-        a = 2.867
-        magmom = 3.75
-        xc = 'LDA'
-        kpts = 2
-        occw = 0.01
-        nbands = 6
-        pw = 200
-        conv = {'density': 1e-3,
-                'forces': 1e-2}
-        name = 'fe_cheap_pw'
-        kwargs = {'a':a, 'magmom':magmom, 'xc':xc, 'kpts':kpts, 'conv':conv, 'occw':occw, 'pw':pw, 'nbands':nbands, 'name':name}
-
-        calc = self._fe(**kwargs)
-        
-        return calc
+        return self._fe(magmom=3.75,
+                        name='fe_cheap_pw',
+                        nbands=6,
+                        mode=dict(name='pw', ecut=200),
+                        kpts=dict(size=(2, 2, 2), gamma=True),
+                        convergence={'density': 1e-3,
+                                     'forces': 1e-2})
 
 
 class GPAWPlugin:
