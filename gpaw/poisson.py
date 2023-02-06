@@ -457,11 +457,11 @@ class FDPoissonSolver(BasePoissonSolver):
         eps = self.eps
 
         if not isinstance(self.phis[1], np.ndarray):
-            self.phis[0] = gpu.backend.copy_to_device(phi)
+            self.phis[0] = gpu.copy_to_device(phi)
             if self.B is None:
-                gpu.backend.copy_to_device(rho, self.rhos[0])
+                gpu.copy_to_device(rho, self.rhos[0])
             else:
-                self.B.apply(gpu.backend.copy_to_device(rho), self.rhos[0])
+                self.B.apply(gpu.copy_to_device(rho), self.rhos[0])
         else:
             self.phis[0] = phi
             if self.B is None:
@@ -478,7 +478,7 @@ class FDPoissonSolver(BasePoissonSolver):
             raise PoissonConvergenceError(msg)
 
         if not isinstance(self.phis[0], np.ndarray):
-            gpu.backend.copy_to_host(self.phis[0], phi)
+            gpu.copy_to_host(self.phis[0], phi)
 
         # Set the average potential to zero in periodic systems
         if np.alltrue(self.gd.pbc_c):

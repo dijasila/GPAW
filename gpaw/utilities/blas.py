@@ -78,11 +78,11 @@ def mmm(alpha: T,
 
     if use_gpu or (use_gpu is None and not isinstance(c, np.ndarray)):
         if a_gpu is None:
-            a_gpu = gpu.backend.copy_to_device(a_cpu)
+            a_gpu = gpu.copy_to_device(a_cpu)
         if b_gpu is None:
-            b_gpu = gpu.backend.copy_to_device(b_cpu)
+            b_gpu = gpu.copy_to_device(b_cpu)
         if c_gpu is None:
-            c_gpu = gpu.backend.copy_to_device(c_cpu)
+            c_gpu = gpu.copy_to_device(c_cpu)
         m = b2
         n = a1
         k = b1
@@ -94,17 +94,17 @@ def mmm(alpha: T,
                       gpu.get_pointer(c_gpu), ldc, c_gpu.itemsize,
                       m, n, k)
         if c_cpu is not None:
-            gpu.backend.copy_to_host(c_gpu, c_cpu)
+            gpu.copy_to_host(c_gpu, c_cpu)
     else:
         if a_cpu is None:
-            a_cpu = gpu.backend.copy_to_host(a_gpu)
+            a_cpu = gpu.copy_to_host(a_gpu)
         if b_cpu is None:
-            b_cpu = gpu.backend.copy_to_host(b_gpu)
+            b_cpu = gpu.copy_to_host(b_gpu)
         if c_cpu is None:
-            c_cpu = gpu.backend.copy_to_host(c_gpu)
+            c_cpu = gpu.copy_to_host(c_gpu)
         _gpaw.mmm(alpha, a_cpu, opa, b_cpu, opb, beta, c_cpu)
         if c_gpu is not None:
-            gpu.backend.copy_to_device(c_cpu, c_gpu)
+            gpu.copy_to_device(c_cpu, c_gpu)
 
 
 def scal(alpha, x):
@@ -208,27 +208,27 @@ def gemm(alpha, a, b, beta, c, transa='n', use_gpu=False):
 
     if use_gpu or (use_gpu is None and not isinstance(c, np.ndarray)):
         if a_gpu is None:
-            a_gpu = gpu.backend.copy_to_device(a_cpu)
+            a_gpu = gpu.copy_to_device(a_cpu)
         if b_gpu is None:
-            b_gpu = gpu.backend.copy_to_device(b_cpu)
+            b_gpu = gpu.copy_to_device(b_cpu)
         if c_gpu is None:
-            c_gpu = gpu.backend.copy_to_device(c_cpu)
+            c_gpu = gpu.copy_to_device(c_cpu)
         _gpaw.gemm_gpu(alpha, gpu.get_pointer(a_gpu), a_gpu.shape,
                        gpu.get_pointer(b_gpu), b_gpu.shape, beta,
                        gpu.get_pointer(c_gpu), c_gpu.shape,
                        a_gpu.dtype, transa)
         if c_cpu is not None:
-            gpu.backend.copy_to_host(c_gpu, c_cpu)
+            gpu.copy_to_host(c_gpu, c_cpu)
     else:
         if a_cpu is None:
-            a_cpu = gpu.backend.copy_to_host(a_gpu)
+            a_cpu = gpu.copy_to_host(a_gpu)
         if b_cpu is None:
-            b_cpu = gpu.backend.copy_to_host(b_gpu)
+            b_cpu = gpu.copy_to_host(b_gpu)
         if c_cpu is None:
-            c_cpu = gpu.backend.copy_to_host(c_gpu)
+            c_cpu = gpu.copy_to_host(c_gpu)
         _gpaw.gemm(alpha, a_cpu, b_cpu, beta, c_cpu, transa)
         if c_gpu is not None:
-            gpu.backend.copy_to_device(c_cpu, c_gpu)
+            gpu.copy_to_device(c_cpu, c_gpu)
 
 
 def gemv(alpha, a, x, beta, y, trans='t', use_gpu=False):
@@ -278,27 +278,27 @@ def gemv(alpha, a, x, beta, y, trans='t', use_gpu=False):
 
     if use_gpu or (use_gpu is None and not isinstance(y, np.ndarray)):
         if a_gpu is None:
-            a_gpu = gpu.backend.copy_to_device(a_cpu)
+            a_gpu = gpu.copy_to_device(a_cpu)
         if x_gpu is None:
-            x_gpu = gpu.backend.copy_to_device(x_cpu)
+            x_gpu = gpu.copy_to_device(x_cpu)
         if y_gpu is None:
-            y_gpu = gpu.backend.copy_to_device(y_cpu)
+            y_gpu = gpu.copy_to_device(y_cpu)
         _gpaw.gemv_gpu(alpha, gpu.get_pointer(a_gpu), a_gpu.shape,
                        gpu.get_pointer(x_gpu), x_gpu.shape, beta,
                        gpu.get_pointer(y_gpu), a_gpu.dtype,
                        trans)
         if y_cpu is not None:
-            gpu.backend.copy_to_host(y_gpu, y_cpu)
+            gpu.copy_to_host(y_gpu, y_cpu)
     else:
         if a_cpu is None:
-            a_cpu = gpu.backend.copy_to_host(a_gpu)
+            a_cpu = gpu.copy_to_host(a_gpu)
         if x_cpu is None:
-            x_cpu = gpu.backend.copy_to_host(x_gpu)
+            x_cpu = gpu.copy_to_host(x_gpu)
         if y_cpu is None:
-            y_cpu = gpu.backend.copy_to_host(y_gpu)
+            y_cpu = gpu.copy_to_host(y_gpu)
         _gpaw.gemv(alpha, a_cpu, x_cpu, beta, y_cpu, trans)
         if y_gpu is not None:
-            gpu.backend.copy_to_device(y_cpu, y_gpu)
+            gpu.copy_to_device(y_cpu, y_gpu)
 
 
 def axpy(alpha, x, y, use_gpu=None):
@@ -326,22 +326,22 @@ def axpy(alpha, x, y, use_gpu=None):
 
     if use_gpu or (use_gpu is None and not isinstance(y, np.ndarray)):
         if x_gpu is None:
-            x_gpu = gpu.backend.copy_to_device(x_cpu)
+            x_gpu = gpu.copy_to_device(x_cpu)
         if y_gpu is None:
-            y_gpu = gpu.backend.copy_to_device(y_cpu)
+            y_gpu = gpu.copy_to_device(y_cpu)
         _gpaw.axpy_gpu(alpha, gpu.get_pointer(x_gpu), x_gpu.shape,
                        gpu.get_pointer(y_gpu), y_gpu.shape,
                        x_gpu.dtype)
         if y_cpu is not None:
-            gpu.backend.copy_to_host(y_gpu, y_cpu)
+            gpu.copy_to_host(y_gpu, y_cpu)
     else:
         if x_cpu is None:
-            x_cpu = gpu.backend.copy_to_host(x_gpu)
+            x_cpu = gpu.copy_to_host(x_gpu)
         if y_cpu is None:
-            y_cpu = gpu.backend.copy_to_host(y_gpu)
+            y_cpu = gpu.copy_to_host(y_gpu)
         _gpaw.axpy(alpha, x_cpu, y_cpu)
         if y_gpu is not None:
-            gpu.backend.copy_to_device(y_cpu, y_gpu)
+            gpu.copy_to_device(y_cpu, y_gpu)
 
 
 def rk(alpha, a, beta, c, trans='c', use_gpu=None):
@@ -382,22 +382,22 @@ def rk(alpha, a, beta, c, trans='c', use_gpu=None):
 
     if use_gpu or (use_gpu is None and not isinstance(c, np.ndarray)):
         if a_gpu is None:
-            a_gpu = gpu.backend.copy_to_device(a_cpu)
+            a_gpu = gpu.copy_to_device(a_cpu)
         if c_gpu is None:
-            c_gpu = gpu.backend.copy_to_device(c_cpu)
+            c_gpu = gpu.copy_to_device(c_cpu)
         _gpaw.rk_gpu(alpha, gpu.get_pointer(a_gpu), a_gpu.shape,
                      beta, gpu.get_pointer(c_gpu), c_gpu.shape,
                      a_gpu.dtype)
         if c_cpu is not None:
-            gpu.backend.copy_to_host(c_gpu, c_cpu)
+            gpu.copy_to_host(c_gpu, c_cpu)
     else:
         if a_cpu is None:
-            a_cpu = gpu.backend.copy_to_host(a_gpu)
+            a_cpu = gpu.copy_to_host(a_gpu)
         if c_cpu is None:
-            c_cpu = gpu.backend.copy_to_host(c_gpu)
+            c_cpu = gpu.copy_to_host(c_gpu)
         _gpaw.rk(alpha, a_cpu, beta, c_cpu, trans)
         if c_gpu is not None:
-            gpu.backend.copy_to_device(c_cpu, c_gpu)
+            gpu.copy_to_device(c_cpu, c_gpu)
 
 
 def r2k(alpha, a, b, beta, c, trans='c', use_gpu=None):
@@ -450,27 +450,27 @@ def r2k(alpha, a, b, beta, c, trans='c', use_gpu=None):
 
     if use_gpu or (use_gpu is None and not isinstance(c, np.ndarray)):
         if a_gpu is None:
-            a_gpu = gpu.backend.copy_to_device(a_cpu)
+            a_gpu = gpu.copy_to_device(a_cpu)
         if b_gpu is None:
-            b_gpu = gpu.backend.copy_to_device(b_cpu)
+            b_gpu = gpu.copy_to_device(b_cpu)
         if c_gpu is None:
-            c_gpu = gpu.backend.copy_to_device(c_cpu)
+            c_gpu = gpu.copy_to_device(c_cpu)
         _gpaw.r2k_gpu(alpha, gpu.get_pointer(a_gpu), a_gpu.shape,
                       gpu.get_pointer(b_gpu), b_gpu.shape, beta,
                       gpu.get_pointer(c_gpu), c_gpu.shape,
                       a_gpu.dtype)
         if c_cpu is not None:
-            gpu.backend.copy_to_host(c_gpu, c_cpu)
+            gpu.copy_to_host(c_gpu, c_cpu)
     else:
         if a_cpu is None:
-            a_cpu = gpu.backend.copy_to_host(a_gpu)
+            a_cpu = gpu.copy_to_host(a_gpu)
         if b_cpu is None:
-            b_cpu = gpu.backend.copy_to_host(b_gpu)
+            b_cpu = gpu.copy_to_host(b_gpu)
         if c_cpu is None:
-            c_cpu = gpu.backend.copy_to_host(c_gpu)
+            c_cpu = gpu.copy_to_host(c_gpu)
         _gpaw.r2k(alpha, a_cpu, b_cpu, beta, c_cpu, trans)
         if c_gpu is not None:
-            gpu.backend.copy_to_device(c_cpu, c_gpu)
+            gpu.copy_to_device(c_cpu, c_gpu)
 
 
 def dotc(a, b):
@@ -498,17 +498,17 @@ def dotc(a, b):
 
     if not isinstance(a, np.ndarray) or not isinstance(b, np.ndarray):
         if a_gpu is None:
-            a_gpu = gpu.backend.copy_to_device(a_cpu)
+            a_gpu = gpu.copy_to_device(a_cpu)
         if b_gpu is None:
-            b_gpu = gpu.backend.copy_to_device(b_cpu)
+            b_gpu = gpu.copy_to_device(b_cpu)
         res = _gpaw.dotc_gpu(gpu.get_pointer(a_gpu), a.shape,
                              gpu.get_pointer(b_gpu), a.dtype)
         return res
     else:
         if a_cpu is None:
-            a_cpu = gpu.backend.copy_to_host(a_gpu)
+            a_cpu = gpu.copy_to_host(a_gpu)
         if b_cpu is None:
-            b_cpu = gpu.backend.copy_to_host(b_gpu)
+            b_cpu = gpu.copy_to_host(b_gpu)
         return _gpaw.dotc(a_cpu, b_cpu)
 
 
@@ -537,17 +537,17 @@ def dotu(a, b):
 
     if not isinstance(a, np.ndarray) or not isinstance(b, np.ndarray):
         if a_gpu is None:
-            a_gpu = gpu.backend.copy_to_device(a_cpu)
+            a_gpu = gpu.copy_to_device(a_cpu)
         if b_gpu is None:
-            b_gpu = gpu.backend.copy_to_device(b_cpu)
+            b_gpu = gpu.copy_to_device(b_cpu)
         res = _gpaw.dotu_gpu(gpu.get_pointer(a_gpu), a.shape,
                              gpu.get_pointer(b_gpu), a.dtype)
         return gpu
     else:
         if a_cpu is None:
-            a_cpu = gpu.backend.copy_to_host(a_gpu)
+            a_cpu = gpu.copy_to_host(a_gpu)
         if b_cpu is None:
-            b_cpu = gpu.backend.copy_to_host(b_gpu)
+            b_cpu = gpu.copy_to_host(b_gpu)
         return _gpaw.dotu(a_cpu, b_cpu)
 
 

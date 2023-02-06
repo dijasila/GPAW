@@ -319,7 +319,7 @@ class GridDescriptor(Domain):
         result_yx = np.zeros((len(B_yg), len(A_xg)), A_xg.dtype)
 
         if not isinstance(a_xg, np.ndarray):
-            result_gpu = gpu.backend.copy_to_device(result_yx)
+            result_gpu = gpu.copy_to_device(result_yx)
             if a_xg is b_yg:
                 rk(self.dv, A_xg, 0.0, result_gpu)
             elif hermitian:
@@ -327,7 +327,7 @@ class GridDescriptor(Domain):
             else:
                 # gemm(self.dv, A_xg, B_yg, 0.0, result_gpu, 'c')
                 mmm(self.dv, B_yg, 'N', A_xg, 'C', 0.0, result_gpu)
-            gpu.backend.copy_to_host(result_gpu, result_yx)
+            gpu.copy_to_host(result_gpu, result_yx)
         else:
             if a_xg is b_yg:
                 rk(self.dv, A_xg, 0.0, result_yx)
@@ -549,7 +549,7 @@ class GridDescriptor(Domain):
                 if not isinstance(B_xg, np.ndarray):
                     B_xg_gpu = B_xg
                 else:
-                    B_xg_gpu = gpu.backend.copy_to_device(B_xg)
+                    B_xg_gpu = gpu.copy_to_device(B_xg)
                 gpu.backend.memcpy_dtod(out, B_xg_gpu, B_xg_gpu.nbytes)
             else:
                 out[:] = B_xg

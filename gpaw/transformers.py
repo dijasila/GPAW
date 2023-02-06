@@ -84,21 +84,21 @@ class _Transformer:
             _output = None
             if isinstance(output, np.ndarray):
                 _output = output
-                output = gpu.backend.copy_to_device(output)
+                output = gpu.copy_to_device(output)
             self.transformer.apply_gpu(gpu.get_pointer(input),
                                        gpu.get_pointer(output),
                                        input.shape, input.dtype, phases)
             if _output:
-                gpu.backend.copy_to_host(output, _output)
+                gpu.copy_to_host(output, _output)
                 output = _output
         else:
             _output = None
             if not isinstance(output, np.ndarray):
                 _output = output
-                output = gpu.backend.copy_to_host(output)
+                output = gpu.copy_to_host(output)
             self.transformer.apply(input, output, phases)
             if _output:
-                gpu.backend.copy_to_device(output, _output)
+                gpu.copy_to_device(output, _output)
                 output = _output
         return output
 

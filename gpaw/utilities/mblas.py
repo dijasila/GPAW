@@ -28,7 +28,7 @@ def multi_axpy(a, x, y):
             if not isinstance(a, np.ndarray):
                 a_gpu = a
             else:
-                a_gpu = gpu.backend.copy_to_device(a)
+                a_gpu = gpu.copy_to_device(a)
             _gpaw.multi_axpy_gpu(gpu.get_pointer(a_gpu),
                                  a.dtype,
                                  gpu.get_pointer(x),
@@ -65,7 +65,7 @@ def multi_dotc(x, y, s=None):
                              x.dtype,
                              gpu.get_pointer(s_gpu))
         if isinstance(s, np.ndarray):
-            s = gpu.backend.copy_to_host(s_gpu, s)
+            s = gpu.copy_to_host(s_gpu, s)
     else:
         if s is None:
             s = np.empty(x.shape[0], dtype=x.dtype)
@@ -97,7 +97,7 @@ def multi_dotu(x, y, s=None):
                              x.dtype,
                              gpu.get_pointer(s_gpu))
         if isinstance(s, np.ndarray):
-            s = gpu.backend.copy_to_host(s_gpu, s)
+            s = gpu.copy_to_host(s_gpu, s)
     else:
         if s is None:
             s = np.empty(x.shape[0], dtype=x.dtype)
@@ -120,7 +120,7 @@ def multi_scal(a, x):
             if not isinstance(a, np.ndarray):
                 a_gpu = a
             else:
-                a_gpu = gpu.backend.copy_to_device(a)
+                a_gpu = gpu.copy_to_device(a)
             _gpaw.multi_scal_gpu(gpu.get_pointer(a_gpu),
                                  a.dtype,
                                  gpu.get_pointer(x),

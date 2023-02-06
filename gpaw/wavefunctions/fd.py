@@ -108,7 +108,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
         if self.use_gpu and kpt.psit.matrix.on_gpu:
             if self.nt_G_gpu is None:
                 self.nt_G_gpu = gpu.array.empty(nt_G.shape, nt_G.dtype)
-            gpu.backend.copy_to_device(nt_G, self.nt_G_gpu)
+            gpu.copy_to_device(nt_G, self.nt_G_gpu)
             multi_ax2py(f_n, kpt.psit_nG, self.nt_G_gpu)
         else:
             for f, psit_G in zip(f_n, kpt.psit_nG):
@@ -128,7 +128,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                         nt_G += (psi0_G.conj() * d * psi_G).real
 
         if self.use_gpu and kpt.psit.matrix.on_gpu:
-            gpu.backend.copy_to_host(self.nt_G_gpu, nt_G)
+            gpu.copy_to_host(self.nt_G_gpu, nt_G)
 
     def calculate_kinetic_energy_density(self):
         if self.taugrad_v is None:
@@ -326,7 +326,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                     if self.dtype == float:
                         if self.use_gpu:
                             tmp = (np.random.random(shape) - 0.5) * scale
-                            gpu.backend.copy_to_device(tmp, psit_G2)
+                            gpu.copy_to_device(tmp, psit_G2)
                         else:
                             psit_G2[:] = (np.random.random(shape) - 0.5) * scale
                     else:
@@ -334,7 +334,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                             tmp = np.empty(psit_G2.shape, dtype=complex)
                             tmp.real = (np.random.random(shape) - 0.5) * scale
                             tmp.imag = (np.random.random(shape) - 0.5) * scale
-                            gpu.backend.copy_to_device(tmp, psit_G2)
+                            gpu.copy_to_device(tmp, psit_G2)
                         else:
                             psit_G2.real = \
                                     (np.random.random(shape) - 0.5) * scale
@@ -365,7 +365,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                     if self.dtype == float:
                         if self.use_gpu:
                             tmp = (np.random.random(shape) - 0.5) * scale
-                            gpu.backend.copy_to_device(tmp, psit_G1)
+                            gpu.copy_to_device(tmp, psit_G1)
                         else:
                             psit_G1[:] = (np.random.random(shape) - 0.5) * scale
                     else:
@@ -373,7 +373,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                             tmp = np.empty(psit_G1.shape, dtype=complex)
                             tmp.real = (np.random.random(shape) - 0.5) * scale
                             tmp.imag = (np.random.random(shape) - 0.5) * scale
-                            gpu.backend.copy_to_device(tmp, psit_G1)
+                            gpu.copy_to_device(tmp, psit_G1)
                         else:
                             psit_G1.real = \
                                     (np.random.random(shape) - 0.5) * scale
@@ -396,7 +396,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                     if self.dtype == float:
                         if self.use_gpu:
                             tmp = (np.random.random(shape) - 0.5) * scale
-                            gpu.backend.copy_to_device(tmp, psit_G)
+                            gpu.copy_to_device(tmp, psit_G)
                         else:
                             psit_G[:] = (np.random.random(shape) - 0.5) * scale
                     else:
@@ -404,7 +404,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                             tmp = np.empty(psit_G.shape, dtype=complex)
                             tmp.real = (np.random.random(shape) - 0.5) * scale
                             tmp.imag = (np.random.random(shape) - 0.5) * scale
-                            gpu.backend.copy_to_device(tmp, psit_G)
+                            gpu.copy_to_device(tmp, psit_G)
                         else:
                             psit_G.real = \
                                     (np.random.random(shape) - 0.5) * scale

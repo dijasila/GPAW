@@ -108,9 +108,9 @@ class TimeDependentHamiltonian:
             self.hamiltonian.vt_sG - self.vt_sG
 
         if self.use_gpu:
-            self.vt_sG_gpu = gpu.backend.copy_to_device(self.vt_sG)
+            self.vt_sG_gpu = gpu.copy_to_device(self.vt_sG)
         if self.hamiltonian.use_gpu:
-            self.hamiltonian.vt_sG_gpu = gpu.backend.copy_to_device(
+            self.hamiltonian.vt_sG_gpu = gpu.copy_to_device(
                     self.hamiltonian.vt_sG)
         for a, dH_sp in self.hamiltonian.dH_asp.items():
             dH_sp[:], self.dH_asp[a][:] = 0.5*(dH_sp + self.dH_asp[a]), \

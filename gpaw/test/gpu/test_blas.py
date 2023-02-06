@@ -19,8 +19,8 @@ def test_blas(gpu):
 
         c = np.zeros_like(a)
 
-        a_gpu = gpu.backend.copy_to_device(a)
-        b_gpu = gpu.backend.copy_to_device(b)
+        a_gpu = gpu.copy_to_device(a)
+        b_gpu = gpu.copy_to_device(b)
         c_gpu = gpu.array.zeros_like(a_gpu)
 
         # axpy
@@ -28,7 +28,7 @@ def test_blas(gpu):
         check_cpu = c.sum()
 
         axpy(0.5, a_gpu, c_gpu, use_gpu=True)
-        check_gpu = gpu.backend.copy_to_host(c_gpu.sum())
+        check_gpu = gpu.copy_to_host(c_gpu.sum())
 
         assert check_cpu == pytest.approx(check_gpu, abs=1e-14)
 
@@ -37,7 +37,7 @@ def test_blas(gpu):
         check_cpu = c.sum()
 
         mmm(0.5, a_gpu, 'N', b_gpu, 'N', 0.2, c_gpu, use_gpu=True)
-        check_gpu = gpu.backend.copy_to_host(c_gpu.sum())
+        check_gpu = gpu.copy_to_host(c_gpu.sum())
 
         assert check_cpu == pytest.approx(check_gpu, rel=1e-14)
 
@@ -46,7 +46,7 @@ def test_blas(gpu):
         check_cpu = c.sum()
 
         rk(0.5, a_gpu, 0.2, c_gpu, use_gpu=True)
-        check_gpu = gpu.backend.copy_to_host(c_gpu.sum())
+        check_gpu = gpu.copy_to_host(c_gpu.sum())
 
         assert check_cpu == pytest.approx(check_gpu, rel=1e-14)
 
@@ -55,6 +55,6 @@ def test_blas(gpu):
         check_cpu = c.sum()
 
         r2k(0.5, a_gpu, b_gpu, 0.2, c_gpu, use_gpu=True)
-        check_gpu = gpu.backend.copy_to_host(c_gpu.sum())
+        check_gpu = gpu.copy_to_host(c_gpu.sum())
 
         assert check_cpu == pytest.approx(check_gpu, rel=1e-14)

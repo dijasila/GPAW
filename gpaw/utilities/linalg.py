@@ -93,7 +93,7 @@ def multi_ax2py(a, x, y):
             if not isinstance(a, np.ndarray):
                 a_gpu = a
             else:
-                a_gpu = gpu.backend.copy_to_device(a)
+                a_gpu = gpu.copy_to_device(a)
             _gpaw.multi_ax2py_gpu(gpu.get_pointer(a_gpu),
                                   gpu.get_pointer(x),
                                   x.shape,

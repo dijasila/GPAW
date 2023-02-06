@@ -35,7 +35,7 @@ def test_fd_transformers(gpu):
         a[:] = np.exp(-((x-mu)**2 + (y-mu)**2 + (z-mu)**2) / (2.0*sigma))
 
         b = np.zeros_like(a)
-        a_gpu = gpu.backend.copy_to_device(a)
+        a_gpu = gpu.copy_to_device(a)
         b_gpu = gpu.array.zeros_like(a_gpu)
 
         # Transformers
@@ -52,6 +52,6 @@ def test_fd_transformers(gpu):
         Transformer(gd, coarsegd, 1, dtype=dtype, use_gpu=True).apply(a_gpu, a_coarse_gpu, phases=phase)
         # Interpolate
         Transformer(coarsegd, gd, 1, dtype=dtype, use_gpu=True).apply(a_coarse_gpu, a_gpu, phases=phase)
-        a_ref = gpu.backend.copy_to_host(a_gpu)
+        a_ref = gpu.copy_to_host(a_gpu)
 
         assert a == pytest.approx(a_ref, abs=1e-14)
