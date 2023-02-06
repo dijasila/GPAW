@@ -92,8 +92,7 @@ class ArrayWaveFunctions:
     def eval(self, matrix):
         if not isinstance(self.matrix.array, np.ndarray):
             if not isinstance(matrix.array, np.ndarray):
-                gpu.backend.memcpy_dtod(matrix.array, self.matrix.array,
-                                        matrix.array.nbytes)
+                gpu.cupy.copyto(matrix.array, self.matrix.array)
             else:
                 gpu.copy_to_host(self.matrix.array, out=matrix.array)
         elif not isinstance(matrix.array, np.ndarray):

@@ -550,7 +550,7 @@ class GridDescriptor(Domain):
                     B_xg_gpu = B_xg
                 else:
                     B_xg_gpu = gpu.copy_to_device(B_xg)
-                gpu.backend.memcpy_dtod(out, B_xg_gpu, B_xg_gpu.nbytes)
+                gpu.cupy.copyto(out, B_xg_gpu)
             else:
                 out[:] = B_xg
             return out

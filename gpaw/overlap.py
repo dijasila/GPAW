@@ -54,7 +54,7 @@ class Overlap:
 
         """
         if not isinstance(a_xG, np.ndarray):
-            gpu.backend.memcpy_dtod(b_xG, a_xG, a_xG.nbytes)
+            gpu.cupy.copyto(b_xG, a_xG)
         else:
             b_xG[:] = a_xG
         shape = a_xG.shape[:-3]
@@ -75,7 +75,7 @@ class Overlap:
         """Apply approximative inverse overlap operator to wave functions."""
 
         if not isinstance(a_xG, np.ndarray):
-            gpu.backend.memcpy_dtod(b_xG, a_xG, a_xG.nbytes)
+            gpu.cupy.copyto(b_xG, a_xG)
         else:
             b_xG[:] = a_xG
         shape = a_xG.shape[:-3]

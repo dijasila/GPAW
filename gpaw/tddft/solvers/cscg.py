@@ -133,7 +133,7 @@ class CSCG(BaseSolver):
 
                 # finally update rho
                 if not isinstance(rhop, np.ndarray):
-                    gpu.backend.memcpy_dtod(rhop, rho, rho.nbytes)
+                    gpu.cupy.copyto(rhop, rho)
                 else:
                     rhop[:] = rho
 

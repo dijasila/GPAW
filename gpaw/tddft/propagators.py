@@ -115,7 +115,7 @@ class BasePropagator(ABC):
             self.preconditioner.apply(self.kpt, psi, psin)
         else:
             if not isinstance(psi, np.ndarray):
-                gpu.backend.memcpy_dtod(psin, psi, psi.nbytes)
+                gpu.cupy.copyto(psin, psi)
             else:
                 psin[:] = psi
         self.timer.stop('Solve TDDFT preconditioner')
@@ -229,9 +229,7 @@ class ExplicitCrankNicolson(BasePropagator):
         # Copy current wavefunctions psit_nG to work wavefunction arrays
         if self.use_gpu:
             for u, kpt in enumerate(self.wfs.kpt_u):
-                gpu.backend.memcpy_dtod(self.tmp_kpt_u[u].psit_nG,
-                                        kpt.psit_nG,
-                                        kpt.psit_nG.nbytes)
+                gpu.cupy.copyto(self.tmp_kpt_u[u].psit_nG, kpt.psit_nG)
         else:
             for u, kpt in enumerate(self.wfs.kpt_u):
                 self.tmp_kpt_u[u].psit_nG[:] = kpt.psit_nG
@@ -381,12 +379,8 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
         # Copy current wavefunctions psit_nG to work and old wavefunction arrays
         if self.use_gpu:
             for u, kpt in enumerate(self.wfs.kpt_u):
-                gpu.backend.memcpy_dtod(self.old_kpt_u[u].psit_nG,
-                                        kpt.psit_nG,
-                                        kpt.psit_nG.nbytes)
-                gpu.backend.memcpy_dtod(self.tmp_kpt_u[u].psit_nG,
-                                        kpt.psit_nG,
-                                        kpt.psit_nG.nbytes)
+                gpu.cupy.copyto(self.old_kpt_u[u].psit_nG, kpt.psit_nG)
+                gpu.cupy.copyto(self.tmp_kpt_u[u].psit_nG, kpt.psit_nG)
         else:
             for u, kpt in enumerate(self.wfs.kpt_u):
                 self.old_kpt_u[u].psit_nG[:] = kpt.psit_nG
@@ -410,7 +404,7 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
             # Average of psit(t) and predicted psit(t+dt)
             psit_nG = kpt.psit_nG
             if not isinstance(psit_nG, np.ndarray):
-                gpu.backend.memcpy_dtod(self.sinvhpsit, psit_nG, psit_nG.nbytes)
+                gpu.cupy.copyto(self.sinvhpsit, psit_nG)
             else:
                 self.sinvhpsit[:] = psit_nG
             self.sinvhpsit += rhs_kpt.psit_nG

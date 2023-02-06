@@ -545,7 +545,7 @@ class TimeDependentOverlap(Overlap):
         """
         self.timer.start('Apply overlap')
         if not isinstance(psit, np.ndarray):
-            gpu.backend.memcpy_dtod(spsit, psit, psit.nbytes)
+            gpu.cupy.copyto(spsit, psit)
         else:
             spsit[:] = psit
 
