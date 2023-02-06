@@ -26,6 +26,10 @@ def asarray(a):
     return ndarray(np.array(a))
 
 
+def copyto(*args, **kwargs):
+    np.copyto(*args, **kwargs)
+
+
 def multiply(a, b, c):
     np.multiply(a._data, b._data, c._data)
 
