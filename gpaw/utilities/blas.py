@@ -121,7 +121,7 @@ def scal(alpha, x):
         else:
             assert isinstance(alpha, float)
             assert x.dtype in [float, complex]
-            assert x.flags.contiguous
+            assert x.flags.c_contiguous
 
     if not isinstance(x, np.ndarray):
         _gpaw.scal_gpu(alpha, gpu.get_pointer(x), x.shape, x.dtype)
@@ -186,15 +186,15 @@ def gemm(alpha, a, b, beta, c, transa='n', use_gpu=False):
                 isinstance(alpha, float) and isinstance(beta, float) or
                 a.dtype == complex and b.dtype == complex and
                 c.dtype == complex)
-        assert a.flags.contiguous
+        assert a.flags.c_contiguous
         if transa == 'n':
-            assert c.flags.contiguous or c.ndim == 2 and c.strides[1] == c.itemsize
+            assert c.flags.c_contiguous or c.ndim == 2 and c.strides[1] == c.itemsize
             assert b.ndim == 2
             assert b.strides[1] == b.itemsize
             assert a.shape[0] == b.shape[1]
             assert c.shape == b.shape[0:1] + a.shape[1:]
         else:
-            assert b.size == 0 or b[0].flags.contiguous
+            assert b.size == 0 or b[0].flags.c_contiguous
             assert c.strides[1] == c.itemsize
             assert a.shape[1:] == b.shape[1:]
             assert c.shape == (b.shape[0], a.shape[0])
@@ -258,8 +258,8 @@ def gemv(alpha, a, x, beta, y, trans='t', use_gpu=False):
         assert (a.dtype == float and x.dtype == float and y.dtype == float and
                 isinstance(alpha, float) and isinstance(beta, float) or
                 a.dtype == complex and x.dtype == complex and y.dtype == complex)
-        assert a.flags.contiguous
-        assert y.flags.contiguous
+        assert a.flags.c_contiguous
+        assert y.flags.c_contiguous
         assert x.ndim == 1
         assert y.ndim == a.ndim - 1
         if trans == 'n':
@@ -316,7 +316,7 @@ def axpy(alpha, x, y, use_gpu=None):
             assert isinstance(alpha, float)
             assert x.dtype in [float, complex]
             assert x.dtype == y.dtype
-            assert x.flags.contiguous and y.flags.contiguous
+            assert x.flags.c_contiguous and y.flags.c_contiguous
         assert x.shape == y.shape
 
     x_cpu, x_gpu = (None, x) if not isinstance(x, np.ndarray) \
@@ -367,7 +367,7 @@ def rk(alpha, a, beta, c, trans='c', use_gpu=None):
 
         assert (a.dtype == float and c.dtype == float or
                 a.dtype == complex and c.dtype == complex)
-        assert a.flags.contiguous
+        assert a.flags.c_contiguous
         assert a.ndim > 1
         if trans == 'n':
             assert c.shape == (a.shape[1], a.shape[1])
@@ -432,7 +432,7 @@ def r2k(alpha, a, b, beta, c, trans='c', use_gpu=None):
         assert (a.dtype == float and b.dtype == float and c.dtype == float or
                 a.dtype == complex and b.dtype == complex and
                 c.dtype == complex)
-        assert a.flags.contiguous and b.flags.contiguous
+        assert a.flags.c_contiguous and b.flags.c_contiguous
         assert a.ndim > 1
         assert a.shape == b.shape
         if trans == 'c':
@@ -659,15 +659,15 @@ elif not debug:
 
 else:
     def gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
-        assert a.flags.contiguous
-        assert b.flags.contiguous
+        assert a.flags.c_contiguous
+        assert b.flags.c_contiguous
         assert a.dtype == b.dtype
         if trans == 'n':
             assert a.shape[-1] == b.shape[0]
         else:
             assert a.shape[-1] == b.shape[-1]
         if out is not None:
-            assert out.flags.contiguous
+            assert out.flags.c_contiguous
             assert a.dtype == out.dtype
             assert a.ndim > 1 or b.ndim > 1
             if trans == 'n':
