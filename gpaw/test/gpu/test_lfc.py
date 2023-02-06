@@ -20,7 +20,7 @@ def test_lfc(gpu, dtype):
 
     P_ani = {}
     for a in c.my_atom_indices:
-        P_ani[a] = np.ones((1, 1), dtype=dtype)
+        P_ani[a] = np.ones((1), dtype=dtype)
 
     b = gd.zeros(dtype=dtype)
     b_gpu = gpu.array.zeros_like(b)
@@ -35,8 +35,8 @@ def test_lfc(gpu, dtype):
     P_ani = {}
     P_ani_gpu = {}
     for a in c.my_atom_indices:
-        P_ani[a] = np.empty((1, 1), dtype=dtype)
-        P_ani_gpu[a] = np.empty((1, 1), dtype=dtype)
+        P_ani[a] = np.empty((1), dtype=dtype)
+        P_ani_gpu[a] = np.empty((1), dtype=dtype)
 
     c.integrate(b, P_ani, q=q)
     c_gpu.integrate(b_gpu, P_ani_gpu, q=q)
