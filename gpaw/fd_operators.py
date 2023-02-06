@@ -103,7 +103,7 @@ class FDOperator:
                                     gpu.get_pointer(out_xg),
                                     in_xg.shape, in_xg.dtype, phase_cd)
             if _out:
-                gpu.copy_to_host(out_xg, _out)
+                gpu.copy_to_host(out_xg, out=_out)
         else:
             _out = None
             if not isinstance(out_xg, np.ndarray):
@@ -111,7 +111,7 @@ class FDOperator:
                 out_xg = gpu.copy_to_host(out_xg)
             self.operator.apply(in_xg, out_xg, phase_cd)
             if _out:
-                gpu.copy_to_device(out_xg, _out)
+                gpu.copy_to_device(out_xg, out=_out)
 
     def relax(self, relax_method, f_g, s_g, n, w=None):
         if not isinstance(s_g, np.ndarray):
@@ -124,7 +124,7 @@ class FDOperator:
                                     gpu.get_pointer(s_g),
                                     n, w)
             if _func:
-                gpu.copy_to_host(f_g, _func)
+                gpu.copy_to_host(f_g, out=_func)
         else:
             _func = None
             if not isinstance(f_g, np.ndarray):
@@ -132,7 +132,7 @@ class FDOperator:
                 f_g = gpu.copy_to_host(f_g)
             self.operator.relax(relax_method, f_g, s_g, n, w)
             if _func:
-                gpu.copy_to_device(f_g, _func)
+                gpu.copy_to_device(f_g, out=_func)
 
     def get_diagonal_element(self):
         return self.operator.get_diagonal_element()

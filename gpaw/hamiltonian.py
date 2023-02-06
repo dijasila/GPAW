@@ -252,7 +252,7 @@ class Hamiltonian:
                     self.vt_sG_gpu.shape != self.vt_sG.shape:
                 self.vt_sG_gpu = gpu.copy_to_device(self.vt_sG)
             else:
-                gpu.copy_to_device(self.vt_sG, self.vt_sG_gpu)
+                gpu.copy_to_device(self.vt_sG, out=self.vt_sG_gpu)
 
         with self.timer('Calculate atomic Hamiltonians'):
             W_aL = self.calculate_atomic_hamiltonians(density)

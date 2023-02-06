@@ -95,9 +95,9 @@ class ArrayWaveFunctions:
                 gpu.backend.memcpy_dtod(matrix.array, self.matrix.array,
                                         matrix.array.nbytes)
             else:
-                gpu.copy_to_host(self.matrix.array, matrix.array)
+                gpu.copy_to_host(self.matrix.array, out=matrix.array)
         elif not isinstance(matrix.array, np.ndarray):
-            gpu.copy_to_device(self.matrix.array, matrix.array)
+            gpu.copy_to_device(self.matrix.array, out=matrix.array)
         else:
             matrix.array[:] = self.matrix.array
 

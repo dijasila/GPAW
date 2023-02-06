@@ -65,7 +65,7 @@ def multi_dotc(x, y, s=None):
                              x.dtype,
                              gpu.get_pointer(s_gpu))
         if isinstance(s, np.ndarray):
-            s = gpu.copy_to_host(s_gpu, s)
+            s = gpu.copy_to_host(s_gpu, out=s)
     else:
         if s is None:
             s = np.empty(x.shape[0], dtype=x.dtype)
@@ -97,7 +97,7 @@ def multi_dotu(x, y, s=None):
                              x.dtype,
                              gpu.get_pointer(s_gpu))
         if isinstance(s, np.ndarray):
-            s = gpu.copy_to_host(s_gpu, s)
+            s = gpu.copy_to_host(s_gpu, out=s)
     else:
         if s is None:
             s = np.empty(x.shape[0], dtype=x.dtype)

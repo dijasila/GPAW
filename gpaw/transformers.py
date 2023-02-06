@@ -89,7 +89,7 @@ class _Transformer:
                                        gpu.get_pointer(output),
                                        input.shape, input.dtype, phases)
             if _output:
-                gpu.copy_to_host(output, _output)
+                gpu.copy_to_host(output, out=_output)
                 output = _output
         else:
             _output = None
@@ -98,7 +98,7 @@ class _Transformer:
                 output = gpu.copy_to_host(output)
             self.transformer.apply(input, output, phases)
             if _output:
-                gpu.copy_to_device(output, _output)
+                gpu.copy_to_device(output, out=_output)
                 output = _output
         return output
 

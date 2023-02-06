@@ -33,7 +33,7 @@ class MultiBlas:
             if not isinstance(ss, np.ndarray):
                 s_cpu = gpu.copy_to_host(ss) # pagelocked=True
                 self.gd.comm.sum(s_cpu)
-                gpu.copy_to_device(s_cpu, ss)
+                gpu.copy_to_device(s_cpu, out=ss)
             else:
                 self.gd.comm.sum(ss)
         if self.timer is not None:
@@ -48,7 +48,7 @@ class MultiBlas:
             if not isinstance(s, np.ndarray):
                 s_cpu = gpu.copy_to_host(ss) # pagelocked=True
                 self.gd.comm.sum(s_cpu)
-                gpu.copy_to_device(s_cpu, ss)
+                gpu.copy_to_device(s_cpu, out=ss)
             else:
                 self.gd.comm.sum(ss)
         if self.timer is not None:

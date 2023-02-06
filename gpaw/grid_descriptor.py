@@ -327,7 +327,7 @@ class GridDescriptor(Domain):
             else:
                 # gemm(self.dv, A_xg, B_yg, 0.0, result_gpu, 'c')
                 mmm(self.dv, B_yg, 'N', A_xg, 'C', 0.0, result_gpu)
-            gpu.copy_to_host(result_gpu, result_yx)
+            gpu.copy_to_host(result_gpu, out=result_yx)
         else:
             if a_xg is b_yg:
                 rk(self.dv, A_xg, 0.0, result_yx)

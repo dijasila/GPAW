@@ -149,9 +149,9 @@ class Matrix:
     def sync(self):
         try:
             if self.on_gpu:
-                gpu.copy_to_host(self._array_gpu, self._array_cpu)
+                gpu.copy_to_host(self._array_gpu, out=self._array_cpu)
             else:
-                gpu.copy_to_device(self._array_cpu, self._array_gpu)
+                gpu.copy_to_device(self._array_cpu, out=self._array_gpu)
         except AttributeError:
             pass
 
