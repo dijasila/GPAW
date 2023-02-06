@@ -2,8 +2,9 @@ import pytest
 import numpy as np
 from gpaw.utilities.blas import axpy, mmm, rk, r2k
 
-def test_blas(gpu):
 
+@pytest.mark.gpu
+def test_blas(gpu):
     rng = np.random.default_rng(seed=42)
     for dtype in (float, complex):
         a = np.zeros((100, 100), dtype=dtype)

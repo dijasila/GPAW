@@ -5,6 +5,8 @@ from gpaw.fd_operators import Laplace
 from gpaw.transformers import Transformer
 from gpaw.mpi import world
 
+
+@pytest.mark.gpu
 def test_fd_transformers(gpu):
     if world.size > 4:
         # Grid is so small that domain decomposition cannot exceed 4 domains

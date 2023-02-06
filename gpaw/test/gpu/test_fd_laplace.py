@@ -5,6 +5,7 @@ from gpaw.fd_operators import Laplace
 from gpaw.mpi import world
 
 
+@pytest.mark.gpu
 @pytest.mark.parametrize('pbc', [True, False])
 def test_fd_laplace(gpu, pbc):
     if world.size > 4:

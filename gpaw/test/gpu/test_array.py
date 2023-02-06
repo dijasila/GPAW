@@ -2,8 +2,8 @@ import pytest
 import numpy as np
 
 
+@pytest.mark.gpu
 def test_array(gpu):
-
     rng = np.random.RandomState(42)
     a = rng.random((100, 100))
     b = rng.random((100, 100))

@@ -6,6 +6,7 @@ import gpaw.mpi as mpi
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
 
 
+@pytest.mark.gpu
 @pytest.mark.parametrize('dtype', [float, complex])
 def test_lfc(gpu, dtype):
     s = Spline(0, 1.0, [1.0, 0.5, 0.0])
