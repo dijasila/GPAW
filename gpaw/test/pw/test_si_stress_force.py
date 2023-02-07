@@ -14,7 +14,7 @@ def test_pw_si_stress(in_tmp_dir):
     si.calc = GPAW(mode=PW(200),
                    mixer=Mixer(0.7, 5, 50.0),
                    xc=xc,
-                   kpts=(1, 1, 2),
+                   kpts=(1, 1, 2),  # Run (1, 1, 2) to avoid gamma pt code
                    convergence={'energy': 1e-8},
                    parallel={'domain': min(2, world.size)},
                    txt='si_stress.txt')
@@ -44,7 +44,7 @@ def test_pw_si_force(in_tmp_dir):
     si.calc = GPAW(mode=PW(200),
                    mixer=Mixer(0.7, 5, 50.0),
                    xc=xc,
-                   kpts=(1, 1, 2),
+                   kpts=(1, 1, 2),  # Run (1, 1, 2) to avoid gamma pt code
                    convergence={'energy': 1e-8},
                    parallel={'domain': min(2, world.size)},
                    symmetry='off',  # needed for set_positions
