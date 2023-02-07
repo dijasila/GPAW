@@ -250,7 +250,6 @@ class PseudoPotential(BaseSetup):
 
         self.pseudo_partial_waves_j = None  # XXX what do we do?
         self.basis_functions_J = basis.tosplines()
-        self.phit_j = self.basis_functions_J  # XXX remove me
 
         self.basis = basis
         self.nao = sum([2 * phit.get_angular_momentum_number() + 1

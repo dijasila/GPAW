@@ -252,7 +252,7 @@ class BaseSetup:
         # distribute to the atomic wave functions
         i = 0
         j = 0
-        for phit in self.phit_j:
+        for phit in self.basis_functions_J:
             l = phit.get_angular_momentum_number()
 
             # Skip functions not in basis set:
@@ -312,7 +312,7 @@ class BaseSetup:
         j = 0
         i = 0
         ib = 0
-        for phit in self.phit_j:
+        for phit in self.basis_functions_J:
             l = phit.get_angular_momentum_number()
             # Skip functions not in basis set:
             while j < nj and self.l_j[j] != l:
@@ -617,7 +617,6 @@ class LeanSetup(BaseSetup):
 
         self.pseudo_partial_waves_j = s.pseudo_partial_waves_j
         self.basis_functions_J = s.basis_functions_J
-        self.phit_j = s.phit_j  # basis functions  # XXX remove me
 
         self.Nct = s.Nct
         self.nct = s.nct
@@ -934,9 +933,6 @@ class Setup(BaseSetup):
 
         self.basis_functions_J = basis_functions_J
         self.basis = basis
-
-        # XXX delete me
-        self.phit_j = self.basis_functions_J
 
         self.nao = 0
         for bf in self.basis_functions_J:

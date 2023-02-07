@@ -62,10 +62,11 @@ class HydrogenAllElectronSetup(BaseSetup):
             basis = Basis('H', 'sz(dzp)')
         elif isinstance(basis, str):
             basis = Basis('H', basis)
+
         self.basis = basis
         self.basis_functions_J = self.basis.tosplines()
-        self.pseudo_partial_waves_j = None  # XXX ???
-        self.phit_j = self.basis_functions_J  # XXX remove me
+        self.pseudo_partial_waves_j = None  # XXX
+
         self.f_j = [1.0]
         self.nao = self.basis.nao
 
