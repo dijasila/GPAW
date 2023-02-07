@@ -31,7 +31,7 @@ def test_pw_si_stress(in_tmp_dir):
     # Trigger nasty bug (fixed in !486):
     si.calc.wfs.pt.blocksize = si.calc.wfs.pd.maxmyng - 1
     
-    # compute error in stress as numerical - analytical
+    # Compute error in stress as numerical - analytical
     s_analytical = si.get_stress()
     s_numerical = si.calc.calculate_numerical_stress(si, 1e-5)
     s_err = s_numerical - s_analytical
@@ -54,7 +54,7 @@ def test_pw_si_force(in_tmp_dir):
 
     si.get_potential_energy()
 
-    # compute error in force as numerical-analytical
+    # Compute error in force as numerical-analytical
     f_analytical = si.get_forces()
     f_numerical = numeric_force(si, 1, 0, 0.001)
 
