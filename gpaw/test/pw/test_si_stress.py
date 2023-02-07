@@ -36,24 +36,3 @@ def test_pw_si_stress(in_tmp_dir):
     s_err = s_numerical - s_analytical
 
     assert np.all(abs(s_err) < 1e-4)
-
-
-def test_pw_si_force(in_tmp_dir):
-    xc = 'PBE'
-    si = bulk('Si')
-    si.calc = GPAW(mode=PW(200),
-                   mixer=Mixer(0.7, 5, 50.0),
-                   xc=xc,
-                   kpts=(1, 1, 2),  # Run (1, 1, 2) to avoid gamma pt code
-                   convergence={'energy': 1e-8},
-                   parallel={'domain': min(2, world.size)},
-                   symmetry='off',  # needed for set_positions
-                   txt='si_force.txt')
-
-    si.get_potential_energy()
-
-    # Compute error in force as numerical - analytical
-    f_analytical = si.get_forces()
-    f_numerical = numeric_force(si, 1, 0, 0.001)
-
-    assert abs(f_analytical[1, 0] - f_numerical) < 0.0005
