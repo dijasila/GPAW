@@ -262,7 +262,7 @@ class BaseSetup:
             l = phit.get_angular_momentum_number()
 
             # Skip functions not in basis set:
-            while j < nj and self.l_orb_j[j] != l:
+            while j < nj and self.l_orb_J[j] != l:
                 j += 1
             if j < len(f_j):  # lengths of f_j and l_j may differ
                 f = f_j[j]
@@ -490,8 +490,8 @@ class BaseSetup:
         return self.I4_pp
 
     def get_default_nbands(self):
-        assert len(self.l_orb_j) == len(self.n_j), (self.l_orb_j, self.n_j)
-        return sum([2 * l + 1 for (l, n) in zip(self.l_orb_j, self.n_j)
+        assert len(self.l_orb_J) == len(self.n_j), (self.l_orb_J, self.n_j)
+        return sum([2 * l + 1 for (l, n) in zip(self.l_orb_J, self.n_j)
                     if n > 0])
 
     def calculate_coulomb_corrections(self, wn_lqg, wnt_lqg, wg_lg, wnc_g,
@@ -653,7 +653,7 @@ class LeanSetup(BaseSetup):
         self.f_j = s.f_j
         self.n_j = s.n_j
         self.l_j = s.l_j
-        self.l_orb_j = s.l_orb_j
+        self.l_orb_J = s.l_orb_J
         self.nj = len(s.l_j)
 
         self.data = s.data
@@ -806,7 +806,7 @@ class Setup(BaseSetup):
         self.Nv = data.Nv
         self.Z = data.Z
         l_j = self.l_j = data.l_j
-        self.l_orb_j = data.l_orb_j
+        self.l_orb_J = data.l_orb_J
         n_j = self.n_j = data.n_j
         self.f_j = data.f_j
         self.eps_j = data.eps_j
