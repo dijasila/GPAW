@@ -59,9 +59,9 @@ def test_xc_qna_stress(in_tmp_dir, gpw_files):
         return
     component = components[weekday]
     s_numerical = numeric_stress(atoms, 1e-5, component)
-    s_err = s_numerical - s_analytical[*component]
+    s_err = s_numerical - s_analytical.__getitem__(component)
 
-    parprint('Analytical stress:', s_analytical[*component])
+    parprint('Analytical stress:', s_analytical.__getitem__(component))
     parprint('Numerical stress :', s_numerical)
     parprint('Error in stress  :', s_err)
     assert np.abs(s_err) < 0.002
