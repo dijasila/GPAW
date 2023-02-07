@@ -19,9 +19,9 @@ from gpaw.xc import XC
 from gpaw.new import zip
 from gpaw.xc.ri.spherical_hse_kernel import RadialHSE
 
-class DangerousError(ValueError):
+class WrongMagmomForHundsRuleError(ValueError):
     """
-    very dangerous error
+    Custom error for catching bad magnetic moments in Hund's rule calculation
     """
 
 
@@ -290,7 +290,7 @@ class BaseSetup:
             j += 1
 
         if hund and magmom != 0:
-            raise DangerousError(
+            raise WrongMagmomForHundsRuleError(
                 f'Bad magnetic moment {magmom:g} for {self.symbol} atom!')
         assert i == nao
 
@@ -301,7 +301,7 @@ class BaseSetup:
         for M in range(10):
             try:
                 self.calculate_initial_occupation_numbers(M, True, charge, 2)
-            except DangerousError:
+            except WrongMagmomForHundsRuleError:
                 pass
             else:
                 return M
