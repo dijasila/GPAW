@@ -23,6 +23,13 @@ def test_exx_double_cell(in_tmp_dir):
     e1 = a.get_potential_energy()
     eps1 = a.calc.get_eigenvalues(1)[0]
     f1 = a.get_forces()
+    assert abs(f1[1, 0] - 9.60644) < 0.0005
+    if 0:
+        # To check against numeric calculation of the forces, but it takes
+        # more time
+        from ase.calculators.test import numeric_force
+        f1n = numeric_force(a, 1, 0, 0.001)
+        assert abs(f1[1, 0] - f1n) < 0.0005
 
     a *= (1, 1, 2)
     a.calc = GPAW(
