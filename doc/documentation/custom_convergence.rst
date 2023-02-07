@@ -51,6 +51,19 @@ If you'd rather have it check the forces at every SCF iteration you can instead 
 
   convergence = {'forces': Forces(0.01, calc_last=False)}
 
+You can also choose to converge forces relative to the current maximum force acting on all atoms in your system. This is particularly useful for example in the case of geometry optimizations far from local minima where large forces mean that strict SCF (and therefore forces) convergence is not necessary. For this one can do::
+
+  # Converge forces to 10% of the highest force.
+  convergence = {'forces': Forces(atol=np.inf, rtol=0.1)}
+
+If both ``atol`` and ``rtol`` are supplied, then forces are converged to whichever is the stricter convergence for that SCF cycle::
+
+  # During a geometry optimization, converge forces to 0.01 eV/Ang
+  # between successive SCF iterations until forces are below
+  # 0.1 eV/Ang, then 10% of maximum force in system.
+  convergence = {'forces': Forces(atol=0.01, rtol=0.1)}
+  
+
 Example: fixed iterations
 -------------------------
 

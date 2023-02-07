@@ -117,7 +117,7 @@ class LCAOWaveFunctions(WaveFunctions):
             self.tciexpansions = TCIExpansions.new_from_setups(setups)
 
         self.basis_functions = BasisFunctions(gd,
-                                              [setup.phit_j
+                                              [setup.basis_functions_J
                                                for setup in setups],
                                               kd,
                                               dtype=dtype,

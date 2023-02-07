@@ -62,8 +62,9 @@ class AppelbaumHamann(BaseSetup):
             basis = Basis('Si', 'sz(dzp)')
         elif isinstance(basis, str):
             basis = Basis('Si', basis)
+
         self.basis = basis
-        self.phit_j = self.basis.tosplines()
+        self.basis_functions_J = self.basis.tosplines()
         self.nao = self.basis.nao
 
     def print_info(self, text):

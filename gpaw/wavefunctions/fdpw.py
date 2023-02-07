@@ -284,7 +284,7 @@ class FDPWWaveFunctions(WaveFunctions):
 
         if self.kpt_u[0].psit is None:
             basis_functions = BasisFunctions(self.gd,
-                                             [setup.phit_j
+                                             [setup.basis_functions_J
                                               for setup in self.setups],
                                              self.kd, dtype=self.dtype,
                                              cut=True)

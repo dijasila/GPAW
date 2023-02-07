@@ -396,23 +396,22 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
 
     def integrate(self, other: PlaneWaveExpansions = None) -> np.ndarray:
         """Integral of self or self time cc(other)."""
+        dv = self.dv
         if other is not None:
             assert self.comm.size == 1
             assert self.desc.dtype == other.desc.dtype
             a = self._arrays()
             b = other._arrays()
-            dv = self.dv
             if self.desc.dtype == float:
                 a = a.view(float)
                 b = b.view(float)
                 dv *= 2
             result = a @ b.T.conj()
             if self.desc.dtype == float and self.desc.comm.rank == 0:
-                result -= 0.5 * np.outer(a[:, 0], b[:, 0])
+                result -= 0.5 * a[:, :1] @ b[:, :1].T
             self.desc.comm.sum(result)
             result.shape = self.dims + other.dims
         else:
-            dv = self.dv
             if self.desc.comm.rank == 0:
                 result = self.data[..., 0]
             else:
