@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, List
 
 import numpy as np
 
@@ -6,12 +6,42 @@ from gpaw.typing import Array2D, ArrayLike2D
 from gpaw.utilities import pack2, unpack2
 
 
+def parse_hubbard_string(type: str) -> Tuple[str,
+                                             List[int],
+                                             List[float],
+                                             List[bool]]:
+    import ase.units as units
+
+    # Parse DFT+U parameters from type-string:
+    # Examples: "type:l,U" or "type:l,U,scale"
+    type, lus = type.split(':')
+    if type == '':
+        type = 'paw'
+
+    l = []
+    U = []
+    scale = []
+
+    for lu in lus.split(';'):  # Multiple U corrections
+        l_, u_, scale_ = (lu + ',,').split(',')[:3]
+        l.append('spdf'.find(l_))
+        U.append(float(u_) / units.Hartree)
+        if scale_:
+            scale.append(bool(int(scale_)))
+        else:
+            scale.append(True)
+    return type, HubbardU(U, l, scale)
+
+
 class HubbardU:
-    def __init__(self, U, l, scale=1, *, i):
-        self.scale = scale  # was: "s"
+    def __init__(self, U, l, scale=1):
+        self.scale = scale
         self.U = U
         self.l = l
-        self.i = i
+
+    def _tuple(self):
+        # Tests use this method to compare to expected values
+        return (self.l, self.U, self.scale)
 
 
 def hubbard(setup,

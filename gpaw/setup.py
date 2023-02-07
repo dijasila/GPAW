@@ -26,31 +26,6 @@ class WrongMagmomForHundsRuleError(ValueError):
     """
 
 
-def parse_hubbard_string(type: str) -> Tuple[str,
-                                             List[int],
-                                             List[float],
-                                             List[bool]]:
-    # Parse DFT+U parameters from type-string:
-    # Examples: "type:l,U" or "type:l,U,scale"
-    type, lus = type.split(':')
-    if type == '':
-        type = 'paw'
-
-    l = []
-    U = []
-    scale = []
-
-    for lu in lus.split(';'):  # Multiple U corrections
-        l_, u_, scale_ = (lu + ',,').split(',')[:3]
-        l.append('spdf'.find(l_))
-        U.append(float(u_) / units.Hartree)
-        if scale_:
-            scale.append(bool(int(scale_)))
-        else:
-            scale.append(True)
-    return type, l, U, scale
-
-
 def create_setup(symbol, xc='LDA', lmax=0,
                  type='paw', basis=None, setupdata=None,
                  filter=None, world=None):
@@ -58,9 +33,10 @@ def create_setup(symbol, xc='LDA', lmax=0,
         xc = XC(xc)
 
     if isinstance(type, str) and ':' in type:
-        type, l, U, scale = parse_hubbard_string(type)
+        from gpaw.hubbard import parse_hubbard_string
+        type, hubbard_u = parse_hubbard_string(type)
     else:
-        U = None
+        hubbard_u = None
 
     if setupdata is None:
         if type == 'hgh' or type == 'hgh.sc':
@@ -107,8 +83,8 @@ def create_setup(symbol, xc='LDA', lmax=0,
                                   world=world)
     if hasattr(setupdata, 'build'):
         setup = LeanSetup(setupdata.build(xc, lmax, basis, filter))
-        if U is not None:
-            setup.set_hubbard_u(U, l, scale)
+        if hubbard_u is not None:
+            setup.set_hubbard_u(hubbard_u)
         return setup
     else:
         return setupdata
@@ -388,7 +364,7 @@ class BaseSetup:
             phit_j.append(self.rgd.spline(phit_g, rcut2, l, points=100))
         return phi_j, phit_j, nc, nct, tauc, tauct
 
-    def set_hubbard_u(self, U, hub_l, scale=1):
+    def set_hubbard_u(self, hubbard_u):
         """Set Hubbard parameter.
         U in atomic units, l is the orbital to which we whish to
         add a hubbard potential and scale enables or desables the
@@ -396,15 +372,7 @@ class BaseSetup:
         <p|p>=1
         Note U is in atomic units
         """
-        from gpaw.hubbard import HubbardU
-
-        Hubi = 0
-        for ll in self.l_j:
-            if ll == hub_l:
-                break
-            Hubi += 2 * ll + 1
-
-        self.hubbard_u = HubbardU(U, hub_l, scale, i=Hubi)
+        self.hubbard_u = hubbard_u
 
     def four_phi_integrals(self):
         """Calculate four-phi integral.
