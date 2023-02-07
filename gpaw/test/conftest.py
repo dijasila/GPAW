@@ -17,6 +17,7 @@ from gpaw.utilities import devnull
 from ase.lattice.compounds import L1_2
 from gpaw import Mixer
 
+
 @contextmanager
 def execute_in_tmp_path(request, tmp_path_factory):
     if world.rank == 0:
@@ -239,20 +240,19 @@ class GPWFiles:
                'type': 'qna-gga'}
 
         atoms = L1_2(['Au', 'Cu'], latticeconstant=3.7)
-        atoms[0].position[0] += 0.01  # Break symmetry already here, so can be reused
+        atoms[0].position[0] += 0.01  # Break symmetry already here
         calc = GPAW(mode=PW(ecut),
                     eigensolver=Davidson(2),
                     nbands='120%',
                     mixer=Mixer(0.4, 7, 50.0),
                     parallel=dict(domain=1),
-                    convergence={'density':1e-4},
+                    convergence={'density': 1e-4},
                     xc=QNA,
                     kpts=kpts,
                     txt=self.path / 'Cu3Au.txt')
         atoms.calc = calc
         atoms.get_potential_energy()
         return atoms.calc
-
 
     def co_lcao(self):
         d = 1.1
