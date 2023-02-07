@@ -366,16 +366,6 @@ class BaseSetup:
             phit_j.append(self.rgd.spline(phit_g, rcut2, l, points=100))
         return phi_j, phit_j, nc, nct, tauc, tauct
 
-    def set_hubbard_u(self, hubbard_u):
-        """Set Hubbard parameter.
-        U in atomic units, l is the orbital to which we whish to
-        add a hubbard potential and scale enables or desables the
-        scaling of the overlap between the l orbitals, if true we enforce
-        <p|p>=1
-        Note U is in atomic units
-        """
-        self.hubbard_u = hubbard_u
-
     def four_phi_integrals(self):
         """Calculate four-phi integral.
 
