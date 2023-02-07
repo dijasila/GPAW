@@ -388,7 +388,7 @@ class BaseSetup:
             phit_j.append(self.rgd.spline(phit_g, rcut2, l, points=100))
         return phi_j, phit_j, nc, nct, tauc, tauct
 
-    def set_hubbard_u(self, U, hub_l, scale=1, store=0, LinRes=0):
+    def set_hubbard_u(self, U, hub_l, scale=1, store=0):
         """Set Hubbard parameter.
         U in atomic units, l is the orbital to which we whish to
         add a hubbard potential and scale enables or desables the
@@ -404,7 +404,7 @@ class BaseSetup:
                 break
             Hubi += 2 * ll + 1
 
-        self.hubbard_u = HubbardU(U, hub_l, scale, store, LinRes, i=Hubi)
+        self.hubbard_u = HubbardU(U, hub_l, scale, store, i=Hubi)
 
     def four_phi_integrals(self):
         """Calculate four-phi integral.
