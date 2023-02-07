@@ -25,7 +25,7 @@ def test_generic_proton(in_tmp_dir):
 
     # Test the point charge potential with a smooth cutoff:
     pcp = PointChargePotential([-1], rc2=5.5, width=1.5)
-    calc.set(external=pcp)
+    calc = calc.new(external=pcp, atoms=H)
     E = []
     F = []
     D = np.linspace(2, 6, 30)

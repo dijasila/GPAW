@@ -36,7 +36,7 @@ def test_lrtddft_pes(in_tmp_dir):
                      poissonsolver=FDPoissonSolver(),
                      parallel={'domain': mpi.world.size},
                      spinpol=True, txt=txt)
-    calc_plus.set(charge=+1)
+    calc_plus = calc_plus.new(charge=+1, atoms=H2)
     H2_plus.calc = calc_plus
     e_H2_plus = H2_plus.get_potential_energy()
 
