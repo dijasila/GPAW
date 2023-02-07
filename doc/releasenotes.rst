@@ -48,11 +48,14 @@ Git master branch
 
 * New tutorial: :ref:`abinitiomd`.
 
+* Added relative tolerance for force convergence. This is useful for geometry 
+  optimizations to adaptively converge forces. See :ref:`custom_convergence`.
+
 * Experimental support for PW-mode calculations using a GPU: :ref:`gpu`.
 
 * One can now specify the total energy convergence criterium in eV instead
   of eV / valence electron:
-  ``convergene={'energy': Energy(tol=..., relative=False)}``.
+  ``convergence={'energy': Energy(tol=..., relative=False)}``.
   See the :class:`gpaw.convergence_criteria.Energy` class.
 
 
