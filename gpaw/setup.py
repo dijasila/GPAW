@@ -175,12 +175,12 @@ class BaseSetup:
         # The zip may cut off part of phit_j if there are more states than
         # projectors.  This should be the correct behaviour for all the
         # currently supported PAW/pseudopotentials.
-        phit_j = []
+        partial_waves_j = []
         for n, phit in zip(self.n_j, self.pseudo_partial_waves_j,
                            strict=False):
             if n > 0:
-                phit_j.append(phit)
-        return phit_j
+                partial_waves_j.append(phit)
+        return partial_waves_j
 
     def calculate_initial_occupation_numbers(self, magmom, hund, charge,
                                              nspins, f_j=None):
@@ -614,7 +614,10 @@ class LeanSetup(BaseSetup):
         self.nao = s.nao
 
         self.pt_j = s.pt_j
-        self.phit_j = s.phit_j  # basis functions
+
+        self.pseudo_partial_waves_j = s.pseudo_partial_waves_j
+        self.basis_functions_J = s.basis_functions_J
+        self.phit_j = s.phit_j  # basis functions  # XXX remove me
 
         self.Nct = s.Nct
         self.nct = s.nct
@@ -1276,19 +1279,19 @@ class Setup(BaseSetup):
         b_g = x**3 * (x - 1) * (rcut3 - rcut2)
 
         class PartialWaveBasis(Basis):  # yuckkk
-            def __init__(self, symbol, phit_j):
+            def __init__(self, symbol, phit_J):
                 Basis.__init__(self, symbol, 'partial-waves', readxml=False)
-                self.phit_j = phit_j
+                self._basis_functions_J = phit_J
 
             def tosplines(self):
-                return self.phit_j
+                return self._basis_functions_J
 
             def get_description(self):
                 template = 'Using partial waves for %s as LCAO basis'
                 string = template % self.symbol
                 return string
 
-        phit_j = []
+        basis_functions_J = []
         for j, phit_g in enumerate(phit_jg):
             if self.n_j[j] > 0:
                 l = self.l_j[j]
@@ -1298,8 +1301,9 @@ class Setup(BaseSetup):
                            (r_g[gcut3] - r_g[gcut3 - 1]))
                 phit_g[gcut2:gcut3] -= phit * a_g + dphitdr * b_g
                 phit_g[gcut3:] = 0.0
-                phit_j.append(self.rgd.spline(phit_g, rcut3, l, points=100))
-        basis = PartialWaveBasis(self.symbol, phit_j)
+                basis_function = self.rgd.spline(phit_g, rcut3, l, points=100)
+                basis_functions_J.append(basis_function)
+        basis = PartialWaveBasis(self.symbol, basis_functions_J)
         return basis
 
     def calculate_oscillator_strengths(self, phi_jg):
@@ -1473,7 +1477,7 @@ class Setups(list):
         return dedecut
 
     def basis_indices(self):
-        return FunctionIndices([setup.phit_j for setup in self])
+        return FunctionIndices([setup.basis_functions_J for setup in self])
 
     def projector_indices(self):
         return FunctionIndices([setup.pt_j for setup in self])

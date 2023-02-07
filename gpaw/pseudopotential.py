@@ -247,10 +247,14 @@ class PseudoPotential(BaseSetup):
 
         if basis is None:
             basis = data.create_basis_functions()
-        self.phit_j = basis.tosplines()
+
+        self.pseudo_partial_waves_j = None  # XXX what do we do?
+        self.basis_functions_J = basis.tosplines()
+        self.phit_j = self.basis_functions_J  # XXX remove me
+
         self.basis = basis
         self.nao = sum([2 * phit.get_angular_momentum_number() + 1
-                        for phit in self.phit_j])
+                        for phit in self.basis_functions_J])
 
         self.Nct = 0.0
         self.nct = null_spline

@@ -63,7 +63,8 @@ class AppelbaumHamann(BaseSetup):
         elif isinstance(basis, str):
             basis = Basis('Si', basis)
         self.basis = basis
-        self.phit_j = self.basis.tosplines()
+        self.basis_functions_J = self.basis.tosplines()
+        self.phit_j = self.basis_functions_J  # XXX remove me
         self.nao = self.basis.nao
 
     def print_info(self, text):
