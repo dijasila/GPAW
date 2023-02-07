@@ -58,13 +58,13 @@ Requirements
 * NumPy_
 * SciPy_
 * LibXC_
-* BLAS_
+* A BLAS_ library
 
 Optional (highly recommended for increased performance):
 
-* MPI_ (required for parallel calculations)
+* A MPI_ library (required for parallel calculations)
+* BLACS_ and ScaLAPACK_ libraries
 * FFTW_
-* BLACS_ and ScaLAPACK_
 
 See :ref:`releasenotes` for version requirements.
 
