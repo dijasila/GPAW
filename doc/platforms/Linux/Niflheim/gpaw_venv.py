@@ -46,7 +46,6 @@ else
 fi
 """
 
-dftd3url =
 dftd3 = """\
 mkdir {venv}/DFTD3
 cd {venv}/DFTD3
