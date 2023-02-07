@@ -1,5 +1,6 @@
 from ase import Atoms
 from gpaw import GPAW
+from gpaw import MixerSum
 
 L = 6
 name = 'N2'
@@ -11,38 +12,38 @@ a = Atoms('N2',
 calc = GPAW(h=0.22,
             xc='PBE',
             convergence={'eigenstates': 1.0e-7},
-            txt=name + '.txt',
+            txt=name + '_PBE.txt',
             eigensolver='rmm-diis')
 a.calc = calc
 e_n2 = a.get_potential_energy()
 n2t = calc.get_xc_difference('TPSS')
 n2rt = calc.get_xc_difference('revTPSS')
 
-a.calc.set(xc='TPSS')
+calc = calc.new(
+    xc='TPSS', txt=name + '_TPSS.txt', atoms=a)
 e_n2t = a.get_potential_energy()
 
-a.calc.set(xc='revTPSS')
+calc = calc.new(
+    xc='revTPSS', txt=name + '_revTPSS.txt', atoms=a)
 e_n2rt = a.get_potential_energy()
 
 name = 'N'
 b = Atoms('N', [(L / 2, L / 2, L / 2)], magmoms=[3],
           cell=(L, L, L), pbc=False)
 
-calc = GPAW(h=0.22,
-            xc='PBE',
-            convergence={'eigenstates': 1.0e-7},
-            txt=name + '.txt',
-            eigensolver='rmm-diis',
-            hund=True)
-b.calc = calc
+calc = calc.new(
+    xc='PBE', txt=name + '_PBE.txt', hund=True, atoms=b)
 e_n = b.get_potential_energy()
 nt = calc.get_xc_difference('TPSS')
 nrt = calc.get_xc_difference('revTPSS')
 
-b.calc.set(xc='TPSS')
+calc = calc.new(
+    xc='TPSS', txt=name + '_TPSS.txt',
+    mixer=MixerSum(0.02, 5, 100), atoms=b)
 e_nt = b.get_potential_energy()
 
-b.calc.set(xc='revTPSS')
+calc = calc.new(
+    xc='revTPSS', txt=name + '_revTPSS.txt', atoms=b)
 e_nrt = b.get_potential_energy()
 
 print('Atm. Experiment  ', -228.5)
