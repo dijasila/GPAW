@@ -19,7 +19,7 @@ atoms.calc = calc
 
 kpts_c = np.ceil(50 / np.sum(atoms.get_cell()**2, axis=1)**0.5).astype(int)
 kpts_c[~atoms.get_pbc()] = 1
-calc.set(kpts=kpts_c)
+calc = calc.new(kpts=kpts_c, atoms=atoms)
 eppa1 = atoms.get_potential_energy() / len(atoms)
 F1_av = atoms.get_forces()
 assert np.abs(F1_av).max() < 5e-3
@@ -35,7 +35,7 @@ atoms.calc = calc
 
 kpts_c = np.ceil(50 / np.sum(atoms.get_cell()**2, axis=1)**0.5).astype(int)
 kpts_c[~atoms.get_pbc()] = 1
-calc.set(kpts=kpts_c)
+calc = calc.new(kpts=kpts_c, atoms=atoms)
 eppa2 = atoms.get_potential_energy() / len(atoms)
 F2_av = atoms.get_forces()
 assert np.abs(F2_av).max() < 5e-3
