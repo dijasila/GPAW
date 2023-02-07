@@ -1,5 +1,7 @@
 """Contains methods for calculating local LR-TDDFT kernels."""
 
+import pickle
+
 from functools import partial
 from pathlib import Path
 
@@ -81,6 +83,7 @@ class FXCKernel:
 
         return Kxc_GG
 
+    '''
     def save(self, path: Path):
         """Save the fxc kernel in a .npz file format."""
         assert path.suffix == '.npz'
@@ -98,6 +101,22 @@ class FXCKernel:
 
         args = [npzfile[key]
                 for key in ['fxc_dG', 'dG_K', 'GG_shape', 'volume']]
+
+        return FXCKernel(*args)
+    '''
+
+    def save(self, path: Path):
+        """Save the fxc kernel in a pickle file."""
+        assert path.suffix == '.pckl'
+        with open(str(path), 'wb') as fd:
+            pickle.dump(
+                (self._fxc_dG, self._dG_K, self.GG_shape, self.volume), fd)
+
+    @staticmethod
+    def from_file(path: Path):
+        assert path.suffix == '.pckl'
+        with open(str(path), 'rb') as fd:
+            args = pickle.load(fd)
 
         return FXCKernel(*args)
 
