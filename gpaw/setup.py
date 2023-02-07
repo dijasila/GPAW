@@ -19,6 +19,7 @@ from gpaw.xc import XC
 from gpaw.new import zip
 from gpaw.xc.ri.spherical_hse_kernel import RadialHSE
 
+    
 class WrongMagmomForHundsRuleError(ValueError):
     """
     Custom error for catching bad magnetic moments in Hund's rule calculation
