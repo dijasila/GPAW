@@ -8,6 +8,7 @@ from urllib.request import urlopen, Request
 OK = {'https://doi.org/%s',
       'https://arxiv.org/abs/%s',
       'https://gitlab.com/gpaw/gpaw/-/merge_requests/%s',
+      'https://gitlab.com/gpaw/gpaw/-/issues/%s',
       'https://xkcd.com/%s',
       'https://gitlab.com/ase/ase.git@master',
       'https://gitlab.com/{name}/{name}.git',
