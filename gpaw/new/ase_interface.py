@@ -381,8 +381,7 @@ class ASECalculator:
 
         return ASECalculator(params, log, calculation, self.atoms)
 
-    def nscf_spiral(self, **kwargs):
-        theta = 0#np.pi/20
+    def nscf_spiral(self, theta = 0, **kwargs):
         Ry_m = np.array([[np.cos(theta), 0, np.sin(theta)],
                        [0, 1, 0],
                        [-np.sin(theta), 0, np.cos(theta)]])
