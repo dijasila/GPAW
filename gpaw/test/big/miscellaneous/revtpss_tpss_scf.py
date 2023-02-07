@@ -19,31 +19,28 @@ e_n2 = a.get_potential_energy()
 n2t = calc.get_xc_difference('TPSS')
 n2rt = calc.get_xc_difference('revTPSS')
 
-calc = calc.new(
-    xc='TPSS', txt=name + '_TPSS.txt', atoms=a)
+a.calc = calc.new(xc='TPSS', txt=name + '_TPSS.txt')
 e_n2t = a.get_potential_energy()
 
-calc = calc.new(
-    xc='revTPSS', txt=name + '_revTPSS.txt', atoms=a)
+a.calc = calc.new(xc='revTPSS', txt=name + '_revTPSS.txt')
 e_n2rt = a.get_potential_energy()
 
 name = 'N'
 b = Atoms('N', [(L / 2, L / 2, L / 2)], magmoms=[3],
           cell=(L, L, L), pbc=False)
 
-calc = calc.new(
-    xc='PBE', txt=name + '_PBE.txt', hund=True, atoms=b)
+calc = calc.new(mixer=MixerSum(0.02, 5, 100),
+                hund=True,
+                txt=name + '_PBE.txt')
+b.calc = calc
 e_n = b.get_potential_energy()
 nt = calc.get_xc_difference('TPSS')
 nrt = calc.get_xc_difference('revTPSS')
 
-calc = calc.new(
-    xc='TPSS', txt=name + '_TPSS.txt',
-    mixer=MixerSum(0.02, 5, 100), atoms=b)
+b.calc = calc.new(xc='TPSS', txt=name + '_TPSS.txt')
 e_nt = b.get_potential_energy()
 
-calc = calc.new(
-    xc='revTPSS', txt=name + '_revTPSS.txt', atoms=b)
+b.calc = calc.new(xc='revTPSS', txt=name + '_revTPSS.txt')
 e_nrt = b.get_potential_energy()
 
 print('Atm. Experiment  ', -228.5)
