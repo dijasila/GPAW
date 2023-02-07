@@ -939,8 +939,8 @@ class Setup(BaseSetup):
         self.phit_j = self.basis_functions_J
 
         self.nao = 0
-        for phit in self.phit_j:
-            l = phit.get_angular_momentum_number()
+        for bf in self.basis_functions_J:
+            l = bf.get_angular_momentum_number()
             self.nao += 2 * l + 1
 
         rgd2 = self.local_corr.rgd2 = rgd.new(gcut2)
