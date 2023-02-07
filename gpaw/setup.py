@@ -82,9 +82,11 @@ def create_setup(symbol, xc='LDA', lmax=0,
                                   type, True,
                                   world=world)
     if hasattr(setupdata, 'build'):
-        setup = LeanSetup(setupdata.build(xc, lmax, basis, filter))
-        if hubbard_u is not None:
-            setup.set_hubbard_u(hubbard_u)
+        # It is not so nice that we have hubbard_u floating around here.
+        # For example, none of the other setup types are aware
+        # of hubbard u, so they silently ignore it!
+        setup = LeanSetup(setupdata.build(xc, lmax, basis, filter),
+                          hubbard_u=hubbard_u)
         return setup
     else:
         return setupdata
@@ -567,11 +569,14 @@ class LeanSetup(BaseSetup):
 
     A setup-like class must define at least the attributes of this
     class in order to function in a calculation."""
-    def __init__(self, s):
+    def __init__(self, s, hubbard_u=None):
         """Copies precisely the necessary attributes of the Setup s."""
-        # R_sii and HubU can be changed dynamically (which is ugly)
+        # Hubbard U is poked onto the setup in hacky ways.
+        # This needs cleaning.
+        self.hubbard_u = hubbard_u
+
+        # R_sii can be changed dynamically (which is ugly)
         self.R_sii = None  # rotations, initialized when doing sym. reductions
-        self.hubbard_u = s.hubbard_u  # XXX probably None
         self.lq = s.lq  # Required for LDA+U I think.
         self.type = s.type  # required for writing to file
         self.fingerprint = s.fingerprint  # also req. for writing
