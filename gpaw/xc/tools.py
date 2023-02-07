@@ -1,7 +1,6 @@
 import numpy as np
 from ase.units import Ha
 
-from gpaw.hubbard import hubbard
 from gpaw.xc import XC
 from gpaw.utilities import unpack
 

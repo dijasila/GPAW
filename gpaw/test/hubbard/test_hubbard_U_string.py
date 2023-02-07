@@ -1,4 +1,4 @@
-from gpaw.hubbard import parse_hubbard_string, HubbardU
+from gpaw.hubbard import parse_hubbard_string
 from ase.units import Hartree
 
 
