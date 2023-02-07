@@ -18,7 +18,7 @@ def test_pw_si_stress(in_tmp_dir):
                    kpts=(k, k, k),
                    convergence={'energy': 1e-8},
                    parallel={'domain': min(2, world.size)},
-                   txt='si.txt')
+                   txt='si_stress.txt')
 
     si.set_cell(np.dot(si.cell,
                        [[1.02, 0, 0.03],
@@ -50,7 +50,7 @@ def test_pw_si_force(in_tmp_dir):
                    convergence={'energy': 1e-8},
                    parallel={'domain': min(2, world.size)},
                    symmetry='off',  # needed for set_positions
-                   txt='si.txt')
+                   txt='si_force.txt')
 
     si.get_potential_energy()
 
