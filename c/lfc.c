@@ -494,6 +494,13 @@ PyObject* construct_density(LFCObject *lfc, PyObject *args)
   double* work_gm = lfc->work_gm;
 
   if (!lfc->bloch_boundary_conditions) {
+
+    if (!(PyArray_DESCR(rho_MM_obj)->kind == 'f' && PyArray_DESCR(rho_MM_obj)->elsize ==8))
+    {
+        PyErr_SetString(PyExc_ValueError ,"Expected float64 dtype for rho_MM array.");
+        return NULL;
+    }
+
     const double* rho_MM = (const double*)PyArray_DATA(rho_MM_obj);
     GRID_LOOP_START(lfc, -1, 0) {
       for (int i1 = 0; i1 < ni; i1++) {
@@ -542,6 +549,13 @@ PyObject* construct_density(LFCObject *lfc, PyObject *args)
     GRID_LOOP_STOP(lfc, -1, 0);
   }
   else {
+
+    if (!(PyArray_DESCR(rho_MM_obj)->kind == 'c' && PyArray_DESCR(rho_MM_obj)->elsize ==16))
+    {
+        PyErr_SetString(PyExc_ValueError, "Expected complex128 dtype for rho_MM array.");
+        return NULL;    
+    }
+
     const double complex* rho_MM = (const double complex*)PyArray_DATA(rho_MM_obj);
     GRID_LOOP_START(lfc, k, 0) {
       for (int i1 = 0; i1 < ni; i1++) {
