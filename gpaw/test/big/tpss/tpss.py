@@ -62,16 +62,16 @@ for formula in systems:
     calc = GPAW(h=.18,
                 nbands=-5,
                 maxiter=333,
-                xc='PBE',
-                txt=formula + '.txt')
+                xc='PBE')
     if len(loa) == 1:
         calc = calc.new(hund=True,
                         # fixmom=True,
                         mixer=MixerDif(),
                         eigensolver='cg',
-                        atoms=loa)
+                        atoms=loa,
+                        txt=formula + '.txt')
     else:
-        calc = calc.new(mixer=Mixer(), atoms=loa)
+        calc = calc.new(mixer=Mixer(), atoms=loa, txt=formula + '.txt')
         pos = loa.get_positions()
         pos[1, :] = pos[0, :] + [exp_bonds_dE[i][1], 0.0, 0.0]
         loa.set_positions(pos)
