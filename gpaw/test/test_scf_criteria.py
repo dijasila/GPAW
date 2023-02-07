@@ -73,7 +73,7 @@ def test_scf_criterion(in_tmp_dir):
                    'density': 1.0,
                    'energy': 1.0,
                    'work function': workfunction}
-    calc.set(convergence=convergence)
+    calc = calc.new(convergence=convergence, atoms=atoms)
     atoms.get_potential_energy()
     assert calc.scf.criteria['work function'] is not workfunction
     assert calc.scf.criteria['work function'].tol == pytest.approx(0.5)
@@ -86,7 +86,7 @@ def test_scf_criterion(in_tmp_dir):
     convergence = {'energy': Energy(2.0, n_old=4),
                    'density': np.inf,
                    'eigenstates': np.inf}
-    calc.set(convergence=convergence)
+    calc = calc.new(convergence=convergence, atoms=atoms)
     atoms.get_potential_energy()
     assert calc.scf.criteria['energy'].n_old == 4
 

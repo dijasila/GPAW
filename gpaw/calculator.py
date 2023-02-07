@@ -141,7 +141,7 @@ class GPAW(Calculator):
         new_kwargs = dict(self.parameters)
         new_kwargs.update(kwargs)
 
-        return GPAW(time=timer, communicator=communicator,
+        return GPAW(timer=timer, communicator=communicator,
                     txt=txt, parallel=new_parallel, **new_kwargs)
 
     def __init__(self,

@@ -32,6 +32,7 @@ def test_complex(in_tmp_dir):
         assert calc.wfs.dtype == complex
         assert calc.wfs.kpt_u[0].psit_nG.dtype == complex
 
-        calc.set(convergence={'eigenstates': 3.5e-9, 'energy': energy_eps})
+        convergence = {'eigenstates': 3.5e-9, 'energy': energy_eps}
+        calc = calc.new(convergence=convergence, atoms=mol)
     E = mol.get_potential_energy()
     equal(E, Eini, energy_eps * calc.get_number_of_electrons())
