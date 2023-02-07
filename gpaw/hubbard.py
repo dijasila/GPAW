@@ -7,10 +7,8 @@ from gpaw.utilities import pack2, unpack2
 
 
 class HubbardU:
-    def __init__(self, U, l, scale=1, store=0, *, i):
+    def __init__(self, U, l, scale=1, *, i):
         self.scale = scale  # was: "s"
-        self.Store = store
-        self.Occ = []
         self.U = U
         self.l = l
         self.i = i
