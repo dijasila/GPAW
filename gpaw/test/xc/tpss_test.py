@@ -42,7 +42,7 @@ def test_tpss(in_tmp_dir):
                     xc='oldPBE',
                     txt=formula + '.txt')
         if len(loa) == 1:
-            calc.set(hund=True)
+            calc = calc.new(hund=True, atoms=loa)
         else:
             pos = loa.get_positions()
             pos[1, :] = pos[0, :] + [0.0, 0.0, exp_bonds_dE[formula][0]]

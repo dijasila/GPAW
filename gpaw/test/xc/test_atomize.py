@@ -39,8 +39,7 @@ def test_xc_atomize(in_tmp_dir):
                       Atom('H', (c + d / 2, c, c))],
                      cell=(a, a, a), pbc=False)
 
-    calc.set(txt='H2.txt')
-    molecule.calc = calc
+    calc = calc.new(txt='H2.txt', atoms=molecule)
     e2 = molecule.get_potential_energy()
     de2t = calc.get_xc_difference(xc('TPSS'))
     de2m = calc.get_xc_difference(xc('M06-L'))

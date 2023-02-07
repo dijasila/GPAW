@@ -40,7 +40,7 @@ def test_exx_coarse(in_tmp_dir):
                     charge=-1)
         loa.calc = calc
         E[fg] = loa.get_potential_energy()
-        calc.set(xc=HybridXC('PBE0', stencil=1, finegrid=fg))
+        calc = calc.new(xc=HybridXC('PBE0', stencil=1, finegrid=fg), atoms=loa)
         E[fg] = loa.get_potential_energy()
         niter[fg] = calc.get_number_of_iterations()
         timer.stop(tstr)
