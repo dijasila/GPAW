@@ -68,10 +68,9 @@ for formula in systems:
                         # fixmom=True,
                         mixer=MixerDif(),
                         eigensolver='cg',
-                        atoms=loa,
                         txt=formula + '.txt')
     else:
-        calc = calc.new(mixer=Mixer(), atoms=loa, txt=formula + '.txt')
+        calc = calc.new(mixer=Mixer(), txt=formula + '.txt')
         pos = loa.get_positions()
         pos[1, :] = pos[0, :] + [exp_bonds_dE[i][1], 0.0, 0.0]
         loa.set_positions(pos)
