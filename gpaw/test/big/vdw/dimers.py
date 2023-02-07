@@ -17,7 +17,7 @@ for symbol in ['Ar', 'Kr']:
         e = dimer.get_potential_energy()
         calc.write('%s-dimer-%.2f.gpw' % (symbol, r))
     del dimer[1]
-    calc.set(txt=symbol + '-atom.txt')
+    calc = calc.new(txt=symbol + '-atom.txt', atoms=dimer)
     e = dimer.get_potential_energy()
     calc.write('%s-atom.gpw' % symbol)
 
@@ -34,6 +34,6 @@ for r in d:
     calc.write('benzene-dimer-%.2f.gpw' % r)
 
 del dimer[12:]
-calc.set(txt='benzene.txt')
+calc = calc.new(txt='benzene.txt', atoms=dimer)
 e = dimer.get_potential_energy()
 calc.write('benzene.gpw')

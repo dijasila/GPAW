@@ -117,33 +117,6 @@ class GPAW(Calculator):
         'elpasolver': '2stage',
         'buffer_size': None}
 
-    def new(self,
-            timer=None,
-            communicator=None,
-            txt='-',
-            parallel=None,
-            **kwargs):
-        # Some explanation here XXX
-        assert 'restart' not in kwargs
-        assert 'ignore_bad_restart_file' not in kwargs
-        assert 'label' not in kwargs
-
-        # Let the communicator fall back to world
-        if communicator is None:
-            communicator = self.world
-
-        if parallel is not None:
-            new_parallel = dict(self.parallel)
-            new_parallel.update(parallel)
-        else:
-            new_parallel = None
-
-        new_kwargs = dict(self.parameters)
-        new_kwargs.update(kwargs)
-
-        return GPAW(timer=timer, communicator=communicator,
-                    txt=txt, parallel=new_parallel, **new_kwargs)
-
     def __init__(self,
                  restart=None,
                  *,
@@ -193,6 +166,51 @@ class GPAW(Calculator):
         self.reader = None
 
         Calculator.__init__(self, restart, label=label, **kwargs)
+
+    def new(self,
+            timer=None,
+            communicator=None,
+            txt='-',
+            parallel=None,
+            **kwargs):
+        """Create a new calculator, inheriting input parameters.
+
+        The txt file and timer are the only input parameters to
+        be created anew. Internal variables, such as the density
+        or the wave functions, are not reused either.
+
+        The atoms keyword can be used to attach the newly created
+        calculator to a given ASE atoms object.
+
+        For example, to perform an identical calculation with a
+        parameter changed (e.g. changing xc functional to PBE)::
+
+            new_calc = calc.new(xc='PBE')
+            atoms.calc = calc
+
+        Or, equivalently::
+
+            new_calc = calc.new(xc='PBE', atoms=atoms)
+        """
+        assert 'restart' not in kwargs
+        assert 'ignore_bad_restart_file' not in kwargs
+        assert 'label' not in kwargs
+
+        # Let the communicator fall back to world
+        if communicator is None:
+            communicator = self.world
+
+        if parallel is not None:
+            new_parallel = dict(self.parallel)
+            new_parallel.update(parallel)
+        else:
+            new_parallel = None
+
+        new_kwargs = dict(self.parameters)
+        new_kwargs.update(kwargs)
+
+        return GPAW(timer=timer, communicator=communicator,
+                    txt=txt, parallel=new_parallel, **new_kwargs)
 
     def fixed_density(self, *,
                       update_fermi_level: bool = False,
