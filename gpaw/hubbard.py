@@ -43,15 +43,27 @@ class HubbardU:
         # Tests use this method to compare to expected values
         return (self.l, self.U, self.scale)
 
+    def calculate(self, setup, D_sp):
+        e_xc = 0.0
+        dH_sp = np.zeros_like(D_sp)
+        for l, U, scale in zip(self.l, self.U, self.scale):
+            e1_xc, dH1_sp = hubbard(
+                setup.l_j, setup.lq, D_sp,
+                l=l, U=U, scale=scale)
 
-def hubbard(setup,
+            e_xc += e1_xc
+            dH_sp += dH1_sp
+        return e_xc, dH_sp
+
+
+def hubbard(l_j, lq,
             D_sp,
             l: int,
             U: float,
             scale: bool) -> Tuple[float, ArrayLike2D]:
     nspins = len(D_sp)
 
-    l_j = setup.l_j
+    # l_j = setup.l_j
     nl = np.where(np.equal(l_j, l))[0]
     nn = (2 * np.array(l_j) + 1)[0:nl[0]].sum()
 
@@ -60,7 +72,7 @@ def hubbard(setup,
 
     s = 0
     for D_p in D_sp:
-        N_mm, V = aoom(setup, unpack2(D_p), l, scale)
+        N_mm, V = aoom(l_j, lq, unpack2(D_p), l, scale)
         N_mm = N_mm / 2 * nspins
 
         if nspins == 4:
@@ -102,7 +114,7 @@ def hubbard(setup,
     return e_xc, dH_sp
 
 
-def aoom(setup,
+def aoom(l_j, lq,
          DM: Array2D,
          l: int,
          scale: bool = True) -> Tuple[Array2D, Array2D]:
@@ -120,9 +132,6 @@ def aoom(setup,
     which represents the orbital occupation matrix for l=2 this is
     a 5x5 matrix.
     """
-    S = setup
-    l_j = S.l_j
-    lq = S.lq
     nl = np.where(np.equal(l_j, l))[0]
     V = np.zeros(np.shape(DM))
     if len(nl) == 2:

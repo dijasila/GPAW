@@ -312,12 +312,9 @@ class Hamiltonian:
                 dH_sp = np.zeros_like(D_sp)
 
             if setup.hubbard_u is not None:
-                hubu = setup.hubbard_u
-                # assert self.collinear
-                for l, U, scale in zip(hubu.l, hubu.U, hubu.scale):
-                    eU, dHU_sp = hubbard(setup, D_sp, l, U, scale)
-                    e_xc += eU
-                    dH_sp += dHU_sp
+                eU, dHU_sp = setup.hubbard_u.calculate(setup, D_sp)
+                e_xc += eU
+                dH_sp += dHU_sp
 
             dH_sp[:self.nspins] += dH_p
 
