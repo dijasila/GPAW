@@ -83,28 +83,6 @@ class FXCKernel:
 
         return Kxc_GG
 
-    '''
-    def save(self, path: Path):
-        """Save the fxc kernel in a .npz file format."""
-        assert path.suffix == '.npz'
-        np.savez(path,
-                 fxc_dG=self._fxc_dG,
-                 dG_K=self._dG_K,
-                 GG_shape=self.GG_shape,
-                 volume=self.volume)
-
-    @staticmethod
-    def from_file(path: Path):
-        """Construct an fxc kernel from a previous calculation."""
-        assert path.suffix == '.npz'
-        npzfile = np.load(path)
-
-        args = [npzfile[key]
-                for key in ['fxc_dG', 'dG_K', 'GG_shape', 'volume']]
-
-        return FXCKernel(*args)
-    '''
-
     def save(self, path: Path):
         """Save the fxc kernel in a pickle file."""
         assert path.suffix == '.pckl'
