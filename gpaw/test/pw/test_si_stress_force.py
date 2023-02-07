@@ -42,11 +42,10 @@ def test_pw_si_stress(in_tmp_dir):
 def test_pw_si_force(in_tmp_dir):
     xc = 'PBE'
     si = bulk('Si')
-    k = 1
     si.calc = GPAW(mode=PW(200),
                    mixer=Mixer(0.7, 5, 50.0),
                    xc=xc,
-                   kpts=(k, k, k),
+                   kpts=(1,1,2),
                    convergence={'energy': 1e-8},
                    parallel={'domain': min(2, world.size)},
                    symmetry='off',  # needed for set_positions
@@ -54,7 +53,7 @@ def test_pw_si_force(in_tmp_dir):
 
     si.get_potential_energy()
 
-    # Compute error in force as numerical-analytical
+    # Compute error in force as numerical - analytical
     f_analytical = si.get_forces()
     f_numerical = numeric_force(si, 1, 0, 0.001)
 
