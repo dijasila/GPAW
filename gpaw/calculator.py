@@ -117,6 +117,33 @@ class GPAW(Calculator):
         'elpasolver': '2stage',
         'buffer_size': None}
 
+    def new(self,
+            timer=None,
+            communicator=None,
+            txt='-',
+            parallel=None,
+            **kwargs):
+        # Some explanation here XXX
+        assert 'restart' not in kwargs
+        assert 'ignore_bad_restart_file' not in kwargs
+        assert 'label' not in kwargs
+
+        # Let the communicator fall back to world
+        if communicator is None:
+            communicator = self.world
+
+        if parallel is not None:
+            new_parallel = dict(self.parallel)
+            new_parallel.update(parallel)
+        else:
+            new_parallel = None
+
+        new_kwargs = dict(self.parameters)
+        new_kwargs.update(kwargs)
+
+        return GPAW(time=timer, communicator=communicator,
+                    txt=txt, parallel=new_parallel, **new_kwargs)
+
     def __init__(self,
                  restart=None,
                  *,
