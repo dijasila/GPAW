@@ -6,10 +6,7 @@ from gpaw.typing import Array2D, ArrayLike2D
 from gpaw.utilities import pack2, unpack2
 
 
-def parse_hubbard_string(type: str) -> Tuple[str,
-                                             List[int],
-                                             List[float],
-                                             List[bool]]:
+def parse_hubbard_string(type: str) -> Tuple[str, 'HubbardU']:
     import ase.units as units
 
     # Parse DFT+U parameters from type-string:
