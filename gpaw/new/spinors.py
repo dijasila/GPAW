@@ -22,5 +22,5 @@ class SpinorWaveFunctionDescriptor(Domain):
         desc.qspiral_v = self.qspiral_v
         return SpinorWaveFunctionDescriptor(desc, self.qspiral_v)
 
-    def empty(self, nbands, band_comm):
+    def empty(self, nbands, band_comm, xp=None):
         return self.desc.empty((nbands, 2), band_comm)

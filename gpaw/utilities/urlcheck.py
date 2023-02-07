@@ -7,9 +7,11 @@ from urllib.request import urlopen, Request
 
 OK = {'https://doi.org/%s',
       'https://arxiv.org/abs/%s',
+      'https://gitlab.com/gpaw/gpaw/-/merge_requests/%s',
       'https://xkcd.com/%s',
       'https://gitlab.com/ase/ase.git@master',
       'https://gitlab.com/{name}/{name}.git',
+      'https://cmrdb.fysik.dtu.dk/c2db',
       'https://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-*.tar.gz',
       'https://wiki.fysik.dtu.dk/gpaw-files',
       'https://wiki.fysik.dtu.dk/gpaw-files/',
@@ -24,8 +26,10 @@ def check(root: Path) -> int:
     for path in root.glob('**/*.py'):
         for n, line in enumerate(path.read_text().splitlines()):
             for url in re.findall(r'https?://\S+', line):
-                url = url.rstrip(",.')}")
+                url = url.rstrip(""",.'"}):""")
                 if url not in OK and 'html/_downloads' not in str(path):
+                    if '(' in url and ')' not in url:
+                        url += ')'
                     if not check1(path, n, url):
                         errors += 1
     return errors

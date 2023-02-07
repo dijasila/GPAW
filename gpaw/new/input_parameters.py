@@ -99,13 +99,6 @@ class InputParameters:
                 self.magmoms = self.experimental.pop('magmoms')
             assert not self.experimental
 
-        bands = self.convergence.pop('bands', None)
-        if bands is not None:
-            self.eigensolver['converge_bands'] = bands
-            if warn:
-                warnings.warn(f'Please use eigensolver={self.eigensolver!r}',
-                              stacklevel=4)
-
         force_complex_dtype = self.mode.pop('force_complex_dtype', None)
         if force_complex_dtype is not None:
             if warn:
@@ -256,7 +249,8 @@ def parallel(value: dict[str, Any] = None) -> dict[str, Any]:
                        'use_elpa': False,
                        'elpasolver': '2stage',
                        'buffer_size': None,
-                       'world': None},
+                       'world': None,
+                       'gpu': False},
                       value)
     dct['world'] = dct['world'] or world
     return dct
@@ -276,7 +270,7 @@ def random(value=False):
 @input_parameter
 def setups(value='paw'):
     """PAW datasets or pseudopotentials."""
-    return value if isinstance(value, dict) else {None: value}
+    return value if isinstance(value, dict) else {'default': value}
 
 
 @input_parameter

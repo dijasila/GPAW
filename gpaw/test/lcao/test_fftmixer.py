@@ -1,10 +1,12 @@
+import pytest
 from ase import Atoms
-from gpaw import GPAW
+
+from gpaw import GPAW, LCAO
 from gpaw.mixer import FFTMixer
-from gpaw import LCAO
 from gpaw.test import equal
 
 
+@pytest.mark.later
 def test_lcao_fftmixer():
     bulk = Atoms('Li', pbc=True,
                  cell=[2.6, 2.6, 2.6])

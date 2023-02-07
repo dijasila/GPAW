@@ -4,6 +4,7 @@ from gpaw import GPAW, PW
 
 
 @pytest.mark.libxc
+@pytest.mark.hybrids
 def test_exx_double_cell(in_tmp_dir):
     L = 2.6
     a = Atoms('H2',

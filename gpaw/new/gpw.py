@@ -1,8 +1,11 @@
 from __future__ import annotations
+
 from pathlib import Path
-from typing import Any, IO, Union
+from typing import IO, Any, Union
+
 import ase.io.ulm as ulm
 import gpaw
+import gpaw.mpi as mpi
 import numpy as np
 from ase.io.trajectory import read_atoms, write_atoms
 from ase.units import Bohr, Ha
@@ -11,10 +14,13 @@ from gpaw.new.builder import builder as create_builder
 from gpaw.new.calculation import DFTCalculation, DFTState, units
 from gpaw.new.density import Density
 from gpaw.new.input_parameters import InputParameters
+from gpaw.new.logger import Logger
 from gpaw.new.potential import Potential
 from gpaw.utilities import unpack, unpack2
-from gpaw.new.logger import Logger
-import gpaw.mpi as mpi
+
+ENERGY_NAMES = ['kinetic', 'coulomb', 'zero', 'external', 'xc', 'entropy',
+                'total_free', 'total_extrapolated',
+                'band']
 
 
 def write_gpw(filename: str,
@@ -38,8 +44,11 @@ def write_gpw(filename: str,
                      bohr=Bohr)
 
         write_atoms(writer.child('atoms'), atoms)
+
+        # Note that 'non_collinear_magmoms' is not an ASE standard name!
         results = {key: value * units[key]
-                   for key, value in calculation.results.items()}
+                   for key, value in calculation.results.items()
+                   if key != 'non_collinear_magmoms'}
         writer.child('results').write(**results)
         writer.child('parameters').write(
             **{k: v for k, v in params.items()
@@ -47,7 +56,8 @@ def write_gpw(filename: str,
 
         state = calculation.state
         state.density.write(writer.child('density'))
-        state.potential.write(writer.child('hamiltonian'))
+        state.potential._write_gpw(writer.child('hamiltonian'),
+                                   calculation.state.ibzwfs)
         wf_writer = writer.child('wave_functions')
         state.ibzwfs.write(wf_writer, skip_wfs)
 
@@ -67,7 +77,7 @@ def write_wave_function_indices(writer, ibzwfs, grid):
 
     kpt_comm = ibzwfs.kpt_comm
     ibz = ibzwfs.ibz
-    (nG,) = ibzwfs.get_max_shape(global_shape=True)
+    nG = ibzwfs.get_max_shape(global_shape=True)[-1]
 
     writer.add_array('indices', (len(ibz), nG), np.int32)
 
@@ -167,9 +177,22 @@ def read_gpw(filename: Union[str, Path, IO[str]],
     density = Density.from_data_and_setups(nt_sR, D_asp.to_full(),
                                            builder.params.charge,
                                            builder.setups)
-    potential = Potential(vt_sR, dH_asp.to_full(), {})
+    energies = {name: reader.hamiltonian.get(f'e_{name}', np.nan) / ha
+                for name in ENERGY_NAMES}
+    penergies = {key: e for key, e in energies.items()
+                 if not key.startswith('total')}
+    e_band = penergies.pop('band', np.nan)
+    e_entropy = penergies.pop('entropy')
+    penergies['kinetic'] -= e_band
+
+    potential = Potential(vt_sR, dH_asp.to_full(), penergies)
 
     ibzwfs = builder.read_ibz_wave_functions(reader)
+    ibzwfs.energies = {
+        'band': e_band,
+        'entropy': e_entropy,
+        'extrapolation': (energies['total_extrapolated'] -
+                          energies['total_free'])}
 
     calculation = DFTCalculation(
         DFTState(ibzwfs, density, potential),

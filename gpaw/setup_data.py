@@ -21,7 +21,8 @@ from gpaw.xc.pawcorrection import PAWXCCorrection
 
 class SetupData:
     """Container class for persistent setup attributes and XML I/O."""
-    def __init__(self, symbol, xcsetupname, name='paw', readxml=True,
+    def __init__(self, symbol, xcsetupname,
+                 name='paw', readxml=True,
                  zero_reference=False, world=None,
                  generator_version=None):
         self.symbol = symbol
@@ -112,10 +113,10 @@ class SetupData:
 
         self.orbital_free = False  # orbital-free DFT
 
+        self.version = None
+
         if readxml:
             self.read_xml(world=world)
-
-        self.version: str
 
     def __repr__(self):
         return ('{0}({symbol!r}, {setupname!r}, name={name!r}, '
@@ -365,7 +366,7 @@ class SetupData:
             for x in self.X_p:
                 print(f'{x!r}', end=' ', file=xml)
             print('\n  </exact_exchange_X_matrix>', file=xml)
-            
+
             print(f'  <exact_exchange core-core="{self.ExxC!r}"/>', file=xml)
             for omega, Ecc in self.ExxC_w.items():
                 print(f'  <erfc_exchange omega="{omega}" core-core="{Ecc}"/>',

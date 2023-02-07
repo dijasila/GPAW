@@ -1,12 +1,15 @@
 import numpy as np
+import pytest
 from ase import Atoms
+
 from gpaw import GPAW, restart
+from gpaw.atom.basis import BasisMaker
 from gpaw.lcao.tools import get_lcao_hamiltonian
 from gpaw.mpi import world
-from gpaw.atom.basis import BasisMaker
 from gpaw.test import equal
 
 
+@pytest.mark.later
 def test_lcao_lcao_hamiltonian(in_tmp_dir, add_cwd_to_setup_paths):
     if world.rank == 0:
         basis = BasisMaker('Li').generate(1, 1)

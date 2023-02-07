@@ -1,12 +1,16 @@
 import numpy as np
-from ase.units import Hartree
+from ase.units import Ha
 
+from gpaw.hubbard import hubbard
 from gpaw.xc import XC
 from gpaw.utilities import unpack
 
 
-def vxc(gs, xc=None, coredensity=True):
+def vxc(gs, xc=None, coredensity=True, n1=0, n2=0):
     """Calculate XC-contribution to eigenvalues."""
+
+    if n2 <= 0:
+        n2 += gs.bd.nbands
 
     ham = gs.hamiltonian
     dens = gs.density
@@ -35,25 +39,36 @@ def vxc(gs, xc=None, coredensity=True):
     dvxc_asii = {}
     for a, D_sp in dens.D_asp.items():
         dvxc_sp = np.zeros_like(D_sp)
-        xc.calculate_paw_correction(gs.setups[a], D_sp, dvxc_sp, a=a,
+
+        setup = gs.setups[a]
+        if setup.HubU is not None:
+            for l, U, scale in zip(setup.Hubl, setup.HubU, setup.Hubs):
+                _, dHU_sp = hubbard(setup, D_sp, l, U, scale)
+                dvxc_sp += dHU_sp
+        xc.calculate_paw_correction(setup, D_sp, dvxc_sp, a=a,
                                     addcoredensity=coredensity)
+
         dvxc_asii[a] = [unpack(dvxc_p) for dvxc_p in dvxc_sp]
         if thisisatest:
-            dvxc_asii[a] = [gs.setups[a].dO_ii]
+            dvxc_asii[a] = [setup.dO_ii]
 
     vxc_un = np.empty((gs.kd.mynk * gs.nspins, gs.bd.mynbands))
     for u, vxc_n in enumerate(vxc_un):
         kpt = gs.kpt_u[u]
         vxct_G = vxct_sG[kpt.s]
         for n in range(gs.bd.mynbands):
-            psit_G = gs.get_wave_function_array(u, n)
-            vxc_n[n] = gs.gd.integrate((psit_G * psit_G.conj()).real,
-                                       vxct_G, global_integral=False)
+            if n1 <= n + gs.bd.beg < n2:
+                psit_G = gs.get_wave_function_array(u, n)
+                vxc_n[n] = gs.gd.integrate((psit_G * psit_G.conj()).real,
+                                           vxct_G, global_integral=False)
 
         for a, dvxc_sii in dvxc_asii.items():
-            P_ni = kpt.P_ani[a]
-            vxc_n += (np.dot(P_ni, dvxc_sii[kpt.s]) *
-                      P_ni.conj()).sum(1).real
+            m1 = max(n1, gs.bd.beg) - gs.bd.beg
+            m2 = min(n2, gs.bd.end) - gs.bd.beg
+            if m1 < m2:
+                P_ni = kpt.P_ani[a][m1:m2]
+                vxc_n[m1:m2] += ((P_ni @ dvxc_sii[kpt.s]) *
+                                 P_ni.conj()).sum(1).real
 
     gs.gd.comm.sum(vxc_un)
     vxc_skn = gs.kd.collect(vxc_un, broadcast=True)
@@ -61,4 +76,5 @@ def vxc(gs, xc=None, coredensity=True):
     if xc.orbital_dependent:
         vxc_skn += xc.exx_skn
 
-    return gs.bd.collect(vxc_skn.T.copy(), broadcast=True).T * Hartree
+    vxc_skn = gs.bd.collect(vxc_skn.T.copy(), broadcast=True).T
+    return vxc_skn[:, :, n1:n2] * Ha

@@ -45,6 +45,8 @@ class Domain:
         self.pbc_c = np.array(pbc, bool)
         self.comm = comm
 
+        self.volume = abs(np.linalg.det(self.cell_cv))
+
         assert dtype in [None, float, complex]
 
         if kpt is not None:
@@ -100,13 +102,13 @@ class Domain:
 
     def empty(self,
               shape: int | tuple[int, ...] = (),
-              comm: MPIComm = serial_comm) -> DistributedArrays:
+              comm: MPIComm = serial_comm, xp=None) -> DistributedArrays:
         raise NotImplementedError
 
     def zeros(self,
               shape: int | tuple[int, ...] = (),
-              comm: MPIComm = serial_comm) -> DistributedArrays:
-        array = self.empty(shape, comm)
+              comm: MPIComm = serial_comm, xp=None) -> DistributedArrays:
+        array = self.empty(shape, comm, xp=xp)
         array.data[:] = 0.0
         return array
 

@@ -1,3 +1,4 @@
+import pytest
 import numpy as np
 
 from ase import Atoms
@@ -10,6 +11,7 @@ from gpaw.test import equal
 from gpaw.lrtddft.kssingle import KSSingles
 
 
+@pytest.mark.lrtddft
 def test_lrtddft_kssingles_Be(in_tmp_dir):
     Be = Atoms('Be')
     Be.center(vacuum=4)

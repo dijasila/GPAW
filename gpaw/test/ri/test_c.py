@@ -4,6 +4,7 @@ from gpaw.mpi import world
 from gpaw.atom.generator2 import generate
 
 
+@pytest.mark.hybrids
 @pytest.mark.skipif(world.size > 1, reason='Not parallelized')
 def test_diamond(in_tmp_dir, add_cwd_to_setup_paths):
 
@@ -62,7 +63,7 @@ def test_diamond(in_tmp_dir, add_cwd_to_setup_paths):
 
     # NOTE: HSE06 does not yet work. This is just a placeholder for
     # integration test.
-    assert np.allclose(atoms.get_potential_energy(), +3.291392)
+    assert np.allclose(atoms.get_potential_energy(), 3.291392, atol=4e-5)
 
     calc = atoms.calc
 

@@ -14,7 +14,8 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                  poisson_solver,
                  nct_ag,
                  nct_R,
-                 soc=False):
+                 soc=False,
+                 xp=np):
         fracpos_ac = nct_ag.fracpos_ac
         atomdist = nct_ag.atomdist
         super().__init__(xc, poisson_solver, setups, nct_R, fracpos_ac, soc)
@@ -22,19 +23,26 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         self.nct_ag = nct_ag
         self.vbar_ag = setups.create_local_potentials(pw, fracpos_ac, atomdist)
         self.ghat_aLh = setups.create_compensation_charges(
-            fine_pw, fracpos_ac, atomdist)
+            fine_pw, fracpos_ac, atomdist)  # , xp)
 
+        self.pw = pw
+        self.fine_pw = fine_pw
         self.pw0 = pw.new(comm=None)  # not distributed
+
         self.h_g, self.g_r = fine_pw.map_indices(self.pw0)
 
         self.fftplan = grid.fft_plans()
         self.fftplan2 = fine_grid.fft_plans()
 
+        self.grid = grid
         self.fine_grid = fine_grid
 
         self.vbar_g = pw.zeros()
         self.vbar_ag.add_to(self.vbar_g)
         self.vbar0_g = self.vbar_g.gather()
+
+        self._nt_g = None
+        self._vt_g = None
 
     def calculate_charges(self, vHt_h):
         return self.ghat_aLh.integrate(vHt_h)
@@ -123,6 +131,8 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
 
         e_external = 0.0
 
+        self._reset()
+
         return {'kinetic': e_kinetic,
                 'coulomb': e_coulomb,
                 'zero': e_zero,
@@ -141,6 +151,12 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                     e_kinetic += vt_R.integrate(self.nct_R)
         return e_kinetic
 
+    def restrict(self, vt_sr):
+        vt_sR = self.grid.empty(vt_sr.dims)
+        for vt_R, vt_r in zip(vt_sR, vt_sr):
+            vt_r.fft_restrict(self.fftplan2, self.fftplan, out=vt_R)
+        return vt_sR
+
     def _move_nct(self, fracpos_ac, ndensities):
         self.ghat_aLh.move(fracpos_ac)
         self.vbar_ar.move(fracpos_ac)
@@ -148,22 +164,37 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         self.vbar0_g = self.vbar_g.gather()
         self.nct_aR.move(fracpos_ac)
         self.nct_aR.to_uniform_grid(out=self.nct_R, scale=1.0 / ndensities)
+        self._reset()
+
+    def _reset(self):
+        self._vt_g = None
+        self._nt_g = None
+
+    def _force_stress_helper(self, state):
+        if self._vt_g is None:
+            density = state.density
+            potential = state.potential
+            nt_R = density.nt_sR[0]
+            vt_R = potential.vt_sR[0]
+            if density.ndensities > 1:
+                nt_R = nt_R.desc.empty()
+                nt_R.data[:] = density.nt_sR.data[:density.ndensities].sum(
+                    axis=0)
+                vt_R = vt_R.desc.empty()
+                vt_R.data[:] = (
+                    potential.vt_sR.data[:density.ndensities].sum(axis=0) /
+                    density.ndensities)
+            self._vt_g = vt_R.fft(self.fftplan, pw=self.pw)
+            self._nt_g = nt_R.fft(self.fftplan, pw=self.pw)
+        return self._vt_g, self._nt_g
 
     def force_contributions(self, state):
-        raise NotImplementedError
-        # WIP!
-        density = state.density
-        potential = state.potential
-        nt_R = density.nt_sR[0]
-        vt_R = potential.vt_sR[0]
-        if density.ndensities > 1:
-            nt_R = nt_R.desc.empty()
-            nt_R.data[:] = density.nt_sR.data[:density.ndensities].sum(axis=0)
-            vt_R = vt_R.desc.empty()
-            vt_R.data[:] = (
-                potential.vt_sR.data[:density.ndensities].sum(axis=0) /
-                density.ndensities)
+        vt_g, nt_g = self._force_stress_helper(state)
 
         return (self.ghat_aLh.derivative(state.vHt_x),
-                self.nct_ag.derivative(vt_R),
-                self.vbar_ag.derivative(nt_R))
+                self.nct_ag.derivative(vt_g),
+                self.vbar_ag.derivative(nt_g))
+
+    def stress_contributions(self, state):
+        vt_g, nt_g = self._force_stress_helper(state)
+        return ...

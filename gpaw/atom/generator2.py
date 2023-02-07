@@ -329,6 +329,7 @@ class PAWSetupGenerator:
             self.core_hole = None
 
         if projectors[-1].isupper():
+            assert projectors[-2] == ',', projectors
             self.l0 = 'SPDFG'.find(projectors[-1])
             projectors = projectors[:-2]
         else:

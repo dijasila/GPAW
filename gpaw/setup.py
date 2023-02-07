@@ -175,12 +175,12 @@ class BaseSetup:
         # The zip may cut off part of phit_j if there are more states than
         # projectors.  This should be the correct behaviour for all the
         # currently supported PAW/pseudopotentials.
-        phit_j = []
+        partial_waves_j = []
         for n, phit in zip(self.n_j, self.pseudo_partial_waves_j,
                            strict=False):
             if n > 0:
-                phit_j.append(phit)
-        return phit_j
+                partial_waves_j.append(phit)
+        return partial_waves_j
 
     def calculate_initial_occupation_numbers(self, magmom, hund, charge,
                                              nspins, f_j=None):
@@ -252,7 +252,7 @@ class BaseSetup:
         # distribute to the atomic wave functions
         i = 0
         j = 0
-        for phit in self.phit_j:
+        for phit in self.basis_functions_J:
             l = phit.get_angular_momentum_number()
 
             # Skip functions not in basis set:
@@ -312,7 +312,7 @@ class BaseSetup:
         j = 0
         i = 0
         ib = 0
-        for phit in self.phit_j:
+        for phit in self.basis_functions_J:
             l = phit.get_angular_momentum_number()
             # Skip functions not in basis set:
             while j < nj and self.l_j[j] != l:
@@ -559,7 +559,7 @@ class BaseSetup:
         """Calculate and return the Yukawa based interaction."""
         if self._Mg_pp is not None and gamma == self._gamma:
             return self._Mg_pp  # Cached
-        
+
         # Solves the radial screened poisson equation for density n_g
         def Yuk(self, n_g, l):
             """Solve radial screened poisson for density n_g."""
@@ -575,7 +575,7 @@ class BaseSetup:
         """Calculate and return erfc based valence valence
            exchange interactions."""
         hse = RadialHSE(self.local_corr.rgd2, omega).screened_coulomb_dv
-        
+
         def erfc_interaction(_, n_g, l):
             return hse(n_g, l)
         return self.calculate_vvx_interactions(erfc_interaction)
@@ -614,7 +614,9 @@ class LeanSetup(BaseSetup):
         self.nao = s.nao
 
         self.pt_j = s.pt_j
-        self.phit_j = s.phit_j  # basis functions
+
+        self.pseudo_partial_waves_j = s.pseudo_partial_waves_j
+        self.basis_functions_J = s.basis_functions_J
 
         self.Nct = s.Nct
         self.nct = s.nct
@@ -924,16 +926,17 @@ class Setup(BaseSetup):
         self.pseudo_partial_waves_j = partial_waves.tosplines()
 
         if basis is None:
-            phit_j = self.pseudo_partial_waves_j
             basis = partial_waves
+            basis_functions_J = self.pseudo_partial_waves_j
         else:
-            phit_j = basis.tosplines()
-        self.phit_j = phit_j
+            basis_functions_J = basis.tosplines()
+
+        self.basis_functions_J = basis_functions_J
         self.basis = basis
 
         self.nao = 0
-        for phit in self.phit_j:
-            l = phit.get_angular_momentum_number()
+        for bf in self.basis_functions_J:
+            l = bf.get_angular_momentum_number()
             self.nao += 2 * l + 1
 
         rgd2 = self.local_corr.rgd2 = rgd.new(gcut2)
@@ -1272,19 +1275,19 @@ class Setup(BaseSetup):
         b_g = x**3 * (x - 1) * (rcut3 - rcut2)
 
         class PartialWaveBasis(Basis):  # yuckkk
-            def __init__(self, symbol, phit_j):
+            def __init__(self, symbol, phit_J):
                 Basis.__init__(self, symbol, 'partial-waves', readxml=False)
-                self.phit_j = phit_j
+                self._basis_functions_J = phit_J
 
             def tosplines(self):
-                return self.phit_j
+                return self._basis_functions_J
 
             def get_description(self):
                 template = 'Using partial waves for %s as LCAO basis'
                 string = template % self.symbol
                 return string
 
-        phit_j = []
+        basis_functions_J = []
         for j, phit_g in enumerate(phit_jg):
             if self.n_j[j] > 0:
                 l = self.l_j[j]
@@ -1294,8 +1297,9 @@ class Setup(BaseSetup):
                            (r_g[gcut3] - r_g[gcut3 - 1]))
                 phit_g[gcut2:gcut3] -= phit * a_g + dphitdr * b_g
                 phit_g[gcut3:] = 0.0
-                phit_j.append(self.rgd.spline(phit_g, rcut3, l, points=100))
-        basis = PartialWaveBasis(self.symbol, phit_j)
+                basis_function = self.rgd.spline(phit_g, rcut3, l, points=100)
+                basis_functions_J.append(basis_function)
+        basis = PartialWaveBasis(self.symbol, basis_functions_J)
         return basis
 
     def calculate_oscillator_strengths(self, phi_jg):
@@ -1332,7 +1336,7 @@ class Setups(list):
     ``core_charge`` Core hole charge.
     """
 
-    def __init__(self, Z_a, setup_types, basis_sets, xc,
+    def __init__(self, Z_a, setup_types, basis_sets, xc, *,
                  filter=None, world=None):
         list.__init__(self)
         symbols = [chemical_symbols[Z] for Z in Z_a]
@@ -1469,7 +1473,7 @@ class Setups(list):
         return dedecut
 
     def basis_indices(self):
-        return FunctionIndices([setup.phit_j for setup in self])
+        return FunctionIndices([setup.basis_functions_J for setup in self])
 
     def projector_indices(self):
         return FunctionIndices([setup.pt_j for setup in self])
@@ -1498,14 +1502,21 @@ class Setups(list):
             integral=sqrt(4 * pi))
 
     def overlap_correction(self, P_ani, out_ani):
+        xp = P_ani.layout.xp
+
         if len(P_ani.dims) == 2:  # (band, spinor)
             subscripts = 'nsi, ij -> nsj'
         else:
             subscripts = 'ni, ij -> nj'
-        for (a, P_ni), out_ni in zip(P_ani.items(), out_ani.values()):
-            dS_ii = self[a].dO_ii
-            np.einsum(subscripts, P_ni, dS_ii, out=out_ni)
-        return out_ani
+        if xp is np:
+            for (a, P_ni), out_ni in zip(P_ani.items(), out_ani.values()):
+                dS_ii = self[a].dO_ii
+                xp.einsum(subscripts, P_ni, dS_ii, out=out_ni)
+        else:
+            # GRR. Cupy einsum doesn't have an out argument.
+            for (a, P_ni), out_ni in zip(P_ani.items(), out_ani.values()):
+                dS_ii = xp.asarray(self[a].dO_ii)
+                out_ni[:] = xp.einsum(subscripts, P_ni, dS_ii)
 
     def partial_wave_corrections(self) -> list[list[Spline]]:
         splines: dict[Setup, list[Spline]] = {}
@@ -1584,7 +1595,7 @@ if __name__ == '__main__':
     print("""\
 This is not the setup.py you are looking for!  This setup.py defines a
 Setup class used to hold the atomic data needed for a specific atom.
-For building the GPAW code you must use the setup.py distutils script
+For building the GPAW code you must use the setup.py setuptools script
 at the root of the code tree.  Just do "cd .." and you will be at the
 right place.""")
     raise SystemExit

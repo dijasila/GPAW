@@ -56,10 +56,10 @@ def mmm(alpha: T,
     assert a2 == b1
     assert c.shape == (a1, b2)
 
+    assert a.dtype == b.dtype == c.dtype
     assert a.strides[1] == c.itemsize or a.size == 0
     assert b.strides[1] == c.itemsize or b.size == 0
     assert c.strides[1] == c.itemsize or c.size == 0
-    assert a.dtype == b.dtype == c.dtype
     if a.dtype == float:
         assert not isinstance(alpha, complex)
         assert not isinstance(beta, complex)
@@ -103,6 +103,8 @@ def axpy(alpha, x, y):
     """
     if x.size == 0:
         return
+    assert x.flags.contiguous
+    assert y.flags.contiguous
     x = x.ravel()
     y = y.ravel()
     if x.dtype == float:

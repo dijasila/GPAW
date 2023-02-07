@@ -24,7 +24,9 @@ class AtomCenteredFunctions:
     def __init__(self,
                  functions,
                  fracpos_ac: ArrayLike2D,
-                 atomdist: AtomDistribution = None):
+                 atomdist: AtomDistribution = None,
+                 xp=None):
+        self.xp = xp or np
         self.functions = [[to_spline(*f) if isinstance(f, tuple) else f
                            for f in funcs]
                           for funcs in functions]
@@ -50,6 +52,9 @@ class AtomCenteredFunctions:
     def atomdist(self):
         self._lazy_init()
         return self._atomdist
+
+    def _lazy_init(self):
+        raise NotImplementedError
 
     def empty(self,
               dims: int | tuple[int, ...] = (),
@@ -101,11 +106,12 @@ class UniformGridAtomCenteredFunctions(AtomCenteredFunctions):
                  *,
                  atomdist=None,
                  integral=None,
-                 cut=False):
+                 cut=False,
+                 xp=np):
         AtomCenteredFunctions.__init__(self,
                                        functions,
                                        fracpos_ac,
-                                       atomdist)
+                                       atomdist, xp=xp)
         self.grid = grid
         self.integral = integral
         self.cut = cut

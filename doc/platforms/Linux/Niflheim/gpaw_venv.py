@@ -20,7 +20,6 @@ module purge
 unset PYTHONPATH
 module load GPAW-setups/0.9.20000
 module load matplotlib/3.3.3-{tchain}-2020b
-module load spglib-python/1.16.0-{tchain}-2020b
 module load scikit-learn/0.23.2-{tchain}-2020b
 module load pytest-xdist/2.1.0-GCCcore-10.2.0
 module load Wannier90/3.1.0-{tchain}-2020b
@@ -41,6 +40,7 @@ export GPAW_SETUP_PATH=$GPAW_SETUP_PATH:{venv}/gpaw-basis-pvalence-0.9.20000
 # Set matplotlib backend:
 if [[ $SLURM_SUBMIT_DIR ]]; then
     export MPLBACKEND=Agg
+    export PYTHONWARNINGS="ignore:Matplotlib is currently using agg"
 else
     export MPLBACKEND=TkAgg
 fi
@@ -62,9 +62,20 @@ def run(cmd: str, **kwargs) -> subprocess.CompletedProcess:
 
 
 def compile_gpaw_c_code(gpaw: Path, activate: Path) -> None:
-    # xeon16, xeon24, xeon40:
+    """Compile for all architectures: xeon16, xeon24, xeon40, ..."""
+    # Remove targets:
+    for path in gpaw.glob('build/lib.linux-x86_64-*/_gpaw.*.so'):
+        path.unlink()
+
+    # Compile:
     for host in ['thul', 'sylg', 'svol', 'surt']:
         run(f'ssh {host} ". {activate} && pip install -q -e {gpaw}"')
+
+    # Clean up:
+    for path in gpaw.glob('_gpaw.*.so'):
+        path.unlink()
+    for path in gpaw.glob('build/temp.linux-x86_64-*'):
+        shutil.rmtree(path)
 
 
 def main():
@@ -122,6 +133,9 @@ def main():
     # newer architectures
     run(f'ssh thul ". {activate} && pip install -q ase-ext"')
 
+    run('git clone -q https://github.com/spglib/spglib.git')
+    run(f'ssh thul ". {activate} && pip install {venv}/spglib"')
+
     # Install GPAW:
     siteconfig = Path(
         f'gpaw/doc/platforms/Linux/Niflheim/siteconfig-{args.toolchain}.py')
@@ -134,11 +148,6 @@ def main():
         f = gpaw / f'build/lib.linux-x86_64-{fro}-{version}'
         t = gpaw / f'build/lib.linux-x86_64-{to}-{version}'
         f.symlink_to(t)
-
-    for path in gpaw.glob('build/temp.linux-x86_64-*'):
-        shutil.rmtree(path)
-    for path in gpaw.glob('_gpaw.*.so'):
-        path.unlink()
 
     # Create .pth file to load correct .so file:
     pth = ('import sys, os; '

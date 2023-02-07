@@ -2,12 +2,11 @@
 import numpy as np
 
 # GPAW modules
-import gpaw.mpi as mpi
-from gpaw.response.chiks import ChiKS
-from gpaw.response.kxc import PlaneWaveAdiabaticFXC
+from gpaw.response.frequencies import ComplexFrequencyDescriptor
+from gpaw.response.chiks import ChiKSCalculator
+from gpaw.response.localft import LocalFTCalculator, add_LSDA_Bxc
 from gpaw.response.site_kernels import SiteKernels
 from gpaw.response.susceptibility import symmetrize_reciprocity
-from gpaw.xc import XC
 
 # ASE modules
 from ase.units import Hartree
@@ -35,45 +34,35 @@ class IsotropicExchangeCalculator:
     Heisenberg model. This is not a uniquely defined procedure, why the user
     has to define them externally through the SiteKernels interface."""
 
-    def __init__(self, chiks):
-        """Construct the IsotropicExchangeCalculator object
-
-        Parameters
-        ----------
-        chiks : ChiKS
-            ChiKS calculator object
-        """
-        assert isinstance(chiks, ChiKS)
+    def __init__(self,
+                 chiks_calc: ChiKSCalculator,
+                 localft_calc: LocalFTCalculator):
+        """Construct the IsotropicExchangeCalculator object."""
         # Check that chiks has the assumed properties
         assumed_props = dict(
             gammacentered=True,
-            kpointintegration='point integration',
             nblocks=1
         )
         for key, item in assumed_props.items():
-            assert getattr(chiks, key) == item,\
-                f'Expected chiks.{key} == {item}. Got: {getattr(chiks, key)}'
+            assert getattr(chiks_calc, key) == item,\
+                f'Expected chiks.{key} == {item}. '\
+                f'Got: {getattr(chiks_calc, key)}'
 
-        self.chiks = chiks
+        self.chiks_calc = chiks_calc
+        self.context = chiks_calc.context
 
-        # Initialize the B^(xc) calculator
-        # Once the response context object is ready, the user should be allowed
-        # to supply the Bxc_calc themselves. This will expose the rshe
-        # arguments to the user, which is not the case at present. XXX
-        self.Bxc_calc = PlaneWaveBxc(self.chiks.calc,
-                                     world=self.chiks.world,
-                                     txt=self.chiks.fd,
-                                     timer=self.chiks.timer)
+        # Check assumed properties of the LocalFTCalculator
+        assert localft_calc.context is self.context
+        assert localft_calc.gs is chiks_calc.gs
+        self.localft_calc = localft_calc
 
         # Bxc field buffer
         self._Bxc_G = None
 
         # chiksr buffer
-        self.currentq_c = None
-        self._pd = None
-        self._chiksr_GG = None
+        self._chiksr = None
 
-    def __call__(self, q_c, site_kernels, txt=None):
+    def __call__(self, q_c, site_kernels: SiteKernels, txt=None):
         """Calculate the isotropic exchange constants for a given wavevector.
 
         Parameters
@@ -93,19 +82,18 @@ class IsotropicExchangeCalculator:
             Isotropic Heisenberg exchange constants between magnetic sites a
             and b for all the site partitions p given by the site_kernels.
         """
-        assert isinstance(site_kernels, SiteKernels)
-
         # Get ingredients
         Bxc_G = self.get_Bxc()
-        pd, chiksr_GG = self.get_chiksr(q_c, txt=txt)
-        V0 = pd.gd.volume
+        chiksr = self.get_chiksr(q_c, txt=txt)
+        qpd, chiksr_GG = chiksr.qpd, chiksr.array[0]  # array = chiksr_zGG
+        V0 = qpd.gd.volume
 
         # Allocate an array for the exchange constants
         nsites = site_kernels.nsites
         J_pab = np.empty(site_kernels.shape + (nsites,), dtype=complex)
 
         # Compute exchange coupling
-        for J_ab, K_aGG in zip(J_pab, site_kernels.calculate(pd)):
+        for J_ab, K_aGG in zip(J_pab, site_kernels.calculate(qpd)):
             for a in range(nsites):
                 for b in range(nsites):
                     J = np.conj(Bxc_G) @ np.conj(K_aGG[a]).T @ chiksr_GG \
@@ -119,7 +107,7 @@ class IsotropicExchangeCalculator:
 
     def get_Bxc(self):
         """Get B^(xc)_G from buffer."""
-        if self._Bxc_G is None:  # Calculate, if buffer is empty
+        if self._Bxc_G is None:  # Calculate if buffer is empty
             self._Bxc_G = self._calculate_Bxc()
 
         return self._Bxc_G
@@ -129,22 +117,22 @@ class IsotropicExchangeCalculator:
         coefficients B^xc_G"""
         # Create a plane wave descriptor encoding the plane wave basis. Input
         # q_c is arbitrary, since we are assuming that chiks.gammacentered == 1
-        pd0 = self.chiks.get_PWDescriptor([0., 0., 0.])
+        qpd0 = self.chiks_calc.get_pw_descriptor([0., 0., 0.])
 
-        return self.Bxc_calc(pd0)
+        return self.localft_calc(qpd0, add_LSDA_Bxc)
 
     def get_chiksr(self, q_c, txt=None):
         """Get χ_KS^('+-)(q) from buffer."""
         q_c = np.asarray(q_c)
-        if self.currentq_c is None or not np.allclose(q_c, self.currentq_c):
-            # Calculate chiks for any new q-point or if buffer is empty
-            self.currentq_c = q_c
-            self._pd, self._chiksr_GG = self._calculate_chiksr(q_c, txt=txt)
 
-        return self._pd, self._chiksr_GG
+        # Calculate if buffer is empty or a new q-point is given
+        if self._chiksr is None or not np.allclose(q_c, self._chiksr.q_c):
+            self._chiksr = self._calculate_chiksr(q_c, txt=txt)
+
+        return self._chiksr
 
     def _calculate_chiksr(self, q_c, txt=None):
-        r"""Use the ChiKS calculator to calculate the reactive part of the
+        r"""Use the ChiKSCalculator to calculate the reactive part of the
         static Kohn-Sham susceptibility χ_KS^('+-)(q).
 
         First, the dynamic Kohn-Sham susceptibility
@@ -156,91 +144,22 @@ class IsotropicExchangeCalculator:
                                  k  n,m
                                         x n_nk↑,mk+q↓(G+q) n_mk+q↓,nk↑(-G'-q)
 
-        is calculated in the static limit ω=0. Then, the reactive part (see
-        [PRB 103, 245110 (2021)]) is extracted,
+        is calculated in the static limit ω=0 and without broadening η=0. Then,
+        the reactive part (see [PRB 103, 245110 (2021)]) is extracted:
 
                               1
-        χ_KS,GG'^(+-')(q,ω) = ‾ [χ_KS,GG'^+-(q,ω+iη) + χ_KS,-G'-G^-+(-q,-ω+iη)]
+        χ_KS,GG'^(+-')(q,z) = ‾ [χ_KS,GG'^+-(q,z) + χ_KS,-G'-G^-+(-q,-z*)].
                               2
-
-                              1
-                            = ‾ [χ_KS,GG'^+-(q,ω+iη) + χ_KS,G'G^(+-*)(q,ω+iη)]
-                              2
-
-        where it was used that n^+(r) and n^-(r) are each others Hermitian
-        conjugates to reach the last equality.
         """
-        frequencies = [0.]
-        pd, chiks_wGG = self.chiks.calculate(q_c, frequencies,
-                                             spincomponent='+-',
-                                             txt=txt)
-        symmetrize_reciprocity(pd, chiks_wGG)
+        # Initiate new output file, if supplied
+        if txt is not None:
+            self.context.new_txt_and_timer(txt)
+
+        zd = ComplexFrequencyDescriptor.from_array([0. + 0.j])
+        chiks = self.chiks_calc.calculate('+-', q_c, zd)
+        symmetrize_reciprocity(chiks.qpd, chiks.array)
 
         # Take the reactive part
-        chiksr_GG = 1 / 2. * (chiks_wGG[0] + np.conj(chiks_wGG[0]).T)
+        chiksr = chiks.copy_reactive_part()
 
-        return pd, chiksr_GG
-
-
-class PlaneWaveBxc(PlaneWaveAdiabaticFXC):
-    """Calculator class for the plane wave coefficients of B^(xc)
-
-               /
-    B^(xc)_G = |dr B^(xc)(r) e^(-iG.r)
-               /
-                V0
-
-    where V0 is the cell volume and
-
-                δE_xc[n,m]   1
-    B^(xc)(r) = ‾‾‾‾‾‾‾‾‾‾ = ‾ [V_xc^↑(r) - V_xc^↓(r)]
-                  δm(r)      2
-
-    in the local spin-density approximation for a collinear system."""
-
-    def __init__(self, gs,
-                 world=mpi.world, txt='-', timer=None,
-                 rshelmax=-1, rshewmin=1.e-8):  # Overwrites rshewmin default
-        """Construct the calculator based on functionality to compute fxc
-        kernels. This is a temporary hack to leverage the PAW functionality
-        of that code, but implies a significant computational overhead.
-
-        Parameters
-        ----------
-        gs, world, txt, timer : see FXC
-        rshelmax, rshewmin : see PlaneWaveAdiabaticFXC
-        """
-        PlaneWaveAdiabaticFXC.__init__(self, gs, '',
-                                       world=world, txt=txt, timer=timer,
-                                       rshelmax=rshelmax, rshewmin=rshewmin)
-
-    def __call__(self, pd):
-        """Calculate the plane wave components of Bxc"""
-        # Use the fxc kernel functionality to compute B^(xc)_(G-G') / V0,
-        # see [PRB 103, 245110 (2021)]
-        Bxc_GG = self.calculate(pd)
-
-        # Extract B^(xc)_G as the first column of the "kernel", renormalizing
-        # by the cell volume
-        V0 = pd.gd.volume
-        Bxc_G = V0 * Bxc_GG[:, 0]
-
-        return Bxc_G
-
-    def _add_fxc(self, gd, n_sG, fxc_G):
-        """This function defines the "fxc kernel" to Fourier transform."""
-        self._add_Bxc(gd, n_sG, fxc_G)
-
-    def _add_Bxc(self, gd, n_sG, Bxc_G):
-        """Calculate Bxc in real space and add it to the array Bxc_G (here
-        G denotes the real space grid points)."""
-        # Allocate an array for the spin-dependent xc potential on the real
-        # space grid
-        v_sG = np.zeros(np.shape(n_sG))
-
-        # Calculate the spin-dependent potential
-        xc = XC('LDA')
-        xc.calculate(gd, n_sG, v_sg=v_sG)
-
-        # Add B^(xc) in real space to the output array
-        Bxc_G += (v_sG[0] - v_sG[1]) / 2
+        return chiksr

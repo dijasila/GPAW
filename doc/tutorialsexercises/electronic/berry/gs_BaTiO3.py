@@ -1,25 +1,23 @@
 from ase import Atoms
 from ase.optimize import BFGS
 from gpaw import GPAW, PW
+from ase.constraints import ExpCellFilter
 
 a = Atoms('BaTiO3',
-          cell=[3.98, 3.98, 4.07],
+          cell=[4.00, 4.00, 4.00 * 1.054],
           pbc=True,
           scaled_positions=[[0.0, 0.0, 0.0],
-                            [0.5, 0.5, 0.6],
+                            [0.5, 0.5, 0.5 + 0.018],
                             [0.5, 0.5, 0.0],
                             [0.5, 0.0, 0.5],
                             [0.0, 0.5, 0.5]])
 
-calc = GPAW(mode=PW(600),
-            xc='PBE',
-            kpts={'size': (6, 6, 6), 'gamma': True},
-            txt='relax.txt')
-a.calc = calc
-opt = BFGS(a)
+a.calc = GPAW(mode=PW(800),
+              xc='PBE',
+              kpts={'size': (8, 8, 8), 'gamma': True},
+              txt='relax.txt')
+
+uf = ExpCellFilter(a, mask=[1, 1, 1, 0, 0, 0])
+opt = BFGS(uf)
 opt.run(fmax=0.01)
-
-calc.set(symmetry='off')
-a.get_potential_energy()
-
-calc.write('BaTiO3.gpw', mode='all')
+a.calc.write('BaTiO3.gpw')

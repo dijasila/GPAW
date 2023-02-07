@@ -8,6 +8,7 @@ from gpaw.xc.hybrid import HybridXC
 
 
 @pytest.mark.libxc
+@pytest.mark.hybrids
 def test_exx_unocc():
 
     loa = Atoms('Be2',

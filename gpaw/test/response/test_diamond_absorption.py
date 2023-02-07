@@ -69,12 +69,15 @@ def test_response_diamond_absorption(in_tmp_dir):
     w_ = 10.7562
     I_ = 5.8803
 
-    a0, a = df.get_polarizability(filename=None, xc='ALDA')
+    df.get_polarizability(xc='ALDA', filename='ALDA_pol.csv')
+    # Here we base the check on a written results file
+    df.context.world.barrier()
+    d = np.loadtxt('ALDA_pol.csv', delimiter=',')
 
-    w, I = findpeak(np.linspace(0, 24., 241), a0.imag)
+    w, I = findpeak(d[:, 0], d[:, 2])
     equal(w, w0_, 0.01)
     equal(I, I0_, 0.1)
-    w, I = findpeak(np.linspace(0, 24., 241), a.imag)
+    w, I = findpeak(d[:, 0], d[:, 4])
     equal(w, w_, 0.01)
     equal(I, I_, 0.1)
 

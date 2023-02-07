@@ -1,17 +1,18 @@
 from __future__ import annotations
 
 import importlib
-from types import SimpleNamespace
+import os
+from types import ModuleType, SimpleNamespace
 from typing import Any, Union
 
 import numpy as np
 from ase import Atoms
 from ase.calculators.calculator import kpts2sizeandoffsets
 from ase.units import Bohr
-
 from gpaw.core import UniformGrid
 from gpaw.core.atom_arrays import (AtomArrays, AtomArraysLayout,
                                    AtomDistribution)
+from gpaw.core.domain import Domain
 from gpaw.mixer import MixerWrapper, get_mixer_from_keywords
 from gpaw.mpi import MPIComm, Parallelization, serial_comm, world
 from gpaw.new import cached_property, prod
@@ -24,7 +25,7 @@ from gpaw.new.smearing import OccupationNumberCalculator
 from gpaw.new.symmetry import create_symmetries_object
 from gpaw.new.xc import XCFunctional
 from gpaw.setup import Setups
-from gpaw.typing import DTypeLike, Array2D, ArrayLike1D, ArrayLike2D
+from gpaw.typing import Array2D, ArrayLike1D, ArrayLike2D, DTypeLike
 from gpaw.utilities.gpts import get_number_of_grid_points
 
 
@@ -76,7 +77,7 @@ class DFTComponentsBuilder:
                              params.setups,
                              params.basis,
                              self.xc.setup_name,
-                             world)
+                             world=world)
 
         if params.hund:
             c = params.charge / len(atoms)
@@ -145,8 +146,20 @@ class DFTComponentsBuilder:
             self.grid.comm)
 
     @cached_property
-    def wf_desc(self):
+    def wf_desc(self) -> Domain:
         return self.create_wf_description()
+
+    @cached_property
+    def xp(self) -> ModuleType:
+        if self.params.parallel['gpu']:
+            from gpaw.gpu import cupy, cupy_is_fake
+            assert not cupy_is_fake or os.environ.get('GPAW_CPUPY')
+            return cupy
+        else:
+            return np
+
+    def create_wf_description(self) -> Domain:
+        raise NotImplementedError
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.atoms}, {self.params})'
@@ -202,10 +215,11 @@ class DFTComponentsBuilder:
             self.ncomponents, self.grid._gd)
 
         occ_calc = self.create_occupation_number_calculator()
-
         return SCFLoop(hamiltonian, occ_calc,
                        eigensolver, mixer, self.communicators['w'],
-                       self.params.convergence,
+                       {key: value
+                        for key, value in self.params.convergence.items()
+                        if key != 'bands'},
                        self.params.maxiter)
 
     def read_ibz_wave_functions(self, reader):

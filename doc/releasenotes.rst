@@ -12,6 +12,52 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.23.0b1
 
+* A bug was found (now fixed) in the :ref:`zfs` module.  Please redo
+  calculations done with versions 22.1 and 22.8.
+
+* A bug in the implementation of MGGA functionals was found: :issue:`674`.
+  The kinetic-energy density was calculated from the irreducible part of
+  the Brillouin zone, but it was not symmetrized as it should be.  This
+  has now been fixed.
+
+  .. warning::
+
+     If you have done any MGGA calculations taking advantage of symmetries
+     in order to reduce number of **k**-points then you should redo those
+     calculations.  Sorry!
+
+* Two other bugs affecting MGGA calculations were found (in the fix_density
+  and diagonalize_full_hamiltonian routines), which are fixed by
+  `!1417 <https://gitlab.com/gpaw/gpaw/-/merge_requests/1417>`_.
+
+  .. warning::
+
+     MGGA calculations using fix_density and/or diagonalize_full_hamiltonian
+     should be rerun with these fixes.
+
+* The stress tensor was implemented for MGGA functionals, and
+  parallelization of MGGAs for large systems was improved.
+
+* Local orbitals added in LCAO mode to construct effective
+  tight-binding Hamiltonians: :ref:`los in lcao`, :ref:`los tutorial`.
+
+* Missing factor of `2\pi` now included in RPA shift current:
+  :func:`gpaw.nlopt.shift.get_shift`.
+
+* Updated RPA-energy tutorial: :ref:`c2cu rpa`.
+
+* New tutorial: :ref:`abinitiomd`.
+
+* Added relative tolerance for force convergence. This is useful for geometry 
+  optimizations to adaptively converge forces. See :ref:`custom_convergence`.
+
+* Experimental support for PW-mode calculations using a GPU: :ref:`gpu`.
+
+* One can now specify the total energy convergence criterium in eV instead
+  of eV / valence electron:
+  ``convergence={'energy': Energy(tol=..., relative=False)}``.
+  See the :class:`gpaw.convergence_criteria.Energy` class.
+
 
 Version 22.8.0
 ==============
@@ -490,7 +536,7 @@ Aug 1, 2019: :git:`19.8.0 <../19.8.0>`
 * How to do :ref:`ehrenfest` has now been documented.
 
 * Non self-consistent hybrid functional calculations can now be continued if
-  they run out of time.  See :meth:`gpaw.xc.exx.EXX.calculate`.
+  they run out of time.
 
 * When using a convergence criteria on the accuracy of the forces
   (see :ref:`manual_convergence`), the forces will only be calculated when the
@@ -876,8 +922,7 @@ Mar 17, 2016: :git:`1.0.0 <../1.0.0>`.
 * New `f_{\text{xc}}` kernels for correlation energy calculations.  See this
   updated :ref:`tutorial <rapbe_tut>`.
 
-* Correlation energies within the range-separated RPA.  See this
-  :ref:`tutorial <rangerpa_tut>`.
+* Correlation energies within the range-separated RPA.
 
 * Experimental interface to the libvdwxc_ library
   for efficient van der Waals density functionals.

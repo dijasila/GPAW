@@ -31,3 +31,18 @@ def test_scatter_from():
     for a, b_sii in b3.items():
         assert (b_sii[0] == a).all()
         assert (b_sii[1] == 2 * a).all()
+
+
+def test_gather():
+    """Two atoms on rank-1."""
+    r = min(1, world.size - 1)
+    ranks = [r, r]
+    atomdist = AtomDistribution(ranks, world)
+    D_asii = AtomArraysLayout([(1, 1)] * 2, atomdist=atomdist).empty(1)
+    if world.rank == r:
+        D_asii[0][:] = 1
+        D_asii[1][:] = 2
+    D2_asii = D_asii.gather(broadcast=True)
+    assert D2_asii.data.shape == (1, 2)
+    for a, D_sii in D2_asii.items():
+        assert D_sii[0, 0, 0] == a + 1

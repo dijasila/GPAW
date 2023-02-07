@@ -9,7 +9,6 @@ See:
     Wigner-Seitz truncated interactions: Towards chemical accuracy
     in nontrivial systems
 """
-import sys
 from math import pi
 
 import numpy as np
@@ -23,24 +22,16 @@ from gpaw.grid_descriptor import GridDescriptor
 
 
 class WignerSeitzTruncatedCoulomb:
-    def __init__(self, cell_cv, nk_c, txt=None):
-        txt = txt or sys.stdout
+    def __init__(self, cell_cv, nk_c):
         self.nk_c = nk_c
         bigcell_cv = cell_cv * nk_c[:, np.newaxis]
         L_c = (np.linalg.inv(bigcell_cv)**2).sum(0)**-0.5
-
-        rc = 0.5 * L_c.min()
-        print('Inner radius for %dx%dx%d Wigner-Seitz cell: %.3f Ang' %
-              (tuple(nk_c) + (rc * Bohr,)), file=txt)
-
-        self.a = 5 / rc
-        print('Range-separation parameter: %.3f Ang^-1' % (self.a / Bohr),
-              file=txt)
+        
+        self.rc = 0.5 * L_c.min()
+        self.a = 5 / self.rc
 
         nr_c = [get_efficient_fft_size(2 * int(L * self.a * 3.0))
                 for L in L_c]
-        print('FFT size for calculating truncated Coulomb: %dx%dx%d' %
-              tuple(nr_c), file=txt)
 
         self.gd = GridDescriptor(nr_c, bigcell_cv, comm=mpi.serial_comm)
         v_ijk = self.gd.empty()
@@ -61,7 +52,18 @@ class WignerSeitzTruncatedCoulomb:
         v_ijk[0, 0, 0] = 2 * self.a / pi**0.5
 
         self.K_Q = np.fft.fftn(v_ijk) * self.gd.dv
-
+    
+    def get_description(self):
+        descriptors = []
+        descriptors.append('Inner radius for %dx%dx%d Wigner-Seitz cell: '
+                           '%.3f Ang' % (tuple(self.nk_c) + (self.rc * Bohr,)))
+        descriptors.append('Range-separation parameter: %.3f Ang^-1' % (
+            self.a / Bohr))
+        descriptors.append('FFT size for calculating truncated Coulomb: '
+                           '%dx%dx%d' % tuple(self.gd.N_c))
+        
+        return '\n'.join(descriptors)
+    
     def get_potential(self, pd, q_v=None):
         q_c = pd.kd.bzk_kc[0]
         shift_c = (q_c * self.nk_c).round().astype(int)

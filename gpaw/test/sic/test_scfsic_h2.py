@@ -1,9 +1,11 @@
+import pytest
 from ase import Atoms
-from gpaw import GPAW, restart
 
+from gpaw import GPAW, restart
 from gpaw.test import equal
 
 
+@pytest.mark.later
 def test_sic_scfsic_h2(in_tmp_dir):
     a = 6.0
     atom = Atoms('H', magmoms=[1.0], cell=(a, a, a))

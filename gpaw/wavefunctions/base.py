@@ -1,12 +1,9 @@
-from typing import Optional
-
 import numpy as np
 from ase.units import Ha
 
-from gpaw.occupations import OccupationNumberCalculator
 from gpaw.projections import Projections
 from gpaw.utilities import pack, unpack2
-from gpaw.utilities.blas import mmm, axpy
+from gpaw.utilities.blas import axpy, mmm
 from gpaw.utilities.partition import AtomPartition
 
 
@@ -56,8 +53,8 @@ class WaveFunctions:
         self.kpt_qs = kd.create_k_points(self.gd.sdisp_cd, collinear)
         self.kpt_u = [kpt for kpt_s in self.kpt_qs for kpt in kpt_s]
 
-        self.occupations: Optional[OccupationNumberCalculator] = None
-        self.fermi_levels: Optional[np.ndarray] = None
+        self.occupations = None
+        self.fermi_levels = None
 
         self.eigensolver = None
         self.positions_set = False

@@ -3,9 +3,9 @@ from myqueue.workflow import run
 
 
 def workflow():
-    with run(script='check_convergence.py', tmax='5h', cores=8):
+    with run(script='check_convergence.py', tmax='2h', cores=8):
         run(script='convergence.py')
 
-    with run(script='n2_on_metal.py', tmax='6h'):
-        with run(script='neb.py', tmax='3h', cores=8):
-            run(script='vibrations.py', tmax='9h', cores=8)
+    with run(script='n2_on_metal.py', tmax='2h'):
+        with run(script='neb.py', tmax='1h', cores=8):
+            run(script='vibrations.py', tmax='2h', cores=8)

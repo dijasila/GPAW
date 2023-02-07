@@ -53,8 +53,6 @@ def test_xc_lb94(in_tmp_dir, add_cwd_to_setup_paths):
         c = GPAW(h=.3, xc='LB94',
                  eigensolver=Davidson(3),
                  mixer=Mixer(0.5, 7, 50.0), nbands=-2, txt=txt)
-        if atom in ['Mg']:
-            c.set(eigensolver='cg')
         c.calculate(SS)
         # find HOMO energy
         eps_n = c.get_eigenvalues(kpt=0, spin=0) / 27.211

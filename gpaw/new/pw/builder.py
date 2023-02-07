@@ -1,16 +1,17 @@
 from math import pi
+
 from ase.units import Ha
 from gpaw.core import PlaneWaves, UniformGrid
+from gpaw.core.domain import Domain
 from gpaw.core.matrix import Matrix
 from gpaw.core.plane_waves import PlaneWaveExpansions
 from gpaw.new.builder import create_uniform_grid
 from gpaw.new.pw.hamiltonian import PWHamiltonian, SpinorPWHamiltonian
-from gpaw.new.pw.poisson import ReciprocalSpacePoissonSolver
+from gpaw.new.pw.poisson import make_poisson_solver
 from gpaw.new.pw.pot_calc import PlaneWavePotentialCalculator
 from gpaw.new.pwfd.builder import PWFDDFTComponentsBuilder
 from gpaw.new.spinors import SpinorWaveFunctionDescriptor
 from gpaw.typing import Array1D
-from gpaw.core.domain import Domain
 
 
 class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
@@ -62,8 +63,11 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
                 pw, self.fracpos_ac, self.atomdist)
         return self._nct_ag
 
-    def create_poisson_solver(self, fine_grid_pw, params):
-        return ReciprocalSpacePoissonSolver(fine_grid_pw)
+    def create_poisson_solver(self, fine_pw, params):
+        return make_poisson_solver(fine_pw,
+                                   self.fine_grid,
+                                   self.params.charge,
+                                   **params)
 
     def create_potential_calculator(self):
         nct_ag = self.get_pseudo_core_densities()
@@ -71,7 +75,7 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         fine_pw = pw.new(ecut=8 * self.ecut)
         poisson_solver = self.create_poisson_solver(
             fine_pw,
-            self.params.poissonsolver)
+            self.params.poissonsolver or {'strength': 1.0})
         return PlaneWavePotentialCalculator(self.grid,
                                             self.fine_grid,
                                             pw,
@@ -98,7 +102,7 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
 
         grid = self.grid.new(kpt=kpt_c, dtype=self.dtype)
         pw = self.wf_desc.new(kpt=kpt_c)
-        psit_nG = pw.empty(self.nbands, self.communicators['b'])
+        psit_nG = pw.empty(self.nbands, self.communicators['b'], self.xp)
 
         if self.dtype == complex:
             emikr_R = grid.eikr(-kpt_c)

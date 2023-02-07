@@ -151,7 +151,7 @@ class HybridXC(HybridXCBase):
                 singlet: excitations to singlets
                 triplet: excitations to triplets
                 average: average between singlets and tripletts
-                see f.e. http://dx.doi.org/10.1021/acs.jctc.8b00238
+                see f.e. https://doi.org/10.1021/acs.jctc.8b00238
         excited: number
             Band to excite from - counted from HOMO downwards
 

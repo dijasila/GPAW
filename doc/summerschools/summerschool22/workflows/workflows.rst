@@ -29,7 +29,7 @@ This exercise consists of three parts.  Specifically, we will:
  * Parametrize the workflow to apply it to multiple materials
 
 When actually using ASR, many tasks and workflows are already written.
-Thus, we would be able to import and use those features directory.
+Thus, we would be able to import and use those features directly.
 But in this tutorial we write everything from scratch.
 
 
@@ -315,14 +315,15 @@ As before, we can inspect the newly created tasks, e.g.::
 
 
 Since it may take a while to run on the front-end node,
-we can tell ASR to submit one or more tasks using myqueue::
+we can tell ASR to submit one or more tasks using MyQueue_::
 
   asr submit tree/Au
 
 The submit command works much like the run command, only it calls
 myqueue which will then talk to the scheduler (slurm, torque, ...).
 After submitting, we can use standard myqueue commands to monitor
-the jobs, such as ``mq ls`` or ``mq rm``.  See the myqueue documentation.
+the jobs, such as ``mq ls`` or ``mq rm``.  See the `myqueue documentation
+<https://myqueue.readthedocs.io/en/latest/cli.html>`_.
 
 If everything works well, we can submit the whole tree::
 
@@ -332,3 +333,6 @@ Note: In the current version, myqueue and ASR do not perfectly
 share the state of a task.  This can lead to
 mild misbehaviours if using both ``asr run`` and ``asr submit``,
 such as a job executing twice.
+
+
+.. _MyQueue: https://myqueue.readthedocs.io/

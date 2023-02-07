@@ -71,14 +71,15 @@ nval = calc_old.wfs.nvalence
 #Note: For a 2D material (here BN) we use an additional keyword in the parameters below: 'truncation': '2D'
 #This truncates the Coulomb interaction in the lateral direction to avoid non-physical periodic interactions.
 
-kwargs = {'eta': 0.05,                  #Broadening parameter
-          'domega0': 0.01,              #Define spacing of frequency grid
-          'intraband': False,           #Here we do not include intraband transitions for calculating the absorption spectrum
-          'nblocks': 8,                 #Number of blocks used for parallelization
-          'ecut': 50,                   #Plane wave cutoff in eV
-          'nbands': 3*nval,             #Number of bands included in rpa calculation
-          'name': 'chi_CdTe'}           #Name of density response function .pckl file # student: 'name' : ''}
-
+kwargs = {
+    'frequencies': {
+        'type': 'nonlinear',
+        'domega0': 0.01},  # Define spacing of frequency grid
+    'eta': 0.05,           # Broadening parameter
+    'intraband': False,    # Here we do not include intraband transitions for calculating the absorption spectrum
+    'nblocks': 8,          # Number of blocks used for parallelization
+    'ecut': 50,            # Plane wave cutoff in eV
+    'nbands': 3 * nval}    # Number of bands included in rpa calculation
 
 #Calculate dielectric function. Takes ground state calculation and defined parameters in "kwargs" as input:
 df = DielectricFunction('CdTe_12x12x4.gpw', **kwargs) # student: df = DielectricFunction('.gpw', **kwargs)

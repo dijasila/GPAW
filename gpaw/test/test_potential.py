@@ -8,6 +8,7 @@ pytestmark = pytest.mark.skipif(world.size > 1,
                                 reason='world.size > 1')
 
 
+@pytest.mark.legacy
 def test_potential():
     for mode in ['fd', 'pw']:
         print(mode)

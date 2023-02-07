@@ -9,7 +9,7 @@ Coulomb kernel. Based on
 """
 
 
-from gpaw.xc.ri.spherical_hse_kernel import Phi
+from gpaw.xc.ri.spherical_hse_kernel import Phi as phi
 from scipy.special import erfc
 import numpy as np
 from gpaw.sphere.lebedev import weight_n, Y_nL, R_nv
@@ -26,7 +26,7 @@ Q_vv, _ = np.linalg.qr(np.array([Rdir_v]).T, 'complete')
 R2_nv = R_nv @ Q_vv
 
 
-def Phiold(n, mu, R, r):
+def phiold(n, mu, R, r):
     """
 
         Explicit implementation of spherical harmonic expansion up to l=2
@@ -38,7 +38,7 @@ def Phiold(n, mu, R, r):
     Rl = np.minimum.reduce([R, r])
     Xi = mu * Rg
     xi = mu * Rl
- 
+
     if n == 0:
         prefactor = -1 / (2 * np.pi**0.5 * xi * Xi)
         A = np.exp(-(xi + Xi)**2) - np.exp(-(xi - Xi)**2)
@@ -56,7 +56,7 @@ def Phiold(n, mu, R, r):
     raise NotImplementedError
 
 
-def PhiLebedev(n, mu, R_x, r_x):
+def phi_lebedev(n, mu, R_x, r_x):
     # Target spherical harmonic, primary grid
     Y1_n = Y_nL[:, n**2]
     # Target spherical harmonic, secondary grid
@@ -76,15 +76,14 @@ def PhiLebedev(n, mu, R_x, r_x):
 
 
 def test_old_vs_new_spherical_kernel():
-    """
-        Test the explicityly hard coded implementation against
-        the generic implementation.
+    """Test explicitely hard coded implementation against generic
+    implementation.
     """
     for n in range(3):
         R = np.random.rand(100) * 10
         r = np.random.rand(100) * 10
         params = (n, 0.11, R, r)
-        new, old = Phi(*params), Phiold(*params)
+        new, old = phi(*params), phiold(*params)
 
         assert np.allclose(new, old, atol=1e-6)
 
@@ -101,7 +100,7 @@ def test_wrt_lebedev_integrated_kernel(plot=False):
             R = RR * np.ones((125,))
             r = np.logspace(-5, 3, 125 + 1)[1:]
             params = (n, 0.11, R.ravel(), r.ravel())
-            new, old = Phi(*params), PhiLebedev(*params)
+            new, old = phi(*params), phi_lebedev(*params)
             if plot:
                 plt.loglog(r, np.abs(old), '-r')
                 plt.loglog(r, np.abs(new), '--b')
@@ -121,7 +120,7 @@ def test_wrt_lebedev_integrated_kernel(plot=False):
         t = np.logspace(-5, 5, s)
         R, r = np.meshgrid(t, t)
         params = (n, 0.11, R.ravel(), r.ravel())
-        new, old = Phi(*params), PhiLebedev(*params)
+        new, old = phi(*params), phi_lebedev(*params)
         plt.contourf(np.log10(r), np.log10(R),
                      np.reshape(np.log10(np.abs(old - new) + 1e-7), (s, s)))
         plt.colorbar()

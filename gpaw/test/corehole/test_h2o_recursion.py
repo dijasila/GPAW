@@ -1,9 +1,13 @@
-from math import pi, cos, sin
+from math import cos, pi, sin
+
+import pytest
 from ase import Atom, Atoms
-from gpaw import GPAW, PoissonSolver, Mixer, Davidson
+
+from gpaw import GPAW, Davidson, Mixer, PoissonSolver
 from gpaw.test import equal, gen
 
 
+@pytest.mark.later
 def test_corehole_h2o_recursion(in_tmp_dir):
     # Generate setup for oxygen with half a core-hole:
     s = gen('O', name='hch1s', corehole=(1, 0, 0.5))

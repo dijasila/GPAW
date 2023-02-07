@@ -75,13 +75,13 @@ def distribute_data(arr_list):
                     for ii, arr in enumerate(arr_list):
                         data_k = np.array(arr[s1, kk], dtype=complex)
                         world.send(
-                            data_k, dest=kk % size, tag=ii * nk + kk)
+                            data_k, kk % size, tag=ii * nk + kk)
             else:
                 if kk % size == rank:
                     dataset = []
                     for ii, cshape in enumerate(arr_shape):
                         data_k = np.empty(cshape[2:], dtype=complex)
-                        world.receive(data_k, src=0, tag=ii * nk + kk)
+                        world.receive(data_k, 0, tag=ii * nk + kk)
                         dataset.append(data_k)
                     k_info[s1 * nk + kk] = dataset
 
