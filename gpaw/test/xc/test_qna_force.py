@@ -1,8 +1,6 @@
 import pytest
-from ase.lattice.compounds import L1_2
 from ase.parallel import parprint
-
-from gpaw import GPAW, PW
+from gpaw import GPAW
 
 
 @pytest.mark.later

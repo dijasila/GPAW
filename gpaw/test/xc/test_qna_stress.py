@@ -1,17 +1,16 @@
 import pytest
 import numpy as np
 from ase.parallel import parprint
-from gpaw import GPAW, PW, Mixer, Davidson
+from gpaw import GPAW
 import datetime
 
-def numeric_stress(atoms, d=1e-6, component=None):
-    stress = np.zeros((3, 3), dtype=float)
 
+def numeric_stress(atoms, d=1e-6, component=None):
     cell = atoms.cell.copy()
     V = atoms.get_volume()
     for i in range(3):
         x = np.eye(3)
-        if component == (i,i):
+        if component == (i, i):
             x[i, i] += d
             atoms.set_cell(np.dot(cell, x), scale_atoms=True)
             eplus = atoms.get_potential_energy(force_consistent=True)
@@ -22,7 +21,7 @@ def numeric_stress(atoms, d=1e-6, component=None):
             atoms.set_cell(cell, scale_atoms=True)
             return (eplus - eminus) / (2 * d * V)
 
-        if (component == (i, (i-2) % 3)) or (component == ((i-2) % 3, i)):
+        if (component == (i, (i - 2) % 3)) or (component == ((i - 2) % 3, i)):
             j = i - 2
             x[i, j] = d
             x[j, i] = d
@@ -44,7 +43,6 @@ def numeric_stress(atoms, d=1e-6, component=None):
 def test_xc_qna_stress(in_tmp_dir, gpw_files):
     calc = GPAW(gpw_files['Cu3Au_qna'])
     atoms = calc.get_atoms()
-    #atoms.calc = atoms
     atoms.set_cell(np.dot(atoms.cell,
                           [[1.02, 0, 0.03],
                            [0, 0.99, -0.02],
@@ -53,7 +51,7 @@ def test_xc_qna_stress(in_tmp_dir, gpw_files):
 
     s_analytical = atoms.get_stress(voigt=False)
     print(s_analytical)
-    components = [ (0,0), (0,1), (0,2), (1,1), (1,2), (2,2) ]
+    components = [(0, 0), (0, 1), (0, 2), (1, 1), (1, 2), (2, 2)]
     weekday = datetime.datetime.now().weekday()
     if weekday == 6:
         return
