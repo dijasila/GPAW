@@ -6,6 +6,17 @@ from gpaw.typing import Array2D, ArrayLike2D
 from gpaw.utilities import pack2, unpack2
 
 
+class HubbardU:
+    def __init__(self, U, l, scale=1, store=0, LinRes=0, *, i):
+        self.LinRes = LinRes
+        self.scale = scale  # was: "s"
+        self.Store = store
+        self.Occ = []
+        self.U = U
+        self.l = l
+        self.i = i
+
+
 def hubbard(setup,
             D_sp,
             l: int,

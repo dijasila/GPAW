@@ -318,7 +318,6 @@ class UPFSetupData:
         self.ni = sum([2 * l + 1 for l in self.l_j])
 
         self.fingerprint = None  # XXX hexdigest the file?
-        self.HubU = None  # XXX
         self.lq = None  # XXX
 
         if valence_states is None:

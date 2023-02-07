@@ -161,6 +161,7 @@ class BaseSetup:
     made a proper base class with attributes and so on."""
 
     orbital_free = False
+    hubbard_u = None  # XXX remove me
 
     def print_info(self, text):
         self.data.print_info(text, self)
@@ -387,7 +388,7 @@ class BaseSetup:
             phit_j.append(self.rgd.spline(phit_g, rcut2, l, points=100))
         return phi_j, phit_j, nc, nct, tauc, tauct
 
-    def set_hubbard_u(self, U, l, scale=1, store=0, LinRes=0):
+    def set_hubbard_u(self, U, hub_l, scale=1, store=0, LinRes=0):
         """Set Hubbard parameter.
         U in atomic units, l is the orbital to which we whish to
         add a hubbard potential and scale enables or desables the
@@ -395,18 +396,15 @@ class BaseSetup:
         <p|p>=1
         Note U is in atomic units
         """
+        from gpaw.hubbard import HubbardU
 
-        self.HubLinRes = LinRes
-        self.Hubs = scale
-        self.HubStore = store
-        self.HubOcc = []
-        self.HubU = U
-        self.Hubl = l
-        self.Hubi = 0
+        Hubi = 0
         for ll in self.l_j:
-            if ll == self.Hubl:
+            if ll == hub_l:
                 break
-            self.Hubi = self.Hubi + 2 * ll + 1
+            Hubi += 2 * ll + 1
+
+        self.hubbard_u = HubbardU(U, hub_l, scale, store, LinRes, i=Hubi)
 
     def four_phi_integrals(self):
         """Calculate four-phi integral.
@@ -605,7 +603,7 @@ class LeanSetup(BaseSetup):
         """Copies precisely the necessary attributes of the Setup s."""
         # R_sii and HubU can be changed dynamically (which is ugly)
         self.R_sii = None  # rotations, initialized when doing sym. reductions
-        self.HubU = s.HubU  # XXX probably None
+        self.hubbard_u = s.hubbard_u  # XXX probably None
         self.lq = s.lq  # Required for LDA+U I think.
         self.type = s.type  # required for writing to file
         self.fingerprint = s.fingerprint  # also req. for writing
@@ -792,8 +790,6 @@ class Setup(BaseSetup):
     """
     def __init__(self, data, xc, lmax=0, basis=None, filter=None):
         self.type = data.name
-
-        self.HubU = None
 
         if not data.is_compatible(xc):
             raise ValueError('Cannot use %s setup with %s functional' %

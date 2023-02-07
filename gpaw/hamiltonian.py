@@ -311,9 +311,10 @@ class Hamiltonian:
             else:
                 dH_sp = np.zeros_like(D_sp)
 
-            if setup.HubU is not None:
+            if setup.hubbard_u is not None:
+                hubu = setup.hubbard_u
                 # assert self.collinear
-                for l, U, scale in zip(setup.Hubl, setup.HubU, setup.Hubs):
+                for l, U, scale in zip(hubu.l, hubu.U, hubu.scale):
                     eU, dHU_sp = hubbard(setup, D_sp, l, U, scale)
                     e_xc += eU
                     dH_sp += dHU_sp
