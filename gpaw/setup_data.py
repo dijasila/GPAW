@@ -156,11 +156,9 @@ class SetupData:
             text(f'  core: {self.Nc:.1f}')
         text('  charge:', self.Z - self.Nv - self.Nc)
         if setup.hubbard_u is not None:
-            hubu = setup.hubbard_u
-            for U, l, scale in zip(hubu.U, hubu.l, hubu.scale):
-                text(f'  Hubbard: {{U: {U * Ha},  # eV\n'
-                     f'            l: {l},\n'
-                     f'            scale: {bool(scale)}}}')
+            description = ''.join([f'  {line}' for line
+                                   in setup.hubbard_u.descriptions()])
+            text(description)
         text('  file:', self.filename)
         sf = self.shape_function
         text(f'  compensation charges: {{type: {sf["type"]},\n'

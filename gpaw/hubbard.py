@@ -1,13 +1,13 @@
 from typing import Tuple, List
 
 import numpy as np
+import ase.units as units
 
 from gpaw.typing import Array2D, ArrayLike2D
 from gpaw.utilities import pack2, unpack2
 
 
 def parse_hubbard_string(type: str) -> Tuple[str, 'HubbardU']:
-    import ase.units as units
 
     # Parse DFT+U parameters from type-string:
     # Examples: "type:l,U" or "type:l,U,scale"
@@ -52,6 +52,12 @@ class HubbardU:
             dH_sp += dH1_sp
         return e_xc, dH_sp
 
+    def descriptions(self):
+        for U, l, scale in zip(self.U, self.l, self.scale):
+            yield f'Hubbard: {{U: {U * units.Ha},  # eV\n'
+            yield f'          l: {l},\n'
+            yield f'          scale: {bool(scale)}}}'
+
 
 def hubbard(l_j, lq,
             D_sp,
@@ -60,7 +66,6 @@ def hubbard(l_j, lq,
             scale: bool) -> Tuple[float, ArrayLike2D]:
     nspins = len(D_sp)
 
-    # l_j = setup.l_j
     nl = np.where(np.equal(l_j, l))[0]
     nn = (2 * np.array(l_j) + 1)[0:nl[0]].sum()
 
