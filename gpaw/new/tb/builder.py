@@ -251,7 +251,8 @@ class TBDFTComponentsBuilder(LCAODFTComponentsBuilder):
                 vtphit_j.append(Spline(phit.l, rc, vt_g * phit_g))
             vtphit[setup] = vtphit_j
 
-        vtciexpansions = TCIExpansions([s.phit_j for s in self.setups],
+        vtciexpansions = TCIExpansions([s.basis_functions_J
+                                        for s in self.setups],
                                        [vtphit[s] for s in self.setups],
                                        tciexpansions.I_a)
 
