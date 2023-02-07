@@ -924,12 +924,16 @@ class Setup(BaseSetup):
         self.pseudo_partial_waves_j = partial_waves.tosplines()
 
         if basis is None:
-            phit_j = self.pseudo_partial_waves_j
             basis = partial_waves
+            basis_functions_J = self.pseudo_partial_waves_j
         else:
-            phit_j = basis.tosplines()
-        self.phit_j = phit_j
+            basis_functions_J = basis.tosplines()
+
+        self.basis_functions_J = basis_functions_J
         self.basis = basis
+
+        # XXX delete me
+        self.phit_j = self.basis_functions_J
 
         self.nao = 0
         for phit in self.phit_j:
