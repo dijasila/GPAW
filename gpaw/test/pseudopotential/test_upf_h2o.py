@@ -19,9 +19,6 @@ def test_psp_upf_h2o():
     x = np.linspace(0.0, 5.0, 1000)
     # dr = x[1] - x[0]
 
-    pp.phit_j[0].map(x)
-    pp.pt_j[0].map(x)
-
     from gpaw.atom.atompaw import AtomPAW
 
     if 0:
