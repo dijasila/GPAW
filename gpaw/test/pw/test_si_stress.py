@@ -4,7 +4,6 @@ from ase.build import bulk
 
 from gpaw import GPAW, PW, Mixer
 from gpaw.mpi import world
-from ase.calculators.test import numeric_force
 
 
 @pytest.mark.stress
