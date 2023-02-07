@@ -42,10 +42,8 @@ def vxc(gs, xc=None, coredensity=True, n1=0, n2=0):
 
         setup = gs.setups[a]
         if setup.hubbard_u is not None:
-            hubu = setup.hubbard_u
-            for l, U, scale in zip(hubu.l, hubu.U, hubu.scale):
-                _, dHU_sp = hubbard(setup, D_sp, l, U, scale)
-                dvxc_sp += dHU_sp
+            _, dHU_sp = setup.hubbard_u.calculate(setup, D_sp)
+            dvxc_sp += dHU_sp
         xc.calculate_paw_correction(setup, D_sp, dvxc_sp, a=a,
                                     addcoredensity=coredensity)
 
