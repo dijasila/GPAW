@@ -175,8 +175,9 @@ class GPAW(Calculator):
             **kwargs):
         """Create a new calculator, inheriting input parameters.
 
-        The returned calculator does not reuse internal variables,
-        such as the density or the wave functions.
+        The txt file and timer are the only input parameters to
+        be created anew. Internal variables, such as the density
+        or the wave functions, are not reused either.
 
         The atoms keyword can be used to attach the newly created
         calculator to a given ASE atoms object.
