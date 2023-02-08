@@ -342,7 +342,7 @@ lint:
 
 
 typecheck:
-  image: docker.io/python:3.9-slim
+  image: $IMAGE_PATH/run:oldest
   stage: build
   tags:
     - linux
