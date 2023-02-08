@@ -54,8 +54,8 @@ from gpaw.xc.kernel import XCKernel
 from gpaw.xc.sic import SIC
 from gpaw.xc.hybrid import HybridXC
 from gpaw.xc.mgga import MGGA
+from gpaw import gpu
 
-import gpaw.gpu
 import gpaw.xc
 
 
@@ -627,13 +627,8 @@ class GPAW(Calculator):
 
         self.log('Initialize ...\n')
 
-        gpaw.gpu.old_setup(self.parameters['gpu'])
-        self.use_gpu = gpaw.gpu.backend.enabled
-
-        if self.use_gpu:
-            self.timer.start('GPU init')
-            gpaw.gpu.old_init(mpi.rank)
-            self.timer.stop('GPU init')
+        gpu.setup()
+        self.use_gpu = not gpu.cupy_is_fake
 
         if atoms is None:
             atoms = self.atoms
