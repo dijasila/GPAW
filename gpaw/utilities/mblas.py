@@ -58,7 +58,7 @@ def multi_dotc(x, y, s=None):
         if not isinstance(s, np.ndarray):
             s_gpu = s
         else:
-            s_gpu = gpu.array.empty(x.shape[0], dtype=x.dtype)
+            s_gpu = gpu.cupy.empty(x.shape[0], dtype=x.dtype)
         _gpaw.multi_dotc_gpu(gpu.get_pointer(x),
                              x.shape,
                              gpu.get_pointer(y),
@@ -90,7 +90,7 @@ def multi_dotu(x, y, s=None):
         if not isinstance(s, np.ndarray):
             s_gpu = s
         else:
-            s_gpu = gpu.array.empty(x.shape[0], dtype=x.dtype)
+            s_gpu = gpu.cupy.empty(x.shape[0], dtype=x.dtype)
         _gpaw.multi_dotu_gpu(gpu.get_pointer(x),
                              x.shape,
                              gpu.get_pointer(y),

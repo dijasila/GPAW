@@ -41,7 +41,7 @@ def test_fd_transformers(gpu, pbc):
     # Transformers
     coarsegd = gd.coarsen()
     a_coarse = coarsegd.zeros(dtype=dtype)
-    a_coarse_gpu = gpu.array.zeros_like(a_coarse)
+    a_coarse_gpu = gpu.cupy.zeros_like(a_coarse)
 
     # Restrict
     Transformer(gd, coarsegd, 1, dtype=dtype) \

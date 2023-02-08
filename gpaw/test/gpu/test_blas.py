@@ -22,7 +22,7 @@ def test_blas(gpu, dtype):
 
     a_gpu = gpu.copy_to_device(a)
     b_gpu = gpu.copy_to_device(b)
-    c_gpu = gpu.array.zeros_like(a_gpu)
+    c_gpu = gpu.cupy.zeros_like(a_gpu)
 
     # axpy
     axpy(0.5, a, c)

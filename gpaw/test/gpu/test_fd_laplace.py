@@ -42,7 +42,7 @@ def test_fd_laplace(gpu, pbc):
 
     b = np.zeros_like(a)
     a_gpu = gpu.copy_to_device(a)
-    b_gpu = gpu.array.zeros_like(a_gpu)
+    b_gpu = gpu.cupy.zeros_like(a_gpu)
 
     # Laplace
     Laplace(gd, 1.0, 3, dtype=dtype) \

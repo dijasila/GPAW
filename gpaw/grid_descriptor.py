@@ -260,9 +260,9 @@ class GridDescriptor(Domain):
 
         if use_gpu:
             if zero:
-                return gpu.array.zeros(tuple(int(x) for x in shape), dtype)
+                return gpu.cupy.zeros(tuple(int(x) for x in shape), dtype)
             else:
-                return gpu.array.empty(tuple(int(x) for x in shape), dtype)
+                return gpu.cupy.empty(tuple(int(x) for x in shape), dtype)
         else:
             if zero:
                 return np.zeros(shape, dtype)

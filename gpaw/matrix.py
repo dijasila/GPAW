@@ -122,7 +122,7 @@ class Matrix:
             self._array_cpu = np.empty(self.dist.shape, self.dtype)
             self._array_gpu = None
             if self.use_gpu:
-                self._array_gpu = gpu.array.empty(self.dist.shape, self.dtype)
+                self._array_gpu = gpu.cupy.empty(self.dist.shape, self.dtype)
         elif not isinstance(data, np.ndarray):
             self._array_gpu = data.reshape(self.dist.shape)
             self._array_cpu = gpu.copy_to_host(self._array_gpu)
@@ -158,7 +158,7 @@ class Matrix:
     def sync_to_gpu(self):
         if not self.use_gpu:
             self.use_gpu = True
-            self._array_gpu = gpu.array.empty_like(self._array_cpu)
+            self._array_gpu = gpu.cupy.empty_like(self._array_cpu)
         if not self.on_gpu:
             self.sync()
             self.on_gpu = True

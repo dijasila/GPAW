@@ -44,9 +44,9 @@ class CSCG(BaseSolver):
         z = self.gd.empty(B, dtype=complex, use_gpu=on_gpu)
 
         if on_gpu:
-            alpha = gpu.array.zeros((B,), dtype=complex)
-            rho = gpu.array.zeros((B,), dtype=complex)
-            rhop = gpu.array.zeros((B,), dtype=complex)
+            alpha = gpu.cupy.zeros((B,), dtype=complex)
+            rho = gpu.cupy.zeros((B,), dtype=complex)
+            rhop = gpu.cupy.zeros((B,), dtype=complex)
         else:
             alpha = np.zeros((B,), dtype=complex)
             rho = np.zeros((B,), dtype=complex)

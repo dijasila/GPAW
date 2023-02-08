@@ -57,7 +57,7 @@ class Eigensolver:
 
         if self.keep_htpsit:
             if self.use_gpu:
-                self.Htpsit_nG = gpu.array.empty_like(wfs.work_array)
+                self.Htpsit_nG = gpu.cupy.empty_like(wfs.work_array)
             else:
                 self.Htpsit_nG = np.empty_like(wfs.work_array)
 

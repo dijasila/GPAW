@@ -574,7 +574,7 @@ class LocalizedFunctionsCollection(BaseLFC):
 
         if not isinstance(a_xG, np.ndarray):
             if self.Mmax > 0:
-                c_xM_gpu = gpu.array.zeros(xshape + (self.Mmax,), dtype)
+                c_xM_gpu = gpu.cupy.zeros(xshape + (self.Mmax,), dtype)
                 self.lfc.integrate_gpu(gpu.get_pointer(a_xG),
                                        a_xG.shape,
                                        gpu.get_pointer(c_xM_gpu),

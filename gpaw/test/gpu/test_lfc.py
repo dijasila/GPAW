@@ -24,7 +24,7 @@ def test_lfc(gpu, dtype):
         P_ani[a] = np.ones((1), dtype=dtype)
 
     b = gd.zeros(dtype=dtype)
-    b_gpu = gpu.array.zeros_like(b)
+    b_gpu = gpu.cupy.zeros_like(b)
     q = {float: -1, complex: 0}[dtype]
     c.add(b, P_ani, q=q)
     c_gpu.add(b_gpu, P_ani, q=q)
