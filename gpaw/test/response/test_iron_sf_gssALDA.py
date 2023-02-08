@@ -33,7 +33,7 @@ def set_up_fxc_calculators(gs, context):
     # Set up paw calculator (with file buffer)
     localft_calc = LocalPAWFTCalculator(gs, context, rshelmax=0)
     fxckwargs_paw = {'localft_calc': localft_calc,
-                     'fxc_file': Path('paw_ALDA_fxc.pckl'),
+                     'fxc_file': Path('paw_ALDA_fxc.npz'),
                      'fxc_scaling': FXCScaling('fm')}
     fxckwargs_and_identifiers.append((fxckwargs_paw, 'paw'))
 
