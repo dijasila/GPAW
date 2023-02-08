@@ -21,7 +21,7 @@ class ArrayWaveFunctions:
         if not collinear:
             N *= 2
         if data is None or isinstance(data, np.ndarray) \
-                        or isinstance(data, gpu.array.Array):
+                        or isinstance(data, gpu.cupy.ndarray):
             self.matrix = Matrix(M, N, dtype, data, dist, use_gpu)
             self.in_memory = True
         elif isinstance(data, Matrix):
