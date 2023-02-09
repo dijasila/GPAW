@@ -19,6 +19,8 @@ from gpaw.typing import (Array1D, Array2D, Array3D, ArrayLike1D, ArrayLike2D,
 
 
 class PlaneWaves(Domain):
+    itemsize = 16
+
     def __init__(self,
                  *,
                  ecut: float,
