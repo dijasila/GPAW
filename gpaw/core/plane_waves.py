@@ -302,7 +302,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         return self._matrix
 
     def ifft(self, *, plan=None, grid=None, out=None, periodic=False):
-        """Do inverse FFT to uniform grid.
+        """Do inverse FFT(s) to uniform grid(s).
 
         Parameters
         ----------

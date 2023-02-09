@@ -98,7 +98,7 @@ class IBZWaveFunctions:
         shape = self.get_max_shape(global_shape=True)
         nbytes = (prod(shape) * self.nbands *
                   len(self.wfs_qs) * len(self.wfs_qs[0]) *
-                  self.dtype.itemsize)
+                  self.dtype.itemsize)  # XXX should be 16 for gamma-point PW-mode
         ncores = (self.kpt_comm.size *
                   self.domain_comm.size *
                   self.band_comm.size)

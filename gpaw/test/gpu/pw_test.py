@@ -7,7 +7,8 @@ from gpaw import SCIPY_VERSION
 @pytest.mark.gpu
 @pytest.mark.serial
 @pytest.mark.skipif(SCIPY_VERSION < [1, 6], reason='Too old scipy')
-def test_gpu_pw():
+@pytest.mark.parametrize('dtype', [float, complex])
+def test_gpu_pw(dtype):
     atoms = Atoms('H2')
     atoms.positions[1, 0] = 0.75
     atoms.center(vacuum=1.0)
@@ -16,10 +17,10 @@ def test_gpu_pw():
         dft = DFTCalculation.from_parameters(
             atoms,
             dict(mode={'name': 'pw'},
-                 dtype=complex,
+                 dtype=dtype,
                  parallel={'gpu': gpu},
                  setups='paw'),
-            log=None)
+            log='-')
         dft.converge()
         dft.energies()
         energy = dft.results['energy']
