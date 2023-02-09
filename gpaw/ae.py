@@ -23,7 +23,7 @@ class HydrogenAllElectronSetup(BaseSetup):
         self.pt_j = []
         self.ni = 0
         self.l_j = [0]
-        self.l_orb_j = [0]
+        self.l_orb_J = [0]
         self.n_j = [1]
         self.nct = Spline(0, 0.5, [0.0, 0.0, 0.0])
         self.Nct = 0.0
@@ -62,8 +62,11 @@ class HydrogenAllElectronSetup(BaseSetup):
             basis = Basis('H', 'sz(dzp)')
         elif isinstance(basis, str):
             basis = Basis('H', basis)
+
         self.basis = basis
-        self.phit_j = self.basis.tosplines()
+        self.basis_functions_J = self.basis.tosplines()
+        self.pseudo_partial_waves_j = None  # XXX
+
         self.f_j = [1.0]
         self.nao = self.basis.nao
 

@@ -338,10 +338,10 @@ class UPFSetupData:
             # err = abs(electroncount - self.Nv)
             self.f_j = [state.occupation for state in valence_states]
             self.n_j = [state.n for state in valence_states]
-            self.l_orb_j = [state.l for state in valence_states]
+            self.l_orb_J = [state.l for state in valence_states]
             self.f_ln = f_ln
         else:
-            self.n_j, self.l_orb_j, self.f_j, self.f_ln = \
+            self.n_j, self.l_orb_J, self.f_j, self.f_ln = \
                 figure_out_valence_states(self)
 
         vlocal_unscreened = data['vlocal']

@@ -738,7 +738,8 @@ class NewTwoCenterIntegrals:
         for I, setup in enumerate(setups_I):
             I_setup[setup] = I
             cutoff_I.append(max([func.get_cutoff()
-                                 for func in setup.phit_j + setup.pt_j]))
+                                 for func
+                                 in setup.basis_functions_J + setup.pt_j]))
 
         I_a = []
         for setup in setups:
@@ -781,7 +782,7 @@ class NewTwoCenterIntegrals:
 
     def calculate_expansions(self):
         timer.start('tci calc exp')
-        phit_Ij = [setup.phit_j for setup in self.setups_I]
+        phit_Ij = [setup.basis_functions_J for setup in self.setups_I]
         l_Ij = []
         for phit_j in phit_Ij:
             l_Ij.append([phit.get_angular_momentum_number()

@@ -159,8 +159,8 @@ def generate_basis_functions(ppdata):
                 phit_g /= norm
                 bf = BasisFunction(None, l, rgd.r_g[-1], phit_g, 'gaussian')
                 bf_j.append(bf)
-    # l_orb_j = [state.l for state in self.data['states']]
-    b1 = SimpleBasis(ppdata.symbol, ppdata.l_orb_j)
+    # l_orb_J = [state.l for state in self.data['states']]
+    b1 = SimpleBasis(ppdata.symbol, ppdata.l_orb_J)
     apaw = AtomPAW(ppdata.symbol, [ppdata.f_ln], h=0.05, rcut=9.0,
                    basis={ppdata.symbol: b1},
                    setups={ppdata.symbol: ppdata},
@@ -231,7 +231,7 @@ class PseudoPotential(BaseSetup):
         self.f_j = data.f_j
         self.n_j = data.n_j
         self.l_j = data.l_j
-        self.l_orb_j = data.l_orb_j
+        self.l_orb_J = data.l_orb_J
         self.nj = len(data.l_j)
 
         self.ni = sum([2 * l + 1 for l in data.l_j])
@@ -247,10 +247,13 @@ class PseudoPotential(BaseSetup):
 
         if basis is None:
             basis = data.create_basis_functions()
-        self.phit_j = basis.tosplines()
+
+        self.pseudo_partial_waves_j = None  # XXX what do we do?
+        self.basis_functions_J = basis.tosplines()
+
         self.basis = basis
         self.nao = sum([2 * phit.get_angular_momentum_number() + 1
-                        for phit in self.phit_j])
+                        for phit in self.basis_functions_J])
 
         self.Nct = 0.0
         self.nct = null_spline
