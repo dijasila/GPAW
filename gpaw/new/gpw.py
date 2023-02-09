@@ -17,6 +17,7 @@ from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
 from gpaw.new.potential import Potential
 from gpaw.utilities import unpack, unpack2
+from gpaw.typing import DTypeLike
 
 ENERGY_NAMES = ['kinetic', 'coulomb', 'zero', 'external', 'xc', 'entropy',
                 'total_free', 'total_extrapolated',
@@ -50,9 +51,12 @@ def write_gpw(filename: str,
                    for key, value in calculation.results.items()
                    if key != 'non_collinear_magmoms'}
         writer.child('results').write(**results)
-        writer.child('parameters').write(
-            **{k: v for k, v in params.items()
-               if k not in ['txt', 'parallel']})
+
+        p = {k: v for k, v in params.items() if k not in ['txt', 'parallel']}
+        # ULM does not know about numpy dtypes:
+        if 'dtype' in p:
+            p['dtype'] = np.dtype(p['dtype']).name
+        writer.child('parameters').write(**p)
 
         state = calculation.state
         state.density.write(writer.child('density'))
@@ -104,7 +108,7 @@ def write_wave_function_indices(writer, ibzwfs, grid):
 def read_gpw(filename: Union[str, Path, IO[str]],
              log: Union[Logger, str, Path, IO[str]] = None,
              parallel: dict[str, Any] = None,
-             force_complex_dtype: bool = False):
+             dtype: DTypeLike = None):
     """
     Read gpw file
 
@@ -128,12 +132,14 @@ def read_gpw(filename: Union[str, Path, IO[str]],
 
     kwargs = reader.parameters.asdict()
     kwargs['parallel'] = parallel
-
-    if force_complex_dtype:
-        kwargs['force_complex_dtype'] = True
-
+    if 'dtype' in kwargs:
+        kwargs['dtype'] = np.dtype(kwargs['dtype'])
     params = InputParameters(kwargs, warn=False)
+
     builder = create_builder(atoms, params)
+
+    if dtype is not None:
+        params.mode['dtype'] = dtype
 
     (kpt_comm, band_comm, domain_comm, kpt_band_comm) = (
         builder.communicators[x] for x in 'kbdD')

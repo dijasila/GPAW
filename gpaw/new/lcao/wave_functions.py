@@ -56,6 +56,9 @@ class LCAOWaveFunctions(WaveFunctions):
         self.S_MM = S_MM
         self.P_aMi = P_aMi
 
+        self.bytes_per_band = (self.array_shape(global_shape=True)[0] *
+                               C_nM.data.itemsize)
+
         # This is for TB-mode (and MYPY):
         self.V_MM: Matrix
 

@@ -59,8 +59,9 @@ def newoverlap(wfs, spos_ac):
             pcutoff = max([pt.get_cutoff() for pt in setup.pt_j])
         else:
             pcutoff = 0.0
-        if setup.phit_j:
-            phicutoff = max([phit.get_cutoff() for phit in setup.phit_j])
+        if setup.basis_functions_J:
+            phicutoff = max([bf.get_cutoff() for bf
+                             in setup.basis_functions_J])
         else:
             phicutoff = 0.0
         pcutoff_a.append(pcutoff)
@@ -87,7 +88,10 @@ def newoverlap(wfs, spos_ac):
 
     msoc = wfs.tci.msoc
 
-    phit_Ij = [setup.phit_j for setup in tci.setups_I]
+    # XXX we renamed basis function index to J on setup,
+    # but we cannot rename it to J here because we already
+    # use I and J for absolute indices whereas i and j are per-atom indices.
+    phit_Ij = [setup.basis_functions_J for setup in tci.setups_I]
     l_Ij = []
     for phit_j in phit_Ij:
         l_Ij.append([phit.get_angular_momentum_number()
