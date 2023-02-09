@@ -17,6 +17,10 @@ def zeros(*args, **kwargs):
     return ndarray(np.zeros(*args, **kwargs))
 
 
+def ones(*args, **kwargs):
+    return ndarray(np.ones(*args, **kwargs))
+
+
 def asnumpy(a, out=None):
     if out is None:
         return a._data.copy()
@@ -156,8 +160,8 @@ class ndarray:
     def __rmul__(self, f: float):
         return ndarray(f * self._data)
 
-    def __imul__(self, f: float):
-        if isinstance(f, (float, complex)):
+    def __imul__(self, f):
+        if isinstance(f, (float, complex, int)):
             self._data *= f
         else:
             self._data *= f._data
