@@ -342,15 +342,15 @@ lint:
 
 
 typecheck:
-  image: $IMAGE_PATH/run:oldest
+  image: $IMAGE_PATH/run:latest
   stage: build
   tags:
     - linux
   script:
     - pip install mypy types-PyYAML
     - python --version
-    - mypy --version
-    - mypy -p gpaw
+    - python -m mypy --version
+    - python -m mypy -p gpaw
 
 
 docs:
