@@ -179,11 +179,17 @@ class CuPyFFTPlans(FFTPlans):
         self.size_c = size_c
         self.pw = None
 
+        self.shape = tuple(size_c)
+        if dtype == float:
+            self.shape = (self.shape[0],
+                          self.shape[1],
+                          self.shape[2] // 2 + 1)
+
     def indices(self, pw):
         from gpaw.gpu import cupy as cp
         if self.pw is None:
             self.pw = pw
-            self.Q_G = cp.asarray(pw.indices(tuple(self.size_c)))
+            self.Q_G = cp.asarray(pw.indices(self.shape))
         else:
             assert pw is self.pw
         return self.Q_G
@@ -193,9 +199,7 @@ class CuPyFFTPlans(FFTPlans):
         if self.dtype == complex:
             array_Q = out_R.data
         else:
-            shape = out_R.data.shape
-            shape = (shape[0], shape[1], shape[2] // 2 + 1)
-            array_Q = cp.empty(shape, complex)
+            array_Q = cp.empty(self.shape, complex)
 
         array_Q[:] = 0.0
         Q_G = self.indices(pw)
