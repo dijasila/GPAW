@@ -1,6 +1,7 @@
 import numpy as np
 from gpaw.core import PlaneWaves
 from gpaw.new.pot_calc import PotentialCalculator
+from gpaw.setup import Setups
 
 
 class PlaneWavePotentialCalculator(PotentialCalculator):
@@ -9,7 +10,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                  fine_grid,
                  pw: PlaneWaves,
                  fine_pw: PlaneWaves,
-                 setups,
+                 setups: Setups,
                  xc,
                  poisson_solver,
                  nct_ag,
