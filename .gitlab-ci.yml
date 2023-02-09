@@ -51,13 +51,13 @@ master:
       -e gpaw/point_groups/groups.py
       gpaw
   tags:
-    - camd-experimental
+    - linux
 
 
 docker:
   image: registry.gitlab.com/ase/ase:gpaw-test
   tags:
-    - camd-experimental
+    - linux
   script:
     - pip install --editable . --no-deps
     - cd gpaw/test
