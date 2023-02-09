@@ -47,7 +47,6 @@ class HydrogenAllElectronSetup(BaseSetup):
         self.MB = 0.0
         self.M = -(alpha1 / 2 / np.pi)**0.5
         self.xc_correction = None
-        self.HubU = None
         self.dO_ii = np.zeros((0, 0))
         self.type = 'all-electron'
         self.fingerprint = None

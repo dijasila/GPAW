@@ -32,7 +32,6 @@ class GhostSetup(BaseSetup):
         self.basis = basis
         self.nao = sum([2 * phit.get_angular_momentum_number() + 1
                         for phit in self.basis_functions_J])
-        self.HubU = None
         self.filename = None
         self.fingerprint = None
         self.type = 'ghost'

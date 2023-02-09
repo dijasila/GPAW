@@ -216,7 +216,6 @@ class PseudoPotential(BaseSetup):
         self.data = data
 
         self.R_sii = None
-        self.HubU = None
         self.lq = None
 
         self.filename = None

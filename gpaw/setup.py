@@ -2,7 +2,6 @@ from __future__ import annotations
 import functools
 from io import StringIO
 from math import pi, sqrt
-from typing import List, Tuple
 import ase.units as units
 import numpy as np
 from ase.data import chemical_symbols
@@ -26,31 +25,6 @@ class WrongMagmomForHundsRuleError(ValueError):
     """
 
 
-def parse_hubbard_string(type: str) -> Tuple[str,
-                                             List[int],
-                                             List[float],
-                                             List[bool]]:
-    # Parse DFT+U parameters from type-string:
-    # Examples: "type:l,U" or "type:l,U,scale"
-    type, lus = type.split(':')
-    if type == '':
-        type = 'paw'
-
-    l = []
-    U = []
-    scale = []
-
-    for lu in lus.split(';'):  # Multiple U corrections
-        l_, u_, scale_ = (lu + ',,').split(',')[:3]
-        l.append('spdf'.find(l_))
-        U.append(float(u_) / units.Hartree)
-        if scale_:
-            scale.append(bool(int(scale_)))
-        else:
-            scale.append(True)
-    return type, l, U, scale
-
-
 def create_setup(symbol, xc='LDA', lmax=0,
                  type='paw', basis=None, setupdata=None,
                  filter=None, world=None):
@@ -58,9 +32,10 @@ def create_setup(symbol, xc='LDA', lmax=0,
         xc = XC(xc)
 
     if isinstance(type, str) and ':' in type:
-        type, l, U, scale = parse_hubbard_string(type)
+        from gpaw.hubbard import parse_hubbard_string
+        type, hubbard_u = parse_hubbard_string(type)
     else:
-        U = None
+        hubbard_u = None
 
     if setupdata is None:
         if type == 'hgh' or type == 'hgh.sc':
@@ -106,9 +81,11 @@ def create_setup(symbol, xc='LDA', lmax=0,
                                   type, True,
                                   world=world)
     if hasattr(setupdata, 'build'):
-        setup = LeanSetup(setupdata.build(xc, lmax, basis, filter))
-        if U is not None:
-            setup.set_hubbard_u(U, l, scale)
+        # It is not so nice that we have hubbard_u floating around here.
+        # For example, none of the other setup types are aware
+        # of hubbard u, so they silently ignore it!
+        setup = LeanSetup(setupdata.build(xc, lmax, basis, filter),
+                          hubbard_u=hubbard_u)
         return setup
     else:
         return setupdata
@@ -161,6 +138,7 @@ class BaseSetup:
     made a proper base class with attributes and so on."""
 
     orbital_free = False
+    hubbard_u = None  # XXX remove me
 
     def print_info(self, text):
         self.data.print_info(text, self)
@@ -387,27 +365,6 @@ class BaseSetup:
             phit_j.append(self.rgd.spline(phit_g, rcut2, l, points=100))
         return phi_j, phit_j, nc, nct, tauc, tauct
 
-    def set_hubbard_u(self, U, l, scale=1, store=0, LinRes=0):
-        """Set Hubbard parameter.
-        U in atomic units, l is the orbital to which we whish to
-        add a hubbard potential and scale enables or desables the
-        scaling of the overlap between the l orbitals, if true we enforce
-        <p|p>=1
-        Note U is in atomic units
-        """
-
-        self.HubLinRes = LinRes
-        self.Hubs = scale
-        self.HubStore = store
-        self.HubOcc = []
-        self.HubU = U
-        self.Hubl = l
-        self.Hubi = 0
-        for ll in self.l_j:
-            if ll == self.Hubl:
-                break
-            self.Hubi = self.Hubi + 2 * ll + 1
-
     def four_phi_integrals(self):
         """Calculate four-phi integral.
 
@@ -601,11 +558,14 @@ class LeanSetup(BaseSetup):
 
     A setup-like class must define at least the attributes of this
     class in order to function in a calculation."""
-    def __init__(self, s):
+    def __init__(self, s, hubbard_u=None):
         """Copies precisely the necessary attributes of the Setup s."""
-        # R_sii and HubU can be changed dynamically (which is ugly)
+        # Hubbard U is poked onto the setup in hacky ways.
+        # This needs cleaning.
+        self.hubbard_u = hubbard_u
+
+        # R_sii can be changed dynamically (which is ugly)
         self.R_sii = None  # rotations, initialized when doing sym. reductions
-        self.HubU = s.HubU  # XXX probably None
         self.lq = s.lq  # Required for LDA+U I think.
         self.type = s.type  # required for writing to file
         self.fingerprint = s.fingerprint  # also req. for writing
@@ -792,8 +752,6 @@ class Setup(BaseSetup):
     """
     def __init__(self, data, xc, lmax=0, basis=None, filter=None):
         self.type = data.name
-
-        self.HubU = None
 
         if not data.is_compatible(xc):
             raise ValueError('Cannot use %s setup with %s functional' %
