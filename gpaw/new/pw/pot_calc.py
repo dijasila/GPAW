@@ -24,7 +24,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         self.nct_ag = nct_ag
         self.vbar_ag = setups.create_local_potentials(pw, fracpos_ac, atomdist)
         self.ghat_aLh = setups.create_compensation_charges(
-            fine_pw, fracpos_ac, atomdist, xp)
+            fine_pw, fracpos_ac, atomdist)  # , xp)
 
         self.pw = pw
         self.fine_pw = fine_pw
