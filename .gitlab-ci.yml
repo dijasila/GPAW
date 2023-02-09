@@ -271,7 +271,6 @@ test-cuda:
     - nvidia-smi
     - gpaw info
     - pytest -v -m gpu
-  when: manual
 
 
 test-libxc:
