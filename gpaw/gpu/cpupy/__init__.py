@@ -152,12 +152,12 @@ class ndarray:
     def __eq__(self, other):
         return ndarray(self._data == other._data)
 
-    def __mul__(self, f: float):
+    def __mul__(self, f):
         if isinstance(f, (float, complex)):
             return ndarray(f * self._data)
         return ndarray(f._data * self._data)
 
-    def __rmul__(self, f: float):
+    def __rmul__(self, f):
         return ndarray(f * self._data)
 
     def __imul__(self, f):

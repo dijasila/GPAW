@@ -10,6 +10,8 @@ from gpaw.new.potential import Potential
 
 
 class WaveFunctions:
+    bytes_per_band: int
+
     def __init__(self,
                  *,
                  setups: Setups,

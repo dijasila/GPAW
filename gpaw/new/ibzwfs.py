@@ -7,7 +7,6 @@ from ase.dft.bandgap import bandgap
 from ase.io.ulm import Writer
 from ase.units import Bohr, Ha
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.new import prod
 from gpaw.new.brillouin import IBZ
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
 from gpaw.new.potential import Potential
@@ -96,13 +95,14 @@ class IBZWaveFunctions:
 
     def __str__(self):
         shape = self.get_max_shape(global_shape=True)
-        nbytes = (prod(shape) * self.nbands *
-                  len(self.wfs_qs) * len(self.wfs_qs[0]) *
-                  self.dtype.itemsize)  # XXX should be 16 for gamma-point PW-mode
+        wfs = self.wfs_qs[0][0]
+        nbytes = (len(self.ibz) *
+                  self.nbands *
+                  len(self.wfs_qs[0]) *
+                  wfs.bytes_per_band)
         ncores = (self.kpt_comm.size *
                   self.domain_comm.size *
                   self.band_comm.size)
-        wfs = self.wfs_qs[0][0]
         return (f'{self.ibz.symmetries}\n'
                 f'{self.ibz}\n'
                 f'{wfs._short_string(shape)}\n'
