@@ -399,7 +399,8 @@ class ASECalculator:
 
         if not ncol:
             ncol_density = state.density.to_noncollinear(builder.setups)
-            ncol_potential = state.potential.to_noncollinear(ncol_density)
+            pot_calc = builder.create_potential_calculator()
+            ncol_potential, _, _ = pot_calc.calculate(ncol_density)
         else:
             ncol_density = state.density
             ncol_potential = state.potential
