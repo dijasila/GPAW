@@ -13,6 +13,7 @@ class SpinorWaveFunctionDescriptor(Domain):
         Domain.__init__(self, desc.cell_cv, desc.pbc_c, desc.kpt_c, desc.comm,
                         complex)
         self.myshape = (2,) + desc.myshape
+        self.itemsize = desc.itemsize
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.desc}, {self.qspiral_v})'
@@ -24,3 +25,6 @@ class SpinorWaveFunctionDescriptor(Domain):
 
     def empty(self, nbands, band_comm, xp=None):
         return self.desc.empty((nbands, 2), band_comm)
+
+    def global_shape(self) -> tuple[int, ...]:
+        return (2,) + self.desc.global_shape()

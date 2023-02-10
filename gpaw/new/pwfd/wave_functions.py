@@ -62,6 +62,8 @@ class PWFDWaveFunctions(WaveFunctions):
 
     def array_shape(self, global_shape=False):
         if global_shape:
+            print(self.psit_nX)
+            print(type(self.psit_nX))
             shape = self.psit_nX.desc.global_shape()
         else:
             shape = self.psit_nX.desc.myshape
