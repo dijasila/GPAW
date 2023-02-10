@@ -233,6 +233,7 @@ test-latest:
       cat << EOF >> .coveragerc
       [report]
       precision = 2
+      EOF
 
     - >
       OMP_NUM_THREADS=2 pytest -v -m ci
