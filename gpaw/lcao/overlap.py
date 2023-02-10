@@ -234,8 +234,6 @@ class DomainDecomposedExpansions(BaseOverlapExpansionSet):
 
 class ManySiteDictionaryWrapper(DomainDecomposedExpansions):
     # Used with dictionaries such as P_aqMi and dPdR_aqcMi
-    # Works only with NeighborPairs, not SimpleAtomIter, since it
-    # compensates for only seeing the atoms once
 
     def getslice(self, a1, a2, xdict_aqxMi):
         msoe = self.msoe
@@ -300,26 +298,6 @@ class BlacsOverlapExpansions(BaseOverlapExpansionSet):
         #     self.evaluate_slice(disp.reverse(), x_xqNM)
 
 
-class SimpleAtomIter:
-    def __init__(self, cell_cv, spos1_ac, spos2_ac, offsetsteps=0):
-        self.cell_cv = cell_cv
-        self.spos1_ac = spos1_ac
-        self.spos2_ac = spos2_ac
-        self.offsetsteps = offsetsteps
-
-    def iter(self):
-        """Yield all atom index pairs and corresponding displacements."""
-        offsetsteps = self.offsetsteps
-        offsetrange = range(-offsetsteps, offsetsteps + 1)
-        offsets = np.array([(i, j, k) for i in offsetrange for j in offsetrange
-                            for k in offsetrange])
-        for a1, spos1_c in enumerate(self.spos1_ac):
-            for a2, spos2_c in enumerate(self.spos2_ac):
-                for offset in offsets:
-                    R_c = np.dot(spos2_c - spos1_c + offset, self.cell_cv)
-                    yield a1, a2, R_c, offset
-
-
 class NeighborPairs:
     """Class for looping over pairs of atoms using a neighbor list."""
     def __init__(self, cutoff_a, cell_cv, pbc_c, self_interaction):
@@ -361,13 +339,6 @@ class PairsWithSelfinteraction(PairFilter):
             yield a1, a2, R_c, offset
             if a1 == a2 and offset.any():
                 yield a1, a1, -R_c, -offset
-
-
-class PairsBothWays(PairFilter):
-    def iter(self):
-        for a1, a2, R_c, offset in self.pairs.iter():
-            yield a1, a2, R_c, offset
-            yield a2, a1, -R_c, -offset
 
 
 class OppositeDirection(PairFilter):
