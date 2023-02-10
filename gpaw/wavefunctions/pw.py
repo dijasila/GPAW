@@ -325,31 +325,119 @@ class PWWaveFunctions(FDPWWaveFunctions):
             nt_xR[2] += 2 * f * p12.imag
             nt_xR[3] += f * (p11 - p22)
 
+    def add_to_kinetic_energy_density_kpt(self, kpt, psit_xG, taut_xR):
+        N = self.bd.mynbands
+        S = self.gd.comm.size
+        Gpsit_xG = np.empty((S,) + psit_xG.shape[1:], dtype=psit_xG.dtype)
+        taut_R = self.gd.zeros(global_array=True)
+        G_Gv = self.pd.get_reciprocal_vectors(q=kpt.q)
+        comm = self.gd.comm
+
+        for v in range(3):
+            for n1 in range(0, N, S):
+                n2 = min(n1 + S, N)
+                dn = n2 - n1
+                Gpsit_xG[:dn] = 1j * G_Gv[:, v] * psit_xG[n1:n2]
+                Gpsit_G = self.pd.alltoall1(Gpsit_xG[:dn], kpt.q)
+                if Gpsit_G is not None:
+                    f = kpt.f_n[n1 + comm.rank]
+                    a_R = self.pd.ifft(Gpsit_G, kpt.q, local=True, safe=False)
+                    _gpaw.add_to_density(0.5 * f, a_R, taut_R)
+
+        comm.sum(taut_R)
+        taut_R = self.gd.distribute(taut_R)
+        taut_xR[kpt.s] += taut_R
+
+    def add_to_ke_crossterms_kpt(self, kpt, psit_xG, taut_xR):
+        N = self.bd.mynbands
+        S = self.gd.comm.size
+        Gpsit_xG = np.empty((S,) + psit_xG.shape[1:], dtype=psit_xG.dtype)
+        taut_vvR = self.gd.zeros((3, 3), global_array=True)
+        G_Gv = self.pd.get_reciprocal_vectors(q=kpt.q)
+        comm = self.gd.comm
+
+        for n1 in range(0, N, S):
+            n2 = min(n1 + S, N)
+            dn = n2 - n1
+            a_vR = {}
+            for v in range(3):
+                Gpsit_xG[:dn] = 1j * G_Gv[:, v] * psit_xG[n1:n2]
+                Gpsit_G = self.pd.alltoall1(Gpsit_xG[:dn], kpt.q)
+                if Gpsit_G is not None:
+                    f = kpt.f_n[n1 + comm.rank]
+                    a_vR[v] = self.pd.ifft(Gpsit_G, kpt.q,
+                                           local=True, safe=True)
+            if len(a_vR) == 3:
+                f = kpt.f_n[n1 + comm.rank]
+                for v1 in range(3):
+                    for v2 in range(3):
+                        # imaginary parts should cancel
+                        taut_vvR[v1, v2] += f * (a_vR[v1].conj()
+                                                 * a_vR[v2]).real
+            elif len(a_vR) == 0:
+                pass
+            else:
+                raise RuntimeError('Parallelization issue')
+
+        comm.sum(taut_vvR)
+        taut_vvR = self.gd.distribute(taut_vvR)
+        taut_xR[kpt.s, :, :] += taut_vvR
+
     def calculate_kinetic_energy_density(self):
         if self.kpt_u[0].f_n is None:
             return None
 
         taut_sR = self.gd.zeros(self.nspins)
         for kpt in self.kpt_u:
-            G_Gv = self.pd.get_reciprocal_vectors(q=kpt.q)
-            for f, psit_G in zip(kpt.f_n, kpt.psit_nG):
-                for v in range(3):
-                    taut_sR[kpt.s] += 0.5 * f * abs(
-                        self.pd.ifft(1j * G_Gv[:, v] * psit_G, kpt.q))**2
+            self.add_to_kinetic_energy_density_kpt(kpt, kpt.psit_nG, taut_sR)
 
         self.kptband_comm.sum(taut_sR)
+        for taut_R in taut_sR:
+            self.kd.symmetry.symmetrize(taut_R, self.gd)
         return taut_sR
+
+    def calculate_kinetic_energy_density_crossterms(self):
+        if self.kpt_u[0].f_n is None:
+            return None
+
+        taut_svvR = self.gd.zeros((self.nspins, 3, 3))
+        for kpt in self.kpt_u:
+            self.add_to_ke_crossterms_kpt(kpt, kpt.psit_nG, taut_svvR)
+
+        self.kptband_comm.sum(taut_svvR)
+        for taut_R in taut_svvR.reshape(-1, *taut_svvR.shape[-3:]):
+            self.kd.symmetry.symmetrize(taut_R, self.gd)
+        return taut_svvR
 
     def apply_mgga_orbital_dependent_hamiltonian(self, kpt, psit_xG,
                                                  Htpsit_xG, dH_asp,
                                                  dedtaut_R):
+        N = len(psit_xG)
+        S = self.gd.comm.size
+        Q_G = self.pd.Q_qG[kpt.q]
+        Gpsit_xG = np.empty((S,) + psit_xG.shape[1:], dtype=psit_xG.dtype)
+        tmp_xG = np.empty((S,) + psit_xG.shape[1:], dtype=Htpsit_xG.dtype)
         G_Gv = self.pd.get_reciprocal_vectors(q=kpt.q)
-        for psit_G, Htpsit_G in zip(psit_xG, Htpsit_xG):
-            for v in range(3):
-                a_R = self.pd.ifft(1j * G_Gv[:, v] * psit_G, kpt.q)
-                axpy(-0.5, 1j * G_Gv[:, v] *
-                     self.pd.fft(dedtaut_R * a_R, kpt.q),
-                     Htpsit_G)
+
+        dedtaut_R = self.gd.collect(dedtaut_R, broadcast=True)
+
+        for v in range(3):
+            for n1 in range(0, N, S):
+                n2 = min(n1 + S, N)
+                dn = n2 - n1
+                Gpsit_xG[:dn] = 1j * G_Gv[:, v] * psit_xG[n1:n2]
+                tmp_xG[:] = 0
+                Gpsit_G = self.pd.alltoall1(Gpsit_xG[:dn], kpt.q)
+                if Gpsit_G is not None:
+                    a_R = self.pd.ifft(Gpsit_G, kpt.q, local=True, safe=False)
+                    a_R *= dedtaut_R
+                    self.pd.fftplan.execute()
+                    a_R = self.pd.tmp_Q.ravel()[Q_G]
+                else:
+                    a_R = self.pd.tmp_G
+                self.pd.alltoall2(a_R, kpt.q, tmp_xG[:dn])
+                axpy(-0.5, (1j * G_Gv[:, v] * tmp_xG[:dn]).ravel(),
+                     Htpsit_xG[n1:n2].ravel())
 
     def _get_wave_function_array(self, u, n, realspace=True, periodic=False):
         kpt = self.kpt_u[u]
@@ -522,6 +610,18 @@ class PWWaveFunctions(FDPWWaveFunctions):
                              self.pd.fft(ham.vt_sG[s] *
                                          self.pd.ifft(x_G, q), q))
 
+        if ham.xc.type == 'MGGA':
+            G_Gv = self.pd.get_reciprocal_vectors(q=q)
+            for G in range(G1, G2):
+                x_G = self.pd.zeros(q=q)
+                x_G[G] = 1.0
+                for v in range(3):
+                    a_R = self.pd.ifft(1j * G_Gv[:, v] * x_G, q)
+                    H_GG[G - G1] += (self.pd.gd.dv / N *
+                                     (-0.5) * 1j * G_Gv[:, v] *
+                                     self.pd.fft(ham.xc.dedtaut_sG[s] *
+                                                 a_R, q))
+                             
         S_GG.ravel()[G1::npw + 1] = self.pd.gd.dv / N
 
         f_GI = self.pt.expand(q)

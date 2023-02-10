@@ -231,9 +231,17 @@ class SJM(SolvationGPAW):
                         ', '.join(self.default_parameters['sj'])))
         p.update(sj_changes)
         background_charge = kwargs.pop('background_charge', None)
-        parent_changed = True if len(kwargs) > 0 else False
 
         SolvationGPAW.set(self, **kwargs)
+
+        # parent_changed checks if GPAW needs to be reinitialized
+        # The following key do not need reinitialization
+        parent_changed = False
+        for key in kwargs:
+            if key not in ['mixer', 'verbose', 'txt', 'hund', 'random',
+                           'eigensolver', 'convergence', 'fixdensity',
+                           'maxiter']:
+                parent_changed = True
 
         if len(sj_changes):
             if self.wfs is None:
@@ -303,11 +311,11 @@ class SJM(SolvationGPAW):
                 if parent_changed:
                     self.density = None
                 else:
-                    self._quick_reinitialization()
                     if self.density.background_charge:
                         self.density.background_charge = background_charge
                         self.density.background_charge.set_grid_descriptor(
                             self.density.finegd)
+                    self._quick_reinitialization()
 
                 self.wfs.nvalence = self.setups.nvalence + p.excess_electrons
                 self.log('Number of valence electrons is now {:.5f}'

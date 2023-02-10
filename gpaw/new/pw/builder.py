@@ -1,6 +1,5 @@
 from math import pi
 
-import numpy as np
 from ase.units import Ha
 from gpaw.core import PlaneWaves, UniformGrid
 from gpaw.core.domain import Domain
@@ -85,7 +84,8 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
                                             self.xc,
                                             poisson_solver,
                                             nct_ag, self.nct_R,
-                                            self.soc)
+                                            self.soc,
+                                            self.xp)
 
     def create_hamiltonian_operator(self, blocksize=10):
         if self.ncomponents < 4:
@@ -103,12 +103,7 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
 
         grid = self.grid.new(kpt=kpt_c, dtype=self.dtype)
         pw = self.wf_desc.new(kpt=kpt_c)
-        if self.params.parallel['gpu']:
-            from gpaw.gpu import cupy
-            xp = cupy
-        else:
-            xp = np
-        psit_nG = pw.empty(self.nbands, self.communicators['b'], xp)
+        psit_nG = pw.empty(self.nbands, self.communicators['b'], self.xp)
 
         if self.dtype == complex:
             emikr_R = grid.eikr(-kpt_c)

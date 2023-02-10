@@ -13,7 +13,7 @@ from gpaw.response import ResponseContext, ResponseGroundStateAdapter
 from gpaw.response.site_kernels import (SphericalSiteKernels,
                                         CylindricalSiteKernels,
                                         ParallelepipedicSiteKernels)
-from gpaw.response.chiks import ChiKS
+from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.localft import LocalPAWFTCalculator
 from gpaw.response.mft import IsotropicExchangeCalculator
 
@@ -34,8 +34,6 @@ conv = {'bands': nbands,
 # so as to provide magnon energies converged within 5%, based on the
 # convergence study of Co(fcc) in [arXiv:2204.04169]
 ecut = 750  # eV
-# We compute the transverse magnetic susceptibility without broadening
-eta = 0.
 
 # We map out the high-symmetry path G-M-K-G-A, by generating all commensurate
 # q-vectors on the path
@@ -66,16 +64,16 @@ atoms.get_potential_energy()
 context = ResponseContext(txt='Co_mft.txt')
 gs = ResponseGroundStateAdapter(calc)
 
-# Initialize the ChiKS calculator
-chiks = ChiKS(gs, context,
-              ecut=ecut, nbands=nbands, eta=eta,
-              gammacentered=True)
+# Initialize the ChiKSCalculator
+chiks_calc = ChiKSCalculator(gs, context,
+                             ecut=ecut, nbands=nbands,
+                             gammacentered=True)
 
 # Initialize the localft calculator
 localft_calc = LocalPAWFTCalculator(gs, context)
 
 # Initialize the exchange calculator
-isoexch_calc = IsotropicExchangeCalculator(chiks, localft_calc)
+isoexch_calc = IsotropicExchangeCalculator(chiks_calc, localft_calc)
 
 # Initialize site kernels with two sublattices
 positions = atoms.positions  # sublattice positions

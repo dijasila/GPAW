@@ -7,7 +7,6 @@ from ase.units import Ha
 
 from gpaw.arraydict import ArrayDict
 from gpaw.external import create_external_potential
-from gpaw.hubbard import hubbard
 from gpaw.lfc import LFC
 from gpaw.poisson import PoissonSolver
 from gpaw.spinorbit import soc
@@ -311,12 +310,10 @@ class Hamiltonian:
             else:
                 dH_sp = np.zeros_like(D_sp)
 
-            if setup.HubU is not None:
-                # assert self.collinear
-                for l, U, scale in zip(setup.Hubl, setup.HubU, setup.Hubs):
-                    eU, dHU_sp = hubbard(setup, D_sp, l, U, scale)
-                    e_xc += eU
-                    dH_sp += dHU_sp
+            if setup.hubbard_u is not None:
+                eU, dHU_sp = setup.hubbard_u.calculate(setup, D_sp)
+                e_xc += eU
+                dH_sp += dHU_sp
 
             dH_sp[:self.nspins] += dH_p
 
@@ -742,6 +739,7 @@ class RealSpaceHamiltonian(Hamiltonian):
         self.timer.stop('Poisson')
 
         self.timer.start('Hartree integrate/restrict')
+
         e_coulomb = 0.5 * self.finegd.integrate(self.vHt_g, dens.rhot_g,
                                                 global_integral=False)
 

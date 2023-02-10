@@ -32,6 +32,8 @@ def normalize_cell(cell: ArrayLike) -> Array2D:
 
 
 class Domain:
+    itemsize: int
+
     def __init__(self,
                  cell: ArrayLike1D | ArrayLike2D,
                  pbc=(True, True, True),
@@ -102,13 +104,13 @@ class Domain:
 
     def empty(self,
               shape: int | tuple[int, ...] = (),
-              comm: MPIComm = serial_comm) -> DistributedArrays:
+              comm: MPIComm = serial_comm, xp=None) -> DistributedArrays:
         raise NotImplementedError
 
     def zeros(self,
               shape: int | tuple[int, ...] = (),
-              comm: MPIComm = serial_comm) -> DistributedArrays:
-        array = self.empty(shape, comm)
+              comm: MPIComm = serial_comm, xp=None) -> DistributedArrays:
+        array = self.empty(shape, comm, xp=xp)
         array.data[:] = 0.0
         return array
 

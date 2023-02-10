@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from types import ModuleType
 from typing import TYPE_CHECKING, Generic, TypeVar
 
 import gpaw.fftw as fftw
@@ -63,6 +64,7 @@ class DistributedArrays(Generic[DomainType]):
             data = (xp or np).empty(fullshape, dtype)
 
         self.data = data
+        self.xp: ModuleType
         if isinstance(data, (np.ndarray, NDArrayReader)):
             self.xp = np
         else:

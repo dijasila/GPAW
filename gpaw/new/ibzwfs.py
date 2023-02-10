@@ -94,10 +94,28 @@ class IBZWaveFunctions:
                 self.kpt_comm.rank == 0)
 
     def __str__(self):
+        shape = self.get_max_shape(global_shape=True)
+        wfs = self.wfs_qs[0][0]
+        nbytes = (len(self.ibz) *
+                  self.nbands *
+                  len(self.wfs_qs[0]) *
+                  wfs.bytes_per_band)
+        ncores = (self.kpt_comm.size *
+                  self.domain_comm.size *
+                  self.band_comm.size)
         return (f'{self.ibz.symmetries}\n'
                 f'{self.ibz}\n'
+                f'{wfs._short_string(shape)}\n'
+                f'spin-components: {self.ncomponents}'
+                '  # (' +
+                ('' if self.collinear else 'non-') + 'collinear spins)\n'
+                f'bands: {self.nbands}\n'
                 f'valence electrons: {self.nelectrons}\n'
                 f'spin-degeneracy: {self.spin_degeneracy}\n'
+                f'dtype: {self.dtype}\n\n'
+                'memory:\n'
+                f'    wave functions: {nbytes:_}  # bytes '
+                f' ({nbytes // ncores:_} per core)\n\n'
                 'parallelization:\n'
                 f'    kpt:    {self.kpt_comm.size}\n'
                 f'    domain: {self.domain_comm.size}\n'
@@ -142,6 +160,7 @@ class IBZWaveFunctions:
         for wfs in self:
             e_band += wfs.occ_n @ wfs.eig_n * wfs.weight * degeneracy
         e_band = self.kpt_comm.sum(e_band)
+
         self.energies = {
             'band': e_band,
             'entropy': e_entropy,

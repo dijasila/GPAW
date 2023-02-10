@@ -3,18 +3,19 @@ from __future__ import annotations
 from math import pi
 from typing import Sequence
 
+import numpy as np
+
 import _gpaw
 import gpaw.fftw as fftw
-import numpy as np
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.atom_centered_functions import UniformGridAtomCenteredFunctions
 from gpaw.core.domain import Domain
+from gpaw.gpu import as_xp
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.new import cached_property
+from gpaw.new import cached_property, zip
 from gpaw.typing import (Array1D, Array2D, Array3D, Array4D, ArrayLike1D,
                          ArrayLike2D, Vector)
-from gpaw.new import zip
 
 
 class UniformGrid(Domain):
@@ -71,6 +72,8 @@ class UniformGrid(Domain):
 
         self.dv = self.volume / self.size_c.prod()
 
+        self.itemsize = 8 if self.dtype == float else 16
+
     @property
     def size(self):
         """Size of uniform grid."""
@@ -84,6 +87,9 @@ class UniformGrid(Domain):
         return Domain.__repr__(self).replace(
             'Domain(',
             f'UniformGrid(size={self.size_c.tolist()}, ')
+
+    def _short_string(self, global_shape):
+        return f'uniform wave function grid shape: {global_shape}'
 
     @cached_property
     def phase_factors_cd(self):
@@ -160,9 +166,13 @@ class UniformGrid(Domain):
                                 cut=False,
                                 xp=None):
         """Create UniformGridAtomCenteredFunctions object."""
-        return UniformGridAtomCenteredFunctions(functions, positions, self,
+        return UniformGridAtomCenteredFunctions(functions,
+                                                positions,
+                                                self,
                                                 atomdist=atomdist,
-                                                integral=integral, cut=cut)
+                                                integral=integral,
+                                                cut=cut,
+                                                xp=xp)
 
     def transformer(self, other: UniformGrid, stencil_range=3):
         """Create transformer from one grid to another.
@@ -294,7 +304,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
             Array to use for storage.
         """
         if data is None:
-            data = np.empty_like(self.data)
+            data = self.xp.empty_like(self.data)
         return UniformGridFunctions(self.desc, self.dims, self.comm, data)
 
     def __getitem__(self, index):
@@ -341,7 +351,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         grid = self.desc
         dx = (grid.cell_cv[c]**2).sum()**0.5 / grid.size_c[c]
         x = np.arange(grid.start_c[c], grid.end_c[c]) * dx
-        return x, y
+        return x, as_xp(y, np)
 
     def scatter_from(self, data=None):
         """Scatter data from rank-0 to all ranks."""
@@ -453,7 +463,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         return result
 
     def integrate(self, other=None):
-        """Integral of self or self time cc(other)."""
+        """Integral of self or self times cc(other)."""
         if other is not None:
             assert self.desc.dtype == other.desc.dtype
             a_xR = self._arrays()
@@ -465,7 +475,8 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
             result = self.data.sum(axis=(-3, -2, -1))
 
         if result.ndim == 0:
-            result = self.desc.comm.sum(result.item())
+            if self.xp is np:
+                result = np.array(self.desc.comm.sum(result.item()))
         else:
             self.desc.comm.sum(result)
 

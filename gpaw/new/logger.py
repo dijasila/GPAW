@@ -19,13 +19,13 @@ class Logger:
         self.fd: IO[str]
 
         if comm.rank > 0 or filename is None:
-            self.fd = open(os.devnull, 'w')
+            self.fd = open(os.devnull, 'w', encoding='utf-8')
             self.close_fd = True
         elif filename == '-':
             self.fd = sys.stdout
             self.close_fd = False
         elif isinstance(filename, (str, Path)):
-            self.fd = open(filename, 'w')
+            self.fd = open(filename, 'w', encoding='utf-8')
             self.close_fd = True
         else:
             self.fd = filename

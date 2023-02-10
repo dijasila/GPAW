@@ -31,6 +31,7 @@ def test_charged_pw_poisson():
     assert e == pytest.approx((a / 2 / np.pi)**0.5 * charge**2)
 
 
+@pytest.mark.later
 def test_pw_proton():
     """Check that the energy of a proton is 0.0."""
     proton = Atoms('H')

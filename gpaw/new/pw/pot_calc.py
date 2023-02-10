@@ -1,6 +1,7 @@
 import numpy as np
 from gpaw.core import PlaneWaves
 from gpaw.new.pot_calc import PotentialCalculator
+from gpaw.setup import Setups
 
 
 class PlaneWavePotentialCalculator(PotentialCalculator):
@@ -9,12 +10,13 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                  fine_grid,
                  pw: PlaneWaves,
                  fine_pw: PlaneWaves,
-                 setups,
+                 setups: Setups,
                  xc,
                  poisson_solver,
                  nct_ag,
                  nct_R,
-                 soc=False):
+                 soc=False,
+                 xp=np):
         fracpos_ac = nct_ag.fracpos_ac
         atomdist = nct_ag.atomdist
         super().__init__(xc, poisson_solver, setups, nct_R, fracpos_ac, soc)
@@ -22,7 +24,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         self.nct_ag = nct_ag
         self.vbar_ag = setups.create_local_potentials(pw, fracpos_ac, atomdist)
         self.ghat_aLh = setups.create_compensation_charges(
-            fine_pw, fracpos_ac, atomdist)
+            fine_pw, fracpos_ac, atomdist)  # , xp)
 
         self.pw = pw
         self.fine_pw = fine_pw
@@ -33,6 +35,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         self.fftplan = grid.fft_plans()
         self.fftplan2 = fine_grid.fft_plans()
 
+        self.grid = grid
         self.fine_grid = fine_grid
 
         self.vbar_g = pw.zeros()
@@ -147,6 +150,12 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                 if spin < density.ndensities:
                     e_kinetic += vt_R.integrate(self.nct_R)
         return e_kinetic
+
+    def restrict(self, vt_sr):
+        vt_sR = self.grid.empty(vt_sr.dims)
+        for vt_R, vt_r in zip(vt_sR, vt_sr):
+            vt_r.fft_restrict(self.fftplan2, self.fftplan, out=vt_R)
+        return vt_sR
 
     def _move_nct(self, fracpos_ac, ndensities):
         self.ghat_aLh.move(fracpos_ac)

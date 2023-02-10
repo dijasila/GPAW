@@ -65,7 +65,7 @@ class NoGrid(Domain):
             dv=0.0)
         self.size = (0, 0, 0)
 
-    def empty(self, shape=(), comm=serial_comm):
+    def empty(self, shape=(), comm=serial_comm, xp=None):
         return DummyFunctions(self, shape, comm)
 
     def ranks_from_fractional_positions(self, fracpos_ac):
@@ -243,7 +243,7 @@ class TBDFTComponentsBuilder(LCAODFTComponentsBuilder):
             vt_r[-1] = 0.0  # ???
             vt = setup.rgd.spline(vt_r, points=300)
             vtphit_j = []
-            for phit in setup.phit_j:
+            for phit in setup.basis_functions_J:
                 rc = phit.get_cutoff()
                 r_g = np.linspace(0, rc, 150)
                 vt_g = vt.map(r_g) / (4 * pi)**0.5
@@ -251,7 +251,8 @@ class TBDFTComponentsBuilder(LCAODFTComponentsBuilder):
                 vtphit_j.append(Spline(phit.l, rc, vt_g * phit_g))
             vtphit[setup] = vtphit_j
 
-        vtciexpansions = TCIExpansions([s.phit_j for s in self.setups],
+        vtciexpansions = TCIExpansions([s.basis_functions_J
+                                        for s in self.setups],
                                        [vtphit[s] for s in self.setups],
                                        tciexpansions.I_a)
 

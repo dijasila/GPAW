@@ -15,7 +15,9 @@ from gpaw.test import findpeak
 from gpaw.mpi import world
 
 from gpaw.response import ResponseGroundStateAdapter
-from gpaw.response.tms import TransverseMagneticSusceptibility
+from gpaw.response.chiks import ChiKSCalculator
+from gpaw.response.susceptibility import ChiFactory
+from gpaw.response.localft import LocalFTCalculator
 from gpaw.response.df import read_response_function
 
 
@@ -61,23 +63,24 @@ def test_response_iron_sf_ALDA(in_tmp_dir, gpw_files, scalapack):
 
     for s, ((rshelmax, rshewmin, bandsummation, bundle_integrals,
              disable_syms), frq_w) in enumerate(zip(strat_sd, frq_sw)):
-        tms = TransverseMagneticSusceptibility(
-            gs,
-            fxc=fxc,
-            nbands=nbands,
-            eta=eta,
-            ecut=ecut,
-            bandsummation=bandsummation,
-            fxckwargs={'rshelmax': rshelmax,
-                       'rshewmin': rshewmin},
-            bundle_integrals=bundle_integrals,
-            disable_point_group=disable_syms,
-            disable_time_reversal=disable_syms,
-            nblocks=2)
-        tms.get_macroscopic_component(
-            '+-', q_c, frq_w,
-            filename='iron_dsus' + '_G%d.csv' % (s + 1))
-        tms.context.write_timer()
+        complex_frequencies = frq_w + 1.j * eta
+        chiks_calc = ChiKSCalculator(gs,
+                                     nbands=nbands,
+                                     ecut=ecut,
+                                     bandsummation=bandsummation,
+                                     bundle_integrals=bundle_integrals,
+                                     disable_point_group=disable_syms,
+                                     disable_time_reversal=disable_syms,
+                                     nblocks=2)
+        chi_factory = ChiFactory(chiks_calc)
+        localft_calc = LocalFTCalculator.from_rshe_parameters(
+            gs, chiks_calc.context,
+            rshelmax=rshelmax,
+            rshewmin=rshewmin)
+        chi = chi_factory('+-', q_c, complex_frequencies,
+                          fxc=fxc, localft_calc=localft_calc)
+        chi.write_macroscopic_component('iron_dsus' + '_G%d.csv' % (s + 1))
+        chi_factory.context.write_timer()
 
     world.barrier()
 

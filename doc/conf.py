@@ -29,6 +29,7 @@ extlinks = {
     'doi': ('https://doi.org/%s', 'doi: %s'),
     'arxiv': ('https://arxiv.org/abs/%s', 'arXiv: %s'),
     'mr': ('https://gitlab.com/gpaw/gpaw/-/merge_requests/%s', 'MR: !%s'),
+    'issue': ('https://gitlab.com/gpaw/gpaw/-/issues/%s', 'issue: #%s'),
     'xkcd': ('https://xkcd.com/%s', 'XKCD: %s')}
 spelling_word_list_filename = 'words.txt'
 spelling_show_suggestions = True
@@ -59,6 +60,7 @@ nitpick_ignore = [('py:class', 'gpaw.calculator.GPAW'),
                   ('py:class', 'ase.atoms.Atoms'),
                   ('py:class', 'gpaw.point_groups.group.PointGroup'),
                   ('py:class', 'UniformGridFunctions'),
+                  ('py:class', 'gpaw.core.arrays.DomainType'),
                   ('py:class', 'DomainType'),
                   ('py:class', 'Path'),
                   ('py:class', 'Vector'),
@@ -68,7 +70,10 @@ nitpick_ignore = [('py:class', 'gpaw.calculator.GPAW'),
                   ('py:class', 'Array2D'),
                   ('py:class', 'Array3D'),
                   ('py:class', 'MPIComm'),
-                  ('py:class', 'DomainType'),
+                  ('py:class', 'numpy._typing._dtype_like._SupportsDType'),
+                  ('py:class', 'numpy._typing._dtype_like._DTypeDict'),
+                  ('py:class', 'DTypeLike'),
+                  ('py:class', 'ModuleType'),
                   ('py:class', 'IO')]
 
 html_theme = 'sphinx_rtd_theme'

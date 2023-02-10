@@ -1,16 +1,19 @@
 """Check TDDFT ionizations with Yukawa potential."""
+import pytest
 from ase import Atoms
 from ase.units import Hartree
+
+import _gpaw
 from gpaw import GPAW
-from gpaw.mpi import world
 from gpaw.cluster import Cluster
-from gpaw.occupations import FermiDirac
-from gpaw.test import equal
 from gpaw.eigensolvers import RMMDIIS
 from gpaw.lrtddft import LrTDDFT
-import _gpaw
+from gpaw.mpi import world
+from gpaw.occupations import FermiDirac
+from gpaw.test import equal
 
 
+@pytest.mark.hybrids
 def test_rsf_yukawa_lrtddft_short(in_tmp_dir):
     libxc_version = getattr(_gpaw, 'libxc_version', '2.x.y')
     if int(libxc_version.split('.')[0]) < 3:

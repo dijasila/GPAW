@@ -61,5 +61,5 @@ def test_si_update_consistency(in_tmp_dir):
     chi0.update_chi0(chi0_steps, intermediate_m, chi0.nbands, spins)
 
     # Compare the output chi0 body
-    assert chi0_steps.chi0_wGG == pytest.approx(chi0_full.chi0_wGG,
+    assert chi0_steps.chi0_WgG == pytest.approx(chi0_full.chi0_WgG,
                                                 abs=1e-8, rel=1e-6)

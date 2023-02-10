@@ -56,6 +56,9 @@ class LCAOWaveFunctions(WaveFunctions):
         self.S_MM = S_MM
         self.P_aMi = P_aMi
 
+        self.bytes_per_band = (self.array_shape(global_shape=True)[0] *
+                               C_nM.data.itemsize)
+
         # This is for TB-mode (and MYPY):
         self.V_MM: Matrix
 
@@ -71,6 +74,9 @@ class LCAOWaveFunctions(WaveFunctions):
         L_sMsM.data[:M, :M] = S_MM.data
         L_sMsM.data[M:, M:] = S_MM.data
         return L_sMsM
+
+    def _short_string(self, global_shape):
+        return f'basis functions: {global_shape[0]}'
 
     def array_shape(self, global_shape=False):
         if global_shape:
@@ -183,6 +189,11 @@ class LCAOWaveFunctions(WaveFunctions):
             k=self.k,
             weight=self.weight,
             ncomponents=self.ncomponents)
+
+    def move(self,
+             fracpos_ac: Array2D,
+             atomdist: AtomDistribution) -> None:
+        ...
 
     def force_contribution(self, potential: Potential, F_av: Array2D):
         from gpaw.new.lcao.forces import add_force_contributions

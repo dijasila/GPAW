@@ -3,9 +3,9 @@ from __future__ import annotations
 from math import pi
 
 import _gpaw
-import numpy as np
-
 import gpaw.fftw as fftw
+import numpy as np
+from ase.units import Ha
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.domain import Domain
 from gpaw.core.matrix import Matrix
@@ -19,6 +19,8 @@ from gpaw.typing import (Array1D, Array2D, Array3D, ArrayLike1D, ArrayLike2D,
 
 
 class PlaneWaves(Domain):
+    itemsize = 16
+
     def __init__(self,
                  *,
                  ecut: float,
@@ -83,6 +85,10 @@ class PlaneWaves(Domain):
             return r
         q = self.cell_cv @ self.qspiral_v / (2 * pi)
         return f'{r[:-1]}, qsiral={q}'
+
+    def _short_string(self, global_shape):
+        return (f'plane wave coefficients: {global_shape[-1]}\n'
+                f'cutoff: {self.ecut * Ha} eV\n')
 
     def global_shape(self) -> tuple[int, ...]:
         """Tuple with one element: number of plane waves."""
@@ -298,7 +304,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         return self._matrix
 
     def ifft(self, *, plan=None, grid=None, out=None, periodic=False):
-        """Do inverse FFT to uniform grid.
+        """Do inverse FFT(s) to uniform grid(s).
 
         Parameters
         ----------
@@ -392,23 +398,22 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
 
     def integrate(self, other: PlaneWaveExpansions = None) -> np.ndarray:
         """Integral of self or self time cc(other)."""
+        dv = self.dv
         if other is not None:
             assert self.comm.size == 1
             assert self.desc.dtype == other.desc.dtype
             a = self._arrays()
             b = other._arrays()
-            dv = self.dv
             if self.desc.dtype == float:
                 a = a.view(float)
                 b = b.view(float)
                 dv *= 2
             result = a @ b.T.conj()
             if self.desc.dtype == float and self.desc.comm.rank == 0:
-                result -= 0.5 * np.outer(a[:, 0], b[:, 0])
+                result -= 0.5 * a[:, :1] @ b[:, :1].T
             self.desc.comm.sum(result)
             result.shape = self.dims + other.dims
         else:
-            dv = self.dv
             if self.desc.comm.rank == 0:
                 result = self.data[..., 0]
             else:
@@ -458,7 +463,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         """
         a_xG = self._arrays().view(float)
         if kind == 'normal':
-            result_x = np.einsum('xG, xG -> x', a_xG, a_xG)
+            result_x = self.xp.einsum('xG, xG -> x', a_xG, a_xG)
         elif kind == 'kinetic':
 
             a_xG = a_xG.reshape((len(a_xG), -1, 2))

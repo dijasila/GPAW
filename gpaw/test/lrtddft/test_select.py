@@ -1,9 +1,10 @@
+import pytest
 from ase import Atoms
-
 from gpaw import GPAW, FermiDirac
 from gpaw.lrtddft import LrTDDFT
 
 
+@pytest.mark.lrtddft
 def test_digonalize():
     """Test selection at diagonalization stage"""
     atoms = Atoms('O')
