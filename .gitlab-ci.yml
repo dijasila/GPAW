@@ -161,7 +161,7 @@ prepare-libxc:
   before_script:
     - export PREFIX=`realpath $PREFIX`
   script:
-    - git clone -b 6.0.0 https://gitlab.com/libxc/libxc.git
+    - git clone -b 6.1.0 https://gitlab.com/libxc/libxc.git
     - cd libxc
     - autoreconf -i
     - >
