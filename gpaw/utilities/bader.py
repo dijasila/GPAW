@@ -31,7 +31,7 @@ if __name__ == '__main__':
           data=n_sR.data.sum(axis=0) * Bohr**3)  # type: ignore
     subprocess.run('bader -p all_atom density.cube'.split())
     ne = n_sR.integrate().sum()
-    print(ne, 'electrons')
+    print(f'{ne:.6f} electrons')
     charges = calc.atoms.numbers - read_bader_charges()
     for symbol, charge in zip(calc.atoms.symbols, charges):
         print(f'{symbol:2} {charge:10.6f} |e|')
