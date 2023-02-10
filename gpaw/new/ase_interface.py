@@ -381,10 +381,10 @@ class ASECalculator:
 
         return ASECalculator(params, log, calculation, self.atoms)
 
-    def nscf_spiral(self, theta = 0, **kwargs):
+    def nscf_spiral(self, theta = 0, ncol=True, **kwargs):
         Ry_m = np.array([[np.cos(theta), 0, np.sin(theta)],
-                       [0, 1, 0],
-                       [-np.sin(theta), 0, np.cos(theta)]])
+                         [0, 1, 0],
+                         [-np.sin(theta), 0, np.cos(theta)]])
 
         kwargs = {**dict(self.params.items()), **kwargs}
         params = InputParameters(kwargs)
@@ -396,14 +396,22 @@ class ASECalculator:
         log(builder)
         basis_set = builder.create_basis_set()
         state = self.calculation.state
-        vt_sR = state.potential.vt_sR.data
-        vt_sR[1:] = np.tensordot(Ry_m, vt_sR[1:], (1, 0))
-        for a, dH_sii in state.potential.dH_asii.items():
-            dH_sii[1:] = np.tensordot(Ry_m, dH_sii[1:], (1, 0))
 
-        ibzwfs = builder.create_ibz_wave_functions(basis_set, state.potential)
+        if not ncol:
+            ncol_density = state.density.to_noncollinear(builder.setups)
+            ncol_potential = state.potential.to_noncollinear(ncol_density)
+        else:
+            ncol_density = state.density
+            ncol_potential = state.potential
+
+        vt_sR = ncol_potential.vt_sR.data
+        vt_sR[1:] = np.tensordot(Ry_m, vt_sR[1:], (1, 0))
+        for a, dH_sii in ncol_potential.dH_asii.items():
+            dH_sii[1:] = np.tensordot(Ry_m, dH_sii[1:], (1, 0))
+            
+        ibzwfs = builder.create_ibz_wave_functions(basis_set, ncol_potential)
         ibzwfs.fermi_levels = state.ibzwfs.fermi_levels
-        state = DFTState(ibzwfs, state.density, state.potential)
+        state = DFTState(ibzwfs, ncol_density, ncol_potential)
         scf_loop = builder.create_scf_loop()
         scf_loop.update_density_and_potential = False
         log(state)

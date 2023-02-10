@@ -123,6 +123,24 @@ class Density:
                                         charge,
                                         setups)
 
+    def to_noncollinear(self, setups):
+        nt_sR = self.nt_sR.desc.zeros(4)
+        nt_sR.data[0] += (self.nt_sR.data[0] + self.nt_sR.data[1])
+        nt_sR.data[-1] += (self.nt_sR.data[0] - self.nt_sR.data[1])
+
+        atom_array_layout = AtomArraysLayout([(setup.ni, setup.ni)
+                                              for setup in setups],
+                                             atomdist=self.D_asii.layout.atomdist)
+        D_asii = atom_array_layout.empty(4)
+        for a, D_sii in D_asii.items():
+            D_sii[0] = (self.D_asii[a][0] + self.D_asii[a][1])
+            D_sii[-1] = (self.D_asii[a][0] - self.D_asii[a][1])
+
+        return Density.from_data_and_setups(nt_sR,
+                                            D_asii,
+                                            self.charge,
+                                            setups)
+
     @classmethod
     def from_data_and_setups(cls,
                              nt_sR,

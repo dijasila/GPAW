@@ -59,3 +59,15 @@ class Potential:
             potential=vt_sR.data * Ha,
             atomic_hamiltonian_matrices=dH_asp.data * Ha,
             **{f'e_{name}': val * Ha for name, val in energies.items()})
+
+    def to_noncollinear(self, density):
+        vt_sR = self.vt_sR.desc.zeros(4)
+        vt_sR.data[0] += (self.vt_sR.data[0] + self.vt_sR.data[1])/2
+        vt_sR.data[-1] += (self.vt_sR.data[0] - self.vt_sR.data[1])/2
+
+        dH_asii = density.D_asii.layout.new(dtype=complex).empty(4)
+        for a, dH_sii in dH_asii.items():
+            dH_sii[0] = (self.dH_asii[a][0] + self.dH_asii[a][1])/2
+            dH_sii[-1] = (self.dH_asii[a][0] - self.dH_asii[a][1])/2
+
+        return Potential(vt_sR, dH_asii, self.energies)
