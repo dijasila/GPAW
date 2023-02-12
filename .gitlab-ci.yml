@@ -302,7 +302,7 @@ check-agts:
 
 
 lint:
-  image: docker.io/python:slim
+  image: $IMAGE_PATH/run:latest
   stage: build
   tags:
     - linux
