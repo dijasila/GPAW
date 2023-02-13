@@ -16,25 +16,16 @@ class MyConvergenceCriterion(Eigenstates):
         return value
 
 
-def run(mode, method, setups):
-    atoms = bulk('Si')
-    atoms.rattle(stdev=0.01, seed=17)  # Break symmetry
-
-    kwargs = {}
-    if mode == 'pw':
-        kwargs.update(mode=PW(200.0))
-
+def run(atoms, method, kwargs):
     conv_tol = 1e-9
     conv = MyConvergenceCriterion(conv_tol)
 
-    calc = GPAW(mixer=Mixer(0.4, 5, 20.0),
-                txt=None,
-                setups=setups,
-                convergence={'custom': [conv]},
-                experimental={'reuse_wfs_method': method},
-                xc='PBE',
-                kpts=[2, 2, 2],
-                **kwargs)
+    kwargs = {
+        'convergence': {'custom': [conv]},
+        'experimental': {'reuse_wfs_method': method},
+        **kwargs}
+
+    calc = GPAW(**kwargs)
 
     atoms.calc = calc
     E1 = atoms.get_potential_energy()
@@ -42,7 +33,7 @@ def run(mode, method, setups):
     niter1 = len(conv.history)
     del conv.history[:]
 
-    atoms.rattle(stdev=0.001)
+    atoms.rattle(stdev=0.0001)
 
     E2 = atoms.get_potential_energy()
     niter2 = len(conv.history)
@@ -56,14 +47,13 @@ def run(mode, method, setups):
 
 
 @pytest.mark.later
-@pytest.mark.parametrize('mode, reuse_type, setups, max_reuse_error', [
-    ('pw', 'paw', 'paw', 1e-5),
-    ('pw', None, 'paw', 1e-4),
-    ('fd', 'paw', 'paw', 1e-4),
-    ('fd', None, 'paw', 1e-3),
-    # ('pw', 'paw', 'sg15', 0)
+@pytest.mark.parametrize('mode, reuse_type, max_reuse_error', [
+    ('pw', 'paw', 1e-5),
+    ('pw', None, 1e-4),
+    ('fd', 'paw', 1e-4),
+    ('fd', None, 1e-3),
 ])
-def test_reuse_wfs(mode, reuse_type, setups, max_reuse_error):
+def test_reuse_wfs(mode, reuse_type, max_reuse_error):
     """Check that wavefunctions are meaningfully reused.
 
     For a different modes and parameters, this test asserts that the
@@ -71,8 +61,39 @@ def test_reuse_wfs(mode, reuse_type, setups, max_reuse_error):
     certain threshold, indicating that we are doing better than if
     we started from scratch."""
 
-    niter_first, niter_second, reuse_error = run(mode, reuse_type, setups)
+    atoms = bulk('Si')
+    atoms.rattle(stdev=0.01, seed=17)  # Break symmetry
+
+    kwargs = dict(
+        mode=mode,
+        kpts=(2, 2, 2),
+        xc='PBE',
+        mixer=Mixer(0.4, 5, 20.0))
+
+    niter1, niter2, reuse_error = run(
+        atoms, reuse_type, kwargs)
 
     # It should at the very least be faster to do the second step:
-    assert niter_second < niter_first
+    assert niter2 < niter1
     assert reuse_error < max_reuse_error
+
+
+def test_reuse_sg15(sg15_hydrogen):
+    """Test wfs reuse with sg15.
+
+    As of writing this test, the sg15 pseudopotentials have no pseudo
+    partial waves, and therefore, reusing them should have no effect."""
+    from ase.build import molecule
+    atoms = molecule('H2', vacuum=2.0)
+
+    # If we do not rattle, we will get broken symmetry error:
+    atoms.rattle(stdev=.001)
+
+    kwargs = dict(
+        mode='pw',
+        setups={'H': sg15_hydrogen},
+        xc='PBE')
+
+    niter1, niter2, reuse_error = run(atoms, 'paw', kwargs)
+    assert niter2 < niter1
+    assert reuse_error < 1e-5
