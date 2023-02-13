@@ -438,21 +438,33 @@ class ASECalculator:
 
         return ASECalculator(params, log, calculation, self.atoms)
 
-    def nscf_spiral(self, theta = 0, ncol=True, **kwargs):
+    def nscf_spiral(self, q=[0, 0, 0], theta=0, txt=None, **kwargs):
+        self.params.mode['qspiral'] = q
         Ry_m = np.array([[np.cos(theta), 0, np.sin(theta)],
                          [0, 1, 0],
                          [-np.sin(theta), 0, np.cos(theta)]])
 
-        kwargs = {**dict(self.params.items()), **kwargs}
+        state = self.calculation.state
+        ncol = state.density.ncomponents == 4
+        _, magmoms = state.density.calculate_magnetic_moments()
+        magmoms = np.tensordot(Ry_m, magmoms, (1, 1)).T
+        spiral_params = {'symmetry': 'off',
+                         'parallel': {'domain': 1, 'band': 1},
+                         'magmoms': magmoms,
+                         'soc': False,
+                         'txt': txt}
+
+        kwargs = {**dict(self.params.items()), **kwargs, **spiral_params}
         params = InputParameters(kwargs)
         txt = params.txt
+        if txt == '?':
+            txt = '-'
         world = params.parallel['world']
         log = Logger(txt, world)
-        params.magmoms = np.tensordot(Ry_m, params.magmoms, (1, 1)).T
+        
         builder = create_builder(self.atoms, params)
         log(builder)
         basis_set = builder.create_basis_set()
-        state = self.calculation.state
 
         if not ncol:
             ncol_density = state.density.to_noncollinear(builder.setups)
@@ -478,7 +490,8 @@ class ASECalculator:
             state,
             builder.setups,
             scf_loop,
-            SimpleNamespace(fracpos_ac=self.calculation.fracpos_ac),
+            SimpleNamespace(fracpos_ac=self.calculation.fracpos_ac,
+                            poisson_solver=None),
             log)
 
         calculation.converge()
