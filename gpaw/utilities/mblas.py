@@ -54,6 +54,8 @@ def multi_dotc(x, y, s=None):
     if len(x.shape) == 1:
         return dotc(x, y)
 
+    if s is None:
+        s = np.empty(x.shape[0], dtype=x.dtype)
     if not isinstance(x, np.ndarray):
         if not isinstance(s, np.ndarray):
             s_gpu = s
@@ -67,8 +69,6 @@ def multi_dotc(x, y, s=None):
         if isinstance(s, np.ndarray):
             s = gpu.copy_to_host(s_gpu, out=s)
     else:
-        if s is None:
-            s = np.empty(x.shape[0], dtype=x.dtype)
         multi_dotc_cpu(x, y, s)
     return s
 
