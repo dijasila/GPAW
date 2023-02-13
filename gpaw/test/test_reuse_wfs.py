@@ -1,7 +1,7 @@
 import pytest
 from ase.build import bulk
 
-from gpaw import GPAW, PW, Mixer
+from gpaw import GPAW, Mixer
 from gpaw.convergence_criteria import Eigenstates
 
 
