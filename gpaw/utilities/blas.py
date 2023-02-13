@@ -80,6 +80,11 @@ def mmm(alpha: T,
     else:
         assert a.dtype == complex
 
+    _mmm(alpha, a, opa, b, opb, beta, c, use_gpu)
+
+
+def _mmm(alpha, a, opa, b, opb, beta, c, use_gpu=None):
+    """Launch CPU or GPU version of mmm()."""
     a_cpu, a_gpu = (None, a) if not isinstance(a, np.ndarray) \
                              else (a, None)
     b_cpu, b_gpu = (None, b) if not isinstance(b, np.ndarray) \
@@ -94,9 +99,9 @@ def mmm(alpha: T,
             b_gpu = gpu.copy_to_device(b_cpu)
         if c_gpu is None:
             c_gpu = gpu.copy_to_device(c_cpu)
-        m = b2
-        n = a1
-        k = b1
+        m = b.shape[1] if opb == 'N' else b.shape[0]
+        n = a.shape[0] if opa == 'N' else a.shape[1]
+        k = b.shape[0] if opb == 'N' else b.shape[1]
         lda = a_gpu.strides[0] // a_gpu.itemsize
         ldb = b_gpu.strides[0] // b_gpu.itemsize
         ldc = c_gpu.strides[0] // c_gpu.itemsize
@@ -386,6 +391,11 @@ def rk(alpha, a, beta, c, trans='c', use_gpu=None):
             assert c.shape == (a.shape[0], a.shape[0])
         assert c.strides[1] == c.itemsize
 
+    _rk(alpha, a, beta, c, trans, use_gpu)
+
+
+def _rk(alpha, a, beta, c, trans='c', use_gpu=None):
+    """Launch CPU or GPU version of rk()."""
     a_cpu, a_gpu = (None, a) if not isinstance(a, np.ndarray) \
                              else (a, None)
     c_cpu, c_gpu = (None, c) if not isinstance(c, np.ndarray) \
@@ -452,6 +462,11 @@ def r2k(alpha, a, b, beta, c, trans='c', use_gpu=None):
             assert c.shape == (a.shape[1], a.shape[1])
         assert c.strides[1] == c.itemsize
 
+    _r2k(alpha, a, b, beta, c, trans, use_gpu)
+
+
+def _r2k(alpha, a, b, beta, c, trans='c', use_gpu=None):
+    """Launch CPU or GPU version of rk()."""
     a_cpu, a_gpu = (None, a) if not isinstance(a, np.ndarray) \
                              else (a, None)
     b_cpu, b_gpu = (None, b) if not isinstance(b, np.ndarray) \
@@ -663,9 +678,9 @@ if not hasattr(_gpaw, 'mmm'):
     gemmdot = _gemmdot
 
 elif not debug:
-    mmm = _gpaw.mmm  # noqa
-    rk = _gpaw.rk  # noqa
-    r2k = _gpaw.r2k  # noqa
+    mmm = _mmm  # noqa
+    rk = _rk  # noqa
+    r2k = _r2k  # noqa
     gemmdot = _gemmdot
 
 else:
