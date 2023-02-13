@@ -16,18 +16,9 @@ class MyConvergenceCriterion(Eigenstates):
         return value
 
 
-#@pytest.mark.later
-#@pytest.mark.parametrize('mode', ['fd', 'pw'])
-#@pytest.mark.parametrize('method', [None, 'paw'])
-#@pytest.mark.parametrize('mode', '
 def run(mode, method, setups):
     atoms = bulk('Si')
     atoms.rattle(stdev=0.01, seed=17)  # Break symmetry
-
-    #for mode in ['fd', 'pw']:
-    #    for method in [None, 'paw', 'lcao']:
-            # atoms = atoms0.copy()
-    #wfs_convergence = []
 
     kwargs = {}
     if mode == 'pw':
@@ -44,7 +35,6 @@ def run(mode, method, setups):
                 xc='PBE',
                 kpts=[2, 2, 2],
                 **kwargs)
-
 
     atoms.calc = calc
     E1 = atoms.get_potential_energy()
@@ -65,6 +55,7 @@ def run(mode, method, setups):
     return niter1, niter2, reuse_error
 
 
+@pytest.mark.later
 @pytest.mark.parametrize('mode, reuse_type, setups, max_reuse_error', [
     ('pw', 'paw', 'paw', 1e-5),
     ('pw', None, 'paw', 1e-4),
