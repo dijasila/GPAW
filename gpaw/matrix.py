@@ -123,14 +123,14 @@ class Matrix:
             self._array_gpu = None
             if self.use_gpu:
                 self._array_gpu = gpu.cupy.empty(self.dist.shape, self.dtype)
+        elif isinstance(data, tuple):
+            self._array_cpu = data[0].reshape(self.dist.shape)
+            self._array_gpu = data[1].reshape(self.dist.shape)
         elif not isinstance(data, np.ndarray):
             self._array_gpu = data.reshape(self.dist.shape)
             self._array_cpu = gpu.copy_to_host(self._array_gpu)
             if not self.use_gpu:
                 self._array_gpu = None
-        elif isinstance(data, tuple):
-            self._array_cpu = data[0].reshape(self.dist.shape)
-            self._array_gpu = data[1].reshape(self.dist.shape)
         else:
             self._array_cpu = data.reshape(self.dist.shape)
             self._array_gpu = None
