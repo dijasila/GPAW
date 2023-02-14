@@ -58,7 +58,7 @@ class Preconditioner:
             q0 = self.scratch0[0, :nb]
         r1, d1, q1 = self.scratch1[:, :nb]
         r2, d2, q2 = self.scratch2[:, :nb]
-        if self.use_c_precond:
+        if self.use_c_precond and not self.use_gpu:
             transformers = [self.restrictor_object0.transformer,
                             self.restrictor_object1.transformer,
                             self.interpolator_object1.transformer,
