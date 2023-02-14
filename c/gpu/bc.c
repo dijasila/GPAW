@@ -1,11 +1,11 @@
-#include <string.h>
-#include <assert.h>
-#include "../bc.h"
 #include "../extensions.h"
+#include "../bc.h"
 #include "bmgs.h"
 #include "gpu.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <assert.h>
 #include <time.h>
 
 static int bc_init_count = 0;
