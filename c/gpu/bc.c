@@ -30,6 +30,12 @@ static int bc_sbuffs_size=0;
 static int bc_rbuffs_max=0;
 static int bc_sbuffs_max=0;
 
+#ifdef NDEBUG
+#  define check_mpi(s) (s)
+#else
+#  define check_mpi(s) (assert((s) == MPI_SUCCESS))
+#endif
+
 void bc_init_gpu(boundary_conditions* bc)
 {
     int nsends=0;
@@ -324,14 +330,14 @@ void bc_unpack_gpu_sync(const boundary_conditions* bc,
         int p = bc->sendproc[i][d];
         if (p >= 0) {
 #ifdef GPAW_NO_GPU_MPI
-            assert(MPI_Isend(bc_sbuff[i][d], bc->nsend[i][d] * nin,
-                        MPI_DOUBLE, p, 1 - d + 1000 * i, bc->comm,
-                        &sendreq[d]) == MPI_SUCCESS);
+            check_mpi(MPI_Isend(bc_sbuff[i][d], bc->nsend[i][d] * nin,
+                                MPI_DOUBLE, p, 1 - d + 1000 * i, bc->comm,
+                                &sendreq[d]));
 #else
             gpuStreamSynchronize(kernel_stream);
-            assert(MPI_Isend(bc_sbuff_gpu[i][d], bc->nsend[i][d] * nin,
-                        MPI_DOUBLE, p, 1 - d + 1000 * i, bc->comm,
-                        &sendreq[d]) == MPI_SUCCESS);
+            check_mpi(MPI_Isend(bc_sbuff_gpu[i][d], bc->nsend[i][d] * nin,
+                                MPI_DOUBLE, p, 1 - d + 1000 * i, bc->comm,
+                                &sendreq[d]));
 #endif
         }
     }
@@ -357,7 +363,7 @@ void bc_unpack_gpu_sync(const boundary_conditions* bc,
 #ifdef PARALLEL
     for (int d=0; d<2; d++) {
         if (!bc_recv_done[i][d]) {
-            assert(MPI_Wait(&recvreq[i][d], MPI_STATUS_IGNORE) == MPI_SUCCESS);
+            check_mpi(MPI_Wait(&recvreq[i][d], MPI_STATUS_IGNORE));
         }
     }
     if (!bc_recv_done[i][0] || !bc_recv_done[i][1]) {
@@ -388,7 +394,7 @@ void bc_unpack_gpu_sync(const boundary_conditions* bc,
     // This does not work on the ibm with gcc!  We do a blocking send instead.
     for (int d=0; d<2; d++)
         if (bc->sendproc[i][d] >= 0)
-            assert(MPI_Wait(&sendreq[d], MPI_STATUS_IGNORE) == MPI_SUCCESS);
+            check_mpi(MPI_Wait(&sendreq[d], MPI_STATUS_IGNORE));
 #endif
 }
 
@@ -574,7 +580,7 @@ static void _bc_unpack_gpu_async(const boundary_conditions* bc,
     // This does not work on the ibm with gcc!  We do a blocking send instead.
     for (int d=0; d<2; d++) {
         if (bc->sendproc[i][d] >= 0)
-            assert(MPI_Wait(&sendreq[d], MPI_STATUS_IGNORE) == MPI_SUCCESS);
+            check_mpi(MPI_Wait(&sendreq[d], MPI_STATUS_IGNORE));
     }
     for (int d=0; d<2; d++) {
         if (bc->recvproc[i][d] >= 0)
