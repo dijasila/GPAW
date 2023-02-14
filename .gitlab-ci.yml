@@ -396,6 +396,8 @@ docs:
 # https://about.gitlab.com/blog/2016/11/03/publish-code-coverage-report-with-gi>
 pages:
   stage: deploy
+  tags:
+    - linux
   dependencies:
     - test-latest
   script:
