@@ -100,8 +100,8 @@ class RMMDIIS(Eigensolver):
 
         # Arrays needed for DIIS step
         if self.niter > 1:
-            psit_diis_nxG = wfs.empty(B * self.niter, q=kpt.q, use_gpu=False)
-            R_diis_nxG = wfs.empty(B * self.niter, q=kpt.q, use_gpu=False)
+            psit_diis_nxG = wfs.empty(B * self.niter, q=kpt.q)
+            R_diis_nxG = wfs.empty(B * self.niter, q=kpt.q)
 
         Ht = partial(wfs.apply_pseudo_hamiltonian, kpt, ham)
 
@@ -136,13 +136,8 @@ class RMMDIIS(Eigensolver):
             if self.niter > 1:
                 # Save the previous vectors contiguously for each band
                 # in the block
-                if self.use_gpu:
-                    psit_diis_nxG[:B * self.niter:self.niter] = \
-                            psitb.array.get()
-                    R_diis_nxG[:B * self.niter:self.niter] = Rb.array.get()
-                else:
-                    psit_diis_nxG[:B * self.niter:self.niter] = psitb.array
-                    R_diis_nxG[:B * self.niter:self.niter] = Rb.array
+                psit_diis_nxG[:B * self.niter:self.niter] = psitb.array
+                R_diis_nxG[:B * self.niter:self.niter] = Rb.array
 
             # Precondition the residual:
             with self.timer('precondition'):
