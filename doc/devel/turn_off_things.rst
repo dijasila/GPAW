@@ -1,23 +1,8 @@
-How to turn off things (and maker development and debugging simpler)
-====================================================================
+How to turn off things (and make development and debugging simpler)
+===================================================================
 
-When developing new features or debugging it can be an advantage to simplify the problem by turning things off.
-
-
-No XC functional
-----------------
-
-Use ``xc={'name': 'null'}``.
-
-
-No Coulomb interactions
------------------------
-
-::
-
-  from gpaw.poisson import NoInteractionPoissonSolver
-  calc = GPAW(...,
-              poissonsolver=NoInteractionPoissonSolver())
+When developing new features or debugging it can be an advantage to simplify
+the problem by turning things off.
 
 
 No PAW corrections
@@ -31,7 +16,18 @@ No PAW corrections
   Use ``setups='ah'``.  See :git:`gpaw/test/pseudopotential/test_ah.py`
   and :git:`gpaw/ah.py`.
 
-* PP's ...
+* For other elements we have norm-conserving non-local pseudo-potentials:
+  :ref:`manual_setups`.
 
 
-H-example here ...
+No XC functional
+----------------
+
+Use ``xc={'name': 'null'}``.
+
+
+No Coulomb interactions
+-----------------------
+
+Use ``poissonsolver=NoInteractionPoissonSolver()``
+(and ``from gpaw.poisson import NoInteractionPoissonSolver``).
