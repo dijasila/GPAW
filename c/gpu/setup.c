@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
 
 void bc_init_buffers_gpu();
 void blas_init_gpu();
