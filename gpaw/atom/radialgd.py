@@ -300,7 +300,8 @@ class RadialGridDescriptor(ABC):
         return vr_g
 
     def pseudize(self, a_g, gc, l=0, points=4):
-        """Construct smooth continuation of a_g for g<gc.
+        """Construct smooth continuation of a_g for g<gc
+        using polynomial interpolation
 
         Returns (b_g, c_p[P-1]) such that b_g=a_g for g >= gc and::
 
@@ -309,6 +310,15 @@ class RadialGridDescriptor(ABC):
              g  p=0      g
 
         for g < gc+P.
+
+        Parameters
+        ----------
+        a_g : array_like, shape (M, )
+        gc : int
+        l : int
+        points : int
+            determines the degree (P-1) of a polynom , P = points
+
         """
         assert isinstance(gc, numbers.Integral) and gc > 10, gc
 
@@ -337,6 +347,15 @@ class RadialGridDescriptor(ABC):
             /  _     2  /  _     2
             | dr b(r) = | dr a(r)
             /           /
+
+        pseudize() use polynomial of 2*(P - 1) + l where P = points
+        it fits polynomial so that it coincides with a_g at the grid points [gc, g + 1, .., gc + points-1]
+        since here we have an additional constraint (normalization conditions) then
+        we need polynomial of a higher degree 2*P + l.
+
+        The way the normalization conditions are satisfyed is by introducing additional grid point
+        gc0 = gc // 2 and then adjusting value of b(r) at gc0 until the norm conditions are satisfied
+
         """
 
         b_g = self.pseudize(a_g, gc, l, points)[0]
