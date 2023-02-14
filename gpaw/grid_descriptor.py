@@ -308,9 +308,9 @@ class GridDescriptor(Domain):
 
         gsize = prod(a_xg.shape[-3:])
         if not isinstance(a_xg, np.ndarray):
-            nd = a_xg.size / gsize
+            nd = a_xg.size // gsize
             A_xg = a_xg.reshape((nd,) + a_xg.shape[-3:])
-            nd = b_yg.size / gsize
+            nd = b_yg.size // gsize
             B_yg = b_yg.reshape((nd,) + b_yg.shape[-3:])
         else:
             A_xg = np.ascontiguousarray(a_xg.reshape((-1, gsize)))
