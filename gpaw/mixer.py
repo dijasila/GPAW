@@ -32,7 +32,22 @@ In the end, what the user provides is probably a dictionary anyway, and the
 relevant objects are instantiated automatically."""
 
 
-class BaseMixer:
+class Library:
+    storage = []
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        cls.storage.append(cls)
+
+    @classmethod
+    def get(cls, name):
+        for item in cls.storage:
+            if getattr(item, 'name') == name:
+                return item
+        return NotImplemented
+
+
+class BaseMixer(Library):
     name = 'pulay'
 
     """Pulay density mixer."""
@@ -379,7 +394,7 @@ class BroydenBaseMixer:
         return dNt
 
 
-class DummyMixer:
+class DummyMixer(Library):
     """Dummy mixer for TDDFT, i.e., it does not mix."""
     name = 'dummy'
     beta = 1.0
@@ -399,7 +414,7 @@ class DummyMixer:
         return {'name': 'dummy'}
 
 
-class NotMixingMixer:
+class NotMixingMixer(Library):
     name = 'no-mixing'
 
     def __init__(self, beta, nmaxold, weight):
@@ -456,7 +471,7 @@ class NotMixingMixer:
         return string
 
 
-class SeparateSpinMixerDriver:
+class SeparateSpinMixerDriver(Library):
     name = 'separate'
 
     def __init__(self, basemixerclass, beta, nmaxold, weight):
@@ -481,7 +496,7 @@ class SeparateSpinMixerDriver:
         return dNt
 
 
-class SpinSumMixerDriver:
+class SpinSumMixerDriver(Library):
     name = 'sum'
     mix_atomic_density_matrices = False
 
@@ -541,7 +556,7 @@ class SpinSumMixerDriver2(SpinSumMixerDriver):
     mix_atomic_density_matrices = True
 
 
-class SpinDifferenceMixerDriver:
+class SpinDifferenceMixerDriver(Library):
     name = 'difference'
 
     def __init__(self, basemixerclass, beta, nmaxold, weight,
@@ -615,7 +630,7 @@ class SpinDifferenceMixerDriver:
         return dNt
 
 
-class FullSpinMixerDriver:
+class FullSpinMixerDriver(Library):
     name = 'fullspin'
 
     def __init__(self, basemixerclass, beta, nmaxold, weight, g=None):
@@ -641,17 +656,6 @@ class FullSpinMixerDriver:
         dNt = basemixer.mix_density(nt_sG, D_asp, self.g_ss)
 
         return dNt
-
-
-# Dictionaries to get mixers by name:
-_backends = {}
-_methods = {}
-for cls in [FFTBaseMixer, BroydenBaseMixer, BaseMixer, NotMixingMixer]:
-    _backends[cls.name] = cls  # type:ignore
-for dcls in [SeparateSpinMixerDriver, SpinSumMixerDriver,
-             FullSpinMixerDriver, SpinSumMixerDriver2,
-             SpinDifferenceMixerDriver, DummyMixer]:
-    _methods[dcls.name] = dcls  # type:ignore
 
 
 # This function is used by Density to decide mixer parameters
@@ -696,8 +700,8 @@ def get_mixer_from_keywords(pbc, nspins, **mixerkwargs):
             kwargs[key] = val
 
     # Resolve keyword strings (like 'fft') into classes (like FFTBaseMixer):
-    driver = _methods.get(kwargs['method'], kwargs['method'])
-    baseclass = _backends.get(kwargs['backend'], kwargs['backend'])
+    driver = Library.get(kwargs['method'])
+    baseclass = Library.get(kwargs['backend'])
 
     # We forward any remaining mixer kwargs to the actual mixer object.
     # Any user defined variables that do not really exist will cause an error.
