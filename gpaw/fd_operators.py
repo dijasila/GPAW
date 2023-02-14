@@ -102,7 +102,7 @@ class FDOperator:
             self.operator.apply_gpu(gpu.get_pointer(in_xg),
                                     gpu.get_pointer(out_xg),
                                     in_xg.shape, in_xg.dtype, phase_cd)
-            if _out:
+            if _out is not None:
                 gpu.copy_to_host(out_xg, out=_out)
         else:
             _out = None
@@ -110,7 +110,7 @@ class FDOperator:
                 _out = out_xg
                 out_xg = gpu.copy_to_host(out_xg)
             self.operator.apply(in_xg, out_xg, phase_cd)
-            if _out:
+            if _out is not None:
                 gpu.copy_to_device(out_xg, out=_out)
 
     def relax(self, relax_method, f_g, s_g, n, w=None):
