@@ -299,6 +299,121 @@ class PAWWaves:
                                             vr_g, -1) / (4 * pi) +
                          self.dH_nn)
 
+    def pseudize_orthonormal(self, nderiv, vtr_g, rcmax):
+        """
+        P will be the number of coefficients in the polynomial, polynomials are of even power with maxium of 2P
+
+        Parameters
+        ----------
+        nderiv
+        vtr_g
+        rcmax
+
+        Returns
+        -------
+
+        """
+        P = nderiv + 2
+
+        rgd = self.rgd
+        r_g = rgd.r_g
+        phi_ng = self.phi_ng = np.array(self.phi_ng)
+        N = len(phi_ng)
+        assert N <= 2, "method works if you have no more than 2 partial waves per angular momentum"
+
+        phit_ng = self.phit_ng = rgd.empty(N)
+        pt_ng = self.pt_ng = rgd.empty(N)
+        gc = rgd.ceil(self.rcut)
+        gcmax = rgd.ceil(rcmax)
+
+        l = self.l
+
+        dgdr_g = 1 / rgd.dr_g
+        d2gdr2_g = rgd.d2gdr2()
+
+        self.nt_g = rgd.zeros()
+
+        c0 = np.empty(N)
+        x0_init = []
+        phi_ng_ref = []
+        r_g = rgd.r_g
+        for n, phi_g in enumerate(phi_ng):
+            phit_ng[n] = rgd.pseudize_normalized(phi_g, gc, l, nderiv)[0]  # this will return the polynom
+            # take initial grid point and value of current approximation at this point
+            gc0 = rgd.ceil((0.9*self.rcut))
+            gc1 = rgd.ceil((0.95*self.rcut))
+
+            x0_init.append(phit_ng[n][gc0])
+            x0_init.append(phit_ng[n][gc1])
+            # take grid points at which you make interpolation
+            i = [gc0, gc1] + list(range(gc, gc + nderiv))
+            r_i = r_g[i]
+            # take ref_values at these grid points
+            phi_ng_ref.append(phi_g[i])
+
+        phi_ng_ref = np.asarray(phi_ng_ref)
+        x0_init = np.asarray(x0_init)
+
+        # calculate the reference overlap matrix
+        Sref = rgd.integrate(phi_ng[:, None] * phi_ng)
+        print(Sref)
+
+        def f(x):
+            for n, phi in enumerate(phi_ng_ref):
+                # change value of reference function at gc
+                phi[0] = x[2*n]
+                phi[1] = x[2*n+1]
+
+                # calculate polynomial approximation to a reference function
+                c_x = np.polyfit(r_i ** 2, phi / (r_i ** l), P-1)
+                phit_ng[n][:gc + nderiv] = np.polyval(c_x, r_g[:gc + nderiv] ** 2) * r_g[:gc + nderiv] ** l
+                c0[n] = c_x[-1]
+            # calculate overlap matrix
+            dS_nn = (Sref - rgd.integrate(phit_ng[:, None] * phit_ng)) / (4 * pi)
+
+            # print('S_max = ', np.max(np.absolute(dS_nn)))
+            # return np.max(np.absolute(dS_nn))
+            return np.linalg.norm(dS_nn)
+
+        from scipy.optimize import fmin
+        print('='*100)
+        xmin = fmin(f, x0_init, ftol=1.0e-16, maxiter=100000, maxfun=5000)
+        print('Minimum is :', f(xmin))
+        assert f(xmin) < 1.5e-10
+        print(' '*100)
+
+        for n in range(N):
+
+            a_g, dadg_g, d2adg2_g = rgd.zeros(3)
+            a_g[1:] = self.phit_ng[n, 1:] / r_g[1:]**l
+            a_g[0] = c0[n]
+            dadg_g[1:-1] = 0.5 * (a_g[2:] - a_g[:-2])
+            d2adg2_g[1:-1] = a_g[2:] - 2 * a_g[1:-1] + a_g[:-2]
+            q_g = (vtr_g - self.e_n[n] * r_g) * self.phit_ng[n]
+            q_g -= 0.5 * r_g**l * (
+                (2 * (l + 1) * dgdr_g + r_g * d2gdr2_g) * dadg_g +
+                r_g * d2adg2_g * dgdr_g**2)
+            q_g[gcmax:] = 0
+            rgd.cut(q_g, self.rcut)
+            q_g[1:] /= r_g[1:]
+            if l == 0:
+                q_g[0] = q_g[1]
+            pt_ng[n] = q_g
+
+            self.nt_g += self.f_n[n] / 4 / pi * phit_ng[n]**2
+
+        self.dS_nn = (rgd.integrate(phi_ng[:, None] * phi_ng) -
+                      rgd.integrate(phit_ng[:, None] * phit_ng)) / (4 * pi)
+
+        # assert np.linalg.norm(self.dS_nn) < 1.0e-8, f'Not nc, {np.linalg.norm(self.dS_nn)}!'
+        # print('S_max = ', np.linalg.norm(self.dS_nn))
+        self.Q = np.dot(self.f_n, self.dS_nn.diagonal())
+        A_nn = rgd.integrate(phit_ng[:, None] * pt_ng) / (4 * pi)
+        self.dH_nn = np.dot(self.dS_nn, np.diag(self.e_n)) - A_nn
+        self.dH_nn *= 0.5
+        self.dH_nn += self.dH_nn.T.copy()
+        pt_ng[:] = np.dot(np.linalg.inv(A_nn.T), pt_ng)
+
 
 class PAWSetupGenerator:
     def __init__(self, aea, projectors,
@@ -540,8 +655,11 @@ class PAWSetupGenerator:
 
         self.nt_g = self.rgd.zeros()
         for waves in self.waves_l:
-            waves.pseudize(type, nderiv, self.vtr_g, self.aea.vr_sg[0],
-                           2.0 * self.rcmax)
+            if type == 'orthonormal':
+                waves.pseudize_orthonormal(nderiv, self.vtr_g, 2.0 * self.rcmax)
+            else:
+                waves.pseudize(type, nderiv, self.vtr_g, self.aea.vr_sg[0],
+                               2.0 * self.rcmax)
             self.nt_g += waves.nt_g
             self.Q += waves.Q
 
