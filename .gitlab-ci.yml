@@ -395,6 +395,9 @@ docs:
 #  * The public/ directory is specially recognized by gitlab
 # https://about.gitlab.com/blog/2016/11/03/publish-code-coverage-report-with-gi>
 pages:
+  # We specify our own image so we don't run on as root,
+  # but we don't really need anything from the docker.
+  image: $IMAGE_PATH/run:latest
   stage: deploy
   tags:
     - linux
