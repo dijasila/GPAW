@@ -5,6 +5,7 @@
 See Kresse, Phys. Rev. B 54, 11169 (1996)
 """
 
+from __future__ import annotations
 import numpy as np
 from numpy.fft import fftn, ifftn
 
@@ -33,7 +34,7 @@ relevant objects are instantiated automatically."""
 
 
 class Library:
-    storage = []
+    storage: list[type] = []
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
