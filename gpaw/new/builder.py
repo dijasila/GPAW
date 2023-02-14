@@ -260,7 +260,12 @@ class DFTComponentsBuilder:
                                         dims=(self.nbands, 2),
                                         data=P_sknI[wfs.k])
 
-        ibzwfs.fermi_levels = reader.wave_functions.fermi_levels / ha
+        try:
+            ibzwfs.fermi_levels = reader.wave_functions.fermi_levels / ha
+        except AttributeError:
+            # old gpw-file
+            ibzwfs.fermi_levels = np.array(
+                [reader.occupations.fermilevel / ha])
 
 
 def create_communicators(comm: MPIComm = None,
