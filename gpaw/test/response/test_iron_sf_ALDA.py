@@ -17,6 +17,7 @@ from gpaw.mpi import world
 from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.susceptibility import ChiFactory
+from gpaw.response.localft import LocalFTCalculator
 from gpaw.response.df import read_response_function
 
 
@@ -72,11 +73,12 @@ def test_response_iron_sf_ALDA(in_tmp_dir, gpw_files, scalapack):
                                      disable_time_reversal=disable_syms,
                                      nblocks=2)
         chi_factory = ChiFactory(chiks_calc)
+        localft_calc = LocalFTCalculator.from_rshe_parameters(
+            gs, chiks_calc.context,
+            rshelmax=rshelmax,
+            rshewmin=rshewmin)
         chi = chi_factory('+-', q_c, complex_frequencies,
-                          fxc=fxc,
-                          fxckwargs={'calculator': {'method': 'old',
-                                                    'rshelmax': rshelmax,
-                                                    'rshewmin': rshewmin}})
+                          fxc=fxc, localft_calc=localft_calc)
         chi.write_macroscopic_component('iron_dsus' + '_G%d.csv' % (s + 1))
         chi_factory.context.write_timer()
 

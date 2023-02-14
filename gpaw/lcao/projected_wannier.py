@@ -62,7 +62,8 @@ def eigvals(H, S):
 
 def get_bfs(calc):
     wfs = calc.wfs
-    bfs = BasisFunctions(wfs.gd, [setup.phit_j for setup in wfs.setups],
+    bfs = BasisFunctions(wfs.gd,
+                         [setup.basis_functions_J for setup in wfs.setups],
                          wfs.kd, cut=True)
     bfs.set_positions(wfs.spos_ac)
     return bfs

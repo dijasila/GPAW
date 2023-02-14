@@ -16,13 +16,13 @@ GPAW for LUMI-C
 
 Following instructions are preliminary guidelines on how to install GPAW to
 be utilized with the CPU only partition of LUMI-C. To begin, add a
-following file to your current directory and call it `siteconfig-lumi.py`.
+following file to your current directory and call it ``siteconfig-lumi.py``.
 
 .. literalinclude:: siteconfig-lumi.py
 
-Following script will install latest GPAW under `gpaw-cpu`` sub-directory
+Following script will install latest GPAW under ``gpaw-cpu`` sub-directory
 (within the current directory). It is recommended to perform installation
-under the `project` directory (see `LUMI user documentation
+under the ``project`` directory (see `LUMI user documentation
 <https://docs.lumi-supercomputer.eu/runjobs/lumi_env/storing-data/>`_)::
 
   module load cray-python/3.9.12.1 PrgEnv-gnu/8.3.3

@@ -9,11 +9,11 @@ from gpaw.response.frequencies import ComplexFrequencyDescriptor
 
 class JDOS(PairFunction):
 
-    def __init__(self, spincomponent, pd, zd):
+    def __init__(self, spincomponent, qpd, zd):
         self.spincomponent = spincomponent
         self.zd = zd
 
-        super().__init__(pd)
+        super().__init__(qpd)
     
     def zeros(self):
         nz = len(self.zd)
@@ -95,8 +95,8 @@ class JDOSCalculator(PairFunctionIntegrator):
         # We need a dummy plane-wave descriptor (without plane-waves, hence the
         # vanishing ecut) for the PairFunctionIntegrator to be able to analyze
         # the symmetries of the system and reduce the k-point integration
-        pd = self.get_pw_descriptor(q_c, ecut=1e-3)
-        jdos = JDOS(spincomponent, pd, zd)
+        qpd = self.get_pw_descriptor(q_c, ecut=1e-3)
+        jdos = JDOS(spincomponent, qpd, zd)
 
         # Perform actual in-place integration
         self.context.print('Integrating the joint density of states:')

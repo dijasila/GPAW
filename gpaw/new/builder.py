@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import importlib
-from types import SimpleNamespace
+import os
+from types import ModuleType, SimpleNamespace
 from typing import Any, Union
 
 import numpy as np
@@ -9,9 +10,9 @@ from ase import Atoms
 from ase.calculators.calculator import kpts2sizeandoffsets
 from ase.units import Bohr
 from gpaw.core import UniformGrid
-from gpaw.core.domain import Domain
 from gpaw.core.atom_arrays import (AtomArrays, AtomArraysLayout,
                                    AtomDistribution)
+from gpaw.core.domain import Domain
 from gpaw.mixer import MixerWrapper, get_mixer_from_keywords
 from gpaw.mpi import MPIComm, Parallelization, serial_comm, world
 from gpaw.new import cached_property, prod
@@ -24,9 +25,10 @@ from gpaw.new.smearing import OccupationNumberCalculator
 from gpaw.new.symmetry import create_symmetries_object
 from gpaw.new.xc import create_functional
 from gpaw.setup import Setups
-from gpaw.typing import Array2D, ArrayLike1D, ArrayLike2D, DTypeLike
+from gpaw.typing import Array2D, ArrayLike1D, ArrayLike2D
 from gpaw.utilities.gpts import get_number_of_grid_points
 from gpaw.xc import XC
+from gpaw.new.ibzwfs import IBZWaveFunctions
 
 
 def builder(atoms: Atoms,
@@ -115,13 +117,15 @@ class DFTComponentsBuilder:
         if self.ncomponents == 4:
             self.nbands *= 2
 
-        self.dtype: DTypeLike
-        if params.force_complex_dtype:
-            self.dtype = complex
-        elif self.ibz.bz.gamma_only:
-            self.dtype = float
-        else:
-            self.dtype = complex
+        self.dtype = params.dtype
+        if self.dtype is None:
+            if self.ibz.bz.gamma_only:
+                self.dtype = float
+            else:
+                self.dtype = complex
+        elif not self.ibz.bz.gamma_only and self.dtype != complex:
+            raise ValueError('Can not use dtype=float for non gamma-point '
+                             'calculation')
 
         self.grid, self.fine_grid = self.create_uniform_grids()
 
@@ -159,6 +163,15 @@ class DFTComponentsBuilder:
     @cached_property
     def wf_desc(self) -> Domain:
         return self.create_wf_description()
+
+    @cached_property
+    def xp(self) -> ModuleType:
+        if self.params.parallel['gpu']:
+            from gpaw.gpu import cupy, cupy_is_fake
+            assert not cupy_is_fake or os.environ.get('GPAW_CPUPY')
+            return cupy
+        else:
+            return np
 
     def create_wf_description(self) -> Domain:
         raise NotImplementedError
@@ -230,7 +243,9 @@ class DFTComponentsBuilder:
     def create_potential_calculator(self):
         raise NotImplementedError
 
-    def read_wavefunction_values(self, reader, ibzwfs):
+    def read_wavefunction_values(self,
+                                 reader,
+                                 ibzwfs: IBZWaveFunctions) -> None:
         """ Read eigenvalues, occuptions and projections and fermi levels
 
         The values are read using reader and set as the appropriate properties
@@ -241,9 +256,7 @@ class DFTComponentsBuilder:
         eig_skn = reader.wave_functions.eigenvalues
         occ_skn = reader.wave_functions.occupations
         P_sknI = reader.wave_functions.projections
-
-        if self.params.force_complex_dtype:
-            P_sknI = P_sknI.astype(complex)
+        P_sknI = P_sknI.astype(ibzwfs.dtype)
 
         for wfs in ibzwfs:
             wfs._eig_n = eig_skn[wfs.spin, wfs.k] / ha

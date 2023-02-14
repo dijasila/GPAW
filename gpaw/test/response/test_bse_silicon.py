@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 from ase.build import bulk
 from gpaw import GPAW, FermiDirac
-from gpaw.response.bse import BSE
+from gpaw.response.bse import BSE, read_bse_eigenvalues
 from gpaw.response.df import read_response_function
 from gpaw.test import findpeak, equal
 
@@ -76,3 +76,12 @@ def test_response_bse_silicon(in_tmp_dir, scalapack):
         w, I = findpeak(w_w, eps_w.imag)
         equal(w, w_, 0.01)
         equal(I, I_, 0.1)
+
+        # Read eigenvalues file and test first 3 eigenvalues
+        _, C_w = read_bse_eigenvalues('eig.dat')
+
+        # Disable for now (fails sometimes on a single core also, See #720)
+        if 0:  # world.size == 1:
+            # The BSE module seems to be broken in parallel!
+            # The eigenvalues change drastically as a function of world.size
+            assert C_w[:3] == pytest.approx([22.375, 12.777, 31.515], abs=0.1)

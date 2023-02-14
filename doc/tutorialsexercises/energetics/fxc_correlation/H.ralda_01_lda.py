@@ -9,7 +9,7 @@ resultfile.write('DFT Correlation energies for H atom\n')
 H = Atoms('H', [(0, 0, 0)])
 H.set_pbc(True)
 H.center(vacuum=2.0)
-calc = GPAW(mode=PW(300, force_complex_dtype=True),
+calc = GPAW(mode=PW(400, force_complex_dtype=True),
             parallel={'domain': 1},
             hund=True,
             txt='H.ralda_01_lda.output.txt',

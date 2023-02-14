@@ -8,7 +8,7 @@ def test_refactored_code(in_tmp_dir):
 
 
 def new(x):
-    params = {'mode': {'name': 'fd', 'force_complex_dtype': 0},
+    params = {'mode': {'name': 'fd'},
               'random': not True,
               'kpts': (4, 1, 1),
               'xc': 'M06-L',

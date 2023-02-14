@@ -311,11 +311,11 @@ class SJM(SolvationGPAW):
                 if parent_changed:
                     self.density = None
                 else:
-                    self._quick_reinitialization()
                     if self.density.background_charge:
                         self.density.background_charge = background_charge
                         self.density.background_charge.set_grid_descriptor(
                             self.density.finegd)
+                    self._quick_reinitialization()
 
                 self.wfs.nvalence = self.setups.nvalence + p.excess_electrons
                 self.log('Number of valence electrons is now {:.5f}'

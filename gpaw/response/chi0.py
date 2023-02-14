@@ -171,7 +171,7 @@ class Chi0Calculator:
 
         chi0 = self.create_chi0(q_c)
 
-        self.print_chi(chi0.pd)
+        self.print_chi(chi0.qpd)
 
         if chi0.optical_limit:
             self.plasmafreq_vv = np.zeros((3, 3), complex)
@@ -218,12 +218,12 @@ class Chi0Calculator:
             for spin in spins:
                 assert spin in range(nspins)
 
-        pd = chi0.pd
+        qpd = chi0.qpd
         optical_limit = chi0.optical_limit  # Calculating the optical limit?
 
         # Reset PAW correction in case momentum has change
         pairden_paw_corr = self.gs.pair_density_paw_corrections
-        self.pawcorr = pairden_paw_corr(pd)
+        self.pawcorr = pairden_paw_corr(qpd)
 
         # Integrate chi0 body
         self.context.print('Integrating response function.')
@@ -257,11 +257,11 @@ class Chi0Calculator:
                           chi0: Chi0Data,
                           m1, m2, spins):
         """In-place calculation of the body."""
-        pd = chi0.pd
+        qpd = chi0.qpd
 
         integrator = self.initialize_integrator()
-        domain, analyzer, prefactor = self.get_integration_domain(pd, spins)
-        mat_kwargs, eig_kwargs = self.get_integrator_arguments(pd, m1, m2,
+        domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
+        mat_kwargs, eig_kwargs = self.get_integrator_arguments(qpd, m1, m2,
                                                                analyzer)
         kind, extraargs = self.get_integral_kind()
 
@@ -307,11 +307,11 @@ class Chi0Calculator:
                            chi0: Chi0Data,
                            m1, m2, spins):
         """In-place calculation of the optical limit wings."""
-        pd = chi0.pd
+        qpd = chi0.qpd
 
         integrator = self.initialize_integrator(block_distributed=False)
-        domain, analyzer, prefactor = self.get_integration_domain(pd, spins)
-        mat_kwargs, eig_kwargs = self.get_integrator_arguments(pd, m1, m2,
+        domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
+        mat_kwargs, eig_kwargs = self.get_integrator_arguments(qpd, m1, m2,
                                                                analyzer)
         kind, extraargs = self.get_integral_kind()
 
@@ -354,12 +354,12 @@ class Chi0Calculator:
         """In-place calculation of the Drude dielectric response function,
         based on the free-space plasma frequency of the intraband transitions.
         """
-        pd = chi0.pd
+        qpd = chi0.qpd
 
         integrator = self.initialize_integrator(block_distributed=False)
-        domain, analyzer, prefactor = self.get_integration_domain(pd, spins)
+        domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
         (mat_kwargs,
-         eig_kwargs) = self.get_integrator_arguments(pd, m1, m2, analyzer,
+         eig_kwargs) = self.get_integrator_arguments(qpd, m1, m2, analyzer,
                                                      only_intraband=True)
         kind, extraargs = self.get_integral_kind(only_intraband=True)
 
@@ -424,13 +424,13 @@ class Chi0Calculator:
 
         return integrator
 
-    def get_integration_domain(self, pd, spins):
+    def get_integration_domain(self, qpd, spins):
         """Get integrator domain and prefactor for the integral."""
         # The integration domain is determined by the following function
         # that reduces the integration domain to the irreducible zone
         # of the little group of q.
         bzk_kv, analyzer = self.get_kpoints(
-            pd, integrationmode=self.integrationmode)
+            qpd, integrationmode=self.integrationmode)
         domain = (bzk_kv, spins)
 
         if self.integrationmode == 'tetrahedron integration':
@@ -455,13 +455,13 @@ class Chi0Calculator:
 
         return domain, analyzer, prefactor
 
-    def get_integrator_arguments(self, pd, m1, m2, analyzer,
+    def get_integrator_arguments(self, qpd, m1, m2, analyzer,
                                  only_intraband=False):
         # Prepare keyword arguments for the integrator
-        mat_kwargs = {'pd': pd,
+        mat_kwargs = {'qpd': qpd,
                       'symmetry': analyzer,
                       'integrationmode': self.integrationmode}
-        eig_kwargs = {'pd': pd}
+        eig_kwargs = {'qpd': qpd}
 
         # Define band summation.
         if not only_intraband:
@@ -519,10 +519,10 @@ class Chi0Calculator:
         return kind, extraargs
 
     @timer('Get kpoints')
-    def get_kpoints(self, pd, integrationmode=None):
+    def get_kpoints(self, qpd, integrationmode=None):
         """Get the integration domain."""
         analyzer = PWSymmetryAnalyzer(
-            self.gs.kd, pd, self.context,
+            self.gs.kd, qpd, self.context,
             disable_point_group=self.disable_point_group,
             disable_time_reversal=self.disable_time_reversal,
             disable_non_symmorphic=self.disable_non_symmorphic)
@@ -538,13 +538,13 @@ class Chi0Calculator:
                                    bzk_kc + (~self.pbc).astype(int),
                                    axis=0)
 
-        bzk_kv = np.dot(bzk_kc, pd.gd.icell_cv) * 2 * np.pi
+        bzk_kv = np.dot(bzk_kc, qpd.gd.icell_cv) * 2 * np.pi
 
         return bzk_kv, analyzer
 
     @timer('Get matrix element')
     def get_matrix_element(self, k_v, s, n1, n2,
-                           m1, m2, *, pd,
+                           m1, m2, *, qpd,
                            symmetry, integrationmode=None):
         """A function that returns pair-densities.
 
@@ -571,7 +571,7 @@ class Chi0Calculator:
             Lower unoccupied band index.
         m2 : int
             Upper unoccupied band index.
-        pd : PlanewaveDescriptor instance
+        qpd : SingleQPWDescriptor instance
         symmetry: gpaw.response.pair.PWSymmetryAnalyzer instance
             Symmetry analyzer object for handling symmetries of the kpoints.
         integrationmode : str
@@ -584,20 +584,20 @@ class Chi0Calculator:
         """
         assert m1 <= m2
 
-        k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
+        k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
 
-        nG = pd.ngmax
+        nG = qpd.ngmax
         weight = np.sqrt(symmetry.get_kpoint_weight(k_c) /
                          symmetry.how_many_symmetries())
         if self.pawcorr is None:
             pairden_paw_corr = self.gs.pair_density_paw_corrections
-            self.pawcorr = pairden_paw_corr(pd)
+            self.pawcorr = pairden_paw_corr(qpd)
 
-        kptpair = self.pair.get_kpoint_pair(pd, s, k_c, n1, n2,
+        kptpair = self.pair.get_kpoint_pair(qpd, s, k_c, n1, n2,
                                             m1, m2, block=True)
         m_m = np.arange(m1, m2)
         n_n = np.arange(n1, n2)
-        n_nmG = self.pair.get_pair_density(pd, kptpair, n_n, m_m,
+        n_nmG = self.pair.get_pair_density(qpd, kptpair, n_n, m_m,
                                            pawcorr=self.pawcorr,
                                            block=True)
 
@@ -614,27 +614,27 @@ class Chi0Calculator:
     def get_optical_matrix_element(self, k_v, s,
                                    n1, n2,
                                    m1, m2, *,
-                                   pd, symmetry,
+                                   qpd, symmetry,
                                    integrationmode=None):
         """A function that returns optical pair densities, that is the
         head and wings matrix elements, indexed by:
         # P = (x, y, v, G1, G2, ...)."""
         assert m1 <= m2
 
-        k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
+        k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
 
-        nG = pd.ngmax
+        nG = qpd.ngmax
         weight = np.sqrt(symmetry.get_kpoint_weight(k_c) /
                          symmetry.how_many_symmetries())
         if self.pawcorr is None:
             pairden_paw_corr = self.gs.pair_density_paw_corrections
-            self.pawcorr = pairden_paw_corr(pd)
+            self.pawcorr = pairden_paw_corr(qpd)
 
-        kptpair = self.pair.get_kpoint_pair(pd, s, k_c, n1, n2,
+        kptpair = self.pair.get_kpoint_pair(qpd, s, k_c, n1, n2,
                                             m1, m2, block=False)
         m_m = np.arange(m1, m2)
         n_n = np.arange(n1, n2)
-        n_nmP = self.pair.get_optical_pair_density(pd, kptpair, n_n, m_m,
+        n_nmP = self.pair.get_optical_pair_density(qpd, kptpair, n_n, m_m,
                                                    pawcorr=self.pawcorr,
                                                    block=False)
 
@@ -649,7 +649,7 @@ class Chi0Calculator:
 
     @timer('Get eigenvalues')
     def get_eigenvalues(self, k_v, s, n1, n2,
-                        m1, m2, *, pd,
+                        m1, m2, *, qpd,
                         gs=None, filter=False):
         """A function that can return the eigenvalues.
 
@@ -661,8 +661,8 @@ class Chi0Calculator:
             gs = self.gs
 
         kd = gs.kd
-        k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
-        q_c = pd.kd.bzk_kc[0]
+        k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
+        q_c = qpd.q_c
         K1 = self.pair.find_kpoint(k_c)
         K2 = self.pair.find_kpoint(k_c + q_c)
 
@@ -682,11 +682,11 @@ class Chi0Calculator:
         return deps_nm.reshape(-1)
 
     def get_plasmafreq_matrix_element(self, k_v, s, n1, n2,
-                                      *, pd,
+                                      *, qpd,
                                       symmetry,
                                       integrationmode=None):
         """NB: In dire need of documentation! XXX."""
-        k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
+        k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
         kpt1 = self.pair.get_k_point(s, k_c, n1, n2)
         n_n = range(n1, n2)
 
@@ -707,7 +707,7 @@ class Chi0Calculator:
         return vel_nv
 
     def get_plasmafreq_eigenvalue(self, k_v, s,
-                                  n1, n2, *, pd):
+                                  n1, n2, *, qpd):
         """A function that can return the intraband eigenvalues.
 
         A simple function describing the integrand of
@@ -716,7 +716,7 @@ class Chi0Calculator:
         routines."""
         gs = self.gs
         kd = gs.kd
-        k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
+        k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
         K1 = self.pair.find_kpoint(k_c)
         ik = kd.bz2ibz_k[K1]
         kpt1 = gs.kpt_qs[ik][s]
@@ -724,7 +724,7 @@ class Chi0Calculator:
 
         return kpt1.eps_n[n1:n2]
 
-    def print_chi(self, pd):
+    def print_chi(self, qpd):
         gs = self.gs
         gd = gs.gd
 
@@ -736,14 +736,14 @@ class Chi0Calculator:
         else:
             world = self.context.world
 
-        q_c = pd.kd.bzk_kc[0]
+        q_c = qpd.q_c
         nw = len(self.wd)
         ecut = self.ecut * Ha
         ns = gs.nspins
         nbands = self.nbands
         nk = gs.kd.nbzkpts
         nik = gs.kd.nibzkpts
-        ngmax = pd.ngmax
+        ngmax = qpd.ngmax
         eta = self.eta * Ha
         wsize = world.size
         knsize = self.kncomm.size
@@ -753,7 +753,7 @@ class Chi0Calculator:
         nstat = (ns * npocc + world.size - 1) // world.size
         occsize = nstat * ngridpoints * 16. / 1024**2
         bsize = self.blockcomm.size
-        chisize = nw * pd.ngmax**2 * 16. / 1024**2 / bsize
+        chisize = nw * qpd.ngmax**2 * 16. / 1024**2 / bsize
 
         p = partial(self.context.print, flush=False)
 

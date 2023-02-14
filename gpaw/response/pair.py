@@ -215,7 +215,7 @@ class PairDensityCalculator:
                       ut_nR, eps_n, f_n, P_ani, shift_c)
 
     @timer('Get kpoint pair')
-    def get_kpoint_pair(self, pd, s, Kork_c, n1, n2, m1, m2, block=False):
+    def get_kpoint_pair(self, qpd, s, Kork_c, n1, n2, m1, m2, block=False):
         assert m1 <= m2
         assert n1 <= n2
 
@@ -226,37 +226,37 @@ class PairDensityCalculator:
         else:
             k_c = Kork_c
 
-        q_c = pd.kd.bzk_kc[0]
+        q_c = qpd.q_c
         with self.context.timer('get k-points'):
             kpt1 = self.get_k_point(s, k_c, n1, n2)
             # K2 = wfs.kd.find_k_plus_q(q_c, [kpt1.K])[0]
             kpt2 = self.get_k_point(s, k_c + q_c, m1, m2, block=block)
 
         with self.context.timer('fft indices'):
-            Q_G = fft_indices(self.gs.kd, kpt1.K, kpt2.K, q_c, pd,
+            Q_G = fft_indices(self.gs.kd, kpt1.K, kpt2.K, q_c, qpd,
                               kpt1.shift_c - kpt2.shift_c)
 
         return KPointPair(kpt1, kpt2, Q_G)
 
-    def get_optical_pair_density(self, pd, kptpair, n_n, m_m, *,
+    def get_optical_pair_density(self, qpd, kptpair, n_n, m_m, *,
                                  pawcorr, block=False):
         """Get the full optical pair density, including the optical limit head
         for q=0."""
-        tmp_nmG = self.get_pair_density(pd, kptpair, n_n, m_m,
+        tmp_nmG = self.get_pair_density(qpd, kptpair, n_n, m_m,
                                         pawcorr=pawcorr, block=block)
 
-        nG = pd.ngmax
+        nG = qpd.ngmax
         # P = (x, y, z, G1, G2, ...)
         n_nmP = np.empty((len(n_n), len(m_m), nG + 2), dtype=tmp_nmG.dtype)
         n_nmP[:, :, 3:] = tmp_nmG[:, :, 1:]
-        n_nmv = self.get_optical_pair_density_head(pd, kptpair, n_n, m_m,
+        n_nmv = self.get_optical_pair_density_head(qpd, kptpair, n_n, m_m,
                                                    block=block)
         n_nmP[:, :, :3] = n_nmv
 
         return n_nmP
 
     @timer('get_pair_density')
-    def get_pair_density(self, pd, kptpair, n_n, m_m, *,
+    def get_pair_density(self, qpd, kptpair, n_n, m_m, *,
                          pawcorr, block=False):
         """Get pair density for a kpoint pair."""
         cpd = self.calculate_pair_density
@@ -266,7 +266,7 @@ class PairDensityCalculator:
         Q_G = kptpair.Q_G  # Fourier components of kpoint pair
         nG = len(Q_G)
 
-        n_nmG = np.zeros((len(n_n), len(m_m), nG), pd.dtype)
+        n_nmG = np.zeros((len(n_n), len(m_m), nG), qpd.dtype)
 
         for j, n in enumerate(n_n):
             Q_G = kptpair.Q_G
@@ -274,24 +274,22 @@ class PairDensityCalculator:
                 ut1cc_R = kpt1.ut_nR[n - kpt1.na].conj()
             with self.context.timer('paw'):
                 C1_aGi = pawcorr.multiply(kpt1.P_ani, band=n - kpt1.na)
-                n_nmG[j] = cpd(ut1cc_R, C1_aGi, kpt2, pd, Q_G, block=block)
+                n_nmG[j] = cpd(ut1cc_R, C1_aGi, kpt2, qpd, Q_G, block=block)
 
         return n_nmG
 
     @timer('get_optical_pair_density_head')
-    def get_optical_pair_density_head(self, pd, kptpair, n_n, m_m,
+    def get_optical_pair_density_head(self, qpd, kptpair, n_n, m_m,
                                       block=False):
         """Get the optical limit of the pair density head (G=0) for a k-pair.
         """
-        q_c = pd.kd.bzk_kc[0]
-        optical_limit = np.allclose(q_c, 0.0)
-        assert optical_limit
+        assert np.allclose(qpd.q_c, 0.0), f"{qpd.q_c} is not the optical limit"
 
         kpt1 = kptpair.kpt1
         kpt2 = kptpair.kpt2
 
         # v = (x, y, z)
-        n_nmv = np.zeros((len(n_n), len(m_m), 3), pd.dtype)
+        n_nmv = np.zeros((len(n_n), len(m_m), 3), qpd.dtype)
 
         for j, n in enumerate(n_n):
             n_nmv[j] = self.calculate_optical_pair_density_head(n, m_m,
@@ -301,7 +299,7 @@ class PairDensityCalculator:
         return n_nmv
 
     @timer('Calculate pair-densities')
-    def calculate_pair_density(self, ut1cc_R, C1_aGi, kpt2, pd, Q_G,
+    def calculate_pair_density(self, ut1cc_R, C1_aGi, kpt2, qpd, Q_G,
                                block=True):
         """Calculate FFT of pair-densities and add PAW corrections.
 
@@ -312,20 +310,19 @@ class PairDensityCalculator:
             PAW corrections for all atoms.
         kpt2: KPoint object
             Right hand side k-point object.
-        pd: PWDescriptor
+        qpd: SingleQPWDescriptor
             Plane-wave descriptor for q=k2-k1.
         Q_G: 1-d int ndarray
             Mapping from flattened 3-d FFT grid to 0.5(G+q)^2<ecut sphere.
         """
-
-        dv = pd.gd.dv
-        n_mG = pd.empty(kpt2.blocksize)
+        dv = qpd.gd.dv
+        n_mG = qpd.empty(kpt2.blocksize)
         myblocksize = kpt2.nb - kpt2.na
 
         for ut_R, n_G in zip(kpt2.ut_nR, n_mG):
             n_R = ut1cc_R * ut_R
             with self.context.timer('fft'):
-                n_G[:] = pd.fft(n_R, 0, Q_G) * dv
+                n_G[:] = qpd.fft(n_R, 0, Q_G) * dv
         # PAW corrections:
         with self.context.timer('gemm'):
             for C1_Gi, P2_mi in zip(C1_aGi, kpt2.P_ani):
@@ -335,8 +332,9 @@ class PairDensityCalculator:
         if not block or self.blockcomm.size == 1:
             return n_mG
         else:
-            n_MG = pd.empty(kpt2.blocksize * self.blockcomm.size)
-            self.blockcomm.all_gather(n_mG, n_MG)
+            n_MG = qpd.empty(kpt2.blocksize * self.blockcomm.size)
+            with self.context.timer('all_gather'):
+                self.blockcomm.all_gather(n_mG, n_MG)
             return n_MG[:kpt2.n2 - kpt2.n1]
 
     @timer('Optical limit')
@@ -380,7 +378,8 @@ class PairDensityCalculator:
         if block and self.blockcomm.size > 1:
             n0_Mv = np.empty((kpt2.blocksize * self.blockcomm.size, 3),
                              dtype=complex)
-            self.blockcomm.all_gather(n0_mv, n0_Mv)
+            with self.context.timer('all_gather optical'):
+                self.blockcomm.all_gather(n0_mv, n0_Mv)
             n0_mv = n0_Mv[:kpt2.n2 - kpt2.n1]
 
         return -1j * n0_mv
@@ -506,15 +505,15 @@ class PairDensityCalculator:
         return ut_nvR
 
 
-def fft_indices(kd, K1, K2, q_c, pd, shift0_c):
+def fft_indices(kd, K1, K2, q_c, qpd, shift0_c):
     """Get indices for G-vectors inside cutoff sphere."""
-    N_G = pd.Q_qG[0]
+    N_G = qpd.Q_qG[0]
     shift_c = (shift0_c +
                (q_c - kd.bzk_kc[K2] + kd.bzk_kc[K1]).round().astype(int))
     if shift_c.any():
-        n_cG = np.unravel_index(N_G, pd.gd.N_c)
+        n_cG = np.unravel_index(N_G, qpd.gd.N_c)
         n_cG = [n_G + shift for n_G, shift in zip(n_cG, shift_c)]
-        N_G = np.ravel_multi_index(n_cG, pd.gd.N_c, 'wrap')
+        N_G = np.ravel_multi_index(n_cG, qpd.gd.N_c, 'wrap')
     return N_G
 
 

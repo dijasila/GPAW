@@ -49,7 +49,8 @@ fi
 dftd3 = """\
 mkdir {venv}/DFTD3
 cd {venv}/DFTD3
-wget http://chemie.uni-bonn.de/pctc/mulliken-center/software/dft-d3/dftd3.tgz
+URL=https://www.chemiebn.uni-bonn.de/pctc/mulliken-center/software/dft-d3
+wget $URL/dftd3.tgz
 tar -xf dftd3.tgz
 ssh thul ". {venv}/bin/activate && cd {venv}/DFTD3 && make"
 ln -s {venv}/DFTD3/dftd3 {venv}/bin
@@ -134,7 +135,7 @@ def main():
     run(f'ssh thul ". {activate} && pip install -q ase-ext"')
 
     run('git clone -q https://github.com/spglib/spglib.git')
-    run(f'ssh thul ". {activate} && pip install {venv}/spglib/python"')
+    run(f'ssh thul ". {activate} && pip install {venv}/spglib"')
 
     # Install GPAW:
     siteconfig = Path(

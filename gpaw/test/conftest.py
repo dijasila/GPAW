@@ -102,9 +102,14 @@ def gpw_files(request, tmp_path_factory):
 
     * MoS2 with 6x6x1 k-points: ``mos2_pw``
 
+    * NiCl2 with 6x6x1 k-points: ``nicl2_pw``
+
     * Bulk Si, LDA, 2x2x2 k-points (gamma centered): ``si_pw``
 
     * Bulk Fe, LDA, 4x4x4 k-points, 6 converged bands: ``fe_pw``
+
+    * Bulk Ag, LDA, 2x2x2 k-points, 6 converged bands,
+      2eV U on d-band: ``ag_pw``
 
     Files with wave functions are also available (add ``_wfs`` to the names).
     """
@@ -189,6 +194,19 @@ class GPWFiles:
                        txt=self.path / 'h2_pw_0.txt')
         h2.get_potential_energy()
         return h2.calc
+
+    def h2_bcc_afm(self):
+        a = 2.75
+        atoms = bulk(name='H', crystalstructure='bcc', a=a, cubic=True)
+        atoms.set_initial_magnetic_moments([1., -1.])
+
+        atoms.calc = GPAW(xc='LDA',
+                          txt=self.path / 'h2_bcc_afm.txt',
+                          mode=PW(250),
+                          nbands=4,
+                          kpts={'density': 2.0, 'gamma': True})
+        atoms.get_potential_energy()
+        return atoms.calc
 
     def h_pw(self):
         h = Atoms('H', magmoms=[1])
@@ -368,6 +386,40 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
+    def nicl2_pw(self):
+        from ase.build import mx2
+
+        # Define input parameters
+        xc = 'LDA'
+        kpts = 6
+        pw = 300
+        occw = 0.01
+        conv = {'density': 1.e-8,
+                'forces': 1.e-8}
+
+        a = 3.502
+        thickness = 2.617
+        vacuum = 3.0
+        mm = 2.0
+
+        # Set up atoms
+        atoms = mx2(formula='NiCl2', kind='1T', a=a,
+                    thickness=thickness, vacuum=vacuum)
+        atoms.set_initial_magnetic_moments([mm, 0.0, 0.0])
+
+        # Set up calculator
+        atoms.calc = GPAW(
+            xc=xc,
+            mode=PW(pw),
+            kpts={'size': (kpts, kpts, 1), 'gamma': True},
+            occupations=FermiDirac(occw),
+            convergence=conv,
+            txt=self.path / 'nicl2_pw.txt')
+
+        atoms.get_potential_energy()
+
+        return atoms.calc
+
     def fe_pw(self):
         xc = 'LDA'
         kpts = 4
@@ -393,6 +445,34 @@ class GPWFiles:
             txt=self.path / 'fe_pw.txt')
 
         atoms.get_potential_energy()
+
+        return atoms.calc
+
+    def ag_plusU_pw(self):
+        xc = 'LDA'
+        kpts = 2
+        nbands = 6
+        pw = 300
+        occw = 0.01
+        conv = {'bands': nbands,
+                'density': 1e-12}
+        a = 4.07
+        atoms = bulk('Ag', 'fcc', a=a)
+        atoms.center()
+
+        atoms.calc = GPAW(
+            xc=xc,
+            mode=PW(pw),
+            kpts={'size': (kpts, kpts, kpts), 'gamma': True},
+            setups={'Ag': '11:d,2.0,0'},
+            nbands=nbands,
+            occupations=FermiDirac(occw),
+            convergence=conv,
+            txt=self.path / 'ag_pw.txt')
+
+        atoms.get_potential_energy()
+
+        atoms.calc.diagonalize_full_hamiltonian()
 
         return atoms.calc
 

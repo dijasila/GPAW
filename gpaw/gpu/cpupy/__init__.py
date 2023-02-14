@@ -1,6 +1,6 @@
-import numpy as np
-import gpaw.gpu.cpupy.linalg as linalg
 import gpaw.gpu.cpupy.cublas as cublas
+import gpaw.gpu.cpupy.linalg as linalg
+import numpy as np
 
 __all__ = ['linalg', 'cublas']
 
@@ -9,8 +9,16 @@ def empty(*args, **kwargs):
     return ndarray(np.empty(*args, **kwargs))
 
 
+def empty_like(a):
+    return ndarray(np.empty_like(a._data))
+
+
 def zeros(*args, **kwargs):
     return ndarray(np.zeros(*args, **kwargs))
+
+
+def ones(*args, **kwargs):
+    return ndarray(np.ones(*args, **kwargs))
 
 
 def asnumpy(a, out=None):
@@ -23,6 +31,10 @@ def asnumpy(a, out=None):
 def asarray(a):
     if isinstance(a, ndarray):
         return a
+    return ndarray(np.array(a))
+
+
+def array(a):
     return ndarray(np.array(a))
 
 
@@ -62,20 +74,29 @@ def triu_indices(n, k=0, m=None):
     return ndarray(i), ndarray(j)
 
 
+def fuse():
+    return lambda func: func
+
+
 class ndarray:
     def __init__(self, data):
-        if isinstance(data, (float, complex, int)):
-            data = np.asarray(data)
+        if isinstance(data, (float, complex, int, bool, np.bool_)):
+            data = np.array(data)
         assert isinstance(data, np.ndarray), type(data)
         self._data = data
         self.shape = data.shape
         self.dtype = data.dtype
         self.size = data.size
         self.flags = data.flags
+        self.ndim = data.ndim
 
     @property
     def T(self):
         return ndarray(self._data.T)
+
+    @property
+    def real(self):
+        return ndarray(self._data.real)
 
     @property
     def imag(self):
@@ -87,8 +108,17 @@ class ndarray:
     def copy(self):
         return ndarray(self._data.copy())
 
+    def all(self):
+        return ndarray(self._data.all())
+
+    def sum(self, **kwargs):
+        return ndarray(self._data.sum(**kwargs))
+
     def __len__(self):
         return len(self._data)
+
+    def __bool__(self):
+        return bool(self._data)
 
     def __iter__(self):
         for data in self._data:
@@ -107,7 +137,7 @@ class ndarray:
         if isinstance(value, ndarray):
             self._data[index] = value._data
         else:
-            assert isinstance(value, float)
+            assert isinstance(value, (float, complex))
             self._data[index] = value
 
     def __getitem__(self, index):
@@ -119,16 +149,19 @@ class ndarray:
             index = index._data
         return ndarray(self._data[index])
 
-    def __mul__(self, f: float):
+    def __eq__(self, other):
+        return ndarray(self._data == other._data)
+
+    def __mul__(self, f):
         if isinstance(f, (float, complex)):
             return ndarray(f * self._data)
         return ndarray(f._data * self._data)
 
-    def __rmul__(self, f: float):
+    def __rmul__(self, f):
         return ndarray(f * self._data)
 
-    def __imul__(self, f: float):
-        if isinstance(f, (float, complex)):
+    def __imul__(self, f):
+        if isinstance(f, (float, complex, int)):
             self._data *= f
         else:
             self._data *= f._data

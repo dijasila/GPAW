@@ -17,40 +17,25 @@ from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.susceptibility import ChiFactory
 from gpaw.response.localft import LocalGridFTCalculator, LocalPAWFTCalculator
-from gpaw.response.fxc_kernels import FXCScaling
+from gpaw.response.fxc_kernels import FXCScaling, FXCKernel
 from gpaw.response.df import read_response_function
 
 
 def set_up_fxc_calculators(gs, context):
     fxckwargs_and_identifiers = []
 
-    # Set up old grid calculator (with file buffer)
-    fxckwargs_old_grid = {'calculator': {'method': 'old',
-                                         'rshelmax': None},
-                          'filename': 'grid_ALDA_fxc.npy',
-                          'fxc_scaling': FXCScaling('fm')}
-    fxckwargs_and_identifiers.append((fxckwargs_old_grid, 'old_grid'))
-
-    # Set up old paw calculator (without file buffer)
-    fxckwargs_old_paw = {'calculator': {'method': 'old',
-                                        'rshelmax': 0},
-                         'fxc_scaling': FXCScaling('fm')}
-    fxckwargs_and_identifiers.append((fxckwargs_old_paw, 'old_paw'))
-
-    # Set up new grid calculator (without file buffer)
+    # Set up grid calculator (without file buffer)
     localft_calc = LocalGridFTCalculator(gs, context)
-    fxckwargs_new_grid = {'calculator': {'method': 'new',
-                                         'localft_calc': localft_calc},
-                          'fxc_scaling': FXCScaling('fm')}
-    fxckwargs_and_identifiers.append((fxckwargs_new_grid, 'new_grid'))
+    fxckwargs_grid = {'localft_calc': localft_calc,
+                      'fxc_scaling': FXCScaling('fm')}
+    fxckwargs_and_identifiers.append((fxckwargs_grid, 'grid'))
 
-    # Set up new paw calculator (with file buffer)
+    # Set up paw calculator (with file buffer)
     localft_calc = LocalPAWFTCalculator(gs, context, rshelmax=0)
-    fxckwargs_new_paw = {'calculator': {'method': 'new',
-                                        'localft_calc': localft_calc},
-                         'filename': 'paw_ALDA_fxc.npy',
-                         'fxc_scaling': FXCScaling('fm')}
-    fxckwargs_and_identifiers.append((fxckwargs_new_paw, 'new_paw'))
+    fxckwargs_paw = {'localft_calc': localft_calc,
+                     'fxc_file': Path('paw_ALDA_fxc.npz'),
+                     'fxc_scaling': FXCScaling('fm')}
+    fxckwargs_and_identifiers.append((fxckwargs_paw, 'paw'))
 
     return fxckwargs_and_identifiers
 
@@ -58,20 +43,16 @@ def set_up_fxc_calculators(gs, context):
 def get_test_values(identifier):
     test_mw1 = 0.  # meV
     test_Ipeak1 = 7.48  # a.u.
-    if 'grid' in identifier:
-        if 'old' in identifier:
-            test_fxcs = 1.034
-        else:  # new
-            test_fxcs = 1.059
+    if identifier == 'grid':
+        test_fxcs = 1.059
         test_mw2 = 363.  # meV
         test_Ipeak2 = 3.47  # a.u.
-    else:  # paw
-        if 'old' in identifier:
-            test_fxcs = 1.129
-        else:  # new
-            test_fxcs = 1.131
+    elif identifier == 'paw':
+        test_fxcs = 1.131
         test_mw2 = 352.  # meV
         test_Ipeak2 = 3.35  # a.u.
+    else:
+        raise ValueError(f'Invalid identifier {identifier}')
 
     return test_fxcs, test_mw1, test_mw2, test_Ipeak1, test_Ipeak2
 
@@ -114,32 +95,34 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
         # Calculate chi using the various fxc calculators
         for fxckwargs, identifier in fxckwargs_and_identifiers:
 
-            if 'filename' in fxckwargs:  # Save the kernel to reuse it
+            if 'fxc_file' in fxckwargs:  # Save the kernel to reuse it
                 actual_fxckwargs = fxckwargs.copy()
-                fxc_filename = actual_fxckwargs.pop('filename')
+                fxc_file = actual_fxckwargs.pop('fxc_file')
                 if q == 0:  # Calculate kernel for q == 0
-                    assert not Path(fxc_filename).is_file()
-                    kxc = {'fxc': fxc, 'fxckwargs': actual_fxckwargs}
+                    assert not fxc_file.is_file()
+                    kxc = {'fxc': fxc}
+                    kxc.update(actual_fxckwargs)
                 else:  # Reuse kernel from q == 0 calculation
-                    assert Path(fxc_filename).is_file()
-                    Kxc_GG = np.load(fxc_filename)
-                    kxc = {'Kxc_GG': Kxc_GG}
+                    assert fxc_file.is_file()
+                    fxc_kernel = FXCKernel.from_file(fxc_file)
+                    kxc = {'fxc_kernel': fxc_kernel,
+                           'fxc_scaling': fxckwargs['fxc_scaling']}
             else:
-                kxc = {'fxc': fxc, 'fxckwargs': fxckwargs}
+                kxc = {'fxc': fxc}
+                kxc.update(fxckwargs)
             
             chi = chi_factory('+-', q_qc[q], complex_frequencies, **kxc)
             chi.write_macroscopic_component(identifier + '_iron_dsus'
                                             + '_%d.csv' % (q + 1))
 
-            if 'filename' in fxckwargs and q == 0:
-                np.save(fxckwargs['filename'], chi.Kxc_GG)
+            if 'fxc_file' in fxckwargs and q == 0:
+                chi.fxc_kernel.save(fxckwargs['fxc_file'])
 
         chi_factory.context.write_timer()
 
     world.barrier()
 
-    # plot_comparison('old_grid', 'new_grid')
-    # plot_comparison('old_paw', 'new_paw')
+    # plot_comparison('grid', 'paw')
 
     # Compare results to test values
     for fxckwargs, identifier in fxckwargs_and_identifiers:

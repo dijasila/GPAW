@@ -422,7 +422,7 @@ class MagneticMomentWriter(TDDFTObserver):
         self._write(f'# {"time":>15} {"mmx":>17} {"mmy":>22} {"mmz":>22}\n')
 
     def _read_header(self, filename):
-        with open(filename, 'r') as fd:
+        with open(filename, 'r', encoding='utf-8') as fd:
             line = fd.readline()
         try:
             name, version, kwargs = parse_header(line[2:])

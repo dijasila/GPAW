@@ -75,12 +75,12 @@ class DielectricFunctionCalculator:
             chi0 = self.chi0calc.calculate(q_c, spin)
             chi0_wGG = chi0.get_distributed_frequencies_array()
             self.context.write_timer()
-            things = chi0.pd, chi0_wGG, chi0.chi0_WxvG, chi0.chi0_Wvv
+            things = chi0.qpd, chi0_wGG, chi0.chi0_WxvG, chi0.chi0_Wvv
             self._chi0cache[key] = things
 
-        pd, *more_things = self._chi0cache[key]
-        return (pd, *[thing.copy() if thing is not None else thing
-                      for thing in more_things])
+        qpd, *more_things = self._chi0cache[key]
+        return (qpd, *[thing.copy() if thing is not None else thing
+                       for thing in more_things])
 
     def collect(self, a_w):
         return self.blocks1d.collect(a_w)
@@ -113,22 +113,22 @@ class DielectricFunctionCalculator:
             contributes with less than a fraction of rshewmin on average,
             it will not be included.
         """
-        pd, chi0_wGG, chi0_WxvG, chi0_Wvv = self.calculate_chi0(q_c, spin)
+        qpd, chi0_wGG, chi0_WxvG, chi0_Wvv = self.calculate_chi0(q_c, spin)
 
         coulomb_bare = CoulombKernel(truncation=None, gs=self.gs)
-        Kbare_G = coulomb_bare.V(pd=pd, q_v=q_v)
+        Kbare_G = coulomb_bare.V(qpd=qpd, q_v=q_v)
         sqrtV_G = Kbare_G**0.5
 
         nG = len(sqrtV_G)
 
-        Ktrunc_G = self.coulomb.V(pd=pd, q_v=q_v)
+        Ktrunc_G = self.coulomb.V(qpd=qpd, q_v=q_v)
 
         if self.coulomb.truncation is None:
             K_GG = np.eye(nG, dtype=complex)
         else:
             K_GG = np.diag(Ktrunc_G / Kbare_G)
 
-        if pd.kd.gamma:
+        if qpd.kd.gamma:
             if isinstance(direction, str):
                 d_v = {'x': [1, 0, 0],
                        'y': [0, 1, 0],
@@ -142,7 +142,7 @@ class DielectricFunctionCalculator:
             chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_Wvv[W], d_v).T)
 
         if xc != 'RPA':
-            Kxc_GG = get_density_xc_kernel(pd,
+            Kxc_GG = get_density_xc_kernel(qpd,
                                            self.gs, self.context,
                                            functional=xc,
                                            chi0_wGG=chi0_wGG)
@@ -166,7 +166,7 @@ class DielectricFunctionCalculator:
         else:
             chi_wGG = np.zeros((0, nG, nG), complex)
 
-        return pd, chi0_wGG, np.array(chi_wGG)
+        return qpd, chi0_wGG, np.array(chi_wGG)
 
     def get_dynamic_susceptibility(self, xc='ALDA', q_c=[0, 0, 0],
                                    q_v=None,
@@ -178,10 +178,10 @@ class DielectricFunctionCalculator:
         chiM0_w, chiM_w = DielectricFunction.get_dynamic_susceptibility()
         """
 
-        pd, chi0_wGG, chi_wGG = self.get_chi(xc=xc, q_c=q_c,
-                                             rshelmax=rshelmax,
-                                             rshewmin=rshewmin,
-                                             return_VchiV=False)
+        qpd, chi0_wGG, chi_wGG = self.get_chi(xc=xc, q_c=q_c,
+                                              rshelmax=rshelmax,
+                                              rshewmin=rshewmin,
+                                              return_VchiV=False)
 
         rf0_w = np.zeros(len(chi_wGG), dtype=complex)
         rf_w = np.zeros(len(chi_wGG), dtype=complex)
@@ -228,16 +228,16 @@ class DielectricFunctionCalculator:
         to the head of the inverse dielectric matrix (inverse dielectric
         function)"""
 
-        pd, chi0_wGG, chi0_WxvG, chi0_Wvv = self.calculate_chi0(q_c)
+        qpd, chi0_wGG, chi0_WxvG, chi0_Wvv = self.calculate_chi0(q_c)
 
         if add_intraband:
             print('add_intraband=True is not supported at this time')
             raise NotImplementedError
 
-        K_G = self.coulomb.sqrtV(pd=pd, q_v=q_v)
+        K_G = self.coulomb.sqrtV(qpd=qpd, q_v=q_v)
         nG = len(K_G)
 
-        if pd.kd.gamma:
+        if qpd.kd.gamma:
             if isinstance(direction, str):
                 d_v = {'x': [1, 0, 0],
                        'y': [0, 1, 0],
@@ -257,7 +257,7 @@ class DielectricFunctionCalculator:
                 chi0_wGG[:, 0, 0] *= np.dot(q_v, d_v)**2
 
         if xc != 'RPA':
-            Kxc_GG = get_density_xc_kernel(pd,
+            Kxc_GG = get_density_xc_kernel(qpd,
                                            self.gs, self.context,
                                            functional=xc,
                                            chi0_wGG=chi0_wGG)
@@ -297,7 +297,7 @@ class DielectricFunctionCalculator:
             return chi0_wGG
         else:
             # chi_wGG is the full density response function..
-            return pd, chi0_wGG, chi_wGG
+            return qpd, chi0_wGG, chi_wGG
 
     def get_dielectric_function(self, xc='RPA', q_c=[0, 0, 0], q_v=None,
                                 direction='x', filename='df.csv'):
@@ -368,8 +368,8 @@ class DielectricFunctionCalculator:
         """
 
         # Calculate V^1/2 \chi V^1/2
-        pd, Vchi0_wGG, Vchi_wGG = self.get_chi(xc=xc, q_c=q_c,
-                                               direction=direction)
+        qpd, Vchi0_wGG, Vchi_wGG = self.get_chi(xc=xc, q_c=q_c,
+                                                direction=direction)
 
         # Calculate eels = -Im 4 \pi / q^2  \chi
         eels_NLFC_w = -(1. / (1. - Vchi0_wGG[:, 0, 0])).imag
@@ -434,9 +434,9 @@ class DielectricFunctionCalculator:
 
             self.context.print('Using truncated Coulomb interaction')
 
-            pd, chi0_wGG, chi_wGG = self.get_chi(xc=xc,
-                                                 q_c=q_c,
-                                                 direction=direction)
+            qpd, chi0_wGG, chi_wGG = self.get_chi(xc=xc,
+                                                  q_c=q_c,
+                                                  direction=direction)
             alpha_w = -V * (chi_wGG[:, 0, 0]) / (4 * pi)
             alpha0_w = -V * (chi0_wGG[:, 0, 0]) / (4 * pi)
 

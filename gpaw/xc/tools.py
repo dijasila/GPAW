@@ -38,11 +38,17 @@ def vxc(gs, xc=None, coredensity=True, n1=0, n2=0):
     dvxc_asii = {}
     for a, D_sp in dens.D_asp.items():
         dvxc_sp = np.zeros_like(D_sp)
-        xc.calculate_paw_correction(gs.setups[a], D_sp, dvxc_sp, a=a,
+
+        setup = gs.setups[a]
+        if setup.hubbard_u is not None:
+            _, dHU_sp = setup.hubbard_u.calculate(setup, D_sp)
+            dvxc_sp += dHU_sp
+        xc.calculate_paw_correction(setup, D_sp, dvxc_sp, a=a,
                                     addcoredensity=coredensity)
+
         dvxc_asii[a] = [unpack(dvxc_p) for dvxc_p in dvxc_sp]
         if thisisatest:
-            dvxc_asii[a] = [gs.setups[a].dO_ii]
+            dvxc_asii[a] = [setup.dO_ii]
 
     vxc_un = np.empty((gs.kd.mynk * gs.nspins, gs.bd.mynbands))
     for u, vxc_n in enumerate(vxc_un):

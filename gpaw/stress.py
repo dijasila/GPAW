@@ -32,7 +32,7 @@ def calculate_stress(calc):
     p_G = 4 * np.pi * dens.rhot_q
     G0 = 0 if pd.gd.comm.rank > 0 else 1
     p_G[G0:] /= pd.G2_qG[0][G0:]**2
-    G_Gv = pd.get_reciprocal_vectors()
+    G_Gv = pd.get_reciprocal_vectors(add_q=False)
     for v1 in range(3):
         for v2 in range(3):
             s_vv[v1, v2] += pd.integrate(p_G, dens.rhot_q *
