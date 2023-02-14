@@ -466,7 +466,7 @@ def r2k(alpha, a, b, beta, c, trans='c', use_gpu=None):
 
 
 def _r2k(alpha, a, b, beta, c, trans='c', use_gpu=None):
-    """Launch CPU or GPU version of rk()."""
+    """Launch CPU or GPU version of r2k()."""
     a_cpu, a_gpu = (None, a) if not isinstance(a, np.ndarray) \
                              else (a, None)
     b_cpu, b_gpu = (None, b) if not isinstance(b, np.ndarray) \
