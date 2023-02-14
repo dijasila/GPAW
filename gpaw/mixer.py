@@ -41,11 +41,11 @@ class Library:
         cls.storage.append(cls)
 
     @classmethod
-    def get(cls, name):
+    def get(cls, name: [str, type]):
         for item in cls.storage:
             if getattr(item, 'name') == name:
                 return item
-        return NotImplemented
+        return name
 
 
 class BaseMixer(Library):
