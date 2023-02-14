@@ -149,7 +149,13 @@ def read_gpw(filename: Union[str, Path, IO[str]],
         kwargs['dtype'] = np.dtype(kwargs['dtype'])
 
     kwargs.pop('h', None)
-    kwargs['gpts'] = nt_sR_array.shape[1:]
+    pad_c = 1 - atoms.pbc
+    mode = kwargs.get('mode', 'fd')
+    if isinstance(mode, dict):
+        mode = mode['name']
+    if mode == 'pw':
+        pad_c[:] = 0
+    kwargs['gpts'] = pad_c + nt_sR_array.shape[1:]
 
     params = InputParameters(kwargs, warn=False)
 
