@@ -152,6 +152,13 @@ check_dependencies(sources)
 library_dirs = [str(dir) for dir in library_dirs]
 include_dirs = [str(dir) for dir in include_dirs]
 
+if os.environ.get('GPAW_GPU'):
+    define_macros.append(('GPAW_GPU_AWARE_MPI', '1'))
+    gpu = True
+    print('Building with GPU support')
+else:
+    gpu = False
+    print('NOT building with GPU support.')
 extensions = [Extension('_gpaw',
                         sources,
                         libraries=libraries,
@@ -164,7 +171,7 @@ extensions = [Extension('_gpaw',
                         runtime_library_dirs=runtime_library_dirs,
                         extra_objects=extra_objects)]
 
-if os.environ.get('GPAW_GPU'):
+if gpu:
     # TODO: Build this also via extension
     os.system('HCC_AMDGPU_TARGET=gfx90a hipcc -fPIC -fgpu-rdc -c c/gpu/hip_kernels.cpp -o c/gpu/hip_kernels.o')
     os.system('HCC_AMDGPU_TARGET=gfx90a hipcc -shared -fgpu-rdc --hip-link -o c/gpu/hip_kernels.so c/gpu/hip_kernels.o')
