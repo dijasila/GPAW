@@ -19,7 +19,9 @@
 #include <mpix.h>
 #endif
 
-
+// In the code, one utilizes calls equvalent to PyArray API,
+// except instead of PyArray_BYTES one uses Array_BYTES.
+// Then, if GPAW is built with GPAW_GPU_AWARE_MPI define, these macros are rewritten with wrappers.
 #ifndef GPAW_GPU_AWARE_MPI
 // Check that array is well-behaved and contains data that can be sent.
 #define CHK_ARRAY(a) if ((a) == NULL || !PyArray_Check(a)                   \
@@ -49,7 +51,7 @@
 
 #define Array_NDIM(a) PyArray_NDIM(a)
 #define Array_DIM(a,d)  PyArray_DIM(a,d)
-#define Array_ELEMENTSIZE(a) (PyArray_DESCR(a)->elsize)
+#define Array_ELEMENTSIZE(a) PyArray_ITEMSIZE(a)
 #define Array_BYTES(a) PyArray_BYTES(a)
 #define Array_DATA(a) PyArray_DATA(a)
 #define Array_SIZE(a) PyArray_SIZE(a)
@@ -57,7 +59,121 @@
 #define Array_ITEMSIZE(a) PyArray_ITEMSIZE(a)
 #define Array_NBYTES(a) PyArray_NBYTES(a)
 #define Array_ISCOMPLEX(a) PyArray_ISCOMPLEX(a)
+
 #else // GPAW_GPU_AWARE_MPI
+
+#define CHK_ARRAY(a) // TODO
+#define CHK_ARRAY_RO(a) // TODO
+#define CHK_ARRAYS(a,b,n) // TODO
+
+int Array_NDIM(PyObject* obj)
+{
+    if (PyArray_Check(obj))
+    {
+        return PyArray_NDIM((PyArrayObject*)obj);	  
+    }
+
+    // return len(obj.shape)
+    PyObject* shape_str = Py_BuildValue("s", "shape");
+    PyObject* shape = PyObject_GetAttr(obj, shape_str);
+    Py_DECREF(shape_str);
+    if (shape == NULL) return -1;
+    return PyTuple_Size(shape);
+}
+
+int Array_DIM(PyObject* obj, int dim)
+{
+    if (PyArray_Check(obj))
+    {
+        return PyArray_DIM((PyArrayObject*)obj, dim);	  
+    }
+    PyObject* shape_str = Py_BuildValue("s", "shape");
+    PyObject* shape = PyObject_GetAttr(obj, shape_str);
+    Py_DECREF(shape_str);
+    if (shape == NULL) return -1;
+    PyObject* pydim = PyTuple_GetItem(shape, dim);
+    if (pydim == NULL) return -1;
+    return (int) PyLong_AS_LONG(pydim);
+}
+
+#define Array_ELEMENTSIZE(a) PyArray_ITEMSIZE(a)
+
+char* Array_BYTES(PyObject* obj)
+{
+    if (PyArray_Check(obj))
+    {
+        return PyArray_BYTES((PyArrayObject*)obj);	  
+    }
+
+    PyObject* data_str = Py_BuildValue("s", "data");
+    PyObject* ndarray_data = PyObject_GetAttr(obj, data_str);
+    Py_DECREF(data_str);
+    if (ndarray_data == NULL) return NULL;
+    PyObject* ptr_str = Py_BuildValue("s", "ptr");
+    PyObject* ptr_data = PyObject_GetAttr(ndarray_data, ptr_str);
+    Py_DECREF(ptr_str);
+    if (ptr_data == NULL) return NULL;
+    return (char*) PyLong_AS_LONG(ptr_data);
+}
+
+#define Array_DATA(a) ((void*) Array_BYTES(a))
+
+int Array_SIZE(PyObject* obj)
+{
+    PyObject* size_str = Py_BuildValue("s", "size");
+    int size = (int) PyLong_AS_LONG(PyObject_GetAttr(obj, size_str));
+    Py_DECREF(size_str);
+    return size;
+}
+
+int Array_TYPE(PyObject* obj)
+{
+    if (PyArray_Check(obj))
+    {
+        return PyArray_TYPE((PyArrayObject*)obj);
+    }
+    PyObject* dtype_str = Py_BuildValue("s", "dtype");
+    PyObject* dtype = PyObject_GetAttr(obj, dtype_str);
+    Py_DECREF(dtype_str);
+    if (dtype == NULL) return -1;
+
+    PyObject* num_str = Py_BuildValue("s", "num");
+    PyObject* num = PyObject_GetAttr(obj, num_str);
+    Py_DECREF(num_str);
+    if (num == NULL) return -1;
+    
+    return (int) PyLong_AS_LONG(num_str);
+}
+
+int Array_ITEMSIZE(PyObject* obj)
+{
+    if (PyArray_Check(obj))
+    {
+        return PyArray_ITEMSIZE((PyArrayObject*)obj);
+    }
+    PyObject* itemsize_str = Py_BuildValue("s", "itemsize");
+    int itemsize = (int) PyLong_AS_LONG(PyObject_GetAttr(obj, itemsize_str));
+    Py_DECREF(itemsize_str);
+    return itemsize;
+}
+
+
+long Array_NBYTES(PyObject* obj)
+{
+    if (PyArray_Check(obj))
+    {
+        return PyArray_NBYTES((PyArrayObject*)obj);
+    }
+    PyObject* nbytes_str = Py_BuildValue("s", "nbytes");
+    long nbytes = PyLong_AS_LONG(PyObject_GetAttr(obj, nbytes_str));
+    Py_DECREF(nbytes_str);
+    return nbytes;
+}
+
+int Array_ISCOMPLEX(PyObject* obj)
+{
+    return PyTypeNum_ISCOMPLEX(Array_TYPE(obj));
+}
 
 #endif
 
