@@ -69,6 +69,7 @@ static void XCFunctional_dealloc(XCFunctionalObject *self)
   PyObject_DEL(self);
 }
 
+
 static PyObject*
 XCFunctional_calculate(XCFunctionalObject *self, PyObject *args)
 {
@@ -120,8 +121,12 @@ XCFunctional_calculate(XCFunctionalObject *self, PyObject *args)
     for (int g = 0; g < ng; g++)
       {
         double n = n_g[g];
-        if (n < NMIN)
-          n = NMIN;
+        if (n < NMIN) {
+            e_g[g] = 0.0;
+            if (par->gga)
+                dedsigma_g[g] = 0.0;
+            continue;
+        }
         double rs = pow(C0I / n, THIRD);
         double dexdrs;
         double dexda2;
@@ -172,14 +177,26 @@ XCFunctional_calculate(XCFunctionalObject *self, PyObject *args)
       for (int g = 0; g < ng; g++)
         {
           double na = 2.0 * na_g[g];
-          if (na < NMIN)
-            na = NMIN;
-          double rsa = pow(C0I / na, THIRD);
           double nb = 2.0 * nb_g[g];
-          if (nb < NMIN)
-            nb = NMIN;
-          double rsb = pow(C0I / nb, THIRD);
           double n = 0.5 * (na + nb);
+          if (n < NMIN) {
+              e_g[g] = 0.0;
+              if (par->gga) {
+                  dedsigma0_g[g] = 0.0;
+                  dedsigma1_g[g] = 0.0;
+                  dedsigma2_g[g] = 0.0;
+              }
+              continue;
+          }
+
+          if (na < NMIN)
+              na = NMIN;
+          if (nb < NMIN)
+              nb = NMIN;
+          n = 0.5 * (na + nb);
+
+          double rsa = pow(C0I / na, THIRD);
+          double rsb = pow(C0I / nb, THIRD);
           double rs = pow(C0I / n, THIRD);
           double zeta = 0.5 * (na - nb) / n;
           double dexadrs;

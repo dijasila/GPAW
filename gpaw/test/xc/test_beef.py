@@ -62,7 +62,7 @@ def test_beef(in_tmp_dir):
             A = []
             for energies in np.array(E).T:
                 p = np.polyfit(V, energies, 2)
-                assert p[0] > 0, (V, E, p)
+                assert p[0] > 0, (V, energies, p)
                 v0 = np.roots(np.polyder(p))[0]
                 A.append((v0 * 4)**(1 / 3))
 
