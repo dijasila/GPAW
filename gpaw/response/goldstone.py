@@ -120,6 +120,27 @@ def find_afm_goldstone_scaling(chiks_GG, Kxc_GG):
     return fxcs
 
 
+def calculate_kappa(chiks_GG, Khxc_GG):
+    r"""Calculate the inverse enhancement factor.
+
+    This is defined as the smallest real part of an eigenvalue to the inverse
+    enhancement matrix, which is defined as follows (in matrix notation for a
+    suitable basis for the periodic spatial degrees of freedom):
+
+    κ(q, ω) = 1 - χ_KS(q, ω) K_Hxc(q, ω)
+    """
+    # Calculate the inverse enhancement matrix
+    nG = chiks_GG.shape[0]
+    kappa_GG = np.eye(nG, dtype=complex) - chiks_GG @ Khxc_GG
+
+    # Calculate the eigenvalues and return the real part of the smallest
+    # eigenvalue (smallness defined in terms of the absolute real part)
+    eig_m = np.linalg.eigvals(kappa_GG)
+    mmin = np.argmin(np.abs(eig_m.real))
+
+    return eig_m[mmin].real
+
+
 def calculate_macroscopic_kappa(chiks_GG, Kxc_GG):
     """Invert dyson equation and calculate the inverse enhancement function."""
     chi_GG = invert_dyson_single_frequency(chiks_GG, Kxc_GG)
