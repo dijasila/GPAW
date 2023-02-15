@@ -19,6 +19,7 @@
 #include <mpix.h>
 #endif
 
+
 // In the code, one utilizes calls equvalent to PyArray API,
 // except instead of PyArray_BYTES one uses Array_BYTES.
 // Then, if GPAW is built with GPAW_GPU_AWARE_MPI define, these macros are rewritten with wrappers.
@@ -96,7 +97,7 @@ int Array_DIM(PyObject* obj, int dim)
     return (int) PyLong_AS_LONG(pydim);
 }
 
-#define Array_ELEMENTSIZE(a) PyArray_ITEMSIZE(a)
+#define Array_ELEMENTSIZE(a) Array_ITEMSIZE(a)
 
 char* Array_BYTES(PyObject* obj)
 {
@@ -135,14 +136,15 @@ int Array_TYPE(PyObject* obj)
     PyObject* dtype_str = Py_BuildValue("s", "dtype");
     PyObject* dtype = PyObject_GetAttr(obj, dtype_str);
     Py_DECREF(dtype_str);
+
     if (dtype == NULL) return -1;
 
     PyObject* num_str = Py_BuildValue("s", "num");
-    PyObject* num = PyObject_GetAttr(obj, num_str);
+    PyObject* num = PyObject_GetAttr(dtype, num_str);
     Py_DECREF(num_str);
     if (num == NULL) return -1;
     
-    return (int) PyLong_AS_LONG(num_str);
+    return (int) PyLong_AS_LONG(num);
 }
 
 int Array_ITEMSIZE(PyObject* obj)
@@ -151,9 +153,11 @@ int Array_ITEMSIZE(PyObject* obj)
     {
         return PyArray_ITEMSIZE((PyArrayObject*)obj);
     }
-    PyObject* itemsize_str = Py_BuildValue("s", "itemsize");
-    int itemsize = (int) PyLong_AS_LONG(PyObject_GetAttr(obj, itemsize_str));
-    Py_DECREF(itemsize_str);
+    PyObject* dtype = PyObject_GetAttrString(obj, "dtype");
+    if (dtype == NULL) return -1;
+    PyObject* itemsize_obj = PyObject_GetAttrString(obj, "itemsize");
+    if (itemsize_obj == NULL) return -1;
+    int itemsize = (int) PyLong_AS_LONG(itemsize_obj);
     return itemsize;
 }
 
@@ -172,7 +176,8 @@ long Array_NBYTES(PyObject* obj)
 
 int Array_ISCOMPLEX(PyObject* obj)
 {
-    return PyTypeNum_ISCOMPLEX(Array_TYPE(obj));
+    int result = PyTypeNum_ISCOMPLEX(Array_TYPE(obj));
+    return result;
 }
 
 #endif
@@ -747,8 +752,8 @@ static MPI_Datatype get_mpi_datatype(PyArrayObject *a)
   int n = Array_ELEMENTSIZE(a);
   if (Array_ISCOMPLEX(a))
     n = n / 2;
-
-  switch(Array_TYPE(a))
+  int array_type = Array_TYPE(a);
+  switch(array_type)
     {
       // Floating point numbers including complex numbers
     case NPY_DOUBLE:
@@ -791,6 +796,7 @@ static MPI_Datatype get_mpi_datatype(PyArrayObject *a)
       assert(sizeof(unsigned long) == n);
       return MPI_UNSIGNED_LONG;
     }
+
   // If we reach this point none of the cases worked out.
   PyErr_SetString(PyExc_ValueError, "Cannot communicate data of this type.");
   return 0;
