@@ -27,4 +27,4 @@ def test_vdwradii():
             Rref = data_Hanke[symbol]
         error = abs(R - Rref)
         print("symbol, R, Rref, error:", symbol, R, Rref, error)
-        assert(error < 0.05)
+        assert error < 0.05

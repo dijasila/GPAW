@@ -24,7 +24,9 @@ class AtomCenteredFunctions:
     def __init__(self,
                  functions,
                  fracpos_ac: ArrayLike2D,
-                 atomdist: AtomDistribution = None):
+                 atomdist: AtomDistribution = None,
+                 xp=None):
+        self.xp = xp or np
         self.functions = [[to_spline(*f) if isinstance(f, tuple) else f
                            for f in funcs]
                           for funcs in functions]
@@ -51,12 +53,14 @@ class AtomCenteredFunctions:
         self._lazy_init()
         return self._atomdist
 
+    def _lazy_init(self):
+        raise NotImplementedError
+
     def empty(self,
               dims: int | tuple[int, ...] = (),
-              comm: MPIComm = serial_comm,
-              transposed=False) -> AtomArrays:
+              comm: MPIComm = serial_comm) -> AtomArrays:
         """Create AtomsArray for coefficients."""
-        return self.layout.empty(dims, comm, transposed=transposed)
+        return self.layout.empty(dims, comm)
 
     def move(self, fracpos_ac, atomdist):
         """Move atoms to new positions."""
@@ -66,12 +70,10 @@ class AtomCenteredFunctions:
     def add_to(self, functions, coefs=1.0):
         """Add atom-centered functions multiplied by *coefs* to *functions*."""
         self._lazy_init()
-
         if isinstance(coefs, float):
             self._lfc.add(functions.data, coefs)
-            return
-
-        self._lfc.add(functions.data, coefs._dict_view(), q=0)
+        else:
+            self._lfc.add(functions.data, coefs, q=0)
 
     def integrate(self, functions, out=None):
         """Calculate integrals of atom-centered functions multiplied by
@@ -80,7 +82,7 @@ class AtomCenteredFunctions:
         self._lazy_init()
         if out is None:
             out = self.layout.empty(functions.dims, functions.comm)
-        self._lfc.integrate(functions.data, out._dict_view(), q=0)
+        self._lfc.integrate(functions.data, out, q=0)
         return out
 
     def derivative(self, functions, out=None):
@@ -89,12 +91,9 @@ class AtomCenteredFunctions:
         """
         self._lazy_init()
         if out is None:
-            out = self.layout.empty(functions.dims + (3,), functions.comm,
-                                    transposed=True)
-        else:
-            assert out.transposed
-        coef_axiv = {a: np.moveaxis(array_ixv, 0, -2)
-                     for a, array_ixv in out._arrays.items()}
+            out = self.layout.empty((3,) + functions.dims, functions.comm)
+        coef_axiv = {a: np.moveaxis(array_vxi, 0, -1)
+                     for a, array_vxi in out._arrays.items()}
         self._lfc.derivative(functions.data, coef_axiv, q=0)
         return out
 
@@ -107,11 +106,12 @@ class UniformGridAtomCenteredFunctions(AtomCenteredFunctions):
                  *,
                  atomdist=None,
                  integral=None,
-                 cut=False):
+                 cut=False,
+                 xp=np):
         AtomCenteredFunctions.__init__(self,
                                        functions,
                                        fracpos_ac,
-                                       atomdist)
+                                       atomdist, xp=xp)
         self.grid = grid
         self.integral = integral
         self.cut = cut

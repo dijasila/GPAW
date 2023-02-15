@@ -13,6 +13,7 @@ from gpaw.new.hamiltonian import Hamiltonian
 class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
     def __init__(self, atoms, params, nn=3, interpolation=3):
         super().__init__(atoms, params)
+        assert not self.soc
         self.kin_stencil_range = nn
         self.interpolation_stencil_range = interpolation
 
@@ -66,8 +67,8 @@ class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
                                                  q):
         grid = self.grid.new(kpt=kpt_c, dtype=self.dtype)
         psit_nR = grid.zeros(self.nbands, self.communicators['b'])
-        mynbands = len(C_nM)
-        basis_set.lcao_to_grid(C_nM, psit_nR.data[:mynbands], q)
+        mynbands = len(C_nM.data)
+        basis_set.lcao_to_grid(C_nM.data, psit_nR.data[:mynbands], q)
         return psit_nR
 
     def read_ibz_wave_functions(self, reader):

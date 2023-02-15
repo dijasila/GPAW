@@ -1,7 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
-# Emacs: treat this as -*- python -*-
 # flake8: noqa
 from optparse import OptionParser
 

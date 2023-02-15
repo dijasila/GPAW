@@ -6,6 +6,7 @@ from ase.units import Ha
 
 from gpaw import KohnShamConvergenceError
 from gpaw.convergence_criteria import check_convergence
+from gpaw.forces import calculate_forces
 
 
 class SCFLoop:
@@ -49,6 +50,7 @@ class SCFLoop:
         self.eigensolver_used = getattr(wfs.eigensolver, "name", None)
         self.check_eigensolver_state(wfs, ham, dens)
         self.niter = 1
+        converged = False
 
         while self.niter <= self.maxiter:
             self.iterate_eigensolver(wfs, ham, dens)
@@ -97,7 +99,8 @@ class SCFLoop:
         eigerr = self.criteria['eigenstates'].get_error(context)
         if not np.isfinite(eigerr):
             msg = 'Not enough bands for ' + wfs.eigensolver.nbands_converge
-            log(msg, flush=True)
+            log(msg)
+            log.fd.flush()
             raise KohnShamConvergenceError(msg)
         log(oops, flush=True)
         raise KohnShamConvergenceError(
@@ -206,7 +209,8 @@ def write_iteration(criteria, converged_items, entries, ctx, log):
         else:
             line += ' {:+.1f},{:+.1f},{:+.1f}'.format(*totmom_v)
 
-    log(line.rstrip(), flush=True)
+    log(line.rstrip())
+    log.fd.flush()
 
 
 class SCFEvent:
@@ -219,6 +223,11 @@ class SCFEvent:
         self.wfs = wfs
         self.niter = niter
         self.log = log
+
+    def calculate_forces(self):
+        with self.wfs.timer('Forces'):
+            F_av = calculate_forces(self.wfs, self.dens, self.ham)
+        return F_av
 
 
 oops = """

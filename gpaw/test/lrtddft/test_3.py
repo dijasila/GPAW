@@ -14,6 +14,7 @@ from gpaw.lrtddft import LrTDDFT, photoabsorption_spectrum
 from gpaw.lrtddft.kssingle import KSSingles
 
 
+@pytest.mark.lrtddft
 @pytest.mark.slow
 def test_lrtddft_3(in_tmp_dir):
     from io import StringIO

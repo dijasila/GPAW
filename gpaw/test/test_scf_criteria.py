@@ -29,6 +29,7 @@ class FourIterations(Criterion):
         self.iters = 0
 
 
+@pytest.mark.later
 def test_scf_criterion(in_tmp_dir):
     """Tests different ways of setting SCF convergence criteria,
     and that it behaves consistenly with regard to the work function."""
@@ -90,6 +91,7 @@ def test_scf_criterion(in_tmp_dir):
     assert calc.scf.criteria['energy'].n_old == 4
 
 
+@pytest.mark.later
 def test_scf_custom_criterion(in_tmp_dir):
     """Simulate a user creating their own custom convergence criterion,
     saving the .gpw file, and re-loading it. It will warn the user at two

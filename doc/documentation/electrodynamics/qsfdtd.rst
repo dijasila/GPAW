@@ -216,7 +216,7 @@ TODO
 
 * Dielectrics (`\epsilon_{\infty}\neq\epsilon_0`)
 * Geometries from 3D model files
-* Subcell averaging
+* Sub-cell averaging
 * Full FDTD (retardation effects) or interface to an external FDTD software
 * Fix grid-dependent oscillations in the induced density
 

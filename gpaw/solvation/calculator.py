@@ -57,7 +57,7 @@ class SolvationGPAW(GPAW):
                         atomic_radii=atomic_radii,
                         u0=efpot.u0)
                 else:
-                    raise IOError('Reading the given effective potential'
+                    raise IOError('Reading the given effective potential '
                                   'is not implemented yet')
 
             if 'name' in impl_in.cavity.surface_calculator:

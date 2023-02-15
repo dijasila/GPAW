@@ -20,6 +20,9 @@ class BField(NoExternalPotential):
         self.field_v = np.array(field) / Ha
         assert self.field_v.shape == (3,)
 
+    def get_potential(self, gd):
+        raise NotImplementedError('BField can only be used in PW-mode!')
+
     def update_potential_pw(self,
                             ham: ReciprocalSpaceHamiltonian,
                             dens: Density) -> float:

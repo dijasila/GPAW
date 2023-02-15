@@ -9,6 +9,7 @@ GPAW calculator:
 .. toctree::
    :maxdepth: 2
 
+   soc/soc
    poisson
    electrodynamics/electrodynamics
    cdft/cdft

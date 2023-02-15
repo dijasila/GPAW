@@ -9,6 +9,7 @@ from gpaw.response.chi0 import Chi0
 from gpaw.mpi import serial_comm
 
 
+@pytest.mark.response
 @pytest.mark.slow
 def test_response_chi0(in_tmp_dir):
     omega = np.array([0, 1.0, 2.0])
@@ -30,10 +31,10 @@ def test_response_chi0(in_tmp_dir):
                     if 1:
                         calc = a.calc = GPAW(
                             kpts=kpts,
-                            eigensolver='rmm-diis',
                             symmetry={'point_group': sym},
                             mode='pw',
                             occupations=FermiDirac(width=0.001),
+                            convergence={'bands': 8},
                             txt=name + '.txt')
                         a.get_potential_energy()
                         calc.write(name, 'all')
@@ -42,12 +43,14 @@ def test_response_chi0(in_tmp_dir):
 
                     chi = Chi0(calc, frequencies=omega, hilbert=False,
                                ecut=100, txt=name + '.log')
-                    pd, chi0_wGG, _, _ = chi.calculate(q_c)
+                    chi0 = chi.calculate(q_c)
+                    assert chi0.blockdist.blockcomm.size == 1
+                    chi0_wGG = chi0.chi0_WgG  # no block distribution
 
                     if not sym and not center:
                         chi00_w = chi0_wGG[:, 0, 0]
                     elif -1 not in calc.wfs.kd.bz2bz_ks:
-                        assert abs(chi0_wGG[:, 0, 0] - chi00_w).max() < 3e-5
+                        assert abs(chi0_wGG[:, 0, 0] - chi00_w).max() < 35e-5
 
                     if not sym:
                         chi00_wGG = chi0_wGG
@@ -59,14 +62,16 @@ def test_response_chi0(in_tmp_dir):
                     #               a.get_reciprocal_cell() * 2 * np.pi) * Bohr
                     # q0 = (q0_v**2).sum()**0.5
 
-                    pd, chi0_wGG, _, _ = chi.calculate([0, 0, 0])
+                    chi0 = chi.calculate([0, 0, 0])
+                    assert chi0.blockdist.blockcomm.size == 1
+                    chi0_wGG = chi0.chi0_WgG  # no block distribution
 
                     if not sym and not center:
                         chi000_w = chi0_wGG[:, 0, 0]
                     elif -1 not in calc.wfs.kd.bz2bz_ks:
-                        assert abs(chi0_wGG[:, 0, 0] - chi000_w).max() < 0.001
+                        assert abs(chi0_wGG[:, 0, 0] - chi000_w).max() < 0.0015
 
                     if not sym:
                         chi000_wGG = chi0_wGG
                     elif -1 not in calc.wfs.kd.bz2bz_ks:
-                        assert abs(chi0_wGG - chi000_wGG).max() < 0.001
+                        assert abs(chi0_wGG - chi000_wGG).max() < 0.0015

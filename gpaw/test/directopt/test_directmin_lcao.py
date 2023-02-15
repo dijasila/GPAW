@@ -6,6 +6,7 @@ import numpy as np
 from gpaw.directmin.etdm import ETDM
 
 
+@pytest.mark.do
 def test_directmin_lcao(in_tmp_dir):
     """
     test exponential transformation

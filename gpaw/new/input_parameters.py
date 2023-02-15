@@ -6,6 +6,7 @@ from typing import Any, IO, Sequence
 
 import numpy as np
 from gpaw.mpi import world
+from gpaw.typing import DTypeLike
 
 parameter_functions = {}
 
@@ -46,18 +47,22 @@ def update_dict(default: dict, value: dict | None) -> dict[str, Any]:
 class InputParameters:
     basis: Any
     charge: float
+    communicator: Any
     convergence: dict[str, Any]
+    dtype: DTypeLike | None
     eigensolver: dict[str, Any]
-    force_complex_dtype: bool
+    experimental: dict[str, Any]
     gpts: None | Sequence[int]
     h: float | None
+    hund: bool
     kpts: dict[str, Any]
     magmoms: Any
     mode: dict[str, Any]
-    nbands: None | int | float
+    nbands: None | int | str
     parallel: dict[str, Any]
     poissonsolver: dict[str, Any]
     setups: Any
+    soc: bool
     spinpol: bool
     symmetry: dict[str, Any]
     txt: str | Path | IO[str] | None
@@ -84,24 +89,33 @@ class InputParameters:
         if self.h is not None and self.gpts is not None:
             raise ValueError("""You can't use both "gpts" and "h"!""")
 
-        bands = self.convergence.pop('bands', None)
-        if bands is not None:
-            self.eigensolver['converge_bands'] = bands
-            if warn:
-                warnings.warn(f'Please use eigensolver={self.eigensolver!r}',
-                              stacklevel=4)
+        if self.experimental is not None:
+            if self.experimental.pop('niter_fixdensity', None) is not None:
+                warnings.warn('Ignoring "niter_fixdensity".')
+            if 'soc' in self.experimental:
+                warnings.warn('Please use new "soc" parameter.')
+                self.soc = self.experimental.pop('soc')
+            if 'magmoms' in self.experimental:
+                warnings.warn('Please use new "magmoms" parameter.')
+                self.magmoms = self.experimental.pop('magmoms')
+            assert not self.experimental
 
         force_complex_dtype = self.mode.pop('force_complex_dtype', None)
         if force_complex_dtype is not None:
             if warn:
+                self.dtype = complex if force_complex_dtype else None
                 warnings.warn(
                     'Please use '
-                    f'GPAW(force_complex_dtype={bool(force_complex_dtype)}, '
+                    f'GPAW(dtype={self.dtype}, '
                     '...)',
                     stacklevel=3)
-            self.force_complex_dtype = force_complex_dtype
-            self.keys.append('force_complex_dtype')
+            self.keys.append('dtype')
             self.keys.sort()
+
+        if self.communicator is not None:
+            self.parallel['world'] = self.communicator
+            warnings.warn('Please use parallel={''world'': ...} '
+                          'instead of communicator=...')
 
     def __repr__(self) -> str:
         p = ', '.join(f'{key}={value!r}'
@@ -125,28 +139,34 @@ def charge(value=0.0):
 
 
 @input_parameter
+def communicator(value=None):
+    return None
+
+
+@input_parameter
 def convergence(value=None):
     """Accuracy of the self-consistency cycle."""
-    dct = update_dict({'energy': 0.0005,  # eV / electron
-                       'density': 1.0e-4,  # electrons / electron
-                       'eigenstates': 4.0e-8,  # eV^2 / electron
-                       'forces': np.inf,
-                       'bands': None,
-                       'maximum iterations': None},
-                      value)
-    return {k: v for k, v in dct.items() if v is not None}
+    return value or {}
+
+
+@input_parameter
+def dtype(value=None):
+    return value
 
 
 @input_parameter
 def eigensolver(value=None) -> dict:
     """Eigensolver."""
     if isinstance(value, str):
-        return {'name': value}
+        value = {'name': value}
+    if value and value['name'] != 'dav':
+        warnings.warn(f'{value["name"]} not implemented.  Using dav instead')
+        return {'name': 'dav'}
     return value or {}
 
 
 @input_parameter
-def force_complex_dtype(value: bool = False):
+def experimental(value=None):
     return value
 
 
@@ -199,18 +219,15 @@ def mixer(value=None):
 
 @input_parameter
 def mode(value='fd'):
-    return {'name': value} if isinstance(value, str) else value
+    if isinstance(value, str):
+        return {'name': value}
+    return value
 
 
 @input_parameter
-def nbands(value: str | int | None = None) -> int | float | None:
+def nbands(value: str | int | None = None) -> str | int | None:
     """Number of electronic bands."""
-    if isinstance(value, int) or value is None:
-        return value
-    if nbands[-1] == '%':
-        return float(value[:-1]) / 100
-    raise ValueError('Integer expected: Only use a string '
-                     'if giving a percentage of occupied bands')
+    return value
 
 
 @input_parameter
@@ -235,7 +252,8 @@ def parallel(value: dict[str, Any] = None) -> dict[str, Any]:
                        'use_elpa': False,
                        'elpasolver': '2stage',
                        'buffer_size': None,
-                       'world': None},
+                       'world': None,
+                       'gpu': False},
                       value)
     dct['world'] = dct['world'] or world
     return dct
@@ -255,7 +273,7 @@ def random(value=False):
 @input_parameter
 def setups(value='paw'):
     """PAW datasets or pseudopotentials."""
-    return value if isinstance(value, dict) else {None: value}
+    return value if isinstance(value, dict) else {'default': value}
 
 
 @input_parameter

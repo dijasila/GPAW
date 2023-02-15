@@ -508,13 +508,9 @@ class PWMapping:
         G2_Q[pd2.myQ_qG[0]] = np.arange(pd2.myng_q[0])
         G2_G1 = G2_Q[Q2_G]
 
-        if pd1.gd.comm.size == 1:
-            self.G2_G1 = G2_G1
-            self.G1 = None
-        else:
-            mask_G1 = (G2_G1 != -1)
-            self.G2_G1 = G2_G1[mask_G1]
-            self.G1 = np.arange(pd1.ngmax)[mask_G1]
+        mask_G1 = (G2_G1 != -1)
+        self.G2_G1 = G2_G1[mask_G1]
+        self.G1 = np.arange(pd1.ngmax)[mask_G1]
 
         self.pd1 = pd1
         self.pd2 = pd2

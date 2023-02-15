@@ -87,7 +87,7 @@ if charge == 1:
                 z = h_c[2] * (b_c[2] + k)
                 X = np.array([x, y, z])
                 dist = np.linalg.norm(X - X0)
-                if(dist < rcut):
+                if dist < rcut:
                     vext.vext_g[i, j, k] += A * np.exp(-dist**2)
 
     calc.set(convergence=conv_par, eigensolver=RMMDIIS(5), external=vext)

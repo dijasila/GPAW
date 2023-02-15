@@ -34,8 +34,7 @@ def get_lattice_symmetry(cell_cv, tolerance=1e-7):
     return latsym
 
 
-def find_high_symmetry_monkhorst_pack(calc, density,
-                                      pbc=None):
+def find_high_symmetry_monkhorst_pack(calc, density):
     """Make high symmetry Monkhorst Pack k-point grid.
 
     Searches for and returns a Monkhorst Pack grid which
@@ -49,9 +48,6 @@ def find_high_symmetry_monkhorst_pack(calc, density,
         The path to a calculator object.
     density : float
         The required minimum density of the Monkhorst Pack grid.
-    pbc : Boolean list/ndarray of shape (3,) or None
-        List indicating periodic directions. If None then
-        pbc = [True] * 3.
 
     Returns
     -------
@@ -60,12 +56,8 @@ def find_high_symmetry_monkhorst_pack(calc, density,
 
     """
 
-    if pbc is None:
-        pbc = np.array([True, True, True])
-    else:
-        pbc = np.array(pbc)
-
     atoms, calc = restart(calc, txt=None)
+    pbc = atoms.pbc
     minsize, offset = kpts2sizeandoffsets(density=density, even=True,
                                           gamma=True, atoms=atoms)
 

@@ -111,8 +111,7 @@ class Davidson(Eigensolver):
         dS = wfs.setups.dS
         comm = wfs.gd.comm
 
-        is_gridband_master: bool = (
-            comm.rank == 0) and (bd.comm.rank == 0)
+        is_gridband_master = (comm.rank == 0) and (bd.comm.rank == 0)
 
         if bd.comm.size > 1:
             M0 = M.new(dist=(bd.comm, 1, 1))

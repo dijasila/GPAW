@@ -4,7 +4,7 @@ Search directions in space of skew-hermitian matrices
 LSR1 algorithm and application to excited states:
 arXiv:2006.15922 [physics.chem-ph]
 J. Chem. Theory Comput. 16, 6968 (2020).
-https://pubs.acs.org/doi/10.1021/acs.jctc.0c00597
+https://doi.org/10.1021/acs.jctc.0c00597
 """
 
 import numpy as np
@@ -352,7 +352,7 @@ class LBFGS_P(SearchDirectionBase):
                 self.beta_0 = 1.0 / rhoyy
             else:
                 self.beta_0 = 1.0e20
-            
+
             if hess_1 is not None:
                 r = apply_prec(hess_1, q)
             else:

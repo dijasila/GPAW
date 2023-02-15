@@ -5,6 +5,7 @@ from gpaw.directmin.derivatives import Derivatives
 from ase import Atoms
 
 
+@pytest.mark.do
 def test_gradient_numerically_lcao(in_tmp_dir):
     """
     test exponential transformation
@@ -35,7 +36,7 @@ def test_gradient_numerically_lcao(in_tmp_dir):
                 txt=None
                 )
     atoms.calc = calc
-   
+
     params = [{'name': 'etdm',
                'representation': 'full',
                'matrix_exp': 'egdecomp'},

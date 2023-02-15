@@ -316,7 +316,7 @@ class PolarizableRod():
         mask = False * np.ones(ng)
 
         for p in self.corners[1:]:
-            #http://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line:
+            # http://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line:
             # d = |(a-p)-((a-p).n)n|   point p, line a+tn  (|n|=1)
             n = (p-a)/np.sqrt((p-a).dot((p-a)))
             v1 = np.array([a[w]-r_gv[:, :, :, w] for w in range(3)]).transpose((1, 2, 3, 0)) # a-p

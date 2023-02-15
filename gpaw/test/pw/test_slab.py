@@ -1,11 +1,12 @@
+import pytest
 from ase import Atoms
 from ase.optimize import BFGS
 
-from gpaw import GPAW
-from gpaw import PW
+from gpaw import GPAW, PW
 from gpaw.mpi import world
 
 
+@pytest.mark.later
 def test_pw_slab():
     a = 2.65
     slab = Atoms('Li2',
@@ -16,7 +17,6 @@ def test_pw_slab():
     calc = GPAW(mode=PW(200),
                 eigensolver='rmm-diis',
                 parallel={'band': min(world.size, 4)},
-                idiotproof=0,
                 kpts=(k, k, 1))
     slab.calc = calc
     BFGS(slab).run(fmax=0.01)

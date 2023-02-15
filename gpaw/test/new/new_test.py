@@ -3,12 +3,12 @@ from gpaw.calculator import GPAW as OldGPAW
 from gpaw.new.ase_interface import GPAW as NewGPAW
 
 
-def test_refactored_code():
+def test_refactored_code(in_tmp_dir):
     new('n')
 
 
 def new(x):
-    params = {'mode': {'name': 'fd', 'force_complex_dtype': 0},
+    params = {'mode': {'name': 'fd'},
               'random': not True,
               'kpts': (4, 1, 1),
               'spinpol': not True,

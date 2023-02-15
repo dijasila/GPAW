@@ -65,7 +65,7 @@ class KSSingles(ExcitationList):
         self.world = calculator.wfs.world
 
         # parallelization over bands not yet supported
-        assert(calculator.wfs.bd.comm.size == 1)
+        assert calculator.wfs.bd.comm.size == 1
 
         # do the evaluation
         self.select(nspins)
@@ -108,7 +108,7 @@ class KSSingles(ExcitationList):
                 if ((ks.fij / ks.weight) <= eps or
                    ks.i < istart or ks.j > jend or
                    ks.energy < emin or ks.energy > emax):
-                    del(self[i])
+                    del self[i]
             return None
 
         paw = self.calculator
@@ -205,7 +205,7 @@ class KSSingles(ExcitationList):
             try:
                 content = f.read()
                 f.seek(content.index('# KSSingles'))
-                del(content)
+                del content
                 f.readline()
             except ValueError:
                 fail(f)
@@ -264,7 +264,7 @@ class KSSingles(ExcitationList):
         self.nvspins = nvspins
 
         if hasattr(self, 'energies'):
-            del(self.energies)
+            del self.energies
 
     def set_arrays(self):
         if hasattr(self, 'energies'):

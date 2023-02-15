@@ -23,7 +23,7 @@ def test_fileio_file_reference(in_tmp_dir):
                 nbands=3, convergence=conv)
     atoms.calc = calc
     atoms.get_potential_energy()
-    wf0 = calc.get_pseudo_wave_function(2, 1, 1, broadcast=True)
+    wf0 = calc.get_pseudo_wave_function(2, 1, 1)
 
     calc.write('tmp', 'all')
 
@@ -32,4 +32,4 @@ def test_fileio_file_reference(in_tmp_dir):
     calc = GPAW('tmp', communicator=comm)
     wf1 = calc.get_pseudo_wave_function(2, 1, 1)
     diff = np.abs(wf0 - wf1)
-    assert(np.all(diff < 1e-12))
+    assert np.all(diff < 1e-12)

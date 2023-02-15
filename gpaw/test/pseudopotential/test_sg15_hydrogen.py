@@ -4,11 +4,9 @@
 from ase.build import molecule
 from gpaw import GPAW, Davidson, Mixer
 from gpaw.test.pseudopotential.H_sg15 import pp_text
-from gpaw import setup_paths
 
 
-def test_pseudopotential_sg15_hydrogen(in_tmp_dir):
-    setup_paths.insert(0, '.')
+def test_pseudopotential_sg15_hydrogen(in_tmp_dir, add_cwd_to_setup_paths):
     from gpaw.mpi import world
 
     # We can't easily load a non-python file from the test suite.

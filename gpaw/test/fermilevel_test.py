@@ -21,6 +21,7 @@ def test_fermilevel(in_tmp_dir):
     params['convergence'] = {'bands': 2}
     atoms.calc = GPAW(**params)
     atoms.get_potential_energy()
+
     homo, lumo = atoms.calc.get_homo_lumo()
     assert homo == pytest.approx(-15.4473, abs=0.01)
     assert lumo == pytest.approx(-0.2566, abs=0.01)

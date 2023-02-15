@@ -127,10 +127,12 @@ class ConstantElectricField(ExternalPotential):
         strength: float
             Field strength in V/Ang.
         direction: vector
-            Polarisation direction.
+            Polarization direction.
         """
-        d_v = np.asarray(direction)
-        self.field_v = strength * d_v / (d_v**2).sum()**0.5 * Bohr / Ha
+        self.strength = strength * Bohr / Ha
+        self.direction_v = np.array(direction, dtype=float)
+        self.direction_v /= np.linalg.norm(self.direction_v)
+        self.field_v = self.strength * self.direction_v
         self.tolerance = tolerance
         self.name = 'ConstantElectricField'
 
@@ -140,23 +142,33 @@ class ConstantElectricField(ExternalPotential):
                 .format(*(self.field_v * Ha / Bohr)))
 
     def calculate_potential(self, gd):
-        # Currently skipped, PW mode is periodic in all directions
-        # d_v = self.field_v / (self.field_v**2).sum()**0.5
-        # for axis_v in gd.cell_cv[gd.pbc_c]:
-        #     if abs(np.dot(d_v, axis_v)) > self.tolerance:
-        #         raise ValueError(
-        #             'Field not perpendicular to periodic axis: {}'
-        #             .format(axis_v))
+        # Note that PW-mode is periodic in all directions!
+        L_c = abs(gd.cell_cv @ self.direction_v)
+        # eps = self.tolerance
+        # assert (L_c < eps).sum() == 2
 
         center_v = 0.5 * gd.cell_cv.sum(0)
         r_gv = gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
-        self.vext_g = np.dot(r_gv - center_v, self.field_v)
+        f_g = (r_gv - center_v) @ self.direction_v
+
+        # Set potential to zero at boundary of box (important for PW-mode).
+        # Say we have 8 grid points.  Instead of a potential like this:
+        #
+        # -4 -3 -2 -1  0  1  2  3
+        #
+        # we want:
+        #
+        #  0 -3 -2 -1  0  1  2  3
+
+        L = L_c.sum()
+        f_g[abs(abs(f_g) - L / 2) < 1e-5] = 0.0
+
+        self.vext_g = f_g * self.strength
 
     def todict(self):
-        strength = (self.field_v**2).sum()**0.5
         return {'name': self.name,
-                'strength': strength * Ha / Bohr,
-                'direction': self.field_v / strength}
+                'strength': self.strength * Ha / Bohr,
+                'direction': self.direction_v}
 
 
 class ProductPotential(ExternalPotential):
@@ -377,7 +389,7 @@ def static_polarizability(atoms, strength=0.01):
     calc = atoms.calc
     assert calc.parameters.external is None
     dipole_gs = calc.get_dipole_moment()
-    
+
     alpha = np.zeros((3, 3))
     for c in range(3):
         axes = np.zeros(3)

@@ -1,15 +1,14 @@
 import numpy as np
-
+import pytest
 from ase.build import molecule
-from ase.units import Hartree, Bohr
+from ase.units import Bohr, Hartree
 from gpaw import GPAW
-from gpaw.lcaotddft import LCAOTDDFT
-from gpaw.lcaotddft.laser import GaussianPulse
 from gpaw.external import ConstantElectricField
+from gpaw.lcaotddft import LCAOTDDFT
 from gpaw.lcaotddft.dipolemomentwriter import DipoleMomentWriter
-from gpaw.tddft.units import as_to_au
+from gpaw.lcaotddft.laser import GaussianPulse
 from gpaw.mpi import world
-
+from gpaw.tddft.units import as_to_au
 from gpaw.test import equal
 
 # Settings
@@ -19,6 +18,7 @@ N = 5 + N1
 kick_v = np.ones(3) * 1e-5
 
 
+@pytest.mark.rttddft
 def test_laser(in_tmp_dir):
     # Atoms
     atoms = molecule('Na2')

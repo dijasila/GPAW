@@ -44,7 +44,7 @@ def test_rraman():
 
     # check size
     kss = KSSingles('rraman-d0.010.eq.ex.gz')
-    assert(len(kss) == 1)
+    assert len(kss) == 1
 
     om = 5
     pz = Placzek(H2, KSSingles, gsname=gsname, exname=exname,

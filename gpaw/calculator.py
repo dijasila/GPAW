@@ -87,7 +87,6 @@ class GPAW(Calculator):
         'random': False,
         'hund': False,
         'maxiter': 333,
-        'idiotproof': True,
         'symmetry': {'point_group': True,
                      'time_reversal': True,
                      'symmorphic': True,
@@ -191,7 +190,8 @@ class GPAW(Calculator):
             if key not in {'nbands', 'occupations', 'poissonsolver', 'kpts',
                            'eigensolver', 'random', 'maxiter', 'basis',
                            'symmetry', 'convergence', 'verbose'}:
-                raise TypeError(f'{key:!r} is an invalid keyword argument')
+                raise TypeError(f'Cannot change {key!r} in '
+                                'fixed_density calculation!')
 
         params = self.parameters.copy()
         params.update(kwargs)
@@ -214,6 +214,24 @@ class GPAW(Calculator):
             old_response = self.hamiltonian.xc.response
             new_response.initialize_from_other_response(old_response)
             new_response.fix_potential = True
+        elif calc.hamiltonian.xc.type == 'MGGA':
+            for kpt in self.wfs.kpt_u:
+                if kpt.psit is None:
+                    raise ValueError("Needs wave functions for "
+                                     "MGGA fixed density.\n"
+                                     "To run from a restart file, it must "
+                                     "be written with mode='all'")
+            self.wfs.initialize_wave_functions_from_restart_file()
+            taut_sG = self.wfs.calculate_kinetic_energy_density()
+            wgd = self.wfs.gd.new_descriptor(comm=self.world,
+                                             allow_empty_domains=True)
+            redist = GridRedistributor(self.world, self.wfs.kptband_comm,
+                                       self.wfs.gd, wgd)
+            taut_sG = redist.distribute(taut_sG)
+            redist = GridRedistributor(self.world, calc.wfs.kptband_comm,
+                                       calc.wfs.gd, wgd)
+            taut_sG = redist.collect(taut_sG)
+            calc.hamiltonian.xc.fix_kinetic_energy_density(taut_sG)
         calc.calculate(system_changes=[])
         return calc
 
@@ -284,6 +302,7 @@ class GPAW(Calculator):
         self.log('Reading from {}'.format(filename))
 
         self.reader = reader = Reader(filename)
+        assert reader.version <= 3, 'Can\'t read new GPW-files'
 
         atoms = read_atoms(reader.atoms)
         self._set_atoms(atoms)
@@ -361,7 +380,7 @@ class GPAW(Calculator):
 
         if system_changes:
             self.log('System changes:', ', '.join(system_changes), '\n')
-            if system_changes == ['positions']:
+            if self.density is not None and system_changes == ['positions']:
                 # Only positions have changed:
                 self.density.reset()
             else:
@@ -485,6 +504,10 @@ class GPAW(Calculator):
         if 'txt' in kwargs:
             self.log.fd = kwargs.pop('txt')
 
+        if 'idiotproof' in kwargs:
+            del kwargs['idiotproof']
+            warnings.warn('Ignoring deprecated keyword "idiotproof"')
+
         changed_parameters = Calculator.set(self, **kwargs)
 
         for key in ['setups', 'basis']:
@@ -511,7 +534,7 @@ class GPAW(Calculator):
                 self.wfs.set_eigensolver(None)
 
             if key in ['mixer', 'verbose', 'txt', 'hund', 'random',
-                       'eigensolver', 'idiotproof']:
+                       'eigensolver']:
                 continue
 
             if key in ['convergence', 'fixdensity', 'maxiter']:
@@ -641,6 +664,9 @@ class GPAW(Calculator):
                 'The fixdensity keyword has been deprecated. '
                 'Please use the GPAW.fixed_density() method instead.',
                 DeprecationWarning)
+            if self.hamiltonian.xc.type == 'MGGA':
+                raise ValueError('MGGA does not support deprecated '
+                                 'fixdensity option.')
 
         mode = par.mode
         if isinstance(mode, str):
@@ -713,9 +739,13 @@ class GPAW(Calculator):
                 N_c = self.density.gd.N_c
             else:
                 N_c = get_number_of_grid_points(cell_cv, h, mode, realspace,
-                                                self.symmetry, self.log)
+                                                self.symmetry)
 
         self.setups.set_symmetry(self.symmetry)
+
+        if not collinear and len(self.symmetry.op_scc) > 1:
+            raise ValueError('Can''t use symmetries with non-collinear '
+                             'calculations')
 
         if isinstance(par.background_charge, dict):
             background = create_background_charge(**par.background_charge)
@@ -922,7 +952,7 @@ class GPAW(Calculator):
         Z_a = self.atoms.get_atomic_numbers()
         self.setups = Setups(Z_a,
                              self.parameters.setups, self.parameters.basis,
-                             xc, filter, self.world)
+                             xc, filter=filter, world=self.world)
         self.log(self.setups)
 
     def create_grid_descriptor(self, N_c, cell_cv, pbc_c,
@@ -1302,12 +1332,11 @@ class GPAW(Calculator):
 
         Return list of energies in eV, one for each atom:
 
-        .. math::
+        :::
 
-            Y_{00}
-            \int d\mathbf{r}
-            \tilde{v}_H(\mathbf{r})
-            \hat{g}_{00}^a(\mathbf{r} - \mathbf{R}^a)
+              / _ ~  _  ^a  _ _a
+          Y   |dr v (r) g  (r-R )
+           00 /    H     00
 
         """
         ham = self.hamiltonian
@@ -2001,7 +2030,7 @@ class GPAW(Calculator):
                    (np.sqrt(4 * np.pi) * fac(2 * l + 1)))
             splines_x.append([Spline(l, rmax=r[-1], f_g=f_g)])
 
-        lf = LFC(wfs.gd, splines_x, wfs.kd, dtype=wfs.dtype)
+        lf = LFC(wfs.gd, splines_x, wfs.kd, dtype=wfs.dtype, cut=True)
         lf.set_positions(spos_xc)
 
         assert wfs.gd.comm.size == 1
@@ -2073,3 +2102,11 @@ class GPAW(Calculator):
             self, soc=soc,
             theta=theta, phi=phi,
             shift_fermi_level=shift_fermi_level)
+
+    def gs_adapter(self):
+        # Temporary helper to convert response code and related parts
+        # so it does not depend directly on calc.
+        #
+        # This method can be removed once we finish that process.
+        from gpaw.response.groundstate import ResponseGroundStateAdapter
+        return ResponseGroundStateAdapter(self)

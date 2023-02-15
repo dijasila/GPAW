@@ -1,9 +1,17 @@
 from collections import defaultdict
 from contextlib import contextmanager
 from time import time
+from typing import Iterable
 
 
-def prod(iterable):
+def prod(iterable: Iterable[int]) -> int:
+    """Simple int product.
+
+    >>> prod([])
+    1
+    >>> prod([2, 3])
+    6
+    """
     result = 1
     for x in iterable:
         result *= x
@@ -22,7 +30,7 @@ def cached_property(method):
     return property(new_method)
 
 
-def zip_strict(*iterables):
+def zip(*iterables, strict=True):
     """From PEP 618."""
     if not iterables:
         return
@@ -35,6 +43,8 @@ def zip_strict(*iterables):
             yield tuple(items)
     except StopIteration:
         pass
+    if not strict:
+        return
     if items:
         i = len(items)
         plural = " " if i == 1 else "s 1-"
@@ -65,11 +75,11 @@ class Timer:
     def write(self, log):
         self.times['Total'] += time()
         total = self.times['Total']
-        log()
+        log('\ntiming:  # [seconds]')
         n = max(len(name) for name in self.times) + 2
         w = len(f'{total:.3f}')
         N = 71 - n - w
         for name, t in self.times.items():
             m = int(round(2 * N * t / total))
             bar = '━' * (m // 2) + '╸' * (m % 2)
-            log(f'{name + ":":{n}}{t:{w}.3f} seconds', bar)
+            log(f'  {name + ":":{n}}{t:{w}.3f}  # {bar}')

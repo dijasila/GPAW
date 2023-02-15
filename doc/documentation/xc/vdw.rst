@@ -76,7 +76,7 @@ In the above examples, other vdW-DF type functionals can be used
 by substituting 'vdW-DF2', 'vdW-DF-cx' (if GPAW is compiled with libvdwxc),
 'optPBE-vdW', 'optB88-vdW', or 'C09-vdW' for 'vdW-DF'.
 To explicitly use the faster libvdwxc backend, use e.g.
-`xc={'name': 'vdW-DF', 'backend': 'libvdwxc'}`.
+``xc={'name': 'vdW-DF', 'backend': 'libvdwxc'}``.
 t libvdwxc uses a different kernel parametrization,
 which will slightly affect calculated values.
 
