@@ -276,7 +276,11 @@ def create_communicators(comm: MPIComm = None,
                         band=band)
     comms = parallelization.build_communicators()
     comms['w'] = comm
-    return comms
+
+    # We replace size=1 MPI communications with serial_comm so that
+    # serial_comm.sum(<cupy-array>) works: XXX
+    return {key: comm if comm.size > 1 else serial_comm
+            for key, comm in comms.items()}
 
 
 def create_fourier_filter(grid):
