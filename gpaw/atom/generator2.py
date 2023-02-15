@@ -1,7 +1,7 @@
-from functools import partial
 import sys
+from functools import partial
 from math import exp, log, pi, sqrt
-from typing import Tuple, Optional, Union, Dict, List
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from ase.data import atomic_numbers, chemical_symbols
@@ -11,12 +11,13 @@ from gpaw.atom.aeatom import (AllElectronAtom, Channel, GaussianBasis, colors,
                               parse_ld_str)
 from gpaw.basis_data import Basis, BasisFunction, BasisPlotter
 from gpaw.gaunt import gaunt
+from gpaw.typing import Array2D
 from gpaw.utilities import pack2
+from gpaw.xc.ri.ribasis import generate_ri_basis
+from gpaw.xc.ri.spherical_hse_kernel import RadialHSE
 from scipy.linalg import eigh
 from scipy.optimize import fsolve
 from scipy.special import erf
-from gpaw.xc.ri.ribasis import generate_ri_basis
-from gpaw.xc.ri.spherical_hse_kernel import RadialHSE
 
 
 class DatasetGenerationError(Exception):
@@ -313,8 +314,8 @@ class PAWSetupGenerator:
 
         self.fd = fd or sys.stdout
         self.yukawa_gamma = yukawa_gamma
-        self.exxcc_w = {}
-        self.exxcv_wii = {}
+        self.exxcc_w: dict[float, float] = {}
+        self.exxcv_wii: dict[float, Array2D] = {}
         self.omega = omega
 
         self.core_hole: Optional[Tuple[int, int, float]]
