@@ -358,28 +358,40 @@ class PAWWaves:
         Sref = rgd.integrate(phi_ng[:, None] * phi_ng)
         print(Sref)
 
-        def f(x):
+        def nlc1():
+            Gcut = 10
+            norm = 0
+            for n, phi in enumerate(phi_ng_ref):
+                if self.n_n[n] <= 0:
+                    continue
+                # change value of reference function at gc
+                g_k, b_k = rgd.fft(phit_ng[n] * r_g, l)
+                kc = int(Gcut / g_k[1])
+                f_k = g_k[kc:] * b_k[kc:]
+                norm += f_k @ f_k
+            return np.sqrt(norm)
+
+        def f(x, addgcut=True):
             for n, phi in enumerate(phi_ng_ref):
                 # change value of reference function at gc
                 phi[0] = x[2*n]
                 phi[1] = x[2*n+1]
-
                 # calculate polynomial approximation to a reference function
                 c_x = np.polyfit(r_i ** 2, phi / (r_i ** l), P-1)
                 phit_ng[n][:gc + nderiv] = np.polyval(c_x, r_g[:gc + nderiv] ** 2) * r_g[:gc + nderiv] ** l
                 c0[n] = c_x[-1]
             # calculate overlap matrix
             dS_nn = (Sref - rgd.integrate(phit_ng[:, None] * phit_ng)) / (4 * pi)
-
-            # print('S_max = ', np.max(np.absolute(dS_nn)))
-            # return np.max(np.absolute(dS_nn))
-            return np.linalg.norm(dS_nn)
+            if addgcut:
+                return np.linalg.norm(dS_nn) + 0.1*nlc1()
+            else:
+                return np.linalg.norm(dS_nn)
 
         from scipy.optimize import fmin
         print('='*100)
-        xmin = fmin(f, x0_init, ftol=1.0e-16, maxiter=100000, maxfun=5000)
-        print('Minimum is :', f(xmin))
-        assert f(xmin) < 1.5e-10
+        xmin = fmin(f, x0_init, ftol=1.0e-16, maxiter=500000, maxfun=10000)
+        print('Minimum is :', f(xmin, False), nlc1())
+        assert f(xmin, False) < 1.5e-10
         print(' '*100)
 
         for n in range(N):
