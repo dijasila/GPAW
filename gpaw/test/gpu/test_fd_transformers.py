@@ -46,16 +46,15 @@ def test_fd_transformers(gpu, pbc):
     # Restrict
     Transformer(gd, coarsegd, 1, dtype=dtype) \
         .apply(a, a_coarse, phases=phase)
+    Transformer(gd, coarsegd, 1, dtype=dtype, use_gpu=True) \
+        .apply(a_gpu, a_coarse_gpu, phases=phase)
+    a_coarse_ref = gpu.copy_to_host(a_coarse_gpu)
+    assert a_coarse == pytest.approx(a_coarse_ref, abs=1e-14)
+
     # Interpolate
     Transformer(coarsegd, gd, 1, dtype=dtype) \
         .apply(a_coarse, a, phases=phase)
-
-    # Restrict
-    Transformer(gd, coarsegd, 1, dtype=dtype, use_gpu=True) \
-        .apply(a_gpu, a_coarse_gpu, phases=phase)
-    # Interpolate
     Transformer(coarsegd, gd, 1, dtype=dtype, use_gpu=True) \
         .apply(a_coarse_gpu, a_gpu, phases=phase)
     a_ref = gpu.copy_to_host(a_gpu)
-
     assert a == pytest.approx(a_ref, abs=1e-14)
