@@ -1,12 +1,15 @@
 import numbers
-from math import pi, factorial as fac
+from math import factorial as fac
+from math import pi
+from typing import Tuple
 
 from abc import ABC, abstractmethod
 import numpy as np
 from scipy.interpolate import make_interp_spline, splder
 
 from gpaw.spline import Spline
-from gpaw.utilities import hartree, divrl
+from gpaw.typing import Array1D
+from gpaw.utilities import divrl, hartree
 
 
 def radial_grid_descriptor(eq: str, **kwargs) -> 'RadialGridDescriptor':
@@ -377,6 +380,34 @@ class RadialGridDescriptor(ABC):
         fsolve(f, x0)
         return b_g, c_x[-1]
 
+    def pseudize_smooth(self,
+                        a_g: Array1D,
+                        gc: int,
+                        l: int = 0,
+                        points: int = 3,
+                        Gcut: float = 6.0) -> Tuple[Array1D, float]:
+        b_g, _ = self.pseudize(a_g, gc, l, points)
+        c_x = np.empty(points + 1)
+        gc0 = gc // 2
+        x0 = b_g[gc0]
+        i = [gc0] + list(range(gc, gc + points))
+        r_g = self.r_g
+        r_i = r_g[i]
+
+        def f(x):
+            b_g[gc0] = x
+            c_x[:] = np.polyfit(r_i**2, b_g[i] / r_i**l, points)
+            b_g[:gc] = np.polyval(c_x, r_g[:gc]**2) * r_g[:gc]**l
+            g_k, b_k = self.fft(b_g * r_g, l)
+            kc = int(Gcut / g_k[1])
+            f_k = g_k[kc:] * b_k[kc:]
+            return f_k @ f_k
+
+        from scipy.optimize import minimize
+        minimize(f, x0)
+
+        return b_g, c_x[-1]
+
     def jpseudize(self, a_g, gc, l=0, points=4):
         """Construct spherical Bessel function continuation of a_g for g<gc.
 
@@ -389,8 +420,8 @@ class RadialGridDescriptor(ABC):
         for g < gc+P, where.
         """
 
-        from scipy.special import sph_jn
         from scipy.optimize import brentq
+        from scipy.special import sph_jn
 
         if a_g[gc] == 0:
             return self.zeros(), 0.0
