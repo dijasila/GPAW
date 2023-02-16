@@ -159,6 +159,7 @@ if os.environ.get('GPAW_GPU'):
 else:
     gpu = False
     print('NOT building with GPU support.')
+print(define_macros)
 extensions = [Extension('_gpaw',
                         sources,
                         libraries=libraries,

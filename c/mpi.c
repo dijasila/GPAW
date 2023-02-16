@@ -75,9 +75,7 @@ int Array_NDIM(PyObject* obj)
     }
 
     // return len(obj.shape)
-    PyObject* shape_str = Py_BuildValue("s", "shape");
-    PyObject* shape = PyObject_GetAttr(obj, shape_str);
-    Py_DECREF(shape_str);
+    PyObject* shape = PyObject_GetAttrString(obj, "shape");
     if (shape == NULL) return -1;
     return PyTuple_Size(shape);
 }
@@ -105,14 +103,10 @@ char* Array_BYTES(PyObject* obj)
     {
         return PyArray_BYTES((PyArrayObject*)obj);	  
     }
-
-    PyObject* data_str = Py_BuildValue("s", "data");
-    PyObject* ndarray_data = PyObject_GetAttr(obj, data_str);
-    Py_DECREF(data_str);
+    //ndarray.data.ptr
+    PyObject* ndarray_data = PyObject_GetAttrString(obj, "data");
     if (ndarray_data == NULL) return NULL;
-    PyObject* ptr_str = Py_BuildValue("s", "ptr");
-    PyObject* ptr_data = PyObject_GetAttr(ndarray_data, ptr_str);
-    Py_DECREF(ptr_str);
+    PyObject* ptr_data = PyObject_GetAttrString(ndarray_data, "ptr");
     if (ptr_data == NULL) return NULL;
     return (char*) PyLong_AS_LONG(ptr_data);
 }
@@ -902,6 +896,7 @@ static PyObject * mpi_reduce(MPIObject *self, PyObject *args, PyObject *kwargs,
           if (rank == root)
             {
 #ifdef GPAW_MPI2
+  printf("MPI_Reduce MPI_IN_PLACE\n");
               MPI_Reduce(MPI_IN_PLACE, Array_BYTES(aobj), n,
                          datatype, operation, root, self->comm);
 #else
