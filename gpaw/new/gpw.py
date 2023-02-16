@@ -130,20 +130,6 @@ def read_gpw(filename: Union[str, Path, IO[str]],
 
     atoms = read_atoms(reader.atoms)
 
-    kwargs = reader.parameters.asdict()
-    kwargs['parallel'] = parallel
-    if 'dtype' in kwargs:
-        kwargs['dtype'] = np.dtype(kwargs['dtype'])
-    params = InputParameters(kwargs, warn=False)
-
-    builder = create_builder(atoms, params)
-
-    if dtype is not None:
-        params.mode['dtype'] = dtype
-
-    (kpt_comm, band_comm, domain_comm, kpt_band_comm) = (
-        builder.communicators[x] for x in 'kbdD')
-
     if world.rank == 0:
         nt_sR_array = reader.density.density * bohr**3
         vt_sR_array = reader.hamiltonian.potential / ha
@@ -154,6 +140,29 @@ def read_gpw(filename: Union[str, Path, IO[str]],
         vt_sR_array = None
         D_sap_array = None
         dH_sap_array = None
+
+    kwargs = reader.parameters.asdict()
+
+    kwargs['parallel'] = parallel
+
+    if 'dtype' in kwargs:
+        kwargs['dtype'] = np.dtype(kwargs['dtype'])
+
+    params = InputParameters(kwargs, warn=False)
+    builder = create_builder(atoms, params)
+
+    if builder.grid.global_shape() != nt_sR_array.shape[1:]:
+        # old gpw-file:
+        kwargs.pop('h', None)
+        kwargs['gpts'] = nt_sR_array.shape[1:]
+        params = InputParameters(kwargs, warn=False)
+        builder = create_builder(atoms, params)
+
+    if dtype is not None:
+        params.mode['dtype'] = dtype
+
+    (kpt_comm, band_comm, domain_comm, kpt_band_comm) = (
+        builder.communicators[x] for x in 'kbdD')
 
     nt_sR = builder.grid.empty(builder.ncomponents)
     vt_sR = builder.grid.empty(builder.ncomponents)
