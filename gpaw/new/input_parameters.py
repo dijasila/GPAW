@@ -72,6 +72,8 @@ class InputParameters:
         self.keys = sorted(params)
 
         for key in params:
+            if key == 'fixdensity':
+                continue  # ignore old parameter
             if key not in parameter_functions:
                 raise ValueError(
                     f'Unknown parameter {key!r}.  Must be one of: ' +
@@ -221,6 +223,8 @@ def mixer(value=None):
 def mode(value='fd'):
     if isinstance(value, str):
         return {'name': value}
+    gc = value.pop('gammacentered', False)
+    assert not gc
     return value
 
 
