@@ -1,10 +1,11 @@
 from math import pi
-
+import sys
 import numpy as np
 
 from gpaw.density import Density
 from gpaw.pw.descriptor import PWDescriptor, PWMapping
 from gpaw.pw.lfc import PWLFC
+from gpaw.lfc import LFC
 
 
 class PseudoCoreKineticEnergyDensityLFC(PWLFC):
@@ -44,16 +45,26 @@ class ReciprocalSpaceDensity(Density):
                 spline_aj.append([])
             else:
                 spline_aj.append([setup.nct])
-        self.nct = PWLFC(spline_aj, self.pd2)
+
+        if not sys._xoptions.get('rsnct'):
+            self.nct = PWLFC(spline_aj, self.pd2)
+        else:
+            self.nct = LFC(self.gd, spline_aj,
+                           integral=[setup.Nct for setup in setups],
+                           forces=True, cut=True)
 
         self.ghat = PWLFC([setup.ghat_l for setup in setups], self.pd3,
                           )  # blocksize=256, comm=self.xc_redistributor.comm)
 
     def set_positions(self, spos_ac, atom_partition):
         Density.set_positions(self, spos_ac, atom_partition)
-        self.nct_q = self.pd2.zeros()
-        self.nct.add(self.nct_q, 1.0 / self.nspins)
-        self.nct_G = self.pd2.ifft(self.nct_q)
+        if isinstance(self.nct, PWLFC):
+            self.nct_q = self.pd2.zeros()
+            self.nct.add(self.nct_q, 1.0 / self.nspins)
+            self.nct_G = self.pd2.ifft(self.nct_q)
+        else:
+            self.nct_G = self.gd.zeros()
+            self.nct.add(self.nct_G, 1.0 / self.nspins)
 
     def interpolate_pseudo_density(self, comp_charge=None):
         """Interpolate pseudo density to fine grid."""
