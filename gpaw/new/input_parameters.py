@@ -223,6 +223,8 @@ def mixer(value=None):
 def mode(value='fd'):
     if isinstance(value, str):
         return {'name': value}
+    gc = value.pop('gammacentered', False)
+    assert not gc
     return value
 
 
