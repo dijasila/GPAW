@@ -527,9 +527,8 @@ def dotc(a, b):
             a_gpu = gpu.copy_to_device(a_cpu)
         if b_gpu is None:
             b_gpu = gpu.copy_to_device(b_cpu)
-        res = _gpaw.dotc_gpu(gpu.get_pointer(a_gpu), a.shape,
-                             gpu.get_pointer(b_gpu), a.dtype)
-        return res
+        return _gpaw.dotc_gpu(gpu.get_pointer(a_gpu), a.shape,
+                              gpu.get_pointer(b_gpu), a.dtype)
     else:
         if a_cpu is None:
             a_cpu = gpu.copy_to_host(a_gpu)
@@ -566,9 +565,8 @@ def dotu(a, b):
             a_gpu = gpu.copy_to_device(a_cpu)
         if b_gpu is None:
             b_gpu = gpu.copy_to_device(b_cpu)
-        res = _gpaw.dotu_gpu(gpu.get_pointer(a_gpu), a.shape,
-                             gpu.get_pointer(b_gpu), a.dtype)
-        return gpu
+        return _gpaw.dotu_gpu(gpu.get_pointer(a_gpu), a.shape,
+                              gpu.get_pointer(b_gpu), a.dtype)
     else:
         if a_cpu is None:
             a_cpu = gpu.copy_to_host(a_gpu)
