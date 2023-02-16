@@ -5,10 +5,11 @@ import numpy as np
 from ase.units import Ha, Bohr
 
 import gpaw.mpi as mpi
+from gpaw.transformers import Transformer
 
 
 class ResponseGroundStateAdapter:
-    def __init__(self, calc):
+    def __init__(self, calc, real_space_interpolation=False):
         wfs = calc.wfs
 
         self.kd = wfs.kd
@@ -37,8 +38,10 @@ class ResponseGroundStateAdapter:
         self._hamiltonian = calc.hamiltonian
         self._calc = calc
 
+        self.real_space_interpolation = real_space_interpolation
+
     @staticmethod
-    def from_gpw_file(gpw, context=None):
+    def from_gpw_file(gpw, context=None, **kwargs):
         """Initiate the ground state adapter directly from a .gpw file."""
         from gpaw import GPAW, disable_dry_run
         assert Path(gpw).is_file()
@@ -58,7 +61,7 @@ class ResponseGroundStateAdapter:
             with disable_dry_run():
                 calc = GPAW(gpw, txt=None, communicator=mpi.serial_comm)
 
-        return ResponseGroundStateAdapter(calc)
+        return ResponseGroundStateAdapter(calc, **kwargs)
 
     @property
     def pd(self):
@@ -95,8 +98,19 @@ class ResponseGroundStateAdapter:
     def nt_sr(self):
         # Used by localft
         if self._density.nt_sg is None:
-            self._density.interpolate_pseudo_density()
+            self.interpolate_pseudo_density()
         return self._density.nt_sg
+
+    def interpolate_pseudo_density(self):
+        """Interpolate pseudo density in real or reciprocal space."""
+        if self.real_space_interpolation:
+            interpolator = Transformer(self.gd, self.finegd, nn=3)
+            nt_sr = self.finegd.empty(self.nspins)
+            for nt_R, nt_r in zip(self.nt_sR, nt_sr):
+                interpolator.apply(nt_R, nt_r)
+            self._density.nt_sg = nt_sr
+        else:  # Usual reciprocal space interpolation
+            self._density.interpolate_pseudo_density()
 
     @property
     def D_asp(self):
@@ -114,6 +128,9 @@ class ResponseGroundStateAdapter:
 
     def get_all_electron_density(self, gridrefinement=2):
         # Used by fxc, fxc_kernels and localft
+        if gridrefinement > 1 and self._density.nt_sg is None:
+            self.interpolate_pseudo_density()
+
         return self._density.get_all_electron_density(
             atoms=self.atoms, gridrefinement=gridrefinement)
 
