@@ -85,6 +85,7 @@ class FFTPlans:
     def __init__(self,
                  size_c: IntVector,
                  dtype: DTypeLike):
+        self.shape: tuple[int, ...]
         if dtype == float:
             self.shape = (size_c[0], size_c[1], size_c[2] // 2 + 1)
             self.tmp_Q = empty(self.shape, complex)

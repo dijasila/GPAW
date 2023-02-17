@@ -94,6 +94,9 @@ class DummyFunctions(DistributedArrays[NoGrid]):
     def moment(self):
         return np.zeros(3)
 
+    def to_xp(self, xp):
+        return self
+
 
 class PSCoreDensities:
     def __init__(self, grid, fracpos_ac):
