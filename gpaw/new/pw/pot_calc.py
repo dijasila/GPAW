@@ -22,9 +22,10 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         super().__init__(xc, poisson_solver, setups, nct_R, fracpos_ac, soc)
 
         self.nct_ag = nct_ag
-        self.vbar_ag = setups.create_local_potentials(pw, fracpos_ac, atomdist)
+        self.vbar_ag = setups.create_local_potentials(
+            pw, fracpos_ac, atomdist, xp)
         self.ghat_aLh = setups.create_compensation_charges(
-            fine_pw, fracpos_ac, atomdist)  # , xp)
+            fine_pw, fracpos_ac, atomdist, xp)
 
         self.pw = pw
         self.fine_pw = fine_pw
@@ -32,13 +33,13 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
 
         self.h_g, self.g_r = fine_pw.map_indices(self.pw0)
 
-        self.fftplan = grid.fft_plans()
-        self.fftplan2 = fine_grid.fft_plans()
+        self.fftplan = grid.fft_plans(xp=xp)
+        self.fftplan2 = fine_grid.fft_plans(xp=xp)
 
         self.grid = grid
         self.fine_grid = fine_grid
 
-        self.vbar_g = pw.zeros()
+        self.vbar_g = pw.zeros(xp=xp)
         self.vbar_ag.add_to(self.vbar_g)
         self.vbar0_g = self.vbar_g.gather()
 

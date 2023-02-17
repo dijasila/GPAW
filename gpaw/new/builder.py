@@ -169,7 +169,7 @@ class DFTComponentsBuilder:
 
     @cached_property
     def nct_R(self):
-        out = self.grid.empty()
+        out = self.grid.empty(xp=self.xp)
         nct_aX = self.get_pseudo_core_densities()
         nct_aX.to_uniform_grid(out=out,
                                scale=1.0 / (self.ncomponents % 3))

@@ -760,6 +760,6 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         if xp is self.xp:
             return self
         if xp is np:
-            return self.new(data=xp.asnumpy(self.data))
+            return self.new(data=self.xp.asnumpy(self.data))
         else:
             return self.new(data=xp.asarray(self.data))

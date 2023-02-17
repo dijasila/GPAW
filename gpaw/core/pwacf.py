@@ -42,10 +42,16 @@ class PlaneWaveAtomCenteredFunctions(AtomCenteredFunctions):
                                         self.pw.dtype,
                                         xp=self.xp)
 
+    def __repr__(self):
+        s = super().__repr__()
+        if self.xp is np:
+            return s
+        return s[:-1] + ', xp=cp)'
+
     def to_uniform_grid(self,
                         out: UniformGridFunctions,
                         scale: float = 1.0) -> UniformGridFunctions:
-        out_G = self.pw.zeros()
+        out_G = self.pw.zeros(xp=out.xp)
         self.add_to(out_G, scale)
         return out_G.ifft(out=out)
 

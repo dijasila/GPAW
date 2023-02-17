@@ -54,8 +54,9 @@ class Density:
 
     def normalize(self):
         comp_charge = 0.0
+        xp = self.D_asii.layout.xp
         for a, D_sii in self.D_asii.items():
-            comp_charge += np.einsum('sij, ij ->',
+            comp_charge += xp.einsum('sij, ij ->',
                                      D_sii[:self.ndensities],
                                      self.delta_aiiL[a][:, :, 0])
             comp_charge += self.delta0_a[a]
@@ -109,7 +110,7 @@ class Density:
         nt_sR = nct_R.desc.zeros(ncomponents)
         basis_set.add_to_density(nt_sR.data, f_asi)
         ndensities = ncomponents % 3
-        nt_sR.data[:ndensities] += nct_R.data
+        nt_sR.data[:ndensities] += nct_R.to_xp(np).data
 
         atom_array_layout = AtomArraysLayout([(setup.ni, setup.ni)
                                               for setup in setups],
@@ -118,8 +119,9 @@ class Density:
         for a, D_sii in D_asii.items():
             D_sii[:] = unpack2(setups[a].initialize_density_matrix(f_asi[a]))
 
-        return cls.from_data_and_setups(nt_sR,
-                                        D_asii,
+        xp = nct_R.xp
+        return cls.from_data_and_setups(nt_sR.to_xp(xp),
+                                        D_asii.to_xp(xp),
                                         charge,
                                         setups)
 
