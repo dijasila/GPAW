@@ -39,6 +39,7 @@ class ResponseGroundStateAdapter:
         self._calc = calc
 
         self.real_space_interpolation = real_space_interpolation
+        self._nt_sr = None  # Buffer for pseudo density on the finegrid
 
     @staticmethod
     def from_gpw_file(gpw, context=None, **kwargs):
@@ -97,9 +98,9 @@ class ResponseGroundStateAdapter:
     @property
     def nt_sr(self):
         # Used by localft
-        if self._density.nt_sg is None:
+        if self._nt_sr is None:
             self.interpolate_pseudo_density()
-        return self._density.nt_sg
+        return self._nt_sr
 
     def interpolate_pseudo_density(self):
         """Interpolate pseudo density in real or reciprocal space."""
@@ -108,9 +109,11 @@ class ResponseGroundStateAdapter:
             nt_sr = self.finegd.empty(self.nspins)
             for nt_R, nt_r in zip(self.nt_sR, nt_sr):
                 interpolator.apply(nt_R, nt_r)
-            self._density.nt_sg = nt_sr
+            self._nt_sr = nt_sr
         else:  # Usual reciprocal space interpolation
-            self._density.interpolate_pseudo_density()
+            if self._density.nt_sg is None:
+                self._density.interpolate_pseudo_density()
+            self._nt_sr = self._density.nt_sg
 
     @property
     def D_asp(self):
@@ -128,11 +131,19 @@ class ResponseGroundStateAdapter:
 
     def get_all_electron_density(self, gridrefinement=2):
         # Used by fxc, fxc_kernels and localft
-        if gridrefinement > 1 and self._density.nt_sg is None:
-            self.interpolate_pseudo_density()
+        if self.real_space_interpolation:
+            # Use real-space interpolated pseudo density
+            _nt_sg = self._density.nt_sg
+            self._density.nt_sg = self.nt_sr
 
-        return self._density.get_all_electron_density(
+        n_sx = self._density.get_all_electron_density(
             atoms=self.atoms, gridrefinement=gridrefinement)
+
+        if self.real_space_interpolation:
+            # Reset buffer on density object
+            self._density.nt_sg = _nt_sg
+
+        return n_sx
 
     # Things used by EXX.  This is getting pretty involved.
     #
