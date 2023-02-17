@@ -17,7 +17,7 @@ typedef struct
 } LFVolume;
 
 #ifdef GPAW_GPU
-#include "gpu/gpu.h"
+#include "gpu/gpu-align.h"
 #include "gpu/gpu-complex.h"
 
 typedef struct ALIGN(16)
