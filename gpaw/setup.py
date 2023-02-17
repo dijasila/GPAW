@@ -1456,9 +1456,10 @@ class Setups(list):
             integral=[setup.Nct for setup in self],
             cut=True, xp=xp)
 
-    def create_local_potentials(self, layout, positions, atomdist):
+    def create_local_potentials(self, layout, positions, atomdist, xp=np):
         return layout.atom_centered_functions(
-            [[setup.vbar] for setup in self], positions, atomdist=atomdist)
+            [[setup.vbar] for setup in self], positions,
+            atomdist=atomdist, xp=xp)
 
     def create_compensation_charges(self, layout, positions, atomdist,
                                     xp=np):

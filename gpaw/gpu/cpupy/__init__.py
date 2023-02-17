@@ -120,6 +120,9 @@ class ndarray:
     def __bool__(self):
         return bool(self._data)
 
+    def __float__(self):
+        return self._data.__float__()
+
     def __iter__(self):
         for data in self._data:
             if data.ndim == 0:
@@ -185,7 +188,10 @@ class ndarray:
         return ndarray(f / self._data)
 
     def __iadd__(self, other):
-        self._data += other._data
+        if isinstance(other, float):
+            self._data += other
+        else:
+            self._data += other._data
         return self
 
     def __isub__(self, other):

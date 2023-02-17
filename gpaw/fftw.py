@@ -86,10 +86,11 @@ class FFTPlans:
                  size_c: IntVector,
                  dtype: DTypeLike):
         if dtype == float:
-            rsize_c = (size_c[0], size_c[1], size_c[2] // 2 + 1)
-            self.tmp_Q = empty(rsize_c, complex)
+            self.shape = (size_c[0], size_c[1], size_c[2] // 2 + 1)
+            self.tmp_Q = empty(self.shape, complex)
             self.tmp_R = self.tmp_Q.view(float)[:, :, :size_c[2]]
         else:
+            self.shape = tuple(size_c)
             self.tmp_Q = empty(size_c, complex)
             self.tmp_R = self.tmp_Q
 

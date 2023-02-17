@@ -60,7 +60,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         pw = self.vbar_g.desc
 
         if pw.comm.rank == 0:
-            indices = self.pw0.indices(self.fftplan.tmp_Q.shape)
+            indices = self.pw0.indices(self.fftplan.shape)
             nt0_g = self.pw0.zeros()
         else:
             nt0_g = None

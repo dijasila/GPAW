@@ -60,7 +60,9 @@ class Density:
                                      D_sii[:self.ndensities],
                                      self.delta_aiiL[a][:, :, 0])
             comp_charge += self.delta0_a[a]
-        comp_charge = self.nt_sR.desc.comm.sum(comp_charge * sqrt(4 * pi))
+        # comp_charge could be cupy.ndarray:
+        comp_charge = float(comp_charge) * sqrt(4 * pi)
+        comp_charge = self.nt_sR.desc.comm.sum(comp_charge)
         charge = comp_charge + self.charge
         pseudo_charge = self.nt_sR[:self.ndensities].integrate().sum()
         x = -charge / pseudo_charge
@@ -131,10 +133,11 @@ class Density:
                              D_asii,
                              charge,
                              setups):
+        xp = nt_sR.xp
         return cls(nt_sR,
                    D_asii,
                    charge,
-                   [setup.Delta_iiL for setup in setups],
+                   [xp.asarray(setup.Delta_iiL) for setup in setups],
                    [setup.Delta0 for setup in setups],
                    [unpack(setup.N0_p) for setup in setups],
                    [setup.l_j for setup in setups])
