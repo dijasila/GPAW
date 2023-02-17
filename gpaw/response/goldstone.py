@@ -79,21 +79,21 @@ def find_goldstone_scaling(mode, chiks_GG, Kxc_GG):
 
 
 def find_fm_goldstone_scaling(chiks_GG, Kxc_GG):
-    """Find goldstone scaling of the kernel by ensuring that the
-    macroscopic inverse enhancement function has a root in (q=0, omega=0)."""
+    """Find goldstone scaling of the kernel by ensuring that the inverse
+    enhancement factor vanishes (for q=0, omega=0)."""
     fxcs = 1.
-    kappaM = calculate_macroscopic_kappa(chiks_GG, Kxc_GG * fxcs)
-    # If kappaM > 0, increase scaling (recall: kappaM ~ 1 - Kxc Re{chi_0})
-    scaling_incr = 0.1 * np.sign(kappaM)
-    while abs(kappaM) > 1.e-7 and abs(scaling_incr) > 1.e-7:
+    kappa = calculate_kappa(chiks_GG, Kxc_GG * fxcs)
+    # If kappa > 0, increase scaling (recall: kappa ~ 1 - Re{chi_ks} Kxc)
+    scaling_incr = 0.1 * np.sign(kappa)
+    while abs(kappa) > 1.e-7 and abs(scaling_incr) > 1.e-7:
         fxcs += scaling_incr
         if fxcs <= 0.0 or fxcs >= 10.:
             raise Exception('Found an invalid fxc_scaling of %.4f' % fxcs)
 
-        kappaM = calculate_macroscopic_kappa(chiks_GG, Kxc_GG * fxcs)
+        kappa = calculate_kappa(chiks_GG, Kxc_GG * fxcs)
 
-        # If kappaM changes sign, change sign and refine increment
-        if np.sign(kappaM) != np.sign(scaling_incr):
+        # If kappa changes sign, change sign and refine increment
+        if np.sign(kappa) != np.sign(scaling_incr):
             scaling_incr *= -0.2
 
     return fxcs
@@ -120,11 +120,25 @@ def find_afm_goldstone_scaling(chiks_GG, Kxc_GG):
     return fxcs
 
 
-def calculate_macroscopic_kappa(chiks_GG, Kxc_GG):
-    """Invert dyson equation and calculate the inverse enhancement function."""
-    chi_GG = invert_dyson_single_frequency(chiks_GG, Kxc_GG)
+def calculate_kappa(chiks_GG, Khxc_GG):
+    r"""Calculate the inverse enhancement factor.
 
-    return (chiks_GG[0, 0] / chi_GG[0, 0]).real
+    This is defined as the smallest real part of an eigenvalue to the inverse
+    enhancement matrix, which is defined as follows (in matrix notation for a
+    suitable basis for the periodic spatial degrees of freedom):
+
+    κ(q, ω) = 1 - χ_KS(q, ω) K_Hxc(q, ω)
+    """
+    # Calculate the inverse enhancement matrix
+    nG = chiks_GG.shape[0]
+    kappa_GG = np.eye(nG, dtype=complex) - chiks_GG @ Khxc_GG
+
+    # Calculate the eigenvalues and return the real part of the smallest
+    # eigenvalue (smallness defined in terms of the absolute real part)
+    eig_m = np.linalg.eigvals(kappa_GG)
+    mmin = np.argmin(np.abs(eig_m.real))
+
+    return eig_m[mmin].real
 
 
 def calculate_macroscopic_spectrum(chiks_GG, Kxc_GG):
