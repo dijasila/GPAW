@@ -40,12 +40,14 @@ class Density:
                 f'  charge: {self.charge}  # |e|\n')
 
     def calculate_compensation_charge_coefficients(self) -> AtomArrays:
+        xp = self.D_asii.layout.xp
         ccc_aL = AtomArraysLayout(
             [delta_iiL.shape[2] for delta_iiL in self.delta_aiiL],
-            atomdist=self.D_asii.layout.atomdist).empty()
+            atomdist=self.D_asii.layout.atomdist,
+            xp=xp).empty()
 
         for a, D_sii in self.D_asii.items():
-            Q_L = np.einsum('sij, ijL -> L',
+            Q_L = xp.einsum('sij, ijL -> L',
                             D_sii[:self.ndensities], self.delta_aiiL[a])
             Q_L[0] += self.delta0_a[a]
             ccc_aL[a] = Q_L

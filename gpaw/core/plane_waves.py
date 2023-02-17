@@ -268,7 +268,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
             Array to use for storage.
         """
         if data is None:
-            data = np.empty_like(self.data)
+            data = self.xp.empty_like(self.data)
         else:
             # Number of plane-waves depends on the k-point.  We therfore
             # allow for data to be bigger than needed:

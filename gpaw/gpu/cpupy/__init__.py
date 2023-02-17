@@ -1,8 +1,9 @@
 import gpaw.gpu.cpupy.cublas as cublas
 import gpaw.gpu.cpupy.linalg as linalg
+import gpaw.gpu.cpupy.fft as fft
 import numpy as np
 
-__all__ = ['linalg', 'cublas']
+__all__ = ['linalg', 'cublas', 'fft']
 
 
 def empty(*args, **kwargs):

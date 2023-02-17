@@ -190,6 +190,19 @@ class CuPyFFTPlans(FFTPlans):
         else:
             self.tmp_Q[:] = cupyx.scipy.fft.fftn(self.tmp_R)
 
+    def ifft(self):
+        from gpaw.gpu import cupyx
+        if self.tmp_R.dtype == float:
+            self.tmp_R[:] = cupyx.scipy.fft.irfftn(
+                self.tmp_Q, self.tmp_R.shape,
+                norm='forward',
+                overwrite_x=True)
+        else:
+            self.tmp_R[:] = cupyx.scipy.fft.ifftn(
+                self.tmp_Q, self.tmp_R.shape,
+                norm='forward',
+                overwrite_x=True)
+
     def indices(self, pw):
         from gpaw.gpu import cupy as cp
         if self.pw is None:

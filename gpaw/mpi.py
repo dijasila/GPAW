@@ -119,7 +119,7 @@ class _Communicator:
         if isinstance(a, (int, float, complex)):
             return self.comm.sum(a, root)
         else:
-            assert a.ndim != 0
+            # assert a.ndim != 0
             tc = a.dtype
             assert tc == int or tc == float or tc == complex
             assert is_contiguous(a, tc)

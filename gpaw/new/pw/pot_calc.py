@@ -19,6 +19,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                  xp=np):
         fracpos_ac = nct_ag.fracpos_ac
         atomdist = nct_ag.atomdist
+        self.xp = xp
         super().__init__(xc, poisson_solver, setups, nct_R, fracpos_ac, soc)
 
         self.nct_ag = nct_ag
@@ -56,12 +57,12 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         return e_xc
 
     def _interpolate_density(self, nt_sR):
-        nt_sr = self.fine_grid.empty(nt_sR.dims)
+        nt_sr = self.fine_grid.empty(nt_sR.dims, xp=self.xp)
         pw = self.vbar_g.desc
 
         if pw.comm.rank == 0:
-            indices = self.pw0.indices(self.fftplan.shape)
-            nt0_g = self.pw0.zeros()
+            indices = self.xp.asarray(self.pw0.indices(self.fftplan.shape))
+            nt0_g = self.pw0.zeros(xp=self.xp)
         else:
             nt0_g = None
 
@@ -76,7 +77,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
     def _calculate(self, density, vHt_h):
         nt_sr, pw, nt0_g = self._interpolate_density(density.nt_sR)
 
-        vxct_sr = nt_sr.desc.zeros(density.nt_sR.dims)
+        vxct_sr = nt_sr.desc.empty(density.nt_sR.dims, xp=self.xp)
         e_xc = self.xc.calculate(nt_sr, vxct_sr)
 
         if pw.comm.rank == 0:
@@ -87,9 +88,9 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         e_zero = pw.comm.sum(e_zero)  # use broadcast XXX
 
         if vHt_h is None:
-            vHt_h = self.ghat_aLh.pw.zeros()
+            vHt_h = self.ghat_aLh.pw.zeros(xp=self.xp)
 
-        charge_h = vHt_h.desc.zeros()
+        charge_h = vHt_h.desc.zeros(xp=self.xp)
         coef_aL = density.calculate_compensation_charge_coefficients()
         self.ghat_aLh.add_to(charge_h, coef_aL)
 

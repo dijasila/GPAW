@@ -572,7 +572,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
             axes = [0, 1, 2]
 
         b_Q[:] = 0.0
-        b_Q[a0:b0, a1:b1, a2:b2] = np.fft.fftshift(a_Q, axes=axes)
+        b_Q[a0:b0, a1:b1, a2:b2] = self.xp.fft.fftshift(a_Q, axes=axes)
 
         if e0:
             b_Q[a0, a1:b1, a2:b2] *= 0.5
@@ -590,7 +590,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
             if e2:
                 b_Q[a0:b0, a1:b1, b2 - 1] *= 0.5
 
-        b_Q[:] = np.fft.ifftshift(b_Q, axes=axes)
+        b_Q[:] = self.xp.fft.ifftshift(b_Q, axes=axes)
         plan2.ifft()
         out.data[:] = plan2.tmp_R
         out.data *= (1.0 / self.data.size)
@@ -655,7 +655,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
             axes = [0, 1, 2]
 
         plan1.fft()
-        b_Q[:] = np.fft.fftshift(b_Q, axes=axes)
+        b_Q[:] = self.xp.fft.fftshift(b_Q, axes=axes)
 
         if e0:
             b_Q[a0, a1:b1, a2:b2] += b_Q[b0 - 1, a1:b1, a2:b2]
@@ -671,7 +671,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
             b2 -= 1
 
         a_Q[:] = b_Q[a0:b0, a1:b1, a2:b2]
-        a_Q[:] = np.fft.ifftshift(a_Q, axes=axes)
+        a_Q[:] = self.xp.fft.ifftshift(a_Q, axes=axes)
         plan2.ifft()
         out.data[:] = plan2.tmp_R
         out.data *= (1.0 / self.data.size)
