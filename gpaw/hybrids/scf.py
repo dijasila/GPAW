@@ -217,7 +217,7 @@ def calculate_exx_for_pair(k1,
                 x1 *= 2
                 x2 *= 2
 
-            for a, v_nL in integrate(ghat, vrho_nG[:n2b - n2a], f_GI).items():
+            for a, v_nL in integrate(ghat, vrho_nG[:n2b - n2a], f_GI):
                 if k1 is k2 and n2a <= n1 < n2b:
                     v_nL[n1 - n2a] *= 0.5
                 v_iin = paw.Delta_aiiL[a].dot(v_nL.T)
@@ -249,7 +249,7 @@ def add(ghat, a_xG, c_axi, f_GI):
     mmm(1.0 / ghat.pd.gd.dv, c_xI, 'N', f_GI, 'T', 1.0, a_xG)
 
 
-def integrate(ghat, a_xG, c_axi, f_GI):
+def integrate(ghat, a_xG, f_GI):
     c_xI = np.zeros(a_xG.shape[:-1] + (ghat.nI,), ghat.pd.dtype)
 
     nx = np.prod(c_xI.shape[:-1], dtype=int)
@@ -267,9 +267,7 @@ def integrate(ghat, a_xG, c_axi, f_GI):
     if ghat.pd.dtype == complex:
         f_GI.imag[:] = -f_GI.imag
     for a, I1, I2 in ghat.my_indices:
-        c_axi[a][:] = ghat.eikR_qa[0][a] * c_xI[..., I1:I2]
-
-    return c_axi
+        yield a, ghat.eikR_qa[0][a] * c_xI[..., I1:I2]
 
 
 def apply2(kpt, psit_xG, Htpsit_xG, wfs, coulomb, sym, paw):
