@@ -180,6 +180,8 @@ class ndarray:
         return ndarray(self._data**i)
 
     def __add__(self, f):
+        if isinstance(f, float):
+            return ndarray(f + self._data)
         return ndarray(f._data + self._data)
 
     def __rsub__(self, f):

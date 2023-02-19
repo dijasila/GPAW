@@ -2,6 +2,7 @@ import numpy as np
 from gpaw.core import PlaneWaves
 from gpaw.new.pot_calc import PotentialCalculator
 from gpaw.setup import Setups
+from gpaw.mpi import broadcast_float
 
 
 class PlaneWavePotentialCalculator(PotentialCalculator):
@@ -85,7 +86,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
             e_zero = self.vbar0_g.integrate(nt0_g)
         else:
             e_zero = 0.0
-        e_zero = pw.comm.sum_scalar(e_zero)  # use broadcast XXX
+        e_zero = broadcast_float(e_zero, pw.comm)
 
         if vHt_h is None:
             vHt_h = self.ghat_aLh.pw.zeros(xp=self.xp)
