@@ -52,7 +52,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
 
     def calculate_non_selfconsistent_exc(self, nt_sR, xc):
         nt_sr, _, _ = self._interpolate_density(nt_sR)
-        vxct_sr = nt_sr.desc.zeros(nt_sr.dims)
+        vxct_sr = nt_sr.desc.empty(nt_sr.dims)
         e_xc = xc.calculate(nt_sr, vxct_sr)
         return e_xc
 
@@ -85,7 +85,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
             e_zero = self.vbar0_g.integrate(nt0_g)
         else:
             e_zero = 0.0
-        e_zero = pw.comm.sum(e_zero)  # use broadcast XXX
+        e_zero = pw.comm.sum_scalar(e_zero)  # use broadcast XXX
 
         if vHt_h is None:
             vHt_h = self.ghat_aLh.pw.zeros(xp=self.xp)
@@ -143,7 +143,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                 'external': e_external}, vt_sR, vHt_h
 
     def _restrict(self, vxct_sr, vt_sR, density=None):
-        vtmp_R = vt_sR.desc.empty()
+        vtmp_R = vt_sR.desc.empty(xp=self.xp)
         e_kinetic = 0.0
         for spin, (vt_R, vxct_r) in enumerate(zip(vt_sR, vxct_sr)):
             vxct_r.fft_restrict(self.fftplan2, self.fftplan, out=vtmp_R)

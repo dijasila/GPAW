@@ -18,10 +18,11 @@ class XCFunctional:
 
     def calculate(self, nt_sr, vxct_sr) -> float:
         if nt_sr.xp is np:
+            vxct_sr.data[:] = 0.0
             return self.xc.calculate(nt_sr.desc._gd, nt_sr.data, vxct_sr.data)
-        vxct_cp_sr =  ...
-        exc = self.xc.calculate(nt_sr.desc._gd, nt_sr.data.get(), out.data)
-        ...
+        vxct_np_sr = np.zeros(vxct_sr.data.shape)
+        exc = self.xc.calculate(nt_sr.desc._gd, nt_sr.data.get(), vxct_np_sr)
+        vxct_sr.data[:] = vxct_sr.xp.asarray(vxct_np_sr)
         return exc
 
     def calculate_paw_correction(self, setup, d, h=None):

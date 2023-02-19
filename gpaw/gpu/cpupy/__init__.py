@@ -182,6 +182,9 @@ class ndarray:
     def __add__(self, f):
         return ndarray(f._data + self._data)
 
+    def __rsub__(self, f):
+        return ndarray(f - self._data)
+
     def __radd__(self, f):
         return ndarray(f + self._data)
 
