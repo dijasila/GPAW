@@ -240,17 +240,6 @@ class Chi0Calculator:
             if self.nocc1 != self.nocc2 and self.include_intraband:
                 self._update_chi0_drude(chi0, m1, m2, spins)
 
-            # In the optical limit, we fill in the G=0 entries of chi0 with
-            # the wings evaluated along the z-direction by default.
-            # The x = 1 wing represents the left vertical block, which is
-            # distributed in chi0.chi0_WgG
-            chi0.chi0_WgG[:, :, 0] = chi0.chi0_WxvG[:, 1, 2,
-                                                    chi0.blocks1d.myslice]
-            if self.blockcomm.rank == 0:  # rank with G=0 row
-                # The x = 0 wing represents the upper horizontal block
-                chi0.chi0_WgG[:, 0, :] = chi0.chi0_WxvG[:, 0, 2, :]
-                chi0.chi0_WgG[:, 0, 0] = chi0.chi0_Wvv[:, 2, 2]
-
         return chi0
 
     def _update_chi0_body(self,
