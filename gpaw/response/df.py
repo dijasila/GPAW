@@ -20,7 +20,7 @@ class DielectricFunctionCalculator:
         self.coulomb = CoulombKernel(truncation=truncation, gs=self.gs)
         self.context = chi0calc.context
         self.wd = chi0calc.wd
-        self.blocks1d = Blocks1D(self.context.world, len(self.wd))
+        self.blocks1d = Blocks1D(self.context.comm, len(self.wd))
 
         self._chi0cache = {}
 
@@ -380,7 +380,7 @@ class DielectricFunctionCalculator:
         eels_LFC_w = self.collect(eels_LFC_w)
 
         # Write to file
-        if filename is not None and self.context.world.rank == 0:
+        if filename is not None and self.context.comm.rank == 0:
             omega_w = self.wd.omega_w
             write_response_function(filename, omega_w * Hartree,
                                     eels_NLFC_w, eels_LFC_w)
@@ -449,7 +449,7 @@ class DielectricFunctionCalculator:
         alpha_w *= hypervol
 
         # Write results file
-        if filename is not None and self.context.world.rank == 0:
+        if filename is not None and self.context.comm.rank == 0:
             omega_w = self.wd.omega_w
             write_response_function(filename, omega_w * Hartree,
                                     alpha0_w, alpha_w)

@@ -160,7 +160,7 @@ class KohnShamPair:
         if self.gs.world.size == 1:
             return False
         else:
-            assert self.context.world.rank == self.gs.world.rank
+            assert self.context.comm.rank == self.gs.world.rank
             assert self.gs.gd.comm.size == 1
             return True
 
@@ -313,7 +313,7 @@ class KohnShamPair:
         # Wait for communication to finish
         with self.context.timer('Waiting to complete mpi.send'):
             while self.srequests:
-                self.context.world.wait(self.srequests.pop(0))
+                self.context.comm.wait(self.srequests.pop(0))
 
         return data
 
@@ -363,7 +363,7 @@ class KohnShamPair:
         For the serial communicator, all processes can access all data,
         and resultantly, there is no need to send any data.
         """
-        world = self.context.world
+        world = self.context.comm
         get_extraction_info = self.create_get_extraction_info()
 
         # Kpoint data
@@ -598,7 +598,7 @@ class KohnShamPair:
     def distribute_extracted_data(self, eps_r1rh, f_r1rh, P_r1rhI, psit_r1rhG,
                                   eps_r2rh, f_r2rh, P_r2rhI, psit_r2rhG):
         """Send the extracted data to appropriate destinations"""
-        world = self.context.world
+        world = self.context.comm
         # Store the data extracted by the process itself
         rank = world.rank
         # Check if there is actually some data to store
