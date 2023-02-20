@@ -495,7 +495,7 @@ class DielectricFunction(DielectricFunctionCalculator):
                  omegamax=None,  # deprecated
                  ecut=50,
                  hilbert=True,
-                 nbands=None, eta=0.2, ftol=1e-6, threshold=1,
+                 nbands=None, eta=0.2, threshold=1,
                  intraband=True, nblocks=1, world=mpi.world, txt=sys.stdout,
                  truncation=None, disable_point_group=False,
                  disable_time_reversal=False,
@@ -519,9 +519,6 @@ class DielectricFunction(DielectricFunctionCalculator):
             Number of bands from calc.
         eta: float
             Broadening parameter.
-        ftol: float
-            Threshold for including close to equally occupied orbitals,
-            f_ik - f_jk > ftol.
         threshold: float
             Threshold for matrix elements in optical response perturbation
             theory.
@@ -558,7 +555,6 @@ class DielectricFunction(DielectricFunctionCalculator):
             pair=pair,
             ecut=ecut, nbands=nbands, eta=eta,
             hilbert=hilbert,
-            ftol=ftol,
             intraband=intraband,
             disable_point_group=disable_point_group,
             disable_time_reversal=disable_time_reversal,

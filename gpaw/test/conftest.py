@@ -468,6 +468,7 @@ class GPWFiles:
             nbands=nbands,
             occupations=FermiDirac(occw),
             convergence=conv,
+            parallel={'domain': 1},
             txt=self.path / 'ag_pw.txt')
 
         atoms.get_potential_energy()

@@ -1,5 +1,5 @@
-import os
 from time import time
+from pathlib import Path
 
 import ase.io.ulm as ulm
 import numpy as np
@@ -28,6 +28,41 @@ def get_chi0v(chi0_sGG, cut_G, G_G):
         chi0v += chi0_GG / G_G / G_G[:, np.newaxis]
     chi0v *= 4 * np.pi
     return chi0v
+
+
+class FXCCache:
+    def __init__(self, tag, xc, ecut):
+        self.tag = tag
+        self.xc = xc
+        self.ecut = ecut
+
+    @property
+    def prefix(self):
+        return f'{self.tag}_{self.xc}_{self.ecut}'
+
+    def handle(self, iq):
+        return Handle(self, iq)
+
+
+class Handle:
+    def __init__(self, cache, iq):
+        self.cache = cache
+        self.iq = iq
+
+    @property
+    def _path(self):
+        return Path(f'fhxc_{self.cache.prefix}_{self.iq}.ulm')
+
+    def exists(self):
+        return self._path.exists()
+
+    def read(self):
+        with ulm.open(self._path) as reader:
+            return reader.array
+
+    def write(self, array):
+        with ulm.open(self._path, 'w') as writer:
+            writer.write(array=array)
 
 
 class FXCCorrelation:
@@ -77,14 +112,11 @@ class FXCCorrelation:
         self.avg_scheme = self.xcflags.choose_avg_scheme(avg_scheme)
 
         if tag is None:
-
             tag = self.gs.atoms.get_chemical_formula(mode='hill')
-
             if self.avg_scheme is not None:
-
                 tag += '_' + self.avg_scheme
 
-        self.tag = tag
+        self.cache = FXCCache(tag, self.xc, self.ecut_max)
 
         self.omega_w = self.rpa.omega_w
         self.ibzq_qc = self.rpa.ibzq_qc
@@ -108,9 +140,9 @@ class FXCCorrelation:
             q_empty = None
 
             for iq in reversed(range(len(self.ibzq_qc))):
+                handle = self.cache.handle(iq)
 
-                if not os.path.isfile('fhxc_%s_%s_%s_%s.ulm' %
-                                      (self.tag, self.xc, self.ecut_max, iq)):
+                if not handle.exists():
                     q_empty = iq
 
             kernelkwargs = dict(
@@ -118,7 +150,7 @@ class FXCCorrelation:
                 xc=self.xc,
                 ibzq_qc=self.ibzq_qc,
                 ecut=self.ecut_max,
-                tag=self.tag,
+                cache=self.cache,
                 context=self.context)
 
             if q_empty is not None:
@@ -252,9 +284,7 @@ class FXCCorrelation:
         #              the calculation is spin-polarized!)
 
         if self.xcflags.spin_kernel:
-            with ulm.open('fhxc_%s_%s_%s_%s.ulm' %
-                          (self.tag, self.xc, self.ecut_max, qi)) as r:
-                fv = r.fhxc_sGsG
+            fv = self.cache.handle(qi).read()
 
             if cut_G is not None:
                 cut_sG = np.tile(cut_G, ns)
@@ -326,15 +356,10 @@ class FXCCorrelation:
             # cut_G slicing?
             apply_cut_G = self.xc != 'RPA'
 
-            def read(arrayname):
-                key = (self.tag, self.xc, self.ecut_max, qi)
-                with ulm.open('fhxc_%s_%s_%s_%s.ulm' % key) as reader:
-                    return getattr(reader, arrayname)
-
             if self.xc == 'RPA':
                 fv_GG = np.eye(nG)
             else:
-                fv_GG = read('fhxc_sGsG')
+                fv_GG = self.cache.handle(qi).read()
 
             if apply_cut_G and cut_G is not None:
                 fv_GG = fv_GG.take(cut_G, 0).take(cut_G, 1)
@@ -402,7 +427,7 @@ class FXCCorrelation:
 
 class KernelWave:
     def __init__(self, gs, xc, ibzq_qc, q_empty, ecut,
-                 tag, context):
+                 cache, context):
 
         self.gs = gs
         self.gd = gs.density.gd
@@ -412,7 +437,7 @@ class KernelWave:
         self.ns = self.gs.nspins
         self.q_empty = q_empty
         self.ecut = ecut
-        self.tag = tag
+        self.cache = cache
         self.context = context
 
         # Density grid
@@ -607,11 +632,6 @@ class KernelWave:
 
             # Write to disk
             if self.context.comm.rank == 0:
-
-                w = ulm.open(
-                    'fhxc_%s_%s_%s_%s.ulm' %
-                    (self.tag, self.xc, self.ecut, iq), 'w')
-
                 if calc_spincorr:
                     # Form the block matrix kernel
                     fv_full_2G2G = np.empty((2 * nG, 2 * nG), dtype=complex)
@@ -619,12 +639,12 @@ class KernelWave:
                     fv_full_2G2G[:nG, nG:] = fv_nospin_GG - fv_spincorr_GG
                     fv_full_2G2G[nG:, :nG] = fv_nospin_GG - fv_spincorr_GG
                     fv_full_2G2G[nG:, nG:] = fv_nospin_GG + fv_spincorr_GG
-                    w.write(fhxc_sGsG=fv_full_2G2G)
+                    fhxc_sGsG = fv_full_2G2G
 
                 else:
-                    w.write(fhxc_sGsG=fv_nospin_GG)
+                    fhxc_sGsG = fv_nospin_GG
 
-                w.close()
+                self.cache.handle(iq).write(fhxc_sGsG)
 
             self.context.print('q point %s complete' % iq)
 
@@ -701,7 +721,7 @@ class KernelWave:
 
 class KernelDens:
     def __init__(self, gs, xc, ibzq_qc, unit_cells, density_cut, ecut,
-                 tag, context):
+                 cache, context):
 
         self.gs = gs
         self.gd = self.gs.density.gd
@@ -710,7 +730,7 @@ class KernelDens:
         self.unit_cells = unit_cells
         self.density_cut = density_cut
         self.ecut = ecut
-        self.tag = tag
+        self.cache = cache
         self.context = context
 
         self.A_x = -(3 / 4.) * (3 / np.pi)**(1 / 3.)
@@ -921,9 +941,6 @@ class KernelDens:
             fhxc_sGsG /= vol
 
             if self.context.comm.rank == 0:
-                w = ulm.open(
-                    'fhxc_%s_%s_%s_%s.ulm' %
-                    (self.tag, self.xc, self.ecut, iq), 'w')
                 if nR > 1:  # add Hartree kernel evaluated in PW basis
                     Gq2_G = self.pd.G2_qG[iq]
                     if (q == 0).all():
@@ -931,8 +948,7 @@ class KernelDens:
                         Gq2_G[0] = 1.
                     vq_G = 4 * np.pi / Gq2_G
                     fhxc_sGsG += np.tile(np.eye(npw) * vq_G, (ns, ns))
-                w.write(fhxc_sGsG=fhxc_sGsG)
-                w.close()
+                self.cache.handle(iq).write(fhxc_sGsG)
             self.context.comm.barrier()
         self.context.print('')
 
@@ -981,11 +997,7 @@ class KernelDens:
             fhxc_sGsG += np.tile(np.eye(npw) * vq_G, (ns, ns))
 
             if self.context.comm.rank == 0:
-                w = ulm.open(
-                    'fhxc_%s_%s_%s_%s.ulm' %
-                    (self.tag, self.xc, self.ecut, iq), 'w')
-                w.write(fhxc_sGsG=fhxc_sGsG)
-                w.close()
+                self.cache.handle(iq).write(fhxc_sGsG)
             self.context.comm.barrier()
         self.context.print('')
 
