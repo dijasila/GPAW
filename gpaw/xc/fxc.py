@@ -330,14 +330,11 @@ class FXCCorrelation:
 
             if self.xcflags.spin_kernel:
                 chi0v_sGsG = get_chi0v_spin(chi0_sGG, G_G)
-                energy = self.calculate_energy_contribution(
-                    chi0v_sGsG, fv_GG, nG)
             else:
-                chi0v_GG = get_chi0v(chi0_sGG, G_G)
+                chi0v_sGsG = get_chi0v(chi0_sGG, G_G)
 
-                energy = self.calculate_energy_contribution(
-                    chi0v_GG, fv_GG, len(fv_GG))
-
+            energy = self.calculate_energy_contribution(
+                chi0v_sGsG, fv_GG, nG)
             e_w.append(energy)
 
         print('e_w sum', sum(e_w))
