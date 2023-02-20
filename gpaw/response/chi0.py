@@ -84,10 +84,6 @@ class Chi0Calculator:
         self.ecut = ecut
 
         self.eta = eta / Ha
-        if rate == 'eta':
-            self.rate = self.eta
-        else:
-            self.rate = rate / Ha
 
         self.nbands = nbands or self.gs.bd.nbands
 
@@ -705,6 +701,11 @@ class Chi0DrudeCalculator(Chi0Calculator):
 
         self.wd = wd
 
+        if rate == 'eta':
+            self.rate = self.eta
+        else:
+            self.rate = rate / Ha
+
         self.pair = pair
         self.gs = pair.gs
         self.context = pair.context
@@ -713,7 +714,6 @@ class Chi0DrudeCalculator(Chi0Calculator):
         self.disable_time_reversal = disable_time_reversal
         self.disable_non_symmorphic = disable_non_symmorphic
         self.integrationmode = integrationmode
-        self.rate = rate
         self.eshift = eshift
 
         # Number of completely filled bands and number of non-empty bands.
