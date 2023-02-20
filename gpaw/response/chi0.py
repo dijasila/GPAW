@@ -722,7 +722,7 @@ class Chi0DrudeCalculator(Chi0Calculator):
         """
         qpd = chi0.qpd
 
-        integrator = self.initialize_integrator(block_distributed=False)
+        integrator = self.initialize_integrator()
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
         mat_kwargs, eig_kwargs = self.get_integrator_arguments(
             qpd, m1, m2, analyzer)
