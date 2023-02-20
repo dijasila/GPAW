@@ -7,6 +7,7 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.temp import DielectricFunctionCalculator
 from abc import ABC, abstractmethod
 
+
 class QPointDescriptor(KPointDescriptor):
 
     @staticmethod
@@ -118,7 +119,7 @@ class WBaseCalculator(ABC):
         fxc_mode: str
             Where to include the vertex corrections; polarizability and/or
             self-energy. 'GWP': Polarizability only, 'GWS': Self-energy only,
-            'GWG': Both.        
+            'GWG': Both.
         """
         pass
     
