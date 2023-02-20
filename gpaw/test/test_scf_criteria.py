@@ -60,11 +60,12 @@ def test_scf_criterion(in_tmp_dir):
     atoms.center()
     atoms.calc = GPAW('scf-criterion.gpw', txt=None)  # checks loading
     atoms.get_potential_energy()
-    workfunctions2 = Ha * calc.hamiltonian.get_workfunctions(calc.wfs)
+    workfunctions2 = Ha * atoms.calc.hamiltonian.get_workfunctions(
+        atoms.calc.wfs)
 
     assert workfunctions1[0] == pytest.approx(workfunctions2[1])
     assert workfunctions1[1] == pytest.approx(workfunctions2[0])
-    assert calc.scf.criteria['work function'].tol == pytest.approx(1.0)
+    assert atoms.calc.scf.criteria['work function'].tol == pytest.approx(1.0)
 
     # Try import syntax, and verify it creates a new instance internally.
     workfunction = WorkFunction(0.5)
