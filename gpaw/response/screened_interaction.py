@@ -59,13 +59,14 @@ def initialize_w_calculator(chi0calc, context, *,
     return wcalc
 
 
-class WCalculator:
+class WBaseCalculator:
 
     def __init__(self, gs, context, *, qd,
                  coulomb, xckernel,
                  integrate_gamma=0, q0_correction=False):
         """
-        W Calculator.
+        Base class for W Calculator including basic initializations and Gamma
+        Gamma handling.
 
         Parameters
         ----------
@@ -107,31 +108,6 @@ class WCalculator:
         else:
             self.q0_corrector = None
 
-    def calculate(self, chi0,
-                  fxc_mode='GW',
-                  only_correlation=False,
-                  out_dist='WgG'):
-        """Calculate the screened interaction.
-
-        Parameters
-        ----------
-        fxc_mode: str
-            Where to include the vertex corrections; polarizability and/or
-            self-energy. 'GWP': Polarizability only, 'GWS': Self-energy only,
-            'GWG': Both.
-        """
-        W_wGG = self._calculate(chi0, fxc_mode,
-                                only_correlation=only_correlation)
-        
-        if out_dist == 'WgG':
-            W_WgG = chi0.blockdist.distribute_as(W_wGG, chi0.nw, 'WgG')
-            W_x = W_WgG
-        elif out_dist == 'wGG':
-            W_x = W_wGG
-        else:
-            raise ValueError(f'Invalid out_dist {out_dist}')
-
-        return W_x
 
     def get_V0sqrtV0(self, chi0):
         """
@@ -164,6 +140,35 @@ class WCalculator:
         W_GG[0, 0] = einv_GG[0, 0] * V0
         W_GG[0, 1:] = einv_GG[0, 1:] * sqrtV_G[1:] * sqrtV0
         W_GG[1:, 0] = einv_GG[1:, 0] * sqrtV0 * sqrtV_G[1:]
+
+    
+class WCalculator(WBaseCalculator):
+
+    def calculate(self, chi0,
+                  fxc_mode='GW',
+                  only_correlation=False,
+                  out_dist='WgG'):
+        """Calculate the screened interaction.
+
+        Parameters
+        ----------
+        fxc_mode: str
+            Where to include the vertex corrections; polarizability and/or
+            self-energy. 'GWP': Polarizability only, 'GWS': Self-energy only,
+            'GWG': Both.
+        """
+        W_wGG = self._calculate(chi0, fxc_mode,
+                                only_correlation=only_correlation)
+        
+        if out_dist == 'WgG':
+            W_WgG = chi0.blockdist.distribute_as(W_wGG, chi0.nw, 'WgG')
+            W_x = W_WgG
+        elif out_dist == 'wGG':
+            W_x = W_wGG
+        else:
+            raise ValueError(f'Invalid out_dist {out_dist}')
+
+        return W_x
 
     def _calculate(self, chi0, fxc_mode,
                    only_correlation=False):
@@ -264,8 +269,7 @@ class PPACalculator(WCalculator):
     
     def calculate(self, chi0,
                   fxc_mode='GW',
-                  only_correlation=False,
-                  out_dist=None):
+                  only_correlation=False):
         """Calculate the PPA parametrization of screened interaction.
 
         Parameters

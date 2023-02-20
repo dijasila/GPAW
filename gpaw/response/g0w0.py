@@ -830,33 +830,30 @@ class G0W0Calculator:
         Wdict = {}
 
         for fxc_mode in self.fxc_modes:
-            if self.ppa:
-                out_dist = 'wGG'
-            else:
-                out_dist = 'WgG'
-
             rqpd = chi0.qpd.copy_with(ecut=ecut)  # reduced qpd
             rchi0 = chi0.copy_with_reduced_pd(rqpd)
-            W_wGG = self.wcalc.calculate(rchi0,
-                                         fxc_mode=fxc_mode,
-                                         only_correlation=True,
-                                         out_dist=out_dist)
-
-            if chi0calc.pawcorr is not None and rqpd.ecut < chi0.qpd.ecut:
-                pw_map = PWMapping(rqpd, chi0.qpd)
-                # This is extremely bad behaviour! G0W0Calculator should not
-                # change properties on the Chi0Calculator! Change in the
-                # future! XXX
-                chi0calc.pawcorr = chi0calc.pawcorr.reduce_ecut(pw_map.G2_G1)
-
             if self.ppa:
-                W_xwGG = W_wGG  # (ppa API is nonsense)
-            # HT used to calculate convulution between time-ordered G and W
+                Wdict[fxc_mode] = self.wcalc.calculate(rchi0,
+                                                       fxc_mode=fxc_mode,
+                                                       only_correlation=True)
             else:
+                W_wGG = self.wcalc.calculate(rchi0,
+                                                 fxc_mode=fxc_mode,
+                                                 only_correlation=True,
+                                                 out_dist='WgG')
+
+                if chi0calc.pawcorr is not None and rqpd.ecut < chi0.qpd.ecut:
+                    pw_map = PWMapping(rqpd, chi0.qpd)
+                    # This is extremely bad behaviour! G0W0Calculator should not
+                    # change properties on the Chi0Calculator! Change in the
+                    # future! XXX
+                    chi0calc.pawcorr = chi0calc.pawcorr.reduce_ecut(pw_map.G2_G1)
+
+                # HT used to calculate convulution between time-ordered G and W
                 with self.context.timer('Hilbert'):
                     W_xwGG = self.hilbert_transform(W_wGG)
 
-            Wdict[fxc_mode] = W_xwGG
+                Wdict[fxc_mode] = W_xwGG
 
         # Create a blocks1d for the reduced plane-wave description
         blocks1d = Blocks1D(chi0.blockdist.blockcomm, rqpd.ngmax)
