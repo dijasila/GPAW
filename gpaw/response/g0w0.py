@@ -1045,7 +1045,7 @@ class G0W0(G0W0Calculator):
         gpwfile = Path(calc)
 
         context = ResponseContext(txt=filename + '.txt',
-                                  world=world, timer=timer)
+                                  comm=world, timer=timer)
         gs = ResponseGroundStateAdapter.from_gpw_file(gpwfile,
                                                       context=context)
 

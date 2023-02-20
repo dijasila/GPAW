@@ -195,7 +195,7 @@ class PairFunctionIntegrator(ABC):
             Communicate between processes belonging to different memory blocks.
             In every communicator, there is one process for each block of
             memory, so that all blocks are represented.
-            If nblocks < world.size, there will be size // nblocks different
+            If nblocks < comm.size, there will be size // nblocks different
             processes that allocate memory for the same block of the large
             arrays. Thus, there will be also size // nblocks different block
             communicators, grouping the processes into sets that allocate the
@@ -204,8 +204,8 @@ class PairFunctionIntegrator(ABC):
             Communicate between processes belonging to the same memory block.
             There will be size // nblocks processes per memory block.
         """
-        world = self.context.comm
-        blockcomm, intrablockcomm = block_partition(world, nblocks)
+        comm = self.context.comm
+        blockcomm, intrablockcomm = block_partition(comm, nblocks)
 
         return blockcomm, intrablockcomm
 
@@ -274,7 +274,7 @@ class PairFunctionIntegrator(ABC):
         nk = self.gs.kd.nbzkpts
         nik = self.gs.kd.nibzkpts
 
-        wsize = self.context.comm.size
+        csize = self.context.comm.size
         knsize = self.intrablockcomm.size
         bsize = self.blockcomm.size
 
@@ -289,7 +289,7 @@ class PairFunctionIntegrator(ABC):
         s += '    Number of irredicible kpoints: %d\n' % nik
         s += '\n'
         s += 'The pair function integration is performed in parallel with:\n'
-        s += '    world.size: %d\n' % wsize
+        s += '    comm.size: %d\n' % csize
         s += '    intrablockcomm.size: %d\n' % knsize
         s += '    blockcomm.size: %d\n' % bsize
 

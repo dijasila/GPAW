@@ -386,9 +386,9 @@ class LocalPAWFTEngine:
         return fPAW_G
 
     def _distribute_correction(self, nG):
-        world = self.context.comm
-        nGpr = (nG + world.size - 1) // world.size
-        Ga = min(world.rank * nGpr, nG)
+        comm = self.context.comm
+        nGpr = (nG + comm.size - 1) // comm.size
+        Ga = min(comm.rank * nGpr, nG)
         Gb = min(Ga + nGpr, nG)
 
         return range(Ga, Gb)

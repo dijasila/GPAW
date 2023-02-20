@@ -10,8 +10,8 @@ import gpaw.mpi as mpi
 
 
 class ResponseContext:
-    def __init__(self, txt='-', timer=None, world=mpi.world):
-        self.comm = world
+    def __init__(self, txt='-', timer=None, comm=mpi.world):
+        self.comm = comm
         self.open(txt)
         self.set_timer(timer)
 
@@ -29,7 +29,7 @@ class ResponseContext:
         self.close()
 
     def with_txt(self, txt):
-        return ResponseContext(txt=txt, world=self.comm, timer=self.timer)
+        return ResponseContext(txt=txt, comm=self.comm, timer=self.timer)
 
     def print(self, *args, flush=True, **kwargs):
         print(*args, file=self.fd, flush=flush, **kwargs)

@@ -523,7 +523,7 @@ def get_gs_and_context(calc, txt, world, timer):
     from gpaw.calculator import GPAW as OldGPAW
     from gpaw.new.ase_interface import ASECalculator as NewGPAW
 
-    context = ResponseContext(txt=txt, timer=timer, world=world)
+    context = ResponseContext(txt=txt, timer=timer, comm=world)
 
     if isinstance(calc, (OldGPAW, NewGPAW)):
         assert calc.wfs.world.size == 1

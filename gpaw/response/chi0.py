@@ -628,10 +628,10 @@ class Chi0Calculator:
         if gpaw.dry_run:
             from gpaw.mpi import SerialCommunicator
             size = gpaw.dry_run
-            world = SerialCommunicator()
-            world.size = size
+            comm = SerialCommunicator()
+            comm.size = size
         else:
-            world = self.context.comm
+            comm = self.context.comm
 
         q_c = qpd.q_c
         nw = len(self.wd)
@@ -642,12 +642,12 @@ class Chi0Calculator:
         nik = gs.kd.nibzkpts
         ngmax = qpd.ngmax
         eta = self.eta * Ha
-        wsize = world.size
+        csize = comm.size
         knsize = self.kncomm.size
         nocc = self.nocc1
         npocc = self.nocc2
         ngridpoints = gd.N_c[0] * gd.N_c[1] * gd.N_c[2]
-        nstat = (ns * npocc + world.size - 1) // world.size
+        nstat = (ns * npocc + csize - 1) // csize
         occsize = nstat * ngridpoints * 16. / 1024**2
         bsize = self.blockcomm.size
         chisize = nw * qpd.ngmax**2 * 16. / 1024**2 / bsize
@@ -669,7 +669,7 @@ class Chi0Calculator:
         p('    Number of irredicible kpoints: %d' % nik)
         p('    Number of planewaves: %d' % ngmax)
         p('    Broadening (eta): %f' % eta)
-        p('    world.size: %d' % wsize)
+        p('    comm.size: %d' % csize)
         p('    kncomm.size: %d' % knsize)
         p('    blockcomm.size: %d' % bsize)
         p('    Number of completely occupied states: %d' % nocc)

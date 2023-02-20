@@ -2,7 +2,6 @@ import pickle
 import numpy as np
 from math import pi
 import ase.units
-from ase.parallel import world
 import os
 
 Hartree = ase.units.Hartree
@@ -143,7 +142,7 @@ class BuildingBlock:
         if self.load_chi_file():
             if self.complete:
                 self.context.print('Building block loaded from file')
-        world.barrier()
+        self.context.comm.barrier()
 
     def calculate_building_block(self, add_intraband=False):
         if self.complete:
@@ -175,8 +174,8 @@ class BuildingBlock:
             self.context.print('calculated chi!')
 
             nw = len(self.wd)
-            world = self.context.comm
-            w1 = min(self.df.blocks1d.blocksize * world.rank, nw)
+            comm = self.context.comm
+            w1 = min(self.df.blocks1d.blocksize * comm.rank, nw)
 
             _, _, chiM_qw, chiD_qw, _, drhoM_qz, drhoD_qz = \
                 get_chi_2D(self.wd.omega_w, qpd, chi_wGG)
@@ -232,7 +231,7 @@ class BuildingBlock:
         if self.context.comm.rank == 0:
             np.savez_compressed(filename + '-chi.npz',
                                 **data)
-        world.barrier()
+        self.context.comm.barrier()
 
     def load_chi_file(self):
         try:
@@ -336,19 +335,19 @@ class BuildingBlock:
         self.save_chi_file(filename=self.filename + '_int')
 
     def collect(self, a_w):
-        world = self.context.comm
+        comm = self.context.comm
         mynw = self.df.blocks1d.blocksize
         b_w = np.zeros(mynw, a_w.dtype)
         b_w[:self.df.blocks1d.nlocal] = a_w
         nw = len(self.wd)
-        A_w = np.empty(world.size * mynw, a_w.dtype)
-        world.all_gather(b_w, A_w)
+        A_w = np.empty(comm.size * mynw, a_w.dtype)
+        comm.all_gather(b_w, A_w)
         return A_w[:nw]
 
     def clear_temp_files(self):
         if not self.savechi0:
-            world = self.context.comm
-            if world.rank == 0:
+            comm = self.context.comm
+            if comm.rank == 0:
                 while len(self.temp_files) > 0:
                     filename = self.temp_files.pop()
                     os.remove(filename)
