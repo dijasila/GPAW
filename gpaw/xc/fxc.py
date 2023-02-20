@@ -337,10 +337,8 @@ class FXCCorrelation:
                 chi0v_sGsG, fv_GG, nG)
             e_w.append(energy)
 
-        E_w = np.zeros_like(self.omega_w)
-        self.blockcomm.all_gather(np.array(e_w), E_w)
-        energy = np.dot(E_w, self.weight_w) / (2 * np.pi)
-        return energy
+        E_w, energies = self.rpa.gather_energies(e_w)
+        return energies
 
 
 class KernelWave:
