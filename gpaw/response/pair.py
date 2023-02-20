@@ -93,7 +93,7 @@ class PairDensityCalculator:
 
         self.threshold = threshold
 
-        self.blockcomm, self.kncomm = block_partition(self.context.world,
+        self.blockcomm, self.kncomm = block_partition(self.context.comm,
                                                       nblocks)
         self.nblocks = nblocks
         self.ut_sKnvR = None  # gradient of wave functions for optical limit
