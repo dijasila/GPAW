@@ -140,7 +140,7 @@ def test_exx_AA_enthalpy(in_tmp_dir, add_cwd_to_setup_paths):
             e_atom = atom.get_potential_energy()
             e_compound = compound.get_potential_energy()
 
-            atom.calc_atom = calc_atom.new(xc=_xc(xc))
+            atom.calc = calc_atom.new(xc=_xc(xc))
             compound.calc = calc.new(xc=_xc(xc))
 
         e_atom = atom.get_potential_energy()
