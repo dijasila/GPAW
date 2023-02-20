@@ -390,7 +390,7 @@ class G0W0Calculator:
             is possible to get the standard GW results at the same time
             (almost for free).
         ppa: bool
-            Use Godby-Needs plasmon-pole approximation for screened interaction 
+            Use Godby-Needs plasmon-pole approximation for screened interaction
             and self-energy
         """
         self.chi0calc = chi0calc

@@ -200,13 +200,11 @@ class WCalculator:
         self.context.timer.stop('Dyson eq.')
         return chi0_wGG
 
-
     def dyson_and_W_new(self, iq, q_c, chi0, ecut, coulomb):
         # assert not self.ppa
         # assert not self.do_GW_too
         assert ecut == chi0.qpd.ecut
         assert self.fxc_mode == 'GW'
-
         assert not np.allclose(q_c, 0)
 
         nW = len(self.wd)
