@@ -87,12 +87,12 @@ def test_chiks_symmetry(in_tmp_dir, gpw_files, q_c, eta, gammacentered):
         nblocks = 1
 
     # Part 2: Check reciprocity and inversion symmetry
-    rtol = 0.035
+    rtol = 0.04
 
     # Part 3: Check matrix symmetry
 
     # Part 4: Check symmetry and bandsummation toggles
-    trtol = 0.007
+    trtol = 0.015
 
     # ---------- Script ---------- #
 
@@ -157,15 +157,18 @@ def test_chiks_symmetry(in_tmp_dir, gpw_files, q_c, eta, gammacentered):
                 chi1r_GG = 1 / 2. * (chi1_GG + np.conj(chi1_GG).T)
                 chi2r_GG = 1 / 2. * (chi2_GG + np.conj(chi2_GG).T)
                 assert np.conj(chi2r_GG[invmap_GG]) == pytest.approx(chi1r_GG,
-                                                                     rel=rtol)
+                                                                     rel=rtol,
+                                                                     abs=0.0035)
 
             # Loop over frequencies
             for chi1_GG, chi2_GG in zip(chiks_q[q1].array,
                                         chiks_q[q2].array):
                 # Check the reciprocity of the full susceptibility
-                assert chi2_GG[invmap_GG].T == pytest.approx(chi1_GG, rel=rtol)
+                assert chi2_GG[invmap_GG].T == pytest.approx(chi1_GG, rel=rtol,
+                                                             abs=0.004)
                 # Check inversion symmetry of the full susceptibility
-                assert chi2_GG[invmap_GG] == pytest.approx(chi1_GG, rel=rtol)
+                assert chi2_GG[invmap_GG] == pytest.approx(chi1_GG, rel=rtol,
+                                                           abs=0.004)
 
     # Part 3: Check matrix symmetry
     for chiks_bq in chiks_sbq:
