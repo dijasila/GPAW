@@ -33,17 +33,28 @@ def get_chi0v(chi0_sGG, cut_G, G_G):
     return chi0v
 
 
-class Handle:
-    def __init__(self, tag, xc, ecut_max, iq):
+class FXCCache:
+    def __init__(self, tag, xc, ecut):
         self.tag = tag
         self.xc = xc
-        self.ecut_max = ecut_max
+        self.ecut = ecut
+
+    @property
+    def prefix(self):
+        return f'{self.tag}_{self.xc}_{self.ecut}'
+
+    def handle(self, iq):
+        return Handle(self, iq)
+
+
+class Handle:
+    def __init__(self, cache, iq):
+        self.cache = cache
         self.iq = iq
 
     @property
     def _path(self):
-        name = f'{self.tag}_{self.xc}_{self.ecut_max}_{self.iq}'
-        return Path(f'fhxc_{name}.ulm')
+        return Path(f'fhxc_{self.cache.prefix}_{self.iq}.ulm')
 
     def exists(self):
         return self._path.exists()
@@ -51,6 +62,11 @@ class Handle:
     def read_attribute(self, name):
         with ulm.open(self._path) as reader:
             return reader.fhxc_sGsG
+
+    def write_attribute(self, name, array):
+        with ulm.open(self._path, 'w') as writer:
+            kwargs = {name: array}
+            writer.write(**kwargs)
 
 
 class FXCCorrelation:
@@ -107,7 +123,8 @@ class FXCCorrelation:
 
                 tag += '_' + self.avg_scheme
 
-        self.tag = tag
+        self.tag = tag  # XXX delete me
+        self.cache = FXCCache(self.tag, self.xc, self.ecut_max)
 
         self.omega_w = self.rpa.omega_w
         self.ibzq_qc = self.rpa.ibzq_qc
@@ -120,9 +137,6 @@ class FXCCorrelation:
         # because rpa gets blockcomm during calculate
         return self.rpa.blockcomm
 
-    def _handle(self, iq):
-        return Handle(self.tag, self.xc, self.ecut_max, iq)
-
     @timer('FXC')
     def calculate(self, *, nbands=None):
         if self.xc != 'RPA':
@@ -134,7 +148,7 @@ class FXCCorrelation:
             q_empty = None
 
             for iq in reversed(range(len(self.ibzq_qc))):
-                handle = self._handle(iq)
+                handle = self.cache.handle(iq)
 
                 if not handle.exists():
                     q_empty = iq
@@ -278,7 +292,7 @@ class FXCCorrelation:
         #              the calculation is spin-polarized!)
 
         if self.xcflags.spin_kernel:
-            fv = self._handle(qi).read_attribute('fhxc_sGsG')
+            fv = self.cache.handle(qi).read_attribute('fhxc_sGsG')
 
             if cut_G is not None:
                 cut_sG = np.tile(cut_G, ns)
@@ -353,7 +367,7 @@ class FXCCorrelation:
             if self.xc == 'RPA':
                 fv_GG = np.eye(nG)
             else:
-                fv_GG = self._handle(i).read_attribute('fhxc_sGsG')
+                fv_GG = self.cache.handle(i).read_attribute('fhxc_sGsG')
 
             if apply_cut_G and cut_G is not None:
                 fv_GG = fv_GG.take(cut_G, 0).take(cut_G, 1)
@@ -431,7 +445,8 @@ class KernelWave:
         self.ns = self.gs.nspins
         self.q_empty = q_empty
         self.ecut = ecut
-        self.tag = tag
+        self.tag = tag  # XXX delete me
+        self.cache = FXCCache(self.tag, self.xc, self.ecut)
         self.context = context
 
         # Density grid
@@ -623,11 +638,6 @@ class KernelWave:
 
             # Write to disk
             if mpi.rank == 0:
-
-                w = ulm.open(
-                    'fhxc_%s_%s_%s_%s.ulm' %
-                    (self.tag, self.xc, self.ecut, iq), 'w')
-
                 if calc_spincorr:
                     # Form the block matrix kernel
                     fv_full_2G2G = np.empty((2 * nG, 2 * nG), dtype=complex)
@@ -635,12 +645,12 @@ class KernelWave:
                     fv_full_2G2G[:nG, nG:] = fv_nospin_GG - fv_spincorr_GG
                     fv_full_2G2G[nG:, :nG] = fv_nospin_GG - fv_spincorr_GG
                     fv_full_2G2G[nG:, nG:] = fv_nospin_GG + fv_spincorr_GG
-                    w.write(fhxc_sGsG=fv_full_2G2G)
+                    fhxc_sGsG = fv_full_2G2G
 
                 else:
-                    w.write(fhxc_sGsG=fv_nospin_GG)
+                    fhxc_sGsG = fv_nospin_GG
 
-                w.close()
+                self.cache.handle(iq).write_attribute('fhxc_sGsG', fhxc_sGsG)
 
             self.context.print('q point %s complete' % iq)
 
