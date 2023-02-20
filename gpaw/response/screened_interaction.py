@@ -5,7 +5,7 @@ from ase.units import Ha
 from ase.dft.kpoints import monkhorst_pack
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.temp import DielectricFunctionCalculator
-
+from abc import ABC, abstractmethod
 
 class QPointDescriptor(KPointDescriptor):
 
@@ -59,7 +59,7 @@ def initialize_w_calculator(chi0calc, context, *,
     return wcalc
 
 
-class WBaseCalculator:
+class WBaseCalculator(ABC):
 
     def __init__(self, gs, context, *, qd,
                  coulomb, xckernel,
@@ -108,6 +108,20 @@ class WBaseCalculator:
         else:
             self.q0_corrector = None
 
+    @abstractmethod
+    def calculate(self):
+        """
+        Method to calculate screened interaction in some representation
+        Minimum Parameters
+        ----------
+        chi0: chi0 data object
+        fxc_mode: str
+            Where to include the vertex corrections; polarizability and/or
+            self-energy. 'GWP': Polarizability only, 'GWS': Self-energy only,
+            'GWG': Both.        
+        """
+        pass
+    
     def get_V0sqrtV0(self, chi0):
         """
         Integrated Coulomb kernels.
@@ -147,14 +161,14 @@ class WCalculator(WBaseCalculator):
                   fxc_mode='GW',
                   only_correlation=False,
                   out_dist='WgG'):
-        """Calculate the screened interaction.
+        """Calculate the screened interaction in W_wGG or W_WgG representation.
 
-        Parameters
+        Additional Parameters
         ----------
-        fxc_mode: str
-            Where to include the vertex corrections; polarizability and/or
-            self-energy. 'GWP': Polarizability only, 'GWS': Self-energy only,
-            'GWG': Both.
+        only_correlation: bool
+             if true calculate Wc otherwise calculate full W
+        out_dist: str
+             specifices output distribution of W array (wGG or WgG)
         """
         W_wGG = self._calculate(chi0, fxc_mode,
                                 only_correlation=only_correlation)
@@ -267,22 +281,13 @@ class PPACalculator(WCalculator):
         super().__init__(*args, **kwargs)
     
     def calculate(self, chi0,
-                  fxc_mode='GW',
-                  only_correlation=False):
+                  fxc_mode='GW'):
         """Calculate the PPA parametrization of screened interaction.
-
-        Parameters
-        ----------
-        fxc_mode: str
-            Where to include the vertex corrections; polarizability and/or
-            self-energy. 'GWP': Polarizability only, 'GWS': Self-energy only,
-            'GWG': Both.
         """
         dfc = DielectricFunctionCalculator(chi0,
                                            self.coulomb,
                                            self.xckernel,
                                            fxc_mode)
-        assert only_correlation
 
         V0, sqrtV0 = self.get_V0sqrtV0(chi0)
         self.context.timer.start('Dyson eq.')

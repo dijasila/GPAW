@@ -834,8 +834,7 @@ class G0W0Calculator:
             rchi0 = chi0.copy_with_reduced_pd(rqpd)
             if self.ppa:
                 Wdict[fxc_mode] = self.wcalc.calculate(rchi0,
-                                                       fxc_mode=fxc_mode,
-                                                       only_correlation=True)
+                                                       fxc_mode=fxc_mode)
             else:
                 W_wGG = self.wcalc.calculate(rchi0,
                                              fxc_mode=fxc_mode,
