@@ -9,7 +9,7 @@ fxc = FXCCorrelation('diamond.ralda.pbe_wfcs.gpw', xc='rAPBE',
 E_i = fxc.calculate()
 
 f = paropen('diamond.ralda.rapbe.dat', 'w')
-for ecut, E in zip(fxc.ecut_i, E_i):
+for ecut, E in zip(fxc.rpa.ecut_i, E_i):
     print(ecut * Hartree, E, file=f)
 f.close()
 
@@ -19,6 +19,6 @@ rpa = RPACorrelation('diamond.ralda.pbe_wfcs.gpw',
 E_i = rpa.calculate()
 
 f = paropen('diamond.ralda.rpa.dat', 'w')
-for ecut, E in zip(rpa.ecut_i, E_i):
+for ecut, E in zip(rpa.rpa.ecut_i, E_i):
     print(ecut * Hartree, E, file=f)
 f.close()
