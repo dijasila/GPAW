@@ -17,7 +17,6 @@ def test_gw_spinpol(in_tmp_dir, gpw_files):
     gw = G0W0(gpw_files['h2_bcc_afm_wfs'],
               nbands=4,  # keep consistent with gpw nbands
               ecut=100,
-              truncation='wigner-seitz',
               kpts=[(0, 0, 0)],
               nblocks=nblocks,
               relbands=(-1, 1))
