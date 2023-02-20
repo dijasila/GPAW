@@ -185,6 +185,7 @@ class GPAW(Calculator):
             new_calc = calc.new(xc='PBE')
             atoms.calc = calc
         """
+        assert 'atoms' not in kwargs
         assert 'restart' not in kwargs
         assert 'ignore_bad_restart_file' not in kwargs
         assert 'label' not in kwargs
