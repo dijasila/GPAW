@@ -31,13 +31,11 @@ def get_chi0v_spinsum(chi0_sGG, G_G):
 def get_chi0v_foreach_spin(chi0_sGG, G_G):
     ns, nG = chi0_sGG.shape[:2]
 
-    chi0v_sGsG = np.zeros((ns * nG, ns * nG), dtype=complex)
+    chi0v_sGsG = np.zeros((ns, nG, ns, nG), dtype=complex)
     for s in range(ns):
-        m = s * nG
-        n = (s + 1) * nG
-        chi0v_sGsG[m:n, m:n] = chi0_sGG[s] / G_G / G_G[:, np.newaxis]
+        chi0v_sGsG[s, :, s, :] = chi0_sGG[s] / G_G / G_G[:, np.newaxis]
     chi0v_sGsG *= 4 * np.pi
-    return chi0v_sGsG
+    return chi0v_sGsG.reshape(ns * nG, ns * nG)
 
 
 class FXCCache:
