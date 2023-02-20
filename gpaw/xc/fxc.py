@@ -361,16 +361,8 @@ class FXCCorrelation:
             for iw, chi0_sGG in enumerate(np.swapaxes(chi0_swGG, 0, 1)):
                 chi0v = get_chi0v(chi0_sGG, cut_G, G_G)
 
-                elong = 0.0
-
-                for l, weight in zip(self.l_l, self.weight_l):
-                    chiv = np.linalg.solve(
-                        np.eye(nG) - l * np.dot(
-                            chi0v, fv_GG), chi0v).real
-
-                    elong -= np.trace(chiv) * weight
-
-                elong += np.trace(chi0v.real)
+                elong = self.calculate_energy_contribution(
+                    chi0v, fv_GG, len(fv_GG))
                 e_w.append(elong)
 
         E_w = np.zeros_like(self.omega_w)
