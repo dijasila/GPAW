@@ -50,7 +50,6 @@ def calculate_spinkernel(*, ecut, xcflags, gs, qd, ns, qpd, context):
     assert np.allclose(ibzq_qc[iq], qpd.q_c)
 
     ecut_max = ecut * Ha  # XXX very ugly this
-    q_empty = None
 
     # If we want a reduced plane-wave description, create qpd mapping
     if qpd.ecut < ecut:
@@ -67,12 +66,7 @@ def calculate_spinkernel(*, ecut, xcflags, gs, qd, ns, qpd, context):
     handle = cache.handle(iq)
 
     if not handle.exists():
-        q_empty = iq
-
-    assert xcflags.spin_kernel
-
-    if q_empty is not None:
-        actually_calculate_kernel(q_empty=q_empty, qd=qd,
+        actually_calculate_kernel(q_empty=iq, qd=qd,
                                   cache=cache,
                                   xcflags=xcflags,
                                   ecut_max=ecut_max, gs=gs,
