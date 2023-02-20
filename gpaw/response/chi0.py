@@ -129,13 +129,14 @@ class Chi0Calculator:
         # transitions to the head of the chi0 wings. This is handled by a
         # separate calculator, provided that intraband is set to True.
         if metallic and intraband:
+            if rate == 'eta':
+                rate = eta
             self.drude_calc = Chi0DrudeCalculator(
-                wd, pair,
+                wd, rate, pair,
                 disable_point_group=disable_point_group,
                 disable_time_reversal=disable_time_reversal,
                 disable_non_symmorphic=disable_non_symmorphic,
-                integrationmode=integrationmode,
-                rate=rate)
+                integrationmode=integrationmode)
         else:
             self.drude_calc = None
 
@@ -706,19 +707,14 @@ class Chi0DrudeCalculator(Chi0Calculator):
     bands. This corresponds directly to the dielectric function in the Drude
     model."""
 
-    def __init__(self, wd, pair,
+    def __init__(self, wd, rate, pair,
                  disable_point_group=False,
                  disable_time_reversal=False,
                  disable_non_symmorphic=True,
-                 integrationmode=None,
-                 rate=0.0):
+                 integrationmode=None):
 
         self.wd = wd
-
-        if rate == 'eta':
-            self.rate = self.eta
-        else:
-            self.rate = rate / Ha
+        self.rate = rate / Ha  # Imaginary part of the frequency
 
         self.pair = pair
         self.gs = pair.gs
