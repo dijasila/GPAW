@@ -1083,7 +1083,7 @@ class XCFlags:
             assert self.spin_kernel, ('Two-point density average '
                                       'only implemented for rALDA and rAPBE')
 
-        elif xc not in ('RPA', 'range_RPA'):
+        elif xc != 'RPA':
             avg_scheme = 'wavevector'
         else:
             avg_scheme = None
