@@ -66,38 +66,39 @@ def calculate_kernel(*, ecut, xcflags, gs, qd, ns, qpd, context):
     if not handle.exists():
         q_empty = iq
 
-    if xc != 'RPA':
-        if q_empty is not None:
-            actually_calculate_kernel(q_empty=q_empty, qd=qd,
-                                      cache=cache,
-                                      xcflags=xcflags,
-                                      ecut_max=ecut_max, gs=gs,
-                                      context=context)
+    if xc == 'RPA':
+        return np.eye(qpd.ngmax)
 
-        mpi.world.barrier()
+    assert xcflags.spin_kernel
 
-        if xcflags.spin_kernel:
+    if q_empty is not None:
+        actually_calculate_kernel(q_empty=q_empty, qd=qd,
+                                  cache=cache,
+                                  xcflags=xcflags,
+                                  ecut_max=ecut_max, gs=gs,
+                                  context=context)
+
+    mpi.world.barrier()
+
+    if xcflags.spin_kernel:
+        fv = handle.read()
+
+        if G2_G1 is not None:
+            cut_sG = np.tile(G2_G1, ns)
+            cut_sG[len(G2_G1):] += len(fv) // ns
+            fv = fv.take(cut_sG, 0).take(cut_sG, 1)
+
+    else:
+        if xc == 'RPA':
+            fv = np.eye(qpd.ngmax)
+        elif xc == 'range_RPA':
+            raise NotImplementedError
+        # fv = np.exp(-0.25 * (G_G * self.range_rc) ** 2.0)
+
+        else:
             fv = handle.read()
 
             if G2_G1 is not None:
-                cut_sG = np.tile(G2_G1, ns)
-                cut_sG[len(G2_G1):] += len(fv) // ns
-                fv = fv.take(cut_sG, 0).take(cut_sG, 1)
-
-        else:
-            if xc == 'RPA':
-                fv = np.eye(qpd.ngmax)
-            elif xc == 'range_RPA':
-                raise NotImplementedError
-#                    fv = np.exp(-0.25 * (G_G * self.range_rc) ** 2.0)
-
-            else:
-                fv = handle.read()
-
-                if G2_G1 is not None:
-                    fv = fv.take(G2_G1, 0).take(G2_G1, 1)
-
-    else:
-        fv = np.eye(qpd.ngmax)
+                fv = fv.take(G2_G1, 0).take(G2_G1, 1)
 
     return fv
