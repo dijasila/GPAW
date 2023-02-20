@@ -58,14 +58,13 @@ class Handle:
     def exists(self):
         return self._path.exists()
 
-    def read_attribute(self, name):
+    def read(self):
         with ulm.open(self._path) as reader:
-            return reader.fhxc_sGsG
+            return reader.array
 
-    def write_attribute(self, name, array):
+    def write(self, array):
         with ulm.open(self._path, 'w') as writer:
-            kwargs = {name: array}
-            writer.write(**kwargs)
+            writer.write(array=array)
 
 
 class FXCCorrelation:
@@ -287,7 +286,7 @@ class FXCCorrelation:
         #              the calculation is spin-polarized!)
 
         if self.xcflags.spin_kernel:
-            fv = self.cache.handle(qi).read_attribute('fhxc_sGsG')
+            fv = self.cache.handle(qi).read()
 
             if cut_G is not None:
                 cut_sG = np.tile(cut_G, ns)
@@ -362,7 +361,7 @@ class FXCCorrelation:
             if self.xc == 'RPA':
                 fv_GG = np.eye(nG)
             else:
-                fv_GG = self.cache.handle(qi).read_attribute('fhxc_sGsG')
+                fv_GG = self.cache.handle(qi).read()
 
             if apply_cut_G and cut_G is not None:
                 fv_GG = fv_GG.take(cut_G, 0).take(cut_G, 1)
@@ -644,7 +643,7 @@ class KernelWave:
                 else:
                     fhxc_sGsG = fv_nospin_GG
 
-                self.cache.handle(iq).write_attribute('fhxc_sGsG', fhxc_sGsG)
+                self.cache.handle(iq).write(fhxc_sGsG)
 
             self.context.print('q point %s complete' % iq)
 
@@ -945,7 +944,7 @@ class KernelDens:
                         Gq2_G[0] = 1.
                     vq_G = 4 * np.pi / Gq2_G
                     fhxc_sGsG += np.tile(np.eye(npw) * vq_G, (ns, ns))
-                self.cache.handle(iq).write_attribute('fhxc_sGsG', fhxc_sGsG)
+                self.cache.handle(iq).write(fhxc_sGsG)
             mpi.world.barrier()
         self.context.print('')
 
@@ -993,7 +992,7 @@ class KernelDens:
             fhxc_sGsG += np.tile(np.eye(npw) * vq_G, (ns, ns))
 
             if mpi.rank == 0:
-                self.cache.handle(iq).write_attribute('fhxc_sGsG', fhxc_sGsG)
+                self.cache.handle(iq).write(fhxc_sGsG)
             mpi.world.barrier()
         self.context.print('')
 

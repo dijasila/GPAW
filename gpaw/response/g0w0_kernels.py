@@ -77,7 +77,7 @@ def calculate_kernel(*, ecut, xcflags, gs, qd, ns, qpd, context):
         mpi.world.barrier()
 
         if xcflags.spin_kernel:
-            fv = handle.read_attribute('fhxc_sGsG')
+            fv = handle.read()
 
             if G2_G1 is not None:
                 cut_sG = np.tile(G2_G1, ns)
@@ -92,7 +92,7 @@ def calculate_kernel(*, ecut, xcflags, gs, qd, ns, qpd, context):
 #                    fv = np.exp(-0.25 * (G_G * self.range_rc) ** 2.0)
 
             else:
-                fv = handle.read_attribute('fhxc_sGsG')
+                fv = handle.read()
 
                 if G2_G1 is not None:
                     fv = fv.take(G2_G1, 0).take(G2_G1, 1)
