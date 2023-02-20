@@ -21,6 +21,6 @@ rpa = RPACorrelation('diamond.ralda.pbe_wfcs.gpw',
 E_i = rpa.calculate()
 
 f = paropen('diamond.ralda.rpa.dat', 'w')
-for ecut, E in zip(rpa.rpa.ecut_i, E_i):
+for ecut, E in zip(rpa.ecut_i, E_i):
     print(ecut * Hartree, E, file=f)
 f.close()
