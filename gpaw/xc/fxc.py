@@ -48,6 +48,10 @@ class Handle:
     def exists(self):
         return self._path.exists()
 
+    def read_attribute(self, name):
+        with ulm.open(self._path) as reader:
+            return reader.fhxc_sGsG
+
 
 class FXCCorrelation:
     def __init__(self,
@@ -274,9 +278,7 @@ class FXCCorrelation:
         #              the calculation is spin-polarized!)
 
         if self.xcflags.spin_kernel:
-            with ulm.open('fhxc_%s_%s_%s_%s.ulm' %
-                          (self.tag, self.xc, self.ecut_max, qi)) as r:
-                fv = r.fhxc_sGsG
+            fv = self._handle(qi).read_attribute('fhxc_sGsG')
 
             if cut_G is not None:
                 cut_sG = np.tile(cut_G, ns)
