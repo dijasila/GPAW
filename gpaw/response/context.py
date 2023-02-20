@@ -11,8 +11,7 @@ import gpaw.mpi as mpi
 
 class ResponseContext:
     def __init__(self, txt='-', timer=None, world=mpi.world):
-        self.world = world
-        self.comm  = world
+        self.comm = world
         self.open(txt)
         self.set_timer(timer)
 
