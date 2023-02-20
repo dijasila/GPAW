@@ -9,7 +9,7 @@ from gpaw import PW
 
 CO = Atoms('CO', [(0, 0, 0), (0, 0, 1.1283)])
 CO.set_pbc(True)
-CO.center(vacuum=3.0)
+CO.center(vacuum=2.5)
 calc = GPAW(mode=PW(600, force_complex_dtype=True),
             parallel={'domain': 1},
             xc='PBE',
