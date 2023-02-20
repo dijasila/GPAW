@@ -19,7 +19,7 @@ from gpaw.xc.fxc_kernels import (
     get_fHxc_Gr, get_pbe_fxc, get_fspinHxc_Gr_rALDA, get_fspinHxc_Gr_rAPBE)
 
 
-def get_chi0v(chi0_sGG, G_G):
+def get_chi0v_spinsum(chi0_sGG, G_G):
     nG = chi0_sGG.shape[-1]
     chi0v = np.zeros((nG, nG), dtype=complex)
     for chi0_GG in chi0_sGG:
@@ -28,7 +28,7 @@ def get_chi0v(chi0_sGG, G_G):
     return chi0v
 
 
-def get_chi0v_spin(chi0_sGG, G_G):
+def get_chi0v_foreach_spin(chi0_sGG, G_G):
     ns, nG = chi0_sGG.shape[:2]
 
     chi0v_sGsG = np.zeros((ns * nG, ns * nG), dtype=complex)
@@ -329,15 +329,13 @@ class FXCCorrelation:
                 chi0_sGG = chi0_sGG.take(cut_G, 1).take(cut_G, 2)
 
             if self.xcflags.spin_kernel:
-                chi0v_sGsG = get_chi0v_spin(chi0_sGG, G_G)
+                chi0v_sGsG = get_chi0v_foreach_spin(chi0_sGG, G_G)
             else:
-                chi0v_sGsG = get_chi0v(chi0_sGG, G_G)
+                chi0v_sGsG = get_chi0v_spinsum(chi0_sGG, G_G)
 
             energy = self.calculate_energy_contribution(
                 chi0v_sGsG, fv_GG, nG)
             e_w.append(energy)
-
-        print('e_w sum', sum(e_w))
 
         E_w = np.zeros_like(self.omega_w)
         self.blockcomm.all_gather(np.array(e_w), E_w)
