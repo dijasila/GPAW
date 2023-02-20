@@ -413,48 +413,31 @@ class Chi0Calculator:
 
         return domain, analyzer, prefactor
 
-    def get_integrator_arguments(self, qpd, m1, m2, analyzer,
-                                 only_intraband=False):
+    def get_integrator_arguments(self, qpd, m1, m2, analyzer):
         # Prepare keyword arguments for the integrator
         mat_kwargs = {'qpd': qpd,
                       'symmetry': analyzer,
                       'integrationmode': self.integrationmode}
         eig_kwargs = {'qpd': qpd}
 
-        # Define band summation.
-        if not only_intraband:
-            # Normally, we include transitions from all completely and
-            # partially filled bands to range(m1, m2)
-            bandsum = {'n1': 0, 'n2': self.nocc2, 'm1': m1, 'm2': m2}
-        else:
-            # When doing a calculation of the intraband response, we need only
-            # the partially filled bands
-            # All partially unoccupied bands looks like this:
-            # bandsum = {'n1': self.nocc1, 'n2': self.nocc2}
-            # Do the requested fraction of the partially unoccupied bands
-            n1 = max(min(m1, self.nocc2), self.nocc1)
-            n2 = min(max(m2, self.nocc1), self.nocc2)
-            bandsum = {'n1': n1, 'n2': n2}
+        bandsum = self.get_band_summation(m1, m2)
         mat_kwargs.update(bandsum)
         eig_kwargs.update(bandsum)
 
         return mat_kwargs, eig_kwargs
 
-    def get_integral_kind(self, only_intraband=False):
+    def get_band_summation(self, m1, m2):
+        """Define band summation."""
+        # In a normal response calculation, we include transitions from all
+        # completely and partially unoccupied bands to range(m1, m2)
+        bandsum = {'n1': 0, 'n2': self.nocc2, 'm1': m1, 'm2': m2}
+
+        return bandsum
+
+    def get_integral_kind(self):
         """Determine what "kind" of integral to make."""
-        extraargs = {}  # Initialize extra arguments to integration method.
-        if only_intraband:
-            # The plasma frequency integral is special in the way, that only
-            # the spectral part is needed
-            kind = 'spectral function'
-            if self.integrationmode is None:
-                # Calculate intraband transitions at finite fermi smearing
-                extraargs['intraband'] = True  # Calculate intraband
-            elif self.integrationmode == 'tetrahedron integration':
-                # Calculate intraband transitions at T=0
-                fermi_level = self.gs.fermi_level
-                extraargs['x'] = FrequencyGridDescriptor([-fermi_level])
-        elif self.eta == 0:
+        extraargs = {}
+        if self.eta == 0:
             # If eta is 0 then we must be working with imaginary frequencies.
             # In this case chi is hermitian and it is therefore possible to
             # reduce the computational costs by a only computing half of the
@@ -739,12 +722,11 @@ class Chi0DrudeCalculator(Chi0Calculator):
         """
         qpd = chi0.qpd
 
-        integrator = self.initialize_integrator(block_distributed=False)
+        integrator = self.initialize_integrator()
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
-        (mat_kwargs,
-         eig_kwargs) = self.get_integrator_arguments(qpd, m1, m2, analyzer,
-                                                     only_intraband=True)
-        kind, extraargs = self.get_integral_kind(only_intraband=True)
+        mat_kwargs, eig_kwargs = self.get_integrator_arguments(
+            qpd, m1, m2, analyzer)
+        kind, extraargs = self.get_integral_kind()
 
         get_plasmafreq_matrix_element = partial(
             self.get_plasmafreq_matrix_element, **mat_kwargs)
@@ -784,6 +766,35 @@ class Chi0DrudeCalculator(Chi0Calculator):
     def update_integrator_kwargs(self, *unused, **ignored):
         """The Drude calculator uses only standard integrator kwargs."""
         pass
+
+    def get_band_summation(self, m1, m2):
+        """Define band summation"""
+        # When doing a calculation of the intraband response, we need only to
+        # integrate the partially unoccupied bands.
+        # All partially unoccupied bands looks like this:
+        # bandsum = {'n1': self.nocc1, 'n2': self.nocc2}
+        # Do the requested fraction of the partially unoccupied bands.
+        n1 = max(min(m1, self.nocc2), self.nocc1)
+        n2 = min(max(m2, self.nocc1), self.nocc2)
+        bandsum = {'n1': n1, 'n2': n2}
+
+        return bandsum
+
+    def get_integral_kind(self):
+        """Define what "kind" of integral to make."""
+        extraargs = {}
+        # The plasma frequency integral is special in the way, that only
+        # the spectral part is needed
+        kind = 'spectral function'
+        if self.integrationmode is None:
+            # Calculate intraband transitions at finite fermi smearing
+            extraargs['intraband'] = True  # Calculate intraband
+        elif self.integrationmode == 'tetrahedron integration':
+            # Calculate intraband transitions at T=0
+            fermi_level = self.gs.fermi_level
+            extraargs['x'] = FrequencyGridDescriptor([-fermi_level])
+
+        return kind, extraargs
 
     def get_plasmafreq_matrix_element(self, k_v, s, n1, n2,
                                       *, qpd,
