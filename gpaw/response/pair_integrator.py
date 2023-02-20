@@ -204,7 +204,7 @@ class PairFunctionIntegrator(ABC):
             Communicate between processes belonging to the same memory block.
             There will be size // nblocks processes per memory block.
         """
-        world = self.context.world
+        world = self.context.comm
         blockcomm, intrablockcomm = block_partition(world, nblocks)
 
         return blockcomm, intrablockcomm
@@ -274,7 +274,7 @@ class PairFunctionIntegrator(ABC):
         nk = self.gs.kd.nbzkpts
         nik = self.gs.kd.nibzkpts
 
-        wsize = self.context.world.size
+        wsize = self.context.comm.size
         knsize = self.intrablockcomm.size
         bsize = self.blockcomm.size
 

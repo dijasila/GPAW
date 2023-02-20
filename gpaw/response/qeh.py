@@ -175,7 +175,7 @@ class BuildingBlock:
             self.context.print('calculated chi!')
 
             nw = len(self.wd)
-            world = self.context.world
+            world = self.context.comm
             w1 = min(self.df.blocks1d.blocksize * world.rank, nw)
 
             _, _, chiM_qw, chiD_qw, _, drhoM_qz, drhoD_qz = \
@@ -186,7 +186,7 @@ class BuildingBlock:
             chiM_w = self.collect(chiM_w)
             chiD_w = self.collect(chiD_w)
 
-            if self.context.world.rank == 0:
+            if self.context.comm.rank == 0:
                 assert w1 == 0  # drhoM and drhoD in static limit
                 self.update_building_block(chiM_w[np.newaxis, :],
                                            chiD_w[np.newaxis, :],
@@ -194,7 +194,7 @@ class BuildingBlock:
 
         # Induced densities are not probably described in q-> 0 limit-
         # replace with finite q result:
-        if self.context.world.rank == 0:
+        if self.context.comm.rank == 0:
             for n in range(Nq):
                 if np.allclose(self.q_cs[n], 0):
                     self.drhoM_qz[n] = self.drhoM_qz[self.nq_cut]
@@ -229,7 +229,7 @@ class BuildingBlock:
                 'drhoM_qz': self.drhoM_qz,
                 'drhoD_qz': self.drhoD_qz}
 
-        if self.context.world.rank == 0:
+        if self.context.comm.rank == 0:
             np.savez_compressed(filename + '-chi.npz',
                                 **data)
         world.barrier()
@@ -336,7 +336,7 @@ class BuildingBlock:
         self.save_chi_file(filename=self.filename + '_int')
 
     def collect(self, a_w):
-        world = self.context.world
+        world = self.context.comm
         mynw = self.df.blocks1d.blocksize
         b_w = np.zeros(mynw, a_w.dtype)
         b_w[:self.df.blocks1d.nlocal] = a_w
@@ -347,7 +347,7 @@ class BuildingBlock:
 
     def clear_temp_files(self):
         if not self.savechi0:
-            world = self.context.world
+            world = self.context.comm
             if world.rank == 0:
                 while len(self.temp_files) > 0:
                     filename = self.temp_files.pop()
