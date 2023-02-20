@@ -1,9 +1,7 @@
 from ase.units import Ha
-import os
 import gpaw.mpi as mpi
 import numpy as np
 from gpaw.xc.fxc import KernelWave, XCFlags, FXCCache
-from ase.io.aff import affopen
 
 from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.pw.descriptor import PWMapping

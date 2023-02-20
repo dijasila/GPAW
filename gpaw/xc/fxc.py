@@ -1,4 +1,3 @@
-import os
 from time import time
 from pathlib import Path
 
@@ -363,7 +362,7 @@ class FXCCorrelation:
             if self.xc == 'RPA':
                 fv_GG = np.eye(nG)
             else:
-                fv_GG = self.cache.handle(i).read_attribute('fhxc_sGsG')
+                fv_GG = self.cache.handle(qi).read_attribute('fhxc_sGsG')
 
             if apply_cut_G and cut_G is not None:
                 fv_GG = fv_GG.take(cut_G, 0).take(cut_G, 1)
