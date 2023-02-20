@@ -5,6 +5,7 @@ from gpaw.xc.fxc import FXCCorrelation
 
 fxc = FXCCorrelation('diamond.ralda.pbe_wfcs.gpw', xc='rAPBE',
                      ecut=400,
+                     nblocks=8,
                      txt='diamond.ralda_02_rapbe.txt')
 E_i = fxc.calculate()
 
@@ -15,6 +16,7 @@ f.close()
 
 rpa = RPACorrelation('diamond.ralda.pbe_wfcs.gpw',
                      ecut=400,
+                     nblocks=8,
                      txt='diamond.ralda_02_rpa.txt')
 E_i = rpa.calculate()
 
