@@ -53,7 +53,6 @@ class Chi0Calculator:
                  disable_point_group=False, disable_time_reversal=False,
                  disable_non_symmorphic=True,
                  integrationmode=None,
-                 ftol=1e-6,
                  rate=0.0, eshift=0.0):
 
         if context is None:
@@ -117,7 +116,7 @@ class Chi0Calculator:
             self.context.print('Using integration method: PointIntegrator')
 
         # Number of completely filled bands and number of non-empty bands.
-        self.nocc1, self.nocc2 = self.gs.count_occupied_bands(ftol)
+        self.nocc1, self.nocc2 = self.gs.count_occupied_bands()
 
         # In the optical limit of metals, additional work must be performed
         # (one must add the Drude dielectric response from the free-space
@@ -130,7 +129,6 @@ class Chi0Calculator:
                 disable_time_reversal=disable_time_reversal,
                 disable_non_symmorphic=disable_non_symmorphic,
                 integrationmode=integrationmode,
-                ftol=ftol,
                 rate=rate,
                 eshift=eshift)
         else:
@@ -696,7 +694,6 @@ class Chi0DrudeCalculator(Chi0Calculator):
                  disable_time_reversal=False,
                  disable_non_symmorphic=True,
                  integrationmode=None,
-                 ftol=1e-6,
                  rate=0.0, eshift=0.0):
 
         self.wd = wd
@@ -717,7 +714,7 @@ class Chi0DrudeCalculator(Chi0Calculator):
         self.eshift = eshift
 
         # Number of completely filled bands and number of non-empty bands.
-        self.nocc1, self.nocc2 = self.gs.count_occupied_bands(ftol)
+        self.nocc1, self.nocc2 = self.gs.count_occupied_bands()
 
         # Store the plasma frequency on the calculator
         self.plasmafreq_vv = np.zeros((3, 3), complex)
@@ -825,7 +822,7 @@ class Chi0(Chi0Calculator):
                  *,
                  frequencies: Union[dict, Array1D] = None,
                  ecut=50,
-                 ftol=1e-6, threshold=1,
+                 threshold=1,
                  world=mpi.world, txt='-', timer=None,
                  nblocks=1,
                  nbands=None,
@@ -859,9 +856,6 @@ class Chi0(Chi0Calculator):
             In this case the hilbert transform cannot be used.
         eta : float
             Artificial broadening of spectra.
-        ftol : float
-            Threshold determining whether a band is completely filled
-            (f > 1 - ftol) or completely empty (f < ftol).
         threshold : float
             Numerical threshold for the optical limit k dot p perturbation
             theory expansion (used in gpaw/response/pair.py).
