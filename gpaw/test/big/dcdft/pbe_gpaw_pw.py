@@ -103,7 +103,7 @@ for name in names:
             occupations=FermiDirac(width),
             parallel={'band': 1},
             maxiter=777)
-        atoms.calc.set(**kwargs)  # remaining calc keywords
+        atoms.calc = atoms.calc.new(**kwargs)  # remaining calc keywords
         t = time.time()
         atoms.get_potential_energy()
         c.write(atoms,

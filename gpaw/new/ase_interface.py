@@ -230,6 +230,10 @@ class ASECalculator:
 
     # Old API:
 
+    def new(self, **kwargs) -> ASECalculator:
+        kwargs = {**dict(self.params.items()), **kwargs}
+        return GPAW(**kwargs)
+
     def get_pseudo_wave_function(self, band, kpt=0, spin=0,
                                  periodic=False) -> Array3D:
         state = self.calculation.state
