@@ -179,18 +179,11 @@ class GPAW(Calculator):
         be created anew. Internal variables, such as the density
         or the wave functions, are not reused either.
 
-        The atoms keyword can be used to attach the newly created
-        calculator to a given ASE atoms object.
-
         For example, to perform an identical calculation with a
         parameter changed (e.g. changing xc functional to PBE)::
 
             new_calc = calc.new(xc='PBE')
             atoms.calc = calc
-
-        Or, equivalently::
-
-            new_calc = calc.new(xc='PBE', atoms=atoms)
         """
         assert 'restart' not in kwargs
         assert 'ignore_bad_restart_file' not in kwargs
