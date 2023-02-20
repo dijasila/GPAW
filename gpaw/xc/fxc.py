@@ -1000,11 +1000,7 @@ class KernelDens:
             fhxc_sGsG += np.tile(np.eye(npw) * vq_G, (ns, ns))
 
             if mpi.rank == 0:
-                w = ulm.open(
-                    'fhxc_%s_%s_%s_%s.ulm' %
-                    (self.tag, self.xc, self.ecut, iq), 'w')
-                w.write(fhxc_sGsG=fhxc_sGsG)
-                w.close()
+                self.cache.handle(iq).write_attribute('fhxc_sGsG', fhxc_sGsG)
             mpi.world.barrier()
         self.context.print('')
 
