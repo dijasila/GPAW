@@ -173,7 +173,8 @@ def test_stark_shift():
         for field in fields:
             if rank == 0 and debug:
                 print(field)
-            c = c.new(external=ConstantElectricField(field), atoms=a)
+            c = c.new(external=ConstantElectricField(field))
+            a.calc = c
             etot = a.get_potential_energy()
             e += [etot]
             ev0 = c.get_eigenvalues(0)
@@ -215,7 +216,8 @@ def test_stark_shift():
             ex = PointCharges(positions=[[a0 / 2, a0 / 2, -pcd / 2 + a0 / 2],
                                          [a0 / 2, a0 / 2, pcd / 2 + a0 / 2]],
                               charges=[charge, -charge])
-            c = c.new(external=ex, atoms=a)
+            c = c.new(external=ex)
+            a.calc = c
             etot = a.get_potential_energy()
             e += [etot]
             ev0 = c.get_eigenvalues(0)
