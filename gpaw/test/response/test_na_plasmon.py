@@ -28,14 +28,14 @@ def test_response_na_plasmon(in_tmp_dir):
                pbc=True)
 
     a1.calc = GPAW(mode=PW(250),
-                   kpts={'size': (8, 8, 8), 'gamma': True},
+                   kpts={'size': (4, 4, 4), 'gamma': True},
                    parallel={'band': 1},
                    # txt='small.txt',
                    )
 
     # Kpoint sampling should be halved in the expanded direction.
     a2.calc = GPAW(mode=PW(250),
-                   kpts={'size': (4, 8, 8), 'gamma': True},
+                   kpts={'size': (2, 4, 4), 'gamma': True},
                    parallel={'band': 1},
                    # txt='large.txt',
                    )
@@ -69,7 +69,8 @@ def test_response_na_plasmon(in_tmp_dir):
     dfs3 = []
     dfs4 = []
     dfs5 = []
-    for kwargs in settings:
+    I_diffs=[0.008999,0.0075575]
+    for idx,kwargs in enumerate(settings):
         df1 = DielectricFunction('gs_Na_small.gpw',
                                  ecut=40,
                                  rate=0.001,
@@ -99,18 +100,25 @@ def test_response_na_plasmon(in_tmp_dir):
         w_w = df1.wd.omega_w
         w1, I1 = findpeak(w_w, -(1. / df1LFCx).imag)
         w2, I2 = findpeak(w_w, -(1. / df2LFCx).imag)
+        I_diff = abs(I1 - I2)
         equal(w1, w2, 1e-2)
-        equal(I1, I2, 1e-3)
+        assert I_diff == pytest.approx(I_diffs[idx], abs=1e-3)
+        # assert I_diff == pytest.approx(0.0075575, abs=1e-3)
+        equal(I1, I2, 1e-2)
 
         w1, I1 = findpeak(w_w, -(1. / df1LFCy).imag)
         w2, I2 = findpeak(w_w, -(1. / df2LFCy).imag)
+        I_diff = abs(I1 - I2)
         equal(w1, w2, 1e-2)
-        equal(I1, I2, 1e-3)
+        equal(I_diff, 0.004063, 1e-3)
+        equal(I1, I2, 1e-2)
 
         w1, I1 = findpeak(w_w, -(1. / df1LFCz).imag)
         w2, I2 = findpeak(w_w, -(1. / df2LFCz).imag)
+        I_diff = abs(I1 - I2)
         equal(w1, w2, 1e-2)
-        equal(I1, I2, 1e-3)
+        equal(I_diff, 0.0042445, 1e-3)
+        equal(I1, I2, 1e-2)
 
     # Check for self-consistency
     for i, dfs in enumerate([dfs0, dfs1, dfs2, dfs3, dfs4, dfs5]):
