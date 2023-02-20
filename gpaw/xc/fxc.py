@@ -736,7 +736,8 @@ class KernelDens:
         self.unit_cells = unit_cells
         self.density_cut = density_cut
         self.ecut = ecut
-        self.tag = tag
+        self.tag = tag  # XXX delete me
+        self.cache = FXCCache(tag, xc, ecut)
         self.context = context
 
         self.A_x = -(3 / 4.) * (3 / np.pi)**(1 / 3.)
@@ -944,9 +945,6 @@ class KernelDens:
             fhxc_sGsG /= vol
 
             if mpi.rank == 0:
-                w = ulm.open(
-                    'fhxc_%s_%s_%s_%s.ulm' %
-                    (self.tag, self.xc, self.ecut, iq), 'w')
                 if nR > 1:  # add Hartree kernel evaluated in PW basis
                     Gq2_G = self.pd.G2_qG[iq]
                     if (q == 0).all():
@@ -954,8 +952,7 @@ class KernelDens:
                         Gq2_G[0] = 1.
                     vq_G = 4 * np.pi / Gq2_G
                     fhxc_sGsG += np.tile(np.eye(npw) * vq_G, (ns, ns))
-                w.write(fhxc_sGsG=fhxc_sGsG)
-                w.close()
+                self.cache.handle(iq).write_attribute('fhxc_sGsG', fhxc_sGsG)
             mpi.world.barrier()
         self.context.print('')
 
