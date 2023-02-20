@@ -861,7 +861,7 @@ class G0W0Calculator:
     @timer('calcualte_vxc_and_exx')
     def calculate_vxc_and_exx(self):
         return self.exx_vxc_calculator.calculate(
-            band1=self.bands[0], band2=self.bands[1],
+            n1=self.bands[0], n2=self.bands[1],
             kpt_indices=self.kpts)
 
     def print_results(self, results):
@@ -1135,11 +1135,11 @@ class EXXVXCCalculator:
         self._gpwfile = gpwfile
         self._snapshotfile_prefix = snapshotfile_prefix
 
-    def calculate(self, band1, band2, kpt_indices):
+    def calculate(self, n1, n2, kpt_indices):
         _, vxc_skn, exx_skn = non_self_consistent_eigenvalues(
             self._gpwfile,
             'EXX',
-            band1, band2,
+            n1, n2,
             kpt_indices=kpt_indices,
             snapshot=f'{self._snapshotfile_prefix}-vxc-exx.json',
         )
