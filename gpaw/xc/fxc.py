@@ -350,15 +350,10 @@ class FXCCorrelation:
             # cut_G slicing?
             apply_cut_G = self.xc != 'RPA'
 
-            def read(arrayname):
-                key = (self.tag, self.xc, self.ecut_max, qi)
-                with ulm.open('fhxc_%s_%s_%s_%s.ulm' % key) as reader:
-                    return getattr(reader, arrayname)
-
             if self.xc == 'RPA':
                 fv_GG = np.eye(nG)
             else:
-                fv_GG = read('fhxc_sGsG')
+                fv_GG = self._handle(i).read_attribute('fhxc_sGsG')
 
             if apply_cut_G and cut_G is not None:
                 fv_GG = fv_GG.take(cut_G, 0).take(cut_G, 1)
