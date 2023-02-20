@@ -445,7 +445,6 @@ class KernelWave:
         self.ns = self.gs.nspins
         self.q_empty = q_empty
         self.ecut = ecut
-        self.tag = tag  # XXX delete me
         self.cache = FXCCache(self.tag, self.xc, self.ecut)
         self.context = context
 
@@ -736,7 +735,6 @@ class KernelDens:
         self.unit_cells = unit_cells
         self.density_cut = density_cut
         self.ecut = ecut
-        self.tag = tag  # XXX delete me
         self.cache = FXCCache(tag, xc, ecut)
         self.context = context
 
