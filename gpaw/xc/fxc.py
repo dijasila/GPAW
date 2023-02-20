@@ -175,12 +175,7 @@ class FXCCorrelation:
                 self.context.print('%s kernel already calculated\n' %
                                    self.xc)
 
-        if self.gs.nspins == 1:
-            spin = False
-        else:
-            spin = True
-
-        e = self.rpa.calculate(spin=spin, nbands=nbands)
+        e = self.rpa.calculate(spin=self.gs.nspins > 1, nbands=nbands)
 
         return e
 
