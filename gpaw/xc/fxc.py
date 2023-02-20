@@ -30,6 +30,21 @@ def get_chi0v(chi0_sGG, cut_G, G_G):
     return chi0v
 
 
+def get_chi0v_spin(chi0_sGG, cut_G, G_G):
+    ns, nG = chi0_sGG.shape[:2]
+
+    if cut_G is not None:
+        chi0_sGG = chi0_sGG.take(cut_G, 1).take(cut_G, 2)
+    chi0v_sGsG = np.zeros((ns * nG, ns * nG), dtype=complex)
+    for s in range(ns):
+        m = s * nG
+        n = (s + 1) * nG
+        chi0v_sGsG[m:n, m:n] = \
+            chi0_sGG[s] / G_G / G_G[:, np.newaxis]
+    chi0v_sGsG *= 4 * np.pi
+    return chi0v_sGsG
+
+
 class FXCCache:
     def __init__(self, tag, xc, ecut):
         self.tag = tag
@@ -305,65 +320,28 @@ class FXCCorrelation:
                             fv[m1, m2:n2] = 0.0
                             fv[m1:n1, m2] = 0.0
                             fv[m1, m2] = 1.0
-
-            if qpd.kd.gamma:
-                G_G[0] = 1.0
-
-            e_w = []
-
-            # Loop over frequencies
-            for chi0_sGG in np.swapaxes(chi0_swGG, 0, 1):
-                if cut_G is not None:
-                    chi0_sGG = chi0_sGG.take(cut_G, 1).take(cut_G, 2)
-                chi0v_sGsG = np.zeros((ns * nG, ns * nG), dtype=complex)
-                for s in range(ns):
-                    m = s * nG
-                    n = (s + 1) * nG
-                    chi0v_sGsG[m:n, m:n] = \
-                        chi0_sGG[s] / G_G / G_G[:, np.newaxis]
-                chi0v_sGsG *= 4 * np.pi
-
-                del chi0_sGG
-
-                e = self.calculate_energy_contribution(chi0v_sGsG, fv, nG)
-                e_w.append(e)
-
         else:
-            # Or, if kernel does not have a spin polarized form,
-            #
-            # Option (2)  kernel does not scale linearly with lambda,
-            #             so we solve nG*nG Dyson equation at each value
-            #             of l.  Requires kernel to be constructed
-            #             at individual values of lambda
-            #
-            # Option (3)  Divide correlation energy into
-            #             long range part which can be integrated
-            #             analytically w.r.t. lambda, and a short
-            #             range part which again requires
-            #             solving Dyson equation (hence no speedup,
-            #             but the maths looks nice and
-            #             fits with range-separated RPA)
-            #
-            #
-            # Construct/read kernels
+            fv = np.eye(nG)
 
-            # What are the rules for whether we should do the
-            # cut_G slicing?
-            fv_GG = np.eye(nG)
 
-            if qpd.kd.gamma:
-                G_G[0] = 1.0
+        if qpd.kd.gamma:
+            G_G[0] = 1.0
 
-            # Loop over frequencies; since the kernel has no spin,
-            # we work with spin-summed response function
-            e_w = []
+        e_w = []
 
-            for iw, chi0_sGG in enumerate(np.swapaxes(chi0_swGG, 0, 1)):
-                chi0v = get_chi0v(chi0_sGG, cut_G, G_G)
+        # Loop over frequencies
+        for chi0_sGG in np.swapaxes(chi0_swGG, 0, 1):
+            if self.xcflags.spin_kernel:
+                chi0v_sGsG = get_chi0v_spin(chi0_sGG, cut_G, G_G)
+                e = self.calculate_energy_contribution(chi0v_sGsG, fv, nG)
+            else:
+                chi0v_GG = get_chi0v(chi0_sGG, cut_G, G_G)
 
-                elong = self.calculate_energy_contribution(
-                    chi0v, fv_GG, len(fv_GG))
-                e_w.append(elong)
+                e = self.calculate_energy_contribution(
+                    chi0v_GG, fv, len(fv))
+            e_w.append(e)
+
+        print('e_w sum', sum(e_w))
 
         E_w = np.zeros_like(self.omega_w)
         self.blockcomm.all_gather(np.array(e_w), E_w)
