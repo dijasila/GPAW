@@ -190,9 +190,8 @@ class FXCCorrelation:
     @timer('Chi0(q)')
     def calculate_q_fxc(self, chi0calc, chi0_s, m1, m2, cut_G):
         for s, chi0 in enumerate(chi0_s):
-            chi0calc.update_chi0(chi0,
-                                 m1,
-                                 m2, [s])
+            chi0calc.update_chi0(chi0, m1, m2, [s])
+
         self.context.print('E_c(q) = ', end='', flush=False)
 
         qpd = chi0.qpd
@@ -230,7 +229,7 @@ class FXCCorrelation:
 
         return e
 
-    def calculate_energy_contribution(self, chi0v_sGsG, fv, nG):
+    def calculate_energy_contribution(self, chi0v_sGsG, fv_sGsG, nG):
         """Calculate contribution to energy from a single frequency point.
 
         The RPA correlation energy is the integral over all frequencies
@@ -242,16 +241,13 @@ class FXCCorrelation:
 
         for l, weight in zip(self.l_l, self.weight_l):
             chiv = np.linalg.solve(
-                np.eye(nG * ns) - l * np.dot(chi0v_sGsG, fv),
+                np.eye(nG * ns) - l * np.dot(chi0v_sGsG, fv_sGsG),
                 chi0v_sGsG).real  # this is SO slow
+
+            chiv = chiv.reshape(ns, nG, ns, nG)
             for s1 in range(ns):
                 for s2 in range(ns):
-                    m1 = s1 * nG
-                    n1 = (s1 + 1) * nG
-                    m2 = s2 * nG
-                    n2 = (s2 + 1) * nG
-                    chiv_s1s2 = chiv[m1:n1, m2:n2]
-                    e -= np.trace(chiv_s1s2) * weight
+                    e -= np.trace(chiv[s1, :, s2, :]) * weight
 
         e += np.trace(chi0v_sGsG.real)
         return e
