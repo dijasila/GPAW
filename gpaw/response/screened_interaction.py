@@ -108,7 +108,6 @@ class WBaseCalculator:
         else:
             self.q0_corrector = None
 
-
     def get_V0sqrtV0(self, chi0):
         """
         Integrated Coulomb kernels.

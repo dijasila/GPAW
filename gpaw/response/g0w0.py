@@ -838,16 +838,18 @@ class G0W0Calculator:
                                                        only_correlation=True)
             else:
                 W_wGG = self.wcalc.calculate(rchi0,
-                                                 fxc_mode=fxc_mode,
-                                                 only_correlation=True,
-                                                 out_dist='WgG')
+                                             fxc_mode=fxc_mode,
+                                             only_correlation=True,
+                                             out_dist='WgG')
 
-                if chi0calc.pawcorr is not None and rqpd.ecut < chi0.qpd.ecut:
+                if (chi0calc.pawcorr is not None and
+                    rqpd.ecut < chi0.qpd.ecut):
                     pw_map = PWMapping(rqpd, chi0.qpd)
-                    # This is extremely bad behaviour! G0W0Calculator should not
-                    # change properties on the Chi0Calculator! Change in the
-                    # future! XXX
-                    chi0calc.pawcorr = chi0calc.pawcorr.reduce_ecut(pw_map.G2_G1)
+                    # This is extremely bad behaviour! G0W0Calculator
+                    # should not change properties on the
+                    # Chi0Calculator! Change in the future! XXX
+                    chi0calc.pawcorr = \
+                        chi0calc.pawcorr.reduce_ecut(pw_map.G2_G1)
 
                 # HT used to calculate convulution between time-ordered G and W
                 with self.context.timer('Hilbert'):
