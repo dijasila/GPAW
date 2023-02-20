@@ -117,12 +117,18 @@ class Chi0Calculator:
 
         # Number of completely filled bands and number of non-empty bands.
         self.nocc1, self.nocc2 = self.gs.count_occupied_bands()
+        metallic = self.nocc1 != self.nocc2
+
+        if metallic:
+            assert abs(eshift) < 1e-8,\
+                'A rigid energy shift cannot be applied to the conduction '\
+                'bands if there is no band gap'
 
         # In the optical limit of metals, one must add the Drude dielectric
         # response from the free-space plasma frequency of the intraband
         # transitions to the head of the chi0 wings. This is handled by a
-        # separate calculator.
-        if self.nocc1 != self.nocc2 and intraband:
+        # separate calculator, provided that intraband is set to True.
+        if metallic and intraband:
             self.drude_calc = Chi0DrudeCalculator(
                 wd, pair,
                 disable_point_group=disable_point_group,
