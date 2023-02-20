@@ -353,7 +353,8 @@ class G0W0Calculator:
                  fxc_modes,
                  eta,
                  ecut_e,
-                 frequencies=None):
+                 frequencies=None,
+                 ppa=False):
         """G0W0 calculator, initialized through G0W0 object.
 
         The G0W0 calculator is used to calculate the quasi
@@ -388,11 +389,15 @@ class G0W0Calculator:
             When carrying out a calculation including vertex corrections, it
             is possible to get the standard GW results at the same time
             (almost for free).
+        ppa: bool
+            Use Godby-Needs plasmon-pole approximation for screened interaction 
+            and self-energy
         """
         self.chi0calc = chi0calc
         self.wcalc = wcalc
         self.context = self.wcalc.context
-
+        self.ppa = ppa
+        
         # Note: self.chi0calc.wd should be our only representation
         # of the frequencies.
         # We should therefore get rid of self.frequencies.
@@ -459,7 +464,7 @@ class G0W0Calculator:
 
         self.sigma_calculator = self._build_sigma_calculator()
 
-        if self.wcalc.ppa:
+        if self.ppa:
             self.context.print('Using Godby-Needs plasmon-pole approximation:')
             self.context.print('  Fitting energy: i*E0, E0 = %.3f Hartee'
                                % self.wcalc.E0)
@@ -470,7 +475,7 @@ class G0W0Calculator:
         import gpaw.response.sigma as sigma
         factor = 1.0 / (self.wcalc.qd.nbzkpts * 2 * pi * self.wcalc.gs.volume)
 
-        if self.wcalc.ppa:
+        if self.ppa:
             return sigma.PPASigmaCalculator(eta=self.eta, factor=factor)
 
         return sigma.SigmaCalculator(wd=self.chi0calc.wd, factor=factor)
@@ -822,7 +827,7 @@ class G0W0Calculator:
         Wdict = {}
 
         for fxc_mode in self.fxc_modes:
-            if self.wcalc.ppa:
+            if self.ppa:
                 out_dist = 'wGG'
             else:
                 out_dist = 'WgG'
@@ -841,7 +846,7 @@ class G0W0Calculator:
                 # future! XXX
                 chi0calc.pawcorr = chi0calc.pawcorr.reduce_ecut(pw_map.G2_G1)
 
-            if self.wcalc.ppa:
+            if self.ppa:
                 W_xwGG = W_wGG  # (ppa API is nonsense)
             # HT used to calculate convulution between time-ordered G and W
             else:
@@ -1112,6 +1117,7 @@ class G0W0(G0W0Calculator):
                          bands=bands,
                          frequencies=frequencies,
                          kpts=kpts,
+                         ppa=ppa,
                          **kwargs)
 
     @property
