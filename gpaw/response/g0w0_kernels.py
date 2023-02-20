@@ -2,7 +2,7 @@ from ase.units import Ha
 import os
 import gpaw.mpi as mpi
 import numpy as np
-from gpaw.xc.fxc import KernelWave, XCFlags
+from gpaw.xc.fxc import KernelWave, XCFlags, FXCCache
 from ase.io.aff import affopen
 
 from gpaw.response.pair_functions import SingleQPWDescriptor
@@ -24,7 +24,7 @@ class G0W0Kernel:
             **self._kwargs)
 
 
-def actually_calculate_kernel(*, gs, qd, xcflags, q_empty, tag, ecut_max,
+def actually_calculate_kernel(*, gs, qd, xcflags, q_empty, cache, ecut_max,
                               context):
     ibzq_qc = qd.ibzk_kc
 
@@ -34,7 +34,7 @@ def actually_calculate_kernel(*, gs, qd, xcflags, q_empty, tag, ecut_max,
         ibzq_qc=ibzq_qc,
         q_empty=q_empty,
         ecut=ecut_max,
-        tag=tag,
+        cache=cache,
         context=context)
 
     kernel.calculate_fhxc()
@@ -42,7 +42,6 @@ def actually_calculate_kernel(*, gs, qd, xcflags, q_empty, tag, ecut_max,
 
 def calculate_kernel(*, ecut, xcflags, gs, qd, ns, qpd, context):
     xc = xcflags.xc
-    tag = gs.atoms.get_chemical_formula(mode='hill')
 
     # Get iq
     ibzq_qc = qd.ibzk_kc
@@ -62,24 +61,25 @@ def calculate_kernel(*, ecut, xcflags, gs, qd, ns, qpd, context):
     else:
         G2_G1 = None
 
-    filename = 'fhxc_%s_%s_%s_%s.ulm' % (tag, xc, ecut_max, iq)
+    cache = FXCCache(tag=gs.atoms.get_chemical_formula(mode='hill'),
+                     xc=xc, ecut=ecut_max)
+    handle = cache.handle(iq)
 
-    if not os.path.isfile(filename):
+    if not handle.exists():
         q_empty = iq
 
     if xc != 'RPA':
         if q_empty is not None:
-            actually_calculate_kernel(q_empty=q_empty, qd=qd, tag=tag,
+            actually_calculate_kernel(q_empty=q_empty, qd=qd,
+                                      cache=cache,
                                       xcflags=xcflags,
                                       ecut_max=ecut_max, gs=gs,
                                       context=context)
-            # (This creates the ulm file above.  Probably.)
 
         mpi.world.barrier()
 
         if xcflags.spin_kernel:
-            with affopen(filename) as r:
-                fv = r.fhxc_sGsG
+            fv = handle.read_attribute('fhxc_sGsG')
 
             if G2_G1 is not None:
                 cut_sG = np.tile(G2_G1, ns)
@@ -94,8 +94,7 @@ def calculate_kernel(*, ecut, xcflags, gs, qd, ns, qpd, context):
 #                    fv = np.exp(-0.25 * (G_G * self.range_rc) ** 2.0)
 
             else:
-                with affopen(filename) as r:
-                    fv = r.fhxc_sGsG
+                fv = handle.read_attribute('fhxc_sGsG')
 
                 if G2_G1 is not None:
                     fv = fv.take(G2_G1, 0).take(G2_G1, 1)
