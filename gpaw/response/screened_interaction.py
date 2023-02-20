@@ -258,7 +258,7 @@ class WCalculator:
 
 class PPACalculator(WCalculator):
 
-    def __init__(E0, *args, **kwargs):
+    def __init__(self, E0, *args, **kwargs):
         # E0 : float
         #    Energy (in eV) used for fitting the plasmon-pole approximation
         self.E0 = E0 / Ha  # eV -> Hartree
@@ -266,7 +266,8 @@ class PPACalculator(WCalculator):
     
     def calculate(self, chi0,
                   fxc_mode='GW',
-                  only_correlation=False):
+                  only_correlation=False,
+                  out_dist=None):
         """Calculate the PPA parametrization of screened interaction.
 
         Parameters
