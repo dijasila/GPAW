@@ -32,10 +32,10 @@ def test_exx_exx_scf(in_tmp_dir, add_cwd_to_setup_paths):
                           eigensolver=RMMDIIS(),
                           poissonsolver=PoissonSolver(use_charge_center=True),
                           occupations=FermiDirac(width=0.0, fixmagmom=True),
-                          h=h, maxiter=35)   # Up to 24 are needed by now
-        calculator = calculator.new(xc=HybridXC('PBE0'),
-                                    txt=atom + '-PBE0.txt',
-                                    atoms=work_atom)
+                          h=h, maxiter=35,  # Up to 24 are needed by now
+                          xc=HybridXC('PBE0'),
+                          txt=atom + '-PBE0.txt')
+        work_atom.calc = calculator
         try:
             work_atom.get_potential_energy()
         except KohnShamConvergenceError:
