@@ -703,6 +703,8 @@ class Chi0DrudeCalculator(Chi0Calculator):
                  ftol=1e-6,
                  rate=0.0, eshift=0.0):
 
+        self.wd = wd
+
         self.pair = pair
         self.gs = pair.gs
         self.context = pair.context
@@ -711,6 +713,7 @@ class Chi0DrudeCalculator(Chi0Calculator):
         self.disable_time_reversal = disable_time_reversal
         self.disable_non_symmorphic = disable_non_symmorphic
         self.integrationmode = integrationmode
+        self.rate = rate
         self.eshift = eshift
 
         # Number of completely filled bands and number of non-empty bands.
