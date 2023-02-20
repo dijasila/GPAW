@@ -296,6 +296,8 @@ class FXCCorrelation:
             # density average:
 
             if self.avg_scheme == 'density':
+                fv_sGsG = fv_GG.reshape(ns, nG, ns, nG).copy()  # XXX copy
+
                 for s1 in range(ns):
                     for s2 in range(ns):
                         m1 = s1 * nG
@@ -305,10 +307,20 @@ class FXCCorrelation:
                         fv_GG[m1:n1, m2:n2] *= (G_G * G_G[:, np.newaxis]
                                                 / (4 * np.pi))
 
+                        fv_sGsG[s1, :, s2, :] *= (
+                            G_G * G_G[:, np.newaxis]
+                            / (4 * np.pi))
+
+                        if np.prod(self.unit_cells) > 1 and qpd.kd.gamma:
+                            fv_sGsG[s1, 0, s2, :] = 0.0
+                            fv_sGsG[s1, :, s2, 0] = 0.0
+                            fv_sGsG[s1, 0, s2, 0] = 1.0
+
                         if np.prod(self.unit_cells) > 1 and qpd.kd.gamma:
                             fv_GG[m1, m2:n2] = 0.0
                             fv_GG[m1:n1, m2] = 0.0
                             fv_GG[m1, m2] = 1.0
+                assert np.allclose(fv_sGsG.reshape(ns * nG, ns * nG), fv_GG)
         else:
             fv_GG = np.eye(nG)
 
