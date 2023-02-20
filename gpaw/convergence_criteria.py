@@ -303,7 +303,11 @@ class Forces(Criterion):
             error = ((F_av - self.old_F_av)**2).sum(1).max()**0.5
         self.old_F_av = F_av
 
-        error_threshold = min(self.atol, self.rtol * max_force)
+        if np.isfinite(self.rtol):
+            error_threshold = min(self.atol, self.rtol * max_force)
+        else:
+            # Avoid possible inf * 0.0:
+            error_threshold = self.atol
         converged = error < error_threshold
 
         entry = ''
