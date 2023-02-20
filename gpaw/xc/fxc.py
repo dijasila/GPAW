@@ -289,12 +289,12 @@ class FXCCorrelation:
         #              the calculation is spin-polarized!)
 
         if self.xcflags.spin_kernel:
-            fv = self.cache.handle(qi).read()
+            fv_GG = self.cache.handle(qi).read()
 
             if cut_G is not None:
                 cut_sG = np.tile(cut_G, ns)
-                cut_sG[len(cut_G):] += len(fv) // ns
-                fv = fv.take(cut_sG, 0).take(cut_sG, 1)
+                cut_sG[len(cut_G):] += len(fv_GG) // ns
+                fv_GG = fv_GG.take(cut_sG, 0).take(cut_sG, 1)
 
             # the spin-polarized kernel constructed from wavevector average
             # is already multiplied by |q+G| |q+G'|/4pi, and doesn't require
@@ -308,16 +308,15 @@ class FXCCorrelation:
                         n1 = (s1 + 1) * nG
                         m2 = s2 * nG
                         n2 = (s2 + 1) * nG
-                        fv[m1:n1,
-                           m2:n2] *= (G_G * G_G[:, np.newaxis] / (4 * np.pi))
+                        fv_GG[m1:n1, m2:n2] *= (G_G * G_G[:, np.newaxis]
+                                                / (4 * np.pi))
 
                         if np.prod(self.unit_cells) > 1 and qpd.kd.gamma:
-                            fv[m1, m2:n2] = 0.0
-                            fv[m1:n1, m2] = 0.0
-                            fv[m1, m2] = 1.0
+                            fv_GG[m1, m2:n2] = 0.0
+                            fv_GG[m1:n1, m2] = 0.0
+                            fv_GG[m1, m2] = 1.0
         else:
-            fv = np.eye(nG)
-
+            fv_GG = np.eye(nG)
 
         if qpd.kd.gamma:
             G_G[0] = 1.0
@@ -331,13 +330,15 @@ class FXCCorrelation:
 
             if self.xcflags.spin_kernel:
                 chi0v_sGsG = get_chi0v_spin(chi0_sGG, G_G)
-                e = self.calculate_energy_contribution(chi0v_sGsG, fv, nG)
+                energy = self.calculate_energy_contribution(
+                    chi0v_sGsG, fv_GG, nG)
             else:
                 chi0v_GG = get_chi0v(chi0_sGG, G_G)
 
-                e = self.calculate_energy_contribution(
-                    chi0v_GG, fv, len(fv))
-            e_w.append(e)
+                energy = self.calculate_energy_contribution(
+                    chi0v_GG, fv_GG, len(fv_GG))
+
+            e_w.append(energy)
 
         print('e_w sum', sum(e_w))
 
