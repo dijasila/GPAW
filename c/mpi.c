@@ -77,6 +77,7 @@ int Array_NDIM(PyObject* obj)
     // return len(obj.shape)
     PyObject* shape = PyObject_GetAttrString(obj, "shape");
     if (shape == NULL) return -1;
+    Py_DECREF(shape);
     return PyTuple_Size(shape);
 }
 
@@ -89,8 +90,10 @@ int Array_DIM(PyObject* obj, int dim)
     PyObject* shape_str = Py_BuildValue("s", "shape");
     PyObject* shape = PyObject_GetAttr(obj, shape_str);
     Py_DECREF(shape_str);
+
     if (shape == NULL) return -1;
     PyObject* pydim = PyTuple_GetItem(shape, dim);
+    Py_DECREF(shape);
     if (pydim == NULL) return -1;
     return (int) PyLong_AS_LONG(pydim);
 }
@@ -108,7 +111,10 @@ char* Array_BYTES(PyObject* obj)
     if (ndarray_data == NULL) return NULL;
     PyObject* ptr_data = PyObject_GetAttrString(ndarray_data, "ptr");
     if (ptr_data == NULL) return NULL;
-    return (char*) PyLong_AS_LONG(ptr_data);
+    char* ptr = (char*) PyLong_AS_LONG(ptr_data);
+    Py_DECREF(ptr_data);
+    Py_DECREF(ndarray_data);
+    return ptr;
 }
 
 #define Array_DATA(a) ((void*) Array_BYTES(a))
@@ -116,9 +122,11 @@ char* Array_BYTES(PyObject* obj)
 int Array_SIZE(PyObject* obj)
 {
     PyObject* size_str = Py_BuildValue("s", "size");
-    int size = (int) PyLong_AS_LONG(PyObject_GetAttr(obj, size_str));
+    PyObject* size = PyObject_GetAttr(obj, size_str);
+    int arraysize = (int) PyLong_AS_LONG(size);
+    Py_DECREF(size);
     Py_DECREF(size_str);
-    return size;
+    return arraysize;
 }
 
 int Array_TYPE(PyObject* obj)
@@ -135,10 +143,14 @@ int Array_TYPE(PyObject* obj)
 
     PyObject* num_str = Py_BuildValue("s", "num");
     PyObject* num = PyObject_GetAttr(dtype, num_str);
+    
+    Py_DECREF(dtype);
     Py_DECREF(num_str);
     if (num == NULL) return -1;
     
-    return (int) PyLong_AS_LONG(num);
+    int value =  (int) PyLong_AS_LONG(num);
+    Py_DECREF(dtype);
+    return value; 
 }
 
 int Array_ITEMSIZE(PyObject* obj)
@@ -152,6 +164,8 @@ int Array_ITEMSIZE(PyObject* obj)
     PyObject* itemsize_obj = PyObject_GetAttrString(obj, "itemsize");
     if (itemsize_obj == NULL) return -1;
     int itemsize = (int) PyLong_AS_LONG(itemsize_obj);
+    Py_DECREF(itemsize_obj);
+    Py_DECREF(dtype);
     return itemsize;
 }
 
@@ -163,9 +177,11 @@ long Array_NBYTES(PyObject* obj)
         return PyArray_NBYTES((PyArrayObject*)obj);
     }
     PyObject* nbytes_str = Py_BuildValue("s", "nbytes");
-    long nbytes = PyLong_AS_LONG(PyObject_GetAttr(obj, nbytes_str));
+    PyObject* nbytes = PyObject_GetAttr(obj, nbytes_str);
+    long nbytesvalue = PyLong_AS_LONG(nbytes);
     Py_DECREF(nbytes_str);
-    return nbytes;
+    Py_DECREF(nbytes);
+    return nbytesvalue;
 }
 
 int Array_ISCOMPLEX(PyObject* obj)
@@ -491,6 +507,7 @@ static PyObject * mpi_receive(MPIObject *self, PyObject *args, PyObject *kwargs)
       if (req == NULL) return NULL;
       req->buffer = (PyObject*)a;
       Py_INCREF(req->buffer);
+      printf("Increasing reference counter at receive.\n");
 #ifndef GPAW_MPI_DEBUG
       MPI_Irecv(Array_BYTES(a), n, MPI_BYTE, src, tag, self->comm, &(req->rq));
 #else
@@ -540,6 +557,7 @@ static PyObject * mpi_send(MPIObject *self, PyObject *args, PyObject *kwargs)
       GPAW_MPI_Request *req = NewMPIRequest();
       req->buffer = (PyObject*)a;
       Py_INCREF(a);
+      printf("Increasing reference counter at send.\n");
 #ifndef GPAW_MPI_DEBUG
       MPI_Isend(Array_BYTES(a), n, MPI_BYTE, dest, tag, self->comm,
                 &(req->rq));
@@ -664,6 +682,8 @@ static PyObject * mpi_testall(MPIObject *self, PyObject *requests)
         {
           assert(o->buffer != NULL);
           Py_DECREF(o->buffer);
+          Py_ssize_t cnt = Py_REFCNT(o->buffer);
+          printf("Decref at testall, refcount now %zu\n", cnt);
         }
         o->status = 0;
         Py_DECREF(o);
@@ -731,6 +751,8 @@ static PyObject * mpi_waitall(MPIObject *self, PyObject *requests)
      {
        assert(o->buffer != NULL);
        Py_DECREF(o->buffer);
+       Py_ssize_t cnt = Py_REFCNT(o->buffer);
+       printf("1 Decref at waittall, refcount now %zu\n", cnt);
      }
      o->status = 0;
      Py_DECREF(o);

@@ -1,4 +1,7 @@
 import numpy as np
+import time
+import cupy
+
 class ParallelArrayDistribution:
     """
         Provides a general distribution for arrays
@@ -38,8 +41,24 @@ class ParallelArrayDescriptor:
             start_n = np.minimum(coord_n * pstride_n, self.shape)
             end_n = np.minimum((coord_n + 1) * pstride_n, self.shape)
             slices = tuple([slice(start, end) for start, end in zip(start_n, end_n)])
-            array[slices] = A[slices]
+            array[slices] = A[slices].copy()
         return array
+
+    def create_from_function(self, f, dist_n):
+        dist_n = np.asarray(dist_n)
+        assert self.comm.size == dist_n.prod()
+        pstride_n = (self.shape + dist_n - 1) // dist_n
+        coord_n = np.asarray(np.unravel_index(self.comm.rank, dist_n))
+        with self.create_from_blocks() as array:
+            start_n = np.minimum(coord_n * pstride_n, self.shape)
+            end_n = np.minimum((coord_n + 1) * pstride_n, self.shape)
+            slices = tuple([slice(start, end) for start, end in zip(start_n, end_n)])
+            indices = self.xp.indices(end_n-start_n)
+            for index, start in zip(indices, start_n):
+                index += start
+            array[slices] = f(*indices)
+        return array
+        
          
 
 class ParallelArrayReadOnlyContextManager:
@@ -105,6 +124,7 @@ class ParallelArrayBlockedData(ParallelArrayData):
         myitems = [(comm.rank, localindex, item) for localindex, (item, value) in enumerate(self.myblocks)]
         for rank in range(comm.size):
             items.extend(broadcast(myitems if rank == comm.rank else None, root=rank, comm=comm))
+            comm.barrier()
         self.all_items = items
         #print(comm.rank, 'collected', self.all_items)
 
@@ -142,12 +162,24 @@ class ParallelArray:
         raise ValueError(f'Unknown access mode: {mode}')
 
     def collect(self):
+        xp = self.pdd.xp
         comm = self.pdd.comm
-        array = np.zeros(self.shape)
+        array = self.pdd.xp.zeros(self.shape)
         for item, value in self.data.myblocks:
             b1, e1, b2, e2 = item[0].start, item[0].stop, item[1].start, item[1].stop
             array[b1:e1, b2:e2] += value
+        start = time.time()
+        print(comm.rank,'collect synchronize')
+        if xp is cupy:
+            xp.cuda.runtime.deviceSynchronize()
+        print(comm.rank, 'absolute_sum_at_collect', self.pdd.xp.sum(self.pdd.xp.abs(array).ravel()))
+        print(comm.rank,'collect sum')
         comm.sum(array)
+        if xp is cupy:
+            xp.cuda.runtime.deviceSynchronize()
+        print(comm.rank, 'absolute_sum_after_collect', self.pdd.xp.sum(self.pdd.xp.abs(array).ravel()))
+        end = time.time()
+        print(comm.rank, 'Sum took ', end-start, array.shape)
         return array    
 
 
@@ -186,6 +218,7 @@ def gemm(pA, pB, pC):
     assert pA.pdd.comm == pC.pdd.comm
     assert pB.pdd.comm == pC.pdd.comm
     comm = pA.pdd.comm
+    xp = pA.pdd.xp
     def generate_work():
         for rankA, localindexA, itemA in pA.data.all_items:
              sA = NDSlice(itemA)
@@ -207,41 +240,105 @@ def gemm(pA, pB, pC):
                      if end2 - beg2 <= 0:
                           continue
                      yield (rankA, localindexA, rankB, localindexB, rankC, localindexC, beg1, end1, beg, end, beg2, end2)
-    for rankA, localindexA, rankB, localindexB, rankC, localindexC, beg1, end1, beg, end, beg2, end2 in generate_work():
-        if comm.rank == rankA:
-            if rankA != rankC:
-                item, value = pA.data.myblocks[localindexA]
-                b1, e1, b2, e2 = item[0].start, item[0].stop, item[1].start, item[1].stop
-                A = value[beg1-b1:end1-b1, beg-b2:end-b2].copy() # Copy to be contiguous
-                comm.send(A, rankC)
-        if comm.rank == rankB:
-            if rankB != rankC:
-                item, value = pB.data.myblocks[localindexB]
-                b1, e1, b2, e2 = item[0].start, item[0].stop, item[1].start, item[1].stop
-                A = value[beg-b1:end-b1, beg2-b2:end2-b2].copy() # Copy to be contiguous
-                comm.send(A, rankC)
-        if comm.rank == rankC:
-            if rankA != rankC:
-                A = np.empty((end1-beg1, end-beg))
-                comm.receive(A, rankA)
-            else:
-                item, value = pA.data.myblocks[localindexA]
-                b1, e1, b2, e2 = item[0].start, item[0].stop, item[1].start, item[1].stop
-                A = value[beg1-b1:end1-b1, beg-b2:end-b2]
-            if rankB != rankC:
-                B = np.empty((end-beg, end2-beg2))
-                comm.receive(B, rankB)
-            else:
-                item, value = pB.data.myblocks[localindexB]
-                b1, e1, b2, e2 = item[0].start, item[0].stop, item[1].start, item[1].stop
-                B = value[beg-b1:end-b1, beg2-b2:end2-b2]
 
-            C = A @ B
-            item, value = pC.data.myblocks[localindexC]
-            b1, e1, b2, e2 = item[0].start, item[0].stop, item[1].start, item[1].stop
-            #vslice = value[beg1-b1:end1-b1, beg2-b2:end2-b2]
-            #print(f'C={C.shape} value={value.shape} value_slice={vslice.shape}', beg1, end1, beg, end, beg2, end2, 'C', b1, e1, b2, e2)
-            value[beg1-b1:end1-b1, beg2-b2:end2-b2] += C
-            
+    def load_balance_work():
+        buffers = [ list() for rank in range(comm.size) ]
+        for work in generate_work():
+            rankA, localindexA, rankB, localindexB, rankC, localindexC, beg1, end1, beg, end, beg2, end2 = work
+            buffers[rankC].append(work)
+            ready = min([len(buf) for buf in buffers])
+            if ready:
+               balanced = []
+               for buf in buffers:
+                   balanced.append(buf[0])
+                   del buf[0]
+               yield balanced
+
+        # Yield remaining buffers
+        while max([len(buf) for buf in buffers]):
+            balanced = []
+            for buf in buffers:
+                if len(buf):
+                   balanced.append(buf[0])
+                   del buf[0]
+            yield balanced
+           
+    for independent_slices in load_balance_work():
+        send_requests = []
+        for i, (rankA, localindexA, rankB, localindexB, rankC, localindexC, beg1, end1, beg, end, beg2, end2) in enumerate(independent_slices):
+            #sends = []
+            #print('writerrank:', comm.rank, 'send', rankA, rankB, rankC, beg1, end1, beg, end, beg2, end2)
+            #xp.cuda.runtime.deviceSynchronize()
+            if comm.rank == rankA:
+                if rankA != rankC:
+                    item, value = pA.data.myblocks[localindexA]
+                    b1, e1, b2, e2 = item[0].start, item[0].stop, item[1].start, item[1].stop
+                    A = value[beg1-b1:end1-b1, beg-b2:end-b2].copy() # Copy to be contiguous
+                    #sends.append((A, 0+i*5))
+                    if xp is cupy:
+                         xp.cuda.runtime.deviceSynchronize()
+                    send_requests.append(comm.send(A, rankC, block=False, tag=0+i*5))
+                    #print('writerrank:', comm.rank,'A sending to', rankC, A.shape, flush=True)
+                    #print('writerrank:', comm.rank,'B sent to', rankC, flush=True)
+            #xp.cuda.runtime.deviceSynchronize()
+            if comm.rank == rankB:
+                if rankB != rankC:
+                    item, value = pB.data.myblocks[localindexB]
+                    b1, e1, b2, e2 = item[0].start, item[0].stop, item[1].start, item[1].stop
+                    B = value[beg-b1:end-b1, beg2-b2:end2-b2].copy() # Copy to be contiguous
+                    #print('Not copying')
+                    #print('writerrank:', comm.rank,'A sending to', rankC, A.shape, flush=True)
+                    #sends.append((B, 1+i*5))
+                    if xp is cupy:
+                         xp.cuda.runtime.deviceSynchronize()
+             
+                    send_requests.append(comm.send(B, rankC, block=False, tag=1+i*5))
+            #if xp is cupy and len(sends)>0:
+            #    xp.cuda.runtime.deviceSynchronize()
+            #for mat, tag in sends:
+            #    send_requests.append(comm.send(mat, rankC, block=False, tag=tag))
+        #print('writerrank:', comm.rank,'B sent to', rankC, flush=True)
+        #print('-------------', flush=True)
+        for i, (rankA, localindexA, rankB, localindexB, rankC, localindexC, beg1, end1, beg, end, beg2, end2) in enumerate(independent_slices):
+            #print('writerrank:', comm.rank, 'receive', rankA, rankB, rankC, beg1, end1, beg, end, beg2, end2)
+            #xp.cuda.runtime.deviceSynchronize()
+            if comm.rank == rankC:
+                requests = []
+                if rankA != rankC:
+                    A = xp.empty((end1-beg1, end-beg))
+                    #print('writerrank:', comm.rank,'receiving from', rankA, flush=True)
+                    requests.append(comm.receive(A, rankA, block=False, tag=0+i*5))
+                else:
+                    item, value = pA.data.myblocks[localindexA]
+                    b1, e1, b2, e2 = item[0].start, item[0].stop, item[1].start, item[1].stop
+                    A = value[beg1-b1:end1-b1, beg-b2:end-b2]
+                if rankB != rankC:
+                    B = xp.empty((end-beg, end2-beg2))
+                    #print('writerrank:', comm.rank,'receiving from', rankB, flush=True)
+                    requests.append(comm.receive(B, rankB, block=False, tag=1+i*5))
+                else:
+                    item, value = pB.data.myblocks[localindexB]
+                    b1, e1, b2, e2 = item[0].start, item[0].stop, item[1].start, item[1].stop
+                    B = value[beg-b1:end-b1, beg2-b2:end2-b2]
+                #print('writerrank:', comm.rank, 'Entering waitall', flush=True)
+                #xp.cuda.runtime.deviceSynchronize()
+                #del A
+                #del B
+                comm.waitall(requests)
+                #xp.cuda.runtime.deviceSynchronize()
+                #print('writerrank:', comm.rank, 'Exiting waitall', flush=True)
+                if 1:
+                    C = A @ B
+                    item, value = pC.data.myblocks[localindexC]
+                    b1, e1, b2, e2 = item[0].start, item[0].stop, item[1].start, item[1].stop
+                    #vslice = value[beg1-b1:end1-b1, beg2-b2:end2-b2]
+                    #print(f'C={C.shape} value={value.shape} value_slice={vslice.shape}', beg1, end1, beg, end, beg2, end2, 'C', b1, e1, b2, e2)
+                    value[beg1-b1:end1-b1, beg2-b2:end2-b2] += C
+                    #xp.cuda.runtime.deviceSynchronize()
+        #xp.cuda.runtime.deviceSynchronize()
+        comm.waitall(send_requests)
+        #xp.cuda.runtime.deviceSynchronize()
+
+          #print('writerrank', comm.rank, 'Finished independent slice')            
 
 
