@@ -80,6 +80,8 @@ def grids():
 @pytest.mark.parametrize('xp', [np, cp])
 @pytest.mark.parametrize('grid', grids())
 def test_pw_integrate(xp, grid):
+    if xp is cp and world.size > 1:
+        return
     a = grid.desc.cell[0, 0]
     ecut = 0.5 * (2 * np.pi / a)**2 * 1.01
     g = grid

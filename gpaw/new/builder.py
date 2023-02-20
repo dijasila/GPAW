@@ -25,8 +25,9 @@ from gpaw.new.smearing import OccupationNumberCalculator
 from gpaw.new.symmetry import create_symmetries_object
 from gpaw.new.xc import XCFunctional
 from gpaw.setup import Setups
-from gpaw.typing import Array2D, ArrayLike1D, ArrayLike2D, DTypeLike
+from gpaw.typing import Array2D, ArrayLike1D, ArrayLike2D
 from gpaw.utilities.gpts import get_number_of_grid_points
+from gpaw.new.ibzwfs import IBZWaveFunctions
 
 
 def builder(atoms: Atoms,
@@ -112,13 +113,15 @@ class DFTComponentsBuilder:
         if self.ncomponents == 4:
             self.nbands *= 2
 
-        self.dtype: DTypeLike
-        if params.force_complex_dtype:
-            self.dtype = complex
-        elif self.ibz.bz.gamma_only:
-            self.dtype = float
-        else:
-            self.dtype = complex
+        self.dtype = params.dtype
+        if self.dtype is None:
+            if self.ibz.bz.gamma_only:
+                self.dtype = float
+            else:
+                self.dtype = complex
+        elif not self.ibz.bz.gamma_only and self.dtype != complex:
+            raise ValueError('Can not use dtype=float for non gamma-point '
+                             'calculation')
 
         self.grid, self.fine_grid = self.create_uniform_grids()
 
@@ -228,7 +231,9 @@ class DFTComponentsBuilder:
     def create_potential_calculator(self):
         raise NotImplementedError
 
-    def read_wavefunction_values(self, reader, ibzwfs):
+    def read_wavefunction_values(self,
+                                 reader,
+                                 ibzwfs: IBZWaveFunctions) -> None:
         """ Read eigenvalues, occuptions and projections and fermi levels
 
         The values are read using reader and set as the appropriate properties
@@ -239,9 +244,7 @@ class DFTComponentsBuilder:
         eig_skn = reader.wave_functions.eigenvalues
         occ_skn = reader.wave_functions.occupations
         P_sknI = reader.wave_functions.projections
-
-        if self.params.force_complex_dtype:
-            P_sknI = P_sknI.astype(complex)
+        P_sknI = P_sknI.astype(ibzwfs.dtype)
 
         for wfs in ibzwfs:
             wfs._eig_n = eig_skn[wfs.spin, wfs.k] / ha
@@ -257,7 +260,12 @@ class DFTComponentsBuilder:
                                         dims=(self.nbands, 2),
                                         data=P_sknI[wfs.k])
 
-        ibzwfs.fermi_levels = reader.wave_functions.fermi_levels / ha
+        try:
+            ibzwfs.fermi_levels = reader.wave_functions.fermi_levels / ha
+        except AttributeError:
+            # old gpw-file
+            ibzwfs.fermi_levels = np.array(
+                [reader.occupations.fermilevel / ha])
 
 
 def create_communicators(comm: MPIComm = None,

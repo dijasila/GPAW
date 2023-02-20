@@ -98,29 +98,6 @@ def fbt(l, f, r, k):
     return g
 
 
-def spherical_harmonics(R_c, lmax=LMAX):
-    R_c = np.asarray(R_c)
-    rlY_lm = []
-    for l in range(lmax):
-        rlY_m = np.empty(2 * l + 1)
-        Yl(l, R_c, rlY_m)
-        rlY_lm.append(rlY_m)
-    return rlY_lm
-
-
-def spherical_harmonics_and_derivatives(R_c, lmax=LMAX):
-    R_c = np.asarray(R_c)
-    drlYdR_lmc = []
-    rlY_lm = spherical_harmonics(R_c, lmax)
-    for l, rlY_m in enumerate(rlY_lm):
-        drlYdR_mc = np.empty((2 * l + 1, 3))
-        for m in range(2 * l + 1):
-            L = l**2 + m
-            drlYdR_mc[m, :] = nablarlYL(L, R_c)
-        drlYdR_lmc.append(drlYdR_mc)
-    return rlY_lm, drlYdR_lmc
-
-
 class BaseOverlapExpansionSet:
     def __init__(self, shape):
         self.shape = shape
@@ -140,58 +117,10 @@ class OverlapExpansion(BaseOverlapExpansionSet):
         BaseOverlapExpansionSet.__init__(self, (2 * la + 1, 2 * lb + 1))
         self.cspline_l = [spline.spline for spline in self.spline_l]
 
-    def get_gaunt(self, l):
-        la = self.la
-        lb = self.lb
-        G_LLL = gaunt(max(la, lb))
-        G_mmm = G_LLL[la**2:(la + 1)**2,
-                      lb**2:(lb + 1)**2,
-                      l**2:(l + 1)**2]
-        return G_mmm
-
-    def gaunt_iter(self):
-        la = self.la
-        lb = self.lb
-        l = (la + lb) % 2
-        for spline in self.spline_l:
-            G_mmm = self.get_gaunt(l)
-            yield l, spline, G_mmm
-            l += 2
-
-    def old_evaluate(self, r, rlY_lm):
-        """Get overlap between localized functions.
-
-        Apply Gaunt coefficients to the list of real-space splines
-        describing the overlap integral."""
-        timer.start('oe eval')
-        x_mi = self.zeros()
-        for l, spline, G_mmm in self.gaunt_iter():
-            s = spline(r)
-            if abs(s) > 1e-10:
-                x_mi += s * np.dot(G_mmm, rlY_lm[l])
-        timer.stop('oe eval')
-        return x_mi
-
     def evaluate(self, r, rlY_lm, G_LLL, x_mi, _nil=np.empty(0)):
         _gpaw.tci_overlap(self.la, self.lb, G_LLL, self.cspline_l,
                           r, rlY_lm, x_mi,
                           False, _nil, _nil, _nil)
-
-    def old_derivative(self, r, Rhat_c, rlY_lm, G_LLL, drlYdR_lmc):
-        """Get derivative of overlap between localized functions.
-
-        This function assumes r > 0.  If r = 0, i.e. if the functions
-        reside on the same atom, the derivative is zero in any case."""
-        timer.start('oldderiv')
-        dxdR_cmi = self.zeros((3,))
-        for l, spline, G_mmm in self.gaunt_iter():
-            x, dxdr = spline.get_value_and_derivative(r)
-            if abs(x) > 1e-10:
-                GrlY_mi = np.dot(G_mmm, rlY_lm[l])
-                dxdR_cmi += dxdr * Rhat_c[:, None, None] * GrlY_mi
-                dxdR_cmi += x * np.dot(G_mmm, drlYdR_lmc[l]).transpose(2, 0, 1)
-        timer.stop('oldderiv')
-        return dxdR_cmi
 
     def derivative(self, r, Rhat_c, rlY_L, G_LLL, drlYdR_Lc, dxdR_cmi,
                    _nil=np.empty(0)):
@@ -305,8 +234,6 @@ class DomainDecomposedExpansions(BaseOverlapExpansionSet):
 
 class ManySiteDictionaryWrapper(DomainDecomposedExpansions):
     # Used with dictionaries such as P_aqMi and dPdR_aqcMi
-    # Works only with NeighborPairs, not SimpleAtomIter, since it
-    # compensates for only seeing the atoms once
 
     def getslice(self, a1, a2, xdict_aqxMi):
         msoe = self.msoe
@@ -371,26 +298,6 @@ class BlacsOverlapExpansions(BaseOverlapExpansionSet):
         #     self.evaluate_slice(disp.reverse(), x_xqNM)
 
 
-class SimpleAtomIter:
-    def __init__(self, cell_cv, spos1_ac, spos2_ac, offsetsteps=0):
-        self.cell_cv = cell_cv
-        self.spos1_ac = spos1_ac
-        self.spos2_ac = spos2_ac
-        self.offsetsteps = offsetsteps
-
-    def iter(self):
-        """Yield all atom index pairs and corresponding displacements."""
-        offsetsteps = self.offsetsteps
-        offsetrange = range(-offsetsteps, offsetsteps + 1)
-        offsets = np.array([(i, j, k) for i in offsetrange for j in offsetrange
-                            for k in offsetrange])
-        for a1, spos1_c in enumerate(self.spos1_ac):
-            for a2, spos2_c in enumerate(self.spos2_ac):
-                for offset in offsets:
-                    R_c = np.dot(spos2_c - spos1_c + offset, self.cell_cv)
-                    yield a1, a2, R_c, offset
-
-
 class NeighborPairs:
     """Class for looping over pairs of atoms using a neighbor list."""
     def __init__(self, cutoff_a, cell_cv, pbc_c, self_interaction):
@@ -432,13 +339,6 @@ class PairsWithSelfinteraction(PairFilter):
             yield a1, a2, R_c, offset
             if a1 == a2 and offset.any():
                 yield a1, a1, -R_c, -offset
-
-
-class PairsBothWays(PairFilter):
-    def iter(self):
-        for a1, a2, R_c, offset in self.pairs.iter():
-            yield a1, a2, R_c, offset
-            yield a2, a1, -R_c, -offset
 
 
 class OppositeDirection(PairFilter):
@@ -738,7 +638,8 @@ class NewTwoCenterIntegrals:
         for I, setup in enumerate(setups_I):
             I_setup[setup] = I
             cutoff_I.append(max([func.get_cutoff()
-                                 for func in setup.phit_j + setup.pt_j]))
+                                 for func
+                                 in setup.basis_functions_J + setup.pt_j]))
 
         I_a = []
         for setup in setups:
@@ -781,7 +682,7 @@ class NewTwoCenterIntegrals:
 
     def calculate_expansions(self):
         timer.start('tci calc exp')
-        phit_Ij = [setup.phit_j for setup in self.setups_I]
+        phit_Ij = [setup.basis_functions_J for setup in self.setups_I]
         l_Ij = []
         for phit_j in phit_Ij:
             l_Ij.append([phit.get_angular_momentum_number()
