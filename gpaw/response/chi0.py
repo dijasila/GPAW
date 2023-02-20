@@ -118,10 +118,10 @@ class Chi0Calculator:
         # Number of completely filled bands and number of non-empty bands.
         self.nocc1, self.nocc2 = self.gs.count_occupied_bands()
 
-        # In the optical limit of metals, additional work must be performed
-        # (one must add the Drude dielectric response from the free-space
-        # plasma frequency of the intraband transitions to the head of the
-        # chi0 wings).
+        # In the optical limit of metals, one must add the Drude dielectric
+        # response from the free-space plasma frequency of the intraband
+        # transitions to the head of the chi0 wings. This is handled by a
+        # separate calculator.
         if self.nocc1 != self.nocc2 and intraband:
             self.drude_calc = Chi0DrudeCalculator(
                 wd, pair,
