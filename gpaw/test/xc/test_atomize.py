@@ -39,12 +39,14 @@ def test_xc_atomize(in_tmp_dir):
                       Atom('H', (c + d / 2, c, c))],
                      cell=(a, a, a), pbc=False)
 
-    calc = calc.new(txt='H2.txt', atoms=molecule)
+    molecule.calc = calc.new(txt='H2.txt')
     e2 = molecule.get_potential_energy()
-    de2t = calc.get_xc_difference(xc('TPSS'))
-    de2m = calc.get_xc_difference(xc('M06-L'))
-    de2x = calc.get_xc_difference(HybridXC('EXX', stencil=1, finegrid=True))
-    de2xb = calc.get_xc_difference(HybridXC('EXX', stencil=1, finegrid=False))
+    de2t = molecule.calc.get_xc_difference(xc('TPSS'))
+    de2m = molecule.calc.get_xc_difference(xc('M06-L'))
+    de2x = molecule.calc.get_xc_difference(
+        HybridXC('EXX', stencil=1, finegrid=True))
+    de2xb = molecule.calc.get_xc_difference(
+        HybridXC('EXX', stencil=1, finegrid=False))
 
     print('hydrogen atom energy:     %5.2f eV' % e1)
     print('hydrogen molecule energy: %5.2f eV' % e2)
