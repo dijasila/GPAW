@@ -1,5 +1,4 @@
 from ase.units import Ha
-import gpaw.mpi as mpi
 import numpy as np
 from gpaw.xc.fxc import KernelWave, XCFlags, FXCCache
 
@@ -77,6 +76,8 @@ def calculate_kernel(*, ecut, xcflags, gs, qd, ns, qpd, context):
                                   xcflags=xcflags,
                                   ecut_max=ecut_max, gs=gs,
                                   context=context)
+
+    context.world.barrier()
 
     fv = handle.read()
 
