@@ -1,3 +1,5 @@
+.. _ae hydrogen atom:
+
 ===================================
 Bare Coulomb potential for hydrogen
 ===================================

@@ -129,31 +129,40 @@ def read_gpw(filename: Union[str, Path, IO[str]],
     ha = reader.ha
 
     atoms = read_atoms(reader.atoms)
-
     kwargs = reader.parameters.asdict()
     kwargs['parallel'] = parallel
+
     if 'dtype' in kwargs:
         kwargs['dtype'] = np.dtype(kwargs['dtype'])
+
     params = InputParameters(kwargs, warn=False)
-
     builder = create_builder(atoms, params)
-
-    if dtype is not None:
-        params.mode['dtype'] = dtype
-
-    (kpt_comm, band_comm, domain_comm, kpt_band_comm) = (
-        builder.communicators[x] for x in 'kbdD')
 
     if world.rank == 0:
         nt_sR_array = reader.density.density * bohr**3
         vt_sR_array = reader.hamiltonian.potential / ha
         D_sap_array = reader.density.atomic_density_matrices
         dH_sap_array = reader.hamiltonian.atomic_hamiltonian_matrices / ha
+        shape = nt_sR_array.shape[1:]
     else:
         nt_sR_array = None
         vt_sR_array = None
         D_sap_array = None
         dH_sap_array = None
+        shape = None
+
+    if builder.grid.global_shape() != mpi.broadcast(shape, comm=world):
+        # old gpw-file:
+        kwargs.pop('h', None)
+        kwargs['gpts'] = nt_sR_array.shape[1:]
+        params = InputParameters(kwargs, warn=False)
+        builder = create_builder(atoms, params)
+
+    if dtype is not None:
+        params.mode['dtype'] = dtype
+
+    (kpt_comm, band_comm, domain_comm, kpt_band_comm) = (
+        builder.communicators[x] for x in 'kbdD')
 
     nt_sR = builder.grid.empty(builder.ncomponents)
     vt_sR = builder.grid.empty(builder.ncomponents)

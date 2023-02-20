@@ -10,8 +10,10 @@ from pathlib import Path
 cmds = """\
 python3 -m venv venv
 . venv/bin/activate
-pip install -U pip -qq
-pip install sphinx-rtd-theme pillow pytest
+pip install -U pip wheel -qq
+# search bronken in sphinx-6.0:
+pip install "sphinx<6.0"
+pip install sphinx-rtd-theme pillow pytest graphviz
 pip install -q git+https://gitlab.com/ase/ase.git
 git clone http://gitlab.com/gpaw/gpaw.git
 cd gpaw
@@ -28,7 +30,7 @@ def build():
         sys.exit('Locked')
     root.mkdir()
     os.chdir(root)
-    cmds2 = ' && '.join(cmds.splitlines())
+    cmds2 = ' && '.join(cmd for cmd in cmds.splitlines() if cmd[0] != '#')
     p = subprocess.run(cmds2, shell=True)
     if p.returncode == 0:
         status = 'ok'

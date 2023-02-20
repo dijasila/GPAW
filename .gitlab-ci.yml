@@ -225,9 +225,26 @@ test-latest:
   tags:
     - linux
   script:
+    - pip install coverage pytest-cov
     - gpaw info
-    - OMP_NUM_THREADS=2 pytest -v -m ci -We -Wi::ImportWarning
 
+    # Create a .coveragerc file so we can get nicely printed coverage:
+    - |
+      cat << EOF >> .coveragerc
+      [report]
+      precision = 2
+      EOF
+
+    - >
+      OMP_NUM_THREADS=2 pytest -v -m ci
+      -We -Wi::ImportWarning
+      --cov=gpaw --cov-report=html --cov-report=term
+
+  artifacts:
+    paths:
+      - htmlcov/
+    expire_in: 1 week
+  coverage: '/TOTAL.+ ([0-9]+\.[0-9]+%)/'
 
 test-gpaw-python:
   image: $IMAGE_PATH/run:oldest
@@ -302,7 +319,7 @@ check-agts:
 
 
 lint:
-  image: docker.io/python:slim
+  image: $IMAGE_PATH/run:latest
   stage: build
   tags:
     - linux

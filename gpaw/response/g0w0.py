@@ -353,7 +353,9 @@ class G0W0Calculator:
                  fxc_modes,
                  eta,
                  ecut_e,
-                 frequencies=None):
+                 frequencies=None,
+                 exx_vxc_calculator,
+                 ppa=False):
         """G0W0 calculator, initialized through G0W0 object.
 
         The G0W0 calculator is used to calculate the quasi
@@ -388,11 +390,15 @@ class G0W0Calculator:
             When carrying out a calculation including vertex corrections, it
             is possible to get the standard GW results at the same time
             (almost for free).
+        ppa: bool
+            Use Godby-Needs plasmon-pole approximation for screened interaction
+            and self-energy
         """
         self.chi0calc = chi0calc
         self.wcalc = wcalc
         self.context = self.wcalc.context
-
+        self.ppa = ppa
+        
         # Note: self.chi0calc.wd should be our only representation
         # of the frequencies.
         # We should therefore get rid of self.frequencies.
@@ -459,7 +465,9 @@ class G0W0Calculator:
 
         self.sigma_calculator = self._build_sigma_calculator()
 
-        if self.wcalc.ppa:
+        self.exx_vxc_calculator = exx_vxc_calculator
+
+        if self.ppa:
             self.context.print('Using Godby-Needs plasmon-pole approximation:')
             self.context.print('  Fitting energy: i*E0, E0 = %.3f Hartee'
                                % self.wcalc.E0)
@@ -470,7 +478,7 @@ class G0W0Calculator:
         import gpaw.response.sigma as sigma
         factor = 1.0 / (self.wcalc.qd.nbzkpts * 2 * pi * self.wcalc.gs.volume)
 
-        if self.wcalc.ppa:
+        if self.ppa:
             return sigma.PPASigmaCalculator(eta=self.eta, factor=factor)
 
         return sigma.SigmaCalculator(wd=self.chi0calc.wd, factor=factor)
@@ -822,7 +830,7 @@ class G0W0Calculator:
         Wdict = {}
 
         for fxc_mode in self.fxc_modes:
-            if self.wcalc.ppa:
+            if self.ppa:
                 out_dist = 'wGG'
             else:
                 out_dist = 'WgG'
@@ -841,7 +849,7 @@ class G0W0Calculator:
                 # future! XXX
                 chi0calc.pawcorr = chi0calc.pawcorr.reduce_ecut(pw_map.G2_G1)
 
-            if self.wcalc.ppa:
+            if self.ppa:
                 W_xwGG = W_wGG  # (ppa API is nonsense)
             # HT used to calculate convulution between time-ordered G and W
             else:
@@ -857,15 +865,9 @@ class G0W0Calculator:
 
     @timer('calcualte_vxc_and_exx')
     def calculate_vxc_and_exx(self):
-        """EXX and Kohn-Sham XC contribution."""
-        n1, n2 = self.bands
-        _, vxc_skn, exx_skn = non_self_consistent_eigenvalues(
-            self._gpwfile,
-            'EXX',
-            n1, n2,
-            kpt_indices=self.kpts,
-            snapshot=self.filename + '-vxc-exx.json')
-        return vxc_skn / Ha, exx_skn / Ha
+        return self.exx_vxc_calculator.calculate(
+            n1=self.bands[0], n2=self.bands[1],
+            kpt_indices=self.kpts)
 
     def print_results(self, results):
         description = ['f:      Occupation numbers',
@@ -1039,15 +1041,17 @@ class G0W0(G0W0Calculator):
         """
         frequencies = get_frequencies(frequencies, domega0, omega2)
 
-        self._gpwfile = calc
+        # (calc can not actually be a calculator at all.)
+        gpwfile = Path(calc)
+
         context = ResponseContext(txt=filename + '.txt',
                                   world=world, timer=timer)
-        gs = ResponseGroundStateAdapter.from_gpw_file(self._gpwfile,
+        gs = ResponseGroundStateAdapter.from_gpw_file(gpwfile,
                                                       context=context)
 
         # Check if nblocks is compatible, adjust if not
         if nblocksmax:
-            nblocks = get_max_nblocks(context.world, self._gpwfile, ecut)
+            nblocks = get_max_nblocks(context.world, gpwfile, ecut)
 
         pair = PairDensityCalculator(gs, context,
                                      nblocks=nblocks)
@@ -1102,6 +1106,10 @@ class G0W0(G0W0Calculator):
         if do_GW_too:
             fxc_modes.append('GW')
 
+        exx_vxc_calculator = EXXVXCCalculator(
+            gpwfile,
+            snapshotfile_prefix=filename)
+
         super().__init__(filename=filename,
                          chi0calc=chi0calc,
                          wcalc=wcalc,
@@ -1112,6 +1120,8 @@ class G0W0(G0W0Calculator):
                          bands=bands,
                          frequencies=frequencies,
                          kpts=kpts,
+                         exx_vxc_calculator=exx_vxc_calculator,
+                         ppa=ppa,
                          **kwargs)
 
     @property
@@ -1123,3 +1133,20 @@ class G0W0(G0W0Calculator):
     @property
     def results(self):
         return self.all_results[self.fxc_modes[0]]
+
+
+class EXXVXCCalculator:
+    """EXX and Kohn-Sham XC contribution."""
+    def __init__(self, gpwfile, snapshotfile_prefix):
+        self._gpwfile = gpwfile
+        self._snapshotfile_prefix = snapshotfile_prefix
+
+    def calculate(self, n1, n2, kpt_indices):
+        _, vxc_skn, exx_skn = non_self_consistent_eigenvalues(
+            self._gpwfile,
+            'EXX',
+            n1, n2,
+            kpt_indices=kpt_indices,
+            snapshot=f'{self._snapshotfile_prefix}-vxc-exx.json',
+        )
+        return vxc_skn / Ha, exx_skn / Ha
