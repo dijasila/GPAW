@@ -135,8 +135,7 @@ class Chi0Calculator:
                 disable_time_reversal=disable_time_reversal,
                 disable_non_symmorphic=disable_non_symmorphic,
                 integrationmode=integrationmode,
-                rate=rate,
-                eshift=eshift)
+                rate=rate)
         else:
             self.drude_calc = None
 
@@ -700,7 +699,7 @@ class Chi0DrudeCalculator(Chi0Calculator):
                  disable_time_reversal=False,
                  disable_non_symmorphic=True,
                  integrationmode=None,
-                 rate=0.0, eshift=0.0):
+                 rate=0.0):
 
         self.wd = wd
 
@@ -717,10 +716,10 @@ class Chi0DrudeCalculator(Chi0Calculator):
         self.disable_time_reversal = disable_time_reversal
         self.disable_non_symmorphic = disable_non_symmorphic
         self.integrationmode = integrationmode
-        self.eshift = eshift
 
         # Number of completely filled bands and number of non-empty bands.
         self.nocc1, self.nocc2 = self.gs.count_occupied_bands()
+        self.eshift = 0.0  # We are not applying energy shifts to metals
 
         # Store the plasma frequency on the calculator
         self.plasmafreq_vv = np.zeros((3, 3), complex)
