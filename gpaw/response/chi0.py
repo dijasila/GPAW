@@ -117,20 +117,26 @@ class Chi0Calculator:
 
         # Number of completely filled bands and number of non-empty bands.
         self.nocc1, self.nocc2 = self.gs.count_occupied_bands()
+        metallic = self.nocc1 != self.nocc2
 
-        # In the optical limit of metals, additional work must be performed
-        # (one must add the Drude dielectric response from the free-space
-        # plasma frequency of the intraband transitions to the head of the
-        # chi0 wings).
-        if self.nocc1 != self.nocc2 and intraband:
+        if metallic:
+            assert abs(eshift) < 1e-8,\
+                'A rigid energy shift cannot be applied to the conduction '\
+                'bands if there is no band gap'
+
+        # In the optical limit of metals, one must add the Drude dielectric
+        # response from the free-space plasma frequency of the intraband
+        # transitions to the head of the chi0 wings. This is handled by a
+        # separate calculator, provided that intraband is set to True.
+        if metallic and intraband:
+            if rate == 'eta':
+                rate = eta
             self.drude_calc = Chi0DrudeCalculator(
-                wd, pair,
+                wd, rate, pair,
                 disable_point_group=disable_point_group,
                 disable_time_reversal=disable_time_reversal,
                 disable_non_symmorphic=disable_non_symmorphic,
-                integrationmode=integrationmode,
-                rate=rate,
-                eshift=eshift)
+                integrationmode=integrationmode)
         else:
             self.drude_calc = None
 
@@ -344,6 +350,20 @@ class Chi0Calculator:
         defined domains and sum over bands."""
         integrator: Integrator
 
+        cls = self.get_integrator_cls()
+
+        kwargs = dict(
+            cell_cv=self.gs.gd.cell_cv,
+            context=self.context)
+        self.update_integrator_kwargs(kwargs,
+                                      block_distributed=block_distributed)
+
+        integrator = cls(**kwargs)
+
+        return integrator
+
+    def get_integrator_cls(self):
+        """Get the appointed k-point integrator class."""
         if self.integrationmode is None:
             cls = PointIntegrator
         elif self.integrationmode == 'tetrahedron integration':
@@ -352,17 +372,15 @@ class Chi0Calculator:
             raise ValueError(f'Integration mode "{self.integrationmode}"'
                              ' not implemented.')
 
-        kwargs = dict(
-            cell_cv=self.gs.gd.cell_cv,
-            context=self.context,
-            eshift=self.eshift)
+        return cls
 
+    def update_integrator_kwargs(self, kwargs, block_distributed=True):
+        # Update the energy shift
+        kwargs['eshift'] = self.eshift
+
+        # Update nblocks
         if block_distributed:
-            integrator = cls(**kwargs, nblocks=self.nblocks)
-        else:
-            integrator = cls(**kwargs)
-
-        return integrator
+            kwargs['nblocks'] = self.nblocks
 
     def get_integration_domain(self, qpd, spins):
         """Get integrator domain and prefactor for the integral."""
@@ -689,19 +707,14 @@ class Chi0DrudeCalculator(Chi0Calculator):
     bands. This corresponds directly to the dielectric function in the Drude
     model."""
 
-    def __init__(self, wd, pair,
+    def __init__(self, wd, rate, pair,
                  disable_point_group=False,
                  disable_time_reversal=False,
                  disable_non_symmorphic=True,
-                 integrationmode=None,
-                 rate=0.0, eshift=0.0):
+                 integrationmode=None):
 
         self.wd = wd
-
-        if rate == 'eta':
-            self.rate = self.eta
-        else:
-            self.rate = rate / Ha
+        self.rate = rate / Ha  # Imaginary part of the frequency
 
         self.pair = pair
         self.gs = pair.gs
@@ -711,7 +724,6 @@ class Chi0DrudeCalculator(Chi0Calculator):
         self.disable_time_reversal = disable_time_reversal
         self.disable_non_symmorphic = disable_non_symmorphic
         self.integrationmode = integrationmode
-        self.eshift = eshift
 
         # Number of completely filled bands and number of non-empty bands.
         self.nocc1, self.nocc2 = self.gs.count_occupied_bands()
@@ -768,6 +780,10 @@ class Chi0DrudeCalculator(Chi0Calculator):
 
         # Fill the Drude dielectric function into the chi0 head
         chi0.chi0_Wvv[:] += drude_chi_Wvv
+
+    def update_integrator_kwargs(self, *unused, **ignored):
+        """The Drude calculator uses only standard integrator kwargs."""
+        pass
 
     def get_plasmafreq_matrix_element(self, k_v, s, n1, n2,
                                       *, qpd,
