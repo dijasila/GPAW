@@ -508,8 +508,8 @@ class DielectricFunction(DielectricFunctionCalculator):
             calculation is based on.
         frequencies:
             Input parameters for frequency_grid.
-            Can be array of frequencies to evaluate the response function at
-            or dictionary of paramaters for build-in nonlinear grid
+            Can be an array of frequencies to evaluate the response function at
+            or dictionary of parameters for build-in nonlinear grid
             (see :ref:`frequency grid`).
         ecut: float
             Plane-wave cut-off.
@@ -536,7 +536,6 @@ class DielectricFunction(DielectricFunctionCalculator):
             Output file.
         truncation: str or None
             None for no truncation.
-            'wigner-seitz' for Wigner Seitz truncated Coulomb.
             '2D' for standard analytical truncation scheme.
             Non-periodic directions are determined from k-point grid
         eshift: float
