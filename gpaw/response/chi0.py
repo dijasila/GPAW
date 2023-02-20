@@ -434,21 +434,10 @@ class Chi0Calculator:
 
         return bandsum
 
-    def get_integral_kind(self, only_intraband=False):
+    def get_integral_kind(self):
         """Determine what "kind" of integral to make."""
-        extraargs = {}  # Initialize extra arguments to integration method.
-        if only_intraband:
-            # The plasma frequency integral is special in the way, that only
-            # the spectral part is needed
-            kind = 'spectral function'
-            if self.integrationmode is None:
-                # Calculate intraband transitions at finite fermi smearing
-                extraargs['intraband'] = True  # Calculate intraband
-            elif self.integrationmode == 'tetrahedron integration':
-                # Calculate intraband transitions at T=0
-                fermi_level = self.gs.fermi_level
-                extraargs['x'] = FrequencyGridDescriptor([-fermi_level])
-        elif self.eta == 0:
+        extraargs = {}
+        if self.eta == 0:
             # If eta is 0 then we must be working with imaginary frequencies.
             # In this case chi is hermitian and it is therefore possible to
             # reduce the computational costs by a only computing half of the
@@ -737,7 +726,7 @@ class Chi0DrudeCalculator(Chi0Calculator):
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
         mat_kwargs, eig_kwargs = self.get_integrator_arguments(
             qpd, m1, m2, analyzer)
-        kind, extraargs = self.get_integral_kind(only_intraband=True)
+        kind, extraargs = self.get_integral_kind()
 
         get_plasmafreq_matrix_element = partial(
             self.get_plasmafreq_matrix_element, **mat_kwargs)
@@ -790,6 +779,22 @@ class Chi0DrudeCalculator(Chi0Calculator):
         bandsum = {'n1': n1, 'n2': n2}
 
         return bandsum
+
+    def get_integral_kind(self):
+        """Define what "kind" of integral to make."""
+        extraargs = {}
+        # The plasma frequency integral is special in the way, that only
+        # the spectral part is needed
+        kind = 'spectral function'
+        if self.integrationmode is None:
+            # Calculate intraband transitions at finite fermi smearing
+            extraargs['intraband'] = True  # Calculate intraband
+        elif self.integrationmode == 'tetrahedron integration':
+            # Calculate intraband transitions at T=0
+            fermi_level = self.gs.fermi_level
+            extraargs['x'] = FrequencyGridDescriptor([-fermi_level])
+
+        return kind, extraargs
 
     def get_plasmafreq_matrix_element(self, k_v, s, n1, n2,
                                       *, qpd,
