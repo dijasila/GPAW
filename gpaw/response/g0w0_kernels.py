@@ -14,7 +14,10 @@ class G0W0Kernel:
         self._kwargs = kwargs
 
     def calculate(self, qpd):
-        return calculate_kernel(
+        if self.xc == 'RPA':
+            return np.eye(qpd.ngmax)
+
+        return calculate_spinkernel(
             qpd=qpd,
             xcflags=self.xcflags,
             context=self.context,
@@ -37,7 +40,8 @@ def actually_calculate_kernel(*, gs, qd, xcflags, q_empty, cache, ecut_max,
     kernel.calculate_fhxc()
 
 
-def calculate_kernel(*, ecut, xcflags, gs, qd, ns, qpd, context):
+def calculate_spinkernel(*, ecut, xcflags, gs, qd, ns, qpd, context):
+    assert xcflags.spin_kernel
     xc = xcflags.xc
 
     # Get iq
@@ -64,9 +68,6 @@ def calculate_kernel(*, ecut, xcflags, gs, qd, ns, qpd, context):
 
     if not handle.exists():
         q_empty = iq
-
-    if xc == 'RPA':
-        return np.eye(qpd.ngmax)
 
     assert xcflags.spin_kernel
 
