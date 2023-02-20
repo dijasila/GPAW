@@ -190,7 +190,7 @@ class AdiabaticFXCCalculator:
         # of which the norm is taken. When the number of plane-wave
         # coefficients is large, this step becomes a memory bottleneck, hence
         # the distribution.
-        dGblocks = Blocks1D(self.context.world, dG_dGv.shape[0])
+        dGblocks = Blocks1D(self.context.comm, dG_dGv.shape[0])
         dG_mydGv = dG_dGv[dGblocks.myslice]
 
         # Determine Q index for each dG index
