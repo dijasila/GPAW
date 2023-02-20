@@ -78,8 +78,6 @@ def calculate_kernel(*, ecut, xcflags, gs, qd, ns, qpd, context):
                                   ecut_max=ecut_max, gs=gs,
                                   context=context)
 
-    mpi.world.barrier()
-
     fv = handle.read()
 
     if G2_G1 is not None:
