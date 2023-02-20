@@ -1,5 +1,6 @@
 import os
 from time import time
+from pathlib import Path
 
 import ase.io.ulm as ulm
 import numpy as np
@@ -30,6 +31,22 @@ def get_chi0v(chi0_sGG, cut_G, G_G):
         chi0v += chi0_GG / G_G / G_G[:, np.newaxis]
     chi0v *= 4 * np.pi
     return chi0v
+
+
+class Handle:
+    def __init__(self, tag, xc, ecut_max, iq):
+        self.tag = tag
+        self.xc = xc
+        self.ecut_max = ecut_max
+        self.iq = iq
+
+    @property
+    def _path(self):
+        name = f'{self.tag}_{self.xc}_{self.ecut_max}_{self.iq}'
+        return Path(f'fhxc_{name}.ulm')
+
+    def exists(self):
+        return self._path.exists()
 
 
 class FXCCorrelation:
@@ -99,6 +116,9 @@ class FXCCorrelation:
         # because rpa gets blockcomm during calculate
         return self.rpa.blockcomm
 
+    def _handle(self, iq):
+        return Handle(self.tag, self.xc, self.ecut_max, iq)
+
     @timer('FXC')
     def calculate(self, *, nbands=None):
         if self.xc != 'RPA':
@@ -110,9 +130,9 @@ class FXCCorrelation:
             q_empty = None
 
             for iq in reversed(range(len(self.ibzq_qc))):
+                handle = self._handle(iq)
 
-                if not os.path.isfile('fhxc_%s_%s_%s_%s.ulm' %
-                                      (self.tag, self.xc, self.ecut_max, iq)):
+                if not handle.exists():
                     q_empty = iq
 
             kernelkwargs = dict(
