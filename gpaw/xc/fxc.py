@@ -116,15 +116,11 @@ class FXCCorrelation:
         self.avg_scheme = self.xcflags.choose_avg_scheme(avg_scheme)
 
         if tag is None:
-
             tag = self.gs.atoms.get_chemical_formula(mode='hill')
-
             if self.avg_scheme is not None:
-
                 tag += '_' + self.avg_scheme
 
-        self.tag = tag  # XXX delete me
-        self.cache = FXCCache(self.tag, self.xc, self.ecut_max)
+        self.cache = FXCCache(tag, self.xc, self.ecut_max)
 
         self.omega_w = self.rpa.omega_w
         self.ibzq_qc = self.rpa.ibzq_qc
@@ -158,7 +154,7 @@ class FXCCorrelation:
                 xc=self.xc,
                 ibzq_qc=self.ibzq_qc,
                 ecut=self.ecut_max,
-                tag=self.tag,
+                cache=self.cache,
                 context=self.context)
 
             if q_empty is not None:
@@ -435,7 +431,7 @@ class FXCCorrelation:
 
 class KernelWave:
     def __init__(self, gs, xc, ibzq_qc, q_empty, ecut,
-                 tag, context):
+                 cache, context):
 
         self.gs = gs
         self.gd = gs.density.gd
@@ -445,7 +441,7 @@ class KernelWave:
         self.ns = self.gs.nspins
         self.q_empty = q_empty
         self.ecut = ecut
-        self.cache = FXCCache(self.tag, self.xc, self.ecut)
+        self.cache = cache
         self.context = context
 
         # Density grid
@@ -726,7 +722,7 @@ class KernelWave:
 
 class KernelDens:
     def __init__(self, gs, xc, ibzq_qc, unit_cells, density_cut, ecut,
-                 tag, context):
+                 cache, context):
 
         self.gs = gs
         self.gd = self.gs.density.gd
@@ -735,7 +731,7 @@ class KernelDens:
         self.unit_cells = unit_cells
         self.density_cut = density_cut
         self.ecut = ecut
-        self.cache = FXCCache(tag, xc, ecut)
+        self.cache = cache
         self.context = context
 
         self.A_x = -(3 / 4.) * (3 / np.pi)**(1 / 3.)
