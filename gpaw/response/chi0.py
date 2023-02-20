@@ -60,7 +60,7 @@ class Chi0Calculator:
             context = pair.context
 
         # TODO: More refactoring to avoid non-orthogonal inputs.
-        assert pair.context.world is context.world
+        assert pair.context.comm is context.comm
         self.context = context
 
         self.pair = pair
@@ -75,7 +75,7 @@ class Chi0Calculator:
         self.nblocks = pair.nblocks
 
         # XXX this is redundant as pair also does it.
-        self.blockcomm, self.kncomm = block_partition(self.context.world,
+        self.blockcomm, self.kncomm = block_partition(self.context.comm,
                                                       self.nblocks)
 
         if ecut is None:
@@ -143,7 +143,7 @@ class Chi0Calculator:
     def create_chi0(self, q_c):
         # Extract descriptor arguments
         plane_waves = (q_c, self.ecut, self.gs.gd)
-        parallelization = (self.context.world, self.blockcomm, self.kncomm)
+        parallelization = (self.context.comm, self.blockcomm, self.kncomm)
 
         # Construct the Chi0Data object
         # In the future, the frequencies should be specified at run-time
@@ -633,7 +633,7 @@ class Chi0Calculator:
             world = SerialCommunicator()
             world.size = size
         else:
-            world = self.context.world
+            world = self.context.comm
 
         q_c = qpd.q_c
         nw = len(self.wd)
