@@ -44,22 +44,11 @@ def calculate_spinkernel(*, ecut, xcflags, gs, qd, ns, qpd, context):
     assert xcflags.spin_kernel
     xc = xcflags.xc
 
-    # Get iq
     ibzq_qc = qd.ibzk_kc
     iq = np.argmin(np.linalg.norm(ibzq_qc - qpd.q_c[np.newaxis], axis=1))
     assert np.allclose(ibzq_qc[iq], qpd.q_c)
 
     ecut_max = ecut * Ha  # XXX very ugly this
-
-    # If we want a reduced plane-wave description, create qpd mapping
-    if qpd.ecut < ecut:
-        # Recreate nonreduced plane-wave description corresponding to ecut_max
-        qpdnr = SingleQPWDescriptor.from_q(qpd.q_c, ecut, qpd.gd,
-                                           gammacentered=qpd.gammacentered)
-        pw_map = PWMapping(qpd, qpdnr)
-        G2_G1 = pw_map.G2_G1
-    else:
-        G2_G1 = None
 
     cache = FXCCache(tag=gs.atoms.get_chemical_formula(mode='hill'),
                      xc=xc, ecut=ecut_max)
@@ -76,7 +65,14 @@ def calculate_spinkernel(*, ecut, xcflags, gs, qd, ns, qpd, context):
 
     fv = handle.read()
 
-    if G2_G1 is not None:
+    # If we want a reduced plane-wave description, create qpd mapping
+    if qpd.ecut < ecut:
+        # Recreate nonreduced plane-wave description corresponding to ecut_max
+        qpdnr = SingleQPWDescriptor.from_q(qpd.q_c, ecut, qpd.gd,
+                                           gammacentered=qpd.gammacentered)
+        pw_map = PWMapping(qpd, qpdnr)
+        G2_G1 = pw_map.G2_G1
+
         cut_sG = np.tile(G2_G1, ns)
         cut_sG[len(G2_G1):] += len(fv) // ns
         fv = fv.take(cut_sG, 0).take(cut_sG, 1)
