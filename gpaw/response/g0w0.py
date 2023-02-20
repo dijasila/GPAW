@@ -963,7 +963,7 @@ class G0W0(G0W0Calculator):
                  **kwargs):
         """G0W0 calculator wrapper.
 
-        The G0W0 calculator is used is used to calculate the quasi
+        The G0W0 calculator is used to calculate the quasi
         particle energies through the G0W0 approximation for a number
         of states.
 
@@ -986,7 +986,7 @@ class G0W0(G0W0Calculator):
             E.g. (-1, 1) will use HOMO+LUMO.
         frequencies:
             Input parameters for frequency_grid.
-            Can be array of frequencies to evaluate the response function at
+            Can be an array of frequencies to evaluate the response function at
             or dictionary of parameters for build-in nonlinear grid
             (see :ref:`frequency grid`).
         ecut: float
@@ -1015,8 +1015,7 @@ class G0W0(G0W0Calculator):
             is possible to get the standard GW results at the same time
             (almost for free).
         truncation: str
-            Coulomb truncation scheme. Can be either wigner-seitz,
-            2D, 1D, or 0D
+            Coulomb truncation scheme. Can be either 2D, 1D, or 0D.
         integrate_gamma: int
             Method to integrate the Coulomb interaction. 1 is a numerical
             integration at all q-points with G=[0,0,0] - this breaks the
