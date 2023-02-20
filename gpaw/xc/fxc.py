@@ -469,17 +469,17 @@ class KernelWave:
             # Distribute G vectors among processors
             # Later we calculate for iG' > iG,
             # so stagger allocation in order to balance load
-            local_Gvec_grid_size = nG // self.context.world.size
-            my_Gints = (self.context.world.rank + np.arange(0,
-                        local_Gvec_grid_size * self.context.world.size,
-                        self.context.world.size))
+            local_Gvec_grid_size = nG // self.context.comm.size
+            my_Gints = (self.context.comm.rank + np.arange(0,
+                        local_Gvec_grid_size * self.context.comm.size,
+                        self.context.comm.size))
 
-            if (self.context.world.rank +
-                    (local_Gvec_grid_size) * self.context.world.size) < nG:
+            if (self.context.comm.rank +
+                    (local_Gvec_grid_size) * self.context.comm.size) < nG:
                 my_Gints = np.append(my_Gints,
-                                     [self.context.world.rank +
+                                     [self.context.comm.rank +
                                       local_Gvec_grid_size *
-                                      self.context.world.size])
+                                      self.context.comm.size])
 
             my_Gv_G = Gv_G[my_Gints]
 
@@ -568,7 +568,7 @@ class KernelWave:
 
                 # End loop over G vectors
 
-            self.context.world.sum(fv_nospin_GG)
+            self.context.comm.sum(fv_nospin_GG)
 
             # We've only got half the matrix here,
             # so add the hermitian conjugate:
@@ -580,12 +580,12 @@ class KernelWave:
             # End of loop over coupling constant
 
             if calc_spincorr:
-                self.context.world.sum(fv_spincorr_GG)
+                self.context.comm.sum(fv_spincorr_GG)
                 fv_spincorr_GG += np.conj(fv_spincorr_GG.T)
                 fv_spincorr_GG[np.diag_indices(nG)] *= 0.5
 
             # Write to disk
-            if self.context.world.rank == 0:
+            if self.context.comm.rank == 0:
                 if calc_spincorr:
                     # Form the block matrix kernel
                     fv_full_2G2G = np.empty((2 * nG, 2 * nG), dtype=complex)
@@ -602,7 +602,7 @@ class KernelWave:
 
             self.context.print('q point %s complete' % iq)
 
-            self.context.world.barrier()
+            self.context.comm.barrier()
 
     def get_scaled_fHxc_q(self, q, sel_points, Gphase, spincorr):
         # Given a coupling constant l, construct the Hartree-XC
@@ -763,9 +763,9 @@ class KernelDens:
                 % (nR_v[0], nR_v[1], nR_v[2]) + ' Reduced to %s lattice points'
                 % len(R_Rv), flush=False)
 
-        l_g_size = -(-ng // self.context.world.size)
-        l_g_range = range(self.context.world.rank * l_g_size,
-                          min((self.context.world.rank + 1) * l_g_size, ng))
+        l_g_size = -(-ng // self.context.comm.size)
+        l_g_range = range(self.context.comm.rank * l_g_size,
+                          min((self.context.comm.rank + 1) * l_g_size, ng))
 
         fhxc_qsGr = {}
         for iq in range(len(self.ibzq_qc)):
@@ -841,7 +841,7 @@ class KernelDens:
                         f_q = self.pd.fft(V_rr * e_q, iq) * vol / ng
                         fhxc_qsGr[iq][1, :, g - l_g_range[0]] += f_q
 
-        self.context.world.barrier()
+        self.context.comm.barrier()
 
         np.seterr(**inv_error)
 
@@ -849,19 +849,19 @@ class KernelDens:
             npw = len(self.pd.G2_qG[iq])
             fhxc_sGsG = np.zeros((ns * npw, ns * npw), complex)
             # parallelize over PW below
-            l_pw_size = -(-npw // self.context.world.size)
-            l_pw_range = range(self.context.world.rank * l_pw_size,
-                               min((self.context.world.rank + 1) * l_pw_size,
+            l_pw_size = -(-npw // self.context.comm.size)
+            l_pw_range = range(self.context.comm.rank * l_pw_size,
+                               min((self.context.comm.rank + 1) * l_pw_size,
                                    npw))
 
-            if self.context.world.size > 1:
+            if self.context.comm.size > 1:
                 # redistribute grid and plane waves in fhxc_qsGr[iq]
-                bg1 = BlacsGrid(self.context.world, 1, self.context.world.size)
-                bg2 = BlacsGrid(self.context.world, self.context.world.size, 1)
+                bg1 = BlacsGrid(self.context.comm, 1, self.context.comm.size)
+                bg2 = BlacsGrid(self.context.comm, self.context.comm.size, 1)
                 bd1 = bg1.new_descriptor(npw, ng, npw,
-                                         -(-ng // self.context.world.size))
+                                         -(-ng // self.context.comm.size))
                 bd2 = bg2.new_descriptor(npw, ng,
-                                         -(-npw // self.context.world.size),
+                                         -(-npw // self.context.comm.size),
                                          ng)
 
                 fhxc_Glr = np.zeros((len(l_pw_range), ng), dtype=complex)
@@ -891,10 +891,10 @@ class KernelDens:
                 fhxc_sGsG[:npw, npw:] = fhxc_sGsG[npw:, :npw]
                 fhxc_sGsG[npw:, npw:] = fhxc_sGsG[:npw, :npw]
 
-            self.context.world.sum(fhxc_sGsG)
+            self.context.comm.sum(fhxc_sGsG)
             fhxc_sGsG /= vol
 
-            if self.context.world.rank == 0:
+            if self.context.comm.rank == 0:
                 if nR > 1:  # add Hartree kernel evaluated in PW basis
                     Gq2_G = self.pd.G2_qG[iq]
                     if (q == 0).all():
@@ -903,7 +903,7 @@ class KernelDens:
                     vq_G = 4 * np.pi / Gq2_G
                     fhxc_sGsG += np.tile(np.eye(npw) * vq_G, (ns, ns))
                 self.cache.handle(iq).write(fhxc_sGsG)
-            self.context.world.barrier()
+            self.context.comm.barrier()
         self.context.print('')
 
     def calculate_local_kernel(self):
@@ -926,9 +926,9 @@ class KernelDens:
             Gvec_Gc = np.dot(pd.get_reciprocal_vectors(q=iq, add_q=False),
                              cell_cv / (2 * np.pi))
             npw = len(Gvec_Gc)
-            l_pw_size = -(-npw // self.context.world.size)
-            l_pw_range = range(self.context.world.rank * l_pw_size,
-                               min((self.context.world.rank + 1) * l_pw_size,
+            l_pw_size = -(-npw // self.context.comm.size)
+            l_pw_range = range(self.context.comm.rank * l_pw_size,
+                               min((self.context.comm.rank + 1) * l_pw_size,
                                    npw))
             fhxc_sGsG = np.zeros((ns * npw, ns * npw), dtype=complex)
             for s in range(ns):
@@ -941,7 +941,7 @@ class KernelDens:
                         ft_fxc = gd.integrate(np.exp(-1j * dGr_g) * fxc)
                         fhxc_sGsG[s * npw + iG, s * npw + jG] = ft_fxc
 
-            self.context.world.sum(fhxc_sGsG)
+            self.context.comm.sum(fhxc_sGsG)
             fhxc_sGsG /= vol
 
             Gq2_G = self.pd.G2_qG[iq]
@@ -950,9 +950,9 @@ class KernelDens:
             vq_G = 4 * np.pi / Gq2_G
             fhxc_sGsG += np.tile(np.eye(npw) * vq_G, (ns, ns))
 
-            if self.context.world.rank == 0:
+            if self.context.comm.rank == 0:
                 self.cache.handle(iq).write(fhxc_sGsG)
-            self.context.world.barrier()
+            self.context.comm.barrier()
         self.context.print('')
 
     def get_fxc_g(self, n_g, index=None):

@@ -36,7 +36,7 @@ class Integrator:
         self.nblocks = nblocks
         self.vol = abs(np.linalg.det(cell_cv))
 
-        self.blockcomm, self.kncomm = block_partition(self.context.world,
+        self.blockcomm, self.kncomm = block_partition(self.context.comm,
                                                       nblocks)
 
     def distribute_domain(self, domain_dl):

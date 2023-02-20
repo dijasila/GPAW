@@ -426,7 +426,7 @@ class G0W0Calculator:
         self.filename = filename
         self.eta = eta / Ha
 
-        if self.context.world.rank == 0:
+        if self.context.comm.rank == 0:
             # We pass a serial communicator because the parallel handling
             # is somewhat wonky, we'd rather do that ourselves:
             try:
@@ -571,15 +571,15 @@ class G0W0Calculator:
         return all_results
 
     def read_sigmas(self):
-        if self.context.world.rank == 0:
+        if self.context.comm.rank == 0:
             sigmas = self._read_sigmas()
         else:
             sigmas = None
 
-        return broadcast(sigmas, comm=self.context.world)
+        return broadcast(sigmas, comm=self.context.comm)
 
     def _read_sigmas(self):
-        assert self.context.world.rank == 0
+        assert self.context.comm.rank == 0
 
         # Integrate over all q-points, and accumulate the quasiparticle shifts
         for iq, q_c in enumerate(self.wcalc.qd.ibzk_kc):
@@ -596,7 +596,7 @@ class G0W0Calculator:
         return sigmas
 
     def get_sigmas_dict(self, key):
-        assert self.context.world.rank == 0
+        assert self.context.comm.rank == 0
         return {fxc_mode: Sigma.fromdict(sigma)
                 for fxc_mode, sigma in self.qcache[key].items()}
 
@@ -616,12 +616,12 @@ class G0W0Calculator:
         paths = {}
         for fxc_mode in self.fxc_modes:
             path = Path(f'{self.filename}_results_{fxc_mode}.pckl')
-            with paropen(path, 'wb', comm=self.context.world) as fd:
+            with paropen(path, 'wb', comm=self.context.comm) as fd:
                 pickle.dump(self.all_results[fxc_mode], fd, 2)
             paths[fxc_mode] = path
 
         # Do not return paths to caller before we know they all exist:
-        self.context.world.barrier()
+        self.context.comm.barrier()
         return paths
 
     def calculate_q(self, ie, k, kpt1, kpt2, qpd, Wdict,
@@ -719,7 +719,7 @@ class G0W0Calculator:
         mynw = (nw + size - 1) // size
 
         # some memory sizes...
-        if self.context.world.rank == 0:
+        if self.context.comm.rank == 0:
             siz = (nw * mynGmax * nGmax +
                    max(mynw * nGmax, nw * mynGmax) * nGmax) * 16
             sizA = (nw * nGmax * nGmax + nw * nGmax * nGmax) * 16
@@ -729,30 +729,30 @@ class G0W0Calculator:
 
         # Need to pause the timer in between iterations
         self.context.timer.stop('W')
-        if self.context.world.rank == 0:
+        if self.context.comm.rank == 0:
             for key, sigmas in self.qcache.items():
                 sigmas = {fxc_mode: Sigma.fromdict(sigma)
                           for fxc_mode, sigma in sigmas.items()}
                 for fxc_mode, sigma in sigmas.items():
                     sigma.validate_inputs(self.get_validation_inputs())
 
-        self.context.world.barrier()
+        self.context.comm.barrier()
         for iq, q_c in enumerate(self.wcalc.qd.ibzk_kc):
             with ExitStack() as stack:
-                if self.context.world.rank == 0:
+                if self.context.comm.rank == 0:
                     qhandle = stack.enter_context(self.qcache.lock(str(iq)))
                     skip = qhandle is None
                 else:
                     skip = False
 
-                skip = broadcast(skip, comm=self.context.world)
+                skip = broadcast(skip, comm=self.context.comm)
 
                 if skip:
                     continue
 
                 result = self.calculate_q_point(iq, q_c, pb, chi0calc)
 
-                if self.context.world.rank == 0:
+                if self.context.comm.rank == 0:
                     qhandle.save(result)
         pb.finish()
 
@@ -805,7 +805,7 @@ class G0W0Calculator:
                                      pawcorr=pawcorr)
 
         for sigma in sigmas.values():
-            sigma.sum(self.context.world)
+            sigma.sum(self.context.comm)
 
         return sigmas
 
@@ -1045,13 +1045,13 @@ class G0W0(G0W0Calculator):
         gpwfile = Path(calc)
 
         context = ResponseContext(txt=filename + '.txt',
-                                  world=world, timer=timer)
+                                  comm=world, timer=timer)
         gs = ResponseGroundStateAdapter.from_gpw_file(gpwfile,
                                                       context=context)
 
         # Check if nblocks is compatible, adjust if not
         if nblocksmax:
-            nblocks = get_max_nblocks(context.world, gpwfile, ecut)
+            nblocks = get_max_nblocks(context.comm, gpwfile, ecut)
 
         pair = PairDensityCalculator(gs, context,
                                      nblocks=nblocks)
