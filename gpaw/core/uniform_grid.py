@@ -72,6 +72,8 @@ class UniformGrid(Domain):
 
         self.dv = self.volume / self.size_c.prod()
 
+        self.itemsize = 8 if self.dtype == float else 16
+
     @property
     def size(self):
         """Size of uniform grid."""

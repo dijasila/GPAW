@@ -31,7 +31,7 @@ def check_degenerate_bands(filename, etol):
 def get_orbitals(calc):
     """Get LCAO orbitals on 3D grid by lcao_to_grid method."""
 
-    bfs_a = [setup.phit_j for setup in calc.wfs.setups]
+    bfs_a = [setup.basis_functions_J for setup in calc.wfs.setups]
 
     from gpaw.lfc import BasisFunctions
     bfs = BasisFunctions(calc.wfs.gd, bfs_a, calc.wfs.kd.comm, cut=True)

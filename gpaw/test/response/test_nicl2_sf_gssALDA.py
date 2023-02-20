@@ -13,7 +13,8 @@ from gpaw.response.susceptibility import ChiFactory
 from gpaw.response.df import read_response_function
 
 
-pytestmark = pytest.mark.skipif(world.size < 4, reason='world.size < 4')
+pytestmark = pytest.mark.skipif(world.size < 4,
+                                reason='too slow for world.size < 4')
 
 
 @pytest.mark.kspair

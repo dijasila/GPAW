@@ -32,6 +32,8 @@ def normalize_cell(cell: ArrayLike) -> Array2D:
 
 
 class Domain:
+    itemsize: int
+
     def __init__(self,
                  cell: ArrayLike1D | ArrayLike2D,
                  pbc=(True, True, True),

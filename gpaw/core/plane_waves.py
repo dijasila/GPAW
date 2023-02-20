@@ -19,6 +19,8 @@ from gpaw.typing import (Array1D, Array2D, Array3D, ArrayLike1D, ArrayLike2D,
 
 
 class PlaneWaves(Domain):
+    itemsize = 16
+
     def __init__(self,
                  *,
                  ecut: float,
@@ -302,7 +304,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         return self._matrix
 
     def ifft(self, *, plan=None, grid=None, out=None, periodic=False):
-        """Do inverse FFT to uniform grid.
+        """Do inverse FFT(s) to uniform grid(s).
 
         Parameters
         ----------
