@@ -80,25 +80,11 @@ def calculate_kernel(*, ecut, xcflags, gs, qd, ns, qpd, context):
 
     mpi.world.barrier()
 
-    if xcflags.spin_kernel:
-        fv = handle.read()
+    fv = handle.read()
 
-        if G2_G1 is not None:
-            cut_sG = np.tile(G2_G1, ns)
-            cut_sG[len(G2_G1):] += len(fv) // ns
-            fv = fv.take(cut_sG, 0).take(cut_sG, 1)
-
-    else:
-        if xc == 'RPA':
-            fv = np.eye(qpd.ngmax)
-        elif xc == 'range_RPA':
-            raise NotImplementedError
-        # fv = np.exp(-0.25 * (G_G * self.range_rc) ** 2.0)
-
-        else:
-            fv = handle.read()
-
-            if G2_G1 is not None:
-                fv = fv.take(G2_G1, 0).take(G2_G1, 1)
+    if G2_G1 is not None:
+        cut_sG = np.tile(G2_G1, ns)
+        cut_sG[len(G2_G1):] += len(fv) // ns
+        fv = fv.take(cut_sG, 0).take(cut_sG, 1)
 
     return fv
