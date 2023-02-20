@@ -323,8 +323,7 @@ class RPACalculator:
         E_w = np.zeros_like(self.omega_w)
         # XXX This requires all cores to the same number of w doesn't it?
         self.blockcomm.all_gather(np.array(e_w), E_w)
-        energy = np.dot(E_w, self.weight_w) / (2 * np.pi)
-        E_w = E_w
+        energy = E_w @ self.weight_w / (2 * np.pi)
         return E_w, energy
 
     def extrapolate(self, e_i, ecut_i):
