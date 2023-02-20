@@ -126,7 +126,7 @@ class RPACalculator:
 
     def write(self, energy_qi, ecut_i):
         txt = self.energies_to_string(energy_qi, ecut_i)
-        if self.context.world.rank == 0 and self.filename:
+        if self.context.comm.rank == 0 and self.filename:
             with open(self.filename, 'w') as fd:
                 print(txt, file=fd)
 
@@ -163,7 +163,7 @@ class RPACalculator:
             self.context.print(
                 'Read %d q-points from file: %s\n' % (len(energy_qi)))
 
-            self.context.world.barrier()
+            self.context.comm.barrier()
 
         wd = FrequencyDescriptor(1j * self.omega_w)
 
@@ -460,8 +460,8 @@ class RPACorrelation(RPACalculator):
               len(self.omega_w), 'frequency points')
         p()
         p('Parallelization')
-        p('    Total number of CPUs          : % s' % self.context.world.size)
+        p('    Total number of CPUs          : % s' % self.context.comm.size)
         p('    G-vector decomposition        : % s' % self.nblocks)
         p('    K-point/band decomposition    : % s' %
-          (self.context.world.size // self.nblocks))
+          (self.context.comm.size // self.nblocks))
         self.context.print('')
