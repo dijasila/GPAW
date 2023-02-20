@@ -1036,15 +1036,17 @@ class G0W0(G0W0Calculator):
         """
         frequencies = get_frequencies(frequencies, domega0, omega2)
 
-        self._gpwfile = calc
+        # (calc can not actually be a calculator at all.)
+        gpwfile = Path(calc)
+
         context = ResponseContext(txt=filename + '.txt',
                                   world=world, timer=timer)
-        gs = ResponseGroundStateAdapter.from_gpw_file(self._gpwfile,
+        gs = ResponseGroundStateAdapter.from_gpw_file(gpwfile,
                                                       context=context)
 
         # Check if nblocks is compatible, adjust if not
         if nblocksmax:
-            nblocks = get_max_nblocks(context.world, self._gpwfile, ecut)
+            nblocks = get_max_nblocks(context.world, gpwfile, ecut)
 
         pair = PairDensityCalculator(gs, context,
                                      nblocks=nblocks)
@@ -1100,7 +1102,7 @@ class G0W0(G0W0Calculator):
             fxc_modes.append('GW')
 
         exx_vxc_calculator = EXXVXCCalculator(
-            self._gpwfile,
+            gpwfile,
             snapshotfile_prefix=filename)
 
         super().__init__(filename=filename,
