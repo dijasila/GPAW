@@ -90,7 +90,6 @@ class Chi0Calculator:
             self.rate = rate / Ha
 
         self.nbands = nbands or self.gs.bd.nbands
-        self.include_intraband = intraband
 
         self.wd = wd
         self.context.print(self.wd, flush=False)
@@ -123,6 +122,23 @@ class Chi0Calculator:
 
         # Number of completely filled bands and number of non-empty bands.
         self.nocc1, self.nocc2 = self.gs.count_occupied_bands(ftol)
+
+        # In the optical limit of metals, additional work must be performed
+        # (one must add the Drude dielectric response from the free-space
+        # plasma frequency of the intraband transitions to the head of the
+        # chi0 wings).
+        if self.nocc1 != self.nocc2 and intraband:
+            self.drude_calc = Chi0DrudeCalculator(
+                wd, pair,
+                disable_point_group=disable_point_group,
+                disable_time_reversal=disable_time_reversal,
+                disable_non_symmorphic=disable_non_symmorphic,
+                integrationmode=integrationmode,
+                ftol=ftol,
+                rate=rate,
+                eshift=eshift)
+        else:
+            self.drude_calc = None
 
     @property
     def pbc(self):
@@ -172,11 +188,6 @@ class Chi0Calculator:
         chi0 = self.create_chi0(q_c)
 
         self.print_chi(chi0.qpd)
-
-        if chi0.optical_limit:
-            self.plasmafreq_vv = np.zeros((3, 3), complex)
-        else:
-            self.plasmafreq_vv = None
 
         # Do all transitions into partially filled and empty bands
         m1 = self.nocc1
@@ -233,12 +244,8 @@ class Chi0Calculator:
             # Integrate the chi0 wings
             self._update_chi0_wings(chi0, m1, m2, spins)
 
-            # In the optical limit of metals, additional work must be performed
-            # (one must add the Drude dielectric response from the free-space
-            # plasma frequency of the intraband transitions to the head of the
-            # chi0 wings).
-            if self.nocc1 != self.nocc2 and self.include_intraband:
-                self._update_chi0_drude(chi0, m1, m2, spins)
+            if self.drude_calc is not None:
+                self.drude_calc._update_chi0_drude(chi0, m1, m2, spins)
 
         return chi0
 
@@ -336,56 +343,6 @@ class Chi0Calculator:
         chi0.chi0_Wvv[:] += tmp_chi0_WxvP[:, 0, :3, :3]
         analyzer.symmetrize_wxvG(chi0.chi0_WxvG)
         analyzer.symmetrize_wvv(chi0.chi0_Wvv)
-
-    def _update_chi0_drude(self,
-                           chi0: Chi0Data,
-                           m1, m2, spins):
-        """In-place calculation of the Drude dielectric response function,
-        based on the free-space plasma frequency of the intraband transitions.
-        """
-        qpd = chi0.qpd
-
-        integrator = self.initialize_integrator(block_distributed=False)
-        domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
-        (mat_kwargs,
-         eig_kwargs) = self.get_integrator_arguments(qpd, m1, m2, analyzer,
-                                                     only_intraband=True)
-        kind, extraargs = self.get_integral_kind(only_intraband=True)
-
-        get_plasmafreq_matrix_element = partial(
-            self.get_plasmafreq_matrix_element, **mat_kwargs)
-        get_plasmafreq_eigenvalue = partial(
-            self.get_plasmafreq_eigenvalue, **eig_kwargs)
-
-        tmp_plasmafreq_wvv = np.zeros((1, 3, 3), complex)  # Output array
-        integrator.integrate(kind=kind,  # Kind of integral
-                             domain=domain,  # Integration domain
-                             integrand=(get_plasmafreq_matrix_element,
-                                        get_plasmafreq_eigenvalue),
-                             out_wxx=tmp_plasmafreq_wvv,  # Output array
-                             **extraargs)  # Extra args for int. method
-        tmp_plasmafreq_wvv *= prefactor
-
-        # Store the plasma frequency itself and print it for anyone to use
-        plasmafreq_vv = tmp_plasmafreq_wvv[0].copy()
-        analyzer.symmetrize_wvv(plasmafreq_vv[np.newaxis])
-        self.plasmafreq_vv += 4 * np.pi * plasmafreq_vv
-        self.context.print('Plasma frequency:', flush=False)
-        self.context.print((self.plasmafreq_vv**0.5 * Ha).round(2), flush=True)
-
-        # Calculate the Drude dielectric response function from the
-        # free-space plasma frequency
-        try:
-            with np.errstate(divide='raise'):
-                drude_chi_Wvv = (
-                    plasmafreq_vv[np.newaxis] /
-                    (self.wd.omega_w[:, np.newaxis, np.newaxis]
-                     + 1.j * self.rate)**2)
-        except FloatingPointError:
-            raise ValueError('Please set rate to a positive value.')
-
-        # Fill the Drude dielectric function into the chi0 head
-        chi0.chi0_Wvv[:] += drude_chi_Wvv
 
     def initialize_integrator(self, block_distributed=True) -> Integrator:
         """The integrator class is a general class for brillouin zone
@@ -670,49 +627,6 @@ class Chi0Calculator:
 
         return deps_nm.reshape(-1)
 
-    def get_plasmafreq_matrix_element(self, k_v, s, n1, n2,
-                                      *, qpd,
-                                      symmetry,
-                                      integrationmode=None):
-        """NB: In dire need of documentation! XXX."""
-        k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
-        kpt1 = self.pair.get_k_point(s, k_c, n1, n2)
-        n_n = range(n1, n2)
-
-        vel_nv = self.pair.intraband_pair_density(kpt1, n_n)
-
-        if integrationmode is None:
-            f_n = kpt1.f_n
-            width = self.gs.get_occupations_width()
-            if width > 1e-15:
-                dfde_n = - 1. / width * (f_n - f_n**2.0)
-            else:
-                dfde_n = np.zeros_like(f_n)
-            vel_nv *= np.sqrt(-dfde_n[:, np.newaxis])
-            weight = np.sqrt(symmetry.get_kpoint_weight(k_c) /
-                             symmetry.how_many_symmetries())
-            vel_nv *= weight
-
-        return vel_nv
-
-    def get_plasmafreq_eigenvalue(self, k_v, s,
-                                  n1, n2, *, qpd):
-        """A function that can return the intraband eigenvalues.
-
-        A simple function describing the integrand of
-        the response function which gives an output that
-        is compatible with the gpaw k-point integration
-        routines."""
-        gs = self.gs
-        kd = gs.kd
-        k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
-        K1 = self.pair.find_kpoint(k_c)
-        ik = kd.bz2ibz_k[K1]
-        kpt1 = gs.kpt_qs[ik][s]
-        assert gs.kd.comm.size == 1
-
-        return kpt1.eps_n[n1:n2]
-
     def print_chi(self, qpd):
         gs = self.gs
         gd = gs.gd
@@ -773,6 +687,130 @@ class Chi0Calculator:
         p('        Memory usage before allocation: %f M / cpu' % (maxrss() /
                                                                   1024**2))
         self.context.print('')
+
+
+class Chi0DrudeCalculator(Chi0Calculator):
+    """Class for calculating the plasma frequency contribution to Chi0,
+    that is, the contribution from intraband transitions inside of metallic
+    bands. This corresponds directly to the dielectric function in the Drude
+    model."""
+
+    def __init__(self, wd, pair,
+                 disable_point_group=False,
+                 disable_time_reversal=False,
+                 disable_non_symmorphic=True,
+                 integrationmode=None,
+                 ftol=1e-6,
+                 rate=0.0, eshift=0.0):
+
+        self.pair = pair
+        self.gs = pair.gs
+        self.context = pair.context
+
+        self.disable_point_group = disable_point_group
+        self.disable_time_reversal = disable_time_reversal
+        self.disable_non_symmorphic = disable_non_symmorphic
+        self.integrationmode = integrationmode
+        self.eshift = eshift
+
+        # Number of completely filled bands and number of non-empty bands.
+        self.nocc1, self.nocc2 = self.gs.count_occupied_bands(ftol)
+
+        # Store the plasma frequency on the calculator
+        self.plasmafreq_vv = np.zeros((3, 3), complex)
+
+    def _update_chi0_drude(self,
+                           chi0: Chi0Data,
+                           m1, m2, spins):
+        """In-place calculation of the Drude dielectric response function,
+        based on the free-space plasma frequency of the intraband transitions.
+        """
+        qpd = chi0.qpd
+
+        integrator = self.initialize_integrator(block_distributed=False)
+        domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
+        (mat_kwargs,
+         eig_kwargs) = self.get_integrator_arguments(qpd, m1, m2, analyzer,
+                                                     only_intraband=True)
+        kind, extraargs = self.get_integral_kind(only_intraband=True)
+
+        get_plasmafreq_matrix_element = partial(
+            self.get_plasmafreq_matrix_element, **mat_kwargs)
+        get_plasmafreq_eigenvalue = partial(
+            self.get_plasmafreq_eigenvalue, **eig_kwargs)
+
+        tmp_plasmafreq_wvv = np.zeros((1, 3, 3), complex)  # Output array
+        integrator.integrate(kind=kind,  # Kind of integral
+                             domain=domain,  # Integration domain
+                             integrand=(get_plasmafreq_matrix_element,
+                                        get_plasmafreq_eigenvalue),
+                             out_wxx=tmp_plasmafreq_wvv,  # Output array
+                             **extraargs)  # Extra args for int. method
+        tmp_plasmafreq_wvv *= prefactor
+
+        # Store the plasma frequency itself and print it for anyone to use
+        plasmafreq_vv = tmp_plasmafreq_wvv[0].copy()
+        analyzer.symmetrize_wvv(plasmafreq_vv[np.newaxis])
+        self.plasmafreq_vv += 4 * np.pi * plasmafreq_vv
+        self.context.print('Plasma frequency:', flush=False)
+        self.context.print((self.plasmafreq_vv**0.5 * Ha).round(2), flush=True)
+
+        # Calculate the Drude dielectric response function from the
+        # free-space plasma frequency
+        try:
+            with np.errstate(divide='raise'):
+                drude_chi_Wvv = (
+                    plasmafreq_vv[np.newaxis] /
+                    (self.wd.omega_w[:, np.newaxis, np.newaxis]
+                     + 1.j * self.rate)**2)
+        except FloatingPointError:
+            raise ValueError('Please set rate to a positive value.')
+
+        # Fill the Drude dielectric function into the chi0 head
+        chi0.chi0_Wvv[:] += drude_chi_Wvv
+
+    def get_plasmafreq_matrix_element(self, k_v, s, n1, n2,
+                                      *, qpd,
+                                      symmetry,
+                                      integrationmode=None):
+        """NB: In dire need of documentation! XXX."""
+        k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
+        kpt1 = self.pair.get_k_point(s, k_c, n1, n2)
+        n_n = range(n1, n2)
+
+        vel_nv = self.pair.intraband_pair_density(kpt1, n_n)
+
+        if integrationmode is None:
+            f_n = kpt1.f_n
+            width = self.gs.get_occupations_width()
+            if width > 1e-15:
+                dfde_n = - 1. / width * (f_n - f_n**2.0)
+            else:
+                dfde_n = np.zeros_like(f_n)
+            vel_nv *= np.sqrt(-dfde_n[:, np.newaxis])
+            weight = np.sqrt(symmetry.get_kpoint_weight(k_c) /
+                             symmetry.how_many_symmetries())
+            vel_nv *= weight
+
+        return vel_nv
+
+    def get_plasmafreq_eigenvalue(self, k_v, s,
+                                  n1, n2, *, qpd):
+        """A function that can return the intraband eigenvalues.
+
+        A simple function describing the integrand of
+        the response function which gives an output that
+        is compatible with the gpaw k-point integration
+        routines."""
+        gs = self.gs
+        kd = gs.kd
+        k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
+        K1 = self.pair.find_kpoint(k_c)
+        ik = kd.bz2ibz_k[K1]
+        kpt1 = gs.kpt_qs[ik][s]
+        assert gs.kd.comm.size == 1
+
+        return kpt1.eps_n[n1:n2]
 
 
 class Chi0(Chi0Calculator):
