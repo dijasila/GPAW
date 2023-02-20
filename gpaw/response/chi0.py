@@ -349,6 +349,20 @@ class Chi0Calculator:
         defined domains and sum over bands."""
         integrator: Integrator
 
+        cls = self.get_integrator_cls()
+
+        kwargs = dict(
+            cell_cv=self.gs.gd.cell_cv,
+            context=self.context)
+        self.update_integrator_kwargs(kwargs,
+                                      block_distributed=block_distributed)
+
+        integrator = cls(**kwargs)
+
+        return integrator
+
+    def get_integrator_cls(self):
+        """Get the appointed k-point integrator class."""
         if self.integrationmode is None:
             cls = PointIntegrator
         elif self.integrationmode == 'tetrahedron integration':
@@ -357,17 +371,15 @@ class Chi0Calculator:
             raise ValueError(f'Integration mode "{self.integrationmode}"'
                              ' not implemented.')
 
-        kwargs = dict(
-            cell_cv=self.gs.gd.cell_cv,
-            context=self.context,
-            eshift=self.eshift)
+        return cls
 
+    def update_integrator_kwargs(self, kwargs, block_distributed=True):
+        # Update the energy shift
+        kwargs['eshift'] = self.eshift
+
+        # Update nblocks
         if block_distributed:
-            integrator = cls(**kwargs, nblocks=self.nblocks)
-        else:
-            integrator = cls(**kwargs)
-
-        return integrator
+            kwargs['nblocks'] = self.nblocks
 
     def get_integration_domain(self, qpd, spins):
         """Get integrator domain and prefactor for the integral."""
@@ -719,7 +731,6 @@ class Chi0DrudeCalculator(Chi0Calculator):
 
         # Number of completely filled bands and number of non-empty bands.
         self.nocc1, self.nocc2 = self.gs.count_occupied_bands()
-        self.eshift = 0.0  # We are not applying energy shifts to metals
 
         # Store the plasma frequency on the calculator
         self.plasmafreq_vv = np.zeros((3, 3), complex)
@@ -773,6 +784,10 @@ class Chi0DrudeCalculator(Chi0Calculator):
 
         # Fill the Drude dielectric function into the chi0 head
         chi0.chi0_Wvv[:] += drude_chi_Wvv
+
+    def update_integrator_kwargs(self, *unused, **ignored):
+        """The Drude calculator uses only standard integrator kwargs."""
+        pass
 
     def get_plasmafreq_matrix_element(self, k_v, s, n1, n2,
                                       *, qpd,
