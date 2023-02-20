@@ -492,12 +492,15 @@ class KernelWave:
             # so stagger allocation in order to balance load
             local_Gvec_grid_size = nG // self.context.world.size
             my_Gints = (self.context.world.rank + np.arange(
-                0, local_Gvec_grid_size * self.context.world.size, self.context.world.size))
+                0, local_Gvec_grid_size * self.context.world.size
+                                        , self.context.world.size))
 
-            if (self.context.world.rank + (local_Gvec_grid_size) * self.context.world.size) < nG:
+            if (self.context.world.rank + 
+                     (local_Gvec_grid_size) * self.context.world.size) < nG:
                 my_Gints = np.append(
                     my_Gints,
-                    [self.context.world.rank + local_Gvec_grid_size * self.context.world.size])
+                    [self.context.world.rank + 
+                           local_Gvec_grid_size * self.context.world.size])
 
             my_Gv_G = Gv_G[my_Gints]
 
@@ -871,9 +874,11 @@ class KernelDens:
         for iq, q in enumerate(self.ibzq_qc):
             npw = len(self.pd.G2_qG[iq])
             fhxc_sGsG = np.zeros((ns * npw, ns * npw), complex)
-            l_pw_size = -(-npw // self.context.world.size)  # parallelize over PW below
+            l_pw_size = -(-npw // self.context.world.size)  
+                                                   # parallelize over PW below
             l_pw_range = range(self.context.world.rank * l_pw_size,
-                               min((self.context.world.rank + 1) * l_pw_size, npw))
+                               min((self.context.world.rank + 1) * l_pw_size,
+                                                                         npw))
 
             if self.context.world.size > 1:
                 # redistribute grid and plane waves in fhxc_qsGr[iq]
@@ -881,8 +886,8 @@ class KernelDens:
                 bg2 = BlacsGrid(self.context.world, self.context.world.size, 1)
                 bd1 = bg1.new_descriptor(npw, ng, npw,
                                          -(-ng // self.context.world.size))
-                bd2 = bg2.new_descriptor(npw, ng, -(-npw // self.context.world.size),
-                                         ng)
+                bd2 = bg2.new_descriptor(npw, ng,
+                                        -(-npw // self.context.world.size), ng)
 
                 fhxc_Glr = np.zeros((len(l_pw_range), ng), dtype=complex)
                 if ns == 2:
@@ -952,7 +957,8 @@ class KernelDens:
             npw = len(Gvec_Gc)
             l_pw_size = -(-npw // self.context.world.size)
             l_pw_range = range(self.context.world.rank * l_pw_size,
-                               min((self.context.world.rank + 1) * l_pw_size, npw))
+                               min((self.context.world.rank + 1) * l_pw_size,
+                                                                        npw))
             fhxc_sGsG = np.zeros((ns * npw, ns * npw), dtype=complex)
             for s in range(ns):
                 for iG in l_pw_range:
