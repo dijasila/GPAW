@@ -1099,7 +1099,6 @@ class G0W0(G0W0Calculator):
         if do_GW_too:
             fxc_modes.append('GW')
 
-
         exx_vxc_calculator = EXXVXCCalculator(
             self._gpwfile,
             snapshotfile_prefix=filename)
@@ -1143,4 +1142,3 @@ class EXXVXCCalculator:
             snapshot=f'{self._snapshotfile_prefix}-vxc-exx.json',
         )
         return vxc_skn / Ha, exx_skn / Ha
-
