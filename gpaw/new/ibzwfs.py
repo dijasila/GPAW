@@ -76,6 +76,9 @@ class IBZWaveFunctions:
 
         self.energies: dict[str, float] = {}  # hartree
 
+        if self.wfs_qs[0][0].xp is not np:
+            self.kpt_comm = CuPyMPI(self.kpt_comm)
+
     def get_max_shape(self, global_shape: bool = False) -> tuple[int, ...]:
         """Find the largest wave function array shape.
 
@@ -428,3 +431,13 @@ class IBZWaveFunctions:
                                      for wfs_s in self.wfs_qs))
 
         return np.array([homo, lumo])
+
+
+class CuPyMPI:
+    def __init__(self, comm):
+        self.comm = comm
+        self.rank = comm.rank
+        self.size = comm.size
+
+    def sum(self, array):
+        self.comm.sum(array)
