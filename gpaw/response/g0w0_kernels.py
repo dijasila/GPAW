@@ -25,21 +25,6 @@ class G0W0Kernel:
             **self._kwargs)
 
 
-def actually_calculate_kernel(*, gs, qd, xcflags, q_empty, ecut_max,
-                              context):
-    ibzq_qc = qd.ibzk_kc
-
-    kernel = KernelWave(
-        gs=gs,
-        xc=xcflags.xc,
-        ibzq_qc=ibzq_qc,
-        q_empty=q_empty,
-        ecut=ecut_max,
-        context=context)
-
-    yield from kernel.calculate_fhxc()
-
-
 def calculate_spinkernel(*, ecut, xcflags, gs, qd, ns, qpd, context):
     assert xcflags.spin_kernel
     xc = xcflags.xc
@@ -57,15 +42,17 @@ def calculate_spinkernel(*, ecut, xcflags, gs, qd, ns, qpd, context):
     if not handle.exists():
         # Somehow we calculated many q even though this function
         # only works on one q?  Very confusing.
-        for iq_calculated, array in actually_calculate_kernel(
-                q_empty=iq, qd=qd,
-                xcflags=xcflags,
-                ecut_max=ecut_max, gs=gs,
-                context=context):
+        kernel = KernelWave(
+            q_empty=iq, ibzq_qc=qd.ibzk_kc,
+            xc=xcflags.xc,
+            ecut=ecut_max, gs=gs,
+            context=context)
+
+        for iq_calculated, array in kernel.calculate_fhxc():
             cache.handle(iq_calculated).write(array)
+            context.comm.barrier()
 
     context.comm.barrier()
-
     fv = handle.read()
 
     # If we want a reduced plane-wave description, create qpd mapping
