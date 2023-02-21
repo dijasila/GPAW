@@ -151,7 +151,7 @@ class BodyData:
 
 
 class Chi0DrudeData:
-    def __init__(self, zd):
+    def __init__(self, zd: ComplexFrequencyDescriptor):
         self.zd = zd
         self.plasmafreq_vv, self.chi_Zvv = self.zeros()
 
