@@ -148,12 +148,9 @@ class BodyData:
 
 
 class Chi0DrudeData:
-    def __init__(self, wd, rate, qpd):
-        assert qpd.optical_limit
-
+    def __init__(self, wd, rate):
         self.wd = wd
         self.rate = rate
-        self.qpd = qpd
 
         self.plasmafreq_vv, self.chi_Wvv = self.zeros()
 

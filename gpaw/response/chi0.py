@@ -722,17 +722,8 @@ class Chi0DrudeCalculator(Chi0Calculator):
         spins = self.get_spins(spin)
         # self.print_chi(chi0_drude.qpd)  # Do print XXX
 
-        chi0_drude = self.create_chi0_drude([0., 0., 0.])
+        chi0_drude = Chi0DrudeData(self.wd, self.rate)
         self._calculate(chi0_drude, spins)
-
-        return chi0_drude
-
-    def create_chi0_drude(self, q_c):  # Remove q_c
-        # Create a dummy plane-wave descriptor. We need this for the symmetry
-        # analysis -> see discussion in gpaw.response.jdos
-        qpd = SingleQPWDescriptor.from_q(q_c, ecut=1e-3, gd=self.gs.gd)
-
-        chi0_drude = Chi0DrudeData(self.wd, self.rate, qpd)
 
         return chi0_drude
 
@@ -740,7 +731,10 @@ class Chi0DrudeCalculator(Chi0Calculator):
         """In-place calculation of the Drude dielectric response function,
         based on the free-space plasma frequency of the intraband transitions.
         """
-        qpd = chi0_drude.qpd
+        # Create a dummy plane-wave descriptor. We need this for the symmetry
+        # analysis -> see discussion in gpaw.response.jdos
+        qpd = SingleQPWDescriptor.from_q([0., 0., 0.],
+                                         ecut=1e-3, gd=self.gs.gd)
 
         integrator = self.initialize_integrator()
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
