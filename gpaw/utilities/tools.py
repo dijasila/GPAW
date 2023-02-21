@@ -1,7 +1,6 @@
 import hashlib
 
 import numpy as np
-from math import isclose
 
 from ase.units import Hartree, Bohr
 
@@ -466,39 +465,3 @@ class Spline:
         else:
             return np.searchsorted(xi, x)
 
-
-def compare_dicts(dict1, dict2, rel_tol=1e-14, abs_tol=1e-14):
-    """
-    Compare each key-value pair within dictionaries that contain nested data
-    structures of arbitrary depth. If a kvp contains floats, you may specify
-    the tolerance (abs or rel) to which the floats are compared.
-
-    :params dict1: Dictionary containing kvp to compare with other dictionary.
-    :params dict2: Second dictionary.
-    :params rel_tol: Maximum difference for being considered "close",
-    relative to the magnitude of the input values as defined by math.isclose().
-    :params abs_tol: Maximum difference for being considered "close",
-    regardless of the magnitude of the input values as defined by
-    math.isclose().
-
-    :returns: bool indicating kvp's don't match (False) or do match (True)
-    """
-    if dict1.keys() != dict2.keys():
-        return False
-
-    for key in dict1.keys():
-        val1 = dict1[key]
-        val2 = dict2[key]
-
-        if isinstance(val1, dict) and isinstance(val2, dict):
-            # recursive func call to ensure nested structures are also compared
-            if not compare_dicts(val1, val2, rel_tol, abs_tol):
-                return False
-        elif isinstance(val1, float) and isinstance(val2, float):
-            if not isclose(val1, val2, rel_tol=rel_tol, abs_tol=abs_tol):
-                return False
-        else:
-            if val1 != val2:
-                return False
-
-    return True
