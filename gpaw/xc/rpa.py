@@ -40,6 +40,16 @@ def rpa(filename, ecut=200.0, blocks=1, extrapolate=4):
     rpa.calculate()
 
 
+class GCut:
+    def __init__(self, cut_G):
+        self.cut_G = cut_G
+
+    def cut(self, array):
+        if self.cut_G is None:
+            return array
+        return array[self.cut_G]
+
+
 def initialize_q_points(kd, qsym):
     bzq_qc = kd.get_bz_q_points(first=True)
 
@@ -205,14 +215,6 @@ class RPACalculator:
             m1 = chi0calc.nocc1
             p('# %s  -  %s' % (len(energy_qi), ctime().split()[-2]))
             p('q = [%1.3f %1.3f %1.3f]' % tuple(q_c))
-
-
-            class GCut:
-                def __init__(self, cut_G):
-                    self.cut_G = cut_G
-
-                def cut(self, array):
-                    return array[self.cut_G]
 
             energy_i = []
             for ecut in ecut_i:
