@@ -453,7 +453,8 @@ class PairDensityCalculator:
             for n in range(deg):
                 ut_vR = ut_nvR[n]
                 C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[ind_n[n] - na])
-                         for atomdata, P_ni in zip(atomdata_a.values(), kpt.P_ani)]
+                         for atomdata, P_ni in zip(atomdata_a.values(),
+                                                   kpt.P_ani)]
 
                 nabla0_nv = -self.gs.gd.integrate(ut_vR, ut_nR).T
                 nt_n = self.gs.gd.integrate(ut_nR[n], ut_nR)

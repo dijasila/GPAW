@@ -14,6 +14,7 @@ class Setuplet:
         self.ni = np.sum([2 * l + 1 for l in l_j])
         self.rcut_j = rcut_j
 
+
 def two_phi_planewave_integrals(qG_Gv, *, pawdata):
     rgd = pawdata.rgd
     l_j = pawdata.l_j
@@ -74,7 +75,8 @@ class PWPAWCorrectionData:
 
     def _new(self, Q_aGii):
         return PWPAWCorrectionData(Q_aGii, qpd=self.qpd,
-            pawdatasets=self.pawdatasets, pos_av=self.pos_av)
+                                   pawdatasets=self.pawdatasets,
+                                   pos_av=self.pos_av)
 
     def remap(self, M_vv, G_Gv, sym, sign):
         Q_aGii = []
@@ -140,4 +142,6 @@ def get_pair_density_paw_corrections(pawdatasets, qpd, spos_ac):
         x_G = np.exp(-1j * (qG_Gv @ pos_av[atom_index]))
         Q_aGii.append(x_G[:, np.newaxis, np.newaxis] * Q_Gii)
 
-    return PWPAWCorrectionData(Q_aGii, qpd=qpd, pawdatasets=pawdatasets, pos_av=pos_av)
+    return PWPAWCorrectionData(Q_aGii, qpd=qpd,
+                               pawdatasets=pawdatasets,
+                               pos_av=pos_av)

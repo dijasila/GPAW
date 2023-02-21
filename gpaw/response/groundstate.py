@@ -24,12 +24,11 @@ class ResponseGroundStateAdapter:
 
         self.kpt_u = wfs.kpt_u
         self.kpt_qs = wfs.kpt_qs
-        #self.setups = wfs.setups
 
         self.fermi_level = wfs.fermi_level
         self.atoms = calc.atoms
-        self.pawdatasets = {atom.index : PAWDataset(setup)
-                         for (atom, setup) in zip(self.atoms, calc.setups)}
+        self.pawdatasets = {atom.index: PAWDataset(setup)
+                            for (atom, setup) in zip(self.atoms, calc.setups)}
 
         self.pbc = self.atoms.pbc
         self.volume = self.gd.volume
@@ -195,7 +194,9 @@ class ResponseGroundStateAdapter:
 
         return ibzq_qc
 
-# Contains relevant information from Setups class for response calculators
+
+# Contains all the relevant information
+# from Setups class for response calculators
 class PAWDataset:
     def __init__(self, setup):
         self.ni = setup.ni
@@ -205,15 +206,12 @@ class PAWDataset:
         self.lq = setup.lq
         self.R_sii = setup.R_sii
         self.nabla_iiv = setup.nabla_iiv
-        self.data = SimpleNamespace(phi_jg = setup.data.phi_jg,
-                                    phit_jg = setup.data.phit_jg)
-        self.xc_correction = SimpleNamespace(rgd = setup.xc_correction.rgd,
-                                             Y_nL = setup.xc_correction.Y_nL,
-                                             n_qg = setup.xc_correction.n_qg,
-                                             nt_qg = setup.xc_correction.nt_qg,
-                                             nc_g = setup.xc_correction.nc_g,
-                                             nct_g = setup.xc_correction.nct_g,
-                                             nc_corehole_g=setup.xc_correction.nc_corehole_g,
-                                             B_pqL = setup.xc_correction.B_pqL,
-                                             e_xc0 = setup.xc_correction.e_xc0)
+        self.data = SimpleNamespace(phi_jg=setup.data.phi_jg,
+                                    phit_jg=setup.data.phit_jg)
+        self.xc_correction = SimpleNamespace(
+            rgd=setup.xc_correction.rgd, Y_nL=setup.xc_correction.Y_nL,
+            n_qg=setup.xc_correction.n_qg, nt_qg=setup.xc_correction.nt_qg,
+            nc_g=setup.xc_correction.nc_g, nct_g=setup.xc_correction.nct_g,
+            nc_corehole_g=setup.xc_correction.nc_corehole_g,
+            B_pqL=setup.xc_correction.B_pqL, e_xc0=setup.xc_correction.e_xc0)
         self.hubbard_u = setup.hubbard_u
