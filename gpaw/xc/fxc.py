@@ -184,7 +184,6 @@ class FXCCorrelation:
 
     @timer('Chi0(q)')
     def calculate_q_fxc(self, chi0calc, chi0_s, m1, m2, gcut):
-        cut_G = gcut.cut_G
         for s, chi0 in enumerate(chi0_s):
             chi0calc.update_chi0(chi0, m1, m2, [s])
 
@@ -251,7 +250,6 @@ class FXCCorrelation:
     @timer('Energy')
     def calculate_energy_fxc(self, qpd, chi0_swGG, gcut):
         """Evaluate correlation energy from chi0 and the kernel fhxc"""
-        cut_G = gcut.cut_G
         ibzq2_q = [
             np.dot(self.ibzq_qc[i] - qpd.q_c,
                    self.ibzq_qc[i] - qpd.q_c)
@@ -260,7 +258,7 @@ class FXCCorrelation:
 
         qi = np.argsort(ibzq2_q)[0]
 
-        G_G = gcut.cut(qpd.G2_qG[0]**0.5)  # |G+q|
+        G_G = gcut.cut_G(qpd.G2_qG[0]**0.5)  # |G+q|
 
         nG = len(G_G)
         ns = len(chi0_swGG)
@@ -307,8 +305,7 @@ class FXCCorrelation:
 
         # Loop over frequencies
         for chi0_sGG in np.swapaxes(chi0_swGG, 0, 1):
-            if cut_G is not None:
-                chi0_sGG = chi0_sGG.take(cut_G, 1).take(cut_G, 2)
+            chi0_sGG = gcut.take_xGG(chi0_sGG)
 
             if self.xcflags.spin_kernel:
                 chi0v_sGsG = get_chi0v_foreach_spin(chi0_sGG, G_G)
