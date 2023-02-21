@@ -833,8 +833,8 @@ class G0W0Calculator:
             rqpd = chi0.qpd.copy_with(ecut=ecut)  # reduced qpd
             rchi0 = chi0.copy_with_reduced_pd(rqpd)
             if self.ppa:
-                Wdict[fxc_mode] = self.wcalc.calculate(rchi0,
-                                                       fxc_mode=fxc_mode)
+                Wdict[fxc_mode] = self.wcalc.calculate_ppa(rchi0,
+                                                           fxc_mode=fxc_mode)
             else:
                 W_wGG = self.wcalc.calculate(rchi0,
                                              fxc_mode=fxc_mode,

@@ -5,7 +5,6 @@ from ase.units import Ha
 from ase.dft.kpoints import monkhorst_pack
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.temp import DielectricFunctionCalculator
-from abc import ABC, abstractmethod
 
 
 class QPointDescriptor(KPointDescriptor):
@@ -60,7 +59,7 @@ def initialize_w_calculator(chi0calc, context, *,
     return wcalc
 
 
-class WBaseCalculator(ABC):
+class WBaseCalculator():
 
     def __init__(self, gs, context, *, qd,
                  coulomb, xckernel,
@@ -109,19 +108,6 @@ class WBaseCalculator(ABC):
         else:
             self.q0_corrector = None
 
-    @abstractmethod
-    def calculate(self):
-        """
-        Method to calculate screened interaction in some representation
-        Minimum Parameters
-        ----------
-        chi0: chi0 data object
-        fxc_mode: str
-            Where to include the vertex corrections; polarizability and/or
-            self-energy. 'GWP': Polarizability only, 'GWS': Self-energy only,
-            'GWG': Both.
-        """
-        pass
     
     def get_V0sqrtV0(self, chi0):
         """
@@ -281,7 +267,7 @@ class PPACalculator(WCalculator):
         self.E0 = E0 / Ha  # eV -> Hartree
         super().__init__(*args, **kwargs)
     
-    def calculate(self, chi0,
+    def calculate_ppa(self, chi0,
                   fxc_mode='GW'):
         """Calculate the PPA parametrization of screened interaction.
         """
