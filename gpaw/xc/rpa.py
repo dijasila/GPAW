@@ -55,7 +55,7 @@ class GCut:
             return array_GG
 
         cut_sG = np.tile(self._cut_G, ns)
-        cut_sG[len(self._cut_G):] += len(array_GG) // ns
+        cut_sG[self.nG:] += len(array_GG) // ns
         array_GG = array_GG.take(cut_sG, 0).take(cut_sG, 1)
         return array_GG
 
