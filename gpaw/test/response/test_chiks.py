@@ -156,9 +156,8 @@ def test_chiks_symmetry(in_tmp_dir, gpw_files, q_c, eta, gammacentered):
                 chi2_GG = chiks_q[q2].array[0]
                 chi1r_GG = 1 / 2. * (chi1_GG + np.conj(chi1_GG).T)
                 chi2r_GG = 1 / 2. * (chi2_GG + np.conj(chi2_GG).T)
-                assert np.conj(chi2r_GG[invmap_GG]) == pytest.approx(chi1r_GG,
-                                                                     rel=rtol,
-                                                                     abs=0.0035)
+                assert np.conj(chi2r_GG[invmap_GG]) == pytest.approx(
+                    chi1r_GG, rel=rtol, abs=0.0035)
 
             # Loop over frequencies
             for chi1_GG, chi2_GG in zip(chiks_q[q1].array,

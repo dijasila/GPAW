@@ -421,9 +421,10 @@ class GPWFiles:
         return atoms.calc
 
     def fe_pw(self):
+        """See also the fe_fixture_test.py test."""
         xc = 'LDA'
         kpts = 4
-        nbands = 9
+        nbands = 9  # 4s, 4p, 3d = 9
         pw = 300
         occw = 0.01
         conv = {'bands': nbands,
