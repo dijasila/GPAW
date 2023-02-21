@@ -19,15 +19,23 @@ from gpaw.xc.fxc_kernels import (
     get_fHxc_Gr, get_pbe_fxc, get_fspinHxc_Gr_rALDA, get_fspinHxc_Gr_rAPBE)
 
 
-def get_chi0v(chi0_sGG, cut_G, G_G):
-    if cut_G is not None:
-        chi0_sGG = chi0_sGG.take(cut_G, 1).take(cut_G, 2)
+def get_chi0v_spinsum(chi0_sGG, G_G):
     nG = chi0_sGG.shape[-1]
     chi0v = np.zeros((nG, nG), dtype=complex)
     for chi0_GG in chi0_sGG:
         chi0v += chi0_GG / G_G / G_G[:, np.newaxis]
     chi0v *= 4 * np.pi
     return chi0v
+
+
+def get_chi0v_foreach_spin(chi0_sGG, G_G):
+    ns, nG = chi0_sGG.shape[:2]
+
+    chi0v_sGsG = np.zeros((ns, nG, ns, nG), dtype=complex)
+    for s in range(ns):
+        chi0v_sGsG[s, :, s, :] = chi0_sGG[s] / G_G / G_G[:, np.newaxis]
+    chi0v_sGsG *= 4 * np.pi
+    return chi0v_sGsG.reshape(ns * nG, ns * nG)
 
 
 class FXCCache:
@@ -182,9 +190,8 @@ class FXCCorrelation:
     @timer('Chi0(q)')
     def calculate_q_fxc(self, chi0calc, chi0_s, m1, m2, cut_G):
         for s, chi0 in enumerate(chi0_s):
-            chi0calc.update_chi0(chi0,
-                                 m1,
-                                 m2, [s])
+            chi0calc.update_chi0(chi0, m1, m2, [s])
+
         self.context.print('E_c(q) = ', end='', flush=False)
 
         qpd = chi0.qpd
@@ -222,7 +229,7 @@ class FXCCorrelation:
 
         return e
 
-    def calculate_energy_contribution(self, chi0v_sGsG, fv, nG):
+    def calculate_energy_contribution(self, chi0v_sGsG, fv_sGsG, nG):
         """Calculate contribution to energy from a single frequency point.
 
         The RPA correlation energy is the integral over all frequencies
@@ -234,16 +241,13 @@ class FXCCorrelation:
 
         for l, weight in zip(self.l_l, self.weight_l):
             chiv = np.linalg.solve(
-                np.eye(nG * ns) - l * np.dot(chi0v_sGsG, fv),
+                np.eye(nG * ns) - l * np.dot(chi0v_sGsG, fv_sGsG),
                 chi0v_sGsG).real  # this is SO slow
+
+            chiv = chiv.reshape(ns, nG, ns, nG)
             for s1 in range(ns):
                 for s2 in range(ns):
-                    m1 = s1 * nG
-                    n1 = (s1 + 1) * nG
-                    m2 = s2 * nG
-                    n2 = (s2 + 1) * nG
-                    chiv_s1s2 = chiv[m1:n1, m2:n2]
-                    e -= np.trace(chiv_s1s2) * weight
+                    e -= np.trace(chiv[s1, :, s2, :]) * weight
 
         e += np.trace(chi0v_sGsG.real)
         return e
@@ -279,12 +283,12 @@ class FXCCorrelation:
         #              the calculation is spin-polarized!)
 
         if self.xcflags.spin_kernel:
-            fv = self.cache.handle(qi).read()
+            fv_GG = self.cache.handle(qi).read()
 
             if cut_G is not None:
                 cut_sG = np.tile(cut_G, ns)
-                cut_sG[len(cut_G):] += len(fv) // ns
-                fv = fv.take(cut_sG, 0).take(cut_sG, 1)
+                cut_sG[len(cut_G):] += len(fv_GG) // ns
+                fv_GG = fv_GG.take(cut_sG, 0).take(cut_sG, 1)
 
             # the spin-polarized kernel constructed from wavevector average
             # is already multiplied by |q+G| |q+G'|/4pi, and doesn't require
@@ -292,91 +296,43 @@ class FXCCorrelation:
             # density average:
 
             if self.avg_scheme == 'density':
+                # Create and modify a view:
+                fv_sGsG = fv_GG.reshape(ns, nG, ns, nG)
+
                 for s1 in range(ns):
                     for s2 in range(ns):
-                        m1 = s1 * nG
-                        n1 = (s1 + 1) * nG
-                        m2 = s2 * nG
-                        n2 = (s2 + 1) * nG
-                        fv[m1:n1,
-                           m2:n2] *= (G_G * G_G[:, np.newaxis] / (4 * np.pi))
+                        fv_sGsG[s1, :, s2, :] *= (
+                            G_G * G_G[:, np.newaxis] / (4 * np.pi))
 
                         if np.prod(self.unit_cells) > 1 and qpd.kd.gamma:
-                            fv[m1, m2:n2] = 0.0
-                            fv[m1:n1, m2] = 0.0
-                            fv[m1, m2] = 1.0
-
-            if qpd.kd.gamma:
-                G_G[0] = 1.0
-
-            e_w = []
-
-            # Loop over frequencies
-            for chi0_sGG in np.swapaxes(chi0_swGG, 0, 1):
-                if cut_G is not None:
-                    chi0_sGG = chi0_sGG.take(cut_G, 1).take(cut_G, 2)
-                chi0v_sGsG = np.zeros((ns * nG, ns * nG), dtype=complex)
-                for s in range(ns):
-                    m = s * nG
-                    n = (s + 1) * nG
-                    chi0v_sGsG[m:n, m:n] = \
-                        chi0_sGG[s] / G_G / G_G[:, np.newaxis]
-                chi0v_sGsG *= 4 * np.pi
-
-                del chi0_sGG
-
-                e = self.calculate_energy_contribution(chi0v_sGsG, fv, nG)
-                e_w.append(e)
+                            fv_sGsG[s1, 0, s2, :] = 0.0
+                            fv_sGsG[s1, :, s2, 0] = 0.0
+                            fv_sGsG[s1, 0, s2, 0] = 1.0
 
         else:
-            # Or, if kernel does not have a spin polarized form,
-            #
-            # Option (2)  kernel does not scale linearly with lambda,
-            #             so we solve nG*nG Dyson equation at each value
-            #             of l.  Requires kernel to be constructed
-            #             at individual values of lambda
-            #
-            # Option (3)  Divide correlation energy into
-            #             long range part which can be integrated
-            #             analytically w.r.t. lambda, and a short
-            #             range part which again requires
-            #             solving Dyson equation (hence no speedup,
-            #             but the maths looks nice and
-            #             fits with range-separated RPA)
-            #
-            #
-            # Construct/read kernels
-
-            # What are the rules for whether we should do the
-            # cut_G slicing?
             fv_GG = np.eye(nG)
 
-            if qpd.kd.gamma:
-                G_G[0] = 1.0
+        if qpd.kd.gamma:
+            G_G[0] = 1.0
 
-            # Loop over frequencies; since the kernel has no spin,
-            # we work with spin-summed response function
-            e_w = []
+        e_w = []
 
-            for iw, chi0_sGG in enumerate(np.swapaxes(chi0_swGG, 0, 1)):
-                chi0v = get_chi0v(chi0_sGG, cut_G, G_G)
+        # Loop over frequencies
+        for chi0_sGG in np.swapaxes(chi0_swGG, 0, 1):
+            if cut_G is not None:
+                chi0_sGG = chi0_sGG.take(cut_G, 1).take(cut_G, 2)
 
-                elong = 0.0
+            if self.xcflags.spin_kernel:
+                chi0v_sGsG = get_chi0v_foreach_spin(chi0_sGG, G_G)
+            else:
+                chi0v_sGsG = get_chi0v_spinsum(chi0_sGG, G_G)
 
-                for l, weight in zip(self.l_l, self.weight_l):
-                    chiv = np.linalg.solve(
-                        np.eye(nG) - l * np.dot(
-                            chi0v, fv_GG), chi0v).real
+            energy = self.calculate_energy_contribution(
+                chi0v_sGsG, fv_GG, nG)
+            e_w.append(energy)
 
-                    elong -= np.trace(chiv) * weight
-
-                elong += np.trace(chi0v.real)
-                e_w.append(elong)
-
-        E_w = np.zeros_like(self.omega_w)
-        self.blockcomm.all_gather(np.array(e_w), E_w)
-        energy = np.dot(E_w, self.weight_w) / (2 * np.pi)
-        return energy
+        E_w, energies = self.rpa.gather_energies(e_w)
+        return energies
 
 
 class KernelWave:

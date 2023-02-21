@@ -38,23 +38,14 @@ class ResponseGroundStateAdapter:
         self._calc = calc
 
     @staticmethod
-    def from_gpw_file(gpw, context=None):
+    def from_gpw_file(gpw, context):
         """Initiate the ground state adapter directly from a .gpw file."""
         from gpaw import GPAW, disable_dry_run
         assert Path(gpw).is_file()
 
-        if context is None:
-            def timer(*unused):
-                def __enter__(self):
-                    pass
+        context.print('Reading ground state calculation:\n  %s' % gpw)
 
-                def __exit__(self):
-                    pass
-        else:
-            timer = context.timer
-            context.print('Reading ground state calculation:\n  %s' % gpw)
-
-        with timer('Read ground state'):
+        with context.timer('Read ground state'):
             with disable_dry_run():
                 calc = GPAW(gpw, txt=None, communicator=mpi.serial_comm)
 
