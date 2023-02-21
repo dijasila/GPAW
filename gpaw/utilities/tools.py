@@ -464,4 +464,3 @@ class Spline:
             return guess
         else:
             return np.searchsorted(xi, x)
-
