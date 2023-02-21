@@ -49,6 +49,8 @@ class GCut:
         return len(self._cut_G)
 
     def spin_cut(self, array_GG, ns):
+        # Strange special case for spin-repeated arrays.
+        # Maybe we can get rid of this.
         if self._cut_G is None:
             return array_GG
 
@@ -57,16 +59,7 @@ class GCut:
         array_GG = array_GG.take(cut_sG, 0).take(cut_sG, 1)
         return array_GG
 
-    def cut_G(self, array_G):
-        return self._take_axes(array_G, [0])
-
-    def take_GG(self, array_GG):
-        return self._take_axes(array_GG, [0, 1])
-
-    def take_xGG(self, array_xGG):
-        return self._take_axes(array_xGG, [1, 2])
-
-    def _take_axes(self, array, axes):
+    def cut(self, array, axes=(0,)):
         if self._cut_G is None:
             return array
 
@@ -334,13 +327,13 @@ class RPACalculator:
     def calculate_energy_rpa(self, qpd, chi0_wGG, gcut, q_v=None):
         """Evaluate correlation energy from chi0."""
 
-        sqrtV_G = gcut.cut_G(self.coulomb.sqrtV(qpd, q_v))
+        sqrtV_G = gcut.cut(self.coulomb.sqrtV(qpd, q_v))
 
         nG = len(sqrtV_G)
 
         e_w = []
         for chi0_GG in chi0_wGG:
-            chi0_GG = gcut.take_GG(chi0_GG)
+            chi0_GG = gcut.cut(chi0_GG, [0, 1])
 
             e_GG = np.eye(nG) - chi0_GG * sqrtV_G * sqrtV_G[:, np.newaxis]
             e = np.log(np.linalg.det(e_GG)) + nG - np.trace(e_GG)

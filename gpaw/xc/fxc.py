@@ -258,7 +258,7 @@ class FXCCorrelation:
 
         qi = np.argsort(ibzq2_q)[0]
 
-        G_G = gcut.cut_G(qpd.G2_qG[0]**0.5)  # |G+q|
+        G_G = gcut.cut(qpd.G2_qG[0]**0.5)  # |G+q|
 
         nG = len(G_G)
         ns = len(chi0_swGG)
@@ -305,7 +305,7 @@ class FXCCorrelation:
 
         # Loop over frequencies
         for chi0_sGG in np.swapaxes(chi0_swGG, 0, 1):
-            chi0_sGG = gcut.take_xGG(chi0_sGG)
+            chi0_sGG = gcut.cut(chi0_sGG, [1, 2])
 
             if self.xcflags.spin_kernel:
                 chi0v_sGsG = get_chi0v_foreach_spin(chi0_sGG, G_G)
