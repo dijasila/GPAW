@@ -679,7 +679,6 @@ static PyObject * mpi_testall(MPIObject *self, PyObject *requests)
         {
           assert(o->buffer != NULL);
           Py_DECREF(o->buffer);
-          Py_ssize_t cnt = Py_REFCNT(o->buffer);
         }
         o->status = 0;
         Py_DECREF(o);
@@ -747,7 +746,6 @@ static PyObject * mpi_waitall(MPIObject *self, PyObject *requests)
      {
        assert(o->buffer != NULL);
        Py_DECREF(o->buffer);
-       Py_ssize_t cnt = Py_REFCNT(o->buffer);
      }
      o->status = 0;
      Py_DECREF(o);
