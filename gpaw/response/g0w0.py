@@ -55,7 +55,8 @@ class Sigma:
 
     def validate_inputs(self, inputs):
         from gpaw.utilities.tools import compare_dicts
-        equals = compare_dicts(inputs, self.inputs)
+        equals = compare_dicts(inputs, self.inputs, rel_tol=1e-14,
+                               abs_tol=1e-14)
         if not equals:
             raise RuntimeError('There exists a cache with mismatching input '
                                f'parameters: {inputs} != {self.inputs}.')

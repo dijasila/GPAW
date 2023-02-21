@@ -467,7 +467,7 @@ class Spline:
             return np.searchsorted(xi, x)
 
 
-def compare_dicts(dict1, dict2, rel_tol=1e-14, abs_tol=0.0):
+def compare_dicts(dict1, dict2, rel_tol=1e-14, abs_tol=1e-14):
     """
     Compare each key-value pair within dictionaries that contain nested data
     structures of arbitrary depth. If a kvp contains floats, you may specify
@@ -476,11 +476,12 @@ def compare_dicts(dict1, dict2, rel_tol=1e-14, abs_tol=0.0):
     :params dict1: Dictionary containing kvp to compare with other dictionary.
     :params dict2: Second dictionary.
     :params rel_tol: Maximum difference for being considered "close",
-    relative to the magnitude of the input values.
+    relative to the magnitude of the input values as defined by math.isclose().
     :params abs_tol: Maximum difference for being considered "close",
-    regardless of the magnitude of the input values.
+    regardless of the magnitude of the input values as defined by
+    math.isclose().
 
-    :returns: bool indicating keys don't match (False) or do match (True)
+    :returns: bool indicating kvp's don't match (False) or do match (True)
     """
     if dict1.keys() != dict2.keys():
         return False
