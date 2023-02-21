@@ -836,10 +836,9 @@ class G0W0Calculator:
                 Wdict[fxc_mode] = self.wcalc.calculate_ppa(rchi0,
                                                            fxc_mode=fxc_mode)
             else:
-                W_wGG = self.wcalc.calculate(rchi0,
-                                             fxc_mode=fxc_mode,
-                                             only_correlation=True,
-                                             out_dist='WgG')
+                W_wGG = self.wcalc.calculate_W_WgG(rchi0,
+                                                   fxc_mode=fxc_mode,
+                                                   only_correlation=True)
 
                 if (chi0calc.pawcorr is not None and
                     rqpd.ecut < chi0.qpd.ecut):

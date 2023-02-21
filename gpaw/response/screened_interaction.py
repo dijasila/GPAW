@@ -46,7 +46,7 @@ def initialize_w_calculator(chi0calc, context, *,
                           ns=gs.nspins,
                           context=context)
     if ppa:
-        wcalc = PPACalculator(E0, gs, context, qd=qd,
+        wcalc = PPACalculator(gs, context, qd=qd,
                               coulomb=coulomb, xckernel=xckernel,
                               integrate_gamma=integrate_gamma,
                               q0_correction=q0_correction)
@@ -144,10 +144,9 @@ class WBaseCalculator():
     
 class WCalculator(WBaseCalculator):
 
-    def calculate(self, chi0,
-                  fxc_mode='GW',
-                  only_correlation=False,
-                  out_dist='WgG'):
+    def calculate_W_WgG(self, chi0,
+                      fxc_mode='GW',
+                      only_correlation=False):
         """Calculate the screened interaction in W_wGG or W_WgG representation.
 
         Additional Parameters
@@ -157,21 +156,14 @@ class WCalculator(WBaseCalculator):
         out_dist: str
              specifices output distribution of W array (wGG or WgG)
         """
-        W_wGG = self._calculate(chi0, fxc_mode,
-                                only_correlation=only_correlation)
+        W_wGG = self.calculate_W_wGG(chi0, fxc_mode,
+                                     only_correlation=only_correlation)
         
-        if out_dist == 'WgG':
-            W_WgG = chi0.blockdist.distribute_as(W_wGG, chi0.nw, 'WgG')
-            W_x = W_WgG
-        elif out_dist == 'wGG':
-            W_x = W_wGG
-        else:
-            raise ValueError(f'Invalid out_dist {out_dist}')
+        W_WgG = chi0.blockdist.distribute_as(W_wGG, chi0.nw, 'WgG')
+        return W_WgG
 
-        return W_x
-
-    def _calculate(self, chi0, fxc_mode,
-                   only_correlation=False):
+    def calculate_W_wGG(self, chi0, fxc_mode='GW',
+                        only_correlation=False):
         """In-place calculation of the screened interaction."""
         chi0_wGG = chi0.copy_array_with_distribution('wGG')
         dfc = DielectricFunctionCalculator(chi0, self.coulomb,
@@ -261,10 +253,10 @@ class WCalculator(WBaseCalculator):
 
 class PPACalculator(WCalculator):
 
-    def __init__(self, E0, *args, **kwargs):
-        # E0 : float
-        #    Energy (in eV) used for fitting the plasmon-pole approximation
-        self.E0 = E0 / Ha  # eV -> Hartree
+    def __init__(self, *args, **kwargs):
+        assert len(chi0.wd.omega_w) == 2
+        # E0 directly related to frequency mesh for chi0
+        self.E0 = chi0.wd.omega_w[1].imag
         super().__init__(*args, **kwargs)
     
     def calculate_ppa(self, chi0,
