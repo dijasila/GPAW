@@ -178,21 +178,13 @@ class Chi0Calculator:
             Data object containing the chi0 data arrays along with basis
             representation descriptors and blocks distribution
         """
-        gs = self.gs
-
-        if spin == 'all':
-            spins = range(gs.nspins)
-        else:
-            assert spin in range(gs.nspins)
-            spins = [spin]
-
         chi0 = self.create_chi0(q_c)
-
         self.print_chi(chi0.qpd)
 
         # Do all transitions into partially filled and empty bands
         m1 = self.nocc1
         m2 = self.nbands
+        spins = self.get_spins(spin)
 
         if self.drude_calc is None or not chi0.optical_limit:
             chi0 = self.update_chi0(chi0, m1, m2, spins)
@@ -201,6 +193,16 @@ class Chi0Calculator:
             chi0 = self.update_chi0(chi0, m1, m2, spins, chi0_drude=chi0_drude)
 
         return chi0
+
+    def get_spins(self, spin):
+        nspins = self.gs.nspins
+        if spin == 'all':
+            spins = range(nspins)
+        else:
+            assert spin in range(nspins)
+            spins = [spin]
+
+        return spins
 
     @timer('Calculate CHI_0')
     def update_chi0(self,
@@ -730,7 +732,21 @@ class Chi0DrudeCalculator(Chi0Calculator):
         # Number of completely filled bands and number of non-empty bands.
         self.nocc1, self.nocc2 = self.gs.count_occupied_bands()
 
-    def create_chi0_drude(self, q_c):
+    def calculate(self, spin='all'):
+        chi0_drude = self.create_chi0_drude([0., 0., 0.])
+        # self.print_chi(chi0_drude.qpd)  # Do print XXX
+
+        # Change this XXX
+        # Do all transitions into partially filled and empty bands
+        m1 = self.nocc1
+        m2 = self.nocc2
+        spins = self.get_spins(spin)
+
+        self._update_chi0_drude(chi0_drude, m1, m2, spins)
+
+        return chi0_drude
+
+    def create_chi0_drude(self, q_c):  # Remove q_c
         # Create a dummy plane-wave descriptor. We need this for the symmetry
         # analysis -> see discussion in gpaw.response.jdos
         qpd = SingleQPWDescriptor.from_q(q_c, ecut=1e-3, gd=self.gs.gd)
