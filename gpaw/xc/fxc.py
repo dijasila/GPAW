@@ -183,7 +183,8 @@ class FXCCorrelation:
         return self.rpa.calculate(spin=self.gs.nspins > 1, nbands=nbands)
 
     @timer('Chi0(q)')
-    def calculate_q_fxc(self, chi0calc, chi0_s, m1, m2, cut_G):
+    def calculate_q_fxc(self, chi0calc, chi0_s, m1, m2, gcut):
+        cut_G = gcut.cut_G
         for s, chi0 in enumerate(chi0_s):
             chi0calc.update_chi0(chi0, m1, m2, [s])
 

@@ -206,20 +206,28 @@ class RPACalculator:
             p('# %s  -  %s' % (len(energy_qi), ctime().split()[-2]))
             p('q = [%1.3f %1.3f %1.3f]' % tuple(q_c))
 
+
+            class GCut:
+                def __init__(self, cut_G):
+                    self.cut_G = cut_G
+
+                def cut(self, array):
+                    return array[self.cut_G]
+
             energy_i = []
             for ecut in ecut_i:
                 if ecut == ecutmax:
                     # Nothing to cut away:
-                    cut_G = None
+                    gcut = GCut(None)
                     m2 = nbands or nG
                 else:
-                    cut_G = np.arange(nG)[qpd.G2_qG[0] <= 2 * ecut]
-                    m2 = len(cut_G)
+                    gcut = GCut(np.arange(nG)[qpd.G2_qG[0] <= 2 * ecut])
+                    m2 = len(gcut.cut_G)
 
                 p('E_cut = %d eV / Bands = %d:' % (ecut * Hartree, m2),
                   end='\n', flush=True)
 
-                energy = self.calculate_q(chi0calc, chi0_s, m1, m2, cut_G)
+                energy = self.calculate_q(chi0calc, chi0_s, m1, m2, gcut)
 
                 energy_i.append(energy)
                 m1 = m2
@@ -259,7 +267,8 @@ class RPACalculator:
 
     @timer('chi0(q)')
     def calculate_q_rpa(self, chi0calc, chi0_s,
-                        m1, m2, cut_G):
+                        m1, m2, gcut):
+        cut_G = gcut.cut_G
         chi0 = chi0_s[0]
         chi0calc.update_chi0(chi0,
                              m1, m2, spins='all')
