@@ -219,9 +219,7 @@ class RPACalculator:
                 p('E_cut = %d eV / Bands = %d:' % (ecut * Hartree, m2),
                   end='\n', flush=True)
 
-                energy = self.calculate_q(chi0calc,
-                                          chi0_s,
-                                          m1, m2, cut_G)
+                energy = self.calculate_q(chi0calc, chi0_s, m1, m2, cut_G)
 
                 energy_i.append(energy)
                 m1 = m2

@@ -498,12 +498,10 @@ class KernelWave:
                         Gphase=phase_Gpq,
                         spincorr=spincorr)
 
-                fv_nospin_GG[iG, iG:] = scaled_fHxc(
-                    spincorr=False)
+                fv_nospin_GG[iG, iG:] = scaled_fHxc(spincorr=False)
 
                 if calc_spincorr:
-                    fv_spincorr_GG[iG, iG:] = scaled_fHxc(
-                        spincorr=True)
+                    fv_spincorr_GG[iG, iG:] = scaled_fHxc(spincorr=True)
             else:
                 # head and wings of q=0 are dominated by
                 # 1/q^2 divergence of scaled Coulomb interaction
