@@ -262,7 +262,7 @@ class Chi0Calculator:
                 self._update_chi0_wings(chi0, m1, m2, spins)
 
                 # Update the drude contribution and add it to the head
-                self.drude_calc._update_chi0_drude(chi0_drude, m1, m2, spins)
+                self.drude_calc._calculate(chi0_drude, spins)
                 chi0.chi0_Wvv[:] += chi0_drude.chi_Wvv
             else:
                 # Just update the head and wings
@@ -278,8 +278,9 @@ class Chi0Calculator:
 
         integrator = self.initialize_integrator()
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
-        mat_kwargs, eig_kwargs = self.get_integrator_arguments(qpd, m1, m2,
-                                                               analyzer)
+        bandsum = self.get_band_summation(m1, m2)
+        mat_kwargs, eig_kwargs = self.get_integrator_arguments(qpd, analyzer,
+                                                               bandsum)
         kind, extraargs = self.get_integral_kind()
 
         get_matrix_element = partial(
@@ -328,8 +329,9 @@ class Chi0Calculator:
 
         integrator = self.initialize_integrator(block_distributed=False)
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
-        mat_kwargs, eig_kwargs = self.get_integrator_arguments(qpd, m1, m2,
-                                                               analyzer)
+        bandsum = self.get_band_summation(m1, m2)
+        mat_kwargs, eig_kwargs = self.get_integrator_arguments(qpd, analyzer,
+                                                               bandsum)
         kind, extraargs = self.get_integral_kind()
 
         get_optical_matrix_element = partial(
@@ -434,14 +436,13 @@ class Chi0Calculator:
 
         return domain, analyzer, prefactor
 
-    def get_integrator_arguments(self, qpd, m1, m2, analyzer):
+    def get_integrator_arguments(self, qpd, analyzer, bandsum):
         # Prepare keyword arguments for the integrator
         mat_kwargs = {'qpd': qpd,
                       'symmetry': analyzer,
                       'integrationmode': self.integrationmode}
         eig_kwargs = {'qpd': qpd}
 
-        bandsum = self.get_band_summation(m1, m2)
         mat_kwargs.update(bandsum)
         eig_kwargs.update(bandsum)
 
@@ -733,16 +734,12 @@ class Chi0DrudeCalculator(Chi0Calculator):
         self.nocc1, self.nocc2 = self.gs.count_occupied_bands()
 
     def calculate(self, spin='all'):
-        chi0_drude = self.create_chi0_drude([0., 0., 0.])
+        # Parse the spin input
+        spins = self.get_spins(spin)
         # self.print_chi(chi0_drude.qpd)  # Do print XXX
 
-        # Change this XXX
-        # Do all transitions into partially filled and empty bands
-        m1 = self.nocc1
-        m2 = self.nocc2
-        spins = self.get_spins(spin)
-
-        self._update_chi0_drude(chi0_drude, m1, m2, spins)
+        chi0_drude = self.create_chi0_drude([0., 0., 0.])
+        self._calculate(chi0_drude, spins)
 
         return chi0_drude
 
@@ -755,9 +752,7 @@ class Chi0DrudeCalculator(Chi0Calculator):
 
         return chi0_drude
 
-    def _update_chi0_drude(self,
-                           chi0_drude: Chi0DrudeData,
-                           m1, m2, spins):
+    def _calculate(self, chi0_drude: Chi0DrudeData, spins):
         """In-place calculation of the Drude dielectric response function,
         based on the free-space plasma frequency of the intraband transitions.
         """
@@ -765,8 +760,9 @@ class Chi0DrudeCalculator(Chi0Calculator):
 
         integrator = self.initialize_integrator()
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
-        mat_kwargs, eig_kwargs = self.get_integrator_arguments(
-            qpd, m1, m2, analyzer)
+        bandsum = self.get_band_summation()
+        mat_kwargs, eig_kwargs = self.get_integrator_arguments(qpd, analyzer,
+                                                               bandsum)
         kind, extraargs = self.get_integral_kind()
 
         get_plasmafreq_matrix_element = partial(
@@ -807,16 +803,11 @@ class Chi0DrudeCalculator(Chi0Calculator):
         """The Drude calculator uses only standard integrator kwargs."""
         pass
 
-    def get_band_summation(self, m1, m2):
-        """Define band summation"""
+    def get_band_summation(self):
+        """Define the band summation."""
         # When doing a calculation of the intraband response, we need only to
         # integrate the partially unoccupied bands.
-        # All partially unoccupied bands looks like this:
-        # bandsum = {'n1': self.nocc1, 'n2': self.nocc2}
-        # Do the requested fraction of the partially unoccupied bands.
-        n1 = max(min(m1, self.nocc2), self.nocc1)
-        n2 = min(max(m2, self.nocc1), self.nocc2)
-        bandsum = {'n1': n1, 'n2': n2}
+        bandsum = {'n1': self.nocc1, 'n2': self.nocc2}
 
         return bandsum
 
