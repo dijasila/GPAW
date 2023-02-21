@@ -129,7 +129,7 @@ class LCAOHamiltonian(Hamiltonian):
                                              state: DFTState
                                              ) -> HamiltonianMatrixCalculator:
         V_sxMM = [self.basis.calculate_potential_matrices(vt_R.data)
-                  for vt_R in state.potential.vt_sR]
+                  for vt_R in state.potential.vt_sR.to_xp(np)]
 
         dH_saii = [{a: dH_sii[s]
                     for a, dH_sii

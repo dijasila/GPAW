@@ -6,14 +6,15 @@ from gpaw.typing import Vector
 from gpaw.core.atom_centered_functions import AtomArraysLayout
 from gpaw.utilities import unpack2, unpack
 from gpaw.core.atom_arrays import AtomArrays
+from gpaw.core.uniform_grid import UniformGridFunctions
 
 
 class Density:
     def __init__(self,
-                 nt_sR,
-                 D_asii,
-                 charge,
-                 delta_aiiL,
+                 nt_sR: UniformGridFunctions,
+                 D_asii: AtomArrays,
+                 charge: float,
+                 delta_aiiL: list,
                  delta0_a,
                  N0_aii,
                  l_aj):
@@ -80,13 +81,14 @@ class Density:
     def symmetrize(self, symmetries):
         self.nt_sR.symmetrize(symmetries.rotation_scc,
                               symmetries.translation_sc)
-
+        xp = self.nt_sR.xp
         D_asii = self.D_asii.gather(broadcast=True, copy=True)
         for a1, D_sii in self.D_asii.items():
             D_sii[:] = 0.0
             for a2, rotation_ii in zip(symmetries.a_sa[:, a1],
                                        symmetries.rotations(self.l_aj[a1])):
-                D_sii += np.einsum('ij, sjk, lk -> sil',
+                rotation_ii = xp.asarray(rotation_ii)
+                D_sii += xp.einsum('ij, sjk, lk -> sil',
                                    rotation_ii, D_asii[a2], rotation_ii)
         self.D_asii.data *= 1.0 / len(symmetries)
 

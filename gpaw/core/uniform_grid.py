@@ -692,6 +692,8 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
             return
 
         a_xR = self.gather()
+        if self.xp is not np:
+            a_xR = a_xR.to_xp(np)
 
         if a_xR is None:
             b_xR = None
@@ -704,6 +706,8 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
                 for r_cc, t_c in zip(rotation_scc, t_sc):
                     _gpaw.symmetrize_ft(a_R, b_R, r_cc, t_c, offset_c)
 
+        if self.xp is not np:
+            b_xR = b_xR.to_xp(self.xp)
         self.scatter_from(b_xR)
 
         self.data *= 1.0 / len(rotation_scc)

@@ -109,7 +109,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         # background charge ???
 
         self.poisson_solver.solve(vHt_h, charge_h)
-        e_coulomb = 0.5 * vHt_h.integrate(charge_h)
+        e_coulomb = 0.5 * float(vHt_h.integrate(charge_h))
 
         if pw.comm.rank == 0:
             vt0_g = self.vbar0_g.copy()
@@ -153,7 +153,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                 e_kinetic -= vt_R.integrate(density.nt_sR[spin])
                 if spin < density.ndensities:
                     e_kinetic += vt_R.integrate(self.nct_R)
-        return e_kinetic
+        return float(e_kinetic)
 
     def restrict(self, vt_sr):
         vt_sR = self.grid.empty(vt_sr.dims)

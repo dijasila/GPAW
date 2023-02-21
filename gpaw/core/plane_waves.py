@@ -486,8 +486,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
                    out: UniformGridFunctions = None) -> None:
         """Add weighted absolute square of data to output array."""
         assert out is not None
-        xp = self.xp
-        if xp is np:
+        if self.xp is np:
             tmp_R = out.desc.new(dtype=self.desc.dtype).empty()
             for f, psit_G in zip(weights, self):
                 # Same as (but much faster):
@@ -495,12 +494,10 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
                 psit_G.ifft(out=tmp_R)
                 _gpaw.add_to_density(f, tmp_R.data, out.data)
             return
-        out_R = out.to_xp(xp)
-        tmp_R = out_R.desc.new(dtype=self.desc.dtype).empty(xp=xp)
+        tmp_R = out.desc.new(dtype=self.desc.dtype).empty(xp=self.xp)
         for f, psit_G in zip(weights, self):
             psit_G.ifft(out=tmp_R)
-            out_R.data += float(f) * xp.abs(tmp_R.data)**2
-        out.data[:] = xp.asnumpy(out_R.data)
+            out.data += float(f) * self.xp.abs(tmp_R.data)**2
 
     def to_pbc_grid(self):
         return self

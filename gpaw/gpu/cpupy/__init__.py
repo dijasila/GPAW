@@ -184,6 +184,11 @@ class ndarray:
             return ndarray(f + self._data)
         return ndarray(f._data + self._data)
 
+    def __sub__(self, f):
+        if isinstance(f, float):
+            return ndarray(self._data - f)
+        return ndarray(self._data - f._data)
+
     def __rsub__(self, f):
         return ndarray(f - self._data)
 
