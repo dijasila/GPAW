@@ -38,23 +38,14 @@ class ResponseGroundStateAdapter:
         self._calc = calc
 
     @staticmethod
-    def from_gpw_file(gpw, context=None):
+    def from_gpw_file(gpw, context):
         """Initiate the ground state adapter directly from a .gpw file."""
         from gpaw import GPAW, disable_dry_run
         assert Path(gpw).is_file()
 
-        if context is None:
-            def timer(*unused):
-                def __enter__(self):
-                    pass
+        context.print('Reading ground state calculation:\n  %s' % gpw)
 
-                def __exit__(self):
-                    pass
-        else:
-            timer = context.timer
-            context.print('Reading ground state calculation:\n  %s' % gpw)
-
-        with timer('Read ground state'):
+        with context.timer('Read ground state'):
             with disable_dry_run():
                 calc = GPAW(gpw, txt=None, communicator=mpi.serial_comm)
 
@@ -175,7 +166,13 @@ class ResponseGroundStateAdapter:
         # gd.cell_cv must always be the same as pd.gd.cell_cv, right??
         return np.dot(self.spos_ac, self.gd.cell_cv)
 
-    def count_occupied_bands(self, ftol):
+    def count_occupied_bands(self, ftol=1e-6):
+        """Count the number of filled and non-empty bands.
+
+        ftol : float
+            Threshold determining whether a band is completely filled
+            (f > 1 - ftol) or completely empty (f < ftol).
+        """
         nocc1 = 9999999
         nocc2 = 0
         for kpt in self.kpt_u:

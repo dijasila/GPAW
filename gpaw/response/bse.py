@@ -162,7 +162,7 @@ class BSEBackend:
         self.pair = PairDensityCalculator(
             gs=self.gs,
             context=ResponseContext(txt='pair.txt', timer=None,
-                                    world=serial_comm))
+                                    comm=serial_comm))
 
         # Calculate direct (screened) interaction and PAW corrections
         if self.mode == 'RPA':
@@ -444,7 +444,7 @@ class BSEBackend:
         if self._chi0calc is None:
             self.initialize_chi0_calculator()
         if self._wcalc is None:
-            wcontext = ResponseContext(txt='w.txt', world=world)
+            wcontext = ResponseContext(txt='w.txt', comm=world)
             self._wcalc = initialize_w_calculator(
                 self._chi0calc, wcontext,
                 coulomb=self.coulomb,
@@ -453,7 +453,7 @@ class BSEBackend:
         self.context.print('Calculating screened potential')
         for iq, q_c in enumerate(self.qd.ibzk_kc):
             chi0 = self._chi0calc.calculate(q_c)
-            W_wGG = self._wcalc.calculate(chi0, out_dist='WgG')
+            W_wGG = self._wcalc.calculate_W_wGG(chi0)
             W_GG = W_wGG[0]
             self.pawcorr_q.append(self._chi0calc.pawcorr)
             self.qpd_q.append(chi0.qpd)

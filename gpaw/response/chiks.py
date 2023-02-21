@@ -99,7 +99,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
         context : ResponseContext
         nblocks : int
             Distribute the chiks_zGG array into nblocks (where nblocks is a
-            divisor of context.world.size)
+            divisor of context.comm.size)
         ecut : float (or None)
             Plane-wave cutoff in eV
         gammacentered : bool
@@ -226,7 +226,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
             distribution = 'GZg'
         else:
             distribution = 'ZgG'
-        blockdist = PlaneWaveBlockDistributor(self.context.world,
+        blockdist = PlaneWaveBlockDistributor(self.context.comm,
                                               self.blockcomm,
                                               self.intrablockcomm)
 
