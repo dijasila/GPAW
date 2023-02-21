@@ -1,7 +1,6 @@
 import numpy as np
 from math import pi
 from gpaw.response.q0_correction import Q0Correction
-from ase.units import Ha
 from ase.dft.kpoints import monkhorst_pack
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.temp import DielectricFunctionCalculator
@@ -103,13 +102,13 @@ class WCalculator:
             self.q0_corrector = None
 
     def calculate_W_WgG(self, chi0,
-                  fxc_mode='GW',
-                  only_correlation=False):
+                        fxc_mode='GW',
+                        only_correlation=False):
         """Calculate the screened interaction.
         Returns W_WgG (W matrix parallized over G)
         """
         W_wGG = self.calculate_W_wGG(chi0, fxc_mode,
-                                   only_correlation=only_correlation)
+                                     only_correlation=only_correlation)
         
         W_WgG = chi0.blockdist.distribute_as(W_wGG, chi0.nw, 'WgG')
         return W_WgG
@@ -147,7 +146,7 @@ class WCalculator:
         W_GG[1:, 0] = einv_GG[1:, 0] * sqrtV0 * sqrtV_G[1:]
 
     def calculate_W_wGG(self, chi0, fxc_mode='GW',
-                   only_correlation=False):
+                        only_correlation=False):
         """Calculates W matrix parallized over frequencies (W_wGG)
         Parameters
         ----------
@@ -200,12 +199,15 @@ class WCalculator:
             Energy (in eV) used for fitting the plasmon-pole approximation
             chi0 : chi0Data object
             fxc_mode: str
-                Where to include the vertex corrections; polarizability and/or
-                self-energy. 'GWP': Polarizability only, 'GWS': Self-energy only,
+                Where to include the vertex corrections;
+                polarizability and/or self-energy.
+                'GWP': Polarizability only,
+                'GWS': Self-energy only,
                 'GWG': Both.
         """
         assert len(chi0.wd.omega_w) == 2
-        E0 = chi0.wd.omega_w[1].imag  # E0 directly related to frequency mesh for chi0
+        # E0 directly related to frequency mesh for chi0
+        E0 = chi0.wd.omega_w[1].imag
         dfc = DielectricFunctionCalculator(chi0,
                                            self.coulomb,
                                            self.xckernel,
@@ -224,7 +226,6 @@ class WCalculator:
 
         self.context.timer.stop('Dyson eq.')
         return [W_GG, omegat_GG]
-
     
     def dyson_and_W_new(self, iq, q_c, chi0, ecut, coulomb):
         # assert not self.ppa
