@@ -771,18 +771,10 @@ class Chi0DrudeCalculator(Chi0Calculator):
 
         # Calculate the Drude dielectric response function from the
         # free-space plasma frequency
-        try:
-            with np.errstate(divide='raise'):
-                # drude_chi_Wvv = (
-                #     plasmafreq_vv[np.newaxis] /
-                #     (chi0_drude.wd.omega_w[:, np.newaxis, np.newaxis]
-                #      + 1.j * chi0_drude.rate)**2)
-                drude_chi_Zvv = plasmafreq_vv[np.newaxis] \
-                    / chi0_drude.zd.hz_z[:, np.newaxis, np.newaxis]**2
-        except FloatingPointError:
-            raise ValueError('Please evaluate the Drude response in the '
-                             'upper-half complex frequency plane.')
-        chi0_drude.chi_Zvv += drude_chi_Zvv
+        # χ_D(ω+iη) = ω_p^2 / (ω+iη)^2
+        assert chi0_drude.zd.upper_half_plane
+        chi0_drude.chi_Zvv += plasmafreq_vv[np.newaxis] \
+            / chi0_drude.zd.hz_z[:, np.newaxis, np.newaxis]**2
 
     def update_integrator_kwargs(self, *unused, **ignored):
         """The Drude calculator uses only standard integrator kwargs."""
