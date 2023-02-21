@@ -181,7 +181,7 @@ class Chi0Calculator:
             representation descriptors and blocks distribution
         """
         chi0 = self.create_chi0(q_c)
-        self.print_chi(chi0.qpd)
+        self.print_info(chi0.qpd)
 
         # Do all transitions into partially filled and empty bands
         m1 = self.nocc1
@@ -630,7 +630,7 @@ class Chi0Calculator:
 
         return deps_nm.reshape(-1)
 
-    def print_chi(self, qpd):  # rename XXX
+    def print_info(self, qpd):
 
         if gpaw.dry_run:
             from gpaw.mpi import SerialCommunicator
