@@ -507,7 +507,6 @@ static PyObject * mpi_receive(MPIObject *self, PyObject *args, PyObject *kwargs)
       if (req == NULL) return NULL;
       req->buffer = (PyObject*)a;
       Py_INCREF(req->buffer);
-      printf("Increasing reference counter at receive.\n");
 #ifndef GPAW_MPI_DEBUG
       MPI_Irecv(Array_BYTES(a), n, MPI_BYTE, src, tag, self->comm, &(req->rq));
 #else
@@ -557,7 +556,6 @@ static PyObject * mpi_send(MPIObject *self, PyObject *args, PyObject *kwargs)
       GPAW_MPI_Request *req = NewMPIRequest();
       req->buffer = (PyObject*)a;
       Py_INCREF(a);
-      printf("Increasing reference counter at send.\n");
 #ifndef GPAW_MPI_DEBUG
       MPI_Isend(Array_BYTES(a), n, MPI_BYTE, dest, tag, self->comm,
                 &(req->rq));
@@ -683,7 +681,6 @@ static PyObject * mpi_testall(MPIObject *self, PyObject *requests)
           assert(o->buffer != NULL);
           Py_DECREF(o->buffer);
           Py_ssize_t cnt = Py_REFCNT(o->buffer);
-          printf("Decref at testall, refcount now %zu\n", cnt);
         }
         o->status = 0;
         Py_DECREF(o);
@@ -752,7 +749,6 @@ static PyObject * mpi_waitall(MPIObject *self, PyObject *requests)
        assert(o->buffer != NULL);
        Py_DECREF(o->buffer);
        Py_ssize_t cnt = Py_REFCNT(o->buffer);
-       printf("1 Decref at waittall, refcount now %zu\n", cnt);
      }
      o->status = 0;
      Py_DECREF(o);
@@ -918,7 +914,6 @@ static PyObject * mpi_reduce(MPIObject *self, PyObject *args, PyObject *kwargs,
           if (rank == root)
             {
 #ifdef GPAW_MPI2
-  printf("MPI_Reduce MPI_IN_PLACE\n");
               MPI_Reduce(MPI_IN_PLACE, Array_BYTES(aobj), n,
                          datatype, operation, root, self->comm);
 #else
