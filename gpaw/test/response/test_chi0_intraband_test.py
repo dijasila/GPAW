@@ -46,8 +46,8 @@ def test_chi0_intraband(in_tmp_dir):
     df1NLFCx, df1LFCx = df1.get_dielectric_function(direction='x')
     df1NLFCy, df1LFCy = df1.get_dielectric_function(direction='y')
     df1NLFCz, df1LFCz = df1.get_dielectric_function(direction='z')
-    wp1_vv = df1.chi0calc.drude_calc.plasmafreq_vv**0.5
-    wp1 = wp1_vv[0, 0]
+    chi0_drude = df1.chi0calc.drude_calc.calculate()
+    wp1 = chi0_drude.plasmafreq_vv[0, 0]**0.5
 
     df2 = DielectricFunction('intraband_spinpaired.gpw',
                              frequencies={'type': 'nonlinear',
@@ -59,8 +59,8 @@ def test_chi0_intraband(in_tmp_dir):
     df2NLFCx, df2LFCx = df2.get_dielectric_function(direction='x')
     df2NLFCy, df2LFCy = df2.get_dielectric_function(direction='y')
     df2NLFCz, df2LFCz = df2.get_dielectric_function(direction='z')
-    wp2_vv = df2.chi0calc.drude_calc.plasmafreq_vv**0.5
-    wp2 = wp2_vv[0, 0]
+    chi0_drude = df2.chi0calc.drude_calc.calculate()
+    wp2 = chi0_drude.plasmafreq_vv[0, 0]**0.5
 
     df3 = DielectricFunction('intraband_spinpolarized.gpw',
                              frequencies={'type': 'nonlinear',
@@ -73,8 +73,8 @@ def test_chi0_intraband(in_tmp_dir):
     df3NLFCx, df3LFCx = df3.get_dielectric_function(direction='x')
     df3NLFCy, df3LFCy = df3.get_dielectric_function(direction='y')
     df3NLFCz, df3LFCz = df3.get_dielectric_function(direction='z')
-    wp3_vv = df3.chi0calc.drude_calc.plasmafreq_vv**0.5
-    wp3 = wp3_vv[0, 0]
+    chi0_drude = df3.chi0calc.drude_calc.calculate()
+    wp3 = chi0_drude.plasmafreq_vv[0, 0]**0.5
 
     df4 = DielectricFunction('intraband_spinpolarized.gpw',
                              frequencies={'type': 'nonlinear',
@@ -87,8 +87,8 @@ def test_chi0_intraband(in_tmp_dir):
     df4NLFCx, df4LFCx = df4.get_dielectric_function(direction='x')
     df4NLFCy, df4LFCy = df4.get_dielectric_function(direction='y')
     df4NLFCz, df4LFCz = df4.get_dielectric_function(direction='z')
-    wp4_vv = df4.chi0calc.drude_calc.plasmafreq_vv**0.5
-    wp4 = wp4_vv[0, 0]
+    chi0_drude = df4.chi0calc.drude_calc.calculate()
+    wp4 = chi0_drude.plasmafreq_vv[0, 0]**0.5
     
     # Compare plasmon frequencies and intensities
     w_w = df1.chi0calc.wd.omega_w
