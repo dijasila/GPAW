@@ -250,7 +250,7 @@ class WCalculator(WBaseCalculator):
         return chi0.qpd, Wm_wGG, Wp_wGG  # not Hilbert transformed yet
 
 
-class PPACalculator(WCalculator):
+class PPACalculator(WBaseCalculator):
 
     def calculate_ppa(self, chi0,
                       fxc_mode='GW'):

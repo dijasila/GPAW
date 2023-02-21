@@ -40,6 +40,34 @@ def rpa(filename, ecut=200.0, blocks=1, extrapolate=4):
     rpa.calculate()
 
 
+class GCut:
+    def __init__(self, cut_G):
+        self._cut_G = cut_G
+
+    @property
+    def nG(self):
+        return len(self._cut_G)
+
+    def spin_cut(self, array_GG, ns):
+        # Strange special case for spin-repeated arrays.
+        # Maybe we can get rid of this.
+        if self._cut_G is None:
+            return array_GG
+
+        cut_sG = np.tile(self._cut_G, ns)
+        cut_sG[self.nG:] += len(array_GG) // ns
+        array_GG = array_GG.take(cut_sG, 0).take(cut_sG, 1)
+        return array_GG
+
+    def cut(self, array, axes=(0,)):
+        if self._cut_G is None:
+            return array
+
+        for axis in axes:
+            array = array.take(self._cut_G, axis)
+        return array
+
+
 def initialize_q_points(kd, qsym):
     bzq_qc = kd.get_bz_q_points(first=True)
 
@@ -210,18 +238,16 @@ class RPACalculator:
             for ecut in ecut_i:
                 if ecut == ecutmax:
                     # Nothing to cut away:
-                    cut_G = None
+                    gcut = GCut(None)
                     m2 = nbands or nG
                 else:
-                    cut_G = np.arange(nG)[qpd.G2_qG[0] <= 2 * ecut]
-                    m2 = len(cut_G)
+                    gcut = GCut(np.arange(nG)[qpd.G2_qG[0] <= 2 * ecut])
+                    m2 = gcut.nG
 
                 p('E_cut = %d eV / Bands = %d:' % (ecut * Hartree, m2),
                   end='\n', flush=True)
 
-                energy = self.calculate_q(chi0calc,
-                                          chi0_s,
-                                          m1, m2, cut_G)
+                energy = self.calculate_q(chi0calc, chi0_s, m1, m2, gcut)
 
                 energy_i.append(energy)
                 m1 = m2
@@ -261,7 +287,7 @@ class RPACalculator:
 
     @timer('chi0(q)')
     def calculate_q_rpa(self, chi0calc, chi0_s,
-                        m1, m2, cut_G):
+                        m1, m2, gcut):
         chi0 = chi0_s[0]
         chi0calc.update_chi0(chi0,
                              m1, m2, spins='all')
@@ -272,7 +298,7 @@ class RPACalculator:
 
         kd = self.gs.kd
         if not chi0.qpd.kd.gamma:
-            e = self.calculate_energy_rpa(chi0.qpd, chi0_wGG, cut_G)
+            e = self.calculate_energy_rpa(chi0.qpd, chi0_wGG, gcut)
             self.context.print('%.3f eV' % (e * Hartree))
         else:
             from gpaw.response.gamma_int import GammaIntegrator
@@ -290,7 +316,7 @@ class RPACalculator:
             for iqf in range(len(gamma_int.qf_qv)):
                 for iw in range(wblocks.nlocal):
                     gamma_int.set_appendages(chi0_wGG[iw], iw, iqf)
-                ev = self.calculate_energy_rpa(chi0.qpd, chi0_wGG, cut_G,
+                ev = self.calculate_energy_rpa(chi0.qpd, chi0_wGG, gcut,
                                                q_v=gamma_int.qf_qv[iqf])
                 e += ev * gamma_int.weight_q
             self.context.print('%.3f eV' % (e * Hartree))
@@ -298,19 +324,16 @@ class RPACalculator:
         return e
 
     @timer('Energy')
-    def calculate_energy_rpa(self, qpd, chi0_wGG, cut_G, q_v=None):
+    def calculate_energy_rpa(self, qpd, chi0_wGG, gcut, q_v=None):
         """Evaluate correlation energy from chi0."""
 
-        sqrtV_G = self.coulomb.sqrtV(qpd, q_v)
+        sqrtV_G = gcut.cut(self.coulomb.sqrtV(qpd, q_v))
 
-        if cut_G is not None:
-            sqrtV_G = sqrtV_G[cut_G]
         nG = len(sqrtV_G)
 
         e_w = []
         for chi0_GG in chi0_wGG:
-            if cut_G is not None:
-                chi0_GG = chi0_GG.take(cut_G, 0).take(cut_G, 1)
+            chi0_GG = gcut.cut(chi0_GG, [0, 1])
 
             e_GG = np.eye(nG) - chi0_GG * sqrtV_G * sqrtV_G[:, np.newaxis]
             e = np.log(np.linalg.det(e_GG)) + nG - np.trace(e_GG)

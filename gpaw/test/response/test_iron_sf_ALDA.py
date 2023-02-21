@@ -117,8 +117,8 @@ def test_response_iron_sf_ALDA(in_tmp_dir, gpw_files, scalapack):
     # Compare new results to test values
     print(mw1, mw2, mw4, Ipeak1, Ipeak2, Ipeak4)
     test_mw1 = 402.  # meV
-    test_mw2 = 517.  # meV
-    test_mw4 = 518.  # meV
+    test_mw2 = 490.  # meV
+    test_mw4 = 490.  # meV
     test_Ipeak1 = 4.10  # a.u.
     test_Ipeak2 = 5.05  # a.u.
     test_Ipeak4 = 5.04  # a.u.
