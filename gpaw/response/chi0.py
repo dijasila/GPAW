@@ -631,8 +631,6 @@ class Chi0Calculator:
         return deps_nm.reshape(-1)
 
     def print_chi(self, qpd):
-        gs = self.gs
-        gd = gs.gd
 
         if gpaw.dry_run:
             from gpaw.mpi import SerialCommunicator
@@ -645,26 +643,21 @@ class Chi0Calculator:
         q_c = qpd.q_c
         nw = len(self.wd)
         ecut = self.ecut * Ha
-        ns = gs.nspins
         nbands = self.nbands
-        nk = gs.kd.nbzkpts
-        nik = gs.kd.nibzkpts
         ngmax = qpd.ngmax
         eta = self.eta * Ha
         csize = comm.size
         knsize = self.kncomm.size
-        nocc = self.nocc1
-        npocc = self.nocc2
-        ngridpoints = gd.N_c[0] * gd.N_c[1] * gd.N_c[2]
-        nstat = (ns * npocc + csize - 1) // csize
-        occsize = nstat * ngridpoints * 16. / 1024**2
         bsize = self.blockcomm.size
         chisize = nw * qpd.ngmax**2 * 16. / 1024**2 / bsize
 
         p = partial(self.context.print, flush=False)
 
         p('%s' % ctime())
-        p('Called response.chi0.calculate with')
+        p('Called response.chi0.calculate with:')
+        p(self.get_gs_info_string(tab='    '))
+        p()
+        p('    Linear response parametrization:')
         p('    q_c: [%f, %f, %f]' % (q_c[0], q_c[1], q_c[2]))
         p('    Number of frequency points: %d' % nw)
         if bsize > nw:
@@ -672,24 +665,43 @@ class Chi0Calculator:
               ' points. Errors might occur, if your submodule does'
               ' not know how to handle this.')
         p('    Planewave cutoff: %f' % ecut)
-        p('    Number of spins: %d' % ns)
         p('    Number of bands: %d' % nbands)
-        p('    Number of kpoints: %d' % nk)
-        p('    Number of irredicible kpoints: %d' % nik)
         p('    Number of planewaves: %d' % ngmax)
         p('    Broadening (eta): %f' % eta)
         p('    comm.size: %d' % csize)
         p('    kncomm.size: %d' % knsize)
         p('    blockcomm.size: %d' % bsize)
-        p('    Number of completely occupied states: %d' % nocc)
-        p('    Number of partially occupied states: %d' % npocc)
         p()
         p('    Memory estimate of potentially large arrays:')
         p('        chi0_wGG: %f M / cpu' % chisize)
-        p('        Occupied states: %f M / cpu' % occsize)
         p('        Memory usage before allocation: %f M / cpu' % (maxrss() /
                                                                   1024**2))
         self.context.print('')
+
+    def get_gs_info_string(self, tab=''):
+        gs = self.gs
+        gd = gs.gd
+
+        ns = gs.nspins
+        nk = gs.kd.nbzkpts
+        nik = gs.kd.nibzkpts
+
+        nocc = self.nocc1
+        npocc = self.nocc2
+        ngridpoints = gd.N_c[0] * gd.N_c[1] * gd.N_c[2]
+        nstat = ns * npocc
+        occsize = nstat * ngridpoints * 16. / 1024**2
+
+        nls = '\n' + tab  # newline string
+        gs_str = tab + 'Ground state adapter containing:'
+        gs_str += nls + 'Number of spins: %d' % ns
+        gs_str += nls + 'Number of kpoints: %d' % nk
+        gs_str += nls + 'Number of irredicible kpoints: %d' % nik
+        gs_str += nls + 'Number of completely occupied states: %d' % nocc
+        gs_str += nls + 'Number of partially occupied states: %d' % npocc
+        gs_str += nls + 'Occupied states memory: %f M / cpu' % occsize
+
+        return gs_str
 
 
 class Chi0DrudeCalculator(Chi0Calculator):
