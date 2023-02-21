@@ -266,18 +266,18 @@ def gemm(pA, pB, pC):
     for independent_slices in load_balance_work():
         send_requests = []
         for i, (rankA, localindexA, rankB, localindexB, rankC, localindexC, beg1, end1, beg, end, beg2, end2) in enumerate(independent_slices):
-            #sends = []
+            sends = []
             #print('writerrank:', comm.rank, 'send', rankA, rankB, rankC, beg1, end1, beg, end, beg2, end2)
             #xp.cuda.runtime.deviceSynchronize()
             if comm.rank == rankA:
                 if rankA != rankC:
                     item, value = pA.data.myblocks[localindexA]
                     b1, e1, b2, e2 = item[0].start, item[0].stop, item[1].start, item[1].stop
-                    A = value[beg1-b1:end1-b1, beg-b2:end-b2].copy() # Copy to be contiguous
-                    #sends.append((A, 0+i*5))
-                    if xp is cupy:
-                         xp.cuda.runtime.deviceSynchronize()
-                    send_requests.append(comm.send(A, rankC, block=False, tag=0+i*5))
+                    A = xp.ascontiguousarray(value[beg1-b1:end1-b1, beg-b2:end-b2])#.copy() # Copy to be contiguous
+                    sends.append((A, 0+i*5))
+                    #if xp is cupy:
+                    #     xp.cuda.runtime.deviceSynchronize()
+                    #send_requests.append(comm.send(A, rankC, block=False, tag=0+i*5))
                     #print('writerrank:', comm.rank,'A sending to', rankC, A.shape, flush=True)
                     #print('writerrank:', comm.rank,'B sent to', rankC, flush=True)
             #xp.cuda.runtime.deviceSynchronize()
@@ -285,18 +285,18 @@ def gemm(pA, pB, pC):
                 if rankB != rankC:
                     item, value = pB.data.myblocks[localindexB]
                     b1, e1, b2, e2 = item[0].start, item[0].stop, item[1].start, item[1].stop
-                    B = value[beg-b1:end-b1, beg2-b2:end2-b2].copy() # Copy to be contiguous
+                    B = xp.ascontiguousarray(value[beg-b1:end-b1, beg2-b2:end2-b2]) #.copy() # Copy to be contiguous
                     #print('Not copying')
                     #print('writerrank:', comm.rank,'A sending to', rankC, A.shape, flush=True)
-                    #sends.append((B, 1+i*5))
-                    if xp is cupy:
-                         xp.cuda.runtime.deviceSynchronize()
+                    sends.append((B, 1+i*5))
+                    #if xp is cupy:
+                    #     xp.cuda.runtime.deviceSynchronize()
              
-                    send_requests.append(comm.send(B, rankC, block=False, tag=1+i*5))
-            #if xp is cupy and len(sends)>0:
-            #    xp.cuda.runtime.deviceSynchronize()
-            #for mat, tag in sends:
-            #    send_requests.append(comm.send(mat, rankC, block=False, tag=tag))
+                    #send_requests.append(comm.send(B, rankC, block=False, tag=1+i*5))
+            if xp is cupy:
+                xp.cuda.runtime.deviceSynchronize()
+            for mat, tag in sends:
+                send_requests.append(comm.send(mat, rankC, block=False, tag=tag))
         #print('writerrank:', comm.rank,'B sent to', rankC, flush=True)
         #print('-------------', flush=True)
         for i, (rankA, localindexA, rankB, localindexB, rankC, localindexC, beg1, end1, beg, end, beg2, end2) in enumerate(independent_slices):

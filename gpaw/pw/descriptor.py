@@ -105,6 +105,7 @@ class PWDescriptor:
         self.maxmyng = (self.ngmax + S - 1) // S
         ng1 = gd.comm.rank * self.maxmyng
         ng2 = ng1 + self.maxmyng
+        self.ng1, self.ng2 = ng1, ng2
 
         self.G2_qG = []
         self.myQ_qG = []

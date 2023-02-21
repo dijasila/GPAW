@@ -14,9 +14,10 @@ from cupy.cuda import memory_hooks
 #cupy.cuda.set_allocator(None)
 #cupy.cuda.set_pinned_memory_allocator(None)
 
-@pytest.mark.parametrize("M", [10000])
+@pytest.mark.parametrize("M", [40000])
 @pytest.mark.parametrize("xp", [cupy])
 def test_parray_simple(xp, M):
+    verify = False
     if xp is np and M > 9000:
         return
     print(world.size, world.rank,'size and rank', flush=True)
@@ -38,7 +39,7 @@ def test_parray_simple(xp, M):
     #for distA, distB, distC, NA, NB, NC in [  ((8,4), (8,4), (8,4), 1500, 1500, 1500)]:
     #for distA, distB, distC, NA, NB, NC in [  ((4,4), (4,4), (4,4), M, M, M)]:
     if 1: # with memory_hooks.DebugPrintHook():
-        distA, distB, distC, NA, NB, NC =  ((2,4), (2,4), (2,4), M, M, M)
+        distA, distB, distC, NA, NB, NC =  ((4,4), (4,4), (4,4), M, M, M)
         shapeA = (NA, NB)
         shapeB = (NB, NC)
         shapeC = (NA, NC)
@@ -49,7 +50,7 @@ def test_parray_simple(xp, M):
         def Cfun(CX,CY):
             return 0.*CX
 
-        if 1: # world.rank == 0:
+        if verify and world.rank == 0:
             # Reference
             AX, AY = xp.indices(shapeA)
             A = Afun(AX,AY)
@@ -93,34 +94,40 @@ def test_parray_simple(xp, M):
         world.barrier()
         end = time.time()
         print('Building arrays took', end-start, flush=True)
+        single_start = time.time() 
+        gemm(pA, pB, pC)
+        single_end = time.time()
+        print(world.rank, 'first gemm took', single_end-single_start)
         start = time.time()
-        for i in range(1):
+        N = 5 if not verify else 1
+        for i in range(N):
             single_start = time.time() 
             gemm(pA, pB, pC)
             single_end = time.time()
             print(world.rank, 'single gemm took iter', i, single_end-single_start)
             if xp is cupy:
-                mempool = xp.get_default_memory_pool()
-                mempool.free_all_blocks()
+                #mempool = xp.get_default_memory_pool()
+                #mempool.free_all_blocks()
                 cupy.cuda.runtime.deviceSynchronize()
         world.barrier()
         end = time.time()
-        parallel_Tflops = 1*NA*(2*NB+1)*NC / (end-start) / 1000**4
+        parallel_Tflops = N*NA*(2*NB+1)*NC / (end-start) / 1000**4
         print(world.rank, 'Parallel gemm took', end-start, flush=True)
         print(world.rank, 'Parallel performance', parallel_Tflops, 'Tflops', M, xp.__name__, flush=True)
         full_end = time.time()
         print(world.rank, 'full function took', full_end-full_start, flush=True)
-        if 1: #world.rank == 0:
+        if verify and world.rank == 0:
             print(world.rank, 'Speedup', distA, distB, distC, parallel_Tflops/serial_Tflops, xp.__name__, flush=True)
         #A = pA.collect()
         #B = pB.collect()
         #C = xp.asnumpy(A @ B)
          
-        if xp is cupy:
-            Cnew = xp.asnumpy(pC.collect())
-        else:
-            Cnew = pC.collect()
-        if world.rank == 0:
+        if verify:
+            if xp is cupy:
+                Cnew = xp.asnumpy(pC.collect())
+            else:
+                Cnew = pC.collect()
+        if verify and world.rank == 0:
             if xp is cupy:
                 C = xp.asnumpy(C)
             fails = 0

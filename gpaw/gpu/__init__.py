@@ -31,6 +31,7 @@ def setup():
         from gpaw.mpi import rank
         device_id = rank % cupy.cuda.runtime.getDeviceCount()
         cupy.cuda.runtime.setDevice(device_id)
+        print('Setting device', device_id)
 
 
 def as_xp(array, xp):
