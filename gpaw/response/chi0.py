@@ -630,7 +630,7 @@ class Chi0Calculator:
 
         return deps_nm.reshape(-1)
 
-    def print_chi(self, qpd):
+    def print_chi(self, qpd):  # rename XXX
 
         if gpaw.dry_run:
             from gpaw.mpi import SerialCommunicator
@@ -734,9 +734,10 @@ class Chi0DrudeCalculator(Chi0Calculator):
         rate : float
             Imaginary part of the frequency (in eV)
         """
+        self.print_info(wd, rate)
+
         # Parse the spin input
         spins = self.get_spins(spin)
-        # self.print_chi(chi0_drude.qpd)  # Do print XXX
 
         chi0_drude = Chi0DrudeData.from_frequency_descriptor(wd, rate)
         self._calculate(chi0_drude, spins)
@@ -858,6 +859,17 @@ class Chi0DrudeCalculator(Chi0Calculator):
         assert gs.kd.comm.size == 1
 
         return kpt1.eps_n[n1:n2]
+
+    def print_info(self, wd, rate):
+        p = partial(self.context.print, flush=False)
+
+        p('%s' % ctime())
+        p('Called chi0_drude.calculate() with:')
+        p('    Number of frequency points: %d' % len(wd))
+        p('    Plasma frequency decay rate: %f eV' % rate)
+        p()
+        p(self.get_gs_info_string(tab='    '))
+        self.context.print('')
 
 
 class Chi0(Chi0Calculator):
