@@ -5,7 +5,7 @@ gw = G0W0('nio.gpw',
           'gw6ok',
           nbands=100,
           ecut=100,
-          truncation='wigner-seitz',
+          truncation=None,
           kpts=[(0, 0, 0)],
           relbands=(-1, 1),
           nblocks=6)
