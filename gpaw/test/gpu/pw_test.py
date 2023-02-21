@@ -4,6 +4,7 @@ from ase.units import Ha
 
 from gpaw import SCIPY_VERSION
 from gpaw.new.calculation import DFTCalculation
+from gpaw.mpi import size
 
 
 @pytest.mark.gpu
@@ -26,3 +27,21 @@ def test_gpu_pw(dtype, gpu):
     dft.energies()
     energy = dft.results['energy'] * Ha
     assert energy == pytest.approx(-16.032945, abs=1e-6)
+
+
+@pytest.mark.gpu
+@pytest.mark.skipif(size > 2, reason='Not implemented')
+@pytest.mark.parametrize('gpu', [False, True])
+def test_gpu_pw_k(gpu):
+    atoms = Atoms('H', pbc=True, cell=[1, 1, 1])
+    dft = DFTCalculation.from_parameters(
+        atoms,
+        dict(mode={'name': 'pw'},
+             kpts=(4, 1, 1),
+             parallel={'gpu': gpu},
+             setups='paw'),
+        log='-')
+    dft.converge()
+    dft.energies()
+    energy = dft.results['energy'] * Ha
+    assert energy == pytest.approx(-19.579937, abs=1e-6)

@@ -1,6 +1,7 @@
 from ase.units import Ha
 import numpy as np
 from gpaw.xc.fxc import KernelWave, XCFlags, FXCCache
+from gpaw.xc.rpa import GCut
 
 from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.pw.descriptor import PWMapping
@@ -71,10 +72,7 @@ def calculate_spinkernel(*, ecut, xcflags, gs, qd, ns, qpd, context):
         qpdnr = SingleQPWDescriptor.from_q(qpd.q_c, ecut, qpd.gd,
                                            gammacentered=qpd.gammacentered)
         pw_map = PWMapping(qpd, qpdnr)
-        G2_G1 = pw_map.G2_G1
-
-        cut_sG = np.tile(G2_G1, ns)
-        cut_sG[len(G2_G1):] += len(fv) // ns
-        fv = fv.take(cut_sG, 0).take(cut_sG, 1)
+        gcut = GCut(pw_map.G2_G1)
+        fv = gcut.spin_cut(fv, ns=ns)
 
     return fv
