@@ -416,7 +416,7 @@ class RPACorrelation(RPACalculator):
             frequency grid. Must be specified and have the same length as
             frequencies if frequencies is not None
         truncation: str or None
-            Coulomb truncation scheme. Can be None, 'wigner-seitz', or '2D'
+            Coulomb truncation scheme. Can be None or '2D'.
         world: communicator
         nblocks: int
             Number of parallelization blocks. Frequency parallelization

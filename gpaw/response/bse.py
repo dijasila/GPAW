@@ -919,7 +919,7 @@ class BSE(BSEBackend):
             the BSE Hamiltonian. Should match spin, k-points and
             valence/conduction bands
         truncation: str or None
-            Coulomb truncation scheme. Can be None, wigner-seitz, or 2D.
+            Coulomb truncation scheme. Can be None or 2D.
         integrate_gamma: int
             Method to integrate the Coulomb interaction. 1 is a numerical
             integration at all q-points with G=[0,0,0] - this breaks the
