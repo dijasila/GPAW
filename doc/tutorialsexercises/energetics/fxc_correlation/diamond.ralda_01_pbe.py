@@ -13,8 +13,7 @@ kpts = monkhorst_pack([k, k, k])
 kpts += [1. / (2 * k), 1. / (2 * k), 1. / (2 * k)]
 
 cell = bulk('C', 'fcc', a=3.553).get_cell()
-a = Atoms('C2', cell=cell, 
-          scaled_positions=((0, 0, 0), (0.25, 0.25, 0.25)))
+a = Atoms('C2', cell=cell, scaled_positions=((0, 0, 0), (0.25, 0.25, 0.25)))
 
 calc = GPAW(mode=PW(600),
             xc='PBE',
