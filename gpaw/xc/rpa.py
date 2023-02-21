@@ -49,6 +49,20 @@ class GCut:
             return array
         return array[self.cut_G]
 
+    def spin_cut(self, array_GG, ns):
+        if self.cut_G is None:
+            return array_GG
+
+        cut_sG = np.tile(self.cut_G, ns)
+        cut_sG[len(self.cut_G):] += len(array_GG) // ns
+        array_GG = array_GG.take(cut_sG, 0).take(cut_sG, 1)
+        return array_GG
+
+    def take_xGG(self, array_xGG):
+        if self.cut_G is None:
+            return
+        return array_xGG.take(self.cut_G, 1).take(self.cut_G, 2)
+
 
 def initialize_q_points(kd, qsym):
     bzq_qc = kd.get_bz_q_points(first=True)

@@ -203,7 +203,7 @@ class FXCCorrelation:
             chi0_swGG = np.swapaxes(chi0_swGG, 2, 3)
 
         if not qpd.kd.gamma:
-            e = self.calculate_energy_fxc(qpd, chi0_swGG, cut_G)
+            e = self.calculate_energy_fxc(qpd, chi0_swGG, gcut)
             self.context.print('%.3f eV' % (e * Ha))
         else:
             W1 = self.blockcomm.rank * mynw
@@ -214,7 +214,7 @@ class FXCCorrelation:
                     chi0_wGG[:, 0] = chi0.chi0_WxvG[W1:W2, 0, v]
                     chi0_wGG[:, :, 0] = chi0.chi0_WxvG[W1:W2, 1, v]
                     chi0_wGG[:, 0, 0] = chi0.chi0_Wvv[W1:W2, v, v]
-                ev = self.calculate_energy_fxc(qpd, chi0_swGG, cut_G)
+                ev = self.calculate_energy_fxc(qpd, chi0_swGG, gcut)
                 e += ev
                 self.context.print('%.3f' % (ev * Ha), end='', flush=False)
                 if v < 2:
@@ -249,9 +249,9 @@ class FXCCorrelation:
         return e
 
     @timer('Energy')
-    def calculate_energy_fxc(self, qpd, chi0_swGG, cut_G):
+    def calculate_energy_fxc(self, qpd, chi0_swGG, gcut):
         """Evaluate correlation energy from chi0 and the kernel fhxc"""
-
+        cut_G = gcut.cut_G
         ibzq2_q = [
             np.dot(self.ibzq_qc[i] - qpd.q_c,
                    self.ibzq_qc[i] - qpd.q_c)
@@ -260,10 +260,7 @@ class FXCCorrelation:
 
         qi = np.argsort(ibzq2_q)[0]
 
-        G_G = qpd.G2_qG[0]**0.5  # |G+q|
-
-        if cut_G is not None:
-            G_G = G_G[cut_G]
+        G_G = gcut.cut(qpd.G2_qG[0]**0.5)  # |G+q|
 
         nG = len(G_G)
         ns = len(chi0_swGG)
@@ -279,12 +276,7 @@ class FXCCorrelation:
         #              the calculation is spin-polarized!)
 
         if self.xcflags.spin_kernel:
-            fv_GG = self.cache.handle(qi).read()
-
-            if cut_G is not None:
-                cut_sG = np.tile(cut_G, ns)
-                cut_sG[len(cut_G):] += len(fv_GG) // ns
-                fv_GG = fv_GG.take(cut_sG, 0).take(cut_sG, 1)
+            fv_GG = gcut.spin_cut(self.cache.handle(qi).read(), ns)
 
             # the spin-polarized kernel constructed from wavevector average
             # is already multiplied by |q+G| |q+G'|/4pi, and doesn't require
