@@ -159,7 +159,6 @@ class FXCCorrelation:
             xc=self.xc,
             ibzq_qc=self.ibzq_qc,
             ecut=self.ecut_max,
-            cache=self.cache,
             context=self.context)
 
         if self.avg_scheme == 'wavevector':
@@ -325,9 +324,7 @@ class FXCCorrelation:
 
 
 class KernelWave:
-    def __init__(self, gs, xc, ibzq_qc, q_empty, ecut,
-                 cache, context):
-
+    def __init__(self, gs, xc, ibzq_qc, q_empty, ecut, context):
         self.gs = gs
         self.gd = gs.density.gd
         self.xc = xc
@@ -336,7 +333,6 @@ class KernelWave:
         self.ns = self.gs.nspins
         self.q_empty = q_empty
         self.ecut = ecut
-        self.cache = cache
         self.context = context
 
         # Density grid
@@ -619,7 +615,7 @@ class KernelWave:
 
 class KernelDens:
     def __init__(self, gs, xc, ibzq_qc, unit_cells, density_cut, ecut,
-                 cache, context):
+                 context):
 
         self.gs = gs
         self.gd = self.gs.density.gd
@@ -628,7 +624,6 @@ class KernelDens:
         self.unit_cells = unit_cells
         self.density_cut = density_cut
         self.ecut = ecut
-        self.cache = cache
         self.context = context
 
         self.A_x = -(3 / 4.) * (3 / np.pi)**(1 / 3.)
