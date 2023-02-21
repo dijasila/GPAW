@@ -148,12 +148,14 @@ class BodyData:
 
 
 class Chi0DrudeData:
-    def __init__(self, descriptors):
-        assert descriptors.optical_limit
-        self.wd = descriptors.wd
-        self.qpd = descriptors.qpd
+    def __init__(self, wd, rate, qpd):
+        assert qpd.optical_limit
 
-        self.plasmafreq_vv, chi0_drude_Wvv = self.zeros()
+        self.wd = wd
+        self.rate = rate
+        self.qpd = qpd
+
+        self.plasmafreq_vv, self.chi_Wvv = self.zeros()
 
     def zeros(self):
         return (np.zeros(self.vv_shape, complex),  # plasmafreq
