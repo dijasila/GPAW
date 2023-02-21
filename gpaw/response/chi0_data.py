@@ -147,6 +147,31 @@ class BodyData:
         return data_x
 
 
+class Chi0DrudeData:
+    def __init__(self, descriptors):
+        assert descriptors.optical_limit
+        self.wd = descriptors.wd
+        self.qpd = descriptors.qpd
+
+        self.plasmafreq_vv, chi0_drude_Wvv = self.zeros()
+
+    def zeros(self):
+        return (np.zeros(self.vv_shape, complex),  # plasmafreq
+                np.zeros(self.Wvv_shape, complex))  # chi0_drude
+
+    @property
+    def nw(self):
+        return len(self.wd)
+
+    @property
+    def vv_shape(self):
+        return (3, 3)
+
+    @property
+    def Wvv_shape(self):
+        return (self.nw,) + self.vv_shape
+
+
 class OpticalExtensionData:
     def __init__(self, descriptors):
         assert descriptors.optical_limit
