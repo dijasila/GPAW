@@ -11,7 +11,8 @@ from ase.units import Ha
 import gpaw
 import gpaw.mpi as mpi
 from gpaw.bztools import convex_hull_volume
-from gpaw.response.chi0_data import Chi0Data
+from gpaw.response.chi0_data import Chi0Data, Chi0DrudeData
+from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.frequencies import (FrequencyDescriptor,
                                        FrequencyGridDescriptor,
                                        NonLinearFrequencyDescriptor)
@@ -193,14 +194,19 @@ class Chi0Calculator:
         m1 = self.nocc1
         m2 = self.nbands
 
-        chi0 = self.update_chi0(chi0, m1, m2, spins)
+        if self.drude_calc is None or not chi0.optical_limit:
+            chi0 = self.update_chi0(chi0, m1, m2, spins)
+        else:
+            chi0_drude = self.drude_calc.create_chi0_drude(q_c)
+            chi0 = self.update_chi0(chi0, m1, m2, spins, chi0_drude=chi0_drude)
 
         return chi0
 
     @timer('Calculate CHI_0')
     def update_chi0(self,
                     chi0: Chi0Data,
-                    m1, m2, spins):
+                    m1, m2, spins,
+                    chi0_drude=None):
         """In-place calculation of the response function.
 
         Parameters
@@ -214,6 +220,9 @@ class Chi0Calculator:
         spins : str or list(ints)
             If 'all' then include all spins.
             If [0] or [1], only include this specific spin.
+        chi0_drude : Chi0DrudeData
+            Data object for the contribution from intraband transitions
+            in the optical limit.
 
         Returns
         -------
@@ -241,11 +250,21 @@ class Chi0Calculator:
         self._update_chi0_body(chi0, m1, m2, spins)
 
         if optical_limit:
-            # Integrate the chi0 wings
-            self._update_chi0_wings(chi0, m1, m2, spins)
-
             if self.drude_calc is not None:
-                self.drude_calc._update_chi0_drude(chi0, m1, m2, spins)
+                assert chi0_drude is not None
+
+                # Subtract the drude contribution to the head
+                chi0.chi0_Wvv[:] -= chi0_drude.chi_Wvv
+
+                # Update the chi0 head and wings (w.o. drude contribution)
+                self._update_chi0_wings(chi0, m1, m2, spins)
+
+                # Update the drude contribution and add it to the head
+                self.drude_calc._update_chi0_drude(chi0_drude, m1, m2, spins)
+                chi0.chi0_Wvv[:] += chi0_drude.chi_Wvv
+            else:
+                # Just update the head and wings
+                self._update_chi0_wings(chi0, m1, m2, spins)
 
         return chi0
 
@@ -711,16 +730,22 @@ class Chi0DrudeCalculator(Chi0Calculator):
         # Number of completely filled bands and number of non-empty bands.
         self.nocc1, self.nocc2 = self.gs.count_occupied_bands()
 
-        # Store the plasma frequency on the calculator
-        self.plasmafreq_vv = np.zeros((3, 3), complex)
+    def create_chi0_drude(self, q_c):
+        # Create a dummy plane-wave descriptor. We need this for the symmetry
+        # analysis -> see discussion in gpaw.response.jdos
+        qpd = SingleQPWDescriptor.from_q(q_c, ecut=1e-3, gd=self.gs.gd)
+
+        chi0_drude = Chi0DrudeData(self.wd, self.rate, qpd)
+
+        return chi0_drude
 
     def _update_chi0_drude(self,
-                           chi0: Chi0Data,
+                           chi0_drude: Chi0DrudeData,
                            m1, m2, spins):
         """In-place calculation of the Drude dielectric response function,
         based on the free-space plasma frequency of the intraband transitions.
         """
-        qpd = chi0.qpd
+        qpd = chi0_drude.qpd
 
         integrator = self.initialize_integrator()
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
@@ -733,7 +758,8 @@ class Chi0DrudeCalculator(Chi0Calculator):
         get_plasmafreq_eigenvalue = partial(
             self.get_plasmafreq_eigenvalue, **eig_kwargs)
 
-        tmp_plasmafreq_wvv = np.zeros((1, 3, 3), complex)  # Output array
+        # Integrate using temporary array
+        tmp_plasmafreq_wvv = np.zeros((1,) + chi0_drude.vv_shape, complex)
         integrator.integrate(kind=kind,  # Kind of integral
                              domain=domain,  # Integration domain
                              integrand=(get_plasmafreq_matrix_element,
@@ -745,9 +771,9 @@ class Chi0DrudeCalculator(Chi0Calculator):
         # Store the plasma frequency itself and print it for anyone to use
         plasmafreq_vv = tmp_plasmafreq_wvv[0].copy()
         analyzer.symmetrize_wvv(plasmafreq_vv[np.newaxis])
-        self.plasmafreq_vv += 4 * np.pi * plasmafreq_vv
+        chi0_drude.plasmafreq_vv += 4 * np.pi * plasmafreq_vv
         self.context.print('Plasma frequency:', flush=False)
-        self.context.print((self.plasmafreq_vv**0.5 * Ha).round(2), flush=True)
+        self.context.print((chi0_drude.plasmafreq_vv**0.5 * Ha).round(2))
 
         # Calculate the Drude dielectric response function from the
         # free-space plasma frequency
@@ -759,9 +785,7 @@ class Chi0DrudeCalculator(Chi0Calculator):
                      + 1.j * self.rate)**2)
         except FloatingPointError:
             raise ValueError('Please set rate to a positive value.')
-
-        # Fill the Drude dielectric function into the chi0 head
-        chi0.chi0_Wvv[:] += drude_chi_Wvv
+        chi0_drude.chi_Wvv += drude_chi_Wvv
 
     def update_integrator_kwargs(self, *unused, **ignored):
         """The Drude calculator uses only standard integrator kwargs."""
