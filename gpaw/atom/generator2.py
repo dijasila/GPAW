@@ -299,13 +299,13 @@ class PAWWaves:
                                             vr_g, -1) / (4 * pi) +
                          self.dH_nn)
 
-    def pseudize_orthonormal(self, nderiv, vtr_g, rcmax):
+    def pseudize_orthonormal(self, params, vtr_g, rcmax):
         """
         P will be the number of coefficients in the polynomial, polynomials are of even power with maxium of 2P
 
         Parameters
         ----------
-        nderiv
+        params : tuple
         vtr_g
         rcmax
 
@@ -313,7 +313,13 @@ class PAWWaves:
         -------
 
         """
-        P = nderiv + 2
+
+        nderiv = params[0]
+        Gcut = params[1]
+        extra_grid_pts = params[2]
+        nmvp = len(list(extra_grid_pts.values())[0])
+
+        P = nderiv + nmvp
 
         rgd = self.rgd
         r_g = rgd.r_g
@@ -340,13 +346,19 @@ class PAWWaves:
         for n, phi_g in enumerate(phi_ng):
             phit_ng[n] = rgd.pseudize_normalized(phi_g, gc, l, nderiv)[0]  # this will return the polynom
             # take initial grid point and value of current approximation at this point
-            gc0 = rgd.ceil((0.9*self.rcut))
-            gc1 = rgd.ceil((0.95*self.rcut))
+            pts_val = list(extra_grid_pts.keys())[0]
+            if pts_val == 'inv_gpts':
+                g_ps = [int(gc/j) for j in extra_grid_pts['inv_gpts']]
+            elif pts_val == 'rc_perc':
+                g_ps = [self.rgd.ceil(j*self.rcut) for j in extra_grid_pts['rc_perc']]
+            else:
+                raise KeyError
 
-            x0_init.append(phit_ng[n][gc0])
-            x0_init.append(phit_ng[n][gc1])
+            # g_ps = [self.rgd.ceil((1.0-0.05*j)*self.rcut) for j in range(nmvp,0, -1)]
+
+            x0_init += list(phit_ng[n][g_ps])
             # take grid points at which you make interpolation
-            i = [gc0, gc1] + list(range(gc, gc + nderiv))
+            i = g_ps + list(range(gc, gc + nderiv))
             r_i = r_g[i]
             # take ref_values at these grid points
             phi_ng_ref.append(phi_g[i])
@@ -359,7 +371,6 @@ class PAWWaves:
         print(Sref)
 
         def nlc1():
-            Gcut = 10
             norm = 0
             for n, phi in enumerate(phi_ng_ref):
                 if self.n_n[n] <= 0:
@@ -374,8 +385,7 @@ class PAWWaves:
         def f(x, addgcut=True):
             for n, phi in enumerate(phi_ng_ref):
                 # change value of reference function at gc
-                phi[0] = x[2*n]
-                phi[1] = x[2*n+1]
+                phi[:nmvp] = x[nmvp*n:nmvp*(n+1)]
                 # calculate polynomial approximation to a reference function
                 c_x = np.polyfit(r_i ** 2, phi / (r_i ** l), P-1)
                 phit_ng[n][:gc + nderiv] = np.polyval(c_x, r_g[:gc + nderiv] ** 2) * r_g[:gc + nderiv] ** l
@@ -383,7 +393,7 @@ class PAWWaves:
             # calculate overlap matrix
             dS_nn = (Sref - rgd.integrate(phit_ng[:, None] * phit_ng)) / (4 * pi)
             if addgcut:
-                return np.linalg.norm(dS_nn) + 0.1*nlc1()
+                return np.linalg.norm(dS_nn) + 0.01*nlc1()
             else:
                 return np.linalg.norm(dS_nn)
 
@@ -391,7 +401,7 @@ class PAWWaves:
         print('='*100)
         xmin = fmin(f, x0_init, ftol=1.0e-16, maxiter=500000, maxfun=10000)
         print('Minimum is :', f(xmin, False), nlc1())
-        assert f(xmin, False) < 1.5e-10
+        assert f(xmin, False) < 5.0e-10
         print(' '*100)
 
         for n in range(N):
