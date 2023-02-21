@@ -107,7 +107,6 @@ class WBaseCalculator():
                                + 'on a %dx%dx%d grid' % tuple(npts_c))
         else:
             self.q0_corrector = None
-
     
     def get_V0sqrtV0(self, chi0):
         """
@@ -145,8 +144,8 @@ class WBaseCalculator():
 class WCalculator(WBaseCalculator):
 
     def calculate_W_WgG(self, chi0,
-                      fxc_mode='GW',
-                      only_correlation=False):
+                        fxc_mode='GW',
+                        only_correlation=False):
         """Calculate the screened interaction in W_wGG or W_WgG representation.
 
         Additional Parameters
@@ -253,16 +252,14 @@ class WCalculator(WBaseCalculator):
 
 class PPACalculator(WCalculator):
 
-    def __init__(self, *args, **kwargs):
-        assert len(chi0.wd.omega_w) == 2
-        # E0 directly related to frequency mesh for chi0
-        self.E0 = chi0.wd.omega_w[1].imag
-        super().__init__(*args, **kwargs)
-    
     def calculate_ppa(self, chi0,
-                  fxc_mode='GW'):
+                      fxc_mode='GW'):
         """Calculate the PPA parametrization of screened interaction.
         """
+        assert len(chi0.wd.omega_w) == 2
+        # E0 directly related to frequency mesh for chi0
+        E0 = chi0.wd.omega_w[1].imag
+
         dfc = DielectricFunctionCalculator(chi0,
                                            self.coulomb,
                                            self.xckernel,
@@ -271,8 +268,8 @@ class PPACalculator(WCalculator):
         V0, sqrtV0 = self.get_V0sqrtV0(chi0)
         self.context.timer.start('Dyson eq.')
         einv_wGG = dfc.get_epsinv_wGG(only_correlation=True)
-        omegat_GG = self.E0 * np.sqrt(einv_wGG[1] /
-                                      (einv_wGG[0] - einv_wGG[1]))
+        omegat_GG = E0 * np.sqrt(einv_wGG[1] /
+                                 (einv_wGG[0] - einv_wGG[1]))
         R_GG = -0.5 * omegat_GG * einv_wGG[0]
         W_GG = pi * R_GG * dfc.sqrtV_G * dfc.sqrtV_G[:, np.newaxis]
         if chi0.optical_limit or self.integrate_gamma != 0:

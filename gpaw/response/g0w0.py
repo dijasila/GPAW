@@ -470,7 +470,7 @@ class G0W0Calculator:
         if self.ppa:
             self.context.print('Using Godby-Needs plasmon-pole approximation:')
             self.context.print('  Fitting energy: i*E0, E0 = %.3f Hartee'
-                               % self.wcalc.E0)
+                               % self.chi0calc.wd.omega_w[1].imag)
         else:
             self.context.print('Using full frequency integration')
 
