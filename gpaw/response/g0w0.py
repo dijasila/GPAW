@@ -35,7 +35,8 @@ def compare_dicts(dict1, dict2, rel_tol=1e-14, abs_tol=1e-14):
     """
     Compare each key-value pair within dictionaries that contain nested data
     structures of arbitrary depth. If a kvp contains floats, you may specify
-    the tolerance (abs or rel) to which the floats are compared.
+    the tolerance (abs or rel) to which the floats are compared. Individual
+    elements within lists are not compared to floating point precision.
 
     :params dict1: Dictionary containing kvp to compare with other dictionary.
     :params dict2: Second dictionary.
