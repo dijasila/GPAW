@@ -132,14 +132,16 @@ class Chi0Calculator:
         if metallic and intraband:
             if rate == 'eta':
                 rate = eta
+            self.rate = rate
             self.drude_calc = Chi0DrudeCalculator(
-                wd, rate, pair,
+                pair,
                 disable_point_group=disable_point_group,
                 disable_time_reversal=disable_time_reversal,
                 disable_non_symmorphic=disable_non_symmorphic,
                 integrationmode=integrationmode)
         else:
             self.drude_calc = None
+            self.rate = None
 
     @property
     def pbc(self):
@@ -190,7 +192,7 @@ class Chi0Calculator:
 
         if self.drude_calc is not None and chi0.optical_limit:
             # Add intraband contribution
-            chi0_drude = self.drude_calc.calculate(spin)
+            chi0_drude = self.drude_calc.calculate(self.wd, self.rate, spin)
             chi0.chi0_Wvv[:] += chi0_drude.chi_Wvv
 
         return chi0
@@ -696,15 +698,11 @@ class Chi0DrudeCalculator(Chi0Calculator):
     bands. This corresponds directly to the dielectric function in the Drude
     model."""
 
-    def __init__(self, wd, rate, pair,
+    def __init__(self, pair,
                  disable_point_group=False,
                  disable_time_reversal=False,
                  disable_non_symmorphic=True,
                  integrationmode=None):
-
-        self.wd = wd
-        self.rate = rate / Ha  # Imaginary part of the frequency
-
         self.pair = pair
         self.gs = pair.gs
         self.context = pair.context
@@ -717,12 +715,19 @@ class Chi0DrudeCalculator(Chi0Calculator):
         # Number of completely filled bands and number of non-empty bands.
         self.nocc1, self.nocc2 = self.gs.count_occupied_bands()
 
-    def calculate(self, spin='all'):
+    def calculate(self, wd, rate, spin='all'):
+        """
+        Do documentation XXX
+
+        rate : float
+            Imaginary part of the frequency (in eV)
+        """
         # Parse the spin input
         spins = self.get_spins(spin)
         # self.print_chi(chi0_drude.qpd)  # Do print XXX
 
-        chi0_drude = Chi0DrudeData(self.wd, self.rate)
+        rate = rate / Ha  # eV -> Hartree
+        chi0_drude = Chi0DrudeData(wd, rate)
         self._calculate(chi0_drude, spins)
 
         return chi0_drude
@@ -771,8 +776,8 @@ class Chi0DrudeCalculator(Chi0Calculator):
             with np.errstate(divide='raise'):
                 drude_chi_Wvv = (
                     plasmafreq_vv[np.newaxis] /
-                    (self.wd.omega_w[:, np.newaxis, np.newaxis]
-                     + 1.j * self.rate)**2)
+                    (chi0_drude.wd.omega_w[:, np.newaxis, np.newaxis]
+                     + 1.j * chi0_drude.rate)**2)
         except FloatingPointError:
             raise ValueError('Please set rate to a positive value.')
         chi0_drude.chi_Wvv += drude_chi_Wvv
