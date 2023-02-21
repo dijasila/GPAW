@@ -172,7 +172,11 @@ class FXCCorrelation:
                                 unit_cells=self.unit_cells,
                                 density_cut=self.density_cut)
 
-        kernel.calculate_fhxc()
+        for iq, fhxc_GG in kernel.calculate_fhxc():
+            if self.context.comm.rank == 0:
+                assert isinstance(fhxc_GG, np.ndarray), str(fhxc_GG)
+                self.cache.handle(iq).write(fhxc_GG)
+            self.context.comm.barrier()
 
     @timer('FXC')
     def calculate(self, *, nbands=None):
@@ -399,7 +403,7 @@ class KernelWave:
             if iq < self.q_empty:  # don't recalculate q vectors
                 continue
 
-            self.calculate_one_qpoint(iq, q_c)
+            yield iq, self.calculate_one_qpoint(iq, q_c)
 
     def calculate_one_qpoint(self, iq, q_c):
         qpd = SingleQPWDescriptor.from_q(q_c, self.ecut / Ha, self.gd)
@@ -525,7 +529,8 @@ class KernelWave:
             fv_spincorr_GG += np.conj(fv_spincorr_GG.T)
             fv_spincorr_GG[np.diag_indices(nG)] *= 0.5
 
-        # Write to disk
+        self.context.print('q point %s complete' % iq)
+
         if self.context.comm.rank == 0:
             if calc_spincorr:
                 # Form the block matrix kernel
@@ -539,11 +544,9 @@ class KernelWave:
             else:
                 fhxc_sGsG = fv_nospin_GG
 
-            self.cache.handle(iq).write(fhxc_sGsG)
-
-        self.context.print('q point %s complete' % iq)
-
-        self.context.comm.barrier()
+            return fhxc_sGsG
+        else:
+            return None
 
     def get_scaled_fHxc_q(self, q, sel_points, Gphase, spincorr):
         # Given a coupling constant l, construct the Hartree-XC
@@ -644,19 +647,22 @@ class KernelDens:
         qd = KPointDescriptor(self.ibzq_qc)
         self.pd = PWDescriptor(ecut / Ha, self.gd, complex, qd)
 
-    @timer('FHXC')
+    # @timer('FHXC')
+    # Generator will return immediately so no use to time it this way.
     def calculate_fhxc(self):
 
         self.context.print('Calculating %s kernel at %d eV cutoff' % (
             self.xc, self.ecut))
-        if self.xc[0] == 'r':
-            self.calculate_rkernel()
+
+        if self.xc[0] == 'r':  # wth?
+            assert XCFlags(self.xc).spin_kernel
+            yield from self.calculate_rkernel()
         else:
-            assert self.xc[0] == 'A'
-            self.calculate_local_kernel()
+            assert self.xc[0] == 'A'  # wth?
+            assert self.xc == 'ALDA'
+            yield from self.calculate_local_kernel()
 
     def calculate_rkernel(self):
-
         gd = self.gd
         ng_c = gd.N_c
         cell_cv = gd.cell_cv
@@ -843,9 +849,9 @@ class KernelDens:
                         Gq2_G[0] = 1.
                     vq_G = 4 * np.pi / Gq2_G
                     fhxc_sGsG += np.tile(np.eye(npw) * vq_G, (ns, ns))
-                self.cache.handle(iq).write(fhxc_sGsG)
-            self.context.comm.barrier()
-        self.context.print('')
+                yield iq, fhxc_sGsG
+            else:
+                yield iq, None
 
     def calculate_local_kernel(self):
         # Standard ALDA exchange kernel
@@ -891,10 +897,7 @@ class KernelDens:
             vq_G = 4 * np.pi / Gq2_G
             fhxc_sGsG += np.tile(np.eye(npw) * vq_G, (ns, ns))
 
-            if self.context.comm.rank == 0:
-                self.cache.handle(iq).write(fhxc_sGsG)
-            self.context.comm.barrier()
-        self.context.print('')
+            yield iq, fhxc_sGsG
 
     def get_fxc_g(self, n_g, index=None):
         if self.xc[-3:] == 'LDA':
