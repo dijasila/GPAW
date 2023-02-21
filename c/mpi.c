@@ -19,6 +19,11 @@
 #include <mpix.h>
 #endif
 
+
+// In the code, one utilizes calls equvalent to PyArray API,
+// except instead of PyArray_BYTES one uses Array_BYTES.
+// Then, if GPAW is built with GPAW_GPU_AWARE_MPI define, these macros are rewritten with wrappers.
+#ifndef GPAW_GPU_AWARE_MPI
 // Check that array is well-behaved and contains data that can be sent.
 #define CHK_ARRAY(a) if ((a) == NULL || !PyArray_Check(a)                   \
                          || !PyArray_ISCARRAY(a) || !PyArray_ISNUMBER(a)) { \
@@ -43,6 +48,148 @@
     PyErr_SetString(PyExc_ValueError,                                   \
                     "Incompatible array types or sizes.");              \
       return NULL; } else
+
+
+#define Array_NDIM(a) PyArray_NDIM(a)
+#define Array_DIM(a,d)  PyArray_DIM(a,d)
+#define Array_ELEMENTSIZE(a) PyArray_ITEMSIZE(a)
+#define Array_BYTES(a) PyArray_BYTES(a)
+#define Array_DATA(a) PyArray_DATA(a)
+#define Array_SIZE(a) PyArray_SIZE(a)
+#define Array_TYPE(a) PyArray_TYPE(a)
+#define Array_ITEMSIZE(a) PyArray_ITEMSIZE(a)
+#define Array_NBYTES(a) PyArray_NBYTES(a)
+#define Array_ISCOMPLEX(a) PyArray_ISCOMPLEX(a)
+
+#else // GPAW_GPU_AWARE_MPI
+
+#define CHK_ARRAY(a) // TODO
+#define CHK_ARRAY_RO(a) // TODO
+#define CHK_ARRAYS(a,b,n) // TODO
+
+int Array_NDIM(PyObject* obj)
+{
+    if (PyArray_Check(obj))
+    {
+        return PyArray_NDIM((PyArrayObject*)obj);	  
+    }
+
+    // return len(obj.shape)
+    PyObject* shape = PyObject_GetAttrString(obj, "shape");
+    if (shape == NULL) return -1;
+    Py_DECREF(shape);
+    return PyTuple_Size(shape);
+}
+
+int Array_DIM(PyObject* obj, int dim)
+{
+    if (PyArray_Check(obj))
+    {
+        return PyArray_DIM((PyArrayObject*)obj, dim);	  
+    }
+    PyObject* shape_str = Py_BuildValue("s", "shape");
+    PyObject* shape = PyObject_GetAttr(obj, shape_str);
+    Py_DECREF(shape_str);
+
+    if (shape == NULL) return -1;
+    PyObject* pydim = PyTuple_GetItem(shape, dim);
+    Py_DECREF(shape);
+    if (pydim == NULL) return -1;
+    return (int) PyLong_AS_LONG(pydim);
+}
+
+#define Array_ELEMENTSIZE(a) Array_ITEMSIZE(a)
+
+char* Array_BYTES(PyObject* obj)
+{
+    if (PyArray_Check(obj))
+    {
+        return PyArray_BYTES((PyArrayObject*)obj);	  
+    }
+    //ndarray.data.ptr
+    PyObject* ndarray_data = PyObject_GetAttrString(obj, "data");
+    if (ndarray_data == NULL) return NULL;
+    PyObject* ptr_data = PyObject_GetAttrString(ndarray_data, "ptr");
+    if (ptr_data == NULL) return NULL;
+    char* ptr = (char*) PyLong_AS_LONG(ptr_data);
+    Py_DECREF(ptr_data);
+    Py_DECREF(ndarray_data);
+    return ptr;
+}
+
+#define Array_DATA(a) ((void*) Array_BYTES(a))
+
+int Array_SIZE(PyObject* obj)
+{
+    PyObject* size_str = Py_BuildValue("s", "size");
+    PyObject* size = PyObject_GetAttr(obj, size_str);
+    int arraysize = (int) PyLong_AS_LONG(size);
+    Py_DECREF(size);
+    Py_DECREF(size_str);
+    return arraysize;
+}
+
+int Array_TYPE(PyObject* obj)
+{
+    if (PyArray_Check(obj))
+    {
+        return PyArray_TYPE((PyArrayObject*)obj);
+    }
+    PyObject* dtype_str = Py_BuildValue("s", "dtype");
+    PyObject* dtype = PyObject_GetAttr(obj, dtype_str);
+    Py_DECREF(dtype_str);
+
+    if (dtype == NULL) return -1;
+
+    PyObject* num_str = Py_BuildValue("s", "num");
+    PyObject* num = PyObject_GetAttr(dtype, num_str);
+    Py_DECREF(num_str);
+    Py_DECREF(dtype);
+    if (num == NULL) return -1;
+    
+    int value =  (int) PyLong_AS_LONG(num);
+    Py_DECREF(num);
+    return value; 
+}
+
+int Array_ITEMSIZE(PyObject* obj)
+{
+    if (PyArray_Check(obj))
+    {
+        return PyArray_ITEMSIZE((PyArrayObject*)obj);
+    }
+    PyObject* dtype = PyObject_GetAttrString(obj, "dtype");
+    if (dtype == NULL) return -1;
+    PyObject* itemsize_obj = PyObject_GetAttrString(obj, "itemsize");
+    if (itemsize_obj == NULL) return -1;
+    int itemsize = (int) PyLong_AS_LONG(itemsize_obj);
+    Py_DECREF(itemsize_obj);
+    Py_DECREF(dtype);
+    return itemsize;
+}
+
+
+long Array_NBYTES(PyObject* obj)
+{
+    if (PyArray_Check(obj))
+    {
+        return PyArray_NBYTES((PyArrayObject*)obj);
+    }
+    PyObject* nbytes_str = Py_BuildValue("s", "nbytes");
+    PyObject* nbytes = PyObject_GetAttr(obj, nbytes_str);
+    long nbytesvalue = PyLong_AS_LONG(nbytes);
+    Py_DECREF(nbytes_str);
+    Py_DECREF(nbytes);
+    return nbytesvalue;
+}
+
+int Array_ISCOMPLEX(PyObject* obj)
+{
+    int result = PyTypeNum_ISCOMPLEX(Array_TYPE(obj));
+    return result;
+}
+
+#endif
 
 // Check that a processor number is valid
 #define CHK_PROC(n) if (n < 0 || n >= self->size) {\
@@ -298,19 +445,19 @@ static PyObject * mpi_sendreceive(MPIObject *self, PyObject *args,
     CHK_OTHER_PROC(dest);
     CHK_ARRAY(b);
     CHK_OTHER_PROC(src);
-    int nsend = PyArray_DESCR(a)->elsize;
-    for (int d = 0; d < PyArray_NDIM(a); d++)
-        nsend *= PyArray_DIM(a,d);
-    int nrecv = PyArray_DESCR(b)->elsize;
-    for (int d = 0; d < PyArray_NDIM(b); d++)
-        nrecv *= PyArray_DIM(b,d);
+    int nsend = Array_ELEMENTSIZE(a);
+    for (int d = 0; d < Array_NDIM(a); d++)
+        nsend *= Array_DIM(a,d);
+    int nrecv = Array_ELEMENTSIZE(b);
+    for (int d = 0; d < Array_NDIM(b); d++)
+        nrecv *= Array_DIM(b,d);
 #ifndef GPAW_MPI_DEBUG
-    MPI_Sendrecv(PyArray_BYTES(a), nsend, MPI_BYTE, dest, sendtag,
-                 PyArray_BYTES(b), nrecv, MPI_BYTE, src, recvtag,
+    MPI_Sendrecv(Array_BYTES(a), nsend, MPI_BYTE, dest, sendtag,
+                 Array_BYTES(b), nrecv, MPI_BYTE, src, recvtag,
                  self->comm, MPI_STATUS_IGNORE);
 #else
-    int ret = MPI_Sendrecv(PyArray_BYTES(a), nsend, MPI_BYTE, dest, sendtag,
-                           PyArray_BYTES(b), nrecv, MPI_BYTE, src, recvtag,
+    int ret = MPI_Sendrecv(Array_BYTES(a), nsend, MPI_BYTE, dest, sendtag,
+                           Array_BYTES(b), nrecv, MPI_BYTE, src, recvtag,
                            self->comm, MPI_STATUS_IGNORE);
     if (ret != MPI_SUCCESS) {
         PyErr_SetString(PyExc_RuntimeError, "MPI_Sendrecv error occurred.");
@@ -334,16 +481,16 @@ static PyObject * mpi_receive(MPIObject *self, PyObject *args, PyObject *kwargs)
     return NULL;
   CHK_ARRAY(a);
   CHK_OTHER_PROC(src);
-  int n = PyArray_DESCR(a)->elsize;
-  for (int d = 0; d < PyArray_NDIM(a); d++)
-    n *= PyArray_DIM(a, d);
+  int n = Array_ELEMENTSIZE(a);
+  for (int d = 0; d < Array_NDIM(a); d++)
+    n *= Array_DIM(a, d);
   if (block)
     {
 #ifndef GPAW_MPI_DEBUG
-      MPI_Recv(PyArray_BYTES(a), n, MPI_BYTE, src, tag, self->comm,
+      MPI_Recv(Array_BYTES(a), n, MPI_BYTE, src, tag, self->comm,
                MPI_STATUS_IGNORE);
 #else
-      int ret = MPI_Recv(PyArray_BYTES(a), n, MPI_BYTE, src, tag, self->comm,
+      int ret = MPI_Recv(Array_BYTES(a), n, MPI_BYTE, src, tag, self->comm,
                          MPI_STATUS_IGNORE);
       if (ret != MPI_SUCCESS)
         {
@@ -360,9 +507,9 @@ static PyObject * mpi_receive(MPIObject *self, PyObject *args, PyObject *kwargs)
       req->buffer = (PyObject*)a;
       Py_INCREF(req->buffer);
 #ifndef GPAW_MPI_DEBUG
-      MPI_Irecv(PyArray_BYTES(a), n, MPI_BYTE, src, tag, self->comm, &(req->rq));
+      MPI_Irecv(Array_BYTES(a), n, MPI_BYTE, src, tag, self->comm, &(req->rq));
 #else
-      int ret = MPI_Irecv(PyArray_BYTES(a), n, MPI_BYTE, src, tag, self->comm,
+      int ret = MPI_Irecv(Array_BYTES(a), n, MPI_BYTE, src, tag, self->comm,
                           &(req->rq));
       if (ret != MPI_SUCCESS)
         {
@@ -386,15 +533,15 @@ static PyObject * mpi_send(MPIObject *self, PyObject *args, PyObject *kwargs)
     return NULL;
   CHK_ARRAY(a);
   CHK_OTHER_PROC(dest);
-  int n = PyArray_DESCR(a)->elsize;
-  for (int d = 0; d < PyArray_NDIM(a); d++)
-    n *= PyArray_DIM(a,d);
+  int n = Array_ELEMENTSIZE(a);
+  for (int d = 0; d < Array_NDIM(a); d++)
+    n *= Array_DIM(a,d);
   if (block)
     {
 #ifndef GPAW_MPI_DEBUG
-      MPI_Send(PyArray_BYTES(a), n, MPI_BYTE, dest, tag, self->comm);
+      MPI_Send(Array_BYTES(a), n, MPI_BYTE, dest, tag, self->comm);
 #else
-      int ret = MPI_Send(PyArray_BYTES(a), n, MPI_BYTE, dest, tag, self->comm);
+      int ret = MPI_Send(Array_BYTES(a), n, MPI_BYTE, dest, tag, self->comm);
       if (ret != MPI_SUCCESS)
         {
           PyErr_SetString(PyExc_RuntimeError, "MPI_Send error occurred.");
@@ -409,10 +556,10 @@ static PyObject * mpi_send(MPIObject *self, PyObject *args, PyObject *kwargs)
       req->buffer = (PyObject*)a;
       Py_INCREF(a);
 #ifndef GPAW_MPI_DEBUG
-      MPI_Isend(PyArray_BYTES(a), n, MPI_BYTE, dest, tag, self->comm,
+      MPI_Isend(Array_BYTES(a), n, MPI_BYTE, dest, tag, self->comm,
                 &(req->rq));
 #else
-      int ret = MPI_Isend(PyArray_BYTES(a), n, MPI_BYTE, dest, tag, self->comm,
+      int ret = MPI_Isend(Array_BYTES(a), n, MPI_BYTE, dest, tag, self->comm,
                           &(req->rq));
       if (ret != MPI_SUCCESS)
         {
@@ -436,10 +583,10 @@ static PyObject * mpi_ssend(MPIObject *self, PyObject *args, PyObject *kwargs)
     return NULL;
   CHK_ARRAY_RO(a);
   CHK_OTHER_PROC(dest);
-  int n = PyArray_DESCR(a)->elsize;
-  for (int d = 0; d < PyArray_NDIM(a); d++)
-    n *= PyArray_DIM(a,d);
-  MPI_Ssend(PyArray_BYTES(a), n, MPI_BYTE, dest, tag, self->comm);
+  int n = Array_ELEMENTSIZE(a);
+  for (int d = 0; d < Array_NDIM(a); d++)
+    n *= Array_DIM(a,d);
+  MPI_Ssend(Array_BYTES(a), n, MPI_BYTE, dest, tag, self->comm);
   Py_RETURN_NONE;
 }
 
@@ -532,6 +679,7 @@ static PyObject * mpi_testall(MPIObject *self, PyObject *requests)
         {
           assert(o->buffer != NULL);
           Py_DECREF(o->buffer);
+          Py_ssize_t cnt = Py_REFCNT(o->buffer);
         }
         o->status = 0;
         Py_DECREF(o);
@@ -599,6 +747,7 @@ static PyObject * mpi_waitall(MPIObject *self, PyObject *requests)
      {
        assert(o->buffer != NULL);
        Py_DECREF(o->buffer);
+       Py_ssize_t cnt = Py_REFCNT(o->buffer);
      }
      o->status = 0;
      Py_DECREF(o);
@@ -611,11 +760,11 @@ static PyObject * mpi_waitall(MPIObject *self, PyObject *requests)
 
 static MPI_Datatype get_mpi_datatype(PyArrayObject *a)
 {
-  int n = PyArray_DESCR(a)->elsize;
-  if (PyArray_ISCOMPLEX(a))
+  int n = Array_ELEMENTSIZE(a);
+  if (Array_ISCOMPLEX(a))
     n = n / 2;
-
-  switch(PyArray_TYPE(a))
+  int array_type = Array_TYPE(a);
+  switch(array_type)
     {
       // Floating point numbers including complex numbers
     case NPY_DOUBLE:
@@ -658,6 +807,7 @@ static MPI_Datatype get_mpi_datatype(PyArrayObject *a)
       assert(sizeof(unsigned long) == n);
       return MPI_UNSIGNED_LONG;
     }
+
   // If we reach this point none of the cases worked out.
   PyErr_SetString(PyExc_ValueError, "Cannot communicate data of this type.");
   return 0;
@@ -725,9 +875,9 @@ static PyObject * mpi_reduce(MPIObject *self, PyObject *args, PyObject *kwargs,
       datatype = get_mpi_datatype(aobj);
       if (datatype == 0)
         return NULL;
-      n = PyArray_SIZE(aobj);
-      elemsize = PyArray_DESCR(aobj)->elsize;
-      if (PyArray_ISCOMPLEX(aobj))
+      n = Array_SIZE(aobj);
+      elemsize = Array_ELEMENTSIZE(aobj);
+      if (Array_ISCOMPLEX(aobj))
         {
           if (allowcomplex)
             {
@@ -744,14 +894,14 @@ static PyObject * mpi_reduce(MPIObject *self, PyObject *args, PyObject *kwargs,
       if (root == -1)
         {
 #ifdef GPAW_MPI2
-          MPI_Allreduce(MPI_IN_PLACE, PyArray_BYTES(aobj), n, datatype,
+          MPI_Allreduce(MPI_IN_PLACE, Array_BYTES(aobj), n, datatype,
                         operation, self->comm);
 #else
           char* b = GPAW_MALLOC(char, n * elemsize);
-          MPI_Allreduce(PyArray_BYTES(aobj), b, n, datatype, operation,
+          MPI_Allreduce(Array_BYTES(aobj), b, n, datatype, operation,
                         self->comm);
-          assert(PyArray_NBYTES(aobj) == n * elemsize);
-          memcpy(PyArray_BYTES(aobj), b, n * elemsize);
+          assert(Array_NBYTES(aobj) == n * elemsize);
+          memcpy(Array_BYTES(aobj), b, n * elemsize);
           free(b);
 #endif
         }
@@ -763,20 +913,20 @@ static PyObject * mpi_reduce(MPIObject *self, PyObject *args, PyObject *kwargs,
           if (rank == root)
             {
 #ifdef GPAW_MPI2
-              MPI_Reduce(MPI_IN_PLACE, PyArray_BYTES(aobj), n,
+              MPI_Reduce(MPI_IN_PLACE, Array_BYTES(aobj), n,
                          datatype, operation, root, self->comm);
 #else
               b = GPAW_MALLOC(char, n * elemsize);
-              MPI_Reduce(PyArray_BYTES(aobj), b, n, datatype,
+              MPI_Reduce(Array_BYTES(aobj), b, n, datatype,
                          operation, root, self->comm);
-              assert(PyArray_NBYTES(aobj) == n * elemsize);
-              memcpy(PyArray_BYTES(aobj), b, n * elemsize);
+              assert(Array_NBYTES(aobj) == n * elemsize);
+              memcpy(Array_BYTES(aobj), b, n * elemsize);
               free(b);
 #endif
             }
           else
             {
-              MPI_Reduce(PyArray_BYTES(aobj), b, n, datatype,
+              MPI_Reduce(Array_BYTES(aobj), b, n, datatype,
                          operation, root, self->comm);
             }
         }
@@ -819,12 +969,12 @@ static PyObject * mpi_scatter(MPIObject *self, PyObject *args)
   if (self->rank == root) {
     CHK_ARRAY(sendobj);
     CHK_ARRAYS(recvobj, sendobj, self->size); // size(send) = size(recv)*Ncpu
-    source = PyArray_BYTES(sendobj);
+    source = Array_BYTES(sendobj);
   }
-  int n = PyArray_DESCR(recvobj)->elsize;
-  for (int d = 0; d < PyArray_NDIM(recvobj); d++)
-    n *= PyArray_DIM(recvobj,d);
-  MPI_Scatter(source, n, MPI_BYTE, PyArray_BYTES(recvobj),
+  int n = Array_ELEMENTSIZE(recvobj);
+  for (int d = 0; d < Array_NDIM(recvobj); d++)
+    n *= Array_DIM(recvobj,d);
+  MPI_Scatter(source, n, MPI_BYTE, Array_BYTES(recvobj),
               n, MPI_BYTE, root, self->comm);
   Py_RETURN_NONE;
 }
@@ -840,11 +990,11 @@ static PyObject * mpi_allgather(MPIObject *self, PyObject *args)
   CHK_ARRAY(a);
   CHK_ARRAY(b);
   CHK_ARRAYS(a, b, self->size);
-  int n = PyArray_DESCR(a)->elsize;
-  for (int d = 0; d < PyArray_NDIM(a); d++)
-    n *= PyArray_DIM(a,d);
+  int n = Array_ELEMENTSIZE(a);
+  for (int d = 0; d < Array_NDIM(a); d++)
+    n *= Array_DIM(a,d);
   // What about endianness????
-  MPI_Allgather(PyArray_BYTES(a), n, MPI_BYTE, PyArray_BYTES(b), n,
+  MPI_Allgather(Array_BYTES(a), n, MPI_BYTE, Array_BYTES(b), n,
                 MPI_BYTE, self->comm);
   Py_RETURN_NONE;
 }
@@ -870,13 +1020,13 @@ static PyObject * mpi_gather(MPIObject *self, PyObject *args)
                       "mpi_gather: b array should not be given on non-root processors.");
       return NULL;
     }
-  int n = PyArray_DESCR(a)->elsize;
-  for (int d = 0; d < PyArray_NDIM(a); d++)
-    n *= PyArray_DIM(a,d);
+  int n = Array_ELEMENTSIZE(a);
+  for (int d = 0; d < Array_NDIM(a); d++)
+    n *= Array_DIM(a,d);
   if (root != self->rank)
-    MPI_Gather(PyArray_BYTES(a), n, MPI_BYTE, 0, n, MPI_BYTE, root, self->comm);
+    MPI_Gather(Array_BYTES(a), n, MPI_BYTE, 0, n, MPI_BYTE, root, self->comm);
   else
-    MPI_Gather(PyArray_BYTES(a), n, MPI_BYTE, PyArray_BYTES(b), n, MPI_BYTE, root, self->comm);
+    MPI_Gather(Array_BYTES(a), n, MPI_BYTE, Array_BYTES(b), n, MPI_BYTE, root, self->comm);
   Py_RETURN_NONE;
 }
 
@@ -895,10 +1045,10 @@ static PyObject * mpi_broadcast(MPIObject *self, PyObject *args)
       CHK_ARRAY(buf);
 
   CHK_PROC(root);
-  int n = PyArray_DESCR(buf)->elsize;
-  for (int d = 0; d < PyArray_NDIM(buf); d++)
-    n *= PyArray_DIM(buf,d);
-  MPI_Bcast(PyArray_BYTES(buf), n, MPI_BYTE, root, self->comm);
+  int n = Array_ELEMENTSIZE(buf);
+  for (int d = 0; d < Array_NDIM(buf); d++)
+    n *= Array_DIM(buf,d);
+  MPI_Bcast(Array_BYTES(buf), n, MPI_BYTE, root, self->comm);
   Py_RETURN_NONE;
 }
 
@@ -940,7 +1090,7 @@ static PyObject *mpi_translate_ranks(MPIObject *self, PyObject *args)
   if(myranks_long == NULL)
     return NULL;
 
-  int nranks = PyArray_DIM(myranks_long, 0);
+  int nranks = Array_DIM(myranks_long, 0);
 
   PyArrayObject *myranks;
   myranks = (PyArrayObject*)PyArray_Cast(myranks_long, NPY_INT);
@@ -1000,12 +1150,12 @@ static PyObject * mpi_alltoallv(MPIObject *self, PyObject *args)
   int *r_displs = GPAW_MALLOC(int, self->size);
 
   /* Create count and displacement arrays in units of bytes */
-  int elem_size = PyArray_ITEMSIZE(send_obj);
+  int elem_size = Array_ITEMSIZE(send_obj);
 
-  long* tmp1 = PyArray_DATA(send_cnts);
-  long* tmp2 = PyArray_DATA(send_displs);
-  long* tmp3 = PyArray_DATA(recv_cnts);
-  long* tmp4 = PyArray_DATA(recv_displs);
+  long* tmp1 = Array_DATA(send_cnts);
+  long* tmp2 = Array_DATA(send_displs);
+  long* tmp3 = Array_DATA(recv_cnts);
+  long* tmp4 = Array_DATA(recv_displs);
   for (int i=0; i < self->size; i++) {
       s_cnts[i] = tmp1[i] * elem_size;
       s_displs[i] = tmp2[i] * elem_size;
@@ -1013,9 +1163,9 @@ static PyObject * mpi_alltoallv(MPIObject *self, PyObject *args)
       r_displs[i] = tmp4[i] * elem_size;
   }
 
-  MPI_Alltoallv(PyArray_BYTES(send_obj),
+  MPI_Alltoallv(Array_BYTES(send_obj),
                 s_cnts, s_displs,
-                MPI_BYTE, PyArray_BYTES(recv_obj), r_cnts,
+                MPI_BYTE, Array_BYTES(recv_obj), r_cnts,
                 r_displs, MPI_BYTE, self->comm);
 
   free(s_cnts);
