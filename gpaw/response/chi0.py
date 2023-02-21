@@ -172,7 +172,6 @@ class Chi0Calculator:
         spin : str or int
             If 'all' then include all spins.
             If 0 or 1, only include this specific spin.
-            (not used in transverse response functions)
 
         Returns
         -------
@@ -728,11 +727,18 @@ class Chi0DrudeCalculator(Chi0Calculator):
         self.nocc1, self.nocc2 = self.gs.count_occupied_bands()
 
     def calculate(self, wd, rate, spin='all'):
-        """
-        Do documentation XXX
+        """Calculate the Drude dielectric response.
 
+        Parameters
+        ----------
+        wd : FrequencyDescriptor
+            Frequencies to evaluate the reponse function at.
         rate : float
-            Imaginary part of the frequency (in eV)
+            Plasma frequency decay rate (in eV), corresponding to the
+            imaginary part of the complex frequency.
+        spin : str or int
+            If 'all' then include all spins.
+            If 0 or 1, only include this specific spin.
         """
         self.print_info(wd, rate)
 
