@@ -71,7 +71,7 @@ def test_response_diamond_absorption(in_tmp_dir):
 
     df.get_polarizability(xc='ALDA', filename='ALDA_pol.csv')
     # Here we base the check on a written results file
-    df.context.world.barrier()
+    df.context.comm.barrier()
     d = np.loadtxt('ALDA_pol.csv', delimiter=',')
 
     w, I = findpeak(d[:, 0], d[:, 2])
