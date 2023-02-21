@@ -25,7 +25,7 @@ class Chi0Descriptors:
 
         # Extract optical limit
         self.q_c = qpd.q_c
-        self.optical_limit = np.allclose(qpd.q_c, 0.0)
+        self.optical_limit = qpd.optical_limit
 
         # Basis set size
         self.nG = qpd.ngmax
