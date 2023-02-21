@@ -160,7 +160,7 @@ class KohnShamPair:
         if self.gs.world.size == 1:
             return False
         else:
-            assert self.context.world.rank == self.gs.world.rank
+            assert self.context.comm.rank == self.gs.world.rank
             assert self.gs.gd.comm.size == 1
             return True
 
@@ -313,7 +313,7 @@ class KohnShamPair:
         # Wait for communication to finish
         with self.context.timer('Waiting to complete mpi.send'):
             while self.srequests:
-                self.context.world.wait(self.srequests.pop(0))
+                self.context.comm.wait(self.srequests.pop(0))
 
         return data
 
@@ -363,7 +363,7 @@ class KohnShamPair:
         For the serial communicator, all processes can access all data,
         and resultantly, there is no need to send any data.
         """
-        world = self.context.world
+        comm = self.context.comm
         get_extraction_info = self.create_get_extraction_info()
 
         # Kpoint data
@@ -374,11 +374,11 @@ class KohnShamPair:
         myn_eueh = []
 
         # Data distribution protocol
-        nrh_r2 = np.zeros(world.size, dtype=int)
-        ik_r2 = [None for _ in range(world.size)]
+        nrh_r2 = np.zeros(comm.size, dtype=int)
+        ik_r2 = [None for _ in range(comm.size)]
         eh_eur2reh = []
         rh_eur2reh = []
-        h_r1rh = [list([]) for _ in range(world.size)]
+        h_r1rh = [list([]) for _ in range(comm.size)]
 
         # h to t index mapping
         myt_myt = np.arange(self.tb - self.ta)
@@ -395,7 +395,7 @@ class KohnShamPair:
             ik = self.gs.kd.bz2ibz_k[K]
             for r2 in range(p * self.transitionblockscomm.size,
                             min((p + 1) * self.transitionblockscomm.size,
-                                world.size)):
+                                comm.size)):
                 ik_r2[r2] = ik
 
             if p == self.kptblockcomm.rank:
@@ -419,12 +419,12 @@ class KohnShamPair:
 
                 # If the process is extracting or receiving data,
                 # figure out how to do so
-                if world.rank in np.append(r1_ct, r2_ct):
+                if comm.rank in np.append(r1_ct, r2_ct):
                     # Does this process have anything to send?
-                    thisr1_ct = r1_ct == world.rank
+                    thisr1_ct = r1_ct == comm.rank
                     if np.any(thisr1_ct):
-                        eh_r2reh = [list([]) for _ in range(world.size)]
-                        rh_r2reh = [list([]) for _ in range(world.size)]
+                        eh_r2reh = [list([]) for _ in range(comm.size)]
+                        rh_r2reh = [list([]) for _ in range(comm.size)]
                         # Find composite indeces h = (n, s)
                         n_et = n_ct[thisr1_ct]
                         n_eh = np.unique(n_et)
@@ -452,7 +452,7 @@ class KohnShamPair:
                         rh_eur2reh.append(rh_r2reh)
 
                     # Does this process have anything to receive?
-                    thisr2_ct = r2_ct == world.rank
+                    thisr2_ct = r2_ct == comm.rank
                     if np.any(thisr2_ct):
                         # Find unique composite indeces h = (n, s)
                         n_rt = n_ct[thisr2_ct]
@@ -598,9 +598,9 @@ class KohnShamPair:
     def distribute_extracted_data(self, eps_r1rh, f_r1rh, P_r1rhI, psit_r1rhG,
                                   eps_r2rh, f_r2rh, P_r2rhI, psit_r2rhG):
         """Send the extracted data to appropriate destinations"""
-        world = self.context.world
+        comm = self.context.comm
         # Store the data extracted by the process itself
-        rank = world.rank
+        rank = comm.rank
         # Check if there is actually some data to store
         if eps_r2rh[rank] is not None:
             eps_r1rh[rank] = eps_r2rh[rank]
@@ -615,10 +615,10 @@ class KohnShamPair:
                                                        P_r1rhI, psit_r1rhG)):
                 # Check if there is any data to receive
                 if r1 != rank and eps_rh is not None:
-                    rreq1 = world.receive(eps_rh, r1, tag=201, block=False)
-                    rreq2 = world.receive(f_rh, r1, tag=202, block=False)
-                    rreq3 = world.receive(P_rhI, r1, tag=203, block=False)
-                    rreq4 = world.receive(psit_rhG, r1, tag=204, block=False)
+                    rreq1 = comm.receive(eps_rh, r1, tag=201, block=False)
+                    rreq2 = comm.receive(f_rh, r1, tag=202, block=False)
+                    rreq3 = comm.receive(P_rhI, r1, tag=203, block=False)
+                    rreq4 = comm.receive(psit_rhG, r1, tag=204, block=False)
                     self.rrequests += [rreq1, rreq2, rreq3, rreq4]
 
         # Send data
@@ -627,15 +627,15 @@ class KohnShamPair:
                                                    P_r2rhI, psit_r2rhG)):
             # Check if there is any data to send
             if r2 != rank and eps_rh is not None:
-                sreq1 = world.send(eps_rh, r2, tag=201, block=False)
-                sreq2 = world.send(f_rh, r2, tag=202, block=False)
-                sreq3 = world.send(P_rhI, r2, tag=203, block=False)
-                sreq4 = world.send(psit_rhG, r2, tag=204, block=False)
+                sreq1 = comm.send(eps_rh, r2, tag=201, block=False)
+                sreq2 = comm.send(f_rh, r2, tag=202, block=False)
+                sreq3 = comm.send(P_rhI, r2, tag=203, block=False)
+                sreq4 = comm.send(psit_rhG, r2, tag=204, block=False)
                 self.srequests += [sreq1, sreq2, sreq3, sreq4]
 
         with self.context.timer('Waiting to complete mpi.receive'):
             while self.rrequests:
-                world.wait(self.rrequests.pop(0))
+                comm.wait(self.rrequests.pop(0))
 
     @timer('Collecting kptdata')
     def collect_kptdata(self, data, h_r1rh,

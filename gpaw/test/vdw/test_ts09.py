@@ -74,7 +74,7 @@ def test_vdw_ts09(in_tmp_dir):
     # charged
 
     if 0:
-        cc.set(charge=1)
+        cc = cc.new(charge=1)
         hpp = HirshfeldPartitioning(cc)
         cp = vdWTkatchenko09prl(hpp,
                                 vdWradii(s.get_chemical_symbols(), 'PBE'))

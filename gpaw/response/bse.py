@@ -162,7 +162,7 @@ class BSEBackend:
         self.pair = PairDensityCalculator(
             gs=self.gs,
             context=ResponseContext(txt='pair.txt', timer=None,
-                                    world=serial_comm))
+                                    comm=serial_comm))
 
         # Calculate direct (screened) interaction and PAW corrections
         if self.mode == 'RPA':
@@ -444,7 +444,7 @@ class BSEBackend:
         if self._chi0calc is None:
             self.initialize_chi0_calculator()
         if self._wcalc is None:
-            wcontext = ResponseContext(txt='w.txt', world=world)
+            wcontext = ResponseContext(txt='w.txt', comm=world)
             self._wcalc = initialize_w_calculator(
                 self._chi0calc, wcontext,
                 coulomb=self.coulomb,

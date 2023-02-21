@@ -126,7 +126,7 @@ class RPACalculator:
 
     def write(self, energy_qi, ecut_i):
         txt = self.energies_to_string(energy_qi, ecut_i)
-        if self.context.world.rank == 0 and self.filename:
+        if self.context.comm.rank == 0 and self.filename:
             with open(self.filename, 'w') as fd:
                 print(txt, file=fd)
 
@@ -163,7 +163,7 @@ class RPACalculator:
             self.context.print(
                 'Read %d q-points from file: %s\n' % (len(energy_qi)))
 
-            self.context.world.barrier()
+            self.context.comm.barrier()
 
         wd = FrequencyDescriptor(1j * self.omega_w)
 
@@ -316,11 +316,15 @@ class RPACalculator:
             e = np.log(np.linalg.det(e_GG)) + nG - np.trace(e_GG)
             e_w.append(e.real)
 
-        E_w = np.zeros_like(self.omega_w)
-        self.blockcomm.all_gather(np.array(e_w), E_w)
-        energy = np.dot(E_w, self.weight_w) / (2 * np.pi)
-        self.E_w = E_w
+        self.E_w, energy = self.gather_energies(e_w)
         return energy
+
+    def gather_energies(self, e_w):
+        E_w = np.zeros_like(self.omega_w)
+        # XXX This requires all cores to the same number of w doesn't it?
+        self.blockcomm.all_gather(np.array(e_w), E_w)
+        energy = E_w @ self.weight_w / (2 * np.pi)
+        return E_w, energy
 
     def extrapolate(self, e_i, ecut_i):
         self.context.print('Extrapolated energies:', flush=False)
@@ -460,8 +464,8 @@ class RPACorrelation(RPACalculator):
               len(self.omega_w), 'frequency points')
         p()
         p('Parallelization')
-        p('    Total number of CPUs          : % s' % self.context.world.size)
+        p('    Total number of CPUs          : % s' % self.context.comm.size)
         p('    G-vector decomposition        : % s' % self.nblocks)
         p('    K-point/band decomposition    : % s' %
-          (self.context.world.size // self.nblocks))
+          (self.context.comm.size // self.nblocks))
         self.context.print('')

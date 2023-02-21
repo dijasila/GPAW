@@ -53,14 +53,13 @@ class Chi0Calculator:
                  disable_point_group=False, disable_time_reversal=False,
                  disable_non_symmorphic=True,
                  integrationmode=None,
-                 ftol=1e-6,
                  rate=0.0, eshift=0.0):
 
         if context is None:
             context = pair.context
 
         # TODO: More refactoring to avoid non-orthogonal inputs.
-        assert pair.context.world is context.world
+        assert pair.context.comm is context.comm
         self.context = context
 
         self.pair = pair
@@ -75,7 +74,7 @@ class Chi0Calculator:
         self.nblocks = pair.nblocks
 
         # XXX this is redundant as pair also does it.
-        self.blockcomm, self.kncomm = block_partition(self.context.world,
+        self.blockcomm, self.kncomm = block_partition(self.context.comm,
                                                       self.nblocks)
 
         if ecut is None:
@@ -117,22 +116,27 @@ class Chi0Calculator:
             self.context.print('Using integration method: PointIntegrator')
 
         # Number of completely filled bands and number of non-empty bands.
-        self.nocc1, self.nocc2 = self.gs.count_occupied_bands(ftol)
+        self.nocc1, self.nocc2 = self.gs.count_occupied_bands()
+        metallic = self.nocc1 != self.nocc2
 
-        # In the optical limit of metals, additional work must be performed
-        # (one must add the Drude dielectric response from the free-space
-        # plasma frequency of the intraband transitions to the head of the
-        # chi0 wings).
-        if self.nocc1 != self.nocc2 and intraband:
+        if metallic:
+            assert abs(eshift) < 1e-8,\
+                'A rigid energy shift cannot be applied to the conduction '\
+                'bands if there is no band gap'
+
+        # In the optical limit of metals, one must add the Drude dielectric
+        # response from the free-space plasma frequency of the intraband
+        # transitions to the head of the chi0 wings. This is handled by a
+        # separate calculator, provided that intraband is set to True.
+        if metallic and intraband:
+            if rate == 'eta':
+                rate = eta
             self.drude_calc = Chi0DrudeCalculator(
-                wd, pair,
+                wd, rate, pair,
                 disable_point_group=disable_point_group,
                 disable_time_reversal=disable_time_reversal,
                 disable_non_symmorphic=disable_non_symmorphic,
-                integrationmode=integrationmode,
-                ftol=ftol,
-                rate=rate,
-                eshift=eshift)
+                integrationmode=integrationmode)
         else:
             self.drude_calc = None
 
@@ -143,7 +147,7 @@ class Chi0Calculator:
     def create_chi0(self, q_c):
         # Extract descriptor arguments
         plane_waves = (q_c, self.ecut, self.gs.gd)
-        parallelization = (self.context.world, self.blockcomm, self.kncomm)
+        parallelization = (self.context.comm, self.blockcomm, self.kncomm)
 
         # Construct the Chi0Data object
         # In the future, the frequencies should be specified at run-time
@@ -346,6 +350,20 @@ class Chi0Calculator:
         defined domains and sum over bands."""
         integrator: Integrator
 
+        cls = self.get_integrator_cls()
+
+        kwargs = dict(
+            cell_cv=self.gs.gd.cell_cv,
+            context=self.context)
+        self.update_integrator_kwargs(kwargs,
+                                      block_distributed=block_distributed)
+
+        integrator = cls(**kwargs)
+
+        return integrator
+
+    def get_integrator_cls(self):
+        """Get the appointed k-point integrator class."""
         if self.integrationmode is None:
             cls = PointIntegrator
         elif self.integrationmode == 'tetrahedron integration':
@@ -354,17 +372,15 @@ class Chi0Calculator:
             raise ValueError(f'Integration mode "{self.integrationmode}"'
                              ' not implemented.')
 
-        kwargs = dict(
-            cell_cv=self.gs.gd.cell_cv,
-            context=self.context,
-            eshift=self.eshift)
+        return cls
 
+    def update_integrator_kwargs(self, kwargs, block_distributed=True):
+        # Update the energy shift
+        kwargs['eshift'] = self.eshift
+
+        # Update nblocks
         if block_distributed:
-            integrator = cls(**kwargs, nblocks=self.nblocks)
-        else:
-            integrator = cls(**kwargs)
-
-        return integrator
+            kwargs['nblocks'] = self.nblocks
 
     def get_integration_domain(self, qpd, spins):
         """Get integrator domain and prefactor for the integral."""
@@ -397,48 +413,31 @@ class Chi0Calculator:
 
         return domain, analyzer, prefactor
 
-    def get_integrator_arguments(self, qpd, m1, m2, analyzer,
-                                 only_intraband=False):
+    def get_integrator_arguments(self, qpd, m1, m2, analyzer):
         # Prepare keyword arguments for the integrator
         mat_kwargs = {'qpd': qpd,
                       'symmetry': analyzer,
                       'integrationmode': self.integrationmode}
         eig_kwargs = {'qpd': qpd}
 
-        # Define band summation.
-        if not only_intraband:
-            # Normally, we include transitions from all completely and
-            # partially filled bands to range(m1, m2)
-            bandsum = {'n1': 0, 'n2': self.nocc2, 'm1': m1, 'm2': m2}
-        else:
-            # When doing a calculation of the intraband response, we need only
-            # the partially filled bands
-            # All partially unoccupied bands looks like this:
-            # bandsum = {'n1': self.nocc1, 'n2': self.nocc2}
-            # Do the requested fraction of the partially unoccupied bands
-            n1 = max(min(m1, self.nocc2), self.nocc1)
-            n2 = min(max(m2, self.nocc1), self.nocc2)
-            bandsum = {'n1': n1, 'n2': n2}
+        bandsum = self.get_band_summation(m1, m2)
         mat_kwargs.update(bandsum)
         eig_kwargs.update(bandsum)
 
         return mat_kwargs, eig_kwargs
 
-    def get_integral_kind(self, only_intraband=False):
+    def get_band_summation(self, m1, m2):
+        """Define band summation."""
+        # In a normal response calculation, we include transitions from all
+        # completely and partially unoccupied bands to range(m1, m2)
+        bandsum = {'n1': 0, 'n2': self.nocc2, 'm1': m1, 'm2': m2}
+
+        return bandsum
+
+    def get_integral_kind(self):
         """Determine what "kind" of integral to make."""
-        extraargs = {}  # Initialize extra arguments to integration method.
-        if only_intraband:
-            # The plasma frequency integral is special in the way, that only
-            # the spectral part is needed
-            kind = 'spectral function'
-            if self.integrationmode is None:
-                # Calculate intraband transitions at finite fermi smearing
-                extraargs['intraband'] = True  # Calculate intraband
-            elif self.integrationmode == 'tetrahedron integration':
-                # Calculate intraband transitions at T=0
-                fermi_level = self.gs.fermi_level
-                extraargs['x'] = FrequencyGridDescriptor([-fermi_level])
-        elif self.eta == 0:
+        extraargs = {}
+        if self.eta == 0:
             # If eta is 0 then we must be working with imaginary frequencies.
             # In this case chi is hermitian and it is therefore possible to
             # reduce the computational costs by a only computing half of the
@@ -630,10 +629,10 @@ class Chi0Calculator:
         if gpaw.dry_run:
             from gpaw.mpi import SerialCommunicator
             size = gpaw.dry_run
-            world = SerialCommunicator()
-            world.size = size
+            comm = SerialCommunicator()
+            comm.size = size
         else:
-            world = self.context.world
+            comm = self.context.comm
 
         q_c = qpd.q_c
         nw = len(self.wd)
@@ -644,12 +643,12 @@ class Chi0Calculator:
         nik = gs.kd.nibzkpts
         ngmax = qpd.ngmax
         eta = self.eta * Ha
-        wsize = world.size
+        csize = comm.size
         knsize = self.kncomm.size
         nocc = self.nocc1
         npocc = self.nocc2
         ngridpoints = gd.N_c[0] * gd.N_c[1] * gd.N_c[2]
-        nstat = (ns * npocc + world.size - 1) // world.size
+        nstat = (ns * npocc + csize - 1) // csize
         occsize = nstat * ngridpoints * 16. / 1024**2
         bsize = self.blockcomm.size
         chisize = nw * qpd.ngmax**2 * 16. / 1024**2 / bsize
@@ -671,7 +670,7 @@ class Chi0Calculator:
         p('    Number of irredicible kpoints: %d' % nik)
         p('    Number of planewaves: %d' % ngmax)
         p('    Broadening (eta): %f' % eta)
-        p('    world.size: %d' % wsize)
+        p('    comm.size: %d' % csize)
         p('    kncomm.size: %d' % knsize)
         p('    blockcomm.size: %d' % bsize)
         p('    Number of completely occupied states: %d' % nocc)
@@ -691,20 +690,14 @@ class Chi0DrudeCalculator(Chi0Calculator):
     bands. This corresponds directly to the dielectric function in the Drude
     model."""
 
-    def __init__(self, wd, pair,
+    def __init__(self, wd, rate, pair,
                  disable_point_group=False,
                  disable_time_reversal=False,
                  disable_non_symmorphic=True,
-                 integrationmode=None,
-                 ftol=1e-6,
-                 rate=0.0, eshift=0.0):
+                 integrationmode=None):
 
         self.wd = wd
-
-        if rate == 'eta':
-            self.rate = self.eta
-        else:
-            self.rate = rate / Ha
+        self.rate = rate / Ha  # Imaginary part of the frequency
 
         self.pair = pair
         self.gs = pair.gs
@@ -714,10 +707,9 @@ class Chi0DrudeCalculator(Chi0Calculator):
         self.disable_time_reversal = disable_time_reversal
         self.disable_non_symmorphic = disable_non_symmorphic
         self.integrationmode = integrationmode
-        self.eshift = eshift
 
         # Number of completely filled bands and number of non-empty bands.
-        self.nocc1, self.nocc2 = self.gs.count_occupied_bands(ftol)
+        self.nocc1, self.nocc2 = self.gs.count_occupied_bands()
 
         # Store the plasma frequency on the calculator
         self.plasmafreq_vv = np.zeros((3, 3), complex)
@@ -730,12 +722,11 @@ class Chi0DrudeCalculator(Chi0Calculator):
         """
         qpd = chi0.qpd
 
-        integrator = self.initialize_integrator(block_distributed=False)
+        integrator = self.initialize_integrator()
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
-        (mat_kwargs,
-         eig_kwargs) = self.get_integrator_arguments(qpd, m1, m2, analyzer,
-                                                     only_intraband=True)
-        kind, extraargs = self.get_integral_kind(only_intraband=True)
+        mat_kwargs, eig_kwargs = self.get_integrator_arguments(
+            qpd, m1, m2, analyzer)
+        kind, extraargs = self.get_integral_kind()
 
         get_plasmafreq_matrix_element = partial(
             self.get_plasmafreq_matrix_element, **mat_kwargs)
@@ -771,6 +762,39 @@ class Chi0DrudeCalculator(Chi0Calculator):
 
         # Fill the Drude dielectric function into the chi0 head
         chi0.chi0_Wvv[:] += drude_chi_Wvv
+
+    def update_integrator_kwargs(self, *unused, **ignored):
+        """The Drude calculator uses only standard integrator kwargs."""
+        pass
+
+    def get_band_summation(self, m1, m2):
+        """Define band summation"""
+        # When doing a calculation of the intraband response, we need only to
+        # integrate the partially unoccupied bands.
+        # All partially unoccupied bands looks like this:
+        # bandsum = {'n1': self.nocc1, 'n2': self.nocc2}
+        # Do the requested fraction of the partially unoccupied bands.
+        n1 = max(min(m1, self.nocc2), self.nocc1)
+        n2 = min(max(m2, self.nocc1), self.nocc2)
+        bandsum = {'n1': n1, 'n2': n2}
+
+        return bandsum
+
+    def get_integral_kind(self):
+        """Define what "kind" of integral to make."""
+        extraargs = {}
+        # The plasma frequency integral is special in the way, that only
+        # the spectral part is needed
+        kind = 'spectral function'
+        if self.integrationmode is None:
+            # Calculate intraband transitions at finite fermi smearing
+            extraargs['intraband'] = True  # Calculate intraband
+        elif self.integrationmode == 'tetrahedron integration':
+            # Calculate intraband transitions at T=0
+            fermi_level = self.gs.fermi_level
+            extraargs['x'] = FrequencyGridDescriptor([-fermi_level])
+
+        return kind, extraargs
 
     def get_plasmafreq_matrix_element(self, k_v, s, n1, n2,
                                       *, qpd,
@@ -825,7 +849,7 @@ class Chi0(Chi0Calculator):
                  *,
                  frequencies: Union[dict, Array1D] = None,
                  ecut=50,
-                 ftol=1e-6, threshold=1,
+                 threshold=1,
                  world=mpi.world, txt='-', timer=None,
                  nblocks=1,
                  nbands=None,
@@ -859,9 +883,6 @@ class Chi0(Chi0Calculator):
             In this case the hilbert transform cannot be used.
         eta : float
             Artificial broadening of spectra.
-        ftol : float
-            Threshold determining whether a band is completely filled
-            (f > 1 - ftol) or completely empty (f < ftol).
         threshold : float
             Numerical threshold for the optical limit k dot p perturbation
             theory expansion (used in gpaw/response/pair.py).

@@ -381,14 +381,14 @@ class LocalPAWFTEngine:
             self._add_paw_correction(a, R_v, micro_setup,
                                      G_myG, G_myGv, fPAW_G)
 
-        self.context.world.sum(fPAW_G)
+        self.context.comm.sum(fPAW_G)
 
         return fPAW_G
 
     def _distribute_correction(self, nG):
-        world = self.context.world
-        nGpr = (nG + world.size - 1) // world.size
-        Ga = min(world.rank * nGpr, nG)
+        comm = self.context.comm
+        nGpr = (nG + comm.size - 1) // comm.size
+        Ga = min(comm.rank * nGpr, nG)
         Gb = min(Ga + nGpr, nG)
 
         return range(Ga, Gb)
