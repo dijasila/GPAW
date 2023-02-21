@@ -316,11 +316,15 @@ class RPACalculator:
             e = np.log(np.linalg.det(e_GG)) + nG - np.trace(e_GG)
             e_w.append(e.real)
 
-        E_w = np.zeros_like(self.omega_w)
-        self.blockcomm.all_gather(np.array(e_w), E_w)
-        energy = np.dot(E_w, self.weight_w) / (2 * np.pi)
-        self.E_w = E_w
+        self.E_w, energy = self.gather_energies(e_w)
         return energy
+
+    def gather_energies(self, e_w):
+        E_w = np.zeros_like(self.omega_w)
+        # XXX This requires all cores to the same number of w doesn't it?
+        self.blockcomm.all_gather(np.array(e_w), E_w)
+        energy = E_w @ self.weight_w / (2 * np.pi)
+        return E_w, energy
 
     def extrapolate(self, e_i, ecut_i):
         self.context.print('Extrapolated energies:', flush=False)
