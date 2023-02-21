@@ -160,12 +160,12 @@ class Chi0DrudeData:
                 np.zeros(self.Zvv_shape, complex))  # chi0_drude
 
     @staticmethod
-    def from_frequency_descriptor(wd, eta):
+    def from_frequency_descriptor(wd, rate):
         """Construct the Chi0DrudeData object from a frequency descriptor and
         the imaginary part (in eV) of the resulting horizontal frequency
         contour"""
-        eta = eta / Ha  # eV -> Hartree
-        zd = ComplexFrequencyDescriptor(wd.omega_w + 1.j * eta)
+        rate = rate / Ha  # eV -> Hartree
+        zd = ComplexFrequencyDescriptor(wd.omega_w + 1.j * rate)
 
         return Chi0DrudeData(zd)
 
