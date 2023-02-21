@@ -1,10 +1,13 @@
 import numpy as np
 
+from ase.units import Ha
+
 from gpaw.pw.descriptor import PWMapping
 
 from gpaw.response.pw_parallelization import (Blocks1D,
                                               PlaneWaveBlockDistributor)
-from gpaw.response.frequencies import FrequencyDescriptor
+from gpaw.response.frequencies import (FrequencyDescriptor,
+                                       ComplexFrequencyDescriptor)
 from gpaw.response.pair_functions import (SingleQPWDescriptor,
                                           map_WgG_array_to_reduced_pd)
 
@@ -148,27 +151,35 @@ class BodyData:
 
 
 class Chi0DrudeData:
-    def __init__(self, wd, rate):
-        self.wd = wd
-        self.rate = rate
-
-        self.plasmafreq_vv, self.chi_Wvv = self.zeros()
+    def __init__(self, zd):
+        self.zd = zd
+        self.plasmafreq_vv, self.chi_Zvv = self.zeros()
 
     def zeros(self):
         return (np.zeros(self.vv_shape, complex),  # plasmafreq
-                np.zeros(self.Wvv_shape, complex))  # chi0_drude
+                np.zeros(self.Zvv_shape, complex))  # chi0_drude
+
+    @staticmethod
+    def from_frequency_descriptor(wd, eta):
+        """Construct the Chi0DrudeData object from a frequency descriptor and
+        the imaginary part (in eV) of the resulting horizontal frequency
+        contour"""
+        eta = eta / Ha  # eV -> Hartree
+        zd = ComplexFrequencyDescriptor(wd.omega_w + 1.j * eta)
+
+        return Chi0DrudeData(zd)
 
     @property
-    def nw(self):
-        return len(self.wd)
+    def nz(self):
+        return len(self.zd)
 
     @property
     def vv_shape(self):
         return (3, 3)
 
     @property
-    def Wvv_shape(self):
-        return (self.nw,) + self.vv_shape
+    def Zvv_shape(self):
+        return (self.nz,) + self.vv_shape
 
 
 class OpticalExtensionData:

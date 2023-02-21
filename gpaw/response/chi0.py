@@ -193,7 +193,7 @@ class Chi0Calculator:
         if self.drude_calc is not None and chi0.optical_limit:
             # Add intraband contribution
             chi0_drude = self.drude_calc.calculate(self.wd, self.rate, spin)
-            chi0.chi0_Wvv[:] += chi0_drude.chi_Wvv
+            chi0.chi0_Wvv[:] += chi0_drude.chi_Zvv
 
         return chi0
 
@@ -726,8 +726,7 @@ class Chi0DrudeCalculator(Chi0Calculator):
         spins = self.get_spins(spin)
         # self.print_chi(chi0_drude.qpd)  # Do print XXX
 
-        rate = rate / Ha  # eV -> Hartree
-        chi0_drude = Chi0DrudeData(wd, rate)
+        chi0_drude = Chi0DrudeData.from_frequency_descriptor(wd, rate)
         self._calculate(chi0_drude, spins)
 
         return chi0_drude
@@ -774,13 +773,16 @@ class Chi0DrudeCalculator(Chi0Calculator):
         # free-space plasma frequency
         try:
             with np.errstate(divide='raise'):
-                drude_chi_Wvv = (
-                    plasmafreq_vv[np.newaxis] /
-                    (chi0_drude.wd.omega_w[:, np.newaxis, np.newaxis]
-                     + 1.j * chi0_drude.rate)**2)
+                # drude_chi_Wvv = (
+                #     plasmafreq_vv[np.newaxis] /
+                #     (chi0_drude.wd.omega_w[:, np.newaxis, np.newaxis]
+                #      + 1.j * chi0_drude.rate)**2)
+                drude_chi_Zvv = plasmafreq_vv[np.newaxis] \
+                    / chi0_drude.zd.hz_z[:, np.newaxis, np.newaxis]**2
         except FloatingPointError:
-            raise ValueError('Please set rate to a positive value.')
-        chi0_drude.chi_Wvv += drude_chi_Wvv
+            raise ValueError('Please evaluate the Drude response in the '
+                             'upper-half complex frequency plane.')
+        chi0_drude.chi_Zvv += drude_chi_Zvv
 
     def update_integrator_kwargs(self, *unused, **ignored):
         """The Drude calculator uses only standard integrator kwargs."""
