@@ -137,51 +137,50 @@ class FXCCorrelation:
         # because rpa gets blockcomm during calculate
         return self.rpa.blockcomm
 
-    @timer('FXC')
-    def calculate(self, *, nbands=None):
-        if self.xc != 'RPA':
-            # kernel not required for RPA
+    def _calculate_not_rpa(self):
+        # Find the first q vector to calculate kernel for
+        # (density averaging scheme always calculates all q points anyway)
 
-            # Find the first q vector to calculate kernel for
-            # (density averaging scheme always calculates all q points anyway)
+        q_empty = None
 
-            q_empty = None
+        for iq in reversed(range(len(self.ibzq_qc))):
+            handle = self.cache.handle(iq)
 
-            for iq in reversed(range(len(self.ibzq_qc))):
-                handle = self.cache.handle(iq)
+            if not handle.exists():
+                q_empty = iq
 
-                if not handle.exists():
-                    q_empty = iq
+        kernelkwargs = dict(
+            gs=self.gs,
+            xc=self.xc,
+            ibzq_qc=self.ibzq_qc,
+            ecut=self.ecut_max,
+            cache=self.cache,
+            context=self.context)
 
-            kernelkwargs = dict(
-                gs=self.gs,
-                xc=self.xc,
-                ibzq_qc=self.ibzq_qc,
-                ecut=self.ecut_max,
-                cache=self.cache,
-                context=self.context)
+        if q_empty is not None:
+            if self.avg_scheme == 'wavevector':
 
-            if q_empty is not None:
+                self.context.print('Calculating %s kernel starting from '
+                                   'q point %s \n' % (self.xc, q_empty))
 
-                if self.avg_scheme == 'wavevector':
-
-                    self.context.print('Calculating %s kernel starting from '
-                                       'q point %s \n' % (self.xc, q_empty))
-
-                    kernelkwargs.update(q_empty=q_empty)
-                    kernel = KernelWave(**kernelkwargs)
-
-                else:
-                    kernel = KernelDens(**kernelkwargs,
-                                        unit_cells=self.unit_cells,
-                                        density_cut=self.density_cut)
-
-                kernel.calculate_fhxc()
-                del kernel
+                kernelkwargs.update(q_empty=q_empty)
+                kernel = KernelWave(**kernelkwargs)
 
             else:
-                self.context.print('%s kernel already calculated\n' %
-                                   self.xc)
+                kernel = KernelDens(**kernelkwargs,
+                                    unit_cells=self.unit_cells,
+                                    density_cut=self.density_cut)
+
+            kernel.calculate_fhxc()
+        else:
+            self.context.print('%s kernel already calculated\n' %
+                               self.xc)
+
+    @timer('FXC')
+    def calculate(self, *, nbands=None):
+        # kernel not required for RPA
+        if self.xc != 'RPA':
+            self._calculate_not_rpa()
 
         e = self.rpa.calculate(spin=self.gs.nspins > 1, nbands=nbands)
 
