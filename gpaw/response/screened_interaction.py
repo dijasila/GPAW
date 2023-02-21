@@ -24,7 +24,7 @@ class QPointDescriptor(KPointDescriptor):
 def initialize_w_calculator(chi0calc, context, *,
                             coulomb,
                             xc='RPA',  # G0W0Kernel arguments
-                            ppa=False, E0=Ha,
+                            ppa=False,
                             integrate_gamma=0, q0_correction=False):
     """Initialize a WCalculator from a Chi0Calculator.
 
@@ -45,16 +45,11 @@ def initialize_w_calculator(chi0calc, context, *,
                           gs=gs, qd=qd,
                           ns=gs.nspins,
                           context=context)
-    if ppa:
-        wcalc = PPACalculator(E0, gs, context, qd=qd,
-                              coulomb=coulomb, xckernel=xckernel,
-                              integrate_gamma=integrate_gamma,
-                              q0_correction=q0_correction)
-    else:
-        wcalc = WCalculator(gs, context, qd=qd,
-                            coulomb=coulomb, xckernel=xckernel,
-                            integrate_gamma=integrate_gamma,
-                            q0_correction=q0_correction)
+    
+    wcalc = WCalculator(gs, context, qd=qd,
+                        coulomb=coulomb, xckernel=xckernel,
+                        integrate_gamma=integrate_gamma,
+                        q0_correction=q0_correction)
 
     return wcalc
 
@@ -107,32 +102,18 @@ class WCalculator:
         else:
             self.q0_corrector = None
 
-    def calculate(self, chi0,
+    def calculate_W_WgG(self, chi0,
                   fxc_mode='GW',
-                  only_correlation=False,
-                  out_dist='WgG'):
+                  only_correlation=False):
         """Calculate the screened interaction.
-
-        Parameters
-        ----------
-        fxc_mode: str
-            Where to include the vertex corrections; polarizability and/or
-            self-energy. 'GWP': Polarizability only, 'GWS': Self-energy only,
-            'GWG': Both.
+        Returns W_WgG (W matrix parallized over G)
         """
-        W_wGG = self._calculate(chi0, fxc_mode,
-                                only_correlation=only_correlation)
+        W_wGG = self.calculate_W_wGG(chi0, fxc_mode,
+                                   only_correlation=only_correlation)
         
-        if out_dist == 'WgG':
-            W_WgG = chi0.blockdist.distribute_as(W_wGG, chi0.nw, 'WgG')
-            W_x = W_WgG
-        elif out_dist == 'wGG':
-            W_x = W_wGG
-        else:
-            raise ValueError(f'Invalid out_dist {out_dist}')
-
-        return W_x
-
+        W_WgG = chi0.blockdist.distribute_as(W_wGG, chi0.nw, 'WgG')
+        return W_WgG
+    
     def get_V0sqrtV0(self, chi0):
         """
         Integrated Coulomb kernels.
@@ -165,9 +146,19 @@ class WCalculator:
         W_GG[0, 1:] = einv_GG[0, 1:] * sqrtV_G[1:] * sqrtV0
         W_GG[1:, 0] = einv_GG[1:, 0] * sqrtV0 * sqrtV_G[1:]
 
-    def _calculate(self, chi0, fxc_mode,
+    def calculate_W_wGG(self, chi0, fxc_mode='GW',
                    only_correlation=False):
-        """In-place calculation of the screened interaction."""
+        """Calculates W matrix parallized over frequencies (W_wGG)
+        Parameters
+        ----------
+        chi0: chi0Data
+        fxc_mode: str
+            Where to include the vertex corrections; polarizability and/or
+            self-energy. 'GWP': Polarizability only, 'GWS': Self-energy only,
+            'GWG': Both.
+        only_correlation: bool
+            If True only correlation part of W is calculated (Wc = W - V)
+        """
         chi0_wGG = chi0.copy_array_with_distribution('wGG')
         dfc = DielectricFunctionCalculator(chi0, self.coulomb,
                                            self.xckernel, fxc_mode)
@@ -200,6 +191,41 @@ class WCalculator:
         self.context.timer.stop('Dyson eq.')
         return chi0_wGG
 
+    def calculate_W_ppa(self, chi0, fxc_mode='GW'):
+        """Calculate the PPA parametrization of screened interaction.
+        
+            Parameters
+            ----------
+            E0 : float
+            Energy (in eV) used for fitting the plasmon-pole approximation
+            chi0 : chi0Data object
+            fxc_mode: str
+                Where to include the vertex corrections; polarizability and/or
+                self-energy. 'GWP': Polarizability only, 'GWS': Self-energy only,
+                'GWG': Both.
+        """
+        assert len(chi0.wd.omega_w) == 2
+        E0 = chi0.wd.omega_w[1].imag  # E0 directly related to frequency mesh for chi0
+        dfc = DielectricFunctionCalculator(chi0,
+                                           self.coulomb,
+                                           self.xckernel,
+                                           fxc_mode)
+        V0, sqrtV0 = self.get_V0sqrtV0(chi0)
+        self.context.timer.start('Dyson eq.')
+        einv_wGG = dfc.get_epsinv_wGG(only_correlation=True)
+        omegat_GG = E0 * np.sqrt(einv_wGG[1] /
+                                 (einv_wGG[0] - einv_wGG[1]))
+        R_GG = -0.5 * omegat_GG * einv_wGG[0]
+        W_GG = pi * R_GG * dfc.sqrtV_G * dfc.sqrtV_G[:, np.newaxis]
+        if chi0.optical_limit or self.integrate_gamma != 0:
+            self.apply_gamma_correction(W_GG, pi * R_GG,
+                                        V0, sqrtV0,
+                                        dfc.sqrtV_G)
+
+        self.context.timer.stop('Dyson eq.')
+        return [W_GG, omegat_GG]
+
+    
     def dyson_and_W_new(self, iq, q_c, chi0, ecut, coulomb):
         # assert not self.ppa
         # assert not self.do_GW_too
@@ -252,46 +278,3 @@ class WCalculator:
         Wp_wGG = W_WgG.copy()
         Wm_wGG = W_WgG.copy()
         return chi0.qpd, Wm_wGG, Wp_wGG  # not Hilbert transformed yet
-
-
-class PPACalculator(WCalculator):
-
-    def __init__(self, E0, *args, **kwargs):
-        # E0 : float
-        #    Energy (in eV) used for fitting the plasmon-pole approximation
-        self.E0 = E0 / Ha  # eV -> Hartree
-        super().__init__(*args, **kwargs)
-    
-    def calculate(self, chi0,
-                  fxc_mode='GW',
-                  only_correlation=False,
-                  out_dist=None):
-        """Calculate the PPA parametrization of screened interaction.
-
-        Parameters
-        ----------
-        fxc_mode: str
-            Where to include the vertex corrections; polarizability and/or
-            self-energy. 'GWP': Polarizability only, 'GWS': Self-energy only,
-            'GWG': Both.
-        """
-        dfc = DielectricFunctionCalculator(chi0,
-                                           self.coulomb,
-                                           self.xckernel,
-                                           fxc_mode)
-        assert only_correlation
-
-        V0, sqrtV0 = self.get_V0sqrtV0(chi0)
-        self.context.timer.start('Dyson eq.')
-        einv_wGG = dfc.get_epsinv_wGG(only_correlation=True)
-        omegat_GG = self.E0 * np.sqrt(einv_wGG[1] /
-                                      (einv_wGG[0] - einv_wGG[1]))
-        R_GG = -0.5 * omegat_GG * einv_wGG[0]
-        W_GG = pi * R_GG * dfc.sqrtV_G * dfc.sqrtV_G[:, np.newaxis]
-        if chi0.optical_limit or self.integrate_gamma != 0:
-            self.apply_gamma_correction(W_GG, pi * R_GG,
-                                        V0, sqrtV0,
-                                        dfc.sqrtV_G)
-
-        self.context.timer.stop('Dyson eq.')
-        return [W_GG, omegat_GG]

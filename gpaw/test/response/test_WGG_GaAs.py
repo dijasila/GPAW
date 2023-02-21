@@ -63,10 +63,9 @@ def test_Wsymm(in_tmp_dir, scalapack):
         qlist = []
         for iq, q_c in enumerate(q_c_list):
             chi0 = chi0calc.calculate(q_c)
-            W_wGG = wcalc.calculate(chi0,
-                                    fxc_mode='GW',
-                                    only_correlation=False,
-                                    out_dist='wGG')
+            W_wGG = wcalc.calculate_W_wGG(chi0,
+                                          fxc_mode='GW',
+                                          only_correlation=False)
             Wlist.append(W_wGG)
             qlist.append(q_c)
         return Wlist, qlist

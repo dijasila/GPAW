@@ -398,7 +398,6 @@ class G0W0Calculator:
         self.wcalc = wcalc
         self.context = self.wcalc.context
         self.ppa = ppa
-        
         # Note: self.chi0calc.wd should be our only representation
         # of the frequencies.
         # We should therefore get rid of self.frequencies.
@@ -470,7 +469,7 @@ class G0W0Calculator:
         if self.ppa:
             self.context.print('Using Godby-Needs plasmon-pole approximation:')
             self.context.print('  Fitting energy: i*E0, E0 = %.3f Hartee'
-                               % self.wcalc.E0)
+                               % self.chi0calc.wd.omega_w[1].imag)
         else:
             self.context.print('Using full frequency integration')
 
@@ -830,17 +829,21 @@ class G0W0Calculator:
         Wdict = {}
 
         for fxc_mode in self.fxc_modes:
-            if self.ppa:
-                out_dist = 'wGG'
-            else:
-                out_dist = 'WgG'
-
             rqpd = chi0.qpd.copy_with(ecut=ecut)  # reduced qpd
             rchi0 = chi0.copy_with_reduced_pd(rqpd)
-            W_wGG = self.wcalc.calculate(rchi0,
-                                         fxc_mode=fxc_mode,
-                                         only_correlation=True,
-                                         out_dist=out_dist)
+            if self.ppa:
+                Wdict[fxc_mode] = self.wcalc.calculate_W_ppa(rchi0,
+                                                             fxc_mode=fxc_mode)
+                
+            else:
+                W_wGG = self.wcalc.calculate_W_WgG(rchi0,
+                                                   fxc_mode=fxc_mode,
+                                                   only_correlation=True)
+                with self.context.timer('Hilbert'):
+                    W_xwGG = self.hilbert_transform(W_wGG)
+
+                Wdict[fxc_mode] = W_xwGG
+
 
             if chi0calc.pawcorr is not None and rqpd.ecut < chi0.qpd.ecut:
                 pw_map = PWMapping(rqpd, chi0.qpd)
@@ -848,15 +851,6 @@ class G0W0Calculator:
                 # change properties on the Chi0Calculator! Change in the
                 # future! XXX
                 chi0calc.pawcorr = chi0calc.pawcorr.reduce_ecut(pw_map.G2_G1)
-
-            if self.ppa:
-                W_xwGG = W_wGG  # (ppa API is nonsense)
-            # HT used to calculate convulution between time-ordered G and W
-            else:
-                with self.context.timer('Hilbert'):
-                    W_xwGG = self.hilbert_transform(W_wGG)
-
-            Wdict[fxc_mode] = W_xwGG
 
         # Create a blocks1d for the reduced plane-wave description
         blocks1d = Blocks1D(chi0.blockdist.blockcomm, rqpd.ngmax)
@@ -1098,7 +1092,7 @@ class G0W0(G0W0Calculator):
         wcalc = initialize_w_calculator(chi0calc, wcontext,
                                         ppa=ppa,
                                         xc=xc,
-                                        E0=E0, coulomb=coulomb,
+                                        coulomb=coulomb,
                                         integrate_gamma=integrate_gamma,
                                         q0_correction=q0_correction)
 
