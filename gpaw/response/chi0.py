@@ -186,11 +186,12 @@ class Chi0Calculator:
         m2 = self.nbands
         spins = self.get_spins(spin)
 
-        if self.drude_calc is None or not chi0.optical_limit:
-            chi0 = self.update_chi0(chi0, m1, m2, spins)
-        else:
-            chi0_drude = self.drude_calc.create_chi0_drude(q_c)
-            chi0 = self.update_chi0(chi0, m1, m2, spins, chi0_drude=chi0_drude)
+        chi0 = self.update_chi0(chi0, m1, m2, spins)
+
+        if self.drude_calc is not None and chi0.optical_limit:
+            # Add intraband contribution
+            chi0_drude = self.drude_calc.calculate(spin)
+            chi0.chi0_Wvv[:] += chi0_drude.chi_Wvv
 
         return chi0
 
@@ -207,8 +208,7 @@ class Chi0Calculator:
     @timer('Calculate CHI_0')
     def update_chi0(self,
                     chi0: Chi0Data,
-                    m1, m2, spins,
-                    chi0_drude=None):
+                    m1, m2, spins):
         """In-place calculation of the response function.
 
         Parameters
@@ -222,9 +222,6 @@ class Chi0Calculator:
         spins : str or list(ints)
             If 'all' then include all spins.
             If [0] or [1], only include this specific spin.
-        chi0_drude : Chi0DrudeData
-            Data object for the contribution from intraband transitions
-            in the optical limit.
 
         Returns
         -------
@@ -252,21 +249,8 @@ class Chi0Calculator:
         self._update_chi0_body(chi0, m1, m2, spins)
 
         if optical_limit:
-            if self.drude_calc is not None:
-                assert chi0_drude is not None
-
-                # Subtract the drude contribution to the head
-                chi0.chi0_Wvv[:] -= chi0_drude.chi_Wvv
-
-                # Update the chi0 head and wings (w.o. drude contribution)
-                self._update_chi0_wings(chi0, m1, m2, spins)
-
-                # Update the drude contribution and add it to the head
-                self.drude_calc._calculate(chi0_drude, spins)
-                chi0.chi0_Wvv[:] += chi0_drude.chi_Wvv
-            else:
-                # Just update the head and wings
-                self._update_chi0_wings(chi0, m1, m2, spins)
+            # Update the head and wings
+            self._update_chi0_wings(chi0, m1, m2, spins)
 
         return chi0
 
