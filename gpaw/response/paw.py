@@ -9,19 +9,18 @@ from types import SimpleNamespace
 class Setuplet:
     def __init__(self, *, phit_jg, phi_jg, rgd, l_j, rcut_j):
         self.rgd = rgd
-        self.data = SimpleNamespace(phi_jg=phi_jg, phit_jg=phit_jg)
+        self.data = SimpleNamespace(phit_jg=phit_jg, phi_jg=phi_jg)
         self.l_j = l_j
         self.ni = np.sum([2 * l + 1 for l in l_j])
         self.rcut_j = rcut_j
 
 def two_phi_planewave_integrals(qG_Gv, *, pawdata):
-    
+    rgd = pawdata.rgd
     l_j = pawdata.l_j
     phi_jg = pawdata.data.phi_jg
     phit_jg = pawdata.data.phit_jg
     ni = pawdata.ni
     
-    rgd = pawdata.rgd
     gcut2 = rgd.ceil(2 * max(pawdata.rcut_j))
     
     # Initialize

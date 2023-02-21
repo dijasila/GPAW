@@ -61,7 +61,7 @@ def calculate_spinkernel(*, ecut, xcflags, gs, qd, ns, qpd, context):
                                   ecut_max=ecut_max, gs=gs,
                                   context=context)
 
-    context.world.barrier()
+    context.comm.barrier()
 
     fv = handle.read()
 

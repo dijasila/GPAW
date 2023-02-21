@@ -242,9 +242,9 @@ class LocalPAWFTCalculator(LocalFTCalculator):
         """
         pawdata = self.gs.pawdatasets[a]
         # Radial grid descriptor:
-        rgd = pawdata.rgd
+        rgd = pawdata.xc_correction.rgd
         # Spherical harmonics on the Lebedev quadrature:
-        Y_nL = pawdata.Y_nL
+        Y_nL = pawdata.xc_correction.Y_nL
 
         D_sp = self.gs.D_asp[a]  # atomic density matrix
         n_sLg, nt_sLg = self.calculate_atom_centered_densities(pawdata, D_sp)
@@ -264,12 +264,12 @@ class LocalPAWFTCalculator(LocalFTCalculator):
             pseudo density
         (s=spin, L=(l,m) spherical harmonic index, g=radial grid index)
         """
-        n_qg = pawdata.n_qg
-        nt_qg = pawdata.nt_qg
-        nc_g = pawdata.nc_g
-        nct_g = pawdata.nct_g
+        n_qg = pawdata.xc_correction.n_qg
+        nt_qg = pawdata.xc_correction.nt_qg
+        nc_g = pawdata.xc_correction.nc_g
+        nct_g = pawdata.xc_correction.nct_g
 
-        B_pqL = pawdata.B_pqL
+        B_pqL = pawdata.xc_correction.B_pqL
         D_sLq = np.inner(D_sp, B_pqL.T)
         nspins = len(D_sp)
 

@@ -30,8 +30,7 @@ class ResponseGroundStateAdapter:
         self.atoms = calc.atoms
         self.pawdatasets = {atom.index : PAWDataset(setup)
                          for (atom, setup) in zip(self.atoms, calc.setups)}
-        #from ase.parallel import parprint
-        #parprint(self.lwsetups)
+
         self.pbc = self.atoms.pbc
         self.volume = self.gd.volume
 
@@ -200,19 +199,21 @@ class ResponseGroundStateAdapter:
 class PAWDataset:
     def __init__(self, setup):
         self.ni = setup.ni
+        self.rgd = setup.rgd
         self.rcut_j = setup.rcut_j
         self.l_j = setup.l_j
-        self.phi_jg = setup.data.phi_jg
-        self.phit_jg = setup.data.phit_jg
+        self.lq = setup.lq
         self.R_sii = setup.R_sii
         self.nabla_iiv = setup.nabla_iiv
-
-        self.hubbard_u = setup.hubbard_u
-
+        self.data = SimpleNamespace(phi_jg = setup.data.phi_jg,
+                                    phit_jg = setup.data.phit_jg)
         self.xc_correction = SimpleNamespace(rgd = setup.xc_correction.rgd,
                                              Y_nL = setup.xc_correction.Y_nL,
                                              n_qg = setup.xc_correction.n_qg,
                                              nt_qg = setup.xc_correction.nt_qg,
                                              nc_g = setup.xc_correction.nc_g,
                                              nct_g = setup.xc_correction.nct_g,
-                                             B_pqL = setup.xc_correction.B_pqL)
+                                             nc_corehole_g=setup.xc_correction.nc_corehole_g,
+                                             B_pqL = setup.xc_correction.B_pqL,
+                                             e_xc0 = setup.xc_correction.e_xc0)
+        self.hubbard_u = setup.hubbard_u
