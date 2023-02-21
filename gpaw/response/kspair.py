@@ -888,9 +888,9 @@ class PlaneWavePairDensity(PairMatrixElement):
             self.currentq_c = q_c
 
     def _initialize_paw_corrections(self, qpd):
-        setups = self.gs.setups
+        pawdatasets = self.gs.pawdatasets
         spos_ac = self.gs.spos_ac
-        return get_pair_density_paw_corrections(setups, qpd, spos_ac)
+        return get_pair_density_paw_corrections(pawdatasets, qpd, spos_ac)
 
     @timer('Calculate pair density')
     def __call__(self, kskptpair, qpd):
