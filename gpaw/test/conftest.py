@@ -421,14 +421,14 @@ class GPWFiles:
         return atoms.calc
 
     def fe_pw(self):
+        """See also the fe_fixture_test.py test."""
         xc = 'LDA'
         kpts = 4
-        nbands = 6
+        nbands = 9  # 4s, 4p, 3d = 9
         pw = 300
         occw = 0.01
         conv = {'bands': nbands,
-                'density': 1.e-8,
-                'forces': 1.e-8}
+                'density': 1.e-8}
         a = 2.867
         mm = 2.21
         atoms = bulk('Fe', 'bcc', a=a)
@@ -439,13 +439,12 @@ class GPWFiles:
             xc=xc,
             mode=PW(pw),
             kpts={'size': (kpts, kpts, kpts)},
-            nbands=nbands + 4,
+            nbands=18,
             occupations=FermiDirac(occw),
             convergence=conv,
             txt=self.path / 'fe_pw.txt')
 
         atoms.get_potential_energy()
-
         return atoms.calc
 
     def ag_plusU_pw(self):
