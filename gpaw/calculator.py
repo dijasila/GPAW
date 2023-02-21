@@ -175,15 +175,15 @@ class GPAW(Calculator):
             **kwargs):
         """Create a new calculator, inheriting input parameters.
 
-        The txt file and timer are the only input parameters to
+        The ``txt`` file and timer are the only input parameters to
         be created anew. Internal variables, such as the density
         or the wave functions, are not reused either.
 
         For example, to perform an identical calculation with a
-        parameter changed (e.g. changing xc functional to PBE)::
+        parameter changed (e.g. changing XC functional to PBE)::
 
             new_calc = calc.new(xc='PBE')
-            atoms.calc = calc
+            atoms.calc = new_calc
         """
         assert 'atoms' not in kwargs
         assert 'restart' not in kwargs

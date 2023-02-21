@@ -504,19 +504,19 @@ class DielectricFunction(DielectricFunctionCalculator):
         """Creates a DielectricFunction object.
 
         calc: str
-            The groundstate calculation file that the linear response
+            The ground-state calculation file that the linear response
             calculation is based on.
         frequencies:
             Input parameters for frequency_grid.
             Can be array of frequencies to evaluate the response function at
-            or dictionary of paramaters for build-in nonlinear grid
+            or dictionary of parameters for build-in nonlinear grid
             (see :ref:`frequency grid`).
         ecut: float
             Plane-wave cut-off.
         hilbert: bool
             Use hilbert transform.
         nbands: int
-            Number of bands from calc.
+            Number of bands from calculation.
         eta: float
             Broadening parameter.
         threshold: float

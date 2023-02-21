@@ -14,7 +14,7 @@ Git master branch
 
 * New :meth:`~gpaw.calculator.GPAW.new()` method for creating new ``GPAW``
   objects with tweaked input parameters.  This can often be used to replace
-  thw use of the ``set`` method which we are planning to remove.
+  the use of the ``set`` method which we are planning to remove.
 
 * A bug was found (now fixed) in the :ref:`zfs` module.  Please redo
   calculations done with versions 22.1 and 22.8.
