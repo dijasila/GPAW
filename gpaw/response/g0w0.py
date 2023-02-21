@@ -31,6 +31,45 @@ from contextlib import ExitStack
 from ase.parallel import broadcast
 
 
+def compare_dicts(dict1, dict2, rel_tol=1e-14, abs_tol=1e-14):
+    """
+    Compare each key-value pair within dictionaries that contain nested data
+    structures of arbitrary depth. If a kvp contains floats, you may specify
+    the tolerance (abs or rel) to which the floats are compared. Individual
+    elements within lists are not compared to floating point precision.
+
+    :params dict1: Dictionary containing kvp to compare with other dictionary.
+    :params dict2: Second dictionary.
+    :params rel_tol: Maximum difference for being considered "close",
+    relative to the magnitude of the input values as defined by math.isclose().
+    :params abs_tol: Maximum difference for being considered "close",
+    regardless of the magnitude of the input values as defined by
+    math.isclose().
+
+    :returns: bool indicating kvp's don't match (False) or do match (True)
+    """
+    from math import isclose
+    if dict1.keys() != dict2.keys():
+        return False
+
+    for key in dict1.keys():
+        val1 = dict1[key]
+        val2 = dict2[key]
+
+        if isinstance(val1, dict) and isinstance(val2, dict):
+            # recursive func call to ensure nested structures are also compared
+            if not compare_dicts(val1, val2, rel_tol, abs_tol):
+                return False
+        elif isinstance(val1, float) and isinstance(val2, float):
+            if not isclose(val1, val2, rel_tol=rel_tol, abs_tol=abs_tol):
+                return False
+        else:
+            if val1 != val2:
+                return False
+
+    return True
+
+
 class Sigma:
     def __init__(self, iq, q_c, fxc, esknshape, **inputs):
         """Inputs are used for cache invalidation, and are stored for each
@@ -54,7 +93,8 @@ class Sigma:
         return self
 
     def validate_inputs(self, inputs):
-        equals = inputs == self.inputs
+        equals = compare_dicts(inputs, self.inputs, rel_tol=1e-14,
+                               abs_tol=1e-14)
         if not equals:
             raise RuntimeError('There exists a cache with mismatching input '
                                f'parameters: {inputs} != {self.inputs}.')
@@ -426,7 +466,7 @@ class G0W0Calculator:
         self.filename = filename
         self.eta = eta / Ha
 
-        if self.context.world.rank == 0:
+        if self.context.comm.rank == 0:
             # We pass a serial communicator because the parallel handling
             # is somewhat wonky, we'd rather do that ourselves:
             try:
@@ -470,7 +510,7 @@ class G0W0Calculator:
         if self.ppa:
             self.context.print('Using Godby-Needs plasmon-pole approximation:')
             self.context.print('  Fitting energy: i*E0, E0 = %.3f Hartee'
-                               % self.wcalc.E0)
+                               % self.chi0calc.wd.omega_w[1].imag)
         else:
             self.context.print('Using full frequency integration')
 
@@ -571,15 +611,15 @@ class G0W0Calculator:
         return all_results
 
     def read_sigmas(self):
-        if self.context.world.rank == 0:
+        if self.context.comm.rank == 0:
             sigmas = self._read_sigmas()
         else:
             sigmas = None
 
-        return broadcast(sigmas, comm=self.context.world)
+        return broadcast(sigmas, comm=self.context.comm)
 
     def _read_sigmas(self):
-        assert self.context.world.rank == 0
+        assert self.context.comm.rank == 0
 
         # Integrate over all q-points, and accumulate the quasiparticle shifts
         for iq, q_c in enumerate(self.wcalc.qd.ibzk_kc):
@@ -596,7 +636,7 @@ class G0W0Calculator:
         return sigmas
 
     def get_sigmas_dict(self, key):
-        assert self.context.world.rank == 0
+        assert self.context.comm.rank == 0
         return {fxc_mode: Sigma.fromdict(sigma)
                 for fxc_mode, sigma in self.qcache[key].items()}
 
@@ -616,12 +656,12 @@ class G0W0Calculator:
         paths = {}
         for fxc_mode in self.fxc_modes:
             path = Path(f'{self.filename}_results_{fxc_mode}.pckl')
-            with paropen(path, 'wb', comm=self.context.world) as fd:
+            with paropen(path, 'wb', comm=self.context.comm) as fd:
                 pickle.dump(self.all_results[fxc_mode], fd, 2)
             paths[fxc_mode] = path
 
         # Do not return paths to caller before we know they all exist:
-        self.context.world.barrier()
+        self.context.comm.barrier()
         return paths
 
     def calculate_q(self, ie, k, kpt1, kpt2, qpd, Wdict,
@@ -719,7 +759,7 @@ class G0W0Calculator:
         mynw = (nw + size - 1) // size
 
         # some memory sizes...
-        if self.context.world.rank == 0:
+        if self.context.comm.rank == 0:
             siz = (nw * mynGmax * nGmax +
                    max(mynw * nGmax, nw * mynGmax) * nGmax) * 16
             sizA = (nw * nGmax * nGmax + nw * nGmax * nGmax) * 16
@@ -729,30 +769,30 @@ class G0W0Calculator:
 
         # Need to pause the timer in between iterations
         self.context.timer.stop('W')
-        if self.context.world.rank == 0:
+        if self.context.comm.rank == 0:
             for key, sigmas in self.qcache.items():
                 sigmas = {fxc_mode: Sigma.fromdict(sigma)
                           for fxc_mode, sigma in sigmas.items()}
                 for fxc_mode, sigma in sigmas.items():
                     sigma.validate_inputs(self.get_validation_inputs())
 
-        self.context.world.barrier()
+        self.context.comm.barrier()
         for iq, q_c in enumerate(self.wcalc.qd.ibzk_kc):
             with ExitStack() as stack:
-                if self.context.world.rank == 0:
+                if self.context.comm.rank == 0:
                     qhandle = stack.enter_context(self.qcache.lock(str(iq)))
                     skip = qhandle is None
                 else:
                     skip = False
 
-                skip = broadcast(skip, comm=self.context.world)
+                skip = broadcast(skip, comm=self.context.comm)
 
                 if skip:
                     continue
 
                 result = self.calculate_q_point(iq, q_c, pb, chi0calc)
 
-                if self.context.world.rank == 0:
+                if self.context.comm.rank == 0:
                     qhandle.save(result)
         pb.finish()
 
@@ -805,7 +845,7 @@ class G0W0Calculator:
                                      pawcorr=pawcorr)
 
         for sigma in sigmas.values():
-            sigma.sum(self.context.world)
+            sigma.sum(self.context.comm)
 
         return sigmas
 
@@ -824,39 +864,36 @@ class G0W0Calculator:
                     iq):
         """Calculates the screened potential for a specified q-point."""
 
-        chi0calc.print_chi(chi0.qpd)
+        chi0calc.print_info(chi0.qpd)
         chi0calc.update_chi0(chi0, m1, m2, range(self.wcalc.gs.nspins))
 
         Wdict = {}
 
         for fxc_mode in self.fxc_modes:
-            if self.ppa:
-                out_dist = 'wGG'
-            else:
-                out_dist = 'WgG'
-
             rqpd = chi0.qpd.copy_with(ecut=ecut)  # reduced qpd
             rchi0 = chi0.copy_with_reduced_pd(rqpd)
-            W_wGG = self.wcalc.calculate(rchi0,
-                                         fxc_mode=fxc_mode,
-                                         only_correlation=True,
-                                         out_dist=out_dist)
-
-            if chi0calc.pawcorr is not None and rqpd.ecut < chi0.qpd.ecut:
-                pw_map = PWMapping(rqpd, chi0.qpd)
-                # This is extremely bad behaviour! G0W0Calculator should not
-                # change properties on the Chi0Calculator! Change in the
-                # future! XXX
-                chi0calc.pawcorr = chi0calc.pawcorr.reduce_ecut(pw_map.G2_G1)
-
             if self.ppa:
-                W_xwGG = W_wGG  # (ppa API is nonsense)
-            # HT used to calculate convulution between time-ordered G and W
+                Wdict[fxc_mode] = self.wcalc.calculate_ppa(rchi0,
+                                                           fxc_mode=fxc_mode)
             else:
+                W_wGG = self.wcalc.calculate_W_WgG(rchi0,
+                                                   fxc_mode=fxc_mode,
+                                                   only_correlation=True)
+
+                if (chi0calc.pawcorr is not None and
+                    rqpd.ecut < chi0.qpd.ecut):
+                    pw_map = PWMapping(rqpd, chi0.qpd)
+                    # This is extremely bad behaviour! G0W0Calculator
+                    # should not change properties on the
+                    # Chi0Calculator! Change in the future! XXX
+                    chi0calc.pawcorr = \
+                        chi0calc.pawcorr.reduce_ecut(pw_map.G2_G1)
+
+                # HT used to calculate convulution between time-ordered G and W
                 with self.context.timer('Hilbert'):
                     W_xwGG = self.hilbert_transform(W_wGG)
 
-            Wdict[fxc_mode] = W_xwGG
+                Wdict[fxc_mode] = W_xwGG
 
         # Create a blocks1d for the reduced plane-wave description
         blocks1d = Blocks1D(chi0.blockdist.blockcomm, rqpd.ngmax)
@@ -965,7 +1002,7 @@ class G0W0(G0W0Calculator):
                  **kwargs):
         """G0W0 calculator wrapper.
 
-        The G0W0 calculator is used is used to calculate the quasi
+        The G0W0 calculator is used to calculate the quasi
         particle energies through the G0W0 approximation for a number
         of states.
 
@@ -988,7 +1025,7 @@ class G0W0(G0W0Calculator):
             E.g. (-1, 1) will use HOMO+LUMO.
         frequencies:
             Input parameters for frequency_grid.
-            Can be array of frequencies to evaluate the response function at
+            Can be an array of frequencies to evaluate the response function at
             or dictionary of parameters for build-in nonlinear grid
             (see :ref:`frequency grid`).
         ecut: float
@@ -1017,8 +1054,7 @@ class G0W0(G0W0Calculator):
             is possible to get the standard GW results at the same time
             (almost for free).
         truncation: str
-            Coulomb truncation scheme. Can be either wigner-seitz,
-            2D, 1D, or 0D
+            Coulomb truncation scheme. Can be either 2D, 1D, or 0D.
         integrate_gamma: int
             Method to integrate the Coulomb interaction. 1 is a numerical
             integration at all q-points with G=[0,0,0] - this breaks the
@@ -1045,13 +1081,13 @@ class G0W0(G0W0Calculator):
         gpwfile = Path(calc)
 
         context = ResponseContext(txt=filename + '.txt',
-                                  world=world, timer=timer)
+                                  comm=world, timer=timer)
         gs = ResponseGroundStateAdapter.from_gpw_file(gpwfile,
                                                       context=context)
 
         # Check if nblocks is compatible, adjust if not
         if nblocksmax:
-            nblocks = get_max_nblocks(context.world, gpwfile, ecut)
+            nblocks = get_max_nblocks(context.comm, gpwfile, ecut)
 
         pair = PairDensityCalculator(gs, context,
                                      nblocks=nblocks)
