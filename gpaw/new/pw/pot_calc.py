@@ -86,7 +86,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
             e_zero = self.vbar0_g.integrate(nt0_g)
         else:
             e_zero = 0.0
-        e_zero = broadcast_float(e_zero, pw.comm)
+        e_zero = broadcast_float(float(e_zero), pw.comm)
 
         if vHt_h is None:
             vHt_h = self.ghat_aLh.pw.zeros(xp=self.xp)

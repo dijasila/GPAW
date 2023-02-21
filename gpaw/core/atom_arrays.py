@@ -49,7 +49,7 @@ class AtomArraysLayout:
 
     def __repr__(self):
         return (f'AtomArraysLayout({self.shape_a}, {self.atomdist}, '
-                f'{self.dtype}, xp={self.xp})')
+                f'{self.dtype}, xp={self.xp.__name__})')
 
     def new(self, atomdist=None, dtype=None, xp=None):
         """Create new AtomsArrayLayout object with new atomdist."""

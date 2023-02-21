@@ -17,6 +17,7 @@ from typing import DefaultDict
 
 import numpy as np
 from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.core.atom_arrays import AtomArrays
 from gpaw.new.potential import Potential
 from gpaw.new.xc import XCFunctional
 from gpaw.setup import Setup
@@ -53,6 +54,7 @@ class PotentialCalculator:
             self.setups, density, self.xc, Q_aL, self.soc)
 
         for key, e in corrections.items():
+            print(key, type(e), type(energies[key]), e, energies[key])
             energies[key] += e
 
         return Potential(vt_sR, dH_asii, energies), vHt_x, Q_aL
@@ -69,10 +71,12 @@ def calculate_non_local_potential(setups,
                                   density,
                                   xc,
                                   Q_aL,
-                                  soc: bool):
+                                  soc: bool) -> tuple[AtomArrays,
+                                                      dict[str, float]]:
     dtype = float if density.ncomponents < 4 else complex
     D_asii = density.D_asii.to_xp(np)
     dH_asii = D_asii.layout.new(dtype=dtype).empty(density.ncomponents)
+    Q_aL = Q_aL.to_xp(np)
     energy_corrections: DefaultDict[str, float] = defaultdict(float)
     for a, D_sii in D_asii.items():
         Q_L = Q_aL[a]

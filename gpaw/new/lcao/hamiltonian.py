@@ -132,7 +132,8 @@ class LCAOHamiltonian(Hamiltonian):
                   for vt_R in state.potential.vt_sR]
 
         dH_saii = [{a: dH_sii[s]
-                    for a, dH_sii in state.potential.dH_asii.items()}
+                    for a, dH_sii
+                    in state.potential.dH_asii.to_xp(np).items()}
                    for s in range(len(V_sxMM))]
 
         matcalc = CollinearHamiltonianMatrixCalculator(V_sxMM, dH_saii,
