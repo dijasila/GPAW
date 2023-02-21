@@ -19,7 +19,7 @@ calc = GPAW(mode=PW(600, force_complex_dtype=True),
 CO.calc = calc
 E0_pbe = CO.get_potential_energy()
 
-E0_hf = E0_pbe + nsc_energy(calc, 'EXX')[1:].sum()
+E0_hf = nsc_energy(calc, 'EXX').sum()
 
 calc.diagonalize_full_hamiltonian()
 calc.write('CO.ralda.pbe_wfcs_CO.gpw', mode='all')
@@ -42,7 +42,7 @@ calc = GPAW(mode=PW(600, force_complex_dtype=True),
 C.calc = calc
 E1_pbe = C.get_potential_energy()
 
-E1_hf = E1_pbe + nsc_energy(calc, 'EXX')[1:].sum()
+E1_hf = nsc_energy(calc, 'EXX').sum()
 
 f = paropen('CO.ralda.PBE_HF_C.dat', 'w')
 print(E1_pbe, E1_hf, file=f)
@@ -68,7 +68,7 @@ calc = GPAW(mode=PW(600, force_complex_dtype=True),
 O.calc = calc
 E2_pbe = O.get_potential_energy()
 
-E2_hf = E2_pbe + nsc_energy(calc, 'EXX')[1:].sum()
+E2_hf = nsc_energy(calc, 'EXX').sum()
 
 calc.diagonalize_full_hamiltonian()
 calc.write('CO.ralda.pbe_wfcs_O.gpw', mode='all')
