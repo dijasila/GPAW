@@ -243,8 +243,7 @@ class PWLFC(BaseLFC):
                                      self.l_s, self.a_J, self.s_J,
                                      cc, f_GI, self.I_J)
             return f_GI
-            #f2_GI = f_GI.copy()
-        print('Slow python code')
+
         # Equivalent slow Python code:
         f_GI = xp.empty((G2 - G1, self.nI), complex)
         I1 = 0
@@ -261,9 +260,6 @@ class PWLFC(BaseLFC):
         if self.dtype == float:
             f_GI = f_GI.T.copy().view(float).T.copy()
 
-        #np.save('f_GI_python', f_GI)
-        #np.save('f_GI_kernel', f2_GI)
-        #assert np.allclose(f_GI, f2_GI)
         return f_GI
 
     def block(self, ensure_same_number_of_blocks=False):

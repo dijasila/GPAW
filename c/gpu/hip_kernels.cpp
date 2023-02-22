@@ -28,30 +28,22 @@ __global__ void pwlfc_expand_kernel_8(double* f_Gs,
 				       make_hipDoubleComplex(0, 1.0)};
     if ((G < nG) && (J < nJ))
     {
-        //for(int G = 0; G < nG; G++) 
-           // f_Gs += nsplines*G;
-            //emiGR_Ga += natoms*G;
-            //Y_GL += nL*G;
-            //f_GI += nI*G;
-        
         f_Gs += G*nsplines;
         emiGR_Ga += G*natoms;
         Y_GL += G*nL;
         f_GI += G*nI*2+I_J[J];
 	    
-        //    for (int J = 0; J < nJ; J++) { 
-                int s = s_J[J];
-                int l = l_s[s];
-                hipDoubleComplex f1 = (emiGR_Ga[a_J[J]] *
-                                     f_Gs[s] *
-                                     imag_powers[l % 4]);
-                for (int m = 0; m < 2 * l + 1; m++) {
-                    hipDoubleComplex f = f1 * Y_GL[l * l + m];
-                    f_GI[0] = f.x;
-                    f_GI[nI] = cc ? -f.y : f.y;
-                    f_GI++;
-                }
-       //  }
+	int s = s_J[J];
+	int l = l_s[s];
+	hipDoubleComplex f1 = (emiGR_Ga[a_J[J]] *
+			     f_Gs[s] *
+			     imag_powers[l % 4]);
+	for (int m = 0; m < 2 * l + 1; m++) {
+	    hipDoubleComplex f = f1 * Y_GL[l * l + m];
+	    f_GI[0] = f.x;
+	    f_GI[nI] = cc ? -f.y : f.y;
+	    f_GI++;
+	}
     }
 }
 
@@ -80,25 +72,22 @@ __global__ void pwlfc_expand_kernel_16(double* f_Gs,
 				       make_hipDoubleComplex(0, 1.0)};
     if ((G < nG) && (J < nJ))
     {
-        //for(int G = 0; G < nG; G++) 
         f_Gs += G*nsplines;
         emiGR_Ga += G*natoms;
         Y_GL += G*nL;
         f_GI += (G*nI+I_J[J])*2;
-                //for (int J = 0; J < nJ; J++) {
-                int s = s_J[J];
-                int l = l_s[s];
-                hipDoubleComplex f1 = (emiGR_Ga[a_J[J]] *
-                                     f_Gs[s] *
-                                     imag_powers[l % 4]);
-                for (int m = 0; m < 2 * l + 1; m++) {
-                    hipDoubleComplex f = f1 * Y_GL[l * l + m];
-                    *f_GI++ = f.x;
-                    *f_GI++ = cc ? -f.y : f.y;
-                }
-            //}
-        }
+	int s = s_J[J];
+	int l = l_s[s];
+	hipDoubleComplex f1 = (emiGR_Ga[a_J[J]] *
+			     f_Gs[s] *
+			     imag_powers[l % 4]);
+	for (int m = 0; m < 2 * l + 1; m++) {
+	    hipDoubleComplex f = f1 * Y_GL[l * l + m];
+	    *f_GI++ = f.x;
+	    *f_GI++ = cc ? -f.y : f.y;
+	}
     }
+}
 
 extern "C" void pwlfc_expand_gpu_launch_kernel(int itemsize, 
 		                               double* f_Gs,
