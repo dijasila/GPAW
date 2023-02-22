@@ -1,3 +1,4 @@
+from __future__ import annotations
 import contextlib
 from time import time
 from typing import TYPE_CHECKING
@@ -5,7 +6,10 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 cupy_is_fake = True
+"""True if :mod:`cupy` has been replaced by :mod:`gpaw.gpu.cpupy`"""
+
 is_hip = False
+"""True if we are using HIP"""
 
 if TYPE_CHECKING:
     import gpaw.gpu.cpupy as cupy
@@ -34,6 +38,15 @@ def setup():
 
 
 def as_xp(array, xp):
+    """Transfer array to CPU or GPU (if not already there).
+
+    Parameters
+    ==========
+    array:
+        Numpy or CuPy array.
+    xp:
+        :mod:`numpy` or :mod:`cupy`.
+    """
     if xp is np:
         if isinstance(array, np.ndarray):
             return array
@@ -43,7 +56,7 @@ def as_xp(array, xp):
     return array
 
 
-def cupy_eigh(a, UPLO):
+def cupy_eigh(a: cupy.ndarray, UPLO: str) -> cupy.ndarray:
     """HIP version of eigh() is too slow for now."""
     from scipy.linalg import eigh
     if not is_hip:
