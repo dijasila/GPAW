@@ -6,14 +6,15 @@ from gpaw.typing import Vector
 from gpaw.core.atom_centered_functions import AtomArraysLayout
 from gpaw.utilities import unpack2, unpack
 from gpaw.core.atom_arrays import AtomArrays
+from gpaw.core.uniform_grid import UniformGridFunctions
 
 
 class Density:
     def __init__(self,
-                 nt_sR,
-                 D_asii,
-                 charge,
-                 delta_aiiL,
+                 nt_sR: UniformGridFunctions,
+                 D_asii: AtomArrays,
+                 charge: float,
+                 delta_aiiL: list,
                  delta0_a,
                  N0_aii,
                  l_aj):
@@ -40,12 +41,14 @@ class Density:
                 f'  charge: {self.charge}  # |e|\n')
 
     def calculate_compensation_charge_coefficients(self) -> AtomArrays:
+        xp = self.D_asii.layout.xp
         ccc_aL = AtomArraysLayout(
             [delta_iiL.shape[2] for delta_iiL in self.delta_aiiL],
-            atomdist=self.D_asii.layout.atomdist).empty()
+            atomdist=self.D_asii.layout.atomdist,
+            xp=xp).empty()
 
         for a, D_sii in self.D_asii.items():
-            Q_L = np.einsum('sij, ijL -> L',
+            Q_L = xp.einsum('sij, ijL -> L',
                             D_sii[:self.ndensities], self.delta_aiiL[a])
             Q_L[0] += self.delta0_a[a]
             ccc_aL[a] = Q_L
@@ -54,12 +57,15 @@ class Density:
 
     def normalize(self):
         comp_charge = 0.0
+        xp = self.D_asii.layout.xp
         for a, D_sii in self.D_asii.items():
-            comp_charge += np.einsum('sij, ij ->',
+            comp_charge += xp.einsum('sij, ij ->',
                                      D_sii[:self.ndensities],
                                      self.delta_aiiL[a][:, :, 0])
             comp_charge += self.delta0_a[a]
-        comp_charge = self.nt_sR.desc.comm.sum(comp_charge * sqrt(4 * pi))
+        # comp_charge could be cupy.ndarray:
+        comp_charge = float(comp_charge) * sqrt(4 * pi)
+        comp_charge = self.nt_sR.desc.comm.sum(comp_charge)
         charge = comp_charge + self.charge
         pseudo_charge = self.nt_sR[:self.ndensities].integrate().sum()
         x = -charge / pseudo_charge
@@ -75,13 +81,14 @@ class Density:
     def symmetrize(self, symmetries):
         self.nt_sR.symmetrize(symmetries.rotation_scc,
                               symmetries.translation_sc)
-
+        xp = self.nt_sR.xp
         D_asii = self.D_asii.gather(broadcast=True, copy=True)
         for a1, D_sii in self.D_asii.items():
             D_sii[:] = 0.0
             for a2, rotation_ii in zip(symmetries.a_sa[:, a1],
                                        symmetries.rotations(self.l_aj[a1])):
-                D_sii += np.einsum('ij, sjk, lk -> sil',
+                rotation_ii = xp.asarray(rotation_ii)
+                D_sii += xp.einsum('ij, sjk, lk -> sil',
                                    rotation_ii, D_asii[a2], rotation_ii)
         self.D_asii.data *= 1.0 / len(symmetries)
 
@@ -109,7 +116,7 @@ class Density:
         nt_sR = nct_R.desc.zeros(ncomponents)
         basis_set.add_to_density(nt_sR.data, f_asi)
         ndensities = ncomponents % 3
-        nt_sR.data[:ndensities] += nct_R.data
+        nt_sR.data[:ndensities] += nct_R.to_xp(np).data
 
         atom_array_layout = AtomArraysLayout([(setup.ni, setup.ni)
                                               for setup in setups],
@@ -118,8 +125,9 @@ class Density:
         for a, D_sii in D_asii.items():
             D_sii[:] = unpack2(setups[a].initialize_density_matrix(f_asi[a]))
 
-        return cls.from_data_and_setups(nt_sR,
-                                        D_asii,
+        xp = nct_R.xp
+        return cls.from_data_and_setups(nt_sR.to_xp(xp),
+                                        D_asii.to_xp(xp),
                                         charge,
                                         setups)
 
@@ -129,10 +137,11 @@ class Density:
                              D_asii,
                              charge,
                              setups):
+        xp = nt_sR.xp
         return cls(nt_sR,
                    D_asii,
                    charge,
-                   [setup.Delta_iiL for setup in setups],
+                   [xp.asarray(setup.Delta_iiL) for setup in setups],
                    [setup.Delta0 for setup in setups],
                    [unpack(setup.N0_p) for setup in setups],
                    [setup.l_j for setup in setups])

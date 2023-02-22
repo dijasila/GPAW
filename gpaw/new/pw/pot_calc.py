@@ -2,6 +2,7 @@ import numpy as np
 from gpaw.core import PlaneWaves
 from gpaw.new.pot_calc import PotentialCalculator
 from gpaw.setup import Setups
+from gpaw.mpi import broadcast_float
 
 
 class PlaneWavePotentialCalculator(PotentialCalculator):
@@ -19,12 +20,14 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                  xp=np):
         fracpos_ac = nct_ag.fracpos_ac
         atomdist = nct_ag.atomdist
+        self.xp = xp
         super().__init__(xc, poisson_solver, setups, nct_R, fracpos_ac, soc)
 
         self.nct_ag = nct_ag
-        self.vbar_ag = setups.create_local_potentials(pw, fracpos_ac, atomdist)
+        self.vbar_ag = setups.create_local_potentials(
+            pw, fracpos_ac, atomdist, xp)
         self.ghat_aLh = setups.create_compensation_charges(
-            fine_pw, fracpos_ac, atomdist)  # , xp)
+            fine_pw, fracpos_ac, atomdist, xp)
 
         self.pw = pw
         self.fine_pw = fine_pw
@@ -32,13 +35,13 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
 
         self.h_g, self.g_r = fine_pw.map_indices(self.pw0)
 
-        self.fftplan = grid.fft_plans()
-        self.fftplan2 = fine_grid.fft_plans()
+        self.fftplan = grid.fft_plans(xp=xp)
+        self.fftplan2 = fine_grid.fft_plans(xp=xp)
 
         self.grid = grid
         self.fine_grid = fine_grid
 
-        self.vbar_g = pw.zeros()
+        self.vbar_g = pw.zeros(xp=xp)
         self.vbar_ag.add_to(self.vbar_g)
         self.vbar0_g = self.vbar_g.gather()
 
@@ -50,17 +53,17 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
 
     def calculate_non_selfconsistent_exc(self, nt_sR, xc):
         nt_sr, _, _ = self._interpolate_density(nt_sR)
-        vxct_sr = nt_sr.desc.zeros(nt_sr.dims)
+        vxct_sr = nt_sr.desc.empty(nt_sr.dims)
         e_xc = xc.calculate(nt_sr, vxct_sr)
         return e_xc
 
     def _interpolate_density(self, nt_sR):
-        nt_sr = self.fine_grid.empty(nt_sR.dims)
+        nt_sr = self.fine_grid.empty(nt_sR.dims, xp=self.xp)
         pw = self.vbar_g.desc
 
         if pw.comm.rank == 0:
-            indices = self.pw0.indices(self.fftplan.tmp_Q.shape)
-            nt0_g = self.pw0.zeros()
+            indices = self.xp.asarray(self.pw0.indices(self.fftplan.shape))
+            nt0_g = self.pw0.zeros(xp=self.xp)
         else:
             nt0_g = None
 
@@ -75,7 +78,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
     def _calculate(self, density, vHt_h):
         nt_sr, pw, nt0_g = self._interpolate_density(density.nt_sR)
 
-        vxct_sr = nt_sr.desc.zeros(density.nt_sR.dims)
+        vxct_sr = nt_sr.desc.empty(density.nt_sR.dims, xp=self.xp)
         e_xc = self.xc.calculate(nt_sr, vxct_sr)
 
         if pw.comm.rank == 0:
@@ -83,12 +86,12 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
             e_zero = self.vbar0_g.integrate(nt0_g)
         else:
             e_zero = 0.0
-        e_zero = pw.comm.sum(e_zero)  # use broadcast XXX
+        e_zero = broadcast_float(float(e_zero), pw.comm)
 
         if vHt_h is None:
-            vHt_h = self.ghat_aLh.pw.zeros()
+            vHt_h = self.ghat_aLh.pw.zeros(xp=self.xp)
 
-        charge_h = vHt_h.desc.zeros()
+        charge_h = vHt_h.desc.zeros(xp=self.xp)
         coef_aL = density.calculate_compensation_charge_coefficients()
         self.ghat_aLh.add_to(charge_h, coef_aL)
 
@@ -106,7 +109,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         # background charge ???
 
         self.poisson_solver.solve(vHt_h, charge_h)
-        e_coulomb = 0.5 * vHt_h.integrate(charge_h)
+        e_coulomb = 0.5 * float(vHt_h.integrate(charge_h))
 
         if pw.comm.rank == 0:
             vt0_g = self.vbar0_g.copy()
@@ -141,7 +144,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                 'external': e_external}, vt_sR, vHt_h
 
     def _restrict(self, vxct_sr, vt_sR, density=None):
-        vtmp_R = vt_sR.desc.empty()
+        vtmp_R = vt_sR.desc.empty(xp=self.xp)
         e_kinetic = 0.0
         for spin, (vt_R, vxct_r) in enumerate(zip(vt_sR, vxct_sr)):
             vxct_r.fft_restrict(self.fftplan2, self.fftplan, out=vtmp_R)
@@ -150,7 +153,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                 e_kinetic -= vt_R.integrate(density.nt_sR[spin])
                 if spin < density.ndensities:
                     e_kinetic += vt_R.integrate(self.nct_R)
-        return e_kinetic
+        return float(e_kinetic)
 
     def restrict(self, vt_sr):
         vt_sR = self.grid.empty(vt_sr.dims)

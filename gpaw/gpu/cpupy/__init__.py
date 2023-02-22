@@ -1,8 +1,9 @@
 import gpaw.gpu.cpupy.cublas as cublas
 import gpaw.gpu.cpupy.linalg as linalg
+import gpaw.gpu.cpupy.fft as fft
 import numpy as np
 
-__all__ = ['linalg', 'cublas']
+__all__ = ['linalg', 'cublas', 'fft']
 
 
 def empty(*args, **kwargs):
@@ -120,6 +121,9 @@ class ndarray:
     def __bool__(self):
         return bool(self._data)
 
+    def __float__(self):
+        return self._data.__float__()
+
     def __iter__(self):
         for data in self._data:
             if data.ndim == 0:
@@ -176,7 +180,17 @@ class ndarray:
         return ndarray(self._data**i)
 
     def __add__(self, f):
+        if isinstance(f, float):
+            return ndarray(f + self._data)
         return ndarray(f._data + self._data)
+
+    def __sub__(self, f):
+        if isinstance(f, float):
+            return ndarray(self._data - f)
+        return ndarray(self._data - f._data)
+
+    def __rsub__(self, f):
+        return ndarray(f - self._data)
 
     def __radd__(self, f):
         return ndarray(f + self._data)
@@ -185,7 +199,10 @@ class ndarray:
         return ndarray(f / self._data)
 
     def __iadd__(self, other):
-        self._data += other._data
+        if isinstance(other, float):
+            self._data += other
+        else:
+            self._data += other._data
         return self
 
     def __isub__(self, other):

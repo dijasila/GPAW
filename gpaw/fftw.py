@@ -84,12 +84,15 @@ def create_plans(size_c: IntVector,
 class FFTPlans:
     def __init__(self,
                  size_c: IntVector,
-                 dtype: DTypeLike):
+                 dtype: DTypeLike,
+                 empty=empty):
+        self.shape: tuple[int, ...]
         if dtype == float:
-            rsize_c = (size_c[0], size_c[1], size_c[2] // 2 + 1)
-            self.tmp_Q = empty(rsize_c, complex)
+            self.shape = (size_c[0], size_c[1], size_c[2] // 2 + 1)
+            self.tmp_Q = empty(self.shape, complex)
             self.tmp_R = self.tmp_Q.view(float)[:, :, :size_c[2]]
         else:
+            self.shape = tuple(size_c)
             self.tmp_Q = empty(size_c, complex)
             self.tmp_R = self.tmp_Q
 
@@ -175,15 +178,30 @@ class CuPyFFTPlans(FFTPlans):
     def __init__(self,
                  size_c: IntVector,
                  dtype: DTypeLike):
+        from gpaw.gpu import cupy as cp
         self.dtype = dtype
-        self.size_c = size_c
+        super().__init__(size_c, dtype, empty=cp.empty)
         self.pw = None
 
-        self.shape = tuple(size_c)
-        if dtype == float:
-            self.shape = (self.shape[0],
-                          self.shape[1],
-                          self.shape[2] // 2 + 1)
+    def fft(self):
+        from gpaw.gpu import cupyx
+        if self.tmp_R.dtype == float:
+            self.tmp_Q[:] = cupyx.scipy.fft.rfftn(self.tmp_R)
+        else:
+            self.tmp_Q[:] = cupyx.scipy.fft.fftn(self.tmp_R)
+
+    def ifft(self):
+        from gpaw.gpu import cupyx
+        if self.tmp_R.dtype == float:
+            self.tmp_R[:] = cupyx.scipy.fft.irfftn(
+                self.tmp_Q, self.tmp_R.shape,
+                norm='forward',
+                overwrite_x=True)
+        else:
+            self.tmp_R[:] = cupyx.scipy.fft.ifftn(
+                self.tmp_Q, self.tmp_R.shape,
+                norm='forward',
+                overwrite_x=True)
 
     def indices(self, pw):
         from gpaw.gpu import cupy as cp
@@ -195,11 +213,11 @@ class CuPyFFTPlans(FFTPlans):
         return self.Q_G
 
     def ifft_sphere(self, coef_G, pw, out_R):
-        from gpaw.gpu import cupy as cp, cupyx
+        from gpaw.gpu import cupyx
         if self.dtype == complex:
             array_Q = out_R.data
         else:
-            array_Q = cp.empty(self.shape, complex)
+            array_Q = self.tmp_Q
 
         array_Q[:] = 0.0
         Q_G = self.indices(pw)

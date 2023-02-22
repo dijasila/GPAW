@@ -50,6 +50,7 @@ class PWFDWaveFunctions(WaveFunctions):
         self.orthonormalized = False
         self.bytes_per_band = (prod(self.array_shape(global_shape=True)) *
                                psit_nX.desc.itemsize)
+        self.xp = self.psit_nX.xp
 
     def __del__(self):
         # We could be reading from a gpw-file
