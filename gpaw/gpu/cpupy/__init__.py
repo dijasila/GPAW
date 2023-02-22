@@ -146,11 +146,7 @@ class ndarray:
         if isinstance(value, ndarray):
             self._data[index] = value._data
         else:
-<<<<<<< HEAD
             assert isinstance(value, (float, int, complex))
-=======
-            assert isinstance(value, (float, complex))
->>>>>>> master
             self._data[index] = value
 
     def __getitem__(self, index):
