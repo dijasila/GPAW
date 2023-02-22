@@ -356,7 +356,7 @@ class PairDensityCalculator:
         k_v = 2 * np.pi * np.dot(k_c, np.linalg.inv(gd.cell_cv).T)
 
         ut_vR = self.ut_sKnvR[kpt1.s][kpt1.K][n - kpt1.n1]
-        atomdata_a = self.gs.setups
+        atomdata_a = self.gs.pawdatasets
         C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[n - kpt1.na])
                  for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
 
@@ -419,7 +419,7 @@ class PairDensityCalculator:
         gd = self.gs.gd
         k_c = kd.bzk_kc[kpt.K] + kpt.shift_c
         k_v = 2 * np.pi * np.dot(k_c, np.linalg.inv(gd.cell_cv).T)
-        atomdata_a = self.gs.setups
+        atomdata_a = self.gs.pawdatasets
 
         # Break bands into degenerate chunks
         degchunks_cn = []  # indexing c as chunk number
@@ -453,7 +453,8 @@ class PairDensityCalculator:
             for n in range(deg):
                 ut_vR = ut_nvR[n]
                 C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[ind_n[n] - na])
-                         for atomdata, P_ni in zip(atomdata_a, kpt.P_ani)]
+                         for atomdata, P_ni in zip(atomdata_a,
+                                                   kpt.P_ani)]
 
                 nabla0_nv = -self.gs.gd.integrate(ut_vR, ut_nR).T
                 nt_n = self.gs.gd.integrate(ut_nR[n], ut_nR)

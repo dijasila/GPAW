@@ -396,7 +396,7 @@ class BSEBackend:
                 self.pawcorr_q = [
                     PWPAWCorrectionData(
                         Q_aGii, qpd=qpd,
-                        setups=self.gs.setups,
+                        pawdatasets=self.gs.pawdatasets,
                         pos_av=self.gs.get_pos_av())
                     for Q_aGii, qpd in zip(data['Q'], self.qpd_q)]
                 self.W_qGG = data['W']

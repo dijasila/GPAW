@@ -1,4 +1,5 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 
@@ -23,10 +24,11 @@ class ResponseGroundStateAdapter:
 
         self.kpt_u = wfs.kpt_u
         self.kpt_qs = wfs.kpt_qs
-        self.setups = wfs.setups
 
         self.fermi_level = wfs.fermi_level
         self.atoms = calc.atoms
+        self.pawdatasets = [ResponsePAWDataset(setup) for setup in calc.setups]
+
         self.pbc = self.atoms.pbc
         self.volume = self.gd.volume
 
@@ -160,7 +162,7 @@ class ResponseGroundStateAdapter:
     def pair_density_paw_corrections(self, qpd):
         from gpaw.response.paw import get_pair_density_paw_corrections
         return get_pair_density_paw_corrections(
-            setups=self.setups, qpd=qpd, spos_ac=self.spos_ac)
+            pawdatasets=self.pawdatasets, qpd=qpd, spos_ac=self.spos_ac)
 
     def get_pos_av(self):
         # gd.cell_cv must always be the same as pd.gd.cell_cv, right??
@@ -190,3 +192,25 @@ class ResponseGroundStateAdapter:
         ibzq_qc = kd.get_ibz_q_points(bzq_qc, U_scc)[0]
 
         return ibzq_qc
+
+
+# Contains all the relevant information
+# from Setups class for response calculators
+class ResponsePAWDataset:
+    def __init__(self, setup):
+        self.ni = setup.ni
+        self.rgd = setup.rgd
+        self.rcut_j = setup.rcut_j
+        self.l_j = setup.l_j
+        self.lq = setup.lq
+        self.R_sii = setup.R_sii
+        self.nabla_iiv = setup.nabla_iiv
+        self.data = SimpleNamespace(phi_jg=setup.data.phi_jg,
+                                    phit_jg=setup.data.phit_jg)
+        self.xc_correction = SimpleNamespace(
+            rgd=setup.xc_correction.rgd, Y_nL=setup.xc_correction.Y_nL,
+            n_qg=setup.xc_correction.n_qg, nt_qg=setup.xc_correction.nt_qg,
+            nc_g=setup.xc_correction.nc_g, nct_g=setup.xc_correction.nct_g,
+            nc_corehole_g=setup.xc_correction.nc_corehole_g,
+            B_pqL=setup.xc_correction.B_pqL, e_xc0=setup.xc_correction.e_xc0)
+        self.hubbard_u = setup.hubbard_u
