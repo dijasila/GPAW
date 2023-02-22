@@ -56,7 +56,7 @@ def as_xp(array, xp):
     return array
 
 
-def cupy_eigh(a: cupy.ndarray, UPLO: str) -> cupy.ndarray:
+def cupy_eigh(a: cupy.ndarray, UPLO: str) -> tuple[cupy.ndarray, cupy.ndarray]:
     """HIP version of eigh() is too slow for now."""
     from scipy.linalg import eigh
     if not is_hip:
