@@ -358,7 +358,7 @@ class PairDensityCalculator:
         ut_vR = self.ut_sKnvR[kpt1.s][kpt1.K][n - kpt1.n1]
         atomdata_a = self.gs.pawdatasets
         C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[n - kpt1.na])
-                 for atomdata, P_ni in zip(atomdata_a.values(), kpt1.P_ani)]
+                 for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
 
         blockbands = kpt2.nb - kpt2.na
         n0_mv = np.empty((kpt2.blocksize, 3), dtype=complex)
@@ -453,7 +453,7 @@ class PairDensityCalculator:
             for n in range(deg):
                 ut_vR = ut_nvR[n]
                 C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[ind_n[n] - na])
-                         for atomdata, P_ni in zip(atomdata_a.values(),
+                         for atomdata, P_ni in zip(atomdata_a,
                                                    kpt.P_ani)]
 
                 nabla0_nv = -self.gs.gd.integrate(ut_vR, ut_nR).T

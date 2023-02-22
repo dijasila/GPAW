@@ -131,13 +131,13 @@ def get_pair_density_paw_corrections(pawdatasets, qpd, spos_ac):
 
     # Collect integrals for all species:
     Q_xGii = {}
-    for atom_index, pawdata in pawdatasets.items():
+    for atom_index, pawdata in enumerate(pawdatasets):
         Q_Gii = two_phi_planewave_integrals(qG_Gv, pawdata=pawdata)
         ni = pawdata.ni
         Q_xGii[atom_index] = Q_Gii.reshape(-1, ni, ni)
 
     Q_aGii = []
-    for atom_index, pawdata in pawdatasets.items():
+    for atom_index, pawdata in enumerate(pawdatasets):
         Q_Gii = Q_xGii[atom_index]
         x_G = np.exp(-1j * (qG_Gv @ pos_av[atom_index]))
         Q_aGii.append(x_G[:, np.newaxis, np.newaxis] * Q_Gii)

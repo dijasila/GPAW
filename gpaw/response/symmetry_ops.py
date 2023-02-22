@@ -28,7 +28,7 @@ def construct_symmetry_operators(gs, K, k_c=None, *, apply_strange_shift):
     See the get_k_point() method for how to use these tuples.
     """
 
-    R_asii = [pawdata.R_sii for pawdata in gs.pawdatasets.values()]
+    R_asii = [pawdata.R_sii for pawdata in gs.pawdatasets]
     return _construct_symmetry_operators(
         gs, K, k_c=k_c,
         apply_strange_shift=apply_strange_shift,

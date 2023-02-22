@@ -27,8 +27,7 @@ class ResponseGroundStateAdapter:
 
         self.fermi_level = wfs.fermi_level
         self.atoms = calc.atoms
-        self.pawdatasets = {atom.index: PAWDataset(setup)
-                            for (atom, setup) in zip(self.atoms, calc.setups)}
+        self.pawdatasets = [ResponsePAWDataset(setup) for setup in calc.setups]
 
         self.pbc = self.atoms.pbc
         self.volume = self.gd.volume
@@ -197,7 +196,7 @@ class ResponseGroundStateAdapter:
 
 # Contains all the relevant information
 # from Setups class for response calculators
-class PAWDataset:
+class ResponsePAWDataset:
     def __init__(self, setup):
         self.ni = setup.ni
         self.rgd = setup.rgd
