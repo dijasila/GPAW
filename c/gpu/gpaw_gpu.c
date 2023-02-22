@@ -5,6 +5,7 @@
 #include <complex.h>
 
 #include "hip_kernels.h"
+#include "../array.h"
 
 static PyMethodDef gpaw_gpu_module_functions[] = { {"pwlfc_expand_gpu", pwlfc_expand_gpu, METH_VARARGS, 0},
                                                    { 0,0,0,0 } };
@@ -20,38 +21,6 @@ static struct PyModuleDef moduledef = {
     NULL,
     NULL
 };
-
-double* CuPyArray_DATA(PyObject* obj)
-{
-    PyObject* data_str = Py_BuildValue("s", "data");
-    PyObject* ndarray_data = PyObject_GetAttr(obj, data_str);
-    Py_DECREF(data_str);
-    if (ndarray_data == NULL) return NULL;
-    PyObject* ptr_str = Py_BuildValue("s", "ptr");
-    PyObject* ptr_data = PyObject_GetAttr(ndarray_data, ptr_str);
-    Py_DECREF(ptr_str);
-    if (ptr_data == NULL) return NULL;
-    return (void*) PyLong_AS_LONG(ptr_data);
-}
-
-int CuPyArray_DIM(PyObject* obj, int dim)
-{
-    PyObject* shape_str = Py_BuildValue("s", "shape");
-    PyObject* shape = PyObject_GetAttr(obj, shape_str);
-    Py_DECREF(shape_str);
-    if (shape == NULL) return -1;
-    PyObject* pydim = PyTuple_GetItem(shape, dim);
-    if (pydim == NULL) return -1;
-    return (int) PyLong_AS_LONG(pydim);
-}
-
-int CuPyArray_ITEMSIZE(PyObject* obj)
-{
-    PyObject* itemsize_str = Py_BuildValue("s", "itemsize");
-    int itemsize = (int) PyLong_AS_LONG(PyObject_GetAttr(obj, itemsize_str));
-    Py_DECREF(itemsize_str);
-    return itemsize;
-}
 
 PyObject* pwlfc_expand_gpu(PyObject* self, PyObject* args)
 {
@@ -80,13 +49,13 @@ PyObject* pwlfc_expand_gpu(PyObject* self, PyObject* args)
     double *f_GI = CuPyArray_DATA(f_GI_obj);
     npy_int32 *I_J = CuPyArray_DATA(I_J_obj);
 
-    int nG = CuPyArray_DIM(emiGR_Ga_obj, 0);
-    int nJ = CuPyArray_DIM(a_J_obj, 0);
-    int nL = CuPyArray_DIM(Y_GL_obj, 1);
-    int nI = CuPyArray_DIM(f_GI_obj, 1);
-    int natoms = CuPyArray_DIM(emiGR_Ga_obj, 1);
-    int nsplines = CuPyArray_DIM(f_Gs_obj, 1);
-    int itemsize = CuPyArray_ITEMSIZE(f_GI_obj);
+    int nG = Array_DIM(emiGR_Ga_obj, 0);
+    int nJ = Array_DIM(a_J_obj, 0);
+    int nL = Array_DIM(Y_GL_obj, 1);
+    int nI = Array_DIM(f_GI_obj, 1);
+    int natoms = Array_DIM(emiGR_Ga_obj, 1);
+    int nsplines = Array_DIM(f_Gs_obj, 1);
+    int itemsize = Array_ITEMSIZE(f_GI_obj);
 
     pwlfc_expand_gpu_launch_kernel(itemsize, f_Gs, emiGR_Ga, Y_GL, l_s, a_J, s_J, f_GI,
                                        I_J, nG, nJ, nL, nI, natoms, nsplines, cc);
