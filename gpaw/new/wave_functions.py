@@ -1,16 +1,19 @@
 from __future__ import annotations
 
+from types import ModuleType
+
 import numpy as np
 from gpaw.core.atom_arrays import AtomArrays, AtomDistribution
+from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.mpi import MPIComm, serial_comm
+from gpaw.new.potential import Potential
 from gpaw.setup import Setups
 from gpaw.typing import Array1D, Array2D, ArrayND
-from gpaw.mpi import MPIComm, serial_comm
-from gpaw.core.uniform_grid import UniformGridFunctions
-from gpaw.new.potential import Potential
 
 
 class WaveFunctions:
     bytes_per_band: int
+    xp: ModuleType  # numpy or cupy
 
     def __init__(self,
                  *,

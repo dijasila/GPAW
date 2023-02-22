@@ -36,6 +36,7 @@ def create_ibz_wave_functions(ibz: IBZ,
                                   ibz.kpt_kc[k], ibz.weight_k[k])
             wfs_s.append(wfs)
         wfs_qs.append(wfs_s)
+
     return IBZWaveFunctions(ibz,
                             nelectrons,
                             ncomponents,
@@ -77,7 +78,8 @@ class IBZWaveFunctions:
         self.energies: dict[str, float] = {}  # hartree
 
         if self.wfs_qs[0][0].xp is not np:
-            self.kpt_comm = CuPyMPI(self.kpt_comm)
+            if 1:  # not compiled with GPU support:
+                self.kpt_comm = CuPyMPI(self.kpt_comm)
 
     def get_max_shape(self, global_shape: bool = False) -> tuple[int, ...]:
         """Find the largest wave function array shape.
@@ -440,4 +442,15 @@ class CuPyMPI:
         self.size = comm.size
 
     def sum(self, array):
-        self.comm.sum(array)
+        from gpaw.gpu import cupy as cp
+        if isinstance(array, float):
+            return self.comm.sum(array)
+        if isinstance(array, np.ndarray):
+            self.comm.sum(array)
+            return
+        a = array.get()
+        self.comm.sum(a)
+        array[:] = cp.asarray(a)
+
+    def max(self, array):
+        self.comm.max(array)

@@ -739,7 +739,7 @@ class MixerWrapper:
             ni = D_sii.shape[1]
             D_sii[:] = D_asp[a].reshape((nspins, ni, ni))
         xp = density.nt_sR.xp
-        if xp != np:
+        if xp is not np:
             density.nt_sR.data[:] = xp.asarray(nt_sR.data)
             density.D_asii.data[:] = xp.asarray(D_asii.data)
         return error
