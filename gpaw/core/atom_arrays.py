@@ -72,6 +72,13 @@ class AtomArraysLayout:
         """
         return AtomArrays(self, dims, comm)
 
+    def zeros(self,
+              dims: int | tuple[int, ...] = (),
+              comm: MPIComm = serial_comm) -> AtomArrays:
+        aa = self.empty(dims, comm)
+        aa.data[:] = 0.0
+        return aa
+
     def sizes(self) -> tuple[list[dict[int, int]], Array1D]:
         """Compute array sizes for all ranks.
 
