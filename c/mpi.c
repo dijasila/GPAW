@@ -20,7 +20,11 @@
 #endif
 
 // Wrappers to support GPU_AWARE_MPI
+#ifdef GPAW_GPU_AWARE_MPI
+#define GPAW_ARRAY_ALLOW_CUPY
+#endif
 #include "array.h"
+
 
 
 // Check that a processor number is valid

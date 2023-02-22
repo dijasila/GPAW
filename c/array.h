@@ -1,7 +1,12 @@
 // In the code, one utilizes calls equvalent to PyArray API,
 // except instead of PyArray_BYTES one uses Array_BYTES.
 // Then, if GPAW is built with GPAW_GPU_AWARE_MPI define, these macros are rewritten with wrappers.
-#ifndef GPAW_GPU_AWARE_MPI
+#ifndef GPAW_ARRAY_ALLOW_CUPY
+
+#ifdef GPAW_ARRAY_DISABLE_NUMPY
+#error "No CPAW_ARRAY_ALLOW_CUPY and GPAW_ARRAY_DISABLE_NUMPY is set. No array interfaces remain."
+#endif
+
 // Check that array is well-behaved and contains data that can be sent.
 #define CHK_ARRAY(a) if ((a) == NULL || !PyArray_Check(a)                   \
 			 || !PyArray_ISCARRAY(a) || !PyArray_ISNUMBER(a)) { \
@@ -38,7 +43,7 @@
 #define Array_NBYTES(a) PyArray_NBYTES(a)
 #define Array_ISCOMPLEX(a) PyArray_ISCOMPLEX(a)
 
-#else // GPAW_GPU_AWARE_MPI
+#else // GPAW_ARRAY_ALLOW_CUPY
 
 #define CHK_ARRAY(a) // TODO
 #define CHK_ARRAY_RO(a) // TODO
@@ -76,7 +81,8 @@ static int Array_DIM(PyObject* obj, int dim)
     PyObject* pydim = PyTuple_GetItem(shape, dim);
     Py_DECREF(shape);
     if (pydim == NULL) return -1;
-    return (int) PyLong_AS_LONG(pydim);
+    int value = (int) PyLong_AS_LONG(pydim);
+    return value;
 }
 
 static char* Array_BYTES(PyObject* obj)
