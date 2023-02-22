@@ -160,7 +160,7 @@ int Array_ITEMSIZE(PyObject* obj)
     }
     PyObject* dtype = PyObject_GetAttrString(obj, "dtype");
     if (dtype == NULL) return -1;
-    PyObject* itemsize_obj = PyObject_GetAttrString(obj, "itemsize");
+    PyObject* itemsize_obj = PyObject_GetAttrString(dtype, "itemsize");
     if (itemsize_obj == NULL) return -1;
     int itemsize = (int) PyLong_AS_LONG(itemsize_obj);
     Py_DECREF(itemsize_obj);
