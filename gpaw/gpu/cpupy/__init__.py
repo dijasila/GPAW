@@ -84,7 +84,8 @@ def fuse():
 
 class ndarray:
     def __init__(self, data):
-        if isinstance(data, (float, complex, int, np.int32, np.int64, np.bool_)):
+        if isinstance(data, (float, complex, int, np.int32, np.int64,
+                             np.bool_)):
             data = np.asarray(data)
         assert isinstance(data, np.ndarray), type(data)
         self._data = data
