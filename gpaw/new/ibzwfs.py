@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from typing import Generator
 
+import _gpaw
 import numpy as np
 from ase.dft.bandgap import bandgap
 from ase.io.ulm import Writer
 from ase.units import Bohr, Ha
+
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.new import prod
 from gpaw.new.brillouin import IBZ
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
 from gpaw.new.potential import Potential
@@ -37,6 +38,7 @@ def create_ibz_wave_functions(ibz: IBZ,
                                   ibz.kpt_kc[k], ibz.weight_k[k])
             wfs_s.append(wfs)
         wfs_qs.append(wfs_s)
+
     return IBZWaveFunctions(ibz,
                             nelectrons,
                             ncomponents,
@@ -77,6 +79,10 @@ class IBZWaveFunctions:
 
         self.energies: dict[str, float] = {}  # hartree
 
+        if self.wfs_qs[0][0].xp is not np:
+            if not getattr(_gpaw, 'gpu_aware_mpi', False):
+                self.kpt_comm = CuPyMPI(self.kpt_comm)
+
     def get_max_shape(self, global_shape: bool = False) -> tuple[int, ...]:
         """Find the largest wave function array shape.
 
@@ -96,13 +102,14 @@ class IBZWaveFunctions:
 
     def __str__(self):
         shape = self.get_max_shape(global_shape=True)
-        nbytes = (prod(shape) * self.nbands *
-                  len(self.wfs_qs) * len(self.wfs_qs[0]) *
-                  self.dtype.itemsize)
+        wfs = self.wfs_qs[0][0]
+        nbytes = (len(self.ibz) *
+                  self.nbands *
+                  len(self.wfs_qs[0]) *
+                  wfs.bytes_per_band)
         ncores = (self.kpt_comm.size *
                   self.domain_comm.size *
                   self.band_comm.size)
-        wfs = self.wfs_qs[0][0]
         return (f'{self.ibz.symmetries}\n'
                 f'{self.ibz}\n'
                 f'{wfs._short_string(shape)}\n'
@@ -428,3 +435,24 @@ class IBZWaveFunctions:
                                      for wfs_s in self.wfs_qs))
 
         return np.array([homo, lumo])
+
+
+class CuPyMPI:
+    def __init__(self, comm):
+        self.comm = comm
+        self.rank = comm.rank
+        self.size = comm.size
+
+    def sum(self, array):
+        from gpaw.gpu import cupy as cp
+        if isinstance(array, float):
+            return self.comm.sum(array)
+        if isinstance(array, np.ndarray):
+            self.comm.sum(array)
+            return
+        a = array.get()
+        self.comm.sum(a)
+        array[:] = cp.asarray(a)
+
+    def max(self, array):
+        self.comm.max(array)

@@ -253,7 +253,7 @@ class RTTDDFT:
         _, calculation, params, builder = read_gpw(filepath,
                                                    '-',
                                                    {'world': world},
-                                                   force_complex_dtype=True)
+                                                   dtype=complex)
 
         state = calculation.state
         pot_calc = calculation.pot_calc

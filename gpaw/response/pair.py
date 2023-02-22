@@ -93,7 +93,7 @@ class PairDensityCalculator:
 
         self.threshold = threshold
 
-        self.blockcomm, self.kncomm = block_partition(self.context.world,
+        self.blockcomm, self.kncomm = block_partition(self.context.comm,
                                                       nblocks)
         self.nblocks = nblocks
         self.ut_sKnvR = None  # gradient of wave functions for optical limit
@@ -523,7 +523,7 @@ def get_gs_and_context(calc, txt, world, timer):
     from gpaw.calculator import GPAW as OldGPAW
     from gpaw.new.ase_interface import ASECalculator as NewGPAW
 
-    context = ResponseContext(txt=txt, timer=timer, world=world)
+    context = ResponseContext(txt=txt, timer=timer, comm=world)
 
     if isinstance(calc, (OldGPAW, NewGPAW)):
         assert calc.wfs.world.size == 1

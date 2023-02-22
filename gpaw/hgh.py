@@ -132,7 +132,7 @@ class HGHSetupData:
         assert nj == len(n_j)
         self.nj = nj
         self.l_j = l_j
-        self.l_orb_j = l_j
+        self.l_orb_J = l_j
         self.n_j = n_j
 
         self.rcut_j = []

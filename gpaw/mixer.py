@@ -728,14 +728,20 @@ class MixerWrapper:
         # new interface:
         density = nt_sR
         nspins = density.nt_sR.dims[0]
+        nt_sR = density.nt_sR.to_xp(np)
+        D_asii = density.D_asii.to_xp(np)
         D_asp = {a: D_sii.copy().reshape((nspins, -1))
-                 for a, D_sii in density.D_asii.items()}
+                 for a, D_sii in D_asii.items()}
         error = self.driver.mix(self.basemixers,
-                                density.nt_sR.data,
+                                nt_sR.data,
                                 D_asp)
-        for a, D_sii in density.D_asii.items():
+        for a, D_sii in D_asii.items():
             ni = D_sii.shape[1]
             D_sii[:] = D_asp[a].reshape((nspins, ni, ni))
+        xp = density.nt_sR.xp
+        if xp is not np:
+            density.nt_sR.data[:] = xp.asarray(nt_sR.data)
+            density.D_asii.data[:] = xp.asarray(D_asii.data)
         return error
 
     def estimate_memory(self, mem, gd):

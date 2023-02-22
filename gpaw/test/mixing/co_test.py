@@ -2,8 +2,12 @@ import pytest
 from ase.build import bulk
 from gpaw import GPAW
 from gpaw.mixer import MixerFull
+from gpaw.mpi import world
 
 
+@pytest.mark.skipif(
+    world.size > 4,
+    reason='non-collinear calculation can only parallelize over k-points')
 def test_co_new_mixing():
     atoms = bulk('Co', crystalstructure='fcc', a=2.51 * 2**0.5)
     atoms.set_initial_magnetic_moments([2])

@@ -82,13 +82,14 @@ class FXCKernel:
         return Kxc_GG
 
     def save(self, path: Path):
-        """Save the fxc kernel in a .npz file format."""
+        """Save the fxc kernel in a .npz file."""
         assert path.suffix == '.npz'
-        np.savez(path,
-                 fxc_dG=self._fxc_dG,
-                 dG_K=self._dG_K,
-                 GG_shape=self.GG_shape,
-                 volume=self.volume)
+        with open(str(path), 'wb') as fd:
+            np.savez(fd,
+                     fxc_dG=self._fxc_dG,
+                     dG_K=self._dG_K,
+                     GG_shape=self.GG_shape,
+                     volume=self.volume)
 
     @staticmethod
     def from_file(path: Path):
@@ -177,6 +178,7 @@ class AdiabaticFXCCalculator:
 
         return GG_shape, dG_K, Q_dG
 
+    @timer('Create Q_dG map')
     def create_Q_dG_map(self, large_qpd, dG_dGv):
         """Create mapping between (G-G') index dG and large_qpd index Q."""
         G_Qv = large_qpd.get_reciprocal_vectors(add_q=False)
@@ -188,7 +190,7 @@ class AdiabaticFXCCalculator:
         # of which the norm is taken. When the number of plane-wave
         # coefficients is large, this step becomes a memory bottleneck, hence
         # the distribution.
-        dGblocks = Blocks1D(self.context.world, dG_dGv.shape[0])
+        dGblocks = Blocks1D(self.context.comm, dG_dGv.shape[0])
         dG_mydGv = dG_dGv[dGblocks.myslice]
 
         # Determine Q index for each dG index

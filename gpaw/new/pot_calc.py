@@ -17,6 +17,7 @@ from typing import DefaultDict
 
 import numpy as np
 from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.core.atom_arrays import AtomArrays
 from gpaw.new.potential import Potential
 from gpaw.new.xc import XCFunctional
 from gpaw.setup import Setup
@@ -70,11 +71,14 @@ def calculate_non_local_potential(setups,
                                   density,
                                   xc,
                                   Q_aL,
-                                  soc: bool):
+                                  soc: bool) -> tuple[AtomArrays,
+                                                      dict[str, float]]:
     dtype = float if density.ncomponents < 4 else complex
-    dH_asii = density.D_asii.layout.new(dtype=dtype).empty(density.ncomponents)
+    D_asii = density.D_asii.to_xp(np)
+    dH_asii = D_asii.layout.new(dtype=dtype).empty(density.ncomponents)
+    Q_aL = Q_aL.to_xp(np)
     energy_corrections: DefaultDict[str, float] = defaultdict(float)
-    for a, D_sii in density.D_asii.items():
+    for a, D_sii in D_asii.items():
         Q_L = Q_aL[a]
         setup = setups[a]
         dH_sii, corrections = calculate_non_local_potential1(
@@ -88,7 +92,8 @@ def calculate_non_local_potential(setups,
     energies = np.array([energy_corrections[name] for name in names])
     density.D_asii.layout.atomdist.comm.sum(energies)
 
-    return dH_asii, {name: e for name, e in zip(names, energies)}
+    return (dH_asii.to_xp(density.D_asii.layout.xp),
+            {name: e for name, e in zip(names, energies)})
 
 
 def calculate_non_local_potential1(setup: Setup,

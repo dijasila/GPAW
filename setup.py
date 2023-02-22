@@ -43,6 +43,8 @@ extra_objects = []
 define_macros = [('NPY_NO_DEPRECATED_API', '7'),
                  ('GPAW_NO_UNDERSCORE_CBLACS', '1'),
                  ('GPAW_NO_UNDERSCORE_CSCALAPACK', '1')]
+if os.getenv('GPAW_GPU'):
+    define_macros.append(('GPAW_GPU_AWARE_MPI','1'))
 undef_macros = ['NDEBUG']
 
 mpi_libraries = []
