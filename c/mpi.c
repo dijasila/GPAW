@@ -52,12 +52,11 @@
 
 #define Array_NDIM(a) PyArray_NDIM(a)
 #define Array_DIM(a,d)  PyArray_DIM(a,d)
-#define Array_ELEMENTSIZE(a) PyArray_ITEMSIZE(a)
+#define Array_ITEMSIZE(a) PyArray_ITEMSIZE(a)
 #define Array_BYTES(a) PyArray_BYTES(a)
 #define Array_DATA(a) PyArray_DATA(a)
 #define Array_SIZE(a) PyArray_SIZE(a)
 #define Array_TYPE(a) PyArray_TYPE(a)
-#define Array_ITEMSIZE(a) PyArray_ITEMSIZE(a)
 #define Array_NBYTES(a) PyArray_NBYTES(a)
 #define Array_ISCOMPLEX(a) PyArray_ISCOMPLEX(a)
 
@@ -97,8 +96,6 @@ int Array_DIM(PyObject* obj, int dim)
     if (pydim == NULL) return -1;
     return (int) PyLong_AS_LONG(pydim);
 }
-
-#define Array_ELEMENTSIZE(a) Array_ITEMSIZE(a)
 
 char* Array_BYTES(PyObject* obj)
 {
@@ -445,10 +442,10 @@ static PyObject * mpi_sendreceive(MPIObject *self, PyObject *args,
     CHK_OTHER_PROC(dest);
     CHK_ARRAY(b);
     CHK_OTHER_PROC(src);
-    int nsend = Array_ELEMENTSIZE(a);
+    int nsend = Array_ITEMSIZE(a);
     for (int d = 0; d < Array_NDIM(a); d++)
 	nsend *= Array_DIM(a,d);
-    int nrecv = Array_ELEMENTSIZE(b);
+    int nrecv = Array_ITEMSIZE(b);
     for (int d = 0; d < Array_NDIM(b); d++)
 	nrecv *= Array_DIM(b,d);
 #ifndef GPAW_MPI_DEBUG
@@ -481,7 +478,7 @@ static PyObject * mpi_receive(MPIObject *self, PyObject *args, PyObject *kwargs)
     return NULL;
   CHK_ARRAY(a);
   CHK_OTHER_PROC(src);
-  int n = Array_ELEMENTSIZE(a);
+  int n = Array_ITEMSIZE(a);
   for (int d = 0; d < Array_NDIM(a); d++)
     n *= Array_DIM(a, d);
   if (block)
@@ -533,7 +530,7 @@ static PyObject * mpi_send(MPIObject *self, PyObject *args, PyObject *kwargs)
     return NULL;
   CHK_ARRAY(a);
   CHK_OTHER_PROC(dest);
-  int n = Array_ELEMENTSIZE(a);
+  int n = Array_ITEMSIZE(a);
   for (int d = 0; d < Array_NDIM(a); d++)
     n *= Array_DIM(a,d);
   if (block)
@@ -583,7 +580,7 @@ static PyObject * mpi_ssend(MPIObject *self, PyObject *args, PyObject *kwargs)
     return NULL;
   CHK_ARRAY_RO(a);
   CHK_OTHER_PROC(dest);
-  int n = Array_ELEMENTSIZE(a);
+  int n = Array_ITEMSIZE(a);
   for (int d = 0; d < Array_NDIM(a); d++)
     n *= Array_DIM(a,d);
   MPI_Ssend(Array_BYTES(a), n, MPI_BYTE, dest, tag, self->comm);
@@ -758,7 +755,7 @@ static PyObject * mpi_waitall(MPIObject *self, PyObject *requests)
 
 static MPI_Datatype get_mpi_datatype(PyArrayObject *a)
 {
-  int n = Array_ELEMENTSIZE(a);
+  int n = Array_ITEMSIZE(a);
   if (Array_ISCOMPLEX(a))
     n = n / 2;
   int array_type = Array_TYPE(a);
@@ -874,7 +871,7 @@ static PyObject * mpi_reduce(MPIObject *self, PyObject *args, PyObject *kwargs,
       if (datatype == 0)
 	return NULL;
       n = Array_SIZE(aobj);
-      elemsize = Array_ELEMENTSIZE(aobj);
+      elemsize = Array_ITEMSIZE(aobj);
       if (Array_ISCOMPLEX(aobj))
 	{
 	  if (allowcomplex)
@@ -969,7 +966,7 @@ static PyObject * mpi_scatter(MPIObject *self, PyObject *args)
     CHK_ARRAYS(recvobj, sendobj, self->size); // size(send) = size(recv)*Ncpu
     source = Array_BYTES(sendobj);
   }
-  int n = Array_ELEMENTSIZE(recvobj);
+  int n = Array_ITEMSIZE(recvobj);
   for (int d = 0; d < Array_NDIM(recvobj); d++)
     n *= Array_DIM(recvobj,d);
   MPI_Scatter(source, n, MPI_BYTE, Array_BYTES(recvobj),
@@ -988,7 +985,7 @@ static PyObject * mpi_allgather(MPIObject *self, PyObject *args)
   CHK_ARRAY(a);
   CHK_ARRAY(b);
   CHK_ARRAYS(a, b, self->size);
-  int n = Array_ELEMENTSIZE(a);
+  int n = Array_ITEMSIZE(a);
   for (int d = 0; d < Array_NDIM(a); d++)
     n *= Array_DIM(a,d);
   // What about endianness????
@@ -1018,7 +1015,7 @@ static PyObject * mpi_gather(MPIObject *self, PyObject *args)
 		      "mpi_gather: b array should not be given on non-root processors.");
       return NULL;
     }
-  int n = Array_ELEMENTSIZE(a);
+  int n = Array_ITEMSIZE(a);
   for (int d = 0; d < Array_NDIM(a); d++)
     n *= Array_DIM(a,d);
   if (root != self->rank)
@@ -1043,7 +1040,7 @@ static PyObject * mpi_broadcast(MPIObject *self, PyObject *args)
       CHK_ARRAY(buf);
 
   CHK_PROC(root);
-  int n = Array_ELEMENTSIZE(buf);
+  int n = Array_ITEMSIZE(buf);
   for (int d = 0; d < Array_NDIM(buf); d++)
     n *= Array_DIM(buf,d);
   MPI_Bcast(Array_BYTES(buf), n, MPI_BYTE, root, self->comm);
