@@ -5,7 +5,9 @@
 #include <complex.h>
 
 #include "hip_kernels.h"
+#define GPAW_ARRAY_DISABLE_NUMPY
 #include "../array.h"
+#undef GPAW_ARRAY_DISABLE_NUMPY
 
 static PyMethodDef gpaw_gpu_module_functions[] = { {"pwlfc_expand_gpu", pwlfc_expand_gpu, METH_VARARGS, 0},
                                                    { 0,0,0,0 } };
@@ -24,15 +26,15 @@ static struct PyModuleDef moduledef = {
 
 PyObject* pwlfc_expand_gpu(PyObject* self, PyObject* args)
 {
-    PyArrayObject *f_Gs_obj;
-    PyArrayObject *emiGR_Ga_obj;
-    PyArrayObject *Y_GL_obj;
-    PyArrayObject *l_s_obj;
-    PyArrayObject *a_J_obj;
-    PyArrayObject *s_J_obj;
+    PyObject *f_Gs_obj;
+    PyObject *emiGR_Ga_obj;
+    PyObject *Y_GL_obj;
+    PyObject *l_s_obj;
+    PyObject *a_J_obj;
+    PyObject *s_J_obj;
     int cc;
-    PyArrayObject *f_GI_obj;
-    PyArrayObject *I_J_obj;
+    PyObject *f_GI_obj;
+    PyObject *I_J_obj;
 
     if (!PyArg_ParseTuple(args, "OOOOOOiOO",
                           &f_Gs_obj, &emiGR_Ga_obj, &Y_GL_obj,
@@ -40,14 +42,14 @@ PyObject* pwlfc_expand_gpu(PyObject* self, PyObject* args)
                           &cc, &f_GI_obj, &I_J_obj))
         return NULL;
 
-    double *f_Gs = (double*) CuPyArray_DATA(f_Gs_obj);
-    double complex* emiGR_Ga = CuPyArray_DATA(emiGR_Ga_obj);
-    double *Y_GL = CuPyArray_DATA(Y_GL_obj);
-    npy_int32 *l_s = CuPyArray_DATA(l_s_obj);
-    npy_int32 *a_J = CuPyArray_DATA(a_J_obj);
-    npy_int32 *s_J = CuPyArray_DATA(s_J_obj);
-    double *f_GI = CuPyArray_DATA(f_GI_obj);
-    npy_int32 *I_J = CuPyArray_DATA(I_J_obj);
+    double *f_Gs = (double*) Array_DATA(f_Gs_obj);
+    double complex* emiGR_Ga = Array_DATA(emiGR_Ga_obj);
+    double *Y_GL = Array_DATA(Y_GL_obj);
+    npy_int32 *l_s = Array_DATA(l_s_obj);
+    npy_int32 *a_J = Array_DATA(a_J_obj);
+    npy_int32 *s_J = Array_DATA(s_J_obj);
+    double *f_GI = Array_DATA(f_GI_obj);
+    npy_int32 *I_J = Array_DATA(I_J_obj);
 
     int nG = Array_DIM(emiGR_Ga_obj, 0);
     int nJ = Array_DIM(a_J_obj, 0);

@@ -46,10 +46,12 @@
 
 static int Array_NDIM(PyObject* obj)
 {
+    #ifndef GPAW_ARRAY_DISABLE_NUMPY
     if (PyArray_Check(obj))
     {
 	return PyArray_NDIM((PyArrayObject*)obj);
     }
+    #endif
 
     // return len(obj.shape)
     PyObject* shape = PyObject_GetAttrString(obj, "shape");
@@ -60,10 +62,12 @@ static int Array_NDIM(PyObject* obj)
 
 static int Array_DIM(PyObject* obj, int dim)
 {
+    #ifndef GPAW_ARRAY_DISABLE_NUMPY
     if (PyArray_Check(obj))
     {
 	return PyArray_DIM((PyArrayObject*)obj, dim);
     }
+    #endif
     PyObject* shape_str = Py_BuildValue("s", "shape");
     PyObject* shape = PyObject_GetAttr(obj, shape_str);
     Py_DECREF(shape_str);
@@ -77,11 +81,13 @@ static int Array_DIM(PyObject* obj, int dim)
 
 static char* Array_BYTES(PyObject* obj)
 {
+    #ifndef GPAW_ARRAY_DISABLE_NUMPY
     if (PyArray_Check(obj))
     {
 	return PyArray_BYTES((PyArrayObject*)obj);
     }
-    //ndarray.data.ptr
+    #endif
+    // Equivalent to obj.data.ptr
     PyObject* ndarray_data = PyObject_GetAttrString(obj, "data");
     if (ndarray_data == NULL) return NULL;
     PyObject* ptr_data = PyObject_GetAttrString(ndarray_data, "ptr");
@@ -106,10 +112,12 @@ static int Array_SIZE(PyObject* obj)
 
 static int Array_TYPE(PyObject* obj)
 {
+    #ifndef GPAW_ARRAY_DISABLE_NUMPY
     if (PyArray_Check(obj))
     {
 	return PyArray_TYPE((PyArrayObject*)obj);
     }
+    #endif
     PyObject* dtype_str = Py_BuildValue("s", "dtype");
     PyObject* dtype = PyObject_GetAttr(obj, dtype_str);
     Py_DECREF(dtype_str);
@@ -129,10 +137,12 @@ static int Array_TYPE(PyObject* obj)
 
 static int Array_ITEMSIZE(PyObject* obj)
 {
+    #ifndef GPAW_ARRAY_DISABLE_NUMPY
     if (PyArray_Check(obj))
     {
 	return PyArray_ITEMSIZE((PyArrayObject*)obj);
     }
+    #endif
     PyObject* dtype = PyObject_GetAttrString(obj, "dtype");
     if (dtype == NULL) return -1;
     PyObject* itemsize_obj = PyObject_GetAttrString(dtype, "itemsize");
@@ -146,10 +156,12 @@ static int Array_ITEMSIZE(PyObject* obj)
 
 static long Array_NBYTES(PyObject* obj)
 {
+    #ifndef GPAW_ARRAY_DISABLE_NUMPY
     if (PyArray_Check(obj))
     {
 	return PyArray_NBYTES((PyArrayObject*)obj);
     }
+    #endif
     PyObject* nbytes_str = Py_BuildValue("s", "nbytes");
     PyObject* nbytes = PyObject_GetAttr(obj, nbytes_str);
     long nbytesvalue = PyLong_AS_LONG(nbytes);
