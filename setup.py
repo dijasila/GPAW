@@ -167,9 +167,10 @@ extensions = [Extension('_gpaw',
                         extra_objects=extra_objects)]
 
 if os.environ.get('GPAW_GPU'):
+    target = os.environ.get('HCC_AMDGPU_TARGET', 'gfx90a')
     # TODO: Build this also via extension
-    os.system('HCC_AMDGPU_TARGET=gfx90a hipcc -fPIC -fgpu-rdc -c c/gpu/hip_kernels.cpp -o c/gpu/hip_kernels.o')
-    os.system('HCC_AMDGPU_TARGET=gfx90a hipcc -shared -fgpu-rdc --hip-link -o c/gpu/hip_kernels.so c/gpu/hip_kernels.o')
+    os.system('HCC_AMDGPU_TARGET={target} hipcc -fPIC -fgpu-rdc -c c/gpu/hip_kernels.cpp -o c/gpu/hip_kernels.o')
+    os.system('HCC_AMDGPU_TARGET={target} hipcc -shared -fgpu-rdc --hip-link -o c/gpu/hip_kernels.so c/gpu/hip_kernels.o')
 
     extensions.append(Extension('_gpaw_gpu',
                                 ['c/gpu/gpaw_gpu.c'],
