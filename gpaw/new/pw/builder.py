@@ -60,7 +60,7 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
                             cell=self.grid.cell,
                             comm=self.grid.comm)
             self._nct_ag = self.setups.create_pseudo_core_densities(
-                pw, self.fracpos_ac, self.atomdist)
+                pw, self.fracpos_ac, self.atomdist, xp=self.xp)
         return self._nct_ag
 
     def create_poisson_solver(self, fine_pw, params):

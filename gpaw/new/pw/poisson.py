@@ -66,6 +66,8 @@ class PWPoissonSolver(PoissonSolver):
         if self.pw.comm.rank == 0:
             # Use uniform backgroud charge in case we have a charged system:
             vHt_g.data[0] = 0.0
+        if not isinstance(self.ekin_g, vHt_g.xp.ndarray):
+            self.ekin_g = vHt_g.xp.array(self.ekin_g)
         vHt_g.data /= self.ekin_g
         epot = 0.5 * vHt_g.integrate(rhot_g)
         return epot

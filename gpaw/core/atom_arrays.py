@@ -49,7 +49,7 @@ class AtomArraysLayout:
 
     def __repr__(self):
         return (f'AtomArraysLayout({self.shape_a}, {self.atomdist}, '
-                f'{self.dtype}, xp={self.xp})')
+                f'{self.dtype}, xp={self.xp.__name__})')
 
     def new(self, atomdist=None, dtype=None, xp=None):
         """Create new AtomsArrayLayout object with new atomdist."""
@@ -71,6 +71,13 @@ class AtomArraysLayout:
             Distribute dimensions along this communicator.
         """
         return AtomArrays(self, dims, comm)
+
+    def zeros(self,
+              dims: int | tuple[int, ...] = (),
+              comm: MPIComm = serial_comm) -> AtomArrays:
+        aa = self.empty(dims, comm)
+        aa.data[:] = 0.0
+        return aa
 
     def sizes(self) -> tuple[list[dict[int, int]], Array1D]:
         """Compute array sizes for all ranks.
