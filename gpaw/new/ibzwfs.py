@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from typing import Generator
 
+import _gpaw
 import numpy as np
 from ase.dft.bandgap import bandgap
 from ase.io.ulm import Writer
 from ase.units import Bohr, Ha
+
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new.brillouin import IBZ
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
@@ -78,7 +80,7 @@ class IBZWaveFunctions:
         self.energies: dict[str, float] = {}  # hartree
 
         if self.wfs_qs[0][0].xp is not np:
-            if 1:  # not compiled with GPU support:
+            if not getattr(_gpaw, 'gpu_aware_mpi', False):
                 self.kpt_comm = CuPyMPI(self.kpt_comm)
 
     def get_max_shape(self, global_shape: bool = False) -> tuple[int, ...]:
