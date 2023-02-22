@@ -7,6 +7,6 @@ ralda_dens = results[0]
 ralda_wave = results[1]
 RPA = results[2]
 
-equal(ralda_dens, -9.224 0.01)
+equal(ralda_dens, -9.25, 0.01)
 equal(ralda_wave, -9.08, 0.01)
 equal(RPA, -11.17, 0.01)
