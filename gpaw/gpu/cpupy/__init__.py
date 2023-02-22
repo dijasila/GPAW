@@ -1,7 +1,10 @@
-import gpaw.gpu.cpupy.cublas as cublas
-import gpaw.gpu.cpupy.linalg as linalg
-import gpaw.gpu.cpupy.fft as fft
+from types import SimpleNamespace
+
 import numpy as np
+
+import gpaw.gpu.cpupy.cublas as cublas
+import gpaw.gpu.cpupy.fft as fft
+import gpaw.gpu.cpupy.linalg as linalg
 
 __all__ = ['linalg', 'cublas', 'fft']
 
@@ -90,6 +93,8 @@ class ndarray:
         self.size = data.size
         self.flags = data.flags
         self.ndim = data.ndim
+        self.nbytes = data.nbytes
+        self.data = SimpleNamespace(ptr=data.ctypes.data)
 
     @property
     def T(self):
