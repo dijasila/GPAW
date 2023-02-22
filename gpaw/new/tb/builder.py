@@ -120,7 +120,9 @@ class TBPotentialCalculator(PotentialCalculator):
         self.stress_vv = None
 
     def calculate_charges(self, vHt_r):
-        return {a: np.zeros(9) for a, setup in enumerate(self.setups)}
+        return AtomArraysLayout(
+            [9] * len(self.atoms),
+            self.nct_R.comm).zeros()
 
     def _calculate(self, density, vHt_r):
         vt_sR = density.nt_sR
