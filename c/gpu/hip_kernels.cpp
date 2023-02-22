@@ -10,6 +10,7 @@ __global__ void pwlfc_expand_kernel_8(double* f_Gs,
 				       uint32_t* l_s,
 	                               uint32_t* a_J,
                                        uint32_t* s_J, 
+                                       uint32_t* I_J, 
                                        double* f_GI,
                                        int nG,
                                        int nJ,
@@ -20,19 +21,25 @@ __global__ void pwlfc_expand_kernel_8(double* f_Gs,
                                        bool cc)
 {
     int G =threadIdx.x + blockIdx.x *blockDim.x;
+    int J =threadIdx.y + blockIdx.y *blockDim.y;
     hipDoubleComplex imag_powers[4] = {make_hipDoubleComplex(1.0,0), 
 	                               make_hipDoubleComplex(0.0,-1.0),
 				       make_hipDoubleComplex(-1.0,0),
 				       make_hipDoubleComplex(0, 1.0)};
-    if (G < nG)
+    if ((G < nG) && (J < nJ))
     {
         //for(int G = 0; G < nG; G++) 
-            f_Gs += nsplines*G;
-            emiGR_Ga += natoms*G;
-            Y_GL += nL*G;
-            f_GI += nI*G;
+           // f_Gs += nsplines*G;
+            //emiGR_Ga += natoms*G;
+            //Y_GL += nL*G;
+            //f_GI += nI*G;
+        
+        f_Gs += G*nsplines;
+        emiGR_Ga += G*natoms;
+        Y_GL += G*nL;
+        f_GI += G*nI*2+I_J[J];
 	    
-            for (int J = 0; J < nJ; J++) { // TODO: Vectorize as with kernel_16
+        //    for (int J = 0; J < nJ; J++) { 
                 int s = s_J[J];
                 int l = l_s[s];
                 hipDoubleComplex f1 = (emiGR_Ga[a_J[J]] *
@@ -44,7 +51,7 @@ __global__ void pwlfc_expand_kernel_8(double* f_Gs,
                     f_GI[nI] = cc ? -f.y : f.y;
                     f_GI++;
                 }
-        }
+       //  }
     }
 }
 
@@ -130,12 +137,13 @@ extern "C" void pwlfc_expand_gpu_launch_kernel(int itemsize,
     }
     else
     {
-        hipLaunchKernelGGL(pwlfc_expand_kernel_8, dim3((nG+31)/32), dim3(32), 0, 0, f_Gs, 
+        hipLaunchKernelGGL(pwlfc_expand_kernel_8, dim3((nG+15)/16, (nJ+15)/16), dim3(16, 16), 0, 0, f_Gs, 
                            emiGR_Ga,
 		           Y_GL,
 		           l_s,
 	                   a_J,
                            s_J, 
+                           I_J,
                            f_GI,
                            nG,
                            nJ,
