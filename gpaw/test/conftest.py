@@ -489,6 +489,16 @@ class GPAWPlugin:
         terminalreporter.write(f'size: {size}\n')
 
 
+@pytest.fixture
+def sg15_hydrogen():
+    from io import StringIO
+    from gpaw.test.pseudopotential.H_sg15 import pp_text
+    from gpaw.upf import read_sg15
+    # We can't easily load a non-python file from the test suite.
+    # Therefore we load the pseudopotential from a Python file.
+    return read_sg15(StringIO(pp_text))
+
+
 def pytest_configure(config):
     # Allow for fake cupy:
     os.environ['GPAW_CPUPY'] = '1'
