@@ -323,17 +323,23 @@ class FXCCorrelation:
         return energies
 
 
-class KernelWave:
-    def __init__(self, gs, xc, ibzq_qc, q_empty, ecut, context):
+class KernelIntegrator:
+    def __init__(self, gs, xc, context, ibzq_qc, ecut):
         self.gs = gs
-        self.gd = gs.density.gd
         self.xc = xc
+        self.context = context
+
         self.xcflags = XCFlags(xc)
+        self.gd = gs.density.gd
         self.ibzq_qc = ibzq_qc
+        self.ecut = ecut
+
+
+class KernelWave(KernelIntegrator):
+    def __init__(self, *, q_empty, **kwargs):
+        super().__init__(**kwargs)
         self.ns = self.gs.nspins
         self.q_empty = q_empty
-        self.ecut = ecut
-        self.context = context
 
         # Density grid
         n_sg, finegd = self.gs.get_all_electron_density(gridrefinement=2)
@@ -613,24 +619,18 @@ class KernelWave:
         return fspinHxc_GG
 
 
-class KernelDens:
-    def __init__(self, gs, xc, ibzq_qc, unit_cells, density_cut, ecut,
-                 context):
+class KernelDens(KernelIntegrator):
+    def __init__(self, *, unit_cells, density_cut, **kwargs):
 
-        self.gs = gs
-        self.gd = self.gs.density.gd
-        self.xc = xc
-        self.ibzq_qc = ibzq_qc
+        super().__init__(**kwargs)
         self.unit_cells = unit_cells
         self.density_cut = density_cut
-        self.ecut = ecut
-        self.context = context
 
         self.A_x = -(3 / 4.) * (3 / np.pi)**(1 / 3.)
 
         self.n_g = self.gs.hacky_all_electron_density(gridrefinement=1)
 
-        if xc[-3:] == 'PBE':
+        if self.xc[-3:] == 'PBE':
             nf_g = self.gs.hacky_all_electron_density(gridrefinement=2)
             gdf = self.gd.refine()
             grad_v = [Gradient(gdf, v, n=1).apply for v in range(3)]
@@ -640,7 +640,7 @@ class KernelDens:
             self.gradn_vg = gradnf_vg[:, ::2, ::2, ::2]
 
         qd = KPointDescriptor(self.ibzq_qc)
-        self.pd = PWDescriptor(ecut / Ha, self.gd, complex, qd)
+        self.pd = PWDescriptor(self.ecut / Ha, self.gd, complex, qd)
 
     # @timer('FHXC')
     # Generator will return immediately so no use to time it this way.
