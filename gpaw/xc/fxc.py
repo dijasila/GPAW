@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from time import time
 from pathlib import Path
 
@@ -159,7 +160,6 @@ class FXCCorrelation:
             xc=self.xc,
             ibzq_qc=self.ibzq_qc,
             ecut=self.ecut_max,
-            cache=self.cache,
             context=self.context)
 
         if self.avg_scheme == 'wavevector':
@@ -172,7 +172,11 @@ class FXCCorrelation:
                                 unit_cells=self.unit_cells,
                                 density_cut=self.density_cut)
 
-        kernel.calculate_fhxc()
+        for iq, fhxc_GG in kernel.calculate_fhxc():
+            if self.context.comm.rank == 0:
+                assert isinstance(fhxc_GG, np.ndarray), str(fhxc_GG)
+                self.cache.handle(iq).write(fhxc_GG)
+            self.context.comm.barrier()
 
     @timer('FXC')
     def calculate(self, *, nbands=None):
@@ -320,20 +324,40 @@ class FXCCorrelation:
         return energies
 
 
-class KernelWave:
-    def __init__(self, gs, xc, ibzq_qc, q_empty, ecut,
-                 cache, context):
-
+class KernelIntegrator(ABC):
+    def __init__(self, gs, xc, context, ibzq_qc, ecut):
         self.gs = gs
-        self.gd = gs.density.gd
         self.xc = xc
+        self.context = context
+
         self.xcflags = XCFlags(xc)
+        self.gd = gs.density.gd
         self.ibzq_qc = ibzq_qc
+        self.ecut = ecut
+
+    def calculate_fhxc(self):
+        self.context.print(
+            'Calculating {self.xc} kernel at {self.ecut} eV cutoff')
+        fhxc_iterator = self._calculate_fhxc()
+
+        while True:
+            with self.context.timer('FHXC'):
+                try:
+                    yield next(fhxc_iterator)
+                except StopIteration:
+                    return
+
+    @abstractmethod
+    def _calculate_fhxc(self):
+        """Perform computation and yield (iq, array) tuples."""
+
+
+class KernelWave(KernelIntegrator):
+    def __init__(self, *, q_empty, **kwargs):
+        super().__init__(**kwargs)
+
         self.ns = self.gs.nspins
         self.q_empty = q_empty
-        self.ecut = ecut
-        self.cache = cache
-        self.context = context
 
         # Density grid
         n_sg, finegd = self.gs.get_all_electron_density(gridrefinement=2)
@@ -390,16 +414,12 @@ class KernelWave:
                                    'points')
                 self.s2_g[poskern_ind] = 0.0
 
-    def calculate_fhxc(self):
-        self.context.print('Calculating %s kernel at %d eV cutoff'
-                           % (self.xc, self.ecut), flush=False)
-
+    def _calculate_fhxc(self):
         for iq, q_c in enumerate(self.ibzq_qc):
-
             if iq < self.q_empty:  # don't recalculate q vectors
                 continue
 
-            self.calculate_one_qpoint(iq, q_c)
+            yield iq, self.calculate_one_qpoint(iq, q_c)
 
     def calculate_one_qpoint(self, iq, q_c):
         qpd = SingleQPWDescriptor.from_q(q_c, self.ecut / Ha, self.gd)
@@ -525,7 +545,8 @@ class KernelWave:
             fv_spincorr_GG += np.conj(fv_spincorr_GG.T)
             fv_spincorr_GG[np.diag_indices(nG)] *= 0.5
 
-        # Write to disk
+        self.context.print('q point %s complete' % iq)
+
         if self.context.comm.rank == 0:
             if calc_spincorr:
                 # Form the block matrix kernel
@@ -539,11 +560,9 @@ class KernelWave:
             else:
                 fhxc_sGsG = fv_nospin_GG
 
-            self.cache.handle(iq).write(fhxc_sGsG)
-
-        self.context.print('q point %s complete' % iq)
-
-        self.context.comm.barrier()
+            return fhxc_sGsG
+        else:
+            return None
 
     def get_scaled_fHxc_q(self, q, sel_points, Gphase, spincorr):
         # Given a coupling constant l, construct the Hartree-XC
@@ -614,25 +633,18 @@ class KernelWave:
         return fspinHxc_GG
 
 
-class KernelDens:
-    def __init__(self, gs, xc, ibzq_qc, unit_cells, density_cut, ecut,
-                 cache, context):
+class KernelDens(KernelIntegrator):
+    def __init__(self, *, unit_cells, density_cut, **kwargs):
+        super().__init__(**kwargs)
 
-        self.gs = gs
-        self.gd = self.gs.density.gd
-        self.xc = xc
-        self.ibzq_qc = ibzq_qc
         self.unit_cells = unit_cells
         self.density_cut = density_cut
-        self.ecut = ecut
-        self.cache = cache
-        self.context = context
 
         self.A_x = -(3 / 4.) * (3 / np.pi)**(1 / 3.)
 
         self.n_g = self.gs.hacky_all_electron_density(gridrefinement=1)
 
-        if xc[-3:] == 'PBE':
+        if self.xc[-3:] == 'PBE':
             nf_g = self.gs.hacky_all_electron_density(gridrefinement=2)
             gdf = self.gd.refine()
             grad_v = [Gradient(gdf, v, n=1).apply for v in range(3)]
@@ -642,21 +654,18 @@ class KernelDens:
             self.gradn_vg = gradnf_vg[:, ::2, ::2, ::2]
 
         qd = KPointDescriptor(self.ibzq_qc)
-        self.pd = PWDescriptor(ecut / Ha, self.gd, complex, qd)
+        self.pd = PWDescriptor(self.ecut / Ha, self.gd, complex, qd)
 
-    @timer('FHXC')
-    def calculate_fhxc(self):
-
-        self.context.print('Calculating %s kernel at %d eV cutoff' % (
-            self.xc, self.ecut))
-        if self.xc[0] == 'r':
-            self.calculate_rkernel()
+    def _calculate_fhxc(self):
+        if self.xc[0] == 'r':  # wth?
+            assert self.xcflags.spin_kernel
+            yield from self.calculate_rkernel()
         else:
-            assert self.xc[0] == 'A'
-            self.calculate_local_kernel()
+            assert self.xc[0] == 'A'  # wth?
+            assert self.xc == 'ALDA'
+            yield from self.calculate_local_kernel()
 
     def calculate_rkernel(self):
-
         gd = self.gd
         ng_c = gd.N_c
         cell_cv = gd.cell_cv
@@ -843,9 +852,9 @@ class KernelDens:
                         Gq2_G[0] = 1.
                     vq_G = 4 * np.pi / Gq2_G
                     fhxc_sGsG += np.tile(np.eye(npw) * vq_G, (ns, ns))
-                self.cache.handle(iq).write(fhxc_sGsG)
-            self.context.comm.barrier()
-        self.context.print('')
+                yield iq, fhxc_sGsG
+            else:
+                yield iq, None
 
     def calculate_local_kernel(self):
         # Standard ALDA exchange kernel
@@ -891,10 +900,7 @@ class KernelDens:
             vq_G = 4 * np.pi / Gq2_G
             fhxc_sGsG += np.tile(np.eye(npw) * vq_G, (ns, ns))
 
-            if self.context.comm.rank == 0:
-                self.cache.handle(iq).write(fhxc_sGsG)
-            self.context.comm.barrier()
-        self.context.print('')
+            yield iq, fhxc_sGsG
 
     def get_fxc_g(self, n_g, index=None):
         if self.xc[-3:] == 'LDA':
