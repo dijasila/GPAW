@@ -415,11 +415,7 @@ class KernelWave(KernelIntegrator):
                 self.s2_g[poskern_ind] = 0.0
 
     def _calculate_fhxc(self):
-        #self.context.print('Calculating %s kernel at %d eV cutoff'
-        #                   % (self.xc, self.ecut), flush=False)
-
         for iq, q_c in enumerate(self.ibzq_qc):
-
             if iq < self.q_empty:  # don't recalculate q vectors
                 continue
 
@@ -660,8 +656,6 @@ class KernelDens(KernelIntegrator):
         qd = KPointDescriptor(self.ibzq_qc)
         self.pd = PWDescriptor(self.ecut / Ha, self.gd, complex, qd)
 
-    # @timer('FHXC')
-    # Generator will return immediately so no use to time it this way.
     def _calculate_fhxc(self):
         if self.xc[0] == 'r':  # wth?
             assert self.xcflags.spin_kernel
