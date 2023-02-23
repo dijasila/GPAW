@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from time import time
 from pathlib import Path
 
@@ -323,7 +324,7 @@ class FXCCorrelation:
         return energies
 
 
-class KernelIntegrator:
+class KernelIntegrator(ABC):
     def __init__(self, gs, xc, context, ibzq_qc, ecut):
         self.gs = gs
         self.xc = xc
@@ -334,10 +335,27 @@ class KernelIntegrator:
         self.ibzq_qc = ibzq_qc
         self.ecut = ecut
 
+    def calculate_fhxc(self):
+        self.context.print(
+            'Calculating {self.xc} kernel at {self.ecut} eV cutoff')
+        fhxc_iterator = self._calculate_fhxc()
+
+        while True:
+            with self.context.timer('FHXC'):
+                try:
+                    yield next(fhxc_iterator)
+                except StopIteration:
+                    return
+
+    @abstractmethod
+    def _calculate_fhxc(self):
+        """Perform computation and yield (iq, array) tuples."""
+
 
 class KernelWave(KernelIntegrator):
     def __init__(self, *, q_empty, **kwargs):
         super().__init__(**kwargs)
+
         self.ns = self.gs.nspins
         self.q_empty = q_empty
 
@@ -396,9 +414,9 @@ class KernelWave(KernelIntegrator):
                                    'points')
                 self.s2_g[poskern_ind] = 0.0
 
-    def calculate_fhxc(self):
-        self.context.print('Calculating %s kernel at %d eV cutoff'
-                           % (self.xc, self.ecut), flush=False)
+    def _calculate_fhxc(self):
+        #self.context.print('Calculating %s kernel at %d eV cutoff'
+        #                   % (self.xc, self.ecut), flush=False)
 
         for iq, q_c in enumerate(self.ibzq_qc):
 
@@ -621,8 +639,8 @@ class KernelWave(KernelIntegrator):
 
 class KernelDens(KernelIntegrator):
     def __init__(self, *, unit_cells, density_cut, **kwargs):
-
         super().__init__(**kwargs)
+
         self.unit_cells = unit_cells
         self.density_cut = density_cut
 
@@ -644,13 +662,9 @@ class KernelDens(KernelIntegrator):
 
     # @timer('FHXC')
     # Generator will return immediately so no use to time it this way.
-    def calculate_fhxc(self):
-
-        self.context.print('Calculating %s kernel at %d eV cutoff' % (
-            self.xc, self.ecut))
-
+    def _calculate_fhxc(self):
         if self.xc[0] == 'r':  # wth?
-            assert XCFlags(self.xc).spin_kernel
+            assert self.xcflags.spin_kernel
             yield from self.calculate_rkernel()
         else:
             assert self.xc[0] == 'A'  # wth?
