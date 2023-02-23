@@ -314,6 +314,7 @@ class PAWWaves:
         nderiv = params[0]
         Gcut = params[1]
         extra_grid_pts = params[2]
+        init_guess = params[3]
         nmvp = len(list(extra_grid_pts.values())[0])
 
         P = nderiv + nmvp
@@ -340,8 +341,17 @@ class PAWWaves:
         x0_init = []
         phi_ng_ref = []
         r_g = rgd.r_g
+
         for n, phi_g in enumerate(phi_ng):
-            phit_ng[n] = rgd.pseudize_normalized(phi_g, gc, l, nderiv)[0]  # this will return the polynom
+            if init_guess == "nc":
+                phit_ng[n] = rgd.pseudize_normalized(phi_g, gc, l, nderiv)[0]  # this will return the polynom
+            elif init_guess == "poly":
+                if self.n_n[n] < 0:
+                    phit_ng[n] = rgd.pseudize(phi_g, gc, l, nderiv)[0]  # this will return the polynom
+                else:
+                    phit_ng[n] = rgd.pseudize_smooth(phi_g, gc, l, nderiv, Gcut=6)[0]  # this will return the polynom
+            else:
+                raise ValueError("init_guess should be nc or poly")
             # take initial grid point and value of current approximation at this point
             pts_val = list(extra_grid_pts.keys())[0]
             if pts_val == 'inv_gpts':
@@ -370,7 +380,7 @@ class PAWWaves:
         def nlc1():
             norm = 0
             for n, phi in enumerate(phi_ng_ref):
-                if self.n_n[n] <= 0:
+                if self.n_n[n] < 0:
                     continue
                 # change value of reference function at gc
                 g_k, b_k = rgd.fft(phit_ng[n] * r_g, l)
@@ -497,7 +507,7 @@ class PAWSetupGenerator:
                     (l not in aea.f_lsn or n - l > len(aea.f_lsn[l][0]))):
                     aea.add(n, l, 0)
 
-        aea.initialize()
+        aea.initialize(ngpts=3000)
         aea.run()
         aea.scalar_relativistic = scalar_relativistic
         aea.refine()
@@ -1674,7 +1684,7 @@ def plot_log_derivs(gen, ld_str: str, plot: bool):
             plt.plot(energies, ld2, '--' + colors[l])
 
         error = abs(ld1 - ld2).sum() * de
-        print('Logarithmic derivative error:', l, error)
+        print('Logarithmic derivative error:', l, error, file=gen.fd)
 
     if plot:
         plt.xlabel('energy [Ha]')
