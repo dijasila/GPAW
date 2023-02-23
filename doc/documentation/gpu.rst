@@ -19,12 +19,12 @@ The gpaw.gpu module
 
 .. data:: cupy
 
-   :mod:`cupy` module (or :mod:`gpaw.gpu.cpupy` if :mod:`cupy` is not available)
+   :mod:`cupy` module (or ``gpaw.gpu.cpupy`` if :mod:`cupy` is not available)
 
 .. data:: cupyx
 
-   :mod:`cupyx` module (or :mod:`gpaw.gpu.cpupyx` if
-   :mod:`cupyx` is not available)
+   ``cupyx`` module (or ``gpaw.gpu.cpupyx`` if
+   ``cupyx`` is not available)
 
 .. autodata:: cupy_is_fake
 .. autodata:: is_hip
@@ -55,7 +55,7 @@ The following objects:
 
 * :class:`~gpaw.core.uniform_grid.UniformGridFunctions`
 * :class:`~gpaw.core.plane_waves.PlaneWaveExpansions`
-* :class:`~gpaw.core.atom_array.AtomArrays`
+* :class:`~gpaw.core.atom_arrays.AtomArrays`
 * :class:`~gpaw.core.matrix.Matrix`
 
 can have their data (``.data`` attribute) stored in a :class:`cupy.ndarray`
@@ -72,3 +72,7 @@ GPU-aware MPI
 
 Use a GPU-aware MPI implementation and set the :envvar:`GPAW_GPU` when compiling
 GPAW's C-extension.
+
+.. envvar:: GPAW_GPU
+
+   Add support for passing :class:`cupy.ndarray` objects to MPI

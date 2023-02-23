@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 cupy_is_fake = True
-"""True if :mod:`cupy` has been replaced by :mod:`gpaw.gpu.cpupy`"""
+"""True if :mod:`cupy` has been replaced by ``gpaw.gpu.cpupy``"""
 
 is_hip = False
 """True if we are using HIP"""
@@ -25,7 +25,7 @@ else:
         import gpaw.gpu.cpupy as cupy
         import gpaw.gpu.cpupyx as cupyx
 
-__all__ = ['cupy', 'cupyx', 'as_xp']
+__all__ = ['cupy', 'cupyx', 'as_xp', 'synchronize']
 
 
 def synchronize():
