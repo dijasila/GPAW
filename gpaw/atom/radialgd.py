@@ -403,8 +403,8 @@ class RadialGridDescriptor(ABC):
             f_k = g_k[kc:] * b_k[kc:]
             return f_k @ f_k
 
-        from scipy.optimize import minimize
-        minimize(f, x0)
+        from scipy.optimize import fmin
+        fmin(f, x0)
 
         return b_g, c_x[-1]
 
