@@ -7,12 +7,13 @@ Python wrapper for FFTW3 library
 """
 from __future__ import annotations
 
-import numpy as np
-from scipy.fft import fftn, ifftn, irfftn, rfftn
+from functools import lru_cache
 
 import _gpaw
-from gpaw.typing import Array3D, DTypeLike, IntVector
+import numpy as np
 from gpaw import SCIPY_VERSION
+from gpaw.typing import Array3D, DTypeLike, IntVector
+from scipy.fft import fftn, ifftn, irfftn, rfftn
 
 ESTIMATE = 64
 MEASURE = 0
@@ -69,6 +70,7 @@ def empty(shape, dtype=float):
     return a
 
 
+@lru_cache(maxsize=30)
 def create_plans(size_c: IntVector,
                  dtype: DTypeLike,
                  flags: int = MEASURE,

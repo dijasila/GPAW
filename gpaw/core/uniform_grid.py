@@ -252,7 +252,7 @@ class UniformGrid(Domain):
         if self.comm.rank == 0:
             return fftw.create_plans(self.size_c, self.dtype, flags, xp)
         else:
-            return fftw.FFTPlans([0, 0, 0], self.dtype)
+            return fftw.create_plans((0, 0, 0), self.dtype)
 
     def ranks_from_fractional_positions(self,
                                         fracpos_ac: Array2D) -> Array1D:
