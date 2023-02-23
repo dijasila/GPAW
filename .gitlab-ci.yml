@@ -48,6 +48,7 @@ stages:
 
       EOF
   artifacts:
+    when: always
     paths:
       - $PYTHONUSERBASE
       - gpaw.egg-info
