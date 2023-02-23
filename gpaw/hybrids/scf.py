@@ -202,7 +202,7 @@ def calculate_exx_for_pair(k1,
                         local=True)
 
         if v1_nG is not None and v2_nG is None:
-            for a, v_nL in ghat.integrate(vrho_nG[:n2b - n2a]).items():
+            for a, v_nL in integrate(ghat, vrho_nG[:n2b - n2a], f_GI):
                 v_iin = paw.Delta_aiiL[a].dot(v_nL.T)
                 v1_ani[a][n1] -= np.einsum('ijn, nj, n -> i',
                                            v_iin,
