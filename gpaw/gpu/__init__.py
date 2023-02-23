@@ -28,6 +28,11 @@ else:
 __all__ = ['cupy', 'cupyx', 'as_xp']
 
 
+def synchronize():
+    if not cupy_is_fake:
+        cupy.cuda.runtime.deviceSynchronize()
+
+
 def setup():
     # select GPU device (round-robin based on MPI rank)
     # if not set, all MPI ranks will use the same default device
@@ -69,7 +74,6 @@ def cupy_eigh(a: cupy.ndarray, UPLO: str) -> tuple[cupy.ndarray, cupy.ndarray]:
 def T():
     t1 = time()
     yield
-    if not cupy_is_fake:
-        cupy.cuda.runtime.deviceSynchronize()
+    synchronize()
     t2 = time()
     print(f'{(t2 - t1) * 1e9:_.3f} ns')

@@ -8,6 +8,7 @@ from ase.dft.bandgap import bandgap
 from ase.io.ulm import Writer
 from ase.units import Bohr, Ha
 
+import gpaw.gpu as gpu
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new.brillouin import IBZ
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
@@ -178,6 +179,7 @@ class IBZWaveFunctions:
         and ``D_asii``."""
         for wfs in self:
             wfs.add_to_density(nt_sR, D_asii)
+        gpu.synchronize()
         self.kpt_comm.sum(nt_sR.data)
         self.kpt_comm.sum(D_asii.data)
 
@@ -438,6 +440,7 @@ class IBZWaveFunctions:
 
 
 class CuPyMPI:
+    """Quick'n'dirty wrapper to make kpt_comm work without a GPU-aware MPI."""
     def __init__(self, comm):
         self.comm = comm
         self.rank = comm.rank
