@@ -44,7 +44,7 @@ define_macros = [('NPY_NO_DEPRECATED_API', '7'),
                  ('GPAW_NO_UNDERSCORE_CBLACS', '1'),
                  ('GPAW_NO_UNDERSCORE_CSCALAPACK', '1')]
 if os.getenv('GPAW_GPU'):
-    define_macros.append(('GPAW_GPU_AWARE_MPI','1'))
+    define_macros.append(('GPAW_GPU_AWARE_MPI', '1'))
 undef_macros = ['NDEBUG']
 
 mpi_libraries = []
@@ -109,7 +109,7 @@ if platform_id:
 if compiler is not None:
     # A hack to change the used compiler and linker, inspired by
     # https://shwina.github.io/custom-compiler-linker-extensions/
-    
+
     # If CC is set, it will be ignored, which is probably unexpected.
     assert not os.environ.get('CC'), 'Please unset CC as it is ignored'
 
@@ -167,23 +167,32 @@ extensions = [Extension('_gpaw',
                         extra_objects=extra_objects)]
 
 if os.environ.get('GPAW_GPU'):
+    # Hardcoded for LUMI right now!
     target = os.environ.get('HCC_AMDGPU_TARGET', 'gfx90a')
     # TODO: Build this also via extension
-    assert os.system(f'HCC_AMDGPU_TARGET={target} hipcc -fPIC -fgpu-rdc -c c/gpu/hip_kernels.cpp -o c/gpu/hip_kernels.o') == 0
-    assert os.system(f'HCC_AMDGPU_TARGET={target} hipcc -shared -fgpu-rdc --hip-link -o c/gpu/hip_kernels.so c/gpu/hip_kernels.o') == 0
+    assert os.system(
+        f'HCC_AMDGPU_TARGET={target} hipcc -fPIC -fgpu-rdc '
+        '-c c/gpu/hip_kernels.cpp -o c/gpu/hip_kernels.o') == 0
+    assert os.system(
+        f'HCC_AMDGPU_TARGET={target} hipcc -shared -fgpu-rdc --hip-link '
+        '-o c/gpu/hip_kernels.so c/gpu/hip_kernels.o') == 0
 
-    extensions.append(Extension('_gpaw_gpu',
-                                ['c/gpu/gpaw_gpu.c'],
-                                libraries=[],
-                                library_dirs=['c/gpu'],
-                                setup_requires=['numpy'],
-                                include_dirs=include_dirs,
-                                define_macros=[('NPY_NO_DEPRECATED_API', 7)],
-                                undef_macros=[],
-                                extra_link_args = ['-Wl,-rpath='+str(Path('c/gpu').resolve())],
-                                extra_compile_args=['-std=c99'],#,'-Werror=implicit-function-declaration'],
-                                runtime_library_dirs=['c/gpu'],
-                                extra_objects=[str(Path('c/gpu/hip_kernels.so').resolve())]))
+    extensions.append(
+        Extension('_gpaw_gpu',
+                  ['c/gpu/gpaw_gpu.c'],
+                  libraries=[],
+                  library_dirs=['c/gpu'],
+                  setup_requires=['numpy'],
+                  include_dirs=include_dirs,
+                  define_macros=[('NPY_NO_DEPRECATED_API', 7)],
+                  undef_macros=[],
+                  extra_link_args=[
+                      f'-Wl,-rpath={Path("c/gpu").resolve()}'],
+                  extra_compile_args=['-std=c99'],
+                  # ,'-Werror=implicit-function-declaration'],
+                  runtime_library_dirs=['c/gpu'],
+                  extra_objects=[
+                      str(Path('c/gpu/hip_kernels.so').resolve())]))
 
 
 write_configuration(define_macros, include_dirs, libraries, library_dirs,
