@@ -7,17 +7,22 @@ Python wrapper for FFTW3 library
 """
 from __future__ import annotations
 
+import weakref
+from types import ModuleType
+
 import numpy as np
 from scipy.fft import fftn, ifftn, irfftn, rfftn
 
 import _gpaw
-from gpaw.typing import Array3D, DTypeLike, IntVector
 from gpaw import SCIPY_VERSION
+from gpaw.typing import Array1D, Array3D, DTypeLike, IntVector
 
 ESTIMATE = 64
 MEASURE = 0
 PATIENT = 32
 EXHAUSTIVE = 8
+
+_plan_cache: dict[tuple, weakref.ReferenceType] = {}
 
 
 def have_fftw() -> bool:
@@ -72,13 +77,24 @@ def empty(shape, dtype=float):
 def create_plans(size_c: IntVector,
                  dtype: DTypeLike,
                  flags: int = MEASURE,
-                 xp=np) -> FFTPlans:
+                 xp: ModuleType = np) -> FFTPlans:
     """Create plan-objects for FFT and inverse FFT."""
+    key = (tuple(size_c), dtype, flags, xp)
+    # Look up weakref to plan:
+    if key in _plan_cache:
+        plan = _plan_cache[key]()
+        # Check if plan is still "alive":
+        if plan is not None:
+            return plan
+    # Create new plan:
     if xp is not np:
-        return CuPyFFTPlans(size_c, dtype)
-    if have_fftw():
-        return FFTWPlans(size_c, dtype, flags)
-    return NumpyFFTPlans(size_c, dtype)
+        plan = CuPyFFTPlans(size_c, dtype)
+    elif have_fftw():
+        plan = FFTWPlans(size_c, dtype, flags)
+    else:
+        plan = NumpyFFTPlans(size_c, dtype)
+    _plan_cache[key] = weakref.ref(plan)
+    return plan
 
 
 class FFTPlans:
@@ -178,10 +194,11 @@ class CuPyFFTPlans(FFTPlans):
     def __init__(self,
                  size_c: IntVector,
                  dtype: DTypeLike):
+        from gpaw.core.plane_waves import PlaneWaves
         from gpaw.gpu import cupy as cp
         self.dtype = dtype
         super().__init__(size_c, dtype, empty=cp.empty)
-        self.pw = None
+        self.Q_G_cache: dict[PlaneWaves, Array1D] = {}
 
     def fft(self):
         from gpaw.gpu import cupyx
@@ -205,12 +222,11 @@ class CuPyFFTPlans(FFTPlans):
 
     def indices(self, pw):
         from gpaw.gpu import cupy as cp
-        if self.pw is None:
-            self.pw = pw
-            self.Q_G = cp.asarray(pw.indices(self.shape))
-        else:
-            assert pw is self.pw
-        return self.Q_G
+        Q_G = self.Q_G_cache.get(pw)
+        if Q_G is None:
+            Q_G = cp.asarray(pw.indices(self.shape))
+            self.Q_G_cache[pw] = Q_G
+        return Q_G
 
     def ifft_sphere(self, coef_G, pw, out_R):
         from gpaw.gpu import cupyx

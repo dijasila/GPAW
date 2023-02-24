@@ -85,9 +85,9 @@ class Density:
         D_asii = self.D_asii.gather(broadcast=True, copy=True)
         for a1, D_sii in self.D_asii.items():
             D_sii[:] = 0.0
+            rotation_sii = symmetries.rotations(self.l_aj[a1], xp)
             for a2, rotation_ii in zip(symmetries.a_sa[:, a1],
-                                       symmetries.rotations(self.l_aj[a1])):
-                rotation_ii = xp.asarray(rotation_ii)
+                                       rotation_sii):
                 D_sii += xp.einsum('ij, sjk, lk -> sil',
                                    rotation_ii, D_asii[a2], rotation_ii)
         self.D_asii.data *= 1.0 / len(symmetries)
