@@ -78,6 +78,7 @@ def test_reuse_wfs(mode, reuse_type, max_reuse_error):
     assert reuse_error < max_reuse_error
 
 
+@pytest.mark.later
 def test_reuse_sg15(sg15_hydrogen):
     """Test wfs reuse with sg15.
 
