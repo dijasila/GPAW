@@ -10,11 +10,12 @@ from __future__ import annotations
 import weakref
 from types import ModuleType
 
-import _gpaw
 import numpy as np
-from gpaw import SCIPY_VERSION
-from gpaw.typing import Array3D, DTypeLike, IntVector
 from scipy.fft import fftn, ifftn, irfftn, rfftn
+
+import _gpaw
+from gpaw import SCIPY_VERSION
+from gpaw.typing import Array1D, Array3D, DTypeLike, IntVector
 
 ESTIMATE = 64
 MEASURE = 0
@@ -190,10 +191,11 @@ class CuPyFFTPlans(FFTPlans):
     def __init__(self,
                  size_c: IntVector,
                  dtype: DTypeLike):
+        from gpaw.core.plane_waves import PlaneWaves
         from gpaw.gpu import cupy as cp
         self.dtype = dtype
         super().__init__(size_c, dtype, empty=cp.empty)
-        self.pw = None
+        self.Q_G_cache: dict[PlaneWaves, Array1D] = {}
 
     def fft(self):
         from gpaw.gpu import cupyx
@@ -217,12 +219,11 @@ class CuPyFFTPlans(FFTPlans):
 
     def indices(self, pw):
         from gpaw.gpu import cupy as cp
-        if self.pw is None:
-            self.pw = pw
-            self.Q_G = cp.asarray(pw.indices(self.shape))
-        else:
-            assert pw is self.pw
-        return self.Q_G
+        Q_G = self.Q_G_cache.get(pw)
+        if Q_G is None:
+            Q_G = cp.asarray(pw.indices(self.shape))
+            self.Q_G_cache[pw] = Q_G
+        return Q_G
 
     def ifft_sphere(self, coef_G, pw, out_R):
         from gpaw.gpu import cupyx
