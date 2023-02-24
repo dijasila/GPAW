@@ -7,7 +7,8 @@ Python wrapper for FFTW3 library
 """
 from __future__ import annotations
 
-from functools import lru_cache
+import weakref
+from types import ModuleType
 
 import _gpaw
 import numpy as np
@@ -19,6 +20,8 @@ ESTIMATE = 64
 MEASURE = 0
 PATIENT = 32
 EXHAUSTIVE = 8
+
+_plan_cache: dict[tuple, weakref.ReferenceType] = {}
 
 
 def have_fftw() -> bool:
@@ -70,17 +73,24 @@ def empty(shape, dtype=float):
     return a
 
 
-@lru_cache(maxsize=30)
 def create_plans(size_c: IntVector,
                  dtype: DTypeLike,
                  flags: int = MEASURE,
-                 xp=np) -> FFTPlans:
+                 xp: ModuleType = np) -> FFTPlans:
     """Create plan-objects for FFT and inverse FFT."""
+    key = (tuple(size_c), dtype, flags, xp)
+    if key in _plan_cache:
+        plan = _plan_cache[key]()
+        if plan is not None:
+            return plan
     if xp is not np:
-        return CuPyFFTPlans(size_c, dtype)
-    if have_fftw():
-        return FFTWPlans(size_c, dtype, flags)
-    return NumpyFFTPlans(size_c, dtype)
+        plan = CuPyFFTPlans(size_c, dtype)
+    elif have_fftw():
+        plan = FFTWPlans(size_c, dtype, flags)
+    else:
+        plan = NumpyFFTPlans(size_c, dtype)
+    _plan_cache[key] = weakref.ref(plan)
+    return plan
 
 
 class FFTPlans:
