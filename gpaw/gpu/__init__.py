@@ -62,7 +62,10 @@ def as_xp(array, xp):
 
 
 def cupy_eigh(a: cupy.ndarray, UPLO: str) -> tuple[cupy.ndarray, cupy.ndarray]:
-    """HIP version of eigh() is too slow for now."""
+    """Wrapper for ``eigh()``.
+
+    HIP-GPU version is too slow for now so we do it on ther CPU.
+    """
     from scipy.linalg import eigh
     if not is_hip:
         return cupy.linalg.eigh(a, UPLO=UPLO)
