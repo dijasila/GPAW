@@ -80,10 +80,13 @@ def create_plans(size_c: IntVector,
                  xp: ModuleType = np) -> FFTPlans:
     """Create plan-objects for FFT and inverse FFT."""
     key = (tuple(size_c), dtype, flags, xp)
+    # Look up weakref to plan:
     if key in _plan_cache:
         plan = _plan_cache[key]()
+        # Check if plan is still "alive":
         if plan is not None:
             return plan
+    # Create new plan:
     if xp is not np:
         plan = CuPyFFTPlans(size_c, dtype)
     elif have_fftw():
