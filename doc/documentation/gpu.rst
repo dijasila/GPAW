@@ -7,7 +7,8 @@ Ground-state calculations on a GPU is an experimental feature at the moment:
 
 * only PW-mode
 * it has only been implemented in the new GPAW
-* pnly parallelization over **k**-points
+* only parallelization over **k**-points
+* no forces
 
 See :git:`gpaw/test/gpu/pw_test.py` for an example.
 
@@ -19,12 +20,11 @@ The gpaw.gpu module
 
 .. data:: cupy
 
-   :mod:`cupy` module (or ``gpaw.gpu.cpupy`` if :mod:`cupy` is not available)
+   :mod:`cupy` module (or :mod:`gpaw.gpu.cpupy` if :mod:`cupy` is not available)
 
 .. data:: cupyx
 
-   ``cupyx`` module (or ``gpaw.gpu.cpupyx`` if
-   ``cupyx`` is not available)
+   ``cupyx`` module (or :mod:`gpaw.gpu.cpupyx` if ``cupyx`` is not available)
 
 .. autodata:: cupy_is_fake
 .. autodata:: is_hip
@@ -34,6 +34,9 @@ The gpaw.gpu module
 
 Fake cupy library
 =================
+
+.. module:: gpaw.gpu.cpupy
+.. module:: gpaw.gpu.cpupyx
 
 The implementation uses cupy_.  In the code, we don't do ``import cupy as cp``.
 Instead we use ``from gpaw.gpu import cupy as cp``.  This allows us to use a
