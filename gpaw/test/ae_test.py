@@ -8,7 +8,7 @@ def test_ae_potential():
               pbc=True)
     h.calc = GPAW(
         mode='lcao',
-        setups="ae",
+        setups='ae',
         xc='PBE')
     f = h.get_forces()
     assert abs(f).max() < 1e-14
