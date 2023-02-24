@@ -105,5 +105,6 @@ class Symmetries:
                 i2 = i1 + 2 * l + 1
                 rotation_sii[:, i1:i2, i1:i2] = self.rotation_lsmm[l]
                 i1 = i2
-            self._rotations[ells] = xp.asarray(rotation_sii)
+            rotation_sii = xp.asarray(rotation_sii)
+            self._rotations[ells] = rotation_sii
         return rotation_sii
