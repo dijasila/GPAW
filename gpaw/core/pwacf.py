@@ -10,7 +10,7 @@ from gpaw.spherical_harmonics import Y, nablarlYL
 from gpaw.utilities.blas import mmm
 from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.new import prod
-from gpaw.gpu import gpu_kernels
+import gpaw.gpu.kernels as gpu_kernels
 from gpaw.gpu import cupy_is_fake
 
 
@@ -233,13 +233,8 @@ class PWLFC(BaseLFC):
                                self.l_s, self.a_J, self.s_J,
                                cc, f_GI)
             return f_GI
-        elif cupy_is_fake:
-            _gpaw.pwlfc_expand(f_Gs._data, emiGR_Ga._data, Y_GL._data,
-                               self.l_s._data, self.a_J._data, self.s_J._data,
-                               cc, f_GI._data)
-            return f_GI
-        else:
-            gpu_kernels.pwlfc_expand(f_Gs, emiGR_Ga, Y_GL,
+        elif cupy_is_fake or getattr(_gpaw, 'gpu_aware_mpi', False):
+            gpu_kernels.pwacf_expand(f_Gs, emiGR_Ga, Y_GL,
                                      self.l_s, self.a_J, self.s_J,
                                      cc, f_GI, self.I_J)
             return f_GI
