@@ -8,7 +8,7 @@ from gpaw.utilities.blas import mmmx
 from gpaw.response import ResponseContext, timer
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.pw_parallelization import PlaneWaveBlockDistributor
-from gpaw.response.kspair import PlaneWavePairDensity
+from gpaw.response.matrix_elements import PlaneWavePairDensity
 from gpaw.response.pair_integrator import PairFunctionIntegrator
 from gpaw.response.pair_functions import (SingleQPWDescriptor,
                                           LatticePeriodicPairFunction)
