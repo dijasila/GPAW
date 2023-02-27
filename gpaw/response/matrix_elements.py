@@ -4,45 +4,19 @@ from gpaw.response import timer
 from gpaw.response.paw import get_pair_density_paw_corrections
 
 
-class PairMatrixElement:
-    """Class for calculating matrix elements for transitions in Kohn-Sham
-    linear response functions."""
-    def __init__(self, kspair):
-        """
-        Parameters
-        ----------
-        kspair : KohnShamPair
-        """
-        self.gs = kspair.gs
-        self.context = kspair.context
-        self.transitionblockscomm = kspair.transitionblockscomm
-
-    def initialize(self, *args, **kwargs):
-        """Initialize e.g. PAW corrections or other operations
-        ahead in time of integration."""
-        pass
-
-    def __call__(self, kskptpair, *args, **kwargs):
-        """Calculate the matrix element for all transitions in kskptpairs."""
-        raise NotImplementedError('Define specific matrix element')
-
-
-class PlaneWavePairDensity(PairMatrixElement):
+class PlaneWavePairDensity:
     """Class for calculating pair densities
 
     n_kt(G+q) = n_nks,n'k+qs'(G+q) = <nks| e^-i(G+q)r |n'k+qs'>_V0
 
     for a single k-point pair (k,k+q) in the plane wave mode"""
-    def __init__(self, kspair):
-        PairMatrixElement.__init__(self, kspair)
+    def __init__(self, gs, context):
+        self.gs = gs
+        self.context = context
 
         # Save PAW correction for all calls with same q_c
         self.pawcorr = None
         self.currentq_c = None
-
-    def initialize(self, qpd):
-        """Initialize PAW corrections ahead in time of integration."""
-        self.initialize_paw_corrections(qpd)
 
     @timer('Initialize PAW corrections')
     def initialize_paw_corrections(self, qpd):

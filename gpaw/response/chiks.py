@@ -5,7 +5,7 @@ from ase.units import Hartree
 
 from gpaw.utilities.blas import mmmx
 
-from gpaw.response import ResponseContext, timer
+from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.pw_parallelization import PlaneWaveBlockDistributor
 from gpaw.response.matrix_elements import PlaneWavePairDensity
@@ -86,7 +86,8 @@ class ChiKSCalculator(PairFunctionIntegrator):
     are the unit cell normalized plane-wave pair densities of each transition.
     """
 
-    def __init__(self, gs, context=None, nblocks=1,
+    def __init__(self, gs: ResponseGroundStateAdapter, context=None,
+                 nblocks=1,
                  ecut=50, gammacentered=False,
                  nbands=None,
                  bundle_integrals=True, bandsummation='pairwise',
@@ -129,7 +130,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
         self.bundle_integrals = bundle_integrals
         self.bandsummation = bandsummation
 
-        self.pair_density = PlaneWavePairDensity(self.kspair)
+        self.pair_density = PlaneWavePairDensity(gs, context)
 
     def calculate(self, spincomponent, q_c, zd) -> ChiKS:
         r"""Calculate χ_KS,GG'^μν(q,z), where z = ω + iη
@@ -159,8 +160,8 @@ class ChiKSCalculator(PairFunctionIntegrator):
         self.context.print(self.get_information(
             qpdi, len(zd), spincomponent, self.nbands, len(n1_t)))
 
-        self.context.print('Initializing pair densities')
-        self.pair_density.initialize(qpdi)
+        self.context.print('Initializing pair density PAW corrections')
+        self.pair_density.initialize_paw_corrections(qpdi)
 
         # Create ChiKS data structure
         chiks = self.create_chiks(spincomponent, qpdi, zd)
