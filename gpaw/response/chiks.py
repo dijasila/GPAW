@@ -236,8 +236,8 @@ class ChiKSCalculator(PairFunctionIntegrator):
 
     @timer('Add integrand to chiks')
     def add_integrand(self, kptpair, weight, chiks):
-        r"""Use the NewPairDensityCalculator object to calculate the integrand for
-        all relevant transitions of the given k-point pair, k -> k + q.
+        r"""Use the NewPairDensityCalculator object to calculate the integrand
+        for all relevant transitions of the given k-point pair, k -> k + q.
 
         Depending on the bandsummation parameter, the integrand of the
         collinear four-component Kohn-Sham susceptibility tensor (in the
