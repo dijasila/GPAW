@@ -357,8 +357,8 @@ class KohnShamKPointPairExtractor:
         for p, k_c in enumerate(k_pc):  # p indicates the receiving process
             K = self.kptfinder.find(k_c)
             ik = self.gs.kd.bz2ibz_k[K]
-            for r2 in range(p * self.transition_blockcomm.size,
-                            min((p + 1) * self.transition_blockcomm.size,
+            for r2 in range(p * self.tblocks.blockcomm.size,
+                            min((p + 1) * self.tblocks.blockcomm.size,
                                 comm.size)):
                 ik_r2[r2] = ik
 
