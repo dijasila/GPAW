@@ -206,7 +206,7 @@ class KohnShamKPointPairExtractor:
         # this process' block
         nt = len(n1_t)
         assert nt == len(n2_t)
-        self.tblocks = Blocks1D(self.transitionblockcomm, nt)
+        self.tblocks = Blocks1D(self.transition_blockcomm, nt)
 
         kpt1 = self.get_kpoints(k1_pc, n1_t, s1_t)
         kpt2 = self.get_kpoints(k2_pc, n2_t, s2_t)
