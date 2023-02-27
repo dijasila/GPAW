@@ -1,3 +1,5 @@
+from typing import Union
+
 import numpy as np
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
@@ -194,7 +196,7 @@ class KohnShamKPointPairExtractor:
     def get_kpoint_pairs(self,
                          n1_t, n2_t,
                          k1_pc, k2_pc,
-                         s1_t, s2_t) -> KohnShamKPointPair:
+                         s1_t, s2_t) -> Union[KohnShamKPointPair, None]:
         """Get all pairs of Kohn-Sham orbitals for transitions:
         (n1_t, k1_p, s1_t) -> (n2_t, k2_p, s2_t)
         Here, t is a composite band and spin transition index
