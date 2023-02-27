@@ -64,7 +64,7 @@ def as_xp(array, xp):
 def cupy_eigh(a: cupy.ndarray, UPLO: str) -> tuple[cupy.ndarray, cupy.ndarray]:
     """Wrapper for ``eigh()``.
 
-    HIP-GPU version is too slow for now so we do it on ther CPU.
+    HIP-GPU version is too slow for now so we do it on the CPU.
     """
     from scipy.linalg import eigh
     if not is_hip:
