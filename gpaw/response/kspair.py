@@ -131,10 +131,7 @@ class KohnShamKPointPairExtractor:
         self.kptblockcomm = kptblockcomm
 
         # Prepare to distribute transitions
-        self.mynt = None
-        self.nt = None
-        self.ta = None
-        self.tb = None
+        self.tblocks = None
 
         # Prepare to find k-point data from vector
         kd = self.gs.kd
@@ -221,7 +218,7 @@ class KohnShamKPointPairExtractor:
         # this process' block
         nt = len(n1_t)
         assert nt == len(n2_t)
-        self.distribute_transitions(nt)
+        self.tblocks = Blocks1D(self.transitionblockcomm, nt)
 
         kpt1 = self.get_kpoints(k1_pc, n1_t, s1_t)
         kpt2 = self.get_kpoints(k2_pc, n2_t, s2_t)
@@ -234,17 +231,9 @@ class KohnShamKPointPairExtractor:
         assert kpt2 is not None
 
         return KohnShamKPointPair(kpt1, kpt2,
-                                  self.mynt, nt, self.ta, self.tb,
+                                  self.tblocks.blocksize, nt,
+                                  self.tblocks.a, self.tblocks.b,
                                   self.transitionblockcomm)
-
-    def distribute_transitions(self, nt):
-        """Distribute transitions between processes in block communicator"""
-        tblocks = Blocks1D(self.transitionblockcomm, nt)
-
-        self.mynt = tblocks.blocksize
-        self.nt = nt
-        self.ta = tblocks.a
-        self.tb = tblocks.b
 
     def get_kpoints(self, k_pc, n_t, s_t):
         """Get KohnShamKPoint and help other processes extract theirs"""
@@ -257,10 +246,10 @@ class KohnShamKPointPairExtractor:
         kptdata = _extract_kptdata(k_pc, n_t, s_t)
 
         # Make local n and s arrays for the KohnShamKPoint object
-        n_myt = np.empty(self.mynt, dtype=n_t.dtype)
-        n_myt[:self.tb - self.ta] = n_t[self.ta:self.tb]
-        s_myt = np.empty(self.mynt, dtype=s_t.dtype)
-        s_myt[:self.tb - self.ta] = s_t[self.ta:self.tb]
+        n_myt = np.empty(self.tblocks.blocksize, dtype=n_t.dtype)
+        n_myt[:self.tblocks.nlocal] = n_t[self.tblocks.myslice]
+        s_myt = np.empty(self.tblocks.blocksize, dtype=s_t.dtype)
+        s_myt[:self.tblocks.nlocal] = s_t[self.tblocks.myslice]
 
         # Initiate k-point object.
         if self.kptblockcomm.rank in range(len(k_pc)):
@@ -371,10 +360,10 @@ class KohnShamKPointPairExtractor:
         h_r1rh = [list([]) for _ in range(comm.size)]
 
         # h to t index mapping
-        myt_myt = np.arange(self.tb - self.ta)
-        t_myt = range(self.ta, self.tb)
+        myt_myt = np.arange(self.tblocks.nlocal)
+        t_myt = self.tblocks.myslice
         n_myt, s_myt = n_t[t_myt], s_t[t_myt]
-        h_myt = np.empty(self.tb - self.ta, dtype=int)
+        h_myt = np.empty(self.tblocks.nlocal, dtype=int)
 
         nt = len(n_t)
         assert nt == len(s_t)
@@ -557,7 +546,7 @@ class KohnShamKPointPairExtractor:
     def map_who_has(self, p, t_t):
         """Convert k-point and transition index to global world rank
         and local transition index"""
-        trank_t, myt_t = np.divmod(t_t, self.mynt)
+        trank_t, myt_t = np.divmod(t_t, self.tblocks.blocksize)
         return p * self.transitionblockcomm.size + trank_t, myt_t
 
     @timer('Extracting eps, f and P_I from wfs')
@@ -642,7 +631,7 @@ class KohnShamKPointPairExtractor:
         if maxh_r1:
             nh = max(maxh_r1) + 1
         else:  # Carry around empty array
-            assert self.ta == self.tb
+            assert self.tblocks.a == self.tblocks.b
             nh = 1
         eps_h = np.empty(nh)
         f_h = np.empty(nh)
@@ -669,11 +658,11 @@ class KohnShamKPointPairExtractor:
 
         gs = self.gs
         # Allocate data arrays for the k-point
-        mynt = self.mynt
+        mynt = self.tblocks.blocksize
         eps_myt = np.empty(mynt)
         f_myt = np.empty(mynt)
         P = gs.kpt_u[0].projections.new(nbands=mynt, bcomm=None)
-        ut_mytR = gs.gd.empty(self.mynt, gs.dtype)
+        ut_mytR = gs.gd.empty(mynt, gs.dtype)
 
         # Unfold k-point data
         eps_myt[myt_myt] = eps_h[h_myt]
@@ -751,8 +740,8 @@ class KohnShamKPointPairExtractor:
         """
 
         # Only extract the transitions handled by the process itself
-        myt_myt = np.arange(self.tb - self.ta)
-        t_myt = range(self.ta, self.tb)
+        myt_myt = np.arange(self.tblocks.nlocal)
+        t_myt = self.tblocks.myslice
         n_myt = n_t[t_myt]
         s_myt = s_t[t_myt]
 
@@ -761,7 +750,7 @@ class KohnShamKPointPairExtractor:
         myn_eurn = []
         nh = 0
         h_eurn = []
-        h_myt = np.empty(self.tb - self.ta, dtype=int)
+        h_myt = np.empty(self.tblocks.nlocal, dtype=int)
         for s in set(s_myt):
             thiss_myt = s_myt == s
             n_ct = n_myt[thiss_myt]
