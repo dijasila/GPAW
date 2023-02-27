@@ -73,9 +73,7 @@ static int Array_DIM(PyObject* obj, int dim)
 	return PyArray_DIM((PyArrayObject*)obj, dim);
     }
     #endif
-    PyObject* shape_str = Py_BuildValue("s", "shape");
-    PyObject* shape = PyObject_GetAttr(obj, shape_str);
-    Py_DECREF(shape_str);
+    PyObject* shape = PyObject_GetAttrString(obj, "shape");
 
     if (shape == NULL) return -1;
     PyObject* pydim = PyTuple_GetItem(shape, dim);
@@ -108,11 +106,9 @@ static char* Array_BYTES(PyObject* obj)
 
 static int Array_SIZE(PyObject* obj)
 {
-    PyObject* size_str = Py_BuildValue("s", "size");
-    PyObject* size = PyObject_GetAttr(obj, size_str);
+    PyObject* size = PyObject_GetAttrString(obj, "size");
     int arraysize = (int) PyLong_AS_LONG(size);
     Py_DECREF(size);
-    Py_DECREF(size_str);
     return arraysize;
 }
 
@@ -124,15 +120,11 @@ static int Array_TYPE(PyObject* obj)
 	return PyArray_TYPE((PyArrayObject*)obj);
     }
     #endif
-    PyObject* dtype_str = Py_BuildValue("s", "dtype");
-    PyObject* dtype = PyObject_GetAttr(obj, dtype_str);
-    Py_DECREF(dtype_str);
+    PyObject* dtype = PyObject_GetAttrString(obj, "dtype");
 
     if (dtype == NULL) return -1;
 
-    PyObject* num_str = Py_BuildValue("s", "num");
-    PyObject* num = PyObject_GetAttr(dtype, num_str);
-    Py_DECREF(num_str);
+    PyObject* num = PyObject_GetAttrString(dtype, "num");
     Py_DECREF(dtype);
     if (num == NULL) return -1;
 
@@ -168,10 +160,8 @@ static long Array_NBYTES(PyObject* obj)
 	return PyArray_NBYTES((PyArrayObject*)obj);
     }
     #endif
-    PyObject* nbytes_str = Py_BuildValue("s", "nbytes");
-    PyObject* nbytes = PyObject_GetAttr(obj, nbytes_str);
+    PyObject* nbytes = PyObject_GetAttrString(obj, "nbytes");
     long nbytesvalue = PyLong_AS_LONG(nbytes);
-    Py_DECREF(nbytes_str);
     Py_DECREF(nbytes);
     return nbytesvalue;
 }
