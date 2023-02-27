@@ -19,10 +19,6 @@ class PlaneWavePairDensity:
         self.pawcorr = None
         self.currentq_c = None
 
-    def initialize(self, qpd):
-        """Initialize PAW corrections ahead in time of integration."""
-        self.initialize_paw_corrections(qpd)
-
     @timer('Initialize PAW corrections')
     def initialize_paw_corrections(self, qpd):
         """Initialize PAW corrections, if not done already, for the given q"""
