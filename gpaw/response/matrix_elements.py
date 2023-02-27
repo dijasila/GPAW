@@ -47,7 +47,7 @@ class NewPairDensityCalculator:
         return get_pair_density_paw_corrections(pawdatasets, qpd, spos_ac)
 
     @timer('Calculate pair density')
-    def __call__(self, kptpair: KohnShamKPointPair, qpd):
+    def __call__(self, kptpair: KohnShamKPointPair, qpd) -> PairDensity:
         """Calculate the pair densities for all transitions t of the (k,k+q)
         k-point pair:
 
