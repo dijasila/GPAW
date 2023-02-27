@@ -26,7 +26,7 @@ class KohnShamKPointPair:
     """Object containing all transitions between Kohn-Sham orbitals from a
     specified k-point to another."""
 
-    def __init__(self, kpt1, kpt2, mynt, nt, ta, tb, comm=None):
+    def __init__(self, kpt1, kpt2, mynt, nt, ta, tb, comm):
         self.kpt1 = kpt1
         self.kpt2 = kpt2
 
@@ -45,9 +45,6 @@ class KohnShamKPointPair:
 
     def get_all(self, A_mytx):
         """Get a certain data array with all transitions"""
-        if self.comm is None or A_mytx is None:
-            return A_mytx
-
         A_tx = np.empty((self.mynt * self.comm.size,) + A_mytx.shape[1:],
                         dtype=A_mytx.dtype)
 
@@ -110,8 +107,8 @@ class KohnShamKPointPairExtractor:
     """Class for extracting pairs of Kohn-Sham orbitals from a ground
     state calculation."""
 
-    def __init__(self, gs, context,
-                 transitionblockcomm=None, kptblockcomm=None):
+    def __init__(self, gs, context, *,
+                 transitionblockcomm, kptblockcomm):
         """
         Parameters
         ----------
@@ -237,21 +234,16 @@ class KohnShamKPointPairExtractor:
 
         return KohnShamKPointPair(kpt1, kpt2,
                                   self.mynt, nt, self.ta, self.tb,
-                                  comm=self.transitionblockcomm)
+                                  self.transitionblockcomm)
 
     def distribute_transitions(self, nt):
         """Distribute transitions between processes in block communicator"""
-        if self.transitionblockcomm is None:
-            mynt = nt
-            ta = 0
-            tb = nt
-        else:
-            nblocks = self.transitionblockcomm.size
-            rank = self.transitionblockcomm.rank
+        nblocks = self.transitionblockcomm.size
+        rank = self.transitionblockcomm.rank
 
-            mynt = (nt + nblocks - 1) // nblocks
-            ta = min(rank * mynt, nt)
-            tb = min(ta + mynt, nt)
+        mynt = (nt + nblocks - 1) // nblocks
+        ta = min(rank * mynt, nt)
+        tb = min(ta + mynt, nt)
 
         self.mynt = mynt
         self.nt = nt
