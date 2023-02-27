@@ -32,12 +32,6 @@ class KohnShamKPointPair:
         self.kpt2 = kpt2
         self.tblocks = tblocks
 
-    def transition_distribution(self):
-        """Get the distribution of transitions."""
-        # Stop using me                                                        XXX
-        return (self.tblocks.blocksize, self.tblocks.N,
-                self.tblocks.a, self.tblocks.b)
-
     def get_transitions(self):
         return self.n1_t, self.n2_t, self.s1_t, self.s2_t
 
