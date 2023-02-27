@@ -6,6 +6,19 @@ from gpaw.response.paw import get_pair_density_paw_corrections
 from gpaw.response.kspair import KohnShamKPointPair
 
 
+class PairDensity:
+    """Data class for transition distributed pair density arrays."""
+
+    def __init__(self, tblocks, n_mytG):
+        self.tblocks = tblocks
+        self.n_mytG = n_mytG
+
+    @property
+    def n_tG(self):
+        """Global (all gathered) pair density array."""
+        return self.tblocks.collect(self.n_mytG)
+
+
 class NewPairDensityCalculator:
     """Class for calculating pair densities
 
@@ -70,8 +83,7 @@ class NewPairDensityCalculator:
                 n_mytG[:tblocks.nlocal] += np.sum(
                     C1_Gimyt * P2_imyt[np.newaxis, :, :], axis=1).T
 
-        # Attach the calculated pair density to the KohnShamKPointPair object
-        kptpair.attach('n_mytG', 'n_tG', n_mytG)
+        return PairDensity(tblocks, n_mytG)
 
     def get_paw_projectors(self, qpd):
         """Make sure PAW correction has been initialized properly

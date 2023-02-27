@@ -269,14 +269,15 @@ class ChiKSCalculator(PairFunctionIntegrator):
         The integrand is added to the output array chiks_x multiplied with the
         supplied kptpair integral weight.
         """
-        # Calculate the pair densities and store them on the kptpair
-        self.pair_density_calc(kptpair, chiks.qpd)
+        # Calculate the pair densities n_kt(G+q)
+        pair_density = self.pair_density_calc(kptpair, chiks.qpd)
+        n_tG = pair_density.n_tG
 
-        # Extract the ingredients from the KohnShamKPointPair
+        # Extract the temporal ingredients from the KohnShamKPointPair
         # Get bands and spins of the transitions
         n1_t, n2_t, s1_t, s2_t = kptpair.get_transitions()
-        # Get (f_n'k's' - f_nks), (ε_n'k's' - ε_nks) as well as n_kt(G+q)
-        df_t, deps_t, n_tG = kptpair.df_t, kptpair.deps_t, kptpair.n_tG
+        # Get (f_n'k's' - f_nks), (ε_n'k's' - ε_nks)
+        df_t, deps_t = kptpair.df_t, kptpair.deps_t
 
         # Calculate the frequency dependence of the integrand
         if chiks.spincomponent == '00' and self.gs.nspins == 1:
