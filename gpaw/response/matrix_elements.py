@@ -45,16 +45,16 @@ class PlaneWavePairDensity:
         """
         Q_aGii = self.get_paw_projectors(qpd)
         Q_G = self.get_fft_indices(kptpair, qpd)
-        mynt, nt, ta, tb = kptpair.transition_distribution()
 
-        n_mytG = qpd.empty(mynt)
+        tblocks = kptpair.tblocks
+        n_mytG = qpd.empty(tblocks.blocksize)
 
         # Calculate smooth part of the pair densities:
         with self.context.timer('Calculate smooth part'):
             ut1cc_mytR = kptpair.kpt1.ut_tR.conj()
             n_mytR = ut1cc_mytR * kptpair.kpt2.ut_tR
             # Unvectorized
-            for myt in range(tb - ta):
+            for myt in range(tblocks.nlocal):
                 n_mytG[myt] = qpd.fft(n_mytR[myt], 0, Q_G) * qpd.gd.dv
 
         # Calculate PAW corrections with numpy
@@ -63,11 +63,11 @@ class PlaneWavePairDensity:
             P2 = kptpair.kpt2.projections
             for (Q_Gii, (a1, P1_myti),
                  (a2, P2_myti)) in zip(Q_aGii, P1.items(), P2.items()):
-                P1cc_myti = P1_myti[:tb - ta].conj()
+                P1cc_myti = P1_myti[:tblocks.nlocal].conj()
                 C1_Gimyt = np.tensordot(Q_Gii, P1cc_myti, axes=([1, 1]))
-                P2_imyt = P2_myti.T[:, :tb - ta]
-                n_mytG[:tb - ta] += np.sum(C1_Gimyt * P2_imyt[np.newaxis,
-                                                              :, :], axis=1).T
+                P2_imyt = P2_myti.T[:, :tblocks.nlocal]
+                n_mytG[:tblocks.nlocal] += np.sum(
+                    C1_Gimyt * P2_imyt[np.newaxis, :, :], axis=1).T
 
         # Attach the calculated pair density to the KohnShamKPointPair object
         kptpair.attach('n_mytG', 'n_tG', n_mytG)
