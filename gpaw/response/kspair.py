@@ -210,7 +210,10 @@ class KohnShamKPointPairExtractor:
         return self._pd0
 
     @timer('Get Kohn-Sham pairs')
-    def get_kpoint_pairs(self, n1_t, n2_t, k1_pc, k2_pc, s1_t, s2_t):
+    def get_kpoint_pairs(self,
+                         n1_t, n2_t,
+                         k1_pc, k2_pc,
+                         s1_t, s2_t) -> KohnShamKPointPair:
         """Get all pairs of Kohn-Sham orbitals for transitions:
         (n1_t, k1_p, s1_t) -> (n2_t, k2_p, s2_t)
         Here, t is a composite band and spin transition index

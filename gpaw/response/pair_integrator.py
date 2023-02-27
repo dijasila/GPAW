@@ -6,9 +6,10 @@ from ase.units import Hartree
 from gpaw.utilities.progressbar import ProgressBar
 
 from gpaw.response import timer
-from gpaw.response.kspair import KohnShamKPointPairExtractor
+from gpaw.response.kspair import (KohnShamKPointPair,
+                                  KohnShamKPointPairExtractor)
 from gpaw.response.pw_parallelization import block_partition
-from gpaw.response.pair_functions import SingleQPWDescriptor
+from gpaw.response.pair_functions import SingleQPWDescriptor, PairFunction
 
 
 class PairFunctionIntegrator(ABC):
@@ -123,7 +124,7 @@ class PairFunctionIntegrator(ABC):
             self.disable_symmetries = False
 
     @timer('Integrate pair function')
-    def _integrate(self, out, n1_t, n2_t, s1_t, s2_t):
+    def _integrate(self, out: PairFunction, n1_t, n2_t, s1_t, s2_t):
         """In-place pair function integration
 
         Parameters
@@ -169,7 +170,8 @@ class PairFunctionIntegrator(ABC):
         return analyzer
 
     @abstractmethod
-    def add_integrand(self, kptpair, weight, out):
+    def add_integrand(self, kptpair: KohnShamKPointPair, weight,
+                      out: PairFunction):
         """Add the relevant integrand of the outer k-point integral to the
         output data structure 'out', weighted by 'weight' and constructed
         from the provided KohnShamKPointPair 'kptpair'.
