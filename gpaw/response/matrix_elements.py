@@ -10,9 +10,9 @@ class PlaneWavePairDensity:
     n_kt(G+q) = n_nks,n'k+qs'(G+q) = <nks| e^-i(G+q)r |n'k+qs'>_V0
 
     for a single k-point pair (k,k+q) in the plane wave mode"""
-    def __init__(self, kspair):
-        self.gs = kspair.gs
-        self.context = kspair.context
+    def __init__(self, gs, context):
+        self.gs = gs
+        self.context = context
 
         # Save PAW correction for all calls with same q_c
         self.pawcorr = None
