@@ -3,6 +3,7 @@ import numpy as np
 
 from gpaw.response import timer
 from gpaw.response.paw import get_pair_density_paw_corrections
+from gpaw.response.kspair import KohnShamKPointPair
 
 
 class NewPairDensityCalculator:
@@ -33,7 +34,7 @@ class NewPairDensityCalculator:
         return get_pair_density_paw_corrections(pawdatasets, qpd, spos_ac)
 
     @timer('Calculate pair density')
-    def __call__(self, kskptpair, qpd):
+    def __call__(self, kptpair: KohnShamKPointPair, qpd):
         """Calculate the pair densities for all transitions t of the (k,k+q)
         k-point pair:
 
@@ -44,33 +45,33 @@ class NewPairDensityCalculator:
                     /V0
         """
         Q_aGii = self.get_paw_projectors(qpd)
-        Q_G = self.get_fft_indices(kskptpair, qpd)
-        mynt, nt, ta, tb = kskptpair.transition_distribution()
+        Q_G = self.get_fft_indices(kptpair, qpd)
 
-        n_mytG = qpd.empty(mynt)
+        tblocks = kptpair.tblocks
+        n_mytG = qpd.empty(tblocks.blocksize)
 
         # Calculate smooth part of the pair densities:
         with self.context.timer('Calculate smooth part'):
-            ut1cc_mytR = kskptpair.kpt1.ut_tR.conj()
-            n_mytR = ut1cc_mytR * kskptpair.kpt2.ut_tR
+            ut1cc_mytR = kptpair.kpt1.ut_tR.conj()
+            n_mytR = ut1cc_mytR * kptpair.kpt2.ut_tR
             # Unvectorized
-            for myt in range(tb - ta):
+            for myt in range(tblocks.nlocal):
                 n_mytG[myt] = qpd.fft(n_mytR[myt], 0, Q_G) * qpd.gd.dv
 
         # Calculate PAW corrections with numpy
         with self.context.timer('PAW corrections'):
-            P1 = kskptpair.kpt1.projections
-            P2 = kskptpair.kpt2.projections
+            P1 = kptpair.kpt1.projections
+            P2 = kptpair.kpt2.projections
             for (Q_Gii, (a1, P1_myti),
                  (a2, P2_myti)) in zip(Q_aGii, P1.items(), P2.items()):
-                P1cc_myti = P1_myti[:tb - ta].conj()
-                C1_Gimyt = np.tensordot(Q_Gii, P1cc_myti, axes=([1, 1]))
-                P2_imyt = P2_myti.T[:, :tb - ta]
-                n_mytG[:tb - ta] += np.sum(C1_Gimyt * P2_imyt[np.newaxis,
-                                                              :, :], axis=1).T
+                P1cc_myti = P1_myti[:tblocks.nlocal].conj()
+                C1_Gimyt = np.einsum('Gij, ti -> Gjt', Q_Gii, P1cc_myti)
+                P2_imyt = P2_myti.T[:, :tblocks.nlocal]
+                n_mytG[:tblocks.nlocal] += np.sum(
+                    C1_Gimyt * P2_imyt[np.newaxis, :, :], axis=1).T
 
         # Attach the calculated pair density to the KohnShamKPointPair object
-        kskptpair.attach('n_mytG', 'n_tG', n_mytG)
+        kptpair.attach('n_mytG', 'n_tG', n_mytG)
 
     def get_paw_projectors(self, qpd):
         """Make sure PAW correction has been initialized properly
@@ -79,12 +80,12 @@ class NewPairDensityCalculator:
         return self.pawcorr.Q_aGii
 
     @timer('Get G-vector indices')
-    def get_fft_indices(self, kskptpair, qpd):
+    def get_fft_indices(self, kptpair, qpd):
         """Get indices for G-vectors inside cutoff sphere."""
         from gpaw.response.pair import fft_indices
 
-        kpt1 = kskptpair.kpt1
-        kpt2 = kskptpair.kpt2
+        kpt1 = kptpair.kpt1
+        kpt2 = kptpair.kpt2
         kd = self.gs.kd
         q_c = qpd.q_c
 

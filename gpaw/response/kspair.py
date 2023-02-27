@@ -1,7 +1,10 @@
+from typing import Union
+
 import numpy as np
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
 from gpaw.response.symmetry import KPointFinder
+from gpaw.response.pw_parallelization import Blocks1D
 
 
 class KohnShamKPoint:
@@ -26,34 +29,17 @@ class KohnShamKPointPair:
     """Object containing all transitions between Kohn-Sham orbitals from a
     specified k-point to another."""
 
-    def __init__(self, kpt1, kpt2, mynt, nt, ta, tb, comm=None):
+    def __init__(self, kpt1, kpt2, tblocks):
         self.kpt1 = kpt1
         self.kpt2 = kpt2
-
-        self.mynt = mynt  # Number of transitions in this block
-        self.nt = nt      # Total number of transitions between all blocks
-        self.ta = ta      # First transition index of this block
-        self.tb = tb      # First transition index of this block not included
-        self.comm = comm  # MPI communicator between blocks of transitions
-
-    def transition_distribution(self):
-        """Get the distribution of transitions."""
-        return self.mynt, self.nt, self.ta, self.tb
+        self.tblocks = tblocks
 
     def get_transitions(self):
         return self.n1_t, self.n2_t, self.s1_t, self.s2_t
 
-    def get_all(self, A_mytx):
+    def get_all(self, in_mytx):
         """Get a certain data array with all transitions"""
-        if self.comm is None or A_mytx is None:
-            return A_mytx
-
-        A_tx = np.empty((self.mynt * self.comm.size,) + A_mytx.shape[1:],
-                        dtype=A_mytx.dtype)
-
-        self.comm.all_gather(A_mytx, A_tx)
-
-        return A_tx[:self.nt]
+        return self.tblocks.collect(in_mytx)
 
     @property
     def n1_t(self):
@@ -106,18 +92,18 @@ class KohnShamKPointPair:
         setattr(self, _key, A_mytx)
 
 
-class KohnShamPair:
+class KohnShamKPointPairExtractor:
     """Class for extracting pairs of Kohn-Sham orbitals from a ground
     state calculation."""
 
-    def __init__(self, gs, context,
-                 transitionblockscomm=None, kptblockcomm=None):
+    def __init__(self, gs, context, *,
+                 transitionblockcomm, kptblockcomm):
         """
         Parameters
         ----------
         gs : ResponseGroundStateAdapter
         context : ResponseContext
-        transitionblockscomm : gpaw.mpi.Communicator
+        transitionblockcomm : gpaw.mpi.Communicator
             Communicator for distributing the transitions among processes
         kptblockcomm : gpaw.mpi.Communicator
             Communicator for distributing k-points among processes
@@ -129,14 +115,11 @@ class KohnShamPair:
 
         self.calc_parallel = self.check_calc_parallelisation()
 
-        self.transitionblockscomm = transitionblockscomm
+        self.transitionblockcomm = transitionblockcomm
         self.kptblockcomm = kptblockcomm
 
         # Prepare to distribute transitions
-        self.mynt = None
-        self.nt = None
-        self.ta = None
-        self.tb = None
+        self.tblocks = None
 
         # Prepare to find k-point data from vector
         kd = self.gs.kd
@@ -210,7 +193,10 @@ class KohnShamPair:
         return self._pd0
 
     @timer('Get Kohn-Sham pairs')
-    def get_kpoint_pairs(self, n1_t, n2_t, k1_pc, k2_pc, s1_t, s2_t):
+    def get_kpoint_pairs(self,
+                         n1_t, n2_t,
+                         k1_pc, k2_pc,
+                         s1_t, s2_t) -> Union[KohnShamKPointPair, None]:
         """Get all pairs of Kohn-Sham orbitals for transitions:
         (n1_t, k1_p, s1_t) -> (n2_t, k2_p, s2_t)
         Here, t is a composite band and spin transition index
@@ -220,40 +206,19 @@ class KohnShamPair:
         # this process' block
         nt = len(n1_t)
         assert nt == len(n2_t)
-        self.distribute_transitions(nt)
+        self.tblocks = Blocks1D(self.transitionblockcomm, nt)
 
         kpt1 = self.get_kpoints(k1_pc, n1_t, s1_t)
         kpt2 = self.get_kpoints(k2_pc, n2_t, s2_t)
 
         # The process might not have any k-point pairs to evaluate, as
-        # their are distributed in the kptblockcomm
+        # due to the distribution over kptblockcomm
         if kpt1 is None:
             assert kpt2 is None
             return None
         assert kpt2 is not None
 
-        return KohnShamKPointPair(kpt1, kpt2,
-                                  self.mynt, nt, self.ta, self.tb,
-                                  comm=self.transitionblockscomm)
-
-    def distribute_transitions(self, nt):
-        """Distribute transitions between processes in block communicator"""
-        if self.transitionblockscomm is None:
-            mynt = nt
-            ta = 0
-            tb = nt
-        else:
-            nblocks = self.transitionblockscomm.size
-            rank = self.transitionblockscomm.rank
-
-            mynt = (nt + nblocks - 1) // nblocks
-            ta = min(rank * mynt, nt)
-            tb = min(ta + mynt, nt)
-
-        self.mynt = mynt
-        self.nt = nt
-        self.ta = ta
-        self.tb = tb
+        return KohnShamKPointPair(kpt1, kpt2, self.tblocks)
 
     def get_kpoints(self, k_pc, n_t, s_t):
         """Get KohnShamKPoint and help other processes extract theirs"""
@@ -266,10 +231,10 @@ class KohnShamPair:
         kptdata = _extract_kptdata(k_pc, n_t, s_t)
 
         # Make local n and s arrays for the KohnShamKPoint object
-        n_myt = np.empty(self.mynt, dtype=n_t.dtype)
-        n_myt[:self.tb - self.ta] = n_t[self.ta:self.tb]
-        s_myt = np.empty(self.mynt, dtype=s_t.dtype)
-        s_myt[:self.tb - self.ta] = s_t[self.ta:self.tb]
+        n_myt = np.empty(self.tblocks.blocksize, dtype=n_t.dtype)
+        n_myt[:self.tblocks.nlocal] = n_t[self.tblocks.myslice]
+        s_myt = np.empty(self.tblocks.blocksize, dtype=s_t.dtype)
+        s_myt[:self.tblocks.nlocal] = s_t[self.tblocks.myslice]
 
         # Initiate k-point object.
         if self.kptblockcomm.rank in range(len(k_pc)):
@@ -380,10 +345,10 @@ class KohnShamPair:
         h_r1rh = [list([]) for _ in range(comm.size)]
 
         # h to t index mapping
-        myt_myt = np.arange(self.tb - self.ta)
-        t_myt = range(self.ta, self.tb)
+        myt_myt = np.arange(self.tblocks.nlocal)
+        t_myt = self.tblocks.myslice
         n_myt, s_myt = n_t[t_myt], s_t[t_myt]
-        h_myt = np.empty(self.tb - self.ta, dtype=int)
+        h_myt = np.empty(self.tblocks.nlocal, dtype=int)
 
         nt = len(n_t)
         assert nt == len(s_t)
@@ -392,8 +357,8 @@ class KohnShamPair:
         for p, k_c in enumerate(k_pc):  # p indicates the receiving process
             K = self.kptfinder.find(k_c)
             ik = self.gs.kd.bz2ibz_k[K]
-            for r2 in range(p * self.transitionblockscomm.size,
-                            min((p + 1) * self.transitionblockscomm.size,
+            for r2 in range(p * self.transitionblockcomm.size,
+                            min((p + 1) * self.transitionblockcomm.size,
                                 comm.size)):
                 ik_r2[r2] = ik
 
@@ -566,8 +531,8 @@ class KohnShamPair:
     def map_who_has(self, p, t_t):
         """Convert k-point and transition index to global world rank
         and local transition index"""
-        trank_t, myt_t = np.divmod(t_t, self.mynt)
-        return p * self.transitionblockscomm.size + trank_t, myt_t
+        trank_t, myt_t = np.divmod(t_t, self.tblocks.blocksize)
+        return p * self.transitionblockcomm.size + trank_t, myt_t
 
     @timer('Extracting eps, f and P_I from wfs')
     def extract_wfs_data(self, myu, myn_eh):
@@ -651,7 +616,7 @@ class KohnShamPair:
         if maxh_r1:
             nh = max(maxh_r1) + 1
         else:  # Carry around empty array
-            assert self.ta == self.tb
+            assert self.tblocks.a == self.tblocks.b
             nh = 1
         eps_h = np.empty(nh)
         f_h = np.empty(nh)
@@ -678,11 +643,11 @@ class KohnShamPair:
 
         gs = self.gs
         # Allocate data arrays for the k-point
-        mynt = self.mynt
+        mynt = self.tblocks.blocksize
         eps_myt = np.empty(mynt)
         f_myt = np.empty(mynt)
         P = gs.kpt_u[0].projections.new(nbands=mynt, bcomm=None)
-        ut_mytR = gs.gd.empty(self.mynt, gs.dtype)
+        ut_mytR = gs.gd.empty(mynt, gs.dtype)
 
         # Unfold k-point data
         eps_myt[myt_myt] = eps_h[h_myt]
@@ -760,8 +725,8 @@ class KohnShamPair:
         """
 
         # Only extract the transitions handled by the process itself
-        myt_myt = np.arange(self.tb - self.ta)
-        t_myt = range(self.ta, self.tb)
+        myt_myt = np.arange(self.tblocks.nlocal)
+        t_myt = self.tblocks.myslice
         n_myt = n_t[t_myt]
         s_myt = s_t[t_myt]
 
@@ -770,7 +735,7 @@ class KohnShamPair:
         myn_eurn = []
         nh = 0
         h_eurn = []
-        h_myt = np.empty(self.tb - self.ta, dtype=int)
+        h_myt = np.empty(self.tblocks.nlocal, dtype=int)
         for s in set(s_myt):
             thiss_myt = s_myt == s
             n_ct = n_myt[thiss_myt]
