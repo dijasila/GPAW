@@ -65,32 +65,6 @@ class KohnShamKPointPair:
     def df_t(self):
         return self.get_all(self.kpt2.f_t) - self.get_all(self.kpt1.f_t)
 
-    @classmethod
-    def add_mytransitions_array(cls, _key, key):
-        """Add a A_tx data array class attribute.
-        Handles the fact, that the transitions are distributed in blocks.
-
-        Parameters
-        ----------
-        _key : str
-            attribute name for the A_mytx data array
-        key : str
-            attribute name for the A_tx data array
-        """
-        # In general, the data array has not been specified to instances of
-        # the class. As a result, set the _key to None
-        setattr(cls, _key, None)
-        # self.key should return full data array
-        setattr(cls, key,
-                property(lambda self: self.get_all(self.__dict__[_key])))
-
-    def attach(self, _key, key, A_mytx):
-        """Attach a data array to the k-point pair.
-        Used by PairMatrixElement to attach matrix elements calculated
-        between the k-points for the different transitions."""
-        self.add_mytransitions_array(_key, key)
-        setattr(self, _key, A_mytx)
-
 
 class KohnShamKPointPairExtractor:
     """Class for extracting pairs of Kohn-Sham orbitals from a ground
