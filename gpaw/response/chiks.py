@@ -159,8 +159,8 @@ class ChiKSCalculator(PairFunctionIntegrator):
         self.context.print(self.get_information(
             qpdi, len(zd), spincomponent, self.nbands, len(n1_t)))
 
-        self.context.print('Initializing pair densities')
-        self.pair_density.initialize(qpdi)
+        self.context.print('Initializing pair density PAW corrections')
+        self.pair_density.initialize_paw_corrections(qpdi)
 
         # Create ChiKS data structure
         chiks = self.create_chiks(spincomponent, qpdi, zd)
