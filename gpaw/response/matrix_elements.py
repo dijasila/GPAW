@@ -1,10 +1,11 @@
+
 import numpy as np
 
 from gpaw.response import timer
 from gpaw.response.paw import get_pair_density_paw_corrections
 
 
-class PlaneWavePairDensity:
+class NewPairDensityCalculator:
     """Class for calculating pair densities
 
     n_kt(G+q) = n_nks,n'k+qs'(G+q) = <nks| e^-i(G+q)r |n'k+qs'>_V0

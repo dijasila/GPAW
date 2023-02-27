@@ -8,7 +8,7 @@ from gpaw.utilities.blas import mmmx
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.pw_parallelization import PlaneWaveBlockDistributor
-from gpaw.response.matrix_elements import PlaneWavePairDensity
+from gpaw.response.matrix_elements import NewPairDensityCalculator
 from gpaw.response.pair_integrator import PairFunctionIntegrator
 from gpaw.response.pair_functions import (SingleQPWDescriptor,
                                           LatticePeriodicPairFunction)
@@ -130,7 +130,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
         self.bundle_integrals = bundle_integrals
         self.bandsummation = bandsummation
 
-        self.pair_density = PlaneWavePairDensity(gs, context)
+        self.pair_density = NewPairDensityCalculator(gs, context)
 
     def calculate(self, spincomponent, q_c, zd) -> ChiKS:
         r"""Calculate χ_KS,GG'^μν(q,z), where z = ω + iη
@@ -236,7 +236,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
 
     @timer('Add integrand to chiks')
     def add_integrand(self, kptpair, weight, chiks):
-        r"""Use the PlaneWavePairDensity object to calculate the integrand for
+        r"""Use the NewPairDensityCalculator object to calculate the integrand for
         all relevant transitions of the given k-point pair, k -> k + q.
 
         Depending on the bandsummation parameter, the integrand of the
