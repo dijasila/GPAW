@@ -106,7 +106,7 @@ class KohnShamKPointPair:
         setattr(self, _key, A_mytx)
 
 
-class KohnShamPair:
+class KohnShamKPointPairExtractor:
     """Class for extracting pairs of Kohn-Sham orbitals from a ground
     state calculation."""
 
