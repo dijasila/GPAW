@@ -64,7 +64,7 @@ class PlaneWavePairDensity:
             for (Q_Gii, (a1, P1_myti),
                  (a2, P2_myti)) in zip(Q_aGii, P1.items(), P2.items()):
                 P1cc_myti = P1_myti[:tb - ta].conj()
-                C1_Gimyt = np.tensordot(Q_Gii, P1cc_myti, axes=([1, 1]))
+                C1_Gimyt = np.einsum('Gij, ti -> Gjt', Q_Gii, P1cc_myti)
                 P2_imyt = P2_myti.T[:, :tb - ta]
                 n_mytG[:tb - ta] += np.sum(C1_Gimyt * P2_imyt[np.newaxis,
                                                               :, :], axis=1).T
