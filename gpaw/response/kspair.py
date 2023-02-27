@@ -35,14 +35,9 @@ class KohnShamKPointPair:
     def get_transitions(self):
         return self.n1_t, self.n2_t, self.s1_t, self.s2_t
 
-    def get_all(self, A_mytx):
+    def get_all(self, in_mytx):
         """Get a certain data array with all transitions"""
-        A_tx = np.empty((self.tblocks.blocksize * self.tblocks.blockcomm.size,)
-                        + A_mytx.shape[1:], dtype=A_mytx.dtype)
-
-        self.tblocks.blockcomm.all_gather(A_mytx, A_tx)
-
-        return A_tx[:self.tblocks.N]
+        return self.tblocks.collect(in_mytx)
 
     @property
     def n1_t(self):
