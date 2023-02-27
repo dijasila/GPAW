@@ -111,13 +111,13 @@ class KohnShamKPointPairExtractor:
     state calculation."""
 
     def __init__(self, gs, context,
-                 transitionblockscomm=None, kptblockcomm=None):
+                 transitionblockcomm=None, kptblockcomm=None):
         """
         Parameters
         ----------
         gs : ResponseGroundStateAdapter
         context : ResponseContext
-        transitionblockscomm : gpaw.mpi.Communicator
+        transitionblockcomm : gpaw.mpi.Communicator
             Communicator for distributing the transitions among processes
         kptblockcomm : gpaw.mpi.Communicator
             Communicator for distributing k-points among processes
@@ -129,7 +129,7 @@ class KohnShamKPointPairExtractor:
 
         self.calc_parallel = self.check_calc_parallelisation()
 
-        self.transitionblockscomm = transitionblockscomm
+        self.transitionblockcomm = transitionblockcomm
         self.kptblockcomm = kptblockcomm
 
         # Prepare to distribute transitions
@@ -237,17 +237,17 @@ class KohnShamKPointPairExtractor:
 
         return KohnShamKPointPair(kpt1, kpt2,
                                   self.mynt, nt, self.ta, self.tb,
-                                  comm=self.transitionblockscomm)
+                                  comm=self.transitionblockcomm)
 
     def distribute_transitions(self, nt):
         """Distribute transitions between processes in block communicator"""
-        if self.transitionblockscomm is None:
+        if self.transitionblockcomm is None:
             mynt = nt
             ta = 0
             tb = nt
         else:
-            nblocks = self.transitionblockscomm.size
-            rank = self.transitionblockscomm.rank
+            nblocks = self.transitionblockcomm.size
+            rank = self.transitionblockcomm.rank
 
             mynt = (nt + nblocks - 1) // nblocks
             ta = min(rank * mynt, nt)
@@ -395,8 +395,8 @@ class KohnShamKPointPairExtractor:
         for p, k_c in enumerate(k_pc):  # p indicates the receiving process
             K = self.kptfinder.find(k_c)
             ik = self.gs.kd.bz2ibz_k[K]
-            for r2 in range(p * self.transitionblockscomm.size,
-                            min((p + 1) * self.transitionblockscomm.size,
+            for r2 in range(p * self.transitionblockcomm.size,
+                            min((p + 1) * self.transitionblockcomm.size,
                                 comm.size)):
                 ik_r2[r2] = ik
 
@@ -570,7 +570,7 @@ class KohnShamKPointPairExtractor:
         """Convert k-point and transition index to global world rank
         and local transition index"""
         trank_t, myt_t = np.divmod(t_t, self.mynt)
-        return p * self.transitionblockscomm.size + trank_t, myt_t
+        return p * self.transitionblockcomm.size + trank_t, myt_t
 
     @timer('Extracting eps, f and P_I from wfs')
     def extract_wfs_data(self, myu, myn_eh):

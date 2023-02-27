@@ -110,7 +110,7 @@ class PairFunctionIntegrator(ABC):
             # Distribution of work:
             # t-transitions are distributed through blockcomm,
             # k-points through intrablockcomm.
-            transitionblockscomm=self.blockcomm,
+            transitionblockcomm=self.blockcomm,
             kptblockcomm=self.intrablockcomm)
 
         # Symmetry flags
