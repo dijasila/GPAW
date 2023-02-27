@@ -130,7 +130,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
         self.bundle_integrals = bundle_integrals
         self.bandsummation = bandsummation
 
-        self.pair_density = NewPairDensityCalculator(gs, context)
+        self.pair_density_calc = NewPairDensityCalculator(gs, context)
 
     def calculate(self, spincomponent, q_c, zd) -> ChiKS:
         r"""Calculate χ_KS,GG'^μν(q,z), where z = ω + iη
@@ -161,7 +161,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
             qpdi, len(zd), spincomponent, self.nbands, len(n1_t)))
 
         self.context.print('Initializing pair density PAW corrections')
-        self.pair_density.initialize_paw_corrections(qpdi)
+        self.pair_density_calc.initialize_paw_corrections(qpdi)
 
         # Create ChiKS data structure
         chiks = self.create_chiks(spincomponent, qpdi, zd)
@@ -270,7 +270,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
         supplied kptpair integral weight.
         """
         # Calculate the pair densities and store them on the kptpair
-        self.pair_density(kptpair, chiks.qpd)
+        self.pair_density_calc(kptpair, chiks.qpd)
 
         # Extract the ingredients from the KohnShamKPointPair
         # Get bands and spins of the transitions
