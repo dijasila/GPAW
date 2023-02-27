@@ -113,15 +113,15 @@ class KohnShamKPointPairExtractor:
     state calculation."""
 
     def __init__(self, gs, context,
-                 transitionblockcomm=None, kptblockcomm=None):
+                 transition_blockcomm=None, kpt_blockcomm=None):
         """
         Parameters
         ----------
         gs : ResponseGroundStateAdapter
         context : ResponseContext
-        transitionblockcomm : gpaw.mpi.Communicator
+        transition_blockcomm : gpaw.mpi.Communicator
             Communicator for distributing the transitions among processes
-        kptblockcomm : gpaw.mpi.Communicator
+        kpt_blockcomm : gpaw.mpi.Communicator
             Communicator for distributing k-points among processes
         """
         assert isinstance(gs, ResponseGroundStateAdapter)
@@ -131,8 +131,8 @@ class KohnShamKPointPairExtractor:
 
         self.calc_parallel = self.check_calc_parallelisation()
 
-        self.transitionblockcomm = transitionblockcomm
-        self.kptblockcomm = kptblockcomm
+        self.transition_blockcomm = transition_blockcomm
+        self.kpt_blockcomm = kpt_blockcomm
 
         # Prepare to distribute transitions
         self.mynt = None
@@ -231,7 +231,7 @@ class KohnShamKPointPairExtractor:
         kpt2 = self.get_kpoints(k2_pc, n2_t, s2_t)
 
         # The process might not have any k-point pairs to evaluate, as
-        # their are distributed in the kptblockcomm
+        # their are distributed in the kpt_blockcomm
         if kpt1 is None:
             assert kpt2 is None
             return None
@@ -239,17 +239,17 @@ class KohnShamKPointPairExtractor:
 
         return KohnShamKPointPair(kpt1, kpt2,
                                   self.mynt, nt, self.ta, self.tb,
-                                  comm=self.transitionblockcomm)
+                                  comm=self.transition_blockcomm)
 
     def distribute_transitions(self, nt):
         """Distribute transitions between processes in block communicator"""
-        if self.transitionblockcomm is None:
+        if self.transition_blockcomm is None:
             mynt = nt
             ta = 0
             tb = nt
         else:
-            nblocks = self.transitionblockcomm.size
-            rank = self.transitionblockcomm.rank
+            nblocks = self.transition_blockcomm.size
+            rank = self.transition_blockcomm.rank
 
             mynt = (nt + nblocks - 1) // nblocks
             ta = min(rank * mynt, nt)
@@ -263,7 +263,7 @@ class KohnShamKPointPairExtractor:
     def get_kpoints(self, k_pc, n_t, s_t):
         """Get KohnShamKPoint and help other processes extract theirs"""
         assert len(n_t) == len(s_t)
-        assert len(k_pc) <= self.kptblockcomm.size
+        assert len(k_pc) <= self.kpt_blockcomm.size
         kpt = None
 
         # Use the data extraction factory to extract the kptdata
@@ -277,7 +277,7 @@ class KohnShamKPointPairExtractor:
         s_myt[:self.tb - self.ta] = s_t[self.ta:self.tb]
 
         # Initiate k-point object.
-        if self.kptblockcomm.rank in range(len(k_pc)):
+        if self.kpt_blockcomm.rank in range(len(k_pc)):
             assert kptdata is not None
             kpt = KohnShamKPoint(n_myt, s_myt, *kptdata)
 
@@ -301,7 +301,7 @@ class KohnShamKPointPairExtractor:
         data, h_myt, myt_myt = self._parallel_extract_kptdata(k_pc, n_t, s_t)
 
         # If the process has a k-point to return, symmetrize and unfold
-        if self.kptblockcomm.rank in range(len(k_pc)):
+        if self.kpt_blockcomm.rank in range(len(k_pc)):
             assert data is not None
             # Unpack data, apply FT and symmetrization
             K, k_c, eps_h, f_h, Ph, psit_hG = data
@@ -397,12 +397,12 @@ class KohnShamKPointPairExtractor:
         for p, k_c in enumerate(k_pc):  # p indicates the receiving process
             K = self.kptfinder.find(k_c)
             ik = self.gs.kd.bz2ibz_k[K]
-            for r2 in range(p * self.transitionblockcomm.size,
-                            min((p + 1) * self.transitionblockcomm.size,
+            for r2 in range(p * self.transition_blockcomm.size,
+                            min((p + 1) * self.transition_blockcomm.size,
                                 comm.size)):
                 ik_r2[r2] = ik
 
-            if p == self.kptblockcomm.rank:
+            if p == self.kpt_blockcomm.rank:
                 data = (K, k_c, ik)
 
             # Find out who should store the data in KSKPpoint
@@ -532,7 +532,7 @@ class KohnShamKPointPairExtractor:
         # Number of h-indeces to receive
         nrh_r1 = [len(h_rh) for h_rh in h_r1rh]
 
-        # if self.kptblockcomm.rank in range(len(ik_p)):
+        # if self.kpt_blockcomm.rank in range(len(ik_p)):
         if data[2] is not None:
             ik = data[2]
             ng = self.pd0.ng_q[ik]
@@ -572,7 +572,7 @@ class KohnShamKPointPairExtractor:
         """Convert k-point and transition index to global world rank
         and local transition index"""
         trank_t, myt_t = np.divmod(t_t, self.mynt)
-        return p * self.transitionblockcomm.size + trank_t, myt_t
+        return p * self.transition_blockcomm.size + trank_t, myt_t
 
     @timer('Extracting eps, f and P_I from wfs')
     def extract_wfs_data(self, myu, myn_eh):
@@ -704,9 +704,9 @@ class KohnShamKPointPairExtractor:
         kpt_u = gs.kpt_u
 
         # Do data extraction for the processes, which have data to extract
-        if self.kptblockcomm.rank in range(len(k_pc)):
+        if self.kpt_blockcomm.rank in range(len(k_pc)):
             # Find k-point indeces
-            k_c = k_pc[self.kptblockcomm.rank]
+            k_c = k_pc[self.kpt_blockcomm.rank]
             K = self.kptfinder.find(k_c)
             ik = gs.kd.bz2ibz_k[K]
             # Construct symmetry operators
