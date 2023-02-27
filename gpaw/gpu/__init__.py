@@ -80,3 +80,47 @@ def T():
     synchronize()
     t2 = time()
     print(f'{(t2 - t1) * 1e9:_.3f} ns')
+
+
+class CuPyMPI:
+    """Quick'n'dirty wrapper to make things work without a GPU-aware MPI."""
+    def __init__(self, comm):
+        self.comm = comm
+        self.rank = comm.rank
+        self.size = comm.size
+
+    def sum(self, array):
+        if isinstance(array, float):
+            return self.comm.sum(array)
+        if isinstance(array, np.ndarray):
+            self.comm.sum(array)
+            return
+        a = array.get()
+        self.comm.sum(a)
+        array[:] = cupy.asarray(a)
+
+    def max(self, array):
+        self.comm.max(array)
+
+    def all_gather(self, a, b):
+        self.comm.all_gather(a, b)
+
+    def gather(self, a, rank, b):
+        if isinstance(a, np.ndarray):
+            self.comm.gather(a, rank, b)
+        else:
+            if rank == self.rank:
+                c = np.empty(b.shape, b.dtype)
+            else:
+                c = None
+            self.comm.gather(a.get(), rank, c)
+            if rank == self.rank:
+                b[:] = cupy.asarray(c)
+
+    def receive(self, a, rank, tag):
+        b = np.empty(a.shape, a.dtype)
+        self.comm.receive(b, rank, tag)
+        a[:] = cupy.asarray(b)
+
+    def send(self, a, rank, tag, block):
+        1 / 0

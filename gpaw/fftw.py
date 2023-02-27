@@ -135,6 +135,9 @@ class FFTPlans:
         raise NotImplementedError
 
     def ifft_sphere(self, coef_G, pw, out_R):
+        if coef_G is None:
+            out_R.scatter_from(None)
+            return
         pw.paste(coef_G, self.tmp_Q)
         if pw.dtype == float:
             t = self.tmp_Q[:, :, 0]
@@ -230,10 +233,16 @@ class CuPyFFTPlans(FFTPlans):
 
     def ifft_sphere(self, coef_G, pw, out_R):
         from gpaw.gpu import cupyx
-        if self.dtype == complex:
-            array_Q = out_R.data
+
+        if coef_G is None:
+            out_R.scatter_from(None)
+            return
+
+        if out_R.desc.comm.size == 1:
+            array_R = out_R.data
         else:
-            array_Q = self.tmp_Q
+            array_R = self.tmp_R
+        array_Q = self.tmp_Q
 
         array_Q[:] = 0.0
         Q_G = self.indices(pw)
@@ -241,21 +250,26 @@ class CuPyFFTPlans(FFTPlans):
 
         assert SCIPY_VERSION >= [1, 6]
         if self.dtype == complex:
-            array_Q[:] = cupyx.scipy.fft.ifftn(
+            array_R[:] = cupyx.scipy.fft.ifftn(
                 array_Q, array_Q.shape,
                 norm='forward', overwrite_x=True)
-            return
+        else:
+            # We need a GPU kernel for this stuff:
+            t = array_Q[:, :, 0]
+            n, m = (s // 2 - 1 for s in out_R.desc.size_c[:2])
+            t[0, -m:] = t[0, m:0:-1].conj()
+            t[n:0:-1, -m:] = t[-n:, m:0:-1].conj()
+            t[-n:, -m:] = t[n:0:-1, m:0:-1].conj()
+            t[-n:, 0] = t[n:0:-1, 0].conj()
+            print(array_Q.shape)
+            print(array_R.shape)
+            print(out_R)
+            array_R[:] = cupyx.scipy.fft.irfftn(
+                array_Q, out_R.desc.global_shape(),
+                norm='forward', overwrite_x=True)
 
-        # We need a GPU kernel for this stuff:
-        t = array_Q[:, :, 0]
-        n, m = (s // 2 - 1 for s in out_R.desc.size_c[:2])
-        t[0, -m:] = t[0, m:0:-1].conj()
-        t[n:0:-1, -m:] = t[-n:, m:0:-1].conj()
-        t[-n:, -m:] = t[n:0:-1, m:0:-1].conj()
-        t[-n:, 0] = t[n:0:-1, 0].conj()
-        out_R.data[:] = cupyx.scipy.fft.irfftn(
-            array_Q, out_R.data.shape,
-            norm='forward', overwrite_x=True)
+        if out_R.desc.comm.size > 1:
+            out_R.scatter_from(array_R)
 
     def fft_sphere(self, in_R, pw):
         from gpaw.gpu import cupyx

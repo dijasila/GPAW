@@ -323,14 +323,14 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         assert out.desc.pbc_c.all()
         assert comm.size == out.desc.comm.size
 
+        plan = plan or out.desc.fft_plans(xp=xp)
         this = self.gather()
         if this is not None:
-            plan = plan or out.desc.fft_plans(xp=xp)
             for coef_G, out1 in zip(this._arrays(), out.flat()):
                 plan.ifft_sphere(coef_G, self.desc, out1)
         else:
             for out1 in out.flat():
-                out1.scatter_from(None)
+                plan.ifft_sphere(None, self.desc, out1)
 
         if not periodic:
             out.multiply_by_eikr()
@@ -358,12 +358,12 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         if out is None:
             if comm.rank == 0 or broadcast:
                 pw = self.desc.new(comm=serial_comm)
-                out = pw.empty(self.dims)
+                out = pw.empty(self.dims, xp=self.xp)
             else:
                 out = Empty(self.dims)
 
         if comm.rank == 0:
-            data = np.empty(self.desc.maxmysize * comm.size, complex)
+            data = self.xp.empty(self.desc.maxmysize * comm.size, complex)
         else:
             data = None
 

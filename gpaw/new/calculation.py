@@ -104,7 +104,7 @@ class DFTCalculation:
 
         pot_calc = builder.create_potential_calculator()
         potential, vHt_x, _ = pot_calc.calculate(density)
-        ibzwfs = builder.create_ibz_wave_functions(basis_set, potential)
+        ibzwfs = builder.create_ibz_wave_functions(basis_set, potential, log)
         state = DFTState(ibzwfs, density, potential, vHt_x)
         scf_loop = builder.create_scf_loop()
 
