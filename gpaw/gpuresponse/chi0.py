@@ -162,7 +162,11 @@ def chi0_brute_force_update(localn_mG, chi0_wGG):
         G2comm.all_gather(n1_Mg, n1_Ng)
         # Step 2b: Allgather G2 slices with G1-comm, so that each rank has their G2 slices
         G1comm.all_gather(n2_Mg, n2_Ng)
-    
+        
+        #n2_Mg = xp.transpose(n2_Mg.reshape((2, 2, -1, G2end-G2beg)), axes=(1,0,2,3)).ravel().reshape((-1, G2end-G2beg))
+        #n1_Ng = xp.transpose(n1_Ng.reshape((G2comm.size, G1comm.size, -1, G1end-G1beg)), axes=(1,0,2,3)).ravel().reshape((-1, G1end-G1beg))
+        n2_Ng = xp.transpose(n2_Ng.reshape((G2comm.size, G1comm.size, -1, G2end-G2beg)), axes=(1,0,2,3)).ravel().reshape((-1, G2end-G2beg))
+        #n1_Mg = xp.transpose(n1_Mg.reshape((2, 2, -1, G1end-G1beg)), axes=(1,0,2,3)).copy().reshape((-1, G1end-G1beg))
         #GGsends = []
         #if GGcomm.rank != 0:
         #    n1_mG = xp.ascontiguousarray(localn_mG[:, G1beg:G1end])
@@ -238,14 +242,14 @@ def chi0_brute_force_update(localn_mG, chi0_wGG):
 from gpaw.gpu import setup
 setup()
 print('Hello', world.rank, world.size)
-NW, NG = 50, 600
-NM = 120
+NW, NG = 5, 6000
+NM = 3000
 serial_comm = world.new_communicator([world.rank])
 n_mG = xp.zeros((NM, NG), dtype=complex) # + 1j*xp.random.rand(NM, NG)
-#n_mG[:] = xp.random.rand(NM, NG)
-for m in range(120):
-    n_mG[m,m] = (m+1)
-    #n_mG[m,m+1] = (m+1) + (m+1)*1j
+n_mG[:] = xp.random.rand(NM, NG) + 1j*xp.random.rand(NM, NG)
+#for m in range(120):
+#    n_mG[m,m] = (m+1)
+#    #n_mG[m,m+1] = (m+1) + (m+1)*1j
 xp.cuda.runtime.deviceSynchronize()
 world.broadcast(n_mG, 0)
 xp.cuda.runtime.deviceSynchronize()
