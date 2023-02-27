@@ -13,7 +13,6 @@ class PlaneWavePairDensity:
     def __init__(self, kspair):
         self.gs = kspair.gs
         self.context = kspair.context
-        self.transitionblockscomm = kspair.transitionblockscomm
 
         # Save PAW correction for all calls with same q_c
         self.pawcorr = None
