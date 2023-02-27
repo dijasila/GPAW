@@ -2,6 +2,7 @@ import numpy as np
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
 from gpaw.response.symmetry import KPointFinder
+from gpaw.response.pw_parallelization import Blocks1D
 
 
 class KohnShamKPoint:
@@ -238,17 +239,12 @@ class KohnShamKPointPairExtractor:
 
     def distribute_transitions(self, nt):
         """Distribute transitions between processes in block communicator"""
-        nblocks = self.transitionblockcomm.size
-        rank = self.transitionblockcomm.rank
+        tblocks = Blocks1D(self.transitionblockcomm, nt)
 
-        mynt = (nt + nblocks - 1) // nblocks
-        ta = min(rank * mynt, nt)
-        tb = min(ta + mynt, nt)
-
-        self.mynt = mynt
+        self.mynt = tblocks.blocksize
         self.nt = nt
-        self.ta = ta
-        self.tb = tb
+        self.ta = tblocks.a
+        self.tb = tblocks.b
 
     def get_kpoints(self, k_pc, n_t, s_t):
         """Get KohnShamKPoint and help other processes extract theirs"""
