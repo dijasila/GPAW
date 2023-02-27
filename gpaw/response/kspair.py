@@ -27,31 +27,28 @@ class KohnShamKPointPair:
     """Object containing all transitions between Kohn-Sham orbitals from a
     specified k-point to another."""
 
-    def __init__(self, kpt1, kpt2, mynt, nt, ta, tb, comm):
+    def __init__(self, kpt1, kpt2, tblocks):
         self.kpt1 = kpt1
         self.kpt2 = kpt2
-
-        self.mynt = mynt  # Number of transitions in this block
-        self.nt = nt      # Total number of transitions between all blocks
-        self.ta = ta      # First transition index of this block
-        self.tb = tb      # First transition index of this block not included
-        self.comm = comm  # MPI communicator between blocks of transitions
+        self.tblocks = tblocks
 
     def transition_distribution(self):
         """Get the distribution of transitions."""
-        return self.mynt, self.nt, self.ta, self.tb
+        # Stop using me                                                        XXX
+        return (self.tblocks.blocksize, self.tblocks.N,
+                self.tblocks.a, self.tblocks.b)
 
     def get_transitions(self):
         return self.n1_t, self.n2_t, self.s1_t, self.s2_t
 
     def get_all(self, A_mytx):
         """Get a certain data array with all transitions"""
-        A_tx = np.empty((self.mynt * self.comm.size,) + A_mytx.shape[1:],
-                        dtype=A_mytx.dtype)
+        A_tx = np.empty((self.tblocks.blocksize * self.tblocks.blockcomm.size,)
+                        + A_mytx.shape[1:], dtype=A_mytx.dtype)
 
-        self.comm.all_gather(A_mytx, A_tx)
+        self.tblocks.blockcomm.all_gather(A_mytx, A_tx)
 
-        return A_tx[:self.nt]
+        return A_tx[:self.tblocks.N]
 
     @property
     def n1_t(self):
@@ -224,16 +221,13 @@ class KohnShamKPointPairExtractor:
         kpt2 = self.get_kpoints(k2_pc, n2_t, s2_t)
 
         # The process might not have any k-point pairs to evaluate, as
-        # their are distributed in the kptblockcomm
+        # due to the distribution over kptblockcomm
         if kpt1 is None:
             assert kpt2 is None
             return None
         assert kpt2 is not None
 
-        return KohnShamKPointPair(kpt1, kpt2,
-                                  self.tblocks.blocksize, nt,
-                                  self.tblocks.a, self.tblocks.b,
-                                  self.transitionblockcomm)
+        return KohnShamKPointPair(kpt1, kpt2, self.tblocks)
 
     def get_kpoints(self, k_pc, n_t, s_t):
         """Get KohnShamKPoint and help other processes extract theirs"""
