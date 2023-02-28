@@ -5,6 +5,7 @@
 from typing import Optional
 from gpaw.projections import Projections
 
+
 class KPoint:
     """Class for a single k-point.
 

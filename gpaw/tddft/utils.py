@@ -1,7 +1,6 @@
 # Written by Lauri Lehtovaara 2008
 import numpy as np
 
-import _gpaw
 from gpaw.utilities.blas import axpy, scal
 from gpaw.utilities.mblas import multi_axpy, multi_dotc, multi_dotu, multi_scal
 from gpaw import gpu
@@ -40,7 +39,7 @@ class MultiBlas:
             self.timer.stop('Multi zdotc')
         return ss
 
-    def multi_zdotu(self, x, y, s = None):
+    def multi_zdotu(self, x, y, s=None):
         if self.timer is not None:
             self.timer.start('Multi zdotu')
         ss = multi_dotu(x, y, s)
@@ -60,9 +59,9 @@ class MultiBlas:
         if self.timer is not None:
             self.timer.start('Multi scale')
         if isinstance(a, (float, complex)):
-            scal(a,x)
+            scal(a, x)
         else:
-            multi_scal(a,x)
+            multi_scal(a, x)
         if self.timer is not None:
             self.timer.stop('Multi scale')
 

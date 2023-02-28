@@ -5,7 +5,6 @@ from gpaw import debug
 from gpaw.fd_operators import Laplace
 from gpaw.transformers import Transformer
 from gpaw.utilities.blas import axpy
-from gpaw import gpu
 
 
 class Preconditioner:
@@ -16,15 +15,22 @@ class Preconditioner:
         self.kin0 = kin0
         self.kin1 = Laplace(gd1, -0.5, 1, dtype, use_gpu=self.use_gpu)
         self.kin2 = Laplace(gd2, -0.5, 1, dtype, use_gpu=self.use_gpu)
-        self.scratch0 = gd0.zeros((2, block), dtype, False, use_gpu=self.use_gpu)
-        self.scratch1 = gd1.zeros((3, block), dtype, False, use_gpu=self.use_gpu)
-        self.scratch2 = gd2.zeros((3, block), dtype, False, use_gpu=self.use_gpu)
+        self.scratch0 = gd0.zeros((2, block), dtype, False,
+                                  use_gpu=self.use_gpu)
+        self.scratch1 = gd1.zeros((3, block), dtype, False,
+                                  use_gpu=self.use_gpu)
+        self.scratch2 = gd2.zeros((3, block), dtype, False,
+                                  use_gpu=self.use_gpu)
         self.step = 0.66666666 / kin0.get_diagonal_element()
 
-        self.restrictor_object0 = Transformer(gd0, gd1, 1, dtype, use_gpu=self.use_gpu)
-        self.restrictor_object1 = Transformer(gd1, gd2, 1, dtype, use_gpu=self.use_gpu)
-        self.interpolator_object2 = Transformer(gd2, gd1, 1, dtype, use_gpu=self.use_gpu)
-        self.interpolator_object1 = Transformer(gd1, gd0, 1, dtype, use_gpu=self.use_gpu)
+        self.restrictor_object0 = Transformer(gd0, gd1, 1, dtype,
+                                              use_gpu=self.use_gpu)
+        self.restrictor_object1 = Transformer(gd1, gd2, 1, dtype,
+                                              use_gpu=self.use_gpu)
+        self.interpolator_object2 = Transformer(gd2, gd1, 1, dtype,
+                                                use_gpu=self.use_gpu)
+        self.interpolator_object1 = Transformer(gd1, gd0, 1, dtype,
+                                                use_gpu=self.use_gpu)
         self.restrictor0 = self.restrictor_object0.apply
         self.restrictor1 = self.restrictor_object1.apply
         self.interpolator2 = self.interpolator_object2.apply

@@ -310,7 +310,7 @@ class ExplicitCrankNicolson(BasePropagator):
         """
         self.timer.start('Apply time-dependent operators')
         nvec = len(psi)
-        if  isinstance(psi, gpu.cupy.ndarray):
+        if isinstance(psi, gpu.cupy.ndarray):
             hpsit = self.hpsit[:nvec]
         elif self.use_gpu:
             hpsit = self.hpsit_cpu[:nvec]

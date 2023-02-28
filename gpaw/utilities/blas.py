@@ -666,7 +666,7 @@ if not hasattr(_gpaw, 'mmm'):
 
     def mmm(alpha: T, a: np.ndarray, opa: str,  # noqa
             b: np.ndarray, opb: str,
-            beta: T, c: np.ndarray) -> None:
+            beta: T, c: np.ndarray, use_gpu: bool = None) -> None:
         if beta == 0.0:
             c[:] = 0.0
         else:

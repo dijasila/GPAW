@@ -5,13 +5,12 @@ import functools
 import numpy as np
 from ase.units import Ha
 
-import _gpaw
 from gpaw.arraydict import ArrayDict
 from gpaw.external import create_external_potential
 from gpaw.lfc import LFC
 from gpaw.poisson import PoissonSolver
-from gpaw.utilities.linalg import elementwise_multiply_add, \
-        multi_elementwise_multiply_add
+from gpaw.utilities.linalg import (elementwise_multiply_add,
+                                   multi_elementwise_multiply_add)
 from gpaw.spinorbit import soc
 from gpaw.transformers import Transformer
 from gpaw.utilities import (pack2, pack_atomic_matrices, unpack,
@@ -446,9 +445,9 @@ class Hamiltonian:
             if isinstance(psit_nG, np.ndarray):
                 psit_nG = gpu.copy_to_device(psit_nG)
             if len(psit_nG.shape) == 3:
-                elementwise_multiply_add(psit_nG, vt_G, Htpsit_nG);
+                elementwise_multiply_add(psit_nG, vt_G, Htpsit_nG)
             else:
-                multi_elementwise_multiply_add(psit_nG, vt_G, Htpsit_nG);
+                multi_elementwise_multiply_add(psit_nG, vt_G, Htpsit_nG)
         else:
             vt_G = self.vt_sG[s]
             if len(psit_nG.shape) == 3:

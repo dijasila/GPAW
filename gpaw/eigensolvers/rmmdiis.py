@@ -3,8 +3,8 @@ from functools import partial
 
 import numpy as np
 
-from gpaw.utilities.blas import axpy, dotc
-from gpaw.utilities.mblas import multi_axpy, multi_scal, multi_dotc
+from gpaw.utilities.blas import axpy
+from gpaw.utilities.mblas import multi_dotc
 from gpaw.eigensolvers.eigensolver import Eigensolver
 
 
@@ -87,7 +87,7 @@ class RMMDIIS(Eigensolver):
                 return multi_dotc(a_xG, b_xG).real * wfs.gd.dv
             else:
                 return [np.real(wfs.integrate(a_G, b_G, global_integral=False))
-                              for a_G, b_G in zip(a_xG, b_xG)]
+                        for a_G, b_G in zip(a_xG, b_xG)]
 
         comm = wfs.gd.comm
 
@@ -128,7 +128,7 @@ class RMMDIIS(Eigensolver):
                                              P, kpt.eps_n[n_x], Rb, P2, n_x)
 
             errors_x[:] = 0.0
-            errors_x[:n2-n1] = weights[n1:n2] * integrate(Rb.array, Rb.array)
+            errors_x[:n2 - n1] = weights[n1:n2] * integrate(Rb.array, Rb.array)
             comm.sum(errors_x)
             error += np.sum(errors_x)
 

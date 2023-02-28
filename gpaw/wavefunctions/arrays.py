@@ -48,7 +48,8 @@ class ArrayWaveFunctions:
             assert opb in 'TC' and b.comm is self.comm
 
     def matrix_elements(self, other=None, out=None, symmetric=False, cc=False,
-                        operator=None, result=None, serial=False, use_gpu=None):
+                        operator=None, result=None, serial=False,
+                        use_gpu=None):
         if use_gpu is None:
             use_gpu = self.use_gpu
         if out is None:
@@ -251,7 +252,8 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
             psit_sG[1] = self.pd.scatter(big_psit_G[1], self.kpt)
 
     def matrix_elements(self, other=None, out=None, symmetric=False, cc=False,
-                        operator=None, result=None, serial=False, use_gpu=None):
+                        operator=None, result=None, serial=False,
+                        use_gpu=None):
         if use_gpu is None:
             use_gpu = self.use_gpu
         if other is None or isinstance(other, ArrayWaveFunctions):

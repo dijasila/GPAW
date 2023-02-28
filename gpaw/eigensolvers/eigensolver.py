@@ -1,7 +1,6 @@
 """Module defining an eigensolver base-class."""
 from functools import partial
 
-import _gpaw
 import numpy as np
 from ase.dft.bandgap import _bandgap
 from ase.units import Ha

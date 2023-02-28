@@ -52,16 +52,19 @@ class FDWaveFunctions(FDPWWaveFunctions):
                                    use_gpu=use_gpu)
 
         # Kinetic energy operator:
-        self.kin = Laplace(self.gd, -0.5, stencil, self.dtype, use_gpu=self.use_gpu)
+        self.kin = Laplace(self.gd, -0.5, stencil, self.dtype,
+                           use_gpu=self.use_gpu)
 
         if self.use_gpu:
             self.nt_G_gpu = None
 
         self.taugrad_v = None  # initialized by MGGA functional
 
-    def empty(self, n=(), global_array=False, realspace=False, q=-1, use_gpu=None):
-        if use_gpu == None:
-            return self.gd.empty(n, self.dtype, global_array, use_gpu=self.use_gpu)
+    def empty(self, n=(), global_array=False, realspace=False, q=-1,
+              use_gpu=None):
+        if use_gpu is None:
+            return self.gd.empty(n, self.dtype, global_array,
+                                 use_gpu=self.use_gpu)
         else:
             return self.gd.empty(n, self.dtype, global_array, use_gpu=use_gpu)
 
@@ -328,7 +331,8 @@ class FDWaveFunctions(FDPWWaveFunctions):
                             tmp = (np.random.random(shape) - 0.5) * scale
                             gpu.copy_to_device(tmp, out=psit_G2)
                         else:
-                            psit_G2[:] = (np.random.random(shape) - 0.5) * scale
+                            psit_G2[:] = \
+                                (np.random.random(shape) - 0.5) * scale
                     else:
                         if self.use_gpu:
                             tmp = np.empty(psit_G2.shape, dtype=complex)
@@ -337,9 +341,9 @@ class FDWaveFunctions(FDPWWaveFunctions):
                             gpu.copy_to_device(tmp, out=psit_G2)
                         else:
                             psit_G2.real = \
-                                    (np.random.random(shape) - 0.5) * scale
+                                (np.random.random(shape) - 0.5) * scale
                             psit_G2.imag = \
-                                    (np.random.random(shape) - 0.5) * scale
+                                (np.random.random(shape) - 0.5) * scale
 
                     interpolate2(psit_G2, psit_G1, kpt.phase_cd)
                     interpolate1(psit_G1, psit_G, kpt.phase_cd)
@@ -367,7 +371,8 @@ class FDWaveFunctions(FDPWWaveFunctions):
                             tmp = (np.random.random(shape) - 0.5) * scale
                             gpu.copy_to_device(tmp, out=psit_G1)
                         else:
-                            psit_G1[:] = (np.random.random(shape) - 0.5) * scale
+                            psit_G1[:] = \
+                                (np.random.random(shape) - 0.5) * scale
                     else:
                         if self.use_gpu:
                             tmp = np.empty(psit_G1.shape, dtype=complex)
@@ -376,9 +381,9 @@ class FDWaveFunctions(FDPWWaveFunctions):
                             gpu.copy_to_device(tmp, out=psit_G1)
                         else:
                             psit_G1.real = \
-                                    (np.random.random(shape) - 0.5) * scale
+                                (np.random.random(shape) - 0.5) * scale
                             psit_G1.imag = \
-                                    (np.random.random(shape) - 0.5) * scale
+                                (np.random.random(shape) - 0.5) * scale
 
                     interpolate1(psit_G1, psit_G, kpt.phase_cd)
             np.random.set_state(old_state)
@@ -407,9 +412,9 @@ class FDWaveFunctions(FDPWWaveFunctions):
                             gpu.copy_to_device(tmp, out=psit_G)
                         else:
                             psit_G.real = \
-                                    (np.random.random(shape) - 0.5) * scale
+                                (np.random.random(shape) - 0.5) * scale
                             psit_G.imag = \
-                                    (np.random.random(shape) - 0.5) * scale
+                                (np.random.random(shape) - 0.5) * scale
 
             np.random.set_state(old_state)
 

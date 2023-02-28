@@ -1,8 +1,6 @@
 import numpy as np
-import sys
 
 import _gpaw
-from gpaw.utilities import is_contiguous
 from gpaw.utilities.blas import axpy
 from gpaw.utilities.blas import dotc
 from gpaw.utilities.blas import dotu
@@ -11,14 +9,11 @@ from gpaw import gpu
 
 
 def multi_axpy_cpu(a, x, y):
-    """
-    """
     for ai, xi, yi in zip(a, x, y):
         axpy(ai, xi, yi)
 
+
 def multi_axpy(a, x, y):
-    """
-    """
     assert type(x) == type(y)
 
     if isinstance(a, (float, complex)):
@@ -39,16 +34,14 @@ def multi_axpy(a, x, y):
         else:
             multi_axpy_cpu(a, x, y)
 
-# Multivector dot product, a^H b, where ^H is transpose
-def multi_dotc_cpu(x ,y, s):
-    """
-    """
+
+def multi_dotc_cpu(x, y, s):
+    """Multivector dot product, a^H b, where ^H is transpose"""
     for i in range(len(s)):
         s[i] = dotc(x[i], y[i])
 
+
 def multi_dotc(x, y, s=None):
-    """
-    """
     assert type(x) == type(y)
 
     if len(x.shape) == 1:
@@ -72,15 +65,13 @@ def multi_dotc(x, y, s=None):
         multi_dotc_cpu(x, y, s)
     return s
 
+
 def multi_dotu_cpu(x, y, s):
-    """
-    """
     for i in range(len(s)):
         s[i] = dotu(x[i], y[i])
 
+
 def multi_dotu(x, y, s=None):
-    """
-    """
     assert type(x) == type(y)
 
     if len(x.shape) == 1:
@@ -104,15 +95,13 @@ def multi_dotu(x, y, s=None):
         multi_dotu_cpu(x, y, s)
     return s
 
+
 def multi_scal_cpu(a, x):
-    """
-    """
     for ai, xi in zip(a, x):
         scal(ai, xi)
 
+
 def multi_scal(a, x):
-    """
-    """
     if isinstance(a, (float, complex)):
         scal(a, x)
     else:

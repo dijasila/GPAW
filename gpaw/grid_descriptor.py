@@ -233,7 +233,8 @@ class GridDescriptor(Domain):
         global array spanning all domains can be allocated with
         ``global_array=True``."""
 
-        return self._new_array(n, dtype, True, global_array, pad, use_gpu=use_gpu)
+        return self._new_array(n, dtype, True, global_array, pad,
+                               use_gpu=use_gpu)
 
     def empty(self, n=(), dtype=float, global_array=False, pad=False,
               use_gpu=False):
@@ -244,7 +245,8 @@ class GridDescriptor(Domain):
         global array spanning all domains can be allocated with
         ``global_array=True``."""
 
-        return self._new_array(n, dtype, False, global_array, pad, use_gpu=use_gpu)
+        return self._new_array(n, dtype, False, global_array, pad,
+                               use_gpu=use_gpu)
 
     def _new_array(self, n=(), dtype=float, zero=True,
                    global_array=False, pad=False, use_gpu=False):

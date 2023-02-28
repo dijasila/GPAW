@@ -408,7 +408,7 @@ class LocalizedFunctionsCollection(BaseLFC):
             c_xM = np.empty(self.Mmax)
             c_xM.fill(c_axi)
             if not isinstance(a_xG, np.ndarray):
-                if self.Mmax > 0 :
+                if self.Mmax > 0:
                     c_xM_gpu = gpu.copy_to_device(c_xM)
                     self.lfc.add_gpu(gpu.get_pointer(c_xM_gpu),
                                      c_xM_gpu.shape,

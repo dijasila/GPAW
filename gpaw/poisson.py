@@ -312,7 +312,8 @@ class FDPoissonSolver(BasePoissonSolver):
             # Gauss-Seidel
             self.relax_method = 1
             if use_gpu:
-                raise NotImplementedError('Relaxation method %s on GPUs' % relax)
+                raise NotImplementedError(
+                    'Relaxation method %s on GPUs' % relax)
         elif relax == 'J':
             # Jacobi
             self.relax_method = 2
@@ -376,9 +377,11 @@ class FDPoissonSolver(BasePoissonSolver):
             except ValueError:
                 break
             self.operators.append(
-                    self.create_laplace(gd2, scale, 1, use_gpu=self.use_gpu))
-            self.interpolators.append(Transformer(gd2, gd, use_gpu=self.use_gpu))
-            self.restrictors.append(Transformer(gd, gd2, use_gpu=self.use_gpu))
+                self.create_laplace(gd2, scale, 1, use_gpu=self.use_gpu))
+            self.interpolators.append(Transformer(gd2, gd,
+                                                  use_gpu=self.use_gpu))
+            self.restrictors.append(Transformer(gd, gd2,
+                                                use_gpu=self.use_gpu))
             self.presmooths.append(4)
             self.postsmooths.append(4)
             self.weights.append(1.0)

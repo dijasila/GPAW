@@ -8,7 +8,6 @@ import numpy as np
 from gpaw.utilities.blas import axpy
 from gpaw.utilities.linalg import change_sign
 from gpaw.mpi import rank
-from gpaw.tddft.utils import MultiBlas
 from gpaw import gpu
 
 from .base import BaseSolver
@@ -54,7 +53,7 @@ class CSCG(BaseSolver):
 
         slow_convergence_iters = 100
 
-        iterations = [];
+        iterations = []
 
         if self.timer is not None:
             self.timer.start('Iteration')
@@ -101,10 +100,10 @@ class CSCG(BaseSolver):
                 #      p_i = r_i-1 + b_i-1 (p_i-1 - omega_i-1 v_i-1)
                 beta = rho / rhop
 
-                #if abs(beta) / scale < eps, then CSCG breaks down
-                if ( (i > 0) and
-                     ((self.mblas.multi_zdotc(beta, beta).real / scale[n1:n2])
-                      < self.eps).any() ):
+                # if abs(beta) / scale < eps, then CSCG breaks down
+                if ((i > 0) and
+                    ((self.mblas.multi_zdotc(beta, beta).real / scale[n1:n2])
+                     < self.eps).any()):
                     raise RuntimeError("Conjugate gradient method failed (abs(beta)=%le < eps = %le)." % (np.min(self.mblas.multi_zdotc(beta, beta).real), self.eps))
 
                 # p = z + beta p
@@ -126,8 +125,6 @@ class CSCG(BaseSolver):
                 # if ( |r|^2 < tol^2 ) done
                 tmp = self.mblas.multi_zdotc(r, r).real
                 if (tmp / scale < self.tol * self.tol).all():
-                    #print 'R2 of proc #', rank, '  = ' , tmp, \
-                    #    ' after ', i+1, ' iterations'
                     iterations.append(i)
                     break
 
@@ -138,9 +135,9 @@ class CSCG(BaseSolver):
                     rhop[:] = rho
 
                 # print if slow convergence
-                if ((i+1) % slow_convergence_iters) == 0:
-                    print('R2 of proc #', rank, '  = ' , tmp, \
-                          ' after ', i+1, ' iterations')
+                if ((i + 1) % slow_convergence_iters) == 0:
+                    print('R2 of proc #', rank, '  = ', tmp,
+                          ' after ', i + 1, ' iterations')
 
             # if max iters reached, raise error
             if (i >= self.max_iter - 1):

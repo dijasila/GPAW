@@ -287,9 +287,9 @@ class KPointDescriptor:
             else:
                 spins = [None]
                 weight *= 0.5
-            kpt_qs.append(
-                    [KPoint(weightk, weight, s, k, q, phase_cd, use_gpu=use_gpu)
-                        for s in spins])
+            kpt_qs.append([KPoint(weightk, weight, s, k, q, phase_cd,
+                                  use_gpu=use_gpu)
+                           for s in spins])
 
         return kpt_qs
 

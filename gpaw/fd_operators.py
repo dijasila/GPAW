@@ -334,7 +334,8 @@ class LaplaceA(FDOperator):
                              (-1, 0, -1), (-1, 0, 1), (1, 0, -1), (1, 0, 1),
                              (-1, -1, 0), (-1, 1, 0), (1, -1, 0), (1, 1, 0)],
                             gd, dtype,
-                            'O(h^4) Mehrstellen Laplacian (A)', use_gpu=use_gpu)
+                            'O(h^4) Mehrstellen Laplacian (A)',
+                            use_gpu=use_gpu)
 
 
 class LaplaceB(FDOperator):
@@ -349,7 +350,8 @@ class LaplaceB(FDOperator):
                              (0, -1, 0), (0, 1, 0),
                              (0, 0, -1), (0, 0, 1)],
                             gd, dtype,
-                            'O(h^4) Mehrstellen Laplacian (B)', use_gpu=use_gpu)
+                            'O(h^4) Mehrstellen Laplacian (B)',
+                            use_gpu=use_gpu)
 
 
 class FTLaplace:
