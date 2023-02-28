@@ -57,6 +57,8 @@ class CuPyMPI:
         a[:] = cp.asarray(b)
 
     def receive(self, a, rank, tag=0):
+        if isinstance(a, np.ndarray):
+            return self.comm.receive(a, rank, tag)
         b = np.empty(a.shape, a.dtype)
         self.comm.receive(b, rank, tag)
         a[:] = cp.asarray(b)
@@ -65,6 +67,8 @@ class CuPyMPI:
         self.comm.send(a.get(), rank, tag)
 
     def send(self, a, rank, tag=0, block=True):
+        if isinstance(a, np.ndarray):
+            return self.comm.send(a, rank, tag, block)
         b = a.get()
         request = self.comm.send(b, rank, tag, block)
         if not block:
