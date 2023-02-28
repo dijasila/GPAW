@@ -302,8 +302,6 @@ class ChiKSCalculator(PairFunctionIntegrator):
 
         where x_t^μν(ħz) is the temporal part of χ_KS,GG'^μν(q,ω+iη).
         """
-        # Multiply the temporal part with the k-point integration weight
-        x_Zt *= weight
         # Extract the global pair density array
         n_tG = pair_density.n_tG
 
@@ -311,24 +309,13 @@ class ChiKSCalculator(PairFunctionIntegrator):
         myslice = chiks.blocks1d.myslice
 
         if chiks.distribution == 'GZg':
-            # Specify notation
-            chiks_GZg = chiks.array
-
-            x_tZ = np.ascontiguousarray(x_Zt.T)
-            n_Gt = np.ascontiguousarray(n_tG.T)
-
-            with self.context.timer('Set up ncc and nx'):
-                ncc_Gt = n_Gt.conj()
-                n_tg = n_tG[:, myslice]
-                nx_tZg = x_tZ[:, :, np.newaxis] * n_tg[:, np.newaxis, :]
-
-            with self.context.timer('Perform sum over t-transitions '
-                                    'of ncc * nx'):
-                mmmx(1.0, ncc_Gt, 'N', nx_tZg, 'N',
-                     1.0, chiks_GZg)  # slow step
+            self._add_integrand_GZg(pair_density, x_Zt, weight, chiks)
         elif chiks.distribution == 'ZgG':
             # Specify notation
             chiks_ZgG = chiks.array
+
+            # Multiply the temporal part with the k-point integration weight
+            x_Zt *= weight
 
             with self.context.timer('Set up ncc and nx'):
                 ncc_tG = n_tG.conj()
@@ -342,6 +329,27 @@ class ChiKSCalculator(PairFunctionIntegrator):
                          1.0, chiks_gG)  # slow step
         else:
             raise ValueError(f'Invalid distribution {chiks.distribution}')
+
+    def _add_integrand_GZg(self, pair_density, x_Zt, weight, chiks):
+        """Add integrand in 'GZg' distribution"""
+        chiks_GZg = chiks.array
+        myslice = chiks.blocks1d.myslice
+
+        with self.context.timer('Set up ncc and nx'):
+            # Multiply the temporal part with the k-point integration weight
+            x_tZ = np.ascontiguousarray(weight * x_Zt.T)
+
+            # Set up n_kt^*(G'+q)
+            n_tG = pair_density.n_tG
+            n_Gt = np.ascontiguousarray(n_tG.T)
+            ncc_Gt = n_Gt.conj()
+
+            # Set up x_t^μν(ħz) n_kt(G+q)
+            n_tg = n_tG[:, myslice]
+            xn_tZg = x_tZ[:, :, np.newaxis] * n_tg[:, np.newaxis, :]
+
+        with self.context.timer('Perform sum over t-transitions of ncc * nx'):
+            mmmx(1.0, ncc_Gt, 'N', xn_tZg, 'N', 1.0, chiks_GZg)  # slow step
 
     @timer('Symmetrizing chiks')
     def symmetrize(self, chiks, analyzer):
