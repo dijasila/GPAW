@@ -85,12 +85,9 @@ def mmm(alpha: T,
 
 def _mmm(alpha, a, opa, b, opb, beta, c, use_gpu=None):
     """Launch CPU or GPU version of mmm()."""
-    a_cpu, a_gpu = (None, a) if not isinstance(a, np.ndarray) \
-                             else (a, None)
-    b_cpu, b_gpu = (None, b) if not isinstance(b, np.ndarray) \
-                             else (b, None)
-    c_cpu, c_gpu = (None, c) if not isinstance(c, np.ndarray) \
-                             else (c, None)
+    a_cpu, a_gpu = (a, None) if isinstance(a, np.ndarray) else (None, a)
+    b_cpu, b_gpu = (b, None) if isinstance(b, np.ndarray) else (None, b)
+    c_cpu, c_gpu = (c, None) if isinstance(c, np.ndarray) else (None, c)
 
     if use_gpu or (use_gpu is None and not isinstance(c, np.ndarray)):
         if a_gpu is None:
@@ -204,7 +201,8 @@ def gemm(alpha, a, b, beta, c, transa='n', use_gpu=False):
                 c.dtype == complex)
         assert a.flags.c_contiguous
         if transa == 'n':
-            assert c.flags.c_contiguous or c.ndim == 2 and c.strides[1] == c.itemsize
+            assert c.flags.c_contiguous or (c.ndim == 2
+                                            and c.strides[1] == c.itemsize)
             assert b.ndim == 2
             assert b.strides[1] == b.itemsize
             assert a.shape[0] == b.shape[1]
@@ -215,12 +213,9 @@ def gemm(alpha, a, b, beta, c, transa='n', use_gpu=False):
             assert a.shape[1:] == b.shape[1:]
             assert c.shape == (b.shape[0], a.shape[0])
 
-    a_cpu, a_gpu = (None, a) if not isinstance(a, np.ndarray) \
-                             else (a, None)
-    b_cpu, b_gpu = (None, b) if not isinstance(b, np.ndarray) \
-                             else (b, None)
-    c_cpu, c_gpu = (None, c) if not isinstance(c, np.ndarray) \
-                             else (c, None)
+    a_cpu, a_gpu = (a, None) if isinstance(a, np.ndarray) else (None, a)
+    b_cpu, b_gpu = (b, None) if isinstance(b, np.ndarray) else (None, b)
+    c_cpu, c_gpu = (c, None) if isinstance(c, np.ndarray) else (None, c)
 
     if use_gpu or (use_gpu is None and not isinstance(c, np.ndarray)):
         if a_gpu is None:
@@ -273,7 +268,8 @@ def gemv(alpha, a, x, beta, y, trans='t', use_gpu=False):
     if debug:
         assert (a.dtype == float and x.dtype == float and y.dtype == float and
                 isinstance(alpha, float) and isinstance(beta, float) or
-                a.dtype == complex and x.dtype == complex and y.dtype == complex)
+                a.dtype == complex and x.dtype == complex and
+                y.dtype == complex)
         assert a.flags.c_contiguous
         assert y.flags.c_contiguous
         assert x.ndim == 1
@@ -285,12 +281,9 @@ def gemv(alpha, a, x, beta, y, trans='t', use_gpu=False):
             assert a.shape[-1] == x.shape[0]
             assert a.shape[:-1] == y.shape
 
-    a_cpu, a_gpu = (None, a) if not isinstance(a, np.ndarray) \
-                             else (a, None)
-    x_cpu, x_gpu = (None, x) if not isinstance(x, np.ndarray) \
-                             else (x, None)
-    y_cpu, y_gpu = (None, y) if not isinstance(y, np.ndarray) \
-                             else (y, None)
+    a_cpu, a_gpu = (a, None) if isinstance(a, np.ndarray) else (None, a)
+    x_cpu, x_gpu = (x, None) if isinstance(x, np.ndarray) else (None, x)
+    y_cpu, y_gpu = (y, None) if isinstance(y, np.ndarray) else (None, y)
 
     if use_gpu or (use_gpu is None and not isinstance(y, np.ndarray)):
         if a_gpu is None:
@@ -335,10 +328,8 @@ def axpy(alpha, x, y, use_gpu=None):
             assert x.flags.c_contiguous and y.flags.c_contiguous
         assert x.shape == y.shape
 
-    x_cpu, x_gpu = (None, x) if not isinstance(x, np.ndarray) \
-                             else (x, None)
-    y_cpu, y_gpu = (None, y) if not isinstance(y, np.ndarray) \
-                             else (y, None)
+    x_cpu, x_gpu = (x, None) if isinstance(x, np.ndarray) else (None, x)
+    y_cpu, y_gpu = (y, None) if isinstance(y, np.ndarray) else (None, y)
 
     if use_gpu or (use_gpu is None and not isinstance(y, np.ndarray)):
         if x_gpu is None:
@@ -396,10 +387,8 @@ def rk(alpha, a, beta, c, trans='c', use_gpu=None):
 
 def _rk(alpha, a, beta, c, trans='c', use_gpu=None):
     """Launch CPU or GPU version of rk()."""
-    a_cpu, a_gpu = (None, a) if not isinstance(a, np.ndarray) \
-                             else (a, None)
-    c_cpu, c_gpu = (None, c) if not isinstance(c, np.ndarray) \
-                             else (c, None)
+    a_cpu, a_gpu = (a, None) if isinstance(a, np.ndarray) else (None, a)
+    c_cpu, c_gpu = (c, None) if isinstance(c, np.ndarray) else (None, c)
 
     if use_gpu or (use_gpu is None and not isinstance(c, np.ndarray)):
         if a_gpu is None:
@@ -467,12 +456,9 @@ def r2k(alpha, a, b, beta, c, trans='c', use_gpu=None):
 
 def _r2k(alpha, a, b, beta, c, trans='c', use_gpu=None):
     """Launch CPU or GPU version of r2k()."""
-    a_cpu, a_gpu = (None, a) if not isinstance(a, np.ndarray) \
-                             else (a, None)
-    b_cpu, b_gpu = (None, b) if not isinstance(b, np.ndarray) \
-                             else (b, None)
-    c_cpu, c_gpu = (None, c) if not isinstance(c, np.ndarray) \
-                             else (c, None)
+    a_cpu, a_gpu = (a, None) if isinstance(a, np.ndarray) else (None, a)
+    b_cpu, b_gpu = (b, None) if isinstance(b, np.ndarray) else (None, b)
+    c_cpu, c_gpu = (c, None) if isinstance(c, np.ndarray) else (None, c)
 
     if use_gpu or (use_gpu is None and not isinstance(c, np.ndarray)):
         if a_gpu is None:
@@ -517,10 +503,8 @@ def dotc(a, b):
                 (is_contiguous(a, complex) and is_contiguous(b, complex)))
         assert a.shape == b.shape
 
-    a_cpu, a_gpu = (None, a) if not isinstance(a, np.ndarray) \
-                             else (a, None)
-    b_cpu, b_gpu = (None, b) if not isinstance(b, np.ndarray) \
-                             else (b, None)
+    a_cpu, a_gpu = (a, None) if isinstance(a, np.ndarray) else (None, a)
+    b_cpu, b_gpu = (b, None) if isinstance(b, np.ndarray) else (None, b)
 
     if not isinstance(a, np.ndarray) or not isinstance(b, np.ndarray):
         if a_gpu is None:
@@ -555,10 +539,8 @@ def dotu(a, b):
                 (is_contiguous(a, complex) and is_contiguous(b, complex)))
         assert a.shape == b.shape
 
-    a_cpu, a_gpu = (None, a) if not isinstance(a, np.ndarray) \
-                             else (a, None)
-    b_cpu, b_gpu = (None, b) if not isinstance(b, np.ndarray) \
-                             else (b, None)
+    a_cpu, a_gpu = (a, None) if isinstance(a, np.ndarray) else (None, a)
+    b_cpu, b_gpu = (b, None) if isinstance(b, np.ndarray) else (None, b)
 
     if not isinstance(a, np.ndarray) or not isinstance(b, np.ndarray):
         if a_gpu is None:
