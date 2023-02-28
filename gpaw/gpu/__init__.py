@@ -122,5 +122,21 @@ class CuPyMPI:
         self.comm.receive(b, rank, tag)
         a[:] = cupy.asarray(b)
 
+    def ssend(self, a, rank, tag):
+        self.comm.send(a.get(), rank, tag)
+
     def send(self, a, rank, tag, block):
+        if not block:
+            b = a.get()
+            request = self.comm.send(b, rank, tag, block)
+            return CuPyRequest(request, b)
         1 / 0
+
+    def wait(self, request):
+        self.comm.wait(request.request)
+
+
+class CuPyRequest:
+    def __init__(self, request, array):
+        self.request = request
+        self.array = array

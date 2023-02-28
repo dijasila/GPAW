@@ -390,7 +390,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
 
         if broadcast or comm.rank == 0:
             grid = self.desc.new(comm=serial_comm)
-            out = grid.empty(self.dims)
+            out = grid.empty(self.dims, xp=self.xp)
 
         if comm.rank != 0:
             # There can be several sends before the corresponding receives
@@ -405,7 +405,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         # for the whole domain:
         for rank, block in enumerate(self.desc.blocks(out.data)):
             if rank != 0:
-                buf = np.empty_like(block)
+                buf = self.xp.empty_like(block)
                 comm.receive(buf, rank, 301)
                 block[:] = buf
             else:
@@ -523,7 +523,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         if out is None:
             if grid is None:
                 raise ValueError('Please specify "grid" or "out".')
-            out = grid.empty(self.dims)
+            out = grid.empty(self.dims, xp=self.xp)
 
         if not out.desc.pbc_c.all() or not self.desc.pbc_c.all():
             raise ValueError('Grids must have pbc=True!')
@@ -543,8 +543,8 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         if (size2_c <= size1_c).any():
             raise ValueError('Too few points in target grid!')
 
-        plan1 = plan1 or self.desc.fft_plans()
-        plan2 = plan2 or out.desc.fft_plans()
+        plan1 = plan1 or self.desc.fft_plans(xp=self.xp)
+        plan2 = plan2 or out.desc.fft_plans(xp=self.xp)
 
         if self.dims:
             for input, output in zip(self.flat(), out.flat()):
