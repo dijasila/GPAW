@@ -8,7 +8,7 @@ from gpaw.utilities.blas import mmmx
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.pw_parallelization import PlaneWaveBlockDistributor
-from gpaw.response.matrix_elements import PlaneWavePairDensity
+from gpaw.response.matrix_elements import NewPairDensityCalculator
 from gpaw.response.pair_integrator import PairFunctionIntegrator
 from gpaw.response.pair_functions import (SingleQPWDescriptor,
                                           LatticePeriodicPairFunction)
@@ -130,7 +130,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
         self.bundle_integrals = bundle_integrals
         self.bandsummation = bandsummation
 
-        self.pair_density = PlaneWavePairDensity(gs, context)
+        self.pair_density_calc = NewPairDensityCalculator(gs, context)
 
     def calculate(self, spincomponent, q_c, zd) -> ChiKS:
         r"""Calculate χ_KS,GG'^μν(q,z), where z = ω + iη
@@ -161,7 +161,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
             qpdi, len(zd), spincomponent, self.nbands, len(n1_t)))
 
         self.context.print('Initializing pair density PAW corrections')
-        self.pair_density.initialize_paw_corrections(qpdi)
+        self.pair_density_calc.initialize_paw_corrections(qpdi)
 
         # Create ChiKS data structure
         chiks = self.create_chiks(spincomponent, qpdi, zd)
@@ -236,8 +236,8 @@ class ChiKSCalculator(PairFunctionIntegrator):
 
     @timer('Add integrand to chiks')
     def add_integrand(self, kptpair, weight, chiks):
-        r"""Use the PlaneWavePairDensity object to calculate the integrand for
-        all relevant transitions of the given k-point pair, k -> k + q.
+        r"""Use the NewPairDensityCalculator object to calculate the integrand
+        for all relevant transitions of the given k-point pair, k -> k + q.
 
         Depending on the bandsummation parameter, the integrand of the
         collinear four-component Kohn-Sham susceptibility tensor (in the
@@ -269,14 +269,14 @@ class ChiKSCalculator(PairFunctionIntegrator):
         The integrand is added to the output array chiks_x multiplied with the
         supplied kptpair integral weight.
         """
-        # Calculate the pair densities and store them on the kptpair
-        self.pair_density(kptpair, chiks.qpd)
+        # Calculate the pair densities n_kt(G+q)
+        pair_density = self.pair_density_calc(kptpair, chiks.qpd)
+        n_tG = pair_density.get_global_array()
 
-        # Extract the ingredients from the KohnShamKPointPair
-        # Get bands and spins of the transitions
-        n1_t, n2_t, s1_t, s2_t = kptpair.get_transitions()
-        # Get (f_n'k's' - f_nks), (ε_n'k's' - ε_nks) as well as n_kt(G+q)
-        df_t, deps_t, n_tG = kptpair.df_t, kptpair.deps_t, kptpair.n_tG
+        # Extract the temporal ingredients from the KohnShamKPointPair
+        n1_t, n2_t, s1_t, s2_t = kptpair.get_transitions()  # band and spin
+        df_t = kptpair.df_t  # (f_n'k's' - f_nks)
+        deps_t = kptpair.deps_t  # (ε_n'k's' - ε_nks)
 
         # Calculate the frequency dependence of the integrand
         if chiks.spincomponent == '00' and self.gs.nspins == 1:

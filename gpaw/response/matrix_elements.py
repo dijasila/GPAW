@@ -1,3 +1,4 @@
+
 import numpy as np
 
 from gpaw.response import timer
@@ -5,7 +6,21 @@ from gpaw.response.paw import get_pair_density_paw_corrections
 from gpaw.response.kspair import KohnShamKPointPair
 
 
-class PlaneWavePairDensity:
+class PairDensity:
+    """Data class for transition distributed pair density arrays."""
+
+    def __init__(self, tblocks, n_mytG):
+        self.tblocks = tblocks
+        self.n_mytG = n_mytG
+
+    def get_global_array(self):
+        """Get the global (all gathered) pair density array n_tG."""
+        n_tG = self.tblocks.collect(self.n_mytG)
+
+        return n_tG
+
+
+class NewPairDensityCalculator:
     """Class for calculating pair densities
 
     n_kt(G+q) = n_nks,n'k+qs'(G+q) = <nks| e^-i(G+q)r |n'k+qs'>_V0
@@ -33,7 +48,7 @@ class PlaneWavePairDensity:
         return get_pair_density_paw_corrections(pawdatasets, qpd, spos_ac)
 
     @timer('Calculate pair density')
-    def __call__(self, kptpair: KohnShamKPointPair, qpd):
+    def __call__(self, kptpair: KohnShamKPointPair, qpd) -> PairDensity:
         """Calculate the pair densities for all transitions t of the (k,k+q)
         k-point pair:
 
@@ -69,8 +84,7 @@ class PlaneWavePairDensity:
                 n_mytG[:tblocks.nlocal] += np.sum(
                     C1_Gimyt * P2_imyt[np.newaxis, :, :], axis=1).T
 
-        # Attach the calculated pair density to the KohnShamKPointPair object
-        kptpair.attach('n_mytG', 'n_tG', n_mytG)
+        return PairDensity(tblocks, n_mytG)
 
     def get_paw_projectors(self, qpd):
         """Make sure PAW correction has been initialized properly
