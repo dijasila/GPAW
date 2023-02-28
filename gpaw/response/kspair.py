@@ -232,7 +232,7 @@ class KohnShamKPointPairExtractor:
         if a k-point in the given list, k_pc, belongs to the process.
         """
         # Extract the data from the ground state calculator object
-        data, h_myt, myt_myt = self._parallel_extract_kptdata(k_pc, n_t, s_t)
+        data, h_myt = self._parallel_extract_kptdata(k_pc, n_t, s_t)
 
         # If the process has a k-point to return, symmetrize and unfold
         if self.kpt_blockcomm.rank in range(len(k_pc)):
@@ -242,9 +242,8 @@ class KohnShamKPointPairExtractor:
             Ph, ut_hR, shift_c = self.transform_and_symmetrize(K, k_c, Ph,
                                                                psit_hG)
 
-            (eps_myt, f_myt,
-             P, ut_mytR) = self.unfold_arrays(eps_h, f_h, Ph, ut_hR,
-                                              h_myt, myt_myt)
+            eps_myt, f_myt, P, ut_mytR = self.unfold_arrays(
+                eps_h, f_h, Ph, ut_hR, h_myt)
 
             data = (K, eps_myt, f_myt, ut_mytR, P, shift_c)
 
@@ -262,7 +261,7 @@ class KohnShamKPointPairExtractor:
          myn_eueh, ik_r2,
          nrh_r2, eh_eur2reh,
          rh_eur2reh, h_r1rh,
-         h_myt, myt_myt) = self.get_extraction_protocol(k_pc, n_t, s_t)
+         h_myt) = self.get_extraction_protocol(k_pc, n_t, s_t)
 
         (eps_r1rh, f_r1rh,
          P_r1rhI, psit_r1rhG,
@@ -293,7 +292,7 @@ class KohnShamKPointPairExtractor:
         data = self.collect_kptdata(data, h_r1rh, eps_r1rh,
                                     f_r1rh, P_r1rhI, psit_r1rhG)
 
-        return data, h_myt, myt_myt
+        return data, h_myt
 
     @timer('Create data extraction protocol')
     def get_extraction_protocol(self, k_pc, n_t, s_t):
@@ -319,7 +318,6 @@ class KohnShamKPointPairExtractor:
         h_r1rh = [list([]) for _ in range(comm.size)]
 
         # h to t index mapping
-        myt_myt = np.arange(self.tblocks.nlocal)
         t_myt = self.tblocks.myslice
         n_myt, s_myt = n_t[t_myt], s_t[t_myt]
         h_myt = np.empty(self.tblocks.nlocal, dtype=int)
@@ -417,7 +415,7 @@ class KohnShamKPointPairExtractor:
                                 h_myt[thish_myt] = h
 
         return (data, myu_eu, myn_eueh, ik_r2, nrh_r2,
-                eh_eur2reh, rh_eur2reh, h_r1rh, h_myt, myt_myt)
+                eh_eur2reh, rh_eur2reh, h_r1rh, h_myt)
 
     def create_get_extraction_info(self):
         """Creator component of the extraction information factory."""
@@ -612,7 +610,7 @@ class KohnShamKPointPairExtractor:
         return (K, k_c, eps_h, f_h, Ph, psit_hG)
 
     @timer('Unfolding arrays')
-    def unfold_arrays(self, eps_h, f_h, Ph, ut_hR, h_myt, myt_myt):
+    def unfold_arrays(self, eps_h, f_h, Ph, ut_hR, h_myt):
         """Create transition data arrays from the composite h = (n, s) index"""
 
         gs = self.gs
@@ -624,6 +622,7 @@ class KohnShamKPointPairExtractor:
         ut_mytR = gs.gd.empty(mynt, gs.dtype)
 
         # Unfold k-point data
+        myt_myt = slice(self.tblocks.nlocal)
         eps_myt[myt_myt] = eps_h[h_myt]
         f_myt[myt_myt] = f_h[h_myt]
         P.array[myt_myt] = Ph.array[h_myt]
@@ -647,8 +646,8 @@ class KohnShamKPointPairExtractor:
             (_, T, a_a, U_aii, shift_c,
              time_reversal) = self.construct_symmetry_operators(K, k_c=k_c)
 
-            (myu_eu, myn_eurn, nh, h_eurn, h_myt,
-             myt_myt) = self.get_serial_extraction_protocol(ik, n_t, s_t)
+            (myu_eu, myn_eurn, nh,
+             h_eurn, h_myt) = self.get_serial_extraction_protocol(ik, n_t, s_t)
 
             # Allocate transfer arrays
             eps_h = np.empty(nh)
@@ -685,11 +684,10 @@ class KohnShamKPointPairExtractor:
                     I1, I2 = Ph.map[a2]
                     Ph.array[..., I1:I2] = P_hi
 
-            (eps_myt, f_myt,
-             P, ut_mytR) = self.unfold_arrays(eps_h, f_h, Ph, ut_hR,
-                                              h_myt, myt_myt)
+            eps_myt, f_myt, P, ut_mytR = self.unfold_arrays(
+                eps_h, f_h, Ph, ut_hR, h_myt)
 
-            return (K, eps_myt, f_myt, ut_mytR, P, shift_c)
+            return K, eps_myt, f_myt, ut_mytR, P, shift_c
 
     @timer('Create data extraction protocol')
     def get_serial_extraction_protocol(self, ik, n_t, s_t):
@@ -699,7 +697,6 @@ class KohnShamKPointPairExtractor:
         """
 
         # Only extract the transitions handled by the process itself
-        myt_myt = np.arange(self.tblocks.nlocal)
         t_myt = self.tblocks.myslice
         n_myt = n_t[t_myt]
         s_myt = s_t[t_myt]
@@ -735,7 +732,7 @@ class KohnShamKPointPairExtractor:
             myu_eu.append(myu)
             myn_eurn.append(myn_rn)
 
-        return myu_eu, myn_eurn, nh, h_eurn, h_myt, myt_myt
+        return myu_eu, myn_eurn, nh, h_eurn, h_myt
 
     @timer('Apply symmetry operations')
     def transform_and_symmetrize(self, K, k_c, Ph, psit_hG):
