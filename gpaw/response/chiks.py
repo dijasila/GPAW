@@ -271,7 +271,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
         """
         # Calculate the pair densities n_kt(G+q)
         pair_density = self.pair_density_calc(kptpair, chiks.qpd)
-        n_tG = pair_density.n_tG
+        n_tG = pair_density.get_global_array()
 
         # Extract the temporal ingredients from the KohnShamKPointPair
         n1_t, n2_t, s1_t, s2_t = kptpair.get_transitions()  # band and spin
