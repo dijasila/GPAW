@@ -271,7 +271,6 @@ class ChiKSCalculator(PairFunctionIntegrator):
         """
         # Calculate the pair densities n_kt(G+q)
         pair_density = self.pair_density_calc(kptpair, chiks.qpd)
-        n_tG = pair_density.n_tG
 
         # Extract the temporal ingredients from the KohnShamKPointPair
         # Get bands and spins of the transitions
@@ -279,7 +278,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
         # Get (f_n'k's' - f_nks), (ε_n'k's' - ε_nks)
         df_t, deps_t = kptpair.df_t, kptpair.deps_t
 
-        # Calculate the frequency dependence of the integrand
+        # Calculate the temporal part of the integrand
         if chiks.spincomponent == '00' and self.gs.nspins == 1:
             weight = 2 * weight
         x_Zt = weight * get_temporal_part(chiks.spincomponent,
@@ -287,6 +286,24 @@ class ChiKSCalculator(PairFunctionIntegrator):
                                           n1_t, n2_t, s1_t, s2_t,
                                           df_t, deps_t,
                                           self.bandsummation)
+
+        self._add_integrand(chiks, pair_density, x_Zt)
+
+    def _add_integrand(self, chiks, pair_density, x_Zt):
+        r"""Add the integrand to the chiks.
+
+        This entail performing a sum of transition t and an outer product
+        in the pair density plane wave components G and G',
+                    __
+                    \
+        (...)_k =   /  x_t^μν(ħz) n_kt(G+q) n_kt^*(G'+q)
+                    ‾‾
+                    t
+
+        where x_t^μν(ħz) is the temporal part of χ_KS,GG'^μν(q,ω+iη).
+        """
+        # To do: Move integration weight here! XXX
+        n_tG = pair_density.n_tG
 
         # Let each process handle its own slice of integration
         myslice = chiks.blocks1d.myslice
