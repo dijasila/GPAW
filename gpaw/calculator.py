@@ -52,11 +52,7 @@ from gpaw.wavefunctions.mode import create_wave_function_mode
 from gpaw.xc import XC
 from gpaw.xc.kernel import XCKernel
 from gpaw.xc.sic import SIC
-from gpaw.xc.hybrid import HybridXC
-from gpaw.xc.mgga import MGGA
 from gpaw import gpu
-
-import gpaw.xc
 
 
 class GPAW(Calculator):
@@ -771,11 +767,6 @@ class GPAW(Calculator):
             self.log('Non-collinear calculation.')
             self.log('Magnetic moment: ({:.6f}, {:.6f}, {:.6f})\n'
                      .format(*magmom_av.sum(0)))
-
-        if self.use_gpu and (isinstance(xc, HybridXC) or isinstance(xc, MGGA)
-                          or isinstance(xc, SIC)):
-            raise NotImplementedError('GPU support for HybridXC, MGGA and SIC '
-                                      'functionals is not implemented yet.')
 
         self.create_symmetry(magmom_av, cell_cv, reading)
 
