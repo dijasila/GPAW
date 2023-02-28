@@ -113,30 +113,28 @@ class ModeFollowingBase(object):
             get_dots = self.fixed_sp_order
         grad_par = np.zeros_like(grad)
         if self.fixed_sp_order is not None:
-            if neg_temp >= self.fixed_sp_order:
-                for i in range(get_dots):
-                    grad_par += self.eigvec[i] \
-                        * np.dot(self.eigvec[i].conj(), grad.T).real
-                #if True:
-                grad_mod = grad - 2.0 * grad_par
-                if self.was_convex:
-                    self.partial_diagonalizer.etdm.searchdir_algo.reset()
-                    self.was_convex = False
-            else:
-                for i in range(get_dots):
-                    if i >= neg_temp:
-                        grad_par += self.eigvec[i] \
-                            * np.dot(self.eigvec[i].conj(), grad.T).real
-                grad_mod = -self.convex_step_length * grad_par \
-                    / np.linalg.norm(grad_par)
-                self.partial_diagonalizer.etdm.searchdir_algo.reset()
-                self.was_convex = True
+            #if neg_temp >= self.fixed_sp_order:
+            for i in range(get_dots):
+                grad_par += self.eigvec[i] * np.dot(self.eigvec[i].conj(),
+                                                    grad.T).real
+            grad_mod = grad - 2.0 * grad_par
+            #if self.was_convex:
+            #    self.partial_diagonalizer.etdm.searchdir_algo.reset()
+            #    self.was_convex = False
+            #else:
+            #    for i in range(get_dots):
+            #        if i >= neg_temp:
+            #            grad_par += self.eigvec[i] \
+            #                * np.dot(self.eigvec[i].conj(), grad.T).real
+            #    grad_mod = -self.convex_step_length * grad_par \
+            #        / np.linalg.norm(grad_par)
+            #    self.partial_diagonalizer.etdm.searchdir_algo.reset()
+            #    self.was_convex = True
         else:
             for i in range(get_dots):
                 grad_par += self.eigvec[i] \
                     * np.dot(self.eigvec[i].conj(), grad.T).real
             if get_dots == 0:
-                #elif False:
                 grad_mod = -self.convex_step_length * grad_par \
                            / np.linalg.norm(grad_par)
                 self.partial_diagonalizer.etdm.searchdir_algo.reset()
