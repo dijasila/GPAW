@@ -57,13 +57,19 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
         else:
             coefficients = None
 
-        ibzwfs = self.create_ibz_wave_functions(basis, potential, coefficients)
+        ibzwfs = self.create_ibz_wave_functions(basis, potential,
+                                                coefficients=coefficients)
 
         # Set eigenvalues, occupations, etc..
         self.read_wavefunction_values(reader, ibzwfs)
         return ibzwfs
 
-    def create_ibz_wave_functions(self, basis, potential, coefficients=None):
+    def create_ibz_wave_functions(self,
+                                  basis,
+                                  potential,
+                                  *,
+                                  coefficients=None,
+                                  log=None):
         ibzwfs, _ = create_lcao_ibzwfs(
             basis, potential,
             self.ibz, self.communicators, self.setups,

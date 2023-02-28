@@ -117,6 +117,12 @@ class CuPyMPI:
             if rank == self.rank:
                 b[:] = cupy.asarray(c)
 
+    def broadcast(self, a, root):
+        if isinstance(a, np.ndarray):
+            self.comm.broadcast(a, root)
+            return
+        1 / 0
+
     def receive(self, a, rank, tag):
         b = np.empty(a.shape, a.dtype)
         self.comm.receive(b, rank, tag)
