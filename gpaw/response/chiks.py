@@ -281,16 +281,16 @@ class ChiKSCalculator(PairFunctionIntegrator):
         # Calculate the temporal part of the integrand
         if chiks.spincomponent == '00' and self.gs.nspins == 1:
             weight = 2 * weight
-        x_Zt = weight * get_temporal_part(chiks.spincomponent,
-                                          chiks.zd.hz_z,
-                                          n1_t, n2_t, s1_t, s2_t,
-                                          df_t, deps_t,
-                                          self.bandsummation)
+        x_Zt = get_temporal_part(chiks.spincomponent,
+                                 chiks.zd.hz_z,
+                                 n1_t, n2_t, s1_t, s2_t,
+                                 df_t, deps_t,
+                                 self.bandsummation)
 
-        self._add_integrand(chiks, pair_density, x_Zt)
+        self._add_integrand(pair_density, x_Zt, weight, chiks)
 
-    def _add_integrand(self, chiks, pair_density, x_Zt):
-        r"""Add the integrand to the chiks.
+    def _add_integrand(self, pair_density, x_Zt, weight, chiks):
+        r"""Add the integrand to chiks.
 
         This entail performing a sum of transition t and an outer product
         in the pair density plane wave components G and G',
@@ -302,7 +302,9 @@ class ChiKSCalculator(PairFunctionIntegrator):
 
         where x_t^μν(ħz) is the temporal part of χ_KS,GG'^μν(q,ω+iη).
         """
-        # To do: Move integration weight here! XXX
+        # Multiply the temporal part with the k-point integration weight
+        x_Zt *= weight
+        # Extract the global pair density array
         n_tG = pair_density.n_tG
 
         # Let each process handle its own slice of integration
