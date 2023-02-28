@@ -648,7 +648,7 @@ class KohnShamKPointPairExtractor:
         ut_mytR = gs.gd.empty(mynt, gs.dtype)
 
         # Unfold k-point data
-        myt_myt = np.arange(self.tblocks.nlocal)
+        myt_myt = slice(self.tblocks.nlocal)
         eps_myt[myt_myt] = eps_h[h_myt]
         f_myt[myt_myt] = f_h[h_myt]
         P.array[myt_myt] = Ph.array[h_myt]
