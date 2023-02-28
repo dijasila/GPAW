@@ -150,7 +150,8 @@ def write_input(calc,
     if len(bands) > Nw:
         ef = calc.get_fermi_level()
         print('fermi_energy  = %2.3f' % ef, file=f)
-        print('dis_froz_max  = %2.3f' % (ef + dis_froz_max), file=f)
+        if abs(dis_froz_max) > 0.0:
+            print('dis_froz_max  = %2.3f' % (ef + dis_froz_max), file=f)
         print('dis_num_iter  = %d' % dis_num_iter, file=f)
         print('dis_mix_ratio = %1.1f' % dis_mix_ratio, file=f)
     print(file=f)
