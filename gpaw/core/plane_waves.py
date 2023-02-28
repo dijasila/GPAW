@@ -397,15 +397,9 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         myng = pw.myshape[0]
         maxmyng = pw.maxmysize
 
-        ssize_r = np.zeros(comm.size, int)
-        ssize_r[:N] = myng
-        soffset_r = np.arange(comm.size) * myng
-        soffset_r[N:] = 0
-        roffset_r = (np.arange(comm.size) * maxmyng).clip(max=ng)
-        rsize_r = np.zeros(comm.size, int)
-        if comm.rank < N:
-            rsize_r[:-1] = roffset_r[1:] - roffset_r[:-1]
-            rsize_r[-1] = ng - roffset_r[-1]
+        ssize_r, soffset_r, rsize_r, roffset_r = a2a_stuff(
+            comm, N, ng, myng, maxmyng)
+
         comm.alltoallv(self.data, ssize_r, soffset_r,
                        out.data, rsize_r, roffset_r)
 
@@ -426,6 +420,27 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
             buf = self.xp.empty(self.desc.maxmysize, complex)
             comm.scatter(None, buf, 0)
             self.data[:] = buf[:len(self.data)]
+
+    def scatter_from_all(self, a_G):
+        """Scatter all coefs. from rank r to B_rG[r] on other cores."""
+        assert len(self.dims) == 1
+        pw = self.desc
+        comm = pw.comm
+        if comm.size == 1:
+            self.data[:] = a_G.data
+
+        N = len(self.dims[0])
+        assert N <= comm.size
+
+        ng = pw.shape[0]
+        myng = pw.myshape[0]
+        maxmyng = pw.maxmysize
+
+        rsize_r, roffset_r, ssize_r, soffset_r = a2a_stuff(
+            comm, N, ng, myng, maxmyng)
+
+        comm.alltoallv(a_G.data, ssize_r, soffset_r,
+                       self.data, rsize_r, roffset_r)
 
     def integrate(self, other: PlaneWaveExpansions = None) -> np.ndarray:
         """Integral of self or self time cc(other)."""
@@ -559,26 +574,18 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         pw.comm.broadcast(m_v, 0)
         return m_v
 
-    def alltoall2(self, a_G, q, b_rG):
-        """Scatter all coefs. from rank r to B_rG[r] on other cores."""
-        comm = self.gd.comm
-        if comm.size == 1:
-            b_rG[0] += a_G
-            return
-        N = len(b_rG)
-        ng = self.ng_q[q]
-        rsize_r = np.zeros(comm.size, int)
-        rsize_r[:N] = self.myng_q[q]
-        roffset_r = np.arange(comm.size) * self.myng_q[q]
-        roffset_r[N:] = 0
-        soffset_r = (np.arange(comm.size) * self.maxmyng).clip(max=ng)
-        ssize_r = np.zeros(comm.size, int)
-        if comm.rank < N:
-            ssize_r[:-1] = soffset_r[1:] - soffset_r[:-1]
-            ssize_r[-1] = ng - soffset_r[-1]
-        tmp_rG = self.tmp_G[:b_rG.size].reshape(b_rG.shape)
-        comm.alltoallv(a_G, ssize_r, soffset_r, tmp_rG, rsize_r, roffset_r)
-        b_rG += tmp_rG
+
+def a2a_stuff(comm, N, ng, myng, maxmyng):
+    ssize_r = np.zeros(comm.size, int)
+    ssize_r[:N] = myng
+    soffset_r = np.arange(comm.size) * myng
+    soffset_r[N:] = 0
+    roffset_r = (np.arange(comm.size) * maxmyng).clip(max=ng)
+    rsize_r = np.zeros(comm.size, int)
+    if comm.rank < N:
+        rsize_r[:-1] = roffset_r[1:] - roffset_r[:-1]
+        rsize_r[-1] = ng - roffset_r[-1]
+    return ssize_r, soffset_r, rsize_r, roffset_r
 
 
 class Empty:
