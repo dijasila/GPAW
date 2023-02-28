@@ -611,7 +611,7 @@ def _gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
 
 
 if not hasattr(_gpaw, 'mmm'):
-    def rk(alpha, a, beta, c, trans='c'):  # noqa
+    def rk(alpha, a, beta, c, trans='c', use_gpu=None):  # noqa
         if c.size == 0:
             return
         if beta == 0:
@@ -624,7 +624,7 @@ if not hasattr(_gpaw, 'mmm'):
             a = a.reshape((len(a), -1))
             c += alpha * a.dot(a.conj().T)
 
-    def r2k(alpha, a, b, beta, c, trans='c'):  # noqa
+    def r2k(alpha, a, b, beta, c, trans='c', use_gpu=None):  # noqa
         if c.size == 0:
             return
         if beta == 0.0:
