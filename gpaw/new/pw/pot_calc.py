@@ -3,6 +3,7 @@ from gpaw.core import PlaneWaves
 from gpaw.new.pot_calc import PotentialCalculator
 from gpaw.setup import Setups
 from gpaw.mpi import broadcast_float
+from gpaw.gpu import cupy as cp
 
 
 class PlaneWavePotentialCalculator(PotentialCalculator):
@@ -34,6 +35,9 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         self.pw0 = pw.new(comm=None)  # not distributed
 
         self.h_g, self.g_r = fine_pw.map_indices(self.pw0)
+        if xp is cp:
+            self.h_g = cp.asarray(self.h_g)
+            self.g_r = [cp.asarray(g) for g in self.g_r]
 
         self.fftplan = grid.fft_plans(xp=xp)
         self.fftplan2 = fine_grid.fft_plans(xp=xp)
@@ -102,7 +106,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                 else:
                     pw.comm.send(nt0_g.data[g], rank)
         else:
-            data = np.empty(len(self.h_g), complex)
+            data = self.xp.empty(len(self.h_g), complex)
             pw.comm.receive(data, 0)
             charge_h.data[self.h_g] += data
 
@@ -117,7 +121,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                 if rank == 0:
                     vt0_g.data[g] += vHt_h.data[self.h_g]
                 else:
-                    data = np.empty(len(g), complex)
+                    data = self.xp.empty(len(g), complex)
                     pw.comm.receive(data, rank)
                     vt0_g.data[g] += data
             vt0_R = vt0_g.ifft(plan=self.fftplan,

@@ -156,7 +156,6 @@ class PWFDWaveFunctions(WaveFunctions):
             return
         psit_nX = self.psit_nX
         domain_comm = psit_nX.desc.comm
-
         P_ani = self.P_ani
 
         P2_ani = P_ani.new()

@@ -2,8 +2,8 @@ import pytest
 
 import _gpaw
 from gpaw.gpu import cupy as cp
+from gpaw.gpu.mpi import CuPyMPI
 import gpaw.mpi as mpi
-from gpaw.new.ibzwfs import CuPyMPI
 
 
 @pytest.mark.gpu
