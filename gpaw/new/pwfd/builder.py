@@ -59,7 +59,7 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
 
         return ibzwfs
 
-    def create_ibz_wave_functions(self, basis, potential, log):
+    def create_ibz_wave_functions(self, basis, potential, *, log):
         from gpaw.new.lcao.builder import create_lcao_ibzwfs
 
         if self.params.random:
