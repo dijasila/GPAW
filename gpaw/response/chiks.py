@@ -318,7 +318,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
         chiks_ZgG = chiks.array
         myslice = chiks.blocks1d.myslice
 
-        with self.context.timer('Set up ncc and nx'):
+        with self.context.timer('Set up ncc and xn'):
             # Multiply the temporal part with the k-point integration weight
             x_Zt *= weight
 
@@ -330,7 +330,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
             n_gt = np.ascontiguousarray(n_tG[:, myslice].T)
             xn_Zgt = x_Zt[:, np.newaxis, :] * n_gt[np.newaxis, :, :]
 
-        with self.context.timer('Perform sum over t-transitions of ncc * nx'):
+        with self.context.timer('Perform sum over t-transitions of xn * ncc'):
             for xn_gt, chiks_gG in zip(xn_Zgt, chiks_ZgG):
                 mmmx(1.0, xn_gt, 'N', ncc_tG, 'N', 1.0, chiks_gG)  # slow step
 
@@ -344,7 +344,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
         chiks_GZg = chiks.array
         myslice = chiks.blocks1d.myslice
 
-        with self.context.timer('Set up ncc and nx'):
+        with self.context.timer('Set up ncc and xn'):
             # Multiply the temporal part with the k-point integration weight
             x_tZ = np.ascontiguousarray(weight * x_Zt.T)
 
@@ -357,7 +357,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
             n_tg = n_tG[:, myslice]
             xn_tZg = x_tZ[:, :, np.newaxis] * n_tg[:, np.newaxis, :]
 
-        with self.context.timer('Perform sum over t-transitions of ncc * nx'):
+        with self.context.timer('Perform sum over t-transitions of ncc * xn'):
             mmmx(1.0, ncc_Gt, 'N', xn_tZg, 'N', 1.0, chiks_GZg)  # slow step
 
     @timer('Symmetrizing chiks')
