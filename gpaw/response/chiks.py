@@ -309,7 +309,12 @@ class ChiKSCalculator(PairFunctionIntegrator):
             raise ValueError(f'Invalid distribution {chiks.distribution}')
 
     def _add_integrand_ZgG(self, pair_density, x_Zt, weight, chiks):
-        """Add integrand in 'GZg' distribution."""
+        """Add integrand in ZgG distribution.
+
+        Z = global complex frequency index
+        g = distributed G plane wave index
+        G = global G' plane wave index
+        """
         chiks_ZgG = chiks.array
         myslice = chiks.blocks1d.myslice
 
@@ -330,7 +335,12 @@ class ChiKSCalculator(PairFunctionIntegrator):
                 mmmx(1.0, xn_gt, 'N', ncc_tG, 'N', 1.0, chiks_gG)  # slow step
 
     def _add_integrand_GZg(self, pair_density, x_Zt, weight, chiks):
-        """Add integrand in 'GZg' distribution."""
+        """Add integrand in GZg distribution.
+
+        G = global G' plane wave index
+        Z = global complex frequency index
+        g = distributed G plane wave index
+        """
         chiks_GZg = chiks.array
         myslice = chiks.blocks1d.myslice
 
