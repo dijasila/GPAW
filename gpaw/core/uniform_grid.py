@@ -618,7 +618,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         if out is None:
             if grid is None:
                 raise ValueError('Please specify "grid" or "out".')
-            out = grid.empty()
+            out = grid.empty(xp=self.xp)
 
         if not out.desc.pbc_c.all() or not self.desc.pbc_c.all():
             raise ValueError('Grids must have pbc=True!')
@@ -692,12 +692,12 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
             return
 
         a_xR = self.gather()
-        if self.xp is not np:
-            a_xR = a_xR.to_xp(np)
 
         if a_xR is None:
             b_xR = None
         else:
+            if self.xp is not np:
+                a_xR = a_xR.to_xp(np)
             b_xR = a_xR.new()
             t_sc = (translation_sc * self.desc.size_c).round().astype(int)
             offset_c = 1 - self.desc.pbc_c
@@ -705,9 +705,8 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
                 b_R[:] = 0.0
                 for r_cc, t_c in zip(rotation_scc, t_sc):
                     _gpaw.symmetrize_ft(a_R, b_R, r_cc, t_c, offset_c)
-
-        if self.xp is not np:
-            b_xR = b_xR.to_xp(self.xp)
+            if self.xp is not np:
+                b_xR = b_xR.to_xp(self.xp)
         self.scatter_from(b_xR)
 
         self.data *= 1.0 / len(rotation_scc)
@@ -740,6 +739,8 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         rho_ij = rho_ijk.sum(axis=2)
         rho_ik = rho_ijk.sum(axis=1)
         rho_cr = [rho_ij.sum(axis=1), rho_ij.sum(axis=0), rho_ik.sum(axis=0)]
+        if self.xp is not np:
+            rho_cr = [rho_r.get() for rho_r in rho_cr]
 
         d_c = [index_r @ rho_r for index_r, rho_r in zip(index_cr, rho_cr)]
         d_v = (d_c / ug.size_c) @ ug.cell_cv * self.dv

@@ -228,8 +228,9 @@ class TBDFTComponentsBuilder(LCAODFTComponentsBuilder):
     def create_ibz_wave_functions(self,
                                   basis: BasisFunctions,
                                   potential,
-                                  coefficients=None,
-                                  log=None):
+                                  *,
+                                  log=None,
+                                  coefficients=None):
         assert self.communicators['w'].size == 1
 
         ibzwfs, tciexpansions = create_lcao_ibzwfs(

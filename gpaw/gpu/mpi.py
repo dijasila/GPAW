@@ -37,6 +37,17 @@ class CuPyMPI:
             if rank == self.rank:
                 b[:] = cp.asarray(c)
 
+    def scatter(self, fro, to, root=0):
+        if isinstance(fro, np.ndarray):
+            1 / 0
+        b = np.empty(to.shape, to.dtype)
+        if self.rank == root:
+            a = fro.get()
+        else:
+            a = None
+        self.comm.scatter(a, b, root)
+        to[:] = cp.asarray(b)
+
     def broadcast(self, a, root):
         if isinstance(a, np.ndarray):
             self.comm.broadcast(a, root)
@@ -45,7 +56,7 @@ class CuPyMPI:
         self.comm.broadcast(b, root)
         a[:] = cp.asarray(b)
 
-    def receive(self, a, rank, tag=1):
+    def receive(self, a, rank, tag=0):
         b = np.empty(a.shape, a.dtype)
         self.comm.receive(b, rank, tag)
         a[:] = cp.asarray(b)
@@ -61,6 +72,9 @@ class CuPyMPI:
 
     def wait(self, request):
         self.comm.wait(request.request)
+
+    def get_c_object(self):
+        return self.comm.get_c_object()
 
 
 class CuPyRequest:

@@ -68,8 +68,8 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
                                   basis,
                                   potential,
                                   *,
-                                  coefficients=None,
-                                  log=None):
+                                  log=None,
+                                  coefficients=None):
         ibzwfs, _ = create_lcao_ibzwfs(
             basis, potential,
             self.ibz, self.communicators, self.setups,

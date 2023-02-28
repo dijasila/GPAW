@@ -116,10 +116,8 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
             psit_nX = desc.empty(
                 dims=(self.nbands,),
                 comm=self.communicators['b'],
-                xp=np)
+                xp=self.xp)
             psit_nX.randomize()
-            eig_n = np.empty(self.nbands)
-            eig_n[:] = np.inf
 
             wfs = PWFDWaveFunctions(
                 psit_nX=psit_nX,
@@ -131,6 +129,9 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
                 fracpos_ac=self.fracpos_ac,
                 atomdist=self.atomdist,
                 ncomponents=self.ncomponents)
+
+            eig_n = self.xp.empty(self.nbands)
+            eig_n[:] = np.inf
             wfs._eig_n = eig_n
             return wfs
 

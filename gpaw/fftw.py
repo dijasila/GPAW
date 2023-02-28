@@ -261,9 +261,6 @@ class CuPyFFTPlans(FFTPlans):
             t[n:0:-1, -m:] = t[-n:, m:0:-1].conj()
             t[-n:, -m:] = t[n:0:-1, m:0:-1].conj()
             t[-n:, 0] = t[n:0:-1, 0].conj()
-            print(array_Q.shape)
-            print(array_R.shape)
-            print(out_R)
             array_R[:] = cupyx.scipy.fft.irfftn(
                 array_Q, out_R.desc.global_shape(),
                 norm='forward', overwrite_x=True)

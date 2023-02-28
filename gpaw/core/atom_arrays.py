@@ -317,7 +317,7 @@ class AtomArrays:
         if comm.rank == 0:
             size_ra, size_r = self.layout.sizes()
             shape = self.mydims + (size_r.max(),)
-            buffer = np.empty(shape, self.layout.dtype)
+            buffer = self.layout.xp.empty(shape, self.layout.dtype)
             for rank in range(1, comm.size):
                 buf = buffer[..., :size_r[rank]]
                 comm.receive(buf, rank)

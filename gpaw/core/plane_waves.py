@@ -392,7 +392,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
             data = pad(data, comm.size * self.desc.maxmysize)
             comm.scatter(data, self.data, 0)
         else:
-            buf = np.empty(self.desc.maxmysize, complex)
+            buf = self.xp.empty(self.desc.maxmysize, complex)
             comm.scatter(None, buf, 0)
             self.data[:] = buf[:len(self.data)]
 
@@ -505,7 +505,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
     def randomize(self) -> None:
         """Insert random numbers between -0.5 and 0.5 into data."""
         seed = [self.comm.rank, self.desc.comm.rank]
-        rng = np.random.default_rng(seed)
+        rng = self.xp.random.default_rng(seed)
         a = self.data.view(float)
         rng.random(a.shape, out=a)
         a -= 0.5
