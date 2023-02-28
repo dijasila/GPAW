@@ -378,6 +378,37 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
 
         return out if not isinstance(out, Empty) else None
 
+    def gather_all(self, out):
+        """Gather coefficients from self[r] on rank r.
+
+        On rank r, an array of all G-vector coefficients will be returned.
+        These will be gathered from self[r] on all the cores.
+        """
+        assert len(self.dims) == 1
+        pw = self.desc
+        comm = pw.comm
+        if comm.size == 1:
+            return self[0]
+
+        N = len(self.dims[0])
+        assert N <= comm.size
+
+        ng = pw.shape[0]
+        myng = pw.myshape[0]
+        maxmyng = pw.maxmysize
+
+        ssize_r = np.zeros(comm.size, int)
+        ssize_r[:N] = myng
+        soffset_r = np.arange(comm.size) * myng
+        soffset_r[N:] = 0
+        roffset_r = (np.arange(comm.size) * maxmyng).clip(max=ng)
+        rsize_r = np.zeros(comm.size, int)
+        if comm.rank < N:
+            rsize_r[:-1] = roffset_r[1:] - roffset_r[:-1]
+            rsize_r[-1] = ng - roffset_r[-1]
+        comm.alltoallv(self.data, ssize_r, soffset_r,
+                       out.data, rsize_r, roffset_r)
+
     def scatter_from(self, data: Array1D = None) -> None:
         """Scatter data from rank-0 to all ranks."""
         comm = self.desc.comm
@@ -528,6 +559,27 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         pw.comm.broadcast(m_v, 0)
         return m_v
 
+    def alltoall2(self, a_G, q, b_rG):
+        """Scatter all coefs. from rank r to B_rG[r] on other cores."""
+        comm = self.gd.comm
+        if comm.size == 1:
+            b_rG[0] += a_G
+            return
+        N = len(b_rG)
+        ng = self.ng_q[q]
+        rsize_r = np.zeros(comm.size, int)
+        rsize_r[:N] = self.myng_q[q]
+        roffset_r = np.arange(comm.size) * self.myng_q[q]
+        roffset_r[N:] = 0
+        soffset_r = (np.arange(comm.size) * self.maxmyng).clip(max=ng)
+        ssize_r = np.zeros(comm.size, int)
+        if comm.rank < N:
+            ssize_r[:-1] = soffset_r[1:] - soffset_r[:-1]
+            ssize_r[-1] = ng - soffset_r[-1]
+        tmp_rG = self.tmp_G[:b_rG.size].reshape(b_rG.shape)
+        comm.alltoallv(a_G, ssize_r, soffset_r, tmp_rG, rsize_r, roffset_r)
+        b_rG += tmp_rG
+
 
 class Empty:
     def __init__(self, dims):
@@ -607,3 +659,5 @@ def find_reciprocal_vectors(ecut: float,
     G_plus_k = G_plus_k_Qv[mask]
 
     return G_plus_k, ekin, indices.T
+
+

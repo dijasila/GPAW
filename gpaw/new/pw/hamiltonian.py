@@ -10,22 +10,26 @@ class PWHamiltonian(Hamiltonian):
     def apply(self,
               vt_sR: UniformGridFunctions,
               psit_nG: PlaneWaveExpansions,
-              out: PlaneWaveExpansions,
+              out_nG: PlaneWaveExpansions,
               spin: int):
-        out_nG = out
-        vt_R = vt_sR.data[spin]
+        vt_R = vt_sR[spin].gather(broadcast=True)
         xp = psit_nG.xp
         e_kin_G = xp.asarray(psit_nG.desc.ekin_G)
-        xp.multiply(e_kin_G, psit_nG.data, out_nG.data)
-        grid = vt_sR.desc
-        if psit_nG.desc.dtype == complex:
-            grid = grid.new(dtype=complex)
-        f_R = grid.empty(xp=xp)
-        for p_G, o_G in zip(psit_nG, out_nG):
-            f_R = p_G.ifft(out=f_R)
-            f_R.data *= vt_R
-            o_G.data += f_R.fft(pw=p_G.desc).data
-        return out_nG
+        xp.multiply(, psit_nG.data, out_nG.data)
+        grid = vt_R.desc.new(comm=None, dtype=psit_nG.desc.dtype)
+        tmp_R = grid.empty(xp=xp)
+        psit_G = psit_nG.desc.new(comm=None).empty()
+        domain_comm = psit_nG.desc.comm
+        mynbands = psit_nG.mydims[0]
+        for n1 in range(0, mynbands, domain_comm.size):
+            n2 = min(n1 + domain_comm.size, mynbands)
+            psit_nG[n1:n2].gather_all(psit_G)
+            psit_G.ifft(out=tmp_R)
+            tmp_R.data *= vt_R.data
+            vtpsit_G = tmp_R.fft(pw=psit_G.desc)
+            psit_G.data *= e_kin_G
+            vtpsit_G.data += psit_G.data
+            out_nG[n1:n2].scatter_from_all(vtpsit_G)
 
     def create_preconditioner(self, blocksize):
         return precondition
