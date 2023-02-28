@@ -318,7 +318,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
             x_Zt *= weight
 
             # Set up n_kt^*(G'+q)
-            n_tG = pair_density.n_tG
+            n_tG = pair_density.get_global_array()
             ncc_tG = n_tG.conj()
 
             # Set up x_t^μν(ħz) n_kt(G+q)
@@ -339,7 +339,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
             x_tZ = np.ascontiguousarray(weight * x_Zt.T)
 
             # Set up n_kt^*(G'+q)
-            n_tG = pair_density.n_tG
+            n_tG = pair_density.get_global_array()
             n_Gt = np.ascontiguousarray(n_tG.T)
             ncc_Gt = n_Gt.conj()
 
