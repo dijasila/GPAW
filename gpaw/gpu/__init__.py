@@ -111,29 +111,3 @@ def T():
     synchronize()
     t2 = time()
     print(f'{(t2 - t1) * 1e9:_.3f} ns')
-
-
-from gpaw.gpu import backends
-
-backend = backends.HostBackend()
-array = backend.array
-
-
-def old_setup(enabled=False):
-    global backend
-    global array
-
-    if enabled:
-        from gpaw.gpu.cuda import CUDA
-        backend = CUDA()
-    else:
-        backend = backends.HostBackend()
-    array = backend.array
-
-    return backend
-
-
-def old_init(rank=0):
-    global backend
-
-    backend.init(rank)
