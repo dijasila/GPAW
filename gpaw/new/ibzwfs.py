@@ -8,7 +8,8 @@ from ase.dft.bandgap import bandgap
 from ase.io.ulm import Writer
 from ase.units import Bohr, Ha
 
-import gpaw.gpu as gpu
+from gpaw.gpu import synchronize
+from gpaw.gpu.mpi import CuPyMPI
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new.brillouin import IBZ
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
@@ -82,7 +83,7 @@ class IBZWaveFunctions:
 
         if self.wfs_qs[0][0].xp is not np:
             if not getattr(_gpaw, 'gpu_aware_mpi', False):
-                self.kpt_comm = gpu.CuPyMPI(self.kpt_comm)
+                self.kpt_comm = CuPyMPI(self.kpt_comm)
 
     def get_max_shape(self, global_shape: bool = False) -> tuple[int, ...]:
         """Find the largest wave function array shape.
@@ -179,7 +180,7 @@ class IBZWaveFunctions:
         and ``D_asii``."""
         for wfs in self:
             wfs.add_to_density(nt_sR, D_asii)
-        gpu.synchronize()
+        synchronize()
         self.kpt_comm.sum(nt_sR.data)
         self.kpt_comm.sum(D_asii.data)
 
