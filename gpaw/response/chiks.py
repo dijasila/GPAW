@@ -302,36 +302,36 @@ class ChiKSCalculator(PairFunctionIntegrator):
 
         where x_t^μν(ħz) is the temporal part of χ_KS,GG'^μν(q,ω+iη).
         """
-        # Extract the global pair density array
-        n_tG = pair_density.n_tG
-
-        # Let each process handle its own slice of integration
-        myslice = chiks.blocks1d.myslice
-
-        if chiks.distribution == 'GZg':
+        if chiks.distribution == 'ZgG':
+            self._add_integrand_ZgG(pair_density, x_Zt, weight, chiks)
+        elif chiks.distribution == 'GZg':
             self._add_integrand_GZg(pair_density, x_Zt, weight, chiks)
-        elif chiks.distribution == 'ZgG':
-            # Specify notation
-            chiks_ZgG = chiks.array
-
-            # Multiply the temporal part with the k-point integration weight
-            x_Zt *= weight
-
-            with self.context.timer('Set up ncc and nx'):
-                ncc_tG = n_tG.conj()
-                n_gt = np.ascontiguousarray(n_tG[:, myslice].T)
-                nx_Zgt = x_Zt[:, np.newaxis, :] * n_gt[np.newaxis, :, :]
-
-            with self.context.timer('Perform sum over t-transitions of '
-                                    'ncc * nx'):
-                for nx_gt, chiks_gG in zip(nx_Zgt, chiks_ZgG):
-                    mmmx(1.0, nx_gt, 'N', ncc_tG, 'N',
-                         1.0, chiks_gG)  # slow step
         else:
             raise ValueError(f'Invalid distribution {chiks.distribution}')
 
+    def _add_integrand_ZgG(self, pair_density, x_Zt, weight, chiks):
+        """Add integrand in 'GZg' distribution."""
+        chiks_ZgG = chiks.array
+        myslice = chiks.blocks1d.myslice
+
+        with self.context.timer('Set up ncc and nx'):
+            # Multiply the temporal part with the k-point integration weight
+            x_Zt *= weight
+
+            # Set up n_kt^*(G'+q)
+            n_tG = pair_density.n_tG
+            ncc_tG = n_tG.conj()
+
+            # Set up x_t^μν(ħz) n_kt(G+q)
+            n_gt = np.ascontiguousarray(n_tG[:, myslice].T)
+            xn_Zgt = x_Zt[:, np.newaxis, :] * n_gt[np.newaxis, :, :]
+
+        with self.context.timer('Perform sum over t-transitions of ncc * nx'):
+            for xn_gt, chiks_gG in zip(xn_Zgt, chiks_ZgG):
+                mmmx(1.0, xn_gt, 'N', ncc_tG, 'N', 1.0, chiks_gG)  # slow step
+
     def _add_integrand_GZg(self, pair_density, x_Zt, weight, chiks):
-        """Add integrand in 'GZg' distribution"""
+        """Add integrand in 'GZg' distribution."""
         chiks_GZg = chiks.array
         myslice = chiks.blocks1d.myslice
 
