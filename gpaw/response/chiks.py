@@ -273,10 +273,9 @@ class ChiKSCalculator(PairFunctionIntegrator):
         pair_density = self.pair_density_calc(kptpair, chiks.qpd)
 
         # Extract the temporal ingredients from the KohnShamKPointPair
-        # Get bands and spins of the transitions
-        n1_t, n2_t, s1_t, s2_t = kptpair.get_transitions()
-        # Get (f_n'k's' - f_nks), (ε_n'k's' - ε_nks)
-        df_t, deps_t = kptpair.df_t, kptpair.deps_t
+        n1_t, n2_t, s1_t, s2_t = kptpair.get_transitions()  # band and spin
+        df_t = kptpair.df_t  # (f_n'k's' - f_nks)
+        deps_t = kptpair.deps_t  # (ε_n'k's' - ε_nks)
 
         # Calculate the temporal part of the integrand
         if chiks.spincomponent == '00' and self.gs.nspins == 1:

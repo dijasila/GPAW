@@ -13,10 +13,11 @@ class PairDensity:
         self.tblocks = tblocks
         self.n_mytG = n_mytG
 
-    @property
-    def n_tG(self):
-        """Global (all gathered) pair density array."""
-        return self.tblocks.collect(self.n_mytG)
+    def get_global_array(self):
+        """Get the global (all gathered) pair density array n_tG."""
+        n_tG = self.tblocks.collect(self.n_mytG)
+
+        return n_tG
 
 
 class NewPairDensityCalculator:
