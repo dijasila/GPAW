@@ -37,7 +37,7 @@ class LocalFTCalculator(ABC):
     where V0 is the unit-cell volume.
     """
 
-    def __init__(self, gs, context):
+    def __init__(self, gs, context, bg_density=None):
         """Constructor for the LocalFTCalculator
 
         Parameters
@@ -46,14 +46,25 @@ class LocalFTCalculator(ABC):
             Adapter containing relevant information about the underlying DFT
             ground state
         context : ResponseContext
+        bg_density : float
+            Spin-neutral background electron density (in Å^-3) to add to the
+            actual electron density in order to regularize functions which
+            diverge in vacuum.
         """
         assert isinstance(gs, ResponseGroundStateAdapter)
         self.gs = gs
         assert isinstance(context, ResponseContext)
         self.context = context
 
+        if bg_density is None:
+            self.bg_density = None
+        else:
+            assert isinstance(bg_density, float)
+            # Convert to atomic units
+            self.bg_density = bg_density * Bohr**3.  # Å^-3 -> Bohr^-3
+
     @staticmethod
-    def from_rshe_parameters(gs, context,
+    def from_rshe_parameters(gs, context, bg_density=None,
                              rshelmax=-1, rshewmin=None):
         """Construct the LocalFTCalculator based on parameters for the
         expansion of the PAW correction in real spherical harmonics
@@ -73,9 +84,9 @@ class LocalFTCalculator(ABC):
             will not be included.
         """
         if rshelmax is None:
-            return LocalGridFTCalculator(gs, context)
+            return LocalGridFTCalculator(gs, context, bg_density=bg_density)
         else:
-            return LocalPAWFTCalculator(gs, context,
+            return LocalPAWFTCalculator(gs, context, bg_density=bg_density,
                                         rshelmax=rshelmax, rshewmin=rshewmin)
 
     @timer('LocalFT')
@@ -131,6 +142,13 @@ class LocalFTCalculator(ABC):
 
         assert self.equivalent_real_space_grids(gd, gdref)
 
+        if self.bg_density is not None:
+            # Add spin-neutral background electron density
+            self.context.print('    Adding a background a background electron '
+                               f'density of {self.bg_density / Bohr**3.} Å^-3')
+            n_sR = n_sR.copy()  # Make a copy in order not to modify gs
+            n_sR += self.bg_density / n_sR.shape[0]
+
         return n_sR
 
     def get_gridrefinement(self, gd):
@@ -177,8 +195,9 @@ class LocalGridFTCalculator(LocalFTCalculator):
 
 class LocalPAWFTCalculator(LocalFTCalculator):
 
-    def __init__(self, gs, context, rshelmax=-1, rshewmin=None):
-        super().__init__(gs, context)
+    def __init__(self, gs, context, bg_density=None,
+                 rshelmax=-1, rshewmin=None):
+        super().__init__(gs, context, bg_density=bg_density)
 
         self.engine = LocalPAWFTEngine(self.context, rshelmax, rshewmin)
 
@@ -221,19 +240,19 @@ class LocalPAWFTCalculator(LocalFTCalculator):
         -------
         micro_setup : MicroSetup
         """
-        setup = self.gs.setups[a]
+        pawdata = self.gs.pawdatasets[a]
         # Radial grid descriptor:
-        rgd = setup.xc_correction.rgd
+        rgd = pawdata.xc_correction.rgd
         # Spherical harmonics on the Lebedev quadrature:
-        Y_nL = setup.xc_correction.Y_nL
+        Y_nL = pawdata.xc_correction.Y_nL
 
         D_sp = self.gs.D_asp[a]  # atomic density matrix
-        n_sLg, nt_sLg = self.calculate_atom_centered_densities(setup, D_sp)
+        n_sLg, nt_sLg = self.calculate_atom_centered_densities(pawdata, D_sp)
 
         return MicroSetup(rgd, Y_nL, n_sLg, nt_sLg)
 
     @staticmethod
-    def calculate_atom_centered_densities(setup, D_sp):
+    def calculate_atom_centered_densities(pawdata, D_sp):
         """Calculate the all-electron and pseudo densities inside the
         augmentation sphere.
 
@@ -245,12 +264,12 @@ class LocalPAWFTCalculator(LocalFTCalculator):
             pseudo density
         (s=spin, L=(l,m) spherical harmonic index, g=radial grid index)
         """
-        n_qg = setup.xc_correction.n_qg
-        nt_qg = setup.xc_correction.nt_qg
-        nc_g = setup.xc_correction.nc_g
-        nct_g = setup.xc_correction.nct_g
+        n_qg = pawdata.xc_correction.n_qg
+        nt_qg = pawdata.xc_correction.nt_qg
+        nc_g = pawdata.xc_correction.nc_g
+        nct_g = pawdata.xc_correction.nct_g
 
-        B_pqL = setup.xc_correction.B_pqL
+        B_pqL = pawdata.xc_correction.B_pqL
         D_sLq = np.inner(D_sp, B_pqL.T)
         nspins = len(D_sp)
 
@@ -362,14 +381,14 @@ class LocalPAWFTEngine:
             self._add_paw_correction(a, R_v, micro_setup,
                                      G_myG, G_myGv, fPAW_G)
 
-        self.context.world.sum(fPAW_G)
+        self.context.comm.sum(fPAW_G)
 
         return fPAW_G
 
     def _distribute_correction(self, nG):
-        world = self.context.world
-        nGpr = (nG + world.size - 1) // world.size
-        Ga = min(world.rank * nGpr, nG)
+        comm = self.context.comm
+        nGpr = (nG + comm.size - 1) // comm.size
+        Ga = min(comm.rank * nGpr, nG)
         Gb = min(Ga + nGpr, nG)
 
         return range(Ga, Gb)

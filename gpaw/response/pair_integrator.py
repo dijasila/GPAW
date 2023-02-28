@@ -6,9 +6,10 @@ from ase.units import Hartree
 from gpaw.utilities.progressbar import ProgressBar
 
 from gpaw.response import timer
-from gpaw.response.kspair import KohnShamPair
+from gpaw.response.kspair import (KohnShamKPointPair,
+                                  KohnShamKPointPairExtractor)
 from gpaw.response.pw_parallelization import block_partition
-from gpaw.response.pair_functions import SingleQPWDescriptor
+from gpaw.response.pair_functions import SingleQPWDescriptor, PairFunction
 
 
 class PairFunctionIntegrator(ABC):
@@ -102,15 +103,15 @@ class PairFunctionIntegrator(ABC):
          self.intrablockcomm) = self.create_communicators(nblocks)
         self.nblocks = self.blockcomm.size
 
-        # The KohnShamPair class handles extraction of k-point pairs from the
-        # ground state
-        self.kspair = KohnShamPair(self.gs, self.context,
-                                   # Distribution of work.
-                                   # t-transitions are distributed through
-                                   # blockcomm, k-points through
-                                   # intrablockcomm.
-                                   transitionblockscomm=self.blockcomm,
-                                   kptblockcomm=self.intrablockcomm)
+        # The KohnShamKPointPairExtractor class handles extraction of k-point
+        # pairs from the ground state
+        self.kptpair_extractor = KohnShamKPointPairExtractor(
+            self.gs, self.context,
+            # Distribution of work:
+            # t-transitions are distributed through blockcomm,
+            # k-points through intrablockcomm.
+            transition_blockcomm=self.blockcomm,
+            kpt_blockcomm=self.intrablockcomm)
 
         # Symmetry flags
         self.disable_point_group = disable_point_group
@@ -123,7 +124,7 @@ class PairFunctionIntegrator(ABC):
             self.disable_symmetries = False
 
     @timer('Integrate pair function')
-    def _integrate(self, out, n1_t, n2_t, s1_t, s2_t):
+    def _integrate(self, out: PairFunction, n1_t, n2_t, s1_t, s2_t):
         """In-place pair function integration
 
         Parameters
@@ -147,7 +148,7 @@ class PairFunctionIntegrator(ABC):
         analyzer = self.get_pw_symmetry_analyzer(out.qpd)
         
         # Perform the actual integral as a point integral over k-point pairs
-        integral = KPointPairPointIntegral(self.kspair, analyzer)
+        integral = KPointPairPointIntegral(self.kptpair_extractor, analyzer)
         weighted_kptpairs = integral.weighted_kpoint_pairs(n1_t, n2_t,
                                                            s1_t, s2_t)
         pb = ProgressBar(self.context.fd)  # pb with a generator is awkward
@@ -169,7 +170,8 @@ class PairFunctionIntegrator(ABC):
         return analyzer
 
     @abstractmethod
-    def add_integrand(self, kptpair, weight, out):
+    def add_integrand(self, kptpair: KohnShamKPointPair, weight,
+                      out: PairFunction):
         """Add the relevant integrand of the outer k-point integral to the
         output data structure 'out', weighted by 'weight' and constructed
         from the provided KohnShamKPointPair 'kptpair'.
@@ -195,7 +197,7 @@ class PairFunctionIntegrator(ABC):
             Communicate between processes belonging to different memory blocks.
             In every communicator, there is one process for each block of
             memory, so that all blocks are represented.
-            If nblocks < world.size, there will be size // nblocks different
+            If nblocks < comm.size, there will be size // nblocks different
             processes that allocate memory for the same block of the large
             arrays. Thus, there will be also size // nblocks different block
             communicators, grouping the processes into sets that allocate the
@@ -204,8 +206,8 @@ class PairFunctionIntegrator(ABC):
             Communicate between processes belonging to the same memory block.
             There will be size // nblocks processes per memory block.
         """
-        world = self.context.world
-        blockcomm, intrablockcomm = block_partition(world, nblocks)
+        comm = self.context.comm
+        blockcomm, intrablockcomm = block_partition(comm, nblocks)
 
         return blockcomm, intrablockcomm
 
@@ -251,8 +253,8 @@ class PairFunctionIntegrator(ABC):
         nspins = self.gs.nspins
         nbands = nbands or self.gs.bd.nbands
         assert nbands <= self.gs.bd.nbands
-        nocc1 = self.kspair.nocc1
-        nocc2 = self.kspair.nocc2
+        nocc1 = self.kptpair_extractor.nocc1
+        nocc2 = self.kptpair_extractor.nocc2
 
         n1_M, n2_M = get_band_transitions_domain(bandsummation, nbands,
                                                  nocc1=nocc1,
@@ -269,12 +271,12 @@ class PairFunctionIntegrator(ABC):
         """Get basic information about the ground state and parallelization."""
         nspins = self.gs.nspins
         nbands = self.gs.bd.nbands
-        nocc1 = self.kspair.nocc1
-        nocc2 = self.kspair.nocc2
+        nocc1 = self.kptpair_extractor.nocc1
+        nocc2 = self.kptpair_extractor.nocc2
         nk = self.gs.kd.nbzkpts
         nik = self.gs.kd.nibzkpts
 
-        wsize = self.context.world.size
+        csize = self.context.comm.size
         knsize = self.intrablockcomm.size
         bsize = self.blockcomm.size
 
@@ -289,7 +291,7 @@ class PairFunctionIntegrator(ABC):
         s += '    Number of irredicible kpoints: %d\n' % nik
         s += '\n'
         s += 'The pair function integration is performed in parallel with:\n'
-        s += '    world.size: %d\n' % wsize
+        s += '    comm.size: %d\n' % csize
         s += '    intrablockcomm.size: %d\n' % knsize
         s += '    blockcomm.size: %d\n' % bsize
 
@@ -478,20 +480,20 @@ class KPointPairIntegral(ABC):
     PWSymmetryAnalyzer in gpaw.response.symmetry.
     """
 
-    def __init__(self, kspair, analyzer):
+    def __init__(self, kptpair_extractor, analyzer):
         """Construct a KPointPairIntegral corresponding to a given q-point.
 
         Parameters
         ----------
-        kspair : KohnShamPair
+        kptpair_extractor : KohnShamKPointPairExtractor
             Object responsible for extracting all relevant information about
             the k-point pairs from the underlying ground state calculation.
         analyzer : PWSymmetryAnalyzer
             Object responsible for analyzing the symmetries of the q-point in
             question, for which the k-point pair integral is constructed.
         """
-        self.gs = kspair.gs
-        self.kspair = kspair
+        self.gs = kptpair_extractor.gs
+        self.kptpair_extractor = kptpair_extractor
         self.q_c = analyzer.qpd.q_c
 
         # Prepare the k-point pair integral
@@ -560,9 +562,8 @@ class KPointPairIntegral(ABC):
                 integral_weight = None
             else:
                 integral_weight = prefactor * weight
-            kptpair = self.kspair.get_kpoint_pairs(n1_t, n2_t,
-                                                   k_pc, k_pc + self.q_c,
-                                                   s1_t, s2_t)
+            kptpair = self.kptpair_extractor.get_kpoint_pairs(
+                n1_t, n2_t, k_pc, k_pc + self.q_c, s1_t, s2_t)
             yield kptpair, integral_weight
 
     @abstractmethod
@@ -586,7 +587,7 @@ class KPointPairIntegral(ABC):
         bzk_ipc : nd.array
             k-points (relative) coordinates for each process for each iteration
         """
-        comm = self.kspair.kptblockcomm
+        comm = self.kptpair_extractor.kpt_blockcomm
         rank, size = comm.rank, comm.size
 
         nk = bzk_kc.shape[0]

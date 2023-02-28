@@ -7,17 +7,22 @@ Python wrapper for FFTW3 library
 """
 from __future__ import annotations
 
+import weakref
+from types import ModuleType
+
 import numpy as np
 from scipy.fft import fftn, ifftn, irfftn, rfftn
 
 import _gpaw
-from gpaw.typing import Array3D, DTypeLike, IntVector
 from gpaw import SCIPY_VERSION
+from gpaw.typing import Array1D, Array3D, DTypeLike, IntVector
 
 ESTIMATE = 64
 MEASURE = 0
 PATIENT = 32
 EXHAUSTIVE = 8
+
+_plan_cache: dict[tuple, weakref.ReferenceType] = {}
 
 
 def have_fftw() -> bool:
@@ -72,24 +77,38 @@ def empty(shape, dtype=float):
 def create_plans(size_c: IntVector,
                  dtype: DTypeLike,
                  flags: int = MEASURE,
-                 xp=np) -> FFTPlans:
+                 xp: ModuleType = np) -> FFTPlans:
     """Create plan-objects for FFT and inverse FFT."""
+    key = (tuple(size_c), dtype, flags, xp)
+    # Look up weakref to plan:
+    if key in _plan_cache:
+        plan = _plan_cache[key]()
+        # Check if plan is still "alive":
+        if plan is not None:
+            return plan
+    # Create new plan:
     if xp is not np:
-        return CuPyFFTPlans(size_c, dtype)
-    if have_fftw():
-        return FFTWPlans(size_c, dtype, flags)
-    return NumpyFFTPlans(size_c, dtype)
+        plan = CuPyFFTPlans(size_c, dtype)
+    elif have_fftw():
+        plan = FFTWPlans(size_c, dtype, flags)
+    else:
+        plan = NumpyFFTPlans(size_c, dtype)
+    _plan_cache[key] = weakref.ref(plan)
+    return plan
 
 
 class FFTPlans:
     def __init__(self,
                  size_c: IntVector,
-                 dtype: DTypeLike):
+                 dtype: DTypeLike,
+                 empty=empty):
+        self.shape: tuple[int, ...]
         if dtype == float:
-            rsize_c = (size_c[0], size_c[1], size_c[2] // 2 + 1)
-            self.tmp_Q = empty(rsize_c, complex)
+            self.shape = (size_c[0], size_c[1], size_c[2] // 2 + 1)
+            self.tmp_Q = empty(self.shape, complex)
             self.tmp_R = self.tmp_Q.view(float)[:, :, :size_c[2]]
         else:
+            self.shape = tuple(size_c)
             self.tmp_Q = empty(size_c, complex)
             self.tmp_R = self.tmp_Q
 
@@ -175,33 +194,75 @@ class CuPyFFTPlans(FFTPlans):
     def __init__(self,
                  size_c: IntVector,
                  dtype: DTypeLike):
-        assert dtype == complex
-        self.size_c = size_c
-        self.pw = None
+        from gpaw.core.plane_waves import PlaneWaves
+        from gpaw.gpu import cupy as cp
+        self.dtype = dtype
+        super().__init__(size_c, dtype, empty=cp.empty)
+        self.Q_G_cache: dict[PlaneWaves, Array1D] = {}
+
+    def fft(self):
+        from gpaw.gpu import cupyx
+        if self.tmp_R.dtype == float:
+            self.tmp_Q[:] = cupyx.scipy.fft.rfftn(self.tmp_R)
+        else:
+            self.tmp_Q[:] = cupyx.scipy.fft.fftn(self.tmp_R)
+
+    def ifft(self):
+        from gpaw.gpu import cupyx
+        if self.tmp_R.dtype == float:
+            self.tmp_R[:] = cupyx.scipy.fft.irfftn(
+                self.tmp_Q, self.tmp_R.shape,
+                norm='forward',
+                overwrite_x=True)
+        else:
+            self.tmp_R[:] = cupyx.scipy.fft.ifftn(
+                self.tmp_Q, self.tmp_R.shape,
+                norm='forward',
+                overwrite_x=True)
 
     def indices(self, pw):
         from gpaw.gpu import cupy as cp
-        if self.pw is None:
-            self.pw = pw
-            self.Q_G = cp.asarray(pw.indices(tuple(self.size_c)))
-        else:
-            assert pw is self.pw
-        return self.Q_G
+        Q_G = self.Q_G_cache.get(pw)
+        if Q_G is None:
+            Q_G = cp.asarray(pw.indices(self.shape))
+            self.Q_G_cache[pw] = Q_G
+        return Q_G
 
     def ifft_sphere(self, coef_G, pw, out_R):
         from gpaw.gpu import cupyx
-        array_Q = out_R.data
+        if self.dtype == complex:
+            array_Q = out_R.data
+        else:
+            array_Q = self.tmp_Q
+
         array_Q[:] = 0.0
         Q_G = self.indices(pw)
         array_Q.ravel()[Q_G] = coef_G
+
         assert SCIPY_VERSION >= [1, 6]
-        array_Q[:] = cupyx.scipy.fft.ifftn(
-            array_Q, array_Q.shape,
+        if self.dtype == complex:
+            array_Q[:] = cupyx.scipy.fft.ifftn(
+                array_Q, array_Q.shape,
+                norm='forward', overwrite_x=True)
+            return
+
+        # We need a GPU kernel for this stuff:
+        t = array_Q[:, :, 0]
+        n, m = (s // 2 - 1 for s in out_R.desc.size_c[:2])
+        t[0, -m:] = t[0, m:0:-1].conj()
+        t[n:0:-1, -m:] = t[-n:, m:0:-1].conj()
+        t[-n:, -m:] = t[n:0:-1, m:0:-1].conj()
+        t[-n:, 0] = t[n:0:-1, 0].conj()
+        out_R.data[:] = cupyx.scipy.fft.irfftn(
+            array_Q, out_R.data.shape,
             norm='forward', overwrite_x=True)
 
     def fft_sphere(self, in_R, pw):
         from gpaw.gpu import cupyx
-        out_Q = cupyx.scipy.fft.fftn(in_R, overwrite_x=True)
+        if self.dtype == complex:
+            out_Q = cupyx.scipy.fft.fftn(in_R)
+        else:
+            out_Q = cupyx.scipy.fft.rfftn(in_R)
         Q_G = self.indices(pw)
         coef_G = out_Q.ravel()[Q_G] * (1 / in_R.size)
         return coef_G

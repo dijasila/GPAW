@@ -93,7 +93,7 @@ class PairDensityCalculator:
 
         self.threshold = threshold
 
-        self.blockcomm, self.kncomm = block_partition(self.context.world,
+        self.blockcomm, self.kncomm = block_partition(self.context.comm,
                                                       nblocks)
         self.nblocks = nblocks
         self.ut_sKnvR = None  # gradient of wave functions for optical limit
@@ -356,7 +356,7 @@ class PairDensityCalculator:
         k_v = 2 * np.pi * np.dot(k_c, np.linalg.inv(gd.cell_cv).T)
 
         ut_vR = self.ut_sKnvR[kpt1.s][kpt1.K][n - kpt1.n1]
-        atomdata_a = self.gs.setups
+        atomdata_a = self.gs.pawdatasets
         C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[n - kpt1.na])
                  for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
 
@@ -419,7 +419,7 @@ class PairDensityCalculator:
         gd = self.gs.gd
         k_c = kd.bzk_kc[kpt.K] + kpt.shift_c
         k_v = 2 * np.pi * np.dot(k_c, np.linalg.inv(gd.cell_cv).T)
-        atomdata_a = self.gs.setups
+        atomdata_a = self.gs.pawdatasets
 
         # Break bands into degenerate chunks
         degchunks_cn = []  # indexing c as chunk number
@@ -453,7 +453,8 @@ class PairDensityCalculator:
             for n in range(deg):
                 ut_vR = ut_nvR[n]
                 C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[ind_n[n] - na])
-                         for atomdata, P_ni in zip(atomdata_a, kpt.P_ani)]
+                         for atomdata, P_ni in zip(atomdata_a,
+                                                   kpt.P_ani)]
 
                 nabla0_nv = -self.gs.gd.integrate(ut_vR, ut_nR).T
                 nt_n = self.gs.gd.integrate(ut_nR[n], ut_nR)
@@ -523,7 +524,7 @@ def get_gs_and_context(calc, txt, world, timer):
     from gpaw.calculator import GPAW as OldGPAW
     from gpaw.new.ase_interface import ASECalculator as NewGPAW
 
-    context = ResponseContext(txt=txt, timer=timer, world=world)
+    context = ResponseContext(txt=txt, timer=timer, comm=world)
 
     if isinstance(calc, (OldGPAW, NewGPAW)):
         assert calc.wfs.world.size == 1

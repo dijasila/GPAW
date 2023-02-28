@@ -458,11 +458,15 @@ static PyObject* moduleinit(void)
                            PyUnicode_FromString(xc_version_string()));
 # endif
 #endif
+#ifdef GPAW_GPU_AWARE_MPI
+    PyObject_SetAttrString(m, "gpu_aware_mpi", Py_True);
+#endif
 #ifdef _OPENMP
     PyObject_SetAttrString(m, "have_openmp", Py_True);
 #else
     PyObject_SetAttrString(m, "have_openmp", Py_False);
 #endif
+    // Version number of C-code.  Keep in sync with gpaw/__init__.py
     PyObject_SetAttrString(m, "version", PyLong_FromLong(3));
 
     Py_INCREF(&LFCType);

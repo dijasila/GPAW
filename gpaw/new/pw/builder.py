@@ -1,8 +1,5 @@
-import os
 from math import pi
-from types import ModuleType
 
-import numpy as np
 from ase.units import Ha
 from gpaw.core import PlaneWaves, UniformGrid
 from gpaw.core.domain import Domain
@@ -63,7 +60,7 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
                             cell=self.grid.cell,
                             comm=self.grid.comm)
             self._nct_ag = self.setups.create_pseudo_core_densities(
-                pw, self.fracpos_ac, self.atomdist)
+                pw, self.fracpos_ac, self.atomdist, xp=self.xp)
         return self._nct_ag
 
     def create_poisson_solver(self, fine_pw, params):
@@ -87,7 +84,8 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
                                             self.xc,
                                             poisson_solver,
                                             nct_ag, self.nct_R,
-                                            self.soc)
+                                            self.soc,
+                                            self.xp)
 
     def create_hamiltonian_operator(self, blocksize=10):
         if self.ncomponents < 4:
@@ -105,14 +103,7 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
 
         grid = self.grid.new(kpt=kpt_c, dtype=self.dtype)
         pw = self.wf_desc.new(kpt=kpt_c)
-        xp: ModuleType
-        if self.params.parallel['gpu']:
-            from gpaw.gpu import cupy, cupy_is_fake
-            assert not cupy_is_fake or os.environ.get('GPAW_CPUPY')
-            xp = cupy
-        else:
-            xp = np
-        psit_nG = pw.empty(self.nbands, self.communicators['b'], xp)
+        psit_nG = pw.empty(self.nbands, self.communicators['b'], self.xp)
 
         if self.dtype == complex:
             emikr_R = grid.eikr(-kpt_c)

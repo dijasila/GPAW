@@ -102,6 +102,8 @@ def gpw_files(request, tmp_path_factory):
 
     * MoS2 with 6x6x1 k-points: ``mos2_pw``
 
+    * NiCl2 with 6x6x1 k-points: ``nicl2_pw``
+
     * Bulk Si, LDA, 2x2x2 k-points (gamma centered): ``si_pw``
 
     * Bulk Fe, LDA, 4x4x4 k-points, 6 converged bands: ``fe_pw``
@@ -201,12 +203,10 @@ class GPWFiles:
         atoms.calc = GPAW(xc='LDA',
                           txt=self.path / 'h2_bcc_afm.txt',
                           mode=PW(250),
+                          nbands=4,
                           kpts={'density': 2.0, 'gamma': True})
         atoms.get_potential_energy()
-
-        nbands = 4
-        calc = atoms.calc.fixed_density(nbands=nbands)
-        return calc
+        return atoms.calc
 
     def h_pw(self):
         h = Atoms('H', magmoms=[1])
@@ -386,15 +386,49 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
+    def nicl2_pw(self):
+        from ase.build import mx2
+
+        # Define input parameters
+        xc = 'LDA'
+        kpts = 6
+        pw = 300
+        occw = 0.01
+        conv = {'density': 1.e-8,
+                'forces': 1.e-8}
+
+        a = 3.502
+        thickness = 2.617
+        vacuum = 3.0
+        mm = 2.0
+
+        # Set up atoms
+        atoms = mx2(formula='NiCl2', kind='1T', a=a,
+                    thickness=thickness, vacuum=vacuum)
+        atoms.set_initial_magnetic_moments([mm, 0.0, 0.0])
+
+        # Set up calculator
+        atoms.calc = GPAW(
+            xc=xc,
+            mode=PW(pw),
+            kpts={'size': (kpts, kpts, 1), 'gamma': True},
+            occupations=FermiDirac(occw),
+            convergence=conv,
+            txt=self.path / 'nicl2_pw.txt')
+
+        atoms.get_potential_energy()
+
+        return atoms.calc
+
     def fe_pw(self):
+        """See also the fe_fixture_test.py test."""
         xc = 'LDA'
         kpts = 4
-        nbands = 6
+        nbands = 9  # 4s, 4p, 3d = 9
         pw = 300
         occw = 0.01
         conv = {'bands': nbands,
-                'density': 1.e-8,
-                'forces': 1.e-8}
+                'density': 1.e-8}
         a = 2.867
         mm = 2.21
         atoms = bulk('Fe', 'bcc', a=a)
@@ -405,13 +439,12 @@ class GPWFiles:
             xc=xc,
             mode=PW(pw),
             kpts={'size': (kpts, kpts, kpts)},
-            nbands=nbands + 4,
+            nbands=18,
             occupations=FermiDirac(occw),
             convergence=conv,
             txt=self.path / 'fe_pw.txt')
 
         atoms.get_potential_energy()
-
         return atoms.calc
 
     def ag_plusU_pw(self):
@@ -434,6 +467,7 @@ class GPWFiles:
             nbands=nbands,
             occupations=FermiDirac(occw),
             convergence=conv,
+            parallel={'domain': 1},
             txt=self.path / 'ag_pw.txt')
 
         atoms.get_potential_energy()
@@ -453,6 +487,16 @@ class GPAWPlugin:
         from gpaw.mpi import size
         terminalreporter.section('GPAW-MPI stuff')
         terminalreporter.write(f'size: {size}\n')
+
+
+@pytest.fixture
+def sg15_hydrogen():
+    from io import StringIO
+    from gpaw.test.pseudopotential.H_sg15 import pp_text
+    from gpaw.upf import read_sg15
+    # We can't easily load a non-python file from the test suite.
+    # Therefore we load the pseudopotential from a Python file.
+    return read_sg15(StringIO(pp_text))
 
 
 def pytest_configure(config):

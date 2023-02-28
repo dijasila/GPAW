@@ -1,19 +1,71 @@
 from typing import Tuple
 
 import numpy as np
+import ase.units as units
 
 from gpaw.typing import Array2D, ArrayLike2D
 from gpaw.utilities import pack2, unpack2
 
 
-def hubbard(setup,
+def parse_hubbard_string(type: str) -> Tuple[str, 'HubbardU']:
+
+    # Parse DFT+U parameters from type-string:
+    # Examples: "type:l,U" or "type:l,U,scale"
+    type, lus = type.split(':')
+    if type == '':
+        type = 'paw'
+
+    l = []
+    U = []
+    scale = []
+
+    for lu in lus.split(';'):  # Multiple U corrections
+        l_, u_, scale_ = (lu + ',,').split(',')[:3]
+        l.append('spdf'.find(l_))
+        U.append(float(u_) / units.Hartree)
+        if scale_:
+            scale.append(bool(int(scale_)))
+        else:
+            scale.append(True)
+    return type, HubbardU(U, l, scale)
+
+
+class HubbardU:
+    def __init__(self, U, l, scale=1):
+        self.scale = scale
+        self.U = U
+        self.l = l
+
+    def _tuple(self):
+        # Tests use this method to compare to expected values
+        return (self.l, self.U, self.scale)
+
+    def calculate(self, setup, D_sp):
+        e_xc = 0.0
+        dH_sp = np.zeros_like(D_sp)
+        for l, U, scale in zip(self.l, self.U, self.scale):
+            e1_xc, dH1_sp = hubbard(
+                setup.l_j, setup.lq, D_sp,
+                l=l, U=U, scale=scale)
+
+            e_xc += e1_xc
+            dH_sp += dH1_sp
+        return e_xc, dH_sp
+
+    def descriptions(self):
+        for U, l, scale in zip(self.U, self.l, self.scale):
+            yield f'Hubbard: {{U: {U * units.Ha},  # eV\n'
+            yield f'          l: {l},\n'
+            yield f'          scale: {bool(scale)}}}'
+
+
+def hubbard(l_j, lq,
             D_sp,
             l: int,
             U: float,
             scale: bool) -> Tuple[float, ArrayLike2D]:
     nspins = len(D_sp)
 
-    l_j = setup.l_j
     nl = np.where(np.equal(l_j, l))[0]
     nn = (2 * np.array(l_j) + 1)[0:nl[0]].sum()
 
@@ -22,7 +74,7 @@ def hubbard(setup,
 
     s = 0
     for D_p in D_sp:
-        N_mm, V = aoom(setup, unpack2(D_p), l, scale)
+        N_mm, V = aoom(l_j, lq, unpack2(D_p), l, scale)
         N_mm = N_mm / 2 * nspins
 
         if nspins == 4:
@@ -64,7 +116,7 @@ def hubbard(setup,
     return e_xc, dH_sp
 
 
-def aoom(setup,
+def aoom(l_j, lq,
          DM: Array2D,
          l: int,
          scale: bool = True) -> Tuple[Array2D, Array2D]:
@@ -82,9 +134,6 @@ def aoom(setup,
     which represents the orbital occupation matrix for l=2 this is
     a 5x5 matrix.
     """
-    S = setup
-    l_j = S.l_j
-    lq = S.lq
     nl = np.where(np.equal(l_j, l))[0]
     V = np.zeros(np.shape(DM))
     if len(nl) == 2:

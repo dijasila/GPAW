@@ -162,7 +162,7 @@ class BSEBackend:
         self.pair = PairDensityCalculator(
             gs=self.gs,
             context=ResponseContext(txt='pair.txt', timer=None,
-                                    world=serial_comm))
+                                    comm=serial_comm))
 
         # Calculate direct (screened) interaction and PAW corrections
         if self.mode == 'RPA':
@@ -396,7 +396,7 @@ class BSEBackend:
                 self.pawcorr_q = [
                     PWPAWCorrectionData(
                         Q_aGii, qpd=qpd,
-                        setups=self.gs.setups,
+                        pawdatasets=self.gs.pawdatasets,
                         pos_av=self.gs.get_pos_av())
                     for Q_aGii, qpd in zip(data['Q'], self.qpd_q)]
                 self.W_qGG = data['W']
@@ -444,7 +444,7 @@ class BSEBackend:
         if self._chi0calc is None:
             self.initialize_chi0_calculator()
         if self._wcalc is None:
-            wcontext = ResponseContext(txt='w.txt', world=world)
+            wcontext = ResponseContext(txt='w.txt', comm=world)
             self._wcalc = initialize_w_calculator(
                 self._chi0calc, wcontext,
                 coulomb=self.coulomb,
@@ -453,7 +453,7 @@ class BSEBackend:
         self.context.print('Calculating screened potential')
         for iq, q_c in enumerate(self.qd.ibzk_kc):
             chi0 = self._chi0calc.calculate(q_c)
-            W_wGG = self._wcalc.calculate(chi0, out_dist='WgG')
+            W_wGG = self._wcalc.calculate_W_wGG(chi0)
             W_GG = W_wGG[0]
             self.pawcorr_q.append(self._chi0calc.pawcorr)
             self.qpd_q.append(chi0.qpd)
@@ -919,7 +919,7 @@ class BSE(BSEBackend):
             the BSE Hamiltonian. Should match spin, k-points and
             valence/conduction bands
         truncation: str or None
-            Coulomb truncation scheme. Can be None, wigner-seitz, or 2D.
+            Coulomb truncation scheme. Can be None or 2D.
         integrate_gamma: int
             Method to integrate the Coulomb interaction. 1 is a numerical
             integration at all q-points with G=[0,0,0] - this breaks the

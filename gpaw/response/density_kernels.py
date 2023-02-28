@@ -57,17 +57,17 @@ def calculate_lr_kernel(qpd, alpha=0.2):
 def get_bootstrap_kernel(qpd, chi0_wGG, context):
     """ Bootstrap kernel (see below) """
 
-    if context.world.rank == 0:
+    if context.comm.rank == 0:
         chi0_GG = chi0_wGG[0]
-        if context.world.size > 1:
+        if context.comm.size > 1:
             # If size == 1, chi0_GG is not contiguous, and broadcast()
             # will fail in debug mode.  So we skip it until someone
             # takes a closer look.
-            context.world.broadcast(chi0_GG, 0)
+            context.comm.broadcast(chi0_GG, 0)
     else:
         nG = qpd.ngmax
         chi0_GG = np.zeros((nG, nG), complex)
-        context.world.broadcast(chi0_GG, 0)
+        context.comm.broadcast(chi0_GG, 0)
 
     return calculate_bootstrap_kernel(qpd, chi0_GG, context)
 
