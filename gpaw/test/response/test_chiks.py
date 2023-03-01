@@ -76,6 +76,7 @@ def test_transverse_chiks_symmetry(in_tmp_dir, gpw_files,
     # Calculation parameters (which should not affect the result)
     disable_syms_s = [True, False]
     bandsummation_b = ['double', 'pairwise']
+    bundle_integrals_i = [True, False]
 
     if world.size % 4 == 0:
         nblocks = 4
@@ -108,40 +109,46 @@ def test_transverse_chiks_symmetry(in_tmp_dir, gpw_files,
     # Set up complex frequency descriptor
     zd = ComplexFrequencyDescriptor.from_array(complex_frequencies)
 
-    chiks_sbq = []
+    chiks_sbiq = []
     for disable_syms in disable_syms_s:
-        chiks_bq = []
+        chiks_biq = []
         for bandsummation in bandsummation_b:
-            chiks_calc = ChiKSCalculator(gs,
-                                         ecut=ecut, nbands=nbands,
-                                         gammacentered=gammacentered,
-                                         disable_time_reversal=disable_syms,
-                                         disable_point_group=disable_syms,
-                                         bandsummation=bandsummation,
-                                         nblocks=nblocks)
+            chiks_iq = []
+            for bundle_integrals in bundle_integrals_i:
+                chiks_q = []
 
-            chiks_q = []
-            for q_c in q_qc:
-                chiks = chiks_calc.calculate('+-', q_c, zd)
-                chiks = chiks.copy_with_global_frequency_distribution()
-                chiks_q.append(chiks)
+                chiks_calc = ChiKSCalculator(
+                    gs, ecut=ecut, nbands=nbands,
+                    gammacentered=gammacentered,
+                    disable_time_reversal=disable_syms,
+                    disable_point_group=disable_syms,
+                    bandsummation=bandsummation,
+                    bundle_integrals=bundle_integrals,
+                    nblocks=nblocks)
 
-            chiks_bq.append(chiks_q)
-        chiks_sbq.append(chiks_bq)
+                for q_c in q_qc:
+                    chiks = chiks_calc.calculate('+-', q_c, zd)
+                    chiks = chiks.copy_with_global_frequency_distribution()
+                    chiks_q.append(chiks)
+
+                chiks_iq.append(chiks_q)
+            chiks_biq.append(chiks_iq)
+        chiks_sbiq.append(chiks_biq)
 
     # Part 2: Check reciprocity and inversion symmetry
-    for chiks_bq in chiks_sbq:
-        for chiks_q in chiks_bq:
-            check_reciprocity_and_inversion_symmetry(chiks_q, rtol=rtol)
+    for chiks_biq in chiks_sbiq:
+        for chiks_iq in chiks_biq:
+            for chiks_q in chiks_iq:
+                check_reciprocity_and_inversion_symmetry(chiks_q, rtol=rtol)
 
     # Part 3: Check toggling of calculation parameters
 
     # Check that all plane wave representations are identical
-    sb_s = [(0, 0), (0, 1), (1, 0), (1, 1)]
-    for s, sb1 in enumerate(sb_s):
-        for sb2 in sb_s[s + 1:]:
-            for chiks1, chiks2 in zip(chiks_sbq[sb1[0]][sb1[1]],
-                                      chiks_sbq[sb2[0]][sb2[1]]):
+    sbi_s = list(product([0, 1], [0, 1], [0, 1]))
+    for s, sbi1 in enumerate(sbi_s):
+        for sbi2 in sbi_s[s + 1:]:
+            for chiks1, chiks2 in zip(chiks_sbiq[sbi1[0]][sbi1[1]][sbi1[2]],
+                                      chiks_sbiq[sbi2[0]][sbi2[1]][sbi2[2]]):
                 qpd1, qpd2 = chiks1.qpd, chiks2.qpd
                 G1_Gc = get_pw_coordinates(qpd1)
                 G2_Gc = get_pw_coordinates(qpd2)
@@ -150,17 +157,21 @@ def test_transverse_chiks_symmetry(in_tmp_dir, gpw_files,
 
     # Check symmetry toggle
     for b in range(2):
-        chiks1_q = chiks_sbq[0][b]
-        chiks2_q = chiks_sbq[1][b]
-        for chiks1, chiks2 in zip(chiks1_q, chiks2_q):
-            assert chiks2.array == pytest.approx(chiks1.array, rel=dsym_rtol)
+        for i in range(2):
+            chiks1_q = chiks_sbiq[0][b][i]
+            chiks2_q = chiks_sbiq[1][b][i]
+            for chiks1, chiks2 in zip(chiks1_q, chiks2_q):
+                assert chiks2.array == pytest.approx(chiks1.array,
+                                                     rel=dsym_rtol)
 
     # Check bandsummation toggle
     for s in range(2):
-        chiks1_q = chiks_sbq[s][0]
-        chiks2_q = chiks_sbq[s][1]
-        for chiks1, chiks2 in zip(chiks1_q, chiks2_q):
-            assert chiks2.array == pytest.approx(chiks1.array, rel=bsum_rtol)
+        for i in range(2):
+            chiks1_q = chiks_sbiq[s][0][i]
+            chiks2_q = chiks_sbiq[s][1][i]
+            for chiks1, chiks2 in zip(chiks1_q, chiks2_q):
+                assert chiks2.array == pytest.approx(chiks1.array,
+                                                     rel=bsum_rtol)
 
 
 # ---------- Test functionality ---------- #
