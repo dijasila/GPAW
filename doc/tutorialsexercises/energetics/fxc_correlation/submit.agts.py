@@ -13,8 +13,10 @@ def workflow():
         run(script='CO.ralda_03_C_rapbe.py', cores=40, tmax='20h')
         run(script='CO.ralda_04_O_rapbe.py', cores=40, tmax='20h')
         with run(script='diamond.ralda_01_pbe.py', cores=16, tmax='1h'):
-            with run(script='diamond.ralda_02_rapbe_rpa.py', cores=40, tmax='6h'):
-                run(script='diamond.ralda_03_extrapolate.py', cores=1, tmax='1m')
+            with run(script='diamond.ralda_02_rapbe_rpa.py',
+                     cores=40, tmax='6h'):
+                run(script='diamond.ralda_03_extrapolate.py',
+                    cores=1, tmax='1m')
                 run(script='CO.ralda_05_extrapolate.py', cores=1, tmax='1m')
     with run(script='diam_kern.ralda_01_lda.py', cores=8, tmax='1m'):
         with run(script='diam_kern.ralda_02_ralda_dens.py',

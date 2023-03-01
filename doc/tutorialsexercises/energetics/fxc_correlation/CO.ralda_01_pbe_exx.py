@@ -4,7 +4,6 @@ from gpaw import GPAW, FermiDirac
 from gpaw.mixer import MixerSum
 from gpaw.hybrids.energy import non_self_consistent_energy as nsc_energy
 from gpaw import PW
-from gpaw.test import equal
 
 # CO
 

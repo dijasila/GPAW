@@ -2,9 +2,9 @@ from gpaw.utilities.extrapolate import extrapolate
 from gpaw.test import equal
 import numpy as np
 
-E_pbe, E_hf = np.genfromtxt('diamond.ralda.PBE_HF_diamond.dat')[:,1]
+E_pbe, E_hf = np.genfromtxt('diamond.ralda.PBE_HF_diamond.dat')[:, 1]
 equal(E_pbe, -7.75, 0.01)
-equal(E_hf, -5.17, 0.01) 
+equal(E_hf, -5.17, 0.01)
 
 a = np.loadtxt('diamond.ralda.rpa.dat')
 b = np.loadtxt('CO.ralda_rpa_C.dat')
