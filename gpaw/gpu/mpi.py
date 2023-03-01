@@ -64,7 +64,10 @@ class CuPyMPI:
         a[:] = cp.asarray(b)
 
     def ssend(self, a, rank, tag):
-        self.comm.send(a.get(), rank, tag)
+        if isinstance(a, np.ndarray):
+            self.comm.ssend(a, rank, tag)
+        else:
+            self.comm.ssend(a.get(), rank, tag)
 
     def send(self, a, rank, tag=0, block=True):
         if isinstance(a, np.ndarray):
