@@ -119,6 +119,7 @@ class DistributedArrays(Generic[DomainType]):
             symmetric = self is other
         if function:
             other = function(other)
+
         M1 = self.matrix
         M2 = other.matrix
         out = M1.multiply(M2, opb='C', alpha=self.dv,

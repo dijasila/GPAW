@@ -1,9 +1,11 @@
+from typing import Callable
+
 import _gpaw
 import numpy as np
-from gpaw.new.hamiltonian import Hamiltonian
-from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.core.plane_waves import PlaneWaveExpansions
+from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.gpu import cupy as cp
+from gpaw.new.hamiltonian import Hamiltonian
 
 
 class PWHamiltonian(Hamiltonian):
@@ -11,14 +13,14 @@ class PWHamiltonian(Hamiltonian):
               vt_sR: UniformGridFunctions,
               psit_nG: PlaneWaveExpansions,
               out: PlaneWaveExpansions,
-              spin: int):
+              spin: int) -> PlaneWaveExpansions:
         out_nG = out
         vt_R = vt_sR[spin].gather(broadcast=True)
         xp = psit_nG.xp
-        e_kin_G = xp.asarray(psit_nG.desc.ekin_G)
         grid = vt_R.desc.new(comm=None, dtype=psit_nG.desc.dtype)
         tmp_R = grid.empty(xp=xp)
-        psit_G = psit_nG.desc.new(comm=None).empty()
+        psit_G = psit_nG.desc.new(comm=None).empty(xp=xp)
+        e_kin_G = xp.asarray(psit_G.desc.ekin_G)
         domain_comm = psit_nG.desc.comm
         mynbands = psit_nG.mydims[0]
         for n1 in range(0, mynbands, domain_comm.size):
@@ -30,12 +32,19 @@ class PWHamiltonian(Hamiltonian):
             psit_G.data *= e_kin_G
             vtpsit_G.data += psit_G.data
             out_nG[n1:n2].scatter_from_all(vtpsit_G)
+        return out_nG
 
-    def create_preconditioner(self, blocksize):
+    def create_preconditioner(self,
+                              blocksize: int
+                              ) -> Callable[[PlaneWaveExpansions,
+                                             PlaneWaveExpansions,
+                                             PlaneWaveExpansions], None]:
         return precondition
 
 
-def precondition(psit_nG, residual_nG, out):
+def precondition(psit_nG: PlaneWaveExpansions,
+                 residual_nG: PlaneWaveExpansions,
+                 out: PlaneWaveExpansions) -> None:
     """Preconditioner for KS equation.
 
     From:

@@ -378,7 +378,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
 
         return out if not isinstance(out, Empty) else None
 
-    def gather_all(self, out):
+    def gather_all(self, out: PlaneWaveExpansions) -> None:
         """Gather coefficients from self[r] on rank r.
 
         On rank r, an array of all G-vector coefficients will be returned.
@@ -388,9 +388,10 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         pw = self.desc
         comm = pw.comm
         if comm.size == 1:
-            return self[0]
+            out.data[:] = self.data[0]
+            return
 
-        N = len(self.dims[0])
+        N = self.dims[0]
         assert N <= comm.size
 
         ng = pw.shape[0]
@@ -421,15 +422,16 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
             comm.scatter(None, buf, 0)
             self.data[:] = buf[:len(self.data)]
 
-    def scatter_from_all(self, a_G):
+    def scatter_from_all(self, a_G: PlaneWaveExpansions) -> None:
         """Scatter all coefs. from rank r to B_rG[r] on other cores."""
         assert len(self.dims) == 1
         pw = self.desc
         comm = pw.comm
         if comm.size == 1:
             self.data[:] = a_G.data
+            return
 
-        N = len(self.dims[0])
+        N = self.dims[0]
         assert N <= comm.size
 
         ng = pw.shape[0]

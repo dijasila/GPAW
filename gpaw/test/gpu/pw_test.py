@@ -38,7 +38,8 @@ def test_gpu_pw_k(gpu):
         atoms,
         dict(mode={'name': 'pw'},
              kpts=(4, 1, 1),
-             parallel={'gpu': gpu},
+             parallel={'gpu': gpu,
+                       'domain': 2},
              setups='paw'),
         log='-')
     dft.converge()
