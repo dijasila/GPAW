@@ -6,7 +6,7 @@ from itertools import product
 import numpy as np
 import pytest
 from gpaw import GPAW
-from gpaw.mpi import rank, world
+from gpaw.mpi import world
 from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKSCalculator
