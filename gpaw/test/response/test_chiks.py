@@ -47,7 +47,8 @@ def generate_gc_g():
 @pytest.mark.parametrize('q_c,eta,gammacentered', product(generate_q_qc(),
                                                           generate_eta_e(),
                                                           generate_gc_g()))
-def test_chiks_symmetry(in_tmp_dir, gpw_files, q_c, eta, gammacentered):
+def test_transverse_chiks_symmetry(in_tmp_dir, gpw_files,
+                                   q_c, eta, gammacentered):
     """Check the reciprocity relation,
 
     χ_(KS,GG')^(+-)(q, ω) = χ_(KS,-G'-G)^(+-)(-q, ω),
@@ -64,7 +65,7 @@ def test_chiks_symmetry(in_tmp_dir, gpw_files, q_c, eta, gammacentered):
 
     Unfortunately, there will always be random noise in the wave functions,
     such that these symmetries are not fulfilled exactly. However, we should be
-    able to fulfill it within 3%, which is tested here. Generally speaking,
+    able to fulfill it within 4%, which is tested here. Generally speaking,
     the "symmetry" noise can be reduced making running with symmetry='off' in
     the ground state calculation.
 
