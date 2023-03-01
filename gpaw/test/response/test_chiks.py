@@ -180,31 +180,18 @@ def check_reciprocity_and_inversion_symmetry(chiks_q, *, rtol, atol):
     qpd1, qpd2 = chiks_q[q1].qpd, chiks_q[q2].qpd
     invmap_GG = get_inverted_pw_mapping(qpd1, qpd2)
 
-    # Check reciprocity of the reactive part of the static susceptibility.
-    # This specific check makes sure that the exchange constants calculated
-    # within the MFT remains reciprocal.
-    if rank == 0:  # Only the root has the static susc.
-        # Calculate the reactive part
-        chi1_GG = chiks_q[q1].array[0]  # array = chiks_wGG
-        chi2_GG = chiks_q[q2].array[0]
-        chi1r_GG = 1 / 2. * (chi1_GG + np.conj(chi1_GG).T)
-        chi2r_GG = 1 / 2. * (chi2_GG + np.conj(chi2_GG).T)
-        assert np.conj(chi2r_GG[invmap_GG]) == pytest.approx(chi1r_GG,
-                                                             rel=rtol,
-                                                             abs=atol)
-
     # Loop over frequencies
     for chi1_GG, chi2_GG in zip(chiks_q[q1].array,
                                 chiks_q[q2].array):
-        # Check the reciprocity of the full susceptibility
+        # Check the reciprocity
         assert chi2_GG[invmap_GG].T == pytest.approx(chi1_GG,
                                                      rel=rtol, abs=atol)
-        # Check inversion symmetry of the full susceptibility
+        # Check inversion symmetry
         assert chi2_GG[invmap_GG] == pytest.approx(chi1_GG,
                                                    rel=rtol, abs=atol)
 
     # Loop over q-vectors
     for chiks in chiks_q:
-        for chiks_GG in chiks.array:  # array = chiks_wGG
+        for chiks_GG in chiks.array:  # array = chiks_zGG
             # Check that the full susceptibility matrix is symmetric
             assert chiks_GG.T == pytest.approx(chiks_GG, rel=rtol, abs=atol)
