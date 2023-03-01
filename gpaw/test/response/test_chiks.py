@@ -26,13 +26,6 @@ def generate_q_qc():
     return q_qc
 
 
-def generate_eta_e():
-    # Try out both a vanishing and a finite broadening
-    eta_e = [0., 0.1]
-
-    return eta_e
-
-
 def generate_gc_g():
     # Compute chiks both on a gamma-centered and a q-centered pw grid
     gc_g = [True, False]
@@ -44,11 +37,10 @@ def generate_gc_g():
 
 
 @pytest.mark.response
-@pytest.mark.parametrize('q_c,eta,gammacentered', product(generate_q_qc(),
-                                                          generate_eta_e(),
-                                                          generate_gc_g()))
+@pytest.mark.parametrize('q_c,gammacentered', product(generate_q_qc(),
+                                                      generate_gc_g()))
 def test_transverse_chiks_symmetry(in_tmp_dir, gpw_files,
-                                   q_c, eta, gammacentered):
+                                   q_c, gammacentered):
     """Check the reciprocity relation,
 
     χ_(KS,GG')^(+-)(q, ω) = χ_(KS,-G'-G)^(+-)(-q, ω),
@@ -76,7 +68,9 @@ def test_transverse_chiks_symmetry(in_tmp_dir, gpw_files,
 
     # Part 1: ChiKS calculation
     ecut = 50
-    frequencies = [0., 0.05, 0.1, 0.2]
+    # Test vanishing and finite real and imaginary frequencies
+    frequencies = np.array([0., 0.05, 0.1, 0.2])
+    complex_frequencies = list(frequencies + 0.j) + list(frequencies + 0.1j)
 
     # Calculation parameters (which should not affect the result)
     disable_syms_s = [True, False]
@@ -112,7 +106,6 @@ def test_transverse_chiks_symmetry(in_tmp_dir, gpw_files,
         q_qc = [-q_c, q_c]
 
     # Set up complex frequency descriptor
-    complex_frequencies = np.array(frequencies) + 1.j * eta
     zd = ComplexFrequencyDescriptor.from_array(complex_frequencies)
 
     chiks_sbq = []
