@@ -28,11 +28,11 @@ class KPoint:
 
     def get_u_nG(self):
         u_nG = []
-        for n in range(se-f.n2-self.n1):
+        for n in range(self.n2-self.n1):
             u_G = self.gs.pd.fft(self.ut_nR[n], self.K)
             u_nG.append(u_G)
         return np.array(u_nG)
-        
+
     @classmethod
     def get_k_point(cls, gs, context, s, k_c, n1, n2, block=False, blockcomm = None):
         """Return wave functions for a specific k-point and spin.
