@@ -38,8 +38,9 @@ class CuPyMPI:
                 b[:] = cp.asarray(c)
 
     def scatter(self, fro, to, root=0):
-        if isinstance(fro, np.ndarray):
-            1 / 0
+        if isinstance(to, np.ndarray):
+            self.comm.scatter(fro, to, root)
+            return
         b = np.empty(to.shape, to.dtype)
         if self.rank == root:
             a = fro.get()
@@ -76,6 +77,14 @@ class CuPyMPI:
         request = self.comm.send(b, rank, tag, block)
         if not block:
             return CuPyRequest(request, b)
+
+    def alltoallv(self,
+                  fro, ssizes, soffsets,
+                  to, rsizes, roffsets):
+        a = np.empty(to.shape, to.dtype)
+        self.comm.alltoallv(fro.get(), ssizes, soffsets,
+                            a, rsizes, roffsets)
+        to[:] = cp.asarray(a)
 
     def wait(self, request):
         self.comm.wait(request.request)
