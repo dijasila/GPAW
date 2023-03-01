@@ -16,6 +16,16 @@ from gpaw.response.susceptibility import (get_inverted_pw_mapping,
 # ---------- ChiKS parametrization ---------- #
 
 
+def generate_system_s():
+    # Compute chiks for different materials and spin-components, using
+    # system specific tolerances
+    system_s = [  # wfs, spincomponent, rtol, dsym_rtol, bsum_rtol
+        ('fe_pw_wfs', '+-', 0.04, 0.01, 0.02)
+    ]
+
+    return system_s
+
+
 def generate_q_qc():
     # Do some q-points on the G-N path
     q_qc = np.array([[0, 0, 0],           # Gamma
@@ -37,28 +47,28 @@ def generate_gc_g():
 
 
 @pytest.mark.response
-@pytest.mark.parametrize('q_c,gammacentered', product(generate_q_qc(),
-                                                      generate_gc_g()))
+@pytest.mark.parametrize(
+    'system,q_c,gammacentered',
+    product(generate_system_s(), generate_q_qc(), generate_gc_g()))
 def test_transverse_chiks_symmetry(in_tmp_dir, gpw_files,
-                                   q_c, gammacentered):
-    """Check the reciprocity relation,
+                                   system, q_c, gammacentered):
+    r"""Check the reciprocity relation (valid both for μν=00 and μν=+-),
 
-    χ_(KS,GG')^(+-)(q, ω) = χ_(KS,-G'-G)^(+-)(-q, ω),
+    χ_(KS,GG')^(μν)(q, ω) = χ_(KS,-G'-G)^(μν)(-q, ω),
 
     the inversion symmetry relation,
 
-    χ_(KS,GG')^(+-)(q, ω) = χ_(KS,-G-G')^(+-)(-q, ω),
+    χ_(KS,GG')^(μν)(q, ω) = χ_(KS,-G-G')^(μν)(-q, ω),
 
     and the combination of the two,
 
-    χ_(KS,GG')^(+-)(q, ω) = χ_(KS,G'G)^(+-)(q, ω),
+    χ_(KS,GG')^(μν)(q, ω) = χ_(KS,G'G)^(μν)(q, ω),
 
-    for a real life system with d-electrons and inversion symmetry (bcc-Fe).
+    for a real life periodic systems with inversion symmetry.
 
     Unfortunately, there will always be random noise in the wave functions,
-    such that these symmetries are not fulfilled exactly. However, we should be
-    able to fulfill it within 4%, which is tested here. Generally speaking,
-    the "symmetry" noise can be reduced making running with symmetry='off' in
+    such that these symmetries cannot be fulfilled exactly. Generally speaking,
+    the "symmetry" noise can be reduced by running with symmetry='off' in
     the ground state calculation.
 
     Also, we test that the response function does not change too much when
@@ -68,6 +78,8 @@ def test_transverse_chiks_symmetry(in_tmp_dir, gpw_files,
     # ---------- Inputs ---------- #
 
     # Part 1: ChiKS calculation
+    wfs, spincomponent, rtol, dsym_rtol, bsum_rtol = system
+
     ecut = 50
     # Test vanishing and finite real and imaginary frequencies
     frequencies = np.array([0., 0.05, 0.1, 0.2])
@@ -86,17 +98,14 @@ def test_transverse_chiks_symmetry(in_tmp_dir, gpw_files,
         nblocks = 1
 
     # Part 2: Check reciprocity and inversion symmetry
-    rtol = 0.04
 
     # Part 3: Check toggling of calculation parameters
-    dsym_rtol = 0.01
-    bsum_rtol = 0.02
     bint_rtol = 1e-6
 
     # ---------- Script ---------- #
 
     # Part 1: ChiKS calculation
-    calc = GPAW(gpw_files['fe_pw_wfs'], parallel=dict(domain=1))
+    calc = GPAW(gpw_files[wfs], parallel=dict(domain=1))
     nbands = calc.parameters.convergence['bands']
 
     gs = ResponseGroundStateAdapter(calc)
@@ -128,7 +137,7 @@ def test_transverse_chiks_symmetry(in_tmp_dir, gpw_files,
                     nblocks=nblocks)
 
                 for q_c in q_qc:
-                    chiks = chiks_calc.calculate('+-', q_c, zd)
+                    chiks = chiks_calc.calculate(spincomponent, q_c, zd)
                     chiks = chiks.copy_with_global_frequency_distribution()
                     chiks_q.append(chiks)
 
