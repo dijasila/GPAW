@@ -159,11 +159,7 @@ def test_transverse_chiks_symmetry(in_tmp_dir, gpw_files,
     # Check symmetry toggle
     for b in range(2):
         for i in range(2):
-            chiks1_q = chiks_sbiq[0][b][i]
-            chiks2_q = chiks_sbiq[1][b][i]
-            for chiks1, chiks2 in zip(chiks1_q, chiks2_q):
-                assert chiks2.array == pytest.approx(chiks1.array,
-                                                     rel=dsym_rtol)
+            check_arrays(chiks_sbiq, (0, b, i), (1, b, i), rtol=dsym_rtol)
 
     # Check bandsummation toggle
     for s in range(2):
@@ -213,3 +209,13 @@ def check_reciprocity_and_inversion_symmetry(chiks_q, *, rtol):
         for chiks_GG in chiks.array:  # array = chiks_zGG
             # Check that the full susceptibility matrix is symmetric
             assert chiks_GG.T == pytest.approx(chiks_GG, rel=rtol)
+
+
+def check_arrays(chiks_sbiq, sbi1, sbi2, *, rtol):
+    """Compare the values inside two arrays."""
+    s1, b1, i1 = sbi1
+    s2, b2, i2 = sbi2
+    chiks1_q = chiks_sbiq[s1][b1][i1]
+    chiks2_q = chiks_sbiq[s2][b2][i2]
+    for chiks1, chiks2 in zip(chiks1_q, chiks2_q):
+        assert chiks2.array == pytest.approx(chiks1.array, rel=rtol)
