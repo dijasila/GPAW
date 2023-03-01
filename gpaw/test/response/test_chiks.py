@@ -85,7 +85,6 @@ def test_transverse_chiks_symmetry(in_tmp_dir, gpw_files,
 
     # Part 2: Check reciprocity and inversion symmetry
     rtol = 0.04
-    atol = 0.004
 
     # Part 3: Check toggling of calculation parameters
     dsym_rtol = 0.01
@@ -132,8 +131,7 @@ def test_transverse_chiks_symmetry(in_tmp_dir, gpw_files,
     # Part 2: Check reciprocity and inversion symmetry
     for chiks_bq in chiks_sbq:
         for chiks_q in chiks_bq:
-            check_reciprocity_and_inversion_symmetry(chiks_q,
-                                                     rtol=rtol, atol=atol)
+            check_reciprocity_and_inversion_symmetry(chiks_q, rtol=rtol)
 
     # Part 3: Check toggling of calculation parameters
 
@@ -167,7 +165,7 @@ def test_transverse_chiks_symmetry(in_tmp_dir, gpw_files,
 # ---------- Test functionality ---------- #
 
 
-def check_reciprocity_and_inversion_symmetry(chiks_q, *, rtol, atol):
+def check_reciprocity_and_inversion_symmetry(chiks_q, *, rtol):
     """Carry out the actual susceptibility symmetry checks."""
     # Get the q and -q pair
     if len(chiks_q) == 2:
@@ -184,14 +182,12 @@ def check_reciprocity_and_inversion_symmetry(chiks_q, *, rtol, atol):
     for chi1_GG, chi2_GG in zip(chiks_q[q1].array,
                                 chiks_q[q2].array):
         # Check the reciprocity
-        assert chi2_GG[invmap_GG].T == pytest.approx(chi1_GG,
-                                                     rel=rtol, abs=atol)
+        assert chi2_GG[invmap_GG].T == pytest.approx(chi1_GG, rel=rtol)
         # Check inversion symmetry
-        assert chi2_GG[invmap_GG] == pytest.approx(chi1_GG,
-                                                   rel=rtol, abs=atol)
+        assert chi2_GG[invmap_GG] == pytest.approx(chi1_GG, rel=rtol)
 
     # Loop over q-vectors
     for chiks in chiks_q:
         for chiks_GG in chiks.array:  # array = chiks_zGG
             # Check that the full susceptibility matrix is symmetric
-            assert chiks_GG.T == pytest.approx(chiks_GG, rel=rtol, abs=atol)
+            assert chiks_GG.T == pytest.approx(chiks_GG, rel=rtol)
