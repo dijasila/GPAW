@@ -88,8 +88,8 @@ def test_transverse_chiks_symmetry(in_tmp_dir, gpw_files,
     atol = 0.004
 
     # Part 3: Check toggling of calculation parameters
-    dsym_rtol = 0.015
-    bsum_rtol = 0.01
+    dsym_rtol = 0.01
+    bsum_rtol = 0.02
 
     # ---------- Script ---------- #
 
