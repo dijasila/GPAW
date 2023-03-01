@@ -95,7 +95,7 @@ def test_transverse_chiks_symmetry(in_tmp_dir, gpw_files,
 
     # Part 3: Check toggling of calculation parameters
     dsym_rtol = 0.015
-    bsum_rtol = 0.015
+    bsum_rtol = 0.01
 
     # ---------- Script ---------- #
 
@@ -124,6 +124,7 @@ def test_transverse_chiks_symmetry(in_tmp_dir, gpw_files,
                                          gammacentered=gammacentered,
                                          disable_time_reversal=disable_syms,
                                          disable_point_group=disable_syms,
+                                         bandsummation=bandsummation,
                                          nblocks=nblocks)
 
             chiks_q = []
