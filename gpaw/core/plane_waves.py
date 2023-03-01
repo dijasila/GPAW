@@ -460,7 +460,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
             if self.desc.dtype == float and self.desc.comm.rank == 0:
                 result -= 0.5 * a[:, :1] @ b[:, :1].T
             self.desc.comm.sum(result)
-            result.shape = self.dims + other.dims
+            result = result.reshape(self.dims + other.dims)
         else:
             if self.desc.comm.rank == 0:
                 result = self.data[..., 0]

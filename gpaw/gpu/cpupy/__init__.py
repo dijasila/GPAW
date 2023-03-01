@@ -89,13 +89,16 @@ class ndarray:
             data = np.asarray(data)
         assert isinstance(data, np.ndarray), type(data)
         self._data = data
-        self.shape = data.shape
         self.dtype = data.dtype
         self.size = data.size
         self.flags = data.flags
         self.ndim = data.ndim
         self.nbytes = data.nbytes
         self.data = SimpleNamespace(ptr=data.ctypes.data)
+
+    @property
+    def shape(self):
+        return self._data.shape
 
     @property
     def T(self):
