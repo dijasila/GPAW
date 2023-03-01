@@ -1,7 +1,6 @@
 import pytest
 from ase import Atom, Atoms
 
-from gpaw.mpi import world
 from gpaw import GPAW
 from gpaw.analyse.overlap import Overlap
 from gpaw.lrtddft.kssingle import KSSingles
@@ -52,7 +51,6 @@ def test_lrtddft_placzek_profeta_albrecht(in_tmp_dir):
         overlap=lambda x, y: Overlap(x).pseudo(y)[0],
         txt=txt)
     rr.run()
-    world.barrier()
 
     # check
 
