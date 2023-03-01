@@ -760,11 +760,3 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
                            kpt=(grid.kpt_c if grid.kpt_c.any() else None),
                            dtype=grid.dtype)
         return UniformGridFunctions(grid, self.dims, self.comm, self.data * v)
-
-    def to_xp(self, xp):
-        if xp is self.xp:
-            return self
-        if xp is np:
-            return self.new(data=self.xp.asnumpy(self.data))
-        else:
-            return self.new(data=xp.asarray(self.data))

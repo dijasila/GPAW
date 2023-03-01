@@ -92,6 +92,14 @@ class DistributedArrays(Generic[DomainType]):
             for index in np.indices(self.dims).reshape((len(self.dims), -1)).T:
                 yield self[tuple(index)]
 
+    def to_xp(self, xp):
+        if xp is self.xp:
+            return self
+        if xp is np:
+            return self.new(data=self.xp.asnumpy(self.data))
+        else:
+            return self.new(data=xp.asarray(self.data))
+
     @property
     def matrix(self) -> Matrix:
         if self._matrix is not None:

@@ -578,6 +578,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
 
 
 def a2a_stuff(comm, N, ng, myng, maxmyng):
+    """Create arrays for MPI alltoallv call."""
     ssize_r = np.zeros(comm.size, int)
     ssize_r[:N] = myng
     soffset_r = np.arange(comm.size) * myng
