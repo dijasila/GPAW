@@ -10,9 +10,6 @@
 #include <xc.h>
 #include "xc_gpaw.h"
 #include "../extensions.h"
-#ifdef GPAW_GPU
-#include "../gpu/gpu.h"
-#endif
 
 typedef struct
 {
@@ -142,9 +139,6 @@ lxcXCFunctional_set_omega(lxcXCFunctionalObject *self, PyObject *args)
 #define LIBXCSCRATCHSIZE (BLOCKSIZE*MAXARRAYS)
 
 static double *scratch=NULL;
-#ifdef GPAW_GPU
-static double *scratch_d=NULL;
-#endif
 
 // we don't use lapl, but libxc needs space for them.
 static double *scratch_lapl=NULL;
@@ -218,29 +212,23 @@ static void scatteradd(const double* src, double* dst, int np, int stride, int n
 
 // set up the pointers into the scratch area, leaving space for each of the arrays
 
-static void setupblockptrs(double *start, const xcinfo *info,
+static void setupblockptrs(const xcinfo *info,
                            const xcptrlist *inlist, const xcptrlist *outlist,
                            double **inblocklist, double **outblocklist,
-                           int blocksize, int *insize, int *outsize) {
+                           int blocksize) {
   // set up the block pointers we are going to use in the "scratch" space
-
-  // should be changed to be different for spin polarized/unpolarized
-  double *next = start;
-  *insize = 0;
+  double *next = scratch;
   for (int i=0; i<inlist->num; i++) {
     inblocklist[i] = next;
     next+=blocksize*inlist->p[i].spinsize;
-    *insize += blocksize * inlist->p[i].spinsize * sizeof(double);
   }
-  *outsize = 0;
   for (int i=0; i<outlist->num; i++) {
     outblocklist[i] = next;
     next+=blocksize*outlist->p[i].spinsize;
-    *outsize += blocksize * outlist->p[i].spinsize * sizeof(double);
   }
   // check that we fit in the scratch space
   // if we don't, then we need to increase MAXARRAY
-  assert((next - start) <= LIBXCSCRATCHSIZE);
+  assert((next - scratch) <= LIBXCSCRATCHSIZE);
 }
 
 // copy a piece of the full data into the block for processing by libxc
@@ -260,14 +248,7 @@ static void data2block(const xcinfo *info,
       // don't copy sigma and tau for non-spin-polarized.
       // use input arrays instead to save time. have to
       // copy n_g however, because of the NMIN patch.
-      if (inlist->p[i].special&N_SG) {
-        for (int i=0; i<blocksize; i++)
-            block[i] = (ptr[i]<NMIN) ? NMIN : ptr[i];
-      } else {
-        // lli2010 and cpo changed this to also copy sigma/tau for the GPU version
-        for (int i=0; i<blocksize; i++)
-            block[i] = ptr[i];
-      }
+      if (inlist->p[i].special&N_SG) for (int i=0; i<blocksize; i++) block[i] = (ptr[i]<NMIN) ? NMIN : ptr[i];
     }
   }
 }
@@ -340,7 +321,6 @@ lxcXCFunctional_Calculate(lxcXCFunctionalObject *self, PyObject *args)
                         &py_sigma_xg, &py_dedsigma_xg,
                         &py_tau_sg, &py_dedtau_sg))
     return NULL;
-  Py_BEGIN_ALLOW_THREADS;
 
   xcinfo info;
   info.nspin = self->nspin;
@@ -397,69 +377,28 @@ lxcXCFunctional_Calculate(lxcXCFunctionalObject *self, PyObject *args)
 
   double *inblock[MAXPTR];
   double *outblock[MAXPTR];
-  int insize, outsize;
-
-  setupblockptrs(scratch, &info, &inlist, &outlist, &inblock[0], &outblock[0],
-                 blocksize, &insize, &outsize);
-
-#ifdef GPAW_GPU
-  double *inblock_d[MAXPTR];
-  double *outblock_d[MAXPTR];
-
-  int gpu[2];
-  gpu[0] = (self->functional[0]->info->number > 1000);
-  gpu[1] = 0;
-  if (self->functional[1] != NULL) {
-    gpu[1] = (self->functional[1]->info->number > 1000);
-  }
-
-  if (gpu[0] || gpu[1]) {
-    setupblockptrs(scratch_d, &info, &inlist, &outlist, &inblock_d[0],
-                   &outblock_d[0], blocksize, &insize, &outsize);
-  }
-#endif
+  setupblockptrs(&info, &inlist, &outlist, &inblock[0], &outblock[0], blocksize);
 
   do {
     blocksize = blocksize<remaining ? blocksize : remaining;
     data2block(&info, &inlist, inblock, blocksize);
-
-    double **in;
-    double **out;
-
-#ifdef GPAW_GPU
-    if (gpu[0] || gpu[1]) {
-      gpuMemcpy(inblock_d[0], inblock[0], insize, gpuMemcpyHostToDevice);
+    double *n_sg = inblock[0];
+    double *sigma_xg, *tau_sg;
+    if (info.spinpolarized) {
+      sigma_xg = inblock[1];
+      tau_sg = inblock[2];
+    } else {
+      sigma_xg = inlist.p[1].p;
+      tau_sg = inlist.p[2].p;
     }
-#endif
-
-    double *n_sg_cpu = inblock[0];
+    double *e_g = outblock[0];
+    double *dedn_sg = outblock[1];
+    double *dedsigma_xg = outblock[2];
+    double *dedtau_sg = outblock[3];
     for (int i=0; i<2; i++) {
       if (self->functional[i] == NULL) continue;
       XC(func_type) *func = self->functional[i];
       int noutcopy=0;
-
-#ifdef GPAW_GPU
-      if (gpu[i]) {
-        in = inblock_d;
-        out = outblock_d;
-      } else {
-        in = inblock;
-        out = outblock;
-      }
-#else
-      in = inblock;
-      out = outblock;
-#endif
-
-      double *n_sg = in[0];
-      double *sigma_xg, *tau_sg;
-      sigma_xg = in[1];
-      tau_sg = in[2];
-      double *e_g = out[0];
-      double *dedn_sg = out[1];
-      double *dedsigma_xg = out[2];
-      double *dedtau_sg = out[3];
-
       switch(func->info->family)
         {
         case XC_FAMILY_LDA:
@@ -480,20 +419,12 @@ lxcXCFunctional_Calculate(lxcXCFunctionalObject *self, PyObject *args)
           noutcopy = 4; // potentially decrease the size for block2dataadd if second functional less complex.
           break;
         }
-
-#ifdef GPAW_GPU
-      if (gpu[i]) {
-        gpuMemcpy(outblock[0], outblock_d[0], outsize,
-                   gpuMemcpyDeviceToHost);
-      }
-#endif
-
       // if we have more than 1 functional, add results
       // canonical example: adding "x" results to "c"
       if (i==0)
-        block2data(&info, &outblock[0], &outlist, n_sg_cpu, blocksize);
+        block2data(&info, &outblock[0], &outlist, n_sg, blocksize);
       else
-        block2dataadd(&info, &outblock[0], &outlist, n_sg_cpu, blocksize, noutcopy);
+        block2dataadd(&info, &outblock[0], &outlist, n_sg, blocksize, noutcopy);
     }
 
     for (int i=0; i<inlist.num; i++) inlist.p[i].p+=blocksize;
@@ -502,7 +433,6 @@ lxcXCFunctional_Calculate(lxcXCFunctionalObject *self, PyObject *args)
     remaining -= blocksize;
   } while (remaining>0);
 
-  Py_END_ALLOW_THREADS;
   Py_RETURN_NONE;
 }
 
@@ -531,7 +461,6 @@ lxcXCFunctional_CalculateFXC(lxcXCFunctionalObject *self, PyObject *args)
   int remaining = info.ng;
 
   // setup pointers using most complex functional
-  Py_BEGIN_ALLOW_THREADS;
   switch(self->functional[0]->info->family)
     {
     case XC_FAMILY_MGGA:
@@ -568,65 +497,25 @@ lxcXCFunctional_CalculateFXC(lxcXCFunctionalObject *self, PyObject *args)
 
   double *inblock[MAXPTR];
   double *outblock[MAXPTR];
-  int insize, outsize;
-
-  setupblockptrs(scratch, &info, &inlist, &outlist, &inblock[0], &outblock[0],
-                 blocksize, &insize, &outsize);
-
-#ifdef GPAW_GPU
-  double *inblock_d[MAXPTR];
-  double *outblock_d[MAXPTR];
-
-  int gpu[2];
-  gpu[0] = (self->functional[0]->info->number > 1000);
-  gpu[1] = 0;
-  if (self->functional[1] != NULL) {
-    gpu[1] = (self->functional[1]->info->number > 1000);
-  }
-
-  if (gpu[0] || gpu[1]) {
-    setupblockptrs(scratch_d, &info, &inlist, &outlist, &inblock_d[0],
-                   &outblock_d[0], blocksize, &insize, &outsize);
-  }
-#endif
+  setupblockptrs(&info, &inlist, &outlist, &inblock[0], &outblock[0], blocksize);
 
   do {
     blocksize = blocksize<remaining ? blocksize : remaining;
     data2block(&info, &inlist, inblock, blocksize);
-
-    double **in;
-    double **out;
-#ifdef GPAW_GPU
-    if (gpu[0] || gpu[1]) {
-      gpuMemcpy(inblock_d[0], inblock[0], insize, gpuMemcpyHostToDevice);
+    double *n_sg = inblock[0];
+    double *sigma_xg;
+    if (info.spinpolarized) {
+      sigma_xg = inblock[1];
+    } else {
+      sigma_xg = inlist.p[1].p;
     }
-#endif
-    double *n_sg_cpu = inblock[0];
-
+    double *v2rho2 = outblock[0];
+    double *v2rhosigma = outblock[1];
+    double *v2sigma2 = outblock[2];
     for (int i=0; i<2; i++) {
       if (self->functional[i] == NULL) continue;
       XC(func_type) *func = self->functional[i];
       int noutcopy=0;
-
-#ifdef GPAW_GPU
-      if (gpu[i]) {
-        in = inblock_d;
-        out = outblock_d;
-      } else {
-        in = inblock;
-        out = outblock;
-      }
-#else
-      in = inblock;
-      out = outblock;
-#endif
-
-      double *n_sg = in[0];
-      double *sigma_xg = in[1];
-      double *v2rho2 = out[0];
-      double *v2rhosigma = out[1];
-      double *v2sigma2 = out[2];
-
       switch(func->info->family)
         {
         case XC_FAMILY_LDA:
@@ -644,20 +533,12 @@ lxcXCFunctional_CalculateFXC(lxcXCFunctionalObject *self, PyObject *args)
           assert (func->info->family!=XC_FAMILY_MGGA);
           break;
         }
-
-#ifdef GPAW_GPU
-      if(gpu[i]){
-        gpuMemcpy(outblock[0], outblock_d[0], outsize,
-                   gpuMemcpyDeviceToHost);
-      }
-#endif
-
       // if we have more than 1 functional, add results
       // canonical example: adding "x" results to "c"
       if (i==0)
-        block2data(&info, &outblock[0], &outlist, n_sg_cpu, blocksize);
+        block2data(&info, &outblock[0], &outlist, n_sg, blocksize);
       else
-        block2dataadd(&info, &outblock[0], &outlist, n_sg_cpu, blocksize, noutcopy);
+        block2dataadd(&info, &outblock[0], &outlist, n_sg, blocksize, noutcopy);
     }
 
     for (int i=0; i<inlist.num; i++) inlist.p[i].p+=blocksize;
@@ -665,7 +546,6 @@ lxcXCFunctional_CalculateFXC(lxcXCFunctionalObject *self, PyObject *args)
 
     remaining -= blocksize;
   } while (remaining>0);
-  Py_END_ALLOW_THREADS;
 
   Py_RETURN_NONE;
 }
@@ -743,9 +623,6 @@ PyObject * NewlxcXCFunctionalObject(PyObject *obj, PyObject *args)
     scratch_lapl = (double*)malloc(laplsize);
     memset(scratch_lapl,0,laplsize);
     scratch_vlapl = (double*)malloc(laplsize);
-#ifdef GPAW_GPU
-    gpuMalloc(&scratch_d, LIBXCSCRATCHSIZE * sizeof(double));
-#endif
   }
 
   if (!PyArg_ParseTuple(args, "iiii", &xc, &x, &c, &nspin)) {
