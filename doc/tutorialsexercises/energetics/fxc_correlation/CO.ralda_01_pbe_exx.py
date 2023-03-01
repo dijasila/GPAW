@@ -4,11 +4,12 @@ from gpaw import GPAW, FermiDirac
 from gpaw.mixer import MixerSum
 from gpaw.hybrids.energy import non_self_consistent_energy as nsc_energy
 from gpaw import PW
+from gpaw.test import equal
 
 # CO
 
 CO = Atoms('CO', [(0, 0, 0), (0, 0, 1.1283)])
-CO.center(vacuum=2.5)
+CO.center(vacuum=2.7)
 calc = GPAW(mode=PW(600, force_complex_dtype=True),
             symmetry='off',
             parallel={'domain': 1},
