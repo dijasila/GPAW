@@ -251,7 +251,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
             txt += ', xp=cp'
         return txt + ')'
 
-    def __getitem__(self, index: int) -> PlaneWaveExpansions:
+    def __getitem__(self, index: int | slice) -> PlaneWaveExpansions:
         data = self.data[index]
         return PlaneWaveExpansions(self.desc, data.shape[:-1], data=data)
 
@@ -669,5 +669,3 @@ def find_reciprocal_vectors(ecut: float,
     G_plus_k = G_plus_k_Qv[mask]
 
     return G_plus_k, ekin, indices.T
-
-
