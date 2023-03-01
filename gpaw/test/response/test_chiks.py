@@ -91,6 +91,7 @@ def test_transverse_chiks_symmetry(in_tmp_dir, gpw_files,
     # Part 3: Check toggling of calculation parameters
     dsym_rtol = 0.01
     bsum_rtol = 0.02
+    bint_rtol = 1e-6
 
     # ---------- Script ---------- #
 
@@ -172,6 +173,15 @@ def test_transverse_chiks_symmetry(in_tmp_dir, gpw_files,
             for chiks1, chiks2 in zip(chiks1_q, chiks2_q):
                 assert chiks2.array == pytest.approx(chiks1.array,
                                                      rel=bsum_rtol)
+
+    # Check bundle_integrals toggle
+    for s in range(2):
+        for b in range(2):
+            chiks1_q = chiks_sbiq[s][i][0]
+            chiks2_q = chiks_sbiq[s][i][1]
+            for chiks1, chiks2 in zip(chiks1_q, chiks2_q):
+                assert chiks2.array == pytest.approx(chiks1.array,
+                                                     rel=bint_rtol)
 
 
 # ---------- Test functionality ---------- #
