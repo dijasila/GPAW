@@ -77,6 +77,8 @@ def test_transverse_chiks_symmetry(in_tmp_dir, gpw_files,
     # Part 1: ChiKS calculation
     ecut = 50
     frequencies = [0., 0.05, 0.1, 0.2]
+
+    # Calculation parameters (which should not affect the result)
     disable_syms_s = [True, False]
     bandsummation_b = ['double', 'pairwise']
 
@@ -91,10 +93,9 @@ def test_transverse_chiks_symmetry(in_tmp_dir, gpw_files,
     rtol = 0.04
     atol = 0.004
 
-    # Part 3: Check matrix symmetry
-
-    # Part 4: Check symmetry and bandsummation toggles
-    trtol = 0.015
+    # Part 3: Check toggling of calculation parameters
+    dsym_rtol = 0.015
+    bsum_rtol = 0.015
 
     # ---------- Script ---------- #
 
@@ -135,6 +136,8 @@ def test_transverse_chiks_symmetry(in_tmp_dir, gpw_files,
         chiks_sbq.append(chiks_bq)
 
     # Part 2: Check reciprocity and inversion symmetry
+
+    # Check the symmetries individually
     for chiks_bq in chiks_sbq:
         for chiks_q in chiks_bq:
             # Get the q and -q pair
@@ -171,16 +174,16 @@ def test_transverse_chiks_symmetry(in_tmp_dir, gpw_files,
                 assert chi2_GG[invmap_GG] == pytest.approx(chi1_GG, rel=rtol,
                                                            abs=atol)
 
-    # Part 3: Check matrix symmetry
+    # Check the resulting matrix symmetry from having both
     for chiks_bq in chiks_sbq:
         for chiks_q in chiks_bq:
             for chiks in chiks_q:
                 for chiks_GG in chiks.array:  # array = chiks_wGG
                     assert chiks_GG.T == pytest.approx(chiks_GG, rel=rtol)
 
-    # Part 4: Check symmetry and bandsummation toggles
+    # Part 3: Check toggling of calculation parameters
 
-    # Check that the plane wave representations are identical
+    # Check that all plane wave representations are identical
     sb_s = [(0, 0), (0, 1), (1, 0), (1, 1)]
     for s, sb1 in enumerate(sb_s):
         for sb2 in sb_s[s + 1:]:
@@ -192,10 +195,16 @@ def test_transverse_chiks_symmetry(in_tmp_dir, gpw_files,
                 assert G1_Gc.shape == G2_Gc.shape
                 assert np.allclose(G1_Gc - G2_Gc, 0.)
 
-    for s, sb1 in enumerate(sb_s):
-        for sb2 in sb_s[s + 1:]:
-            chiks1_q = chiks_sbq[sb1[0]][sb1[1]]
-            chiks2_q = chiks_sbq[sb2[0]][sb2[1]]
-            for chiks1, chiks2 in zip(chiks1_q, chiks2_q):
-                assert chiks2.array == pytest.approx(chiks1.array,
-                                                     rel=trtol)
+    # Check symmetry toggle
+    for b in range(2):
+        chiks1_q = chiks_sbq[0][b]
+        chiks2_q = chiks_sbq[1][b]
+        for chiks1, chiks2 in zip(chiks1_q, chiks2_q):
+            assert chiks2.array == pytest.approx(chiks1.array, rel=dsym_rtol)
+
+    # Check bandsummation toggle
+    for s in range(2):
+        chiks1_q = chiks_sbq[s][0]
+        chiks2_q = chiks_sbq[s][1]
+        for chiks1, chiks2 in zip(chiks1_q, chiks2_q):
+            assert chiks2.array == pytest.approx(chiks1.array, rel=bsum_rtol)
