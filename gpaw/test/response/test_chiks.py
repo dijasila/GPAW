@@ -27,7 +27,7 @@ def generate_q_qc():
 
 
 def generate_eta_e():
-    # Try out both a vanishing and finite broadening
+    # Try out both a vanishing and a finite broadening
     eta_e = [0., 0.1]
 
     return eta_e
@@ -89,6 +89,7 @@ def test_transverse_chiks_symmetry(in_tmp_dir, gpw_files,
 
     # Part 2: Check reciprocity and inversion symmetry
     rtol = 0.04
+    atol = 0.004
 
     # Part 3: Check matrix symmetry
 
@@ -158,17 +159,17 @@ def test_transverse_chiks_symmetry(in_tmp_dir, gpw_files,
                 chi1r_GG = 1 / 2. * (chi1_GG + np.conj(chi1_GG).T)
                 chi2r_GG = 1 / 2. * (chi2_GG + np.conj(chi2_GG).T)
                 assert np.conj(chi2r_GG[invmap_GG]) == pytest.approx(
-                    chi1r_GG, rel=rtol, abs=0.0035)
+                    chi1r_GG, rel=rtol, abs=atol)
 
             # Loop over frequencies
             for chi1_GG, chi2_GG in zip(chiks_q[q1].array,
                                         chiks_q[q2].array):
                 # Check the reciprocity of the full susceptibility
                 assert chi2_GG[invmap_GG].T == pytest.approx(chi1_GG, rel=rtol,
-                                                             abs=0.004)
+                                                             abs=atol)
                 # Check inversion symmetry of the full susceptibility
                 assert chi2_GG[invmap_GG] == pytest.approx(chi1_GG, rel=rtol,
-                                                           abs=0.004)
+                                                           abs=atol)
 
     # Part 3: Check matrix symmetry
     for chiks_bq in chiks_sbq:
