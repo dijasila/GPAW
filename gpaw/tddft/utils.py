@@ -1,69 +1,36 @@
 # Written by Lauri Lehtovaara 2008
 import numpy as np
 
-from gpaw.utilities.blas import axpy, scal
-from gpaw.utilities.mblas import multi_axpy, multi_dotc, multi_dotu, multi_scal
-from gpaw import gpu
+from gpaw.utilities.blas import axpy
 
 
 class MultiBlas:
-    def __init__(self, gd, timer=None):
+    def __init__(self, gd):
         self.gd = gd
-        self.timer = None
 
     # Multivector ZAXPY: a x + y => y
-    def multi_zaxpy(self, a, x, y):
-        assert type(x) == type(y)
-        if self.timer is not None:
-            self.timer.start('Multi zaxpy')
+    def multi_zaxpy(self, a, x, y, nvec):
         if isinstance(a, (float, complex)):
-            axpy(complex(a), x, y)
+            for i in range(nvec):
+                axpy(a * (1 + 0j), x[i], y[i])
         else:
-            multi_axpy(a.astype(complex), x, y)
-        if self.timer is not None:
-            self.timer.stop('Multi zaxpy')
+            for i in range(nvec):
+                axpy(a[i] * (1.0 + 0.0j), x[i], y[i])
 
     # Multivector dot product, a^H b, where ^H is transpose
-    def multi_zdotc(self, x, y, s=None):
-        if self.timer is not None:
-            self.timer.start('Multi zdotc')
-        ss = multi_dotc(x, y, s)
-        if self.gd.comm.size > 1:
-            if not isinstance(ss, np.ndarray):
-                s_cpu = gpu.copy_to_host(ss) # pagelocked=True
-                self.gd.comm.sum(s_cpu)
-                gpu.copy_to_device(s_cpu, out=ss)
-            else:
-                self.gd.comm.sum(ss)
-        if self.timer is not None:
-            self.timer.stop('Multi zdotc')
-        return ss
-
-    def multi_zdotu(self, x, y, s=None):
-        if self.timer is not None:
-            self.timer.start('Multi zdotu')
-        ss = multi_dotu(x, y, s)
-        if self.gd.comm.size > 1:
-            if not isinstance(s, np.ndarray):
-                s_cpu = gpu.copy_to_host(ss) # pagelocked=True
-                self.gd.comm.sum(s_cpu)
-                gpu.copy_to_device(s_cpu, out=ss)
-            else:
-                self.gd.comm.sum(ss)
-        if self.timer is not None:
-            self.timer.stop('Multi zdotu')
-        return ss
+    def multi_zdotc(self, s, x, y, nvec):
+        for i in range(nvec):
+            s[i] = np.vdot(x[i], y[i])
+        self.gd.comm.sum(s)
+        return s
 
     # Multiscale: a x => x
-    def multi_scale(self, a, x):
-        if self.timer is not None:
-            self.timer.start('Multi scale')
+    def multi_scale(self, a, x, nvec):
         if isinstance(a, (float, complex)):
-            scal(a, x)
+            x *= a
         else:
-            multi_scal(a, x)
-        if self.timer is not None:
-            self.timer.stop('Multi scale')
+            for i in range(nvec):
+                x[i] *= a[i]
 
 
 class BandPropertyMonitor:

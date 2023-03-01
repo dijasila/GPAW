@@ -1,7 +1,5 @@
 from abc import ABC, abstractmethod
 
-import numpy as np
-
 
 class BaseSolver(ABC):
     """Abstract base class for solvers.
@@ -30,8 +28,7 @@ class BaseSolver(ABC):
     def __init__(self,
                  tolerance=1e-8,
                  max_iterations=1000,
-                 eps=1e-15,
-                 use_gpu=False):
+                 eps=1e-15):
         self.tol = tolerance
         self.max_iter = max_iterations
         if (eps <= tolerance):
@@ -40,7 +37,6 @@ class BaseSolver(ABC):
             raise ValueError(
                 "Invalid tolerance (tol = %le < eps = %le)."
                 % (tolerance, eps))
-        self.use_gpu = use_gpu
 
         self.iterations = -1
 
@@ -50,7 +46,7 @@ class BaseSolver(ABC):
                 'max_iterations': self.max_iter,
                 'eps': self.eps}
 
-    def initialize(self, gd, bd, timer, blocksize=16):
+    def initialize(self, gd, timer):
         """Initialize propagator using runtime objects.
 
         Parameters
@@ -61,16 +57,7 @@ class BaseSolver(ABC):
             timer
         """
         self.gd = gd
-        self.bd = bd
         self.timer = timer
-        self.blocksize = min(blocksize, bd.mynbands)
-        if self.use_gpu:
-            blocks_min = 16
-            blocks_max = 64
-            self.blocksize = min(blocks_max, bd.mynbands,
-                                 gd.comm.size * blocks_min,
-                                 max(1, (224 * 224 * 224) * gd.comm.size
-                                     / np.prod(gd.N_c)))
 
     @abstractmethod
     def solve(self, A, x, b):

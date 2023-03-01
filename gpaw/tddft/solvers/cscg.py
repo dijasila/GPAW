@@ -6,9 +6,7 @@ for complex symmetric matrices. Requires Numpy and GPAW's own BLAS."""
 import numpy as np
 
 from gpaw.utilities.blas import axpy
-from gpaw.utilities.linalg import change_sign
 from gpaw.mpi import rank
-from gpaw import gpu
 
 from .base import BaseSolver
 
@@ -31,122 +29,129 @@ class CSCG(BaseSolver):
         if self.timer is not None:
             self.timer.start('CSCG')
 
-        on_gpu = not isinstance(x, np.ndarray)
-
         # number of vectors
         nvec = len(x)
 
-        B = min(self.blocksize, nvec)
+        # r_0 = b - A x_0
+        r = self.gd.zeros(nvec, dtype=complex)
+        A.dot(-x, r)
+        r += b
 
-        r = self.gd.empty(B, dtype=complex, use_gpu=on_gpu)
-        p = self.gd.empty(B, dtype=complex, use_gpu=on_gpu)
-        z = self.gd.empty(B, dtype=complex, use_gpu=on_gpu)
+        p = self.gd.zeros(nvec, dtype=complex)
+        q = self.gd.zeros(nvec, dtype=complex)
+        z = self.gd.zeros(nvec, dtype=complex)
 
-        if on_gpu:
-            alpha = gpu.cupy.zeros((B,), dtype=complex)
-            rho = gpu.cupy.zeros((B,), dtype=complex)
-            rhop = gpu.cupy.zeros((B,), dtype=complex)
-        else:
-            alpha = np.zeros((B,), dtype=complex)
-            rho = np.zeros((B,), dtype=complex)
-            rhop = np.zeros((B,), dtype=complex)
+        alpha = np.zeros((nvec,), dtype=complex)
+        beta = np.zeros((nvec,), dtype=complex)
+        rho = np.zeros((nvec,), dtype=complex)
+        rhop = np.zeros((nvec,), dtype=complex)
+        scale = np.zeros((nvec,), dtype=complex)
+        tmp = np.zeros((nvec,), dtype=complex)
+
+        rhop[:] = 1.
+
+        # Multivector dot product, a^T b, where ^T is transpose
+        def multi_zdotu(s, x, y, nvec):
+            for i in range(nvec):
+                s[i] = x[i].ravel().dot(y[i].ravel())
+                # s[i] = dotu(x[i],y[i])
+            self.gd.comm.sum(s)
+            return s
+
+        # Multivector ZAXPY: a x + y => y
+        def multi_zaxpy(a, x, y, nvec):
+            for i in range(nvec):
+                axpy(a[i] * (1 + 0J), x[i], y[i])
+
+        # Multiscale: a x => x
+        def multi_scale(a, x, nvec):
+            for i in range(nvec):
+                x[i] *= a[i]
+
+        # scale = square of the norm of b
+        multi_zdotu(scale, b, b, nvec)
+        scale = np.abs(scale)
+
+        # if scale < eps, then convergence check breaks down
+        if (scale < self.eps).any():
+            raise RuntimeError(
+                "CSCG method detected underflow for squared norm of "
+                "right-hand side (scale = %le < eps = %le)." %
+                (scale, self.eps))
+
+        # print 'Scale = ', scale
 
         slow_convergence_iters = 100
 
-        iterations = []
+        for i in range(self.max_iter):
+            # z_i = (M^-1.r)
+            A.apply_preconditioner(r, z)
+
+            # rho_i-1 = r^T z_i-1
+            multi_zdotu(rho, r, z, nvec)
+
+            # print 'Rho = ', rho
+
+            # if i=1, p_i = r_i-1
+            # else beta = (rho_i-1 / rho_i-2) (alpha_i-1 / omega_i-1)
+            #      p_i = r_i-1 + b_i-1 (p_i-1 - omega_i-1 v_i-1)
+            beta = rho / rhop
+
+            # print 'Beta = ', beta
+
+            # if abs(beta) / scale < eps, then CSCG breaks down
+            if ((i > 0) and
+                ((np.abs(beta) / scale) < self.eps).any()):
+                raise RuntimeError(
+                    "Conjugate gradient method failed "
+                    "(abs(beta)=%le < eps = %le)." %
+                    (np.min(np.abs(beta)), self.eps))
+
+            # p = z + beta p
+            multi_scale(beta, p, nvec)
+            p += z
+
+            # q = A.p
+            A.dot(p, q)
+
+            # alpha_i = rho_i-1 / (p^T q_i)
+            multi_zdotu(alpha, p, q, nvec)
+            alpha = rho / alpha
+
+            # print 'Alpha = ', alpha
+
+            # x_i = x_i-1 + alpha_i p_i
+            multi_zaxpy(alpha, p, x, nvec)
+            # r_i = r_i-1 - alpha_i q_i
+            multi_zaxpy(-alpha, q, r, nvec)
+
+            # if ( |r|^2 < tol^2 ) done
+            multi_zdotu(tmp, r, r, nvec)
+            if ((np.abs(tmp) / scale) < self.tol * self.tol).all():
+                # print 'R2 of proc #', rank, '  = ' , tmp, \
+                #     ' after ', i+1, ' iterations'
+                break
+
+            # print if slow convergence
+            if ((i + 1) % slow_convergence_iters) == 0:
+                print('R2 of proc #', rank, '  = ', tmp,
+                      ' after ', i + 1, ' iterations')
+
+            # finally update rho
+            rhop[:] = rho
+
+        # if max iters reached, raise error
+        if (i >= self.max_iter - 1):
+            raise RuntimeError(
+                "Conjugate gradient method failed to converged "
+                "within given number of iterations (= %d)." % self.max_iter)
+
+        # done
+        self.iterations = i + 1
+        # print 'CSCG iterations = ', self.iterations
 
         if self.timer is not None:
-            self.timer.start('Iteration')
-
-        for n1 in range(0, nvec, B):
-            n2 = n1 + B
-            if n2 > nvec:
-                n2 = nvec
-                B = n2 - n1
-                r = r[:B]
-                p = p[:B]
-                z = z[:B]
-                alpha = alpha[:B]
-                rho = rho[:B]
-                rhop = rhop[:B]
-
-            x_x = x[n1:n2]
-            b_x = b[n1:n2]
-
-            rhop.fill(1.0)
-            p.fill(0.0)
-
-            # r_0 = b - A x_0
-            A.dot(x_x, r)
-            r -= b_x
-            change_sign(r)
-
-            # scale = square of the norm of b
-            scale = self.mblas.multi_zdotc(b_x, b_x).real
-
-            # if scale < eps, then convergence check breaks down
-            if (scale < self.eps).any():
-                raise RuntimeError("CSCG method detected underflow for squared norm of right-hand side (scale = %le < eps = %le)." % (np.min(scale), self.eps))
-
-            for i in range(self.max_iter):
-                # z_i = (M^-1.r)
-                A.apply_preconditioner(r, z)
-
-                # rho_i-1 = r^T z_i-1
-                self.mblas.multi_zdotu(z, r, rho)
-
-                # if i=1, p_i = r_i-1
-                # else beta = (rho_i-1 / rho_i-2) (alpha_i-1 / omega_i-1)
-                #      p_i = r_i-1 + b_i-1 (p_i-1 - omega_i-1 v_i-1)
-                beta = rho / rhop
-
-                # if abs(beta) / scale < eps, then CSCG breaks down
-                if ((i > 0) and
-                    ((self.mblas.multi_zdotc(beta, beta).real / scale[n1:n2])
-                     < self.eps).any()):
-                    raise RuntimeError("Conjugate gradient method failed (abs(beta)=%le < eps = %le)." % (np.min(self.mblas.multi_zdotc(beta, beta).real), self.eps))
-
-                # p = z + beta p
-                self.mblas.multi_scale(beta, p)
-                p += z
-
-                # z = A.p
-                A.dot(p, z)
-
-                # alpha_i = rho_i-1 / (p^T q_i)
-                self.mblas.multi_zdotu(p, z, alpha)
-                alpha = rho / alpha
-
-                # x_i = x_i-1 + alpha_i p_i
-                self.mblas.multi_zaxpy(alpha, p, x_x)
-                # r_i = r_i-1 - alpha_i q_i
-                self.mblas.multi_zaxpy(-alpha, z, r)
-
-                # if ( |r|^2 < tol^2 ) done
-                tmp = self.mblas.multi_zdotc(r, r).real
-                if (tmp / scale < self.tol * self.tol).all():
-                    iterations.append(i)
-                    break
-
-                # finally update rho
-                if not isinstance(rhop, np.ndarray):
-                    gpu.cupy.copyto(rhop, rho)
-                else:
-                    rhop[:] = rho
-
-                # print if slow convergence
-                if ((i + 1) % slow_convergence_iters) == 0:
-                    print('R2 of proc #', rank, '  = ', tmp,
-                          ' after ', i + 1, ' iterations')
-
-            # if max iters reached, raise error
-            if (i >= self.max_iter - 1):
-                raise RuntimeError("Conjugate gradient method failed to converged within given number of iterations (= %d)." % self.max_iter)
-
-        self.iterations = np.max(iterations) + 1
-
-        if self.timer is not None:
-            self.timer.stop('Iteration')
             self.timer.stop('CSCG')
 
         return self.iterations
+        # print self.iterations
