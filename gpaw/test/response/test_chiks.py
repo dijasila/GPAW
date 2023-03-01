@@ -61,8 +61,9 @@ def test_transverse_chiks_symmetry(in_tmp_dir, gpw_files,
     the "symmetry" noise can be reduced making running with symmetry='off' in
     the ground state calculation.
 
-    Also, we test that the response function does not change by toggling
-    the symmetries within the same precision."""
+    Also, we test that the response function does not change too much when
+    including symmetries in the response calculation and when changing between
+    different band summation schemes."""
 
     # ---------- Inputs ---------- #
 
