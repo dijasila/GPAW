@@ -190,6 +190,12 @@ def write_input(calc,
 
     f.close()
 
+def get_P_ani(calc, ik, spin = 0, spinors = False, soc = None):
+    if spinors:
+        P_ani = soc[ik].P_amj
+    else:
+        P_ani = calc.wfs.kpt_qs[ik][spin].P_ani
+    return P_ani
 
 def write_projections(calc, seed=None, spin=0, orbitals_ai=None, soc=None):
 
@@ -251,10 +257,7 @@ def write_projections(calc, seed=None, spin=0, orbitals_ai=None, soc=None):
 
     P_kni = np.zeros((Nk, Nn, Nw), complex)
     for ik in range(Nk):
-        if spinors:
-            P_ani = soc[ik].P_amj
-        else:
-            P_ani = calc.wfs.kpt_qs[ik][spin].P_ani
+        P_ani = get_P_ani(calc, ik, spin, spinors, soc)
         for i in range(Nw):
             icount = 0
             for ai in range(Na):
@@ -360,10 +363,8 @@ def write_overlaps(calc, seed=None, spin=0, soc=None, less_memory=False):
 
     P_kani = []
     for ik in range(Nk):
-        if spinors:
-            P_kani.append(soc[ik].P_amj)
-        else:
-            P_kani.append(calc.wfs.kpt_qs[ik][spin].P_ani)
+        P_ani = get_P_ani(calc, ik, spin, spinors, soc)
+        P_kani.append(P_ani)
 
     for ik1 in range(Nk):
         if less_memory:

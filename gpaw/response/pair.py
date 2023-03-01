@@ -10,7 +10,7 @@ from gpaw.utilities.blas import mmm
 
 class KPoint:
     def __init__(self, s, K, n1, n2, blocksize, na, nb,
-                 ut_nR, eps_n, f_n, P_ani, shift_c):
+                 ut_nR, eps_n, f_n, P_ani, shift_c, gs):
         self.s = s    # spin index
         self.K = K    # BZ k-point index
         self.n1 = n1  # first band
@@ -24,9 +24,17 @@ class KPoint:
         self.P_ani = P_ani      # PAW projections
         self.shift_c = shift_c  # long story - see the
         # PairDensity.construct_symmetry_operators() method
+        self.gs = gs
+
+    def get_u_nG(self):
+        u_nG = []
+        for n in range(se-f.n2-self.n1):
+            u_G = self.gs.pd.fft(self.ut_nR[n], self.K)
+            u_nG.append(u_G)
+        return np.array(u_nG)
         
     @classmethod
-    def get_k_point(cls, gs, blockcomm, context, s, k_c, n1, n2, block=False):
+    def get_k_point(cls, gs, context, s, k_c, n1, n2, block=False, blockcomm = None):
         """Return wave functions for a specific k-point and spin.
 
         s: int
@@ -92,9 +100,9 @@ class KPoint:
                 P_ani.append(P_ni)
 
         return KPoint(s, K, n1, n2, blocksize, na, nb,
-                      ut_nR, eps_n, f_n, P_ani, shift_c)
+                      ut_nR, eps_n, f_n, P_ani, shift_c, gs)
 
-        
+    
 
 class PairDistribution:
     def __init__(self, pair, mysKn1n2):
@@ -219,10 +227,10 @@ class PairDensityCalculator:
     @timer('Get a k-point')
     def get_k_point(self, s, k_c, n1, n2, block=False):
         return KPoint.get_k_point(self.gs,
-                                  self.blockcomm,
                                   self.context,
                                   s, k_c, n1, n2,
-                                  block=False)
+                                  block=block,
+                                  blockcomm=self.blockcomm)
 
     @timer('Get kpoint pair')
     def get_kpoint_pair(self, qpd, s, Kork_c, n1, n2, m1, m2, block=False):
