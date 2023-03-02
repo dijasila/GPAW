@@ -271,57 +271,94 @@ class ChiKSCalculator(PairFunctionIntegrator):
         """
         # Calculate the pair densities n_kt(G+q)
         pair_density = self.pair_density_calc(kptpair, chiks.qpd)
-        n_tG = pair_density.get_global_array()
 
         # Extract the temporal ingredients from the KohnShamKPointPair
         n1_t, n2_t, s1_t, s2_t = kptpair.get_transitions()  # band and spin
         df_t = kptpair.df_t  # (f_n'k's' - f_nks)
         deps_t = kptpair.deps_t  # (ε_n'k's' - ε_nks)
 
-        # Calculate the frequency dependence of the integrand
+        # Calculate the temporal part of the integrand
         if chiks.spincomponent == '00' and self.gs.nspins == 1:
             weight = 2 * weight
-        x_Zt = weight * get_temporal_part(chiks.spincomponent,
-                                          chiks.zd.hz_z,
-                                          n1_t, n2_t, s1_t, s2_t,
-                                          df_t, deps_t,
-                                          self.bandsummation)
+        x_Zt = get_temporal_part(chiks.spincomponent,
+                                 chiks.zd.hz_z,
+                                 n1_t, n2_t, s1_t, s2_t,
+                                 df_t, deps_t,
+                                 self.bandsummation)
 
-        # Let each process handle its own slice of integration
-        myslice = chiks.blocks1d.myslice
+        self._add_integrand(pair_density, x_Zt, weight, chiks)
 
-        if chiks.distribution == 'GZg':
-            # Specify notation
-            chiks_GZg = chiks.array
+    def _add_integrand(self, pair_density, x_Zt, weight, chiks):
+        r"""Add the integrand to chiks.
 
-            x_tZ = np.ascontiguousarray(x_Zt.T)
-            n_Gt = np.ascontiguousarray(n_tG.T)
+        This entail performing a sum of transition t and an outer product
+        in the pair density plane wave components G and G',
+                    __
+                    \
+        (...)_k =   /  x_t^μν(ħz) n_kt(G+q) n_kt^*(G'+q)
+                    ‾‾
+                    t
 
-            with self.context.timer('Set up ncc and nx'):
-                ncc_Gt = n_Gt.conj()
-                n_tg = n_tG[:, myslice]
-                nx_tZg = x_tZ[:, :, np.newaxis] * n_tg[:, np.newaxis, :]
-
-            with self.context.timer('Perform sum over t-transitions '
-                                    'of ncc * nx'):
-                mmmx(1.0, ncc_Gt, 'N', nx_tZg, 'N',
-                     1.0, chiks_GZg)  # slow step
-        elif chiks.distribution == 'ZgG':
-            # Specify notation
-            chiks_ZgG = chiks.array
-
-            with self.context.timer('Set up ncc and nx'):
-                ncc_tG = n_tG.conj()
-                n_gt = np.ascontiguousarray(n_tG[:, myslice].T)
-                nx_Zgt = x_Zt[:, np.newaxis, :] * n_gt[np.newaxis, :, :]
-
-            with self.context.timer('Perform sum over t-transitions of '
-                                    'ncc * nx'):
-                for nx_gt, chiks_gG in zip(nx_Zgt, chiks_ZgG):
-                    mmmx(1.0, nx_gt, 'N', ncc_tG, 'N',
-                         1.0, chiks_gG)  # slow step
+        where x_t^μν(ħz) is the temporal part of χ_KS,GG'^μν(q,ω+iη).
+        """
+        if chiks.distribution == 'ZgG':
+            self._add_integrand_ZgG(pair_density, x_Zt, weight, chiks)
+        elif chiks.distribution == 'GZg':
+            self._add_integrand_GZg(pair_density, x_Zt, weight, chiks)
         else:
             raise ValueError(f'Invalid distribution {chiks.distribution}')
+
+    def _add_integrand_ZgG(self, pair_density, x_Zt, weight, chiks):
+        """Add integrand in ZgG distribution.
+
+        Z = global complex frequency index
+        g = distributed G plane wave index
+        G = global G' plane wave index
+        """
+        chiks_ZgG = chiks.array
+        myslice = chiks.blocks1d.myslice
+
+        with self.context.timer('Set up ncc and xn'):
+            # Multiply the temporal part with the k-point integration weight
+            x_Zt *= weight
+
+            # Set up n_kt^*(G'+q)
+            n_tG = pair_density.get_global_array()
+            ncc_tG = n_tG.conj()
+
+            # Set up x_t^μν(ħz) n_kt(G+q)
+            n_gt = np.ascontiguousarray(n_tG[:, myslice].T)
+            xn_Zgt = x_Zt[:, np.newaxis, :] * n_gt[np.newaxis, :, :]
+
+        with self.context.timer('Perform sum over t-transitions of xn * ncc'):
+            for xn_gt, chiks_gG in zip(xn_Zgt, chiks_ZgG):
+                mmmx(1.0, xn_gt, 'N', ncc_tG, 'N', 1.0, chiks_gG)  # slow step
+
+    def _add_integrand_GZg(self, pair_density, x_Zt, weight, chiks):
+        """Add integrand in GZg distribution.
+
+        G = global G' plane wave index
+        Z = global complex frequency index
+        g = distributed G plane wave index
+        """
+        chiks_GZg = chiks.array
+        myslice = chiks.blocks1d.myslice
+
+        with self.context.timer('Set up ncc and xn'):
+            # Multiply the temporal part with the k-point integration weight
+            x_tZ = np.ascontiguousarray(weight * x_Zt.T)
+
+            # Set up n_kt^*(G'+q)
+            n_tG = pair_density.get_global_array()
+            n_Gt = np.ascontiguousarray(n_tG.T)
+            ncc_Gt = n_Gt.conj()
+
+            # Set up x_t^μν(ħz) n_kt(G+q)
+            n_tg = n_tG[:, myslice]
+            xn_tZg = x_tZ[:, :, np.newaxis] * n_tg[:, np.newaxis, :]
+
+        with self.context.timer('Perform sum over t-transitions of ncc * xn'):
+            mmmx(1.0, ncc_Gt, 'N', xn_tZg, 'N', 1.0, chiks_GZg)  # slow step
 
     @timer('Symmetrizing chiks')
     def symmetrize(self, chiks, analyzer):
