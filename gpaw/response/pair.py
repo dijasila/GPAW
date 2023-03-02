@@ -26,15 +26,17 @@ class KPoint:
         # PairDensity.construct_symmetry_operators() method
         self.gs = gs
 
-    def get_u_nG(self):
+    def get_u_nG(self, bands = None):
         u_nG = []
-        for n in range(self.n2-self.n1):
+        if bands is None:
+            bands = range(self.n2-self.n1)
+        for n in bands:
             u_G = self.gs.pd.fft(self.ut_nR[n], self.K)
             u_nG.append(u_G)
         return np.array(u_nG)
 
     @classmethod
-    def get_k_point(cls, gs, context, s, k_c, n1, n2, block=False, blockcomm = None):
+    def get_k_point(cls, gs, timer, s, k_c, n1, n2, block=False, blockcomm = None):
         """Return wave functions for a specific k-point and spin.
 
         s: int
@@ -85,13 +87,13 @@ class KPoint:
         eps_n = kpt.eps_n[n1:n2]
         f_n = kpt.f_n[n1:n2] / kpt.weight
 
-        with context.timer('load wfs'):
+        with timer('load wfs'):
             psit_nG = kpt.psit_nG
             ut_nR = gs.gd.empty(nb - na, gs.dtype)
             for n in range(na, nb):
                 ut_nR[n - na] = T(gs.pd.ifft(psit_nG[n], ik))
 
-        with context.timer('Load projections'):
+        with timer('Load projections'):
             P_ani = []
             for b, U_ii in zip(a_a, U_aii):
                 P_ni = np.dot(kpt.P_ani[b][na:nb], U_ii)
@@ -227,7 +229,7 @@ class PairDensityCalculator:
     @timer('Get a k-point')
     def get_k_point(self, s, k_c, n1, n2, block=False):
         return KPoint.get_k_point(self.gs,
-                                  self.context,
+                                  self.context.timer,
                                   s, k_c, n1, n2,
                                   block=block,
                                   blockcomm=self.blockcomm)

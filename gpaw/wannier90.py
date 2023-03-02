@@ -1,8 +1,9 @@
 import numpy as np
 from gpaw.utilities.blas import gemmdot
 from gpaw.berryphase import get_overlap
-
-
+from gpaw.response.pair import KPoint
+from gpaw.response import ResponseGroundStateAdapter
+from gpaw.response.context import ResponseContext
 class Wannier90:
     def __init__(self, calc, seed=None, bands=None, orbitals_ai=None,
                  spin=0):
@@ -190,18 +191,37 @@ def write_input(calc,
 
     f.close()
 
-def get_P_ani(calc, ik, spin = 0, spinors = False, soc = None):
+def get_P_ani(calc, ik, spin = 0, kpt = None, spinors = False, soc = None):
+    """Returns P_ani
+    calc: GPAW calculator
+    ik: BZ k-point index
+    spin: spin index
+    kpt: gpaw.response.pair KPoint object
+    spinors: logical
+    soc: SOC object (if spinors)
+    """
     if spinors:
+        assert soc is not None
         P_ani = soc[ik].P_amj
     else:
-        P_ani = calc.wfs.kpt_qs[ik][spin].P_ani
+        assert kpt is not None
+        assert ik == kpt.K
+        assert spin == kpt.s
+        P_ani = kpt.P_ani #calc.wfs.kpt_qs[ik][spin].P_ani
     return P_ani
+
+def get_gs_and_context(calc, seed, spinors):
+    if spinors:
+        return None, None
+    gs = ResponseGroundStateAdapter(calc)
+    context = ResponseContext(txt=seed+'.txt')
+    return gs, context
 
 def write_projections(calc, seed=None, spin=0, orbitals_ai=None, soc=None):
 
     if seed is None:
         seed = calc.atoms.get_chemical_formula()
-
+    
     bands = get_bands(seed)
     Nn = len(bands)
 
@@ -222,7 +242,10 @@ def write_projections(calc, seed=None, spin=0, orbitals_ai=None, soc=None):
             if l_e[0] == 'mp_grid':
                 Nk = int(l_e[2]) * int(l_e[3]) * int(l_e[4])
                 assert Nk == len(calc.get_bz_k_points())
-
+                
+    # get stuff needed for kpt descriptor
+    gs, context = get_gs_and_context(calc, seed, spinors)
+        
     Na = len(calc.atoms)
     if orbitals_ai is None:
         orbitals_ai = []
@@ -257,7 +280,14 @@ def write_projections(calc, seed=None, spin=0, orbitals_ai=None, soc=None):
 
     P_kni = np.zeros((Nk, Nn, Nw), complex)
     for ik in range(Nk):
-        P_ani = get_P_ani(calc, ik, spin, spinors, soc)
+        if spinors:
+            kpt = None
+        else:
+            n2 = calc.get_number_of_bands()
+            kpt = KPoint.get_k_point(gs, context.timer,
+                                     spin, ik,
+                                     0, n2)
+        P_ani = get_P_ani(calc, ik, spin, kpt, spinors, soc)
         for i in range(Nw):
             icount = 0
             for ai in range(Na):
@@ -307,7 +337,7 @@ def write_overlaps(calc, seed=None, spin=0, soc=None, less_memory=False):
         spinors = False
     else:
         spinors = True
-
+    gs, context = get_gs_and_context(calc, seed, spinors)
     bands = get_bands(seed)
     Nn = len(bands)
     kpts_kc = calc.get_bz_k_points()
@@ -345,7 +375,7 @@ def write_overlaps(calc, seed=None, spin=0, soc=None, less_memory=False):
 
     wfs = calc.wfs
 
-    def wavefunctions(bz_index):
+    def wavefunctions(bz_index, kpt=None):
         if spinors:
             # For spinors, G denotes spin and grid: G = (s, gx, gy, gz)
             return soc[bz_index].wavefunctions(
@@ -354,17 +384,35 @@ def write_overlaps(calc, seed=None, spin=0, soc=None, less_memory=False):
         return np.array([wfs.get_wave_function_array(n, bz_index, spin,
                                                      periodic=True)
                          for n in bands])
+        #if kpt is None:
+        #    n2 = calc.get_number_of_bands()
+        #    kpt = KPoint.get_k_point(gs, context.timer,
+        #                             spin, bz_index,
+        #                             0, n2)
 
-    if not less_memory:
-        u_knG = []
-        for ik in range(Nk):
-            u_nG = wavefunctions(ik)
-            u_knG.append(u_nG)
+        return kpt.get_u_nG(bands = bands)
+    
+    #if not less_memory:
+    #    u_knG = []
+    #    for ik in range(Nk):
+    #        u_nG = wavefunctions(ik)
+    #        u_knG.append(u_nG)
 
     P_kani = []
+    if not less_memory:
+        u_knG = []
+
     for ik in range(Nk):
-        P_ani = get_P_ani(calc, ik, spin, spinors, soc)
+        n2 = calc.get_number_of_bands()
+        kpt = KPoint.get_k_point(gs, context.timer,
+                                 spin, ik,
+                                 0, n2)
+        P_ani = get_P_ani(calc, ik, spin, kpt, spinors, soc)
         P_kani.append(P_ani)
+    
+        if not less_memory:
+            u_nG = wavefunctions(ik, kpt)
+            u_knG.append(u_nG)
 
     for ik1 in range(Nk):
         if less_memory:
