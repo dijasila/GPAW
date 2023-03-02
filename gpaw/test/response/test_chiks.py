@@ -20,7 +20,8 @@ def generate_system_s():
     # Compute chiks for different materials and spin-components, using
     # system specific tolerances
     system_s = [  # wfs, spincomponent, rtol, dsym_rtol, bsum_rtol
-        ('fe_pw_wfs', '+-', 0.04, 0.01, 0.02)
+        ('fe_pw_wfs', '+-', 0.04, 0.01, 0.02),
+        ('fe_pw_wfs', '00', 0.04, 0.01, 0.02)
     ]
 
     return system_s
@@ -50,8 +51,7 @@ def generate_gc_g():
 @pytest.mark.parametrize(
     'system,q_c,gammacentered',
     product(generate_system_s(), generate_q_qc(), generate_gc_g()))
-def test_transverse_chiks_symmetry(in_tmp_dir, gpw_files,
-                                   system, q_c, gammacentered):
+def test_chiks_symmetry(in_tmp_dir, gpw_files, system, q_c, gammacentered):
     r"""Check the reciprocity relation (valid both for μν=00 and μν=+-),
 
     χ_(KS,GG')^(μν)(q, ω) = χ_(KS,-G'-G)^(μν)(-q, ω),
