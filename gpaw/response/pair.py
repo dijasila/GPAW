@@ -26,15 +26,6 @@ class KPoint:
         # PairDensity.construct_symmetry_operators() method
         self.gs = gs
 
-    def get_u_nG(self, bands = None):
-        u_nG = []
-        if bands is None:
-            bands = range(self.n2-self.n1)
-        for n in bands:
-            u_G = self.gs.pd.fft(self.ut_nR[n], self.K)
-            u_nG.append(u_G)
-        return np.array(u_nG)
-
     @classmethod
     def get_k_point(cls, gs, timer, s, k_c, n1, n2, block=False, blockcomm = None):
         """Return wave functions for a specific k-point and spin.
@@ -76,7 +67,7 @@ class KPoint:
         U_cc, T, a_a, U_aii, shift_c, time_reversal = \
             construct_symmetry_operators(gs, K, k_c,
                                          apply_strange_shift=False)
-
+        
         shift_c += -shift0_c
         ik = kd.bz2ibz_k[K]
         assert kd.comm.size == 1

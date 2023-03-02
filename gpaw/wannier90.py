@@ -4,6 +4,15 @@ from gpaw.berryphase import get_overlap
 from gpaw.response.pair import KPoint
 from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.context import ResponseContext
+# XXX I need to correctly apply shift_c to P_ani and u_nR
+# shift_c = np.dot(U_cc, ik_c) - k_c * sign
+# SO the symmetry transformed quantities are actually
+# at the k-point ik_c + shift_c != k_c
+# I should make a method .apply_shift_c on KPoint
+# that actually takes P_ani, U_nR to the 1:st BZ
+# and sets shift_c to zero
+
+
 class Wannier90:
     def __init__(self, calc, seed=None, bands=None, orbitals_ai=None,
                  spin=0):
@@ -313,12 +322,21 @@ def write_eigenvalues(calc, seed=None, spin=0, soc=None):
         seed = calc.atoms.get_chemical_formula()
 
     bands = get_bands(seed)
+    if soc is None:
+        # get stuff needed for kpt descriptor
+        gs, context = get_gs_and_context(calc, seed, spinors=False)
 
+    
     f = open(seed + '.eig', 'w')
 
     for ik in range(len(calc.get_bz_k_points())):
         if soc is None:
-            e_n = calc.get_eigenvalues(kpt=ik, spin=spin)
+            n2 = calc.get_number_of_bands()
+            kpt = KPoint.get_k_point(gs, context.timer,
+                                     spin, ik,
+                                     0, n2)
+
+            e_n = kpt.eps_n #calc.get_eigenvalues(kpt=ik, spin=spin)
         else:
             e_n = soc[ik].eig_m
         for i, n in enumerate(bands):
@@ -381,16 +399,14 @@ def write_overlaps(calc, seed=None, spin=0, soc=None, less_memory=False):
             return soc[bz_index].wavefunctions(
                 calc, periodic=True)[bands]
         # For non-spinors, G denotes grid: G = (gx, gy, gz)
-        return np.array([wfs.get_wave_function_array(n, bz_index, spin,
-                                                     periodic=True)
-                         for n in bands])
-        #if kpt is None:
-        #    n2 = calc.get_number_of_bands()
-        #    kpt = KPoint.get_k_point(gs, context.timer,
-        #                             spin, bz_index,
-        #                             0, n2)
-
-        return kpt.get_u_nG(bands = bands)
+        if kpt is None:
+            n2 = calc.get_number_of_bands()
+            kpt = KPoint.get_k_point(gs, context.timer,
+                                     spin, bz_index,
+                                     0, n2)
+        #XXX can try to add shift_c to periodic part
+        #return kpt.ut_nR * np.exp(-1.0j * gemmdot(kpt.shift_c, r_g, beta=0.0))
+        return kpt.ut_nR #kpt.get_u_nG(bands = bands)
     
     #if not less_memory:
     #    u_knG = []
@@ -411,7 +427,7 @@ def write_overlaps(calc, seed=None, spin=0, soc=None, less_memory=False):
         P_kani.append(P_ani)
     
         if not less_memory:
-            u_nG = wavefunctions(ik, kpt)
+            u_nG = wavefunctions(ik, kpt) #XXX Misleading name. It is actually u_nR!
             u_knG.append(u_nG)
 
     for ik1 in range(Nk):
@@ -423,11 +439,21 @@ def write_overlaps(calc, seed=None, spin=0, soc=None, less_memory=False):
             # b denotes nearest neighbor k-points
             line = lines[i0 + ik1 * Nb + ib].split()
             ik2 = int(line[1]) - 1
+            n2 = calc.get_number_of_bands()
+            kpt1 = KPoint.get_k_point(gs, context.timer,
+                                      spin, ik1,
+                                      0, n2)
+            kpt2 = KPoint.get_k_point(gs, context.timer,
+                                      spin, ik2,
+                                      0, n2)
             if less_memory:
                 u2_nG = wavefunctions(ik2)
             else:
                 u2_nG = u_knG[ik2]
-
+            #XXX Do I need shift_c here somewhere?
+            #shift_c = np.dot(U_cc, ik_c) - k_c * sign
+            #SO the symmetry transformed quantities are actually
+            #at the k-point ik_c + shift_c != k_c
             G_c = np.array([int(line[i]) for i in range(2, 5)])
             bG_v = np.dot(G_c, icell_cv)
             u2_nG = u2_nG * np.exp(-1.0j * gemmdot(bG_v, r_g, beta=0.0))
@@ -486,7 +512,7 @@ def write_wavefunctions(calc, soc=None, spin=0, seed=None):
 
     bands = get_bands(seed)
     Nn = len(bands)
-    Nk = len(calc.get_ibz_k_points())
+    Nk = len(calc.get_ibz_k_points()) #XXX Also needs to be updated to work with symmetry
 
     for ik in range(Nk):
         if spinors:
