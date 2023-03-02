@@ -106,7 +106,9 @@ def gpw_files(request, tmp_path_factory):
 
     * Bulk Si, LDA, 2x2x2 k-points (gamma centered): ``si_pw``
 
-    * Bulk Fe, LDA, 4x4x4 k-points, 6 converged bands: ``fe_pw``
+    * Bulk Si, LDA, 4x4x4 k-points, 8 converged bands: ``fancy_si_pw``
+
+    * Bulk Fe, LDA, 4x4x4 k-points, 9 converged bands: ``fe_pw``
 
     * Bulk Ag, LDA, 2x2x2 k-points, 6 converged bands,
       2eV U on d-band: ``ag_pw``
@@ -321,10 +323,33 @@ class GPWFiles:
                     xc='LDA',
                     occupations=FermiDirac(width=0.001),
                     kpts={'size': (2, 2, 2), 'gamma': True},
-                    txt='si.gs.txt')
+                    txt=self.path / 'si_pw.txt')
         si.calc = calc
         si.get_potential_energy()
         return si.calc
+
+    def fancy_si_pw(self):
+        xc = 'LDA'
+        kpts = 4
+        nbands = 8  # 2 * (3s, 3p)
+        pw = 300
+        occw = 0.01
+        conv = {'bands': nbands,
+                'density': 1.e-8}
+        atoms = bulk('Si')
+        atoms.center()
+
+        atoms.calc = GPAW(
+            xc=xc,
+            mode=PW(pw),
+            kpts={'size': (kpts, kpts, kpts), 'gamma': True},
+            nbands=nbands + 12,  # + 2 * (4s, 3d)
+            occupations=FermiDirac(occw),
+            convergence=conv,
+            txt=self.path / 'fancy_si_pw.txt')
+
+        atoms.get_potential_energy()
+        return atoms.calc
 
     def bn_pw(self):
         atoms = bulk('BN', 'zincblende', a=3.615)
