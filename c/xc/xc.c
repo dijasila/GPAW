@@ -110,17 +110,14 @@ XCFunctional_calculate(XCFunctionalObject *self, PyObject *args)
       tau_g = DOUBLEP(tau_array);
       dedtau_g = DOUBLEP(dedtau_array);
       int nspin = PyArray_DIM(n_array, 0) == 1 ? 1 : 2;
-      Py_BEGIN_ALLOW_THREADS;
       calc_mgga(&self->mgga, nspin, ng, n_g, sigma_g, tau_g, e_g, v_g,
                 dedsigma_g, dedtau_g);
-      Py_END_ALLOW_THREADS;
       Py_RETURN_NONE;
     }
 #endif
 
   if (PyArray_DIM(n_array, 0) == 1)
     {
-    Py_BEGIN_ALLOW_THREADS;
     for (int g = 0; g < ng; g++)
       {
         double n = n_g[g];
@@ -148,11 +145,9 @@ XCFunctional_calculate(XCFunctionalObject *self, PyObject *args)
         e_g[g] = n * (ex + ec);
         v_g[g] += ex + ec - rs * (dexdrs + decdrs) / 3.0;
       }
-    Py_END_ALLOW_THREADS;
     }
   else
     {
-      Py_BEGIN_ALLOW_THREADS;
       const double* na_g = n_g;
       double* va_g = v_g;
       const double* nb_g = na_g + ng;
@@ -227,7 +222,6 @@ XCFunctional_calculate(XCFunctionalObject *self, PyObject *args)
                       (rsb * dexbdrs + rs * decdrs) / 3.0 -
                       (zeta + 1.0) * decdzeta);
         }
-      Py_END_ALLOW_THREADS;
     }
   Py_RETURN_NONE;
 }

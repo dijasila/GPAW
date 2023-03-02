@@ -89,7 +89,6 @@ PyObject* scal(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args, "DO", &alpha, &x))
     return NULL;
   int n = PyArray_DIMS(x)[0];
-  Py_BEGIN_ALLOW_THREADS;
   for (int d = 1; d < PyArray_NDIM(x); d++)
     n *= PyArray_DIMS(x)[d];
   int incx = 1;
@@ -99,7 +98,6 @@ PyObject* scal(PyObject *self, PyObject *args)
   else
     zscal_(&n, &alpha, (void*)COMPLEXP(x), &incx);
 
-  Py_END_ALLOW_THREADS;
   Py_RETURN_NONE;
 }
 
@@ -116,7 +114,6 @@ PyObject* gemm(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args, "DOODO|s", &alpha, &a, &b, &beta, &c, &transa))
     return NULL;
   int m, k, lda, ldb, ldc;
-  Py_BEGIN_ALLOW_THREADS;
   if (*transa == 'n')
     {
       m = PyArray_DIMS(a)[1];
@@ -153,7 +150,6 @@ PyObject* gemm(PyObject *self, PyObject *args)
            (void*)COMPLEXP(b), &ldb,
            &beta,
            (void*)COMPLEXP(c), &ldc);
-  Py_END_ALLOW_THREADS;
   Py_RETURN_NONE;
 }
 
@@ -225,7 +221,6 @@ PyObject* gemv(PyObject *self, PyObject *args)
 
   int m, n, lda, itemsize, incx, incy;
 
-  Py_BEGIN_ALLOW_THREADS;
   if (*trans == 'n')
     {
       m = PyArray_DIMS(a)[1];
@@ -265,7 +260,6 @@ PyObject* gemv(PyObject *self, PyObject *args)
            (void*)COMPLEXP(x), &incx,
            &beta,
            (void*)COMPLEXP(y), &incy);
-  Py_END_ALLOW_THREADS;
   Py_RETURN_NONE;
 }
 
@@ -277,7 +271,6 @@ PyObject* axpy(PyObject *self, PyObject *args)
   PyArrayObject* y;
   if (!PyArg_ParseTuple(args, "DOO", &alpha, &x, &y))
     return NULL;
-  Py_BEGIN_ALLOW_THREADS;
   int n = PyArray_DIMS(x)[0];
   for (int d = 1; d < PyArray_NDIM(x); d++)
     n *= PyArray_DIMS(x)[d];
@@ -291,7 +284,6 @@ PyObject* axpy(PyObject *self, PyObject *args)
     zaxpy_(&n, &alpha,
            (void*)COMPLEXP(x), &incx,
            (void*)COMPLEXP(y), &incy);
-  Py_END_ALLOW_THREADS;
   Py_RETURN_NONE;
 }
 
@@ -311,7 +303,6 @@ PyObject* rk(PyObject *self, PyObject *args)
 
     int k, lda;
 
-    Py_BEGIN_ALLOW_THREADS;
     if (*trans == 'c') {
         k = PyArray_DIMS(a)[1];
         for (int d = 2; d < PyArray_NDIM(a); d++)
@@ -332,7 +323,6 @@ PyObject* rk(PyObject *self, PyObject *args)
         zherk_("u", trans, &n, &k,
                &alpha, (void*)COMPLEXP(a), &lda, &beta,
                (void*)COMPLEXP(c), &ldc);
-    Py_END_ALLOW_THREADS;
     Py_RETURN_NONE;
 }
 
@@ -363,7 +353,6 @@ PyObject* r2k(PyObject *self, PyObject *args)
     }
   int ldc = MAX(MAX(1, n), PyArray_STRIDES(c)[0] / PyArray_ITEMSIZE(c));
 
-  Py_BEGIN_ALLOW_THREADS;
   if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     dsyr2k_("u", trans, &n, &k,
             (double*)(&alpha), DOUBLEP(a), &lda,
@@ -374,7 +363,6 @@ PyObject* r2k(PyObject *self, PyObject *args)
             (void*)(&alpha), (void*)COMPLEXP(a), &lda,
             (void*)COMPLEXP(b), &lda, &beta,
             (void*)COMPLEXP(c), &ldc);
-  Py_END_ALLOW_THREADS;
 
   Py_RETURN_NONE;
 }
@@ -393,10 +381,8 @@ PyObject* dotc(PyObject *self, PyObject *args)
   if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     {
       double result;
-      Py_BEGIN_ALLOW_THREADS;
       result = ddot_(&n, (void*)DOUBLEP(a),
              &incx, (void*)DOUBLEP(b), &incy);
-      Py_END_ALLOW_THREADS;
       return PyFloat_FromDouble(result);
     }
   else
@@ -404,9 +390,7 @@ PyObject* dotc(PyObject *self, PyObject *args)
       double_complex* ap = COMPLEXP(a);
       double_complex* bp = COMPLEXP(b);
       double_complex result;
-      Py_BEGIN_ALLOW_THREADS;
       cblas_zdotc_sub(n, ap, incx, bp, incy, &result);
-      Py_END_ALLOW_THREADS;
       return PyComplex_FromDoubles(creal(result), cimag(result));
     }
 }
@@ -426,10 +410,8 @@ PyObject* dotu(PyObject *self, PyObject *args)
   if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     {
       double result;
-      Py_BEGIN_ALLOW_THREADS;
       result = ddot_(&n, (void*)DOUBLEP(a),
              &incx, (void*)DOUBLEP(b), &incy);
-      Py_END_ALLOW_THREADS;
       return PyFloat_FromDouble(result);
     }
   else
@@ -437,9 +419,7 @@ PyObject* dotu(PyObject *self, PyObject *args)
       double_complex* ap = COMPLEXP(a);
       double_complex* bp = COMPLEXP(b);
       double_complex result;
-      Py_BEGIN_ALLOW_THREADS;
       cblas_zdotu_sub(n, ap, incx, bp, incy, &result);
-      Py_END_ALLOW_THREADS;
       return PyComplex_FromDoubles(creal(result), cimag(result));
     }
 }

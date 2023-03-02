@@ -64,7 +64,6 @@ static PyObject * Operator_relax(OperatorObject *self,
                         &nrelax, &w))
     return NULL;
 
-  Py_BEGIN_ALLOW_THREADS;
   const boundary_conditions* bc = self->bc;
 
   double* fun = DOUBLEP(func);
@@ -94,7 +93,6 @@ static PyObject * Operator_relax(OperatorObject *self,
   free(recvbuf);
   free(sendbuf);
   free(buf);
-  Py_END_ALLOW_THREADS;
   Py_RETURN_NONE;
 }
 
@@ -107,7 +105,6 @@ void apply_worker(OperatorObject *self, int chunksize, int start,
 		  const double* in, double* out,
 		  bool real, const double_complex* ph)
 {
-  Py_BEGIN_ALLOW_THREADS;
   boundary_conditions* bc = self->bc;
   const int* size1 = bc->size1;
   const int* size2 = bc->size2;
@@ -148,7 +145,7 @@ void apply_worker(OperatorObject *self, int chunksize, int start,
   free(buf);
   free(recvbuf);
   free(sendbuf);
-  Py_END_ALLOW_THREADS;
+
 }
 
 // Double buffering async worker for central difference stencils
@@ -160,7 +157,6 @@ void apply_worker_cfd(OperatorObject *self, int chunksize, int chunkinc,
 {
   if (start >= end)
     return;
-  Py_BEGIN_ALLOW_THREADS;
   boundary_conditions* bc = self->bc;
   const int* size1 = bc->size1;
   const int* size2 = bc->size2;
@@ -248,7 +244,7 @@ void apply_worker_cfd(OperatorObject *self, int chunksize, int chunkinc,
   free(buf);
   free(recvbuf);
   free(sendbuf);
-  Py_END_ALLOW_THREADS;
+
 }
 
 static PyObject * Operator_apply(OperatorObject *self,
