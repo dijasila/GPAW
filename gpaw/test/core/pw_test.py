@@ -155,14 +155,3 @@ def test_find_g():
                                       kpt=np.array([0.1, 0, 0]))
     assert i.T.tolist() == [[0, 0, 0],
                             [-1, 0, 0]]
-
-
-def test_integrate():
-    a = 2.5
-    pw = PlaneWaves(ecut=10, cell=[a, a, a], comm=CuPyMPI(world))
-    f = pw.zeros(xp=cp)
-    f.data[0] = 1 + world.size
-    x = f.integrate(f)
-    print(x, type(x))
-
-    
