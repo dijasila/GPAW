@@ -20,21 +20,32 @@ def generate_system_s():
     # Compute chiks for different materials and spin-components, using
     # system specific tolerances
     system_s = [  # wfs, spincomponent, rtol, dsym_rtol, bsum_rtol
-        ('fe_pw_wfs', '+-', 0.04, 0.01, 0.02),
-        ('fe_pw_wfs', '00', 1e-5, 1e-6, 1e-5)
+        ('fancy_si_pw_wfs', '00', 1e-5, 1e-6, 1e-5),
+        ('fe_pw_wfs', '00', 1e-5, 1e-6, 1e-5),
+        ('fe_pw_wfs', '+-', 0.04, 0.01, 0.02)
     ]
 
     return system_s
 
 
-def generate_q_qc():
-    # Do some q-points on the G-N path
-    q_qc = np.array([[0, 0, 0],           # Gamma
-                     [0., 0., 0.25],      # N/2
-                     [0.0, 0.0, 0.5],     # N
-                     ])
+def generate_qrel_q():
+    # Fractional q-vectors on a path towards a reciprocal lattice vector
+    qrel_q = np.array([0., 0.25, 0.5])
 
-    return q_qc
+    return qrel_q
+
+
+def get_q_c(wfs, qrel):
+    if wfs == 'fancy_si_pw_wfs':
+        # Generate points on the G-X path
+        q_c = qrel * np.array([1., 0., 1.])
+    elif wfs == 'fe_pw_wfs':
+        # Generate points on the G-N path
+        q_c = qrel * np.array([0., 0., 1.])
+    else:
+        raise ValueError('Invalid wfs', wfs)
+
+    return q_c
 
 
 def generate_gc_g():
@@ -47,11 +58,18 @@ def generate_gc_g():
 # ---------- Actual tests ---------- #
 
 
+def mark_si_xfail(system, request):
+    wfs = system[0]
+    if wfs == 'fancy_si_pw_wfs' and world.size % 4 == 0:
+        request.node.add_marker(pytest.mark.xfail)
+
+
 @pytest.mark.response
 @pytest.mark.parametrize(
-    'system,q_c,gammacentered',
-    product(generate_system_s(), generate_q_qc(), generate_gc_g()))
-def test_chiks_symmetry(in_tmp_dir, gpw_files, system, q_c, gammacentered):
+    'system,qrel,gammacentered',
+    product(generate_system_s(), generate_qrel_q(), generate_gc_g()))
+def test_chiks_symmetry(in_tmp_dir, gpw_files, system, qrel, gammacentered,
+                        request):
     r"""Check the reciprocity relation (valid both for μν=00 and μν=+-),
 
     χ_(KS,GG')^(μν)(q, ω) = χ_(KS,-G'-G)^(μν)(-q, ω),
@@ -74,11 +92,13 @@ def test_chiks_symmetry(in_tmp_dir, gpw_files, system, q_c, gammacentered):
     Also, we test that the response function does not change too much when
     including symmetries in the response calculation and when changing between
     different band summation schemes."""
+    mark_si_xfail(system, request)
 
     # ---------- Inputs ---------- #
 
     # Part 1: ChiKS calculation
     wfs, spincomponent, rtol, dsym_rtol, bsum_rtol = system
+    q_c = get_q_c(wfs, qrel)
 
     ecut = 50
     # Test vanishing and finite real and imaginary frequencies
