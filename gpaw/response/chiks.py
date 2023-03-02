@@ -443,9 +443,8 @@ def get_temporal_part(spincomponent, hz_z,
                       n1_t, n2_t, s1_t, s2_t, df_t, deps_t, bandsummation):
     """Get the temporal part of a (causal linear) susceptibility integrand."""
     _get_temporal_part = create_get_temporal_part(bandsummation)
-    return _get_temporal_part(spincomponent, s1_t, s2_t,
-                              df_t, deps_t, hz_z,
-                              n1_t, n2_t)
+    return _get_temporal_part(spincomponent, hz_z,
+                              n1_t, n2_t, s1_t, s2_t, df_t, deps_t)
 
 
 def create_get_temporal_part(bandsummation):
@@ -457,9 +456,8 @@ def create_get_temporal_part(bandsummation):
     raise ValueError(bandsummation)
 
 
-def get_double_temporal_part(spincomponent, s1_t, s2_t,
-                             df_t, deps_t, hz_z,
-                             n1_t, n2_t):
+def get_double_temporal_part(spincomponent, hz_z,
+                             n1_t, n2_t, s1_t, s2_t, df_t, deps_t):
     r"""Get:
 
              σ^μ_ss' σ^ν_s's (f_nks - f_n'k's')
@@ -478,9 +476,8 @@ def get_double_temporal_part(spincomponent, s1_t, s2_t,
     return nom_t[np.newaxis, :] / denom_wt
 
 
-def get_pairwise_temporal_part(spincomponent, s1_t, s2_t,
-                               df_t, deps_t, hz_z,
-                               n1_t, n2_t):
+def get_pairwise_temporal_part(spincomponent, hz_z,
+                               n1_t, n2_t, s1_t, s2_t, df_t, deps_t):
     r"""Get:
 
              /
