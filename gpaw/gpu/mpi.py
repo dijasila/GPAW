@@ -17,7 +17,7 @@ class CuPyMPI:
             return
         a = array.get()
         self.comm.sum(a, root)
-        array[:] = cp.asarray(a)
+        array.set(a)
 
     def max(self, array):
         self.comm.max(array)

@@ -473,13 +473,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
             result = (a_xR @ b_yR.T.conj()).reshape(self.dims + other.dims)
         else:
             result = self.data.sum(axis=(-3, -2, -1))
-
-        if result.ndim == 0:
-            if self.xp is np:
-                result = np.array(self.desc.comm.sum(result.item()))
-        else:
-            self.desc.comm.sum(result)
-
+        self.desc.comm.sum(result)
         return result * self.desc.dv
 
     def to_pbc_grid(self):

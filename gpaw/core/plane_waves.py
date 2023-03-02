@@ -465,7 +465,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
             if self.desc.comm.rank == 0:
                 result = self.data[..., 0]
             else:
-                result = np.empty(self.mydims, complex)
+                result = self.xp.empty(self.mydims, complex)
             self.desc.comm.broadcast(result, 0)
 
         if self.desc.dtype == float:

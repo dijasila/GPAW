@@ -32,14 +32,15 @@ def test_gpu_pw(dtype, gpu):
 @pytest.mark.gpu
 @pytest.mark.skipif(size > 2, reason='Not implemented')
 @pytest.mark.parametrize('gpu', [False, True])
-def test_gpu_pw_k(gpu):
+@pytest.mark.parametrize('par', ['domain', 'kpt'])
+def test_gpu_pw_k(gpu, par):
     atoms = Atoms('H', pbc=True, cell=[1, 1, 1])
     dft = DFTCalculation.from_parameters(
         atoms,
         dict(mode={'name': 'pw'},
              kpts=(4, 1, 1),
              parallel={'gpu': gpu,
-                       'domain': 2},
+                       par: size},
              setups='paw'),
         log='-')
     dft.converge()
