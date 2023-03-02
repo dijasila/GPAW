@@ -21,7 +21,7 @@ def generate_system_s():
     # system specific tolerances
     system_s = [  # wfs, spincomponent, rtol, dsym_rtol, bsum_rtol
         ('fe_pw_wfs', '+-', 0.04, 0.01, 0.02),
-        ('fe_pw_wfs', '00', 0.04, 0.01, 0.02)
+        ('fe_pw_wfs', '00', 1e-5, 1e-6, 1e-5)
     ]
 
     return system_s
