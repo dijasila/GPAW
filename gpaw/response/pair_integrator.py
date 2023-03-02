@@ -456,13 +456,6 @@ def transitions_in_composite_index(n1_M, n2_M, s1_S, s2_S):
     return n1_MS.flatten(), n2_MS.flatten(), s1_MS.flatten(), s2_MS.flatten()
 
 
-def filter_intraband_transitions(n1_t, n2_t, s1_t, s2_t):
-    """Remove any intraband transitions."""
-    mask_t = np.logical_or(n1_t != n2_t, s1_t != s2_t)
-
-    return n1_t[mask_t], n2_t[mask_t], s1_t[mask_t], s2_t[mask_t]
-
-
 class KPointPairIntegral(ABC):
     r"""Baseclass for reciprocal space integrals of the first Brillouin Zone,
     where the integrand is a sum over transitions between any number of states

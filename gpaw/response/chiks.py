@@ -9,8 +9,7 @@ from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.pw_parallelization import PlaneWaveBlockDistributor
 from gpaw.response.matrix_elements import NewPairDensityCalculator
-from gpaw.response.pair_integrator import (PairFunctionIntegrator,
-                                           filter_intraband_transitions)
+from gpaw.response.pair_integrator import PairFunctionIntegrator
 from gpaw.response.pair_functions import (SingleQPWDescriptor,
                                           LatticePeriodicPairFunction)
 
@@ -157,9 +156,6 @@ class ChiKSCalculator(PairFunctionIntegrator):
         # Prepare to sum over bands and spins
         n1_t, n2_t, s1_t, s2_t = self.get_band_and_spin_transitions_domain(
             spinrot, nbands=self.nbands, bandsummation=self.bandsummation)
-        if qpdi.optical_limit:
-            n1_t, n2_t, s1_t, s2_t = filter_intraband_transitions(
-                n1_t, n2_t, s1_t, s2_t)
 
         self.context.print(self.get_information(
             qpdi, len(zd), spincomponent, self.nbands, len(n1_t)))
