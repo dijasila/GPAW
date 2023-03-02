@@ -1,7 +1,8 @@
 import numpy as np
 
 from gpaw.response import ResponseContext
-from gpaw.response.pair_integrator import PairFunctionIntegrator
+from gpaw.response.pair_integrator import (PairFunctionIntegrator,
+                                           filter_intraband_transitions)
 from gpaw.response.pair_functions import PairFunction
 from gpaw.response.chiks import get_spin_rotation, get_temporal_part
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
@@ -88,6 +89,10 @@ class JDOSCalculator(PairFunctionIntegrator):
         # Prepare to sum over bands and spins
         n1_t, n2_t, s1_t, s2_t = self.get_band_and_spin_transitions_domain(
             spinrot, nbands=self.nbands, bandsummation=self.bandsummation)
+        if np.allclose(q_c, 0.):
+            n1_t, n2_t, s1_t, s2_t = filter_intraband_transitions(
+                n1_t, n2_t, s1_t, s2_t)
+
         self.context.print(self.get_information(
             q_c, len(zd), spincomponent, self.nbands, len(n1_t)))
 
