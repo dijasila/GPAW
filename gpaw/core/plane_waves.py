@@ -532,20 +532,32 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
     def abs_square(self,
                    weights: Array1D,
                    out: UniformGridFunctions = None) -> None:
-        """Add weighted absolute square of data to output array."""
+        """Add weighted absolute square of self to output array."""
         assert out is not None
-        if self.xp is np:
-            tmp_R = out.desc.new(dtype=self.desc.dtype).empty()
-            for f, psit_G in zip(weights, self):
-                # Same as (but much faster):
-                # out.data += f * abs(psit_G.ifft().data)**2
-                psit_G.ifft(out=tmp_R)
-                _gpaw.add_to_density(f, tmp_R.data, out.data)
-            return
-        tmp_R = out.desc.new(dtype=self.desc.dtype).empty(xp=self.xp)
-        for f, psit_G in zip(weights, self):
-            psit_G.ifft(out=tmp_R)
-            out.data += float(f) * self.xp.abs(tmp_R.data)**2
+        pw = self.desc
+        domain_comm = pw.comm
+        (N,) = self.mydims
+        grid = out.desc.new(comm=None)
+        xp = self.xp
+        tmp_R = grid.empty(xp=xp)
+        a_G = pw.new(comm=None).empty(xp=xp)
+        tmp_R = out.desc.new(dtype=self.desc.dtype).empty()
+        a2_R = out.desc.new(dtype=self.desc.dtype).zeros()
+        for n1 in range(0, N, domain_comm.size):
+            n2 = min(n1 + domain_comm.size, N)
+            self[n1:n2].gather_all(a_G)
+            n = n1 + domain_comm.rank
+            assert n < N
+            a_G.ifft(out=tmp_R)
+            weight = weights[n]
+            if xp is np:
+                _gpaw.add_to_density(weight, tmp_R.data, a2_R.data)
+            else:
+                a2_R.data += float(weight) * xp.abs(tmp_R.data)**2
+        domain_comm.sum(a2_R.data)
+        b2_R = out.new()
+        b2_R.scatter_from(a2_R)
+        out.data += b2_R.data
 
     def to_pbc_grid(self):
         return self
