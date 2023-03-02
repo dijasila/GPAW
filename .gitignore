@@ -75,3 +75,6 @@ doc/setups/[A-Z]*.rst
 # Ignore VS Code settings
 .vscode/
 
+/gpaw/Pycharm_Testing/agptpop/test_mmf_sic.py
+/gpaw/Pycharm_Testing/et/eigen/rewrite.py
+/gpaw/Pycharm_Testing/
