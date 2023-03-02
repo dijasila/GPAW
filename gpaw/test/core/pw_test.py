@@ -5,7 +5,6 @@ from gpaw.mpi import world
 from gpaw.core.plane_waves import find_reciprocal_vectors
 from math import pi
 from gpaw.gpu import cupy as cp
-from gpaw.gpu.mpi import CuPyMPI
 
 
 @pytest.mark.ci
