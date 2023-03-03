@@ -56,10 +56,12 @@ def test_iron_jdos(in_tmp_dir, gpw_files, system, qrel):
                                        nbands=nbands)
 
     # Calculate the jdos using the PairFunctionIntegrator module
-    for disable_sym in disable_syms_s:
+    for disable_syms in disable_syms_s:
         for bandsummation in bandsummation_b:
             jdos_calc = JDOSCalculator(gs,
                                        nbands=nbands,
+                                       disable_time_reversal=disable_syms,
+                                       disable_point_group=disable_syms,
                                        bandsummation=bandsummation)
             jdos = jdos_calc.calculate(spincomponent, q_c, zd)
             jdos_w = jdos.array
