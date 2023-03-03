@@ -214,7 +214,8 @@ def check_reciprocity_and_inversion_symmetry(chiks_q, *, rtol):
         assert np.allclose(chiks_q[0].q_c, 0.)
         q1, q2 = 0, 0
 
-    qpd1, qpd2 = chiks_q[q1].qpd, chiks_q[q2].qpd
+    qpd1 = chiks_q[q1].qpd
+    qpd2 = chiks_q[q2].qpd
     invmap_GG = get_inverted_pw_mapping(qpd1, qpd2)
 
     # Loop over frequencies
