@@ -27,8 +27,8 @@ stages:
       libraries = []
       library_dirs = []
       include_dirs = []
-      extra_compile_args = ['-O3',
-                            '-fPIC',
+      extra_compile_args = ['-fPIC',
+                            '-O3',
                             '-g',
                             '-fopenmp',
                             '-Wall',
@@ -76,10 +76,6 @@ build:
   tags:
     - linux
   script:
-    - |
-      cat << EOF >> siteconfig.py
-      extra_compile_args += ['-std=c99']
-      EOF
     - cat siteconfig.py
     - pip install --user --log build.log --editable .
     - gpaw -P 1 info
@@ -91,10 +87,6 @@ build-latest:
   tags:
     - linux
   script:
-    - |
-      cat << EOF >> siteconfig.py
-      extra_compile_args += ['-std=c99']
-      EOF
     - cat siteconfig.py
     - pip install --user --upgrade numpy scipy
     - pip install --user --log build.log --editable .
@@ -109,7 +101,6 @@ build-gpaw-python:
   script:
     - |
       cat << EOF >> siteconfig.py
-      extra_compile_args += ['-std=c99']
       parallel_python_interpreter = True
       EOF
     - cat siteconfig.py
@@ -191,8 +182,6 @@ build-libxc:
   script:
     - |
       cat << EOF >> siteconfig.py
-      extra_compile_args += ['-std=c99']
-
       local = Path('.local').resolve()
       lib = local / 'lib'
       library_dirs += [lib]
