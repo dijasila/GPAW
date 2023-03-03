@@ -20,15 +20,18 @@ from gpaw.response.symmetry import KPointFinder
 
 @pytest.mark.response
 @pytest.mark.kspair
-def test_iron_jdos(in_tmp_dir, gpw_files):
+@pytest.mark.parametrize('q_c,spincomponent',
+                         product([[0.0, 0.0, 0.0], [0.0, 0.0, 1. / 4.]],  # Two q-points along G-N
+                                 ['00', '+-']))
+def test_iron_jdos(in_tmp_dir, gpw_files, q_c, spincomponent):
     # ---------- Inputs ---------- #
 
-    q_qc = [[0.0, 0.0, 0.0], [0.0, 0.0, 1. / 4.]]  # Two q-points along G-N
     omega_w = np.linspace(-10.0, 10.0, 321)
     eta = 0.2
     zd = ComplexFrequencyDescriptor.from_array(omega_w + 1.j * eta)
 
-    spincomponent_s = ['00', '+-']
+    # Calculation parameters (which should not affect the result)
+    disable_syms_s = [True, False]
     bandsummation_b = ['double', 'pairwise']
 
     # ---------- Script ---------- #
@@ -38,15 +41,16 @@ def test_iron_jdos(in_tmp_dir, gpw_files):
     nbands = calc.parameters.convergence['bands']
     gs = ResponseGroundStateAdapter(calc)
 
-    # Set up reference MyManualJDOS
+    # Calculate the jdos manually
     serial_calc = GPAW(gpw_files['fe_pw_wfs'], communicator=mpi.serial_comm)
     jdos_refcalc = MyManualJDOS(serial_calc)
+    jdosref_w = jdos_refcalc.calculate(spincomponent, q_c,
+                                       omega_w,
+                                       eta=eta,
+                                       nbands=nbands)
 
-    for q_c, spincomponent in product(q_qc, spincomponent_s):
-        jdosref_w = jdos_refcalc.calculate(spincomponent, q_c,
-                                           omega_w,
-                                           eta=eta,
-                                           nbands=nbands)
+    # Calculate the jdos using the PairFunctionIntegrator module
+    for disable_sym in disable_syms_s:
         for bandsummation in bandsummation_b:
             jdos_calc = JDOSCalculator(gs,
                                        nbands=nbands,
