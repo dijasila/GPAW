@@ -400,10 +400,11 @@ def write_overlaps(calc, seed=None, spin=0, soc=None, less_memory=False):
                 calc, periodic=True)[bands]
         # For non-spinors, G denotes grid: G = (gx, gy, gz)
         if kpt is None:
-            n2 = calc.get_number_of_bands()
+            n1 = bands[0]
+            n2 = band[-1]#calc.get_number_of_bands()
             kpt = KPoint.get_k_point(gs, context.timer,
                                      spin, bz_index,
-                                     0, n2)
+                                     n1, n2)
         return kpt.get_shifted_ut_nR()#kpt.ut_nR #kpt.get_u_nG(bands = bands)
     
     #if not less_memory:
