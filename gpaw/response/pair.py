@@ -5,7 +5,7 @@ import numpy as np
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
 from gpaw.response.pw_parallelization import block_partition
 from gpaw.response.symmetry import KPointFinder
-from gpaw.utilities.blas import mmm
+from gpaw.utilities.blas import mmm, gemmdot
 
 
 class KPoint:
@@ -22,10 +22,31 @@ class KPoint:
         self.eps_n = eps_n      # eigenvalues
         self.f_n = f_n          # occupation numbers
         self.P_ani = P_ani      # PAW projections
-        self.shift_c = shift_c  # long story - see the
-        # PairDensity.construct_symmetry_operators() method
+        self.shift_c = shift_c  # np.dot(U_cc, ik_c) - k_c * sign
         self.gs = gs
 
+    def get_shifted_ut_nR(self):
+        """ Returns ut_nR shifted to the 1:st BZ using shift_c
+        """
+        if np.all(self.shift_c==0):
+            return self.ut_nR
+        r_g = self.gs._wfs.gd.get_grid_point_coordinates()
+        return self.ut_nR * np.exp(-1.0j * gemmdot(self.shift_c, r_g, beta=0.0))
+    
+    def get_shifted_P_ani(self):
+        """ Returns P_ani shifted to the 1:st BZ using shift_c
+        """
+        return self.P_ani
+        """
+        if np.all(self.shift_c==0):
+            return self.P_ani
+        r_av = np.dot(self.gs._calc.spos_ac, self.gs.gd.cell_cv)
+        P_ani = self.P_ani.copy()
+        for ia, P_ni in enumerate(P_ani):
+            phase = np.exp(-1.0j * np.dot(self.shift_c, r_av[ia]))
+            P_ni *= phase
+        return P_ani
+        """
     @classmethod
     def get_k_point(cls, gs, timer, s, k_c, n1, n2, block=False, blockcomm = None):
         """Return wave functions for a specific k-point and spin.
