@@ -2,7 +2,6 @@
 import numpy as np
 
 from gpaw.response import timer
-from gpaw.response.paw import get_pair_density_paw_corrections
 from gpaw.response.kspair import KohnShamKPointPair
 
 
@@ -39,13 +38,8 @@ class NewPairDensityCalculator:
         """Initialize PAW corrections, if not done already, for the given q"""
         q_c = qpd.q_c
         if self.pawcorr is None or not np.allclose(q_c - self.currentq_c, 0.):
-            self.pawcorr = self._initialize_paw_corrections(qpd)
+            self.pawcorr = self.gs.pair_density_paw_corrections(qpd)
             self.currentq_c = q_c
-
-    def _initialize_paw_corrections(self, qpd):
-        pawdatasets = self.gs.pawdatasets
-        spos_ac = self.gs.spos_ac
-        return get_pair_density_paw_corrections(pawdatasets, qpd, spos_ac)
 
     @timer('Calculate pair density')
     def __call__(self, kptpair: KohnShamKPointPair, qpd) -> PairDensity:
