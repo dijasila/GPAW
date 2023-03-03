@@ -127,7 +127,9 @@ if cuda or hip:
                                                   min=sys.version_info[1])
     library_dirs.append('build/temp.%s' % plat)
     if 'gpaw-gpu' not in libraries:
-        libraries.append('gpaw-gpu')
+        # Insert gpaw-gpu before other libraries so that
+        # -lcublas and others get included with --as-needed linker option
+        libraries.insert(0, 'gpaw-gpu')
 
 if compiler is not None:
     # A hack to change the used compiler and linker, inspired by
