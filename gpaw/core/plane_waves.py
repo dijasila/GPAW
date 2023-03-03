@@ -569,10 +569,11 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
             n2 = min(n1 + domain_comm.size, N)
             a_nG[n1:n2].gather_all(a1_G)
             n = n1 + domain_comm.rank
+            if n >= N:
+                continue
             weight = weights[n]
             if weight == 0.0:
                 continue
-            assert n < N
             a1_G.ifft(out=a1_R)
             if xp is np:
                 _gpaw.add_to_density(weight, a1_R.data, b1_R.data)

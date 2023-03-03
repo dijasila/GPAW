@@ -472,8 +472,12 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
             b_yR = b_yR.reshape((len(b_yR), -1))
             result = (a_xR @ b_yR.T.conj()).reshape(self.dims + other.dims)
         else:
-            result = self.data.sum(axis=(-3, -2, -1))
+            # Make sure we have an array and not a scalar!
+            result = self.xp.asarray(self.data.sum(axis=(-3, -2, -1)))
+
         self.desc.comm.sum(result)
+        if result.ndim == 0:
+            result = result.item()  # convert to scalar
         return result * self.desc.dv
 
     def to_pbc_grid(self):

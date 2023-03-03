@@ -94,6 +94,7 @@ class DistributedArrays(Generic[DomainType]):
 
     def to_xp(self, xp):
         if xp is self.xp:
+            assert xp is np, 'cp -> cp should not be needed!'
             return self
         if xp is np:
             return self.new(data=self.xp.asnumpy(self.data))
@@ -153,7 +154,7 @@ class DistributedArrays(Generic[DomainType]):
 
     def abs_square(self,
                    weights: Array1D,
-                   out: UniformGridFunctions = None) -> None:
+                   out: UniformGridFunctions) -> None:
         """Add weighted absolute square of data to output array.
 
         See also :xkcd:`849`.
