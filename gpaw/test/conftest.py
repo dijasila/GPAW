@@ -110,6 +110,8 @@ def gpw_files(request, tmp_path_factory):
 
     * Bulk Fe, LDA, 4x4x4 k-points, 9 converged bands: ``fe_pw``
 
+    * Bulk Al, LDA, 4x4x4 k-points, 10 converged bands: ``al_pw``
+
     * Bulk Ag, LDA, 2x2x2 k-points, 6 converged bands,
       2eV U on d-band: ``ag_pw``
 
@@ -468,6 +470,30 @@ class GPWFiles:
             occupations=FermiDirac(occw),
             convergence=conv,
             txt=self.path / 'fe_pw.txt')
+
+        atoms.get_potential_energy()
+        return atoms.calc
+
+    def al_pw(self):
+        xc = 'LDA'
+        kpts = 4
+        nbands = 10  # 3s, 3p, 4s, 3d
+        pw = 300
+        occw = 0.01
+        conv = {'bands': nbands,
+                'density': 1.e-8}
+        a = 4.043
+        atoms = bulk('Al', 'fcc', a=a)
+        atoms.center()
+
+        atoms.calc = GPAW(
+            xc=xc,
+            mode=PW(pw),
+            kpts={'size': (kpts, kpts, kpts)},
+            nbands=nbands + 4,  # + 4p, 5s
+            occupations=FermiDirac(occw),
+            convergence=conv,
+            txt=self.path / 'al_pw.txt')
 
         atoms.get_potential_energy()
         return atoms.calc
