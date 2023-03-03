@@ -531,33 +531,58 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
 
     def abs_square(self,
                    weights: Array1D,
-                   out: UniformGridFunctions = None) -> None:
-        """Add weighted absolute square of self to output array."""
-        assert out is not None
+                   out: UniformGridFunctions) -> None:
+        """Add weighted absolute square of self to output array.
+
+        With `a_n(G)` being self and `w_n` the weights:::
+
+              _         _    --     -1    _   2
+          out(r) <- out(r) + >  |FFT  [a (G)]| w
+                             --         n       n
+                             n
+
+        """
         pw = self.desc
         domain_comm = pw.comm
-        (N,) = self.mydims
-        grid = out.desc.new(comm=None)
         xp = self.xp
-        tmp_R = grid.empty(xp=xp)
-        a_G = pw.new(comm=None).empty(xp=xp)
-        tmp_R = out.desc.new(dtype=self.desc.dtype).empty()
-        a2_R = out.desc.new(dtype=self.desc.dtype).zeros()
+        a_nG = self
+
+        if domain_comm.size == 1:
+            a_R = out.desc.new(dtype=pw.dtype).empty(xp=xp)
+            for weight, a_G in zip(weights, a_nG):
+                if weight == 0.0:
+                    continue
+                a_G.ifft(out=a_R)
+                if xp is np:
+                    _gpaw.add_to_density(weight, a_R.data, out.data)
+                else:
+                    out.data += float(weight) * xp.abs(a_R.data)**2
+            return
+
+        # Undistributed work arrays:
+        a1_R = out.desc.new(comm=None, dtype=pw.dtype).empty(xp=xp)
+        a1_G = pw.new(comm=None).empty(xp=xp)
+        b1_R = out.desc.new(comm=None).zeros(xp=xp)
+
+        (N,) = self.mydims
         for n1 in range(0, N, domain_comm.size):
             n2 = min(n1 + domain_comm.size, N)
-            self[n1:n2].gather_all(a_G)
+            a_nG[n1:n2].gather_all(a1_G)
             n = n1 + domain_comm.rank
-            assert n < N
-            a_G.ifft(out=tmp_R)
             weight = weights[n]
+            if weight == 0.0:
+                continue
+            assert n < N
+            a1_G.ifft(out=a1_R)
             if xp is np:
-                _gpaw.add_to_density(weight, tmp_R.data, a2_R.data)
+                _gpaw.add_to_density(weight, a1_R.data, b1_R.data)
             else:
-                a2_R.data += float(weight) * xp.abs(tmp_R.data)**2
-        domain_comm.sum(a2_R.data)
-        b2_R = out.new()
-        b2_R.scatter_from(a2_R)
-        out.data += b2_R.data
+                b1_R.data += float(weight) * xp.abs(a1_R.data)**2
+
+        domain_comm.sum(b1_R.data)
+        b_R = out.new()
+        b_R.scatter_from(b1_R)
+        out.data += b_R.data
 
     def to_pbc_grid(self):
         return self
