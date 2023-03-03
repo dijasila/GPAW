@@ -519,10 +519,10 @@ def regularize_intraband_transitions(denom_wt, deps_t, n1_t, n2_t, s1_t, s2_t):
 
     NB: In principle there *should* be a contribution from the intraband
     transitions, but this is left for future work for now."""
-    intraband_t = np.logical_and(n1_t == n2_t, s1_t == s2_t)
+    intraband_t = (n1_t == n2_t) & (s1_t == s2_t)
     degenerate_t = np.abs(deps_t) < 1e-8
 
-    denom_wt[:, np.logical_and(intraband_t, degenerate_t)] = 1.
+    denom_wt[:, intraband_t & degenerate_t] = 1.
     
 
 def get_spin_rotation(spincomponent):
