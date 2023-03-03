@@ -118,7 +118,8 @@ build-cuda:
   script:
     - |
       cat << EOF >> siteconfig.py
-      cuda = True
+      gpu = True
+      gpu_target = 'cuda'
       gpu_compiler = 'nvcc'
       gpu_compile_args = ['-g', '-O3', '-gencode arch=compute_60,code=sm_60']
       libraries += ['cudart', 'cublas']

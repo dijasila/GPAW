@@ -210,7 +210,9 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
 
 def build_gpu(gpu_compiler, gpu_compile_args, gpu_include_dirs,
               compiler, extra_compile_args, include_dirs, define_macros,
-              parallel_python_interpreter, cuda, hip):
+              parallel_python_interpreter, gpu_target):
+    extra_compile_args = extra_compile_args.copy()
+    gpu_compile_args = gpu_compile_args.copy()
 
     cfgDict = get_config_vars()
     plat = get_platform() + '-{maj}.{min}'.format(maj=sys.version_info[0],
@@ -228,7 +230,17 @@ def build_gpu(gpu_compiler, gpu_compile_args, gpu_include_dirs,
     includes.extend(gpu_include_dirs)
     includes = ' '.join(['-I' + incdir for incdir in includes])
 
-    ccflags = ' '.join(extra_compile_args + ['-fPIC'])
+    if '-fPIC' not in extra_compile_args:
+        extra_compile_args.append('-fPIC')
+
+    if gpu_target == 'cuda':
+        gpu_compile_args.append('-x cu')
+
+    if gpu_target in ['cuda', 'hip-cuda']:
+        gpu_compile_args.append(f'-Xcompiler {",".join(extra_compile_args)}')
+    else:
+        gpu_compile_args += extra_compile_args
+
     gpuflags = ' '.join(gpu_compile_args)
 
     objects = []
@@ -253,7 +265,7 @@ def build_gpu(gpu_compiler, gpu_compile_args, gpu_include_dirs,
         cmd = ('%s %s %s %s -o %s -c %s ') % \
               (compiler,
                macros,
-               ccflags,
+               ' '.join(extra_compile_args),
                includes,
                obj,
                src)
@@ -263,8 +275,6 @@ def build_gpu(gpu_compiler, gpu_compile_args, gpu_include_dirs,
             return error
 
     # compile GPU kernels
-    if cuda:
-        gpuflags += " -x cu --compiler-options='%s'" % ccflags
     kernels = ['c/gpu/kernels/fd.cpp',
                'c/gpu/kernels/interpolate.cpp',
                'c/gpu/kernels/paste.cpp',

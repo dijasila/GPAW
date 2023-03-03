@@ -44,8 +44,6 @@ extra_objects = []
 define_macros = [('NPY_NO_DEPRECATED_API', '7'),
                  ('GPAW_NO_UNDERSCORE_CBLACS', '1'),
                  ('GPAW_NO_UNDERSCORE_CSCALAPACK', '1')]
-if os.getenv('GPAW_GPU'):
-    define_macros.append(('GPAW_GPU_AWARE_MPI', '1'))
 undef_macros = ['NDEBUG']
 
 mpi_libraries = []
@@ -54,6 +52,7 @@ mpi_include_dirs = []
 mpi_runtime_library_dirs = []
 mpi_define_macros = []
 
+gpu_target = None
 gpu_compiler = None
 gpu_compile_args = []
 gpu_include_dirs = []
@@ -66,8 +65,7 @@ fftw = False
 scalapack = False
 libvdwxc = False
 elpa = False
-cuda = False
-hip = False
+gpu = False
 
 if os.name != 'nt' and run(['which', 'mpicc'], stdout=PIPE).returncode == 0:
     mpicompiler = 'mpicc'
@@ -113,16 +111,16 @@ platform_id = os.getenv('CPU_ARCH')
 if platform_id:
     os.environ['_PYTHON_HOST_PLATFORM'] = get_platform() + '-' + platform_id
 
-if cuda and hip:
-    cuda = False
-    raise UserWarning('Both HIP and CUDA enabled in configuration. '
-                      'Compiling only for HIP.')
-if cuda or hip:
+if gpu:
+    if gpu_target is None:
+        gpu_target = 'hip-amd'
+    if gpu_target == 'hip':
+        gpu_target = 'hip-amd'
     if gpu_compiler is None:
-        if cuda:
-            gpu_compiler = 'nvcc'
-        else:
+        if gpu_target.startswith('hip'):
             gpu_compiler = 'hipcc'
+        elif gpu_target == 'cuda':
+            gpu_compiler = 'nvcc'
     plat = get_platform() + '-{maj}.{min}'.format(maj=sys.version_info[0],
                                                   min=sys.version_info[1])
     library_dirs.append('build/temp.%s' % plat)
@@ -155,12 +153,15 @@ for flag, name in [(noblas, 'GPAW_WITHOUT_BLAS'),
                    (scalapack, 'GPAW_WITH_SL'),
                    (libvdwxc, 'GPAW_WITH_LIBVDWXC'),
                    (elpa, 'GPAW_WITH_ELPA'),
-                   (cuda, 'GPAW_CUDA'),
-                   (hip, 'GPAW_HIP')]:
+                   (gpu, 'GPAW_GPU'),
+                   (gpu, 'GPAW_GPU_AWARE_MPI'),
+                   (gpu_target == 'cuda', 'GPAW_CUDA'),
+                   (gpu_target.startswith('hip'), 'GPAW_HIP'),
+                   (gpu_target == 'hip-amd', '__HIP_PLATFORM_AMD__'),
+                   (gpu_target == 'hip-cuda', '__HIP_PLATFORM_NVIDIA__'),
+                   ]:
     if flag:
         define_macros.append((name, '1'))
-if cuda or hip:
-    define_macros.append(('GPAW_GPU', '1'))
 
 sources = [Path('c/bmgs/bmgs.c')]
 sources += Path('c').glob('*.c')
@@ -236,13 +237,13 @@ class build_ext(build_ext):
         import numpy as np
         self.include_dirs.append(np.get_include())
 
-        if cuda or hip:
+        if gpu:
             gpu_include_dirs.append(np.get_include())
             error = build_gpu(gpu_compiler, gpu_compile_args,
                               gpu_include_dirs,
                               compiler, extra_compile_args, include_dirs,
                               define_macros, parallel_python_interpreter,
-                              cuda, hip)
+                              gpu_target)
             assert error == 0
 
         super().run()
