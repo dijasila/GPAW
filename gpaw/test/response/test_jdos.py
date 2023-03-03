@@ -71,7 +71,7 @@ class MyManualJDOS:
         gd = calc.wfs.gd
         self.kd = kd
         self.kptfinder = KPointFinder(kd.bzk_kc)
-        self.kweight = self.nspins / (gd.volume * len(kd.bzk_kc))
+        self.kweight = 1 / (gd.volume * len(kd.bzk_kc))
 
     def calculate(self, spincomponent, q_c, omega_w,
                   eta=0.2,
@@ -96,6 +96,9 @@ class MyManualJDOS:
             # de = e2 - e1, df = f2 - f1
             de_t, df_t = self.get_transitions(K1, k1_c, q_c,
                                               spincomponent, nbands)
+
+            if self.nspins == 1:
+                df_t *= 2
 
             # Set up jdos
             delta_wt = self.delta(omega_w, eta, de_t)
