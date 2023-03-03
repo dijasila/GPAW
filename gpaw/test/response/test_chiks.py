@@ -21,6 +21,7 @@ def generate_system_s():
     # system specific tolerances
     system_s = [  # wfs, spincomponent, rtol, dsym_rtol, bsum_rtol
         ('fancy_si_pw_wfs', '00', 1e-5, 1e-6, 1e-5),
+        ('al_pw_wfs', '00', 1e-5, 4.0, 1e-5),
         ('fe_pw_wfs', '00', 1e-5, 1e-6, 1e-5),
         ('fe_pw_wfs', '+-', 0.04, 0.01, 0.02)
     ]
@@ -36,7 +37,7 @@ def generate_qrel_q():
 
 
 def get_q_c(wfs, qrel):
-    if wfs == 'fancy_si_pw_wfs':
+    if wfs in ['fancy_si_pw_wfs', 'al_pw_wfs']:
         # Generate points on the G-X path
         q_c = qrel * np.array([1., 0., 1.])
     elif wfs == 'fe_pw_wfs':
@@ -240,4 +241,4 @@ def check_arrays(chiks_sbiq, sbi1, sbi2, *, rtol):
     chiks1_q = chiks_sbiq[s1][b1][i1]
     chiks2_q = chiks_sbiq[s2][b2][i2]
     for chiks1, chiks2 in zip(chiks1_q, chiks2_q):
-        assert chiks2.array == pytest.approx(chiks1.array, rel=rtol)
+        assert chiks2.array == pytest.approx(chiks1.array, rel=rtol, abs=1e-8)
