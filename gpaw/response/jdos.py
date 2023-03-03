@@ -127,6 +127,8 @@ class JDOSCalculator(PairFunctionIntegrator):
 
         # Construct jdos integrand via the imaginary part of the frequency
         # dependence in χ_KS^μν(q,z)
+        if jdos.spincomponent == '00' and self.gs.nspins == 1:
+            weight = 2 * weight
         x_zt = get_temporal_part(jdos.spincomponent, jdos.zd.hz_z,
                                  n1_t, n2_t, s1_t, s2_t, df_t, deps_t,
                                  self.bandsummation)
