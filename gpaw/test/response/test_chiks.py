@@ -16,14 +16,37 @@ from gpaw.response.susceptibility import (get_inverted_pw_mapping,
 # ---------- ChiKS parametrization ---------- #
 
 
-def generate_q_qc():
-    # Do some q-points on the G-N path
-    q_qc = np.array([[0, 0, 0],           # Gamma
-                     [0., 0., 0.25],      # N/2
-                     [0.0, 0.0, 0.5],     # N
-                     ])
+def generate_system_s():
+    # Compute chiks for different materials and spin-components, using
+    # system specific tolerances
+    system_s = [  # wfs, spincomponent, rtol, dsym_rtol, bsum_rtol
+        ('fancy_si_pw_wfs', '00', 1e-5, 1e-6, 1e-5),
+        ('al_pw_wfs', '00', 1e-5, 4.0, 1e-5),  # unstable symmetry -> #788
+        ('fe_pw_wfs', '00', 1e-5, 1e-6, 1e-5),
+        ('fe_pw_wfs', '+-', 0.04, 0.01, 0.02)
+    ]
 
-    return q_qc
+    return system_s
+
+
+def generate_qrel_q():
+    # Fractional q-vectors on a path towards a reciprocal lattice vector
+    qrel_q = np.array([0., 0.25, 0.5])
+
+    return qrel_q
+
+
+def get_q_c(wfs, qrel):
+    if wfs in ['fancy_si_pw_wfs', 'al_pw_wfs']:
+        # Generate points on the G-X path
+        q_c = qrel * np.array([1., 0., 1.])
+    elif wfs == 'fe_pw_wfs':
+        # Generate points on the G-N path
+        q_c = qrel * np.array([0., 0., 1.])
+    else:
+        raise ValueError('Invalid wfs', wfs)
+
+    return q_c
 
 
 def generate_gc_g():
@@ -36,38 +59,49 @@ def generate_gc_g():
 # ---------- Actual tests ---------- #
 
 
-@pytest.mark.response
-@pytest.mark.parametrize('q_c,gammacentered', product(generate_q_qc(),
-                                                      generate_gc_g()))
-def test_transverse_chiks_symmetry(in_tmp_dir, gpw_files,
-                                   q_c, gammacentered):
-    """Check the reciprocity relation,
+def mark_si_xfail(system, request):
+    # Bug tracked in #802
+    wfs = system[0]
+    if wfs == 'fancy_si_pw_wfs' and world.size % 4 == 0:
+        request.node.add_marker(pytest.mark.xfail)
 
-    χ_(KS,GG')^(+-)(q, ω) = χ_(KS,-G'-G)^(+-)(-q, ω),
+
+@pytest.mark.response
+@pytest.mark.parametrize(
+    'system,qrel,gammacentered',
+    product(generate_system_s(), generate_qrel_q(), generate_gc_g()))
+def test_chiks_symmetry(in_tmp_dir, gpw_files, system, qrel, gammacentered,
+                        request):
+    r"""Check the reciprocity relation (valid both for μν=00 and μν=+-),
+
+    χ_(KS,GG')^(μν)(q, ω) = χ_(KS,-G'-G)^(μν)(-q, ω),
 
     the inversion symmetry relation,
 
-    χ_(KS,GG')^(+-)(q, ω) = χ_(KS,-G-G')^(+-)(-q, ω),
+    χ_(KS,GG')^(μν)(q, ω) = χ_(KS,-G-G')^(μν)(-q, ω),
 
     and the combination of the two,
 
-    χ_(KS,GG')^(+-)(q, ω) = χ_(KS,G'G)^(+-)(q, ω),
+    χ_(KS,GG')^(μν)(q, ω) = χ_(KS,G'G)^(μν)(q, ω),
 
-    for a real life system with d-electrons and inversion symmetry (bcc-Fe).
+    for a real life periodic systems with inversion symmetry.
 
     Unfortunately, there will always be random noise in the wave functions,
-    such that these symmetries are not fulfilled exactly. However, we should be
-    able to fulfill it within 4%, which is tested here. Generally speaking,
-    the "symmetry" noise can be reduced making running with symmetry='off' in
+    such that these symmetries cannot be fulfilled exactly. Generally speaking,
+    the "symmetry" noise can be reduced by running with symmetry='off' in
     the ground state calculation.
 
     Also, we test that the response function does not change too much when
     including symmetries in the response calculation and when changing between
     different band summation schemes."""
+    mark_si_xfail(system, request)
 
     # ---------- Inputs ---------- #
 
     # Part 1: ChiKS calculation
+    wfs, spincomponent, rtol, dsym_rtol, bsum_rtol = system
+    q_c = get_q_c(wfs, qrel)
+
     ecut = 50
     # Test vanishing and finite real and imaginary frequencies
     frequencies = np.array([0., 0.05, 0.1, 0.2])
@@ -86,17 +120,14 @@ def test_transverse_chiks_symmetry(in_tmp_dir, gpw_files,
         nblocks = 1
 
     # Part 2: Check reciprocity and inversion symmetry
-    rtol = 0.04
 
     # Part 3: Check toggling of calculation parameters
-    dsym_rtol = 0.01
-    bsum_rtol = 0.02
     bint_rtol = 1e-6
 
     # ---------- Script ---------- #
 
     # Part 1: ChiKS calculation
-    calc = GPAW(gpw_files['fe_pw_wfs'], parallel=dict(domain=1))
+    calc = GPAW(gpw_files[wfs], parallel=dict(domain=1))
     nbands = calc.parameters.convergence['bands']
 
     gs = ResponseGroundStateAdapter(calc)
@@ -128,7 +159,7 @@ def test_transverse_chiks_symmetry(in_tmp_dir, gpw_files,
                     nblocks=nblocks)
 
                 for q_c in q_qc:
-                    chiks = chiks_calc.calculate('+-', q_c, zd)
+                    chiks = chiks_calc.calculate(spincomponent, q_c, zd)
                     chiks = chiks.copy_with_global_frequency_distribution()
                     chiks_q.append(chiks)
 
@@ -185,7 +216,8 @@ def check_reciprocity_and_inversion_symmetry(chiks_q, *, rtol):
         assert np.allclose(chiks_q[0].q_c, 0.)
         q1, q2 = 0, 0
 
-    qpd1, qpd2 = chiks_q[q1].qpd, chiks_q[q2].qpd
+    qpd1 = chiks_q[q1].qpd
+    qpd2 = chiks_q[q2].qpd
     invmap_GG = get_inverted_pw_mapping(qpd1, qpd2)
 
     # Loop over frequencies
@@ -210,4 +242,4 @@ def check_arrays(chiks_sbiq, sbi1, sbi2, *, rtol):
     chiks1_q = chiks_sbiq[s1][b1][i1]
     chiks2_q = chiks_sbiq[s2][b2][i2]
     for chiks1, chiks2 in zip(chiks1_q, chiks2_q):
-        assert chiks2.array == pytest.approx(chiks1.array, rel=rtol)
+        assert chiks2.array == pytest.approx(chiks1.array, rel=rtol, abs=1e-8)

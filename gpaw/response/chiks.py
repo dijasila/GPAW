@@ -443,9 +443,8 @@ def get_temporal_part(spincomponent, hz_z,
                       n1_t, n2_t, s1_t, s2_t, df_t, deps_t, bandsummation):
     """Get the temporal part of a (causal linear) susceptibility integrand."""
     _get_temporal_part = create_get_temporal_part(bandsummation)
-    return _get_temporal_part(spincomponent, s1_t, s2_t,
-                              df_t, deps_t, hz_z,
-                              n1_t, n2_t)
+    return _get_temporal_part(spincomponent, hz_z,
+                              n1_t, n2_t, s1_t, s2_t, df_t, deps_t)
 
 
 def create_get_temporal_part(bandsummation):
@@ -457,9 +456,8 @@ def create_get_temporal_part(bandsummation):
     raise ValueError(bandsummation)
 
 
-def get_double_temporal_part(spincomponent, s1_t, s2_t,
-                             df_t, deps_t, hz_z,
-                             *unused):
+def get_double_temporal_part(spincomponent, hz_z,
+                             n1_t, n2_t, s1_t, s2_t, df_t, deps_t):
     r"""Get:
 
              σ^μ_ss' σ^ν_s's (f_nks - f_n'k's')
@@ -473,12 +471,13 @@ def get_double_temporal_part(spincomponent, s1_t, s2_t,
     # Calculate denominator
     denom_wt = hz_z[:, np.newaxis] - deps_t[np.newaxis, :]  # de = e2 - e1
 
+    regularize_intraband_transitions(denom_wt, deps_t, n1_t, n2_t, s1_t, s2_t)
+
     return nom_t[np.newaxis, :] / denom_wt
 
 
-def get_pairwise_temporal_part(spincomponent, s1_t, s2_t,
-                               df_t, deps_t, hz_z,
-                               n1_t, n2_t):
+def get_pairwise_temporal_part(spincomponent, hz_z,
+                               n1_t, n2_t, s1_t, s2_t, df_t, deps_t):
     r"""Get:
 
              /
@@ -505,8 +504,25 @@ def get_pairwise_temporal_part(spincomponent, s1_t, s2_t,
     denom1_wt = hz_z[:, np.newaxis] - deps_t[np.newaxis, :]  # de = e2 - e1
     denom2_wt = hz_z[:, np.newaxis] + deps_t[np.newaxis, :]
 
+    regularize_intraband_transitions(denom1_wt, deps_t, n1_t, n2_t, s1_t, s2_t)
+    regularize_intraband_transitions(denom2_wt, deps_t, n1_t, n2_t, s1_t, s2_t)
+
     return nom1_t[np.newaxis, :] / denom1_wt\
         - nom2_t[np.newaxis, :] / denom2_wt
+
+
+def regularize_intraband_transitions(denom_wt, deps_t, n1_t, n2_t, s1_t, s2_t):
+    """Regularize the denominator of the temporal part in case of degeneracy.
+
+    If the q-vector connects two symmetrically equivalent k-points inside a
+    band, the occupation differences vanish and we regularize the denominator.
+
+    NB: In principle there *should* be a contribution from the intraband
+    transitions, but this is left for future work for now."""
+    intraband_t = (n1_t == n2_t) & (s1_t == s2_t)
+    degenerate_t = np.abs(deps_t) < 1e-8
+
+    denom_wt[:, intraband_t & degenerate_t] = 1.
     
 
 def get_spin_rotation(spincomponent):

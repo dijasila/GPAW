@@ -88,6 +88,7 @@ class JDOSCalculator(PairFunctionIntegrator):
         # Prepare to sum over bands and spins
         n1_t, n2_t, s1_t, s2_t = self.get_band_and_spin_transitions_domain(
             spinrot, nbands=self.nbands, bandsummation=self.bandsummation)
+
         self.context.print(self.get_information(
             q_c, len(zd), spincomponent, self.nbands, len(n1_t)))
 
