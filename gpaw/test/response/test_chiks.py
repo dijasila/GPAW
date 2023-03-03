@@ -130,8 +130,6 @@ def test_chiks_symmetry(in_tmp_dir, gpw_files, system, qrel, gammacentered,
     calc = GPAW(gpw_files[wfs], parallel=dict(domain=1))
     nbands = calc.parameters.convergence['bands']
 
-    gs = ResponseGroundStateAdapter(calc)
-
     # Calculate chiks for q and -q
     if np.allclose(q_c, 0.):
         q_qc = [q_c]
@@ -144,6 +142,7 @@ def test_chiks_symmetry(in_tmp_dir, gpw_files, system, qrel, gammacentered,
     chiks_sbiq = []
     for disable_syms in disable_syms_s:
         chiks_biq = []
+        gs = GSAdapterWithPAWCache(calc)
         for bandsummation in bandsummation_b:
             chiks_iq = []
             for bundle_integrals in bundle_integrals_i:
@@ -204,6 +203,30 @@ def test_chiks_symmetry(in_tmp_dir, gpw_files, system, qrel, gammacentered,
 
 
 # ---------- Test functionality ---------- #
+
+
+class GSAdapterWithPAWCache(ResponseGroundStateAdapter):
+    """Add a PAW correction cache to the ground state adapter.
+
+    WARNING: Use with extreme care! The cache is only valid, when the
+    plane-wave representation is kept fixed.
+    """
+
+    def __init__(self, calc):
+        super().__init__(calc)
+
+        self._pair_density_paw_corrections = []
+
+    def pair_density_paw_corrections(self, qpd):
+        """Overwrite method with a cached version."""
+        for q_c, pwpaw_corr_data in self._pair_density_paw_corrections:
+            if np.allclose(qpd.q_c, q_c):
+                return pwpaw_corr_data
+
+        pwpaw_corr_data = super().pair_density_paw_corrections(qpd)
+        self._pair_density_paw_corrections.append((qpd.q_c, pwpaw_corr_data))
+
+        return pwpaw_corr_data
 
 
 def check_reciprocity_and_inversion_symmetry(chiks_q, *, rtol):
