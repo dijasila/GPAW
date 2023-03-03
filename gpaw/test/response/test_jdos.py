@@ -26,6 +26,7 @@ from gpaw.response.symmetry import KPointFinder
 def test_iron_jdos(in_tmp_dir, gpw_files, q_c, spincomponent):
     # ---------- Inputs ---------- #
 
+    # Where to evaluate the jdos
     omega_w = np.linspace(-10.0, 10.0, 321)
     eta = 0.2
     zd = ComplexFrequencyDescriptor.from_array(omega_w + 1.j * eta)
