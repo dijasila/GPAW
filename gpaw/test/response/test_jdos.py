@@ -65,12 +65,13 @@ def test_iron_jdos(in_tmp_dir, gpw_files):
 class MyManualJDOS:
     def __init__(self, calc):
         self.calc = calc
+        self.nspins = calc.wfs.nspins
 
         kd = calc.wfs.kd
         gd = calc.wfs.gd
         self.kd = kd
         self.kptfinder = KPointFinder(kd.bzk_kc)
-        self.kweight = 1 / (gd.volume * len(kd.bzk_kc))
+        self.kweight = self.nspins / (gd.volume * len(kd.bzk_kc))
 
     def calculate(self, spincomponent, q_c, omega_w,
                   eta=0.2,
@@ -119,8 +120,12 @@ class MyManualJDOS:
     def get_transitions(self, K1, k1_c, q_c, spincomponent, nbands):
         assert isinstance(nbands, int)
         if spincomponent == '00':
-            s1_s = [0, 1]
-            s2_s = [0, 1]
+            if self.nspins == 1:
+                s1_s = [0]
+                s2_s = [1]
+            else:
+                s1_s = [0, 1]
+                s2_s = [0, 1]
         elif spincomponent == '+-':
             s1_s = [0]
             s2_s = [1]
@@ -136,8 +141,8 @@ class MyManualJDOS:
         calc = self.calc
         for s1, s2 in zip(s1_s, s2_s):
             # Get composite u=(s,k) indices and KPoint objects
-            u1 = kd.bz2ibz_k[K1] * 2 + s1  # nspins = 2
-            u2 = kd.bz2ibz_k[K2] * 2 + s2
+            u1 = kd.bz2ibz_k[K1] * self.nspins + s1
+            u2 = kd.bz2ibz_k[K2] * self.nspins + s2
             kpt1, kpt2 = calc.wfs.kpt_u[u1], calc.wfs.kpt_u[u2]
 
             # Extract eigenenergies and occupation numbers
