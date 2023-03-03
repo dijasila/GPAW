@@ -24,7 +24,7 @@ from gpaw.test.response.test_chiks import (generate_system_s,
 @pytest.mark.kspair
 @pytest.mark.parametrize('system,qrel',
                          product(generate_system_s(), generate_qrel_q()))
-def test_iron_jdos(in_tmp_dir, gpw_files, system, qrel):
+def test_jdos(in_tmp_dir, gpw_files, system, qrel):
     # ---------- Inputs ---------- #
 
     # What material, spin-component and q-vector to calculate the jdos for
