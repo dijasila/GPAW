@@ -16,15 +16,20 @@ from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.jdos import JDOSCalculator
 from gpaw.response.symmetry import KPointFinder
+from gpaw.test.response.test_chiks import (generate_system_s,
+                                           generate_qrel_q, get_q_c)
 
 
 @pytest.mark.response
 @pytest.mark.kspair
-@pytest.mark.parametrize('q_c,spincomponent',
-                         product([[0.0, 0.0, 0.0], [0.0, 0.0, 1. / 4.]],  # Two q-points along G-N
-                                 ['00', '+-']))
-def test_iron_jdos(in_tmp_dir, gpw_files, q_c, spincomponent):
+@pytest.mark.parametrize('system,qrel',
+                         product(generate_system_s(), generate_qrel_q()))
+def test_iron_jdos(in_tmp_dir, gpw_files, system, qrel):
     # ---------- Inputs ---------- #
+
+    # What material, spin-component and q-vector to calculate the jdos for
+    wfs, spincomponent, _, _, _ = system
+    q_c = get_q_c(wfs, qrel)
 
     # Where to evaluate the jdos
     omega_w = np.linspace(-10.0, 10.0, 321)
@@ -38,12 +43,12 @@ def test_iron_jdos(in_tmp_dir, gpw_files, q_c, spincomponent):
     # ---------- Script ---------- #
 
     # Set up the ground state adapter based on the fixture
-    calc = GPAW(gpw_files['fe_pw_wfs'], parallel=dict(domain=1))
+    calc = GPAW(gpw_files[wfs], parallel=dict(domain=1))
     nbands = calc.parameters.convergence['bands']
     gs = ResponseGroundStateAdapter(calc)
 
     # Calculate the jdos manually
-    serial_calc = GPAW(gpw_files['fe_pw_wfs'], communicator=mpi.serial_comm)
+    serial_calc = GPAW(gpw_files[wfs], communicator=mpi.serial_comm)
     jdos_refcalc = MyManualJDOS(serial_calc)
     jdosref_w = jdos_refcalc.calculate(spincomponent, q_c,
                                        omega_w,
@@ -130,7 +135,7 @@ class MyManualJDOS:
         if spincomponent == '00':
             if self.nspins == 1:
                 s1_s = [0]
-                s2_s = [1]
+                s2_s = [0]
             else:
                 s1_s = [0, 1]
                 s2_s = [0, 1]
