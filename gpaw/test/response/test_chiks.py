@@ -21,7 +21,7 @@ def generate_system_s():
     # system specific tolerances
     system_s = [  # wfs, spincomponent, rtol, dsym_rtol, bsum_rtol
         ('fancy_si_pw_wfs', '00', 1e-5, 1e-6, 1e-5),
-        ('al_pw_wfs', '00', 1e-5, 4.0, 1e-5),
+        ('al_pw_wfs', '00', 1e-5, 4.0, 1e-5),  # unstable symmetry -> #788
         ('fe_pw_wfs', '00', 1e-5, 1e-6, 1e-5),
         ('fe_pw_wfs', '+-', 0.04, 0.01, 0.02)
     ]
@@ -60,6 +60,7 @@ def generate_gc_g():
 
 
 def mark_si_xfail(system, request):
+    # Bug tracked in #802
     wfs = system[0]
     if wfs == 'fancy_si_pw_wfs' and world.size % 4 == 0:
         request.node.add_marker(pytest.mark.xfail)
