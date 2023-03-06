@@ -6,14 +6,39 @@ class PairTransitions:
     """
 
     def __init__(self, n1_t, n2_t, s1_t, s2_t):
+        """Construct the PairTransitions object.
+
+        Parameters
+        ----------
+        n1_t : np.array
+            Band index of k-point k for each transition t.
+        n2_t : np.array
+            Band index of k-point k + q for each transition t.
+        s1_t : np.array
+            Spin index of k-point k for each transition t.
+        s2_t : np.array
+            Spin index of k-point k + q for each transition t.
+        """
         self.n1_t = n1_t
         self.n2_t = n2_t
         self.s1_t = s1_t
         self.s2_t = s2_t
 
+        assert len(n2_t) == len(self)
+        assert len(s1_t) == len(self)
+        assert len(s2_t) == len(self)
+
+    def __len__(self):
+        return len(self.n1_t)
+
     @staticmethod
     def from_transitions_domain_arguments(bandsummation, nbands, nocc1, nocc2,
                                           nspins, spin_rotation):
+        """Some documentation here! XXX
+
+        This excludes transitions between two occupied bands and two unoccupied
+        bands respectively.
+        """
 
         n1_M, n2_M = get_band_transitions_domain(bandsummation, nbands,
                                                  nocc1=nocc1,
