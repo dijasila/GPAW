@@ -256,11 +256,19 @@ class PairFunctionIntegrator(ABC):
         nocc1 = self.kptpair_extractor.nocc1
         nocc2 = self.kptpair_extractor.nocc2
 
+        return self._get_band_and_spin_transitions_domain(
+            bandsummation, nbands, nocc1, nocc2, nspins, spinrot)
+
+    @staticmethod
+    def _get_band_and_spin_transitions_domain(bandsummation, nbands,
+                                              nocc1, nocc2,
+                                              nspins, spin_rotation):
+    
         n1_M, n2_M = get_band_transitions_domain(bandsummation, nbands,
                                                  nocc1=nocc1,
                                                  nocc2=nocc2)
         s1_S, s2_S = get_spin_transitions_domain(bandsummation,
-                                                 spinrot, nspins)
+                                                 spin_rotation, nspins)
 
         n1_t, n2_t, s1_t, s2_t = transitions_in_composite_index(n1_M, n2_M,
                                                                 s1_S, s2_S)
