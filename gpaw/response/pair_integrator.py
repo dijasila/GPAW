@@ -35,7 +35,7 @@ class PairFunctionIntegrator(ABC):
     k-points k inside the 1st Brillouin Zone and (2) a sum over band and spin
     transitions t:
 
-    t (composit transition index): (n, s) -> (n', s')
+    t (composite transition index): (n, s) -> (n', s')
                   __                 __  __                  __
                1  \               1  \   \                1  \
     pf(q,z) =  ‾  /  pf_T(q,z) =  ‾  /   /  pf_kt(q,z) =  ‾  /  (...)_k
@@ -226,21 +226,7 @@ class PairFunctionIntegrator(ABC):
 
     def get_band_and_spin_transitions(self, spin_rotation, nbands=None,
                                       bandsummation='pairwise'):
-        """Generate band and spin transitions (n, s) -> (n', s') to integrate.
-
-        Parameters
-        ----------
-        spin_rotation : str
-            Spin rotation from k to k + q.
-            Choices: 'u', 'd', '0' (= 'u' + 'd'), '-' and '+'.
-            All rotations are included for spinrot=None ('0' + '+' + '-').
-        nbands : int
-            Maximum band index to include.
-        bandsummation : str
-            Band (and spin) summation for pairs of Kohn-Sham orbitals
-            'pairwise': sum over pairs of bands (and spins)
-            'double': double sum over band (and spin) indices.
-        """
+        """Get band and spin transitions (n, s) -> (n', s') to integrate."""
         nspins = self.gs.nspins
         gsnbands, nocc1, nocc2 = self.get_band_information()
 
@@ -249,7 +235,7 @@ class PairFunctionIntegrator(ABC):
         assert nbands <= gsnbands
 
         transitions = PairTransitions.from_transitions_domain_arguments(
-            bandsummation, nbands, nocc1, nocc2, nspins, spin_rotation)
+            spin_rotation, nbands, nocc1, nocc2, nspins, bandsummation)
 
         return transitions
 

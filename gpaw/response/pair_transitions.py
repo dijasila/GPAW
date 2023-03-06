@@ -1,8 +1,15 @@
+from __future__ import annotations
+
 import numpy as np
 
 
 class PairTransitions:
-    """Some documentation here! XXX
+    """Bookkeeping object for transitions in band and spin indices.
+
+    All transitions between different band and spin indices (for a given pair
+    of k-points k and k + q) are accounted for via single transition index t,
+
+    t (composite transition index): (n, s) -> (n', s')
     """
 
     def __init__(self, n1_t, n2_t, s1_t, s2_t):
@@ -43,14 +50,38 @@ class PairTransitions:
         return intraband_t
 
     @staticmethod
-    def from_transitions_domain_arguments(bandsummation, nbands, nocc1, nocc2,
-                                          nspins, spin_rotation):
-        """Some documentation here! XXX
+    def from_transitions_domain_arguments(spin_rotation,
+                                          nbands, nocc1, nocc2, nspins,
+                                          bandsummation) -> PairTransitions:
+        """Generate the band and spin transitions integration domain.
 
-        This excludes transitions between two occupied bands and two unoccupied
-        bands respectively.
+        The integration domain is determined by the spin rotation (from spin
+        index s to spin index s'), the number of bands and spins in the
+        underlying ground state calculation as well as the band summation
+        scheme.
+
+        The integration domain automatically excludes transitions between two
+        occupied bands and two unoccupied bands respectively.
+
+        Parameters
+        ----------
+        spin_rotation : str
+            Spin rotation from k to k + q.
+            Choices: 'u', 'd', '0' (= 'u' + 'd'), '-' and '+'.
+            All rotations are included for spin_rotation=None ('0' + '+' + '-')
+        nbands : int
+            Maximum band index to include.
+        nocc1 : int
+            Number of completely filled bands in the ground state calculation
+        nocc2 : int
+            Number of non-empty bands in the ground state calculation
+        nspins : int
+            Number of spin channels in the ground state calculation (1 or 2)
+        bandsummation : str
+            Band (and spin) summation scheme for pairs of Kohn-Sham orbitals
+            'pairwise': sum over pairs of bands (and spins)
+            'double': double sum over band (and spin) indices.
         """
-
         n1_M, n2_M = get_band_transitions_domain(bandsummation, nbands,
                                                  nocc1=nocc1,
                                                  nocc2=nocc2)
