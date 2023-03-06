@@ -129,8 +129,7 @@ class JDOSCalculator(PairFunctionIntegrator):
         # dependence in χ_KS^μν(q,z)
         if jdos.spincomponent == '00' and self.gs.nspins == 1:
             weight = 2 * weight
-        x_zt = get_temporal_part(jdos.spincomponent,
-                                 jdos.zd.hz_z,
+        x_zt = get_temporal_part(jdos.spincomponent, jdos.zd.hz_z,
                                  transitions, df_t, deps_t,
                                  self.bandsummation)
         integrand_zt = -x_zt.imag / np.pi

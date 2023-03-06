@@ -280,8 +280,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
         # Calculate the temporal part of the integrand
         if chiks.spincomponent == '00' and self.gs.nspins == 1:
             weight = 2 * weight
-        x_Zt = get_temporal_part(chiks.spincomponent,
-                                 chiks.zd.hz_z,
+        x_Zt = get_temporal_part(chiks.spincomponent, chiks.zd.hz_z,
                                  transitions, df_t, deps_t,
                                  self.bandsummation)
 
@@ -439,13 +438,13 @@ def get_ecut_to_encompass_centered_sphere(q_v, ecut):
 
 
 def get_temporal_part(spincomponent, hz_z,
-                      transitions, df_t, deps_t, bandsummation):
-    """Get the temporal part of a (causal linear) susceptibility integrand."""
-    t = transitions  # unpack XXX
-    n1_t, n2_t, s1_t, s2_t = t.n1_t, t.n2_t, t.s1_t, t.s2_t
+                      transitions, df_t, deps_t,
+                      bandsummation):
+    """Get the temporal part of a (causal linear) susceptibility, x_t^μν(ħz).
+    """
     _get_temporal_part = create_get_temporal_part(bandsummation)
     return _get_temporal_part(spincomponent, hz_z,
-                              n1_t, n2_t, s1_t, s2_t, df_t, deps_t)
+                              transitions, df_t, deps_t)
 
 
 def create_get_temporal_part(bandsummation):
@@ -458,13 +457,15 @@ def create_get_temporal_part(bandsummation):
 
 
 def get_double_temporal_part(spincomponent, hz_z,
-                             n1_t, n2_t, s1_t, s2_t, df_t, deps_t):
+                             transitions, df_t, deps_t):
     r"""Get:
 
-             σ^μ_ss' σ^ν_s's (f_nks - f_n'k's')
-    Χ_t(z) = ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
-                  ħz - (ε_n'k's' - ε_nks)
+                 σ^μ_ss' σ^ν_s's (f_nks - f_n'k's')
+    x_t^μν(ħz) = ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+                      ħz - (ε_n'k's' - ε_nks)
     """
+    t = transitions
+    n1_t, n2_t, s1_t, s2_t = t.n1_t, t.n2_t, t.s1_t, t.s2_t
     # Get the right spin components
     scomps_t = get_smat_components(spincomponent, s1_t, s2_t)
     # Calculate nominator
@@ -478,20 +479,22 @@ def get_double_temporal_part(spincomponent, hz_z,
 
 
 def get_pairwise_temporal_part(spincomponent, hz_z,
-                               n1_t, n2_t, s1_t, s2_t, df_t, deps_t):
+                               transitions, df_t, deps_t):
     r"""Get:
 
-             /
-             | σ^μ_ss' σ^ν_s's (f_nks - f_n'k's')
-    Χ_t(z) = | ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
-             |      ħz - (ε_n'k's' - ε_nks)
-             \
-                                                           \
-                        σ^μ_s's σ^ν_ss' (f_nks - f_n'k's') |
-               - δ_n'>n ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾ |
-                             ħz + (ε_n'k's' - ε_nks)       |
-                                                           /
+                 /
+                 | σ^μ_ss' σ^ν_s's (f_nks - f_n'k's')
+    x_t^μν(ħz) = | ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+                 |      ħz - (ε_n'k's' - ε_nks)
+                 \
+                                                               \
+                            σ^μ_s's σ^ν_ss' (f_nks - f_n'k's') |
+                   - δ_n'>n ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾ |
+                                 ħz + (ε_n'k's' - ε_nks)       |
+                                                               /
     """
+    t = transitions
+    n1_t, n2_t, s1_t, s2_t = t.n1_t, t.n2_t, t.s1_t, t.s2_t
     # Kroenecker delta
     delta_t = np.ones(len(n1_t))
     delta_t[n2_t <= n1_t] = 0
