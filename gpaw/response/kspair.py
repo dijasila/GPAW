@@ -167,10 +167,8 @@ class KohnShamKPointPairExtractor:
         return self._pd0
 
     @timer('Get Kohn-Sham pairs')
-    def get_kpoint_pairs(self,
-                         n1_t, n2_t,
-                         k1_pc, k2_pc,
-                         s1_t, s2_t) -> KohnShamKPointPair | None:
+    def get_kpoint_pairs(self, k1_pc, k2_pc,
+                         transitions) -> KohnShamKPointPair | None:
         """Get all pairs of Kohn-Sham orbitals for transitions:
         (n1_t, k1_p, s1_t) -> (n2_t, k2_p, s2_t)
         Here, t is a composite band and spin transition index
@@ -178,12 +176,10 @@ class KohnShamKPointPairExtractor:
 
         # Distribute transitions and extract data for transitions in
         # this process' block
-        nt = len(n1_t)
-        assert nt == len(n2_t)
-        self.tblocks = Blocks1D(self.transition_blockcomm, nt)
+        self.tblocks = Blocks1D(self.transition_blockcomm, len(transitions))
 
-        kpt1 = self.get_kpoints(k1_pc, n1_t, s1_t)
-        kpt2 = self.get_kpoints(k2_pc, n2_t, s2_t)
+        kpt1 = self.get_kpoints(k1_pc, transitions.n1_t, transitions.s1_t)
+        kpt2 = self.get_kpoints(k2_pc, transitions.n2_t, transitions.s2_t)
 
         # The process might not have any k-point pairs to evaluate, as
         # due to the distribution over kpt_blockcomm

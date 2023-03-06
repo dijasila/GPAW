@@ -139,15 +139,12 @@ class PairFunctionIntegrator(ABC):
         -------
         analyzer : PWSymmetryAnalyzer
         """
-        t = transitions
-        n1_t, n2_t, s1_t, s2_t = t.n1_t, t.n2_t, t.s1_t, t.s2_t
         # Initialize the plane-wave symmetry analyzer
         analyzer = self.get_pw_symmetry_analyzer(out.qpd)
         
         # Perform the actual integral as a point integral over k-point pairs
         integral = KPointPairPointIntegral(self.kptpair_extractor, analyzer)
-        weighted_kptpairs = integral.weighted_kpoint_pairs(n1_t, n2_t,
-                                                           s1_t, s2_t)
+        weighted_kptpairs = integral.weighted_kpoint_pairs(transitions)
         pb = ProgressBar(self.context.fd)  # pb with a generator is awkward
         for _, _ in pb.enumerate([None] * integral.ni):
             kptpair, weight = next(weighted_kptpairs)
@@ -339,7 +336,7 @@ class KPointPairIntegral(ABC):
         self._domain = (bzk_ipc, weight_i)
         self.ni = len(weight_i)
 
-    def weighted_kpoint_pairs(self, n1_t, n2_t, s1_t, s2_t):
+    def weighted_kpoint_pairs(self, transitions):
         r"""Generate all k-point pairs in the integral along with their
         integral weights.
 
@@ -378,14 +375,8 @@ class KPointPairIntegral(ABC):
 
         Parameters
         ----------
-        n1_t : np.array
-            Band index of k-point k for each transition t.
-        n2_t : np.array
-            Band index of k-point k + q for each transition t.
-        s1_t : np.array
-            Spin index of k-point k for each transition t.
-        s2_t : np.array
-            Spin index of k-point k + q for each transition t.
+        transitions : PairTransitions
+            Band and spin transitions to integrate.
         """
         # Calculate prefactors
         outer_prefactor = 1 / (2 * np.pi)**3
@@ -400,7 +391,7 @@ class KPointPairIntegral(ABC):
             else:
                 integral_weight = prefactor * weight
             kptpair = self.kptpair_extractor.get_kpoint_pairs(
-                n1_t, n2_t, k_pc, k_pc + self.q_c, s1_t, s2_t)
+                k_pc, k_pc + self.q_c, transitions)
             yield kptpair, integral_weight
 
     @abstractmethod
