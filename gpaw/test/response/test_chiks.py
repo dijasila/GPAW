@@ -1,7 +1,7 @@
 """Test functionality to compute the four-component susceptibility tensor for
 the Kohn-Sham system."""
 
-from itertools import product
+from itertools import product, combinations
 
 import numpy as np
 import pytest
@@ -190,10 +190,9 @@ def test_chiks_symmetry(in_tmp_dir, gpw_files, system, qrel, gammacentered,
     for s in range(2):
         for b in range(2):
             for i in range(2):
-                for n1 in range(nn):
-                    for n2 in range(n1, nn):
-                        check_arrays(chiks_nsbiq, (n1, s, b, i), (n2, s, b, i),
-                                     rtol=nblocks_rtol)
+                for n1, n2 in combinations(range(nn), 2):
+                    check_arrays(chiks_nsbiq, (n1, s, b, i), (n2, s, b, i),
+                                 rtol=nblocks_rtol)
 
     # Check symmetry toggle
     for n in range(nn):
