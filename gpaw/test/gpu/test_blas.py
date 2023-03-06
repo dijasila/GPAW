@@ -37,11 +37,11 @@ def test_blas(gpu, dtype):
     y_gpu = gpu.copy_to_device(y)
 
     # axpy
-    axpy(0.5, a, c)
-    check_cpu = c.sum()
+    axpy(0.5, x, y)
+    check_cpu = y.sum()
 
-    axpy(0.5, a_gpu, c_gpu, use_gpu=True)
-    check_gpu = gpu.copy_to_host(c_gpu.sum())
+    axpy(0.5, x_gpu, y_gpu, use_gpu=True)
+    check_gpu = gpu.copy_to_host(y_gpu.sum())
 
     assert check_cpu == pytest.approx(check_gpu, abs=1e-14)
 
@@ -64,11 +64,11 @@ def test_blas(gpu, dtype):
     assert check_cpu == pytest.approx(check_gpu, rel=1e-14)
 
     # gemv
-    gemv(0.5, a, x, 0.2, c)
-    check_cpu = c.sum()
+    gemv(0.5, a, x, 0.2, y)
+    check_cpu = y.sum()
 
-    gemv(0.5, a_gpu, x_gpu, 0.2, c_gpu, use_gpu=True)
-    check_gpu = gpu.copy_to_host(c_gpu.sum())
+    gemv(0.5, a_gpu, x_gpu, 0.2, y_gpu, use_gpu=True)
+    check_gpu = gpu.copy_to_host(y_gpu.sum())
 
     assert check_cpu == pytest.approx(check_gpu, rel=1e-14)
 
