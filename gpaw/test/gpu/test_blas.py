@@ -45,7 +45,7 @@ def test_blas(gpu, dtype):
     axpy(0.5, x_gpu, y_gpu, use_gpu=True)
     check_gpu = gpu.copy_to_host(y_gpu.sum())
 
-    assert check_cpu == pytest.approx(check_gpu, abs=1e-14)
+    assert check_cpu == pytest.approx(check_gpu, rel=1e-14)
 
     # mmm
     mmm(0.5, a, 'N', b, 'N', 0.2, c)
