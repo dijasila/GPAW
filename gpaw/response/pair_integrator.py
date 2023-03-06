@@ -111,8 +111,8 @@ class PairFunctionIntegrator(ABC):
             # Distribution of work:
             # t-transitions are distributed through blockcomm,
             # k-points through intrablockcomm.
-            transition_blockcomm=self.blockcomm,
-            kpt_blockcomm=self.intrablockcomm)
+            transitions_blockcomm=self.blockcomm,
+            kpts_blockcomm=self.intrablockcomm)
 
         # Symmetry flags
         self.disable_point_group = disable_point_group
@@ -415,7 +415,7 @@ class KPointPairIntegral(ABC):
         bzk_ipc : nd.array
             k-points (relative) coordinates for each process for each iteration
         """
-        comm = self.kptpair_extractor.kpt_blockcomm
+        comm = self.kptpair_extractor.kpts_blockcomm
         rank, size = comm.rank, comm.size
 
         nk = bzk_kc.shape[0]
