@@ -55,7 +55,7 @@ void bc_init_gpu(boundary_conditions* bc)
 
 void bc_init_buffers_gpu()
 {
-#ifdef GPAW_NO_GPU_MPI
+#ifndef GPAW_GPU_AWARE_MPI
     bc_rbuffs = NULL;
     bc_sbuffs = NULL;
     bc_streams = 0;
@@ -108,7 +108,7 @@ static void _allocate_buffers(const boundary_conditions* bc, int blocks)
 
     bc_sbuffs_max=MAX(nsends, bc_sbuffs_max);
     if (bc_sbuffs_max > bc_sbuffs_size) {
-#ifdef GPAW_NO_GPU_MPI
+#ifndef GPAW_GPU_AWARE_MPI
         _reallocate_buffer_host(&bc_sbuffs, bc_sbuffs_max);
 #endif
         _reallocate_buffer_device(&bc_sbuffs_gpu, bc_sbuffs_max);
@@ -117,13 +117,13 @@ static void _allocate_buffers(const boundary_conditions* bc, int blocks)
 
     bc_rbuffs_max=MAX(nrecvs, bc_rbuffs_max);
     if (bc_rbuffs_max > bc_rbuffs_size) {
-#ifdef GPAW_NO_GPU_MPI
+#ifndef GPAW_GPU_AWARE_MPI
         _reallocate_buffer_host(&bc_rbuffs, bc_rbuffs_max);
 #endif
         _reallocate_buffer_device(&bc_rbuffs_gpu, bc_rbuffs_max);
         bc_rbuffs_size = bc_rbuffs_max;
     }
-#ifdef GPAW_NO_GPU_MPI
+#ifndef GPAW_GPU_AWARE_MPI
     _create_stream_events();
 #endif
 }
@@ -134,7 +134,7 @@ void bc_dealloc_gpu(int force)
         bc_init_count = 1;
 
     if (bc_init_count == 1) {
-#ifdef GPAW_NO_GPU_MPI
+#ifndef GPAW_GPU_AWARE_MPI
         gpuFreeHost(bc_sbuffs);
         gpuFreeHost(bc_rbuffs);
         if (bc_streams) {
@@ -264,7 +264,7 @@ void bc_unpack_paste_gpu(boundary_conditions* bc,
                 bc->size2, bc->sendstart[0][0], nin,
                 kernel_stream);
 
-#ifdef GPAW_NO_GPU_MPI
+#ifndef GPAW_GPU_AWARE_MPI
     _check_msg_size(bc, nin);
     _prepare_buffers_host(bc, nin);
 #endif
@@ -274,7 +274,7 @@ void bc_unpack_paste_gpu(boundary_conditions* bc,
         for (int d=0; d<2; d++) {
             int p = bc->recvproc[i][d];
             if (p >= 0) {
-#ifdef GPAW_NO_GPU_MPI
+#ifndef GPAW_GPU_AWARE_MPI
                 MPI_Irecv(bc_rbuff[i][d], bc->nrecv[i][d] * nin,
                         MPI_DOUBLE, p, d + 1000 * i, bc->comm, &recvreq[i][d]);
 #else
@@ -317,7 +317,7 @@ void bc_unpack_gpu_sync(const boundary_conditions* bc,
         }
     }
 
-#ifdef GPAW_NO_GPU_MPI
+#ifndef GPAW_GPU_AWARE_MPI
     if (bc->sendproc[i][0] >= 0 || bc->sendproc[i][1] >= 0)
         gpuMemcpy(bc_sbuff[i][0], bc_sbuff_gpu[i][0],
                   sizeof(double) * (bc->nsend[i][0] + bc->nsend[i][1]) * nin,
@@ -329,7 +329,7 @@ void bc_unpack_gpu_sync(const boundary_conditions* bc,
         sendreq[d] = 0;
         int p = bc->sendproc[i][d];
         if (p >= 0) {
-#ifdef GPAW_NO_GPU_MPI
+#ifndef GPAW_GPU_AWARE_MPI
             check_mpi(MPI_Isend(bc_sbuff[i][d], bc->nsend[i][d] * nin,
                                 MPI_DOUBLE, p, 1 - d + 1000 * i, bc->comm,
                                 &sendreq[d]));
@@ -367,7 +367,7 @@ void bc_unpack_gpu_sync(const boundary_conditions* bc,
         }
     }
     if (!bc_recv_done[i][0] || !bc_recv_done[i][1]) {
-#ifdef GPAW_NO_GPU_MPI
+#ifndef GPAW_GPU_AWARE_MPI
         gpuMemcpy(bc_rbuff_gpu[i][0], bc_rbuff[i][0],
                   sizeof(double) * (bc->nrecv[i][0] + bc->nrecv[i][1]) * nin,
                   gpuMemcpyHostToDevice);
@@ -597,7 +597,7 @@ void bc_unpack_gpu_async(const boundary_conditions* bc,
         gpuStream_t kernel_stream,
         int nin)
 {
-#ifdef GPAW_NO_GPU_MPI
+#ifndef GPAW_GPU_AWARE_MPI
     _bc_unpack_gpu_async(bc, aa2, i, recvreq, sendreq, phases,
                          kernel_stream, nin);
 #else
@@ -614,7 +614,7 @@ void bc_unpack_gpu(const boundary_conditions* bc,
         gpuStream_t kernel_stream,
         int nin)
 {
-#ifdef GPAW_NO_GPU_MPI
+#ifndef GPAW_GPU_AWARE_MPI
     if (!bc->gpu_async[i]) {
         bc_unpack_gpu_sync(bc, aa2, i, recvreq, sendreq,
                 phases, kernel_stream, nin);
