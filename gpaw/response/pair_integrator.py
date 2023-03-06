@@ -125,26 +125,22 @@ class PairFunctionIntegrator(ABC):
             self.disable_symmetries = False
 
     @timer('Integrate pair function')
-    def _integrate(self, out: PairFunction, n1_t, n2_t, s1_t, s2_t):
+    def _integrate(self, out: PairFunction, transitions: PairTransitions):
         """In-place pair function integration
 
         Parameters
         ----------
         out : PairFunction
             Output data structure
-        n1_t : np.array
-            Band index of k-point k for each transition t.
-        n2_t : np.array
-            Band index of k-point k + q for each transition t.
-        s1_t : np.array
-            Spin index of k-point k for each transition t.
-        s2_t : np.array
-            Spin index of k-point k + q for each transition t.
+        transitions : PairTransitions
+            Band and spin transitions to integrate.
 
         Returns
         -------
         analyzer : PWSymmetryAnalyzer
         """
+        t = transitions
+        n1_t, n2_t, s1_t, s2_t = t.n1_t, t.n2_t, t.s1_t, t.s2_t
         # Initialize the plane-wave symmetry analyzer
         analyzer = self.get_pw_symmetry_analyzer(out.qpd)
         
@@ -231,15 +227,13 @@ class PairFunctionIntegrator(ABC):
             disable_time_reversal=self.disable_time_reversal,
             disable_non_symmorphic=self.disable_non_symmorphic)
 
-    def get_band_and_spin_transitions_domain(self, spinrot, nbands=None,
-                                             bandsummation='pairwise'):
-        """Generate all allowed band and spin transitions (transitions from
-        occupied to occupied and from unoccupied to unoccupied are not
-        allowed).
+    def get_band_and_spin_transitions(self, spin_rotation, nbands=None,
+                                      bandsummation='pairwise'):
+        """Generate band and spin transitions (n, s) -> (n', s') to integrate.
 
         Parameters
         ----------
-        spinrot : str
+        spin_rotation : str
             Spin rotation from k to k + q.
             Choices: 'u', 'd', '0' (= 'u' + 'd'), '-' and '+'.
             All rotations are included for spinrot=None ('0' + '+' + '-').
@@ -257,11 +251,10 @@ class PairFunctionIntegrator(ABC):
         nbands = nbands or gsnbands
         assert nbands <= gsnbands
 
-        pair_transitions = PairTransitions.from_transitions_domain_arguments(
-            bandsummation, nbands, nocc1, nocc2, nspins, spinrot)
-        pt = pair_transitions
+        transitions = PairTransitions.from_transitions_domain_arguments(
+            bandsummation, nbands, nocc1, nocc2, nspins, spin_rotation)
 
-        return pt.n1_t, pt.n2_t, pt.s1_t, pt.s2_t
+        return transitions
 
     def get_band_information(self):
         """Get information about band occupation."""

@@ -154,11 +154,11 @@ class ChiKSCalculator(PairFunctionIntegrator):
         spinrot = get_spin_rotation(spincomponent)
 
         # Prepare to sum over bands and spins
-        n1_t, n2_t, s1_t, s2_t = self.get_band_and_spin_transitions_domain(
+        transitions = self.get_band_and_spin_transitions(
             spinrot, nbands=self.nbands, bandsummation=self.bandsummation)
 
         self.context.print(self.get_info_string(
-            qpdi, len(zd), spincomponent, self.nbands, len(n1_t)))
+            qpdi, len(zd), spincomponent, self.nbands, len(transitions)))
 
         self.context.print('Initializing pair density PAW corrections')
         self.pair_density_calc.initialize_paw_corrections(qpdi)
@@ -167,7 +167,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
         chiks = self.create_chiks(spincomponent, qpdi, zd)
 
         # Perform the actual integration
-        analyzer = self._integrate(chiks, n1_t, n2_t, s1_t, s2_t)
+        analyzer = self._integrate(chiks, transitions)
 
         # Symmetrize chiks according to the symmetries of the ground state
         self.symmetrize(chiks, analyzer)

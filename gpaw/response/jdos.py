@@ -86,11 +86,11 @@ class JDOSCalculator(PairFunctionIntegrator):
         spinrot = get_spin_rotation(spincomponent)
 
         # Prepare to sum over bands and spins
-        n1_t, n2_t, s1_t, s2_t = self.get_band_and_spin_transitions_domain(
+        transitions = self.get_band_and_spin_transitions(
             spinrot, nbands=self.nbands, bandsummation=self.bandsummation)
 
         self.context.print(self.get_info_string(
-            q_c, len(zd), spincomponent, self.nbands, len(n1_t)))
+            q_c, len(zd), spincomponent, self.nbands, len(transitions)))
 
         # Set up output data structure
         # We need a dummy plane-wave descriptor (without plane-waves, hence the
@@ -101,7 +101,7 @@ class JDOSCalculator(PairFunctionIntegrator):
 
         # Perform actual in-place integration
         self.context.print('Integrating the joint density of states:')
-        self._integrate(jdos, n1_t, n2_t, s1_t, s2_t)
+        self._integrate(jdos, transitions)
 
         return jdos
 
