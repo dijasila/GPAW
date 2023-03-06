@@ -174,47 +174,40 @@ def test_chiks_symmetry(in_tmp_dir, gpw_files, system, qrel, gammacentered,
 
     # Part 2: Check toggling of calculation parameters
 
-    # Check that all plane wave representations are identical
+    # Test that all plane-wave representations are identical
     snbi_p = list(product(range(2), range(nn), range(2), range(2)))
     for p, snbi1 in enumerate(snbi_p):
         for snbi2 in snbi_p[p + 1:]:
-            chiks1_q = chiks_snbiq[snbi1[0]][snbi1[1]][snbi1[2]][snbi1[3]]
-            chiks2_q = chiks_snbiq[snbi2[0]][snbi2[1]][snbi2[2]][snbi2[3]]
-            for chiks1, chiks2 in zip(chiks1_q, chiks2_q):
-                qpd1, qpd2 = chiks1.qpd, chiks2.qpd
-                G1_Gc = get_pw_coordinates(qpd1)
-                G2_Gc = get_pw_coordinates(qpd2)
-                assert G1_Gc.shape == G2_Gc.shape
-                assert np.allclose(G1_Gc - G2_Gc, 0.)
+            compare_pw_bases(chiks_snbiq, snbi1, snbi2)
 
     # Check symmetry toggle
     for n in range(nn):
         for b in range(2):
             for i in range(2):
-                check_arrays(chiks_snbiq, (0, n, b, i), (1, n, b, i),
-                             rtol=dsym_rtol)
+                compare_arrays(chiks_snbiq, (0, n, b, i), (1, n, b, i),
+                               rtol=dsym_rtol)
 
     # Check nblocks toggle
     for s in range(2):
         for b in range(2):
             for i in range(2):
                 for n1, n2 in combinations(range(nn), 2):
-                    check_arrays(chiks_snbiq, (s, n1, b, i), (s, n2, b, i),
-                                 rtol=nblocks_rtol)
+                    compare_arrays(chiks_snbiq, (s, n1, b, i), (s, n2, b, i),
+                                   rtol=nblocks_rtol)
 
     # Check bandsummation toggle
     for s in range(2):
         for n in range(nn):
             for i in range(2):
-                check_arrays(chiks_snbiq, (s, n, 0, i), (s, n, 1, i),
-                             rtol=bsum_rtol)
+                compare_arrays(chiks_snbiq, (s, n, 0, i), (s, n, 1, i),
+                               rtol=bsum_rtol)
 
     # Check bundle_integrals toggle
     for s in range(2):
         for n in range(nn):
             for b in range(2):
-                check_arrays(chiks_snbiq, (s, n, b, 0), (s, n, b, 1),
-                             rtol=bint_rtol)
+                compare_arrays(chiks_snbiq, (s, n, b, 0), (s, n, b, 1),
+                               rtol=bint_rtol)
 
     # Part 3: Check reciprocity and inversion symmetry
     for chiks_nbiq in chiks_snbiq:
@@ -257,11 +250,28 @@ def check_reciprocity_and_inversion_symmetry(chiks_q, *, rtol):
             assert chiks_GG.T == pytest.approx(chiks_GG, rel=rtol)
 
 
-def check_arrays(chiks_snbiq, snbi1, snbi2, *, rtol):
+def compare_pw_bases(chiks_snbiq, snbi1, snbi2):
+    """Compare the plane-wave representations of two calculated chiks."""
+    chiks1_q, chiks2_q = take_two_index_combinations(chiks_snbiq, snbi1, snbi2)
+    for chiks1, chiks2 in zip(chiks1_q, chiks2_q):
+        G1_Gc = get_pw_coordinates(chiks1.qpd)
+        G2_Gc = get_pw_coordinates(chiks2.qpd)
+        assert G1_Gc.shape == G2_Gc.shape
+        assert np.allclose(G1_Gc - G2_Gc, 0.)
+
+
+def compare_arrays(chiks_snbiq, snbi1, snbi2, *, rtol):
     """Compare the values inside two arrays."""
+    chiks1_q, chiks2_q = take_two_index_combinations(chiks_snbiq, snbi1, snbi2)
+
+    for chiks1, chiks2 in zip(chiks1_q, chiks2_q):
+        assert chiks2.array == pytest.approx(chiks1.array, rel=rtol, abs=1e-8)
+
+
+def take_two_index_combinations(chiks_snbiq, snbi1, snbi2):
     s1, n1, b1, i1 = snbi1
     s2, n2, b2, i2 = snbi2
     chiks1_q = chiks_snbiq[s1][n1][b1][i1]
     chiks2_q = chiks_snbiq[s2][n2][b2][i2]
-    for chiks1, chiks2 in zip(chiks1_q, chiks2_q):
-        assert chiks2.array == pytest.approx(chiks1.array, rel=rtol, abs=1e-8)
+
+    return chiks1_q, chiks2_q
