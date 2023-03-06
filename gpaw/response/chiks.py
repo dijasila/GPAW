@@ -464,16 +464,15 @@ def get_double_temporal_part(spincomponent, hz_z,
     x_t^μν(ħz) = ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
                       ħz - (ε_n'k's' - ε_nks)
     """
-    t = transitions
-    n1_t, n2_t, s1_t, s2_t = t.n1_t, t.n2_t, t.s1_t, t.s2_t
     # Get the right spin components
+    s1_t, s2_t = transitions.get_spin_indices()
     scomps_t = get_smat_components(spincomponent, s1_t, s2_t)
     # Calculate nominator
     nom_t = - scomps_t * df_t  # df = f2 - f1
     # Calculate denominator
     denom_wt = hz_z[:, np.newaxis] - deps_t[np.newaxis, :]  # de = e2 - e1
 
-    regularize_intraband_transitions(denom_wt, deps_t, n1_t, n2_t, s1_t, s2_t)
+    regularize_intraband_transitions(denom_wt, transitions, deps_t)
 
     return nom_t[np.newaxis, :] / denom_wt
 
@@ -493,8 +492,7 @@ def get_pairwise_temporal_part(spincomponent, hz_z,
                                  ħz + (ε_n'k's' - ε_nks)       |
                                                                /
     """
-    t = transitions
-    n1_t, n2_t, s1_t, s2_t = t.n1_t, t.n2_t, t.s1_t, t.s2_t
+    n1_t, n2_t, s1_t, s2_t = transitions.get_band_and_spin_indices()
     # Kroenecker delta
     delta_t = np.ones(len(n1_t))
     delta_t[n2_t <= n1_t] = 0
@@ -508,14 +506,14 @@ def get_pairwise_temporal_part(spincomponent, hz_z,
     denom1_wt = hz_z[:, np.newaxis] - deps_t[np.newaxis, :]  # de = e2 - e1
     denom2_wt = hz_z[:, np.newaxis] + deps_t[np.newaxis, :]
 
-    regularize_intraband_transitions(denom1_wt, deps_t, n1_t, n2_t, s1_t, s2_t)
-    regularize_intraband_transitions(denom2_wt, deps_t, n1_t, n2_t, s1_t, s2_t)
+    regularize_intraband_transitions(denom1_wt, transitions, deps_t)
+    regularize_intraband_transitions(denom2_wt, transitions, deps_t)
 
     return nom1_t[np.newaxis, :] / denom1_wt\
         - nom2_t[np.newaxis, :] / denom2_wt
 
 
-def regularize_intraband_transitions(denom_wt, deps_t, n1_t, n2_t, s1_t, s2_t):
+def regularize_intraband_transitions(denom_wt, transitions, deps_t):
     """Regularize the denominator of the temporal part in case of degeneracy.
 
     If the q-vector connects two symmetrically equivalent k-points inside a
@@ -523,7 +521,7 @@ def regularize_intraband_transitions(denom_wt, deps_t, n1_t, n2_t, s1_t, s2_t):
 
     NB: In principle there *should* be a contribution from the intraband
     transitions, but this is left for future work for now."""
-    intraband_t = (n1_t == n2_t) & (s1_t == s2_t)
+    intraband_t = transitions.get_intraband_mask()
     degenerate_t = np.abs(deps_t) < 1e-8
 
     denom_wt[:, intraband_t & degenerate_t] = 1.
