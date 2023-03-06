@@ -7,25 +7,26 @@ from gpaw.utilities.blas import (axpy, dotc, dotu, gemm, gemv, mmm, rk, r2k,
 @pytest.mark.gpu
 @pytest.mark.parametrize('dtype', [float, complex])
 def test_blas(gpu, dtype):
+    N = 100
     rng = np.random.default_rng(seed=42)
-    a = np.zeros((100, 100), dtype=dtype)
+    a = np.zeros((N, N), dtype=dtype)
     b = np.zeros_like(a)
-    x = np.zeros((100,), dtype=dtype)
+    x = np.zeros((N,), dtype=dtype)
     y = np.zeros_like(x)
     if dtype == float:
-        a[:] = rng.random((100, 100))
-        b[:] = rng.random((100, 100))
-        x[:] = rng.random((100,))
-        y[:] = rng.random((100,))
+        a[:] = rng.random((N, N))
+        b[:] = rng.random((N, N))
+        x[:] = rng.random((N,))
+        y[:] = rng.random((N,))
     else:
-        a.real = rng.random((100, 100))
-        a.imag = rng.random((100, 100))
-        b.real = rng.random((100, 100))
-        b.imag = rng.random((100, 100))
-        x.real = rng.random((100,))
-        x.imag = rng.random((100,))
-        y.real = rng.random((100,))
-        y.imag = rng.random((100,))
+        a.real = rng.random((N, N))
+        a.imag = rng.random((N, N))
+        b.real = rng.random((N, N))
+        b.imag = rng.random((N, N))
+        x.real = rng.random((N,))
+        x.imag = rng.random((N,))
+        y.real = rng.random((N,))
+        y.imag = rng.random((N,))
 
     c = np.zeros_like(a)
 
