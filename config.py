@@ -274,19 +274,19 @@ def build_gpu(gpu_compiler, gpu_compile_args, gpu_include_dirs,
         if error != 0:
             return error
 
+    # Glob all kernel files, but remove those included by other kernels
+    kernels = list(Path('c/gpu/kernels').glob('*.cpp'))
+    for name in [
+                 'lfc-reduce.cpp',
+                 'lfc-reduce-kernel.cpp',
+                 'reduce.cpp',
+                 'reduce-kernel.cpp',
+                 ]:
+        kernels.remove(Path(f'c/gpu/kernels/{name}'))
+    kernels = [str(source) for source in kernels]
+    kernels.sort()
+
     # compile GPU kernels
-    kernels = ['c/gpu/kernels/fd.cpp',
-               'c/gpu/kernels/interpolate.cpp',
-               'c/gpu/kernels/paste.cpp',
-               'c/gpu/kernels/relax.cpp',
-               'c/gpu/kernels/restrict.cpp',
-               'c/gpu/kernels/cut.cpp',
-               'c/gpu/kernels/translate.cpp',
-               'c/gpu/kernels/lfc.cpp',
-               'c/gpu/kernels/ext-potential.cpp',
-               'c/gpu/kernels/mblas.cpp',
-               'c/gpu/kernels/linalg.cpp',
-               'c/gpu/kernels/elementwise.cpp']
     for src in kernels:
         obj = os.path.join(build_path, src + '.o')
         objects.append(obj)
