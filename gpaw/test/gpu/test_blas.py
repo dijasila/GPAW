@@ -11,11 +11,13 @@ def test_blas(gpu, dtype):
     rng = np.random.default_rng(seed=42)
     a = np.zeros((N, N), dtype=dtype)
     b = np.zeros_like(a)
+    c = np.zeros_like(a)
     x = np.zeros((N,), dtype=dtype)
     y = np.zeros_like(x)
     if dtype == float:
         a[:] = rng.random((N, N))
         b[:] = rng.random((N, N))
+        c[:] = rng.random((N, N))
         x[:] = rng.random((N,))
         y[:] = rng.random((N,))
     else:
@@ -23,16 +25,16 @@ def test_blas(gpu, dtype):
         a.imag = rng.random((N, N))
         b.real = rng.random((N, N))
         b.imag = rng.random((N, N))
+        c.real = rng.random((N, N))
+        c.imag = rng.random((N, N))
         x.real = rng.random((N,))
         x.imag = rng.random((N,))
         y.real = rng.random((N,))
         y.imag = rng.random((N,))
 
-    c = np.zeros_like(a)
-
     a_gpu = gpu.copy_to_device(a)
     b_gpu = gpu.copy_to_device(b)
-    c_gpu = gpu.cupy.zeros_like(a_gpu)
+    c_gpu = gpu.copy_to_device(c)
     x_gpu = gpu.copy_to_device(x)
     y_gpu = gpu.copy_to_device(y)
 
