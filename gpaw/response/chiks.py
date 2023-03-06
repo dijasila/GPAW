@@ -157,7 +157,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
         n1_t, n2_t, s1_t, s2_t = self.get_band_and_spin_transitions_domain(
             spinrot, nbands=self.nbands, bandsummation=self.bandsummation)
 
-        self.context.print(self.get_information(
+        self.context.print(self.get_info_string(
             qpdi, len(zd), spincomponent, self.nbands, len(n1_t)))
 
         self.context.print('Initializing pair density PAW corrections')
@@ -388,7 +388,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
 
         return chiks
 
-    def get_information(self, qpd, nz, spincomponent, nbands, nt):
+    def get_info_string(self, qpd, nz, spincomponent, nbands, nt):
         r"""Get information about the χ_KS,GG'^μν(q,z) calculation"""
         from gpaw.utilities.memory import maxrss
 
@@ -411,7 +411,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
         s += '    A total number of band and spin transitions of: %d\n' % nt
         s += '\n'
 
-        s += self.get_basic_information()
+        s += self.get_basic_info_string()
         s += '\n'
 
         s += 'Plane-wave basis of the Kohn-Sham susceptibility:\n'

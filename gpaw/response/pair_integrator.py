@@ -271,7 +271,7 @@ class PairFunctionIntegrator(ABC):
 
         return nbands, nocc1, nocc2
 
-    def get_basic_information(self):
+    def get_basic_info_string(self):
         """Get basic information about the ground state and parallelization."""
         nspins = self.gs.nspins
         nbands, nocc1, nocc2 = self.get_band_information()

@@ -89,7 +89,7 @@ class JDOSCalculator(PairFunctionIntegrator):
         n1_t, n2_t, s1_t, s2_t = self.get_band_and_spin_transitions_domain(
             spinrot, nbands=self.nbands, bandsummation=self.bandsummation)
 
-        self.context.print(self.get_information(
+        self.context.print(self.get_info_string(
             q_c, len(zd), spincomponent, self.nbands, len(n1_t)))
 
         # Set up output data structure
@@ -137,7 +137,7 @@ class JDOSCalculator(PairFunctionIntegrator):
         with self.context.timer('Perform sum over t-transitions'):
             jdos_z += weight * np.sum(integrand_zt, axis=1)
 
-    def get_information(self, q_c, nz, spincomponent, nbands, nt):
+    def get_info_string(self, q_c, nz, spincomponent, nbands, nt):
         """Get information about the joint density of states calculation"""
         s = '\n'
 
@@ -153,7 +153,7 @@ class JDOSCalculator(PairFunctionIntegrator):
         s += '    A total number of band and spin transitions of: %d\n' % nt
         s += '\n'
 
-        s += self.get_basic_information()
+        s += self.get_basic_info_string()
 
         return s
         
