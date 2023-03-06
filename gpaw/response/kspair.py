@@ -9,13 +9,10 @@ from gpaw.response.pw_parallelization import Blocks1D
 
 class KohnShamKPoint:
     """Kohn-Sham orbital information for a given k-point."""
-    def __init__(self, n_t, s_t, K,
-                 eps_t, f_t, ut_tR, projections, shift_c):
+    def __init__(self, K, eps_t, f_t, ut_tR, projections, shift_c):
         """K-point data is indexed by a joint spin and band index h, which is
         directly related to the transition index t."""
         self.K = K                      # BZ k-point index
-        self.n_t = n_t                  # Band index
-        self.s_t = s_t                  # Spin index
         self.eps_t = eps_t              # Eigenvalues
         self.f_t = f_t                  # Occupation numbers
         self.ut_tR = ut_tR              # Periodic part of wave functions
@@ -29,33 +26,15 @@ class KohnShamKPointPair:
     """Object containing all transitions between Kohn-Sham orbitals from a
     specified k-point to another."""
 
-    def __init__(self, kpt1, kpt2, tblocks):
+    def __init__(self, kpt1, kpt2, transitions, tblocks):
         self.kpt1 = kpt1
         self.kpt2 = kpt2
+        self.transitions = transitions
         self.tblocks = tblocks
-
-    def get_transitions(self):
-        return self.n1_t, self.n2_t, self.s1_t, self.s2_t
 
     def get_all(self, in_mytx):
         """Get a certain data array with all transitions"""
         return self.tblocks.collect(in_mytx)
-
-    @property
-    def n1_t(self):
-        return self.get_all(self.kpt1.n_t)
-
-    @property
-    def n2_t(self):
-        return self.get_all(self.kpt2.n_t)
-
-    @property
-    def s1_t(self):
-        return self.get_all(self.kpt1.s_t)
-
-    @property
-    def s2_t(self):
-        return self.get_all(self.kpt2.s_t)
 
     @property
     def deps_t(self):
@@ -188,7 +167,7 @@ class KohnShamKPointPairExtractor:
             return None
         assert kpt2 is not None
 
-        return KohnShamKPointPair(kpt1, kpt2, self.tblocks)
+        return KohnShamKPointPair(kpt1, kpt2, transitions, self.tblocks)
 
     def get_kpoints(self, k_pc, n_t, s_t):
         """Get KohnShamKPoint and help other processes extract theirs"""
@@ -200,16 +179,10 @@ class KohnShamKPointPairExtractor:
         _extract_kptdata = self.create_extract_kptdata()
         kptdata = _extract_kptdata(k_pc, n_t, s_t)
 
-        # Make local n and s arrays for the KohnShamKPoint object
-        n_myt = np.empty(self.tblocks.blocksize, dtype=n_t.dtype)
-        n_myt[:self.tblocks.nlocal] = n_t[self.tblocks.myslice]
-        s_myt = np.empty(self.tblocks.blocksize, dtype=s_t.dtype)
-        s_myt[:self.tblocks.nlocal] = s_t[self.tblocks.myslice]
-
         # Initiate k-point object.
         if self.kpts_blockcomm.rank in range(len(k_pc)):
             assert kptdata is not None
-            kpt = KohnShamKPoint(n_myt, s_myt, *kptdata)
+            kpt = KohnShamKPoint(*kptdata)
 
         return kpt
 
