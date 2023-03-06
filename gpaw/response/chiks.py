@@ -273,7 +273,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
         pair_density = self.pair_density_calc(kptpair, chiks.qpd)
 
         # Extract the temporal ingredients from the KohnShamKPointPair
-        n1_t, n2_t, s1_t, s2_t = kptpair.get_transitions()  # band and spin
+        transitions = kptpair.transitions  # transition indices (n,s)->(n',s')
         df_t = kptpair.df_t  # (f_n'k's' - f_nks)
         deps_t = kptpair.deps_t  # (ε_n'k's' - ε_nks)
 
@@ -282,8 +282,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
             weight = 2 * weight
         x_Zt = get_temporal_part(chiks.spincomponent,
                                  chiks.zd.hz_z,
-                                 n1_t, n2_t, s1_t, s2_t,
-                                 df_t, deps_t,
+                                 transitions, df_t, deps_t,
                                  self.bandsummation)
 
         self._add_integrand(pair_density, x_Zt, weight, chiks)
@@ -440,8 +439,10 @@ def get_ecut_to_encompass_centered_sphere(q_v, ecut):
 
 
 def get_temporal_part(spincomponent, hz_z,
-                      n1_t, n2_t, s1_t, s2_t, df_t, deps_t, bandsummation):
+                      transitions, df_t, deps_t, bandsummation):
     """Get the temporal part of a (causal linear) susceptibility integrand."""
+    t = transitions  # unpack XXX
+    n1_t, n2_t, s1_t, s2_t = t.n1_t, t.n2_t, t.s1_t, t.s2_t
     _get_temporal_part = create_get_temporal_part(bandsummation)
     return _get_temporal_part(spincomponent, hz_z,
                               n1_t, n2_t, s1_t, s2_t, df_t, deps_t)
