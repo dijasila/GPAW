@@ -91,9 +91,9 @@ def test_chiks_symmetry(in_tmp_dir, gpw_files, system, qrel, gammacentered,
     the "symmetry" noise can be reduced by running with symmetry='off' in
     the ground state calculation.
 
-    Also, we test that the response function does not change too much when
-    including symmetries in the response calculation and when changing between
-    different band summation schemes."""
+    Also, we test that the susceptibility does not change due to varrying block
+    distribution, band summation scheme or when reducing the k-point integral
+    using symmetries."""
     mark_si_xfail(system, request)
 
     # ---------- Inputs ---------- #
@@ -108,21 +108,22 @@ def test_chiks_symmetry(in_tmp_dir, gpw_files, system, qrel, gammacentered,
     complex_frequencies = list(frequencies + 0.j) + list(frequencies + 0.1j)
 
     # Calculation parameters (which should not affect the result)
+    nblocks_n = [1]
+    if world.size % 2 == 0:
+        nblocks_n.append(2)
+    if world.size % 4 == 0:
+        nblocks_n.append(4)
+    nn = len(nblocks_n)
+
     disable_syms_s = [True, False]
     bandsummation_b = ['double', 'pairwise']
     bundle_integrals_i = [True, False]
 
-    if world.size % 4 == 0:
-        nblocks = 4
-    elif world.size % 2 == 0:
-        nblocks = 2
-    else:
-        nblocks = 1
-
-    # Part 2: Check reciprocity and inversion symmetry
-
-    # Part 3: Check toggling of calculation parameters
+    # Part 2: Check toggling of calculation parameters
+    nblocks_rtol = 1e-6
     bint_rtol = 1e-6
+
+    # Part 3: Check reciprocity and inversion symmetry
 
     # ---------- Script ---------- #
 
@@ -141,66 +142,87 @@ def test_chiks_symmetry(in_tmp_dir, gpw_files, system, qrel, gammacentered,
     # Set up complex frequency descriptor
     zd = ComplexFrequencyDescriptor.from_array(complex_frequencies)
 
-    chiks_sbiq = []
-    for disable_syms in disable_syms_s:
-        chiks_biq = []
-        for bandsummation in bandsummation_b:
-            chiks_iq = []
-            for bundle_integrals in bundle_integrals_i:
-                chiks_q = []
+    chiks_nsbiq = []
+    for nblocks in nblocks_n:
+        chiks_sbiq = []
+        for disable_syms in disable_syms_s:
+            chiks_biq = []
+            for bandsummation in bandsummation_b:
+                chiks_iq = []
+                for bundle_integrals in bundle_integrals_i:
+                    chiks_q = []
 
-                chiks_calc = ChiKSCalculator(
-                    gs, ecut=ecut, nbands=nbands,
-                    gammacentered=gammacentered,
-                    disable_time_reversal=disable_syms,
-                    disable_point_group=disable_syms,
-                    bandsummation=bandsummation,
-                    bundle_integrals=bundle_integrals,
-                    nblocks=nblocks)
+                    chiks_calc = ChiKSCalculator(
+                        gs, ecut=ecut, nbands=nbands,
+                        gammacentered=gammacentered,
+                        disable_time_reversal=disable_syms,
+                        disable_point_group=disable_syms,
+                        bandsummation=bandsummation,
+                        bundle_integrals=bundle_integrals,
+                        nblocks=nblocks)
 
-                for q_c in q_qc:
-                    chiks = chiks_calc.calculate(spincomponent, q_c, zd)
-                    chiks = chiks.copy_with_global_frequency_distribution()
-                    chiks_q.append(chiks)
+                    for q_c in q_qc:
+                        chiks = chiks_calc.calculate(spincomponent, q_c, zd)
+                        chiks = chiks.copy_with_global_frequency_distribution()
+                        chiks_q.append(chiks)
 
-                chiks_iq.append(chiks_q)
-            chiks_biq.append(chiks_iq)
-        chiks_sbiq.append(chiks_biq)
+                    chiks_iq.append(chiks_q)
+                chiks_biq.append(chiks_iq)
+            chiks_sbiq.append(chiks_biq)
+        chiks_nsbiq.append(chiks_sbiq)
 
-    # Part 2: Check reciprocity and inversion symmetry
-    for chiks_biq in chiks_sbiq:
-        for chiks_iq in chiks_biq:
-            for chiks_q in chiks_iq:
-                check_reciprocity_and_inversion_symmetry(chiks_q, rtol=rtol)
-
-    # Part 3: Check toggling of calculation parameters
+    # Part 2: Check toggling of calculation parameters
 
     # Check that all plane wave representations are identical
-    sbi_s = list(product([0, 1], [0, 1], [0, 1]))
-    for s, sbi1 in enumerate(sbi_s):
-        for sbi2 in sbi_s[s + 1:]:
-            for chiks1, chiks2 in zip(chiks_sbiq[sbi1[0]][sbi1[1]][sbi1[2]],
-                                      chiks_sbiq[sbi2[0]][sbi2[1]][sbi2[2]]):
+    nsbi_s = list(product(range(nn), [0, 1], [0, 1], [0, 1]))
+    for s, nsbi1 in enumerate(nsbi_s):
+        for nsbi2 in nsbi_s[s + 1:]:
+            chiks1_q = chiks_nsbiq[nsbi1[0]][nsbi1[1]][nsbi1[2]][nsbi1[3]]
+            chiks2_q = chiks_nsbiq[nsbi2[0]][nsbi2[1]][nsbi2[2]][nsbi2[3]]
+            for chiks1, chiks2 in zip(chiks1_q, chiks2_q):
                 qpd1, qpd2 = chiks1.qpd, chiks2.qpd
                 G1_Gc = get_pw_coordinates(qpd1)
                 G2_Gc = get_pw_coordinates(qpd2)
                 assert G1_Gc.shape == G2_Gc.shape
                 assert np.allclose(G1_Gc - G2_Gc, 0.)
 
-    # Check symmetry toggle
-    for b in range(2):
-        for i in range(2):
-            check_arrays(chiks_sbiq, (0, b, i), (1, b, i), rtol=dsym_rtol)
-
-    # Check bandsummation toggle
-    for s in range(2):
-        for i in range(2):
-            check_arrays(chiks_sbiq, (s, 0, i), (s, 1, i), rtol=bsum_rtol)
-
-    # Check bundle_integrals toggle
+    # Check nblocks toggle
     for s in range(2):
         for b in range(2):
-            check_arrays(chiks_sbiq, (s, b, 0), (s, b, 1), rtol=bint_rtol)
+            for i in range(2):
+                for n1 in range(nn):
+                    for n2 in range(n1, nn):
+                        check_arrays(chiks_nsbiq, (n1, s, b, i), (n2, s, b, i),
+                                     rtol=nblocks_rtol)
+
+    # Check symmetry toggle
+    for n in range(nn):
+        for b in range(2):
+            for i in range(2):
+                check_arrays(chiks_nsbiq, (n, 0, b, i), (n, 1, b, i),
+                             rtol=dsym_rtol)
+
+    # Check bandsummation toggle
+    for n in range(nn):
+        for s in range(2):
+            for i in range(2):
+                check_arrays(chiks_nsbiq, (n, s, 0, i), (n, s, 1, i),
+                             rtol=bsum_rtol)
+
+    # Check bundle_integrals toggle
+    for n in range(nn):
+        for s in range(2):
+            for b in range(2):
+                check_arrays(chiks_nsbiq, (n, s, b, 0), (n, s, b, 1),
+                             rtol=bint_rtol)
+
+    # Part 3: Check reciprocity and inversion symmetry
+    for chiks_sbiq in chiks_nsbiq:
+        for chiks_biq in chiks_sbiq:
+            for chiks_iq in chiks_biq:
+                for chiks_q in chiks_iq:
+                    check_reciprocity_and_inversion_symmetry(
+                        chiks_q, rtol=rtol)
 
 
 # ---------- Test functionality ---------- #
@@ -235,11 +257,11 @@ def check_reciprocity_and_inversion_symmetry(chiks_q, *, rtol):
             assert chiks_GG.T == pytest.approx(chiks_GG, rel=rtol)
 
 
-def check_arrays(chiks_sbiq, sbi1, sbi2, *, rtol):
+def check_arrays(chiks_nsbiq, nsbi1, nsbi2, *, rtol):
     """Compare the values inside two arrays."""
-    s1, b1, i1 = sbi1
-    s2, b2, i2 = sbi2
-    chiks1_q = chiks_sbiq[s1][b1][i1]
-    chiks2_q = chiks_sbiq[s2][b2][i2]
+    n1, s1, b1, i1 = nsbi1
+    n2, s2, b2, i2 = nsbi2
+    chiks1_q = chiks_nsbiq[n1][s1][b1][i1]
+    chiks2_q = chiks_nsbiq[n2][s2][b2][i2]
     for chiks1, chiks2 in zip(chiks1_q, chiks2_q):
         assert chiks2.array == pytest.approx(chiks1.array, rel=rtol, abs=1e-8)
