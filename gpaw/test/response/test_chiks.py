@@ -70,9 +70,18 @@ def mark_si_xfail(system, request):
 @pytest.mark.parametrize(
     'system,qrel,gammacentered',
     product(generate_system_s(), generate_qrel_q(), generate_gc_g()))
-def test_chiks_symmetry(in_tmp_dir, gpw_files, system, qrel, gammacentered,
-                        request):
-    r"""Check the reciprocity relation (valid both for μν=00 and μν=+-),
+def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered, request):
+    r"""Test the internals of the ChiKSCalculator.
+
+    In particular, we test that the susceptibility does not change due to the
+    details in the internal calculator, such as varrying block distribution,
+    band summation scheme, reducing the k-point integral using symmetries or
+    basing the ground state adapter on a dynamic (and distributed) GPAW
+    calculator.
+
+    Furthermore, we test the symmetries of the calculated susceptibilities.
+    In particular, we test the reciprocity relation (valid both for μν=00 and
+    μν=+-),
 
     χ_(KS,GG')^(μν)(q, ω) = χ_(KS,-G'-G)^(μν)(-q, ω),
 
@@ -84,16 +93,12 @@ def test_chiks_symmetry(in_tmp_dir, gpw_files, system, qrel, gammacentered,
 
     χ_(KS,GG')^(μν)(q, ω) = χ_(KS,G'G)^(μν)(q, ω),
 
-    for a real life periodic systems with inversion symmetry.
+    for a real life periodic systems with an inversion center.
 
     Unfortunately, there will always be random noise in the wave functions,
     such that these symmetries cannot be fulfilled exactly. Generally speaking,
     the "symmetry" noise can be reduced by running with symmetry='off' in
-    the ground state calculation.
-
-    Also, we test that the susceptibility does not change due to varrying block
-    distribution, band summation scheme or when reducing the k-point integral
-    using symmetries."""
+    the ground state calculation."""
     mark_si_xfail(system, request)
 
     # ---------- Inputs ---------- #
