@@ -230,8 +230,9 @@ class PairFunctionIntegrator(ABC):
         nspins = self.gs.nspins
         gsnbands, nocc1, nocc2 = self.get_band_information()
 
-        # Include all bands, if nbands is None
-        nbands = nbands or gsnbands
+        # Defaults to inclusion of all bands in the ground state calculator
+        if nbands is None:
+            nbands = gsnbands
         assert nbands <= gsnbands
 
         transitions = PairTransitions.from_transitions_domain_arguments(
