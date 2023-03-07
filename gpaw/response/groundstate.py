@@ -39,6 +39,9 @@ class ResponseGroundStateAdapter:
         self._hamiltonian = calc.hamiltonian
         self._calc = calc
 
+        # Prepare to access the k-points of all cores
+        self._global_pd = None
+
     @classmethod
     def from_gpw_file(cls, gpw, context):
         """Initiate the ground state adapter directly from a .gpw file."""
@@ -59,6 +62,25 @@ class ResponseGroundStateAdapter:
         # We need to abstract away "calc" in all places used by response
         # code, and that includes places that are also compatible with FD.
         return self._wfs.pd
+
+    @property
+    def global_pd(self):
+        """Get a PWDescriptor that includes all k-points.
+
+        In particular, this is necessary to allow all cores to be able to work
+        on all k-points in the case where calc is parallelized over k-points,
+        see gpaw.response.kspair
+        """
+        if self._global_pd is None:
+            from gpaw.pw.descriptor import PWDescriptor
+
+            assert self.gd.comm.size == 1
+            kd = self.kd.copy()  # global KPointDescriptor without a comm
+            self._global_pd = PWDescriptor(self.pd.ecut, self.gd,
+                                           dtype=self.pd.dtype,
+                                           kd=kd, fftwflags=self.pd.fftwflags,
+                                           gammacentered=self.pd.gammacentered)
+        return self._global_pd
 
     def get_occupations_width(self):
         # Ugly hack only used by pair.intraband_pair_density I think.

@@ -99,9 +99,6 @@ class KohnShamKPointPairExtractor:
         kd = self.gs.kd
         self.kptfinder = KPointFinder(kd.bzk_kc)
 
-        # Prepare to use other processes' k-points
-        self._pd0 = None
-
         # Prepare to redistribute kptdata
         self.rrequests = []
         self.srequests = []
@@ -144,27 +141,6 @@ class KohnShamKPointPairExtractor:
         self.context.print('Number of partially filled bands:',
                            self.nocc2, flush=False)
         self.context.print('Total number of bands:', self.gs.bd.nbands)
-
-    @property
-    def pd0(self):
-        """Get a PWDescriptor that includes all k-points"""
-        if self._pd0 is None:
-            from gpaw.pw.descriptor import PWDescriptor
-            gs = self.gs
-            assert gs.gd.comm.size == 1
-
-            kd0 = gs.kd.copy()
-            pd, gd = gs.pd, gs.gd
-
-            # Extract stuff from pd
-            ecut, dtype = pd.ecut, pd.dtype
-            fftwflags, gammacentered = pd.fftwflags, pd.gammacentered
-
-            # Initiate _pd0 with kd0
-            self._pd0 = PWDescriptor(ecut, gd, dtype=dtype,
-                                     kd=kd0, fftwflags=fftwflags,
-                                     gammacentered=gammacentered)
-        return self._pd0
 
     @timer('Get Kohn-Sham pairs')
     def get_kpoint_pairs(self,
@@ -467,7 +443,7 @@ class KohnShamKPointPairExtractor:
         # if self.kpt_blockcomm.rank in range(len(ik_p)):
         if data[2] is not None:
             ik = data[2]
-            ng = self.pd0.ng_q[ik]
+            ng = self.gs.global_pd.ng_q[ik]
             eps_r1rh, f_r1rh, P_r1rhI, psit_r1rhG = [], [], [], []
             for nrh in nrh_r1:
                 if nrh >= 1:
@@ -489,7 +465,7 @@ class KohnShamKPointPairExtractor:
                 eps_r2rh.append(np.empty(nrh))
                 f_r2rh.append(np.empty(nrh))
                 P_r2rhI.append(np.empty((nrh,) + Pshape[1:], dtype=Pdtype))
-                ng = self.pd0.ng_q[ik]
+                ng = self.gs.global_pd.ng_q[ik]
                 psit_r2rhG.append(np.empty((nrh, ng), dtype=psitdtype))
             else:
                 eps_r2rh.append(None)
@@ -595,7 +571,7 @@ class KohnShamKPointPairExtractor:
         kpt0 = self.gs.kpt_u[0]
         Ph = kpt0.projections.new(nbands=nh, bcomm=None)
         assert self.gs.dtype == kpt0.psit.array.dtype
-        psit_hG = np.empty((nh, self.pd0.ng_q[ik]), self.gs.dtype)
+        psit_hG = np.empty((nh, self.gs.global_pd.ng_q[ik]), self.gs.dtype)
 
         # Store extracted data in the arrays
         for (h_rh, eps_rh,
@@ -748,7 +724,7 @@ class KohnShamKPointPairExtractor:
         with self.context.timer('Fourier transform and symmetrize '
                                 'wave functions'):
             for h, psit_G in enumerate(psit_hG):
-                ut_hR[h] = T(self.pd0.ifft(psit_G, ik))
+                ut_hR[h] = T(self.gs.global_pd.ifft(psit_G, ik))
 
         # Symmetrize projections
         P_ahi = []
