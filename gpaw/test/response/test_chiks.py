@@ -17,7 +17,7 @@ from gpaw.response.susceptibility import (get_inverted_pw_mapping,
 # ---------- ChiKS parametrization ---------- #
 
 
-def generate_system_s():
+def generate_system_s(spincomponents=['00', '+-']):
     # Compute chiks for different materials and spin-components, using
     # system specific tolerances
     system_s = [  # wfs, spincomponent, rtol, dsym_rtol, bsum_rtol
@@ -26,6 +26,9 @@ def generate_system_s():
         ('fe_pw_wfs', '00', 1e-5, 1e-6, 1e-5),
         ('fe_pw_wfs', '+-', 0.04, 0.01, 0.02)
     ]
+
+    # Filter spincomponents
+    system_s = [system for system in system_s if system[1] in spincomponents]
 
     return system_s
 
@@ -263,7 +266,8 @@ def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered, request):
 
 @pytest.mark.response
 @pytest.mark.parametrize(
-    'system,qrel', product(generate_system_s(), generate_qrel_q()))
+    'system,qrel',
+    product(generate_system_s(spincomponents=['00']), generate_qrel_q()))
 def test_chiks_vs_chi0(in_tmp_dir, gpw_files, system, qrel):
     """Test that the ChiKSCalculator is able to reproduce the Chi0Body.
 
@@ -274,10 +278,6 @@ def test_chiks_vs_chi0(in_tmp_dir, gpw_files, system, qrel):
 
     # Part 1: ChiKS calculation
     wfs, spincomponent, rtol, _, _ = system
-    if not spincomponent == '00':
-        # The Chi0Calculator does not support the transverse magnetic
-        # susceptibility
-        return
     q_c = get_q_c(wfs, qrel)
 
     ecut = 50
