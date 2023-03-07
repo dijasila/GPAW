@@ -147,13 +147,20 @@ def test_chiks_symmetry(in_tmp_dir, gpw_files, system, qrel, gammacentered,
     chiks_dsnbiq = []
     for dynamic_ground_state in dynamic_ground_state_d:
         chiks_snbiq = []
+        gs = initialize_ground_state_adapter(
+            gpw_files[wfs], calc, context,
+            dynamic_ground_state=dynamic_ground_state)
         for disable_syms in disable_syms_s:
             chiks_nbiq = []
-            if dynamic_ground_state:
-                gs = GSAdapterWithPAWCache(calc)
-            else:
-                gs = GSAdapterWithPAWCache.from_gpw_file(
-                    gpw_files[wfs], context=context)
+            if gammacentered and not np.allclose(q_c, 0.):
+                # When calculating chiks on a gammacentered grid, the
+                # plane-wave representation used internally depends on
+                # whether symmetry is used in the calculation or not. This
+                # means that we need to reinitialize the ground state adapter
+                # with a fresh PAW corrections cache.
+                gs = initialize_ground_state_adapter(
+                    gpw_files[wfs], calc, context,
+                    dynamic_ground_state=dynamic_ground_state)
             for nblocks in nblocks_n:
                 chiks_biq = []
                 for bandsummation in bandsummation_b:
@@ -200,7 +207,6 @@ def test_chiks_symmetry(in_tmp_dir, gpw_files, system, qrel, gammacentered,
                     compare_arrays(chiks_dsnbiq,
                                    (0, s, n, b, i), (1, s, n, b, i),
                                    rtol=dsym_rtol)
-
 
     # Check symmetry toggle
     for d in range(2):
@@ -250,6 +256,16 @@ def test_chiks_symmetry(in_tmp_dir, gpw_files, system, qrel, gammacentered,
 
 
 # ---------- Test functionality ---------- #
+
+
+def initialize_ground_state_adapter(gpw, calc, context, *,
+                                    dynamic_ground_state):
+    if dynamic_ground_state:
+        gs = GSAdapterWithPAWCache(calc)
+    else:
+        gs = GSAdapterWithPAWCache.from_gpw_file(gpw, context=context)
+
+    return gs
 
 
 class GSAdapterWithPAWCache(ResponseGroundStateAdapter):
