@@ -1,8 +1,8 @@
 import numpy as np
 
 
-def construct_symmetry_operators(gs, K, k_c=None, *, apply_strange_shift,
-                                 R_asii):
+def construct_symmetry_operators(kd, gd, K, k_c=None, *, spos_ac, R_asii,
+                                 apply_strange_shift):
     """Construct symmetry operators for wave function and PAW projections.
 
     We want to transform a k-point in the irreducible part of the BZ to
@@ -19,10 +19,9 @@ def construct_symmetry_operators(gs, K, k_c=None, *, apply_strange_shift,
     * time_reversal is a flag - if True, projections should be complex
       conjugated.
 
-    See the get_k_point() method for how to use these tuples.
+    See the ResponseGroundStateAdapter.transform_and_symmetrize() method for
+    how to use these tuples.
     """
-    kd = gs.kd
-
     s = kd.sym_k[K]
     U_cc = kd.symmetry.op_scc[s]
     time_reversal = kd.time_reversal_k[K]
@@ -42,7 +41,7 @@ def construct_symmetry_operators(gs, K, k_c=None, *, apply_strange_shift,
         def T(f_R):
             return f_R
     else:
-        N_c = gs.gd.N_c
+        N_c = gd.N_c
         i_cr = np.dot(U_cc.T, np.indices(N_c).reshape((3, -1)))
         i = np.ravel_multi_index(i_cr, N_c, 'wrap')
 
@@ -61,7 +60,7 @@ def construct_symmetry_operators(gs, K, k_c=None, *, apply_strange_shift,
     U_aii = []
     for a, R_sii in enumerate(R_asii):
         b = kd.symmetry.a_sa[s, a]
-        S_c = np.dot(gs.spos_ac[a], U_cc) - gs.spos_ac[b]
+        S_c = np.dot(spos_ac[a], U_cc) - spos_ac[b]
         x = np.exp(2j * np.pi * np.dot(ik_c, S_c))
         U_ii = R_sii[s].T * x
         a_a.append(b)
