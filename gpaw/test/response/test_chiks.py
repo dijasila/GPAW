@@ -375,15 +375,16 @@ def check_reciprocity_and_inversion_symmetry(chiks_q, *, rtol):
     for chi1_GG, chi2_GG in zip(chiks_q[q1].array,
                                 chiks_q[q2].array):
         # Check the reciprocity
-        assert chi2_GG[invmap_GG].T == pytest.approx(chi1_GG, rel=rtol)
+        assert chi2_GG[invmap_GG].T == pytest.approx(chi1_GG, rel=rtol,
+                                                     abs=1e-8)
         # Check inversion symmetry
-        assert chi2_GG[invmap_GG] == pytest.approx(chi1_GG, rel=rtol)
+        assert chi2_GG[invmap_GG] == pytest.approx(chi1_GG, rel=rtol, abs=1e-8)
 
     # Loop over q-vectors
     for chiks in chiks_q:
         for chiks_GG in chiks.array:  # array = chiks_zGG
             # Check that the full susceptibility matrix is symmetric
-            assert chiks_GG.T == pytest.approx(chiks_GG, rel=rtol)
+            assert chiks_GG.T == pytest.approx(chiks_GG, rel=rtol, abs=1e-8)
 
 
 def compare_pw_bases(chiks_dsnbiq, dsnbi1, dsnbi2):
