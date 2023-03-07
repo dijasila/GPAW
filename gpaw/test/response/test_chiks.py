@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 from gpaw import GPAW
 from gpaw.mpi import world
-from gpaw.response import ResponseGroundStateAdapter
+from gpaw.response import ResponseContext, ResponseGroundStateAdapter
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.susceptibility import (get_inverted_pw_mapping,
@@ -108,6 +108,7 @@ def test_chiks_symmetry(in_tmp_dir, gpw_files, system, qrel, gammacentered,
     complex_frequencies = list(frequencies + 0.j) + list(frequencies + 0.1j)
 
     # Calculation parameters (which should not affect the result)
+    dynamic_ground_state_d = [True, False]
     disable_syms_s = [True, False]
 
     nblocks_n = [1]
@@ -132,7 +133,7 @@ def test_chiks_symmetry(in_tmp_dir, gpw_files, system, qrel, gammacentered,
     calc = GPAW(gpw_files[wfs], parallel=dict(domain=1))
     nbands = calc.parameters.convergence['bands']
 
-    gs = ResponseGroundStateAdapter(calc)
+    context = ResponseContext()
 
     # Calculate chiks for q and -q
     if np.allclose(q_c, 0.):
@@ -143,79 +144,108 @@ def test_chiks_symmetry(in_tmp_dir, gpw_files, system, qrel, gammacentered,
     # Set up complex frequency descriptor
     zd = ComplexFrequencyDescriptor.from_array(complex_frequencies)
 
-    chiks_snbiq = []
-    for disable_syms in disable_syms_s:
-        chiks_nbiq = []
-        for nblocks in nblocks_n:
-            chiks_biq = []
-            for bandsummation in bandsummation_b:
-                chiks_iq = []
-                for bundle_integrals in bundle_integrals_i:
-                    chiks_q = []
+    chiks_dsnbiq = []
+    for dynamic_ground_state in dynamic_ground_state_d:
+        if dynamic_ground_state:
+            gs = ResponseGroundStateAdapter(calc)
+        else:
+            gs = ResponseGroundStateAdapter.from_gpw_file(
+                gpw_files[wfs], context=context)
+        chiks_snbiq = []
+        for disable_syms in disable_syms_s:
+            chiks_nbiq = []
+            for nblocks in nblocks_n:
+                chiks_biq = []
+                for bandsummation in bandsummation_b:
+                    chiks_iq = []
+                    for bundle_integrals in bundle_integrals_i:
+                        chiks_q = []
 
-                    chiks_calc = ChiKSCalculator(
-                        gs, ecut=ecut, nbands=nbands,
-                        gammacentered=gammacentered,
-                        disable_time_reversal=disable_syms,
-                        disable_point_group=disable_syms,
-                        bandsummation=bandsummation,
-                        bundle_integrals=bundle_integrals,
-                        nblocks=nblocks)
+                        chiks_calc = ChiKSCalculator(
+                            gs, context=context,
+                            ecut=ecut, nbands=nbands,
+                            gammacentered=gammacentered,
+                            disable_time_reversal=disable_syms,
+                            disable_point_group=disable_syms,
+                            bandsummation=bandsummation,
+                            bundle_integrals=bundle_integrals,
+                            nblocks=nblocks)
 
-                    for q_c in q_qc:
-                        chiks = chiks_calc.calculate(spincomponent, q_c, zd)
-                        chiks = chiks.copy_with_global_frequency_distribution()
-                        chiks_q.append(chiks)
+                        for q_c in q_qc:
+                            chiks = chiks_calc.calculate(
+                                spincomponent, q_c, zd)
+                            chiks = \
+                                chiks.copy_with_global_frequency_distribution()
+                            chiks_q.append(chiks)
 
-                    chiks_iq.append(chiks_q)
-                chiks_biq.append(chiks_iq)
-            chiks_nbiq.append(chiks_biq)
-        chiks_snbiq.append(chiks_nbiq)
+                        chiks_iq.append(chiks_q)
+                    chiks_biq.append(chiks_iq)
+                chiks_nbiq.append(chiks_biq)
+            chiks_snbiq.append(chiks_nbiq)
+        chiks_dsnbiq.append(chiks_snbiq)
 
     # Part 2: Check toggling of calculation parameters
 
     # Test that all plane-wave representations are identical
-    snbi_p = list(product(range(2), range(nn), range(2), range(2)))
-    for p, snbi1 in enumerate(snbi_p):
-        for snbi2 in snbi_p[p + 1:]:
-            compare_pw_bases(chiks_snbiq, snbi1, snbi2)
+    dsnbi_p = list(product(range(2), range(2), range(nn), range(2), range(2)))
+    for p, dsnbi1 in enumerate(dsnbi_p):
+        for dsnbi2 in dsnbi_p[p + 1:]:
+            compare_pw_bases(chiks_dsnbiq, dsnbi1, dsnbi2)
 
-    # Check symmetry toggle
-    for n in range(nn):
-        for b in range(2):
-            for i in range(2):
-                compare_arrays(chiks_snbiq, (0, n, b, i), (1, n, b, i),
-                               rtol=dsym_rtol)
-
-    # Check nblocks toggle
-    for s in range(2):
-        for b in range(2):
-            for i in range(2):
-                for n1, n2 in combinations(range(nn), 2):
-                    compare_arrays(chiks_snbiq, (s, n1, b, i), (s, n2, b, i),
-                                   rtol=nblocks_rtol)
-
-    # Check bandsummation toggle
-    for s in range(2):
-        for n in range(nn):
-            for i in range(2):
-                compare_arrays(chiks_snbiq, (s, n, 0, i), (s, n, 1, i),
-                               rtol=bsum_rtol)
-
-    # Check bundle_integrals toggle
+    # Check dynamic ground state toggle
     for s in range(2):
         for n in range(nn):
             for b in range(2):
-                compare_arrays(chiks_snbiq, (s, n, b, 0), (s, n, b, 1),
-                               rtol=bint_rtol)
+                for i in range(2):
+                    compare_arrays(chiks_dsnbiq,
+                                   (0, s, n, b, i), (1, s, n, b, i),
+                                   rtol=dsym_rtol)
+
+    # Check symmetry toggle
+    for d in range(2):
+        for n in range(nn):
+            for b in range(2):
+                for i in range(2):
+                    compare_arrays(chiks_dsnbiq,
+                                   (d, 0, n, b, i), (d, 1, n, b, i),
+                                   rtol=dsym_rtol)
+
+    # Check nblocks toggle
+    for d in range(2):
+        for s in range(2):
+            for b in range(2):
+                for i in range(2):
+                    for n1, n2 in combinations(range(nn), 2):
+                        compare_arrays(chiks_dsnbiq,
+                                       (d, s, n1, b, i), (d, s, n2, b, i),
+                                       rtol=nblocks_rtol)
+
+    # Check bandsummation toggle
+    for d in range(2):
+        for s in range(2):
+            for n in range(nn):
+                for i in range(2):
+                    compare_arrays(chiks_dsnbiq,
+                                   (d, s, n, 0, i), (d, s, n, 1, i),
+                                   rtol=bsum_rtol)
+
+    # Check bundle_integrals toggle
+    for d in range(2):
+        for s in range(2):
+            for n in range(nn):
+                for b in range(2):
+                    compare_arrays(chiks_dsnbiq,
+                                   (d, s, n, b, 0), (d, s, n, b, 1),
+                                   rtol=bint_rtol)
 
     # Part 3: Check reciprocity and inversion symmetry
-    for chiks_nbiq in chiks_snbiq:
-        for chiks_biq in chiks_nbiq:
-            for chiks_iq in chiks_biq:
-                for chiks_q in chiks_iq:
-                    check_reciprocity_and_inversion_symmetry(
-                        chiks_q, rtol=rtol)
+    for chiks_snbiq in chiks_dsnbiq:
+        for chiks_nbiq in chiks_snbiq:
+            for chiks_biq in chiks_nbiq:
+                for chiks_iq in chiks_biq:
+                    for chiks_q in chiks_iq:
+                        check_reciprocity_and_inversion_symmetry(
+                            chiks_q, rtol=rtol)
 
 
 # ---------- Test functionality ---------- #
@@ -250,9 +280,10 @@ def check_reciprocity_and_inversion_symmetry(chiks_q, *, rtol):
             assert chiks_GG.T == pytest.approx(chiks_GG, rel=rtol)
 
 
-def compare_pw_bases(chiks_snbiq, snbi1, snbi2):
+def compare_pw_bases(chiks_dsnbiq, dsnbi1, dsnbi2):
     """Compare the plane-wave representations of two calculated chiks."""
-    chiks1_q, chiks2_q = take_two_index_combinations(chiks_snbiq, snbi1, snbi2)
+    chiks1_q, chiks2_q = take_two_index_combinations(chiks_dsnbiq,
+                                                     dsnbi1, dsnbi2)
     for chiks1, chiks2 in zip(chiks1_q, chiks2_q):
         G1_Gc = get_pw_coordinates(chiks1.qpd)
         G2_Gc = get_pw_coordinates(chiks2.qpd)
@@ -260,18 +291,19 @@ def compare_pw_bases(chiks_snbiq, snbi1, snbi2):
         assert np.allclose(G1_Gc - G2_Gc, 0.)
 
 
-def compare_arrays(chiks_snbiq, snbi1, snbi2, *, rtol):
+def compare_arrays(chiks_dsnbiq, dsnbi1, dsnbi2, *, rtol):
     """Compare the values inside two arrays."""
-    chiks1_q, chiks2_q = take_two_index_combinations(chiks_snbiq, snbi1, snbi2)
+    chiks1_q, chiks2_q = take_two_index_combinations(chiks_dsnbiq,
+                                                     dsnbi1, dsnbi2)
 
     for chiks1, chiks2 in zip(chiks1_q, chiks2_q):
         assert chiks2.array == pytest.approx(chiks1.array, rel=rtol, abs=1e-8)
 
 
-def take_two_index_combinations(chiks_snbiq, snbi1, snbi2):
-    s1, n1, b1, i1 = snbi1
-    s2, n2, b2, i2 = snbi2
-    chiks1_q = chiks_snbiq[s1][n1][b1][i1]
-    chiks2_q = chiks_snbiq[s2][n2][b2][i2]
+def take_two_index_combinations(chiks_dsnbiq, dsnbi1, dsnbi2):
+    d1, s1, n1, b1, i1 = dsnbi1
+    d2, s2, n2, b2, i2 = dsnbi2
+    chiks1_q = chiks_dsnbiq[d1][s1][n1][b1][i1]
+    chiks2_q = chiks_dsnbiq[d2][s2][n2][b2][i2]
 
     return chiks1_q, chiks2_q
