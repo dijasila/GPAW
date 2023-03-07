@@ -256,12 +256,10 @@ def build_gpu(gpu_compiler, gpu_compile_args, gpu_include_dirs,
                 pass
 
     # compile C files
-    cfiles = Path('c/gpu').glob('*.c')
-    cfiles = [str(source) for source in cfiles]
-    cfiles.sort()
+    cfiles = sorted(Path('c/gpu').glob('*.c'))
     for src in cfiles:
-        obj = os.path.join(build_path, src + '.o')
-        objects.append(obj)
+        obj = build_path / src.with_suffix('.o')
+        objects.append(str(obj))
         cmd = ('%s %s %s %s -o %s -c %s ') % \
               (compiler,
                macros,
@@ -270,12 +268,12 @@ def build_gpu(gpu_compiler, gpu_compile_args, gpu_include_dirs,
                obj,
                src)
         print(cmd)
+        sys.stdout.flush()
         error = os.system(cmd)
-        if error != 0:
-            return error
+        assert error == 0
 
     # Glob all kernel files, but remove those included by other kernels
-    kernels = list(Path('c/gpu/kernels').glob('*.cpp'))
+    kernels = sorted(Path('c/gpu/kernels').glob('*.cpp'))
     for name in [
                  'lfc-reduce.cpp',
                  'lfc-reduce-kernel.cpp',
@@ -283,13 +281,11 @@ def build_gpu(gpu_compiler, gpu_compile_args, gpu_include_dirs,
                  'reduce-kernel.cpp',
                  ]:
         kernels.remove(Path(f'c/gpu/kernels/{name}'))
-    kernels = [str(source) for source in kernels]
-    kernels.sort()
 
     # compile GPU kernels
     for src in kernels:
-        obj = os.path.join(build_path, src + '.o')
-        objects.append(obj)
+        obj = build_path / src.with_suffix('.o')
+        objects.append(str(obj))
         cmd = ("%s %s %s %s -o %s -c %s ") % \
               (gpu_compiler,
                macros,
@@ -298,18 +294,8 @@ def build_gpu(gpu_compiler, gpu_compile_args, gpu_include_dirs,
                obj,
                src)
         print(cmd)
+        sys.stdout.flush()
         error = os.system(cmd)
-        if error != 0:
-            return error
+        assert error == 0
 
-    # link into a static lib
-    lib = 'build/temp.%s/libgpaw-gpu.a' % plat
-    cmd = ('ar cr %s %s') % (lib, ' '.join(objects))
-    print(cmd)
-    error = os.system(cmd)
-    if error != 0:
-        return error
-    cmd = 'ranlib %s' % lib
-    print(cmd)
-    error = os.system(cmd)
-    return error
+    return objects

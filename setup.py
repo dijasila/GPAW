@@ -121,13 +121,7 @@ if gpu:
             gpu_compiler = 'hipcc'
         elif gpu_target == 'cuda':
             gpu_compiler = 'nvcc'
-    plat = get_platform() + '-{maj}.{min}'.format(maj=sys.version_info[0],
-                                                  min=sys.version_info[1])
-    library_dirs.append('build/temp.%s' % plat)
-    if 'gpaw-gpu' not in libraries:
-        # Insert gpaw-gpu before other libraries so that
-        # -lcublas and others get included with --as-needed linker option
-        libraries.insert(0, 'gpaw-gpu')
+
 
 if compiler is not None:
     # A hack to change the used compiler and linker, inspired by
@@ -239,12 +233,12 @@ class build_ext(build_ext):
 
         if gpu:
             gpu_include_dirs.append(np.get_include())
-            error = build_gpu(gpu_compiler, gpu_compile_args,
-                              gpu_include_dirs,
-                              compiler, extra_compile_args, include_dirs,
-                              define_macros, parallel_python_interpreter,
-                              gpu_target)
-            assert error == 0
+            objects = build_gpu(gpu_compiler, gpu_compile_args,
+                                gpu_include_dirs,
+                                compiler, extra_compile_args, include_dirs,
+                                define_macros, parallel_python_interpreter,
+                                gpu_target)
+            self.link_objects = objects
 
         super().run()
         print("Temp and build", self.build_lib, self.build_temp)
