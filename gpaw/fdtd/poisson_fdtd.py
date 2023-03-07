@@ -12,7 +12,7 @@ from gpaw.fdtd.potential_couplers import (RefinerPotentialCoupler,
                                           MultipolesPotentialCoupler)
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.mpi import world, serial_comm
-from gpaw.poisson import PoissonSolver, FDPoissonSolver
+from gpaw.poisson import PoissonSolver
 from gpaw.poisson_moment import MomentCorrectionPoissonSolver
 from gpaw.tddft import TDDFT, DipoleMomentWriter, RestartFileWriter
 from gpaw.transformers import Transformer

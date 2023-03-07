@@ -1,5 +1,4 @@
 import pytest
-from gpaw.mpi import world
 
 
 @pytest.fixture(scope='session')

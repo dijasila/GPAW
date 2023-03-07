@@ -7,7 +7,6 @@ from ase.units import Ha
 from ase.utils.timing import timer
 
 from gpaw.matrix import matrix_matrix_multiply as mmm
-from gpaw.utilities.blas import axpy
 from gpaw.utilities.mblas import multi_axpy
 from gpaw.xc.hybrid import HybridXC
 from gpaw import gpu

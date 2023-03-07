@@ -20,8 +20,9 @@ class ArrayWaveFunctions:
         self.collinear = collinear
         if not collinear:
             N *= 2
-        if data is None or isinstance(data, np.ndarray) \
-                        or isinstance(data, gpu.cupy.ndarray):
+        if data is None \
+                or isinstance(data, np.ndarray) \
+                or isinstance(data, gpu.cupy.ndarray):
             self.matrix = Matrix(M, N, dtype, data, dist, use_gpu)
             self.in_memory = True
         elif isinstance(data, Matrix):
@@ -185,11 +186,11 @@ class UniformGridWaveFunctions(ArrayWaveFunctions):
         key = (n1, n2)
         if key not in self._cached_view:
             self._cached_view[key] = \
-                    UniformGridWaveFunctions(n2 - n1, self.gd, self.dtype,
-                                             self.matrix.view(n1, n2),
-                                             self.kpt, None,
-                                             self.spin,
-                                             use_gpu=self.use_gpu)
+                UniformGridWaveFunctions(n2 - n1, self.gd, self.dtype,
+                                         self.matrix.view(n1, n2),
+                                         self.kpt, None,
+                                         self.spin,
+                                         use_gpu=self.use_gpu)
         return self._cached_view[key]
 
     def plot(self):
@@ -313,13 +314,13 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
             # print(self.array[n1:n2].dtype)
             # print(self.matrix.view(n1, n2).dtype)
             self._cached_view[key] = \
-                    PlaneWaveExpansionWaveFunctions(
-                            n2 - n1, self.pd, self.dtype,
-                            # self.array[n1:n2],
-                            self.matrix.view(n1, n2),
-                            self.kpt, None,
-                            self.spin, self.collinear,
-                            self.use_gpu)
+                PlaneWaveExpansionWaveFunctions(
+                    n2 - n1, self.pd, self.dtype,
+                    # self.array[n1:n2],
+                    self.matrix.view(n1, n2),
+                    self.kpt, None,
+                    self.spin, self.collinear,
+                    self.use_gpu)
         return self._cached_view[key]
 
 

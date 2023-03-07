@@ -13,7 +13,6 @@ http://www.netlib.org/lapack/lug/node145.html
 from typing import TypeVar
 
 import numpy as np
-import scipy.linalg.blas as blas
 
 import _gpaw
 from gpaw import debug
@@ -259,6 +258,8 @@ def gemv(alpha, a, x, beta, y, trans='t', use_gpu=False):
 
     Example::
 
+      >>> A_mn = np.arange(6.0).reshape(2, 3)
+      >>> x_n = np.arange(3.0)
       >>> y_m = np.dot(A_mn, x_n)
       >>> # or better yet
       >>> y_m = np.zeros(A_mn.shape[0], A_mn.dtype)
@@ -486,7 +487,7 @@ def _r2k(alpha, a, b, beta, c, trans='c', use_gpu=None):
 
 
 def dotc(a, b):
-    """Dot product, conjugating the first vector with complex arguments.
+    r"""Dot product, conjugating the first vector with complex arguments.
 
     Returns the value of the operation::
 

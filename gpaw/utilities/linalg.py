@@ -6,8 +6,8 @@ from gpaw import gpu
 
 
 def elementwise_multiply_add(a, b, c):
-    assert(type(a) == type(b))
-    assert(type(c) == type(b))
+    assert (type(a) == type(b))
+    assert (type(c) == type(b))
 
     if not isinstance(a, np.ndarray):
         _gpaw.elementwise_multiply_add_gpu(gpu.get_pointer(a),
@@ -30,8 +30,8 @@ def multi_elementwise_multiply_add_cpu(a, b, c):
 
 
 def multi_elementwise_multiply_add(a, b, c):
-    assert(type(a) == type(b))
-    assert(type(c) == type(b))
+    assert (type(a) == type(b))
+    assert (type(c) == type(b))
 
     if len(a.shape) == len(b.shape):
         elementwise_multiply_add(a, b, c)
@@ -64,7 +64,7 @@ def ax2py_cpu(a, x, y):
 
 
 def ax2py(a, x, y):
-    assert(type(x) == type(y))
+    assert (type(x) == type(y))
     if not isinstance(x, np.ndarray):
         _gpaw.ax2py_gpu(a, gpu.get_pointer(x), x.shape,
                         gpu.get_pointer(y), y.shape, x.dtype)
