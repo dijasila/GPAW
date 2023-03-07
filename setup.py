@@ -112,10 +112,7 @@ if platform_id:
     os.environ['_PYTHON_HOST_PLATFORM'] = get_platform() + '-' + platform_id
 
 if gpu:
-    if gpu_target is None:
-        gpu_target = 'hip-amd'
-    if gpu_target == 'hip':
-        gpu_target = 'hip-amd'
+    assert gpu_target in ['cuda', 'hip-amd', 'hip-cuda']
     if gpu_compiler is None:
         if gpu_target.startswith('hip'):
             gpu_compiler = 'hipcc'
