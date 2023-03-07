@@ -260,6 +260,54 @@ def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered, request):
                             chiks_q, rtol=rtol)
 
 
+@pytest.mark.response
+@pytest.mark.parametrize(
+    'system,qrel', product(generate_system_s(), generate_qrel_q()))
+def test_chiks_vs_chi0(in_tmp_dir, gpw_files, system, qrel):
+    """Test that the ChiKSCalculator is able to reproduce the Chi0Body.
+
+    We use only the default calculation parameter setup for the ChiKSCalculator
+    and leave parameter cross-validation to the test above."""
+
+    # ---------- Inputs ---------- #
+
+    # Part 1: ChiKS calculation
+    wfs, spincomponent, _, _, _ = system
+    if not spincomponent == '00':
+        # The Chi0Calculator does not support the transverse magnetic
+        # susceptibility
+        return
+    q_c = get_q_c(wfs, qrel)
+
+    ecut = 50
+    # Test vanishing and finite real and imaginary frequencies
+    frequencies = np.array([0., 0.05, 0.1, 0.2])
+    eta = 0.15
+    complex_frequencies = frequencies + 1.j * eta
+
+    # Part 2: Chi0 calculation
+
+    # Part 3: Check ChiKS vs. Chi0
+
+    # ---------- Script ---------- #
+
+    # Part 1: ChiKS calculation
+
+    # Initialize ground state adapter
+    context = ResponseContext()
+    gs = ResponseGroundStateAdapter.from_gpw_file(gpw_files[wfs], context)
+    nbands = gs._calc.parameters.convergence['bands']
+
+    # Set up complex frequency descriptor
+    zd = ComplexFrequencyDescriptor.from_array(complex_frequencies)
+
+    # Calculate ChiKS
+    chiks_calc = ChiKSCalculator(gs, context=context,
+                                 ecut=ecut, nbands=nbands)
+    chiks = chiks_calc.calculate(spincomponent, q_c, zd)
+    chiks = chiks.copy_with_global_frequency_distribution()
+    
+
 # ---------- Test functionality ---------- #
 
 
