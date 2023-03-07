@@ -10,6 +10,7 @@ from gpaw.mpi import world
 from gpaw.response import ResponseContext, ResponseGroundStateAdapter
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKSCalculator
+from gpaw.response.chi0 import Chi0
 from gpaw.response.susceptibility import (get_inverted_pw_mapping,
                                           get_pw_coordinates)
 
@@ -272,7 +273,7 @@ def test_chiks_vs_chi0(in_tmp_dir, gpw_files, system, qrel):
     # ---------- Inputs ---------- #
 
     # Part 1: ChiKS calculation
-    wfs, spincomponent, _, _, _ = system
+    wfs, spincomponent, rtol, _, _ = system
     if not spincomponent == '00':
         # The Chi0Calculator does not support the transverse magnetic
         # susceptibility
@@ -306,7 +307,18 @@ def test_chiks_vs_chi0(in_tmp_dir, gpw_files, system, qrel):
                                  ecut=ecut, nbands=nbands)
     chiks = chiks_calc.calculate(spincomponent, q_c, zd)
     chiks = chiks.copy_with_global_frequency_distribution()
-    
+
+    # Part 2: Chi0 calculation
+    chi0_calc = Chi0(gpw_files[wfs],
+                     frequencies=frequencies, eta=eta,
+                     ecut=ecut, nbands=nbands,
+                     hilbert=False, intraband=False)
+    chi0_data = chi0_calc.calculate(q_c)
+    chi0_wGG = chi0_data.get_distributed_frequencies_array()
+
+    # Part 3: Check ChiKS vs. Chi0
+    assert chiks.array == pytest.approx(chi0_wGG, rel=rtol, abs=1e-8)
+
 
 # ---------- Test functionality ---------- #
 
