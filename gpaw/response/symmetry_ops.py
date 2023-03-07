@@ -1,14 +1,8 @@
 import numpy as np
 
 
-"""This module exists to reduce code duplication.
-
-The costruct_symmetry_operators method was duplicated on two classes.
-Now it only exists in one place, at the cost of a nasty fake "self".
-"""
-
-
-def construct_symmetry_operators(gs, K, k_c=None, *, apply_strange_shift):
+def construct_symmetry_operators(gs, K, k_c=None, *, apply_strange_shift,
+                                 R_asii):
     """Construct symmetry operators for wave function and PAW projections.
 
     We want to transform a k-point in the irreducible part of the BZ to
@@ -27,16 +21,6 @@ def construct_symmetry_operators(gs, K, k_c=None, *, apply_strange_shift):
 
     See the get_k_point() method for how to use these tuples.
     """
-
-    R_asii = [pawdata.R_sii for pawdata in gs.pawdatasets]
-    return _construct_symmetry_operators(
-        gs, K, k_c=k_c,
-        apply_strange_shift=apply_strange_shift,
-        R_asii=R_asii)
-
-
-def _construct_symmetry_operators(gs, K, k_c=None, *, apply_strange_shift,
-                                  R_asii):
     kd = gs.kd
 
     s = kd.sym_k[K]
