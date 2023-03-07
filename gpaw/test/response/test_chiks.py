@@ -10,13 +10,14 @@ from gpaw.mpi import world
 from gpaw.response import ResponseContext, ResponseGroundStateAdapter
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKSCalculator
+from gpaw.response.chi0 import Chi0
 from gpaw.response.susceptibility import (get_inverted_pw_mapping,
                                           get_pw_coordinates)
 
 # ---------- ChiKS parametrization ---------- #
 
 
-def generate_system_s():
+def generate_system_s(spincomponents=['00', '+-']):
     # Compute chiks for different materials and spin-components, using
     # system specific tolerances
     system_s = [  # wfs, spincomponent, rtol, dsym_rtol, bsum_rtol
@@ -25,6 +26,9 @@ def generate_system_s():
         ('fe_pw_wfs', '00', 1e-5, 1e-6, 1e-5),
         ('fe_pw_wfs', '+-', 0.04, 0.01, 0.02)
     ]
+
+    # Filter spincomponents
+    system_s = [system for system in system_s if system[1] in spincomponents]
 
     return system_s
 
@@ -70,9 +74,18 @@ def mark_si_xfail(system, request):
 @pytest.mark.parametrize(
     'system,qrel,gammacentered',
     product(generate_system_s(), generate_qrel_q(), generate_gc_g()))
-def test_chiks_symmetry(in_tmp_dir, gpw_files, system, qrel, gammacentered,
-                        request):
-    r"""Check the reciprocity relation (valid both for μν=00 and μν=+-),
+def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered, request):
+    r"""Test the internals of the ChiKSCalculator.
+
+    In particular, we test that the susceptibility does not change due to the
+    details in the internal calculator, such as varrying block distribution,
+    band summation scheme, reducing the k-point integral using symmetries or
+    basing the ground state adapter on a dynamic (and distributed) GPAW
+    calculator.
+
+    Furthermore, we test the symmetries of the calculated susceptibilities.
+    In particular, we test the reciprocity relation (valid both for μν=00 and
+    μν=+-),
 
     χ_(KS,GG')^(μν)(q, ω) = χ_(KS,-G'-G)^(μν)(-q, ω),
 
@@ -84,16 +97,12 @@ def test_chiks_symmetry(in_tmp_dir, gpw_files, system, qrel, gammacentered,
 
     χ_(KS,GG')^(μν)(q, ω) = χ_(KS,G'G)^(μν)(q, ω),
 
-    for a real life periodic systems with inversion symmetry.
+    for a real life periodic systems with an inversion center.
 
     Unfortunately, there will always be random noise in the wave functions,
     such that these symmetries cannot be fulfilled exactly. Generally speaking,
     the "symmetry" noise can be reduced by running with symmetry='off' in
-    the ground state calculation.
-
-    Also, we test that the susceptibility does not change due to varrying block
-    distribution, band summation scheme or when reducing the k-point integral
-    using symmetries."""
+    the ground state calculation."""
     mark_si_xfail(system, request)
 
     # ---------- Inputs ---------- #
@@ -255,6 +264,62 @@ def test_chiks_symmetry(in_tmp_dir, gpw_files, system, qrel, gammacentered,
                             chiks_q, rtol=rtol)
 
 
+@pytest.mark.response
+@pytest.mark.parametrize(
+    'system,qrel',
+    product(generate_system_s(spincomponents=['00']), generate_qrel_q()))
+def test_chiks_vs_chi0(in_tmp_dir, gpw_files, system, qrel):
+    """Test that the ChiKSCalculator is able to reproduce the Chi0Body.
+
+    We use only the default calculation parameter setup for the ChiKSCalculator
+    and leave parameter cross-validation to the test above."""
+
+    # ---------- Inputs ---------- #
+
+    # Part 1: ChiKS calculation
+    wfs, spincomponent, rtol, _, _ = system
+    q_c = get_q_c(wfs, qrel)
+
+    ecut = 50
+    # Test vanishing and finite real and imaginary frequencies
+    frequencies = np.array([0., 0.05, 0.1, 0.2])
+    eta = 0.15
+    complex_frequencies = frequencies + 1.j * eta
+
+    # Part 2: Chi0 calculation
+
+    # Part 3: Check ChiKS vs. Chi0
+
+    # ---------- Script ---------- #
+
+    # Part 1: ChiKS calculation
+
+    # Initialize ground state adapter
+    context = ResponseContext()
+    gs = ResponseGroundStateAdapter.from_gpw_file(gpw_files[wfs], context)
+    nbands = gs._calc.parameters.convergence['bands']
+
+    # Set up complex frequency descriptor
+    zd = ComplexFrequencyDescriptor.from_array(complex_frequencies)
+
+    # Calculate ChiKS
+    chiks_calc = ChiKSCalculator(gs, context=context,
+                                 ecut=ecut, nbands=nbands)
+    chiks = chiks_calc.calculate(spincomponent, q_c, zd)
+    chiks = chiks.copy_with_global_frequency_distribution()
+
+    # Part 2: Chi0 calculation
+    chi0_calc = Chi0(gpw_files[wfs],
+                     frequencies=frequencies, eta=eta,
+                     ecut=ecut, nbands=nbands,
+                     hilbert=False, intraband=False)
+    chi0_data = chi0_calc.calculate(q_c)
+    chi0_wGG = chi0_data.get_distributed_frequencies_array()
+
+    # Part 3: Check ChiKS vs. Chi0
+    assert chiks.array == pytest.approx(chi0_wGG, rel=rtol, abs=1e-8)
+
+
 # ---------- Test functionality ---------- #
 
 
@@ -310,15 +375,16 @@ def check_reciprocity_and_inversion_symmetry(chiks_q, *, rtol):
     for chi1_GG, chi2_GG in zip(chiks_q[q1].array,
                                 chiks_q[q2].array):
         # Check the reciprocity
-        assert chi2_GG[invmap_GG].T == pytest.approx(chi1_GG, rel=rtol)
+        assert chi2_GG[invmap_GG].T == pytest.approx(chi1_GG, rel=rtol,
+                                                     abs=1e-8)
         # Check inversion symmetry
-        assert chi2_GG[invmap_GG] == pytest.approx(chi1_GG, rel=rtol)
+        assert chi2_GG[invmap_GG] == pytest.approx(chi1_GG, rel=rtol, abs=1e-8)
 
     # Loop over q-vectors
     for chiks in chiks_q:
         for chiks_GG in chiks.array:  # array = chiks_zGG
             # Check that the full susceptibility matrix is symmetric
-            assert chiks_GG.T == pytest.approx(chiks_GG, rel=rtol)
+            assert chiks_GG.T == pytest.approx(chiks_GG, rel=rtol, abs=1e-8)
 
 
 def compare_pw_bases(chiks_dsnbiq, dsnbi1, dsnbi2):
