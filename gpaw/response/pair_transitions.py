@@ -49,8 +49,8 @@ class PairTransitions:
         intraband_t = (self.n1_t == self.n2_t) & (self.s1_t == self.s2_t)
         return intraband_t
 
-    @staticmethod
-    def from_transitions_domain_arguments(spin_rotation,
+    @classmethod
+    def from_transitions_domain_arguments(cls, spin_rotation,
                                           nbands, nocc1, nocc2, nspins,
                                           bandsummation) -> PairTransitions:
         """Generate the band and spin transitions integration domain.
@@ -91,7 +91,7 @@ class PairTransitions:
         n1_t, n2_t, s1_t, s2_t = transitions_in_composite_index(n1_M, n2_M,
                                                                 s1_S, s2_S)
 
-        return PairTransitions(n1_t, n2_t, s1_t, s2_t)
+        return cls(n1_t, n2_t, s1_t, s2_t)
 
 
 def get_band_transitions_domain(bandsummation, nbands, nocc1=None, nocc2=None):
