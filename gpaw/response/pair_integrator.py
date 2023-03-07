@@ -10,6 +10,7 @@ from gpaw.response.kspair import (KohnShamKPointPair,
                                   KohnShamKPointPairExtractor)
 from gpaw.response.pw_parallelization import block_partition
 from gpaw.response.pair_functions import SingleQPWDescriptor, PairFunction
+from gpaw.response.pair_transitions import PairTransitions
 
 
 class PairFunctionIntegrator(ABC):
@@ -34,7 +35,7 @@ class PairFunctionIntegrator(ABC):
     k-points k inside the 1st Brillouin Zone and (2) a sum over band and spin
     transitions t:
 
-    t (composit transition index): (n, s) -> (n', s')
+    t (composite transition index): (n, s) -> (n', s')
                   __                 __  __                  __
                1  \               1  \   \                1  \
     pf(q,z) =  ‾  /  pf_T(q,z) =  ‾  /   /  pf_kt(q,z) =  ‾  /  (...)_k
@@ -110,8 +111,8 @@ class PairFunctionIntegrator(ABC):
             # Distribution of work:
             # t-transitions are distributed through blockcomm,
             # k-points through intrablockcomm.
-            transition_blockcomm=self.blockcomm,
-            kpt_blockcomm=self.intrablockcomm)
+            transitions_blockcomm=self.blockcomm,
+            kpts_blockcomm=self.intrablockcomm)
 
         # Symmetry flags
         self.disable_point_group = disable_point_group
@@ -124,21 +125,15 @@ class PairFunctionIntegrator(ABC):
             self.disable_symmetries = False
 
     @timer('Integrate pair function')
-    def _integrate(self, out: PairFunction, n1_t, n2_t, s1_t, s2_t):
+    def _integrate(self, out: PairFunction, transitions: PairTransitions):
         """In-place pair function integration
 
         Parameters
         ----------
         out : PairFunction
             Output data structure
-        n1_t : np.array
-            Band index of k-point k for each transition t.
-        n2_t : np.array
-            Band index of k-point k + q for each transition t.
-        s1_t : np.array
-            Spin index of k-point k for each transition t.
-        s2_t : np.array
-            Spin index of k-point k + q for each transition t.
+        transitions : PairTransitions
+            Band and spin transitions to integrate.
 
         Returns
         -------
@@ -149,8 +144,7 @@ class PairFunctionIntegrator(ABC):
         
         # Perform the actual integral as a point integral over k-point pairs
         integral = KPointPairPointIntegral(self.kptpair_extractor, analyzer)
-        weighted_kptpairs = integral.weighted_kpoint_pairs(n1_t, n2_t,
-                                                           s1_t, s2_t)
+        weighted_kptpairs = integral.weighted_kpoint_pairs(transitions)
         pb = ProgressBar(self.context.fd)  # pb with a generator is awkward
         for _, _ in pb.enumerate([None] * integral.ni):
             kptpair, weight = next(weighted_kptpairs)
@@ -230,49 +224,34 @@ class PairFunctionIntegrator(ABC):
             disable_time_reversal=self.disable_time_reversal,
             disable_non_symmorphic=self.disable_non_symmorphic)
 
-    def get_band_and_spin_transitions_domain(self, spinrot, nbands=None,
-                                             bandsummation='pairwise'):
-        """Generate all allowed band and spin transitions (transitions from
-        occupied to occupied and from unoccupied to unoccupied are not
-        allowed).
-
-        Parameters
-        ----------
-        spinrot : str
-            Spin rotation from k to k + q.
-            Choices: 'u', 'd', '0' (= 'u' + 'd'), '-' and '+'.
-            All rotations are included for spinrot=None ('0' + '+' + '-').
-        nbands : int
-            Maximum band index to include.
-        bandsummation : str
-            Band (and spin) summation for pairs of Kohn-Sham orbitals
-            'pairwise': sum over pairs of bands (and spins)
-            'double': double sum over band (and spin) indices.
-        """
-        # Include all bands, if nbands is None
+    def get_band_and_spin_transitions(self, spin_rotation, nbands=None,
+                                      bandsummation='pairwise'):
+        """Get band and spin transitions (n, s) -> (n', s') to integrate."""
         nspins = self.gs.nspins
-        nbands = nbands or self.gs.bd.nbands
-        assert nbands <= self.gs.bd.nbands
-        nocc1 = self.kptpair_extractor.nocc1
-        nocc2 = self.kptpair_extractor.nocc2
+        gsnbands, nocc1, nocc2 = self.get_band_information()
 
-        n1_M, n2_M = get_band_transitions_domain(bandsummation, nbands,
-                                                 nocc1=nocc1,
-                                                 nocc2=nocc2)
-        s1_S, s2_S = get_spin_transitions_domain(bandsummation,
-                                                 spinrot, nspins)
+        # Defaults to inclusion of all bands in the ground state calculator
+        if nbands is None:
+            nbands = gsnbands
+        assert nbands <= gsnbands
 
-        n1_t, n2_t, s1_t, s2_t = transitions_in_composite_index(n1_M, n2_M,
-                                                                s1_S, s2_S)
+        transitions = PairTransitions.from_transitions_domain_arguments(
+            spin_rotation, nbands, nocc1, nocc2, nspins, bandsummation)
 
-        return n1_t, n2_t, s1_t, s2_t
+        return transitions
 
-    def get_basic_information(self):
-        """Get basic information about the ground state and parallelization."""
-        nspins = self.gs.nspins
+    def get_band_information(self):
+        """Get information about band occupation."""
         nbands = self.gs.bd.nbands
         nocc1 = self.kptpair_extractor.nocc1
         nocc2 = self.kptpair_extractor.nocc2
+
+        return nbands, nocc1, nocc2
+
+    def get_basic_info_string(self):
+        """Get basic information about the ground state and parallelization."""
+        nspins = self.gs.nspins
+        nbands, nocc1, nocc2 = self.get_band_information()
         nk = self.gs.kd.nbzkpts
         nik = self.gs.kd.nibzkpts
 
@@ -296,164 +275,6 @@ class PairFunctionIntegrator(ABC):
         s += '    blockcomm.size: %d\n' % bsize
 
         return s
-
-
-def get_band_transitions_domain(bandsummation, nbands, nocc1=None, nocc2=None):
-    """Get all pairs of bands to sum over
-
-    Parameters
-    ----------
-    bandsummation : str
-        Band summation method
-    nbands : int
-        number of bands
-    nocc1 : int
-        number of completely filled bands
-    nocc2 : int
-        number of non-empty bands
-
-    Returns
-    -------
-    n1_M : ndarray
-        band index 1, M = (n1, n2) composite index
-    n2_M : ndarray
-        band index 2, M = (n1, n2) composite index
-    """
-    _get_band_transitions_domain =\
-        create_get_band_transitions_domain(bandsummation)
-    n1_M, n2_M = _get_band_transitions_domain(nbands)
-
-    return remove_null_transitions(n1_M, n2_M, nocc1=nocc1, nocc2=nocc2)
-
-
-def create_get_band_transitions_domain(bandsummation):
-    """Creator component deciding how to carry out band summation."""
-    if bandsummation == 'pairwise':
-        return get_pairwise_band_transitions_domain
-    elif bandsummation == 'double':
-        return get_double_band_transitions_domain
-    raise ValueError(bandsummation)
-
-
-def get_double_band_transitions_domain(nbands):
-    """Make a simple double sum"""
-    n_n = np.arange(0, nbands)
-    m_m = np.arange(0, nbands)
-    n_nm, m_nm = np.meshgrid(n_n, m_m)
-    n_M, m_M = n_nm.flatten(), m_nm.flatten()
-
-    return n_M, m_M
-
-
-def get_pairwise_band_transitions_domain(nbands):
-    """Make a sum over all pairs"""
-    n_n = range(0, nbands)
-    n_M = []
-    m_M = []
-    for n in n_n:
-        m_m = range(n, nbands)
-        n_M += [n] * len(m_m)
-        m_M += m_m
-
-    return np.array(n_M), np.array(m_M)
-
-
-def remove_null_transitions(n1_M, n2_M, nocc1=None, nocc2=None):
-    """Remove pairs of bands, between which transitions are impossible"""
-    n1_newM = []
-    n2_newM = []
-    for n1, n2 in zip(n1_M, n2_M):
-        if nocc1 is not None and (n1 < nocc1 and n2 < nocc1):
-            continue  # both bands are fully occupied
-        elif nocc2 is not None and (n1 >= nocc2 and n2 >= nocc2):
-            continue  # both bands are completely unoccupied
-        n1_newM.append(n1)
-        n2_newM.append(n2)
-
-    return np.array(n1_newM), np.array(n2_newM)
-
-
-def get_spin_transitions_domain(bandsummation, spinrot, nspins):
-    """Get structure of the sum over spins
-
-    Parameters
-    ----------
-    bandsummation : str
-        Band summation method
-    spinrot : str
-        spin rotation
-    nspins : int
-        number of spin channels in ground state calculation
-
-    Returns
-    -------
-    s1_s : ndarray
-        spin index 1, S = (s1, s2) composite index
-    s2_S : ndarray
-        spin index 2, S = (s1, s2) composite index
-    """
-    _get_spin_transitions_domain =\
-        create_get_spin_transitions_domain(bandsummation)
-    return _get_spin_transitions_domain(spinrot, nspins)
-
-
-def create_get_spin_transitions_domain(bandsummation):
-    """Creator component deciding how to carry out spin summation."""
-    if bandsummation == 'pairwise':
-        return get_pairwise_spin_transitions_domain
-    elif bandsummation == 'double':
-        return get_double_spin_transitions_domain
-    raise ValueError(bandsummation)
-
-
-def get_double_spin_transitions_domain(spinrot, nspins):
-    """Usual spin rotations forward in time"""
-    if nspins == 1:
-        if spinrot is None or spinrot == '0':
-            s1_S = [0]
-            s2_S = [0]
-        else:
-            raise ValueError(spinrot, nspins)
-    else:
-        if spinrot is None:
-            s1_S = [0, 0, 1, 1]
-            s2_S = [0, 1, 0, 1]
-        elif spinrot == '0':
-            s1_S = [0, 1]
-            s2_S = [0, 1]
-        elif spinrot == 'u':
-            s1_S = [0]
-            s2_S = [0]
-        elif spinrot == 'd':
-            s1_S = [1]
-            s2_S = [1]
-        elif spinrot == '-':
-            s1_S = [0]  # spin up
-            s2_S = [1]  # spin down
-        elif spinrot == '+':
-            s1_S = [1]  # spin down
-            s2_S = [0]  # spin up
-        else:
-            raise ValueError(spinrot)
-
-    return np.array(s1_S), np.array(s2_S)
-
-
-def get_pairwise_spin_transitions_domain(spinrot, nspins):
-    """In a sum over pairs, transitions including a spin rotation may have to
-    include terms, propagating backwards in time."""
-    if spinrot in ['+', '-']:
-        assert nspins == 2
-        return np.array([0, 1]), np.array([1, 0])
-    else:
-        return get_double_spin_transitions_domain(spinrot, nspins)
-
-
-def transitions_in_composite_index(n1_M, n2_M, s1_S, s2_S):
-    """Use a composite index t for transitions (n, s) -> (n', s')."""
-    n1_MS, s1_MS = np.meshgrid(n1_M, s1_S)
-    n2_MS, s2_MS = np.meshgrid(n2_M, s2_S)
-    return n1_MS.flatten(), n2_MS.flatten(), s1_MS.flatten(), s2_MS.flatten()
 
 
 class KPointPairIntegral(ABC):
@@ -502,7 +323,7 @@ class KPointPairIntegral(ABC):
         self._domain = (bzk_ipc, weight_i)
         self.ni = len(weight_i)
 
-    def weighted_kpoint_pairs(self, n1_t, n2_t, s1_t, s2_t):
+    def weighted_kpoint_pairs(self, transitions):
         r"""Generate all k-point pairs in the integral along with their
         integral weights.
 
@@ -541,14 +362,8 @@ class KPointPairIntegral(ABC):
 
         Parameters
         ----------
-        n1_t : np.array
-            Band index of k-point k for each transition t.
-        n2_t : np.array
-            Band index of k-point k + q for each transition t.
-        s1_t : np.array
-            Spin index of k-point k for each transition t.
-        s2_t : np.array
-            Spin index of k-point k + q for each transition t.
+        transitions : PairTransitions
+            Band and spin transitions to integrate.
         """
         # Calculate prefactors
         outer_prefactor = 1 / (2 * np.pi)**3
@@ -563,7 +378,7 @@ class KPointPairIntegral(ABC):
             else:
                 integral_weight = prefactor * weight
             kptpair = self.kptpair_extractor.get_kpoint_pairs(
-                n1_t, n2_t, k_pc, k_pc + self.q_c, s1_t, s2_t)
+                k_pc, k_pc + self.q_c, transitions)
             yield kptpair, integral_weight
 
     @abstractmethod
@@ -587,7 +402,7 @@ class KPointPairIntegral(ABC):
         bzk_ipc : nd.array
             k-points (relative) coordinates for each process for each iteration
         """
-        comm = self.kptpair_extractor.kpt_blockcomm
+        comm = self.kptpair_extractor.kpts_blockcomm
         rank, size = comm.rank, comm.size
 
         nk = bzk_kc.shape[0]
