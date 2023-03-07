@@ -39,8 +39,8 @@ class ResponseGroundStateAdapter:
         self._hamiltonian = calc.hamiltonian
         self._calc = calc
 
-    @staticmethod
-    def from_gpw_file(gpw, context):
+    @classmethod
+    def from_gpw_file(cls, gpw, context):
         """Initiate the ground state adapter directly from a .gpw file."""
         from gpaw import GPAW, disable_dry_run
         assert Path(gpw).is_file()
@@ -51,7 +51,7 @@ class ResponseGroundStateAdapter:
             with disable_dry_run():
                 calc = GPAW(gpw, txt=None, communicator=mpi.serial_comm)
 
-        return ResponseGroundStateAdapter(calc)
+        return cls(calc)
 
     @property
     def pd(self):
