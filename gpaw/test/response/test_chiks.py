@@ -150,9 +150,9 @@ def test_chiks_symmetry(in_tmp_dir, gpw_files, system, qrel, gammacentered,
         for disable_syms in disable_syms_s:
             chiks_nbiq = []
             if dynamic_ground_state:
-                gs = ResponseGroundStateAdapter(calc)
+                gs = GSAdapterWithPAWCache(calc)
             else:
-                gs = ResponseGroundStateAdapter.from_gpw_file(
+                gs = GSAdapterWithPAWCache.from_gpw_file(
                     gpw_files[wfs], context=context)
             for nblocks in nblocks_n:
                 chiks_biq = []
