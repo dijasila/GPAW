@@ -215,6 +215,12 @@ class ResponseGroundStateAdapter:
 
         return ibzq_qc
 
+    def construct_symmetry_operators(self, K, k_c=None,
+                                     *, apply_strange_shift: bool):
+        from gpaw.response.symmetry_ops import construct_symmetry_operators
+        return construct_symmetry_operators(
+            self, K, k_c=k_c, apply_strange_shift=apply_strange_shift)
+
 
 # Contains all the relevant information
 # from Setups class for response calculators

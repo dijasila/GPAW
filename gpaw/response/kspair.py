@@ -743,8 +743,6 @@ class KohnShamKPointPairExtractor:
 
         return Ph, ut_hR, shift_c
 
-    @timer('Construct symmetry operators')
     def construct_symmetry_operators(self, K, k_c=None):
-        from gpaw.response.symmetry_ops import construct_symmetry_operators
-        return construct_symmetry_operators(
-            self.gs, K, k_c, apply_strange_shift=True)
+        return self.gs.construct_symmetry_operators(
+            K, k_c=k_c, apply_strange_shift=True)
