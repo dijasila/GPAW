@@ -146,10 +146,14 @@ for flag, name in [(noblas, 'GPAW_WITHOUT_BLAS'),
                    (elpa, 'GPAW_WITH_ELPA'),
                    (gpu, 'GPAW_GPU'),
                    (gpu, 'GPAW_GPU_AWARE_MPI'),
-                   (gpu_target == 'cuda', 'GPAW_CUDA'),
-                   (gpu_target.startswith('hip'), 'GPAW_HIP'),
-                   (gpu_target == 'hip-amd', '__HIP_PLATFORM_AMD__'),
-                   (gpu_target == 'hip-cuda', '__HIP_PLATFORM_NVIDIA__'),
+                   (gpu and gpu_target == 'cuda',
+                       'GPAW_CUDA'),
+                   (gpu and gpu_target.startswith('hip'),
+                       'GPAW_HIP'),
+                   (gpu and gpu_target == 'hip-amd',
+                       '__HIP_PLATFORM_AMD__'),
+                   (gpu and gpu_target == 'hip-cuda',
+                       '__HIP_PLATFORM_NVIDIA__'),
                    ]:
     if flag:
         define_macros.append((name, '1'))
