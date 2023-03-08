@@ -610,32 +610,8 @@ class KohnShamKPointPairExtractor:
                     for myn, h in zip(myn_rn, h_rn):
                         psit_hG[h] = kpt.psit_nG[myn]
 
-            # Construct symmetry operators
-            (_, T, a_a, U_aii, shift_c,
-             time_reversal) = self.construct_symmetry_operators(K, k_c=k_c)
-
-            # Symmetrize wave functions
-            ut_hR = gs.gd.empty(nh, gs.dtype)
-            with self.context.timer('Fourier transform and symmetrize '
-                                    'wave functions'):
-                for h, psit_G in enumerate(psit_hG):
-                    ut_hR[h] = T(gs.pd.ifft(psit_G, ik))
-            
-            # Symmetrize projections
-            with self.context.timer('Apply symmetry operations'):
-                P_ahi = []
-                for a1, U_ii in zip(a_a, U_aii):
-                    P_hi = np.ascontiguousarray(Ph[a1])
-                    # Apply symmetry operations. This will map a1 onto a2
-                    np.dot(P_hi, U_ii, out=P_hi)
-                    if time_reversal:
-                        np.conj(P_hi, out=P_hi)
-                    P_ahi.append(P_hi)
-
-                # Store symmetrized projectors
-                for a2, P_hi in enumerate(P_ahi):
-                    I1, I2 = Ph.map[a2]
-                    Ph.array[..., I1:I2] = P_hi
+            Ph, ut_hR, shift_c = self.transform_and_symmetrize(K, k_c, Ph,
+                                                               psit_hG)
 
             eps_myt, f_myt, P, ut_mytR = self.unfold_arrays(
                 eps_h, f_h, Ph, ut_hR, h_myt)
