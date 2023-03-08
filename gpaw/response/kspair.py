@@ -659,34 +659,5 @@ class KohnShamKPointPairExtractor:
 
     @timer('Apply symmetry operations')
     def transform_and_symmetrize(self, K, k_c, Ph, psit_hG):
-        """Get wave function on a real space grid and symmetrize it
-        along with the corresponding PAW projections."""
-        (_, T, a_a, U_aii, shift_c,
-         time_reversal) = self.gs.construct_symmetry_operators(
-             K, k_c=k_c, apply_strange_shift=True)
-
-        # Symmetrize wave functions
-        gs = self.gs
-        ik = gs.kd.bz2ibz_k[K]
-        ut_hR = gs.gd.empty(len(psit_hG), gs.dtype)
-        with self.context.timer('Fourier transform and symmetrize '
-                                'wave functions'):
-            for h, psit_G in enumerate(psit_hG):
-                ut_hR[h] = T(self.gs.global_pd.ifft(psit_G, ik))
-
-        # Symmetrize projections
-        P_ahi = []
-        for a1, U_ii in zip(a_a, U_aii):
-            P_hi = np.ascontiguousarray(Ph[a1])
-            # Apply symmetry operations. This will map a1 onto a2
-            np.dot(P_hi, U_ii, out=P_hi)
-            if time_reversal:
-                np.conj(P_hi, out=P_hi)
-            P_ahi.append(P_hi)
-
-        # Store symmetrized projectors
-        for a2, P_hi in enumerate(P_ahi):
-            I1, I2 = Ph.map[a2]
-            Ph.array[..., I1:I2] = P_hi
-
-        return Ph, ut_hR, shift_c
+        return self.gs.transform_and_symmetrize(K, k_c, Ph, psit_hG,
+                                                apply_strange_shift=True)
