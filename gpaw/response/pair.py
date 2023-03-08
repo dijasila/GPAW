@@ -182,7 +182,7 @@ class PairDensityCalculator:
         na = min(n1 + rank * blocksize, n2)
         nb = min(na + blocksize, n2)
 
-        U_cc, T, a_a, U_aii, shift_c, time_reversal = \
+        _, T, a_a, U_aii, shift_c, time_reversal = \
             self.gs.construct_symmetry_operators(K, k_c=k_c,
                                                  apply_strange_shift=True)
 
@@ -484,8 +484,9 @@ class PairDensityCalculator:
     @timer('Derivatives')
     def make_derivative(self, s, K, n1, n2):
         gs = self.gs
-        U_cc, T, a_a, U_aii, shift_c, time_reversal = \
-            self.construct_symmetry_operators(K)
+        k_c = gs.kd.bzk_kc[K]
+        U_cc, T, _, _, _, _ = self.gs.construct_symmetry_operators(
+            K, k_c=k_c, apply_strange_shift=True)
         A_cv = gs.gd.cell_cv
         M_vv = np.dot(np.dot(A_cv.T, U_cc.T), np.linalg.inv(A_cv).T)
         ik = gs.kd.bz2ibz_k[K]
