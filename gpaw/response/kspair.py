@@ -555,22 +555,21 @@ class KohnShamKPointPairExtractor:
     def unfold_arrays(self, eps_h, f_h, Ph, ut_hR, h_myt):
         """Create transition data arrays from the composite h = (n, s) index"""
 
-        gs = self.gs
         # Allocate data arrays for the k-point
         mynt = self.tblocks.blocksize
         eps_myt = np.empty(mynt)
         f_myt = np.empty(mynt)
-        P = gs.kpt_u[0].projections.new(nbands=mynt, bcomm=None)
-        ut_mytR = gs.gd.empty(mynt, gs.dtype)
+        Pmyt = Ph.new(nbands=mynt, bcomm=None)
+        ut_mytR = np.empty((mynt,) + ut_hR.shape[1:], dtype=ut_hR.dtype)
 
         # Unfold k-point data
         myt_myt = slice(self.tblocks.nlocal)
         eps_myt[myt_myt] = eps_h[h_myt]
         f_myt[myt_myt] = f_h[h_myt]
-        P.array[myt_myt] = Ph.array[h_myt]
+        Pmyt.array[myt_myt] = Ph.array[h_myt]
         ut_mytR[myt_myt] = ut_hR[h_myt]
 
-        return eps_myt, f_myt, P, ut_mytR
+        return eps_myt, f_myt, Pmyt, ut_mytR
 
     @timer('Extracting data from the ground state calculator object')
     def serial_extract_kptdata(self, k_pc, n_t, s_t):
