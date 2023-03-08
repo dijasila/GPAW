@@ -216,7 +216,7 @@ def get_P_ani(calc, ik, spin = 0, kpt = None, spinors = False, soc = None):
         assert kpt is not None
         assert ik == kpt.K
         assert spin == kpt.s
-        P_ani = kpt.get_shifted_P_ani()#kpt.P_ani #calc.wfs.kpt_qs[ik][spin].P_ani
+        P_ani = kpt.P_ani #calc.wfs.kpt_qs[ik][spin].P_ani
     return P_ani
 
 def get_gs_and_context(calc, seed, spinors):

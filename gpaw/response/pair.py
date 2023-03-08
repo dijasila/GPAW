@@ -23,51 +23,17 @@ class KPoint:
         self.shift_c = shift_c  # np.dot(U_cc, ik_c) - k_c * sign
         self.gs = gs
 
-    def get_shifted_ut_nR(self, additional_shift=np.array([0,0,0])):
+    def get_shifted_ut_nR(self):
         """ Returns ut_nR shifted to the 1:st BZ using shift_c
         """
-        if np.all(self.shift_c==0) and np.all(additional_shift==0):
+        if np.all(self.shift_c == 0):
             return self.ut_nR
         r_cg = self.gs._wfs.gd.get_grid_point_coordinates()
         icell_cv = (2 * np.pi) * np.linalg.inv(self.gs.gd.cell_cv).T
-        shift = np.dot(self.shift_c+additional_shift, icell_cv)
+        shift = np.dot(self.shift_c, icell_cv)
         #print(self.shift_c)
         return self.ut_nR * np.exp(1.0j * gemmdot(shift, r_cg, beta=0.0))
     
-    def get_shifted_P_ani(self):
-        """ Returns P_ani shifted to the 1:st BZ using shift_c
-        """
-        """
-        from gpaw.lfc import LocalizedFunctionsCollection as LFC
-        pt = LFC(self.gs._wfs.gd, [setup.pt_j for setup in self.gs._calc.setups],
-                self.gs.kd, dtype=self.gs.dtype, forces=True)
-        pt.set_positions(self.gs.atoms.get_scaled_positions())
-        #r_cg = self.gs._wfs.gd.get_grid_point_coordinates()
-        #icell_cv = (2 * np.pi) * np.linalg.inv(self.gs.gd.cell_cv).T
-        #shift = np.dot(self.shift_c - self.gs.kd.bzk_kc[self.K], icell_cv)
-        #psi_nr = self.ut_nR * np.exp(-1.0j * gemmdot(shift, r_cg, beta=0.0))
-        psi_nr = self.get_shifted_ut_nR(additional_shift=self.gs.kd.bzk_kc[self.K])
-        # Make P_ani dict
-        P_ani = {}
-        for a, P_ni in enumerate(self.P_ani):
-            P_ani[a] = P_ni
-        pt.integrate(psi_nr, P_ani, self.K)#kpt.q)
-        return P_ani
-        """
-        ###############################################
-        return self.P_ani
-        """ 
-        if np.all(self.shift_c==0):
-            return self.P_ani
-        r_av = np.dot(self.gs._calc.spos_ac, self.gs.gd.cell_cv)
-        icell_cv = (2 * np.pi) * np.linalg.inv(self.gs.gd.cell_cv).T
-        shift = np.dot(self.shift_c, icell_cv) 
-        P_ani = self.P_ani.copy()
-        for ia, P_ni in enumerate(P_ani):
-            phase = np.exp(-1.0j * np.dot(shift, r_av[ia]))
-            P_ni *= phase
-        return P_ani
-        """
     @classmethod
     def get_k_point(cls, gs, timer, s, k_c, n1, n2, block=False, blockcomm = None):
         """Return wave functions for a specific k-point and spin.
