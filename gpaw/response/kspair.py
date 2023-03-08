@@ -587,9 +587,6 @@ class KohnShamKPointPairExtractor:
             k_c = k_pc[self.kpts_blockcomm.rank]
             K = self.kptfinder.find(k_c)
             ik = gs.kd.bz2ibz_k[K]
-            # Construct symmetry operators
-            (_, T, a_a, U_aii, shift_c,
-             time_reversal) = self.construct_symmetry_operators(K, k_c=k_c)
 
             (myu_eu, myn_eurn, nh,
              h_eurn, h_myt) = self.get_serial_extraction_protocol(ik, n_t, s_t)
@@ -598,21 +595,32 @@ class KohnShamKPointPairExtractor:
             eps_h = np.empty(nh)
             f_h = np.empty(nh)
             Ph = kpt_u[0].projections.new(nbands=nh, bcomm=None)
-            ut_hR = gs.gd.empty(nh, gs.dtype)
+            psit_hG = np.empty((nh, gs.pd.ng_q[ik]),
+                               dtype=kpt_u[0].psit.array.dtype)
 
             # Extract data from the ground state
             for myu, myn_rn, h_rn in zip(myu_eu, myn_eurn, h_eurn):
                 kpt = kpt_u[myu]
-                with self.context.timer('Extracting eps, f and P_I from GS'):
+                with self.context.timer('Extracting eps, f and P_I from wfs'):
                     eps_h[h_rn] = kpt.eps_n[myn_rn]
                     f_h[h_rn] = kpt.f_n[myn_rn] / kpt.weight
                     Ph.array[h_rn] = kpt.projections.array[myn_rn]
 
-                with self.context.timer('Extracting, fourier transforming and '
-                                        'symmetrizing wave function'):
+                with self.context.timer('Extracting wave function from wfs'):
                     for myn, h in zip(myn_rn, h_rn):
-                        ut_hR[h] = T(gs.pd.ifft(kpt.psit_nG[myn], kpt.q))
+                        psit_hG[h] = kpt.psit_nG[myn]
 
+            # Construct symmetry operators
+            (_, T, a_a, U_aii, shift_c,
+             time_reversal) = self.construct_symmetry_operators(K, k_c=k_c)
+
+            # Symmetrize wave functions
+            ut_hR = gs.gd.empty(nh, gs.dtype)
+            with self.context.timer('Fourier transform and symmetrize '
+                                    'wave functions'):
+                for h, psit_G in enumerate(psit_hG):
+                    ut_hR[h] = T(gs.pd.ifft(psit_G, ik))
+            
             # Symmetrize projections
             with self.context.timer('Apply symmetry operations'):
                 P_ahi = []
