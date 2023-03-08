@@ -23,7 +23,7 @@ class KPoint:
         self.f_n = f_n          # occupation numbers
         self.P_ani = P_ani      # PAW projections
         self.shift_c = shift_c  # long story - see the
-        # PairDensity.construct_symmetry_operators() method
+        # ResponseGroundStateAdapter.construct_symmetry_operators() method
 
 
 class PairDistribution:
@@ -469,10 +469,6 @@ class PairDensityCalculator:
                 vel_nv[ind_n - na, iv] = vel  # Use eigenvalues
 
         return vel_nv[n_n - na]
-
-    def construct_symmetry_operators(self, K, k_c=None):
-        return self.gs.construct_symmetry_operators(
-            K, k_c=k_c, apply_strange_shift=False)
 
     def calculate_derivatives(self, kpt):
         ut_sKnvR = [{}, {}]

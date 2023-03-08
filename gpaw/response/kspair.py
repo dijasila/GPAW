@@ -19,7 +19,7 @@ class KohnShamKPoint:
         self.projections = projections  # PAW projections
 
         self.shift_c = shift_c  # long story - see the
-        # PairDensity.construct_symmetry_operators() method
+        # ResponseGroundStateAdapter.construct_symmetry_operators() method
 
 
 class KohnShamKPointPair:
