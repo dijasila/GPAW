@@ -206,7 +206,7 @@ class KohnShamKPointPairExtractor:
          myn_eueh, ik_r2,
          nrh_r2, eh_eur2reh,
          rh_eur2reh, h_r1rh,
-         h_myt) = self.get_extraction_protocol(k_pc, n_t, s_t)
+         h_myt) = self.get_parallel_extraction_protocol(k_pc, n_t, s_t)
 
         (eps_r1rh, f_r1rh,
          P_r1rhI, psit_r1rhG,
@@ -240,11 +240,8 @@ class KohnShamKPointPairExtractor:
         return data, h_myt
 
     @timer('Create data extraction protocol')
-    def get_extraction_protocol(self, k_pc, n_t, s_t):
-        """Figure out how to extract data efficiently.
-        For the serial communicator, all processes can access all data,
-        and resultantly, there is no need to send any data.
-        """
+    def get_parallel_extraction_protocol(self, k_pc, n_t, s_t):
+        """Figure out how to extract data efficiently in parallel."""
         comm = self.context.comm
         get_extraction_info = self.create_get_extraction_info()
 
@@ -620,10 +617,7 @@ class KohnShamKPointPairExtractor:
 
     @timer('Create data extraction protocol')
     def get_serial_extraction_protocol(self, ik, n_t, s_t):
-        """Figure out how to extract data efficiently.
-        For the serial communicator, all processes can access all data,
-        and resultantly, there is no need to send any data.
-        """
+        """Figure out how to extract data efficiently in serial."""
 
         # Only extract the transitions handled by the process itself
         t_myt = self.tblocks.myslice
