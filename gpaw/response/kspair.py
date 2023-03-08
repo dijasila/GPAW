@@ -659,5 +659,4 @@ class KohnShamKPointPairExtractor:
 
     @timer('Apply symmetry operations')
     def transform_and_symmetrize(self, K, k_c, Ph, psit_hG):
-        return self.gs.transform_and_symmetrize(K, k_c, Ph, psit_hG,
-                                                apply_strange_shift=True)
+        return self.gs.transform_and_symmetrize(K, k_c, Ph, psit_hG)
