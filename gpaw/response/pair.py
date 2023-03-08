@@ -166,12 +166,10 @@ class PairDensityCalculator:
         # Parse kpoint: is k_c an index or a vector
         if not isinstance(k_c, numbers.Integral):
             K = self.kptfinder.find(k_c)
-            shift0_c = (kd.bzk_kc[K] - k_c).round().astype(int)
         else:
             # Fall back to index
             K = k_c
-            shift0_c = np.array([0, 0, 0])
-            k_c = None
+            k_c = kd.bzk_kc[K]
 
         if block:
             nblocks = self.blockcomm.size
@@ -185,9 +183,9 @@ class PairDensityCalculator:
         nb = min(na + blocksize, n2)
 
         U_cc, T, a_a, U_aii, shift_c, time_reversal = \
-            self.construct_symmetry_operators(K, k_c=k_c)
+            self.gs.construct_symmetry_operators(K, k_c=k_c,
+                                                 apply_strange_shift=True)
 
-        shift_c += -shift0_c
         ik = kd.bz2ibz_k[K]
         assert kd.comm.size == 1
         kpt = gs.kpt_qs[ik][s]
