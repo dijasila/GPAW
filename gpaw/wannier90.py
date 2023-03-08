@@ -392,19 +392,19 @@ def write_overlaps(calc, seed=None, spin=0, soc=None, less_memory=False):
             dO_aii.append(dO_ii)
 
     wfs = calc.wfs
-
+    
     def wavefunctions(bz_index, kpt=None):
         if spinors:
             # For spinors, G denotes spin and grid: G = (s, gx, gy, gz)
             return soc[bz_index].wavefunctions(
                 calc, periodic=True)[bands]
         # For non-spinors, G denotes grid: G = (gx, gy, gz)
-        if kpt is None:
-            n1 = bands[0]
-            n2 = band[-1]#calc.get_number_of_bands()
-            kpt = KPoint.get_k_point(gs, context.timer,
-                                     spin, bz_index,
-                                     n1, n2)
+        #if kpt is None:
+        n1 = bands[0]
+        n2 = bands[-1]+1#calc.get_number_of_bands()
+        kpt = KPoint.get_k_point(gs, context.timer,
+                                 spin, bz_index,
+                                 n1, n2)
         return kpt.get_shifted_ut_nR()#kpt.ut_nR #kpt.get_u_nG(bands = bands)
     
     #if not less_memory:
