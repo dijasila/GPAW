@@ -9,17 +9,38 @@ from gpaw.response.pw_parallelization import Blocks1D
 
 class KohnShamKPoint:
     """Kohn-Sham orbital information for a given k-point."""
-    def __init__(self, K, eps_t, f_t, ut_tR, projections, shift_c):
-        """K-point data is indexed by a joint spin and band index h, which is
-        directly related to the transition index t."""
+    def __init__(self, K, eps_h, f_h, ut_hR, Ph, h_myt, shift_c):
+        """Data object for the Kohn-Sham orbitals of a single k-point.
+
+        The data is indexed by the composite band and spin index h = (n, s),
+        which can be unfolded to the local transition index myt.
+        """
         self.K = K                      # BZ k-point index
-        self.eps_t = eps_t              # Eigenvalues
-        self.f_t = f_t                  # Occupation numbers
-        self.ut_tR = ut_tR              # Periodic part of wave functions
-        self.projections = projections  # PAW projections
+        self.eps_h = eps_h              # Eigenvalues
+        self.f_h = f_h                  # Occupation numbers
+        self.ut_hR = ut_hR              # Periodic part of wave functions
+        self.Ph = Ph                    # PAW projections
+        self.h_myt = h_myt              # myt -> h index mapping
 
         self.shift_c = shift_c  # long story - see the
         # ResponseGroundStateAdapter.construct_symmetry_operators() method
+
+    @property
+    def eps_myt(self):
+        return self.eps_h[self.h_myt]
+
+    @property
+    def f_myt(self):
+        return self.f_h[self.h_myt]
+
+    def get_transitions_projections(self):
+        Pmyt = self.Ph.new(nbands=len(self.h_myt), bcomm=None)
+        Pmyt.array[:] = self.Ph.array[self.h_myt]
+        return Pmyt
+
+    @property
+    def ut_mytR(self):
+        return self.ut_hR[self.h_myt]
 
 
 class KohnShamKPointPair:
@@ -38,11 +59,13 @@ class KohnShamKPointPair:
 
     @property
     def deps_t(self):
-        return self.get_all(self.kpt2.eps_t) - self.get_all(self.kpt1.eps_t)
+        return self.get_all(self.kpt2.eps_myt) \
+            - self.get_all(self.kpt1.eps_myt)
 
     @property
     def df_t(self):
-        return self.get_all(self.kpt2.f_t) - self.get_all(self.kpt1.f_t)
+        return self.get_all(self.kpt2.f_myt) \
+            - self.get_all(self.kpt1.f_myt)
 
 
 class KohnShamKPointPairExtractor:
@@ -172,10 +195,7 @@ class KohnShamKPointPairExtractor:
             # return self.parallel_extract_kptdata
 
     def parallel_extract_kptdata(self, k_pc, n_t, s_t):
-        """Returns the input to KohnShamKPoint:
-        K, n_myt, s_myt, eps_myt, f_myt, ut_mytR, projections, shift_c
-        if a k-point in the given list, k_pc, belongs to the process.
-        """
+        """Extract the input data needed to construct the KohnShamKPoints."""
         # Extract the data from the ground state calculator object
         data, h_myt = self._parallel_extract_kptdata(k_pc, n_t, s_t)
 
@@ -187,10 +207,7 @@ class KohnShamKPointPairExtractor:
             Ph, ut_hR, shift_c = self.gs.transform_and_symmetrize(
                 K, k_c, Ph, psit_hG)
 
-            eps_myt, f_myt, P, ut_mytR = self.unfold_arrays(
-                eps_h, f_h, Ph, ut_hR, h_myt)
-
-            data = (K, eps_myt, f_myt, ut_mytR, P, shift_c)
+            data = K, eps_h, f_h, ut_hR, Ph, h_myt, shift_c
 
         # Wait for communication to finish
         with self.context.timer('Waiting to complete mpi.send'):
@@ -549,22 +566,11 @@ class KohnShamKPointPairExtractor:
                 Ph.array[h_rh] = P_rhI
                 psit_hG[h_rh] = psit_rhG
 
-        return (K, k_c, eps_h, f_h, Ph, psit_hG)
-
-    @timer('Unfolding arrays')
-    def unfold_arrays(self, eps_h, f_h, Ph, ut_hR, h_myt):
-        """Unfold arrays from the composite h = (n, s) index to the transition
-        index t."""
-        eps_myt = eps_h[h_myt]
-        f_myt = f_h[h_myt]
-        Pmyt = Ph.new(nbands=len(h_myt), bcomm=None)
-        Pmyt.array[:] = Ph.array[h_myt]
-        ut_mytR = ut_hR[h_myt]
-
-        return eps_myt, f_myt, Pmyt, ut_mytR
+        return K, k_c, eps_h, f_h, Ph, psit_hG
 
     @timer('Extracting data from the ground state calculator object')
     def serial_extract_kptdata(self, k_pc, n_t, s_t):
+        """Extract the input data needed to construct my KohnShamKPoint."""
         # All processes can access all data. Each process extracts it own data.
         gs = self.gs
         kpt_u = gs.kpt_u
@@ -601,10 +607,7 @@ class KohnShamKPointPairExtractor:
             Ph, ut_hR, shift_c = self.gs.transform_and_symmetrize(
                 K, k_c, Ph, psit_hG)
 
-            eps_myt, f_myt, P, ut_mytR = self.unfold_arrays(
-                eps_h, f_h, Ph, ut_hR, h_myt)
-
-            return K, eps_myt, f_myt, ut_mytR, P, shift_c
+            return K, eps_h, f_h, ut_hR, Ph, h_myt, shift_c
 
     @timer('Create data extraction protocol')
     def get_serial_extraction_protocol(self, ik, n_t, s_t):

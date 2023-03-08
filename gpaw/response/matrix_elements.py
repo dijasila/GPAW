@@ -60,16 +60,16 @@ class NewPairDensityCalculator:
 
         # Calculate smooth part of the pair densities:
         with self.context.timer('Calculate smooth part'):
-            ut1cc_mytR = kptpair.kpt1.ut_tR.conj()
-            n_mytR = ut1cc_mytR * kptpair.kpt2.ut_tR
+            ut1cc_mytR = kptpair.kpt1.ut_mytR.conj()
+            n_mytR = ut1cc_mytR * kptpair.kpt2.ut_mytR
             # Unvectorized
             for myt in range(tblocks.nlocal):
                 n_mytG[myt] = qpd.fft(n_mytR[myt], 0, Q_G) * qpd.gd.dv
 
         # Calculate PAW corrections with numpy
         with self.context.timer('PAW corrections'):
-            P1 = kptpair.kpt1.projections
-            P2 = kptpair.kpt2.projections
+            P1 = kptpair.kpt1.get_transitions_projections()
+            P2 = kptpair.kpt2.get_transitions_projections()
             for (Q_Gii, (a1, P1_myti),
                  (a2, P2_myti)) in zip(Q_aGii, P1.items(), P2.items()):
                 P1cc_myti = P1_myti[:tblocks.nlocal].conj()
