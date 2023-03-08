@@ -662,7 +662,8 @@ class KohnShamKPointPairExtractor:
         """Get wave function on a real space grid and symmetrize it
         along with the corresponding PAW projections."""
         (_, T, a_a, U_aii, shift_c,
-         time_reversal) = self.construct_symmetry_operators(K, k_c=k_c)
+         time_reversal) = self.gs.construct_symmetry_operators(
+             K, k_c=k_c, apply_strange_shift=True)
 
         # Symmetrize wave functions
         gs = self.gs
@@ -689,7 +690,3 @@ class KohnShamKPointPairExtractor:
             Ph.array[..., I1:I2] = P_hi
 
         return Ph, ut_hR, shift_c
-
-    def construct_symmetry_operators(self, K, k_c=None):
-        return self.gs.construct_symmetry_operators(
-            K, k_c=k_c, apply_strange_shift=True)
