@@ -553,21 +553,13 @@ class KohnShamKPointPairExtractor:
 
     @timer('Unfolding arrays')
     def unfold_arrays(self, eps_h, f_h, Ph, ut_hR, h_myt):
-        """Create transition data arrays from the composite h = (n, s) index"""
-
-        # Allocate data arrays for the k-point
-        mynt = self.tblocks.blocksize
-        eps_myt = np.empty(mynt)
-        f_myt = np.empty(mynt)
-        Pmyt = Ph.new(nbands=mynt, bcomm=None)
-        ut_mytR = np.empty((mynt,) + ut_hR.shape[1:], dtype=ut_hR.dtype)
-
-        # Unfold k-point data
-        myt_myt = slice(self.tblocks.nlocal)
-        eps_myt[myt_myt] = eps_h[h_myt]
-        f_myt[myt_myt] = f_h[h_myt]
-        Pmyt.array[myt_myt] = Ph.array[h_myt]
-        ut_mytR[myt_myt] = ut_hR[h_myt]
+        """Unfold arrays from the composite h = (n, s) index to the transition
+        index t."""
+        eps_myt = eps_h[h_myt]
+        f_myt = f_h[h_myt]
+        Pmyt = Ph.new(nbands=len(h_myt), bcomm=None)
+        Pmyt.array[:] = Ph.array[h_myt]
+        ut_mytR = ut_hR[h_myt]
 
         return eps_myt, f_myt, Pmyt, ut_mytR
 
