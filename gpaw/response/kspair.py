@@ -42,13 +42,6 @@ class KohnShamKPoint:
     def f_myt(self):
         return self.f_h[self.h_myt]
 
-    def get_orbitals(self):
-        """Return data relating the the Kohn-Sham orbitals.
-
-        Specifically, these are the inputs to
-        ResponseGroundStateAdapter.transform_and_symmetrize()"""
-        return self.K, self.k_c, self.Ph, self.psit_hG
-
     def projectors_in_transition_index(self, Ph):
         Pmyt = Ph.new(nbands=len(self.h_myt), bcomm=None)
         Pmyt.array[:] = Ph.array[self.h_myt]
