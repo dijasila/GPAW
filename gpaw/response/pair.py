@@ -23,7 +23,7 @@ class KPoint:
         self.f_n = f_n          # occupation numbers
         self.P_ani = P_ani      # PAW projections
         self.shift_c = shift_c  # long story - see the
-        # PairDensity.construct_symmetry_operators() method
+        # ResponseGroundStateAdapter.construct_symmetry_operators() method
 
 
 class PairDistribution:
@@ -166,12 +166,10 @@ class PairDensityCalculator:
         # Parse kpoint: is k_c an index or a vector
         if not isinstance(k_c, numbers.Integral):
             K = self.kptfinder.find(k_c)
-            shift0_c = (kd.bzk_kc[K] - k_c).round().astype(int)
         else:
             # Fall back to index
             K = k_c
-            shift0_c = np.array([0, 0, 0])
-            k_c = None
+            k_c = kd.bzk_kc[K]
 
         if block:
             nblocks = self.blockcomm.size
@@ -184,10 +182,9 @@ class PairDensityCalculator:
         na = min(n1 + rank * blocksize, n2)
         nb = min(na + blocksize, n2)
 
-        U_cc, T, a_a, U_aii, shift_c, time_reversal = \
-            self.construct_symmetry_operators(K, k_c=k_c)
+        _, T, a_a, U_aii, shift_c, time_reversal = \
+            self.gs.construct_symmetry_operators(K, k_c)
 
-        shift_c += -shift0_c
         ik = kd.bz2ibz_k[K]
         assert kd.comm.size == 1
         kpt = gs.kpt_qs[ik][s]
@@ -472,10 +469,6 @@ class PairDensityCalculator:
 
         return vel_nv[n_n - na]
 
-    def construct_symmetry_operators(self, K, k_c=None):
-        return self.gs.construct_symmetry_operators(
-            K, k_c=k_c, apply_strange_shift=False)
-
     def calculate_derivatives(self, kpt):
         ut_sKnvR = [{}, {}]
         ut_nvR = self.make_derivative(kpt.s, kpt.K, kpt.n1, kpt.n2)
@@ -486,8 +479,8 @@ class PairDensityCalculator:
     @timer('Derivatives')
     def make_derivative(self, s, K, n1, n2):
         gs = self.gs
-        U_cc, T, a_a, U_aii, shift_c, time_reversal = \
-            self.construct_symmetry_operators(K)
+        k_c = gs.kd.bzk_kc[K]
+        U_cc, T, _, _, _, _ = self.gs.construct_symmetry_operators(K, k_c)
         A_cv = gs.gd.cell_cv
         M_vv = np.dot(np.dot(A_cv.T, U_cc.T), np.linalg.inv(A_cv).T)
         ik = gs.kd.bz2ibz_k[K]

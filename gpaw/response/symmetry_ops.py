@@ -1,8 +1,7 @@
 import numpy as np
 
 
-def construct_symmetry_operators(kd, gd, K, k_c=None, *, spos_ac, R_asii,
-                                 apply_strange_shift):
+def construct_symmetry_operators(kd, gd, K, k_c, *, spos_ac, R_asii):
     """Construct symmetry operators for wave function and PAW projections.
 
     We want to transform a k-point in the irreducible part of the BZ to
@@ -26,8 +25,6 @@ def construct_symmetry_operators(kd, gd, K, k_c=None, *, spos_ac, R_asii,
     U_cc = kd.symmetry.op_scc[s]
     time_reversal = kd.time_reversal_k[K]
     ik = kd.bz2ibz_k[K]
-    if k_c is None:
-        k_c = kd.bzk_kc[K]
     ik_c = kd.ibzk_kc[ik]
 
     sign = 1 - 2 * time_reversal
@@ -66,8 +63,7 @@ def construct_symmetry_operators(kd, gd, K, k_c=None, *, spos_ac, R_asii,
         a_a.append(b)
         U_aii.append(U_ii)
 
-    if apply_strange_shift:
-        shift0_c = (kd.bzk_kc[K] - k_c).round().astype(int)
-        shift_c += -shift0_c
+    shift0_c = (kd.bzk_kc[K] - k_c).round().astype(int)
+    shift_c += -shift0_c
 
     return U_cc, T, a_a, U_aii, shift_c, time_reversal

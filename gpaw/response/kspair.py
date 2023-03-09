@@ -19,7 +19,7 @@ class KohnShamKPoint:
         self.projections = projections  # PAW projections
 
         self.shift_c = shift_c  # long story - see the
-        # PairDensity.construct_symmetry_operators() method
+        # ResponseGroundStateAdapter.construct_symmetry_operators() method
 
 
 class KohnShamKPointPair:
@@ -184,8 +184,8 @@ class KohnShamKPointPairExtractor:
             assert data is not None
             # Unpack data, apply FT and symmetrization
             K, k_c, eps_h, f_h, Ph, psit_hG = data
-            Ph, ut_hR, shift_c = self.transform_and_symmetrize(K, k_c, Ph,
-                                                               psit_hG)
+            Ph, ut_hR, shift_c = self.gs.transform_and_symmetrize(
+                K, k_c, Ph, psit_hG)
 
             eps_myt, f_myt, P, ut_mytR = self.unfold_arrays(
                 eps_h, f_h, Ph, ut_hR, h_myt)
@@ -607,8 +607,8 @@ class KohnShamKPointPairExtractor:
                     for myn, h in zip(myn_rn, h_rn):
                         psit_hG[h] = kpt.psit_nG[myn]
 
-            Ph, ut_hR, shift_c = self.transform_and_symmetrize(K, k_c, Ph,
-                                                               psit_hG)
+            Ph, ut_hR, shift_c = self.gs.transform_and_symmetrize(
+                K, k_c, Ph, psit_hG)
 
             eps_myt, f_myt, P, ut_mytR = self.unfold_arrays(
                 eps_h, f_h, Ph, ut_hR, h_myt)
@@ -656,8 +656,3 @@ class KohnShamKPointPairExtractor:
             myn_eurn.append(myn_rn)
 
         return myu_eu, myn_eurn, nh, h_eurn, h_myt
-
-    @timer('Apply symmetry operations')
-    def transform_and_symmetrize(self, K, k_c, Ph, psit_hG):
-        return self.gs.transform_and_symmetrize(K, k_c, Ph, psit_hG,
-                                                apply_strange_shift=True)
