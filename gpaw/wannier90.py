@@ -196,9 +196,9 @@ def write_input(calc,
 
     f.close()
 
-def get_P_ani(calc, ik, spin = 0, gs = None, context = None, spinors = False, soc = None):
+def get_P_ani(gs, ik, spin, context, spinors = False, soc = None):
     """Returns P_ani
-    calc: GPAW calculator
+    gs: GPAW.response.GroundSateAdapter
     ik: BZ k-point index
     spin: spin index
     kpt: gpaw.response.pair KPoint object
@@ -209,7 +209,7 @@ def get_P_ani(calc, ik, spin = 0, gs = None, context = None, spinors = False, so
         assert soc is not None
         P_ani = soc[ik].P_amj
     else:
-        n2 = calc.get_number_of_bands()
+        n2 = gs._calc.get_number_of_bands()
         kpt = KPoint.get_k_point(gs, context.timer,
                                  spin, ik,
                                  0, n2)
@@ -283,7 +283,7 @@ def write_projections(calc, seed=None, spin=0, orbitals_ai=None, soc=None):
 
     P_kni = np.zeros((Nk, Nn, Nw), complex)
     for ik in range(Nk):
-        P_ani = get_P_ani(calc, ik, spin, gs, context, spinors, soc)
+        P_ani = get_P_ani(gs, ik, spin, context, spinors, soc)
         for i in range(Nw):
             icount = 0
             for ai in range(Na):
@@ -410,7 +410,7 @@ def write_overlaps(calc, seed=None, spin=0, soc=None, less_memory=False):
         u_knG = []
 
     for ik in range(Nk):
-        P_ani = get_P_ani(calc, ik, spin, gs, context, spinors, soc)
+        P_ani = get_P_ani(gs, ik, spin, context, spinors, soc)
         P_kani.append(P_ani)
     
         if not less_memory:
