@@ -42,8 +42,9 @@ class NewPairDensityCalculator:
         """Get PAW corrections correcsponding to a specific q-vector."""
         if self._pawcorr is None \
            or not np.allclose(qpd.q_c - self._currentq_c, 0.):
-            self._pawcorr = self.gs.pair_density_paw_corrections(qpd)
-            self._currentq_c = qpd.q_c
+            with self.context.timer('Initialize PAW corrections'):
+                self._pawcorr = self.gs.pair_density_paw_corrections(qpd)
+                self._currentq_c = qpd.q_c
 
         return self._pawcorr
 
