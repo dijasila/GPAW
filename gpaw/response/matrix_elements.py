@@ -62,12 +62,21 @@ class NewPairDensityCalculator:
         kpt1 = kptpair.kpt1
         kpt2 = kptpair.kpt2
 
+        # Construct symmetrizers for the periodic part of the pseudo wave
+        # and for the projectors
+        ut1_symmetrizer, Ph1_symmetrizer, shift1_c = \
+            self.construct_symmetrizers(kpt1.K, kpt1.k_c)
+        ut2_symmetrizer, Ph2_symmetrizer, shift2_c = \
+            self.construct_symmetrizers(kpt2.K, kpt2.k_c)
+
         # Fourier transform the pseudo waves to the coarse real-space grid
         # and symmetrize them along with the projectors
-        P1h, ut1_hR, shift1_c = self.transform_and_symmetrize(
-            *kpt1.get_orbitals())
-        P2h, ut2_hR, shift2_c = self.transform_and_symmetrize(
-            *kpt2.get_orbitals())
+        ut1_hR = self.transform_and_symmetrize(kpt1.K, kpt1.psit_hG,
+                                               ut1_symmetrizer)
+        ut2_hR = self.transform_and_symmetrize(kpt2.K, kpt2.psit_hG,
+                                               ut2_symmetrizer)
+        P1h = Ph1_symmetrizer(kpt1.Ph)
+        P2h = Ph2_symmetrizer(kpt2.Ph)
 
         # Get the plane-wave indices to Fourier transform products of
         # Kohn-Sham orbitals in k and k + q
@@ -100,21 +109,14 @@ class NewPairDensityCalculator:
 
         return PairDensity(tblocks, n_mytG)
 
-    def transform_and_symmetrize(self, K, k_c, Ph, psit_hG):
-        """Get wave function on a real space grid and symmetrize it
-        along with the corresponding PAW projections."""
-        ut_symmetrizer, Ph_symmetrizer, shift_c = \
-            self.construct_symmetrizers(K, k_c)
-
-        # Symmetrize wave functions
+    def transform_and_symmetrize(self, K, psit_hG, ut_symmetrizer):
+        """FFT the Kohn-Sham orbitals to real space and symmetrize them."""
         ik = self.gs.kd.bz2ibz_k[K]
         ut_hR = self.gs.gd.empty(len(psit_hG), self.gs.dtype)
         for h, psit_G in enumerate(psit_hG):
             ut_hR[h] = ut_symmetrizer(self.gs.global_pd.ifft(psit_G, ik))
 
-        Ph = Ph_symmetrizer(Ph)
-
-        return Ph, ut_hR, shift_c
+        return ut_hR
 
     def construct_symmetrizers(self, K, k_c):
         """Construct functions to symmetrize ut_hR and Ph."""
