@@ -196,7 +196,7 @@ def write_input(calc,
 
     f.close()
 
-def get_P_ani(calc, ik, spin = 0, spinors = False, soc = None):
+def get_P_ani(calc, ik, spin = 0, gs = None, context = None, spinors = False, soc = None):
     """Returns P_ani
     calc: GPAW calculator
     ik: BZ k-point index
@@ -285,7 +285,7 @@ def write_projections(calc, seed=None, spin=0, orbitals_ai=None, soc=None):
 
     P_kni = np.zeros((Nk, Nn, Nw), complex)
     for ik in range(Nk):
-        P_ani = get_P_ani(calc, ik, spin, spinors, soc)
+        P_ani = get_P_ani(calc, ik, spin, gs, context, spinors, soc)
         for i in range(Nw):
             icount = 0
             for ai in range(Na):
@@ -341,13 +341,13 @@ def get_wf(bz_index, bands, spinors, soc=None, calc=None,
         return soc[bz_index].wavefunctions(
             calc, periodic=True)[bands]
     # For non-spinors, G denotes grid: G = (gx, gy, gz)
-    #if kpt is None:
     n1 = bands[0]
     n2 = bands[-1]+1
     kpt = KPoint.get_k_point(gs, context.timer,
                              spin, bz_index,
                              n1, n2)
-    return kpt.get_shifted_ut_nR()#kpt.ut_nR #kpt.get_u_nG(bands = bands)
+    u_nR = kpt.get_shifted_ut_nR()
+    return u_nR[bands] 
 
 
 def write_overlaps(calc, seed=None, spin=0, soc=None, less_memory=False):
@@ -412,7 +412,7 @@ def write_overlaps(calc, seed=None, spin=0, soc=None, less_memory=False):
         u_knG = []
 
     for ik in range(Nk):
-        P_ani = get_P_ani(calc, ik, spin, spinors, soc)
+        P_ani = get_P_ani(calc, ik, spin, gs, context, spinors, soc)
         P_kani.append(P_ani)
     
         if not less_memory:
