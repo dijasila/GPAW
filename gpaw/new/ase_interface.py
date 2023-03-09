@@ -420,7 +420,8 @@ class ASECalculator:
         builder = create_builder(self.atoms, params)
         basis_set = builder.create_basis_set()
         state = self.calculation.state
-        ibzwfs = builder.create_ibz_wave_functions(basis_set, state.potential)
+        ibzwfs = builder.create_ibz_wave_functions(basis_set, state.potential,
+                                                   log=log)
         ibzwfs.fermi_levels = state.ibzwfs.fermi_levels
         state = DFTState(ibzwfs, state.density, state.potential)
         scf_loop = builder.create_scf_loop()

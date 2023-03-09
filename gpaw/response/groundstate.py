@@ -4,6 +4,7 @@ from types import SimpleNamespace
 import numpy as np
 
 from ase.units import Ha, Bohr
+from ase.utils import lazyproperty
 
 import gpaw.mpi as mpi
 
@@ -39,8 +40,8 @@ class ResponseGroundStateAdapter:
         self._hamiltonian = calc.hamiltonian
         self._calc = calc
 
-    @staticmethod
-    def from_gpw_file(gpw, context):
+    @classmethod
+    def from_gpw_file(cls, gpw, context):
         """Initiate the ground state adapter directly from a .gpw file."""
         from gpaw import GPAW, disable_dry_run
         assert Path(gpw).is_file()
@@ -51,7 +52,7 @@ class ResponseGroundStateAdapter:
             with disable_dry_run():
                 calc = GPAW(gpw, txt=None, communicator=mpi.serial_comm)
 
-        return ResponseGroundStateAdapter(calc)
+        return cls(calc)
 
     @property
     def pd(self):
@@ -59,6 +60,23 @@ class ResponseGroundStateAdapter:
         # We need to abstract away "calc" in all places used by response
         # code, and that includes places that are also compatible with FD.
         return self._wfs.pd
+
+    @lazyproperty
+    def global_pd(self):
+        """Get a PWDescriptor that includes all k-points.
+
+        In particular, this is necessary to allow all cores to be able to work
+        on all k-points in the case where calc is parallelized over k-points,
+        see gpaw.response.kspair
+        """
+        from gpaw.pw.descriptor import PWDescriptor
+
+        assert self.gd.comm.size == 1
+        kd = self.kd.copy()  # global KPointDescriptor without a comm
+        return PWDescriptor(self.pd.ecut, self.gd,
+                            dtype=self.pd.dtype,
+                            kd=kd, fftwflags=self.pd.fftwflags,
+                            gammacentered=self.pd.gammacentered)
 
     def get_occupations_width(self):
         # Ugly hack only used by pair.intraband_pair_density I think.
@@ -192,6 +210,42 @@ class ResponseGroundStateAdapter:
         ibzq_qc = kd.get_ibz_q_points(bzq_qc, U_scc)[0]
 
         return ibzq_qc
+
+    def transform_and_symmetrize(self, K, k_c, Ph, psit_hG):
+        """Get wave function on a real space grid and symmetrize it
+        along with the corresponding PAW projections."""
+        _, T, a_a, U_aii, shift_c, time_reversal = \
+            self.construct_symmetry_operators(K, k_c)
+
+        # Symmetrize wave functions
+        ik = self.kd.bz2ibz_k[K]
+        ut_hR = self.gd.empty(len(psit_hG), self.dtype)
+        for h, psit_G in enumerate(psit_hG):
+            ut_hR[h] = T(self.global_pd.ifft(psit_G, ik))
+
+        # Symmetrize projections
+        P_ahi = []
+        for a1, U_ii in zip(a_a, U_aii):
+            P_hi = np.ascontiguousarray(Ph[a1])
+            # Apply symmetry operations. This will map a1 onto a2
+            np.dot(P_hi, U_ii, out=P_hi)
+            if time_reversal:
+                np.conj(P_hi, out=P_hi)
+            P_ahi.append(P_hi)
+
+        # Store symmetrized projectors
+        for a2, P_hi in enumerate(P_ahi):
+            I1, I2 = Ph.map[a2]
+            Ph.array[..., I1:I2] = P_hi
+
+        return Ph, ut_hR, shift_c
+
+    def construct_symmetry_operators(self, K, k_c):
+        from gpaw.response.symmetry_ops import construct_symmetry_operators
+        R_asii = [pawdata.R_sii for pawdata in self.pawdatasets]
+        return construct_symmetry_operators(
+            self.kd, self.gd, K, k_c,
+            spos_ac=self.spos_ac, R_asii=R_asii)
 
 
 # Contains all the relevant information
