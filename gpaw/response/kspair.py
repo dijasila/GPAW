@@ -78,9 +78,6 @@ class KohnShamKPointPairExtractor:
         kd = self.gs.kd
         self.kptfinder = KPointFinder(kd.bzk_kc)
 
-        # Prepare to use other processes' k-points
-        self._pd0 = None
-
         # Prepare to redistribute kptdata
         self.rrequests = []
         self.srequests = []
@@ -123,27 +120,6 @@ class KohnShamKPointPairExtractor:
         self.context.print('Number of partially filled bands:',
                            self.nocc2, flush=False)
         self.context.print('Total number of bands:', self.gs.bd.nbands)
-
-    @property
-    def pd0(self):
-        """Get a PWDescriptor that includes all k-points"""
-        if self._pd0 is None:
-            from gpaw.pw.descriptor import PWDescriptor
-            gs = self.gs
-            assert gs.gd.comm.size == 1
-
-            kd0 = gs.kd.copy()
-            pd, gd = gs.pd, gs.gd
-
-            # Extract stuff from pd
-            ecut, dtype = pd.ecut, pd.dtype
-            fftwflags, gammacentered = pd.fftwflags, pd.gammacentered
-
-            # Initiate _pd0 with kd0
-            self._pd0 = PWDescriptor(ecut, gd, dtype=dtype,
-                                     kd=kd0, fftwflags=fftwflags,
-                                     gammacentered=gammacentered)
-        return self._pd0
 
     @timer('Get Kohn-Sham pairs')
     def get_kpoint_pairs(self, k1_pc, k2_pc,
@@ -230,7 +206,7 @@ class KohnShamKPointPairExtractor:
          myn_eueh, ik_r2,
          nrh_r2, eh_eur2reh,
          rh_eur2reh, h_r1rh,
-         h_myt) = self.get_extraction_protocol(k_pc, n_t, s_t)
+         h_myt) = self.get_parallel_extraction_protocol(k_pc, n_t, s_t)
 
         (eps_r1rh, f_r1rh,
          P_r1rhI, psit_r1rhG,
@@ -264,11 +240,8 @@ class KohnShamKPointPairExtractor:
         return data, h_myt
 
     @timer('Create data extraction protocol')
-    def get_extraction_protocol(self, k_pc, n_t, s_t):
-        """Figure out how to extract data efficiently.
-        For the serial communicator, all processes can access all data,
-        and resultantly, there is no need to send any data.
-        """
+    def get_parallel_extraction_protocol(self, k_pc, n_t, s_t):
+        """Figure out how to extract data efficiently in parallel."""
         comm = self.context.comm
         get_extraction_info = self.create_get_extraction_info()
 
@@ -436,7 +409,7 @@ class KohnShamKPointPairExtractor:
         # if self.kpts_blockcomm.rank in range(len(ik_p)):
         if data[2] is not None:
             ik = data[2]
-            ng = self.pd0.ng_q[ik]
+            ng = self.gs.global_pd.ng_q[ik]
             eps_r1rh, f_r1rh, P_r1rhI, psit_r1rhG = [], [], [], []
             for nrh in nrh_r1:
                 if nrh >= 1:
@@ -458,7 +431,7 @@ class KohnShamKPointPairExtractor:
                 eps_r2rh.append(np.empty(nrh))
                 f_r2rh.append(np.empty(nrh))
                 P_r2rhI.append(np.empty((nrh,) + Pshape[1:], dtype=Pdtype))
-                ng = self.pd0.ng_q[ik]
+                ng = self.gs.global_pd.ng_q[ik]
                 psit_r2rhG.append(np.empty((nrh, ng), dtype=psitdtype))
             else:
                 eps_r2rh.append(None)
@@ -564,7 +537,7 @@ class KohnShamKPointPairExtractor:
         kpt0 = self.gs.kpt_u[0]
         Ph = kpt0.projections.new(nbands=nh, bcomm=None)
         assert self.gs.dtype == kpt0.psit.array.dtype
-        psit_hG = np.empty((nh, self.pd0.ng_q[ik]), self.gs.dtype)
+        psit_hG = np.empty((nh, self.gs.global_pd.ng_q[ik]), self.gs.dtype)
 
         # Store extracted data in the arrays
         for (h_rh, eps_rh,
@@ -611,9 +584,6 @@ class KohnShamKPointPairExtractor:
             k_c = k_pc[self.kpts_blockcomm.rank]
             K = self.kptfinder.find(k_c)
             ik = gs.kd.bz2ibz_k[K]
-            # Construct symmetry operators
-            (_, T, a_a, U_aii, shift_c,
-             time_reversal) = self.construct_symmetry_operators(K, k_c=k_c)
 
             (myu_eu, myn_eurn, nh,
              h_eurn, h_myt) = self.get_serial_extraction_protocol(ik, n_t, s_t)
@@ -622,36 +592,23 @@ class KohnShamKPointPairExtractor:
             eps_h = np.empty(nh)
             f_h = np.empty(nh)
             Ph = kpt_u[0].projections.new(nbands=nh, bcomm=None)
-            ut_hR = gs.gd.empty(nh, gs.dtype)
+            psit_hG = np.empty((nh, gs.pd.ng_q[ik]),
+                               dtype=kpt_u[0].psit.array.dtype)
 
             # Extract data from the ground state
             for myu, myn_rn, h_rn in zip(myu_eu, myn_eurn, h_eurn):
                 kpt = kpt_u[myu]
-                with self.context.timer('Extracting eps, f and P_I from GS'):
+                with self.context.timer('Extracting eps, f and P_I from wfs'):
                     eps_h[h_rn] = kpt.eps_n[myn_rn]
                     f_h[h_rn] = kpt.f_n[myn_rn] / kpt.weight
                     Ph.array[h_rn] = kpt.projections.array[myn_rn]
 
-                with self.context.timer('Extracting, fourier transforming and '
-                                        'symmetrizing wave function'):
+                with self.context.timer('Extracting wave function from wfs'):
                     for myn, h in zip(myn_rn, h_rn):
-                        ut_hR[h] = T(gs.pd.ifft(kpt.psit_nG[myn], kpt.q))
+                        psit_hG[h] = kpt.psit_nG[myn]
 
-            # Symmetrize projections
-            with self.context.timer('Apply symmetry operations'):
-                P_ahi = []
-                for a1, U_ii in zip(a_a, U_aii):
-                    P_hi = np.ascontiguousarray(Ph[a1])
-                    # Apply symmetry operations. This will map a1 onto a2
-                    np.dot(P_hi, U_ii, out=P_hi)
-                    if time_reversal:
-                        np.conj(P_hi, out=P_hi)
-                    P_ahi.append(P_hi)
-
-                # Store symmetrized projectors
-                for a2, P_hi in enumerate(P_ahi):
-                    I1, I2 = Ph.map[a2]
-                    Ph.array[..., I1:I2] = P_hi
+            Ph, ut_hR, shift_c = self.transform_and_symmetrize(K, k_c, Ph,
+                                                               psit_hG)
 
             eps_myt, f_myt, P, ut_mytR = self.unfold_arrays(
                 eps_h, f_h, Ph, ut_hR, h_myt)
@@ -660,10 +617,7 @@ class KohnShamKPointPairExtractor:
 
     @timer('Create data extraction protocol')
     def get_serial_extraction_protocol(self, ik, n_t, s_t):
-        """Figure out how to extract data efficiently.
-        For the serial communicator, all processes can access all data,
-        and resultantly, there is no need to send any data.
-        """
+        """Figure out how to extract data efficiently in serial."""
 
         # Only extract the transitions handled by the process itself
         t_myt = self.tblocks.myslice
@@ -705,39 +659,5 @@ class KohnShamKPointPairExtractor:
 
     @timer('Apply symmetry operations')
     def transform_and_symmetrize(self, K, k_c, Ph, psit_hG):
-        """Get wave function on a real space grid and symmetrize it
-        along with the corresponding PAW projections."""
-        (_, T, a_a, U_aii, shift_c,
-         time_reversal) = self.construct_symmetry_operators(K, k_c=k_c)
-
-        # Symmetrize wave functions
-        gs = self.gs
-        ik = gs.kd.bz2ibz_k[K]
-        ut_hR = gs.gd.empty(len(psit_hG), gs.dtype)
-        with self.context.timer('Fourier transform and symmetrize '
-                                'wave functions'):
-            for h, psit_G in enumerate(psit_hG):
-                ut_hR[h] = T(self.pd0.ifft(psit_G, ik))
-
-        # Symmetrize projections
-        P_ahi = []
-        for a1, U_ii in zip(a_a, U_aii):
-            P_hi = np.ascontiguousarray(Ph[a1])
-            # Apply symmetry operations. This will map a1 onto a2
-            np.dot(P_hi, U_ii, out=P_hi)
-            if time_reversal:
-                np.conj(P_hi, out=P_hi)
-            P_ahi.append(P_hi)
-
-        # Store symmetrized projectors
-        for a2, P_hi in enumerate(P_ahi):
-            I1, I2 = Ph.map[a2]
-            Ph.array[..., I1:I2] = P_hi
-
-        return Ph, ut_hR, shift_c
-
-    @timer('Construct symmetry operators')
-    def construct_symmetry_operators(self, K, k_c=None):
-        from gpaw.response.symmetry_ops import construct_symmetry_operators
-        return construct_symmetry_operators(
-            self.gs, K, k_c, apply_strange_shift=True)
+        return self.gs.transform_and_symmetrize(K, k_c, Ph, psit_hG,
+                                                apply_strange_shift=True)

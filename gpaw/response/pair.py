@@ -473,9 +473,8 @@ class PairDensityCalculator:
         return vel_nv[n_n - na]
 
     def construct_symmetry_operators(self, K, k_c=None):
-        from gpaw.response.symmetry_ops import construct_symmetry_operators
-        return construct_symmetry_operators(
-            self.gs, K, k_c, apply_strange_shift=False)
+        return self.gs.construct_symmetry_operators(
+            K, k_c=k_c, apply_strange_shift=False)
 
     def calculate_derivatives(self, kpt):
         ut_sKnvR = [{}, {}]
