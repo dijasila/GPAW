@@ -62,9 +62,9 @@ class NewPairDensityCalculator:
 
         # Fourier transform the pseudo waves to the coarse real-space grid
         # and symmetrize them along with the projectors
-        P1h, ut1_hR, shift1_c = self.gs.transform_and_symmetrize(
+        P1h, ut1_hR, shift1_c = self.transform_and_symmetrize(
             *kpt1.get_orbitals())
-        P2h, ut2_hR, shift2_c = self.gs.transform_and_symmetrize(
+        P2h, ut2_hR, shift2_c = self.transform_and_symmetrize(
             *kpt2.get_orbitals())
 
         # Get the plane-wave indices to Fourier transform products of
@@ -97,6 +97,35 @@ class NewPairDensityCalculator:
                     C1_Gimyt * P2_imyt[np.newaxis, :, :], axis=1).T
 
         return PairDensity(tblocks, n_mytG)
+
+    def transform_and_symmetrize(self, K, k_c, Ph, psit_hG):
+        """Get wave function on a real space grid and symmetrize it
+        along with the corresponding PAW projections."""
+        _, T, a_a, U_aii, shift_c, time_reversal = \
+            self.gs.construct_symmetry_operators(K, k_c)
+
+        # Symmetrize wave functions
+        ik = self.gs.kd.bz2ibz_k[K]
+        ut_hR = self.gs.gd.empty(len(psit_hG), self.gs.dtype)
+        for h, psit_G in enumerate(psit_hG):
+            ut_hR[h] = T(self.gs.global_pd.ifft(psit_G, ik))
+
+        # Symmetrize projections
+        P_ahi = []
+        for a1, U_ii in zip(a_a, U_aii):
+            P_hi = np.ascontiguousarray(Ph[a1])
+            # Apply symmetry operations. This will map a1 onto a2
+            np.dot(P_hi, U_ii, out=P_hi)
+            if time_reversal:
+                np.conj(P_hi, out=P_hi)
+            P_ahi.append(P_hi)
+
+        # Store symmetrized projectors
+        for a2, P_hi in enumerate(P_ahi):
+            I1, I2 = Ph.map[a2]
+            Ph.array[..., I1:I2] = P_hi
+
+        return Ph, ut_hR, shift_c
 
     def get_fft_indices(self, K1, K2, qpd, dshift_c):
         from gpaw.response.pair import fft_indices

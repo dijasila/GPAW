@@ -215,35 +215,6 @@ class ResponseGroundStateAdapter:
 
         return ibzq_qc
 
-    def transform_and_symmetrize(self, K, k_c, Ph, psit_hG):
-        """Get wave function on a real space grid and symmetrize it
-        along with the corresponding PAW projections."""
-        _, T, a_a, U_aii, shift_c, time_reversal = \
-            self.construct_symmetry_operators(K, k_c)
-
-        # Symmetrize wave functions
-        ik = self.kd.bz2ibz_k[K]
-        ut_hR = self.gd.empty(len(psit_hG), self.dtype)
-        for h, psit_G in enumerate(psit_hG):
-            ut_hR[h] = T(self.global_pd.ifft(psit_G, ik))
-
-        # Symmetrize projections
-        P_ahi = []
-        for a1, U_ii in zip(a_a, U_aii):
-            P_hi = np.ascontiguousarray(Ph[a1])
-            # Apply symmetry operations. This will map a1 onto a2
-            np.dot(P_hi, U_ii, out=P_hi)
-            if time_reversal:
-                np.conj(P_hi, out=P_hi)
-            P_ahi.append(P_hi)
-
-        # Store symmetrized projectors
-        for a2, P_hi in enumerate(P_ahi):
-            I1, I2 = Ph.map[a2]
-            Ph.array[..., I1:I2] = P_hi
-
-        return Ph, ut_hR, shift_c
-
     def construct_symmetry_operators(self, K, k_c):
         from gpaw.response.symmetry_ops import construct_symmetry_operators
         R_asii = [pawdata.R_sii for pawdata in self.pawdatasets]
