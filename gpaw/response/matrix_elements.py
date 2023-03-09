@@ -1,3 +1,4 @@
+from functools import partial
 
 import numpy as np
 
@@ -101,18 +102,30 @@ class NewPairDensityCalculator:
     def transform_and_symmetrize(self, K, k_c, Ph, psit_hG):
         """Get wave function on a real space grid and symmetrize it
         along with the corresponding PAW projections."""
-        _, T, a_a, U_aii, shift_c, time_reversal = \
-            self.gs.construct_symmetry_operators(K, k_c)
+        ut_symmetrizer, Ph_symmetrizer, shift_c = \
+            self.construct_symmetrizers(K, k_c)
 
         # Symmetrize wave functions
         ik = self.gs.kd.bz2ibz_k[K]
         ut_hR = self.gs.gd.empty(len(psit_hG), self.gs.dtype)
         for h, psit_G in enumerate(psit_hG):
-            ut_hR[h] = T(self.gs.global_pd.ifft(psit_G, ik))
+            ut_hR[h] = ut_symmetrizer(self.gs.global_pd.ifft(psit_G, ik))
 
-        Ph = symmetrize_projections(Ph, a_a, U_aii, time_reversal)
+        Ph = Ph_symmetrizer(Ph)
 
         return Ph, ut_hR, shift_c
+
+    def construct_symmetrizers(self, K, k_c):
+        """Construct functions to symmetrize ut_hR and Ph."""
+        _, T, a_a, U_aii, shift_c, time_reversal = \
+            self.gs.construct_symmetry_operators(K, k_c)
+
+        ut_symmetrizer = T
+        Ph_symmetrizer = partial(symmetrize_projections,
+                                 a_a=a_a, U_aii=U_aii,
+                                 time_reversal=time_reversal)
+
+        return ut_symmetrizer, Ph_symmetrizer, shift_c
 
     def get_fft_indices(self, K1, K2, qpd, dshift_c):
         from gpaw.response.pair import fft_indices
