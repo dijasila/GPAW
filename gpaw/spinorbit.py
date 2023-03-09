@@ -17,6 +17,7 @@ from gpaw.occupations import OccupationNumberCalculator, ParallelLayout
 from gpaw.projections import Projections
 from gpaw.setup import Setup
 from gpaw.typing import Array1D, Array2D, Array3D, Array4D, ArrayND
+from gpaw.utilities import unpack
 from gpaw.utilities.ibz2bz import construct_symmetry_operators
 from gpaw.utilities.partition import AtomPartition
 
@@ -534,9 +535,9 @@ def soc_eigenstates(calc: ASECalculator | GPAW | str | Path,
     return BZWaveFunctions(kd, bzwfs, occcalc, calc.wfs.nvalence)
 
 
-def soc(a: Setup, xc, D_sp: Array2D) -> Array3D:
+def soc(a: Setup, xc, D_sii: Array2D) -> Array3D:
     """<phi_i|dV_adr / r * L_v|phi_j>"""
-    v_g = get_radial_potential(a, xc, D_sp)
+    v_g = get_radial_potential(a, xc, D_sii)
     Ng = len(v_g)
     phi_jg = a.data.phi_jg
 
@@ -561,7 +562,7 @@ def soc(a: Setup, xc, D_sp: Array2D) -> Array3D:
     return dVL_vii * alpha**2 / 4.0
 
 
-def get_radial_potential(a: Setup, xc, D_sp: Array2D) -> Array1D:
+def get_radial_potential(a: Setup, xc, D_sii: Array2D) -> Array1D:
     """Calculates (dV/dr)/r for the effective potential.
     Below, f_g denotes dV/dr = minus the radial force"""
 
@@ -570,11 +571,15 @@ def get_radial_potential(a: Setup, xc, D_sp: Array2D) -> Array1D:
     r_g[0] = 1.0e-12
     dr_g = rgd.dr_g
 
-    B_pq = a.xc_correction.B_pqL[:, :, 0]
+    B_qp = a.xc_correction.B_pqL[:, :, 0].T.copy()
+    B_iiq = np.zeros([D_sii.shape[1], D_sii.shape[1], B_qp.shape[0]])
+    for iter_q in range(B_qp.shape[0]):
+        B_iiq[:, :, iter_q] = unpack(B_qp[iter_q, :])
+
     n_qg = a.xc_correction.n_qg
-    D_sq = np.dot(D_sp, B_pq)
-    n_sg = np.dot(D_sq, n_qg) / (4 * np.pi)**0.5
-    Ns = len(D_sp)
+    D_sq = np.einsum('sij,ijq->sq', D_sii, B_iiq)
+    n_sg = np.dot(D_sq, n_qg).real / (4 * np.pi)**0.5
+    Ns = len(D_sii)
     if Ns == 4:
         Ns = 1
     n_sg[:Ns] += a.xc_correction.nc_g / Ns

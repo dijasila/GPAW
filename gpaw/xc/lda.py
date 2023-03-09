@@ -1,10 +1,11 @@
 from math import sqrt, pi
 
 import numpy as np
+import itertools
 
 from gpaw.xc.functional import XCFunctional
 from gpaw.sphere.lebedev import Y_nL, weight_n
-
+from gpaw.utilities import unpack
 
 class LDARadialExpansion:
     def __init__(self, rcalc, collinear=True):
@@ -33,14 +34,14 @@ class LDARadialExpansion:
 
 
 def calculate_paw_correction(expansion,
-                             setup, D_sp, dEdD_sp=None,
+                             setup, D_sii, dEdD_sii=None,
                              addcoredensity=True, a=None):
     xcc = setup.xc_correction
     if xcc is None:
         return 0.0
 
     rgd = xcc.rgd
-    nspins = len(D_sp)
+    nspins = len(D_sii)
 
     if addcoredensity:
         nc0_sg = rgd.empty(nspins)
@@ -54,14 +55,18 @@ def calculate_paw_correction(expansion,
         nc0_sg = 0
         nct0_sg = 0
 
-    D_sLq = np.inner(D_sp, xcc.B_pqL.T)
+    B_Lqp = xcc.B_pqL.T.copy()
+    B_iiLq = np.zeros([D_sii.shape[1], D_sii.shape[1], B_Lqp.shape[0], B_Lqp.shape[1]])
+    for iter_L, iter_q in itertools.product(range(B_Lqp.shape[0]), range(B_Lqp.shape[1])):
+        B_iiLq[:, :, iter_L, iter_q] = unpack(B_Lqp[iter_L, iter_q, :])
 
+    D_sLq = np.einsum('sij,ijLq->sLq', D_sii, B_iiLq).real
+    
     e, dEdD_sqL = expansion(rgd, D_sLq, xcc.n_qg, nc0_sg)
     et, dEtdD_sqL = expansion(rgd, D_sLq, xcc.nt_qg, nct0_sg)
 
-    if dEdD_sp is not None:
-        dEdD_sp += np.inner((dEdD_sqL - dEtdD_sqL).reshape((nspins, -1)),
-                            xcc.B_pqL.reshape((len(xcc.B_pqL), -1)))
+    if dEdD_sii is not None:
+        dEdD_sii += np.einsum('sqL,ijLq->sij', (dEdD_sqL - dEtdD_sqL), B_iiLq)
 
     if addcoredensity:
         return e - et - xcc.e_xc0
@@ -90,14 +95,14 @@ class LDA(XCFunctional):
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
         self.kernel.calculate(e_g, n_sg, v_sg)
 
-    def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
+    def calculate_paw_correction(self, setup, D_sii, dEdD_sii=None,
                                  addcoredensity=True, a=None):
         from gpaw.xc.noncollinear import NonCollinearLDAKernel
         collinear = not isinstance(self.kernel, NonCollinearLDAKernel)
         rcalc = LDARadialCalculator(self.kernel)
         expansion = LDARadialExpansion(rcalc, collinear)
         return calculate_paw_correction(expansion,
-                                        setup, D_sp, dEdD_sp,
+                                        setup, D_sii, dEdD_sii,
                                         addcoredensity, a)
 
     def calculate_radial(self, rgd, n_sLg, Y_L):

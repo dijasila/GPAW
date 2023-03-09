@@ -49,7 +49,7 @@ class Density:
 
         for a, D_sii in self.D_asii.items():
             Q_L = xp.einsum('sij, ijL -> L',
-                            D_sii[:self.ndensities], self.delta_aiiL[a])
+                            D_sii[:self.ndensities].real, self.delta_aiiL[a])
             Q_L[0] += self.delta0_a[a]
             ccc_aL[a] = Q_L
 
@@ -60,7 +60,7 @@ class Density:
         xp = self.D_asii.layout.xp
         for a, D_sii in self.D_asii.items():
             comp_charge += xp.einsum('sij, ij ->',
-                                     D_sii[:self.ndensities],
+                                     D_sii[:self.ndensities].real,
                                      self.delta_aiiL[a][:, :, 0])
             comp_charge += self.delta0_a[a]
         # comp_charge could be cupy.ndarray:
@@ -106,12 +106,19 @@ class Density:
                            ncomponents,
                            charge=0.0,
                            hund=False):
-        f_asi = {a: atomic_occupation_numbers(setup,
-                                              magmom_v,
-                                              ncomponents,
-                                              hund,
-                                              charge / len(setups))
-                 for a, (setup, magmom_v) in enumerate(zip(setups, magmom_av))}
+        #f_asi = {a: atomic_occupation_numbers(setup,
+        #                                      magmom_v,
+        #                                      ncomponents,
+        #                                      hund,
+        #                                      charge / len(setups))
+        #         for a, (setup, magmom_v) in enumerate(zip(setups, magmom_av))}
+        
+        f_asi = dict()
+        for a, setup in enumerate(setups):
+            f_asi[a]=np.array([[2, 1/2, 0, 1/2, 2, 2, 2, 2, 2],
+                               [0,  0 , 0,  0 , 0, 0, 0, 0, 0],
+                               [0,  0 , 0,  0 , 0, 0, 0, 0, 0],
+                               [0, 1/2, 0, 1/2, 0, 0, 0, 0, 0]])
 
         nt_sR = nct_R.desc.zeros(ncomponents)
         basis_set.add_to_density(nt_sR.data, f_asi)
@@ -120,10 +127,16 @@ class Density:
 
         atom_array_layout = AtomArraysLayout([(setup.ni, setup.ni)
                                               for setup in setups],
-                                             atomdist=atomdist)
+                                             atomdist=atomdist,
+                                             dtype=complex)
         D_asii = atom_array_layout.empty(ncomponents)
         for a, D_sii in D_asii.items():
             D_sii[:] = unpack2(setups[a].initialize_density_matrix(f_asi[a]))
+        
+        D_asii[0][0, 1, 3]= 1/2*1j
+        D_asii[0][0, 3, 1]=-1/2*1j
+        D_asii[0][3, 1, 3]= 1/2*1j
+        D_asii[0][3, 3, 1]=-1/2*1j
 
         xp = nct_R.xp
         return cls.from_data_and_setups(nt_sR.to_xp(xp),

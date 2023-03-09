@@ -104,26 +104,35 @@ def calculate_non_local_potential1(setup: Setup,
                                                        dict[str, float]]:
     ncomponents = len(D_sii)
     ndensities = 2 if ncomponents == 2 else 1
-    D_sp = np.array([pack(D_ii) for D_ii in D_sii])
 
-    D_p = D_sp[:ndensities].sum(0)
+    D_ii = D_sii[:ndensities].sum(0)
 
-    dH_p = (setup.K_p + setup.M_p +
-            setup.MB_p + 2.0 * setup.M_pp @ D_p +
-            setup.Delta_pL @ Q_L)
-    e_kinetic = setup.K_p @ D_p + setup.Kc
-    e_zero = setup.MB + setup.MB_p @ D_p
-    e_coulomb = setup.M + D_p @ (setup.M_p + setup.M_pp @ D_p)
+    K_ii     = unpack(setup.K_p)
+    M_ii     = unpack(setup.M_p)
+    MB_ii    = unpack(setup.MB_p)
+    Delta_ii = unpack(np.dot(setup.Delta_pL, Q_L))
+    M_pii_D_ii = np.zeros_like(setup.K_p, dtype=complex)
+    for p_index in range(M_pii_D_ii.size):
+        M_pii_D_ii[p_index] = np.sum(unpack(setup.M_pp[p_index, :])*D_ii)
+    M_iiii_D_ii = unpack(M_pii_D_ii)
 
-    dH_sp = np.zeros_like(D_sp, dtype=float if ncomponents < 4 else complex)
+    dH_ii = (K_ii + M_ii + MB_ii + Delta_ii +
+            2.0 * M_iiii_D_ii)
+    e_kinetic = np.sum(K_ii * D_ii).real + setup.Kc
+    e_zero = setup.MB + np.sum(MB_ii * D_ii).real
+    e_coulomb = setup.M + np.sum(M_ii * D_ii).real +  np.sum(D_ii.conj() * M_iiii_D_ii).real
+    
+    dH_sii = np.zeros_like(D_sii, dtype=float if ncomponents < 4 else complex)
     if soc:
-        dH_sp[1:4] = pack2(soc_terms(setup, xc.xc, D_sp))
-    dH_sp[:ndensities] = dH_p
-    e_xc = xc.calculate_paw_correction(setup, D_sp, dH_sp)
-    e_kinetic -= (D_sp * dH_sp).sum().real
-    e_external = 0.0
+        dH_sii[1:4] = soc_terms(setup, xc.xc, D_sii)
+    dH_sii[:ndensities] = dH_ii
+    e_xc = xc.calculate_paw_correction(setup, D_sii, dH_sii)
+    e_kinetic -= (D_sii * dH_sii).sum().real
+    print([(D_sii.real * dH_sii.real).sum(), (D_sii.real * dH_sii).sum(), (D_sii * dH_sii.real).sum(), (D_sii * dH_sii).sum()])
 
-    dH_sii = unpack(dH_sp)
+    crash
+
+    e_external = 0.0
 
     return dH_sii, {'kinetic': e_kinetic,
                     'coulomb': e_coulomb,
