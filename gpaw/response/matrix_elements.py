@@ -110,23 +110,29 @@ class NewPairDensityCalculator:
         for h, psit_G in enumerate(psit_hG):
             ut_hR[h] = T(self.gs.global_pd.ifft(psit_G, ik))
 
-        # Symmetrize projections
-        P_ahi = []
-        for a1, U_ii in zip(a_a, U_aii):
-            P_hi = np.ascontiguousarray(Ph[a1])
-            # Apply symmetry operations. This will map a1 onto a2
-            np.dot(P_hi, U_ii, out=P_hi)
-            if time_reversal:
-                np.conj(P_hi, out=P_hi)
-            P_ahi.append(P_hi)
-
-        # Store symmetrized projectors
-        for a2, P_hi in enumerate(P_ahi):
-            I1, I2 = Ph.map[a2]
-            Ph.array[..., I1:I2] = P_hi
+        Ph = symmetrize_projections(Ph, a_a, U_aii, time_reversal)
 
         return Ph, ut_hR, shift_c
 
     def get_fft_indices(self, K1, K2, qpd, dshift_c):
         from gpaw.response.pair import fft_indices
         return fft_indices(self.gs.kd, K1, K2, qpd, dshift_c)
+
+
+def symmetrize_projections(Ph, a_a, U_aii, time_reversal):
+    """Symmetrize the PAW projections."""
+    P_ahi = []
+    for a1, U_ii in zip(a_a, U_aii):
+        P_hi = np.ascontiguousarray(Ph[a1])
+        # Apply symmetry operations. This will map a1 onto a2
+        np.dot(P_hi, U_ii, out=P_hi)
+        if time_reversal:
+            np.conj(P_hi, out=P_hi)
+        P_ahi.append(P_hi)
+
+    # Store symmetrized projectors
+    for a2, P_hi in enumerate(P_ahi):
+        I1, I2 = Ph.map[a2]
+        Ph.array[..., I1:I2] = P_hi
+
+    return Ph
