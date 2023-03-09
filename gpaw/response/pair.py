@@ -230,7 +230,7 @@ class PairDensityCalculator:
             kpt2 = self.get_k_point(s, k_c + q_c, m1, m2, block=block)
 
         with self.context.timer('fft indices'):
-            Q_G = fft_indices(self.gs.kd, kpt1.K, kpt2.K, q_c, qpd,
+            Q_G = fft_indices(self.gs.kd, kpt1.K, kpt2.K, qpd,
                               kpt1.shift_c - kpt2.shift_c)
 
         return KPointPair(kpt1, kpt2, Q_G)
@@ -498,11 +498,11 @@ class PairDensityCalculator:
         return ut_nvR
 
 
-def fft_indices(kd, K1, K2, q_c, qpd, shift0_c):
+def fft_indices(kd, K1, K2, qpd, dshift_c):
     """Get indices for G-vectors inside cutoff sphere."""
     N_G = qpd.Q_qG[0]
-    shift_c = (shift0_c +
-               (q_c - kd.bzk_kc[K2] + kd.bzk_kc[K1]).round().astype(int))
+    shift_c = (dshift_c +
+               (qpd.q_c - kd.bzk_kc[K2] + kd.bzk_kc[K1]).round().astype(int))
     if shift_c.any():
         n_cG = np.unravel_index(N_G, qpd.gd.N_c)
         n_cG = [n_G + shift for n_G, shift in zip(n_cG, shift_c)]

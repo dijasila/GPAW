@@ -65,7 +65,7 @@ class NewPairDensityCalculator:
         # Get the plane-wave indices to Fourier transform products of
         # Kohn-Sham orbitals in k and k + q
         dshift_c = shift1_c - shift2_c
-        Q_G = self.get_fft_indices(qpd, kpt1.K, kpt2.K, dshift_c)
+        Q_G = self.get_fft_indices(kpt1.K, kpt2.K, qpd, dshift_c)
 
         tblocks = kptpair.tblocks
         n_mytG = qpd.empty(tblocks.blocksize)
@@ -99,9 +99,6 @@ class NewPairDensityCalculator:
         self.initialize_paw_corrections(qpd)
         return self.pawcorr.Q_aGii
 
-    def get_fft_indices(self, qpd, K1, K2, dshift_c):
-        """Get indices for G-vectors inside cutoff sphere."""
+    def get_fft_indices(self, K1, K2, qpd, dshift_c):
         from gpaw.response.pair import fft_indices
-
-        return fft_indices(kd=self.gs.kd, K1=K1, K2=K2, q_c=qpd.q_c, qpd=qpd,
-                           shift0_c=dshift_c)
+        return fft_indices(self.gs.kd, K1, K2, qpd, dshift_c)
