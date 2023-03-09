@@ -216,9 +216,7 @@ def get_P_ani(calc, ik, spin = 0, gs = None, context = None, spinors = False, so
         P_ani = kpt.P_ani #calc.wfs.kpt_qs[ik][spin].P_ani
     return P_ani
 
-def get_gs_and_context(calc, seed, spinors):
-    if spinors:
-        return None, None
+def get_gs_and_context(calc, seed):
     gs = ResponseGroundStateAdapter(calc)
     context = ResponseContext(txt=seed+'.txt')
     return gs, context
@@ -250,7 +248,7 @@ def write_projections(calc, seed=None, spin=0, orbitals_ai=None, soc=None):
                 assert Nk == len(calc.get_bz_k_points())
                 
     # get stuff needed for kpt descriptor
-    gs, context = get_gs_and_context(calc, seed, spinors)
+    gs, context = get_gs_and_context(calc, seed)
     Na = len(calc.atoms)
     if orbitals_ai is None:
         orbitals_ai = []
@@ -313,7 +311,7 @@ def write_eigenvalues(calc, seed=None, spin=0, soc=None):
     bands = get_bands(seed)
     if soc is None:
         # get stuff needed for kpt descriptor
-        gs, context = get_gs_and_context(calc, seed, spinors=False)
+        gs, context = get_gs_and_context(calc, seed)
 
     
     f = open(seed + '.eig', 'w')
@@ -334,12 +332,12 @@ def write_eigenvalues(calc, seed=None, spin=0, soc=None):
 
     f.close()
 
-def get_wf(bz_index, bands, spinors, soc=None, calc=None,
-           spin = None, gs=None, context=None):
+def get_wf(bz_index, bands, gs, spinors, soc=None,
+           spin = None, context=None):
     if spinors:
         # For spinors, G denotes spin and grid: G = (s, gx, gy, gz)
         return soc[bz_index].wavefunctions(
-            calc, periodic=True)[bands]
+            gs._calc, periodic=True)[bands]
     # For non-spinors, G denotes grid: G = (gx, gy, gz)
     n1 = bands[0]
     n2 = bands[-1]+1
@@ -359,7 +357,7 @@ def write_overlaps(calc, seed=None, spin=0, soc=None, less_memory=False):
         spinors = False
     else:
         spinors = True
-    gs, context = get_gs_and_context(calc, seed, spinors)
+    gs, context = get_gs_and_context(calc, seed)
     bands = get_bands(seed)
     Nn = len(bands)
     kpts_kc = calc.get_bz_k_points()
@@ -396,10 +394,10 @@ def write_overlaps(calc, seed=None, spin=0, soc=None, less_memory=False):
             dO_aii.append(dO_ii)
 
     wfs = calc.wfs
-    
+
     def wavefunctions(bz_index):
-        return get_wf(bz_index, bands, spinors, soc, calc,
-                      spin, gs, context)
+        return get_wf(bz_index, bands, gs, spinors, soc,
+                      spin, context)
     
     #if not less_memory:
     #    u_knG = []
@@ -491,17 +489,17 @@ def write_wavefunctions(calc, soc=None, spin=0, seed=None):
 
     if seed is None:
         seed = calc.atoms.get_chemical_formula()
-    gs, context = get_gs_and_context(calc, seed, spinors)
+    gs, context = get_gs_and_context(calc, seed)
     bands = get_bands(seed)
     Nn = len(bands)
     Nk = len(calc.get_bz_k_points()) #XXX Also needs to be updated to work with symmetry
     Nk_ibz = len(calc.get_ibz_k_points())
     if spinors:
         assert Nk == Nk_ibz
-        
+
     for ik in range(Nk):
-        u_nG = get_wfs(bz_index, bands, spinors, soc, calc,
-                       spin, gs, context)
+        u_nG = get_wfs(bz_index, bands, gs, spinors, soc,
+                       spin, context)
         f = open('UNK%s.%d' % (str(ik + 1).zfill(5), spin + 1), 'w')
         grid_v = np.shape(u_nG)[1:]
         print(grid_v[0], grid_v[1], grid_v[2], ik + 1, Nn, file=f)
