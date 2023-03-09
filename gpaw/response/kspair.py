@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from ase.utils import lazyproperty
+
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
 from gpaw.response.symmetry import KPointFinder
 from gpaw.response.pw_parallelization import Blocks1D
@@ -22,6 +24,15 @@ class KohnShamKPoint:
         self.Ph = Ph             # PAW projections
         self.psit_hG = psit_hG   # Pseudo wave function plane-wave components
         self.h_myt = h_myt       # myt -> h index mapping
+
+    @lazyproperty
+    def nh(self):
+        nh = len(self.eps_h)
+        assert len(self.f_h) == nh
+        assert self.Ph.nbands == nh
+        assert len(self.psit_hG) == nh
+
+        return nh
 
     @property
     def eps_myt(self):
