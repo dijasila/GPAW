@@ -62,19 +62,19 @@ class NewPairDensityCalculator:
         kpt1 = kptpair.kpt1
         kpt2 = kptpair.kpt2
 
-        # Construct symmetrizers for the periodic part of the pseudo wave
-        # and for the projectors
+        # Construct symmetrizers for the periodic part of the pseudo waves
+        # and for the PAW projectors
         ut1_symmetrizer, Ph1_symmetrizer, shift1_c = \
-            self.construct_symmetrizers(kpt1.K, kpt1.k_c)
+            self.construct_symmetrizers(kpt1)
         ut2_symmetrizer, Ph2_symmetrizer, shift2_c = \
-            self.construct_symmetrizers(kpt2.K, kpt2.k_c)
+            self.construct_symmetrizers(kpt2)
 
-        # Fourier transform the pseudo waves to the coarse real-space grid
-        # and symmetrize them along with the projectors
-        ut1_hR = self.transform_and_symmetrize(kpt1.K, kpt1.psit_hG,
-                                               ut1_symmetrizer)
-        ut2_hR = self.transform_and_symmetrize(kpt2.K, kpt2.psit_hG,
-                                               ut2_symmetrizer)
+        # Fourier transform the pseudo waves to the coarse real-space grid,
+        # and symmetrize them
+        ut1_hR = self.get_periodic_pseudo_waves(kpt1, ut1_symmetrizer)
+        ut2_hR = self.get_periodic_pseudo_waves(kpt2, ut2_symmetrizer)
+
+        # Symmetrize the projectors
         P1h = Ph1_symmetrizer(kpt1.Ph)
         P2h = Ph2_symmetrizer(kpt2.Ph)
 
@@ -109,19 +109,19 @@ class NewPairDensityCalculator:
 
         return PairDensity(tblocks, n_mytG)
 
-    def transform_and_symmetrize(self, K, psit_hG, ut_symmetrizer):
+    def get_periodic_pseudo_waves(self, kpt, ut_symmetrizer):
         """FFT the Kohn-Sham orbitals to real space and symmetrize them."""
-        ik = self.gs.kd.bz2ibz_k[K]
-        ut_hR = self.gs.gd.empty(len(psit_hG), self.gs.dtype)
-        for h, psit_G in enumerate(psit_hG):
+        ik = self.gs.kd.bz2ibz_k[kpt.K]
+        ut_hR = self.gs.gd.empty(kpt.nh, self.gs.dtype)
+        for h, psit_G in enumerate(kpt.psit_hG):
             ut_hR[h] = ut_symmetrizer(self.gs.global_pd.ifft(psit_G, ik))
 
         return ut_hR
 
-    def construct_symmetrizers(self, K, k_c):
+    def construct_symmetrizers(self, kpt):
         """Construct functions to symmetrize ut_hR and Ph."""
         _, T, a_a, U_aii, shift_c, time_reversal = \
-            self.gs.construct_symmetry_operators(K, k_c)
+            self.gs.construct_symmetry_operators(kpt.K, kpt.k_c)
 
         ut_symmetrizer = T
         Ph_symmetrizer = partial(symmetrize_projections,
