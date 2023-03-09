@@ -66,19 +66,18 @@ class NewPairDensityCalculator:
         ut2_symmetrizer, Ph2_symmetrizer, shift2_c = \
             self.construct_symmetrizers(kptpair.kpt2)
 
-        tblocks = kptpair.tblocks
-        n_mytG = qpd.empty(tblocks.blocksize)
+        n_mytG = qpd.empty(kptpair.tblocks.blocksize)
 
-        self.add_pseudo_pair_density(qpd, tblocks, n_mytG, kptpair,
+        self.add_pseudo_pair_density(kptpair, qpd, n_mytG,
                                      ut1_symmetrizer, ut2_symmetrizer,
                                      shift1_c, shift2_c)
-        self.add_paw_corrections(qpd, tblocks, n_mytG, kptpair,
+        self.add_paw_corrections(kptpair, qpd, n_mytG,
                                  Ph1_symmetrizer, Ph2_symmetrizer)
 
-        return PairDensity(tblocks, n_mytG)
+        return PairDensity(kptpair.tblocks, n_mytG)
 
     @timer('Calculate the pseudo pair density')
-    def add_pseudo_pair_density(self, qpd, tblocks, n_mytG, kptpair,
+    def add_pseudo_pair_density(self, kptpair, qpd, n_mytG,
                                 ut1_symmetrizer, ut2_symmetrizer,
                                 shift1_c, shift2_c):
         """Some documentation here!                                            XXX
@@ -99,16 +98,17 @@ class NewPairDensityCalculator:
         ut1cc_mytR = ut1_hR[kpt1.h_myt].conj()
         n_mytR = ut1cc_mytR * ut2_hR[kpt2.h_myt]
         # Unvectorized
-        for myt in range(tblocks.nlocal):
+        for myt in range(kptpair.tblocks.nlocal):  # Change to zip             XXX
             n_mytG[myt] = qpd.fft(n_mytR[myt], 0, Q_G) * qpd.gd.dv
 
     @timer('Calculate the pair density PAW corrections')
-    def add_paw_corrections(self, qpd, tblocks, n_mytG, kptpair,
+    def add_paw_corrections(self, kptpair, qpd, n_mytG,
                             Ph1_symmetrizer, Ph2_symmetrizer):
         """Some documentation here!                                            XXX
         """
         kpt1 = kptpair.kpt1
         kpt2 = kptpair.kpt2
+        tblocks = kptpair.tblocks
 
         # Symmetrize the projectors
         P1h = Ph1_symmetrizer(kpt1.Ph)
@@ -120,7 +120,7 @@ class NewPairDensityCalculator:
         P2 = kpt2.projectors_in_transition_index(P2h)
         for (Q_Gii, (a1, P1_myti),
              (a2, P2_myti)) in zip(Q_aGii, P1.items(), P2.items()):
-            P1cc_myti = P1_myti[:tblocks.nlocal].conj()
+            P1cc_myti = P1_myti[:tblocks.nlocal].conj()  # No nlocal here?     XXX
             C1_Gimyt = np.einsum('Gij, ti -> Gjt', Q_Gii, P1cc_myti)
             P2_imyt = P2_myti.T[:, :tblocks.nlocal]
             n_mytG[:tblocks.nlocal] += np.sum(
