@@ -52,24 +52,37 @@ class NewPairDensityCalculator:
                   = | dr e^-i(G+q)r psi_nks^*(r) psi_n'k+qs'(r)
                     /V0
         """
-        Q_aGii = self.get_paw_projectors(qpd)
-        Q_G = self.get_fft_indices(kptpair, qpd)
+        kpt1 = kptpair.kpt1
+        kpt2 = kptpair.kpt2
+
+        # Fourier transform the pseudo waves to the coarse real-space grid
+        # and symmetrize them along with the projectors
+        P1h, ut1_hR, shift1_c = self.gs.transform_and_symmetrize(
+            *kpt1.get_orbitals())
+        P2h, ut2_hR, shift2_c = self.gs.transform_and_symmetrize(
+            *kpt2.get_orbitals())
+
+        # Get the plane-wave indices to Fourier transform products of
+        # Kohn-Sham orbitals in k and k + q
+        dshift_c = shift1_c - shift2_c
+        Q_G = self.get_fft_indices(qpd, kpt1.K, kpt2.K, dshift_c)
 
         tblocks = kptpair.tblocks
         n_mytG = qpd.empty(tblocks.blocksize)
 
         # Calculate smooth part of the pair densities:
         with self.context.timer('Calculate smooth part'):
-            ut1cc_mytR = kptpair.kpt1.ut_mytR.conj()
-            n_mytR = ut1cc_mytR * kptpair.kpt2.ut_mytR
+            ut1cc_mytR = ut1_hR[kpt1.h_myt].conj()
+            n_mytR = ut1cc_mytR * ut2_hR[kpt2.h_myt]
             # Unvectorized
             for myt in range(tblocks.nlocal):
                 n_mytG[myt] = qpd.fft(n_mytR[myt], 0, Q_G) * qpd.gd.dv
 
         # Calculate PAW corrections with numpy
         with self.context.timer('PAW corrections'):
-            P1 = kptpair.kpt1.get_transitions_projections()
-            P2 = kptpair.kpt2.get_transitions_projections()
+            Q_aGii = self.get_paw_projectors(qpd)
+            P1 = kpt1.projectors_in_transition_index(P1h)
+            P2 = kpt2.projectors_in_transition_index(P2h)
             for (Q_Gii, (a1, P1_myti),
                  (a2, P2_myti)) in zip(Q_aGii, P1.items(), P2.items()):
                 P1cc_myti = P1_myti[:tblocks.nlocal].conj()
@@ -80,21 +93,15 @@ class NewPairDensityCalculator:
 
         return PairDensity(tblocks, n_mytG)
 
-    def get_paw_projectors(self, qpd):
+    def get_paw_projectors(self, qpd):  # These are not really projectors    XXX
         """Make sure PAW correction has been initialized properly
         and return projectors"""
         self.initialize_paw_corrections(qpd)
         return self.pawcorr.Q_aGii
 
-    @timer('Get G-vector indices')
-    def get_fft_indices(self, kptpair, qpd):
+    def get_fft_indices(self, qpd, K1, K2, dshift_c):
         """Get indices for G-vectors inside cutoff sphere."""
         from gpaw.response.pair import fft_indices
 
-        kpt1 = kptpair.kpt1
-        kpt2 = kptpair.kpt2
-        kd = self.gs.kd
-        q_c = qpd.q_c
-
-        return fft_indices(kd=kd, K1=kpt1.K, K2=kpt2.K, q_c=q_c, qpd=qpd,
-                           shift0_c=kpt1.shift_c - kpt2.shift_c)
+        return fft_indices(kd=self.gs.kd, K1=K1, K2=K2, q_c=qpd.q_c, qpd=qpd,
+                           shift0_c=dshift_c)
