@@ -1,9 +1,10 @@
 import numpy as np
 from gpaw.utilities.blas import gemmdot
 from gpaw.berryphase import get_overlap
-from gpaw.response.pair import KPoint
+from gpaw.response.pair import KPoint, get_gs_and_context
 from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.context import ResponseContext
+from gpaw.mpi import world
 # XXX. Wannier90 class is useless at the moment.
 # should put functions onto class instead.
 
@@ -216,11 +217,6 @@ def get_P_ani(gs, ik, spin, context, spinors = False, soc = None):
         P_ani = kpt.P_ani #calc.wfs.kpt_qs[ik][spin].P_ani
     return P_ani
 
-def get_gs_and_context(calc, seed):
-    gs = ResponseGroundStateAdapter(calc)
-    context = ResponseContext(txt=seed+'.txt')
-    return gs, context
-
 def write_projections(calc, seed=None, spin=0, orbitals_ai=None, soc=None):
 
     if seed is None:
@@ -248,7 +244,7 @@ def write_projections(calc, seed=None, spin=0, orbitals_ai=None, soc=None):
                 assert Nk == len(calc.get_bz_k_points())
                 
     # get stuff needed for kpt descriptor
-    gs, context = get_gs_and_context(calc, seed)
+    gs, context = get_gs_and_context(calc, seed+'.txt', world, None)
     Na = len(calc.atoms)
     if orbitals_ai is None:
         orbitals_ai = []
@@ -311,7 +307,7 @@ def write_eigenvalues(calc, seed=None, spin=0, soc=None):
     bands = get_bands(seed)
     if soc is None:
         # get stuff needed for kpt descriptor
-        gs, context = get_gs_and_context(calc, seed)
+        gs, context = get_gs_and_context(calc, seed+'.txt', world, None)
 
     
     f = open(seed + '.eig', 'w')
@@ -357,7 +353,7 @@ def write_overlaps(calc, seed=None, spin=0, soc=None, less_memory=False):
         spinors = False
     else:
         spinors = True
-    gs, context = get_gs_and_context(calc, seed)
+    gs, context = get_gs_and_context(calc, seed+'.txt', world, None)
     bands = get_bands(seed)
     Nn = len(bands)
     kpts_kc = calc.get_bz_k_points()
@@ -489,7 +485,7 @@ def write_wavefunctions(calc, soc=None, spin=0, seed=None):
 
     if seed is None:
         seed = calc.atoms.get_chemical_formula()
-    gs, context = get_gs_and_context(calc, seed)
+    gs, context = get_gs_and_context(calc, seed+'.txt', world, None)
     bands = get_bands(seed)
     Nn = len(bands)
     Nk = len(calc.get_bz_k_points()) #XXX Also needs to be updated to work with symmetry
