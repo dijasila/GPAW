@@ -6,6 +6,7 @@ import gpaw.wannier90 as w90
 from gpaw.wannier.w90 import read_wout_all
 from pathlib import Path
 
+
 @pytest.mark.wannier
 @pytest.mark.serial
 @pytest.mark.parametrize('mode', ['symm', 'nosymm'])

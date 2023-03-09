@@ -477,16 +477,16 @@ class GPWFiles:
         return atoms.calc
 
     def gaas_pw_nosymm(self):
-        return self.gaas_pw(symm = False)
+        return self.gaas_pw(symm=False)
 
     def gaas_pw_symm(self):
-        return self.gaas_pw(symm = True)
+        return self.gaas_pw(symm=True)
 
     def gaas_pw(self, symm):
         if symm:
-            symmetry =  {'point_group': True,
-                         'symmorphic': True,
-                         'time_reversal': True}
+            symmetry = {'point_group': True,
+                        'symmorphic': True,
+                        'time_reversal': True}
         else:
             symmetry = 'off'
         k = 2
@@ -500,7 +500,7 @@ class GPWFiles:
                     convergence={'bands': -1},
                     kpts={'size': (k, k, k), 'gamma': True},
                     txt='gs_GaAs.txt',
-                    symmetry = symmetry)
+                    symmetry=symmetry)
 
         a.calc = calc
         a.get_potential_energy()

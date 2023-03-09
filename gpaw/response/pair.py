@@ -31,11 +31,11 @@ class KPoint:
         r_cg = self.gs._wfs.gd.get_grid_point_coordinates()
         icell_cv = (2 * np.pi) * np.linalg.inv(self.gs.gd.cell_cv).T
         shift = np.dot(self.shift_c, icell_cv)
-        #print(self.shift_c)
         return self.ut_nR * np.exp(1.0j * gemmdot(shift, r_cg, beta=0.0))
     
     @classmethod
-    def get_k_point(cls, gs, timer, s, k_c, n1, n2, block=False, blockcomm = None):
+    def get_k_point(cls, gs, timer, s, k_c, n1,
+                    n2, block=False, blockcomm=None):
         """Return wave functions for a specific k-point and spin.
 
         s: int
@@ -103,7 +103,6 @@ class KPoint:
                       ut_nR, eps_n, f_n, P_ani, shift_c, gs)
 
     
-
 class PairDistribution:
     def __init__(self, pair, mysKn1n2):
         self.pair = pair
