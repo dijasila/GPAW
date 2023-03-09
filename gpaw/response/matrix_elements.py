@@ -13,6 +13,15 @@ class PairDensity:
         self.tblocks = tblocks
         self.n_mytG = n_mytG
 
+    @classmethod
+    def from_qpd(cls, tblocks, qpd):
+        n_mytG = qpd.zeros(tblocks.blocksize)
+        return cls(tblocks, n_mytG)
+
+    @property
+    def local_array_view(self):
+        return self.n_mytG[:self.tblocks.nlocal]
+
     def get_global_array(self):
         """Get the global (all gathered) pair density array n_tG."""
         n_tG = self.tblocks.collect(self.n_mytG)
@@ -66,17 +75,17 @@ class NewPairDensityCalculator:
         ut2_symmetrizer, Ph2_symmetrizer, shift2_c = \
             self.construct_symmetrizers(kptpair.kpt2)
 
-        blocksize = kptpair.tblocks.blocksize
-        nlocal = kptpair.tblocks.nlocal
-        n_mytG = qpd.empty(blocksize)
+        # Initialize a blank pair density object
+        pair_density = PairDensity.from_qpd(kptpair.tblocks, qpd)
+        n_mytG = pair_density.local_array_view
 
-        self.add_pseudo_pair_density(kptpair, qpd, n_mytG[:nlocal],
+        self.add_pseudo_pair_density(kptpair, qpd, n_mytG,
                                      ut1_symmetrizer, ut2_symmetrizer,
                                      shift1_c, shift2_c)
-        self.add_paw_corrections(kptpair, qpd, n_mytG[:nlocal],
+        self.add_paw_corrections(kptpair, qpd, n_mytG,
                                  Ph1_symmetrizer, Ph2_symmetrizer)
 
-        return PairDensity(kptpair.tblocks, n_mytG)
+        return pair_density
 
     @timer('Calculate the pseudo pair density')
     def add_pseudo_pair_density(self, kptpair, qpd, n_mytG,
@@ -102,7 +111,7 @@ class NewPairDensityCalculator:
 
         # Add FFT of the pseudo pair density to the output array
         for n_G, n_R in zip(n_mytG, n_mytR):
-            n_G[:] = qpd.fft(n_R, 0, Q_G) * qpd.gd.dv
+            n_G[:] += qpd.fft(n_R, 0, Q_G) * qpd.gd.dv
 
     @timer('Calculate the pair density PAW corrections')
     def add_paw_corrections(self, kptpair, qpd, n_mytG,
@@ -125,7 +134,7 @@ class NewPairDensityCalculator:
             # Make outer product of the projectors in the projector index i,j
             P1ccP2_mytii = P1_myti.conj()[..., np.newaxis] \
                 * P2_myti[:, np.newaxis]
-            # Sum over projector indices
+            # Sum over projector indices and add correction to the output
             n_mytG[:] += np.einsum('tij, Gij -> tG', P1ccP2_mytii, Q_Gii)
 
     def get_periodic_pseudo_waves(self, kpt, ut_symmetrizer):
