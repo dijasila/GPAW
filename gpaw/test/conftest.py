@@ -476,6 +476,36 @@ class GPWFiles:
 
         return atoms.calc
 
+    def gaas_pw_nosymm(self):
+        return self.gaas_pw(symm = False)
+
+    def gaas_pw_symm(self):
+        return self.gaas_pw(symm = True)
+
+    def gaas_pw(self, symm):
+        if symm:
+            symmetry =  {'point_group': True,
+                         'symmorphic': True,
+                         'time_reversal': True}
+        else:
+            symmetry = 'off'
+        k = 2
+        cell = bulk('Ga', 'fcc', a=5.68).cell
+        a = Atoms('GaAs', cell=cell, pbc=True,
+                  scaled_positions=((0, 0, 0), (0.25, 0.25, 0.25)))
+
+        calc = GPAW(mode=PW(400),
+                    xc='LDA',
+                    occupations=FermiDirac(width=0.01),
+                    convergence={'bands': -1},
+                    kpts={'size': (k, k, k), 'gamma': True},
+                    txt='gs_GaAs.txt',
+                    symmetry = symmetry)
+
+        a.calc = calc
+        a.get_potential_energy()
+        return a.calc
+
 
 class GPAWPlugin:
     def __init__(self):
