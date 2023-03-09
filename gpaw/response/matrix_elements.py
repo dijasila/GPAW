@@ -66,12 +66,14 @@ class NewPairDensityCalculator:
         ut2_symmetrizer, Ph2_symmetrizer, shift2_c = \
             self.construct_symmetrizers(kptpair.kpt2)
 
-        n_mytG = qpd.empty(kptpair.tblocks.blocksize)
+        blocksize = kptpair.tblocks.blocksize
+        nlocal = kptpair.tblocks.nlocal
+        n_mytG = qpd.empty(blocksize)
 
-        self.add_pseudo_pair_density(kptpair, qpd, n_mytG,
+        self.add_pseudo_pair_density(kptpair, qpd, n_mytG[:nlocal],
                                      ut1_symmetrizer, ut2_symmetrizer,
                                      shift1_c, shift2_c)
-        self.add_paw_corrections(kptpair, qpd, n_mytG,
+        self.add_paw_corrections(kptpair, qpd, n_mytG[:nlocal],
                                  Ph1_symmetrizer, Ph2_symmetrizer)
 
         return PairDensity(kptpair.tblocks, n_mytG)
@@ -94,12 +96,13 @@ class NewPairDensityCalculator:
         dshift_c = shift1_c - shift2_c
         Q_G = self.get_fft_indices(kpt1.K, kpt2.K, qpd, dshift_c)
 
-        # Calculate smooth part of the pair densities:
+        # Calculate the pseudo pair density in real space
         ut1cc_mytR = ut1_hR[kpt1.h_myt].conj()
         n_mytR = ut1cc_mytR * ut2_hR[kpt2.h_myt]
-        # Unvectorized
-        for myt in range(kptpair.tblocks.nlocal):  # Change to zip             XXX
-            n_mytG[myt] = qpd.fft(n_mytR[myt], 0, Q_G) * qpd.gd.dv
+
+        # Add FFT of the pseudo pair density to the output array
+        for n_G, n_R in zip(n_mytG, n_mytR):
+            n_G[:] = qpd.fft(n_R, 0, Q_G) * qpd.gd.dv
 
     @timer('Calculate the pair density PAW corrections')
     def add_paw_corrections(self, kptpair, qpd, n_mytG,
@@ -108,7 +111,6 @@ class NewPairDensityCalculator:
         """
         kpt1 = kptpair.kpt1
         kpt2 = kptpair.kpt2
-        tblocks = kptpair.tblocks
 
         # Symmetrize the projectors
         P1h = Ph1_symmetrizer(kpt1.Ph)
@@ -120,11 +122,11 @@ class NewPairDensityCalculator:
         P2 = kpt2.projectors_in_transition_index(P2h)
         for (Q_Gii, (a1, P1_myti),
              (a2, P2_myti)) in zip(Q_aGii, P1.items(), P2.items()):
-            P1cc_myti = P1_myti[:tblocks.nlocal].conj()  # No nlocal here?     XXX
-            C1_Gimyt = np.einsum('Gij, ti -> Gjt', Q_Gii, P1cc_myti)
-            P2_imyt = P2_myti.T[:, :tblocks.nlocal]
-            n_mytG[:tblocks.nlocal] += np.sum(
-                C1_Gimyt * P2_imyt[np.newaxis, :, :], axis=1).T
+            # Make outer product of the projectors in the projector index i,j
+            P1ccP2_mytii = P1_myti.conj()[..., np.newaxis] \
+                * P2_myti[:, np.newaxis]
+            # Sum over projector indices
+            n_mytG[:] += np.einsum('tij, Gij -> tG', P1ccP2_mytii, Q_Gii)
 
     def get_periodic_pseudo_waves(self, kpt, ut_symmetrizer):
         """FFT the Kohn-Sham orbitals to real space and symmetrize them."""
