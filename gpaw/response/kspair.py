@@ -197,13 +197,13 @@ class KohnShamKPointPairExtractor:
     def parallel_extract_kptdata(self, k_pc, n_t, s_t):
         """Extract the input data needed to construct the KohnShamKPoints."""
         # Extract the data from the ground state calculator object
-        data, h_myt = self._parallel_extract_kptdata(k_pc, n_t, s_t)
+        data = self._parallel_extract_kptdata(k_pc, n_t, s_t)
 
         # If the process has a k-point to return, symmetrize and unfold
         if self.kpts_blockcomm.rank in range(len(k_pc)):
             assert data is not None
             # Unpack data, apply FT and symmetrization
-            K, k_c, eps_h, f_h, Ph, psit_hG = data
+            K, k_c, eps_h, f_h, Ph, psit_hG, h_myt = data
             Ph, ut_hR, shift_c = self.gs.transform_and_symmetrize(
                 K, k_c, Ph, psit_hG)
 
@@ -219,7 +219,7 @@ class KohnShamKPointPairExtractor:
     @timer('Extracting data from the ground state calculator object')
     def _parallel_extract_kptdata(self, k_pc, n_t, s_t):
         """In-place kptdata extraction."""
-        (data, myu_eu,
+        (myK, myk_c, myik, myu_eu,
          myn_eueh, ik_r2,
          nrh_r2, eh_eur2reh,
          rh_eur2reh, h_r1rh,
@@ -228,7 +228,7 @@ class KohnShamKPointPairExtractor:
         (eps_r1rh, f_r1rh,
          P_r1rhI, psit_r1rhG,
          eps_r2rh, f_r2rh,
-         P_r2rhI, psit_r2rhG) = self.allocate_transfer_arrays(data, nrh_r2,
+         P_r2rhI, psit_r2rhG) = self.allocate_transfer_arrays(myik, nrh_r2,
                                                               ik_r2, h_r1rh)
 
         # Do actual extraction
@@ -251,10 +251,15 @@ class KohnShamKPointPairExtractor:
         self.distribute_extracted_data(eps_r1rh, f_r1rh, P_r1rhI, psit_r1rhG,
                                        eps_r2rh, f_r2rh, P_r2rhI, psit_r2rhG)
 
-        data = self.collect_kptdata(data, h_r1rh, eps_r1rh,
-                                    f_r1rh, P_r1rhI, psit_r1rhG)
+        # Some processes may not have to return a k-point
+        if myik is None:
+            data = None
+        else:
+            eps_h, f_h, Ph, psit_hG = self.collect_kptdata(
+                myik, h_r1rh, eps_r1rh, f_r1rh, P_r1rhI, psit_r1rhG)
+            data = myK, myk_c, eps_h, f_h, Ph, psit_hG, h_myt
 
-        return data, h_myt
+        return data
 
     @timer('Create data extraction protocol')
     def get_parallel_extraction_protocol(self, k_pc, n_t, s_t):
@@ -262,8 +267,8 @@ class KohnShamKPointPairExtractor:
         comm = self.context.comm
         get_extraction_info = self.create_get_extraction_info()
 
-        # Kpoint data
-        data = (None, None, None)
+        # (K, k_c, ik) for each process
+        mykpt = (None, None, None)
 
         # Extraction protocol
         myu_eu = []
@@ -294,7 +299,7 @@ class KohnShamKPointPairExtractor:
                 ik_r2[r2] = ik
 
             if p == self.kpts_blockcomm.rank:
-                data = (K, k_c, ik)
+                mykpt = (K, k_c, ik)
 
             # Find out who should store the data in KSKPpoint
             r2_t, myt_t = self.map_who_has(p, t_t)
@@ -373,8 +378,8 @@ class KohnShamKPointPairExtractor:
                                                            thiss_myt)
                                 h_myt[thish_myt] = h
 
-        return (data, myu_eu, myn_eueh, ik_r2, nrh_r2,
-                eh_eur2reh, rh_eur2reh, h_r1rh, h_myt)
+        return mykpt + (myu_eu, myn_eueh, ik_r2, nrh_r2,
+                        eh_eur2reh, rh_eur2reh, h_r1rh, h_myt)
 
     def create_get_extraction_info(self):
         """Creator component of the extraction information factory."""
@@ -413,7 +418,7 @@ class KohnShamKPointPairExtractor:
         return myu, np.array(r1_ct), np.array(myn_ct)
 
     @timer('Allocate transfer arrays')
-    def allocate_transfer_arrays(self, data, nrh_r2, ik_r2, h_r1rh):
+    def allocate_transfer_arrays(self, myik, nrh_r2, ik_r2, h_r1rh):
         """Allocate arrays for intermediate storage of data."""
         kptex = self.gs.kpt_u[0]
         Pshape = kptex.projections.array.shape
@@ -424,9 +429,8 @@ class KohnShamKPointPairExtractor:
         nrh_r1 = [len(h_rh) for h_rh in h_r1rh]
 
         # if self.kpts_blockcomm.rank in range(len(ik_p)):
-        if data[2] is not None:
-            ik = data[2]
-            ng = self.gs.global_pd.ng_q[ik]
+        if myik is not None:
+            ng = self.gs.global_pd.ng_q[myik]
             eps_r1rh, f_r1rh, P_r1rhI, psit_r1rhG = [], [], [], []
             for nrh in nrh_r1:
                 if nrh >= 1:
@@ -533,15 +537,9 @@ class KohnShamKPointPairExtractor:
                 comm.wait(self.rrequests.pop(0))
 
     @timer('Collecting kptdata')
-    def collect_kptdata(self, data, h_r1rh,
+    def collect_kptdata(self, myik, h_r1rh,
                         eps_r1rh, f_r1rh, P_r1rhI, psit_r1rhG):
         """From the extracted data, collect the KohnShamKPoint data arrays"""
-
-        # Some processes may not have to return a k-point
-        if data[0] is None:
-            return None
-        K, k_c, ik = data
-
         # Allocate data arrays
         maxh_r1 = [max(h_rh) for h_rh in h_r1rh if h_rh]
         if maxh_r1:
@@ -554,7 +552,7 @@ class KohnShamKPointPairExtractor:
         kpt0 = self.gs.kpt_u[0]
         Ph = kpt0.projections.new(nbands=nh, bcomm=None)
         assert self.gs.dtype == kpt0.psit.array.dtype
-        psit_hG = np.empty((nh, self.gs.global_pd.ng_q[ik]), self.gs.dtype)
+        psit_hG = np.empty((nh, self.gs.global_pd.ng_q[myik]), self.gs.dtype)
 
         # Store extracted data in the arrays
         for (h_rh, eps_rh,
@@ -566,7 +564,7 @@ class KohnShamKPointPairExtractor:
                 Ph.array[h_rh] = P_rhI
                 psit_hG[h_rh] = psit_rhG
 
-        return K, k_c, eps_h, f_h, Ph, psit_hG
+        return eps_h, f_h, Ph, psit_hG
 
     @timer('Extracting data from the ground state calculator object')
     def serial_extract_kptdata(self, k_pc, n_t, s_t):
