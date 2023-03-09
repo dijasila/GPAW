@@ -30,16 +30,21 @@ class NewPairDensityCalculator:
         self.context = context
 
         # Save PAW correction for all calls with same q_c
-        self.pawcorr = None
-        self.currentq_c = None
+        self._pawcorr = None
+        self._currentq_c = None
 
-    @timer('Initialize PAW corrections')
     def initialize_paw_corrections(self, qpd):
-        """Initialize PAW corrections, if not done already, for the given q"""
-        q_c = qpd.q_c
-        if self.pawcorr is None or not np.allclose(q_c - self.currentq_c, 0.):
-            self.pawcorr = self.gs.pair_density_paw_corrections(qpd)
-            self.currentq_c = q_c
+        """Initialize the PAW corrections ahead of the actual calculation."""
+        self.get_paw_corrections(qpd)
+
+    def get_paw_corrections(self, qpd):
+        """Get PAW corrections correcsponding to a specific q-vector."""
+        if self._pawcorr is None \
+           or not np.allclose(qpd.q_c - self._currentq_c, 0.):
+            self._pawcorr = self.gs.pair_density_paw_corrections(qpd)
+            self._currentq_c = qpd.q_c
+
+        return self._pawcorr
 
     @timer('Calculate pair density')
     def __call__(self, kptpair: KohnShamKPointPair, qpd) -> PairDensity:
@@ -80,7 +85,7 @@ class NewPairDensityCalculator:
 
         # Calculate PAW corrections with numpy
         with self.context.timer('PAW corrections'):
-            Q_aGii = self.get_paw_projectors(qpd)
+            Q_aGii = self.get_paw_corrections(qpd).Q_aGii
             P1 = kpt1.projectors_in_transition_index(P1h)
             P2 = kpt2.projectors_in_transition_index(P2h)
             for (Q_Gii, (a1, P1_myti),
@@ -92,12 +97,6 @@ class NewPairDensityCalculator:
                     C1_Gimyt * P2_imyt[np.newaxis, :, :], axis=1).T
 
         return PairDensity(tblocks, n_mytG)
-
-    def get_paw_projectors(self, qpd):  # These are not really projectors    XXX
-        """Make sure PAW correction has been initialized properly
-        and return projectors"""
-        self.initialize_paw_corrections(qpd)
-        return self.pawcorr.Q_aGii
 
     def get_fft_indices(self, K1, K2, qpd, dshift_c):
         from gpaw.response.pair import fft_indices
