@@ -30,16 +30,22 @@ class NewPairDensityCalculator:
         self.context = context
 
         # Save PAW correction for all calls with same q_c
-        self.pawcorr = None
-        self.currentq_c = None
+        self._pawcorr = None
+        self._currentq_c = None
 
-    @timer('Initialize PAW corrections')
     def initialize_paw_corrections(self, qpd):
-        """Initialize PAW corrections, if not done already, for the given q"""
-        q_c = qpd.q_c
-        if self.pawcorr is None or not np.allclose(q_c - self.currentq_c, 0.):
-            self.pawcorr = self.gs.pair_density_paw_corrections(qpd)
-            self.currentq_c = q_c
+        """Initialize the PAW corrections ahead of the actual calculation."""
+        self.get_paw_corrections(qpd)
+
+    def get_paw_corrections(self, qpd):
+        """Get PAW corrections correcsponding to a specific q-vector."""
+        if self._pawcorr is None \
+           or not np.allclose(qpd.q_c - self._currentq_c, 0.):
+            with self.context.timer('Initialize PAW corrections'):
+                self._pawcorr = self.gs.pair_density_paw_corrections(qpd)
+                self._currentq_c = qpd.q_c
+
+        return self._pawcorr
 
     @timer('Calculate pair density')
     def __call__(self, kptpair: KohnShamKPointPair, qpd) -> PairDensity:
@@ -52,24 +58,37 @@ class NewPairDensityCalculator:
                   = | dr e^-i(G+q)r psi_nks^*(r) psi_n'k+qs'(r)
                     /V0
         """
-        Q_aGii = self.get_paw_projectors(qpd)
-        Q_G = self.get_fft_indices(kptpair, qpd)
+        kpt1 = kptpair.kpt1
+        kpt2 = kptpair.kpt2
+
+        # Fourier transform the pseudo waves to the coarse real-space grid
+        # and symmetrize them along with the projectors
+        P1h, ut1_hR, shift1_c = self.gs.transform_and_symmetrize(
+            *kpt1.get_orbitals())
+        P2h, ut2_hR, shift2_c = self.gs.transform_and_symmetrize(
+            *kpt2.get_orbitals())
+
+        # Get the plane-wave indices to Fourier transform products of
+        # Kohn-Sham orbitals in k and k + q
+        dshift_c = shift1_c - shift2_c
+        Q_G = self.get_fft_indices(kpt1.K, kpt2.K, qpd, dshift_c)
 
         tblocks = kptpair.tblocks
         n_mytG = qpd.empty(tblocks.blocksize)
 
         # Calculate smooth part of the pair densities:
         with self.context.timer('Calculate smooth part'):
-            ut1cc_mytR = kptpair.kpt1.ut_mytR.conj()
-            n_mytR = ut1cc_mytR * kptpair.kpt2.ut_mytR
+            ut1cc_mytR = ut1_hR[kpt1.h_myt].conj()
+            n_mytR = ut1cc_mytR * ut2_hR[kpt2.h_myt]
             # Unvectorized
             for myt in range(tblocks.nlocal):
                 n_mytG[myt] = qpd.fft(n_mytR[myt], 0, Q_G) * qpd.gd.dv
 
         # Calculate PAW corrections with numpy
         with self.context.timer('PAW corrections'):
-            P1 = kptpair.kpt1.get_transitions_projections()
-            P2 = kptpair.kpt2.get_transitions_projections()
+            Q_aGii = self.get_paw_corrections(qpd).Q_aGii
+            P1 = kpt1.projectors_in_transition_index(P1h)
+            P2 = kpt2.projectors_in_transition_index(P2h)
             for (Q_Gii, (a1, P1_myti),
                  (a2, P2_myti)) in zip(Q_aGii, P1.items(), P2.items()):
                 P1cc_myti = P1_myti[:tblocks.nlocal].conj()
@@ -80,21 +99,6 @@ class NewPairDensityCalculator:
 
         return PairDensity(tblocks, n_mytG)
 
-    def get_paw_projectors(self, qpd):
-        """Make sure PAW correction has been initialized properly
-        and return projectors"""
-        self.initialize_paw_corrections(qpd)
-        return self.pawcorr.Q_aGii
-
-    @timer('Get G-vector indices')
-    def get_fft_indices(self, kptpair, qpd):
-        """Get indices for G-vectors inside cutoff sphere."""
+    def get_fft_indices(self, K1, K2, qpd, dshift_c):
         from gpaw.response.pair import fft_indices
-
-        kpt1 = kptpair.kpt1
-        kpt2 = kptpair.kpt2
-        kd = self.gs.kd
-        q_c = qpd.q_c
-
-        return fft_indices(kd=kd, K1=kpt1.K, K2=kpt2.K, q_c=q_c, qpd=qpd,
-                           shift0_c=kpt1.shift_c - kpt2.shift_c)
+        return fft_indices(self.gs.kd, K1, K2, qpd, dshift_c)
