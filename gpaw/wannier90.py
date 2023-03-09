@@ -196,7 +196,7 @@ def write_input(calc,
 
     f.close()
 
-def get_P_ani(calc, ik, spin = 0, kpt = None, spinors = False, soc = None):
+def get_P_ani(calc, ik, spin = 0, spinors = False, soc = None):
     """Returns P_ani
     calc: GPAW calculator
     ik: BZ k-point index
@@ -209,9 +209,10 @@ def get_P_ani(calc, ik, spin = 0, kpt = None, spinors = False, soc = None):
         assert soc is not None
         P_ani = soc[ik].P_amj
     else:
-        assert kpt is not None
-        assert ik == kpt.K
-        assert spin == kpt.s
+        n2 = calc.get_number_of_bands()
+        kpt = KPoint.get_k_point(gs, context.timer,
+                                 spin, ik,
+                                 0, n2)
         P_ani = kpt.P_ani #calc.wfs.kpt_qs[ik][spin].P_ani
     return P_ani
 
@@ -284,14 +285,7 @@ def write_projections(calc, seed=None, spin=0, orbitals_ai=None, soc=None):
 
     P_kni = np.zeros((Nk, Nn, Nw), complex)
     for ik in range(Nk):
-        if spinors:
-            kpt = None
-        else:
-            n2 = calc.get_number_of_bands()
-            kpt = KPoint.get_k_point(gs, context.timer,
-                                     spin, ik,
-                                     0, n2)
-        P_ani = get_P_ani(calc, ik, spin, kpt, spinors, soc)
+        P_ani = get_P_ani(calc, ik, spin, spinors, soc)
         for i in range(Nw):
             icount = 0
             for ai in range(Na):
@@ -418,11 +412,7 @@ def write_overlaps(calc, seed=None, spin=0, soc=None, less_memory=False):
         u_knG = []
 
     for ik in range(Nk):
-        n2 = calc.get_number_of_bands()
-        kpt = KPoint.get_k_point(gs, context.timer,
-                                 spin, ik,
-                                 0, n2)
-        P_ani = get_P_ani(calc, ik, spin, kpt, spinors, soc)
+        P_ani = get_P_ani(calc, ik, spin, spinors, soc)
         P_kani.append(P_ani)
     
         if not less_memory:
@@ -438,13 +428,6 @@ def write_overlaps(calc, seed=None, spin=0, soc=None, less_memory=False):
             # b denotes nearest neighbor k-points
             line = lines[i0 + ik1 * Nb + ib].split()
             ik2 = int(line[1]) - 1
-            n2 = calc.get_number_of_bands()
-            kpt1 = KPoint.get_k_point(gs, context.timer,
-                                      spin, ik1,
-                                      0, n2)
-            kpt2 = KPoint.get_k_point(gs, context.timer,
-                                      spin, ik2,
-                                      0, n2)
             if less_memory:
                 u2_nG = wavefunctions(ik2)
             else:
