@@ -173,43 +173,31 @@ class KohnShamKPointPairExtractor:
         """Get KohnShamKPoint and help other processes extract theirs"""
         assert len(n_t) == len(s_t)
         assert len(k_pc) <= self.kpts_blockcomm.size
-        kpt = None
 
         # Use the data extraction factory to extract the kptdata
-        _extract_kptdata = self.create_extract_kptdata()
-        kptdata = _extract_kptdata(k_pc, n_t, s_t)
+        kptdata = self.extract_kptdata(k_pc, n_t, s_t)
 
         # Initiate k-point object.
         if self.kpts_blockcomm.rank in range(len(k_pc)):
             assert kptdata is not None
             kpt = KohnShamKPoint(*kptdata)
+        else:
+            kpt = None
 
         return kpt
 
-    def create_extract_kptdata(self):
-        """Creator component of the data extraction factory."""
+    @timer('Extracting data from the ground state calculator object')
+    def extract_kptdata(self, k_pc, n_t, s_t):
+        """Extract the input data needed to construct the KohnShamKPoints."""
         if self.calc_parallel:
-            return self.parallel_extract_kptdata
+            return self.parallel_extract_kptdata(k_pc, n_t, s_t)
         else:
-            return self.serial_extract_kptdata
+            return self.serial_extract_kptdata(k_pc, n_t, s_t)
             # Useful for debugging:
-            # return self.parallel_extract_kptdata
+            # return self.parallel_extract_kptdata(k_pc, n_t, s_t)
 
     def parallel_extract_kptdata(self, k_pc, n_t, s_t):
-        """Extract the input data needed to construct the KohnShamKPoints."""
-        # Extract the data from the ground state calculator object
-        data = self._parallel_extract_kptdata(k_pc, n_t, s_t)
-
-        # Wait for communication to finish
-        with self.context.timer('Waiting to complete mpi.send'):
-            while self.srequests:
-                self.context.comm.wait(self.srequests.pop(0))
-
-        return data
-
-    @timer('Extracting data from the ground state calculator object')
-    def _parallel_extract_kptdata(self, k_pc, n_t, s_t):
-        """In-place kptdata extraction."""
+        """Extract the k-point data from a parallelized calculator."""
         (myK, myk_c, myik, myu_eu,
          myn_eueh, ik_r2,
          nrh_r2, eh_eur2reh,
@@ -249,6 +237,11 @@ class KohnShamKPointPairExtractor:
             eps_h, f_h, Ph, psit_hG = self.collect_kptdata(
                 myik, h_r1rh, eps_r1rh, f_r1rh, P_r1rhI, psit_r1rhG)
             data = myK, myk_c, eps_h, f_h, Ph, psit_hG, h_myt
+
+        # Wait for communication to finish
+        with self.context.timer('Waiting to complete mpi.send'):
+            while self.srequests:
+                self.context.comm.wait(self.srequests.pop(0))
 
         return data
 
@@ -557,43 +550,47 @@ class KohnShamKPointPairExtractor:
 
         return eps_h, f_h, Ph, psit_hG
 
-    @timer('Extracting data from the ground state calculator object')
     def serial_extract_kptdata(self, k_pc, n_t, s_t):
-        """Extract the input data needed to construct my KohnShamKPoint."""
-        # All processes can access all data. Each process extracts it own data.
+        """Extract the k-point data from a serial calculator.
+
+        Since all the processes can access all of the data, each process
+        extracts the data of its own k-point without any need for
+        communication."""
+        if self.kpts_blockcomm.rank not in range(len(k_pc)):
+            # No data to extract
+            return None
+
         gs = self.gs
         kpt_u = gs.kpt_u
 
-        # Do data extraction for the processes, which have data to extract
-        if self.kpts_blockcomm.rank in range(len(k_pc)):
-            # Find k-point indeces
-            k_c = k_pc[self.kpts_blockcomm.rank]
-            K = self.kptfinder.find(k_c)
-            ik = gs.kd.bz2ibz_k[K]
+        # Find k-point indeces
+        k_c = k_pc[self.kpts_blockcomm.rank]
+        K = self.kptfinder.find(k_c)
+        ik = gs.kd.bz2ibz_k[K]
 
-            (myu_eu, myn_eurn, nh,
-             h_eurn, h_myt) = self.get_serial_extraction_protocol(ik, n_t, s_t)
+        (myu_eu, myn_eurn, nh,
+         h_eurn, h_myt) = self.get_serial_extraction_protocol(ik, n_t, s_t)
 
-            # Allocate transfer arrays
-            eps_h = np.empty(nh)
-            f_h = np.empty(nh)
-            Ph = kpt_u[0].projections.new(nbands=nh, bcomm=None)
-            psit_hG = np.empty((nh, gs.pd.ng_q[ik]),
-                               dtype=kpt_u[0].psit.array.dtype)
+        # Allocate transfer arrays
+        eps_h = np.empty(nh)
+        f_h = np.empty(nh)
+        Ph = kpt_u[0].projections.new(nbands=nh, bcomm=None)
+        psit_hG = np.empty((nh, gs.pd.ng_q[ik]),
+                           dtype=kpt_u[0].psit.array.dtype)
 
-            # Extract data from the ground state
-            for myu, myn_rn, h_rn in zip(myu_eu, myn_eurn, h_eurn):
-                kpt = kpt_u[myu]
-                with self.context.timer('Extracting eps, f and P_I from wfs'):
-                    eps_h[h_rn] = kpt.eps_n[myn_rn]
-                    f_h[h_rn] = kpt.f_n[myn_rn] / kpt.weight
-                    Ph.array[h_rn] = kpt.projections.array[myn_rn]
+        # Extract data from the ground state
+        for myu, myn_rn, h_rn in zip(myu_eu, myn_eurn, h_eurn):
+            kpt = kpt_u[myu]
+            with self.context.timer('Extracting eps, f and P_I from wfs'):
+                eps_h[h_rn] = kpt.eps_n[myn_rn]
+                f_h[h_rn] = kpt.f_n[myn_rn] / kpt.weight
+                Ph.array[h_rn] = kpt.projections.array[myn_rn]
 
-                with self.context.timer('Extracting wave function from wfs'):
-                    for myn, h in zip(myn_rn, h_rn):
-                        psit_hG[h] = kpt.psit_nG[myn]
+            with self.context.timer('Extracting wave function from wfs'):
+                for myn, h in zip(myn_rn, h_rn):
+                    psit_hG[h] = kpt.psit_nG[myn]
 
-            return K, k_c, eps_h, f_h, Ph, psit_hG, h_myt
+        return K, k_c, eps_h, f_h, Ph, psit_hG, h_myt
 
     @timer('Create data extraction protocol')
     def get_serial_extraction_protocol(self, ik, n_t, s_t):
