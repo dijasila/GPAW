@@ -112,7 +112,11 @@ if platform_id:
     os.environ['_PYTHON_HOST_PLATFORM'] = get_platform() + '-' + platform_id
 
 if gpu:
-    assert gpu_target in ['cuda', 'hip-amd', 'hip-cuda']
+    valid_gpu_targets = ['cuda', 'hip-amd', 'hip-cuda']
+    if gpu_target not in valid_gpu_targets:
+        raise ValueError('Invalid gpu_target in configuration: '
+                         'gpu_target should be one of '
+                         f'{str(valid_gpu_targets)}.')
     if gpu_compiler is None:
         if gpu_target.startswith('hip'):
             gpu_compiler = 'hipcc'
