@@ -54,17 +54,21 @@ def construct_symmetry_operators(kd, gd, K, k_c, *, spos_ac, R_asii):
         a_a.append(b)
         U_aii.append(U_ii)
 
-    # Shift between symmetry mapped k-point and requested k_c
+    # A summary of the old code looks like this:
+    '''
     sign = 1 - 2 * time_reversal
-    shift_c = sign * U_cc @ ik_c - k_c
-
-    # I suspect that actually sign * U_cc @ ik_c == kd.bzk_kc[K],
-    # which would mean that we are doing some redundant shifting. XXX
-
+    shift_c = sign * (U_cc @ ik_c - sign * k_c)
     assert np.allclose(shift_c.round(), shift_c)
     shift_c = shift_c.round().astype(int)
-
     shift0_c = (kd.bzk_kc[K] - k_c).round().astype(int)
     shift_c += -shift0_c
+    '''
+    # Which, when one looks carefully, is equivalent to the following:
+    sign = 1 - 2 * time_reversal
+    shift_c = sign * U_cc @ ik_c - kd.bzk_kc[K]
+    assert np.allclose(shift_c.round(), shift_c)
+    shift_c = shift_c.round().astype(int)
+    # However, this would mean that the input k_c is ignored, and we
+    # would *not* get the desired shift...
 
     return U_cc, T, a_a, U_aii, shift_c, time_reversal
