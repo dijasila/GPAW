@@ -167,7 +167,7 @@ for flag, name in [(noblas, 'GPAW_WITHOUT_BLAS'),
                    (gpu and gpu_target == 'hip-cuda',
                        '__HIP_PLATFORM_NVIDIA__'),
                    ]:
-    if flag:
+    if flag and name not in [n for (n, v) in define_macros]:
         define_macros.append((name, '1'))
 
 sources = [Path('c/bmgs/bmgs.c')]
