@@ -209,10 +209,7 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     return error
 
 def build_gpu(gpu_compiler, gpu_compile_args, gpu_include_dirs,
-              define_macros,
-              gpu_target):
-    gpu_compile_args = gpu_compile_args.copy()
-
+              define_macros):
     cfgDict = get_config_vars()
     plat = get_platform() + '-{maj}.{min}'.format(maj=sys.version_info[0],
                                                   min=sys.version_info[1])
@@ -225,9 +222,6 @@ def build_gpu(gpu_compiler, gpu_compile_args, gpu_include_dirs,
     includes.append(cfgDict['INCLUDEPY'])
     includes.extend(gpu_include_dirs)
     includes = ' '.join(['-I' + incdir for incdir in includes])
-
-    if gpu_target == 'cuda':
-        gpu_compile_args.append('-x cu')
 
     gpuflags = ' '.join(gpu_compile_args)
 

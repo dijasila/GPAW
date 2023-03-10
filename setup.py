@@ -123,6 +123,9 @@ if gpu:
         elif gpu_target == 'cuda':
             gpu_compiler = 'nvcc'
 
+    if gpu_target == 'cuda':
+        gpu_compile_args.append('-x cu')
+
 
 if compiler is not None:
     # A hack to change the used compiler and linker, inspired by
@@ -213,8 +216,7 @@ class build_ext(build_ext):
             gpu_include_dirs.append(np.get_include())
             objects = build_gpu(gpu_compiler, gpu_compile_args,
                                 gpu_include_dirs,
-                                define_macros,
-                                gpu_target)
+                                define_macros)
             self.link_objects = objects
 
         super().run()
