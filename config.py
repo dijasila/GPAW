@@ -209,10 +209,8 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     return error
 
 def build_gpu(gpu_compiler, gpu_compile_args, gpu_include_dirs,
-              define_macros):
+              define_macros, build_temp):
     cfgDict = get_config_vars()
-    plat = get_platform() + '-{maj}.{min}'.format(maj=sys.version_info[0],
-                                                  min=sys.version_info[1])
 
     macros = []
     macros.extend(define_macros)
@@ -225,31 +223,26 @@ def build_gpu(gpu_compiler, gpu_compile_args, gpu_include_dirs,
 
     gpuflags = ' '.join(gpu_compile_args)
 
-    objects = []
+    kernels_dpath = Path('c/gpu/kernels')
 
-    build_path = Path('build/temp.%s' % plat)
-    build_path_gpu = Path(build_path, 'c/gpu')
-    build_path_kernels = Path(build_path, 'c/gpu/kernels')
-    for _build_path in [build_path_gpu, build_path_kernels]:
-        if not _build_path.exists():
-            try:
-                _build_path.mkdir(parents=True)
-            except FileExistsError:
-                pass
+    # Create temp build directory
+    build_temp_kernels_dpath = build_temp / kernels_dpath
+    build_temp_kernels_dpath.mkdir(parents=True, exist_ok=True)
 
     # Glob all kernel files, but remove those included by other kernels
-    kernels = sorted(Path('c/gpu/kernels').glob('*.cpp'))
+    kernels = sorted(kernels_dpath.glob('*.cpp'))
     for name in [
                  'lfc-reduce.cpp',
                  'lfc-reduce-kernel.cpp',
                  'reduce.cpp',
                  'reduce-kernel.cpp',
                  ]:
-        kernels.remove(Path(f'c/gpu/kernels/{name}'))
+        kernels.remove(kernels_dpath / name)
 
-    # compile GPU kernels
+    # Compile GPU kernels
+    objects = []
     for src in kernels:
-        obj = build_path / src.with_suffix('.o')
+        obj = build_temp / src.with_suffix('.o')
         objects.append(str(obj))
         cmd = ("%s %s %s %s -o %s -c %s ") % \
               (gpu_compiler,
