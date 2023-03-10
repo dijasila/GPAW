@@ -209,8 +209,8 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     return error
 
 def build_gpu(gpu_compiler, gpu_compile_args, gpu_include_dirs,
-              compiler, extra_compile_args, include_dirs, define_macros,
-              parallel_python_interpreter, gpu_target):
+              extra_compile_args, define_macros,
+              gpu_target):
     extra_compile_args = extra_compile_args.copy()
     gpu_compile_args = gpu_compile_args.copy()
 
@@ -220,13 +220,10 @@ def build_gpu(gpu_compiler, gpu_compile_args, gpu_include_dirs,
 
     macros = []
     macros.extend(define_macros)
-    if parallel_python_interpreter:
-        macros.append(('PARALLEL', '1'))
     macros = ' '.join(['-D%s=%s' % x for x in macros if x[0].strip()])
 
     includes = []
     includes.append(cfgDict['INCLUDEPY'])
-    includes.extend(include_dirs)
     includes.extend(gpu_include_dirs)
     includes = ' '.join(['-I' + incdir for incdir in includes])
 
@@ -254,23 +251,6 @@ def build_gpu(gpu_compiler, gpu_compile_args, gpu_include_dirs,
                 _build_path.mkdir(parents=True)
             except FileExistsError:
                 pass
-
-    # compile C files
-    cfiles = sorted(Path('c/gpu').glob('*.c'))
-    for src in cfiles:
-        obj = build_path / src.with_suffix('.o')
-        objects.append(str(obj))
-        cmd = ('%s %s %s %s -o %s -c %s ') % \
-              (compiler,
-               macros,
-               ' '.join(extra_compile_args),
-               includes,
-               obj,
-               src)
-        print(cmd)
-        sys.stdout.flush()
-        error = os.system(cmd)
-        assert error == 0
 
     # Glob all kernel files, but remove those included by other kernels
     kernels = sorted(Path('c/gpu/kernels').glob('*.cpp'))

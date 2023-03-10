@@ -164,6 +164,8 @@ for flag, name in [(noblas, 'GPAW_WITHOUT_BLAS'),
 
 sources = [Path('c/bmgs/bmgs.c')]
 sources += Path('c').glob('*.c')
+if gpu:
+    sources += Path('c/gpu').glob('*.c')
 sources += Path('c/xc').glob('*.c')
 if nolibxc:
     for name in ['libxc.c', 'm06l.c',
@@ -211,8 +213,8 @@ class build_ext(build_ext):
             gpu_include_dirs.append(np.get_include())
             objects = build_gpu(gpu_compiler, gpu_compile_args,
                                 gpu_include_dirs,
-                                compiler, extra_compile_args, include_dirs,
-                                define_macros, parallel_python_interpreter,
+                                extra_compile_args,
+                                define_macros,
                                 gpu_target)
             self.link_objects = objects
 
