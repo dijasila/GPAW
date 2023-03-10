@@ -210,6 +210,7 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
 
 def build_gpu(gpu_compiler, gpu_compile_args, gpu_include_dirs,
               define_macros, build_temp):
+    print('building gpu kernels', flush=True)
     cfgDict = get_config_vars()
 
     macros = []
@@ -227,7 +228,9 @@ def build_gpu(gpu_compiler, gpu_compile_args, gpu_include_dirs,
 
     # Create temp build directory
     build_temp_kernels_dpath = build_temp / kernels_dpath
-    build_temp_kernels_dpath.mkdir(parents=True, exist_ok=True)
+    if not build_temp_kernels_dpath.exists():
+        print(f'creating {build_temp_kernels_dpath}', flush=True)
+        build_temp_kernels_dpath.mkdir(parents=True)
 
     # Glob all kernel files, but remove those included by other kernels
     kernels = sorted(kernels_dpath.glob('*.cpp'))
@@ -251,8 +254,7 @@ def build_gpu(gpu_compiler, gpu_compile_args, gpu_include_dirs,
                includes,
                obj,
                src)
-        print(cmd)
-        sys.stdout.flush()
+        print(cmd, flush=True)
         error = os.system(cmd)
         assert error == 0
 
