@@ -45,7 +45,7 @@ class ElectrostaticCorrections():
         else:
             self.r0 = np.array([0, 0, 0])
         self.z0 = self.r0[2]
-        self.G_Gv = self.pd.get_reciprocal_vectors(q=0, add_q=False)  # G in Bohr^-1
+        self.G_Gv = self.pd.get_reciprocal_vectors(q=0, add_q=False)
         self.G2_G = self.pd.G2_qG[0]  # |\vec{G}|^2 in Bohr^-2
         self.rho_G = self.calculate_gaussian_density()
         self.Omega = abs(np.linalg.det(self.calc.density.gd.cell_cv))
@@ -300,7 +300,7 @@ class ElectrostaticCorrections():
             V_G = np.linalg.solve(A_GG,
                                   phase * np.array([0] + list(rho_Gz)))[1:]
         elif self.dimensionality == '3d':
-            phase = np.exp(1j * (G_z * self.z0)) 
+            phase = np.exp(1j * (G_z * self.z0))
             V_G = phase * rho_Gz / self.eb[1] / G_z ** 2
 
         for z in self.z_g:
