@@ -27,13 +27,6 @@ def construct_symmetry_operators(kd, gd, K, k_c, *, spos_ac, R_asii):
     ik = kd.bz2ibz_k[K]
     ik_c = kd.ibzk_kc[ik]
 
-    sign = 1 - 2 * time_reversal
-    shift_c = np.dot(U_cc, ik_c) - k_c * sign
-
-    assert np.allclose(shift_c.round(), shift_c)
-
-    shift_c = shift_c.round().astype(int)
-
     if (U_cc == np.eye(3)).all():
         def T(f_R):
             return f_R
@@ -51,8 +44,6 @@ def construct_symmetry_operators(kd, gd, K, k_c, *, spos_ac, R_asii):
         def T(f_R):
             return T0(f_R).conj()
 
-        shift_c *= -1
-
     a_a = []
     U_aii = []
     for a, R_sii in enumerate(R_asii):
@@ -62,6 +53,16 @@ def construct_symmetry_operators(kd, gd, K, k_c, *, spos_ac, R_asii):
         U_ii = R_sii[s].T * x
         a_a.append(b)
         U_aii.append(U_ii)
+
+    # Shift between symmetry mapped k-point and requested k_c
+    sign = 1 - 2 * time_reversal
+    shift_c = sign * U_cc @ ik_c - k_c
+
+    # I suspect that actually sign * U_cc @ ik_c == kd.bzk_kc[K],
+    # which would mean that we are doing some redundant shifting. XXX
+
+    assert np.allclose(shift_c.round(), shift_c)
+    shift_c = shift_c.round().astype(int)
 
     shift0_c = (kd.bzk_kc[K] - k_c).round().astype(int)
     shift_c += -shift0_c
