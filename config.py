@@ -211,14 +211,12 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
 def build_gpu(gpu_compiler, gpu_compile_args, gpu_include_dirs,
               define_macros, build_temp):
     print('building gpu kernels', flush=True)
-    cfgDict = get_config_vars()
 
     macros = []
     macros.extend(define_macros)
     macros = ' '.join(['-D%s=%s' % x for x in macros if x[0].strip()])
 
     includes = []
-    includes.append(cfgDict['INCLUDEPY'])
     includes.extend(gpu_include_dirs)
     includes = ' '.join(['-I' + incdir for incdir in includes])
 
