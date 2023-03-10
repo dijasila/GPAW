@@ -6,7 +6,7 @@ import os
 import re
 import sys
 from pathlib import Path
-from subprocess import PIPE, run
+from subprocess import run
 from sysconfig import get_platform
 
 from setuptools import Extension, find_packages, setup
@@ -62,7 +62,7 @@ scalapack = False
 libvdwxc = False
 elpa = False
 
-if os.name != 'nt' and run(['which', 'mpicc'], stdout=PIPE).returncode == 0:
+if os.name != 'nt' and run(['which', 'mpicc'], capture_output=True).returncode == 0:
     mpicompiler = 'mpicc'
 else:
     mpicompiler = None
