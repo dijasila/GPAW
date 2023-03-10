@@ -124,14 +124,12 @@ if gpu:
             gpu_compiler = 'nvcc'
 
     if gpu_target == 'cuda':
-        gpu_compile_args.append('-x cu')
+        gpu_compile_args += ['-x', 'cu']
 
-    if gpu_target in ['cuda', 'hip-cuda']:
-        if '-fPIC' not in ' '.join(gpu_compile_args):
-            gpu_compile_args.append('-Xcompiler -fPIC')
-    else:
-        if '-fPIC' not in ' '.join(gpu_compile_args):
-            gpu_compile_args.append('-fPIC')
+    if '-fPIC' not in ' '.join(gpu_compile_args):
+        if gpu_target in ['cuda', 'hip-cuda']:
+            gpu_compile_args += ['-Xcompiler']
+        gpu_compile_args += ['-fPIC']
 
 
 if compiler is not None:

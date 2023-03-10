@@ -3,6 +3,7 @@
 import os
 import sys
 import re
+from subprocess import run
 from sysconfig import get_config_vars, get_platform
 from glob import glob
 from pathlib import Path
@@ -212,16 +213,6 @@ def build_gpu(gpu_compiler, gpu_compile_args, gpu_include_dirs,
               define_macros, build_temp):
     print('building gpu kernels', flush=True)
 
-    macros = []
-    macros.extend(define_macros)
-    macros = ' '.join(['-D%s=%s' % x for x in macros if x[0].strip()])
-
-    includes = []
-    includes.extend(gpu_include_dirs)
-    includes = ' '.join(['-I' + incdir for incdir in includes])
-
-    gpuflags = ' '.join(gpu_compile_args)
-
     kernels_dpath = Path('c/gpu/kernels')
 
     # Create temp build directory
@@ -245,15 +236,18 @@ def build_gpu(gpu_compiler, gpu_compile_args, gpu_include_dirs,
     for src in kernels:
         obj = build_temp / src.with_suffix('.o')
         objects.append(str(obj))
-        cmd = ("%s %s %s %s -o %s -c %s ") % \
-              (gpu_compiler,
-               macros,
-               gpuflags,
-               includes,
-               obj,
-               src)
-        print(cmd, flush=True)
-        error = os.system(cmd)
-        assert error == 0
+        run_args = [gpu_compiler]
+        run_args += gpu_compile_args
+        run_args += [f'-D{name}={value}' for (name, value) in define_macros]
+        run_args += [f'-I{dpath}' for dpath in gpu_include_dirs]
+        run_args += ['-c', str(src)]
+        run_args += ['-o', str(obj)]
+        print(' '.join(run_args), flush=True)
+        p = run(run_args, check=False, shell=False)
+        if p.returncode != 0:
+            print(f'error: command {repr(gpu_compiler)} failed '
+                  f'with exit code {p.returncode}',
+                  file=sys.stderr, flush=True)
+            sys.exit(1)
 
     return objects
