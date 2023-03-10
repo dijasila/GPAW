@@ -30,11 +30,15 @@ class PairDensity:
 
 
 class NewPairDensityCalculator:
-    """Class for calculating pair densities
+    r"""Class for calculating pair densities
 
     n_kt(G+q) = n_nks,n'k+qs'(G+q) = <nks| e^-i(G+q)r |n'k+qs'>_V0
 
-    for a single k-point pair (k,k+q) in the plane wave mode"""
+                /
+              = | dr e^-i(G+q)r ψ_nks^*(r) ψ_n'k+qs'(r)
+                /V0
+
+    for a single k-point pair (k, k + q) in the plane-wave mode."""
     def __init__(self, gs, context):
         self.gs = gs
         self.context = context
@@ -59,14 +63,14 @@ class NewPairDensityCalculator:
 
     @timer('Calculate pair density')
     def __call__(self, kptpair: KohnShamKPointPair, qpd) -> PairDensity:
-        """Calculate the pair densities for all transitions t of the (k,k+q)
-        k-point pair:
+        r"""Calculate the pair density for all transitions t.
 
-        n_kt(G+q) = <nks| e^-i(G+q)r |n'k+qs'>_V0
+        In the PAW method, the all-electron pair density is calculated in
+        two contributions, the pseudo pair density and a PAW correction,
 
-                    /
-                  = | dr e^-i(G+q)r psi_nks^*(r) psi_n'k+qs'(r)
-                    /V0
+        n_kt(G+q) = ñ_kt(G+q) + Δn_kt(G+q),
+
+        see [PRB 103, 245110 (2021)] for details.
         """
         # Construct symmetrizers for the periodic part of the pseudo waves
         # and for the PAW projectors
@@ -82,8 +86,8 @@ class NewPairDensityCalculator:
         self.add_pseudo_pair_density(kptpair, qpd, n_mytG,
                                      ut1_symmetrizer, ut2_symmetrizer,
                                      shift1_c, shift2_c)
-        self.add_paw_corrections(kptpair, qpd, n_mytG,
-                                 Ph1_symmetrizer, Ph2_symmetrizer)
+        self.add_paw_correction(kptpair, qpd, n_mytG,
+                                Ph1_symmetrizer, Ph2_symmetrizer)
 
         return pair_density
 
@@ -91,32 +95,57 @@ class NewPairDensityCalculator:
     def add_pseudo_pair_density(self, kptpair, qpd, n_mytG,
                                 ut1_symmetrizer, ut2_symmetrizer,
                                 shift1_c, shift2_c):
-        """Some documentation here!                                            XXX
+        r"""Add the pseudo pair density to an output array.
+
+        The pseudo pair density is first evaluated on the coarse real-space
+        grid and then FFT'ed to reciprocal space:
+
+                    /               ˷          ˷
+        ñ_kt(G+q) = | dr e^-i(G+q)r ψ_nks^*(r) ψ_n'k+qs'(r)
+                    /V0
+                                 ˷          ˷
+                  = FFT_G[e^-iqr ψ_nks^*(r) ψ_n'k+qs'(r)]
         """
         kpt1 = kptpair.kpt1
         kpt2 = kptpair.kpt2
-        # Fourier transform the pseudo waves to the coarse real-space grid,
-        # and symmetrize them
+        # Fourier transform the periodic part of the pseudo waves to the coarse
+        # real-space grid and symmetrize them
         ut1_hR = self.get_periodic_pseudo_waves(kpt1, ut1_symmetrizer)
         ut2_hR = self.get_periodic_pseudo_waves(kpt2, ut2_symmetrizer)
+
+        # Calculate the pseudo pair density in real space
+        ut1cc_mytR = ut1_hR[kpt1.h_myt].conj()
+        n_mytR = ut1cc_mytR * ut2_hR[kpt2.h_myt]
 
         # Get the plane-wave indices to Fourier transform products of
         # Kohn-Sham orbitals in k and k + q
         dshift_c = shift1_c - shift2_c
         Q_G = self.get_fft_indices(kpt1.K, kpt2.K, qpd, dshift_c)
 
-        # Calculate the pseudo pair density in real space
-        ut1cc_mytR = ut1_hR[kpt1.h_myt].conj()
-        n_mytR = ut1cc_mytR * ut2_hR[kpt2.h_myt]
-
         # Add FFT of the pseudo pair density to the output array
         for n_G, n_R in zip(n_mytG, n_mytR):
             n_G[:] += qpd.fft(n_R, 0, Q_G) * qpd.gd.dv
 
     @timer('Calculate the pair density PAW corrections')
-    def add_paw_corrections(self, kptpair, qpd, n_mytG,
-                            Ph1_symmetrizer, Ph2_symmetrizer):
-        """Some documentation here!                                            XXX
+    def add_paw_correction(self, kptpair, qpd, n_mytG,
+                           Ph1_symmetrizer, Ph2_symmetrizer):
+        r"""Add the pair-density PAW correction to the output array.
+
+        The correction is calculated as a sum over augmentation spheres a
+        and projector indices i and j,
+                     __  __
+                     \   \   ˷     ˷     ˷    ˷
+        Δn_kt(G+q) = /   /  <ψ_nks|p_ai><p_aj|ψ_n'k+qs'> Q_aij(G+q)
+                     ‾‾  ‾‾
+                     a   i,j
+
+        where the pair-density PAW correction tensor is calculated from the
+        smooth and all-electron partial waves:
+
+                     /
+        Q_aij(G+q) = | dr e^-i(G+q)r [φ_ai^*(r-R_a) φ_aj(r-R_a)
+                     /V0                ˷             ˷
+                                      - φ_ai^*(r-R_a) φ_aj(r-R_a)]
         """
         kpt1 = kptpair.kpt1
         kpt2 = kptpair.kpt2
@@ -129,8 +158,8 @@ class NewPairDensityCalculator:
         Q_aGii = self.get_paw_corrections(qpd).Q_aGii
         P1 = kpt1.projectors_in_transition_index(P1h)
         P2 = kpt2.projectors_in_transition_index(P2h)
-        for (Q_Gii, (a1, P1_myti),
-             (a2, P2_myti)) in zip(Q_aGii, P1.items(), P2.items()):
+        for (Q_Gii, (_, P1_myti),  # Loop over atom index a
+             (_, P2_myti)) in zip(Q_aGii, P1.items(), P2.items()):
             # Make outer product of the projectors in the projector index i,j
             P1ccP2_mytii = P1_myti.conj()[..., np.newaxis] \
                 * P2_myti[:, np.newaxis]
