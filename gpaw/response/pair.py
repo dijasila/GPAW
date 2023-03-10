@@ -22,6 +22,8 @@ class KPoint:
         self.P_ani = P_ani      # PAW projections
         self.shift_c = shift_c  # np.dot(U_cc, ik_c) - k_c * sign
         self.gs = gs
+        self.shift_c = shift_c  # long story - see the
+        # ResponseGroundStateAdapter.construct_symmetry_operators() method
 
     def get_shifted_ut_nR(self):
         """ Returns ut_nR shifted to the 1:st BZ using shift_c
@@ -35,7 +37,7 @@ class KPoint:
     
     @classmethod
     def get_k_point(cls, gs, timer, s, k_c, n1,
-                    n2, block=False, blockcomm=None):
+                    n2, block=False, blockcomm=None, kptfinder=None):
         """Return wave functions for a specific k-point and spin.
 
         s: int
@@ -45,21 +47,19 @@ class KPoint:
         n1, n2: int
             Range of bands to include.
         """
-        from gpaw.response.symmetry_ops import construct_symmetry_operators
 
         assert n1 <= n2
 
         kd = gs.kd
-        kptfinder = KPointFinder(gs.kd.bzk_kc)
+
         # Parse kpoint: is k_c an index or a vector
         if not isinstance(k_c, numbers.Integral):
+            assert kptfinder is not None
             K = kptfinder.find(k_c)
-            shift0_c = (kd.bzk_kc[K] - k_c).round().astype(int)
         else:
             # Fall back to index
             K = k_c
-            shift0_c = np.array([0, 0, 0])
-            k_c = None
+            k_c = kd.bzk_kc[K]
 
         if block:
             nblocks = blockcomm.size
@@ -71,11 +71,10 @@ class KPoint:
         blocksize = (n2 - n1 + nblocks - 1) // nblocks
         na = min(n1 + rank * blocksize, n2)
         nb = min(na + blocksize, n2)
-        U_cc, T, a_a, U_aii, shift_c, time_reversal = \
-            construct_symmetry_operators(gs, K, k_c,
-                                         apply_strange_shift=False)
-        
-        shift_c += -shift0_c
+
+        _, T, a_a, U_aii, shift_c, time_reversal = \
+            gs.construct_symmetry_operators(K, k_c)
+
         ik = kd.bz2ibz_k[K]
         assert kd.comm.size == 1
         kpt = gs.kpt_qs[ik][s]
@@ -229,7 +228,8 @@ class PairDensityCalculator:
                                   self.context.timer,
                                   s, k_c, n1, n2,
                                   block=block,
-                                  blockcomm=self.blockcomm)
+                                  blockcomm=self.blockcomm,
+                                  kptfinder=self.kptfinder)
 
     @timer('Get kpoint pair')
     def get_kpoint_pair(self, qpd, s, Kork_c, n1, n2, m1, m2, block=False):
@@ -250,7 +250,7 @@ class PairDensityCalculator:
             kpt2 = self.get_k_point(s, k_c + q_c, m1, m2, block=block)
 
         with self.context.timer('fft indices'):
-            Q_G = fft_indices(self.gs.kd, kpt1.K, kpt2.K, q_c, qpd,
+            Q_G = fft_indices(self.gs.kd, kpt1.K, kpt2.K, qpd,
                               kpt1.shift_c - kpt2.shift_c)
 
         return KPointPair(kpt1, kpt2, Q_G)
@@ -489,11 +489,6 @@ class PairDensityCalculator:
 
         return vel_nv[n_n - na]
 
-    def construct_symmetry_operators(self, K, k_c=None):
-        from gpaw.response.symmetry_ops import construct_symmetry_operators
-        return construct_symmetry_operators(
-            self.gs, K, k_c, apply_strange_shift=False)
-
     def calculate_derivatives(self, kpt):
         ut_sKnvR = [{}, {}]
         ut_nvR = self.make_derivative(kpt.s, kpt.K, kpt.n1, kpt.n2)
@@ -504,8 +499,8 @@ class PairDensityCalculator:
     @timer('Derivatives')
     def make_derivative(self, s, K, n1, n2):
         gs = self.gs
-        U_cc, T, a_a, U_aii, shift_c, time_reversal = \
-            self.construct_symmetry_operators(K)
+        k_c = gs.kd.bzk_kc[K]
+        U_cc, T, _, _, _, _ = self.gs.construct_symmetry_operators(K, k_c)
         A_cv = gs.gd.cell_cv
         M_vv = np.dot(np.dot(A_cv.T, U_cc.T), np.linalg.inv(A_cv).T)
         ik = gs.kd.bz2ibz_k[K]
@@ -523,11 +518,11 @@ class PairDensityCalculator:
         return ut_nvR
 
 
-def fft_indices(kd, K1, K2, q_c, qpd, shift0_c):
+def fft_indices(kd, K1, K2, qpd, dshift_c):
     """Get indices for G-vectors inside cutoff sphere."""
     N_G = qpd.Q_qG[0]
-    shift_c = (shift0_c +
-               (q_c - kd.bzk_kc[K2] + kd.bzk_kc[K1]).round().astype(int))
+    shift_c = (dshift_c +
+               (qpd.q_c - kd.bzk_kc[K2] + kd.bzk_kc[K1]).round().astype(int))
     if shift_c.any():
         n_cG = np.unravel_index(N_G, qpd.gd.N_c)
         n_cG = [n_G + shift for n_G, shift in zip(n_cG, shift_c)]

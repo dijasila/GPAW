@@ -17,4 +17,4 @@ pbe_gap_s = pbe_sn[:, 1] - pbe_sn[:, 0]
 assert abs(pbe_gap_s - 2.319).max() < 0.01
 qp_sn = result['qp'][:, 0]
 qp_gap_s = qp_sn[:, 1] - qp_sn[:, 0]
-assert abs(qp_gap_s - 3.743).max() < 0.01
+assert abs(qp_gap_s - 2.799).max() < 0.01

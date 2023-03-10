@@ -195,7 +195,7 @@ class PointChargePotential(ExternalPotential):
         """Point-charge potential.
 
         charges: list of float
-            Charges.
+            Charges in units of |e|.
         positions: (N, 3)-shaped array-like of float
             Positions of charges in Angstrom.  Can be set later.
         rc: float
