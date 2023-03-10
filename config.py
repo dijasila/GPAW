@@ -209,9 +209,8 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     return error
 
 def build_gpu(gpu_compiler, gpu_compile_args, gpu_include_dirs,
-              extra_compile_args, define_macros,
+              define_macros,
               gpu_target):
-    extra_compile_args = extra_compile_args.copy()
     gpu_compile_args = gpu_compile_args.copy()
 
     cfgDict = get_config_vars()
@@ -227,16 +226,8 @@ def build_gpu(gpu_compiler, gpu_compile_args, gpu_include_dirs,
     includes.extend(gpu_include_dirs)
     includes = ' '.join(['-I' + incdir for incdir in includes])
 
-    if '-fPIC' not in extra_compile_args:
-        extra_compile_args.append('-fPIC')
-
     if gpu_target == 'cuda':
         gpu_compile_args.append('-x cu')
-
-    if gpu_target in ['cuda', 'hip-cuda']:
-        gpu_compile_args.append(f'-Xcompiler {",".join(extra_compile_args)}')
-    else:
-        gpu_compile_args += extra_compile_args
 
     gpuflags = ' '.join(gpu_compile_args)
 

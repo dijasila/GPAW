@@ -213,7 +213,6 @@ class build_ext(build_ext):
             gpu_include_dirs.append(np.get_include())
             objects = build_gpu(gpu_compiler, gpu_compile_args,
                                 gpu_include_dirs,
-                                extra_compile_args,
                                 define_macros,
                                 gpu_target)
             self.link_objects = objects
