@@ -3,6 +3,7 @@ from gpaw.xc.lda import LDA
 from gpaw.xc.gga import GGA
 from gpaw.xc.mgga import MGGA
 from gpaw.xc.noncollinear import NonCollinearLDAKernel
+from gpaw import libraries
 
 
 def xc_string_to_dict(string):
@@ -102,6 +103,7 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
             from gpaw.xc.sic import SIC
             return SIC(xc=name[:-7], **kwargs)
         elif name in {'TPSS', 'revTPSS', 'M06-L'}:
+            assert libraries['libxc'], 'Please compile with libxc'
             from gpaw.xc.kernel import XCKernel
             kernel = XCKernel(name)
         elif name in {'LDA', 'PBE', 'revPBE', 'RPBE', 'PW91'}:
