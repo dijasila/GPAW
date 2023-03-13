@@ -219,8 +219,8 @@ class QSymmetryOp:
         d_c = self.apply(q_c) - Q_c
         assert np.allclose(d_c.round(), d_c)
 
-    def get_shift0(self, q_c, Q_c):
-        shift0_c = q_c - self.apply(Q_c)
+    def get_shift0(self, Q_c, q_c):
+        shift0_c = Q_c - self.apply(q_c)
         assert np.allclose(shift0_c.round(), shift0_c)
         return shift0_c.round().astype(int)
 
@@ -269,13 +269,14 @@ class QSymmetryOp:
         symop = QSymmetryOp(sym, U_cc, sign)
         return symop, iQ, Q_c, iq, q_c
 
-    def apply_symop_q(self, qpd, q_c, pawcorr, kpt1, kpt2, debug=False):
+    def apply_symop_q(self, qpd, Q_c, pawcorr, kpt1, kpt2, debug=False):
         # returns necessary quantities to get symmetry transformed
         # density matrix
         N_c = qpd.gd.N_c
         i_cG = self.apply(np.unravel_index(qpd.Q_qG[0], N_c))
-        shift0_c = self.get_shift0(q_c, qpd.q_c)
-        shift_c = kpt1.shift_c - kpt2.shift_c - shift0_c
+        shift_c = kpt1.k_c + self.apply(qpd.q_c) - kpt2.k_c
+        assert np.allclose(shift_c.round(), shift_c)
+        shift_c = shift_c.round().astype(int)
         I_G = np.ravel_multi_index(i_cG + shift_c[:, None], N_c, 'wrap')
         qG_Gv = qpd.get_reciprocal_vectors(add_q=True)
         M_vv = self.get_M_vv(qpd.gd.cell_cv)
@@ -283,7 +284,9 @@ class QSymmetryOp:
         # XXX Can be removed together with G0W0 debug routine in future
         if debug:
             self.debug_i_cG = i_cG
-            self.debug_shift0_c = shift0_c
+            # Can we get rid of this debug statement of something, which is
+            # never used? XXX
+            self.debug_shift0_c = self.get_shift0(Q_c, qpd.q_c)
             self.debug_N_c = N_c
         return mypawcorr, I_G
 

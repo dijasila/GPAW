@@ -7,19 +7,17 @@ def construct_symmetry_operators(kd, gd, K, *, spos_ac, R_asii):
     We want to transform a k-point in the irreducible part of the BZ to
     the corresponding k-point with index K.
 
-    Returns U_cc, T, a_a, U_aii, shift_c and time_reversal, where:
+    Returns U_cc, T, a_a, U_aii, k_c and time_reversal, where:
 
     * U_cc is a rotation matrix.
     * T() is a function that transforms the periodic part of the wave
       function.
     * a_a is a list of symmetry related atom indices
     * U_aii is a list of rotation matrices for the PAW projections
-    * shift_c is three integers: see code below.
+    * k_c is an array of the relative k-point coordinates of the k-point to
+      which the wave function is mapped. NB: This can lie outside the 1st BZ.
     * time_reversal is a flag - if True, projections should be complex
       conjugated.
-
-    See the ResponseGroundStateAdapter.transform_and_symmetrize() method for
-    how to use these tuples.
     """
     s = kd.sym_k[K]
     U_cc = kd.symmetry.op_scc[s]
@@ -27,12 +25,9 @@ def construct_symmetry_operators(kd, gd, K, *, spos_ac, R_asii):
     ik = kd.bz2ibz_k[K]
     ik_c = kd.ibzk_kc[ik]
 
-    # Calculate the difference between the k-point, which the symmetry operator
-    # maps to and the requested k-point in the 1st BZ
+    # Apply symmetry operations to the irreducible k-point
     sign = 1 - 2 * time_reversal
-    shift_c = sign * U_cc @ ik_c - kd.bzk_kc[K]
-    assert np.allclose(shift_c.round(), shift_c)
-    shift_c = shift_c.round().astype(int)
+    k_c = sign * U_cc @ ik_c
 
     if (U_cc == np.eye(3)).all():
         def T(f_R):
@@ -61,4 +56,4 @@ def construct_symmetry_operators(kd, gd, K, *, spos_ac, R_asii):
         a_a.append(b)
         U_aii.append(U_ii)
 
-    return U_cc, T, a_a, U_aii, shift_c, time_reversal
+    return U_cc, T, a_a, U_aii, k_c, time_reversal

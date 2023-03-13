@@ -10,7 +10,7 @@ from gpaw.utilities.blas import mmm
 
 class KPoint:
     def __init__(self, s, K, n1, n2, blocksize, na, nb,
-                 ut_nR, eps_n, f_n, P_ani, shift_c):
+                 ut_nR, eps_n, f_n, P_ani, k_c):
         self.s = s    # spin index
         self.K = K    # BZ k-point index
         self.n1 = n1  # first band
@@ -22,8 +22,7 @@ class KPoint:
         self.eps_n = eps_n      # eigenvalues
         self.f_n = f_n          # occupation numbers
         self.P_ani = P_ani      # PAW projections
-        self.shift_c = shift_c  # long story - see the
-        # ResponseGroundStateAdapter.construct_symmetry_operators() method
+        self.k_c = k_c  # k-point coordinates
 
 
 class PairDistribution:
@@ -181,7 +180,7 @@ class PairDensityCalculator:
         na = min(n1 + rank * blocksize, n2)
         nb = min(na + blocksize, n2)
 
-        _, T, a_a, U_aii, shift_c, time_reversal = \
+        _, T, a_a, U_aii, k_c, time_reversal = \
             self.gs.construct_symmetry_operators(K)
 
         ik = kd.bz2ibz_k[K]
@@ -208,7 +207,7 @@ class PairDensityCalculator:
                 P_ani.append(P_ni)
 
         return KPoint(s, K, n1, n2, blocksize, na, nb,
-                      ut_nR, eps_n, f_n, P_ani, shift_c)
+                      ut_nR, eps_n, f_n, P_ani, k_c)
 
     @timer('Get kpoint pair')
     def get_kpoint_pair(self, qpd, s, Kork_c, n1, n2, m1, m2, block=False):
@@ -229,8 +228,7 @@ class PairDensityCalculator:
             kpt2 = self.get_k_point(s, k_c + q_c, m1, m2, block=block)
 
         with self.context.timer('fft indices'):
-            Q_G = fft_indices(self.gs.kd, kpt1.K, kpt2.K, qpd,
-                              kpt1.shift_c - kpt2.shift_c)
+            Q_G = fft_indices(kpt1.k_c, kpt2.k_c, qpd)
 
         return KPointPair(kpt1, kpt2, Q_G)
 
@@ -346,10 +344,8 @@ class PairDensityCalculator:
         if self.ut_sKnvR is None or kpt1.K not in self.ut_sKnvR[kpt1.s]:
             self.ut_sKnvR = self.calculate_derivatives(kpt1)
 
-        kd = self.gs.kd
         gd = self.gs.gd
-        k_c = kd.bzk_kc[kpt1.K] + kpt1.shift_c
-        k_v = 2 * np.pi * np.dot(k_c, np.linalg.inv(gd.cell_cv).T)
+        k_v = 2 * np.pi * np.dot(kpt1.k_c, np.linalg.inv(gd.cell_cv).T)
 
         ut_vR = self.ut_sKnvR[kpt1.s][kpt1.K][n - kpt1.n1]
         atomdata_a = self.gs.pawdatasets
@@ -411,10 +407,8 @@ class PairDensityCalculator:
         assert np.min(n_n) >= na, 'This is too few bands'
 
         # Load kpoints
-        kd = self.gs.kd
         gd = self.gs.gd
-        k_c = kd.bzk_kc[kpt.K] + kpt.shift_c
-        k_v = 2 * np.pi * np.dot(k_c, np.linalg.inv(gd.cell_cv).T)
+        k_v = 2 * np.pi * np.dot(kpt.k_c, np.linalg.inv(gd.cell_cv).T)
         atomdata_a = self.gs.pawdatasets
 
         # Break bands into degenerate chunks
@@ -496,11 +490,12 @@ class PairDensityCalculator:
         return ut_nvR
 
 
-def fft_indices(kd, K1, K2, qpd, dshift_c):
+def fft_indices(k1_c, k2_c, qpd):
     """Get indices for G-vectors inside cutoff sphere."""
     N_G = qpd.Q_qG[0]
-    shift_c = (dshift_c +
-               (qpd.q_c - kd.bzk_kc[K2] + kd.bzk_kc[K1]).round().astype(int))
+    shift_c = k1_c + qpd.q_c - k2_c
+    assert np.allclose(shift_c.round(), shift_c)
+    shift_c = shift_c.round().astype(int)
     if shift_c.any():
         n_cG = np.unravel_index(N_G, qpd.gd.N_c)
         n_cG = [n_G + shift for n_G, shift in zip(n_cG, shift_c)]

@@ -4,6 +4,7 @@ import numpy as np
 
 from gpaw.response import timer
 from gpaw.response.kspair import KohnShamKPointPair
+from gpaw.response.pair import fft_indices
 
 
 class PairDensity:
@@ -74,9 +75,9 @@ class NewPairDensityCalculator:
         """
         # Construct symmetrizers for the periodic part of the pseudo waves
         # and for the PAW projectors
-        ut1_symmetrizer, Ph1_symmetrizer, shift1_c = \
+        ut1_symmetrizer, Ph1_symmetrizer, k1_c = \
             self.construct_symmetrizers(kptpair.kpt1)
-        ut2_symmetrizer, Ph2_symmetrizer, shift2_c = \
+        ut2_symmetrizer, Ph2_symmetrizer, k2_c = \
             self.construct_symmetrizers(kptpair.kpt2)
 
         # Initialize a blank pair density object
@@ -85,7 +86,7 @@ class NewPairDensityCalculator:
 
         self.add_pseudo_pair_density(kptpair, qpd, n_mytG,
                                      ut1_symmetrizer, ut2_symmetrizer,
-                                     shift1_c, shift2_c)
+                                     k1_c, k2_c)
         self.add_paw_correction(kptpair, qpd, n_mytG,
                                 Ph1_symmetrizer, Ph2_symmetrizer)
 
@@ -94,7 +95,7 @@ class NewPairDensityCalculator:
     @timer('Calculate the pseudo pair density')
     def add_pseudo_pair_density(self, kptpair, qpd, n_mytG,
                                 ut1_symmetrizer, ut2_symmetrizer,
-                                shift1_c, shift2_c):
+                                k1_c, k2_c):
         r"""Add the pseudo pair density to an output array.
 
         The pseudo pair density is first evaluated on the coarse real-space
@@ -119,8 +120,7 @@ class NewPairDensityCalculator:
 
         # Get the plane-wave indices to Fourier transform products of
         # Kohn-Sham orbitals in k and k + q
-        dshift_c = shift1_c - shift2_c
-        Q_G = self.get_fft_indices(kpt1.K, kpt2.K, qpd, dshift_c)
+        Q_G = fft_indices(k1_c, k2_c, qpd)
 
         # Add FFT of the pseudo pair density to the output array
         nlocalt = kptpair.tblocks.nlocal
@@ -183,7 +183,7 @@ class NewPairDensityCalculator:
 
     def construct_symmetrizers(self, kpt):
         """Construct functions to symmetrize ut_hR and Ph."""
-        _, T, a_a, U_aii, shift_c, time_reversal = \
+        _, T, a_a, U_aii, k_c, time_reversal = \
             self.gs.construct_symmetry_operators(kpt.K)
 
         ut_symmetrizer = T
@@ -191,11 +191,7 @@ class NewPairDensityCalculator:
                                  a1_a2=a_a, U_aii=U_aii,
                                  time_reversal=time_reversal)
 
-        return ut_symmetrizer, Ph_symmetrizer, shift_c
-
-    def get_fft_indices(self, K1, K2, qpd, dshift_c):
-        from gpaw.response.pair import fft_indices
-        return fft_indices(self.gs.kd, K1, K2, qpd, dshift_c)
+        return ut_symmetrizer, Ph_symmetrizer, k_c
 
 
 def symmetrize_projections(Ph, a1_a2, U_aii, time_reversal):
