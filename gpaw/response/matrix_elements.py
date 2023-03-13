@@ -160,8 +160,12 @@ class NewPairDensityCalculator:
         Q_aGii = self.get_paw_corrections(qpd).Q_aGii
         P1 = kpt1.projectors_in_transition_index(P1h)
         P2 = kpt2.projectors_in_transition_index(P2h)
-        for (Q_Gii, (_, P1_myti),  # Loop over atom index a
-             (_, P2_myti)) in zip(Q_aGii, P1.items(), P2.items()):
+        for a, Q_Gii in enumerate(Q_aGii):  # Loop over augmentation spheres
+            # NB: There does not seem to be any strict guarantee that the order
+            # of the PAW corrections matches the projections keys.
+            # This is super dangerous and should be rectified in the future XXX
+            P1_myti = P1[a]
+            P2_myti = P2[a]
             # Make outer product of the projectors in the projector index i,j
             P1ccP2_mytii = P1_myti.conj()[..., np.newaxis] \
                 * P2_myti[:, np.newaxis]
