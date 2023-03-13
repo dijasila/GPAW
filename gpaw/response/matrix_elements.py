@@ -123,6 +123,8 @@ class NewPairDensityCalculator:
         Q_G = self.get_fft_indices(kpt1.K, kpt2.K, qpd, dshift_c)
 
         # Add FFT of the pseudo pair density to the output array
+        nlocalt = kptpair.tblocks.nlocal
+        assert len(n_mytG) == nlocalt and len(n_mytR) == nlocalt
         for n_G, n_R in zip(n_mytG, n_mytR):
             n_G[:] += qpd.fft(n_R, 0, Q_G) * qpd.gd.dv
 
