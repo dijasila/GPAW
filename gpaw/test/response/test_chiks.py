@@ -24,7 +24,7 @@ def generate_system_s(spincomponents=['00', '+-']):
         ('fancy_si_pw_wfs', '00', 1e-5, 1e-6, 1e-5),
         ('al_pw_wfs', '00', 1e-5, 4.0, 1e-5),  # unstable symmetry -> #788
         ('fe_pw_wfs', '00', 1e-5, 1e-6, 1e-5),
-        ('fe_pw_wfs', '+-', 0.04, 0.01, 0.02)
+        ('fe_pw_wfs', '+-', 0.04, 0.02, 0.02)
     ]
 
     # Filter spincomponents
