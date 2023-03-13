@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from ase.utils import lazyproperty
+
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
 from gpaw.response.symmetry import KPointFinder
 from gpaw.response.pw_parallelization import Blocks1D
@@ -23,6 +25,15 @@ class KohnShamKPoint:
         self.psit_hG = psit_hG   # Pseudo wave function plane-wave components
         self.h_myt = h_myt       # myt -> h index mapping
 
+    @lazyproperty
+    def nh(self):
+        nh = len(self.eps_h)
+        assert len(self.f_h) == nh
+        assert self.Ph.nbands == nh
+        assert len(self.psit_hG) == nh
+
+        return nh
+
     @property
     def eps_myt(self):
         return self.eps_h[self.h_myt]
@@ -30,13 +41,6 @@ class KohnShamKPoint:
     @property
     def f_myt(self):
         return self.f_h[self.h_myt]
-
-    def get_orbitals(self):
-        """Return data relating the the Kohn-Sham orbitals.
-
-        Specifically, these are the inputs to
-        ResponseGroundStateAdapter.transform_and_symmetrize()"""
-        return self.K, self.k_c, self.Ph, self.psit_hG
 
     def projectors_in_transition_index(self, Ph):
         Pmyt = Ph.new(nbands=len(self.h_myt), bcomm=None)
