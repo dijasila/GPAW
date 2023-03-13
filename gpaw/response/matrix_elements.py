@@ -184,7 +184,7 @@ class NewPairDensityCalculator:
     def construct_symmetrizers(self, kpt):
         """Construct functions to symmetrize ut_hR and Ph."""
         _, T, a_a, U_aii, shift_c, time_reversal = \
-            self.gs.construct_symmetry_operators(kpt.K, kpt.k_c)
+            self.gs.construct_symmetry_operators(kpt.K)
 
         ut_symmetrizer = T
         Ph_symmetrizer = partial(symmetrize_projections,

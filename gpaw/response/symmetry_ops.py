@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def construct_symmetry_operators(kd, gd, K, k_c, *, spos_ac, R_asii):
+def construct_symmetry_operators(kd, gd, K, *, spos_ac, R_asii):
     """Construct symmetry operators for wave function and PAW projections.
 
     We want to transform a k-point in the irreducible part of the BZ to
@@ -26,6 +26,13 @@ def construct_symmetry_operators(kd, gd, K, k_c, *, spos_ac, R_asii):
     time_reversal = kd.time_reversal_k[K]
     ik = kd.bz2ibz_k[K]
     ik_c = kd.ibzk_kc[ik]
+
+    # Calculate the difference between the k-point, which the symmetry operator
+    # maps to and the requested k-point in the 1st BZ
+    sign = 1 - 2 * time_reversal
+    shift_c = sign * U_cc @ ik_c - kd.bzk_kc[K]
+    assert np.allclose(shift_c.round(), shift_c)
+    shift_c = shift_c.round().astype(int)
 
     if (U_cc == np.eye(3)).all():
         def T(f_R):
@@ -53,22 +60,5 @@ def construct_symmetry_operators(kd, gd, K, k_c, *, spos_ac, R_asii):
         U_ii = R_sii[s].T * x
         a_a.append(b)
         U_aii.append(U_ii)
-
-    # A summary of the old code looks like this:
-    '''
-    sign = 1 - 2 * time_reversal
-    shift_c = sign * (U_cc @ ik_c - sign * k_c)
-    assert np.allclose(shift_c.round(), shift_c)
-    shift_c = shift_c.round().astype(int)
-    shift0_c = (kd.bzk_kc[K] - k_c).round().astype(int)
-    shift_c += -shift0_c
-    '''
-    # Which, when one looks carefully, is equivalent to the following:
-    sign = 1 - 2 * time_reversal
-    shift_c = sign * U_cc @ ik_c - kd.bzk_kc[K]
-    assert np.allclose(shift_c.round(), shift_c)
-    shift_c = shift_c.round().astype(int)
-    # However, this would mean that the input k_c is ignored, and we
-    # would *not* get the desired shift...
 
     return U_cc, T, a_a, U_aii, shift_c, time_reversal
