@@ -103,7 +103,7 @@ class LCAOWaveFunctions(WaveFunctions):
         self.P_aqMi = None
         self.debug_tci = False
         self.Ehrenfest_force_flag = False
-        self.S_flag = True
+        self.S_flag = False
 
         if atomic_correction is None:
             atomic_correction = 'sparse' if ksl.using_blacs else 'dense'
@@ -542,10 +542,6 @@ class LCAOForces:
             else:
                 self.rhoT_uMM, self.ET_uMM = \
                     self.get_ET_rhoT_from_density_matrix()
-                # TEMPORARY SOLUTION
-                self.rhoT_uMM, self.ET_uMM = \
-                    self.get_ET_rhoT_from_coefficients()
-
             self.timer.stop('Initial')
 
     def get_Ehrenfest_force_contribution(self):
@@ -656,8 +652,8 @@ class LCAOForces:
                                                                  kpt.C_nM)
             else:
                 rhoT_MM = kpt.rho_MM.T.copy()
-
-            ET_MM = (S_inv_MM @ H_MM @ rhoT_MM)
+            ET_MM = np.linalg.solve(S_MM.conj(), gemmdot(H_MM.conj(),rhoT_MM)).copy()
+            #ET_MM = (S_inv_MM.conj() @ H_MM.conj() @ rhoT_MM).copy()
             del S_MM, H_MM
             rhoT_uMM.append(rhoT_MM)
             ET_uMM.append(ET_MM)
@@ -834,7 +830,7 @@ class LCAOForces:
                         'N',
                         dOP_iM, 'N',
                         0.0, work_MM)
-                    ZE_MM[u, b, v, :, :] = (work_MM * self.ET_uMM[u]).real
+                    ZE_MM[b, u, v, :, :] = (work_MM * self.ET_uMM[u]).real
         self.timer.stop('get paw correction')
         return ZE_MM
 
