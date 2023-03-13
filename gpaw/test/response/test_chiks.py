@@ -63,13 +63,6 @@ def generate_gc_g():
 # ---------- Actual tests ---------- #
 
 
-def mark_si_xfail(system, request):
-    # Bug tracked in #802
-    wfs = system[0]
-    if wfs == 'fancy_si_pw_wfs' and world.size % 4 == 0:
-        request.node.add_marker(pytest.mark.xfail)
-
-
 @pytest.mark.response
 @pytest.mark.parametrize(
     'system,qrel,gammacentered',
@@ -103,7 +96,6 @@ def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered, request):
     such that these symmetries cannot be fulfilled exactly. Generally speaking,
     the "symmetry" noise can be reduced by running with symmetry='off' in
     the ground state calculation."""
-    mark_si_xfail(system, request)
 
     # ---------- Inputs ---------- #
 
