@@ -9,7 +9,7 @@ from gpaw.utilities import compiled_with_sl
 from gpaw.response.df import DielectricFunction
 
 # Comparing the plasmon peaks found in bulk sodium for two different
-# atomic structures. Testing for idential plasmon peaks. Not using
+# atomic structures. Testing for identical plasmon peaks. Not using
 # physical sodium cell.
 
 
@@ -21,6 +21,11 @@ def test_response_na_plasmon(in_tmp_dir):
                cell=(a, a, a),
                pbc=True)
 
+    # parallel calculations must have domain = 1
+    parallel = {'band': 1}
+    if world.size > 1 and compiled_with_sl():
+        parallel.update({'domain': 1})
+
     # Expanding along x-direction
     a2 = Atoms('Na2',
                scaled_positions=[[0, 0.1, 0], [0.5, 0.1, 0]],
@@ -29,14 +34,14 @@ def test_response_na_plasmon(in_tmp_dir):
 
     a1.calc = GPAW(mode=PW(250),
                    kpts={'size': (4, 4, 4), 'gamma': True},
-                   parallel={'band': 1},
+                   parallel=parallel,
                    # txt='small.txt',
                    )
 
     # Kpoint sampling should be halved in the expanded direction.
     a2.calc = GPAW(mode=PW(250),
                    kpts={'size': (2, 4, 4), 'gamma': True},
-                   parallel={'band': 1},
+                   parallel=parallel,
                    # txt='large.txt',
                    )
 
@@ -73,11 +78,10 @@ def test_response_na_plasmon(in_tmp_dir):
     # list of intensities to compare against. Intensity values matched
     # to 10-3 w/ higher tol. Speeding up test degraded the agreement to 10-2
     # Added additional intensity difference check test with tol 10-3
-    I_diffsx = [0.008999, 0.007558, 0.008999, 0.007558, 0.006101]
-    I_diffsy = [0.004063, 0.004063, 0.004063, 0.004063, 0.004063]
-    I_diffsz = [0.004063, 0.005689, 0.004244, 0.005689, 0.005689]
+    I_diffs = {'x': [0.008999, 0.007558, 0.008999, 0.007558, 0.006101],
+               'y': [0.004063, 0.004063, 0.004063, 0.004063, 0.004063],
+               'z': [0.004063, 0.005689, 0.004244, 0.005689, 0.005689]}
     for idx, kwargs in enumerate(settings):
-        print(kwargs)
         df1 = DielectricFunction('gs_Na_small.gpw',
                                  ecut=40,
                                  rate=0.001,
@@ -109,8 +113,11 @@ def test_response_na_plasmon(in_tmp_dir):
         w1, I1 = findpeak(w_w, -(1. / df1LFCx).imag)
         w2, I2 = findpeak(w_w, -(1. / df2LFCx).imag)
         I_diff = abs(I1 - I2)
+        # test that the frequency for 2 settings are aprx equal
         equal(w1, w2, 1e-2)
-        assert I_diff == pytest.approx(I_diffsx[idx], abs=5e-3)
+        # test that the intensity difference is within some tol
+        assert I_diff == pytest.approx(I_diffs['x'][idx], abs=5e-3)
+        # test that the intensities are aprx equal
         equal(I1, I2, 1e-2)
 
         # y values
@@ -118,18 +125,15 @@ def test_response_na_plasmon(in_tmp_dir):
         w2, I2 = findpeak(w_w, -(1. / df2LFCy).imag)
         I_diff = abs(I1 - I2)
         equal(w1, w2, 1e-2)
-        assert I_diff == pytest.approx(I_diffsy[idx], abs=5e-3)
+        assert I_diff == pytest.approx(I_diffs['y'][idx], abs=5e-3)
         equal(I1, I2, 1e-2)
 
         # z values
         w1, I1 = findpeak(w_w, -(1. / df1LFCz).imag)
         w2, I2 = findpeak(w_w, -(1. / df2LFCz).imag)
         I_diff = abs(I1 - I2)
-        # test that the frequency for 2 methods are aprx equal
         equal(w1, w2, 1e-2)
-        # test that the intensity difference is within some tol
-        assert I_diff == pytest.approx(I_diffsz[idx], abs=5e-3)
-        # test that the intensities are aprx equal
+        assert I_diff == pytest.approx(I_diffs['z'][idx], abs=5e-3)
         equal(I1, I2, 1e-2)
 
     # Check for self-consistency
