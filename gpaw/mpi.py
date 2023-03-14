@@ -126,6 +126,10 @@ class _Communicator:
             assert root == -1 or 0 <= root < self.size
             self.comm.sum(a, root)
 
+    def sum_scalar(self, a, root=-1):
+        assert isinstance(a, (int, float, complex))
+        return self.comm.sum_scalar(a, root)
+
     def product(self, a, root=-1):
         """Do multiplication by MPI reduce operations of numerical data.
 
@@ -616,6 +620,9 @@ class SerialCommunicator:
     def sum(self, array, root=-1):
         if isinstance(array, (int, float, complex)):
             return array
+    
+    def sum_scalar(self, a, root=-1):
+        return a
 
     def scatter(self, s, r, root):
         r[:] = s

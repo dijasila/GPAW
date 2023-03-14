@@ -727,9 +727,74 @@ static PyObject * mpi_reduce(MPIObject *self, PyObject *args, PyObject *kwargs,
     }
 }
 
+static PyObject * mpi_reduce_scalar(MPIObject *self, PyObject *args, PyObject *kwargs,
+                                    MPI_Op operation, int allowcomplex)
+{
+#ifdef GPAW_MPI_DEBUG
+  MPI_Barrier(self->comm);
+#endif
+  PyObject* obj;
+  int root = -1;
+  static char *kwlist[] = {"a", "root", NULL};
+
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O|i:reduce", kwlist,
+				   &obj, &root))
+    return NULL;
+  CHK_PROC_DEF(root);
+  if (PyFloat_Check(obj))
+    {
+      double din = PyFloat_AS_DOUBLE(obj);
+      double dout;
+      if (root == -1)
+	MPI_Allreduce(&din, &dout, 1, MPI_DOUBLE, operation, self->comm);
+      else
+	MPI_Reduce(&din, &dout, 1, MPI_DOUBLE, operation, root, self->comm);
+      return PyFloat_FromDouble(dout);
+    }
+  if (PyLong_Check(obj))
+    {
+      long din = PyLong_AS_LONG(obj);
+      long dout;
+      if (root == -1)
+	MPI_Allreduce(&din, &dout, 1, MPI_LONG, operation, self->comm);
+      else
+	MPI_Reduce(&din, &dout, 1, MPI_LONG, operation, root, self->comm);
+      return PyLong_FromLong(dout);
+    }
+  else if (PyComplex_Check(obj) && allowcomplex)
+    {
+      double din[2];
+      double dout[2];
+      din[0] = PyComplex_RealAsDouble(obj);
+      din[1] = PyComplex_ImagAsDouble(obj);
+      if (root == -1)
+	MPI_Allreduce(&din, &dout, 2, MPI_DOUBLE, MPI_SUM, self->comm);
+      else
+	MPI_Reduce(&din, &dout, 2, MPI_DOUBLE, MPI_SUM, root, self->comm);
+      return PyComplex_FromDoubles(dout[0], dout[1]);
+    }
+  else if (PyComplex_Check(obj))
+    {
+      PyErr_SetString(PyExc_ValueError,
+		      "Operation not allowed on complex numbers");
+      return NULL;
+    }
+  else   // It should be an array
+    {
+       PyErr_SetString(PyExc_ValueError,
+           "Operation not allowed for this datatype for mpi_sum_scalar.");
+	      return NULL;
+    }
+}
+
 static PyObject * mpi_sum(MPIObject *self, PyObject *args, PyObject *kwargs)
 {
   return mpi_reduce(self, args, kwargs, MPI_SUM, 1);
+}
+
+static PyObject * mpi_sum_scalar(MPIObject *self, PyObject *args, PyObject *kwargs)
+{
+  return mpi_reduce_scalar(self, args, kwargs, MPI_SUM, 1);
 }
 
 static PyObject * mpi_product(MPIObject *self, PyObject *args, PyObject *kwargs)
@@ -1024,6 +1089,9 @@ static PyMethodDef mpi_methods[] = {
     {"sum",              (PyCFunction)mpi_sum,
      METH_VARARGS|METH_KEYWORDS,
      "sum(a, root=-1) sums arrays, result on all tasks unless root is given."},
+    {"sum_scalar",       (PyCFunction)mpi_sum_scalar,
+     METH_VARARGS|METH_KEYWORDS,
+     "sum_scalar(a, root=-1) sums numbers, result on all tasks unless root is given. Returns the sum."},
     {"product",          (PyCFunction)mpi_product,
      METH_VARARGS|METH_KEYWORDS,
      "product(a, root=-1) multiplies arrays, result on all tasks unless root is given."},
