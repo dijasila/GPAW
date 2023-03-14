@@ -266,8 +266,8 @@ static void mpi_dealloc(MPIObject *obj)
 static PyObject * mpi_sendreceive(MPIObject *self, PyObject *args,
 				  PyObject *kwargs)
 {
-    PyArrayObject* a;
-    PyArrayObject* b;
+    PyObject* a;
+    PyObject* b;
     int dest, src;
     int sendtag = 123;
     int recvtag = 123;
@@ -306,7 +306,7 @@ static PyObject * mpi_sendreceive(MPIObject *self, PyObject *args,
 
 static PyObject * mpi_receive(MPIObject *self, PyObject *args, PyObject *kwargs)
 {
-  PyArrayObject* a;
+  PyObject* a;
   int src;
   int tag = 123;
   int block = 1;
@@ -359,7 +359,7 @@ static PyObject * mpi_receive(MPIObject *self, PyObject *args, PyObject *kwargs)
 
 static PyObject * mpi_send(MPIObject *self, PyObject *args, PyObject *kwargs)
 {
-  PyArrayObject* a;
+  PyObject* a;
   int dest;
   int tag = 123;
   int block = 1;
@@ -410,7 +410,7 @@ static PyObject * mpi_send(MPIObject *self, PyObject *args, PyObject *kwargs)
 
 static PyObject * mpi_ssend(MPIObject *self, PyObject *args, PyObject *kwargs)
 {
-  PyArrayObject* a;
+  PyObject* a;
   int dest;
   int tag = 123;
   static char *kwlist[] = {"a", "dest", "tag", NULL};
@@ -562,10 +562,6 @@ static PyObject * mpi_waitall(MPIObject *self, PyObject *requests)
       rqs[i] = s->rq;
       Py_DECREF(o);
     }
-  // Do the actual wait.
-#ifndef GPAW_MPI_DEBUG
-  MPI_Waitall(n, rqs, MPI_STATUSES_IGNORE);
-#else
   int ret = MPI_Waitall(n, rqs, MPI_STATUSES_IGNORE);
   if (ret != MPI_SUCCESS)
     {
@@ -573,7 +569,6 @@ static PyObject * mpi_waitall(MPIObject *self, PyObject *requests)
       PyErr_SetString(PyExc_RuntimeError, "MPI_Waitall error occurred.");
       return NULL;
     }
-#endif
   // Release the buffers used by the MPI communication
   for (int i = 0; i < n; i++)
    {
@@ -592,7 +587,7 @@ static PyObject * mpi_waitall(MPIObject *self, PyObject *requests)
 }
 
 
-static MPI_Datatype get_mpi_datatype(PyArrayObject *a)
+static MPI_Datatype get_mpi_datatype(PyObject *a)
 {
   int n = Array_ITEMSIZE(a);
   if (Array_ISCOMPLEX(a))
@@ -704,7 +699,7 @@ static PyObject * mpi_reduce(MPIObject *self, PyObject *args, PyObject *kwargs,
       int n;
       int elemsize;
       MPI_Datatype datatype;
-      PyArrayObject* aobj = (PyArrayObject*)obj;
+      PyObject* aobj = (PyObject*)obj;
       CHK_ARRAY(aobj);
       datatype = get_mpi_datatype(aobj);
       if (datatype == 0)
@@ -792,8 +787,8 @@ static PyObject * mpi_min(MPIObject *self, PyObject *args, PyObject *kwargs)
 
 static PyObject * mpi_scatter(MPIObject *self, PyObject *args)
 {
-  PyArrayObject* sendobj;
-  PyArrayObject* recvobj;
+  PyObject* sendobj;
+  PyObject* recvobj;
   int root;
   if (!PyArg_ParseTuple(args, "OOi:scatter", &sendobj, &recvobj, &root))
     return NULL;
@@ -817,8 +812,8 @@ static PyObject * mpi_scatter(MPIObject *self, PyObject *args)
 
 static PyObject * mpi_allgather(MPIObject *self, PyObject *args)
 {
-  PyArrayObject* a;
-  PyArrayObject* b;
+  PyObject* a;
+  PyObject* b;
   if (!PyArg_ParseTuple(args, "OO:allgather", &a, &b))
     return NULL;
   CHK_ARRAY(a);
@@ -835,9 +830,9 @@ static PyObject * mpi_allgather(MPIObject *self, PyObject *args)
 
 static PyObject * mpi_gather(MPIObject *self, PyObject *args)
 {
-  PyArrayObject* a;
+  PyObject* a;
   int root;
-  PyArrayObject* b = 0;
+  PyObject* b = 0;
   if (!PyArg_ParseTuple(args, "Oi|O", &a, &root, &b))
     return NULL;
   CHK_ARRAY(a);
@@ -869,7 +864,7 @@ static PyObject * mpi_broadcast(MPIObject *self, PyObject *args)
 #ifdef GPAW_MPI_DEBUG
   MPI_Barrier(self->comm);
 #endif
-  PyArrayObject* buf;
+  PyObject* buf;
   int root;
   if (!PyArg_ParseTuple(args, "Oi:broadcast", &buf, &root))
     return NULL;
@@ -924,7 +919,7 @@ static PyObject *mpi_translate_ranks(MPIObject *self, PyObject *args)
   if(myranks_long == NULL)
     return NULL;
 
-  int nranks = Array_DIM(myranks_long, 0);
+  int nranks = PyArray_DIM(myranks_long, 0);
 
   PyArrayObject *myranks;
   myranks = (PyArrayObject*)PyArray_Cast(myranks_long, NPY_INT);
@@ -960,12 +955,12 @@ static PyObject *mpi_translate_ranks(MPIObject *self, PyObject *args)
 
 static PyObject * mpi_alltoallv(MPIObject *self, PyObject *args)
 {
-  PyArrayObject* send_obj;
-  PyArrayObject* send_cnts;
-  PyArrayObject* send_displs;
-  PyArrayObject* recv_obj;
-  PyArrayObject* recv_cnts;
-  PyArrayObject* recv_displs;
+  PyObject* send_obj;
+  PyObject* send_cnts;
+  PyObject* send_displs;
+  PyObject* recv_obj;
+  PyObject* recv_cnts;
+  PyObject* recv_displs;
 
   if (!PyArg_ParseTuple(args, "OOOOOO:alltoallv", &send_obj, &send_cnts,
 						  &send_displs, &recv_obj,
