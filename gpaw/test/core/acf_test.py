@@ -69,7 +69,7 @@ def test_acf_pw(grid, xp):
 
     f1 = pw.zeros(xp=xp)
     basis.add_to(f1, coefs)
-    assert f1.integrate().item() == pytest.approx(gauss_integral)
+    assert f1.integrate() == pytest.approx(gauss_integral)
     f2 = f1.gather(broadcast=True)
     r2 = f2.ifft(grid=grid.new(comm=None))
     x, y = r2.xy(10, 10, ...)

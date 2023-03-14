@@ -17,7 +17,7 @@ class CuPyMPI:
             return
         a = array.get()
         self.comm.sum(a, root)
-        array[:] = cp.asarray(a)
+        array.set(a)
 
     def max(self, array):
         self.comm.max(array)
@@ -38,8 +38,9 @@ class CuPyMPI:
                 b[:] = cp.asarray(c)
 
     def scatter(self, fro, to, root=0):
-        if isinstance(fro, np.ndarray):
-            1 / 0
+        if isinstance(to, np.ndarray):
+            self.comm.scatter(fro, to, root)
+            return
         b = np.empty(to.shape, to.dtype)
         if self.rank == root:
             a = fro.get()
@@ -64,7 +65,10 @@ class CuPyMPI:
         a[:] = cp.asarray(b)
 
     def ssend(self, a, rank, tag):
-        self.comm.send(a.get(), rank, tag)
+        if isinstance(a, np.ndarray):
+            self.comm.ssend(a, rank, tag)
+        else:
+            self.comm.ssend(a.get(), rank, tag)
 
     def send(self, a, rank, tag=0, block=True):
         if isinstance(a, np.ndarray):
@@ -73,6 +77,14 @@ class CuPyMPI:
         request = self.comm.send(b, rank, tag, block)
         if not block:
             return CuPyRequest(request, b)
+
+    def alltoallv(self,
+                  fro, ssizes, soffsets,
+                  to, rsizes, roffsets):
+        a = np.empty(to.shape, to.dtype)
+        self.comm.alltoallv(fro.get(), ssizes, soffsets,
+                            a, rsizes, roffsets)
+        to[:] = cp.asarray(a)
 
     def wait(self, request):
         self.comm.wait(request.request)
