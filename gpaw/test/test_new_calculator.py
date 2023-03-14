@@ -18,7 +18,11 @@ def test_new_calculator(in_tmp_dir):
         kpts={'size': (4, 4, 4), 'gamma': True})
 
     modification_m = [
+        dict(mode='fd'),
         dict(xc='PBE'),
+        dict(nbands=10),
+        dict(kpts={'size': (4, 4, 4)}),
+        dict(kpts={'size': (3, 3, 3)}, xc='PBE'),
     ]
 
     # ---------- Script ---------- #
