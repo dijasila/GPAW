@@ -11,14 +11,13 @@ from gpaw.response.pw_parallelization import Blocks1D
 
 class KohnShamKPoint:
     """Kohn-Sham orbital information for a given k-point."""
-    def __init__(self, K, k_c, eps_h, f_h, Ph, psit_hG, h_myt):
+    def __init__(self, K, eps_h, f_h, Ph, psit_hG, h_myt):
         """Data object for the Kohn-Sham orbitals of a single k-point.
 
         The data is indexed by the composite band and spin index h = (n, s),
         which can be unfolded to the local transition index myt.
         """
         self.K = K               # BZ k-point index (up to a G-vector)
-        self.k_c = k_c           # k-point coordinates (may be outside the BZ)
         self.eps_h = eps_h       # Eigenvalues
         self.f_h = f_h           # Occupation numbers
         self.Ph = Ph             # PAW projections
@@ -202,7 +201,7 @@ class KohnShamKPointPairExtractor:
 
     def parallel_extract_kptdata(self, k_pc, n_t, s_t):
         """Extract the k-point data from a parallelized calculator."""
-        (myK, myk_c, myik, myu_eu,
+        (myK, myik, myu_eu,
          myn_eueh, ik_r2,
          nrh_r2, eh_eur2reh,
          rh_eur2reh, h_r1rh,
@@ -240,7 +239,7 @@ class KohnShamKPointPairExtractor:
         else:
             eps_h, f_h, Ph, psit_hG = self.collect_kptdata(
                 myik, h_r1rh, eps_r1rh, f_r1rh, P_r1rhI, psit_r1rhG)
-            data = myK, myk_c, eps_h, f_h, Ph, psit_hG, h_myt
+            data = myK, eps_h, f_h, Ph, psit_hG, h_myt
 
         # Wait for communication to finish
         with self.context.timer('Waiting to complete mpi.send'):
@@ -255,8 +254,8 @@ class KohnShamKPointPairExtractor:
         comm = self.context.comm
         get_extraction_info = self.create_get_extraction_info()
 
-        # (K, k_c, ik) for each process
-        mykpt = (None, None, None)
+        # (K, ik) for each process
+        mykpt = (None, None)
 
         # Extraction protocol
         myu_eu = []
@@ -287,7 +286,7 @@ class KohnShamKPointPairExtractor:
                 ik_r2[r2] = ik
 
             if p == self.kpts_blockcomm.rank:
-                mykpt = (K, k_c, ik)
+                mykpt = (K, ik)
 
             # Find out who should store the data in KSKPpoint
             r2_t, myt_t = self.map_who_has(p, t_t)
@@ -366,8 +365,8 @@ class KohnShamKPointPairExtractor:
                                                            thiss_myt)
                                 h_myt[thish_myt] = h
 
-        return mykpt + (myu_eu, myn_eueh, ik_r2, nrh_r2,
-                        eh_eur2reh, rh_eur2reh, h_r1rh, h_myt)
+        return (*mykpt, myu_eu, myn_eueh, ik_r2, nrh_r2,
+                eh_eur2reh, rh_eur2reh, h_r1rh, h_myt)
 
     def create_get_extraction_info(self):
         """Creator component of the extraction information factory."""
@@ -594,7 +593,7 @@ class KohnShamKPointPairExtractor:
                 for myn, h in zip(myn_rn, h_rn):
                     psit_hG[h] = kpt.psit_nG[myn]
 
-        return K, k_c, eps_h, f_h, Ph, psit_hG, h_myt
+        return K, eps_h, f_h, Ph, psit_hG, h_myt
 
     @timer('Create data extraction protocol')
     def get_serial_extraction_protocol(self, ik, n_t, s_t):
