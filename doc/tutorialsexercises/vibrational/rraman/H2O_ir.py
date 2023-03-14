@@ -18,6 +18,6 @@ dyn.run(fmax=0.01)
 atoms.write('relaxed.traj')
 
 # finite displacement for vibrations
-atoms.calc.set(symmetry={'point_group': False})
+atoms.calc = calc.new(symmetry={'point_group': False})
 ir = Infrared(atoms, name='ir')
 ir.run()

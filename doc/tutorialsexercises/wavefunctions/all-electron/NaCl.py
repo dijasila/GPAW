@@ -11,13 +11,15 @@ gridrefinement = 2
 f = paropen('all_electron.csv', 'w')
 
 for formula in ('Na', 'Cl', 'NaCl',):
+    if formula in ['Na', 'Cl']:
+        hund = True
+    else:
+        hund = False
     calc = GPAW(xc='PBE',
                 h=0.18,
+                hund=hund,
                 convergence={'eigenstates': 1e-8},
                 txt=formula + '.txt')
-
-    if formula in ['Na', 'Cl']:
-        calc.set(hund=True)
 
     sys = molecule(formula, cell=unitcell, calculator=calc)
     sys.center()
