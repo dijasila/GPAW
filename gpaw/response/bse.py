@@ -373,8 +373,7 @@ class BSEBackend:
         symop.check_q_Q_symmetry(Q_c, q_c)
         qpd = self.qpd_q[iq]
         nG = qpd.ngmax
-        pawcorr, I_G = symop.apply_symop_q(
-            qpd, Q_c, self.pawcorr_q[iq], kpt1, kpt2)
+        pawcorr, I_G = symop.apply_symop_q(qpd, self.pawcorr_q[iq], kpt1, kpt2)
 
         rho_mnG = np.zeros((len(kpt1.eps_n), len(kpt2.eps_n), nG),
                            complex)
