@@ -686,17 +686,20 @@ static PyObject * mpi_reduce(MPIObject *self, PyObject *args, PyObject *kwargs,
 	}
       if (root == -1)
 	{
-#ifdef GPAW_MPI2
+//#ifdef GPAW_MPI2
+// We assert that there are no MPI implementations out there anymore, which wouldn't
+// support the MPI_IN_PLACE. However, if this turns out to be a problem, the lines
+// to restore it are commented out here.
 	  MPI_Allreduce(MPI_IN_PLACE, Array_BYTES(aobj), n, datatype,
 			operation, self->comm);
-#else
-	  char* b = GPAW_MALLOC(char, n * elemsize);
-	  MPI_Allreduce(Array_BYTES(aobj), b, n, datatype, operation,
-			self->comm);
-	  assert(Array_NBYTES(aobj) == n * elemsize);
-	  memcpy(Array_BYTES(aobj), b, n * elemsize);
-	  free(b);
-#endif
+//#else
+//	  char* b = GPAW_MALLOC(char, n * elemsize);
+//	  MPI_Allreduce(Array_BYTES(aobj), b, n, datatype, operation,
+//			self->comm);
+//	  assert(Array_NBYTES(aobj) == n * elemsize);
+//	  memcpy(Array_BYTES(aobj), b, n * elemsize);
+//	  free(b);
+//#endif
 	}
       else
 	{
