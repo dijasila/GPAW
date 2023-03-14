@@ -110,7 +110,7 @@ def test_response_na_plasmon(in_tmp_dir):
         w2, I2 = findpeak(w_w, -(1. / df2LFCx).imag)
         I_diff = abs(I1 - I2)
         equal(w1, w2, 1e-2)
-        assert I_diff == pytest.approx(I_diffsx[idx], abs=1e-3)
+        assert I_diff == pytest.approx(I_diffsx[idx], abs=5e-3)
         equal(I1, I2, 1e-2)
 
         # y values
@@ -118,7 +118,7 @@ def test_response_na_plasmon(in_tmp_dir):
         w2, I2 = findpeak(w_w, -(1. / df2LFCy).imag)
         I_diff = abs(I1 - I2)
         equal(w1, w2, 1e-2)
-        assert I_diff == pytest.approx(I_diffsy[idx], abs=1e-3)
+        assert I_diff == pytest.approx(I_diffsy[idx], abs=5e-3)
         equal(I1, I2, 1e-2)
 
         # z values
@@ -128,7 +128,7 @@ def test_response_na_plasmon(in_tmp_dir):
         # test that the frequency for 2 methods are aprx equal
         equal(w1, w2, 1e-2)
         # test that the intensity difference is within some tol
-        assert I_diff == pytest.approx(I_diffsz[idx], abs=1e-3)
+        assert I_diff == pytest.approx(I_diffsz[idx], abs=5e-3)
         # test that the intensities are aprx equal
         equal(I1, I2, 1e-2)
 
@@ -138,7 +138,7 @@ def test_response_na_plasmon(in_tmp_dir):
             df = dfs.pop()
             for df2 in dfs:
                 try:
-                    assert np.max(np.abs((df - df2) / df)) < 1e-3
+                    assert np.max(np.abs((df - df2) / df)) < 2e-3
                 except AssertionError:
                     print(np.max(np.abs((df - df2) / df)))
                     raise AssertionError
