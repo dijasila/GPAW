@@ -470,6 +470,8 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
 
         if self.desc.dtype == float:
             result = result.real
+        if result.ndim == 0:
+            result = result.item()  # convert to scalar
         return result * dv
 
     def _matrix_elements_correction(self,
@@ -526,8 +528,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
             if self.desc.comm.rank == 0 and kind == 'normal':
                 result_x -= a_xG[:, 0]**2
         self.desc.comm.sum(result_x)
-        result_x.shape = self.mydims
-        return result_x * self.dv
+        return result_x.reshape(self.mydims) * self.dv
 
     def abs_square(self,
                    weights: Array1D,

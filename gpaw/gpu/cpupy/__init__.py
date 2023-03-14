@@ -112,6 +112,12 @@ class ndarray:
     def imag(self):
         return ndarray(self._data.imag)
 
+    def set(self, a):
+        if self.ndim == 0:
+            self._data.fill(a)
+        else:
+            self._data[:] = a
+
     def get(self):
         return self._data.copy()
 
