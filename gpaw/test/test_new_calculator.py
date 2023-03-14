@@ -37,15 +37,18 @@ def test_new_calculator(in_tmp_dir):
 
     for modification in modification_m:
         atoms.calc = calc.new(**modification)
-        check_calc(atoms, params, modification)
+        check_calc(atoms, params, modification, world=calc.world)
 
 
 # ---------- Test functionality ---------- #
 
 
-def check_calc(atoms, params, modification):
+def check_calc(atoms, params, modification, *, world):
     desired_params = params.copy()
     desired_params.update(modification)
 
     for param, value in desired_params.items():
         assert atoms.calc.parameters[param] == value
+
+    # Check that the communicator is reused
+    assert atoms.calc.world is world
