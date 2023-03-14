@@ -7,20 +7,18 @@ from ase.dft.kpoints import monkhorst_pack
 from gpaw import GPAW, FermiDirac, PW
 from gpaw.response.chi0 import Chi0
 from gpaw.mpi import serial_comm
+from itertools import product
 
 
 @pytest.mark.response
 @pytest.mark.slow
 def test_response_chi0(in_tmp_dir):
     # inputs to loop over [k, gamma, center, sym]
-    settings = [[2, False, False, False], [2, False, False, True],
-                [2, False, True, False], [2, False, True, True],
-                [2, True, False, False], [2, True, False, True],
-                [2, True, True, False], [2, True, True, True],
-                [3, False, False, False], [3, False, False, True],
-                [3, False, True, False], [3, False, True, True]]
+    settings = product([2, 3], *[[False, True]] * 3)
 
     for k, gamma, center, sym in settings:
+        if k == 3 and gamma:
+            continue
         a = bulk('Si', 'diamond')
         q_c = [0, 0, 1.0 / k]
         kpts = monkhorst_pack((k, k, k))
@@ -29,7 +27,7 @@ def test_response_chi0(in_tmp_dir):
         if center:
             a.center()
         name = 'si.k%d.g%d.c%d.s%d' % (k, gamma, center, bool(sym))
-
+        print(name)
         calc = a.calc = GPAW(
             kpts=kpts,
             symmetry={'point_group': sym},
