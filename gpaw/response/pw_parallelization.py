@@ -14,12 +14,29 @@ class Blocks1D:
 
         self.myslice = slice(self.a, self.b)
 
-    def collect(self, array_w):
-        b_w = np.zeros(self.blocksize, array_w.dtype)
-        b_w[:self.nlocal] = array_w
-        A_w = np.empty(self.blockcomm.size * self.blocksize, array_w.dtype)
-        self.blockcomm.all_gather(b_w, A_w)
-        return A_w[:self.N]
+    def collect(self, in_myix):
+        """Collect full array where the first dimension is block distributed.
+
+        Here, myi is understood as the distributed index, whereas x are the
+        remaining (global) dimensions."""
+        xshape = in_myix.shape[1:]
+
+        # Local communication buffer
+        if in_myix.shape[0] == self.blocksize and in_myix.flags.contiguous:
+            buf_myix = in_myix  # Use input array as communication buffer
+        else:
+            assert in_myix.shape[0] == self.nlocal
+            buf_myix = np.empty((self.blocksize,) + xshape, in_myix.dtype)
+            buf_myix[:self.nlocal] = in_myix
+
+        # Global communication buffer
+        buf_ix = np.empty((self.blockcomm.size * self.blocksize,) + xshape,
+                          dtype=in_myix.dtype)
+
+        self.blockcomm.all_gather(buf_myix, buf_ix)
+        out_ix = buf_ix[:self.N]
+
+        return out_ix
 
     def find_global_index(self, i):
         """Find rank and local index of the global index i"""

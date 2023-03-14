@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from typing import Generator
 
+import _gpaw
 import numpy as np
 from ase.dft.bandgap import bandgap
 from ase.io.ulm import Writer
 from ase.units import Bohr, Ha
+
+from gpaw.gpu import synchronize
+from gpaw.gpu.mpi import CuPyMPI
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.new import prod
 from gpaw.new.brillouin import IBZ
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
 from gpaw.new.potential import Potential
@@ -37,6 +40,7 @@ def create_ibz_wave_functions(ibz: IBZ,
                                   ibz.kpt_kc[k], ibz.weight_k[k])
             wfs_s.append(wfs)
         wfs_qs.append(wfs_s)
+
     return IBZWaveFunctions(ibz,
                             nelectrons,
                             ncomponents,
@@ -77,6 +81,10 @@ class IBZWaveFunctions:
 
         self.energies: dict[str, float] = {}  # hartree
 
+        if self.wfs_qs[0][0].xp is not np:
+            if not getattr(_gpaw, 'gpu_aware_mpi', False):
+                self.kpt_comm = CuPyMPI(self.kpt_comm)
+
     def get_max_shape(self, global_shape: bool = False) -> tuple[int, ...]:
         """Find the largest wave function array shape.
 
@@ -96,13 +104,14 @@ class IBZWaveFunctions:
 
     def __str__(self):
         shape = self.get_max_shape(global_shape=True)
-        nbytes = (prod(shape) * self.nbands *
-                  len(self.wfs_qs) * len(self.wfs_qs[0]) *
-                  self.dtype.itemsize)
+        wfs = self.wfs_qs[0][0]
+        nbytes = (len(self.ibz) *
+                  self.nbands *
+                  len(self.wfs_qs[0]) *
+                  wfs.bytes_per_band)
         ncores = (self.kpt_comm.size *
                   self.domain_comm.size *
                   self.band_comm.size)
-        wfs = self.wfs_qs[0][0]
         return (f'{self.ibz.symmetries}\n'
                 f'{self.ibz}\n'
                 f'{wfs._short_string(shape)}\n'
@@ -171,6 +180,7 @@ class IBZWaveFunctions:
         and ``D_asii``."""
         for wfs in self:
             wfs.add_to_density(nt_sR, D_asii)
+        synchronize()
         self.kpt_comm.sum(nt_sR.data)
         self.kpt_comm.sum(D_asii.data)
 

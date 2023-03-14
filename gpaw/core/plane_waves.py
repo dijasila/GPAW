@@ -19,6 +19,8 @@ from gpaw.typing import (Array1D, Array2D, Array3D, ArrayLike1D, ArrayLike2D,
 
 
 class PlaneWaves(Domain):
+    itemsize = 16
+
     def __init__(self,
                  *,
                  ecut: float,
@@ -266,7 +268,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
             Array to use for storage.
         """
         if data is None:
-            data = np.empty_like(self.data)
+            data = self.xp.empty_like(self.data)
         else:
             # Number of plane-waves depends on the k-point.  We therfore
             # allow for data to be bigger than needed:
@@ -302,7 +304,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         return self._matrix
 
     def ifft(self, *, plan=None, grid=None, out=None, periodic=False):
-        """Do inverse FFT to uniform grid.
+        """Do inverse FFT(s) to uniform grid(s).
 
         Parameters
         ----------
@@ -321,14 +323,14 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         assert out.desc.pbc_c.all()
         assert comm.size == out.desc.comm.size
 
+        plan = plan or out.desc.fft_plans(xp=xp)
         this = self.gather()
         if this is not None:
-            plan = plan or out.desc.fft_plans(xp=xp)
             for coef_G, out1 in zip(this._arrays(), out.flat()):
                 plan.ifft_sphere(coef_G, self.desc, out1)
         else:
             for out1 in out.flat():
-                out1.scatter_from(None)
+                plan.ifft_sphere(None, self.desc, out1)
 
         if not periodic:
             out.multiply_by_eikr()
@@ -356,12 +358,12 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         if out is None:
             if comm.rank == 0 or broadcast:
                 pw = self.desc.new(comm=serial_comm)
-                out = pw.empty(self.dims)
+                out = pw.empty(self.dims, xp=self.xp)
             else:
                 out = Empty(self.dims)
 
         if comm.rank == 0:
-            data = np.empty(self.desc.maxmysize * comm.size, complex)
+            data = self.xp.empty(self.desc.maxmysize * comm.size, complex)
         else:
             data = None
 
@@ -390,7 +392,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
             data = pad(data, comm.size * self.desc.maxmysize)
             comm.scatter(data, self.data, 0)
         else:
-            buf = np.empty(self.desc.maxmysize, complex)
+            buf = self.xp.empty(self.desc.maxmysize, complex)
             comm.scatter(None, buf, 0)
             self.data[:] = buf[:len(self.data)]
 
@@ -484,8 +486,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
                    out: UniformGridFunctions = None) -> None:
         """Add weighted absolute square of data to output array."""
         assert out is not None
-        xp = self.xp
-        if xp is np:
+        if self.xp is np:
             tmp_R = out.desc.new(dtype=self.desc.dtype).empty()
             for f, psit_G in zip(weights, self):
                 # Same as (but much faster):
@@ -493,12 +494,10 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
                 psit_G.ifft(out=tmp_R)
                 _gpaw.add_to_density(f, tmp_R.data, out.data)
             return
-        out_R = out.to_xp(xp)
-        tmp_R = out_R.desc.new(dtype=self.desc.dtype).empty(xp=xp)
+        tmp_R = out.desc.new(dtype=self.desc.dtype).empty(xp=self.xp)
         for f, psit_G in zip(weights, self):
             psit_G.ifft(out=tmp_R)
-            out_R.data += float(f) * xp.abs(tmp_R.data)**2
-        out.data[:] = xp.asnumpy(out_R.data)
+            out.data += float(f) * self.xp.abs(tmp_R.data)**2
 
     def to_pbc_grid(self):
         return self
@@ -506,7 +505,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
     def randomize(self) -> None:
         """Insert random numbers between -0.5 and 0.5 into data."""
         seed = [self.comm.rank, self.desc.comm.rank]
-        rng = np.random.default_rng(seed)
+        rng = self.xp.random.default_rng(seed)
         a = self.data.view(float)
         rng.random(a.shape, out=a)
         a -= 0.5
@@ -608,71 +607,3 @@ def find_reciprocal_vectors(ecut: float,
     G_plus_k = G_plus_k_Qv[mask]
 
     return G_plus_k, ekin, indices.T
-
-
-x = '''
-class PWMapping:
-    def __init__(self, pw1: PlaneWaves, pw2: PlaneWaves):
-        """Mapping from pd1 to pd2."""
-        N_c = pw1.grid.size
-        N2_c = pw2.grid.size
-        assert pw1.grid.dtype == pw2.grid.dtype
-        if pw1.grid.dtype == float:
-            N_c = N_c.copy()
-            N_c[2] = N_c[2] // 2 + 1
-            N2_c = N2_c.copy()
-            N2_c[2] = N2_c[2] // 2 + 1
-
-        Q1_G = pw1.myindices
-        Q1_Gc = np.empty((len(Q1_G), 3), int)
-        Q1_Gc[:, 0], r_G = divmod(Q1_G, N_c[1] * N_c[2])
-        Q1_Gc.T[1:] = divmod(r_G, N_c[2])
-        if pw1.grid.dtype == float:
-            C = 2
-        else:
-            C = 3
-        Q1_Gc[:, :C] += N_c[:C] // 2
-        Q1_Gc[:, :C] %= N_c[:C]
-        Q1_Gc[:, :C] -= N_c[:C] // 2
-        Q1_Gc[:, :C] %= N2_c[:C]
-        Q2_G = Q1_Gc[:, 2] + N2_c[2] * (Q1_Gc[:, 1] + N2_c[1] * Q1_Gc[:, 0])
-        G2_Q = np.empty(N2_c, int).ravel()
-        G2_Q[:] = -1
-        G2_Q[pw2.myindices] = np.arange(len(pw2.myindices))
-        G2_G1 = G2_Q[Q2_G]
-
-        if pw1.grid.comm.size == 1:
-            self.G2_G1 = G2_G1
-            self.G1 = None
-        else:
-            mask_G1 = (G2_G1 != -1)
-            self.G2_G1 = G2_G1[mask_G1]
-            self.G1 = np.arange(pw1.maxmysize)[mask_G1]
-
-        self.pw1 = pw1
-        self.pw2 = pw2
-
-    def add_to1(self, a_G1, b_G2):
-        """Do a += b * scale, where a is on pd1 and b on pd2."""
-        scale = self.pd1.tmp_R.size / self.pd2.tmp_R.size
-
-        if self.pd1.gd.comm.size == 1:
-            a_G1 += b_G2[self.G2_G1] * scale
-            return
-
-        b_G1 = self.pd1.tmp_G
-        b_G1[:] = 0.0
-        b_G1[self.G1] = b_G2[self.G2_G1]
-        self.pd1.gd.comm.sum(b_G1)
-        ng1 = self.pd1.gd.comm.rank * self.pd1.maxmyng
-        ng2 = ng1 + self.pd1.myng_q[0]
-        a_G1 += b_G1[ng1:ng2] * scale
-
-    def add_to2(self, a2, b1):
-        """Do a += b * scale, where a is on pd2 and b on pd1."""
-        myb = b1.data * (self.pw2.grid.shape[0] / self.pw1.grid.shape[0])
-        if self.desc1.grid.comm.size == 1:
-            a2.data[self.G2_G1] += myb
-        else:
-            1 / 0
-'''

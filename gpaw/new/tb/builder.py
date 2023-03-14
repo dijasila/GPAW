@@ -94,6 +94,9 @@ class DummyFunctions(DistributedArrays[NoGrid]):
     def moment(self):
         return np.zeros(3)
 
+    def to_xp(self, xp):
+        return self
+
 
 class PSCoreDensities:
     def __init__(self, grid, fracpos_ac):
@@ -117,7 +120,9 @@ class TBPotentialCalculator(PotentialCalculator):
         self.stress_vv = None
 
     def calculate_charges(self, vHt_r):
-        return {a: np.zeros(9) for a, setup in enumerate(self.setups)}
+        return AtomArraysLayout(
+            [9] * len(self.atoms),
+            self.nct_R.comm).zeros()
 
     def _calculate(self, density, vHt_r):
         vt_sR = density.nt_sR
@@ -223,6 +228,8 @@ class TBDFTComponentsBuilder(LCAODFTComponentsBuilder):
     def create_ibz_wave_functions(self,
                                   basis: BasisFunctions,
                                   potential,
+                                  *,
+                                  log=None,
                                   coefficients=None):
         assert self.communicators['w'].size == 1
 

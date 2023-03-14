@@ -1,14 +1,7 @@
 import numpy as np
 
 
-"""This module exists to reduce code duplication.
-
-The costruct_symmetry_operators method was duplicated on two classes.
-Now it only exists in one place, at the cost of a nasty fake "self".
-"""
-
-
-def construct_symmetry_operators(gs, K, k_c=None, *, apply_strange_shift):
+def construct_symmetry_operators(kd, gd, K, k_c, *, spos_ac, R_asii):
     """Construct symmetry operators for wave function and PAW projections.
 
     We want to transform a k-point in the irreducible part of the BZ to
@@ -25,26 +18,13 @@ def construct_symmetry_operators(gs, K, k_c=None, *, apply_strange_shift):
     * time_reversal is a flag - if True, projections should be complex
       conjugated.
 
-    See the get_k_point() method for how to use these tuples.
+    See the ResponseGroundStateAdapter.transform_and_symmetrize() method for
+    how to use these tuples.
     """
-
-    R_asii = [setup.R_sii for setup in gs.setups]
-    return _construct_symmetry_operators(
-        gs, K, k_c=k_c,
-        apply_strange_shift=apply_strange_shift,
-        R_asii=R_asii)
-
-
-def _construct_symmetry_operators(gs, K, k_c=None, *, apply_strange_shift,
-                                  R_asii):
-    kd = gs.kd
-
     s = kd.sym_k[K]
     U_cc = kd.symmetry.op_scc[s]
     time_reversal = kd.time_reversal_k[K]
     ik = kd.bz2ibz_k[K]
-    if k_c is None:
-        k_c = kd.bzk_kc[K]
     ik_c = kd.ibzk_kc[ik]
 
     sign = 1 - 2 * time_reversal
@@ -58,7 +38,7 @@ def _construct_symmetry_operators(gs, K, k_c=None, *, apply_strange_shift,
         def T(f_R):
             return f_R
     else:
-        N_c = gs.gd.N_c
+        N_c = gd.N_c
         i_cr = np.dot(U_cc.T, np.indices(N_c).reshape((3, -1)))
         i = np.ravel_multi_index(i_cr, N_c, 'wrap')
 
@@ -77,14 +57,13 @@ def _construct_symmetry_operators(gs, K, k_c=None, *, apply_strange_shift,
     U_aii = []
     for a, R_sii in enumerate(R_asii):
         b = kd.symmetry.a_sa[s, a]
-        S_c = np.dot(gs.spos_ac[a], U_cc) - gs.spos_ac[b]
+        S_c = np.dot(spos_ac[a], U_cc) - spos_ac[b]
         x = np.exp(2j * np.pi * np.dot(ik_c, S_c))
         U_ii = R_sii[s].T * x
         a_a.append(b)
         U_aii.append(U_ii)
 
-    if apply_strange_shift:
-        shift0_c = (kd.bzk_kc[K] - k_c).round().astype(int)
-        shift_c += -shift0_c
+    shift0_c = (kd.bzk_kc[K] - k_c).round().astype(int)
+    shift_c += -shift0_c
 
     return U_cc, T, a_a, U_aii, shift_c, time_reversal

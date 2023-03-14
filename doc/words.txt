@@ -155,3 +155,6 @@ optimizations
 perturbative
 supercells
 prefactor
+Appelbaum
+Hamann
+aluminium

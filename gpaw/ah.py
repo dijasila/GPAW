@@ -52,7 +52,6 @@ class AppelbaumHamann(BaseSetup):
         self.MB = 0.0
         self.M = 0.0
         self.xc_correction = None
-        self.HubU = None
         self.dO_ii = np.zeros((1, 1))
         self.type = 'ah'
         self.fingerprint = None

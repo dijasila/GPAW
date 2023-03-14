@@ -12,6 +12,7 @@ from gpaw.core.plane_waves import PlaneWaveExpansions
 from gpaw.core.uniform_grid import UniformGrid, UniformGridFunctions
 from gpaw.fftw import get_efficient_fft_size
 from gpaw.gpu import as_xp
+from gpaw.new import prod
 from gpaw.new.potential import Potential
 from gpaw.new.wave_functions import WaveFunctions
 from gpaw.setup import Setups
@@ -31,8 +32,9 @@ class PWFDWaveFunctions(WaveFunctions):
                  ncomponents: int = 1):
         assert isinstance(atomdist, AtomDistribution)
         self.psit_nX = psit_nX
+        nbands = psit_nX.dims[0]
         super().__init__(setups=setups,
-                         nbands=psit_nX.dims[0],
+                         nbands=nbands,
                          spin=spin,
                          q=q,
                          k=k,
@@ -46,6 +48,9 @@ class PWFDWaveFunctions(WaveFunctions):
                          band_comm=psit_nX.comm)
         self._pt_aiX: Optional[AtomCenteredFunctions] = None
         self.orthonormalized = False
+        self.bytes_per_band = (prod(self.array_shape(global_shape=True)) *
+                               psit_nX.desc.itemsize)
+        self.xp = self.psit_nX.xp
 
     def __del__(self):
         # We could be reading from a gpw-file
@@ -151,7 +156,6 @@ class PWFDWaveFunctions(WaveFunctions):
             return
         psit_nX = self.psit_nX
         domain_comm = psit_nX.desc.comm
-
         P_ani = self.P_ani
 
         P2_ani = P_ani.new()

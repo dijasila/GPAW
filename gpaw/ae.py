@@ -23,7 +23,7 @@ class HydrogenAllElectronSetup(BaseSetup):
         self.pt_j = []
         self.ni = 0
         self.l_j = [0]
-        self.l_orb_j = [0]
+        self.l_orb_J = [0]
         self.n_j = [1]
         self.nct = Spline(0, 0.5, [0.0, 0.0, 0.0])
         self.Nct = 0.0
@@ -47,7 +47,6 @@ class HydrogenAllElectronSetup(BaseSetup):
         self.MB = 0.0
         self.M = -(alpha1 / 2 / np.pi)**0.5
         self.xc_correction = None
-        self.HubU = None
         self.dO_ii = np.zeros((0, 0))
         self.type = 'all-electron'
         self.fingerprint = None

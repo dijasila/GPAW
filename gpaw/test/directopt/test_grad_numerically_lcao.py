@@ -60,7 +60,8 @@ def test_gradient_numerically_lcao(in_tmp_dir):
     for eigsolver in params:
         print('IN PROGRESS: ', eigsolver)
 
-        calc.set(eigensolver=eigsolver)
+        calc = calc.new(eigensolver=eigsolver)
+        atoms.calc = calc
         if eigsolver['representation'] == 'u-invar':
             with pytest.warns(UserWarning,
                               match="Use representation == 'sparse'"):

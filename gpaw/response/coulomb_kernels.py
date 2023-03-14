@@ -8,24 +8,13 @@ from gpaw.response.pair_functions import SingleQPWDescriptor
 
 class CoulombKernel:
     def __init__(self, truncation, gs):
-        from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
         self.truncation = truncation
-        assert self.truncation in {None, 'wigner-seitz', '2D'}
+        assert self.truncation in {None, '2D'}
         self._gs = gs
-
-        if self.truncation == 'wigner-seitz':
-            self._wstc = WignerSeitzTruncatedCoulomb(self._gs.gd.cell_cv,
-                                                     self._gs.kd.N_c)
-        else:
-            self._wstc = None
 
     def description(self):
         if self.truncation is None:
             return 'No Coulomb truncation'
-        elif self._wstc is not None:
-            return '\n'.join(
-                ['Wigner–Seitz Coulomb truncation',
-                 self._wstc.get_description()])
         else:
             return f'{self.truncation} Coulomb truncation'
 
@@ -36,8 +25,7 @@ class CoulombKernel:
         assert isinstance(qpd, SingleQPWDescriptor)
         return get_coulomb_kernel(
             qpd, self._gs.kd.N_c, q_v=q_v,
-            truncation=self.truncation,
-            wstc=self._wstc)
+            truncation=self.truncation)
 
     def integrated_kernel(self, qpd, reduced):
         return get_integrated_kernel(
@@ -45,7 +33,7 @@ class CoulombKernel:
             truncation=self.truncation, reduced=reduced)
 
 
-def get_coulomb_kernel(qpd, N_c, truncation=None, q_v=None, wstc=None):
+def get_coulomb_kernel(qpd, N_c, truncation=None, q_v=None):
     """Factory function that calls the specified flavour
     of the Coulomb interaction"""
 
@@ -70,10 +58,6 @@ def get_coulomb_kernel(qpd, N_c, truncation=None, q_v=None, wstc=None):
     elif truncation in {'1D', '0D'}:
         raise feature_removed()
 
-    elif truncation == 'wigner-seitz':
-        v_G = wstc.get_potential(qpd, q_v=q_v)
-        if qpd.kd.gamma and q_v is None:
-            v_G[0] = 0.0
     else:
         raise ValueError('Truncation scheme %s not implemented' % truncation)
 
@@ -166,7 +150,7 @@ def get_integrated_kernel(qpd, N_c, truncation=None, N=100, reduced=False):
         V_q = 4 * np.pi / (q_qv**2).sum(axis=1)
         V_q *= (1.0 + qnR_q * j1(qnR_q) * k0(qpR_q)
                 - qpR_q * j0(qnR_q) * k1(qpR_q))
-    elif truncation == '0D' or 'wigner-seitz':
+    elif truncation == '0D':
         R = (3 * qpd.gd.volume / (4 * np.pi))**(1. / 3.)
         q2_q = (q_qv**2).sum(axis=1)
         V_q = 4 * np.pi / q2_q
