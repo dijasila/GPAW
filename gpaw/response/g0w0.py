@@ -261,8 +261,10 @@ class QSymmetryOp:
         U_cc = qd.symmetry.op_scc[sym]
         time_reversal = qd.time_reversal_k[iQ]
         sign = 1 - 2 * time_reversal
-        symop = QSymmetryOp(sym, U_cc, sign)
-        return symop, iQ, Q_c, iq, q_c
+        symop = cls(sym, U_cc, sign)
+        symop.check_q_Q_symmetry(Q_c, q_c)
+
+        return symop, iq
 
     def apply_symop_q(self, qpd, pawcorr, kpt1, kpt2, debug=False):
         # returns necessary quantities to get symmetry transformed

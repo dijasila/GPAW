@@ -368,9 +368,8 @@ class BSEBackend:
     
     def get_density_matrix(self, kpt1, kpt2):
         from gpaw.response.g0w0 import QSymmetryOp, get_nmG
-        symop, iQ, Q_c, iq, q_c = QSymmetryOp.get_symop_from_kpair(
-            self.kd, self.qd, kpt1, kpt2)
-        symop.check_q_Q_symmetry(Q_c, q_c)
+        symop, iq = QSymmetryOp.get_symop_from_kpair(self.kd, self.qd,
+                                                     kpt1, kpt2)
         qpd = self.qpd_q[iq]
         nG = qpd.ngmax
         pawcorr, I_G = symop.apply_symop_q(qpd, self.pawcorr_q[iq], kpt1, kpt2)
