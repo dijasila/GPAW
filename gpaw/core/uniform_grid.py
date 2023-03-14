@@ -476,7 +476,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
 
         if result.ndim == 0:
             if self.xp is np:
-                result = np.array(self.desc.comm.sum(result.item()))
+                result = np.array(self.desc.comm.sum_scalar(result.item()))
         else:
             self.desc.comm.sum(result)
 

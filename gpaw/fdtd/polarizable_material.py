@@ -118,8 +118,8 @@ class PolarizableMaterial():
                                                              permittivity.oscillators[j].beta))
         self.messages.append("  ----------------------------------------")
         self.messages.append("...done initializing Polarizable Material")
-        masksum  = self.gd.comm.sum(int(np.sum(mask)))
-        masksize = self.gd.comm.sum(int(np.size(mask)))
+        masksum  = self.gd.comm.sum_scalar(int(np.sum(mask)))
+        masksize = self.gd.comm.sum_scalar(int(np.size(mask)))
         self.messages.append("Fill ratio: %f percent" % (100.0 * float(masksum)/float(masksize)))
 
 
