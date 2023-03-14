@@ -1,20 +1,15 @@
-# General modules
 import sys
 from pathlib import Path
+
 import pytest
 
-# Script modules
 from gpaw import GPAW, PW
 
 
-# ---------- Actual tests ---------- #
-
-
+@pytest.mark.later
 @pytest.mark.ci
 def test_new_calculator(in_tmp_dir):
     """Test the GPAW.new() method."""
-
-    # ---------- Inputs ---------- #
 
     params = dict(
         mode=PW(200),
@@ -30,8 +25,6 @@ def test_new_calculator(in_tmp_dir):
         dict(kpts={'size': (3, 3, 3)}, xc='PBE'),
     ]
 
-    # ---------- Script ---------- #
-
     calc0 = GPAW(**params, txt='calc0.txt')
 
     for m, modification in enumerate(modification_m):
@@ -45,9 +38,6 @@ def test_new_calculator(in_tmp_dir):
             check_file_handles(calc0, calc, txt=txt)
 
         check_calc(calc, params, modification, world=calc.world)
-
-
-# ---------- Test functionality ---------- #
 
 
 def check_file_handles(calc0, calc, txt=None):
