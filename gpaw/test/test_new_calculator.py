@@ -30,11 +30,15 @@ def test_new_calculator(in_tmp_dir):
 
     for modification in modification_m:
         atoms.calc = calc.new(**modification)
-        check_calc(atoms)
+        check_calc(atoms, params, modification)
 
 
 # ---------- Test functionality ---------- #
 
 
-def check_calc(atoms):
-    pass
+def check_calc(atoms, params, modification):
+    desired_params = params.copy()
+    desired_params.update(modification)
+
+    for param, value in desired_params.items():
+        assert atoms.calc.parameters[param] == value
