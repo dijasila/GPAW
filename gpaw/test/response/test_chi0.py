@@ -13,12 +13,12 @@ from gpaw.mpi import serial_comm
 @pytest.mark.slow
 def test_response_chi0(in_tmp_dir):
     # inputs to loop over [k, gamma, center, sym]
-    settings =[[2, False, False, False], [2, False, False, True],
-               [2, False, True, False], [2, False, True, True],
-               [2, True, False, False], [2, True, False, True],
-               [2, True, True, False], [2, True, True, True],
-               [3, False, False, False], [3, False, False, True],
-               [3, False, True, False], [3, False, True, True]]
+    settings = [[2, False, False, False], [2, False, False, True],
+                [2, False, True, False], [2, False, True, True],
+                [2, True, False, False], [2, True, False, True],
+                [2, True, True, False], [2, True, True, True],
+                [3, False, False, False], [3, False, False, True],
+                [3, False, True, False], [3, False, True, True]]
 
     for k, gamma, center, sym in settings:
         a = bulk('Si', 'diamond')
