@@ -27,7 +27,7 @@ def test_response_chi0(in_tmp_dir):
         if center:
             a.center()
         name = 'si.k%d.g%d.c%d.s%d' % (k, gamma, center, bool(sym))
-        print(name)
+
         calc = a.calc = GPAW(
             kpts=kpts,
             symmetry={'point_group': sym},
