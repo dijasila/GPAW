@@ -70,14 +70,14 @@ def test_response_na_plasmon(in_tmp_dir):
     dfs4 = []
     dfs5 = []
 
-    # list of intensities to compare against. Values matched
-    # with higher tolerances but degraded with worse parameters
-    # now 2 intensity values are compared to a looser tol and their difference
-    # to these values
-    I_diffsx = [0.008999, 0.007558, 0.008999, 0.007558]
-    I_diffsy = [0.004063, 0.004063, 0.004063, 0.004063]
-    I_diffsz = [0.004063, 0.005689, 0.004244, 0.005689]
+    # list of intensities to compare against. Intensity values matched
+    # to 10-3 w/ higher tol. Speeding up test degraded the agreement to 10-2
+    # Added additional intensity difference check test with tol 10-3
+    I_diffsx = [0.008999, 0.007558, 0.008999, 0.007558, 0.006101]
+    I_diffsy = [0.004063, 0.004063, 0.004063, 0.004063, 0.004063]
+    I_diffsz = [0.004063, 0.005689, 0.004244, 0.005689, 0.005689]
     for idx, kwargs in enumerate(settings):
+        print(kwargs)
         df1 = DielectricFunction('gs_Na_small.gpw',
                                  ecut=40,
                                  rate=0.001,
