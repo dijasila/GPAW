@@ -1,3 +1,4 @@
+import pytest
 import numpy as np
 from gpaw.mpi import world, send, receive, broadcast_array
 
@@ -11,6 +12,14 @@ def test_send_receive_object():
     elif world.rank == 1:
         assert obj == receive(0, world)
 
+@pytest.mark.ci
+def test_scalar_reduce():
+    assert world.sum_scalar(world.rank+1) == world.size*(world.size+1) // 2
+    assert np.allclose(world.sum_scalar(world.rank+1.0), world.size*(world.size+1.0) / 2)
+    assert world.min_scalar(world.rank+1) == 1 
+    assert world.max_scalar(world.rank+1) == world.size 
+    
+    
 
 def test_bcast_array():
     new = world.new_communicator
