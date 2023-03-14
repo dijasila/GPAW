@@ -15,10 +15,11 @@ def test_send_receive_object():
 
 @pytest.mark.ci
 def test_scalar_reduce():
-    assert world.sum_scalar(world.rank + 1) == world.size*(world.size + 1) // 2
-    assert np.allclose(world.sum_scalar(world.rank + 1.0), world.size * (world.size + 1.0) / 2)
-    assert world.min_scalar(world.rank + 1) == 1 
-    assert world.max_scalar(world.rank + 1) == world.size 
+    assert world.sum_scalar(world.rank + 1) == world.size * (world.size + 1) // 2
+    assert np.allclose(world.sum_scalar(world.rank + 1.0),
+                       world.size * (world.size + 1.0) / 2)
+    assert world.min_scalar(world.rank + 1) == 1
+    assert world.max_scalar(world.rank + 1) == world.size
     assert world.min_scalar(world.rank + 1.0) == 1.0
     assert world.max_scalar(world.rank + 1.0) == world.size * 1.0
     
