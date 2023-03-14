@@ -2,10 +2,14 @@ from __future__ import annotations
 
 from typing import Generator
 
+import _gpaw
 import numpy as np
 from ase.dft.bandgap import bandgap
 from ase.io.ulm import Writer
 from ase.units import Bohr, Ha
+
+from gpaw.gpu import synchronize
+from gpaw.gpu.mpi import CuPyMPI
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new.brillouin import IBZ
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
@@ -78,7 +82,7 @@ class IBZWaveFunctions:
         self.energies: dict[str, float] = {}  # hartree
 
         if self.wfs_qs[0][0].xp is not np:
-            if 1:  # not compiled with GPU support:
+            if not getattr(_gpaw, 'gpu_aware_mpi', False):
                 self.kpt_comm = CuPyMPI(self.kpt_comm)
 
     def get_max_shape(self, global_shape: bool = False) -> tuple[int, ...]:
@@ -176,6 +180,7 @@ class IBZWaveFunctions:
         and ``D_asii``."""
         for wfs in self:
             wfs.add_to_density(nt_sR, D_asii)
+        synchronize()
         self.kpt_comm.sum(nt_sR.data)
         self.kpt_comm.sum(D_asii.data)
 
@@ -433,24 +438,3 @@ class IBZWaveFunctions:
                                      for wfs_s in self.wfs_qs))
 
         return np.array([homo, lumo])
-
-
-class CuPyMPI:
-    def __init__(self, comm):
-        self.comm = comm
-        self.rank = comm.rank
-        self.size = comm.size
-
-    def sum(self, array):
-        from gpaw.gpu import cupy as cp
-        if isinstance(array, float):
-            return self.comm.sum(array)
-        if isinstance(array, np.ndarray):
-            self.comm.sum(array)
-            return
-        a = array.get()
-        self.comm.sum(a)
-        array[:] = cp.asarray(a)
-
-    def max(self, array):
-        self.comm.max(array)

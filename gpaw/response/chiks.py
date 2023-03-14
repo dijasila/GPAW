@@ -5,10 +5,10 @@ from ase.units import Hartree
 
 from gpaw.utilities.blas import mmmx
 
-from gpaw.response import ResponseContext, timer
+from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.pw_parallelization import PlaneWaveBlockDistributor
-from gpaw.response.kspair import PlaneWavePairDensity
+from gpaw.response.matrix_elements import NewPairDensityCalculator
 from gpaw.response.pair_integrator import PairFunctionIntegrator
 from gpaw.response.pair_functions import (SingleQPWDescriptor,
                                           LatticePeriodicPairFunction)
@@ -86,7 +86,8 @@ class ChiKSCalculator(PairFunctionIntegrator):
     are the unit cell normalized plane-wave pair densities of each transition.
     """
 
-    def __init__(self, gs, context=None, nblocks=1,
+    def __init__(self, gs: ResponseGroundStateAdapter, context=None,
+                 nblocks=1,
                  ecut=50, gammacentered=False,
                  nbands=None,
                  bundle_integrals=True, bandsummation='pairwise',
@@ -129,7 +130,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
         self.bundle_integrals = bundle_integrals
         self.bandsummation = bandsummation
 
-        self.pair_density = PlaneWavePairDensity(self.kspair)
+        self.pair_density_calc = NewPairDensityCalculator(gs, context)
 
     def calculate(self, spincomponent, q_c, zd) -> ChiKS:
         r"""Calculate χ_KS,GG'^μν(q,z), where z = ω + iη
@@ -153,20 +154,20 @@ class ChiKSCalculator(PairFunctionIntegrator):
         spinrot = get_spin_rotation(spincomponent)
 
         # Prepare to sum over bands and spins
-        n1_t, n2_t, s1_t, s2_t = self.get_band_and_spin_transitions_domain(
+        transitions = self.get_band_and_spin_transitions(
             spinrot, nbands=self.nbands, bandsummation=self.bandsummation)
 
-        self.context.print(self.get_information(
-            qpdi, len(zd), spincomponent, self.nbands, len(n1_t)))
+        self.context.print(self.get_info_string(
+            qpdi, len(zd), spincomponent, self.nbands, len(transitions)))
 
-        self.context.print('Initializing pair densities')
-        self.pair_density.initialize(qpdi)
+        self.context.print('Initializing pair density PAW corrections')
+        self.pair_density_calc.initialize_paw_corrections(qpdi)
 
         # Create ChiKS data structure
         chiks = self.create_chiks(spincomponent, qpdi, zd)
 
         # Perform the actual integration
-        analyzer = self._integrate(chiks, n1_t, n2_t, s1_t, s2_t)
+        analyzer = self._integrate(chiks, transitions)
 
         # Symmetrize chiks according to the symmetries of the ground state
         self.symmetrize(chiks, analyzer)
@@ -235,8 +236,8 @@ class ChiKSCalculator(PairFunctionIntegrator):
 
     @timer('Add integrand to chiks')
     def add_integrand(self, kptpair, weight, chiks):
-        r"""Use the PlaneWavePairDensity object to calculate the integrand for
-        all relevant transitions of the given k-point pair, k -> k + q.
+        r"""Use the NewPairDensityCalculator object to calculate the integrand
+        for all relevant transitions of the given k-point pair, k -> k + q.
 
         Depending on the bandsummation parameter, the integrand of the
         collinear four-component Kohn-Sham susceptibility tensor (in the
@@ -268,59 +269,94 @@ class ChiKSCalculator(PairFunctionIntegrator):
         The integrand is added to the output array chiks_x multiplied with the
         supplied kptpair integral weight.
         """
-        # Calculate the pair densities and store them on the kptpair
-        self.pair_density(kptpair, chiks.qpd)
+        # Calculate the pair densities n_kt(G+q)
+        pair_density = self.pair_density_calc(kptpair, chiks.qpd)
 
-        # Extract the ingredients from the KohnShamKPointPair
-        # Get bands and spins of the transitions
-        n1_t, n2_t, s1_t, s2_t = kptpair.get_transitions()
-        # Get (f_n'k's' - f_nks), (ε_n'k's' - ε_nks) as well as n_kt(G+q)
-        df_t, deps_t, n_tG = kptpair.df_t, kptpair.deps_t, kptpair.n_tG
+        # Extract the temporal ingredients from the KohnShamKPointPair
+        transitions = kptpair.transitions  # transition indices (n,s)->(n',s')
+        df_t = kptpair.df_t  # (f_n'k's' - f_nks)
+        deps_t = kptpair.deps_t  # (ε_n'k's' - ε_nks)
 
-        # Calculate the frequency dependence of the integrand
+        # Calculate the temporal part of the integrand
         if chiks.spincomponent == '00' and self.gs.nspins == 1:
             weight = 2 * weight
-        x_Zt = weight * get_temporal_part(chiks.spincomponent,
-                                          chiks.zd.hz_z,
-                                          n1_t, n2_t, s1_t, s2_t,
-                                          df_t, deps_t,
-                                          self.bandsummation)
+        x_Zt = get_temporal_part(chiks.spincomponent, chiks.zd.hz_z,
+                                 transitions, df_t, deps_t,
+                                 self.bandsummation)
 
-        # Let each process handle its own slice of integration
-        myslice = chiks.blocks1d.myslice
+        self._add_integrand(pair_density, x_Zt, weight, chiks)
 
-        if chiks.distribution == 'GZg':
-            # Specify notation
-            chiks_GZg = chiks.array
+    def _add_integrand(self, pair_density, x_Zt, weight, chiks):
+        r"""Add the integrand to chiks.
 
-            x_tZ = np.ascontiguousarray(x_Zt.T)
-            n_Gt = np.ascontiguousarray(n_tG.T)
+        This entail performing a sum of transition t and an outer product
+        in the pair density plane wave components G and G',
+                    __
+                    \
+        (...)_k =   /  x_t^μν(ħz) n_kt(G+q) n_kt^*(G'+q)
+                    ‾‾
+                    t
 
-            with self.context.timer('Set up ncc and nx'):
-                ncc_Gt = n_Gt.conj()
-                n_tg = n_tG[:, myslice]
-                nx_tZg = x_tZ[:, :, np.newaxis] * n_tg[:, np.newaxis, :]
-
-            with self.context.timer('Perform sum over t-transitions '
-                                    'of ncc * nx'):
-                mmmx(1.0, ncc_Gt, 'N', nx_tZg, 'N',
-                     1.0, chiks_GZg)  # slow step
-        elif chiks.distribution == 'ZgG':
-            # Specify notation
-            chiks_ZgG = chiks.array
-
-            with self.context.timer('Set up ncc and nx'):
-                ncc_tG = n_tG.conj()
-                n_gt = np.ascontiguousarray(n_tG[:, myslice].T)
-                nx_Zgt = x_Zt[:, np.newaxis, :] * n_gt[np.newaxis, :, :]
-
-            with self.context.timer('Perform sum over t-transitions of '
-                                    'ncc * nx'):
-                for nx_gt, chiks_gG in zip(nx_Zgt, chiks_ZgG):
-                    mmmx(1.0, nx_gt, 'N', ncc_tG, 'N',
-                         1.0, chiks_gG)  # slow step
+        where x_t^μν(ħz) is the temporal part of χ_KS,GG'^μν(q,ω+iη).
+        """
+        if chiks.distribution == 'ZgG':
+            self._add_integrand_ZgG(pair_density, x_Zt, weight, chiks)
+        elif chiks.distribution == 'GZg':
+            self._add_integrand_GZg(pair_density, x_Zt, weight, chiks)
         else:
             raise ValueError(f'Invalid distribution {chiks.distribution}')
+
+    def _add_integrand_ZgG(self, pair_density, x_Zt, weight, chiks):
+        """Add integrand in ZgG distribution.
+
+        Z = global complex frequency index
+        g = distributed G plane wave index
+        G = global G' plane wave index
+        """
+        chiks_ZgG = chiks.array
+        myslice = chiks.blocks1d.myslice
+
+        with self.context.timer('Set up ncc and xn'):
+            # Multiply the temporal part with the k-point integration weight
+            x_Zt *= weight
+
+            # Set up n_kt^*(G'+q)
+            n_tG = pair_density.get_global_array()
+            ncc_tG = n_tG.conj()
+
+            # Set up x_t^μν(ħz) n_kt(G+q)
+            n_gt = np.ascontiguousarray(n_tG[:, myslice].T)
+            xn_Zgt = x_Zt[:, np.newaxis, :] * n_gt[np.newaxis, :, :]
+
+        with self.context.timer('Perform sum over t-transitions of xn * ncc'):
+            for xn_gt, chiks_gG in zip(xn_Zgt, chiks_ZgG):
+                mmmx(1.0, xn_gt, 'N', ncc_tG, 'N', 1.0, chiks_gG)  # slow step
+
+    def _add_integrand_GZg(self, pair_density, x_Zt, weight, chiks):
+        """Add integrand in GZg distribution.
+
+        G = global G' plane wave index
+        Z = global complex frequency index
+        g = distributed G plane wave index
+        """
+        chiks_GZg = chiks.array
+        myslice = chiks.blocks1d.myslice
+
+        with self.context.timer('Set up ncc and xn'):
+            # Multiply the temporal part with the k-point integration weight
+            x_tZ = np.ascontiguousarray(weight * x_Zt.T)
+
+            # Set up n_kt^*(G'+q)
+            n_tG = pair_density.get_global_array()
+            n_Gt = np.ascontiguousarray(n_tG.T)
+            ncc_Gt = n_Gt.conj()
+
+            # Set up x_t^μν(ħz) n_kt(G+q)
+            n_tg = n_tG[:, myslice]
+            xn_tZg = x_tZ[:, :, np.newaxis] * n_tg[:, np.newaxis, :]
+
+        with self.context.timer('Perform sum over t-transitions of ncc * xn'):
+            mmmx(1.0, ncc_Gt, 'N', xn_tZg, 'N', 1.0, chiks_GZg)  # slow step
 
     @timer('Symmetrizing chiks')
     def symmetrize(self, chiks, analyzer):
@@ -350,7 +386,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
 
         return chiks
 
-    def get_information(self, qpd, nz, spincomponent, nbands, nt):
+    def get_info_string(self, qpd, nz, spincomponent, nbands, nt):
         r"""Get information about the χ_KS,GG'^μν(q,z) calculation"""
         from gpaw.utilities.memory import maxrss
 
@@ -373,7 +409,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
         s += '    A total number of band and spin transitions of: %d\n' % nt
         s += '\n'
 
-        s += self.get_basic_information()
+        s += self.get_basic_info_string()
         s += '\n'
 
         s += 'Plane-wave basis of the Kohn-Sham susceptibility:\n'
@@ -402,12 +438,13 @@ def get_ecut_to_encompass_centered_sphere(q_v, ecut):
 
 
 def get_temporal_part(spincomponent, hz_z,
-                      n1_t, n2_t, s1_t, s2_t, df_t, deps_t, bandsummation):
-    """Get the temporal part of a (causal linear) susceptibility integrand."""
+                      transitions, df_t, deps_t,
+                      bandsummation):
+    """Get the temporal part of a (causal linear) susceptibility, x_t^μν(ħz).
+    """
     _get_temporal_part = create_get_temporal_part(bandsummation)
-    return _get_temporal_part(spincomponent, s1_t, s2_t,
-                              df_t, deps_t, hz_z,
-                              n1_t, n2_t)
+    return _get_temporal_part(spincomponent, hz_z,
+                              transitions, df_t, deps_t)
 
 
 def create_get_temporal_part(bandsummation):
@@ -419,41 +456,43 @@ def create_get_temporal_part(bandsummation):
     raise ValueError(bandsummation)
 
 
-def get_double_temporal_part(spincomponent, s1_t, s2_t,
-                             df_t, deps_t, hz_z,
-                             *unused):
+def get_double_temporal_part(spincomponent, hz_z,
+                             transitions, df_t, deps_t):
     r"""Get:
 
-             σ^μ_ss' σ^ν_s's (f_nks - f_n'k's')
-    Χ_t(z) = ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
-                  ħz - (ε_n'k's' - ε_nks)
+                 σ^μ_ss' σ^ν_s's (f_nks - f_n'k's')
+    x_t^μν(ħz) = ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+                      ħz - (ε_n'k's' - ε_nks)
     """
     # Get the right spin components
+    s1_t, s2_t = transitions.get_spin_indices()
     scomps_t = get_smat_components(spincomponent, s1_t, s2_t)
     # Calculate nominator
     nom_t = - scomps_t * df_t  # df = f2 - f1
     # Calculate denominator
     denom_wt = hz_z[:, np.newaxis] - deps_t[np.newaxis, :]  # de = e2 - e1
 
+    regularize_intraband_transitions(denom_wt, transitions, deps_t)
+
     return nom_t[np.newaxis, :] / denom_wt
 
 
-def get_pairwise_temporal_part(spincomponent, s1_t, s2_t,
-                               df_t, deps_t, hz_z,
-                               n1_t, n2_t):
+def get_pairwise_temporal_part(spincomponent, hz_z,
+                               transitions, df_t, deps_t):
     r"""Get:
 
-             /
-             | σ^μ_ss' σ^ν_s's (f_nks - f_n'k's')
-    Χ_t(z) = | ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
-             |      ħz - (ε_n'k's' - ε_nks)
-             \
-                                                           \
-                        σ^μ_s's σ^ν_ss' (f_nks - f_n'k's') |
-               - δ_n'>n ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾ |
-                             ħz + (ε_n'k's' - ε_nks)       |
-                                                           /
+                 /
+                 | σ^μ_ss' σ^ν_s's (f_nks - f_n'k's')
+    x_t^μν(ħz) = | ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+                 |      ħz - (ε_n'k's' - ε_nks)
+                 \
+                                                               \
+                            σ^μ_s's σ^ν_ss' (f_nks - f_n'k's') |
+                   - δ_n'>n ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾ |
+                                 ħz + (ε_n'k's' - ε_nks)       |
+                                                               /
     """
+    n1_t, n2_t, s1_t, s2_t = transitions.get_band_and_spin_indices()
     # Kroenecker delta
     delta_t = np.ones(len(n1_t))
     delta_t[n2_t <= n1_t] = 0
@@ -467,8 +506,25 @@ def get_pairwise_temporal_part(spincomponent, s1_t, s2_t,
     denom1_wt = hz_z[:, np.newaxis] - deps_t[np.newaxis, :]  # de = e2 - e1
     denom2_wt = hz_z[:, np.newaxis] + deps_t[np.newaxis, :]
 
+    regularize_intraband_transitions(denom1_wt, transitions, deps_t)
+    regularize_intraband_transitions(denom2_wt, transitions, deps_t)
+
     return nom1_t[np.newaxis, :] / denom1_wt\
         - nom2_t[np.newaxis, :] / denom2_wt
+
+
+def regularize_intraband_transitions(denom_wt, transitions, deps_t):
+    """Regularize the denominator of the temporal part in case of degeneracy.
+
+    If the q-vector connects two symmetrically equivalent k-points inside a
+    band, the occupation differences vanish and we regularize the denominator.
+
+    NB: In principle there *should* be a contribution from the intraband
+    transitions, but this is left for future work for now."""
+    intraband_t = transitions.get_intraband_mask()
+    degenerate_t = np.abs(deps_t) < 1e-8
+
+    denom_wt[:, intraband_t & degenerate_t] = 1.
     
 
 def get_spin_rotation(spincomponent):

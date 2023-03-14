@@ -94,7 +94,7 @@ class Symmetries:
     def symmetrize_forces(self, F_av):
         return self.symmetry.symmetrize_forces(F_av)
 
-    def rotations(self, l_j):
+    def rotations(self, l_j, xp=np):
         ells = tuple(l_j)
         rotation_sii = self._rotations.get(ells)
         if rotation_sii is None:
@@ -105,5 +105,6 @@ class Symmetries:
                 i2 = i1 + 2 * l + 1
                 rotation_sii[:, i1:i2, i1:i2] = self.rotation_lsmm[l]
                 i1 = i2
+            rotation_sii = xp.asarray(rotation_sii)
             self._rotations[ells] = rotation_sii
         return rotation_sii

@@ -1,8 +1,10 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 
 from ase.units import Ha, Bohr
+from ase.utils import lazyproperty
 
 import gpaw.mpi as mpi
 
@@ -23,10 +25,11 @@ class ResponseGroundStateAdapter:
 
         self.kpt_u = wfs.kpt_u
         self.kpt_qs = wfs.kpt_qs
-        self.setups = wfs.setups
 
         self.fermi_level = wfs.fermi_level
         self.atoms = calc.atoms
+        self.pawdatasets = [ResponsePAWDataset(setup) for setup in calc.setups]
+
         self.pbc = self.atoms.pbc
         self.volume = self.gd.volume
 
@@ -37,8 +40,8 @@ class ResponseGroundStateAdapter:
         self._hamiltonian = calc.hamiltonian
         self._calc = calc
 
-    @staticmethod
-    def from_gpw_file(gpw, context):
+    @classmethod
+    def from_gpw_file(cls, gpw, context):
         """Initiate the ground state adapter directly from a .gpw file."""
         from gpaw import GPAW, disable_dry_run
         assert Path(gpw).is_file()
@@ -49,7 +52,7 @@ class ResponseGroundStateAdapter:
             with disable_dry_run():
                 calc = GPAW(gpw, txt=None, communicator=mpi.serial_comm)
 
-        return ResponseGroundStateAdapter(calc)
+        return cls(calc)
 
     @property
     def pd(self):
@@ -57,6 +60,23 @@ class ResponseGroundStateAdapter:
         # We need to abstract away "calc" in all places used by response
         # code, and that includes places that are also compatible with FD.
         return self._wfs.pd
+
+    @lazyproperty
+    def global_pd(self):
+        """Get a PWDescriptor that includes all k-points.
+
+        In particular, this is necessary to allow all cores to be able to work
+        on all k-points in the case where calc is parallelized over k-points,
+        see gpaw.response.kspair
+        """
+        from gpaw.pw.descriptor import PWDescriptor
+
+        assert self.gd.comm.size == 1
+        kd = self.kd.copy()  # global KPointDescriptor without a comm
+        return PWDescriptor(self.pd.ecut, self.gd,
+                            dtype=self.pd.dtype,
+                            kd=kd, fftwflags=self.pd.fftwflags,
+                            gammacentered=self.pd.gammacentered)
 
     def get_occupations_width(self):
         # Ugly hack only used by pair.intraband_pair_density I think.
@@ -160,7 +180,7 @@ class ResponseGroundStateAdapter:
     def pair_density_paw_corrections(self, qpd):
         from gpaw.response.paw import get_pair_density_paw_corrections
         return get_pair_density_paw_corrections(
-            setups=self.setups, qpd=qpd, spos_ac=self.spos_ac)
+            pawdatasets=self.pawdatasets, qpd=qpd, spos_ac=self.spos_ac)
 
     def get_pos_av(self):
         # gd.cell_cv must always be the same as pd.gd.cell_cv, right??
@@ -190,3 +210,32 @@ class ResponseGroundStateAdapter:
         ibzq_qc = kd.get_ibz_q_points(bzq_qc, U_scc)[0]
 
         return ibzq_qc
+
+    def construct_symmetry_operators(self, K, k_c):
+        from gpaw.response.symmetry_ops import construct_symmetry_operators
+        R_asii = [pawdata.R_sii for pawdata in self.pawdatasets]
+        return construct_symmetry_operators(
+            self.kd, self.gd, K, k_c,
+            spos_ac=self.spos_ac, R_asii=R_asii)
+
+
+# Contains all the relevant information
+# from Setups class for response calculators
+class ResponsePAWDataset:
+    def __init__(self, setup):
+        self.ni = setup.ni
+        self.rgd = setup.rgd
+        self.rcut_j = setup.rcut_j
+        self.l_j = setup.l_j
+        self.lq = setup.lq
+        self.R_sii = setup.R_sii
+        self.nabla_iiv = setup.nabla_iiv
+        self.data = SimpleNamespace(phi_jg=setup.data.phi_jg,
+                                    phit_jg=setup.data.phit_jg)
+        self.xc_correction = SimpleNamespace(
+            rgd=setup.xc_correction.rgd, Y_nL=setup.xc_correction.Y_nL,
+            n_qg=setup.xc_correction.n_qg, nt_qg=setup.xc_correction.nt_qg,
+            nc_g=setup.xc_correction.nc_g, nct_g=setup.xc_correction.nct_g,
+            nc_corehole_g=setup.xc_correction.nc_corehole_g,
+            B_pqL=setup.xc_correction.B_pqL, e_xc0=setup.xc_correction.e_xc0)
+        self.hubbard_u = setup.hubbard_u

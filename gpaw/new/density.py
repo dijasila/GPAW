@@ -7,6 +7,7 @@ from gpaw.core.atom_centered_functions import AtomArraysLayout
 from gpaw.utilities import unpack2, unpack
 from gpaw.core.atom_arrays import AtomArrays
 from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.gpu import as_xp
 
 
 class Density:
@@ -85,9 +86,9 @@ class Density:
         D_asii = self.D_asii.gather(broadcast=True, copy=True)
         for a1, D_sii in self.D_asii.items():
             D_sii[:] = 0.0
+            rotation_sii = symmetries.rotations(self.l_aj[a1], xp)
             for a2, rotation_ii in zip(symmetries.a_sa[:, a1],
-                                       symmetries.rotations(self.l_aj[a1])):
-                rotation_ii = xp.asarray(rotation_ii)
+                                       rotation_sii):
                 D_sii += xp.einsum('ij, sjk, lk -> sil',
                                    rotation_ii, D_asii[a2], rotation_ii)
         self.D_asii.data *= 1.0 / len(symmetries)
@@ -149,6 +150,7 @@ class Density:
     def calculate_dipole_moment(self, fracpos_ac):
         dip_v = np.zeros(3)
         ccc_aL = self.calculate_compensation_charge_coefficients()
+        ccc_aL = ccc_aL.to_cpu()
         pos_av = fracpos_ac @ self.nt_sR.desc.cell_cv
         for a, ccc_L in ccc_aL.items():
             c = ccc_L[0]
@@ -158,7 +160,7 @@ class Density:
                 dip_v -= np.array([x, y, z]) * (4 * pi / 3)**0.5
         self.nt_sR.desc.comm.sum(dip_v)
         for nt_R in self.nt_sR:
-            dip_v -= nt_R.moment()
+            dip_v -= as_xp(nt_R.moment(), np)
         return dip_v
 
     def calculate_magnetic_moments(self):

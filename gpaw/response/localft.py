@@ -240,19 +240,19 @@ class LocalPAWFTCalculator(LocalFTCalculator):
         -------
         micro_setup : MicroSetup
         """
-        setup = self.gs.setups[a]
+        pawdata = self.gs.pawdatasets[a]
         # Radial grid descriptor:
-        rgd = setup.xc_correction.rgd
+        rgd = pawdata.xc_correction.rgd
         # Spherical harmonics on the Lebedev quadrature:
-        Y_nL = setup.xc_correction.Y_nL
+        Y_nL = pawdata.xc_correction.Y_nL
 
         D_sp = self.gs.D_asp[a]  # atomic density matrix
-        n_sLg, nt_sLg = self.calculate_atom_centered_densities(setup, D_sp)
+        n_sLg, nt_sLg = self.calculate_atom_centered_densities(pawdata, D_sp)
 
         return MicroSetup(rgd, Y_nL, n_sLg, nt_sLg)
 
     @staticmethod
-    def calculate_atom_centered_densities(setup, D_sp):
+    def calculate_atom_centered_densities(pawdata, D_sp):
         """Calculate the all-electron and pseudo densities inside the
         augmentation sphere.
 
@@ -264,12 +264,12 @@ class LocalPAWFTCalculator(LocalFTCalculator):
             pseudo density
         (s=spin, L=(l,m) spherical harmonic index, g=radial grid index)
         """
-        n_qg = setup.xc_correction.n_qg
-        nt_qg = setup.xc_correction.nt_qg
-        nc_g = setup.xc_correction.nc_g
-        nct_g = setup.xc_correction.nct_g
+        n_qg = pawdata.xc_correction.n_qg
+        nt_qg = pawdata.xc_correction.nt_qg
+        nc_g = pawdata.xc_correction.nc_g
+        nct_g = pawdata.xc_correction.nct_g
 
-        B_pqL = setup.xc_correction.B_pqL
+        B_pqL = pawdata.xc_correction.B_pqL
         D_sLq = np.inner(D_sp, B_pqL.T)
         nspins = len(D_sp)
 
