@@ -809,9 +809,19 @@ static PyObject * mpi_max(MPIObject *self, PyObject *args, PyObject *kwargs)
   return mpi_reduce(self, args,  kwargs, MPI_MAX, 0);
 }
 
+static PyObject * mpi_max_scalar(MPIObject *self, PyObject *args, PyObject *kwargs)
+{
+  return mpi_reduce_scalar(self, args,  kwargs, MPI_MAX, 0);
+}
+
 static PyObject * mpi_min(MPIObject *self, PyObject *args, PyObject *kwargs)
 {
   return mpi_reduce(self, args,  kwargs, MPI_MIN, 0);
+}
+
+static PyObject * mpi_min_scalar(MPIObject *self, PyObject *args, PyObject *kwargs)
+{
+  return mpi_reduce_scalar(self, args,  kwargs, MPI_MIN, 0);
 }
 
 static PyObject * mpi_scatter(MPIObject *self, PyObject *args)
@@ -1098,9 +1108,15 @@ static PyMethodDef mpi_methods[] = {
     {"max",              (PyCFunction)mpi_max,
      METH_VARARGS|METH_KEYWORDS,
      "max(a, root=-1) maximum of arrays, result on all tasks unless root is given."},
+    {"max_scalar",       (PyCFunction)mpi_max_scalar,
+     METH_VARARGS|METH_KEYWORDS,
+     "max_sclar(a, root=-1) maximum of scalars, result on all tasks unless root is given. Returns the value."},
     {"min",              (PyCFunction)mpi_min,
      METH_VARARGS|METH_KEYWORDS,
      "min(a, root=-1) minimum of arrays, result on all tasks unless root is given."},
+    {"min_scalar",       (PyCFunction)mpi_min_scalar,
+     METH_VARARGS|METH_KEYWORDS,
+     "min_scalar(a, root=-1) minimum of scalars, result on all tasks unless root is given. Returns the value."},
     {"scatter",          (PyCFunction)mpi_scatter,      METH_VARARGS,
      "scatter(src, target, root) distributes array from root task."},
     {"gather",           (PyCFunction)mpi_gather,       METH_VARARGS,
