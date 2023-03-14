@@ -1,3 +1,5 @@
+import pytest
+
 from ase.build import bulk
 
 from gpaw import GPAW, PW
@@ -6,6 +8,7 @@ from gpaw import GPAW, PW
 # ---------- Actual tests ---------- #
 
 
+@pytest.mark.ci
 def test_new_calculator(in_tmp_dir):
     """Test the GPAW.new() method."""
 
