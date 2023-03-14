@@ -4,7 +4,6 @@ from pathlib import Path
 import pytest
 
 # Script modules
-from ase.build import bulk
 from gpaw import GPAW, PW
 
 
@@ -33,50 +32,47 @@ def test_new_calculator(in_tmp_dir):
 
     # ---------- Script ---------- #
 
-    atoms = bulk('Si')
-
-    calc = GPAW(**params, txt='calc0.txt')
-    atoms.calc = calc
+    calc0 = GPAW(**params, txt='calc0.txt')
 
     for m, modification in enumerate(modification_m):
         if m == 0:
             # Don't give a new txt file
-            atoms.calc = calc.new(**modification)
-            check_file_handles(calc, atoms)
+            calc = calc0.new(**modification)
+            check_file_handles(calc0, calc)
         else:
             txt = f'calc{m}.txt'
-            atoms.calc = calc.new(**modification, txt=txt)
-            check_file_handles(calc, atoms, txt=txt)
+            calc = calc0.new(**modification, txt=txt)
+            check_file_handles(calc0, calc, txt=txt)
 
-        check_calc(atoms, params, modification, world=calc.world)
+        check_calc(calc, params, modification, world=calc.world)
 
 
 # ---------- Test functionality ---------- #
 
 
-def check_file_handles(calc, atoms, txt=None):
-    assert calc.log.world.rank == atoms.calc.log.world.rank
+def check_file_handles(calc0, calc, txt=None):
+    assert calc.log.world.rank == calc0.log.world.rank
 
-    if atoms.calc.log.world.rank == 0:
+    if calc.log.world.rank == 0:
         # We never want to reuse the output file
-        assert atoms.calc.log._fd is not calc.log._fd
+        assert calc.log._fd is not calc0.log._fd
 
         if txt is None:
             # When no txt is specified, the new calculator should log its
             # output in stdout
-            assert atoms.calc.log._fd is sys.stdout
+            assert calc.log._fd is sys.stdout
         else:
             # Check that the new calculator log file handle was updated
             # appropriately
-            assert Path(atoms.calc.log._fd.name).name == txt
+            assert Path(calc.log._fd.name).name == txt
 
 
-def check_calc(atoms, params, modification, *, world):
+def check_calc(calc, params, modification, *, world):
     desired_params = params.copy()
     desired_params.update(modification)
 
     for param, value in desired_params.items():
-        assert atoms.calc.parameters[param] == value
+        assert calc.parameters[param] == value
 
     # Check that the communicator is reused
-    assert atoms.calc.world is world
+    assert calc.world is world
