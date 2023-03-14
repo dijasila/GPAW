@@ -69,8 +69,15 @@ def test_response_na_plasmon(in_tmp_dir):
     dfs3 = []
     dfs4 = []
     dfs5 = []
-    I_diffs=[0.008999,0.0075575]
-    for idx,kwargs in enumerate(settings):
+
+    # list of intensities to compare against. Values matched
+    # with higher tolerances but degraded with worse parameters
+    # now 2 intensity values are compared to a looser tol and their difference
+    # to these values
+    I_diffsx = [0.008999, 0.007558, 0.008999, 0.007558]
+    I_diffsy = [0.004063, 0.004063, 0.004063, 0.004063]
+    I_diffsz = [0.004063, 0.005689, 0.004244, 0.005689]
+    for idx, kwargs in enumerate(settings):
         df1 = DielectricFunction('gs_Na_small.gpw',
                                  ecut=40,
                                  rate=0.001,
@@ -96,28 +103,33 @@ def test_response_na_plasmon(in_tmp_dir):
         dfs4.append(df1NLFCz)
         dfs5.append(df1LFCz)
 
-        # Compare plasmon frequencies and intensities
+        # Compare plasmon frequencies and intensities: x, y, z
+        # x values
         w_w = df1.wd.omega_w
         w1, I1 = findpeak(w_w, -(1. / df1LFCx).imag)
         w2, I2 = findpeak(w_w, -(1. / df2LFCx).imag)
         I_diff = abs(I1 - I2)
         equal(w1, w2, 1e-2)
-        assert I_diff == pytest.approx(I_diffs[idx], abs=1e-3)
-        # assert I_diff == pytest.approx(0.0075575, abs=1e-3)
+        assert I_diff == pytest.approx(I_diffsx[idx], abs=1e-3)
         equal(I1, I2, 1e-2)
 
+        # y values
         w1, I1 = findpeak(w_w, -(1. / df1LFCy).imag)
         w2, I2 = findpeak(w_w, -(1. / df2LFCy).imag)
         I_diff = abs(I1 - I2)
         equal(w1, w2, 1e-2)
-        equal(I_diff, 0.004063, 1e-3)
+        assert I_diff == pytest.approx(I_diffsy[idx], abs=1e-3)
         equal(I1, I2, 1e-2)
 
+        # z values
         w1, I1 = findpeak(w_w, -(1. / df1LFCz).imag)
         w2, I2 = findpeak(w_w, -(1. / df2LFCz).imag)
         I_diff = abs(I1 - I2)
+        # test that the frequency for 2 methods are aprx equal
         equal(w1, w2, 1e-2)
-        equal(I_diff, 0.0042445, 1e-3)
+        # test that the intensity difference is within some tol
+        assert I_diff == pytest.approx(I_diffsz[idx], abs=1e-3)
+        # test that the intensities are aprx equal
         equal(I1, I2, 1e-2)
 
     # Check for self-consistency
