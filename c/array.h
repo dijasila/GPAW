@@ -28,7 +28,7 @@
 // second is a given multiple of the size of the first
 #define CHK_ARRAYS(a,b,n)                                                             \
   if ((PyArray_TYPE((PyArrayObject*)a) != PyArray_TYPE((PyArrayObject*)b))            \
-      || (PyArray_SIZE((PyArrayObjet*)b) != PyArray_SIZE((PyArrayObject*)a) * n)) {   \
+      || (PyArray_SIZE((PyArrayObject*)b) != PyArray_SIZE((PyArrayObject*)a) * n)) {   \
     PyErr_SetString(PyExc_ValueError,                                                 \
 		    "Incompatible array types or sizes.");                            \
       return NULL; } else
@@ -40,7 +40,7 @@
 #define Array_BYTES(a) PyArray_BYTES((PyArrayObject*)a)
 #define Array_DATA(a) PyArray_DATA((PyArrayObject*)a)
 #define Array_SIZE(a) PyArray_SIZE((PyArrayObject*)a)
-#define Array_TYPE(a) PyArray_TYPE((PYArrayObject*)a)
+#define Array_TYPE(a) PyArray_TYPE((PyArrayObject*)a)
 #define Array_NBYTES(a) PyArray_NBYTES((PyArrayObject*)a)
 #define Array_ISCOMPLEX(a) PyArray_ISCOMPLEX((PyArrayObject*)a)
 
