@@ -104,7 +104,7 @@ class IBZ2BZMapper:
 
         return ut_R
 
-    def map_projections(self, K, Ph):
+    def map_projections(self, K, projections):
         """Perform IBZ -> K mapping of the PAW projections.
 
         NB: The projections of atom b may be mapped onto *another* atom a.
@@ -112,20 +112,16 @@ class IBZ2BZMapper:
         time_reversal = self.get_time_reversal(K)
         b_a, U_aii = self.get_atomic_rotation_matrices(K)
 
-        # First, we apply the symmetry operations to the projections one at a
-        # time
-        P_ahi = []
-        for b, U_ii in zip(b_a, U_aii):
-            P_hi = Ph[b].copy(order='C')
-            np.dot(P_hi, U_ii, out=P_hi)
+        mapped_projections = projections.new()
+        for a, (b, U_ii) in enumerate(zip(b_a, U_aii)):
+            # Map projections
+            Pin_ni = projections[b]
+            Pout_ni = Pin_ni @ U_ii
             if time_reversal:
-                np.conj(P_hi, out=P_hi)
-            P_ahi.append(P_hi)
+                Pout_ni = np.conj(Pout_ni)
 
-        # Then, we store the symmetry mapped projectors in the projections
-        # object
-        for a, P_hi in enumerate(P_ahi):
-            I1, I2 = Ph.map[a]
-            Ph.array[..., I1:I2] = P_hi
+            # Store output projections
+            I1, I2 = mapped_projections.map[a]
+            mapped_projections.array[..., I1:I2] = Pout_ni
 
-        return Ph
+        return mapped_projections
