@@ -261,7 +261,7 @@ class PWFDWaveFunctions(WaveFunctions):
             F_vni *= myeig_n[:, np.newaxis]
             dO_ii = xp.asarray(self.setups[a].dO_ii)
             F_vii -= xp.einsum('vni, nj, jk -> vik', F_vni, P_ni, dO_ii)
-            F_av[a] += as_xp(2 * F_vii.real.trace(0, 1, 2), np)
+            F_av[a] += 2 * F_vii.real.trace(0, 1, 2)
 
     def _non_collinear_force_contribution(self,
                                           dH_asii,
