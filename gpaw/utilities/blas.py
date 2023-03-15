@@ -612,6 +612,34 @@ def _gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
 
 
 if not hasattr(_gpaw, 'mmm'):
+    # These are the functions used with noblas=True
+    # TODO: move these functions elsewhere so that
+    # they can be used for unit tests
+
+    def op(o, m):
+        if o.upper() == 'N':
+            return m
+        if o.upper() == 'T':
+            return m.T
+        if o.upper() == 'C':
+            return m.conj().T
+        raise ValueError(f'unknown op: {o}')
+
+    def scal(alpha, x):  # noqa
+        x *= alpha
+
+    def axpy(alpha, x, y, use_gpu=None):  # noqa
+        y += alpha * x
+
+    def gemv(alpha, a, x, beta, y, trans='t', use_gpu=None):  # noqa
+        y[:] = alpha * op(trans, a).dot(x) + beta * y
+
+    def dotc(a, b):  # noqa
+        return a.conj().dot(b)
+
+    def dotu(a, b):  # noqa
+        return a.dot(b)
+
     def rk(alpha, a, beta, c, trans='c', use_gpu=None):  # noqa
         if c.size == 0:
             return
@@ -639,13 +667,6 @@ if not hasattr(_gpaw, 'mmm'):
                   .dot(a.reshape((len(a), -1)).conj().T))
         else:
             c += alpha * (a.conj().T @ b + b.conj().T @ a)
-
-    def op(o, m):
-        if o == 'N':
-            return m
-        if o == 'T':
-            return m.T
-        return m.conj().T
 
     def mmm(alpha: T, a: np.ndarray, opa: str,  # noqa
             b: np.ndarray, opb: str,
