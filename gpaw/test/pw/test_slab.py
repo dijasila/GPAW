@@ -8,7 +8,6 @@ from gpaw.calculator import GPAW as OldGPAW
 from gpaw.mpi import world
 
 
-@pytest.mark.later
 @pytest.mark.parametrize('gpu, GPAW',
                          [(False, OldGPAW),
                           (False, NewGPAW),
