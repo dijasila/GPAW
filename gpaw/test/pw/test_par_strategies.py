@@ -34,10 +34,15 @@ def test_pw_par_strategies(in_tmp_dir, d, k, gpu):
                   pbc=True,
                   positions=[[3, 3, 0],
                              [3, 3, 1.6]])
-    GPAW = NewGPAW if gpu else AnyGPAW
+    parallel = {'domain': d, 'kpt': k}
+    if gpu:
+        parallel['gpu'] = True
+        GPAW = NewGPAW
+    else:
+        GPAW = AnyGPAW
     atoms.calc = GPAW(mode=PW(ecut),
                       txt='hli.txt',
-                      parallel={'domain': d, 'kpt': k, 'gpu': gpu},
+                      parallel=parallel,
                       kpts={'size': kpoints},
                       convergence={'maximum iterations': 4},
                       occupations=FermiDirac(width=0.1))
