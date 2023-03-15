@@ -81,7 +81,8 @@ class IBZWaveFunctions:
 
         self.energies: dict[str, float] = {}  # hartree
 
-        if self.wfs_qs[0][0].xp is not np:
+        self.xp = self.wfs_qs[0][0].xp
+        if self.xp is not np:
             if not getattr(_gpaw, 'gpu_aware_mpi', False):
                 self.kpt_comm = CuPyMPI(self.kpt_comm)
 
@@ -260,7 +261,7 @@ class IBZWaveFunctions:
         return eig_skn, occ_skn
 
     def forces(self, potential: Potential) -> Array2D:
-        F_av = np.zeros((potential.dH_asii.natoms, 3))
+        F_av = self.xp.zeros((potential.dH_asii.natoms, 3))
         for wfs in self:
             wfs.force_contribution(potential, F_av)
         self.kpt_comm.sum(F_av)

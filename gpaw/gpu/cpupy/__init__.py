@@ -78,6 +78,10 @@ def triu_indices(n, k=0, m=None):
     return ndarray(i), ndarray(j)
 
 
+def moveaxis(a, source, destination):
+    return ndarray(np.moveaxis(a._data, source, destination))
+
+
 def fuse():
     return lambda func: func
 
@@ -241,3 +245,6 @@ class ndarray:
 
     def item(self):
         return self._data.item()
+
+    def trace(self, offset, axis1, axis2):
+        return ndarray(self._data.trace(offset, axis1, axis2))

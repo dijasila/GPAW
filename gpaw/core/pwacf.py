@@ -337,12 +337,12 @@ class PWLFC(BaseLFC):
                     f_GI[0] *= 0.5
                 G1 *= 2
                 G2 *= 2
-            if self.xp is np:
+            if xp is np:
                 mmm(alpha, a_xG[:, G1:G2], 'N', f_GI, 'N', x, b_xI)
             else:
-                self.xp.cublas.gemm('N', 'N',
-                                    a_xG[:, G1:G2], f_GI, b_xI,
-                                    alpha, x)
+                xp.cublas.gemm('N', 'N',
+                               a_xG[:, G1:G2], f_GI, b_xI,
+                               alpha, x)
             x = 1.0
 
         self.comm.sum(b_xI)
@@ -352,7 +352,8 @@ class PWLFC(BaseLFC):
         return c_axi
 
     def derivative(self, a_xG, c_axiv=None, q=-1):
-        c_vxI = np.zeros((3,) + a_xG.shape[:-1] + (self.nI,), self.dtype)
+        xp = self.xp
+        c_vxI = xp.zeros((3,) + a_xG.shape[:-1] + (self.nI,), self.dtype)
         nx = prod(c_vxI.shape[1:-1])
         b_vxI = c_vxI.reshape((3, nx, self.nI))
         a_xG = a_xG.reshape((nx, a_xG.shape[-1])).view(self.dtype)
@@ -365,22 +366,36 @@ class PWLFC(BaseLFC):
         x = 0.0
         for G1, G2 in self.block():
             f_GI = self.expand(G1, G2, cc=True)
-            G_Gv = self.pw.G_plus_k_Gv[G1:G2]
+            G_Gv = xp.asarray(self.pw.G_plus_k_Gv[G1:G2])
             if self.dtype == float:
-                d_GI = np.empty_like(f_GI)
+                d_GI = xp.empty(f_GI.shape)
                 for v in range(3):
                     d_GI[::2] = f_GI[1::2] * G_Gv[:, v, np.newaxis]
                     d_GI[1::2] = f_GI[::2] * G_Gv[:, v, np.newaxis]
-                    mmm(2 * alpha,
-                        a_xG[:, 2 * G1:2 * G2], 'N',
-                        d_GI, 'N',
-                        x, b_vxI[v])
+                    if xp is np:
+                        mmm(2 * alpha,
+                            a_xG[:, 2 * G1:2 * G2], 'N',
+                            d_GI, 'N',
+                            x, b_vxI[v])
+                    else:
+                        xp.cublas.gemm('N', 'N',
+                                       a_xG[:, 2 * G1:2 * G2],
+                                       d_GI,
+                                       b_vxI[v],
+                                       2 * alpha, x)
             else:
                 for v in range(3):
-                    mmm(-alpha,
-                        a_xG[:, G1:G2], 'N',
-                        f_GI * G_Gv[:, v, np.newaxis], 'N',
-                        x, b_vxI[v])
+                    if xp is np:
+                        mmm(-alpha,
+                            a_xG[:, G1:G2], 'N',
+                            f_GI * G_Gv[:, v, np.newaxis], 'N',
+                            x, b_vxI[v])
+                    else:
+                        xp.cublas.gemm('N', 'N',
+                                       a_xG[:, G1:G2],
+                                       f_GI * G_Gv[:, v, np.newaxis],
+                                       b_vxI[v],
+                                       -alpha, x)
             x = 1.0
 
         self.comm.sum(c_vxI)

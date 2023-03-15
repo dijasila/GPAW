@@ -92,7 +92,7 @@ class AtomCenteredFunctions:
         self._lazy_init()
         if out is None:
             out = self.layout.empty((3,) + functions.dims, functions.comm)
-        coef_axiv = {a: np.moveaxis(array_vxi, 0, -1)
+        coef_axiv = {a: self.xp.moveaxis(array_vxi, 0, -1)
                      for a, array_vxi in out._arrays.items()}
         self._lfc.derivative(functions.data, coef_axiv, q=0)
         return out

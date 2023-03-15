@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from typing import Any, Union
 
+import numpy as np
 from ase import Atoms
 from ase.geometry import cell_to_cellpar
 from ase.units import Bohr, Ha
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.densities import Densities
 from gpaw.electrostatic_potential import ElectrostaticPotential
+from gpaw.gpu import as_xp
 from gpaw.new import cached_property
 from gpaw.new.builder import builder as create_builder
 from gpaw.new.density import Density
@@ -22,7 +25,6 @@ from gpaw.typing import Array1D, Array2D
 from gpaw.utilities import (check_atoms_too_close,
                             check_atoms_too_close_to_boundary)
 from gpaw.utilities.partition import AtomPartition
-from gpaw.densities import Densities
 
 units = {'energy': Ha,
          'free_energy': Ha,
@@ -205,7 +207,7 @@ class DFTCalculation:
         return mm_v, mm_av
 
     def forces(self):
-        """Return atomic force contributions."""
+        """Calculate atomic forces."""
         xc = self.pot_calc.xc
         assert not xc.no_forces
         assert not hasattr(xc.xc, 'setup_force_corrections')
@@ -230,6 +232,8 @@ class DFTCalculation:
         # Force from zero potential:
         for a, dF_v in Fvbar_av.items():
             F_av[a] += dF_v[:, 0]
+
+        F_av = as_xp(F_av, np)
 
         domain_comm = ccc_aL.layout.atomdist.comm
         domain_comm.sum(F_av)
