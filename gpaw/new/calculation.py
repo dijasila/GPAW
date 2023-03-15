@@ -251,7 +251,7 @@ class DFTCalculation:
         self.results['forces'] = F_av
 
     def stress(self):
-        stress_vv = self.pot_calc.stress_contribution(self.state)
+        stress_vv = self.pot_calc.stress(self.state)
         self.log('\nstress tensor: [  # eV/Ang^3')
         for (x, y, z), c in zip(stress_vv * (Ha / Bohr**3), ',,]'):
             self.log(f'  [{x:13.6f}, {y:13.6f}, {z:13.6f}]{c}')

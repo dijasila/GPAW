@@ -4,6 +4,10 @@ from gpaw.new.pot_calc import PotentialCalculator
 from gpaw.setup import Setups
 from gpaw.mpi import broadcast_float
 from gpaw.gpu import cupy as cp
+from gpaw.mpi import broadcast_float
+from gpaw.new.pot_calc import PotentialCalculator
+from gpaw.new.pw.stress import calculate_stress
+from gpaw.setup import Setups
 
 
 class PlaneWavePotentialCalculator(PotentialCalculator):
@@ -204,6 +208,6 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                 self.nct_ag.derivative(vt_g),
                 self.vbar_ag.derivative(nt_g))
 
-    def stress_contributions(self, state):
+    def stress(self, state):
         vt_g, nt_g = self._force_stress_helper(state)
-        return ...
+        return calculate_stress(self, state, vt_g, nt_g)
