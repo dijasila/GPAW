@@ -165,13 +165,14 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
             vt_r.fft_restrict(self.fftplan2, self.fftplan, out=vt_R)
         return vt_sR
 
-    def _move_nct(self, fracpos_ac, ndensities):
-        self.ghat_aLh.move(fracpos_ac)
-        self.vbar_ar.move(fracpos_ac)
-        self.vbar_ar.to_uniform_grid(out=self.vbar_r)
+    def _move(self, fracpos_ac, atomdist, ndensities):
+        self.ghat_aLh.move(fracpos_ac, atomdist)
+        self.vbar_ag.move(fracpos_ac, atomdist)
+        self.vbar_g.data[:] = 0.0
+        self.vbar_ag.add_to(self.vbar_g)
         self.vbar0_g = self.vbar_g.gather()
-        self.nct_aR.move(fracpos_ac)
-        self.nct_aR.to_uniform_grid(out=self.nct_R, scale=1.0 / ndensities)
+        self.nct_ag.move(fracpos_ac, atomdist)
+        self.nct_ag.to_uniform_grid(out=self.nct_R, scale=1.0 / ndensities)
         self._reset()
 
     def _reset(self):

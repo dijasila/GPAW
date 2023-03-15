@@ -128,7 +128,7 @@ class DFTCalculation:
 
         self.fracpos_ac = atoms.get_scaled_positions()
 
-        atomdist = ...
+        atomdist = self.state.density.D_asii.layout.atomdist
 
         delta_nct_R = self.pot_calc.move(self.fracpos_ac,
                                          atomdist,
@@ -276,6 +276,7 @@ class DFTCalculation:
 
 def combine_energies(potential: Potential,
                      ibzwfs: IBZWaveFunctions) -> dict[str, float]:
+    """Add up energy contributions."""
     energies = potential.energies.copy()
     energies['kinetic'] += ibzwfs.energies['band']
     energies['entropy'] = ibzwfs.energies['entropy']
