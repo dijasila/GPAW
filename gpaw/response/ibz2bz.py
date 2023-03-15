@@ -67,8 +67,10 @@ class IBZ2BZMapper:
         return b_a, U_aii
 
     def map_kpoint(self, K):
-        """
-        Some documentation here! XXX
+        """Get the relative k-point coordinates after the IBZ -> K mapping.
+
+        NB: The mapped k-point can lie outside the BZ, but will always be
+        related to self.kd.bzk_kc[K] by a reciprocal lattice vector.
         """
         U_cc = self.get_rotation_matrix(K)
         time_reversal = self.get_time_reversal(K)
@@ -81,11 +83,12 @@ class IBZ2BZMapper:
         return k_c
 
     def map_pseudo_wave(self, K, ut_R):
-        """
-        Some documentation here! XXX
+        """Map the periodic part of the pseudo wave from the IBZ -> K.
 
-        * k_c is an array of the relative k-point coordinates of the k-point to
-          which the wave function is mapped. NB: This can lie outside the BZ.
+        The mapping takes place on the coarse real-space grid.
+
+        NB: The k-point corresponding to the output ut_R does not necessarily
+        lie within the BZ, see map_kpoint().
         """
         U_cc = self.get_rotation_matrix(K)
         time_reversal = self.get_time_reversal(K)
@@ -102,10 +105,10 @@ class IBZ2BZMapper:
         return ut_R
 
     def map_projections(self, K, Ph):
-        """Symmetrize the PAW projections. XXX
+        """Perform IBZ -> K mapping of the PAW projections.
 
-        NB: The projections of atom a1 are mapped onto a *different* atom a2
-        according to the input map of atomic indices a1_a2."""
+        NB: The projections of atom b may be mapped onto *another* atom a.
+        """
         time_reversal = self.get_time_reversal(K)
         b_a, U_aii = self.get_atomic_rotation_matrices(K)
 
