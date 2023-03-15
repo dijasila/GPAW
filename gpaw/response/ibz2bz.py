@@ -98,11 +98,16 @@ class IBZ2BZMapper:
             N_c = ut_R.shape
             i_cr = np.dot(U_cc.T, np.indices(N_c).reshape((3, -1)))
             i = np.ravel_multi_index(i_cr, N_c, 'wrap')
-            ut_R = ut_R.ravel()[i].reshape(N_c)
+            utout_R = ut_R.ravel()[i].reshape(N_c)
+        else:
+            utout_R = ut_R.copy()
         if time_reversal:
-            ut_R = ut_R.conj()
+            utout_R = utout_R.conj()
 
-        return ut_R
+        assert utout_R is not ut_R,\
+            "We don't want the output array to point back at the input array"
+
+        return utout_R
 
     def map_projections(self, K, projections):
         """Perform IBZ -> K mapping of the PAW projections.
