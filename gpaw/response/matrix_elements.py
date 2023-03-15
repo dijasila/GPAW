@@ -41,7 +41,6 @@ class NewPairDensityCalculator:
     def __init__(self, gs, context):
         self.gs = gs
         self.context = context
-        self.ibz2bz = self.gs.construct_ibz2bz_mapper()
 
         # Save PAW correction for all calls with same q_c
         self._pawcorr = None
@@ -99,8 +98,8 @@ class NewPairDensityCalculator:
 
         # Map the k-points from the irreducible part of the BZ to the BZ
         # k-point K (up to a reciprocal lattice vector)
-        k1_c = self.ibz2bz.map_kpoint(kpt1.K)
-        k2_c = self.ibz2bz.map_kpoint(kpt2.K)
+        k1_c = self.gs.ibz2bz.map_kpoint(kpt1.K)
+        k2_c = self.gs.ibz2bz.map_kpoint(kpt2.K)
 
         # Fourier transform the periodic part of the pseudo waves to the coarse
         # real-space grid and map them to the BZ k-point K (up to the same
@@ -152,8 +151,8 @@ class NewPairDensityCalculator:
 
         # Map the projections from the irreducible part of the BZ to the BZ
         # k-point K
-        P1h = self.ibz2bz.map_projections(kpt1.K, kpt1.Ph)
-        P2h = self.ibz2bz.map_projections(kpt2.K, kpt2.Ph)
+        P1h = self.gs.ibz2bz.map_projections(kpt1.K, kpt1.Ph)
+        P2h = self.gs.ibz2bz.map_projections(kpt2.K, kpt2.Ph)
 
         # Calculate the actual PAW corrections
         Q_aGii = self.get_paw_corrections(qpd).Q_aGii
@@ -176,7 +175,7 @@ class NewPairDensityCalculator:
         ik = self.gs.kd.bz2ibz_k[kpt.K]
         ut_hR = self.gs.gd.empty(kpt.nh, self.gs.dtype)
         for h, psit_G in enumerate(kpt.psit_hG):
-            ut_hR[h] = self.ibz2bz.map_pseudo_wave(
+            ut_hR[h] = self.gs.ibz2bz.map_pseudo_wave(
                 kpt.K, self.gs.global_pd.ifft(psit_G, ik))
 
         return ut_hR

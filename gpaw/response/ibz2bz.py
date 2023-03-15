@@ -2,20 +2,27 @@ import numpy as np
 
 
 class IBZ2BZMapper:
-    """
-    Some documentation here! XXX
-
-    We want to transform a k-point in the irreducible part of the BZ to
-    the corresponding k-point with index K.
-    """
+    """Functionality to map data from k-points in the IBZ to the full BZ."""
 
     def __init__(self, kd, spos_ac, R_asii):
-        """
-        Some documentation here! XXX
+        """Construct the IBZ2BZMapper.
+
+        Parameters
+        ----------
+        kd : KPointDescriptor
+        spos_ac : np.array
+            Scaled atomic positions
+        R_asii : list
+            Atomic symmetry rotations
         """
         self.kd = kd
         self.spos_ac = spos_ac
         self.R_asii = R_asii
+
+    @classmethod
+    def from_calculator(cls, calc):
+        R_asii = [setup.R_sii for setup in calc.setups]
+        return cls(calc.wfs.kd, calc.spos_ac, R_asii)
 
     def get_ik_c(self, K):
         ik = self.kd.bz2ibz_k[K]

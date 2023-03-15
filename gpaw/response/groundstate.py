@@ -7,6 +7,7 @@ from ase.units import Ha, Bohr
 from ase.utils import lazyproperty
 
 import gpaw.mpi as mpi
+from gpaw.response.ibz2bz import IBZ2BZMapper
 
 
 class ResponseGroundStateAdapter:
@@ -34,6 +35,8 @@ class ResponseGroundStateAdapter:
         self.volume = self.gd.volume
 
         self.nvalence = wfs.nvalence
+
+        self.ibz2bz = IBZ2BZMapper.from_calculator(calc)
 
         self._wfs = wfs
         self._density = calc.density
@@ -210,11 +213,6 @@ class ResponseGroundStateAdapter:
         ibzq_qc = kd.get_ibz_q_points(bzq_qc, U_scc)[0]
 
         return ibzq_qc
-
-    def construct_ibz2bz_mapper(self):
-        from gpaw.response.ibz2bz import IBZ2BZMapper
-        R_asii = [pawdata.R_sii for pawdata in self.pawdatasets]
-        return IBZ2BZMapper(self.kd, self.spos_ac, R_asii)
 
 
 # Contains all the relevant information
