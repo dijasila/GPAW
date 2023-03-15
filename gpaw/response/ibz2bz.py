@@ -30,41 +30,41 @@ class IBZ2BZMapper:
         return ik_c
 
     def get_rotation_matrix(self, K):
-        """
-        * U_cc is a rotation matrix.
-        """
+        """Coordinate rotation matrix, mapping IBZ -> K."""
         s = self.kd.sym_k[K]
         U_cc = self.kd.symmetry.op_scc[s]
         return U_cc
 
     def get_time_reversal(self, K):
-        """
-        * time_reversal is a flag - if True, projections should be complex
-          conjugated.
-        """
+        """Does the mapping IBZ -> K involve time reversal?"""
         time_reversal = self.kd.time_reversal_k[K]
         return time_reversal
 
     def get_atomic_rotation_matrices(self, K):
-        """
-        * a_a is a list of symmetry related atom indices
-        * U_aii is a list of rotation matrices for the PAW projections
+        """Atomic permutation and rotation involved in the IBZ -> K mapping.
+
+        Returns
+        -------
+        b_a : list
+            Atomic permutations (atom b is mapped onto atom a)
+        U_aii : list
+            Atomic rotation matrices for the PAW projections
         """
         s = self.kd.sym_k[K]
         U_cc = self.get_rotation_matrix(K)
         ik_c = self.get_ik_c(K)
 
-        a_a = []
+        b_a = []
         U_aii = []
         for a, R_sii in enumerate(self.R_asii):
             b = self.kd.symmetry.a_sa[s, a]
             S_c = np.dot(self.spos_ac[a], U_cc) - self.spos_ac[b]
             x = np.exp(2j * np.pi * np.dot(ik_c, S_c))
             U_ii = R_sii[s].T * x
-            a_a.append(b)
+            b_a.append(b)
             U_aii.append(U_ii)
 
-        return a_a, U_aii
+        return b_a, U_aii
 
     def map_kpoint(self, K):
         """
@@ -107,22 +107,22 @@ class IBZ2BZMapper:
         NB: The projections of atom a1 are mapped onto a *different* atom a2
         according to the input map of atomic indices a1_a2."""
         time_reversal = self.get_time_reversal(K)
-        a1_a2, U_aii = self.get_atomic_rotation_matrices(K)
+        b_a, U_aii = self.get_atomic_rotation_matrices(K)
 
         # First, we apply the symmetry operations to the projections one at a
         # time
-        P_a2hi = []
-        for a1, U_ii in zip(a1_a2, U_aii):
-            P_hi = Ph[a1].copy(order='C')
+        P_ahi = []
+        for b, U_ii in zip(b_a, U_aii):
+            P_hi = Ph[b].copy(order='C')
             np.dot(P_hi, U_ii, out=P_hi)
             if time_reversal:
                 np.conj(P_hi, out=P_hi)
-            P_a2hi.append(P_hi)
+            P_ahi.append(P_hi)
 
         # Then, we store the symmetry mapped projectors in the projections
         # object
-        for a2, P_hi in enumerate(P_a2hi):
-            I1, I2 = Ph.map[a2]
+        for a, P_hi in enumerate(P_ahi):
+            I1, I2 = Ph.map[a]
             Ph.array[..., I1:I2] = P_hi
 
         return Ph
