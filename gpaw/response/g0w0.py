@@ -18,7 +18,7 @@ from gpaw.utilities.progressbar import ProgressBar
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chi0 import Chi0Calculator
 from gpaw.response.hilbert import GWHilbertTransforms
-from gpaw.response.pair import PairDensityCalculator
+from gpaw.response.pair import PairDensityCalculator, fft_indices
 from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.response.screened_interaction import initialize_w_calculator
@@ -266,26 +266,16 @@ class QSymmetryOp:
 
         return symop, iq
 
-    def apply_symop_q(self, qpd, pawcorr, kpt1, kpt2, debug=False):
+    def apply_symop_q(self, qpd, pawcorr, kpt1, kpt2):
         # returns necessary quantities to get symmetry transformed
         # density matrix
-        N_c = qpd.gd.N_c
-        Q_G = qpd.Q_qG[0]
-
-        shift_c = kpt1.k_c + self.apply(qpd.q_c) - kpt2.k_c
-        assert np.allclose(shift_c.round(), shift_c)
-        shift_c = shift_c.round().astype(int)
-
-        i_cG = self.apply(np.unravel_index(Q_G, N_c))
-        Q_G = np.ravel_multi_index(i_cG + shift_c[:, np.newaxis], N_c, 'wrap')
+        Q_G = fft_indices(kpt1.k_c, kpt2.k_c, qpd,
+                          coordinate_transformation=self.apply)
 
         qG_Gv = qpd.get_reciprocal_vectors(add_q=True)
         M_vv = self.get_M_vv(qpd.gd.cell_cv)
         mypawcorr = pawcorr.remap_by_symop(self, qG_Gv, M_vv)
-        # XXX Can be removed together with G0W0 debug routine in future
-        if debug:
-            self.debug_i_cG = i_cG
-            self.debug_N_c = N_c
+
         return mypawcorr, Q_G
 
 
@@ -669,17 +659,14 @@ class G0W0Calculator:
                     *, symop, sigmas, blocks1d, pawcorr):
         """Calculates the contribution to the self-energy and its derivative
         for a given set of k-points, kpt1 and kpt2."""
-        mypawcorr, I_G = symop.apply_symop_q(qpd,
-                                             pawcorr,
-                                             kpt1,
-                                             kpt2,
-                                             debug=debug)
+        mypawcorr, I_G = symop.apply_symop_q(qpd, pawcorr, kpt1, kpt2)
         if debug:
+            N_c = qpd.gd.N_c
+            i_cG = symop.apply(np.unravel_index(qpd.Q_qG[0], N_c))
             bzk_kc = self.wcalc.gs.kd.bzk_kc
             Q_c = bzk_kc[kpt2.K] - bzk_kc[kpt1.K]
             shift0_c = Q_c - symop.apply(qpd.q_c)
-            self.check(ie, symop.debug_i_cG, shift0_c,
-                       symop.debug_N_c, Q_c, mypawcorr)
+            self.check(ie, i_cG, shift0_c, N_c, Q_c, mypawcorr)
 
         for n in range(kpt1.n2 - kpt1.n1):
             eps1 = kpt1.eps_n[n]

@@ -490,19 +490,24 @@ class PairDensityCalculator:
         return ut_nvR
 
 
-def fft_indices(k1_c, k2_c, qpd):
+def fft_indices(k1_c, k2_c, qpd, coordinate_transformation=None):
     """Get indices for G-vectors inside cutoff sphere."""
     N_c = qpd.gd.N_c
     Q_G = qpd.Q_qG[0]
+    q_c = qpd.q_c
+    if coordinate_transformation:
+        q_c = coordinate_transformation(q_c)
 
-    shift_c = k1_c + qpd.q_c - k2_c
+    shift_c = k1_c + q_c - k2_c
     assert np.allclose(shift_c.round(), shift_c)
     shift_c = shift_c.round().astype(int)
 
-    if shift_c.any():
+    if shift_c.any() or coordinate_transformation:
         # Get the 3D FFT grid indices (relative reciprocal space coordinates)
         # of the G-vectors inside the cutoff sphere
         i_cG = np.unravel_index(Q_G, N_c)
+        if coordinate_transformation:
+            i_cG = coordinate_transformation(i_cG)
         # Shift the 3D FFT grid indices to account for the extra Bloch phase
         # e^(-i(k + q - k')r)
         i_cG += shift_c[:, np.newaxis]
