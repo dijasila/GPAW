@@ -16,16 +16,11 @@ for d in [1, 2, 4, 8]:
             continue
         dk.append((d, k))
 
-if os.environ.get('GPAW_NEW'):
-    gpu = [False, True]
-else:
-    gpu = [False]
-
 
 @pytest.mark.gpu
 @pytest.mark.stress
 @pytest.mark.parametrize('d, k', dk)
-@pytest.mark.parametrize('gpu', gpu)
+@pytest.mark.parametrize('gpu', [False, True])
 def test_pw_par_strategies(in_tmp_dir, d, k, gpu):
     ecut = 200
     kpoints = [1, 1, 4]
