@@ -491,7 +491,16 @@ class PairDensityCalculator:
 
 
 def fft_indices(k1_c, k2_c, qpd, coordinate_transformation=None):
-    """Get indices for G-vectors inside cutoff sphere."""
+    """Get phase shifted FFT indices for G-vectors inside the cutoff sphere.
+
+    The output 1D FFT indices Q_G can be used to extract the plane-wave
+    components G of the phase shifted Fourier transform
+
+    n_kk'(G+q) = FFT_G[e^(-i[k+q-k']r) n_kk'(r)]
+
+    where n_kk'(r) is some lattice periodic function and the wave vector
+    difference k + q - k' is commensurate with the reciprocal lattice.
+    """
     N_c = qpd.gd.N_c
     Q_G = qpd.Q_qG[0]
     q_c = qpd.q_c
@@ -508,8 +517,8 @@ def fft_indices(k1_c, k2_c, qpd, coordinate_transformation=None):
         i_cG = np.unravel_index(Q_G, N_c)
         if coordinate_transformation:
             i_cG = coordinate_transformation(i_cG)
-        # Shift the 3D FFT grid indices to account for the extra Bloch phase
-        # e^(-i(k + q - k')r)
+        # Shift the 3D FFT grid indices to account for the Bloch-phase shift
+        # e^(-i[k+q-k']r)
         i_cG += shift_c[:, np.newaxis]
         # Transform back the FFT grid to 1D FFT indices
         Q_G = np.ravel_multi_index(i_cG, N_c, 'wrap')

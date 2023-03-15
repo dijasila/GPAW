@@ -114,18 +114,23 @@ class NewPairDensityCalculator:
         ut1_hR = self.get_periodic_pseudo_waves(kpt1, ut1_symmetrizer)
         ut2_hR = self.get_periodic_pseudo_waves(kpt2, ut2_symmetrizer)
 
-        # Calculate the pseudo pair density in real space
+        # Calculate the pseudo pair density in real space, up to a phase of
+        # e^(-i[k+q-k']r).
+        # This phase does not necessarily vanish, since k2_c only is required
+        # equal k1_c + qpd.q_c modulo a reciprocal lattice vector.
         ut1cc_mytR = ut1_hR[kpt1.h_myt].conj()
-        n_mytR = ut1cc_mytR * ut2_hR[kpt2.h_myt]
+        nt_mytR = ut1cc_mytR * ut2_hR[kpt2.h_myt]
 
-        # Get the plane-wave indices to Fourier transform products of
-        # Kohn-Sham orbitals in k and k + q
+        # Get the FFT indices corresponding to the Fourier transform
+        #                       ˷          ˷
+        # FFT_G[e^(-i[k+q-k']r) u_nks^*(r) u_n'k's'(r)]
         Q_G = fft_indices(k1_c, k2_c, qpd)
 
-        # Add FFT of the pseudo pair density to the output array
+        # Add the desired plane-wave components of the FFT'ed pseudo pair
+        # density to the output array
         nlocalt = kptpair.tblocks.nlocal
-        assert len(n_mytG) == nlocalt and len(n_mytR) == nlocalt
-        for n_G, n_R in zip(n_mytG, n_mytR):
+        assert len(n_mytG) == len(nt_mytR) == nlocalt
+        for n_G, n_R in zip(n_mytG, nt_mytR):
             n_G[:] += qpd.fft(n_R, 0, Q_G) * qpd.gd.dv
 
     @timer('Calculate the pair density PAW corrections')
