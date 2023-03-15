@@ -61,7 +61,8 @@ class PotentialCalculator:
 
     def move(self, fracpos_ac, atomdist, ndensities):
         delta_nct_R = self.nct_R.new()
-        delta_nct_R.data = -self.nct_R.data
+        delta_nct_R.data[:] = self.nct_R.data
+        delta_nct_R.data *= -1
         self._move(fracpos_ac, atomdist, ndensities)
         delta_nct_R.data += self.nct_R.data
         return delta_nct_R
