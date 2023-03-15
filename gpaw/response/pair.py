@@ -5,6 +5,7 @@ import numpy as np
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
 from gpaw.response.pw_parallelization import block_partition
 from gpaw.response.symmetry import KPointFinder
+from gpaw.response.ibz2bz import construct_symmetrizers
 from gpaw.utilities.blas import mmm
 
 
@@ -180,8 +181,8 @@ class PairDensityCalculator:
         na = min(n1 + rank * blocksize, n2)
         nb = min(na + blocksize, n2)
 
-        _, T, a_a, U_aii, k_c, time_reversal = \
-            self.gs.construct_symmetry_operators(K)
+        ut_symmetrizer, Ph_symmetrizer, k_c = construct_symmetrizers(self.gs,
+                                                                     K)
 
         ik = kd.bz2ibz_k[K]
         assert kd.comm.size == 1
@@ -196,15 +197,16 @@ class PairDensityCalculator:
             psit_nG = kpt.psit_nG
             ut_nR = gs.gd.empty(nb - na, gs.dtype)
             for n in range(na, nb):
-                ut_nR[n - na] = T(gs.pd.ifft(psit_nG[n], ik))
+                ut_nR[n - na] = ut_symmetrizer(gs.pd.ifft(psit_nG[n], ik))
 
         with self.context.timer('Load projections'):
-            P_ani = []
-            for b, U_ii in zip(a_a, U_aii):
-                P_ni = np.dot(kpt.P_ani[b][na:nb], U_ii)
-                if time_reversal:
-                    P_ni = P_ni.conj()
-                P_ani.append(P_ni)
+            if nb - na > 0:
+                proj = kpt.projections.new(nbands=nb - na, bcomm=None)
+                proj.array[:] = kpt.projections.array[na:nb]
+                proj = Ph_symmetrizer(proj)
+                P_ani = [P_ni for _, P_ni in proj.items()]
+            else:
+                P_ani = []
 
         return KPoint(s, K, n1, n2, blocksize, na, nb,
                       ut_nR, eps_n, f_n, P_ani, k_c)
