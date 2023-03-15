@@ -211,12 +211,10 @@ class ResponseGroundStateAdapter:
 
         return ibzq_qc
 
-    def construct_symmetry_operators(self, K):
-        from gpaw.response.ibz2bz import construct_symmetry_operators
+    def construct_ibz2bz_mapper(self):
+        from gpaw.response.ibz2bz import IBZ2BZMapper
         R_asii = [pawdata.R_sii for pawdata in self.pawdatasets]
-        return construct_symmetry_operators(
-            self.kd, self.gd, K,
-            spos_ac=self.spos_ac, R_asii=R_asii)
+        return IBZ2BZMapper(self.kd, self.spos_ac, R_asii)
 
 
 # Contains all the relevant information

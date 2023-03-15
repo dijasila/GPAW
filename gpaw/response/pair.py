@@ -5,7 +5,6 @@ import numpy as np
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
 from gpaw.response.pw_parallelization import block_partition
 from gpaw.response.symmetry import KPointFinder
-from gpaw.response.ibz2bz import construct_symmetrizers
 from gpaw.utilities.blas import mmm
 
 
@@ -99,6 +98,7 @@ class PairDensityCalculator:
         self.ut_sKnvR = None  # gradient of wave functions for optical limit
 
         self.kptfinder = KPointFinder(self.gs.kd.bzk_kc)
+        self.ibz2bz = self.gs.construct_ibz2bz_mapper()
         self.context.print('Number of blocks:', nblocks)
 
     def find_kpoint(self, k_c):
@@ -181,9 +181,6 @@ class PairDensityCalculator:
         na = min(n1 + rank * blocksize, n2)
         nb = min(na + blocksize, n2)
 
-        ut_symmetrizer, Ph_symmetrizer, k_c = construct_symmetrizers(self.gs,
-                                                                     K)
-
         ik = kd.bz2ibz_k[K]
         assert kd.comm.size == 1
         kpt = gs.kpt_qs[ik][s]
@@ -193,17 +190,20 @@ class PairDensityCalculator:
         eps_n = kpt.eps_n[n1:n2]
         f_n = kpt.f_n[n1:n2] / kpt.weight
 
+        k_c = self.ibz2bz.map_kpoint(K)
+
         with self.context.timer('load wfs'):
             psit_nG = kpt.psit_nG
             ut_nR = gs.gd.empty(nb - na, gs.dtype)
             for n in range(na, nb):
-                ut_nR[n - na] = ut_symmetrizer(gs.pd.ifft(psit_nG[n], ik))
+                ut_nR[n - na] = self.ibz2bz.map_pseudo_wave(
+                    K, gs.pd.ifft(psit_nG[n], ik))
 
         with self.context.timer('Load projections'):
             if nb - na > 0:
                 proj = kpt.projections.new(nbands=nb - na, bcomm=None)
                 proj.array[:] = kpt.projections.array[na:nb]
-                proj = Ph_symmetrizer(proj)
+                proj = self.ibz2bz.map_projections(K, proj)
                 P_ani = [P_ni for _, P_ni in proj.items()]
             else:
                 P_ani = []
@@ -474,7 +474,7 @@ class PairDensityCalculator:
     @timer('Derivatives')
     def make_derivative(self, s, K, n1, n2):
         gs = self.gs
-        U_cc, T, _, _, _, _ = self.gs.construct_symmetry_operators(K)
+        U_cc = self.ibz2bz.get_rotation_matrix(K)
         A_cv = gs.gd.cell_cv
         M_vv = np.dot(np.dot(A_cv.T, U_cc.T), np.linalg.inv(A_cv).T)
         ik = gs.kd.bz2ibz_k[K]
@@ -485,7 +485,8 @@ class PairDensityCalculator:
         ut_nvR = gs.gd.zeros((n2 - n1, 3), complex)
         for n in range(n1, n2):
             for v in range(3):
-                ut_R = T(gs.pd.ifft(iG_Gv[:, v] * psit_nG[n], ik))
+                ut_R = self.ibz2bz.map_pseudo_wave(
+                    K, gs.pd.ifft(iG_Gv[:, v] * psit_nG[n], ik))
                 for v2 in range(3):
                     ut_nvR[n - n1, v2] += ut_R * M_vv[v, v2]
 
