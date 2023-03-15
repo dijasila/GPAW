@@ -492,15 +492,24 @@ class PairDensityCalculator:
 
 def fft_indices(k1_c, k2_c, qpd):
     """Get indices for G-vectors inside cutoff sphere."""
-    N_G = qpd.Q_qG[0]
+    N_c = qpd.gd.N_c
+    Q_G = qpd.Q_qG[0]
+
     shift_c = k1_c + qpd.q_c - k2_c
     assert np.allclose(shift_c.round(), shift_c)
     shift_c = shift_c.round().astype(int)
+
     if shift_c.any():
-        n_cG = np.unravel_index(N_G, qpd.gd.N_c)
-        n_cG = [n_G + shift for n_G, shift in zip(n_cG, shift_c)]
-        N_G = np.ravel_multi_index(n_cG, qpd.gd.N_c, 'wrap')
-    return N_G
+        # Get the 3D FFT grid indices (relative reciprocal space coordinates)
+        # of the G-vectors inside the cutoff sphere
+        i_cG = np.unravel_index(Q_G, N_c)
+        # Shift the 3D FFT grid indices to account for the extra Bloch phase
+        # e^(-i(k + q - k')r)
+        i_cG += shift_c[:, np.newaxis]
+        # Transform back the FFT grid to 1D FFT indices
+        Q_G = np.ravel_multi_index(i_cG, N_c, 'wrap')
+
+    return Q_G
 
 
 def get_gs_and_context(calc, txt, world, timer):

@@ -270,11 +270,15 @@ class QSymmetryOp:
         # returns necessary quantities to get symmetry transformed
         # density matrix
         N_c = qpd.gd.N_c
-        i_cG = self.apply(np.unravel_index(qpd.Q_qG[0], N_c))
+        Q_G = qpd.Q_qG[0]
+
         shift_c = kpt1.k_c + self.apply(qpd.q_c) - kpt2.k_c
         assert np.allclose(shift_c.round(), shift_c)
         shift_c = shift_c.round().astype(int)
-        I_G = np.ravel_multi_index(i_cG + shift_c[:, None], N_c, 'wrap')
+
+        i_cG = self.apply(np.unravel_index(Q_G, N_c))
+        Q_G = np.ravel_multi_index(i_cG + shift_c[:, np.newaxis], N_c, 'wrap')
+
         qG_Gv = qpd.get_reciprocal_vectors(add_q=True)
         M_vv = self.get_M_vv(qpd.gd.cell_cv)
         mypawcorr = pawcorr.remap_by_symop(self, qG_Gv, M_vv)
@@ -282,7 +286,7 @@ class QSymmetryOp:
         if debug:
             self.debug_i_cG = i_cG
             self.debug_N_c = N_c
-        return mypawcorr, I_G
+        return mypawcorr, Q_G
 
 
 def get_nmG(kpt1, kpt2, mypawcorr, n, qpd, I_G, pair):
