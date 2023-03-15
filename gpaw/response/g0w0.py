@@ -695,7 +695,7 @@ class G0W0Calculator:
     def check(self, ie, i_cG, shift0_c, N_c, Q_c, pawcorr):
         # Can we delete this check? XXX
         assert np.allclose(shift0_c.round(), shift0_c)
-        return shift0_c.round().astype(int)
+        shift0_c = shift0_c.round().astype(int)
         I0_G = np.ravel_multi_index(i_cG - shift0_c[:, None], N_c, 'wrap')
         qpd = SingleQPWDescriptor.from_q(Q_c, self.ecut_e[ie],
                                          self.wcalc.gs.gd)
