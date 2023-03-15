@@ -18,7 +18,7 @@ from gpaw.utilities.progressbar import ProgressBar
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chi0 import Chi0Calculator
 from gpaw.response.hilbert import GWHilbertTransforms
-from gpaw.response.pair import PairDensityCalculator, fft_indices
+from gpaw.response.pair import PairDensityCalculator, phase_shifted_fft_indices
 from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.response.screened_interaction import initialize_w_calculator
@@ -269,8 +269,8 @@ class QSymmetryOp:
     def apply_symop_q(self, qpd, pawcorr, kpt1, kpt2):
         # returns necessary quantities to get symmetry transformed
         # density matrix
-        Q_G = fft_indices(kpt1.k_c, kpt2.k_c, qpd,
-                          coordinate_transformation=self.apply)
+        Q_G = phase_shifted_fft_indices(kpt1.k_c, kpt2.k_c, qpd,
+                                        coordinate_transformation=self.apply)
 
         qG_Gv = qpd.get_reciprocal_vectors(add_q=True)
         M_vv = self.get_M_vv(qpd.gd.cell_cv)

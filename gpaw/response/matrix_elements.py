@@ -4,7 +4,7 @@ import numpy as np
 
 from gpaw.response import timer
 from gpaw.response.kspair import KohnShamKPointPair
-from gpaw.response.pair import fft_indices
+from gpaw.response.pair import phase_shifted_fft_indices
 
 
 class PairDensity:
@@ -124,7 +124,7 @@ class NewPairDensityCalculator:
         # Get the FFT indices corresponding to the Fourier transform
         #                       ˷          ˷
         # FFT_G[e^(-i[k+q-k']r) u_nks^*(r) u_n'k's'(r)]
-        Q_G = fft_indices(k1_c, k2_c, qpd)
+        Q_G = phase_shifted_fft_indices(k1_c, k2_c, qpd)
 
         # Add the desired plane-wave components of the FFT'ed pseudo pair
         # density to the output array

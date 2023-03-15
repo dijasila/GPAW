@@ -228,7 +228,7 @@ class PairDensityCalculator:
             kpt2 = self.get_k_point(s, k_c + q_c, m1, m2, block=block)
 
         with self.context.timer('fft indices'):
-            Q_G = fft_indices(kpt1.k_c, kpt2.k_c, qpd)
+            Q_G = phase_shifted_fft_indices(kpt1.k_c, kpt2.k_c, qpd)
 
         return KPointPair(kpt1, kpt2, Q_G)
 
@@ -490,7 +490,7 @@ class PairDensityCalculator:
         return ut_nvR
 
 
-def fft_indices(k1_c, k2_c, qpd, coordinate_transformation=None):
+def phase_shifted_fft_indices(k1_c, k2_c, qpd, coordinate_transformation=None):
     """Get phase shifted FFT indices for G-vectors inside the cutoff sphere.
 
     The output 1D FFT indices Q_G can be used to extract the plane-wave
