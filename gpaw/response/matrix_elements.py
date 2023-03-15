@@ -159,7 +159,8 @@ class NewPairDensityCalculator:
         P1 = kpt1.projectors_in_transition_index(P1h)
         P2 = kpt2.projectors_in_transition_index(P2h)
         for a, Q_Gii in enumerate(Q_aGii):  # Loop over augmentation spheres
-            assert P1.bcomm.size == P2.bcomm.size == 1,\
+            assert P1.atom_partition.comm.size ==\
+                P2.atom_partition.comm.size == 1,\
                 'We need access to the projections of all atoms'
             P1_myti = P1[a]
             P2_myti = P2[a]
