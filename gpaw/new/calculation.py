@@ -223,7 +223,6 @@ class DFTCalculation:
         ccc_aL = \
             self.state.density.calculate_compensation_charge_coefficients()
         for a, dF_vL in Fcc_avL.items():
-            print(F_av[a], dF_vL, ccc_aL[a])
             F_av[a] += dF_vL @ ccc_aL[a]
 
         # Force from smooth core charge:

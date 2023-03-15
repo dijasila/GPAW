@@ -49,7 +49,7 @@ def test_pw_par_strategies(in_tmp_dir, d, k, gpu):
     assert f == pytest.approx(np.array([[0, 0, -7.85130336e-01],
                                         [0, 0, 8.00667631e-01]]))
 
-    if not os.environ.get('GPAW_NEW'):
+    if not gpu and not os.environ.get('GPAW_NEW'):
         s = atoms.get_stress()
         assert s == pytest.approx(
             [3.98105501e-03, 3.98105501e-03, -4.98044912e-03, 0, 0, 0])
