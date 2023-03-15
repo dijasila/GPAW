@@ -1,3 +1,5 @@
+from functools import partial
+
 import numpy as np
 
 
@@ -57,3 +59,38 @@ def construct_symmetry_operators(kd, gd, K, *, spos_ac, R_asii):
         U_aii.append(U_ii)
 
     return U_cc, T, a_a, U_aii, k_c, time_reversal
+
+
+def construct_symmetrizers(gs, K):
+    """Construct functions to symmetrize ut_hR and Ph."""
+    _, T, a_a, U_aii, k_c, time_reversal = \
+        gs.construct_symmetry_operators(K)
+
+    ut_symmetrizer = T
+    Ph_symmetrizer = partial(symmetrize_projections,
+                             a1_a2=a_a, U_aii=U_aii,
+                             time_reversal=time_reversal)
+
+    return ut_symmetrizer, Ph_symmetrizer, k_c
+
+
+def symmetrize_projections(Ph, a1_a2, U_aii, time_reversal):
+    """Symmetrize the PAW projections.
+
+    NB: The projections of atom a1 are mapped onto a *different* atom a2
+    according to the input map of atomic indices a1_a2."""
+    # First, we apply the symmetry operations to the projections one at a time
+    P_a2hi = []
+    for a1, U_ii in zip(a1_a2, U_aii):
+        P_hi = Ph[a1].copy(order='C')
+        np.dot(P_hi, U_ii, out=P_hi)
+        if time_reversal:
+            np.conj(P_hi, out=P_hi)
+        P_a2hi.append(P_hi)
+
+    # Then, we store the symmetry mapped projectors in the projections object
+    for a2, P_hi in enumerate(P_a2hi):
+        I1, I2 = Ph.map[a2]
+        Ph.array[..., I1:I2] = P_hi
+
+    return Ph

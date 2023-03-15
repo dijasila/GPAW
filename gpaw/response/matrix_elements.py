@@ -1,9 +1,8 @@
-from functools import partial
-
 import numpy as np
 
 from gpaw.response import timer
 from gpaw.response.kspair import KohnShamKPointPair
+from gpaw.response.ibz2bz import construct_symmetrizers
 from gpaw.response.pair import phase_shifted_fft_indices
 
 
@@ -76,9 +75,9 @@ class NewPairDensityCalculator:
         # Construct symmetrizers for the periodic part of the pseudo waves
         # and for the PAW projectors
         ut1_symmetrizer, Ph1_symmetrizer, k1_c = \
-            self.construct_symmetrizers(kptpair.kpt1)
+            construct_symmetrizers(self.gs, kptpair.kpt1.K)
         ut2_symmetrizer, Ph2_symmetrizer, k2_c = \
-            self.construct_symmetrizers(kptpair.kpt2)
+            construct_symmetrizers(self.gs, kptpair.kpt2.K)
 
         # Initialize a blank pair density object
         pair_density = PairDensity.from_qpd(kptpair.tblocks, qpd)
@@ -185,37 +184,3 @@ class NewPairDensityCalculator:
             ut_hR[h] = ut_symmetrizer(self.gs.global_pd.ifft(psit_G, ik))
 
         return ut_hR
-
-    def construct_symmetrizers(self, kpt):
-        """Construct functions to symmetrize ut_hR and Ph."""
-        _, T, a_a, U_aii, k_c, time_reversal = \
-            self.gs.construct_symmetry_operators(kpt.K)
-
-        ut_symmetrizer = T
-        Ph_symmetrizer = partial(symmetrize_projections,
-                                 a1_a2=a_a, U_aii=U_aii,
-                                 time_reversal=time_reversal)
-
-        return ut_symmetrizer, Ph_symmetrizer, k_c
-
-
-def symmetrize_projections(Ph, a1_a2, U_aii, time_reversal):
-    """Symmetrize the PAW projections.
-
-    NB: The projections of atom a1 are mapped onto a *different* atom a2
-    according to the input map of atomic indices a1_a2."""
-    # First, we apply the symmetry operations to the projections one at a time
-    P_a2hi = []
-    for a1, U_ii in zip(a1_a2, U_aii):
-        P_hi = Ph[a1].copy(order='C')
-        np.dot(P_hi, U_ii, out=P_hi)
-        if time_reversal:
-            np.conj(P_hi, out=P_hi)
-        P_a2hi.append(P_hi)
-
-    # Then, we store the symmetry mapped projectors in the projections object
-    for a2, P_hi in enumerate(P_a2hi):
-        I1, I2 = Ph.map[a2]
-        Ph.array[..., I1:I2] = P_hi
-
-    return Ph
