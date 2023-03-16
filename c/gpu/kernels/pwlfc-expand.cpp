@@ -1,5 +1,3 @@
-#include "hip_kernels.h"
-
 #include<hip/hip_runtime.h>
 #include<hip/hip_runtime_api.h>
 #include <hip/hip_complex.h>
@@ -89,7 +87,8 @@ __global__ void pwlfc_expand_kernel_16(double* f_Gs,
     }
 }
 
-extern "C" void pwlfc_expand_gpu_launch_kernel(int itemsize, 
+extern "C"
+void pwlfc_expand_gpu_launch_kernel(int itemsize, 
 		                               double* f_Gs,
 		                               hipDoubleComplex *emiGR_Ga,
 					       double *Y_GL,
