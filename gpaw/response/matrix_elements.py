@@ -4,6 +4,7 @@ import numpy as np
 
 from gpaw.response import timer
 from gpaw.response.kspair import KohnShamKPointPair
+from gpaw.response.pair import phase_shifted_fft_indices
 
 
 class PairDensity:
@@ -74,9 +75,9 @@ class NewPairDensityCalculator:
         """
         # Construct symmetrizers for the periodic part of the pseudo waves
         # and for the PAW projectors
-        ut1_symmetrizer, Ph1_symmetrizer, shift1_c = \
+        ut1_symmetrizer, Ph1_symmetrizer, k1_c = \
             self.construct_symmetrizers(kptpair.kpt1)
-        ut2_symmetrizer, Ph2_symmetrizer, shift2_c = \
+        ut2_symmetrizer, Ph2_symmetrizer, k2_c = \
             self.construct_symmetrizers(kptpair.kpt2)
 
         # Initialize a blank pair density object
@@ -85,7 +86,7 @@ class NewPairDensityCalculator:
 
         self.add_pseudo_pair_density(kptpair, qpd, n_mytG,
                                      ut1_symmetrizer, ut2_symmetrizer,
-                                     shift1_c, shift2_c)
+                                     k1_c, k2_c)
         self.add_paw_correction(kptpair, qpd, n_mytG,
                                 Ph1_symmetrizer, Ph2_symmetrizer)
 
@@ -94,7 +95,7 @@ class NewPairDensityCalculator:
     @timer('Calculate the pseudo pair density')
     def add_pseudo_pair_density(self, kptpair, qpd, n_mytG,
                                 ut1_symmetrizer, ut2_symmetrizer,
-                                shift1_c, shift2_c):
+                                k1_c, k2_c):
         r"""Add the pseudo pair density to an output array.
 
         The pseudo pair density is first evaluated on the coarse real-space
@@ -113,19 +114,23 @@ class NewPairDensityCalculator:
         ut1_hR = self.get_periodic_pseudo_waves(kpt1, ut1_symmetrizer)
         ut2_hR = self.get_periodic_pseudo_waves(kpt2, ut2_symmetrizer)
 
-        # Calculate the pseudo pair density in real space
+        # Calculate the pseudo pair density in real space, up to a phase of
+        # e^(-i[k+q-k']r).
+        # This phase does not necessarily vanish, since k2_c only is required
+        # equal k1_c + qpd.q_c modulo a reciprocal lattice vector.
         ut1cc_mytR = ut1_hR[kpt1.h_myt].conj()
-        n_mytR = ut1cc_mytR * ut2_hR[kpt2.h_myt]
+        nt_mytR = ut1cc_mytR * ut2_hR[kpt2.h_myt]
 
-        # Get the plane-wave indices to Fourier transform products of
-        # Kohn-Sham orbitals in k and k + q
-        dshift_c = shift1_c - shift2_c
-        Q_G = self.get_fft_indices(kpt1.K, kpt2.K, qpd, dshift_c)
+        # Get the FFT indices corresponding to the Fourier transform
+        #                       ˷          ˷
+        # FFT_G[e^(-i[k+q-k']r) u_nks^*(r) u_n'k's'(r)]
+        Q_G = phase_shifted_fft_indices(k1_c, k2_c, qpd)
 
-        # Add FFT of the pseudo pair density to the output array
+        # Add the desired plane-wave components of the FFT'ed pseudo pair
+        # density to the output array
         nlocalt = kptpair.tblocks.nlocal
-        assert len(n_mytG) == nlocalt and len(n_mytR) == nlocalt
-        for n_G, n_R in zip(n_mytG, n_mytR):
+        assert len(n_mytG) == len(nt_mytR) == nlocalt
+        for n_G, n_R in zip(n_mytG, nt_mytR):
             n_G[:] += qpd.fft(n_R, 0, Q_G) * qpd.gd.dv
 
     @timer('Calculate the pair density PAW corrections')
@@ -183,19 +188,15 @@ class NewPairDensityCalculator:
 
     def construct_symmetrizers(self, kpt):
         """Construct functions to symmetrize ut_hR and Ph."""
-        _, T, a_a, U_aii, shift_c, time_reversal = \
-            self.gs.construct_symmetry_operators(kpt.K, kpt.k_c)
+        _, T, a_a, U_aii, k_c, time_reversal = \
+            self.gs.construct_symmetry_operators(kpt.K)
 
         ut_symmetrizer = T
         Ph_symmetrizer = partial(symmetrize_projections,
                                  a1_a2=a_a, U_aii=U_aii,
                                  time_reversal=time_reversal)
 
-        return ut_symmetrizer, Ph_symmetrizer, shift_c
-
-    def get_fft_indices(self, K1, K2, qpd, dshift_c):
-        from gpaw.response.pair import fft_indices
-        return fft_indices(self.gs.kd, K1, K2, qpd, dshift_c)
+        return ut_symmetrizer, Ph_symmetrizer, k_c
 
 
 def symmetrize_projections(Ph, a1_a2, U_aii, time_reversal):

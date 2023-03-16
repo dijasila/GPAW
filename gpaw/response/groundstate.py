@@ -211,11 +211,11 @@ class ResponseGroundStateAdapter:
 
         return ibzq_qc
 
-    def construct_symmetry_operators(self, K, k_c):
+    def construct_symmetry_operators(self, K):
         from gpaw.response.symmetry_ops import construct_symmetry_operators
         R_asii = [pawdata.R_sii for pawdata in self.pawdatasets]
         return construct_symmetry_operators(
-            self.kd, self.gd, K, k_c,
+            self.kd, self.gd, K,
             spos_ac=self.spos_ac, R_asii=R_asii)
 
 
