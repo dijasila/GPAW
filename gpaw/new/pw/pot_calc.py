@@ -56,6 +56,8 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         self._nt_g = None
         self._vt_g = None
 
+        self.e_stress = np.nan
+
     def calculate_charges(self, vHt_h):
         return self.ghat_aLh.integrate(vHt_h)
 
@@ -142,6 +144,8 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         e_kinetic = self._restrict(vxct_sr, vt_sR, density)
 
         e_external = 0.0
+
+        self.e_stress = e_coulomb + e_zero
 
         self._reset()
 

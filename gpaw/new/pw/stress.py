@@ -1,11 +1,16 @@
+from __future__ import annotations
+import numpy as np
 from gpaw.gpu import synchronize
+from gpaw.new.calculation import DFTState
 from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
-from gpaw.new.calculation import DFTState
 from gpaw.typing import Array2D
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from gpaw.new.pw.pot_calc import PlaneWavePotentialCalculator
 
 
-def calculate_stress(pot_calc,
+def calculate_stress(pot_calc: PlaneWavePotentialCalculator,
                      state: DFTState,
                      vt_g,
                      nt_g) -> Array2D:
@@ -18,39 +23,22 @@ def calculate_stress(pot_calc,
     assert xc.type != 'MGGA'
     assert not xc.no_forces
 
-    s_vv = get_kinetic_stress(state.ibzwfs)
+    s1_vv = get_kinetic_stress(state.ibzwfs)
 
     vHt_h = state.vHt_x
+    xp = vHt_h.xp
     pw = vHt_h.desc
     G_Gv = pw.G_plus_k_Gv
-    for v1 in range(3):
-        for v2 in range(3):
-            s_vv[v1, v2] += pd.integrate(p_G, dens.rhot_q *
-                                         G_Gv[:, v1] * G_Gv[:, v2])
-    s_vv += dens.ghat.stress_tensor_contribution(ham.vHt_q, dens.Q_aL)
+    vHt2_hz = vHt_h.data.view(float).reshape((len(G_Gv), 2))**2
+    s2_vv = xp.einsum('Gz, Gv, Gw -> vw', vHt2_hz, G_Gv, G_Gv)
+    s2_vv *= pw.dv / (2 * np.pi)
 
-    s_vv -= np.eye(3) * ham.estress
-    s_vv += ham.vbar.stress_tensor_contribution(dens.nt_Q)
-    s_vv += dens.nct.stress_tensor_contribution(ham.vt_Q)
+    Q_aL = state.density.calculate_compensation_charge_coefficients()
+    s3_vv = pot_calc.ghat_aLh.stress_tensor_contribution(vHt_h, Q_aL)
 
-    s0 = 0.0
-    s0_vv = 0.0
-    for kpt in wfs.kpt_u:
-        a_ani = {}
-        for a, P_ni in kpt.P_ani.items():
-            Pf_ni = P_ni * kpt.f_n[:, None]
-            dH_ii = unpack(ham.dH_asp[a][kpt.s])
-            dS_ii = ham.setups[a].dO_ii
-            a_ni = (np.dot(Pf_ni, dH_ii) -
-                    np.dot(Pf_ni * kpt.eps_n[:, None], dS_ii))
-            s0 += np.vdot(P_ni, a_ni)
-            a_ani[a] = 2 * a_ni.conj()
-        s0_vv += wfs.pt.stress_tensor_contribution(kpt.psit_nG, a_ani,
-                                                   q=kpt.q)
-    s0_vv -= dens.gd.comm.sum(s0.real) * np.eye(3)
-    s0_vv /= dens.gd.comm.size
-    wfs.world.sum(s0_vv)
-    s_vv += s0_vv
+    s4_vv = np.eye(3) * pot_calc.e_stress
+    s5_vv = pot_calc.vbar_ag.stress_tensor_contribution(nt_g)
+    s6_vv = pot_calc.nct_ag.stress_tensor_contribution(vt_g)
 
     s_vv += wfs.dedepsilon * np.eye(3)
 
@@ -89,6 +77,27 @@ def get_kinetic_stress(ibzwfs: IBZWaveFunctions):
     synchronize()
     ibzwfs.kpt_comm.sum(sigma_vv)
     return sigma_vv
+
+    """
+    s0 = 0.0
+    s0_vv = 0.0
+    for kpt in wfs.kpt_u:
+        a_ani = {}
+        for a, P_ni in kpt.P_ani.items():
+            Pf_ni = P_ni * kpt.f_n[:, None]
+            dH_ii = unpack(ham.dH_asp[a][kpt.s])
+            dS_ii = ham.setups[a].dO_ii
+            a_ni = (np.dot(Pf_ni, dH_ii) -
+                    np.dot(Pf_ni * kpt.eps_n[:, None], dS_ii))
+            s0 += np.vdot(P_ni, a_ni)
+            a_ani[a] = 2 * a_ni.conj()
+        s0_vv += wfs.pt.stress_tensor_contribution(kpt.psit_nG, a_ani,
+                                                   q=kpt.q)
+    s0_vv -= dens.gd.comm.sum(s0.real) * np.eye(3)
+    s0_vv /= dens.gd.comm.size
+    wfs.world.sum(s0_vv)
+    s_vv += s0_vv
+    """
 
 
 def get_kinetic_stress_single(wfs: PWFDWaveFunctions):
