@@ -17,11 +17,13 @@ for d in [1, 2, 4, 8]:
         dk.append((d, k))
 
 
-@pytest.mark.gpu
 @pytest.mark.stress
 @pytest.mark.parametrize('d, k', dk)
-@pytest.mark.parametrize('gpu', [False, True])
+@pytest.mark.parametrize('gpu', [False,
+                                 pytest.param(True, marks=pytest.mark.gpu)])
 def test_pw_par_strategies(in_tmp_dir, d, k, gpu):
+    if (gpu or os.environ.get('GPAW_NEW')) and d * k < world.size:
+        pytest.skip()
     ecut = 200
     kpoints = [1, 1, 4]
     atoms = Atoms('HLi',

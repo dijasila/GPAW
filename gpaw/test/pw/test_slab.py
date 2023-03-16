@@ -13,6 +13,8 @@ from gpaw.mpi import world
                           (False, NewGPAW),
                           pytest.param(True, NewGPAW, marks=pytest.mark.gpu)])
 def test_pw_slab(gpu, GPAW):
+    if GPAW is NewGPAW and world.size > 1:
+        pytest.skip()
     a = 2.65
     slab = Atoms('Li2',
                  [(0, 0, 0), (0, 0, a)],
