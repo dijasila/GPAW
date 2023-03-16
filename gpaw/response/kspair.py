@@ -9,10 +9,11 @@ from gpaw.response.symmetry import KPointFinder
 from gpaw.response.pw_parallelization import Blocks1D
 
 
-class KohnShamKPoint:
-    """Kohn-Sham orbital information for a given k-point."""
+class IrreducibleKPoint:
+    """Irreducible k-point data pertaining to a certain set of transitions."""
+
     def __init__(self, K, eps_h, f_h, Ph, psit_hG, h_myt):
-        """Data object for the Kohn-Sham orbitals of a single k-point.
+        """Construct the IrreducibleKPoint data object.
 
         The data is indexed by the composite band and spin index h = (n, s),
         which can be unfolded to the local transition index myt.
@@ -173,7 +174,7 @@ class KohnShamKPointPairExtractor:
         return KohnShamKPointPair(kpt1, kpt2, transitions, self.tblocks)
 
     def get_kpoints(self, k_pc, n_t, s_t):
-        """Get KohnShamKPoint and help other processes extract theirs"""
+        """Get IrreducibleKPoint and help other processes extract theirs"""
         assert len(n_t) == len(s_t)
         assert len(k_pc) <= self.kpts_blockcomm.size
 
@@ -183,7 +184,7 @@ class KohnShamKPointPairExtractor:
         # Initiate k-point object.
         if self.kpts_blockcomm.rank in range(len(k_pc)):
             assert kptdata is not None
-            kpt = KohnShamKPoint(*kptdata)
+            kpt = IrreducibleKPoint(*kptdata)
         else:
             kpt = None
 
@@ -191,7 +192,8 @@ class KohnShamKPointPairExtractor:
 
     @timer('Extracting data from the ground state calculator object')
     def extract_kptdata(self, k_pc, n_t, s_t):
-        """Extract the input data needed to construct the KohnShamKPoints."""
+        """Extract the input data needed to construct the IrreducibleKPoints.
+        """
         if self.calc_parallel:
             return self.parallel_extract_kptdata(k_pc, n_t, s_t)
         else:
@@ -526,7 +528,8 @@ class KohnShamKPointPairExtractor:
     @timer('Collecting kptdata')
     def collect_kptdata(self, myik, h_r1rh,
                         eps_r1rh, f_r1rh, P_r1rhI, psit_r1rhG):
-        """From the extracted data, collect the KohnShamKPoint data arrays"""
+        """From the extracted data, collect the IrreducibleKPoint data arrays
+        """
         # Allocate data arrays
         maxh_r1 = [max(h_rh) for h_rh in h_r1rh if h_rh]
         if maxh_r1:
