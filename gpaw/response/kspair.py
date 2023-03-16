@@ -175,38 +175,37 @@ class KohnShamKPointPairExtractor:
         # this process' block
         self.tblocks = Blocks1D(self.transitions_blockcomm, len(transitions))
 
-        K1, kpt1 = self.get_kpoints(k1_pc, transitions.n1_t, transitions.s1_t)
-        K2, kpt2 = self.get_kpoints(k2_pc, transitions.n2_t, transitions.s2_t)
+        K1, ikpt1 = self.get_kpoints(k1_pc, transitions.n1_t, transitions.s1_t)
+        K2, ikpt2 = self.get_kpoints(k2_pc, transitions.n2_t, transitions.s2_t)
 
         # The process might not have a Kohn-Sham k-point pair to return, due to
         # the distribution over kpts_blockcomm
         if self.kpts_blockcomm.rank not in range(len(k1_pc)):
             return None
 
-        assert K1 is not None and kpt1 is not None
-        assert K2 is not None and kpt2 is not None
+        assert K1 is not None and ikpt1 is not None
+        assert K2 is not None and ikpt2 is not None
 
-        return KohnShamKPointPair(K1, K2, kpt1, kpt2,
+        return KohnShamKPointPair(K1, K2, ikpt1, ikpt2,
                                   transitions, self.tblocks)
 
     def get_kpoints(self, k_pc, n_t, s_t):
-        """Get IrreducibleKPoint and help other processes extract theirs"""
+        """Get the process' own k-point data and help other processes
+        extracting theirs."""
         assert len(n_t) == len(s_t)
         assert len(k_pc) <= self.kpts_blockcomm.size
 
         # Use the data extraction factory to extract the kptdata
         kptdata = self.extract_kptdata(k_pc, n_t, s_t)
 
-        # Initiate k-point object.
-        if self.kpts_blockcomm.rank in range(len(k_pc)):
-            assert kptdata is not None
-            K = kptdata[0]
-            kpt = IrreducibleKPoint(*kptdata[1:])
-        else:
-            K = None
-            kpt = None
+        if self.kpts_blockcomm.rank not in range(len(k_pc)):
+            return None, None  # The process has no data of its own
 
-        return K, kpt
+        assert kptdata is not None
+        K = kptdata[0]
+        ikpt = IrreducibleKPoint(*kptdata[1:])
+
+        return K, ikpt
 
     @timer('Extracting data from the ground state calculator object')
     def extract_kptdata(self, k_pc, n_t, s_t):
