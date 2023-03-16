@@ -423,7 +423,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
             self.data[:] = buf[:len(self.data)]
 
     def scatter_from_all(self, a_G: PlaneWaveExpansions) -> None:
-        """Scatter all coefs. from rank r to self on other cores."""
+        """Scatter all coefficients from rank r to self on other cores."""
         assert len(self.dims) == 1
         pw = self.desc
         comm = pw.comm
