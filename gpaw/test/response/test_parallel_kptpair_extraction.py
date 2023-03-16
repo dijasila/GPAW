@@ -1,4 +1,5 @@
 import pytest
+from itertools import product
 
 import numpy as np
 
@@ -13,7 +14,7 @@ from gpaw.response.pair_integrator import KPointPairPointIntegral
 from gpaw.response.symmetry import PWSymmetryAnalyzer
 from gpaw.response.chiks import get_spin_rotation
 
-from gpaw.test.response.test_chiks import generate_system_s
+from gpaw.test.response.test_chiks import generate_system_s, generate_qrel_q, get_q_c
 
 pytestmark = pytest.mark.skipif(world.size == 1, reason='world.size == 1')
 
@@ -22,15 +23,15 @@ pytestmark = pytest.mark.skipif(world.size == 1, reason='world.size == 1')
 
 
 @pytest.mark.response
-@pytest.mark.parametrize('system', generate_system_s())
-def test_parallel_extract_kptdata(in_tmp_dir, gpw_files, system):
+@pytest.mark.parametrize('system,qrel', product(generate_system_s(), generate_qrel_q()))
+def test_parallel_extract_kptdata(in_tmp_dir, gpw_files, system, qrel):
     """Test that the KohnShamKPointPair data extracted from a serial and a
     parallel calculator object is identical."""
 
     # ---------- Inputs ---------- #
 
     wfs, spincomponent, _, _, _ = system
-    q_c = np.array([0., 0., 0.])  # Introduce parametrization XXX
+    q_c = get_q_c(wfs, qrel)
     nblocks = 1  # Introduce parametrization XXX
 
     # ---------- Script ---------- #
