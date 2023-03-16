@@ -1,10 +1,14 @@
 import pytest
 
+import numpy as np
+
 from gpaw import GPAW
 from gpaw.mpi import world
 from gpaw.response import ResponseContext, ResponseGroundStateAdapter
 from gpaw.response.pw_parallelization import block_partition
 from gpaw.response.kspair import KohnShamKPointPairExtractor
+from gpaw.response.pair_functions import SingleQPWDescriptor
+from gpaw.response.symmetry import PWSymmetryAnalyzer
 
 from gpaw.test.response.test_chiks import generate_system_s
 
@@ -23,6 +27,7 @@ def test_parallel_extract_kptdata(in_tmp_dir, gpw_files, system):
     # ---------- Inputs ---------- #
 
     wfs, spincomponent, _, _, _ = system
+    q_c = np.array([0., 0., 0.])  # Introduce parametrization XXX
     nblocks = 1  # Introduce parametrization XXX
 
     # ---------- Script ---------- #
@@ -46,3 +51,9 @@ def test_parallel_extract_kptdata(in_tmp_dir, gpw_files, system):
         serial_gs, context,
         transitions_blockcomm=transitions_blockcomm,
         kpts_blockcomm=kpts_blockcomm)
+
+    # Initialize symmetry analyzers
+    serial_qpd = SingleQPWDescriptor.from_q(q_c, 1e-3, serial_gs.gd)
+    parallel_qpd = SingleQPWDescriptor.from_q(q_c, 1e-3, parallel_gs.gd)
+    serial_analyzer = PWSymmetryAnalyzer(serial_gs.kd, serial_qpd, context)
+    parallel_analyzer = PWSymmetryAnalyzer(serial_gs.kd, parallel_qpd, context)
