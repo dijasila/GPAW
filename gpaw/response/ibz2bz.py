@@ -109,6 +109,14 @@ class IBZ2BZMapper:
 
         return utout_R
 
+    def map_pseudo_wave_BZ(self, K, ut_R, r_cR):
+        """Map the periodic part of wave function from IBZ -> K in 1:st BZ.
+        r_cR is real space grid stored at calc.wfs...
+        """
+        utout_R = self.map_pseudo_wave(K, ut_R)
+        shift_c = self.kd.bzk_c(K) - self.map_kpoint(K)
+        
+
     def map_projections(self, K, projections):
         """Perform IBZ -> K mapping of the PAW projections.
 
