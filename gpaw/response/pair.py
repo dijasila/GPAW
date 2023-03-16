@@ -1,16 +1,14 @@
 import numbers
-
 import numpy as np
-
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
 from gpaw.response.pw_parallelization import block_partition
 from gpaw.response.symmetry import KPointFinder
-from gpaw.utilities.blas import mmm
+from gpaw.utilities.blas import mmm, gemmdot
 
 
 class KPoint:
     def __init__(self, s, K, n1, n2, blocksize, na, nb,
-                 ut_nR, eps_n, f_n, P_ani, shift_c):
+                 ut_nR, eps_n, f_n, P_ani, shift_c, gs):
         self.s = s    # spin index
         self.K = K    # BZ k-point index
         self.n1 = n1  # first band
@@ -22,10 +20,88 @@ class KPoint:
         self.eps_n = eps_n      # eigenvalues
         self.f_n = f_n          # occupation numbers
         self.P_ani = P_ani      # PAW projections
+        self.shift_c = shift_c  # np.dot(U_cc, ik_c) - k_c * sign
+        self.gs = gs
         self.shift_c = shift_c  # long story - see the
         # ResponseGroundStateAdapter.construct_symmetry_operators() method
 
+    def get_shifted_ut_nR(self):
+        """ Returns ut_nR shifted to the 1:st BZ using shift_c
+        """
+        if np.all(self.shift_c == 0):
+            return self.ut_nR
+        r_cg = self.gs._wfs.gd.get_grid_point_coordinates()
+        icell_cv = (2 * np.pi) * np.linalg.inv(self.gs.gd.cell_cv).T
+        shift = np.dot(self.shift_c, icell_cv)
+        return self.ut_nR * np.exp(1.0j * gemmdot(shift, r_cg, beta=0.0))
+    
+    @classmethod
+    def get_k_point(cls, gs, timer, s, k_c, n1,
+                    n2, block=False, blockcomm=None, kptfinder=None):
+        """Return wave functions for a specific k-point and spin.
 
+        s: int
+            Spin index (0 or 1).
+        K: int
+            BZ k-point index.
+        n1, n2: int
+            Range of bands to include.
+        """
+
+        assert n1 <= n2
+
+        kd = gs.kd
+
+        # Parse kpoint: is k_c an index or a vector
+        if not isinstance(k_c, numbers.Integral):
+            assert kptfinder is not None
+            K = kptfinder.find(k_c)
+        else:
+            # Fall back to index
+            K = k_c
+            k_c = kd.bzk_kc[K]
+
+        if block:
+            nblocks = blockcomm.size
+            rank = blockcomm.rank
+        else:
+            nblocks = 1
+            rank = 0
+
+        blocksize = (n2 - n1 + nblocks - 1) // nblocks
+        na = min(n1 + rank * blocksize, n2)
+        nb = min(na + blocksize, n2)
+
+        _, T, a_a, U_aii, shift_c, time_reversal = \
+            gs.construct_symmetry_operators(K, k_c)
+
+        ik = kd.bz2ibz_k[K]
+        assert kd.comm.size == 1
+        kpt = gs.kpt_qs[ik][s]
+
+        assert n2 <= len(kpt.eps_n), \
+            'Increase GS-nbands or decrease chi0-nbands!'
+        eps_n = kpt.eps_n[n1:n2]
+        f_n = kpt.f_n[n1:n2] / kpt.weight
+
+        with timer('load wfs'):
+            psit_nG = kpt.psit_nG
+            ut_nR = gs.gd.empty(nb - na, gs.dtype)
+            for n in range(na, nb):
+                ut_nR[n - na] = T(gs.pd.ifft(psit_nG[n], ik))
+
+        with timer('Load projections'):
+            P_ani = []
+            for b, U_ii in zip(a_a, U_aii):
+                P_ni = np.dot(kpt.P_ani[b][na:nb], U_ii)
+                if time_reversal:
+                    P_ni = P_ni.conj()
+                P_ani.append(P_ni)
+
+        return KPoint(s, K, n1, n2, blocksize, na, nb,
+                      ut_nR, eps_n, f_n, P_ani, shift_c, gs)
+
+    
 class PairDistribution:
     def __init__(self, pair, mysKn1n2):
         self.pair = pair
@@ -148,68 +224,12 @@ class PairDensityCalculator:
 
     @timer('Get a k-point')
     def get_k_point(self, s, k_c, n1, n2, block=False):
-        """Return wave functions for a specific k-point and spin.
-
-        s: int
-            Spin index (0 or 1).
-        K: int
-            BZ k-point index.
-        n1, n2: int
-            Range of bands to include.
-        """
-
-        assert n1 <= n2
-
-        gs = self.gs
-        kd = gs.kd
-
-        # Parse kpoint: is k_c an index or a vector
-        if not isinstance(k_c, numbers.Integral):
-            K = self.kptfinder.find(k_c)
-        else:
-            # Fall back to index
-            K = k_c
-            k_c = kd.bzk_kc[K]
-
-        if block:
-            nblocks = self.blockcomm.size
-            rank = self.blockcomm.rank
-        else:
-            nblocks = 1
-            rank = 0
-
-        blocksize = (n2 - n1 + nblocks - 1) // nblocks
-        na = min(n1 + rank * blocksize, n2)
-        nb = min(na + blocksize, n2)
-
-        _, T, a_a, U_aii, shift_c, time_reversal = \
-            self.gs.construct_symmetry_operators(K, k_c)
-
-        ik = kd.bz2ibz_k[K]
-        assert kd.comm.size == 1
-        kpt = gs.kpt_qs[ik][s]
-
-        assert n2 <= len(kpt.eps_n), \
-            'Increase GS-nbands or decrease chi0-nbands!'
-        eps_n = kpt.eps_n[n1:n2]
-        f_n = kpt.f_n[n1:n2] / kpt.weight
-
-        with self.context.timer('load wfs'):
-            psit_nG = kpt.psit_nG
-            ut_nR = gs.gd.empty(nb - na, gs.dtype)
-            for n in range(na, nb):
-                ut_nR[n - na] = T(gs.pd.ifft(psit_nG[n], ik))
-
-        with self.context.timer('Load projections'):
-            P_ani = []
-            for b, U_ii in zip(a_a, U_aii):
-                P_ni = np.dot(kpt.P_ani[b][na:nb], U_ii)
-                if time_reversal:
-                    P_ni = P_ni.conj()
-                P_ani.append(P_ni)
-
-        return KPoint(s, K, n1, n2, blocksize, na, nb,
-                      ut_nR, eps_n, f_n, P_ani, shift_c)
+        return KPoint.get_k_point(self.gs,
+                                  self.context.timer,
+                                  s, k_c, n1, n2,
+                                  block=block,
+                                  blockcomm=self.blockcomm,
+                                  kptfinder=self.kptfinder)
 
     @timer('Get kpoint pair')
     def get_kpoint_pair(self, qpd, s, Kork_c, n1, n2, m1, m2, block=False):
