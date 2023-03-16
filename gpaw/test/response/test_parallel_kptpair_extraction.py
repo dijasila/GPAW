@@ -8,6 +8,7 @@ from gpaw.response import ResponseContext, ResponseGroundStateAdapter
 from gpaw.response.pw_parallelization import block_partition
 from gpaw.response.kspair import KohnShamKPointPairExtractor
 from gpaw.response.pair_functions import SingleQPWDescriptor
+from gpaw.response.pair_integrator import KPointPairPointIntegral
 from gpaw.response.symmetry import PWSymmetryAnalyzer
 
 from gpaw.test.response.test_chiks import generate_system_s
@@ -41,35 +42,28 @@ def test_parallel_extract_kptdata(in_tmp_dir, gpw_files, system):
     nbands = calc.parameters.convergence['bands']
     parallel_gs = ResponseGroundStateAdapter(calc)
 
-    # Set up extractors and k-point integration domain
+    # Set up extractors and integrals
     tcomm, kcomm = block_partition(context.comm, nblocks)
     serial_extractor = initialize_extractor(serial_gs, context, tcomm, kcomm)
     parallel_extractor = initialize_extractor(parallel_gs, context, tcomm, kcomm)
-    bzk_kc = get_k_integration_domain(serial_gs, context, q_c)
-
-    # Slice k-point domain XXX
+    serial_integral = initialize_integral(serial_extractor, context, q_c)
+    parallel_integral = initialize_integral(parallel_extractor, context, q_c)
 
 
 # ---------- Test functionality ---------- #
 
 
 def initialize_extractor(gs, context, tcomm, kcomm):
-    extractor = KohnShamKPointPairExtractor(gs, context,
-                                            transitions_blockcomm=tcomm,
-                                            kpts_blockcomm=kcomm)
-    return extractor
+    return KohnShamKPointPairExtractor(gs, context,
+                                       transitions_blockcomm=tcomm,
+                                       kpts_blockcomm=kcomm)
 
 
-def get_k_integration_domain(gs, context, q_c):
+def initialize_integral(extractor, context, q_c):
     # Initialize symmetry analyzer
+    gs = extractor.gs
     qpd = SingleQPWDescriptor.from_q(q_c, 1e-3, gs.gd)
     analyzer = PWSymmetryAnalyzer(gs.kd, qpd, context)
 
-    # Generate k-point domain in relative coordinates
-    # NB: copy-pase from gpaw.response.pair_integrator, should be cleaned up
-    # along with the symmetry analyzer in the future XXX
-    K_gK = analyzer.group_kpoints()  # What is g? XXX
-    bzk_kc = np.array([gs.kd.bzk_kc[K_K[0]] for
-                       K_K in K_gK])  # Why only K=0? XXX
+    return KPointPairPointIntegral(extractor, analyzer)
 
-    return bzk_kc
