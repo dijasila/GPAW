@@ -84,8 +84,8 @@ class KohnShamKPointPair:
 
 
 class KohnShamKPointPairExtractor:
-    """Class for extracting pairs of Kohn-Sham orbitals from a ground
-    state calculation."""
+    """Functionality to extract KohnShamKPointPairs from a
+    ResponseGroundStateAdapter."""
 
     def __init__(self, gs, context, *,
                  transitions_blockcomm, kpts_blockcomm):
@@ -95,9 +95,9 @@ class KohnShamKPointPairExtractor:
         gs : ResponseGroundStateAdapter
         context : ResponseContext
         transitions_blockcomm : gpaw.mpi.Communicator
-            Communicator for distributing the transitions among processes
+            Communicator to distribute band and spin transitions
         kpts_blockcomm : gpaw.mpi.Communicator
-            Communicator for distributing k-points among processes
+            Communicator over which the k-point are distributed
         """
         assert isinstance(gs, ResponseGroundStateAdapter)
         self.gs = gs
@@ -162,10 +162,14 @@ class KohnShamKPointPairExtractor:
     @timer('Get Kohn-Sham pairs')
     def get_kpoint_pairs(self, k1_pc, k2_pc,
                          transitions) -> KohnShamKPointPair | None:
-        """Get all pairs of Kohn-Sham orbitals for transitions:
+        """Get all pairs of Kohn-Sham orbitals for transitions k -> k'
+
         (n1_t, k1_p, s1_t) -> (n2_t, k2_p, s2_t)
-        Here, t is a composite band and spin transition index
-        and p is indexing the different k-points to be distributed."""
+
+        Here, t is a composite band and spin transition index accounted for by
+        the input PairTransitions object, whereas p indexes the k-point that
+        each rank of the k-point block communicator needs to extract."""
+        assert k1_pc.shape == k2_pc.shape
 
         # Distribute transitions and extract data for transitions in
         # this process' block
@@ -174,13 +178,12 @@ class KohnShamKPointPairExtractor:
         K1, kpt1 = self.get_kpoints(k1_pc, transitions.n1_t, transitions.s1_t)
         K2, kpt2 = self.get_kpoints(k2_pc, transitions.n2_t, transitions.s2_t)
 
-        # The process might not have any k-point pairs to evaluate, as
-        # due to the distribution over kpts_blockcomm
-        if kpt1 is None:
-            assert K1 is None
-            assert K2 is None and kpt2 is None
+        # The process might not have a Kohn-Sham k-point pair to return, due to
+        # the distribution over kpts_blockcomm
+        if self.kpts_blockcomm.rank not in range(len(k1_pc)):
             return None
-        assert K1 is not None
+
+        assert K1 is not None and kpt1 is not None
         assert K2 is not None and kpt2 is not None
 
         return KohnShamKPointPair(K1, K2, kpt1, kpt2,
