@@ -148,6 +148,13 @@ class ASECalculator:
 
         return self.calculation.results[prop] * units[prop]
 
+    @property
+    def results(self):
+        if self.calculation is None:
+            return {}
+        # XXXXX fix units!
+        return self.calculation.results
+
     def create_new_calculation(self, atoms: Atoms) -> None:
         with self.timer('Init'):
             self.calculation = DFTCalculation.from_parameters(
@@ -339,8 +346,13 @@ class ASECalculator:
         state = self.calculation.state
         return state.ibzwfs.ibz.kpt_kc.copy()
 
-    def calculate(self, atoms):
-        self.get_potential_energy(atoms)
+    def calculate(self, atoms, properties=None, system_changes=None):
+        if properties is None:
+            properties = ['energy']
+
+        for name in properties:
+            self.calculate_property(atoms, name)
+        # self.get_potential_energy(atoms)
 
     @cached_property
     def wfs(self):
