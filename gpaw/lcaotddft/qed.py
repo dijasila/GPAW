@@ -160,10 +160,10 @@ class RRemission(object):
         return Vrr_MM
 
     def dyadicGt(self, deltat, maxtimesteps):
-        timeg = np.arange(0, self.deltat *
+        timeg = np.arange(0, deltat *
                           (maxtimesteps * self.frequ_resolution_ampl + 1),
-                          self.deltat)
-        omegafft = 2 * np.pi * np.fft.fftfreq(len(timeg), self.deltat)
+                          deltat)
+        omegafft = 2 * np.pi * np.fft.fftfreq(len(timeg), deltat)
         g_omega = 0
         for omegares in self.cavity_resonance:
             g_omega += (2. / self.cavity_volume / alpha**2 *
