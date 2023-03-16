@@ -12,13 +12,13 @@ from gpaw.response.pw_parallelization import Blocks1D
 class IrreducibleKPoint:
     """Irreducible k-point data pertaining to a certain set of transitions."""
 
-    def __init__(self, K, eps_h, f_h, Ph, psit_hG, h_myt):
+    def __init__(self, ik, eps_h, f_h, Ph, psit_hG, h_myt):
         """Construct the IrreducibleKPoint data object.
 
         The data is indexed by the composite band and spin index h = (n, s),
         which can be unfolded to the local transition index myt.
         """
-        self.K = K               # BZ k-point index (up to a G-vector)
+        self.ik = ik             # Irreducible k-point index
         self.eps_h = eps_h       # Eigenvalues
         self.f_h = f_h           # Occupation numbers
         self.Ph = Ph             # PAW projections
@@ -49,12 +49,22 @@ class IrreducibleKPoint:
 
 
 class KohnShamKPointPair:
-    """Object containing all transitions between Kohn-Sham orbitals from a
-    specified k-point to another."""
+    """Data of pairs of Kohn-Sham orbital pertaining to transitions k -> k'."""
 
-    def __init__(self, kpt1, kpt2, transitions, tblocks):
-        self.kpt1 = kpt1
-        self.kpt2 = kpt2
+    def __init__(self, K1, K2, ikpt1, ikpt2, transitions, tblocks):
+        """Construct the KohnShamKPointPair from the k-point data of k and k'.
+
+        K1, K2 : int, int
+            k-point indices of k and k'
+        ikpt1, ikpt2 : IrreducibleKPoint, IrreducibleKPoint
+            k-point data of the two specific k-points in the irreducible part
+            of the BZ which are related to K1 and K2 by symmetry respectively.
+        """
+
+        self.K1 = K1
+        self.K2 = K2
+        self.ikpt1 = ikpt1
+        self.ikpt2 = ikpt2
         self.transitions = transitions
         self.tblocks = tblocks
 
@@ -64,13 +74,13 @@ class KohnShamKPointPair:
 
     @property
     def deps_t(self):
-        return self.get_all(self.kpt2.eps_myt) \
-            - self.get_all(self.kpt1.eps_myt)
+        return self.get_all(self.ikpt2.eps_myt) \
+            - self.get_all(self.ikpt1.eps_myt)
 
     @property
     def df_t(self):
-        return self.get_all(self.kpt2.f_myt) \
-            - self.get_all(self.kpt1.f_myt)
+        return self.get_all(self.ikpt2.f_myt) \
+            - self.get_all(self.ikpt1.f_myt)
 
 
 class KohnShamKPointPairExtractor:
@@ -161,17 +171,20 @@ class KohnShamKPointPairExtractor:
         # this process' block
         self.tblocks = Blocks1D(self.transitions_blockcomm, len(transitions))
 
-        kpt1 = self.get_kpoints(k1_pc, transitions.n1_t, transitions.s1_t)
-        kpt2 = self.get_kpoints(k2_pc, transitions.n2_t, transitions.s2_t)
+        K1, kpt1 = self.get_kpoints(k1_pc, transitions.n1_t, transitions.s1_t)
+        K2, kpt2 = self.get_kpoints(k2_pc, transitions.n2_t, transitions.s2_t)
 
         # The process might not have any k-point pairs to evaluate, as
         # due to the distribution over kpts_blockcomm
         if kpt1 is None:
-            assert kpt2 is None
+            assert K1 is None
+            assert K2 is None and kpt2 is None
             return None
-        assert kpt2 is not None
+        assert K1 is not None
+        assert K2 is not None and kpt2 is not None
 
-        return KohnShamKPointPair(kpt1, kpt2, transitions, self.tblocks)
+        return KohnShamKPointPair(K1, K2, kpt1, kpt2,
+                                  transitions, self.tblocks)
 
     def get_kpoints(self, k_pc, n_t, s_t):
         """Get IrreducibleKPoint and help other processes extract theirs"""
@@ -184,11 +197,13 @@ class KohnShamKPointPairExtractor:
         # Initiate k-point object.
         if self.kpts_blockcomm.rank in range(len(k_pc)):
             assert kptdata is not None
-            kpt = IrreducibleKPoint(*kptdata)
+            K = kptdata[0]
+            kpt = IrreducibleKPoint(*kptdata[1:])
         else:
+            K = None
             kpt = None
 
-        return kpt
+        return K, kpt
 
     @timer('Extracting data from the ground state calculator object')
     def extract_kptdata(self, k_pc, n_t, s_t):
@@ -241,7 +256,7 @@ class KohnShamKPointPairExtractor:
         else:
             eps_h, f_h, Ph, psit_hG = self.collect_kptdata(
                 myik, h_r1rh, eps_r1rh, f_r1rh, P_r1rhI, psit_r1rhG)
-            data = myK, eps_h, f_h, Ph, psit_hG, h_myt
+            data = myK, myik, eps_h, f_h, Ph, psit_hG, h_myt
 
         # Wait for communication to finish
         with self.context.timer('Waiting to complete mpi.send'):
@@ -596,7 +611,7 @@ class KohnShamKPointPairExtractor:
                 for myn, h in zip(myn_rn, h_rn):
                     psit_hG[h] = kpt.psit_nG[myn]
 
-        return K, eps_h, f_h, Ph, psit_hG, h_myt
+        return K, ik, eps_h, f_h, Ph, psit_hG, h_myt
 
     @timer('Create data extraction protocol')
     def get_serial_extraction_protocol(self, ik, n_t, s_t):
