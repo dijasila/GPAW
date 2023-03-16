@@ -60,6 +60,16 @@ def generate_gc_g():
     return gc_g
 
 
+def generate_nblocks_n():
+    nblocks_n = [1]
+    if world.size % 2 == 0:
+        nblocks_n.append(2)
+    if world.size % 4 == 0:
+        nblocks_n.append(4)
+
+    return nblocks_n
+
+
 # ---------- Actual tests ---------- #
 
 
@@ -112,11 +122,7 @@ def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered, request):
     dynamic_ground_state_d = [True, False]
     disable_syms_s = [True, False]
 
-    nblocks_n = [1]
-    if world.size % 2 == 0:
-        nblocks_n.append(2)
-    if world.size % 4 == 0:
-        nblocks_n.append(4)
+    nblocks_n = generate_nblocks_n()
     nn = len(nblocks_n)
 
     bandsummation_b = ['double', 'pairwise']
