@@ -14,7 +14,8 @@ from gpaw.response.pair_integrator import KPointPairPointIntegral
 from gpaw.response.symmetry import PWSymmetryAnalyzer
 from gpaw.response.chiks import get_spin_rotation
 
-from gpaw.test.response.test_chiks import generate_system_s, generate_qrel_q, get_q_c, generate_nblocks_n
+from gpaw.test.response.test_chiks import (generate_system_s, generate_qrel_q,
+                                           get_q_c, generate_nblocks_n)
 
 pytestmark = pytest.mark.skipif(world.size == 1, reason='world.size == 1')
 
@@ -26,7 +27,8 @@ pytestmark = pytest.mark.skipif(world.size == 1, reason='world.size == 1')
 @pytest.mark.parametrize('system,qrel,nblocks', product(generate_system_s(),
                                                         generate_qrel_q(),
                                                         generate_nblocks_n()))
-def test_parallel_extract_kptdata(in_tmp_dir, gpw_files, system, qrel, nblocks):
+def test_parallel_extract_kptdata(in_tmp_dir, gpw_files,
+                                  system, qrel, nblocks):
     """Test that the KohnShamKPointPair data extracted from a serial and a
     parallel calculator object is identical."""
 
@@ -39,7 +41,8 @@ def test_parallel_extract_kptdata(in_tmp_dir, gpw_files, system, qrel, nblocks):
 
     # Initialize serial ground state adapter
     context = ResponseContext()
-    serial_gs = ResponseGroundStateAdapter.from_gpw_file(gpw_files[wfs], context)
+    serial_gs = ResponseGroundStateAdapter.from_gpw_file(
+        gpw_files[wfs], context)
     
     # Initialize parallel ground state adapter
     calc = GPAW(gpw_files[wfs], parallel=dict(domain=1))
@@ -48,13 +51,16 @@ def test_parallel_extract_kptdata(in_tmp_dir, gpw_files, system, qrel, nblocks):
 
     # Set up extractors and integrals
     tcomm, kcomm = block_partition(context.comm, nblocks)
-    serial_extractor = initialize_extractor(serial_gs, context, tcomm, kcomm)
-    parallel_extractor = initialize_extractor(parallel_gs, context, tcomm, kcomm)
+    serial_extractor = initialize_extractor(
+        serial_gs, context, tcomm, kcomm)
+    parallel_extractor = initialize_extractor(
+        parallel_gs, context, tcomm, kcomm)
     serial_integral = initialize_integral(serial_extractor, context, q_c)
     parallel_integral = initialize_integral(parallel_extractor, context, q_c)
 
     # Set up transitions
-    transitions = initialize_transitions(serial_extractor, spincomponent, nbands)
+    transitions = initialize_transitions(
+        serial_extractor, spincomponent, nbands)
 
     # Extract and compare kptpairs
     ni = serial_integral.ni  # Number of iterations in kptpair generator
@@ -72,7 +78,8 @@ def test_parallel_extract_kptdata(in_tmp_dir, gpw_files, system, qrel, nblocks):
 
 def compare_kptpairs(kptpair1, kptpair2):
     if kptpair1 is None:
-        # Due to k-point distribution, all ranks don't necessarily have a kptpair
+        # Due to k-point distribution, all ranks don't necessarily have a
+        # kptpair to integrate
         assert kptpair2 is None
         return
     assert kptpair1.K1 == kptpair2.K1
