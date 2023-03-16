@@ -83,7 +83,10 @@ def compare_kptpairs(kptpair1, kptpair2):
 
 
 def compare_ikpts(ikpt1, ikpt2):
-    pass
+    assert ikpt1.ik == ikpt2.ik
+    assert np.allclose(ikpt1.Ph.array, ikpt2.Ph.array)
+    assert np.allclose(ikpt1.psit_hG, ikpt2.psit_hG)
+    assert np.all(ikpt1.h_myt == ikpt2.h_myt)
 
 
 def initialize_extractor(gs, context, tcomm, kcomm):
