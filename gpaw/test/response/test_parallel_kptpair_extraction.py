@@ -69,6 +69,20 @@ def test_parallel_extract_kptdata(in_tmp_dir, gpw_files, system):
 
 
 def compare_kptpairs(kptpair1, kptpair2):
+    if kptpair1 is None:
+        # Due to k-point distribution, all ranks don't necessarily have a kptpair
+        assert kptpair2 is None
+        return
+    assert kptpair1.K1 == kptpair2.K1
+    assert kptpair1.K2 == kptpair2.K2
+    assert np.allclose(kptpair1.deps_t, kptpair2.deps_t)
+    assert np.allclose(kptpair1.df_t, kptpair2.df_t)
+
+    compare_ikpts(kptpair1.ikpt1, kptpair2.ikpt1)
+    compare_ikpts(kptpair1.ikpt2, kptpair2.ikpt2)
+
+
+def compare_ikpts(ikpt1, ikpt2):
     pass
 
 
