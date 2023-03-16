@@ -41,19 +41,35 @@ def test_parallel_extract_kptdata(in_tmp_dir, gpw_files, system):
     nbands = calc.parameters.convergence['bands']
     parallel_gs = ResponseGroundStateAdapter(calc)
 
-    # Initialize kptpair extractors
-    transitions_blockcomm, kpts_blockcomm = block_partition(context.comm, nblocks)
-    serial_kptpair_extractor = KohnShamKPointPairExtractor(
-        serial_gs, context,
-        transitions_blockcomm=transitions_blockcomm,
-        kpts_blockcomm=kpts_blockcomm)
-    parallel_kptpair_extractor = KohnShamKPointPairExtractor(
-        serial_gs, context,
-        transitions_blockcomm=transitions_blockcomm,
-        kpts_blockcomm=kpts_blockcomm)
+    # Set up extractors and k-point integration domain
+    tcomm, kcomm = block_partition(context.comm, nblocks)
+    serial_extractor = initialize_extractor(serial_gs, context, tcomm, kcomm)
+    parallel_extractor = initialize_extractor(parallel_gs, context, tcomm, kcomm)
+    bzk_kc = get_k_integration_domain(serial_gs, context, q_c)
 
-    # Initialize symmetry analyzers
-    serial_qpd = SingleQPWDescriptor.from_q(q_c, 1e-3, serial_gs.gd)
-    parallel_qpd = SingleQPWDescriptor.from_q(q_c, 1e-3, parallel_gs.gd)
-    serial_analyzer = PWSymmetryAnalyzer(serial_gs.kd, serial_qpd, context)
-    parallel_analyzer = PWSymmetryAnalyzer(serial_gs.kd, parallel_qpd, context)
+    # Slice k-point domain XXX
+
+
+# ---------- Test functionality ---------- #
+
+
+def initialize_extractor(gs, context, tcomm, kcomm):
+    extractor = KohnShamKPointPairExtractor(gs, context,
+                                            transitions_blockcomm=tcomm,
+                                            kpts_blockcomm=kcomm)
+    return extractor
+
+
+def get_k_integration_domain(gs, context, q_c):
+    # Initialize symmetry analyzer
+    qpd = SingleQPWDescriptor.from_q(q_c, 1e-3, gs.gd)
+    analyzer = PWSymmetryAnalyzer(gs.kd, qpd, context)
+
+    # Generate k-point domain in relative coordinates
+    # NB: copy-pase from gpaw.response.pair_integrator, should be cleaned up
+    # along with the symmetry analyzer in the future XXX
+    K_gK = analyzer.group_kpoints()  # What is g? XXX
+    bzk_kc = np.array([gs.kd.bzk_kc[K_K[0]] for
+                       K_K in K_gK])  # Why only K=0? XXX
+
+    return bzk_kc
