@@ -148,6 +148,13 @@ class ASECalculator:
 
         return self.calculation.results[prop] * units[prop]
 
+    @property
+    def results(self):
+        if self.calculation is None:
+            return {}
+        return {name: value * units[name]
+                for name, value in self.calculation.results.items()}
+
     def create_new_calculation(self, atoms: Atoms) -> None:
         with self.timer('Init'):
             self.calculation = DFTCalculation.from_parameters(
@@ -201,7 +208,9 @@ class ASECalculator:
         return self.calculate_property(atoms, 'forces')
 
     def get_stress(self, atoms: Atoms) -> Array1D:
-        return self.calculate_property(atoms, 'stress')
+        # Just return zeros for now:
+        return np.zeros(6)
+        # return self.calculate_property(atoms, 'stress')
 
     def get_dipole_moment(self, atoms: Atoms) -> Array1D:
         return self.calculate_property(atoms, 'dipole')
@@ -339,8 +348,13 @@ class ASECalculator:
         state = self.calculation.state
         return state.ibzwfs.ibz.kpt_kc.copy()
 
-    def calculate(self, atoms):
-        self.get_potential_energy(atoms)
+    def calculate(self, atoms, properties=None, system_changes=None):
+        if properties is None:
+            properties = ['energy']
+
+        for name in properties:
+            self.calculate_property(atoms, name)
+        # self.get_potential_energy(atoms)
 
     @cached_property
     def wfs(self):

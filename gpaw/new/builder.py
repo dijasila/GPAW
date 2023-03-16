@@ -348,9 +348,9 @@ def normalize_initial_magmoms(
 
 
 def create_kpts(kpts: dict[str, Any], atoms: Atoms) -> BZPoints:
-    if 'points' in kpts:
+    if 'kpts' in kpts:
         assert len(kpts) == 1, kpts
-        return BZPoints(kpts['points'])
+        return BZPoints(kpts['kpts'])
     size, offset = kpts2sizeandoffsets(**kpts, atoms=atoms)
     return MonkhorstPackKPoints(size, offset)
 
