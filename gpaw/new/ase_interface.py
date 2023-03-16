@@ -208,7 +208,9 @@ class ASECalculator:
         return self.calculate_property(atoms, 'forces')
 
     def get_stress(self, atoms: Atoms) -> Array1D:
-        return self.calculate_property(atoms, 'stress')
+        # Just return zeros for now:
+        return np.zeros(6)
+        # return self.calculate_property(atoms, 'stress')
 
     def get_dipole_moment(self, atoms: Atoms) -> Array1D:
         return self.calculate_property(atoms, 'dipole')
