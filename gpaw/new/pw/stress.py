@@ -1,4 +1,14 @@
-def calculate_stress(pot_calc, state, vt_g, nt_g):
+from gpaw.gpu import synchronize
+from gpaw.new.ibzwfs import IBZWaveFunctions
+from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
+from gpaw.new.calculation import DFTState
+from gpaw.typing import Array2D
+
+
+def calculate_stress(pot_calc,
+                     state: DFTState,
+                     vt_g,
+                     nt_g) -> Array2D:
     xc = pot_calc.xc
 
     if xc.xc.orbital_dependent and xc.type != 'MGGA':
@@ -8,13 +18,11 @@ def calculate_stress(pot_calc, state, vt_g, nt_g):
     assert xc.type != 'MGGA'
     assert not xc.no_forces
 
-    s_vv = get_kinetic_stress()
+    s_vv = get_kinetic_stress(state.ibzwfs)
 
-    pd = dens.pd3
-    p_G = 4 * np.pi * dens.rhot_q
-    G0 = 0 if pd.gd.comm.rank > 0 else 1
-    p_G[G0:] /= pd.G2_qG[0][G0:]**2
-    G_Gv = pd.get_reciprocal_vectors(add_q=False)
+    vHt_h = state.vHt_x
+    pw = vHt_h.desc
+    G_Gv = pw.G_plus_k_Gv
     for v1 in range(3):
         for v2 in range(3):
             s_vv[v1, v2] += pd.integrate(p_G, dens.rhot_q *
@@ -73,24 +81,26 @@ def calculate_stress(pot_calc, state, vt_g, nt_g):
     return sigma_vv
 
 
-def get_kinetic_stress(self):
-    sigma_vv = np.zeros((3, 3), dtype=complex)
-    pd = self.pd
-    dOmega = pd.gd.dv / pd.gd.N_c.prod()
-    if pd.dtype == float:
-        dOmega *= 2
-    K_qv = self.pd.K_qv
-    for kpt in self.kpt_u:
-        G_Gv = pd.get_reciprocal_vectors(q=kpt.q, add_q=False)
-        psit2_G = 0.0
-        for n, f in enumerate(kpt.f_n):
-            psit2_G += f * np.abs(kpt.psit_nG[n])**2
-        for alpha in range(3):
-            Ga_G = G_Gv[:, alpha] + K_qv[kpt.q, alpha]
-            for beta in range(3):
-                Gb_G = G_Gv[:, beta] + K_qv[kpt.q, beta]
-                sigma_vv[alpha, beta] += (psit2_G * Ga_G * Gb_G).sum()
-
-    sigma_vv *= -dOmega
-    self.world.sum(sigma_vv)
+def get_kinetic_stress(ibzwfs: IBZWaveFunctions):
+    xp = ibzwfs.xp
+    sigma_vv = xp.zeros((3, 3))
+    for wfs in ibzwfs:
+        sigma_vv += get_kinetic_stress_single(wfs)
+    synchronize()
+    ibzwfs.kpt_comm.sum(sigma_vv)
     return sigma_vv
+
+
+def get_kinetic_stress_single(wfs: PWFDWaveFunctions):
+    occ_n = wfs.weight * wfs.spin_degeneracy * wfs.myocc_n
+    psit_nG = wfs.psit_nX
+    pw = psit_nG.desc
+    xp = psit_nG.xp
+    psit_nGz = psit_nG.data.view(float).reshape(psit_nG.data.shape + (2,))
+    psit2_G = xp.einsum('n, nGz, nGz -> G', occ_n, psit_nGz, psit_nGz)
+    Gk_Gv = xp.asarray(pw.G_plus_k_Gv)
+    sigma_vv = xp.einsum('G, Gv, Gw -> vw', psit2_G, Gk_Gv, Gk_Gv)
+    x = pw.dv
+    if pw.dtype == float:
+        x *= 2
+    return -x * sigma_vv
