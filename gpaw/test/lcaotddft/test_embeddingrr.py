@@ -1,14 +1,18 @@
+import pytest
 import numpy as np
 from ase import Atoms
 from gpaw import GPAW
+from gpaw.test import only_on_master
+from gpaw.mpi import world
 from . import check_txt_data
 from ase.parallel import paropen
 from gpaw.lcaotddft import LCAOTDDFT
 from gpaw.lcaotddft.qed import RRemission
 from gpaw.lcaotddft.dipolemomentwriter import DipoleMomentWriter
 
-
-def test_embeddingrr(in_tmp_dir):
+@pytest.fixture()
+@only_on_master(world)
+def write_inputs():
     for label in 'xyz':
         with paropen(f'dm_ensemblebare_{label}.dat', 'w') as fd:
             fd.write('''
@@ -44,6 +48,8 @@ def test_embeddingrr(in_tmp_dir):
           9.92192960       2.74605367e-15    -5.798261302561e-14    -6.679009854849e-14     1.608310263102e-04
     '''.strip())  # noqa: E501
 
+
+def test_embeddingrr_dyadic(in_tmp_dir, write_inputs):
     """
     Testing if the dyadic is calculated correctly
     """
@@ -69,6 +75,8 @@ def test_embeddingrr(in_tmp_dir):
                   -0.25124595 + 4.53738609e-16j, -0.25030692 + 4.82469967e-16j]
     assert np.allclose(dyadic_out_very_good[:30], dyadic_ref)
 
+
+def test_embeddingrr(in_tmp_dir, write_inputs):
     """
     Perform a short TD run to check if the full function remained consistent
     """
