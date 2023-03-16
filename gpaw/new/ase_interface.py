@@ -152,8 +152,8 @@ class ASECalculator:
     def results(self):
         if self.calculation is None:
             return {}
-        # XXXXX fix units!
-        return self.calculation.results
+        return {name: value * units[name]
+                for name, value in self.calculation.results.items()}
 
     def create_new_calculation(self, atoms: Atoms) -> None:
         with self.timer('Init'):
