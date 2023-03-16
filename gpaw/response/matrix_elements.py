@@ -110,7 +110,7 @@ class NewPairDensityCalculator:
         # Calculate the pseudo pair density in real space, up to a phase of
         # e^(-i[k+q-k']r).
         # This phase does not necessarily vanish, since k2_c only is required
-        # equal k1_c + qpd.q_c modulo a reciprocal lattice vector.
+        # to equal k1_c + qpd.q_c modulo a reciprocal lattice vector.
         ut1cc_mytR = ut1_hR[ikpt1.h_myt].conj()
         nt_mytR = ut1cc_mytR * ut2_hR[ikpt2.h_myt]
 
