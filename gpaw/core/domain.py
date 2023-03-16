@@ -116,6 +116,12 @@ class Domain:
 
     @property
     def icell(self):
+        """Inverse of unit cell.
+
+        >>> d = Domain([1, 2, 4])
+        >>> d.icell
+        >>> d.cell @ d.icell.T
+        """
         return np.linalg.inv(self.cell).T
 
     def uniform_grid_with_grid_spacing(self,
