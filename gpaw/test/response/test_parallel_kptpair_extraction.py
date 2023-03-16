@@ -8,8 +8,10 @@ from gpaw.response import ResponseContext, ResponseGroundStateAdapter
 from gpaw.response.pw_parallelization import block_partition
 from gpaw.response.kspair import KohnShamKPointPairExtractor
 from gpaw.response.pair_functions import SingleQPWDescriptor
+from gpaw.response.pair_transitions import PairTransitions
 from gpaw.response.pair_integrator import KPointPairPointIntegral
 from gpaw.response.symmetry import PWSymmetryAnalyzer
+from gpaw.response.chiks import get_spin_rotation
 
 from gpaw.test.response.test_chiks import generate_system_s
 
@@ -49,8 +51,25 @@ def test_parallel_extract_kptdata(in_tmp_dir, gpw_files, system):
     serial_integral = initialize_integral(serial_extractor, context, q_c)
     parallel_integral = initialize_integral(parallel_extractor, context, q_c)
 
+    # Set up transitions
+    transitions = initialize_transitions(serial_extractor, spincomponent, nbands)
+
+    # Extract and compare kptpairs
+    ni = serial_integral.ni  # Number of iterations in kptpair generator
+    assert parallel_integral.ni == ni
+    serial_kptpairs = serial_integral.weighted_kpoint_pairs(transitions)
+    parallel_kptpairs = parallel_integral.weighted_kpoint_pairs(transitions)
+    for _ in range(ni):
+        kptpair1, _ = next(serial_kptpairs)
+        kptpair2, _ = next(parallel_kptpairs)
+        compare_kptpairs(kptpair1, kptpair2)
+
 
 # ---------- Test functionality ---------- #
+
+
+def compare_kptpairs(kptpair1, kptpair2):
+    pass
 
 
 def initialize_extractor(gs, context, tcomm, kcomm):
@@ -67,3 +86,10 @@ def initialize_integral(extractor, context, q_c):
 
     return KPointPairPointIntegral(extractor, analyzer)
 
+
+def initialize_transitions(extractor, spincomponent, nbands):
+    spin_rotation = get_spin_rotation(spincomponent)
+    bandsummation = 'pairwise'
+    return PairTransitions.from_transitions_domain_arguments(
+        spin_rotation, nbands, extractor.nocc1, extractor.nocc2,
+        extractor.gs.nspins, bandsummation)
