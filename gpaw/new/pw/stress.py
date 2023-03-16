@@ -37,6 +37,7 @@ def calculate_stress(pot_calc: PlaneWavePotentialCalculator,
     s_vv += pot_calc.xc.xc.stress_tensor_contribution(nt_sr.data)
 
     vHt_h = state.vHt_x
+    assert vHt_h is not None
     xp = vHt_h.xp
     pw = vHt_h.desc
     G_Gv = pw.G_plus_k_Gv
@@ -78,6 +79,7 @@ def get_wfs_stress(ibzwfs: IBZWaveFunctions,
     xp = ibzwfs.xp
     sigma_vv = xp.zeros((3, 3))
     for wfs in ibzwfs:
+        assert isinstance(wfs, PWFDWaveFunctions)
         sigma_vv += get_kinetic_stress(wfs)
         sigma_vv += get_paw_stress(wfs, dH_asii)
     synchronize()

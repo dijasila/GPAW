@@ -4,10 +4,7 @@ from gpaw.new.pot_calc import PotentialCalculator
 from gpaw.setup import Setups
 from gpaw.mpi import broadcast_float
 from gpaw.gpu import cupy as cp
-from gpaw.mpi import broadcast_float
-from gpaw.new.pot_calc import PotentialCalculator
 from gpaw.new.pw.stress import calculate_stress
-from gpaw.setup import Setups
 
 
 class PlaneWavePotentialCalculator(PotentialCalculator):
@@ -85,7 +82,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
 
         return nt_sr, pw, nt0_g
 
-    def _calculate(self, density, vHt_h):
+    def calculate_pseudo_potential(self, density, vHt_h):
         nt_sr, pw, nt0_g = self._interpolate_density(density.nt_sR)
 
         vxct_sr = nt_sr.desc.empty(density.nt_sR.dims, xp=self.xp)

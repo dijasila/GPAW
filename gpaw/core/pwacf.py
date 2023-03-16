@@ -61,9 +61,6 @@ class PlaneWaveAtomCenteredFunctions(AtomCenteredFunctions):
         self.add_to(out_G, scale)
         return out_G.ifft(out=out)
 
-    def stress_tensor_contribution(self, a, c=1.0):
-        return self._lfc.stress_tensor_contribution(a.data, c)
-
 
 class PWLFC(BaseLFC):
     def __init__(self,
@@ -489,9 +486,9 @@ class PWLFC(BaseLFC):
         b_xI = c_xI.reshape((x, self.nI))
         a_xG = a_xG.reshape((x, a_xG.shape[-1]))
 
-        alpha = 1.0# / self.pd.gd.N_c.prod()
+        alpha = 1.0
         if self.pw.dtype == float:
-            alpha *= 2
+            alpha = 2.0
             if G1 == 0 and self.pw.comm.rank == 0:
                 f_IG[:, 0] *= 0.5
             f_IG = f_IG.view(float)

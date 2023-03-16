@@ -97,6 +97,9 @@ class AtomCenteredFunctions:
         self._lfc.derivative(functions.data, coef_axiv, q=0)
         return out
 
+    def stress_tensor_contribution(self, a, c=1.0):
+        return self._lfc.stress_tensor_contribution(a.data, c)
+
 
 class UniformGridAtomCenteredFunctions(AtomCenteredFunctions):
     def __init__(self,

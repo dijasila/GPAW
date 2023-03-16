@@ -47,11 +47,23 @@ class PotentialCalculator:
         return (f'{self.poisson_solver}\n'
                 f'xc functional:\n{indent(self.xc)}\n')
 
+    def calculate_pseudo_potential(self,
+                                   density,
+                                   vHt_x: DistributedArrays | None
+                                   ) -> tuple[dict[str, float],
+                                              UniformGridFunctions,
+                                              DistributedArrays]:
+        raise NotImplementedError
+
+    def calculate_charges(self, vHt_x):
+        raise NotImplementedError
+
     def calculate(self,
                   density,
                   vHt_x: DistributedArrays | None = None
                   ) -> tuple[Potential, DistributedArrays, AtomArrays]:
-        energies, vt_sR, vHt_x = self._calculate(density, vHt_x)
+        energies, vt_sR, vHt_x = self.calculate_pseudo_potential(
+            density, vHt_x)
 
         Q_aL = self.calculate_charges(vHt_x)
         dH_asii, corrections = calculate_non_local_potential(
@@ -71,6 +83,9 @@ class PotentialCalculator:
         self._move(fracpos_ac, atomdist, ndensities)
         delta_nct_R.data += self.nct_R.data
         return delta_nct_R
+
+    def _move(self, fracpos_ac, atomdist, ndensities) -> None:
+        raise NotImplementedError
 
 
 def calculate_non_local_potential(setups,
