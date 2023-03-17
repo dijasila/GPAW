@@ -4,6 +4,7 @@ from gpaw.new.pot_calc import PotentialCalculator
 from gpaw.setup import Setups
 from gpaw.mpi import broadcast_float
 from gpaw.gpu import cupy as cp
+from gpaw.new.pw.stress import calculate_stress
 
 
 class PlaneWavePotentialCalculator(PotentialCalculator):
@@ -52,6 +53,8 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         self._nt_g = None
         self._vt_g = None
 
+        self.e_stress = np.nan
+
     def calculate_charges(self, vHt_h):
         return self.ghat_aLh.integrate(vHt_h)
 
@@ -79,7 +82,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
 
         return nt_sr, pw, nt0_g
 
-    def _calculate(self, density, vHt_h):
+    def calculate_pseudo_potential(self, density, vHt_h):
         nt_sr, pw, nt0_g = self._interpolate_density(density.nt_sR)
 
         vxct_sr = nt_sr.desc.empty(density.nt_sR.dims, xp=self.xp)
@@ -139,6 +142,8 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
 
         e_external = 0.0
 
+        self.e_stress = e_coulomb + e_zero
+
         self._reset()
 
         return {'kinetic': e_kinetic,
@@ -165,13 +170,14 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
             vt_r.fft_restrict(self.fftplan2, self.fftplan, out=vt_R)
         return vt_sR
 
-    def _move_nct(self, fracpos_ac, ndensities):
-        self.ghat_aLh.move(fracpos_ac)
-        self.vbar_ar.move(fracpos_ac)
-        self.vbar_ar.to_uniform_grid(out=self.vbar_r)
+    def _move(self, fracpos_ac, atomdist, ndensities):
+        self.ghat_aLh.move(fracpos_ac, atomdist)
+        self.vbar_ag.move(fracpos_ac, atomdist)
+        self.vbar_g.data[:] = 0.0
+        self.vbar_ag.add_to(self.vbar_g)
         self.vbar0_g = self.vbar_g.gather()
-        self.nct_aR.move(fracpos_ac)
-        self.nct_aR.to_uniform_grid(out=self.nct_R, scale=1.0 / ndensities)
+        self.nct_ag.move(fracpos_ac, atomdist)
+        self.nct_ag.to_uniform_grid(out=self.nct_R, scale=1.0 / ndensities)
         self._reset()
 
     def _reset(self):
@@ -203,6 +209,6 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                 self.nct_ag.derivative(vt_g),
                 self.vbar_ag.derivative(nt_g))
 
-    def stress_contributions(self, state):
+    def stress(self, state):
         vt_g, nt_g = self._force_stress_helper(state)
-        return ...
+        return calculate_stress(self, state, vt_g, nt_g)

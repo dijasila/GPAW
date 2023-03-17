@@ -199,7 +199,7 @@ def kpts(value=None) -> dict[str, Any]:
         if len(value) == 3 and isinstance(value[0], int):
             value = {'size': value}
         else:
-            value = {'points': np.array(value)}
+            value = {'kpts': np.array(value)}
     return value
 
 

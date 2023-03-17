@@ -107,10 +107,12 @@ def gpw_files(request, tmp_path_factory):
     * Bulk Si, LDA, 2x2x2 k-points (gamma centered): ``si_pw``
 
     * Bulk Si, LDA, 4x4x4 k-points, 8 converged bands: ``fancy_si_pw``
+      and ``fancy_si_pw_nosym``
 
     * Bulk Fe, LDA, 4x4x4 k-points, 9 converged bands: ``fe_pw``
 
     * Bulk Al, LDA, 4x4x4 k-points, 10 converged bands: ``al_pw``
+      and ``al_pw_nosym``
 
     * Bulk Ag, LDA, 2x2x2 k-points, 6 converged bands,
       2eV U on d-band: ``ag_pw``
@@ -330,7 +332,7 @@ class GPWFiles:
         si.get_potential_energy()
         return si.calc
 
-    def fancy_si_pw(self):
+    def fancy_si(self,symmetry):
         xc = 'LDA'
         kpts = 4
         nbands = 8  # 2 * (3s, 3p)
@@ -348,11 +350,18 @@ class GPWFiles:
             nbands=nbands + 12,  # + 2 * (4s, 3d)
             occupations=FermiDirac(occw),
             convergence=conv,
-            txt=self.path / 'fancy_si_pw.txt')
+            txt=self.path / 'fancy_si_pw.txt',
+            symmetry=symmetry)
 
         atoms.get_potential_energy()
         return atoms.calc
+    
+    def fancy_si_pw(self):
+        return self.fancy_si({})
 
+    def fancy_si_pw_nosym(self):
+        return self.fancy_si('off')
+    
     def bn_pw(self):
         atoms = bulk('BN', 'zincblende', a=3.615)
         atoms.calc = GPAW(mode=PW(400),
@@ -447,7 +456,7 @@ class GPWFiles:
 
         return atoms.calc
 
-    def fe_pw(self):
+    def fe(self, symmetry):
         """See also the fe_fixture_test.py test."""
         xc = 'LDA'
         kpts = 4
@@ -469,12 +478,19 @@ class GPWFiles:
             nbands=18,
             occupations=FermiDirac(occw),
             convergence=conv,
-            txt=self.path / 'fe_pw.txt')
-
+            txt=self.path / 'fe_pw.txt',
+            symmetry = symmetry)
+        
         atoms.get_potential_energy()
         return atoms.calc
+    
+    def fe_pw(self):
+        return self.fe({})
 
-    def al_pw(self):
+    def fe_pw_nosym(self):
+        return self.fe('off')
+    
+    def al(self, symmetry):
         xc = 'LDA'
         kpts = 4
         nbands = 10  # 3s, 3p, 4s, 3d
@@ -493,11 +509,18 @@ class GPWFiles:
             nbands=nbands + 4,  # + 4p, 5s
             occupations=FermiDirac(occw),
             convergence=conv,
-            txt=self.path / 'al_pw.txt')
+            txt=self.path / 'al_pw.txt',
+            symmetry=symmetry)
 
         atoms.get_potential_energy()
         return atoms.calc
 
+    def al_pw(self):
+        return self.al({})
+
+    def al_pw_nosym(self):
+        return self.al('off')
+    
     def ag_plusU_pw(self):
         xc = 'LDA'
         kpts = 2

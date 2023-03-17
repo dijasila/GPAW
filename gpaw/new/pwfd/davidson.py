@@ -85,11 +85,10 @@ class Davidson(Eigensolver):
             self._initialize(state.ibzwfs)
 
         assert self.M_nn is not None
-        xp = self.M_nn.xp
 
         dS = state.ibzwfs.wfs_qs[0][0].setups.overlap_correction
         dH = state.potential.dH
-        Ht = partial(hamiltonian.apply, state.potential.vt_sR.to_xp(xp))
+        Ht = partial(hamiltonian.apply, state.potential.vt_sR)
         ibzwfs = state.ibzwfs
         error = 0.0
         for wfs in ibzwfs:
