@@ -155,13 +155,6 @@ def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered, request):
     chiks_snbq = []
     for disable_syms in disable_syms_s:
         chiks_nbq = []
-        if gammacentered and not np.allclose(q_c, 0.):
-            # When calculating chiks on a gammacentered grid, the
-            # plane-wave representation used internally depends on
-            # whether symmetry is used in the calculation or not. This
-            # means that we need to reinitialize the ground state adapter
-            # with a fresh PAW corrections cache.
-            gs = GSAdapterWithPAWCache(calc)
         for nblocks in nblocks_n:
             chiks_bq = []
             for bandsummation in bandsummation_b:
@@ -325,25 +318,39 @@ def test_chiks_vs_chi0(in_tmp_dir, gpw_files, system, qrel):
 class GSAdapterWithPAWCache(ResponseGroundStateAdapter):
     """Add a PAW correction cache to the ground state adapter.
 
-    WARNING: Use with extreme care! The cache is only valid, when the
-    plane-wave representation is kept fixed.
+    WARNING: Use with care! The cache is only valid, when the plane-wave
+    representations are identical.
     """
 
     def __init__(self, calc):
         super().__init__(calc)
 
-        self._pair_density_paw_corrections = []
+        self._cached_corrections = []
+        self._cached_parameters = []
 
     def pair_density_paw_corrections(self, qpd):
         """Overwrite method with a cached version."""
-        for q_c, pwpaw_corr_data in self._pair_density_paw_corrections:
-            if np.allclose(qpd.q_c, q_c):
-                return pwpaw_corr_data
+        cache_index = self._cache_lookup(qpd)
+        if cache_index:
+            return self._cached_corrections[cache_index]
 
-        pwpaw_corr_data = super().pair_density_paw_corrections(qpd)
-        self._pair_density_paw_corrections.append((qpd.q_c, pwpaw_corr_data))
+        return self._calculate_correction(qpd)
 
-        return pwpaw_corr_data
+    def _calculate_correction(self, qpd):
+        correction = super().pair_density_paw_corrections(qpd)
+
+        self._cached_corrections.append(correction)
+        self._cached_parameters.append((qpd.q_c, qpd.ecut, qpd.gammacentered))
+
+        return correction
+
+    def _cache_lookup(self, qpd):
+        for i, (q_c, ecut,
+                gammacentered) in enumerate(self._cached_parameters):
+            if np.allclose(qpd.q_c, q_c) and abs(qpd.ecut - ecut) < 1e-8\
+               and qpd.gammacentered == gammacentered:
+                # Cache hit!
+                return i
 
 
 def check_reciprocity_and_inversion_symmetry(chiks_q, *, rtol):
