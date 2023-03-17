@@ -1,9 +1,8 @@
-#include<hip/hip_runtime.h>
-#include<hip/hip_runtime_api.h>
-#include <hip/hip_complex.h>
+#include "../gpu.h"
+#include "../gpu-complex.h"
 
 __global__ void pwlfc_expand_kernel_8(double* f_Gs,
-				       hipDoubleComplex *emiGR_Ga,
+				       gpuDoubleComplex *emiGR_Ga,
 				       double *Y_GL,
 				       uint32_t* l_s,
 	                               uint32_t* a_J,
@@ -20,24 +19,24 @@ __global__ void pwlfc_expand_kernel_8(double* f_Gs,
 {
     int G =threadIdx.x + blockIdx.x *blockDim.x;
     int J =threadIdx.y + blockIdx.y *blockDim.y;
-    hipDoubleComplex imag_powers[4] = {make_hipDoubleComplex(1.0,0), 
-	                               make_hipDoubleComplex(0.0,-1.0),
-				       make_hipDoubleComplex(-1.0,0),
-				       make_hipDoubleComplex(0, 1.0)};
+    gpuDoubleComplex imag_powers[4] = {make_gpuDoubleComplex(1.0,0),
+	                               make_gpuDoubleComplex(0.0,-1.0),
+				       make_gpuDoubleComplex(-1.0,0),
+				       make_gpuDoubleComplex(0, 1.0)};
     if ((G < nG) && (J < nJ))
     {
         f_Gs += G*nsplines;
         emiGR_Ga += G*natoms;
         Y_GL += G*nL;
         f_GI += G*nI*2+I_J[J];
-	    
+
 	int s = s_J[J];
 	int l = l_s[s];
-	hipDoubleComplex f1 = (emiGR_Ga[a_J[J]] *
+	gpuDoubleComplex f1 = (emiGR_Ga[a_J[J]] *
 			     f_Gs[s] *
 			     imag_powers[l % 4]);
 	for (int m = 0; m < 2 * l + 1; m++) {
-	    hipDoubleComplex f = f1 * Y_GL[l * l + m];
+	    gpuDoubleComplex f = f1 * Y_GL[l * l + m];
 	    f_GI[0] = f.x;
 	    f_GI[nI] = cc ? -f.y : f.y;
 	    f_GI++;
@@ -46,7 +45,7 @@ __global__ void pwlfc_expand_kernel_8(double* f_Gs,
 }
 
 __global__ void pwlfc_expand_kernel_16(double* f_Gs,
-				       hipDoubleComplex *emiGR_Ga,
+				       gpuDoubleComplex *emiGR_Ga,
 				       double *Y_GL,
 				       uint32_t* l_s,
 	                               uint32_t* a_J,
@@ -64,10 +63,10 @@ __global__ void pwlfc_expand_kernel_16(double* f_Gs,
 {
     int G =threadIdx.x + blockIdx.x *blockDim.x;
     int J =threadIdx.y + blockIdx.y *blockDim.y;
-    hipDoubleComplex imag_powers[4] = {make_hipDoubleComplex(1.0,0), 
-	                               make_hipDoubleComplex(0.0,-1.0),
-				       make_hipDoubleComplex(-1.0,0),
-				       make_hipDoubleComplex(0, 1.0)};
+    gpuDoubleComplex imag_powers[4] = {make_gpuDoubleComplex(1.0,0),
+	                               make_gpuDoubleComplex(0.0,-1.0),
+				       make_gpuDoubleComplex(-1.0,0),
+				       make_gpuDoubleComplex(0, 1.0)};
     if ((G < nG) && (J < nJ))
     {
         f_Gs += G*nsplines;
@@ -76,11 +75,11 @@ __global__ void pwlfc_expand_kernel_16(double* f_Gs,
         f_GI += (G*nI+I_J[J])*2;
 	int s = s_J[J];
 	int l = l_s[s];
-	hipDoubleComplex f1 = (emiGR_Ga[a_J[J]] *
+	gpuDoubleComplex f1 = (emiGR_Ga[a_J[J]] *
 			     f_Gs[s] *
 			     imag_powers[l % 4]);
 	for (int m = 0; m < 2 * l + 1; m++) {
-	    hipDoubleComplex f = f1 * Y_GL[l * l + m];
+	    gpuDoubleComplex f = f1 * Y_GL[l * l + m];
 	    *f_GI++ = f.x;
 	    *f_GI++ = cc ? -f.y : f.y;
 	}
@@ -88,9 +87,9 @@ __global__ void pwlfc_expand_kernel_16(double* f_Gs,
 }
 
 extern "C"
-void pwlfc_expand_gpu_launch_kernel(int itemsize, 
+void pwlfc_expand_gpu_launch_kernel(int itemsize,
 		                               double* f_Gs,
-		                               hipDoubleComplex *emiGR_Ga,
+		                               gpuDoubleComplex *emiGR_Ga,
 					       double *Y_GL,
 					       uint32_t* l_s,
 	                                       uint32_t* a_J,
@@ -107,7 +106,7 @@ void pwlfc_expand_gpu_launch_kernel(int itemsize,
 {
     if (itemsize == 16)
     {
-        hipLaunchKernelGGL(pwlfc_expand_kernel_16, dim3((nG+15)/16, (nJ+15)/16), dim3(16, 16), 0, 0, f_Gs, 
+        gpuLaunchKernel(pwlfc_expand_kernel_16, dim3((nG+15)/16, (nJ+15)/16), dim3(16, 16), 0, 0, f_Gs,
 				       emiGR_Ga,
 				       Y_GL,
 				       l_s,
@@ -125,7 +124,7 @@ void pwlfc_expand_gpu_launch_kernel(int itemsize,
     }
     else
     {
-        hipLaunchKernelGGL(pwlfc_expand_kernel_8, dim3((nG+15)/16, (nJ+15)/16), dim3(16, 16), 0, 0, f_Gs, 
+        gpuLaunchKernel(pwlfc_expand_kernel_8, dim3((nG+15)/16, (nJ+15)/16), dim3(16, 16), 0, 0, f_Gs,
                            emiGR_Ga,
 		           Y_GL,
 		           l_s,
@@ -141,5 +140,5 @@ void pwlfc_expand_gpu_launch_kernel(int itemsize,
                            nsplines,
                            cc);
     }
-    //hipDeviceSynchronize();
+    //gpuDeviceSynchronize();
 }

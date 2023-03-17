@@ -5,11 +5,12 @@
 #include "../array.h"
 #undef GPAW_ARRAY_DISABLE_NUMPY
 
-#include<hip/hip_runtime.h>
+#include "gpu.h"
+#include "gpu-complex.h"
 
-void pwlfc_expand_gpu_launch_kernel(int itemsize, 
+void pwlfc_expand_gpu_launch_kernel(int itemsize,
                                     double* f_Gs,
-                                    double_complex *emiGR_Ga,
+                                    gpuDoubleComplex *emiGR_Ga,
                                     double *Y_GL,
                                     uint32_t* l_s,
                                     uint32_t* a_J,
@@ -54,10 +55,10 @@ PyObject* pwlfc_expand_gpu(PyObject* self, PyObject* args)
     int nI = Array_DIM(f_GI_obj, 1);
     int natoms = Array_DIM(emiGR_Ga_obj, 1);
     int nsplines = Array_DIM(f_Gs_obj, 1);
-    double_complex* emiGR_Ga = (double_complex*)Array_DATA(emiGR_Ga_obj);
+    gpuDoubleComplex* emiGR_Ga = (gpuDoubleComplex*)Array_DATA(emiGR_Ga_obj);
     int itemsize = Array_ITEMSIZE(f_GI_obj);
     pwlfc_expand_gpu_launch_kernel(itemsize, f_Gs, emiGR_Ga, Y_GL, l_s, a_J, s_J, f_GI,
                                        I_J, nG, nJ, nL, nI, natoms, nsplines, cc);
-    hipDeviceSynchronize(); // Is needed?
+    gpuDeviceSynchronize(); // Is needed?
     Py_RETURN_NONE;
 }
