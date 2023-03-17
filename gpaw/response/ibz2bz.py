@@ -52,8 +52,7 @@ class IBZ2BZMaps(Sequence):
 
     def get_atomic_permutations(self, s):
         """Permutations of atomic indices in the IBZ -> K map."""
-        # Atom a is mapped onto atom b.
-        b_a = self.kd.symmetry.a_sa[s]
+        b_a = self.kd.symmetry.a_sa[s]  # Atom a is mapped onto atom b
         return b_a
 
     def get_projections_rotation_matrices(self, K):
@@ -66,9 +65,9 @@ class IBZ2BZMaps(Sequence):
     def _get_projections_rotation_matrices(self, ik, s):
         """Correct the phase of the rotations of PAW projections.
 
-        The rotation for symmetry s is corrected by a phase factor depending on
-        the irreducible k-point ik, corresponding to the Bloch phase associated
-        to the atomic permutations of augmentation spheres.
+        The rotation for symmetry "s" is corrected by a phase factor depending
+        on the irreducible k-point "ik", corresponding to the Bloch phase
+        associated to the atomic permutations of augmentation spheres.
 
         Since ik and s are integers, we can easily keep a cache of the phase
         corrected rotation matrices.
@@ -78,10 +77,17 @@ class IBZ2BZMaps(Sequence):
         b_a = self.get_atomic_permutations(s)
         U_aii = []
         for a, R_sii in enumerate(self.R_asii):
+            # The symmetry transformation maps atom "a" to a position which is
+            # related to atom "b" by a lattice vector (but which does not
+            # necessarily lie within the unit cell)
             b = b_a[a]
-            S_c = np.dot(self.spos_ac[a], U_cc) - self.spos_ac[b]
-            x = np.exp(2j * np.pi * np.dot(ik_c, S_c))
-            U_ii = R_sii[s].T * x
+            atomic_shift_c = np.dot(self.spos_ac[a], U_cc) - self.spos_ac[b]
+            assert np.allclose(atomic_shift_c.round(), atomic_shift_c)
+            # A phase factor is added to the rotations of the projectors in
+            # order to let the projections follow the atoms under the symmetry
+            # transformation
+            phase_shift = np.exp(2j * np.pi * np.dot(ik_c, atomic_shift_c))
+            U_ii = R_sii[s].T * phase_shift  # Why to all elements? XXX
             U_aii.append(U_ii)
 
         return U_aii
