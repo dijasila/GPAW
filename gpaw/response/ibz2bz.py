@@ -104,9 +104,7 @@ class IBZ2BZMaps(Sequence):
 
 
 class IBZ2BZMap:
-    """
-    Some documentation here! XXX
-    """
+    """Functionality to map orbitals from the IBZ to a specific k-point K."""
 
     def __init__(self, ik_c, U_cc, b_a, U_aii, time_reversal):
         """Construct the IBZ2BZMap."""
@@ -121,7 +119,7 @@ class IBZ2BZMap:
         """Get the relative k-point coordinates after the IBZ -> K mapping.
 
         NB: The mapped k-point can lie outside the BZ, but will always be
-        related to self.kd.bzk_kc[K] by a reciprocal lattice vector.
+        related to kd.bzk_kc[K] by a reciprocal lattice vector.
         """
         # Apply symmetry operations to the irreducible k-point
         sign = 1 - 2 * self.time_reversal
@@ -156,7 +154,8 @@ class IBZ2BZMap:
     def map_projections(self, projections):
         """Perform IBZ -> K mapping of the PAW projections.
 
-        NB: The projections of atom b may be mapped onto *another* atom a.
+        NB: The projections of atom a are mapped onto an atom related to atom b
+        by a lattice vector.
         """
         mapped_projections = projections.new()
         for a, (b, U_ii) in enumerate(zip(self.b_a, self.U_aii)):
