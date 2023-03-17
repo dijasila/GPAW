@@ -48,6 +48,7 @@ class RRemission(object):
         self.rr_quantization_plane = rr_quantization_plane_in / Bohr**2
         self.polarization_cavity = pol_cavity_in
         self.dipolexyz = None
+        self.itert = 0
         if environmentcavity_in is None:
             self.environment = 0
         else:
@@ -65,6 +66,7 @@ class RRemission(object):
             self.maxtimesteps = None
             self.frequ_resolution_ampl = environmentcavity_in[5]
             if environmentensemble_in is not None:
+                self.environmentensemble = 1
                 self.ensemble_number = environmentensemble_in[0]
                 self.ensemble_occupation_ratio = environmentensemble_in[1]
                 self.ensemble_resonance = (environmentensemble_in[2]
@@ -75,12 +77,40 @@ class RRemission(object):
                                                  / Hartree)
             else:
                 self.ensemble_number = environmentensemble_in
+                self.environmentensemble = 0
 
     def write(self, writer):
+        writer.write(itert=self.itert)
         writer.write(DelDipole=self.dipolexyz)
+        writer.write(dipole_projected=self.dipole_projected[:self.itert] * Bohr)
+        writer.write(rr_quantization_plane_in=self.rr_quantization_plane * Bohr**2)
+        writer.write(pol_cavity_in=self.polarization_cavity)
+        if self.environment == 0:
+            writer.write(environmentcavity_in=None)
+        else:
+            writer.write(environmentcavity_in=[self.cavity_resonance[0] * Hartree,
+                                               self.cavity_resonance[-1] * Hartree,
+                                               self.cavity_loss / self.cavity_resonance[0],
+                                               0,
+                                               0,
+                                               self.frequ_resolution_ampl])
+            if self.environmentensemble == 0:
+                writer.write(environmentcavity_in=None)
+            else:
+                if self.ensemble_resonance > 0:
+                    loss_out = self.ensemble_loss / self.ensemble_resonance
+                else:
+                    loss_out = 0
+                writer.write(environmentensemble_in=[self.ensemble_number,
+                                                     self.ensemble_occupation_ratio,
+                                                     self.ensemble_resonance,
+                                                     loss_out,
+                                                     self.ensemble_plasmafrequency * Hartree])
 
     def read(self, reader):
+        self.itert = reader.itert
         self.dipolexyz = reader.DelDipole
+        self.dipole_projected = reader.dipole_projected / Bohr
 
     def initialize(self, paw):
         self.iterpredcop = 0
@@ -90,14 +120,16 @@ class RRemission(object):
         self.wfs = paw.wfs
         self.hamiltonian = paw.hamiltonian
         self.dipolexyz_previous = self.density.calculate_dipole_moment()
-        self.itert = 0
         if self.environment == 1:
             self.dyadic = None
 
     def vradiationreaction(self, kpt, time):
         if self.environment == 1 and self.dyadic is None:
             self.dyadic = self.dyadicGt(self.deltat, self.maxtimesteps)
-            self.dipole_projected = np.zeros(self.maxtimesteps)
+            if not hasattr(self, 'dipole_projected'):
+                self.dipole_projected = np.zeros(self.maxtimesteps)
+            else:
+                self.dipole_projected = np.concatenate([self.dipole_projected, np.zeros(self.maxtimesteps)])
         if self.iterpredcop == 0:
             self.iterpredcop += 1
             self.dipolexyz_previous = self.density.calculate_dipole_moment()
@@ -160,6 +192,10 @@ class RRemission(object):
         return Vrr_MM
 
     def dyadicGt(self, deltat, maxtimesteps):
+        if self.itert > 0:
+            self.frequ_resolution_ampl = (float(self.frequ_resolution_ampl) *
+                                          float(self.itert) /
+                                          float(maxtimesteps-1))
         timeg = np.arange(0, deltat *
                           (maxtimesteps * self.frequ_resolution_ampl + 1),
                           deltat)

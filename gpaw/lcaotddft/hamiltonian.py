@@ -143,9 +143,16 @@ class TimeDependentHamiltonian(object):
             self.td_potential.kpt_u = self.wfs.kpt_u
             self.td_potential.read(reader.td_potential)
         if 'rremission' in reader:
-            assert self.rremission is not None, (
-                   'Please specify the RRemission parameters for restarting.')
+            assert self.rremission is None
+            from gpaw.lcaotddft.qed import RRemission
+            self.rremission = RRemission(
+                rr_quantization_plane_in=reader.rremission.rr_quantization_plane_in,
+                pol_cavity_in=reader.rremission.pol_cavity_in,
+                environmentcavity_in=reader.rremission.environmentcavity_in,
+                environmentensemble_in=reader.rremission.environmentensemble_in
+                )
             self.rremission.read(reader.rremission)
+            self.rremission.wfs = self.wfs
 
     def read_fxc(self, reader):
         assert self.fxc_name is None or self.fxc_name == reader.name
