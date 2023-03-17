@@ -61,7 +61,7 @@ class IBZ2BZMaps(Sequence):
         s = self.kd.sym_k[K]
         return self._get_projections_rotation_matrices(ik, s)
 
-    @lru_cache
+    @lru_cache(maxsize=None)  # Same as functools.cache in python 3.9 XXX
     def _get_projections_rotation_matrices(self, ik, s):
         """Correct the phase of the rotations of PAW projections.
 
