@@ -69,6 +69,8 @@ class PlaneWaves(Domain):
         self.shape = (ng,)
         self.myshape = (len(self.ekin_G),)
 
+        # Convert from np.float64 to float to avoid fake cupy problem ...
+        # XXX Fix cpupy!!!
         self.dv = float(abs(np.linalg.det(self.cell_cv)))
 
         self._indices_cache: dict[tuple[int, ...], Array1D] = {}
