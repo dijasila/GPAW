@@ -40,8 +40,10 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
             self.h_g = cp.asarray(self.h_g)
             self.g_r = [cp.asarray(g) for g in self.g_r]
 
-        self.fftplan = grid.fft_plans(xp=xp)
-        self.fftplan2 = fine_grid.fft_plans(xp=xp)
+        # self.fftplan = grid.fft_plans(xp=xp)
+        # self.fftplan2 = fine_grid.fft_plans(xp=xp)
+        self.fftplan = grid.fft_plans()
+        self.fftplan2 = fine_grid.fft_plans()
 
         self.grid = grid
         self.fine_grid = fine_grid
@@ -65,22 +67,25 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         return e_xc
 
     def _interpolate_density(self, nt_sR):
-        nt_sr = self.fine_grid.empty(nt_sR.dims, xp=self.xp)
+        # nt_sr = self.fine_grid.empty(nt_sR.dims, xp=self.xp)
+        nt_sr = self.fine_grid.empty(nt_sR.dims)
         pw = self.vbar_g.desc
 
         if pw.comm.rank == 0:
-            indices = self.xp.asarray(self.pw0.indices(self.fftplan.shape))
+            # indices = self.xp.asarray(self.pw0.indices(self.fftplan.shape))
+            indices = self.pw0.indices(self.fftplan.shape)
             nt0_g = self.pw0.zeros(xp=self.xp)
         else:
             nt0_g = None
 
         ndensities = nt_sR.dims[0] % 3
         for spin, (nt_R, nt_r) in enumerate(zip(nt_sR, nt_sr)):
-            nt_R.interpolate(self.fftplan, self.fftplan2, out=nt_r)
+            nt_R.to_xp(np).interpolate(self.fftplan, self.fftplan2, out=nt_r)
             if spin < ndensities and pw.comm.rank == 0:
-                nt0_g.data += self.fftplan.tmp_Q.ravel()[indices]
+                nt0_g.data += self.xp.asarray(
+                    self.fftplan.tmp_Q.ravel()[indices])
 
-        return nt_sr, pw, nt0_g
+        return nt_sr.to_xp(self.xp), pw, nt0_g
 
     def calculate_pseudo_potential(self, density, vHt_h):
         nt_sr, pw, nt0_g = self._interpolate_density(density.nt_sR)
@@ -127,8 +132,9 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                     data = self.xp.empty(len(g), complex)
                     pw.comm.receive(data, rank)
                     vt0_g.data[g] += data
-            vt0_R = vt0_g.ifft(plan=self.fftplan,
-                               grid=density.nt_sR.desc.new(comm=None))
+            vt0_R = vt0_g.to_xp(np).ifft(
+                plan=self.fftplan,
+                grid=density.nt_sR.desc.new(comm=None)).to_xp(self.xp)
         else:
             pw.comm.send(vHt_h.data[self.h_g], 0)
 
@@ -153,11 +159,12 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                 'external': e_external}, vt_sR, vHt_h
 
     def _restrict(self, vxct_sr, vt_sR, density=None):
-        vtmp_R = vt_sR.desc.empty(xp=self.xp)
+        vtmp_R = vt_sR.desc.empty()
         e_kinetic = 0.0
         for spin, (vt_R, vxct_r) in enumerate(zip(vt_sR, vxct_sr)):
-            vxct_r.fft_restrict(self.fftplan2, self.fftplan, out=vtmp_R)
-            vt_R.data += vtmp_R.data
+            vxct_r.to_xp(np).fft_restrict(
+                self.fftplan2, self.fftplan, out=vtmp_R)
+            vt_R.data += vtmp_R.to_xp(self.xp).data
             if density:
                 e_kinetic -= vt_R.integrate(density.nt_sR[spin])
                 if spin < density.ndensities:
@@ -165,6 +172,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         return float(e_kinetic)
 
     def restrict(self, vt_sr):
+        1 / 0
         vt_sR = self.grid.empty(vt_sr.dims)
         for vt_R, vt_r in zip(vt_sR, vt_sr):
             vt_r.fft_restrict(self.fftplan2, self.fftplan, out=vt_R)
@@ -198,8 +206,10 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                 vt_R.data[:] = (
                     potential.vt_sR.data[:density.ndensities].sum(axis=0) /
                     density.ndensities)
-            self._vt_g = vt_R.fft(self.fftplan, pw=self.pw)
-            self._nt_g = nt_R.fft(self.fftplan, pw=self.pw)
+            self._vt_g = vt_R.to_xp(np).fft(self.fftplan,
+                                            pw=self.pw).to_xp(self.xp)
+            self._nt_g = nt_R.to_xp(np).fft(self.fftplan,
+                                            pw=self.pw).to_xp(self.xp)
         return self._vt_g, self._nt_g
 
     def force_contributions(self, state):
