@@ -93,26 +93,26 @@ class NewPairDensityCalculator:
                                  ˷          ˷
                   = FFT_G[e^-iqr ψ_nks^*(r) ψ_n'k+qs'(r)]
         """
-        kpt1 = kptpair.kpt1
-        kpt2 = kptpair.kpt2
+        ikpt1 = kptpair.ikpt1
+        ikpt2 = kptpair.ikpt2
 
         # Map the k-points from the irreducible part of the BZ to the BZ
         # k-point K (up to a reciprocal lattice vector)
-        k1_c = self.gs.ibz2bz[kpt1.K].map_kpoint()
-        k2_c = self.gs.ibz2bz[kpt2.K].map_kpoint()
+        k1_c = self.gs.ibz2bz[kptpair.K1].map_kpoint()
+        k2_c = self.gs.ibz2bz[kptpair.K2].map_kpoint()
 
         # Fourier transform the periodic part of the pseudo waves to the coarse
         # real-space grid and map them to the BZ k-point K (up to the same
         # reciprocal lattice vector as above)
-        ut1_hR = self.get_periodic_pseudo_waves(kpt1)
-        ut2_hR = self.get_periodic_pseudo_waves(kpt2)
+        ut1_hR = self.get_periodic_pseudo_waves(kptpair.K1, ikpt1)
+        ut2_hR = self.get_periodic_pseudo_waves(kptpair.K2, ikpt2)
 
         # Calculate the pseudo pair density in real space, up to a phase of
         # e^(-i[k+q-k']r).
         # This phase does not necessarily vanish, since k2_c only is required
-        # equal k1_c + qpd.q_c modulo a reciprocal lattice vector.
-        ut1cc_mytR = ut1_hR[kpt1.h_myt].conj()
-        nt_mytR = ut1cc_mytR * ut2_hR[kpt2.h_myt]
+        # to equal k1_c + qpd.q_c modulo a reciprocal lattice vector.
+        ut1cc_mytR = ut1_hR[ikpt1.h_myt].conj()
+        nt_mytR = ut1cc_mytR * ut2_hR[ikpt2.h_myt]
 
         # Get the FFT indices corresponding to the Fourier transform
         #                       ˷          ˷
@@ -146,18 +146,18 @@ class NewPairDensityCalculator:
                      /V0                ˷             ˷
                                       - φ_ai^*(r-R_a) φ_aj(r-R_a)]
         """
-        kpt1 = kptpair.kpt1
-        kpt2 = kptpair.kpt2
+        ikpt1 = kptpair.ikpt1
+        ikpt2 = kptpair.ikpt2
 
         # Map the projections from the irreducible part of the BZ to the BZ
         # k-point K
-        P1h = self.gs.ibz2bz[kpt1.K].map_projections(kpt1.Ph)
-        P2h = self.gs.ibz2bz[kpt2.K].map_projections(kpt2.Ph)
+        P1h = self.gs.ibz2bz[kptpair.K1].map_projections(ikpt1.Ph)
+        P2h = self.gs.ibz2bz[kptpair.K2].map_projections(ikpt2.Ph)
 
         # Calculate the actual PAW corrections
         Q_aGii = self.get_paw_corrections(qpd).Q_aGii
-        P1 = kpt1.projectors_in_transition_index(P1h)
-        P2 = kpt2.projectors_in_transition_index(P2h)
+        P1 = ikpt1.projectors_in_transition_index(P1h)
+        P2 = ikpt2.projectors_in_transition_index(P2h)
         for a, Q_Gii in enumerate(Q_aGii):  # Loop over augmentation spheres
             assert P1.atom_partition.comm.size ==\
                 P2.atom_partition.comm.size == 1,\
@@ -170,13 +170,12 @@ class NewPairDensityCalculator:
             # Sum over projector indices and add correction to the output
             n_mytG[:] += np.einsum('tij, Gij -> tG', P1ccP2_mytii, Q_Gii)
 
-    def get_periodic_pseudo_waves(self, kpt):
+    def get_periodic_pseudo_waves(self, K, ikpt):
         """FFT the Kohn-Sham orbitals to real space and map them from the
         irreducible k-point to the k-point in question."""
-        ik = self.gs.kd.bz2ibz_k[kpt.K]
-        ut_hR = self.gs.gd.empty(kpt.nh, self.gs.dtype)
-        for h, psit_G in enumerate(kpt.psit_hG):
-            ut_hR[h] = self.gs.ibz2bz[kpt.K].map_pseudo_wave(
-                self.gs.global_pd.ifft(psit_G, ik))
+        ut_hR = self.gs.gd.empty(ikpt.nh, self.gs.dtype)
+        for h, psit_G in enumerate(ikpt.psit_hG):
+            ut_hR[h] = self.gs.ibz2bz[K].map_pseudo_wave(
+                self.gs.global_pd.ifft(psit_G, ikpt.ik))
 
         return ut_hR
