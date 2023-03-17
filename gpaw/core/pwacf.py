@@ -419,6 +419,7 @@ class PWLFC(BaseLFC):
         return c_axiv
 
     def stress_tensor_contribution(self, a_xG, c_axi=1.0):
+        xp = self.xp
         cache = {}
         things = []
         I1 = 0
@@ -436,8 +437,8 @@ class PWLFC(BaseLFC):
                             G = 1.0
                         f_G.append(f)
                         dfdGoG_G.append(dfdG / G)
-                    f_G = np.array(f_G)
-                    dfdGoG_G = np.array(dfdGoG_G)
+                    f_G = xp.array(f_G)
+                    dfdGoG_G = xp.array(dfdGoG_G)
                     cache[spline] = (f_G, dfdGoG_G)
                 else:
                     f_G, dfdGoG_G = cache[spline]
@@ -452,11 +453,12 @@ class PWLFC(BaseLFC):
 
         G0_Gv = self.pw.G_plus_k_Gv
 
-        stress_vv = np.zeros((3, 3))
+        stress_vv = xp.zeros((3, 3))
         for G1, G2 in self.block(ensure_same_number_of_blocks=True):
             G_Gv = G0_Gv[G1:G2]
-            Z_LvG = np.array([nablarlYL(L, G_Gv.T)
+            Z_LvG = xp.array([nablarlYL(L, G_Gv.T)
                               for L in range((lmax + 1)**2)])
+            G_Gv = xp.asarray(G_Gv)
             aa_xG = a_xG[..., G1:G2]
             for v1 in range(3):
                 for v2 in range(3):
@@ -469,7 +471,8 @@ class PWLFC(BaseLFC):
 
     def _stress_tensor_contribution(self, v1, v2, things, G1, G2,
                                     G_Gv, a_xG, c_axi, Z_LvG):
-        f_IG = np.empty((self.nI, G2 - G1), complex)
+        xp = self.xp
+        f_IG = xp.empty((self.nI, G2 - G1), complex)
         emiGR_Ga = self.emiGR_Ga[G1:G2]
         Y_LG = self.Y_GL.T
         for a, l, I1, I2, f_G, dfdGoG_G in things:
@@ -480,7 +483,7 @@ class PWLFC(BaseLFC):
                             Y_LG[L1:L2, G1:G2] +
                             f_G[G1:G2] * G_Gv[:, v1] * Z_LvG[L1:L2, v2]))
 
-        c_xI = np.zeros(a_xG.shape[:-1] + (self.nI,), self.pw.dtype)
+        c_xI = xp.zeros(a_xG.shape[:-1] + (self.nI,), self.pw.dtype)
 
         x = prod(c_xI.shape[:-1])
         b_xI = c_xI.reshape((x, self.nI))
@@ -494,7 +497,10 @@ class PWLFC(BaseLFC):
             f_IG = f_IG.view(float)
             a_xG = a_xG.copy().view(float)
 
-        mmm(alpha, a_xG, 'N', f_IG, 'C', 0.0, b_xI)
+        if xp is np:
+            mmm(alpha, a_xG, 'N', f_IG, 'C', 0.0, b_xI)
+        else:
+            xp.cublas.gemm('N', 'H', a_xG, f_IG, b_xI, alpha, 0.0)
         self.comm.sum(b_xI)
 
         stress = 0.0

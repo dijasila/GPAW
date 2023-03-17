@@ -69,7 +69,7 @@ class PlaneWaves(Domain):
         self.shape = (ng,)
         self.myshape = (len(self.ekin_G),)
 
-        self.dv = abs(np.linalg.det(self.cell_cv))
+        self.dv = float(abs(np.linalg.det(self.cell_cv)))
 
         self._indices_cache: dict[tuple[int, ...], Array1D] = {}
 
