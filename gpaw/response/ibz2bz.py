@@ -33,10 +33,8 @@ class IBZ2BZMaps(Sequence):
 
     def __getitem__(self, K):
         return IBZ2BZMap(self.get_ik_c(K),
-                         self.get_rotation_matrix(K),
+                         *self.get_unitary_symmetry_transformations(K),
                          self.get_time_reversal(K),
-                         self.get_atomic_permutations(K),
-                         self.get_R(K),
                          self.spos_ac)
 
     def get_ik_c(self, K):
@@ -44,30 +42,34 @@ class IBZ2BZMaps(Sequence):
         ik_c = self.kd.ibzk_kc[ik]
         return ik_c
 
-    def get_rotation_matrix(self, K):
-        """Coordinate rotation matrix, mapping IBZ -> K."""
+    def get_unitary_symmetry_transformations(self, K):
         s = self.kd.sym_k[K]
+        U_cc = self.get_rotation_matrix(s)
+        b_a = self.get_atomic_permutations(s)
+        R_aii = self.get_R(s)
+        return U_cc, b_a, R_aii
+
+    def get_rotation_matrix(self, s):
+        """Coordinate rotation matrix, mapping IBZ -> K."""
         U_cc = self.kd.symmetry.op_scc[s]
         return U_cc
+
+    def get_atomic_permutations(self, s):
+        """Permutation of atomic indices in the IBZ -> K map."""
+        b_a = self.kd.symmetry.a_sa[s]
+        return b_a
+
+    def get_R(self, s):
+        """
+        Some documentation and a better name here! XXX
+        """
+        R_aii = [R_sii[s] for R_sii in self.R_asii]
+        return R_aii
 
     def get_time_reversal(self, K):
         """Does the mapping IBZ -> K involve time reversal?"""
         time_reversal = self.kd.time_reversal_k[K]
         return time_reversal
-
-    def get_atomic_permutations(self, K):
-        """Permutation of atomic indices in the IBZ -> K map."""
-        s = self.kd.sym_k[K]
-        b_a = self.kd.symmetry.a_sa[s]
-        return b_a
-
-    def get_R(self, K):
-        """
-        Some documentation and a better name here! XXX
-        """
-        s = self.kd.sym_k[K]
-        R_aii = [R_sii[s] for R_sii in self.R_asii]
-        return R_aii
 
 
 class IBZ2BZMap:
@@ -76,17 +78,18 @@ class IBZ2BZMap:
     Some documentation here! XXX
     """
 
-    def __init__(self, ik_c, U_cc, time_reversal, b_a, R_aii, spos_ac):
+    def __init__(self, ik_c, U_cc, b_a, R_aii, time_reversal, spos_ac):
         """
         Some documentation XXX
         """
         self.ik_c = ik_c
+
         self.U_cc = U_cc
-        self.time_reversal = time_reversal
         self.b_a = b_a
+        self.R_aii = R_aii
+        self.time_reversal = time_reversal
 
         self.spos_ac = spos_ac
-        self.R_aii = R_aii
     
     def get_atomic_rotation_matrices(self):  # to U_aii property XXX
         """Atomic permutation and rotation involved in the IBZ -> K mapping.
