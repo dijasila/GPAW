@@ -86,8 +86,13 @@ class IBZ2BZMaps(Sequence):
             # A phase factor is added to the rotations of the projectors in
             # order to let the projections follow the atoms under the symmetry
             # transformation
-            phase_shift = np.exp(2j * np.pi * np.dot(ik_c, atomic_shift_c))
-            U_ii = R_sii[s].T * phase_shift  # Why to all elements? XXX
+            # XXX There are some serious questions to be addressed here XXX
+            # * Why does the phase factor only depend on the coordinates of the
+            #   irreducible k-point?
+            # * Why is the phase shift mutiplied both to the diagonal and the
+            #   off-diagonal of the rotation matrices?
+            phase_factor = np.exp(2j * np.pi * np.dot(ik_c, atomic_shift_c))
+            U_ii = R_sii[s].T * phase_factor
             U_aii.append(U_ii)
 
         return U_aii
