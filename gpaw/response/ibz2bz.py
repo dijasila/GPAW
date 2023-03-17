@@ -1,5 +1,5 @@
 import numpy as np
-
+from gpaw.utlilities.blas import gemmdot
 
 class IBZ2BZMapper:
     """Functionality to map data from k-points in the IBZ to the full BZ."""
@@ -109,13 +109,20 @@ class IBZ2BZMapper:
 
         return utout_R
 
-    def map_pseudo_wave_BZ(self, K, ut_R, r_cR):
+    def map_pseudo_wave_to_BZ(self, K, ut_R, r_cR):
         """Map the periodic part of wave function from IBZ -> K in 1:st BZ.
-        r_cR is real space grid stored at calc.wfs...
+        r_cR is real space grid. r_cR = calc.wfs.gd.get_grid_point_coordinates() 
         """
         utout_R = self.map_pseudo_wave(K, ut_R)
-        shift_c = self.kd.bzk_c(K) - self.map_kpoint(K)
-        
+        shift = self.map_kpoint(K) - self.kd.bz_kc(K)
+        if np.all(shift == 0):
+            # K-point already in 1:st BZ
+            return utout_R
+        assert np.all((shift - np.round(shift)) == 0)
+        icell_cv = (2 * np.pi) * np.linalg.inv(self.kd.cell_cv).T
+        shift = np.dot(shift, icell_cv)
+        return utout_R * np.exp(1.0j * gemmdot(shift, r_cR, beta=0.0))
+
 
     def map_projections(self, K, projections):
         """Perform IBZ -> K mapping of the PAW projections.
