@@ -99,22 +99,22 @@ def test_pw_integrate(xp, grid):
     i1 = g.integrate()
     i2 = f.integrate()
     assert i1 == i2
-    assert i1.dtype == g.desc.dtype
+    assert type(i1) == g.desc.dtype
 
     i1 = g.integrate(g)
     i2 = f.integrate(f)
     assert i1 == i2
-    assert i1.dtype == g.desc.dtype
+    assert type(i1) == g.desc.dtype
 
     g1 = g.desc.empty(1, xp=xp)
     g1.data[:] = g.data
     m1 = g1.matrix_elements(g1)
-    assert (i1 == m1.data).all()
+    assert i1 == m1.data.item()
 
     f1 = f.desc.empty(1, xp=xp)
     f1.data[:] = f.data
     m2 = f1.matrix_elements(f1)
-    assert (i2 == m2.data).all()
+    assert i2 == m2.data[0, 0].item()
 
 
 def test_grr():

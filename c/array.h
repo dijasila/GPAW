@@ -9,7 +9,8 @@
 
 // Check that array is well-behaved and contains data that can be sent.
 #define CHK_ARRAY(a) if ((a) == NULL || !PyArray_Check(a)                   \
-			 || !PyArray_ISCARRAY(a) || !PyArray_ISNUMBER(a)) { \
+			 || !PyArray_ISCARRAY((PyArrayObject*)a)            \
+                         || !PyArray_ISNUMBER((PyArrayObject*)a)) {         \
     PyErr_SetString(PyExc_TypeError,                                        \
 		    "Not a proper NumPy array for MPI communication.");     \
     return NULL; } else
@@ -17,31 +18,31 @@
 // Check that array is well-behaved, read-only  and contains data that
 // can be sent.
 #define CHK_ARRAY_RO(a) if ((a) == NULL || !PyArray_Check(a)                \
-			 || !PyArray_ISCARRAY_RO(a)                         \
-			 || !PyArray_ISNUMBER(a)) {                         \
+			 || !PyArray_ISCARRAY_RO((PyArrayObject*)a)         \
+			 || !PyArray_ISNUMBER((PyArrayObject*)a)) {         \
     PyErr_SetString(PyExc_TypeError,                                        \
 		    "Not a proper NumPy array for MPI communication.");     \
     return NULL; } else
 
 // Check that two arrays have the same type, and the size of the
 // second is a given multiple of the size of the first
-#define CHK_ARRAYS(a,b,n)                                               \
-  if ((PyArray_TYPE(a) != PyArray_TYPE(b))                              \
-      || (PyArray_SIZE(b) != PyArray_SIZE(a) * n)) {                    \
-    PyErr_SetString(PyExc_ValueError,                                   \
-		    "Incompatible array types or sizes.");              \
+#define CHK_ARRAYS(a,b,n)                                                             \
+  if ((PyArray_TYPE((PyArrayObject*)a) != PyArray_TYPE((PyArrayObject*)b))            \
+      || (PyArray_SIZE((PyArrayObject*)b) != PyArray_SIZE((PyArrayObject*)a) * n)) {   \
+    PyErr_SetString(PyExc_ValueError,                                                 \
+		    "Incompatible array types or sizes.");                            \
       return NULL; } else
 
 
-#define Array_NDIM(a) PyArray_NDIM(a)
-#define Array_DIM(a,d)  PyArray_DIM(a,d)
-#define Array_ITEMSIZE(a) PyArray_ITEMSIZE(a)
-#define Array_BYTES(a) PyArray_BYTES(a)
-#define Array_DATA(a) PyArray_DATA(a)
-#define Array_SIZE(a) PyArray_SIZE(a)
-#define Array_TYPE(a) PyArray_TYPE(a)
-#define Array_NBYTES(a) PyArray_NBYTES(a)
-#define Array_ISCOMPLEX(a) PyArray_ISCOMPLEX(a)
+#define Array_NDIM(a) PyArray_NDIM((PyArrayObject*)a)
+#define Array_DIM(a,d)  PyArray_DIM((PyArrayObject*)a,d)
+#define Array_ITEMSIZE(a) PyArray_ITEMSIZE((PyArrayObject*)a)
+#define Array_BYTES(a) PyArray_BYTES((PyArrayObject*)a)
+#define Array_DATA(a) PyArray_DATA((PyArrayObject*)a)
+#define Array_SIZE(a) PyArray_SIZE((PyArrayObject*)a)
+#define Array_TYPE(a) PyArray_TYPE((PyArrayObject*)a)
+#define Array_NBYTES(a) PyArray_NBYTES((PyArrayObject*)a)
+#define Array_ISCOMPLEX(a) PyArray_ISCOMPLEX((PyArrayObject*)a)
 
 #else // GPAW_ARRAY_ALLOW_CUPY
 

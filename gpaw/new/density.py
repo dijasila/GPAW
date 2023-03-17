@@ -196,8 +196,8 @@ class Density:
         return magmom_v, magmom_av
 
     def write(self, writer):
-        D_asp = self.D_asii.to_lower_triangle().gather()
-        nt_sR = self.nt_sR.gather()
+        D_asp = self.D_asii.to_cpu().to_lower_triangle().gather()
+        nt_sR = self.nt_sR.to_xp(np).gather()
         if D_asp is None:
             return
 

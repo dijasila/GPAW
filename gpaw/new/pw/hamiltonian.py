@@ -1,65 +1,63 @@
+from typing import Callable
+
 import _gpaw
 import numpy as np
-from gpaw.new.hamiltonian import Hamiltonian
-from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.core.plane_waves import PlaneWaveExpansions
+from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.gpu import cupy as cp
+from gpaw.new.hamiltonian import Hamiltonian
 
 
 class PWHamiltonian(Hamiltonian):
+    def __init__(self, grid, pw, xp):
+        self.plan = grid.new(dtype=pw.dtype).fft_plans(xp=xp)
+        self.pw_cache = {}
+
     def apply(self,
               vt_sR: UniformGridFunctions,
               psit_nG: PlaneWaveExpansions,
               out: PlaneWaveExpansions,
-              spin: int):
+              spin: int) -> PlaneWaveExpansions:
         out_nG = out
-        vt_R = vt_sR.data[spin]
+        vt_R = vt_sR[spin].gather(broadcast=True)
         xp = psit_nG.xp
-        e_kin_G = xp.asarray(psit_nG.desc.ekin_G)
-        xp.multiply(e_kin_G, psit_nG.data, out_nG.data)
-        grid = vt_sR.desc
-        if psit_nG.desc.dtype == complex:
-            grid = grid.new(dtype=complex)
-        f_R = grid.empty(xp=xp)
-        for p_G, o_G in zip(psit_nG, out_nG):
-            f_R = p_G.ifft(out=f_R)
-            f_R.data *= vt_R
-            o_G.data += f_R.fft(pw=p_G.desc).data
+        grid = vt_R.desc.new(comm=None, dtype=psit_nG.desc.dtype)
+        tmp_R = grid.empty(xp=xp)
+        pw = psit_nG.desc
+        if pw.comm.size == 1:
+            pw_local = pw
+        else:
+            key = tuple(pw.kpt_c)
+            pw_local = self.pw_cache.get(key)
+            if pw_local is None:
+                pw_local = pw.new(comm=None)
+                self.pw_cache[key] = pw_local
+        psit_G = pw_local.empty(xp=xp)
+        e_kin_G = xp.asarray(psit_G.desc.ekin_G)
+        domain_comm = psit_nG.desc.comm
+        mynbands = psit_nG.mydims[0]
+        for n1 in range(0, mynbands, domain_comm.size):
+            n2 = min(n1 + domain_comm.size, mynbands)
+            psit_nG[n1:n2].gather_all(psit_G)
+            psit_G.ifft(out=tmp_R)
+            tmp_R.data *= vt_R.data
+            vtpsit_G = tmp_R.fft(pw=psit_G.desc)
+            psit_G.data *= e_kin_G
+            vtpsit_G.data += psit_G.data
+            out_nG[n1:n2].scatter_from_all(vtpsit_G)
         return out_nG
 
-    def create_preconditioner(self, blocksize):
+    def create_preconditioner(self,
+                              blocksize: int
+                              ) -> Callable[[PlaneWaveExpansions,
+                                             PlaneWaveExpansions,
+                                             PlaneWaveExpansions], None]:
         return precondition
 
 
-# Old optimized code:
-"""
-        N = len(psit_xG)
-        S = self.gd.comm.size
-
-        vt_R = self.gd.collect(ham.vt_sG[kpt.s], broadcast=True)
-        Q_G = self.pd.Q_qG[kpt.q]
-        T_G = 0.5 * self.pd.G2_qG[kpt.q]
-
-        for n1 in range(0, N, S):
-            n2 = min(n1 + S, N)
-            psit_G = self.pd.alltoall1(psit_xG[n1:n2], kpt.q)
-            with self.timer('HMM T'):
-                np.multiply(T_G, psit_xG[n1:n2], Htpsit_xG[n1:n2])
-            if psit_G is not None:
-                psit_R = self.pd.ifft(psit_G, kpt.q, local=True, safe=False)
-                psit_R *= vt_R
-                self.pd.fftplan.execute()
-                vtpsit_G = self.pd.tmp_Q.ravel()[Q_G]
-            else:
-                vtpsit_G = self.pd.tmp_G
-            self.pd.alltoall2(vtpsit_G, kpt.q, Htpsit_xG[n1:n2])
-
-        ham.xc.apply_orbital_dependent_hamiltonian(
-            kpt, psit_xG, Htpsit_xG, ham.dH_asp)
-"""
-
-
-def precondition(psit_nG, residual_nG, out):
+def precondition(psit_nG: PlaneWaveExpansions,
+                 residual_nG: PlaneWaveExpansions,
+                 out: PlaneWaveExpansions) -> None:
     """Preconditioner for KS equation.
 
     From:

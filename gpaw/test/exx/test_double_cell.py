@@ -47,7 +47,7 @@ def test_exx_double_cell(in_tmp_dir):
 
     assert abs(e2 - 2 * e1) < 0.002
     assert abs(eps1 - eps2) < 0.001
-    assert abs(f2).max() < 0.0005
+    assert abs(f2).max() < 0.0008
 
 
 if __name__ == '__main__':

@@ -241,8 +241,11 @@ class PWFDWaveFunctions(WaveFunctions):
     def force_contribution(self,
                            potential: Potential,
                            F_av: Array2D) -> None:
+        xp = self.xp
         dH_asii = potential.dH_asii
-        myocc_n = self.weight * self.spin_degeneracy * self.myocc_n
+        myeig_n = xp.asarray(self.myeig_n)
+        myocc_n = xp.asarray(
+            self.weight * self.spin_degeneracy * self.myocc_n)
 
         if self.ncomponents == 4:
             self._non_collinear_force_contribution(dH_asii, myocc_n, F_av)
@@ -254,10 +257,10 @@ class PWFDWaveFunctions(WaveFunctions):
             F_vni *= myocc_n[:, np.newaxis]
             dH_ii = dH_asii[a][self.spin]
             P_ni = self.P_ani[a]
-            F_vii = np.einsum('vni, nj, jk -> vik', F_vni, P_ni, dH_ii)
-            F_vni *= self.myeig_n[:, np.newaxis]
-            dO_ii = self.setups[a].dO_ii
-            F_vii -= np.einsum('vni, nj, jk -> vik', F_vni, P_ni, dO_ii)
+            F_vii = xp.einsum('vni, nj, jk -> vik', F_vni, P_ni, dH_ii)
+            F_vni *= myeig_n[:, np.newaxis]
+            dO_ii = xp.asarray(self.setups[a].dO_ii)
+            F_vii -= xp.einsum('vni, nj, jk -> vik', F_vni, P_ni, dO_ii)
             F_av[a] += 2 * F_vii.real.trace(0, 1, 2)
 
     def _non_collinear_force_contribution(self,
