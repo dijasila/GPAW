@@ -191,10 +191,10 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
             nt_R = density.nt_sR[0]
             vt_R = potential.vt_sR[0]
             if density.ndensities > 1:
-                nt_R = nt_R.desc.empty()
+                nt_R = nt_R.desc.empty(xp=self.xp)
                 nt_R.data[:] = density.nt_sR.data[:density.ndensities].sum(
                     axis=0)
-                vt_R = vt_R.desc.empty()
+                vt_R = vt_R.desc.empty(xp=self.xp)
                 vt_R.data[:] = (
                     potential.vt_sR.data[:density.ndensities].sum(axis=0) /
                     density.ndensities)
