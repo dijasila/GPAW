@@ -1,5 +1,4 @@
 from collections.abc import Sequence
-from functools import lru_cache
 
 import numpy as np
 
@@ -33,17 +32,16 @@ class IBZ2BZMaps(Sequence):
         return len(self.kd.bzk_kc)
 
     def __getitem__(self, K):
-        s = self.kd.sym_k[K]
-        return IBZ2BZMap(self.get_ik_c(K),
-                         self.get_rotation_matrix(s),
-                         self.get_atomic_permutations(s),
-                         self.get_projections_rotation_matrices(K),
-                         self.get_time_reversal(K))
+        kd = self.kd
+        return IBZ2BZMap(kd.ibzk_kc[kd.bz2ibz_k[K]],
+                         *self.get_symmetry_transformations(kd.sym_k[K]),
+                         kd.time_reversal_k[K],
+                         self.spos_ac)
 
-    def get_ik_c(self, K):
-        ik = self.kd.bz2ibz_k[K]
-        ik_c = self.kd.ibzk_kc[ik]
-        return ik_c
+    def get_symmetry_transformations(self, s):
+        return (self.get_rotation_matrix(s),
+                self.get_atomic_permutations(s),
+                self.get_projections_rotations(s))
 
     def get_rotation_matrix(self, s):
         """Coordinate rotation matrix, mapping IBZ -> K."""
@@ -55,65 +53,25 @@ class IBZ2BZMaps(Sequence):
         b_a = self.kd.symmetry.a_sa[s]  # Atom a is mapped onto atom b
         return b_a
 
-    def get_projections_rotation_matrices(self, K):
-        """PAW projections rotation matrices for the IBZ -> K mapping."""
-        ik = self.kd.bz2ibz_k[K]
-        s = self.kd.sym_k[K]
-        return self._get_projections_rotation_matrices(ik, s)
-
-    @lru_cache(maxsize=None)  # Same as functools.cache in python 3.9 XXX
-    def _get_projections_rotation_matrices(self, ik, s):
-        """Correct the phase of the rotations of PAW projections.
-
-        The rotation for symmetry "s" is corrected by a phase factor depending
-        on the irreducible k-point "ik", corresponding to the Bloch phase
-        associated to the atomic permutations of augmentation spheres.
-
-        Since ik and s are integers, we can easily keep a cache of the phase
-        corrected rotation matrices.
-        """
-        ik_c = self.kd.ibzk_kc[ik]
-        U_cc = self.get_rotation_matrix(s)
-        b_a = self.get_atomic_permutations(s)
-        U_aii = []
-        for a, R_sii in enumerate(self.R_asii):
-            # The symmetry transformation maps atom "a" to a position which is
-            # related to atom "b" by a lattice vector (but which does not
-            # necessarily lie within the unit cell)
-            b = b_a[a]
-            atomic_shift_c = np.dot(self.spos_ac[a], U_cc) - self.spos_ac[b]
-            assert np.allclose(atomic_shift_c.round(), atomic_shift_c)
-            # A phase factor is added to the rotations of the projectors in
-            # order to let the projections follow the atoms under the symmetry
-            # transformation
-            # XXX There are some serious questions to be addressed here XXX
-            # * Why does the phase factor only depend on the coordinates of the
-            #   irreducible k-point?
-            # * Why is the phase shift mutiplied both to the diagonal and the
-            #   off-diagonal of the rotation matrices?
-            phase_factor = np.exp(2j * np.pi * np.dot(ik_c, atomic_shift_c))
-            U_ii = R_sii[s].T * phase_factor
-            U_aii.append(U_ii)
-
-        return U_aii
-
-    def get_time_reversal(self, K):
-        """Does the mapping IBZ -> K involve time reversal?"""
-        time_reversal = self.kd.time_reversal_k[K]
-        return time_reversal
+    def get_projections_rotations(self, s):
+        """Rotations of the PAW projections for the IBZ -> K mapping."""
+        R_aii = [R_sii[s] for R_sii in self.R_asii]
+        return R_aii
 
 
 class IBZ2BZMap:
     """Functionality to map orbitals from the IBZ to a specific k-point K."""
 
-    def __init__(self, ik_c, U_cc, b_a, U_aii, time_reversal):
+    def __init__(self, ik_c, U_cc, b_a, R_aii, time_reversal, spos_ac):
         """Construct the IBZ2BZMap."""
         self.ik_c = ik_c
 
         self.U_cc = U_cc
         self.b_a = b_a
-        self.U_aii = U_aii
+        self.R_aii = R_aii
         self.time_reversal = time_reversal
+
+        self.spos_ac = spos_ac
 
     def map_kpoint(self):
         """Get the relative k-point coordinates after the IBZ -> K mapping.
@@ -170,3 +128,34 @@ class IBZ2BZMap:
             mapped_projections.array[..., I1:I2] = Pout_ni
 
         return mapped_projections
+
+    @property
+    def U_aii(self):
+        """Phase corrected rotation matrices for the PAW projections.
+
+        The rotation of PAW projections involved in the mapping IBZ -> K is
+        corrected by a phase factor, which depends on the irreducible k-point,
+        corresponding to the Bloch phase associated to the atomic permutations
+        of augmentation spheres.
+        """
+        U_aii = []
+        for a, R_ii in enumerate(self.R_aii):
+            # The symmetry transformation maps atom "a" to a position which is
+            # related to atom "b" by a lattice vector (but which does not
+            # necessarily lie within the unit cell)
+            b = self.b_a[a]
+            atomic_shift_c = self.spos_ac[a] @ self.U_cc - self.spos_ac[b]
+            assert np.allclose(atomic_shift_c.round(), atomic_shift_c)
+            # A phase factor is added to the rotations of the projectors in
+            # order to let the projections follow the atoms under the symmetry
+            # transformation
+            # XXX There are some serious questions to be addressed here XXX
+            # * Why does the phase factor only depend on the coordinates of the
+            #   irreducible k-point?
+            # * Why is the phase shift mutiplied both to the diagonal and the
+            #   off-diagonal of the rotation matrices?
+            phase_factor = np.exp(2j * np.pi * self.ik_c @ atomic_shift_c)
+            U_ii = R_ii.T * phase_factor
+            U_aii.append(U_ii)
+
+        return U_aii
