@@ -89,7 +89,7 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
 
     def create_hamiltonian_operator(self, blocksize=10):
         if self.ncomponents < 4:
-            return PWHamiltonian()
+            return PWHamiltonian(self.grid, self.wf_desc, self.xp)
         return SpinorPWHamiltonian()
 
     def convert_wave_functions_from_uniform_grid(self,

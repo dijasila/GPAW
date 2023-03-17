@@ -9,6 +9,10 @@ from gpaw.new.hamiltonian import Hamiltonian
 
 
 class PWHamiltonian(Hamiltonian):
+    def __init__(self, grid, pw, xp):
+        self.plan = grid.new(dtype=pw.dtype).fft_plans(xp=xp)
+        self.pw_cache = {}
+
     def apply(self,
               vt_sR: UniformGridFunctions,
               psit_nG: PlaneWaveExpansions,
@@ -19,7 +23,16 @@ class PWHamiltonian(Hamiltonian):
         xp = psit_nG.xp
         grid = vt_R.desc.new(comm=None, dtype=psit_nG.desc.dtype)
         tmp_R = grid.empty(xp=xp)
-        psit_G = psit_nG.desc.new(comm=None).empty(xp=xp)
+        pw = psit_nG.desc
+        if pw.comm.size == 1:
+            pw_local = pw
+        else:
+            key = tuple(pw.kpt_c)
+            pw_local = self.pw_cache.get(key)
+            if pw_local is None:
+                pw_local = pw.new(comm=None)
+                self.pw_cache[key] = pw_local
+        psit_G = pw_local.empty(xp=xp)
         e_kin_G = xp.asarray(psit_G.desc.ekin_G)
         domain_comm = psit_nG.desc.comm
         mynbands = psit_nG.mydims[0]
