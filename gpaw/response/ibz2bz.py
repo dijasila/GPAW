@@ -56,6 +56,7 @@ class IBZ2BZMaps(Sequence):
 
     def get_atomic_permutations(self, s):
         """Permutations of atomic indices in the IBZ -> K map."""
+        # Atom a is mapped onto atom b.
         b_a = self.kd.symmetry.a_sa[s]
         return b_a
 
@@ -85,28 +86,20 @@ class IBZ2BZMap:
         self.time_reversal = time_reversal
 
         self.spos_ac = spos_ac
-    
-    def get_atomic_rotation_matrices(self):  # to U_aii property XXX
-        """Atomic permutation and rotation involved in the IBZ -> K mapping.
 
-        Returns
-        -------
-        b_a : list
-            Atomic permutations (atom b is mapped onto atom a)
-        U_aii : list
-            Atomic rotation matrices for the PAW projections
+    @property
+    def U_aii(self):
+        """Atomic rotation matrices of the PAW projections in the IBZ -> K map.
         """
-        b_a = []
         U_aii = []
         for a, R_ii in enumerate(self.R_aii):
             b = self.b_a[a]
             S_c = np.dot(self.spos_ac[a], self.U_cc) - self.spos_ac[b]
             x = np.exp(2j * np.pi * np.dot(self.ik_c, S_c))
             U_ii = R_ii.T * x
-            b_a.append(b)
             U_aii.append(U_ii)
 
-        return b_a, U_aii
+        return U_aii
 
     def map_kpoint(self):
         """Get the relative k-point coordinates after the IBZ -> K mapping.
@@ -149,10 +142,8 @@ class IBZ2BZMap:
 
         NB: The projections of atom b may be mapped onto *another* atom a.
         """
-        b_a, U_aii = self.get_atomic_rotation_matrices()
-
         mapped_projections = projections.new()
-        for a, (b, U_ii) in enumerate(zip(b_a, U_aii)):
+        for a, (b, U_ii) in enumerate(zip(self.b_a, self.U_aii)):
             # Map projections
             Pin_ni = projections[b]
             Pout_ni = Pin_ni @ U_ii
