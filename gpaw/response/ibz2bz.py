@@ -15,7 +15,7 @@ class IBZ2BZMaps(Sequence):
         ----------
         kd : KPointDescriptor
         R_asii : list
-            Atomic symmetry rotations XXX
+            Atomic rotations under the symmetry transformations
         spos_ac : np.array
             Scaled atomic positions
         """
@@ -46,7 +46,7 @@ class IBZ2BZMaps(Sequence):
         s = self.kd.sym_k[K]
         U_cc = self.get_rotation_matrix(s)
         b_a = self.get_atomic_permutations(s)
-        R_aii = self.get_R(s)
+        R_aii = self.get_atomic_rotations(s)
         return U_cc, b_a, R_aii
 
     def get_rotation_matrix(self, s):
@@ -55,14 +55,12 @@ class IBZ2BZMaps(Sequence):
         return U_cc
 
     def get_atomic_permutations(self, s):
-        """Permutation of atomic indices in the IBZ -> K map."""
+        """Permutations of atomic indices in the IBZ -> K map."""
         b_a = self.kd.symmetry.a_sa[s]
         return b_a
 
-    def get_R(self, s):
-        """
-        Some documentation and a better name here! XXX
-        """
+    def get_atomic_rotations(self, s):
+        """Rotations of the individual atoms in the IBZ -> K map."""
         R_aii = [R_sii[s] for R_sii in self.R_asii]
         return R_aii
 
@@ -73,15 +71,12 @@ class IBZ2BZMaps(Sequence):
 
 
 class IBZ2BZMap:
-
     """
     Some documentation here! XXX
     """
 
     def __init__(self, ik_c, U_cc, b_a, R_aii, time_reversal, spos_ac):
-        """
-        Some documentation XXX
-        """
+        """Construct the IBZ2BZMap."""
         self.ik_c = ik_c
 
         self.U_cc = U_cc
