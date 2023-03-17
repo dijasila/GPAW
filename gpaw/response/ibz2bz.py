@@ -154,19 +154,19 @@ class IBZ2BZMap:
     def map_projections(self, projections):
         """Perform IBZ -> K mapping of the PAW projections.
 
-        NB: The projections of atom a are mapped onto an atom related to atom b
-        by a lattice vector.
+        NB: The projections of atom "a" are mapped onto an atom related to atom
+        "b" by a lattice vector.
         """
         mapped_projections = projections.new()
         for a, (b, U_ii) in enumerate(zip(self.b_a, self.U_aii)):
             # Map projections
-            Pin_ni = projections[b]
+            Pin_ni = projections[b]  # b -> a? XXX
             Pout_ni = Pin_ni @ U_ii
             if self.time_reversal:
                 Pout_ni = np.conj(Pout_ni)
 
             # Store output projections
-            I1, I2 = mapped_projections.map[a]
+            I1, I2 = mapped_projections.map[a]  # a -> b? XXX
             mapped_projections.array[..., I1:I2] = Pout_ni
 
         return mapped_projections
