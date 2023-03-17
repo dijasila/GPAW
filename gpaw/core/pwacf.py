@@ -275,7 +275,7 @@ class PWLFC(BaseLFC):
                 G1 = G2
             if ensure_same_number_of_blocks:
                 # Make sure we yield the same number of times:
-                nb = (self.pd.maxmyng + B - 1) // B
+                nb = (self.pw.maxmysize + B - 1) // B
                 mynb = (nG + B - 1) // B
                 if mynb < nb:
                     yield nG, nG  # empty block
