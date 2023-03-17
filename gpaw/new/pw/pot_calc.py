@@ -4,6 +4,7 @@ from gpaw.new.pot_calc import PotentialCalculator
 from gpaw.setup import Setups
 from gpaw.mpi import broadcast_float
 from gpaw.gpu import cupy as cp
+from gpaw.new.pw.stress import calculate_stress
 
 
 class PlaneWavePotentialCalculator(PotentialCalculator):
@@ -52,6 +53,8 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         self._nt_g = None
         self._vt_g = None
 
+        self.e_stress = np.nan
+
     def calculate_charges(self, vHt_h):
         return self.ghat_aLh.integrate(vHt_h)
 
@@ -79,7 +82,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
 
         return nt_sr, pw, nt0_g
 
-    def _calculate(self, density, vHt_h):
+    def calculate_pseudo_potential(self, density, vHt_h):
         nt_sr, pw, nt0_g = self._interpolate_density(density.nt_sR)
 
         vxct_sr = nt_sr.desc.empty(density.nt_sR.dims, xp=self.xp)
@@ -138,6 +141,8 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         e_kinetic = self._restrict(vxct_sr, vt_sR, density)
 
         e_external = 0.0
+
+        self.e_stress = e_coulomb + e_zero
 
         self._reset()
 
@@ -204,6 +209,6 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                 self.nct_ag.derivative(vt_g),
                 self.vbar_ag.derivative(nt_g))
 
-    def stress_contributions(self, state):
+    def stress(self, state):
         vt_g, nt_g = self._force_stress_helper(state)
-        return ...
+        return calculate_stress(self, state, vt_g, nt_g)

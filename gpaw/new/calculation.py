@@ -7,7 +7,6 @@ from ase import Atoms
 from ase.geometry import cell_to_cellpar
 from ase.units import Bohr, Ha
 from gpaw.core.arrays import DistributedArrays
-from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.densities import Densities
 from gpaw.electrostatic_potential import ElectrostaticPotential
 from gpaw.gpu import as_xp
@@ -41,8 +40,7 @@ class DFTState:
                  ibzwfs: IBZWaveFunctions,
                  density: Density,
                  potential: Potential,
-                 vHt_x: DistributedArrays = None,
-                 nct_R: UniformGridFunctions = None):
+                 vHt_x: DistributedArrays = None):
         """State of a Kohn-Sham calculation."""
         self.ibzwfs = ibzwfs
         self.density = density
@@ -251,7 +249,7 @@ class DFTCalculation:
         self.results['forces'] = F_av
 
     def stress(self):
-        stress_vv = self.pot_calc.stress_contribution(self.state)
+        stress_vv = self.pot_calc.stress(self.state)
         self.log('\nstress tensor: [  # eV/Ang^3')
         for (x, y, z), c in zip(stress_vv * (Ha / Bohr**3), ',,]'):
             self.log(f'  [{x:13.6f}, {y:13.6f}, {z:13.6f}]{c}')

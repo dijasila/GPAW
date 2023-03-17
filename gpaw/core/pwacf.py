@@ -1,17 +1,21 @@
+from __future__ import annotations
 from math import pi
 
 import _gpaw
+import gpaw.gpu.kernels as gpu_kernels
 import numpy as np
 from gpaw.core.atom_arrays import AtomArraysLayout, AtomDistribution
 from gpaw.core.atom_centered_functions import AtomCenteredFunctions
+from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.gpu import cupy_is_fake
 from gpaw.lfc import BaseLFC
+from gpaw.new import prod
 from gpaw.pw.lfc import ft
 from gpaw.spherical_harmonics import Y, nablarlYL
 from gpaw.utilities.blas import mmm
-from gpaw.core.uniform_grid import UniformGridFunctions
-from gpaw.new import prod
-import gpaw.gpu.kernels as gpu_kernels
-from gpaw.gpu import cupy_is_fake
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from gpaw.core.plane_waves import PlaneWaves
 
 
 class PlaneWaveAtomCenteredFunctions(AtomCenteredFunctions):
@@ -59,7 +63,10 @@ class PlaneWaveAtomCenteredFunctions(AtomCenteredFunctions):
 
 
 class PWLFC(BaseLFC):
-    def __init__(self, functions, pw, blocksize=5000, *, xp):
+    def __init__(self,
+                 functions,
+                 pw: PlaneWaves,
+                 blocksize=5000, *, xp):
         """Reciprocal-space plane-wave localized function collection.
 
         spline_aj: list of list of spline objects
@@ -268,7 +275,7 @@ class PWLFC(BaseLFC):
                 G1 = G2
             if ensure_same_number_of_blocks:
                 # Make sure we yield the same number of times:
-                nb = (self.pd.maxmyng + B - 1) // B
+                nb = (self.pw.maxmysize + B - 1) // B
                 mynb = (nG + B - 1) // B
                 if mynb < nb:
                     yield nG, nG  # empty block
@@ -411,7 +418,8 @@ class PWLFC(BaseLFC):
 
         return c_axiv
 
-    def stress_tensor_contribution(self, a_xG, c_axi=1.0, q=-1):
+    def stress_tensor_contribution(self, a_xG, c_axi=1.0):
+        xp = self.xp
         cache = {}
         things = []
         I1 = 0
@@ -420,7 +428,7 @@ class PWLFC(BaseLFC):
             for spline in spline_j:
                 if spline not in cache:
                     s = ft(spline)
-                    G_G = self.pd.G2_qG[q]**0.5
+                    G_G = (2 * self.pw.ekin_G)**0.5
                     f_G = []
                     dfdGoG_G = []
                     for G in G_G:
@@ -429,8 +437,8 @@ class PWLFC(BaseLFC):
                             G = 1.0
                         f_G.append(f)
                         dfdGoG_G.append(dfdG / G)
-                    f_G = np.array(f_G)
-                    dfdGoG_G = np.array(dfdGoG_G)
+                    f_G = xp.array(f_G)
+                    dfdGoG_G = xp.array(dfdGoG_G)
                     cache[spline] = (f_G, dfdGoG_G)
                 else:
                     f_G, dfdGoG_G = cache[spline]
@@ -443,28 +451,30 @@ class PWLFC(BaseLFC):
         if isinstance(c_axi, float):
             c_axi = dict((a, c_axi) for a in range(len(self.pos_av)))
 
-        G0_Gv = self.pd.get_reciprocal_vectors(q=q)
+        G0_Gv = self.pw.G_plus_k_Gv
 
-        stress_vv = np.zeros((3, 3))
+        stress_vv = xp.zeros((3, 3))
         for G1, G2 in self.block(ensure_same_number_of_blocks=True):
             G_Gv = G0_Gv[G1:G2]
-            Z_LvG = np.array([nablarlYL(L, G_Gv.T)
+            Z_LvG = xp.array([nablarlYL(L, G_Gv.T)
                               for L in range((lmax + 1)**2)])
+            G_Gv = xp.asarray(G_Gv)
             aa_xG = a_xG[..., G1:G2]
             for v1 in range(3):
                 for v2 in range(3):
                     stress_vv[v1, v2] += self._stress_tensor_contribution(
-                        v1, v2, things, G1, G2, G_Gv, aa_xG, c_axi, q, Z_LvG)
+                        v1, v2, things, G1, G2, G_Gv, aa_xG, c_axi, Z_LvG)
 
         self.comm.sum(stress_vv)
 
         return stress_vv
 
     def _stress_tensor_contribution(self, v1, v2, things, G1, G2,
-                                    G_Gv, a_xG, c_axi, q, Z_LvG):
-        f_IG = np.empty((self.nI, G2 - G1), complex)
-        emiGR_Ga = self.emiGR_qGa[q][G1:G2]
-        Y_LG = self.Y_qGL[q].T
+                                    G_Gv, a_xG, c_axi, Z_LvG):
+        xp = self.xp
+        f_IG = xp.empty((self.nI, G2 - G1), complex)
+        emiGR_Ga = self.emiGR_Ga[G1:G2]
+        Y_LG = self.Y_GL.T
         for a, l, I1, I2, f_G, dfdGoG_G in things:
             L1 = l**2
             L2 = (l + 1)**2
@@ -473,24 +483,27 @@ class PWLFC(BaseLFC):
                             Y_LG[L1:L2, G1:G2] +
                             f_G[G1:G2] * G_Gv[:, v1] * Z_LvG[L1:L2, v2]))
 
-        c_xI = np.zeros(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
+        c_xI = xp.zeros(a_xG.shape[:-1] + (self.nI,), self.pw.dtype)
 
         x = prod(c_xI.shape[:-1])
         b_xI = c_xI.reshape((x, self.nI))
         a_xG = a_xG.reshape((x, a_xG.shape[-1]))
 
-        alpha = 1.0 / self.pd.gd.N_c.prod()
-        if self.pd.dtype == float:
-            alpha *= 2
-            if G1 == 0 and self.pd.gd.comm.rank == 0:
+        alpha = 1.0
+        if self.pw.dtype == float:
+            alpha = 2.0
+            if G1 == 0 and self.pw.comm.rank == 0:
                 f_IG[:, 0] *= 0.5
             f_IG = f_IG.view(float)
             a_xG = a_xG.copy().view(float)
 
-        mmm(alpha, a_xG, 'N', f_IG, 'C', 0.0, b_xI)
+        if xp is np:
+            mmm(alpha, a_xG, 'N', f_IG, 'C', 0.0, b_xI)
+        else:
+            xp.cublas.gemm('N', 'H', a_xG, f_IG, b_xI, alpha, 0.0)
         self.comm.sum(b_xI)
 
         stress = 0.0
         for a, I1, I2 in self.my_indices:
-            stress -= self.eikR_qa[q][a] * (c_axi[a] * c_xI[..., I1:I2]).sum()
+            stress -= self.eikR_a[a] * (c_axi[a] * c_xI[..., I1:I2]).sum()
         return stress.real

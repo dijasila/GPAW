@@ -82,6 +82,10 @@ def moveaxis(a, source, destination):
     return ndarray(np.moveaxis(a._data, source, destination))
 
 
+def vdot(a, b):
+    return np.vdot(a._data, b._data)
+
+
 def fuse():
     return lambda func: func
 
