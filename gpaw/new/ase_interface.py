@@ -209,6 +209,7 @@ class ASECalculator:
 
     def get_stress(self, atoms: Atoms) -> Array1D:
         # Just return zeros for now:
+        self.calculation.results['stress'] = np.zeros(6)
         return np.zeros(6)
         # return self.calculate_property(atoms, 'stress')
 
