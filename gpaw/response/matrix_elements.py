@@ -1,5 +1,3 @@
-from functools import partial
-
 import numpy as np
 
 from gpaw.response import timer
@@ -73,29 +71,17 @@ class NewPairDensityCalculator:
 
         see [PRB 103, 245110 (2021)] for details.
         """
-        # Construct symmetrizers for the periodic part of the pseudo waves
-        # and for the PAW projectors
-        ut1_symmetrizer, Ph1_symmetrizer, k1_c = \
-            self.construct_symmetrizers(kptpair.kpt1)
-        ut2_symmetrizer, Ph2_symmetrizer, k2_c = \
-            self.construct_symmetrizers(kptpair.kpt2)
-
         # Initialize a blank pair density object
         pair_density = PairDensity.from_qpd(kptpair.tblocks, qpd)
         n_mytG = pair_density.local_array_view
 
-        self.add_pseudo_pair_density(kptpair, qpd, n_mytG,
-                                     ut1_symmetrizer, ut2_symmetrizer,
-                                     k1_c, k2_c)
-        self.add_paw_correction(kptpair, qpd, n_mytG,
-                                Ph1_symmetrizer, Ph2_symmetrizer)
+        self.add_pseudo_pair_density(kptpair, qpd, n_mytG)
+        self.add_paw_correction(kptpair, qpd, n_mytG)
 
         return pair_density
 
     @timer('Calculate the pseudo pair density')
-    def add_pseudo_pair_density(self, kptpair, qpd, n_mytG,
-                                ut1_symmetrizer, ut2_symmetrizer,
-                                k1_c, k2_c):
+    def add_pseudo_pair_density(self, kptpair, qpd, n_mytG):
         r"""Add the pseudo pair density to an output array.
 
         The pseudo pair density is first evaluated on the coarse real-space
@@ -109,10 +95,17 @@ class NewPairDensityCalculator:
         """
         kpt1 = kptpair.kpt1
         kpt2 = kptpair.kpt2
+
+        # Map the k-points from the irreducible part of the BZ to the BZ
+        # k-point K (up to a reciprocal lattice vector)
+        k1_c = self.gs.ibz2bz[kpt1.K].map_kpoint()
+        k2_c = self.gs.ibz2bz[kpt2.K].map_kpoint()
+
         # Fourier transform the periodic part of the pseudo waves to the coarse
-        # real-space grid and symmetrize them
-        ut1_hR = self.get_periodic_pseudo_waves(kpt1, ut1_symmetrizer)
-        ut2_hR = self.get_periodic_pseudo_waves(kpt2, ut2_symmetrizer)
+        # real-space grid and map them to the BZ k-point K (up to the same
+        # reciprocal lattice vector as above)
+        ut1_hR = self.get_periodic_pseudo_waves(kpt1)
+        ut2_hR = self.get_periodic_pseudo_waves(kpt2)
 
         # Calculate the pseudo pair density in real space, up to a phase of
         # e^(-i[k+q-k']r).
@@ -134,8 +127,7 @@ class NewPairDensityCalculator:
             n_G[:] += qpd.fft(n_R, 0, Q_G) * qpd.gd.dv
 
     @timer('Calculate the pair density PAW corrections')
-    def add_paw_correction(self, kptpair, qpd, n_mytG,
-                           Ph1_symmetrizer, Ph2_symmetrizer):
+    def add_paw_correction(self, kptpair, qpd, n_mytG):
         r"""Add the pair-density PAW correction to the output array.
 
         The correction is calculated as a sum over augmentation spheres a
@@ -157,18 +149,19 @@ class NewPairDensityCalculator:
         kpt1 = kptpair.kpt1
         kpt2 = kptpair.kpt2
 
-        # Symmetrize the projectors
-        P1h = Ph1_symmetrizer(kpt1.Ph)
-        P2h = Ph2_symmetrizer(kpt2.Ph)
+        # Map the projections from the irreducible part of the BZ to the BZ
+        # k-point K
+        P1h = self.gs.ibz2bz[kpt1.K].map_projections(kpt1.Ph)
+        P2h = self.gs.ibz2bz[kpt2.K].map_projections(kpt2.Ph)
 
         # Calculate the actual PAW corrections
         Q_aGii = self.get_paw_corrections(qpd).Q_aGii
         P1 = kpt1.projectors_in_transition_index(P1h)
         P2 = kpt2.projectors_in_transition_index(P2h)
         for a, Q_Gii in enumerate(Q_aGii):  # Loop over augmentation spheres
-            # NB: There does not seem to be any strict guarantee that the order
-            # of the PAW corrections matches the projections keys.
-            # This is super dangerous and should be rectified in the future XXX
+            assert P1.atom_partition.comm.size ==\
+                P2.atom_partition.comm.size == 1,\
+                'We need access to the projections of all atoms'
             P1_myti = P1[a]
             P2_myti = P2[a]
             # Make outer product of the projectors in the projector index i,j
@@ -177,45 +170,13 @@ class NewPairDensityCalculator:
             # Sum over projector indices and add correction to the output
             n_mytG[:] += np.einsum('tij, Gij -> tG', P1ccP2_mytii, Q_Gii)
 
-    def get_periodic_pseudo_waves(self, kpt, ut_symmetrizer):
-        """FFT the Kohn-Sham orbitals to real space and symmetrize them."""
+    def get_periodic_pseudo_waves(self, kpt):
+        """FFT the Kohn-Sham orbitals to real space and map them from the
+        irreducible k-point to the k-point in question."""
         ik = self.gs.kd.bz2ibz_k[kpt.K]
         ut_hR = self.gs.gd.empty(kpt.nh, self.gs.dtype)
         for h, psit_G in enumerate(kpt.psit_hG):
-            ut_hR[h] = ut_symmetrizer(self.gs.global_pd.ifft(psit_G, ik))
+            ut_hR[h] = self.gs.ibz2bz[kpt.K].map_pseudo_wave(
+                self.gs.global_pd.ifft(psit_G, ik))
 
         return ut_hR
-
-    def construct_symmetrizers(self, kpt):
-        """Construct functions to symmetrize ut_hR and Ph."""
-        _, T, a_a, U_aii, k_c, time_reversal = \
-            self.gs.construct_symmetry_operators(kpt.K)
-
-        ut_symmetrizer = T
-        Ph_symmetrizer = partial(symmetrize_projections,
-                                 a1_a2=a_a, U_aii=U_aii,
-                                 time_reversal=time_reversal)
-
-        return ut_symmetrizer, Ph_symmetrizer, k_c
-
-
-def symmetrize_projections(Ph, a1_a2, U_aii, time_reversal):
-    """Symmetrize the PAW projections.
-
-    NB: The projections of atom a1 are mapped onto a *different* atom a2
-    according to the input map of atomic indices a1_a2."""
-    # First, we apply the symmetry operations to the projections one at a time
-    P_a2hi = []
-    for a1, U_ii in zip(a1_a2, U_aii):
-        P_hi = Ph[a1].copy(order='C')
-        np.dot(P_hi, U_ii, out=P_hi)
-        if time_reversal:
-            np.conj(P_hi, out=P_hi)
-        P_a2hi.append(P_hi)
-
-    # Then, we store the symmetry mapped projectors in the projections object
-    for a2, P_hi in enumerate(P_a2hi):
-        I1, I2 = Ph.map[a2]
-        Ph.array[..., I1:I2] = P_hi
-
-    return Ph
