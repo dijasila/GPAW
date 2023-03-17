@@ -102,12 +102,16 @@ class DFTCalculation:
         density = builder.density_from_superposition(basis_set)
         density.normalize()
 
+        # The SCF-loop has a hamiltonian that has an fft-plan that is
+        # cached for later use, so best to create the SCF-loof first
+        # FIX this!
+        scf_loop = builder.create_scf_loop()
+
         pot_calc = builder.create_potential_calculator()
         potential, vHt_x, _ = pot_calc.calculate(density)
         ibzwfs = builder.create_ibz_wave_functions(basis_set, potential,
                                                    log=log)
         state = DFTState(ibzwfs, density, potential, vHt_x)
-        scf_loop = builder.create_scf_loop()
 
         write_atoms(atoms, builder.initial_magmom_av, log)
         log(state)
