@@ -438,10 +438,11 @@ def gga_c(name, spin, n, a2, zeta, BETA, decdbeta_g=None):
         t2 = C3 * a2 * rs / n2
         y = -ec / GAMMA
 
-    x = np.exp(y)
+    XP = cp.get_array_module(y)
+    x = XP.exp(y)
 
-    A = np.zeros_like(x)
-    indices = np.nonzero(y)
+    A = XP.zeros_like(x)
+    indices = XP.nonzero(y)
     if isinstance(BETA, np.ndarray):
         A[indices] = (BETA[indices] / (GAMMA * (x[indices] - 1.0)))
     else:
@@ -467,9 +468,9 @@ def gga_c(name, spin, n, a2, zeta, BETA, decdbeta_g=None):
     decdrs += dHdt2 * 7.0 * t2 / rs + dHdA * dAdrs
     decda2 = dHdt2 * C3 * rs / n2
     if spin == 1:
-        dphidzeta = np.zeros_like(x)
-        ind1 = np.nonzero(xp)
-        ind2 = np.nonzero(xm)
+        dphidzeta = XP.zeros_like(x)
+        ind1 = XP.nonzero(xp)
+        ind2 = XP.nonzero(xm)
         dphidzeta[ind1] += 1.0 / (3.0 * xp[ind1])
         dphidzeta[ind2] -= 1.0 / (3.0 * xm[ind2])
         dAdzeta = tmp2 * (decdzeta - 3.0 * ec * dphidzeta / phi) / phi3
@@ -485,7 +486,7 @@ def gga_c(name, spin, n, a2, zeta, BETA, decdbeta_g=None):
             decdrs += H_ * dzvfdrs
 
             dt2da2 = C3 * rs / n2
-            assert np.shape(dt2da2) == np.shape(t2)
+            assert ..... shape(dt2da2) == np.shape(t2)
             dzvfda2 = dt2da2 * zvf * zvarg * 3. / (2. * t2)
             decda2 *= zvf
             decda2 += H_ * dzvfda2

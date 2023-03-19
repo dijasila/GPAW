@@ -76,6 +76,10 @@ def exp(a):
     return ndarray(np.exp(a._data))
 
 
+def log(a):
+    return ndarray(np.log(a._data))
+
+
 def eye(n):
     return ndarray(np.eye(n))
 

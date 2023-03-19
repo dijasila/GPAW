@@ -4,6 +4,7 @@ import numpy as np
 
 from gpaw.xc.functional import XCFunctional
 from gpaw.sphere.lebedev import Y_nL, weight_n
+from gpaw.gpu import cupy as cp
 
 
 class LDARadialExpansion:
@@ -217,7 +218,8 @@ def G(rtrs, gamma, alpha1, beta1, beta2, beta3, beta4):
                                rtrs * (beta2 +
                                        rtrs * (beta3 +
                                                rtrs * beta4)))
-    G1 = Q0 * np.log(1.0 + 1.0 / Q1)
+    xp = cp.get_array_module(rtrs)
+    G1 = Q0 * xp.log(1.0 + 1.0 / Q1)
     dQ1drs = gamma * (beta1 / rtrs + 2.0 * beta2 +
                       rtrs * (3.0 * beta3 + 4.0 * beta4 * rtrs))
     dGdrs = -2.0 * gamma * alpha1 * G1 / Q0 - Q0 * dQ1drs / (Q1 * (Q1 + 1.0))
