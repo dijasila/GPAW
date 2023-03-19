@@ -77,6 +77,14 @@ class Symmetries:
                bz: BZPoints,
                comm: MPIComm = None,
                strict: bool = True) -> IBZ:
+        if len(self) == 1:
+            # Fix the reduce function below instead of this hack XXX
+            n = len(bz)
+            return IBZ(self,
+                       bz,
+                       np.arange(n),
+                       np.arange(n),
+                       np.ones(n) / n)
         (_, weight_k, sym_k, time_reversal_k, bz2ibz_K, ibz2bz_k,
          bz2bz_Ks) = self.symmetry.reduce(bz.kpt_Kc, comm)
 
