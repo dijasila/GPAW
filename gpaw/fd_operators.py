@@ -7,6 +7,7 @@ This file defines a series of finite difference operators used in grid mode.
 """
 
 from math import pi, factorial as fact
+from types import SimpleNamespace
 
 import numpy as np
 from numpy.fft import fftn, ifftn
@@ -34,7 +35,8 @@ derivatives = [[1 / 2],
 
 class FDOperator:
     def __init__(self, coef_p, offset_pc, gd, dtype=float,
-                 description=None):
+                 description=None,
+                 pure_python=False):
         """FDOperator(coefs, offsets, gd, dtype) -> FDOperator object.
         """
 
@@ -79,9 +81,13 @@ class FDOperator:
         self.comm = comm
         self.cfd = cfd
 
-        self.operator = _gpaw.Operator(coef_p, offset_p, n_c, mp,
-                                       neighbor_cd, dtype == float,
-                                       comm, cfd)
+        if pure_python:
+            self.operator = PPOp(coef_p, offset_p, n_c, mp,
+                                 neighbor_cd)
+        else:
+            self.operator = _gpaw.Operator(coef_p, offset_p, n_c, mp,
+                                           neighbor_cd, dtype == float,
+                                           comm, cfd)
 
         if description is None:
             description = '%d point finite-difference stencil' % self.npoints
@@ -212,6 +218,9 @@ class Gradient(FDOperator):
 
         from scipy.spatial import Voronoi
 
+        pure_python = n < 0
+        n = abs(n)
+
         # Find nearest neighbors.  If h is a vector pointing at a
         # neighbor grid-points then we don't also include -h in the list:
         M_ic = np.indices((3, 3, 3)).reshape((3, -1)).T - 1
@@ -264,7 +273,8 @@ class Gradient(FDOperator):
             offsets.extend(np.arange(-1, -n - 1, -1)[:, np.newaxis] * M_c)
             coefs.extend(-c * stencil)
 
-        FDOperator.__init__(self, coefs, offsets, gd, dtype)
+        FDOperator.__init__(self, coefs, offsets, gd, dtype,
+                            pure_python=pure_python)
 
         self.description = (
             'Finite-difference {}-derivative with O(h^{}) error ({} points)'
@@ -365,3 +375,26 @@ class OldGradient(FDOperator):
 
         FDOperator.__init__(self, coef_p, offset_pc, gd, dtype,
                             'O(h^%d) %s-gradient stencil' % (2 * n, 'xyz'[v]))
+
+
+def PPOp(coef_p, offset_p, n_c, mp, neighbor_cd):
+    def apply(a, b, p=None):
+        print(coef_p, offset_p, n_c, mp, neighbor_cd)
+        aa = np.empty(n_c + 2 * mp)
+        I1, I2, I3 = [[0, mp, mp + n, mp + n + mp] for n in n_c]
+        for i1 in range(3):
+            for i2 in range(3):
+                for i3 in range(3):
+                    aa[I1[i1]:I1[i1 + 1],
+                       I2[i2]:I2[i2 + 1],
+                       I3[i3]:I3[i3 + 1]] = a[
+                        :I1[i1 + 1] - I1[i1],
+                        :I2[i2 + 1] - I2[i2],
+                        :I3[i3 + 1] - I3[i3]]
+        o = np.ravel_multi_index([mp, mp, mp], n_c + 2 * mp)
+        print(o)
+        print(np.unravel_index(o + offset_p, n_c))
+
+
+
+    return SimpleNamespace(apply=apply)

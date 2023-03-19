@@ -50,8 +50,8 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         return pw
 
     def create_xc_functional(self):
-        if self.params.xc['name'] in ['HSE06', 'PBE0', 'EXX']:
-            return ...
+        # if self.params.xc['name'] in ['HSE06', 'PBE0', 'EXX']:
+        #     return ...
         return super().create_xc_functional()
 
     def get_pseudo_core_densities(self):

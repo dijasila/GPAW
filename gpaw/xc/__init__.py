@@ -50,7 +50,10 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
         kwargs = kernel.copy()
         name = kwargs.pop('name')
         backend = kwargs.pop('backend', None)
-
+        if backend == 'gpu':
+            from gpaw.xc.gga import PurePythonGGAKernel
+            assert name == 'PBE'
+            return GGA(PurePythonGGAKernel('pyPBE'), -2)
         if backend == 'libvdwxc' or name == 'vdW-DF-cx':
             # Must handle libvdwxc before old vdw implementation to override
             # behaviour for 'name'.  Also, cx is not implemented by the old
