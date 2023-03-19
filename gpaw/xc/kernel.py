@@ -63,19 +63,19 @@ class XCKernel:
         assert 1 <= S <= 2
         G = n_sg.shape[1:]
         assert e_g.shape == G
-        assert e_g.flags.contiguous and e_g.dtype == float
+        assert e_g.flags.c_contiguous and e_g.dtype == float
         assert dedn_sg.shape == (S,) + G
-        assert dedn_sg.flags.contiguous
+        assert dedn_sg.flags.c_contiguous
         assert dedn_sg.dtype == float
         if self.type != 'LDA':
             assert sigma_xg.shape == (2 * S - 1,) + G
             assert dedsigma_xg.shape == (2 * S - 1,) + G
-            assert sigma_xg.flags.contiguous and sigma_xg.dtype == float
-            assert (dedsigma_xg.flags.contiguous and
+            assert sigma_xg.flags.c_contiguous and sigma_xg.dtype == float
+            assert (dedsigma_xg.flags.c_contiguous and
                     dedsigma_xg.dtype == float)
             if self.type == 'MGGA':
                 assert tau_sg.shape == (S,) + G
                 assert dedtau_sg.shape == (S,) + G
-                assert tau_sg.flags.contiguous and tau_sg.dtype == float
-                assert (dedtau_sg.flags.contiguous and
+                assert tau_sg.flags.c_contiguous and tau_sg.dtype == float
+                assert (dedtau_sg.flags.c_contiguous and
                         dedtau_sg.dtype == float)
