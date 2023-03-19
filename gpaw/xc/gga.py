@@ -3,7 +3,7 @@ from math import pi
 import numpy as np
 
 from gpaw.xc.lda import calculate_paw_correction
-from gpaw.utilities.blas import axpy
+# from gpaw.utilities.blas import axpy
 from gpaw.fd_operators import Gradient
 from gpaw.sphere.lebedev import Y_nL, weight_n
 from gpaw.xc.pawcorrection import rnablaY_nLv
@@ -156,12 +156,15 @@ def add_gradient_correction(grad_v, gradn_svg, sigma_xg, dedsigma_xg, v_sg):
     vv_g = sigma_xg[0]
     for v in range(3):
         for s in range(nspins):
-            jjjjjjj
-            grad_v[v](dedsigma_xg[2 * s] * gradn_svg[s, v], vv_g)
-            axpy(-2.0, vv_g, v_sg[s])
+            # grad_v[v](dedsigma_xg[2 * s] * gradn_svg[s, v], vv_g)
+            vv_g[:] = 0.0
+            # axpy(-2.0, vv_g, v_sg[s])
+            v_sg[s] -= 2.0 * vv_g
             if nspins == 2:
-                grad_v[v](dedsigma_xg[1] * gradn_svg[s, v], vv_g)
-                axpy(-1.0, vv_g, v_sg[1 - s])
+                # grad_v[v](dedsigma_xg[1] * gradn_svg[s, v], vv_g)
+                vv_g[:] = 0.0
+                # axpy(-1.0, vv_g, v_sg[1 - s])
+                v_sg[1 - s] -= vv_g
                 # TODO: can the number of gradient evaluations be reduced?
 
 
@@ -368,7 +371,6 @@ def gga_x(name, spin, n, a2, kappa, mu, dedmu_g=None):
     else:
         raise NotImplementedError
 
-    print(type(a2), type(c), type(rs))
     ds2drs = 8.0 * c * a2 / rs
     dexdrs = dexdrs * Fx + ex * dFxds2 * ds2drs
     dexda2 = ex * dFxds2 * c
@@ -452,7 +454,7 @@ def gga_c(name, spin, n, a2, zeta, BETA, decdbeta_g=None):
     nom = 1.0 + At2
     denom = nom + At2 * At2
     X = 1.0 + BETA * t2 * nom / (denom * GAMMA)
-    H = GAMMA * np.log(X)
+    H = GAMMA * XP.log(X)
     tmp = (GAMMA * BETA / (denom * (BETA * t2 * nom + GAMMA * denom)))
     tmp2 = A * A * x / BETA
     dAdrs = tmp2 * decdrs
@@ -486,7 +488,7 @@ def gga_c(name, spin, n, a2, zeta, BETA, decdbeta_g=None):
             decdrs += H_ * dzvfdrs
 
             dt2da2 = C3 * rs / n2
-            assert ..... shape(dt2da2) == np.shape(t2)
+            assert dt2da2.shape == t2.shape
             dzvfda2 = dt2da2 * zvf * zvarg * 3. / (2. * t2)
             decda2 *= zvf
             decda2 += H_ * dzvfda2

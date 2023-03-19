@@ -1,4 +1,5 @@
 import numpy as np
+from gpaw.gpu import cupy as cp
 
 
 class XCFunctional(object):
@@ -52,12 +53,16 @@ class XCFunctional(object):
 
         if gd is not self.gd:
             self.set_grid_descriptor(gd)
+        xp = cp.get_array_module(n_sg)
         if e_g is None:
-            e_g = gd.empty()
+            e_g = gd.empty(xp=xp)
         if v_sg is None:
-            v_sg = np.zeros_like(n_sg)
+            v_sg = xp.zeros_like(n_sg)
         self.calculate_impl(gd, n_sg, v_sg, e_g)
-        return gd.integrate(e_g)
+        if xp is np:
+            return gd.integrate(e_g)
+        assert gd.comm.size == 1
+        return float(e_g.sum() * gd.dv)
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
         raise NotImplementedError
@@ -108,7 +113,7 @@ class XCFunctional(object):
 
     def add_forces(self, F_av):
         pass
-    
+
     def stress_tensor_contribution(self, n_sg):
         raise NotImplementedError('Calculation of stress tensor is not ' +
                                   f'implemented for {self.name}')

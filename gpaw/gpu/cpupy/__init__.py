@@ -17,12 +17,20 @@ def empty_like(a):
     return ndarray(np.empty_like(a._data))
 
 
+def zeros_like(a):
+    return ndarray(np.zeros_like(a._data))
+
+
 def zeros(*args, **kwargs):
     return ndarray(np.zeros(*args, **kwargs))
 
 
 def ones(*args, **kwargs):
     return ndarray(np.ones(*args, **kwargs))
+
+
+def nonzero(array):
+    return tuple([ndarray(a) for a in np.nonzero(array)])
 
 
 def asnumpy(a, out=None):
