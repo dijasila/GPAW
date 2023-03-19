@@ -392,9 +392,12 @@ def PPOp(coef_p, offset_p, n_c, mp, neighbor_cd):
                         :I2[i2 + 1] - I2[i2],
                         :I3[i3 + 1] - I3[i3]]
         o = np.ravel_multi_index([mp, mp, mp], n_c + 2 * mp)
-        print(o)
-        print(np.unravel_index(o + offset_p, n_c))
-
+        i_cp = np.array(np.unravel_index(o + offset_p, n_c) - mp)
+        b[:] = 0.0
+        for i_c, coef in zip(i_cp.T, coef_p):
+            b += coef * aa[i_c[0]:i_c[0] + n_c[0],
+                           i_c[0]:i_c[0] + n_c[0],
+                           i_c[0]:i_c[0] + n_c[0]]
 
 
     return SimpleNamespace(apply=apply)
