@@ -8,6 +8,7 @@ from gpaw.fd_operators import Gradient
 from gpaw.sphere.lebedev import Y_nL, weight_n
 from gpaw.xc.pawcorrection import rnablaY_nLv
 from gpaw.xc.functional import XCFunctional
+from gpaw.gpu import cupy as cp
 
 
 class GGARadialExpansion:
@@ -123,14 +124,18 @@ def calculate_sigma(gd, grad_v, n_sg):
                  2           dn
     """
     nspins = len(n_sg)
-    gradn_svg = gd.empty((nspins, 3))
-    sigma_xg = gd.zeros(nspins * 2 - 1)
+    xp = cp.get_array_module(n_sg)
+    gradn_svg = gd.empty((nspins, 3), xp=xp)
+    sigma_xg = gd.zeros(nspins * 2 - 1, xp=xp)
     for v in range(3):
         for s in range(nspins):
-            grad_v[v](n_sg[s], gradn_svg[s, v])
-            axpy(1.0, gradn_svg[s, v]**2, sigma_xg[2 * s])
+            # grad_v[v](n_sg[s], gradn_svg[s, v])
+            gradn_svg[s, v, :] = 0.0
+            # axpy(1.0, gradn_svg[s, v]**2, sigma_xg[2 * s])
+            sigma_xg[2 * s] += gradn_svg[s, v]**2
         if nspins == 2:
-            axpy(1.0, gradn_svg[0, v] * gradn_svg[1, v], sigma_xg[1])
+            # axpy(1.0, gradn_svg[0, v] * gradn_svg[1, v], sigma_xg[1])
+            sigma_xg[1] += gradn_svg[0, v] * gradn_svg[1, v]
     return sigma_xg, gradn_svg
 
 
@@ -151,6 +156,7 @@ def add_gradient_correction(grad_v, gradn_svg, sigma_xg, dedsigma_xg, v_sg):
     vv_g = sigma_xg[0]
     for v in range(3):
         for s in range(nspins):
+            jjjjjjj
             grad_v[v](dedsigma_xg[2 * s] * gradn_svg[s, v], vv_g)
             axpy(-2.0, vv_g, v_sg[s])
             if nspins == 2:
@@ -160,9 +166,10 @@ def add_gradient_correction(grad_v, gradn_svg, sigma_xg, dedsigma_xg, v_sg):
 
 
 def gga_vars(gd, grad_v, n_sg):
-    nspins = len(n_sg)
+    # nspins = len(n_sg)
     sigma_xg, gradn_svg = calculate_sigma(gd, grad_v, n_sg)
-    dedsigma_xg = gd.empty(nspins * 2 - 1)
+    xp = cp.get_array_module(n_sg)
+    dedsigma_xg = xp.empty_like(sigma_xg)
     return sigma_xg, dedsigma_xg, gradn_svg
 
 
@@ -361,6 +368,7 @@ def gga_x(name, spin, n, a2, kappa, mu, dedmu_g=None):
     else:
         raise NotImplementedError
 
+    print(type(a2), type(c), type(rs))
     ds2drs = 8.0 * c * a2 / rs
     dexdrs = dexdrs * Fx + ex * dFxds2 * ds2drs
     dexda2 = ex * dFxds2 * c

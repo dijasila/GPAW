@@ -32,6 +32,13 @@ def asnumpy(a, out=None):
     return out
 
 
+def get_array_module(array):
+    if isinstance(array, ndarray):
+        import gpaw.gpu.cpupy as xp
+        return xp
+    return np
+
+
 def asarray(a):
     if isinstance(a, ndarray):
         return a
@@ -176,8 +183,14 @@ class ndarray:
             index = index._data
         return ndarray(self._data[index])
 
+    def __neg__(self):
+        return ndarray(-self._data)
+
     def __eq__(self, other):
         return ndarray(self._data == other._data)
+
+    def __lt__(self, other):
+        return ndarray(self._data < other)
 
     def __mul__(self, f):
         if isinstance(f, (float, complex)):
