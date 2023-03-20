@@ -96,15 +96,15 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
                       mpicompiler, mpilinker, mpi_libraries, mpi_library_dirs,
                       mpi_include_dirs, mpi_runtime_library_dirs,
                       mpi_define_macros):
-
-    # Build custom interpreter which is used for parallel calculations
+    exename = 'gpaw-python'
+    print(f'building {repr(exename)} interpreter', flush=True)
 
     # Create bin build directory
     if not build_bin.exists():
         print(f'creating {build_bin}', flush=True)
         build_bin.mkdir(parents=True)
 
-    exefile = build_bin / 'gpaw-python'
+    exefile = build_bin / exename
 
     libraries += mpi_libraries
     library_dirs += mpi_library_dirs
