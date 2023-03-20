@@ -17,6 +17,7 @@ from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.typing import Array1D, Array2D
 from gpaw.utilities.blas import axpy
 from gpaw.yml import obj2yaml as o2y
+from gpaw.new import zip
 
 AAFunc = Callable[[AA, AA], AA]
 
@@ -94,9 +95,9 @@ class Davidson(Eigensolver):
         ibzwfs = state.ibzwfs
         error = 0.0
 
-        weight_qn = calculate_weights(self.converge_bands, ibzwfs)
+        weight_un = calculate_weights(self.converge_bands, ibzwfs)
 
-        for wfs, weight_n in zip(ibzwfs, weight_qn):
+        for wfs, weight_n in zip(ibzwfs, weight_un):
             e = self.iterate1(wfs, Ht, dH, dS, weight_n)
             error += wfs.weight * e
         return ibzwfs.kpt_comm.sum(float(error)) * ibzwfs.spin_degeneracy
@@ -267,7 +268,7 @@ def calculate_weights(converge_bands: int | str,
                       ibzwfs: IBZWaveFunctions) -> list[Array1D | None]:
     """Calculate convergence weights for all eigenstates."""
     assert ibzwfs.band_comm.size == 1, 'not implemented!'
-    weight_kn = []
+    weight_un = []
 
     if converge_bands == 'occupied':
         # Converge occupied bands:
@@ -278,9 +279,9 @@ def calculate_weights(converge_bands: int | str,
                 weight_n = np.abs(wfs.occ_n)
             except ValueError:
                 # No eigenvalues yet:
-                return [None] * len(ibzwfs.wfs_qs)
-            weight_kn.append(weight_n)
-        return weight_kn
+                weight_n = None
+            weight_un.append(weight_n)
+        return weight_un
 
     if isinstance(converge_bands, int):
         # Converge fixed number of bands:
@@ -292,8 +293,8 @@ def calculate_weights(converge_bands: int | str,
             if n < 0:
                 n += nbands
             weight_n[:n] = 1.0
-            weight_kn.append(weight_n)
-        return weight_kn
+            weight_un.append(weight_n)
+        return weight_un
 
     # Converge state with energy up to CBM + delta:
     assert converge_bands.startswith('CBM+')
@@ -313,5 +314,6 @@ def calculate_weights(converge_bands: int | str,
         if wfs.eig_n[-1] < ecut:
             # We don't have enough bands!
             weight_n[:] = np.inf
-        weight_kn.append(weight_n)
-    return weight_kn
+        weight_un.append(weight_n)
+
+    return weight_un
