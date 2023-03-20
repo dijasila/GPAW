@@ -479,3 +479,8 @@ class ASECalculator:
             self, soc=soc,
             theta=theta, phi=phi,
             shift_fermi_level=shift_fermi_level)
+
+    def band_structure(self):
+        """Create band-structure object for plotting."""
+        from ase.spectrum.band_structure import get_band_structure
+        return get_band_structure(calc=self)
