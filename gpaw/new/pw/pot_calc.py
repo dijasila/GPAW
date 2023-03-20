@@ -164,7 +164,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         for spin, (vt_R, vxct_r) in enumerate(zip(vt_sR, vxct_sr)):
             vxct_r.to_xp(self.xp0).fft_restrict(
                 self.fftplan2, self.fftplan, out=vtmp_R)
-            vt_R.data += vtmp_R.to_xp(self.xp0).data
+            vt_R.data += vtmp_R.to_xp(self.xp).data
             if density:
                 e_kinetic -= vt_R.integrate(density.nt_sR[spin])
                 if spin < density.ndensities:
