@@ -35,7 +35,8 @@ class IBZ2BZMaps(Sequence):
         return IBZ2BZMap(kd.ibzk_kc[kd.bz2ibz_k[K]],
                          *self.get_symmetry_transformations(kd.sym_k[K]),
                          kd.time_reversal_k[K],
-                         self.spos_ac)
+                         self.spos_ac,
+                         K, self.kd)
 
     def get_symmetry_transformations(self, s):
         return (self.get_rotation_matrix(s),
@@ -61,10 +62,11 @@ class IBZ2BZMaps(Sequence):
 class IBZ2BZMap:
     """Functionality to map orbitals from the IBZ to a specific k-point K."""
 
-    def __init__(self, ik_c, U_cc, b_a, R_aii, time_reversal, spos_ac):
+    def __init__(self, ik_c, U_cc, b_a, R_aii, time_reversal, spos_ac, K, kd):
         """Construct the IBZ2BZMap."""
         self.ik_c = ik_c
-
+        self.K = K  # K index in 1:st BZ that IBZ-kpoint is mapped to
+        self.kd = kd
         self.U_cc = U_cc
         self.b_a = b_a
         self.R_aii = R_aii
@@ -113,12 +115,12 @@ class IBZ2BZMap:
         r_cR is real space grid. r_cR = calc.wfs.gd.get_grid_point_coordinates() 
         """
         utout_R = self.map_pseudo_wave(ut_R)
-        shift = self.map_kpoint() - self.kd.bzk_kc(K) # XXX need to fix this, K is nolonger available
+        shift = self.map_kpoint() - self.kd.bzk_kc[self.K]
         if np.all(shift == 0):
             # K-point already in 1:st BZ
             return utout_R
         assert np.all((shift - np.round(shift)) == 0)
-        icell_cv = (2 * np.pi) * np.linalg.inv(self.kd.cell_cv).T
+        icell_cv = (2 * np.pi) * np.linalg.inv(self.kd.symmetry.cell_cv).T
         shift = np.dot(shift, icell_cv)
         return utout_R * np.exp(1.0j * gemmdot(shift, r_cR, beta=0.0))
 
