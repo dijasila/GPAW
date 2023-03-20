@@ -26,7 +26,6 @@ from gpaw.spinorbit import soc as soc_terms
 from gpaw.typing import Array1D, Array2D, Array3D
 from gpaw.utilities import pack, pack2, unpack
 from gpaw.yml import indent
-from gpaw.gpu import cupy as cp
 
 
 class PotentialCalculator:
