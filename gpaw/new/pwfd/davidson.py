@@ -270,18 +270,18 @@ def calculate_weights(converge_bands: int | str,
     """Calculate convergence weights for all eigenstates."""
     assert ibzwfs.band_comm.size == 1, 'not implemented!'
     weight_un = []
-    nu = len(ibzwfs.ibz) * ibzwfs.nspins
+    nu = len(ibzwfs.wfs_qs) * ibzwfs.nspins
 
     if converge_bands == 'occupied':
         # Converge occupied bands:
         for wfs in ibzwfs:
             try:
-                # Methfessel-Paxton distribution can give negative
-                # occupation numbers - so we take the absolute value:
+                # Methfessel-Paxton or cold-smearing distributions can give
+                # negative occupation numbers - so we take the absolute value:
                 weight_n = np.abs(wfs.occ_n)
             except ValueError:
                 # No eigenvalues yet:
-                weight_n = None
+                return [None] * nu
             weight_un.append(weight_n)
         return weight_un
 
@@ -307,6 +307,7 @@ def calculate_weights(converge_bands: int | str,
 
     efermi = np.mean(ibzwfs.fermi_levels)
 
+    # Find CBM:
     cbm = np.inf
     nocc_u = np.empty(nu, int)
     for u, wfs in enumerate(ibzwfs):
