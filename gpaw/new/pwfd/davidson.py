@@ -8,7 +8,7 @@ from ase.units import Ha
 from gpaw.core.arrays import DistributedArrays as DA
 from gpaw.core.atom_centered_functions import AtomArrays as AA
 from gpaw.core.matrix import Matrix
-from gpaw.gpu import as_xp, synchronize
+from gpaw.gpu import as_xp
 from gpaw.new.calculation import DFTState
 from gpaw.new.eigensolver import Eigensolver
 from gpaw.new.hamiltonian import Hamiltonian
