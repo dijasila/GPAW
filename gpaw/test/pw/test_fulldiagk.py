@@ -57,9 +57,6 @@ def test_pw_fulldiagk(in_tmp_dir, scalapack):
         err = abs(e[-1] - e2[-1])
         assert err < 1e-10, err
 
-    if os.environ.get('GPAW_NEW'):
-        return
-
     a.calc = GPAW(mode='pw',
                   h=0.15,
                   kpts=(4, 1, 1),

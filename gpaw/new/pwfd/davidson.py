@@ -8,7 +8,7 @@ from ase.units import Ha
 from gpaw.core.arrays import DistributedArrays as DA
 from gpaw.core.atom_centered_functions import AtomArrays as AA
 from gpaw.core.matrix import Matrix
-from gpaw.gpu import as_xp
+from gpaw.gpu import as_xp, synchronize
 from gpaw.new.calculation import DFTState
 from gpaw.new.eigensolver import Eigensolver
 from gpaw.new.hamiltonian import Hamiltonian
@@ -18,6 +18,7 @@ from gpaw.typing import Array1D, Array2D
 from gpaw.utilities.blas import axpy
 from gpaw.yml import obj2yaml as o2y
 from gpaw.new import zip
+from gpaw.mpi import broadcast_float
 
 AAFunc = Callable[[AA, AA], AA]
 
@@ -269,6 +270,7 @@ def calculate_weights(converge_bands: int | str,
     """Calculate convergence weights for all eigenstates."""
     assert ibzwfs.band_comm.size == 1, 'not implemented!'
     weight_un = []
+    nu = len(ibzwfs.ibz) * ibzwfs.nspins
 
     if converge_bands == 'occupied':
         # Converge occupied bands:
@@ -286,9 +288,9 @@ def calculate_weights(converge_bands: int | str,
     if isinstance(converge_bands, int):
         # Converge fixed number of bands:
         n = converge_bands
+        nbands = ibzwfs.nbands
 
         for wfs in ibzwfs:
-            nbands = wfs.psit_nX.mydims[0]
             weight_n = np.zeros(nbands)
             if n < 0:
                 n += nbands
@@ -296,19 +298,30 @@ def calculate_weights(converge_bands: int | str,
             weight_un.append(weight_n)
         return weight_un
 
-    # Converge state with energy up to CBM + delta:
+    # Converge states with energy up to CBM + delta:
     assert converge_bands.startswith('CBM+')
     delta = float(converge_bands[4:]) / Ha
+
+    if ibzwfs.fermi_levels is None:
+        return [None] * nu
 
     efermi = np.mean(ibzwfs.fermi_levels)
 
     cbm = np.inf
-    for wfs in ibzwfs:
+    nocc_u = np.empty(nu, int)
+    for u, wfs in enumerate(ibzwfs):
         n = (wfs.eig_n < efermi).sum()
-        cbm = min(cbm, wfs.eig_n[n + 1])
-    cbm = ibzwfs.kpt_comm.min_scalar(cbm)
+        nocc_u[u] = n
+        cbm = min(cbm, wfs.eig_n[n])
+    n0 = int(broadcast_float(float(nocc_u[0]), ibzwfs.kpt_comm))
+    metal = bool(ibzwfs.kpt_comm.sum_scalar(float((nocc_u != n0).any())))
+    if metal:
+        cbm = efermi
+    else:
+        cbm = ibzwfs.kpt_comm.min_scalar(cbm)
 
     ecut = cbm + delta
+
     for wfs in ibzwfs:
         weight_n = (wfs.eig_n < ecut).astype(float)
         if wfs.eig_n[-1] < ecut:
