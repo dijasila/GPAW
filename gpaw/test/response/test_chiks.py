@@ -159,39 +159,17 @@ def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered, request):
     # Part 3: Check reciprocity and inversion symmetry
 
     # Cross-tabulate disable_syms, nblocks and bandsummation
-    for disable_syms in disable_syms_s:
-        for nblocks in nblocks_n:
-            for bandsummation in bandsummation_b:
-                # Calculate chiks for q and -q
-                chiks1 = chiks_testing_factory(qsign=1,
-                                               disable_syms=disable_syms,
-                                               nblocks=nblocks,
-                                               bandsummation=bandsummation)
-                if np.allclose(q_c, 0.):
-                    chiks2 = chiks1
-                else:
-                    chiks2 = chiks_testing_factory(qsign=-1,
-                                                   disable_syms=disable_syms,
-                                                   nblocks=nblocks,
-                                                   bandsummation=bandsummation)
-                check_reciprocity_and_inversion_symmetry(chiks1, chiks2,
-                                                         rtol=rtol)
+    chiks_testing_factory.check_reciprocity_and_inversion_symmetry(
+        rtol=rtol,
+        cross_tabulation=dict(disable_syms=disable_syms_s,
+                              nblocks=nblocks_n,
+                              bandsummation=bandsummation_b))
 
     # Cross-tabulate bundle_integrals and nblocks
-    for bundle_integrals in bundle_integrals_i:
-        for nblocks in nblocks_n:
-            # Calculate chiks for q and -q
-            chiks1 = chiks_testing_factory(qsign=1,
-                                           bundle_integrals=bundle_integrals,
-                                           nblocks=nblocks)
-            if np.allclose(q_c, 0.):
-                chiks2 = chiks1
-            else:
-                chiks2 = chiks_testing_factory(
-                    qsign=-1,
-                    bundle_integrals=bundle_integrals,
-                    nblocks=nblocks)
-            check_reciprocity_and_inversion_symmetry(chiks1, chiks2, rtol=rtol)
+    chiks_testing_factory.check_reciprocity_and_inversion_symmetry(
+        rtol=rtol,
+        cross_tabulation=dict(bundle_integrals=bundle_integrals_i,
+                              nblocks=nblocks_n))
 
 
 @pytest.mark.response
@@ -302,13 +280,8 @@ class ChiKSTestingFactory:
                                          parameter: str, values: list,
                                          rtol: float,
                                          cross_tabulation: dict):
-        # Set up cross tabulation of calculation parameters
-        cross_tabulator = product(*[[(key, value)
-                                     for value in cross_tabulation[key]]
-                                    for key in cross_tabulation])
-        for cross_tabulated_parameters in cross_tabulator:
-            kwargs = {key: value for key, value in cross_tabulated_parameters}
-            assert len(values) == 2
+        assert len(values) == 2
+        for kwargs in self.generate_cross_tabulated_kwargs(cross_tabulation):
             kwargs[parameter] = values[0]
             chiks1 = self(**kwargs)
             kwargs[parameter] = values[1]
@@ -316,6 +289,26 @@ class ChiKSTestingFactory:
             compare_pw_bases(chiks1, chiks2)
             assert chiks2.array == pytest.approx(
                 chiks1.array, rel=rtol, abs=1e-8), f'{kwargs}'
+
+    def check_reciprocity_and_inversion_symmetry(self, rtol: float,
+                                                 cross_tabulation: dict):
+        for kwargs in self.generate_cross_tabulated_kwargs(cross_tabulation):
+            # Calculate chiks in q and -q
+            chiks1 = self(**kwargs)
+            if np.allclose(self.q_c, 0.):
+                chiks2 = chiks1
+            else:
+                chiks2 = self(qsign=-1, **kwargs)
+            check_reciprocity_and_inversion_symmetry(chiks1, chiks2, rtol=rtol)
+
+    @staticmethod
+    def generate_cross_tabulated_kwargs(cross_tabulation: dict):
+        # Set up cross tabulation of calculation parameters
+        cross_tabulator = product(*[[(key, value)
+                                     for value in cross_tabulation[key]]
+                                    for key in cross_tabulation])
+        for cross_tabulated_parameters in cross_tabulator:
+            yield {key: value for key, value in cross_tabulated_parameters}
 
 
 class GSAdapterWithPAWCache(ResponseGroundStateAdapter):
