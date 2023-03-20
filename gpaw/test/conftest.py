@@ -332,7 +332,7 @@ class GPWFiles:
         si.get_potential_energy()
         return si.calc
 
-    def fancy_si(self,symmetry):
+    def fancy_si(self, symmetry):
         xc = 'LDA'
         kpts = 4
         nbands = 8  # 2 * (3s, 3p)
@@ -342,7 +342,8 @@ class GPWFiles:
                 'density': 1.e-8}
         atoms = bulk('Si')
         atoms.center()
-
+        
+        tag = '_nosym' if symmetry == 'off' else ''
         atoms.calc = GPAW(
             xc=xc,
             mode=PW(pw),
@@ -350,7 +351,7 @@ class GPWFiles:
             nbands=nbands + 12,  # + 2 * (4s, 3d)
             occupations=FermiDirac(occw),
             convergence=conv,
-            txt=self.path / 'fancy_si_pw.txt',
+            txt=self.path / f'fancy_si_pw{tag}.txt',
             symmetry=symmetry)
 
         atoms.get_potential_energy()
@@ -470,6 +471,7 @@ class GPWFiles:
         atoms = bulk('Fe', 'bcc', a=a)
         atoms.set_initial_magnetic_moments([mm])
         atoms.center()
+        tag = '_nosym' if symmetry == 'off' else ''
 
         atoms.calc = GPAW(
             xc=xc,
@@ -478,7 +480,7 @@ class GPWFiles:
             nbands=18,
             occupations=FermiDirac(occw),
             convergence=conv,
-            txt=self.path / 'fe_pw.txt',
+            txt=self.path / f'fe_pw{tag}.txt',
             symmetry = symmetry)
         
         atoms.get_potential_energy()
@@ -501,6 +503,7 @@ class GPWFiles:
         a = 4.043
         atoms = bulk('Al', 'fcc', a=a)
         atoms.center()
+        tag = '_nosym' if symmetry == 'off' else ''
 
         atoms.calc = GPAW(
             xc=xc,
@@ -509,7 +512,7 @@ class GPWFiles:
             nbands=nbands + 4,  # + 4p, 5s
             occupations=FermiDirac(occw),
             convergence=conv,
-            txt=self.path / 'al_pw.txt',
+            txt=self.path / f'al_pw{tag}.txt',
             symmetry=symmetry)
 
         atoms.get_potential_energy()
