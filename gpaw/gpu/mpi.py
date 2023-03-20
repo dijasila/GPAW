@@ -19,6 +19,12 @@ class CuPyMPI:
         self.comm.sum(a, root)
         array.set(a)
 
+    def sum_scalar(self, a, root=-1):
+        return self.comm.sum_scalar(a, root)
+
+    def min_scalar(self, a, root=-1):
+        return self.comm.min_scalar(a, root)
+
     def max(self, array):
         self.comm.max(array)
 
