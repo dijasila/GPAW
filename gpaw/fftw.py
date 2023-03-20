@@ -206,7 +206,6 @@ class CuPyFFTPlans(FFTPlans):
     def fft(self):
         from gpaw.gpu import cupyx
         if self.tmp_R.dtype == float:
-            1 / 0
             self.tmp_Q[:] = cupyx.scipy.fft.rfftn(self.tmp_R)
         else:
             self.tmp_Q[:] = cupyx.scipy.fft.fftn(self.tmp_R)
@@ -214,7 +213,6 @@ class CuPyFFTPlans(FFTPlans):
     def ifft(self):
         from gpaw.gpu import cupyx
         if self.tmp_R.dtype == float:
-            1 / 0
             self.tmp_R[:] = cupyx.scipy.fft.irfftn(
                 self.tmp_Q, self.tmp_R.shape,
                 norm='forward',
@@ -275,7 +273,6 @@ class CuPyFFTPlans(FFTPlans):
         if self.dtype == complex:
             out_Q = cupyx.scipy.fft.fftn(in_R)
         else:
-            1 / 0
             out_Q = cupyx.scipy.fft.rfftn(in_R)
         Q_G = self.indices(pw)
         coef_G = out_Q.ravel()[Q_G] * (1 / in_R.size)

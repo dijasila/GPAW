@@ -185,7 +185,7 @@ class ASECalculator:
     def _calculate_forces(self) -> Array2D:  # units: Ha/Bohr
         """Helper method for force-convergence criterium."""
         with self.timer('Forces'):
-            self.calculation.forces()
+            self.calculation.forces(silent=True)
         return self.calculation.results['forces']
 
     def __del__(self):
@@ -479,3 +479,8 @@ class ASECalculator:
             self, soc=soc,
             theta=theta, phi=phi,
             shift_fermi_level=shift_fermi_level)
+
+    def band_structure(self):
+        """Create band-structure object for plotting."""
+        from ase.spectrum.band_structure import get_band_structure
+        return get_band_structure(calc=self)

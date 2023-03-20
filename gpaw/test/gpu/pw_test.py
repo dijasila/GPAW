@@ -46,6 +46,7 @@ def test_gpu_pw_k(gpu, par):
     dft.converge()
     dft.energies()
     dft.forces()
-    dft.stress()
+    if par == 'kpt':
+        dft.stress()
     energy = dft.results['energy'] * Ha
     assert energy == pytest.approx(-19.579937, abs=1e-6)

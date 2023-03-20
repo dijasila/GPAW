@@ -169,7 +169,7 @@ class IBZWaveFunctions:
         e_band = 0.0
         for wfs in self:
             e_band += wfs.occ_n @ wfs.eig_n * wfs.weight * degeneracy
-        e_band = self.kpt_comm.sum(e_band)
+        e_band = self.kpt_comm.sum(float(e_band))  # XXX CPU float?
 
         self.energies = {
             'band': e_band,
@@ -264,6 +264,7 @@ class IBZWaveFunctions:
         F_av = self.xp.zeros((potential.dH_asii.natoms, 3))
         for wfs in self:
             wfs.force_contribution(potential, F_av)
+        synchronize()
         self.kpt_comm.sum(F_av)
         return F_av
 
