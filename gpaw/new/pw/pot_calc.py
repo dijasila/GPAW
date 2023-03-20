@@ -85,7 +85,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                 nt0_g.data += self.xp.asarray(
                     self.fftplan.tmp_Q.ravel()[indices])
 
-        return nt_sr.to_xp(self.xp0), pw, nt0_g
+        return nt_sr.to_xp(self.xp), pw, nt0_g
 
     def calculate_pseudo_potential(self, density, vHt_h):
         nt_sr, pw, nt0_g = self._interpolate_density(density.nt_sR)
