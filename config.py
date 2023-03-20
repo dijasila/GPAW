@@ -99,12 +99,6 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
 
     # Build custom interpreter which is used for parallel calculations
 
-    # Parallel sources to be compiled again for the interpreter
-    sources = ['c/bc.c', 'c/mpi.c', 'c/_gpaw.c',
-               'c/operators.c', 'c/woperators.c', 'c/transformers.c',
-               'c/elpa.c',
-               'c/blacs.c', 'c/utilities.c', 'c/xc/libvdwxc.c']
-
     # Create bin build directory
     if not build_bin.exists():
         print(f'creating {build_bin}', flush=True)
@@ -118,7 +112,6 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     include_dirs += mpi_include_dirs
     runtime_library_dirs += mpi_runtime_library_dirs
 
-    define_macros.append(('PARALLEL', '1'))
     define_macros.append(('GPAW_INTERPRETER', '1'))
     macros = ' '.join(['-D%s=%s' % x for x in define_macros if x[0].strip()])
 
@@ -172,9 +165,10 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
 
     extra_compile_args.append('-fPIC')
 
-    # Compile the parallel sources
+    # Compile the sources that define GPAW_INTERPRETER
+    sources = [Path('c/_gpaw.c')]
     for src in sources:
-        obj = os.path.join(build_temp, src[:-1] + 'o')
+        obj = build_temp / src.with_suffix('.o')
         cmd = ('{} {} {} {} -o {} -c {} ').format(
                mpicompiler,
                macros,

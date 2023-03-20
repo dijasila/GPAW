@@ -97,7 +97,7 @@ else:  # no break
     if not noblas:
         libraries.append('blas')
 
-if not parallel_python_interpreter and mpicompiler:
+if mpicompiler is not None:
     # Build MPI-interface into _gpaw.so:
     compiler = mpicompiler
     define_macros += [('PARALLEL', '1')]
