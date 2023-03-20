@@ -12,7 +12,7 @@ from gpaw.gpu import as_xp
 from gpaw.new.calculation import DFTState
 from gpaw.new.eigensolver import Eigensolver
 from gpaw.new.hamiltonian import Hamiltonian
-from gpaw.new.ibzzwfs import IBZWaveFunctions
+from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.typing import Array1D, Array2D
 from gpaw.utilities.blas import axpy
