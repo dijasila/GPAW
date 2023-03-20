@@ -103,12 +103,12 @@ def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered, request):
 
     # Part 2: Check toggling of calculation parameters
     # Note: None of these should change the actual results.
-    disable_syms_s = [False, True]
+    disable_syms_s = [True, False]
 
     nblocks_n = generate_nblocks_n()
     nn = len(nblocks_n)
 
-    bandsummation_b = ['pairwise', 'double']
+    bandsummation_b = ['double', 'pairwise']
     bundle_integrals_i = [True, False]
 
     nblocks_rtol = 1e-6
@@ -128,14 +128,14 @@ def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered, request):
 
     # Part 2: Check toggling of calculation parameters
 
-    # Check symmetry toggle and cross tabulate with nblocks and bandsummation
+    # Check symmetry toggle and cross-tabulate with nblocks and bandsummation
     chiks_testing_factory.check_parameter_self_consistency(
         parameter='disable_syms', values=disable_syms_s,
         rtol=dsym_rtol,
         cross_tabulation=dict(nblocks=nblocks_n,
                               bandsummation=bandsummation_b))
 
-    # Check nblocks and cross tabulate with disable_syms and bandsummation
+    # Check nblocks and cross-tabulate with disable_syms and bandsummation
     for n1, n2 in combinations(range(nn), 2):
         chiks_testing_factory.check_parameter_self_consistency(
             parameter='nblocks', values=[nblocks_n[n1], nblocks_n[n2]],
@@ -143,14 +143,14 @@ def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered, request):
             cross_tabulation=dict(disable_syms=disable_syms_s,
                                   bandsummation=bandsummation_b))
 
-    # Check bandsummation and cross tabulate with disable_syms and nblocks
+    # Check bandsummation and cross-tabulate with disable_syms and nblocks
     chiks_testing_factory.check_parameter_self_consistency(
         parameter='bandsummation', values=bandsummation_b,
         rtol=bsum_rtol,
         cross_tabulation=dict(disable_syms=disable_syms_s,
                               nblocks=nblocks_n))
 
-    # Check bundle_integrals toggle and cross tabulate with nblocks
+    # Check bundle_integrals toggle and cross-tabulate with nblocks
     chiks_testing_factory.check_parameter_self_consistency(
         parameter='bundle_integrals', values=bundle_integrals_i,
         rtol=bint_rtol,
@@ -298,7 +298,7 @@ class ChiKSTestingFactory:
 
         return chiks
 
-    def check_parameter_self_consistency(self, *,
+    def check_parameter_self_consistency(self,
                                          parameter: str, values: list,
                                          rtol: float,
                                          cross_tabulation: dict):
@@ -314,8 +314,8 @@ class ChiKSTestingFactory:
             kwargs[parameter] = values[1]
             chiks2 = self(**kwargs)
             compare_pw_bases(chiks1, chiks2)
-            assert chiks2.array == pytest.approx(chiks1.array,
-                                                 rel=rtol, abs=1e-8)
+            assert chiks2.array == pytest.approx(
+                chiks1.array, rel=rtol, abs=1e-8), f'{kwargs}'
 
 
 class GSAdapterWithPAWCache(ResponseGroundStateAdapter):
