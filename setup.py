@@ -211,12 +211,17 @@ class build_ext(build_ext):
         print("Temp and build", self.build_lib, self.build_temp)
 
         if parallel_python_interpreter:
+            # Path for the bin (analogous to build_lib)
+            build_bin = Path(str(self.build_lib).replace('lib', 'bin'))
+
             include_dirs.append(np.get_include())
             # Also build gpaw-python:
             error = build_interpreter(
                 define_macros, include_dirs, libraries,
                 library_dirs, extra_link_args, extra_compile_args,
-                runtime_library_dirs, extra_objects, self.build_temp,
+                runtime_library_dirs,
+                extra_objects,
+                self.build_temp, build_bin,
                 mpicompiler, mpilinker, mpi_libraries,
                 mpi_library_dirs,
                 mpi_include_dirs,

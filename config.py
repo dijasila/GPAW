@@ -91,7 +91,8 @@ def write_configuration(define_macros, include_dirs, libraries, library_dirs,
 
 def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
                       extra_link_args, extra_compile_args,
-                      runtime_library_dirs, extra_objects, build_temp,
+                      runtime_library_dirs, extra_objects,
+                      build_temp, build_bin,
                       mpicompiler, mpilinker, mpi_libraries, mpi_library_dirs,
                       mpi_include_dirs, mpi_runtime_library_dirs,
                       mpi_define_macros):
@@ -99,8 +100,6 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     # Build custom interpreter which is used for parallel calculations
 
     cfgDict = get_config_vars()
-    plat = get_platform() + '-{maj}.{min}'.format(maj=sys.version_info[0],
-                                                  min=sys.version_info[1])
 
     cfiles = glob('c/[a-zA-Z_]*.c') + ['c/bmgs/bmgs.c']
     cfiles += glob('c/xc/*.c')
@@ -115,9 +114,12 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     objects = ' '.join([os.path.join(build_temp ,x[:-1] + 'o')
                         for x in cfiles])
 
-    if not os.path.isdir('build/bin.{}/'.format(plat)):
-        os.makedirs('build/bin.{}/'.format(plat))
-    exefile = 'build/bin.{}/gpaw-python'.format(plat)
+    # Create bin build directory
+    if not build_bin.exists():
+        print(f'creating {build_bin}', flush=True)
+        build_bin.mkdir(parents=True)
+
+    exefile = build_bin / 'gpaw-python'
 
     libraries += mpi_libraries
     library_dirs += mpi_library_dirs
