@@ -77,7 +77,7 @@ class Symmetries:
                bz: BZPoints,
                comm: MPIComm = None,
                strict: bool = True) -> IBZ:
-        if len(self) == 1:
+        if 0:  # len(self) == 1:
             # Fix the reduce function below instead of this hack XXX
             n = len(bz)
             return IBZ(self,
