@@ -132,13 +132,9 @@ def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered, request):
     for nblocks in nblocks_n:
         for bandsummation in bandsummation_b:
             chiks1 = chiks_testing_factory(disable_syms=False,
-                                           qsign=1,
-                                           bundle_integrals=True,
                                            nblocks=nblocks,
                                            bandsummation=bandsummation)
             chiks2 = chiks_testing_factory(disable_syms=True,
-                                           qsign=1,
-                                           bundle_integrals=True,
                                            nblocks=nblocks,
                                            bandsummation=bandsummation)
             compare_pw_bases(chiks1, chiks2)
@@ -149,13 +145,9 @@ def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered, request):
         for bandsummation in bandsummation_b:
             for n1, n2 in combinations(range(nn), 2):
                 chiks1 = chiks_testing_factory(nblocks=nblocks_n[n1],
-                                               qsign=1,
-                                               bundle_integrals=True,
                                                disable_syms=disable_syms,
                                                bandsummation=bandsummation)
                 chiks2 = chiks_testing_factory(nblocks=nblocks_n[n2],
-                                               qsign=1,
-                                               bundle_integrals=True,
                                                disable_syms=disable_syms,
                                                bandsummation=bandsummation)
                 compare_pw_bases(chiks1, chiks2)
@@ -165,13 +157,9 @@ def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered, request):
     for disable_syms in disable_syms_s:
         for nblocks in nblocks_n:
             chiks1 = chiks_testing_factory(bandsummation='double',
-                                           qsign=1,
-                                           bundle_integrals=True,
                                            disable_syms=disable_syms,
                                            nblocks=nblocks)
             chiks2 = chiks_testing_factory(bandsummation='pairwise',
-                                           qsign=1,
-                                           bundle_integrals=True,
                                            disable_syms=disable_syms,
                                            nblocks=nblocks)
             compare_pw_bases(chiks1, chiks2)
@@ -180,15 +168,9 @@ def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered, request):
     # Check bundle_integrals toggle and cross-validate with nblocks
     for nblocks in nblocks_n:
         chiks1 = chiks_testing_factory(bundle_integrals=True,
-                                       qsign=1,
-                                       disable_syms=False,
-                                       nblocks=nblocks,
-                                       bandsummation='pairwise')
+                                       nblocks=nblocks)
         chiks1 = chiks_testing_factory(bundle_integrals=False,
-                                       qsign=1,
-                                       disable_syms=False,
-                                       nblocks=nblocks,
-                                       bandsummation='pairwise')
+                                       nblocks=nblocks)
         compare_pw_bases(chiks1, chiks2)
         compare_arrays(chiks1, chiks2, rtol=bint_rtol)
 
@@ -200,7 +182,6 @@ def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered, request):
             for bandsummation in bandsummation_b:
                 # Calculate chiks for q and -q
                 chiks1 = chiks_testing_factory(qsign=1,
-                                               bundle_integrals=True,
                                                disable_syms=disable_syms,
                                                nblocks=nblocks,
                                                bandsummation=bandsummation)
@@ -208,7 +189,6 @@ def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered, request):
                     chiks2 = chiks1
                 else:
                     chiks2 = chiks_testing_factory(qsign=-1,
-                                                   bundle_integrals=True,
                                                    disable_syms=disable_syms,
                                                    nblocks=nblocks,
                                                    bandsummation=bandsummation)
@@ -219,17 +199,16 @@ def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered, request):
     for bundle_integrals in bundle_integrals_i:
         for nblocks in nblocks_n:
             # Calculate chiks for q and -q
-            chiks1 = chiks_testing_factory(
-                qsign=1,
-                bundle_integrals=bundle_integrals, nblocks=nblocks,
-                disable_syms=False, bandsummation='pairwise')
+            chiks1 = chiks_testing_factory(qsign=1,
+                                           bundle_integrals=bundle_integrals,
+                                           nblocks=nblocks)
             if np.allclose(q_c, 0.):
                 chiks2 = chiks1
             else:
                 chiks2 = chiks_testing_factory(
                     qsign=-1,
-                    bundle_integrals=bundle_integrals, nblocks=nblocks,
-                    disable_syms=False, bandsummation='pairwise')
+                    bundle_integrals=bundle_integrals,
+                    nblocks=nblocks)
             check_reciprocity_and_inversion_symmetry(chiks1, chiks2, rtol=rtol)
 
 
@@ -308,9 +287,12 @@ class ChiKSTestingFactory:
 
         self.cached_chiks = {}
 
-    def __call__(self, *, qsign: int,
-                 bundle_integrals: bool, disable_syms: bool,
-                 bandsummation: str, nblocks: int):
+    def __call__(self,
+                 qsign: int = 1,
+                 bundle_integrals: bool = True,
+                 disable_syms: bool = False,
+                 bandsummation: str = 'pairwise',
+                 nblocks: int = 1):
         # Compile a string of the calculation parameters for cache look-up
         cache_string = f'{qsign},{bundle_integrals},{disable_syms}'
         cache_string += f'{bandsummation},{nblocks}'
