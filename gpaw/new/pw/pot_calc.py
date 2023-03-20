@@ -41,10 +41,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
             self.g_r = [cp.asarray(g) for g in self.g_r]
 
         # There is a bug in HIP cupyx.scipy.rfftn:
-        if xp is cp and not is_hip:
-            self.xp0 = cp
-        else:
-            self.xp0 = np
+        self.xp0 = cp if xp is cp and not is_hip else np
 
         self.fftplan = grid.fft_plans(xp=self.xp0)
         self.fftplan2 = fine_grid.fft_plans(xp=self.xp0)
