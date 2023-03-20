@@ -207,9 +207,9 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                     potential.vt_sR.data[:density.ndensities].sum(axis=0) /
                     density.ndensities)
             self._vt_g = vt_R.to_xp(self.xp0).fft(self.fftplan,
-                                                  pw=self.pw).to_xp(self.xp0)
+                                                  pw=self.pw).to_xp(self.xp)
             self._nt_g = nt_R.to_xp(self.xp0).fft(self.fftplan,
-                                                  pw=self.pw).to_xp(self.xp0)
+                                                  pw=self.pw).to_xp(self.xp)
         return self._vt_g, self._nt_g
 
     def force_contributions(self, state):
