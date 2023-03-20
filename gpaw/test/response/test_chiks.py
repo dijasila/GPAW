@@ -129,16 +129,20 @@ def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered, request):
     # Part 2: Check toggling of calculation parameters
 
     # Check symmetry toggle and cross-validate with nblocks and bandsummation
-    for nblocks in nblocks_n:
-        for bandsummation in bandsummation_b:
-            chiks1 = chiks_testing_factory(disable_syms=False,
-                                           nblocks=nblocks,
-                                           bandsummation=bandsummation)
-            chiks2 = chiks_testing_factory(disable_syms=True,
-                                           nblocks=nblocks,
-                                           bandsummation=bandsummation)
-            compare_pw_bases(chiks1, chiks2)
-            compare_arrays(chiks1, chiks2, rtol=dsym_rtol)
+    chiks_testing_factory.check_parameter_self_consistency(
+        parameter='disable_syms', values=disable_syms_s, rtol=dsym_rtol,
+        cross_tabulation=dict(nblocks=nblocks_n,
+                              bandsummation=bandsummation_b))
+    # for nblocks in nblocks_n:
+    #     for bandsummation in bandsummation_b:
+    #         chiks1 = chiks_testing_factory(disable_syms=False,
+    #                                        nblocks=nblocks,
+    #                                        bandsummation=bandsummation)
+    #         chiks2 = chiks_testing_factory(disable_syms=True,
+    #                                        nblocks=nblocks,
+    #                                        bandsummation=bandsummation)
+    #         compare_pw_bases(chiks1, chiks2)
+    #         compare_arrays(chiks1, chiks2, rtol=dsym_rtol)
 
     # Check nblocks and cross-validate with disable_syms and bandsummation
     for disable_syms in disable_syms_s:
@@ -295,7 +299,7 @@ class ChiKSTestingFactory:
                  nblocks: int = 1):
         # Compile a string of the calculation parameters for cache look-up
         cache_string = f'{qsign},{bundle_integrals},{disable_syms}'
-        cache_string += f'{bandsummation},{nblocks}'
+        cache_string += f',{bandsummation},{nblocks}'
 
         if cache_string in self.cached_chiks:
             return self.cached_chiks[cache_string]
@@ -315,6 +319,27 @@ class ChiKSTestingFactory:
         self.cached_chiks[cache_string] = chiks
 
         return chiks
+
+    def check_parameter_self_consistency(self, *,
+                                         parameter: str, values: list,
+                                         rtol: float,
+                                         cross_tabulation: dict = None):
+        if cross_tabulation is None:
+            cross_tabulation = {}  # Avoid mutable defaults
+
+        # Set up cross tabulation of calculation parameters
+        cross_tabulator = product(*[[(key, value)
+                                     for value in cross_tabulation[key]]
+                                    for key in cross_tabulation])
+        for cross_tabulated_parameters in cross_tabulator:
+            kwargs = {key: value for key, value in cross_tabulated_parameters}
+            assert len(values) == 2
+            kwargs[parameter] = values[0]
+            chiks1 = self(**kwargs)
+            kwargs[parameter] = values[1]
+            chiks2 = self(**kwargs)
+            compare_pw_bases(chiks1, chiks2)
+            compare_arrays(chiks1, chiks2, rtol=rtol)
 
 
 class GSAdapterWithPAWCache(ResponseGroundStateAdapter):
