@@ -134,7 +134,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                     vt0_g.data[g] += data
             vt0_R = vt0_g.to_xp(self.xp0).ifft(
                 plan=self.fftplan,
-                grid=density.nt_sR.desc.new(comm=None)).to_xp(self.xp0)
+                grid=density.nt_sR.desc.new(comm=None)).to_xp(self.xp)
         else:
             pw.comm.send(vHt_h.data[self.h_g], 0)
 
