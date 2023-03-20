@@ -97,6 +97,12 @@ else:  # no break
     if not noblas:
         libraries.append('blas')
 
+if parallel_python_interpreter:
+    if mpicompiler is None:
+        raise ValueError('Invalid mpicompiler in configuration: '
+                         'mpicompiler needs to be set with '
+                         'parallel_python_interpreter.')
+
 if mpicompiler is not None:
     # Build MPI-interface into _gpaw.so:
     compiler = mpicompiler
