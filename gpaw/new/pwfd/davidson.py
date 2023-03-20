@@ -94,9 +94,9 @@ class Davidson(Eigensolver):
         ibzwfs = state.ibzwfs
         error = 0.0
 
-        weight_kn = calculate_weights(self.converge_bands, ibzwfs)
+        weight_qn = calculate_weights(self.converge_bands, ibzwfs)
 
-        for wfs, weight_n in zip(ibzwfs, weight_kn):
+        for wfs, weight_n in zip(ibzwfs, weight_qn):
             e = self.iterate1(wfs, Ht, dH, dS, weight_n)
             error += wfs.weight * e
         return ibzwfs.kpt_comm.sum(float(error)) * ibzwfs.spin_degeneracy
@@ -264,7 +264,7 @@ def calculate_residuals(residual_nX: DA,
 
 
 def calculate_weights(converge_bands: int | str,
-                      ibzwfs: IBZWaveFunctions) -> list[Array1D] | None:
+                      ibzwfs: IBZWaveFunctions) -> list[Array1D | None]:
     """Calculate convergence weights for all eigenstates."""
     assert ibzwfs.band_comm.size == 1, 'not implemented!'
     weight_kn = []
@@ -278,7 +278,7 @@ def calculate_weights(converge_bands: int | str,
                 weight_n = np.abs(wfs.occ_n)
             except ValueError:
                 # No eigenvalues yet:
-                return None
+                return [None] * len(ibzwfs.wfs_qs)
             weight_kn.append(weight_n)
         return weight_kn
 
