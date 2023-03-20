@@ -103,12 +103,12 @@ def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered, request):
 
     # Part 2: Check toggling of calculation parameters
     # Note: None of these should change the actual results.
-    disable_syms_s = [True, False]
+    disable_syms_s = [False, True]
 
     nblocks_n = generate_nblocks_n()
     nn = len(nblocks_n)
 
-    bandsummation_b = ['double', 'pairwise']
+    bandsummation_b = ['pairwise', 'double']
     bundle_integrals_i = [True, False]
 
     nblocks_rtol = 1e-6
@@ -133,47 +133,26 @@ def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered, request):
         parameter='disable_syms', values=disable_syms_s, rtol=dsym_rtol,
         cross_tabulation=dict(nblocks=nblocks_n,
                               bandsummation=bandsummation_b))
-    # for nblocks in nblocks_n:
-    #     for bandsummation in bandsummation_b:
-    #         chiks1 = chiks_testing_factory(disable_syms=False,
-    #                                        nblocks=nblocks,
-    #                                        bandsummation=bandsummation)
-    #         chiks2 = chiks_testing_factory(disable_syms=True,
-    #                                        nblocks=nblocks,
-    #                                        bandsummation=bandsummation)
-    #         compare_pw_bases(chiks1, chiks2)
-    #         compare_arrays(chiks1, chiks2, rtol=dsym_rtol)
 
     # Check nblocks and cross-validate with disable_syms and bandsummation
-    for disable_syms in disable_syms_s:
-        for bandsummation in bandsummation_b:
-            for n1, n2 in combinations(range(nn), 2):
-                chiks1 = chiks_testing_factory(nblocks=nblocks_n[n1],
-                                               disable_syms=disable_syms,
-                                               bandsummation=bandsummation)
-                chiks2 = chiks_testing_factory(nblocks=nblocks_n[n2],
-                                               disable_syms=disable_syms,
-                                               bandsummation=bandsummation)
-                compare_pw_bases(chiks1, chiks2)
-                compare_arrays(chiks1, chiks2, rtol=nblocks_rtol)
+    for n1, n2 in combinations(range(nn), 2):
+        chiks_testing_factory.check_parameter_self_consistency(
+            parameter='nblocks', values=[nblocks_n[n1], nblocks_n[n2]],
+            rtol=nblocks_rtol,
+            cross_tabulation=dict(disable_syms=disable_syms_s,
+                                  bandsummation=bandsummation_b))
 
     # Check bandsummation and cross-validate with disable_syms and nblocks
-    for disable_syms in disable_syms_s:
-        for nblocks in nblocks_n:
-            chiks1 = chiks_testing_factory(bandsummation='double',
-                                           disable_syms=disable_syms,
-                                           nblocks=nblocks)
-            chiks2 = chiks_testing_factory(bandsummation='pairwise',
-                                           disable_syms=disable_syms,
-                                           nblocks=nblocks)
-            compare_pw_bases(chiks1, chiks2)
-            compare_arrays(chiks1, chiks2, rtol=bsum_rtol)
+    chiks_testing_factory.check_parameter_self_consistency(
+        parameter='bandsummation', values=bandsummation_b, rtol=bsum_rtol,
+        cross_tabulation=dict(disable_syms=disable_syms_s,
+                              nblocks=nblocks_n))
 
     # Check bundle_integrals toggle and cross-validate with nblocks
     for nblocks in nblocks_n:
         chiks1 = chiks_testing_factory(bundle_integrals=True,
                                        nblocks=nblocks)
-        chiks1 = chiks_testing_factory(bundle_integrals=False,
+        chiks2 = chiks_testing_factory(bundle_integrals=False,
                                        nblocks=nblocks)
         compare_pw_bases(chiks1, chiks2)
         compare_arrays(chiks1, chiks2, rtol=bint_rtol)
@@ -339,7 +318,8 @@ class ChiKSTestingFactory:
             kwargs[parameter] = values[1]
             chiks2 = self(**kwargs)
             compare_pw_bases(chiks1, chiks2)
-            compare_arrays(chiks1, chiks2, rtol=rtol)
+            assert chiks2.array == pytest.approx(chiks1.array,
+                                                 rel=rtol, abs=1e-8)
 
 
 class GSAdapterWithPAWCache(ResponseGroundStateAdapter):
