@@ -235,19 +235,20 @@ def copy_gpaw_python(cmd, dir: str) -> None:
 class install(_install):
     def run(self):
         super().run()
-        copy_gpaw_python(self, self.install_scripts)
+        if parallel_python_interpreter:
+            copy_gpaw_python(self, self.install_scripts)
 
 
 class develop(_develop):
     def run(self):
         super().run()
-        copy_gpaw_python(self, self.script_dir)
+        if parallel_python_interpreter:
+            copy_gpaw_python(self, self.script_dir)
 
 
-cmdclass = {'build_ext': build_ext}
-if parallel_python_interpreter:
-    cmdclass['install'] = install
-    cmdclass['develop'] = develop
+cmdclass = {'build_ext': build_ext,
+            'install': install,
+            'develop': develop}
 
 files = ['gpaw-analyse-basis', 'gpaw-basis',
          'gpaw-plot-parallel-timings', 'gpaw-runscript',
