@@ -103,7 +103,7 @@ class DFTCalculation:
         density.normalize()
 
         # The SCF-loop has a hamiltonian that has an fft-plan that is
-        # cached for later use, so best to create the SCF-loof first
+        # cached for later use, so best to create the SCF-loop first
         # FIX this!
         scf_loop = builder.create_scf_loop()
 
@@ -274,6 +274,39 @@ class DFTCalculation:
         # Backwards compatibility helper
         atomdist = self.state.density.D_asii.layout.atomdist
         return AtomPartition(atomdist.comm, atomdist.rank_a)
+
+    def new(self,
+            atoms: Atoms,
+            params: InputParameters,
+            log=None) -> DFTCalculation:
+        """Create new DFTCalculation object."""
+
+        check_atoms_too_close(atoms)
+        check_atoms_too_close_to_boundary(atoms)
+
+        builder = create_builder(atoms, params)
+
+        density = self.state.density.new(builder.grid)
+        density.normalize()
+
+        scf_loop = builder.create_scf_loop()
+        pot_calc = builder.create_potential_calculator()
+        potential, vHt_x, _ = pot_calc.calculate(density)
+
+        ibzwfs = ...  # create_ibz_wave_functions()
+        state = DFTState(ibzwfs, density, potential, vHt_x)
+
+        write_atoms(atoms, builder.initial_magmom_av, log)
+        log(state)
+        log(builder.setups)
+        log(scf_loop)
+        log(pot_calc)
+
+        return DFTCalculation(state,
+                              builder.setups,
+                              scf_loop,
+                              pot_calc,
+                              log)
 
 
 def combine_energies(potential: Potential,

@@ -117,14 +117,18 @@ class ASECalculator:
         if self.calculation is not None:
             changes = compare_atoms(self.atoms, atoms)
             if changes & {'numbers', 'pbc', 'cell', 'magmoms'}:
-                # Start from scratch:
                 if 'numbers' not in changes:
                     # Remember magmoms if there are any:
                     magmom_a = self.calculation.results.get('magmoms')
                     if magmom_a is not None and magmom_a.any():
                         atoms = atoms.copy()
                         atoms.set_initial_magnetic_moments(magmom_a)
-                self.calculation = None
+                if changes & {'numbers', 'pbc'}:
+                    # Start from scratch:
+                    self.calculation = None
+                else:
+                    self.create_new_calculation_from_old(atoms)
+                    self.converge()
 
         if self.calculation is None:
             self.create_new_calculation(atoms)
@@ -158,6 +162,12 @@ class ASECalculator:
     def create_new_calculation(self, atoms: Atoms) -> None:
         with self.timer('Init'):
             self.calculation = DFTCalculation.from_parameters(
+                atoms, self.params, self.log)
+        self.atoms = atoms.copy()
+
+    def create_new_calculation_from_old(self, atoms: Atoms) -> None:
+        with self.timer('Cell'):
+            self.calculation = self.calculation.new(
                 atoms, self.params, self.log)
         self.atoms = atoms.copy()
 

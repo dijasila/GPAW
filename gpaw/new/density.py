@@ -41,6 +41,16 @@ class Density:
                 f'  grid points: {self.nt_sR.desc.size}\n'
                 f'  charge: {self.charge}  # |e|\n')
 
+    def new(self, grid):
+        nt_sR = self.nt_sR.fft().ifft(grid)
+        return Density(nt_sR,
+                       self.D_asii,
+                       self.charge,
+                       self.delta_aiiL,
+                       self.delta0_a,
+                       self.N0_aii,
+                       self.l_aj)
+
     def calculate_compensation_charge_coefficients(self) -> AtomArrays:
         xp = self.D_asii.layout.xp
         ccc_aL = AtomArraysLayout(
