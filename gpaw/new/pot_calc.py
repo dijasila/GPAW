@@ -26,6 +26,7 @@ from gpaw.spinorbit import soc as soc_terms
 from gpaw.typing import Array1D, Array2D, Array3D
 from gpaw.utilities import pack, pack2, unpack
 from gpaw.yml import indent
+from gpaw.gpu import cupy as cp
 
 
 class PotentialCalculator:
@@ -95,6 +96,7 @@ def calculate_non_local_potential(setups,
                                   soc: bool) -> tuple[AtomArrays,
                                                       dict[str, float]]:
     dtype = float if density.ncomponents < 4 else complex
+    xp = density.nt_sR.xp
     D_asii = density.D_asii.to_xp(np)
     dH_asii = D_asii.layout.new(dtype=dtype).empty(density.ncomponents)
     Q_aL = Q_aL.to_xp(np)
@@ -103,7 +105,7 @@ def calculate_non_local_potential(setups,
         Q_L = Q_aL[a]
         setup = setups[a]
         dH_sii, corrections = calculate_non_local_potential1(
-            setup, xc, D_sii, Q_L, soc)
+            setup, xc, D_sii, Q_L, soc, xp)
         dH_asii[a][:] = dH_sii
         for key, e in corrections.items():
             energy_corrections[key] += e
@@ -121,14 +123,14 @@ def calculate_non_local_potential1(setup: Setup,
                                    xc: XCFunctional,
                                    D_sii: Array3D,
                                    Q_L: Array1D,
-                                   soc: bool) -> tuple[Array3D,
-                                                       dict[str, float]]:
+                                   soc: bool,
+                                   xp=np) -> tuple[Array3D,
+                                                   dict[str, float]]:
     ncomponents = len(D_sii)
     ndensities = 2 if ncomponents == 2 else 1
     D_sp = np.array([pack(D_ii) for D_ii in D_sii])
 
     D_p = D_sp[:ndensities].sum(0)
-
     dH_p = (setup.K_p + setup.M_p +
             setup.MB_p + 2.0 * setup.M_pp @ D_p +
             setup.Delta_pL @ Q_L)
@@ -140,7 +142,7 @@ def calculate_non_local_potential1(setup: Setup,
     if soc:
         dH_sp[1:4] = pack2(soc_terms(setup, xc.xc, D_sp))
     dH_sp[:ndensities] = dH_p
-    e_xc = xc.calculate_paw_correction(setup, D_sp, dH_sp)
+    e_xc = xc.calculate_paw_correction(setup, xp.asarray(D_sp), dH_sp)
     e_kinetic -= (D_sp * dH_sp).sum().real
     e_external = 0.0
 

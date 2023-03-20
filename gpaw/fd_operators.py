@@ -14,7 +14,7 @@ from numpy.fft import fftn, ifftn
 
 import _gpaw
 from gpaw import debug
-
+from gpaw.gpu import cupy as cp
 
 # Expansion coefficients for finite difference Laplacian.  The numbers are
 # from J. R. Chelikowsky et al., Phys. Rev. B 50, 11355 (1994):
@@ -378,8 +378,9 @@ class OldGradient(FDOperator):
 
 
 def PPOp(coef_p, offset_p, n_c, mp, neighbor_cd):
+    aa = cp.empty(n_c + 2 * mp)
+
     def apply(a, b, p=None):
-        aa = np.empty(n_c + 2 * mp)
         I1, I2, I3 = [[0, mp, mp + n, mp + n + mp] for n in n_c]
         n1, n2, n3 = n_c
         for i1 in range(3):
@@ -399,8 +400,8 @@ def PPOp(coef_p, offset_p, n_c, mp, neighbor_cd):
         i_cp = np.array(np.unravel_index(o + offset_p, n_c + 2 * mp))
         b[:] = 0.0
         for i_c, coef in zip(i_cp.T, coef_p):
-            b += coef * aa[i_c[0]:i_c[0] + n_c[0],
-                           i_c[1]:i_c[1] + n_c[1],
-                           i_c[2]:i_c[2] + n_c[2]]
+            b += aa[i_c[0]:i_c[0] + n_c[0],
+                    i_c[1]:i_c[1] + n_c[1],
+                    i_c[2]:i_c[2] + n_c[2]] * coef
 
     return SimpleNamespace(apply=apply)
