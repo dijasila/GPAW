@@ -358,7 +358,7 @@ def compare_pw_bases(chiks1, chiks2):
 
 
 def check_reciprocity_and_inversion_symmetry(chiks1, chiks2, *, rtol):
-    """Check the calculated susceptibility for reciprocity and inversion symmetry
+    """Check the susceptibilities for reciprocity and inversion symmetry
 
     In particular, we test the reciprocity relation (valid both for μν=00 and
     μν=+-),
