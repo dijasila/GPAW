@@ -228,7 +228,7 @@ class build_ext(build_ext):
 
             include_dirs.append(np.get_include())
             # Also build gpaw-python:
-            error = build_interpreter(
+            exefile = build_interpreter(
                 define_macros, include_dirs, libraries,
                 library_dirs, extra_link_args, extra_compile_args,
                 runtime_library_dirs,
@@ -238,7 +238,6 @@ class build_ext(build_ext):
                 mpi_library_dirs,
                 mpi_include_dirs,
                 mpi_runtime_library_dirs, mpi_define_macros)
-            assert error == 0
 
 
 def copy_gpaw_python(cmd, dir: str) -> None:

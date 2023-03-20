@@ -3,6 +3,8 @@
 import os
 import sys
 import re
+import shlex
+from subprocess import run
 from sysconfig import get_config_vars, get_platform
 from glob import glob
 from pathlib import Path
@@ -113,26 +115,24 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     runtime_library_dirs += mpi_runtime_library_dirs
 
     define_macros.append(('GPAW_INTERPRETER', '1'))
-    macros = ' '.join(['-D%s=%s' % x for x in define_macros if x[0].strip()])
 
     cfgDict = get_config_vars()
-    include_dirs.append(cfgDict['INCLUDEPY'])
-    include_dirs.append(cfgDict['CONFINCLUDEPY'])
-    includes = ' '.join(['-I' + incdir for incdir in include_dirs])
+    include_dirs += shlex.split(cfgDict['INCLUDEPY'])
+    include_dirs += shlex.split(cfgDict['CONFINCLUDEPY'])
 
-    library_dirs.append(cfgDict['LIBPL'])
-    lib_dirs = ' '.join(['-L' + lib for lib in library_dirs])
+    library_dirs += shlex.split(cfgDict['LIBPL'])
 
-    libs = ' '.join(['-l' + lib for lib in libraries if lib.strip()])
+    libs = [f'-l{lib}' for lib in libraries if lib.strip()]
     # LIBDIR/INSTSONAME will point at the static library if that is how
     # Python was compiled:
     lib = Path(cfgDict['LIBDIR']) / cfgDict['INSTSONAME']
     if lib.is_file():
-        libs += ' {}'.format(lib)
+        libs += [lib]
     else:
-        libs += ' ' + cfgDict.get('BLDLIBRARY',
-                                  '-lpython{}'.format(cfgDict['VERSION']))
-    libs = ' '.join([libs, cfgDict['LIBS'], cfgDict['LIBM']])
+        libs += [cfgDict.get('BLDLIBRARY',
+                             '-lpython{}'.format(cfgDict['VERSION']))]
+    libs += shlex.split(cfgDict['LIBS'])
+    libs += shlex.split(cfgDict['LIBM'])
 
     # Hack taken from distutils to determine option for runtime_libary_dirs
     if sys.platform[:6] == 'darwin':
@@ -147,21 +147,20 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     else:
         runtime_lib_option = '-R'
 
-    runtime_libs = ' '.join([runtime_lib_option + lib
-                             for lib in runtime_library_dirs])
-
-    extra_link_args.append(cfgDict['LDFLAGS'])
+    runtime_libs = [runtime_lib_option + lib
+                    for lib in runtime_library_dirs]
+    extra_link_args += shlex.split(cfgDict['LDFLAGS'])
 
     if sys.platform in ['aix5', 'aix6']:
-        extra_link_args.append(cfgDict['LINKFORSHARED'].replace(
-            'Modules', cfgDict['LIBPL']))
+        extra_link_args += shlex.split(cfgDict['LINKFORSHARED'].replace(
+                                       'Modules', cfgDict['LIBPL']))
     elif sys.platform == 'darwin':
         # On a Mac, it is important to preserve the original compile args.
         # This should probably always be done ?!?
-        extra_compile_args.append(cfgDict['CFLAGS'])
-        extra_link_args.append(cfgDict['LINKFORSHARED'])
+        extra_compile_args += shlex.split(cfgDict['CFLAGS'])
+        extra_link_args += shlex.split(cfgDict['LINKFORSHARED'])
     else:
-        extra_link_args.append(cfgDict['LINKFORSHARED'])
+        extra_link_args += shlex.split(cfgDict['LINKFORSHARED'])
 
     extra_compile_args.append('-fPIC')
 
@@ -169,28 +168,33 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     sources = [Path('c/_gpaw.c')]
     for src in sources:
         obj = build_temp / src.with_suffix('.o')
-        cmd = ('{} {} {} {} -o {} -c {} ').format(
-               mpicompiler,
-               macros,
-               ' '.join(extra_compile_args),
-               includes,
-               obj,
-               src)
-        print(cmd)
-        error = os.system(cmd)
-        if error != 0:
-            return error
+        run_args = [mpicompiler]
+        run_args += extra_compile_args
+        run_args += [f'-D{name}={value}' for (name, value) in define_macros]
+        run_args += [f'-I{dpath}' for dpath in include_dirs]
+        run_args += ['-c', str(src)]
+        run_args += ['-o', str(obj)]
+        print(' '.join(run_args), flush=True)
+        p = run(run_args, check=False, shell=False)
+        if p.returncode != 0:
+            print(f'error: command {repr(mpicompiler)} failed '
+                  f'with exit code {p.returncode}',
+                  file=sys.stderr, flush=True)
+            sys.exit(1)
 
     # Link the custom interpreter
-    cmd = ('{} -o {} {} {} {} {} {}').format(
-           mpilinker,
-           exefile,
-           ' '.join(objects),
-           lib_dirs,
-           libs,
-           runtime_libs,
-           ' '.join(extra_link_args))
+    run_args = [mpilinker]
+    run_args += extra_link_args
+    run_args += objects
+    run_args += [f'-L{dpath}' for dpath in library_dirs]
+    run_args += [f'{lib}' for lib in libs + runtime_libs]
+    run_args += ['-o', str(exefile)]
+    print(' '.join(run_args), flush=True)
+    p = run(run_args, check=False, shell=False)
+    if p.returncode != 0:
+        print(f'error: command {repr(mpilinker)} failed '
+              f'with exit code {p.returncode}',
+              file=sys.stderr, flush=True)
+        sys.exit(1)
 
-    print(cmd)
-    error = os.system(cmd)
-    return error
+    return exefile
