@@ -302,10 +302,7 @@ class ChiKSTestingFactory:
     def check_parameter_self_consistency(self, *,
                                          parameter: str, values: list,
                                          rtol: float,
-                                         cross_tabulation: dict = None):
-        if cross_tabulation is None:
-            cross_tabulation = {}  # Avoid mutable defaults
-
+                                         cross_tabulation: dict):
         # Set up cross tabulation of calculation parameters
         cross_tabulator = product(*[[(key, value)
                                      for value in cross_tabulation[key]]
