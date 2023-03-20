@@ -82,7 +82,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
             nt_R.to_xp(self.xp0).interpolate(
                 self.fftplan, self.fftplan2, out=nt_r)
             if spin < ndensities and pw.comm.rank == 0:
-                nt0_g.data += self.xp0.asarray(
+                nt0_g.data += self.xp.asarray(
                     self.fftplan.tmp_Q.ravel()[indices])
 
         return nt_sr.to_xp(self.xp0), pw, nt0_g
