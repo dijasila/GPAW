@@ -142,7 +142,7 @@ def calculate_non_local_potential1(setup: Setup,
     if soc:
         dH_sp[1:4] = pack2(soc_terms(setup, xc.xc, D_sp))
     dH_sp[:ndensities] = dH_p
-    e_xc = xc.calculate_paw_correction(setup, xp.asarray(D_sp), dH_sp)
+    e_xc = xc.calculate_paw_correction(setup, D_sp, dH_sp)
     e_kinetic -= (D_sp * dH_sp).sum().real
     e_external = 0.0
 
