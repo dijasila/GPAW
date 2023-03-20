@@ -214,13 +214,19 @@ class build_ext(build_ext):
             # Path for the bin (analogous to build_lib)
             build_bin = Path(str(self.build_lib).replace('lib', 'bin'))
 
+            # List of objects already built in super.run()
+            objects = []
+            for src in sources:
+                obj = self.build_temp / Path(src).with_suffix('.o')
+                objects.append(str(obj))
+
             include_dirs.append(np.get_include())
             # Also build gpaw-python:
             error = build_interpreter(
                 define_macros, include_dirs, libraries,
                 library_dirs, extra_link_args, extra_compile_args,
                 runtime_library_dirs,
-                extra_objects,
+                objects + extra_objects,
                 self.build_temp, build_bin,
                 mpicompiler, mpilinker, mpi_libraries,
                 mpi_library_dirs,

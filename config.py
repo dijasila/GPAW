@@ -91,7 +91,7 @@ def write_configuration(define_macros, include_dirs, libraries, library_dirs,
 
 def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
                       extra_link_args, extra_compile_args,
-                      runtime_library_dirs, extra_objects,
+                      runtime_library_dirs, objects,
                       build_temp, build_bin,
                       mpicompiler, mpilinker, mpi_libraries, mpi_library_dirs,
                       mpi_include_dirs, mpi_runtime_library_dirs,
@@ -99,20 +99,11 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
 
     # Build custom interpreter which is used for parallel calculations
 
-    cfgDict = get_config_vars()
-
-    cfiles = glob('c/[a-zA-Z_]*.c') + ['c/bmgs/bmgs.c']
-    cfiles += glob('c/xc/*.c')
-    # Make build process deterministic (for "reproducible build" in debian)
-    # XXX some of this is duplicated in setup.py!  Why do the same thing twice?
-    cfiles.sort()
-
+    # Parallel sources to be compiled again for the interpreter
     sources = ['c/bc.c', 'c/mpi.c', 'c/_gpaw.c',
                'c/operators.c', 'c/woperators.c', 'c/transformers.c',
                'c/elpa.c',
                'c/blacs.c', 'c/utilities.c', 'c/xc/libvdwxc.c']
-    objects = ' '.join([os.path.join(build_temp ,x[:-1] + 'o')
-                        for x in cfiles])
 
     # Create bin build directory
     if not build_bin.exists():
@@ -131,6 +122,7 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     define_macros.append(('GPAW_INTERPRETER', '1'))
     macros = ' '.join(['-D%s=%s' % x for x in define_macros if x[0].strip()])
 
+    cfgDict = get_config_vars()
     include_dirs.append(cfgDict['INCLUDEPY'])
     include_dirs.append(cfgDict['CONFINCLUDEPY'])
     includes = ' '.join(['-I' + incdir for incdir in include_dirs])
@@ -196,11 +188,10 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
             return error
 
     # Link the custom interpreter
-    cmd = ('{} -o {} {} {} {} {} {} {}').format(
+    cmd = ('{} -o {} {} {} {} {} {}').format(
            mpilinker,
            exefile,
-           objects,
-           ' '.join(extra_objects),
+           ' '.join(objects),
            lib_dirs,
            libs,
            runtime_libs,
