@@ -129,12 +129,9 @@ def calculate_sigma(gd, grad_v, n_sg):
     sigma_xg = gd.zeros(nspins * 2 - 1, xp=xp)
     for v in range(3):
         for s in range(nspins):
-            # grad_v[v](n_sg[s], gradn_svg[s, v])
-            gradn_svg[s, v, :] = 0.0
-            # axpy(1.0, gradn_svg[s, v]**2, sigma_xg[2 * s])
+            grad_v[v](n_sg[s], gradn_svg[s, v])
             sigma_xg[2 * s] += gradn_svg[s, v]**2
         if nspins == 2:
-            # axpy(1.0, gradn_svg[0, v] * gradn_svg[1, v], sigma_xg[1])
             sigma_xg[1] += gradn_svg[0, v] * gradn_svg[1, v]
     return sigma_xg, gradn_svg
 
@@ -156,14 +153,10 @@ def add_gradient_correction(grad_v, gradn_svg, sigma_xg, dedsigma_xg, v_sg):
     vv_g = sigma_xg[0]
     for v in range(3):
         for s in range(nspins):
-            # grad_v[v](dedsigma_xg[2 * s] * gradn_svg[s, v], vv_g)
-            vv_g[:] = 0.0
-            # axpy(-2.0, vv_g, v_sg[s])
+            grad_v[v](dedsigma_xg[2 * s] * gradn_svg[s, v], vv_g)
             v_sg[s] -= 2.0 * vv_g
             if nspins == 2:
-                # grad_v[v](dedsigma_xg[1] * gradn_svg[s, v], vv_g)
-                vv_g[:] = 0.0
-                # axpy(-1.0, vv_g, v_sg[1 - s])
+                grad_v[v](dedsigma_xg[1] * gradn_svg[s, v], vv_g)
                 v_sg[1 - s] -= vv_g
                 # TODO: can the number of gradient evaluations be reduced?
 

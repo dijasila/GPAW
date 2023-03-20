@@ -379,21 +379,24 @@ class OldGradient(FDOperator):
 
 def PPOp(coef_p, offset_p, n_c, mp, neighbor_cd):
     def apply(a, b, p=None):
-        print(coef_p, offset_p, n_c, mp, neighbor_cd)
         aa = np.empty(n_c + 2 * mp)
         I1, I2, I3 = [[0, mp, mp + n, mp + n + mp] for n in n_c]
+        n1, n2, n3 = n_c
         for i1 in range(3):
             for i2 in range(3):
                 for i3 in range(3):
                     a1, b1 = I1[i1:i1 + 2]
                     a2, b2 = I2[i2:i2 + 2]
                     a3, b3 = I3[i3:i3 + 2]
+                    c1 = (a1 - mp) % n1
+                    c2 = (a2 - mp) % n2
+                    c3 = (a3 - mp) % n3
                     aa[a1:b1, a2:b2, a3:b3] = a[
-                        a1 - mp:b1 - mp,
-                        a2 - mp:b2 - mp,
-                        a3 - mp:b3 - mp]
+                        c1:c1 + b1 - a1,
+                        c2:c2 + b2 - a2,
+                        c3:c3 + b3 - a3]
         o = np.ravel_multi_index([mp, mp, mp], n_c + 2 * mp)
-        i_cp = np.array(np.unravel_index(o + offset_p, n_c))
+        i_cp = np.array(np.unravel_index(o + offset_p, n_c + 2 * mp))
         b[:] = 0.0
         for i_c, coef in zip(i_cp.T, coef_p):
             b += coef * aa[i_c[0]:i_c[0] + n_c[0],
