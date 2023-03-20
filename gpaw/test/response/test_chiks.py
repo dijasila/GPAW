@@ -357,11 +357,6 @@ def compare_pw_bases(chiks1, chiks2):
     assert np.allclose(G1_Gc - G2_Gc, 0.)
 
 
-def compare_arrays(chiks1, chiks2, *, rtol):
-    """Compare the values inside two chiks arrays."""
-    assert chiks2.array == pytest.approx(chiks1.array, rel=rtol, abs=1e-8)
-
-
 def check_reciprocity_and_inversion_symmetry(chiks1, chiks2, *, rtol):
     """Check the calculated susceptibility for reciprocity and inversion symmetry
 
