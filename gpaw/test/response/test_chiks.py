@@ -358,7 +358,7 @@ class GSAdapterWithPAWCache(ResponseGroundStateAdapter):
     def pair_density_paw_corrections(self, qpd):
         """Overwrite method with a cached version."""
         cache_index = self._cache_lookup(qpd)
-        if cache_index:
+        if cache_index is not None:
             return self._cached_corrections[cache_index]
 
         return self._calculate_correction(qpd)
