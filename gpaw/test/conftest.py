@@ -335,11 +335,13 @@ class GPWFiles:
     def fancy_si(self, symmetry):
         xc = 'LDA'
         kpts = 4
-        nbands = 8  # 2 * (3s, 3p)
+        nbands = 8 # 2 * (3s, 3p)
         pw = 300
         occw = 0.01
-        conv = {'bands': nbands,
-                'density': 1.e-8}
+        conv = {'bands': nbands + 12,
+                'density': 1.e-8,
+                'eigenstates': 4e-08,
+                'energy': 1e-6}
         atoms = bulk('Si')
         atoms.center()
         
@@ -464,8 +466,10 @@ class GPWFiles:
         nbands = 9  # 4s, 4p, 3d = 9
         pw = 300
         occw = 0.01
-        conv = {'bands': nbands,
-                'density': 1.e-8}
+        conv = {'bands': 18,
+                'density': 1.e-8,
+                'eigenstates': 4e-08,
+                'energy': 1e-6}
         a = 2.867
         mm = 2.21
         atoms = bulk('Fe', 'bcc', a=a)
@@ -498,8 +502,10 @@ class GPWFiles:
         nbands = 10  # 3s, 3p, 4s, 3d
         pw = 300
         occw = 0.01
-        conv = {'bands': nbands,
-                'density': 1.e-8}
+        conv = {'bands': nbands + 4,
+                'density': 1.e-8,
+                'eigenstates': 4e-08,
+                'energy': 1e-6}
         a = 4.043
         atoms = bulk('Al', 'fcc', a=a)
         atoms.center()
@@ -565,11 +571,15 @@ class GPWFiles:
         a = Atoms('GaAs', cell=cell, pbc=True,
                   scaled_positions=((0, 0, 0), (0.25, 0.25, 0.25)))
         tag = '_nosym' if symmetry == 'off' else ''
+        conv = {'bands': -1,
+                'density': 1.e-8,
+                'eigenstates': 4e-08,
+                'energy': 1e-6}
 
         calc = GPAW(mode=PW(400),
                     xc='LDA',
                     occupations=FermiDirac(width=0.01),
-                    convergence={'bands': -1},
+                    convergence=conv,
                     kpts={'size': (k, k, k), 'gamma': True},
                     txt=self.path / f'gs_GaAs{tag}.txt',
                     symmetry=symmetry)

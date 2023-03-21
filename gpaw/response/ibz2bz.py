@@ -36,7 +36,8 @@ class IBZ2BZMaps(Sequence):
                          *self.get_symmetry_transformations(kd.sym_k[K]),
                          kd.time_reversal_k[K],
                          self.spos_ac,
-                         K, self.kd)
+                         self.kd.bzk_kc[K],
+                         self.kd.symmetry.cell_cv)
 
     def get_symmetry_transformations(self, s):
         return (self.get_rotation_matrix(s),
@@ -62,11 +63,11 @@ class IBZ2BZMaps(Sequence):
 class IBZ2BZMap:
     """Functionality to map orbitals from the IBZ to a specific k-point K."""
 
-    def __init__(self, ik_c, U_cc, b_a, R_aii, time_reversal, spos_ac, K, kd):
+    def __init__(self, ik_c, U_cc, b_a, R_aii, time_reversal, spos_ac, k_c, cell_cv):
         """Construct the IBZ2BZMap."""
         self.ik_c = ik_c
-        self.K = K  # K index in 1:st BZ that IBZ-kpoint is mapped to
-        self.kd = kd
+        self.k_c = k_c  # k_c in 1:st BZ that IBZ-kpoint is mapped to
+        self.cell_cv = cell_cv
         self.U_cc = U_cc
         self.b_a = b_a
         self.R_aii = R_aii
@@ -115,12 +116,12 @@ class IBZ2BZMap:
         r_cR is real space grid. r_cR = calc.wfs.gd.get_grid_point_coordinates() 
         """
         utout_R = self.map_pseudo_wave(ut_R)
-        shift = self.map_kpoint() - self.kd.bzk_kc[self.K]
+        shift = self.map_kpoint() - self.k_c #self.kd.bzk_kc[self.K]
         if np.all(shift == 0):
             # K-point already in 1:st BZ
             return utout_R
         assert np.all((shift - np.round(shift)) == 0)
-        icell_cv = (2 * np.pi) * np.linalg.inv(self.kd.symmetry.cell_cv).T
+        icell_cv = (2 * np.pi) * np.linalg.inv(self.cell_cv).T #self.kd.symmetry.cell_cv
         shift = np.dot(shift, icell_cv)
         return utout_R * np.exp(1.0j * gemmdot(shift, r_cR, beta=0.0))
 
@@ -145,6 +146,17 @@ class IBZ2BZMap:
 
         return mapped_projections
 
+    def map_projections_to_unitcell(self, projections):
+        """Perform IBZ -> K mapping of the PAW projections.
+        NB: The projections of atom "a" are shifted back to the
+        first unit cell.
+        """
+        mapped_projections = self.map_projections(projections)
+        # XXX Note! should probably be k_c both here and in U_aii
+        for a, p in mapped_projections.items():
+            phase = np.exp(-2j * np.pi * (self.ik_c) @ self.atomic_shift_c[a])
+            p *= phase
+        return mapped_projections
     @property
     def U_aii(self):
         """Phase corrected rotation matrices for the PAW projections.
@@ -155,6 +167,7 @@ class IBZ2BZMap:
         of augmentation spheres.
         """
         U_aii = []
+        self.atomic_shift_c = []
         for a, R_ii in enumerate(self.R_aii):
             # The symmetry transformation maps atom "a" to a position which is
             # related to atom "b" by a lattice vector (but which does not
@@ -162,6 +175,7 @@ class IBZ2BZMap:
             b = self.b_a[a]
             atomic_shift_c = self.spos_ac[a] @ self.U_cc - self.spos_ac[b]
             assert np.allclose(atomic_shift_c.round(), atomic_shift_c)
+            self.atomic_shift_c.append(atomic_shift_c)
             # A phase factor is added to the rotations of the projectors in
             # order to let the projections follow the atoms under the symmetry
             # transformation
