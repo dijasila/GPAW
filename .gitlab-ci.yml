@@ -76,10 +76,6 @@ build:
   tags:
     - linux
   script:
-    - |
-      cat << EOF >> siteconfig.py
-      extra_compile_args += ['-std=c99']
-      EOF
     - cat siteconfig.py
     - pip install --user --log build.log --editable .
     - gpaw -P 1 info
@@ -94,7 +90,6 @@ build-latest:
   script:
     - |
       cat << EOF >> siteconfig.py
-      extra_compile_args += ['-std=c99']
       define_macros += [('NDEBUG', 1)]
       undef_macros = []
       EOF
@@ -179,8 +174,6 @@ build-libxc:
   script:
     - |
       cat << EOF >> siteconfig.py
-      extra_compile_args += ['-std=c99']
-
       local = Path('.local').resolve()
       lib = local / 'lib'
       library_dirs += [lib]
