@@ -169,11 +169,11 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     for src in sources:
         obj = build_temp / src.with_suffix('.o')
         run_args = [mpicompiler]
-        run_args += extra_compile_args
         run_args += [f'-D{name}={value}' for (name, value) in define_macros]
         run_args += [f'-I{dpath}' for dpath in include_dirs]
         run_args += ['-c', str(src)]
         run_args += ['-o', str(obj)]
+        run_args += extra_compile_args
         print(' '.join(run_args), flush=True)
         p = run(run_args, check=False, shell=False)
         if p.returncode != 0:
