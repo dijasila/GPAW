@@ -1,5 +1,6 @@
 from ase import Atoms
-from gpaw.new.ase_interface import GPAW
+# from gpaw.new.ase_interface import GPAW
+from gpaw import GPAW
 
 
 def test_new_cell():
@@ -8,7 +9,13 @@ def test_new_cell():
     atoms.calc = GPAW(
         mode={'name': 'pw'},
         kpts=(4, 1, 1),
-        parallel={'gpu': gpu})
+        )#parallel={'gpu': gpu})
     atoms.get_potential_energy()
-    atoms.cell[2, 2] = 1.1
+    atoms.cell[2, 2] = 0.9
+    if 0:
+        atoms.calc = GPAW(
+            mode={'name': 'pw'},
+            kpts=(4, 1, 1),
+            parallel={'gpu': gpu})
     atoms.get_potential_energy()
+6

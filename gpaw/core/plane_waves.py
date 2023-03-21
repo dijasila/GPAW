@@ -623,6 +623,9 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
                           comm=self.comm,
                           xp=self.xp)
         G_G0, (_,) = pw.map_indices(pw0)
+        print(pw0)
+        print(pw)
+        print(G_G0)
         out_xG.data[:, G_G0] = self.data
         return out_xG
 
