@@ -117,7 +117,6 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     define_macros.append(('GPAW_INTERPRETER', '1'))
 
     cfgDict = get_config_vars()
-    library_dirs += shlex.split(cfgDict['LIBPL'])
 
     libs = [f'-l{lib}' for lib in libraries if lib.strip()]
     # LIBDIR/INSTSONAME will point at the static library if that is how
