@@ -14,28 +14,29 @@ if version_info < (3, 7):
     raise ValueError('Please use Python-3.7 or later')
 
 version = '3.10'  # Python version in the venv that we are creating
+fversion = 'cpython-310'
 
 module_cmds_all = """\
 module purge
 unset PYTHONPATH
 module load GPAW-setups/0.9.20000
-module load matplotlib/3.5.2-{tchain}-2022a
-module load spglib-python/2.0.0-{tchain}-2022a
-module load scikit-learn/1.1.2-{tchain}-2022a
-module load pytest-xdist/2.5.0-GCCcore-11.3.0
-module load Wannier90/3.1.0-{tchain}-2022a
+module load Wannier90/3.1.0-{tchain}-2022b
 """
 
 # Loading imkl and setting FLEXIBLAS is a workaround for EasyBuild bug #16387
 # https://github.com/easybuilders/easybuild-easyconfigs/issues/16387
 module_cmds_tc = {
     'foss': """\
-module load libxc/5.2.3-GCC-11.3.0
-module load libvdwxc/0.4.0-foss-2022a
-module load imkl/2022.1.0
-export FLEXIBLAS=imkl
+module load matplotlib/3.7.0-gfbf-2022b
+module load spglib-python/2.0.2-gfbf-2022b
+module load scikit-learn/1.2.1-gfbf-2022b
+module load libxc/5.2.3-GCC-12.2.0
+module load libvdwxc/0.4.0-foss-2022b
 """,
     'intel': """\
+module load matplotlib/3.7.0-gfbf-2022b
+module load spglib-python/2.0.2-gfbf-2022b
+module load scikit-learn/1.2.1-gfbf-2022b
 module load libxc/5.2.3-intel-compilers-2022.1.0
 """}
 
@@ -188,14 +189,14 @@ def main():
 
     for fro, to in [('ivybridge', 'sandybridge'),
                     ('nahelem', 'icelake')]:
-        f = gpaw / f'build/lib.linux-x86_64-{fro}-{version}'
-        t = gpaw / f'build/lib.linux-x86_64-{to}-{version}'
+        f = gpaw / f'build/lib.linux-x86_64-{fro}-{fversion}'
+        t = gpaw / f'build/lib.linux-x86_64-{to}-{fversion}'
         f.symlink_to(t)
 
     # Create .pth file to load correct .so file:
     pth = ('import sys, os; '
            'arch = os.environ["CPU_ARCH"]; '
-           f"path = f'{venv}/gpaw/build/lib.linux-x86_64-{{arch}}-{version}'; "
+           f"path = f'{venv}/gpaw/build/lib.linux-x86_64-{{arch}}-{fversion}'; "
            'sys.path.append(path)\n') 
     Path(f'lib/python{version}/site-packages/niflheim.pth').write_text(pth)
 
