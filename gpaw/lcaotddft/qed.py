@@ -32,7 +32,7 @@ class RRemission(object):
         [5] increase frequency resolution
         comment: [3 and 4] are dummies that should be removed later
                  but are kept at the moment to keep my scripts running.
-    environmentensemble_in: array
+    environmentens_in: array
         [0] number of ensemble oscillators,
         [1] Ve/V ratio of occupied ensemble to cavity volume,
         [2] resonance frequency of Drude-Lorentz for ensemble,
@@ -43,9 +43,9 @@ class RRemission(object):
                  In that case [1] is ignored.
     """
 
-    def __init__(self, rr_quantization_plane_in, pol_cavity_in,
-                 environmentcavity_in=None, environmentensemble_in=None):
-        self.rr_quantization_plane = rr_quantization_plane_in / Bohr**2
+    def __init__(self, rr_qplane_in, pol_cavity_in,
+                 environmentcavity_in=None, environmentens_in=None):
+        self.rr_quantization_plane = rr_qplane_in / Bohr**2
         self.polarization_cavity = pol_cavity_in
         self.dipolexyz = None
         self.itert = 0
@@ -65,32 +65,37 @@ class RRemission(object):
             self.deltat = None
             self.maxtimesteps = None
             self.frequ_resolution_ampl = environmentcavity_in[5]
-            if environmentensemble_in is not None:
+            if environmentens_in is not None:
                 self.environmentensemble = 1
-                self.ensemble_number = environmentensemble_in[0]
-                self.ensemble_occupation_ratio = environmentensemble_in[1]
-                self.ensemble_resonance = (environmentensemble_in[2]
+                self.ensemble_number = environmentens_in[0]
+                self.ensemble_occ_ratio = environmentens_in[1]
+                self.ensemble_resonance = (environmentens_in[2]
                                            / Hartree)
-                self.ensemble_loss = (environmentensemble_in[3]
+                self.ensemble_loss = (environmentens_in[3]
                                       * self.ensemble_resonance)
-                self.ensemble_plasmafrequency = (environmentensemble_in[4]
-                                                 / Hartree)
+                self.ensemble_omegap = (environmentens_in[4]
+                                        / Hartree)
             else:
-                self.ensemble_number = environmentensemble_in
+                self.ensemble_number = environmentens_in
                 self.environmentensemble = 0
 
     def write(self, writer):
         writer.write(itert=self.itert)
         writer.write(DelDipole=self.dipolexyz)
-        writer.write(dipole_projected=self.dipole_projected[:self.itert] * Bohr)
-        writer.write(rr_quantization_plane_in=self.rr_quantization_plane * Bohr**2)
+        writer.write(dipole_projected=self.dipole_projected[:self.itert]
+                     * Bohr)
+        writer.write(rr_qplane_in=self.rr_quantization_plane
+                     * Bohr**2)
         writer.write(pol_cavity_in=self.polarization_cavity)
         if self.environment == 0:
             writer.write(environmentcavity_in=None)
         else:
-            writer.write(environmentcavity_in=[self.cavity_resonance[0] * Hartree,
-                                               self.cavity_resonance[-1] * Hartree,
-                                               self.cavity_loss / self.cavity_resonance[0],
+            writer.write(environmentcavity_in=[self.cavity_resonance[0]
+                                               * Hartree,
+                                               self.cavity_resonance[-1]
+                                               * Hartree,
+                                               (self.cavity_loss /
+                                                self.cavity_resonance[0]),
                                                0,
                                                0,
                                                self.frequ_resolution_ampl])
@@ -101,11 +106,12 @@ class RRemission(object):
                     loss_out = self.ensemble_loss / self.ensemble_resonance
                 else:
                     loss_out = 0
-                writer.write(environmentensemble_in=[self.ensemble_number,
-                                                     self.ensemble_occupation_ratio,
-                                                     self.ensemble_resonance,
-                                                     loss_out,
-                                                     self.ensemble_plasmafrequency * Hartree])
+                writer.write(environmentens_in=[self.ensemble_number,
+                                                self.ensemble_occ_ratio,
+                                                self.ensemble_resonance,
+                                                loss_out,
+                                                (self.ensemble_omegap
+                                                 * Hartree)])
 
     def read(self, reader):
         self.itert = reader.itert
@@ -129,7 +135,9 @@ class RRemission(object):
             if not hasattr(self, 'dipole_projected'):
                 self.dipole_projected = np.zeros(self.maxtimesteps)
             else:
-                self.dipole_projected = np.concatenate([self.dipole_projected, np.zeros(self.maxtimesteps)])
+                self.dipole_projected = \
+                    np.concatenate([self.dipole_projected,
+                                    np.zeros(self.maxtimesteps)])
         if self.iterpredcop == 0:
             self.iterpredcop += 1
             self.dipolexyz_previous = self.density.calculate_dipole_moment()
@@ -195,7 +203,7 @@ class RRemission(object):
         if self.itert > 0:
             self.frequ_resolution_ampl = (float(self.frequ_resolution_ampl) *
                                           float(self.itert) /
-                                          float(maxtimesteps-1))
+                                          float(maxtimesteps - 1))
         timeg = np.arange(0, deltat *
                           (maxtimesteps * self.frequ_resolution_ampl + 1),
                           deltat)
@@ -208,7 +216,7 @@ class RRemission(object):
 
         if self.ensemble_number is not None:
             if (self.ensemble_loss == 0 or
-                self.ensemble_plasmafrequency == 0 or
+                self.ensemble_omegap == 0 or
                 self.ensemble_resonance == 0):
                 print('Ab initio embedding using dm_ensemblebare_{x/y/z}.dat')
                 kickx = read_td_file_kicks('dm_ensemblebare_x.dat')
@@ -257,7 +265,7 @@ class RRemission(object):
                              * deltat / (timedm[1] - timedm[0]))
             else:
                 print('Drude-Lorentz model for polarizablity')
-                chi_omega = (self.ensemble_plasmafrequency**2
+                chi_omega = (self.ensemble_omegap**2
                              / (self.ensemble_resonance**2 - omegafft**2
                                 + 1j * self.ensemble_loss * omegafft))
             G_omega = np.reciprocal(np.reciprocal(g_omega)

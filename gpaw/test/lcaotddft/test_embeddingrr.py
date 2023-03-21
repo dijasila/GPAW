@@ -10,6 +10,7 @@ from gpaw.lcaotddft import LCAOTDDFT
 from gpaw.lcaotddft.qed import RRemission
 from gpaw.lcaotddft.dipolemomentwriter import DipoleMomentWriter
 
+
 @pytest.fixture()
 @only_on_master(world)
 def write_inputs():
@@ -84,8 +85,9 @@ def test_embeddingrr_dyadic(in_tmp_dir, write_inputs):
     dyadic_out_very_good_split = rremission.dyadicGt(dt, nt)
     assert np.allclose(dyadic_out_very_good_split[:30], dyadic_ref)
 
+
 def test_embeddingrr(in_tmp_dir, write_inputs):
-    cross_section=1e-5
+    cross_section = 1e-5
     dt, nt = 5, 100
     """
     Perform a short TD run to check if the full function remained consistent
@@ -237,11 +239,11 @@ def test_embeddingrr(in_tmp_dir, write_inputs):
                                               [1, 1, 0, 0, 0]))
     DipoleMomentWriter(td_calc, 'dm_split.dat')
     td_calc.absorption_kick([0.0, 0.0, 1e-5])
-    td_calc.propagate(dt, int(nt*0.5))
+    td_calc.propagate(dt, int(nt * 0.5))
     td_calc.write('td_split0.gpw', mode='all')
     td_calc_restart = LCAOTDDFT('td_split0.gpw')
     DipoleMomentWriter(td_calc_restart, 'dm_split.dat')
-    td_calc_restart.propagate(dt, int(nt*0.5))
+    td_calc_restart.propagate(dt, int(nt * 0.5))
     td_calc_restart.write('td_split1.gpw', mode='all')
 
     with paropen('dm_ref_restart.dat', 'w') as fd:

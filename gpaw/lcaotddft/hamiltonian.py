@@ -146,11 +146,10 @@ class TimeDependentHamiltonian(object):
             assert self.rremission is None
             from gpaw.lcaotddft.qed import RRemission
             self.rremission = RRemission(
-                rr_quantization_plane_in=reader.rremission.rr_quantization_plane_in,
+                rr_qplane_in=reader.rremission.rr_qplane_in,
                 pol_cavity_in=reader.rremission.pol_cavity_in,
                 environmentcavity_in=reader.rremission.environmentcavity_in,
-                environmentensemble_in=reader.rremission.environmentensemble_in
-                )
+                environmentens_in=reader.rremission.environmentens_in)
             self.rremission.read(reader.rremission)
             self.rremission.wfs = self.wfs
 
