@@ -224,7 +224,7 @@ class GGA(XCFunctional):
             def integrate(a1_g, a2_g=None):
                 if a2_g is None:
                     return float(a1_g.sum()) * self.gd.dv
-                return xp.vdot(a1_g, a2_g) * self.gd.dv
+                return float(xp.vdot(a1_g, a2_g)) * self.gd.dv
 
         P = integrate(e_g)
         for v_g, n_g in zip(v_sg, n_sg):
