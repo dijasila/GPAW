@@ -1,52 +1,61 @@
+import os
+
 import numpy as np
 import pytest
 from ase import Atoms
-
-from gpaw import GPAW, PW, FermiDirac
+from gpaw import PW, FermiDirac
+from gpaw.new.ase_interface import GPAW as NewGPAW
+from gpaw import GPAW as AnyGPAW
 from gpaw.mpi import world
+
+# Domain and k-point parallelization:
+dk = []
+for d in [1, 2, 4, 8]:
+    for k in [1, 2]:
+        if d * k > world.size:
+            continue
+        dk.append((d, k))
 
 
 @pytest.mark.stress
-def test_pw_par_strategies(in_tmp_dir):
+@pytest.mark.parametrize('d, k', dk)
+@pytest.mark.parametrize('gpu', [False,
+                                 pytest.param(True, marks=pytest.mark.gpu)])
+def test_pw_par_strategies(in_tmp_dir, d, k, gpu):
+    if (gpu or os.environ.get('GPAW_NEW')) and d * k < world.size:
+        pytest.skip()
     ecut = 200
     kpoints = [1, 1, 4]
-    atoms = Atoms('HLi', cell=[6, 6, 3.4], pbc=True,
-                  positions=[[3, 3, 0], [3, 3, 1.6]])
+    atoms = Atoms('HLi',
+                  cell=[6, 6, 3.4],
+                  pbc=True,
+                  positions=[[3, 3, 0],
+                             [3, 3, 1.6]])
+    parallel = {'domain': d, 'kpt': k}
+    if gpu:
+        parallel['gpu'] = True
+        GPAW = NewGPAW
+    else:
+        GPAW = AnyGPAW
+    atoms.calc = GPAW(mode=PW(ecut),
+                      txt='hli.txt',
+                      parallel=parallel,
+                      kpts={'size': kpoints},
+                      convergence={'maximum iterations': 4},
+                      occupations=FermiDirac(width=0.1))
 
-    for xc in ['LDA', 'PBE']:
-        def calculate(d, k):
-            label = 'gpaw.{xc}.domain{d}.kpt{k}'.format(xc=xc, d=d, k=k)
-            atoms.calc = GPAW(mode=PW(ecut),
-                              xc=xc,
-                              txt=label + '.txt',
-                              parallel={'domain': d, 'kpt': k},
-                              kpts={'size': kpoints},
-                              convergence={'maximum iterations': 4},
-                              occupations=FermiDirac(width=0.1))
+    e = atoms.get_potential_energy()
+    assert e == pytest.approx(-5.218064604018109, abs=1e-11)
 
-            e = atoms.get_potential_energy()
-            f = atoms.get_forces()
-            s = atoms.get_stress()
-            atoms.calc.write(label + '.gpw', mode='all')
-            GPAW(label + '.gpw', txt=None)
-            return e, f, s
+    f = atoms.get_forces()
+    assert f == pytest.approx(np.array([[0, 0, -7.85130336e-01],
+                                        [0, 0, 8.00667631e-01]]))
 
-        for d in [1, 2, 4, 8]:
-            for k in [1, 2]:
-                if d * k > world.size:
-                    continue
-                e2, f2, s2 = calculate(d, k)
-                if d + k == 2:
-                    e1, f1, s1 = e2, f2, s2
-                else:
-                    eerr = abs(e2 - e1)
-                    ferr = np.abs(f2 - f1).max()
-                    serr = np.abs(s2 - s1).max()
-                    if world.rank == 0:
-                        print('errs', d, k, eerr, ferr, serr)
-                    assert eerr < 1e-11, 'bad {} energy: err={}'.format(
-                        xc, eerr)
-                    assert ferr < 3e-11, 'bad {} forces: err={}'.format(
-                        xc, ferr)
-                    assert serr < 1e-11, 'bad {} stress: err={}'.format(
-                        xc, serr)
+    if not gpu and not os.environ.get('GPAW_NEW'):
+        s = atoms.get_stress()
+        assert s == pytest.approx(
+            [3.98105501e-03, 3.98105501e-03, -4.98044912e-03, 0, 0, 0])
+
+    if not gpu:
+        atoms.calc.write('hli.gpw', mode='all')
+        GPAW('hli.gpw', txt=None)

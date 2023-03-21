@@ -92,6 +92,16 @@ class DistributedArrays(Generic[DomainType]):
             for index in np.indices(self.dims).reshape((len(self.dims), -1)).T:
                 yield self[tuple(index)]
 
+    def to_xp(self, xp):
+        if xp is self.xp:
+            # Disable assert for now as it would fail with our HIP-rfftn hack!
+            # assert xp is np, 'cp -> cp should not be needed!'
+            return self
+        if xp is np:
+            return self.new(data=self.xp.asnumpy(self.data))
+        else:
+            return self.new(data=xp.asarray(self.data))
+
     @property
     def matrix(self) -> Matrix:
         if self._matrix is not None:
@@ -119,6 +129,7 @@ class DistributedArrays(Generic[DomainType]):
             symmetric = self is other
         if function:
             other = function(other)
+
         M1 = self.matrix
         M2 = other.matrix
         out = M1.multiply(M2, opb='C', alpha=self.dv,
@@ -144,7 +155,7 @@ class DistributedArrays(Generic[DomainType]):
 
     def abs_square(self,
                    weights: Array1D,
-                   out: UniformGridFunctions = None) -> None:
+                   out: UniformGridFunctions) -> None:
         """Add weighted absolute square of data to output array.
 
         See also :xkcd:`849`.

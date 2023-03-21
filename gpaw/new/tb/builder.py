@@ -124,7 +124,7 @@ class TBPotentialCalculator(PotentialCalculator):
             [9] * len(self.atoms),
             self.nct_R.comm).zeros()
 
-    def _calculate(self, density, vHt_r):
+    def calculate_pseudo_potential(self, density, vHt_r):
         vt_sR = density.nt_sR
 
         atoms = self.atoms

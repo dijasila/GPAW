@@ -54,11 +54,7 @@ rc_r = np.linspace(0.5, 1.75, 51)
 
 # Recalculate the Kohn-Sham orbitals
 atoms, calc = restart(gpw, parallel={'domain': 1})
-calc.set(fixdensity=True,
-         convergence=conv,
-         txt='Co_es.txt')
-atoms.calc = calc
-atoms.get_potential_energy()
+calc = calc.fixed_density(convergence=conv, txt='Co_es.txt')
 
 # Initialize the context and gs adapter
 context = ResponseContext(txt='Co_mft.txt')

@@ -261,6 +261,10 @@ class UniformGrid(Domain):
             raise ValueError('Positions outside cell!')
         return np.ravel_multi_index(rank_ac.T, self.parsize_c)  # type: ignore
 
+    def ecut_max(self):
+        dv_cv = self.cell_cv / self.size_c[:, np.newaxis]
+        return 0.5 * np.pi**2 / (dv_cv**2).sum(1).max()
+
 
 class UniformGridFunctions(DistributedArrays[UniformGrid]):
     def __init__(self,
@@ -472,14 +476,12 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
             b_yR = b_yR.reshape((len(b_yR), -1))
             result = (a_xR @ b_yR.T.conj()).reshape(self.dims + other.dims)
         else:
-            result = self.data.sum(axis=(-3, -2, -1))
+            # Make sure we have an array and not a scalar!
+            result = self.xp.asarray(self.data.sum(axis=(-3, -2, -1)))
 
+        self.desc.comm.sum(result)
         if result.ndim == 0:
-            if self.xp is np:
-                result = np.array(self.desc.comm.sum(result.item()))
-        else:
-            self.desc.comm.sum(result)
-
+            result = result.item()  # convert to scalar
         return result * self.desc.dv
 
     def to_pbc_grid(self):
@@ -760,11 +762,3 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
                            kpt=(grid.kpt_c if grid.kpt_c.any() else None),
                            dtype=grid.dtype)
         return UniformGridFunctions(grid, self.dims, self.comm, self.data * v)
-
-    def to_xp(self, xp):
-        if xp is self.xp:
-            return self
-        if xp is np:
-            return self.new(data=self.xp.asnumpy(self.data))
-        else:
-            return self.new(data=xp.asarray(self.data))
