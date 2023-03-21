@@ -98,6 +98,7 @@ else:  # no break
         libraries.append('blas')
 
 if parallel_python_interpreter:
+    parallel_python_exefile = None
     if mpicompiler is None:
         raise ValueError('Invalid mpicompiler in configuration: '
                          'mpicompiler needs to be set with '
@@ -217,6 +218,8 @@ class build_ext(build_ext):
         print("Temp and build", self.build_lib, self.build_temp)
 
         if parallel_python_interpreter:
+            global parallel_python_exefile
+
             # Path for the bin (analogous to build_lib)
             build_bin = Path(str(self.build_lib).replace('lib', 'bin'))
 
@@ -228,7 +231,7 @@ class build_ext(build_ext):
 
             include_dirs.append(np.get_include())
             # Also build gpaw-python:
-            exefile = build_interpreter(
+            parallel_python_exefile = build_interpreter(
                 define_macros, include_dirs, libraries,
                 library_dirs, extra_link_args, extra_compile_args,
                 runtime_library_dirs,
@@ -240,26 +243,18 @@ class build_ext(build_ext):
                 mpi_runtime_library_dirs, mpi_define_macros)
 
 
-def copy_gpaw_python(cmd, dir: str) -> None:
-    major, minor = sys.version_info[:2]
-    plat = get_platform() + f'-{major}.{minor}'
-    source = f'build/bin.{plat}/gpaw-python'
-    target = os.path.join(dir, 'gpaw-python')
-    cmd.copy_file(source, target)
-
-
 class install(_install):
     def run(self):
         super().run()
         if parallel_python_interpreter:
-            copy_gpaw_python(self, self.install_scripts)
+            self.copy_file(parallel_python_exefile, self.install_scripts)
 
 
 class develop(_develop):
     def run(self):
         super().run()
         if parallel_python_interpreter:
-            copy_gpaw_python(self, self.script_dir)
+            self.copy_file(parallel_python_exefile, self.script_dir)
 
 
 cmdclass = {'build_ext': build_ext,
