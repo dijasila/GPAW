@@ -117,9 +117,6 @@ if compiler is not None:
     # A hack to change the used compiler and linker, inspired by
     # https://shwina.github.io/custom-compiler-linker-extensions/
 
-    # If CC is set, it will be ignored, which is probably unexpected.
-    assert not os.environ.get('CC'), 'Please unset CC as it is ignored'
-
     # Note: The following class will be extended again below, but that is
     # OK as long as super() is used to chain the method calls.
     class build_ext(build_ext):
