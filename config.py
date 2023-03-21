@@ -180,11 +180,11 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
 
     # Link the custom interpreter
     run_args = [mpilinker]
-    run_args += extra_link_args
     run_args += objects
     run_args += [f'-L{dpath}' for dpath in library_dirs]
     run_args += [f'{lib}' for lib in libs + runtime_libs]
     run_args += ['-o', str(exefile)]
+    run_args += extra_link_args
     print(' '.join(run_args), flush=True)
     p = run(run_args, check=False, shell=False)
     if p.returncode != 0:
