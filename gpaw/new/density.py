@@ -46,7 +46,7 @@ class Density:
     def new(self, grid):
         nt_sR = grid.empty(self.ncomponents)
         old_grid = self.nt_sR.desc
-        ecut = min(grid.ecut_max(), old_grid.ecut_max())
+        ecut = 0.999 * min(grid.ecut_max(), old_grid.ecut_max())
         pw = PlaneWaves(ecut=ecut, cell=old_grid.cell, comm=grid.comm)
         for nt_R, old_nt_R in zip(nt_sR, self.nt_sR):
             old_nt_R.fft(pw=pw).ifft(out=nt_R)

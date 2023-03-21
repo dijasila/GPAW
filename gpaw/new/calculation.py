@@ -294,11 +294,18 @@ class DFTCalculation:
         potential, vHt_x, _ = pot_calc.calculate(density)
 
         old_ibzwfs = self.state.ibzwfs
+
+        def create_wfs(spin, q, k, kpt_c, weight):
+            wfs = old_ibzwfs.wfs_qs[q][spin]
+            return wfs.morph(
+                builder.wf_desc,
+                builder.fracpos_ac)
+
         ibzwfs = create_ibz_wave_functions(
             builder.ibz,
             nelectrons=old_ibzwfs.nelectrons,
             ncomponents=old_ibzwfs.ncomponents,
-            create_wfs_func=...,
+            create_wfs_func=create_wfs,
             kpt_comm=old_ibzwfs.kpt_comm)
 
         state = DFTState(ibzwfs, density, potential, vHt_x)

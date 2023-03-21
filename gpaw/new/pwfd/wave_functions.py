@@ -442,3 +442,24 @@ class PWFDWaveFunctions(WaveFunctions):
             self.atomdist,
             self.weight,
             self.ncomponents)
+
+    def morph(self, desc, fracpos_ac):
+        psit_nX = self.psit_nX.morph(desc)
+
+        # Save memory:
+        self.psit_nX.data = None
+        self._P_ani = None
+        self._pt_aiX = None
+
+        wfs = PWFDWaveFunctions(
+            psit_nX,
+            self.spin,
+            self.q,
+            self.k,
+            self.setups,
+            fracpos_ac,
+            self.atomdist,
+            self.weight,
+            self.ncomponents)
+
+        return wfs
