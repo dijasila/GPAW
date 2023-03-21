@@ -154,8 +154,6 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     else:
         extra_link_args += shlex.split(cfgDict['LINKFORSHARED'])
 
-    extra_compile_args.append('-fPIC')
-
     # Compile the sources that define GPAW_INTERPRETER
     sources = [Path('c/_gpaw.c')]
     for src in sources:
