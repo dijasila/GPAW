@@ -261,6 +261,10 @@ class UniformGrid(Domain):
             raise ValueError('Positions outside cell!')
         return np.ravel_multi_index(rank_ac.T, self.parsize_c)  # type: ignore
 
+    def ecut_max(self):
+        dv_cv = self.cell_cv / self.size_c[:, np.newaxis]
+        return 0.5 * np.pi**2 / (dv_cv**2).sum(1).max()
+
 
 class UniformGridFunctions(DistributedArrays[UniformGrid]):
     def __init__(self,
