@@ -231,18 +231,15 @@ class build_ext(build_ext):
 
             # Also build gpaw-python:
             parallel_python_exefile = build_interpreter(
-                define_macros,
-                include_dirs + self.include_dirs,
-                libraries,
-                library_dirs + self.library_dirs,
+                define_macros + mpi_define_macros,
+                include_dirs + mpi_include_dirs + self.include_dirs,
+                libraries + mpi_libraries,
+                library_dirs + mpi_library_dirs + self.library_dirs,
                 extra_link_args, extra_compile_args,
-                runtime_library_dirs,
+                runtime_library_dirs + mpi_runtime_library_dirs,
                 objects + extra_objects,
                 self.build_temp, build_bin,
-                mpicompiler, mpilinker, mpi_libraries,
-                mpi_library_dirs,
-                mpi_include_dirs,
-                mpi_runtime_library_dirs, mpi_define_macros)
+                mpicompiler, mpilinker)
 
 
 class install(_install):
