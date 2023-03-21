@@ -11,6 +11,7 @@ from gpaw.densities import Densities
 from gpaw.electrostatic_potential import ElectrostaticPotential
 from gpaw.gpu import as_xp
 from gpaw.new import cached_property, zip
+from gpaw.new.ase_interface import ReuseWaveFunctionsError
 from gpaw.new.builder import builder as create_builder
 from gpaw.new.density import Density
 from gpaw.new.ibzwfs import IBZWaveFunctions, create_ibz_wave_functions
@@ -286,6 +287,13 @@ class DFTCalculation:
         check_atoms_too_close_to_boundary(atoms)
 
         builder = create_builder(atoms, params)
+
+        kpt_kc = builder.ibz.kpt_kc
+        old_kpt_kc = self.state.ibzwfs.ibc.ibz.kpt_kc
+        if len(kpt_kc) != len(old_kpt_kc):
+            raise ReuseWaveFunctionsError
+        if abs(kpt_kc - old_kpt_kc).max() > 1e-9:
+            raise ReuseWaveFunctionsError
 
         density = self.state.density.new(builder.grid)
         density.normalize()

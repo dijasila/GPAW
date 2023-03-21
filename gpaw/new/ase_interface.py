@@ -25,6 +25,13 @@ from gpaw.utilities import pack
 from gpaw.utilities.memory import maxrss
 
 
+class ReuseWaveFunctionsError(Exception):
+    """Reusing the old wave functions after cell change failed.
+
+    Most likekly, the number of k-points changed.
+    """
+
+
 def GPAW(filename: Union[str, Path, IO[str]] = None,
          **kwargs) -> ASECalculator:
     """Create ASE-compatible GPAW calculator."""
@@ -132,9 +139,13 @@ class ASECalculator:
                     kpt_parallel_only = (ibzwfs.band_comm.size == 1 and
                                          ibzwfs.domain_comm.size == 1)
                     if kpt_parallel_only:
-                        self.create_new_calculation_from_old(atoms)
-                        self.converge()
-                        changes = set()
+                        try:
+                            self.create_new_calculation_from_old(atoms)
+                        except ReuseWaveFunctionsError:
+                            self.calculation = None
+                        else:
+                            self.converge()
+                            changes = set()
                     else:
                         # Not implemented: just start from scratch
                         self.calculation = None
@@ -178,7 +189,7 @@ class ASECalculator:
         self.atoms = atoms.copy()
 
     def create_new_calculation_from_old(self, atoms: Atoms) -> None:
-        with self.timer('Cell'):
+        with self.timer('Morph'):
             self.calculation = self.calculation.new(
                 atoms, self.params, self.log)
         self.atoms = atoms.copy()
