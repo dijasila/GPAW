@@ -169,6 +169,7 @@ def build_interpreter(define_macros, undef_macros, include_dirs,
 
     # Link the custom interpreter
     run_args = [mpilinker]
+    run_args += shlex.split(cfgDict['LINKCC'])[1:]
     run_args += shlex.split(cfgDict['LDFLAGS'])
     run_args += objects
     run_args += [f'-L{dpath}' for dpath in library_dirs]
