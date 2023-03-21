@@ -4,11 +4,12 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 from gpaw.core.atom_arrays import AtomArrays
-from gpaw.gpu import synchronize, as_xp
+from gpaw.gpu import as_xp, synchronize
 from gpaw.new.calculation import DFTState
 from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.typing import Array2D
+from gpaw.xc.gga import PurePythonGGAKernel
 
 if TYPE_CHECKING:
     from gpaw.new.pw.pot_calc import PlaneWavePotentialCalculator
@@ -35,8 +36,13 @@ def calculate_stress(pot_calc: PlaneWavePotentialCalculator,
 
     nt_sr = pot_calc._interpolate_density(state.density.nt_sR)[0]
     xp = nt_sr.xp
-    s_vv += as_xp(
-        pot_calc.xc.xc.stress_tensor_contribution(as_xp(nt_sr.data, np)), xp)
+    if isinstance(pot_calc.xc.xc.kernel, PurePythonGGAKernel):
+        s_vv += as_xp(pot_calc.xc.xc.stress_tensor_contribution(nt_sr.data),
+                      xp)
+    else:
+        s_vv += as_xp(
+            pot_calc.xc.xc.stress_tensor_contribution(as_xp(nt_sr.data, np)),
+            xp)
 
     vHt_h = state.vHt_x
     assert vHt_h is not None

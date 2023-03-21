@@ -207,15 +207,24 @@ class GGA(XCFunctional):
                                         addcoredensity, a)
 
     def stress_tensor_contribution(self, n_sg):
+        xp = cp.get_array_module(n_sg)
         sigma_xg, gradn_svg = calculate_sigma(self.gd, self.grad_v, n_sg)
         nspins = len(n_sg)
-        dedsigma_xg = self.gd.empty(nspins * 2 - 1)
-        v_sg = self.gd.zeros(nspins)
-        e_g = self.gd.empty()
+        dedsigma_xg = self.gd.empty(nspins * 2 - 1, xp=xp)
+        v_sg = self.gd.zeros(nspins, xp=xp)
+        e_g = self.gd.empty(xp=xp)
         self.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
 
-        def integrate(a1_g, a2_g=None):
-            return self.gd.integrate(a1_g, a2_g, global_integral=False)
+        if xp is np:
+            def integrate(a1_g, a2_g=None):
+                return self.gd.integrate(a1_g, a2_g, global_integral=False)
+        else:
+            assert self.gd.comm.size == 1
+
+            def integrate(a1_g, a2_g=None):
+                if a2_g is None:
+                    return float(a1_g.sum()) * self.gd.dv
+                return xp.vdot(a1_g, a2_g) * self.gd.dv
 
         P = integrate(e_g)
         for v_g, n_g in zip(v_sg, n_sg):

@@ -254,7 +254,10 @@ class ndarray:
         return self
 
     def __isub__(self, other):
-        self._data -= other._data
+        if isinstance(other, float):
+            self._data -= other
+        else:
+            self._data -= other._data
         return self
 
     def __matmul__(self, other):
