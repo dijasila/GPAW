@@ -9,6 +9,7 @@ from gpaw.core.atom_arrays import AtomArrays
 from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.gpu import as_xp
 from gpaw.new import zip
+from gpaw.core.plane_waves import PlaneWaves
 
 
 class Density:
@@ -44,9 +45,11 @@ class Density:
 
     def new(self, grid):
         nt_sR = grid.empty(self.ncomponents)
-        pw = ...
+        old_grid = self.nt_sR.desc
+        ecut = min(grid.ecut_max(), old_grid.ecut_max())
+        pw = PlaneWaves(ecut=ecut, cell=old_grid.cell, comm=grid.comm)
         for nt_R, old_nt_R in zip(nt_sR, self.nt_sR):
-            old_nt_T.fft(pw=pw).ifft(out=nt_R)
+            old_nt_R.fft(pw=pw).ifft(out=nt_R)
 
         return Density(nt_sR,
                        self.D_asii,

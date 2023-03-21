@@ -7,6 +7,8 @@ import numpy as np
 from gpaw.core.arrays import DistributedArrays as DA
 from gpaw.core.atom_centered_functions import AtomArrays as AA
 from gpaw.core.matrix import Matrix
+from gpaw.gpu import as_xp
+from gpaw.new import zip
 from gpaw.new.calculation import DFTState
 from gpaw.new.eigensolver import Eigensolver
 from gpaw.new.hamiltonian import Hamiltonian
@@ -14,7 +16,6 @@ from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.typing import Array1D, Array2D
 from gpaw.utilities.blas import axpy
 from gpaw.yml import obj2yaml as o2y
-from gpaw.gpu import as_xp
 
 AAFunc = Callable[[AA, AA], AA]
 

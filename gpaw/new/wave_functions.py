@@ -6,6 +6,7 @@ import numpy as np
 from gpaw.core.atom_arrays import AtomArrays, AtomDistribution
 from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.mpi import MPIComm, serial_comm
+from gpaw.new import zip
 from gpaw.new.potential import Potential
 from gpaw.setup import Setups
 from gpaw.typing import Array1D, Array2D, ArrayND

@@ -2,6 +2,7 @@ import warnings
 
 import numpy as np
 from gpaw.mpi import MPIComm
+from gpaw.new import zip
 from gpaw.new.brillouin import IBZ, BZPoints
 from gpaw.rotation import rotation
 from gpaw.symmetry import Symmetry as OldSymmetry

@@ -1,13 +1,15 @@
 from __future__ import annotations
+
 from gpaw.core import UniformGrid
-from gpaw.new.builder import create_uniform_grid
-from gpaw.new.pwfd.builder import PWFDDFTComponentsBuilder
-from gpaw.new.poisson import PoissonSolverWrapper, PoissonSolver
-from gpaw.poisson import PoissonSolver as make_poisson_solver
-from gpaw.fd_operators import Laplace
-from gpaw.new.fd.pot_calc import UniformGridPotentialCalculator
 from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.fd_operators import Laplace
+from gpaw.new import zip
+from gpaw.new.builder import create_uniform_grid
+from gpaw.new.fd.pot_calc import UniformGridPotentialCalculator
 from gpaw.new.hamiltonian import Hamiltonian
+from gpaw.new.poisson import PoissonSolver, PoissonSolverWrapper
+from gpaw.new.pwfd.builder import PWFDDFTComponentsBuilder
+from gpaw.poisson import PoissonSolver as make_poisson_solver
 
 
 class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):

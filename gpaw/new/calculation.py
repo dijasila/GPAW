@@ -10,10 +10,10 @@ from gpaw.core.arrays import DistributedArrays
 from gpaw.densities import Densities
 from gpaw.electrostatic_potential import ElectrostaticPotential
 from gpaw.gpu import as_xp
-from gpaw.new import cached_property
+from gpaw.new import cached_property, zip
 from gpaw.new.builder import builder as create_builder
 from gpaw.new.density import Density
-from gpaw.new.ibzwfs import IBZWaveFunctions
+from gpaw.new.ibzwfs import IBZWaveFunctions, create_ibz_wave_functions
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
 from gpaw.new.potential import Potential
@@ -293,7 +293,14 @@ class DFTCalculation:
         pot_calc = builder.create_potential_calculator()
         potential, vHt_x, _ = pot_calc.calculate(density)
 
-        ibzwfs = ...  # create_ibz_wave_functions()
+        old_ibzwfs = self.state.ibzwfs
+        ibzwfs = create_ibz_wave_functions(
+            builder.ibz,
+            nelectrons=old_ibzwfs.nelectrons,
+            ncomponents=old_ibzwfs.ncomponents,
+            create_wfs_func=...,
+            kpt_comm=old_ibzwfs.kpt_comm)
+
         state = DFTState(ibzwfs, density, potential, vHt_x)
 
         write_atoms(atoms, builder.initial_magmom_av, log)

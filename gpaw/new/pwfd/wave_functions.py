@@ -12,7 +12,7 @@ from gpaw.core.plane_waves import PlaneWaveExpansions
 from gpaw.core.uniform_grid import UniformGrid, UniformGridFunctions
 from gpaw.fftw import get_efficient_fft_size
 from gpaw.gpu import as_xp
-from gpaw.new import prod
+from gpaw.new import prod, zip
 from gpaw.new.potential import Potential
 from gpaw.new.wave_functions import WaveFunctions
 from gpaw.setup import Setups

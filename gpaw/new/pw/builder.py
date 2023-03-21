@@ -5,6 +5,7 @@ from gpaw.core import PlaneWaves, UniformGrid
 from gpaw.core.domain import Domain
 from gpaw.core.matrix import Matrix
 from gpaw.core.plane_waves import PlaneWaveExpansions
+from gpaw.new import zip
 from gpaw.new.builder import create_uniform_grid
 from gpaw.new.pw.hamiltonian import PWHamiltonian, SpinorPWHamiltonian
 from gpaw.new.pw.poisson import make_poisson_solver
