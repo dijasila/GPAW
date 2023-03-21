@@ -208,7 +208,7 @@ class DFTCalculation:
             self.log()
         return mm_v, mm_av
 
-    def forces(self):
+    def forces(self, silent=False):
         """Calculate atomic forces."""
         xc = self.pot_calc.xc
         assert not xc.no_forces
@@ -242,13 +242,14 @@ class DFTCalculation:
 
         F_av = self.state.ibzwfs.ibz.symmetries.symmetrize_forces(F_av)
 
-        self.log('\nforces: [  # eV/Ang')
-        s = Ha / Bohr
-        for a, setup in enumerate(self.setups):
-            x, y, z = F_av[a] * s
-            c = ',' if a < len(F_av) - 1 else ']'
-            self.log(f'  [{x:9.3f}, {y:9.3f}, {z:9.3f}]{c}'
-                     f'  # {setup.symbol:2} {a}')
+        if not silent:
+            self.log('\nforces: [  # eV/Ang')
+            s = Ha / Bohr
+            for a, setup in enumerate(self.setups):
+                x, y, z = F_av[a] * s
+                c = ',' if a < len(F_av) - 1 else ']'
+                self.log(f'  [{x:9.3f}, {y:9.3f}, {z:9.3f}]{c}'
+                         f'  # {setup.symbol:2} {a}')
 
         self.results['forces'] = F_av
 

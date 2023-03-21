@@ -161,6 +161,9 @@ class ASECalculator:
 
         return self.calculation.results[prop] * units[prop]
 
+    def get_property(self, name, atoms):
+        return self.calculate_property(atoms, name)
+
     @property
     def results(self):
         if self.calculation is None:
@@ -204,7 +207,7 @@ class ASECalculator:
     def _calculate_forces(self) -> Array2D:  # units: Ha/Bohr
         """Helper method for force-convergence criterium."""
         with self.timer('Forces'):
-            self.calculation.forces()
+            self.calculation.forces(silent=True)
         return self.calculation.results['forces']
 
     def __del__(self):
@@ -255,6 +258,10 @@ class ASECalculator:
                   self.calculation, skip_wfs=mode != 'all')
 
     # Old API:
+
+    implemented_properties = ['energy', 'free_energy',
+                              'forces', 'stress',
+                              'dipole', 'magmom', 'magmoms']
 
     def new(self, **kwargs) -> ASECalculator:
         kwargs = {**dict(self.params.items()), **kwargs}
