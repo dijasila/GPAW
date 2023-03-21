@@ -1,10 +1,12 @@
 import numpy as np
 from gpaw.core import PlaneWaves
-from gpaw.new.pot_calc import PotentialCalculator
-from gpaw.setup import Setups
+from gpaw.gpu import cupy as cp
+from gpaw.gpu import is_hip
 from gpaw.mpi import broadcast_float
-from gpaw.gpu import cupy as cp, is_hip
+from gpaw.new import zip
+from gpaw.new.pot_calc import PotentialCalculator
 from gpaw.new.pw.stress import calculate_stress
+from gpaw.setup import Setups
 
 
 class PlaneWavePotentialCalculator(PotentialCalculator):

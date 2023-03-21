@@ -1,6 +1,7 @@
 from math import pi
 
 from gpaw.core import UniformGrid
+from gpaw.new import zip
 from gpaw.new.pot_calc import PotentialCalculator
 
 

@@ -617,6 +617,26 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         pw.comm.broadcast(m_v, 0)
         return m_v
 
+    def morph(self, pw):
+        pw0 = self.desc
+        out_xG = pw.zeros(self.dims,
+                          comm=self.comm,
+                          xp=self.xp)
+
+        d = {}
+        for G, i_c in enumerate(pw.indices_cG.T):
+            d[tuple(i_c)] = G
+        G_G0 = []
+        G0_G = []
+        for G0, i_c in enumerate(pw0.indices_cG.T):
+            G = d.get(tuple(i_c))
+            if G is not None:
+                G_G0.append(G)
+                G0_G.append(G0)
+
+        out_xG.data[:, G_G0] = self.data[:, G0_G]
+        return out_xG
+
 
 def a2a_stuff(comm, N, ng, myng, maxmyng):
     """Create arrays for MPI alltoallv call."""

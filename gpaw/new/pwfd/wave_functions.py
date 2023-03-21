@@ -12,7 +12,7 @@ from gpaw.core.plane_waves import PlaneWaveExpansions
 from gpaw.core.uniform_grid import UniformGrid, UniformGridFunctions
 from gpaw.fftw import get_efficient_fft_size
 from gpaw.gpu import as_xp
-from gpaw.new import prod
+from gpaw.new import prod, zip
 from gpaw.new.potential import Potential
 from gpaw.new.wave_functions import WaveFunctions
 from gpaw.setup import Setups
@@ -442,3 +442,25 @@ class PWFDWaveFunctions(WaveFunctions):
             self.atomdist,
             self.weight,
             self.ncomponents)
+
+    def morph(self, desc, fracpos_ac, atomdist):
+        desc = desc.new(kpt=self.psit_nX.desc.kpt_c)
+        psit_nX = self.psit_nX.morph(desc)
+
+        # Save memory:
+        self.psit_nX.data = None
+        self._P_ani = None
+        self._pt_aiX = None
+
+        wfs = PWFDWaveFunctions(
+            psit_nX,
+            self.spin,
+            self.q,
+            self.k,
+            self.setups,
+            fracpos_ac,
+            atomdist,
+            self.weight,
+            self.ncomponents)
+
+        return wfs

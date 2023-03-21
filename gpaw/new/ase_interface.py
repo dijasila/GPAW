@@ -8,13 +8,13 @@ from typing import IO, Any, Union
 import numpy as np
 from ase import Atoms
 from ase.units import Bohr, Ha
-
 from gpaw import __version__
 from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.dos import DOSCalculator
 from gpaw.new import Timer, cached_property
 from gpaw.new.builder import builder as create_builder
-from gpaw.new.calculation import DFTCalculation, DFTState, units
+from gpaw.new.calculation import (DFTCalculation, DFTState,
+                                  ReuseWaveFunctionsError, units)
 from gpaw.new.gpw import read_gpw, write_gpw
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
@@ -105,7 +105,7 @@ class ASECalculator:
     def calculate_property(self, atoms: Atoms, prop: str) -> Any:
         """Calculate (if not already calculated) a property.
 
-        Must be one of
+        The ``prop`` string must be one of
 
         * energy
         * forces
@@ -117,14 +117,31 @@ class ASECalculator:
         if self.calculation is not None:
             changes = compare_atoms(self.atoms, atoms)
             if changes & {'numbers', 'pbc', 'cell', 'magmoms'}:
-                # Start from scratch:
                 if 'numbers' not in changes:
                     # Remember magmoms if there are any:
                     magmom_a = self.calculation.results.get('magmoms')
                     if magmom_a is not None and magmom_a.any():
                         atoms = atoms.copy()
                         atoms.set_initial_magnetic_moments(magmom_a)
-                self.calculation = None
+
+                if changes & {'numbers', 'pbc'}:
+                    # Start from scratch:
+                    self.calculation = None
+                else:
+                    ibzwfs = self.calculation.state.ibzwfs
+                    kpt_parallel_only = (ibzwfs.band_comm.size == 1 and
+                                         ibzwfs.domain_comm.size == 1)
+                    if kpt_parallel_only:
+                        try:
+                            self.create_new_calculation_from_old(atoms)
+                        except ReuseWaveFunctionsError:
+                            self.calculation = None
+                        else:
+                            self.converge()
+                            changes = set()
+                    else:
+                        # Not implemented: just start from scratch
+                        self.calculation = None
 
         if self.calculation is None:
             self.create_new_calculation(atoms)
@@ -161,6 +178,12 @@ class ASECalculator:
     def create_new_calculation(self, atoms: Atoms) -> None:
         with self.timer('Init'):
             self.calculation = DFTCalculation.from_parameters(
+                atoms, self.params, self.log)
+        self.atoms = atoms.copy()
+
+    def create_new_calculation_from_old(self, atoms: Atoms) -> None:
+        with self.timer('Morph'):
+            self.calculation = self.calculation.new(
                 atoms, self.params, self.log)
         self.atoms = atoms.copy()
 
