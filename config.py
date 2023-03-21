@@ -117,9 +117,6 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     define_macros.append(('GPAW_INTERPRETER', '1'))
 
     cfgDict = get_config_vars()
-    include_dirs += shlex.split(cfgDict['INCLUDEPY'])
-    include_dirs += shlex.split(cfgDict['CONFINCLUDEPY'])
-
     library_dirs += shlex.split(cfgDict['LIBPL'])
 
     libs = [f'-l{lib}' for lib in libraries if lib.strip()]

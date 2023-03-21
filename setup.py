@@ -229,10 +229,11 @@ class build_ext(build_ext):
                 obj = self.build_temp / Path(src).with_suffix('.o')
                 objects.append(str(obj))
 
-            include_dirs.append(np.get_include())
             # Also build gpaw-python:
             parallel_python_exefile = build_interpreter(
-                define_macros, include_dirs, libraries,
+                define_macros,
+                include_dirs + self.include_dirs,
+                libraries,
                 library_dirs, extra_link_args, extra_compile_args,
                 runtime_library_dirs,
                 objects + extra_objects,
