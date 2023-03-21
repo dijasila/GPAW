@@ -23,6 +23,7 @@ stages:
     - pip install --user --no-deps git+https://gitlab.com/ase/ase.git@master
     - |
       cat << EOF > siteconfig.py
+      parallel_python_interpreter = True
       mpicompiler = 'mpicc'
       libraries = []
       library_dirs = []
@@ -45,7 +46,6 @@ stages:
       libraries += ['scalapack-openmpi']
 
       libraries += ['xc']
-
       EOF
   artifacts:
     when: always
@@ -83,6 +83,7 @@ build:
     - cat siteconfig.py
     - pip install --user --log build.log --editable .
     - gpaw -P 1 info
+    - gpaw-python -m gpaw info
 
 
 build-latest:
@@ -101,21 +102,6 @@ build-latest:
     - pip install --user --upgrade numpy scipy
     - pip install --user --log build.log --editable .
     - gpaw -P 1 info
-
-
-build-gpaw-python:
-  image: $IMAGE_PATH/build:oldest
-  extends: .build
-  tags:
-    - linux
-  script:
-    - |
-      cat << EOF >> siteconfig.py
-      extra_compile_args += ['-std=c99']
-      parallel_python_interpreter = True
-      EOF
-    - cat siteconfig.py
-    - pip install --user --log build.log --editable .
     - gpaw-python -m gpaw info
 
 
@@ -249,12 +235,13 @@ test-latest:
     expire_in: 1 week
   coverage: '/TOTAL.+ ([0-9]+\.[0-9]+%)/'
 
+
 test-gpaw-python:
   image: $IMAGE_PATH/run:oldest
   extends:
     - .test
   needs:
-    - build-gpaw-python
+    - build
   tags:
     - linux
   script:
