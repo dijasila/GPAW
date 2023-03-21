@@ -237,6 +237,10 @@ class ASECalculator:
 
     # Old API:
 
+    implemented_properties = ['energy', 'free_energy',
+                              'forces', 'stress',
+                              'dipole', 'magmom', 'magmoms']
+
     def new(self, **kwargs) -> ASECalculator:
         kwargs = {**dict(self.params.items()), **kwargs}
         return GPAW(**kwargs)
