@@ -1,13 +1,8 @@
-import pytest
 from ase import Atoms
-from gpaw import GPAW
+from gpaw.new.ase_interface import GPAW
 
 
-# @pytest.mark.gpu
-# @pytest.mark.skipif(size > 2, reason='Not implemented')
-# @pytest.mark.parametrize('gpu', [False, True])
-# @pytest.mark.parametrize('par', ['domain', 'kpt'])
-def test_gpu_pw_k():
+def test_new_cell():
     gpu = 0
     atoms = Atoms('H', pbc=True, cell=[1, 1, 1])
     atoms.calc = GPAW(
