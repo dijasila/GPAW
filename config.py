@@ -145,15 +145,11 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
 
     runtime_libs = [runtime_lib_option + lib
                     for lib in runtime_library_dirs]
-    extra_link_args += shlex.split(cfgDict['LDFLAGS'])
 
     if sys.platform in ['aix5', 'aix6']:
         extra_link_args += shlex.split(cfgDict['LINKFORSHARED'].replace(
                                        'Modules', cfgDict['LIBPL']))
     elif sys.platform == 'darwin':
-        # On a Mac, it is important to preserve the original compile args.
-        # This should probably always be done ?!?
-        extra_compile_args += shlex.split(cfgDict['CFLAGS'])
         extra_link_args += shlex.split(cfgDict['LINKFORSHARED'])
     else:
         extra_link_args += shlex.split(cfgDict['LINKFORSHARED'])
@@ -165,6 +161,7 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     for src in sources:
         obj = build_temp / src.with_suffix('.o')
         run_args = [mpicompiler]
+        run_args += shlex.split(cfgDict['CFLAGS'])
         run_args += [f'-D{name}={value}' for (name, value) in define_macros]
         run_args += [f'-I{dpath}' for dpath in include_dirs]
         run_args += ['-c', str(src)]
@@ -180,6 +177,7 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
 
     # Link the custom interpreter
     run_args = [mpilinker]
+    run_args += shlex.split(cfgDict['LDFLAGS'])
     run_args += objects
     run_args += [f'-L{dpath}' for dpath in library_dirs]
     run_args += [f'{lib}' for lib in libs + runtime_libs]
