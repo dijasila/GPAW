@@ -11,7 +11,6 @@ from gpaw.densities import Densities
 from gpaw.electrostatic_potential import ElectrostaticPotential
 from gpaw.gpu import as_xp
 from gpaw.new import cached_property, zip
-from gpaw.new.ase_interface import ReuseWaveFunctionsError
 from gpaw.new.builder import builder as create_builder
 from gpaw.new.density import Density
 from gpaw.new.ibzwfs import IBZWaveFunctions, create_ibz_wave_functions
@@ -25,6 +24,14 @@ from gpaw.typing import Array1D, Array2D
 from gpaw.utilities import (check_atoms_too_close,
                             check_atoms_too_close_to_boundary)
 from gpaw.utilities.partition import AtomPartition
+
+
+class ReuseWaveFunctionsError(Exception):
+    """Reusing the old wave functions after cell change failed.
+
+    Most likekly, the number of k-points changed.
+    """
+
 
 units = {'energy': Ha,
          'free_energy': Ha,
@@ -289,7 +296,7 @@ class DFTCalculation:
         builder = create_builder(atoms, params)
 
         kpt_kc = builder.ibz.kpt_kc
-        old_kpt_kc = self.state.ibzwfs.ibc.ibz.kpt_kc
+        old_kpt_kc = self.state.ibzwfs.ibz.kpt_kc
         if len(kpt_kc) != len(old_kpt_kc):
             raise ReuseWaveFunctionsError
         if abs(kpt_kc - old_kpt_kc).max() > 1e-9:

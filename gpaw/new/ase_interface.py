@@ -8,13 +8,13 @@ from typing import IO, Any, Union
 import numpy as np
 from ase import Atoms
 from ase.units import Bohr, Ha
-
 from gpaw import __version__
 from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.dos import DOSCalculator
 from gpaw.new import Timer, cached_property
 from gpaw.new.builder import builder as create_builder
-from gpaw.new.calculation import DFTCalculation, DFTState, units
+from gpaw.new.calculation import (DFTCalculation, DFTState,
+                                  ReuseWaveFunctionsError, units)
 from gpaw.new.gpw import read_gpw, write_gpw
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
@@ -23,13 +23,6 @@ from gpaw.new.xc import XCFunctional
 from gpaw.typing import Array1D, Array2D, Array3D
 from gpaw.utilities import pack
 from gpaw.utilities.memory import maxrss
-
-
-class ReuseWaveFunctionsError(Exception):
-    """Reusing the old wave functions after cell change failed.
-
-    Most likekly, the number of k-points changed.
-    """
 
 
 def GPAW(filename: Union[str, Path, IO[str]] = None,
