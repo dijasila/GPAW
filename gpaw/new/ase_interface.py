@@ -161,7 +161,7 @@ class ASECalculator:
             elif prop == 'dipole':
                 self.calculation.dipole()
             else:
-                raise ValueError('Unknown property:', prop)
+                raise KeyError('Unknown property:', prop)
 
         return self.calculation.results[prop] * units[prop]
 
