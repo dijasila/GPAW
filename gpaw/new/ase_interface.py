@@ -123,13 +123,21 @@ class ASECalculator:
                     if magmom_a is not None and magmom_a.any():
                         atoms = atoms.copy()
                         atoms.set_initial_magnetic_moments(magmom_a)
+
                 if changes & {'numbers', 'pbc'}:
                     # Start from scratch:
                     self.calculation = None
                 else:
-                    self.create_new_calculation_from_old(atoms)
-                    self.converge()
-                    changes = {}
+                    ibzwfs = self.calculation.state.ibzwfs
+                    kpt_parallel_only = (ibzwfs.band_comm.size == 1 and
+                                         ibzwfs.domain_comm.size == 1)
+                    if kpt_parallel_only:
+                        self.create_new_calculation_from_old(atoms)
+                        self.converge()
+                        changes = set()
+                    else:
+                        # Not implemented: just start from scratch
+                        self.calculation = None
 
         if self.calculation is None:
             self.create_new_calculation(atoms)
