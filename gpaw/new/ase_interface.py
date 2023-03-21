@@ -105,7 +105,7 @@ class ASECalculator:
     def calculate_property(self, atoms: Atoms, prop: str) -> Any:
         """Calculate (if not already calculated) a property.
 
-        Must be one of
+        The ``prop`` string must be one of
 
         * energy
         * forces
@@ -129,6 +129,7 @@ class ASECalculator:
                 else:
                     self.create_new_calculation_from_old(atoms)
                     self.converge()
+                    changes = {}
 
         if self.calculation is None:
             self.create_new_calculation(atoms)
