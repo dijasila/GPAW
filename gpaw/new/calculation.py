@@ -299,7 +299,8 @@ class DFTCalculation:
             wfs = old_ibzwfs.wfs_qs[q][spin]
             return wfs.morph(
                 builder.wf_desc,
-                builder.fracpos_ac)
+                builder.fracpos_ac,
+                builder.atomdist)
 
         ibzwfs = create_ibz_wave_functions(
             builder.ibz,

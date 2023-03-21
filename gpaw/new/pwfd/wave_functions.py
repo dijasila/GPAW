@@ -443,7 +443,7 @@ class PWFDWaveFunctions(WaveFunctions):
             self.weight,
             self.ncomponents)
 
-    def morph(self, desc, fracpos_ac):
+    def morph(self, desc, fracpos_ac, atomdist):
         desc = desc.new(kpt=self.psit_nX.desc.kpt_c)
         psit_nX = self.psit_nX.morph(desc)
 
@@ -459,7 +459,7 @@ class PWFDWaveFunctions(WaveFunctions):
             self.k,
             self.setups,
             fracpos_ac,
-            self.atomdist,
+            atomdist,
             self.weight,
             self.ncomponents)
 
