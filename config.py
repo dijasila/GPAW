@@ -91,7 +91,8 @@ def write_configuration(define_macros, include_dirs, libraries, library_dirs,
     out.close()
 
 
-def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
+def build_interpreter(define_macros, undef_macros, include_dirs,
+                      libraries, library_dirs,
                       extra_link_args, extra_compile_args,
                       runtime_library_dirs, objects,
                       build_temp, build_bin,
@@ -153,6 +154,7 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
         run_args = [mpicompiler]
         run_args += shlex.split(cfgDict['CFLAGS'])
         run_args += [f'-D{name}={value}' for (name, value) in define_macros]
+        run_args += [f'-U{name}' for name in undef_macros]
         run_args += [f'-I{dpath}' for dpath in include_dirs]
         run_args += ['-c', str(src)]
         run_args += ['-o', str(obj)]
