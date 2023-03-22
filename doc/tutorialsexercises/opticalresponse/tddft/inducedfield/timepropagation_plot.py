@@ -1,5 +1,4 @@
 # web-page: na2_td_Ffe.png, na2_td_Frho.png, na2_td_Fphi.png
-# -*- coding: utf-8 -*-
 from gpaw.mpi import world
 
 import numpy as np

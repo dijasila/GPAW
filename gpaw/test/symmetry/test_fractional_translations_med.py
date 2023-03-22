@@ -28,8 +28,8 @@ def test_symmetry_fractional_translations_med():
     atoms.calc = calc
     energy_fractrans = atoms.get_potential_energy()
 
-    assert(len(calc.wfs.kd.ibzk_kc) == 7)
-    assert(len(calc.wfs.kd.symmetry.op_scc) == 6)
+    assert len(calc.wfs.kd.ibzk_kc) == 7
+    assert len(calc.wfs.kd.symmetry.op_scc) == 6
 
     # without fractional translations
     calc = GPAW(mode=PW(),
@@ -42,7 +42,7 @@ def test_symmetry_fractional_translations_med():
     atoms.calc = calc
     energy_no_fractrans = atoms.get_potential_energy()
 
-    assert(len(calc.wfs.kd.ibzk_kc) == 10)
-    assert(len(calc.wfs.kd.symmetry.op_scc) == 2)
+    assert len(calc.wfs.kd.ibzk_kc) == 10
+    assert len(calc.wfs.kd.symmetry.op_scc) == 2
 
     equal(energy_fractrans, energy_no_fractrans, 1e-3)

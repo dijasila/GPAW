@@ -15,20 +15,22 @@ from gpaw.core.matrix import Matrix
 from gpaw.lcao.tci import TCIExpansions
 from gpaw.lfc import BasisFunctions
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.new import zip_strict
+from gpaw.new import zip
 from gpaw.new.calculation import DFTState
-from gpaw.new.lcao.builder import LCAODFTComponentsBuilder
-from gpaw.new.lcao.hamiltonian import HamiltonianMatrixCalculator
+from gpaw.new.lcao.builder import LCAODFTComponentsBuilder, create_lcao_ibzwfs
+from gpaw.new.lcao.hamiltonian import CollinearHamiltonianMatrixCalculator
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
 from gpaw.new.pot_calc import PotentialCalculator
 from gpaw.setup import Setup
 from gpaw.spline import Spline
 from gpaw.utilities.timing import NullTimer
+from gpaw.typing import Array3D
 
 
-class TBHamiltonianMatrixCalculator(HamiltonianMatrixCalculator):
+class TBHamiltonianMatrixCalculator(CollinearHamiltonianMatrixCalculator):
     def _calculate_potential_matrix(self,
-                                    wfs: LCAOWaveFunctions) -> Matrix:
+                                    wfs: LCAOWaveFunctions,
+                                    V_xMM: Array3D = None) -> Matrix:
         return wfs.V_MM
 
 
@@ -40,14 +42,16 @@ class TBHamiltonian:
     def apply(self):
         raise NotImplementedError
 
-    def create_hamiltonian_matrix_calculator(self,
-                                             state: DFTState
-                                             ) -> HamiltonianMatrixCalculator:
+    def create_hamiltonian_matrix_calculator(
+            self,
+            state: DFTState) -> TBHamiltonianMatrixCalculator:
         dH_saii = [{a: dH_sii[s]
                     for a, dH_sii in state.potential.dH_asii.items()}
                    for s in range(state.density.ncomponents)]
 
-        return TBHamiltonianMatrixCalculator([], dH_saii, self.basis)
+        V_sxMM = [np.zeros(0) for _ in range(state.density.ncomponents)]
+
+        return TBHamiltonianMatrixCalculator(V_sxMM, dH_saii, self.basis)
 
 
 class NoGrid(Domain):
@@ -59,8 +63,9 @@ class NoGrid(Domain):
             pbc_c=self.pbc_c,
             N_c=[0, 0, 0],
             dv=0.0)
+        self.size = (0, 0, 0)
 
-    def empty(self, shape=(), comm=serial_comm):
+    def empty(self, shape=(), comm=serial_comm, xp=None):
         return DummyFunctions(self, shape, comm)
 
     def ranks_from_fractional_positions(self, fracpos_ac):
@@ -74,7 +79,7 @@ class DummyFunctions(DistributedArrays[NoGrid]):
                  comm: MPIComm = serial_comm):
         DistributedArrays. __init__(self, dims, (),
                                     comm, grid.comm, None, np.nan,
-                                    grid.dtype, transposed=False)
+                                    grid.dtype)
         self.desc = grid
 
     def integrate(self):
@@ -88,6 +93,9 @@ class DummyFunctions(DistributedArrays[NoGrid]):
 
     def moment(self):
         return np.zeros(3)
+
+    def to_xp(self, xp):
+        return self
 
 
 class PSCoreDensities:
@@ -112,9 +120,11 @@ class TBPotentialCalculator(PotentialCalculator):
         self.stress_vv = None
 
     def calculate_charges(self, vHt_r):
-        return {a: np.zeros(9) for a, setup in enumerate(self.setups)}
+        return AtomArraysLayout(
+            [9] * len(self.atoms),
+            self.nct_R.comm).zeros()
 
-    def _calculate(self, density, vHt_r):
+    def calculate_pseudo_potential(self, density, vHt_r):
         vt_sR = density.nt_sR
 
         atoms = self.atoms
@@ -163,6 +173,7 @@ class TBSCFLoop:
                 pot_calc,
                 convergence=None,
                 maxiter=None,
+                calculate_forces=None,
                 log=None):
         self.eigensolver.iterate(state, self.hamiltonian)
         state.ibzwfs.calculate_occs(self.occ_calc)
@@ -214,9 +225,19 @@ class TBDFTComponentsBuilder(LCAODFTComponentsBuilder):
         eigensolver = self.create_eigensolver(hamiltonian)
         return TBSCFLoop(hamiltonian, occ_calc, eigensolver)
 
-    def create_ibz_wave_functions(self, basis, potential):
+    def create_ibz_wave_functions(self,
+                                  basis: BasisFunctions,
+                                  potential,
+                                  *,
+                                  log=None,
+                                  coefficients=None):
         assert self.communicators['w'].size == 1
-        ibzwfs = super().create_ibz_wave_functions(basis, potential)
+
+        ibzwfs, tciexpansions = create_lcao_ibzwfs(
+            basis, potential,
+            self.ibz, self.communicators, self.setups,
+            self.fracpos_ac, self.grid, self.dtype,
+            self.nbands, self.ncomponents, self.atomdist, self.nelectrons)
 
         vtphit: dict[Setup, list[Spline]] = {}
 
@@ -229,7 +250,7 @@ class TBDFTComponentsBuilder(LCAODFTComponentsBuilder):
             vt_r[-1] = 0.0  # ???
             vt = setup.rgd.spline(vt_r, points=300)
             vtphit_j = []
-            for phit in setup.phit_j:
+            for phit in setup.basis_functions_J:
                 rc = phit.get_cutoff()
                 r_g = np.linspace(0, rc, 150)
                 vt_g = vt.map(r_g) / (4 * pi)**0.5
@@ -237,9 +258,10 @@ class TBDFTComponentsBuilder(LCAODFTComponentsBuilder):
                 vtphit_j.append(Spline(phit.l, rc, vt_g * phit_g))
             vtphit[setup] = vtphit_j
 
-        vtciexpansions = TCIExpansions([s.phit_j for s in self.setups],
+        vtciexpansions = TCIExpansions([s.basis_functions_J
+                                        for s in self.setups],
                                        [vtphit[s] for s in self.setups],
-                                       self.tciexpansions.I_a)
+                                       tciexpansions.I_a)
 
         kpt_qc = np.array([wfs.kpt_c for wfs in ibzwfs])
         manytci = vtciexpansions.get_manytci_calculator(
@@ -249,7 +271,7 @@ class TBDFTComponentsBuilder(LCAODFTComponentsBuilder):
         manytci.Pindices = manytci.Mindices
         my_atom_indices = basis.my_atom_indices
 
-        for wfs, V_MM in zip_strict(ibzwfs, manytci.P_qIM(my_atom_indices)):
+        for wfs, V_MM in zip(ibzwfs, manytci.P_qIM(my_atom_indices)):
             V_MM = V_MM.toarray()
             V_MM += V_MM.T.conj().copy()
             M1 = 0

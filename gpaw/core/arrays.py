@@ -1,12 +1,20 @@
 from __future__ import annotations
-import numpy as np
-from gpaw.mpi import MPIComm
-from gpaw.core.matrix import Matrix
-from gpaw.typing import Array1D
+
+from types import ModuleType
 from typing import TYPE_CHECKING, Generic, TypeVar
+
+import gpaw.fftw as fftw
+import numpy as np
+from ase.io.ulm import NDArrayReader
 from gpaw.core.domain import Domain
+from gpaw.core.matrix import Matrix
+from gpaw.mpi import MPIComm
+from gpaw.typing import Array1D
+
 if TYPE_CHECKING:
-    from gpaw.core.uniform_grid import UniformGridFunctions
+    from gpaw.core.uniform_grid import UniformGridFunctions, UniformGrid
+
+from gpaw.new import prod
 
 DomainType = TypeVar('DomainType', bound=Domain)
 
@@ -22,12 +30,11 @@ class DistributedArrays(Generic[DomainType]):
                  data: np.ndarray | None,
                  dv: float,
                  dtype,
-                 transposed: bool):
+                 xp=None):
         self.myshape = myshape
         self.comm = comm
         self.domain_comm = domain_comm
         self.dv = dv
-        self.transposed = transposed
 
         # convert int to tuple:
         self.dims = dims if isinstance(dims, tuple) else (dims,)
@@ -41,10 +48,7 @@ class DistributedArrays(Generic[DomainType]):
         else:
             self.mydims = ()
 
-        if transposed:
-            fullshape = self.myshape + self.mydims
-        else:
-            fullshape = self.mydims + self.myshape
+        fullshape = self.mydims + self.myshape
 
         if data is not None:
             if data.shape != fullshape:
@@ -53,14 +57,26 @@ class DistributedArrays(Generic[DomainType]):
             if data.dtype != dtype:
                 raise ValueError(
                     f'Bad dtype for data: {data.dtype} != {dtype}')
+            if xp is not None:
+                assert (xp is np) == isinstance(
+                    data, (np.ndarray, NDArrayReader)), xp
         else:
-            data = np.empty(fullshape, dtype)
+            data = (xp or np).empty(fullshape, dtype)
 
         self.data = data
+        self.xp: ModuleType
+        if isinstance(data, (np.ndarray, NDArrayReader)):
+            self.xp = np
+        else:
+            from gpaw.gpu import cupy as cp
+            self.xp = cp
         self._matrix: Matrix | None = None
 
     def new(self, data=None) -> DistributedArrays:
         raise NotImplementedError
+
+    def copy(self):
+        return self.new(data=self.data.copy())
 
     def __getitem__(self, index):
         raise NotImplementedError
@@ -76,19 +92,25 @@ class DistributedArrays(Generic[DomainType]):
             for index in np.indices(self.dims).reshape((len(self.dims), -1)).T:
                 yield self[tuple(index)]
 
+    def to_xp(self, xp):
+        if xp is self.xp:
+            # Disable assert for now as it would fail with our HIP-rfftn hack!
+            # assert xp is np, 'cp -> cp should not be needed!'
+            return self
+        if xp is np:
+            return self.new(data=self.xp.asnumpy(self.data))
+        else:
+            return self.new(data=xp.asarray(self.data))
+
     @property
     def matrix(self) -> Matrix:
         if self._matrix is not None:
             return self._matrix
 
-        if self.transposed:
-            shape = (np.prod(self.myshape), np.prod(self.dims))
-            myshape = (np.prod(self.myshape), np.prod(self.mydims))
-            dist = (self.comm, 1, -1)
-        else:
-            shape = (np.prod(self.dims), np.prod(self.myshape))
-            myshape = (np.prod(self.mydims), np.prod(self.myshape))
-            dist = (self.comm, -1, 1)
+        nx = prod(self.myshape)
+        shape = (self.dims[0], prod(self.dims[1:]) * nx)
+        myshape = (self.mydims[0], prod(self.mydims[1:]) * nx)
+        dist = (self.comm, -1, 1)
 
         data = self.data.reshape(myshape)
         self._matrix = Matrix(*shape, data=data, dist=dist)
@@ -101,17 +123,19 @@ class DistributedArrays(Generic[DomainType]):
                         out: Matrix = None,
                         symmetric: bool = None,
                         function=None,
-                        domain_sum=True) -> Matrix:
+                        domain_sum=True,
+                        cc: bool = False) -> Matrix:
         if symmetric is None:
             symmetric = self is other
         if function:
             other = function(other)
+
         M1 = self.matrix
         M2 = other.matrix
-        assert not self.transposed and not other.transposed
         out = M1.multiply(M2, opb='C', alpha=self.dv,
                           symmetric=symmetric, out=out)
-        out.complex_conjugate()
+        if not cc:
+            out.complex_conjugate()
         # operate_and_multiply(self, self.layout.dv, out, function, ...)
 
         self._matrix_elements_correction(M1, M2, out, symmetric)
@@ -131,7 +155,7 @@ class DistributedArrays(Generic[DomainType]):
 
     def abs_square(self,
                    weights: Array1D,
-                   out: UniformGridFunctions = None) -> None:
+                   out: UniformGridFunctions) -> None:
         """Add weighted absolute square of data to output array.
 
         See also :xkcd:`849`.
@@ -139,6 +163,13 @@ class DistributedArrays(Generic[DomainType]):
         raise NotImplementedError
 
     def gather(self, out=None, broadcast=False):
+        raise NotImplementedError
+
+    def interpolate(self,
+                    plan1: fftw.FFTPlans = None,
+                    plan2: fftw.FFTPlans = None,
+                    grid: UniformGrid = None,
+                    out: UniformGridFunctions = None) -> UniformGridFunctions:
         raise NotImplementedError
 
 

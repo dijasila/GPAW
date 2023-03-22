@@ -3,11 +3,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Sequence
 
 import numpy as np
-# from numpy.typing import DTypeLike
 from ase.geometry.cell import cellpar_to_cell
+
 from gpaw.fftw import get_efficient_fft_size
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.typing import Array2D, ArrayLike, ArrayLike1D, ArrayLike2D, Vector
+from gpaw.typing import (Array2D, ArrayLike, ArrayLike1D, ArrayLike2D,
+                         DTypeLike, Vector)
 
 if TYPE_CHECKING:
     from gpaw.core import UniformGrid
@@ -31,18 +32,22 @@ def normalize_cell(cell: ArrayLike) -> Array2D:
 
 
 class Domain:
+    itemsize: int
+
     def __init__(self,
                  cell: ArrayLike1D | ArrayLike2D,
                  pbc=(True, True, True),
                  kpt: Vector = None,
                  comm: MPIComm = serial_comm,
-                 dtype=None):
+                 dtype: DTypeLike = None):
         """"""
         if isinstance(pbc, int):
             pbc = (pbc,) * 3
         self.cell_cv = normalize_cell(cell)
         self.pbc_c = np.array(pbc, bool)
         self.comm = comm
+
+        self.volume = abs(np.linalg.det(self.cell_cv))
 
         assert dtype in [None, float, complex]
 
@@ -63,7 +68,9 @@ class Domain:
                 if not p and k != 0:
                     raise ValueError(f'Bad k-point {kpt} for pbc={pbc}')
 
-        self.dtype = np.dtype(dtype)
+        self.dtype = np.dtype(dtype)  # type: ignore
+
+        self.myshape: tuple[int, ...]
 
     def __repr__(self):
         comm = self.comm
@@ -97,18 +104,30 @@ class Domain:
 
     def empty(self,
               shape: int | tuple[int, ...] = (),
-              comm: MPIComm = serial_comm) -> DistributedArrays:
+              comm: MPIComm = serial_comm, xp=None) -> DistributedArrays:
         raise NotImplementedError
 
     def zeros(self,
               shape: int | tuple[int, ...] = (),
-              comm: MPIComm = serial_comm) -> DistributedArrays:
-        array = self.empty(shape, comm)
+              comm: MPIComm = serial_comm, xp=None) -> DistributedArrays:
+        array = self.empty(shape, comm, xp=xp)
         array.data[:] = 0.0
         return array
 
     @property
     def icell(self):
+        """Inverse of unit cell.
+
+        >>> d = Domain([1, 2, 4])
+        >>> d.icell
+        array([[1.  , 0.  , 0.  ],
+               [0.  , 0.5 , 0.  ],
+               [0.  , 0.  , 0.25]])
+        >>> d.cell @ d.icell.T
+        array([[1., 0., 0.],
+               [0., 1., 0.],
+               [0., 0., 1.]])
+        """
         return np.linalg.inv(self.cell).T
 
     def uniform_grid_with_grid_spacing(self,

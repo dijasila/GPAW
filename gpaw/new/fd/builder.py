@@ -1,18 +1,21 @@
 from __future__ import annotations
+
 from gpaw.core import UniformGrid
-from gpaw.new.builder import create_uniform_grid
-from gpaw.new.pwfd.builder import PWFDDFTComponentsBuilder
-from gpaw.new.poisson import PoissonSolverWrapper, PoissonSolver
-from gpaw.poisson import PoissonSolver as make_poisson_solver
-from gpaw.fd_operators import Laplace
-from gpaw.new.fd.pot_calc import UniformGridPotentialCalculator
 from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.fd_operators import Laplace
+from gpaw.new import zip
+from gpaw.new.builder import create_uniform_grid
+from gpaw.new.fd.pot_calc import UniformGridPotentialCalculator
 from gpaw.new.hamiltonian import Hamiltonian
+from gpaw.new.poisson import PoissonSolver, PoissonSolverWrapper
+from gpaw.new.pwfd.builder import PWFDDFTComponentsBuilder
+from gpaw.poisson import PoissonSolver as make_poisson_solver
 
 
 class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
     def __init__(self, atoms, params, nn=3, interpolation=3):
         super().__init__(atoms, params)
+        assert not self.soc
         self.kin_stencil_range = nn
         self.interpolation_stencil_range = interpolation
 
@@ -66,8 +69,8 @@ class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
                                                  q):
         grid = self.grid.new(kpt=kpt_c, dtype=self.dtype)
         psit_nR = grid.zeros(self.nbands, self.communicators['b'])
-        mynbands = len(C_nM)
-        basis_set.lcao_to_grid(C_nM, psit_nR.data[:mynbands], q)
+        mynbands = len(C_nM.data)
+        basis_set.lcao_to_grid(C_nM.data, psit_nR.data[:mynbands], q)
         return psit_nR
 
     def read_ibz_wave_functions(self, reader):

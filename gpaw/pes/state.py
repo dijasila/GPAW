@@ -64,7 +64,7 @@ class H1s(State):
     def get_grid(self):
         if self.grid_g is None:
             gd = self.gd
-            assert(gd.orthogonal)
+            assert gd.orthogonal
             wf = gd.zeros(dtype=float)
             vr0 = np.array([0., 0., 0.])
             for i in range(gd.n_c[0]):

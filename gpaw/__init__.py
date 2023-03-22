@@ -7,23 +7,25 @@ import contextlib
 from pathlib import Path
 from typing import List, Dict, Union, Any, TYPE_CHECKING
 
-__version__ = '22.1.1b1'
-__ase_version_required__ = '3.23.0b1'
+__version__ = '22.8.1b1'
+__ase_version_required__ = '3.22.1'
 __all__ = ['GPAW',
            'Mixer', 'MixerSum', 'MixerDif', 'MixerSum2',
+           'MixerFull',
            'CG', 'Davidson', 'RMMDIIS', 'DirectLCAO',
            'PoissonSolver',
            'FermiDirac', 'MethfesselPaxton', 'MarzariVanderbilt',
            'PW', 'LCAO', 'FD',
            'restart']
 
-
 setup_paths: List[Union[str, Path]] = []
 is_gpaw_python = '_gpaw' in sys.builtin_module_names
 dry_run = 0
 
-# When type-checking, we want the debug-wrappers enabled:
-debug: bool = TYPE_CHECKING or bool(sys.flags.debug)
+# When type-checking or running pytest, we want the debug-wrappers enabled:
+debug: bool = (TYPE_CHECKING or
+               'pytest' in sys.modules or
+               bool(sys.flags.debug))
 
 
 @contextlib.contextmanager
@@ -61,6 +63,11 @@ with broadcast_imports:
     if is_gpaw_python:
         sys.setdlopenflags(old_dlopen_flags)
     import _gpaw
+
+SCIPY_VERSION = [int(x) for x in scipy.__version__.split('.')[:2]]
+
+if getattr(_gpaw, 'version', 0) != 3:
+    raise ImportError('Please recompile GPAW''s C-extensions!')
 
 
 class ConvergenceError(Exception):
@@ -158,21 +165,32 @@ def main():
 if debug:
     np.seterr(over='raise', divide='raise', invalid='raise', under='ignore')
     oldempty = np.empty
+    oldempty_like = np.empty_like
 
     def empty(*args, **kwargs):
         a = oldempty(*args, **kwargs)
         try:
             a.fill(np.nan)
         except ValueError:
-            a.fill(-1000000)
+            a.fill(42)
+        return a
+
+    def empty_like(*args, **kwargs):
+        a = oldempty_like(*args, **kwargs)
+        try:
+            a.fill(np.nan)
+        except ValueError:
+            a.fill(-42)
         return a
 
     np.empty = empty
+    np.empty_like = empty_like
 
 
 with broadcast_imports:
     from gpaw.calculator import GPAW as OldGPAW
-    from gpaw.mixer import Mixer, MixerSum, MixerDif, MixerSum2
+    from gpaw.mixer import Mixer, MixerSum, MixerDif, MixerSum2, \
+        MixerFull
     from gpaw.eigensolvers import Davidson, RMMDIIS, CG, DirectLCAO
     from gpaw.poisson import PoissonSolver
     from gpaw.occupations import (FermiDirac, MethfesselPaxton,

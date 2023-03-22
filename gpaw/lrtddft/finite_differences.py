@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import os.path
 import numpy as np
 from ase import parallel as mpi

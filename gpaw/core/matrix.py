@@ -1,15 +1,18 @@
 """BLACS distributed matrix object."""
 from __future__ import annotations
 
+from types import ModuleType
 from typing import Dict, Tuple, Union
 
 import _gpaw
-import gpaw.utilities.blas as blas
 import numpy as np
-import scipy.linalg as linalg
-from gpaw import debug
+import scipy.linalg as sla
+
+import gpaw.utilities.blas as blas
+from gpaw import debug, SCIPY_VERSION
+from gpaw.gpu import cupy as cp, cupy_eigh
 from gpaw.mpi import MPIComm, _Communicator, serial_comm
-from gpaw.typing import Array1D, ArrayLike2D
+from gpaw.typing import Array1D, ArrayLike1D, ArrayLike2D
 
 _global_blacs_context_store: Dict[Tuple[_Communicator, int, int], int] = {}
 
@@ -56,7 +59,8 @@ class Matrix:
                  N: int,
                  dtype=None,
                  data: ArrayLike2D = None,
-                 dist: Union[MatrixDistribution, tuple[int, ...]] = None):
+                 dist: Union[MatrixDistribution, tuple] = None,
+                 xp=None):
         """Matrix object.
 
         Parameters
@@ -77,7 +81,9 @@ class Matrix:
             """
         self.shape = (M, N)
 
-        if data is not None:
+        if data is None or isinstance(data, (np.ndarray, cp.ndarray)):
+            pass
+        else:
             data = np.asarray(data)
 
         if dtype is None:
@@ -88,19 +94,36 @@ class Matrix:
         self.dtype = np.dtype(dtype)
         assert dtype == float or dtype == complex, dtype
 
+        self.xp: ModuleType
+        if xp is None:
+            if isinstance(dist, CuPyDistribution):
+                self.xp = cp
+            elif data is not None and not isinstance(data, np.ndarray):
+                self.xp = cp
+            else:
+                self.xp = np
+        else:
+            self.xp = xp
+
         dist = dist or ()
         if isinstance(dist, tuple):
-            dist = create_distribution(M, N, *dist)
+            kwargs = {key: val for key, val in zip(['comm', 'r', 'c', 'b'],
+                                                   dist)}
+            dist = create_distribution(M, N, xp=self.xp, **kwargs)
+        else:
+            assert self.shape == dist.full_shape
         self.dist = dist
 
         if data is None:
-            self.data = np.empty(dist.shape, self.dtype)
+            self.data = self.xp.empty(dist.shape, self.dtype)
         else:
             self.data = data.reshape(dist.shape)
 
     def __repr__(self):
         dist = str(self.dist).split('(')[1]
-        return 'Matrix({}: {}'.format(self.dtype.name, dist)
+        if self.xp is cp:
+            dist = 'xp=cp, ' + dist
+        return f'Matrix({self.dtype.name}: {dist}'
 
     def new(self, dist='inherit', data=None) -> Matrix:
         """Create new matrix of same shape and dtype.
@@ -124,6 +147,12 @@ class Matrix:
         assert isinstance(value, Matrix)
         self.data[:] = value.data
 
+    def __iadd__(self, other):
+        if isinstance(other, Matrix):
+            other = other.data
+        self.data += other
+        return self
+
     def multiply(self,
                  other,
                  alpha=1.0,
@@ -142,12 +171,11 @@ class Matrix:
             assert beta == 0.0
             M = A.shape[0] if opa == 'N' else A.shape[1]
             N = B.shape[1] if opb == 'N' else B.shape[0]
-            out = Matrix(M, N, A.dtype,
-                         dist=(dist.comm, dist.rows, dist.columns))
+            out = Matrix(M, N, A.dtype, dist=dist.new(M, N))
         elif not isinstance(out, Matrix):
             out = out.matrix
 
-        if dist.comm.size > 1:
+        if 0:  # dist.comm.size > 1:
             # Special cases that don't need scalapack - most likely also
             # faster:
             if alpha == 1.0 and opa == 'N' and opb == 'N':
@@ -158,7 +186,7 @@ class Matrix:
                 else:
                     return fastmmm2notsym(A, B, out)
 
-        dist.multiply(alpha, A, opa, B, opb, beta, out, symmetric)
+        dist.multiply(alpha, A, opa, B, opb, beta, out, symmetric=symmetric)
         return out
 
     def redist(self, other: Matrix) -> None:
@@ -235,15 +263,33 @@ class Matrix:
 
         return S
 
-    def invcholesky(self) -> None:
-        """Inverse of Cholesky decomposition.
+    def inv(self, uplo='L'):
+        """Inplace inversion."""
+        assert uplo == 'L'
+        M, N = self.shape
+        assert M == N
+        dist = self.dist
+        if dist.comm.size == 1:
+            self.tril2full()
+            self.data[:] = sla.inv(self.data,
+                                   overwrite_a=True,
+                                   check_finite=debug)
+            return
+        bc, br = dist.desc[4:6]
+        assert bc == br
+        info = _gpaw.scalapack_inverse(self.data, dist.desc, 'U')
+        if info != 0:
+            raise ValueError(f'scalapack_inverse error: {info}')
 
-        Returns a lower triangle matrix `L` where:::
+    def invcholesky(self) -> None:
+        """In-place inverse of Cholesky decomposition.
+
+        Calculate a lower triangle matrix `L` where:::
 
              †
-          LSL = 1
+          LSL = 1,
 
-        Only the lower part of `S` is used.
+        and `S` is self.  Only the lower part of `S` is used.
 
         >>> S = Matrix(2, 2, data=[[1.0, np.nan],
         ...                        [0.1, 1.0]])
@@ -254,28 +300,44 @@ class Matrix:
         """
         S = self.gather()
         if self.dist.comm.rank == 0:
-            if debug:
-                S.data[np.triu_indices(S.shape[0], 1)] = 42.0
-            L_nn = linalg.cholesky(S.data,
-                                   lower=True,
-                                   overwrite_a=True,
-                                   check_finite=debug)
-            S.data[:] = linalg.inv(L_nn,
-                                   overwrite_a=True,
-                                   check_finite=debug)
+            if isinstance(S.data, np.ndarray):
+                if debug:
+                    S.data[np.triu_indices(S.shape[0], 1)] = 42.0
+                L_nn = sla.cholesky(S.data,
+                                    lower=True,
+                                    overwrite_a=True,
+                                    check_finite=debug)
+                S.data[:] = sla.inv(L_nn,
+                                    overwrite_a=True,
+                                    check_finite=debug)
+            else:
+                self.tril2full()
+                L_nn = cp.linalg.cholesky(S.data)
+                S.data[:] = cp.linalg.inv(L_nn)
+
         if S is not self:
             S.redist(self)
 
-    def eigh(self, cc=False, scalapack=(None, 1, 1, None)) -> Array1D:
+    def eigh(self,
+             S=None,
+             *,
+             cc=False,
+             scalapack=(None, 1, 1, None),
+             limit: int = None) -> Array1D:
         """Calculate eigenvectors and eigenvalues.
 
         Matrix must be symmetric/hermitian and stored in lower half.
+        If ``S`` is given, solve a generalized eigenvalue problem.
 
+        Parameters
+        ----------
         cc: bool
             Complex conjugate matrix before finding eigenvalues.
         scalapack: tuple
             BLACS distribution for ScaLapack to use.  Default is to do serial
             diagonalization.
+        limit:
+            Number of eigenvector and values to find.  Defaults to all.
         """
         slcomm, rows, columns, blocksize = scalapack
 
@@ -289,6 +351,10 @@ class Matrix:
         if redist:
             H = self.new(dist=dist)
             self.redist(H)
+            if S is not None:
+                S0 = S
+                S = S0.new(dist=dist)
+                self.redist(S)
         else:
             assert self.dist.comm.size == slcomm.size
             H = self
@@ -301,16 +367,42 @@ class Matrix:
                     np.negative(H.data.imag, H.data.imag)
                 if debug:
                     H.data[np.triu_indices(H.shape[0], 1)] = 42.0
-                eps[:], H.data.T[:] = linalg.eigh(
-                    H.data,
-                    lower=True,
-                    overwrite_a=True,
-                    check_finite=debug,
-                    driver='evx' if H.data.size == 1 else 'evd')
+                if S is None:
+                    if self.xp is not np:
+                        eps, H.data.T[:] = (
+                            cupy_eigh(  # type: ignore[assignment]
+                                H.data, UPLO='L'))
+                        return eps
+                    eps[:], H.data.T[:] = sla.eigh(
+                        H.data,
+                        lower=True,
+                        overwrite_a=True,
+                        check_finite=debug,
+                        driver='evx' if H.data.size == 1 else 'evd')
+                else:
+                    if self.xp is cp:
+                        S.invcholesky()
+                        self.tril2full()
+                        eigs = self.eighg(S)
+                        self.data[:] = self.data.T.copy()
+                        return eigs
+                    if debug:
+                        S.data[self.xp.triu_indices(H.shape[0], 1)] = 42.0
+                    eps, evecs = sla.eigh(
+                        H.data,
+                        S.data,
+                        lower=True,
+                        overwrite_a=True,
+                        overwrite_b=True,
+                        check_finite=debug,
+                        subset_by_index=(0, limit - 1) if limit else None)
+                    limit = limit or len(eps)
+                    H.data.T[:, :limit] = evecs
             self.dist.comm.broadcast(eps, 0)
         else:
             if slcomm.rank < rows * columns:
                 assert cc
+                assert S is None
                 array = H.data.copy()
                 info = _gpaw.scalapack_diagonalize_dc(array, H.dist.desc, 'U',
                                                       H.data, eps)
@@ -330,7 +422,7 @@ class Matrix:
     def eighg(self, L: Matrix, comm2: MPIComm = serial_comm) -> Array1D:
         """Solve generalized eigenvalue problem.
 
-        :::
+        With `H` being self, we solve:::
 
           HC = SCΛ,
 
@@ -343,6 +435,9 @@ class Matrix:
 
            ~      †   ~~   ~         †~
            H = LHL ,  HC = CΛ,  C = L C.
+
+        Note that `H` must be the full matrix not just half of it!
+
         """
         M, N = self.shape
         assert M == N
@@ -355,16 +450,22 @@ class Matrix:
                 H = self.new(dist=(comm,))
                 self.redist(H)
             if comm.rank == 0:
+                if self.xp is not np:
+                    return self.dist.eighg(self, L)
                 tmp_MM = np.empty_like(H.data)
                 L_MM = L.data
                 blas.mmm(1.0, L_MM, 'N', H.data, 'N', 0.0, tmp_MM)
                 blas.r2k(0.5, tmp_MM, L_MM, 0.0, H.data)
                 # Ht_MM = L_MM @ self.data @ L_MM.conj().T
-                eig_n, Ct_Mn = linalg.eigh(
+                if SCIPY_VERSION >= [1, 9]:
+                    driver = 'evx' if M == 1 else 'evd'
+                else:
+                    driver = None
+                eig_n, Ct_Mn = sla.eigh(
                     H.data,
                     overwrite_a=True,
                     check_finite=debug,
-                    driver='evx' if M == 1 else 'evd')
+                    driver=driver)
                 assert Ct_Mn.flags.f_contiguous
                 blas.mmm(1.0, L_MM, 'C', Ct_Mn.T, 'T', 0.0, H.data)
                 # self.data[:] = L_MM.T.conj() @ Ct_Mn
@@ -385,12 +486,13 @@ class Matrix:
     def complex_conjugate(self) -> None:
         """Inplace complex conjugation."""
         if self.dtype == complex:
-            np.negative(self.data.imag, self.data.imag)
+            self.xp.negative(self.data.imag, self.data.imag)
 
     def add_hermitian_conjugate(self, scale: float = 1.0) -> None:
-        """Add heritian conjugates to myself."""
+        """Add hermitian conjugate to myself."""
         if self.dist.comm.size == 1:
-            self.data *= 0.5
+            if scale != 1.0:
+                self.data *= scale
             self.data += self.data.conj().T
             return
         tmp = self.copy()
@@ -416,7 +518,7 @@ class Matrix:
 
         if dist.comm.size == 1 or dist.rows == 1 and dist.columns == 1:
             if dist.comm.rank == 0:
-                u = np.triu_indices(M, 1)
+                u = self.xp.triu_indices(M, 1)
                 self.data[u] = self.data.T[u].conj()
             return
 
@@ -427,6 +529,18 @@ class Matrix:
         _gpaw.scalapack_set(buf, desc, 0.0, 0.0, 'L', M, M, 1, 1)
         # Now transpose tmp_mm adding the result to the original matrix:
         _gpaw.pblas_tran(M, M, 1.0, buf, 1.0, self.data, desc, desc, True)
+
+    def add_to_diagonal(self, d: ArrayLike1D | float) -> None:
+        """Add list of numbers or single number to diagonal of matrix."""
+        n1, n2 = self.dist.my_row_range()
+        M, N = self.shape
+        assert M == N
+        self.data.ravel()[n1::N + 1] += d
+
+    def to_cpu(self):
+        if isinstance(self.data, np.ndarray):
+            return self
+        return Matrix(*self.shape, data=cp.asnumpy(self.data))
 
 
 def _matrix(M):
@@ -442,12 +556,19 @@ class MatrixDistribution:
     columns: int
     blocksize: int | None  # None means everything on rank=0
     shape: tuple[int, int]
+    full_shape: tuple[int, int]
     desc: Array1D
 
     def matrix(self, dtype=None, data=None):
         return Matrix(*self.full_shape, dtype=dtype, data=data, dist=self)
 
     def multiply(self, alpha, a, opa, b, opb, beta, c, symmetric):
+        raise NotImplementedError
+
+    def eighg(self, H, L):
+        raise NotImplementedError
+
+    def new(self, M, N):
         raise NotImplementedError
 
     def my_row_range(self) -> tuple[int, int]:
@@ -483,6 +604,9 @@ class NoDistribution(MatrixDistribution):
 
     def global_index(self, n):
         return n
+
+    def new(self, M, N):
+        return NoDistribution(M, N)
 
     def multiply(self, alpha, a, opa, b, opb, beta, c, symmetric):
         if symmetric:
@@ -561,6 +685,12 @@ class BLACSDistribution(MatrixDistribution):
     def global_index(self, myi):
         return self.comm.rank * int(self.desc[5]) + myi
 
+    def new(self, M, N):
+        return BLACSDistribution(M, N,
+                                 self.comm,
+                                 self.rows, self.columns,
+                                 self.blocksize)
+
     def multiply(self, alpha, a, opa, b, opb, beta, c, symmetric):
         if symmetric:
             assert opa == 'N'
@@ -602,7 +732,11 @@ def create_distribution(M: int,
                         comm: MPIComm = None,
                         r: int = 1,
                         c: int = 1,
-                        b: int = None) -> MatrixDistribution:
+                        b: int = None,
+                        xp=None) -> MatrixDistribution:
+    if xp is cp:
+        return CuPyDistribution(M, N)
+
     if comm is None or comm.size == 1:
         assert r == 1 and abs(c) == 1 or c == 1 and abs(r) == 1
         return NoDistribution(M, N)
@@ -611,6 +745,73 @@ def create_distribution(M: int,
                              r if r != -1 else comm.size,
                              c if c != -1 else comm.size,
                              b)
+
+
+class CuPyDistribution(MatrixDistribution):
+    comm = serial_comm
+    rows = 1
+    columns = 1
+    blocksize = None
+
+    def __init__(self, M, N):
+        self.shape = (M, N)
+        self.full_shape = (M, N)
+
+    def __str__(self):
+        return 'CuPyDistribution({}x{})'.format(*self.shape)
+
+    def global_index(self, n):
+        return n
+
+    def new(self, M, N):
+        return CuPyDistribution(M, N)
+
+    def multiply(self, alpha, a, opa, b, opb, beta, c, *, symmetric=False):
+        if symmetric:
+            if opa == 'N':
+                assert opb == 'C' or opb == 'T' and a.dtype == float
+                if a is b:
+                    cp.cublas.gemm('N', 'H',
+                                   a.data, a.data, c.data,
+                                   alpha, beta)
+                    # cp.cublas.syrk('N', a.data, c.data, alpha, beta, True)
+                else:
+                    if beta == 1.0 and a.shape[1] == 0:
+                        return
+                    cp.cublas.gemm('N', 'H',
+                                   a.data, b.data, c.data,
+                                   0.5 * alpha, beta)
+                    cp.cublas.gemm('N', 'H',
+                                   b.data, a.data, c.data,
+                                   0.5 * alpha, 1.0)
+            else:
+                assert opa == 'C' and opb == 'N'
+                assert a is not b
+                raise NotImplementedError
+                blas.r2k(0.5 * alpha, a.data, b.data, beta, c.data, 'n')
+
+        else:
+            cp.cublas.gemm(opa.replace('C', 'H'),
+                           opb.replace('C', 'H'),
+                           a.data, b.data, c.data,
+                           alpha, beta)
+
+    def eighg(self, H, L):
+        """
+        :::
+
+           ~      †   ~~   ~         †~
+           H = LHL ,  HC = CΛ,  C = L C.
+        """
+        tmp = H.new()
+        self.multiply(1.0, L, 'N', H, 'N', 0.0, tmp)
+        self.multiply(1.0, tmp, 'N', L, 'C', 0.0, H, symmetric=True)
+        eig_M, Ct_MM = cupy_eigh(H.data, UPLO='L')
+        assert Ct_MM.flags.f_contiguous
+        Ct = H.new(data=Ct_MM.T)
+        self.multiply(1.0, L, 'C', Ct, 'T', 0.0, H)
+        # H.complex_conjugate()
+        return eig_M
 
 
 def fastmmm(m1, m2, m3, beta):

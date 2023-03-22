@@ -59,7 +59,26 @@ class ResponsePotential:
 
 
 class C_Response(Contribution):
-    def __init__(self, weight, coefficients, damp=1e-10):
+    """Response contribution for GLLB functionals.
+
+    Parameters
+    ----------
+    weight
+        Weight of the contribution
+    coefficients
+        Coefficient calculator object
+    metallic
+        If True, then Fermi level is used as the reference
+        energy for coefficients instead of the HOMO energy.
+        This is necessary to get sensible results in metallic systems.
+    damp
+        Small value to damp divisions by zero
+    """
+    def __init__(self,
+                 weight: float,
+                 coefficients, *,
+                 metallic: bool = False,
+                 damp: float = 1e-10):
         Contribution.__init__(self, weight)
         d('In c_Response __init__', self)
         self.coefficients = coefficients
@@ -71,6 +90,11 @@ class C_Response(Contribution):
         self.Drespdist_asp = None
         self.damp = damp
         self.fix_potential = False
+        self.metallic = metallic
+
+        # For logging reference energy
+        self.eref_s = None
+        self.eref_source_s = None
 
     def set_damp(self, damp):
         self.damp = damp
@@ -79,7 +103,11 @@ class C_Response(Contribution):
         return 'RESPONSE'
 
     def get_desc(self):
-        return self.coefficients.get_description()
+        desc = []
+        if self.metallic:
+            desc += ['metallic']
+        desc += [self.coefficients.get_description()]
+        return ', '.join(desc)
 
     def initialize(self, density, hamiltonian, wfs):
         Contribution.initialize(self, density, hamiltonian, wfs)
@@ -113,6 +141,8 @@ class C_Response(Contribution):
         self.Dresp_asp = pot.Dresp_asp
         self.Ddist_asp = self.distribute_D_asp(pot.D_asp)
         self.Drespdist_asp = self.distribute_D_asp(pot.Dresp_asp)
+        self.eref_s = response.eref_s
+        self.eref_source_s = response.eref_source_s
 
     # Calcualte the GLLB potential and energy 1d
     def add_xc_potential_and_energy_1d(self, v_g):
@@ -139,7 +169,33 @@ class C_Response(Contribution):
             # is used.
             return
 
-        w_kn = self.coefficients.get_coefficients(self.wfs.kpt_u)
+        # Calculate reference energy
+        self.eref_s = []
+        self.eref_source_s = []
+        if self.metallic:
+            # Use Fermi level as reference levels
+            fermilevel = self.wfs.fermi_level
+            assert isinstance(fermilevel, float), \
+                'GLLBSCM supports only a single Fermi level'
+            for s in range(self.wfs.nspins):
+                self.eref_source_s.append('Fermi level')
+                self.eref_s.append(fermilevel)
+        else:
+            # Find homo and lumo levels for each spin
+            for s in range(self.wfs.nspins):
+                homo, lumo = self.wfs.get_homo_lumo(s)
+                # Check that homo and lumo are reasonable
+                if homo > lumo:
+                    # HOMO higher than LUMO; set Fermi level as reference
+                    fermilevel = self.wfs.fermi_level
+                    self.eref_source_s.append('Fermi level')
+                    self.eref_s.append(fermilevel)
+                else:
+                    self.eref_source_s.append('HOMO')
+                    self.eref_s.append(homo)
+
+        w_kn = self.coefficients.get_coefficients(self.wfs.kpt_u,
+                                                  eref_s=self.eref_s)
         f_kn = [kpt.f_n for kpt in self.wfs.kpt_u]
         if w_kn is not None:
             self.vt_sG[:] = 0.0
@@ -299,7 +355,15 @@ class C_Response(Contribution):
 
         dxc_pot: Discontinuity potential
         """
-        homolumo = np.asarray((homo, lumo)) / Ha
+        if self.nspins == 2:
+            eref_s = np.asarray(homo)
+            eref_lumo_s = np.asarray(lumo)
+        else:
+            eref_s = np.asarray([homo])
+            eref_lumo_s = np.asarray([lumo])
+        assert len(eref_s) == len(eref_lumo_s) == self.nspins
+        eref_s /= Ha
+        eref_lumo_s /= Ha
 
         dxc_Dresp_asp = self.empty_atomic_matrix()
         dxc_D_asp = self.empty_atomic_matrix()
@@ -310,8 +374,7 @@ class C_Response(Contribution):
 
         # Calculate new response potential with LUMO reference
         w_kn = self.coefficients.get_coefficients_for_lumo_perturbation(
-            self.wfs.kpt_u,
-            homolumo=homolumo)
+            self.wfs.kpt_u, eref_s=eref_s, eref_lumo_s=eref_lumo_s)
         f_kn = [kpt.f_n for kpt in self.wfs.kpt_u]
 
         dxc_vt_sG = self.gd.zeros(self.nspins)
@@ -570,6 +633,9 @@ class C_Response(Contribution):
         writer.write(gllb_atomic_density_matrices=pack(self.D_asp))
         writer.write(gllb_atomic_response_matrices=pack(self.Dresp_asp))
 
+        writer.write(eref_s=self.eref_s)
+        writer.write(eref_source_s=self.eref_source_s)
+
     def empty_atomic_matrix(self):
         assert self.wfs.atom_partition is self.density.atom_partition
         return self.wfs.setups.empty_atomic_matrix(self.wfs.nspins,
@@ -603,6 +669,10 @@ class C_Response(Contribution):
         # Further distributes the density matricies for xc-corrections
         self.Ddist_asp = self.distribute_D_asp(self.D_asp)
         self.Drespdist_asp = self.distribute_D_asp(self.Dresp_asp)
+
+        if 'eref_s' in r:
+            self.eref_s = r.eref_s
+            self.eref_source_s = r.eref_source_s
 
     def heeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeelp(self, olddens):
         # XXX This function should be removed once the deprecated

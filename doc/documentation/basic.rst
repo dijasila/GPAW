@@ -123,11 +123,6 @@ given in the following sections.
       - ``bool``
       - ``False``
       - :ref:`Use Hund's rule <manual_hund>`
-    * - ``idiotproof``
-      - ``bool``
-      - ``True``
-      - Set to ``False`` to ignore setup fingerprint mismatch
-        (allows restart when the original setup files are not available)
     * - ``kpts``
       - *seq*
       - `\Gamma`-point
@@ -1121,12 +1116,12 @@ Command-line options
 --------------------
 
 I order to run GPAW in debug-mode, e.g. check consistency of arrays passed
-to C-extensions, use Python's :option:`python:-c` option`:
+to C-extensions, use Python's :option:`python:-d` option:
 
     $ python3 -d script.py
 
-If you run Python through the ``gpaw python`` command, then you run your
-script in dry-run mode::
+If you run Python through the ``gpaw python`` command, then you can run your
+script in dry-run mode like this::
 
     $ gpaw python --dry-run=N script.py
 

@@ -1,3 +1,4 @@
+import pytest
 from itertools import count
 from ase.build import bulk
 from gpaw import GPAW
@@ -5,30 +6,32 @@ from gpaw.mpi import world
 from gpaw.utilities import compiled_with_sl
 
 
-def test_lcao_kpts_many_combinations(in_tmp_dir):
-    def ikwargs():
-        for augment_grids in [False, True]:
-            for sl_auto in ([0, 1] if compiled_with_sl() else [0]):
-                if world.size == 16:
-                    # This won't happen in ordinary test suite
-                    parsizes = [[4, 2, 2], [2, 4, 2], [2, 2, 4]]
-                elif world.size == 8:
-                    parsizes = [[2, 2, 2]]
-                elif world.size == 4:
-                    parsizes = [[1, 2, 2]]
-                elif world.size == 2:
-                    parsizes = [[1, 1, 2]]
-                else:
-                    assert world.size == 1
-                    parsizes = [[1, 1, 1]]
-                for kpt, band, domain in parsizes:
-                    parallel = dict(kpt=kpt,
-                                    band=band,
-                                    domain=domain,
-                                    sl_auto=sl_auto,
-                                    augment_grids=augment_grids)
-                    yield dict(parallel=parallel)
+def ikwargs():
+    for augment_grids in [False, True]:
+        for sl_auto in ([0, 1] if compiled_with_sl() else [0]):
+            if world.size == 16:
+                # This won't happen in ordinary test suite
+                parsizes = [[4, 2, 2], [2, 4, 2], [2, 2, 4]]
+            elif world.size == 8:
+                parsizes = [[2, 2, 2]]
+            elif world.size == 4:
+                parsizes = [[1, 2, 2]]
+            elif world.size == 2:
+                parsizes = [[1, 1, 2]]
+            else:
+                assert world.size == 1
+                parsizes = [[1, 1, 1]]
+            for kpt, band, domain in parsizes:
+                parallel = dict(kpt=kpt,
+                                band=band,
+                                domain=domain,
+                                sl_auto=sl_auto,
+                                augment_grids=augment_grids)
+                yield dict(parallel=parallel)
 
+
+@pytest.mark.later
+def test_lcao_kpts_many_combinations(in_tmp_dir):
     counter = count()
 
     for spinpol in [False, True]:
@@ -66,11 +69,8 @@ def test_lcao_kpts_many_combinations(in_tmp_dir):
                 symmetry={'point_group': False},  # No symmetry here anyway
                 txt='gpaw.{:02d}.spin{}.txt'.format(int(spinpol), i),
                 kpts=(4, 1, 1),
+                convergence={'maximum iterations': 2},
                 **kwargs)
-
-            def stopcalc():
-                calc.scf.converged = True
-            calc.attach(stopcalc, 2)
             atoms = atoms0.copy()
             t1 = time()
             atoms.calc = calc

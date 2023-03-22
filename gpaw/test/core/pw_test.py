@@ -4,6 +4,7 @@ from gpaw.core import UniformGrid, PlaneWaves
 from gpaw.mpi import world
 from gpaw.core.plane_waves import find_reciprocal_vectors
 from math import pi
+from gpaw.gpu import cupy as cp
 
 
 @pytest.mark.ci
@@ -44,7 +45,7 @@ def test_pw_map():
         assert not (np.array(g) - g0).any()
 
 
-def test_pw_integrate():
+def grids():
     a = 1.0
     decomp = {1: [[0, 4], [0, 4], [0, 4]],
               2: [[0, 2, 4], [0, 4], [0, 4]],
@@ -72,37 +73,48 @@ def test_pw_integrate():
     g5.data[:] = 1.0 + 1.0j
     g5.data += [0, 1, 0, -1]
 
+    return [g1, g2, g3, g4, g5]
+
+
+@pytest.mark.gpu
+@pytest.mark.parametrize('xp', [np, cp])
+@pytest.mark.parametrize('grid', grids())
+def test_pw_integrate(xp, grid):
+    if xp is cp and world.size > 1:
+        return
+    a = grid.desc.cell[0, 0]
     ecut = 0.5 * (2 * np.pi / a)**2 * 1.01
-    for g in [g1, g2, g3, g4, g5]:
-        pw = PlaneWaves(cell=g.desc.cell, dtype=g.desc.dtype,
-                        ecut=ecut, comm=world)
-        f = g.fft(pw=pw)
-        print(f.data)
+    g = grid
+    if xp is cp:
+        g = g.to_xp(cp)
+    pw = PlaneWaves(cell=g.desc.cell, dtype=g.desc.dtype,
+                    ecut=ecut, comm=world)
+    f = g.fft(pw=pw)
 
-        gg = g.new()
-        gg.scatter_from(f.gather(broadcast=True)
-                        .ifft(grid=g.desc.new(comm=None)))
-        assert (g.data == gg.data).all()
+    gg = g.new()
+    gg.scatter_from(f.gather(broadcast=True)
+                    .ifft(grid=g.desc.new(comm=None)))
+    assert (g.data == gg.data).all()
 
-        i1 = g.integrate()
-        i2 = f.integrate()
-        assert i1 == i2
-        assert type(i1) == g.desc.dtype
+    i1 = g.integrate()
+    i2 = f.integrate()
+    assert i1 == i2
+    assert type(i1) == g.desc.dtype
 
-        i1 = g.integrate(g)
-        i2 = f.integrate(f)
-        assert i1 == i2
-        assert type(i1) == g.desc.dtype
+    i1 = g.integrate(g)
+    i2 = f.integrate(f)
+    assert i1 == i2
+    assert type(i1) == g.desc.dtype
 
-        g1 = g.desc.empty(1)
-        g1.data[:] = g.data
-        m1 = g1.matrix_elements(g1)
-        assert (i1 == m1.data).all()
+    g1 = g.desc.empty(1, xp=xp)
+    g1.data[:] = g.data
+    m1 = g1.matrix_elements(g1)
+    assert i1 == m1.data.item()
 
-        f1 = f.desc.empty(1)
-        f1.data[:] = f.data
-        m2 = f1.matrix_elements(f1)
-        assert (i2 == m2.data).all()
+    f1 = f.desc.empty(1, xp=xp)
+    f1.data[:] = f.data
+    m2 = f1.matrix_elements(f1)
+    assert i2 == m2.data[0, 0].item()
 
 
 def test_grr():

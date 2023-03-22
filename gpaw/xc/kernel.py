@@ -60,6 +60,7 @@ class XCKernel:
     def check_arguments(self, e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg,
                         tau_sg, dedtau_sg):
         S = n_sg.shape[0]
+        assert 1 <= S <= 2
         G = n_sg.shape[1:]
         assert e_g.shape == G
         assert e_g.flags.contiguous and e_g.dtype == float

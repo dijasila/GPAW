@@ -202,7 +202,7 @@ class ExcitedState(GPAW):
         atoms.calc = self
 
         if hasattr(self, 'density'):
-            del(self.density)
+            del self.density
         self.lrtddft.forced_update()
         self.lrtddft.diagonalize()
 

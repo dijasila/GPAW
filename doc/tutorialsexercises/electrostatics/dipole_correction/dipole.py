@@ -13,12 +13,12 @@ e1 = slab.get_potential_energy()
 slab.calc.write('zero.gpw')
 
 slab.pbc = True
-slab.calc.set(txt='periodic.txt')
+slab.calc = slab.calc.new(txt='periodic.txt')
 e2 = slab.get_potential_energy()
 slab.calc.write('periodic.gpw')
 
 slab.pbc = (True, True, False)
-slab.calc.set(poissonsolver={'dipolelayer': 'xy'},
-              txt='corrected.txt')
+slab.calc = slab.calc.new(poissonsolver={'dipolelayer': 'xy'},
+                          txt='corrected.txt')
 e3 = slab.get_potential_energy()
 slab.calc.write('corrected.gpw')

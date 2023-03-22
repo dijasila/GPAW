@@ -90,7 +90,7 @@ Options:
                       Number of cores to use for ScaLapack.  Default is one.
 -d, --dry-run         Just write out size of matrices.
 
-Typpically, you will want to run this in parallel and distrubute the matrices
+Typpically, you will want to run this in parallel and distribute the matrices
 using ScaLapack::
 
     $ gpaw -P 8 python -m gpaw.fulldiag abc.gpw --scalapack=8 ...

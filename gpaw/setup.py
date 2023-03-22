@@ -2,8 +2,6 @@ from __future__ import annotations
 import functools
 from io import StringIO
 from math import pi, sqrt
-from typing import List, Tuple
-
 import ase.units as units
 import numpy as np
 from ase.data import chemical_symbols
@@ -17,31 +15,14 @@ from gpaw.setup_data import SetupData, search_for_file
 from gpaw.spline import Spline
 from gpaw.utilities import pack, unpack
 from gpaw.xc import XC
+from gpaw.new import zip
+from gpaw.xc.ri.spherical_hse_kernel import RadialHSE
 
 
-def parse_hubbard_string(type: str) -> Tuple[str,
-                                             List[int],
-                                             List[float],
-                                             List[bool]]:
-    # Parse DFT+U parameters from type-string:
-    # Examples: "type:l,U" or "type:l,U,scale"
-    type, lus = type.split(':')
-    if type == '':
-        type = 'paw'
-
-    l = []
-    U = []
-    scale = []
-
-    for lu in lus.split(';'):  # Multiple U corrections
-        l_, u_, scale_ = (lu + ',,').split(',')[:3]
-        l.append('spdf'.find(l_))
-        U.append(float(u_) / units.Hartree)
-        if scale_:
-            scale.append(bool(int(scale_)))
-        else:
-            scale.append(True)
-    return type, l, U, scale
+class WrongMagmomForHundsRuleError(ValueError):
+    """
+    Custom error for catching bad magnetic moments in Hund's rule calculation
+    """
 
 
 def create_setup(symbol, xc='LDA', lmax=0,
@@ -51,9 +32,10 @@ def create_setup(symbol, xc='LDA', lmax=0,
         xc = XC(xc)
 
     if isinstance(type, str) and ':' in type:
-        type, l, U, scale = parse_hubbard_string(type)
+        from gpaw.hubbard import parse_hubbard_string
+        type, hubbard_u = parse_hubbard_string(type)
     else:
-        U = None
+        hubbard_u = None
 
     if setupdata is None:
         if type == 'hgh' or type == 'hgh.sc':
@@ -99,9 +81,11 @@ def create_setup(symbol, xc='LDA', lmax=0,
                                   type, True,
                                   world=world)
     if hasattr(setupdata, 'build'):
-        setup = LeanSetup(setupdata.build(xc, lmax, basis, filter))
-        if U is not None:
-            setup.set_hubbard_u(U, l, scale)
+        # It is not so nice that we have hubbard_u floating around here.
+        # For example, none of the other setup types are aware
+        # of hubbard u, so they silently ignore it!
+        setup = LeanSetup(setupdata.build(xc, lmax, basis, filter),
+                          hubbard_u=hubbard_u)
         return setup
     else:
         return setupdata
@@ -154,6 +138,7 @@ class BaseSetup:
     made a proper base class with attributes and so on."""
 
     orbital_free = False
+    hubbard_u = None  # XXX remove me
 
     def print_info(self, text):
         self.data.print_info(text, self)
@@ -174,11 +159,12 @@ class BaseSetup:
         # The zip may cut off part of phit_j if there are more states than
         # projectors.  This should be the correct behaviour for all the
         # currently supported PAW/pseudopotentials.
-        phit_j = []
-        for n, phit in zip(self.n_j, self.pseudo_partial_waves_j):
+        partial_waves_j = []
+        for n, phit in zip(self.n_j, self.pseudo_partial_waves_j,
+                           strict=False):
             if n > 0:
-                phit_j.append(phit)
-        return phit_j
+                partial_waves_j.append(phit)
+        return partial_waves_j
 
     def calculate_initial_occupation_numbers(self, magmom, hund, charge,
                                              nspins, f_j=None):
@@ -213,7 +199,7 @@ class BaseSetup:
         # 3) eigenvalues (e)
 
         states = []
-        for j, (f, d, e) in enumerate(zip(f_j, deg_j, eps_j)):
+        for j, (f, d, e) in enumerate(zip(f_j, deg_j, eps_j, strict=False)):
             if e < 0.0:
                 states.append((f == 0, d - f, e, j))
         states.sort()
@@ -250,11 +236,11 @@ class BaseSetup:
         # distribute to the atomic wave functions
         i = 0
         j = 0
-        for phit in self.phit_j:
+        for phit in self.basis_functions_J:
             l = phit.get_angular_momentum_number()
 
             # Skip functions not in basis set:
-            while j < nj and self.l_orb_j[j] != l:
+            while j < nj and self.l_orb_J[j] != l:
                 j += 1
             if j < len(f_j):  # lengths of f_j and l_j may differ
                 f = f_j[j]
@@ -283,7 +269,7 @@ class BaseSetup:
             j += 1
 
         if hund and magmom != 0:
-            raise ValueError(
+            raise WrongMagmomForHundsRuleError(
                 f'Bad magnetic moment {magmom:g} for {self.symbol} atom!')
         assert i == nao
 
@@ -294,7 +280,7 @@ class BaseSetup:
         for M in range(10):
             try:
                 self.calculate_initial_occupation_numbers(M, True, charge, 2)
-            except ValueError:
+            except WrongMagmomForHundsRuleError:
                 pass
             else:
                 return M
@@ -310,7 +296,7 @@ class BaseSetup:
         j = 0
         i = 0
         ib = 0
-        for phit in self.phit_j:
+        for phit in self.basis_functions_J:
             l = phit.get_angular_momentum_number()
             # Skip functions not in basis set:
             while j < nj and self.l_j[j] != l:
@@ -378,27 +364,6 @@ class BaseSetup:
             phi_j.append(self.rgd.spline(phi_g, rcut2, l, points=100))
             phit_j.append(self.rgd.spline(phit_g, rcut2, l, points=100))
         return phi_j, phit_j, nc, nct, tauc, tauct
-
-    def set_hubbard_u(self, U, l, scale=1, store=0, LinRes=0):
-        """Set Hubbard parameter.
-        U in atomic units, l is the orbital to which we whish to
-        add a hubbard potential and scale enables or desables the
-        scaling of the overlap between the l orbitals, if true we enforce
-        <p|p>=1
-        Note U is in atomic units
-        """
-
-        self.HubLinRes = LinRes
-        self.Hubs = scale
-        self.HubStore = store
-        self.HubOcc = []
-        self.HubU = U
-        self.Hubl = l
-        self.Hubi = 0
-        for ll in self.l_j:
-            if ll == self.Hubl:
-                break
-            self.Hubi = self.Hubi + 2 * ll + 1
 
     def four_phi_integrals(self):
         """Calculate four-phi integral.
@@ -482,8 +447,8 @@ class BaseSetup:
         return self.I4_pp
 
     def get_default_nbands(self):
-        assert len(self.l_orb_j) == len(self.n_j), (self.l_orb_j, self.n_j)
-        return sum([2 * l + 1 for (l, n) in zip(self.l_orb_j, self.n_j)
+        assert len(self.l_orb_J) == len(self.n_j), (self.l_orb_J, self.n_j)
+        return sum([2 * l + 1 for (l, n) in zip(self.l_orb_J, self.n_j)
                     if n > 0])
 
     def calculate_coulomb_corrections(self, wn_lqg, wnt_lqg, wg_lg, wnc_g,
@@ -566,8 +531,23 @@ class BaseSetup:
                 self.local_corr.rgd2.r_g * self.local_corr.rgd2.dr_g
 
         self._gamma = gamma
+        self._Mg_pp = self.calculate_vvx_interactions(Yuk)
+        return self._Mg_pp
+
+    def calculate_erfc_interaction(self, omega):
+        """Calculate and return erfc based valence valence
+           exchange interactions."""
+        hse = RadialHSE(self.local_corr.rgd2, omega).screened_coulomb_dv
+
+        def erfc_interaction(_, n_g, l):
+            return hse(n_g, l)
+        return self.calculate_vvx_interactions(erfc_interaction)
+
+    def calculate_vvx_interactions(self, interaction):
+        """Calculate valence valence interactions for generic
+           interaction."""
         (wg_lg, wn_lqg, wnt_lqg, wnc_g, wnct_g, wmct_g) = \
-            self.calculate_integral_potentials(Yuk)
+            self.calculate_integral_potentials(interaction)
         self._Mg_pp = self.calculate_coulomb_corrections(
             wn_lqg, wnt_lqg, wg_lg, wnc_g, wmct_g)[1]
         return self._Mg_pp
@@ -578,11 +558,14 @@ class LeanSetup(BaseSetup):
 
     A setup-like class must define at least the attributes of this
     class in order to function in a calculation."""
-    def __init__(self, s):
+    def __init__(self, s, hubbard_u=None):
         """Copies precisely the necessary attributes of the Setup s."""
-        # R_sii and HubU can be changed dynamically (which is ugly)
+        # Hubbard U is poked onto the setup in hacky ways.
+        # This needs cleaning.
+        self.hubbard_u = hubbard_u
+
+        # R_sii can be changed dynamically (which is ugly)
         self.R_sii = None  # rotations, initialized when doing sym. reductions
-        self.HubU = s.HubU  # XXX probably None
         self.lq = s.lq  # Required for LDA+U I think.
         self.type = s.type  # required for writing to file
         self.fingerprint = s.fingerprint  # also req. for writing
@@ -597,7 +580,9 @@ class LeanSetup(BaseSetup):
         self.nao = s.nao
 
         self.pt_j = s.pt_j
-        self.phit_j = s.phit_j  # basis functions
+
+        self.pseudo_partial_waves_j = s.pseudo_partial_waves_j
+        self.basis_functions_J = s.basis_functions_J
 
         self.Nct = s.Nct
         self.nct = s.nct
@@ -615,6 +600,7 @@ class LeanSetup(BaseSetup):
         self.M = s.M
         self.M_p = s.M_p
         self.M_pp = s.M_pp
+        self.M_wpp = s.M_wpp
         self.K_p = s.K_p
         self.MB = s.MB
         self.MB_p = s.MB_p
@@ -627,7 +613,7 @@ class LeanSetup(BaseSetup):
         self.f_j = s.f_j
         self.n_j = s.n_j
         self.l_j = s.l_j
-        self.l_orb_j = s.l_orb_j
+        self.l_orb_J = s.l_orb_J
         self.nj = len(s.l_j)
 
         self.data = s.data
@@ -670,7 +656,9 @@ class LeanSetup(BaseSetup):
 
         # Required by exx
         self.X_p = s.X_p
+        self.X_wp = s.X_wp
         self.ExxC = s.ExxC
+        self.ExxC_w = s.ExxC_w
 
         # Required by yukawa rsf
         self.X_pg = s.X_pg
@@ -731,6 +719,8 @@ class Setup(BaseSetup):
     ``M``         Constant correction to Coulomb energy
     ``M_p``       Linear correction to Coulomb energy
     ``M_pp``      2nd order correction to Coulomb energy and Exx energy
+    ``M_wpp``     2nd order correction to erfc screened Coulomb energy and Exx
+                  energy for given w.
     ``Kc``        Core kinetic energy
     ``K_p``       Linear correction to kinetic energy
     ``ExxC``      Core Exx energy
@@ -763,8 +753,6 @@ class Setup(BaseSetup):
     def __init__(self, data, xc, lmax=0, basis=None, filter=None):
         self.type = data.name
 
-        self.HubU = None
-
         if not data.is_compatible(xc):
             raise ValueError('Cannot use %s setup with %s functional' %
                              (data.setupname, xc.get_setup_name()))
@@ -776,7 +764,7 @@ class Setup(BaseSetup):
         self.Nv = data.Nv
         self.Z = data.Z
         l_j = self.l_j = data.l_j
-        self.l_orb_j = data.l_orb_j
+        self.l_orb_J = data.l_orb_J
         n_j = self.n_j = data.n_j
         self.f_j = data.f_j
         self.eps_j = data.eps_j
@@ -784,7 +772,9 @@ class Setup(BaseSetup):
         rcut_j = self.rcut_j = data.rcut_j
 
         self.ExxC = data.ExxC
+        self.ExxC_w = data.ExxC_w
         self.X_p = data.X_p
+        self.X_wp = data.X_wp
 
         self.X_gamma = data.X_gamma
         self.X_pg = data.X_pg
@@ -900,16 +890,17 @@ class Setup(BaseSetup):
         self.pseudo_partial_waves_j = partial_waves.tosplines()
 
         if basis is None:
-            phit_j = self.pseudo_partial_waves_j
             basis = partial_waves
+            basis_functions_J = self.pseudo_partial_waves_j
         else:
-            phit_j = basis.tosplines()
-        self.phit_j = phit_j
+            basis_functions_J = basis.tosplines()
+
+        self.basis_functions_J = basis_functions_J
         self.basis = basis
 
         self.nao = 0
-        for phit in self.phit_j:
-            l = phit.get_angular_momentum_number()
+        for bf in self.basis_functions_J:
+            l = bf.get_angular_momentum_number()
             self.nao += 2 * l + 1
 
         rgd2 = self.local_corr.rgd2 = rgd.new(gcut2)
@@ -974,6 +965,10 @@ class Setup(BaseSetup):
                                                        wg_lg, wnc_g, wmct_g)
         self.M_p = M_p
         self.M_pp = M_pp
+
+        self.M_wpp = {}
+        for omega in self.ExxC_w:
+            self.M_wpp[omega] = self.calculate_erfc_interaction(omega)
 
         if xc.type == 'GLLB':
             if 'core_f' in self.extra_xc_data:
@@ -1244,19 +1239,19 @@ class Setup(BaseSetup):
         b_g = x**3 * (x - 1) * (rcut3 - rcut2)
 
         class PartialWaveBasis(Basis):  # yuckkk
-            def __init__(self, symbol, phit_j):
+            def __init__(self, symbol, phit_J):
                 Basis.__init__(self, symbol, 'partial-waves', readxml=False)
-                self.phit_j = phit_j
+                self._basis_functions_J = phit_J
 
             def tosplines(self):
-                return self.phit_j
+                return self._basis_functions_J
 
             def get_description(self):
                 template = 'Using partial waves for %s as LCAO basis'
                 string = template % self.symbol
                 return string
 
-        phit_j = []
+        basis_functions_J = []
         for j, phit_g in enumerate(phit_jg):
             if self.n_j[j] > 0:
                 l = self.l_j[j]
@@ -1266,13 +1261,14 @@ class Setup(BaseSetup):
                            (r_g[gcut3] - r_g[gcut3 - 1]))
                 phit_g[gcut2:gcut3] -= phit * a_g + dphitdr * b_g
                 phit_g[gcut3:] = 0.0
-                phit_j.append(self.rgd.spline(phit_g, rcut3, l, points=100))
-        basis = PartialWaveBasis(self.symbol, phit_j)
+                basis_function = self.rgd.spline(phit_g, rcut3, l, points=100)
+                basis_functions_J.append(basis_function)
+        basis = PartialWaveBasis(self.symbol, basis_functions_J)
         return basis
 
     def calculate_oscillator_strengths(self, phi_jg):
         # XXX implement oscillator strengths for lcorehole != 0
-        assert(self.lcorehole == 0)
+        assert self.lcorehole == 0
         self.A_ci = np.zeros((3, self.ni))
         nj = len(phi_jg)
         i = 0
@@ -1304,7 +1300,7 @@ class Setups(list):
     ``core_charge`` Core hole charge.
     """
 
-    def __init__(self, Z_a, setup_types, basis_sets, xc,
+    def __init__(self, Z_a, setup_types, basis_sets, xc, *,
                  filter=None, world=None):
         list.__init__(self)
         symbols = [chemical_symbols[Z] for Z in Z_a]
@@ -1396,7 +1392,7 @@ class Setups(list):
     def __str__(self):
         # Write PAW setup information in order of appearance:
         ids = set()
-        s = ''
+        s = 'species:\n'
         for id in self.id_a:
             if id in ids:
                 continue
@@ -1405,11 +1401,12 @@ class Setups(list):
             output = StringIO()
             setup.print_info(functools.partial(print, file=output))
             txt = output.getvalue()
-            basis_descr = setup.get_basis_description()
-            basis_descr = basis_descr.replace('\n  ', '\n    ')
-            s += txt + '  ' + basis_descr + '\n\n'
+            txt += '  # ' + setup.get_basis_description().replace('\n',
+                                                                  '\n  # ')
+            txt = txt.replace('\n', '\n  ')
+            s += '  ' + txt + '\n\n'
 
-        s += f'Reference energy: {self.Eref * units.Hartree:.6f}\n'
+        s += f'Reference energy: {self.Eref * units.Hartree:.6f}  # eV\n'
         return s
 
     def set_symmetry(self, symmetry):
@@ -1440,12 +1437,13 @@ class Setups(list):
         return dedecut
 
     def basis_indices(self):
-        return FunctionIndices([setup.phit_j for setup in self])
+        return FunctionIndices([setup.basis_functions_J for setup in self])
 
     def projector_indices(self):
         return FunctionIndices([setup.pt_j for setup in self])
 
-    def create_pseudo_core_densities(self, layout, positions, atomdist):
+    def create_pseudo_core_densities(self, layout, positions, atomdist,
+                                     xp=np):
         spline_aj = []
         for setup in self:
             if setup.nct is None:
@@ -1456,24 +1454,37 @@ class Setups(list):
             spline_aj, positions,
             atomdist=atomdist,
             integral=[setup.Nct for setup in self],
-            cut=True)
+            cut=True, xp=xp)
 
-    def create_local_potentials(self, layout, positions, atomdist):
+    def create_local_potentials(self, layout, positions, atomdist, xp=np):
         return layout.atom_centered_functions(
-            [[setup.vbar] for setup in self], positions, atomdist=atomdist)
+            [[setup.vbar] for setup in self], positions,
+            atomdist=atomdist, xp=xp)
 
-    def create_compensation_charges(self, layout, positions, atomdist):
+    def create_compensation_charges(self, layout, positions, atomdist,
+                                    xp=np):
         return layout.atom_centered_functions(
             [setup.ghat_l for setup in self], positions,
             atomdist=atomdist,
-            integral=sqrt(4 * pi))
+            integral=sqrt(4 * pi),
+            xp=xp)
 
-    def overlap_correction(self, projections, out):
-        for a, I1, I2 in projections.layout.myindices:
-            ds = self[a].dO_ii
-            # use mmm ?????
-            out.data[I1:I2] = ds @ projections.data[I1:I2]
-        return out
+    def overlap_correction(self, P_ani, out_ani):
+        xp = P_ani.layout.xp
+
+        if len(P_ani.dims) == 2:  # (band, spinor)
+            subscripts = 'nsi, ij -> nsj'
+        else:
+            subscripts = 'ni, ij -> nj'
+        if xp is np:
+            for (a, P_ni), out_ni in zip(P_ani.items(), out_ani.values()):
+                dS_ii = self[a].dO_ii
+                xp.einsum(subscripts, P_ni, dS_ii, out=out_ni)
+        else:
+            # GRR. Cupy einsum doesn't have an out argument.
+            for (a, P_ni), out_ni in zip(P_ani.items(), out_ani.values()):
+                dS_ii = xp.asarray(self[a].dO_ii)
+                out_ni[:] = xp.einsum(subscripts, P_ni, dS_ii)
 
     def partial_wave_corrections(self) -> list[list[Spline]]:
         splines: dict[Setup, list[Spline]] = {}
@@ -1552,7 +1563,7 @@ if __name__ == '__main__':
     print("""\
 This is not the setup.py you are looking for!  This setup.py defines a
 Setup class used to hold the atomic data needed for a specific atom.
-For building the GPAW code you must use the setup.py distutils script
+For building the GPAW code you must use the setup.py setuptools script
 at the root of the code tree.  Just do "cd .." and you will be at the
 right place.""")
     raise SystemExit

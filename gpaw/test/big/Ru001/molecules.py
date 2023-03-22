@@ -13,7 +13,7 @@ for name in ['H2', 'N2', 'O2', 'NO']:
                 convergence={'eigenstates': 1e-10})
     if name == 'NO':
         mol.translate((0, 0.1, 0))
-        calc.set(mixer=MixerDif(0.05, 5))
+        calc = calc.new(mixer=MixerDif(0.05, 5), txt=name + '.txt')
     mol.calc = calc
 
     opt = BFGS(mol, logfile=name + '.log', trajectory=name + '.traj')

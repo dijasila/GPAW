@@ -8,7 +8,7 @@ from ase.utils import IOContext
 
 from gpaw.utilities import pack
 from gpaw.utilities.tools import tri2full
-from gpaw.utilities.blas import rk, gemm
+from gpaw.utilities.blas import rk, mmm, mmmx
 from gpaw.basis_data import Basis
 from gpaw.setup import types2atomtypes
 from gpaw.coulomb import CoulombNEW as Coulomb
@@ -483,8 +483,8 @@ def makeU(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
                              for w1, w2 in np.ndindex(Nw, Nw)])
             I4_pp = setups[a].four_phi_integrals()
             A = np.zeros((len(I4_pp), len(P_pp)))
-            gemm(1.0, P_pp, I4_pp, 0.0, A, 't')
-            gemm(1.0, A, P_pp, 1.0, D_pp)
+            mmm(1.0, I4_pp, 'N', P_pp, 'T', 0.0, A)
+            mmm(1.0, P_pp, 'N', A, 'N', 1.0, D_pp)
             # D_pp += np.dot(P_pp, np.dot(I4_pp, P_pp.T))
 
     # Summ all contributions to master
@@ -523,7 +523,7 @@ def makeU(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
         assert world.size == 1  # works in parallel if U and eps are broadcast
         Uisq_qp = (U_pq / np.sqrt(eps_q)).T.copy()
         g_qG = gd.zeros(n=len(eps_q))
-        gemm(1.0, f_pG, Uisq_qp, 0.0, g_qG)
+        mmmx(1.0, Uisq_qp, 'N', f_pG, 'N', 0.0, g_qG)
         g_qG = gd.collect(g_qG)
         if world.rank == 0:
             P_app = dict([(a, np.array([pack(np.outer(P_wi[w1], P_wi[w2]),
@@ -586,11 +586,11 @@ def _makeV(gpwfile, orbitalfile, rotationfile, coulombfile, log, fft):
             P_aqp[a] = np.zeros((qend - qstart, nii), float)
         for w1, w1_G in enumerate(w_wG):
             U = Uisq_iqj[w1, qstart: qend].copy()
-            gemm(1., w1_G * w_wG, U, 1.0, g_qG)
+            mmmx(1, U, 'N', w1_G * w_wG, 'N', 1, g_qG)
             for a, P_wi in P_awi.items():
                 P_wp = np.array([pack(np.outer(P_wi[w1], P_wi[w2]))
                                 for w2 in range(Ni)])
-                gemm(1., P_wp, U, 1.0, P_aqp[a])
+                mmm(1., U, 'N', P_wp, 'N', 1.0, P_aqp[a])
         return g_qG, P_aqp
 
     g1_qG, P1_aqp = make_optimized(q1start, q1end)

@@ -1,8 +1,11 @@
-from gpaw import GPAW, PW
-from ase.parallel import parprint
+import pytest
 from ase.lattice.compounds import L1_2
+from ase.parallel import parprint
+
+from gpaw import GPAW, PW
 
 
+@pytest.mark.later
 def test_xc_qna_force(in_tmp_dir):
     name = 'Cu3Au'
     ecut = 300

@@ -1,7 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
-# Emacs: treat this as -*- python -*-
 import numpy as np
 import os
 from optparse import OptionParser
@@ -223,7 +221,7 @@ def analyse_benchmark(ncores=8, startcores=1, machine='TEST', runs=7):
     import matplotlib
     matplotlib.use('Agg')
     from matplotlib import pylab
-    # from http://matplotlib.sourceforge.net/examples/dashtick.py
+    # from matplotlib.sourceforge.net/examples/dashtick.py
     DASHBASE = 5
     DASHLEN = 25
     DASHSTAGGER = 3

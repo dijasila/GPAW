@@ -17,13 +17,16 @@ def test_scalapack_pdlasrt_hang():
     add_adsorbate(slab, 'O', 1.1, 'hollow')
     slab.center(vacuum=3.0, axis=2)
 
+    if compiled_with_sl():
+        parallel = {'domain': (1, 1, 4), 'sl_default': (2, 2, 64)}
+    else:
+        parallel = None
+
     calc = GPAW(mode='lcao',
                 kpts=(2, 2, 1),
                 txt='-',
-                maxiter=1,)
-
-    if compiled_with_sl():
-        calc.set(parallel={'domain': (1, 1, 4), 'sl_default': (2, 2, 64)})
+                maxiter=1,
+                parallel=parallel)
 
     slab.calc = calc
     try:

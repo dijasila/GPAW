@@ -1,11 +1,12 @@
+from __future__ import annotations
 from math import nan
-from typing import (Union, List, TYPE_CHECKING, Dict, Optional, Callable,
-                    Tuple, Iterable, Iterator)
 from operator import attrgetter
 from pathlib import Path
+from typing import (TYPE_CHECKING, Callable, Dict, Iterable, Iterator, List,
+                    Optional, Tuple)
 
 import numpy as np
-from ase.units import Ha, alpha, Bohr
+from ase.units import Bohr, Ha, alpha
 
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.grid_descriptor import GridDescriptor
@@ -15,11 +16,13 @@ from gpaw.mpi import broadcast_array, serial_comm
 from gpaw.occupations import OccupationNumberCalculator, ParallelLayout
 from gpaw.projections import Projections
 from gpaw.setup import Setup
-from gpaw.utilities.partition import AtomPartition
-from gpaw.utilities.ibz2bz import construct_symmetry_operators
 from gpaw.typing import Array1D, Array2D, Array3D, Array4D, ArrayND
+from gpaw.utilities.ibz2bz import construct_symmetry_operators
+from gpaw.utilities.partition import AtomPartition
+
 if TYPE_CHECKING:
     from gpaw.calculator import GPAW  # noqa
+    from gpaw.new.ase_interface import ASECalculator
 
 _L_vlmm: List[List[np.ndarray]] = []  # see get_L_vlmm() below
 
@@ -251,6 +254,12 @@ class BZWaveFunctions:
         """Eigenvalues in eV for the whole BZ."""
         return self._collect(attrgetter('eig_m'), broadcast=broadcast)
 
+    def occupation_numbers(self,
+                           broadcast: bool = True
+                           ) -> Array2D:
+        """Occupation numbers for the whole BZ."""
+        return self._collect(attrgetter('f_m'), broadcast=broadcast)
+
     def eigenvectors(self,
                      broadcast: bool = True
                      ) -> Array4D:
@@ -441,7 +450,7 @@ def extract_ibz_wave_functions(kpt_qs: List[List[KPoint]],
         yield ibz_index, WaveFunction(eig_m, projections)
 
 
-def soc_eigenstates(calc: Union['GPAW', str, Path],
+def soc_eigenstates(calc: ASECalculator | GPAW | str | Path,
                     n1: int = None,
                     n2: int = None,
                     scale: float = 1.0,
@@ -574,7 +583,7 @@ def get_radial_potential(a: Setup, xc, D_sp: Array2D) -> Array1D:
     fc_g = a.Z / r_g**2
 
     # Hartree force
-    rho_g = 4 * np.pi * r_g**2 * dr_g * np.sum(n_sg, axis=0)
+    rho_g = 4 * np.pi * r_g**2 * dr_g * np.sum(n_sg[:Ns], axis=0)
     fh_g = -np.array([np.sum(rho_g[:ig]) for ig in range(len(r_g))]) / r_g**2
 
     f_g = fc_g + fh_g
@@ -582,8 +591,8 @@ def get_radial_potential(a: Setup, xc, D_sp: Array2D) -> Array1D:
     # xc force
     if xc.type != 'GLLB':
         v_sg = np.zeros_like(n_sg)
-        xc.calculate_spherical(a.xc_correction.rgd, n_sg, v_sg)
-        fxc_g = np.mean([a.xc_correction.rgd.derivative(v_g) for v_g in v_sg],
+        xc.calculate_spherical(rgd, n_sg, v_sg)
+        fxc_g = np.mean([rgd.derivative(v_g) for v_g in v_sg[:Ns]],
                         axis=0)
         f_g += fxc_g
 

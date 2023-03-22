@@ -185,9 +185,10 @@ The default value corresponds to this Python dictionary::
 
   {'kpt':                 None,
    'domain':              None,
-   'band':                1,
+   'band':                None,
    'order':               'kdb',
    'stridebands':         False,
+   'augment_grids':       False,
    'sl_auto':             False,
    'sl_default':          None,
    'sl_diagonalize':      None,
@@ -216,8 +217,7 @@ In words:
   best domain parallelization size based on number of kpoints etc.
 
 * The ``'band'`` value specifies the number of parallelization groups to use
-  for :ref:`band parallelization <manual_parsize_bands>` and defaults to one,
-  i.e. no band parallelization.
+  for :ref:`band parallelization <manual_parsize_bands>`. If not specified (i.e. ``None``), the calculator will try to determine the best band parallelization size based on number of kpoints etc.
 
 * ``'order'`` specifies how different parallelization modes are nested
   within the calculator's world communicator.  Must be a permutation
@@ -230,6 +230,8 @@ In words:
 
 * The ``'stridebands'`` value only applies when band parallelization is used,
   and can be used to toggle between grouped and strided band distribution.
+
+* If ``'augment_grids'`` is ``True``, all cores will be used for XC/Poisson solver. When parallelizing over k-points or bands, in the planewave mode, and using ScaLAPACK, setting ``'augment_grids'`` to True will make use of all cores including those for k-point and band parallelization.
 
 * If ``'sl_auto'`` is ``True``, ScaLAPACK will be enabled with automatically
   chosen parameters and using all available CPUs.

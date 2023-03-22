@@ -52,6 +52,7 @@ def dscf_calculation(paw, orbitals, atoms):
     # is None
     if paw.wfs is None:
         paw.initialize(atoms)
+    assert paw.wfs.mode != 'pw'
     occ = paw.wfs.occupations
     if isinstance(occ, OccupationsDSCF):
         occ.orbitals = orbitals
@@ -138,7 +139,7 @@ class OccupationsDSCF:
 
 
 class MolecularOrbital:
-    r"""Class defining the orbitals that should be filled in a dSCF calculation.
+    r"""Class defining orbitals that should be filled in a dSCF calculation.
 
     An orbital is defined through a linear combination of the atomic
     partial waves. In each self-consistent cycle the method expand

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """Van der Waals density functional.
 
 This module implements the Dion-Rydberg–Schröder–Langreth–Lundqvist
@@ -579,8 +577,7 @@ class FFTVDWFunctional(VDWFunctionalBase):
 
         The recipe is from
 
-          http://en.wikipedia.org/wiki/Spline_(mathematics)
-        """
+          http://en.wikipedia.org/wiki/Spline_(mathematics) """
 
         n = self.Nalpha
         lambd = self.lambd

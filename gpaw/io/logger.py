@@ -160,7 +160,7 @@ def write_header(log, world):
     log('OMP_NUM_THREADS:', os.environ['OMP_NUM_THREADS'])
 
     if gpaw.debug:
-        log('DEBUG MODE')
+        log('DEBUG-MODE: true')
 
     log()
 

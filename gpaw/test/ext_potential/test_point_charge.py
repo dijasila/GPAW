@@ -1,15 +1,17 @@
 import numpy as np
+import pytest
 from ase import Atoms
 from ase.calculators.test import numeric_force
-from gpaw import GPAW, PoissonSolver, Mixer
+
+import _gpaw
+from gpaw import GPAW, Mixer, PoissonSolver
 from gpaw.external import PointChargePotential
 from gpaw.test import equal
-import _gpaw
-
-# Find coefs for polynomial:
 
 
+@pytest.mark.later
 def test_ext_potential_point_charge(in_tmp_dir):
+    # Find coefs for polynomial:
     c = np.linalg.solve([[1, 1, 1, 1],
                          [0, 2, 4, 6],
                          [0, 2, 12, 30],

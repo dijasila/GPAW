@@ -11,6 +11,7 @@ from gpaw.mpi import world
 # should be equal, are.
 
 
+@pytest.mark.response
 @pytest.mark.slow
 def test_response_graphene(in_tmp_dir):
     a = 2.5
@@ -61,9 +62,11 @@ def test_response_graphene(in_tmp_dir):
         dfs = []
         for kwargs in DFsettings:
             DF = DielectricFunction(calc='gr.gpw',
-                                    domega0=0.2,
+                                    frequencies={'type': 'nonlinear',
+                                                 'domega0': 0.2},
                                     eta=0.2,
                                     ecut=15.0,
+                                    rate=0.001,
                                     **kwargs)
             df1, df2 = DF.get_dielectric_function()
             if world.rank == 0:

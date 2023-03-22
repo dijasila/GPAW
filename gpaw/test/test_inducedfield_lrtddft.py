@@ -10,6 +10,7 @@ from gpaw.test import equal
 
 
 @pytest.mark.ci
+@pytest.mark.later
 def test_inducedfield_lrtddft(in_tmp_dir):
     do_print_values = False  # Use this for printing the reference values
     poisson_eps = 1e-12

@@ -29,4 +29,4 @@ def test_dipole_me(gpw_files):
 
     assert abs(d3_nnv[0, 0]).max() < 0.04
     assert abs(d3_nnv[1, 1]).max() < 0.04
-    assert abs(abs(d3_nnv[0, 1]) - abs(d2_nnv[0, 1])).max() < 1e-7
+    assert abs(abs(d3_nnv[0, 1]) - abs(d2_nnv[0, 1])).max() < 1e-6

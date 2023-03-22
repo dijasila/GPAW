@@ -65,13 +65,13 @@ def test_dipole():
 
     system1.calc = calc1
     system1.get_potential_energy()
-    v1 = calc1.get_effective_potential(pad=False)
+    v1 = calc1.get_effective_potential()
 
     calc2 = GPAW(**kw())
 
     system2.calc = calc2
     system2.get_potential_energy()
-    v2 = calc2.get_effective_potential(pad=False)
+    v2 = calc2.get_effective_potential()
 
     def get_avg(v):
         nx, ny, nz = v.shape
@@ -85,13 +85,17 @@ def test_dipole():
 
         # Compare values that are not quite at the end of the array
         # (at the end of the array things can "oscillate" a bit)
-        dvz1 = vz1[-3] - vz1[2]
-        dvz2 = vz2[2] - vz2[len(vz2) // 2]
+        dvz1 = vz1[-3] - vz1[3]
+        dvz2 = vz2[3] - vz2[len(vz2) // 2]
         print(dvz1, dvz2)
 
         err1 = abs(dvz1 - dvz2)
 
-        correction = calc1.hamiltonian.poisson.correction
+        try:
+            correction = calc1.hamiltonian.poisson.correction
+        except AttributeError:
+            correction = (calc1.calculation.pot_calc.poisson_solver.
+                          solver.correction)
 
         correction_err = abs(2.0 * correction * Hartree + dvz1)
         print('correction error %s' % correction_err)
@@ -102,14 +106,14 @@ def test_dipole():
         err2 = abs(dvz1 - ref_value)
 
         if 0:
-            import pylab as pl
-            pl.imshow(vyz1)
-            pl.figure()
-            pl.imshow(vyz2)
-            pl.figure()
-            pl.plot(vz1)
-            pl.plot(vz2)
-            pl.show()
+            import matplotlib.pyplot as plt
+            plt.imshow(vyz1)
+            plt.figure()
+            plt.imshow(vyz2)
+            plt.figure()
+            plt.plot(vz1)
+            plt.plot(vz2)
+            plt.show()
 
         print('Ref value of previous calculation', ref_value)
         print('Value in this calculation', dvz1)

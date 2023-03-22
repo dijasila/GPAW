@@ -8,7 +8,8 @@ from gpaw.spinorbit import soc_eigenstates
 calc = GPAW('Pt_bands.gpw', txt=None)
 ef = GPAW('Pt_gs.gpw', txt=None).get_fermi_level()
 
-kpts, x, X = bandpath('GXWLGKX', calc.atoms.cell, npoints=200)
+path = bandpath('GXWLGKX', calc.atoms.cell, npoints=200)
+(x, X, labels) = path.get_linear_kpoint_axis()
 
 e_kn = np.array([calc.get_eigenvalues(kpt=k)[:20]
                  for k in range(len(calc.get_ibz_k_points()))])

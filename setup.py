@@ -10,7 +10,7 @@ from subprocess import PIPE, run
 from sysconfig import get_platform
 
 from setuptools import Extension, find_packages, setup
-from setuptools.command.build_ext import build_ext as _build_ext
+from setuptools.command.build_ext import build_ext
 from setuptools.command.develop import develop as _develop
 from setuptools.command.install import install as _install
 
@@ -43,6 +43,8 @@ extra_objects = []
 define_macros = [('NPY_NO_DEPRECATED_API', '7'),
                  ('GPAW_NO_UNDERSCORE_CBLACS', '1'),
                  ('GPAW_NO_UNDERSCORE_CSCALAPACK', '1')]
+if os.getenv('GPAW_GPU'):
+    define_macros.append(('GPAW_GPU_AWARE_MPI', '1'))
 undef_macros = ['NDEBUG']
 
 mpi_libraries = []
@@ -105,23 +107,22 @@ if platform_id:
     os.environ['_PYTHON_HOST_PLATFORM'] = get_platform() + '-' + platform_id
 
 if compiler is not None:
-    # A hack to change the used compiler and linker:
-    try:
-        # distutils is deprecated and will be removed in 3.12
-        from distutils.sysconfig import get_config_vars
-    except ImportError:
-        from sysconfig import get_config_vars
+    # A hack to change the used compiler and linker, inspired by
+    # https://shwina.github.io/custom-compiler-linker-extensions/
 
-    # If CC is set then the following hack will not work
-    assert not os.environ.get('CC'), 'Please unset CC'
+    # If CC is set, it will be ignored, which is probably unexpected.
+    assert not os.environ.get('CC'), 'Please unset CC as it is ignored'
 
-    vars = get_config_vars()
-    for key in ['CC', 'LDSHARED']:
-        if key in vars:
-            value = vars[key].split()
-            # first argument is the compiler/linker.  Replace with mpicompiler:
-            value[0] = compiler
-            vars[key] = ' '.join(value)
+    # Note: The following class will be extended again below, but that is
+    # OK as long as super() is used to chain the method calls.
+    class build_ext(build_ext):
+        def build_extensions(self):
+            # Override the compiler executables.
+            for attr in ('compiler_so', 'compiler_cxx', 'linker_so'):
+                temp = getattr(self.compiler, attr)
+                temp[0] = compiler
+                self.compiler.set_executable(attr, temp)
+            super().build_extensions()
 
 for flag, name in [(noblas, 'GPAW_WITHOUT_BLAS'),
                    (nolibxc, 'GPAW_WITHOUT_LIBXC'),
@@ -165,6 +166,35 @@ extensions = [Extension('_gpaw',
                         runtime_library_dirs=runtime_library_dirs,
                         extra_objects=extra_objects)]
 
+if os.environ.get('GPAW_GPU'):
+    # Hardcoded for LUMI right now!
+    target = os.environ.get('HCC_AMDGPU_TARGET', 'gfx90a')
+    # TODO: Build this also via extension
+    assert os.system(
+        f'HCC_AMDGPU_TARGET={target} hipcc -fPIC -fgpu-rdc '
+        '-c c/gpu/hip_kernels.cpp -o c/gpu/hip_kernels.o') == 0
+    assert os.system(
+        f'HCC_AMDGPU_TARGET={target} hipcc -shared -fgpu-rdc --hip-link '
+        '-o c/gpu/hip_kernels.so c/gpu/hip_kernels.o') == 0
+
+    extensions.append(
+        Extension('_gpaw_gpu',
+                  ['c/gpu/gpaw_gpu.c'],
+                  libraries=[],
+                  library_dirs=['c/gpu'],
+                  setup_requires=['numpy'],
+                  include_dirs=include_dirs,
+                  define_macros=[('NPY_NO_DEPRECATED_API', 7)],
+                  undef_macros=[],
+                  extra_link_args=[
+                      f'-Wl,-rpath={Path("c/gpu").resolve()}'],
+                  extra_compile_args=['-std=c99'],
+                  # ,'-Werror=implicit-function-declaration'],
+                  runtime_library_dirs=['c/gpu'],
+                  extra_objects=[
+                      str(Path('c/gpu/hip_kernels.so').resolve())]))
+
+
 write_configuration(define_macros, include_dirs, libraries, library_dirs,
                     extra_link_args, extra_compile_args,
                     runtime_library_dirs, extra_objects, mpicompiler,
@@ -172,12 +202,13 @@ write_configuration(define_macros, include_dirs, libraries, library_dirs,
                     mpi_runtime_library_dirs, mpi_define_macros)
 
 
-class build_ext(_build_ext):
+class build_ext(build_ext):
     def run(self):
         import numpy as np
         self.include_dirs.append(np.get_include())
 
-        _build_ext.run(self)
+        super().run()
+        print("Temp and build", self.build_lib, self.build_temp)
 
         if parallel_python_interpreter:
             include_dirs.append(np.get_include())
@@ -185,7 +216,7 @@ class build_ext(_build_ext):
             error = build_interpreter(
                 define_macros, include_dirs, libraries,
                 library_dirs, extra_link_args, extra_compile_args,
-                runtime_library_dirs, extra_objects,
+                runtime_library_dirs, extra_objects, self.build_temp,
                 mpicompiler, mpilinker, mpi_libraries,
                 mpi_library_dirs,
                 mpi_include_dirs,
@@ -203,13 +234,13 @@ def copy_gpaw_python(cmd, dir: str) -> None:
 
 class install(_install):
     def run(self):
-        _install.run(self)
+        super().run()
         copy_gpaw_python(self, self.install_scripts)
 
 
 class develop(_develop):
     def run(self):
-        _develop.run(self)
+        super().run()
         copy_gpaw_python(self, self.script_dir)
 
 
@@ -234,10 +265,13 @@ setup(name='gpaw',
       license='GPLv3+',
       platforms=['unix'],
       packages=find_packages(),
-      entry_points={'console_scripts': ['gpaw = gpaw.cli.main:main']},
+      package_data={'gpaw': ['py.typed']},
+      entry_points={
+          'console_scripts': ['gpaw = gpaw.cli.main:main']},
       setup_requires=['numpy'],
       install_requires=[f'ase>={ase_version_required}',
-                        'scipy>=1.2.0'],
+                        'scipy>=1.2.0',
+                        'pyyaml'],
       extras_require={'docs': ['sphinx-rtd-theme',
                                'graphviz'],
                       'devel': ['flake8',

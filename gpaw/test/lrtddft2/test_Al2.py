@@ -1,3 +1,4 @@
+import pytest
 from gpaw import GPAW, FermiDirac
 from gpaw.mpi import world, size, rank
 from gpaw.lrtddft2 import LrTDDFT2
@@ -6,6 +7,7 @@ from gpaw.test import equal
 from ase.atoms import Atoms
 
 
+@pytest.mark.lrtddft
 def test_lrtddft2_Al2(in_tmp_dir):
     debug = False
     restart_file = 'Al2_gs.gpw'

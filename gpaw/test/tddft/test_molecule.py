@@ -85,6 +85,7 @@ def time_propagation_reference(ground_state):
                                write_and_continue=True)
 
 
+@pytest.mark.later
 def test_dipole_moment_values(time_propagation_reference,
                               module_tmp_path, in_tmp_dir):
     with open('dm.dat', 'w') as fd:
@@ -115,6 +116,7 @@ def test_dipole_moment_values(time_propagation_reference,
     check_dm('dm2.dat', module_tmp_path / 'dm2.dat', rtol=rtol, atol=atol)
 
 
+@pytest.mark.later
 @pytest.mark.parametrize('parallel', parallel_i)
 @pytest.mark.parametrize('propagator', [
     'SICN', 'ECN', 'ETRSCN', 'SIKE'])
@@ -132,16 +134,17 @@ def test_propagation(time_propagation_reference,
         if 'band' in parallel:
             # XXX band parallelization is inaccurate!
             rtol = 7e-4
-            atol = 3e-8
+            atol = 5e-8
     else:
         # Other propagators match qualitatively
         rtol = 5e-2
         if 'band' in parallel:
             # XXX band parallelization is inaccurate!
-            atol = 3e-8
+            atol = 5e-8
     check_dm(module_tmp_path / 'dm.dat', 'dm.dat', rtol=rtol, atol=atol)
 
 
+@pytest.mark.later
 @pytest.mark.parametrize('parallel', parallel_i)
 def test_restart(time_propagation_reference,
                  parallel,

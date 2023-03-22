@@ -1,3 +1,4 @@
+import pytest
 from ase import Atom, Atoms
 
 from gpaw import GPAW
@@ -13,20 +14,21 @@ def get_H2(calculator=None):
     H2 = Atoms([Atom('H', (a / 2, a / 2, (c - R) / 2)),
                 Atom('H', (a / 2, a / 2, (c + R) / 2))],
                cell=(a, a, c))
-    
+
     if calculator is not None:
         H2.calc = calculator
 
     return H2
 
 
+@pytest.mark.lrtddft
 def test_io(in_tmp_dir):
     calc = GPAW(xc='PBE', h=0.25, nbands=5, txt=None)
     calc.calculate(get_H2(calc))
     exlst = LrTDDFT(calc, restrict={'eps': 0.4, 'jend': 3})
     assert len(exlst) == 3
     assert exlst.kss.restrict['eps'] == 0.4
-    
+
     fname = 'lr.dat.gz'
     exlst.write(fname)
     world.barrier()
@@ -43,6 +45,7 @@ def test_io(in_tmp_dir):
     assert len(lr4) == 1
 
 
+@pytest.mark.lrtddft
 def test_invocation():
     calc = GPAW(xc='PBE', h=0.25, nbands=5, txt=None)
     H2 = get_H2(calc)
