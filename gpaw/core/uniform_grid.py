@@ -261,6 +261,10 @@ class UniformGrid(Domain):
             raise ValueError('Positions outside cell!')
         return np.ravel_multi_index(rank_ac.T, self.parsize_c)  # type: ignore
 
+    def ecut_max(self):
+        dv_cv = self.cell_cv / self.size_c[:, np.newaxis]
+        return 0.5 * np.pi**2 / (dv_cv**2).sum(1).max()
+
 
 class UniformGridFunctions(DistributedArrays[UniformGrid]):
     def __init__(self,
@@ -390,7 +394,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
 
         if broadcast or comm.rank == 0:
             grid = self.desc.new(comm=serial_comm)
-            out = grid.empty(self.dims)
+            out = grid.empty(self.dims, xp=self.xp)
 
         if comm.rank != 0:
             # There can be several sends before the corresponding receives
@@ -405,7 +409,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         # for the whole domain:
         for rank, block in enumerate(self.desc.blocks(out.data)):
             if rank != 0:
-                buf = np.empty_like(block)
+                buf = self.xp.empty_like(block)
                 comm.receive(buf, rank, 301)
                 block[:] = buf
             else:
@@ -472,14 +476,12 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
             b_yR = b_yR.reshape((len(b_yR), -1))
             result = (a_xR @ b_yR.T.conj()).reshape(self.dims + other.dims)
         else:
-            result = self.data.sum(axis=(-3, -2, -1))
+            # Make sure we have an array and not a scalar!
+            result = self.xp.asarray(self.data.sum(axis=(-3, -2, -1)))
 
+        self.desc.comm.sum(result)
         if result.ndim == 0:
-            if self.xp is np:
-                result = np.array(self.desc.comm.sum(result.item()))
-        else:
-            self.desc.comm.sum(result)
-
+            result = result.item()  # convert to scalar
         return result * self.desc.dv
 
     def to_pbc_grid(self):
@@ -523,7 +525,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         if out is None:
             if grid is None:
                 raise ValueError('Please specify "grid" or "out".')
-            out = grid.empty(self.dims)
+            out = grid.empty(self.dims, xp=self.xp)
 
         if not out.desc.pbc_c.all() or not self.desc.pbc_c.all():
             raise ValueError('Grids must have pbc=True!')
@@ -543,8 +545,8 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         if (size2_c <= size1_c).any():
             raise ValueError('Too few points in target grid!')
 
-        plan1 = plan1 or self.desc.fft_plans()
-        plan2 = plan2 or out.desc.fft_plans()
+        plan1 = plan1 or self.desc.fft_plans(xp=self.xp)
+        plan2 = plan2 or out.desc.fft_plans(xp=self.xp)
 
         if self.dims:
             for input, output in zip(self.flat(), out.flat()):
@@ -618,7 +620,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         if out is None:
             if grid is None:
                 raise ValueError('Please specify "grid" or "out".')
-            out = grid.empty()
+            out = grid.empty(xp=self.xp)
 
         if not out.desc.pbc_c.all() or not self.desc.pbc_c.all():
             raise ValueError('Grids must have pbc=True!')
@@ -692,12 +694,12 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
             return
 
         a_xR = self.gather()
-        if self.xp is not np:
-            a_xR = a_xR.to_xp(np)
 
         if a_xR is None:
             b_xR = None
         else:
+            if self.xp is not np:
+                a_xR = a_xR.to_xp(np)
             b_xR = a_xR.new()
             t_sc = (translation_sc * self.desc.size_c).round().astype(int)
             offset_c = 1 - self.desc.pbc_c
@@ -705,9 +707,8 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
                 b_R[:] = 0.0
                 for r_cc, t_c in zip(rotation_scc, t_sc):
                     _gpaw.symmetrize_ft(a_R, b_R, r_cc, t_c, offset_c)
-
-        if self.xp is not np:
-            b_xR = b_xR.to_xp(self.xp)
+            if self.xp is not np:
+                b_xR = b_xR.to_xp(self.xp)
         self.scatter_from(b_xR)
 
         self.data *= 1.0 / len(rotation_scc)
@@ -740,6 +741,8 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         rho_ij = rho_ijk.sum(axis=2)
         rho_ik = rho_ijk.sum(axis=1)
         rho_cr = [rho_ij.sum(axis=1), rho_ij.sum(axis=0), rho_ik.sum(axis=0)]
+        if self.xp is not np:
+            rho_cr = [rho_r.get() for rho_r in rho_cr]
 
         d_c = [index_r @ rho_r for index_r, rho_r in zip(index_cr, rho_cr)]
         d_v = (d_c / ug.size_c) @ ug.cell_cv * self.dv
@@ -759,11 +762,3 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
                            kpt=(grid.kpt_c if grid.kpt_c.any() else None),
                            dtype=grid.dtype)
         return UniformGridFunctions(grid, self.dims, self.comm, self.data * v)
-
-    def to_xp(self, xp):
-        if xp is self.xp:
-            return self
-        if xp is np:
-            return self.new(data=self.xp.asnumpy(self.data))
-        else:
-            return self.new(data=xp.asarray(self.data))

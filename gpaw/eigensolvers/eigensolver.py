@@ -122,7 +122,6 @@ class Eigensolver:
                     cbm = efermi + eps_skn[s, k, n]
 
                 ecut = cbm + delta
-
                 for weight_n, kpt in zip(weight_un, wfs.kpt_u):
                     weight_n[kpt.eps_n < ecut] = kpt.weight
 

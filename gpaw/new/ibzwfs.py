@@ -7,9 +7,10 @@ import numpy as np
 from ase.dft.bandgap import bandgap
 from ase.io.ulm import Writer
 from ase.units import Bohr, Ha
-
-import gpaw.gpu as gpu
+from gpaw.gpu import synchronize
+from gpaw.gpu.mpi import CuPyMPI
 from gpaw.mpi import MPIComm, serial_comm
+from gpaw.new import zip
 from gpaw.new.brillouin import IBZ
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
 from gpaw.new.potential import Potential
@@ -80,7 +81,8 @@ class IBZWaveFunctions:
 
         self.energies: dict[str, float] = {}  # hartree
 
-        if self.wfs_qs[0][0].xp is not np:
+        self.xp = self.wfs_qs[0][0].xp
+        if self.xp is not np:
             if not getattr(_gpaw, 'gpu_aware_mpi', False):
                 self.kpt_comm = CuPyMPI(self.kpt_comm)
 
@@ -167,7 +169,7 @@ class IBZWaveFunctions:
         e_band = 0.0
         for wfs in self:
             e_band += wfs.occ_n @ wfs.eig_n * wfs.weight * degeneracy
-        e_band = self.kpt_comm.sum(e_band)
+        e_band = self.kpt_comm.sum(float(e_band))  # XXX CPU float?
 
         self.energies = {
             'band': e_band,
@@ -179,7 +181,7 @@ class IBZWaveFunctions:
         and ``D_asii``."""
         for wfs in self:
             wfs.add_to_density(nt_sR, D_asii)
-        gpu.synchronize()
+        synchronize()
         self.kpt_comm.sum(nt_sR.data)
         self.kpt_comm.sum(D_asii.data)
 
@@ -259,9 +261,10 @@ class IBZWaveFunctions:
         return eig_skn, occ_skn
 
     def forces(self, potential: Potential) -> Array2D:
-        F_av = np.zeros((potential.dH_asii.natoms, 3))
+        F_av = self.xp.zeros((potential.dH_asii.natoms, 3))
         for wfs in self:
             wfs.force_contribution(potential, F_av)
+        synchronize()
         self.kpt_comm.sum(F_av)
         return F_av
 
@@ -437,25 +440,3 @@ class IBZWaveFunctions:
                                      for wfs_s in self.wfs_qs))
 
         return np.array([homo, lumo])
-
-
-class CuPyMPI:
-    """Quick'n'dirty wrapper to make kpt_comm work without a GPU-aware MPI."""
-    def __init__(self, comm):
-        self.comm = comm
-        self.rank = comm.rank
-        self.size = comm.size
-
-    def sum(self, array):
-        from gpaw.gpu import cupy as cp
-        if isinstance(array, float):
-            return self.comm.sum(array)
-        if isinstance(array, np.ndarray):
-            self.comm.sum(array)
-            return
-        a = array.get()
-        self.comm.sum(a)
-        array[:] = cp.asarray(a)
-
-    def max(self, array):
-        self.comm.max(array)

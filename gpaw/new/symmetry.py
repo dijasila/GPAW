@@ -2,6 +2,7 @@ import warnings
 
 import numpy as np
 from gpaw.mpi import MPIComm
+from gpaw.new import zip
 from gpaw.new.brillouin import IBZ, BZPoints
 from gpaw.rotation import rotation
 from gpaw.symmetry import Symmetry as OldSymmetry
@@ -77,6 +78,16 @@ class Symmetries:
                bz: BZPoints,
                comm: MPIComm = None,
                strict: bool = True) -> IBZ:
+        """Find irreducible set of k-points."""
+        if not (self.symmetry.time_reversal or
+                self.symmetry.point_group):
+            N = len(bz)
+            return IBZ(self,
+                       bz,
+                       ibz2bz=np.arange(N),
+                       bz2ibz=np.arange(N),
+                       weights=np.ones(N) / N)
+
         (_, weight_k, sym_k, time_reversal_k, bz2ibz_K, ibz2bz_k,
          bz2bz_Ks) = self.symmetry.reduce(bz.kpt_Kc, comm)
 

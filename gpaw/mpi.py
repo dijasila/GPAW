@@ -126,6 +126,10 @@ class _Communicator:
             assert root == -1 or 0 <= root < self.size
             self.comm.sum(a, root)
 
+    def sum_scalar(self, a, root=-1):
+        assert isinstance(a, (int, float, complex))
+        return self.comm.sum_scalar(a, root)
+
     def product(self, a, root=-1):
         """Do multiplication by MPI reduce operations of numerical data.
 
@@ -182,6 +186,10 @@ class _Communicator:
             assert root == -1 or 0 <= root < self.size
             self.comm.max(a, root)
 
+    def max_scalar(self, a, root=-1):
+        assert isinstance(a, (int, float))
+        return self.comm.max_scalar(a, root)
+
     def min(self, a, root=-1):
         """Find minimal value by an MPI reduce operation of numerical data.
 
@@ -209,6 +217,10 @@ class _Communicator:
             assert is_contiguous(a, tc)
             assert root == -1 or 0 <= root < self.size
             self.comm.min(a, root)
+    
+    def min_scalar(self, a, root=-1):
+        assert isinstance(a, (int, float))
+        return self.comm.min_scalar(a, root)
 
     def scatter(self, a, b, root):
         """Distribute data from one rank to all other processes in a group.
@@ -616,6 +628,9 @@ class SerialCommunicator:
     def sum(self, array, root=-1):
         if isinstance(array, (int, float, complex)):
             return array
+    
+    def sum_scalar(self, a, root=-1):
+        return a
 
     def scatter(self, s, r, root):
         r[:] = s
@@ -623,7 +638,13 @@ class SerialCommunicator:
     def min(self, value, root=-1):
         return value
 
+    def min_scalar(self, value, root=-1):
+        return value
+
     def max(self, value, root=-1):
+        return value
+    
+    def max_scalar(self, value, root=-1):
         return value
 
     def broadcast(self, buf, root):

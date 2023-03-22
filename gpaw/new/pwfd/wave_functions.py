@@ -12,7 +12,7 @@ from gpaw.core.plane_waves import PlaneWaveExpansions
 from gpaw.core.uniform_grid import UniformGrid, UniformGridFunctions
 from gpaw.fftw import get_efficient_fft_size
 from gpaw.gpu import as_xp
-from gpaw.new import prod
+from gpaw.new import prod, zip
 from gpaw.new.potential import Potential
 from gpaw.new.wave_functions import WaveFunctions
 from gpaw.setup import Setups
@@ -156,7 +156,6 @@ class PWFDWaveFunctions(WaveFunctions):
             return
         psit_nX = self.psit_nX
         domain_comm = psit_nX.desc.comm
-
         P_ani = self.P_ani
 
         P2_ani = P_ani.new()
@@ -242,8 +241,11 @@ class PWFDWaveFunctions(WaveFunctions):
     def force_contribution(self,
                            potential: Potential,
                            F_av: Array2D) -> None:
+        xp = self.xp
         dH_asii = potential.dH_asii
-        myocc_n = self.weight * self.spin_degeneracy * self.myocc_n
+        myeig_n = xp.asarray(self.myeig_n)
+        myocc_n = xp.asarray(
+            self.weight * self.spin_degeneracy * self.myocc_n)
 
         if self.ncomponents == 4:
             self._non_collinear_force_contribution(dH_asii, myocc_n, F_av)
@@ -255,10 +257,10 @@ class PWFDWaveFunctions(WaveFunctions):
             F_vni *= myocc_n[:, np.newaxis]
             dH_ii = dH_asii[a][self.spin]
             P_ni = self.P_ani[a]
-            F_vii = np.einsum('vni, nj, jk -> vik', F_vni, P_ni, dH_ii)
-            F_vni *= self.myeig_n[:, np.newaxis]
-            dO_ii = self.setups[a].dO_ii
-            F_vii -= np.einsum('vni, nj, jk -> vik', F_vni, P_ni, dO_ii)
+            F_vii = xp.einsum('vni, nj, jk -> vik', F_vni, P_ni, dH_ii)
+            F_vni *= myeig_n[:, np.newaxis]
+            dO_ii = xp.asarray(self.setups[a].dO_ii)
+            F_vii -= xp.einsum('vni, nj, jk -> vik', F_vni, P_ni, dO_ii)
             F_av[a] += 2 * F_vii.real.trace(0, 1, 2)
 
     def _non_collinear_force_contribution(self,
@@ -440,3 +442,25 @@ class PWFDWaveFunctions(WaveFunctions):
             self.atomdist,
             self.weight,
             self.ncomponents)
+
+    def morph(self, desc, fracpos_ac, atomdist):
+        desc = desc.new(kpt=self.psit_nX.desc.kpt_c)
+        psit_nX = self.psit_nX.morph(desc)
+
+        # Save memory:
+        self.psit_nX.data = None
+        self._P_ani = None
+        self._pt_aiX = None
+
+        wfs = PWFDWaveFunctions(
+            psit_nX,
+            self.spin,
+            self.q,
+            self.k,
+            self.setups,
+            fracpos_ac,
+            atomdist,
+            self.weight,
+            self.ncomponents)
+
+        return wfs

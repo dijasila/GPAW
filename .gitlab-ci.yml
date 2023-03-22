@@ -357,8 +357,8 @@ typecheck:
   script:
     - pip install mypy types-PyYAML
     - python --version
-    - python -m mypy --version
-    - python -m mypy -p gpaw
+    - mypy --version
+    - mypy --pretty
 
 
 docs:

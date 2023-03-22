@@ -4,8 +4,10 @@ from types import SimpleNamespace
 import numpy as np
 
 from ase.units import Ha, Bohr
+from ase.utils import lazyproperty
 
 import gpaw.mpi as mpi
+from gpaw.response.ibz2bz import IBZ2BZMaps
 
 
 class ResponseGroundStateAdapter:
@@ -34,13 +36,15 @@ class ResponseGroundStateAdapter:
 
         self.nvalence = wfs.nvalence
 
+        self.ibz2bz = IBZ2BZMaps.from_calculator(calc)
+
         self._wfs = wfs
         self._density = calc.density
         self._hamiltonian = calc.hamiltonian
         self._calc = calc
 
-    @staticmethod
-    def from_gpw_file(gpw, context):
+    @classmethod
+    def from_gpw_file(cls, gpw, context):
         """Initiate the ground state adapter directly from a .gpw file."""
         from gpaw import GPAW, disable_dry_run
         assert Path(gpw).is_file()
@@ -51,7 +55,7 @@ class ResponseGroundStateAdapter:
             with disable_dry_run():
                 calc = GPAW(gpw, txt=None, communicator=mpi.serial_comm)
 
-        return ResponseGroundStateAdapter(calc)
+        return cls(calc)
 
     @property
     def pd(self):
@@ -59,6 +63,23 @@ class ResponseGroundStateAdapter:
         # We need to abstract away "calc" in all places used by response
         # code, and that includes places that are also compatible with FD.
         return self._wfs.pd
+
+    @lazyproperty
+    def global_pd(self):
+        """Get a PWDescriptor that includes all k-points.
+
+        In particular, this is necessary to allow all cores to be able to work
+        on all k-points in the case where calc is parallelized over k-points,
+        see gpaw.response.kspair
+        """
+        from gpaw.pw.descriptor import PWDescriptor
+
+        assert self.gd.comm.size == 1
+        kd = self.kd.copy()  # global KPointDescriptor without a comm
+        return PWDescriptor(self.pd.ecut, self.gd,
+                            dtype=self.pd.dtype,
+                            kd=kd, fftwflags=self.pd.fftwflags,
+                            gammacentered=self.pd.gammacentered)
 
     def get_occupations_width(self):
         # Ugly hack only used by pair.intraband_pair_density I think.

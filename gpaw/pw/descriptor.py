@@ -5,6 +5,7 @@ import numpy as np
 import _gpaw
 import gpaw.fftw as fftw
 from gpaw.utilities.blas import mmm, r2k, rk
+from gpaw.gpu import cupy as cp
 
 
 class PWDescriptor:
@@ -577,7 +578,10 @@ def pad(array, N):
     n = len(array)
     if n == N:
         return array
-    b = np.empty(N, complex)
+    if isinstance(array, np.ndarray):
+        b = np.empty(N, complex)
+    else:
+        b = cp.empty(N, complex)
     b[:n] = array
     b[n:] = 0
     return b

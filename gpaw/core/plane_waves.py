@@ -69,7 +69,9 @@ class PlaneWaves(Domain):
         self.shape = (ng,)
         self.myshape = (len(self.ekin_G),)
 
-        self.dv = abs(np.linalg.det(self.cell_cv))
+        # Convert from np.float64 to float to avoid fake cupy problem ...
+        # XXX Fix cpupy!!!
+        self.dv = float(abs(np.linalg.det(self.cell_cv)))
 
         self._indices_cache: dict[tuple[int, ...], Array1D] = {}
 
@@ -251,7 +253,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
             txt += ', xp=cp'
         return txt + ')'
 
-    def __getitem__(self, index: int) -> PlaneWaveExpansions:
+    def __getitem__(self, index: int | slice) -> PlaneWaveExpansions:
         data = self.data[index]
         return PlaneWaveExpansions(self.desc, data.shape[:-1], data=data)
 
@@ -323,14 +325,14 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         assert out.desc.pbc_c.all()
         assert comm.size == out.desc.comm.size
 
+        plan = plan or out.desc.fft_plans(xp=xp)
         this = self.gather()
         if this is not None:
-            plan = plan or out.desc.fft_plans(xp=xp)
             for coef_G, out1 in zip(this._arrays(), out.flat()):
                 plan.ifft_sphere(coef_G, self.desc, out1)
         else:
             for out1 in out.flat():
-                out1.scatter_from(None)
+                plan.ifft_sphere(None, self.desc, out1)
 
         if not periodic:
             out.multiply_by_eikr()
@@ -358,12 +360,12 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         if out is None:
             if comm.rank == 0 or broadcast:
                 pw = self.desc.new(comm=serial_comm)
-                out = pw.empty(self.dims)
+                out = pw.empty(self.dims, xp=self.xp)
             else:
                 out = Empty(self.dims)
 
         if comm.rank == 0:
-            data = np.empty(self.desc.maxmysize * comm.size, complex)
+            data = self.xp.empty(self.desc.maxmysize * comm.size, complex)
         else:
             data = None
 
@@ -377,6 +379,32 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
             comm.broadcast(out.data, 0)
 
         return out if not isinstance(out, Empty) else None
+
+    def gather_all(self, out: PlaneWaveExpansions) -> None:
+        """Gather coefficients from self[r] on rank r.
+
+        On rank r, an array of all G-vector coefficients will be returned.
+        These will be gathered from self[r] on all the cores.
+        """
+        assert len(self.dims) == 1
+        pw = self.desc
+        comm = pw.comm
+        if comm.size == 1:
+            out.data[:] = self.data[0]
+            return
+
+        N = self.dims[0]
+        assert N <= comm.size
+
+        ng = pw.shape[0]
+        myng = pw.myshape[0]
+        maxmyng = pw.maxmysize
+
+        ssize_r, soffset_r, rsize_r, roffset_r = a2a_stuff(
+            comm, N, ng, myng, maxmyng)
+
+        comm.alltoallv(self.data, ssize_r, soffset_r,
+                       out.data, rsize_r, roffset_r)
 
     def scatter_from(self, data: Array1D = None) -> None:
         """Scatter data from rank-0 to all ranks."""
@@ -392,9 +420,31 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
             data = pad(data, comm.size * self.desc.maxmysize)
             comm.scatter(data, self.data, 0)
         else:
-            buf = np.empty(self.desc.maxmysize, complex)
+            buf = self.xp.empty(self.desc.maxmysize, complex)
             comm.scatter(None, buf, 0)
             self.data[:] = buf[:len(self.data)]
+
+    def scatter_from_all(self, a_G: PlaneWaveExpansions) -> None:
+        """Scatter all coefficients from rank r to self on other cores."""
+        assert len(self.dims) == 1
+        pw = self.desc
+        comm = pw.comm
+        if comm.size == 1:
+            self.data[:] = a_G.data
+            return
+
+        N = self.dims[0]
+        assert N <= comm.size
+
+        ng = pw.shape[0]
+        myng = pw.myshape[0]
+        maxmyng = pw.maxmysize
+
+        rsize_r, roffset_r, ssize_r, soffset_r = a2a_stuff(
+            comm, N, ng, myng, maxmyng)
+
+        comm.alltoallv(a_G.data, ssize_r, soffset_r,
+                       self.data, rsize_r, roffset_r)
 
     def integrate(self, other: PlaneWaveExpansions = None) -> np.ndarray:
         """Integral of self or self time cc(other)."""
@@ -412,16 +462,18 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
             if self.desc.dtype == float and self.desc.comm.rank == 0:
                 result -= 0.5 * a[:, :1] @ b[:, :1].T
             self.desc.comm.sum(result)
-            result.shape = self.dims + other.dims
+            result = result.reshape(self.dims + other.dims)
         else:
             if self.desc.comm.rank == 0:
                 result = self.data[..., 0]
             else:
-                result = np.empty(self.mydims, complex)
+                result = self.xp.empty(self.mydims, complex)
             self.desc.comm.broadcast(result, 0)
 
         if self.desc.dtype == float:
             result = result.real
+        if result.ndim == 0:
+            result = result.item()  # convert to scalar
         return result * dv
 
     def _matrix_elements_correction(self,
@@ -478,26 +530,63 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
             if self.desc.comm.rank == 0 and kind == 'normal':
                 result_x -= a_xG[:, 0]**2
         self.desc.comm.sum(result_x)
-        result_x.shape = self.mydims
-        return result_x * self.dv
+        return result_x.reshape(self.mydims) * self.dv
 
     def abs_square(self,
                    weights: Array1D,
-                   out: UniformGridFunctions = None) -> None:
-        """Add weighted absolute square of data to output array."""
-        assert out is not None
-        if self.xp is np:
-            tmp_R = out.desc.new(dtype=self.desc.dtype).empty()
-            for f, psit_G in zip(weights, self):
-                # Same as (but much faster):
-                # out.data += f * abs(psit_G.ifft().data)**2
-                psit_G.ifft(out=tmp_R)
-                _gpaw.add_to_density(f, tmp_R.data, out.data)
+                   out: UniformGridFunctions) -> None:
+        """Add weighted absolute square of self to output array.
+
+        With `a_n(G)` being self and `w_n` the weights:::
+
+              _         _    --     -1    _   2
+          out(r) <- out(r) + >  |FFT  [a (G)]| w
+                             --         n       n
+                             n
+
+        """
+        pw = self.desc
+        domain_comm = pw.comm
+        xp = self.xp
+        a_nG = self
+
+        if domain_comm.size == 1:
+            a_R = out.desc.new(dtype=pw.dtype).empty(xp=xp)
+            for weight, a_G in zip(weights, a_nG):
+                if weight == 0.0:
+                    continue
+                a_G.ifft(out=a_R)
+                if xp is np:
+                    _gpaw.add_to_density(weight, a_R.data, out.data)
+                else:
+                    out.data += float(weight) * xp.abs(a_R.data)**2
             return
-        tmp_R = out.desc.new(dtype=self.desc.dtype).empty(xp=self.xp)
-        for f, psit_G in zip(weights, self):
-            psit_G.ifft(out=tmp_R)
-            out.data += float(f) * self.xp.abs(tmp_R.data)**2
+
+        # Undistributed work arrays:
+        a1_R = out.desc.new(comm=None, dtype=pw.dtype).empty(xp=xp)
+        a1_G = pw.new(comm=None).empty(xp=xp)
+        b1_R = out.desc.new(comm=None).zeros(xp=xp)
+
+        (N,) = self.mydims
+        for n1 in range(0, N, domain_comm.size):
+            n2 = min(n1 + domain_comm.size, N)
+            a_nG[n1:n2].gather_all(a1_G)
+            n = n1 + domain_comm.rank
+            if n >= N:
+                continue
+            weight = weights[n]
+            if weight == 0.0:
+                continue
+            a1_G.ifft(out=a1_R)
+            if xp is np:
+                _gpaw.add_to_density(weight, a1_R.data, b1_R.data)
+            else:
+                b1_R.data += float(weight) * xp.abs(a1_R.data)**2
+
+        domain_comm.sum(b1_R.data)
+        b_R = out.new()
+        b_R.scatter_from(b1_R)
+        out.data += b_R.data
 
     def to_pbc_grid(self):
         return self
@@ -505,7 +594,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
     def randomize(self) -> None:
         """Insert random numbers between -0.5 and 0.5 into data."""
         seed = [self.comm.rank, self.desc.comm.rank]
-        rng = np.random.default_rng(seed)
+        rng = self.xp.random.default_rng(seed)
         a = self.data.view(float)
         rng.random(a.shape, out=a)
         a -= 0.5
@@ -527,6 +616,40 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
             m_v = np.empty(3)
         pw.comm.broadcast(m_v, 0)
         return m_v
+
+    def morph(self, pw):
+        pw0 = self.desc
+        out_xG = pw.zeros(self.dims,
+                          comm=self.comm,
+                          xp=self.xp)
+
+        d = {}
+        for G, i_c in enumerate(pw.indices_cG.T):
+            d[tuple(i_c)] = G
+        G_G0 = []
+        G0_G = []
+        for G0, i_c in enumerate(pw0.indices_cG.T):
+            G = d.get(tuple(i_c))
+            if G is not None:
+                G_G0.append(G)
+                G0_G.append(G0)
+
+        out_xG.data[:, G_G0] = self.data[:, G0_G]
+        return out_xG
+
+
+def a2a_stuff(comm, N, ng, myng, maxmyng):
+    """Create arrays for MPI alltoallv call."""
+    ssize_r = np.zeros(comm.size, int)
+    ssize_r[:N] = myng
+    soffset_r = np.arange(comm.size) * myng
+    soffset_r[N:] = 0
+    roffset_r = (np.arange(comm.size) * maxmyng).clip(max=ng)
+    rsize_r = np.zeros(comm.size, int)
+    if comm.rank < N:
+        rsize_r[:-1] = roffset_r[1:] - roffset_r[:-1]
+        rsize_r[-1] = ng - roffset_r[-1]
+    return ssize_r, soffset_r, rsize_r, roffset_r
 
 
 class Empty:
