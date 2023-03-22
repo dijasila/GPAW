@@ -47,6 +47,7 @@ class Chi0Calculator:
                  hilbert=True,
                  intraband=True,
                  nbands=None,
+                 n1=0,
                  timeordered=False,
                  context=None,
                  ecut=None,
@@ -86,6 +87,7 @@ class Chi0Calculator:
         self.eta = eta / Ha
 
         self.nbands = nbands or self.gs.bd.nbands
+        self.n1 = n1
 
         self.wd = wd
         self.context.print(self.wd, flush=False)
@@ -437,7 +439,7 @@ class Chi0Calculator:
         """Define band summation."""
         # In a normal response calculation, we include transitions from all
         # completely and partially unoccupied bands to range(m1, m2)
-        bandsum = {'n1': 0, 'n2': self.nocc2, 'm1': m1, 'm2': m2}
+        bandsum = {'n1': self.n1, 'n2': self.nocc2, 'm1': m1, 'm2': m2}
 
         return bandsum
 

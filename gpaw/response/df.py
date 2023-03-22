@@ -495,7 +495,7 @@ class DielectricFunction(DielectricFunctionCalculator):
                  omegamax=None,  # deprecated
                  ecut=50,
                  hilbert=True,
-                 nbands=None, eta=0.2, threshold=1,
+                 nbands=None, n1=0, eta=0.2, threshold=1,
                  intraband=True, nblocks=1, world=mpi.world, txt=sys.stdout,
                  truncation=None, disable_point_group=False,
                  disable_time_reversal=False,
@@ -552,7 +552,7 @@ class DielectricFunction(DielectricFunctionCalculator):
         chi0calc = Chi0Calculator(
             wd=wd,
             pair=pair,
-            ecut=ecut, nbands=nbands, eta=eta,
+            ecut=ecut, nbands=nbands, n1=n1, eta=eta,
             hilbert=hilbert,
             intraband=intraband,
             disable_point_group=disable_point_group,
