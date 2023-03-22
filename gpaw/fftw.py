@@ -247,6 +247,7 @@ class CuPyFFTPlans(FFTPlans):
         array_Q[:] = 0.0
         Q_G = self.indices(pw)
         array_Q.ravel()[Q_G] = coef_G
+        print('AA', array_Q._data[:2, 0, 1])
 
         assert SCIPY_VERSION >= [1, 6]
         if self.dtype == complex:

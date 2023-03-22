@@ -11,6 +11,7 @@ from gpaw.core.domain import Domain
 from gpaw.core.matrix import Matrix
 from gpaw.core.pwacf import PlaneWaveAtomCenteredFunctions
 from gpaw.core.uniform_grid import UniformGrid, UniformGridFunctions
+from gpaw.gpu import cupy as cp
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new import prod, zip
 from gpaw.pw.descriptor import pad
@@ -534,8 +535,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
 
     def abs_square(self,
                    weights: Array1D,
-                   out: UniformGridFunctions,
-                   blocksize: int = 10) -> None:
+                   out: UniformGridFunctions) -> None:
         """Add weighted absolute square of self to output array.
 
         With `a_n(G)` being self and `w_n` the weights:::
@@ -552,14 +552,12 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         a_nG = self
 
         if domain_comm.size == 1:
-            N = len(weights)
-            B = blocksize
-            if N > B:
-                for b1 in range(0, N, blocksize):
-                    b2 = min(b1 + blocksize, N)
-                    self[b1:b2].abs_square(weights[b1:b2], out, blocksize)
-                return
-            a_bR = out.desc.new(dtype=pw.dtype).empty(B, xp=xp)
+            if xp is cp and pw.dtype == complex:
+                return abs_square_gpu(a_nG, weights, out)
+
+            print(a_nG.data._data[:, :3])
+
+            a_R = out.desc.new(dtype=pw.dtype).empty(xp=xp)
             for weight, a_G in zip(weights, a_nG):
                 if weight == 0.0:
                     continue
@@ -567,7 +565,9 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
                 if xp is np:
                     _gpaw.add_to_density(weight, a_R.data, out.data)
                 else:
+                    print(a_R.data._data[:2,0,1])
                     out.data += float(weight) * xp.abs(a_R.data)**2
+                    print(out.data[:2, 0, 1]._data)
             return
 
         # Undistributed work arrays:
@@ -738,3 +738,37 @@ def find_reciprocal_vectors(ecut: float,
     G_plus_k = G_plus_k_Qv[mask]
 
     return G_plus_k, ekin, indices.T
+
+
+def abs_square_gpu(psit_nG, weight_n, nt_R):
+    from gpaw.gpu import cupyx
+    pw = psit_nG.desc
+    plan = nt_R.desc.fft_plans(xp=cp)
+    Q_G = plan.indices(pw)
+    weight_n = cp.asarray(weight_n)
+    N = len(weight_n)
+    shape = tuple(nt_R.desc.size_c)
+    B = 10
+    psit_bR = None
+    for b1 in range(0, N, B):
+        b2 = min(b1 + B, N)
+        nb = b2 - b1
+        if psit_bR is None:
+            psit_bR = cp.empty((nb,) + shape, complex)
+        elif nb < B:
+            psit_bR = psit_bR[:nb]
+        psit_bR[:] = 0.0
+        psit_bR.reshape((nb, -1))[:, Q_G] = psit_nG.data
+        print('AA', psit_bR._data[:, :2, 0, 1])
+        psit_bR[:] = cupyx.scipy.fft.ifftn(
+            psit_bR,
+            shape,
+            norm='forward',
+            overwrite_x=True)
+        print(psit_bR._data[:, :2,0,1])
+        psit_bRz = psit_bR.view(float).reshape((nb, -1, 2))
+        nt_R.data += cp.einsum('b, bRz, bRz -> R',
+                               weight_n[b1:b2],
+                               psit_bRz,
+                               psit_bRz).reshape(shape)
+        print(nt_R.data[:2, 0, 1]._data)
