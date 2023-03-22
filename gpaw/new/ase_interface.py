@@ -124,6 +124,8 @@ class ASECalculator:
                         atoms = atoms.copy()
                         atoms.set_initial_magnetic_moments(magmom_a)
 
+                self.calculation = None
+                """
                 if changes & {'numbers', 'pbc'}:
                     # Start from scratch:
                     self.calculation = None
@@ -142,6 +144,7 @@ class ASECalculator:
                     else:
                         # Not implemented: just start from scratch
                         self.calculation = None
+                """
 
         if self.calculation is None:
             self.create_new_calculation(atoms)
