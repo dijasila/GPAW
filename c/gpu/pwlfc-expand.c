@@ -42,7 +42,7 @@ PyObject* pwlfc_expand_gpu(PyObject* self, PyObject* args)
                           &l_s_obj, &a_J_obj, &s_J_obj,
                           &cc, &f_GI_obj, &I_J_obj))
         return NULL;
-    double *f_Gs = (double*) Array_DATA(f_Gs_obj);
+    double *f_Gs = (double*)Array_DATA(f_Gs_obj);
     double *Y_GL = (double*)Array_DATA(Y_GL_obj);
     int *l_s = (int*)Array_DATA(l_s_obj);
     int *a_J = (int*)Array_DATA(a_J_obj);
@@ -58,7 +58,7 @@ PyObject* pwlfc_expand_gpu(PyObject* self, PyObject* args)
     gpuDoubleComplex* emiGR_Ga = (gpuDoubleComplex*)Array_DATA(emiGR_Ga_obj);
     int itemsize = Array_ITEMSIZE(f_GI_obj);
     pwlfc_expand_gpu_launch_kernel(itemsize, f_Gs, emiGR_Ga, Y_GL, l_s, a_J, s_J, f_GI,
-                                       I_J, nG, nJ, nL, nI, natoms, nsplines, cc);
+                                   I_J, nG, nJ, nL, nI, natoms, nsplines, cc);
     gpuDeviceSynchronize(); // Is needed?
     Py_RETURN_NONE;
 }
