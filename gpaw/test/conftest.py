@@ -106,16 +106,19 @@ def gpw_files(request, tmp_path_factory):
 
     * Bulk Si, LDA, 2x2x2 k-points (gamma centered): ``si_pw``
 
-    * Bulk Si, LDA, 4x4x4 k-points, 8 converged bands: ``fancy_si_pw``
+    * Bulk Si, LDA, 4x4x4 k-points, 20 converged bands: ``fancy_si_pw``
       and ``fancy_si_pw_nosym``
 
-    * Bulk Fe, LDA, 4x4x4 k-points, 9 converged bands: ``fe_pw``
-
-    * Bulk Al, LDA, 4x4x4 k-points, 10 converged bands: ``al_pw``
+    * Bulk Fe, LDA, 4x4x4 k-points, 18 converged bands: ``fe_pw``
+      and ``fe_pw_nosym``
+    * Bulk Al, LDA, 4x4x4 k-points, 14 converged bands: ``al_pw``
       and ``al_pw_nosym``
 
     * Bulk Ag, LDA, 2x2x2 k-points, 6 converged bands,
       2eV U on d-band: ``ag_pw``
+
+    * Bulk GaAs, LDA, 4x4x4 k-points, all bands converged: ``gaas_pw``
+      and ``gaas_pw_nosym``
 
     Files with wave functions are also available (add ``_wfs`` to the names).
     """
@@ -335,10 +338,10 @@ class GPWFiles:
     def fancy_si(self, symmetry):
         xc = 'LDA'
         kpts = 4
-        nbands = 8 # 2 * (3s, 3p)
+        nbands = 20 # 2 * (3s, 3p, 4s, 3d)
         pw = 300
         occw = 0.01
-        conv = {'bands': nbands + 12,
+        conv = {'bands': nbands,
                 'density': 1.e-8,
                 'eigenstates': 4e-08,
                 'energy': 1e-6}
@@ -350,7 +353,7 @@ class GPWFiles:
             xc=xc,
             mode=PW(pw),
             kpts={'size': (kpts, kpts, kpts), 'gamma': True},
-            nbands=nbands + 12,  # + 2 * (4s, 3d)
+            nbands=nbands,
             occupations=FermiDirac(occw),
             convergence=conv,
             txt=self.path / f'fancy_si_pw{tag}.txt',
@@ -463,10 +466,10 @@ class GPWFiles:
         """See also the fe_fixture_test.py test."""
         xc = 'LDA'
         kpts = 4
-        nbands = 9  # 4s, 4p, 3d = 9
+        nbands = 18  # 4s, 4p, 3d = 9
         pw = 300
         occw = 0.01
-        conv = {'bands': 18,
+        conv = {'bands': nbands,
                 'density': 1.e-8,
                 'eigenstates': 4e-08,
                 'energy': 1e-6}
@@ -481,7 +484,7 @@ class GPWFiles:
             xc=xc,
             mode=PW(pw),
             kpts={'size': (kpts, kpts, kpts)},
-            nbands=18,
+            nbands=nbands,
             occupations=FermiDirac(occw),
             convergence=conv,
             txt=self.path / f'fe_pw{tag}.txt',
@@ -499,10 +502,10 @@ class GPWFiles:
     def al(self, symmetry):
         xc = 'LDA'
         kpts = 4
-        nbands = 10  # 3s, 3p, 4s, 3d
+        nbands = 14  # 3s, 3p, 4s, 3d, 4p, 5s
         pw = 300
         occw = 0.01
-        conv = {'bands': nbands + 4,
+        conv = {'bands': nbands,
                 'density': 1.e-8,
                 'eigenstates': 4e-08,
                 'energy': 1e-6}
@@ -515,7 +518,7 @@ class GPWFiles:
             xc=xc,
             mode=PW(pw),
             kpts={'size': (kpts, kpts, kpts)},
-            nbands=nbands + 4,  # + 4p, 5s
+            nbands=nbands,
             occupations=FermiDirac(occw),
             convergence=conv,
             txt=self.path / f'al_pw{tag}.txt',
