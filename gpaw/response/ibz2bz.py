@@ -146,17 +146,24 @@ class IBZ2BZMap:
 
         return mapped_projections
 
+    # XXX It is unclear how to get the correct phase for the
+    # projections. See below
+    """
     def map_projections_to_unitcell(self, projections):
-        """Perform IBZ -> K mapping of the PAW projections.
-        NB: The projections of atom "a" are shifted back to the
-        first unit cell.
-        """
+       # Perform IBZ -> K mapping of the PAW projections.
+       # NB: The projections of atom "a" are shifted back to the
+       #  first unit cell.
+ 
         mapped_projections = self.map_projections(projections)
         # XXX Note! should probably be k_c both here and in U_aii
         for a, p in mapped_projections.items():
-            phase = np.exp(-2j * np.pi * (self.ik_c) @ self.atomic_shift_c[a])
-            p *= phase
+            phase = np.exp(-2j * np.pi * (self.k_c) @ self.atomic_shift_c[a])
+            I1, I2 = mapped_projections.map[a]
+            mapped_projections.array[..., I1:I2] = p * phase
+            #mapped_projections[a] *= phase
         return mapped_projections
+     """
+        
     @property
     def U_aii(self):
         """Phase corrected rotation matrices for the PAW projections.
