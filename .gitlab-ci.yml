@@ -199,6 +199,12 @@ test:
     - gpaw info
     - OMP_NUM_THREADS=2 pytest -v -m ci -We -Wi::ImportWarning
 
+    - gpaw-python -m gpaw info
+    - >
+      OMP_NUM_THREADS=2 gpaw-python -m pytest -v -m ci
+      -We -Wi::ImportWarning
+      -Wi:'numpy.ufunc size changed, may indicate binary incompatibility. Expected 192 from C header, got 216 from PyObject':RuntimeWarning
+
 
 test-latest:
   image: $IMAGE_PATH/run:latest
@@ -224,26 +230,15 @@ test-latest:
       -We -Wi::ImportWarning
       --cov=gpaw --cov-report=html --cov-report=term
 
+    - gpaw-python -m gpaw info
+    - >
+      OMP_NUM_THREADS=2 gpaw-python -m pytest -v -m ci
+      -We -Wi::ImportWarning
   artifacts:
     paths:
       - htmlcov/
     expire_in: 1 week
   coverage: '/TOTAL.+ ([0-9]+\.[0-9]+%)/'
-
-
-test-gpaw-python:
-  image: $IMAGE_PATH/run:oldest
-  extends:
-    - .test
-  needs:
-    - build
-  tags:
-    - linux
-  script:
-    - gpaw-python -m gpaw info
-    - >
-      OMP_NUM_THREADS=2 gpaw-python -m pytest -v -m ci -We -Wi::ImportWarning
-      -Wi:'numpy.ufunc size changed, may indicate binary incompatibility. Expected 192 from C header, got 216 from PyObject':RuntimeWarning
 
 
 test-minimal:
@@ -272,6 +267,9 @@ test-cuda:
     - nvidia-smi
     - gpaw info
     - pytest -v -m gpu
+
+    - gpaw-python -m gpaw info
+    - gpaw-python -m pytest -v -m gpu
 
 
 test-libxc:
