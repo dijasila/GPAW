@@ -290,6 +290,12 @@ class DFTCalculation:
             log=None) -> DFTCalculation:
         """Create new DFTCalculation object."""
 
+        if params.mode['name'] != 'pw':
+            raise ReuseWaveFunctionsError
+
+        if not self.state.density.nt_sR.desc.pbc_c.all():
+            raise ReuseWaveFunctionsError
+
         check_atoms_too_close(atoms)
         check_atoms_too_close_to_boundary(atoms)
 
