@@ -104,7 +104,7 @@ def calculate_non_local_potential(setups,
     Q_aL = Q_aL.to_xp(np)
     energy_corrections: DefaultDict[str, float] = defaultdict(float)
     for a, D_sii in D_asii.items():
-        if a % comm.size != comm.rank:
+        if 0:  # a % comm.size != comm.rank:
             dH_asii[a][:] = 0.0
             continue
         Q_L = Q_aL[a]
@@ -115,12 +115,12 @@ def calculate_non_local_potential(setups,
         for key, e in corrections.items():
             energy_corrections[key] += e
 
-    comm.sum(dH_asii.data)
+    # comm.sum(dH_asii.data)
     # Sum over domain:
     names = ['kinetic', 'coulomb', 'zero', 'xc', 'external']
     energies = np.array([energy_corrections[name] for name in names])
     density.D_asii.layout.atomdist.comm.sum(energies)
-    comm.sum(energies)
+    # comm.sum(energies)
 
     return (dH_asii.to_xp(density.D_asii.layout.xp),
             {name: e for name, e in zip(names, energies)})
