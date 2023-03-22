@@ -92,6 +92,8 @@ build-latest:
       cat << EOF >> siteconfig.py
       define_macros += [('NDEBUG', 1)]
       undef_macros = []
+      # TODO: PySys_SetArgv() etc deprecated in Python 3.11
+      extra_compile_args += ['-Wno-deprecated-declarations']
       EOF
     - cat siteconfig.py
     - pip install --user --upgrade numpy scipy
