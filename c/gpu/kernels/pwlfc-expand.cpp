@@ -32,7 +32,8 @@ __global__ void pwlfc_expand_kernel_8(double* f_Gs,
 
         int s = s_J[J];
         int l = l_s[s];
-        gpuDoubleComplex f1 = gpuCmulD(emiGR_Ga[a_J[J]] * imag_powers[l % 4],
+        gpuDoubleComplex f1 = gpuCmulD(gpuCmul(emiGR_Ga[a_J[J]],
+                                               imag_powers[l % 4]),
                                        f_Gs[s]);
         for (int m = 0; m < 2 * l + 1; m++) {
             gpuDoubleComplex f = gpuCmulD(f1, Y_GL[l * l + m]);
@@ -74,7 +75,8 @@ __global__ void pwlfc_expand_kernel_16(double* f_Gs,
         f_GI += (G*nI + I_J[J])*2;
         int s = s_J[J];
         int l = l_s[s];
-        gpuDoubleComplex f1 = gpuCmulD(emiGR_Ga[a_J[J]] * imag_powers[l % 4],
+        gpuDoubleComplex f1 = gpuCmulD(gpuCmul(emiGR_Ga[a_J[J]],
+                                               imag_powers[l % 4]),
                                        f_Gs[s]);
         for (int m = 0; m < 2 * l + 1; m++) {
             gpuDoubleComplex f = gpuCmulD(f1, Y_GL[l * l + m]);
