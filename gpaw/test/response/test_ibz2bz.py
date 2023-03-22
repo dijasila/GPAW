@@ -17,11 +17,23 @@ def mark_si_xfail(gs, request):
                                'fe_pw',
                                'gaas_pw'])
 def test_ibz2bz(in_tmp_dir, gpw_files, gs, request):
-    #For Al test system eigenenergies are different. Need to figure out why....
+    """ Tests gpaw.response.ibz2bz.py
+    Tests functions to take wavefunction and projections from
+    ibz to full bz by comparing calulcations with and without symmetry.
+    Tests u_nk for both degenerate and nondegenerate bands.
+    For the projections it is so far only tested that the absolute
+    values of the projections are correct for nondegenerate bands.
+
+    - Note the low tolerance!
+    - Note that Al is marked as xfail!
+    - Projections for calculation with and without sym are different
+      also for IBZ k-points
+    """
+    # For Al test system eigenenergies are different. Need to figure out why....
     mark_si_xfail(gs, request)
 
-    atol = 6e-04 #minimum tolerance that makes all tests pass. Why?
-    atol_eig = 1e-06
+    atol = 6e-04  # minimum tolerance that makes all tests pass. Why?
+    atol_eig = 1e-05
 
     # Loading calc with symmetry
     calc = GPAW(gpw_files[gs+'_wfs'])
@@ -34,7 +46,11 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, request):
 
     # Loading calc without symmetry
     calc_nosym = GPAW(gpw_files[gs+'_nosym_wfs'])
-    #calc_nosym = calc.fixed_density(symmetry='off')
+    #conv = {'bands': wfs.bd.nbands,
+    #        'density': 1.e-8,
+    #        'eigenstates': 4e-08,
+    #        'energy': 1e-6}
+    #calc_nosym = calc.fixed_density(symmetry='off', convergence=conv)
     wfs_nosym = calc_nosym.wfs
     
     # Check some basic stuff
@@ -75,6 +91,7 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, request):
             # Get all projections for calc with symmetry
             proj = kpt.projections.new(nbands=nbands, bcomm=None)
             proj.array[:] = kpt.projections.array[0:nbands]
+            #proj.array[:] = kpt_nosym.projections.array[0:nbands]
             projnew = ibz2bz[K].map_projections(proj)
             P_ani = np.array([P_ni for _, P_ni in projnew.items()])
 
@@ -84,9 +101,8 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, request):
             #P_ani_shifted = np.array([P_ni for _, P_ni in projBZ.items()])
 
             # Get projections for calc without symmetry
-            proj = kpt_nosym.projections.new(nbands=nbands, bcomm=None)
-            proj.array[:] = kpt_nosym.projections.array[0:nbands]
-            P_ani_nosym = np.array([P_ni for _, P_ni in proj.items()])
+            proj_nosym = kpt_nosym.projections
+            P_ani_nosym = np.array([P_ni for _, P_ni in proj_nosym.items()])
 
             # get setups
             dO_aii = []
@@ -119,6 +135,13 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, request):
 
             # Here starts the actual test
             n = 0
+
+            # XXX Why would this fail?
+            #if np.allclose(wfs.kd.bzk_kc[K], wfs.kd.ibzk_kc[ik]):
+            #    assert np.allclose(proj_nosym.array, kpt.projections.array, atol=atol)
+            #if np.allclose(wfs.kd.bzk_kc[K], wfs.kd.ibzk_kc[ik]):
+            #    assert np.allclose(proj_nosym.array, projnew.array, atol=atol)
+
             while n < nbands:
                 dim = find_degenerate_subspace(eps_n, n, nbands)
                 if dim == 1:
@@ -126,20 +149,15 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, request):
                     # XXX Figure out correct phase to multiply proj with to avoid comparing
                     # absolute values here
                     assert np.allclose(abs(P_ani[:,n,:]), abs(P_ani_nosym[:,n,:]), atol=atol)
-
-                    # XXX The commeneted text below gives an error. It seems very strange that
-                    # the projections are not the same for IBZ k-points...
-                    """
-                    if np.allclose(wfs.kd.bzk_kc[K], wfs.kd.ibzk_kc[ik]):
-                        assert np.allclose(P_ani[:,n,:], P_ani_nosym[:,n,:], atol=atol)
-                    """
+                    #assert np.allclose(P_ani[:,n,:], P_ani_nosym[:,n,:], atol=atol)
                     
                     # Check so that periodic part of pseudo is same
                     ut_R = ibz2bz[K].map_pseudo_wave_to_BZ(wfs.pd.ifft(psit_nG[n], ik), r_cR)
                     ut_R_nosym = wfs_nosym.pd.ifft(psit_nG_nosym[n], K)
                     assert(np.allclose(abs(ut_R), abs(ut_R_nosym), atol=atol))
                 else:
-                    # For degenerate states check transformation matrix is unitary
-                    bands = range(n,n+dim)
+                    # For degenerate states check transformation
+                    # matrix is unitary
+                    bands = range(n, n + dim)
                     check_degenerate_subspace_u(bands)
                 n += dim

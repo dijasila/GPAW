@@ -338,7 +338,7 @@ class GPWFiles:
     def fancy_si(self, symmetry):
         xc = 'LDA'
         kpts = 4
-        nbands = 20 # 2 * (3s, 3p, 4s, 3d)
+        nbands = 20  # 2 * (3s, 3p, 4s, 3d)
         pw = 300
         occw = 0.01
         conv = {'bands': nbands,
@@ -488,7 +488,7 @@ class GPWFiles:
             occupations=FermiDirac(occw),
             convergence=conv,
             txt=self.path / f'fe_pw{tag}.txt',
-            symmetry = symmetry)
+            symmetry=symmetry)
         
         atoms.get_potential_energy()
         return atoms.calc
@@ -586,12 +586,10 @@ class GPWFiles:
                     kpts={'size': (k, k, k), 'gamma': True},
                     txt=self.path / f'gs_GaAs{tag}.txt',
                     symmetry=symmetry)
-
+        
         a.calc = calc
         a.get_potential_energy()
         return a.calc
-
-    
 
 class GPAWPlugin:
     def __init__(self):
