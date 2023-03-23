@@ -7,7 +7,7 @@ import re
 import sys
 from pathlib import Path
 from subprocess import run
-from sysconfig import get_config_vars, get_platform
+from sysconfig import get_platform
 
 from setuptools import Extension, find_packages, setup
 from setuptools.command.build_ext import build_ext
@@ -218,10 +218,8 @@ class build_ext(build_ext):
         self.include_dirs.append(np.get_include())
 
         if gpu:
-            gpu_include_dirs.append(get_config_vars()['INCLUDEPY'])
-            gpu_include_dirs.append(np.get_include())
             objects = build_gpu(gpu_compiler, gpu_compile_args,
-                                gpu_include_dirs,
+                                gpu_include_dirs + self.include_dirs,
                                 define_macros, undef_macros,
                                 self.build_temp)
             self.link_objects = objects
