@@ -96,7 +96,7 @@ def build_interpreter(define_macros, undef_macros, include_dirs,
                       extra_link_args, extra_compile_args,
                       runtime_library_dirs, objects,
                       build_temp, build_bin,
-                      mpicompiler, mpilinker):
+                      mpicompiler):
     exename = 'gpaw-python'
     print(f'building {repr(exename)} interpreter', flush=True)
 
@@ -168,7 +168,7 @@ def build_interpreter(define_macros, undef_macros, include_dirs,
             sys.exit(1)
 
     # Link the custom interpreter
-    run_args = [mpilinker]
+    run_args = [mpicompiler]
     run_args += shlex.split(cfgDict['LINKCC'])[1:]
     run_args += shlex.split(cfgDict['LDFLAGS'])
     run_args += objects
@@ -179,7 +179,7 @@ def build_interpreter(define_macros, undef_macros, include_dirs,
     print(' '.join(run_args), flush=True)
     p = run(run_args, check=False, shell=False)
     if p.returncode != 0:
-        print(f'error: command {repr(mpilinker)} failed '
+        print(f'error: command {repr(mpicompiler)} failed '
               f'with exit code {p.returncode}',
               file=sys.stderr, flush=True)
         sys.exit(1)

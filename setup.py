@@ -5,6 +5,7 @@
 import os
 import re
 import sys
+import warnings
 from pathlib import Path
 from subprocess import run
 from sysconfig import get_platform
@@ -67,8 +68,6 @@ if os.name != 'nt' and run(['which', 'mpicc'], capture_output=True).returncode =
 else:
     mpicompiler = None
 
-mpilinker = mpicompiler
-
 # Search and store current git hash if possible
 try:
     from ase.utils import search_current_git_hash
@@ -96,6 +95,15 @@ for siteconfig in [gpaw_config,
 else:  # no break
     if not noblas:
         libraries.append('blas')
+
+if 'mpilinker' in locals():
+    mpilinker = locals()['mpilinker']
+    msg = ('Please remove deprecated declaration of mpilinker. '
+           f'The mpicompiler ({mpicompiler}) will be used as the linker.')
+    if mpilinker == mpicompiler:
+        warnings.warn(msg, DeprecationWarning)
+    else:
+        raise DeprecationWarning(msg)
 
 if parallel_python_interpreter:
     parallel_python_exefile = None
@@ -237,7 +245,7 @@ class build_ext(build_ext):
                 runtime_library_dirs + mpi_runtime_library_dirs,
                 objects + extra_objects,
                 self.build_temp, build_bin,
-                mpicompiler, mpilinker)
+                mpicompiler)
 
 
 class install(_install):
