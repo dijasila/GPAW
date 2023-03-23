@@ -209,8 +209,9 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     error = os.system(cmd)
     return error
 
+
 def build_gpu(gpu_compiler, gpu_compile_args, gpu_include_dirs,
-              define_macros, build_temp):
+              define_macros, undef_macros, build_temp):
     print('building gpu kernels', flush=True)
 
     kernels_dpath = Path('c/gpu/kernels')
@@ -239,6 +240,7 @@ def build_gpu(gpu_compiler, gpu_compile_args, gpu_include_dirs,
         run_args = [gpu_compiler]
         run_args += gpu_compile_args
         run_args += [f'-D{name}={value}' for (name, value) in define_macros]
+        run_args += [f'-U{name}' for name in undef_macros]
         run_args += [f'-I{dpath}' for dpath in gpu_include_dirs]
         run_args += ['-c', str(src)]
         run_args += ['-o', str(obj)]
