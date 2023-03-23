@@ -48,12 +48,6 @@ if os.getenv('GPAW_GPU'):
     define_macros.append(('GPAW_GPU_AWARE_MPI', '1'))
 undef_macros = ['NDEBUG']
 
-mpi_libraries = []
-mpi_library_dirs = []
-mpi_include_dirs = []
-mpi_runtime_library_dirs = []
-mpi_define_macros = []
-
 parallel_python_interpreter = False
 compiler = None
 noblas = False
@@ -104,6 +98,16 @@ if 'mpilinker' in locals():
         warnings.warn(msg, DeprecationWarning)
     else:
         raise DeprecationWarning(msg)
+
+for key in ['libraries', 'library_dirs', 'include_dirs',
+            'runtime_library_dirs', 'define_macros']:
+    mpi_key = 'mpi_' + key
+    if mpi_key in locals():
+        warnings.warn(
+            f'Please remove deprecated declaration of {mpi_key}. '
+            f'Adding {mpi_key} to {key}.',
+            DeprecationWarning)
+        locals()[key] += locals()[mpi_key]
 
 if parallel_python_interpreter:
     parallel_python_exefile = None
@@ -209,9 +213,7 @@ if os.environ.get('GPAW_GPU'):
 
 write_configuration(define_macros, include_dirs, libraries, library_dirs,
                     extra_link_args, extra_compile_args,
-                    runtime_library_dirs, extra_objects, mpicompiler,
-                    mpi_libraries, mpi_library_dirs, mpi_include_dirs,
-                    mpi_runtime_library_dirs, mpi_define_macros)
+                    runtime_library_dirs, extra_objects, mpicompiler)
 
 
 class build_ext(build_ext):
@@ -236,13 +238,13 @@ class build_ext(build_ext):
 
             # Also build gpaw-python:
             parallel_python_exefile = build_interpreter(
-                define_macros + mpi_define_macros,
+                define_macros,
                 undef_macros,
-                include_dirs + mpi_include_dirs + self.include_dirs,
-                libraries + mpi_libraries,
-                library_dirs + mpi_library_dirs + self.library_dirs,
+                include_dirs + self.include_dirs,
+                libraries,
+                library_dirs + self.library_dirs,
                 extra_link_args, extra_compile_args,
-                runtime_library_dirs + mpi_runtime_library_dirs,
+                runtime_library_dirs,
                 objects + extra_objects,
                 self.build_temp, build_bin,
                 mpicompiler)
