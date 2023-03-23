@@ -217,12 +217,15 @@ class build_ext(build_ext):
         import numpy as np
         self.include_dirs.append(np.get_include())
 
+        if self.link_objects is None:
+            self.link_objects = []
+
         if gpu:
             objects = build_gpu(gpu_compiler, gpu_compile_args,
                                 gpu_include_dirs + self.include_dirs,
                                 define_macros, undef_macros,
                                 self.build_temp)
-            self.link_objects = objects
+            self.link_objects += objects
 
         super().run()
         print("Temp and build", self.build_lib, self.build_temp)
