@@ -130,12 +130,13 @@ build-minimal:
   script:
     - |
       cat << EOF > siteconfig.py
+      mpi = False
       noblas = True
       nolibxc = True
       EOF
     - cat siteconfig.py
     - pip install --user --log build.log --editable .
-    - gpaw -P 1 info
+    - gpaw info
 
 
 prepare-libxc:
