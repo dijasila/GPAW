@@ -57,6 +57,13 @@ scalapack = False
 libvdwxc = False
 elpa = False
 
+# Advanced:
+# If these are defined, they replace
+# all the default args from setuptools
+compiler_args = None
+linker_so_args = None
+linker_exe_args = None
+
 if os.name != 'nt' and run(['which', 'mpicc'], capture_output=True).returncode == 0:
     mpicompiler = 'mpicc'
 else:
@@ -211,14 +218,25 @@ class build_ext(_build_ext):
 
     def build_extensions(self):
         # Override the compiler executables
-        if compiler is not None:
-            # A hack to change the used compiler and linker, inspired by
-            # https://shwina.github.io/custom-compiler-linker-extensions/
-            for name in ['compiler', 'compiler_so',
-                         'linker_so', 'linker_exe']:
-                exe = getattr(self.compiler, name)
-                exe[0] = compiler
-                self.compiler.set_executable(name, exe)
+        # A hack to change the used compiler and linker, inspired by
+        # https://shwina.github.io/custom-compiler-linker-extensions/
+        for (name, my_args) in [('compiler', compiler_args),
+                                ('compiler_so', compiler_args),
+                                ('linker_so', linker_so_args),
+                                ('linker_exe', linker_exe_args)]:
+            new_args = []
+            old_args = getattr(self.compiler, name)
+            # Set executable
+            if compiler is not None:
+                new_args += [compiler]
+            else:
+                new_args += [old_args[0]]
+            # Set args
+            if my_args is not None:
+                new_args += my_args
+            else:
+                new_args += old_args[1:]
+            self.compiler.set_executable(name, new_args)
 
         super().build_extensions()
         print("Temp and build", self.build_lib, self.build_temp)
