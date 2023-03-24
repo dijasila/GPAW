@@ -134,7 +134,8 @@ if compiler is not None:
     class build_ext(build_ext):
         def build_extensions(self):
             # Override the compiler executables.
-            for attr in ('compiler_so', 'compiler_cxx', 'linker_so'):
+            for attr in ['compiler', 'compiler_so',
+                         'linker_so', 'linker_exe']:
                 temp = getattr(self.compiler, attr)
                 temp[0] = compiler
                 self.compiler.set_executable(attr, temp)
@@ -180,7 +181,9 @@ extensions = [Extension('_gpaw',
                         extra_link_args=extra_link_args,
                         extra_compile_args=extra_compile_args,
                         runtime_library_dirs=runtime_library_dirs,
-                        extra_objects=extra_objects)]
+                        extra_objects=extra_objects,
+                        language='c')]
+
 
 if os.environ.get('GPAW_GPU'):
     # Hardcoded for LUMI right now!
@@ -220,34 +223,44 @@ class build_ext(build_ext):
     def run(self):
         import numpy as np
         self.include_dirs.append(np.get_include())
-
         super().run()
+
+    def build_extensions(self):
+        super().build_extensions()
         print("Temp and build", self.build_lib, self.build_temp)
 
         if parallel_python_interpreter:
             global parallel_python_exefile
+            assert len(self.extensions) == 1, \
+                'Fix gpaw-python build for multiple extensions'
+            ext = self.extensions[0]
 
             # Path for the bin (analogous to build_lib)
             build_bin = Path(str(self.build_lib).replace('lib', 'bin'))
 
-            # List of objects already built in super.run()
+            # List of object files already built for the extension
             objects = []
             for src in sources:
-                obj = self.build_temp / Path(src).with_suffix('.o')
+                obj = Path(self.build_temp) / Path(src).with_suffix('.o')
                 objects.append(str(obj))
 
-            # Also build gpaw-python:
+            # Build gpaw-python
+            # Note: self.compiler appends self.include_dirs etc automatically
             parallel_python_exefile = build_interpreter(
-                define_macros,
-                undef_macros,
-                include_dirs + self.include_dirs,
-                libraries,
-                library_dirs + self.library_dirs,
-                extra_link_args, extra_compile_args,
-                runtime_library_dirs,
-                objects + extra_objects,
-                self.build_temp, build_bin,
-                mpicompiler)
+                self.compiler,
+                define_macros=ext.define_macros,
+                undef_macros=ext.undef_macros,
+                include_dirs=ext.include_dirs,
+                extra_compile_args=ext.extra_compile_args,
+                extra_objects=objects + ext.extra_objects,
+                libraries=self.get_libraries(ext),
+                library_dirs=ext.library_dirs,
+                runtime_library_dirs=ext.runtime_library_dirs,
+                extra_link_args=ext.extra_link_args,
+                build_temp=self.build_temp,
+                build_bin=build_bin,
+                debug=self.debug,
+                language=ext.language)
 
 
 class install(_install):

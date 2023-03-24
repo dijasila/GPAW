@@ -4,11 +4,12 @@ import os
 import sys
 import re
 import shlex
-from subprocess import run
-from sysconfig import get_config_vars, get_platform
-from glob import glob
-from pathlib import Path
+from sysconfig import get_config_var, get_platform
 from stat import ST_MTIME
+
+
+def config_args(key):
+    return shlex.split(get_config_var(key))
 
 
 def mtime(path, name, mtimes):
@@ -84,97 +85,61 @@ def write_configuration(define_macros, include_dirs, libraries, library_dirs,
     out.close()
 
 
-def build_interpreter(define_macros, undef_macros, include_dirs,
-                      libraries, library_dirs,
-                      extra_link_args, extra_compile_args,
-                      runtime_library_dirs, objects,
-                      build_temp, build_bin,
-                      mpicompiler):
-    exename = 'gpaw-python'
-    print(f'building {repr(exename)} interpreter', flush=True)
+def build_interpreter(
+        compiler, *,
+        define_macros,
+        undef_macros,
+        include_dirs,
+        extra_compile_args,
+        extra_objects,
+        libraries,
+        library_dirs,
+        runtime_library_dirs,
+        extra_link_args,
+        build_temp,
+        build_bin,
+        debug,
+        language):
+    exename = compiler.executable_filename('gpaw-python')
+    print(f'building {repr(exename)} executable', flush=True)
 
-    # Create bin build directory
-    if not build_bin.exists():
-        print(f'creating {build_bin}', flush=True)
-        build_bin.mkdir(parents=True)
-
-    exefile = build_bin / exename
-
-    define_macros.append(('GPAW_INTERPRETER', '1'))
-
-    cfgDict = get_config_vars()
-
-    libs = [f'-l{lib}' for lib in libraries if lib.strip()]
-    # LIBDIR/INSTSONAME will point at the static library if that is how
-    # Python was compiled:
-    lib = Path(cfgDict['LIBDIR']) / cfgDict['INSTSONAME']
-    if lib.is_file():
-        libs += [lib]
-    else:
-        libs += [cfgDict.get('BLDLIBRARY',
-                             '-lpython{}'.format(cfgDict['VERSION']))]
-    libs += shlex.split(cfgDict['LIBS'])
-    libs += shlex.split(cfgDict['LIBM'])
-
-    # Hack taken from distutils to determine option for runtime_libary_dirs
-    if sys.platform[:6] == 'darwin':
-        # MacOSX's linker doesn't understand the -R flag at all
-        runtime_lib_option = '-L'
-    elif sys.platform[:5] == 'hp-ux':
-        runtime_lib_option = '+s -L'
-    elif os.popen('mpicc --showme 2> /dev/null', 'r').read()[:3] == 'gcc':
-        runtime_lib_option = '-Wl,-R'
-    elif os.popen('mpicc -show 2> /dev/null', 'r').read()[:3] == 'gcc':
-        runtime_lib_option = '-Wl,-R'
-    else:
-        runtime_lib_option = '-R'
-
-    runtime_libs = [runtime_lib_option + lib
-                    for lib in runtime_library_dirs]
-
-    if sys.platform in ['aix5', 'aix6']:
-        extra_link_args += shlex.split(cfgDict['LINKFORSHARED'].replace(
-                                       'Modules', cfgDict['LIBPL']))
-    elif sys.platform == 'darwin':
-        extra_link_args += shlex.split(cfgDict['LINKFORSHARED'])
-    else:
-        extra_link_args += shlex.split(cfgDict['LINKFORSHARED'])
+    macros = define_macros.copy()
+    macros.append(('GPAW_INTERPRETER', '1'))
+    for undef in undef_macros:
+        macros.append((undef,))
 
     # Compile the sources that define GPAW_INTERPRETER
-    sources = [Path('c/_gpaw.c')]
-    for src in sources:
-        obj = build_temp / src.with_suffix('.o')
-        run_args = [mpicompiler]
-        run_args += shlex.split(cfgDict['CFLAGS'])
-        run_args += [f'-D{name}={value}' for (name, value) in define_macros]
-        run_args += [f'-U{name}' for name in undef_macros]
-        run_args += [f'-I{dpath}' for dpath in include_dirs]
-        run_args += ['-c', str(src)]
-        run_args += ['-o', str(obj)]
-        run_args += extra_compile_args
-        print(' '.join(run_args), flush=True)
-        p = run(run_args, check=False, shell=False)
-        if p.returncode != 0:
-            print(f'error: command {repr(mpicompiler)} failed '
-                  f'with exit code {p.returncode}',
-                  file=sys.stderr, flush=True)
-            sys.exit(1)
+    sources = ['c/_gpaw.c']
+    objects = compiler.compile(
+        sources,
+        output_dir=str(build_temp),
+        macros=macros,
+        include_dirs=include_dirs,
+        debug=debug,
+        extra_postargs=extra_compile_args)
+    # Note: we recompiled _gpaw.o
+    # This object file is already included in extra_objects
+    objects = extra_objects
+
+    # Note: LDFLAGS and LIBS go together, but depending on the platform,
+    # it might be unnecessary to include them
+    extra_preargs = config_args('LDFLAGS')
+    extra_postargs = (config_args('BLDLIBRARY')
+                      + config_args('LIBS')
+                      + config_args('LIBM')
+                      + extra_link_args
+                      + config_args('LINKFORSHARED'))
 
     # Link the custom interpreter
-    run_args = [mpicompiler]
-    run_args += shlex.split(cfgDict['LINKCC'])[1:]
-    run_args += shlex.split(cfgDict['LDFLAGS'])
-    run_args += objects
-    run_args += [f'-L{dpath}' for dpath in library_dirs]
-    run_args += [f'{lib}' for lib in libs + runtime_libs]
-    run_args += ['-o', str(exefile)]
-    run_args += extra_link_args
-    print(' '.join(run_args), flush=True)
-    p = run(run_args, check=False, shell=False)
-    if p.returncode != 0:
-        print(f'error: command {repr(mpicompiler)} failed '
-              f'with exit code {p.returncode}',
-              file=sys.stderr, flush=True)
-        sys.exit(1)
+    compiler.link_executable(
+            objects, exename,
+            output_dir=str(build_bin),
+            extra_preargs=extra_preargs,
+            libraries=libraries,
+            library_dirs=library_dirs,
+            runtime_library_dirs=runtime_library_dirs,
+            extra_postargs=extra_postargs,
+            debug=debug,
+            target_lang=language)
 
-    return exefile
+    return build_bin / exename
