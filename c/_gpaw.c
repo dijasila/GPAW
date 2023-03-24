@@ -68,7 +68,9 @@ PyObject* vdw2(PyObject *self, PyObject *args);
 PyObject* spherical_harmonics(PyObject *self, PyObject *args);
 PyObject* spline_to_grid(PyObject *self, PyObject *args);
 PyObject* NewLFCObject(PyObject *self, PyObject *args);
+#ifdef PARALLEL
 PyObject* globally_broadcast_bytes(PyObject *self, PyObject *args);
+#endif
 #if defined(GPAW_WITH_SL) && defined(PARALLEL)
 PyObject* new_blacs_context(PyObject *self, PyObject *args);
 PyObject* get_blacs_gridinfo(PyObject* self, PyObject *args);
@@ -198,7 +200,9 @@ static PyMethodDef functions[] = {
     {"pc_potential", pc_potential, METH_VARARGS, 0},
     {"spline_to_grid", spline_to_grid, METH_VARARGS, 0},
     {"LFC", NewLFCObject, METH_VARARGS, 0},
+#ifdef PARALLEL
     {"globally_broadcast_bytes", globally_broadcast_bytes, METH_VARARGS, 0},
+#endif
     {"get_num_threads", get_num_threads, METH_VARARGS, 0},
 #if defined(GPAW_WITH_SL) && defined(PARALLEL)
     {"new_blacs_context", new_blacs_context, METH_VARARGS, NULL},
@@ -295,39 +299,6 @@ extern PyTypeObject XCFunctionalType;
 #ifndef GPAW_WITHOUT_LIBXC
 extern PyTypeObject lxcXCFunctionalType;
 #endif
-
-PyObject* globally_broadcast_bytes(PyObject *self, PyObject *args)
-{
-    PyObject *pybytes;
-    if(!PyArg_ParseTuple(args, "O", &pybytes)){
-        return NULL;
-    }
-
-#ifdef PARALLEL
-    MPI_Comm comm = MPI_COMM_WORLD;
-    int rank;
-    MPI_Comm_rank(comm, &rank);
-
-    long size;
-    if(rank == 0) {
-        size = PyBytes_Size(pybytes);  // Py_ssize_t --> long
-    }
-    MPI_Bcast(&size, 1, MPI_LONG, 0, comm);
-
-    char *dst = (char *)malloc(size);
-    if(rank == 0) {
-        char *src = PyBytes_AsString(pybytes);  // Read-only
-        memcpy(dst, src, size);
-    }
-    MPI_Bcast(dst, size, MPI_BYTE, 0, comm);
-
-    PyObject *value = PyBytes_FromStringAndSize(dst, size);
-    free(dst);
-    return value;
-#else
-    return pybytes;
-#endif
-}
 
 
 static struct PyModuleDef moduledef = {
