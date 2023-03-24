@@ -59,7 +59,7 @@ undef_macros = ['NDEBUG']
 
 parallel_python_interpreter = False
 compiler = None
-mpi = False
+mpi = None
 noblas = False
 nolibxc = False
 fftw = False
@@ -73,13 +73,6 @@ elpa = False
 compiler_args = None
 linker_so_args = None
 linker_exe_args = None
-
-# MPI is enabled by default if `mpicc` is found
-found_mpicc = (os.name != 'nt'
-               and run(['which', 'mpicc'],
-                       capture_output=True).returncode == 0)
-if found_mpicc:
-    mpi = True
 
 # Search and store current git hash if possible
 try:
@@ -109,6 +102,7 @@ else:  # no break
     if not noblas:
         libraries.append('blas')
 
+
 if 'mpicompiler' in locals():
     mpicompiler = locals()['mpicompiler']
     msg = 'Please remove deprecated declaration of mpicompiler.'
@@ -122,6 +116,32 @@ if 'mpicompiler' in locals():
         msg += (' Define instead in siteconfig:'
                 f'\n\nmpi = True\ncompiler = {repr(compiler)}')
     warn_deprecated(msg)
+
+
+# If `mpi` was not set in siteconfig,
+# it is enabled by default if `mpicc` is found
+if mpi is None:
+    if compiler is None:
+        if (os.name != 'nt'
+                and run(['which', 'mpicc'],
+                        capture_output=True).returncode == 0):
+            mpi = True
+            compiler = 'mpicc'
+        else:
+            mpi = False
+    elif compiler == 'mpicc':
+        warn_deprecated(
+            'Define in siteconfig explicitly'
+            '\n\nmpi = True')
+        mpi = True
+    else:
+        mpi = False
+
+if mpi:
+    if compiler is None:
+        raise ValueError('Define compiler for MPI in siteconfig:'
+                         "\n\ncompiler = '...'")
+
 
 if 'mpilinker' in locals():
     mpilinker = locals()['mpilinker']
@@ -144,13 +164,6 @@ for key in ['libraries', 'library_dirs', 'include_dirs',
             f'\nAdding {mpi_key} to {key}.')
         locals()[key] += locals()[mpi_key]
 
-if mpi:
-    if compiler is None:
-        if found_mpicc:
-            compiler = 'mpicc'
-        else:
-            raise ValueError('Define compiler for MPI in siteconfig:'
-                             "\n\ncompiler = '...'")
 
 if parallel_python_interpreter:
     parallel_python_exefile = None
@@ -161,6 +174,9 @@ if parallel_python_interpreter:
                          '\nmpi = True'
                          "\ncompiler = '...'  # MPI compiler, e.g., 'mpicc'"
                          )
+
+if mpi:
+    print('Building GPAW with MPI support.')
 
 platform_id = os.getenv('CPU_ARCH')
 if platform_id:
