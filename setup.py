@@ -11,7 +11,7 @@ from subprocess import run
 from sysconfig import get_platform
 
 from setuptools import Extension, find_packages, setup
-from setuptools.command.build_ext import build_ext
+from setuptools.command.build_ext import build_ext as _build_ext
 from setuptools.command.develop import develop as _develop
 from setuptools.command.install import install as _install
 
@@ -125,22 +125,6 @@ platform_id = os.getenv('CPU_ARCH')
 if platform_id:
     os.environ['_PYTHON_HOST_PLATFORM'] = get_platform() + '-' + platform_id
 
-if compiler is not None:
-    # A hack to change the used compiler and linker, inspired by
-    # https://shwina.github.io/custom-compiler-linker-extensions/
-
-    # Note: The following class will be extended again below, but that is
-    # OK as long as super() is used to chain the method calls.
-    class build_ext(build_ext):
-        def build_extensions(self):
-            # Override the compiler executables.
-            for attr in ['compiler', 'compiler_so',
-                         'linker_so', 'linker_exe']:
-                temp = getattr(self.compiler, attr)
-                temp[0] = compiler
-                self.compiler.set_executable(attr, temp)
-            super().build_extensions()
-
 for flag, name in [(noblas, 'GPAW_WITHOUT_BLAS'),
                    (nolibxc, 'GPAW_WITHOUT_LIBXC'),
                    (fftw, 'GPAW_WITH_FFTW'),
@@ -219,13 +203,23 @@ write_configuration(define_macros, include_dirs, libraries, library_dirs,
                     runtime_library_dirs, extra_objects, mpicompiler)
 
 
-class build_ext(build_ext):
+class build_ext(_build_ext):
     def run(self):
         import numpy as np
         self.include_dirs.append(np.get_include())
         super().run()
 
     def build_extensions(self):
+        # Override the compiler executables
+        if compiler is not None:
+            # A hack to change the used compiler and linker, inspired by
+            # https://shwina.github.io/custom-compiler-linker-extensions/
+            for name in ['compiler', 'compiler_so',
+                         'linker_so', 'linker_exe']:
+                exe = getattr(self.compiler, name)
+                exe[0] = compiler
+                self.compiler.set_executable(name, exe)
+
         super().build_extensions()
         print("Temp and build", self.build_lib, self.build_temp)
 
