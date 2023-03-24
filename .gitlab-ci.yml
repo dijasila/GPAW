@@ -24,7 +24,8 @@ stages:
     - |
       cat << EOF > siteconfig.py
       parallel_python_interpreter = True
-      mpicompiler = 'mpicc'
+      mpi = True
+      compiler = 'mpicc'
       libraries = []
       library_dirs = []
       include_dirs = []
