@@ -16,7 +16,6 @@
 #define gpuStream_t               cudaStream_t
 #define gpuEvent_t                cudaEvent_t
 #define gpuError_t                cudaError_t
-#define gpuDeviceptr_t            CUdeviceptr
 #define gpuDeviceProp             cudaDeviceProp
 
 #define gpuDoubleComplex          cuDoubleComplex

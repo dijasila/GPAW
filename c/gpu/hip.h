@@ -15,7 +15,6 @@
 #define gpuStream_t               hipStream_t
 #define gpuEvent_t                hipEvent_t
 #define gpuError_t                hipError_t
-#define gpuDeviceptr_t            hipDeviceptr_t
 #define gpuDeviceProp             hipDeviceProp_t
 
 #define gpuDoubleComplex          hipDoubleComplex
