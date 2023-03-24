@@ -19,6 +19,15 @@ from config import build_interpreter, check_dependencies, write_configuration
 
 assert sys.version_info >= (3, 7)
 
+
+def warn_deprecated(msg, error=False):
+    msg = f'\n\n{msg}\n\n'
+    if error:
+        raise ValueError(msg)
+    else:
+        warnings.warn(msg, DeprecationWarning)
+
+
 # Get the current version number:
 txt = Path('gpaw/__init__.py').read_text()
 version = re.search("__version__ = '(.*)'", txt)[1]
@@ -50,6 +59,7 @@ undef_macros = ['NDEBUG']
 
 parallel_python_interpreter = False
 compiler = None
+mpi = False
 noblas = False
 nolibxc = False
 fftw = False
@@ -64,10 +74,12 @@ compiler_args = None
 linker_so_args = None
 linker_exe_args = None
 
-if os.name != 'nt' and run(['which', 'mpicc'], capture_output=True).returncode == 0:
-    mpicompiler = 'mpicc'
-else:
-    mpicompiler = None
+# MPI is enabled by default if `mpicc` is found
+found_mpicc = (os.name != 'nt'
+               and run(['which', 'mpicc'],
+                       capture_output=True).returncode == 0)
+if found_mpicc:
+    mpi = True
 
 # Search and store current git hash if possible
 try:
@@ -97,36 +109,58 @@ else:  # no break
     if not noblas:
         libraries.append('blas')
 
+if 'mpicompiler' in locals():
+    mpicompiler = locals()['mpicompiler']
+    msg = 'Please remove deprecated declaration of mpicompiler.'
+    if mpicompiler is None:
+        mpi = False
+        msg += (' Define instead in siteconfig one of the following lines:'
+                '\n\nmpi = False\nmpi = True')
+    else:
+        mpi = True
+        compiler = mpicompiler
+        msg += (' Define instead in siteconfig:'
+                f'\n\nmpi = True\ncompiler = {repr(compiler)}')
+    warn_deprecated(msg)
+
 if 'mpilinker' in locals():
     mpilinker = locals()['mpilinker']
-    msg = ('Please remove deprecated declaration of mpilinker. '
-           f'The mpicompiler ({mpicompiler}) will be used as the linker.')
-    if mpilinker == mpicompiler:
-        warnings.warn(msg, DeprecationWarning)
+    msg = ('Please remove deprecated declaration of mpilinker:'
+           f'\ncompiler={repr(compiler)} will be used for linking.')
+    if mpilinker == compiler:
+        warn_deprecated(msg)
     else:
-        raise DeprecationWarning(msg)
+        msg += ('\nPlease contact GPAW developers if you need '
+                'different commands for linking and compiling.')
+        warn_deprecated(msg, error=True)
 
 for key in ['libraries', 'library_dirs', 'include_dirs',
             'runtime_library_dirs', 'define_macros']:
     mpi_key = 'mpi_' + key
     if mpi_key in locals():
-        warnings.warn(
-            f'Please remove deprecated declaration of {mpi_key}. '
-            f'Adding {mpi_key} to {key}.',
-            DeprecationWarning)
+        warn_deprecated(
+            f'Please remove deprecated declaration of {mpi_key}'
+            ' and use only {key} instead.'
+            f'\nAdding {mpi_key} to {key}.')
         locals()[key] += locals()[mpi_key]
+
+if mpi:
+    if compiler is None:
+        if found_mpicc:
+            compiler = 'mpicc'
+        else:
+            raise ValueError('Define compiler for MPI in siteconfig:'
+                             "\n\ncompiler = '...'")
 
 if parallel_python_interpreter:
     parallel_python_exefile = None
-    if mpicompiler is None:
-        raise ValueError('Invalid mpicompiler in configuration: '
-                         'mpicompiler needs to be set with '
-                         'parallel_python_interpreter.')
-
-if mpicompiler is not None:
-    # Build MPI-interface into _gpaw.so:
-    compiler = mpicompiler
-    define_macros += [('PARALLEL', '1')]
+    if not mpi:
+        raise ValueError('MPI is needed for parallel_python_interpreter.'
+                         ' Define in siteconfig:'
+                         '\nparallel_python_interpreter = True'
+                         '\nmpi = True'
+                         "\ncompiler = '...'  # MPI compiler, e.g., 'mpicc'"
+                         )
 
 platform_id = os.getenv('CPU_ARCH')
 if platform_id:
@@ -134,6 +168,7 @@ if platform_id:
 
 for flag, name in [(noblas, 'GPAW_WITHOUT_BLAS'),
                    (nolibxc, 'GPAW_WITHOUT_LIBXC'),
+                   (mpi, 'PARALLEL'),
                    (fftw, 'GPAW_WITH_FFTW'),
                    (scalapack, 'GPAW_WITH_SL'),
                    (libvdwxc, 'GPAW_WITH_LIBVDWXC'),
@@ -207,7 +242,7 @@ if os.environ.get('GPAW_GPU'):
 
 write_configuration(define_macros, include_dirs, libraries, library_dirs,
                     extra_link_args, extra_compile_args,
-                    runtime_library_dirs, extra_objects, mpicompiler)
+                    runtime_library_dirs, extra_objects, compiler)
 
 
 class build_ext(_build_ext):

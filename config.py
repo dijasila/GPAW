@@ -61,7 +61,7 @@ def check_dependencies(sources):
 
 def write_configuration(define_macros, include_dirs, libraries, library_dirs,
                         extra_link_args, extra_compile_args,
-                        runtime_library_dirs, extra_objects, mpicompiler):
+                        runtime_library_dirs, extra_objects, compiler):
 
     # Write the compilation configuration into a file
     try:
@@ -70,6 +70,7 @@ def write_configuration(define_macros, include_dirs, libraries, library_dirs,
         print(x)
         return
     print("Current configuration", file=out)
+    print("compiler", compiler, file=out)
     print("libraries", libraries, file=out)
     print("library_dirs", library_dirs, file=out)
     print("include_dirs", include_dirs, file=out)
@@ -78,10 +79,6 @@ def write_configuration(define_macros, include_dirs, libraries, library_dirs,
     print("extra_compile_args", extra_compile_args, file=out)
     print("runtime_library_dirs", runtime_library_dirs, file=out)
     print("extra_objects", extra_objects, file=out)
-    if mpicompiler is not None:
-        print(file=out)
-        print("Parallel configuration", file=out)
-        print("mpicompiler", mpicompiler, file=out)
     out.close()
 
 
