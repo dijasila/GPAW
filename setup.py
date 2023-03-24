@@ -20,12 +20,14 @@ from config import build_interpreter, check_dependencies, write_configuration
 assert sys.version_info >= (3, 7)
 
 
-def warn_deprecated(msg, error=False):
+def warn_deprecated(msg):
     msg = f'\n\n{msg}\n\n'
-    if error:
-        raise ValueError(msg)
-    else:
-        warnings.warn(msg, DeprecationWarning)
+    warnings.warn(msg, DeprecationWarning)
+
+
+def raise_error(msg):
+    msg = f'\n\n{msg}\n\n'
+    raise ValueError(msg)
 
 
 # Get the current version number:
@@ -139,8 +141,8 @@ if mpi is None:
 
 if mpi:
     if compiler is None:
-        raise ValueError('Define compiler for MPI in siteconfig:'
-                         "\n\ncompiler = '...'")
+        raise_error('Define compiler for MPI in siteconfig:'
+                    "\ncompiler = '...'  # MPI compiler, e.g., 'mpicc'")
 
 
 if 'mpilinker' in locals():
@@ -152,7 +154,7 @@ if 'mpilinker' in locals():
     else:
         msg += ('\nPlease contact GPAW developers if you need '
                 'different commands for linking and compiling.')
-        warn_deprecated(msg, error=True)
+        raise_error(msg)
 
 for key in ['libraries', 'library_dirs', 'include_dirs',
             'runtime_library_dirs', 'define_macros']:
@@ -168,12 +170,12 @@ for key in ['libraries', 'library_dirs', 'include_dirs',
 if parallel_python_interpreter:
     parallel_python_exefile = None
     if not mpi:
-        raise ValueError('MPI is needed for parallel_python_interpreter.'
-                         ' Define in siteconfig:'
-                         '\nparallel_python_interpreter = True'
-                         '\nmpi = True'
-                         "\ncompiler = '...'  # MPI compiler, e.g., 'mpicc'"
-                         )
+        raise_error('MPI is needed for parallel_python_interpreter.'
+                    ' Define in siteconfig:'
+                    '\n\nparallel_python_interpreter = True'
+                    '\nmpi = True'
+                    "\ncompiler = '...'  # MPI compiler, e.g., 'mpicc'"
+                    )
 
 if mpi:
     print('Building GPAW with MPI support.')
