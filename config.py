@@ -86,26 +86,14 @@ def write_configuration(define_macros, include_dirs, libraries, library_dirs,
 
 
 def build_interpreter(
-        compiler, *,
-        define_macros,
-        undef_macros,
-        include_dirs,
-        extra_compile_args,
-        extra_objects,
-        libraries,
-        library_dirs,
-        runtime_library_dirs,
-        extra_link_args,
-        build_temp,
-        build_bin,
-        debug,
-        language):
+        compiler, extension, extension_objects, *,
+        build_temp, build_bin, debug):
     exename = compiler.executable_filename('gpaw-python')
     print(f'building {repr(exename)} executable', flush=True)
 
-    macros = define_macros.copy()
+    macros = extension.define_macros.copy()
     macros.append(('GPAW_INTERPRETER', '1'))
-    for undef in undef_macros:
+    for undef in extension.undef_macros:
         macros.append((undef,))
 
     # Compile the sources that define GPAW_INTERPRETER
@@ -114,12 +102,12 @@ def build_interpreter(
         sources,
         output_dir=str(build_temp),
         macros=macros,
-        include_dirs=include_dirs,
+        include_dirs=extension.include_dirs,
         debug=debug,
-        extra_postargs=extra_compile_args)
+        extra_postargs=extension.extra_compile_args)
     # Note: we recompiled _gpaw.o
     # This object file is already included in extra_objects
-    objects = extra_objects
+    objects = extension_objects
 
     # Note: LDFLAGS and LIBS go together, but depending on the platform,
     # it might be unnecessary to include them
@@ -127,7 +115,7 @@ def build_interpreter(
     extra_postargs = (config_args('BLDLIBRARY')
                       + config_args('LIBS')
                       + config_args('LIBM')
-                      + extra_link_args
+                      + extension.extra_link_args
                       + config_args('LINKFORSHARED'))
 
     # Link the custom interpreter
@@ -135,11 +123,11 @@ def build_interpreter(
             objects, exename,
             output_dir=str(build_bin),
             extra_preargs=extra_preargs,
-            libraries=libraries,
-            library_dirs=library_dirs,
-            runtime_library_dirs=runtime_library_dirs,
+            libraries=extension.libraries,
+            library_dirs=extension.library_dirs,
+            runtime_library_dirs=extension.runtime_library_dirs,
             extra_postargs=extra_postargs,
             debug=debug,
-            target_lang=language)
+            target_lang=extension.language)
 
     return build_bin / exename

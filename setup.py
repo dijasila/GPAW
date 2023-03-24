@@ -231,9 +231,10 @@ class build_ext(build_ext):
 
         if parallel_python_interpreter:
             global parallel_python_exefile
+
             assert len(self.extensions) == 1, \
                 'Fix gpaw-python build for multiple extensions'
-            ext = self.extensions[0]
+            extension = self.extensions[0]
 
             # Path for the bin (analogous to build_lib)
             build_bin = Path(str(self.build_lib).replace('lib', 'bin'))
@@ -245,22 +246,11 @@ class build_ext(build_ext):
                 objects.append(str(obj))
 
             # Build gpaw-python
-            # Note: self.compiler appends self.include_dirs etc automatically
             parallel_python_exefile = build_interpreter(
-                self.compiler,
-                define_macros=ext.define_macros,
-                undef_macros=ext.undef_macros,
-                include_dirs=ext.include_dirs,
-                extra_compile_args=ext.extra_compile_args,
-                extra_objects=objects + ext.extra_objects,
-                libraries=self.get_libraries(ext),
-                library_dirs=ext.library_dirs,
-                runtime_library_dirs=ext.runtime_library_dirs,
-                extra_link_args=ext.extra_link_args,
+                self.compiler, extension, objects,
                 build_temp=self.build_temp,
                 build_bin=build_bin,
-                debug=self.debug,
-                language=ext.language)
+                debug=self.debug)
 
 
 class install(_install):
