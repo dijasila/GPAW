@@ -38,6 +38,7 @@ ase_version_required = re.search("__ase_version_required__ = '(.*)'", txt)[1]
 description = 'GPAW: DFT and beyond within the projector-augmented wave method'
 long_description = Path('README.rst').read_text()
 
+# Deprecation check
 for i, arg in enumerate(sys.argv):
     if arg.startswith('--customize='):
         custom = arg.split('=')[1]
@@ -104,7 +105,7 @@ else:  # no break
     if not noblas:
         libraries.append('blas')
 
-
+# Deprecation check
 if 'mpicompiler' in locals():
     mpicompiler = locals()['mpicompiler']
     msg = 'Please remove deprecated declaration of mpicompiler.'
@@ -144,7 +145,7 @@ if mpi:
         raise_error('Define compiler for MPI in siteconfig:'
                     "\ncompiler = '...'  # MPI compiler, e.g., 'mpicc'")
 
-
+# Deprecation check
 if 'mpilinker' in locals():
     mpilinker = locals()['mpilinker']
     msg = ('Please remove deprecated declaration of mpilinker:'
@@ -156,6 +157,7 @@ if 'mpilinker' in locals():
                 'different commands for linking and compiling.')
         raise_error(msg)
 
+# Deprecation check
 for key in ['libraries', 'library_dirs', 'include_dirs',
             'runtime_library_dirs', 'define_macros']:
     mpi_key = 'mpi_' + key
