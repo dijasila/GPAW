@@ -239,7 +239,6 @@ class build_ext(_build_ext):
             self.compiler.set_executable(name, new_args)
 
         super().build_extensions()
-        print("Temp and build", self.build_lib, self.build_temp)
 
         if parallel_python_interpreter:
             global parallel_python_exefile
@@ -263,6 +262,11 @@ class build_ext(_build_ext):
                 build_temp=self.build_temp,
                 build_bin=build_bin,
                 debug=self.debug)
+
+        print("Build temp:", self.build_temp)
+        print("Build lib: ", self.build_lib)
+        if parallel_python_interpreter:
+            print("Build bin: ", build_bin)
 
 
 class install(_install):
