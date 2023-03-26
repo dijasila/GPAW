@@ -187,7 +187,7 @@ Using this averaging scheme opens a few more possible choices for the kernel.
 
 For further comparison we include an RPA calculation as well.
 
-.. literalinclude:: diam_kern.ralda_08_rpa.py
+.. literalinclude:: diam_kern.ralda_04_rpa.py
 
 Here we summarize the above calculations and show the correlation energy/electron (in eV),
 obtained at an (unconverged) cutoff of 131 eV:
