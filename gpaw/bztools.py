@@ -65,6 +65,8 @@ def find_high_symmetry_monkhorst_pack(calc, density):
     minsize, offset = kpts2sizeandoffsets(density=density, even=True,
                                           gamma=True, atoms=atoms)
 
+    # NB: get_bz() wants a pbc_c, but never gets it. This means that the
+    # pbc always will fall back to True along all dimensions. XXX
     bzk_kc, ibzk_kc, latibzk_kc = get_bz(calc, returnlatticeibz=True)
 
     maxsize = minsize + 10
