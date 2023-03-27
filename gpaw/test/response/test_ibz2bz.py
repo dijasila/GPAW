@@ -5,6 +5,7 @@ from gpaw.mpi import world
 from gpaw.response.ibz2bz import IBZ2BZMaps
 from gpaw.berryphase import get_overlap
 
+
 def mark_si_xfail(gs, request):
     if gs == 'al_pw':
         request.node.add_marker(pytest.mark.xfail)
@@ -38,7 +39,9 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, request):
     # Loading calc with symmetry
     calc = GPAW(gpw_files[gs+'_wfs'])
     wfs = calc.wfs
-    nbands = wfs.bd.nbands
+    nconv = calc.parameters.convergence['bands']
+
+    nbands = wfs.bd.nbands if nconv == -1 else nconv
     nbzk = wfs.kd.nbzkpts
     dtype = wfs.dtype
     r_cR = wfs.gd.get_grid_point_coordinates()
@@ -85,13 +88,12 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, request):
 
 
             # Check so that eigenvalues are the same
-            assert np.allclose(eps_n, kpt_nosym.eps_n, atol=atol_eig)
+            assert np.allclose(eps_n[:nbands], kpt_nosym.eps_n[:nbands], atol=atol_eig)
 
 
             # Get all projections for calc with symmetry
             proj = kpt.projections.new(nbands=nbands, bcomm=None)
             proj.array[:] = kpt.projections.array[0:nbands]
-            #proj.array[:] = kpt_nosym.projections.array[0:nbands]
             projnew = ibz2bz[K].map_projections(proj)
             P_ani = np.array([P_ni for _, P_ni in projnew.items()])
 
@@ -104,14 +106,15 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, request):
             proj_nosym = kpt_nosym.projections
             P_ani_nosym = np.array([P_ni for _, P_ni in proj_nosym.items()])
 
-            # get setups
+            # get overlaps
+            # XXX Make sure they are in order
             dO_aii = []
             for ia in calc.wfs.kpt_u[0].P_ani.keys():
                 dO_ii = calc.wfs.setups[ia].dO_ii
                 dO_aii.append(dO_ii)
 
             
-            def check_degenerate_subspace_u(bands):
+            def check_all_electron_wfs(bands):
                 # sets up transformation matrix between symmetry transformed u:s
                 # and normal u:s and asserts that it is unitary
                 NR = np.prod(np.shape(r_cR)[1:])
@@ -155,9 +158,10 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, request):
                     ut_R = ibz2bz[K].map_pseudo_wave_to_BZ(wfs.pd.ifft(psit_nG[n], ik), r_cR)
                     ut_R_nosym = wfs_nosym.pd.ifft(psit_nG_nosym[n], K)
                     assert(np.allclose(abs(ut_R), abs(ut_R_nosym), atol=atol))
-                else:
-                    # For degenerate states check transformation
-                    # matrix is unitary
-                    bands = range(n, n + dim)
-                    check_degenerate_subspace_u(bands)
+                # For degenerate states check transformation
+                # matrix is unitary,
+                # For non-degenerate states check so that all-electron wf:s
+                # are the same
+                bands = range(n, n + dim)
+                check_all_electron_wfs(bands)
                 n += dim

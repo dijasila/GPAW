@@ -338,7 +338,7 @@ class GPWFiles:
     def fancy_si(self, symmetry):
         xc = 'LDA'
         kpts = 4
-        nbands = 20  # 2 * (3s, 3p, 4s, 3d)
+        nbands = 8  # 2 * (3s, 3p)
         pw = 300
         occw = 0.01
         conv = {'bands': nbands,
@@ -353,7 +353,7 @@ class GPWFiles:
             xc=xc,
             mode=PW(pw),
             kpts={'size': (kpts, kpts, kpts), 'gamma': True},
-            nbands=nbands,
+            nbands=nbands + 12,  # + 2 * (4s, 3d),
             occupations=FermiDirac(occw),
             convergence=conv,
             txt=self.path / f'fancy_si_pw{tag}.txt',
@@ -466,7 +466,7 @@ class GPWFiles:
         """See also the fe_fixture_test.py test."""
         xc = 'LDA'
         kpts = 4
-        nbands = 18  # 4s, 4p, 3d = 9
+        nbands = nbands = 9  # 4s, 4p, 3d = 9
         pw = 300
         occw = 0.01
         conv = {'bands': nbands,
@@ -484,7 +484,7 @@ class GPWFiles:
             xc=xc,
             mode=PW(pw),
             kpts={'size': (kpts, kpts, kpts)},
-            nbands=nbands,
+            nbands=18,
             occupations=FermiDirac(occw),
             convergence=conv,
             txt=self.path / f'fe_pw{tag}.txt',
@@ -502,7 +502,7 @@ class GPWFiles:
     def al(self, symmetry):
         xc = 'LDA'
         kpts = 4
-        nbands = 14  # 3s, 3p, 4s, 3d, 4p, 5s
+        nbands = nbands = 10  # 3s, 3p, 4s, 3d
         pw = 300
         occw = 0.01
         conv = {'bands': nbands,
@@ -518,7 +518,7 @@ class GPWFiles:
             xc=xc,
             mode=PW(pw),
             kpts={'size': (kpts, kpts, kpts)},
-            nbands=nbands,
+            nbands=nbands + 4,  # + 4p, 5s
             occupations=FermiDirac(occw),
             convergence=conv,
             txt=self.path / f'al_pw{tag}.txt',
