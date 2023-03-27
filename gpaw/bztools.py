@@ -29,6 +29,10 @@ def get_lattice_symmetry(cell_cv, tolerance=1e-7):
     gpaw.symmetry object
 
     """
+    # NB: Symmetry.find_lattice_symmetry() uses self.pbc_c, which defaults
+    # to pbc along all three dimensions. Hence, it seems that the lattice
+    # symmetry transformations produced by this method could be faulty if
+    # there are non-periodic dimensions in a system. XXX
     latsym = Symmetry([0], cell_cv, tolerance=tolerance)
     latsym.find_lattice_symmetry()
     return latsym
