@@ -215,6 +215,7 @@ sources.sort()
 check_dependencies(sources)
 
 # Convert Path objects to str:
+runtime_library_dirs = [str(dir) for dir in runtime_library_dirs]
 library_dirs = [str(dir) for dir in library_dirs]
 include_dirs = [str(dir) for dir in include_dirs]
 
