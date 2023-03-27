@@ -332,6 +332,9 @@ def get_reduced_bz(cell_cv, cU_scc, time_reversal, returnlatticeibz=False,
     """
 
     if time_reversal:
+        # NB: The method never seems to be called with time_reversal=True,
+        # and hopefully get_bz() will generate the right symmetry operations
+        # always. So, can we remove this input? XXX
         cU_scc = get_symmetry_operations(cU_scc, time_reversal)
 
     # Lattice symmetries
