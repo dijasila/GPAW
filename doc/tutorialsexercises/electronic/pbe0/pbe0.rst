@@ -4,7 +4,7 @@
 PBE0 calculations for bulk silicon
 ==================================
 
-This tutorial will do non-selfconsistent PBE0 based on self-consistent PBE.
+This tutorial will do non self-consistent PBE0 based on self-consistent PBE.
 
 .. seealso::
 

@@ -161,11 +161,11 @@ class ASECalculator:
             elif prop == 'dipole':
                 self.calculation.dipole()
             else:
-                raise ValueError('Unknown property:', prop)
+                raise KeyError('Unknown property:', prop)
 
         return self.calculation.results[prop] * units[prop]
 
-    def get_property(self, name, atoms):
+    def get_property(self, name, atoms, allow_calculation=None):
         return self.calculate_property(atoms, name)
 
     @property

@@ -309,7 +309,7 @@ class IBZWaveFunctions:
             for k, rank in enumerate(self.rank_k):
                 if rank == self.kpt_comm.rank:
                     wfs = self.wfs_qs[self.q_k[k]][spin]
-                    P_ani = wfs.P_ani.gather()  # gather atoms
+                    P_ani = wfs.P_ani.to_cpu().gather()  # gather atoms
                     if P_ani is not None:
                         P_nI = P_ani.matrix.gather()  # gather bands
                         if self.domain_comm.rank == 0:
