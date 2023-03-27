@@ -35,7 +35,8 @@ def calculate_spinkernel(*, ecut, xcflags, gs, qd, ns, qpd, context):
 
     ecut_max = ecut * Ha  # XXX very ugly this
 
-    cache = FXCCache(tag=gs.atoms.get_chemical_formula(mode='hill'),
+    cache = FXCCache(comm=context.comm,
+                     tag=gs.atoms.get_chemical_formula(mode='hill'),
                      xc=xc, ecut=ecut_max)
     handle = cache.handle(iq)
 
@@ -49,12 +50,8 @@ def calculate_spinkernel(*, ecut, xcflags, gs, qd, ns, qpd, context):
             context=context)
 
         for iq_calculated, array in kernel.calculate_fhxc():
-            if context.comm.rank == 0:
-                # assert array is not None  # XXXXXXX here
-                cache.handle(iq_calculated).write(array)
-            context.comm.barrier()
+            cache.handle(iq_calculated).write(array)
 
-    context.comm.barrier()
     fv = handle.read()
     assert fv is not None
 
