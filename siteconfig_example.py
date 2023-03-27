@@ -33,6 +33,11 @@ To append use the form
 # compiler = 'gcc'
 # platform_id = ''
 
+# MPI:
+mpi = True
+if mpi:
+    compiler = 'mpicc'
+
 # FFTW3:
 fftw = True
 if fftw:
