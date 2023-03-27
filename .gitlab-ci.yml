@@ -91,7 +91,7 @@ build-latest:
   script:
     - |
       cat << EOF >> siteconfig.py
-      define_macros += [('NDEBUG', 1)]
+      define_macros += [('NDEBUG', None)]
       undef_macros = []
       # TODO: PySys_SetArgv() etc deprecated in Python 3.11
       extra_compile_args += ['-Wno-deprecated-declarations']

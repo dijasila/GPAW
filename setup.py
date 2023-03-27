@@ -54,8 +54,8 @@ extra_compile_args = ['-Wall', '-Wno-unknown-pragmas', '-std=c99']
 runtime_library_dirs = []
 extra_objects = []
 define_macros = [('NPY_NO_DEPRECATED_API', '7'),
-                 ('GPAW_NO_UNDERSCORE_CBLACS', '1'),
-                 ('GPAW_NO_UNDERSCORE_CSCALAPACK', '1')]
+                 ('GPAW_NO_UNDERSCORE_CBLACS', None),
+                 ('GPAW_NO_UNDERSCORE_CSCALAPACK', None)]
 if os.getenv('GPAW_GPU'):
     define_macros.append(('GPAW_GPU_AWARE_MPI', '1'))
 undef_macros = ['NDEBUG']
@@ -194,7 +194,7 @@ for flag, name in [(noblas, 'GPAW_WITHOUT_BLAS'),
                    (libvdwxc, 'GPAW_WITH_LIBVDWXC'),
                    (elpa, 'GPAW_WITH_ELPA')]:
     if flag:
-        define_macros.append((name, '1'))
+        define_macros.append((name, None))
 
 sources = [Path('c/bmgs/bmgs.c')]
 sources += Path('c').glob('*.c')
