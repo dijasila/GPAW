@@ -19,15 +19,6 @@ Here are all the lists that can be modified:
 * extra_objects
 * define_macros
 
-The following lists work like above, but are only linked when compiling
-the parallel interpreter:
-
-* mpi_libraries
-* mpi_library_dirs
-* mpi_include_dirs
-* mpi_runtime_library_dirs
-* mpi_define_macros
-
 To override use the form:
 
     libraries = ['somelib', 'otherlib']
@@ -40,8 +31,6 @@ To append use the form
 # flake8: noqa
 
 # compiler = 'gcc'
-# mpicompiler = 'mpicc'
-# mpilinker = 'mpicc'
 # platform_id = ''
 
 # FFTW3:
