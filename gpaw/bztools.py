@@ -93,6 +93,7 @@ def find_high_symmetry_monkhorst_pack(calc, density):
 
                     for ibzk_c in ibzk_kc:
                         diff_kc = np.abs(kpts_kc - ibzk_c)[:, pbc].round(6)
+                        # NB: The second np.mod() statement seems redundant XXX
                         if not (np.mod(np.mod(diff_kc, 1), 1) <
                                 1e-5).all(axis=1).any():
                             raise AssertionError('Did not find ' + str(ibzk_c))
