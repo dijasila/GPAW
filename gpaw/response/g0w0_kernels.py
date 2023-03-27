@@ -49,6 +49,8 @@ def calculate_spinkernel(*, ecut, xcflags, gs, qd, ns, qpd, context):
             ecut=ecut_max, gs=gs,
             context=context)
 
+        # The first time we miss the cache, we calculate /all/ iq.
+        # (Whether that's the best strategy can be discussed.)
         for iq_calculated, array in kernel.calculate_fhxc():
             cache.handle(iq_calculated).write(array)
 
