@@ -60,7 +60,7 @@ if 0:
     elpadir = '/home/user/elpa'
     libraries += ['elpa']
     library_dirs += ['{}/lib'.format(elpadir)]
-    extra_link_args += ['-Wl,-rpath={}/lib'.format(elpadir)]
+    runtime_library_dirs += ['{}/lib'.format(elpadir)]
     include_dirs += ['{}/include/elpa-xxxx.xx.xxx'.format(elpadir)]
 
 # LibXC:
@@ -81,7 +81,7 @@ if 0:
     include_dirs += [xc + 'include']
     library_dirs += [xc + 'lib']
     # You can use rpath to avoid changing LD_LIBRARY_PATH:
-    extra_link_args += ['-Wl,-rpath={xc}/lib'.format(xc=xc)]
+    runtime_library_dirs += [xc + 'lib']
     if 'xc' not in libraries:
         libraries.append('xc')
 
@@ -90,7 +90,7 @@ if 0:
 if 0:
     libvdwxc = True
     path = '/home/user/libvdwxc'
-    extra_link_args += ['-Wl,-rpath=%s/lib' % path]
-    library_dirs += ['%s/lib' % path]
     include_dirs += ['%s/include' % path]
+    library_dirs += ['%s/lib' % path]
+    runtime_library_dirs += ['%s/lib' % path]
     libraries += ['vdwxc']

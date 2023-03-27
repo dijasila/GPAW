@@ -179,10 +179,9 @@ build-libxc:
     - |
       cat << EOF >> siteconfig.py
       local = Path('.local').resolve()
-      lib = local / 'lib'
-      library_dirs += [lib]
       include_dirs += [local / 'include']
-      extra_link_args += [f'-Wl,-rpath={lib}']
+      library_dirs += [local / 'lib']
+      runtime_library_dirs += [local / 'lib']
       EOF
     - cat siteconfig.py
     - pip install --user --log build.log --editable .
