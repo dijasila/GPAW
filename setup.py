@@ -193,7 +193,7 @@ for flag, name in [(noblas, 'GPAW_WITHOUT_BLAS'),
                    (scalapack, 'GPAW_WITH_SL'),
                    (libvdwxc, 'GPAW_WITH_LIBVDWXC'),
                    (elpa, 'GPAW_WITH_ELPA')]:
-    if flag:
+    if flag and name not in [n for (n, _) in define_macros]:
         define_macros.append((name, None))
 
 sources = [Path('c/bmgs/bmgs.c')]
