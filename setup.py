@@ -143,7 +143,7 @@ if mpi is None:
 if mpi:
     if compiler is None:
         raise_error('Define compiler for MPI in siteconfig:'
-                    "\ncompiler = '...'  # MPI compiler, e.g., 'mpicc'")
+                    "\ncompiler = ...  # MPI compiler, e.g., 'mpicc'")
 
 # Deprecation check
 if 'mpilinker' in locals():
@@ -176,7 +176,7 @@ if parallel_python_interpreter:
                     ' Define in siteconfig:'
                     '\n\nparallel_python_interpreter = True'
                     '\nmpi = True'
-                    "\ncompiler = '...'  # MPI compiler, e.g., 'mpicc'"
+                    "\ncompiler = ...  # MPI compiler, e.g., 'mpicc'"
                     )
 
 if mpi:
