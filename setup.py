@@ -199,6 +199,7 @@ for flag, name in [(noblas, 'GPAW_WITHOUT_BLAS'),
 sources = [Path('c/bmgs/bmgs.c')]
 sources += Path('c').glob('*.c')
 sources += Path('c/xc').glob('*.c')
+sources.remove(Path('c/main.c'))  # For gpaw-python executable only
 if nolibxc:
     for name in ['libxc.c', 'm06l.c',
                  'tpss.c', 'revtpss.c', 'revtpss_c_pbe.c',
@@ -308,6 +309,9 @@ class build_ext(_build_ext):
             # List of object files already built for the extension
             objects = []
             for src in sources:
+                # Do not include _gpaw_so.o in the gpaw-python executable
+                if src == 'c/_gpaw_so.c':
+                    continue
                 obj = Path(self.build_temp) / Path(src).with_suffix('.o')
                 objects.append(str(obj))
 

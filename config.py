@@ -89,12 +89,11 @@ def build_interpreter(
     print(f'building {repr(exename)} executable', flush=True)
 
     macros = extension.define_macros.copy()
-    macros.append(('GPAW_INTERPRETER', '1'))
     for undef in extension.undef_macros:
         macros.append((undef,))
 
     # Compile the sources that define GPAW_INTERPRETER
-    sources = ['c/_gpaw.c']
+    sources = ['c/main.c']
     objects = compiler.compile(
         sources,
         output_dir=str(build_temp),
@@ -102,9 +101,7 @@ def build_interpreter(
         include_dirs=extension.include_dirs,
         debug=debug,
         extra_postargs=extension.extra_compile_args)
-    # Note: we recompiled _gpaw.o
-    # This object file is already included in extra_objects
-    objects = extension_objects
+    objects += extension_objects
 
     # Note: LDFLAGS and LIBS go together, but depending on the platform,
     # it might be unnecessary to include them
