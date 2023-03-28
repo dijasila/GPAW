@@ -38,7 +38,6 @@ def test_response_aluminum_EELS_RPA(in_tmp_dir):
 
     # Calculate the wave functions on the new kpts grid
     calc = GPAW('Al_gs').fixed_density(kpts=kpts)
-    # calc.get_potential_energy()
     calc.write('Al', 'all')
 
     t2 = time.time()
@@ -87,11 +86,8 @@ def test_response_aluminum_EELS_RPA(in_tmp_dir):
     wpeak2T0, Ipeak2T0 = findpeak(omegaT0_w, eelsT0_w)
 
     # import matplotlib.pyplot as plt
-    # plt.subplot(1, 2, 1)
     # plt.plot(omegaP0_w, eelsP0_w)
     # plt.plot(omegaT0_w, eelsT0_w)
-    # plt.subplot(1, 2, 2)
-    # plt.plot(omegaP1_w, eelsP1_w)
     # plt.show()
 
     # tetra and point integrators should produce similar results; however,
