@@ -115,12 +115,16 @@ class IBZ2BZMap:
 
     def map_pseudo_wave_to_BZ(self, ut_R, r_cR):
         """Map the periodic part of wave function from IBZ -> K in 1:st BZ.
-        r_cR is real space grid:
-        r_cR = calc.wfs.gd.get_grid_point_coordinates()
+
+        Parameters
+        ----------
+        ut_R: Periodic part of pseudo wf at IBZ k-point
+        r_cR: Real space grid obtaines as
+              r_cR = calc.wfs.gd.get_grid_point_coordinates()
         """
         utout_R = self.map_pseudo_wave(ut_R)
         shift = self.map_kpoint() - self.k_c
-        if np.all(shift == 0):
+        if np.allclose(shift, 0.0):
             # K-point already in 1:st BZ
             return utout_R
         assert np.all((shift - np.round(shift)) == 0)
