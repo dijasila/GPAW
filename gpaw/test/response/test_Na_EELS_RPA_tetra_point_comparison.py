@@ -75,22 +75,18 @@ def test_response_Na_EELS_RPA_tetra_point_comparison(in_tmp_dir):
     parprint('For TI excited state calc, it took', (t4 - t3) / 60, 'minutes')
 
     world.barrier()
-    omegaP0_w, eels0P0_w, eelsP0_w = read_response_function('EELS_Na-PI_q0')
-    omegaP1_w, eels0P1_w, eelsP1_w = read_response_function('EELS_Na-PI_q1')
-    omegaT0_w, eels0T0_w, eelsT0_w = read_response_function('EELS_Na-TI_q0')
-    omegaT1_w, eels0T1_w, eelsT1_w = read_response_function('EELS_Na-TI_q1')
+    omegaP0_w, _, eelsP0_w = read_response_function('EELS_Na-PI_q0')
+    omegaP1_w, _, eelsP1_w = read_response_function('EELS_Na-PI_q1')
+    omegaT0_w, _, eelsT0_w = read_response_function('EELS_Na-TI_q0')
+    omegaT1_w, _, eelsT1_w = read_response_function('EELS_Na-TI_q1')
 
     # New results are compared with test values
-    wpeak1P0, Ipeak1P0 = findpeak(omegaP0_w, eels0P0_w)
-    wpeak2P0, Ipeak2P0 = findpeak(omegaP0_w, eelsP0_w)
-    wpeak1P1, Ipeak1P1 = findpeak(omegaP1_w, eels0P1_w)
-    wpeak2P1, Ipeak2P1 = findpeak(omegaP1_w, eelsP1_w)
+    wpeakP0, IpeakP0 = findpeak(omegaP0_w, eelsP0_w)
+    wpeakP1, IpeakP1 = findpeak(omegaP1_w, eelsP1_w)
 
     # New results are compared with test values
-    wpeak1T0, Ipeak1T0 = findpeak(omegaT0_w, eels0T0_w)
-    wpeak2T0, Ipeak2T0 = findpeak(omegaT0_w, eelsT0_w)
-    wpeak1T1, Ipeak1T1 = findpeak(omegaT1_w, eels0T1_w)
-    wpeak2T1, Ipeak2T1 = findpeak(omegaT1_w, eelsT1_w)
+    wpeakT0, IpeakT0 = findpeak(omegaT0_w, eelsT0_w)
+    wpeakT1, IpeakT1 = findpeak(omegaT1_w, eelsT1_w)
 
     # import matplotlib.pyplot as plt
     # plt.subplot(1, 2, 1)
@@ -103,23 +99,17 @@ def test_response_Na_EELS_RPA_tetra_point_comparison(in_tmp_dir):
 
     # tetra and point integrators should produce similar results:
     # confirm this by comparing the 2 integration methods
-    assert wpeak1T0 == pytest.approx(wpeak1P0, abs=0.05)
-    assert wpeak2T0 == pytest.approx(wpeak2P0, abs=0.05)
-    assert wpeak1T1 == pytest.approx(wpeak1P1, abs=0.05)
-    assert wpeak2T1 == pytest.approx(wpeak2P1, abs=0.05)
+    assert wpeakT0 == pytest.approx(wpeakP0, abs=0.05)
+    assert wpeakT1 == pytest.approx(wpeakP1, abs=0.05)
 
     # ensure the wpeak for point & tetra integration do not change
-    assert wpeak1P0 == pytest.approx(3.4811, abs=0.02)
-    assert wpeak2P0 == pytest.approx(3.4811, abs=0.02)
-    assert wpeak1P1 == pytest.approx(3.7166, abs=0.02)
-    assert wpeak2P1 == pytest.approx(3.8076, abs=0.02)
-    assert wpeak1T0 == pytest.approx(3.5033, abs=0.02)
-    assert wpeak2T0 == pytest.approx(3.5033, abs=0.02)
+    assert wpeakP0 == pytest.approx(3.4811, abs=0.02)
+    assert wpeakP1 == pytest.approx(3.8076, abs=0.02)
+    assert wpeakT0 == pytest.approx(3.5033, abs=0.02)
+    assert wpeakT1 == pytest.approx(3.8230, abs=0.02)
 
     # ensure the Ipeak for point & tetra integration do not change
-    assert Ipeak1P0 == pytest.approx(8.6311, abs=1.)
-    assert Ipeak2P0 == pytest.approx(8.6311, abs=1.)
-    assert Ipeak1P1 == pytest.approx(8.4380, abs=1.)
-    assert Ipeak2P1 == pytest.approx(7.7766, abs=1.)
-    assert Ipeak1T0 == pytest.approx(8.3715, abs=1.)
-    assert Ipeak2T0 == pytest.approx(8.3715, abs=1.)
+    assert IpeakP0 == pytest.approx(8.6311, abs=1.)
+    assert IpeakP1 == pytest.approx(7.7766, abs=1.)
+    assert IpeakT0 == pytest.approx(8.3715, abs=1.)
+    assert IpeakT1 == pytest.approx(7.7335, abs=1.)
