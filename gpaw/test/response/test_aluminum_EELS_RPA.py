@@ -94,17 +94,9 @@ def test_response_aluminum_EELS_RPA(in_tmp_dir):
     # plt.plot(omegaP1_w, eelsP1_w)
     # plt.show()
 
-    # print(wpeak1P0, wpeak2P0)
-    # print(wpeak1P1, wpeak2P1)
-    # print(wpeak1T0, wpeak2T0)
-
-    # print(Ipeak1P0, Ipeak2P0)
-    # print(Ipeak1P1, Ipeak2P1)
-    # print(Ipeak1T0, Ipeak2T0)
-
-    # XXX tetra and point integrators should produce similar results; currently
-    # they don't. For now we test that values don't change, and skip the actual
-    # validation for later
+    # tetra and point integrators should produce similar results; however,
+    # Al converges very slowly w.r.t. kpts so we just make sure the
+    # values don't change and tests consistency elsewhere
     assert wpeak1P0 == pytest.approx(15.7111, abs=0.02)
     assert wpeak2P0 == pytest.approx(15.7096, abs=0.02)
     assert wpeak1P1 == pytest.approx(15.8402, abs=0.02)
