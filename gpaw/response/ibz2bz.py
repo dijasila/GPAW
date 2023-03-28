@@ -124,8 +124,8 @@ class IBZ2BZMap:
         """
         utout_R = self.map_pseudo_wave(ut_R)
         shift = self.map_kpoint() - self.k_c
+        # Check if K-point in BZ already
         if np.allclose(shift, 0.0):
-            # K-point already in 1:st BZ
             return utout_R
         assert np.all((shift - np.round(shift)) == 0)
         icell_cv = (2 * np.pi) * np.linalg.inv(self.cell_cv).T
