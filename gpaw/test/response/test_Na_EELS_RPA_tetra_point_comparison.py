@@ -21,15 +21,15 @@ def test_response_Na_EELS_RPA_tetra_point_comparison(in_tmp_dir):
 
     a = 3
     atom = Atoms('Na',
-                 cell = [a, 0, 0],
-                 pbc = [1, 1, 1])
-    atom.center(vacuum = 1 * a, axis = (1, 2))
+                 cell=[a, 0, 0],
+                 pbc=[1, 1, 1])
+    atom.center(vacuum=1 * a, axis=(1, 2))
     atom.center()
     atoms = atom.repeat((2, 1, 1))
 
     calc = GPAW(mode=PW(200),
                 nbands=4,
-                setups = {'Na': '1'},
+                setups={'Na': '1'},
                 kpts=(16, 2, 2),
                 parallel={'band': 1},
                 xc='LDA')
@@ -43,7 +43,6 @@ def test_response_Na_EELS_RPA_tetra_point_comparison(in_tmp_dir):
 
     # Calculate the wave functions on the new kpts grid
     calc = GPAW('Na_gs').fixed_density(kpts=kpts)
-    # calc.get_potential_energy()
     calc.write('Na', 'all')
 
     t2 = time.time()
@@ -61,13 +60,12 @@ def test_response_Na_EELS_RPA_tetra_point_comparison(in_tmp_dir):
 
     t3 = time.time()
 
-    # Calculate the eels spectrum using tetrahedron integration at q=0
-    # NB: We skip the finite q-point, because the underlying symmetry
-    # exploration runs excruciatingly slowly at finite q...
+    # Calculate the eels spectrum using tetrahedron integration at both q
     df2 = DielectricFunction(calc='Na', eta=0.2, ecut=50,
                              integrationmode='tetrahedron integration',
                              hilbert=True, rate=0.2)
     df2.get_eels_spectrum(xc='RPA', filename='EELS_Na-TI_q0', q_c=q0_c)
+    df2.get_eels_spectrum(xc='RPA', filename='EELS_Na-TI_q1', q_c=q1_c)
 
     t4 = time.time()
 
@@ -80,6 +78,7 @@ def test_response_Na_EELS_RPA_tetra_point_comparison(in_tmp_dir):
     omegaP0_w, eels0P0_w, eelsP0_w = read_response_function('EELS_Na-PI_q0')
     omegaP1_w, eels0P1_w, eelsP1_w = read_response_function('EELS_Na-PI_q1')
     omegaT0_w, eels0T0_w, eelsT0_w = read_response_function('EELS_Na-TI_q0')
+    omegaT1_w, eels0T1_w, eelsT1_w = read_response_function('EELS_Na-TI_q1')
 
     # New results are compared with test values
     wpeak1P0, Ipeak1P0 = findpeak(omegaP0_w, eels0P0_w)
@@ -90,17 +89,24 @@ def test_response_Na_EELS_RPA_tetra_point_comparison(in_tmp_dir):
     # New results are compared with test values
     wpeak1T0, Ipeak1T0 = findpeak(omegaT0_w, eels0T0_w)
     wpeak2T0, Ipeak2T0 = findpeak(omegaT0_w, eelsT0_w)
+    wpeak1T1, Ipeak1T1 = findpeak(omegaT1_w, eels0T1_w)
+    wpeak2T1, Ipeak2T1 = findpeak(omegaT1_w, eelsT1_w)
 
     # import matplotlib.pyplot as plt
     # plt.subplot(1, 2, 1)
     # plt.plot(omegaP0_w, eelsP0_w)
     # plt.plot(omegaT0_w, eelsT0_w)
+    # plt.subplot(1, 2, 2)
+    # plt.plot(omegaP1_w, eelsP1_w)
+    # plt.plot(omegaT1_w, eelsT1_w)
     # plt.show()
 
     # tetra and point integrators should produce similar results:
     # confirm this by comparing the 2 integration methods
-    assert wpeak1T0 == pytest.approx(wpeak1P0, abs = 0.05)
-    assert wpeak2T0 == pytest.approx(wpeak2P0, abs = 0.05)
+    assert wpeak1T0 == pytest.approx(wpeak1P0, abs=0.05)
+    assert wpeak2T0 == pytest.approx(wpeak2P0, abs=0.05)
+    assert wpeak1T1 == pytest.approx(wpeak1P1, abs=0.05)
+    assert wpeak2T1 == pytest.approx(wpeak2P1, abs=0.05)
 
     # ensure the wpeak for point & tetra integration do not change
     assert wpeak1P0 == pytest.approx(3.4811, abs=0.02)
