@@ -113,26 +113,28 @@ class IBZ2BZMap:
 
         return utout_R
 
-    def map_pseudo_wave_to_BZ(self, ut_R, r_g):
+    def map_pseudo_wave_to_BZ(self, ut_R, r_vg):
         """Map the periodic part of wave function from IBZ -> K in BZ.
 
         Parameters
         ----------
         ut_R: np.array
               Periodic part of pseudo wf at IBZ k-point
-        r_g: np.array
+        r_vg: np.array
               Real space grid obtained as
-              r_g = calc.wfs.gd.get_grid_point_coordinates()
+              r_vg = calc.wfs.gd.get_grid_point_coordinates()
         """
         utout_R = self.map_pseudo_wave(ut_R)
         kpt_shift_c = self.map_kpoint() - self.k_c
         # Check if K-point in BZ already
         if np.allclose(kpt_shift_c, 0.0):
             return utout_R
+        # Check so that mapped k-point differ from BZ kpoint by reciprocal
+        # lattice vector
         assert np.allclose((kpt_shift_c - np.round(kpt_shift_c)), 0.0)
         icell_cv = (2 * np.pi) * np.linalg.inv(self.cell_cv).T
         kpt_shift_v = np.dot(kpt_shift_c, icell_cv)
-        return utout_R * np.exp(1.0j * gemmdot(kpt_shift_v, r_g, beta=0.0))
+        return utout_R * np.exp(1.0j * gemmdot(kpt_shift_v, r_vg, beta=0.0))
 
     def map_projections(self, projections):
         """Perform IBZ -> K mapping of the PAW projections.
@@ -164,7 +166,6 @@ class IBZ2BZMap:
         of augmentation spheres.
         """
         U_aii = []
-        atomic_shift_c = []
         for a, R_ii in enumerate(self.R_aii):
             # The symmetry transformation maps atom "a" to a position which is
             # related to atom "b" by a lattice vector (but which does not

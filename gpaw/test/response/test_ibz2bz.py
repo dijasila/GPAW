@@ -3,7 +3,7 @@ import pytest
 from gpaw import GPAW
 from gpaw.response.ibz2bz import IBZ2BZMaps
 from gpaw.berryphase import get_overlap
-
+import gpaw.mpi as mpi
 
 def mark_xfail(gs, request):
     if gs in ['al_pw', 'fe_pw', 'co_pw']:
@@ -122,7 +122,8 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
     atol_eig = 1e-05
 
     # Loading calc with symmetry
-    calc = GPAW(gpw_files[gs + '_wfs'])
+    calc = GPAW(gpw_files[gs + '_wfs'],
+                communicator=mpi.serial_comm)
     wfs = calc.wfs
     nconv = calc.parameters.convergence['bands']
 
@@ -133,7 +134,8 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
     ibz2bz = IBZ2BZMaps.from_calculator(calc)
 
     # Loading calc without symmetry
-    calc_nosym = GPAW(gpw_files[gs + '_nosym_wfs'])
+    calc_nosym = GPAW(gpw_files[gs + '_nosym_wfs'],
+                      communicator=mpi.serial_comm)
     wfs_nosym = calc_nosym.wfs
     
     # Check some basic stuff
