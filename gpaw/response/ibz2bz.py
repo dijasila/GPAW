@@ -113,24 +113,26 @@ class IBZ2BZMap:
 
         return utout_R
 
-    def map_pseudo_wave_to_BZ(self, ut_R, r_cR):
+    def map_pseudo_wave_to_BZ(self, ut_R, r_g):
         """Map the periodic part of wave function from IBZ -> K in BZ.
 
         Parameters
         ----------
-        ut_R: Periodic part of pseudo wf at IBZ k-point
-        r_cR: Real space grid obtaines as
-              r_cR = calc.wfs.gd.get_grid_point_coordinates()
+        ut_R: np.array
+              Periodic part of pseudo wf at IBZ k-point
+        r_g: np.array
+              Real space grid obtained as
+              r_g = calc.wfs.gd.get_grid_point_coordinates()
         """
         utout_R = self.map_pseudo_wave(ut_R)
-        shift = self.map_kpoint() - self.k_c
+        kpt_shift_c = self.map_kpoint() - self.k_c
         # Check if K-point in BZ already
-        if np.allclose(shift, 0.0):
+        if np.allclose(kpt_shift_c, 0.0):
             return utout_R
-        assert np.all((shift - np.round(shift)) == 0)
+        assert np.allclose((kpt_shift_c - np.round(kpt_shift_c)), 0.0)
         icell_cv = (2 * np.pi) * np.linalg.inv(self.cell_cv).T
-        shift = np.dot(shift, icell_cv)
-        return utout_R * np.exp(1.0j * gemmdot(shift, r_cR, beta=0.0))
+        kpt_shift_v = np.dot(kpt_shift_c, icell_cv)
+        return utout_R * np.exp(1.0j * gemmdot(kpt_shift_v, r_g, beta=0.0))
 
     def map_projections(self, projections):
         """Perform IBZ -> K mapping of the PAW projections.
@@ -162,7 +164,7 @@ class IBZ2BZMap:
         of augmentation spheres.
         """
         U_aii = []
-        self.atomic_shift_c = []
+        atomic_shift_c = []
         for a, R_ii in enumerate(self.R_aii):
             # The symmetry transformation maps atom "a" to a position which is
             # related to atom "b" by a lattice vector (but which does not
@@ -170,7 +172,6 @@ class IBZ2BZMap:
             b = self.b_a[a]
             atomic_shift_c = self.spos_ac[a] @ self.U_cc - self.spos_ac[b]
             assert np.allclose(atomic_shift_c.round(), atomic_shift_c)
-            self.atomic_shift_c.append(atomic_shift_c)
             # A phase factor is added to the rotations of the projectors in
             # order to let the projections follow the atoms under the symmetry
             # transformation
