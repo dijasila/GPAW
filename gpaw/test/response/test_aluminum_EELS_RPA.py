@@ -75,13 +75,11 @@ def test_response_aluminum_EELS_RPA(in_tmp_dir):
     omegaP1_w, eels0P1_w, eelsP1_w = read_response_function('EELS_Al-PI_q1')
     omegaT0_w, eels0T0_w, eelsT0_w = read_response_function('EELS_Al-TI_q0')
 
-    # New results are compared with test values
+    # calculate the 1 & 2 wpeak and ipeak values for tetra and point int.
     wpeak1P0, Ipeak1P0 = findpeak(omegaP0_w, eels0P0_w)
     wpeak2P0, Ipeak2P0 = findpeak(omegaP0_w, eelsP0_w)
     wpeak1P1, Ipeak1P1 = findpeak(omegaP1_w, eels0P1_w)
     wpeak2P1, Ipeak2P1 = findpeak(omegaP1_w, eelsP1_w)
-
-    # New results are compared with test values
     wpeak1T0, Ipeak1T0 = findpeak(omegaT0_w, eels0T0_w)
     wpeak2T0, Ipeak2T0 = findpeak(omegaT0_w, eelsT0_w)
 

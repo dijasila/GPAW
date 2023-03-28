@@ -80,11 +80,9 @@ def test_response_Na_EELS_RPA_tetra_point_comparison(in_tmp_dir):
     omegaT0_w, _, eelsT0_w = read_response_function('EELS_Na-TI_q0')
     omegaT1_w, _, eelsT1_w = read_response_function('EELS_Na-TI_q1')
 
-    # New results are compared with test values
+    # calculate tetra & point int. peaks and intensities
     wpeakP0, IpeakP0 = findpeak(omegaP0_w, eelsP0_w)
     wpeakP1, IpeakP1 = findpeak(omegaP1_w, eelsP1_w)
-
-    # New results are compared with test values
     wpeakT0, IpeakT0 = findpeak(omegaT0_w, eelsT0_w)
     wpeakT1, IpeakT1 = findpeak(omegaT1_w, eelsT1_w)
 
