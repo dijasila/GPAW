@@ -94,7 +94,8 @@ class DistributedArrays(Generic[DomainType]):
 
     def to_xp(self, xp):
         if xp is self.xp:
-            assert xp is np, 'cp -> cp should not be needed!'
+            # Disable assert for now as it would fail with our HIP-rfftn hack!
+            # assert xp is np, 'cp -> cp should not be needed!'
             return self
         if xp is np:
             return self.new(data=self.xp.asnumpy(self.data))

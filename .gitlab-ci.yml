@@ -94,6 +94,8 @@ build-latest:
     - |
       cat << EOF >> siteconfig.py
       extra_compile_args += ['-std=c99']
+      define_macros += [('NDEBUG', 1)]
+      undef_macros = []
       EOF
     - cat siteconfig.py
     - pip install --user --upgrade numpy scipy
@@ -365,8 +367,8 @@ typecheck:
   script:
     - pip install mypy types-PyYAML
     - python --version
-    - python -m mypy --version
-    - python -m mypy -p gpaw
+    - mypy --version
+    - mypy --pretty
 
 
 docs:

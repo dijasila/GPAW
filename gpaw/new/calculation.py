@@ -10,10 +10,10 @@ from gpaw.core.arrays import DistributedArrays
 from gpaw.densities import Densities
 from gpaw.electrostatic_potential import ElectrostaticPotential
 from gpaw.gpu import as_xp
-from gpaw.new import cached_property
+from gpaw.new import cached_property, zip
 from gpaw.new.builder import builder as create_builder
 from gpaw.new.density import Density
-from gpaw.new.ibzwfs import IBZWaveFunctions
+from gpaw.new.ibzwfs import IBZWaveFunctions, create_ibz_wave_functions
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
 from gpaw.new.potential import Potential
@@ -24,6 +24,14 @@ from gpaw.typing import Array1D, Array2D
 from gpaw.utilities import (check_atoms_too_close,
                             check_atoms_too_close_to_boundary)
 from gpaw.utilities.partition import AtomPartition
+
+
+class ReuseWaveFunctionsError(Exception):
+    """Reusing the old wave functions after cell change failed.
+
+    Most likekly, the number of k-points changed.
+    """
+
 
 units = {'energy': Ha,
          'free_energy': Ha,
@@ -103,7 +111,7 @@ class DFTCalculation:
         density.normalize()
 
         # The SCF-loop has a hamiltonian that has an fft-plan that is
-        # cached for later use, so best to create the SCF-loof first
+        # cached for later use, so best to create the SCF-loop first
         # FIX this!
         scf_loop = builder.create_scf_loop()
 
@@ -208,7 +216,7 @@ class DFTCalculation:
             self.log()
         return mm_v, mm_av
 
-    def forces(self):
+    def forces(self, silent=False):
         """Calculate atomic forces."""
         xc = self.pot_calc.xc
         assert not xc.no_forces
@@ -242,13 +250,14 @@ class DFTCalculation:
 
         F_av = self.state.ibzwfs.ibz.symmetries.symmetrize_forces(F_av)
 
-        self.log('\nforces: [  # eV/Ang')
-        s = Ha / Bohr
-        for a, setup in enumerate(self.setups):
-            x, y, z = F_av[a] * s
-            c = ',' if a < len(F_av) - 1 else ']'
-            self.log(f'  [{x:9.3f}, {y:9.3f}, {z:9.3f}]{c}'
-                     f'  # {setup.symbol:2} {a}')
+        if not silent:
+            self.log('\nforces: [  # eV/Ang')
+            s = Ha / Bohr
+            for a, setup in enumerate(self.setups):
+                x, y, z = F_av[a] * s
+                c = ',' if a < len(F_av) - 1 else ']'
+                self.log(f'  [{x:9.3f}, {y:9.3f}, {z:9.3f}]{c}'
+                         f'  # {setup.symbol:2} {a}')
 
         self.results['forces'] = F_av
 
@@ -274,6 +283,67 @@ class DFTCalculation:
         # Backwards compatibility helper
         atomdist = self.state.density.D_asii.layout.atomdist
         return AtomPartition(atomdist.comm, atomdist.rank_a)
+
+    def new(self,
+            atoms: Atoms,
+            params: InputParameters,
+            log=None) -> DFTCalculation:
+        """Create new DFTCalculation object."""
+
+        if params.mode['name'] != 'pw':
+            raise ReuseWaveFunctionsError
+
+        if not self.state.density.nt_sR.desc.pbc_c.all():
+            raise ReuseWaveFunctionsError
+
+        check_atoms_too_close(atoms)
+        check_atoms_too_close_to_boundary(atoms)
+
+        builder = create_builder(atoms, params)
+
+        kpt_kc = builder.ibz.kpt_kc
+        old_kpt_kc = self.state.ibzwfs.ibz.kpt_kc
+        if len(kpt_kc) != len(old_kpt_kc):
+            raise ReuseWaveFunctionsError
+        if abs(kpt_kc - old_kpt_kc).max() > 1e-9:
+            raise ReuseWaveFunctionsError
+
+        density = self.state.density.new(builder.grid)
+        density.normalize()
+
+        scf_loop = builder.create_scf_loop()
+        pot_calc = builder.create_potential_calculator()
+        potential, vHt_x, _ = pot_calc.calculate(density)
+
+        old_ibzwfs = self.state.ibzwfs
+
+        def create_wfs(spin, q, k, kpt_c, weight):
+            wfs = old_ibzwfs.wfs_qs[q][spin]
+            return wfs.morph(
+                builder.wf_desc,
+                builder.fracpos_ac,
+                builder.atomdist)
+
+        ibzwfs = create_ibz_wave_functions(
+            builder.ibz,
+            nelectrons=old_ibzwfs.nelectrons,
+            ncomponents=old_ibzwfs.ncomponents,
+            create_wfs_func=create_wfs,
+            kpt_comm=old_ibzwfs.kpt_comm)
+
+        state = DFTState(ibzwfs, density, potential, vHt_x)
+
+        write_atoms(atoms, builder.initial_magmom_av, log)
+        log(state)
+        log(builder.setups)
+        log(scf_loop)
+        log(pot_calc)
+
+        return DFTCalculation(state,
+                              builder.setups,
+                              scf_loop,
+                              pot_calc,
+                              log)
 
 
 def combine_energies(potential: Potential,

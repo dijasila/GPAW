@@ -376,11 +376,37 @@ class Chi0Calculator:
             cls = PointIntegrator
         elif self.integrationmode == 'tetrahedron integration':
             cls = TetrahedronIntegrator  # type: ignore
+            if not all([self.disable_point_group,
+                        self.disable_time_reversal,
+                        self.disable_non_symmorphic]):
+                self.check_high_symmetry_ibz_kpts()
         else:
             raise ValueError(f'Integration mode "{self.integrationmode}"'
                              ' not implemented.')
 
         return cls
+
+    def check_high_symmetry_ibz_kpts(self):
+        """Check that the ground state includes all corners of the IBZ."""
+        ibz_vertices_kc = self.gs.get_ibz_vertices()
+        # Here we mimic the k-point grid compatibility check of
+        # gpaw.bztools.find_high_symmetry_monkhorst_pack()
+        bzk_kc = self.gs.kd.bzk_kc
+        for ibz_vertex_c in ibz_vertices_kc:
+            # Relative coordinate difference to the k-point grid
+            diff_kc = np.abs(bzk_kc - ibz_vertex_c)[:, self.gs.pbc].round(6)
+            # The ibz vertex should exits in the BZ grid up to a reciprocal
+            # lattice vector, meaning that the relative coordinate difference
+            # is allowed to be an integer. Thus, at least one relative k-point
+            # difference should vanish, modulo 1
+            mod_diff_kc = np.mod(diff_kc, 1)
+            nodiff_k = np.all(mod_diff_kc < 1e-5, axis=1)
+            if not np.any(nodiff_k):
+                raise ValueError(
+                    'The ground state k-point grid does not include all '
+                    'vertices of the IBZ. '
+                    'Please use find_high_symmetry_monkhorst_pack() from '
+                    'gpaw.bztools to generate your k-point grid.')
 
     def update_integrator_kwargs(self, kwargs, block_distributed=True):
         # Update the energy shift

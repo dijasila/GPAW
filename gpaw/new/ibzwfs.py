@@ -7,10 +7,10 @@ import numpy as np
 from ase.dft.bandgap import bandgap
 from ase.io.ulm import Writer
 from ase.units import Bohr, Ha
-
 from gpaw.gpu import synchronize
 from gpaw.gpu.mpi import CuPyMPI
 from gpaw.mpi import MPIComm, serial_comm
+from gpaw.new import zip
 from gpaw.new.brillouin import IBZ
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
 from gpaw.new.potential import Potential
@@ -169,7 +169,7 @@ class IBZWaveFunctions:
         e_band = 0.0
         for wfs in self:
             e_band += wfs.occ_n @ wfs.eig_n * wfs.weight * degeneracy
-        e_band = self.kpt_comm.sum(e_band)
+        e_band = self.kpt_comm.sum(float(e_band))  # XXX CPU float?
 
         self.energies = {
             'band': e_band,
@@ -264,6 +264,7 @@ class IBZWaveFunctions:
         F_av = self.xp.zeros((potential.dH_asii.natoms, 3))
         for wfs in self:
             wfs.force_contribution(potential, F_av)
+        synchronize()
         self.kpt_comm.sum(F_av)
         return F_av
 
@@ -308,7 +309,7 @@ class IBZWaveFunctions:
             for k, rank in enumerate(self.rank_k):
                 if rank == self.kpt_comm.rank:
                     wfs = self.wfs_qs[self.q_k[k]][spin]
-                    P_ani = wfs.P_ani.gather()  # gather atoms
+                    P_ani = wfs.P_ani.to_cpu().gather()  # gather atoms
                     if P_ani is not None:
                         P_nI = P_ani.matrix.gather()  # gather bands
                         if self.domain_comm.rank == 0:

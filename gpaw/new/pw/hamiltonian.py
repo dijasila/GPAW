@@ -5,6 +5,7 @@ import numpy as np
 from gpaw.core.plane_waves import PlaneWaveExpansions
 from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.gpu import cupy as cp
+from gpaw.new import zip
 from gpaw.new.hamiltonian import Hamiltonian
 
 

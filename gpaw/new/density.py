@@ -8,6 +8,8 @@ from gpaw.utilities import unpack2, unpack
 from gpaw.core.atom_arrays import AtomArrays
 from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.gpu import as_xp
+from gpaw.new import zip
+from gpaw.core.plane_waves import PlaneWaves
 
 
 class Density:
@@ -40,6 +42,22 @@ class Density:
                 f'  components: {self.ncomponents}\n'
                 f'  grid points: {self.nt_sR.desc.size}\n'
                 f'  charge: {self.charge}  # |e|\n')
+
+    def new(self, grid):
+        old_grid = self.nt_sR.desc
+        nt_sR = grid.empty(self.ncomponents, xp=self.nt_sR.xp)
+        ecut = 0.999 * min(grid.ecut_max(), old_grid.ecut_max())
+        pw = PlaneWaves(ecut=ecut, cell=old_grid.cell, comm=grid.comm)
+        for nt_R, old_nt_R in zip(nt_sR, self.nt_sR):
+            old_nt_R.fft(pw=pw).ifft(out=nt_R)
+
+        return Density(nt_sR,
+                       self.D_asii,
+                       self.charge,
+                       self.delta_aiiL,
+                       self.delta0_a,
+                       self.N0_aii,
+                       self.l_aj)
 
     def calculate_compensation_charge_coefficients(self) -> AtomArrays:
         xp = self.D_asii.layout.xp
