@@ -19,6 +19,7 @@ def find_degenerate_subspace(eps_n, n_start, nbands, atol_eig):
         n += 1
     return dim
 
+
 def compare_P_ani(P_ani, P_ani_nosym, n, atol):
     # compares so that projections at given k and band index n
     # differ by at most a global phase
@@ -34,6 +35,7 @@ def compare_P_ani(P_ani, P_ani_nosym, n, atol):
                 phase = newphase
     assert np.allclose(abs(phase), 1.0, atol=atol)
 
+
 def get_overlaps_from_setups(wfs):
     dO_aii = []
     for ia in wfs.kpt_u[0].P_ani.keys():
@@ -41,7 +43,9 @@ def get_overlaps_from_setups(wfs):
         dO_aii.append(dO_ii)
     return dO_aii
 
-def check_all_electron_wfs(calc, bands, NR, u1_nR, u2_nR, P_ani, P_ani_nosym, dO_aii, atol):
+
+def check_all_electron_wfs(calc, bands, NR, u1_nR, u2_nR,
+                           P_ani, P_ani_nosym, dO_aii, atol):
     """sets up transformation matrix between symmetry
        transformed u:s and normal u:s in degenerate subspace
        and asserts that it is unitary
@@ -51,7 +55,7 @@ def check_all_electron_wfs(calc, bands, NR, u1_nR, u2_nR, P_ani, P_ani_nosym, dO
     calc: GPAW calculator object
     bands: int list
          band indexes in degenerate subspace
-    NR: int 
+    NR: int
         Total number of real-space grid points
     u1_nR: np.array
     u2_nR: np.array
@@ -83,6 +87,7 @@ def check_all_electron_wfs(calc, bands, NR, u1_nR, u2_nR, P_ani, P_ani_nosym, dO
     # definition of Utrans
     u_transformed = np.einsum('ji,jklm->iklm', Utrans, u1_nR)
     assert np.allclose(u_transformed, u2_nR)
+
 
 @pytest.mark.serial
 @pytest.mark.response
@@ -143,7 +148,7 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
 
             # if only_ibz_kpts fixture is true only test ibz k-points
             if only_ibz_kpts and not np.allclose(wfs.kd.bzk_kc[K],
-                                              wfs.kd.ibzk_kc[ik]):
+                                                 wfs.kd.ibzk_kc[ik]):
                 continue
 
             # Check so that BZ kpoints are the same
@@ -207,5 +212,6 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
                 u2_nR = np.array([wfs_nosym.pd.ifft(
                     psit_nG_nosym[n], K) for n in bands])
 
-                check_all_electron_wfs(calc, bands, NR, u1_nR, u2_nR, P_ani, P_ani_nosym, dO_aii, atol)
+                check_all_electron_wfs(calc, bands, NR, u1_nR, u2_nR,
+                                       P_ani, P_ani_nosym, dO_aii, atol)
                 n += dim
