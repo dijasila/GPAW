@@ -114,7 +114,7 @@ class IBZ2BZMap:
         return utout_R
 
     def map_pseudo_wave_to_BZ(self, ut_R, r_cR):
-        """Map the periodic part of wave function from IBZ -> K in 1:st BZ.
+        """Map the periodic part of wave function from IBZ -> K in BZ.
 
         Parameters
         ----------
