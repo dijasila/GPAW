@@ -58,9 +58,9 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_k, request):
     wfs_nosym = calc_nosym.wfs
     
     # Check some basic stuff
-    assert(np.allclose(r_cR, wfs_nosym.gd.get_grid_point_coordinates()))
-    assert(wfs_nosym.kd.nbzkpts == wfs_nosym.kd.nibzkpts)
-    assert(nconv == calc_nosym.parameters.convergence['bands'])
+    assert np.allclose(r_cR, wfs_nosym.gd.get_grid_point_coordinates())
+    assert wfs_nosym.kd.nbzkpts == wfs_nosym.kd.nibzkpts
+    assert nconv == calc_nosym.parameters.convergence['bands']
     
     def find_degenerate_subspace(eps, i, nbands):
         # Find degenerate eigenvalues
@@ -179,7 +179,7 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_k, request):
                     ut_R = ibz2bz[K].map_pseudo_wave_to_BZ(
                         wfs.pd.ifft(psit_nG[n], ik), r_cR)
                     ut_R_nosym = wfs_nosym.pd.ifft(psit_nG_nosym[n], K)
-                    assert(np.allclose(abs(ut_R), abs(ut_R_nosym), atol=atol))
+                    assert np.allclose(abs(ut_R), abs(ut_R_nosym), atol=atol)
 
                 # For degenerate states check transformation
                 # matrix is unitary,
