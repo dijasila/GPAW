@@ -2,6 +2,7 @@ from collections.abc import Sequence
 import numpy as np
 from gpaw.utilities.blas import gemmdot
 
+
 class IBZ2BZMaps(Sequence):
     """Sequence of data maps from k-points in the IBZ to the full BZ.
 
@@ -63,7 +64,8 @@ class IBZ2BZMaps(Sequence):
 class IBZ2BZMap:
     """Functionality to map orbitals from the IBZ to a specific k-point K."""
 
-    def __init__(self, ik_c, U_cc, b_a, R_aii, time_reversal, spos_ac, k_c, cell_cv):
+    def __init__(self, ik_c, U_cc, b_a, R_aii,
+                 time_reversal, spos_ac, k_c, cell_cv):
         """Construct the IBZ2BZMap."""
         self.ik_c = ik_c
         self.k_c = k_c  # k_c in 1:st BZ that IBZ-kpoint is mapped to
@@ -113,18 +115,18 @@ class IBZ2BZMap:
 
     def map_pseudo_wave_to_BZ(self, ut_R, r_cR):
         """Map the periodic part of wave function from IBZ -> K in 1:st BZ.
-        r_cR is real space grid. r_cR = calc.wfs.gd.get_grid_point_coordinates() 
+        r_cR is real space grid:
+        r_cR = calc.wfs.gd.get_grid_point_coordinates()
         """
         utout_R = self.map_pseudo_wave(ut_R)
-        shift = self.map_kpoint() - self.k_c #self.kd.bzk_kc[self.K]
+        shift = self.map_kpoint() - self.k_c
         if np.all(shift == 0):
             # K-point already in 1:st BZ
             return utout_R
         assert np.all((shift - np.round(shift)) == 0)
-        icell_cv = (2 * np.pi) * np.linalg.inv(self.cell_cv).T #self.kd.symmetry.cell_cv
+        icell_cv = (2 * np.pi) * np.linalg.inv(self.cell_cv).T
         shift = np.dot(shift, icell_cv)
         return utout_R * np.exp(1.0j * gemmdot(shift, r_cR, beta=0.0))
-
 
     def map_projections(self, projections):
         """Perform IBZ -> K mapping of the PAW projections.
@@ -145,24 +147,6 @@ class IBZ2BZMap:
             mapped_projections.array[..., I1:I2] = Pout_ni
 
         return mapped_projections
-
-    # XXX It is unclear how to get the correct phase for the
-    # projections. See below
-    """
-    def map_projections_to_unitcell(self, projections):
-       # Perform IBZ -> K mapping of the PAW projections.
-       # NB: The projections of atom "a" are shifted back to the
-       #  first unit cell.
- 
-        mapped_projections = self.map_projections(projections)
-        # XXX Note! should probably be k_c both here and in U_aii
-        for a, p in mapped_projections.items():
-            phase = np.exp(-2j * np.pi * (self.k_c) @ self.atomic_shift_c[a])
-            I1, I2 = mapped_projections.map[a]
-            mapped_projections.array[..., I1:I2] = p * phase
-            #mapped_projections[a] *= phase
-        return mapped_projections
-     """
         
     @property
     def U_aii(self):

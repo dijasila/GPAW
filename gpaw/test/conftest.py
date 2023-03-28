@@ -120,6 +120,9 @@ def gpw_files(request, tmp_path_factory):
     * Bulk GaAs, LDA, 4x4x4 k-points, all bands converged: ``gaas_pw``
       and ``gaas_pw_nosym``
 
+    * hcp Co, LDA, 6x6x6 k-points, 12 converged bands, ``co_pw``
+      and ``co_pw_nosym``
+  
     Files with wave functions are also available (add ``_wfs`` to the names).
     """
     path = os.environ.get('GPW_TEST_FILES')
@@ -562,6 +565,43 @@ class GPWFiles:
 
         return atoms.calc
 
+    def co(self, symmetry):
+        a = 2.5071
+        c = 4.0695
+        mm = 1.6
+        # Ground state parameters
+        xc = 'LDA'
+        kpts = 6
+        occw = 0.01
+        nbands = 2 * (6 + 0)  # 4s + 3d + 0 empty shell bands
+        ebands = 2 * 2  # extra bands for ground state calculation
+        pw = 200
+        conv = {'density': 1e-8,
+                'forces': 1e-8,
+                'bands': nbands}
+        atoms = bulk('Co', 'hcp', a=a, c=c)
+        atoms.set_initial_magnetic_moments([mm, mm])
+        atoms.center()
+
+        calc = GPAW(xc=xc,
+                    mode=PW(pw),
+                    kpts={'size': (kpts, kpts, kpts), 'gamma': True},
+                    occupations=FermiDirac(occw),
+                    convergence=conv,
+                    nbands=nbands + ebands,
+                    parallel={'domain': 1},
+                    symmetry=symmetry)
+
+        atoms.calc = calc
+        atoms.get_potential_energy()
+        return atoms.calc
+    
+    def co_pw_nosym(self):
+        return self.co(symmetry='off')
+
+    def co_pw(self):
+        return self.co(symmetry={})
+
     def gaas_pw_nosym(self):
         return self.gaas(symmetry='off')
 
@@ -590,6 +630,7 @@ class GPWFiles:
         a.calc = calc
         a.get_potential_energy()
         return a.calc
+
 
 class GPAWPlugin:
     def __init__(self):
