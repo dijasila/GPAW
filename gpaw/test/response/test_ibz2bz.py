@@ -67,10 +67,9 @@ def compare_projections(proj_sym, proj_nosym, n, atol):
 
 # XXX This should also be a dict
 def get_overlaps_from_setups(wfs):
-    dO_aii = []
+    dO_aii = {}
     for ia in wfs.kpt_u[0].P_ani.keys():
-        dO_ii = wfs.setups[ia].dO_ii
-        dO_aii.append(dO_ii)
+        dO_aii[ia] = wfs.setups[ia].dO_ii
     return dO_aii
 
 
@@ -211,8 +210,7 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
     
             # get overlaps
             dO_aii = get_overlaps_from_setups(wfs)
-            assert np.allclose(np.array(dO_aii),
-                               np.array(get_overlaps_from_setups(wfs_nosym)))
+            assert equal_dicts(dO_aii, get_overlaps_from_setups(wfs_nosym), atol)
 
             # Here starts the actual test
             # Loop over all bands
