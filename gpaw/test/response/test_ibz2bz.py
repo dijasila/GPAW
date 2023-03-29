@@ -2,8 +2,27 @@ import numpy as np
 import pytest
 from gpaw import GPAW
 from gpaw.response.ibz2bz import IBZ2BZMaps
-from gpaw.berryphase import get_overlap
 import gpaw.mpi as mpi
+
+
+# XXX Do not take calc as input
+def get_overlap(calc, bands, u1_nR, u2_nR, P1_ani, P2_ani, dO_aii, bG_v):
+    """ Computes overlap of all-electron wavefunctions
+        Similar to gpaw.berryphase.get_overlap but adapted
+        to work with projector objects rather than arrays
+    """
+    M_nn = np.dot(u1_nR.conj(), u2_nR.T) * calc.wfs.gd.dv
+    cell_cv = calc.wfs.gd.cell_cv
+    r_av = np.dot(calc.spos_ac, cell_cv)
+
+    for ia, _ in P1_ani.items():
+        P1_ni = P1_ani[ia][bands]
+        P2_ni = P2_ani[ia][bands]
+        phase = np.exp(-1.0j * np.dot(bG_v, r_av[ia]))
+        dO_ii = dO_aii[ia]
+        M_nn += P1_ni.conj().dot(dO_ii).dot(P2_ni.T) * phase
+
+    return M_nn
 
 
 def equal_dicts(dict_1, dict_2, atol):
@@ -46,6 +65,7 @@ def compare_projections(proj_sym, proj_nosym, n, atol):
     assert np.allclose(abs(phase), 1.0, atol=atol)
 
 
+# XXX This should also be a dict
 def get_overlaps_from_setups(wfs):
     dO_aii = []
     for ia in wfs.kpt_u[0].P_ani.keys():
