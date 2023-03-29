@@ -134,7 +134,7 @@ class IBZ2BZMap:
         assert np.allclose((kpt_shift_c - np.round(kpt_shift_c)), 0.0)
         icell_cv = (2 * np.pi) * np.linalg.inv(self.cell_cv).T
         kpt_shift_v = np.dot(kpt_shift_c, icell_cv)
-        return utout_R * np.exp(1.0j * gemmdot(kpt_shift_v, r_vR, beta=0.0))
+        return utout_R * np.exp(1.0j * gemmdot(kpt_shift_v, r_vR))
 
     def map_projections(self, projections):
         """Perform IBZ -> K mapping of the PAW projections.
