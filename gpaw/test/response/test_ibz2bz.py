@@ -89,7 +89,7 @@ def check_all_electron_wfs(calc, bands, NR, u1_nR, u2_nR,
                          np.array([0, 0, 0]))
 
     # Check so that transformation matrix is unitary
-    UUdag = Utrans.dot(Utrans.T.conj())
+    UUdag = Utrans @ Utrans.T.conj()
     assert np.allclose(np.eye(len(UUdag)), UUdag, atol=atol)
 
     # Check so that Utrans transforms pseudo wf:s
