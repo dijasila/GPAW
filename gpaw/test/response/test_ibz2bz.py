@@ -17,10 +17,6 @@ def mark_xfail(gs, request):
                                 'fe_pw',
                                 'gaas_pw'])
 @pytest.mark.parametrize('only_ibz_kpts', [True, False])
-# paramaterize for different gs calcs.
-# XXX while testing also  parametrize for restricting the test
-# to IBZ k-points. When all x-fails have been resolved we can remove
-# this parametrization.
 def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
     """ Tests gpaw.response.ibz2bz.py
     Tests functionalities to take wavefunction and projections from
@@ -34,6 +30,7 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
       a convention of the gs calculation?
 
     XXX Todo: Add Co from test_mft as test system and make fixture.
+    . When xfails are figured out, remove only_ibz_kpts parametrization
     """
     
     # Al, Fe and Co fails. Need to figure out why (see above)
