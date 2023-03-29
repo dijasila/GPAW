@@ -98,7 +98,7 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
             # Get projections for calc without symmetry
             proj_nosym = kpt_nosym.projections
 
-            # Get pseudo wfs
+            # Get pseudo wfs for both calculations
             ut_nR_sym = np.array([ibz2bz[K].map_pseudo_wave_to_BZ(
                 wfs.pd.ifft(psit_nG[n], ik), r_cR) for n in range(nbands)])
             ut_nR_nosym = np.array([wfs_nosym.pd.ifft(
@@ -130,9 +130,8 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
                 # For non-degenerate states check so that all-electron wf:s
                 # are the same up to phase
                 bands = range(n, n + dim)
-                NR = np.prod(np.shape(r_cR)[1:])
 
-                check_all_electron_wfs(bands, NR, ut_nR_sym[bands],
+                check_all_electron_wfs(bands, ut_nR_sym[bands],
                                        ut_nR_nosym[bands],
                                        proj_sym, proj_nosym, dO_aii,
                                        wfs.gd.dv, wfs.gd.cell_cv,
@@ -219,7 +218,7 @@ def get_overlaps_from_setups(wfs):
     return dO_aii
 
 
-def check_all_electron_wfs(bands, NR, u1_nR, u2_nR,
+def check_all_electron_wfs(bands, u1_nR, u2_nR,
                            proj_sym, proj_nosym, dO_aii,
                            dv, cell_cv, spos_ac, atol):
     """sets up transformation matrix between symmetry
@@ -230,8 +229,6 @@ def check_all_electron_wfs(bands, NR, u1_nR, u2_nR,
     ---------
     bands: int list
          band indexes in degenerate subspace
-    NR: int
-        Total number of real-space grid points
     u1_nR: np.array
     u2_nR: np.array
         Periodic part of pseudo wave function for two calculations
@@ -247,7 +244,7 @@ def check_all_electron_wfs(bands, NR, u1_nR, u2_nR,
     atol: float
        absolute tolerance when comparing arrays
     """
-
+    NR = np.prod(np.shape(u1_nR)[1:])
     Utrans = get_overlap(bands,
                          np.reshape(u1_nR, (len(u1_nR), NR)),
                          np.reshape(u2_nR, (len(u2_nR), NR)),
