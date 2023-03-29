@@ -113,16 +113,16 @@ class IBZ2BZMap:
 
         return utout_R
 
-    def map_pseudo_wave_to_BZ(self, ut_R, r_vg):
+    def map_pseudo_wave_to_BZ(self, ut_R, r_vR):
         """Map the periodic part of wave function from IBZ -> K in BZ.
 
         Parameters
         ----------
         ut_R: np.array
               Periodic part of pseudo wf at IBZ k-point
-        r_vg: np.array
+        r_vR: np.array
               Real space grid obtained as
-              r_vg = calc.wfs.gd.get_grid_point_coordinates()
+              r_vR = calc.wfs.gd.get_grid_point_coordinates()
         """
         utout_R = self.map_pseudo_wave(ut_R)
         kpt_shift_c = self.map_kpoint() - self.k_c
@@ -134,7 +134,7 @@ class IBZ2BZMap:
         assert np.allclose((kpt_shift_c - np.round(kpt_shift_c)), 0.0)
         icell_cv = (2 * np.pi) * np.linalg.inv(self.cell_cv).T
         kpt_shift_v = np.dot(kpt_shift_c, icell_cv)
-        return utout_R * np.exp(1.0j * gemmdot(kpt_shift_v, r_vg, beta=0.0))
+        return utout_R * np.exp(1.0j * gemmdot(kpt_shift_v, r_vR, beta=0.0))
 
     def map_projections(self, projections):
         """Perform IBZ -> K mapping of the PAW projections.
