@@ -16,7 +16,7 @@ def get_overlap(calc, bands, u1_nR, u2_nR, P1_ani, P2_ani, dO_aii, bG_v):
     cell_cv = calc.wfs.gd.cell_cv
     r_av = np.dot(calc.spos_ac, cell_cv)
 
-    for ia in range(len(P1_ani)):
+    for ia, _ in P1_ani.items():
         P1_ni = P1_ani[ia][bands]
         P2_ni = P2_ani[ia][bands]
         phase = np.exp(-1.0j * np.dot(bG_v, r_av[ia]))

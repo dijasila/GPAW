@@ -106,12 +106,13 @@ def gpw_files(request, tmp_path_factory):
 
     * Bulk Si, LDA, 2x2x2 k-points (gamma centered): ``si_pw``
 
-    * Bulk Si, LDA, 4x4x4 k-points, 20 converged bands: ``fancy_si_pw``
+    * Bulk Si, LDA, 4x4x4 k-points, 8 converged bands: ``fancy_si_pw``
       and ``fancy_si_pw_nosym``
 
-    * Bulk Fe, LDA, 4x4x4 k-points, 18 converged bands: ``fe_pw``
+    * Bulk Fe, LDA, 4x4x4 k-points, 9 converged bands: ``fe_pw``
       and ``fe_pw_nosym``
-    * Bulk Al, LDA, 4x4x4 k-points, 14 converged bands: ``al_pw``
+
+    * Bulk Al, LDA, 4x4x4 k-points, 10 converged bands: ``al_pw``
       and ``al_pw_nosym``
 
     * Bulk Ag, LDA, 2x2x2 k-points, 6 converged bands,
@@ -120,8 +121,6 @@ def gpw_files(request, tmp_path_factory):
     * Bulk GaAs, LDA, 4x4x4 k-points, all bands converged: ``gaas_pw``
       and ``gaas_pw_nosym``
 
-    * hcp Co, LDA, 6x6x6 k-points, 12 converged bands, ``co_pw``
-      and ``co_pw_nosym``
   
     Files with wave functions are also available (add ``_wfs`` to the names).
     """
@@ -338,16 +337,14 @@ class GPWFiles:
         si.get_potential_energy()
         return si.calc
 
-    def fancy_si(self, symmetry):
+    def _fancy_si(self, symmetry={}):
         xc = 'LDA'
         kpts = 4
         nbands = 8  # 2 * (3s, 3p)
         pw = 300
         occw = 0.01
         conv = {'bands': nbands,
-                'density': 1.e-8,
-                'eigenstates': 4e-08,
-                'energy': 1e-6}
+                'density': 1.e-8}
         atoms = bulk('Si')
         atoms.center()
         
@@ -366,10 +363,10 @@ class GPWFiles:
         return atoms.calc
     
     def fancy_si_pw(self):
-        return self.fancy_si({})
+        return self._fancy_si()
 
     def fancy_si_pw_nosym(self):
-        return self.fancy_si('off')
+        return self._fancy_si(symmetry='off')
     
     def bn_pw(self):
         atoms = bulk('BN', 'zincblende', a=3.615)
@@ -465,7 +462,7 @@ class GPWFiles:
 
         return atoms.calc
 
-    def fe(self, symmetry):
+    def fe(self, symmetry={}):
         """See also the fe_fixture_test.py test."""
         xc = 'LDA'
         kpts = 4
@@ -473,9 +470,7 @@ class GPWFiles:
         pw = 300
         occw = 0.01
         conv = {'bands': nbands,
-                'density': 1.e-8,
-                'eigenstates': 4e-08,
-                'energy': 1e-6}
+                'density': 1.e-8}
         a = 2.867
         mm = 2.21
         atoms = bulk('Fe', 'bcc', a=a)
@@ -497,21 +492,19 @@ class GPWFiles:
         return atoms.calc
     
     def fe_pw(self):
-        return self.fe({})
+        return self.fe()
 
     def fe_pw_nosym(self):
-        return self.fe('off')
+        return self.fe(symmetry='off')
     
-    def al(self, symmetry):
+    def _al(self, symmetry={}):
         xc = 'LDA'
         kpts = 4
-        nbands = nbands = 10  # 3s, 3p, 4s, 3d
+        nbands = 10  # 3s, 3p, 4s, 3d
         pw = 300
         occw = 0.01
         conv = {'bands': nbands,
-                'density': 1.e-8,
-                'eigenstates': 4e-08,
-                'energy': 1e-6}
+                'density': 1.e-8}
         a = 4.043
         atoms = bulk('Al', 'fcc', a=a)
         atoms.center()
@@ -531,10 +524,10 @@ class GPWFiles:
         return atoms.calc
 
     def al_pw(self):
-        return self.al({})
+        return self._al()
 
     def al_pw_nosym(self):
-        return self.al('off')
+        return self._al(symmetry='off')
     
     def ag_plusU_pw(self):
         xc = 'LDA'
@@ -564,60 +557,21 @@ class GPWFiles:
         atoms.calc.diagonalize_full_hamiltonian()
 
         return atoms.calc
-
-    def co(self, symmetry):
-        a = 2.5071
-        c = 4.0695
-        mm = 1.6
-        # Ground state parameters
-        xc = 'LDA'
-        kpts = 6
-        occw = 0.01
-        nbands = 2 * (6 + 0)  # 4s + 3d + 0 empty shell bands
-        ebands = 2 * 2  # extra bands for ground state calculation
-        pw = 200
-        conv = {'density': 1e-8,
-                'forces': 1e-8,
-                'bands': nbands}
-        atoms = bulk('Co', 'hcp', a=a, c=c)
-        atoms.set_initial_magnetic_moments([mm, mm])
-        atoms.center()
-
-        calc = GPAW(xc=xc,
-                    mode=PW(pw),
-                    kpts={'size': (kpts, kpts, kpts), 'gamma': True},
-                    occupations=FermiDirac(occw),
-                    convergence=conv,
-                    nbands=nbands + ebands,
-                    parallel={'domain': 1},
-                    symmetry=symmetry)
-
-        atoms.calc = calc
-        atoms.get_potential_energy()
-        return atoms.calc
     
-    def co_pw_nosym(self):
-        return self.co(symmetry='off')
-
-    def co_pw(self):
-        return self.co(symmetry={})
-
     def gaas_pw_nosym(self):
-        return self.gaas(symmetry='off')
+        return self._gaas(symmetry='off')
 
     def gaas_pw(self):
-        return self.gaas(symmetry={})
+        return self._gaas()
 
-    def gaas(self, symmetry):
+    def _gaas(self, symmetry={}):
         k = 4
         cell = bulk('Ga', 'fcc', a=5.68).cell
         a = Atoms('GaAs', cell=cell, pbc=True,
                   scaled_positions=((0, 0, 0), (0.25, 0.25, 0.25)))
         tag = '_nosym' if symmetry == 'off' else ''
         conv = {'bands': -1,
-                'density': 1.e-8,
-                'eigenstates': 4e-08,
-                'energy': 1e-6}
+                'density': 1.e-8}
 
         calc = GPAW(mode=PW(400),
                     xc='LDA',

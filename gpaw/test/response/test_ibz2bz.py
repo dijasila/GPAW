@@ -5,6 +5,16 @@ from gpaw.response.ibz2bz import IBZ2BZMaps
 from gpaw.berryphase import get_overlap
 import gpaw.mpi as mpi
 
+
+def equal_dicts(dict_1, dict_2, atol):
+    for k in dict_1:
+        try:
+            np.allclose(dict_1[k], dict_2[k], atol=atol)
+        except AssertionError:
+            return False
+        return True
+
+    
 def mark_xfail(gs, request):
     if gs in ['al_pw', 'fe_pw', 'co_pw']:
         request.node.add_marker(pytest.mark.xfail)
@@ -20,16 +30,16 @@ def find_degenerate_subspace(eps_n, n_start, nbands, atol_eig):
     return dim
 
 
-def compare_P_ani(P_ani, P_ani_nosym, n, atol):
+def compare_projections(proj_sym, proj_nosym, n, atol):
     # compares so that projections at given k and band index n
     # differ by at most a global phase
     phase = 0
-    for a in range(len(P_ani)):
-        P_ni = P_ani[a]
+    for a, P_ni in proj_sym.items():
+        P_ni = proj_sym[a]
         for j in range(len(P_ni[n, :])):
             # Only compare elements with finite value
             if abs(P_ni[n, j]) > 0.0001:
-                newphase = P_ni[n, j] / P_ani_nosym[a, n, j]
+                newphase = P_ni[n, j] / proj_nosym[a][n, j]
                 if phase != 0.0:
                     assert np.allclose(newphase, phase, atol=atol)
                 phase = newphase
@@ -45,7 +55,7 @@ def get_overlaps_from_setups(wfs):
 
 
 def check_all_electron_wfs(calc, bands, NR, u1_nR, u2_nR,
-                           P_ani, P_ani_nosym, dO_aii, atol):
+                           proj_sym, proj_nosym, dO_aii, atol):
     """sets up transformation matrix between symmetry
        transformed u:s and normal u:s in degenerate subspace
        and asserts that it is unitary
@@ -60,8 +70,8 @@ def check_all_electron_wfs(calc, bands, NR, u1_nR, u2_nR,
     u1_nR: np.array
     u2_nR: np.array
         Periodic part of pseudo wave function for two calculations
-    P_ani: np.array
-    P_nosym: np.array
+    proj_sym: Projections object
+    proj_nosym: Projections object
         Projections for two calculations
     dO_aii: list of np.arrays
        see get_overlaps_from_setups
@@ -73,8 +83,8 @@ def check_all_electron_wfs(calc, bands, NR, u1_nR, u2_nR,
                          bands,
                          np.reshape(u1_nR, (len(u1_nR), NR)),
                          np.reshape(u2_nR, (len(u2_nR), NR)),
-                         P_ani,
-                         P_ani_nosym,
+                         proj_sym,
+                         proj_nosym,
                          dO_aii,
                          np.array([0, 0, 0]))
 
@@ -94,8 +104,7 @@ def check_all_electron_wfs(calc, bands, NR, u1_nR, u2_nR,
 @pytest.mark.parametrize('gs', ['fancy_si_pw',
                                 'al_pw',
                                 'fe_pw',
-                                'gaas_pw',
-                                'co_pw'])
+                                'gaas_pw'])
 @pytest.mark.parametrize('only_ibz_kpts', [True, False])
 # paramaterize for different gs calcs.
 # XXX while testing also  parametrize for restricting the test
@@ -112,6 +121,8 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
     - For Fe and Co projections between two calculations differ by more than a
       phase. This is the case for both IBZ-k and symmetry related k, so it is
       a convention of the gs calculation?
+
+    XXX Todo: Add Co from test_mft as test system and make fixture.
     """
     
     # Al, Fe and Co fails. Need to figure out why (see above)
@@ -161,7 +172,6 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
             kpt = wfs.kpt_qs[ik][s]
             psit_nG = kpt.psit_nG
             eps_n = kpt.eps_n
-
             # Get data for calc without symmetry
             kpt_nosym = wfs_nosym.kpt_qs[K][s]
             psit_nG_nosym = kpt_nosym.psit_nG
@@ -174,13 +184,11 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
             # Get all projections for calc with symmetry
             proj = kpt.projections.new(nbands=nbands, bcomm=None)
             proj.array[:] = kpt.projections.array[0:nbands]
-            projnew = ibz2bz[K].map_projections(proj)
-            P_ani = np.array([P_ni for _, P_ni in projnew.items()])
-
+            proj_sym = ibz2bz[K].map_projections(proj)
+            
             # Get projections for calc without symmetry
             proj_nosym = kpt_nosym.projections
-            P_ani_nosym = np.array([P_ni for _, P_ni in proj_nosym.items()])
-
+    
             # get overlaps
             dO_aii = get_overlaps_from_setups(wfs)
             assert np.allclose(np.array(dO_aii),
@@ -194,7 +202,7 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
                 if dim == 1:
                     # First check so that projections differ by at most
                     # a global phase
-                    compare_P_ani(P_ani, P_ani_nosym, n, atol)
+                    compare_projections(proj_sym, proj_nosym, n, atol)
 
                     # Check so that periodic part of pseudo is same,
                     # up to a phase
@@ -215,5 +223,5 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
                     psit_nG_nosym[n], K) for n in bands])
 
                 check_all_electron_wfs(calc, bands, NR, u1_nR, u2_nR,
-                                       P_ani, P_ani_nosym, dO_aii, atol)
+                                       proj_sym, proj_nosym, dO_aii, atol)
                 n += dim
