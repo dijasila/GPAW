@@ -5,117 +5,9 @@ from gpaw.response.ibz2bz import IBZ2BZMaps
 import gpaw.mpi as mpi
 
 
-# XXX Do not take calc as input
-def get_overlap(calc, bands, u1_nR, u2_nR, P1_ani, P2_ani, dO_aii, bG_v):
-    """ Computes overlap of all-electron wavefunctions
-        Similar to gpaw.berryphase.get_overlap but adapted
-        to work with projector objects rather than arrays
-    """
-    M_nn = np.dot(u1_nR.conj(), u2_nR.T) * calc.wfs.gd.dv
-    cell_cv = calc.wfs.gd.cell_cv
-    r_av = np.dot(calc.spos_ac, cell_cv)
-
-    for ia, _ in P1_ani.items():
-        P1_ni = P1_ani[ia][bands]
-        P2_ni = P2_ani[ia][bands]
-        phase = np.exp(-1.0j * np.dot(bG_v, r_av[ia]))
-        dO_ii = dO_aii[ia]
-        M_nn += P1_ni.conj().dot(dO_ii).dot(P2_ni.T) * phase
-
-    return M_nn
-
-
-def equal_dicts(dict_1, dict_2, atol):
-    for k in dict_1:
-        try:
-            np.allclose(dict_1[k], dict_2[k], atol=atol)
-        except AssertionError:
-            return False
-        return True
-
-    
 def mark_xfail(gs, request):
     if gs in ['al_pw', 'fe_pw', 'co_pw']:
         request.node.add_marker(pytest.mark.xfail)
-
-
-def find_degenerate_subspace(eps_n, n_start, nbands, atol_eig):
-    # Find degenerate eigenvalues
-    n = n_start
-    dim = 1
-    while n < nbands - 1 and abs(eps_n[n] - eps_n[n + 1]) < atol_eig:
-        dim += 1
-        n += 1
-    return dim
-
-
-def compare_projections(proj_sym, proj_nosym, n, atol):
-    # compares so that projections at given k and band index n
-    # differ by at most a global phase
-    phase = 0
-    for a, P_ni in proj_sym.items():
-        P_ni = proj_sym[a]
-        for j in range(len(P_ni[n, :])):
-            # Only compare elements with finite value
-            if abs(P_ni[n, j]) > 0.0001:
-                newphase = P_ni[n, j] / proj_nosym[a][n, j]
-                if phase != 0.0:
-                    assert np.allclose(newphase, phase, atol=atol)
-                phase = newphase
-    assert np.allclose(abs(phase), 1.0, atol=atol)
-
-
-# XXX This should also be a dict
-def get_overlaps_from_setups(wfs):
-    dO_aii = {}
-    for ia in wfs.kpt_u[0].P_ani.keys():
-        dO_aii[ia] = wfs.setups[ia].dO_ii
-    return dO_aii
-
-
-def check_all_electron_wfs(calc, bands, NR, u1_nR, u2_nR,
-                           proj_sym, proj_nosym, dO_aii, atol):
-    """sets up transformation matrix between symmetry
-       transformed u:s and normal u:s in degenerate subspace
-       and asserts that it is unitary
-    
-    Parameters
-    ---------
-    calc: GPAW calculator object
-    bands: int list
-         band indexes in degenerate subspace
-    NR: int
-        Total number of real-space grid points
-    u1_nR: np.array
-    u2_nR: np.array
-        Periodic part of pseudo wave function for two calculations
-    proj_sym: Projections object
-    proj_nosym: Projections object
-        Projections for two calculations
-    dO_aii: list of np.arrays
-       see get_overlaps_from_setups
-    atol: float
-       absolute tolerance when comparing arrays
-    """
-
-    Utrans = get_overlap(calc,
-                         bands,
-                         np.reshape(u1_nR, (len(u1_nR), NR)),
-                         np.reshape(u2_nR, (len(u2_nR), NR)),
-                         proj_sym,
-                         proj_nosym,
-                         dO_aii,
-                         np.array([0, 0, 0]))
-
-    # Check so that transformation matrix is unitary
-    UUdag = Utrans @ Utrans.T.conj()
-    assert np.allclose(np.eye(len(UUdag)), UUdag, atol=atol)
-
-    # Check so that Utrans transforms pseudo wf:s
-    # Row/column definition of indexes in einsum comes from
-    # definition of Utrans
-    u_transformed = np.einsum('ji,jklm->iklm', Utrans, u1_nR)
-    assert np.allclose(u_transformed, u2_nR)
 
 
 @pytest.mark.serial
@@ -207,10 +99,18 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
             
             # Get projections for calc without symmetry
             proj_nosym = kpt_nosym.projections
-    
+
+            # Get pseudo wfs
+            ut_nR_sym = np.array([ibz2bz[K].map_pseudo_wave_to_BZ(
+                wfs.pd.ifft(psit_nG[n], ik), r_cR) for n in range(nbands)])
+            ut_nR_nosym = np.array([wfs_nosym.pd.ifft(
+                psit_nG_nosym[n], K) for n in range(nbands)])
+            
             # get overlaps
             dO_aii = get_overlaps_from_setups(wfs)
-            assert equal_dicts(dO_aii, get_overlaps_from_setups(wfs_nosym), atol)
+            assert equal_dicts(dO_aii,
+                               get_overlaps_from_setups(wfs_nosym),
+                               atol)
 
             # Here starts the actual test
             # Loop over all bands
@@ -224,10 +124,8 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
 
                     # Check so that periodic part of pseudo is same,
                     # up to a phase
-                    ut_R = ibz2bz[K].map_pseudo_wave_to_BZ(
-                        wfs.pd.ifft(psit_nG[n], ik), r_cR)
-                    ut_R_nosym = wfs_nosym.pd.ifft(psit_nG_nosym[n], K)
-                    assert np.allclose(abs(ut_R), abs(ut_R_nosym), atol=atol)
+                    assert np.allclose(abs(ut_nR_sym[n]),
+                                       abs(ut_nR_nosym[n]), atol=atol)
 
                 # For degenerate states check transformation
                 # matrix is unitary,
@@ -235,11 +133,139 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
                 # are the same up to phase
                 bands = range(n, n + dim)
                 NR = np.prod(np.shape(r_cR)[1:])
-                u1_nR = np.array([ibz2bz[K].map_pseudo_wave_to_BZ(
-                    wfs.pd.ifft(psit_nG[n], ik), r_cR) for n in bands])
-                u2_nR = np.array([wfs_nosym.pd.ifft(
-                    psit_nG_nosym[n], K) for n in bands])
 
-                check_all_electron_wfs(calc, bands, NR, u1_nR, u2_nR,
-                                       proj_sym, proj_nosym, dO_aii, atol)
+                check_all_electron_wfs(bands, NR, ut_nR_sym[bands],
+                                       ut_nR_nosym[bands],
+                                       proj_sym, proj_nosym, dO_aii,
+                                       wfs.gd.dv, wfs.gd.cell_cv,
+                                       calc.spos_ac, atol)
                 n += dim
+
+
+def get_overlap(bands, u1_nR, u2_nR, P1_ani, P2_ani, dO_aii, dv, cell_cv):
+    """ Computes overlap of all-electron wavefunctions
+    Similar to gpaw.berryphase.get_overlap but adapted
+    to work with projector objects rather than arrays.
+    XXX Eventually berryphase.get_overlap should be replaced
+    by this function
+
+    Parameters
+    ----------
+    bands:  integer list
+            bands to calculate overlap for
+    u1_nR:  np.array
+            flattened u_nR array
+    u2_nR:  np.array
+    P1_ani: GPAW Projections object
+    P2_ani: GPAW Projections object
+    dO_aii: dict
+            overlaps from setups
+    dv:     float
+            calc.wfs.gd.dv
+    cell_cv: np.array
+             calc.wfs.gd.cell_cv
+    """
+    M_nn = np.dot(u1_nR.conj(), u2_nR.T) * dv
+
+    for ia, _ in P1_ani.items():
+        P1_ni = P1_ani[ia][bands]
+        P2_ni = P2_ani[ia][bands]
+        dO_ii = dO_aii[ia]
+        M_nn += P1_ni.conj() @ (dO_ii) @ (P2_ni.T)
+
+    return M_nn
+
+
+def equal_dicts(dict_1, dict_2, atol):
+    """ Checks so that two dicts with np.arrays are
+    equal"""
+    
+    for k in dict_1:
+        try:
+            np.allclose(dict_1[k], dict_2[k], atol=atol)
+        except AssertionError:
+            return False
+        return True
+
+
+def find_degenerate_subspace(eps_n, n_start, nbands, atol_eig):
+    # Find degenerate eigenvalues
+    n = n_start
+    dim = 1
+    while n < nbands - 1 and abs(eps_n[n] - eps_n[n + 1]) < atol_eig:
+        dim += 1
+        n += 1
+    return dim
+
+
+def compare_projections(proj_sym, proj_nosym, n, atol):
+    # compares so that projections at given k and band index n
+    # differ by at most a global phase
+    phase = 0
+    for a, P_ni in proj_sym.items():
+        P_ni = proj_sym[a]
+        for j in range(len(P_ni[n, :])):
+            # Only compare elements with finite value
+            if abs(P_ni[n, j]) > 0.0001:
+                newphase = P_ni[n, j] / proj_nosym[a][n, j]
+                if phase != 0.0:
+                    assert np.allclose(newphase, phase, atol=atol)
+                phase = newphase
+    assert np.allclose(abs(phase), 1.0, atol=atol)
+
+
+# XXX This should also be a dict
+def get_overlaps_from_setups(wfs):
+    dO_aii = {}
+    for ia in wfs.kpt_u[0].P_ani.keys():
+        dO_aii[ia] = wfs.setups[ia].dO_ii
+    return dO_aii
+
+
+def check_all_electron_wfs(bands, NR, u1_nR, u2_nR,
+                           proj_sym, proj_nosym, dO_aii,
+                           dv, cell_cv, spos_ac, atol):
+    """sets up transformation matrix between symmetry
+       transformed u:s and normal u:s in degenerate subspace
+       and asserts that it is unitary
+    
+    Parameters
+    ---------
+    bands: int list
+         band indexes in degenerate subspace
+    NR: int
+        Total number of real-space grid points
+    u1_nR: np.array
+    u2_nR: np.array
+        Periodic part of pseudo wave function for two calculations
+    proj_sym: Projections object
+    proj_nosym: Projections object
+        Projections for two calculations
+    dO_aii: list of np.arrays
+       see get_overlaps_from_setups
+    dv:     float
+            calc.wfs.gd.dv
+    cell_cv: np.array
+             calc.wfs.gd.cell_cv
+    atol: float
+       absolute tolerance when comparing arrays
+    """
+
+    Utrans = get_overlap(bands,
+                         np.reshape(u1_nR, (len(u1_nR), NR)),
+                         np.reshape(u2_nR, (len(u2_nR), NR)),
+                         proj_sym,
+                         proj_nosym,
+                         dO_aii,
+                         dv,
+                         cell_cv)
+
+    # Check so that transformation matrix is unitary
+    UUdag = Utrans @ Utrans.T.conj()
+    assert np.allclose(np.eye(len(UUdag)), UUdag, atol=atol)
+
+    # Check so that Utrans transforms pseudo wf:s
+    # Row/column definition of indexes in einsum comes from
+    # definition of Utrans
+    u_transformed = np.einsum('ji,jklm->iklm', Utrans, u1_nR)
+    assert np.allclose(u_transformed, u2_nR)
