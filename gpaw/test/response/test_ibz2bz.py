@@ -80,6 +80,7 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
             kpt = wfs.kpt_qs[ik][s]
             psit_nG = kpt.psit_nG
             eps_n = kpt.eps_n
+
             # Get data for calc without symmetry
             kpt_nosym = wfs_nosym.kpt_qs[K][s]
             psit_nG_nosym = kpt_nosym.psit_nG
@@ -211,7 +212,6 @@ def compare_projections(proj_sym, proj_nosym, n, atol):
     assert np.allclose(abs(phase), 1.0, atol=atol)
 
 
-# XXX This should also be a dict
 def get_overlaps_from_setups(wfs):
     dO_aii = {}
     for ia in wfs.kpt_u[0].P_ani.keys():
