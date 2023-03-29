@@ -14,6 +14,7 @@ default:
 stages:
   - build
   - test
+  - deploy
 
 
 .build:
@@ -388,3 +389,28 @@ docs:
   artifacts:
     paths:
       - doc/build/html
+
+
+# NOTE: This job is borrowed from ASE CI.
+# Publish code coverage data on web.
+#  * The deploy stage is specially recognized by gitlab
+#  * The jobname pages is specially recognized by gitlab
+#  * The public/ directory is specially recognized by gitlab
+# https://about.gitlab.com/blog/2016/11/03/publish-code-coverage-report-with-gi>
+pages:
+  # We specify our own image so we don't run on as root,
+  # but we don't really need anything from the docker.
+  image: $IMAGE_PATH/run:latest
+  stage: deploy
+  tags:
+    - linux
+  dependencies:
+    - test-latest
+  script:
+    - mv htmlcov public
+  artifacts:
+    paths:
+      - public
+    expire_in: 2 weeks
+  only:
+    - master
