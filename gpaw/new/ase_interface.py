@@ -165,7 +165,9 @@ class ASECalculator:
 
         return self.calculation.results[prop] * units[prop]
 
-    def get_property(self, name, atoms, allow_calculation=None):
+    def get_property(self, name, atoms, allow_calculation=True):
+        if not allow_calculation and name not in self.calculation.results:
+            return None
         return self.calculate_property(atoms, name)
 
     @property
