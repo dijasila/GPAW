@@ -271,6 +271,7 @@ def calculate_weights(converge_bands: int | str,
     assert ibzwfs.band_comm.size == 1, 'not implemented!'
     weight_un = []
     nu = len(ibzwfs.wfs_qs) * ibzwfs.nspins
+    nbands = ibzwfs.nbands
 
     if converge_bands == 'occupied':
         # Converge occupied bands:
@@ -288,7 +289,6 @@ def calculate_weights(converge_bands: int | str,
     if isinstance(converge_bands, int):
         # Converge fixed number of bands:
         n = converge_bands
-        nbands = ibzwfs.nbands
 
         for wfs in ibzwfs:
             weight_n = np.zeros(nbands)
@@ -311,9 +311,13 @@ def calculate_weights(converge_bands: int | str,
     cbm = np.inf
     nocc_u = np.empty(nu, int)
     for u, wfs in enumerate(ibzwfs):
-        n = (wfs.eig_n < efermi).sum()
+        n = (wfs.eig_n < efermi).sum()  # number of occupied bands
         nocc_u[u] = n
-        cbm = min(cbm, wfs.eig_n[n])
+        if n < nbands:
+            cbm = min(cbm, wfs.eig_n[n])
+
+    # If all k-points don't have the same number of occupied bands,
+    # then it's a metal:
     n0 = int(broadcast_float(float(nocc_u[0]), ibzwfs.kpt_comm))
     metal = bool(ibzwfs.kpt_comm.sum_scalar(float((nocc_u != n0).any())))
     if metal:

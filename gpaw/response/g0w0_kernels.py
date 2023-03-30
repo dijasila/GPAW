@@ -49,11 +49,14 @@ def calculate_spinkernel(*, ecut, xcflags, gs, qd, ns, qpd, context):
             context=context)
 
         for iq_calculated, array in kernel.calculate_fhxc():
-            cache.handle(iq_calculated).write(array)
+            if context.comm.rank == 0:
+                # assert array is not None  # XXXXXXX here
+                cache.handle(iq_calculated).write(array)
             context.comm.barrier()
 
     context.comm.barrier()
     fv = handle.read()
+    assert fv is not None
 
     # If we want a reduced plane-wave description, create qpd mapping
     if qpd.ecut < ecut:

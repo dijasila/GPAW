@@ -94,6 +94,8 @@ build-latest:
     - |
       cat << EOF >> siteconfig.py
       extra_compile_args += ['-std=c99']
+      define_macros += [('NDEBUG', 1)]
+      undef_macros = []
       EOF
     - cat siteconfig.py
     - pip install --user --upgrade numpy scipy

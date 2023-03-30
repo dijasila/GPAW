@@ -70,6 +70,7 @@ class Handle:
             return reader.array
 
     def write(self, array):
+        assert array is not None
         with ulm.open(self._path, 'w') as writer:
             writer.write(array=array)
 
