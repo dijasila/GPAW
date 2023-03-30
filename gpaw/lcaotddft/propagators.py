@@ -404,16 +404,16 @@ class EDSICNPropagator(ECNPropagator):
         ksl = self.wfs.ksl
         using_blacs = ksl.using_blacs
         self.save_wfs()  # kpt.C2_nM = kpt.C_nM
-        for kpt in self.wfs.kpt_u:
+        for u, kpt in enumerate(self.wfs.kpt_u):
             if using_blacs:
                 scalapack_tri2full(self.mm_block_descriptor, kpt.S_MM)
                 scalapack_tri2full(self.mm_block_descriptor, kpt.T_MM)
             # H_MM(t) = <M|H(t)|M>
             kpt.H0_MM = get_H_MM(kpt, time)
-            # Add P term in case we performe Ehrenfest dynamics
+            # Add P term in case we perform Ehrenfest dynamics
             if self.hamiltonian.PLCAO_flag is True:
                 kpt.H0_MM += \
-                    self.hamiltonian.PLCAO.calculate_paw_correction_lcao(v)[0]
+                    self.hamiltonian.PLCAO.get_paw_correction_lcao(v)[u, :, :]
             # 2. Solve Psi(t+dt) from
             #    (S_MM - 0.5j*H_MM(t)*dt) Psi(t+dt)
             #       = (S_MM + 0.5j*H_MM(t)*dt) Psi(t)
@@ -424,12 +424,12 @@ class EDSICNPropagator(ECNPropagator):
         # ---------------
         # 1. Calculate H(t+dt)
         self.hamiltonian.update()
-        for kpt in self.wfs.kpt_u:
+        for u, kpt in enumerate(self.wfs.kpt_u):
             # 2. Estimate H(t+0.5*dt) ~ 0.5 * [ H(t) + H(t+dt) ]
             if self.hamiltonian.PLCAO_flag is True:
                 # Add P term in case we performe Ehrenfest dynamics
-                kpt.H0_MM += get_H_MM(kpt, time + time_step) +\
-                    self.hamiltonian.PLCAO.calculate_paw_correction_lcao(v)[0]
+                kpt.H0_MM += get_H_MM(kpt, time + time_step) + \
+                    self.hamiltonian.PLCAO.get_paw_correction_lcao(v)[u, :, :]
             else:
                 kpt.H0_MM += get_H_MM(kpt, time + time_step)
 

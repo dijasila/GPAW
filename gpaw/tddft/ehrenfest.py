@@ -83,6 +83,7 @@ class EhrenfestVelocityVerlet:
         if self.calc.wfs.mode == 'lcao':
             self.calc.wfs.Ehrenfest_force_flag = calc.Ehrenfest_force_flag
             self.calc.wfs.S_flag = calc.S_flag
+            self.calc.wfs.Ehrenfest_flag = calc.Ehrenfest_flag
             self.calc.td_hamiltonian.PLCAO_flag = calc.PLCAO_flag
             self.velocities = np.empty_like(self.positions)
 
@@ -110,7 +111,6 @@ class EhrenfestVelocityVerlet:
         if self.calc.wfs.mode == 'lcao':
             ksl = self.calc.wfs.ksl
             self.using_blacs = ksl.using_blacs
-            using_blacs = ksl.using_blacs
             if self.using_blacs:
                 self.get_full_overlap()
             self.calc.save_old_S_MM()
@@ -270,3 +270,81 @@ class EhrenfestVelocityVerlet:
         if self.using_blacs:
             self.get_full_overlap()
         self.calc.save_old_S_MM()
+
+    def propagate_simple_verlet(self, dt):
+        """Performs one Ehrenfest MD propagation step
+
+        Parameters
+        ----------
+
+        dt: scalar
+            Time step (in attoseconds) used for the Ehrenfest MD step
+
+        """
+        # save old overlap S
+        if self.calc.wfs.mode == 'lcao':
+            ksl = self.calc.wfs.ksl
+            self.using_blacs = ksl.using_blacs
+            if self.using_blacs:
+                self.get_full_overlap()
+            self.calc.save_old_S_MM()
+
+        dt = dt * attosec_to_autime
+
+        # PROPAGATE Wavefunction
+        # psi(t+dt)   = U(t,t+dt) psi(t)
+        self.velocities = self.calc.atoms.get_velocities() / (Bohr / AUT)
+        # self.propagate_single(dt)
+        self.calc.propagator.propagate(self.time, dt, self.velocities)
+        # self.calc.propagate(dt, 1 ) #, self.velocities)
+
+        # MOVE IONS
+        self.positions = self.calc.atoms.positions.copy() / Bohr
+        # self.velocities = self.calc.atoms.get_velocities() / (Bohr / AUT)
+        self.calc.atoms.positions = self.positions * Bohr
+        self.calc.set_positions(self.calc.atoms)
+        # m a(t+dt)   = F[psi(t),x(t)]
+        self.calc.get_td_energy()
+        self.calc.update_eigenvalues()
+        self.Forces = self.get_forces()
+        # FORCES = 0.0
+        # self.Forces = np.zeros_like(self.calc.atoms.positions.copy())
+
+        for i in range(len(self.Forces)):
+            self.accelerations[i] = self.Forces[i] / self.M[i]
+
+        # x(t+dt)   = x(t) + v(t) dt/2 + .5 a(t) (dt/2)^2
+        self.positions_new = self.positions + self.velocities * \
+            dt + .5 * self.accelerations * dt * dt
+        # UPDATE POSITIONS
+
+        # update atoms
+        self.calc.atoms.set_positions(self.positions_new * Bohr)
+
+        # CALCULATE FORCES WITH NEW POSITIONS
+        self.calc.get_td_energy()
+        self.calc.update_eigenvalues()
+        self.Forces = self.get_forces()
+        # FORCES = 0.0
+        # self.Forces = np.zeros_like(self.calc.atoms.positions.copy())
+        for i in range(len(self.Forces)):
+            self.accelerations_new[i] = self.Forces[i] / self.M[i]
+
+        # CALCULATE VELOCITIES
+        # v(t+dt)  = v(t) + dt/2* (a(t) + a(t+dt))
+        self.velocities_new = self.velocities + .5 * dt * \
+            (self.accelerations + self.accelerations_new)
+
+        # update velocities
+        self.calc.atoms.set_velocities((self.velocities_new * Bohr / AUT))
+
+        if self.calc.wfs.mode == 'lcao':
+            self.translate_basis(dt)
+
+        # update
+        self.positions[:] = self.positions_new
+        self.velocities[:] = self.velocities_new
+        self.accelerations[:] = self.accelerations_new
+
+        self.calc.get_td_energy()
+        self.calc.update_eigenvalues()

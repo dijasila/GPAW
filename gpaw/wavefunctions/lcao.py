@@ -13,7 +13,6 @@ from gpaw.wavefunctions.base import WaveFunctions
 from gpaw.lcao.atomic_correction import (DenseAtomicCorrection,
                                          SparseAtomicCorrection)
 from gpaw.wavefunctions.mode import Mode
-from numpy.linalg import inv
 from gpaw.directmin.etdm import ETDM
 
 
@@ -102,6 +101,7 @@ class LCAOWaveFunctions(WaveFunctions):
         self.T_qMM = None
         self.P_aqMi = None
         self.debug_tci = False
+        self.Ehrenfest_flag = False
         self.Ehrenfest_force_flag = False
         self.S_flag = False
 
@@ -400,8 +400,8 @@ class LCAOWaveFunctions(WaveFunctions):
                                     self.manytci, hamiltonian,
                                     self.spos_ac, self.timer,
                                     Fref_av, self.Ehrenfest_force_flag,
-                                    self.S_flag, self.eigensolver,
-                                    self.get_H_MM)
+                                    self.S_flag, self.Ehrenfest_flag,
+                                    self.eigensolver, self.get_H_MM)
 
         F_av[:, :] = self.forcecalc.get_forces_sum_GS()
         # Calculate LCAO PAW Ehrenfest force contribution (eq. 4.81)
@@ -490,11 +490,12 @@ class LCAOForces:
 
     def __init__(self, ksl, dtype, gd, bd, kd, kpt_u, nspins, bfs, newtci,
                  P_aqMi, setups, manytci, hamiltonian, spos_ac,
-                 timer, Fref_av, Ehrenfest_force_flag, S_flag,
+                 timer, Fref_av, Ehrenfest_force_flag, S_flag, Ehrenfest_flag,
                  eigensolver, get_H_MM):
         """ Object which calculates LCAO forces """
         self.eigensolver = eigensolver
         self.get_H_MM = get_H_MM
+        self.Ehrenfest_flag = Ehrenfest_flag
         self.Ehrenfest_force_flag = Ehrenfest_force_flag
         self.S_flag = S_flag
         self.ksl = ksl
@@ -536,7 +537,8 @@ class LCAOForces:
             self.timer.stop('TCI derivative')
 
             self.timer.start('Initial')
-            if ((self.kpt_u[0].rho_MM is None) and (self.S_flag is False)):
+            if ((self.kpt_u[0].rho_MM is None) and
+                (self.Ehrenfest_flag is False)):
                 self.rhoT_uMM, self.ET_uMM = \
                     self.get_ET_rhoT_from_coefficients()
             else:
@@ -646,14 +648,12 @@ class LCAOForces:
             tri2full(H_MM)
             S_MM = kpt.S_MM.copy()
             tri2full(S_MM)
-            S_inv_MM = inv(S_MM)
-            if self.S_flag is True:
-                rhoT_MM = self.ksl.get_transposed_density_matrix(kpt.f_n,
-                                                                 kpt.C_nM)
-            else:
-                rhoT_MM = kpt.rho_MM.T.copy()
-            ET_MM = np.linalg.solve(S_MM.conj(), gemmdot(H_MM.conj(),rhoT_MM)).copy()
-            #ET_MM = (S_inv_MM.conj() @ H_MM.conj() @ rhoT_MM).copy()
+            # S_inv_MM = inv(S_MM)
+            rhoT_MM = self.ksl.get_transposed_density_matrix(kpt.f_n,
+                                                             kpt.C_nM)
+            ET_MM = np.linalg.solve(S_MM.conj(), gemmdot(H_MM.conj(),
+                                                         rhoT_MM)).copy()
+            # ET_MM = (S_inv_MM.conj() @ H_MM.conj() @ rhoT_MM).copy()
             del S_MM, H_MM
             rhoT_uMM.append(rhoT_MM)
             ET_uMM.append(ET_MM)

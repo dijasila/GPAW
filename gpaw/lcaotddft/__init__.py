@@ -15,7 +15,7 @@ from gpaw.tddft.units import attosec_to_autime
 from gpaw.lcaotddft.densitymatrix import DensityMatrix
 from gpaw.tddft.tdopers import TimeDependentDensity
 from gpaw.utilities.scalapack import scalapack_zero
-from scipy.linalg import schur, eigvals, inv, eig
+from scipy.linalg import schur, eigvals, inv
 from gpaw.blacs import Redistributor
 
 
@@ -71,6 +71,7 @@ class OldLCAOTDDFT(GPAW):
                  communicator: object = None,
                  txt: str = '-',
                  PLCAO_flag: bool = False,
+                 Ehrenfest_flag: bool = True,
                  Ehrenfest_force_flag: bool = False,
                  S_flag: bool = True,
                  calculate_energy: bool = True):
@@ -98,6 +99,7 @@ class OldLCAOTDDFT(GPAW):
         self.calculate_energy = calculate_energy
         self.PLCAO_flag = PLCAO_flag
         self.Ehrenfest_force_flag = Ehrenfest_force_flag
+        self.Ehrenfest_flag = Ehrenfest_flag
         self.S_flag = S_flag
         self.F_EC = np.empty_like(self.atoms.get_positions())
         # Save old overlap S_MM_old which is necessary for propagating C_MM
@@ -249,7 +251,6 @@ class OldLCAOTDDFT(GPAW):
             # Call registered callback functions
             self.action = 'propagate'
             self.call_observers(self.niter)
-            #self.get_td_energy()
             self.niter += 1
         self.timer.stop('Propagate')
 
@@ -317,7 +318,7 @@ class OldLCAOTDDFT(GPAW):
         if ksl.using_blacs:
             e = self.wfs.kd.comm.sum(e)
             self.e_band_rhoH = e
-        #if self.wfs.kd.comm.rank == 0 and self.wfs.kd.comm.size > 1:
+        # if self.wfs.kd.comm.rank == 0 and self.wfs.kd.comm.size > 1:
         e = self.wfs.kd.comm.sum(e)
         self.e_band_rhoH = e
 
@@ -331,7 +332,6 @@ class OldLCAOTDDFT(GPAW):
         self.Ebar = H.e_zero
         self.Exc = H.e_xc
         self.Etot = self.Ekin + self.e_coulomb + self.Ebar + self.Exc
-        #print ( "Etot", self.Etot)
 
     def save_old_S_MM(self):
         """Save overlap function from previous MD step"""
@@ -386,7 +386,7 @@ class OldLCAOTDDFT(GPAW):
             for kpt in self.wfs.kpt_u:
                 S_MM = kpt.S_MM.copy()
                 T1, Seig_v = schur(S_MM, output='real')
-                #Seig, Seig_v = eig(S_MM)
+                # Seig, Seig_v = eig(S_MM)
                 Seig = eigvals(T1)
                 Seig_dm12 = np.diag(1 / np.sqrt(Seig))
 
@@ -395,7 +395,7 @@ class OldLCAOTDDFT(GPAW):
 
                 # Old overlap S^-1/2
                 T2_o, Seig_v_o = schur(kpt.S_MM_old, output='real')
-                #Seig_o, Seig_v_o = eig(kpt.S_MM_old)
+                # Seig_o, Seig_v_o = eig(kpt.S_MM_old)
                 Seig_o = eigvals(T2_o)
                 Seig_dp12_o = np.diag(Seig_o**0.5)
                 Sp12_o = Seig_v_o @ Seig_dp12_o @ np.conj(Seig_v_o).T

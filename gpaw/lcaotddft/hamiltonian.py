@@ -293,6 +293,8 @@ class PawCorrectionLCAO:
         self.Mstop = wfs.ksl.Mstop
         self.Mstart = wfs.ksl.Mstart
         self.P_aqMi = self.manytci.P_aqMi(self.my_atom_indices)
+        self.bfs = wfs.basis_functions
+        self.setups = wfs.setups
 
     def D1_1(self):
         """
@@ -350,41 +352,62 @@ class PawCorrectionLCAO:
             self._get_overlap_derivatives(self.wfs.ksl.using_blacs)
         return self.D2_1_qvMM, self.dTdR_qvMM
 
-    def calculate_paw_correction_lcao(self, v):
-        self.v = v
+    def get_paw_correction_lcao(self, vel):
+        self.vel = vel
         # Calculate P1_MM = i sum ((V_a) . (D1_1 + D1_2))   eq. 4.66 p.49
-        P_MM = np.zeros((self.mynao, self.nao), self.dtype)
-        P1_MM = np.zeros((self.mynao, self.nao), self.dtype)
-        P2_MM = np.zeros((self.mynao, self.nao), self.dtype)
+        nkpt = len(self.wfs.kpt_u)
+        P_qMM = np.zeros((nkpt, self.mynao, self.nao), self.dtype)
+        # P1_qMM = np.zeros((nkpt, self.mynao, self.nao), self.dtype)
+        P2_qMM = np.zeros((nkpt, self.mynao, self.nao), self.dtype)
         self.D1_1()
         self.D1_2()
         self.D2_1()
+        my_atom_indices = self.wfs.basis_functions.my_atom_indices
         # D_sum_aqvMM = self.D1_2_aqvMM + self.D1_1_aqvMM + self.D2_1_qvMM
-        D_sum_aqvMM = self.D1_1()  # + self.D1_2_aqvMM
+        # D_sum_aqvMM = self.D1_1()  # + self.D1_2_aqvMM
         # D_sum_aqvMM = self.D1_2_aqvMM
-        for u, kpt in enumerate(self.wfs.kpt_u):
-            for a in self.my_atom_indices:
-                for c in range(3):
-                    # P1_MM[:, :] += self.v[a][c] * \
-                    #    (self.D1_1_aqvMM[a, kpt.q, c, :, :] +
-                    #     self.D1_2_aqvMM[a, kpt.q, c, :, :])
-                    P1_MM[:, :] += self.v[a][c] * \
-                        (D_sum_aqvMM[a, kpt.q, c, :, :])
+        # for u, kpt in enumerate(self.wfs.kpt_u):
+        #     for a in self.my_atom_indices:
+        #         for c in range(3):
+        #             # P1_MM[:, :] += self.vel[a][c] * \
+        #             #    (self.D1_1_aqvMM[a, kpt.q, c, :, :] +
+        #             #     self.D1_2_aqvMM[a, kpt.q, c, :, :])
+        #             P1_MM[:, :] += self.vel[a][c] * \
+        #                 (D_sum_aqvMM[a, kpt.q, c, :, :])
 
         # Calculate P2_MM= -i [ V_a . D2_1 + V_a . sum( D1_2 ) ]   4.67 p 49
-        for u, kpt in enumerate(self.wfs.kpt_u):
-            for a in self.my_atom_indices:
-                for c in range(3):
-                    P2_MM[:, :] += self.v[a][c] * \
-                        (self.D2_1_qvMM[kpt.q, c, :, :] +
-                         self.D1_1_aqvMM[a, kpt.q, c, :, :])
+        # for u, kpt in enumerate(self.wfs.kpt_u):
+        #     for a in self.my_atom_indices:
+        #         for c in range(3):
+        #             P2_MM[:, :] += self.vel[a][c] * \
+        #                 (self.D2_1_qvMM[kpt.q, c, :, :] +
+        #                  self.D1_1_aqvMM[a, kpt.q, c, :, :])
 
-        # P_MM = (P1_MM - P2_MM) * complex(0, 1)
-        P_MM = P1_MM * complex(0, 1)
-        return P_MM, D_sum_aqvMM
+        # Calculate  P_MM = vel . D
+        for u, kpt in enumerate(self.wfs.kpt_u):
+            for b in my_atom_indices:
+                for a, M1, M2 in self.my_slices():
+                    for v in range(3):
+                        P2_qMM[kpt.q, M1:M2, M1:M2] += self.vel[a][v] * \
+                            self.D2_1_qvMM[kpt.q, v, M1:M2, M1:M2]
+        P_qMM = -1.0 * P2_qMM * complex(0, 1)
+        return P_qMM
 
     def _get_overlap_derivatives(self, ignore_upper=False):
         dThetadR_qvMM, dTdR_qvMM = self.wfs.manytci.O_qMM_T_qMM(
             self.wfs.gd.comm, self.wfs.ksl.Mstart, self.wfs.ksl.Mstop,
             ignore_upper, derivative=True)
         return dThetadR_qvMM, dTdR_qvMM
+
+    def _slices(self, indices):
+        for a in indices:
+            M1 = self.bfs.M_a[a] - self.Mstart
+            M2 = M1 + self.setups[a].nao
+            if M2 > 0:
+                yield a, max(0, M1), M2
+
+    def slices(self):
+        return self._slices(self.atom_indices)
+
+    def my_slices(self):
+        return self._slices(self.my_atom_indices)
