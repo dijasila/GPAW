@@ -217,7 +217,19 @@ def check_all_electron_wfs(bands, u1_nR, u2_nR,
                            dv, atol):
     """sets up transformation matrix between symmetry
        transformed u:s and normal u:s in degenerate subspace
-       and asserts that it is unitary
+       and asserts that it is unitary. It also checks that
+       the pseudo wf:s transform according to the same
+       transformation.
+    
+       Let |psi^1_i> denote the all electron wavefunctions
+       from the calculation with symmetry and |psi^2_i>
+       the corresponding wavefunctions from the calculation
+       without symmetry.
+       If the set {|psi^1_i>} span the same subspace as the set
+       {|psi^2_i>} they fulfill:
+       |psi^2_i> = |Psi^1_k> <Psi^1_k | Psi^2_i> == Utrans_ki |Psi^1_k>
+       where summation over repeated indexes is assumed and U is
+       a unitary transformation.
     
     Parameters
     ---------
