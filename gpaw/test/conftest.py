@@ -462,7 +462,7 @@ class GPWFiles:
 
         return atoms.calc
 
-    def fe(self, symmetry={}):
+    def _fe(self, symmetry={}):
         """See also the fe_fixture_test.py test."""
         xc = 'LDA'
         kpts = 4
@@ -492,10 +492,10 @@ class GPWFiles:
         return atoms.calc
     
     def fe_pw(self):
-        return self.fe()
+        return self._fe()
 
     def fe_pw_nosym(self):
-        return self.fe(symmetry='off')
+        return self._fe(symmetry='off')
     
     def _al(self, symmetry={}):
         xc = 'LDA'
@@ -565,10 +565,10 @@ class GPWFiles:
         return self._gaas()
 
     def _gaas(self, symmetry={}):
-        k = 4
+        nk = 4
         cell = bulk('Ga', 'fcc', a=5.68).cell
-        a = Atoms('GaAs', cell=cell, pbc=True,
-                  scaled_positions=((0, 0, 0), (0.25, 0.25, 0.25)))
+        atoms = Atoms('GaAs', cell=cell, pbc=True,
+                      scaled_positions=((0, 0, 0), (0.25, 0.25, 0.25)))
         tag = '_nosym' if symmetry == 'off' else ''
         conv = {'bands': -1,
                 'density': 1.e-8}
@@ -577,13 +577,13 @@ class GPWFiles:
                     xc='LDA',
                     occupations=FermiDirac(width=0.01),
                     convergence=conv,
-                    kpts={'size': (k, k, k), 'gamma': True},
+                    kpts={'size': (nk, nk, nk), 'gamma': True},
                     txt=self.path / f'gs_GaAs{tag}.txt',
                     symmetry=symmetry)
         
-        a.calc = calc
-        a.get_potential_energy()
-        return a.calc
+        atoms.calc = calc
+        atoms.get_potential_energy()
+        return atoms.calc
 
 
 class GPAWPlugin:
