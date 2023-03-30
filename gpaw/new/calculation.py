@@ -137,6 +137,7 @@ class DFTCalculation:
         check_atoms_too_close(atoms)
 
         self.fracpos_ac = atoms.get_scaled_positions()
+        self.scf_loop.world.broadcast(self.fracpos_ac)
 
         atomdist = self.state.density.D_asii.layout.atomdist
 
