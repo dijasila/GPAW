@@ -226,13 +226,14 @@ def check_all_electron_wfs(bands, ut1_nR, ut2_nR,
        the corresponding wavefunctions from the calculation
        without symmetry.
        If the set {|ψ^1_i>} span the same subspace as the set
-       {|ψ^2_i>} they fulfill the following where summation 
+       {|ψ^2_i>} they fulfill the following where summation
        over repeated indexes is assumed:
 
        |ψ^2_i> = |ψ^1_k> <ψ^1_k |ψ^2_i> == M_ki |ψ^1_k>
        and M_ki = <ψ^1_k |ψ^2_i>  is a unitary transformation.
-       M_ki is only unitary if they span the same subspace.
-    
+       M_ki is only unitary if the two sets of wfs span the
+       same subspace.
+
     Parameters
     ---------
     bands: list of ints
