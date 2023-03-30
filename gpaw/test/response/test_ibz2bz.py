@@ -221,15 +221,17 @@ def check_all_electron_wfs(bands, ut1_nR, ut2_nR,
        the pseudo wf:s transform according to the same
        transformation.
     
-       Let |psi^1_i> denote the all electron wavefunctions
-       from the calculation with symmetry and |psi^2_i>
+       Let |ψ^1_i> denote the all electron wavefunctions
+       from the calculation with symmetry and |ψ^2_i>
        the corresponding wavefunctions from the calculation
        without symmetry.
-       If the set {|psi^1_i>} span the same subspace as the set
-       {|psi^2_i>} they fulfill:
-       |psi^2_i> = |Psi^1_k> <Psi^1_k | Psi^2_i> == U_ki |Psi^1_k>
-       where summation over repeated indexes is assumed and U is
-       a unitary transformation.
+       If the set {|ψ^1_i>} span the same subspace as the set
+       {|ψ^2_i>} they fulfill the following where summation 
+       over repeated indexes is assumed:
+
+       |ψ^2_i> = |ψ^1_k> <ψ^1_k |ψ^2_i> == M_ki |ψ^1_k>
+       and M_ki = <ψ^1_k |ψ^2_i>  is a unitary transformation.
+       M_ki is only unitary if they span the same subspace.
     
     Parameters
     ---------
@@ -256,13 +258,12 @@ def check_all_electron_wfs(bands, ut1_nR, ut2_nR,
                        dO_aii,
                        dv)
 
-    U_nn = M_nn.T  # See docstring
     # Check so that transformation matrix is unitary
-    UUdag_nn = U_nn @ U_nn.T.conj()
-    assert np.allclose(np.eye(len(UUdag_nn)), UUdag_nn, atol=atol)
+    MMdag_nn = M_nn @ M_nn.T.conj()
+    assert np.allclose(np.eye(len(MMdag_nn)), MMdag_nn, atol=atol)
 
     # Check so that U_nn transforms pseudo wf:s
-    ut2_from_transform_nR = np.einsum('ij,jklm->iklm', U_nn, ut1_nR[bands])
+    ut2_from_transform_nR = np.einsum('ji,jklm->iklm', M_nn, ut1_nR[bands])
     assert np.allclose(ut2_from_transform_nR, ut2_nR[bands])
 
 
