@@ -156,10 +156,10 @@ def get_overlap(bands, u1_nR, u2_nR, proj1, proj2, dO_aii, dv):
     u2_nR = np.reshape(u2_nR, (len(u2_nR), NR))
     M_nn = (u1_nR[bands].conj() @ u2_nR[bands].T) * dv
 
-    for ia, _ in proj1.items():
-        P1_ni = proj1[ia][bands]
-        P2_ni = proj2[ia][bands]
-        dO_ii = dO_aii[ia]
+    for a, _ in proj1.items():
+        P1_ni = proj1[a][bands]
+        P2_ni = proj2[a][bands]
+        dO_ii = dO_aii[a]
         M_nn += P1_ni.conj() @ (dO_ii) @ (P2_ni.T)
 
     return M_nn
