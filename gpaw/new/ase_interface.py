@@ -494,7 +494,6 @@ class ASECalculator:
 
     @property
     def parameters(self):
-        print(self.params)
         return self.params
 
     def dos(self,

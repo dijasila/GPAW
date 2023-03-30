@@ -10,6 +10,7 @@ from gpaw.core.arrays import DistributedArrays
 from gpaw.densities import Densities
 from gpaw.electrostatic_potential import ElectrostaticPotential
 from gpaw.gpu import as_xp
+from gpaw.mpi import broadcast_float
 from gpaw.new import cached_property, zip
 from gpaw.new.builder import builder as create_builder
 from gpaw.new.density import Density
@@ -137,6 +138,7 @@ class DFTCalculation:
         check_atoms_too_close(atoms)
 
         self.fracpos_ac = atoms.get_scaled_positions()
+        self.scf_loop.world.broadcast(self.fracpos_ac, 0)
 
         atomdist = self.state.density.D_asii.layout.atomdist
 
@@ -188,6 +190,10 @@ class DFTCalculation:
         total_extrapolated = energies['total_extrapolated']
         self.log(f'  total:       {total_free * Ha:14.6f}')
         self.log(f'  extrapolated:{total_extrapolated * Ha:14.6f}\n')
+
+        world = self.scf_loop.world
+        total_free = broadcast_float(total_free, world)
+        total_extrapolated = broadcast_float(total_extrapolated, world)
 
         self.results['free_energy'] = total_free
         self.results['energy'] = total_extrapolated
@@ -259,6 +265,7 @@ class DFTCalculation:
                 self.log(f'  [{x:9.3f}, {y:9.3f}, {z:9.3f}]{c}'
                          f'  # {setup.symbol:2} {a}')
 
+        self.scf_loop.world.broadcast(F_av, 0)
         self.results['forces'] = F_av
 
     def stress(self):
