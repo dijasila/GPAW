@@ -64,6 +64,7 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
     for s in range(wfs.nspins):
         for K in range(nbzk):
             ik = wfs.kd.bz2ibz_k[K]  # IBZ k-point
+
             # if only_ibz_kpts fixture is true only test ibz k-points
             if only_ibz_kpts and not np.allclose(wfs.kd.bzk_kc[K],
                                                  wfs.kd.ibzk_kc[ik]):
