@@ -163,7 +163,18 @@ class ASECalculator:
             else:
                 raise KeyError('Unknown property:', prop)
 
-        return self.calculation.results[prop] * units[prop]
+        p = self.calculation.results[prop] * units[prop]
+
+        from gpaw.mpi import rank
+        if prop == 'forces':
+            print('PROP', rank, prop, p[1])
+        elif prop == 'stress':
+            print('PROP', rank, prop, p[1:4])
+            print('POS', rank, self.atoms.positions[3])
+        else:
+            print('PROP', rank, prop, p)
+
+        return p
 
     def get_property(self, name, atoms, allow_calculation=True):
         if not allow_calculation and name not in self.calculation.results:
@@ -494,7 +505,6 @@ class ASECalculator:
 
     @property
     def parameters(self):
-        print(self.params)
         return self.params
 
     def dos(self,
