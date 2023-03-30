@@ -49,7 +49,6 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
     # setting basic stuff
     nbands = wfs.bd.nbands if nconv == -1 else nconv
     nbzk = wfs.kd.nbzkpts
-    r_cR = wfs.gd.get_grid_point_coordinates()
     ibz2bz = IBZ2BZMaps.from_calculator(calc)
 
     # Loading calc without symmetry
@@ -58,7 +57,6 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
     wfs_nosym = calc_nosym.wfs
     
     # Check some basic stuff
-    assert np.allclose(r_cR, wfs_nosym.gd.get_grid_point_coordinates())
     assert wfs_nosym.kd.nbzkpts == wfs_nosym.kd.nibzkpts
     assert nconv == calc_nosym.parameters.convergence['bands']
     
@@ -125,6 +123,7 @@ def get_overlap(bands, u1_nR, u2_nR, P1_ani, P2_ani, dO_aii, dv, cell_cv):
     u1_nR:  np.array
             flattened u_nR array
     u2_nR:  np.array
+            flattened u_nR array
     P1_ani: GPAW Projections object
     P2_ani: GPAW Projections object
     dO_aii: dict
@@ -244,7 +243,8 @@ def get_data_from_wfs(wfs_sym, wfs_nosym, nbands, ibz2bz,
     For the calculation with symmetry the quantities are
     transformed from the IBZ (ik) to BZ (K) using ibz2bzMaps
     """
-    r_cR = wfs_nosym.gd.get_grid_point_coordinates()
+    r_vR = wfs_nosym.gd.get_grid_point_coordinates()
+    assert np.allclose(r_vR, wfs_nosym.gd.get_grid_point_coordinates())
 
     # Get data for calc with symmetry
     kpt = wfs_sym.kpt_qs[ik][s]
@@ -263,6 +263,7 @@ def get_data_from_wfs(wfs_sym, wfs_nosym, nbands, ibz2bz,
     # Get all projections for calc with symmetry
     proj = kpt.projections.new(nbands=nbands, bcomm=None)
     proj.array[:] = kpt.projections.array[0:nbands]
+    # Map projections from ik to K
     proj_sym = ibz2bz[K].map_projections(proj)
             
     # Get projections for calc without symmetry
@@ -270,12 +271,14 @@ def get_data_from_wfs(wfs_sym, wfs_nosym, nbands, ibz2bz,
 
     # Get pseudo wfs for both calculations
     ut_nR_sym = np.array([ibz2bz[K].map_pseudo_wave_to_BZ(
-        wfs_sym.pd.ifft(psit_nG[n], ik), r_cR) for n in range(nbands)])
+        wfs_sym.pd.ifft(psit_nG[n], ik), r_vR) for n in range(nbands)])
     ut_nR_nosym = np.array([wfs_nosym.pd.ifft(
         psit_nG_nosym[n], K) for n in range(nbands)])
             
     # get overlaps
     dO_aii = get_overlaps_from_setups(wfs_sym)
+
+    # Check so that overlaps are the same for both calculations
     assert equal_dicts(dO_aii,
                        get_overlaps_from_setups(wfs_nosym),
                        atol)
