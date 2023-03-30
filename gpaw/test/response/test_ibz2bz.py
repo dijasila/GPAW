@@ -262,7 +262,7 @@ def check_all_electron_wfs(bands, ut1_nR, ut2_nR,
     MMdag_nn = M_nn @ M_nn.T.conj()
     assert np.allclose(np.eye(len(MMdag_nn)), MMdag_nn, atol=atol)
 
-    # Check so that U_nn transforms pseudo wf:s
+    # Check so that M_nn transforms pseudo wf:s, see docs
     ut2_from_transform_nR = np.einsum('ji,jklm->iklm', M_nn, ut1_nR[bands])
     assert np.allclose(ut2_from_transform_nR, ut2_nR[bands])
 
