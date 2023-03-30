@@ -141,9 +141,9 @@ def get_overlap(bands, u1_nR, u2_nR, proj1, proj2, dO_aii, dv):
     bands:  integer list
             bands to calculate overlap for
     u1_nR:  np.array
-            flattened u_nR array
+            u_nR array
     u2_nR:  np.array
-            flattened u_nR array
+            u_nR array
     proj1: GPAW Projections object
     proj2: GPAW Projections object
     dO_aii: dict
