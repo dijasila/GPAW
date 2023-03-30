@@ -207,8 +207,8 @@ def compare_projections(proj_sym, proj_nosym, n, atol):
 
 def get_overlaps_from_setups(wfs):
     dO_aii = {}
-    for ia, _ in wfs.kpt_u[0].projections.items():
-        dO_aii[ia] = wfs.setups[ia].dO_ii
+    for a in wfs.kpt_u[0].projections.map:
+        dO_aii[a] = wfs.setups[a].dO_ii
     return dO_aii
 
 
