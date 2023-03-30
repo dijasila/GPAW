@@ -137,7 +137,7 @@ class DFTCalculation:
     def move_atoms(self, atoms) -> DFTCalculation:
         check_atoms_too_close(atoms)
 
-        self.fracpos_ac = atoms.get_scaled_positions()
+        self.fracpos_ac = np.ascontiguousarray(atoms.get_scaled_positions())
         self.scf_loop.world.broadcast(self.fracpos_ac, 0)
 
         atomdist = self.state.density.D_asii.layout.atomdist
