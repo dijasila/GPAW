@@ -6,7 +6,7 @@ import gpaw.mpi as mpi
 
 
 def mark_xfail(gs, request):
-    if gs in ['al_pw', 'fe_pw', 'co_pw']:
+    if gs in ['al_pw', 'fe_pw']:
         request.node.add_marker(pytest.mark.xfail)
 
 
@@ -22,10 +22,10 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
     Tests functionalities to take wavefunction and projections from
     ibz to full bz by comparing calculations with and without symmetry.
 
-    - Note that Al,  Fe and Co are  marked as xfail!
+    - Note that Al,  Fe are  marked as xfail!
     - For Al eigenvalues are different. Probably due to k-mesh.
       See "Note your k-mesh ..." in gs output files.
-    - For Fe and Co projections between two calculations differ by more than a
+    - For Fe projections between two calculations differ by more than a
       phase. This is the case for both IBZ-k and symmetry related k, so it is
       a convention of the gs calculation?
 
