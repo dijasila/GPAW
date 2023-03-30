@@ -129,7 +129,7 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
                 n += dim
 
 
-def get_overlap(bands, u1_nR, u2_nR, proj1, proj2, dO_aii, dv):
+def get_overlap(bands, ut1_nR, ut2_nR, proj1, proj2, dO_aii, dv):
     """ Computes overlap of all-electron wavefunctions
     Similar to gpaw.berryphase.get_overlap but adapted
     to work with projector objects rather than arrays.
@@ -140,10 +140,10 @@ def get_overlap(bands, u1_nR, u2_nR, proj1, proj2, dO_aii, dv):
     ----------
     bands:  integer list
             bands to calculate overlap for
-    u1_nR:  np.array
-            u_nR array
-    u2_nR:  np.array
-            u_nR array
+    ut1_nR:  np.array
+            ut_nR array
+    ut2_nR:  np.array
+            ut_nR array
     proj1: GPAW Projections object
     proj2: GPAW Projections object
     dO_aii: dict
@@ -151,10 +151,10 @@ def get_overlap(bands, u1_nR, u2_nR, proj1, proj2, dO_aii, dv):
     dv:     float
             calc.wfs.gd.dv
     """
-    NR = np.prod(np.shape(u1_nR)[1:])
-    u1_nR = np.reshape(u1_nR, (len(u1_nR), NR))
-    u2_nR = np.reshape(u2_nR, (len(u2_nR), NR))
-    M_nn = (u1_nR[bands].conj() @ u2_nR[bands].T) * dv
+    NR = np.prod(np.shape(ut1_nR)[1:])
+    ut1_nR = np.reshape(ut1_nR, (len(ut1_nR), NR))
+    ut2_nR = np.reshape(ut2_nR, (len(ut2_nR), NR))
+    M_nn = (ut1_nR[bands].conj() @ ut2_nR[bands].T) * dv
 
     for a in proj1.map:
         P1_ni = proj1[a][bands]
@@ -212,7 +212,7 @@ def get_overlaps_from_setups(wfs):
     return dO_aii
 
 
-def check_all_electron_wfs(bands, u1_nR, u2_nR,
+def check_all_electron_wfs(bands, ut1_nR, ut2_nR,
                            proj_sym, proj_nosym, dO_aii,
                            dv, atol):
     """sets up transformation matrix between symmetry
@@ -227,7 +227,7 @@ def check_all_electron_wfs(bands, u1_nR, u2_nR,
        without symmetry.
        If the set {|psi^1_i>} span the same subspace as the set
        {|psi^2_i>} they fulfill:
-       |psi^2_i> = |Psi^1_k> <Psi^1_k | Psi^2_i> == Utrans_ki |Psi^1_k>
+       |psi^2_i> = |Psi^1_k> <Psi^1_k | Psi^2_i> == U_ki |Psi^1_k>
        where summation over repeated indexes is assumed and U is
        a unitary transformation.
     
@@ -235,8 +235,8 @@ def check_all_electron_wfs(bands, u1_nR, u2_nR,
     ---------
     bands: list of ints
          band indexes in degenerate subspace
-    u1_nR: np.array
-    u2_nR: np.array
+    ut1_nR: np.array
+    ut2_nR: np.array
         Periodic part of pseudo wave function for two calculations
     proj_sym: Projections object
     proj_nosym: Projections object
@@ -248,23 +248,22 @@ def check_all_electron_wfs(bands, u1_nR, u2_nR,
     atol: float
        absolute tolerance when comparing arrays
     """
-    Utrans = get_overlap(bands,
-                         u1_nR,
-                         u2_nR,
-                         proj_sym,
-                         proj_nosym,
-                         dO_aii,
-                         dv)
+    M_nn = get_overlap(bands,
+                       ut1_nR,
+                       ut2_nR,
+                       proj_sym,
+                       proj_nosym,
+                       dO_aii,
+                       dv)
 
+    U_nn = M_nn.T  # See docstring
     # Check so that transformation matrix is unitary
-    UUdag = Utrans @ Utrans.T.conj()
-    assert np.allclose(np.eye(len(UUdag)), UUdag, atol=atol)
+    UUdag_nn = U_nn @ U_nn.T.conj()
+    assert np.allclose(np.eye(len(UUdag_nn)), UUdag_nn, atol=atol)
 
-    # Check so that Utrans transforms pseudo wf:s
-    # Row/column definition of indexes in einsum comes from
-    # definition of Utrans
-    u_transformed = np.einsum('ji,jklm->iklm', Utrans, u1_nR[bands])
-    assert np.allclose(u_transformed, u2_nR[bands])
+    # Check so that U_nn transforms pseudo wf:s
+    ut2_from_transform_nR = np.einsum('ij,jklm->iklm', U_nn, ut1_nR[bands])
+    assert np.allclose(ut2_from_transform_nR, ut2_nR[bands])
 
 
 def get_ibz_data_from_wfs(wfs, nbands, ik, s):
