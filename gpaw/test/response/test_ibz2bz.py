@@ -78,11 +78,13 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
             assert np.allclose(r_vR, wfs_nosym.gd.get_grid_point_coordinates())
             
             # Get data for calc without symmetry at BZ kpt K
-            eps_n_nosym, ut_nR_nosym, proj_nosym, dO_aii_nosym = get_ibz_data_from_wfs(
-                wfs_nosym, nbands, K, s)
+            eps_n_nosym, ut_nR_nosym, proj_nosym, dO_aii_nosym = \
+                get_ibz_data_from_wfs(wfs_nosym, nbands, K, s)
 
             # Get data for calc with symmetry at ibz kpt ik
-            eps_n, ut_nR, proj, dO_aii = get_ibz_data_from_wfs(wfs, nbands, ik, s)
+            eps_n, ut_nR, proj, dO_aii = get_ibz_data_from_wfs(wfs,
+                                                               nbands,
+                                                               ik, s)
     
             # Map projections and u:s from ik to K
             proj_sym = ibz2bz[K].map_projections(proj)
@@ -127,7 +129,7 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
                 n += dim
 
 
-def get_overlap(bands, u1_nR, u2_nR, P1_ani, P2_ani, dO_aii, dv):
+def get_overlap(bands, u1_nR, u2_nR, proj1, proj2, dO_aii, dv):
     """ Computes overlap of all-electron wavefunctions
     Similar to gpaw.berryphase.get_overlap but adapted
     to work with projector objects rather than arrays.
@@ -142,8 +144,8 @@ def get_overlap(bands, u1_nR, u2_nR, P1_ani, P2_ani, dO_aii, dv):
             flattened u_nR array
     u2_nR:  np.array
             flattened u_nR array
-    P1_ani: GPAW Projections object
-    P2_ani: GPAW Projections object
+    proj1: GPAW Projections object
+    proj2: GPAW Projections object
     dO_aii: dict
             overlaps from setups
     dv:     float
@@ -151,12 +153,12 @@ def get_overlap(bands, u1_nR, u2_nR, P1_ani, P2_ani, dO_aii, dv):
     """
     NR = np.prod(np.shape(u1_nR)[1:])
     u1_nR = np.reshape(u1_nR, (len(u1_nR), NR))
-    u2_nR= np.reshape(u2_nR, (len(u2_nR), NR))
+    u2_nR = np.reshape(u2_nR, (len(u2_nR), NR))
     M_nn = (u1_nR[bands].conj() @ u2_nR[bands].T) * dv
 
-    for ia, _ in P1_ani.items():
-        P1_ni = P1_ani[ia][bands]
-        P2_ni = P2_ani[ia][bands]
+    for ia, _ in proj1.items():
+        P1_ni = proj1[ia][bands]
+        P2_ni = proj2[ia][bands]
         dO_ii = dO_aii[ia]
         M_nn += P1_ni.conj() @ (dO_ii) @ (P2_ni.T)
 
@@ -251,6 +253,7 @@ def check_all_electron_wfs(bands, u1_nR, u2_nR,
     # definition of Utrans
     u_transformed = np.einsum('ji,jklm->iklm', Utrans, u1_nR[bands])
     assert np.allclose(u_transformed, u2_nR[bands])
+
 
 def get_ibz_data_from_wfs(wfs, nbands, ik, s):
     """ gets data at ibz k-point ik
