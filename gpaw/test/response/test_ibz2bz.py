@@ -104,12 +104,11 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
                 check_all_electron_wfs(bands, ut_nR_sym[bands],
                                        ut_nR_nosym[bands],
                                        proj_sym, proj_nosym, dO_aii,
-                                       wfs.gd.dv, wfs.gd.cell_cv,
-                                       calc.spos_ac, atol)
+                                       wfs.gd.dv, atol)
                 n += dim
 
 
-def get_overlap(bands, u1_nR, u2_nR, P1_ani, P2_ani, dO_aii, dv, cell_cv):
+def get_overlap(bands, u1_nR, u2_nR, P1_ani, P2_ani, dO_aii, dv):
     """ Computes overlap of all-electron wavefunctions
     Similar to gpaw.berryphase.get_overlap but adapted
     to work with projector objects rather than arrays.
@@ -130,8 +129,6 @@ def get_overlap(bands, u1_nR, u2_nR, P1_ani, P2_ani, dO_aii, dv, cell_cv):
             overlaps from setups
     dv:     float
             calc.wfs.gd.dv
-    cell_cv: np.array
-             calc.wfs.gd.cell_cv
     """
     M_nn = np.dot(u1_nR.conj(), u2_nR.T) * dv
 
@@ -191,7 +188,7 @@ def get_overlaps_from_setups(wfs):
 
 def check_all_electron_wfs(bands, u1_nR, u2_nR,
                            proj_sym, proj_nosym, dO_aii,
-                           dv, cell_cv, spos_ac, atol):
+                           dv, atol):
     """sets up transformation matrix between symmetry
        transformed u:s and normal u:s in degenerate subspace
        and asserts that it is unitary
@@ -210,8 +207,6 @@ def check_all_electron_wfs(bands, u1_nR, u2_nR,
        see get_overlaps_from_setups
     dv:     float
             calc.wfs.gd.dv
-    cell_cv: np.array
-             calc.wfs.gd.cell_cv
     atol: float
        absolute tolerance when comparing arrays
     """
@@ -222,8 +217,7 @@ def check_all_electron_wfs(bands, u1_nR, u2_nR,
                          proj_sym,
                          proj_nosym,
                          dO_aii,
-                         dv,
-                         cell_cv)
+                         dv)
 
     # Check so that transformation matrix is unitary
     UUdag = Utrans @ Utrans.T.conj()
