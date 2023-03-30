@@ -74,12 +74,30 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
             assert np.allclose(wfs.kd.bzk_kc[K], wfs_nosym.kd.bzk_kc[K])
             assert np.allclose(wfs_nosym.kd.ibzk_kc[K], wfs_nosym.kd.bzk_kc[K])
 
-            # Get projections, wfs and energies at BZ k-point K using
-            # ibz2bz for calculations with symmetry. Also get
-            # overlaps and energies and make some basic checks
-            proj_sym, proj_nosym, ut_nR_sym, ut_nR_nosym, dO_aii, eps_n = \
-                get_data_from_wfs(wfs, wfs_nosym, nbands,
-                                  ibz2bz, K, ik, s, atol, atol_eig)
+            r_vR = wfs_nosym.gd.get_grid_point_coordinates()
+            assert np.allclose(r_vR, wfs_nosym.gd.get_grid_point_coordinates())
+            
+            # Get data for calc without symmetry at BZ kpt K
+            eps_n_nosym, ut_nR_nosym, proj_nosym, dO_aii_nosym = get_ibz_data_from_wfs(
+                wfs_nosym, nbands, K, s)
+
+            # Get data for calc with symmetry at ibz kpt ik
+            eps_n, ut_nR, proj, dO_aii = get_ibz_data_from_wfs(wfs, nbands, ik, s)
+    
+            # Map projections and u:s from ik to K
+            proj_sym = ibz2bz[K].map_projections(proj)
+            ut_nR_sym = np.array([ibz2bz[K].map_pseudo_wave_to_BZ(
+                ut_nR[n], r_vR) for n in range(nbands)])
+
+            # Check so that eigenvalues are the same
+            assert np.allclose(eps_n[:nbands],
+                               eps_n_nosym[:nbands],
+                               atol=atol_eig)
+
+            # Check so that overlaps are the same for both calculations
+            assert equal_dicts(dO_aii,
+                               dO_aii_nosym,
+                               atol)
 
             # Here starts the actual test
             # Loop over all bands
@@ -102,8 +120,8 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
                 # are the same up to phase
                 bands = range(n, n + dim)
 
-                check_all_electron_wfs(bands, ut_nR_sym[bands],
-                                       ut_nR_nosym[bands],
+                check_all_electron_wfs(bands, ut_nR_sym,
+                                       ut_nR_nosym,
                                        proj_sym, proj_nosym, dO_aii,
                                        wfs.gd.dv, atol)
                 n += dim
@@ -131,7 +149,10 @@ def get_overlap(bands, u1_nR, u2_nR, P1_ani, P2_ani, dO_aii, dv):
     dv:     float
             calc.wfs.gd.dv
     """
-    M_nn = np.dot(u1_nR.conj(), u2_nR.T) * dv
+    NR = np.prod(np.shape(u1_nR)[1:])
+    u1_nR = np.reshape(u1_nR, (len(u1_nR), NR))
+    u2_nR= np.reshape(u2_nR, (len(u2_nR), NR))
+    M_nn = (u1_nR[bands].conj() @ u2_nR[bands].T) * dv
 
     for ia, _ in P1_ani.items():
         P1_ni = P1_ani[ia][bands]
@@ -145,13 +166,15 @@ def get_overlap(bands, u1_nR, u2_nR, P1_ani, P2_ani, dO_aii, dv):
 def equal_dicts(dict_1, dict_2, atol):
     """ Checks so that two dicts with np.arrays are
     equal"""
-    
-    for k in dict_1:
-        try:
-            np.allclose(dict_1[k], dict_2[k], atol=atol)
-        except AssertionError:
+    assert len(dict_1.keys()) == len(dict_2.keys())
+    for key in dict_1:
+        # Make sure the dictionaries contain the same set of keys
+        if key not in dict_2:
             return False
-        return True
+        # Make sure that the arrays are identical
+        if not np.allclose(dict_1[key], dict_2[key], atol=atol):
+            return False
+    return True
 
 
 def find_degenerate_subspace(eps_n, n_start, nbands, atol_eig):
@@ -167,14 +190,14 @@ def find_degenerate_subspace(eps_n, n_start, nbands, atol_eig):
 def compare_projections(proj_sym, proj_nosym, n, atol):
     # compares so that projections at given k and band index n
     # differ by at most a global phase
-    phase = 0
+    phase = None
+    newphase = None
     for a, P_ni in proj_sym.items():
-        P_ni = proj_sym[a]
         for j in range(len(P_ni[n, :])):
             # Only compare elements with finite value
-            if abs(P_ni[n, j]) > 0.0001:
+            if abs(P_ni[n, j]) > atol:
                 newphase = P_ni[n, j] / proj_nosym[a][n, j]
-                if phase != 0.0:
+                if phase is not None:
                     assert np.allclose(newphase, phase, atol=atol)
                 phase = newphase
     assert np.allclose(abs(phase), 1.0, atol=atol)
@@ -182,7 +205,7 @@ def compare_projections(proj_sym, proj_nosym, n, atol):
 
 def get_overlaps_from_setups(wfs):
     dO_aii = {}
-    for ia in wfs.kpt_u[0].P_ani.keys():
+    for ia, _ in wfs.kpt_u[0].projections.items():
         dO_aii[ia] = wfs.setups[ia].dO_ii
     return dO_aii
 
@@ -196,7 +219,7 @@ def check_all_electron_wfs(bands, u1_nR, u2_nR,
     
     Parameters
     ---------
-    bands: int list
+    bands: list of ints
          band indexes in degenerate subspace
     u1_nR: np.array
     u2_nR: np.array
@@ -204,17 +227,16 @@ def check_all_electron_wfs(bands, u1_nR, u2_nR,
     proj_sym: Projections object
     proj_nosym: Projections object
         Projections for two calculations
-    dO_aii: list of np.arrays
+    dO_aii: dict with np.arrays
        see get_overlaps_from_setups
     dv:     float
             calc.wfs.gd.dv
     atol: float
        absolute tolerance when comparing arrays
     """
-    NR = np.prod(np.shape(u1_nR)[1:])
     Utrans = get_overlap(bands,
-                         np.reshape(u1_nR, (len(u1_nR), NR)),
-                         np.reshape(u2_nR, (len(u2_nR), NR)),
+                         u1_nR,
+                         u2_nR,
                          proj_sym,
                          proj_nosym,
                          dO_aii,
@@ -227,54 +249,25 @@ def check_all_electron_wfs(bands, u1_nR, u2_nR,
     # Check so that Utrans transforms pseudo wf:s
     # Row/column definition of indexes in einsum comes from
     # definition of Utrans
-    u_transformed = np.einsum('ji,jklm->iklm', Utrans, u1_nR)
-    assert np.allclose(u_transformed, u2_nR)
+    u_transformed = np.einsum('ji,jklm->iklm', Utrans, u1_nR[bands])
+    assert np.allclose(u_transformed, u2_nR[bands])
 
-
-def get_data_from_wfs(wfs_sym, wfs_nosym, nbands, ibz2bz,
-                      K, ik, s, atol, atol_eig):
-    """Gets pseudo wfs, projections, energies and overlaps
-    from wfs object for calculation with and without symmetry.
-    For the calculation with symmetry the quantities are
-    transformed from the IBZ (ik) to BZ (K) using ibz2bzMaps
+def get_ibz_data_from_wfs(wfs, nbands, ik, s):
+    """ gets data at ibz k-point ik
     """
-    r_vR = wfs_nosym.gd.get_grid_point_coordinates()
-    assert np.allclose(r_vR, wfs_nosym.gd.get_grid_point_coordinates())
-
-    # Get data for calc with symmetry
-    kpt = wfs_sym.kpt_qs[ik][s]
+    # get energies and wfs
+    kpt = wfs.kpt_qs[ik][s]
     psit_nG = kpt.psit_nG
     eps_n = kpt.eps_n
-
-    # Get data for calc without symmetry
-    kpt_nosym = wfs_nosym.kpt_qs[K][s]
-    psit_nG_nosym = kpt_nosym.psit_nG
-
-    # Check so that eigenvalues are the same
-    assert np.allclose(eps_n[:nbands],
-                       kpt_nosym.eps_n[:nbands],
-                       atol=atol_eig)
-
-    # Get all projections for calc with symmetry
+    
+    # Get periodic part of pseudo wfs
+    ut_nR = np.array([wfs.pd.ifft(
+        psit_nG[n], ik) for n in range(nbands)])
+    
+    # Get projections
     proj = kpt.projections.new(nbands=nbands, bcomm=None)
-    proj.array[:] = kpt.projections.array[0:nbands]
-    # Map projections from ik to K
-    proj_sym = ibz2bz[K].map_projections(proj)
-            
-    # Get projections for calc without symmetry
-    proj_nosym = kpt_nosym.projections
-
-    # Get pseudo wfs for both calculations
-    ut_nR_sym = np.array([ibz2bz[K].map_pseudo_wave_to_BZ(
-        wfs_sym.pd.ifft(psit_nG[n], ik), r_vR) for n in range(nbands)])
-    ut_nR_nosym = np.array([wfs_nosym.pd.ifft(
-        psit_nG_nosym[n], K) for n in range(nbands)])
-            
+    proj.array[:] = kpt.projections.array[:nbands]
+    
     # get overlaps
-    dO_aii = get_overlaps_from_setups(wfs_sym)
-
-    # Check so that overlaps are the same for both calculations
-    assert equal_dicts(dO_aii,
-                       get_overlaps_from_setups(wfs_nosym),
-                       atol)
-    return proj_sym, proj_nosym, ut_nR_sym, ut_nR_nosym, dO_aii, eps_n
+    dO_aii = get_overlaps_from_setups(wfs)
+    return eps_n, ut_nR, proj, dO_aii
