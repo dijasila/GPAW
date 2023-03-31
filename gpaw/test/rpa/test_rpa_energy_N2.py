@@ -25,7 +25,8 @@ def test_rpa_rpa_energy_N2(in_tmp_dir, scalapack):
     calc.diagonalize_full_hamiltonian(nbands=104, scalapack=True)
     calc.write('N2.gpw', mode='all')
 
-    rpa = RPACorrelation('N2.gpw', nfrequencies=8, ecut=[ecut])
+    rpa = RPACorrelation('N2.gpw', nfrequencies=8, ecut=[ecut],
+                         truncation='0D')
     E_n2_rpa = rpa.calculate()
 
     N = molecule('N')
@@ -44,7 +45,8 @@ def test_rpa_rpa_energy_N2(in_tmp_dir, scalapack):
 
     E_n_hf = nsc_energy('N.gpw', 'EXX')
 
-    rpa = RPACorrelation('N.gpw', nfrequencies=8, ecut=[ecut])
+    rpa = RPACorrelation('N.gpw', nfrequencies=8, ecut=[ecut],
+                         truncation='0D')
     E_n_rpa = rpa.calculate()
 
     print('Atomization energies:')
