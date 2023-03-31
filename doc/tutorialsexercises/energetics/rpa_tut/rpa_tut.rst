@@ -123,11 +123,7 @@ regression on the last three points (reg=3). We find an extrapolated value
 of -4.94 eV for the correlation part of the atomization energy. The results
 are summarized below (all values in eV)
 
-======   =====   =====   ======       ============
-PBE      HF      RPA     HF+RPA       Experimental
-======   =====   =====   ======       ============
-10.61    4.84    4.94    9.78           9.89
-======   =====   =====   ======       ============
+.. csv-file:: N2-data.csv
 
 It should be noted that in general, the accuracy of RPA is comparable to (or
 worse) that of PBE calculations and N2 is just a special case where RPA
