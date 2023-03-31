@@ -157,6 +157,7 @@ def get_integrated_kernel(qpd, N_c, truncation=None, N=100, reduced=False):
         V_q *= (1.0 + qnR_q * j1(qnR_q) * k0(qpR_q)
                 - qpR_q * j0(qnR_q) * k1(qpR_q))
     elif truncation == '0D':
+        asdfkjlhasdflkhj
         R = (3 * qpd.gd.volume / (4 * np.pi))**(1. / 3.)
         q2_q = (q_qv**2).sum(axis=1)
         V_q = 4 * np.pi / q2_q
