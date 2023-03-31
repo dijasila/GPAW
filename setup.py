@@ -164,7 +164,7 @@ for key in ['libraries', 'library_dirs', 'include_dirs',
     if mpi_key in locals():
         warn_deprecated(
             f'Please remove deprecated declaration of {mpi_key}'
-            ' and use only {key} instead.'
+            f' and use only {key} instead.'
             f'\nAdding {mpi_key} to {key}.')
         locals()[key] += locals()[mpi_key]
 
