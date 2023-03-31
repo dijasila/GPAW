@@ -337,7 +337,9 @@ class GPWFiles:
         si.get_potential_energy()
         return si.calc
 
-    def _fancy_si(self, symmetry={}):
+    def _fancy_si(self, symmetry=None):
+        if symmetry is None:
+            symmetry = {}
         xc = 'LDA'
         kpts = 4
         nbands = 8  # 2 * (3s, 3p)
@@ -462,7 +464,9 @@ class GPWFiles:
 
         return atoms.calc
 
-    def _fe(self, symmetry={}):
+    def _fe(self, symmetry=None):
+        if symmetry is None:
+            symmetry = {}
         """See also the fe_fixture_test.py test."""
         xc = 'LDA'
         kpts = 4
@@ -497,7 +501,9 @@ class GPWFiles:
     def fe_pw_nosym(self):
         return self._fe(symmetry='off')
     
-    def _al(self, symmetry={}):
+    def _al(self, symmetry=None):
+        if symmetry is None:
+            symmetry = {}
         xc = 'LDA'
         kpts = 4
         nbands = 10  # 3s, 3p, 4s, 3d
@@ -564,7 +570,9 @@ class GPWFiles:
     def gaas_pw(self):
         return self._gaas()
 
-    def _gaas(self, symmetry={}):
+    def _gaas(self, symmetry=None):
+        if symmetry is None:
+            symmetry = {}
         nk = 4
         cell = bulk('Ga', 'fcc', a=5.68).cell
         atoms = Atoms('GaAs', cell=cell, pbc=True,
