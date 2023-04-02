@@ -64,13 +64,6 @@ def compare_atoms(a1: Atoms, a2: Atoms) -> set[str]:
     if abs(a1.cell - a2.cell).max() > 0.0:
         return {'cell'}
 
-    """
-    magnetic1 = a1.get_initial_magnetic_moments().any()
-    magnetic2 = a2.get_initial_magnetic_moments().any()
-    if magnetic1 != magnetic2:
-        return {'magmoms'}
-    """
-
     if abs(a1.positions - a2.positions).max() > 0.0:
         return {'positions'}
 
@@ -116,11 +109,8 @@ class ASECalculator:
         * magmoms
         * dipole
         """
-        from gpaw.mpi import rank
-        print('PROP', rank, prop)
         if self.calculation is not None:
             changes = compare_atoms(self.atoms, atoms)
-            print('CHANGES', rank, changes)
             if changes & {'numbers', 'pbc', 'cell'}:
                 if 'numbers' not in changes:
                     # Remember magmoms if there are any:
@@ -205,9 +195,6 @@ class ASECalculator:
         Will also calculate "cheap" properties: energy, magnetic moments
         and dipole moment.
         """
-        from gpaw.mpi import rank
-        print('CONV', rank)
-
         with self.timer('SCF'):
             self.calculation.converge(calculate_forces=self._calculate_forces)
 
