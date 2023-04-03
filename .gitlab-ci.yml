@@ -401,6 +401,7 @@ nightly:
   tags:
     - linux
   script:
-    - echo hello world
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - gpaw info
+    - pytest
+  # rules:
+  #   - if: $CI_PIPELINE_SOURCE == "schedule"
