@@ -391,3 +391,16 @@ docs:
   artifacts:
     paths:
       - doc/build/html
+
+
+nightly:
+  image: $IMAGE_PATH/run:latest
+  stage: test
+  needs:
+    - build
+  tags:
+    - linux
+  script:
+    - echo hello world
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
