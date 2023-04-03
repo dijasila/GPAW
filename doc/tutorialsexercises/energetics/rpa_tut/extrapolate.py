@@ -18,9 +18,13 @@ plt.ylabel('RPA correlation energy [eV]', fontsize=18)
 plt.legend(loc='lower right')
 plt.savefig('extrapolate.png')
 
-pbe, hf = (float(line.split()[1])
+pbe, hf = (-float(line.split()[1])
            for line in Path('PBE_HF.dat').read_text().splitlines())
-rpa = ext
+rpa = -A
 Path('N2-data.csv').write_text(
     'PBE, HF, RPA, HF+RPA, Experimental\n'
-    f'{pbe}, {hf}, {rpa}, {hf + rpa}, 9.89\n')
+    f'{pbe:.2f}, {hf:.2f}, {rpa:.2f}, {hf + rpa:.2f}, 9.89\n')
+
+assert abs(pbe - 10.600) < 0.01
+assert abs(hf - 4.840) < 0.01
+assert abs(rpa - 4.912) < 0.01
