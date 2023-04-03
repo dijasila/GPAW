@@ -395,9 +395,11 @@ docs:
 
 nightly:
   image: $IMAGE_PATH/run:latest
+  extends:
+    - .test
   stage: test
   needs:
-    - build
+    - build-latest
   tags:
     - linux
   script:
