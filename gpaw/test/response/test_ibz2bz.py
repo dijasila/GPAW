@@ -10,6 +10,7 @@ def mark_xfail(gs, request):
         request.node.add_marker(pytest.mark.xfail)
 
 
+@pytest.mark.later
 @pytest.mark.serial
 @pytest.mark.response
 @pytest.mark.parametrize('gs', ['fancy_si_pw',
@@ -32,7 +33,7 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
     XXX Todo: Add Co from test_mft as test system and make fixture.
     . When xfails are figured out, remove only_ibz_kpts parametrization
     """
-    
+
     # Al, Fe and Co fails. Need to figure out why (see above)
     mark_xfail(gs, request)
 
@@ -55,11 +56,11 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
     calc_nosym = GPAW(gpw_files[gs + '_nosym_wfs'],
                       communicator=mpi.serial_comm)
     wfs_nosym = calc_nosym.wfs
-    
+
     # Check some basic stuff
     assert wfs_nosym.kd.nbzkpts == wfs_nosym.kd.nibzkpts
     assert nconv == calc_nosym.parameters.convergence['bands']
-    
+
     # Loop over spins and k-points
     for s in range(wfs.nspins):
         for K in range(nbzk):
@@ -76,7 +77,7 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
 
             r_vR = wfs_nosym.gd.get_grid_point_coordinates()
             assert np.allclose(r_vR, wfs_nosym.gd.get_grid_point_coordinates())
-            
+
             # Get data for calc without symmetry at BZ kpt K
             eps_n_nosym, ut_nR_nosym, proj_nosym, dO_aii_nosym = \
                 get_ibz_data_from_wfs(wfs_nosym, nbands, K, s)
@@ -85,7 +86,7 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
             eps_n, ut_nR, proj, dO_aii = get_ibz_data_from_wfs(wfs,
                                                                nbands,
                                                                ik, s)
-    
+
             # Map projections and u:s from ik to K
             proj_sym = ibz2bz[K].map_projections(proj)
             ut_nR_sym = np.array([ibz2bz[K].map_pseudo_wave_to_BZ(
@@ -220,7 +221,7 @@ def check_all_electron_wfs(bands, ut1_nR, ut2_nR,
        and asserts that it is unitary. It also checks that
        the pseudo wf:s transform according to the same
        transformation.
-    
+
        Let |ψ^1_i> denote the all electron wavefunctions
        from the calculation with symmetry and |ψ^2_i>
        the corresponding wavefunctions from the calculation
@@ -275,15 +276,15 @@ def get_ibz_data_from_wfs(wfs, nbands, ik, s):
     kpt = wfs.kpt_qs[ik][s]
     psit_nG = kpt.psit_nG
     eps_n = kpt.eps_n
-    
+
     # Get periodic part of pseudo wfs
     ut_nR = np.array([wfs.pd.ifft(
         psit_nG[n], ik) for n in range(nbands)])
-    
+
     # Get projections
     proj = kpt.projections.new(nbands=nbands, bcomm=None)
     proj.array[:] = kpt.projections.array[:nbands]
-    
+
     # get overlaps
     dO_aii = get_overlaps_from_setups(wfs)
     return eps_n, ut_nR, proj, dO_aii
