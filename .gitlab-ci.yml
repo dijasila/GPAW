@@ -217,6 +217,9 @@ test:
   script:
     - gpaw info
     - OMP_NUM_THREADS=2 pytest -v -m ci -We -Wi::ImportWarning
+  # This is the only test which uses OpenMP.
+  # We may want to identify a limited set of tests that must work
+  # with OpenMP, but so far we just have it in this job.
 
 
 test-latest:
@@ -239,7 +242,7 @@ test-latest:
       EOF
 
     - >
-      OMP_NUM_THREADS=2 pytest -v -m ci
+      pytest -v -m ci
       -We -Wi::ImportWarning
       --cov=gpaw --cov-report=html --cov-report=term
 
@@ -260,7 +263,7 @@ test-gpaw-python:
   script:
     - gpaw-python -m gpaw info
     - >
-      OMP_NUM_THREADS=2 gpaw-python -m pytest -v -m ci -We -Wi::ImportWarning
+      gpaw-python -m pytest -v -m ci -We -Wi::ImportWarning
       -Wi:'numpy.ufunc size changed, may indicate binary incompatibility. Expected 192 from C header, got 216 from PyObject':RuntimeWarning
 
 
