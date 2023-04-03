@@ -442,7 +442,7 @@ class RPACorrelation(RPACalculator):
             assert weights is not None
             user_spec = True
 
-        if truncation is None and not gs.gd.pbc.any():
+        if truncation is None and not gs.gd.pbc_c.any():
             truncation = '0D'
 
         super().__init__(gs=gs, context=context,
