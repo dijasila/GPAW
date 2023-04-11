@@ -403,6 +403,7 @@ nightly:
   tags:
     - linux
   script:
+    - pip install pytest-instafail pytest-xdist
     - gpaw info
     - pytest -n 4 --instafail
   # rules:
