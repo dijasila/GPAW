@@ -1,6 +1,7 @@
 variables:
   PYTHONUSERBASE: ".local"
   IMAGE_PATH: "registry.gitlab.com/gpaw/gpaw-ci-containers"
+  OMP_NUM_THREADS: "1"
 
 
 default:
@@ -397,6 +398,7 @@ docs:
   image: $IMAGE_PATH/run:latest
   variables:
     GPAW_MPI_NPROCS: "1"
+    PYTEST_TIMEOUT: "300"
   extends:
     - .test
   stage: test
@@ -406,7 +408,7 @@ docs:
     - linux
   before_script:
     - !reference [default, before_script]
-    - pip install pytest-instafail pytest-xdist
+    - pip install pytest-instafail pytest-xdist pytest-timeout
   script:
     - gpaw -P $GPAW_MPI_NPROCS python -m pytest --instafail -x -r s
   rules:
