@@ -1,6 +1,7 @@
 variables:
   PYTHONUSERBASE: ".local"
   IMAGE_PATH: "registry.gitlab.com/gpaw/gpaw-ci-containers"
+  OMP_NUM_THREADS: "1"
 
 
 default:
