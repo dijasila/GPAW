@@ -405,6 +405,7 @@ docs:
   tags:
     - linux
   before_script:
+    - !reference [default, before_script]
     - pip install pytest-instafail pytest-xdist
   script:
     - gpaw -P $GPAW_MPI_NPROCS python -m pytest --instafail -x -r s
