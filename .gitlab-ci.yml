@@ -393,8 +393,10 @@ docs:
       - doc/build/html
 
 
-nightly:
+.nightly:
   image: $IMAGE_PATH/run:latest
+  variables:
+    GPAW_MPI_NPROCS: "1"
   extends:
     - .test
   stage: test
@@ -402,9 +404,40 @@ nightly:
     - build-latest
   tags:
     - linux
-  script:
+  before_script:
     - pip install pytest-instafail pytest-xdist
     - gpaw info
-    - pytest -n 4 --instafail
+  script:
+    - gpaw -P $GPAW_MPI_NPROCS python -m pytest --instafail
+  #script:
+  #  - pytest -n 4 --instafail
   # rules:
   #   - if: $CI_PIPELINE_SOURCE == "schedule"
+
+
+nightly-serial:
+  extends:
+    - .nightly
+  script:
+    - pytest -n 4 --instafail
+
+
+nightly-mpi2:
+  variables:
+    GPAW_MPI_NPROCS: "2"
+  extends:
+    - .nightly
+
+
+nightly-mpi4:
+  variables:
+    GPAW_MPI_NPROCS: "4"
+  extends:
+    - .nightly
+
+
+#nightly-mpi8:
+#  variables:
+#    GPAW_MPI_NPROCS: "8"
+#  extends:
+#    - .nightly
