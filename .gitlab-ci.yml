@@ -404,6 +404,6 @@ nightly:
     - linux
   script:
     - gpaw info
-    - pytest
+    - pytest -n 4 --instafail
   # rules:
   #   - if: $CI_PIPELINE_SOURCE == "schedule"
