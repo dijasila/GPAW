@@ -692,3 +692,8 @@ def scalapack():
     from gpaw.utilities import compiled_with_sl
     if not compiled_with_sl():
         pytest.skip(reason='no scalapack')
+
+
+def pytest_report_header(config, startdir):
+    # Use this to add custom information to the pytest printout.
+    yield f'GPAW MPI rank={world.rank}, size={world.size}'
