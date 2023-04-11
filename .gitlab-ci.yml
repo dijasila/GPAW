@@ -406,9 +406,8 @@ docs:
     - linux
   before_script:
     - pip install pytest-instafail pytest-xdist
-    - gpaw info
   script:
-    - gpaw -P $GPAW_MPI_NPROCS python -m pytest --instafail
+    - gpaw -P $GPAW_MPI_NPROCS python -m pytest --instafail -x -r s
   #script:
   #  - pytest -n 4 --instafail
   # rules:
@@ -419,24 +418,25 @@ nightly-serial:
   extends:
     - .nightly
   script:
-    - pytest -n 4 --instafail
+    - gpaw info
+    - pytest -n 4 --instafail -r s
 
 
-nightly-mpi2:
+nightly-mpi-2:
   variables:
     GPAW_MPI_NPROCS: "2"
   extends:
     - .nightly
 
 
-nightly-mpi4:
+nightly-mpi-4:
   variables:
     GPAW_MPI_NPROCS: "4"
   extends:
     - .nightly
 
 
-#nightly-mpi8:
+#nightly-mpi-8:
 #  variables:
 #    GPAW_MPI_NPROCS: "8"
 #  extends:
