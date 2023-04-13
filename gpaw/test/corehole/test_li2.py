@@ -23,7 +23,8 @@ def test_aed_with_corehole_li():
 
     n_sg = calc.get_all_electron_density(gridrefinement=grf)
 
-    ne_sz = calc.density.gd.integrate(n_sg) * (Bohr / grf) ** 3
+    ne_sz = calc.density.gd.integrate(
+        n_sg, global_integral=False) * (Bohr / grf)**3
     equal(ne_sz, 6.0, 1e-8)
 
     atoms.set_initial_magnetic_moments([0.66, .34])
@@ -32,10 +33,11 @@ def test_aed_with_corehole_li():
 
     for sz in range(2):
         n_sg = calc.get_all_electron_density(spin=sz, gridrefinement=grf)
-        ne_sz = calc.density.gd.integrate(n_sg) * (Bohr / grf) ** 3
+        ne_sz = calc.density.gd.integrate(
+            n_sg, global_integral=False) * (Bohr / grf)**3
         equal(ne_sz, 3.0, 1e-5)
 
-    if False:  # Did I break non-corehole in sp case?
+    if not False:  # Did I break non-corehole in sp case?
         atoms.set_initial_magnetic_moments([-0.5, 0.5])
 
         calc = GPAW(xc='PBE',
@@ -47,7 +49,8 @@ def test_aed_with_corehole_li():
 
         for sz in range(2):
             n_sg = calc.get_all_electron_density(spin=sz, gridrefinement=grf)
-            ne_sz = calc.density.gd.integrate(n_sg) * (Bohr / grf) ** 3
+            ne_sz = calc.density.gd.integrate(
+                n_sg, global_integral=False) * (Bohr / grf)**3
             equal(ne_sz, 3.0, 1e-8)
 
 
