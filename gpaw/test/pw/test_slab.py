@@ -17,7 +17,7 @@ def test_pw_slab(gpu, GPAW):
     if GPAW is NewGPAW and world.size > 1:
         pytest.skip()
     if gpu and SCIPY_VERSION < [1, 6]:
-        pytest.skip(reason='Too old scipy')
+        pytest.skip()
 
     a = 2.65
     slab = Atoms('Li2',

@@ -56,7 +56,7 @@ def test_acf_pw(grid, xp):
     if world.size > 1 and xp is cp:
         pytest.skip()
     if xp is cp and SCIPY_VERSION < [1, 6]:
-        pytest.skip(reason='Too old scipy')
+        pytest.skip()
 
     pw = PlaneWaves(ecut=50, cell=grid.cell, dtype=complex, comm=world)
 

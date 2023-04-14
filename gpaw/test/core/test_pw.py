@@ -85,7 +85,7 @@ def test_pw_integrate(xp, grid):
     if xp is cp and world.size > 1:
         return
     if xp is cp and SCIPY_VERSION < [1, 6]:
-        pytest.skip(reason='Too old scipy')
+        pytest.skip()
 
     a = grid.desc.cell[0, 0]
     ecut = 0.5 * (2 * np.pi / a)**2 * 1.01
