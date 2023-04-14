@@ -6,12 +6,8 @@ from gpaw import SCIPY_VERSION
 
 
 @pytest.mark.skipif(size > 2, reason='Not implemented')
-@pytest.mark.parametrize(
-    'gpu',
-    [False,
-     pytest.param(True, marks=[pytest.mark.gpu,
-                               pytest.mark.skipif(SCIPY_VERSION < [1, 6],
-                                                  reason='Too old scipy')])])
+@pytest.mark.skipif(SCIPY_VERSION < [1, 6], reason='Too old scipy')
+@pytest.mark.parametrize('gpu', [False, True])
 def test_new_cell(gpu):
     atoms = Atoms('H', pbc=True, cell=[1, 1, 1])
     atoms.calc = GPAW(
