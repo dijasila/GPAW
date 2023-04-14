@@ -31,6 +31,7 @@ def test_gpu_pw(dtype, gpu):
 
 @pytest.mark.gpu
 @pytest.mark.skipif(size > 2, reason='Not implemented')
+@pytest.mark.skipif(SCIPY_VERSION < [1, 6], reason='Too old scipy')
 @pytest.mark.parametrize('gpu', [False, True])
 @pytest.mark.parametrize('par', ['domain', 'kpt'])
 def test_gpu_pw_k(gpu, par):

@@ -1,9 +1,9 @@
 import numpy as np
 import pytest
+from gpaw import SCIPY_VERSION
 from gpaw.core import PlaneWaves, UniformGrid
-from gpaw.mpi import world
 from gpaw.gpu import cupy as cp
-
+from gpaw.mpi import world
 
 a = 2.5
 n = 20
@@ -37,7 +37,7 @@ def test_acf_fd(grid, xp):
     basis.add_to(f1, coefs.to_xp(xp))
 
     if 0:
-        from sympy import integrate, exp, oo, var
+        from sympy import exp, integrate, oo, var
         a0, r = var('a, r')
         integrate(exp(-a0 * r**2) * r**2, (r, 0, oo))
 
@@ -54,6 +54,8 @@ def test_acf_fd(grid, xp):
 @pytest.mark.parametrize('xp', [np, cp])
 def test_acf_pw(grid, xp):
     if world.size > 1 and xp is cp:
+        pytest.skip()
+    if xp is cp and SCIPY_VERSION < [1, 6]:
         pytest.skip()
 
     pw = PlaneWaves(ecut=50, cell=grid.cell, dtype=complex, comm=world)
