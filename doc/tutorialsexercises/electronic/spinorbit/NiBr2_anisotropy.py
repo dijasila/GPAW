@@ -6,7 +6,7 @@ from gpaw.spinorbit import soc_eigenstates
 from gpaw.occupations import create_occ_calc
 
 
-def check(Ez, Ex, target):
+def check_ani(Ez, Ex, target):
     print(Ez - Ex)
     assert abs(Ez - Ex - target) < 0.000020
 
@@ -40,7 +40,7 @@ a.calc = GPAW(experimental={'magmoms': magmoms,
               parallel={'domain': 1, 'band': 1},
               **params)
 Ez = a.get_potential_energy()
-check(Ez, Ex, 0.000185)
+check_ani(Ez, Ex, 0.000185)
 
 
 """Non-collinear plus SOC."""
@@ -56,7 +56,7 @@ bzwfs = soc_eigenstates(a.calc, n2=38, occcalc=occcalc)
 Ez = bzwfs.calculate_band_energy()
 bzwfs = soc_eigenstates(a.calc, n2=38, theta=90, occcalc=occcalc)
 Ex = bzwfs.calculate_band_energy()
-check(Ez, Ex, 0.000270)
+check_ani(Ez, Ex, 0.000270)
 
 
 """Collinear plus SOC."""
@@ -69,7 +69,7 @@ bzwfs = soc_eigenstates(a.calc, n2=19, occcalc=occcalc)
 Ez = bzwfs.calculate_band_energy()
 bzwfs = soc_eigenstates(a.calc, n2=19, theta=90, occcalc=occcalc)
 Ex = bzwfs.calculate_band_energy()
-check(Ez, Ex, 0.000247)
+check_ani(Ez, Ex, 0.000247)
 
 # Ideally the last two checks should yield the same value.
 # But the bands are included in slightly different ways for
