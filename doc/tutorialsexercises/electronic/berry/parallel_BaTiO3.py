@@ -27,7 +27,7 @@ for i in range(8):
 #        plt.show()
 
 spos_ac = calc.atoms.get_scaled_positions()
-Z_a = [10, 12, 6, 6, 6] # Charge of nucleii
+Z_a = [10, 12, 6, 6, 6]  # Charge of nucleii
 
 phase = -np.sum(phi_i) / len(phi_i)
 phase += 2 * np.pi * np.dot(Z_a, spos_ac)[2]
