@@ -140,12 +140,12 @@ class BSEBackend:
                 # XXX Probably not a good idea for this to be serial!
                 soc = self.gs.soc_eigenstates(scale=self.scale)
                 e_mk = soc.eigenvalues().T
-                v_kmsn = soc.eigenvectors()
+                v_kmn = soc.eigenvectors()
                 e_mk /= Hartree
-                data = (e_mk, v_kmsn)
+                data = (e_mk, v_kmn)
             else:
                 data = None
-            e_mk, v_kmsn = broadcast(data, 0, world)
+            e_mk, v_kmn = broadcast(data, 0, world)
 
         # Parallelization stuff
         nK = self.kd.nbzkpts
@@ -235,6 +235,8 @@ class BSEBackend:
                                                                     m_m, n_n)
                     rho_mnG[:, :, 0] = n_mnv[:, :, self.direction]
                 if self.spinors:
+                    v0_kmn = v_kmn[:, :, ::2]
+                    v1_kmn = v_kmn[:, :, 1::2]
                     if optical_limit:
                         deps0_mn = -pair.get_transition_energies(m_m, n_n)
                         rho_mnG[:, :, 0] *= deps0_mn
@@ -242,12 +244,12 @@ class BSEBackend:
                     df_Ksmn[iK, s, ::2, 1::2] = df_mn
                     df_Ksmn[iK, s, 1::2, ::2] = df_mn
                     df_Ksmn[iK, s, 1::2, 1::2] = df_mn
-                    vecv0_mn = v_kmsn[iK, mvi:mvf, 0, ni:nf]
-                    vecc0_mn = v_kmsn[iKq, mci:mcf, 0, ni:nf]
+                    vecv0_mn = v0_kmn[iK, mvi:mvf, ni:nf]
+                    vecc0_mn = v0_kmn[iKq, mci:mcf, ni:nf]
                     rho_0mnG = np.dot(vecv0_mn.conj(),
                                       np.dot(vecc0_mn, rho_mnG))
-                    vecv1_mn = v_kmsn[iK, mvi:mvf, 1, ni:nf]
-                    vecc1_mn = v_kmsn[iKq, mci:mcf, 1, ni:nf]
+                    vecv1_mn = v1_kmn[iK, mvi:mvf, ni:nf]
+                    vecc1_mn = v1_kmn[iKq, mci:mcf, ni:nf]
                     rho_1mnG = np.dot(vecv1_mn.conj(),
                                       np.dot(vecc1_mn, rho_mnG))
                     rhoex_KsmnG[iK, s] = rho_0mnG + rho_1mnG
@@ -303,19 +305,19 @@ class BSEBackend:
                             rho4_nnG, iq = self.get_density_matrix(kptc1,
                                                                    kptc2)
                             if self.spinors:
-                                vec0_mn = v_kmsn[iK1, mvi:mvf, 0, ni:nf]
-                                vec1_mn = v_kmsn[iK1, mvi:mvf, 1, ni:nf]
-                                vec2_mn = v_kmsn[iK2, mvi:mvf, 0, ni:nf]
-                                vec3_mn = v_kmsn[iK2, mvi:mvf, 1, ni:nf]
+                                vec0_mn = v0_kmn[iK1, mvi:mvf, ni:nf]
+                                vec1_mn = v1_kmn[iK1, mvi:mvf, ni:nf]
+                                vec2_mn = v0_kmn[iK2, mvi:mvf, ni:nf]
+                                vec3_mn = v1_kmn[iK2, mvi:mvf, ni:nf]
                                 rho_0mnG = np.dot(vec0_mn.conj(),
                                                   np.dot(vec2_mn, rho3_mmG))
                                 rho_1mnG = np.dot(vec1_mn.conj(),
                                                   np.dot(vec3_mn, rho3_mmG))
                                 rho3_mmG = rho_0mnG + rho_1mnG
-                                vec0_mn = v_kmsn[ikq_k[iK1], mci:mcf, 0, ni:nf]
-                                vec1_mn = v_kmsn[ikq_k[iK1], mci:mcf, 1, ni:nf]
-                                vec2_mn = v_kmsn[ikq, mci:mcf, 0, ni:nf]
-                                vec3_mn = v_kmsn[ikq, mci:mcf, 1, ni:nf]
+                                vec0_mn = v0_kmn[ikq_k[iK1], mci:mcf, ni:nf]
+                                vec1_mn = v1_kmn[ikq_k[iK1], mci:mcf, ni:nf]
+                                vec2_mn = v0_kmn[ikq, mci:mcf, ni:nf]
+                                vec3_mn = v1_kmn[ikq, mci:mcf, ni:nf]
                                 rho_0mnG = np.dot(vec0_mn.conj(),
                                                   np.dot(vec2_mn, rho4_nnG))
                                 rho_1mnG = np.dot(vec1_mn.conj(),
