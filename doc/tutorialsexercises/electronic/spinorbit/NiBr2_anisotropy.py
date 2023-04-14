@@ -5,6 +5,7 @@ from gpaw.occupations import FermiDirac
 from gpaw.spinorbit import soc_eigenstates
 from gpaw.occupations import create_occ_calc
 
+
 def check(Ez, Ex, target):
     print(Ez - Ex)
     assert abs(Ez - Ex - target) < 0.000020
@@ -70,7 +71,7 @@ bzwfs = soc_eigenstates(a.calc, n2=19, theta=90, occcalc=occcalc)
 Ex = bzwfs.calculate_band_energy()
 check(Ez, Ex, 0.000247)
 
-### Ideally the last two checks should yield the same value.
-### But the bands are included in slightly different ways for 
-### collinear and non-collinear calculations in the non-
-### selfconsistent SOC so there are small differences.
+# Ideally the last two checks should yield the same value.
+# But the bands are included in slightly different ways for
+# collinear and non-collinear calculations in the non-
+# selfconsistent SOC so there are small differences.

@@ -2,15 +2,15 @@ import numpy as np
 from ase.units import _e
 from ase.dft.kpoints import monkhorst_pack
 from gpaw import GPAW
-from gpaw.berryphase import parallel_transport 
+from gpaw.berryphase import parallel_transport
 from gpaw.mpi import world
 
 phi_i = []
 
 for i in range(8):
     kpts = monkhorst_pack((8, 1, 8))
-    kpts += (1/16, -3/8, 1/16)
-    kpts += (0, i/8, 0)
+    kpts += (1 / 16, -3 / 8, 1 / 16)
+    kpts += (0, i / 8, 0)
 
     calc = GPAW('BaTiO3.gpw').fixed_density(symmetry='off', kpts=kpts)
     calc.write('BaTiO3_%s.gpw' % i, mode='all')
@@ -20,11 +20,11 @@ for i in range(8):
 
     phi_km[np.where(phi_km < 0.0)] += 2 * np.pi
     phi_i.append(np.sum(phi_km) / len(phi_km))
-    #if world.rank == 0:
-    #    import pylab as plt
-    #    for phi_k in phi_km.T:
-    #        plt.plot(range(8), phi_k, 'o', c='C0')
-    #    plt.show()
+#    if world.rank == 0:
+#        import pylab as plt
+#        for phi_k in phi_km.T:
+#            plt.plot(range(8), phi_k, 'o', c='C0')
+#        plt.show()
 
 spos_ac = calc.atoms.get_scaled_positions()
 Z_a = [10, 12, 6, 6, 6] # Charge of nucleii
