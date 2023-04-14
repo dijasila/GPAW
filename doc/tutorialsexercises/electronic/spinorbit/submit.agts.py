@@ -24,4 +24,4 @@ def workflow():
         with run(script='anisotropy.py', tmax='5h'):
             run(script='plot_anisotropy.py')
 
-    run(script='NiBr2_anisotropy.py', cores=12, tmax='2h'):
+    run(script='NiBr2_anisotropy.py', cores=12, tmax='2h')
