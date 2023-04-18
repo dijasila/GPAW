@@ -157,7 +157,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
 
     def calculate_forces2(self, dens, ghat_aLv, nct_av, vbar_av):
         self.vext.derivative_pw(self, ghat_aLv, dens)
-        if isinstance(dens.nct, PWLFC):
+        if not dens.add_nct_directly:
             dens.nct.derivative(self.vt_Q, nct_av)
         else:
             dens.nct.derivative(self.vt_sG.mean(axis=0), nct_av)
