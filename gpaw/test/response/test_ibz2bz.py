@@ -6,7 +6,7 @@ import gpaw.mpi as mpi
 
 
 def mark_xfail(gs, request):
-    if gs in ['al_pw', 'fe_pw']:
+    if gs in ['al_pw', 'fe_pw', 'co_pw']:
         request.node.add_marker(pytest.mark.xfail)
 
 
@@ -16,6 +16,7 @@ def mark_xfail(gs, request):
 @pytest.mark.parametrize('gs', ['fancy_si_pw',
                                 'al_pw',
                                 'fe_pw',
+                                'co_pw',
                                 'gaas_pw'])
 @pytest.mark.parametrize('only_ibz_kpts', [True, False])
 def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
@@ -23,15 +24,18 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
     Tests functionalities to take wavefunction and projections from
     ibz to full bz by comparing calculations with and without symmetry.
 
-    - Note that Al,  Fe are  marked as xfail!
+    - Note that Al, Fe and Co are all marked as xfail!
     - For Al eigenvalues are different. Probably due to k-mesh.
       See "Note your k-mesh ..." in gs output files.
     - For Fe projections between two calculations differ by more than a
       phase. This is the case for both IBZ-k and symmetry related k, so it is
       a convention of the gs calculation?
+    - For Co the eigenvalues are different when doing all the k-points, while
+      the projections differ by more than a phase when restricting the
+      comparison to the IBZ k-points
 
-    XXX Todo: Add Co from test_mft as test system and make fixture.
-    . When xfails are figured out, remove only_ibz_kpts parametrization
+    XXX To do XXX
+    * When xfails are figured out, remove only_ibz_kpts parametrization
     """
 
     # Al, Fe and Co fails. Need to figure out why (see above)
