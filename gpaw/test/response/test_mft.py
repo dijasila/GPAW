@@ -7,9 +7,7 @@ import pytest
 import numpy as np
 
 # Script modules
-from ase.build import bulk
-
-from gpaw import GPAW, PW, FermiDirac
+from gpaw import GPAW
 from gpaw import mpi
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
@@ -42,11 +40,10 @@ def test_Fe_bcc(in_tmp_dir, gpw_files):
 
     # ---------- Script ---------- #
 
+    # Extract the ground state fixture
     calc = GPAW(gpw_files['fe_pw_wfs'], parallel=dict(domain=1))
     nbands = calc.parameters.convergence['bands']
     atoms = calc.atoms
-
-    # MFT calculation
 
     # Set up site kernels with a single site
     positions = atoms.get_positions()
@@ -57,7 +54,7 @@ def test_Fe_bcc(in_tmp_dir, gpw_files):
     sitekernels.append(ParallelepipedicSiteKernels(positions,
                                                    [[atoms.get_cell()]]))
 
-    # Initialize the exchange calculator
+    # Initialize the Heisenberg exchange calculator
     gs = ResponseGroundStateAdapter(calc)
     context = ResponseContext()
     chiks_calc = ChiKSCalculator(gs, context,
@@ -83,7 +80,7 @@ def test_Fe_bcc(in_tmp_dir, gpw_files):
     mm_ap = mm * np.ones((1, npartitions))  # Magnetic moments
     mw_qp = calculate_fm_magnon_energies(J_qabp, q_qc, mm_ap)[:, 0, :]
 
-    # Part 3: Compare results to test values
+    # Compare results to test values
     test_J_pq = np.array(
         [[2.1907596825086455, 1.172424411323134, 1.6060583789867644],
          [2.612428039019977, 1.2193926800088601, 1.7635196888465006],
@@ -111,26 +108,10 @@ def test_Fe_bcc(in_tmp_dir, gpw_files):
 
 @pytest.mark.response
 @pytest.mark.skipif(mpi.size == 1, reason='Slow test, skip in serial')
-def test_Co_hcp(in_tmp_dir):
+def test_Co_hcp(in_tmp_dir, gpw_files):
     # ---------- Inputs ---------- #
 
-    # Part 1: Ground state calculation
-    # Atomic configuration
-    a = 2.5071
-    c = 4.0695
-    mm = 1.6
-    # Ground state parameters
-    xc = 'LDA'
-    kpts = 6
-    occw = 0.01
-    nbands = 2 * (6 + 0)  # 4s + 3d + 0 empty shell bands
-    ebands = 2 * 2  # extra bands for ground state calculation
-    pw = 200
-    conv = {'density': 1e-8,
-            'forces': 1e-8,
-            'bands': nbands}
-
-    # Part 2: MFT calculation
+    # MFT calculation
     ecut = 100
     # Do high symmetry points of the hcp lattice
     q_qc = np.array([[0, 0, 0],              # Gamma
@@ -143,7 +124,6 @@ def test_Co_hcp(in_tmp_dir):
     # stable results
     rc_pa = np.array([[1.0, 1.0], [1.1, 1.1], [1.2, 1.2]])
 
-    # Part 3: Compare results to test values
     # Unfortunately, the usage of symmetry leads to such extensive repetition
     # of random noise, that one cannot trust individual values of J very well.
     # This is improved when increasing the number of k-points, but the problem
@@ -157,24 +137,10 @@ def test_Co_hcp(in_tmp_dir):
 
     # ---------- Script ---------- #
 
-    # Part 1: Ground state calculation
-
-    atoms = bulk('Co', 'hcp', a=a, c=c)
-    atoms.set_initial_magnetic_moments([mm, mm])
-    atoms.center()
-
-    calc = GPAW(xc=xc,
-                mode=PW(pw),
-                kpts={'size': (kpts, kpts, kpts), 'gamma': True},
-                occupations=FermiDirac(occw),
-                convergence=conv,
-                nbands=nbands + ebands,
-                parallel={'domain': 1})
-
-    atoms.calc = calc
-    atoms.get_potential_energy()
-
-    # Part 2: MFT calculation
+    # Extract the ground state fixture
+    calc = GPAW(gpw_files['co_pw_wfs'], parallel=dict(domain=1))
+    nbands = calc.parameters.convergence['bands']
+    atoms = calc.atoms
 
     # Set up spherical site kernels
     positions = atoms.get_positions()
@@ -226,7 +192,7 @@ def test_Co_hcp(in_tmp_dir):
     mwuc_qs = calculate_single_site_magnon_energies(Juc_qs, q_qc,
                                                     calc.get_magnetic_moment())
 
-    # Part 3: Compare results to test values
+    # Compare results to test values
     test_J_qab = np.array([[[1.37280847 + 0.j, 0.28516320 + 0.00007375j],
                             [0.28516320 - 0.00007375j, 1.37280847 - 0.j]],
                            [[0.99649489 - 0.j, 0.08201540 - 0.04905246j],
@@ -256,7 +222,7 @@ def test_Co_hcp(in_tmp_dir):
     assert np.allclose(mw_qnp[:, 1, 1], test_mw_qn[:, 1], rtol=mw_rtol)
     assert np.allclose(mwuc_qs[1:, 0], test_mwuc_q[1:], rtol=mw_rtol)
 
-    # Part 4: Check self-consistency of results
+    # Check self-consistency of results
     # We should be in a radius range, where the magnon energies don't change
     assert np.allclose(mw_qnp[1:, 0, ::2],
                        test_mw_qn[1:, 0, np.newaxis], rtol=mw_ctol)
