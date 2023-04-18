@@ -1,3 +1,4 @@
+from __future__ import annotations
 import functools
 import os
 from time import ctime
@@ -384,7 +385,10 @@ class RPACorrelation(RPACalculator):
                  nlambda=None,
                  nfrequencies=16, frequency_max=800.0, frequency_scale=2.0,
                  frequencies=None, weights=None,
-                 world=mpi.world, txt='-', **kwargs):
+                 world=mpi.world,
+                 txt='-',
+                 truncation: str | None = None,
+                 **kwargs):
         """Creates the RPACorrelation object
 
         calc: str or calculator object
@@ -416,7 +420,8 @@ class RPACorrelation(RPACalculator):
             frequency grid. Must be specified and have the same length as
             frequencies if frequencies is not None
         truncation: str or None
-            Coulomb truncation scheme. Can be None or '2D'.
+            Coulomb truncation scheme. Can be None, '0D' or '2D'.  If None
+            and the system is a molecule then '0D' will be used.
         world: communicator
         nblocks: int
             Number of parallelization blocks. Frequency parallelization
@@ -438,8 +443,12 @@ class RPACorrelation(RPACalculator):
             assert weights is not None
             user_spec = True
 
+        if truncation is None and not gs.gd.pbc_c.any():
+            truncation = '0D'
+
         super().__init__(gs=gs, context=context,
                          frequencies=frequencies, weights=weights,
+                         truncation=truncation,
                          **kwargs)
 
         self.print_initialization(xc, frequency_scale, nlambda, user_spec)
