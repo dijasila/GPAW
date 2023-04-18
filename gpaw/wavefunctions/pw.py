@@ -114,6 +114,8 @@ class PW(Mode):
             dct['pulay_stress'] = self.pulay_stress * Ha / Bohr**3
         if self.dedecut is not None:
             dct['dedecut'] = self.dedecut
+        if self.add_nct_directly:
+            dct['add_nct_directly'] = True
         return dct
 
 

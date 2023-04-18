@@ -1,5 +1,4 @@
 from math import pi
-import sys
 import numpy as np
 
 from gpaw.density import Density

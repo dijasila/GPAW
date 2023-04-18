@@ -36,6 +36,7 @@ class ReciprocalSpacePoissonSolver:
 
         Places result in vHt_q ndarray.
         """
+        assert dens.rhot_q is not None
         epot = self._solve(vHt_q, dens.rhot_q)
         return epot
 
