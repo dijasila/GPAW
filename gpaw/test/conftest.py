@@ -503,7 +503,9 @@ class GPWFiles:
     def fe_pw_nosym(self):
         return self._fe(symmetry='off')
 
-    def co_pw(self):
+    def _co(self, symmetry=None):
+        if symmetry is None:
+            symmetry = {}
         # ---------- Inputs ---------- #
 
         # Atomic configuration
@@ -527,16 +529,24 @@ class GPWFiles:
 
         # ---------- Calculation ---------- #
 
+        tag = '_nosym' if symmetry == 'off' else ''
         atoms.calc = GPAW(xc=xc,
                           mode=PW(pw),
                           kpts={'size': (kpts, kpts, kpts), 'gamma': True},
                           occupations=FermiDirac(occw),
                           convergence=conv,
                           nbands=nbands + ebands,
-                          txt=self.path / 'co_pw.txt')
+                          symmetry=symmetry,
+                          txt=self.path / f'co_pw{tag}.txt')
 
         atoms.get_potential_energy()
         return atoms.calc
+
+    def co_pw(self):
+        return self._co()
+
+    def co_pw_nosym(self):
+        return self._co(symmetry='off')
 
     def _al(self, symmetry=None):
         if symmetry is None:
