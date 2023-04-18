@@ -113,6 +113,7 @@ def gpw_files(request, tmp_path_factory):
       and ``fe_pw_nosym``
 
     * Bulk Co (hcp), 4x4x4 k-points, 12 converged bands: ``co_pw``
+      and ``co_pw_nosym``
 
     * Bulk Al, LDA, 4x4x4 k-points, 10 converged bands: ``al_pw``
       and ``al_pw_nosym``
@@ -496,7 +497,7 @@ class GPWFiles:
         
         atoms.get_potential_energy()
         return atoms.calc
-    
+
     def fe_pw(self):
         return self._fe()
 
