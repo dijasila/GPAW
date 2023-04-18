@@ -112,7 +112,7 @@ def gpw_files(request, tmp_path_factory):
     * Bulk Fe, LDA, 4x4x4 k-points, 9 converged bands: ``fe_pw``
       and ``fe_pw_nosym``
 
-    * Bulk Co (hcp), XXX
+    * Bulk Co (hcp), 4x4x4 k-points, 12 converged bands: ``co_pw``
 
     * Bulk Al, LDA, 4x4x4 k-points, 10 converged bands: ``al_pw``
       and ``al_pw_nosym``
@@ -516,7 +516,7 @@ class GPWFiles:
 
         # Ground state parameters
         xc = 'LDA'
-        kpts = 6
+        kpts = 4
         occw = 0.01
         nbands = 2 * (6 + 0)  # 4s + 3d + 0 empty shell bands
         ebands = 2 * 2  # extra bands for ground state calculation
@@ -533,7 +533,7 @@ class GPWFiles:
                           occupations=FermiDirac(occw),
                           convergence=conv,
                           nbands=nbands + ebands,
-                          parallel={'domain': 1})
+                          txt=self.path / 'co_pw.txt')
 
         atoms.get_potential_energy()
         return atoms.calc
