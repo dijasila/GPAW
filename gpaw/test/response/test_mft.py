@@ -8,7 +8,6 @@ import numpy as np
 
 # Script modules
 from gpaw import GPAW
-from gpaw import mpi
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chiks import ChiKSCalculator
@@ -107,7 +106,6 @@ def test_Fe_bcc(in_tmp_dir, gpw_files):
 
 
 @pytest.mark.response
-@pytest.mark.skipif(mpi.size == 1, reason='Slow test, skip in serial')
 def test_Co_hcp(in_tmp_dir, gpw_files):
     # ---------- Inputs ---------- #
 
