@@ -48,7 +48,7 @@ class ResponseGroundStateAdapter:
         self._nt_sr = None  # Buffer for pseudo density on the finegrid
 
     @classmethod
-    def from_gpw_file(cls, gpw, *, context, **kwargs):
+    def from_gpw_file(cls, gpw, context=None, **kwargs):
         """Initiate the ground state adapter directly from a .gpw file."""
         from gpaw import GPAW, disable_dry_run
         assert Path(gpw).is_file()
