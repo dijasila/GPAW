@@ -1,6 +1,7 @@
 variables:
   PYTHONUSERBASE: ".local"
   IMAGE_PATH: "registry.gitlab.com/gpaw/gpaw-ci-containers"
+  OMP_NUM_THREADS: "1"
 
 
 default:
@@ -199,6 +200,9 @@ test:
   script:
     - gpaw info
     - OMP_NUM_THREADS=2 pytest -v -m ci -We -Wi::ImportWarning
+  # This is the only test which uses OpenMP.
+  # We may want to identify a limited set of tests that must work
+  # with OpenMP, but so far we just have it in this job.
 
     - gpaw-python -m gpaw info
     - >
@@ -227,7 +231,7 @@ test-latest:
       EOF
 
     - >
-      OMP_NUM_THREADS=2 pytest -v -m ci
+      pytest -v -m ci
       -We -Wi::ImportWarning
       --cov=gpaw --cov-report=html --cov-report=term
 
@@ -369,3 +373,53 @@ docs:
   artifacts:
     paths:
       - doc/build/html
+
+
+.nightly:
+  image: $IMAGE_PATH/run:latest
+  variables:
+    GPAW_MPI_NPROCS: "1"
+    PYTEST_TIMEOUT: "300"
+  extends:
+    - .test
+  stage: test
+  needs:
+    - build-latest
+  tags:
+    - linux
+  before_script:
+    - !reference [default, before_script]
+    - pip install pytest-instafail pytest-xdist pytest-timeout
+  script:
+    - gpaw -P $GPAW_MPI_NPROCS python -m pytest --instafail -x -r s
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+
+
+nightly-serial:
+  extends:
+    - .nightly
+  script:
+    - gpaw info
+    - pytest -n 4 --instafail -r s
+
+
+nightly-mpi-2:
+  variables:
+    GPAW_MPI_NPROCS: "2"
+  extends:
+    - .nightly
+
+
+nightly-mpi-4:
+  variables:
+    GPAW_MPI_NPROCS: "4"
+  extends:
+    - .nightly
+
+
+nightly-mpi-8:
+  variables:
+    GPAW_MPI_NPROCS: "8"
+  extends:
+    - .nightly
