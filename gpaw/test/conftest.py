@@ -454,7 +454,8 @@ class GPWFiles:
         # Set up calculator
         atoms.calc = GPAW(
             xc=xc,
-            mode=PW(pw),
+            mode=PW(pw,
+                    add_nct_directly=True),
             kpts={'size': (kpts, kpts, 1), 'gamma': True},
             occupations=FermiDirac(occw),
             convergence=conv,

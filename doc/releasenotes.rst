@@ -62,6 +62,9 @@ Git master branch
   ``convergence={'energy': Energy(tol=..., relative=False)}``.
   See the :class:`gpaw.convergence_criteria.Energy` class.
 
+* New ``add_nct_directly`` flag for PW-mode.  See
+  :class:`gpaw.wavefunctions.pw.PW` for details.
+
 
 Version 22.8.0
 ==============

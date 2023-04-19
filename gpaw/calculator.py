@@ -1146,7 +1146,10 @@ class GPAW(Calculator):
                 ecut = 2 * self.wfs.pd.ecut
             else:
                 ecut = 0.5 * (np.pi / h)**2
-            self.density = ReciprocalSpaceDensity(ecut=ecut, **kwargs)
+            self.density = ReciprocalSpaceDensity(
+                ecut=ecut,
+                add_nct_directly=mode.add_nct_directly,
+                **kwargs)
 
         self.log(self.density, '\n')
 
