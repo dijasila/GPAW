@@ -166,7 +166,7 @@ def build_gpu(gpu_compiler, gpu_compile_args, gpu_include_dirs,
         run_args += [f'-I{dpath}' for dpath in gpu_include_dirs]
         run_args += ['-c', str(src)]
         run_args += ['-o', str(obj)]
-        print(' '.join(run_args), flush=True)
+        print(shlex.join(run_args), flush=True)
         p = run(run_args, check=False, shell=False)
         if p.returncode != 0:
             print(f'error: command {repr(gpu_compiler)} failed '
