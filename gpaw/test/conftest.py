@@ -392,14 +392,14 @@ class GPWFiles:
         # Define input parameters
         xc = 'LDA'
         kpts = 6
-        pw = 300  # 500
+        pw = 300
         occw = 0.01
         conv = {'density': 1.e-8,
                 'forces': 1.e-8}
 
         a = 3.502
         thickness = 2.617
-        vacuum = 3.25
+        vacuum = 3.0
         mm = 2.0
 
         # Set up atoms
