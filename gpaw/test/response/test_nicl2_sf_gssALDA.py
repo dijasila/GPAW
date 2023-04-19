@@ -39,8 +39,10 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
 
     # Magnetic response calculation
     context = ResponseContext()
-    gs = ResponseGroundStateAdapter.from_gpw_file(gpw_files['nicl2_pw_wfs'],
-                                                  context=context)
+    gs = ResponseGroundStateAdapter.from_gpw_file(
+        gpw_files['nicl2_pw_wfs'],
+        real_space_interpolation=True,
+        context=context)
     chiks_calc = ChiKSCalculator(gs, context=context,
                                  ecut=ecut,
                                  gammacentered=True,
@@ -54,12 +56,12 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
     chi_factory = ChiFactory(chiks_calc)
 
     # Check that the pseudo-density is nonnegative
-    nt_sr, gd = gs.get_pseudo_density(gridrefinement=1)
+    nt_sr, gd = gs.get_pseudo_density(gridrefinement=2)
     assert np.all(nt_sr >= 0.)
 
     # Plot pseudo spin-density to check exponential localization into vacuum
-    # import matplotlib.pyplot as plt
     # if world.rank == 0:
+    #     import matplotlib.pyplot as plt
     #     N_c = gd.N_c
     #     # Plot the spin-densities above one of the Cl atoms
     #     plt.plot(range(N_c[2]), nt_sr[0, 2 * N_c[0] // 3, N_c[1] // 3])
@@ -108,11 +110,11 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
         print(fxcs, mw0, mw1, Ipeak0, Ipeak1)
 
     # Compare new results to test values
-    test_fxcs = 1.0769
+    test_fxcs = 0.9326
     test_mw0 = -10.2  # meV
-    test_mw1 = -61.1  # meV
-    test_Ipeak0 = 0.2322  # a.u.
-    test_Ipeak1 = 0.0979  # a.u.
+    test_mw1 = -40.5  # meV
+    test_Ipeak0 = 0.2324  # a.u.
+    test_Ipeak1 = 0.0980  # a.u.
 
     # Test fxc scaling
     assert fxcs == pytest.approx(test_fxcs, abs=0.005)
