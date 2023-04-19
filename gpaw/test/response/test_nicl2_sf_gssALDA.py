@@ -25,7 +25,6 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
     q_qc = [[0., 0., 0.],
             [1. / 3., 1. / 3., 0.]]
     fxc = 'ALDA'
-    fxc_scaling = FXCScaling('fm')
     rshelmax = 0
     rshewmin = None
     bg_density = 0.004
@@ -50,10 +49,12 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
     chi_factory = ChiFactory(chiks_calc)
 
     # Calculate the magnetic response with and without a background density
+    fxc_scaling = FXCScaling('fm')
     localft_calc = LocalFTCalculator.from_rshe_parameters(
         gs, chiks_calc.context,
         rshelmax=rshelmax,
         rshewmin=rshewmin)
+    bgd_fxc_scaling = FXCScaling('fm')
     bgd_localft_calc = LocalFTCalculator.from_rshe_parameters(
         gs, chiks_calc.context,
         bg_density=bg_density,
@@ -74,20 +75,29 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
     #     plt.yscale('log')
     #     plt.show()
 
-    fxc_kernel = {'fxc': fxc, 'localft_calc': bgd_localft_calc}
+    fxc_kernel = {'fxc': fxc, 'localft_calc': localft_calc}
+    bgd_fxc_kernel = {'fxc': fxc, 'localft_calc': bgd_localft_calc}
     for q, q_c in enumerate(q_qc):
         filename = 'nicl2_macro_tms_q%d.csv' % q
         txt = 'nicl2_macro_tms_q%d.txt' % q
         fxc_kernel = calculate_chi(chi_factory, q_c, zd,
                                    fxc_kernel, fxc_scaling,
                                    txt, filename)
+        filename = 'nicl2_macro_tms_bgd_q%d.csv' % q
+        txt = 'nicl2_macro_tms_bgd_q%d.txt' % q
+        bgd_fxc_kernel = calculate_chi(chi_factory, q_c, zd,
+                                       bgd_fxc_kernel, bgd_fxc_scaling,
+                                       txt, filename)
 
     context.write_timer()
     world.barrier()
 
+    # Fake it for now XXX
+    fxc_scaling = bgd_fxc_scaling
+
     # Identify magnon peaks and extract kernel scaling
-    w0_w, _, chi0_w = read_response_function('nicl2_macro_tms_q0.csv')
-    w1_w, _, chi1_w = read_response_function('nicl2_macro_tms_q1.csv')
+    w0_w, _, chi0_w = read_response_function('nicl2_macro_tms_bgd_q0.csv')
+    w1_w, _, chi1_w = read_response_function('nicl2_macro_tms_bgd_q1.csv')
 
     wpeak0, Ipeak0 = findpeak(w0_w, -chi0_w.imag / np.pi)
     wpeak1, Ipeak1 = findpeak(w1_w, -chi1_w.imag / np.pi)
