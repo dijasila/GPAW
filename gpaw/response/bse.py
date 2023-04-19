@@ -162,7 +162,7 @@ class BSEBackend:
         self.pair = PairDensityCalculator(
             gs=self.gs,
             context=ResponseContext(txt='pair.txt', timer=None,
-                                    world=serial_comm))
+                                    comm=serial_comm))
 
         # Calculate direct (screened) interaction and PAW corrections
         if self.mode == 'RPA':
@@ -368,13 +368,11 @@ class BSEBackend:
     
     def get_density_matrix(self, kpt1, kpt2):
         from gpaw.response.g0w0 import QSymmetryOp, get_nmG
-        symop, iQ, Q_c, iq, q_c = QSymmetryOp.get_symop_from_kpair(
-            self.kd, self.qd, kpt1, kpt2)
-        symop.check_q_Q_symmetry(Q_c, q_c)
+        symop, iq = QSymmetryOp.get_symop_from_kpair(self.kd, self.qd,
+                                                     kpt1, kpt2)
         qpd = self.qpd_q[iq]
         nG = qpd.ngmax
-        pawcorr, I_G = symop.apply_symop_q(
-            qpd, Q_c, self.pawcorr_q[iq], kpt1, kpt2)
+        pawcorr, I_G = symop.apply_symop_q(qpd, self.pawcorr_q[iq], kpt1, kpt2)
 
         rho_mnG = np.zeros((len(kpt1.eps_n), len(kpt2.eps_n), nG),
                            complex)
@@ -396,7 +394,7 @@ class BSEBackend:
                 self.pawcorr_q = [
                     PWPAWCorrectionData(
                         Q_aGii, qpd=qpd,
-                        setups=self.gs.setups,
+                        pawdatasets=self.gs.pawdatasets,
                         pos_av=self.gs.get_pos_av())
                     for Q_aGii, qpd in zip(data['Q'], self.qpd_q)]
                 self.W_qGG = data['W']
@@ -444,7 +442,7 @@ class BSEBackend:
         if self._chi0calc is None:
             self.initialize_chi0_calculator()
         if self._wcalc is None:
-            wcontext = ResponseContext(txt='w.txt', world=world)
+            wcontext = ResponseContext(txt='w.txt', comm=world)
             self._wcalc = initialize_w_calculator(
                 self._chi0calc, wcontext,
                 coulomb=self.coulomb,
@@ -453,7 +451,7 @@ class BSEBackend:
         self.context.print('Calculating screened potential')
         for iq, q_c in enumerate(self.qd.ibzk_kc):
             chi0 = self._chi0calc.calculate(q_c)
-            W_wGG = self._wcalc.calculate(chi0, out_dist='WgG')
+            W_wGG = self._wcalc.calculate_W_wGG(chi0)
             W_GG = W_wGG[0]
             self.pawcorr_q.append(self._chi0calc.pawcorr)
             self.qpd_q.append(chi0.qpd)
@@ -919,7 +917,7 @@ class BSE(BSEBackend):
             the BSE Hamiltonian. Should match spin, k-points and
             valence/conduction bands
         truncation: str or None
-            Coulomb truncation scheme. Can be None, wigner-seitz, or 2D.
+            Coulomb truncation scheme. Can be None or 2D.
         integrate_gamma: int
             Method to integrate the Coulomb interaction. 1 is a numerical
             integration at all q-points with G=[0,0,0] - this breaks the
@@ -946,7 +944,8 @@ class BSE(BSEBackend):
 
 def write_bse_eigenvalues(filename, mode, w_w, C_w):
     with open(filename, 'w') as fd:
-        print('# %s eigenvalues in eV' % mode, file=fd)
+        print('# %s eigenvalues (in eV) and weights' % mode, file=fd)
+        print('# Number   eig   weight', file=fd)
         for iw, (w, C) in enumerate(zip(w_w, C_w)):
             print('%8d %12.6f %12.16f' % (iw, w.real, C.real),
                   file=fd)

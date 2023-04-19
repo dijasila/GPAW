@@ -12,6 +12,10 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.23.0b1
 
+* New :meth:`~gpaw.calculator.GPAW.new()` method for creating new ``GPAW``
+  objects with tweaked input parameters.  This can often be used to replace
+  the use of the ``set`` method which we are planning to remove.
+
 * A bug was found (now fixed) in the :ref:`zfs` module.  Please redo
   calculations done with versions 22.1 and 22.8.
 
@@ -48,7 +52,7 @@ Git master branch
 
 * New tutorial: :ref:`abinitiomd`.
 
-* Added relative tolerance for force convergence. This is useful for geometry 
+* Added relative tolerance for force convergence. This is useful for geometry
   optimizations to adaptively converge forces. See :ref:`custom_convergence`.
 
 * Experimental support for PW-mode calculations using a GPU: :ref:`gpu`.
@@ -57,6 +61,9 @@ Git master branch
   of eV / valence electron:
   ``convergence={'energy': Energy(tol=..., relative=False)}``.
   See the :class:`gpaw.convergence_criteria.Energy` class.
+
+* New ``add_nct_directly`` flag for PW-mode.  See
+  :class:`gpaw.wavefunctions.pw.PW` for details.
 
 
 Version 22.8.0
@@ -82,7 +89,7 @@ Aug 18, 2022: :git:`22.8.0 <../22.8.0>`
   tutorial.
 
 * :ref:`spinspiral calculations`.  See also
-  :git:`~gpaw/test/spinspiral/h_chain_test.py`.
+  :git:`~gpaw/test/spinspiral/test_h_chain.py`.
 
 * :ref:`soc`.
 

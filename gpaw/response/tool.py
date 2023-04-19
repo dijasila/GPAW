@@ -88,8 +88,7 @@ def get_chi0_integrand(pair, qpd, n_n, m_m, k_v, s):
     and energy differences of transitions from certain kpoint
     and spin.
     """
-    q_c = qpd.q_c
-    optical_limit = np.allclose(q_c, 0.0)
+    optical_limit = qpd.optical_limit
     k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
 
     kptpair = pair.get_kpoint_pair(qpd, s, k_c, n_n[0], n_n[-1] + 1,

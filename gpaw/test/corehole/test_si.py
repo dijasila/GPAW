@@ -34,8 +34,8 @@ def test_corehole_si(in_tmp_dir, add_cwd_to_setup_paths):
         x = np.linspace(0, 10, 50)
 
     k = 2
-    calc.set(kpts=(k, k, k))
-    calc.initialize()
+    calc = calc.new(kpts=(k, k, k))
+    calc.initialize(si)
     calc.set_positions(si)
     assert calc.wfs.dtype == complex
 

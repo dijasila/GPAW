@@ -16,6 +16,8 @@ from gpaw.new.potential import Potential
 
 
 class LCAOWaveFunctions(WaveFunctions):
+    xp = np
+
     def __init__(self,
                  *,
                  setups: Setups,

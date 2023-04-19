@@ -21,6 +21,10 @@ class SingleQPWDescriptor(PWDescriptor):
     def q_c(self):
         return self.kd.bzk_kc[0]
 
+    @property
+    def optical_limit(self):
+        return np.allclose(self.q_c, 0.0)
+
     def copy(self):
         return self.copy_with()
 

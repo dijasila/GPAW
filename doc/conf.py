@@ -48,6 +48,7 @@ intersphinx_mapping = {
     'python': ('https://docs.python.org/3.10', None),
     'ase': ('https://wiki.fysik.dtu.dk/ase', None),
     'numpy': ('https://numpy.org/doc/stable', None),
+    'cupy': ('https://docs.cupy.dev/en/stable', None),
     'scipy': ('https://docs.scipy.org/doc/scipy', None),
     'pytest': ('https://docs.pytest.org/en/stable', None),
     'mayavi': ('http://docs.enthought.com/mayavi/mayavi', None)}

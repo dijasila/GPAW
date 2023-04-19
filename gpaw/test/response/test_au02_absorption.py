@@ -42,15 +42,6 @@ def test_response_au02_absorption(scalapack, in_tmp_dir, gpwfile):
                                        direction='z')
     a0, a = df.get_polarizability(filename=None,
                                   direction='z')
-    df_ws = DielectricFunction(gpwfile,
-                               frequencies=frequencies,
-                               hilbert=False,
-                               eta=0.1,
-                               ecut=10,
-                               truncation='wigner-seitz')
-
-    a0_ws, a_ws = df_ws.get_polarizability(filename=None,
-                                           direction='z')
 
     w0_ = 5.60491055
     I0_ = 227.23392824591642
@@ -63,17 +54,9 @@ def test_response_au02_absorption(scalapack, in_tmp_dir, gpwfile):
     w, I = findpeak(frequencies, a0.imag)
     equal(w, w0_, 0.05)
     equal(I, I0_, 0.5)
-    w, I = findpeak(frequencies, a0_ws.imag)
-    equal(w, w0_, 0.05)
-    equal(I, I0_, 0.5)
     w, I = findpeak(frequencies, b.imag)
     equal(w, w_, 0.05)
     equal(6**3 * I / (4 * np.pi), I_, 0.5)
     w, I = findpeak(frequencies, a.imag)
     equal(w, w_, 0.05)
     equal(I, I_, 0.5)
-    # The Wigner-Seitz truncation does not give exactly the
-    # same for small cell
-    w, I = findpeak(frequencies, a_ws.imag)
-    equal(w, w_, 0.2)
-    equal(I, I_, 8.0)

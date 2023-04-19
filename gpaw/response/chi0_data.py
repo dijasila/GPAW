@@ -1,10 +1,13 @@
 import numpy as np
 
+from ase.units import Ha
+
 from gpaw.pw.descriptor import PWMapping
 
 from gpaw.response.pw_parallelization import (Blocks1D,
                                               PlaneWaveBlockDistributor)
-from gpaw.response.frequencies import FrequencyDescriptor
+from gpaw.response.frequencies import (FrequencyDescriptor,
+                                       ComplexFrequencyDescriptor)
 from gpaw.response.pair_functions import (SingleQPWDescriptor,
                                           map_WgG_array_to_reduced_pd)
 
@@ -25,7 +28,7 @@ class Chi0Descriptors:
 
         # Extract optical limit
         self.q_c = qpd.q_c
-        self.optical_limit = np.allclose(qpd.q_c, 0.0)
+        self.optical_limit = qpd.optical_limit
 
         # Basis set size
         self.nG = qpd.ngmax
@@ -145,6 +148,38 @@ class BodyData:
             data_x = self.data_WgG.copy()
 
         return data_x
+
+
+class Chi0DrudeData:
+    def __init__(self, zd: ComplexFrequencyDescriptor):
+        self.zd = zd
+        self.plasmafreq_vv, self.chi_Zvv = self.zeros()
+
+    def zeros(self):
+        return (np.zeros(self.vv_shape, complex),  # plasmafreq
+                np.zeros(self.Zvv_shape, complex))  # chi0_drude
+
+    @staticmethod
+    def from_frequency_descriptor(wd, rate):
+        """Construct the Chi0DrudeData object from a frequency descriptor and
+        the imaginary part (in eV) of the resulting horizontal frequency
+        contour"""
+        rate = rate / Ha  # eV -> Hartree
+        zd = ComplexFrequencyDescriptor(wd.omega_w + 1.j * rate)
+
+        return Chi0DrudeData(zd)
+
+    @property
+    def nz(self):
+        return len(self.zd)
+
+    @property
+    def vv_shape(self):
+        return (3, 3)
+
+    @property
+    def Zvv_shape(self):
+        return (self.nz,) + self.vv_shape
 
 
 class OpticalExtensionData:
