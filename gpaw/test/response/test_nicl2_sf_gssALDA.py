@@ -47,13 +47,18 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
                                  ecut=ecut,
                                  gammacentered=True,
                                  nblocks=nblocks)
-    fxc_kernel = None
+    chi_factory = ChiFactory(chiks_calc)
+
+    # Calculate the magnetic response with and without a background density
     localft_calc = LocalFTCalculator.from_rshe_parameters(
+        gs, chiks_calc.context,
+        rshelmax=rshelmax,
+        rshewmin=rshewmin)
+    bgd_localft_calc = LocalFTCalculator.from_rshe_parameters(
         gs, chiks_calc.context,
         bg_density=bg_density,
         rshelmax=rshelmax,
         rshewmin=rshewmin)
-    chi_factory = ChiFactory(chiks_calc)
 
     # Check that the pseudo-density is nonnegative
     nt_sr, gd = gs.get_pseudo_density(gridrefinement=2)
@@ -69,22 +74,13 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
     #     plt.yscale('log')
     #     plt.show()
 
+    fxc_kernel = {'fxc': fxc, 'localft_calc': bgd_localft_calc}
     for q, q_c in enumerate(q_qc):
         filename = 'nicl2_macro_tms_q%d.csv' % q
         txt = 'nicl2_macro_tms_q%d.txt' % q
-        if q == 0:
-            chi = chi_factory('+-', q_c, zd,
-                              fxc=fxc,
-                              localft_calc=localft_calc,
-                              fxc_scaling=fxc_scaling,
-                              txt=txt)
-            fxc_kernel = chi.fxc_kernel
-        else:  # Reuse fxc kernel from previous calculation
-            chi = chi_factory('+-', q_c, zd,
-                              fxc_kernel=fxc_kernel,
-                              fxc_scaling=fxc_scaling,
-                              txt=txt)
-        chi.write_macroscopic_component(filename)
+        fxc_kernel = calculate_chi(chi_factory, q_c, zd,
+                                   fxc_kernel, fxc_scaling,
+                                   txt, filename)
 
     context.write_timer()
     world.barrier()
@@ -126,3 +122,22 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
     # Test peak intensities
     assert Ipeak0 == pytest.approx(test_Ipeak0, abs=0.01)
     assert Ipeak1 == pytest.approx(test_Ipeak1, abs=0.01)
+
+
+def calculate_chi(chi_factory, q_c, zd,
+                  fxc_kernel, fxc_scaling,
+                  txt, filename):
+    if isinstance(fxc_kernel, dict):
+        chi = chi_factory('+-', q_c, zd,
+                          fxc=fxc_kernel['fxc'],
+                          localft_calc=fxc_kernel['localft_calc'],
+                          fxc_scaling=fxc_scaling,
+                          txt=txt)
+    else:  # Reuse fxc kernel from previous calculation
+        chi = chi_factory('+-', q_c, zd,
+                          fxc_kernel=fxc_kernel,
+                          fxc_scaling=fxc_scaling,
+                          txt=txt)
+    chi.write_macroscopic_component(filename)
+
+    return chi.fxc_kernel
