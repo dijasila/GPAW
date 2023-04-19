@@ -77,7 +77,8 @@ def test_response_bse_silicon(in_tmp_dir, scalapack):
         equal(w, w_, 0.01)
         equal(I, I_, 0.1)
 
-        # Read eigenvalues file and test first 3 eigenvalues
+        # Read eigenvalues file and test first 3 weights:
         _, C_w = read_bse_eigenvalues('eig.dat')
         assert C_w[0] == pytest.approx(22.37, abs=0.05)
+        # These two have degenerate eigenvalues:
         assert np.sum(C_w[1:3]) == pytest.approx(44.29, abs=0.05)
