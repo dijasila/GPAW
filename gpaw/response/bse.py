@@ -944,7 +944,8 @@ class BSE(BSEBackend):
 
 def write_bse_eigenvalues(filename, mode, w_w, C_w):
     with open(filename, 'w') as fd:
-        print('# %s eigenvalues in eV' % mode, file=fd)
+        print('# %s eigenvalues (in eV) and weights' % mode, file=fd)
+        print('# Number   eig   weight', file=fd)
         for iw, (w, C) in enumerate(zip(w_w, C_w)):
             print('%8d %12.6f %12.16f' % (iw, w.real, C.real),
                   file=fd)

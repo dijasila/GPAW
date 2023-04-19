@@ -309,7 +309,7 @@ class IBZWaveFunctions:
             for k, rank in enumerate(self.rank_k):
                 if rank == self.kpt_comm.rank:
                     wfs = self.wfs_qs[self.q_k[k]][spin]
-                    P_ani = wfs.P_ani.gather()  # gather atoms
+                    P_ani = wfs.P_ani.to_cpu().gather()  # gather atoms
                     if P_ani is not None:
                         P_nI = P_ani.matrix.gather()  # gather bands
                         if self.domain_comm.rank == 0:
@@ -373,20 +373,29 @@ class IBZWaveFunctions:
         eig_skn *= Ha
 
         D = self.spin_degeneracy
+        nbands = eig_skn.shape[2]
 
         for k, (x, y, z) in enumerate(ibz.kpt_kc):
-            if k == 4:
-                log(f'(only showing first 4 out of {len(ibz)} k-points)')
+            if k == 3:
+                log(f'(only showing first 3 out of {len(ibz)} k-points)')
                 break
 
             log(f'\nkpt = [{x:.3f}, {y:.3f}, {z:.3f}], '
                 f'weight = {ibz.weight_k[k]:.3f}:')
 
             if self.nspins == 1:
+                skipping = False
                 log(f'  Band      eig [eV]   occ [0-{D}]')
                 for n, (e, f) in enumerate(zip(eig_skn[0, k],
                                                occ_skn[0, k])):
-                    log(f'  {n:4} {e:13.3f}   {D * f:9.3f}')
+                    # First, last and +-2.0 eV window around fermi level:
+                    if n == 0 or abs(e - fl[0]) < 2.0 or n == nbands - 1:
+                        log(f'  {n:4} {e:13.3f}   {D * f:9.3f}')
+                        skipping = False
+                    else:
+                        if not skipping:
+                            log('   ...')
+                            skipping = True
             else:
                 log('  Band      eig [eV]   occ [0-1]'
                     '      eig [eV]   occ [0-1]')

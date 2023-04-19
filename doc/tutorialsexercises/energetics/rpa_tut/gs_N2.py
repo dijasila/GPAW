@@ -9,6 +9,7 @@ N = molecule('N')
 N.cell = (6, 6, 7)
 N.center()
 calc = GPAW(mode=PW(600, force_complex_dtype=True),
+            symmetry='off',
             nbands=16,
             maxiter=300,
             xc='PBE',
@@ -22,9 +23,10 @@ E1_pbe = N.get_potential_energy()
 
 calc.write('N.gpw', mode='all')
 
-E1_hf = nsc_energy('N.gpw', 'EXX')
+E1_hf = nsc_energy('N.gpw', 'EXX').sum()
 
-calc.diagonalize_full_hamiltonian(nbands=4800)
+# calc.diagonalize_full_hamiltonian(nbands=4800)
+calc.diagonalize_full_hamiltonian(nbands=None)
 calc.write('N.gpw', mode='all')
 
 # N2
@@ -32,6 +34,7 @@ N2 = molecule('N2')
 N2.cell = (6, 6, 7)
 N2.center()
 calc = GPAW(mode=PW(600, force_complex_dtype=True),
+            symmetry='off',
             nbands=16,
             maxiter=300,
             xc='PBE',
@@ -46,11 +49,12 @@ E2_pbe = N2.get_potential_energy()
 
 calc.write('N2.gpw', mode='all')
 
-E2_hf = nsc_energy('N2.gpw', 'EXX')
+E2_hf = nsc_energy('N2.gpw', 'EXX').sum()
 
 with paropen('PBE_HF.dat', 'w') as fd:
     print('PBE: ', E2_pbe - 2 * E1_pbe, file=fd)
     print('HF: ', E2_hf - 2 * E1_hf, file=fd)
 
-calc.diagonalize_full_hamiltonian(nbands=4800)
+# calc.diagonalize_full_hamiltonian(nbands=4800)
+calc.diagonalize_full_hamiltonian(nbands=None)
 calc.write('N2.gpw', mode='all')

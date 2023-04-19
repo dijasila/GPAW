@@ -40,7 +40,8 @@ def get_chi0v_foreach_spin(chi0_sGG, G_G):
 
 
 class FXCCache:
-    def __init__(self, tag, xc, ecut):
+    def __init__(self, comm, tag, xc, ecut):
+        self.comm = comm
         self.tag = tag
         self.xc = xc
         self.ecut = ecut
@@ -57,19 +58,47 @@ class Handle:
     def __init__(self, cache, iq):
         self.cache = cache
         self.iq = iq
+        self.comm = cache.comm
 
     @property
     def _path(self):
         return Path(f'fhxc_{self.cache.prefix}_{self.iq}.ulm')
 
     def exists(self):
-        return self._path.exists()
+        if self.comm.rank == 0:
+            exists = int(self._path.exists())
+        else:
+            exists = 0
+        exists = self.comm.sum_scalar(exists)
+        return bool(exists)
 
     def read(self):
+        from gpaw.mpi import broadcast
+        if self.comm.rank == 0:
+            array = self._read_master()
+            assert array is not None
+        else:
+            array = None
+
+        # The shape of the array is only known on rank0,
+        # so we cannot use the in-place broadcast.  Therefore
+        # we use the standalone function.
+        array = broadcast(array, root=0, comm=self.comm)
+        assert array is not None
+        return array
+
+    def write(self, array):
+        if self.comm.rank == 0:
+            assert array is not None
+            self._write_master(array)
+        self.comm.barrier()
+
+    def _read_master(self):
         with ulm.open(self._path) as reader:
             return reader.array
 
-    def write(self, array):
+    def _write_master(self, array):
+        assert array is not None
         with ulm.open(self._path, 'w') as writer:
             writer.write(array=array)
 
@@ -125,7 +154,7 @@ class FXCCorrelation:
             if self.avg_scheme is not None:
                 tag += '_' + self.avg_scheme
 
-        self.cache = FXCCache(tag, self.xc, self.ecut_max)
+        self.cache = FXCCache(self.context.comm, tag, self.xc, self.ecut_max)
 
         self.omega_w = self.rpa.omega_w
         self.ibzq_qc = self.rpa.ibzq_qc
@@ -175,8 +204,7 @@ class FXCCorrelation:
         for iq, fhxc_GG in kernel.calculate_fhxc():
             if self.context.comm.rank == 0:
                 assert isinstance(fhxc_GG, np.ndarray), str(fhxc_GG)
-                self.cache.handle(iq).write(fhxc_GG)
-            self.context.comm.barrier()
+            self.cache.handle(iq).write(fhxc_GG)
 
     @timer('FXC')
     def calculate(self, *, nbands=None):

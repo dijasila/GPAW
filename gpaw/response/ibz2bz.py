@@ -1,6 +1,6 @@
 from collections.abc import Sequence
-
 import numpy as np
+from gpaw.utilities.blas import gemmdot
 
 
 class IBZ2BZMaps(Sequence):
@@ -36,7 +36,9 @@ class IBZ2BZMaps(Sequence):
         return IBZ2BZMap(kd.ibzk_kc[kd.bz2ibz_k[K]],
                          *self.get_symmetry_transformations(kd.sym_k[K]),
                          kd.time_reversal_k[K],
-                         self.spos_ac)
+                         self.spos_ac,
+                         self.kd.bzk_kc[K],
+                         self.kd.symmetry.cell_cv)
 
     def get_symmetry_transformations(self, s):
         return (self.get_rotation_matrix(s),
@@ -62,10 +64,12 @@ class IBZ2BZMaps(Sequence):
 class IBZ2BZMap:
     """Functionality to map orbitals from the IBZ to a specific k-point K."""
 
-    def __init__(self, ik_c, U_cc, b_a, R_aii, time_reversal, spos_ac):
+    def __init__(self, ik_c, U_cc, b_a, R_aii,
+                 time_reversal, spos_ac, k_c, cell_cv):
         """Construct the IBZ2BZMap."""
         self.ik_c = ik_c
-
+        self.k_c = k_c  # k_c in 1:st BZ that IBZ-kpoint is mapped to
+        self.cell_cv = cell_cv
         self.U_cc = U_cc
         self.b_a = b_a
         self.R_aii = R_aii
@@ -109,6 +113,29 @@ class IBZ2BZMap:
 
         return utout_R
 
+    def map_pseudo_wave_to_BZ(self, ut_R, r_vR):
+        """Map the periodic part of wave function from IBZ -> K in BZ.
+
+        Parameters
+        ----------
+        ut_R: np.array
+              Periodic part of pseudo wf at IBZ k-point
+        r_vR: np.array
+              Real space grid obtained as
+              r_vR = calc.wfs.gd.get_grid_point_coordinates()
+        """
+        utout_R = self.map_pseudo_wave(ut_R)
+        kpt_shift_c = self.map_kpoint() - self.k_c
+        # Check if K-point in BZ already
+        if np.allclose(kpt_shift_c, 0.0):
+            return utout_R
+        # Check so that mapped k-point differ from BZ kpoint by reciprocal
+        # lattice vector
+        assert np.allclose((kpt_shift_c - np.round(kpt_shift_c)), 0.0)
+        icell_cv = (2 * np.pi) * np.linalg.inv(self.cell_cv).T
+        kpt_shift_v = kpt_shift_c @ icell_cv
+        return utout_R * np.exp(1.0j * gemmdot(kpt_shift_v, r_vR))
+
     def map_projections(self, projections):
         """Perform IBZ -> K mapping of the PAW projections.
 
@@ -128,7 +155,7 @@ class IBZ2BZMap:
             mapped_projections.array[..., I1:I2] = Pout_ni
 
         return mapped_projections
-
+        
     @property
     def U_aii(self):
         """Phase corrected rotation matrices for the PAW projections.
