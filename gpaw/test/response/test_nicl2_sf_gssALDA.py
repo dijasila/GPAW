@@ -53,6 +53,20 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
         rshewmin=rshewmin)
     chi_factory = ChiFactory(chiks_calc)
 
+    # Check that the pseudo-density is nonnegative
+    nt_sr, gd = gs.get_pseudo_density(gridrefinement=2)
+    assert np.all(nt_sr >= 0.)
+
+    # Plot pseudo spin-density to check exponential localization into vacuum
+    import matplotlib.pyplot as plt
+    if world.rank == 0:
+        N_c = gd.N_c
+        # Plot the spin-densities above one of the Cl atoms
+        plt.plot(range(N_c[2]), nt_sr[0, N_c[0] // 3, 2 * N_c[1] // 3])
+        plt.plot(range(N_c[2]), nt_sr[1, N_c[0] // 3, 2 * N_c[1] // 3])
+        plt.yscale('log')
+        plt.show()
+
     for q, q_c in enumerate(q_qc):
         filename = 'nicl2_macro_tms_q%d.csv' % q
         txt = 'nicl2_macro_tms_q%d.txt' % q

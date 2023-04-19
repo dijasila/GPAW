@@ -392,14 +392,14 @@ class GPWFiles:
         # Define input parameters
         xc = 'LDA'
         kpts = 6
-        pw = 300
+        pw = 300  # 500
         occw = 0.01
         conv = {'density': 1.e-8,
                 'forces': 1.e-8}
 
         a = 3.502
         thickness = 2.617
-        vacuum = 3.0
+        vacuum = 3.25
         mm = 2.0
 
         # Set up atoms
@@ -410,7 +410,8 @@ class GPWFiles:
         # Set up calculator
         atoms.calc = GPAW(
             xc=xc,
-            mode=PW(pw),
+            mode=PW(pw,
+                    add_nct_directly=True),
             kpts={'size': (kpts, kpts, 1), 'gamma': True},
             occupations=FermiDirac(occw),
             convergence=conv,

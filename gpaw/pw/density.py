@@ -1,5 +1,4 @@
 from math import pi
-import sys
 import numpy as np
 
 from gpaw.density import Density
@@ -20,11 +19,12 @@ class PseudoCoreKineticEnergyDensityLFC(PWLFC):
 class ReciprocalSpaceDensity(Density):
     def __init__(self, ecut,
                  gd, finegd, nspins, collinear, charge, redistributor,
-                 background_charge=None):
+                 background_charge=None,
+                 add_nct_directly: bool = False):
         Density.__init__(self, gd, finegd, nspins, collinear, charge,
                          redistributor=redistributor,
                          background_charge=background_charge)
-
+        self.add_nct_directly = add_nct_directly
         ecut0 = 0.5 * pi**2 / (gd.h_cv**2).sum(1).max()
         ecut = min(ecut, ecut0)
         self.pd2 = PWDescriptor(ecut, gd)
@@ -46,7 +46,7 @@ class ReciprocalSpaceDensity(Density):
             else:
                 spline_aj.append([setup.nct])
 
-        if not sys._xoptions.get('rsnct'):
+        if not self.add_nct_directly:
             self.nct = PWLFC(spline_aj, self.pd2)
         else:
             self.nct = LFC(self.gd, spline_aj,
@@ -58,7 +58,7 @@ class ReciprocalSpaceDensity(Density):
 
     def set_positions(self, spos_ac, atom_partition):
         Density.set_positions(self, spos_ac, atom_partition)
-        if isinstance(self.nct, PWLFC):
+        if not self.add_nct_directly:
             self.nct_q = self.pd2.zeros()
             self.nct.add(self.nct_q, 1.0 / self.nspins)
             self.nct_G = self.pd2.ifft(self.nct_q)
