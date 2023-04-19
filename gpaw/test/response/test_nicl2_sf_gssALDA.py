@@ -95,6 +95,13 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
     world.barrier()
 
     # Compare new results to test values
+    check_magnons(filestr, fxc_scaling,
+                  test_fxcs=0.6393,
+                  test_mw0=-10.3,  # meV
+                  test_mw1=-39.5,  # meV
+                  test_Ipeak0=0.2311,  # a.u.
+                  test_Ipeak1=0.0978,  # a.u.
+                  )
     check_magnons(bgd_filestr, bgd_fxc_scaling,
                   test_fxcs=0.9326,
                   test_mw0=-10.2,  # meV
