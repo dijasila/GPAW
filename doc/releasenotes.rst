@@ -48,7 +48,7 @@ Git master branch
 
 * New tutorial: :ref:`abinitiomd`.
 
-* Added relative tolerance for force convergence. This is useful for geometry 
+* Added relative tolerance for force convergence. This is useful for geometry
   optimizations to adaptively converge forces. See :ref:`custom_convergence`.
 
 * Experimental support for PW-mode calculations using a GPU: :ref:`gpu`.
@@ -57,6 +57,9 @@ Git master branch
   of eV / valence electron:
   ``convergence={'energy': Energy(tol=..., relative=False)}``.
   See the :class:`gpaw.convergence_criteria.Energy` class.
+
+* New ``add_nct_directly`` flag for PW-mode.  See
+  :class:`gpaw.wavefunctions.pw.PW` for details.
 
 
 Version 22.8.0
