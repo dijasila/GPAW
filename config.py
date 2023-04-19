@@ -157,7 +157,11 @@ def build_gpu(gpu_compiler, gpu_compile_args, gpu_include_dirs,
         objects.append(str(obj))
         run_args = [gpu_compiler]
         run_args += gpu_compile_args
-        run_args += [f'-D{name}={value}' for (name, value) in define_macros]
+        for (name, value) in define_macros:
+            arg = f'-D{name}'
+            if value is not None:
+               arg += f'={value}'
+            run_args += [arg]
         run_args += [f'-U{name}' for name in undef_macros]
         run_args += [f'-I{dpath}' for dpath in gpu_include_dirs]
         run_args += ['-c', str(src)]
