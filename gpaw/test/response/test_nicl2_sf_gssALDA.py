@@ -75,16 +75,18 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
     #     plt.yscale('log')
     #     plt.show()
 
+    filestr = 'nicl2_macro_tms'
     fxc_kernel = {'fxc': fxc, 'localft_calc': localft_calc}
+    bgd_filestr = 'nicl2_macro_tms_bgd'
     bgd_fxc_kernel = {'fxc': fxc, 'localft_calc': bgd_localft_calc}
     for q, q_c in enumerate(q_qc):
-        filename = 'nicl2_macro_tms_q%d.csv' % q
-        txt = 'nicl2_macro_tms_q%d.txt' % q
+        filename = filestr + '_q%d.csv' % q
+        txt = filestr + '_q%d.txt' % q
         fxc_kernel = calculate_chi(chi_factory, q_c, zd,
                                    fxc_kernel, fxc_scaling,
                                    txt, filename)
-        filename = 'nicl2_macro_tms_bgd_q%d.csv' % q
-        txt = 'nicl2_macro_tms_bgd_q%d.txt' % q
+        filename = bgd_filestr + '_q%d.csv' % q
+        txt = bgd_filestr + '_q%d.txt' % q
         bgd_fxc_kernel = calculate_chi(chi_factory, q_c, zd,
                                        bgd_fxc_kernel, bgd_fxc_scaling,
                                        txt, filename)
@@ -92,46 +94,14 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
     context.write_timer()
     world.barrier()
 
-    # Fake it for now XXX
-    fxc_scaling = bgd_fxc_scaling
-
-    # Identify magnon peaks and extract kernel scaling
-    w0_w, _, chi0_w = read_response_function('nicl2_macro_tms_bgd_q0.csv')
-    w1_w, _, chi1_w = read_response_function('nicl2_macro_tms_bgd_q1.csv')
-
-    wpeak0, Ipeak0 = findpeak(w0_w, -chi0_w.imag / np.pi)
-    wpeak1, Ipeak1 = findpeak(w1_w, -chi1_w.imag / np.pi)
-    mw0 = wpeak0 * 1e3  # meV
-    mw1 = wpeak1 * 1e3  # meV
-
-    assert fxc_scaling.has_scaling
-    fxcs = fxc_scaling.get_scaling()
-
-    if world.rank == 0:
-        # import matplotlib.pyplot as plt
-        # plt.plot(w0_w, -chi0_w.imag / np.pi)
-        # plt.plot(w1_w, -chi1_w.imag / np.pi)
-        # plt.show()
-
-        print(fxcs, mw0, mw1, Ipeak0, Ipeak1)
-
     # Compare new results to test values
-    test_fxcs = 0.9326
-    test_mw0 = -10.2  # meV
-    test_mw1 = -40.5  # meV
-    test_Ipeak0 = 0.2324  # a.u.
-    test_Ipeak1 = 0.0980  # a.u.
-
-    # Test fxc scaling
-    assert fxcs == pytest.approx(test_fxcs, abs=0.005)
-
-    # Test magnon peaks
-    assert mw0 == pytest.approx(test_mw0, abs=5.0)
-    assert mw1 == pytest.approx(test_mw1, abs=10.0)
-
-    # Test peak intensities
-    assert Ipeak0 == pytest.approx(test_Ipeak0, abs=0.01)
-    assert Ipeak1 == pytest.approx(test_Ipeak1, abs=0.01)
+    check_magnons(bgd_filestr, bgd_fxc_scaling,
+                  test_fxcs=0.9326,
+                  test_mw0=-10.2,  # meV
+                  test_mw1=-40.5,  # meV
+                  test_Ipeak0=0.2324,  # a.u.
+                  test_Ipeak1=0.0980,  # a.u.
+                  )
 
 
 def calculate_chi(chi_factory, q_c, zd,
@@ -151,3 +121,37 @@ def calculate_chi(chi_factory, q_c, zd,
     chi.write_macroscopic_component(filename)
 
     return chi.fxc_kernel
+
+
+def check_magnons(filestr, fxc_scaling, *,
+                  test_fxcs, test_mw0, test_mw1, test_Ipeak0, test_Ipeak1):
+    # Identify magnon peaks and extract kernel scaling
+    w0_w, _, chi0_w = read_response_function(filestr + '_q0.csv')
+    w1_w, _, chi1_w = read_response_function(filestr + '_q1.csv')
+
+    wpeak0, Ipeak0 = findpeak(w0_w, -chi0_w.imag / np.pi)
+    wpeak1, Ipeak1 = findpeak(w1_w, -chi1_w.imag / np.pi)
+    mw0 = wpeak0 * 1e3  # meV
+    mw1 = wpeak1 * 1e3  # meV
+
+    assert fxc_scaling.has_scaling
+    fxcs = fxc_scaling.get_scaling()
+
+    if world.rank == 0:
+        # import matplotlib.pyplot as plt
+        # plt.plot(w0_w, -chi0_w.imag / np.pi)
+        # plt.plot(w1_w, -chi1_w.imag / np.pi)
+        # plt.show()
+
+        print(fxcs, mw0, mw1, Ipeak0, Ipeak1)
+
+    # Test fxc scaling
+    assert fxcs == pytest.approx(test_fxcs, abs=0.005)
+
+    # Test magnon peaks
+    assert mw0 == pytest.approx(test_mw0, abs=5.0)
+    assert mw1 == pytest.approx(test_mw1, abs=10.0)
+
+    # Test peak intensities
+    assert Ipeak0 == pytest.approx(test_Ipeak0, abs=0.01)
+    assert Ipeak1 == pytest.approx(test_Ipeak1, abs=0.01)
