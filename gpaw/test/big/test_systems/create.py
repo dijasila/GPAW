@@ -50,7 +50,6 @@ def biimtf():
     atoms.center(vacuum=5)
     return atoms, dict(h=0.16,
                        charge=+1,
-                       spinpol=True,
                        occupations=FermiDirac(0.05),
                        xc='RPBE')
 

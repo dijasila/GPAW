@@ -39,9 +39,11 @@ This is done with the script:
 .. literalinclude:: gs_N2.py
 
 which takes on the order of 3-4 CPU hours. The script generates N.gpw and
-N2.gpw which are the input to the RPA calculation. The PBE and non-
-selfconsistent Hartree-Fock energy is also calculated and written to the
-file PBE_HF.dat.
+N2.gpw which are the input to the RPA calculation. The PBE and
+non self-consistent Hartree-Fock energy is also calculated and written to the
+file PBE_HF.dat. Be aware that using symmetries (i. e. not using ``symmetry='off'``
+in the calculator) may cause problems if you want to calculate non self-consistent
+HF energies for atoms and molecules.
 
 Converging the frequency integration
 -------------------------------------

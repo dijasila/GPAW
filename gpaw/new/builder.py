@@ -16,7 +16,8 @@ from gpaw.core.atom_arrays import (AtomArrays, AtomArraysLayout,
 from gpaw.core.domain import Domain
 from gpaw.gpu.mpi import CuPyMPI
 from gpaw.mixer import MixerWrapper, get_mixer_from_keywords
-from gpaw.mpi import MPIComm, Parallelization, serial_comm, world
+from gpaw.mpi import (MPIComm, Parallelization, serial_comm, synchronize_atoms,
+                      world)
 from gpaw.new import cached_property, prod
 from gpaw.new.basis import create_basis
 from gpaw.new.brillouin import BZPoints, MonkhorstPackKPoints
@@ -65,6 +66,7 @@ class DFTComponentsBuilder:
         parallel = params.parallel
         world = parallel['world']
 
+        synchronize_atoms(atoms, world)
         self.check_cell(atoms.cell)
 
         self.initial_magmom_av, self.ncomponents = normalize_initial_magmoms(

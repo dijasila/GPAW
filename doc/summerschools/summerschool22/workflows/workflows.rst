@@ -181,7 +181,7 @@ Part 2: Add ground state and band structure tasks
 
 After the relaxation, we want to run a ground state
 calculation to save a ``.gpw`` file, which we subsequently want
-to pass to a non-selfconsistent calculation to get the band structure.
+to pass to a non self-consistent calculation to get the band structure.
 
 Add a ``groundstate()`` function to ``tasks.py``:
 

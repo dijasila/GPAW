@@ -84,8 +84,8 @@ the PBE0 functional respectively.
 
 .. image:: g2test_pbe0.png
 
-In the last figure, the curve marked ``GPAW (nonself.)`` is a non-
-selfconsistent PBE0 calculation using self-consistent PBE orbitals.
+In the last figure, the curve marked ``GPAW (nonself.)`` is a non
+self-consistent PBE0 calculation using self-consistent PBE orbitals.
 
 It should be noted, that the implementation lacks an optimized effective
 potential. Therefore the unoccupied states utilizing EXX as implemented in

@@ -86,7 +86,7 @@ Aug 18, 2022: :git:`22.8.0 <../22.8.0>`
   tutorial.
 
 * :ref:`spinspiral calculations`.  See also
-  :git:`~gpaw/test/spinspiral/h_chain_test.py`.
+  :git:`~gpaw/test/spinspiral/test_h_chain.py`.
 
 * :ref:`soc`.
 
