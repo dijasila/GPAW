@@ -451,7 +451,7 @@ class GPWFiles:
                     thickness=thickness, vacuum=vacuum)
         atoms.set_initial_magnetic_moments([mm, 0.0, 0.0])
         # Use pbc to allow for real-space density interpolation
-        atoms.set_pbc((True, True, True))
+        atoms.pbc = True
 
         # Set up calculator
         atoms.calc = GPAW(
