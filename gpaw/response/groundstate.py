@@ -110,6 +110,7 @@ class ResponseGroundStateAdapter:
         # Used by localft
         if self._density.nt_sg is None:
             self._density.interpolate_pseudo_density()
+        return self._density.nt_sg
 
     @property
     def D_asp(self):
