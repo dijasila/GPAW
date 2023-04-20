@@ -136,16 +136,10 @@ class BSEBackend:
             # careful!
 
             self.context.print('Diagonalizing spin-orbit Hamiltonian')
-            if world.rank == 0:
-                # XXX Probably not a good idea for this to be serial!
-                soc = self.gs.soc_eigenstates(scale=self.scale)
-                e_mk = soc.eigenvalues().T
-                v_kmn = soc.eigenvectors()
-                e_mk /= Hartree
-                data = (e_mk, v_kmn)
-            else:
-                data = None
-            e_mk, v_kmn = broadcast(data, 0, world)
+            soc = self.gs.soc_eigenstates(scale=self.scale)
+            e_mk = soc.eigenvalues().T
+            v_kmn = soc.eigenvectors()
+            e_mk /= Hartree
 
         # Parallelization stuff
         nK = self.kd.nbzkpts
