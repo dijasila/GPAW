@@ -450,12 +450,15 @@ class GPWFiles:
         atoms = mx2(formula='NiCl2', kind='1T', a=a,
                     thickness=thickness, vacuum=vacuum)
         atoms.set_initial_magnetic_moments([mm, 0.0, 0.0])
+        # Use pbc to allow for real-space density interpolation
+        atoms.set_pbc((True, True, True))
 
         # Set up calculator
         atoms.calc = GPAW(
             xc=xc,
             mode=PW(pw,
-                    add_nct_directly=True),
+                    # Interpolate the density in real-space
+                    interpolation=3),
             kpts={'size': (kpts, kpts, 1), 'gamma': True},
             occupations=FermiDirac(occw),
             convergence=conv,
