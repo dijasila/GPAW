@@ -30,6 +30,7 @@ class PW(Mode):
                  gammacentered=False,
                  pulay_stress=None, dedecut=None,
                  force_complex_dtype=False,
+                 interpolation='fft',
                  add_nct_directly: bool = False):
         """Plane-wave basis mode.
 
@@ -51,6 +52,10 @@ class PW(Mode):
 
         cell: 3x3 ndarray
             Use this unit cell to chose the planewaves.
+        interpolation : str or int
+            Interpolation scheme to construct the density on the fine grid.
+            Default is 'fft' and alternatively a stencil (integer) can be given
+            to perform an explicit real-space interpolation.
         add_nct_directly:
             Default behaviour is to add the Fourrier transformed pseudo core
             density and inverse transform to real-space.  This will lead to
@@ -66,6 +71,7 @@ class PW(Mode):
         # Don't do expensive planning in dry-run mode:
         self.fftwflags = fftwflags if not gpaw.dry_run else fftw.MEASURE
         self.dedecut = dedecut
+        self.interpolation = interpolation
         self.add_nct_directly = add_nct_directly
         self.pulay_stress = (None
                              if pulay_stress is None
@@ -114,6 +120,8 @@ class PW(Mode):
             dct['pulay_stress'] = self.pulay_stress * Ha / Bohr**3
         if self.dedecut is not None:
             dct['dedecut'] = self.dedecut
+        if self.interpolation != 'fft':
+            dct['interpolation'] = self.interpolation
         if self.add_nct_directly:
             dct['add_nct_directly'] = True
         return dct
