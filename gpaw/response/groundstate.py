@@ -7,12 +7,11 @@ from ase.units import Ha, Bohr
 from ase.utils import lazyproperty
 
 import gpaw.mpi as mpi
-from gpaw.transformers import Transformer
 from gpaw.response.ibz2bz import IBZ2BZMaps
 
 
 class ResponseGroundStateAdapter:
-    def __init__(self, calc, real_space_interpolation=False):
+    def __init__(self, calc):
         wfs = calc.wfs
 
         self.kd = wfs.kd
@@ -44,11 +43,8 @@ class ResponseGroundStateAdapter:
         self._hamiltonian = calc.hamiltonian
         self._calc = calc
 
-        self.real_space_interpolation = real_space_interpolation
-        self._nt_sr = None  # Buffer for pseudo density on the finegrid
-
     @classmethod
-    def from_gpw_file(cls, gpw, context, **kwargs):
+    def from_gpw_file(cls, gpw, context):
         """Initiate the ground state adapter directly from a .gpw file."""
         from gpaw import GPAW, disable_dry_run
         assert Path(gpw).is_file()
@@ -59,7 +55,7 @@ class ResponseGroundStateAdapter:
             with disable_dry_run():
                 calc = GPAW(gpw, txt=None, communicator=mpi.serial_comm)
 
-        return cls(calc, **kwargs)
+        return cls(calc)
 
     @property
     def pd(self):
@@ -112,22 +108,8 @@ class ResponseGroundStateAdapter:
     @property
     def nt_sr(self):
         # Used by localft
-        if self._nt_sr is None:
-            self.interpolate_pseudo_density()
-        return self._nt_sr
-
-    def interpolate_pseudo_density(self):
-        """Interpolate pseudo density in real or reciprocal space."""
-        if self.real_space_interpolation:
-            interpolator = Transformer(self.gd, self.finegd, nn=3)
-            nt_sr = self.finegd.empty(self.nspins)
-            for nt_R, nt_r in zip(self.nt_sR, nt_sr):
-                interpolator.apply(nt_R, nt_r)
-            self._nt_sr = nt_sr
-        else:  # Usual reciprocal space interpolation
-            if self._density.nt_sg is None:
-                self._density.interpolate_pseudo_density()
-            self._nt_sr = self._density.nt_sg
+        if self._density.nt_sg is None:
+            self._density.interpolate_pseudo_density()
 
     @property
     def D_asp(self):
@@ -145,19 +127,8 @@ class ResponseGroundStateAdapter:
 
     def get_all_electron_density(self, gridrefinement=2):
         # Used by fxc, fxc_kernels and localft
-        if self.real_space_interpolation:
-            # Use real-space interpolated pseudo density
-            _nt_sg = self._density.nt_sg
-            self._density.nt_sg = self.nt_sr
-
-        n_sx = self._density.get_all_electron_density(
+        return self._density.get_all_electron_density(
             atoms=self.atoms, gridrefinement=gridrefinement)
-
-        if self.real_space_interpolation:
-            # Reset buffer on density object
-            self._density.nt_sg = _nt_sg
-
-        return n_sx
 
     # Things used by EXX.  This is getting pretty involved.
     #
