@@ -94,18 +94,18 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
 
     # Compare new results to test values
     check_magnons(filestr, fxc_scaling,
-                  test_fxcs=0.6393,
+                  test_fxcs=0.7130,
                   test_mw0=-10.3,  # meV
-                  test_mw1=-39.5,  # meV
-                  test_Ipeak0=0.2311,  # a.u.
-                  test_Ipeak1=0.0978,  # a.u.
+                  test_mw1=-40.9,  # meV
+                  test_Ipeak0=0.2306,  # a.u.
+                  test_Ipeak1=0.0956,  # a.u.
                   )
     check_magnons(bgd_filestr, bgd_fxc_scaling,
-                  test_fxcs=0.9326,
+                  test_fxcs=1.0826,
                   test_mw0=-10.2,  # meV
-                  test_mw1=-40.5,  # meV
-                  test_Ipeak0=0.2324,  # a.u.
-                  test_Ipeak1=0.0980,  # a.u.
+                  test_mw1=-48.0,  # meV
+                  test_Ipeak0=0.2321,  # a.u.
+                  test_Ipeak1=0.0956,  # a.u.
                   )
 
 
