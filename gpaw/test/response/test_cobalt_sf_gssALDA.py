@@ -4,7 +4,7 @@ import numpy as np
 
 # Script modules
 from gpaw import GPAW
-from gpaw.mpi import world
+from gpaw.test import findpeak
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.susceptibility import ChiFactory, read_component
@@ -66,27 +66,47 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
     w1_w, _, _, chi1_wGG = read_component('chiwGG_q1.pckl')
 
     # # Find acoustic magnon mode
-    # wpeak00, Ipeak00 = findpeak(w0_w, -chi0_wGG[:, 0, 0].imag)
-    # wpeak01, Ipeak01 = findpeak(w1_w, -chi1_wGG[:, 0, 0].imag)
-    # # Find optical magnon mode
-    # wpeak10, Ipeak10 = findpeak(w0_w, -chi0_wGG[:, 1, 1].imag)
-    # wpeak11, Ipeak11 = findpeak(w1_w, -chi1_wGG[:, 1, 1].imag)
+    wpeak00, Ipeak00 = findpeak(w0_w, -chi0_wGG[:, 0, 0].imag)
+    wpeak01, Ipeak01 = findpeak(w1_w, -chi1_wGG[:, 0, 0].imag)
+    # Find optical magnon mode
+    wpeak10, Ipeak10 = findpeak(w0_w, -chi0_wGG[:, 1, 1].imag)
+    wpeak11, Ipeak11 = findpeak(w1_w, -chi1_wGG[:, 1, 1].imag)
 
-    # # Plot the magnons
-    # if world.rank == 0:
-    #     import matplotlib.pyplot as plt
-    #     # Acoustic magnon mode
-    #     plt.subplot(1, 2, 1)
-    #     plt.plot(w0_w, -chi0_wGG[:, 0, 0].imag)
-    #     plt.plot(w1_w, -chi1_wGG[:, 0, 0].imag)
-    #     # Optical magnon mode
-    #     plt.subplot(1, 2, 2)
-    #     plt.plot(w0_w, -chi0_wGG[:, 1, 1].imag)
-    #     plt.plot(w1_w, -chi1_wGG[:, 1, 1].imag)
-    #     plt.show()
+    if context.comm.rank == 0:
+        # # Plot the magnons
+        # import matplotlib.pyplot as plt
+        # # Acoustic magnon mode
+        # plt.subplot(1, 2, 1)
+        # plt.plot(w0_w, -chi0_wGG[:, 0, 0].imag)
+        # plt.axvline(wpeak00, c='0.5', linewidth=0.8)
+        # plt.plot(w1_w, -chi1_wGG[:, 0, 0].imag)
+        # plt.axvline(wpeak01, c='0.5', linewidth=0.8)
+        # # Optical magnon mode
+        # plt.subplot(1, 2, 2)
+        # plt.plot(w0_w, -chi0_wGG[:, 1, 1].imag)
+        # plt.axvline(wpeak10, c='0.5', linewidth=0.8)
+        # plt.plot(w1_w, -chi1_wGG[:, 1, 1].imag)
+        # plt.axvline(wpeak11, c='0.5', linewidth=0.8)
+        # plt.show()
+
+        # Print values
+        print(wpeak00, wpeak01, wpeak10, wpeak11)
+        print(Ipeak00, Ipeak01, Ipeak10, Ipeak11)
+
+    # Test magnon frequencies
+    assert wpeak00 == pytest.approx(-0.0278, abs=0.005)
+    assert wpeak01 == pytest.approx(0.222, abs=0.01)
+    assert wpeak10 == pytest.approx(0.883, abs=0.01)
+    assert wpeak11 == pytest.approx(0.742, abs=0.01)
+
+    # Test magnon amplitudes
+    assert Ipeak00 == pytest.approx(2.896, abs=0.01)
+    assert Ipeak01 == pytest.approx(2.202, abs=0.01)
+    assert Ipeak10 == pytest.approx(1.021, abs=0.01)
+    assert Ipeak11 == pytest.approx(0.878, abs=0.01)
 
     # XXX First step XXX #
-    # - Extract magnon energies and test values
+    # - Test kernel scaling
     # - Save diagonal instead of array
     # XXX Second step XXX #
     # - Reformulate the documentation, such that a pair function can be an
