@@ -8,7 +8,7 @@ from gpaw.response import ResponseContext, ResponseGroundStateAdapter
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.localft import LocalFTCalculator
-from gpaw.response.fxc_kernels import FXCScaling
+from gpaw.response.dyson import FXCScaling
 from gpaw.response.susceptibility import ChiFactory
 from gpaw.response.df import read_response_function
 

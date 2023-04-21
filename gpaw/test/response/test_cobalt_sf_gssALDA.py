@@ -9,7 +9,7 @@ from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.susceptibility import ChiFactory, read_diagonal
 from gpaw.response.localft import LocalFTCalculator
-from gpaw.response.fxc_kernels import FXCScaling
+from gpaw.response.dyson import FXCScaling
 
 
 @pytest.mark.kspair
@@ -110,7 +110,6 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
     assert Ipeak11 == pytest.approx(0.934, abs=0.01)
 
     # XXX Second step XXX #
-    # - Move calculation responsibility to dyson solver
     # - Rename ChiFactory to SusceptibilityFactory and make it return both
     #   ChiKS and Chi.
     # - Rename ChiKS to Susceptibility and make chiks and chi individual
