@@ -519,11 +519,11 @@ class ETDM:
             phi, g_vec_u = self.get_energy_and_gradients(x_mat_u, n_dim,
                                                          ham, wfs, dens, c_ref)
 
-            # If GMF is used save the original gradient and negate the parallel
+            # If GMF is used save the original gradient and invert the parallel
             # projection onto the eigenvectors with negative eigenvalues
             if self.gmf:
                 self.g_vec_u_original = deepcopy(g_vec_u)
-                g_vec_u = self.searchdir_algo.negate_parallel_grad(g_vec_u)
+                g_vec_u = self.searchdir_algo.invert_parallel_grad(g_vec_u)
 
         der_phi = 0.0
         for k in p_mat_u:
