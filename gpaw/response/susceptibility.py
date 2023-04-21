@@ -88,6 +88,36 @@ class Chi:
 
         return omega_w, G_Gc, chiks_wGG, chi_wGG
 
+    def write_reduced_diagonals(self, filename, *, reduced_ecut):
+        """Calculate the many-body susceptibility and write its diagonal in
+        plane-wave components to a file along with the diagonal of the
+        Kohn-Sham susceptibility, frequency grid and reduced plane-wave basis.
+        """
+        omega_w, G_Gc, chiks_wG, chi_wG = self.get_reduced_diagonals(
+            reduced_ecut=reduced_ecut)
+
+        if self.world.rank == 0:
+            write_diagonal(omega_w, G_Gc, chiks_wG, chi_wG, filename)
+
+    def get_reduced_diagonals(self, *, reduced_ecut):
+        """Get the diagonal of the reduced data arrays, gathered on root."""
+        omega_w, chiks_wGG, chi_wGG = self.get_distributed_arrays()
+
+        # Map the susceptibilities to a reduced plane-wave representation
+        qpd = self.chiks.qpd
+        mask_G = get_pw_reduction_map(qpd, reduced_ecut)
+        chiks_wG = np.ascontiguousarray(chiks_wGG[:, mask_G, mask_G])
+        chi_wG = np.ascontiguousarray(chi_wGG[:, mask_G, mask_G])
+
+        # Get reduced plane wave repr. as coordinates on the reciprocal lattice
+        G_Gc = get_pw_coordinates(qpd)[mask_G]
+
+        # Gather all frequencies from world to root
+        chiks_wG = self.gather(chiks_wG)
+        chi_wG = self.gather(chi_wG)
+
+        return omega_w, G_Gc, chiks_wG, chi_wG
+
     def get_distributed_arrays(self):
         """Get data arrays, frequency distributed over world."""
         # For now, we assume that eta is fixed -> z index == w index
@@ -136,34 +166,34 @@ class Chi:
 
         return Kxc_GG
 
-    def collect(self, x_z):
+    def collect(self, X_z):
         """Collect all frequencies."""
-        return self.chiks.blocks1d.collect(x_z)
+        return self.chiks.blocks1d.collect(X_z)
 
-    def gather(self, X_zGG):
+    def gather(self, X_zx):
         """Gather a full susceptibility array to root."""
         # Allocate arrays to gather (all need to be the same shape)
         blocks1d = self.chiks.blocks1d
-        shape = (blocks1d.blocksize,) + X_zGG.shape[1:]
-        tmp_zGG = np.empty(shape, dtype=X_zGG.dtype)
-        tmp_zGG[:blocks1d.nlocal] = X_zGG
+        shape = (blocks1d.blocksize,) + X_zx.shape[1:]
+        tmp_zx = np.empty(shape, dtype=X_zx.dtype)
+        tmp_zx[:blocks1d.nlocal] = X_zx
 
         # Allocate array for the gathered data
         if self.world.rank == 0:
             # Make room for all frequencies
             Npadded = blocks1d.blocksize * blocks1d.blockcomm.size
-            shape = (Npadded,) + X_zGG.shape[1:]
-            allX_zGG = np.empty(shape, dtype=X_zGG.dtype)
+            shape = (Npadded,) + X_zx.shape[1:]
+            allX_zx = np.empty(shape, dtype=X_zx.dtype)
         else:
-            allX_zGG = None
+            allX_zx = None
 
-        self.world.gather(tmp_zGG, 0, allX_zGG)
+        self.world.gather(tmp_zx, 0, allX_zx)
 
         # Return array for w indeces on frequency grid
-        if allX_zGG is not None:
-            allX_zGG = allX_zGG[:len(self.chiks.zd), :, :]
+        if allX_zx is not None:
+            allX_zx = allX_zx[:len(self.chiks.zd)]
 
-        return allX_zGG
+        return allX_zx
 
 
 class ChiFactory:
@@ -388,3 +418,19 @@ def read_component(filename):
         omega_w, G_Gc, chiks_wGG, chi_wGG = pickle.load(fd)
 
     return omega_w, G_Gc, chiks_wGG, chi_wGG
+
+
+def write_diagonal(omega_w, G_Gc, chiks_wG, chi_wG, filename):
+    """Write the diagonal of a dynamic susceptibility as a pickle file."""
+    assert isinstance(filename, str)
+    with open(filename, 'wb') as fd:
+        pickle.dump((omega_w, G_Gc, chiks_wG, chi_wG), fd)
+
+
+def read_diagonal(filename):
+    """Read stored susceptibility diagonal file."""
+    assert isinstance(filename, str)
+    with open(filename, 'rb') as fd:
+        omega_w, G_Gc, chiks_wG, chi_wG = pickle.load(fd)
+
+    return omega_w, G_Gc, chiks_wG, chi_wG
