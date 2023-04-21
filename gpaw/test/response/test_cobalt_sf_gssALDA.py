@@ -4,9 +4,10 @@ import numpy as np
 
 # Script modules
 from gpaw import GPAW
+from gpaw.mpi import world
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chiks import ChiKSCalculator
-from gpaw.response.susceptibility import ChiFactory
+from gpaw.response.susceptibility import ChiFactory, read_component
 from gpaw.response.localft import LocalFTCalculator
 from gpaw.response.fxc_kernels import FXCScaling
 
@@ -17,14 +18,14 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
     # ---------- Inputs ---------- #
 
     fxc = 'ALDA'
-    q_qc = [[0.0, 0.0, 0.0], [0.0, 0.0, 1. / 4.]]  # Two q-points along G-N
-    frq_qw = [np.linspace(-0.080, 0.120, 26), np.linspace(0.250, 0.450, 26)]
-    eta = 0.1
+    q_qc = [[0.0, 0.0, 0.0], [1. / 4., 0.0, 0.0]]  # Two q-points along G-M
+    frq_w = np.linspace(-0.2, 1.2, 57)
+    eta = 0.2
 
     rshelmax = 0
     fxc_scaling = FXCScaling('fm')
-    ecut = 100
-    reduced_ecut = 50
+    ecut = 300
+    reduced_ecut = 10  # Only save the bare minimum
     nblocks = 'max'
 
     # ---------- Script ---------- #
@@ -43,7 +44,7 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
     localft_calc = LocalFTCalculator.from_rshe_parameters(gs, context,
                                                           rshelmax=rshelmax)
 
-    for q, (q_c, frq_w) in enumerate(zip(q_qc, frq_qw)):
+    for q, q_c in enumerate(q_qc):
         complex_frequencies = frq_w + 1.j * eta
         if q == 0:
             chi = chi_factory('+-', q_c, complex_frequencies,
@@ -60,8 +61,31 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
     context.write_timer()
     context.comm.barrier()
 
+    # Read data
+    w0_w, _, _, chi0_wGG = read_component('chiwGG_q0.pckl')
+    w1_w, _, _, chi1_wGG = read_component('chiwGG_q1.pckl')
+
+    # # Find acoustic magnon mode
+    # wpeak00, Ipeak00 = findpeak(w0_w, -chi0_wGG[:, 0, 0].imag)
+    # wpeak01, Ipeak01 = findpeak(w1_w, -chi1_wGG[:, 0, 0].imag)
+    # # Find optical magnon mode
+    # wpeak10, Ipeak10 = findpeak(w0_w, -chi0_wGG[:, 1, 1].imag)
+    # wpeak11, Ipeak11 = findpeak(w1_w, -chi1_wGG[:, 1, 1].imag)
+
+    # # Plot the magnons
+    # if world.rank == 0:
+    #     import matplotlib.pyplot as plt
+    #     # Acoustic magnon mode
+    #     plt.subplot(1, 2, 1)
+    #     plt.plot(w0_w, -chi0_wGG[:, 0, 0].imag)
+    #     plt.plot(w1_w, -chi1_wGG[:, 0, 0].imag)
+    #     # Optical magnon mode
+    #     plt.subplot(1, 2, 2)
+    #     plt.plot(w0_w, -chi0_wGG[:, 1, 1].imag)
+    #     plt.plot(w1_w, -chi1_wGG[:, 1, 1].imag)
+    #     plt.show()
+
     # XXX First step XXX #
-    # - Plot components G=0 and G=1
     # - Extract magnon energies and test values
     # - Save diagonal instead of array
     # XXX Second step XXX #
