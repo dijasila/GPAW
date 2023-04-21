@@ -165,7 +165,7 @@ class ModeFollowing(ModeFollowingBase, SearchDirectionBase):
         return res
 
     def update_data(self, wfs, x_k1, g_k1, precond=None):
-        g_k1 = self.negate_parallel_grad(g_k1)
+        g_k1 = self.invert_parallel_grad(g_k1)
         return self.sd.update_data(wfs, x_k1, g_k1, precond=precond)
 
 
