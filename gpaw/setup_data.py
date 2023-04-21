@@ -47,7 +47,7 @@ class SetupData:
         # Quantum numbers, energies
         self.n_j = []
         self.l_j = []
-        self.l_orb_j = self.l_j  # pointer to same list!
+        self.l_orb_J = self.l_j  # pointer to same list!
         self.f_j = []
         self.eps_j = []
         self.e_kin_jj = None  # <phi | T | phi> - <phit | T | phit>
@@ -155,11 +155,10 @@ class SetupData:
         else:
             text(f'  core: {self.Nc:.1f}')
         text('  charge:', self.Z - self.Nv - self.Nc)
-        if setup.HubU is not None:
-            for U, l, scale in zip(setup.HubU, setup.Hubl, setup.Hubs):
-                text(f'  Hubbard: {{U: {U * Ha},  # eV\n'
-                     f'            l: {l},\n'
-                     f'            scale: {bool(scale)}}}')
+        if setup.hubbard_u is not None:
+            description = ''.join([f'  {line}' for line
+                                   in setup.hubbard_u.descriptions()])
+            text(description)
         text('  file:', self.filename)
         sf = self.shape_function
         text(f'  compensation charges: {{type: {sf["type"]},\n'

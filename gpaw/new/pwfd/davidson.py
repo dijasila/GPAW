@@ -4,17 +4,21 @@ from functools import partial
 from typing import Callable
 
 import numpy as np
+from ase.units import Ha
 from gpaw.core.arrays import DistributedArrays as DA
 from gpaw.core.atom_centered_functions import AtomArrays as AA
 from gpaw.core.matrix import Matrix
+from gpaw.gpu import as_xp
+from gpaw.mpi import broadcast_float
+from gpaw.new import zip
 from gpaw.new.calculation import DFTState
 from gpaw.new.eigensolver import Eigensolver
 from gpaw.new.hamiltonian import Hamiltonian
+from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.typing import Array1D, Array2D
 from gpaw.utilities.blas import axpy
 from gpaw.yml import obj2yaml as o2y
-from gpaw.gpu import as_xp
 
 AAFunc = Callable[[AA, AA], AA]
 
@@ -85,19 +89,21 @@ class Davidson(Eigensolver):
             self._initialize(state.ibzwfs)
 
         assert self.M_nn is not None
-        xp = self.M_nn.xp
 
         dS = state.ibzwfs.wfs_qs[0][0].setups.overlap_correction
         dH = state.potential.dH
-        Ht = partial(hamiltonian.apply, state.potential.vt_sR.to_xp(xp))
+        Ht = partial(hamiltonian.apply, state.potential.vt_sR)
         ibzwfs = state.ibzwfs
         error = 0.0
-        for wfs in ibzwfs:
-            e = self.iterate1(wfs, Ht, dH, dS)
-            error += wfs.weight * e
-        return ibzwfs.kpt_comm.sum(error) * ibzwfs.spin_degeneracy
 
-    def iterate1(self, wfs, Ht, dH, dS):
+        weight_un = calculate_weights(self.converge_bands, ibzwfs)
+
+        for wfs, weight_n in zip(ibzwfs, weight_un):
+            e = self.iterate1(wfs, Ht, dH, dS, weight_n)
+            error += wfs.weight * e
+        return ibzwfs.kpt_comm.sum(float(error)) * ibzwfs.spin_degeneracy
+
+    def iterate1(self, wfs, Ht, dH, dS, weight_n):
         H_NN = self.H_NN
         S_NN = self.S_NN
         M_nn = self.M_nn
@@ -153,7 +159,6 @@ class Davidson(Eigensolver):
         for i in range(self.niter):
             if i == self.niter - 1:  # last iteration
                 # Calulate error before we destroy residuals:
-                weight_n = calculate_weights(self.converge_bands, wfs)
                 if weight_n is None:
                     error = np.inf
                 else:
@@ -261,72 +266,72 @@ def calculate_residuals(residual_nX: DA,
 
 
 def calculate_weights(converge_bands: int | str,
-                      wfs: PWFDWaveFunctions) -> Array1D | None:
+                      ibzwfs: IBZWaveFunctions) -> list[Array1D | None]:
     """Calculate convergence weights for all eigenstates."""
+    assert ibzwfs.band_comm.size == 1, 'not implemented!'
+    weight_un = []
+    nu = len(ibzwfs.wfs_qs) * ibzwfs.nspins
+    nbands = ibzwfs.nbands
+
     if converge_bands == 'occupied':
         # Converge occupied bands:
-        try:
-            # Methfessel-Paxton distribution can give negative
-            # occupation numbers - so we take the absolute value:
-            return np.abs(wfs.occ_n)
-        except ValueError:
-            # No eigenvalues yet:
-            return None
+        for wfs in ibzwfs:
+            try:
+                # Methfessel-Paxton or cold-smearing distributions can give
+                # negative occupation numbers - so we take the absolute value:
+                weight_n = np.abs(wfs.occ_n)
+            except ValueError:
+                # No eigenvalues yet:
+                return [None] * nu
+            weight_un.append(weight_n)
+        return weight_un
 
     if isinstance(converge_bands, int):
         # Converge fixed number of bands:
         n = converge_bands
-        if wfs.psit_nX.comm.size > 1:
-            raise NotImplementedError
 
-        nbands = wfs.psit_nX.mydims[0]
-        weight_n = np.zeros(nbands)
-        if n < 0:
-            n += nbands
-        weight_n[:n] = 1.0
-        return weight_n
+        for wfs in ibzwfs:
+            weight_n = np.zeros(nbands)
+            if n < 0:
+                n += nbands
+            weight_n[:n] = 1.0
+            weight_un.append(weight_n)
+        return weight_un
 
+    # Converge states with energy up to CBM + delta:
+    assert converge_bands.startswith('CBM+')
+    delta = float(converge_bands[4:]) / Ha
+
+    if ibzwfs.fermi_levels is None:
+        return [None] * nu
+
+    efermi = np.mean(ibzwfs.fermi_levels)
+
+    # Find CBM:
+    cbm = np.inf
+    nocc_u = np.empty(nu, int)
+    for u, wfs in enumerate(ibzwfs):
+        n = (wfs.eig_n < efermi).sum()  # number of occupied bands
+        nocc_u[u] = n
+        if n < nbands:
+            cbm = min(cbm, wfs.eig_n[n])
+
+    # If all k-points don't have the same number of occupied bands,
+    # then it's a metal:
+    n0 = int(broadcast_float(float(nocc_u[0]), ibzwfs.kpt_comm))
+    metal = bool(ibzwfs.kpt_comm.sum_scalar(float((nocc_u != n0).any())))
+    if metal:
+        cbm = efermi
     else:
-        assert False
-        # Converge state with energy up to CBM + delta:
-        assert converge_bands.startswith('CBM+')
-        # delta = float(converge_bands[4:]) / Ha
-        return None
+        cbm = ibzwfs.kpt_comm.min_scalar(cbm)
 
-        """
-        if wfs.kpt_u[0].f_n is None:
-            weight_un[:] = np.inf  # no eigenvalues yet
-        else:
-            # Collect all eigenvalues and calculate band gap:
-            efermi = np.mean(wfs.fermi_levels)
-            eps_skn = np.array(
-                [[wfs.collect_eigenvalues(k, spin) - efermi
-                  for k in range(wfs.kd.nibzkpts)]
-                 for spin in range(wfs.nspins)])
-            if wfs.world.rank > 0:
-                eps_skn = np.empty((wfs.nspins,
-                                    wfs.kd.nibzkpts,
-                                    wfs.bd.nbands))
-            wfs.world.broadcast(eps_skn, 0)
-            try:
-                # Find bandgap + positions of CBM:
-                gap, _, (s, k, n) = _bandgap(eps_skn,
-                                             spin=None, direct=False)
-            except ValueError:
-                gap = 0.0
+    ecut = cbm + delta
 
-            if gap == 0.0:
-                cbm = efermi
-            else:
-                cbm = efermi + eps_skn[s, k, n]
+    for wfs in ibzwfs:
+        weight_n = (wfs.eig_n < ecut).astype(float)
+        if wfs.eig_n[-1] < ecut:
+            # We don't have enough bands!
+            weight_n[:] = np.inf
+        weight_un.append(weight_n)
 
-            ecut = cbm + delta
-
-            for weight_n, kpt in zip(weight_un, wfs.kpt_u):
-                weight_n[kpt.eps_n < ecut] = kpt.weight
-
-            if (eps_skn[:, :, -1] < ecut - efermi).any():
-                # We don't have enough bands!
-                weight_un[:] = np.inf
-        """
-    return None
+    return weight_un

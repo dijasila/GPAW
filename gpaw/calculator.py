@@ -167,6 +167,45 @@ class GPAW(Calculator):
 
         Calculator.__init__(self, restart, label=label, **kwargs)
 
+    def new(self,
+            timer=None,
+            communicator=None,
+            txt='-',
+            parallel=None,
+            **kwargs):
+        """Create a new calculator, inheriting input parameters.
+
+        The ``txt`` file and timer are the only input parameters to
+        be created anew. Internal variables, such as the density
+        or the wave functions, are not reused either.
+
+        For example, to perform an identical calculation with a
+        parameter changed (e.g. changing XC functional to PBE)::
+
+            new_calc = calc.new(xc='PBE')
+            atoms.calc = new_calc
+        """
+        assert 'atoms' not in kwargs
+        assert 'restart' not in kwargs
+        assert 'ignore_bad_restart_file' not in kwargs
+        assert 'label' not in kwargs
+
+        # Let the communicator fall back to world
+        if communicator is None:
+            communicator = self.world
+
+        if parallel is not None:
+            new_parallel = dict(self.parallel)
+            new_parallel.update(parallel)
+        else:
+            new_parallel = None
+
+        new_kwargs = dict(self.parameters)
+        new_kwargs.update(kwargs)
+
+        return GPAW(timer=timer, communicator=communicator,
+                    txt=txt, parallel=new_parallel, **new_kwargs)
+
     def fixed_density(self, *,
                       update_fermi_level: bool = False,
                       communicator=None,
@@ -1107,7 +1146,10 @@ class GPAW(Calculator):
                 ecut = 2 * self.wfs.pd.ecut
             else:
                 ecut = 0.5 * (np.pi / h)**2
-            self.density = ReciprocalSpaceDensity(ecut=ecut, **kwargs)
+            self.density = ReciprocalSpaceDensity(
+                ecut=ecut,
+                add_nct_directly=mode.add_nct_directly,
+                **kwargs)
 
         self.log(self.density, '\n')
 

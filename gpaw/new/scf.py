@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import itertools
 import warnings
+from math import inf
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, Callable
 
@@ -18,6 +19,10 @@ if TYPE_CHECKING:
 
 class SCFConvergenceError(Exception):
     ...
+
+
+class TooFewBandsError(SCFConvergenceError):
+    """Not enough bands for CBM+x convergence cfriterium."""
 
 
 class SCFLoop:
@@ -96,13 +101,16 @@ class SCFLoop:
             if converged:
                 break
             if self.niter == maxiter:
-                raise SCFConvergenceError
+                if wfs_error < inf:
+                    raise SCFConvergenceError
+                raise TooFewBandsError
 
             if self.update_density_and_potential:
                 state.density.update(pot_calc.nct_R, state.ibzwfs)
                 dens_error = self.mixer.mix(state.density)
                 state.potential, state.vHt_x, _ = pot_calc.calculate(
-                    state.density, state.vHt_x)
+                    state.density, state.vHt_x,
+                    state.ibzwfs.kpt_comm)
 
 
 class SCFContext:

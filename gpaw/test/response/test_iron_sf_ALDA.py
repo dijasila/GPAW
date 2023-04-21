@@ -17,6 +17,7 @@ from gpaw.mpi import world
 from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.susceptibility import ChiFactory
+from gpaw.response.localft import LocalFTCalculator
 from gpaw.response.df import read_response_function
 
 
@@ -72,11 +73,12 @@ def test_response_iron_sf_ALDA(in_tmp_dir, gpw_files, scalapack):
                                      disable_time_reversal=disable_syms,
                                      nblocks=2)
         chi_factory = ChiFactory(chiks_calc)
+        localft_calc = LocalFTCalculator.from_rshe_parameters(
+            gs, chiks_calc.context,
+            rshelmax=rshelmax,
+            rshewmin=rshewmin)
         chi = chi_factory('+-', q_c, complex_frequencies,
-                          fxc=fxc,
-                          fxckwargs={'calculator': {'method': 'old',
-                                                    'rshelmax': rshelmax,
-                                                    'rshewmin': rshewmin}})
+                          fxc=fxc, localft_calc=localft_calc)
         chi.write_macroscopic_component('iron_dsus' + '_G%d.csv' % (s + 1))
         chi_factory.context.write_timer()
 
@@ -115,8 +117,8 @@ def test_response_iron_sf_ALDA(in_tmp_dir, gpw_files, scalapack):
     # Compare new results to test values
     print(mw1, mw2, mw4, Ipeak1, Ipeak2, Ipeak4)
     test_mw1 = 402.  # meV
-    test_mw2 = 517.  # meV
-    test_mw4 = 518.  # meV
+    test_mw2 = 490.  # meV
+    test_mw4 = 490.  # meV
     test_Ipeak1 = 4.10  # a.u.
     test_Ipeak2 = 5.05  # a.u.
     test_Ipeak4 = 5.04  # a.u.

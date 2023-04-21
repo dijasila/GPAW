@@ -8,27 +8,32 @@ from ase.utils import lazyproperty
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKS, ChiKSCalculator
 from gpaw.response.coulomb_kernels import get_coulomb_kernel
-from gpaw.response.fxc_kernels import FXCFactory
+from gpaw.response.localft import LocalPAWFTCalculator
+from gpaw.response.fxc_kernels import AdiabaticFXCCalculator, FXCKernel
 from gpaw.response.dyson import DysonSolver
 
 
 class Chi:
     """Many-body susceptibility in a plane-wave basis."""
 
-    def __init__(self, chiks: ChiKS,
-                 Vbare_G, Kxc_GG,
-                 dyson_solver: DysonSolver):
+    def __init__(self, context,
+                 chiks: ChiKS,
+                 Vbare_G,
+                 fxc_kernel: FXCKernel,
+                 fxc_scaling=None):
         """Construct the many-body susceptibility based on its ingredients."""
         assert chiks.distribution == 'zGG' and\
-            chiks.blockdist.blockcomm.size == chiks.blockdist.world.size,\
+            chiks.blockdist.fully_block_distributed,\
             "Chi assumes that chiks's frequencies are distributed over world"
+        self.context = context
+        self.dyson_solver = DysonSolver(context)
+        
         self.chiks = chiks
         self.world = chiks.blockdist.world
 
         self.Vbare_G = Vbare_G
-        self.Kxc_GG = Kxc_GG  # Use Kxc_G in the future XXX
-
-        self.dyson_solver = dyson_solver
+        self.fxc_kernel = fxc_kernel
+        self.fxc_scaling = fxc_scaling
 
     def write_macroscopic_component(self, filename):
         """Calculate the spatially averaged (macroscopic) component of the
@@ -69,13 +74,13 @@ class Chi:
         omega_w, chiks_wGG, chi_wGG = self.get_distributed_arrays()
 
         # Map the susceptibilities to a reduced plane-wave representation
-        pd = self.chiks.pd
-        mask_G = get_pw_reduction_map(pd, reduced_ecut)
+        qpd = self.chiks.qpd
+        mask_G = get_pw_reduction_map(qpd, reduced_ecut)
         chiks_wGG = np.ascontiguousarray(chiks_wGG[:, mask_G, :][:, :, mask_G])
         chi_wGG = np.ascontiguousarray(chi_wGG[:, mask_G, :][:, :, mask_G])
 
         # Get reduced plane wave repr. as coordinates on the reciprocal lattice
-        G_Gc = get_pw_coordinates(pd)[mask_G]
+        G_Gc = get_pw_coordinates(qpd)[mask_G]
 
         # Gather all frequencies from world to root
         chiks_wGG = self.gather(chiks_wGG)
@@ -105,11 +110,31 @@ class Chi:
 
         if self.Vbare_G is not None:  # Add the Hartree kernel
             Khxc_GG.flat[::nG + 1] += self.Vbare_G
-        if self.Kxc_GG is not None:  # Add the xc kernel
-            # In the future, construct the xc kernel here! XXX
-            Khxc_GG += self.Kxc_GG
+
+        if self.fxc_kernel is not None:  # Add the xc kernel
+            Khxc_GG += self.get_Kxc_GG()
+        else:
+            assert self.fxc_scaling is None,\
+                'Cannot apply an fxc scaling if no fxc kernel is supplied'
 
         return Khxc_GG
+
+    def get_Kxc_GG(self):
+        """Construct the (scaled) xc kernel matrix Kxc(G,G')."""
+        # Unfold the fxc kernel into the Kxc kernel matrix
+        Kxc_GG = self.fxc_kernel.get_Kxc_GG()
+
+        # Apply a flat scaling to the kernel, if specified
+        fxc_scaling = self.fxc_scaling
+        if fxc_scaling is not None:
+            if not fxc_scaling.has_scaling:
+                fxc_scaling.calculate_scaling(self.chiks, Kxc_GG)
+            lambd = fxc_scaling.get_scaling()
+            self.context.print(r'Rescaling the xc kernel by a factor of '
+                               f'λ={lambd}')
+            Kxc_GG *= lambd
+
+        return Kxc_GG
 
     def collect(self, x_z):
         """Collect all frequencies."""
@@ -152,13 +177,12 @@ class ChiFactory:
         self.gs = chiks_calc.gs
         self.context = chiks_calc.context
 
-        self.fxc_factory = FXCFactory(self.gs, self.context)
-
         # Prepare a buffer for chiks
         self._chiks = None
 
     def __call__(self, spincomponent, q_c, complex_frequencies,
-                 Kxc_GG=None, fxc=None, fxckwargs=None, txt=None) -> Chi:
+                 fxc_kernel=None, fxc=None, localft_calc=None,
+                 fxc_scaling=None, txt=None) -> Chi:
         r"""Calculate a given element (spincomponent) of the four-component
         Kohn-Sham susceptibility tensor and construct a corresponding many-body
         susceptibility object within a given approximation to the
@@ -174,17 +198,20 @@ class ChiFactory:
         complex_frequencies : np.array or ComplexFrequencyDescriptor
             Array of complex frequencies to evaluate the response function at
             or a descriptor of those frequencies.
-        Kxc_GG : np.array
+        fxc_kernel : FXCKernel
             Exchange-correlation kernel (calculated elsewhere). Use this input
             carefully! The plane-wave representation in the supplied kernel has
             to match the representation of chiks.
             If no kernel is supplied, the ChiFactory will calculate one itself
-            according to keywords fxc and fxckwargs.
+            according to keywords fxc and localft_calc.
         fxc : str (None defaults to ALDA)
             Approximation to the (local) xc kernel.
             Choices: ALDA, ALDA_X, ALDA_x
-        fxckwargs : dict (or None for default kwargs)
-            Keyword arguments when calling the FXCFactory
+        localft_calc : LocalFTCalculator or None
+            Calculator used to Fourier transform the fxc kernel into plane-wave
+            components. If None, the default LocalPAWFTCalculator is used.
+        fxc_scaling : None or FXCScaling
+            Supply an FXCScaling object to scale the xc kernel.
         txt : str
             Save output of the calculation of this specific component into
             a file with the filename of the given input.
@@ -208,28 +235,34 @@ class ChiFactory:
             # No Hartree term in Dyson equation
             Vbare_G = None
         else:
-            Vbare_G = get_coulomb_kernel(chiks.pd, self.gs.kd.N_c)
+            Vbare_G = get_coulomb_kernel(chiks.qpd, self.gs.kd.N_c)
 
         # Calculate the xc kernel, if it has not been supplied by the user
-        if Kxc_GG is None:
-            # Fall back to defaults, if fxc and/or fxckwargs are not specified
+        if fxc_kernel is None:
+            # Use ALDA as the default fxc
             if fxc is None:
                 fxc = 'ALDA'
-            if fxckwargs is None:
-                fxckwargs = {}
+            # In RPA, we neglect the xc-kernel
+            if fxc == 'RPA':
+                assert localft_calc is None,\
+                    "With fxc='RPA', there is no xc kernel to be calculated,"\
+                    "rendering the localft_calc input irrelevant"
+            else:
+                # If no localft_calc is supplied, fall back to the default
+                if localft_calc is None:
+                    localft_calc = LocalPAWFTCalculator(self.gs, self.context)
 
-            # Perform actual kernel calculation
-            if fxc != 'RPA':  # In RPA, we neglect the xc-kernel
-                Kxc_GG = self.fxc_factory(fxc, chiks, **fxckwargs)
+                # Perform an actual kernel calculation
+                fxc_calculator = AdiabaticFXCCalculator(localft_calc)
+                fxc_kernel = fxc_calculator(
+                    fxc, chiks.spincomponent, chiks.qpd)
         else:
-            assert fxc is None and fxckwargs is None,\
-                'Supplying an xc kernel Kxc_GG overwrites the fxc and '\
-                'fxckwargs inputs'
+            assert fxc is None and localft_calc is None,\
+                'Supplying an xc kernel overwrites any specification of how'\
+                'to calculate the kernel'
 
-        # Initiate the dyson solver
-        dyson_solver = DysonSolver(self.context)
-
-        return Chi(chiks, Vbare_G, Kxc_GG, dyson_solver)
+        return Chi(self.context, chiks, Vbare_G, fxc_kernel,
+                   fxc_scaling=fxc_scaling)
 
     def get_chiks(self, spincomponent, q_c, complex_frequencies):
         """Get chiks from buffer."""
@@ -255,7 +288,7 @@ class ChiFactory:
         return self._chiks
 
 
-def get_pw_reduction_map(pd, ecut):
+def get_pw_reduction_map(qpd, ecut):
     """Get a mask to reduce the plane wave representation.
 
     Please remark, that the response code currently works with one q-vector
@@ -268,20 +301,20 @@ def get_pw_reduction_map(pd, ecut):
     """
     assert ecut is not None
     ecut /= Hartree
-    assert ecut <= pd.ecut
+    assert ecut <= qpd.ecut
 
     # List of all plane waves
-    G_Gv = np.array([pd.G_Qv[Q] for Q in pd.Q_qG[0]])
+    G_Gv = np.array([qpd.G_Qv[Q] for Q in qpd.Q_qG[0]])
 
-    if pd.gammacentered:
+    if qpd.gammacentered:
         mask_G = ((G_Gv ** 2).sum(axis=1) <= 2 * ecut)
     else:
-        mask_G = (((G_Gv + pd.K_qv[0]) ** 2).sum(axis=1) <= 2 * ecut)
+        mask_G = (((G_Gv + qpd.K_qv[0]) ** 2).sum(axis=1) <= 2 * ecut)
 
     return mask_G
 
 
-def get_pw_coordinates(pd):
+def get_pw_coordinates(qpd):
     """Get the reciprocal lattice vector coordinates corresponding to a
     givne plane wave basis.
 
@@ -294,17 +327,17 @@ def get_pw_coordinates(pd):
         Coordinates on the reciprocal lattice
     """
     # List of all plane waves
-    G_Gv = np.array([pd.G_Qv[Q] for Q in pd.Q_qG[0]])
+    G_Gv = np.array([qpd.G_Qv[Q] for Q in qpd.Q_qG[0]])
 
     # Use cell to get coordinates
-    B_cv = 2.0 * np.pi * pd.gd.icell_cv
+    B_cv = 2.0 * np.pi * qpd.gd.icell_cv
     return np.round(np.dot(G_Gv, np.linalg.inv(B_cv))).astype(int)
 
 
-def get_inverted_pw_mapping(pd1, pd2):
-    """Get the plane wave coefficients mapping GG' of pd1 into -G-G' of pd2"""
-    G1_Gc = get_pw_coordinates(pd1)
-    G2_Gc = get_pw_coordinates(pd2)
+def get_inverted_pw_mapping(qpd1, qpd2):
+    """Get the planewave coefficients mapping GG' of qpd1 into -G-G' of qpd2"""
+    G1_Gc = get_pw_coordinates(qpd1)
+    G2_Gc = get_pw_coordinates(qpd2)
 
     mG2_G1 = []
     for G1_c in G1_Gc:
@@ -315,7 +348,7 @@ def get_inverted_pw_mapping(pd1, pd2):
                 found_match = True
                 break
         if not found_match:
-            raise ValueError('Could not match pd1 and pd2')
+            raise ValueError('Could not match qpd1 and qpd2')
 
     # Set up mapping from GG' to -G-G'
     invmap_GG = tuple(np.meshgrid(mG2_G1, mG2_G1, indexing='ij'))
@@ -323,7 +356,7 @@ def get_inverted_pw_mapping(pd1, pd2):
     return invmap_GG
 
 
-def symmetrize_reciprocity(pd, X_wGG):
+def symmetrize_reciprocity(qpd, X_wGG):
     """In collinear systems without spin-orbit coupling, the plane wave
     susceptibility is reciprocal in the sense that e.g.
 
@@ -333,9 +366,9 @@ def symmetrize_reciprocity(pd, X_wGG):
     """
     from gpaw.test.response.test_chiks import get_inverted_pw_mapping
 
-    q_c = pd.q_c
+    q_c = qpd.q_c
     if np.allclose(q_c, 0.):
-        invmap_GG = get_inverted_pw_mapping(pd, pd)
+        invmap_GG = get_inverted_pw_mapping(qpd, qpd)
         for X_GG in X_wGG:
             # Symmetrize [χ_(GG')(q, ω) + χ_(-G'-G)(-q, ω)] / 2
             X_GG[:] = (X_GG + X_GG[invmap_GG].T) / 2.

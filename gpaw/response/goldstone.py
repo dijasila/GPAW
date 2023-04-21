@@ -5,7 +5,7 @@ from gpaw.response.dyson import invert_dyson_single_frequency
 
 def get_goldstone_scaling(mode, chiks, Kxc_GG):
     """Get kernel scaling parameter to fulfill a Goldstone condition."""
-    assert chiks.pd.kd.gamma,\
+    assert chiks.qpd.kd.gamma,\
         r'The Goldstone condition is strictly bound to the Γ-point'
 
     # Find the frequency to determine the scaling from

@@ -1,10 +1,13 @@
 import numpy as np
 
+from ase.units import Ha
+
 from gpaw.pw.descriptor import PWMapping
 
 from gpaw.response.pw_parallelization import (Blocks1D,
                                               PlaneWaveBlockDistributor)
-from gpaw.response.frequencies import FrequencyDescriptor
+from gpaw.response.frequencies import (FrequencyDescriptor,
+                                       ComplexFrequencyDescriptor)
 from gpaw.response.pair_functions import (SingleQPWDescriptor,
                                           map_WgG_array_to_reduced_pd)
 
@@ -12,27 +15,27 @@ from gpaw.response.pair_functions import (SingleQPWDescriptor,
 class Chi0Descriptors:
     """Descriptor collection for Chi0Data."""
 
-    def __init__(self, wd, pd):
+    def __init__(self, wd, qpd):
         """Construct the descriptor collection
 
         Parameters
         ----------
         wd : FrequencyDescriptor
-        pd : SingleQPWDescriptor
+        qpd : SingleQPWDescriptor
         """
         self.wd = wd
-        self.pd = pd
+        self.qpd = qpd
 
         # Extract optical limit
-        self.q_c = pd.q_c
-        self.optical_limit = np.allclose(pd.q_c, 0.0)
+        self.q_c = qpd.q_c
+        self.optical_limit = qpd.optical_limit
 
         # Basis set size
-        self.nG = pd.ngmax
+        self.nG = qpd.ngmax
 
     @staticmethod
     def from_descriptor_arguments(frequencies, plane_waves):
-        """Contruct a Chi0Descriptors, with wd and pd constructed on the fly.
+        """Contruct a Chi0Descriptors, with wd and qpd constructed on the fly.
         """
         # Construct wd
         if isinstance(frequencies, FrequencyDescriptor):
@@ -40,15 +43,15 @@ class Chi0Descriptors:
         else:
             wd = frequencies.from_array_or_dict(frequencies)
 
-        # Construct pd
+        # Construct qpd
         if isinstance(plane_waves, SingleQPWDescriptor):
-            pd = plane_waves
+            qpd = plane_waves
         else:
             assert isinstance(plane_waves, tuple)
             assert len(plane_waves) == 3
-            pd = SingleQPWDescriptor.from_q(*plane_waves)
+            qpd = SingleQPWDescriptor.from_q(*plane_waves)
 
-        return Chi0Descriptors(wd, pd)
+        return Chi0Descriptors(wd, qpd)
 
 
 def make_blockdist(parallelization):
@@ -78,11 +81,11 @@ class BodyData:
         """
         self.descriptors = descriptors
         self.wd = descriptors.wd
-        self.pd = descriptors.pd
+        self.qpd = descriptors.qpd
         self.blockdist = blockdist
 
         # Initialize block distibution of plane wave basis
-        nG = self.pd.ngmax
+        nG = self.qpd.ngmax
         self.blocks1d = Blocks1D(blockdist.blockcomm, nG)
 
         # Data arrays
@@ -147,11 +150,43 @@ class BodyData:
         return data_x
 
 
+class Chi0DrudeData:
+    def __init__(self, zd: ComplexFrequencyDescriptor):
+        self.zd = zd
+        self.plasmafreq_vv, self.chi_Zvv = self.zeros()
+
+    def zeros(self):
+        return (np.zeros(self.vv_shape, complex),  # plasmafreq
+                np.zeros(self.Zvv_shape, complex))  # chi0_drude
+
+    @staticmethod
+    def from_frequency_descriptor(wd, rate):
+        """Construct the Chi0DrudeData object from a frequency descriptor and
+        the imaginary part (in eV) of the resulting horizontal frequency
+        contour"""
+        rate = rate / Ha  # eV -> Hartree
+        zd = ComplexFrequencyDescriptor(wd.omega_w + 1.j * rate)
+
+        return Chi0DrudeData(zd)
+
+    @property
+    def nz(self):
+        return len(self.zd)
+
+    @property
+    def vv_shape(self):
+        return (3, 3)
+
+    @property
+    def Zvv_shape(self):
+        return (self.nz,) + self.vv_shape
+
+
 class OpticalExtensionData:
     def __init__(self, descriptors):
         assert descriptors.optical_limit
         self.wd = descriptors.wd
-        self.pd = descriptors.pd
+        self.qpd = descriptors.qpd
 
         self.head_Wvv, self.wings_WxvG = self.zeros()
         
@@ -175,7 +210,7 @@ class OpticalExtensionData:
 
     @property
     def nG(self):
-        return self.pd.ngmax
+        return self.qpd.ngmax
 
     @property
     def Wvv_shape(self):
@@ -210,14 +245,14 @@ class AugmentedBodyData(BodyData):
         if self.optical_limit:
             return self.optical_extension.WxvG_shape
 
-    def copy_with_reduced_pd(self, pd):
+    def copy_with_reduced_pd(self, qpd):
         """Provide a copy of the object within a reduced plane-wave basis.
         """
-        descriptors = Chi0Descriptors(self.wd, pd)
+        descriptors = Chi0Descriptors(self.wd, qpd)
         # Create a new AugmentedBodyData object
         new_abd = self._new(descriptors, self.blockdist)
 
-        new_abd.data_WgG[:] = map_WgG_array_to_reduced_pd(self.pd, pd,
+        new_abd.data_WgG[:] = map_WgG_array_to_reduced_pd(self.qpd, qpd,
                                                           self.blockdist,
                                                           self.data_WgG)
         if self.optical_limit:
@@ -225,7 +260,7 @@ class AugmentedBodyData(BodyData):
                 = self.optical_extension.head_Wvv
 
             # Map the wings to the reduced plane-wave description
-            G2_G1 = PWMapping(pd, self.pd).G2_G1
+            G2_G1 = PWMapping(qpd, self.qpd).G2_G1
             new_abd.optical_extension.wings_WxvG[:] \
                 = self.optical_extension.wings_WxvG[..., G2_G1]
 

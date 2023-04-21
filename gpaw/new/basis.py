@@ -21,7 +21,7 @@ def create_basis(ibz,
     kd.set_communicator(kpt_comm)
 
     basis = BasisFunctions(grid._gd,
-                           [setup.phit_j for setup in setups],
+                           [setup.basis_functions_J for setup in setups],
                            kd,
                            dtype=dtype,
                            cut=True)

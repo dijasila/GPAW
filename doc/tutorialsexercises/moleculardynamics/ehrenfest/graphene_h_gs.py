@@ -90,10 +90,11 @@ if charge == 1:
                 if dist < rcut:
                     vext.vext_g[i, j, k] += A * np.exp(-dist**2)
 
-    calc.set(convergence=conv_par, eigensolver=RMMDIIS(5), external=vext)
+    atoms.calc = calc.new(convergence=conv_par, eigensolver=RMMDIIS(5),
+                          external=vext, txt=name + '_vext_gs.txt')
 
     atoms.get_potential_energy()
-    calc.write(name + '.gpw', mode='all')
+    atoms.calc.write(name + '.gpw', mode='all')
 
 else:
     parprint('Charge should be 0 or 1!')

@@ -369,7 +369,9 @@ class Matrix:
                     H.data[np.triu_indices(H.shape[0], 1)] = 42.0
                 if S is None:
                     if self.xp is not np:
-                        eps, H.data.T[:] = cupy_eigh(H.data, UPLO='L')
+                        eps, H.data.T[:] = (
+                            cupy_eigh(  # type: ignore[assignment]
+                                H.data, UPLO='L'))
                         return eps
                     eps[:], H.data.T[:] = sla.eigh(
                         H.data,

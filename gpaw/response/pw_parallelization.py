@@ -14,12 +14,29 @@ class Blocks1D:
 
         self.myslice = slice(self.a, self.b)
 
-    def collect(self, array_w):
-        b_w = np.zeros(self.blocksize, array_w.dtype)
-        b_w[:self.nlocal] = array_w
-        A_w = np.empty(self.blockcomm.size * self.blocksize, array_w.dtype)
-        self.blockcomm.all_gather(b_w, A_w)
-        return A_w[:self.N]
+    def collect(self, in_myix):
+        """Collect full array where the first dimension is block distributed.
+
+        Here, myi is understood as the distributed index, whereas x are the
+        remaining (global) dimensions."""
+        xshape = in_myix.shape[1:]
+
+        # Local communication buffer
+        if in_myix.shape[0] == self.blocksize and in_myix.flags.contiguous:
+            buf_myix = in_myix  # Use input array as communication buffer
+        else:
+            assert in_myix.shape[0] == self.nlocal
+            buf_myix = np.empty((self.blocksize,) + xshape, in_myix.dtype)
+            buf_myix[:self.nlocal] = in_myix
+
+        # Global communication buffer
+        buf_ix = np.empty((self.blockcomm.size * self.blocksize,) + xshape,
+                          dtype=in_myix.dtype)
+
+        self.blockcomm.all_gather(buf_myix, buf_ix)
+        out_ix = buf_ix[:self.N]
+
+        return out_ix
 
     def find_global_index(self, i):
         """Find rank and local index of the global index i"""
@@ -30,6 +47,23 @@ class Blocks1D:
 
 
 def block_partition(comm, nblocks):
+    r"""Partition the communicator into a 2D array with horizontal
+    and vertical communication.
+
+         Communication between blocks (blockcomm)
+    <----------------------------------------------->
+     _______________________________________________
+    |     |     |     |     |     |     |     |     | ⋀
+    |  0  |  1  |  2  |  3  |  4  |  5  |  6  |  7  | |
+    |_____|_____|_____|_____|_____|_____|_____|_____| |
+    |     |     |     |     |     |     |     |     | | Communication inside
+    |  8  |  9  | 10  | 11  | 12  | 13  | 14  | 15  | | blocks
+    |_____|_____|_____|_____|_____|_____|_____|_____| | (intrablockcomm)
+    |     |     |     |     |     |     |     |     | |
+    | 16  | 17  | 18  | 19  | 20  | 21  | 22  | 23  | |
+    |_____|_____|_____|_____|_____|_____|_____|_____| ⋁
+    
+    """
     if nblocks == 'max':
         # Maximize the number of blocks
         nblocks = comm.size
@@ -37,16 +71,22 @@ def block_partition(comm, nblocks):
     assert nblocks > 0 and nblocks <= comm.size, comm.size
     assert comm.size % nblocks == 0, comm.size
 
-    rank1 = comm.rank // nblocks * nblocks
-    rank2 = rank1 + nblocks
-    blockcomm = comm.new_communicator(range(rank1, rank2))
-    ranks = range(comm.rank % nblocks, comm.size, nblocks)
+    # Communicator between different blocks
+    if nblocks == comm.size:
+        blockcomm = comm
+    else:
+        rank1 = comm.rank // nblocks * nblocks
+        rank2 = rank1 + nblocks
+        blockcomm = comm.new_communicator(range(rank1, rank2))
 
+    # Communicator inside each block
+    ranks = range(comm.rank % nblocks, comm.size, nblocks)
     if nblocks == 1:
         assert len(ranks) == comm.size
         intrablockcomm = comm
     else:
         intrablockcomm = comm.new_communicator(ranks)
+
     assert blockcomm.size * intrablockcomm.size == comm.size
 
     return blockcomm, intrablockcomm
@@ -60,6 +100,10 @@ class PlaneWaveBlockDistributor:
         self.world = world
         self.blockcomm = blockcomm
         self.intrablockcomm = intrablockcomm
+
+    @property
+    def fully_block_distributed(self):
+        return self.world.compare(self.blockcomm) == 'ident'
 
     def new_distributor(self, *, nblocks):
         """Set up a new PlaneWaveBlockDistributor."""

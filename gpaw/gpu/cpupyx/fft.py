@@ -20,3 +20,23 @@ def fftn(array_Q,
                                shape,
                                norm=norm,
                                overwrite_x=overwrite_x))
+
+
+def rfftn(array_Q,
+          shape=None,
+          norm=None,
+          overwrite_x=False):
+    return cp.ndarray(fft.rfftn(array_Q._data,
+                                shape,
+                                norm=norm,
+                                overwrite_x=overwrite_x))
+
+
+def irfftn(array_Q,
+           shape=None,
+           norm=None,
+           overwrite_x=False):
+    return cp.ndarray(fft.irfftn(array_Q._data,
+                                 shape,
+                                 norm=norm,
+                                 overwrite_x=overwrite_x))

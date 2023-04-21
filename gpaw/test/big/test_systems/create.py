@@ -48,9 +48,9 @@ def ni100():
 def biimtf():
     atoms = read('biimtf.xyz')
     atoms.center(vacuum=5)
+    atoms.set_initial_magnetic_moments([1] * len(atoms))
     return atoms, dict(h=0.16,
                        charge=+1,
-                       spinpol=True,
                        occupations=FermiDirac(0.05),
                        xc='RPBE')
 
@@ -156,8 +156,7 @@ def pt_h2o():
                        xc='RPBE',
                        poissonsolver={'dipolelayer': 'xy'},
                        basis='dzp',
-                       maxiter=200,
-                       txt='Pt_H2O.txt')
+                       maxiter=200)
 
 
 @system
