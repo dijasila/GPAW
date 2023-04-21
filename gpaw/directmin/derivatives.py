@@ -575,7 +575,7 @@ class Davidson(object):
 
     def log(self):
         self.logger('Dimensionality of Krylov space: '
-                + str(len(self.V[0]) - len(self.t)), flush=True)
+                    + str(len(self.V[0]) - len(self.t)), flush=True)
         if self.reset:
             self.logger('Reset Krylov space', flush=True)
         self.logger('\nEigenvalues:\n', flush=True)
