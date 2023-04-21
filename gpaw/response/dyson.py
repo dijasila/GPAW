@@ -8,24 +8,21 @@ from gpaw.response.fxc_kernels import FXCKernel
 from gpaw.response.goldstone import get_goldstone_scaling
 
 
-class FXCScaling:
-    """Helper for scaling fxc kernels."""
+class HXCScaling:
+    """Helper for scaling hxc kernels."""
 
     def __init__(self, mode, lambd=None):
         self.mode = mode
-        self.lambd = lambd
+        self._lambd = lambd
 
     @property
-    def has_scaling(self):
-        return self.lambd is not None
+    def lambd(self):
+        return self._lambd
 
-    def get_scaling(self):
-        return self.lambd
-
-    def calculate_scaling(self, chiks, Kxc_GG, dyson_solver):
+    def calculate_scaling(self, chiks, Khxc_GG, dyson_solver):
         if chiks.spincomponent in ['+-', '-+']:
-            self.lambd = get_goldstone_scaling(
-                self.mode, chiks, Kxc_GG, dyson_solver)
+            self._lambd = get_goldstone_scaling(
+                self.mode, chiks, Khxc_GG, dyson_solver)
         else:
             raise ValueError('No scaling method implemented for '
                              f'spincomponent={chiks.spincomponent}')
@@ -37,11 +34,11 @@ class HXCKernel:
     def __init__(self,
                  Vbare_G,
                  fxc_kernel: FXCKernel | None,
-                 fxc_scaling: FXCScaling | None = None):
+                 scaling: HXCScaling | None = None):
         """Construct the Hxc kernel."""
         self.Vbare_G = Vbare_G
         self.fxc_kernel = fxc_kernel
-        self.fxc_scaling = fxc_scaling
+        self.scaling = scaling
 
         if Vbare_G is None:
             self.nG = fxc_kernel.GG_shape[0]
@@ -60,10 +57,9 @@ class HXCKernel:
             # Unfold the fxc kernel into the Kxc kernel matrix
             Khxc_GG += self.fxc_kernel.get_Kxc_GG()
 
-        # Apply kernel scaling, if such a scaling exists
-        fxc_scaling = self.fxc_scaling
-        if fxc_scaling is not None and fxc_scaling.has_scaling:
-            Khxc_GG *= fxc_scaling.get_scaling()
+        # Apply kernel scaling, if such a scaling parameter exists
+        if self.scaling is not None and self.scaling.lambd is not None:
+            Khxc_GG *= self.scaling.lambd
 
         return Khxc_GG
 
@@ -83,10 +79,10 @@ class DysonSolver:
         Khxc_GG = hxc_kernel.get_Khxc_GG()
 
         # Calculate kernel scaling, if specified
-        fxc_scaling = hxc_kernel.fxc_scaling
-        if fxc_scaling is not None and not fxc_scaling.has_scaling:
-            fxc_scaling.calculate_scaling(chiks, Khxc_GG, self)
-            lambd = fxc_scaling.get_scaling()
+        hxc_scaling = hxc_kernel.scaling
+        if hxc_scaling is not None and hxc_scaling.lambd is None:
+            hxc_scaling.calculate_scaling(chiks, Khxc_GG, self)
+            lambd = hxc_scaling.lambd
             self.context.print(r'Rescaling the xc kernel by a factor of '
                                f'λ={lambd}')
             Khxc_GG *= lambd

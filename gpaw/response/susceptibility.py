@@ -170,7 +170,7 @@ class ChiFactory:
 
     def __call__(self, spincomponent, q_c, complex_frequencies,
                  fxc_kernel=None, fxc=None, localft_calc=None,
-                 fxc_scaling=None, txt=None) -> Chi:
+                 hxc_scaling=None, txt=None) -> Chi:
         r"""Calculate a given element (spincomponent) of the four-component
         Kohn-Sham susceptibility tensor and construct a corresponding many-body
         susceptibility object within a given approximation to the
@@ -198,8 +198,8 @@ class ChiFactory:
         localft_calc : LocalFTCalculator or None
             Calculator used to Fourier transform the fxc kernel into plane-wave
             components. If None, the default LocalPAWFTCalculator is used.
-        fxc_scaling : None or FXCScaling
-            Supply an FXCScaling object to scale the xc kernel.
+        hxc_scaling : None or HXCScaling
+            Supply an HXCScaling object to scale the hxc kernel.
         txt : str
             Save output of the calculation of this specific component into
             a file with the filename of the given input.
@@ -250,7 +250,7 @@ class ChiFactory:
                 'to calculate the kernel'
 
         # Construct the hxc kernel and dyson solver
-        hxc_kernel = HXCKernel(Vbare_G, fxc_kernel, fxc_scaling=fxc_scaling)
+        hxc_kernel = HXCKernel(Vbare_G, fxc_kernel, scaling=hxc_scaling)
         dyson_solver = DysonSolver(self.context)
 
         return Chi(chiks, hxc_kernel, dyson_solver)
