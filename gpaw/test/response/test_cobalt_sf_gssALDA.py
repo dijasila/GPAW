@@ -7,7 +7,7 @@ from gpaw import GPAW
 from gpaw.test import findpeak
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chiks import ChiKSCalculator
-from gpaw.response.susceptibility import ChiFactory, read_component
+from gpaw.response.susceptibility import ChiFactory, read_diagonal
 from gpaw.response.localft import LocalFTCalculator
 from gpaw.response.fxc_kernels import FXCScaling
 
@@ -55,37 +55,37 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
             chi = chi_factory('+-', q_c, complex_frequencies,
                               fxc_scaling=fxc_scaling,
                               fxc_kernel=fxc_kernel)
-        chi.write_reduced_arrays(f'chiwGG_q{q}.pckl',
-                                 reduced_ecut=reduced_ecut)
+        chi.write_reduced_diagonals(f'chiwG_q{q}.pckl',
+                                    reduced_ecut=reduced_ecut)
 
     context.write_timer()
     context.comm.barrier()
 
     # Read data
-    w0_w, _, _, chi0_wGG = read_component('chiwGG_q0.pckl')
-    w1_w, _, _, chi1_wGG = read_component('chiwGG_q1.pckl')
+    w0_w, _, _, chi0_wG = read_diagonal('chiwG_q0.pckl')
+    w1_w, _, _, chi1_wG = read_diagonal('chiwG_q1.pckl')
 
     # # Find acoustic magnon mode
-    wpeak00, Ipeak00 = findpeak(w0_w, -chi0_wGG[:, 0, 0].imag)
-    wpeak01, Ipeak01 = findpeak(w1_w, -chi1_wGG[:, 0, 0].imag)
+    wpeak00, Ipeak00 = findpeak(w0_w, -chi0_wG[:, 0].imag)
+    wpeak01, Ipeak01 = findpeak(w1_w, -chi1_wG[:, 0].imag)
     # Find optical magnon mode
-    wpeak10, Ipeak10 = findpeak(w0_w, -chi0_wGG[:, 1, 1].imag)
-    wpeak11, Ipeak11 = findpeak(w1_w, -chi1_wGG[:, 1, 1].imag)
+    wpeak10, Ipeak10 = findpeak(w0_w, -chi0_wG[:, 1].imag)
+    wpeak11, Ipeak11 = findpeak(w1_w, -chi1_wG[:, 1].imag)
 
     if context.comm.rank == 0:
         # # Plot the magnons
         # import matplotlib.pyplot as plt
         # # Acoustic magnon mode
         # plt.subplot(1, 2, 1)
-        # plt.plot(w0_w, -chi0_wGG[:, 0, 0].imag)
+        # plt.plot(w0_w, -chi0_wG[:, 0].imag)
         # plt.axvline(wpeak00, c='0.5', linewidth=0.8)
-        # plt.plot(w1_w, -chi1_wGG[:, 0, 0].imag)
+        # plt.plot(w1_w, -chi1_wG[:, 0].imag)
         # plt.axvline(wpeak01, c='0.5', linewidth=0.8)
         # # Optical magnon mode
         # plt.subplot(1, 2, 2)
-        # plt.plot(w0_w, -chi0_wGG[:, 1, 1].imag)
+        # plt.plot(w0_w, -chi0_wG[:, 1].imag)
         # plt.axvline(wpeak10, c='0.5', linewidth=0.8)
-        # plt.plot(w1_w, -chi1_wGG[:, 1, 1].imag)
+        # plt.plot(w1_w, -chi1_wG[:, 1].imag)
         # plt.axvline(wpeak11, c='0.5', linewidth=0.8)
         # plt.show()
 
@@ -109,8 +109,6 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
     assert Ipeak10 == pytest.approx(1.013, abs=0.01)
     assert Ipeak11 == pytest.approx(0.934, abs=0.01)
 
-    # XXX First step XXX #
-    # - Save diagonal instead of array
     # XXX Second step XXX #
     # - Reformulate the documentation, such that a pair function can be an
     #   interacting one
