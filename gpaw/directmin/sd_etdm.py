@@ -90,9 +90,9 @@ class ModeFollowingBase(object):
             self.eigvec = eigvec
         self.fixed_sp_order = self.partial_diagonalizer.sp_order
 
-    def negate_parallel_grad(self, g_k1):
+    def invert_parallel_grad(self, g_k1):
         """
-        Uses the stored eigenpairs and negates the projections of the gradient
+        Uses the stored eigenpairs and inverts the projections of the gradient
         parallel to the eigenvectors with negative eigenvalues.
 
         :param g_k1: Gradient.
