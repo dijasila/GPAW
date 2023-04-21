@@ -90,8 +90,12 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
         # plt.show()
 
         # Print values
+        print(fxc_scaling.get_scaling())
         print(wpeak00, wpeak01, wpeak10, wpeak11)
         print(Ipeak00, Ipeak01, Ipeak10, Ipeak11)
+
+    # Test kernel scaling
+    assert fxc_scaling.get_scaling() == pytest.approx(1.03765, abs=0.005)
 
     # Test magnon frequencies
     assert wpeak00 == pytest.approx(-0.0278, abs=0.005)
@@ -106,7 +110,6 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
     assert Ipeak11 == pytest.approx(0.878, abs=0.01)
 
     # XXX First step XXX #
-    # - Test kernel scaling
     # - Save diagonal instead of array
     # XXX Second step XXX #
     # - Reformulate the documentation, such that a pair function can be an
