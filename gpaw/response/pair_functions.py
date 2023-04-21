@@ -94,8 +94,8 @@ class PairFunction(ABC):
 class LatticePeriodicPairFunction(PairFunction):
     r"""Data object for lattice periodic pair functions.
 
-    A pair function is considered to be lattice periodic, if it is invariant
-    under translations of Bravais lattice vectors R:
+    Any spatial dependent pair function is considered to be lattice periodic,
+    if it is invariant under translations of Bravais lattice vectors R:
 
     pf(r, r', z) = pf(r + R, r' + R, z).
 
@@ -110,16 +110,14 @@ class LatticePeriodicPairFunction(PairFunction):
     arbitrary lattice periodic basis.
 
     In the GPAW response code, lattice periodic pair functions are expanded in
-    plane waves:
+    plane waves,
 
                    1   //
     pf_GG'(q, z) = ‾‾ || drdr' e^(-iG.r) pf(r, r', q, z) e^(iG'.r')
                    V0 //
                         V0
 
-    Hence, the collection consists of a complex frequency descriptor and a
-    plane-wave descriptor, where the latter is specific to the q-point in
-    question.
+    which are encoded in the SingleQPWDescriptor along with the wave vector q.
     """
 
     def __init__(self, qpd, zd,

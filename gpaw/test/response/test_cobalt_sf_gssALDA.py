@@ -110,8 +110,6 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
     assert Ipeak11 == pytest.approx(0.934, abs=0.01)
 
     # XXX Second step XXX #
-    # - Reformulate the documentation, such that a pair function can be an
-    #   interacting one
     # - Move calculation responsibility to dyson solver
     # - Rename ChiFactory to SusceptibilityFactory and make it return both
     #   ChiKS and Chi.
