@@ -10,7 +10,6 @@ https://doi.org/10.1021/acs.jctc.0c00597
 import numpy as np
 import copy
 from gpaw.directmin.tools import array_to_dict, dict_to_array
-from ase.parallel import parprint
 
 
 class SearchDirectionBase(object):
@@ -50,8 +49,8 @@ class ModeFollowingBase(object):
     following
     """
 
-    def __init__(self, partial_diagonalizer, convex_step_length = 0.1,
-                 reset_on_convex = False):
+    def __init__(self, partial_diagonalizer, convex_step_length=0.1,
+                 reset_on_convex=False):
         self.eigv = None
         self.eigvec = None
         self.eigvec_old = None
@@ -74,8 +73,8 @@ class ModeFollowingBase(object):
         """
 
         self.partial_diagonalizer.grad = g_k1
-        use_prev = False if self.eigv is None or (self.was_convex
-            and self.reset_on_convex) else True
+        use_prev = False if self.eigv is None or (
+            self.was_convex and self.reset_on_convex) else True
         self.partial_diagonalizer.run(wfs, ham, dens, use_prev)
         self.eigv = copy.deepcopy(self.partial_diagonalizer.lambda_all)
         self.eigvec_old = copy.deepcopy(self.eigvec)
@@ -127,7 +126,7 @@ class ModeFollowingBase(object):
                     * np.dot(self.eigvec[i].conj(), grad.T).real
             if get_dots == 0:
                 grad_mod = -self.convex_step_length * grad_par \
-                           / np.linalg.norm(grad_par)
+                    / np.linalg.norm(grad_par)
                 self.partial_diagonalizer.etdm.searchdir_algo.reset()
                 self.was_convex = True
             else:
@@ -145,7 +144,7 @@ class ModeFollowing(ModeFollowingBase, SearchDirectionBase):
     """
 
     def __init__(self, partial_diagonalizer, search_direction,
-                 convex_step_length = 0.1):
+                 convex_step_length=0.1):
         self.sd = search_direction
         self.name = self.sd.name + '_gmf'
         self.type = self.sd.type + '_gmf'
