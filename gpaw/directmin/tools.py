@@ -356,7 +356,7 @@ def rotate_orbitals(wfs, orbitals, angle, channel):
         np.cos(a) * c[orbitals[1]] - np.sin(a) * c[orbitals[0]]
 
 
-def get_a_vec_u(etdm, wfs, indices, angles, channels, occ = None):
+def get_a_vec_u(etdm, wfs, indices, angles, channels, occ=None):
     """
     Creates an orbital rotation vector based on given indices, angles and
     corresponding spin channels.
