@@ -41,10 +41,38 @@ class SingleQPWDescriptor(PWDescriptor):
 
 
 class PairFunction(ABC):
-    """Pair function data object.
+    r"""Pair function data object.
 
-    See gpaw.response.pair_integrator.PairFunctionIntegrator for the definition
-    of a pair function and how it is calculated."""
+    In the GPAW response module, a pair function is understood as any function
+    which can be written as a sum over the eigenstate transitions with a given
+    crystal momentum difference q
+               __
+               \
+    pf(q,z) =  /  pf_αα'(z) δ_{q,q_{α',α}}
+               ‾‾
+               α,α'
+
+    where z = ω + iη is a complex frequency.
+
+    Typically, this will be some generalized (linear) susceptibility, which is
+    defined by the Kubo formula,
+
+                   i           ˰          ˰
+    χ_BA(t-t') = - ‾ θ(t-t') <[B_0(t-t'), A]>_0
+                   ħ
+
+    and can be written in its Lehmann representation as a function of frequency
+    in the upper half complex frequency plane,
+    
+               __      ˰        ˰
+               \    <α|B|α'><α'|A|α>
+    χ_BA(z) =  /   ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾ (n_α - n_α')
+               ‾‾   ħz - (E_α' - E_α)
+               α,α'
+
+    where E_α and n_α are the eigenstate energies and occupations respectively.
+
+    For more information, please refer to [Skovhus T., PhD. Thesis, 2021]."""
 
     def __init__(self, qpd):
         """Construct a pair function.
