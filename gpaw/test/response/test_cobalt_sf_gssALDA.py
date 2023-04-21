@@ -24,7 +24,7 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
 
     rshelmax = 0
     fxc_scaling = FXCScaling('fm')
-    ecut = 300
+    ecut = 250
     reduced_ecut = 10  # Only save the bare minimum
     nblocks = 'max'
 
@@ -95,19 +95,19 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
         print(Ipeak00, Ipeak01, Ipeak10, Ipeak11)
 
     # Test kernel scaling
-    assert fxc_scaling.get_scaling() == pytest.approx(1.03765, abs=0.005)
+    assert fxc_scaling.get_scaling() == pytest.approx(0.9859, abs=0.005)
 
     # Test magnon frequencies
-    assert wpeak00 == pytest.approx(-0.0278, abs=0.005)
-    assert wpeak01 == pytest.approx(0.222, abs=0.01)
-    assert wpeak10 == pytest.approx(0.883, abs=0.01)
-    assert wpeak11 == pytest.approx(0.742, abs=0.01)
+    assert wpeak00 == pytest.approx(-0.0279, abs=0.005)
+    assert wpeak01 == pytest.approx(0.224, abs=0.01)
+    assert wpeak10 == pytest.approx(0.851, abs=0.01)
+    assert wpeak11 == pytest.approx(0.671, abs=0.01)
 
     # Test magnon amplitudes
-    assert Ipeak00 == pytest.approx(2.896, abs=0.01)
-    assert Ipeak01 == pytest.approx(2.202, abs=0.01)
-    assert Ipeak10 == pytest.approx(1.021, abs=0.01)
-    assert Ipeak11 == pytest.approx(0.878, abs=0.01)
+    assert Ipeak00 == pytest.approx(2.895, abs=0.01)
+    assert Ipeak01 == pytest.approx(2.209, abs=0.01)
+    assert Ipeak10 == pytest.approx(1.013, abs=0.01)
+    assert Ipeak11 == pytest.approx(0.934, abs=0.01)
 
     # XXX First step XXX #
     # - Save diagonal instead of array
