@@ -232,9 +232,6 @@ class OccupationsMOM:
                     P_max = np.argpartition(P, -n_occ)[-n_occ:]
                     f_sn[kpt.s][P_max] = f_n_unique
 
-                    from ase.parallel import parprint
-                    parprint(f_sn)
-
                 if self.update_numbers:
                     self.numbers[kpt.s] = f_sn[kpt.s].copy()
         else:
