@@ -737,18 +737,18 @@ class ETDM:
     def todict(self):
 
         ret = {'name': self.name,
-                'searchdir_algo': self.searchdir_algo.todict(),
-                'linesearch_algo': self.line_search.todict(),
-                'localizationtype': self.localizationtype,
-                'update_ref_orbs_counter': self.update_ref_orbs_counter,
-                'update_precond_counter': self.update_precond_counter,
-                'use_prec': self.use_prec,
-                'matrix_exp': self.matrix_exp,
-                'representation': self.representation,
-                'functional': self.func.todict(),
-                'orthonormalization': self.orthonormalization,
-                'constraints': self.constraints
-                }
+               'searchdir_algo': self.searchdir_algo.todict(),
+               'linesearch_algo': self.line_search.todict(),
+               'localizationtype': self.localizationtype,
+               'update_ref_orbs_counter': self.update_ref_orbs_counter,
+               'update_precond_counter': self.update_precond_counter,
+               'use_prec': self.use_prec,
+               'matrix_exp': self.matrix_exp,
+               'representation': self.representation,
+               'functional': self.func.todict(),
+               'orthonormalization': self.orthonormalization,
+               'constraints': self.constraints
+               }
         if self.gmf:
             ret['partial_diagonalizer'] = \
                 self.searchdir_algo.partial_diagonalizer.todict()
@@ -964,7 +964,7 @@ def find_all_pairs(ind, n_dim, n_occ, representation):
                 pairs.append([i, ind])
     else:
         if (ind < n_occ and representation == 'sparse') \
-            or representation == 'full':
+                or representation == 'full':
             for i in range(n_dim):
                 if i == ind:
                     continue
@@ -984,6 +984,7 @@ def update_constraints(constraints, ind):
             new[i][k] = ind.index(constraints[i][k])
     return new
 
+
 def check_not_aufbau_but_diag(wfs, was_diag):
     is_aufbau_occupation = True
     for kpt in wfs.kpt_u:
@@ -995,7 +996,8 @@ def check_not_aufbau_but_diag(wfs, was_diag):
             is_aufbau_occupation = False
             break
     if was_diag and not is_aufbau_occupation and rank == MASTER:
-        warnings.warn('Non-Aufbau occupation numbers detected, but '
+        warnings.warn(
+            'Non-Aufbau occupation numbers detected, but '
             '\"need_init_orbs\" set to \"True\". One direct '
             'diagonalization step is performed at the start of the '
             'optimization. As a result, the order of orbitals and '
