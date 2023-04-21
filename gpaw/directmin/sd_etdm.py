@@ -14,6 +14,10 @@ from ase.parallel import parprint
 
 
 class SearchDirectionBase(object):
+    """
+    Base class for search direction algorithms
+    """
+
     def __init__(self):
         self.iters = 0
         self.kp = None
