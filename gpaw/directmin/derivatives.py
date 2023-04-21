@@ -3,7 +3,6 @@ from gpaw.directmin.etdm import random_a, get_n_occ
 from ase.units import Hartree
 from gpaw.mpi import world
 from gpaw.io.logger import GPAWLogger
-from gpaw.directmin.tools import real_to_complex as r2c
 from copy import deepcopy
 
 
@@ -575,8 +574,8 @@ class Davidson(object):
         self.log()
 
     def log(self):
-        self.logger('Dimensionality of Krylov space: ' \
-            + str(len(self.V[0]) - len(self.t)), flush=True)
+        self.logger('Dimensionality of Krylov space: '
+                + str(len(self.V[0]) - len(self.t)), flush=True)
         if self.reset:
             self.logger('Reset Krylov space', flush=True)
         self.logger('\nEigenvalues:\n', flush=True)
@@ -661,7 +660,7 @@ class Davidson(object):
             return np.asarray(hessi)
 
     def break_instability(self, wfs, n_dim, c_ref, number,
-                          initial_guess = 'displace', ham=None, dens=None):
+                          initial_guess='displace', ham=None, dens=None):
         """
         Displaces orbital rotation coordinates in the direction of an
         instability. Uses a fixed displacement or performs a line search.
