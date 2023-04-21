@@ -29,7 +29,10 @@ def get_folded_spectrum(
     elif energyunit != 'eV':
         raise RuntimeError('currently only eV and nm are supported')
 
-    return Folder(width, folding).fold(x, y, de, emin, emax)
+    if folding is None:
+        return x, y
+    else:
+        return Folder(width, folding).fold(x, y, de, emin, emax)
 
 
 def spectrum(exlist=None,
@@ -78,7 +81,7 @@ def spectrum(exlist=None,
             if form == 'r':
                 out.write('# length form')
             else:
-                assert(form == 'v')
+                assert form == 'v'
                 out.write('# velocity form')
             print('# om [%s]     osz          osz x       osz y       osz z'
                   % energyunit, file=out)
@@ -145,8 +148,11 @@ def rotatory_spectrum(exlist=None,
             elif energyunit != 'eV':
                 raise RuntimeError('currently only eV and nm are supported')
 
-            energies, values = Folder(width, folding).fold(x, y, de,
-                                                           emin, emax)
+            if folding is None:
+                energies, values = x, y
+            else:
+                energies, values = Folder(width, folding).fold(x, y, de,
+                                                               emin, emax)
             for e, val in zip(energies, values):
                 print('%10.5f %12.7e' % (e, val), file=out)
 

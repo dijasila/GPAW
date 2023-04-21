@@ -2,7 +2,8 @@
 Formulas
 ========
 
-See also `Useful geometry formulas <http://xkcd.com/2509/>`_.
+See also :xkcd:`Useful geometry formulas <2509>`
+and :xkcd:`What greek letters mean in equations <2586>`.
 
 
 Coulomb

@@ -1,17 +1,19 @@
 
+from itertools import product
+
 import numpy as np
-
-from scipy.spatial import Delaunay, Voronoi, ConvexHull
-from scipy.spatial.qhull import QhullError
-
 from ase.dft.kpoints import monkhorst_pack
+from scipy.spatial import ConvexHull, Delaunay, Voronoi
+try:
+    from scipy.spatial import QhullError
+except ImportError:  # scipy < 1.8
+    from scipy.spatial.qhull import QhullError
 
 import gpaw.mpi as mpi
 from gpaw import GPAW, restart
-from gpaw.symmetry import Symmetry, aglomerate_points
-from gpaw.kpt_descriptor import to1bz, kpts2sizeandoffsets
-from itertools import product
+from gpaw.kpt_descriptor import kpts2sizeandoffsets, to1bz
 from gpaw.mpi import world
+from gpaw.symmetry import Symmetry, aglomerate_points
 
 
 def get_lattice_symmetry(cell_cv, tolerance=1e-7):
@@ -27,13 +29,16 @@ def get_lattice_symmetry(cell_cv, tolerance=1e-7):
     gpaw.symmetry object
 
     """
+    # NB: Symmetry.find_lattice_symmetry() uses self.pbc_c, which defaults
+    # to pbc along all three dimensions. Hence, it seems that the lattice
+    # symmetry transformations produced by this method could be faulty if
+    # there are non-periodic dimensions in a system. XXX
     latsym = Symmetry([0], cell_cv, tolerance=tolerance)
     latsym.find_lattice_symmetry()
     return latsym
 
 
-def find_high_symmetry_monkhorst_pack(calc, density,
-                                      pbc=None):
+def find_high_symmetry_monkhorst_pack(calc, density):
     """Make high symmetry Monkhorst Pack k-point grid.
 
     Searches for and returns a Monkhorst Pack grid which
@@ -47,9 +52,6 @@ def find_high_symmetry_monkhorst_pack(calc, density,
         The path to a calculator object.
     density : float
         The required minimum density of the Monkhorst Pack grid.
-    pbc : Boolean list/ndarray of shape (3,) or None
-        List indicating periodic directions. If None then
-        pbc = [True] * 3.
 
     Returns
     -------
@@ -58,15 +60,14 @@ def find_high_symmetry_monkhorst_pack(calc, density,
 
     """
 
-    if pbc is None:
-        pbc = np.array([True, True, True])
-    else:
-        pbc = np.array(pbc)
-
     atoms, calc = restart(calc, txt=None)
+    pbc = atoms.pbc
     minsize, offset = kpts2sizeandoffsets(density=density, even=True,
                                           gamma=True, atoms=atoms)
 
+    # NB: get_bz() wants a pbc_c, but never gets it. This means that the
+    # pbc always will fall back to True along all dimensions. XXX
+    # NB: Why return latibzk_kc, if we never use it? XXX
     bzk_kc, ibzk_kc, latibzk_kc = get_bz(calc, returnlatticeibz=True)
 
     maxsize = minsize + 10
@@ -92,6 +93,7 @@ def find_high_symmetry_monkhorst_pack(calc, density,
 
                     for ibzk_c in ibzk_kc:
                         diff_kc = np.abs(kpts_kc - ibzk_c)[:, pbc].round(6)
+                        # NB: The second np.mod() statement seems redundant XXX
                         if not (np.mod(np.mod(diff_kc, 1), 1) <
                                 1e-5).all(axis=1).any():
                             raise AssertionError('Did not find ' + str(ibzk_c))
@@ -338,6 +340,9 @@ def get_reduced_bz(cell_cv, cU_scc, time_reversal, returnlatticeibz=False,
     """
 
     if time_reversal:
+        # NB: The method never seems to be called with time_reversal=True,
+        # and hopefully get_bz() will generate the right symmetry operations
+        # always. So, can we remove this input? XXX
         cU_scc = get_symmetry_operations(cU_scc, time_reversal)
 
     # Lattice symmetries

@@ -18,7 +18,7 @@ def test_fileio_restart_density(in_tmp_dir):
                   cell=(3.5, 3.5, 4 + 2 / 3),
                   pbc=True)
 
-    # Only a short, non-converged calcuation
+    # Only a short, non-converged calculation
     conv = {'eigenstates': 1.e-3, 'energy': 1e-2, 'density': 1e-1}
     calc = GPAW(h=0.30, nbands=3,
                 setups={'Na': '1'},
@@ -32,11 +32,8 @@ def test_fileio_restart_density(in_tmp_dir):
     # Write the restart file
     calc.write('tmp.gpw')
 
-    del atoms, calc
     # Try restarting from all the files
     atoms, calc = restart('tmp.gpw')
-    # Force new calculation
-    calc.scf.converged = False
     e1 = atoms.get_potential_energy()
     f1 = atoms.get_forces()
     m1 = atoms.get_magnetic_moments()

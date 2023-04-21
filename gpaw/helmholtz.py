@@ -56,7 +56,7 @@ class HelmholtzOperator(FDOperator):
         n: int
             Range of stencil.  Stencil has O(h^(2n)) error.
         dtype: float or complex
-            Datatype to work on.
+            Data-type to work on.
         """
 
         # Order the 13 neighbor grid points:

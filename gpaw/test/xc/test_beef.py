@@ -8,6 +8,7 @@ from gpaw.mpi import world
 import _gpaw
 
 
+@pytest.mark.mgga
 @pytest.mark.libxc
 @pytest.mark.slow
 def test_beef(in_tmp_dir):

@@ -79,7 +79,7 @@ In this script, we set ``max_energy_diff`` to 7 eV.
 We also show how to parallelize calculation
 over Kohn-Sham electron-hole (eh) pairs with
 :class:`~gpaw.lrtddft2.lr_communicators.LrCommunicators`
-(8 tasks are used for each :class:`~gpaw.GPAW` calculator):
+(8 tasks are used for each :class:`~gpaw.calculator.GPAW` calculator):
 
 .. literalinclude:: lrtddft2/lr2.py
     :start-after: Start

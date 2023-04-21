@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # creates: H.rst, H.default.png
 # ... and all the rest.
 import json

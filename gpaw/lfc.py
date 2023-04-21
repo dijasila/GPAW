@@ -225,6 +225,7 @@ class LocalizedFunctionsCollection(BaseLFC):
     def __init__(self, gd, spline_aj, kd=None, cut=False, dtype=float,
                  integral=None, forces=None):
         self.gd = gd
+        self.kd = kd
         self.sphere_a = [Sphere(spline_j) for spline_j in spline_aj]
         self.cut = cut
         self.dtype = dtype
@@ -260,7 +261,7 @@ class LocalizedFunctionsCollection(BaseLFC):
             try:
                 movement |= sphere.set_position(spos_c, self.gd, self.cut)
             except GridBoundsError as e:
-                e.args = ['Atom %d too close to edge: %s' % (a, str(e))]
+                e.args = [f'Atom {a} too close to edge: {e}']
                 raise
 
         if movement or self.my_atom_indices is None:
@@ -628,7 +629,7 @@ class LocalizedFunctionsCollection(BaseLFC):
             assert sorted(c_axiv.keys()) == self.my_atom_indices
 
         if self.integral_a is not None:
-            assert q == -1
+            # assert q == -1
             assert a_xG.ndim == 3
             assert a_xG.dtype == float
             self._normalized_derivative(a_xG, c_axiv)
@@ -638,7 +639,6 @@ class LocalizedFunctionsCollection(BaseLFC):
 
         xshape = a_xG.shape[:-3]
         c_xMv = np.zeros(xshape + (self.Mmax, 3), dtype)
-
         cspline_M = []
         for a in self.atom_indices:
             for spline in self.sphere_a[a].spline_j:
@@ -974,12 +974,13 @@ class BasisFunctions(LocalizedFunctionsCollection):
     def add_to_density(self, nt_sG, f_asi):
         r"""Add linear combination of squared localized functions to density.
 
-        ::
+        :::
 
-          ~        --   a  /    a    \2
-          n (r) += >   f   | Phi (r) |
-            s      --   si \    i    /
+          ~        ---   a    a   2
+          n (r) += >    f   [Φ(r)]
+           s       ---   si   i
                    a,i
+
         """
         assert np.all(self.gd.n_c == nt_sG.shape[1:])
         nspins = len(nt_sG)

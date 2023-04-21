@@ -103,7 +103,7 @@ def dielectric(exlist,
         if form == 'r':
             print('# length form', file=out)
         else:
-            assert(form == 'v')
+            assert form == 'v'
             print('# velocity form', file=out)
         print(
             '# om [{0}]  eps1/eps0  eps2/eps0   n     k     R'

@@ -1,7 +1,6 @@
-from distutils.version import LooseVersion
-
 import pytest
-from ase import Atom, Atoms, __version__
+from ase import Atom, Atoms
+
 from gpaw import GPAW
 from gpaw.analyse.overlap import Overlap
 from gpaw.lrtddft.kssingle import KSSingles
@@ -20,8 +19,7 @@ a = 4.0
 c = 5.0
 
 
-@pytest.mark.skipif(LooseVersion(__version__) < '3.22',
-                    reason='Too old ASE')
+@pytest.mark.lrtddft
 def test_lrtddft_placzek_profeta_albrecht(in_tmp_dir):
     from ase.vibrations.albrecht import Albrecht
     from ase.vibrations.placzek import Placzek, Profeta

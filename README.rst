@@ -17,7 +17,7 @@ Webpage: http://wiki.fysik.dtu.dk/gpaw
 Requirements
 ------------
 
-* Python_ 3.6 or later
+* Python_ 3.7 or later
 * ASE_ (atomic simulation environment)
 * NumPy_ (base N-dimensional array package)
 * SciPy_ (library for scientific computing)

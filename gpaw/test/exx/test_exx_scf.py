@@ -2,7 +2,7 @@
 import pytest
 from gpaw.mpi import world
 from ase import Atoms
-from gpaw import GPAW, setup_paths, KohnShamConvergenceError
+from gpaw import GPAW, KohnShamConvergenceError
 from gpaw.xc.hybrid import HybridXC
 from gpaw.poisson import PoissonSolver
 from gpaw.occupations import FermiDirac
@@ -14,10 +14,7 @@ pytestmark = pytest.mark.skipif(world.size < 4,
                                 reason='world.size < 4')
 
 
-def test_exx_exx_scf(in_tmp_dir):
-    if setup_paths[0] != '.':
-        setup_paths.insert(0, '.')
-
+def test_exx_exx_scf(in_tmp_dir, add_cwd_to_setup_paths):
     h = 0.3
 
     # No energies - simpley convergence test, esp. for 3d TM
@@ -35,9 +32,9 @@ def test_exx_exx_scf(in_tmp_dir):
                           eigensolver=RMMDIIS(),
                           poissonsolver=PoissonSolver(use_charge_center=True),
                           occupations=FermiDirac(width=0.0, fixmagmom=True),
-                          h=h, maxiter=35)   # Up to 24 are needed by now
-        calculator.set(xc=HybridXC('PBE0'))
-        calculator.set(txt=atom + '-PBE0.txt')
+                          h=h, maxiter=35,  # Up to 24 are needed by now
+                          xc=HybridXC('PBE0'),
+                          txt=atom + '-PBE0.txt')
         work_atom.calc = calculator
         try:
             work_atom.get_potential_energy()

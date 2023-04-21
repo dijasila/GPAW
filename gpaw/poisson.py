@@ -218,7 +218,7 @@ class BasePoissonSolver(_PoissonSolver):
             # Due to the shape of the Gaussian and it's Fourier-Transform,
             # the Gaussian representing the charge should stay at least
             # 7 gpts from the borders - see:
-            # https://listserv.fysik.dtu.dk/pipermail/gpaw-developers/2015-July/005806.html
+            # listserv.fysik.dtu.dk/pipermail/gpaw-developers/2015-July/005806.html
             if self.use_charge_center:
                 charge_sign = actual_charge / abs(actual_charge)
                 rho_sign = rho * charge_sign

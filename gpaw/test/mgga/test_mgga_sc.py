@@ -17,7 +17,7 @@ def test_mgga_mgga_sc():
 
     n.calc = GPAW(xc='PBE', **getkwargs())
     n.get_potential_energy()
-    n.calc.set(xc='TPSS')
+    n.calc = n.calc.new(xc='TPSS')
     e2 = n.get_potential_energy()
     err = abs(e2 - e1)
     print('Energy difference', err)

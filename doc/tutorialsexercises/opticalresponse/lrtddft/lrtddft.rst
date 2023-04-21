@@ -9,7 +9,6 @@ linear response time-dependent density functional theory (see also
 :ref:`lrtddft`). We start with a normal ground state calculation:
 
 .. literalinclude:: Na2TDDFT.py
-
 .. highlight:: python
 
 Once the ground state calculation with unoccupied states is finished, the last
@@ -17,17 +16,10 @@ part of the script performs a linear response TDDFT calculation.
 
 As the construction of the Omega matrix is computationally the most intensive
 part it is sometimes convenient to perform diagonalisation and construction of
-spectrum in separate calculations::
+spectrum in separate calculations:
 
-  lr = LrTDDFT(filename='Omega_Na2.gz')
-  lr.diagonalize()
-  lr.write('excitations_Na2.gz')
-
-and::
-
-  from gpaw.lrtddft import LrTDDFT, photoabsorption_spectrum
-  lr = LrTDDFT.read('excitations_Na2.gz')
-  photoabsorption_spectrum(lr, 'Na2_spectrum.dat', e_min=0.0, e_max=10)
+.. literalinclude:: part2.py
+.. highlight:: python
 
 The number of electron-hole pairs used in the calculation can be controlled with
 ``istart`` and ``jend`` options of LrTDDFT::

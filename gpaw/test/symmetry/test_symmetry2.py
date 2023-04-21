@@ -11,13 +11,14 @@ import numpy as np
 from gpaw.response.chi0 import Chi0
 
 
+@pytest.mark.response
 @pytest.mark.slow
 def test_response_symmetry(gpw_files):
     data_s = []
     for name in ['ti2o4_pw_nosym_wfs', 'ti2o4_pw_wfs']:
         X = Chi0(gpw_files[name])
-        chi_t = X.calculate([1. / 4, 0, 0])[1:]
-        data_s.append(list(chi_t))
+        chi_t = X.calculate([1. / 4, 0, 0])
+        data_s.append((chi_t.chi0_WgG, chi_t.chi0_WxvG, chi_t.chi0_Wvv))
 
     msg = 'Difference in Chi when turning off symmetries!'
 

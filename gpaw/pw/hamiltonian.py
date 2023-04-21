@@ -34,19 +34,27 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
 
         self.vHt_q = pd3.empty()
 
-        if charge == 0.0 or realpbc_c.any():
-            self.poisson = ReciprocalSpacePoissonSolver(pd3, charge)
-        else:
-            self.poisson = ChargedReciprocalSpacePoissonSolver(pd3, charge)
+        if psolver is None:
+            psolver = {}
+        elif not isinstance(psolver, dict):
+            psolver = psolver.todict()
 
-        if isinstance(psolver, dict):
-            direction = psolver['dipolelayer']
-            assert len(psolver) == 1
-            from gpaw.dipole_correction import DipoleCorrection
-            self.poisson = DipoleCorrection(self.poisson, direction)
-            self.poisson.check_direction(gd, realpbc_c)
+        if psolver.get('name') == 'nointeraction':
+            self.poisson = ReciprocalSpacePoissonSolver(pd3, charge, 0.0)
         else:
-            assert psolver is None
+            if charge == 0.0 or realpbc_c.any():
+                self.poisson = ReciprocalSpacePoissonSolver(pd3, charge)
+            else:
+                self.poisson = ChargedReciprocalSpacePoissonSolver(pd3, charge)
+
+            if 'dipolelayer' in psolver:
+                direction = psolver['dipolelayer']
+                assert len(psolver) == 1
+                from gpaw.dipole_correction import DipoleCorrection
+                self.poisson = DipoleCorrection(self.poisson, direction)
+                self.poisson.check_direction(gd, realpbc_c)
+            else:
+                assert not psolver
 
         self.npoisson = 0
 
@@ -82,8 +90,8 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
 
         dens.map23.add_to1(self.vt_Q, self.vHt_q)
 
+        # vt_sG[:] = pd2.ifft(vt_Q)
         eext = self.vext.update_potential_pw(self, dens)
-        eext /= self.finegd.comm.size
 
         self.timer.start('XC 3D grid')
 
@@ -149,7 +157,10 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
 
     def calculate_forces2(self, dens, ghat_aLv, nct_av, vbar_av):
         self.vext.derivative_pw(self, ghat_aLv, dens)
-        dens.nct.derivative(self.vt_Q, nct_av)
+        if not dens.add_nct_directly:
+            dens.nct.derivative(self.vt_Q, nct_av)
+        else:
+            dens.nct.derivative(self.vt_sG.mean(axis=0), nct_av)
         self.vbar.derivative(dens.nt_Q, vbar_av)
 
     def get_electrostatic_potential(self, dens: Density) -> Array3D:

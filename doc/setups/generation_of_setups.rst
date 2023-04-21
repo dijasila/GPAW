@@ -7,62 +7,77 @@ Setup generation
 The generation of setups, starts from a spin-paired atomic
 all-electron calculation with spherical symmetry.
 
+1) Select the states to include as valence.
 
-.. module:: gpaw.atom
+2) Add extra unbound states for extra flexibility.
 
-All-electron calculations for spherical atoms
-=============================================
+3) Select cutoff radius (may be `\ell`-dependent).
 
-This is done by the :class:`gpaw.atom.all_electron.AllElectron` class.  The
-all-electron wave functions are defined as:
+4) From the set of bound and unbound all-electron partial waves
+   (`\phi_{n\ell}(r)`) construct pseudo partial waves
+   (`\tilde\phi_{n\ell}(r)`).
 
-.. math::
+This is done by the :ref:`cli` tool ``gpaw dataset``::
 
-  \phi_{n\ell m}(\mathbf{r}) =
-  \frac{u_{n\ell}(r)}{r} Y_{\ell m}(\hat{\mathbf{r}}),
+    usage: gpaw dataset [-h] [-f <XC>] [-C CONFIGURATION]
+                        [-P PROJECTORS] [-r RADIUS]
+                        [-0 nderivs,radius] [-c radius]
+                        [-z type,nderivs] [-p]
+                        [-l spdfg,e1:e2:de,radius] [-w] [-s] [-n]
+                        [-t TAG] [-a ALPHA] [-g GAMMA] [-b]
+                        [--nlcc] [--core-hole CORE_HOLE]
+                        [-e ELECTRONS]
+                        symbol
 
-The `u_{n\ell}(r)` functions are stored in an attribute ``u_j`` of the
-:class:`~gpaw.atom.all_electron.AllElectron` object.  The ``u_j``
-member/attribute is an ``ndarray`` with shape ``(nj, N)``, where
-``nj`` is the number of states (1s, 2s, 2p, ...) and ``N`` is the
-number of radial grid points.
-
-.. tip::
-
-  All-electron calculations can be done with the ``gpaw-setup``
-  program like this::
-
-    $ gpaw-setup -a Cu
-
-  Try ``gpaw-setup -h`` for more options.
-
-.. autoclass:: gpaw.atom.all_electron.AllElectron
+Type ``gpaw dataset --help`` to get started.
 
 
-Generation of setups
-====================
+Example
+=======
 
-The following parameters define a setup:
+Generate dataset for nitrogen and check logarithmic derivatives::
 
-=================  =======================  =================
-name               description              example
-=================  =======================  =================
-``core``           Froze core               ``'[Ne]'``
-``rcut``           Cutoff radius/radii for  ``1.9``
-                   projector functions
-``extra``          Extra non-bound          ``{0: [0.5]}``
-                   projectors
-``vbar``           Zero-potential           ``('poly', 1.7)``
-``filter``         Fourier-filtering        ``(0.4, 1.75)``
-                   parameters
-``rcutcomp``       Cutoff radius for        ``1.8``
-                   compensation charges
-=================  =======================  =================
+    $ gpaw dataset N -fPBE -s -P 2s,s,2p,p,d,F -r 1.3 -l spdfg -p
 
-The default (LDA) sodium setup can be generated with the command ``gpaw-setup Na``,
-which will use default parameters from the file
-``gpaw/atom/generator.py``.
-See :ref:`manual_xc` for other functionals.
+.. image:: nitrogen-log-derivs.png
+
+When things look OK, you can write it to a :ref:`PAW-XML <pawxml>` file::
+
+    $ gpaw dataset N -fPBE -s -P 2s,s,2p,p,d,F -r 1.3 -t new -w
+
+and use it in you calculations with ``setups={'N': 'new'}``.
+
+.. seealso::
+
+   * :ref:`using_your_own_setups`
+   * :ref:`Using the setups parameter <manual_setups>`
+   * The ``gpaw atom`` command-line tool for doing an all-electron calculation
+     for an atom
+
+What an OK dataset looks like will depend on what you want:
+
+* If you want a very accurate dataset then you will want to include semi-core
+  states and reduce the cutoff radii.  Also, you should try to get get
+  correct scattering properties at high energies (check this by looking at
+  the logarithmic derivatives).
+
+* If you want something that is computationally efficient then you will want
+  as few valence electrons as possible and as large cutoff radii as
+  possible.
+
+Always do test calculations to compare the performance of your dataset
+against accurate all-electron reference calculations.
+
+.. warning::
+
+   The ``gpaw dataset`` generator (:git:`~gpaw/atom/generator2.py`)
+   is work in progress and does not have a stable API.  If you manage to
+   generate a dataset with is that you want to use then hold on to that
+   file because we can not guarantee that future versions of GPAW will be
+   able to generate it again.
+
+   The :ref:`setup releases` that we distribute are all generated with the
+   old ``gpaw-setup`` generator (see more :ref:`below <generator1>`).
 
 
 .. _using_your_own_setups:
@@ -91,3 +106,29 @@ GPAW::
 
     setenv GPAW_SETUP_PATH .:$GPAW_SETUP_PATH&& python3 script.py
 
+
+.. _generator1:
+
+Old generator
+=============
+
+The following parameters define a setup:
+
+=================  =======================  =================
+name               description              example
+=================  =======================  =================
+``core``           Froze core               ``'[Ne]'``
+``rcut``           Cutoff radius/radii for  ``1.9``
+                   projector functions
+``extra``          Extra non-bound          ``{0: [0.5]}``
+                   projectors
+``vbar``           Zero-potential           ``('poly', 1.7)``
+``filter``         Fourier-filtering        ``(0.4, 1.75)``
+                   parameters
+``rcutcomp``       Cutoff radius for        ``1.8``
+                   compensation charges
+=================  =======================  =================
+
+The default (LDA) sodium setup can be generated with the command ``gpaw-setup
+Na``, which will use default parameters from the file
+``gpaw/atom/generator.py``. See :ref:`manual_xc` for other functionals.

@@ -1,8 +1,10 @@
+import numpy as np
 from ase.units import kB, Hartree, Bohr
+from ase.data.vdw import vdw_radii
+
 from gpaw.solvation.gridmem import NeedsGD
 from gpaw.fd_operators import Gradient
 from gpaw.io.logger import indent
-import numpy as np
 
 
 BAD_RADIUS_MESSAGE = "All atomic radii have to be finite and >= zero."
@@ -75,6 +77,12 @@ class Cavity(NeedsGD):
         self.volume_calculator = volume_calculator
         self.V = None  # global Volume
         self.A = None  # global Surface
+
+    def write(self, writer):
+        pass
+
+    def read(self, reader):
+        pass
 
     def estimate_memory(self, mem):
         ngrids = 1 + self.depends_on_el_density
@@ -172,12 +180,12 @@ class Cavity(NeedsGD):
 
     def summary(self, log):
         """Log cavity surface area and volume."""
-        A = (self.A * Bohr ** 2 if self.A is not None
+        A = ('{:.5f}'.format(self.A * Bohr ** 2) if self.A is not None
              else 'not calculated (no calculator defined)')
-        V = (self.V * Bohr ** 3 if self.V is not None
+        V = ('{:.5f}'.format(self.V * Bohr ** 3) if self.V is not None
              else 'not calculated (no calculator defined)')
-        log('Cavity Surface Area: %s' % (A, ))
-        log('Cavity Volume: %s' % (V, ))
+        log('Solvation cavity surface area: %s' % (A, ))
+        log('Solvation cavity volume: %s' % (V, ))
 
 
 class EffectivePotentialCavity(Cavity):
@@ -204,6 +212,20 @@ class EffectivePotentialCavity(Cavity):
         self.effective_potential = effective_potential
         self.temperature = float(temperature)
         self.minus_beta = -1. / (kB * temperature / Hartree)
+
+    def write(self, writer):
+        writer.write(effective_potential=self.effective_potential,
+                     temperature=self.temperature,
+                     surface_calculator=self.surface_calculator,
+                     volume_calculator=self.volume_calculator)
+
+    # For future, not used at the moment
+    def read(self, reader):
+        c = reader.parameters.cavity
+        self.effective_potential = c.effective_potential
+        self.temperature = c.temperature
+        self.surface_calculator = c.surface_calculator
+        self.volume_calculator = c.volume_calculator
 
     def estimate_memory(self, mem):
         Cavity.estimate_memory(self, mem)
@@ -334,29 +356,40 @@ class Potential(NeedsGD):
         pass
 
 
+def get_vdw_radii(atoms):
+    """Returns a list of van der Waals radii for a given atoms object."""
+    return [vdw_radii[n] for n in atoms.numbers]
+
+
 class Power12Potential(Potential):
     """Inverse power law potential.
 
-    An 1 / r ** 12 repulsive potential
-    taking the value u0 at the atomic radius.
+    A 1 / r ** 12 repulsive potential taking the value u0 at the atomic radius.
 
     See also
     A. Held and M. Walter, J. Chem. Phys. 141, 174108 (2014).
+
+    Parameters:
+
+    atomic_radii: function
+        Callable mapping an ase.Atoms object to an iterable of atomic radii
+        in Angstroms. If not provided, defaults to van der Waals radii.
+    u0: float
+        Strength of the potential at the atomic radius in eV.
+        Defaults to 0.18 eV, the best-fit value for water from Held &
+        Walter.
+    pbc_cutoff: float
+        Cutoff in eV for including neighbor cells in a calculation with
+        periodic boundary conditions.
     """
     depends_on_el_density = False
     depends_on_atomic_positions = True
 
-    def __init__(self, atomic_radii, u0, pbc_cutoff=1e-6, tiny=1e-10):
-        """Constructor for the Power12Potential class.
-
-        Arguments:
-        atomic_radii -- Callable mapping an ase.Atoms object
-                        to an iterable of atomic radii in Angstroms.
-        u0           -- Strength of the potential at the atomic radius in eV.
-        pbc_cutoff   -- Cutoff in eV for including neighbor cells in
-                        a calculation with periodic boundary conditions.
-        """
+    def __init__(self, atomic_radii=None, u0=0.180, pbc_cutoff=1e-6,
+                 tiny=1e-10):
         Potential.__init__(self)
+        if atomic_radii is None:
+            atomic_radii = get_vdw_radii
         self.atomic_radii = atomic_radii
         self.u0 = float(u0)
         self.pbc_cutoff = float(pbc_cutoff)
@@ -433,6 +466,14 @@ class Power12Potential(Potential):
 
     def update_atoms(self, atoms, log):
         set_log_and_check_radii(self, atoms, log)
+
+    def write(self, writer):
+        writer.write(
+            name=self.__class__.__name__,
+            atomic_radii=self.atomic_radii_output,
+            u0=self.u0,
+            pbc_cutoff=self.pbc_cutoff,
+            tiny=self.tiny)
 
 
 class SmoothStepCavity(Cavity):
@@ -847,6 +888,12 @@ class SurfaceCalculator(NeedsGD):
         self.A = None
         self.delta_A_delta_g_g = None
 
+    def write(self, writer):
+        pass
+
+    def read(self, reader):
+        pass
+
     def estimate_memory(self, mem):
         mem.subnode('Functional Derivative', self.gd.bytecount())
 
@@ -878,6 +925,14 @@ class GradientSurface(SurfaceCalculator):
         self.gradient_out = None
         self.norm_grad_out = None
         self.div_tmp = None
+
+    def write(self, writer):
+        writer.write(
+            name='GradientSurface',
+            nn=self.nn)
+
+    def read(self, reader):
+        self.nn = reader.parameters.cavity.nn
 
     def estimate_memory(self, mem):
         SurfaceCalculator.estimate_memory(self, mem)

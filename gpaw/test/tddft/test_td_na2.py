@@ -1,10 +1,12 @@
+import pytest
 from ase import Atoms
 
 from gpaw import GPAW
 from gpaw.tddft import TDDFT, DipoleMomentWriter, photoabsorption_spectrum
-from gpaw.tddft.abc import LinearAbsorbingBoundary, P4AbsorbingBoundary, PML
+from gpaw.tddft.abc import PML, LinearAbsorbingBoundary, P4AbsorbingBoundary
 
 
+@pytest.mark.later
 def test_tddft_td_na2(in_tmp_dir):
     """Sodium dimer, Na2."""
     d = 1.5

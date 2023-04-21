@@ -107,7 +107,7 @@ Frequency dependence
 Next, we should check the quality of the frequency grid used in the
 calculation. Two parameters determine how the frequency grid looks.
 ``domega0`` and ``omega2``. Read more about these parameters in the tutorial
-for the dielectric function :ref:`df_tutorial_freq`.
+for the dielectric function :ref:`frequency grid`.
 
 Running script :download:`C_frequency_conv.py` calculates the direct band
 gap using different frequency grids with ``domega0`` varying from 0.005 to
@@ -187,13 +187,11 @@ More information can be found here:
 .. note::
     Including vertex corrections is currently not possible for spin-polarized systems.
 
-A `GW\Gamma` calculation requires that 3 additional keywords are specified in the GW calculator: 
+A `GW\Gamma` calculation requires that two additional keywords are specified in the GW calculator:
 
-1) Which kernel to use: ``xc='rALDA'``, ``xc='rAPBE'`` etc.. 
+1) Which kernel to use: ``xc='rALDA'``, ``xc='rAPBE'`` etc..
 
-2) How to construct the kernel: ``av_scheme='wavevector'`` or ``av_scheme='density'``. The wavevector scheme is preferred here. 
-
-3) How to apply the kernel: ``fxc_mode = 'GWG'``, ``fxc_mode='GWP'`` or ``fxc_mode='GWS'``.
+2) How to apply the kernel: ``fxc_mode = 'GWG'``, ``fxc_mode='GWP'`` or ``fxc_mode='GWS'``.
 
 Carrying on from the ground state calculation in :download:`MoS2_gs_GW.py`, a `GW\Gamma` calculation can be done with the following script: :download:`MoS2_GWG.py`.
 
@@ -204,23 +202,3 @@ The `GW` and `GW\Gamma` band structures can be visualized with the :download:`Mo
 
 .. note::
     When carrying out a `G_0W_0\Gamma` calculation by specifying the 3 keywords above, the ``do_GW_too = True`` option allows for a simultaneous `G_0W_0` calculation. This is faster than doing two seperate calculations as `\chi_0` only needs to be calculated once, but the memory requirement is twice that of a single `G_0W_0` calculation. The `G_0W_0\Gamma` results will by default be stored in g0w0_results.pckl and the `G_0W_0` results in g0w0_results_GW.pckl. The results of both calculations will be printed in the output .txt file.
-
-.. _gw-GW0:
-
-GW0 calculations
-================
-It is currently possible to add eigenvalue self-consistency in the Green's function.
-This is activated by setting ``method='GW0'``, specifying how many iterations you
-are interested in, ``maxiter=5`` and optionally also how much of the previous iteration's
-eigenvalues you want mixed in, ``mixing=0.5`` . Usually 5 iterations are enough to reach
-convergence with a mixing of 50%. Only the bands specified will be updated self-consistently.
-The bands above(below) the highest(lowest) included band will be shifted with the
-k-point averaged shift of the band below(above).
-The results after each iteration is printed in the output file.
-The following script calculates the band gap of bulk BN within the GW0 approximation:
-:download:`BN_GW0.py`. The figure below shows the value of the gap during the first five
-iterations, where iteration zero is the DFT gap (:download:`BN_GW0_plot.py`).
-Note: The calculations are not converged with respect to k-points, frequency points or cutoff energy.
-
-.. image:: BN_GW0.png
-    :height: 400 px

@@ -1,10 +1,13 @@
 from itertools import product
 
+import pytest
 import numpy as np
 
 from gpaw.response.integrators import TetrahedronIntegrator
-from gpaw.response.chi0 import ArrayDescriptor
+from gpaw.response.chi0 import FrequencyGridDescriptor
 # from gpaw.test import equal
+
+from gpaw.response import ResponseContext
 
 
 def unit(x_c):
@@ -15,9 +18,11 @@ def unit_sphere(x_c):
     return np.array([(x_c**2).sum()**0.5], float)
 
 
+@pytest.mark.response
 def test_tetrahedron_integrator():
     cell_cv = np.eye(3)
-    integrator = TetrahedronIntegrator(cell_cv)
+    context = ResponseContext()
+    integrator = TetrahedronIntegrator(cell_cv, context)
     x_g = np.linspace(-1, 1, 30)
     x_gc = np.array([comb for comb in product(*([x_g] * 3))])
 
@@ -26,7 +31,7 @@ def test_tetrahedron_integrator():
     integrator.integrate(kind='spectral function',
                          domain=domain,
                          integrand=(unit, unit_sphere),
-                         x=ArrayDescriptor([-1.0]),
+                         x=FrequencyGridDescriptor([-1.0]),
                          out_wxx=out_wxx)
 
     assert abs(out_wxx[0, 0, 0] - 4 * np.pi) < 1e-2

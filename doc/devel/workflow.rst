@@ -138,6 +138,11 @@ It's a good idea to also run the CI-checks locally::
  $ git commit ...
  $ git push  # Git now knows your upstream
 
+.. tip::
+
+   You can use ``git push -i ci.skip`` if you want to skip CI.
+
+
 .. _Static code analysis: https://mypy.readthedocs.io/en/stable/
 .. _flake8: https://flake8.pycqa.org/en/latest/
 
@@ -160,7 +165,7 @@ For MRs with code changes:
   ``"""Add numbers."""`` docstring).
 
 For MRs with documentation changes,
-build the html-pages and make sure everything looks OK::
+build the HTML-pages and make sure everything looks OK::
 
  $ pip install sphinx-rtd-theme
  $ cd gpaw/doc

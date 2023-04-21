@@ -8,7 +8,7 @@ from ase.optimize import BFGS
 
 
 @pytest.mark.ci
-def test_atoms_mismatch():
+def test_atoms_mismatch(in_tmp_dir):
     system = molecule('H2O')
     synchronize_atoms(system, world)
 

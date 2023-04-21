@@ -1,14 +1,14 @@
 import pytest
 from ase import Atoms
 from gpaw.mpi import world
-from gpaw import GPAW, FermiDirac, setup_paths, Mixer, MixerSum, Davidson
+from gpaw import GPAW, FermiDirac, Mixer, MixerSum, Davidson
 from gpaw.atom.all_electron import AllElectron
 from gpaw.atom.generator import Generator
 from gpaw.atom.configurations import parameters
 
 
 @pytest.mark.slow
-def test_xc_lb94(in_tmp_dir):
+def test_xc_lb94(in_tmp_dir, add_cwd_to_setup_paths):
     ref1 = 'R. v. Leeuwen PhysRevA 49, 2421 (1994)'
     ref2 = 'Gritsenko IntJQuanChem 76, 407 (2000)'
     # HOMO energy in mHa for closed shell atoms
@@ -34,7 +34,6 @@ def test_xc_lb94(in_tmp_dir):
             assert abs(diff) < 6
     world.barrier()
 
-    setup_paths.insert(0, '.')
     setups = {}
 
     print('**** 3D calculations')
@@ -54,8 +53,6 @@ def test_xc_lb94(in_tmp_dir):
         c = GPAW(h=.3, xc='LB94',
                  eigensolver=Davidson(3),
                  mixer=Mixer(0.5, 7, 50.0), nbands=-2, txt=txt)
-        if atom in ['Mg']:
-            c.set(eigensolver='cg')
         c.calculate(SS)
         # find HOMO energy
         eps_n = c.get_eigenvalues(kpt=0, spin=0) / 27.211

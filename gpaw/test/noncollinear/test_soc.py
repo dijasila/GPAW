@@ -1,11 +1,17 @@
-"""Test HOMO and LUMO band-splitting for MoS2."""
-import pytest
-import numpy as np
-from ase.build import mx2
+"""Test HOMO and LUMO band-splitting for MoS2.
 
+See:
+
+  https://journals.aps.org/prb/abstract/10.1103/PhysRevB.98.155433
+"""
+import os
+
+import numpy as np
+import pytest
+from ase.build import mx2
 from gpaw import GPAW
-from gpaw.spinorbit import soc_eigenstates
 from gpaw.mpi import size
+from gpaw.spinorbit import soc_eigenstates
 
 
 def check(E, hsplit, lsplit):
@@ -17,7 +23,7 @@ def check(E, hsplit, lsplit):
     assert abs(l2 - l1 - lsplit) < 0.002
 
 
-params = dict(mode='pw',
+params = dict(mode={'name': 'pw', 'ecut': 350},
               kpts={'size': (3, 3, 1),
                     'gamma': True})
 
@@ -29,12 +35,21 @@ def test_soc_self_consistent():
     a = mx2('MoS2')
     a.center(vacuum=3, axis=2)
 
-    a.calc = GPAW(experimental={'magmoms': np.zeros((3, 3)),
-                                'soc': True},
-                  convergence={'bands': 28},
-                  **params)
+    if os.environ.get('GPAW_NEW'):
+        kwargs = {**params,
+                  'symmetry': 'off',
+                  'magmoms': np.zeros((3, 3)),
+                  'soc': True}
+    else:
+        kwargs = {**params,
+                  'symmetry': 'off',
+                  'experimental': {'magmoms': np.zeros((3, 3)),
+                                   'soc': True}}
+
+    a.calc = GPAW(convergence={'bands': 28},
+                  **kwargs)
     a.get_potential_energy()
-    eigs = a.calc.get_eigenvalues(kpt=2)
+    eigs = a.calc.get_eigenvalues(kpt=0)
     check(eigs, 0.15, 0.002)
 
 
@@ -47,6 +62,7 @@ def test_non_collinear_plus_soc():
     a.calc = GPAW(experimental={'magmoms': np.zeros((3, 3)),
                                 'soc': False},
                   convergence={'bands': 28},
+                  symmetry='off',
                   parallel={'domain': 1},
                   **params)
     a.get_potential_energy()

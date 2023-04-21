@@ -1,8 +1,8 @@
-import matplotlib.pyplot as plt
 import numpy as np
 
 
 def analyse(generator, show=False):
+    import matplotlib.pyplot as plt
     gen = generator
     symbol = gen.symbol
 

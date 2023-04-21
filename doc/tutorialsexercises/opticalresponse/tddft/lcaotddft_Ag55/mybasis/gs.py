@@ -1,6 +1,7 @@
 from ase.io import read
 from gpaw import GPAW, FermiDirac, Mixer, PoissonSolver
 from gpaw import setup_paths
+from gpaw.poisson_moment import MomentCorrectionPoissonSolver
 
 # Insert the path to the created basis set
 setup_paths.insert(0, '.')
@@ -20,7 +21,8 @@ mixer = Mixer(0.02, 5, 1.0)
 parallel = {'sl_auto': True, 'domain': 2, 'augment_grids': True}
 
 # Apply multipole corrections for monopole and dipoles
-poissonsolver = PoissonSolver(remove_moment=1 + 3)
+poissonsolver = MomentCorrectionPoissonSolver(poissonsolver=PoissonSolver(),
+                                              moment_corrections=1 + 3)
 
 # Ground-state calculation
 calc = GPAW(mode='lcao', xc='GLLBSC', h=0.3, nbands=360,

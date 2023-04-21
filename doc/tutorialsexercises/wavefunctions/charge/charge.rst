@@ -34,8 +34,8 @@ cube file containing the electron density of the water molecule, ready for the B
 
 .. literalinclude:: h2o.py
 
-One can also use :meth:`~gpaw.GPAW.get_pseudo_density` but it is
-better to use the :meth:`~gpaw.GPAW.get_all_electron_density`
+One can also use :meth:`~gpaw.calculator.GPAW.get_pseudo_density` but it is
+better to use the :meth:`~gpaw.calculator.GPAW.get_all_electron_density`
 method as it will create a normalized electron density with all the electrons.
 
 Note that it is strongly recommended to use version 0.26b or higher of

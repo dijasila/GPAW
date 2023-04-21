@@ -1,7 +1,9 @@
 """Module for calculations using the Maximum Overlap Method (MOM).
-   See:
+
+See:
+
    https://arxiv.org/abs/2102.06542,
-   https://doi.org/10.1021/acs.jctc.0c00597.
+   :doi:`10.1021/acs.jctc.0c00597`.
 """
 
 import numpy as np
@@ -35,9 +37,9 @@ def prepare_mom_calculation(calc,
         ``P_m`` evaluated as the projections onto the manifold of
         reference orbitals ``|psi_n>``: ``P_m = (Sum_n(|O_nm|^2))^0.5
         (O_nm = <psi_n|psi^(k)_m>)`` see
-        https://doi.org/10.1021/acs.jctc.7b00994. If False (default),
+        :doi:`10.1021/acs.jctc.7b00994`. If False (default),
         the weights are evaluated as: ``P_m = max_n(|O_nm|)``
-        see https://doi.org/10.1021/acs.jctc.0c00488.
+        see :doi:`10.1021/acs.jctc.0c00488`.
     update_numbers: bool
         If True (default), 'numbers' gets updated with the calculated
         occupation numbers, and when changing atomic positions
@@ -48,14 +50,14 @@ def prepare_mom_calculation(calc,
         of the previous geometry corresponding to the user-supplied
         'numbers'.
     use_fixed_occupations: bool
-        If True (default), the MOM algorithm is used. If False,
+        If False (default), the MOM algorithm is used. If True,
         fixed occupations will be used.
     width: float
         Width of Gaussian function in eV for smearing of holes
         and excited electrons. The holes and excited electrons
         are found with respect to the zero-width ground-state
         occupations.
-        See https://doi.org/10.1021/acs.jctc.0c00597.
+        See :doi:`10.1021/acs.jctc.0c00597`.
     niter_width_update: int
         Number of iterations after which the width of the
         Gaussian smearing function is increased.

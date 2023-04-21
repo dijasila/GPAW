@@ -67,6 +67,11 @@ For other geometries, one will have to subclass
 .. autoclass:: gpaw.jellium.Jellium
    :members:
 
+The :class:`~gpaw.jellium.JelliumSlab` is one such
+example of a subclass of :class:`gpaw.jellium.Jellium`:
+
+.. autoclass:: gpaw.jellium.JelliumSlab
+   :members:
 
 -------------
 

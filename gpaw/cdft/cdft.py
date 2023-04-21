@@ -45,7 +45,9 @@ class CDFT(Calculator):
                  compute_forces=True,
                  maxstep=100,
                  tol=1e-3,
-                 bounds=None):
+                 bounds=None,
+                 restart=False,
+                 hess=None):
         """Constrained DFT calculator.
 
         calc: GPAW instance
@@ -91,12 +93,16 @@ class CDFT(Calculator):
             charge constraint
         compute_forces: bool
             Should the forces be computed?
+        restart: bool
+            starting from an old calculation from gpw
+        hess: '2-point', '3-point', 'cs'
+            scipy hessian approximation
         """
 
         Calculator.__init__(self)
 
         self.calc = calc
-
+        self.restart = restart
         self.iocontext = IOContext()
         self.log = self.iocontext.openfile(txt, calc.world)
         self.method = method
@@ -124,6 +130,7 @@ class CDFT(Calculator):
 
         if self.bounds is not None:
             self.bounds = np.asarray(self.bounds) / Hartree
+        self.hess = hess
 
         if self.difference:
             # difference calculation only for 2 charge regions
@@ -187,7 +194,8 @@ class CDFT(Calculator):
 
         # initialise without v_ext
         atoms.calc = self.calc
-        atoms.get_potential_energy()
+        if not self.restart:
+            atoms.get_potential_energy()
 
         assert atoms.calc.wfs.nspins == 2
 
@@ -247,6 +255,8 @@ class CDFT(Calculator):
         # check we're dealing with same atoms
         if atoms != self.atoms:
             self.atoms = atoms
+        if not self.restart:
+            Calculator.calculate(self, self.atoms)
 
         Calculator.calculate(self, self.atoms)
 
@@ -361,24 +371,12 @@ class CDFT(Calculator):
             self.iteration += 1
 
             self.old_v_i = self.v_i.copy()
-            # Force scipy optimizer to converge when gtol is reached
-            if np.all((np.abs(self.dn_i) < self.gtol)):
-                return np.zeros(len(self.v_i)), np.zeros(len(self.v_i))
-
-            else:
-                return np.abs(
-                    self.dn_i
-                ), -self.dn_i  # return negative because maximising wrt v_i
-
-
-#        def hessian(v_i):
-#            # Hessian approximated with BFGS
-#            self.hess = self.update_hessian(v_i)
-#            return self.hess
+            return np.max(np.abs(self.dn_i))
 
         m = minimize(f,
                      self.v_i,
-                     jac=True,
+                     jac=self.jacobian,
+                     hess=self.hess,
                      bounds=self.bounds,
                      tol=self.tol,
                      method=self.method,
@@ -439,6 +437,13 @@ class CDFT(Calculator):
                 np.save('coarse_weight', w_s)
         return w_g
 
+    def jacobian(self, v_i):
+        if np.all((np.abs(self.dn_i) < self.gtol)):
+            # forces scipy opt to converge when gtol is reached
+            return np.zeros(len(self.v_i))
+        else:
+            return -self.dn_i
+    
     def cdft_free_energy(self):
         return self.Ecdft
 
@@ -457,54 +462,6 @@ class CDFT(Calculator):
     def get_all_electron_density(self, gridrefinement=2, spin=None):
         return self.calc.get_all_electron_density(
             gridrefinement=gridrefinement, spin=spin)
-
-    def update_hessian(self, v_i):
-        """Computation of a BFGS Hessian
-        returns a pos.def. hessian
-        """
-        iteration = self.iteration - 1
-        if not self.difference:
-            n_regions = len(self.regions)
-        else:
-            n_regions = 1
-        if iteration == 0:
-            # Initialize Hessian as identity
-            # scaled with gradients
-            Hk = np.abs(self.dn_i) * np.identity(n_regions)
-
-        else:
-            Hk0 = self.hess
-            # Form new Hessian using BFGS
-            s = v_i - self.old_v_i
-            # difference of gradients = y
-            y = self.dn_i - self.old_gradient
-            # BFGS step
-            # Hk = Hk0 + y*yT/(yT*s) - Hk0*s*sT*Hk0/(sT*Hk0*s)
-            # form each term
-            first_num = np.dot(y, np.transpose(y))
-            first_den = np.dot(np.transpose(y), s)
-
-            second_num = np.dot(Hk0, np.dot(s, np.dot(np.transpose(s), Hk0)))
-            second_den = (np.dot(np.transpose(s), np.dot(Hk0, s)))
-
-            Hk = Hk0 + first_num / first_den - second_num / second_den
-
-        # make sure Hk is pos. def.eigs = np.linalg.eigvals(self.Hk)
-        hess = Hk.copy()
-        eigs = np.linalg.eigvals(hess)
-        if any(eigs <= 0.):
-            hess = Hk.copy()
-            while not all(eig > 0. for eig in eigs):
-                # round down smallest eigenvalue with 2 decimals
-                mineig = np.floor(min(eigs) * 100.) / 100.
-                hess = hess - mineig * np.identity(n_regions)
-                eigs = np.linalg.eigvals(hess)
-
-        self.old_gradient = self.dn_i
-        self.old_v_i = v_i
-        self.old_hessian = hess
-
-        return hess
 
     def get_atomic_density_correction(self, return_els=False):
         # eq. 20 of the paper

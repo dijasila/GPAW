@@ -1,10 +1,12 @@
-from ase import Atom, Atoms
-import numpy as np
+import os
 
-from gpaw import GPAW, FermiDirac, PoissonSolver
-from gpaw.utilities.dos import raw_orbital_LDOS, raw_wignerseitz_LDOS, RawLDOS
-from gpaw.test import equal
+import numpy as np
+from ase import Atom, Atoms
+
 import gpaw.mpi as mpi
+from gpaw import GPAW, FermiDirac, PoissonSolver
+from gpaw.test import equal
+from gpaw.utilities.dos import RawLDOS, raw_orbital_LDOS, raw_wignerseitz_LDOS
 
 
 def test_utilities_ldos(in_tmp_dir):
@@ -50,13 +52,17 @@ def test_utilities_ldos(in_tmp_dir):
                                                  angular=None)
     energies, Li_wzweight = raw_wignerseitz_LDOS(calc, a=0, spin=0)
     energies, H_wzweight = raw_wignerseitz_LDOS(calc, a=1, spin=0)
-    n_a = calc.get_wigner_seitz_densities(spin=0)
+
+    if not os.environ.get('GPAW_NEW'):
+        n_a = calc.get_wigner_seitz_densities(spin=0)
+        print(n_a)
+        equal(n_a.sum(), 0.0, 1e-5)
+        equal(n_a[1], 0.737, 0.001)
 
     print(sweight, pdfweight)
     print(sweight_spin)
     print(Li_wzweight)
     print(H_wzweight)
-    print(n_a)
 
     equal(sweight[0], 1.0, 0.06)
     equal(pdfweight[0], 0.0, 0.0001)
@@ -64,8 +70,6 @@ def test_utilities_ldos(in_tmp_dir):
     assert ((Li_wzweight - [.13, 0.93]).round(2) == 0).all()
     assert ((H_wzweight - [0.87, 0.07]).round(2) == 0).all()
     assert ((Li_wzweight + H_wzweight).round(5) == 1).all()
-    equal(n_a.sum(), 0.0, 1e-5)
-    equal(n_a[1], 0.737, 0.001)
 
     print(Li_orbitalweight)
     print(H_orbitalweight)

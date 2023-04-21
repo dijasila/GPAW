@@ -1,12 +1,16 @@
 from time import time
+
+import pytest
 from ase import Atoms
-from ase.optimize import BFGS
 from ase.io import read
+from ase.optimize import BFGS
+
 from gpaw import GPAW
-from gpaw.test import equal
 from gpaw.mpi import world
+from gpaw.test import equal
 
 
+@pytest.mark.later
 def test_generic_relax(in_tmp_dir):
     a = 4.0    # Size of unit cell (Angstrom)
     c = a / 2

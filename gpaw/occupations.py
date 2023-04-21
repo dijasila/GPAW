@@ -51,7 +51,7 @@ def marzari_vanderbilt(eig: np.ndarray,
                                               np.ndarray]:
     """Marzari-Vanderbilt distribution (cold smearing).
 
-    See: https://doi.org/10.1103/PhysRevLett.82.3296
+    See: :doi:`10.1103/PhysRevLett.82.3296`
     """
     x = (eig - fermi_level) / width
     expterm = np.exp(-(x + (1 / np.sqrt(2)))**2)
@@ -129,8 +129,7 @@ class OccupationNumberCalculator:
 
     def copy(self,
              parallel_layout: ParallelLayout = None,
-             bz2ibzmap: List[int] = None
-             ) -> 'OccupationNumberCalculator':
+             bz2ibzmap: List[int] = None) -> 'OccupationNumberCalculator':
         return create_occ_calc(
             self.todict(),
             parallel_layout=parallel_layout or self.parallel_layout)
@@ -139,10 +138,9 @@ class OccupationNumberCalculator:
                   nelectrons: float,
                   eigenvalues: List[List[float]],
                   weights: List[float],
-                  fermi_levels_guess: List[float] = None
-                  ) -> Tuple[Array2D,
-                             List[float],
-                             float]:
+                  fermi_levels_guess: List[float] = None) -> Tuple[Array2D,
+                                                                   List[float],
+                                                                   float]:
         """Calculate occupation numbers and fermi level(s) from eigenvalues.
 
         nelectrons:
@@ -324,7 +322,7 @@ class FermiDiracCalculator(SmoothDistribution):
         return fermi_dirac(eig_n, fermi_level, self._width)
 
     def __str__(self):
-        return f'Fermi-Dirac: width={self._width:.4f} eV\n'
+        return f'Fermi-Dirac:\n  width: {self._width:.4f}  # eV\n'
 
 
 class MarzariVanderbiltCalculator(SmoothDistribution):
@@ -337,7 +335,7 @@ class MarzariVanderbiltCalculator(SmoothDistribution):
         return marzari_vanderbilt(eig_n, fermi_level, self._width)
 
     def __str__(self):
-        return f'Marzari-Vanderbilt: width={self._width:.4f} eV\n'
+        return f'Marzari-Vanderbilt:\n  width: {self._width:.4f}  # eV\n'
 
 
 class MethfesselPaxtonCalculator(SmoothDistribution):
@@ -354,8 +352,9 @@ class MethfesselPaxtonCalculator(SmoothDistribution):
         return dct
 
     def __str__(self):
-        return (f'Methfessel-Paxton: width={self._width:.4f} eV, ' +
-                f'order={self.order}\n')
+        return ('Methfessel-Paxton:\n'
+                f'  width: {self._width:.4f}  # eV\n'
+                f'  order: {self.order}\n')
 
     def distribution(self, eig_n, fermi_level):
         return methfessel_paxton(eig_n, fermi_level, self._width, self.order)
@@ -500,7 +499,7 @@ class ZeroWidth(OccupationNumberCalculator):
         return {'width': 0.0}
 
     def __str__(self):
-        return 'width=0.000 eV'
+        return '# Zero width'
 
     def distribution(self, eig_n, fermi_level):
         f_n = np.zeros_like(eig_n)
@@ -690,7 +689,7 @@ class FixedOccupationNumbersUniform(OccupationNumberCalculator):
         return {'name': 'fixed-uniform'}
 
     def __str__(self):
-        return "Uniform distribution of occupation numbers"
+        return '# Uniform distribution of occupation numbers'
 
 
 def calc_fixed(bd, f_sn, f_qn):

@@ -26,11 +26,12 @@ class GhostSetup(BaseSetup):
     def __init__(self, basis, data):
         self.symbol = data.symbol
         self.data = data
-        self.phit_j = basis.tosplines()
+        self.basis_functions_J = basis.tosplines()
+        self.pseudo_partial_waves_j = None  # XXX ?
+
         self.basis = basis
         self.nao = sum([2 * phit.get_angular_momentum_number() + 1
-                        for phit in self.phit_j])
-        self.HubU = None
+                        for phit in self.basis_functions_J])
         self.filename = None
         self.fingerprint = None
         self.type = 'ghost'
@@ -60,6 +61,7 @@ class GhostSetup(BaseSetup):
         self.M = 0.0
         self.M_p = np.zeros(1)
         self.M_pp = np.zeros((1, 1))
+        self.M_wpp = {}
         self.K_p = np.zeros(1)
         self.MB = 0.0
         self.MB_p = np.zeros(1)
@@ -67,7 +69,7 @@ class GhostSetup(BaseSetup):
         self.f_j = [0.0]
         self.n_j = [0]
         self.l_j = [0]
-        self.l_orb_j = [0]
+        self.l_orb_J = [0]
         self.nj = 1
         self.lq = None  # XXXX
 
@@ -84,8 +86,10 @@ class GhostSetup(BaseSetup):
         self.B_ii = None
         self.dC_ii = None
         self.X_p = None
+        self.X_wp = {}
         self.X_pg = None
         self.ExxC = None
+        self.ExxC_w = {}
         self.X_gamma = None
         self.dEH0 = 0.0
         self.dEH_p = np.zeros(1)

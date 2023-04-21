@@ -7,7 +7,6 @@ from ase.units import Ha
 
 from gpaw.arraydict import ArrayDict
 from gpaw.external import create_external_potential
-from gpaw.hubbard import hubbard
 from gpaw.lfc import LFC
 from gpaw.poisson import PoissonSolver
 from gpaw.spinorbit import soc
@@ -247,6 +246,14 @@ class Hamiltonian:
         finegrid_energies *= self.finegd.comm.size / self.world.size
         coarsegrid_e_kinetic *= self.gd.comm.size / self.world.size
         # (careful with array orderings/contents)
+
+        if 0:
+            print('kinetic', atomic_energies[0], coarsegrid_e_kinetic)
+            print('coulomb', atomic_energies[1], finegrid_energies[0])
+            print('zero', atomic_energies[2], finegrid_energies[1])
+            print('xc', atomic_energies[4], finegrid_energies[3])
+            print('external', atomic_energies[3], finegrid_energies[2])
+
         energies = atomic_energies  # kinetic, coulomb, zero, external, xc
         energies[1:] += finegrid_energies  # coulomb, zero, external, xc
         energies[0] += coarsegrid_e_kinetic  # kinetic
@@ -303,12 +310,10 @@ class Hamiltonian:
             else:
                 dH_sp = np.zeros_like(D_sp)
 
-            if setup.HubU is not None:
-                # assert self.collinear
-                for l, U, scale in zip(setup.Hubl, setup.HubU, setup.Hubs):
-                    eU, dHU_sp = hubbard(setup, D_sp, l, U, scale)
-                    e_xc += eU
-                    dH_sp += dHU_sp
+            if setup.hubbard_u is not None:
+                eU, dHU_sp = setup.hubbard_u.calculate(setup, D_sp)
+                e_xc += eU
+                dH_sp += dHU_sp
 
             dH_sp[:self.nspins] += dH_p
 
@@ -335,7 +340,6 @@ class Hamiltonian:
             e_xc += self.xc.calculate_paw_correction(self.setups[a], D_sp,
                                                      dH_asp[a], a=a)
         self.timer.stop('XC Correction')
-
         for a, D_sp in D_asp.items():
             e_kinetic -= (D_sp * dH_asp[a]).sum().real
 
@@ -356,6 +360,14 @@ class Hamiltonian:
         else:
             self.e_kinetic = self.e_kinetic0
         self.e_entropy = e_entropy
+        if 0:
+            print(self.e_kinetic0,
+                  self.e_band,
+                  self.e_coulomb,
+                  self.e_external,
+                  self.e_zero,
+                  self.e_xc,
+                  self.e_entropy)
 
         self.e_total_free = (self.e_kinetic + self.e_coulomb +
                              self.e_external + self.e_zero + self.e_xc +
@@ -410,27 +422,6 @@ class Hamiltonian:
         F_av += F_coarsegrid_av
 
     def apply_local_potential(self, psit_nG, Htpsit_nG, s):
-        """Apply the Hamiltonian operator to a set of vectors.
-
-        XXX Parameter description is deprecated!
-
-        Parameters:
-
-        a_nG: ndarray
-            Set of vectors to which the overlap operator is applied.
-        b_nG: ndarray, output
-            Resulting H times a_nG vectors.
-        kpt: KPoint object
-            k-point object defined in kpoint.py.
-        calculate_projections: bool
-            When True, the integrals of projector times vectors
-            P_ni = <p_i | a_nG> are calculated.
-            When False, existing P_uni are used
-        local_part_only: bool
-            When True, the non-local atomic parts of the Hamiltonian
-            are not applied and calculate_projections is ignored.
-
-        """
         vt_G = self.vt_sG[s]
         if psit_nG.ndim == 3:
             Htpsit_nG += psit_nG * vt_G
@@ -748,6 +739,7 @@ class RealSpaceHamiltonian(Hamiltonian):
         self.timer.stop('Poisson')
 
         self.timer.start('Hartree integrate/restrict')
+
         e_coulomb = 0.5 * self.finegd.integrate(self.vHt_g, dens.rhot_g,
                                                 global_integral=False)
 

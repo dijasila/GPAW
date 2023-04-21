@@ -93,7 +93,8 @@ class KickHamiltonian(object):
 
 
 class TimeDependentHamiltonian(object):
-    def __init__(self, fxc=None, td_potential=None, scale=None):
+    def __init__(self, fxc=None, td_potential=None, scale=None,
+                 rremission=None):
         assert fxc is None or isinstance(fxc, str)
         self.fxc_name = fxc
         if isinstance(td_potential, dict):
@@ -107,6 +108,7 @@ class TimeDependentHamiltonian(object):
         self.has_scale = scale is not None
         if self.has_scale:
             self.scale = scale
+        self.rremission = rremission
 
     def write(self, writer):
         if self.has_fxc:
@@ -159,6 +161,8 @@ class TimeDependentHamiltonian(object):
         self.density = paw.density
         self.hamiltonian = paw.hamiltonian
         niter = paw.niter
+        if self.rremission is not None:
+            self.rremission.initialize(paw)
 
         # Reset the density mixer
         # XXX: density mixer is not written to the gpw file
@@ -249,6 +253,10 @@ class TimeDependentHamiltonian(object):
         H_MM = get_matrix(self.hamiltonian, self.wfs, kpt, root=-1)
         if addfxc and self.has_fxc:
             H_MM += self.deltaXC_H_uMM[u]
+
+        if self.rremission is not None:
+            H_MM += self.rremission.vradiationreaction(kpt, time)
+
         if scale and self.has_scale:
             H_MM *= self.scale
             H_MM += self.scale_H_uMM[u]

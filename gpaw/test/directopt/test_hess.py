@@ -6,6 +6,7 @@ from gpaw.directmin.derivatives import Derivatives
 import numpy as np
 
 
+@pytest.mark.do
 def test_directmin_lcao_numerical_hessian(in_tmp_dir):
     """
     Test complex numerical Hessian

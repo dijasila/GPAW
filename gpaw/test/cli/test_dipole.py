@@ -12,4 +12,4 @@ def test_dipole(gpw_files, mode, capsys):
     main(args)
     out = capsys.readouterr().out
     lines = [line.split() for line in out.splitlines()]
-    assert abs(float(lines[5][2])) == pytest.approx(0.55, abs=0.05)
+    assert abs(float(lines[6][2])) == pytest.approx(0.55, abs=0.05)

@@ -8,12 +8,7 @@ export EASYBUILD_PREFIX=/groups/physics/modules
 module use $EASYBUILD_PREFIX/modules/all
 module purge
 unset PYTHONPATH
-module load matplotlib
-module load spglib-python
-module load libxc
-module load libvdwxc
-module load ScaLAPACK
-module load GPAW-setups
+module load GPAW/21.6.0-foss-2020b-libxc-5.1.5-ASE-3.22.0
 ' > modules.sh
 . modules.sh
 
@@ -28,14 +23,21 @@ mv bin/activate old
 mv ../modules.sh bin/activate
 cat old >> bin/activate
 rm old
-
+$PIP install pytz
 git clone https://gitlab.com/ase/ase.git
-$PIP install -e ase
+$PIP install -U ase/
 
 git clone https://gitlab.com/asr-dev/asr.git
+cd asr
+git checkout old-master
+#git checkout om_spinspiral
+cd ..
 $PIP install -e asr
 
 git clone https://gitlab.com/gpaw/gpaw.git
+cd gpaw
+#git checkout old-spinspiral
+cd ..
 echo "
 from os import environ
 from pathlib import Path
@@ -69,6 +71,21 @@ else
     export MPLBACKEND=TkAgg
 fi' >> bin/activate
 
+pip install flask==2.1.0
+
+# Fix to remove the GPAW and ASE module installed in the "GPAW/21.6.0-foss-2020b" toolchain from path
+echo '
+export PYTHONPATH=/groups/physics/modules/software/spglib-python/1.16.0-foss-2020b/lib/python3.8/site-packages:/groups/physics/modules/software/matplotlib/3.3.3-foss-2020b/lib/python3.8/site-packages:/g\
+roups/physics/modules/software/Pillow/8.0.1-GCCcore-10.2.0/lib/python3.8/site-packages:/groups/physics/modules/software/Tkinter/3.8.6-GCCcore-10.2.0/lib/python3.8:/groups/physics/modules/software/Tkinte\
+r/3.8.6-GCCcore-10.2.0/easybuild/python:/groups/physics/modules/software/SciPy-bundle/2020.11-foss-2020b/lib/python3.8/site-packages:/groups/physics/modules/software/pybind11/2.6.0-GCCcore-10.2.0/lib/py\
+thon3.8/site-packages:/groups/physics/modules/software/Python/3.8.6-GCCcore-10.2.0/easybuild/python
+' >> bin/activate
+
 mq --version
+#ase info
+#gpaw test
+source bin/activate
+pip uninstall ase
+pip install ase/
 ase info
 gpaw test

@@ -10,6 +10,8 @@ Documentation
    basic_usage
    advanced
    theory
+   core
    cmdline
+   gpu
    utilities/utilities
    reports_presentations_and_theses

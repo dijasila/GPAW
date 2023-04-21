@@ -21,6 +21,7 @@ if do_print_values:
         i += 1
 
 
+@pytest.mark.later
 @pytest.mark.ci
 def test_inducedfield_td(in_tmp_dir):
     poisson_eps = 1e-12

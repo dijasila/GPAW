@@ -12,7 +12,6 @@ gpaw.egg-info/
 /venv*/
 .coverage*
 htmlcov/
-.idea/
 
 # If you build the documentation in the source tree, you will create a
 # lot of files that we don't want to see with "git status":
@@ -64,17 +63,12 @@ doc/setups/[A-Z]*.rst
 # Emacs lock files:
 .\#*
 
+# Files produced by AGTS (myqueue)
+*.py.state
+*.py.*.err
+
 # These are OK:
 !requirements.txt
 !mypy.ini
 !pytest.ini
-
-# Ignore PyCharm settings
-.idea/
-
-# Ignore VS Code settings
-.vscode/
-
-/gpaw/Pycharm_Testing/agptpop/test_mmf_sic.py
-/gpaw/Pycharm_Testing/et/eigen/rewrite.py
-/gpaw/Pycharm_Testing/
+!doc/words.txt

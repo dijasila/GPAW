@@ -24,5 +24,6 @@ Theory in order of abstraction.
    xas/xas
    ehrenfest/ehrenfest_theory
    raman/raman
+   sjm/sjm
 
 
