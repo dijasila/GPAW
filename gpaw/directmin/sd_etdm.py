@@ -74,7 +74,7 @@ class ModeFollowingBase(object):
         """
 
         self.partial_diagonalizer.grad = g_k1
-        use_prev = False if self.eigv is None or (self.was_convex \
+        use_prev = False if self.eigv is None or (self.was_convex
             and self.reset_on_convex) else True
         self.partial_diagonalizer.run(wfs, ham, dens, use_prev)
         self.eigv = copy.deepcopy(self.partial_diagonalizer.lambda_all)
