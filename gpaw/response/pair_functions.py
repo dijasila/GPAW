@@ -5,7 +5,9 @@ import numpy as np
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.pw.descriptor import PWDescriptor
 
-from gpaw.response.pw_parallelization import Blocks1D
+from gpaw.response.frequencies import ComplexFrequencyDescriptor
+from gpaw.response.pw_parallelization import (Blocks1D,
+                                              PlaneWaveBlockDistributor)
 
 
 class SingleQPWDescriptor(PWDescriptor):
@@ -74,15 +76,13 @@ class PairFunction(ABC):
 
     For more information, please refer to [Skovhus T., PhD. Thesis, 2021]."""
 
-    def __init__(self, qpd):
-        """Construct a pair function.
-
-        Parameters
-        ----------
-        qpd : SingleQPWDescriptor
-        """
+    def __init__(self,
+                 qpd: SingleQPWDescriptor,
+                 zd: ComplexFrequencyDescriptor):
+        """Construct a pair function."""
         self.qpd = qpd
         self.q_c = qpd.q_c
+        self.zd = zd
 
         self.array = self.zeros()
 
@@ -122,36 +122,33 @@ class LatticePeriodicPairFunction(PairFunction):
     question.
     """
 
-    def __init__(self, qpd, zd, blockdist, distribution='ZgG'):
+    def __init__(self, qpd, zd,
+                 blockdist: PlaneWaveBlockDistributor,
+                 distribution='ZgG'):
         """Contruct the LatticePeriodicPairFunction.
 
         Parameters
         ----------
-        qpd : SingleQPWDescriptor
-        zd : ComplexFrequencyDescriptor
-        blockdist : PlaneWaveBlockDistributor
         distribution : str
             Memory distribution of the pair function array.
             Choices: 'ZgG', 'GZg' and 'zGG'.
         """
-        self.zd = zd
         self.blockdist = blockdist
         self.distribution = distribution
 
-        nG = qpd.ngmax
-        self.blocks1d, self.shape = self._get_blocks_and_shape(nG)
+        self.blocks1d = None
+        self.shape = None
+        super().__init__(qpd, zd)
 
-        super().__init__(qpd)
+    def zeros(self):
+        if self.shape is None:
+            self._initialize_block_distribution()
+        return np.zeros(self.shape, complex)
 
-    def _get_blocks_and_shape(self, nG):
-        """Get 1D block distribution and array shape
-
-        Parameters
-        ----------
-        nG : int
-            Number of plane-wave coefficients in the basis set
-        """
+    def _initialize_block_distribution(self):
+        """Initialize 1D block distribution and corresponding array shape."""
         nz = len(self.zd)
+        nG = self.qpd.ngmax
         blockdist = self.blockdist
         distribution = self.distribution
 
@@ -167,10 +164,8 @@ class LatticePeriodicPairFunction(PairFunction):
         else:
             raise NotImplementedError(f'Distribution: {distribution}')
 
-        return blocks1d, shape
-
-    def zeros(self):
-        return np.zeros(self.shape, complex)
+        self.blocks1d = blocks1d
+        self.shape = shape
 
     def array_with_view(self, view):
         """Access a given view into the pair function array."""
