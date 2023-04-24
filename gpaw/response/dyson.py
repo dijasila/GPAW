@@ -42,6 +42,7 @@ class HXCKernel:
         self.scaling = scaling
 
         if Vbare_G is None:
+            assert fxc_kernel is not None
             self.nG = fxc_kernel.GG_shape[0]
         else:
             self.nG = len(Vbare_G)
