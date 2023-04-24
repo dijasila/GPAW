@@ -3,7 +3,6 @@ import pickle
 import numpy as np
 
 from ase.units import Hartree
-from ase.utils import lazyproperty
 
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKS, ChiKSCalculator
@@ -21,10 +20,6 @@ class Chi:
                  hxc_kernel: HXCKernel,
                  dyson_solver: DysonSolver):
         """Construct the many-body susceptibility based on its ingredients."""
-        self._chiks = chiks
-        self._hxc_kernel = hxc_kernel
-        self._dyson_solver = dyson_solver
-
         # Extract properties from chiks
         self.qpd = chiks.qpd
         self.zd = chiks.zd
@@ -32,11 +27,15 @@ class Chi:
         self.world = self.blockdist.world
         self.blocks1d = chiks.blocks1d
 
+        # Solve dyson equation
+        self.array = dyson_solver(chiks, hxc_kernel)
+
         # XXX To do XXX
-        # * Calculate array at initialization and store in self.array
+        # * Stop writing results related to chiks (and remove self._chiks)
         # * Find a different way to expose the fxc_kernel
 
         self.fxc_kernel = hxc_kernel.fxc_kernel
+        self._chiks = chiks
 
     def write_macroscopic_component(self, filename):
         """Calculate the spatially averaged (macroscopic) component of the
@@ -126,13 +125,9 @@ class Chi:
         # For now, we assume that eta is fixed -> z index == w index
         omega_w = self.zd.omega_w * Hartree
         chiks_wGG = self._chiks.array
-        chi_wGG = self.chi_zGG
+        chi_wGG = self.array
 
         return omega_w, chiks_wGG, chi_wGG
-
-    @lazyproperty
-    def chi_zGG(self):
-        return self._dyson_solver(self._chiks, self._hxc_kernel)
 
     def collect(self, X_z):
         """Collect all frequencies."""
