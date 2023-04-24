@@ -24,13 +24,20 @@ def generate_system_s(spincomponents=['00', '+-']):
         ('fancy_si_pw_wfs', '00', 1e-5, 1e-6, 1e-5),
         ('al_pw_wfs', '00', 1e-5, 4.0, 1e-5),  # unstable symmetry -> #788
         ('fe_pw_wfs', '00', 1e-5, 1e-6, 1e-5),
-        ('fe_pw_wfs', '+-', 0.04, 0.02, 0.02)
+        ('fe_pw_wfs', '+-', 0.04, 0.02, 0.02),
+        ('co_pw_wfs', '00', 1e-3, 1e-6, 1e-5),  # marked as xfail -> #788
+        ('co_pw_wfs', '+-', 1e-3, 1e-6, 1e-5),  # marked as xfail -> #788
     ]
 
     # Filter spincomponents
     system_s = [system for system in system_s if system[1] in spincomponents]
 
     return system_s
+
+
+def mark_co_xfail(wfs, request):
+    if wfs == 'co_pw_wfs':
+        request.node.add_marker(pytest.mark.xfail)
 
 
 def generate_qrel_q():
@@ -47,6 +54,9 @@ def get_q_c(wfs, qrel):
     elif wfs == 'fe_pw_wfs':
         # Generate points on the G-N path
         q_c = qrel * np.array([0., 0., 1.])
+    elif wfs == 'co_pw_wfs':
+        # Generate points on the G-M path
+        q_c = qrel * np.array([1., 0., 0.])
     else:
         raise ValueError('Invalid wfs', wfs)
 
@@ -88,11 +98,11 @@ def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered, request):
 
     Furthermore, we test the symmetries of the calculated susceptibilities.
     """
-
     # ---------- Inputs ---------- #
 
     # Part 1: Set up ChiKSTestingFactory
     wfs, spincomponent, rtol, dsym_rtol, bsum_rtol = system
+    mark_co_xfail(wfs, request)
     q_c = get_q_c(wfs, qrel)
 
     ecut = 50

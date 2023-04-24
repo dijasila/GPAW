@@ -157,10 +157,7 @@ class ReciprocalSpaceHamiltonian(Hamiltonian):
 
     def calculate_forces2(self, dens, ghat_aLv, nct_av, vbar_av):
         self.vext.derivative_pw(self, ghat_aLv, dens)
-        if not dens.add_nct_directly:
-            dens.nct.derivative(self.vt_Q, nct_av)
-        else:
-            dens.nct.derivative(self.vt_sG.mean(axis=0), nct_av)
+        dens.nct.derivative(self.vt_Q, nct_av)
         self.vbar.derivative(dens.nt_Q, vbar_av)
 
     def get_electrostatic_potential(self, dens: Density) -> Array3D:

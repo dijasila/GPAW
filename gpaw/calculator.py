@@ -724,7 +724,7 @@ class GPAW(Calculator):
             raise ValueError('LCAO mode does not support '
                              'orbital-dependent XC functionals.')
 
-        realspace = (mode.name != 'pw' and mode.interpolation != 'fft')
+        realspace = mode.interpolation != 'fft'
 
         self.create_setups(mode, xc)
 
@@ -1146,10 +1146,7 @@ class GPAW(Calculator):
                 ecut = 2 * self.wfs.pd.ecut
             else:
                 ecut = 0.5 * (np.pi / h)**2
-            self.density = ReciprocalSpaceDensity(
-                ecut=ecut,
-                add_nct_directly=mode.add_nct_directly,
-                **kwargs)
+            self.density = ReciprocalSpaceDensity(ecut=ecut, **kwargs)
 
         self.log(self.density, '\n')
 

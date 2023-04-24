@@ -54,19 +54,20 @@ Requirements
 ============
 
 * Python_ 3.7 or later
-* NumPy_ 1.9 or later (base N-dimensional array package)
-* SciPy_ 0.14 or later (library for scientific computing)
-* ASE_ 3.18.0 or later (atomic simulation environment)
-* a C-compiler
-* LibXC_ 3.x, 4.x or 5.1+
-* BLAS_ library
+* ASE_
+* NumPy_
+* SciPy_
+* LibXC_
+* A C compiler
+* A BLAS_ library
 
-Optional, but highly recommended:
+Optional (highly recommended for increased performance):
 
-* an MPI_ library (required for parallel calculations)
-* FFTW_ (for increased performance)
-* BLACS_ and ScaLAPACK_
+* A MPI_ library (required for parallel calculations)
+* BLACS_ and ScaLAPACK_ libraries
+* FFTW_
 
+See :ref:`releasenotes` for version requirements.
 
 .. _Python: http://www.python.org/
 .. _NumPy: http://docs.scipy.org/doc/numpy/reference/

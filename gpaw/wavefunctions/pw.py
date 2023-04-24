@@ -30,7 +30,7 @@ class PW(Mode):
                  gammacentered=False,
                  pulay_stress=None, dedecut=None,
                  force_complex_dtype=False,
-                 add_nct_directly: bool = False):
+                 interpolation='fft'):
         """Plane-wave basis mode.
 
         ecut: float
@@ -51,12 +51,10 @@ class PW(Mode):
 
         cell: 3x3 ndarray
             Use this unit cell to chose the planewaves.
-        add_nct_directly:
-            Default behaviour is to add the Fourrier transformed pseudo core
-            density and inverse transform to real-space.  This will lead to
-            slightly negative densities, but no egg-box error.  Use
-            add_nct_directly=True to get strictly positive
-            values (and egg-box error).
+        interpolation : str or int
+            Interpolation scheme to construct the density on the fine grid.
+            Default is 'fft' and alternatively a stencil (integer) can be given
+            to perform an explicit real-space interpolation.
 
         Only one of dedecut and pulay_stress can be used.
         """
@@ -66,7 +64,7 @@ class PW(Mode):
         # Don't do expensive planning in dry-run mode:
         self.fftwflags = fftwflags if not gpaw.dry_run else fftw.MEASURE
         self.dedecut = dedecut
-        self.add_nct_directly = add_nct_directly
+        self.interpolation = interpolation
         self.pulay_stress = (None
                              if pulay_stress is None
                              else pulay_stress * Bohr**3 / Ha)
@@ -114,8 +112,8 @@ class PW(Mode):
             dct['pulay_stress'] = self.pulay_stress * Ha / Bohr**3
         if self.dedecut is not None:
             dct['dedecut'] = self.dedecut
-        if self.add_nct_directly:
-            dct['add_nct_directly'] = True
+        if self.interpolation != 'fft':
+            dct['interpolation'] = self.interpolation
         return dct
 
 
