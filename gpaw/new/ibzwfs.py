@@ -389,7 +389,7 @@ class IBZWaveFunctions:
                 eig_n = eig_skn[0, k]
                 n0 = (eig_n < fl[0]).sum() - 0.5
                 for n, (e, f) in enumerate(zip(eig_n, occ_skn[0, k])):
-                    # First, last and +-2.0 eV window around fermi level:
+                    # First, last and +-8 bands window around fermi level:
                     if n == 0 or abs(n - n0) < 8 or n == nbands - 1:
                         log(f'  {n:4} {e:13.3f}   {D * f:9.3f}')
                         skipping = False
