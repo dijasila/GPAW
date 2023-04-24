@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from gpaw.typing import Array1D
 from gpaw.response import timer
 from gpaw.response.chiks import ChiKS
 from gpaw.response.fxc_kernels import FXCKernel
@@ -32,7 +33,7 @@ class HXCKernel:
     """Hartree-exchange-correlation kernel in a plane-wave basis."""
 
     def __init__(self,
-                 Vbare_G,
+                 Vbare_G: Array1D | None,
                  fxc_kernel: FXCKernel | None,
                  scaling: HXCScaling | None = None):
         """Construct the Hxc kernel."""
@@ -44,6 +45,8 @@ class HXCKernel:
             self.nG = fxc_kernel.GG_shape[0]
         else:
             self.nG = len(Vbare_G)
+            if fxc_kernel is not None:
+                assert fxc_kernel.GG_shape[0] == self.nG
 
     def get_Khxc_GG(self):
         """Hartree-exchange-correlation kernel."""
@@ -74,7 +77,7 @@ class DysonSolver:
         """Solve the dyson equation and return chi."""
         assert chiks.distribution == 'zGG' and\
             chiks.blockdist.fully_block_distributed,\
-            "Chi assumes that chiks's frequencies are distributed over world"
+            "DysonSolver needs chiks' frequencies to be distributed over world"
 
         Khxc_GG = hxc_kernel.get_Khxc_GG()
 
