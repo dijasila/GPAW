@@ -21,12 +21,22 @@ class Chi:
                  hxc_kernel: HXCKernel,
                  dyson_solver: DysonSolver):
         """Construct the many-body susceptibility based on its ingredients."""
-        self.chiks = chiks
-        self.hxc_kernel = hxc_kernel
-        self.dyson_solver = dyson_solver
+        self._chiks = chiks
+        self._hxc_kernel = hxc_kernel
+        self._dyson_solver = dyson_solver
 
-        self.world = chiks.blockdist.world
-        self.fxc_kernel = self.hxc_kernel.fxc_kernel
+        # Extract properties from chiks
+        self.qpd = chiks.qpd
+        self.zd = chiks.zd
+        self.blockdist = chiks.blockdist
+        self.world = self.blockdist.world
+        self.blocks1d = chiks.blocks1d
+
+        # XXX To do XXX
+        # * Calculate array at initialization and store in self.array
+        # * Find a different way to expose the fxc_kernel
+
+        self.fxc_kernel = hxc_kernel.fxc_kernel
 
     def write_macroscopic_component(self, filename):
         """Calculate the spatially averaged (macroscopic) component of the
@@ -67,7 +77,7 @@ class Chi:
         omega_w, chiks_wGG, chi_wGG = self.get_distributed_arrays()
 
         # Map the susceptibilities to a reduced plane-wave representation
-        qpd = self.chiks.qpd
+        qpd = self.qpd
         mask_G = get_pw_reduction_map(qpd, reduced_ecut)
         chiks_wGG = np.ascontiguousarray(chiks_wGG[:, mask_G, :][:, :, mask_G])
         chi_wGG = np.ascontiguousarray(chi_wGG[:, mask_G, :][:, :, mask_G])
@@ -97,7 +107,7 @@ class Chi:
         omega_w, chiks_wGG, chi_wGG = self.get_distributed_arrays()
 
         # Map the susceptibilities to a reduced plane-wave representation
-        qpd = self.chiks.qpd
+        qpd = self.qpd
         mask_G = get_pw_reduction_map(qpd, reduced_ecut)
         chiks_wG = np.ascontiguousarray(chiks_wGG[:, mask_G, mask_G])
         chi_wG = np.ascontiguousarray(chi_wGG[:, mask_G, mask_G])
@@ -114,24 +124,24 @@ class Chi:
     def get_distributed_arrays(self):
         """Get data arrays, frequency distributed over world."""
         # For now, we assume that eta is fixed -> z index == w index
-        omega_w = self.chiks.zd.omega_w * Hartree
-        chiks_wGG = self.chiks.array
+        omega_w = self.zd.omega_w * Hartree
+        chiks_wGG = self._chiks.array
         chi_wGG = self.chi_zGG
 
         return omega_w, chiks_wGG, chi_wGG
 
     @lazyproperty
     def chi_zGG(self):
-        return self.dyson_solver(self.chiks, self.hxc_kernel)
+        return self._dyson_solver(self._chiks, self._hxc_kernel)
 
     def collect(self, X_z):
         """Collect all frequencies."""
-        return self.chiks.blocks1d.collect(X_z)
+        return self.blocks1d.collect(X_z)
 
     def gather(self, X_zx):
         """Gather a full susceptibility array to root."""
         # Allocate arrays to gather (all need to be the same shape)
-        blocks1d = self.chiks.blocks1d
+        blocks1d = self.blocks1d
         shape = (blocks1d.blocksize,) + X_zx.shape[1:]
         tmp_zx = np.empty(shape, dtype=X_zx.dtype)
         tmp_zx[:blocks1d.nlocal] = X_zx
@@ -149,7 +159,7 @@ class Chi:
 
         # Return array for w indeces on frequency grid
         if allX_zx is not None:
-            allX_zx = allX_zx[:len(self.chiks.zd)]
+            allX_zx = allX_zx[:len(self.zd)]
 
         return allX_zx
 
