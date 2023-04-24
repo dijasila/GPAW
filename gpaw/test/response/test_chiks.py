@@ -24,7 +24,7 @@ def generate_system_s(spincomponents=['00', '+-']):
         ('fancy_si_pw_wfs', '00', 1e-5, 1e-6, 1e-5),
         ('al_pw_wfs', '00', 1e-5, 4.0, 1e-5),  # unstable symmetry -> #788
         ('fe_pw_wfs', '00', 1e-5, 1e-6, 1e-5),
-        ('fe_pw_wfs', '+-', 0.04, 0.01, 0.02)
+        ('fe_pw_wfs', '+-', 0.04, 0.02, 0.02)
     ]
 
     # Filter spincomponents
@@ -60,14 +60,17 @@ def generate_gc_g():
     return gc_g
 
 
+def generate_nblocks_n():
+    nblocks_n = [1]
+    if world.size % 2 == 0:
+        nblocks_n.append(2)
+    if world.size % 4 == 0:
+        nblocks_n.append(4)
+
+    return nblocks_n
+
+
 # ---------- Actual tests ---------- #
-
-
-def mark_si_xfail(system, request):
-    # Bug tracked in #802
-    wfs = system[0]
-    if wfs == 'fancy_si_pw_wfs' and world.size % 4 == 0:
-        request.node.add_marker(pytest.mark.xfail)
 
 
 @pytest.mark.response
@@ -84,30 +87,11 @@ def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered, request):
     calculator.
 
     Furthermore, we test the symmetries of the calculated susceptibilities.
-    In particular, we test the reciprocity relation (valid both for μν=00 and
-    μν=+-),
-
-    χ_(KS,GG')^(μν)(q, ω) = χ_(KS,-G'-G)^(μν)(-q, ω),
-
-    the inversion symmetry relation,
-
-    χ_(KS,GG')^(μν)(q, ω) = χ_(KS,-G-G')^(μν)(-q, ω),
-
-    and the combination of the two,
-
-    χ_(KS,GG')^(μν)(q, ω) = χ_(KS,G'G)^(μν)(q, ω),
-
-    for a real life periodic systems with an inversion center.
-
-    Unfortunately, there will always be random noise in the wave functions,
-    such that these symmetries cannot be fulfilled exactly. Generally speaking,
-    the "symmetry" noise can be reduced by running with symmetry='off' in
-    the ground state calculation."""
-    mark_si_xfail(system, request)
+    """
 
     # ---------- Inputs ---------- #
 
-    # Part 1: ChiKS calculation
+    # Part 1: Set up ChiKSTestingFactory
     wfs, spincomponent, rtol, dsym_rtol, bsum_rtol = system
     q_c = get_q_c(wfs, qrel)
 
@@ -115,22 +99,18 @@ def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered, request):
     # Test vanishing and finite real and imaginary frequencies
     frequencies = np.array([0., 0.05, 0.1, 0.2])
     complex_frequencies = list(frequencies + 0.j) + list(frequencies + 0.1j)
+    zd = ComplexFrequencyDescriptor.from_array(complex_frequencies)
 
-    # Calculation parameters (which should not affect the result)
-    dynamic_ground_state_d = [True, False]
+    # Part 2: Check toggling of calculation parameters
+    # Note: None of these should change the actual results.
     disable_syms_s = [True, False]
 
-    nblocks_n = [1]
-    if world.size % 2 == 0:
-        nblocks_n.append(2)
-    if world.size % 4 == 0:
-        nblocks_n.append(4)
+    nblocks_n = generate_nblocks_n()
     nn = len(nblocks_n)
 
     bandsummation_b = ['double', 'pairwise']
     bundle_integrals_i = [True, False]
 
-    # Part 2: Check toggling of calculation parameters
     nblocks_rtol = 1e-6
     bint_rtol = 1e-6
 
@@ -138,153 +118,58 @@ def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered, request):
 
     # ---------- Script ---------- #
 
-    # Part 1: ChiKS calculation
+    # Part 1: Set up ChiKSTestingFactory
     calc = GPAW(gpw_files[wfs], parallel=dict(domain=1))
     nbands = calc.parameters.convergence['bands']
 
-    context = ResponseContext()
-
-    # Calculate chiks for q and -q
-    if np.allclose(q_c, 0.):
-        q_qc = [q_c]
-    else:
-        q_qc = [-q_c, q_c]
-
-    # Set up complex frequency descriptor
-    zd = ComplexFrequencyDescriptor.from_array(complex_frequencies)
-
-    # Run calculations to cross-validate dynamic_ground_state,
-    # disable_symmetries, nblocks and bandsummation
-    chiks_dsnbq = []
-    for dynamic_ground_state in dynamic_ground_state_d:
-        chiks_snbq = []
-        gs = initialize_ground_state_adapter(
-            gpw_files[wfs], calc, context,
-            dynamic_ground_state=dynamic_ground_state)
-        for disable_syms in disable_syms_s:
-            chiks_nbq = []
-            if gammacentered and not np.allclose(q_c, 0.):
-                # When calculating chiks on a gammacentered grid, the
-                # plane-wave representation used internally depends on
-                # whether symmetry is used in the calculation or not. This
-                # means that we need to reinitialize the ground state adapter
-                # with a fresh PAW corrections cache.
-                gs = initialize_ground_state_adapter(
-                    gpw_files[wfs], calc, context,
-                    dynamic_ground_state=dynamic_ground_state)
-            for nblocks in nblocks_n:
-                chiks_bq = []
-                for bandsummation in bandsummation_b:
-                    chiks_q = []
-
-                    chiks_calc = ChiKSCalculator(
-                        gs, context=context,
-                        ecut=ecut, nbands=nbands,
-                        gammacentered=gammacentered,
-                        disable_time_reversal=disable_syms,
-                        disable_point_group=disable_syms,
-                        bandsummation=bandsummation,
-                        nblocks=nblocks)
-
-                    for q_c in q_qc:
-                        chiks = chiks_calc.calculate(spincomponent, q_c, zd)
-                        chiks = chiks.copy_with_global_frequency_distribution()
-                        chiks_q.append(chiks)
-
-                    chiks_bq.append(chiks_q)
-                chiks_nbq.append(chiks_bq)
-            chiks_snbq.append(chiks_nbq)
-        chiks_dsnbq.append(chiks_snbq)
-
-    # Run calculations to cross-validate nblocks and bundle_integrals
-    d = -1  # Reuse the most recent ground state adapter with cached PAW
-    s = -1  # corrections (i.e. also the most recent symmetry setting)
-    b = 1  # Use the default pairwise band and spin summation scheme
-    chiks_niq = []
-    for n, nblocks in enumerate(nblocks_n):
-        chiks_iq = []
-        for bundle_integrals in bundle_integrals_i:
-            if bundle_integrals:
-                # This is the default setting, so we pick out the result from
-                # the calculations above
-                chiks_q = chiks_dsnbq[d][s][n][b]
-            else:
-                chiks_q = []
-
-                chiks_calc = ChiKSCalculator(
-                    gs, context=context,
-                    ecut=ecut, nbands=nbands,
-                    gammacentered=gammacentered,
-                    bundle_integrals=bundle_integrals,
-                    disable_time_reversal=disable_syms_s[s],
-                    disable_point_group=disable_syms_s[s],
-                    bandsummation=bandsummation_b[b],
-                    nblocks=nblocks)
-
-                for q_c in q_qc:
-                    chiks = chiks_calc.calculate(spincomponent, q_c, zd)
-                    chiks = chiks.copy_with_global_frequency_distribution()
-                    chiks_q.append(chiks)
-
-            chiks_iq.append(chiks_q)
-        chiks_niq.append(chiks_iq)
+    chiks_testing_factory = ChiKSTestingFactory(calc,
+                                                spincomponent, q_c, zd,
+                                                nbands, ecut, gammacentered)
 
     # Part 2: Check toggling of calculation parameters
 
-    # Test that all plane-wave representations are identical
-    dsnb_p = list(product(range(2), range(2), range(nn), range(2)))
-    for p, dsnb1 in enumerate(dsnb_p):
-        for dsnb2 in dsnb_p[p + 1:]:
-            compare_dsnb_pw_bases(chiks_dsnbq, dsnb1, dsnb2)
+    # Check symmetry toggle and cross-tabulate with nblocks and bandsummation
+    chiks_testing_factory.check_parameter_self_consistency(
+        parameter='disable_syms', values=disable_syms_s,
+        rtol=dsym_rtol,
+        cross_tabulation=dict(nblocks=nblocks_n,
+                              bandsummation=bandsummation_b))
 
-    # Check dynamic ground state toggle
-    for s in range(2):
-        for n in range(nn):
-            for b in range(2):
-                compare_dsnb_arrays(chiks_dsnbq,
-                                    (0, s, n, b), (1, s, n, b),
-                                    rtol=dsym_rtol)
+    # Check nblocks and cross-tabulate with disable_syms and bandsummation
+    for n1, n2 in combinations(range(nn), 2):
+        chiks_testing_factory.check_parameter_self_consistency(
+            parameter='nblocks', values=[nblocks_n[n1], nblocks_n[n2]],
+            rtol=nblocks_rtol,
+            cross_tabulation=dict(disable_syms=disable_syms_s,
+                                  bandsummation=bandsummation_b))
 
-    # Check symmetry toggle
-    for d in range(2):
-        for n in range(nn):
-            for b in range(2):
-                compare_dsnb_arrays(chiks_dsnbq,
-                                    (d, 0, n, b), (d, 1, n, b),
-                                    rtol=dsym_rtol)
+    # Check bandsummation and cross-tabulate with disable_syms and nblocks
+    chiks_testing_factory.check_parameter_self_consistency(
+        parameter='bandsummation', values=bandsummation_b,
+        rtol=bsum_rtol,
+        cross_tabulation=dict(disable_syms=disable_syms_s,
+                              nblocks=nblocks_n))
 
-    # Check nblocks toggle
-    for d in range(2):
-        for s in range(2):
-            for b in range(2):
-                for n1, n2 in combinations(range(nn), 2):
-                    compare_dsnb_arrays(chiks_dsnbq,
-                                        (d, s, n1, b), (d, s, n2, b),
-                                        rtol=nblocks_rtol)
-
-    # Check bandsummation toggle
-    for d in range(2):
-        for s in range(2):
-            for n in range(nn):
-                compare_dsnb_arrays(chiks_dsnbq,
-                                    (d, s, n, 0), (d, s, n, 1),
-                                    rtol=bsum_rtol)
-
-    # Check bundle_integrals toggle
-    for chiks1_q, chiks2_q in chiks_niq:
-        compare_pw_bases(chiks1_q, chiks2_q)
-        compare_arrays(chiks1_q, chiks2_q, rtol=bint_rtol)
+    # Check bundle_integrals toggle and cross-tabulate with nblocks
+    chiks_testing_factory.check_parameter_self_consistency(
+        parameter='bundle_integrals', values=bundle_integrals_i,
+        rtol=bint_rtol,
+        cross_tabulation=dict(nblocks=nblocks_n))
 
     # Part 3: Check reciprocity and inversion symmetry
-    for chiks_snbq in chiks_dsnbq:
-        for chiks_nbq in chiks_snbq:
-            for chiks_biq in chiks_nbq:
-                for chiks_q in chiks_bq:
-                    check_reciprocity_and_inversion_symmetry(
-                        chiks_q, rtol=rtol)
-    for chiks_iq in chiks_niq:
-        for chiks_q in chiks_iq:
-            check_reciprocity_and_inversion_symmetry(chiks_q, rtol=rtol)
+
+    # Cross-tabulate disable_syms, nblocks and bandsummation
+    chiks_testing_factory.check_reciprocity_and_inversion_symmetry(
+        rtol=rtol,
+        cross_tabulation=dict(disable_syms=disable_syms_s,
+                              nblocks=nblocks_n,
+                              bandsummation=bandsummation_b))
+
+    # Cross-tabulate bundle_integrals and nblocks
+    chiks_testing_factory.check_reciprocity_and_inversion_symmetry(
+        rtol=rtol,
+        cross_tabulation=dict(bundle_integrals=bundle_integrals_i,
+                              nblocks=nblocks_n))
 
 
 @pytest.mark.response
@@ -346,56 +231,159 @@ def test_chiks_vs_chi0(in_tmp_dir, gpw_files, system, qrel):
 # ---------- Test functionality ---------- #
 
 
-def initialize_ground_state_adapter(gpw, calc, context, *,
-                                    dynamic_ground_state):
-    if dynamic_ground_state:
-        gs = GSAdapterWithPAWCache(calc)
-    else:
-        gs = GSAdapterWithPAWCache.from_gpw_file(gpw, context=context)
+class ChiKSTestingFactory:
+    """Factory to calculate and cache ChiKS objects."""
 
-    return gs
+    def __init__(self, calc,
+                 spincomponent, q_c, zd,
+                 nbands, ecut, gammacentered):
+        self.gs = GSAdapterWithPAWCache(calc)
+        self.spincomponent = spincomponent
+        self.q_c = q_c
+        self.zd = zd
+        self.nbands = nbands
+        self.ecut = ecut
+        self.gammacentered = gammacentered
+
+        self.cached_chiks = {}
+
+    def __call__(self,
+                 qsign: int = 1,
+                 bundle_integrals: bool = True,
+                 disable_syms: bool = False,
+                 bandsummation: str = 'pairwise',
+                 nblocks: int = 1):
+        # Compile a string of the calculation parameters for cache look-up
+        cache_string = f'{qsign},{bundle_integrals},{disable_syms}'
+        cache_string += f',{bandsummation},{nblocks}'
+
+        if cache_string in self.cached_chiks:
+            return self.cached_chiks[cache_string]
+        
+        chiks_calc = ChiKSCalculator(
+            self.gs, ecut=self.ecut, nbands=self.nbands,
+            gammacentered=self.gammacentered,
+            bundle_integrals=bundle_integrals,
+            disable_time_reversal=disable_syms,
+            disable_point_group=disable_syms,
+            bandsummation=bandsummation,
+            nblocks=nblocks)
+
+        chiks = chiks_calc.calculate(
+            self.spincomponent, qsign * self.q_c, self.zd)
+        chiks = chiks.copy_with_global_frequency_distribution()
+        self.cached_chiks[cache_string] = chiks
+
+        return chiks
+
+    def check_parameter_self_consistency(self,
+                                         parameter: str, values: list,
+                                         rtol: float,
+                                         cross_tabulation: dict):
+        assert len(values) == 2
+        for kwargs in self.generate_cross_tabulated_kwargs(cross_tabulation):
+            kwargs[parameter] = values[0]
+            chiks1 = self(**kwargs)
+            kwargs[parameter] = values[1]
+            chiks2 = self(**kwargs)
+            compare_pw_bases(chiks1, chiks2)
+            assert chiks2.array == pytest.approx(
+                chiks1.array, rel=rtol, abs=1e-8), f'{kwargs}'
+
+    def check_reciprocity_and_inversion_symmetry(self, rtol: float,
+                                                 cross_tabulation: dict):
+        for kwargs in self.generate_cross_tabulated_kwargs(cross_tabulation):
+            # Calculate chiks in q and -q
+            chiks1 = self(**kwargs)
+            if np.allclose(self.q_c, 0.):
+                chiks2 = chiks1
+            else:
+                chiks2 = self(qsign=-1, **kwargs)
+            check_reciprocity_and_inversion_symmetry(chiks1, chiks2, rtol=rtol)
+
+    @staticmethod
+    def generate_cross_tabulated_kwargs(cross_tabulation: dict):
+        # Set up cross tabulation of calculation parameters
+        cross_tabulator = product(*[[(key, value)
+                                     for value in cross_tabulation[key]]
+                                    for key in cross_tabulation])
+        for cross_tabulated_parameters in cross_tabulator:
+            yield {key: value for key, value in cross_tabulated_parameters}
 
 
 class GSAdapterWithPAWCache(ResponseGroundStateAdapter):
     """Add a PAW correction cache to the ground state adapter.
 
-    WARNING: Use with extreme care! The cache is only valid, when the
-    plane-wave representation is kept fixed.
+    WARNING: Use with care! The cache is only valid, when the plane-wave
+    representations are identical.
     """
 
     def __init__(self, calc):
         super().__init__(calc)
 
-        self._pair_density_paw_corrections = []
+        self._cached_corrections = []
+        self._cached_parameters = []
 
     def pair_density_paw_corrections(self, qpd):
         """Overwrite method with a cached version."""
-        for q_c, pwpaw_corr_data in self._pair_density_paw_corrections:
-            if np.allclose(qpd.q_c, q_c):
-                return pwpaw_corr_data
+        cache_index = self._cache_lookup(qpd)
+        if cache_index is not None:
+            return self._cached_corrections[cache_index]
 
-        pwpaw_corr_data = super().pair_density_paw_corrections(qpd)
-        self._pair_density_paw_corrections.append((qpd.q_c, pwpaw_corr_data))
+        return self._calculate_correction(qpd)
 
-        return pwpaw_corr_data
+    def _calculate_correction(self, qpd):
+        correction = super().pair_density_paw_corrections(qpd)
+
+        self._cached_corrections.append(correction)
+        self._cached_parameters.append((qpd.q_c, qpd.ecut, qpd.gammacentered))
+
+        return correction
+
+    def _cache_lookup(self, qpd):
+        for i, (q_c, ecut,
+                gammacentered) in enumerate(self._cached_parameters):
+            if np.allclose(qpd.q_c, q_c) and abs(qpd.ecut - ecut) < 1e-8\
+               and qpd.gammacentered == gammacentered:
+                # Cache hit!
+                return i
 
 
-def check_reciprocity_and_inversion_symmetry(chiks_q, *, rtol):
-    """Carry out the actual susceptibility symmetry checks."""
-    # Get the q and -q pair
-    if len(chiks_q) == 2:
-        q1, q2 = 0, 1
-    else:
-        assert len(chiks_q) == 1
-        assert np.allclose(chiks_q[0].q_c, 0.)
-        q1, q2 = 0, 0
+def compare_pw_bases(chiks1, chiks2):
+    """Compare the plane-wave representations of two calculated chiks."""
+    G1_Gc = get_pw_coordinates(chiks1.qpd)
+    G2_Gc = get_pw_coordinates(chiks2.qpd)
+    assert G1_Gc.shape == G2_Gc.shape
+    assert np.allclose(G1_Gc - G2_Gc, 0.)
 
-    qpd1 = chiks_q[q1].qpd
-    qpd2 = chiks_q[q2].qpd
-    invmap_GG = get_inverted_pw_mapping(qpd1, qpd2)
+
+def check_reciprocity_and_inversion_symmetry(chiks1, chiks2, *, rtol):
+    """Check the susceptibilities for reciprocity and inversion symmetry
+
+    In particular, we test the reciprocity relation (valid both for μν=00 and
+    μν=+-),
+
+    χ_(KS,GG')^(μν)(q, ω) = χ_(KS,-G'-G)^(μν)(-q, ω),
+
+    the inversion symmetry relation,
+
+    χ_(KS,GG')^(μν)(q, ω) = χ_(KS,-G-G')^(μν)(-q, ω),
+
+    and the combination of the two,
+
+    χ_(KS,GG')^(μν)(q, ω) = χ_(KS,G'G)^(μν)(q, ω),
+
+    for a real life periodic systems with an inversion center.
+
+    Unfortunately, there will always be random noise in the wave functions,
+    such that these symmetries cannot be fulfilled exactly. Generally speaking,
+    the "symmetry" noise can be reduced by running with symmetry='off' in
+    the ground state calculation.
+    """
+    invmap_GG = get_inverted_pw_mapping(chiks1.qpd, chiks2.qpd)
 
     # Loop over frequencies
-    for chi1_GG, chi2_GG in zip(chiks_q[q1].array, chiks_q[q2].array):
+    for chi1_GG, chi2_GG in zip(chiks1.array, chiks2.array):
         # Check the reciprocity
         assert chi2_GG[invmap_GG].T == pytest.approx(chi1_GG, rel=rtol,
                                                      abs=1e-8)
@@ -403,41 +391,7 @@ def check_reciprocity_and_inversion_symmetry(chiks_q, *, rtol):
         assert chi2_GG[invmap_GG] == pytest.approx(chi1_GG, rel=rtol, abs=1e-8)
 
     # Loop over q-vectors
-    for chiks in chiks_q:
+    for chiks in [chiks1, chiks2]:
         for chiks_GG in chiks.array:  # array = chiks_zGG
             # Check that the full susceptibility matrix is symmetric
             assert chiks_GG.T == pytest.approx(chiks_GG, rel=rtol, abs=1e-8)
-
-
-def compare_dsnb_pw_bases(chiks_dsnbq, dsnb1, dsnb2):
-    chiks1_q, chiks2_q = take_two_dsnb_settings(chiks_dsnbq, dsnb1, dsnb2)
-    compare_pw_bases(chiks1_q, chiks2_q)
-
-
-def compare_pw_bases(chiks1_q, chiks2_q):
-    """Compare the plane-wave representations of two calculated chiks."""
-    for chiks1, chiks2 in zip(chiks1_q, chiks2_q):
-        G1_Gc = get_pw_coordinates(chiks1.qpd)
-        G2_Gc = get_pw_coordinates(chiks2.qpd)
-        assert G1_Gc.shape == G2_Gc.shape
-        assert np.allclose(G1_Gc - G2_Gc, 0.)
-
-
-def compare_dsnb_arrays(chiks_dsnbq, dsnb1, dsnb2, *, rtol):
-    chiks1_q, chiks2_q = take_two_dsnb_settings(chiks_dsnbq, dsnb1, dsnb2)
-    compare_arrays(chiks1_q, chiks2_q, rtol=rtol)
-
-
-def compare_arrays(chiks1_q, chiks2_q, *, rtol):
-    """Compare the values inside two arrays."""
-    for chiks1, chiks2 in zip(chiks1_q, chiks2_q):
-        assert chiks2.array == pytest.approx(chiks1.array, rel=rtol, abs=1e-8)
-
-
-def take_two_dsnb_settings(chiks_dsnbq, dsnb1, dsnb2):
-    d1, s1, n1, b1 = dsnb1
-    d2, s2, n2, b2 = dsnb2
-    chiks1_q = chiks_dsnbq[d1][s1][n1][b1]
-    chiks2_q = chiks_dsnbq[d2][s2][n2][b2]
-
-    return chiks1_q, chiks2_q

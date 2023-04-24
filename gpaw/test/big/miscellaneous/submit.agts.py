@@ -10,4 +10,4 @@ def workflow():
     run(script='revtpss_tpss_scf.py')
     run(script='ltt.py')
     run(script='scalapack.py', cores=16)
-    run(script='pblacs_oblong.py', cores=64)
+    run(script='pblacs_oblong.py', cores=48)

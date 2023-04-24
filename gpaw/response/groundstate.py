@@ -7,6 +7,7 @@ from ase.units import Ha, Bohr
 from ase.utils import lazyproperty
 
 import gpaw.mpi as mpi
+from gpaw.response.ibz2bz import IBZ2BZMaps
 
 
 class ResponseGroundStateAdapter:
@@ -34,6 +35,8 @@ class ResponseGroundStateAdapter:
         self.volume = self.gd.volume
 
         self.nvalence = wfs.nvalence
+
+        self.ibz2bz = IBZ2BZMaps.from_calculator(calc)
 
         self._wfs = wfs
         self._density = calc.density
@@ -211,41 +214,13 @@ class ResponseGroundStateAdapter:
 
         return ibzq_qc
 
-    def transform_and_symmetrize(self, K, k_c, Ph, psit_hG):
-        """Get wave function on a real space grid and symmetrize it
-        along with the corresponding PAW projections."""
-        _, T, a_a, U_aii, shift_c, time_reversal = \
-            self.construct_symmetry_operators(K, k_c)
-
-        # Symmetrize wave functions
-        ik = self.kd.bz2ibz_k[K]
-        ut_hR = self.gd.empty(len(psit_hG), self.dtype)
-        for h, psit_G in enumerate(psit_hG):
-            ut_hR[h] = T(self.global_pd.ifft(psit_G, ik))
-
-        # Symmetrize projections
-        P_ahi = []
-        for a1, U_ii in zip(a_a, U_aii):
-            P_hi = np.ascontiguousarray(Ph[a1])
-            # Apply symmetry operations. This will map a1 onto a2
-            np.dot(P_hi, U_ii, out=P_hi)
-            if time_reversal:
-                np.conj(P_hi, out=P_hi)
-            P_ahi.append(P_hi)
-
-        # Store symmetrized projectors
-        for a2, P_hi in enumerate(P_ahi):
-            I1, I2 = Ph.map[a2]
-            Ph.array[..., I1:I2] = P_hi
-
-        return Ph, ut_hR, shift_c
-
-    def construct_symmetry_operators(self, K, k_c):
-        from gpaw.response.symmetry_ops import construct_symmetry_operators
-        R_asii = [pawdata.R_sii for pawdata in self.pawdatasets]
-        return construct_symmetry_operators(
-            self.kd, self.gd, K, k_c,
-            spos_ac=self.spos_ac, R_asii=R_asii)
+    def get_ibz_vertices(self):
+        # For the tetrahedron method in Chi0
+        from gpaw.bztools import get_bz
+        # NB: We are ignoring the pbc_c keyword to get_bz() in order to mimic
+        # find_high_symmetry_monkhorst_pack() in gpaw.bztools. XXX
+        _, ibz_vertices_kc = get_bz(self._calc)
+        return ibz_vertices_kc
 
 
 # Contains all the relevant information

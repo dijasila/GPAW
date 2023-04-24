@@ -10,7 +10,7 @@ Git master branch
 
 :git:`master <>`.
 
-* Corresponding ASE release: ASE-3.23.0b1
+* Minimum version requirements: Python 3.7, ASE 3.23.0b1, NumPy 1.17.0, SciPy 1.6.0
 
 * New :meth:`~gpaw.calculator.GPAW.new()` method for creating new ``GPAW``
   objects with tweaked input parameters.  This can often be used to replace
@@ -62,13 +62,16 @@ Git master branch
   ``convergence={'energy': Energy(tol=..., relative=False)}``.
   See the :class:`gpaw.convergence_criteria.Energy` class.
 
+* New ``add_nct_directly`` flag for PW-mode.  See
+  :class:`gpaw.wavefunctions.pw.PW` for details.
+
 
 Version 22.8.0
 ==============
 
 Aug 18, 2022: :git:`22.8.0 <../22.8.0>`
 
-* Corresponding ASE release: ASE-3.22.1.
+* Minimum version requirements: Python 3.7, ASE 3.22.1, NumPy 1.15.0, SciPy 1.2.0
 
 * Updated :ref:`WSL installation instructions <wsl>`.
 
@@ -86,7 +89,7 @@ Aug 18, 2022: :git:`22.8.0 <../22.8.0>`
   tutorial.
 
 * :ref:`spinspiral calculations`.  See also
-  :git:`~gpaw/test/spinspiral/h_chain_test.py`.
+  :git:`~gpaw/test/spinspiral/test_h_chain.py`.
 
 * :ref:`soc`.
 
@@ -129,7 +132,7 @@ Jan 12, 2022: :git:`22.1.0 <../22.1.0>`
 
    * Fix for latest numpy-1.22.0.
 
-* Corresponding ASE release: ASE-3.22.1.
+* Minimum version requirements: Python 3.7, ASE 3.22.1, NumPy 1.15.0, SciPy 1.2.0
 
 * Python 3.7 or later is required now.
 

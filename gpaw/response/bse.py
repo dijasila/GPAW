@@ -368,13 +368,11 @@ class BSEBackend:
     
     def get_density_matrix(self, kpt1, kpt2):
         from gpaw.response.g0w0 import QSymmetryOp, get_nmG
-        symop, iQ, Q_c, iq, q_c = QSymmetryOp.get_symop_from_kpair(
-            self.kd, self.qd, kpt1, kpt2)
-        symop.check_q_Q_symmetry(Q_c, q_c)
+        symop, iq = QSymmetryOp.get_symop_from_kpair(self.kd, self.qd,
+                                                     kpt1, kpt2)
         qpd = self.qpd_q[iq]
         nG = qpd.ngmax
-        pawcorr, I_G = symop.apply_symop_q(
-            qpd, Q_c, self.pawcorr_q[iq], kpt1, kpt2)
+        pawcorr, I_G = symop.apply_symop_q(qpd, self.pawcorr_q[iq], kpt1, kpt2)
 
         rho_mnG = np.zeros((len(kpt1.eps_n), len(kpt2.eps_n), nG),
                            complex)
@@ -946,7 +944,8 @@ class BSE(BSEBackend):
 
 def write_bse_eigenvalues(filename, mode, w_w, C_w):
     with open(filename, 'w') as fd:
-        print('# %s eigenvalues in eV' % mode, file=fd)
+        print('# %s eigenvalues (in eV) and weights' % mode, file=fd)
+        print('# Number   eig   weight', file=fd)
         for iw, (w, C) in enumerate(zip(w_w, C_w)):
             print('%8d %12.6f %12.16f' % (iw, w.real, C.real),
                   file=fd)

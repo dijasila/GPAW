@@ -49,12 +49,14 @@ responseGS.write('gsresponse.gpw', 'all')
 df = DielectricFunction('gsresponse.gpw',
                         eta=25e-3,
                         rate='eta',
-                        domega0=0.01,
+                        frequencies={'type': 'nonlinear',
+                                     'domega0': 0.01},
                         integrationmode='tetrahedron integration')
 df1tetra, df2tetra = df.get_dielectric_function(q_c=[0, 0, 0])
 
 df = DielectricFunction('gsresponse.gpw',
-                        domega0=0.01,
+                        frequencies={'type': 'nonlinear',
+                                     'domega0': 0.01},
                         eta=25e-3,
                         rate='eta')
 df1, df2 = df.get_dielectric_function(q_c=[0, 0, 0])

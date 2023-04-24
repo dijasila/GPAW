@@ -18,7 +18,7 @@ from gpaw.utilities.progressbar import ProgressBar
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chi0 import Chi0Calculator
 from gpaw.response.hilbert import GWHilbertTransforms
-from gpaw.response.pair import PairDensityCalculator
+from gpaw.response.pair import PairDensityCalculator, phase_shifted_fft_indices
 from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.response.screened_interaction import initialize_w_calculator
@@ -219,11 +219,6 @@ class QSymmetryOp:
         d_c = self.apply(q_c) - Q_c
         assert np.allclose(d_c.round(), d_c)
 
-    def get_shift0(self, q_c, Q_c):
-        shift0_c = q_c - self.apply(Q_c)
-        assert np.allclose(shift0_c.round(), shift0_c)
-        return shift0_c.round().astype(int)
-
     def get_M_vv(self, cell_cv):
         # We'll be inverting these cells a lot.
         # Should have an object with the cell and its inverse which does this.
@@ -266,26 +261,22 @@ class QSymmetryOp:
         U_cc = qd.symmetry.op_scc[sym]
         time_reversal = qd.time_reversal_k[iQ]
         sign = 1 - 2 * time_reversal
-        symop = QSymmetryOp(sym, U_cc, sign)
-        return symop, iQ, Q_c, iq, q_c
+        symop = cls(sym, U_cc, sign)
+        symop.check_q_Q_symmetry(Q_c, q_c)
 
-    def apply_symop_q(self, qpd, q_c, pawcorr, kpt1, kpt2, debug=False):
+        return symop, iq
+
+    def apply_symop_q(self, qpd, pawcorr, kpt1, kpt2):
         # returns necessary quantities to get symmetry transformed
         # density matrix
-        N_c = qpd.gd.N_c
-        i_cG = self.apply(np.unravel_index(qpd.Q_qG[0], N_c))
-        shift0_c = self.get_shift0(q_c, qpd.q_c)
-        shift_c = kpt1.shift_c - kpt2.shift_c - shift0_c
-        I_G = np.ravel_multi_index(i_cG + shift_c[:, None], N_c, 'wrap')
+        Q_G = phase_shifted_fft_indices(kpt1.k_c, kpt2.k_c, qpd,
+                                        coordinate_transformation=self.apply)
+
         qG_Gv = qpd.get_reciprocal_vectors(add_q=True)
         M_vv = self.get_M_vv(qpd.gd.cell_cv)
         mypawcorr = pawcorr.remap_by_symop(self, qG_Gv, M_vv)
-        # XXX Can be removed together with G0W0 debug routine in future
-        if debug:
-            self.debug_i_cG = i_cG
-            self.debug_shift0_c = shift0_c
-            self.debug_N_c = N_c
-        return mypawcorr, I_G
+
+        return mypawcorr, Q_G
 
 
 def get_nmG(kpt1, kpt2, mypawcorr, n, qpd, I_G, pair):
@@ -668,18 +659,14 @@ class G0W0Calculator:
                     *, symop, sigmas, blocks1d, pawcorr):
         """Calculates the contribution to the self-energy and its derivative
         for a given set of k-points, kpt1 and kpt2."""
-        q_c = self.wcalc.gs.kd.bzk_kc[kpt2.K] - self.wcalc.gs.kd.bzk_kc[kpt1.K]
-        mypawcorr, I_G = symop.apply_symop_q(qpd,
-                                             q_c,
-                                             pawcorr,
-                                             kpt1,
-                                             kpt2,
-                                             debug=debug)
+        mypawcorr, I_G = symop.apply_symop_q(qpd, pawcorr, kpt1, kpt2)
         if debug:
-            self.check(ie, symop.debug_i_cG,
-                       symop.debug_shift0_c,
-                       symop.debug_N_c, q_c,
-                       mypawcorr)
+            N_c = qpd.gd.N_c
+            i_cG = symop.apply(np.unravel_index(qpd.Q_qG[0], N_c))
+            bzk_kc = self.wcalc.gs.kd.bzk_kc
+            Q_c = bzk_kc[kpt2.K] - bzk_kc[kpt1.K]
+            shift0_c = Q_c - symop.apply(qpd.q_c)
+            self.check(ie, i_cG, shift0_c, N_c, Q_c, mypawcorr)
 
         for n in range(kpt1.n2 - kpt1.n1):
             eps1 = kpt1.eps_n[n]
@@ -705,9 +692,12 @@ class G0W0Calculator:
                 sigma.sigma_eskn[ie, kpt1.s, k, nn] += sigma_contrib
                 sigma.dsigma_eskn[ie, kpt1.s, k, nn] += dsigma_contrib
 
-    def check(self, ie, i_cG, shift0_c, N_c, q_c, pawcorr):
+    def check(self, ie, i_cG, shift0_c, N_c, Q_c, pawcorr):
+        # Can we delete this check? XXX
+        assert np.allclose(shift0_c.round(), shift0_c)
+        shift0_c = shift0_c.round().astype(int)
         I0_G = np.ravel_multi_index(i_cG - shift0_c[:, None], N_c, 'wrap')
-        qpd = SingleQPWDescriptor.from_q(q_c, self.ecut_e[ie],
+        qpd = SingleQPWDescriptor.from_q(Q_c, self.ecut_e[ie],
                                          self.wcalc.gs.gd)
         G_I = np.empty(N_c.prod(), int)
         G_I[:] = -1

@@ -4,8 +4,8 @@
 Spin-orbit coupling
 ===================
 
-The spin-orbit module calculates spin-orbit band structures non-
-selfconsistently. The input is a standard converged GPAW calculation and the
+The spin-orbit module calculates spin-orbit band structures non
+self-consistently. The input is a standard converged GPAW calculation and the
 module diagonalizes the spin-orbit Hamiltonian in a basis of scalar-
 relativistic Kohn-Sham eigenstates. Since the spin-obit coupling is largest
 close to the nucleii, we only consider contributions from inside the PAW
