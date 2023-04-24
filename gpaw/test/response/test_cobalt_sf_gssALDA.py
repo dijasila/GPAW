@@ -108,17 +108,3 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
     assert Ipeak01 == pytest.approx(2.209, abs=0.01)
     assert Ipeak10 == pytest.approx(1.013, abs=0.01)
     assert Ipeak11 == pytest.approx(0.934, abs=0.01)
-
-    # XXX Second step XXX #
-    # - Rename ChiFactory to SusceptibilityFactory and make it return both
-    #   ChiKS and Chi.
-    # - Rename ChiKS to Susceptibility and make chiks and chi individual
-    #   instances of it
-    # XXX Third step XXX #
-    # - Make it possible to calculate the dissipative part of a Susceptibility
-    # - Save the full spectral weight of KS and MB spectra (trace of the
-    #   respective dissipative parts)
-    # - Compare full spectral weight to the G=0 and G=1 components
-    # XXX Fourth step XXX #
-    # - Introduce the EigendecomposedSpectrum into GPAW
-    # - Compare to full spectral weight and the G=0 and G=1 components
