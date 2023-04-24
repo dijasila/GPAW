@@ -31,11 +31,8 @@ class Chi:
         # Solve dyson equation
         self.array = dyson_solver(chiks, hxc_kernel)
 
-        # XXX To do XXX
-        # * Stop writing results related to chiks (and remove self._chiks)
-
+        # Store the fxc kernel for temporary backwards compatibility
         self.fxc_kernel = hxc_kernel.fxc_kernel
-        self._chiks = chiks
 
     def write_macroscopic_component(self, filename):
         """Write the spatially averaged (macroscopic) component of the
