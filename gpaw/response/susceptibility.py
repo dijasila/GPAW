@@ -24,6 +24,7 @@ class Chi:
         self.qpd = chiks.qpd
         self.zd = chiks.zd
         self.blockdist = chiks.blockdist
+        self.distribution = chiks.distribution
         self.world = self.blockdist.world
         self.blocks1d = chiks.blocks1d
 
@@ -33,6 +34,7 @@ class Chi:
         # XXX To do XXX
         # * Stop writing results related to chiks (and remove self._chiks)
         # * Find a different way to expose the fxc_kernel
+        # * Use Blocks1D to distinguish between gather and all_gather (collect)
 
         self.fxc_kernel = hxc_kernel.fxc_kernel
         self._chiks = chiks
@@ -41,20 +43,17 @@ class Chi:
         """Calculate the spatially averaged (macroscopic) component of the
         susceptibility and write it to a file along with the frequency grid."""
         from gpaw.response.pair_functions import write_pair_function
-
-        chi_w = self.get_macroscopic_component()
+        chi_z = self.get_macroscopic_component()
         if self.world.rank == 0:
-            write_pair_function(filename, self.zd, chi_w)
+            write_pair_function(filename, self.zd, chi_z)
 
     def get_macroscopic_component(self):
         """Get the macroscopic (G=0) component data, collected on all ranks"""
-        _, _, chi_wGG = self.get_distributed_arrays()
-        chi_w = chi_wGG[:, 0, 0]  # Macroscopic component
-        chi_w = self.collect(chi_w)  # Collect distributed frequencies
-        # XXX To do XXX
-        # * Assert global frequency distribution before G=0
-        # * Use gather instead of collect
-        return chi_w
+        assert self.distribution == 'zGG'
+        chi_zGG = self.array
+        chi_z = chi_zGG[:, 0, 0]  # Macroscopic component
+        chi_z = self.blocks1d.collect(chi_z)  # Collect distributed frequencies
+        return chi_z
 
     def write_reduced_arrays(self, filename, *, reduced_ecut):
         """Calculate the many-body susceptibility and write it to a file along
@@ -123,10 +122,6 @@ class Chi:
         chi_wGG = self.array
 
         return omega_w, chiks_wGG, chi_wGG
-
-    def collect(self, X_z):
-        """Collect all frequencies."""
-        return self.blocks1d.collect(X_z)
 
     def gather(self, X_zx):
         """Gather a full susceptibility array to root."""
