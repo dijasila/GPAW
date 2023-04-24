@@ -70,7 +70,7 @@ class KohnShamKPointPair:
 
     def get_all(self, in_mytx):
         """Get a certain data array with all transitions"""
-        return self.tblocks.collect(in_mytx)
+        return self.tblocks.all_gather(in_mytx)
 
     @property
     def deps_t(self):

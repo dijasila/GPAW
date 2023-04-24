@@ -14,8 +14,8 @@ class Blocks1D:
 
         self.myslice = slice(self.a, self.b)
 
-    def collect(self, in_myix):
-        """Collect full array where the first dimension is block distributed.
+    def all_gather(self, in_myix):
+        """All-gather array where the first dimension is block distributed.
 
         Here, myi is understood as the distributed index, whereas x are the
         remaining (global) dimensions."""

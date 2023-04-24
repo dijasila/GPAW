@@ -47,7 +47,7 @@ class Chi:
         assert self.distribution == 'zGG'
         chi_zGG = self.array
         chi_z = chi_zGG[:, 0, 0]  # Macroscopic component
-        chi_z = self.blocks1d.collect(chi_z)  # Collect distributed frequencies
+        chi_z = self.blocks1d.all_gather(chi_z)
         return chi_z
 
     def write_reduced_array(self, filename, *, reduced_ecut):
