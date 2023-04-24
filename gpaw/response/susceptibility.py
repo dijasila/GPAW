@@ -33,8 +33,6 @@ class Chi:
 
         # XXX To do XXX
         # * Stop writing results related to chiks (and remove self._chiks)
-        # * Find a different way to expose the fxc_kernel
-        # * Use Blocks1D to distinguish between gather and all_gather (collect)
 
         self.fxc_kernel = hxc_kernel.fxc_kernel
         self._chiks = chiks
@@ -48,41 +46,39 @@ class Chi:
             write_pair_function(filename, self.zd, chi_z)
 
     def get_macroscopic_component(self):
-        """Get the macroscopic (G=0) component data, collected on all ranks"""
+        """Get the macroscopic (G=0) component, all-gathered."""
         assert self.distribution == 'zGG'
         chi_zGG = self.array
         chi_z = chi_zGG[:, 0, 0]  # Macroscopic component
         chi_z = self.blocks1d.collect(chi_z)  # Collect distributed frequencies
         return chi_z
 
-    def write_reduced_arrays(self, filename, *, reduced_ecut):
+    def write_reduced_array(self, filename, *, reduced_ecut):
         """Calculate the many-body susceptibility and write it to a file along
-        with the Kohn-Sham susceptibility and frequency grid within a reduced
-        plane-wave basis."""
-        omega_w, G_Gc, chiks_wGG, chi_wGG = self.get_reduced_arrays(
+        with the frequency grid within a reduced plane-wave basis."""
+        G_Gc, chi_zGG = self.get_reduced_array(
             reduced_ecut=reduced_ecut)
 
         if self.world.rank == 0:
-            write_component(omega_w, G_Gc, chiks_wGG, chi_wGG, filename)
+            write_susceptibility_array(filename, self.zd, G_Gc, chi_zGG)
 
-    def get_reduced_arrays(self, *, reduced_ecut):
-        """Get data arrays with a reduced ecut, gathered on root."""
-        omega_w, chiks_wGG, chi_wGG = self.get_distributed_arrays()
+    def get_reduced_array(self, *, reduced_ecut):
+        """Get data array with a reduced ecut, gathered on root."""
+        assert self.distribution == 'zGG'
+        chi_zGG = self.array
 
         # Map the susceptibilities to a reduced plane-wave representation
         qpd = self.qpd
         mask_G = get_pw_reduction_map(qpd, reduced_ecut)
-        chiks_wGG = np.ascontiguousarray(chiks_wGG[:, mask_G, :][:, :, mask_G])
-        chi_wGG = np.ascontiguousarray(chi_wGG[:, mask_G, :][:, :, mask_G])
+        chi_zGG = np.ascontiguousarray(chi_zGG[:, mask_G, :][:, :, mask_G])
 
         # Get reduced plane wave repr. as coordinates on the reciprocal lattice
         G_Gc = get_pw_coordinates(qpd)[mask_G]
 
         # Gather all frequencies from world to root
-        chiks_wGG = self.gather(chiks_wGG)
-        chi_wGG = self.gather(chi_wGG)
+        chi_zGG = self.gather(chi_zGG)
 
-        return omega_w, G_Gc, chiks_wGG, chi_wGG
+        return G_Gc, chi_zGG
 
     def write_reduced_diagonals(self, filename, *, reduced_ecut):
         """Calculate the many-body susceptibility and write its diagonal in
@@ -360,20 +356,26 @@ def symmetrize_reciprocity(qpd, X_wGG):
             X_GG[:] = (X_GG + X_GG[invmap_GG].T) / 2.
 
 
-def write_component(omega_w, G_Gc, chiks_wGG, chi_wGG, filename):
+def write_susceptibility_array(filename, zd, G_Gc, chi_zGG):
     """Write the dynamic susceptibility as a pickle file."""
-    assert isinstance(filename, str)
+    # For now, we assume that the complex frequencies lie on a horizontal
+    # contour
+    assert zd.horizontal_contour
+    omega_w = zd.omega_w * Hartree  # Ha -> eV
+    chi_wGG = chi_zGG
+
+    # Write pickle file
     with open(filename, 'wb') as fd:
-        pickle.dump((omega_w, G_Gc, chiks_wGG, chi_wGG), fd)
+        pickle.dump((omega_w, G_Gc, chi_wGG), fd)
 
 
-def read_component(filename):
+def read_susceptibility_array(filename):
     """Read a stored susceptibility component file"""
     assert isinstance(filename, str)
     with open(filename, 'rb') as fd:
-        omega_w, G_Gc, chiks_wGG, chi_wGG = pickle.load(fd)
+        omega_w, G_Gc, chi_wGG = pickle.load(fd)
 
-    return omega_w, G_Gc, chiks_wGG, chi_wGG
+    return omega_w, G_Gc, chi_wGG
 
 
 def write_diagonal(omega_w, G_Gc, chiks_wG, chi_wG, filename):
